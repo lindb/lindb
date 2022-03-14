@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/lindb/lindb/pkg/ltoml"
@@ -35,13 +36,19 @@ type Configuration interface {
 
 // RepoState represents state repository config
 type RepoState struct {
-	Namespace   string         `toml:"namespace" json:"namespace" binding:"required"`
-	Endpoints   []string       `toml:"endpoints" json:"endpoints" binding:"required"`
+	Namespace   string         `toml:"namespace" json:"namespace" validate:"required"`
+	Endpoints   []string       `toml:"endpoints" json:"endpoints" validate:"required,gt=0"`
 	LeaseTTL    int64          `toml:"lease-ttl" json:"leaseTTL"`
 	Timeout     ltoml.Duration `toml:"timeout" json:"timeout"`
 	DialTimeout ltoml.Duration `toml:"dial-timeout" json:"dialTimeout"`
 	Username    string         `toml:"username" json:"username"`
 	Password    string         `toml:"password" json:"password"`
+}
+
+// String returns string value of RepoState.
+func (rs RepoState) String() string {
+	return fmt.Sprintf("endpoints:[%s],leaseTTL:%d,timeout:%s,dialTimeout:%s",
+		strings.Join(rs.Endpoints, ","), rs.LeaseTTL, rs.Timeout, rs.DialTimeout)
 }
 
 func (rs *RepoState) WithSubNamespace(subDir string) RepoState {

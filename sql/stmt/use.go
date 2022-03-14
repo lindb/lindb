@@ -21,3 +21,8 @@ package stmt
 type Use struct {
 	Name string
 }
+
+// StatementType returns use query type.
+func (q *Use) StatementType() StatementType {
+	return UseStatement
+}

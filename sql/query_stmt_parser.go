@@ -220,7 +220,7 @@ func (q *queryStmtParser) parseDuration(ctx grammar.IDurationLitContext) int64 {
 
 // visitFieldExpr visits when production field expression is entered
 func (q *queryStmtParser) visitFieldExpr(ctx *grammar.FieldExprContext) {
-	//var selectItem stmt.Expr
+	//var selectItem queryStmt.Expr
 	switch {
 	case ctx.ExprFunc() != nil:
 		q.exprStack.Push(&stmt.CallExpr{})

@@ -15,22 +15,36 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package sql
+package command
 
 import (
+	"context"
+
+	"github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
-// schemasStmtParser represents show schemas statement parser.
-type schemasStmtParser struct {
-}
-
-// newSchemasStmtParse creates a show schemas statement parser.
-func newSchemasStmtParse() *schemasStmtParser {
-	return &schemasStmtParser{}
-}
-
-// build returns the state statement.
-func (s *schemasStmtParser) build() (stmt.Statement, error) {
-	return &stmt.Schema{}, nil
+// ListDataBases returns database list in cluster.
+func ListDataBases(ctx context.Context, deps *deps.HTTPDeps, _ *models.ExecuteParam, _ stmt.Statement) (interface{}, error) {
+	data, err := deps.Repo.List(ctx, constants.DatabaseConfigPath)
+	if err != nil {
+		return nil, err
+	}
+	var dbs []*models.Database
+	for _, val := range data {
+		db := &models.Database{}
+		err = encoding.JSONUnmarshal(val.Value, db)
+		if err != nil {
+			log.Warn("unmarshal data error",
+				logger.String("data", string(val.Value)))
+			continue
+		}
+		db.Desc = db.String()
+		dbs = append(dbs, db)
+	}
+	return dbs, nil
 }

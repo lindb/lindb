@@ -21,6 +21,8 @@ import (
 	"encoding/json"
 	"strconv"
 
+	"github.com/jedib0t/go-pretty/v6/table"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -55,8 +57,7 @@ const (
 	StorageStatusReady
 )
 
-// MarshalJSON encodes storage status.
-func (s StorageStatus) MarshalJSON() ([]byte, error) {
+func (s StorageStatus) String() string {
 	val := "Unknown"
 	switch s {
 	case StorageStatusInitialize:
@@ -64,6 +65,12 @@ func (s StorageStatus) MarshalJSON() ([]byte, error) {
 	case StorageStatusReady:
 		val = "Ready"
 	}
+	return val
+}
+
+// MarshalJSON encodes storage status.
+func (s StorageStatus) MarshalJSON() ([]byte, error) {
+	val := s.String()
 	return json.Marshal(&val)
 }
 
@@ -82,6 +89,29 @@ func (s *StorageStatus) UnmarshalJSON(value []byte) error {
 	}
 }
 
+// Storages represents the storage list.
+type Storages []Storage
+
+// ToTable returns storage list as table if it has value, else return empty string.
+func (s Storages) ToTable() (int, string) {
+	if len(s) == 0 {
+		return 0, ""
+	}
+	writer := NewTableFormatter()
+	writer.AppendHeader(table.Row{"Namespace", "Status", "Configuration"})
+	for i := range s {
+		r := s[i]
+		writer.AppendRow(table.Row{
+			r.Config.Namespace,
+			r.Status.String(),
+			r.Config.String(),
+		})
+
+	}
+	return len(s), writer.Render()
+}
+
+// Storage represents storage config and state.
 type Storage struct {
 	config.StorageCluster
 	Status StorageStatus `json:"status"`

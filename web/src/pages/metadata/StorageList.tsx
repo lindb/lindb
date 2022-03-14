@@ -39,7 +39,7 @@ import {
 } from "@douyinfe/semi-ui";
 import { Route } from "@src/constants";
 import { Storage } from "@src/models";
-import { findStorageList } from "@src/services";
+import { exec } from "@src/services";
 import React, { useCallback, useEffect, useState } from "react";
 import { URLStore } from "@src/stores";
 
@@ -123,7 +123,7 @@ export default function StorageList() {
     setError("");
     setLoading(true);
     try {
-      const list = await findStorageList();
+      const list = await exec<Storage[]>({ sql: "show storages" });
       setStorageList(list || []);
     } catch (err) {
       setError(err?.message);

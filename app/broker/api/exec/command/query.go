@@ -15,21 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package stmt
+package command
 
-type StatementType int
+import (
+	"context"
+	"strings"
 
-const (
-	UseStatement StatementType = iota + 1
-	SchemaStatement
-	StorageStatement
-	StateStatement
-	MetadataStatement
-	QueryStatement
+	"github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/models"
+	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
-// Statement represents LinDB query language statement
-type Statement interface {
-	// StatementType returns statement type.
-	StatementType() StatementType
+// QueryCommand executes metric query.
+func QueryCommand(ctx context.Context, deps *deps.HTTPDeps,
+	param *models.ExecuteParam, stmt stmtpkg.Statement) (interface{}, error) {
+	if strings.TrimSpace(param.Database) == "" {
+		return nil, constants.ErrDatabaseNameRequired
+	}
+	metricQuery := deps.QueryFactory.NewMetricQuery(ctx, param.Database, stmt.(*stmtpkg.Query))
+	return metricQuery.WaitResponse()
 }

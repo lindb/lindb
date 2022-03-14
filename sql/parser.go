@@ -19,6 +19,7 @@ package sql
 
 import (
 	"errors"
+	"strings"
 	"sync"
 
 	"github.com/antlr/antlr4/runtime/Go/antlr"
@@ -54,6 +55,7 @@ func Parse(sql string) (stmt stmt.Statement, err error) {
 		}
 	}()
 
+	sql = strings.ReplaceAll(sql, `\"`, `"`)
 	input := antlr.NewInputStream(sql)
 
 	lexer := getSQLLexer(input)

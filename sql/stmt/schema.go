@@ -17,19 +17,11 @@
 
 package stmt
 
-type StatementType int
+//Schema represents show all database schemas statement.
+type Schema struct {
+}
 
-const (
-	UseStatement StatementType = iota + 1
-	SchemaStatement
-	StorageStatement
-	StateStatement
-	MetadataStatement
-	QueryStatement
-)
-
-// Statement represents LinDB query language statement
-type Statement interface {
-	// StatementType returns statement type.
-	StatementType() StatementType
+// StatementType returns schema query type.
+func (q *Schema) StatementType() StatementType {
+	return SchemaStatement
 }

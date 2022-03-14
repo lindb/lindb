@@ -5,9 +5,11 @@ grammar SQL;
 statement               : statementList EOF;
 
 statementList           : showMasterStmt
-                        | useStmt
+                        | showStoragesStmt
+                        | createStorageStmt
                         | showSchemasStmt
                         | showDatabaseStmt
+                        | useStmt
                         | showNameSpacesStmt
                         | showMetricsStmt
                         | showFieldsStmt
@@ -20,6 +22,8 @@ statementList           : showMasterStmt
 useStmt              : T_USE ident ;
 //meta data query statement
 showMasterStmt       : T_SHOW T_MASTER ;
+showStoragesStmt     : T_SHOW T_STORAGES ;
+createStorageStmt    : T_CREATE T_STORAGE json;
 showSchemasStmt      : T_SHOW T_SCHEMAS ;
 createDatabaseStmt   : T_CREATE T_DATASBAE json;
 showDatabaseStmt     : T_SHOW T_DATASBAES ;
@@ -245,6 +249,8 @@ nonReservedWords      :
                         | T_YEAR
                         | T_USE
                         | T_MASTER
+                        | T_STORAGES
+                        | T_STORAGE
                         | T_SCHEMAS
                         ;
 
@@ -294,6 +300,8 @@ T_ON                 : O N                              ;
 T_SHOW               : S H O W                          ;
 T_USE                : U S E                            ;
 T_MASTER             : M A S T E R                      ;
+T_STORAGES           : S T O R A G E S                  ;
+T_STORAGE            : S T O R A G E                    ;
 T_SCHEMAS            : S C H E M A S                    ;
 T_DATASBAE           : D A T A B A S E                  ;
 T_DATASBAES          : D A T A B A S E S                ;
@@ -399,7 +407,7 @@ fragment L_DIGIT     : [0-9] ;
 fragment L_ID_PART   :
                       [a-zA-Z] ([a-zA-Z] | L_DIGIT | '_' | '.')*                                            // Identifier part
                       | '$' '{' .*? '}'
-                      | ('_' | '@' | ':' | '#' | '$') ([a-zA-Z] | L_DIGIT | '_' | '@' | ':' | '#' | '$')+     // (at least one char must follow special char)
+                      | ('_' | '@' | '#' | '$') ([a-zA-Z] | L_DIGIT | '_' | '@' | ':' | '#' | '$')+     // (at least one char must follow special char)
                       | '"' .*? '"'                                                                           // Quoted identifiers
                       | '`' .*? '`'                                                                           // Quoted identifiers
                       | '\'' .*? '\''                                                                           // Quoted identifiers
