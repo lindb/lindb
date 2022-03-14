@@ -29,3 +29,8 @@ const (
 type State struct {
 	Type StateType
 }
+
+// StatementType returns state query type.
+func (q *State) StatementType() StatementType {
+	return StateStatement
+}

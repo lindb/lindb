@@ -18,19 +18,14 @@
 package admin
 
 import (
-	"fmt"
-	"time"
-
 	"github.com/gin-gonic/gin"
 
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/ltoml"
 )
 
 var (
@@ -58,49 +53,8 @@ func NewStorageClusterAPI(deps *deps.HTTPDeps) *StorageClusterAPI {
 
 // Register adds storage admin url route.
 func (s *StorageClusterAPI) Register(route gin.IRoutes) {
-	route.POST(StorageClusterPath, s.Create)
 	route.GET(StorageClusterPath, s.GetByName)
 	route.DELETE(StorageClusterPath, s.DeleteByName)
-	route.GET(ListStorageClusterPath, s.List)
-}
-
-// Create creates config of storage cluster
-func (s *StorageClusterAPI) Create(c *gin.Context) {
-	storage := &config.StorageCluster{}
-	err := c.ShouldBind(&storage)
-	if err != nil {
-		http.Error(c, err)
-		return
-	}
-	data := encoding.JSONMarshal(storage)
-	ctx, cancel := s.deps.WithTimeout()
-	defer cancel()
-
-	storage.Config.Timeout = ltoml.Duration(time.Second)
-	storage.Config.DialTimeout = ltoml.Duration(time.Second)
-	// check storage repo config if valid
-	repo, err := s.deps.RepoFactory.CreateStorageRepo(storage.Config)
-	if err != nil {
-		http.Error(c, err)
-		return
-	}
-	err = repo.Close()
-	if err != nil {
-		http.Error(c, err)
-		return
-	}
-
-	s.logger.Info("Creating storage cluster", logger.String("config", string(data)))
-	ok, err := s.deps.Repo.PutWithTX(ctx, constants.GetStorageClusterConfigPath(storage.Config.Namespace), data, nil)
-	if err != nil {
-		http.Error(c, err)
-		return
-	}
-	if !ok {
-		http.Error(c, fmt.Errorf("create storage failure"))
-		return
-	}
-	http.NoContent(c)
 }
 
 // GetByName gets storage cluster by name
@@ -142,40 +96,4 @@ func (s *StorageClusterAPI) DeleteByName(c *gin.Context) {
 		return
 	}
 	http.NoContent(c)
-}
-
-// List lists all storage clusters
-func (s *StorageClusterAPI) List(c *gin.Context) {
-	ctx, cancel := s.deps.WithTimeout()
-	defer cancel()
-	data, err := s.deps.Repo.List(ctx, constants.StorageConfigPath)
-	if err != nil {
-		http.Error(c, err)
-		return
-	}
-	stateMgr := s.deps.StateMgr
-	var storages []models.Storage
-	for _, val := range data {
-		storage := models.Storage{}
-		err = encoding.JSONUnmarshal(val.Value, &storage)
-		if err != nil {
-			s.logger.Warn("unmarshal data error",
-				logger.String("data", string(val.Value)))
-		} else {
-			_, ok := stateMgr.GetStorage(storage.Config.Namespace)
-			if ok {
-				storage.Status = models.StorageStatusReady
-			} else {
-				storage.Status = models.StorageStatusInitialize
-				//TODO check storage un-health
-			}
-			storages = append(storages, storage)
-		}
-	}
-
-	if err != nil {
-		http.Error(c, err)
-		return
-	}
-	http.OK(c, storages)
 }

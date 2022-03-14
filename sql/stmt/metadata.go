@@ -67,6 +67,11 @@ type Metadata struct {
 	Limit      int  // result set limit
 }
 
+// StatementType returns metadata query type.
+func (q *Metadata) StatementType() StatementType {
+	return MetadataStatement
+}
+
 // innerMetadata represents a wrapper of metadata for json encoding
 type innerMetadata struct {
 	Namespace  string          `json:"namespace,omitempty"`

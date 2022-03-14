@@ -18,7 +18,7 @@ under the License.
 */
 import { Banner, Card, Form, Row, Col } from "@douyinfe/semi-ui";
 import { Storage } from "@src/models";
-import { findStorageList } from "@src/services";
+import { exec } from "@src/services";
 import React, { useEffect, useState } from "react";
 import * as _ from "lodash-es";
 export default function DatabaseConfig() {
@@ -27,7 +27,7 @@ export default function DatabaseConfig() {
   useEffect(() => {
     const getStorageList = async () => {
       try {
-        const list = await findStorageList();
+        const list = await exec<Storage[]>({ sql: "show storages" });
         const selectList: any[] = [];
         _.forEach(list || [], (s) => {
           const ns = _.get(s, "config.namespace");

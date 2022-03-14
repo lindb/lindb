@@ -32,6 +32,7 @@ import (
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator"
+	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/mock"
@@ -42,7 +43,7 @@ import (
 	brokerQuery "github.com/lindb/lindb/query/broker"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/sql"
-	"github.com/lindb/lindb/sql/stmt"
+	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
 func TestExecuteAPI_Execute(t *testing.T) {
@@ -51,12 +52,16 @@ func TestExecuteAPI_Execute(t *testing.T) {
 
 	// prepare
 	repo := state.NewMockRepository(ctrl)
+	repoFct := state.NewMockRepositoryFactory(ctrl)
 	master := coordinator.NewMockMasterController(ctrl)
 	queryFactory := brokerQuery.NewMockFactory(ctrl)
+	stateMgr := broker.NewMockStateManager(ctrl)
 	api := NewExecuteAPI(&deps.HTTPDeps{
 		Ctx:          context.Background(),
 		Repo:         repo,
+		RepoFactory:  repoFct,
 		Master:       master,
+		StateMgr:     stateMgr,
 		QueryFactory: queryFactory,
 		BrokerCfg: &config.Broker{BrokerBase: config.BrokerBase{
 			HTTP: config.HTTP{ReadTimeout: ltoml.Duration(time.Second * 10)},
@@ -68,6 +73,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			linmetric.NewScope("metric_data_search"),
 		),
 	})
+	cfg := `{\"config\":{\"namespace\":\"test\",\"timeout\":10,\"dialTimeout\":10,\"leaseTTL\":10,\"endpoints\":[\"http://localhost:2379\"]}}`
 	r := gin.New()
 	api.Register(r)
 
@@ -98,23 +104,11 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			},
 		},
 		{
-			name:    "unknown state statement type",
-			reqBody: `{"sql":"show master"}`,
-			prepare: func() {
-				sqlParseFn = func(sql string) (stmt.Statement, error) {
-					return &stmt.State{}, nil
-				}
-			},
-			assert: func(resp *httptest.ResponseRecorder) {
-				assert.Equal(t, http.StatusNotFound, resp.Code)
-			},
-		},
-		{
 			name:    "unknown metadata statement type",
 			reqBody: `{"sql":"show master"}`,
 			prepare: func() {
-				sqlParseFn = func(sql string) (stmt.Statement, error) {
-					return &stmt.Metadata{}, nil
+				sqlParseFn = func(sql string) (stmt stmtpkg.Statement, err error) {
+					return &stmtpkg.State{}, nil
 				}
 			},
 			assert: func(resp *httptest.ResponseRecorder) {
@@ -125,8 +119,8 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			name:    "unknown lin query language statement",
 			reqBody: `{"sql":"show master"}`,
 			prepare: func() {
-				sqlParseFn = func(sql string) (stmt stmt.Statement, err error) {
-					return nil, nil
+				sqlParseFn = func(sql string) (stmt stmtpkg.Statement, err error) {
+					return &stmtpkg.Use{}, nil
 				}
 			},
 			assert: func(resp *httptest.ResponseRecorder) {
@@ -278,6 +272,18 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			},
 		},
 		{
+			name:    "metadata query, unknown metadata type",
+			reqBody: `{"sql":"show namespaces","db":"db"}`,
+			prepare: func() {
+				sqlParseFn = func(sql string) (stmt stmtpkg.Statement, err error) {
+					return &stmtpkg.Metadata{}, nil
+				}
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusNotFound, resp.Code)
+			},
+		},
+		{
 			name:    "metadata query failure",
 			reqBody: `{"sql":"show namespaces","db":"db"}`,
 			prepare: func() {
@@ -349,7 +355,144 @@ func TestExecuteAPI_Execute(t *testing.T) {
 				assert.Equal(t, http.StatusOK, resp.Code)
 			},
 		},
-		//show fields from cp
+		{
+			name:    "unknown storage op type",
+			reqBody: `{"sql":"show storages"}`,
+			prepare: func() {
+				sqlParseFn = func(sql string) (stmt stmtpkg.Statement, err error) {
+					return &stmtpkg.Storage{Type: stmtpkg.StorageOpUnknown}, nil
+				}
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusNotFound, resp.Code)
+			},
+		},
+		{
+			name:    "show storages, get storages failure",
+			reqBody: `{"sql":"show storages"}`,
+			prepare: func() {
+				repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			name:    "show storages, list storage successfully, but unmarshal failure",
+			reqBody: `{"sql":"show storages"}`,
+			prepare: func() {
+				repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(
+					[]state.KeyValue{{Key: "", Value: []byte("[]")}}, nil)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			name:    "show storages successfully",
+			reqBody: `{"sql":"show storages"}`,
+			prepare: func() {
+				repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(
+					[]state.KeyValue{{Key: "", Value: []byte(`{ "config": {"namespace":"xxx"}}`)}}, nil)
+				stateMgr.EXPECT().GetStorage("xxx").Return(nil, true)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
+			name:    "show storages successfully,but state not found",
+			reqBody: `{"sql":"show storages"}`,
+			prepare: func() {
+				repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(
+					[]state.KeyValue{{Key: "", Value: []byte(`{ "config": {"namespace":"xxx"}}`)}}, nil)
+				stateMgr.EXPECT().GetStorage("xxx").Return(nil, false)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
+			name:    "create storage json err",
+			reqBody: `{"sql":"create storage ` + cfg + `"}`,
+			prepare: func() {
+				sqlParseFn = func(sql string) (stmt stmtpkg.Statement, err error) {
+					return &stmtpkg.Storage{Type: stmtpkg.StorageOpCreate, Value: "xx"}, nil
+				}
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			name:    "create storage, config validate failure",
+			reqBody: `{"sql":"create storage ` + cfg + `"}`,
+			prepare: func() {
+				sqlParseFn = func(sql string) (stmt stmtpkg.Statement, err error) {
+					return &stmtpkg.Storage{Type: stmtpkg.StorageOpCreate, Value: `{"config":{}}`}, nil
+				}
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			name:    "create storage successfully",
+			reqBody: `{"sql":"create storage ` + cfg + `"}`,
+			prepare: func() {
+				repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(repo, nil)
+				repo.EXPECT().Close().Return(nil)
+				repo.EXPECT().PutWithTX(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
+			name:    "create storage failure with err",
+			reqBody: `{"sql":"create storage ` + cfg + `"}`,
+			prepare: func() {
+				repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(repo, nil)
+				repo.EXPECT().Close().Return(nil)
+				repo.EXPECT().PutWithTX(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false, fmt.Errorf("err"))
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			name:    "create storage failure",
+			reqBody: `{"sql":"create storage ` + cfg + `"}`,
+			prepare: func() {
+				repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(repo, nil)
+				repo.EXPECT().Close().Return(nil)
+				repo.EXPECT().PutWithTX(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			name:    "create storage repo failure",
+			reqBody: `{"sql":"create storage ` + cfg + `"}`,
+			prepare: func() {
+				repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			name:    "create storage, close repo failure",
+			reqBody: `{"sql":"create storage ` + cfg + `"}`,
+			prepare: func() {
+				repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(repo, nil)
+				repo.EXPECT().Close().Return(fmt.Errorf("err"))
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
 	}
 
 	for _, tt := range cases {

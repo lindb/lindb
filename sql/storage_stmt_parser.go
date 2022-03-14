@@ -15,21 +15,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package stmt
+package sql
 
-type StatementType int
-
-const (
-	UseStatement StatementType = iota + 1
-	SchemaStatement
-	StorageStatement
-	StateStatement
-	MetadataStatement
-	QueryStatement
+import (
+	"github.com/lindb/lindb/sql/grammar"
+	"github.com/lindb/lindb/sql/stmt"
 )
 
-// Statement represents LinDB query language statement
-type Statement interface {
-	// StatementType returns statement type.
-	StatementType() StatementType
+// storageStmtParser represents storage statement parser.
+type storageStmtParser struct {
+	storage *stmt.Storage
+}
+
+// newStorageStmtParse creates a storage statement parser.
+func newStorageStmtParse(opType stmt.StorageOpType) *storageStmtParser {
+	return &storageStmtParser{
+		storage: &stmt.Storage{Type: opType},
+	}
+}
+
+// visitName visits when production storage config expression is entered.
+func (s *storageStmtParser) visitCfg(ctx *grammar.JsonContext) {
+	s.storage.Value = ctx.GetText()
+}
+
+// build returns the state statement.
+func (s *storageStmtParser) build() (stmt.Statement, error) {
+	return s.storage, nil
 }

@@ -15,21 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package stmt
+package command
 
-type StatementType int
+import (
+	"context"
 
-const (
-	UseStatement StatementType = iota + 1
-	SchemaStatement
-	StorageStatement
-	StateStatement
-	MetadataStatement
-	QueryStatement
+	"github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/models"
+	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
-// Statement represents LinDB query language statement
-type Statement interface {
-	// StatementType returns statement type.
-	StatementType() StatementType
+// StateCommand executes the state query.
+func StateCommand(_ context.Context, deps *deps.HTTPDeps, _ *models.ExecuteParam, stmt stmtpkg.Statement) (interface{}, error) {
+	stateStmt := stmt.(*stmtpkg.State)
+	switch stateStmt.Type {
+	case stmtpkg.Master:
+		return deps.Master.GetMaster(), nil
+	default:
+		return nil, nil
+	}
 }

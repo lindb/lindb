@@ -28,5 +28,5 @@ import (
 func TestShowSchemasStatement(t *testing.T) {
 	q, err := Parse("show schemas")
 	assert.NoError(t, err)
-	assert.Equal(t, &stmt.Schemas{}, q)
+	assert.Equal(t, &stmt.Schema{}, q)
 }

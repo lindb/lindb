@@ -20,14 +20,6 @@ import { GET, POST } from "@src/utils";
 import { Storage } from "@src/models";
 import { ApiPath } from "@src/constants";
 
-/**
- * find all register storage cluster list.
- *  @return all storage cluster list
- */
-export function findStorageList() {
-  return GET<Storage[]>(ApiPath.StorageList);
-}
-
 export function createStorage(storage: Storage) {
   return POST<any>(ApiPath.Storage, storage);
 }

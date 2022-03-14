@@ -17,6 +17,27 @@
 
 package stmt
 
-//Schemas represents show all database schemas statement.
-type Schemas struct {
+// StorageOpType represents storage related operation.
+type StorageOpType int
+
+const (
+	// StorageOpUnknown represents unknown operation.
+	StorageOpUnknown StorageOpType = iota
+	// StorageOpCreate represents create storage.
+	StorageOpCreate
+	// StorageOpShow represent show storage.
+	StorageOpShow
+	// StorageOpDelete represents delete storage.
+	StorageOpDelete
+)
+
+// Storage represent storage statement.
+type Storage struct {
+	Type  StorageOpType
+	Value string
+}
+
+// StatementType returns storage query type.
+func (q *Storage) StatementType() StatementType {
+	return StorageStatement
 }

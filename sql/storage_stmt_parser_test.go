@@ -15,21 +15,29 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package stmt
+package sql
 
-type StatementType int
+import (
+	"testing"
 
-const (
-	UseStatement StatementType = iota + 1
-	SchemaStatement
-	StorageStatement
-	StateStatement
-	MetadataStatement
-	QueryStatement
+	"github.com/lindb/lindb/sql/stmt"
+
+	"github.com/stretchr/testify/assert"
 )
 
-// Statement represents LinDB query language statement
-type Statement interface {
-	// StatementType returns statement type.
-	StatementType() StatementType
+func TestShowStorage(t *testing.T) {
+	q, err := Parse("show storages")
+	assert.NoError(t, err)
+	assert.Equal(t, &stmt.Storage{Type: stmt.StorageOpShow}, q)
+}
+
+func TestCreateStorage(t *testing.T) {
+	cfg := `{\"config\":{\"namespace\":\"test\",\"timeout\":10,\"dialTimeout\":10,\"leaseTTL\":10,\"endpoints\":[\"http://localhost:2379\"]}}`
+	sql := `create storage ` + cfg
+	q, err := Parse(sql)
+	assert.NoError(t, err)
+	assert.Equal(t, &stmt.Storage{
+		Type:  stmt.StorageOpCreate,
+		Value: `{"config":{"namespace":"test","timeout":10,"dialTimeout":10,"leaseTTL":10,"endpoints":["http://localhost:2379"]}}`,
+	}, q)
 }
