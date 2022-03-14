@@ -30,9 +30,6 @@ func TestMetadata_ToTable(t *testing.T) {
 	assert.Zero(t, rows)
 	assert.Empty(t, rs)
 
-	rows, rs = (&Metadata{Type: stmt.Database.String(), Values: []interface{}{"name"}}).ToTable()
-	assert.Equal(t, rows, 1)
-	assert.NotEmpty(t, rs)
 	rows, rs = (&Metadata{Type: stmt.Namespace.String(), Values: []interface{}{"name"}}).ToTable()
 	assert.Equal(t, rows, 1)
 	assert.NotEmpty(t, rs)
@@ -49,6 +46,16 @@ func TestMetadata_ToTable(t *testing.T) {
 		Type:   stmt.Field.String(),
 		Values: []interface{}{map[string]interface{}{"name": "n", "Type": "sum"}},
 	}).ToTable()
+	assert.Equal(t, rows, 1)
+	assert.NotEmpty(t, rs)
+}
+
+func TestDatabaseNames_ToTable(t *testing.T) {
+	rows, rs := (&DatabaseNames{}).ToTable()
+	assert.Zero(t, rows)
+	assert.Empty(t, rs)
+
+	rows, rs = (&DatabaseNames{"name"}).ToTable()
 	assert.Equal(t, rows, 1)
 	assert.NotEmpty(t, rs)
 }

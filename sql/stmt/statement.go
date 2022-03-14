@@ -24,7 +24,7 @@ const (
 	SchemaStatement
 	StorageStatement
 	StateStatement
-	MetadataStatement
+	MetricMetadataStatement
 	QueryStatement
 )
 

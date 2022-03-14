@@ -28,8 +28,7 @@ type MetadataType uint8
 
 // Defines all types of metadata suggest
 const (
-	Database MetadataType = iota + 1
-	Namespace
+	Namespace MetadataType = iota + 1
 	Metric
 	TagKey
 	TagValue
@@ -39,8 +38,6 @@ const (
 // String returns string value of metadata type
 func (m MetadataType) String() string {
 	switch m {
-	case Database:
-		return "database"
 	case Namespace:
 		return "namespace"
 	case Metric:
@@ -56,8 +53,8 @@ func (m MetadataType) String() string {
 	}
 }
 
-// Metadata represents search metadata statement
-type Metadata struct {
+// MetricMetadata represents search metric metadata statement
+type MetricMetadata struct {
 	Namespace  string       // namespace
 	MetricName string       // like table name
 	Type       MetadataType // metadata suggest type
@@ -68,8 +65,8 @@ type Metadata struct {
 }
 
 // StatementType returns metadata query type.
-func (q *Metadata) StatementType() StatementType {
-	return MetadataStatement
+func (q *MetricMetadata) StatementType() StatementType {
+	return MetricMetadataStatement
 }
 
 // innerMetadata represents a wrapper of metadata for json encoding
@@ -84,7 +81,7 @@ type innerMetadata struct {
 }
 
 // MarshalJSON returns json data of query
-func (q *Metadata) MarshalJSON() ([]byte, error) {
+func (q *MetricMetadata) MarshalJSON() ([]byte, error) {
 	inner := innerMetadata{
 		MetricName: q.MetricName,
 		Namespace:  q.Namespace,
@@ -98,7 +95,7 @@ func (q *Metadata) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON parses json data to metadata
-func (q *Metadata) UnmarshalJSON(value []byte) error {
+func (q *MetricMetadata) UnmarshalJSON(value []byte) error {
 	inner := innerMetadata{}
 	if err := encoding.JSONUnmarshal(value, &inner); err != nil {
 		return err

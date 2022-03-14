@@ -35,24 +35,16 @@ func TestMetaStmt_validation(t *testing.T) {
 	assert.Nil(t, s)
 }
 
-func TestMetaStmt_ShowDatabases(t *testing.T) {
-	sql := "show databases"
-	q, err := Parse(sql)
-	query := q.(*stmt.Metadata)
-	assert.Nil(t, err)
-	assert.Equal(t, stmt.Database, query.Type)
-}
-
 func TestMetaStmt_ShowNamespace(t *testing.T) {
 	sql := "show namespaces"
 	q, err := Parse(sql)
-	query := q.(*stmt.Metadata)
+	query := q.(*stmt.MetricMetadata)
 	assert.Nil(t, err)
 	assert.Equal(t, stmt.Namespace, query.Type)
 
 	sql = "show namespaces where namespace='abc' limit 10"
 	q, err = Parse(sql)
-	query = q.(*stmt.Metadata)
+	query = q.(*stmt.MetricMetadata)
 	assert.Nil(t, err)
 	assert.Equal(t, stmt.Namespace, query.Type)
 	assert.Equal(t, "abc", query.Prefix)
@@ -62,13 +54,13 @@ func TestMetaStmt_ShowNamespace(t *testing.T) {
 func TestMetaStmt_ShowMetrics(t *testing.T) {
 	sql := "show metrics"
 	q, err := Parse(sql)
-	query := q.(*stmt.Metadata)
+	query := q.(*stmt.MetricMetadata)
 	assert.Nil(t, err)
 	assert.Equal(t, stmt.Metric, query.Type)
 
 	sql = "show metrics on 'ns' where metric='abc' limit 10"
 	q, err = Parse(sql)
-	query = q.(*stmt.Metadata)
+	query = q.(*stmt.MetricMetadata)
 	assert.Nil(t, err)
 	assert.Equal(t, stmt.Metric, query.Type)
 	assert.Equal(t, "abc", query.Prefix)
@@ -79,7 +71,7 @@ func TestMetaStmt_ShowMetrics(t *testing.T) {
 func TestMetaStmt_ShowFields(t *testing.T) {
 	sql := "show fields on 'ns' from 'cpu' "
 	q, err := Parse(sql)
-	query := q.(*stmt.Metadata)
+	query := q.(*stmt.MetricMetadata)
 	assert.Nil(t, err)
 	assert.Equal(t, stmt.Field, query.Type)
 	assert.Equal(t, "cpu", query.MetricName)
@@ -89,7 +81,7 @@ func TestMetaStmt_ShowFields(t *testing.T) {
 func TestMetaStmt_ShowTagKeys(t *testing.T) {
 	sql := "show tag keys on 'ns' from 'cpu' "
 	q, err := Parse(sql)
-	query := q.(*stmt.Metadata)
+	query := q.(*stmt.MetricMetadata)
 	assert.Nil(t, err)
 	assert.Equal(t, stmt.TagKey, query.Type)
 	assert.Equal(t, "cpu", query.MetricName)
@@ -99,7 +91,7 @@ func TestMetaStmt_ShowTagKeys(t *testing.T) {
 func TestMetaStmt_ShowTagValues(t *testing.T) {
 	sql := "show tag values on 'ns' from 'cpu' with key = 'key1' where key1='value1' and key2='value2' limit 10"
 	q, err := Parse(sql)
-	query := q.(*stmt.Metadata)
+	query := q.(*stmt.MetricMetadata)
 	assert.Nil(t, err)
 	assert.Equal(t, stmt.TagValue, query.Type)
 	assert.Equal(t, "cpu", query.MetricName)

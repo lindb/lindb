@@ -65,7 +65,7 @@ type TaskManager interface {
 	// SubmitMetaDataTask concurrently send query metadata task to multi leafs.
 	SubmitMetaDataTask(
 		physicalPlan *models.PhysicalPlan,
-		suggest *stmt.Metadata,
+		suggest *stmt.MetricMetadata,
 	) (taskResponse <-chan *protoCommonV1.TaskResponse, err error)
 
 	// SendRequest sends the task request to target node based on node's indicator
@@ -310,7 +310,7 @@ func (t *taskManager) SubmitIntermediateMetricTask(
 
 func (t *taskManager) SubmitMetaDataTask(
 	physicalPlan *models.PhysicalPlan,
-	suggest *stmt.Metadata,
+	suggest *stmt.MetricMetadata,
 ) (taskResponse <-chan *protoCommonV1.TaskResponse, err error) {
 	taskID := t.AllocTaskID()
 

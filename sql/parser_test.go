@@ -60,11 +60,10 @@ func Test_Sql_examples(t *testing.T) {
 	}
 }
 
-func Test_Meta_SQL_Parse(t *testing.T) {
+func TestShowDatabase(t *testing.T) {
 	query, err := Parse("show databases")
 	assert.NoError(t, err)
-	_, ok := query.(*stmt.Metadata)
-	assert.True(t, ok)
+	assert.Equal(t, &stmt.Schema{Type: stmt.DatabaseNameSchemaType}, query)
 }
 
 func TestParse_panic(t *testing.T) {
