@@ -27,7 +27,7 @@ import {
   Typography,
 } from "@douyinfe/semi-ui";
 import { ReplicaState } from "@src/models";
-import { getReplicaState } from "@src/services";
+import { exec } from "@src/services";
 import { getColor } from "@src/utils";
 import * as _ from "lodash-es";
 import React, { useEffect, useState } from "react";
@@ -78,10 +78,10 @@ export default function ReplicaView(props: ReplicaViewProps) {
     return rs;
   };
   useEffect(() => {
-    const fetchReplicaState = async (params: any) => {
+    const fetchReplicaState = async (sql: string) => {
       try {
         setLoading(true);
-        const state = await getReplicaState(params);
+        const state = await exec<ReplicaState>({ sql: sql });
         setReplicaState(state);
       } catch (err) {
         console.log(err);
@@ -89,7 +89,9 @@ export default function ReplicaView(props: ReplicaViewProps) {
         setLoading(false);
       }
     };
-    fetchReplicaState({ storageName: storage, db: db });
+    fetchReplicaState(
+      `show replication where storage='${storage}' and database='${db}'`
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

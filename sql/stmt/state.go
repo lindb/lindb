@@ -27,11 +27,15 @@ const (
 	BrokerAlive
 	// StorageAlive represents show storage alive(node) statement.
 	StorageAlive
+	// Replication represents show replication statement.
+	Replication
 )
 
 // State represents show state statement.
 type State struct {
-	Type StateType
+	Type        StateType
+	StorageName string
+	Database    string
 }
 
 // StatementType returns state query type.

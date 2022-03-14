@@ -42,6 +42,9 @@ type SQLListener interface {
 	// EnterShowAliveStmt is called when entering the showAliveStmt production.
 	EnterShowAliveStmt(c *ShowAliveStmtContext)
 
+	// EnterShowReplicationStmt is called when entering the showReplicationStmt production.
+	EnterShowReplicationStmt(c *ShowReplicationStmtContext)
+
 	// EnterCreateStorageStmt is called when entering the createStorageStmt production.
 	EnterCreateStorageStmt(c *CreateStorageStmtContext)
 
@@ -92,6 +95,12 @@ type SQLListener interface {
 
 	// EnterAlias is called when entering the alias production.
 	EnterAlias(c *AliasContext)
+
+	// EnterStorageFilter is called when entering the storageFilter production.
+	EnterStorageFilter(c *StorageFilterContext)
+
+	// EnterDatabaseFilter is called when entering the databaseFilter production.
+	EnterDatabaseFilter(c *DatabaseFilterContext)
 
 	// EnterFromClause is called when entering the fromClause production.
 	EnterFromClause(c *FromClauseContext)
@@ -243,6 +252,9 @@ type SQLListener interface {
 	// ExitShowAliveStmt is called when exiting the showAliveStmt production.
 	ExitShowAliveStmt(c *ShowAliveStmtContext)
 
+	// ExitShowReplicationStmt is called when exiting the showReplicationStmt production.
+	ExitShowReplicationStmt(c *ShowReplicationStmtContext)
+
 	// ExitCreateStorageStmt is called when exiting the createStorageStmt production.
 	ExitCreateStorageStmt(c *CreateStorageStmtContext)
 
@@ -293,6 +305,12 @@ type SQLListener interface {
 
 	// ExitAlias is called when exiting the alias production.
 	ExitAlias(c *AliasContext)
+
+	// ExitStorageFilter is called when exiting the storageFilter production.
+	ExitStorageFilter(c *StorageFilterContext)
+
+	// ExitDatabaseFilter is called when exiting the databaseFilter production.
+	ExitDatabaseFilter(c *DatabaseFilterContext)
 
 	// ExitFromClause is called when exiting the fromClause production.
 	ExitFromClause(c *FromClauseContext)

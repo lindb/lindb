@@ -73,6 +73,12 @@ func (s *BaseSQLListener) EnterShowAliveStmt(ctx *ShowAliveStmtContext) {}
 // ExitShowAliveStmt is called when production showAliveStmt is exited.
 func (s *BaseSQLListener) ExitShowAliveStmt(ctx *ShowAliveStmtContext) {}
 
+// EnterShowReplicationStmt is called when production showReplicationStmt is entered.
+func (s *BaseSQLListener) EnterShowReplicationStmt(ctx *ShowReplicationStmtContext) {}
+
+// ExitShowReplicationStmt is called when production showReplicationStmt is exited.
+func (s *BaseSQLListener) ExitShowReplicationStmt(ctx *ShowReplicationStmtContext) {}
+
 // EnterCreateStorageStmt is called when production createStorageStmt is entered.
 func (s *BaseSQLListener) EnterCreateStorageStmt(ctx *CreateStorageStmtContext) {}
 
@@ -174,6 +180,18 @@ func (s *BaseSQLListener) EnterAlias(ctx *AliasContext) {}
 
 // ExitAlias is called when production alias is exited.
 func (s *BaseSQLListener) ExitAlias(ctx *AliasContext) {}
+
+// EnterStorageFilter is called when production storageFilter is entered.
+func (s *BaseSQLListener) EnterStorageFilter(ctx *StorageFilterContext) {}
+
+// ExitStorageFilter is called when production storageFilter is exited.
+func (s *BaseSQLListener) ExitStorageFilter(ctx *StorageFilterContext) {}
+
+// EnterDatabaseFilter is called when production databaseFilter is entered.
+func (s *BaseSQLListener) EnterDatabaseFilter(ctx *DatabaseFilterContext) {}
+
+// ExitDatabaseFilter is called when production databaseFilter is exited.
+func (s *BaseSQLListener) ExitDatabaseFilter(ctx *DatabaseFilterContext) {}
 
 // EnterFromClause is called when production fromClause is entered.
 func (s *BaseSQLListener) EnterFromClause(ctx *FromClauseContext) {}
