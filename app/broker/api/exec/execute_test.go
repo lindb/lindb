@@ -543,15 +543,10 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			name:    "show replication state, but fetch state failure",
 			reqBody: `{"sql":"show replication where storage=a and database=b"}`,
 			prepare: func() {
-				svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					_, _ = w.Write([]byte("[]"))
-				}))
-				u, err := url.Parse(svr.URL)
-				assert.NoError(t, err)
 				stateMgr.EXPECT().GetStorage(gomock.Any()).Return(&models.StorageState{
 					LiveNodes: map[models.NodeID]models.StatefulNode{1: {
 						StatelessNode: models.StatelessNode{
-							HostIP:   u.Host, // mock host err
+							HostIP:   "127.0.01", // mock host err
 							HTTPPort: 8080,
 						},
 						ID: 1,
@@ -580,6 +575,91 @@ func TestExecuteAPI_Execute(t *testing.T) {
 						},
 						ID: 1,
 					}}}, true)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
+			name:    "show broker metric, no alive node",
+			reqBody: `{"sql":"show broker metric where metric in (a,b)"}`,
+			prepare: func() {
+				stateMgr.EXPECT().GetLiveNodes().Return(nil)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusNotFound, resp.Code)
+			},
+		},
+		{
+			name:    "show broker metric, fetch metric failure",
+			reqBody: `{"sql":"show broker metric where metric in (a,b)"}`,
+			prepare: func() {
+				stateMgr.EXPECT().GetLiveNodes().Return([]models.StatelessNode{{
+					HostIP:   "127.0.0.1",
+					HTTPPort: 8080,
+				}})
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
+			name:    "show broker metric successfully",
+			reqBody: `{"sql":"show broker metric where metric in (a,b)"}`,
+			prepare: func() {
+				svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.Header().Add("content-type", "application/json")
+					_, _ = w.Write([]byte(`{"cpu":[{"fields":[{"value":1}]},{"fields":[{"value":1}]}]}`))
+				}))
+				u, err := url.Parse(svr.URL)
+				assert.NoError(t, err)
+				p, err := strconv.Atoi(u.Port())
+				assert.NoError(t, err)
+				stateMgr.EXPECT().GetLiveNodes().Return([]models.StatelessNode{{
+					HostIP:   u.Hostname(),
+					HTTPPort: uint16(p),
+				}, {
+					HostIP:   u.Hostname(),
+					HTTPPort: uint16(p),
+				}})
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
+			name:    "show storage metric, storage name empty",
+			reqBody: `{"sql":"show storage metric where storage='' and metric in (a,b)"}`,
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			name:    "show storage metric, storage not found",
+			reqBody: `{"sql":"show storage metric where storage='a' and metric in (a,b)"}`,
+			prepare: func() {
+				stateMgr.EXPECT().GetStorage(gomock.Any()).Return(nil, false)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusNotFound, resp.Code)
+			},
+		},
+		{
+			name:    "show storage metric, storage no alive node",
+			reqBody: `{"sql":"show storage metric where storage='a' and metric in (a,b)"}`,
+			prepare: func() {
+				stateMgr.EXPECT().GetStorage(gomock.Any()).Return(&models.StorageState{}, true)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusNotFound, resp.Code)
+			},
+		},
+		{
+			name:    "show storage metric successfully",
+			reqBody: `{"sql":"show storage metric where storage='a' and metric in (a,b)"}`,
+			prepare: func() {
+				stateMgr.EXPECT().GetStorage(gomock.Any()).
+					Return(&models.StorageState{LiveNodes: map[models.NodeID]models.StatefulNode{1: {}, 2: {}}}, true)
 			},
 			assert: func(resp *httptest.ResponseRecorder) {
 				assert.Equal(t, http.StatusOK, resp.Code)
