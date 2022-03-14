@@ -151,7 +151,7 @@ func (p *leafTaskProcessor) processMetadataSuggest(
 	req *protoCommonV1.TaskRequest,
 	stream protoCommonV1.TaskService_HandleServer,
 ) error {
-	var stmtQuery = &stmt.Metadata{}
+	var stmtQuery = &stmt.MetricMetadata{}
 	if err := stmtQuery.UnmarshalJSON(req.Payload); err != nil {
 		return query.ErrUnmarshalSuggest
 	}

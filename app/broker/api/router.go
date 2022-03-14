@@ -75,6 +75,7 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 	api.influxIngestion.Register(router)
 	api.protoIngestion.Register(router)
 	api.flatIngestion.Register(router)
+
 	// monitoring
 	api.metricExplore.Register(router)
 	api.log.Register(router)

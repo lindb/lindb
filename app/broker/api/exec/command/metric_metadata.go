@@ -29,36 +29,17 @@ import (
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
-// MetadataCommand executes the metadata query.
-func MetadataCommand(ctx context.Context, deps *deps.HTTPDeps, param *models.ExecuteParam, stmt stmtpkg.Statement) (interface{}, error) {
-	metadataStmt := stmt.(*stmtpkg.Metadata)
-	switch metadataStmt.Type {
-	case stmtpkg.Database:
-		dbs, err := ListDataBases(ctx, deps, param, stmt)
-		if err != nil {
-			return nil, err
-		}
-		databases := dbs.([]*models.Database)
-		var databaseNames []interface{}
-		for _, db := range databases {
-			databaseNames = append(databaseNames, db.Name)
-		}
-		return &models.Metadata{
-			Type:   stmtpkg.Database.String(),
-			Values: databaseNames,
-		}, nil
-	case stmtpkg.Namespace, stmtpkg.Metric, stmtpkg.Field, stmtpkg.TagKey, stmtpkg.TagValue:
-		if strings.TrimSpace(param.Database) == "" {
-			return nil, constants.ErrDatabaseNameRequired
-		}
-		return suggest(ctx, deps, param, metadataStmt)
-	default:
-		return nil, nil
+// MetricMetadataCommand executes the metric metadata query.
+func MetricMetadataCommand(ctx context.Context, deps *deps.HTTPDeps, param *models.ExecuteParam, stmt stmtpkg.Statement) (interface{}, error) {
+	metadataStmt := stmt.(*stmtpkg.MetricMetadata)
+	if strings.TrimSpace(param.Database) == "" {
+		return nil, constants.ErrDatabaseNameRequired
 	}
+	return suggest(ctx, deps, param, metadataStmt)
 }
 
 // suggest executes metadata suggest query.
-func suggest(ctx context.Context, deps *deps.HTTPDeps, param *models.ExecuteParam, request *stmtpkg.Metadata) (interface{}, error) {
+func suggest(ctx context.Context, deps *deps.HTTPDeps, param *models.ExecuteParam, request *stmtpkg.MetricMetadata) (interface{}, error) {
 	metaDataQuery := deps.QueryFactory.NewMetadataQuery(ctx, param.Database, request)
 	values, err := metaDataQuery.WaitResponse()
 	if err != nil {

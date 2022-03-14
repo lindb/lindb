@@ -26,7 +26,6 @@ import (
 )
 
 func TestMetadataType_String(t *testing.T) {
-	assert.Equal(t, "database", Database.String())
 	assert.Equal(t, "namespace", Namespace.String())
 	assert.Equal(t, "metric", Metric.String())
 	assert.Equal(t, "field", Field.String())
@@ -36,7 +35,7 @@ func TestMetadataType_String(t *testing.T) {
 }
 
 func TestMetadata_MarshalJSON(t *testing.T) {
-	query := Metadata{
+	query := MetricMetadata{
 		Namespace:  "ns",
 		MetricName: "test",
 		Type:       TagValue,
@@ -59,14 +58,14 @@ func TestMetadata_MarshalJSON(t *testing.T) {
 	}
 
 	data := encoding.JSONMarshal(&query)
-	query1 := Metadata{}
+	query1 := MetricMetadata{}
 	err := encoding.JSONUnmarshal(data, &query1)
 	assert.NoError(t, err)
 	assert.Equal(t, query, query1)
 }
 
 func TestMetadata_Marshal_Fail(t *testing.T) {
-	query := &Metadata{}
+	query := &MetricMetadata{}
 	err := query.UnmarshalJSON([]byte{1, 2, 3})
 	assert.NotNil(t, err)
 	err = query.UnmarshalJSON([]byte("{\"condition\":\"123\"}"))

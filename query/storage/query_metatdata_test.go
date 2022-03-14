@@ -48,7 +48,7 @@ func TestMetadataStorageQuery_Execute(t *testing.T) {
 	metadata.EXPECT().MetadataDatabase().Return(metadataIndex).AnyTimes()
 
 	// case 1: suggest namespace
-	exec := newStorageMetadataQuery(db, nil, &stmt.Metadata{
+	exec := newStorageMetadataQuery(db, nil, &stmt.MetricMetadata{
 		Type: stmt.Namespace,
 	})
 	metadataIndex.EXPECT().SuggestNamespace(gomock.Any(), gomock.Any()).Return([]string{"a"}, nil)
@@ -57,7 +57,7 @@ func TestMetadataStorageQuery_Execute(t *testing.T) {
 	assert.Equal(t, []string{"a"}, result)
 
 	// case 2: suggest metric name
-	exec = newStorageMetadataQuery(db, nil, &stmt.Metadata{
+	exec = newStorageMetadataQuery(db, nil, &stmt.MetricMetadata{
 		Type: stmt.Metric,
 	})
 	metadataIndex.EXPECT().SuggestMetrics(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{"a"}, nil)
@@ -66,7 +66,7 @@ func TestMetadataStorageQuery_Execute(t *testing.T) {
 	assert.Equal(t, []string{"a"}, result)
 
 	// case 3: suggest tag keys
-	exec = newStorageMetadataQuery(db, nil, &stmt.Metadata{
+	exec = newStorageMetadataQuery(db, nil, &stmt.MetricMetadata{
 		Type: stmt.TagKey,
 	})
 	metadataIndex.EXPECT().GetAllTagKeys(gomock.Any(), gomock.Any()).Return(tag.Metas{{Key: "a"}}, nil)
@@ -74,7 +74,7 @@ func TestMetadataStorageQuery_Execute(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"a"}, result)
 	// case 4: get fields err
-	exec = newStorageMetadataQuery(db, nil, &stmt.Metadata{
+	exec = newStorageMetadataQuery(db, nil, &stmt.MetricMetadata{
 		Type: stmt.Field,
 	})
 	metadataIndex.EXPECT().GetAllFields(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
@@ -83,7 +83,7 @@ func TestMetadataStorageQuery_Execute(t *testing.T) {
 	assert.Empty(t, result)
 
 	// case 5: get fields
-	exec = newStorageMetadataQuery(db, nil, &stmt.Metadata{
+	exec = newStorageMetadataQuery(db, nil, &stmt.MetricMetadata{
 		Type: stmt.Field,
 	})
 	metadataIndex.EXPECT().GetAllFields(gomock.Any(), gomock.Any()).Return([]field.Meta{{ID: 10}}, nil)
@@ -92,7 +92,7 @@ func TestMetadataStorageQuery_Execute(t *testing.T) {
 	assert.Equal(t, string(encoding.JSONMarshal([]field.Meta{{ID: 10}})), result[0])
 
 	// case 6: suggest tag values
-	exec = newStorageMetadataQuery(db, []models.ShardID{1, 2}, &stmt.Metadata{
+	exec = newStorageMetadataQuery(db, []models.ShardID{1, 2}, &stmt.MetricMetadata{
 		Type: stmt.TagValue,
 	})
 	metadataIndex.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(2), nil)
@@ -106,7 +106,7 @@ func TestMetadataStorageQuery_Execute(t *testing.T) {
 	assert.Equal(t, []string{"a"}, result)
 
 	// case 7: suggest tag values err
-	exec = newStorageMetadataQuery(db, []models.ShardID{1, 2}, &stmt.Metadata{
+	exec = newStorageMetadataQuery(db, []models.ShardID{1, 2}, &stmt.MetricMetadata{
 		Type: stmt.TagValue,
 	})
 	metadataIndex.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).Return(tag.EmptyTagKeyID, fmt.Errorf("err"))
@@ -138,7 +138,7 @@ func TestMetadataStorageQuery_Execute_With_Tag_Condition(t *testing.T) {
 	newTagSearchFunc = func(namespace, metricName string, condition stmt.Expr, metadata metadb.Metadata) TagSearch {
 		return tagSearch
 	}
-	exec := newStorageMetadataQuery(db, []models.ShardID{1}, &stmt.Metadata{
+	exec := newStorageMetadataQuery(db, []models.ShardID{1}, &stmt.MetricMetadata{
 		Type:      stmt.TagValue,
 		Condition: &stmt.EqualsExpr{},
 		Limit:     2,

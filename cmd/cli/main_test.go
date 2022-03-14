@@ -130,6 +130,13 @@ func Test_executor(t *testing.T) {
 			},
 		},
 		{
+			name: "show storages",
+			in:   "show storages;",
+			prepare: func() {
+				mockCli.EXPECT().ExecuteAsResult(gomock.Any(), gomock.Any())
+			},
+		},
+		{
 			name: "show alive broker",
 			in:   "show alive broker;",
 			prepare: func() {

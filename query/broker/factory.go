@@ -50,7 +50,7 @@ func (qh *queryFactory) NewMetricQuery(
 func (qh *queryFactory) NewMetadataQuery(
 	ctx context.Context,
 	database string,
-	stmt *stmt.Metadata,
+	stmt *stmt.MetricMetadata,
 ) MetaDataQuery {
 	return newMetadataQuery(ctx, database, stmt, qh)
 }

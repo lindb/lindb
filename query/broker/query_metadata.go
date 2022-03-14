@@ -35,7 +35,7 @@ type metadataQuery struct {
 	ctx     context.Context
 
 	database      string
-	metaStmtQuery *stmt.Metadata
+	metaStmtQuery *stmt.MetricMetadata
 
 	results []string
 }
@@ -44,7 +44,7 @@ type metadataQuery struct {
 func newMetadataQuery(
 	ctx context.Context,
 	database string,
-	stmt *stmt.Metadata,
+	stmt *stmt.MetricMetadata,
 	queryBuilder *queryFactory,
 ) MetaDataQuery {
 	return &metadataQuery{
