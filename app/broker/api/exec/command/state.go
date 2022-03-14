@@ -19,9 +19,13 @@ package command
 
 import (
 	"context"
+	"sync"
+
+	"github.com/go-resty/resty/v2"
 
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/logger"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
@@ -35,7 +39,59 @@ func StateCommand(_ context.Context, deps *deps.HTTPDeps, _ *models.ExecuteParam
 		return deps.StateMgr.GetLiveNodes(), nil
 	case stmtpkg.StorageAlive:
 		return deps.StateMgr.GetStorageList(), nil
+	case stmtpkg.Replication:
+		return getReplicaState(deps, stateStmt)
 	default:
 		return nil, nil
 	}
+}
+
+// getReplicaState returns wal replica state.
+func getReplicaState(deps *deps.HTTPDeps, stmt *stmtpkg.State) (interface{}, error) {
+	storage, ok := deps.StateMgr.GetStorage(stmt.StorageName)
+	if !ok {
+		return nil, nil
+	}
+	liveNodes := storage.LiveNodes
+	var nodes []models.Node
+	for id := range liveNodes {
+		n := liveNodes[id]
+		nodes = append(nodes, &n)
+	}
+	return fetchStateData(nodes, stmt)
+}
+
+// fetchStateData fetches the state metric from each live nodes.
+func fetchStateData(nodes []models.Node, stmt *stmtpkg.State) (interface{}, error) {
+	size := len(nodes)
+	if size == 0 {
+		return nil, nil
+	}
+	result := make([][]models.FamilyLogReplicaState, size)
+	var wait sync.WaitGroup
+	wait.Add(size)
+	for idx := range nodes {
+		i := idx
+		go func() {
+			defer wait.Done()
+			node := nodes[i]
+			url := node.HTTPAddress()
+			var state []models.FamilyLogReplicaState
+			_, err := resty.New().R().SetQueryParams(map[string]string{"db": stmt.Database}).
+				SetHeader("Accept", "application/json").
+				SetResult(&state).
+				Get(url + "/api/state/replica")
+			if err != nil {
+				log.Error("get replication state from storage node", logger.String("url", url), logger.Error(err))
+				return
+			}
+			result[i] = state
+		}()
+	}
+	wait.Wait()
+	rs := make(map[string][]models.FamilyLogReplicaState)
+	for idx := range nodes {
+		rs[nodes[idx].Indicator()] = result[idx]
+	}
+	return rs, nil
 }

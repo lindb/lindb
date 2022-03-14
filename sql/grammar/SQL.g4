@@ -8,6 +8,7 @@ statementList           : showMasterStmt
                         | showStoragesStmt
                         | showAliveStmt
                         | createStorageStmt
+                        | showReplicationStmt
                         | showSchemasStmt
                         | showDatabaseStmt
                         | useStmt
@@ -25,6 +26,7 @@ useStmt              : T_USE ident ;
 showMasterStmt       : T_SHOW T_MASTER ;
 showStoragesStmt     : T_SHOW T_STORAGES ;
 showAliveStmt        : T_SHOW T_ALIVE (T_BROKER | T_STORAGE);
+showReplicationStmt  : T_SHOW T_REPLICATION T_WHERE (storageFilter|databaseFilter) T_AND (storageFilter|databaseFilter);
 createStorageStmt    : T_CREATE T_STORAGE json;
 showSchemasStmt      : T_SHOW T_SCHEMAS ;
 createDatabaseStmt   : T_CREATE T_DATASBAE json;
@@ -45,6 +47,8 @@ selectExpr              : T_SELECT fields;
 fields                  : field ( T_COMMA field )* ;
 field                   : fieldExpr alias? ;
 alias                   : T_AS ident ;
+storageFilter           : T_STORAGE T_EQUAL ident  ;
+databaseFilter          : T_DATASBAE T_EQUAL ident  ;
 
 //from clause
 fromClause              : T_FROM metricName ;

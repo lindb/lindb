@@ -53,6 +53,21 @@ func (l *listener) EnterShowAliveStmt(ctx *grammar.ShowAliveStmtContext) {
 	}
 }
 
+// EnterShowReplicationStmt is called when production showReplicationStmt is entered.
+func (l *listener) EnterShowReplicationStmt(_ *grammar.ShowReplicationStmtContext) {
+	l.stateStmt = newStateStmtParse(stmt.Replication)
+}
+
+// EnterStorageFilter is called when production storageFilter is entered.
+func (l *listener) EnterStorageFilter(ctx *grammar.StorageFilterContext) {
+	l.stateStmt.visitStorageFilter(ctx)
+}
+
+// EnterDatabaseFilter is called when production databaseFilter is entered.
+func (l *listener) EnterDatabaseFilter(ctx *grammar.DatabaseFilterContext) {
+	l.stateStmt.visitDatabaseFilter(ctx)
+}
+
 // EnterShowStoragesStmt is called when production showStoragesStmt is entered.
 func (l *listener) EnterShowStoragesStmt(_ *grammar.ShowStoragesStmtContext) {
 	l.storageStmt = newStorageStmtParse(stmt.StorageOpShow)

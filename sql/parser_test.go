@@ -105,3 +105,9 @@ func TestShowState(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, &stmt.State{Type: stmt.StorageAlive}, query)
 }
+
+func TestShowReplication(t *testing.T) {
+	query, err := Parse("show replication where storage=s and database=d")
+	assert.NoError(t, err)
+	assert.Equal(t, &stmt.State{Type: stmt.Replication, StorageName: "s", Database: "d"}, query)
+}
