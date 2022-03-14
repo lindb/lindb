@@ -31,6 +31,10 @@ func StateCommand(_ context.Context, deps *deps.HTTPDeps, _ *models.ExecuteParam
 	switch stateStmt.Type {
 	case stmtpkg.Master:
 		return deps.Master.GetMaster(), nil
+	case stmtpkg.BrokerAlive:
+		return deps.StateMgr.GetLiveNodes(), nil
+	case stmtpkg.StorageAlive:
+		return deps.StateMgr.GetStorageList(), nil
 	default:
 		return nil, nil
 	}

@@ -22,9 +22,7 @@ import { useStorage, useAliveState } from "@src/hooks";
 import { StateMetricName, StateRoleName } from "@src/constants";
 
 // must define outside function component, if defie in component maybe endless loop.
-const aliveQueryParams = {
-  role: StateRoleName.Broker,
-};
+const brokerAlive = "show alive broker";
 const brokerStateParams = {
   names: [StateMetricName.CPU, StateMetricName.Memory],
   role: StateRoleName.Broker,
@@ -33,7 +31,7 @@ const brokerStateParams = {
 export default function Overview() {
   const { loading, storages } = useStorage();
   const { aliveState: liveNodes, loading: nodeLoading } =
-    useAliveState(aliveQueryParams);
+    useAliveState(brokerAlive);
   return (
     <>
       <MasterView />

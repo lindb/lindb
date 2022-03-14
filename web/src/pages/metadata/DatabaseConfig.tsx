@@ -67,11 +67,11 @@ export default function DatabaseConfig() {
             optionList={storageList}
             style={{ width: 200 }}
           />
-          <Form.InputNumber label="Num. Of Shard" field="numOfShard" min="1" />
+          <Form.InputNumber label="Num. Of Shard" field="numOfShard" min={1} />
           <Form.InputNumber
             field="replicaFactor"
             label="Replica Factor"
-            min="1"
+            min={1}
           />
           <Form.Section
             text={

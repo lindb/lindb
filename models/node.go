@@ -51,6 +51,25 @@ type StatefulNode struct {
 	ID NodeID `json:"id"`
 }
 
+// StatelessNodes represents stateless node list.
+type StatelessNodes []StatelessNode
+
+// ToTable returns stateless node list as table if it has value, else return empty string.
+func (n StatelessNodes) ToTable() (int, string) {
+	if len(n) == 0 {
+		return 0, ""
+	}
+	writer := NewTableFormatter()
+	writer.AppendHeader(table.Row{"Online time", "Host IP", "Host Name", "Port(HTTP/GRPC)", "Version"})
+	for i := range n {
+		r := n[i]
+		writer.AppendRow(table.Row{
+			timeutil.FormatTimestamp(r.OnlineTime, timeutil.DataTimeFormat2),
+			r.HostIP, r.HostName, fmt.Sprintf("%d/%d", r.HTTPPort, r.GRPCPort), r.Version})
+	}
+	return len(n), writer.Render()
+}
+
 // StatelessNode represents stateless node basic info.
 type StatelessNode struct {
 	HostIP   string `json:"hostIp"`
