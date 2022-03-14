@@ -1,20 +1,3 @@
-// Licensed to LinDB under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. LinDB licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 // Code generated from /Users/jacklhuang/Documents/code/gopath/src/github.com/lindb/lindb/sql/grammar/SQL.g4 by ANTLR 4.9.2. DO NOT EDIT.
 
 package grammar // SQL
@@ -78,6 +61,18 @@ func (s *BaseSQLListener) EnterShowReplicationStmt(ctx *ShowReplicationStmtConte
 
 // ExitShowReplicationStmt is called when production showReplicationStmt is exited.
 func (s *BaseSQLListener) ExitShowReplicationStmt(ctx *ShowReplicationStmtContext) {}
+
+// EnterShowBrokerMetricStmt is called when production showBrokerMetricStmt is entered.
+func (s *BaseSQLListener) EnterShowBrokerMetricStmt(ctx *ShowBrokerMetricStmtContext) {}
+
+// ExitShowBrokerMetricStmt is called when production showBrokerMetricStmt is exited.
+func (s *BaseSQLListener) ExitShowBrokerMetricStmt(ctx *ShowBrokerMetricStmtContext) {}
+
+// EnterShowStorageMetricStmt is called when production showStorageMetricStmt is entered.
+func (s *BaseSQLListener) EnterShowStorageMetricStmt(ctx *ShowStorageMetricStmtContext) {}
+
+// ExitShowStorageMetricStmt is called when production showStorageMetricStmt is exited.
+func (s *BaseSQLListener) ExitShowStorageMetricStmt(ctx *ShowStorageMetricStmtContext) {}
 
 // EnterCreateStorageStmt is called when production createStorageStmt is entered.
 func (s *BaseSQLListener) EnterCreateStorageStmt(ctx *CreateStorageStmtContext) {}
@@ -222,6 +217,18 @@ func (s *BaseSQLListener) EnterTagValueList(ctx *TagValueListContext) {}
 
 // ExitTagValueList is called when production tagValueList is exited.
 func (s *BaseSQLListener) ExitTagValueList(ctx *TagValueListContext) {}
+
+// EnterMetricListFilter is called when production metricListFilter is entered.
+func (s *BaseSQLListener) EnterMetricListFilter(ctx *MetricListFilterContext) {}
+
+// ExitMetricListFilter is called when production metricListFilter is exited.
+func (s *BaseSQLListener) ExitMetricListFilter(ctx *MetricListFilterContext) {}
+
+// EnterMetricList is called when production metricList is entered.
+func (s *BaseSQLListener) EnterMetricList(ctx *MetricListContext) {}
+
+// ExitMetricList is called when production metricList is exited.
+func (s *BaseSQLListener) ExitMetricList(ctx *MetricListContext) {}
 
 // EnterTimeRangeExpr is called when production timeRangeExpr is entered.
 func (s *BaseSQLListener) EnterTimeRangeExpr(ctx *TimeRangeExprContext) {}

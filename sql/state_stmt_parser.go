@@ -45,6 +45,14 @@ func (s *stateStmtParser) visitDatabaseFilter(ctx *grammar.DatabaseFilterContext
 	s.state.Database = strutil.GetStringValue(ctx.Ident().GetText())
 }
 
+// visitMetricList visits metric name list.
+func (s *stateStmtParser) visitMetricList(ctx *grammar.MetricListContext) {
+	names := ctx.AllIdent()
+	for _, n := range names {
+		s.state.MetricNames = append(s.state.MetricNames, strutil.GetStringValue(n.GetText()))
+	}
+}
+
 // build returns the state statement.
 func (s *stateStmtParser) build() (stmt.Statement, error) {
 	return s.state, nil

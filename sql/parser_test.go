@@ -111,3 +111,15 @@ func TestShowReplication(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, &stmt.State{Type: stmt.Replication, StorageName: "s", Database: "d"}, query)
 }
+
+func TestShowBrokerMetric(t *testing.T) {
+	query, err := Parse("show broker metric where metric in (a,b)")
+	assert.NoError(t, err)
+	assert.Equal(t, &stmt.State{Type: stmt.BrokerMetric, MetricNames: []string{"a", "b"}}, query)
+}
+
+func TestShowStorageMetric(t *testing.T) {
+	query, err := Parse("show storage metric where storage=s and metric in (a,b)")
+	assert.NoError(t, err)
+	assert.Equal(t, &stmt.State{Type: stmt.StorageMetric, StorageName: "s", MetricNames: []string{"a", "b"}}, query)
+}

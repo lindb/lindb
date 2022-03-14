@@ -45,11 +45,11 @@ interface NodeViewProps {
   style?: CSSProperties;
   loading?: boolean;
   nodes: Node[];
-  stateParams: any;
+  sql: string;
 }
 export default function NodeView(props: NodeViewProps) {
-  const { title, style, loading, nodes, stateParams } = props;
-  const { stateMetric } = useStateMetric(stateParams);
+  const { title, style, loading, nodes, sql } = props;
+  const { stateMetric } = useStateMetric(sql);
 
   const columns = [
     {

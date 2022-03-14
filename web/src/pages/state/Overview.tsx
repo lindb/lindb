@@ -23,10 +23,7 @@ import { StateMetricName, StateRoleName } from "@src/constants";
 
 // must define outside function component, if defie in component maybe endless loop.
 const brokerAlive = "show alive broker";
-const brokerStateParams = {
-  names: [StateMetricName.CPU, StateMetricName.Memory],
-  role: StateRoleName.Broker,
-};
+const brokerMetric = `show broker metric where metric in ('${StateMetricName.CPU}','${StateMetricName.Memory}')`;
 
 export default function Overview() {
   const { loading, storages } = useStorage();
@@ -39,7 +36,7 @@ export default function Overview() {
         title="Broke Live Nodes"
         loading={nodeLoading}
         nodes={liveNodes}
-        stateParams={brokerStateParams}
+        sql={brokerMetric}
         style={{ marginTop: 12, marginBottom: 12 }}
       />
       <StorageView loading={loading} storages={storages || []} />

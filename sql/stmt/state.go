@@ -29,6 +29,10 @@ const (
 	StorageAlive
 	// Replication represents show replication statement.
 	Replication
+	// BrokerMetric represents show current broker's metric statement
+	BrokerMetric
+	// StorageMetric represents show current storage's metric statement
+	StorageMetric
 )
 
 // State represents show state statement.
@@ -36,6 +40,8 @@ type State struct {
 	Type        StateType
 	StorageName string
 	Database    string
+
+	MetricNames []string
 }
 
 // StatementType returns state query type.

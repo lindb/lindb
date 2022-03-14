@@ -16,19 +16,19 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { exec, exploreState } from "@src/services";
+import { StateMetric } from "@src/models";
+import { exec } from "@src/services";
 import { useEffect, useState } from "react";
 
-export function useStateMetric(params: any) {
+export function useStateMetric(sql: string) {
   const [loading, setLoading] = useState(true);
   const [stateMetric, setStateMetric] = useState();
 
   useEffect(() => {
-    console.error("ssddd,....", params);
     const fetchStateMetric = async () => {
       try {
         setLoading(true);
-        const metric = await exploreState(params);
+        const metric = await exec<StateMetric>({ sql: sql });
         setStateMetric(metric);
       } catch (err) {
         console.log(err);
