@@ -86,3 +86,7 @@ func TestQuery_Marshal_Fail(t *testing.T) {
 	err = query.UnmarshalJSON([]byte("{\"selectItems\":[\"123\"]}"))
 	assert.NotNil(t, err)
 }
+
+func TestQuery_StatementType(t *testing.T) {
+	assert.Equal(t, QueryStatement, (&Query{}).StatementType())
+}

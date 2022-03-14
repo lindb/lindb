@@ -25,6 +25,9 @@ import { POST } from "@src/utils";
  * @param params lin query lanugage params
  * @returns result of execution
  */
-export async function exec<T>(params: object): Promise<T> {
+export async function exec<T>(params: {
+  sql: string;
+  db?: string;
+}): Promise<T> {
   return POST<T>(ApiPath.Exec, params);
 }

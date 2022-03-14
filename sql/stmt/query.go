@@ -40,7 +40,12 @@ type Query struct {
 	Limit   int      // num. of time series list for result
 }
 
-// HasGroupBy returns whether query has group by tag keys
+// StatementType returns metric query type.
+func (q *Query) StatementType() StatementType {
+	return QueryStatement
+}
+
+// HasGroupBy returns whether query has grouping tag keys
 func (q *Query) HasGroupBy() bool {
 	return len(q.GroupBy) > 0
 }

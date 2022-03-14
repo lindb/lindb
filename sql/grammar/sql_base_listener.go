@@ -61,6 +61,18 @@ func (s *BaseSQLListener) EnterShowMasterStmt(ctx *ShowMasterStmtContext) {}
 // ExitShowMasterStmt is called when production showMasterStmt is exited.
 func (s *BaseSQLListener) ExitShowMasterStmt(ctx *ShowMasterStmtContext) {}
 
+// EnterShowStoragesStmt is called when production showStoragesStmt is entered.
+func (s *BaseSQLListener) EnterShowStoragesStmt(ctx *ShowStoragesStmtContext) {}
+
+// ExitShowStoragesStmt is called when production showStoragesStmt is exited.
+func (s *BaseSQLListener) ExitShowStoragesStmt(ctx *ShowStoragesStmtContext) {}
+
+// EnterCreateStorageStmt is called when production createStorageStmt is entered.
+func (s *BaseSQLListener) EnterCreateStorageStmt(ctx *CreateStorageStmtContext) {}
+
+// ExitCreateStorageStmt is called when production createStorageStmt is exited.
+func (s *BaseSQLListener) ExitCreateStorageStmt(ctx *CreateStorageStmtContext) {}
+
 // EnterShowSchemasStmt is called when production showSchemasStmt is entered.
 func (s *BaseSQLListener) EnterShowSchemasStmt(ctx *ShowSchemasStmtContext) {}
 

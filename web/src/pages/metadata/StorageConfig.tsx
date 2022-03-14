@@ -32,7 +32,7 @@ import {
   useFormApi,
 } from "@douyinfe/semi-ui";
 import { Route } from "@src/constants";
-import { createStorage } from "@src/services";
+import { exec } from "@src/services";
 import { URLStore } from "@src/stores";
 import * as _ from "lodash-es";
 import React, { useState } from "react";
@@ -46,7 +46,7 @@ export default function StorageConfig() {
     const create = async (values: any) => {
       try {
         setSubmiting(true);
-        await createStorage(values);
+        await exec({ sql: `create storage ${JSON.stringify(values)}` });
       } catch (err) {
         setError(_.get(err, "response.data", "Unknown internal error"));
       } finally {
@@ -119,9 +119,12 @@ export default function StorageConfig() {
             rules={[{ required: true }]}
             label="Endpoints"
           />
-          <Form.Input field="config.timeout" label={labelWithHelp("Timeout")} />
-          <Form.Input field="config.dialTimeout" label="DialTimeout" />
-          <Form.Input field="config.leaseTTL" label="LeaseTTL" />
+          <Form.InputNumber
+            field="config.timeout"
+            label={labelWithHelp("Timeout")}
+          />
+          <Form.InputNumber field="config.dialTimeout" label="DialTimeout" />
+          <Form.InputNumber field="config.leaseTTL" label="LeaseTTL" />
           <Form.Input field="config.username" label="Username" />
           <Form.Input
             mode="password"

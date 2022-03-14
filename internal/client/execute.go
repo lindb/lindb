@@ -75,7 +75,7 @@ func (cli *executeCli) Execute(param models.ExecuteParam, rs interface{}) error 
 		}
 		return nil
 	}
-	return fmt.Errorf(resp.Status())
+	return fmt.Errorf(string(resp.Body()))
 }
 
 // ExecuteAsResult executes lin query language, then returns terminal result.

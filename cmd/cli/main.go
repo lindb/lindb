@@ -59,6 +59,8 @@ var (
 		{Text: "show"},
 		{Text: "use"},
 		{Text: "master"},
+		{Text: "storages"},
+		{Text: "storage"},
 		{Text: "schemas"},
 		{Text: "database"},
 		{Text: "databases"},
@@ -128,12 +130,16 @@ func executor(in string) {
 				inputC.db = s.Name
 				fmt.Printf("Database changed(current:%s)\n", inputC.db)
 				return
+			case *stmtpkg.Storage:
+				if s.Type==stmtpkg.StorageOpShow{
+					result = &models.Storages{}
+				}
 			case *stmtpkg.State:
 				// execute state query
 				if s.Type == stmtpkg.Master {
 					result = &models.Master{}
 				}
-			case *stmtpkg.Schemas:
+			case *stmtpkg.Schema:
 				result = &models.Databases{}
 			case *stmtpkg.Metadata:
 				result = &models.Metadata{}
@@ -196,7 +202,7 @@ func main() {
 	fmt.Printf("Server version: %s\n", master.Node.Version)
 	endpointStr := fmt.Sprintf("lin@%s", endpointUrl.Host)
 	var spaces []string
-	for i := 0; i < len(endpointStr); i++ {
+	for i := 2; i < len(endpointStr); i++ {
 		spaces = append(spaces, " ")
 	}
 	prefix := strings.Join(spaces, "")
@@ -210,7 +216,7 @@ func main() {
 			if live {
 				return endpointStr + "> ", true
 			}
-			return prefix + "> ", true
+			return prefix + "- > ", true
 		}),
 		prompt.OptionTitle("LinDB Client"),
 

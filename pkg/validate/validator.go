@@ -15,21 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package stmt
+package validate
 
-type StatementType int
+import "github.com/go-playground/validator/v10"
 
-const (
-	UseStatement StatementType = iota + 1
-	SchemaStatement
-	StorageStatement
-	StateStatement
-	MetadataStatement
-	QueryStatement
-)
-
-// Statement represents LinDB query language statement
-type Statement interface {
-	// StatementType returns statement type.
-	StatementType() StatementType
-}
+// Validator represents the struct validator.
+var Validator = validator.New()

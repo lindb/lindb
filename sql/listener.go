@@ -25,21 +25,39 @@ import (
 type listener struct {
 	*grammar.BaseSQLListener
 
-	stmt        *queryStmtParser
+	queryStmt   *queryStmtParser
 	stateStmt   *stateStmtParser
 	metaStmt    *metaStmtParser
 	useStmt     *useStmtParser
 	schemasStmt *schemasStmtParser
+	storageStmt *storageStmtParser
 }
 
 // EnterQueryStmt is called when production queryStmt is entered.
 func (l *listener) EnterQueryStmt(ctx *grammar.QueryStmtContext) {
-	l.stmt = newQueryStmtParse(ctx.T_EXPLAIN() != nil)
+	l.queryStmt = newQueryStmtParse(ctx.T_EXPLAIN() != nil)
 }
 
 // EnterShowMasterStmt is called when production showMasterStmt is entered.
 func (l *listener) EnterShowMasterStmt(_ *grammar.ShowMasterStmtContext) {
 	l.stateStmt = newStateStmtParse(stmt.Master)
+}
+
+// EnterShowStoragesStmt is called when production showStoragesStmt is entered.
+func (l *listener) EnterShowStoragesStmt(_ *grammar.ShowStoragesStmtContext) {
+	l.storageStmt = newStorageStmtParse(stmt.StorageOpShow)
+}
+
+// EnterJson is called when production json is entered.
+func (l *listener) EnterJson(ctx *grammar.JsonContext) { // nolint:golint
+	if l.storageStmt != nil {
+		l.storageStmt.visitCfg(ctx)
+	}
+}
+
+// EnterCreateStorageStmt is called when production createStorageStmt is entered.
+func (l *listener) EnterCreateStorageStmt(_ *grammar.CreateStorageStmtContext) {
+	l.storageStmt = newStorageStmtParse(stmt.StorageOpCreate)
 }
 
 // EnterCreateDatabaseStmt is called when entering the createDatabaseStmt production.
@@ -91,8 +109,8 @@ func (l *listener) EnterShowTagValuesStmt(_ *grammar.ShowTagValuesStmtContext) {
 // EnterNamespace is called when production namespace is entered.
 func (l *listener) EnterNamespace(ctx *grammar.NamespaceContext) {
 	switch {
-	case l.stmt != nil:
-		l.stmt.visitNamespace(ctx)
+	case l.queryStmt != nil:
+		l.queryStmt.visitNamespace(ctx)
 	case l.metaStmt != nil:
 		l.metaStmt.visitNamespace(ctx)
 	}
@@ -115,8 +133,8 @@ func (l *listener) EnterPrefix(ctx *grammar.PrefixContext) {
 // EnterMetricName is called when production metricName is entered.
 func (l *listener) EnterMetricName(ctx *grammar.MetricNameContext) {
 	switch {
-	case l.stmt != nil:
-		l.stmt.visitMetricName(ctx)
+	case l.queryStmt != nil:
+		l.queryStmt.visitMetricName(ctx)
 	case l.metaStmt != nil:
 		l.metaStmt.visitMetricName(ctx)
 	}
@@ -124,65 +142,65 @@ func (l *listener) EnterMetricName(ctx *grammar.MetricNameContext) {
 
 // EnterSelectExpr is called when production selectExpr is entered.
 func (l *listener) EnterSelectExpr(_ *grammar.SelectExprContext) {
-	if l.stmt != nil {
-		l.stmt.resetExprStack()
+	if l.queryStmt != nil {
+		l.queryStmt.resetExprStack()
 	}
 }
 
 // EnterWhereClause is called when production whereClause is entered.
 func (l *listener) EnterWhereClause(_ *grammar.WhereClauseContext) {
-	if l.stmt != nil {
-		l.stmt.resetExprStack()
+	if l.queryStmt != nil {
+		l.queryStmt.resetExprStack()
 	}
 }
 
 // EnterFieldExpr is called when production fieldExpr is entered.
 func (l *listener) EnterFieldExpr(ctx *grammar.FieldExprContext) {
-	if l.stmt != nil {
-		l.stmt.visitFieldExpr(ctx)
+	if l.queryStmt != nil {
+		l.queryStmt.visitFieldExpr(ctx)
 	}
 }
 
 // ExitFieldExpr is called when production fieldExpr is exited.
 func (l *listener) ExitFieldExpr(ctx *grammar.FieldExprContext) {
-	if l.stmt != nil {
-		l.stmt.completeFieldExpr(ctx)
+	if l.queryStmt != nil {
+		l.queryStmt.completeFieldExpr(ctx)
 	}
 }
 
 // EnterFuncName is called when production exprFunc is entered.
 func (l *listener) EnterFuncName(ctx *grammar.FuncNameContext) {
-	if l.stmt != nil {
-		l.stmt.visitFuncName(ctx)
+	if l.queryStmt != nil {
+		l.queryStmt.visitFuncName(ctx)
 	}
 }
 
 // ExitExprFunc is called when production exprFunc is exited.
 func (l *listener) ExitExprFunc(_ *grammar.ExprFuncContext) {
-	if l.stmt != nil {
-		l.stmt.completeFuncExpr()
+	if l.queryStmt != nil {
+		l.queryStmt.completeFuncExpr()
 	}
 }
 
 // EnterExprAtom is called when production exprAtom is entered.
 func (l *listener) EnterExprAtom(ctx *grammar.ExprAtomContext) {
-	if l.stmt != nil {
-		l.stmt.visitExprAtom(ctx)
+	if l.queryStmt != nil {
+		l.queryStmt.visitExprAtom(ctx)
 	}
 }
 
 // EnterAlias is called when production alias is entered.
 func (l *listener) EnterAlias(ctx *grammar.AliasContext) {
-	if l.stmt != nil {
-		l.stmt.visitAlias(ctx)
+	if l.queryStmt != nil {
+		l.queryStmt.visitAlias(ctx)
 	}
 }
 
 // EnterLimitClause is called when production limitClause is entered.
 func (l *listener) EnterLimitClause(ctx *grammar.LimitClauseContext) {
 	switch {
-	case l.stmt != nil:
-		l.stmt.visitLimit(ctx)
+	case l.queryStmt != nil:
+		l.queryStmt.visitLimit(ctx)
 	case l.metaStmt != nil:
 		l.metaStmt.visitLimit(ctx)
 	}
@@ -191,8 +209,8 @@ func (l *listener) EnterLimitClause(ctx *grammar.LimitClauseContext) {
 // EnterTagFilterExpr is called when production tagFilterExpr is entered.
 func (l *listener) EnterTagFilterExpr(ctx *grammar.TagFilterExprContext) {
 	switch {
-	case l.stmt != nil:
-		l.stmt.visitTagFilterExpr(ctx)
+	case l.queryStmt != nil:
+		l.queryStmt.visitTagFilterExpr(ctx)
 	case l.metaStmt != nil:
 		l.metaStmt.visitTagFilterExpr(ctx)
 	}
@@ -201,8 +219,8 @@ func (l *listener) EnterTagFilterExpr(ctx *grammar.TagFilterExprContext) {
 // ExitTagFilterExpr is called when production tagValueList is exited.
 func (l *listener) ExitTagFilterExpr(_ *grammar.TagFilterExprContext) {
 	switch {
-	case l.stmt != nil:
-		l.stmt.completeTagFilterExpr()
+	case l.queryStmt != nil:
+		l.queryStmt.completeTagFilterExpr()
 	case l.metaStmt != nil:
 		l.metaStmt.completeTagFilterExpr()
 	}
@@ -211,8 +229,8 @@ func (l *listener) ExitTagFilterExpr(_ *grammar.TagFilterExprContext) {
 // EnterTagValue is called when production tagValue is entered.
 func (l *listener) EnterTagValue(ctx *grammar.TagValueContext) {
 	switch {
-	case l.stmt != nil:
-		l.stmt.visitTagValue(ctx)
+	case l.queryStmt != nil:
+		l.queryStmt.visitTagValue(ctx)
 	case l.metaStmt != nil:
 		l.metaStmt.visitTagValue(ctx)
 	}
@@ -220,15 +238,15 @@ func (l *listener) EnterTagValue(ctx *grammar.TagValueContext) {
 
 // EnterTimeRangeExpr is called when production timeRangeExpr is entered.
 func (l *listener) EnterTimeRangeExpr(ctx *grammar.TimeRangeExprContext) {
-	if l.stmt != nil {
-		l.stmt.visitTimeRangeExpr(ctx)
+	if l.queryStmt != nil {
+		l.queryStmt.visitTimeRangeExpr(ctx)
 	}
 }
 
 // EnterGroupByKey is called when production groupByClause is entered.
 func (l *listener) EnterGroupByKey(ctx *grammar.GroupByKeyContext) {
-	if l.stmt != nil {
-		l.stmt.visitGroupByKey(ctx)
+	if l.queryStmt != nil {
+		l.queryStmt.visitGroupByKey(ctx)
 	}
 }
 
@@ -237,10 +255,12 @@ func (l *listener) statement() (stmt.Statement, error) {
 	switch {
 	case l.useStmt != nil:
 		return l.useStmt.build()
+	case l.storageStmt != nil:
+		return l.storageStmt.build()
 	case l.schemasStmt != nil:
 		return l.schemasStmt.build()
-	case l.stmt != nil:
-		return l.stmt.build()
+	case l.queryStmt != nil:
+		return l.queryStmt.build()
 	case l.metaStmt != nil:
 		return l.metaStmt.build()
 	case l.stateStmt != nil:
