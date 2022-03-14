@@ -41,8 +41,7 @@ var (
 )
 
 var (
-	ExplorePath         = "/state/explore"
-	ExploreLiveNodePath = "/state/explore/alive"
+	ExplorePath = "/state/explore"
 )
 
 // ExploreAPI represents internal state explore rest api.
@@ -62,28 +61,6 @@ func NewExploreAPI(deps *deps.HTTPDeps) *ExploreAPI {
 // Register adds explore url route.
 func (d *ExploreAPI) Register(route gin.IRoutes) {
 	route.GET(ExplorePath, d.Explore)
-	route.GET(ExploreLiveNodePath, d.ExploreLiveNode)
-}
-
-// ExploreLiveNode explores live nodes for given role.
-func (d *ExploreAPI) ExploreLiveNode(c *gin.Context) {
-	var param struct {
-		Role string `form:"role" binding:"required"`
-	}
-	err := c.ShouldBind(&param)
-	if err != nil {
-		httppkg.Error(c, err)
-		return
-	}
-	switch param.Role {
-	case constants.BrokerRole:
-		httppkg.OK(c, d.deps.StateMgr.GetLiveNodes())
-		return
-	case constants.StorageRole:
-		httppkg.OK(c, d.deps.StateMgr.GetStorageList())
-		return
-	}
-	httppkg.NotFound(c)
 }
 
 // Explore explores the state of cluster by given params.

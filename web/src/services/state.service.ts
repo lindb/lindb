@@ -20,10 +20,6 @@ import { ApiPath } from "@src/constants";
 import { ReplicaState, StateMetric } from "@src/models";
 import { GET } from "@src/utils";
 
-export function exploreNodeState(params: any) {
-  return GET<any[]>(ApiPath.NodeStateExplore, params);
-}
-
 export function exploreState(params: any) {
   return GET<StateMetric>(ApiPath.StateExplore, params);
 }

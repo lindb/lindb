@@ -16,7 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { exploreNodeState, exploreState } from "@src/services";
+import { exec, exploreState } from "@src/services";
 import { useEffect, useState } from "react";
 
 export function useStateMetric(params: any) {
@@ -46,9 +46,9 @@ export function useStateMetric(params: any) {
  * fetch alive state,
  * 1. role=broker, return alive nodes for broker.
  * 2. role=storage, return alive storage cluster list.
- * @param params alive state query params
+ * @param sql query alive state
  */
-export function useAliveState(params: any) {
+export function useAliveState(sql: string) {
   const [loading, setLoading] = useState(true);
   const [aliveState, setAliveState] = useState();
 
@@ -56,7 +56,7 @@ export function useAliveState(params: any) {
     const fetchAliveState = async () => {
       try {
         setLoading(true);
-        const aliveState = await exploreNodeState(params);
+        const aliveState = await exec<any[]>({ sql: sql });
         setAliveState(aliveState);
       } catch (err) {
         console.log(err);
