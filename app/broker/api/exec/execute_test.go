@@ -493,6 +493,29 @@ func TestExecuteAPI_Execute(t *testing.T) {
 				assert.Equal(t, http.StatusInternalServerError, resp.Code)
 			},
 		},
+		{
+			name:    "show broker alive node",
+			reqBody: `{"sql":"show alive broker"}`,
+			prepare: func() {
+				stateMgr.EXPECT().GetLiveNodes().Return([]models.StatelessNode{{
+					HostIP:   "1.1.1.1",
+					HTTPPort: 8080,
+				}})
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
+			name:    "show storage alive node",
+			reqBody: `{"sql":"show alive storage"}`,
+			prepare: func() {
+				stateMgr.EXPECT().GetStorageList().Return([]*models.StorageState{})
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
 	}
 
 	for _, tt := range cases {

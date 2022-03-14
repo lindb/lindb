@@ -39,6 +39,9 @@ type SQLListener interface {
 	// EnterShowStoragesStmt is called when entering the showStoragesStmt production.
 	EnterShowStoragesStmt(c *ShowStoragesStmtContext)
 
+	// EnterShowAliveStmt is called when entering the showAliveStmt production.
+	EnterShowAliveStmt(c *ShowAliveStmtContext)
+
 	// EnterCreateStorageStmt is called when entering the createStorageStmt production.
 	EnterCreateStorageStmt(c *CreateStorageStmtContext)
 
@@ -236,6 +239,9 @@ type SQLListener interface {
 
 	// ExitShowStoragesStmt is called when exiting the showStoragesStmt production.
 	ExitShowStoragesStmt(c *ShowStoragesStmtContext)
+
+	// ExitShowAliveStmt is called when exiting the showAliveStmt production.
+	ExitShowAliveStmt(c *ShowAliveStmtContext)
 
 	// ExitCreateStorageStmt is called when exiting the createStorageStmt production.
 	ExitCreateStorageStmt(c *CreateStorageStmtContext)

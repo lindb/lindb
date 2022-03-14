@@ -6,6 +6,7 @@ statement               : statementList EOF;
 
 statementList           : showMasterStmt
                         | showStoragesStmt
+                        | showAliveStmt
                         | createStorageStmt
                         | showSchemasStmt
                         | showDatabaseStmt
@@ -23,6 +24,7 @@ useStmt              : T_USE ident ;
 //meta data query statement
 showMasterStmt       : T_SHOW T_MASTER ;
 showStoragesStmt     : T_SHOW T_STORAGES ;
+showAliveStmt        : T_SHOW T_ALIVE (T_BROKER | T_STORAGE);
 createStorageStmt    : T_CREATE T_STORAGE json;
 showSchemasStmt      : T_SHOW T_SCHEMAS ;
 createDatabaseStmt   : T_CREATE T_DATASBAE json;
@@ -251,6 +253,8 @@ nonReservedWords      :
                         | T_MASTER
                         | T_STORAGES
                         | T_STORAGE
+                        | T_ALIVE
+                        | T_BROKER
                         | T_SCHEMAS
                         ;
 
@@ -302,6 +306,8 @@ T_USE                : U S E                            ;
 T_MASTER             : M A S T E R                      ;
 T_STORAGES           : S T O R A G E S                  ;
 T_STORAGE            : S T O R A G E                    ;
+T_BROKER             : B R O K E R                      ;
+T_ALIVE              : A L I V E                        ;
 T_SCHEMAS            : S C H E M A S                    ;
 T_DATASBAE           : D A T A B A S E                  ;
 T_DATASBAES          : D A T A B A S E S                ;

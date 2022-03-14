@@ -58,9 +58,11 @@ var (
 	tokens = []prompt.Suggest{
 		{Text: "show"},
 		{Text: "use"},
+		{Text: "alive"},
 		{Text: "master"},
 		{Text: "storages"},
 		{Text: "storage"},
+		{Text: "broker"},
 		{Text: "schemas"},
 		{Text: "database"},
 		{Text: "databases"},
@@ -131,13 +133,16 @@ func executor(in string) {
 				fmt.Printf("Database changed(current:%s)\n", inputC.db)
 				return
 			case *stmtpkg.Storage:
-				if s.Type==stmtpkg.StorageOpShow{
+				if s.Type == stmtpkg.StorageOpShow {
 					result = &models.Storages{}
 				}
 			case *stmtpkg.State:
 				// execute state query
-				if s.Type == stmtpkg.Master {
+				switch s.Type {
+				case stmtpkg.Master:
 					result = &models.Master{}
+				case stmtpkg.BrokerAlive:
+					result = &models.StatelessNodes{}
 				}
 			case *stmtpkg.Schema:
 				result = &models.Databases{}

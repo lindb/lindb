@@ -22,11 +22,11 @@ import { StorageState } from "@src/models";
 import * as _ from "lodash-es";
 import { useEffect, useState } from "react";
 
-const params = { role: StateRoleName.Storage };
+const aliveStorage = "show alive storage";
 
 export function useStorage(name?: string) {
   const [storages, setStorages] = useState<StorageState[]>();
-  const { loading, aliveState } = useAliveState(params);
+  const { loading, aliveState } = useAliveState(aliveStorage);
 
   useEffect(() => {
     const fetchStorageState = () => {

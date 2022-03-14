@@ -130,6 +130,13 @@ func Test_executor(t *testing.T) {
 			},
 		},
 		{
+			name: "show alive broker",
+			in:   "show alive broker;",
+			prepare: func() {
+				mockCli.EXPECT().ExecuteAsResult(gomock.Any(), gomock.Any())
+			},
+		},
+		{
 			name: "show databases",
 			in:   "show databases;",
 			prepare: func() {

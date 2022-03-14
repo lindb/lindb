@@ -92,8 +92,16 @@ func BenchmarkSQLParse(b *testing.B) {
 	}
 }
 
-func TestShowMaster(t *testing.T) {
+func TestShowState(t *testing.T) {
 	query, err := Parse("show master")
 	assert.NoError(t, err)
-	assert.IsType(t, query, &stmt.State{})
+	assert.Equal(t, &stmt.State{Type: stmt.Master}, query)
+
+	query, err = Parse("show alive broker")
+	assert.NoError(t, err)
+	assert.Equal(t, &stmt.State{Type: stmt.BrokerAlive}, query)
+
+	query, err = Parse("show alive storage")
+	assert.NoError(t, err)
+	assert.Equal(t, &stmt.State{Type: stmt.StorageAlive}, query)
 }
