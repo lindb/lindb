@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strconv"
 	"testing"
 	"time"
 
@@ -511,6 +513,73 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			reqBody: `{"sql":"show alive storage"}`,
 			prepare: func() {
 				stateMgr.EXPECT().GetStorageList().Return([]*models.StorageState{})
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
+			name:    "show replication state, but storage not found",
+			reqBody: `{"sql":"show replication where storage=a and database=b"}`,
+			prepare: func() {
+				stateMgr.EXPECT().GetStorage(gomock.Any()).Return(nil, false)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusNotFound, resp.Code)
+			},
+		},
+		{
+			name:    "show replication state, alive node empty",
+			reqBody: `{"sql":"show replication where storage=a and database=b"}`,
+			prepare: func() {
+				stateMgr.EXPECT().GetStorage(gomock.Any()).Return(&models.StorageState{
+					LiveNodes: nil}, true)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusNotFound, resp.Code)
+			},
+		},
+		{
+			name:    "show replication state, but fetch state failure",
+			reqBody: `{"sql":"show replication where storage=a and database=b"}`,
+			prepare: func() {
+				svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					_, _ = w.Write([]byte("[]"))
+				}))
+				u, err := url.Parse(svr.URL)
+				assert.NoError(t, err)
+				stateMgr.EXPECT().GetStorage(gomock.Any()).Return(&models.StorageState{
+					LiveNodes: map[models.NodeID]models.StatefulNode{1: {
+						StatelessNode: models.StatelessNode{
+							HostIP:   u.Host, // mock host err
+							HTTPPort: 8080,
+						},
+						ID: 1,
+					}}}, true)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
+			name:    "show replication state, but fetch state failure",
+			reqBody: `{"sql":"show replication where storage=a and database=b"}`,
+			prepare: func() {
+				svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					_, _ = w.Write([]byte("[]"))
+				}))
+				u, err := url.Parse(svr.URL)
+				assert.NoError(t, err)
+				p, err := strconv.Atoi(u.Port())
+				assert.NoError(t, err)
+				stateMgr.EXPECT().GetStorage(gomock.Any()).Return(&models.StorageState{
+					LiveNodes: map[models.NodeID]models.StatefulNode{1: {
+						StatelessNode: models.StatelessNode{
+							HostIP:   u.Hostname(),
+							HTTPPort: uint16(p),
+						},
+						ID: 1,
+					}}}, true)
 			},
 			assert: func(resp *httptest.ResponseRecorder) {
 				assert.Equal(t, http.StatusOK, resp.Code)

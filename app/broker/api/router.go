@@ -38,7 +38,6 @@ type API struct {
 	storage         *admin.StorageClusterAPI
 	explore         *metadata.ExploreAPI
 	stateExplore    *state.ExploreAPI
-	replica         *state.ReplicaAPI
 	metricExplore   *monitoring.ExploreAPI
 	log             *monitoring.LoggerAPI
 	config          *monitoring.ConfigAPI
@@ -57,7 +56,6 @@ func NewAPI(deps *deps.HTTPDeps) *API {
 		storage:         admin.NewStorageClusterAPI(deps),
 		explore:         metadata.NewExploreAPI(deps),
 		stateExplore:    state.NewExploreAPI(deps),
-		replica:         state.NewReplicaAPI(deps),
 		metricExplore:   monitoring.NewExploreAPI(deps.GlobalKeyValues),
 		log:             monitoring.NewLoggerAPI(deps.BrokerCfg.Logging.Dir),
 		config:          monitoring.NewConfigAPI(deps.Node, deps.BrokerCfg),
@@ -78,7 +76,6 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 	api.explore.Register(router)
 
 	api.stateExplore.Register(router)
-	api.replica.Register(router)
 
 	api.influxIngestion.Register(router)
 	api.protoIngestion.Register(router)

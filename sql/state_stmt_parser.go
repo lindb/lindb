@@ -17,21 +17,35 @@
 
 package sql
 
-import "github.com/lindb/lindb/sql/stmt"
+import (
+	"github.com/lindb/lindb/pkg/strutil"
+	"github.com/lindb/lindb/sql/grammar"
+	"github.com/lindb/lindb/sql/stmt"
+)
 
 // stateStmtParser represents show state statement parser.
 type stateStmtParser struct {
-	stateType stmt.StateType
+	state *stmt.State
 }
 
 // newStateStmtParse creates a show state statement parser.
 func newStateStmtParse(stateType stmt.StateType) *stateStmtParser {
 	return &stateStmtParser{
-		stateType: stateType,
+		state: &stmt.State{Type: stateType},
 	}
+}
+
+// visitStorageFilter visits storage filter.
+func (s *stateStmtParser) visitStorageFilter(ctx *grammar.StorageFilterContext) {
+	s.state.StorageName = strutil.GetStringValue(ctx.Ident().GetText())
+}
+
+// visitDatabaseFilter visits database filter.
+func (s *stateStmtParser) visitDatabaseFilter(ctx *grammar.DatabaseFilterContext) {
+	s.state.Database = strutil.GetStringValue(ctx.Ident().GetText())
 }
 
 // build returns the state statement.
 func (s *stateStmtParser) build() (stmt.Statement, error) {
-	return &stmt.State{Type: s.stateType}, nil
+	return s.state, nil
 }
