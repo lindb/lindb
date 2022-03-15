@@ -20,6 +20,7 @@ package exec
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -35,6 +36,7 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator"
 	"github.com/lindb/lindb/coordinator/broker"
+	masterpkg "github.com/lindb/lindb/coordinator/master"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/mock"
@@ -56,6 +58,8 @@ func TestExecuteAPI_Execute(t *testing.T) {
 	repo := state.NewMockRepository(ctrl)
 	repoFct := state.NewMockRepositoryFactory(ctrl)
 	master := coordinator.NewMockMasterController(ctrl)
+	masterStateMgr := masterpkg.NewMockStateManager(ctrl)
+	master.EXPECT().GetStateManager().Return(masterStateMgr).AnyTimes()
 	queryFactory := brokerQuery.NewMockFactory(ctrl)
 	stateMgr := broker.NewMockStateManager(ctrl)
 	api := NewExecuteAPI(&deps.HTTPDeps{
@@ -663,6 +667,146 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			},
 			assert: func(resp *httptest.ResponseRecorder) {
 				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
+			name:    "show metadata path successfully",
+			reqBody: `{"sql":"show metadata types"}`,
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
+			name:    "show broker metadata, but type not found",
+			reqBody: `{"sql":"show broker metadata where type=abc"}`,
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusNotFound, resp.Code)
+			},
+		},
+		{
+			name:    "show broker metadata, but walk entry repo failure",
+			reqBody: `{"sql":"show broker metadata where type=LiveNode"}`,
+			prepare: func() {
+				repo.EXPECT().WalkEntry(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			name:    "show broker metadata, but walk entry unmarshal failure",
+			reqBody: `{"sql":"show broker metadata where type=LiveNode"}`,
+			prepare: func() {
+				repo.EXPECT().WalkEntry(gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, prefix string, fn func(key, value []byte)) error {
+						fn([]byte("key"), []byte("value"))
+						return nil
+					})
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusNotFound, resp.Code)
+			},
+		},
+		{
+			name:    "show broker metadata, get live node successfully",
+			reqBody: `{"sql":"show broker metadata where type=LiveNode"}`,
+			prepare: func() {
+				repo.EXPECT().WalkEntry(gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, prefix string, fn func(key, value []byte)) error {
+						fn([]byte("key"), encoding.JSONMarshal(&models.StatelessNode{HostIP: "1.1.1.1"}))
+						return nil
+					})
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
+			name:    "show master metadata, get master successfully",
+			reqBody: `{"sql":"show master metadata where type=Master"}`,
+			prepare: func() {
+				repo.EXPECT().WalkEntry(gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, prefix string, fn func(key, value []byte)) error {
+						fn([]byte("key"), encoding.JSONMarshal(&models.Master{ElectTime: 11}))
+						return nil
+					})
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
+			name:    "show storage metadata, but storage name empty",
+			reqBody: `{"sql":"show storage metadata where type=LiveNode and storage=''"}`,
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			name:    "show storage metadata, but type not found",
+			reqBody: `{"sql":"show storage metadata where type=LiveNode1 and storage='abc'"}`,
+			prepare: func() {
+				master.EXPECT().IsMaster().Return(true)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusNotFound, resp.Code)
+			},
+		},
+		{
+			name:    "show storage metadata, but storage state not found",
+			reqBody: `{"sql":"show storage metadata where type=LiveNode and storage='test'"}`,
+			prepare: func() {
+				master.EXPECT().IsMaster().Return(true)
+				masterStateMgr.EXPECT().GetStorageCluster("test").Return(nil)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusNotFound, resp.Code)
+			},
+		},
+		{
+			name:    "show storage metadata, no data",
+			reqBody: `{"sql":"show storage metadata where type=LiveNode and storage='test'"}`,
+			prepare: func() {
+				master.EXPECT().IsMaster().Return(true)
+				storage := masterpkg.NewMockStorageCluster(ctrl)
+				masterStateMgr.EXPECT().GetStorageCluster("test").Return(storage)
+				storage.EXPECT().GetRepo().Return(repo)
+				repo.EXPECT().WalkEntry(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusNotFound, resp.Code)
+			},
+		},
+		{
+			name:    "show storage metadata, forward request failure",
+			reqBody: `{"sql":"show storage metadata where type=LiveNode and storage='test'"}`,
+			prepare: func() {
+				master.EXPECT().IsMaster().Return(false)
+				master.EXPECT().GetMaster().Return(&models.Master{Node: &models.StatelessNode{HostIP: "127.0.0.1", HTTPPort: 8089}})
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			name:    "show storage metadata, forward request successfully",
+			reqBody: `{"sql":"show storage metadata where type=LiveNode and storage='test'"}`,
+			prepare: func() {
+				master.EXPECT().IsMaster().Return(false)
+				master.EXPECT().GetMaster().Return(&models.Master{Node: &models.StatelessNode{HostIP: "127.0.0.1", HTTPPort: 8089}})
+				backend := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					_, _ = w.Write([]byte("test"))
+				}))
+				//hack
+				_ = backend.Listener.Close()
+				l, err := net.Listen("tcp", "127.0.0.1:8089")
+				assert.NoError(t, err)
+				backend.Listener = l
+				// Start the server.
+				backend.Start()
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusNotFound, resp.Code)
 			},
 		},
 	}

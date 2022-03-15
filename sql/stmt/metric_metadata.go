@@ -23,12 +23,12 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 )
 
-// MetadataType represents metadata suggest type
-type MetadataType uint8
+// MetricMetadataType represents metric metadata suggest type
+type MetricMetadataType uint8
 
-// Defines all types of metadata suggest
+// Defines all types of metric metadata suggest
 const (
-	Namespace MetadataType = iota + 1
+	Namespace MetricMetadataType = iota + 1
 	Metric
 	TagKey
 	TagValue
@@ -36,7 +36,7 @@ const (
 )
 
 // String returns string value of metadata type
-func (m MetadataType) String() string {
+func (m MetricMetadataType) String() string {
 	switch m {
 	case Namespace:
 		return "namespace"
@@ -55,9 +55,9 @@ func (m MetadataType) String() string {
 
 // MetricMetadata represents search metric metadata statement
 type MetricMetadata struct {
-	Namespace  string       // namespace
-	MetricName string       // like table name
-	Type       MetadataType // metadata suggest type
+	Namespace  string             // namespace
+	MetricName string             // like table name
+	Type       MetricMetadataType // metadata suggest type
 	TagKey     string
 	Prefix     string
 	Condition  Expr // tag filter condition expression
@@ -71,13 +71,13 @@ func (q *MetricMetadata) StatementType() StatementType {
 
 // innerMetadata represents a wrapper of metadata for json encoding
 type innerMetadata struct {
-	Namespace  string          `json:"namespace,omitempty"`
-	MetricName string          `json:"metricName,omitempty"`
-	Type       MetadataType    `json:"type,omitempty"`
-	TagKey     string          `json:"tagKey,omitempty"`
-	Condition  json.RawMessage `json:"condition,omitempty"`
-	Prefix     string          `json:"prefix,omitempty"`
-	Limit      int             `json:"limit,omitempty"`
+	Namespace  string             `json:"namespace,omitempty"`
+	MetricName string             `json:"metricName,omitempty"`
+	Type       MetricMetadataType `json:"type,omitempty"`
+	TagKey     string             `json:"tagKey,omitempty"`
+	Condition  json.RawMessage    `json:"condition,omitempty"`
+	Prefix     string             `json:"prefix,omitempty"`
+	Limit      int                `json:"limit,omitempty"`
 }
 
 // MarshalJSON returns json data of query

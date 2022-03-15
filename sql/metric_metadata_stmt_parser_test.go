@@ -27,7 +27,7 @@ import (
 )
 
 func TestMetaStmt_validation(t *testing.T) {
-	queryStmt := newMetaStmtParser(stmt.TagKey)
+	queryStmt := newMetricMetadataStmtParser(stmt.TagKey)
 	// case 1: queryStmt err
 	queryStmt.err = fmt.Errorf("err")
 	s, err := queryStmt.build()

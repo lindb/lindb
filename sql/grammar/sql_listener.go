@@ -39,6 +39,18 @@ type SQLListener interface {
 	// EnterShowStoragesStmt is called when entering the showStoragesStmt production.
 	EnterShowStoragesStmt(c *ShowStoragesStmtContext)
 
+	// EnterShowMetadataTypesStmt is called when entering the showMetadataTypesStmt production.
+	EnterShowMetadataTypesStmt(c *ShowMetadataTypesStmtContext)
+
+	// EnterShowBrokerMetaStmt is called when entering the showBrokerMetaStmt production.
+	EnterShowBrokerMetaStmt(c *ShowBrokerMetaStmtContext)
+
+	// EnterShowMasterMetaStmt is called when entering the showMasterMetaStmt production.
+	EnterShowMasterMetaStmt(c *ShowMasterMetaStmtContext)
+
+	// EnterShowStorageMetaStmt is called when entering the showStorageMetaStmt production.
+	EnterShowStorageMetaStmt(c *ShowStorageMetaStmtContext)
+
 	// EnterShowAliveStmt is called when entering the showAliveStmt production.
 	EnterShowAliveStmt(c *ShowAliveStmtContext)
 
@@ -107,6 +119,9 @@ type SQLListener interface {
 
 	// EnterDatabaseFilter is called when entering the databaseFilter production.
 	EnterDatabaseFilter(c *DatabaseFilterContext)
+
+	// EnterTypeFilter is called when entering the typeFilter production.
+	EnterTypeFilter(c *TypeFilterContext)
 
 	// EnterFromClause is called when entering the fromClause production.
 	EnterFromClause(c *FromClauseContext)
@@ -261,6 +276,18 @@ type SQLListener interface {
 	// ExitShowStoragesStmt is called when exiting the showStoragesStmt production.
 	ExitShowStoragesStmt(c *ShowStoragesStmtContext)
 
+	// ExitShowMetadataTypesStmt is called when exiting the showMetadataTypesStmt production.
+	ExitShowMetadataTypesStmt(c *ShowMetadataTypesStmtContext)
+
+	// ExitShowBrokerMetaStmt is called when exiting the showBrokerMetaStmt production.
+	ExitShowBrokerMetaStmt(c *ShowBrokerMetaStmtContext)
+
+	// ExitShowMasterMetaStmt is called when exiting the showMasterMetaStmt production.
+	ExitShowMasterMetaStmt(c *ShowMasterMetaStmtContext)
+
+	// ExitShowStorageMetaStmt is called when exiting the showStorageMetaStmt production.
+	ExitShowStorageMetaStmt(c *ShowStorageMetaStmtContext)
+
 	// ExitShowAliveStmt is called when exiting the showAliveStmt production.
 	ExitShowAliveStmt(c *ShowAliveStmtContext)
 
@@ -329,6 +356,9 @@ type SQLListener interface {
 
 	// ExitDatabaseFilter is called when exiting the databaseFilter production.
 	ExitDatabaseFilter(c *DatabaseFilterContext)
+
+	// ExitTypeFilter is called when exiting the typeFilter production.
+	ExitTypeFilter(c *TypeFilterContext)
 
 	// ExitFromClause is called when exiting the fromClause production.
 	ExitFromClause(c *FromClauseContext)

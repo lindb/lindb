@@ -16,11 +16,11 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import React, { useEffect, useState } from "react";
-import { Card, Row, Col, Tree } from "@douyinfe/semi-ui";
-import { metaExplore, exploreRepoData } from "@src/services";
+import { Card, Col, Row, Tree } from "@douyinfe/semi-ui";
 import { StateRoleName } from "@src/constants";
+import { exec } from "@src/services";
 import * as _ from "lodash-es";
+import React, { useEffect, useState } from "react";
 
 export default function Explore() {
   const [root, setRoot] = useState<any[]>([]);
@@ -41,7 +41,7 @@ export default function Explore() {
   };
   useEffect(() => {
     const fetchMetadata = async () => {
-      const metadata = await metaExplore();
+      const metadata = await exec<any>({ sql: "show metadata types" });
       const keys = _.keys(metadata);
       const root: any[] = [];
       const loadedKeys: any[] = [];
@@ -68,7 +68,7 @@ export default function Explore() {
     if (node.children) {
       return;
     }
-    await exploreRepoData({ role: node.parent, type: node.value });
+    await exec<any>({ sql: `show broker metadata where type='${node.value}'` });
   };
 
   const renderLabel: React.FC<any> = ({

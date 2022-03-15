@@ -67,6 +67,30 @@ func (s *BaseSQLListener) EnterShowStoragesStmt(ctx *ShowStoragesStmtContext) {}
 // ExitShowStoragesStmt is called when production showStoragesStmt is exited.
 func (s *BaseSQLListener) ExitShowStoragesStmt(ctx *ShowStoragesStmtContext) {}
 
+// EnterShowMetadataTypesStmt is called when production showMetadataTypesStmt is entered.
+func (s *BaseSQLListener) EnterShowMetadataTypesStmt(ctx *ShowMetadataTypesStmtContext) {}
+
+// ExitShowMetadataTypesStmt is called when production showMetadataTypesStmt is exited.
+func (s *BaseSQLListener) ExitShowMetadataTypesStmt(ctx *ShowMetadataTypesStmtContext) {}
+
+// EnterShowBrokerMetaStmt is called when production showBrokerMetaStmt is entered.
+func (s *BaseSQLListener) EnterShowBrokerMetaStmt(ctx *ShowBrokerMetaStmtContext) {}
+
+// ExitShowBrokerMetaStmt is called when production showBrokerMetaStmt is exited.
+func (s *BaseSQLListener) ExitShowBrokerMetaStmt(ctx *ShowBrokerMetaStmtContext) {}
+
+// EnterShowMasterMetaStmt is called when production showMasterMetaStmt is entered.
+func (s *BaseSQLListener) EnterShowMasterMetaStmt(ctx *ShowMasterMetaStmtContext) {}
+
+// ExitShowMasterMetaStmt is called when production showMasterMetaStmt is exited.
+func (s *BaseSQLListener) ExitShowMasterMetaStmt(ctx *ShowMasterMetaStmtContext) {}
+
+// EnterShowStorageMetaStmt is called when production showStorageMetaStmt is entered.
+func (s *BaseSQLListener) EnterShowStorageMetaStmt(ctx *ShowStorageMetaStmtContext) {}
+
+// ExitShowStorageMetaStmt is called when production showStorageMetaStmt is exited.
+func (s *BaseSQLListener) ExitShowStorageMetaStmt(ctx *ShowStorageMetaStmtContext) {}
+
 // EnterShowAliveStmt is called when production showAliveStmt is entered.
 func (s *BaseSQLListener) EnterShowAliveStmt(ctx *ShowAliveStmtContext) {}
 
@@ -204,6 +228,12 @@ func (s *BaseSQLListener) EnterDatabaseFilter(ctx *DatabaseFilterContext) {}
 
 // ExitDatabaseFilter is called when production databaseFilter is exited.
 func (s *BaseSQLListener) ExitDatabaseFilter(ctx *DatabaseFilterContext) {}
+
+// EnterTypeFilter is called when production typeFilter is entered.
+func (s *BaseSQLListener) EnterTypeFilter(ctx *TypeFilterContext) {}
+
+// ExitTypeFilter is called when production typeFilter is exited.
+func (s *BaseSQLListener) ExitTypeFilter(ctx *TypeFilterContext) {}
 
 // EnterFromClause is called when production fromClause is entered.
 func (s *BaseSQLListener) EnterFromClause(ctx *FromClauseContext) {}
