@@ -5,6 +5,10 @@ grammar SQL;
 statement               : statementList EOF;
 
 statementList           : showMasterStmt
+                        | showMetadataTypesStmt
+                        | showBrokerMetaStmt
+                        | showMasterMetaStmt
+                        | showStorageMetaStmt
                         | showStoragesStmt
                         | showAliveStmt
                         | showBrokerMetricStmt
@@ -27,6 +31,10 @@ useStmt              : T_USE ident ;
 //meta data query statement
 showMasterStmt       : T_SHOW T_MASTER ;
 showStoragesStmt     : T_SHOW T_STORAGES ;
+showMetadataTypesStmt: T_SHOW T_METADATA T_TYPES;
+showBrokerMetaStmt   : T_SHOW T_BROKER T_METADATA T_WHERE typeFilter;
+showMasterMetaStmt   : T_SHOW T_MASTER T_METADATA T_WHERE typeFilter;
+showStorageMetaStmt  : T_SHOW T_STORAGE T_METADATA T_WHERE (storageFilter|typeFilter) T_AND (storageFilter|typeFilter);
 showAliveStmt        : T_SHOW T_ALIVE (T_BROKER | T_STORAGE);
 showReplicationStmt  : T_SHOW T_REPLICATION T_WHERE (storageFilter|databaseFilter) T_AND (storageFilter|databaseFilter);
 showBrokerMetricStmt : T_SHOW T_BROKER T_METRIC T_WHERE metricListFilter ;
@@ -53,6 +61,7 @@ field                   : fieldExpr alias? ;
 alias                   : T_AS ident ;
 storageFilter           : T_STORAGE T_EQUAL ident  ;
 databaseFilter          : T_DATASBAE T_EQUAL ident  ;
+typeFilter              : T_TYPE T_EQUAL ident  ;
 
 //from clause
 fromClause              : T_FROM metricName ;
@@ -261,6 +270,9 @@ nonReservedWords      :
                         | T_YEAR
                         | T_USE
                         | T_MASTER
+                        | T_METADATA
+                        | T_TYPE
+                        | T_TYPES
                         | T_STORAGES
                         | T_STORAGE
                         | T_ALIVE
@@ -314,6 +326,9 @@ T_ON                 : O N                              ;
 T_SHOW               : S H O W                          ;
 T_USE                : U S E                            ;
 T_MASTER             : M A S T E R                      ;
+T_METADATA           : M E T A D A T A                  ;
+T_TYPES              : T Y P E S                        ;
+T_TYPE               : T Y P E                          ;
 T_STORAGES           : S T O R A G E S                  ;
 T_STORAGE            : S T O R A G E                    ;
 T_BROKER             : B R O K E R                      ;

@@ -50,6 +50,7 @@ var (
 
 	// register all commands for the statement of lin query language.
 	commands = map[stmtpkg.StatementType]statementExecFn{
+		stmtpkg.MetadataStatement:       command.MetadataCommand,
 		stmtpkg.SchemaStatement:         command.SchemaCommand,
 		stmtpkg.StorageStatement:        command.StorageCommand,
 		stmtpkg.StateStatement:          command.StateCommand,

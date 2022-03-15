@@ -25,17 +25,43 @@ import (
 type listener struct {
 	*grammar.BaseSQLListener
 
-	queryStmt   *queryStmtParser
-	stateStmt   *stateStmtParser
-	metaStmt    *metaStmtParser
-	useStmt     *useStmtParser
-	schemasStmt *schemasStmtParser
-	storageStmt *storageStmtParser
+	queryStmt          *queryStmtParser
+	metadataStmt       *metadataStmtParser
+	stateStmt          *stateStmtParser
+	metricMetadataStmt *metricMetadataStmtParser
+	useStmt            *useStmtParser
+	schemasStmt        *schemasStmtParser
+	storageStmt        *storageStmtParser
 }
 
 // EnterQueryStmt is called when production queryStmt is entered.
 func (l *listener) EnterQueryStmt(ctx *grammar.QueryStmtContext) {
 	l.queryStmt = newQueryStmtParse(ctx.T_EXPLAIN() != nil)
+}
+
+// EnterShowMetadataTypesStmt is called when production showMetadataTypesStmt is entered.
+func (l *listener) EnterShowMetadataTypesStmt(_ *grammar.ShowMetadataTypesStmtContext) {
+	l.metadataStmt = newMetadataStmtParser(stmt.MetadataTypes)
+}
+
+// EnterShowBrokerMetaStmt is called when production showBrokerMetaStmt is entered.
+func (l *listener) EnterShowBrokerMetaStmt(_ *grammar.ShowBrokerMetaStmtContext) {
+	l.metadataStmt = newMetadataStmtParser(stmt.BrokerMetadata)
+}
+
+// EnterShowMasterMetaStmt is called when production showMasterMetaStmt is entered.
+func (l *listener) EnterShowMasterMetaStmt(_ *grammar.ShowMasterMetaStmtContext) {
+	l.metadataStmt = newMetadataStmtParser(stmt.MasterMetadata)
+}
+
+// EnterShowStorageMetaStmt is called when production showStorageMetaStmt is entered.
+func (l *listener) EnterShowStorageMetaStmt(_ *grammar.ShowStorageMetaStmtContext) {
+	l.metadataStmt = newMetadataStmtParser(stmt.StorageMetadata)
+}
+
+// EnterTypeFilter is called when production typeFilter is entered.
+func (l *listener) EnterTypeFilter(ctx *grammar.TypeFilterContext) {
+	l.metadataStmt.visitTypeFilter(ctx)
 }
 
 // EnterShowMasterStmt is called when production showMasterStmt is entered.
@@ -75,7 +101,12 @@ func (l *listener) EnterShowReplicationStmt(_ *grammar.ShowReplicationStmtContex
 
 // EnterStorageFilter is called when production storageFilter is entered.
 func (l *listener) EnterStorageFilter(ctx *grammar.StorageFilterContext) {
-	l.stateStmt.visitStorageFilter(ctx)
+	switch {
+	case l.stateStmt != nil:
+		l.stateStmt.visitStorageFilter(ctx)
+	case l.metadataStmt != nil:
+		l.metadataStmt.visitStorageFilter(ctx)
+	}
 }
 
 // EnterDatabaseFilter is called when production databaseFilter is entered.
@@ -123,27 +154,27 @@ func (l *listener) EnterShowDatabaseStmt(_ *grammar.ShowDatabaseStmtContext) {
 
 // EnterShowNameSpacesStmt is called when production showNameSpacesStmt is entered.
 func (l *listener) EnterShowNameSpacesStmt(_ *grammar.ShowNameSpacesStmtContext) {
-	l.metaStmt = newMetaStmtParser(stmt.Namespace)
+	l.metricMetadataStmt = newMetricMetadataStmtParser(stmt.Namespace)
 }
 
 // EnterShowMetricsStmt is called when production showMetricsStmt is entered.
 func (l *listener) EnterShowMetricsStmt(_ *grammar.ShowMetricsStmtContext) {
-	l.metaStmt = newMetaStmtParser(stmt.Metric)
+	l.metricMetadataStmt = newMetricMetadataStmtParser(stmt.Metric)
 }
 
 // EnterShowFieldsStmt is called when production showFieldsStmt is entered.
 func (l *listener) EnterShowFieldsStmt(_ *grammar.ShowFieldsStmtContext) {
-	l.metaStmt = newMetaStmtParser(stmt.Field)
+	l.metricMetadataStmt = newMetricMetadataStmtParser(stmt.Field)
 }
 
 // EnterShowTagKeysStmt is called when production showTagKeysStmt is entered.
 func (l *listener) EnterShowTagKeysStmt(_ *grammar.ShowTagKeysStmtContext) {
-	l.metaStmt = newMetaStmtParser(stmt.TagKey)
+	l.metricMetadataStmt = newMetricMetadataStmtParser(stmt.TagKey)
 }
 
 // EnterShowTagValuesStmt is called when production showTagValuesStmt is entered.
 func (l *listener) EnterShowTagValuesStmt(_ *grammar.ShowTagValuesStmtContext) {
-	l.metaStmt = newMetaStmtParser(stmt.TagValue)
+	l.metricMetadataStmt = newMetricMetadataStmtParser(stmt.TagValue)
 }
 
 // EnterNamespace is called when production namespace is entered.
@@ -151,22 +182,22 @@ func (l *listener) EnterNamespace(ctx *grammar.NamespaceContext) {
 	switch {
 	case l.queryStmt != nil:
 		l.queryStmt.visitNamespace(ctx)
-	case l.metaStmt != nil:
-		l.metaStmt.visitNamespace(ctx)
+	case l.metricMetadataStmt != nil:
+		l.metricMetadataStmt.visitNamespace(ctx)
 	}
 }
 
 // EnterWithTagKey is called when production withTagKey is entered.
 func (l *listener) EnterWithTagKey(ctx *grammar.WithTagKeyContext) {
-	if l.metaStmt != nil {
-		l.metaStmt.visitWithTagKey(ctx)
+	if l.metricMetadataStmt != nil {
+		l.metricMetadataStmt.visitWithTagKey(ctx)
 	}
 }
 
 // EnterPrefix is called when production prefix is entered.
 func (l *listener) EnterPrefix(ctx *grammar.PrefixContext) {
-	if l.metaStmt != nil {
-		l.metaStmt.visitPrefix(ctx)
+	if l.metricMetadataStmt != nil {
+		l.metricMetadataStmt.visitPrefix(ctx)
 	}
 }
 
@@ -175,8 +206,8 @@ func (l *listener) EnterMetricName(ctx *grammar.MetricNameContext) {
 	switch {
 	case l.queryStmt != nil:
 		l.queryStmt.visitMetricName(ctx)
-	case l.metaStmt != nil:
-		l.metaStmt.visitMetricName(ctx)
+	case l.metricMetadataStmt != nil:
+		l.metricMetadataStmt.visitMetricName(ctx)
 	}
 }
 
@@ -241,8 +272,8 @@ func (l *listener) EnterLimitClause(ctx *grammar.LimitClauseContext) {
 	switch {
 	case l.queryStmt != nil:
 		l.queryStmt.visitLimit(ctx)
-	case l.metaStmt != nil:
-		l.metaStmt.visitLimit(ctx)
+	case l.metricMetadataStmt != nil:
+		l.metricMetadataStmt.visitLimit(ctx)
 	}
 }
 
@@ -251,8 +282,8 @@ func (l *listener) EnterTagFilterExpr(ctx *grammar.TagFilterExprContext) {
 	switch {
 	case l.queryStmt != nil:
 		l.queryStmt.visitTagFilterExpr(ctx)
-	case l.metaStmt != nil:
-		l.metaStmt.visitTagFilterExpr(ctx)
+	case l.metricMetadataStmt != nil:
+		l.metricMetadataStmt.visitTagFilterExpr(ctx)
 	}
 }
 
@@ -261,8 +292,8 @@ func (l *listener) ExitTagFilterExpr(_ *grammar.TagFilterExprContext) {
 	switch {
 	case l.queryStmt != nil:
 		l.queryStmt.completeTagFilterExpr()
-	case l.metaStmt != nil:
-		l.metaStmt.completeTagFilterExpr()
+	case l.metricMetadataStmt != nil:
+		l.metricMetadataStmt.completeTagFilterExpr()
 	}
 }
 
@@ -271,8 +302,8 @@ func (l *listener) EnterTagValue(ctx *grammar.TagValueContext) {
 	switch {
 	case l.queryStmt != nil:
 		l.queryStmt.visitTagValue(ctx)
-	case l.metaStmt != nil:
-		l.metaStmt.visitTagValue(ctx)
+	case l.metricMetadataStmt != nil:
+		l.metricMetadataStmt.visitTagValue(ctx)
 	}
 }
 
@@ -295,14 +326,16 @@ func (l *listener) statement() (stmt.Statement, error) {
 	switch {
 	case l.useStmt != nil:
 		return l.useStmt.build()
+	case l.metadataStmt != nil:
+		return l.metadataStmt.build()
 	case l.storageStmt != nil:
 		return l.storageStmt.build()
 	case l.schemasStmt != nil:
 		return l.schemasStmt.build()
 	case l.queryStmt != nil:
 		return l.queryStmt.build()
-	case l.metaStmt != nil:
-		return l.metaStmt.build()
+	case l.metricMetadataStmt != nil:
+		return l.metricMetadataStmt.build()
 	case l.stateStmt != nil:
 		return l.stateStmt.build()
 	default:

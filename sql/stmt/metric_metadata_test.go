@@ -31,7 +31,7 @@ func TestMetadataType_String(t *testing.T) {
 	assert.Equal(t, "field", Field.String())
 	assert.Equal(t, "tagKey", TagKey.String())
 	assert.Equal(t, "tagValue", TagValue.String())
-	assert.Equal(t, "unknown", MetadataType(0).String())
+	assert.Equal(t, "unknown", MetricMetadataType(0).String())
 }
 
 func TestMetadata_MarshalJSON(t *testing.T) {
@@ -70,4 +70,8 @@ func TestMetadata_Marshal_Fail(t *testing.T) {
 	assert.NotNil(t, err)
 	err = query.UnmarshalJSON([]byte("{\"condition\":\"123\"}"))
 	assert.NotNil(t, err)
+}
+
+func TestMetricMetadata_StatementType(t *testing.T) {
+	assert.Equal(t, MetricMetadataStatement, (&MetricMetadata{}).StatementType())
 }

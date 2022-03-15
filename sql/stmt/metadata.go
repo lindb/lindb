@@ -17,20 +17,28 @@
 
 package stmt
 
-type StatementType int
+// MetadataType represents metadata type.
+type MetadataType int
 
 const (
-	UseStatement StatementType = iota + 1
-	MetadataStatement
-	SchemaStatement
-	StorageStatement
-	StateStatement
-	MetricMetadataStatement
-	QueryStatement
+	// MetadataTypes represents all metadata types.
+	MetadataTypes MetadataType = iota + 1
+	// BrokerMetadata represent broker metadata.
+	BrokerMetadata
+	// MasterMetadata represent master metadata.
+	MasterMetadata
+	// StorageMetadata represent storage metadata.
+	StorageMetadata
 )
 
-// Statement represents LinDB query language statement
-type Statement interface {
-	// StatementType returns statement type.
-	StatementType() StatementType
+// Metadata represent show metadata lin query language.
+type Metadata struct {
+	MetadataType MetadataType
+	Type         string // broker/master/storage will be used.
+	StorageName  string // storage will be used.
+}
+
+// StatementType returns metadata lin query language statement type.
+func (m *Metadata) StatementType() StatementType {
+	return MetadataStatement
 }
