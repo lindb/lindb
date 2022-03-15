@@ -19,7 +19,6 @@ package command
 
 import (
 	"context"
-	"fmt"
 	"net/url"
 	"strings"
 	"sync"
@@ -27,6 +26,7 @@ import (
 	"github.com/go-resty/resty/v2"
 
 	"github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
@@ -52,10 +52,11 @@ func StateCommand(_ context.Context, deps *deps.HTTPDeps, _ *models.ExecuteParam
 		}
 		return fetchMetricData(nodes, stateStmt.MetricNames)
 	case stmtpkg.StorageMetric:
-		if strings.TrimSpace(stateStmt.StorageName) == "" {
-			return nil, fmt.Errorf("storage name cannot be empty")
+		storageName := strings.TrimSpace(stateStmt.StorageName)
+		if storageName == "" {
+			return nil, constants.ErrStorageNameRequired
 		}
-		storage, ok := deps.StateMgr.GetStorage(stateStmt.StorageName)
+		storage, ok := deps.StateMgr.GetStorage(storageName)
 		if !ok {
 			return nil, nil
 		}

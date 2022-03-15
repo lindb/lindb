@@ -60,4 +60,6 @@ var (
 	ErrStatefulNodeExist = errors.New("stateful node already register")
 	//ErrDatabaseNameRequired represents database not input.
 	ErrDatabaseNameRequired = errors.New("database name cannot be empty")
+	//ErrStorageNameRequired represents storage name not input.
+	ErrStorageNameRequired = errors.New("storage name cannot be empty")
 )
