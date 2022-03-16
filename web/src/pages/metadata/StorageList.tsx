@@ -26,40 +26,23 @@ import {
   IllustrationNoContentDark,
 } from "@douyinfe/semi-illustrations";
 import {
-  Badge,
   Button,
   Card,
   Descriptions,
   Empty,
-  Space,
+  Popconfirm,
   SplitButtonGroup,
   Table,
   Typography,
-  Popconfirm,
 } from "@douyinfe/semi-ui";
+import { StorageStatusView } from "@src/components";
 import { Route } from "@src/constants";
 import { Storage } from "@src/models";
 import { exec } from "@src/services";
-import React, { useCallback, useEffect, useState } from "react";
 import { URLStore } from "@src/stores";
+import React, { useCallback, useEffect, useState } from "react";
 
 const { Text } = Typography;
-const StorageStatus: React.FC<any> = ({ color, text }) => {
-  return (
-    <Space align="center">
-      <Badge
-        dot
-        style={{
-          width: 12,
-          height: 12,
-          marginTop: 4,
-          backgroundColor: `var(--semi-color-${color})`,
-        }}
-      />
-      <Text style={{ color: `var(--semi-color-${color})` }}> {text}</Text>
-    </Space>
-  );
-};
 const columns = [
   {
     title: "Name(Namespace)",
@@ -71,14 +54,7 @@ const columns = [
     dataIndex: "status",
     key: "status",
     render: (item: any) => {
-      switch (item) {
-        case "Ready":
-          return <StorageStatus color="success" text={item} />;
-        case "Initialize":
-          return <StorageStatus color="secondary" text={item} />;
-        default:
-          return <StorageStatus color="warning" text={item} />;
-      }
+      return <StorageStatusView text={item} showBadge={true} />;
     },
   },
   {

@@ -23,8 +23,13 @@ import (
 
 	"github.com/lindb/lindb/config"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 )
+
+func init() {
+	gin.SetMode(gin.ReleaseMode)
+}
 
 func TestNewHTTPServer(t *testing.T) {
 	s := NewServer(config.HTTP{Port: 9999}, true)

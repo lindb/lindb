@@ -16,21 +16,34 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
+// layout component
 export { default as Footer } from "@src/components/layout/Footer";
 export { default as Header } from "@src/components/layout/Header";
 export { default as SiderMenu } from "@src/components/layout/SiderMenu";
+
 export { default as TimePicker } from "@src/components/TimePicker";
-export { default as MasterView } from "@src/components/state/MasterView";
+
+// chart component
 export { default as CanvasChart } from "@src/components/chart/CanvasChart";
 export { default as ChartTooltip } from "@src/components/chart/ChartTooltip";
+export { default as Metric } from "@src/components/chart/Metric";
+
+// data component
 export { default as MetadataSelect } from "@src/components/data/MetadataSelect";
 export { default as VariatesSelect } from "@src/components/data/VariatesSelect";
-export { default as Metric } from "@src/components/chart/Metric";
 export { default as DashboardView } from "@src/components/data/DashboardView";
 export { default as ExplainResultView } from "@src/components/data/ExplainResultView";
+export { default as TagFilterSelect } from "@src/components/data/TagFilterSelect";
+export { default as TagValueSelect } from "@src/components/data/TagValueSelect";
+
+// state component
+export { default as MasterView } from "@src/components/state/MasterView";
 export { default as NodeView } from "@src/components/state/NodeView";
 export { default as StorageView } from "@src/components/state/StorageView";
 export { default as DiskUsageView } from "@src/components/state/DiskUsageView";
 export { default as CapacityView } from "@src/components/state/CapacityView";
 export { default as DatabaseView } from "@src/components/state/DatabaseView";
 export { default as ReplicaView } from "@src/components/state/ReplicaView";
+export { default as StorageStatusView } from "@src/components/state/StorageStatusView";
+export { default as MasterNodeView } from "@src/components/state/MasterNodeView";

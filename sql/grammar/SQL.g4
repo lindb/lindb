@@ -53,7 +53,7 @@ withTagKey           : ident ;
 namespace            : ident ;
 
 //data query plan
-queryStmt               : T_EXPLAIN? selectExpr (T_ON namespace)? fromClause whereClause? groupByClause? orderByClause? limitClause? T_WITH_VALUE?;
+queryStmt               : T_EXPLAIN? selectExpr fromClause (T_ON namespace)? whereClause? groupByClause? orderByClause? limitClause? T_WITH_VALUE?;
 selectExpr              : T_SELECT fields;
 //select fields
 fields                  : field ( T_COMMA field )* ;

@@ -22,12 +22,12 @@ import {
   IconHomeStroked,
 } from "@douyinfe/semi-icons";
 import { Breadcrumb, Button, Layout, Nav, Space } from "@douyinfe/semi-ui";
-import { RouteItem, routeMap } from "@src/configs";
-import React, { useEffect, useState } from "react";
 import { TimePicker } from "@src/components";
-import * as _ from "lodash-es";
-import { URLStore } from "@src/stores";
+import { RouteItem, routeMap } from "@src/configs";
 import { useWatchURLChange } from "@src/hooks";
+import { URLStore } from "@src/stores";
+import * as _ from "lodash-es";
+import React, { useState } from "react";
 const { Header: HeaderUI } = Layout;
 
 export default function Header() {

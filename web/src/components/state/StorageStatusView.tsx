@@ -16,24 +16,40 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { ChartTooltip } from "@src/components";
-import { Console, DataExplore } from "@src/pages";
-import { URLStore } from "@src/stores";
+
+import { Badge, Space, Typography } from "@douyinfe/semi-ui";
 import React from "react";
-import { Route, Switch, useHistory } from "react-router-dom";
 
-export default function App() {
-  const history = useHistory();
-  // register global history in URLStore, all history operators need use URLStore.
-  URLStore.setHistory(history);
+const { Text } = Typography;
 
+export default function StorageStatusView(props: {
+  text: string;
+  showBadge?: boolean;
+}) {
+  const { text, showBadge } = props;
+  let color = "warning";
+  switch (text) {
+    case "Ready":
+      color = "success";
+      break;
+    case "Initialize":
+      color = "secondary";
+      break;
+  }
   return (
-    <>
-      <Switch>
-        <Route path="/explore" component={DataExplore} />
-        <Route path="/" component={Console} />
-      </Switch>
-      <ChartTooltip />
-    </>
+    <Space align="center">
+      {showBadge && (
+        <Badge
+          dot
+          style={{
+            width: 12,
+            height: 12,
+            marginTop: 4,
+            backgroundColor: `var(--semi-color-${color})`,
+          }}
+        />
+      )}
+      <Text style={{ color: `var(--semi-color-${color})` }}> {text}</Text>
+    </Space>
   );
 }

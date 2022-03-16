@@ -38,7 +38,7 @@ class URLStore {
     });
   }
 
-  public setHistory(history: History) {
+  public setHistory(history: History | any) {
     if (this.history) {
       // history already register.
       return;

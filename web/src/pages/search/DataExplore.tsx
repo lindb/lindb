@@ -16,34 +16,117 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import React, { useEffect } from "react";
-import { Card, Form, Popover, Typography, Space } from "@douyinfe/semi-ui";
-import { MetadataSelect } from "@src/components";
 import { IconFilter, IconHistogram } from "@douyinfe/semi-icons";
+import {
+  Card,
+  Form,
+  Popover,
+  Space,
+  Typography,
+  SplitButtonGroup,
+  Button,
+} from "@douyinfe/semi-ui";
+import { CanvasChart, MetadataSelect, TagFilterSelect } from "@src/components";
+import { useWatchURLChange } from "@src/hooks";
+import { Target } from "@src/models";
 import { ChartStore, URLStore } from "@src/stores";
-import { CanvasChart } from "@src/components";
+import * as _ from "lodash-es";
+import queryString from "query-string";
+import React, { MutableRefObject, useEffect, useRef, useState } from "react";
+
 const { Text } = Typography;
+const chartId = "666666666666666666";
+
 export default function DataExplore() {
+  const formApi = useRef() as MutableRefObject<any>;
+  const [params, setParams] = useState<any>(URLStore.params);
+  const init = useRef() as MutableRefObject<boolean>;
+  const target = useRef() as MutableRefObject<Target>;
+  target.current = {
+    db: "",
+    ql: "",
+  };
+
+  const buildTarget = (paramsObj: any, init?: boolean) => {
+    target.current.db = _.get(paramsObj, "db", "");
+    target.current.ql = "";
+    const metric = _.get(paramsObj, "metric", "");
+    let fields = _.get(paramsObj, "field", []);
+    if (_.isArray(fields)) {
+      fields = _.map(fields, (item: string) => `'${item}'`);
+    } else {
+      fields = [fields];
+    }
+    if (!metric || !fields) {
+      return;
+    }
+    let groupBy = _.get(paramsObj, "groupBy", []);
+    let groupByClause = "";
+    if (_.isArray(groupByClause)) {
+      groupBy = _.map(groupBy, (item: string) => `'${item}'`);
+    } else {
+      groupBy = [groupBy];
+    }
+
+    if (groupBy.length > 0) {
+      groupByClause = ` group by ${_.join(groupBy, ",")}`;
+    }
+
+    const ns = _.get(paramsObj, "namespace", null);
+    let nsCluase = "";
+    if (ns) {
+      nsCluase = ` on '${ns}'`;
+    }
+    target.current.ql = `select ${_.join(
+      fields,
+      ","
+    )} from '${metric}'${nsCluase} ${groupByClause}`;
+
+    if (init) {
+      // init target using url params
+      // register chart config
+      ChartStore.register(chartId, {
+        targets: [target.current],
+      });
+    } else {
+      ChartStore.reRegister(chartId, {
+        targets: [target.current],
+      });
+    }
+
+    console.log("buildTarget", paramsObj, target.current);
+  };
+
+  useWatchURLChange(() => {
+    setParams(URLStore.params);
+    if (!init.current) {
+      init.current = true;
+    }
+    console.log("metric", URLStore.params.get("db"));
+  });
+
+  // useLayoutEffect(()=>{
+
+  // })
+
   useEffect(() => {
-    const chartId = "xxxxxxxx";
-    // register chart config
-    ChartStore.register(chartId, {
-      title: "CPU",
-      targets: [
-        {
-          db: "_internal",
-          ql: "explain select used_percent from lindb.monitor.system.disk_usage_stats",
-        },
-      ],
-    });
-    URLStore.forceChange(); // trigger url change
+    console.log(
+      "queryString.parse(URLStore.params.toString())",
+      URLStore.params.get("db"),
+      queryString.parse(URLStore.params.toString())
+    );
+    buildTarget(queryString.parse(URLStore.params.toString()), true);
+    URLStore.forceChange();
+    // ChartStore.register(chartId, {
+    //   targets: [target.current],
+    // });
     return () => {
       // unRegister chart config when component destroy.
       ChartStore.unRegister(chartId);
-      // console.log("unregister chart");
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
   return (
     <>
       <Card
@@ -51,14 +134,27 @@ export default function DataExplore() {
         style={{ marginBottom: 12 }}
         bodyStyle={{ padding: 12 }}
       >
-        <Form layout="horizontal">
+        <Form
+          style={{ paddingBottom: 0, paddingTop: 0 }}
+          wrapperCol={{ span: 20 }}
+          layout="horizontal"
+          getFormApi={(api: object) => {
+            formApi.current = api;
+          }}
+          onSubmit={(values: object) => {
+            console.log("set valuesssss...", values);
+            URLStore.changeURLParams({ params: values });
+            console.log("after", URLStore.params.get("db"));
+          }}
+        >
           <MetadataSelect
             variate={{ tagKey: "db", label: "Database", ql: "show databases" }}
             labelPosition="inset"
+            type="db"
           />
           <MetadataSelect
             variate={{
-              db: "_internal",
+              db: params.get("db"),
               tagKey: "namespace",
               label: "Namespace",
               ql: "show namespaces",
@@ -67,10 +163,14 @@ export default function DataExplore() {
           />
           <MetadataSelect
             variate={{
-              db: "_internal",
-              tagKey: "namespace",
+              db: params.get("db"),
+              namespace: params.get("namespace"),
+              tagKey: "metric",
               label: "Metrics",
               ql: "show metrics",
+              watch: {
+                clear: ["field", "groupBy"],
+              },
             }}
             labelPosition="inset"
           />
@@ -80,7 +180,7 @@ export default function DataExplore() {
         title={
           <Space align="center">
             <IconHistogram />
-            <Text strong>cpu.usage</Text>
+            <Text strong>{params.get("metric")}</Text>
           </Space>
         }
         headerStyle={{ padding: 12 }}
@@ -89,47 +189,52 @@ export default function DataExplore() {
         bodyStyle={{ padding: 12 }}
       >
         <Form
+          style={{ marginBottom: 4 }}
           layout="horizontal"
-          getFormApi={(api) => {
-            setTimeout(() => {
-              api.setValues({
-                groupBy: ["node", "role"],
-                field: ["sys", "steal"],
-              });
-            }, 1000);
+          onSubmit={(values: object) => {
+            buildTarget(_.merge(formApi.current.getValues(), values));
+            URLStore.changeURLParams({ params: values });
           }}
         >
-          <Form.Select
-            field="groupBy"
-            labelPosition="left"
-            label="Group By:"
+          <MetadataSelect
+            variate={{
+              db: params.get("db"),
+              namespace: params.get("namespace"),
+              tagKey: "field",
+              label: "Field",
+              ql: `show fields from '${params.get("metric")}'`,
+            }}
+            type="field"
+            labelPosition="inset"
             multiple
-            optionList={[
-              { value: "node", label: "Node" },
-              { value: "role", label: "role" },
-            ]}
           />
-          <Form.Slot labelPosition="left" label="Filter By:">
-            <div
-              style={{ display: "flex", alignItems: "center", height: "100%" }}
-            >
-              <Popover trigger="click" content={<></>}>
-                <IconFilter />
-              </Popover>
-            </div>
-          </Form.Slot>
-          <Form.Select
-            field="field"
-            labelPosition="left"
-            label="Field:"
+          <Form.Input
+            field="name"
+            label="Filter By"
+            trigger="blur"
+            style={{ width: 250 }}
+            initValue="Filter(0)"
+            labelPosition="inset"
+            suffix={
+              <TagFilterSelect
+                db={params.get("db")}
+                metric={params.get("metric")}
+              />
+            }
+          />
+          <MetadataSelect
+            variate={{
+              db: params.get("db"),
+              namespace: params.get("namespace"),
+              tagKey: "groupBy",
+              label: "Group By",
+              ql: `show tag keys from '${params.get("metric")}'`,
+            }}
+            labelPosition="inset"
             multiple
-            optionList={[
-              { value: "sys", label: "sys" },
-              { value: "steal", label: "steal" },
-            ]}
           />
         </Form>
-        <CanvasChart chartId="xxxxxxxx" />
+        <CanvasChart chartId={chartId} />
       </Card>
     </>
   );

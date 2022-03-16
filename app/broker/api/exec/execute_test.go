@@ -709,11 +709,11 @@ func TestExecuteAPI_Execute(t *testing.T) {
 		},
 		{
 			name:    "show broker metadata, get live node successfully",
-			reqBody: `{"sql":"show broker metadata where type=LiveNode"}`,
+			reqBody: `{"sql":"show broker metadata where type=DatabaseConfig"}`,
 			prepare: func() {
 				repo.EXPECT().WalkEntry(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(ctx context.Context, prefix string, fn func(key, value []byte)) error {
-						fn([]byte("key"), encoding.JSONMarshal(&models.StatelessNode{HostIP: "1.1.1.1"}))
+						fn([]byte("key"), encoding.JSONMarshal(&models.Database{Name: "1.1.1.1"}))
 						return nil
 					})
 			},
