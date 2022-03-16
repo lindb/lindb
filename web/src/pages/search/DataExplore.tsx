@@ -67,9 +67,10 @@ export default function DataExplore() {
     } else {
       groupBy = [groupBy];
     }
+    const groupByStr = _.join(groupBy, ",");
 
-    if (groupBy.length > 0) {
-      groupByClause = ` group by ${_.join(groupBy, ",")}`;
+    if (groupByStr) {
+      groupByClause = ` group by ${groupByStr}`;
     }
 
     const ns = _.get(paramsObj, "namespace", null);
