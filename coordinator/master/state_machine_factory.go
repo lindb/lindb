@@ -46,7 +46,7 @@ func init() {
 		},
 	}
 	StateMachinePaths["StorageConfig"] = models.StateMachineInfo{
-		Path: constants.StorageStatePath,
+		Path: constants.StorageConfigPath,
 		CreateState: func() interface{} {
 			return &config.StorageCluster{}
 		},

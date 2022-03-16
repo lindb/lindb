@@ -16,25 +16,57 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { Card, Col, Row, Tree } from "@douyinfe/semi-ui";
+import { IconHelpCircleStroked, IconSourceControl } from "@douyinfe/semi-icons";
+import {
+  Button,
+  Card,
+  Col,
+  Row,
+  SplitButtonGroup,
+  Tooltip,
+  Tree,
+} from "@douyinfe/semi-ui";
+import Editor from "@monaco-editor/react";
+import { StorageStatusView } from "@src/components";
 import { StateRoleName } from "@src/constants";
+import { Storage } from "@src/models";
 import { exec } from "@src/services";
 import * as _ from "lodash-es";
-import React, { useEffect, useState } from "react";
+import React, { ReactNode, useEffect, useState } from "react";
 
-export default function Explore() {
+type Node = {
+  role: string;
+  type: string;
+  storage?: string;
+};
+
+type TreeNode = {
+  label: string | ReactNode;
+  value: string;
+  key: string;
+  parent: StateRoleName;
+  children: any[];
+};
+
+export default function MetadataExplore() {
   const [root, setRoot] = useState<any[]>([]);
   const [loadedKeys, setLoadedKeys] = useState<any[]>([]);
-  const getItems = (parent: string, obj: any) => {
+  const [metadata, setMetadata] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const getItems = (
+    parent: string,
+    role: string,
+    obj: any,
+    storage?: string
+  ) => {
     const keys = _.keys(obj);
     const rs: any[] = [];
     _.forEach(keys, (k) =>
       rs.push({
         label: k,
-        value: k,
+        value: { role: role, type: k, storage: storage },
         key: `${parent}-${k}`,
         parent: parent,
-        data: _.get(obj, k, {}),
       })
     );
     return rs;
@@ -42,33 +74,71 @@ export default function Explore() {
   useEffect(() => {
     const fetchMetadata = async () => {
       const metadata = await exec<any>({ sql: "show metadata types" });
+      const storages = await exec<Storage[]>({ sql: "show storages" });
       const keys = _.keys(metadata);
+      _.sortBy(keys);
       const root: any[] = [];
       const loadedKeys: any[] = [];
       _.forEach(keys, (key) => {
-        if (key !== StateRoleName.Storage) {
-          const data = _.get(metadata, key, {});
-          loadedKeys.push(key);
+        const data = _.get(metadata, key, {});
+        loadedKeys.push(key);
+        if (key === StateRoleName.Storage) {
+          const storageNodes: TreeNode[] = [];
+          _.forEach(storages || [], (storage: any) => {
+            const namespace = storage.config.namespace;
+            const storageKey = `${key}-${namespace}`;
+            const storageTypes = getItems(storageKey, key, data, namespace);
+            storageNodes.push({
+              label: (
+                <>
+                  {namespace} (<StorageStatusView text={storage.status} />)
+                </>
+              ),
+              value: namespace,
+              key: storageKey,
+              parent: key,
+              children: storageTypes,
+            });
+          });
           root.push({
             label: key,
             value: key,
             key: key,
-            data: data,
-            children: getItems(key, data),
+            children: storageNodes,
+          });
+        } else {
+          root.push({
+            label: key,
+            value: key,
+            key: key,
+            children: getItems(key, key, data),
           });
         }
       });
+      setLoadedKeys(loadedKeys);
       setRoot(root);
     };
     fetchMetadata();
   }, []);
 
-  const loadMetadata = async (node: any) => {
-    console.log("load...", node);
-    if (node.children) {
-      return;
+  const loadMetadata = async (node: Node) => {
+    try {
+      setLoading(true);
+      let storageClause = "";
+      if (node.storage) {
+        storageClause = ` and storage='${node.storage}'`;
+      }
+      const metadata = await exec<any>({
+        sql: `show ${node.role} metadata where type='${node.type}'${storageClause}`,
+      });
+      setMetadata({
+        type: node.type,
+        data: metadata,
+        node: node,
+      });
+    } finally {
+      setLoading(false);
     }
-    await exec<any>({ sql: `show broker metadata where type='${node.value}'` });
   };
 
   const renderLabel: React.FC<any> = ({
@@ -79,11 +149,11 @@ export default function Explore() {
     expandIcon,
   }) => {
     const { label } = data;
-    const isLeaf = !(data.children && data.children.length);
+    let isLeaf = !(data.children && data.children.length);
     return (
       <li
         className={className}
-        role="treenode"
+        role="treeitem"
         onClick={isLeaf ? onClick : onExpand}
       >
         {isLeaf ? null : expandIcon}
@@ -103,20 +173,39 @@ export default function Explore() {
         <Col span={8}>
           <Card bordered={true}>
             <Tree
-              //   directory
-              // blockNode
-              // expandedKeys={loadedKeys}
               loadedKeys={loadedKeys}
-              loadData={loadMetadata}
               treeData={root}
-              // renderFullLabel={renderLabel}
+              renderFullLabel={renderLabel}
               style={treeStyle}
-              onChange={(...args) => console.log("change", ...args)}
+              onChange={(args: any) => loadMetadata(args as Node)}
             />
           </Card>
         </Col>
         <Col span={16}>
-          <Card bordered={false}>content</Card>
+          <SplitButtonGroup style={{ marginBottom: 8 }}>
+            <Button icon={<IconSourceControl />}>Compare</Button>
+            <Tooltip content="Compare with state matchine">
+              <Button icon={<IconHelpCircleStroked />} />
+            </Tooltip>
+          </SplitButtonGroup>
+          <Card style={treeStyle} bordered={false}>
+            <Editor
+              theme="vs-dark"
+              height="90vh"
+              defaultLanguage="json"
+              options={{
+                readOnly: true,
+                minimap: { enabled: false },
+                lineNumbersMinChars: 2,
+              }}
+              value={JSON.stringify(
+                _.get(metadata, "data", "no data"),
+                null,
+                "\t"
+              )}
+              loading={loading}
+            />
+          </Card>
         </Col>
       </Row>
     </>

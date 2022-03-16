@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
@@ -61,6 +62,10 @@ var cfg = config.Broker{
 			Port: 2881,
 		},
 	}}
+
+func init() {
+	gin.SetMode(gin.ReleaseMode)
+}
 
 func TestBrokerRuntime_New(t *testing.T) {
 	defer func() {

@@ -55,7 +55,7 @@ export default function DataSearch() {
       >
         <Form style={{ paddingTop: 0, paddingBottom: 0 }}>
           <MetadataSelect
-            isStringArray={true}
+            type="db"
             variate={{ tagKey: "db", label: "Database", ql: "show databases" }}
             labelPosition="left"
           />

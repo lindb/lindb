@@ -22,6 +22,7 @@ export type Master = {
 };
 
 export type Node = {
+  id?: number;
   hostIp?: string;
   hostName?: string;
   grpcPort?: number;

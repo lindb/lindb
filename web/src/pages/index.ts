@@ -24,7 +24,7 @@ export { default as StorageList } from "@src/pages/metadata/StorageList";
 export { default as StorageConfig } from "@src/pages/metadata/StorageConfig";
 export { default as DatabaseList } from "@src/pages/metadata/DatabaseList";
 export { default as DatabaseConfig } from "@src/pages/metadata/DatabaseConfig";
-export { default as Explore } from "@src/pages/metadata/Explore";
+export { default as MetadataExplore } from "@src/pages/metadata/Explore";
 export { default as StorageOverview } from "@src/pages/state/StorageOverview";
 export { default as DatabaseOverview } from "@src/pages/state/DatabaseOverview";
 export { default as ConfigurationView } from "@src/pages/state/ConfigurationView";
