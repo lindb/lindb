@@ -76,7 +76,7 @@ const MetadataSelect: React.FC<MetadataSelectProps> = (
     }
     setLoading(true);
     try {
-      let showTagValuesSQL = variate.ql;
+      let showTagValuesSQL = variate.sql;
 
       if (where.current) {
         showTagValuesSQL += where.current;

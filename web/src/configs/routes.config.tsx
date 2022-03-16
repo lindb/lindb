@@ -25,6 +25,7 @@ import {
   IconTemplate,
   IconListView,
   IconServerStroked,
+  IconAppCenter,
 } from "@douyinfe/semi-icons";
 import {
   StorageList,
@@ -96,7 +97,7 @@ export const routes = [
   {
     text: "Explore",
     path: Route.Explore,
-    icon: <IconSearch size="large" />,
+    icon: <IconAppCenter size="large" />,
     content: <DataExplore />,
   },
   {

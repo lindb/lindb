@@ -16,7 +16,13 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { ChartConfig, ChartStatus, ResultSet, Target } from "@src/models";
+import {
+  ChartConfig,
+  ChartStatus,
+  ResultSet,
+  Target,
+  QueryStatement,
+} from "@src/models";
 import { exec } from "@src/services";
 import { URLStore } from "@src/stores";
 import { buildLineChart } from "@src/utils";
@@ -84,6 +90,10 @@ class ChartStore {
     this.chartStatusMap.set(chartUniqueId, status);
   }
 
+  public getChartConfig(chartUniqueId: string) {
+    return this.charts.get(chartUniqueId);
+  }
+
   private load(forceLoad?: boolean) {
     setTimeout(() => {
       this.chartStatusMap.forEach((_v: ChartStatus, uniqueId: string) => {
@@ -104,16 +114,25 @@ class ChartStore {
     // console.log("chart", toJS(chart));
     _.get(chart, "targets", []).forEach((target: Target, _index: number) => {
       console.log("chart store", target);
-      const db = _.get(target, "db", "");
-      const sql = _.get(target, "ql", "");
-      if (sql === "" || db === "") {
+      const db = target.bind
+        ? URLStore.params.get("db") || ""
+        : _.get(target, "db", "");
+      const sql = _.get(target, "sql", "");
+      let targetSQL = "";
+      if (_.isString(sql)) {
+        targetSQL = this.buildSQL(sql, _.get(target, "watch", []));
+      } else {
+        targetSQL = URLStore.bindSQL(sql as QueryStatement);
+      }
+      if (targetSQL === "" || db === "") {
+        console.log("sql or db is empty");
         this.seriesCache.delete(chartUniqueId);
         this.setChartStatus(chartUniqueId, ChartStatus.Empty);
         return;
       }
       exec<ResultSet>({
         db: db,
-        sql: this.buildQL(sql, _.get(target, "watch", [])),
+        sql: targetSQL,
       })
         .then((response) => {
           const series: ResultSet | undefined = response;
@@ -140,7 +159,7 @@ class ChartStore {
     });
   }
 
-  private buildQL(ql: string | undefined, cascade: string[]) {
+  private buildSQL(ql: string | undefined, cascade: string[]) {
     if (ql === undefined) {
       return "";
     }

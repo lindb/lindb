@@ -16,54 +16,14 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import React, { useEffect, useState } from "react";
-import { ChartStore, URLStore } from "@src/stores";
+
+import { IconHistogram } from "@douyinfe/semi-icons";
+import { Card, Space, Typography } from "@douyinfe/semi-ui";
+import { CanvasChart, MetricStatus } from "@src/components";
 import { ChartConfig } from "@src/models";
-import { CanvasChart } from "@src/components";
-import { Card, Space, Typography, Tooltip } from "@douyinfe/semi-ui";
-import { IconHistogram, IconSpin, IconUploadError } from "@douyinfe/semi-icons";
-import { reaction } from "mobx";
-import { ChartStatus } from "@src/models";
+import { ChartStore, URLStore } from "@src/stores";
+import React, { useEffect } from "react";
 const { Text } = Typography;
-
-/**
- *  Render metric chart render status.
- *
- * @param props chartId which need watch
- */
-const MetricStatus = (props: { chartId: string }) => {
-  const { chartId } = props;
-  const [status, setStatus] = useState(ChartStatus.Init);
-  useEffect(() => {
-    const disposer = [
-      reaction(
-        () => ChartStore.chartStatusMap.get(chartId),
-        (s: ChartStatus | undefined) => {
-          // watch chart status, if change set state.
-          if (s) {
-            setStatus(s);
-          }
-        }
-      ),
-    ];
-    return () => {
-      disposer.forEach((d) => d());
-    };
-  }, [chartId]);
-
-  switch (status) {
-    case ChartStatus.Loading:
-      return <IconSpin spin style={{ color: "var(--semi-color-primary)" }} />;
-    case ChartStatus.Error:
-      return (
-        <Tooltip position="left" content={ChartStore.chartErrMap.get(chartId)}>
-          <IconUploadError style={{ color: "var(--semi-color-danger)" }} />
-        </Tooltip>
-      );
-    default:
-      return <></>;
-  }
-};
 
 interface MetricProps {
   chartId: string;

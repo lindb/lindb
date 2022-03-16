@@ -79,7 +79,12 @@ export default function SiderMenu(props: SiderMenuProps) {
           });
         }}
         header={{
-          logo: <img src={Logo} style={{ width: 48, height: 48 }} />,
+          logo: (
+            <img
+              src={Logo}
+              style={{ width: 48, height: 48, marginLeft: 8, marginRight: 8 }}
+            />
+          ),
           text: (
             <Space align="end">
               <div
@@ -93,9 +98,6 @@ export default function SiderMenu(props: SiderMenuProps) {
               >
                 LinDB
               </div>
-              <Tag type="light" color="yellow" size="small">
-                v0.1
-              </Tag>
             </Space>
           ),
           style: { paddingTop: 12, paddingBottom: 12, paddingLeft: 2 },

@@ -16,7 +16,8 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-export * from "@src/constants/api.constants";
-export * from "@src/constants/route.constants";
-export * from "@src/constants/name.constants";
-export * from "@src/constants/sql.constants";
+export enum SQL {
+  ShowDatabases = "show databases",
+  ShowBrokerAliveNodes = "show broker alive",
+  ShowStorageAliveNodes = "show storage alive",
+}

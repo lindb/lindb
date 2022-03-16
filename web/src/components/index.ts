@@ -28,6 +28,7 @@ export { default as TimePicker } from "@src/components/TimePicker";
 export { default as CanvasChart } from "@src/components/chart/CanvasChart";
 export { default as ChartTooltip } from "@src/components/chart/ChartTooltip";
 export { default as Metric } from "@src/components/chart/Metric";
+export { default as MetricStatus } from "@src/components/chart/MetricStatus";
 
 // data component
 export { default as MetadataSelect } from "@src/components/data/MetadataSelect";
