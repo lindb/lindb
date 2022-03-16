@@ -26,7 +26,7 @@ export const SystemDashboard: Dashboard = {
       tagKey: "role",
       label: "Role",
       db: MonitoringDB,
-      ql: "show tag values from 'lindb.monitor.system.cpu_stat' with key=role",
+      sql: "show tag values from 'lindb.monitor.system.cpu_stat' with key=role",
       watch: { clear: ["node"] },
     },
     {
@@ -35,7 +35,7 @@ export const SystemDashboard: Dashboard = {
       watch: { cascade: ["role"] },
       db: MonitoringDB,
       multiple: true,
-      ql: "show tag values from 'lindb.monitor.system.cpu_stat' with key=node",
+      sql: "show tag values from 'lindb.monitor.system.cpu_stat' with key=node",
     },
   ],
   rows: [
@@ -48,7 +48,7 @@ export const SystemDashboard: Dashboard = {
             targets: [
               {
                 db: MonitoringDB,
-                ql: "select 100-idle*100 as used_percent from lindb.monitor.system.cpu_stat group by node",
+                sql: "select 100-idle*100 as used_percent from lindb.monitor.system.cpu_stat group by node",
                 watch: ["node", "role"],
               },
             ],
@@ -62,7 +62,7 @@ export const SystemDashboard: Dashboard = {
             targets: [
               {
                 db: MonitoringDB,
-                ql: "select used_percent from lindb.monitor.system.mem_stat group by node",
+                sql: "select used_percent from lindb.monitor.system.mem_stat group by node",
                 watch: ["node", "role"],
               },
             ],

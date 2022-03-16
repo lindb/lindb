@@ -16,13 +16,13 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { StateRoleName } from "@src/constants";
+import { SQL } from "@src/constants";
 import { useAliveState } from "@src/hooks";
 import { StorageState } from "@src/models";
 import * as _ from "lodash-es";
 import { useEffect, useState } from "react";
 
-const aliveStorage = "show alive storage";
+const aliveStorage = SQL.ShowStorageAliveNodes;
 
 export function useStorage(name?: string) {
   const [storages, setStorages] = useState<StorageState[]>();

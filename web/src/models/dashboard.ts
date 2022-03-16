@@ -32,7 +32,7 @@ export type Dashboard = {
 export type Variate = {
   db?: string;
   namespace?: string;
-  ql: string;
+  sql: string;
   tagKey: string;
   label: string;
   multiple?: boolean;

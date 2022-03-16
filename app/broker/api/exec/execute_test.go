@@ -501,7 +501,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 		},
 		{
 			name:    "show broker alive node",
-			reqBody: `{"sql":"show alive broker"}`,
+			reqBody: `{"sql":"show broker alive"}`,
 			prepare: func() {
 				stateMgr.EXPECT().GetLiveNodes().Return([]models.StatelessNode{{
 					HostIP:   "1.1.1.1",
@@ -514,7 +514,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 		},
 		{
 			name:    "show storage alive node",
-			reqBody: `{"sql":"show alive storage"}`,
+			reqBody: `{"sql":"show storage alive"}`,
 			prepare: func() {
 				stateMgr.EXPECT().GetStorageList().Return([]*models.StorageState{})
 			},

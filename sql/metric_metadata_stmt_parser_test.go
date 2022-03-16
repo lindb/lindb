@@ -69,7 +69,7 @@ func TestMetaStmt_ShowMetrics(t *testing.T) {
 }
 
 func TestMetaStmt_ShowFields(t *testing.T) {
-	sql := "show fields on 'ns' from 'cpu' "
+	sql := "show fields from 'cpu' on 'ns'"
 	q, err := Parse(sql)
 	query := q.(*stmt.MetricMetadata)
 	assert.Nil(t, err)
@@ -79,7 +79,7 @@ func TestMetaStmt_ShowFields(t *testing.T) {
 }
 
 func TestMetaStmt_ShowTagKeys(t *testing.T) {
-	sql := "show tag keys on 'ns' from 'cpu' "
+	sql := "show tag keys from 'cpu' on 'ns'"
 	q, err := Parse(sql)
 	query := q.(*stmt.MetricMetadata)
 	assert.Nil(t, err)
@@ -89,7 +89,7 @@ func TestMetaStmt_ShowTagKeys(t *testing.T) {
 }
 
 func TestMetaStmt_ShowTagValues(t *testing.T) {
-	sql := "show tag values on 'ns' from 'cpu' with key = 'key1' where key1='value1' and key2='value2' limit 10"
+	sql := "show tag values from 'cpu' on 'ns' with key = 'key1' where key1='value1' and key2='value2' limit 10"
 	q, err := Parse(sql)
 	query := q.(*stmt.MetricMetadata)
 	assert.Nil(t, err)
