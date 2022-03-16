@@ -127,7 +127,7 @@ func (s *segment) getDataFamilies(timeRange timeutil.TimeRange) []DataFamily {
 		End:   calc.CalcFamilyStartTime(s.baseTime, calc.CalcFamily(timeRange.End, s.baseTime)),
 	}
 	s.mutex.RLock()
-	defer s.mutex.RLock()
+	defer s.mutex.RUnlock()
 	for _, family := range s.families {
 		timeRange := family.TimeRange()
 		if familyQueryTimeRange.Overlap(timeRange) {
