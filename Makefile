@@ -34,8 +34,7 @@ GOMOCK_VERSION = "v1.5.0"
 
 
 gomock: ## go generate mock file.
-	go get "github.com/golang/mock/mockgen@$(GOMOCK_VERSION)"
-	go install "github.com/golang/mock/mockgen"
+	go install "github.com/golang/mock/mockgen@$(GOMOCK_VERSION)"
 	go list ./... |grep -v '/gomock' | xargs go generate -v
 
 header: ## check and add license header.
@@ -48,7 +47,7 @@ lint: ## run lint
 	./bin/golangci-lint run
 
 test-without-lint: ## Run test without lint
-	go install github.com/rakyll/gotest
+	go install "github.com/rakyll/gotest@v0.0.6"
 	GIN_MODE=release
 	LOG_LEVEL=fatal ## disable log for test
 	gotest -v -race -coverprofile=coverage.out -covermode=atomic ./...
@@ -56,7 +55,7 @@ test-without-lint: ## Run test without lint
 test: header lint test-without-lint ## Run test cases.
 
 e2e-test:
-	go install github.com/rakyll/gotest
+	go install "github.com/rakyll/gotest@v0.0.6"
 	GIN_MODE=release
 	LOG_LEVEL=fatal ## disable log for test
 	gotest -v --tags=integration -race -coverprofile=coverage.out -covermode=atomic ./e2e/...
