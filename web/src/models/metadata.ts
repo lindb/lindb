@@ -17,7 +17,6 @@ specific language governing permissions and limitations
 under the License.
 */
 export type Storage = {
-  name: string;
   config: {
     namespace: string;
     endpoints: string[];

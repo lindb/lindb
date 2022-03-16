@@ -20,7 +20,6 @@ package metadb
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"io"
 	"path"
 
@@ -251,8 +250,9 @@ func (mb *metadataBackend) suggestMetricName(namespace, prefix string, limit int
 	if err != nil {
 		return
 	}
+	nsLen := len(namespaceVal)
 	for _, val := range values {
-		metricNames = append(metricNames, string(val))
+		metricNames = append(metricNames, string(val[nsLen:]))
 	}
 	return
 }
@@ -282,7 +282,7 @@ func (mb *metadataBackend) getMetricID(namespace string, metricName string) (met
 		return
 	}
 	metricID = metric.ID(binary.LittleEndian.Uint32(metricVal))
-	fmt.Printf("metric: %s, %s, %d", namespace, metricName, metricID)
+	//TODO too many query for one query????
 	return
 }
 

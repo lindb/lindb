@@ -64,6 +64,12 @@ class ChartStore {
     }
   }
 
+  reRegister(chartUniqueId: string, chart: ChartConfig) {
+    if (chart) {
+      this.charts.set(chartUniqueId, chart);
+    }
+  }
+
   unRegister(chartUniqueId: string) {
     this.charts.delete(chartUniqueId);
     this.seriesCache.delete(chartUniqueId);
@@ -97,9 +103,17 @@ class ChartStore {
     const chart = this.charts.get(chartUniqueId);
     // console.log("chart", toJS(chart));
     _.get(chart, "targets", []).forEach((target: Target, _index: number) => {
+      console.log("chart store", target);
+      const db = _.get(target, "db", "");
+      const sql = _.get(target, "ql", "");
+      if (sql === "" || db === "") {
+        this.seriesCache.delete(chartUniqueId);
+        this.setChartStatus(chartUniqueId, ChartStatus.Empty);
+        return;
+      }
       exec<ResultSet>({
-        db: target!.db,
-        sql: this.buildQL(target.ql, _.get(target, "watch", [])),
+        db: db,
+        sql: this.buildQL(sql, _.get(target, "watch", [])),
       })
         .then((response) => {
           const series: ResultSet | undefined = response;

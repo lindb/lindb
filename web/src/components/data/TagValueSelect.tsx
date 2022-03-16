@@ -16,7 +16,8 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { Form, Notification, useFormApi } from "@douyinfe/semi-ui";
+import { Form, Notification, useFormApi, Select } from "@douyinfe/semi-ui";
+import { IconAppCenter } from "@douyinfe/semi-icons";
 import { useWatchURLChange } from "@src/hooks";
 import { Metadata, Variate } from "@src/models";
 import { exec } from "@src/services";
@@ -26,16 +27,14 @@ import React, { MutableRefObject, useRef, useState } from "react";
 
 interface MetadataSelectProps {
   labelPosition?: "top" | "left" | "inset";
-  multiple?: boolean;
-  type?: "db" | "namespace" | "metric" | "field" | "tagKey" | "tagValue";
   variate: Variate;
   placeholder?: string;
   style?: React.CSSProperties;
 }
-const MetadataSelect: React.FC<MetadataSelectProps> = (
+const TagValueSelect: React.FC<MetadataSelectProps> = (
   props: MetadataSelectProps
 ) => {
-  const { variate, placeholder, labelPosition, multiple, type, style } = props;
+  const { variate, placeholder, labelPosition, style } = props;
   const [optionList, setOptionList] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const oldVariate = useRef() as MutableRefObject<Variate>;
@@ -60,13 +59,54 @@ const MetadataSelect: React.FC<MetadataSelectProps> = (
       formApi.setValue(field, null);
     } else {
       where.current = whereClause;
-      const value = multiple
-        ? URLStore.params.getAll(field)
-        : URLStore.params.get(field);
+      const value = URLStore.params.getAll(field);
       // set select value of url params changed
       formApi.setValue(field, value);
     }
   });
+  const triggerRender = (props: { value: any }) => {
+    const { value } = props;
+    return (
+      <div
+        style={{
+          minWidth: "112",
+          backgroundColor: "var(--semi-color-fill-0)",
+          height: 32,
+          display: "flex",
+          alignItems: "center",
+          borderRadius: "var(--semi-border-radius-small)",
+          border: "1px solid transparent",
+          paddingLeft: 12,
+          // borderRadius: 3,
+          color: "var(--semi-color-text-2)",
+        }}
+      >
+        <div
+          style={{
+            fontWeight: 600,
+            flexShrink: 0,
+            fontSize: 14,
+            color: "var(--semi-color-secondary)",
+          }}
+        >
+          {variate.label}
+        </div>
+        <div
+          style={{
+            margin: 4,
+            color: "var(--semi-color-text-2)",
+            whiteSpace: "nowrap",
+            textOverflow: "ellipsis",
+            flexGrow: 1,
+            overflow: "hidden",
+          }}
+        >
+          {value.map((item) => item.label).join(" , ")}
+        </div>
+        <IconAppCenter style={{ marginRight: 8, flexShrink: 0 }} />
+      </div>
+    );
+  };
 
   const findMetadata = async () => {
     console.log("find...", variate.tagKey, loaded.current);
@@ -86,29 +126,17 @@ const MetadataSelect: React.FC<MetadataSelectProps> = (
         sql: showTagValuesSQL,
         db: variate.db,
       });
-      var values: string[];
-      if (type === "db") {
-        values = metadata as string[];
-      } else {
-        values = (metadata as Metadata).values;
-      }
+      const values = (metadata as Metadata).values;
       const optionList: any[] = [];
       (values || []).map((item: any) => {
-        if (type === "field") {
-          optionList.push({
-            label: `${item.name}(${item.type})`,
-            value: item.name,
-          });
-        } else {
-          optionList.push({ value: item, label: item });
-        }
+        optionList.push({ value: item, label: item });
       });
       setOptionList(optionList);
       loaded.current = true; // set tag values alread loaded
       oldVariate.current = variate;
     } catch (err) {
       Notification.error({
-        title: "Fetch metadata values error",
+        title: "Fetch tag values error",
         content: _.get(err, "response.data", "Unknown internal error"),
         position: "top",
         duration: 5,
@@ -122,19 +150,19 @@ const MetadataSelect: React.FC<MetadataSelectProps> = (
     clear.forEach((key: string) => {
       formApi.setValue(key, null);
     });
-    formApi.submitForm(); //trigger form submit, after use selected
+    // formApi.submitForm(); //trigger form submit, after use selected
   };
   return (
     <>
       <Form.Select
         style={style}
-        multiple={multiple}
+        multiple
         field={variate.tagKey}
         placeholder={placeholder}
         optionList={optionList}
         labelPosition={labelPosition}
-        label={variate.label}
         showClear
+        triggerRender={triggerRender}
         filter
         onBlur={handleAfterSelect}
         onClear={handleAfterSelect}
@@ -153,4 +181,4 @@ const MetadataSelect: React.FC<MetadataSelectProps> = (
   );
 };
 
-export default MetadataSelect;
+export default TagValueSelect;

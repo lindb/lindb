@@ -16,10 +16,10 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { NodeView, MasterView, StorageView } from "@src/components";
+import { MasterView, NodeView, StorageView } from "@src/components";
+import { StateMetricName } from "@src/constants";
+import { useAliveState, useStorage } from "@src/hooks";
 import React from "react";
-import { useStorage, useAliveState } from "@src/hooks";
-import { StateMetricName, StateRoleName } from "@src/constants";
 
 // must define outside function component, if defie in component maybe endless loop.
 const brokerAlive = "show alive broker";

@@ -287,7 +287,7 @@ func TestMetadataBackend_suggestMetricName(t *testing.T) {
 			prepare: func(ns, metric *unique.MockIDStore) {
 				ns.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3, 4}, true, nil)
 				metric.EXPECT().IterKeys(gomock.Any(), gomock.Any()).
-					Return([][]byte{[]byte("name")}, nil)
+					Return([][]byte{[]byte("1234name")}, nil)
 			},
 			out: struct {
 				metricNames []string

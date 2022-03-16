@@ -51,7 +51,7 @@ func TestQueryStmt_validation(t *testing.T) {
 }
 
 func TestQueryStmt_Namespace(t *testing.T) {
-	sql := "select f on 'ns' from cpu where host='1.1.1.1'"
+	sql := "select f from cpu on 'ns' where host='1.1.1.1'"
 	q, err := Parse(sql)
 	query := q.(*stmt.Query)
 	assert.Nil(t, err)

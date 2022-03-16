@@ -16,12 +16,11 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import React, { useEffect, useCallback, useState } from "react";
-import { exec } from "@src/services";
+import { Card } from "@douyinfe/semi-ui";
+import { MasterNodeView } from "@src/components";
 import { Master } from "@src/models";
-import { Card, Descriptions, Typography } from "@douyinfe/semi-ui";
-import moment from "moment";
-const { Text } = Typography;
+import { exec } from "@src/services";
+import React, { useCallback, useEffect, useState } from "react";
 
 export default function MasterView() {
   const [master, setMaster] = useState<Master>();
@@ -51,34 +50,7 @@ export default function MasterView() {
         bodyStyle={{ padding: 12 }}
         loading={loading}
       >
-        <Descriptions
-          row
-          size="small"
-          data={[
-            {
-              key: "Elect Time",
-              value: (
-                <Text link>
-                  {master?.electTime &&
-                    moment(master?.electTime).format("YYYY-MM-DD HH:mm:ss")}
-                </Text>
-              ),
-            },
-            { key: "Host IP", value: <Text link>{master?.node?.hostIp}</Text> },
-            {
-              key: "Host Name",
-              value: <Text link>{master?.node?.hostName}</Text>,
-            },
-            {
-              key: "GRPC Port",
-              value: <Text link>{master?.node?.grpcPort}</Text>,
-            },
-            {
-              key: "HTTP Port",
-              value: <Text link>{master?.node?.httpPort}</Text>,
-            },
-          ]}
-        />
+        <MasterNodeView master={master} />
       </Card>
     </>
   );
