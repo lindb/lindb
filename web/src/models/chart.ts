@@ -65,7 +65,16 @@ export enum UnitEnum {
 }
 
 export type Target = {
-  db: string;
-  ql: string;
+  db?: string;
+  sql: string | QueryStatement;
+  bind?: boolean;
   watch?: string[];
+};
+
+export type QueryStatement = {
+  namespace?: string;
+  metric?: string;
+  field?: string[];
+  tags?: Object;
+  groupBy?: string[];
 };

@@ -19,6 +19,7 @@ under the License.
 import { makeObservable, observable, action } from "mobx";
 import * as _ from "lodash-es";
 import { History } from "history";
+import { QueryStatement } from "@src/models";
 
 class URLStore {
   public changed: boolean = false;
@@ -100,8 +101,9 @@ class URLStore {
     needDelete?: string[];
     clearAll?: boolean;
     clearTime?: boolean;
+    forceChange?: boolean;
   }): void {
-    const { params, needDelete, clearAll, clearTime, path } = p;
+    const { params, needDelete, clearAll, clearTime, path, forceChange } = p;
     const { hash } = window.location;
     const oldSearchParams = this.getSearchParams();
     const searchParams = clearAll
@@ -136,6 +138,10 @@ class URLStore {
       this.history?.push(
         `${path ? path : pathname}${paramsStr && `?${paramsStr}`}`
       );
+    }
+
+    if (forceChange) {
+      this.forceChange();
     }
   }
   applyURLChange(): void {
@@ -176,6 +182,44 @@ class URLStore {
         }
       }
     }
+  }
+
+  bindSQL(stmt: QueryStatement): string {
+    stmt.metric = this.params.get("metric") || "";
+    stmt.namespace = this.params.get("namespace") || "";
+    stmt.field = this.params.getAll("field") || [];
+    stmt.groupBy = this.params.getAll("groupBy") || [];
+    stmt.tags = JSON.parse(this.params.get("tags") || "{}");
+    if (_.isEmpty(stmt.metric) || _.isEmpty(stmt.field)) {
+      return "";
+    }
+    const fields = _.map(stmt.field, (item: string) => `'${item}'`);
+    let nsCluase = "";
+    if (!_.isEmpty(stmt.namespace)) {
+      nsCluase = ` on '${stmt.namespace}'`;
+    }
+    const whereClause: string[] = [];
+    _.mapKeys(stmt.tags, (value, key) => {
+      if (_.isArray(value) && value.length > 0) {
+        whereClause.push(
+          `${key} in (${_.map(value, (item: string) => `'${item}'`)})`
+        );
+      }
+    });
+    let whereClauseStr = "";
+    if (whereClause.length > 0) {
+      whereClauseStr = ` where ${_.join(whereClause, " and ")}`;
+    }
+
+    let groupByStr = "";
+    if (!_.isEmpty(stmt.groupBy)) {
+      groupByStr = ` group by ${_.map(
+        stmt.groupBy,
+        (item: string) => `'${item}'`
+      )}`;
+    }
+
+    return `select ${fields} from '${stmt.metric}'${nsCluase}${whereClauseStr} ${groupByStr}`;
   }
 }
 

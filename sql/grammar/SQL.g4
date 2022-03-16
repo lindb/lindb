@@ -35,7 +35,7 @@ showMetadataTypesStmt: T_SHOW T_METADATA T_TYPES;
 showBrokerMetaStmt   : T_SHOW T_BROKER T_METADATA T_WHERE typeFilter;
 showMasterMetaStmt   : T_SHOW T_MASTER T_METADATA T_WHERE typeFilter;
 showStorageMetaStmt  : T_SHOW T_STORAGE T_METADATA T_WHERE (storageFilter|typeFilter) T_AND (storageFilter|typeFilter);
-showAliveStmt        : T_SHOW T_ALIVE (T_BROKER | T_STORAGE);
+showAliveStmt        : T_SHOW (T_BROKER | T_STORAGE) T_ALIVE;
 showReplicationStmt  : T_SHOW T_REPLICATION T_WHERE (storageFilter|databaseFilter) T_AND (storageFilter|databaseFilter);
 showBrokerMetricStmt : T_SHOW T_BROKER T_METRIC T_WHERE metricListFilter ;
 showStorageMetricStmt: T_SHOW T_STORAGE T_METRIC T_WHERE (storageFilter|metricListFilter) T_AND (storageFilter|metricListFilter) ;
@@ -45,15 +45,15 @@ createDatabaseStmt   : T_CREATE T_DATASBAE json;
 showDatabaseStmt     : T_SHOW T_DATASBAES ;
 showNameSpacesStmt   : T_SHOW T_NAMESPACES (T_WHERE T_NAMESPACE T_EQUAL prefix)? limitClause?;
 showMetricsStmt      : T_SHOW T_METRICS (T_ON namespace)? (T_WHERE T_METRIC T_EQUAL prefix)? limitClause?;
-showFieldsStmt       : T_SHOW T_FIELDS (T_ON namespace)? fromClause;
-showTagKeysStmt      : T_SHOW T_TAG T_KEYS (T_ON namespace)? fromClause;
-showTagValuesStmt    : T_SHOW T_TAG T_VALUES (T_ON namespace)? fromClause T_WITH T_KEY T_EQUAL withTagKey whereClause? limitClause?;
+showFieldsStmt       : T_SHOW T_FIELDS fromClause;
+showTagKeysStmt      : T_SHOW T_TAG T_KEYS fromClause;
+showTagValuesStmt    : T_SHOW T_TAG T_VALUES fromClause T_WITH T_KEY T_EQUAL withTagKey whereClause? limitClause?;
 prefix               : ident ;
 withTagKey           : ident ;
 namespace            : ident ;
 
 //data query plan
-queryStmt               : T_EXPLAIN? selectExpr fromClause (T_ON namespace)? whereClause? groupByClause? orderByClause? limitClause? T_WITH_VALUE?;
+queryStmt               : T_EXPLAIN? selectExpr fromClause whereClause? groupByClause? orderByClause? limitClause? T_WITH_VALUE?;
 selectExpr              : T_SELECT fields;
 //select fields
 fields                  : field ( T_COMMA field )* ;
@@ -64,7 +64,7 @@ databaseFilter          : T_DATASBAE T_EQUAL ident  ;
 typeFilter              : T_TYPE T_EQUAL ident  ;
 
 //from clause
-fromClause              : T_FROM metricName ;
+fromClause              : T_FROM metricName (T_ON namespace)? ;
 
 //where clause
 whereClause             : T_WHERE conditionExpr;

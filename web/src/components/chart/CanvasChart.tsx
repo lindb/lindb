@@ -30,6 +30,7 @@ import React, { MutableRefObject, useEffect, useRef } from "react";
 
 interface CanvasChartProps {
   chartId: string;
+  height?: number;
 }
 const Zoom = {
   drag: false,
@@ -39,17 +40,22 @@ const Zoom = {
 };
 
 export default function CanvasChart(props: CanvasChartProps) {
-  const { chartId } = props;
+  const { chartId, height } = props;
   const eventCallbacks: Map<string, any> = new Map();
-  const chartRef = useRef() as MutableRefObject<HTMLCanvasElement>;
+  const chartRef = useRef() as MutableRefObject<HTMLCanvasElement | null>;
   const crosshairRef = useRef() as MutableRefObject<HTMLDivElement>;
-  const chartObjRef = useRef() as MutableRefObject<Chart>;
+  const chartObjRef = useRef() as MutableRefObject<Chart | null>;
   const zoomRef = useRef(_.cloneDeep(Zoom));
   const zoomDivRef = useRef() as MutableRefObject<HTMLDivElement>;
   const seriesRef = useRef() as MutableRefObject<any>;
   const chartStatusRef = useRef() as MutableRefObject<ChartStatus | undefined>;
 
   const createChart = () => {
+    // console.log("config", { type: "line", data: series }, config);
+    const canvas = chartRef.current;
+    if (!canvas) {
+      return;
+    }
     const chartCfg = ChartStore.charts.get(chartId);
     const config: any = _.merge(
       {
@@ -59,8 +65,6 @@ export default function CanvasChart(props: CanvasChartProps) {
       DefaultChartConfig
     );
 
-    // console.log("config", { type: "line", data: series }, config);
-    const canvas = chartRef.current;
     const chartInstance = new Chart(canvas, config);
     chartObjRef.current = chartInstance;
     let start = 0;
@@ -183,6 +187,7 @@ export default function CanvasChart(props: CanvasChartProps) {
     });
 
     eventCallbacks.forEach((v, k) => {
+      console.log("canvas......", canvas);
       canvas.addEventListener(k, v);
     });
   };
@@ -220,6 +225,7 @@ export default function CanvasChart(props: CanvasChartProps) {
           const series = ChartStore.seriesCache.get(chartId);
           seriesRef.current = series;
           const chartInstance = chartObjRef.current;
+
           if (chartInstance) {
             setChartData(series);
             chartInstance.update();
@@ -242,16 +248,18 @@ export default function CanvasChart(props: CanvasChartProps) {
       disposer.forEach((d) => d());
       if (chartObjRef.current) {
         chartObjRef.current.destroy();
+        // reset chart obj as null, maybe after hot load(develop) canvas element not ready.
+        // invoke chart update will fail.
+        chartObjRef.current = null;
       }
-      console.log("ccccccccccccccccccccccccccccc");
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <div>
-      <div className="lin-chart" style={{ height: 200 }}>
-        <canvas className="chart" ref={chartRef} height="200" />
+      <div className="lin-chart" style={{ height: height || 200 }}>
+        <canvas className="chart" ref={chartRef} height={height || 200} />
         <div ref={crosshairRef} className="crosshair" />
         <div ref={zoomDivRef} className="zoom" />
       </div>

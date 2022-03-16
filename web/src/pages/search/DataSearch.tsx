@@ -22,25 +22,38 @@ import {
   IconSend,
 } from "@douyinfe/semi-icons";
 import { Button, Card, Col, Form, Row, Space } from "@douyinfe/semi-ui";
-import { ExplainResultView, MetadataSelect } from "@src/components";
-import Metric from "@src/components/chart/Metric";
-import { ResultSet } from "@src/models";
-import { exec } from "@src/services";
-import { ChartStore } from "@src/stores";
-import React, { useEffect, useState } from "react";
+import { CanvasChart, MetadataSelect } from "@src/components";
+import { SQL } from "@src/constants";
+import { useWatchURLChange } from "@src/hooks";
+import { ChartStore, URLStore } from "@src/stores";
+import React, { MutableRefObject, useEffect, useRef } from "react";
 
 const chartID = "9999999999999999";
 
 export default function DataSearch() {
-  const [resultSet, setResultSet] = useState<ResultSet>();
-  const query = async () => {
-    const rs = await exec<ResultSet>({
-      db: "_internal",
-      sql: "explain select used_percent from lindb.monitor.system.disk_usage_stats",
-    });
-    setResultSet(rs);
+  const formApi = useRef() as MutableRefObject<any>;
+  const query = () => {
+    const target = formApi.current.getValues();
+    ChartStore.reRegister(chartID, { targets: [target] });
+    URLStore.changeURLParams({ params: target, forceChange: true });
   };
+  useWatchURLChange(() => {
+    if (formApi.current) {
+      formApi.current.setValues({
+        db: URLStore.params.get("db"),
+        sql: URLStore.params.get("sql"),
+      });
+    }
+  });
   useEffect(() => {
+    ChartStore.register(chartID, {
+      targets: [
+        {
+          db: URLStore.params.get("db") || "",
+          sql: URLStore.params.get("sql") || "",
+        },
+      ],
+    });
     return () => {
       // unRegister chart config when component destroy.
       ChartStore.unRegister(chartID);
@@ -53,17 +66,25 @@ export default function DataSearch() {
         style={{ marginBottom: 12 }}
         bodyStyle={{ padding: 12 }}
       >
-        <Form style={{ paddingTop: 0, paddingBottom: 0 }}>
+        <Form
+          style={{ paddingTop: 0, paddingBottom: 0 }}
+          getFormApi={(api) => (formApi.current = api)}
+        >
           <MetadataSelect
             type="db"
-            variate={{ tagKey: "db", label: "Database", ql: "show databases" }}
+            variate={{
+              tagKey: "db",
+              label: "Database",
+              sql: SQL.ShowDatabases,
+            }}
             labelPosition="left"
           />
           <Row>
             <Col span={24}>
               <Form.TextArea
                 showClear
-                field="ql"
+                field="sql"
+                initValue={URLStore.params.get("sql")}
                 label={
                   <Space align="center">
                     <span>LinDB Query Language</span>
@@ -85,20 +106,8 @@ export default function DataSearch() {
           </Button>
         </Form>
       </Card>
-      <Metric
-        chartId={chartID}
-        config={{
-          title: "CPU",
-          targets: [
-            {
-              db: "_internal",
-              ql: "explain select used_percent from lindb.monitor.system.disk_usage_stats",
-            },
-          ],
-        }}
-      />
       <Card bordered={false} style={{ marginTop: 12 }}>
-        {resultSet?.stats && <ExplainResultView stats={resultSet?.stats} />}
+        <CanvasChart chartId={chartID} height={300} />
       </Card>
     </>
   );

@@ -96,11 +96,11 @@ func TestShowState(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, &stmt.State{Type: stmt.Master}, query)
 
-	query, err = Parse("show alive broker")
+	query, err = Parse("show broker alive")
 	assert.NoError(t, err)
 	assert.Equal(t, &stmt.State{Type: stmt.BrokerAlive}, query)
 
-	query, err = Parse("show alive storage")
+	query, err = Parse("show storage alive")
 	assert.NoError(t, err)
 	assert.Equal(t, &stmt.State{Type: stmt.StorageAlive}, query)
 }

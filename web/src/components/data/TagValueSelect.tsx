@@ -16,14 +16,14 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { Form, Notification, useFormApi, Select } from "@douyinfe/semi-ui";
-import { IconAppCenter } from "@douyinfe/semi-icons";
+import { IconChevronDownStroked } from "@douyinfe/semi-icons";
+import { Form, Notification, useFormApi } from "@douyinfe/semi-ui";
 import { useWatchURLChange } from "@src/hooks";
-import { Metadata, Variate } from "@src/models";
-import { exec } from "@src/services";
+import { Variate, Metadata } from "@src/models";
 import { URLStore } from "@src/stores";
 import * as _ from "lodash-es";
 import React, { MutableRefObject, useRef, useState } from "react";
+import { exec } from "@src/services";
 
 interface MetadataSelectProps {
   labelPosition?: "top" | "left" | "inset";
@@ -44,28 +44,17 @@ const TagValueSelect: React.FC<MetadataSelectProps> = (
   const formApi = useFormApi();
 
   useWatchURLChange(() => {
-    // build where clause
-    const tags: string[] = URLStore.getTagConditions(
-      _.get(variate, "watch.cascade", [])
-    );
-    let whereClause = "";
-    if (tags.length > 0) {
-      whereClause = ` where ${tags.join(" and ")}`;
-    }
-    const field = variate.tagKey;
-    if (where.current && whereClause != where.current) {
-      where.current = whereClause;
-      loaded.current = false; // if where cluase changed, need load tag values
-      formApi.setValue(field, null);
-    } else {
-      where.current = whereClause;
-      const value = URLStore.params.getAll(field);
-      // set select value of url params changed
-      formApi.setValue(field, value);
+    const tagsStr = URLStore.params.get("tags");
+    if (tagsStr && tagsStr?.length > 0) {
+      try {
+        const tags = JSON.parse(tagsStr);
+        formApi.setValue(variate.tagKey, _.get(tags, variate.tagKey, []));
+      } catch (err) {
+        formApi.setValue(variate.tagKey, []);
+      }
     }
   });
-  const triggerRender = (props: { value: any }) => {
-    const { value } = props;
+  const triggerRender: React.FC<any> = ({ value }) => {
     return (
       <div
         style={{
@@ -78,7 +67,7 @@ const TagValueSelect: React.FC<MetadataSelectProps> = (
           border: "1px solid transparent",
           paddingLeft: 12,
           // borderRadius: 3,
-          color: "var(--semi-color-text-2)",
+          color: "var(--semi-color-text-0)",
         }}
       >
         <div
@@ -94,29 +83,28 @@ const TagValueSelect: React.FC<MetadataSelectProps> = (
         <div
           style={{
             margin: 4,
-            color: "var(--semi-color-text-2)",
             whiteSpace: "nowrap",
             textOverflow: "ellipsis",
             flexGrow: 1,
+            fontSize: 12,
             overflow: "hidden",
           }}
         >
-          {value.map((item) => item.label).join(" , ")}
+          {(value || []).map((item: any) => item.label).join(", ")}
         </div>
-        <IconAppCenter style={{ marginRight: 8, flexShrink: 0 }} />
+        <IconChevronDownStroked style={{ marginRight: 8, flexShrink: 0 }} />
       </div>
     );
   };
 
-  const findMetadata = async () => {
-    console.log("find...", variate.tagKey, loaded.current);
+  const fetchTagValues = async () => {
     if (loaded.current && _.isEqual(oldVariate.current, variate)) {
       // if data alread load, return it
       return;
     }
     setLoading(true);
     try {
-      let showTagValuesSQL = variate.ql;
+      let showTagValuesSQL = variate.sql;
 
       if (where.current) {
         showTagValuesSQL += where.current;
@@ -150,7 +138,6 @@ const TagValueSelect: React.FC<MetadataSelectProps> = (
     clear.forEach((key: string) => {
       formApi.setValue(key, null);
     });
-    // formApi.submitForm(); //trigger form submit, after use selected
   };
   return (
     <>
@@ -175,7 +162,7 @@ const TagValueSelect: React.FC<MetadataSelectProps> = (
           }
         }}
         loading={loading}
-        onFocus={findMetadata}
+        onFocus={fetchTagValues}
       />
     </>
   );

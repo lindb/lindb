@@ -16,18 +16,20 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import React, { useEffect, useState } from "react";
-import { Popover, Button, SplitButtonGroup } from "@douyinfe/semi-ui";
+import React, { useEffect, useState, useRef, MutableRefObject } from "react";
+import { Popover, Form, Button, SplitButtonGroup } from "@douyinfe/semi-ui";
 import { IconFilter } from "@douyinfe/semi-icons";
 import { TagValueSelect } from "@src/components";
 import { exec } from "@src/services";
 import { Metadata } from "@src/models";
+import { URLStore } from "@src/stores";
 
 export default function TagFilterSelect(props: {
   db: string;
   namespace?: string;
   metric: string;
 }) {
+  const formApi = useRef() as MutableRefObject<any>;
   const { db, namespace, metric } = props;
   const [tagKeys, setTagKeys] = useState<string[]>([]);
   const [visible, setVisible] = useState(false);
@@ -43,6 +45,7 @@ export default function TagFilterSelect(props: {
     };
     fetchTagKeys();
   }, [db, metric]);
+
   return (
     <Popover
       trigger="custom"
@@ -50,27 +53,40 @@ export default function TagFilterSelect(props: {
       showArrow
       content={
         <>
-          {tagKeys.map((tagKey: string) => (
-            <div key={tagKey} style={{ marginBottom: 4, width: 400 }}>
-              <TagValueSelect
-                style={{ width: "100%" }}
-                variate={{
-                  db: db,
-                  tagKey: tagKey,
-                  label: tagKey,
-                  ql: `show tag values from '${metric}' with key='${tagKey}'`,
-                }}
-                labelPosition="inset"
-              />
-            </div>
-          ))}
+          <Form
+            getFormApi={(api) => (formApi.current = api)}
+            className="lin-tag-filter"
+          >
+            {tagKeys.map((tagKey: string) => (
+              <div key={tagKey} style={{ marginBottom: 4, width: 400 }}>
+                <TagValueSelect
+                  style={{ width: "100%" }}
+                  variate={{
+                    db: db,
+                    tagKey: tagKey,
+                    label: tagKey,
+                    sql: `show tag values from '${metric}' with key='${tagKey}'`,
+                  }}
+                  labelPosition="inset"
+                />
+              </div>
+            ))}
+          </Form>
           <SplitButtonGroup
             style={{ marginTop: 4, width: "100%", textAlign: "right" }}
           >
             <Button type="tertiary" onClick={() => setVisible(false)}>
               Cancel
             </Button>
-            <Button type="secondary" onClick={() => setVisible(false)}>
+            <Button
+              type="secondary"
+              onClick={() => {
+                URLStore.changeURLParams({
+                  params: { tags: JSON.stringify(formApi.current.getValues()) },
+                });
+                setVisible(false);
+              }}
+            >
               OK
             </Button>
           </SplitButtonGroup>
@@ -78,7 +94,7 @@ export default function TagFilterSelect(props: {
       }
     >
       <IconFilter
-        style={{ marginLeft: 8, marginRight: 8, cursor: "pointer" }}
+        style={{ cursor: "pointer" }}
         onClick={() => setVisible(true)}
       />
     </Popover>

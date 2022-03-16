@@ -17,18 +17,18 @@ specific language governing permissions and limitations
 under the License.
 */
 import { MasterView, NodeView, StorageView } from "@src/components";
-import { StateMetricName } from "@src/constants";
+import { StateMetricName, SQL } from "@src/constants";
 import { useAliveState, useStorage } from "@src/hooks";
 import React from "react";
 
 // must define outside function component, if defie in component maybe endless loop.
-const brokerAlive = "show alive broker";
 const brokerMetric = `show broker metric where metric in ('${StateMetricName.CPU}','${StateMetricName.Memory}')`;
 
 export default function Overview() {
   const { loading, storages } = useStorage();
-  const { aliveState: liveNodes, loading: nodeLoading } =
-    useAliveState(brokerAlive);
+  const { aliveState: liveNodes, loading: nodeLoading } = useAliveState(
+    SQL.ShowBrokerAliveNodes
+  );
   return (
     <>
       <MasterView />
