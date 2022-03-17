@@ -18,8 +18,6 @@
 package admin
 
 import (
-	"fmt"
-
 	"github.com/gin-gonic/gin"
 
 	"github.com/lindb/lindb/app/broker/deps"
@@ -50,7 +48,6 @@ func NewDatabaseAPI(deps *deps.HTTPDeps) *DatabaseAPI {
 
 // Register adds database admin url route.
 func (d *DatabaseAPI) Register(route gin.IRoutes) {
-	route.POST(DatabasePath, d.Save)
 	route.GET(DatabasePath, d.GetByName)
 }
 
@@ -86,47 +83,4 @@ func (d *DatabaseAPI) getByName(name string) (*models.Database, error) {
 		return nil, err
 	}
 	return database, nil
-}
-
-// Save creates the database config if there is no database
-// config with the name database.Name, otherwise update the config
-func (d *DatabaseAPI) Save(c *gin.Context) {
-	database := &models.Database{}
-	if err := c.ShouldBind(&database); err != nil {
-		http.Error(c, err)
-		return
-	}
-	if err := d.saveDataBase(database); err != nil {
-		http.Error(c, err)
-		return
-	}
-	http.NoContent(c)
-}
-
-func (d *DatabaseAPI) saveDataBase(database *models.Database) error {
-	if len(database.Storage) == 0 {
-		//TODO add golang tag?
-		return fmt.Errorf("storage name cannot be empty")
-	}
-	if database.NumOfShard <= 0 {
-		return fmt.Errorf("num of shard must be > 0")
-	}
-	if database.ReplicaFactor <= 0 {
-		return fmt.Errorf("replica factor must be > 0")
-	}
-	opt := database.Option
-	// validate time series engine option
-	if err := opt.Validate(); err != nil {
-		return err
-	}
-	// set default value
-	(&opt).Default()
-	database.Option = opt // reset option after set default value
-
-	data := encoding.JSONMarshal(database)
-
-	ctx, cancel := d.deps.WithTimeout()
-	defer cancel()
-	d.logger.Info("Saving Database", logger.String("config", string(data)))
-	return d.deps.Repo.Put(ctx, constants.GetDatabaseConfigPath(database.Name), data)
 }

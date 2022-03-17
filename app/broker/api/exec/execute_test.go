@@ -43,6 +43,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/ltoml"
+	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/state"
 	brokerQuery "github.com/lindb/lindb/query/broker"
 	"github.com/lindb/lindb/series/field"
@@ -80,6 +81,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 		),
 	})
 	cfg := `{\"config\":{\"namespace\":\"test\",\"timeout\":10,\"dialTimeout\":10,\"leaseTTL\":10,\"endpoints\":[\"http://localhost:2379\"]}}`
+	databaseCfg := `{\"name\":\"test\",\"storage\":\"cluster-test\",\"numOfShard\":12,\"replicaFactor\":3,\"option\":{\"intervals\":[{\"interval\":\"10s\"}]}}`
 	r := gin.New()
 	api.Register(r)
 
@@ -807,6 +809,66 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			},
 			assert: func(resp *httptest.ResponseRecorder) {
 				assert.Equal(t, http.StatusNotFound, resp.Code)
+			},
+		},
+		{
+			name:    "create database config unmarshal failure",
+			reqBody: `{"sql":"create database {\"name\":\"name\"}"}`,
+			prepare: func() {
+				sqlParseFn = func(sql string) (stmt stmtpkg.Statement, err error) {
+					return &stmtpkg.Schema{Type: stmtpkg.CreateDatabaseSchemaType, Value: "err"}, nil
+				}
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			name:    "create database validation failure",
+			reqBody: `{"sql":"create database {\"name\":\"name\"}"}`,
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{name: "create database, persist failure",
+			reqBody: `{"sql":"create database ` + databaseCfg + `"}`,
+			prepare: func() {
+				repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{name: "create database, option validation failure",
+			reqBody: `{"sql":"create database ` + databaseCfg + `"}`,
+			prepare: func() {
+				sqlParseFn = func(sql string) (stmt stmtpkg.Statement, err error) {
+					return &stmtpkg.Schema{
+						Type: stmtpkg.CreateDatabaseSchemaType,
+						Value: string(encoding.JSONMarshal(&models.Database{
+							Name:          "test",
+							Storage:       "cluster-test",
+							NumOfShard:    12,
+							ReplicaFactor: 3,
+							Option: option.DatabaseOption{
+								Intervals: option.Intervals{{Interval: 10}},
+								Ahead:     "10",
+							},
+						})),
+					}, nil
+				}
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{name: "create database successfully",
+			reqBody: `{"sql":"create database ` + databaseCfg + `"}`,
+			prepare: func() {
+				repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
 			},
 		},
 	}
