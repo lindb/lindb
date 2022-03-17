@@ -27,6 +27,7 @@ import * as _ from "lodash-es";
 import { reaction } from "mobx";
 import moment from "moment";
 import React, { MutableRefObject, useEffect, useRef } from "react";
+import { DateTimeFormat } from "@src/constants";
 
 interface CanvasChartProps {
   chartId: string;
@@ -176,8 +177,8 @@ export default function CanvasChart(props: CanvasChartProps) {
           zoomRef.current.selectedStart,
           zoomRef.current.selectedEnd
         );
-        const from = moment(start).format("YYYY-MM-DD HH:mm:ss");
-        const to = moment(end).format("YYYY-MM-DD HH:mm:ss");
+        const from = moment(start).format(DateTimeFormat);
+        const to = moment(end).format(DateTimeFormat);
         urlStore.changeURLParams({ params: { from: from, to: to } });
       }
 

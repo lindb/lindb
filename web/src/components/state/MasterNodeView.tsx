@@ -20,6 +20,7 @@ import { Descriptions, Typography } from "@douyinfe/semi-ui";
 import { Master } from "@src/models";
 import moment from "moment";
 import React from "react";
+import { DateTimeFormat } from "@src/constants";
 const { Text } = Typography;
 
 export default function MasterNodeView(props: { master?: Master }) {
@@ -35,7 +36,7 @@ export default function MasterNodeView(props: { master?: Master }) {
           value: (
             <Text link>
               {master?.electTime &&
-                moment(master?.electTime).format("YYYY-MM-DD HH:mm:ss")}
+                moment(master?.electTime).format(DateTimeFormat)}
             </Text>
           ),
         },

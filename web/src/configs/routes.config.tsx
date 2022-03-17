@@ -16,35 +16,35 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import React from "react";
 import {
+  IconAppCenter,
   IconComponentPlaceholderStroked,
   IconInherit,
+  IconListView,
   IconSearch,
   IconServer,
-  IconTemplate,
-  IconListView,
   IconServerStroked,
-  IconAppCenter,
+  IconTemplate,
 } from "@douyinfe/semi-icons";
-import {
-  StorageList,
-  StorageConfig,
-  DatabaseList,
-  DatabaseConfig,
-  MetadataExplore,
-  DataExplore,
-  Overview,
-  StorageOverview,
-  DatabaseOverview,
-  DataSearch,
-  ConfigurationView,
-  LogView,
-} from "@src/pages";
 import { DashboardView } from "@src/components";
-import { Route } from "@src/constants";
-import * as _ from "lodash-es";
 import { SystemDashboard } from "@src/configs";
+import { Route } from "@src/constants";
+import {
+  ConfigurationView,
+  DatabaseConfig,
+  DatabaseList,
+  DatabaseOverview,
+  DataExplore,
+  DataSearch,
+  LogView,
+  MetadataExplore,
+  Overview,
+  StorageConfig,
+  StorageList,
+  StorageOverview,
+} from "@src/pages";
+import * as _ from "lodash-es";
+import React from "react";
 
 export type RouteItem = {
   itemKey?: string;
@@ -97,6 +97,7 @@ export const routes = [
   {
     text: "Explore",
     path: Route.Explore,
+    timePicker: true,
     icon: <IconAppCenter size="large" />,
     content: <DataExplore />,
   },
