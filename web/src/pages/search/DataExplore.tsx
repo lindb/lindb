@@ -269,11 +269,6 @@ export default function DataExplore() {
             <Switch onChange={setShowSQL} />
             Show SQL
           </Space>
-          <Button
-            style={{ marginLeft: 8 }}
-            icon={<IconRefresh />}
-            onClick={() => URLStore.forceChange()}
-          />
         </Form>
       </Card>
       {renderContent()}

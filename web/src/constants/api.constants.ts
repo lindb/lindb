@@ -29,3 +29,5 @@ export enum ApiPath {
   Proxy = "/proxy",
   Exec = "/exec",
 }
+
+export const DateTimeFormat = "YYYY-MM-DD HH:mm:ss";
