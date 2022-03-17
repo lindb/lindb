@@ -18,20 +18,26 @@
 package sql
 
 import (
+	"github.com/lindb/lindb/sql/grammar"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
 // schemasStmtParser represents show schemas statement parser.
 type schemasStmtParser struct {
-	schemaType stmt.SchemaType
+	schema *stmt.Schema
 }
 
 // newSchemasStmtParse creates a show schemas statement parser.
 func newSchemasStmtParse(schemaType stmt.SchemaType) *schemasStmtParser {
-	return &schemasStmtParser{schemaType: schemaType}
+	return &schemasStmtParser{schema: &stmt.Schema{Type: schemaType}}
+}
+
+// visitName visits when production database config expression is entered.
+func (s *schemasStmtParser) visitCfg(ctx *grammar.JsonContext) {
+	s.schema.Value = ctx.GetText()
 }
 
 // build returns the state statement.
 func (s *schemasStmtParser) build() (stmt.Statement, error) {
-	return &stmt.Schema{Type: s.schemaType}, nil
+	return s.schema, nil
 }

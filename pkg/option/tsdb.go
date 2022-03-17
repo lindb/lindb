@@ -44,8 +44,8 @@ func (m Intervals) String() string {
 
 // Interval represents the database's interval option, include interval and data retention.
 type Interval struct {
-	Interval  timeutil.Interval `toml:"interval" json:"interval,omitempty" binding:"required"`
-	Retention timeutil.Interval `toml:"retention" json:"retention,omitempty" binding:"required"`
+	Interval  timeutil.Interval `toml:"interval" json:"interval,omitempty" validate:"required"`
+	Retention timeutil.Interval `toml:"retention" json:"retention,omitempty" validate:"required"`
 }
 
 // String returns the string representation of the Interval.
@@ -57,7 +57,7 @@ func (m Interval) String() string {
 type DatabaseOption struct {
 	// write interval(the number of second) => TTL
 	// rollup intervals(like seconds->minute->hour->day)
-	Intervals Intervals `toml:"intervals" json:"intervals,omitempty" binding:"required"`
+	Intervals Intervals `toml:"intervals" json:"intervals,omitempty"  validate:"required"`
 
 	// auto create namespace
 	AutoCreateNS bool `toml:"autoCreateNS" json:"autoCreateNS,omitempty"`

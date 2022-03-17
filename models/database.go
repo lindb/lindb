@@ -76,11 +76,11 @@ func ParseShardID(shard string) ShardID {
 
 // Database defines database config, database can include multi-cluster.
 type Database struct {
-	Name          string                `json:"name" binding:"required"` // database's name
-	Storage       string                `json:"storage"`                 // storage cluster's name
-	NumOfShard    int                   `json:"numOfShard"`              // num. of shard
-	ReplicaFactor int                   `json:"replicaFactor"`           // replica refactor
-	Option        option.DatabaseOption `json:"option"`                  // time series database option
+	Name          string                `json:"name" validate:"required"`      // database's name
+	Storage       string                `json:"storage" validate:"required"`   // storage cluster's name
+	NumOfShard    int                   `json:"numOfShard" validate:"gt=0"`    // num. of shard
+	ReplicaFactor int                   `json:"replicaFactor" validate:"gt=0"` // replica refactor
+	Option        option.DatabaseOption `json:"option"`                        // time series database option
 	Desc          string                `json:"desc,omitempty"`
 }
 

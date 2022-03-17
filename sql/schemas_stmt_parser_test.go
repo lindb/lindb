@@ -30,3 +30,14 @@ func TestShowSchemasStatement(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, &stmt.Schema{Type: stmt.DatabaseSchemaType}, q)
 }
+
+func TestCreateDatabase(t *testing.T) {
+	cfg := `{\"name\":\"test\"}`
+	sql := `create database ` + cfg
+	q, err := Parse(sql)
+	assert.NoError(t, err)
+	assert.Equal(t, &stmt.Schema{
+		Type:  stmt.CreateDatabaseSchemaType,
+		Value: `{"name":"test"}`,
+	}, q)
+}

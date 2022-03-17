@@ -18,12 +18,8 @@
 package bootstrap
 
 import (
-	"bytes"
-	"fmt"
-	"net/http"
 	"net/url"
 	"path"
-	"time"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/client"
@@ -32,13 +28,6 @@ import (
 )
 
 //go:generate mockgen -source=./cluster_initializer.go -destination=./cluster_initializer_mock.go -package=bootstrap
-
-// for testing
-var (
-	newRequest    = http.NewRequest
-	defaultClient = http.Client{Timeout: time.Second * 10}
-	doRequest     = defaultClient.Do
-)
 
 // ClusterInitializer initializes cluster(storage/internal database)
 type ClusterInitializer interface {
@@ -75,21 +64,11 @@ func (i *clusterInitializer) InitStorageCluster(storageCfg config.StorageCluster
 
 // InitInternalDatabase initializes internal database
 func (i *clusterInitializer) InitInternalDatabase(database models.Database) error {
-	reader := bytes.NewReader(encoding.JSONMarshal(&database))
-	req, err := newRequest("POST", fmt.Sprintf("%s/database", i.endpoint), reader)
-	if err != nil {
+	cli := client.NewExecuteCli(i.endpoint)
+	if err := cli.Execute(models.ExecuteParam{
+		SQL: "create database " + string(encoding.JSONMarshal(&database)),
+	}, nil); err != nil {
 		return err
 	}
-	return doPost(req)
-}
-
-// doPost does http post request
-func doPost(req *http.Request) error {
-	req.Header.Set("Content-Type", "application/json;charset=UTF-8")
-
-	writeResp, err := doRequest(req)
-	if err != nil {
-		return err
-	}
-	return writeResp.Body.Close()
+	return nil
 }
