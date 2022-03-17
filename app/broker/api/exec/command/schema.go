@@ -20,6 +20,8 @@ package command
 import (
 	"context"
 
+	"github.com/lindb/lindb/pkg/validate"
+
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
@@ -33,6 +35,8 @@ func SchemaCommand(ctx context.Context, deps *deps.HTTPDeps, _ *models.ExecutePa
 	switch schemaStmt.Type {
 	case stmtpkg.DatabaseSchemaType:
 		return listDataBases(ctx, deps)
+	case stmtpkg.CreateDatabaseSchemaType:
+		return saveDataBase(ctx, deps, schemaStmt)
 	case stmtpkg.DatabaseNameSchemaType:
 		dbs, err := listDataBases(ctx, deps)
 		if err != nil {
@@ -67,4 +71,35 @@ func listDataBases(ctx context.Context, deps *deps.HTTPDeps) (interface{}, error
 		dbs = append(dbs, db)
 	}
 	return dbs, nil
+}
+
+// saveDataBase creates the database config if there is no database
+// config with the name database.Name, otherwise update the config.
+func saveDataBase(ctx context.Context, deps *deps.HTTPDeps, stmt *stmtpkg.Schema) (interface{}, error) {
+	data := []byte(stmt.Value)
+	database := &models.Database{}
+	err := encoding.JSONUnmarshal(data, database)
+	if err != nil {
+		return nil, err
+	}
+	if err = validate.Validator.Struct(database); err != nil {
+		return nil, err
+	}
+
+	opt := database.Option
+	// validate time series engine option
+	if err := opt.Validate(); err != nil {
+		return nil, err
+	}
+	// set default value
+	(&opt).Default()
+	database.Option = opt // reset option after set default value
+
+	log.Info("Saving Database", logger.String("config", stmt.Value))
+	if err = deps.Repo.Put(ctx, constants.GetDatabaseConfigPath(database.Name), data); err != nil {
+		return nil, err
+	}
+
+	rs := "Create database ok"
+	return &rs, nil
 }

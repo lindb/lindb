@@ -22,11 +22,13 @@ type SchemaType int
 const (
 	DatabaseNameSchemaType SchemaType = iota + 1
 	DatabaseSchemaType
+	CreateDatabaseSchemaType
 )
 
 //Schema represents show all database schemas statement.
 type Schema struct {
-	Type SchemaType
+	Type  SchemaType
+	Value string
 }
 
 // StatementType returns schema query type.

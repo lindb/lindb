@@ -121,8 +121,11 @@ func (l *listener) EnterShowStoragesStmt(_ *grammar.ShowStoragesStmtContext) {
 
 // EnterJson is called when production json is entered.
 func (l *listener) EnterJson(ctx *grammar.JsonContext) { // nolint:golint
-	if l.storageStmt != nil {
+	switch {
+	case l.storageStmt != nil:
 		l.storageStmt.visitCfg(ctx)
+	case l.schemasStmt != nil:
+		l.schemasStmt.visitCfg(ctx)
 	}
 }
 
@@ -133,7 +136,7 @@ func (l *listener) EnterCreateStorageStmt(_ *grammar.CreateStorageStmtContext) {
 
 // EnterCreateDatabaseStmt is called when entering the createDatabaseStmt production.
 func (l *listener) EnterCreateDatabaseStmt(_ *grammar.CreateDatabaseStmtContext) {
-	panic("need impl")
+	l.schemasStmt = newSchemasStmtParse(stmt.CreateDatabaseSchemaType)
 }
 
 // EnterShowSchemasStmt is called when production showSchemasStmt is entered.
