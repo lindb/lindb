@@ -48,16 +48,53 @@ func TestInitialize(t *testing.T) {
 	init := NewClusterInitializer(ts.URL)
 
 	assert.NotNil(t, init.InitInternalDatabase(models.Database{}))
-	assert.NotNil(t, init.InitStorageCluster(config.StorageCluster{}))
 	newRequest = http.NewRequest
 
 	doRequest = func(req *http.Request) (*http.Response, error) {
 		return nil, fmt.Errorf("err")
 	}
 	assert.NotNil(t, init.InitInternalDatabase(models.Database{}))
-	assert.NotNil(t, init.InitStorageCluster(config.StorageCluster{}))
 
 	doRequest = http.DefaultClient.Do
 	assert.Nil(t, init.InitInternalDatabase(models.Database{}))
-	assert.Nil(t, init.InitStorageCluster(config.StorageCluster{}))
+}
+
+func TestClusterInitializer_InitStorageCluster(t *testing.T) {
+	cases := []struct {
+		name    string
+		prepare func(w http.ResponseWriter)
+		wantErr bool
+	}{
+		{
+			name: "create storage successfully",
+		},
+		{
+			name: "create storage failure",
+			prepare: func(w http.ResponseWriter) {
+				w.WriteHeader(http.StatusInternalServerError)
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			ts := httptest.NewServer(
+				http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if tt.prepare != nil {
+						tt.prepare(w)
+					}
+				}))
+			defer ts.Close()
+
+			init := NewClusterInitializer(ts.URL)
+
+			err := init.InitStorageCluster(config.StorageCluster{})
+			if (err != nil) != tt.wantErr {
+				t.Errorf("InitStorageCluster() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+
 }
