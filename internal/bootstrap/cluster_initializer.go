@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 )
@@ -63,12 +64,13 @@ func NewClusterInitializer(endpoint string) ClusterInitializer {
 
 // InitStorageCluster initializes the storage cluster
 func (i *clusterInitializer) InitStorageCluster(storageCfg config.StorageCluster) error {
-	reader := bytes.NewReader(encoding.JSONMarshal(&storageCfg))
-	req, err := newRequest("POST", fmt.Sprintf("%s/storage/cluster", i.endpoint), reader)
-	if err != nil {
+	cli := client.NewExecuteCli(i.endpoint)
+	if err := cli.Execute(models.ExecuteParam{
+		SQL: "create storage " + string(encoding.JSONMarshal(&storageCfg)),
+	}, nil); err != nil {
 		return err
 	}
-	return doPost(req)
+	return nil
 }
 
 // InitInternalDatabase initializes internal database
