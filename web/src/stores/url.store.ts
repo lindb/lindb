@@ -16,10 +16,10 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { makeObservable, observable, action } from "mobx";
-import * as _ from "lodash-es";
-import { History } from "history";
 import { QueryStatement } from "@src/models";
+import { History } from "history";
+import * as _ from "lodash-es";
+import { action, makeObservable, observable } from "mobx";
 
 class URLStore {
   public changed: boolean = false;
@@ -206,6 +206,10 @@ class URLStore {
         );
       }
     });
+    const timeRange = this.getTimeRange();
+    if (timeRange !== "") {
+      whereClause.push(timeRange);
+    }
     let whereClauseStr = "";
     if (whereClause.length > 0) {
       whereClauseStr = ` where ${_.join(whereClause, " and ")}`;

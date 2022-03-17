@@ -21,6 +21,7 @@ import { ChartDataset } from "chart.js/auto";
 import { color } from "chart.js/helpers";
 import { getColor, toRGBA } from "@src/utils";
 import moment from "moment";
+import { DateTimeFormat } from "@src/constants";
 
 function getGroupByTags(tags: any) {
   if (!tags) {
@@ -124,7 +125,7 @@ export function buildLineChart(resultSet: ResultSet | null, chart: any) {
     } else {
       labels.push(dateTime.format("HH:mm:ss"));
     }
-    timeLabels.push(dateTime.format("YYYY-MM-DD HH:mm:ss"));
+    timeLabels.push(dateTime.format(DateTimeFormat));
     times.push(timestamp);
     i++;
     timestamp = startTime! + i * interval!;
