@@ -47,9 +47,11 @@ import (
 type DataFamily interface {
 	// Indicator returns data family indicator's string.
 	Indicator() string
+	// Shard returns shard.
 	Shard() Shard
 	// Interval returns the interval data family's interval
 	Interval() timeutil.Interval
+	// FamilyTime returns the current family's time.
 	FamilyTime() int64
 	// TimeRange returns the data family's base time range
 	TimeRange() timeutil.TimeRange

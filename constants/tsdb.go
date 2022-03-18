@@ -25,7 +25,7 @@ const (
 	// DefaultMaxFieldsCount represents field count limit, uses this limit of max fields of a metric
 	DefaultMaxFieldsCount = math.MaxUint8
 	// MaxSuggestions represents the max number of suggestions count
-	MaxSuggestions = 10000
+	MaxSuggestions = 100
 
 	// MetricMaxAheadDuration controls the global max write ahead duration.
 	// If current timestamp is 2021-08-19 23:00:00, metric after 2021-08-20 23:00:00 will be dropped.

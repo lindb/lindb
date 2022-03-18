@@ -18,6 +18,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -32,8 +33,8 @@ func Recovery() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		defer func() {
 			if err := recover(); err != nil {
-				log.Error("panic when handle http request", logger.Stack())
-				c.AbortWithStatus(http.StatusInternalServerError)
+				log.Error("panic when handle http request", logger.Any("error", err), logger.Stack())
+				c.AbortWithStatusJSON(http.StatusInternalServerError, fmt.Sprintf("%v", err))
 			}
 		}()
 		c.Next()

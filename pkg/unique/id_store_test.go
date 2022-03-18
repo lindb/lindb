@@ -162,6 +162,12 @@ func TestIdStore_IterIDKeys(t *testing.T) {
 			length: 1,
 		},
 		{
+			name:   "test limit, no result",
+			prefix: "ns",
+			limit:  0,
+			length: 0,
+		},
+		{
 			name:   "test not limit",
 			prefix: "ns",
 			limit:  100,

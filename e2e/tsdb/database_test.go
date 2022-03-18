@@ -18,7 +18,7 @@
 //go:build integration
 // +build integration
 
-package e2e
+package tsdb
 
 import (
 	"bytes"

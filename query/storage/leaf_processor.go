@@ -93,7 +93,7 @@ func (p *leafTaskProcessor) Process(
 	}
 }
 
-// Process processes the task request, searches the metric's data from time series engine
+// Process processes the task request, searches the data of metric from time series engine
 func (p *leafTaskProcessor) process(
 	ctx context.Context,
 	req *protoCommonV1.TaskRequest,

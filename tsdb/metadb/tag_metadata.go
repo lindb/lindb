@@ -48,7 +48,7 @@ type TagMetadata interface {
 	// FindTagValueDsByExpr finds tag value ids by tag filter expr for spec tag key,
 	// if not exist, return nil, constants.ErrNotFound, else returns tag value ids
 	FindTagValueDsByExpr(tagKeyID uint32, expr stmt.TagFilter) (*roaring.Bitmap, error)
-	// GetTagValueIDsForTag get tag value ids for spec metric's tag key,
+	// GetTagValueIDsForTag get tag value ids for spec tag key of metric,
 	// if not exist, return nil, constants.ErrNotFound, else returns tag value ids
 	GetTagValueIDsForTag(tagKeyID uint32) (*roaring.Bitmap, error)
 	// CollectTagValues collects the tag values by tag value ids,

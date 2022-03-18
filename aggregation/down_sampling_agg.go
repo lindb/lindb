@@ -87,8 +87,8 @@ func DownSamplingMultiSeriesInto(
 		targetValues = getFloat64Slice(length)
 		defer putFloat64Slice(&targetValues)
 	}
-	// first loop: filled target values with inf value
-	// inf value is invalid, and won't be emitted after downsampling
+	// first loop: filled target values with inf value,
+	// inf value is invalid, and won't be emitted after down sampling
 	fillInfBlock(targetValues)
 	bs := int(baseSlot)
 	// second loop: iterating tsd decoder
@@ -118,7 +118,7 @@ func DownSamplingMultiSeriesInto(
 			}
 		}
 	}
-	// third loop, emit downsampling data
+	// third loop, emit down sampling data
 	for offset, value := range targetValues {
 		emitValue(offset, value)
 	}
