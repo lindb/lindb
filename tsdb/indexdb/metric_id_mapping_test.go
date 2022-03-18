@@ -57,6 +57,11 @@ func TestMetricIDMapping_SetMaxTagsLimit(t *testing.T) {
 	assert.NotZero(t, idMapping.GetMaxSeriesIDsLimit())
 	idMapping.SetMaxSeriesIDsLimit(2)
 	_ = idMapping.GenSeriesID(102)
+	// equals limit
 	seriesID = idMapping.GenSeriesID(1020)
+	assert.Equal(t, uint32(2), seriesID)
+	idMapping.SeriesSequence().Next()
+	// gt limit
+	seriesID = idMapping.GenSeriesID(1023)
 	assert.Equal(t, uint32(2), seriesID)
 }
