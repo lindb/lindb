@@ -74,7 +74,7 @@ func newTagIndex() TagIndex {
 
 // GetGroupingScanner returns the grouping scanners based on series ids
 func (index *tagIndex) GetGroupingScanner(seriesIDs *roaring.Bitmap) ([]series.GroupingScanner, error) {
-	// check reader if has series ids(after filtering)
+	// check reader if it has series ids(after filtering)
 	finalSeriesIDs := roaring.FastAnd(seriesIDs, index.forward.Keys())
 	if finalSeriesIDs.IsEmpty() {
 		// not found

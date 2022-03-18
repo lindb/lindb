@@ -97,7 +97,7 @@ func (m *merger) Merge(key uint32, metricBlocks [][]byte) error {
 		it := container.PeekableIterator()
 		for it.HasNext() {
 			lowSeriesID := it.Next()
-			// maybe series id not exist in some value block
+			// maybe series id not exist in some values block
 			for blockIdx, scanner := range mergeCtx.scanners {
 				seriesEntry := scanner.scan(highKey, lowSeriesID)
 				if len(seriesEntry) == 0 {

@@ -84,7 +84,11 @@ func (s *idStore) Get(key []byte) ([]byte, bool, error) {
 	if err != nil {
 		return nil, false, err
 	}
-	return val, true, nil
+	// NOTICE: MUST COPY IT, thread no safe, maybe panic(unexpected fault address x fatal error: fault)
+	// unexpected fault address panic cannot be recovery.
+	dst := make([]byte, len(val))
+	copy(dst, val)
+	return dst, true, nil
 }
 
 // Put puts the value into store by given key.
@@ -123,6 +127,7 @@ func (s *idStore) IterKeys(prefix []byte, limit int) (rs [][]byte, err error) {
 		if !bytes.HasPrefix(key, prefix) {
 			break
 		}
+		// copy it
 		dst := make([]byte, len(key))
 		copy(dst, key)
 		rs = append(rs, dst)
@@ -132,7 +137,7 @@ func (s *idStore) IterKeys(prefix []byte, limit int) (rs [][]byte, err error) {
 	if err = it.Error(); err != nil {
 		return nil, err
 	}
-	return
+	return rs, nil
 }
 
 // Flush flushes the memory table data under pebble db.
