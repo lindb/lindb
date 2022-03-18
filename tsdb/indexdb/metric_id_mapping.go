@@ -86,7 +86,7 @@ func (mim *metricIDMapping) AddSeriesID(tagsHash uint64, seriesID uint32) {
 // GenSeriesID generates series id by tags hash, then cache new series id.
 func (mim *metricIDMapping) GenSeriesID(tagsHash uint64) (seriesID uint32) {
 	// generate new series id
-	if mim.maxSeriesIDsLimit.Load() == mim.idSequence.Current() {
+	if mim.idSequence.Current() >= mim.maxSeriesIDsLimit.Load() {
 		//FIXME too many series id, use max limit????
 		seriesID = mim.maxSeriesIDsLimit.Load()
 	} else {
