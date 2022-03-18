@@ -176,9 +176,6 @@ func (r *tagReader) SuggestTagValues(
 ) (
 	tagValues []string,
 ) {
-	if limit > constants.MaxSuggestions {
-		limit = constants.MaxSuggestions
-	}
 	for _, reader := range r.readers {
 		tagKeyMetaBlock, err := reader.Get(tagKeyID)
 		if err != nil {
@@ -193,10 +190,10 @@ func (r *tagReader) SuggestTagValues(
 			continue
 		}
 		for itr.Valid() {
-			tagValues = append(tagValues, string(itr.Key()))
 			if len(tagValues) >= limit {
 				return tagValues
 			}
+			tagValues = append(tagValues, string(itr.Key()))
 			itr.Next()
 		}
 	}

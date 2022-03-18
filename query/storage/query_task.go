@@ -26,6 +26,7 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
@@ -366,6 +367,7 @@ func (t *buildGroupTask) AfterRun() {
 type dataLoadTask struct {
 	baseQueryTask
 	ctx       *storageExecuteContext
+	spanCtx   *timeSpanCtx
 	shard     tsdb.Shard
 	queryFlow flow.StorageQueryFlow
 	timeSpan  *timeSpan
@@ -379,6 +381,7 @@ func newDataLoadTask(
 	shard tsdb.Shard,
 	queryFlow flow.StorageQueryFlow,
 	timeSpan *timeSpan,
+	spanCtx *timeSpanCtx,
 	highKey uint16, seriesIDs roaring.Container,
 ) flow.QueryTask {
 	task := &dataLoadTask{
@@ -386,6 +389,7 @@ func newDataLoadTask(
 		shard:     shard,
 		queryFlow: queryFlow,
 		timeSpan:  timeSpan,
+		spanCtx:   spanCtx,
 		highKey:   highKey,
 		seriesIDs: seriesIDs,
 	}
@@ -399,11 +403,14 @@ func newDataLoadTask(
 
 // Run executes data load based on filtering result set
 func (t *dataLoadTask) Run() error {
-	for _, rs := range t.timeSpan.resultSets {
-		loader := rs.Load(t.highKey, t.seriesIDs)
-		if loader != nil {
-			t.timeSpan.loaders = append(t.timeSpan.loaders, loader)
-		}
+	t.spanCtx.loaders = make([]flow.DataLoader, len(t.timeSpan.resultSets))
+	t.spanCtx.decoders = make([][]*encoding.TSDDecoder, t.timeSpan.fieldCount)
+	for i := range t.spanCtx.decoders {
+		t.spanCtx.decoders[i] = make([]*encoding.TSDDecoder, len(t.timeSpan.resultSets))
+	}
+	for idx, rs := range t.timeSpan.resultSets {
+		// maybe return nil loader
+		t.spanCtx.loaders[idx] = rs.Load(t.highKey, t.seriesIDs)
 	}
 	return nil
 }

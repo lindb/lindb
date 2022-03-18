@@ -33,6 +33,4 @@ func TestStorageExecuteContext(t *testing.T) {
 
 	spans := timeSpans{{familyTime: 1}, {familyTime: 1}}
 	sort.Sort(spans)
-
-	_ = newTimeSpanResultSet().getFilterRSCount()
 }

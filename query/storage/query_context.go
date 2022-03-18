@@ -77,22 +77,22 @@ type timeSpan struct {
 	familyTime     int64
 	source, target timeutil.SlotRange
 	interval       timeutil.Interval
+	fieldCount     int
 
 	resultSets []flow.FilterResultSet
-	loaders    []flow.DataLoader
 }
 
 type timeSpanResultSet struct {
-	spanMap   map[int64]*timeSpan // familyTime -> timeSpan
-	seriesIDs *roaring.Bitmap
-
-	filterRSCount int
+	spanMap    map[int64]*timeSpan // familyTime -> timeSpan
+	seriesIDs  *roaring.Bitmap
+	fieldCount int
 }
 
-func newTimeSpanResultSet() *timeSpanResultSet {
+func newTimeSpanResultSet(fieldCount int) *timeSpanResultSet {
 	return &timeSpanResultSet{
-		spanMap:   make(map[int64]*timeSpan),
-		seriesIDs: roaring.New(),
+		spanMap:    make(map[int64]*timeSpan),
+		seriesIDs:  roaring.New(),
+		fieldCount: fieldCount,
 	}
 }
 
@@ -103,6 +103,7 @@ func (s *timeSpanResultSet) addFilterResultSet(interval timeutil.Interval, rs fl
 		span = &timeSpan{
 			identifier: rs.Identifier(),
 			familyTime: familyTime,
+			fieldCount: s.fieldCount,
 			source:     rs.SlotRange(),
 			target:     rs.SlotRange(),
 			interval:   interval,
@@ -115,15 +116,8 @@ func (s *timeSpanResultSet) addFilterResultSet(interval timeutil.Interval, rs fl
 
 	span.resultSets = append(span.resultSets, rs)
 
-	// increase filter rs
-	s.filterRSCount++
-
 	// merge all series ids after filtering => final series ids
 	s.seriesIDs.Or(rs.SeriesIDs())
-}
-
-func (s *timeSpanResultSet) getFilterRSCount() int {
-	return s.filterRSCount
 }
 
 func (s *timeSpanResultSet) isEmpty() bool {

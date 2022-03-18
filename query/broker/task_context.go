@@ -66,7 +66,7 @@ type baseTaskContext struct {
 	parentTaskID string
 	parentNode   string
 	// race condition, we cannot make sure that
-	// if another response wouldn't writes to a closed channel without lock
+	// if another response wouldn't write to a closed channel without lock
 	mu            sync.Mutex
 	expectResults int32
 	closed        bool
@@ -103,7 +103,7 @@ func (c *baseTaskContext) Done() bool {
 }
 
 // intermediateAckTaskContext represents the task context for root node
-// tacking how many intermediate acks the intermediate task
+// tacking how many intermediate ack the intermediate task
 type intermediateAckTaskContext struct {
 	baseTaskContext
 
@@ -174,7 +174,7 @@ type metricTaskContext struct {
 	stmtQuery *stmt.Query
 	groupAgg  aggregation.GroupingAggregator
 	stats     *models.QueryStats
-	// fieldname -> aggregator spec
+	// field name -> aggregator spec
 	// we will use it during intermediate tasks
 	aggregatorSpecs map[string]*protoCommonV1.AggregatorSpec
 	// tolerantNotFounds keeps the number of how many not found errors can be returned
@@ -210,8 +210,8 @@ func newMetricTaskContext(
 	}
 }
 
-// checkError checks if a error should be returned.
-// node of the cluster may returns not found error,
+// checkError checks if it has an error should be returned.
+// node of the cluster may return not found error,
 // ignoreResponse=true symbols that the response should be ignored
 func (c *metricTaskContext) checkError(errMsg string) (ignoreResponse bool, err error) {
 	if errMsg == "" {

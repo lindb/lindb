@@ -35,6 +35,11 @@ func MetricMetadataCommand(ctx context.Context, deps *deps.HTTPDeps, param *mode
 	if strings.TrimSpace(param.Database) == "" {
 		return nil, constants.ErrDatabaseNameRequired
 	}
+	if metadataStmt.Limit == 0 || metadataStmt.Limit > constants.MaxSuggestions {
+		// if limit =0 or > max suggestion items, need reset limit
+		metadataStmt.Limit = constants.MaxSuggestions
+	}
+	//if metadataStmt.li
 	return suggest(ctx, deps, param, metadataStmt)
 }
 

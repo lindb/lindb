@@ -20,6 +20,7 @@ package brokerquery
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/lindb/lindb/aggregation"
@@ -173,6 +174,10 @@ func (mq *metricQuery) makeResultSet(event *series.TimeSeriesEvent) (resultSet *
 			it := values.NewIterator()
 			for it.HasNext() {
 				slot, val := it.Next()
+				if math.IsNaN(val) {
+					//TODO need check
+					continue
+				}
 				points.AddPoint(timeutil.CalcTimestamp(mq.stmtQuery.TimeRange.Start, slot, mq.stmtQuery.Interval), val)
 			}
 			timeSeries.AddField(fieldName, points)
