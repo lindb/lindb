@@ -33,8 +33,6 @@ import (
 
 //go:generate mockgen -source=./election.go -destination=./election_mock.go -package=elect
 
-var log = logger.GetLogger("coordinator", "Election")
-
 // Listener represent master change callback interface.
 type Listener interface {
 	// OnFailOver triggers master fail-over, current node become master,
@@ -72,6 +70,8 @@ type election struct {
 	cancel context.CancelFunc
 
 	retryCh chan int
+
+	logger *logger.Logger
 }
 
 // NewElection returns a new election
@@ -86,6 +86,7 @@ func NewElection(ctx context.Context, repo state.Repository, node models.Node, t
 		ctx:      c,
 		cancel:   cancel,
 		retryCh:  make(chan int),
+		logger:   logger.GetLogger("coordinator", "Election"),
 	}
 }
 
@@ -96,7 +97,7 @@ func (e *election) Initialize() {
 
 	go func() {
 		e.handleMasterChange(watchEventChan)
-		log.Info("exit master change event watch loop", logger.Any("node", e.node))
+		e.logger.Info("exit master change event watch loop", logger.Any("node", e.node))
 	}()
 }
 
@@ -106,7 +107,7 @@ func (e *election) Elect() {
 		// wait init
 		time.Sleep(10 * time.Millisecond)
 		e.elect()
-		log.Warn("exit master elect loop", logger.Any("node", e.node))
+		e.logger.Warn("exit master elect loop", logger.Any("node", e.node))
 	}()
 }
 
@@ -129,17 +130,17 @@ func (e *election) GetMaster() *models.Master {
 func (e *election) elect() {
 	for {
 		if e.ctx.Err() != nil {
-			log.Error("context canceled, exit elect loop")
+			e.logger.Error("context canceled, exit elect loop")
 			return
 		}
-		log.Info("try elect master", logger.String("node", e.node.Indicator()))
+		e.logger.Info("try elect master", logger.String("node", e.node.Indicator()))
 
 		master := models.Master{Node: e.node.(*models.StatelessNode), ElectTime: timeutil.Now()}
 		masterBytes := encoding.JSONMarshal(master)
 		result, _, err := e.repo.Elect(e.ctx, constants.MasterPath, masterBytes, e.ttl)
 
 		if err != nil {
-			log.Warn("got an error when master elect, sleep 500ms then retry",
+			e.logger.Warn("got an error when master elect, sleep 500ms then retry",
 				logger.Error(err), logger.Any("node", e.node))
 			// sleep, then try again
 			time.Sleep(500 * time.Millisecond)
@@ -147,9 +148,9 @@ func (e *election) elect() {
 		}
 
 		if result {
-			log.Info("finished election, i'm master now", logger.Any("self", e.node))
+			e.logger.Info("finished election, i'm master now", logger.Any("self", e.node))
 		} else {
-			log.Info("finished election, i'm follower now", logger.Any("self", e.node))
+			e.logger.Info("finished election, i'm follower now", logger.Any("self", e.node))
 		}
 		select {
 		case <-e.ctx.Done():
@@ -169,9 +170,9 @@ func (e *election) Close() {
 // resign resigns master role, delete master elect node
 func (e *election) resign() {
 	if e.isMaster.Load() {
-		log.Info("do master resign because current node is master")
+		e.logger.Info("do master resign because current node is master")
 		if err := e.repo.Delete(e.ctx, constants.MasterPath); err != nil {
-			log.Error("delete master path failed", logger.Error(err))
+			e.logger.Error("delete master path failed", logger.Error(err))
 		}
 		e.isMaster.Store(false)
 		e.master.Store(&models.Master{}) // store empty master
@@ -188,16 +189,16 @@ func (e *election) handleMasterChange(eventChan state.WatchEventChan) {
 
 func (e *election) handleEvent(event *state.Event) {
 	if event.Err != nil {
-		log.Error("get error master change event", logger.Error(event.Err))
+		e.logger.Error("get error master change event", logger.Error(event.Err))
 		return
 	}
-	log.Info("receive master change event", logger.String("type", event.Type.String()))
+	e.logger.Info("receive master change event", logger.String("type", event.Type.String()))
 	switch event.Type {
 	case state.EventTypeDelete:
-		log.Info("master node lost, retry elect new master")
+		e.logger.Info("master node lost, retry elect new master")
 		if e.isMaster.Load() {
 			// current node is master, do resignation when master delete is deleted
-			log.Info("current node is master, do resign when master node is deleted")
+			e.logger.Info("current node is master, do resign when master node is deleted")
 			e.listener.OnResignation()
 		}
 		e.reElect()
@@ -209,18 +210,18 @@ func (e *election) handleEvent(event *state.Event) {
 			master := models.Master{}
 			if err := encoding.JSONUnmarshal(kv.Value, &master); err != nil {
 				//TODO if master data err, need remove master register data???
-				log.Error("unmarshal master value error",
+				e.logger.Error("unmarshal master value error",
 					logger.String("data", string(kv.Value)),
 					logger.Error(err))
 				continue
 			}
-			log.Info("current master is", logger.Any("master", master))
+			e.logger.Info("current master is", logger.Any("master", master))
 			// check current node if is master
 			if master.Node.Indicator() == e.node.Indicator() {
 				// current node become master
 				if err := e.listener.OnFailOver(); err != nil {
 					e.reElect()
-					log.Error("master fail over", logger.Error(err))
+					e.logger.Error("master fail over", logger.Error(err))
 					return
 				}
 				e.isMaster.Store(true)

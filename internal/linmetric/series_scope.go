@@ -237,9 +237,13 @@ func (s *taggedSeries) NewMinVec(fieldName string, tagKey ...string) *MinVec {
 	return newMinVec(s.metricName, fieldName, s.tags, tagKey...)
 }
 
-func (s *taggedSeries) buildFlatMetric(builder *metric.RowBuilder) {
+func (s *taggedSeries) buildFlatMetric(builder *metric.RowBuilder) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if s.payload == nil {
+		return false
+	}
 
 	builder.AddMetricName(strutil.String2ByteSlice(s.metricName))
 	builder.AddTimestamp(fasttime.UnixMilliseconds())
@@ -259,6 +263,7 @@ func (s *taggedSeries) buildFlatMetric(builder *metric.RowBuilder) {
 	if s.payload.histogramDelta != nil {
 		s.payload.histogramDelta.marshalToCompoundField(builder)
 	}
+	return true
 }
 
 func (s *taggedSeries) toStateMetric(includeTags map[string]string) *models.StateMetric {
