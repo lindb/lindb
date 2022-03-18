@@ -146,10 +146,10 @@ func (d *XORDecoder) Reset() {
 	d.val = 0
 }
 
-// Next return if has value in buffer using xor, do uncompress logic in next method,
+// Next return if it has value in buffer using xor, do uncompress logic in next method,
 // data format reference encoder format
 func (d *XORDecoder) Next() bool {
-	// if has err, always return false
+	// if it has err, always return false
 	if d.err != nil {
 		return false
 	}

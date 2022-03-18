@@ -97,7 +97,7 @@ func (sr *tsdStreamReader) TimeRange() (start, end uint16) {
 	return sr.startTime, sr.endTime
 }
 
-// HasNext returns the if has more field data
+// HasNext returns the if it has more field data
 func (sr *tsdStreamReader) HasNext() bool {
 	return !sr.reader.Empty()
 }

@@ -356,7 +356,7 @@ func TestStorageExecutor_Execute_GroupBy(t *testing.T) {
 	newBuildGroupTaskFunc = newBuildGroupTask
 	// case 6: load data err
 	newDataLoadTaskFunc = func(ctx *storageExecuteContext, shard tsdb.Shard, queryFlow flow.StorageQueryFlow,
-		span *timeSpan,
+		span *timeSpan, timeSpanCtx *timeSpanCtx,
 		highKey uint16, seriesID roaring.Container,
 	) flow.QueryTask {
 		return task
@@ -364,7 +364,7 @@ func TestStorageExecutor_Execute_GroupBy(t *testing.T) {
 	indexDB.EXPECT().GetGroupingContext(gomock.Any(), gomock.Any()).Return(gCtx, nil)
 	task.EXPECT().Run().Return(fmt.Errorf("err"))
 	gCtx.EXPECT().BuildGroup(gomock.Any(), gomock.Any()).Return(map[string][]uint16{"host": {1, 2, 3}})
-	exec1.executeGroupBy(shard, &timeSpanResultSet{spanMap: map[int64]*timeSpan{1: {}}, filterRSCount: 1}, roaring.BitmapOf(1, 2, 3))
+	exec1.executeGroupBy(shard, &timeSpanResultSet{spanMap: map[int64]*timeSpan{1: {}}}, roaring.BitmapOf(1, 2, 3))
 }
 
 func TestStorageExecutor_merge_groupBy_tagValues(t *testing.T) {

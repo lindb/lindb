@@ -116,6 +116,9 @@ func (s *idStore) IterKeys(prefix []byte, limit int) (rs [][]byte, err error) {
 	}()
 
 	for it.First(); it.Valid(); it.Next() {
+		if len(rs) >= limit {
+			break
+		}
 		key := it.Key()
 		if !bytes.HasPrefix(key, prefix) {
 			break
@@ -123,9 +126,6 @@ func (s *idStore) IterKeys(prefix []byte, limit int) (rs [][]byte, err error) {
 		dst := make([]byte, len(key))
 		copy(dst, key)
 		rs = append(rs, dst)
-		if len(rs) == limit {
-			break
-		}
 	}
 
 	// if iterator has err, returns nil result and err

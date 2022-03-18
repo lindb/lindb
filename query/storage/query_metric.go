@@ -19,7 +19,6 @@ package storagequery
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/lindb/roaring"
@@ -54,6 +53,11 @@ var (
 	errShardNumNotMatch  = errors.New("got shard size not equals input shard size")
 )
 
+type timeSpanCtx struct {
+	decoders [][]*encoding.TSDDecoder
+	loaders  []flow.DataLoader // item maybe DataLoader is nil
+}
+
 // groupingResult represents the grouping context result
 type groupingResult struct {
 	groupingCtx series.GroupingContext
@@ -61,13 +65,15 @@ type groupingResult struct {
 
 // groupedSeriesResult represents grouped series for group by query
 type groupedSeriesResult struct {
+	// tag values(ids) => low series ids.
+	// if no grouping tag values is empty string value.
 	groupedSeries map[string][]uint16
 }
 
 // storageExecutor represents execution search logic in storage level,
 // does query task async, then merge result, such as map-reduce job.
 // 1) Filtering
-// 2) Grouping if need
+// 2) Grouping if it needs
 // 3) Scanning and Loading
 // 4) Down sampling
 // 5) Simple aggregation
@@ -200,7 +206,7 @@ func (e *storageExecutor) executeQuery() {
 				return
 			}
 
-			rs := newTimeSpanResultSet()
+			rs := newTimeSpanResultSet(len(e.fields))
 			// 2. filter data each data family in shard
 			t = newFamilyFilterTask(e.ctx, shard, e.metricID, e.fields, seriesIDs, rs)
 			err = t.Run()
@@ -234,11 +240,11 @@ func (e *storageExecutor) executeQuery() {
 func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet, seriesIDs *roaring.Bitmap) {
 	groupingResult := &groupingResult{}
 	var groupingCtx series.GroupingContext
-	// timespans sorted by family
+	// time spans sorted by family
 	timeSpans := rs.getTimeSpans()
 	if e.ctx.query.HasGroupBy() {
-		// 1. grouping, if has group by, do group by tag keys, else just split series ids as batch first,
-		// get grouping context if need
+		// 1. grouping, if it has grouping, do group by tag keys, else just split series ids as batch first,
+		// get grouping context if it needs
 		tagKeys := make([]uint32, len(e.groupByTagKeyIDs))
 		for idx, tagKeyID := range e.groupByTagKeyIDs {
 			tagKeys[idx] = tagKeyID.ID
@@ -285,9 +291,12 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet
 			}
 
 			e.queryFlow.Load(func() {
-				for _, span := range timeSpans {
-					// 3.load data by grouped seriesIDs
-					t := newDataLoadTaskFunc(e.ctx, shard, e.queryFlow, span,
+				timeSpanCtxs := make([]*timeSpanCtx, len(timeSpans))
+				for idx, span := range timeSpans {
+					tsc := &timeSpanCtx{}
+					timeSpanCtxs[idx] = tsc
+					// 3.load data by grouped lowSeriesIDs
+					t := newDataLoadTaskFunc(e.ctx, shard, e.queryFlow, span, tsc,
 						seriesIDHighKey, containerOfSeries)
 					if err := t.Run(); err != nil {
 						e.queryFlow.Complete(err)
@@ -295,11 +304,11 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet
 					}
 				}
 				grouped := groupedResult.groupedSeries
-				fieldSeriesList := make([][]*encoding.TSDDecoder, len(e.fields))
 				fieldAggList := make(aggregation.FieldAggregates, len(e.fields))
 				aggSpecs := e.storageExecutePlan.getAggregatorSpecs()
+
 				for idx := range e.fields {
-					fieldSeriesList[idx] = make([]*encoding.TSDDecoder, rs.filterRSCount)
+					//fieldSeriesList[idx] = make([]*encoding.TSDDecoder, rs.getFilterRSCount())
 					fieldAggList[idx] = aggregation.NewSeriesAggregator(
 						e.ctx.query.Interval,
 						e.queryIntervalRatio,
@@ -310,31 +319,37 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet
 				defer func() {
 					if r := recover(); r != nil {
 						storageQueryFlowLogger.Error("executeGroupBy",
-							logger.Error(fmt.Errorf("panic: %v", e)),
+							logger.Any("error", r),
 							logger.Stack())
 					}
 				}()
-				for tags, seriesIDs := range grouped {
+				// tag values => low series ids
+				for tags, lowSeriesIDs := range grouped {
 					// scan metric data from storage(memory/file)
-					for _, seriesID := range seriesIDs {
-						for _, span := range timeSpans {
+					for _, lowSeriesID := range lowSeriesIDs {
+						for timeIdx, span := range timeSpans { // family => result set
 							// loads the metric data by given series id from load result.
-							for resultSetIdx, loader := range span.loaders {
+							tsc := timeSpanCtxs[timeIdx]
+							for resultSetIdx, loader := range tsc.loaders {
+								if loader == nil {
+									continue
+								}
 								// load field series data by series ids
-								slotRange2, fieldSpanBinary := loader.Load(seriesID)
+								slotRange2, fieldSpanBinary := loader.Load(lowSeriesID)
 								for fieldIndex := range fieldSpanBinary {
 									spanBinary := fieldSpanBinary[fieldIndex]
-									fieldsTSDDecoders := fieldSeriesList[fieldIndex]
+									fieldsTSDDecoders := tsc.decoders[fieldIndex]
 									if spanBinary != nil {
 										if fieldsTSDDecoders[resultSetIdx] == nil {
-											fieldsTSDDecoders[resultSetIdx] = encoding.GetTSDDecoder()
+											d := encoding.GetTSDDecoder()
+											fieldsTSDDecoders[resultSetIdx] = d
 										}
 										fieldsTSDDecoders[resultSetIdx].ResetWithTimeRange(spanBinary, slotRange2.Start, slotRange2.End)
 									}
 								}
 							}
 
-							for idx, fieldSeries := range fieldSeriesList {
+							for idx, fieldSeries := range tsc.decoders {
 								var agg aggregation.FieldAggregator
 								var ok bool
 								agg, ok = fieldAggList[idx].GetAggregator(span.familyTime)

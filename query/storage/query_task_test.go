@@ -162,7 +162,7 @@ func TestFileDataFilterTask_Run(t *testing.T) {
 	resultSet.EXPECT().Identifier().Return("memory")
 	shard := tsdb.NewMockShard(ctrl)
 	seriesIDs := roaring.BitmapOf(1, 2, 3)
-	rs := newTimeSpanResultSet()
+	rs := newTimeSpanResultSet(1)
 	task := newFamilyFilterTask(newStorageExecuteContext(nil, &stmt.Query{}),
 		shard, 1, field.Metas{{ID: 10}}, seriesIDs, rs)
 	// case 1: get empty family
@@ -265,14 +265,14 @@ func TestDataLoadTask_Run(t *testing.T) {
 	rs := flow.NewMockFilterResultSet(ctrl)
 	timeSpan := &timeSpan{resultSets: []flow.FilterResultSet{rs}}
 	task := newDataLoadTask(newStorageExecuteContext(nil, &stmt.Query{}),
-		shard, qf, timeSpan, 1, nil)
+		shard, qf, timeSpan, &timeSpanCtx{}, 1, nil)
 	rs.EXPECT().Load(gomock.Any(), gomock.Any()).AnyTimes()
 	// case 1: load data
 	err := task.Run()
 	assert.NoError(t, err)
 	// case 2: explain
 	task = newDataLoadTask(newStorageExecuteContext(nil, &stmt.Query{Explain: true}),
-		shard, qf, timeSpan, 1, nil)
+		shard, qf, timeSpan, &timeSpanCtx{}, 1, nil)
 	shard.EXPECT().ShardID().Return(models.ShardID(10)).AnyTimes()
 	timeSpan.identifier = "memory"
 	err = task.Run()

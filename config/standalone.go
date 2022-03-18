@@ -89,3 +89,16 @@ func NewDefaultStandaloneTOML() string {
 		NewDefaultMonitor().TOML(),
 	)
 }
+
+// NewDefaultStandalone creates standalone default configuration.
+func NewDefaultStandalone() Standalone {
+	return Standalone{
+		ETCD:        *NewDefaultETCD(),
+		Coordinator: *NewDefaultCoordinator(),
+		Query:       *NewDefaultQuery(),
+		BrokerBase:  *NewDefaultBrokerBase(),
+		StorageBase: *NewDefaultStorageBase(),
+		Logging:     *NewDefaultLogging(),
+		Monitor:     *NewDefaultMonitor(),
+	}
+}

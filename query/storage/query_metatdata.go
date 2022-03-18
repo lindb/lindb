@@ -51,6 +51,10 @@ func newStorageMetadataQuery(
 func (e *metadataStorageExecutor) Execute() (result []string, err error) {
 	req := e.request
 	limit := req.Limit
+	if limit == 0 || limit > constants.MaxSuggestions {
+		// if limit =0 or > max suggestion items, need reset limit
+		limit = constants.MaxSuggestions
+	}
 
 	switch req.Type {
 	case stmt.Namespace:
