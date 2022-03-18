@@ -30,10 +30,9 @@ func FindMetricList(names []string, includeTags map[string]string) map[string][]
 }
 
 // registry is a set of metrics
-// Metrics in this registry will be exported to lindb's native ingestion.
+// Metrics in this registry will be exported to LinDB's native ingestion.
 type registry struct {
 	mu     sync.RWMutex
-	buffer []*taggedSeries // store metrics in buffer to prevent long waiting during flushing
 	series map[uint64]*taggedSeries
 }
 
@@ -41,7 +40,7 @@ var defaultRegistry = &registry{
 	series: make(map[uint64]*taggedSeries),
 }
 
-// Register registers a namedmetric
+// Register registers a named metric
 func (r *registry) Register(seriesID uint64, series *taggedSeries) *taggedSeries {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -54,27 +53,28 @@ func (r *registry) Register(seriesID uint64, series *taggedSeries) *taggedSeries
 	return series
 }
 
-// gatherMetricList transforms event-metrics to native lindb dto-proto format
+// gatherMetricList transforms event-metrics to native LinDB dto-proto format
 func (r *registry) gatherMetricList(
 	writer io.Writer, merger func(builder *metric.RowBuilder),
 ) (count int) {
+	// store metrics in buffer to prevent long waiting during flushing
+	var buffer []*taggedSeries
 	r.mu.RLock()
-	r.buffer = r.buffer[:0]
 	for _, nm := range r.series {
-		r.buffer = append(r.buffer, nm)
+		buffer = append(buffer, nm)
 	}
 	r.mu.RUnlock()
 
 	builder, releaseFunc := metric.NewRowBuilder()
 	defer releaseFunc(builder)
 
-	for _, s := range r.buffer {
-		if s.payload == nil {
-			continue
-		}
+	for _, s := range buffer {
 		builder.Reset()
 
-		s.buildFlatMetric(builder)
+		if !s.buildFlatMetric(builder) {
+			// no metric
+			continue
+		}
 		merger(builder)
 
 		data, err := builder.Build()
