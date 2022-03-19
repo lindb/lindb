@@ -22,6 +22,7 @@ package standalone
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -53,6 +54,7 @@ func TestMain(m *testing.M) {
 		runtime.Stop()
 	}()
 	m.Run()
+	os.Exit(0)
 }
 
 func Test_QueryMetric(t *testing.T) {

@@ -398,7 +398,7 @@ func TestShard_Write(t *testing.T) {
 		metadata: metadata,
 		logger:   logger.GetLogger("TSDB", "test"),
 	}
-	s.statistics.writeMetricFailures = writeMetricFailuresVec.WithTagValues("test", "1")
+	s.statistics.lookupMetricMetaFailures = lookupMetricMetaFailuresVec.WithTagValues("test", "1")
 	cases := []struct {
 		name    string
 		prepare func()
@@ -418,7 +418,7 @@ func TestShard_Write(t *testing.T) {
 			if tt.prepare != nil {
 				tt.prepare()
 			}
-			err := s.WriteRows(mockBatchRows(&protoMetricsV1.Metric{
+			err := s.LookupRowMetricMeta(mockBatchRows(&protoMetricsV1.Metric{
 				Name:      "test",
 				Timestamp: timeutil.Now(),
 				SimpleFields: []*protoMetricsV1.SimpleField{{
@@ -450,7 +450,7 @@ func TestShard_lookupRowMeta(t *testing.T) {
 		metadata: metadata,
 		logger:   logger.GetLogger("TSDB", "test"),
 	}
-	s.statistics.writeMetricFailures = writeMetricFailuresVec.WithTagValues("test", "1")
+	s.statistics.lookupMetricMetaFailures = lookupMetricMetaFailuresVec.WithTagValues("test", "1")
 	cases := []struct {
 		name    string
 		tags    []*protoMetricsV1.KeyValue

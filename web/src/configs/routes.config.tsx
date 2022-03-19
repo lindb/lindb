@@ -22,13 +22,14 @@ import {
   IconInherit,
   IconListView,
   IconSearch,
+  IconSendStroked,
   IconServer,
   IconServerStroked,
   IconTemplate,
 } from "@douyinfe/semi-icons";
 import { DashboardView } from "@src/components";
-import { SystemDashboard } from "@src/configs";
-import { Route } from "@src/constants";
+import { StorageIngestionDashboard, SystemDashboard } from "@src/configs";
+import { Route, StateRoleName } from "@src/constants";
 import {
   ConfigurationView,
   DatabaseConfig,
@@ -111,19 +112,33 @@ export const routes = [
         content: <LogView />,
       },
       {
+        text: "Ingestion",
+        path: "/monitoring/ingestion",
+        icon: <IconSendStroked size="large" />,
+        timePicker: true,
+        content: (
+          <DashboardView
+            dashboards={[
+              {
+                label: StateRoleName.Storage,
+                value: StateRoleName.Storage,
+                dashboard: StorageIngestionDashboard,
+              },
+              {
+                label: StateRoleName.Broker,
+                value: StateRoleName.Broker,
+                dashboard: SystemDashboard,
+              },
+            ]}
+          />
+        ),
+        keep: ["start", "end", "node", "db"],
+      },
+      {
         text: "System",
         path: "/monitoring/system",
         icon: <IconServerStroked size="large" />,
         timePicker: true,
-        content: <DashboardView dashboard={SystemDashboard} />,
-        keep: ["start", "end", "node"],
-      },
-      {
-        text: "Storage",
-        path: "/monitoring/storage",
-        icon: <IconTemplate size="large" />,
-        timePicker: true,
-        content: <DashboardView dashboard={SystemDashboard} />,
         keep: ["start", "end", "node"],
       },
       {

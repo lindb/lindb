@@ -105,8 +105,14 @@ export default function TimePicker() {
 
   useWatchURLChange(() => {
     const from = URLStore.params.get("from");
-    const quickItem = _.find(quickSelectList, { value: `${from}` });
-    setQuick(quickItem);
+
+    if (_.isEmpty(from)) {
+      setQuick(defaultQuickItem);
+    } else {
+      const quickItem = _.find(quickSelectList, { value: `${from}` });
+      setQuick(quickItem);
+    }
+
     const refresh = URLStore.params.get("refresh");
     const refreshItem = _.find(autoRefreshList, { title: `${refresh}` });
     if (refreshItem && refreshItem.value !== "") {

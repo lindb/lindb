@@ -77,10 +77,10 @@ func TestLocalReplicator_Replica(t *testing.T) {
 	_, _ = row.WriteTo(buf)
 	var dst []byte
 	dst = snappy.Encode(dst, buf.Bytes())
-	shard.EXPECT().WriteRows(gomock.Any()).Return(fmt.Errorf("err"))
+	shard.EXPECT().LookupRowMetricMeta(gomock.Any()).Return(fmt.Errorf("err"))
 	replicator.Replica(1, dst)
 
-	shard.EXPECT().WriteRows(gomock.Any()).Return(nil)
+	shard.EXPECT().LookupRowMetricMeta(gomock.Any()).Return(nil)
 	family.EXPECT().WriteRows(gomock.Any()).Return(fmt.Errorf("err"))
 	replicator.Replica(1, dst)
 	// bad data

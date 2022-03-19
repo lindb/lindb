@@ -25,8 +25,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/models"
@@ -35,6 +33,8 @@ import (
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestDatabase_Write_And_Rollup(t *testing.T) {
@@ -84,7 +84,7 @@ func TestDatabase_Write_And_Rollup(t *testing.T) {
 			}},
 		})
 
-		err = shard.WriteRows(rows)
+		err = shard.LookupRowMetricMeta(rows)
 		assert.NoError(t, err)
 
 		err = f.WriteRows(rows)
