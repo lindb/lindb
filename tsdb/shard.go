@@ -46,15 +46,16 @@ import (
 //go:generate mockgen -source=./shard.go -destination=./shard_mock.go -package=tsdb
 
 var (
-	shardScope             = linmetric.NewScope("lindb.tsdb.shard")
-	writeMetricFailuresVec = shardScope.NewCounterVec("write_metric_failures", "db", "shard")
-	writeBatchesVec        = shardScope.NewCounterVec("write_batches", "db", "shard")
-	writeMetricsVec        = shardScope.NewCounterVec("write_metrics", "db", "shard")
-	writeFieldsVec         = shardScope.NewCounterVec("write_fields", "db", "shard")
-	memdbTotalSizeVec      = shardScope.NewGaugeVec("memdb_total_size", "db", "shard")
-	memdbNumberVec         = shardScope.NewGaugeVec("memdb_number", "db", "shard")
-	memFlushTimerVec       = shardScope.Scope("memdb_flush_duration").NewHistogramVec("db", "shard")
-	indexFlushTimerVec     = shardScope.Scope("indexdb_flush_duration").NewHistogramVec("db", "shard")
+	shardScope                  = linmetric.NewScope("lindb.tsdb.shard")
+	lookupMetricMetaFailuresVec = shardScope.NewCounterVec("lookup_metric_meta_failures", "db", "shard")
+	writeBatchesVec             = shardScope.NewCounterVec("write_batches", "db", "shard")
+	writeMetricsVec             = shardScope.NewCounterVec("write_metrics", "db", "shard")
+	metricMetricFailuresVec     = shardScope.NewCounterVec("write_metrics_failures", "db", "shard")
+	writeFieldsVec              = shardScope.NewCounterVec("write_fields", "db", "shard")
+	memdbTotalSizeVec           = shardScope.NewGaugeVec("memdb_total_size", "db", "shard")
+	memdbNumberVec              = shardScope.NewGaugeVec("memdb_number", "db", "shard")
+	memFlushTimerVec            = shardScope.Scope("memdb_flush_duration").NewHistogramVec("db", "shard")
+	indexFlushTimerVec          = shardScope.Scope("indexdb_flush_duration").NewHistogramVec("db", "shard")
 )
 
 // Shard is a horizontal partition of metrics for LinDB.
@@ -74,9 +75,8 @@ type Shard interface {
 	// IndexDatabase returns the index-database
 	IndexDatabase() indexdb.IndexDatabase
 	BufferManager() memdb.BufferManager
-	// WriteRows writes metric rows with same family in batch
-	//TODO modify method name??
-	WriteRows(rows []metric.StorageRow) error
+	// LookupRowMetricMeta lookups the metadata of metric data for each row with same family in batch.
+	LookupRowMetricMeta(rows []metric.StorageRow) error
 
 	Flush() error
 	// initIndexDatabase initializes index database
@@ -110,8 +110,8 @@ type shard struct {
 	logger         *logger.Logger
 
 	statistics struct {
-		writeMetricFailures *linmetric.BoundCounter
-		indexFlushTimer     *linmetric.BoundHistogram
+		lookupMetricMetaFailures *linmetric.BoundCounter
+		indexFlushTimer          *linmetric.BoundHistogram
 	}
 }
 
@@ -148,7 +148,7 @@ func newShard(
 
 	// initialize metrics
 	shardIDStr := strconv.Itoa(int(shardID))
-	createdShard.statistics.writeMetricFailures = writeMetricFailuresVec.WithTagValues(db.Name(), shardIDStr)
+	createdShard.statistics.lookupMetricMetaFailures = lookupMetricMetaFailuresVec.WithTagValues(db.Name(), shardIDStr)
 	createdShard.statistics.indexFlushTimer = indexFlushTimerVec.WithTagValues(db.Name(), shardIDStr)
 
 	for idx, targetInterval := range dbOption.Intervals {
@@ -246,17 +246,15 @@ func (s *shard) lookupRowMeta(row *metric.StorageRow) (err error) {
 
 	row.MetricID, err = s.metadata.MetadataDatabase().GenMetricID(namespace, metricName)
 	if err != nil {
-		s.statistics.writeMetricFailures.Incr()
 		return err
 	}
 	var isCreated bool
 	if row.TagsLen() == 0 {
 		// if metric without tags, uses default series id(0)
-		row.SeriesID = constants.SeriesIDWithoutTags
+		row.SeriesID = constants.SeriesIDWithoutTags //TODO need fix(equals empty series id)
 	} else {
 		row.SeriesID, isCreated, err = s.indexDB.GetOrCreateSeriesID(row.MetricID, row.TagsHash())
 		if err != nil {
-			s.statistics.writeMetricFailures.Incr()
 			return err
 		}
 	}
@@ -328,9 +326,11 @@ Done:
 	return nil
 }
 
-func (s *shard) WriteRows(rows []metric.StorageRow) error {
+// LookupRowMetricMeta lookups the metadata of metric data for each row with same family in batch.
+func (s *shard) LookupRowMetricMeta(rows []metric.StorageRow) error {
 	for idx := range rows {
 		if err := s.lookupRowMeta(&rows[idx]); err != nil {
+			s.statistics.lookupMetricMetaFailures.Incr()
 			s.logger.Error("failed to lookup meta of row",
 				logger.String("database", s.db.Name()),
 				logger.Any("shardID", s.id), logger.Error(err))

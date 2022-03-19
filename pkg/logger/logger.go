@@ -83,7 +83,6 @@ func IsTerminal(f *os.File) bool {
 type Logger struct {
 	module string
 	role   string
-	logger *zap.Logger
 }
 
 // GetLogger returns under logger impl.
@@ -94,21 +93,17 @@ func (l *Logger) GetLogger() *zap.Logger {
 // getInitializedOrDefaultLogger try get initialized zap logger,
 // if failure, it will use the default logger
 func (l *Logger) getInitializedOrDefaultLogger() *zap.Logger {
-	if l.logger != nil {
-		return l.logger
-	}
 	var item interface{}
 	switch {
 	case l.module == HTTPModule:
-		item = accessLogger.Load()
+		accessLogger.Load()
 	default:
 		item = lindLogger.Load()
 	}
 	if item == nil {
 		return defaultLogger
 	}
-	l.logger = item.(*zap.Logger)
-	return l.logger
+	return item.(*zap.Logger)
 }
 
 // Debug logs a message at DebugLevel. The message includes any fields passed

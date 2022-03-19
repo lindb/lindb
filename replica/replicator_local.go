@@ -148,8 +148,8 @@ func (r *localReplicator) Replica(sequence int64, msg []byte) {
 	r.statistics.localReplicaRows.Add(float64(rowsLen))
 	rows := r.batchRows.Rows()
 
-	// write metric metadata
-	if err := r.shard.WriteRows(rows); err != nil {
+	// lookup metric metadata
+	if err := r.shard.LookupRowMetricMeta(rows); err != nil {
 		r.logger.Error("failed writing family rows",
 			logger.Int("rows", r.batchRows.Len()),
 			logger.String("database", r.shard.Database().Name()),
