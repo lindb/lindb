@@ -16,22 +16,46 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { Col, Row } from "@douyinfe/semi-ui";
+import { IconGridStroked } from "@douyinfe/semi-icons";
+import { Card, Col, Row, Form, Select } from "@douyinfe/semi-ui";
 import { Metric, VariatesSelect } from "@src/components";
-import { Dashboard } from "@src/models";
-import React from "react";
+import { Dashboard, DashboardItem } from "@src/models";
+import React, { useState } from "react";
+import * as _ from "lodash-es";
 import { v4 as uuidv4 } from "uuid";
 
 export type DashboardViewProps = {
-  dashboard: Dashboard;
+  dashboards?: DashboardItem[];
 };
 
 export default function DashboardView(props: DashboardViewProps) {
-  const { dashboard } = props;
+  const { dashboards } = props;
+  const [selectedDashboard, setSelectedDashboard] = useState(
+    _.get(dashboards, "[0].value", "")
+  );
+  const [dashboard, setDashboard] = useState<Dashboard>(
+    _.get(dashboards, "[0].dashboard", {})
+  );
+
   return (
     <>
-      {dashboard.variates && <VariatesSelect variates={dashboard.variates} />}
-      {dashboard.rows.map((row, rowIdx) => (
+      <Card>
+        <Select
+          prefix={<IconGridStroked />}
+          value={selectedDashboard}
+          optionList={dashboards}
+          onChange={(value) => {
+            const dashboardItem = _.find(dashboards, (item: DashboardItem) => {
+              return item.value == value;
+            });
+            setDashboard(_.get(dashboardItem, "dashboard", {}) as Dashboard);
+            setSelectedDashboard(value);
+          }}
+          style={{ minWidth: 60, marginRight: 16 }}
+        />
+        {dashboard.variates && <VariatesSelect variates={dashboard.variates} />}
+      </Card>
+      {(dashboard.rows || []).map((row, rowIdx) => (
         <Row
           style={{ marginTop: 12 }}
           key={rowIdx}

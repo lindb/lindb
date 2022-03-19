@@ -16,12 +16,12 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { Card, Form } from "@douyinfe/semi-ui";
+import { Form } from "@douyinfe/semi-ui";
 import { MetadataSelect } from "@src/components";
 import { Variate } from "@src/models";
 import { URLStore } from "@src/stores";
 import * as _ from "lodash-es";
-import React, { useRef, MutableRefObject } from "react";
+import React, { MutableRefObject, useRef } from "react";
 
 /**
  *  VariatesSelect based on LinDB tag values metadata.
@@ -32,28 +32,26 @@ export default function VariatesSelect(props: { variates: Variate[] }) {
   const formApi = useRef() as MutableRefObject<any>;
 
   return (
-    <Card bodyStyle={{ padding: 12 }}>
-      <Form
-        style={{ paddingBottom: 0, paddingTop: 0 }}
-        wrapperCol={{ span: 20 }}
-        layout="horizontal"
-        getFormApi={(api: object) => {
-          formApi.current = api;
-        }}
-        onSubmit={(values: object) => {
-          console.log("valuesss...", values);
-          URLStore.changeURLParams({ params: values });
-        }}
-      >
-        {_.map(variates, (v: any) => (
-          <MetadataSelect
-            variate={v}
-            key={v.tagKey}
-            labelPosition="inset"
-            multiple={v.multiple}
-          />
-        ))}
-      </Form>
-    </Card>
+    <Form
+      style={{ paddingBottom: 0, paddingTop: 0, display: "inline-flex" }}
+      wrapperCol={{ span: 20 }}
+      layout="horizontal"
+      getFormApi={(api: object) => {
+        formApi.current = api;
+      }}
+      onSubmit={(values: object) => {
+        console.log("valuesss...", values);
+        URLStore.changeURLParams({ params: values });
+      }}
+    >
+      {_.map(variates, (v: any) => (
+        <MetadataSelect
+          variate={v}
+          key={v.tagKey}
+          labelPosition="inset"
+          multiple={v.multiple}
+        />
+      ))}
+    </Form>
   );
 }

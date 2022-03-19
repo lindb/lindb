@@ -150,7 +150,7 @@ func newDataFamily(
 
 	f.statistics.writeBatches = writeBatchesVec.WithTagValues(dbName, shardIDStr)
 	f.statistics.writeMetrics = writeMetricsVec.WithTagValues(dbName, shardIDStr)
-	f.statistics.writeMetricFailures = writeMetricFailuresVec.WithTagValues(dbName, shardIDStr)
+	f.statistics.writeMetricFailures = metricMetricFailuresVec.WithTagValues(dbName, shardIDStr)
 	f.statistics.writeFields = writeFieldsVec.WithTagValues(dbName, shardIDStr)
 	f.statistics.memdbTotalSize = memdbTotalSizeVec.WithTagValues(dbName, shardIDStr)
 	f.statistics.memdbNumber = memdbNumberVec.WithTagValues(dbName, shardIDStr)

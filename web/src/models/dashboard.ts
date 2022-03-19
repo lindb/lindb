@@ -18,6 +18,12 @@ under the License.
 */
 import { ChartConfig } from "@src/models";
 
+export type DashboardItem = {
+  label: string;
+  value: string;
+  dashboard: Dashboard;
+};
+
 export type Dashboard = {
   gutter?: number;
   variates?: Variate[];
