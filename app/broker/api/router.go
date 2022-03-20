@@ -23,7 +23,7 @@ import (
 	"github.com/lindb/lindb/app/broker/api/admin"
 	"github.com/lindb/lindb/app/broker/api/exec"
 	"github.com/lindb/lindb/app/broker/api/ingest"
-	"github.com/lindb/lindb/app/broker/deps"
+	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/monitoring"
 )
@@ -45,7 +45,7 @@ type API struct {
 }
 
 // NewAPI creates broker http api.
-func NewAPI(deps *deps.HTTPDeps) *API {
+func NewAPI(deps *depspkg.HTTPDeps) *API {
 	return &API{
 		execute:         exec.NewExecuteAPI(deps),
 		database:        admin.NewDatabaseAPI(deps),

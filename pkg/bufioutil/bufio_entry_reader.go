@@ -134,7 +134,7 @@ func (br *bufioEntryReader) Reset(fileName string) error {
 	if err != nil {
 		return err
 	}
-	if err = br.Close(); err != nil {
+	if err := br.Close(); err != nil {
 		return err
 	}
 	br.f = newF

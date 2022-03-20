@@ -74,7 +74,6 @@ func TestStateManager_StorageCfg(t *testing.T) {
 	}()
 	mgr := NewStateManager(context.TODO(), nil, nil)
 	mgr1 := mgr.(*stateManager)
-	//mgr1 := mgr.(*stateManager)
 	// case 1: unmarshal cfg err
 	mgr.EmitEvent(&discovery.Event{
 		Type:  discovery.StorageConfigChanged,
@@ -89,7 +88,7 @@ func TestStateManager_StorageCfg(t *testing.T) {
 	})
 	// case 3: new storage cluster err
 	mgr1.mutex.Lock()
-	mgr1.newStorageClusterFn = func(ctx context.Context, cfg config.StorageCluster,
+	mgr1.newStorageClusterFn = func(ctx context.Context, cfg *config.StorageCluster,
 		stateMgr StateManager, repoFactory state.RepositoryFactory,
 	) (cluster StorageCluster, err error) {
 		return nil, fmt.Errorf("err")
@@ -98,13 +97,13 @@ func TestStateManager_StorageCfg(t *testing.T) {
 	mgr.EmitEvent(&discovery.Event{
 		Type:  discovery.StorageConfigChanged,
 		Key:   "/storage/test",
-		Value: encoding.JSONMarshal(&config.StorageCluster{Config: config.RepoState{Namespace: "/storage/test"}}),
+		Value: encoding.JSONMarshal(&config.StorageCluster{Config: &config.RepoState{Namespace: "/storage/test"}}),
 	})
 	time.Sleep(100 * time.Millisecond)
 	// case 4: start storage err
 	storage1 := NewMockStorageCluster(ctrl)
 	mgr1.mutex.Lock()
-	mgr1.newStorageClusterFn = func(ctx context.Context, cfg config.StorageCluster,
+	mgr1.newStorageClusterFn = func(ctx context.Context, cfg *config.StorageCluster,
 		stateMgr StateManager, repoFactory state.RepositoryFactory,
 	) (cluster StorageCluster, err error) {
 		return storage1, nil
@@ -115,7 +114,7 @@ func TestStateManager_StorageCfg(t *testing.T) {
 	mgr.EmitEvent(&discovery.Event{
 		Type:  discovery.StorageConfigChanged,
 		Key:   "/storage/test",
-		Value: encoding.JSONMarshal(&config.StorageCluster{Config: config.RepoState{Namespace: "/storage/test"}}),
+		Value: encoding.JSONMarshal(&config.StorageCluster{Config: &config.RepoState{Namespace: "/storage/test"}}),
 	})
 	time.Sleep(100 * time.Millisecond)
 
@@ -124,7 +123,7 @@ func TestStateManager_StorageCfg(t *testing.T) {
 	mgr.EmitEvent(&discovery.Event{
 		Type:  discovery.StorageConfigChanged,
 		Key:   "/storage/test",
-		Value: encoding.JSONMarshal(&config.StorageCluster{Config: config.RepoState{Namespace: "/storage/test"}}),
+		Value: encoding.JSONMarshal(&config.StorageCluster{Config: &config.RepoState{Namespace: "/storage/test"}}),
 	})
 	// case 6: remove not exist storage
 	mgr.EmitEvent(&discovery.Event{
@@ -157,7 +156,7 @@ func TestStateManager_DatabaseCfg(t *testing.T) {
 	mgr1 := mgr.(*stateManager)
 	storage1 := NewMockStorageCluster(ctrl)
 	mgr1.mutex.Lock()
-	mgr1.newStorageClusterFn = func(ctx context.Context, cfg config.StorageCluster,
+	mgr1.newStorageClusterFn = func(ctx context.Context, cfg *config.StorageCluster,
 		stateMgr StateManager, repoFactory state.RepositoryFactory,
 	) (cluster StorageCluster, err error) {
 		return storage1, nil
@@ -168,7 +167,7 @@ func TestStateManager_DatabaseCfg(t *testing.T) {
 	mgr.EmitEvent(&discovery.Event{
 		Type:  discovery.StorageConfigChanged,
 		Key:   "/storage/test",
-		Value: encoding.JSONMarshal(&config.StorageCluster{Config: config.RepoState{Namespace: "/storage/test"}}),
+		Value: encoding.JSONMarshal(&config.StorageCluster{Config: &config.RepoState{Namespace: "/storage/test"}}),
 	})
 	time.Sleep(100 * time.Millisecond)
 
@@ -189,7 +188,7 @@ func TestStateManager_DatabaseCfg(t *testing.T) {
 		Storage:       "/storage/test",
 		NumOfShard:    3,
 		ReplicaFactor: 2,
-		Option:        option.DatabaseOption{},
+		Option:        &option.DatabaseOption{},
 	})
 	// case 3: get shard assign err
 	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
@@ -249,7 +248,7 @@ func TestStateManager_ShardAssignment(t *testing.T) {
 	elector := NewMockReplicaLeaderElector(ctrl)
 	mgr1.mutex.Lock()
 	mgr1.elector = elector
-	mgr1.databases["test"] = models.Database{Storage: "test"}
+	mgr1.databases["test"] = &models.Database{Storage: "test"}
 	mgr1.storages["test"] = storage
 	mgr1.mutex.Unlock()
 	// case 1: unmarshal err
@@ -303,7 +302,7 @@ func TestStateManager_createShardAssign(t *testing.T) {
 	assert.Nil(t, shardAssign)
 	// case 2: no live nodes
 	storage.EXPECT().GetLiveNodes().Return(nil, nil)
-	shardAssign, err = mgr1.createShardAssignment(storage, &models.Database{Name: "test"}, -1, -1)
+	shardAssign, err = mgr1.createShardAssignment(storage, &models.Database{Name: "test"}, 0, 0)
 	assert.Error(t, err)
 	assert.Nil(t, shardAssign)
 	// case 3: assign shard err

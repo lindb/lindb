@@ -41,7 +41,7 @@ func TestDatabase_String(t *testing.T) {
 		Name:          "test",
 		NumOfShard:    10,
 		ReplicaFactor: 1,
-		Option: option.DatabaseOption{
+		Option: &option.DatabaseOption{
 			Intervals: option.Intervals{
 				{Interval: timeutil.Interval(10 * timeutil.OneSecond), Retention: timeutil.Interval(timeutil.OneMonth)},
 				{Interval: timeutil.Interval(10 * timeutil.OneMinute), Retention: timeutil.Interval(timeutil.OneMonth)},

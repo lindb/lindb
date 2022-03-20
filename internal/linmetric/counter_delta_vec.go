@@ -34,7 +34,7 @@ type DeltaCounterVec struct {
 	deltaCounters map[string]*BoundCounter
 }
 
-func NewCounterVec(r *Registry, metricName string, fieldName string, tags tag.Tags, tagKey ...string) *DeltaCounterVec {
+func NewCounterVec(r *Registry, metricName, fieldName string, tags tag.Tags, tagKey ...string) *DeltaCounterVec {
 	return &DeltaCounterVec{
 		r:             r,
 		metricName:    metricName,

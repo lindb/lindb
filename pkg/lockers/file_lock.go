@@ -53,13 +53,12 @@ func NewFileLock(fileName string) FileLock {
 // Lock try locking file, return err if fails.
 func (l *fileLock) Lock() error {
 	f, err := os.Create(l.fileName)
-	if nil != err {
+	if err != nil {
 		return fmt.Errorf("cannot create file[%s] for lock err: %s", l.fileName, err)
 	}
 	l.file = f
 	// invoke syscall for file lock
-	err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
-	if nil != err {
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		return fmt.Errorf("cannot flock directory %s - %s", l.fileName, err)
 	}
 	return nil
@@ -68,14 +67,14 @@ func (l *fileLock) Lock() error {
 // Unlock unlock file lock, if fail return err
 func (l *fileLock) Unlock() error {
 	defer func() {
-		if err := os.Remove(l.fileName); nil != err {
+		if err := os.Remove(l.fileName); err != nil {
 			l.logger.Error("remove file lock error", logger.String("file", l.fileName), logger.Error(err))
 		}
 		l.logger.Info("remove file lock successfully", logger.String("file", l.fileName))
 	}()
 
 	defer func() {
-		if err := l.file.Close(); nil != err {
+		if err := l.file.Close(); err != nil {
 			l.logger.Error("close file lock error", logger.String("file", l.fileName), logger.Error(err))
 		}
 	}()

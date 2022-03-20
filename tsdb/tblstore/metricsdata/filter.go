@@ -38,7 +38,7 @@ type Filter interface {
 // metricsDataFilter represents the sst file data filter
 type metricsDataFilter struct {
 	familyTime int64
-	snapshot   version.Snapshot //FIXME stone1100, need close version snapshot
+	snapshot   version.Snapshot // FIXME stone1100, need close version snapshot
 	readers    []MetricReader
 }
 
@@ -57,7 +57,7 @@ func (f *metricsDataFilter) Filter(
 	seriesIDs *roaring.Bitmap, fields field.Metas,
 ) (rs []flow.FilterResultSet, err error) {
 	for _, reader := range f.readers {
-		//FIXME add time range compare????
+		// FIXME add time range compare????
 		fieldMetas, _ := reader.GetFields().Intersects(fields)
 		if len(fieldMetas) == 0 {
 			// field not found

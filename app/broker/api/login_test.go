@@ -46,23 +46,23 @@ func TestLogin(t *testing.T) {
 	resp := mock.DoRequest(t, r, http.MethodPut, LoginPath, "")
 	assert.Equal(t, http.StatusOK, resp.Code)
 
-	//create success
+	// create success
 	resp = mock.DoRequest(t, r, http.MethodPut, LoginPath, "")
 	assert.Equal(t, http.StatusOK, resp.Code)
 
-	//user failure error password
+	// user failure error password
 	resp = mock.DoRequest(t, r, http.MethodPut, LoginPath, `{"username": "admin", "password": "admin1234"}`)
 	assert.Equal(t, http.StatusOK, resp.Code)
 
-	//user failure error user name
+	// user failure error user name
 	resp = mock.DoRequest(t, r, http.MethodPut, LoginPath, `{"username": "123", "password": "admin1234"}`)
 	assert.Equal(t, http.StatusOK, resp.Code)
 
-	//user failure error password
+	// user failure error password
 	resp = mock.DoRequest(t, r, http.MethodPut, LoginPath, `{"username": "123", "password": "admin12dd34"}`)
 	assert.Equal(t, http.StatusOK, resp.Code)
 
-	//user login failure  password is empty
+	// user login failure  password is empty
 	resp = mock.DoRequest(t, r, http.MethodPut, LoginPath, `{"username": "123"}`)
 	assert.Equal(t, http.StatusOK, resp.Code)
 

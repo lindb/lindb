@@ -188,11 +188,11 @@ func (db *indexDatabase) BuildInvertIndex(
 
 // Flush flushes index data to disk
 func (db *indexDatabase) Flush() error {
-	//TODO need flush metric level time series sequence?
+	// TODO need flush metric level time series sequence?
 	if err := db.backend.sync(); err != nil {
 		return err
 	}
-	//fixme inverted index need add wal??? flush metric metadata(sequence)
+	// fixme inverted index need add wal??? flush metric metadata(sequence)
 	return db.index.Flush()
 }
 

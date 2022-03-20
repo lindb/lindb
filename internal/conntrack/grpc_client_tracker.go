@@ -54,7 +54,6 @@ func NewGRPCClientTracker(r *linmetric.Registry) *GRPCClientTracker {
 func (tracker *GRPCClientTracker) UnaryClientInterceptor() func(
 	ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption,
 ) error {
-
 	return func(
 		ctx context.Context,
 		method string,
@@ -63,7 +62,6 @@ func (tracker *GRPCClientTracker) UnaryClientInterceptor() func(
 		invoker grpc.UnaryInvoker,
 		opts ...grpc.CallOption,
 	) error {
-
 		serviceName, methodName := splitMethodName(method)
 
 		tracker.clientStreamMsgSentVec.WithTagValues(string(Unary), serviceName, methodName).Incr()
@@ -79,7 +77,6 @@ func (tracker *GRPCClientTracker) UnaryClientInterceptor() func(
 func (tracker *GRPCClientTracker) StreamClientInterceptor() func(
 	ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption,
 ) (grpc.ClientStream, error) {
-
 	return func(
 		ctx context.Context,
 		desc *grpc.StreamDesc,
@@ -88,7 +85,6 @@ func (tracker *GRPCClientTracker) StreamClientInterceptor() func(
 		streamer grpc.Streamer,
 		opts ...grpc.CallOption,
 	) (grpc.ClientStream, error) {
-
 		clientStream, err := streamer(ctx, desc, cc, method, opts...)
 		if err != nil {
 			return nil, err

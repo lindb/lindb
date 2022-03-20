@@ -25,7 +25,7 @@ import (
 // TableFormatter represents table formatter for displaying result in terminal.
 type TableFormatter interface {
 	// ToTable returns string value/row size for displaying result in terminal.
-	ToTable() (int, string)
+	ToTable() (rows int, tableStr string)
 }
 
 // NewTableFormatter creates a writer for table format.

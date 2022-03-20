@@ -344,7 +344,7 @@ func (md *memoryDatabase) Filter(
 		return nil, nil
 	}
 
-	//TODO filter slot range
+	// TODO filter slot range
 	return mStore.Filter(md.familyTime, seriesIDs, fields)
 }
 

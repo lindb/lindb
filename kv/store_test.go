@@ -19,7 +19,6 @@ package kv
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -121,7 +120,7 @@ func TestStore_New(t *testing.T) {
 	assert.Nil(t, nil)
 	RegisterMerger(MergerType(mergerStr), newMockMerger)
 
-	_ = ioutil.WriteFile(filepath.Join(tmpDir, version.Options), []byte("err"), 0644)
+	_ = os.WriteFile(filepath.Join(tmpDir, version.Options), []byte("err"), 0644)
 	kv, e = newStore("test_kv", tmpDir, option)
 	assert.Error(t, e)
 	assert.Nil(t, kv)
@@ -213,7 +212,6 @@ func TestStore_deleteObsoleteFiles(t *testing.T) {
 	assert.NoError(t, err)
 	err = kv.close()
 	assert.NoError(t, err)
-
 }
 
 func TestStore_Compact(t *testing.T) {

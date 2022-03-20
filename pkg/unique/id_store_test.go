@@ -40,9 +40,9 @@ func TestIDStore_CRUD(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, store)
 
-	k := []byte("k")
-	v := []byte("v")
-	err = store.Put(k, v)
+	key := []byte("k")
+	val := []byte("v")
+	err = store.Put(key, val)
 	assert.NoError(t, err)
 
 	cases := []struct {
@@ -63,7 +63,7 @@ func TestIDStore_CRUD(t *testing.T) {
 			value: []byte("value"),
 			exist: true,
 			prepare: func() {
-				err := store.Put([]byte("key"), []byte("value"))
+				err = store.Put([]byte("key"), []byte("value"))
 				assert.NoError(t, err)
 			},
 		},
@@ -71,12 +71,12 @@ func TestIDStore_CRUD(t *testing.T) {
 			name: "delete key",
 			key:  []byte("del_key"),
 			prepare: func() {
-				key := []byte("del_key")
-				err := store.Put(key, []byte("del_val"))
+				key0 := []byte("del_key")
+				err = store.Put(key0, []byte("del_val"))
 				assert.NoError(t, err)
-				_, exist, _ := store.Get(key)
+				_, exist, _ := store.Get(key0)
 				assert.True(t, exist)
-				err = store.Delete(key)
+				err = store.Delete(key0)
 				assert.NoError(t, err)
 			},
 		},
@@ -86,9 +86,9 @@ func TestIDStore_CRUD(t *testing.T) {
 			value: []byte("value0value1"),
 			exist: true,
 			prepare: func() {
-				key := []byte("merge_key")
+				key0 := []byte("merge_key")
 				for i := 0; i < 2; i++ {
-					err := store.Merge(key, []byte(fmt.Sprintf("value%d", i)))
+					err = store.Merge(key0, []byte(fmt.Sprintf("value%d", i)))
 					assert.NoError(t, err)
 				}
 			},
@@ -99,16 +99,16 @@ func TestIDStore_CRUD(t *testing.T) {
 			value: []byte("final"),
 			exist: true,
 			prepare: func() {
-				key := []byte("over_write_merge")
+				key0 := []byte("over_write_merge")
 				for i := 0; i < 2; i++ {
-					err := store.Merge(key, []byte(fmt.Sprintf("value%d", i)))
+					err = store.Merge(key0, []byte(fmt.Sprintf("value%d", i)))
 					assert.NoError(t, err)
 				}
-				v, _, _ := store.Get(key)
-				assert.Equal(t, []byte("value0value1"), v)
+				val1, _, _ := store.Get(key0)
+				assert.Equal(t, []byte("value0value1"), val1)
 
 				// overwrite
-				err = store.Put(key, []byte("final"))
+				err = store.Put(key0, []byte("final"))
 				assert.NoError(t, err)
 			},
 		},
@@ -120,12 +120,11 @@ func TestIDStore_CRUD(t *testing.T) {
 			if tt.prepare != nil {
 				tt.prepare()
 			}
-
-			v, exist, err := store.Get(tt.key)
+			v, exist, err0 := store.Get(tt.key)
 
 			assert.Equal(t, tt.value, v)
 			assert.Equal(t, tt.exist, exist)
-			if (err != nil) != tt.wantErr {
+			if (err0 != nil) != tt.wantErr {
 				t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -137,8 +136,8 @@ func TestIDStore_CRUD(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, store)
 
-	val, exist, err := store.Get(k)
-	assert.Equal(t, v, val)
+	val0, exist, err := store.Get(key)
+	assert.Equal(t, val, val0)
 	assert.True(t, exist)
 	assert.NoError(t, err)
 }

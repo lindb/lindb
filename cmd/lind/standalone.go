@@ -67,7 +67,7 @@ var initializeStandaloneConfigCmd = &cobra.Command{
 	Short: "create a new default standalone-config",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		path := cfg
-		if len(path) == 0 {
+		if path == "" {
 			path = defaultStandaloneCfgFile
 		}
 		if err := checkExistenceOf(path); err != nil {
@@ -78,7 +78,7 @@ var initializeStandaloneConfigCmd = &cobra.Command{
 }
 
 // serveStandalone runs the cluster as standalone mode
-func serveStandalone(cmd *cobra.Command, args []string) error {
+func serveStandalone(cmd *cobra.Command, args []string) error { // nolint:dupl
 	ctx := newCtxWithSignals()
 
 	standaloneCfg := config.Standalone{}

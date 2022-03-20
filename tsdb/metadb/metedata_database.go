@@ -142,7 +142,7 @@ func (mdb *metadataDatabase) GetAllTagKeys(namespace, metricName string) (tags t
 }
 
 // GetTagKeyID gets the tag key id by namespace/metric name/tag key, if not exist return constants.ErrTagKeyIDNotFound
-func (mdb *metadataDatabase) GetTagKeyID(namespace, metricName string, tagKey string) (tagKeyID uint32, err error) {
+func (mdb *metadataDatabase) GetTagKeyID(namespace, metricName, tagKey string) (tagKeyID uint32, err error) {
 	tagKeys, err := mdb.GetAllTagKeys(namespace, metricName)
 	if err != nil {
 		return tag.EmptyTagKeyID, err
@@ -265,8 +265,9 @@ func (mdb *metadataDatabase) GenFieldID(
 	if err != nil {
 		return field.EmptyFieldID, err
 	}
-	//TODO need change?
-	if err = mdb.backend.saveField(metricMetadata.getMetricID(), fieldMeta); err != nil {
+	// TODO need change?
+	err = mdb.backend.saveField(metricMetadata.getMetricID(), fieldMeta)
+	if err != nil {
 		return field.EmptyFieldID, err
 	}
 	return fieldMeta.ID, nil
@@ -286,7 +287,8 @@ func (mdb *metadataDatabase) GenTagKeyID(namespace, metricName, tagKey string) (
 		return tagKeyID, nil
 	}
 
-	if err := metricMetadata.checkTagKey(tagKey); err != nil {
+	err = metricMetadata.checkTagKey(tagKey)
+	if err != nil {
 		return tag.EmptyTagKeyID, err
 	}
 	// assign new tag key id

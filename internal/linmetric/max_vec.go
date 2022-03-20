@@ -34,7 +34,7 @@ type MaxVec struct {
 	maxes      map[string]*BoundMax
 }
 
-func newMaxVec(r *Registry, metricName string, fieldName string, tags tag.Tags, tagKey ...string) *MaxVec {
+func newMaxVec(r *Registry, metricName, fieldName string, tags tag.Tags, tagKey ...string) *MaxVec {
 	return &MaxVec{
 		r:          r,
 		metricName: metricName,

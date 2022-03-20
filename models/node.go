@@ -55,7 +55,7 @@ type StatefulNode struct {
 type StatelessNodes []StatelessNode
 
 // ToTable returns stateless node list as table if it has value, else return empty string.
-func (n StatelessNodes) ToTable() (int, string) {
+func (n StatelessNodes) ToTable() (rows int, tableStr string) {
 	if len(n) == 0 {
 		return 0, ""
 	}
@@ -108,7 +108,7 @@ func ParseNode(indicator string) (Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	//TODO change base node info???
+	// TODO change base node info???
 	return &StatelessNode{
 		HostIP:   indicator[:index],
 		GRPCPort: uint16(port),
@@ -122,7 +122,7 @@ type Master struct {
 }
 
 // ToTable returns master info as table.
-func (m *Master) ToTable() (int, string) {
+func (m *Master) ToTable() (rows int, tableStr string) {
 	writer := NewTableFormatter()
 	writer.AppendHeader(table.Row{"Desc", "Value"})
 	writer.AppendRow(table.Row{"Elect Time", timeutil.FormatTimestamp(m.ElectTime, timeutil.DataTimeFormat2)})

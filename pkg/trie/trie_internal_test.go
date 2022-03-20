@@ -245,5 +245,4 @@ func TestTrie_UnmarshalBinary_WithError(t *testing.T) {
 	buf1, _ = treeImpl.prefixVec.Unmarshal(buf1)
 	// suffix unmarshal failure
 	assert.Error(t, tree.UnmarshalBinary(makeCorruptData(buf1)))
-
 }

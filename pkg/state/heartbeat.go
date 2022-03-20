@@ -61,8 +61,8 @@ func newHeartbeat(client *etcd.Client, key string, value []byte, ttl int64, isEl
 }
 
 // withLogger sets a new logger
-func (h *heartbeat) withLogger(logger *logger.Logger) {
-	h.logger = logger
+func (h *heartbeat) withLogger(log *logger.Logger) {
+	h.logger = log
 }
 
 // grantKeepAliveLease grants ectd lease, if success do keepalive

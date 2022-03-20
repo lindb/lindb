@@ -63,5 +63,4 @@ func Test_BitArray(t *testing.T) {
 	ba3 := NewBitArray([]byte{})
 	assert.NotNil(t, ba3)
 	assert.False(t, ba3.GetBit(23))
-
 }

@@ -178,7 +178,7 @@ type groupingScanner struct {
 	forward *ForwardStore
 }
 
-func (g *groupingScanner) GetSeriesAndTagValue(highKey uint16) (roaring.Container, []uint32) {
+func (g *groupingScanner) GetSeriesAndTagValue(highKey uint16) (lowSeriesIDs roaring.Container, tagValueIDs []uint32) {
 	idx := g.forward.Keys().GetContainerIndex(highKey)
 	if idx == -1 {
 		return nil, nil
@@ -227,7 +227,6 @@ func BenchmarkForwardStore_Grouping(b *testing.B) {
 	var c atomic.Int32
 	for idx, key := range keys {
 		container := seriesIDs.GetContainerAtIndex(idx)
-		//i += container.GetCardinality()
 		k := key
 		wait.Add(1)
 		go func() {
@@ -235,7 +234,6 @@ func BenchmarkForwardStore_Grouping(b *testing.B) {
 			c.Add(int32(len(rs)))
 			wait.Done()
 		}()
-		//assert.Len(t, rs, 80)
 	}
 	wait.Wait()
 	fmt.Println(c.Load())

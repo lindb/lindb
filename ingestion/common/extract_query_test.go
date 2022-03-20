@@ -18,6 +18,8 @@
 package common
 
 import (
+	"bytes"
+	"context"
 	"net/http"
 	"testing"
 
@@ -25,7 +27,9 @@ import (
 )
 
 func Test_ExtractEnrichTags(t *testing.T) {
-	req, _ := http.NewRequest("GET", "http://lindb.io/write?enrich_tag=a=1", nil)
+	req, _ := http.NewRequestWithContext(context.TODO(), "GET",
+		"http://lindb.io/write?enrich_tag=a=1",
+		bytes.NewReader([]byte("test")))
 	tags, _ := ExtractEnrichTags(req)
 	assert.Len(t, tags, 1)
 }

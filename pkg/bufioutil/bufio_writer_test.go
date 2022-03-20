@@ -18,7 +18,6 @@
 package bufioutil
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -30,11 +29,13 @@ const (
 )
 
 var (
-	_testContent = []byte("eleme.ci.etrace")
+	_testContent = []byte("lindb.ci.metric")
 )
 
 func TestNewBufioEntryWriter(t *testing.T) {
-	defer os.Remove(_testFile)
+	defer func() {
+		_ = os.Remove(_testFile)
+	}()
 	bw, err := NewBufioEntryWriter(_testFile)
 
 	assert.Nil(t, err)
@@ -42,25 +43,29 @@ func TestNewBufioEntryWriter(t *testing.T) {
 }
 
 func TestBufioWriter_Reset(t *testing.T) {
-	defer os.Remove(_testFile)
-	defer os.Remove("new" + _testFile)
+	defer func() {
+		_ = os.Remove(_testFile)
+		_ = os.Remove("new" + _testFile)
+	}()
 
 	bw, _ := NewBufioEntryWriter(_testFile)
-	bw.Write([]byte("test"))
-	bw.Flush()
+	_, _ = bw.Write([]byte("test"))
+	_ = bw.Flush()
 	assert.Equal(t, int64(5), bw.Size())
 
 	err := bw.Reset("new" + _testFile)
 	assert.Nil(t, err)
 	assert.Equal(t, int64(0), bw.Size())
-	bw.Write([]byte("abcd"))
+	_, _ = bw.Write([]byte("abcd"))
 
 	stat, _ := os.Stat(_testFile)
 	assert.Equal(t, int64(5), stat.Size())
 }
 
 func TestBufioWriter_Write_Size(t *testing.T) {
-	defer os.Remove(_testFile)
+	defer func() {
+		_ = os.Remove(_testFile)
+	}()
 	bw, _ := NewBufioEntryWriter(_testFile)
 	assert.Equal(t, int64(0), bw.Size())
 	n, err := bw.Write([]byte(""))
@@ -79,7 +84,9 @@ func TestBufioWriter_Write_Size(t *testing.T) {
 }
 
 func TestBufioStreamWriter_Write_Size(t *testing.T) {
-	defer os.Remove(_testFile)
+	defer func() {
+		_ = os.Remove(_testFile)
+	}()
 	bw, _ := NewBufioStreamWriter(_testFile)
 	assert.Equal(t, int64(0), bw.Size())
 	n, err := bw.Write([]byte(""))
@@ -98,7 +105,9 @@ func TestBufioStreamWriter_Write_Size(t *testing.T) {
 }
 
 func BenchmarkBufioWriter_Write(b *testing.B) {
-	defer os.Remove(_testFile)
+	defer func() {
+		_ = os.Remove(_testFile)
+	}()
 	bw, _ := NewBufioEntryWriter(_testFile)
 
 	b.ResetTimer()
@@ -110,18 +119,20 @@ func BenchmarkBufioWriter_Write(b *testing.B) {
 }
 
 func TestBufioWriter_Close(t *testing.T) {
-	defer os.Remove(_testFile)
+	defer func() {
+		_ = os.Remove(_testFile)
+	}()
 	bw, _ := NewBufioEntryWriter(_testFile)
 
 	expectedLength := (len(_testContent) + 1) * 100000
 	for i := 0; i < 100000; i++ {
-		bw.Write(_testContent)
+		_, _ = bw.Write(_testContent)
 	}
-	bw.Sync()
+	_ = bw.Sync()
 	assert.Nil(t, bw.Sync())
 	assert.Nil(t, bw.Close())
 
-	data, err := ioutil.ReadFile(_testFile)
+	data, err := os.ReadFile(_testFile)
 	assert.Nil(t, err)
 	assert.Len(t, data, expectedLength)
 }

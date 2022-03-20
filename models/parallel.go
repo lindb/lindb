@@ -21,8 +21,8 @@ package models
 type PhysicalPlan struct {
 	Database      string         `json:"database"`      // database name
 	Root          Root           `json:"root"`          // root node
-	Intermediates []Intermediate `json:"intermediates"` // intermediate node if need
-	Leafs         []Leaf         `json:"leafs"`         // leaf nodes(storage nodes of query database)
+	Intermediates []Intermediate `json:"intermediates"` // intermediate node if it needs
+	Leaves        []*Leaf        `json:"leafs"`         // leaf nodes(storage nodes of query database)
 }
 
 // NewPhysicalPlan creates the physical plan with root node
@@ -36,8 +36,8 @@ func (t *PhysicalPlan) AddIntermediate(intermediate Intermediate) {
 }
 
 // AddLeaf adds a leaf node into the leaf node list
-func (t *PhysicalPlan) AddLeaf(leaf Leaf) {
-	t.Leafs = append(t.Leafs, leaf)
+func (t *PhysicalPlan) AddLeaf(leaf *Leaf) {
+	t.Leaves = append(t.Leaves, leaf)
 }
 
 // Root represents the root node info

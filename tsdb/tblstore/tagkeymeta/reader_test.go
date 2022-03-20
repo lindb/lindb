@@ -32,7 +32,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func buildTrieBlock() (zoneBlock []byte, ipBlock []byte, hostBlock []byte) {
+func buildTrieBlock() (zoneBlock, ipBlock, hostBlock []byte) {
 	// tag id mapping relation
 	/////////////////////////
 	ipMapping := map[uint32]string{
@@ -111,9 +111,9 @@ func mockTagReader(ctrl *gomock.Controller) Reader {
 
 func mockBadTagReader(ctrl *gomock.Controller) Reader {
 	zoneBlock, _, _ := buildTrieBlock()
-	badZoneBlock := append(zoneBlock, byte(1), byte(1))
+	zoneBlock = append(zoneBlock, byte(1), byte(1))
 	mockReader := table.NewMockReader(ctrl)
-	mockReader.EXPECT().Get(uint32(23)).Return(badZoneBlock, nil).AnyTimes()
+	mockReader.EXPECT().Get(uint32(23)).Return(zoneBlock, nil).AnyTimes()
 	return NewReader([]table.Reader{mockReader})
 }
 

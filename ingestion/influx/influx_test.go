@@ -18,15 +18,16 @@
 package influx
 
 import (
+	"bytes"
+	"context"
+	"net/http"
+	"strings"
+	"testing"
+
 	"github.com/klauspost/compress/gzip"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/series/tag"
-
-	"bytes"
-	"net/http"
-	"strings"
-	"testing"
 )
 
 const _testBody = `
@@ -50,7 +51,7 @@ func makeGzipData(body []byte) []byte {
 func Test_Parse(t *testing.T) {
 	r := bytes.NewReader(makeGzipData([]byte(_testBody)))
 
-	req, err := http.NewRequest(http.MethodPut, "", r)
+	req, err := http.NewRequestWithContext(context.TODO(), http.MethodPut, "", r)
 	assert.Nil(t, err)
 	assert.NotNil(t, req)
 	req.Header.Set("Content-Encoding", "gzip")
@@ -66,7 +67,7 @@ func Test_Parse(t *testing.T) {
 }
 
 func Test_getGzipError(t *testing.T) {
-	req, err := http.NewRequest(http.MethodPut, "", strings.NewReader(_testBody))
+	req, err := http.NewRequestWithContext(context.TODO(), http.MethodPut, "", strings.NewReader(_testBody))
 	assert.Nil(t, err)
 	assert.NotNil(t, req)
 	req.Header.Set("Content-Encoding", "gzip")
@@ -82,7 +83,7 @@ measurement value=12 1439587925
 `
 	r := bytes.NewReader(makeGzipData([]byte(_badBody)))
 
-	req, err := http.NewRequest(http.MethodPut, "", r)
+	req, err := http.NewRequestWithContext(context.TODO(), http.MethodPut, "", r)
 	assert.Nil(t, err)
 	assert.NotNil(t, req)
 	req.Header.Set("Content-Encoding", "gzip")

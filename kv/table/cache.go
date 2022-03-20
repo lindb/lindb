@@ -25,8 +25,6 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 )
 
-//FIXME store100 using lru cache?????
-
 //go:generate mockgen -source ./cache.go -destination=./cache_mock.go -package table
 
 // for test
@@ -84,7 +82,7 @@ func NewCache(storePath string) Cache {
 }
 
 // Evict evicts file reader from cache
-func (c *mapCache) Evict(family string, fileName string) {
+func (c *mapCache) Evict(family, fileName string) {
 	filePath := filepath.Join(family, fileName)
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -104,7 +102,7 @@ func (c *mapCache) Evict(family string, fileName string) {
 }
 
 // GetReader returns store reader from cache, create new reader if not exist
-func (c *mapCache) GetReader(family string, fileName string) (Reader, error) {
+func (c *mapCache) GetReader(family, fileName string) (Reader, error) {
 	filePath := filepath.Join(family, fileName)
 	c.mutex.Lock()
 	defer c.mutex.Unlock()

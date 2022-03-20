@@ -19,6 +19,7 @@ package mock
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -43,23 +44,19 @@ func newCloseNotifyingRecorder() *closeNotifyingRecorder {
 	}
 }
 
-func (c *closeNotifyingRecorder) close() {
-	c.closed <- true
-}
-
 func (c *closeNotifyingRecorder) CloseNotify() <-chan bool {
 	return c.closed
 }
 
 // DoRequest does http request for test.
-func DoRequest(t *testing.T, r *gin.Engine, method string, path string, reqBody string) *httptest.ResponseRecorder {
+func DoRequest(t *testing.T, r *gin.Engine, method, path, reqBody string) *httptest.ResponseRecorder {
 	t.Helper()
 
 	var body io.Reader
 	if reqBody != "" {
 		body = bytes.NewBufferString(reqBody)
 	}
-	req, _ := http.NewRequest(method, path, body)
+	req, _ := http.NewRequestWithContext(context.TODO(), method, path, body)
 	req.Header.Set("content-type", "application/json")
 	resp := newCloseNotifyingRecorder()
 	r.ServeHTTP(resp, req)

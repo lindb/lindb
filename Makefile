@@ -27,11 +27,7 @@ build-lind: ## build lindb binary
 	env GOOS=darwin GOARCH=$(GOARCH) go build -o 'bin/lindcli-darwin' $(LD_FLAGS) ./cmd/cli
 	env GOOS=linux GOARCH=$(GOARCH) go build -o 'bin/lindcli-linux' $(LD_FLAGS) ./cmd/cli
 
-
-GOLANGCI_LINT_VERSION ?= "v1.45.0"
-
 GOMOCK_VERSION = "v1.5.0"
-
 
 gomock: ## go generate mock file.
 	go install "github.com/golang/mock/mockgen@$(GOMOCK_VERSION)"
@@ -41,10 +37,8 @@ header: ## check and add license header.
 	sh license.sh
 
 lint: ## run lint
-	if [ ! -e ./bin/golangci-lint ]; then \
-		curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s $(GOLANGCI_LINT_VERSION); \
-	fi
-	./bin/golangci-lint run
+	go install "github.com/golangci/golangci-lint/cmd/golangci-lint@v1.45.0"
+	golangci-lint run ./...
 
 test-without-lint: ## Run test without lint
 	go install "github.com/rakyll/gotest@v0.0.6"

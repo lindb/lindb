@@ -67,7 +67,7 @@ func NewLocalReplicator(channel *ReplicatorChannel, shard tsdb.Shard, family tsd
 		block:     make([]byte, 256*1024),
 	}
 
-	//add ack sequence callback
+	// add ack sequence callback
 	family.AckSequence(lr.leader, func(seq int64) {
 		lr.SetAckIndex(seq)
 		lr.logger.Info("ack local replica index",
@@ -100,7 +100,7 @@ func (r *localReplicator) Replica(sequence int64, msg []byte) {
 		return
 	}
 
-	//TODO add util
+	// TODO add util
 	var err error
 	r.block, err = snappy.Decode(r.block, msg)
 	if err != nil {

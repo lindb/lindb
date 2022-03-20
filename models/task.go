@@ -30,7 +30,7 @@ type CreateShardTask struct {
 }
 
 // Bytes returns the creation shard task's  binary data using json
-func (t CreateShardTask) Bytes() []byte {
+func (t *CreateShardTask) Bytes() []byte {
 	return encoding.JSONMarshal(t)
 }
 

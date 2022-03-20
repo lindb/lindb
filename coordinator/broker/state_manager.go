@@ -210,7 +210,7 @@ func (m *stateManager) onDatabaseCfgChange(key string, data []byte) {
 		return
 	}
 
-	if len(cfg.Name) == 0 {
+	if cfg.Name == "" {
 		m.logger.Error("database name cannot be empty")
 		return
 	}
@@ -226,8 +226,6 @@ func (m *stateManager) onDatabaseCfgDelete(key string) {
 	_, databaseName := filepath.Split(key)
 
 	delete(m.databases, databaseName)
-
-	//TODO remove database channel
 }
 
 // onNodeStartup triggers when broker node online.
@@ -275,7 +273,7 @@ func (m *stateManager) onStorageStateChange(key string, data []byte) {
 		m.logger.Error("storage state is changed but unmarshal error", logger.Error(err))
 		return
 	}
-	if len(newState.Name) == 0 {
+	if newState.Name == "" {
 		m.logger.Error("storage name is empty")
 		return
 	}

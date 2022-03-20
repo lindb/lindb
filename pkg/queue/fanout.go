@@ -58,7 +58,7 @@ type FanOutQueue interface {
 	HeadSeq() int64
 	// TailSeq returns the tailSeq which is the smallest seq among all the fanOut tailSeq.
 	TailSeq() int64
-	//SetAppendSeq sets append seq(head/tail seq)
+	// SetAppendSeq sets append seq(head/tail seq)
 	SetAppendSeq(seq int64)
 	// Close persists Seq meta, FanOut seq meta, release resources.
 	Close()
@@ -83,9 +83,7 @@ type fanOutQueue struct {
 }
 
 // NewFanOutQueue returns a FanOutQueue persisted in dirPath.
-func NewFanOutQueue(dirPath string, dataSizeLimit int64, removeTaskInterval time.Duration) (FanOutQueue, error) {
-	var err error
-
+func NewFanOutQueue(dirPath string, dataSizeLimit int64, removeTaskInterval time.Duration) (q FanOutQueue, err error) {
 	fq := &fanOutQueue{
 		dirPath:   dirPath,
 		fanOutDir: path.Join(dirPath, fanOutDirName),
@@ -105,7 +103,8 @@ func NewFanOutQueue(dirPath string, dataSizeLimit int64, removeTaskInterval time
 		return nil, err
 	}
 	// init fanOut sequence
-	if err = fq.initFanOut(); err != nil {
+	err = fq.initFanOut()
+	if err != nil {
 		return nil, err
 	}
 
@@ -274,7 +273,7 @@ type FanOut interface {
 	TailSeq() int64
 	// Queue returns underlying queue.
 	Queue() FanOutQueue
-	//SetSeq sets append seq(head/tail seq)
+	// SetSeq sets append seq(head/tail seq)
 	SetSeq(seq int64)
 	// Pending returns the offset between FanOut HeadSeq and FanOutQueue HeadSeq.
 	Pending() int64
@@ -304,8 +303,8 @@ type fanOut struct {
 }
 
 // NewFanOut builds a FanOut from metaPath.
-func NewFanOut(parent, path string, q FanOutQueue) (FanOut, error) {
-	name := filepath.Join(parent, path)
+func NewFanOut(parent, fanOutPath string, q FanOutQueue) (FanOut, error) {
+	name := filepath.Join(parent, fanOutPath)
 	var err error
 	metaPageFct, err := newPageFactoryFunc(name, fanOutMetaSize)
 	if err != nil {

@@ -91,5 +91,4 @@ func Test_NativeWriter(t *testing.T) {
 	cm.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(io.ErrClosedPipe)
 	resp = mock.DoRequest(t, r, http.MethodPost, ProtoWritePath+"?db=test&ns=ns4&enrich_tag=a=b", string(data))
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
-
 }

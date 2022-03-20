@@ -40,7 +40,7 @@ func init() {
 
 var float64Pool sync.Pool
 
-func fillInfBlock(sl []float64) []float64 {
+func fillInfBlock(sl []float64) {
 	length := len(sl)
 	for i := 0; i <= length/infBlockSize; i++ {
 		from := i * infBlockSize
@@ -50,7 +50,6 @@ func fillInfBlock(sl []float64) []float64 {
 		}
 		copy(sl[from:to], infFilledBlock)
 	}
-	return sl
 }
 
 func getFloat64Slice(size int) []float64 {

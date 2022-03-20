@@ -169,7 +169,7 @@ func (e *storageExecutor) Execute() {
 	}
 
 	option := e.database.GetOption()
-	//TODO need get storage interval by query time if has rollup config
+	// TODO need get storage interval by query time if has rollup config
 	interval := option.Intervals[0].Interval
 	e.queryTimeRange, e.queryIntervalRatio, e.queryInterval = downSamplingTimeRange(
 		e.ctx.query.Interval, interval, e.ctx.query.TimeRange)
@@ -241,7 +241,7 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet
 	groupingResult := &groupingResult{}
 	var groupingCtx series.GroupingContext
 	// time spans sorted by family
-	timeSpans := rs.getTimeSpans()
+	ts := rs.getTimeSpans()
 	if e.ctx.query.HasGroupBy() {
 		// 1. grouping, if it has grouping, do group by tag keys, else just split series ids as batch first,
 		// get grouping context if it needs
@@ -291,8 +291,8 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet
 			}
 
 			e.queryFlow.Load(func() {
-				timeSpanCtxs := make([]*timeSpanCtx, len(timeSpans))
-				for idx, span := range timeSpans {
+				timeSpanCtxs := make([]*timeSpanCtx, len(ts))
+				for idx, span := range ts {
 					tsc := &timeSpanCtx{}
 					timeSpanCtxs[idx] = tsc
 					// 3.load data by grouped lowSeriesIDs
@@ -308,7 +308,6 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet
 				aggSpecs := e.storageExecutePlan.getAggregatorSpecs()
 
 				for idx := range e.fields {
-					//fieldSeriesList[idx] = make([]*encoding.TSDDecoder, rs.getFilterRSCount())
 					fieldAggList[idx] = aggregation.NewSeriesAggregator(
 						e.ctx.query.Interval,
 						e.queryIntervalRatio,
@@ -327,7 +326,7 @@ func (e *storageExecutor) executeGroupBy(shard tsdb.Shard, rs *timeSpanResultSet
 				for tags, lowSeriesIDs := range grouped {
 					// scan metric data from storage(memory/file)
 					for _, lowSeriesID := range lowSeriesIDs {
-						for timeIdx, span := range timeSpans { // family => result set
+						for timeIdx, span := range ts { // family => result set
 							// loads the metric data by given series id from load result.
 							tsc := timeSpanCtxs[timeIdx]
 							for resultSetIdx, loader := range tsc.loaders {

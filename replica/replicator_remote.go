@@ -132,7 +132,7 @@ func (r *remoteReplicator) IsReady() bool {
 	}
 	replicaCli, err := r.cliFct.CreateReplicaServiceClient(&node)
 	if err != nil {
-		//TODO add metric
+		// TODO add metric
 		r.logger.Warn("create replica service client err",
 			logger.String("replicator", r.String()),
 			logger.Error(err))
@@ -143,9 +143,9 @@ func (r *remoteReplicator) IsReady() bool {
 	replicaState := encoding.JSONMarshal(&r.channel.State)
 	ctx := rpc.CreateOutgoingContextWithPairs(r.ctx,
 		constants.RPCMetaReplicaState, string(replicaState))
-	r.replicaStream, err = replicaCli.Replica(ctx) //TODO add timeout ??
+	r.replicaStream, err = replicaCli.Replica(ctx) // TODO add timeout ??
 	if err != nil {
-		//TODO add metric
+		// TODO add metric
 		r.logger.Warn("create replica service client stream err",
 			logger.String("replicator", r.String()),
 			logger.Error(err))

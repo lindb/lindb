@@ -25,7 +25,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/lindb/lindb/app/broker/api/exec/command"
-	"github.com/lindb/lindb/app/broker/deps"
+	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/models"
 	httppkg "github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/logger"
@@ -40,7 +40,7 @@ var (
 
 // statementExecFn represents statement execution funcation define.
 type statementExecFn func(ctx context.Context,
-	deps *deps.HTTPDeps,
+	deps *depspkg.HTTPDeps,
 	param *models.ExecuteParam,
 	stmt stmtpkg.Statement) (interface{}, error)
 
@@ -61,14 +61,14 @@ var (
 
 // ExecuteAPI represent lin query language execution api.
 type ExecuteAPI struct {
-	deps *deps.HTTPDeps
+	deps *depspkg.HTTPDeps
 
 	logger *logger.Logger
 }
 
 // NewExecuteAPI creates a lin query language execution api.
-func NewExecuteAPI(deps *deps.HTTPDeps) *ExecuteAPI {
-	//TODO add metric
+func NewExecuteAPI(deps *depspkg.HTTPDeps) *ExecuteAPI {
+	// TODO add metric
 	return &ExecuteAPI{
 		deps:   deps,
 		logger: logger.GetLogger("broker", "ExecuteAPI"),

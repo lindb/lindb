@@ -20,13 +20,13 @@ package brokerquery
 import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/query"
-	"github.com/lindb/lindb/sql/stmt"
+	querypkg "github.com/lindb/lindb/query"
+	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
 // brokerPlan represents the broker execute plan
 type brokerPlan struct {
-	query             *stmt.Query
+	query             *stmtpkg.Query
 	storageNodes      map[string][]models.ShardID
 	currentBrokerNode models.StatelessNode
 	brokerNodes       []models.StatelessNode
@@ -38,7 +38,7 @@ type brokerPlan struct {
 
 // newBrokerPlan creates broker execute plan
 func newBrokerPlan(
-	query *stmt.Query,
+	query *stmtpkg.Query,
 	databaseCfg models.Database,
 	storageNodes map[string][]models.ShardID,
 	currentBrokerNode models.StatelessNode,
@@ -63,11 +63,11 @@ func newBrokerPlan(
 func (p *brokerPlan) Plan() error {
 	lenOfStorageNodes := len(p.storageNodes)
 	if lenOfStorageNodes == 0 {
-		return query.ErrNoAvailableStorageNode
+		return querypkg.ErrNoAvailableStorageNode
 	}
 
 	if p.query.Interval <= 0 {
-		//TODO need get by time range
+		// TODO need get by time range
 		p.query.Interval = p.databaseCfg.Option.Intervals[0].Interval
 	}
 	intervalVal := int64(p.query.Interval)
@@ -172,13 +172,14 @@ func (p *brokerPlan) buildIntermediates() {
 // buildLeafs builds the leaf computing nodes based parent, nodes and result receivers
 func (p *brokerPlan) buildLeafs(parentID string, nodeIDs []string, receivers []models.StatelessNode) {
 	for _, nodeID := range nodeIDs {
-		p.physicalPlan.AddLeaf(models.Leaf{
+		leaf := &models.Leaf{
 			BaseNode: models.BaseNode{
 				Parent:    parentID,
 				Indicator: nodeID,
 			},
 			ShardIDs:  p.storageNodes[nodeID],
 			Receivers: receivers,
-		})
+		}
+		p.physicalPlan.AddLeaf(leaf)
 	}
 }

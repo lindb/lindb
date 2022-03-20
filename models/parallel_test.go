@@ -25,14 +25,15 @@ import (
 
 func TestPhysicalPlan(t *testing.T) {
 	physicalPlan := NewPhysicalPlan(Root{Indicator: "1.1.1.3:8000", NumOfTask: 1})
-	physicalPlan.AddLeaf(Leaf{
+	leaf := &Leaf{
 		BaseNode: BaseNode{
 			Parent:    "1.1.1.2:8000",
 			Indicator: "1.1.1.1:9000",
 		},
 		Receivers: []StatelessNode{{HostIP: "1.1.1.5", GRPCPort: 8000}},
 		ShardIDs:  []ShardID{1, 2, 4},
-	})
+	}
+	physicalPlan.AddLeaf(leaf)
 	physicalPlan.AddIntermediate(Intermediate{
 		BaseNode: BaseNode{
 			Parent:    "1.1.1.3:8000",
@@ -51,7 +52,7 @@ func TestPhysicalPlan(t *testing.T) {
 				Indicator: "1.1.1.2:8000",
 			},
 			NumOfTask: 1}},
-		Leafs: []Leaf{{
+		Leaves: []*Leaf{{
 			BaseNode: BaseNode{
 				Parent:    "1.1.1.2:8000",
 				Indicator: "1.1.1.1:9000",

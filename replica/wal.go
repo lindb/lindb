@@ -141,7 +141,7 @@ func (w *writeAheadLogManager) getLog(database string) (WriteAheadLog, bool) {
 	return log, ok
 }
 
-//TODO need remove log when database delete
+// TODO need remove log when database delete
 func (w *writeAheadLogManager) insertLog(database string, newLog WriteAheadLog) {
 	oldMap := w.databaseLogs.Load().(databaseLogs)
 	newMap := make(databaseLogs)
@@ -344,7 +344,8 @@ func (w *writeAheadLog) recovery() error {
 				if err != nil {
 					return err
 				}
-				if err = partition.recovery(leaderID); err != nil {
+				err = partition.recovery(leaderID)
+				if err != nil {
 					return err
 				}
 			}
@@ -403,6 +404,5 @@ func (w *writeAheadLog) destroy() {
 				}
 			}
 		}
-
 	}
 }

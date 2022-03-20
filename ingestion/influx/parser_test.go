@@ -461,5 +461,4 @@ func Test_parseTimestamp(t *testing.T) {
 	assert.Equal(t, timestamp, timestamp2MilliSeconds(timestamp*1000*1000))
 	assert.InDelta(t, timestamp, timestamp2MilliSeconds(timestamp/1000/60), float64(1000*60))
 	assert.InDelta(t, timestamp, timestamp2MilliSeconds(timestamp/1000/3600), float64(1000*3600))
-
 }

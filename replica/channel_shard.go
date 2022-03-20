@@ -70,7 +70,7 @@ func newChannel(
 ) Channel {
 	c := &channel{
 		ctx:      ctx,
-		cfg:      config.GlobalBrokerConfig().Write, //TODO
+		cfg:      config.GlobalBrokerConfig().Write, // TODO
 		database: database,
 		shardID:  shardID,
 		families: newFamilyChannelSet(),
@@ -78,7 +78,7 @@ func newChannel(
 		logger:   logger.GetLogger("replica", "ShardChannel"),
 	}
 
-	//TODO need add family gc task
+	// TODO need add family gc task
 	return c
 }
 

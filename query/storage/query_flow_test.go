@@ -100,10 +100,6 @@ func TestStorageQueryFlow_Execute(t *testing.T) {
 		queryFlow.Grouping(func() {
 			wait.Done()
 			queryFlow.Load(func() {
-				//seriesAgg := aggregation.NewMockSeriesAggregator(ctrl)
-				//seriesAgg.EXPECT().Reset()
-
-				//queryFlow.Reduce("1.1.1.1", aggregation.FieldAggregates{seriesAgg})
 				wait.Done()
 			})
 		})
@@ -120,10 +116,6 @@ func TestStorageQueryFlow_Execute(t *testing.T) {
 	wait.Wait()
 	queryFlow.Complete(nil)
 	time.Sleep(100 * time.Millisecond)
-	//seriesAgg := aggregation.NewMockSeriesAggregator(ctrl)
-	//seriesAgg.EXPECT().Reset()
-	//reduce after query flow complete
-	//queryFlow.Reduce("1.1.1.1", aggregation.FieldAggregates{seriesAgg})
 }
 
 func TestStorageQueryFlow_completeTask(t *testing.T) {
@@ -309,5 +301,4 @@ func TestStorageQueryFlow_Complete(t *testing.T) {
 		}},
 		testExecPool)
 	queryFlow.Complete(fmt.Errorf("err")) // stream not found
-
 }

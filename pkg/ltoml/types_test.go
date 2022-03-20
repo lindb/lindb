@@ -105,5 +105,4 @@ func Test_Size(t *testing.T) {
 	assert.NoError(t, json.Unmarshal([]byte(`{"size": "969 B"}`), &s2))
 	assert.NoError(t, json.Unmarshal([]byte(`{"size": 10}`), &s2))
 	assert.Error(t, json.Unmarshal([]byte("{\"size\": \"\"\"\"}"), &s2))
-
 }

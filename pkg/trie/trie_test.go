@@ -21,7 +21,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math"
 	"math/rand"
 	"os"
@@ -58,9 +58,7 @@ func (p kvPair) Sort() {
 	sort.Sort(p)
 }
 
-func newTestIPs(batchSize int) ([][]byte, [][]byte) {
-	var ips [][]byte
-	var ranks [][]byte
+func newTestIPs(batchSize int) (ips, ranks [][]byte) {
 	var count int
 	for x := 10; x > 0; x-- {
 		for y := 1; y < batchSize; y++ {
@@ -74,7 +72,7 @@ func newTestIPs(batchSize int) ([][]byte, [][]byte) {
 		}
 	}
 	kvPair{keys: ips, values: ranks}.Sort()
-	return ips, ranks
+	return
 }
 
 func TestBuilder_Reset(t *testing.T) {
@@ -177,7 +175,6 @@ func Test_Trie_ASCII(t *testing.T) {
 	itr.Seek([]byte{12, 13, 14, 15, 1, 1})
 	itr.Seek([]byte{12, 13, 14, 16})
 	itr.Seek([]byte{13, 12, 13, 14})
-
 }
 
 func Test_Trie_words(t *testing.T) {
@@ -273,7 +270,7 @@ func assertTestData(t *testing.T, path string) {
 	r, err := gzip.NewReader(f)
 	assert.Nil(t, err)
 
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	assert.Nil(t, err)
 	lines := strings.Split(string(data), "\n")
 

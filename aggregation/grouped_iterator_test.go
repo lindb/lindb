@@ -17,7 +17,7 @@
 
 package aggregation
 
-//func TestGroupedIterator_HasNext(t *testing.T) {
+// func TestGroupedIterator_HasNext(t *testing.T) {
 //	ctrl := gomock.NewController(t)
 //	defer ctrl.Finish()
 //
@@ -36,4 +36,4 @@ package aggregation
 //	assert.True(t, it.HasNext())
 //	assert.Equal(t, fIt, it.Next())
 //	assert.False(t, it.HasNext())
-//}
+// }

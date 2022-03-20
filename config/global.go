@@ -53,7 +53,7 @@ func SetGlobalStorageConfig(storageCfg *StorageBase) {
 
 // LoadAndSetBrokerConfig parses the broker config file
 // this config will be triggered to reload when receiving a SIGHUP signal
-func LoadAndSetBrokerConfig(cfgName string, defaultPath string, brokerCfg *Broker) error {
+func LoadAndSetBrokerConfig(cfgName, defaultPath string, brokerCfg *Broker) error {
 	if err := ltoml.LoadConfig(cfgName, defaultPath, &brokerCfg); err != nil {
 		return fmt.Errorf("decode broker config file error: %s", err)
 	}
@@ -70,7 +70,7 @@ func LoadAndSetBrokerConfig(cfgName string, defaultPath string, brokerCfg *Broke
 
 // LoadAndSetStorageConfig parses the storage config file
 // this config will be triggered to reload when receiving a SIGHUP signal
-func LoadAndSetStorageConfig(cfgName string, defaultPath string, storageCfg *Storage) error {
+func LoadAndSetStorageConfig(cfgName, defaultPath string, storageCfg *Storage) error {
 	if err := ltoml.LoadConfig(cfgName, defaultPath, &storageCfg); err != nil {
 		return fmt.Errorf("decode storage config file error: %s", err)
 	}
@@ -88,7 +88,7 @@ func LoadAndSetStorageConfig(cfgName string, defaultPath string, storageCfg *Sto
 // LoadAndSetStandAloneConfig parses the standalone config file
 // then sets the global broker and storage config
 // this config will be triggered to reload when receiving a SIGHUP signal
-func LoadAndSetStandAloneConfig(cfgName string, defaultPath string, standaloneCfg *Standalone) error {
+func LoadAndSetStandAloneConfig(cfgName, defaultPath string, standaloneCfg *Standalone) error {
 	if err := ltoml.LoadConfig(cfgName, defaultPath, &standaloneCfg); err != nil {
 		return fmt.Errorf("decode standalone config file error: %s", err)
 	}

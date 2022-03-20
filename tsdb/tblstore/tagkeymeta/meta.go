@@ -152,17 +152,17 @@ type idRanksOffsets struct {
 	offsets []uint32
 }
 
-func makeIDRankOffsets(size int) idRanksOffsets {
-	return idRanksOffsets{
+func makeIDRankOffsets(size int) *idRanksOffsets {
+	return &idRanksOffsets{
 		ids:     make([]uint32, 0, size),
 		keys:    make([]string, 0, size),
 		ranks:   make([]int, 0, size),
 		offsets: make([]uint32, 0, size),
 	}
 }
-func (ir idRanksOffsets) Len() int           { return len(ir.ranks) }
-func (ir idRanksOffsets) Less(i, j int) bool { return ir.ranks[i] < ir.ranks[j] }
-func (ir idRanksOffsets) Swap(i, j int) {
+func (ir *idRanksOffsets) Len() int           { return len(ir.ranks) }
+func (ir *idRanksOffsets) Less(i, j int) bool { return ir.ranks[i] < ir.ranks[j] }
+func (ir *idRanksOffsets) Swap(i, j int) {
 	ir.ranks[i], ir.ranks[j] = ir.ranks[j], ir.ranks[i]
 	ir.ids[i], ir.ids[j] = ir.ids[j], ir.ids[i]
 }
@@ -203,7 +203,7 @@ func (meta *tagKeyMeta) CollectTagValues(tagValueIds *roaring.Bitmap, tagValues 
 		}
 		idx += containerInFile.GetCardinality()
 	}
-	if err := meta.walkTrieTree(&mappings); err != nil {
+	if err := meta.walkTrieTree(mappings); err != nil {
 		return err
 	}
 	for i, id := range mappings.ids {

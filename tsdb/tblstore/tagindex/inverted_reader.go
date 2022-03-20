@@ -59,7 +59,8 @@ func (r *inverterReader) GetSeriesIDsByTagValueIDs(tagKeyID uint32, tagValueIDs 
 }
 
 // loadSeriesIDs loads the series ids by tag key id, function need implement condition
-func (r *inverterReader) loadSeriesIDs(tagKeyID uint32, fn func(indexReader *tagInvertedReader) (*roaring.Bitmap, error)) (*roaring.Bitmap, error) {
+func (r *inverterReader) loadSeriesIDs(tagKeyID uint32,
+	fn func(indexReader *tagInvertedReader) (*roaring.Bitmap, error)) (*roaring.Bitmap, error) {
 	seriesIDs := roaring.New()
 	for _, reader := range r.readers {
 		value, err := reader.Get(tagKeyID)
@@ -174,7 +175,10 @@ func newTagInvertedScanner(reader *tagInvertedReader) (*tagInvertedScanner, erro
 	if len(s.highKeys) == 0 {
 		return nil, fmt.Errorf("tagValue bitmap is empty")
 	}
-	return s, s.nextContainer()
+	if err := s.nextContainer(); err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 // nextContainer goes next container context for scanner

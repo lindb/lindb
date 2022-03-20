@@ -49,7 +49,6 @@ func (slm *spinLockedMap) Get(key int) (int, bool) {
 	v, ok := slm.m[key]
 	slm.sl.Unlock()
 	return v, ok
-
 }
 
 func (m *rwLockedMap) Get(key int) (int, bool) {
@@ -71,7 +70,7 @@ func (sm *shardingRwLockedMap) Get(key int) (int, bool) {
 	return v, ok
 }
 
-func (sm *shardingRwLockedMap) Set(key int, value int) {
+func (sm *shardingRwLockedMap) Set(key, value int) {
 	idx := key & 255
 	sm.maps[idx].mu.Lock()
 	sm.maps[idx].m[key] = value
@@ -139,7 +138,6 @@ func Benchmark_shardingRwLockedMap(b *testing.B) {
 		}()
 	}
 	wg.Wait()
-
 }
 
 func Benchmark_spinLockMap(b *testing.B) {

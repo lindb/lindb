@@ -91,7 +91,7 @@ type shard struct {
 	db        Database
 	indicator string // => db/shard
 	id        models.ShardID
-	option    option.DatabaseOption
+	option    *option.DatabaseOption
 
 	bufferMgr memdb.BufferManager
 	indexDB   indexdb.IndexDatabase
@@ -121,10 +121,10 @@ type shard struct {
 func newShard(
 	db Database,
 	shardID models.ShardID,
-) (Shard, error) {
-	var err error
+) (s Shard, err error) {
 	shardPath := shardPath(db.Name(), shardID)
-	if err := mkDirIfNotExist(shardPath); err != nil {
+	err = mkDirIfNotExist(shardPath)
+	if err != nil {
 		return nil, err
 	}
 	dbOption := db.GetOption()
@@ -139,7 +139,7 @@ func newShard(
 		isFlushing:    *atomic.NewBool(false),
 		logger:        logger.GetLogger("TSDB", "Shard"),
 	}
-	//try cleanup history dirty write buffer
+	// try cleanup history dirty write buffer
 	createdShard.bufferMgr.Cleanup()
 
 	// sort intervals
@@ -155,7 +155,8 @@ func newShard(
 	for idx, targetInterval := range dbOption.Intervals {
 		interval := targetInterval.Interval
 		// new segment for rollup
-		segment, err := newIntervalSegmentFunc(createdShard, interval)
+		var segment IntervalSegment
+		segment, err = newIntervalSegmentFunc(createdShard, interval)
 
 		if err != nil {
 			return nil, err
@@ -172,10 +173,10 @@ func newShard(
 		if err == nil {
 			return
 		}
-		if err = createdShard.Close(); err != nil {
+		if err0 := createdShard.Close(); err0 != nil {
 			engineLogger.Error("close shard error when create shard fail",
 				logger.String("database", createdShard.db.Name()),
-				logger.Any("shardID", createdShard.id), logger.Error(err))
+				logger.Any("shardID", createdShard.id), logger.Error(err0))
 		}
 	}()
 	if err = createdShard.initIndexDatabase(); err != nil {
@@ -373,14 +374,14 @@ func (s *shard) Flush() (err error) {
 	s.flushCondition.Add(1)
 
 	defer func() {
-		//TODO add commit kv meta after ack successfully
+		// TODO add commit kv meta after ack successfully
 		// mark flush job complete, notify
 		s.flushCondition.Done()
 		s.isFlushing.Store(false)
 	}()
 
 	startTime := time.Now()
-	//FIXME stone1100
+	// FIXME stone1100
 	// index flush
 	if err = s.indexDB.Flush(); err != nil {
 		s.logger.Error("failed to flush indexDB ",
@@ -395,7 +396,7 @@ func (s *shard) Flush() (err error) {
 	)
 	s.statistics.indexFlushTimer.UpdateSince(startTime)
 
-	//FIXME(stone1100) commit replica sequence
+	// FIXME(stone1100) commit replica sequence
 	return nil
 }
 

@@ -150,7 +150,7 @@ func (it *BinaryFieldIterator) Next() PrimitiveIterator {
 	data := it.reader.ReadBytes(int(length))
 
 	if it.pIt == nil {
-		it.pIt = NewPrimitiveIterator(aggType, encoding.NewTSDDecoder(data)) //TODO get from pool?
+		it.pIt = NewPrimitiveIterator(aggType, encoding.NewTSDDecoder(data)) // TODO get from pool?
 	} else {
 		it.pIt.Reset(aggType, data)
 	}
@@ -198,7 +198,7 @@ func (pi *BinaryPrimitiveIterator) HasNext() bool {
 }
 
 func (pi *BinaryPrimitiveIterator) Next() (timeSlot int, value float64) {
-	//FIXME
+	// FIXME
 	timeSlot = int(pi.tsd.Slot())
 	val := pi.tsd.Value()
 	value = math.Float64frombits(val)

@@ -22,7 +22,7 @@ import (
 
 	"github.com/lindb/lindb/pkg/validate"
 
-	"github.com/lindb/lindb/app/broker/deps"
+	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
@@ -30,7 +30,7 @@ import (
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
-func SchemaCommand(ctx context.Context, deps *deps.HTTPDeps, _ *models.ExecuteParam, stmt stmtpkg.Statement) (interface{}, error) {
+func SchemaCommand(ctx context.Context, deps *depspkg.HTTPDeps, _ *models.ExecuteParam, stmt stmtpkg.Statement) (interface{}, error) {
 	schemaStmt := stmt.(*stmtpkg.Schema)
 	switch schemaStmt.Type {
 	case stmtpkg.DatabaseSchemaType:
@@ -53,7 +53,7 @@ func SchemaCommand(ctx context.Context, deps *deps.HTTPDeps, _ *models.ExecutePa
 }
 
 // listDataBases returns database list in cluster.
-func listDataBases(ctx context.Context, deps *deps.HTTPDeps) (interface{}, error) {
+func listDataBases(ctx context.Context, deps *depspkg.HTTPDeps) (interface{}, error) {
 	data, err := deps.Repo.List(ctx, constants.DatabaseConfigPath)
 	if err != nil {
 		return nil, err
@@ -75,14 +75,15 @@ func listDataBases(ctx context.Context, deps *deps.HTTPDeps) (interface{}, error
 
 // saveDataBase creates the database config if there is no database
 // config with the name database.Name, otherwise update the config.
-func saveDataBase(ctx context.Context, deps *deps.HTTPDeps, stmt *stmtpkg.Schema) (interface{}, error) {
+func saveDataBase(ctx context.Context, deps *depspkg.HTTPDeps, stmt *stmtpkg.Schema) (interface{}, error) {
 	data := []byte(stmt.Value)
 	database := &models.Database{}
 	err := encoding.JSONUnmarshal(data, database)
 	if err != nil {
 		return nil, err
 	}
-	if err = validate.Validator.Struct(database); err != nil {
+	err = validate.Validator.Struct(database)
+	if err != nil {
 		return nil, err
 	}
 
@@ -92,14 +93,13 @@ func saveDataBase(ctx context.Context, deps *deps.HTTPDeps, stmt *stmtpkg.Schema
 		return nil, err
 	}
 	// set default value
-	(&opt).Default()
+	opt.Default()
 	database.Option = opt // reset option after set default value
 
 	log.Info("Saving Database", logger.String("config", stmt.Value))
-	if err = deps.Repo.Put(ctx, constants.GetDatabaseConfigPath(database.Name), data); err != nil {
+	if err := deps.Repo.Put(ctx, constants.GetDatabaseConfigPath(database.Name), data); err != nil {
 		return nil, err
 	}
-
 	rs := "Create database ok"
 	return &rs, nil
 }

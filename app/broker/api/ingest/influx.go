@@ -20,7 +20,7 @@ package ingest
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/lindb/lindb/app/broker/deps"
+	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/ingestion/influx"
 	"github.com/lindb/lindb/pkg/http"
 )
@@ -36,7 +36,7 @@ type InfluxWriter struct {
 }
 
 // NewInfluxWriter creates influx writer.
-func NewInfluxWriter(deps *deps.HTTPDeps) *InfluxWriter {
+func NewInfluxWriter(deps *depspkg.HTTPDeps) *InfluxWriter {
 	return &InfluxWriter{
 		commonWriter: commonWriter{
 			deps:   deps,

@@ -105,8 +105,7 @@ func (fms Metas) Clone() (x2 Metas) {
 
 // Insert appends a new Meta to the list and sort it.
 func (fms Metas) Insert(m Meta) Metas {
-	newFms := append(fms, m)
-	return newFms
+	return append(fms, m)
 }
 
 // Intersects checks whether each fieldID is in the list,

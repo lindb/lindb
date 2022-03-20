@@ -120,7 +120,7 @@ func TestIntervalSegment_GetOrCreateSegment(t *testing.T) {
 	db.EXPECT().Name().Return("test-db").AnyTimes()
 	shard.EXPECT().Database().Return(db).AnyTimes()
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
-	db.EXPECT().GetOption().Return(option.DatabaseOption{}).AnyTimes()
+	db.EXPECT().GetOption().Return(&option.DatabaseOption{}).AnyTimes()
 	segment := NewMockSegment(ctrl)
 	segment.EXPECT().Close()
 	newSegmentFunc = func(shard Shard, segmentName string, interval timeutil.Interval) (Segment, error) {

@@ -81,7 +81,8 @@ func (w *watcher) watch(eventCh chan<- *Event) {
 		case eventCh <- evtAll:
 		}
 
-		opts := append(w.opts, etcdcliv3.WithRev(resp.Header.Revision+1))
+		opts := w.opts
+		opts = append(opts, etcdcliv3.WithRev(resp.Header.Revision+1))
 		wchc := cli.Watch(w.ctx, w.key, opts...)
 		if wchc == nil {
 			continue

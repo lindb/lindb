@@ -63,6 +63,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 	master.EXPECT().GetStateManager().Return(masterStateMgr).AnyTimes()
 	queryFactory := brokerQuery.NewMockFactory(ctrl)
 	stateMgr := broker.NewMockStateManager(ctrl)
+	opt := &option.DatabaseOption{}
 	api := NewExecuteAPI(&deps.HTTPDeps{
 		Ctx:          context.Background(),
 		Repo:         repo,
@@ -80,8 +81,10 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			linmetric.BrokerRegistry.NewScope("metric_data_search"),
 		),
 	})
-	cfg := `{\"config\":{\"namespace\":\"test\",\"timeout\":10,\"dialTimeout\":10,\"leaseTTL\":10,\"endpoints\":[\"http://localhost:2379\"]}}`
-	databaseCfg := `{\"name\":\"test\",\"storage\":\"cluster-test\",\"numOfShard\":12,\"replicaFactor\":3,\"option\":{\"intervals\":[{\"interval\":\"10s\"}]}}`
+	cfg := `{\"config\":{\"namespace\":\"test\",\"timeout\":10,\"dialTimeout\":10,`
+	cfg += `\"leaseTTL\":10,\"endpoints\":[\"http://localhost:2379\"]}}`
+	databaseCfg := `{\"name\":\"test\",\"storage\":\"cluster-test\",\"numOfShard\":12,`
+	databaseCfg += `\"replicaFactor\":3,\"option\":{\"intervals\":[{\"interval\":\"10s\"}]}}`
 	r := gin.New()
 	api.Register(r)
 
@@ -175,6 +178,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 					Storage:       "cluster-test",
 					NumOfShard:    12,
 					ReplicaFactor: 3,
+					Option:        opt,
 				}
 				database.Desc = database.String()
 				data := encoding.JSONMarshal(&database)
@@ -197,6 +201,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 					Storage:       "cluster-test",
 					NumOfShard:    12,
 					ReplicaFactor: 3,
+					Option:        opt,
 				}
 				database.Desc = database.String()
 				data := encoding.JSONMarshal(&database)
@@ -231,6 +236,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 					Storage:       "cluster-test",
 					NumOfShard:    12,
 					ReplicaFactor: 3,
+					Option:        opt,
 				}
 				database.Desc = database.String()
 				data := encoding.JSONMarshal(&database)
@@ -333,7 +339,8 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			prepare: func() {
 				metricQuery := brokerQuery.NewMockMetaDataQuery(ctrl)
 				queryFactory.EXPECT().NewMetadataQuery(gomock.Any(), gomock.Any(), gomock.Any()).Return(metricQuery)
-				metricQuery.EXPECT().WaitResponse().Return([]string{string(encoding.JSONMarshal(&[]field.Meta{{Name: "test", Type: field.SumField}}))}, nil)
+				metricQuery.EXPECT().WaitResponse().
+					Return([]string{string(encoding.JSONMarshal(&[]field.Meta{{Name: "test", Type: field.SumField}}))}, nil)
 			},
 			assert: func(resp *httptest.ResponseRecorder) {
 				assert.Equal(t, http.StatusOK, resp.Code)
@@ -799,7 +806,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 				backend := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					_, _ = w.Write([]byte("test"))
 				}))
-				//hack
+				// hack
 				_ = backend.Listener.Close()
 				l, err := net.Listen("tcp", "127.0.0.1:8089")
 				assert.NoError(t, err)
@@ -850,7 +857,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 							Storage:       "cluster-test",
 							NumOfShard:    12,
 							ReplicaFactor: 3,
-							Option: option.DatabaseOption{
+							Option: &option.DatabaseOption{
 								Intervals: option.Intervals{{Interval: 10}},
 								Ahead:     "10",
 							},

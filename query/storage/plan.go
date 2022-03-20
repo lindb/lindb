@@ -212,13 +212,13 @@ func (p *storageExecutePlan) field(parentFunc *stmt.CallExpr, expr stmt.Expr) {
 			}
 			aggregator.Aggregator.AddFunctionType(funcType)
 		} else {
-			// using use input, and check func is supported
+			// using input, and check func is supported
 			if !fieldType.IsFuncSupported(parentFunc.FuncType) {
 				p.err = fmt.Errorf("field type[%s] not support function[%s]", fieldType, parentFunc.FuncType)
 				return
 			}
 			funcType = parentFunc.FuncType
-			//TODO ignore down sampling func?
+			// TODO ignore down sampling func?
 			aggregator.Aggregator.AddFunctionType(parentFunc.FuncType)
 		}
 		aggregator.DownSampling.AddFunctionType(funcType)

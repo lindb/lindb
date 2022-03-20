@@ -125,16 +125,13 @@ func (itr *BrokerRowFlatDecoder) DecodeTo(row *BrokerRow) error {
 }
 
 func (itr *BrokerRowFlatDecoder) rebuild() error {
-	var tagCount int
 	kvItr := itr.originRow.NewKeyValueIterator()
 	for kvItr.HasNext() {
-		tagCount++
 		if err := itr.rowBuilder.AddTag(kvItr.NextKey(), kvItr.NextValue()); err != nil {
 			return err
 		}
 	}
 	if len(itr.enrichedTags) > 0 {
-		tagCount++
 		for i := 0; i < len(itr.enrichedTags); i++ {
 			if err := itr.rowBuilder.AddTag(itr.enrichedTags[i].Key, itr.enrichedTags[i].Value); err != nil {
 				return err

@@ -17,7 +17,7 @@
 
 package aggregation
 
-//func TestNewFieldAggregates(t *testing.T) {
+// func TestNewFieldAggregates(t *testing.T) {
 //	agg := NewFieldAggregates(
 //		timeutil.Interval(timeutil.OneSecond),
 //		1,
@@ -60,10 +60,10 @@ package aggregation
 //	assert.False(t, it.HasNext())
 //
 //	agg.Reset()
-//}
+// }
 
-//TODO need impl
-//func TestNewSeriesAggregator(t *testing.T) {
+// TODO need impl
+// func TestNewSeriesAggregator(t *testing.T) {
 //	now, _ := timeutil.ParseTimestamp("20190702 19:10:00", "20060102 15:04:05")
 //	familyTime, _ := timeutil.ParseTimestamp("20190702 19:00:00", "20060102 15:04:05")
 //	agg := NewSeriesAggregator(
@@ -123,4 +123,4 @@ package aggregation
 //
 //	rs = agg.ResultSet()
 //	assert.Nil(t, rs)
-//}
+// }

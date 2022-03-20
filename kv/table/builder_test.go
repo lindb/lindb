@@ -148,7 +148,9 @@ func TestStoreBuilder_Abandon(t *testing.T) {
 }
 
 func Test_Builder_Stream_Writer(t *testing.T) {
-	var builder, err = NewStoreBuilder(10, filepath.Join(t.TempDir(), "/000010.sst"))
+	builder, err := NewStoreBuilder(10, filepath.Join(t.TempDir(), "000010.sst"))
+	assert.NoError(t, err)
+	assert.NotNil(t, builder)
 	defer func() {
 		_ = builder.Close()
 	}()
@@ -160,7 +162,8 @@ func Test_Builder_Stream_Writer(t *testing.T) {
 	assert.Zero(t, writer.Size())
 	writer.Prepare(1)
 	_, _ = writer.Write([]byte("aaa"))
-	writer.Commit()
+	err = writer.Commit()
+	assert.NoError(t, err)
 	assert.Equal(t, beforeSize, builder.Size())
 
 	// normal increasing key
@@ -174,7 +177,7 @@ func Test_Builder_Stream_Writer(t *testing.T) {
 }
 
 func Test_StreamWriter_CheckSum32(t *testing.T) {
-	var builder, _ = NewStoreBuilder(10, filepath.Join(t.TempDir(), "/000011.sst"))
+	var builder, _ = NewStoreBuilder(10, filepath.Join(t.TempDir(), "000011.sst"))
 	defer func() {
 		_ = builder.Close()
 	}()

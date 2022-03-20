@@ -30,7 +30,7 @@ import (
 type DatabaseNames []string
 
 // ToTable returns database name list as table if it has value, else return empty string.
-func (dbs DatabaseNames) ToTable() (int, string) {
+func (dbs DatabaseNames) ToTable() (rows int, tableStr string) {
 	if len(dbs) == 0 {
 		return 0, ""
 	}
@@ -39,7 +39,6 @@ func (dbs DatabaseNames) ToTable() (int, string) {
 	for i := range dbs {
 		r := dbs[i]
 		writer.AppendRow(table.Row{r})
-
 	}
 	return len(dbs), writer.Render()
 }
@@ -48,7 +47,7 @@ func (dbs DatabaseNames) ToTable() (int, string) {
 type Databases []Database
 
 // ToTable returns database list as table if it has value, else return empty string.
-func (dbs Databases) ToTable() (int, string) {
+func (dbs Databases) ToTable() (rows int, tableStr string) {
 	if len(dbs) == 0 {
 		return 0, ""
 	}
@@ -57,7 +56,6 @@ func (dbs Databases) ToTable() (int, string) {
 	for i := range dbs {
 		r := dbs[i]
 		writer.AppendRow(table.Row{r.Name, r.Storage, r.Desc})
-
 	}
 	return len(dbs), writer.Render()
 }
@@ -76,16 +74,16 @@ func ParseShardID(shard string) ShardID {
 
 // Database defines database config, database can include multi-cluster.
 type Database struct {
-	Name          string                `json:"name" validate:"required"`      // database's name
-	Storage       string                `json:"storage" validate:"required"`   // storage cluster's name
-	NumOfShard    int                   `json:"numOfShard" validate:"gt=0"`    // num. of shard
-	ReplicaFactor int                   `json:"replicaFactor" validate:"gt=0"` // replica refactor
-	Option        option.DatabaseOption `json:"option"`                        // time series database option
-	Desc          string                `json:"desc,omitempty"`
+	Name          string                 `json:"name" validate:"required"`      // database's name
+	Storage       string                 `json:"storage" validate:"required"`   // storage cluster's name
+	NumOfShard    int                    `json:"numOfShard" validate:"gt=0"`    // num. of shard
+	ReplicaFactor int                    `json:"replicaFactor" validate:"gt=0"` // replica refactor
+	Option        *option.DatabaseOption `json:"option"`                        // time series database option
+	Desc          string                 `json:"desc,omitempty"`
 }
 
 // String returns the database's description.
-func (db Database) String() string {
+func (db *Database) String() string {
 	result := "create database " + db.Name + " with "
 	result += "shard " + fmt.Sprintf("%d", db.NumOfShard) + ", replica " + fmt.Sprintf("%d", db.ReplicaFactor)
 	result += ", intervals " + db.Option.Intervals.String()
@@ -93,8 +91,8 @@ func (db Database) String() string {
 }
 
 type DatabaseAssignment struct {
-	ShardAssignment *ShardAssignment      `json:"shardAssignment"`
-	Option          option.DatabaseOption `json:"option"`
+	ShardAssignment *ShardAssignment       `json:"shardAssignment"`
+	Option          *option.DatabaseOption `json:"option"`
 }
 
 // Replica defines replica list for spec shard of database.

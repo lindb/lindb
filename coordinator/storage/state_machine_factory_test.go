@@ -37,12 +37,12 @@ func TestStateMachineFactory_Start(t *testing.T) {
 	discoveryFct.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 	fct := NewStateMachineFactory(context.TODO(), discoveryFct, nil)
 
-	//live node sm err
+	// live node sm err
 	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
 	err := fct.Start()
 	assert.Error(t, err)
 
-	//shard assignment  sm err
+	// shard assignment  sm err
 	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
 	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
 	err = fct.Start()

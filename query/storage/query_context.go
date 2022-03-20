@@ -124,13 +124,12 @@ func (s *timeSpanResultSet) isEmpty() bool {
 	return len(s.spanMap) == 0
 }
 
-func (s *timeSpanResultSet) getTimeSpans() timeSpans {
-	var timeSpans timeSpans
+func (s *timeSpanResultSet) getTimeSpans() (ts timeSpans) {
 	for _, span := range s.spanMap {
-		timeSpans = append(timeSpans, span)
+		ts = append(ts, span)
 	}
-	sort.Sort(timeSpans)
-	return timeSpans
+	sort.Sort(ts)
+	return ts
 }
 
 // getSeriesIDs returns final series ids after family filtering.

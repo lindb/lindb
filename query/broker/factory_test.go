@@ -40,5 +40,4 @@ func TestExecutorFactory_NewExecutor(t *testing.T) {
 		context.Background(),
 		"",
 		&stmt.MetricMetadata{}))
-
 }

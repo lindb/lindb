@@ -97,7 +97,6 @@ func buildRow(row *BrokerRow, timestamp int64) {
 	_ = builder.AddSimpleField([]byte("f1"), flatMetricsV1.SimpleFieldTypeDeltaSum, 100)
 	builder.AddTimestamp(timestamp)
 	_ = builder.BuildTo(row)
-
 }
 
 func Test_BrokerBatchRows_AppendError(t *testing.T) {

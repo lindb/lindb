@@ -43,31 +43,34 @@ func TestBrokerPlan_No_GroupBy(t *testing.T) {
 	assert.NoError(t, err)
 	// no group sql
 	plan := newBrokerPlan(q.(*stmt.Query),
-		models.Database{Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}},
+		models.Database{Option: &option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}},
 		storageNodes, currentNode, nil)
 	err = plan.Plan()
 	assert.NoError(t, err)
 
 	assert.Equal(t, 0, len(plan.intermediateNodes))
 	physicalPlan := models.NewPhysicalPlan(models.Root{Indicator: "1.1.1.3:8000", NumOfTask: 2})
-	physicalPlan.AddLeaf(models.Leaf{
+	leaf1 := &models.Leaf{
 		BaseNode: models.BaseNode{
 			Parent:    "1.1.1.3:8000",
 			Indicator: "1.1.1.1:9000",
 		},
 		Receivers: []models.StatelessNode{currentNode},
 		ShardIDs:  []models.ShardID{1, 2, 4},
-	})
-	physicalPlan.AddLeaf(models.Leaf{
+	}
+	physicalPlan.AddLeaf(leaf1)
+	leaf2 := &models.Leaf{
 		BaseNode: models.BaseNode{
 			Parent:    "1.1.1.3:8000",
 			Indicator: "1.1.1.2:9000",
 		},
 		Receivers: []models.StatelessNode{currentNode},
 		ShardIDs:  []models.ShardID{3, 5, 6},
-	})
+	}
+	physicalPlan.AddLeaf(leaf2)
+
 	assert.Equal(t, physicalPlan.Root, plan.physicalPlan.Root)
-	assert.Equal(t, 2, len(plan.physicalPlan.Leafs))
+	assert.Equal(t, 2, len(plan.physicalPlan.Leaves))
 	assert.Equal(t, 0, len(plan.physicalPlan.Intermediates))
 }
 
@@ -83,9 +86,10 @@ func TestBrokerPlan_GroupBy_oddCount(t *testing.T) {
 	q, err := sql.Parse("select f from cpu group by host")
 	assert.NoError(t, err)
 	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
+	opt := &option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}
 	plan := newBrokerPlan(
 		q.(*stmt.Query),
-		models.Database{Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}},
+		models.Database{Option: opt},
 		oddStorageNodes,
 		currentNode,
 		[]models.StatelessNode{
@@ -105,9 +109,9 @@ func TestBrokerPlan_GroupBy_oddCount(t *testing.T) {
 		assert.Equal(t, "1.1.1.3:8000", intermediate.Parent)
 		assert.Equal(t, int32(5), intermediate.NumOfTask)
 	}
-	assert.Equal(t, 5, len(physicalPlan.Leafs))
+	assert.Equal(t, 5, len(physicalPlan.Leaves))
 	storageNodes2 := make(map[string][]models.ShardID)
-	for _, leaf := range physicalPlan.Leafs {
+	for _, leaf := range physicalPlan.Leaves {
 		storageNodes2[leaf.Indicator] = leaf.ShardIDs
 		assert.Equal(t, 3, len(leaf.Receivers))
 	}
@@ -124,9 +128,10 @@ func TestBrokerPlan_GroupBy_evenCount(t *testing.T) {
 	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
 	q, err := sql.Parse("select f from cpu group by host")
 	assert.NoError(t, err)
+	opt := &option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}
 	plan := newBrokerPlan(
 		q.(*stmt.Query),
-		models.Database{Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}},
+		models.Database{Option: opt},
 		evenStorageNodes,
 		currentNode,
 		[]models.StatelessNode{
@@ -145,9 +150,9 @@ func TestBrokerPlan_GroupBy_evenCount(t *testing.T) {
 		assert.Equal(t, "1.1.1.3:8000", intermediate.Parent)
 		assert.Equal(t, int32(2), intermediate.NumOfTask)
 	}
-	assert.Equal(t, 2, len(physicalPlan.Leafs))
+	assert.Equal(t, 2, len(physicalPlan.Leaves))
 	storageNodes2 := make(map[string][]models.ShardID)
-	for _, leaf := range physicalPlan.Leafs {
+	for _, leaf := range physicalPlan.Leaves {
 		storageNodes2[leaf.Indicator] = leaf.ShardIDs
 		assert.Equal(t, 2, len(leaf.Receivers))
 	}
@@ -162,9 +167,10 @@ func TestBrokerPlan_GroupBy_Less_StorageNodes(t *testing.T) {
 	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
 	q, err := sql.Parse("select f from cpu group by host")
 	assert.NoError(t, err)
+	opt := &option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}
 	plan := newBrokerPlan(
 		q.(*stmt.Query),
-		models.Database{Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}},
+		models.Database{Option: opt},
 		storageNodes,
 		currentNode,
 		[]models.StatelessNode{
@@ -186,9 +192,9 @@ func TestBrokerPlan_GroupBy_Less_StorageNodes(t *testing.T) {
 		assert.Equal(t, "1.1.1.3:8000", intermediate.Parent)
 		assert.Equal(t, int32(2), intermediate.NumOfTask)
 	}
-	assert.Equal(t, 2, len(physicalPlan.Leafs))
+	assert.Equal(t, 2, len(physicalPlan.Leaves))
 	storageNodes2 := make(map[string][]models.ShardID)
-	for _, leaf := range physicalPlan.Leafs {
+	for _, leaf := range physicalPlan.Leaves {
 		storageNodes2[leaf.Indicator] = leaf.ShardIDs
 		assert.Equal(t, 3, len(leaf.Receivers))
 	}
@@ -202,9 +208,10 @@ func TestBrokerPlan_GroupBy_Same_Broker(t *testing.T) {
 	q, err := sql.Parse("select f from cpu group by host")
 	assert.NoError(t, err)
 	// current node = active node
+	opt := &option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}
 	plan := newBrokerPlan(
 		q.(*stmt.Query),
-		models.Database{Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}},
+		models.Database{Option: opt},
 		storageNodes,
 		currentNode,
 		[]models.StatelessNode{currentNode})
@@ -215,14 +222,15 @@ func TestBrokerPlan_GroupBy_Same_Broker(t *testing.T) {
 
 	assert.Equal(t, 0, len(plan.intermediateNodes))
 	physicalPlan := models.NewPhysicalPlan(models.Root{Indicator: "1.1.1.3:8000", NumOfTask: 1})
-	physicalPlan.AddLeaf(models.Leaf{
+	leaf := &models.Leaf{
 		BaseNode: models.BaseNode{
 			Parent:    "1.1.1.3:8000",
 			Indicator: "1.1.1.1:9000",
 		},
 		Receivers: []models.StatelessNode{currentNode},
 		ShardIDs:  []models.ShardID{1, 2, 4},
-	})
+	}
+	physicalPlan.AddLeaf(leaf)
 	assert.Equal(t, physicalPlan, plan.physicalPlan)
 }
 
@@ -233,9 +241,10 @@ func TestBrokerPlan_GroupBy_No_Broker(t *testing.T) {
 	// only one storage node
 	q, err := sql.Parse("select f from cpu group by host")
 	assert.NoError(t, err)
+	opt := &option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}
 	plan := newBrokerPlan(
 		q.(*stmt.Query),
-		models.Database{Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}},
+		models.Database{Option: opt},
 		storageNodes,
 		currentNode,
 		nil)
@@ -246,14 +255,15 @@ func TestBrokerPlan_GroupBy_No_Broker(t *testing.T) {
 
 	assert.Equal(t, 0, len(plan.intermediateNodes))
 	physicalPlan := models.NewPhysicalPlan(models.Root{Indicator: "1.1.1.3:8000", NumOfTask: 1})
-	physicalPlan.AddLeaf(models.Leaf{
+	leaf := &models.Leaf{
 		BaseNode: models.BaseNode{
 			Parent:    "1.1.1.3:8000",
 			Indicator: "1.1.1.1:9000",
 		},
 		Receivers: []models.StatelessNode{currentNode},
 		ShardIDs:  []models.ShardID{1, 2, 4},
-	})
+	}
+	physicalPlan.AddLeaf(leaf)
 	assert.Equal(t, physicalPlan, plan.physicalPlan)
 }
 
@@ -264,9 +274,10 @@ func TestBrokerPlan_GroupBy_One_StorageNode(t *testing.T) {
 	q, err := sql.Parse("select f from cpu group by host")
 	assert.NoError(t, err)
 	// only one storage node
+	opt := &option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}
 	plan := newBrokerPlan(
 		q.(*stmt.Query),
-		models.Database{Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}},
+		models.Database{Option: opt},
 		storageNodes,
 		currentNode,
 		[]models.StatelessNode{
@@ -282,14 +293,15 @@ func TestBrokerPlan_GroupBy_One_StorageNode(t *testing.T) {
 
 	assert.Equal(t, 0, len(plan.intermediateNodes))
 	physicalPlan := models.NewPhysicalPlan(models.Root{Indicator: "1.1.1.3:8000", NumOfTask: 1})
-	physicalPlan.AddLeaf(models.Leaf{
+	leaf := &models.Leaf{
 		BaseNode: models.BaseNode{
 			Parent:    "1.1.1.3:8000",
 			Indicator: "1.1.1.1:9000",
 		},
 		Receivers: []models.StatelessNode{currentNode},
 		ShardIDs:  []models.ShardID{1, 2, 4},
-	})
+	}
+	physicalPlan.AddLeaf(leaf)
 	assert.Equal(t, physicalPlan, plan.physicalPlan)
 }
 

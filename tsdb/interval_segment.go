@@ -48,7 +48,8 @@ type intervalSegment struct {
 // newIntervalSegment create interval segment based on interval/type/path etc.
 func newIntervalSegment(shard Shard, interval timeutil.Interval) (segment IntervalSegment, err error) {
 	path := ShardSegmentPath(shard.Database().Name(), shard.ShardID(), interval)
-	if err = mkDirIfNotExist(path); err != nil {
+	err = mkDirIfNotExist(path)
+	if err != nil {
 		return segment, err
 	}
 	intervalSegment := &intervalSegment{
@@ -64,23 +65,22 @@ func newIntervalSegment(shard Shard, interval timeutil.Interval) (segment Interv
 	}()
 
 	// load segments if exist
-	//TODO too many kv store load???
+	// TODO too many kv store load???
 	segmentNames, err := listDir(path)
 	if err != nil {
 		return segment, err
 	}
 	for _, segmentName := range segmentNames {
-		seg, err := newSegmentFunc(shard, segmentName, intervalSegment.interval)
-		if err != nil {
-			err = fmt.Errorf("create segmenet error: %s", err)
-			return segment, err
+		seg, err0 := newSegmentFunc(shard, segmentName, intervalSegment.interval)
+		if err0 != nil {
+			return nil, fmt.Errorf("create segmenet error: %s", err)
 		}
 		intervalSegment.segments.Store(segmentName, seg)
 	}
 
 	// set segment
 	segment = intervalSegment
-	return segment, err
+	return segment, nil
 }
 
 // GetOrCreateSegment creates new segment if not exist, if exist return it

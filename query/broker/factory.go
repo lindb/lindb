@@ -21,7 +21,7 @@ import (
 	"context"
 
 	"github.com/lindb/lindb/coordinator/broker"
-	"github.com/lindb/lindb/sql/stmt"
+	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
 type queryFactory struct {
@@ -42,7 +42,7 @@ func NewQueryFactory(
 func (qh *queryFactory) NewMetricQuery(
 	ctx context.Context,
 	databaseName string,
-	sql *stmt.Query,
+	sql *stmtpkg.Query,
 ) MetricQuery {
 	return newMetricQuery(ctx, databaseName, sql, qh)
 }
@@ -50,7 +50,7 @@ func (qh *queryFactory) NewMetricQuery(
 func (qh *queryFactory) NewMetadataQuery(
 	ctx context.Context,
 	database string,
-	stmt *stmt.MetricMetadata,
+	stmt *stmtpkg.MetricMetadata,
 ) MetaDataQuery {
 	return newMetadataQuery(ctx, database, stmt, qh)
 }

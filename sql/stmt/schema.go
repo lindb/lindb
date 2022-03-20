@@ -25,7 +25,7 @@ const (
 	CreateDatabaseSchemaType
 )
 
-//Schema represents show all database schemas statement.
+// Schema represents show all database schemas statement.
 type Schema struct {
 	Type  SchemaType
 	Value string

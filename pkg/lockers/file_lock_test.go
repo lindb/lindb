@@ -39,7 +39,8 @@ func TestFileLock(t *testing.T) {
 	err = lock.Lock()
 	assert.Nil(t, err, "lock error")
 
-	lock.Unlock()
+	err = lock.Unlock()
+	assert.NoError(t, err)
 
 	fileInfo, _ := os.Stat("t.lock")
 	assert.Nil(t, fileInfo, "lock file exist")

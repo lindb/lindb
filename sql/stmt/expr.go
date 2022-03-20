@@ -132,7 +132,7 @@ type NotExpr struct {
 
 // Rewrite rewrites the select item expr after parse
 func (e *SelectItem) Rewrite() string {
-	if len(e.Alias) == 0 {
+	if e.Alias == "" {
 		return e.Expr.Rewrite()
 	}
 	return fmt.Sprintf("%s as %s", e.Expr.Rewrite(), e.Alias)
@@ -244,26 +244,26 @@ func Marshal(expr Expr) []byte {
 
 // Unmarshal parses value to expr
 func Unmarshal(value []byte) (Expr, error) {
-	var exprData exprData
-	err := encoding.JSONUnmarshal(value, &exprData)
+	var expr exprData
+	err := encoding.JSONUnmarshal(value, &expr)
 	if err != nil {
 		return nil, err
 	}
-	switch exprData.Type {
+	switch expr.Type {
 	case "regex":
-		return unmarshal(&exprData, &RegexExpr{})
+		return unmarshal(&expr, &RegexExpr{})
 	case "like":
-		return unmarshal(&exprData, &LikeExpr{})
+		return unmarshal(&expr, &LikeExpr{})
 	case "in":
-		return unmarshal(&exprData, &InExpr{})
+		return unmarshal(&expr, &InExpr{})
 	case "equals":
-		return unmarshal(&exprData, &EqualsExpr{})
+		return unmarshal(&expr, &EqualsExpr{})
 	case "number":
-		return unmarshal(&exprData, &NumberLiteral{})
+		return unmarshal(&expr, &NumberLiteral{})
 	case field:
-		return unmarshal(&exprData, &FieldExpr{})
+		return unmarshal(&expr, &FieldExpr{})
 	case "paren":
-		e, err := Unmarshal(exprData.Expr)
+		e, err := Unmarshal(expr.Expr)
 		if err != nil {
 			return nil, err
 		}
@@ -275,13 +275,13 @@ func Unmarshal(value []byte) (Expr, error) {
 	case "call":
 		return unmarshalCall(value)
 	case "not":
-		e, err := Unmarshal(exprData.Expr)
+		e, err := Unmarshal(expr.Expr)
 		if err != nil {
 			return nil, err
 		}
 		return &NotExpr{Expr: e}, nil
 	default:
-		return nil, fmt.Errorf("expr type not match:%s", exprData.Type)
+		return nil, fmt.Errorf("expr type not match:%s", expr.Type)
 	}
 }
 
