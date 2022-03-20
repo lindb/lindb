@@ -32,7 +32,7 @@ import (
 )
 
 var (
-	flatIngestionScope         = linmetric.NewScope("lindb.ingestion.flat")
+	flatIngestionScope         = linmetric.BrokerRegistry.NewScope("lindb.ingestion.flat")
 	flatCorruptedDataCounter   = flatIngestionScope.NewCounter("data_corrupted_count")
 	flatDroppedMetricCounter   = flatIngestionScope.NewCounter("dropped_metrics")
 	flatUnmarshalMetricCounter = flatIngestionScope.NewCounter("ingested_metrics")

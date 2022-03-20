@@ -77,7 +77,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			context.TODO(),
 			2,
 			time.Second*5,
-			linmetric.NewScope("metric_data_search"),
+			linmetric.BrokerRegistry.NewScope("metric_data_search"),
 		),
 	})
 	cfg := `{\"config\":{\"namespace\":\"test\",\"timeout\":10,\"dialTimeout\":10,\"leaseTTL\":10,\"endpoints\":[\"http://localhost:2379\"]}}`

@@ -32,7 +32,7 @@ import (
 )
 
 var (
-	protoIngestionScope          = linmetric.NewScope("lindb.ingestion.proto")
+	protoIngestionScope          = linmetric.BrokerRegistry.NewScope("lindb.ingestion.proto")
 	nativeCorruptedDataCounter   = protoIngestionScope.NewCounter("data_corrupted_count")
 	nativeUnmarshalMetricCounter = protoIngestionScope.NewCounter("ingested_metrics")
 	droppedMetricCounter         = protoIngestionScope.NewCounter("dropped_metrics")

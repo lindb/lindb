@@ -25,23 +25,47 @@ import (
 	"github.com/lindb/lindb/series/metric"
 )
 
-func FindMetricList(names []string, includeTags map[string]string) map[string][]*models.StateMetric {
-	return defaultRegistry.findMetricList(names, includeTags)
-}
+var (
+	// BrokerRegistry represents broker level metric Registry.
+	BrokerRegistry = &Registry{
+		series: make(map[uint64]*taggedSeries),
+	}
+	// StorageRegistry represents storage level metric Registry.
+	StorageRegistry = &Registry{
+		series: make(map[uint64]*taggedSeries),
+	}
+)
 
-// registry is a set of metrics
-// Metrics in this registry will be exported to LinDB's native ingestion.
-type registry struct {
+// Registry is a set of metrics
+// Metrics in this Registry will be exported to LinDB's native ingestion.
+type Registry struct {
 	mu     sync.RWMutex
 	series map[uint64]*taggedSeries
 }
 
-var defaultRegistry = &registry{
-	series: make(map[uint64]*taggedSeries),
+func (r *Registry) NewScope(metricName string, tagList ...string) Scope {
+	assertMetricName(metricName)
+
+	m := tagList2Tags(tagList...)
+	ms := newTaggedSeries(r, metricName, m)
+	return ms
 }
 
-// Register registers a named metric
-func (r *registry) Register(seriesID uint64, series *taggedSeries) *taggedSeries {
+// NewGather returns a gather to gather metrics from sdk and runtime.
+func (r *Registry) NewGather(options ...GatherOption) Gather {
+	g := &gather{r: r}
+	for _, o := range options {
+		o.ApplyConfig(g)
+	}
+	return g
+}
+
+func (r *Registry) FindMetricList(names []string, includeTags map[string]string) map[string][]*models.StateMetric {
+	return r.findMetricList(names, includeTags)
+}
+
+// register registers a named metric
+func (r *Registry) register(seriesID uint64, series *taggedSeries) *taggedSeries {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -54,7 +78,7 @@ func (r *registry) Register(seriesID uint64, series *taggedSeries) *taggedSeries
 }
 
 // gatherMetricList transforms event-metrics to native LinDB dto-proto format
-func (r *registry) gatherMetricList(
+func (r *Registry) gatherMetricList(
 	writer io.Writer, merger func(builder *metric.RowBuilder),
 ) (count int) {
 	// store metrics in buffer to prevent long waiting during flushing
@@ -87,7 +111,7 @@ func (r *registry) gatherMetricList(
 	return count
 }
 
-func (r *registry) findMetricList(names []string, includeTags map[string]string) map[string][]*models.StateMetric {
+func (r *Registry) findMetricList(names []string, includeTags map[string]string) map[string][]*models.StateMetric {
 	nameMap := make(map[string]struct{})
 	for _, name := range names {
 		nameMap[name] = struct{}{}

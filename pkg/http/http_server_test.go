@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/internal/linmetric"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -32,7 +33,7 @@ func init() {
 }
 
 func TestNewHTTPServer(t *testing.T) {
-	s := NewServer(config.HTTP{Port: 9999}, true)
+	s := NewServer(config.HTTP{Port: 9999}, true, linmetric.BrokerRegistry)
 	assert.NotNil(t, s.GetAPIRouter())
 	go func() {
 		_ = s.Run()

@@ -39,7 +39,7 @@ var (
 )
 
 var (
-	indexDBScope                 = linmetric.NewScope("lindb.tsdb.indexdb")
+	indexDBScope                 = linmetric.StorageRegistry.NewScope("lindb.tsdb.indexdb")
 	buildInvertedIndexCounterVec = indexDBScope.NewCounterVec("build_inverted_index_counter", "db")
 )
 

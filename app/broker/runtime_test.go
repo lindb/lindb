@@ -34,9 +34,10 @@ import (
 	brokerpkg "github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/internal/concurrent"
+	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/internal/monitoring"
 	"github.com/lindb/lindb/internal/server"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/hostutil"
 	"github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/logger"
@@ -333,7 +334,7 @@ func TestBrokerRuntime_push_metric(t *testing.T) {
 	pusher := monitoring.NewMockNativePusher(ctrl)
 	newNativeProtoPusher = func(ctx context.Context, endpoint string,
 		interval time.Duration, pushTimeout time.Duration,
-		globalKeyValues tag.Tags) monitoring.NativePusher {
+		r *linmetric.Registry, globalKeyValues tag.Tags) monitoring.NativePusher {
 		return pusher
 	}
 	r := &runtime{
@@ -375,7 +376,7 @@ func resetNewDepsMock() {
 		return nil
 	}
 	newNativeProtoPusher = func(ctx context.Context, endpoint string, interval time.Duration,
-		pushTimeout time.Duration, globalKeyValues tag.Tags) monitoring.NativePusher {
+		pushTimeout time.Duration, r *linmetric.Registry, globalKeyValues tag.Tags) monitoring.NativePusher {
 		return nil
 	}
 }
@@ -383,7 +384,7 @@ func resetNewDepsMock() {
 func mockGrpcServer(ctrl *gomock.Controller) {
 	grpcServer := rpc.NewMockGRPCServer(ctrl)
 	grpcServer.EXPECT().GetServer().Return(grpc.NewServer())
-	newGRPCServer = func(cfg config.GRPC) rpc.GRPCServer {
+	newGRPCServer = func(cfg config.GRPC, r *linmetric.Registry) rpc.GRPCServer {
 		return grpcServer
 	}
 }

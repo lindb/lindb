@@ -38,7 +38,7 @@ var (
 
 func getCacheStatistics() *cacheStatistics {
 	_once4Cache.Do(func() {
-		tableCacheScope := linmetric.NewScope("lindb.kv.table.cache")
+		tableCacheScope := linmetric.StorageRegistry.NewScope("lindb.kv.table.cache")
 		_instanceCacheStatistics = &cacheStatistics{
 			evictCounts: tableCacheScope.NewCounter("evict_counts"),
 			cacheHits:   tableCacheScope.NewCounter("cache_hits"),

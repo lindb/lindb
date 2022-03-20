@@ -26,6 +26,7 @@ import (
 )
 
 type DeltaHistogramVec struct {
+	r               *Registry
 	tags            tag.Tags // unique tags
 	tagKeys         []string
 	metricName      string // concated metric name
@@ -34,8 +35,9 @@ type DeltaHistogramVec struct {
 	setBucketsFunc  func(h *BoundHistogram)
 }
 
-func NewHistogramVec(metricName string, tags tag.Tags, tagKey ...string) *DeltaHistogramVec {
+func NewHistogramVec(r *Registry, metricName string, tags tag.Tags, tagKey ...string) *DeltaHistogramVec {
 	return &DeltaHistogramVec{
+		r:               r,
 		metricName:      metricName,
 		tags:            tags,
 		tagKeys:         tagKey,
@@ -86,7 +88,7 @@ func (hv *DeltaHistogramVec) WithTagValues(tagValues ...string) *BoundHistogram 
 	for i := range hv.tagKeys {
 		tagsMap[hv.tagKeys[i]] = tagValues[i]
 	}
-	series := newTaggedSeries(hv.metricName, tag.TagsFromMap(tagsMap))
+	series := newTaggedSeries(hv.r, hv.metricName, tag.TagsFromMap(tagsMap))
 	h = series.NewHistogram()
 	if hv.setBucketsFunc != nil {
 		hv.setBucketsFunc(h)

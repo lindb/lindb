@@ -73,7 +73,9 @@ func TestTaskClientFactory(t *testing.T) {
 	mockTaskClient.EXPECT().CloseSend().Return(fmt.Errorf("err")).AnyTimes()
 	taskService := protoCommonV1.NewMockTaskServiceClient(ctl)
 
-	fct := NewTaskClientFactory(context.TODO(), &models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 123})
+	fct := NewTaskClientFactory(context.TODO(),
+		&models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 123},
+		GetBrokerClientConnFactory())
 	receiver := NewMockTaskReceiver(ctl)
 	receiver.EXPECT().Receive(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
 	fct.SetTaskReceiver(receiver)
@@ -125,7 +127,7 @@ func TestTaskClientFactory_handler(t *testing.T) {
 	defer cancel()
 
 	receiver := NewMockTaskReceiver(ctrl)
-	fct := NewTaskClientFactory(ctx, &models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 123})
+	fct := NewTaskClientFactory(ctx, &models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 123}, GetStorageClientConnFactory())
 	fct.SetTaskReceiver(receiver)
 
 	target := models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 321}

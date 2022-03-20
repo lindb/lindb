@@ -68,11 +68,11 @@ type taskClientFactory struct {
 }
 
 // NewTaskClientFactory creates a task client factory
-func NewTaskClientFactory(ctx context.Context, currentNode models.Node) TaskClientFactory {
+func NewTaskClientFactory(ctx context.Context, currentNode models.Node, connFct ClientConnFactory) TaskClientFactory {
 	return &taskClientFactory{
 		ctx:                      ctx,
 		currentNode:              currentNode,
-		connFct:                  GetClientConnFactory(),
+		connFct:                  connFct,
 		taskStreams:              make(map[string]*taskClient),
 		newTaskServiceClientFunc: protoCommonV1.NewTaskServiceClient,
 		logger:                   logger.GetLogger("rpc", "TaskClient"),

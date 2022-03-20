@@ -40,7 +40,7 @@ var (
 )
 
 var (
-	influxIngestionScope       = linmetric.NewScope("lindb.ingestion.influx")
+	influxIngestionScope       = linmetric.BrokerRegistry.NewScope("lindb.ingestion.influx")
 	influxCorruptedDataCounter = influxIngestionScope.NewCounter("data_corrupted_count")
 	ingestedMetricsCounter     = influxIngestionScope.NewCounter("ingested_metrics")
 	ingestedFieldsCounter      = influxIngestionScope.NewCounter("ingested_fields")

@@ -24,7 +24,8 @@ import (
 	"github.com/lindb/lindb/app/broker/api/exec"
 	"github.com/lindb/lindb/app/broker/api/ingest"
 	"github.com/lindb/lindb/app/broker/deps"
-	"github.com/lindb/lindb/monitoring"
+	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/internal/monitoring"
 )
 
 // API represents broker http api.
@@ -50,7 +51,7 @@ func NewAPI(deps *deps.HTTPDeps) *API {
 		database:        admin.NewDatabaseAPI(deps),
 		flusher:         admin.NewDatabaseFlusherAPI(deps),
 		storage:         admin.NewStorageClusterAPI(deps),
-		metricExplore:   monitoring.NewExploreAPI(deps.GlobalKeyValues),
+		metricExplore:   monitoring.NewExploreAPI(deps.GlobalKeyValues, linmetric.BrokerRegistry),
 		log:             monitoring.NewLoggerAPI(deps.BrokerCfg.Logging.Dir),
 		config:          monitoring.NewConfigAPI(deps.Node, deps.BrokerCfg),
 		influxIngestion: ingest.NewInfluxWriter(deps),

@@ -29,7 +29,7 @@ import (
 
 func Test_Pool_Submit(t *testing.T) {
 	// num. of pool + 1 dispatcher, workers has not been spawned
-	pool := NewPool("test", 2, time.Second*5, linmetric.NewScope("1"))
+	pool := NewPool("test", 2, time.Second*5, linmetric.BrokerRegistry.NewScope("1"))
 
 	var c atomic.Int32
 
@@ -53,7 +53,7 @@ func Test_Pool_Submit(t *testing.T) {
 }
 
 func Test_Pool_Statistics(t *testing.T) {
-	p := NewPool("test", 0, time.Millisecond*100, linmetric.NewScope("2"))
+	p := NewPool("test", 0, time.Millisecond*100, linmetric.BrokerRegistry.NewScope("2"))
 	wp := p.(*workerPool)
 
 	for i := 0; i < 10; i++ {

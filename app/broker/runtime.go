@@ -36,9 +36,9 @@ import (
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/internal/monitoring"
 	"github.com/lindb/lindb/internal/server"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/hostutil"
 	httppkg "github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/logger"
@@ -131,7 +131,7 @@ func NewBrokerRuntime(version string, config *config.Broker, enableSystemMonitor
 			"task-pool",
 			config.Query.QueryConcurrency,
 			config.Query.IdleTimeout.Duration(),
-			linmetric.NewScope("lindb.concurrent", "pool_name", "broker-query"),
+			linmetric.BrokerRegistry.NewScope("lindb.concurrent", "pool_name", "broker-query"),
 		),
 		enableSystemMonitor: enableSystemMonitor,
 		log:                 logger.GetLogger("broker", "Runtime"),
@@ -176,7 +176,7 @@ func (r *runtime) Run() error {
 		{Key: []byte("role"), Value: []byte(constants.BrokerRole)},
 	}
 
-	tackClientFct := newTaskClientFactory(r.ctx, r.node)
+	tackClientFct := newTaskClientFactory(r.ctx, r.node, rpc.GetBrokerClientConnFactory())
 	r.factory = factory{
 		taskClient:    tackClientFct,
 		taskServer:    rpc.NewTaskServerFactory(),
@@ -339,7 +339,7 @@ func (r *runtime) Stop() {
 // startHTTPServer starts http server for api rpcHandler
 func (r *runtime) startHTTPServer() {
 	r.log.Info("starting HTTP server")
-	r.httpServer = httppkg.NewServer(r.config.BrokerBase.HTTP, true)
+	r.httpServer = httppkg.NewServer(r.config.BrokerBase.HTTP, true, linmetric.BrokerRegistry)
 	// TODO login api is not registered
 	httpAPI := api.NewAPI(&deps.HTTPDeps{
 		Ctx:         r.ctx,
@@ -354,13 +354,13 @@ func (r *runtime) startHTTPServer() {
 			r.ctx,
 			r.config.BrokerBase.Ingestion.MaxConcurrency,
 			r.config.BrokerBase.Ingestion.IngestTimeout.Duration(),
-			linmetric.NewScope("lindb.broker.ingestion_limiter"),
+			linmetric.BrokerRegistry.NewScope("lindb.broker.ingestion_limiter"),
 		),
 		QueryLimiter: concurrent.NewLimiter(
 			r.ctx,
 			r.config.Query.QueryConcurrency,
 			r.config.Query.Timeout.Duration(),
-			linmetric.NewScope("lindb.broker.query_limiter"),
+			linmetric.BrokerRegistry.NewScope("lindb.broker.query_limiter"),
 		),
 		QueryFactory: brokerQuery.NewQueryFactory(
 			r.stateMgr,
@@ -392,7 +392,7 @@ func (r *runtime) startStateRepo() error {
 // buildServiceDependency builds broker service dependency
 func (r *runtime) buildServiceDependency() {
 	// create replica channel mgr.
-	cm := newChannelManager(r.ctx, rpc.NewClientStreamFactory(r.ctx, r.node), r.stateMgr)
+	cm := newChannelManager(r.ctx, rpc.NewClientStreamFactory(r.ctx, r.node, rpc.GetBrokerClientConnFactory()), r.stateMgr)
 
 	taskManager := newTaskManager(
 		r.ctx,
@@ -416,7 +416,7 @@ func (r *runtime) buildServiceDependency() {
 // startGRPCServer starts the GRPC server
 func (r *runtime) startGRPCServer() {
 	r.log.Info("starting GRPC server")
-	r.grpcServer = newGRPCServer(r.config.BrokerBase.GRPC)
+	r.grpcServer = newGRPCServer(r.config.BrokerBase.GRPC, linmetric.BrokerRegistry)
 
 	// bind grpc handlers
 	intermediateTaskProcessor := brokerQuery.NewIntermediateTaskProcessor(
@@ -459,6 +459,7 @@ func (r *runtime) nativePusher() {
 		r.config.Monitor.URL,
 		r.config.Monitor.ReportInterval.Duration(),
 		r.config.Monitor.PushTimeout.Duration(),
+		linmetric.BrokerRegistry,
 		r.globalKeyValues,
 	)
 	go r.pusher.Start()
@@ -470,5 +471,5 @@ func (r *runtime) systemCollector() {
 	go monitoring.NewSystemCollector(
 		r.ctx,
 		"",
-		constants.BrokerRole).Run()
+		linmetric.BrokerRegistry).Run()
 }
