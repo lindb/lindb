@@ -24,7 +24,7 @@ import (
 )
 
 func Test_MaxVec(t *testing.T) {
-	scope := NewScope("vecg")
+	scope := BrokerRegistry.NewScope("vecg")
 	vec := scope.NewMaxVec("Max", "1", "2")
 	assert.Panics(t, func() {
 		vec.WithTagValues("1", "2", "3")
@@ -38,7 +38,7 @@ func Test_MaxVec(t *testing.T) {
 }
 
 func Benchmark_MaxVec(b *testing.B) {
-	scope := NewScope("vec_test")
+	scope := BrokerRegistry.NewScope("vec_test")
 	vec := scope.NewMaxVec("Max", "1", "2")
 
 	for i := 0; i < b.N; i++ {
@@ -48,7 +48,7 @@ func Benchmark_MaxVec(b *testing.B) {
 
 func Benchmark_Max(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		NewScope("Max_test", "1", "3", "2", "4").
+		BrokerRegistry.NewScope("Max_test", "1", "3", "2", "4").
 			NewMax("Max").
 			Update(2)
 	}

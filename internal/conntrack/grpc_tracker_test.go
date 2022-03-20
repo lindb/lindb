@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 
+	"github.com/lindb/lindb/internal/linmetric"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 )
 
@@ -43,7 +44,7 @@ func (tracker *testGRPCClientTracker) prepare(t *testing.T) {
 
 	tracker.serverListener, err = net.Listen("tcp", "127.0.0.1:23423")
 	assert.NoErrorf(t, err, "failed to listen on 23423")
-	serverTracker := NewGRPCServerTracker()
+	serverTracker := NewGRPCServerTracker(linmetric.StorageRegistry)
 	tracker.server = grpc.NewServer(
 		grpc.StreamInterceptor(serverTracker.StreamServerInterceptor()),
 		grpc.UnaryInterceptor(serverTracker.UnaryServerInterceptor()),
@@ -53,7 +54,7 @@ func (tracker *testGRPCClientTracker) prepare(t *testing.T) {
 		_ = tracker.server.Serve(tracker.serverListener)
 	}()
 
-	clientTracker := NewGRPCClientTracker()
+	clientTracker := NewGRPCClientTracker(linmetric.BrokerRegistry)
 	tracker.clientConn, err = grpc.Dial(
 		tracker.serverListener.Addr().String(),
 		grpc.WithInsecure(),

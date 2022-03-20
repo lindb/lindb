@@ -59,7 +59,7 @@ func TestTaskHandler_Handle(t *testing.T) {
 	taskServerFactory.EXPECT().Register(gomock.Any(), gomock.Any())
 	taskServerFactory.EXPECT().Deregister(gomock.Any(), gomock.Any()).Return(true)
 	handler := NewTaskHandler(cfg, taskServerFactory, processor,
-		concurrent.NewPool("", 10, time.Second, linmetric.NewScope("22")))
+		concurrent.NewPool("", 10, time.Second, linmetric.BrokerRegistry.NewScope("22")))
 
 	server := protoCommonV1.NewMockTaskService_HandleServer(ctrl)
 	ctx := metadata.NewOutgoingContext(context.TODO(), metadata.Pairs())
@@ -78,7 +78,7 @@ func TestTaskHandler_Handle(t *testing.T) {
 
 func TestTaskHandler_dispatch(t *testing.T) {
 	handler := NewTaskHandler(cfg, nil, &mockTaskProcessor{},
-		concurrent.NewPool("", 10, time.Second, linmetric.NewScope("22")))
+		concurrent.NewPool("", 10, time.Second, linmetric.BrokerRegistry.NewScope("22")))
 	// test process panic
 	handler.process(nil, nil)
 }

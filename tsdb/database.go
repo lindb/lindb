@@ -103,21 +103,21 @@ func newDatabase(
 				databaseName+"-filtering-pool",
 				runtime.GOMAXPROCS(-1), /*nRoutines*/
 				time.Second*5,
-				linmetric.NewScope("lindb.concurrent",
+				linmetric.StorageRegistry.NewScope("lindb.concurrent",
 					"pool_name", databaseName+"-filtering"),
 			),
 			Grouping: concurrent.NewPool(
 				databaseName+"-grouping-pool",
 				runtime.GOMAXPROCS(-1), /*nRoutines*/
 				time.Second*5,
-				linmetric.NewScope("lindb.concurrent",
+				linmetric.StorageRegistry.NewScope("lindb.concurrent",
 					"pool_name", databaseName+"-grouping"),
 			),
 			Scanner: concurrent.NewPool(
 				databaseName+"-scanner-pool",
 				runtime.GOMAXPROCS(-1), /*nRoutines*/
 				time.Second*5,
-				linmetric.NewScope("lindb.concurrent",
+				linmetric.StorageRegistry.NewScope("lindb.concurrent",
 					"pool_name", databaseName+"-scanner"),
 			),
 		},

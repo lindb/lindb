@@ -45,13 +45,13 @@ type TrackedListener struct {
 }
 
 // NewTrackedListener returns new tracked TCP listener for the given addr.
-func NewTrackedListener(network, addr string) (*TrackedListener, error) {
+func NewTrackedListener(network, addr string, r *linmetric.Registry) (*TrackedListener, error) {
 	ln, err := net.Listen(network, addr)
 	if err != nil {
 		return nil, err
 	}
 
-	tcpScope := linmetric.NewScope("lindb.traffic.tcp", "addr", addr)
+	tcpScope := r.NewScope("lindb.traffic.tcp", "addr", addr)
 	return &TrackedListener{
 		Listener: ln,
 		connStatistics: connStatistics{

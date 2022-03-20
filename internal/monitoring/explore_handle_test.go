@@ -37,13 +37,13 @@ func TestExploreAPI_ExploreCurrent(t *testing.T) {
 
 	api := NewExploreAPI(tag.Tags{
 		{Key: []byte("role"), Value: []byte(constants.BrokerRole)},
-	})
+	}, linmetric.BrokerRegistry)
 	r := gin.New()
 	api.Register(r)
 	resp := mock.DoRequest(t, r, http.MethodGet, ExploreCurrentPath, "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
-	metric := linmetric.
+	metric := linmetric.BrokerRegistry.
 		NewScope("lindb.ut").
 		NewGauge("path")
 	metric.Add(1)

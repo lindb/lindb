@@ -59,7 +59,7 @@ func Test_Flat_Write(t *testing.T) {
 			context.TODO(),
 			32,
 			time.Second,
-			linmetric.NewScope("influx_write_test")),
+			linmetric.BrokerRegistry.NewScope("influx_write_test")),
 	})
 	r := gin.New()
 	api.Register(r)

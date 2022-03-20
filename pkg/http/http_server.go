@@ -31,6 +31,7 @@ import (
 	"github.com/lindb/lindb"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/conntrack"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/pkg/http/middleware"
 	"github.com/lindb/lindb/pkg/logger"
 )
@@ -56,11 +57,12 @@ type server struct {
 	gin            *gin.Engine
 	staticResource bool
 
+	r      *linmetric.Registry
 	logger *logger.Logger
 }
 
 // NewServer creates http server.
-func NewServer(cfg config.HTTP, staticResource bool) Server {
+func NewServer(cfg config.HTTP, staticResource bool, r *linmetric.Registry) Server {
 	s := &server{
 		addr:           fmt.Sprintf(":%d", cfg.Port),
 		gin:            gin.New(),
@@ -71,6 +73,7 @@ func NewServer(cfg config.HTTP, staticResource bool) Server {
 			ReadTimeout:  cfg.ReadTimeout.Duration(),
 			IdleTimeout:  cfg.IdleTimeout.Duration(),
 		},
+		r:      r,
 		logger: logger.GetLogger("http", "Server"),
 	}
 	s.init()
@@ -118,7 +121,7 @@ func (s *server) Run() error {
 	s.logger.Info("starting http server", logger.String("addr", s.server.Addr))
 	s.server.Handler = s.gin
 	// Open listener.
-	trackedListener, err := conntrack.NewTrackedListener("tcp", s.addr)
+	trackedListener, err := conntrack.NewTrackedListener("tcp", s.addr, s.r)
 	if err != nil {
 		return err
 	}

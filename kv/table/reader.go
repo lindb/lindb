@@ -46,7 +46,7 @@ var (
 
 func getReaderStatistics() *readerStatistics {
 	_once4ReaderStatistics.Do(func() {
-		tableReaderScope := linmetric.NewScope("lindb.kv.table.reader")
+		tableReaderScope := linmetric.StorageRegistry.NewScope("lindb.kv.table.reader")
 		_instanceReaderStatistics = &readerStatistics{
 			getErrors:    tableReaderScope.NewCounter("get_errors"),
 			getCounts:    tableReaderScope.NewCounter("get_counts"),

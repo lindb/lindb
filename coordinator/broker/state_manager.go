@@ -114,7 +114,7 @@ func NewStateManager(
 		logger:            logger.GetLogger("broker", "StateManager"),
 	}
 
-	scope := linmetric.NewScope("lindb.broker.state_manager")
+	scope := linmetric.BrokerRegistry.NewScope("lindb.broker.state_manager")
 	eventVec := scope.NewCounterVec("emit_events", "type")
 	mgr.statistics.databaseChanges = eventVec.WithTagValues("database_changes")
 	mgr.statistics.databaseDeletes = eventVec.WithTagValues("database_deletes")

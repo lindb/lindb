@@ -34,7 +34,7 @@ import (
 
 //go:generate mockgen -source=./state_manager.go -destination=./state_manager_mock.go -package=storage
 // for test
-var getConnFct = rpc.GetClientConnFactory
+var getConnFct = rpc.GetStorageClientConnFactory
 
 // StateManager represents storage state manager, maintains storage node in memory.
 type StateManager interface {
@@ -87,7 +87,7 @@ func NewStateManager(
 		watches: make(map[models.NodeID][]func(state models.NodeStateType)),
 		logger:  logger.GetLogger("storage", "StateManager"),
 	}
-	scope := linmetric.NewScope("lindb.storage.state_manager")
+	scope := linmetric.StorageRegistry.NewScope("lindb.storage.state_manager")
 	eventVec := scope.NewCounterVec("emit_events", "type")
 	mgr.statistics.nodeStartUps = eventVec.WithTagValues("node_joins")
 	mgr.statistics.nodeFailures = eventVec.WithTagValues("node_leaves")

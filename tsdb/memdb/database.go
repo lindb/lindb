@@ -40,7 +40,7 @@ import (
 var memDBLogger = logger.GetLogger("TSDB", "MemDB")
 
 var (
-	memDBScope               = linmetric.NewScope("lindb.tsdb.memdb")
+	memDBScope               = linmetric.StorageRegistry.NewScope("lindb.tsdb.memdb")
 	pageAllocatedCounterVec  = memDBScope.NewCounterVec("allocated_pages", "db")
 	pageAllocatedFailuresVec = memDBScope.NewCounterVec("allocated_page_failures", "db")
 )

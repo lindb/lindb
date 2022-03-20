@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/ltoml"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
@@ -39,7 +40,7 @@ var (
 )
 
 func TestClientConnFactory(t *testing.T) {
-	fct := GetClientConnFactory()
+	fct := GetBrokerClientConnFactory()
 
 	conn1, err := fct.GetClientConn(&models.StatelessNode{
 		HostIP:   "127.0.0.1",
@@ -79,14 +80,14 @@ func TestClientStreamFactory_CreateTaskClient(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	factory := NewClientStreamFactory(ctx, &models.StatelessNode{HostIP: "127.0.0.2", GRPCPort: 9000})
+	factory := NewClientStreamFactory(ctx, &models.StatelessNode{HostIP: "127.0.0.2", GRPCPort: 9000}, GetStorageClientConnFactory())
 	target := models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 9000}
 
 	client, err := factory.CreateTaskClient(&target)
 	assert.NotNil(t, err)
 	assert.Nil(t, client)
 
-	grpcServer := NewGRPCServer(config.GRPC{Port: 9000, ConnectTimeout: ltoml.Duration(time.Second)})
+	grpcServer := NewGRPCServer(config.GRPC{Port: 9000, ConnectTimeout: ltoml.Duration(time.Second)}, linmetric.StorageRegistry)
 	protoCommonV1.RegisterTaskServiceServer(grpcServer.GetServer(), handler)
 	go func() {
 		_ = grpcServer.Start()

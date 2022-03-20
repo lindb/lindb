@@ -30,20 +30,12 @@ type Gather interface {
 	Gather() ([]byte, int)
 }
 
-// NewGather returns a gather to gather metrics from sdk and runtime.
-func NewGather(options ...GatherOption) Gather {
-	g := &gather{}
-	for _, o := range options {
-		o.ApplyConfig(g)
-	}
-	return g
-}
-
 type GatherOption interface {
 	ApplyConfig(g *gather)
 }
 
 type gather struct {
+	r               *Registry
 	namespace       string
 	runtimeObserver *runtimeObserver
 	tags            tag.Tags
@@ -67,15 +59,17 @@ func (g *gather) Gather() ([]byte, int) {
 
 	g.buf.Reset()
 
-	n := defaultRegistry.gatherMetricList(&g.buf, g.enrichTagsNameSpace)
+	n := g.r.gatherMetricList(&g.buf, g.enrichTagsNameSpace)
 	return g.buf.Bytes(), n
 }
 
-type readRuntimeOption struct{}
+type readRuntimeOption struct {
+	r *Registry
+}
 
-func (o *readRuntimeOption) ApplyConfig(g *gather) { g.runtimeObserver = newRuntimeObserver() }
+func (o *readRuntimeOption) ApplyConfig(g *gather) { g.runtimeObserver = newRuntimeObserver(o.r) }
 
-func WithReadRuntimeOption() GatherOption { return &readRuntimeOption{} }
+func WithReadRuntimeOption(r *Registry) GatherOption { return &readRuntimeOption{r: r} }
 
 type globalKeyValuesOption struct {
 	keyValues tag.Tags

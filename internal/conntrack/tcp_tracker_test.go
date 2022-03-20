@@ -24,6 +24,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/internal/linmetric"
 )
 
 type testListenerTracker struct {
@@ -33,7 +35,7 @@ type testListenerTracker struct {
 
 func (tracker *testListenerTracker) Prepare(t *testing.T) {
 	var err error
-	tracker.serverListener, err = NewTrackedListener("tcp", ":23424")
+	tracker.serverListener, err = NewTrackedListener("tcp", ":23424", linmetric.StorageRegistry)
 	assert.NoErrorf(t, err, "failed to listen on 23424")
 	tracker.httpServer = http.Server{
 		Addr: ":23424",

@@ -35,10 +35,10 @@ import (
 	"github.com/lindb/lindb/internal/bootstrap"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/internal/monitoring"
 	"github.com/lindb/lindb/internal/server"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/hostutil"
 	httppkg "github.com/lindb/lindb/pkg/http"
@@ -122,7 +122,7 @@ func NewStorageRuntime(version string, config *config.Storage) server.Service {
 			"task-pool",
 			config.Query.QueryConcurrency,
 			config.Query.IdleTimeout.Duration(),
-			linmetric.NewScope("lindb.concurrent.pool", "pool", "storage-query")),
+			linmetric.StorageRegistry.NewScope("lindb.concurrent.pool", "pool", "storage-query")),
 		delayInit:   time.Second,
 		initializer: bootstrap.NewClusterInitializer(config.StorageBase.BrokerEndpoint),
 		log:         logger.GetLogger("storage", "Runtime"),
@@ -189,7 +189,7 @@ func (r *runtime) Run() error {
 		r.ctx,
 		r.config.StorageBase.WAL,
 		r.node.ID, r.engine,
-		rpc.NewClientStreamFactory(r.ctx, r.node),
+		rpc.NewClientStreamFactory(r.ctx, r.node, rpc.GetStorageClientConnFactory()),
 		r.stateMgr,
 	)
 	if err = walMgr.Recovery(); err != nil {
@@ -377,8 +377,8 @@ func (r *runtime) startHTTPServer() {
 		return
 	}
 
-	r.httpServer = httppkg.NewServer(r.config.StorageBase.HTTP, false)
-	exploreAPI := monitoring.NewExploreAPI(r.globalKeyValues)
+	r.httpServer = httppkg.NewServer(r.config.StorageBase.HTTP, false, linmetric.StorageRegistry)
+	exploreAPI := monitoring.NewExploreAPI(r.globalKeyValues, linmetric.StorageRegistry)
 	exploreAPI.Register(r.httpServer.GetAPIRouter())
 	replicaAPI := stateapi.NewReplicaAPI(r.walMgr)
 	replicaAPI.Register(r.httpServer.GetAPIRouter())
@@ -397,7 +397,7 @@ func (r *runtime) startHTTPServer() {
 
 // startTCPServer starts tcp server
 func (r *runtime) startTCPServer() {
-	r.server = rpc.NewGRPCServer(r.config.StorageBase.GRPC)
+	r.server = rpc.NewGRPCServer(r.config.StorageBase.GRPC, linmetric.StorageRegistry)
 
 	// bind rpc handlers
 	r.bindRPCHandlers()
@@ -448,6 +448,7 @@ func (r *runtime) nativePusher() {
 		r.config.Monitor.URL,
 		r.config.Monitor.ReportInterval.Duration(),
 		r.config.Monitor.PushTimeout.Duration(),
+		linmetric.StorageRegistry,
 		r.globalKeyValues,
 	)
 	go r.pusher.Start()
@@ -459,5 +460,5 @@ func (r *runtime) systemCollector() {
 	go monitoring.NewSystemCollector(
 		r.ctx,
 		r.config.StorageBase.TSDB.Dir,
-		constants.StorageRole).Run()
+		linmetric.StorageRegistry).Run()
 }

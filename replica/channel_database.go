@@ -38,7 +38,7 @@ import (
 // for testing
 var (
 	createChannel        = newChannel
-	databaseChannelScope = linmetric.NewScope("lindb.replica.database")
+	databaseChannelScope = linmetric.BrokerRegistry.NewScope("lindb.replica.database")
 	evictedCounterVec    = databaseChannelScope.NewCounterVec("metrics_out_of_time_range", "db")
 )
 

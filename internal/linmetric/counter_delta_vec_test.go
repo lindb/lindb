@@ -24,7 +24,7 @@ import (
 )
 
 func Test_DeltaCounterVec(t *testing.T) {
-	scope := NewScope("vec")
+	scope := BrokerRegistry.NewScope("vec")
 	vec := scope.NewCounterVec("count", "1", "2")
 	assert.Panics(t, func() {
 		vec.WithTagValues("1", "2", "3")
@@ -38,7 +38,7 @@ func Test_DeltaCounterVec(t *testing.T) {
 }
 
 func Benchmark_DeltaCounterVec(b *testing.B) {
-	scope := NewScope("vec_test")
+	scope := BrokerRegistry.NewScope("vec_test")
 	vec := scope.NewCounterVec("counter", "1", "2")
 
 	for i := 0; i < b.N; i++ {
@@ -48,7 +48,7 @@ func Benchmark_DeltaCounterVec(b *testing.B) {
 
 func Benchmark_DeltaCounter(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		NewScope("counter_test", "1", "3", "2", "4").
+		BrokerRegistry.NewScope("counter_test", "1", "3", "2", "4").
 			NewCounter("counter").
 			Incr()
 	}

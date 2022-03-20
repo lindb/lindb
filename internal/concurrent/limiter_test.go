@@ -34,7 +34,7 @@ func Test_Limiter(t *testing.T) {
 		context.TODO(),
 		1,
 		time.Millisecond,
-		linmetric.NewScope("test_limiter"),
+		linmetric.BrokerRegistry.NewScope("test_limiter"),
 	)
 	var (
 		wg          sync.WaitGroup

@@ -52,11 +52,11 @@ type grpcServer struct {
 	panicCounter *linmetric.BoundCounter
 }
 
-func NewGRPCServer(cfg config.GRPC) GRPCServer {
+func NewGRPCServer(cfg config.GRPC, r *linmetric.Registry) GRPCServer {
 	log := logger.GetLogger("rpc", "GRPCServer")
-	grpcServerTracker := conntrack.NewGRPCServerTracker()
+	grpcServerTracker := conntrack.NewGRPCServerTracker(r)
 	// Shared options for the logger, with a custom gRPC code to log level function.
-	panicCounter := linmetric.NewScope("lindb.traffic.grpc_server").
+	panicCounter := r.NewScope("lindb.traffic.grpc_server").
 		NewCounter("panics")
 	opts := []grpcrecovery.Option{
 		grpcrecovery.WithRecoveryHandler(func(p interface{}) (err error) {

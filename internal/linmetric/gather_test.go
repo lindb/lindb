@@ -24,12 +24,12 @@ import (
 )
 
 func Test_Gather(t *testing.T) {
-	gather := NewGather(
+	gather := BrokerRegistry.NewGather(
 		WithGlobalKeyValueOption(tag.TagsFromMap(map[string]string{
 			"host": "alpha",
 			"ip":   "1.1.1.1",
 		})),
-		WithReadRuntimeOption(),
+		WithReadRuntimeOption(BrokerRegistry),
 		WithNamespaceOption("default-ns"),
 	)
 	_, _ = gather.Gather()

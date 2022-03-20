@@ -23,7 +23,6 @@ import (
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/ingestion/influx"
 	"github.com/lindb/lindb/pkg/http"
-	"github.com/lindb/lindb/pkg/http/middleware"
 )
 
 var (
@@ -50,12 +49,12 @@ func NewInfluxWriter(deps *deps.HTTPDeps) *InfluxWriter {
 func (iw *InfluxWriter) Register(route gin.IRoutes) {
 	route.POST(
 		InfluxWritePath,
-		middleware.WithHistogram(middleware.HTTPHandlerTimerVec.WithTagValues(InfluxWritePath)),
+		WithHistogram(HTTPHandlerTimerVec.WithTagValues(InfluxWritePath)),
 		iw.Write,
 	)
 	route.PUT(
 		InfluxWritePath,
-		middleware.WithHistogram(middleware.HTTPHandlerTimerVec.WithTagValues(InfluxWritePath)),
+		WithHistogram(HTTPHandlerTimerVec.WithTagValues(InfluxWritePath)),
 		iw.Write,
 	)
 
