@@ -118,7 +118,7 @@ func TestSeriesIDsSearchTask_Run(t *testing.T) {
 	indexDB.EXPECT().GetSeriesIDsForMetric(gomock.Any(), gomock.Any()).Return(roaring.New(), nil)
 	err = task.Run()
 	assert.NoError(t, err)
-	assert.Equal(t, roaring.BitmapOf(constants.SeriesIDWithoutTags), result)
+	assert.Equal(t, roaring.BitmapOf(series.IDWithoutTags), result)
 	result.Clear()
 	// case 3: group by tag
 	indexDB.EXPECT().GetSeriesIDsForMetric(gomock.Any(), gomock.Any()).Return(roaring.New(), nil)

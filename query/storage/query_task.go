@@ -191,7 +191,7 @@ func (t *seriesIDsSearchTask) Run() (err error) {
 		seriesIDs, err = t.shard.IndexDatabase().GetSeriesIDsForMetric(t.ctx.query.Namespace, t.ctx.query.MetricName)
 		if err == nil && !t.ctx.query.HasGroupBy() {
 			// add series id without tags, maybe metric has too many series, but one series without tags
-			seriesIDs.Add(constants.SeriesIDWithoutTags)
+			seriesIDs.Add(series.IDWithoutTags)
 		}
 	}
 	if err == nil && seriesIDs != nil {
