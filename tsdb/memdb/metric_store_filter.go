@@ -90,8 +90,7 @@ func (rs *memFilterResultSet) SeriesIDs() *roaring.Bitmap {
 
 // Load loads the data from storage, then returns the memory storage metric scanner.
 func (rs *memFilterResultSet) Load(highKey uint16, seriesIDs roaring.Container) flow.DataLoader {
-	//FIXME need add lock?????
-
+	// FIXME need add lock?????
 	// 1. get high container index by the high key of series ID
 	highContainerIdx := rs.store.keys.GetContainerIndex(highKey)
 	if highContainerIdx < 0 {

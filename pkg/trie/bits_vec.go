@@ -306,10 +306,12 @@ func (v *selectVector) Write(w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	if _, err := w.Write(u64SliceToBytes(v.bits)); err != nil {
+	_, err = w.Write(u64SliceToBytes(v.bits))
+	if err != nil {
 		return err
 	}
-	if _, err := w.Write(u32SliceToBytes(v.selectLut)); err != nil {
+	_, err = w.Write(u32SliceToBytes(v.selectLut))
+	if err != nil {
 		return err
 	}
 
@@ -657,7 +659,7 @@ type prefixVector struct {
 	compressPathVector
 }
 
-func (v *prefixVector) CheckPrefix(key []byte, depth uint32, nodeID uint32) (uint32, bool) {
+func (v *prefixVector) CheckPrefix(key []byte, depth, nodeID uint32) (uint32, bool) {
 	prefix := v.GetPrefix(nodeID)
 	if len(prefix) == 0 {
 		return 0, true
@@ -679,7 +681,7 @@ type suffixVector struct {
 	compressPathVector
 }
 
-func (v *suffixVector) CheckSuffix(key []byte, depth uint32, nodeID uint32) bool {
+func (v *suffixVector) CheckSuffix(key []byte, depth, nodeID uint32) bool {
 	suffix := v.GetSuffix(nodeID)
 	if depth+1 >= uint32(len(key)) {
 		return len(suffix) == 0

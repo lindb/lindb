@@ -34,7 +34,7 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
-	"github.com/lindb/lindb/query"
+	querypkg "github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/tag"
@@ -134,12 +134,13 @@ func (qf *storageQueryFlow) Complete(err error) {
 					logger.String("target", receiver.Indicator()))
 				continue
 			}
-			if err := stream.Send(&protoCommonV1.TaskResponse{
+			err = stream.Send(&protoCommonV1.TaskResponse{
 				TaskID:    qf.req.ParentTaskID,
 				Type:      protoCommonV1.TaskType_Leaf,
 				Completed: true,
 				ErrMsg:    err.Error(),
-			}); err != nil {
+			})
+			if err != nil {
 				storageQueryFlowLogger.Error("send storage execute result", logger.Error(err))
 			}
 		}
@@ -167,7 +168,7 @@ func (qf *storageQueryFlow) Reduce(_ string, it series.GroupedIterator) {
 	qf.mux.Lock()
 	defer qf.mux.Unlock()
 
-	//TODO impl
+	// TODO impl
 	qf.reduceAgg.Aggregate(it)
 }
 
@@ -262,7 +263,7 @@ func (qf *storageQueryFlow) sendResponse(hashGroupData [][]byte) {
 		if stream == nil {
 			storageQueryFlowLogger.Error("unable to get stream for write response",
 				logger.String("target", receiver.Indicator()))
-			qf.Complete(query.ErrNoSendStream)
+			qf.Complete(querypkg.ErrNoSendStream)
 			break
 		}
 		if err := stream.Send(&protoCommonV1.TaskResponse{

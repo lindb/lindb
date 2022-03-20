@@ -39,13 +39,13 @@ type Engine interface {
 	// createDatabase creates database instance by database's name
 	// return success when creating database's path successfully
 	// called when CreateShards without database created
-	createDatabase(databaseName string, dbOption option.DatabaseOption) (Database, error)
+	createDatabase(databaseName string, dbOption *option.DatabaseOption) (Database, error)
 	// CreateShards creates families for data partition by given options
 	// 1) dump engine option into local disk
 	// 2) create shard storage struct
 	CreateShards(
 		databaseName string,
-		databaseOption option.DatabaseOption,
+		databaseOption *option.DatabaseOption,
 		shardIDs ...models.ShardID,
 	) error
 	// GetShard returns shard by given db and shard id
@@ -92,7 +92,7 @@ func NewEngine() (Engine, error) {
 
 // createDatabase creates database instance by database's name
 // return success when creating database's path successfully
-func (e *engine) createDatabase(databaseName string, dbOption option.DatabaseOption) (Database, error) {
+func (e *engine) createDatabase(databaseName string, dbOption *option.DatabaseOption) (Database, error) {
 	cfgPath := optionsPath(databaseName)
 	cfg := &databaseConfig{Option: dbOption}
 	if fileutil.Exist(cfgPath) {
@@ -111,7 +111,7 @@ func (e *engine) createDatabase(databaseName string, dbOption option.DatabaseOpt
 
 func (e *engine) CreateShards(
 	databaseName string,
-	databaseOption option.DatabaseOption,
+	databaseOption *option.DatabaseOption,
 	shardIDs ...models.ShardID,
 ) error {
 	if len(shardIDs) == 0 {
@@ -194,7 +194,7 @@ func (e *engine) load() error {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 	for _, databaseName := range databaseNames {
-		_, err := e.createDatabase(databaseName, option.DatabaseOption{}) // need load config from local file
+		_, err := e.createDatabase(databaseName, &option.DatabaseOption{}) // need load config from local file
 		if err != nil {
 			return err
 		}

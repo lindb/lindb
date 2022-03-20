@@ -58,8 +58,8 @@ var (
 	ErrNoStorageCluster = errors.New("storage cluster not exist")
 	// ErrStatefulNodeExist represents stateful node already register.
 	ErrStatefulNodeExist = errors.New("stateful node already register")
-	//ErrDatabaseNameRequired represents database not input.
+	// ErrDatabaseNameRequired represents database not input.
 	ErrDatabaseNameRequired = errors.New("database name cannot be empty")
-	//ErrStorageNameRequired represents storage name not input.
+	// ErrStorageNameRequired represents storage name not input.
 	ErrStorageNameRequired = errors.New("storage name cannot be empty")
 )

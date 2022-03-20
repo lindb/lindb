@@ -19,7 +19,7 @@ package proto
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -51,7 +51,7 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*metric.
 		reader = gzipReader
 	}
 
-	data, err := ioutil.ReadAll(reader)
+	data, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, err
 	}

@@ -18,7 +18,7 @@
 package metricsdata
 
 //
-//import (
+// import (
 //	"errors"
 //	"testing"
 //
@@ -28,9 +28,9 @@ package metricsdata
 //
 //	"github.com/lindb/lindb/constants"
 //	"github.com/lindb/lindb/series/field"
-//)
+// )
 //
-//func TestFileFilterResultSet_Load(t *testing.T) {
+// func TestFileFilterResultSet_Load(t *testing.T) {
 //	ctrl := gomock.NewController(t)
 //	defer ctrl.Finish()
 //
@@ -39,9 +39,9 @@ package metricsdata
 //	rs := newFileFilterResultSet(1, field.Metas{}, nil, reader)
 //	reader.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any())
 //	rs.Load(0, nil)
-//}
+// }
 //
-//func TestMetricsDataFilter_Filter(t *testing.T) {
+// func TestMetricsDataFilter_Filter(t *testing.T) {
 //	ctrl := gomock.NewController(t)
 //	defer ctrl.Finish()
 //
@@ -67,4 +67,4 @@ package metricsdata
 //	assert.EqualValues(t, roaring.BitmapOf(200).ToArray(), rs[0].SeriesIDs().ToArray())
 //	reader.EXPECT().Path().Return("1.sst")
 //	assert.Equal(t, "1.sst", rs[0].Identifier())
-//}
+// }

@@ -67,14 +67,14 @@ func NewIDStore(path string) (IDStore, error) {
 }
 
 // Get returns the value by given key, if not exist return false.
-func (s *idStore) Get(key []byte) ([]byte, bool, error) {
+func (s *idStore) Get(key []byte) (value []byte, ok bool, err error) {
 	val, closer, err := s.db.Get(key)
 	defer func() {
 		if closer != nil {
-			if err := closer.Close(); err != nil {
+			if err0 := closer.Close(); err0 != nil {
 				s.logger.Warn("close kv get resource err",
 					logger.String("path", s.path),
-					logger.Error(err))
+					logger.Error(err0))
 			}
 		}
 	}()
@@ -112,10 +112,10 @@ func (s *idStore) IterKeys(prefix []byte, limit int) (rs [][]byte, err error) {
 		LowerBound: prefix,
 	})
 	defer func() {
-		if err := it.Close(); err != nil {
+		if err0 := it.Close(); err0 != nil {
 			s.logger.Warn("close kv iterator resource err",
 				logger.String("path", s.path),
-				logger.Error(err))
+				logger.Error(err0))
 		}
 	}()
 
@@ -134,7 +134,7 @@ func (s *idStore) IterKeys(prefix []byte, limit int) (rs [][]byte, err error) {
 	}
 
 	// if iterator has err, returns nil result and err
-	if err = it.Error(); err != nil {
+	if err := it.Error(); err != nil {
 		return nil, err
 	}
 	return rs, nil

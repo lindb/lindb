@@ -116,9 +116,9 @@ func newMetadataBackend(parent string) (MetadataBackend, error) {
 			metaLogger.Error("new metadata backend fail, need close backend storage")
 			// if got err, need close storage db if not nil
 			for name, db := range storageDBs {
-				if err := db.Close(); err != nil {
+				if err0 := db.Close(); err0 != nil {
 					metaLogger.Error("close storage db err when create metadata backend fail",
-						logger.String("db", name), logger.Error(err))
+						logger.String("db", name), logger.Error(err0))
 				}
 			}
 		}
@@ -137,9 +137,9 @@ func newMetadataBackend(parent string) (MetadataBackend, error) {
 	}
 	// init seq function
 	initSeq := func(db unique.IDStore, key []byte, init func(seq unique.Sequence)) error {
-		val, exist, err := db.Get(key)
-		if err != nil {
-			return err
+		val, exist, err0 := db.Get(key)
+		if err0 != nil {
+			return err0
 		}
 		sequenceInitValue := uint32(0)
 		if exist {
@@ -148,7 +148,8 @@ func newMetadataBackend(parent string) (MetadataBackend, error) {
 		cacheSize := config.GlobalStorageConfig().TSDB.MetaSequenceCache
 
 		// persist cached sequence value
-		if err := unique.SaveSequence(db, key, sequenceInitValue+cacheSize); err != nil {
+		err = unique.SaveSequence(db, key, sequenceInitValue+cacheSize)
+		if err != nil {
 			return err
 		}
 
@@ -193,7 +194,8 @@ func newMetadataBackend(parent string) (MetadataBackend, error) {
 
 	// init sequence with value
 	for _, arg := range sequences {
-		if err = initSeq(arg.db, arg.key, arg.init); err != nil {
+		err = initSeq(arg.db, arg.key, arg.init)
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -259,7 +261,7 @@ func (mb *metadataBackend) suggestMetricName(namespace, prefix string, limit int
 
 // getMetricID gets the metric id by namespace and metric name,
 // if not exist return constants.ErrMetricIDNotFound.
-func (mb *metadataBackend) getMetricID(namespace string, metricName string) (metricID metric.ID, err error) {
+func (mb *metadataBackend) getMetricID(namespace, metricName string) (metricID metric.ID, err error) {
 	// 1. get namespace id
 	namespaceVal, exist, err := mb.namespace.Get([]byte(namespace))
 	if err != nil {
@@ -282,7 +284,7 @@ func (mb *metadataBackend) getMetricID(namespace string, metricName string) (met
 		return
 	}
 	metricID = metric.ID(binary.LittleEndian.Uint32(metricVal))
-	//TODO too many query for one query????
+	// TODO too many query for one query????
 	return
 }
 
@@ -324,8 +326,8 @@ func (mb *metadataBackend) getAllTagKeys(metricID metric.ID) (tags tag.Metas, er
 }
 
 // saveField saves the field meta for given metric id.
-func (mb *metadataBackend) saveField(metricID metric.ID, field field.Meta) error {
-	val, err := field.MarshalBinary()
+func (mb *metadataBackend) saveField(metricID metric.ID, f field.Meta) error {
+	val, err := f.MarshalBinary()
 	if err != nil {
 		return err
 	}
@@ -359,14 +361,16 @@ func (mb *metadataBackend) getOrCreateMetricMetadata(namespace, metricName strin
 	}
 	if !exist {
 		// gen namespace id
-		nsID, err := nextSequence(mb.namespaceIDSequence, mb.namespace, namespaceIDSequenceKey)
+		var nsID uint32
+		nsID, err = nextSequence(mb.namespaceIDSequence, mb.namespace, namespaceIDSequenceKey)
 		if err != nil {
 			return nil, err
 		}
 		var scratch [4]byte
 		binary.LittleEndian.PutUint32(scratch[:], nsID)
 		nsIDVal = scratch[:]
-		if err := mb.namespace.Put(nsKey, nsIDVal); err != nil {
+		err = mb.namespace.Put(nsKey, nsIDVal)
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -380,14 +384,16 @@ func (mb *metadataBackend) getOrCreateMetricMetadata(namespace, metricName strin
 	}
 	if !exist {
 		// gen metric id
-		metricID, err := nextSequence(mb.metricIDSequence, mb.metric, metricIDSequenceKey)
+		var metricID uint32
+		metricID, err = nextSequence(mb.metricIDSequence, mb.metric, metricIDSequenceKey)
 		if err != nil {
 			return nil, err
 		}
 		var scratch [4]byte
 		binary.LittleEndian.PutUint32(scratch[:], metricID)
 		metricIDVal = scratch[:]
-		if err := mb.metric.Put(key, metricIDVal); err != nil {
+		err = mb.metric.Put(key, metricIDVal)
+		if err != nil {
 			return nil, err
 		}
 		return newMetricMetadata(metric.ID(metricID)), nil

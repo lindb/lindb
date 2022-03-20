@@ -81,7 +81,7 @@ func newDatabaseChannel(
 	databaseCfg models.Database,
 	numOfShard int32,
 	fct rpc.ClientStreamFactory,
-) (DatabaseChannel, error) {
+) DatabaseChannel {
 	c, cancel := context.WithCancel(ctx)
 	ch := &databaseChannel{
 		databaseCfg: databaseCfg,
@@ -93,11 +93,11 @@ func newDatabaseChannel(
 	ch.shardChannels.value.Store(make(shard2Channel))
 
 	opt := databaseCfg.Option
-	ahead, behind := (&opt).GetAcceptWritableRange()
+	ahead, behind := opt.GetAcceptWritableRange()
 	ch.ahead = atomic.NewInt64(ahead)
 	ch.behind = atomic.NewInt64(behind)
 
-	//TODO need validation
+	// TODO need validation
 	sort.Sort(databaseCfg.Option.Intervals)
 	ch.interval = databaseCfg.Option.Intervals[0].Interval
 
@@ -106,12 +106,12 @@ func newDatabaseChannel(
 
 	// start family channel garbage collect
 	ch.garbageCollectTask()
-	return ch, nil
+	return ch
 }
 
 func (dc *databaseChannel) garbageCollectTask() {
 	go func() {
-		ticker := time.NewTicker(10 * time.Minute) //TODO add config
+		ticker := time.NewTicker(10 * time.Minute) // TODO add config
 		for {
 			select {
 			case <-ticker.C:
@@ -174,7 +174,7 @@ func (dc *databaseChannel) Write(ctx context.Context, brokerBatchRows *metric.Br
 			}
 		}
 	}
-	//TODO if need return nil?
+	// TODO if need return nil?
 	return err
 }
 

@@ -42,8 +42,6 @@ type queryStmtParser struct {
 	startTime int64
 	endTime   int64
 
-	//orderByExpr stmt.Expr
-	//desc        bool
 	groupBy  []string
 	interval int64
 	fieldID  int
@@ -110,7 +108,7 @@ func (q *queryStmtParser) validation() error {
 	if q.err != nil {
 		return q.err
 	}
-	if len(q.metricName) == 0 {
+	if q.metricName == "" {
 		return fmt.Errorf("metric name cannot be empty")
 	}
 	if len(q.selectItems) == 0 {
@@ -150,8 +148,8 @@ func (q *queryStmtParser) visitTimeRangeExpr(ctx *grammar.TimeRangeExprContext) 
 			timestamp, err = timeutil.ParseTimestamp(strutil.GetStringValue(timeExprCtx.Ident().GetText()))
 		case timeExprCtx.NowExpr() != nil:
 			timestamp = timeutil.Now()
-			durationExpr, ok := timeExprCtx.NowExpr().(*grammar.NowExprContext)
-			if ok {
+			durationExpr, durationExist := timeExprCtx.NowExpr().(*grammar.NowExprContext)
+			if durationExist {
 				timestamp += q.parseDuration(durationExpr.DurationLit())
 			}
 		}
@@ -200,19 +198,19 @@ func (q *queryStmtParser) parseDuration(ctx grammar.IDurationLitContext) int64 {
 		return result
 	}
 	switch {
-	case nil != unit.T_SECOND():
+	case unit.T_SECOND() != nil:
 		result = duration * timeutil.OneSecond
-	case nil != unit.T_MINUTE():
+	case unit.T_MINUTE() != nil:
 		result = duration * timeutil.OneMinute
-	case nil != unit.T_HOUR():
+	case unit.T_HOUR() != nil:
 		result = duration * timeutil.OneHour
-	case nil != unit.T_DAY():
+	case unit.T_DAY() != nil:
 		result = duration * timeutil.OneDay
-	case nil != unit.T_WEEK():
+	case unit.T_WEEK() != nil:
 		result = duration * timeutil.OneWeek
-	case nil != unit.T_MONTH():
+	case unit.T_MONTH() != nil:
 		result = duration * timeutil.OneMonth
-	case nil != unit.T_YEAR():
+	case unit.T_YEAR() != nil:
 		result = duration * timeutil.OneYear
 	}
 	return result
@@ -220,7 +218,6 @@ func (q *queryStmtParser) parseDuration(ctx grammar.IDurationLitContext) int64 {
 
 // visitFieldExpr visits when production field expression is entered
 func (q *queryStmtParser) visitFieldExpr(ctx *grammar.FieldExprContext) {
-	//var selectItem queryStmt.Expr
 	switch {
 	case ctx.ExprFunc() != nil:
 		q.exprStack.Push(&stmt.CallExpr{})

@@ -79,7 +79,7 @@ func TestShard_New(t *testing.T) {
 				newIntervalSegmentFunc = func(shard Shard, interval timeutil.Interval) (segment IntervalSegment, err error) {
 					return nil, fmt.Errorf("err")
 				}
-				db.EXPECT().GetOption().Return(option.DatabaseOption{Intervals: option.Intervals{{}}})
+				db.EXPECT().GetOption().Return(&option.DatabaseOption{Intervals: option.Intervals{{}}})
 			},
 			wantErr: true,
 		},
@@ -87,7 +87,7 @@ func TestShard_New(t *testing.T) {
 			name: "create shard index store err",
 			prepare: func() {
 				gomock.InOrder(
-					db.EXPECT().GetOption().Return(option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}),
+					db.EXPECT().GetOption().Return(&option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}),
 					storeMgr.EXPECT().CreateStore(gomock.Any(), gomock.Any()).
 						Return(nil, fmt.Errorf("err")),
 				)
@@ -99,10 +99,10 @@ func TestShard_New(t *testing.T) {
 			prepare: func() {
 				store := kv.NewMockStore(ctrl)
 				gomock.InOrder(
-					db.EXPECT().GetOption().Return(option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}),
+					db.EXPECT().GetOption().Return(&option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}),
 					storeMgr.EXPECT().CreateStore(gomock.Any(), gomock.Any()).
 						Return(store, nil),
-					store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err")), //forward
+					store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err")), // forward
 					store.EXPECT().Name().Return("test"),
 					storeMgr.EXPECT().CloseStore("test").Return(nil),
 				)
@@ -114,11 +114,11 @@ func TestShard_New(t *testing.T) {
 			prepare: func() {
 				store := kv.NewMockStore(ctrl)
 				gomock.InOrder(
-					db.EXPECT().GetOption().Return(option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}),
+					db.EXPECT().GetOption().Return(&option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}),
 					storeMgr.EXPECT().CreateStore(gomock.Any(), gomock.Any()).
 						Return(store, nil),
-					store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, nil),               //forward
-					store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err")), //inverted
+					store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, nil),               // forward
+					store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err")), // inverted
 					store.EXPECT().Name().Return("test"),
 					storeMgr.EXPECT().CloseStore("test").Return(nil),
 				)
@@ -134,11 +134,11 @@ func TestShard_New(t *testing.T) {
 				}
 				store := kv.NewMockStore(ctrl)
 				gomock.InOrder(
-					db.EXPECT().GetOption().Return(option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}),
+					db.EXPECT().GetOption().Return(&option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}),
 					storeMgr.EXPECT().CreateStore(gomock.Any(), gomock.Any()).
 						Return(store, nil),
-					store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, nil), //forward
-					store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, nil), //inverted
+					store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, nil), // forward
+					store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, nil), // inverted
 					store.EXPECT().Name().Return("test"),
 					storeMgr.EXPECT().CloseStore("test").Return(fmt.Errorf("err")),
 				)
@@ -154,11 +154,11 @@ func TestShard_New(t *testing.T) {
 				}
 				store := kv.NewMockStore(ctrl)
 				gomock.InOrder(
-					db.EXPECT().GetOption().Return(option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}),
+					db.EXPECT().GetOption().Return(&option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}),
 					storeMgr.EXPECT().CreateStore(gomock.Any(), gomock.Any()).
 						Return(store, nil),
-					store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, nil), //forward
-					store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, nil), //inverted
+					store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, nil), // forward
+					store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, nil), // inverted
 				)
 			},
 		},
@@ -200,10 +200,10 @@ func TestShard_GetDataFamilies(t *testing.T) {
 	segment := NewMockIntervalSegment(ctrl)
 	rollupSeg := NewMockIntervalSegment(ctrl)
 	shard := &shard{
-		interval: timeutil.Interval(10 * 1000), //10s
+		interval: timeutil.Interval(10 * 1000), // 10s
 		segment:  segment,
 		rollupTargets: map[timeutil.Interval]IntervalSegment{
-			timeutil.Interval(10 * 60 * 1000): rollupSeg, //10min
+			timeutil.Interval(10 * 60 * 1000): rollupSeg, // 10min
 		},
 	}
 	cases := []struct {
@@ -270,7 +270,7 @@ func TestShard_Close(t *testing.T) {
 		indexDB: index,
 		segment: segment,
 		rollupTargets: map[timeutil.Interval]IntervalSegment{
-			timeutil.Interval(10 * 60 * 1000): rollupSeg, //10min
+			timeutil.Interval(10 * 60 * 1000): rollupSeg, // 10min
 		},
 	}
 	cases := []struct {
@@ -379,7 +379,6 @@ func TestShard_Flush(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestShard_Write(t *testing.T) {

@@ -66,7 +66,7 @@ func (rc *BrokerRowProtoConverter) validateMetric(m *protoMetricsV1.Metric) erro
 	if m == nil {
 		return ErrMetricPBNilMetric
 	}
-	if len(m.Name) == 0 {
+	if m.Name == "" {
 		return ErrMetricPBEmptyMetricName
 	}
 	m.Name = SanitizeMetricName(m.Name)

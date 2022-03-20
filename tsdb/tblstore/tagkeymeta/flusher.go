@@ -131,15 +131,15 @@ func (ir idRanks) Swap(i, j int) {
 	ir.ranks[i], ir.ranks[j] = ir.ranks[j], ir.ranks[i]
 }
 
-func (m tagValueMapping) Len() int           { return len(m.keys) }
-func (m tagValueMapping) Less(i, j int) bool { return bytes.Compare(m.keys[i], m.keys[j]) < 0 }
-func (m tagValueMapping) Swap(i, j int) {
+func (m *tagValueMapping) Len() int           { return len(m.keys) }
+func (m *tagValueMapping) Less(i, j int) bool { return bytes.Compare(m.keys[i], m.keys[j]) < 0 }
+func (m *tagValueMapping) Swap(i, j int) {
 	m.keys[i], m.keys[j] = m.keys[j], m.keys[i]
 	m.ids[i], m.ids[j] = m.ids[j], m.ids[i]
 	m.rawIDs[i], m.rawIDs[j] = m.rawIDs[j], m.rawIDs[i]
 }
 
-func (m tagValueMapping) SortByKeys() {
+func (m *tagValueMapping) SortByKeys() {
 	sort.Sort(m)
 }
 
@@ -183,7 +183,7 @@ func (tf *flusher) FlushTagValue(tagValue []byte, tagValueID uint32) {
 }
 
 // FlushTagKeyID ends writing prefix trie in tag index table.
-func (tf *flusher) FlushTagKeyID(tagKeyID uint32, tagValueSeq uint32) error {
+func (tf *flusher) FlushTagKeyID(tagKeyID, tagValueSeq uint32) error {
 	defer tf.resetLevel2()
 
 	if len(tf.Level2.tagValueMapping.keys) == 0 {

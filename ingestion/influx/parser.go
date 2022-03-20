@@ -82,7 +82,8 @@ func parseInfluxLine(
 		return err
 	}
 	for k, v := range tags {
-		if err := builder.AddTag(strutil.String2ByteSlice(k), strutil.String2ByteSlice(v)); err != nil {
+		err = builder.AddTag(strutil.String2ByteSlice(k), strutil.String2ByteSlice(v))
+		if err != nil {
 			return err
 		}
 	}
@@ -93,12 +94,13 @@ func parseInfluxLine(
 		return err
 	}
 	fields, err := parseFields(content, tagsEndAt+1, fieldsEndAt, escaped)
-	// return error only if fields are empty, just drop fields not supported in lindb like string.
+	// return error only if fields are empty, just drop fields not supported in LinDB like string.
 	if err != nil && len(fields) == 0 {
 		return err
 	}
 	for idx := range fields {
-		if err := builder.AddSimpleField(fields[idx].Name, fields[idx].Type, fields[idx].Value); err != nil {
+		err = builder.AddSimpleField(fields[idx].Name, fields[idx].Type, fields[idx].Value)
+		if err != nil {
 			return err
 		}
 	}
@@ -187,7 +189,7 @@ func scanTagLine(buf []byte, startAt int, isEscaped bool) (endAt int, err error)
 	}
 }
 
-func parseTags(buf []byte, startAt int, endAt int, isEscaped bool) (map[string]string, error) {
+func parseTags(buf []byte, startAt, endAt int, isEscaped bool) (map[string]string, error) {
 	// empty
 	tags := make(map[string]string)
 

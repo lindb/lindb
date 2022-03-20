@@ -88,7 +88,7 @@ func TestElection_elect(t *testing.T) {
 		cancel()
 	})
 
-	//fail
+	// fail
 	repo.EXPECT().Elect(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(false, nil, fmt.Errorf("err"))
 	// success

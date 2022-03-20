@@ -22,7 +22,7 @@ import "math"
 // MustCopy makes sure that data in src are copied into dst
 // If cap of dst < src, a new slice will be returned
 // If cap of dst >= src, the slice only needs to be resliced
-func MustCopy(dst []byte, src []byte) []byte {
+func MustCopy(dst, src []byte) []byte {
 	if cap(dst) < len(src) {
 		dst = growSlice(dst, len(src))
 	}

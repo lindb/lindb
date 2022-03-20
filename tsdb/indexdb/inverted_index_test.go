@@ -99,7 +99,7 @@ func TestInvertedIndex_buildInvertIndex(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, roaring.BitmapOf(1, 2, 3), seriesIDs)
 
-	//case 7: get immutable data
+	// case 7: get immutable data
 	tagIndex := NewMockTagIndex(ctrl)
 	idx.immutable = NewTagIndexStore()
 	idx.immutable.Put(50, tagIndex)

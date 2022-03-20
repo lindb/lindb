@@ -133,7 +133,7 @@ func TestEngine_createDatabase(t *testing.T) {
 		e, err := NewEngine()
 		assert.NoError(t, err)
 		assert.NotNil(t, e)
-		db, err := e.createDatabase("test_db", option.DatabaseOption{})
+		db, err := e.createDatabase("test_db", &option.DatabaseOption{})
 		assert.NotNil(t, db)
 		assert.NoError(t, err)
 
@@ -162,7 +162,7 @@ func TestEngine_createDatabase(t *testing.T) {
 		e, err := NewEngine()
 		assert.NoError(t, err)
 		assert.NotNil(t, e)
-		db, err := e.createDatabase("test_reopen_db", option.DatabaseOption{})
+		db, err := e.createDatabase("test_reopen_db", &option.DatabaseOption{})
 		assert.NotNil(t, db)
 		assert.NoError(t, err)
 		mockDB.EXPECT().Close()

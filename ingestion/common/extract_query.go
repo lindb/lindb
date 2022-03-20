@@ -44,7 +44,7 @@ func extractTagsFromQuery(values url.Values) (tag.Tags, error) {
 		if len(tagPair) != 2 {
 			return extracted, fmt.Errorf("%w, query: %s", constants.ErrBadEnrichTagQueryFormat, section)
 		}
-		if len(tagPair[0]) == 0 || len(tagPair[1]) == 0 {
+		if tagPair[0] == "" || tagPair[1] == "" {
 			continue
 		}
 		extracted = append(extracted, tag.NewTag(

@@ -26,7 +26,7 @@ import (
 
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/sql/grammar"
-	"github.com/lindb/lindb/sql/stmt"
+	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
 // for testing
@@ -39,7 +39,7 @@ var errorHandle = &errorListener{}
 var walker = antlr.ParseTreeWalkerDefault
 
 // Parse parses sql using the grammar of LinDB query language
-func Parse(sql string) (stmt stmt.Statement, err error) {
+func Parse(sql string) (stmt stmtpkg.Statement, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			switch x := r.(type) {
@@ -69,11 +69,11 @@ func Parse(sql string) (stmt stmt.Statement, err error) {
 	ctx := parser.Statement()
 
 	// create sql listener
-	listener := listener{}
+	sqlListener := listener{}
 
-	walker.Walk(&listener, ctx)
+	walker.Walk(&sqlListener, ctx)
 
-	stmt, err = listener.statement()
+	stmt, err = sqlListener.statement()
 	return stmt, err
 }
 

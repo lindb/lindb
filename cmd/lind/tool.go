@@ -28,10 +28,10 @@ import (
 
 func printLogoWhenIsTty() {
 	if logger.IsTerminal(os.Stdout) {
-		_, _ = fmt.Fprintf(os.Stdout, logger.Cyan.Add(linDBLogo))
-		_, _ = fmt.Fprintf(os.Stdout, logger.Green.Add(" ::  LinDB  :: ")+
+		fmt.Print(logger.Cyan.Add(linDBLogo))
+		fmt.Print(logger.Green.Add(" ::  LinDB  :: ") +
 			fmt.Sprintf("%22s", fmt.Sprintf("(v%s Release)", config.Version)))
-		_, _ = fmt.Fprintf(os.Stdout, "\n\n")
+		fmt.Print("\n\n")
 	}
 }
 

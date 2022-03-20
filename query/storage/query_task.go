@@ -418,7 +418,7 @@ func (t *dataLoadTask) Run() error {
 // AfterRun invokes after data load, collects the data load stats
 func (t *dataLoadTask) AfterRun() {
 	t.baseQueryTask.AfterRun()
-	//TODO need modify
+	// TODO need modify
 	identifiers := strings.Split(t.timeSpan.identifier, fmt.Sprintf("shard/%d/segment", t.shard.ShardID()))
 	var identifier string
 	if len(identifiers) > 1 {

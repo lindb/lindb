@@ -42,7 +42,8 @@ func TestDataPointBuffer_AllocPage(t *testing.T) {
 	buf, err := newDataPointBuffer(t.TempDir())
 	assert.NoError(t, err)
 	for i := 0; i < 10000; i++ {
-		b, err := buf.AllocPage()
+		var b []byte
+		b, err = buf.AllocPage()
 		assert.NoError(t, err)
 		assert.NotNil(t, b)
 	}

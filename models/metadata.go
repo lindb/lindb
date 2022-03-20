@@ -30,7 +30,7 @@ type Metadata struct {
 }
 
 // ToTable returns metadata list as table if it has value, else return empty string.
-func (m *Metadata) ToTable() (int, string) {
+func (m *Metadata) ToTable() (rows int, tableStr string) {
 	writer := NewTableFormatter()
 	switch m.Type {
 	case stmt.Namespace.String():
@@ -49,7 +49,7 @@ func (m *Metadata) ToTable() (int, string) {
 }
 
 // toTableForStringValues returns table for string values.
-func (m *Metadata) toTableForStringValues(header table.Row, writer table.Writer) (int, string) {
+func (m *Metadata) toTableForStringValues(header table.Row, writer table.Writer) (rows int, tableStr string) {
 	writer.AppendHeader(header)
 	values := m.Values.([]interface{})
 	for i := range values {
@@ -59,7 +59,7 @@ func (m *Metadata) toTableForStringValues(header table.Row, writer table.Writer)
 }
 
 // toTableForMapValues returns table for map values.
-func (m *Metadata) toTableForMapValues(header table.Row, cols []string, writer table.Writer) (int, string) {
+func (m *Metadata) toTableForMapValues(header table.Row, cols []string, writer table.Writer) (rows int, tableStr string) {
 	writer.AppendHeader(header)
 	values := m.Values.([]interface{})
 	for _, value := range values {

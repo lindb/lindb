@@ -122,35 +122,35 @@ func TestTagKeyMeta_FindTagValueIDs(t *testing.T) {
 
 func TestTagKeyMeta_FindTagValueIDsByLike(t *testing.T) {
 	meta, _ := newTagKeyMeta(buildTestTrieData())
-	//case1: exactly search
+	// case1: exactly search
 	tagValueIDs := meta.FindTagValueIDsByLike("1.1.1.1")
 	assert.Len(t, tagValueIDs, 1)
 
-	//case2: prefix search
-	//1.1.1.1
-	//1.1.1.10
-	//1.1.1.2
-	//1.1.1.3
-	//1.1.1.4
-	//1.1.1.5
-	//1.1.1.6
-	//1.1.1.7
-	//1.1.1.8
-	//1.1.1.9
+	// case2: prefix search
+	// 1.1.1.1
+	// 1.1.1.10
+	// 1.1.1.2
+	// 1.1.1.3
+	// 1.1.1.4
+	// 1.1.1.5
+	// 1.1.1.6
+	// 1.1.1.7
+	// 1.1.1.8
+	// 1.1.1.9
 	assert.Equal(t, []uint32{0, 9, 1, 2, 3, 4, 5, 6, 7, 8},
 		meta.FindTagValueIDsByLike("1.1.1.*"))
 
 	// case3: suffix search
-	//1.1.1.1
-	//10.1.1.1
-	//2.1.1.1
-	//3.1.1.1
-	//4.1.1.1
-	//5.1.1.1
-	//6.1.1.1
-	//7.1.1.1
-	//8.1.1.1
-	//9.1.1.1
+	// 1.1.1.1
+	// 10.1.1.1
+	// 2.1.1.1
+	// 3.1.1.1
+	// 4.1.1.1
+	// 5.1.1.1
+	// 6.1.1.1
+	// 7.1.1.1
+	// 8.1.1.1
+	// 9.1.1.1
 	assert.Equal(t, []uint32{0, 0x2328, 0x3e8, 0x7d0, 0xbb8, 0xfa0, 0x1388, 0x1770, 0x1b58, 0x1f40},
 		meta.FindTagValueIDsByLike("*.1.1.1"))
 
@@ -159,7 +159,6 @@ func TestTagKeyMeta_FindTagValueIDsByLike(t *testing.T) {
 
 	// case5: nil search
 	assert.Len(t, meta.FindTagValueIDsByLike(""), 0)
-
 }
 
 func TestTagKeyMeta_FindTagValueIDsByRegex(t *testing.T) {
@@ -177,7 +176,7 @@ func TestTagKeyMeta_FindTagValueIDsByRegex(t *testing.T) {
 
 func TestTagKeyMeta_CollectTagValues(t *testing.T) {
 	meta, _ := newTagKeyMeta(buildTestTrieData())
-	//// case1: normal
+	// case1: normal
 	bitmap := roaring.BitmapOf(2, 1, 3, 4, 5, 111111, 222222)
 	tagValues := make(map[uint32]string)
 	assert.NoError(t, meta.CollectTagValues(bitmap, tagValues))
@@ -195,7 +194,7 @@ func TestTagKeyMeta_CollectTagValues(t *testing.T) {
 	assert.Len(t, tagValues, 0)
 	assert.NoError(t, meta.CollectTagValues(bitmap, tagValues))
 
-	//case4: offset corrupted
+	// case4: offset corrupted
 	meta, _ = newTagKeyMeta(buildTestTrieData())
 	tagKeyMetaImpl = meta.(*tagKeyMeta)
 	tagKeyMetaImpl.offsetsData = nil
@@ -245,5 +244,4 @@ func TestTagKeyMeta_Error(t *testing.T) {
 	assert.Len(t, meta.FindTagValueIDs([]string{"x"}), 0)
 	// CollectTagValues error
 	assert.Error(t, meta.CollectTagValues(roaring.BitmapOf(1, 2), map[uint32]string{}))
-
 }

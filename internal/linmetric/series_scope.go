@@ -91,7 +91,7 @@ func (s *taggedSeries) ensurePayload() {
 	}
 }
 func assertMetricName(metricName string) {
-	if len(metricName) == 0 {
+	if metricName == "" {
 		panic("metric-name cannot be empty string")
 	}
 }
@@ -103,7 +103,7 @@ func assertTagKeyList(tagKeyList ...string) {
 }
 
 func assertFieldName(fieldName string) {
-	if len(fieldName) == 0 {
+	if fieldName == "" {
 		panic("field-name cannot be empty")
 	}
 }

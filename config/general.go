@@ -46,13 +46,13 @@ type RepoState struct {
 }
 
 // String returns string value of RepoState.
-func (rs RepoState) String() string {
+func (rs *RepoState) String() string {
 	return fmt.Sprintf("endpoints:[%s],leaseTTL:%d,timeout:%s,dialTimeout:%s",
 		strings.Join(rs.Endpoints, ","), rs.LeaseTTL, rs.Timeout, rs.DialTimeout)
 }
 
-func (rs *RepoState) WithSubNamespace(subDir string) RepoState {
-	return RepoState{
+func (rs *RepoState) WithSubNamespace(subDir string) *RepoState {
+	return &RepoState{
 		Namespace:   filepath.Join(rs.Namespace, subDir),
 		Endpoints:   rs.Endpoints,
 		Timeout:     rs.Timeout,
@@ -130,7 +130,7 @@ connect-timeout = "%s"`,
 
 // StorageCluster represents config of storage cluster
 type StorageCluster struct {
-	Config RepoState `json:"config"`
+	Config *RepoState `json:"config"`
 }
 
 // Query represents query rpc config

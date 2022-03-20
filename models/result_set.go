@@ -62,7 +62,7 @@ type row struct {
 }
 
 // ToTable returns the result of query as table if it has value, else return empty string.
-func (rs *ResultSet) ToTable() (int, string) {
+func (rs *ResultSet) ToTable() (rows int, tableStr string) {
 	if len(rs.Series) == 0 {
 		return 0, ""
 	}

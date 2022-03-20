@@ -155,7 +155,8 @@ func (e *Expression) quantile(expr *stmt.CallExpr) []*collections.FloatArray {
 	}
 	for fieldName, df := range e.fieldStore {
 		if df.Type() == field.HistogramField {
-			upperBound, err := metric.UpperBound(fieldName.String())
+			var upperBound float64
+			upperBound, err = metric.UpperBound(fieldName.String())
 			if err != nil {
 				continue
 			}

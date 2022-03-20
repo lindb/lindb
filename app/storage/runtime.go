@@ -109,22 +109,22 @@ type runtime struct {
 }
 
 // NewStorageRuntime creates storage runtime
-func NewStorageRuntime(version string, config *config.Storage) server.Service {
+func NewStorageRuntime(version string, cfg *config.Storage) server.Service {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &runtime{
 		state:       server.New,
 		repoFactory: state.NewRepositoryFactory("storage"),
 		version:     version,
-		config:      config,
+		config:      cfg,
 		ctx:         ctx,
 		cancel:      cancel,
 		queryPool: concurrent.NewPool(
 			"task-pool",
-			config.Query.QueryConcurrency,
-			config.Query.IdleTimeout.Duration(),
+			cfg.Query.QueryConcurrency,
+			cfg.Query.IdleTimeout.Duration(),
 			linmetric.StorageRegistry.NewScope("lindb.concurrent.pool", "pool", "storage-query")),
 		delayInit:   time.Second,
-		initializer: bootstrap.NewClusterInitializer(config.StorageBase.BrokerEndpoint),
+		initializer: bootstrap.NewClusterInitializer(cfg.StorageBase.BrokerEndpoint),
 		log:         logger.GetLogger("storage", "Runtime"),
 	}
 }
@@ -231,7 +231,7 @@ func (r *runtime) Run() error {
 
 	time.AfterFunc(r.delayInit, func() {
 		r.log.Info("starting register storage cluster in broker")
-		if err := r.initializer.InitStorageCluster(config.StorageCluster{Config: r.config.Coordinator}); err != nil {
+		if err := r.initializer.InitStorageCluster(config.StorageCluster{Config: &r.config.Coordinator}); err != nil {
 			r.log.Error("register storage cluster with error", logger.Error(err))
 		} else {
 			r.log.Info("register storage cluster successfully")
@@ -303,7 +303,7 @@ func (r *runtime) State() server.State {
 
 // startStateRepo starts state repository
 func (r *runtime) startStateRepo() error {
-	repo, err := r.repoFactory.CreateStorageRepo(r.config.Coordinator)
+	repo, err := r.repoFactory.CreateStorageRepo(&r.config.Coordinator)
 	if err != nil {
 		return fmt.Errorf("start storage state repository error:%s", err)
 	}

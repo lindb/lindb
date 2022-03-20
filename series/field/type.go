@@ -105,8 +105,7 @@ func (t Type) AggType() AggType {
 	case MaxField:
 		return Max
 	default:
-		//FIXME(stone1100)
-		return Max
+		panic("need impl")
 	}
 }
 

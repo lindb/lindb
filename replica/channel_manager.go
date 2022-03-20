@@ -137,10 +137,8 @@ func (cm *channelManager) CreateChannel(databaseCfg models.Database, numOfShard 
 		ch, ok = cm.getDatabaseChannel(database)
 		if !ok {
 			// if not exist, create database channel
-			ch, err := newDatabaseChannel(cm.ctx, databaseCfg, numOfShard, cm.fct)
-			if err != nil {
-				return nil, err
-			}
+			ch = newDatabaseChannel(cm.ctx, databaseCfg, numOfShard, cm.fct)
+
 			// clone databases and creates a new map to hold database channels
 			cm.insertDatabaseChannel(database, ch)
 

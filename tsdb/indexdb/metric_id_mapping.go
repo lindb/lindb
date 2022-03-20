@@ -53,7 +53,7 @@ type metricIDMapping struct {
 	// purpose of this index is used for fast writing
 	hash2SeriesID map[uint64]uint32
 	idSequence    unique.Sequence // first value is 1
-	//TODO need remove
+	// TODO need remove
 	maxSeriesIDsLimit atomic.Uint32 // maximum number of combinations of series ids
 }
 
@@ -87,7 +87,7 @@ func (mim *metricIDMapping) AddSeriesID(tagsHash uint64, seriesID uint32) {
 func (mim *metricIDMapping) GenSeriesID(tagsHash uint64) (seriesID uint32) {
 	// generate new series id
 	if mim.idSequence.Current() >= mim.maxSeriesIDsLimit.Load() {
-		//FIXME too many series id, use max limit????
+		// FIXME too many series id, use max limit????
 		seriesID = mim.maxSeriesIDsLimit.Load()
 	} else {
 		seriesID = mim.idSequence.Next()

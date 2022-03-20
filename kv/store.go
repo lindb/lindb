@@ -51,6 +51,7 @@ var (
 // Store is kv store, supporting column family, but is different from other LSM implementation.
 // Current implementation doesn't contain memory table write logic.
 type Store interface {
+	// Name returns the store's name.
 	Name() string
 	// Path returns the store root path.
 	Path() string
@@ -108,12 +109,12 @@ func newStore(name, path string, option StoreOption) (s Store, err error) {
 	if fileutil.Exist(path) {
 		// exist store, open it, load store info and config from INFO
 		info = &storeInfo{}
-		if err := decodeTomlFunc(filepath.Join(path, version.Options), info); err != nil {
+		if err = decodeTomlFunc(filepath.Join(path, version.Options), info); err != nil {
 			return nil, fmt.Errorf("load store info error:%s", err)
 		}
 	} else {
 		// create store, initialize path and store info
-		if err := mkDirFunc(path); err != nil {
+		if err = mkDirFunc(path); err != nil {
 			return nil, fmt.Errorf("create store path error:%s", err)
 		}
 		info = newStoreInfo(option)
@@ -159,7 +160,8 @@ func newStore(name, path string, option StoreOption) (s Store, err error) {
 
 	if isCreate {
 		// if store is new created, need dump store info to INFO file
-		if err := store1.dumpStoreInfo(); err != nil {
+		err = store1.dumpStoreInfo()
+		if err != nil {
 			return nil, err
 		}
 	} else {
@@ -168,8 +170,9 @@ func newStore(name, path string, option StoreOption) (s Store, err error) {
 			if store1.familySeq < familyOption.ID {
 				store1.familySeq = familyOption.ID
 			}
+			var family Family
 			// open existed family
-			family, err := newFamily(store1, familyOption)
+			family, err = newFamily(store1, familyOption)
 			if err != nil {
 				return nil, fmt.Errorf("building family instance for existed store[%s] error:%s", path, err)
 			}
@@ -177,13 +180,15 @@ func newStore(name, path string, option StoreOption) (s Store, err error) {
 		}
 	}
 	// recover version set, after recovering family options
-	if err = store1.versions.Recover(); err != nil {
+	err = store1.versions.Recover()
+	if err != nil {
 		return nil, fmt.Errorf("recover store version set error:%s", err)
 	}
 
 	return store1, nil
 }
 
+// Name returns the store's name.
 func (s *store) Name() string {
 	return s.name
 }
@@ -215,7 +220,7 @@ func (s *store) CreateFamily(familyName string, option FamilyOption) (family Fam
 		s.familySeq++
 		option.ID = s.familySeq
 		s.storeInfo.Families[familyName] = option
-		if err := s.dumpStoreInfo(); err != nil {
+		if err = s.dumpStoreInfo(); err != nil {
 			// if dump store info error remove family option from store info
 			delete(s.storeInfo.Families, familyName)
 			return nil, err
@@ -268,9 +273,9 @@ func (s *store) ForceRollup() {
 	}
 }
 
-// close closes store, then release some resource
+// close the store, then release some resource
 func (s *store) close() error {
-	//FIXME stone1100 need if has background job doing(family compact/flush etc.)
+	// FIXME stone1100 need if has background job doing(family compact/flush etc.)
 	if err := s.cache.Close(); err != nil {
 		kvLogger.Error("close store cache error", logger.String("store", s.path), logger.Error(err))
 	}

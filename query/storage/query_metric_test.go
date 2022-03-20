@@ -82,7 +82,7 @@ func TestStorageExecute_validation(t *testing.T) {
 
 	mockDatabase := tsdb.NewMockDatabase(ctrl)
 	mockDatabase.EXPECT().GetOption().
-		Return(option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}).AnyTimes()
+		Return(&option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}).AnyTimes()
 	mockDatabase.EXPECT().Name().Return("mock_tsdb").AnyTimes()
 	query := &stmt.Query{Interval: timeutil.Interval(timeutil.OneSecond)}
 
@@ -116,11 +116,11 @@ func TestStorageExecute_validation(t *testing.T) {
 	q, _ := sql.Parse("select f from cpu")
 	query = q.(*stmt.Query)
 	mockDB1 := newMockDatabase(ctrl)
-	mockDB1.EXPECT().GetOption().Return(option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}})
+	mockDB1.EXPECT().GetOption().Return(&option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}})
 	storageQuery = newStorageMetricQuery(queryFlow, mockDB1, newStorageExecuteContext([]models.ShardID{1, 2, 3}, query))
 	gomock.InOrder(
 		queryFlow.EXPECT().Prepare(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()),
-		queryFlow.EXPECT().Filtering(gomock.Any()).MaxTimes(3*2), //memory db and shard
+		queryFlow.EXPECT().Filtering(gomock.Any()).MaxTimes(3*2), // memory db and shard
 	)
 	storageQuery.Execute()
 }
@@ -204,7 +204,7 @@ func TestStorageExecute_Execute(t *testing.T) {
 	metadata.EXPECT().MetadataDatabase().Return(metadataIndex).AnyTimes()
 	metadataIndex.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), "host").Return(uint32(10), nil).AnyTimes()
 	mockDatabase := tsdb.NewMockDatabase(ctrl)
-	mockDatabase.EXPECT().GetOption().Return(option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}).AnyTimes()
+	mockDatabase.EXPECT().GetOption().Return(&option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}).AnyTimes()
 
 	index := indexdb.NewMockIndexDatabase(ctrl)
 	shard := tsdb.NewMockShard(ctrl)

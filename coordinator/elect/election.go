@@ -202,14 +202,12 @@ func (e *election) handleEvent(event *state.Event) {
 			e.listener.OnResignation()
 		}
 		e.reElect()
-	case state.EventTypeAll:
-		fallthrough
-	case state.EventTypeModify:
+	case state.EventTypeModify, state.EventTypeAll:
 		// check the value is
 		for _, kv := range event.KeyValues {
 			master := models.Master{}
 			if err := encoding.JSONUnmarshal(kv.Value, &master); err != nil {
-				//TODO if master data err, need remove master register data???
+				// TODO if master data err, need remove master register data???
 				e.logger.Error("unmarshal master value error",
 					logger.String("data", string(kv.Value)),
 					logger.Error(err))

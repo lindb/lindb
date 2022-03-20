@@ -61,9 +61,7 @@ func PutUvariantLittleEndian(buf []byte, x uint64) int {
 // 	n == 0: buf too small
 // 	n  < 0: value larger than 64 bits (overflow)
 // 	        and -n is the number of bytes read
-func UvarintLittleEndian(buf []byte) (uint64, int) {
-	var x uint64
-	var s uint
+func UvarintLittleEndian(buf []byte) (x uint64, s int) {
 	for cursor := len(buf) - 1; cursor >= 0; cursor-- {
 		b := buf[cursor]
 		i := len(buf) - 1 - cursor

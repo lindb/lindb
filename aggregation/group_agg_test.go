@@ -17,7 +17,7 @@
 
 package aggregation
 
-//func TestGroupByAggregator_Aggregate(t *testing.T) {
+// func TestGroupByAggregator_Aggregate(t *testing.T) {
 //	ctrl := gomock.NewController(t)
 //	defer ctrl.Finish()
 //	gIt := series.NewMockGroupedIterator(ctrl)
@@ -64,7 +64,7 @@ package aggregation
 //	assert.Equal(t, 1, len(rs))
 
 //
-//gomock.InOrder(
+// gomock.InOrder(
 //	gIt.EXPECT().Tags().Return("1.1.1.2"),
 //	gIt.EXPECT().HasNext().Return(true),
 //	gIt.EXPECT().Next().Return(sIt),
@@ -85,13 +85,13 @@ package aggregation
 //	sIt.EXPECT().FieldType().Return(field.SumField),
 //
 //	gIt.EXPECT().HasNext().Return(false),
-//)
-//agg.Aggregate(gIt)
+// )
+// agg.Aggregate(gIt)
 //
-//rs = agg.ResultSet()
-//assert.Equal(t, 2, len(rs))
+// rs = agg.ResultSet()
+// assert.Equal(t, 2, len(rs))
 
-//agg = NewGroupingAggregator(
+// agg = NewGroupingAggregator(
 //	timeutil.Interval(timeutil.OneSecond),
 //	1,
 //	timeutil.TimeRange{
@@ -99,6 +99,6 @@ package aggregation
 //		End:   now + 3*timeutil.OneHour,
 //	},
 //	AggregatorSpecs{})
-//rs = agg.ResultSet()
-//assert.Nil(t, rs)
-//}
+// rs = agg.ResultSet()
+// assert.Nil(t, rs)
+// }

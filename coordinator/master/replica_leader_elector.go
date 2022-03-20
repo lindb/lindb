@@ -61,7 +61,7 @@ func (r *replicaLeaderElector) ElectLeader(shardAssignment *models.ShardAssignme
 		err = constants.ErrNoLiveReplica
 		return
 	}
-	//elect leader from live replicas
+	// elect leader from live replicas
 	leader = liveReplicaNodes.Replicas[0]
 	return
 }

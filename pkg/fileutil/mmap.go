@@ -54,13 +54,15 @@ func Map(path string) ([]byte, error) {
 
 // RWMap maps a file for read and write with give size.
 // New file is created is not existed.
-func RWMap(filePath string, size int) ([]byte, error) {
+func RWMap(filePath string, size int) (data []byte, err error) {
 	f, err := os.OpenFile(filePath, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return nil, err
 	}
 
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 
 	fstat, err := f.Stat()
 
@@ -69,13 +71,14 @@ func RWMap(filePath string, size int) ([]byte, error) {
 	}
 
 	if fstat.Size() < int64(size) {
-		if err := f.Truncate(int64(size)); err != nil {
+		err = f.Truncate(int64(size))
+		if err != nil {
 			return nil, err
 		}
 	}
 
 	// map file
-	data, err := mmap(int(f.Fd()), 0, size, read|write)
+	data, err = mmap(int(f.Fd()), 0, size, read|write)
 
 	if err != nil {
 		return nil, err

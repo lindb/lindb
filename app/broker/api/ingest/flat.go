@@ -22,7 +22,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/lindb/lindb/app/broker/deps"
+	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/ingestion/flat"
 	"github.com/lindb/lindb/internal/linmetric"
 )
@@ -41,7 +41,7 @@ var (
 )
 
 func WithHistogram(histogram *linmetric.BoundHistogram) gin.HandlerFunc {
-	//TODO need move??
+	// TODO need move??
 	return func(c *gin.Context) {
 		start := time.Now()
 		defer histogram.UpdateSince(start)
@@ -55,7 +55,7 @@ type FlatWriter struct {
 }
 
 // NewFlatWriter creates native proto metrics writer
-func NewFlatWriter(deps *deps.HTTPDeps) *FlatWriter {
+func NewFlatWriter(deps *depspkg.HTTPDeps) *FlatWriter {
 	return &FlatWriter{
 		commonWriter: commonWriter{
 			deps:   deps,

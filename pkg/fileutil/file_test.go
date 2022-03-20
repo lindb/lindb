@@ -73,14 +73,17 @@ func TestFileUtil(t *testing.T) {
 
 func TestFileUtil_errors(t *testing.T) {
 	// not existent directory
-	_, err := ListDir(filepath.Join(os.TempDir(), "/tmp/tmp/tmp/tmp"))
+	_, err := ListDir(filepath.Join(os.TempDir(), "tmp", "tmp", "tmp", "tmp"))
 
 	// encode toml failure
 	assert.NotNil(t, err)
 }
 
 func TestGetExistPath(t *testing.T) {
-	assert.Equal(t, "/tmp", GetExistPath("/tmp/test1/test333"))
+	temp := t.TempDir()
+	_ = MkDirIfNotExist(temp)
+	assert.Equal(t, temp, GetExistPath(filepath.Join(temp, "a", "b", "c")))
+	assert.Equal(t, "", GetExistPath(filepath.Join("tmp", "test1", "test333")))
 }
 
 func TestListDir(t *testing.T) {

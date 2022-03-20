@@ -70,8 +70,9 @@ func Test_MetricQuery(t *testing.T) {
 	assert.Error(t, err)
 
 	// case 2: storage nodes not exist
+	opt := &option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}
 	stateMgr.EXPECT().GetDatabaseCfg("test_db").
-		Return(models.Database{Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}}, true).
+		Return(models.Database{Option: opt}, true).
 		AnyTimes()
 	qry = newMetricQuery(context.Background(),
 		"test_db",
@@ -123,7 +124,6 @@ func Test_MetricQuery(t *testing.T) {
 	time.AfterFunc(time.Millisecond*200, func() { close(eventCh3) })
 	_, err = qry.WaitResponse()
 	assert.Error(t, err)
-
 }
 
 // mockSingleIterator returns mock an iterator of single field

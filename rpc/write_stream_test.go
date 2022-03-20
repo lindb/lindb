@@ -115,5 +115,4 @@ func TestWriteStream_Recv(t *testing.T) {
 	cli.EXPECT().Recv().Return(&protoWriteV1.WriteResponse{Err: "err"}, nil)
 	cli.EXPECT().Recv().Return(nil, io.EOF)
 	stream.recvLoop()
-
 }

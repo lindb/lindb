@@ -46,7 +46,7 @@ type Database interface {
 	// NumOfShards returns number of families in time series database
 	NumOfShards() int
 	// GetOption returns the database options
-	GetOption() option.DatabaseOption
+	GetOption() *option.DatabaseOption
 	// CreateShards creates families for data partition
 	CreateShards(shardIDs []models.ShardID) error
 	// GetShard returns shard by given shard id
@@ -65,8 +65,8 @@ type Database interface {
 
 // databaseConfig represents a database configuration about config and families
 type databaseConfig struct {
-	ShardIDs []models.ShardID      `toml:"shardIDs"`
-	Option   option.DatabaseOption `toml:"option"`
+	ShardIDs []models.ShardID       `toml:"shardIDs"`
+	Option   *option.DatabaseOption `toml:"option"`
 }
 
 // database implements Database for storing families,
@@ -169,7 +169,7 @@ func (db *database) NumOfShards() int {
 	return db.shardSet.GetShardNum()
 }
 
-func (db *database) GetOption() option.DatabaseOption {
+func (db *database) GetOption() *option.DatabaseOption {
 	return db.config.Option
 }
 
@@ -215,7 +215,7 @@ func (db *database) createShard(shardID models.ShardID) error {
 	// add new shard id
 	newCfg.ShardIDs = append(newCfg.ShardIDs, shardID)
 	if err := db.dumpDatabaseConfig(newCfg); err != nil {
-		//TODO if dump config err, need close shard??
+		// TODO if dump config err, need close shard??
 		return err
 	}
 	db.shardSet.InsertShard(shardID, createdShard)
@@ -263,7 +263,7 @@ func (db *database) dumpDatabaseConfig(newConfig *databaseConfig) error {
 
 // initMetadata initializes metadata backend storage
 func (db *database) initMetadata() error {
-	//FIXME close kv store if err??
+	// FIXME close kv store if err??
 	metaStore, err := kv.GetStoreManager().CreateStore(tagMetaIndicator(db.name), kv.DefaultStoreOption())
 	if err != nil {
 		return err

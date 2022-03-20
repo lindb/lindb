@@ -26,12 +26,11 @@ import (
 var bufioReaderPool sync.Pool
 
 // NewBufioReader returns a buf io reader with 64KB cache
-func NewBufioReader(r io.Reader) (*bufio.Reader, func(bufioReader *bufio.Reader)) {
+func NewBufioReader(r io.Reader) (reader *bufio.Reader, releaseFn func(bufioReader *bufio.Reader)) {
 	putbackFunc := func(bufioReader *bufio.Reader) {
 		bufioReader.Reset(nil)
 		bufioReaderPool.Put(bufioReader)
 	}
-	var reader *bufio.Reader
 	item := bufioReaderPool.Get()
 	if item != nil {
 		reader = item.(*bufio.Reader)

@@ -139,7 +139,7 @@ func (np *nativeProtoPusher) push(r io.Reader) {
 	if r == nil {
 		return
 	}
-	req, _ := http.NewRequest(http.MethodPut, np.endpoint, r)
+	req, _ := http.NewRequestWithContext(context.TODO(), http.MethodPut, np.endpoint, r)
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Content-Type", ProtoFmt)
 

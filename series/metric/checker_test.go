@@ -40,7 +40,6 @@ func Test_Sanitize(t *testing.T) {
 	assert.Equal(t, "aa_aa", SanitizeMetricName("aa|aa"))
 
 	assert.Equal(t, "aa|bb", JoinNamespaceMetric("aa", "bb"))
-
 }
 
 func Benchmark_SerializeFlatMetric(b *testing.B) {

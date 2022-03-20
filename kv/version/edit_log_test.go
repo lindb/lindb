@@ -123,7 +123,7 @@ func TestEditLog_apply(t *testing.T) {
 	editLog.apply(version)
 
 	assert.Equal(t, 1, len(version.GetAllFiles()), "cannot add file into version")
-	//delete file
+	// delete file
 	editLog2 := NewEditLog(1)
 	editLog2.Add(NewDeleteFile(1, 12))
 	editLog2.Add(NewNextFileNumber(table.FileNumber(120)))

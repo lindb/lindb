@@ -284,7 +284,6 @@ func Test_BrokerRowProtoConverter_MarshalProtoMetricV1(t *testing.T) {
 	}
 	_, err = converter.MarshalProtoMetricListV1To(ml, &buf)
 	assert.NoError(t, err)
-
 }
 
 func Test_BrokerRowProtoConverter_deDupTags(t *testing.T) {

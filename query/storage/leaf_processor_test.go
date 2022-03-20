@@ -71,7 +71,7 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 	assert.True(t, errors.Is(err, query.ErrUnmarshalPlan))
 
 	plan := encoding.JSONMarshal(&models.PhysicalPlan{
-		Leafs: []models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.4:8000"}}},
+		Leaves: []*models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.4:8000"}}},
 	})
 	// wrong request
 	err = processor.process(
@@ -81,7 +81,7 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 
 	plan = encoding.JSONMarshal(&models.PhysicalPlan{
 		Database: "test_db",
-		Leafs:    []models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.3:8000"}}},
+		Leaves:   []*models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.3:8000"}}},
 	})
 	qry := stmt.Query{MetricName: "cpu"}
 	data := encoding.JSONMarshal(&qry)
@@ -132,7 +132,7 @@ func TestLeafProcessor_Process(t *testing.T) {
 	mockDatabase := tsdb.NewMockDatabase(ctrl)
 	plan := encoding.JSONMarshal(&models.PhysicalPlan{
 		Database: "test_db",
-		Leafs:    []models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.3:8000"}}},
+		Leaves:   []*models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.3:8000"}}},
 	})
 	qry := stmt.Query{MetricName: "cpu"}
 	data := encoding.JSONMarshal(&qry)
@@ -159,7 +159,7 @@ func TestLeafTask_Suggest_Process(t *testing.T) {
 	mockDatabase := tsdb.NewMockDatabase(ctrl)
 	plan := encoding.JSONMarshal(&models.PhysicalPlan{
 		Database: "test_db",
-		Leafs:    []models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.3:8000"}}},
+		Leaves:   []*models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.3:8000"}}},
 	})
 	engine.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true).AnyTimes()
 	serverStream := protoCommonV1.NewMockTaskService_HandleServer(ctrl)

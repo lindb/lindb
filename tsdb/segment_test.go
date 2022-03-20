@@ -60,7 +60,7 @@ func TestSegment_New(t *testing.T) {
 			name:        "create segment successfully",
 			segmentName: segmentName,
 			prepare: func() {
-				database.EXPECT().GetOption().Return(option.DatabaseOption{Intervals: option.Intervals{{Interval: interval}}})
+				database.EXPECT().GetOption().Return(&option.DatabaseOption{Intervals: option.Intervals{{Interval: interval}}})
 				storeMgr.EXPECT().CreateStore(gomock.Any(), gomock.Any()).Return(store, nil)
 				store.EXPECT().ListFamilyNames().Return(nil)
 			},
@@ -69,7 +69,7 @@ func TestSegment_New(t *testing.T) {
 			name:        "create segment successfully and set rollup",
 			segmentName: segmentName,
 			prepare: func() {
-				database.EXPECT().GetOption().Return(option.DatabaseOption{
+				database.EXPECT().GetOption().Return(&option.DatabaseOption{
 					Intervals: option.Intervals{
 						{Interval: interval},
 						{Interval: timeutil.Interval(5 * timeutil.OneMinute)},
@@ -88,7 +88,7 @@ func TestSegment_New(t *testing.T) {
 					return nil
 				}
 				gomock.InOrder(
-					database.EXPECT().GetOption().Return(option.DatabaseOption{Intervals: option.Intervals{{Interval: interval}}}),
+					database.EXPECT().GetOption().Return(&option.DatabaseOption{Intervals: option.Intervals{{Interval: interval}}}),
 					storeMgr.EXPECT().CreateStore(gomock.Any(), gomock.Any()).Return(store, nil),
 					store.EXPECT().ListFamilyNames().Return([]string{"10"}),
 					store.EXPECT().GetFamily("10").Return(nil),
@@ -104,7 +104,7 @@ func TestSegment_New(t *testing.T) {
 			name:        "create store err",
 			segmentName: segmentName,
 			prepare: func() {
-				database.EXPECT().GetOption().Return(option.DatabaseOption{Intervals: option.Intervals{{Interval: interval}}})
+				database.EXPECT().GetOption().Return(&option.DatabaseOption{Intervals: option.Intervals{{Interval: interval}}})
 				storeMgr.EXPECT().CreateStore(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
 			},
 			wantErr: true,
@@ -113,7 +113,7 @@ func TestSegment_New(t *testing.T) {
 			name:        "parse family name err",
 			segmentName: segmentName,
 			prepare: func() {
-				database.EXPECT().GetOption().Return(option.DatabaseOption{Intervals: option.Intervals{{Interval: interval}}})
+				database.EXPECT().GetOption().Return(&option.DatabaseOption{Intervals: option.Intervals{{Interval: interval}}})
 				storeMgr.EXPECT().CreateStore(gomock.Any(), gomock.Any()).Return(store, nil)
 				store.EXPECT().ListFamilyNames().Return([]string{"aa"})
 			},

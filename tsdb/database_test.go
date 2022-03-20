@@ -48,6 +48,7 @@ func TestDatabase_New(t *testing.T) {
 	storeMgr := kv.NewMockStoreManager(ctrl)
 	store := kv.NewMockStore(ctrl)
 	kv.InitStoreManager(storeMgr)
+	opt := &option.DatabaseOption{}
 
 	cases := []struct {
 		name    string
@@ -104,7 +105,7 @@ func TestDatabase_New(t *testing.T) {
 		},
 		{
 			name:    "option validation fail",
-			cfg:     &databaseConfig{},
+			cfg:     &databaseConfig{Option: opt},
 			wantErr: true,
 		},
 		{
@@ -172,9 +173,10 @@ func TestDatabase_New(t *testing.T) {
 			if tt.prepare != nil {
 				tt.prepare()
 			}
+			opt := &option.DatabaseOption{Intervals: option.Intervals{{Interval: 10}}}
 			cfg := &databaseConfig{
 				ShardIDs: []models.ShardID{1, 2, 3},
-				Option:   option.DatabaseOption{Intervals: option.Intervals{{Interval: 10}}},
+				Option:   opt,
 			}
 			if tt.cfg != nil {
 				cfg = tt.cfg
@@ -190,7 +192,7 @@ func TestDatabase_New(t *testing.T) {
 				assert.NotNil(t, db.ExecutorPool())
 				assert.Equal(t, "db", db.Name())
 				assert.True(t, db.NumOfShards() >= 0)
-				assert.Equal(t, option.DatabaseOption{Intervals: option.Intervals{{Interval: 10}}}, db.GetOption())
+				assert.Equal(t, &option.DatabaseOption{Intervals: option.Intervals{{Interval: 10}}}, db.GetOption())
 			}
 		})
 	}

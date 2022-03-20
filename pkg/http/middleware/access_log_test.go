@@ -18,6 +18,8 @@
 package middleware
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -47,14 +49,14 @@ func TestAccessLogMiddleware(t *testing.T) {
 }
 
 func Test_real_ip(t *testing.T) {
-	req, _ := http.NewRequest("GET", "/health-check", nil)
+	req, _ := http.NewRequestWithContext(context.TODO(), "GET", "/health-check", bytes.NewReader([]byte("test")))
 	req.Header.Add("X-Real-Ip", "real-ip")
 	assert.Equal(t, "real-ip", realIP(req))
 
-	req, _ = http.NewRequest("GET", "/health-check", nil)
+	req, _ = http.NewRequestWithContext(context.TODO(), "GET", "/health-check", bytes.NewReader([]byte("test")))
 	req.Header.Add("X-Forwarded-For", "forward-ip")
 	assert.Equal(t, "forward-ip", realIP(req))
-	req, _ = http.NewRequest("GET", "/health-check", nil)
+	req, _ = http.NewRequestWithContext(context.TODO(), "GET", "/health-check", bytes.NewReader([]byte("test")))
 	req.RemoteAddr = "1.1.1.1:1023"
 	assert.Equal(t, "1.1.1.1", realIP(req))
 }

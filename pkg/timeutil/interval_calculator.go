@@ -36,7 +36,7 @@ type IntervalCalculator interface {
 	// CalcSegmentTime calculates segment base time based on given segment name
 	CalcSegmentTime(timestamp int64) int64
 	// CalcFamily calculates family base time based on given timestamp
-	CalcFamily(timestamp int64, segmentTime int64) int
+	CalcFamily(timestamp, segmentTime int64) int
 	// CalcFamilyTime calculates family base time based on given timestamp
 	CalcFamilyTime(timestamp int64) int64
 	// CalcFamilyStartTime calculates family start time based on segment time and family time
@@ -75,7 +75,7 @@ func (d *day) CalcSegmentTime(timestamp int64) int64 {
 }
 
 // CalcFamily calculates family base time based on given timestamp for day interval type
-func (d *day) CalcFamily(timestamp int64, segmentTime int64) int {
+func (d *day) CalcFamily(timestamp, segmentTime int64) int {
 	return int((timestamp - segmentTime) / OneHour)
 }
 
@@ -129,7 +129,7 @@ func (m *month) CalcSegmentTime(timestamp int64) int64 {
 }
 
 // CalcFamily calculates family base time based on given timestamp for month interval type
-func (m *month) CalcFamily(timestamp int64, segmentTime int64) int {
+func (m *month) CalcFamily(timestamp, _ int64) int {
 	t := time.Unix(timestamp/1000, 0)
 	return t.Day()
 }
@@ -190,7 +190,7 @@ func (y *year) CalcSegmentTime(timestamp int64) int64 {
 }
 
 // CalcFamily calculates family base time based on given timestamp for year interval type
-func (y *year) CalcFamily(timestamp int64, segmentTime int64) int {
+func (y *year) CalcFamily(timestamp, _ int64) int {
 	t := time.Unix(timestamp/1000, 0)
 	return int(t.Month())
 }

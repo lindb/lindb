@@ -156,5 +156,4 @@ func Test_TaskContext_metricTaskContext_notFound(t *testing.T) {
 		&protoCommonV1.TaskResponse{ErrMsg: "metricID not found"},
 		"1.1.1.1",
 	)
-
 }

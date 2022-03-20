@@ -80,7 +80,7 @@ func (c *compactJob) moveCompaction() {
 	startTime := time.Now()
 	compaction := c.state.compaction
 	kvLogger.Info("starting compaction job, just move file to next level", logger.String("family", c.family.familyInfo()))
-	//move file to next level
+	// move file to next level
 	fileMeta := compaction.GetLevelFiles()[0]
 	level := compaction.GetLevel()
 	compaction.DeleteFile(level, fileMeta.GetFileNumber())
@@ -107,7 +107,7 @@ func (c *compactJob) mergeCompaction() (err error) {
 	}()
 
 	// do merge logic
-	if err = c.doMerge(); err != nil {
+	if err := c.doMerge(); err != nil {
 		return err
 	}
 	// if merge success install compaction results into manifest
@@ -141,7 +141,7 @@ func (c *compactJob) doMerge() error {
 			needMerge = append(needMerge, value)
 			start = false
 		case key != previousKey:
-			//FIXME stone1100 merge data maybe is one block
+			// FIXME stone1100 merge data maybe is one block
 
 			// 1. if new key != previous key do merge logic based on user define
 			if err := merger.Merge(previousKey, needMerge); err != nil {
@@ -184,7 +184,7 @@ func (c *compactJob) installCompactionResults() {
 	// adds compaction outputs
 	level := c.state.compaction.GetLevel()
 	if c.rollup == nil {
-		level++ //compact job need add level
+		level++ // compact job need add level
 	}
 	for _, output := range c.state.outputs {
 		c.state.compaction.AddFile(level, output)
@@ -212,7 +212,7 @@ func (c *compactJob) makeInputIterator() (table.Iterator, error) {
 
 // openCompactionOutputFile opens a new compaction store build, and adds the file number into pending output
 func (c *compactJob) openCompactionOutputFile() error {
-	//TODO add lock
+	// TODO add lock
 	builder, err := c.family.newTableBuilder()
 	if err != nil {
 		return err
@@ -335,7 +335,7 @@ func (cf *compactFlusher) Add(key uint32, value []byte) error {
 }
 
 func (cf *compactFlusher) Sequence(_ int32, _ int64) {
-	//do nothing
+	// do nothing
 }
 
 func (cf *compactFlusher) Commit() error {

@@ -27,6 +27,11 @@ import (
 
 func Test_Histogram(t *testing.T) {
 	dh := NewHistogram()
+	defer func() {
+		dh.Update(func() {
+		})
+	}()
+
 	concurrentDo(
 		func() {
 			dh.WithLinearBuckets(time.Millisecond, time.Second*5, 100)
@@ -47,11 +52,6 @@ func Test_Histogram(t *testing.T) {
 			dh.UpdateSince(time.Now().Add(-1 * time.Second)) // bucket0
 		})
 	assert.InDeltaSlice(t, []float64{100, 100, 300, 200, 300}, dh.bkts.values, 0.01)
-
-	defer func() {
-		dh.Update(func() {
-		})
-	}()
 }
 
 func concurrentDo(f func()) {

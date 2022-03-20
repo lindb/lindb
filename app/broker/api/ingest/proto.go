@@ -20,7 +20,7 @@ package ingest
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/lindb/lindb/app/broker/deps"
+	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/ingestion/proto"
 )
 
@@ -34,7 +34,7 @@ type ProtoWriter struct {
 }
 
 // NewProtoWriter creates native proto metrics writer
-func NewProtoWriter(deps *deps.HTTPDeps) *ProtoWriter {
+func NewProtoWriter(deps *depspkg.HTTPDeps) *ProtoWriter {
 	return &ProtoWriter{
 		commonWriter: commonWriter{
 			deps:   deps,

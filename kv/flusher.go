@@ -79,7 +79,7 @@ func (sf *storeFlusher) Add(key uint32, value []byte) error {
 	if err := sf.checkBuilder(); err != nil {
 		return err
 	}
-	//TODO add file size limit
+	// TODO add file size limit
 	return sf.builder.Add(key, value)
 }
 
@@ -106,9 +106,9 @@ func (sf *storeFlusher) Commit() (err error) {
 		}
 	}()
 	if builder != nil {
-		if err := builder.Close(); err != nil {
-			err = fmt.Errorf("close table builder error when flush commit, error:%s", err)
-			return err
+		err = builder.Close()
+		if err != nil {
+			return fmt.Errorf("close table builder error when flush commit, error:%s", err)
 		}
 
 		fileMeta := version.NewFileMeta(builder.FileNumber(), builder.MinKey(), builder.MaxKey(), builder.Size())

@@ -270,8 +270,8 @@ func (t *taskManager) SubmitMetricTask(
 		PhysicalPlan: marshalledPhysicalPlan,
 		Payload:      marshalledPayload,
 	}
-	wg.Add(len(physicalPlan.Leafs))
-	for _, leaf := range physicalPlan.Leafs {
+	wg.Add(len(physicalPlan.Leaves))
+	for _, leaf := range physicalPlan.Leaves {
 		leaf := leaf
 		t.workerPool.Submit(func() {
 			defer wg.Done()
@@ -300,7 +300,7 @@ func (t *taskManager) SubmitIntermediateMetricTask(
 		parentTaskID,
 		physicalPlan.Root.Indicator,
 		stmtQuery,
-		int32(len(physicalPlan.Leafs)),
+		int32(len(physicalPlan.Leaves)),
 		responseCh,
 	)
 
@@ -337,8 +337,8 @@ func (t *taskManager) SubmitMetaDataTask(
 		wg        sync.WaitGroup
 		sendError atomic.Error
 	)
-	wg.Add(len(physicalPlan.Leafs))
-	for _, leafNode := range physicalPlan.Leafs {
+	wg.Add(len(physicalPlan.Leaves))
+	for _, leafNode := range physicalPlan.Leaves {
 		leafNode := leafNode
 		t.workerPool.Submit(func() {
 			defer wg.Done()

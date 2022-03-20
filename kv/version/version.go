@@ -219,7 +219,7 @@ func (v *version) GetAllFiles() []*FileMeta {
 
 // Clone builds new version based on current version
 func (v *version) Clone() Version {
-	//TODO need test clone all data
+	// TODO need test clone all data
 	newVersion := newVersion(v.fv.GetVersionSet().newVersionID(), v.fv)
 	nv := newVersion.(*version)
 	for k, v := range v.rollup.rollupFiles {

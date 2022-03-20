@@ -289,7 +289,7 @@ func (fs *fieldStore) slotRange(currentStart uint16) timeutil.SlotRange {
 }
 
 // getTimeSlotRange returns the final time slot range based on start/end
-func getTimeSlotRange(startSlot1, endSlot1 uint16, startSlot2, endSlot2 uint16) timeutil.SlotRange {
+func getTimeSlotRange(startSlot1, endSlot1, startSlot2, endSlot2 uint16) timeutil.SlotRange {
 	sr := timeutil.NewSlotRange(startSlot1, endSlot1)
 	if sr.End < endSlot2 {
 		sr.End = endSlot2
@@ -301,7 +301,7 @@ func getTimeSlotRange(startSlot1, endSlot1 uint16, startSlot2, endSlot2 uint16) 
 }
 
 // getCurrentValue returns the value in current write buffer
-func (fs *fieldStore) getCurrentValue(startTime uint16, timeSlot uint16) (value float64, hasValue bool) {
+func (fs *fieldStore) getCurrentValue(startTime, timeSlot uint16) (value float64, hasValue bool) {
 	if timeSlot < startTime || timeSlot > startTime+fs.getEnd() {
 		return
 	}

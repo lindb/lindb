@@ -154,7 +154,7 @@ func TestFanOutQueue_Sync(t *testing.T) {
 	assert.NoError(t, err)
 
 	for i := 0; i < 10; i++ {
-		err := fq.Put([]byte("12345"))
+		err = fq.Put([]byte("12345"))
 		assert.NoError(t, err)
 	}
 

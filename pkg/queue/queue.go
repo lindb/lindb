@@ -110,8 +110,7 @@ type queue struct {
 // NewQueue returns Queue based on dirPath, dataSizeLimit is used to limit the total data/index size,
 // removeTaskInterval specifics the interval to remove expired segments.
 func NewQueue(dirPath string, dataSizeLimit int64, removeTaskInterval time.Duration) (Queue, error) {
-	var err error
-	if err = mkDirFunc(dirPath); err != nil {
+	if err := mkDirFunc(dirPath); err != nil {
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -127,6 +126,8 @@ func NewQueue(dirPath string, dataSizeLimit int64, removeTaskInterval time.Durat
 		q.dataSizeLimit = defaultDataSizeLimit
 	}
 
+	var err error
+
 	defer func() {
 		// if init queue failure, need release resource(like file/map file etc.)
 		if err != nil {
@@ -135,20 +136,22 @@ func NewQueue(dirPath string, dataSizeLimit int64, removeTaskInterval time.Durat
 	}()
 
 	// init data page factory
-	fct, err := newPageFactoryFunc(filepath.Join(dirPath, dataPath), dataPageSize)
+	var dataPageFct page.Factory
+	dataPageFct, err = newPageFactoryFunc(filepath.Join(dirPath, dataPath), dataPageSize)
 	if err != nil {
 		return nil, err
 	}
 
-	q.dataPageFct = fct
+	q.dataPageFct = dataPageFct
 
 	// init index page factory
-	fct, err = newPageFactoryFunc(filepath.Join(dirPath, indexPath), indexPageSize)
+	var indexPageFct page.Factory
+	indexPageFct, err = newPageFactoryFunc(filepath.Join(dirPath, indexPath), indexPageSize)
 	if err != nil {
 		return nil, err
 	}
 
-	q.indexPageFct = fct
+	q.indexPageFct = indexPageFct
 
 	hasMeta := false
 	if fileutil.Exist(filepath.Join(dirPath, metaPath, fmt.Sprintf("%d.bat", metaPageIndex))) {
@@ -156,12 +159,13 @@ func NewQueue(dirPath string, dataSizeLimit int64, removeTaskInterval time.Durat
 	}
 
 	// init meta page factory
-	fct, err = newPageFactoryFunc(filepath.Join(dirPath, metaPath), metaPageSize)
+	var metaPageFct page.Factory
+	metaPageFct, err = newPageFactoryFunc(filepath.Join(dirPath, metaPath), metaPageSize)
 	if err != nil {
 		return nil, err
 	}
 
-	q.metaPageFct = fct
+	q.metaPageFct = metaPageFct
 
 	q.metaPage, err = q.metaPageFct.AcquirePage(metaPageIndex)
 	if err != nil {
@@ -181,13 +185,15 @@ func NewQueue(dirPath string, dataSizeLimit int64, removeTaskInterval time.Durat
 		q.metaPage.PutUint64(uint64(q.TailSeq()), queueTailSeqOffset)
 		q.metaPage.PutUint64(uint64(q.expireDataPage.Load()), queueExpireDataOffset)
 		q.metaPage.PutUint64(uint64(q.expireIndexPage.Load()), queueExpireIndexOffset)
-		if err = q.metaPage.Sync(); err != nil {
+		err = q.metaPage.Sync()
+		if err != nil {
 			return nil, err
 		}
 	}
 
 	// initialize data page indexes
-	if err = q.initDataPageIndex(); err != nil {
+	err = q.initDataPageIndex()
+	if err != nil {
 		return nil, err
 	}
 
@@ -427,11 +433,11 @@ func (q *queue) alloc(dataLen int) (dataPage page.MappedPage, offset int, err er
 	// prepare the data pointer
 	if q.messageOffset+dataLen > dataPageSize {
 		// check size limit before data page acquire
-		if err = q.checkDataSize(); err != nil {
+		if err := q.checkDataSize(); err != nil {
 			return nil, 0, err
 		}
 		// sync previous data page
-		if err = q.dataPage.Sync(); err != nil {
+		if err := q.dataPage.Sync(); err != nil {
 			queueLogger.Error("sync data page err when alloc",
 				logger.String("queue", q.dirPath), logger.Error(err))
 		}
@@ -450,11 +456,11 @@ func (q *queue) alloc(dataLen int) (dataPage page.MappedPage, offset int, err er
 	indexPageIndex := seq / indexItemsPerPage
 	if indexPageIndex != q.indexPageIndex {
 		// check size limit before index page acquire
-		if err = q.checkDataSize(); err != nil {
+		if err := q.checkDataSize(); err != nil {
 			return nil, 0, err
 		}
 		// sync previous data page
-		if err = q.indexPage.Sync(); err != nil {
+		if err := q.indexPage.Sync(); err != nil {
 			queueLogger.Error("sync index page err when alloc",
 				logger.String("queue", q.dirPath), logger.Error(err))
 		}

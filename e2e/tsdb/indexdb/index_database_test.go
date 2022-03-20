@@ -57,7 +57,6 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 	m.Run()
-	os.Exit(0)
 }
 
 func TestIndexDatabase_GetOrCreateSeriesID(t *testing.T) {

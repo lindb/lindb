@@ -15,13 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//go:build darwin || dragonfly || freebsd || linux || openbsd || solaris || netbsd
 // +build darwin dragonfly freebsd linux openbsd solaris netbsd
 
 package fileutil
 
 import "golang.org/x/sys/unix"
 
-func mmap(fd int, offset int64, size int, mode int) ([]byte, error) {
+func mmap(fd int, offset int64, size, mode int) ([]byte, error) {
 	var prot int
 	if mode&read != 0 {
 		prot |= unix.PROT_READ

@@ -76,9 +76,8 @@ type factory struct {
 }
 
 // NewFactory creates page factory based on page size
-func NewFactory(path string, pageSize int) (Factory, error) {
-	var err error
-	if err = mkDirFunc(path); err != nil {
+func NewFactory(path string, pageSize int) (fct Factory, err error) {
+	if err := mkDirFunc(path); err != nil {
 		return nil, err
 	}
 
@@ -88,14 +87,9 @@ func NewFactory(path string, pageSize int) (Factory, error) {
 		pages:    make(map[int64]MappedPage),
 	}
 
-	defer func() {
-		if err != nil {
-			// if create factory failure, need release the file resources
-			_ = f.Close()
-		}
-	}()
-
-	if err = f.loadPages(); err != nil {
+	if err := f.loadPages(); err != nil {
+		// if create factory failure, need release the file resources
+		_ = f.Close()
 		return nil, err
 	}
 

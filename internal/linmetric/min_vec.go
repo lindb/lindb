@@ -34,7 +34,7 @@ type MinVec struct {
 	mines      map[string]*BoundMin
 }
 
-func newMinVec(r *Registry, metricName string, fieldName string, tags tag.Tags, tagKey ...string) *MinVec {
+func newMinVec(r *Registry, metricName, fieldName string, tags tag.Tags, tagKey ...string) *MinVec {
 	return &MinVec{
 		r:          r,
 		metricName: metricName,

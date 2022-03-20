@@ -52,7 +52,7 @@ func (g *gather) enrichTagsNameSpace(builder *metric.RowBuilder) {
 	builder.AddNameSpace([]byte(g.namespace))
 }
 
-func (g *gather) Gather() ([]byte, int) {
+func (g *gather) Gather() (data []byte, count int) {
 	if g.runtimeObserver != nil {
 		g.runtimeObserver.Observe()
 	}

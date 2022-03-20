@@ -281,7 +281,10 @@ func newDataScanner(r MetricReader) (*dataScanner, error) {
 	if len(s.highKeys) == 0 {
 		return nil, fmt.Errorf("seriesID bitmap is empty")
 	}
-	return s, s.nextContainer()
+	if err := s.nextContainer(); err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 // fieldIndexes returns field indexes of metric level

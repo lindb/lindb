@@ -28,7 +28,7 @@ import (
 
 const unknown = "unknown"
 
-func splitMethodName(fullMethodName string) (string, string) {
+func splitMethodName(fullMethodName string) (service, method string) {
 	fullMethodName = strings.TrimPrefix(fullMethodName, "/") // remove leading slash
 	if i := strings.Index(fullMethodName, "/"); i >= 0 {
 		return fullMethodName[:i], fullMethodName[i+1:]

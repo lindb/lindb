@@ -200,7 +200,7 @@ func (m *masterController) Stop() {
 }
 
 // FlushDatabase submits the coordinator task for flushing memory database by cluster and database name
-func (m *masterController) FlushDatabase(cluster string, databaseName string) error {
+func (m *masterController) FlushDatabase(cluster, databaseName string) error {
 	if m.IsMaster() {
 		m.mutex.Lock()
 		defer m.mutex.Unlock()
@@ -244,5 +244,5 @@ func (m *masterController) OnCreate(_ string, resource []byte) {
 
 // OnDelete is master offline callback.
 func (m *masterController) OnDelete(_ string) {
-	//nothing to do
+	// nothing to do
 }

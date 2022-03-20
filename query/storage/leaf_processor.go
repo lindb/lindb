@@ -104,8 +104,8 @@ func (p *leafTaskProcessor) process(
 	}
 
 	foundTask := false
-	var curLeaf models.Leaf
-	for _, leaf := range physicalPlan.Leafs {
+	var curLeaf *models.Leaf
+	for _, leaf := range physicalPlan.Leaves {
 		if leaf.Indicator == p.currentNodeID {
 			foundTask = true
 			curLeaf = leaf
@@ -130,7 +130,7 @@ func (p *leafTaskProcessor) process(
 	switch req.RequestType {
 	case protoCommonV1.RequestType_Data:
 		p.storageMetricQueryCounter.Incr()
-		if err := p.processDataSearch(ctx, db, curLeaf.ShardIDs, req, &curLeaf); err != nil {
+		if err := p.processDataSearch(ctx, db, curLeaf.ShardIDs, req, curLeaf); err != nil {
 			return err
 		}
 	case protoCommonV1.RequestType_Metadata:

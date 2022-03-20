@@ -223,10 +223,10 @@ func (fc *dataFlushChecker) doFlush(request *flushRequest) {
 	if request.global {
 		fc.isWatermarkFlushing.Store(true)
 	}
-	//TODO
+	// TODO
 	_ = request.shard.Flush()
 
-	//TODO add flush timeout?
+	// TODO add flush timeout?
 	for _, family := range request.families {
 		if err := family.Flush(); err != nil {
 			engineLogger.Error("flush family memory database error",

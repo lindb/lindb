@@ -24,7 +24,7 @@ import (
 
 	"github.com/go-resty/resty/v2"
 
-	"github.com/lindb/lindb/app/broker/deps"
+	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/master"
@@ -37,7 +37,8 @@ import (
 )
 
 // MetadataCommand executes the metadata query.
-func MetadataCommand(ctx context.Context, deps *deps.HTTPDeps, _ *models.ExecuteParam, stmt stmtpkg.Statement) (interface{}, error) {
+func MetadataCommand(ctx context.Context, deps *depspkg.HTTPDeps,
+	_ *models.ExecuteParam, stmt stmtpkg.Statement) (interface{}, error) {
 	metadataStmt := stmt.(*stmtpkg.Metadata)
 	var stateMachineInfo models.StateMachineInfo
 	var ok bool
