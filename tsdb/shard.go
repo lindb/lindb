@@ -35,6 +35,7 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb/indexdb"
@@ -251,7 +252,7 @@ func (s *shard) lookupRowMeta(row *metric.StorageRow) (err error) {
 	var isCreated bool
 	if row.TagsLen() == 0 {
 		// if metric without tags, uses default series id(0)
-		row.SeriesID = constants.SeriesIDWithoutTags //TODO need fix(equals empty series id)
+		row.SeriesID = series.IDWithoutTags
 	} else {
 		row.SeriesID, isCreated, err = s.indexDB.GetOrCreateSeriesID(row.MetricID, row.TagsHash())
 		if err != nil {
