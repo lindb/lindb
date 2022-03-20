@@ -9,7 +9,9 @@ run:
   # include test files or not, default is true
   tests: true
   # list of build tags, all linters use it. Default is empty list.
-  build-tags: [ integration ]
+  build-tags:
+    - integration
+    - benchmark
   # which dirs to skip: issues from them won't be reported;
   # can use regexp here: generated.*, regexp is applied on full path;
   # default value is empty list, but default dirs are skipped independently

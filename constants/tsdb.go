@@ -38,6 +38,4 @@ const (
 
 	// DefaultNamespace represents default namespace if not set
 	DefaultNamespace = "default-ns"
-	// SeriesIDWithoutTags represents the series ids under spec metric, but without nothing tags.
-	SeriesIDWithoutTags = uint32(0)
 )

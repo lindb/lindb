@@ -17,8 +17,11 @@
 
 package series
 
-// NoGroupSeriesID represents no group by series id or metric level series id
-const NoGroupSeriesID = 0
+import "math"
 
-// EmptySeriesID represents empty value of series.
-const EmptySeriesID = uint32(0)
+const (
+	// EmptySeriesID represents empty value of series.
+	EmptySeriesID = uint32(math.MaxUint32)
+	// IDWithoutTags represents the series ids under spec metric, but without nothing tags.
+	IDWithoutTags = uint32(0)
+)
