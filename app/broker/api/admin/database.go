@@ -20,7 +20,7 @@ package admin
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/lindb/lindb/app/broker/deps"
+	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
@@ -34,12 +34,12 @@ var (
 
 // DatabaseAPI represents database admin rest api
 type DatabaseAPI struct {
-	deps   *deps.HTTPDeps
+	deps   *depspkg.HTTPDeps
 	logger *logger.Logger
 }
 
 // NewDatabaseAPI creates database api instance
-func NewDatabaseAPI(deps *deps.HTTPDeps) *DatabaseAPI {
+func NewDatabaseAPI(deps *depspkg.HTTPDeps) *DatabaseAPI {
 	return &DatabaseAPI{
 		deps:   deps,
 		logger: logger.GetLogger("broker", "DatabaseAPI"),

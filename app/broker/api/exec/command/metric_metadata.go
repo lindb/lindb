@@ -21,7 +21,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/lindb/lindb/app/broker/deps"
+	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
@@ -30,7 +30,8 @@ import (
 )
 
 // MetricMetadataCommand executes the metric metadata query.
-func MetricMetadataCommand(ctx context.Context, deps *deps.HTTPDeps, param *models.ExecuteParam, stmt stmtpkg.Statement) (interface{}, error) {
+func MetricMetadataCommand(ctx context.Context, deps *depspkg.HTTPDeps,
+	param *models.ExecuteParam, stmt stmtpkg.Statement) (interface{}, error) {
 	metadataStmt := stmt.(*stmtpkg.MetricMetadata)
 	if strings.TrimSpace(param.Database) == "" {
 		return nil, constants.ErrDatabaseNameRequired
@@ -39,12 +40,12 @@ func MetricMetadataCommand(ctx context.Context, deps *deps.HTTPDeps, param *mode
 		// if limit =0 or > max suggestion items, need reset limit
 		metadataStmt.Limit = constants.MaxSuggestions
 	}
-	//if metadataStmt.li
 	return suggest(ctx, deps, param, metadataStmt)
 }
 
 // suggest executes metadata suggest query.
-func suggest(ctx context.Context, deps *deps.HTTPDeps, param *models.ExecuteParam, request *stmtpkg.MetricMetadata) (interface{}, error) {
+func suggest(ctx context.Context, deps *depspkg.HTTPDeps,
+	param *models.ExecuteParam, request *stmtpkg.MetricMetadata) (interface{}, error) {
 	metaDataQuery := deps.QueryFactory.NewMetadataQuery(ctx, param.Database, request)
 	values, err := metaDataQuery.WaitResponse()
 	if err != nil {

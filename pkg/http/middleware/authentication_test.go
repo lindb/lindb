@@ -18,6 +18,8 @@
 package middleware
 
 import (
+	"bytes"
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -36,7 +38,7 @@ func Test_ParseToken(t *testing.T) {
 }
 
 func TestUserAuthentication_Validate(t *testing.T) {
-	req, err := http.NewRequest("GET", "/health-check", nil)
+	req, err := http.NewRequestWithContext(context.TODO(), "GET", "/health-check", bytes.NewReader([]byte("test")))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +59,7 @@ func TestUserAuthentication_Validate(t *testing.T) {
 
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
 
-	req, err = http.NewRequest("GET", "/health-check", nil)
+	req, err = http.NewRequestWithContext(context.TODO(), "GET", "/health-check", bytes.NewReader([]byte("test")))
 	assert.NoError(t, err)
 	req.Header.Set("Authorization", tokenStr)
 	rr = httptest.NewRecorder()

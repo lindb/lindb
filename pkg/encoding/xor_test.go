@@ -31,11 +31,11 @@ func TestWrite(t *testing.T) {
 	var buf bytes.Buffer
 	bitWriter := bit.NewWriter(&buf)
 	e := NewXOREncoder(bitWriter)
-	e.Write(uint64(76))
-	e.Write(uint64(50))
-	e.Write(uint64(50))
-	e.Write(uint64(999999999))
-	e.Write(uint64(100))
+	_ = e.Write(uint64(76))
+	_ = e.Write(uint64(50))
+	_ = e.Write(uint64(50))
+	_ = e.Write(uint64(999999999))
+	_ = e.Write(uint64(100))
 
 	err := bitWriter.Flush()
 	if err != nil {

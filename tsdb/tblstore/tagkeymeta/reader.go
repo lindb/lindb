@@ -83,7 +83,7 @@ func (r *tagReader) GetTagValueSeq(tagKeyID uint32) (tagValueSeq uint32, err err
 		if err != nil {
 			continue
 		}
-		//FIXME stone1100 opt need cache entry set
+		// FIXME stone1100 opt need cache entry set
 		meta, err := newTagKeyMeta(tagKeyMetaBlock)
 		if err != nil {
 			return 0, fmt.Errorf("%w, %s: ", constants.ErrTagValueSeqNotFound, err)

@@ -99,7 +99,7 @@ func (f *family) needRollup() bool {
 			logger.Any("numOfFiles", rollupFilesLen), logger.Any("threshold", f.option.RollupThreshold))
 		return true
 	}
-	//FIXME need add time threshold????
+	// FIXME need add time threshold????
 	return false
 }
 
@@ -153,7 +153,7 @@ func (f *family) rollup() {
 				targetStore, ok := GetStoreManager().GetStoreByName(targetStoreName)
 				// do rollup job in target family
 				if !ok {
-					//TODO add metric
+					// TODO add metric
 					kvLogger.Warn("skip rollup because cannot get target store",
 						logger.String("family", f.familyInfo()),
 						logger.String("target", targetStoreName),

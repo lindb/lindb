@@ -44,7 +44,7 @@ func EncodeToml(fileName string, v interface{}) error {
 	return nil
 }
 
-func WriteConfig(fileName string, content string) error {
+func WriteConfig(fileName, content string) error {
 	tmp := fmt.Sprintf("%s.tmp", fileName)
 	f, _ := os.Create(tmp)
 	defer func() {

@@ -103,7 +103,7 @@ func (bw *bufioEntryWriter) Reset(fileName string) error {
 	if err != nil {
 		return err
 	}
-	if err = bw.Close(); err != nil {
+	if err := bw.Close(); err != nil {
 		return err
 	}
 	bw.f = newF

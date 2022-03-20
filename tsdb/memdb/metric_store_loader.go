@@ -48,7 +48,7 @@ func newMetricStoreLoader(lowContainer roaring.Container,
 }
 
 // Load loads the metric data by given series id from memory storage.
-func (s *metricStoreLoader) Load(lowSeriesID uint16) (timeutil.SlotRange, [][]byte) {
+func (s *metricStoreLoader) Load(lowSeriesID uint16) (slotRange timeutil.SlotRange, fieldsData [][]byte) {
 	// check low series id if exist
 	if !s.lowContainer.Contains(lowSeriesID) {
 		return s.slotRange, nil

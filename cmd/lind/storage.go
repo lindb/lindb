@@ -63,7 +63,7 @@ var initializeStorageConfigCmd = &cobra.Command{
 	Short: "create a new default storage-config",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		path := cfg
-		if len(path) == 0 {
+		if path == "" {
 			path = defaultStorageCfgFile
 		}
 		if err := checkExistenceOf(path); err != nil {
@@ -73,7 +73,7 @@ var initializeStorageConfigCmd = &cobra.Command{
 	},
 }
 
-func serveStorage(_ *cobra.Command, _ []string) error {
+func serveStorage(_ *cobra.Command, _ []string) error { // nolint:dupl
 	ctx := newCtxWithSignals()
 
 	storageCfg := config.Storage{}

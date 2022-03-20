@@ -40,7 +40,7 @@ func Test_Write_Read(t *testing.T) {
 	cluster := mock.StartEtcdCluster(t, "http://localhost:8700")
 	defer cluster.Terminate(t)
 
-	var rep, err = newEtcdRepository(config.RepoState{
+	var rep, err = newEtcdRepository(&config.RepoState{
 		Endpoints: cluster.Endpoints,
 	}, "nobody")
 	assert.NoError(t, err)
@@ -75,7 +75,7 @@ func TestList(t *testing.T) {
 	cluster := mock.StartEtcdCluster(t, "http://localhost:8701")
 	defer cluster.Terminate(t)
 
-	var rep, err = newEtcdRepository(config.RepoState{
+	var rep, err = newEtcdRepository(&config.RepoState{
 		Namespace: "/test/list",
 		Endpoints: cluster.Endpoints,
 	}, "nobody")
@@ -102,7 +102,7 @@ func TestList(t *testing.T) {
 func TestWalkEntry(t *testing.T) {
 	cluster := mock.StartEtcdCluster(t, "http://localhost:8701")
 	defer cluster.Terminate(t)
-	var rep, err = newEtcdRepository(config.RepoState{
+	var rep, err = newEtcdRepository(&config.RepoState{
 		Namespace: "/test/list",
 		Endpoints: cluster.Endpoints,
 	}, "nobody")
@@ -129,7 +129,8 @@ func TestWalkEntry(t *testing.T) {
 }
 
 func TestNew(t *testing.T) {
-	_, err := newEtcdRepository(config.RepoState{}, "nobody")
+	cfg := &config.RepoState{}
+	_, err := newEtcdRepository(cfg, "nobody")
 	assert.Error(t, err)
 }
 
@@ -137,9 +138,10 @@ func TestHeartBeat(t *testing.T) {
 	cluster := mock.StartEtcdCluster(t, "http://localhost:8702")
 	defer cluster.Terminate(t)
 
-	b, err := newEtcdRepository(config.RepoState{
+	cfg := &config.RepoState{
 		Endpoints: cluster.Endpoints,
-	}, "nobody")
+	}
+	b, err := newEtcdRepository(cfg, "nobody")
 	assert.NoError(t, err)
 
 	repo := b.(*etcdRepository)
@@ -171,9 +173,10 @@ func TestWatch(t *testing.T) {
 	cluster := mock.StartEtcdCluster(t, "http://localhost:8703")
 	defer cluster.Terminate(t)
 
-	b, _ := newEtcdRepository(config.RepoState{
+	cfg := &config.RepoState{
 		Endpoints: cluster.Endpoints,
-	}, "nobody")
+	}
+	b, _ := newEtcdRepository(cfg, "nobody")
 	ctx, cancel := context.WithCancel(context.Background())
 	repo := b.(*etcdRepository)
 	repo.timeout = time.Second * 10
@@ -229,9 +232,10 @@ func TestGetWatchPrefix(t *testing.T) {
 	cluster := mock.StartEtcdCluster(t, "http://localhost:8704")
 	defer cluster.Terminate(t)
 
-	b, _ := newEtcdRepository(config.RepoState{
+	cfg := &config.RepoState{
 		Endpoints: cluster.Endpoints,
-	}, "nobody")
+	}
+	b, _ := newEtcdRepository(cfg, "nobody")
 	repo := b.(*etcdRepository)
 	repo.timeout = time.Second * 10
 	ctx, cancel := context.WithCancel(context.Background())
@@ -291,9 +295,10 @@ func TestElect(t *testing.T) {
 	cluster := mock.StartEtcdCluster(t, "http://localhost:8705")
 	defer cluster.Terminate(t)
 
-	b, _ := newEtcdRepository(config.RepoState{
+	cfg := &config.RepoState{
 		Endpoints: cluster.Endpoints,
-	}, "nobody")
+	}
+	b, _ := newEtcdRepository(cfg, "nobody")
 	repo := b.(*etcdRepository)
 	repo.timeout = time.Second * 10
 
@@ -340,10 +345,11 @@ func TestBatch(t *testing.T) {
 	cluster := mock.StartEtcdCluster(t, "http://localhost:8706")
 	defer cluster.Terminate(t)
 
-	b, _ := newEtcdRepository(config.RepoState{
+	cfg := &config.RepoState{
 		Namespace: "/test/batch",
 		Endpoints: cluster.Endpoints,
-	}, "nobody")
+	}
+	b, _ := newEtcdRepository(cfg, "nobody")
 	repo := b.(*etcdRepository)
 	repo.timeout = time.Second * 10
 	batch := Batch{
@@ -363,10 +369,11 @@ func TestTransaction(t *testing.T) {
 	cluster := mock.StartEtcdCluster(t, "http://localhost:8707")
 	defer cluster.Terminate(t)
 
-	b, _ := newEtcdRepository(config.RepoState{
+	cfg := &config.RepoState{
 		Namespace: "/test/batch",
 		Endpoints: cluster.Endpoints,
-	}, "nobody")
+	}
+	b, _ := newEtcdRepository(cfg, "nobody")
 	repo := b.(*etcdRepository)
 	repo.timeout = time.Second * 10
 
@@ -410,9 +417,10 @@ func TestNextSequence(t *testing.T) {
 	cluster := mock.StartEtcdCluster(t, "http://localhost:8708")
 	defer cluster.Terminate(t)
 
-	b, _ := newEtcdRepository(config.RepoState{
+	cfg := &config.RepoState{
 		Endpoints: cluster.Endpoints,
-	}, "nobody")
+	}
+	b, _ := newEtcdRepository(cfg, "nobody")
 	repo := b.(*etcdRepository)
 	repo.timeout = time.Second * 10
 
@@ -430,9 +438,10 @@ func TestNextSequence_Concurrency(t *testing.T) {
 	cluster := mock.StartEtcdCluster(t, "http://localhost:8709")
 	defer cluster.Terminate(t)
 
-	b, _ := newEtcdRepository(config.RepoState{
+	cfg := &config.RepoState{
 		Endpoints: cluster.Endpoints,
-	}, "nobody")
+	}
+	b, _ := newEtcdRepository(cfg, "nobody")
 	repo := b.(*etcdRepository)
 	repo.timeout = time.Minute
 

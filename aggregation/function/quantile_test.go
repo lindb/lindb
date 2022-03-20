@@ -95,7 +95,6 @@ func Test_QuantileCall(t *testing.T) {
 
 	array, _ = QuantileCall(0.5, fields)
 	assert.InDeltaSlice(t, []float64{4.5, 6, 6, 6}, getDataFloatArray(array), 0.001)
-
 }
 
 func Test_QuantileCallBadCases(t *testing.T) {

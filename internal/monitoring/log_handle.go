@@ -84,7 +84,8 @@ func (d *LoggerAPI) View(c *gin.Context) {
 		return
 	}
 	defer func() {
-		if err := file.Close(); err != nil {
+		err = file.Close()
+		if err != nil {
 			d.logger.Warn("close file err",
 				logger.String("file", param.FileName),
 				logger.Error(err))

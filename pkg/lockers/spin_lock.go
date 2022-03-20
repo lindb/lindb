@@ -30,7 +30,7 @@ type SpinLock struct {
 // Lock locks spinLock. If the lock is locked before, the caller will be blocked until unlocked.
 func (sl *SpinLock) Lock() {
 	for !sl.TryLock() {
-		runtime.Gosched() //allow other goroutines to do stuff.
+		runtime.Gosched() // allow other goroutines to do stuff.
 	}
 }
 

@@ -51,7 +51,7 @@ func NewIndexSlotSelector(start, end, intervalRatio int) SlotSelector {
 }
 
 // Range returns the slot time range
-func (s *indexSlotSelector) Range() (start int, end int) {
+func (s *indexSlotSelector) Range() (start, end int) {
 	return s.start, s.end
 }
 

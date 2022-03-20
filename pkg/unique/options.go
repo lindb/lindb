@@ -30,11 +30,8 @@ func DefaultOptions() *pebble.Options {
 	// In RocksDB, the concurrency setting corresponds to both flushes and
 	// compactions. In Pebble, there is always a slot for a flush, and
 	// compactions are counted separately.
-	//maxConcurrentCompactions := rocksdbConcurrency - 1
+	// maxConcurrentCompactions := rocksdbConcurrency - 1
 	maxConcurrentCompactions := 1
-	//if maxConcurrentCompactions < 1 {
-	//	maxConcurrentCompactions = 1
-	//}
 
 	opts := &pebble.Options{
 		Comparer:                    pebble.DefaultComparer,
@@ -82,29 +79,29 @@ func DefaultOptions() *pebble.Options {
 	// (i.e. there are 5-6 levels of sstables) which means we'll achieve 80-90%
 	// of the benefit of having bloom filters on every level for only 10% of the
 	// memory cost.
-	//opts.Levels[6].FilterPolicy = nil
+	// opts.Levels[6].FilterPolicy = nil
 	opts.Levels[len(opts.Levels)-1].FilterPolicy = nil
 
-	//// Set disk health check interval to min(5s, maxSyncDurationDefault). This
-	//// is mostly to ease testing; the default of 5s is too infrequent to test
-	//// conveniently. See the disk-stalled roachtest for an example of how this
-	//// is used.
-	//diskHealthCheckInterval := 5 * time.Second
-	//if diskHealthCheckInterval.Seconds() > maxSyncDurationDefault.Seconds() {
+	// Set disk health check interval to min(5s, maxSyncDurationDefault). This
+	// is mostly to ease testing; the default of 5s is too infrequent to test
+	// conveniently. See the disk-stalled roachtest for an example of how this
+	// is used.
+	// diskHealthCheckInterval := 5 * time.Second
+	// if diskHealthCheckInterval.Seconds() > maxSyncDurationDefault.Seconds() {
 	//	diskHealthCheckInterval = maxSyncDurationDefault
-	//}
-	//// Instantiate a file system with disk health checking enabled. This FS wraps
-	//// vfs.Default, and can be wrapped for encryption-at-rest.
-	//opts.FS = vfs.WithDiskHealthChecks(vfs.Default, diskHealthCheckInterval,
+	// }
+	// Instantiate a file system with disk health checking enabled. This FS wraps
+	// vfs.Default, and can be wrapped for encryption-at-rest.
+	// opts.FS = vfs.WithDiskHealthChecks(vfs.Default, diskHealthCheckInterval,
 	//	func(name string, duration time.Duration) {
 	//		opts.EventListener.DiskSlow(pebble.DiskSlowInfo{
 	//			Path:     name,
 	//			Duration: duration,
 	//		})
 	//	})
-	//// If we encounter ENOSPC, exit with an informative exit code.
-	//opts.FS = vfs.OnDiskFull(opts.FS, func() {
+	// If we encounter ENOSPC, exit with an informative exit code.
+	// opts.FS = vfs.OnDiskFull(opts.FS, func() {
 	//	exit.WithCode(exit.DiskFull())
-	//})
+	// })
 	return opts
 }

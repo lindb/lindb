@@ -212,12 +212,12 @@ func NewDefaultStorageBase() *StorageBase {
 			ConnectTimeout:       ltoml.Duration(time.Second * 3),
 		},
 		WAL: WAL{
-			Dir:                filepath.Join(defaultParentDir, "storage/wal"),
+			Dir:                filepath.Join(defaultParentDir, "storage", "wal"),
 			DataSizeLimit:      512,
 			RemoveTaskInterval: ltoml.Duration(time.Minute),
 		},
 		TSDB: TSDB{
-			Dir:                      filepath.Join(defaultParentDir, "storage/data"),
+			Dir:                      filepath.Join(defaultParentDir, "storage", "data"),
 			MaxMemDBSize:             ltoml.Size(500 * 1024 * 1024),
 			MaxMemDBNumber:           5,
 			MaxMemDBTotalSize:        ltoml.Size(2 * 1024 * 1024 * 1024),

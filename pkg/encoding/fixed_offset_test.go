@@ -45,7 +45,6 @@ func TestFixedOffsetDecoder_NotIncreasing(t *testing.T) {
 	assert.NotPanics(t, func() {
 		encoder.Add(2)
 	})
-
 }
 
 func TestFixedOffsetDecoder_Get(t *testing.T) {

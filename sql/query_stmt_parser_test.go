@@ -254,7 +254,6 @@ func TestComplexSelectItem(t *testing.T) {
 			},
 		},
 		query.SelectItems)
-
 }
 
 func TestMathExpress(t *testing.T) {

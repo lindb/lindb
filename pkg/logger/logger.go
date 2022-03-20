@@ -148,7 +148,7 @@ func (l *Logger) formatMsg(msg string) string {
 }
 
 // String constructs a field with the given key and value.
-func String(key string, val string) zap.Field {
+func String(key, val string) zap.Field {
 	return zap.Field{Key: key, Type: zapcore.StringType, String: val}
 }
 

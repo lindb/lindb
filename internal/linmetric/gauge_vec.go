@@ -34,7 +34,7 @@ type GaugeVec struct {
 	gauges     map[string]*BoundGauge
 }
 
-func newGaugeVec(r *Registry, metricName string, fieldName string, tags tag.Tags, tagKey ...string) *GaugeVec {
+func newGaugeVec(r *Registry, metricName, fieldName string, tags tag.Tags, tagKey ...string) *GaugeVec {
 	return &GaugeVec{
 		r:          r,
 		metricName: metricName,

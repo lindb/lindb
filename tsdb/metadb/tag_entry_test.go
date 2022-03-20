@@ -81,7 +81,8 @@ func TestTagEntry_findSeriesIDsByLike(t *testing.T) {
 func TestTagEntry_findSeriesIDsByIn(t *testing.T) {
 	tagIndex := prepareTagEntry()
 	// tag-value exist
-	assert.Equal(t, roaring.BitmapOf(3, 5, 8), tagIndex.findSeriesIDsByExpr(&stmt.InExpr{Key: "host", Values: []string{"b", "bc", "bcd", "ahi"}}))
+	assert.Equal(t, roaring.BitmapOf(3, 5, 8),
+		tagIndex.findSeriesIDsByExpr(&stmt.InExpr{Key: "host", Values: []string{"b", "bc", "bcd", "ahi"}}))
 }
 
 func TestTagEntry_findSeriesIDsByExpr_not_tagFilter(t *testing.T) {

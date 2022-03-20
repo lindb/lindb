@@ -172,7 +172,7 @@ func (fc *familyChannel) writeTask() {
 
 	retryBuffers := make([]*compressedChunk, 0)
 	retry := func(compressed *compressedChunk) {
-		//TODO add config
+		// TODO add config
 		if len(retryBuffers) > 100 {
 			fc.logger.Error("too many retry messages, drop current message")
 		} else {
@@ -224,7 +224,7 @@ func (fc *familyChannel) writeTask() {
 				logger.String("database", fc.database))
 			if stream != nil {
 				// if stream isn't nil, need close old stream first.
-				if err := stream.Close(); err != nil {
+				if err = stream.Close(); err != nil {
 					fc.logger.Error("close write stream err when leader changed", logger.Error(err))
 				}
 				stream = nil
@@ -271,7 +271,7 @@ func (fc *familyChannel) writeTask() {
 		}
 	}
 
-	//TODO write pending check after stop???
+	// TODO write pending check after stop???
 }
 
 func (fc *familyChannel) writePendingBeforeClose() {

@@ -174,5 +174,4 @@ func TestExecuteCli_ExecuteAsResult(t *testing.T) {
 			}
 		})
 	}
-
 }

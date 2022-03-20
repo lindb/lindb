@@ -36,12 +36,12 @@ func TestDatabaseChannel_Write(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ch, err := newDatabaseChannel(context.TODO(),
+	opt := &option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}
+	ch := newDatabaseChannel(context.TODO(),
 		models.Database{
 			Name:   "database",
-			Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}},
+			Option: opt,
 		}, 1, nil)
-	assert.NoError(t, err)
 	assert.NotNil(t, ch)
 
 	converter := metric.NewProtoConverter()
@@ -55,7 +55,7 @@ func TestDatabaseChannel_Write(t *testing.T) {
 			Tags: []*protoMetricsV1.KeyValue{{Key: "host", Value: "1.1.1.1"}},
 		}, row)
 	})
-	err = ch.Write(context.TODO(), batch)
+	err := ch.Write(context.TODO(), batch)
 	assert.Equal(t, errChannelNotFound, err)
 
 	shardCh := NewMockChannel(ctrl)
@@ -82,13 +82,12 @@ func TestDatabaseChannel_Write(t *testing.T) {
 func TestDatabaseChannel_CreateChannel(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-
-	ch, err := newDatabaseChannel(context.TODO(),
+	opt := &option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}
+	ch := newDatabaseChannel(context.TODO(),
 		models.Database{
 			Name:   "database",
-			Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}},
+			Option: opt,
 		}, 4, nil)
-	assert.NoError(t, err)
 	assert.NotNil(t, ch)
 	shardCh := NewMockChannel(ctrl)
 	ch1 := ch.(*databaseChannel)

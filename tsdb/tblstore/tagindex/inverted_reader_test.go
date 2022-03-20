@@ -33,7 +33,7 @@ import (
 
 var bitmapUnmarshal = encoding.BitmapUnmarshal
 
-func buildInvertedIndexBlock() (zoneBlock []byte, ipBlock []byte, hostBlock []byte) {
+func buildInvertedIndexBlock() (zoneBlock, ipBlock, hostBlock []byte) {
 	nopKVFlusher := kv.NewNopFlusher()
 	seriesFlusher, _ := NewInvertedFlusher(nopKVFlusher)
 	zoneMapping := map[uint32]*roaring.Bitmap{
@@ -70,7 +70,7 @@ func buildInvertedIndexBlock() (zoneBlock []byte, ipBlock []byte, hostBlock []by
 	/////////////////////////
 	// flush ip tag, tagID: 21
 	/////////////////////////
-	//flush(ipMapping)
+	// flush(ipMapping)
 	seriesFlusher.PrepareTagKey(21)
 	_ = seriesFlusher.FlushInvertedIndex(0, roaring.BitmapOf(1, 2, 3, 4000000, 5000000, 6000000, 7000000, 8000000, 9000000))
 	_ = seriesFlusher.FlushInvertedIndex(1, roaring.BitmapOf(1))

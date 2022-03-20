@@ -46,7 +46,7 @@ type StorageCluster interface {
 	// SaveDatabaseAssignment saves database assignment in storage state repo.
 	SaveDatabaseAssignment(
 		shardAssign *models.ShardAssignment,
-		databaseOption option.DatabaseOption,
+		databaseOption *option.DatabaseOption,
 	) error
 	// GetRepo returns current storage storageCluster's state repo
 	GetRepo() state.Repository
@@ -57,7 +57,7 @@ type StorageCluster interface {
 // storageCluster implements StorageCluster controller, master will maintain multi storage storageCluster
 type storageCluster struct {
 	ctx         context.Context
-	cfg         config.StorageCluster
+	cfg         *config.StorageCluster
 	storageRepo state.Repository
 	stateMgr    StateManager
 
@@ -69,14 +69,14 @@ type storageCluster struct {
 
 // newStorageCluster creates storageCluster controller, init active node list if exist node, must return storageCluster
 func newStorageCluster(ctx context.Context,
-	cfg config.StorageCluster,
+	cfg *config.StorageCluster,
 	stateMgr StateManager,
 	repoFactory state.RepositoryFactory) (cluster StorageCluster, err error) {
 	var storageRepo state.Repository
 	storageRepo, err = repoFactory.CreateStorageRepo(cfg.Config)
 	defer func() {
 		if err != nil && storageRepo != nil {
-			//TODO add log??
+			// TODO add log??
 			_ = storageRepo.Close()
 		}
 	}()
@@ -117,7 +117,7 @@ func (c *storageCluster) GetState() *models.StorageState {
 }
 
 func (c *storageCluster) GetLiveNodes() (rs []models.StatefulNode, err error) {
-	//TODO add timeout ctx
+	// TODO add timeout ctx
 	kvs, err := c.storageRepo.List(c.ctx, constants.LiveNodesPath)
 	if err != nil {
 		return nil, err
@@ -145,9 +145,9 @@ func (c *storageCluster) FlushDatabase(_ string) error {
 // SaveDatabaseAssignment saves database assignment in storage state repo.
 func (c *storageCluster) SaveDatabaseAssignment(
 	shardAssign *models.ShardAssignment,
-	databaseOption option.DatabaseOption,
+	databaseOption *option.DatabaseOption,
 ) error {
-	//TODO timeout ctx
+	// TODO timeout ctx
 	data := encoding.JSONMarshal(&models.DatabaseAssignment{
 		ShardAssignment: shardAssign,
 		Option:          databaseOption,

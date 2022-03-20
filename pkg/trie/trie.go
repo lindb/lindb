@@ -104,7 +104,6 @@ func (tree *trie) Get(key []byte) (value []byte, ok bool) {
 	if tree.labelVec.GetLabel(pos) == labelTerminator && !tree.hasChildVec.IsSet(pos) {
 		if ok = tree.suffixVec.CheckSuffix(key, depth, pos); ok {
 			valPos := tree.suffixPos(pos)
-			//if ok = tree.suffixVec.CheckSuffix(key, depth, nodeID); ok {
 			value = tree.values.Get(valPos)
 		}
 		return value, ok

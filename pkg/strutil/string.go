@@ -36,20 +36,24 @@ func GetStringValue(rawString string) string {
 }
 
 func ByteSlice2String(bytes []byte) string {
-	sliceHeader := (*reflect.SliceHeader)(unsafe.Pointer(&bytes))
-	return *(*string)(unsafe.Pointer(&reflect.StringHeader{
-		Data: sliceHeader.Data,
-		Len:  sliceHeader.Len,
-	}))
+	p := unsafe.Pointer((*reflect.SliceHeader)(unsafe.Pointer(&bytes)).Data)
+
+	var s string
+	hdr := (*reflect.StringHeader)(unsafe.Pointer(&s))
+	hdr.Data = uintptr(p)
+	hdr.Len = len(bytes)
+	return s
 }
 
 func String2ByteSlice(str string) []byte {
-	hdr := *(*reflect.StringHeader)(unsafe.Pointer(&str))
-	return *(*[]byte)(unsafe.Pointer(&reflect.SliceHeader{
-		Data: hdr.Data,
-		Len:  hdr.Len,
-		Cap:  hdr.Len,
-	}))
+	p := unsafe.Pointer((*reflect.StringHeader)(unsafe.Pointer(&str)).Data)
+
+	var b []byte
+	hdr := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+	hdr.Data = uintptr(p)
+	hdr.Cap = len(str)
+	hdr.Len = len(str)
+	return b
 }
 
 // DeDupStringSlice removes the duplicated string in a list

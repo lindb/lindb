@@ -74,7 +74,6 @@ func TestFlushTagKeyID_OK(t *testing.T) {
 	sw.EXPECT().Commit().Return(nil)
 	mockKVFlusher.EXPECT().StreamWriter().Return(sw, nil).AnyTimes()
 
-	//mockKVFlusher.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil)
 	flusher, _ := NewFlusher(mockKVFlusher)
 
 	// flush tagValue1

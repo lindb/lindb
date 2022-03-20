@@ -57,7 +57,7 @@ func TestNewReplicator_runner(t *testing.T) {
 
 	// loop 1: no data
 	replicator.EXPECT().IsReady().Return(true)
-	replicator.EXPECT().Consume().Return(int64(-1)) //no data
+	replicator.EXPECT().Consume().Return(int64(-1)) // no data
 	// loop 2: get message err
 	replicator.EXPECT().IsReady().Return(true)
 	replicator.EXPECT().Consume().Return(int64(1))                          // has data

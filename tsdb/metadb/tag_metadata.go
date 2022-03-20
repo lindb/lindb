@@ -145,7 +145,7 @@ func (m *tagMetadata) GenTagValueID(tagKeyID uint32, tagValue string) (tagValueI
 	// assign new id
 	tagValueID = tag.genTagValueID()
 	tag.addTagValue(tagValue, tagValueID)
-	//TODO add wal???
+	// TODO add wal???
 
 	return tagValueID, nil
 }

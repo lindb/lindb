@@ -23,7 +23,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/lindb/lindb/app/broker/deps"
+	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 	ingestCommon "github.com/lindb/lindb/ingestion/common"
 	"github.com/lindb/lindb/pkg/http"
@@ -34,7 +34,7 @@ import (
 type parserFunc func(req *netHTTP.Request, enrichedTags tag.Tags, namespace string) (*metric.BrokerBatchRows, error)
 
 type commonWriter struct {
-	deps   *deps.HTTPDeps
+	deps   *depspkg.HTTPDeps
 	parser parserFunc
 }
 

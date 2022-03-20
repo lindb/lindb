@@ -172,7 +172,7 @@ func (p *workerPool) dispatch() {
 		case <-p.ctx.Done():
 			return
 		case task = <-p.tasks:
-			worker := p.mustGetWorker()
+			worker = p.mustGetWorker()
 			worker.execute(task)
 		case <-idleTimeoutTimer.C:
 			// timed out waiting, kill a ready worker

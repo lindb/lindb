@@ -87,7 +87,7 @@ func (mm *metricMetadata) getMetricID() metric.ID {
 // createField creates the field meta, if success return field id, else return series.ErrTooManyFields
 func (mm *metricMetadata) createField(fieldName field.Name, fieldType field.Type) (field.Meta, error) {
 	// check fields count
-	//TODO add config????
+	// TODO add config????
 	if mm.fieldIDSeq.Load() >= constants.DefaultMaxFieldsCount {
 		return field.Meta{}, series.ErrTooManyFields
 	}
@@ -127,7 +127,7 @@ func (mm *metricMetadata) createTagKey(tagKey string, tagKeyID uint32) {
 
 func (mm *metricMetadata) checkTagKey(_ string) error {
 	// check tag keys count
-	//TODO add config
+	// TODO add config
 	if len(mm.tagKeys) >= config.GlobalStorageConfig().TSDB.MaxTagKeysNumber {
 		return series.ErrTooManyTagKeys
 	}

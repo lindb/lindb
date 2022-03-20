@@ -91,7 +91,7 @@ type dataFamily struct {
 	immutableSeq map[int32]int64
 	persistSeq   map[int32]atomic.Int64
 
-	callbacks map[int32][]func(seq int64) //leader => callback
+	callbacks map[int32][]func(seq int64) // leader => callback
 
 	isFlushing     atomic.Bool    // restrict flusher concurrency
 	flushCondition sync.WaitGroup // flush condition
@@ -231,9 +231,9 @@ func (f *dataFamily) NeedFlush() bool {
 		return true
 	}
 
-	//TODO need change metric
-	//f.statistics.memdbNumber.Update(float64(len(s.families.Entries())))
-	//f.statistics.memdbTotalSize.Update(float64(s.MemDBTotalSize()))
+	// TODO need change metric
+	// f.statistics.memdbNumber.Update(float64(len(s.families.Entries())))
+	// f.statistics.memdbTotalSize.Update(float64(s.MemDBTotalSize()))
 
 	return false
 }
@@ -245,7 +245,7 @@ func (f *dataFamily) IsFlushing() bool {
 func (f *dataFamily) Flush() error {
 	if f.isFlushing.CAS(false, true) {
 		defer func() {
-			//TODO add commit kv meta after ack successfully
+			// TODO add commit kv meta after ack successfully
 			// mark flush job complete, notify
 			f.flushCondition.Done()
 			f.isFlushing.Store(false)
@@ -255,7 +255,7 @@ func (f *dataFamily) Flush() error {
 		f.flushCondition.Add(1)
 
 		startTime := time.Now()
-		//TODO flush index first????
+		// TODO flush index first????
 
 		// add lock when switch memory database
 		f.mutex.Lock()
@@ -341,7 +341,6 @@ func (f *dataFamily) memoryFilter(metricID metric.ID,
 	seriesIDs *roaring.Bitmap, timeRange timeutil.TimeRange,
 	fields field.Metas,
 ) (resultSet []flow.FilterResultSet, err error) {
-
 	memFilter := func(memDB memdb.MemoryDatabase) error {
 		rs, err := memDB.Filter(metricID, seriesIDs, timeRange, fields)
 		if err != nil {
@@ -382,7 +381,7 @@ func (f *dataFamily) fileFilter(metricID metric.ID,
 		engineLogger.Error("filter data family error", logger.Error(err))
 		return
 	}
-	//TODO need check time range???
+	// TODO need check time range???
 	var metricReaders []metricsdata.MetricReader
 	for _, reader := range readers {
 		value, err := reader.Get(metricKey)

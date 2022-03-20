@@ -93,7 +93,7 @@ func (s *StorageStatus) UnmarshalJSON(value []byte) error {
 type Storages []Storage
 
 // ToTable returns storage list as table if it has value, else return empty string.
-func (s Storages) ToTable() (int, string) {
+func (s Storages) ToTable() (rows int, tableStr string) {
 	if len(s) == 0 {
 		return 0, ""
 	}
@@ -106,7 +106,6 @@ func (s Storages) ToTable() (int, string) {
 			r.Status.String(),
 			r.Config.String(),
 		})
-
 	}
 	return len(s), writer.Render()
 }
@@ -158,7 +157,7 @@ type StorageState struct {
 
 	LiveNodes map[NodeID]StatefulNode `json:"liveNodes"`
 
-	//TODO remove??
+	// TODO remove??
 	ShardAssignments map[string]*ShardAssignment       `json:"shardAssignments"` // database's name => shard assignment
 	ShardStates      map[string]map[ShardID]ShardState `json:"shardStates"`      // database's name => shard state
 }

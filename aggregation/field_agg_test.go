@@ -17,8 +17,8 @@
 
 package aggregation
 
-//TODO need impl
-//func TestFieldAggregator_Aggregate(t *testing.T) {
+// TODO need impl
+// func TestFieldAggregator_Aggregate(t *testing.T) {
 //	ctrl := gomock.NewController(t)
 //	defer ctrl.Finish()
 //	baseTime, _ := timeutil.ParseTimestamp("20190729 10:00:00")
@@ -88,9 +88,9 @@ package aggregation
 //	assert.True(t, fieldIt.HasNext())
 //	assert.False(t, fieldIt.Next().HasNext())
 //	assert.False(t, fieldIt.HasNext())
-//}
+// }
 
-//func TestDownSamplingFieldAggregator(t *testing.T) {
+// func TestDownSamplingFieldAggregator(t *testing.T) {
 //	ctrl := gomock.NewController(t)
 //	defer ctrl.Finish()
 //	//baseTime, _ := timeutil.ParseTimestamp("20190729 10:00:00")
@@ -108,9 +108,9 @@ package aggregation
 //	assert.Nil(t, rs)
 //	//assert.Equal(t, baseTime, startTime)
 //	agg.reset()
-//}
+// }
 //
-//func TestDownSamplingFieldAggregator_GetBlock(t *testing.T) {
+// func TestDownSamplingFieldAggregator_GetBlock(t *testing.T) {
 //	aggSpec := NewDownSamplingSpec("f", field.SummaryField)
 //	agg := NewDownSamplingFieldAggregator(aggSpec, 2)
 //	block, ok := agg.GetBlock(2, func() series.Block {
@@ -124,4 +124,4 @@ package aggregation
 //	})
 //	assert.True(t, ok)
 //	assert.NotNil(t, block)
-//}
+// }

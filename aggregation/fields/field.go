@@ -51,7 +51,7 @@ type dynamicField struct {
 }
 
 // NewDynamicField creates a dynamic field series.
-func NewDynamicField(fieldType field.Type, startTime int64, interval int64, capacity int) Field {
+func NewDynamicField(fieldType field.Type, startTime, interval int64, capacity int) Field {
 	return &dynamicField{
 		fieldType: fieldType,
 		startTime: startTime,

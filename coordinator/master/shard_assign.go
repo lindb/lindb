@@ -45,7 +45,8 @@ import (
 // s8		s9		s5		s6		s7		(2st replica)
 // s3		s4		s0		s1		s2		(3st replica)
 // s7		s8		s9		s5		s6		(3st replica)
-func ShardAssignment(storageNodeIDs []models.NodeID, cfg *models.Database, fixedStartIndex int, startShardID models.ShardID) (*models.ShardAssignment, error) {
+func ShardAssignment(storageNodeIDs []models.NodeID, cfg *models.Database,
+	fixedStartIndex int, startShardID models.ShardID) (*models.ShardAssignment, error) {
 	numOfShard := cfg.NumOfShard
 	replicaFactor := cfg.ReplicaFactor
 	if numOfShard <= 0 {
@@ -125,7 +126,6 @@ func assignReplicasToStorageNodes(storageNodeIDs []models.NodeID,
 		// do next shard assign
 		currentShardID++
 	}
-
 }
 
 // replicaIndex calculates replica index based on first replica index and shift

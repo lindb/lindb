@@ -34,9 +34,9 @@ var (
 // RepositoryFactory represents the repository create factory.
 type RepositoryFactory interface {
 	// CreateBrokerRepo creates broker state repository based on config
-	CreateBrokerRepo(repoState config.RepoState) (Repository, error)
+	CreateBrokerRepo(repoState *config.RepoState) (Repository, error)
 	// CreateStorageRepo creates storage state repository based on config
-	CreateStorageRepo(repoState config.RepoState) (Repository, error)
+	CreateStorageRepo(repoState *config.RepoState) (Repository, error)
 }
 
 // Repository stores state data, such as metadata/config/status/task etc.
@@ -144,11 +144,11 @@ func NewRepositoryFactory(owner string) RepositoryFactory {
 	return &repositoryFactory{owner: owner}
 }
 
-func (f *repositoryFactory) CreateBrokerRepo(repoState config.RepoState) (Repository, error) {
+func (f *repositoryFactory) CreateBrokerRepo(repoState *config.RepoState) (Repository, error) {
 	return newEtcdRepository(repoState.WithSubNamespace("broker"), f.owner)
 }
 
-func (f *repositoryFactory) CreateStorageRepo(repoState config.RepoState) (Repository, error) {
+func (f *repositoryFactory) CreateStorageRepo(repoState *config.RepoState) (Repository, error) {
 	return newEtcdRepository(repoState.WithSubNamespace("storage"), f.owner)
 }
 

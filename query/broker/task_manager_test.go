@@ -58,14 +58,15 @@ func TestTaskManager_SubmitMetricTask_WithoutIntermediates(t *testing.T) {
 		time.Second*10,
 	)
 	physicalPlan := models.NewPhysicalPlan(models.Root{Indicator: "1.1.1.3:8000", NumOfTask: 2})
-	physicalPlan.AddLeaf(models.Leaf{
+	leaf := &models.Leaf{
 		BaseNode: models.BaseNode{
 			Parent:    "1.1.1.3:8000",
 			Indicator: "1.1.1.1:9000",
 		},
 		Receivers: []models.StatelessNode{{HostIP: "1.1.1.1", GRPCPort: 2000}},
 		ShardIDs:  []models.ShardID{1, 2, 4},
-	})
+	}
+	physicalPlan.AddLeaf(leaf)
 	// no client
 	taskClientFactory.EXPECT().GetTaskClient(gomock.Any()).
 		Return(nil).Times(1)
@@ -159,14 +160,15 @@ func TestTaskManager_SubmitMetaDataTask(t *testing.T) {
 	)
 
 	physicalPlan := models.NewPhysicalPlan(models.Root{Indicator: "1.1.1.3:8000", NumOfTask: 2})
-	physicalPlan.AddLeaf(models.Leaf{
+	leaf := &models.Leaf{
 		BaseNode: models.BaseNode{
 			Parent:    "1.1.1.4:8000",
 			Indicator: "1.1.1.2:9000",
 		},
 		Receivers: []models.StatelessNode{{HostIP: "1.1.1.1", GRPCPort: 2000}},
 		ShardIDs:  []models.ShardID{1, 2, 4},
-	})
+	}
+	physicalPlan.AddLeaf(leaf)
 	// send error
 	client := protoCommonV1.NewMockTaskService_HandleClient(ctrl)
 	client.EXPECT().Send(gomock.Any()).Return(io.ErrClosedPipe)
@@ -208,5 +210,4 @@ func TestTaskManager_cleaner(t *testing.T) {
 
 	tm.tasks.Store("1", task)
 	time.Sleep(time.Second)
-
 }

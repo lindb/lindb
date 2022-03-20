@@ -148,7 +148,7 @@ func (p *partition) IsExpire() bool {
 		}
 	}
 	opt := p.shard.Database().GetOption()
-	ahead, _ := (&opt).GetAcceptWritableRange()
+	ahead, _ := opt.GetAcceptWritableRange()
 	timeRange := p.family.TimeRange()
 	now := fasttime.UnixMilliseconds()
 	// add 15 minute buffer
@@ -196,7 +196,7 @@ func (p *partition) BuildReplicaForLeader(
 }
 
 // BuildReplicaForFollower builds replica relation when handle replica connection.
-func (p *partition) BuildReplicaForFollower(leader models.NodeID, replica models.NodeID) error {
+func (p *partition) BuildReplicaForFollower(leader, replica models.NodeID) error {
 	if replica != p.currentNodeID {
 		return fmt.Errorf("[BUG] replica not equals current node")
 	}
@@ -255,7 +255,7 @@ func (p *partition) getReplicaState() models.FamilyLogReplicaState {
 }
 
 // buildReplica builds replica replication based on leader/follower node.
-func (p *partition) buildReplica(leader models.NodeID, replica models.NodeID) error {
+func (p *partition) buildReplica(leader, replica models.NodeID) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	_, ok := p.peers[replica]

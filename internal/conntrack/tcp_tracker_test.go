@@ -56,6 +56,7 @@ func (tracker *testListenerTracker) shutdown() {
 
 func Test_TrackedListenerTracker(t *testing.T) {
 	tracker := &testListenerTracker{}
+	defer tracker.shutdown()
 	tracker.Prepare(t)
 
 	conn, err := (&net.Dialer{}).DialContext(context.TODO(), "tcp", tracker.serverListener.Addr().String())

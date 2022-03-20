@@ -19,7 +19,6 @@ package fileutil
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"path"
 	"testing"
@@ -55,22 +54,18 @@ func TestRWMap(t *testing.T) {
 
 	buffer := bytes.NewBuffer(mapBytes[:0])
 
-	if _, err := buffer.Write(content); err != nil {
-		t.Error("buffer write", err)
-	}
+	_, err = buffer.Write(content)
+	assert.NoError(t, err)
 
-	if err := Sync(mapBytes); err != nil {
-		t.Error(err)
-	}
+	err = Sync(mapBytes)
+	assert.NoError(t, err)
 
 	if Unmap(mapBytes) != nil {
 		t.Errorf("unmap mapBytes with error: %v", err)
 	}
 
-	fileContent, err := ioutil.ReadFile(filename)
-	if err != nil {
-		t.Error("read file error", err)
-	}
+	fileContent, err := os.ReadFile(filename)
+	assert.NoError(t, err)
 
 	assert.Len(t, fileContent, size)
 

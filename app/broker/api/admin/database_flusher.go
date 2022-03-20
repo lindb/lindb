@@ -23,7 +23,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/lindb/lindb/app/broker/deps"
+	depspkg "github.com/lindb/lindb/app/broker/deps"
 	httppkg "github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/logger"
 )
@@ -37,13 +37,13 @@ var (
 
 // DatabaseFlusherAPI represents the memory database flush by manual.
 type DatabaseFlusherAPI struct {
-	deps *deps.HTTPDeps
+	deps *depspkg.HTTPDeps
 
 	logger *logger.Logger
 }
 
 // NewDatabaseFlusherAPI create database flusher api.
-func NewDatabaseFlusherAPI(deps *deps.HTTPDeps) *DatabaseFlusherAPI {
+func NewDatabaseFlusherAPI(deps *depspkg.HTTPDeps) *DatabaseFlusherAPI {
 	return &DatabaseFlusherAPI{
 		deps:   deps,
 		logger: logger.GetLogger("broker", "DatabaseFlusherAPI"),
@@ -75,11 +75,11 @@ func (df *DatabaseFlusherAPI) SubmitFlushTask(c *gin.Context) {
 	} else {
 		// if current node is not master, need forward to master node
 		masterNode := df.deps.Master.GetMaster().Node
-		resp, err := httpGet(fmt.Sprintf("http://%s"+c.Request.RequestURI, masterNode.Indicator())) //TODO use grpc??
+		resp, err := httpGet(fmt.Sprintf("http://%s"+c.Request.RequestURI, masterNode.Indicator())) // TODO use grpc??
 		if resp != nil {
 			if resp.Body != nil {
-				if err := resp.Body.Close(); err != nil {
-					df.logger.Error("close http response body", logger.Error(err))
+				if err0 := resp.Body.Close(); err0 != nil {
+					df.logger.Error("close http response body", logger.Error(err0))
 				}
 			}
 

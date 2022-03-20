@@ -48,13 +48,14 @@ func TestChannelManager_GetChannel(t *testing.T) {
 	_, err := cm.CreateChannel(models.Database{Name: "database"}, 2, 2)
 	assert.Error(t, err)
 
+	opt := &option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}
 	ch1, err := cm.CreateChannel(models.Database{Name: "database",
-		Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}},
+		Option: opt,
 	}, 3, 0)
 	assert.NoError(t, err)
 
 	ch111, err := cm.CreateChannel(models.Database{Name: "database",
-		Option: option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}},
+		Option: opt,
 	}, 3, 0)
 	assert.NoError(t, err)
 	assert.Equal(t, ch111, ch1)

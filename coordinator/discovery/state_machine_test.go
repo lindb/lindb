@@ -122,7 +122,7 @@ func TestStateMachine_Close(t *testing.T) {
 	sm1.discovery = discovery
 	err := sm.Close()
 	assert.NoError(t, err)
-	//state machine is not running, do nothing
+	// state machine is not running, do nothing
 	err = sm.Close()
 	assert.NoError(t, err)
 }

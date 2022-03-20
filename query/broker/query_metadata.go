@@ -27,7 +27,7 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/strutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
-	"github.com/lindb/lindb/sql/stmt"
+	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
 type metadataQuery struct {
@@ -35,7 +35,7 @@ type metadataQuery struct {
 	ctx     context.Context
 
 	database      string
-	metaStmtQuery *stmt.MetricMetadata
+	metaStmtQuery *stmtpkg.MetricMetadata
 
 	results []string
 }
@@ -44,7 +44,7 @@ type metadataQuery struct {
 func newMetadataQuery(
 	ctx context.Context,
 	database string,
-	stmt *stmt.MetricMetadata,
+	stmt *stmtpkg.MetricMetadata,
 	queryBuilder *queryFactory,
 ) MetaDataQuery {
 	return &metadataQuery{
@@ -88,7 +88,7 @@ func (mq *metadataQuery) WaitResponse() ([]string, error) {
 
 // buildPhysicalPlan builds distribution physical execute plan
 func (mq *metadataQuery) makePlan() (*models.PhysicalPlan, error) {
-	//FIXME need using storage's replica state ???
+	// FIXME need using storage's replica state ???
 	storageNodes, err := mq.runtime.stateMgr.GetQueryableReplicas(mq.database)
 	if err != nil {
 		return nil, err
@@ -108,14 +108,15 @@ func (mq *metadataQuery) makePlan() (*models.PhysicalPlan, error) {
 	}
 	receivers := []models.StatelessNode{curBroker}
 	for storageNode, shardIDs := range storageNodes {
-		physicalPlan.AddLeaf(models.Leaf{
+		leaf := &models.Leaf{
 			BaseNode: models.BaseNode{
 				Parent:    curBrokerIndicator,
 				Indicator: storageNode,
 			},
 			ShardIDs:  shardIDs,
 			Receivers: receivers,
-		})
+		}
+		physicalPlan.AddLeaf(leaf)
 	}
 	return physicalPlan, nil
 }

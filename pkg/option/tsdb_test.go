@@ -63,7 +63,6 @@ func TestDatabaseOption_Validate(t *testing.T) {
 	for _, tt := range cases {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-
 			err := tt.in.Validate()
 			if tt.wantErr {
 				assert.Error(t, err)

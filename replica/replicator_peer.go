@@ -96,7 +96,7 @@ func (r *replicatorRunner) shutdown() {
 
 func (r *replicatorRunner) loop() {
 	for r.running.Load() {
-		//TODO need handle panic
+		// TODO need handle panic
 		hasData := false
 
 		if r.replicator.IsReady() {
@@ -108,7 +108,7 @@ func (r *replicatorRunner) loop() {
 				hasData = true
 				data, err := r.replicator.GetMessage(seq)
 				if err != nil {
-					//TODO add metric
+					// TODO add metric
 					r.logger.Warn("cannot get replica message data",
 						logger.String("replicator", r.replicator.String()),
 						logger.Int64("index", seq))
@@ -120,7 +120,7 @@ func (r *replicatorRunner) loop() {
 			r.logger.Warn("replica is not ready", logger.String("replicator", r.replicator.String()))
 		}
 		if !hasData {
-			//TODO add config?
+			// TODO add config?
 			time.Sleep(10 * time.Millisecond)
 		}
 	}

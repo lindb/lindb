@@ -21,14 +21,14 @@ import (
 	"context"
 	"strings"
 
-	"github.com/lindb/lindb/app/broker/deps"
+	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
 // QueryCommand executes metric query.
-func QueryCommand(ctx context.Context, deps *deps.HTTPDeps,
+func QueryCommand(ctx context.Context, deps *depspkg.HTTPDeps,
 	param *models.ExecuteParam, stmt stmtpkg.Statement) (interface{}, error) {
 	if strings.TrimSpace(param.Database) == "" {
 		return nil, constants.ErrDatabaseNameRequired

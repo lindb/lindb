@@ -22,7 +22,6 @@ import (
 
 	"github.com/lindb/lindb/pkg/encoding"
 
-	"github.com/BurntSushi/toml"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -51,7 +50,7 @@ func TestInterval_MarshalText(t *testing.T) {
 	for _, tt := range cases {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			val, err := toml.TextMarshaler.MarshalText(&tt.in)
+			val, err := tt.in.MarshalText()
 			assert.NoError(t, err)
 			assert.Equal(t, tt.assert, val)
 		})

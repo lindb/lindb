@@ -116,7 +116,7 @@ func NewTagForwardReader(buf []byte) (TagForwardReader, error) {
 }
 
 // GetSeriesAndTagValue returns group by container and tag value ids
-func (r *tagForwardReader) GetSeriesAndTagValue(highKey uint16) (roaring.Container, []uint32) {
+func (r *tagForwardReader) GetSeriesAndTagValue(highKey uint16) (lowSeriesIDs roaring.Container, tagValueIDs []uint32) {
 	index := r.keys.GetContainerIndex(highKey)
 	if index < 0 {
 		// data not found
@@ -126,15 +126,15 @@ func (r *tagForwardReader) GetSeriesAndTagValue(highKey uint16) (roaring.Contain
 	offset, _ := r.offsets.Get(index)
 	tagValueIDsFromFile := encoding.NewDeltaBitPackingDecoder(r.buf[offset:])
 
-	container := r.keys.GetContainerAtIndex(index)
-	tagValueIDsCount := container.GetCardinality()
-	tagValueIDs := make([]uint32, tagValueIDsCount)
+	lowSeriesIDs = r.keys.GetContainerAtIndex(index)
+	tagValueIDsCount := lowSeriesIDs.GetCardinality()
+	tagValueIDs = make([]uint32, tagValueIDsCount)
 	i := 0
 	for tagValueIDsFromFile.HasNext() {
 		tagValueIDs[i] = uint32(tagValueIDsFromFile.Next())
 		i++
 	}
-	return container, tagValueIDs
+	return lowSeriesIDs, tagValueIDs
 }
 
 // getSeriesIDs gets all series ids under this tag key

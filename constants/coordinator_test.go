@@ -37,5 +37,4 @@ func TestGetNodePath(t *testing.T) {
 
 func TestGetStorageClusterConfigPath(t *testing.T) {
 	assert.Equal(t, StorageConfigPath+"/name", GetStorageClusterConfigPath("name"))
-
 }

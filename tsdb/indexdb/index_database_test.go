@@ -444,7 +444,6 @@ func TestIndexDatabase_Flush(t *testing.T) {
 	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
 	defer func() {
-
 		createBackendFn = newIDMappingBackend
 		ctrl.Finish()
 	}()

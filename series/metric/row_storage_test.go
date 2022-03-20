@@ -155,7 +155,6 @@ func Test_MetricRow_WithSimpleFields(t *testing.T) {
 		}
 		assert.Equal(t, 10, count)
 	}
-
 }
 
 func Test_MetricRow_WithCompoundField(t *testing.T) {

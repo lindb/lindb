@@ -19,6 +19,7 @@ package proto
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"strings"
 	"testing"
@@ -52,7 +53,7 @@ func makeGzipData(testMetricList *protoMetricsV1.MetricList) []byte {
 func Test_Parse(t *testing.T) {
 	r := bytes.NewReader(makeGzipData(testMetricList))
 
-	req, err := http.NewRequest(http.MethodPut, "", r)
+	req, err := http.NewRequestWithContext(context.TODO(), http.MethodPut, "", r)
 	assert.Nil(t, err)
 	assert.NotNil(t, req)
 	req.Header.Set("Content-Encoding", "gzip")
@@ -70,7 +71,7 @@ func Test_Parse(t *testing.T) {
 }
 
 func Test_Parse_badGzipData(t *testing.T) {
-	req, err := http.NewRequest(http.MethodPut, "", strings.NewReader("bad-data"))
+	req, err := http.NewRequestWithContext(context.TODO(), http.MethodPut, "", strings.NewReader("bad-data"))
 	assert.Nil(t, err)
 	assert.NotNil(t, req)
 	req.Header.Set("Content-Encoding", "gzip")
@@ -79,7 +80,7 @@ func Test_Parse_badGzipData(t *testing.T) {
 }
 
 func Test_Parse_error(t *testing.T) {
-	req, _ := http.NewRequest(http.MethodPut, "", strings.NewReader("bad-data"))
+	req, _ := http.NewRequestWithContext(context.TODO(), http.MethodPut, "", strings.NewReader("bad-data"))
 	_, err := Parse(req, nil, "ns")
 	assert.NotNil(t, err)
 }
@@ -87,7 +88,7 @@ func Test_Parse_error(t *testing.T) {
 func Test_Parser_empty(t *testing.T) {
 	var m = &protoMetricsV1.MetricList{}
 	data, _ := m.Marshal()
-	req, _ := http.NewRequest(http.MethodPut, "", bytes.NewReader(data))
+	req, _ := http.NewRequestWithContext(context.TODO(), http.MethodPut, "", bytes.NewReader(data))
 	_, err := Parse(req, nil, "ns")
 	assert.NotNil(t, err)
 }

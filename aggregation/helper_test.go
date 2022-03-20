@@ -32,41 +32,6 @@ import (
 //                mock interface				 //
 ///////////////////////////////////////////////////
 
-// MockSumFieldIterator returns mock an iterator of sum field
-//func MockSumFieldIterator(ctrl *gomock.Controller, fieldID field.PrimitiveID, points map[int]interface{}) *series.MockFieldIterator {
-//	it := series.NewMockFieldIterator(ctrl)
-//	it.EXPECT().HasNext().Return(true)
-//
-//	primitiveIt := series.NewMockPrimitiveIterator(ctrl)
-//	it.EXPECT().Next().Return(primitiveIt)
-//
-//	primitiveIt.EXPECT().FieldID().Return(fieldID)
-//	primitiveIt.EXPECT().AggType().Return(field.Sum)
-//
-//	var keys []int
-//	for timeSlot := range points {
-//		keys = append(keys, timeSlot)
-//	}
-//	sort.Slice(keys, func(i, j int) bool {
-//		return keys[i] < keys[j]
-//	})
-//
-//	for _, timeSlot := range keys {
-//		primitiveIt.EXPECT().HasNext().Return(true)
-//		primitiveIt.EXPECT().Next().Return(timeSlot, points[timeSlot])
-//	}
-//	// mock nil primitive iterator
-//	it.EXPECT().HasNext().Return(true)
-//	it.EXPECT().Next().Return(nil)
-//
-//	// return hasNext=>false, finish primitive iterator
-//	primitiveIt.EXPECT().HasNext().Return(false).AnyTimes()
-//
-//	// sum field only has one primitive field
-//	it.EXPECT().HasNext().Return(false).AnyTimes()
-//	return it
-//}
-
 func AssertFieldIt(t *testing.T, it series.FieldIterator, expect map[int]float64) {
 	count := 0
 	for it.HasNext() {

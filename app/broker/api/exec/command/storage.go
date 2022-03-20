@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lindb/lindb/app/broker/deps"
+	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
@@ -36,7 +36,7 @@ import (
 var log = logger.GetLogger("exec", "Command")
 
 // storageCommandFn represents storage command function define.
-type storageCommandFn = func(ctx context.Context, deps *deps.HTTPDeps, stmt *stmtpkg.Storage) (interface{}, error)
+type storageCommandFn = func(ctx context.Context, deps *depspkg.HTTPDeps, stmt *stmtpkg.Storage) (interface{}, error)
 
 // storageCommands registers all storage related commands.
 var storageCommands = map[stmtpkg.StorageOpType]storageCommandFn{
@@ -45,7 +45,7 @@ var storageCommands = map[stmtpkg.StorageOpType]storageCommandFn{
 }
 
 // StorageCommand executes lin query language for storage related.
-func StorageCommand(ctx context.Context, deps *deps.HTTPDeps, _ *models.ExecuteParam, stmt stmtpkg.Statement) (interface{}, error) {
+func StorageCommand(ctx context.Context, deps *depspkg.HTTPDeps, _ *models.ExecuteParam, stmt stmtpkg.Statement) (interface{}, error) {
 	storageStmt := stmt.(*stmtpkg.Storage)
 	commandFn, ok := storageCommands[storageStmt.Type]
 	if ok {
@@ -55,7 +55,7 @@ func StorageCommand(ctx context.Context, deps *deps.HTTPDeps, _ *models.ExecuteP
 }
 
 // List lists all storage clusters
-func listStorages(ctx context.Context, deps *deps.HTTPDeps, _ *stmtpkg.Storage) (interface{}, error) {
+func listStorages(ctx context.Context, deps *depspkg.HTTPDeps, _ *stmtpkg.Storage) (interface{}, error) {
 	data, err := deps.Repo.List(ctx, constants.StorageConfigPath)
 	if err != nil {
 		return nil, err
@@ -74,7 +74,7 @@ func listStorages(ctx context.Context, deps *deps.HTTPDeps, _ *stmtpkg.Storage) 
 				storage.Status = models.StorageStatusReady
 			} else {
 				storage.Status = models.StorageStatusInitialize
-				//TODO check storage un-health
+				// TODO check storage un-health
 			}
 			storages = append(storages, storage)
 		}
@@ -87,14 +87,15 @@ func listStorages(ctx context.Context, deps *deps.HTTPDeps, _ *stmtpkg.Storage) 
 }
 
 // createStorage creates config of storage cluster.
-func createStorage(ctx context.Context, deps *deps.HTTPDeps, stmt *stmtpkg.Storage) (interface{}, error) {
+func createStorage(ctx context.Context, deps *depspkg.HTTPDeps, stmt *stmtpkg.Storage) (interface{}, error) {
 	data := []byte(stmt.Value)
 	storage := &config.StorageCluster{}
 	err := encoding.JSONUnmarshal(data, storage)
 	if err != nil {
 		return nil, err
 	}
-	if err = validate.Validator.Struct(storage); err != nil {
+	err = validate.Validator.Struct(storage)
+	if err != nil {
 		return nil, err
 	}
 
@@ -105,7 +106,8 @@ func createStorage(ctx context.Context, deps *deps.HTTPDeps, stmt *stmtpkg.Stora
 	if err != nil {
 		return nil, err
 	}
-	if err = repo.Close(); err != nil {
+	err = repo.Close()
+	if err != nil {
 		return nil, err
 	}
 

@@ -67,7 +67,6 @@ func Test_main(t *testing.T) {
 					})
 
 				runPromptFn = func(p *prompt.Prompt) {
-					return
 				}
 				newPrompt = func(executor prompt.Executor, completer prompt.Completer,
 					opts ...prompt.Option) *prompt.Prompt {

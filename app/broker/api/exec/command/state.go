@@ -25,7 +25,7 @@ import (
 
 	"github.com/go-resty/resty/v2"
 
-	"github.com/lindb/lindb/app/broker/deps"
+	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
@@ -33,7 +33,8 @@ import (
 )
 
 // StateCommand executes the state query.
-func StateCommand(_ context.Context, deps *deps.HTTPDeps, _ *models.ExecuteParam, stmt stmtpkg.Statement) (interface{}, error) {
+func StateCommand(_ context.Context, deps *depspkg.HTTPDeps,
+	_ *models.ExecuteParam, stmt stmtpkg.Statement) (interface{}, error) {
 	stateStmt := stmt.(*stmtpkg.State)
 	switch stateStmt.Type {
 	case stmtpkg.Master:
@@ -73,7 +74,7 @@ func StateCommand(_ context.Context, deps *deps.HTTPDeps, _ *models.ExecuteParam
 }
 
 // getReplicaState returns wal replica state.
-func getReplicaState(deps *deps.HTTPDeps, stmt *stmtpkg.State) (interface{}, error) {
+func getReplicaState(deps *depspkg.HTTPDeps, stmt *stmtpkg.State) (interface{}, error) {
 	storage, ok := deps.StateMgr.GetStorage(stmt.StorageName)
 	if !ok {
 		return nil, nil

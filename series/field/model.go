@@ -49,7 +49,8 @@ func (fs Fields) Search(name []byte) (idx int, ok bool) {
 func (fs Fields) Insert(f Field) Fields {
 	idx, ok := fs.Search(f.Name)
 	if !ok {
-		next := append(fs, f)
+		next := fs
+		next = append(next, f)
 		sort.Sort(next)
 		return next
 	}

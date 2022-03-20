@@ -18,7 +18,6 @@
 package fileutil
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 )
@@ -69,7 +68,7 @@ func MkDir(path string) error {
 
 // ListDir reads the directory named by dirname and returns a list of filename.
 func ListDir(path string) ([]string, error) {
-	files, err := ioutil.ReadDir(path)
+	files, err := os.ReadDir(path)
 	if err != nil {
 		return nil, err
 	}
@@ -95,6 +94,9 @@ func GetExistPath(path string) string {
 	}
 	dir, _ := filepath.Split(path)
 	length := len(dir)
+	if length == 0 {
+		return dir
+	}
 	if length > 0 && os.IsPathSeparator(dir[length-1]) {
 		dir = dir[:length-1]
 	}

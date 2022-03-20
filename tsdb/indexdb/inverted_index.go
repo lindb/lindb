@@ -78,7 +78,7 @@ type invertedIndex struct {
 	genTagValueFailCounter *linmetric.BoundCounter
 }
 
-func newInvertedIndex(metadata metadb.Metadata, forwardFamily kv.Family, invertedFamily kv.Family) InvertedIndex {
+func newInvertedIndex(metadata metadb.Metadata, forwardFamily, invertedFamily kv.Family) InvertedIndex {
 	return &invertedIndex{
 		invertedFamily:         invertedFamily,
 		forwardFamily:          forwardFamily,

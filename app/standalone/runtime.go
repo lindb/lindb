@@ -127,7 +127,7 @@ func (r *runtime) Run() error {
 			Storage:       r.cfg.Coordinator.Namespace,
 			NumOfShard:    1,
 			ReplicaFactor: 1,
-			Option: option.DatabaseOption{
+			Option: &option.DatabaseOption{
 				Intervals: option.Intervals{
 					{
 						Interval:  timeutil.Interval(10 * timeutil.OneSecond),
@@ -214,25 +214,28 @@ func (r *runtime) startETCD() error {
 // 1. master node in etcd, because etcd will trigger master node expire event
 // 2. stateful node in etcd
 func (r *runtime) cleanupState() error {
-	brokerRepo, err := r.repoFactory.CreateBrokerRepo(r.cfg.Coordinator)
+	brokerRepo, err := r.repoFactory.CreateBrokerRepo(&r.cfg.Coordinator)
 	if err != nil {
 		return fmt.Errorf("start broker state repo error:%s", err)
 	}
 	defer func() {
-		if err := brokerRepo.Close(); err != nil {
+		err = brokerRepo.Close()
+		if err != nil {
 			log.Error("close broker state repo when do cleanup", logger.Error(err))
 		}
 	}()
-	if err := brokerRepo.Delete(context.TODO(), constants.MasterPath); err != nil {
+	err = brokerRepo.Delete(context.TODO(), constants.MasterPath)
+	if err != nil {
 		return fmt.Errorf("delete old master error")
 	}
 
-	storageRepo, err := r.repoFactory.CreateStorageRepo(r.cfg.Coordinator)
+	storageRepo, err := r.repoFactory.CreateStorageRepo(&r.cfg.Coordinator)
 	if err != nil {
 		return fmt.Errorf("start storage state repo error:%s", err)
 	}
 	defer func() {
-		if err := storageRepo.Close(); err != nil {
+		err = storageRepo.Close()
+		if err != nil {
 			log.Error("close storage state repo when do cleanup", logger.Error(err))
 		}
 	}()

@@ -102,7 +102,7 @@ func printErr(err error) {
 func executor(in string) {
 	in = strings.TrimSpace(in)
 	if strings.HasSuffix(in, ";") {
-		query = query + in
+		query += in
 		live = true
 
 		defer func() {
@@ -173,7 +173,6 @@ func executor(in string) {
 
 	query += strings.TrimSuffix(in, "\r\n") + " "
 	live = false
-	return
 }
 
 // completer returns prompt suggest.
@@ -192,7 +191,7 @@ func main() {
 	if !strings.HasPrefix(endpoint, HTTPScheme) {
 		endpoint = fmt.Sprintf("%s%s", HTTPScheme, endpoint)
 	}
-	endpointUrl, err := urlParse(endpoint)
+	endpointURL, err := urlParse(endpoint)
 	if err != nil {
 		printErr(err)
 		return
@@ -210,7 +209,7 @@ func main() {
 	}
 	fmt.Println("Welcome to the LinDB.")
 	fmt.Printf("Server version: %s\n", master.Node.Version)
-	endpointStr := fmt.Sprintf("lin@%s", endpointUrl.Host)
+	endpointStr := fmt.Sprintf("lin@%s", endpointURL.Host)
 	var spaces []string
 	for i := 2; i < len(endpointStr); i++ {
 		spaces = append(spaces, " ")

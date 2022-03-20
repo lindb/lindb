@@ -49,7 +49,6 @@ func Test_Sql_examples(t *testing.T) {
 		{true, "select used_percent,free as f,total as t,a+1 from mem where time>now()-1h group by node,role"},
 		{false, "drop x from y where drop = 'sss'"},
 	}
-	//TODO table test
 	for _, example := range examples {
 		_, err := Parse(example.sql)
 		if example.ok {

@@ -118,19 +118,19 @@ type runtime struct {
 }
 
 // NewBrokerRuntime creates broker runtime
-func NewBrokerRuntime(version string, config *config.Broker, enableSystemMonitor bool) server.Service {
+func NewBrokerRuntime(version string, cfg *config.Broker, enableSystemMonitor bool) server.Service {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &runtime{
 		version:     version,
 		state:       server.New,
-		config:      config,
+		config:      cfg,
 		repoFactory: newRepositoryFactory("broker"),
 		ctx:         ctx,
 		cancel:      cancel,
 		queryPool: concurrent.NewPool(
 			"task-pool",
-			config.Query.QueryConcurrency,
-			config.Query.IdleTimeout.Duration(),
+			cfg.Query.QueryConcurrency,
+			cfg.Query.IdleTimeout.Duration(),
 			linmetric.BrokerRegistry.NewScope("lindb.concurrent", "pool_name", "broker-query"),
 		),
 		enableSystemMonitor: enableSystemMonitor,
@@ -166,7 +166,8 @@ func (r *runtime) Run() error {
 	}
 
 	// start state repository
-	if err := r.startStateRepo(); err != nil {
+	err = r.startStateRepo()
+	if err != nil {
 		r.log.Error("failed to startStateRepo", logger.Error(err))
 		r.state = server.Failed
 		return err
@@ -212,7 +213,8 @@ func (r *runtime) Run() error {
 
 	// register broker node info
 	r.registry = newRegistry(r.repo, constants.LiveNodesPath, time.Second*time.Duration(r.config.Coordinator.LeaseTTL))
-	if err := r.registry.Register(r.node); err != nil {
+	err = r.registry.Register(r.node)
+	if err != nil {
 		r.state = server.Failed
 		return fmt.Errorf("register broker node error:%s", err)
 	}
@@ -380,7 +382,7 @@ func (r *runtime) startHTTPServer() {
 // startStateRepo starts state repository
 func (r *runtime) startStateRepo() error {
 	// set a sub namespace
-	repo, err := r.repoFactory.CreateBrokerRepo(r.config.Coordinator)
+	repo, err := r.repoFactory.CreateBrokerRepo(&r.config.Coordinator)
 	if err != nil {
 		return fmt.Errorf("start broker state repository error:%s", err)
 	}
@@ -406,11 +408,11 @@ func (r *runtime) buildServiceDependency() {
 	// close connections in connection-manager
 	r.factory.taskClient.SetTaskReceiver(taskManager)
 
-	srv := srv{
+	s := srv{
 		channelManager: cm,
 		taskManager:    taskManager,
 	}
-	r.srv = srv
+	r.srv = s
 }
 
 // startGRPCServer starts the GRPC server

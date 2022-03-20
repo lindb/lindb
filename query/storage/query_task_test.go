@@ -300,5 +300,4 @@ func TestCollectTagValuesTask_Run(t *testing.T) {
 		meta, tag.Meta{ID: 10}, roaring.BitmapOf(1, 2), nil)
 	err = task.Run()
 	assert.NoError(t, err)
-
 }

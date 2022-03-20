@@ -44,7 +44,7 @@ type etcdRepository struct {
 }
 
 // newEtcdRepository creates a new repository based on etcd storage
-func newEtcdRepository(repoState config.RepoState, owner string) (Repository, error) {
+func newEtcdRepository(repoState *config.RepoState, owner string) (Repository, error) {
 	zapCfg := zap.NewProductionConfig()
 	zapCfg.Level = zap.NewAtomicLevelAt(zapcore.ErrorLevel)
 	cfg := etcdcliv3.Config{
@@ -147,7 +147,8 @@ func (r *etcdRepository) PutWithTX(ctx context.Context, key string, val []byte, 
 	if len(resp.Kvs) > 0 {
 		old := resp.Kvs[0]
 		if check != nil {
-			if err := check(old.Value); err != nil {
+			err = check(old.Value)
+			if err != nil {
 				return false, err
 			}
 		}
@@ -199,7 +200,7 @@ func (r *etcdRepository) Heartbeat(ctx context.Context, key string, value []byte
 func (r *etcdRepository) Elect(
 	ctx context.Context, key string,
 	value []byte, ttl int64,
-) (bool, <-chan Closed, error) {
+) (ok bool, closed <-chan Closed, err error) {
 	h := newHeartbeat(r.client, r.keyPath(key), value, ttl, true)
 	h.withLogger(r.logger)
 	success, err := h.grantKeepAliveLease(ctx)
@@ -306,7 +307,8 @@ func (r *etcdRepository) NextSequence(ctx context.Context, key string) (int64, e
 
 	m := concurrency.NewMutex(s, key)
 
-	if err := m.Lock(ctx); err != nil {
+	err = m.Lock(ctx)
+	if err != nil {
 		return 0, err
 	}
 	defer func() {
@@ -345,7 +347,7 @@ func (r *etcdRepository) keyPath(key string) string {
 
 // parseKey parses the key, removes the namespace
 func (r *etcdRepository) parseKey(key string) string {
-	if len(r.namespace) == 0 {
+	if r.namespace == "" {
 		return key
 	}
 	return strings.Replace(key, r.namespace, "", 1)

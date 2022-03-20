@@ -50,7 +50,7 @@ func Test_Encode(t *testing.T) {
 	files, _ := fileutil.ListDir(testPath)
 	assert.Equal(t, "toml", files[0])
 
-	assert.NotNil(t, EncodeToml(filepath.Join(os.TempDir(), "/tmp/test.toml"), []byte{}))
+	assert.NotNil(t, EncodeToml(filepath.Join(os.TempDir(), "tmp", "test.toml"), []byte{}))
 }
 
 func Test_WriteConfig(t *testing.T) {

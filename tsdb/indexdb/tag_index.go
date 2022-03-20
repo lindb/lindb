@@ -49,7 +49,7 @@ type memGroupingScanner struct {
 }
 
 // GetSeriesAndTagValue returns group by container and tag value ids
-func (g *memGroupingScanner) GetSeriesAndTagValue(highKey uint16) (roaring.Container, []uint32) {
+func (g *memGroupingScanner) GetSeriesAndTagValue(highKey uint16) (lowSeriesIDs roaring.Container, tagValueIDs []uint32) {
 	index := g.forward.keys.GetContainerIndex(highKey)
 	if index < 0 {
 		// data not found
@@ -84,7 +84,7 @@ func (index *tagIndex) GetGroupingScanner(seriesIDs *roaring.Bitmap) ([]series.G
 }
 
 // buildInvertedIndex builds inverted index for tag value id
-func (index *tagIndex) buildInvertedIndex(tagValueID uint32, seriesID uint32) {
+func (index *tagIndex) buildInvertedIndex(tagValueID, seriesID uint32) {
 	seriesIDs, ok := index.inverted.Get(tagValueID)
 	if !ok {
 		// create new series ids for new tag value

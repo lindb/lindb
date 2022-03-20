@@ -167,7 +167,7 @@ func (d *XORDecoder) Next() bool {
 		return false
 	}
 	if b == bit.Zero {
-		//same as previous, do nothing, use previous value directly
+		// same as previous, do nothing, use previous value directly
 	} else {
 		// read control bit
 		b, d.err = d.br.ReadBit()
@@ -189,7 +189,7 @@ func (d *XORDecoder) Next() bool {
 			blockSize += blockSizeAdjustment
 			d.trailing = 64 - d.leading - blockSize
 		} else {
-			//reuse previous leading and trailing
+			// reuse previous leading and trailing
 			blockSize = 64 - d.leading - d.trailing
 		}
 		delta, err := d.br.ReadBits(int(blockSize))

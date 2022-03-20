@@ -32,7 +32,7 @@ type FileMeta struct {
 }
 
 // NewFileMeta new FileMeta instance
-func NewFileMeta(fileNumber table.FileNumber, minKey uint32, maxKey uint32, fileSize uint32) *FileMeta {
+func NewFileMeta(fileNumber table.FileNumber, minKey, maxKey, fileSize uint32) *FileMeta {
 	return &FileMeta{
 		fileNumber: fileNumber,
 		minKey:     minKey,
