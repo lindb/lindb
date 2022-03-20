@@ -24,7 +24,7 @@ import (
 )
 
 func Test_MinVec(t *testing.T) {
-	scope := NewScope("minvectest")
+	scope := BrokerRegistry.NewScope("minvectest")
 	vec := scope.NewMinVec("min", "1", "2")
 	assert.Panics(t, func() {
 		vec.WithTagValues("1", "2", "3")
@@ -38,7 +38,7 @@ func Test_MinVec(t *testing.T) {
 }
 
 func Benchmark_MinVec(b *testing.B) {
-	scope := NewScope("vec_test")
+	scope := BrokerRegistry.NewScope("vec_test")
 	vec := scope.NewMinVec("Min", "1", "2")
 
 	for i := 0; i < b.N; i++ {
@@ -48,7 +48,7 @@ func Benchmark_MinVec(b *testing.B) {
 
 func Benchmark_Min(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		NewScope("Min_test", "1", "3", "2", "4").
+		BrokerRegistry.NewScope("Min_test", "1", "3", "2", "4").
 			NewMin("Min").
 			Update(2)
 	}

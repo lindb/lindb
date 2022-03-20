@@ -15,24 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package linmetric_test
+package linmetric
 
 import (
 	"math"
 	"testing"
 	"time"
 
-	"github.com/lindb/lindb/internal/linmetric"
-
 	"github.com/stretchr/testify/assert"
 )
 
 func Test_MetricScope(t *testing.T) {
-	scope0 := linmetric.NewScope("0")
+	scope0 := BrokerRegistry.NewScope("0")
 	scope0.Scope("x")
 	scope0.Scope("x")
 
-	scope1 := linmetric.NewScope("1",
+	scope1 := BrokerRegistry.NewScope("1",
 		"k2", "v2", "k1", "v1", "k2", "v2")
 	scope1.NewGauge("g1").Incr()
 	scope1.NewCounter("c2").Incr()
@@ -55,20 +53,20 @@ func Test_MetricScope(t *testing.T) {
 	scope12.NewHistogram().UpdateDuration(time.Second)
 	scope12.NewHistogram().UpdateDuration(time.Second)
 	time.Sleep(time.Second)
-	gather := linmetric.NewGather(linmetric.WithReadRuntimeOption())
+	gather := BrokerRegistry.NewGather(WithReadRuntimeOption(BrokerRegistry))
 	_, _ = gather.Gather()
 	_, _ = gather.Gather()
 }
 
 func Test_MetricScope_Scope(t *testing.T) {
 	assert.Panics(t, func() {
-		linmetric.NewScope("")
+		BrokerRegistry.NewScope("")
 	})
 	assert.Panics(t, func() {
-		linmetric.NewScope("lindb", "1")
+		BrokerRegistry.NewScope("lindb", "1")
 	})
 
-	scope3 := linmetric.NewScope("3")
+	scope3 := BrokerRegistry.NewScope("3")
 	scope3.NewCounter("c")
 	assert.Panics(t, func() {
 		scope3.NewGauge("c")

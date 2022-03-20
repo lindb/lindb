@@ -25,6 +25,7 @@ import (
 )
 
 type MaxVec struct {
+	r          *Registry
 	tags       tag.Tags // unique tags
 	tagKeys    []string
 	metricName string // concated metric name
@@ -33,8 +34,9 @@ type MaxVec struct {
 	maxes      map[string]*BoundMax
 }
 
-func newMaxVec(metricName string, fieldName string, tags tag.Tags, tagKey ...string) *MaxVec {
+func newMaxVec(r *Registry, metricName string, fieldName string, tags tag.Tags, tagKey ...string) *MaxVec {
 	return &MaxVec{
+		r:          r,
 		metricName: metricName,
 		fieldName:  fieldName,
 		tags:       tags,
@@ -66,7 +68,7 @@ func (gv *MaxVec) WithTagValues(tagValues ...string) *BoundMax {
 	for i := range gv.tagKeys {
 		tagsMap[gv.tagKeys[i]] = tagValues[i]
 	}
-	series := newTaggedSeries(gv.metricName, tag.TagsFromMap(tagsMap))
+	series := newTaggedSeries(gv.r, gv.metricName, tag.TagsFromMap(tagsMap))
 	c = series.NewMax(gv.fieldName)
 
 	gv.maxes[id] = c

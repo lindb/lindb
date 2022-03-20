@@ -26,7 +26,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/monitoring"
+	"github.com/lindb/lindb/internal/monitoring"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/ltoml"
 )

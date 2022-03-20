@@ -109,7 +109,7 @@ func NewTaskManager(
 	taskPool concurrent.Pool,
 	ttl time.Duration,
 ) TaskManager {
-	taskManagerScope := linmetric.NewScope("lindb.broker.query")
+	taskManagerScope := linmetric.BrokerRegistry.NewScope("lindb.broker.query")
 	tm := &taskManager{
 		ctx:                  ctx,
 		currentNodeID:        currentNode.Indicator(),

@@ -27,16 +27,6 @@ import (
 	"github.com/lindb/lindb/tsdb"
 )
 
-var (
-	localReplicaScope       = linmetric.NewScope("lindb.replica.local")
-	localMaxDecodedBlockVec = localReplicaScope.NewMaxVec("max_decoded_block", "db", "shard")
-	localReplicaCountsVec   = localReplicaScope.NewCounterVec("replica_count", "db", "shard")
-	localReplicaBytesVec    = localReplicaScope.NewCounterVec("replica_bytes", "db", "shard")
-	localReplicaRowsVec     = localReplicaScope.NewCounterVec("replica_rows", "db", "shard")
-	localReplicaSequenceVec = localReplicaScope.NewGaugeVec("replica_sequence", "db", "shard")
-	localInvalidSequenceVec = localReplicaScope.NewCounterVec("invalid_sequence", "db", "shard")
-)
-
 type localReplicator struct {
 	replicator
 

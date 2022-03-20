@@ -27,7 +27,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/pkg/logger"
 )
 
@@ -35,21 +34,6 @@ import (
 var (
 	pathUnescapeFunc = url.PathUnescape
 )
-
-var (
-	HTTPHandlerTimerVec = linmetric.
-		NewScope("lindb.http_server.handle_duration").
-		NewHistogramVec("path").
-		WithExponentBuckets(time.Millisecond, time.Second*5, 20)
-)
-
-func WithHistogram(histogram *linmetric.BoundHistogram) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		start := time.Now()
-		defer histogram.UpdateSince(start)
-		c.Next()
-	}
-}
 
 // AccessLog returns access log middleware
 func AccessLog() gin.HandlerFunc {

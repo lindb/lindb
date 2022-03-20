@@ -49,19 +49,19 @@ var testExecPool = &tsdb.ExecutorPool{
 		"test-filtering-pool",
 		runtime.GOMAXPROCS(-1), /*nRoutines*/
 		time.Second*5,
-		linmetric.NewScope("test-filtering-pool"),
+		linmetric.StorageRegistry.NewScope("test-filtering-pool"),
 	),
 	Grouping: concurrent.NewPool(
 		"test-grouping-pool",
 		runtime.GOMAXPROCS(-1), /*nRoutines*/
 		time.Second*5,
-		linmetric.NewScope("test-filtering-pool"),
+		linmetric.StorageRegistry.NewScope("test-filtering-pool"),
 	),
 	Scanner: concurrent.NewPool(
 		"test-scanner-pool",
 		runtime.GOMAXPROCS(-1), /*nRoutines*/
 		time.Second*5,
-		linmetric.NewScope("test-filtering-pool"),
+		linmetric.StorageRegistry.NewScope("test-filtering-pool"),
 	),
 }
 

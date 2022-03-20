@@ -47,7 +47,7 @@ import (
 //go:generate mockgen -source=./shard.go -destination=./shard_mock.go -package=tsdb
 
 var (
-	shardScope                  = linmetric.NewScope("lindb.tsdb.shard")
+	shardScope                  = linmetric.StorageRegistry.NewScope("lindb.tsdb.shard")
 	lookupMetricMetaFailuresVec = shardScope.NewCounterVec("lookup_metric_meta_failures", "db", "shard")
 	writeBatchesVec             = shardScope.NewCounterVec("write_batches", "db", "shard")
 	writeMetricsVec             = shardScope.NewCounterVec("write_metrics", "db", "shard")

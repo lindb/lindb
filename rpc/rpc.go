@@ -27,6 +27,7 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/conntrack"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/models"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
@@ -36,13 +37,18 @@ import (
 //go:generate mockgen -source ./rpc.go -destination=./rpc_mock.go -package=rpc
 
 var (
-	clientConnFct ClientConnFactory
+	brokerClientConnFct  ClientConnFactory
+	storageClientConnFct ClientConnFactory
 )
 
 func init() {
-	clientConnFct = &clientConnFactory{
+	brokerClientConnFct = &clientConnFactory{
 		connMap:       make(map[string]*grpc.ClientConn),
-		clientTracker: conntrack.NewGRPCClientTracker(),
+		clientTracker: conntrack.NewGRPCClientTracker(linmetric.BrokerRegistry),
+	}
+	storageClientConnFct = &clientConnFactory{
+		connMap:       make(map[string]*grpc.ClientConn),
+		clientTracker: conntrack.NewGRPCClientTracker(linmetric.StorageRegistry),
 	}
 }
 
@@ -65,9 +71,14 @@ type clientConnFactory struct {
 	clientTracker *conntrack.GRPCClientTracker
 }
 
-// GetClientConnFactory returns a singleton ClientConnFactory.
-func GetClientConnFactory() ClientConnFactory {
-	return clientConnFct
+// GetBrokerClientConnFactory returns a singleton ClientConnFactory for broker side.
+func GetBrokerClientConnFactory() ClientConnFactory {
+	return brokerClientConnFct
+}
+
+// GetStorageClientConnFactory returns a singleton ClientConnFactory for storage side.
+func GetStorageClientConnFactory() ClientConnFactory {
+	return storageClientConnFct
 }
 
 // GetClientConn returns the grpc ClientConn for a target node.
@@ -146,11 +157,11 @@ type clientStreamFactory struct {
 }
 
 // NewClientStreamFactory returns a factory to get clientStream.
-func NewClientStreamFactory(ctx context.Context, logicNode models.Node) ClientStreamFactory {
+func NewClientStreamFactory(ctx context.Context, logicNode models.Node, connFct ClientConnFactory) ClientStreamFactory {
 	return &clientStreamFactory{
 		ctx:       ctx,
 		logicNode: logicNode,
-		connFct:   GetClientConnFactory(),
+		connFct:   connFct,
 	}
 }
 

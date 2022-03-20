@@ -60,6 +60,7 @@ type Scope interface {
 }
 
 type taggedSeries struct {
+	r          *Registry
 	mu         sync.Mutex // lock for modifying fields
 	seriesID   uint64     // metric-name + tags
 	metricName string     // concated metric name
@@ -72,22 +73,15 @@ type fieldPayload struct {
 	histogramDelta *BoundHistogram
 }
 
-func NewScope(metricName string, tagList ...string) Scope {
-	assertMetricName(metricName)
-
-	m := tagList2Tags(tagList...)
-	ms := newTaggedSeries(metricName, m)
-	return ms
-}
-
-func newTaggedSeries(metricName string, tags tag.Tags) *taggedSeries {
+func newTaggedSeries(r *Registry, metricName string, tags tag.Tags) *taggedSeries {
 	ts := &taggedSeries{
+		r:          r,
 		metricName: metricName,
 		tags:       tags,
 	}
 	ts.seriesID = xxhash.Sum64String(ts.metricName + string(ts.tags.AppendHashKey(nil)))
 	// registered or replaced
-	ts = defaultRegistry.Register(ts.seriesID, ts)
+	ts = r.register(ts.seriesID, ts)
 	return ts
 }
 
@@ -132,7 +126,7 @@ func (s *taggedSeries) Scope(metricName string, tagList ...string) Scope {
 	assertMetricName(metricName)
 
 	nextMetricName := s.metricName + "." + metricName
-	return newTaggedSeries(nextMetricName, nextScopeKeyValues(s.tags, tagList...))
+	return newTaggedSeries(s.r, nextMetricName, nextScopeKeyValues(s.tags, tagList...))
 }
 
 func tagList2Tags(tagList ...string) tag.Tags {
@@ -210,31 +204,31 @@ func (s *taggedSeries) NewHistogram() *BoundHistogram {
 
 func (s *taggedSeries) NewHistogramVec(tagKey ...string) *DeltaHistogramVec {
 	assertTagKeyList(tagKey...)
-	return NewHistogramVec(s.metricName, s.tags, tagKey...)
+	return NewHistogramVec(s.r, s.metricName, s.tags, tagKey...)
 }
 
 func (s *taggedSeries) NewCounterVec(fieldName string, tagKey ...string) *DeltaCounterVec {
 	assertFieldName(fieldName)
 	assertTagKeyList(tagKey...)
-	return NewCounterVec(s.metricName, fieldName, s.tags, tagKey...)
+	return NewCounterVec(s.r, s.metricName, fieldName, s.tags, tagKey...)
 }
 
 func (s *taggedSeries) NewGaugeVec(fieldName string, tagKey ...string) *GaugeVec {
 	assertFieldName(fieldName)
 	assertTagKeyList(tagKey...)
-	return newGaugeVec(s.metricName, fieldName, s.tags, tagKey...)
+	return newGaugeVec(s.r, s.metricName, fieldName, s.tags, tagKey...)
 }
 
 func (s *taggedSeries) NewMaxVec(fieldName string, tagKey ...string) *MaxVec {
 	assertFieldName(fieldName)
 	assertTagKeyList(tagKey...)
-	return newMaxVec(s.metricName, fieldName, s.tags, tagKey...)
+	return newMaxVec(s.r, s.metricName, fieldName, s.tags, tagKey...)
 }
 
 func (s *taggedSeries) NewMinVec(fieldName string, tagKey ...string) *MinVec {
 	assertFieldName(fieldName)
 	assertTagKeyList(tagKey...)
-	return newMinVec(s.metricName, fieldName, s.tags, tagKey...)
+	return newMinVec(s.r, s.metricName, fieldName, s.tags, tagKey...)
 }
 
 func (s *taggedSeries) buildFlatMetric(builder *metric.RowBuilder) bool {

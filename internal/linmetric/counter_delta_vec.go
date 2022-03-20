@@ -25,6 +25,7 @@ import (
 )
 
 type DeltaCounterVec struct {
+	r             *Registry
 	tags          tag.Tags // unique tags
 	tagKeys       []string
 	metricName    string // concated metric name
@@ -33,8 +34,9 @@ type DeltaCounterVec struct {
 	deltaCounters map[string]*BoundCounter
 }
 
-func NewCounterVec(metricName string, fieldName string, tags tag.Tags, tagKey ...string) *DeltaCounterVec {
+func NewCounterVec(r *Registry, metricName string, fieldName string, tags tag.Tags, tagKey ...string) *DeltaCounterVec {
 	return &DeltaCounterVec{
+		r:             r,
 		metricName:    metricName,
 		fieldName:     fieldName,
 		tags:          tags,
@@ -66,7 +68,7 @@ func (dcv *DeltaCounterVec) WithTagValues(tagValues ...string) *BoundCounter {
 	for i := range dcv.tagKeys {
 		tagsMap[dcv.tagKeys[i]] = tagValues[i]
 	}
-	series := newTaggedSeries(dcv.metricName, tag.TagsFromMap(tagsMap))
+	series := newTaggedSeries(dcv.r, dcv.metricName, tag.TagsFromMap(tagsMap))
 	c = series.NewCounter(dcv.fieldName)
 
 	dcv.deltaCounters[id] = c

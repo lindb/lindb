@@ -53,7 +53,7 @@ func TestTaskManager_SubmitMetricTask_WithoutIntermediates(t *testing.T) {
 			"p",
 			10,
 			time.Minute,
-			linmetric.NewScope("test"),
+			linmetric.BrokerRegistry.NewScope("test"),
 		),
 		time.Second*10,
 	)
@@ -118,7 +118,7 @@ func TestTaskManager_SendResponse(t *testing.T) {
 			"p",
 			10,
 			time.Minute,
-			linmetric.NewScope("test"),
+			linmetric.BrokerRegistry.NewScope("test"),
 		), time.Second)
 
 	// empty stream
@@ -153,7 +153,7 @@ func TestTaskManager_SubmitMetaDataTask(t *testing.T) {
 			"p",
 			10,
 			time.Minute,
-			linmetric.NewScope("test"),
+			linmetric.BrokerRegistry.NewScope("test"),
 		),
 		time.Second*10,
 	)
@@ -198,7 +198,7 @@ func TestTaskManager_cleaner(t *testing.T) {
 			"p",
 			10,
 			time.Minute,
-			linmetric.NewScope("test"),
+			linmetric.BrokerRegistry.NewScope("test"),
 		),
 		time.Second*10,
 	).(*taskManager)

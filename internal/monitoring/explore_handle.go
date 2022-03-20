@@ -33,13 +33,15 @@ var (
 // ExploreAPI represents monitoring metric explore rest api.
 type ExploreAPI struct {
 	globalKeyValues tag.Tags
+	r               *linmetric.Registry
 	logger          *logger.Logger
 }
 
 // NewExploreAPI creates explore api instance.
-func NewExploreAPI(globalKeyValues tag.Tags) *ExploreAPI {
+func NewExploreAPI(globalKeyValues tag.Tags, r *linmetric.Registry) *ExploreAPI {
 	return &ExploreAPI{
 		globalKeyValues: globalKeyValues,
+		r:               r,
 		logger:          logger.GetLogger("monitoring", "ExploreAPI"),
 	}
 }
@@ -62,7 +64,7 @@ func (d *ExploreAPI) ExploreCurrent(c *gin.Context) {
 	tags := c.QueryMap("tags")
 
 	// find metric by name from default metric registry
-	rs := linmetric.FindMetricList(param.Names, tags)
+	rs := d.r.FindMetricList(param.Names, tags)
 	globalKeyValues := d.globalKeyValues
 	for _, metricList := range rs {
 		for _, metric := range metricList {

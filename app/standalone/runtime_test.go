@@ -31,8 +31,8 @@ import (
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/bootstrap"
+	"github.com/lindb/lindb/internal/monitoring"
 	"github.com/lindb/lindb/internal/server"
-	"github.com/lindb/lindb/monitoring"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/state"

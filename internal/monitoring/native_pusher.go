@@ -35,14 +35,6 @@ import (
 
 var nativePushLogger = logger.GetLogger("monitoring", "Pusher")
 
-var (
-	monitorScope       = linmetric.NewScope("lindb.monitor")
-	nativePusherScope  = monitorScope.Scope("native_pusher")
-	pushBytesCounter   = nativePusherScope.NewCounter("push_bytes")
-	pushMetricsCounter = nativePusherScope.NewCounter("push_metrics_count")
-	pushErrorCounter   = nativePusherScope.NewCounter("push_error_count")
-)
-
 const (
 	ProtoType     = `application/protobuf`
 	ProtoProtocol = `io.lindb.proto.Metric`
@@ -69,6 +61,12 @@ type nativeProtoPusher struct {
 	client          *http.Client
 	buffer          *bytes.Buffer
 	gzipWriter      *gzip.Writer
+
+	statistics struct {
+		pushBytesCounter   *linmetric.BoundCounter
+		pushMetricsCounter *linmetric.BoundCounter
+		pushErrorCounter   *linmetric.BoundCounter
+	}
 }
 
 // NewNativeProtoPusher creates a new native pusher
@@ -77,6 +75,7 @@ func NewNativeProtoPusher(
 	endpoint string,
 	interval time.Duration,
 	pushTimeout time.Duration,
+	r *linmetric.Registry,
 	globalKeyValues tag.Tags,
 ) NativePusher {
 	c, cancel := context.WithCancel(ctx)
@@ -86,13 +85,20 @@ func NewNativeProtoPusher(
 		endpoint:        endpoint,
 		interval:        interval,
 		globalKeyValues: globalKeyValues,
-		gather: linmetric.NewGather(
-			linmetric.WithReadRuntimeOption(),
+		gather: r.NewGather(
+			linmetric.WithReadRuntimeOption(r),
 			linmetric.WithGlobalKeyValueOption(globalKeyValues),
 		),
 		client: &http.Client{Timeout: pushTimeout},
 		buffer: &bytes.Buffer{},
 	}
+
+	monitorScope := r.NewScope("lindb.monitor")
+	nativePusherScope := monitorScope.Scope("native_pusher")
+	pusher.statistics.pushBytesCounter = nativePusherScope.NewCounter("push_bytes")
+	pusher.statistics.pushMetricsCounter = nativePusherScope.NewCounter("push_metrics_count")
+	pusher.statistics.pushErrorCounter = nativePusherScope.NewCounter("push_error_count")
+
 	pusher.gzipWriter = gzip.NewWriter(pusher.buffer)
 	return pusher
 }
@@ -124,9 +130,9 @@ func (np *nativeProtoPusher) gatherAndMarshal() {
 
 	np.gzipWriter.Reset(np.buffer)
 	_, _ = np.gzipWriter.Write(data)
-	pushMetricsCounter.Add(float64(count))
+	np.statistics.pushMetricsCounter.Add(float64(count))
 	_ = np.gzipWriter.Close()
-	pushBytesCounter.Add(float64(np.buffer.Len()))
+	np.statistics.pushBytesCounter.Add(float64(np.buffer.Len()))
 }
 
 func (np *nativeProtoPusher) push(r io.Reader) {
@@ -145,7 +151,7 @@ func (np *nativeProtoPusher) push(r io.Reader) {
 		}
 	}()
 	if err != nil {
-		pushErrorCounter.Incr()
+		np.statistics.pushErrorCounter.Incr()
 		nativePushLogger.Error("failed to post request", logger.Error(err))
 		return
 	}

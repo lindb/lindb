@@ -36,7 +36,7 @@ var (
 )
 
 var (
-	metaDBScope             = linmetric.NewScope("lindb.tsdb.metadb")
+	metaDBScope             = linmetric.StorageRegistry.NewScope("lindb.tsdb.metadb")
 	getMetricIDCounterVec   = metaDBScope.NewCounterVec("get_metric_ids", "db")
 	genMetricIDCounterVec   = metaDBScope.NewCounterVec("gen_metric_ids", "db")
 	getTagKeysCounterVec    = metaDBScope.NewCounterVec("get_tag_keys", "db")

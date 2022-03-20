@@ -56,7 +56,7 @@ func TestStateManager_Handle_Event_Panic(t *testing.T) {
 func TestStateManager_Node(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		getConnFct = rpc.GetClientConnFactory
+		getConnFct = rpc.GetStorageClientConnFactory
 		ctrl.Finish()
 	}()
 

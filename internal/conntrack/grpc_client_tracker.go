@@ -36,9 +36,9 @@ type GRPCClientTracker struct {
 }
 
 // NewGRPCClientTracker returns a metric tracker for grpc client.
-func NewGRPCClientTracker() *GRPCClientTracker {
+func NewGRPCClientTracker(r *linmetric.Registry) *GRPCClientTracker {
 	tracker := &GRPCClientTracker{}
-	grpcClientScope := linmetric.NewScope("lindb.traffic.grpc_client")
+	grpcClientScope := r.NewScope("lindb.traffic.grpc_client")
 	tracker.clientStreamMsgReceivedVec = grpcClientScope.NewCounterVec(
 		"msg_received", "grpc_type", "grpc_service", "grpc_method")
 	tracker.clientStreamMsgSentVec = grpcClientScope.NewCounterVec(

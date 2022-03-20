@@ -50,8 +50,8 @@ type runtimeObserver struct {
 	msLast *runtime.MemStats
 }
 
-func newRuntimeObserver() *runtimeObserver {
-	runtimeScope := NewScope("lindb.runtime")
+func newRuntimeObserver(r *Registry) *runtimeObserver {
+	runtimeScope := r.NewScope("lindb.runtime")
 	memoryScope := runtimeScope.Scope("mem")
 
 	observer := &runtimeObserver{

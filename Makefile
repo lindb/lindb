@@ -28,7 +28,7 @@ build-lind: ## build lindb binary
 	env GOOS=linux GOARCH=$(GOARCH) go build -o 'bin/lindcli-linux' $(LD_FLAGS) ./cmd/cli
 
 
-GOLANGCI_LINT_VERSION ?= "v1.28.3"
+GOLANGCI_LINT_VERSION ?= "v1.45.0"
 
 GOMOCK_VERSION = "v1.5.0"
 

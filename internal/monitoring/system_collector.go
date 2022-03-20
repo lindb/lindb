@@ -47,8 +47,8 @@ type SystemCollector struct {
 	DiskUsageStatGetter DiskUsageStatGetter
 	NetStatGetter       NetStatGetter
 
-	//  role symbols this collector is owned by storage or broker runtime
-	role string
+	r *linmetric.Registry
+
 	// metrics
 	memTotalGauge       *linmetric.BoundGauge
 	memUsedGauge        *linmetric.BoundGauge
@@ -87,7 +87,7 @@ type SystemCollector struct {
 func NewSystemCollector(
 	ctx context.Context,
 	storage string,
-	role string,
+	r *linmetric.Registry,
 ) *SystemCollector {
 	sc = &SystemCollector{
 		interval:            time.Second * 10,
@@ -99,7 +99,7 @@ func NewSystemCollector(
 		CPUStatGetter:       GetCPUStat,
 		DiskUsageStatGetter: disk.UsageWithContext,
 		NetStatGetter:       GetNetStat,
-		role:                role,
+		r:                   r,
 	}
 	if storage != "" {
 		sc.storage = fileutil.GetExistPath(storage)
@@ -109,7 +109,7 @@ func NewSystemCollector(
 }
 
 func (r *SystemCollector) boundMetrics() {
-	systemScope := linmetric.NewScope("lindb.monitor.system", "role", r.role)
+	systemScope := r.r.NewScope("lindb.monitor.system")
 
 	systemMemScope := systemScope.Scope("mem_stat")
 	// memory

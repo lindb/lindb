@@ -21,6 +21,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/lindb/lindb/internal/linmetric"
 )
 
 func Test_NativeProtoPusher(t *testing.T) {
@@ -29,6 +31,7 @@ func Test_NativeProtoPusher(t *testing.T) {
 		"http://localhost:12345",
 		time.Millisecond*100,
 		time.Millisecond,
+		linmetric.BrokerRegistry,
 		nil,
 	)
 	go pusher.Start()

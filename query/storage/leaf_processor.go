@@ -56,7 +56,7 @@ func NewLeafTaskProcessor(
 	engine tsdb.Engine,
 	taskServerFactory rpc.TaskServerFactory,
 ) query.TaskProcessor {
-	storageQueryScope := linmetric.NewScope("lindb.storage.query")
+	storageQueryScope := linmetric.StorageRegistry.NewScope("lindb.storage.query")
 	return &leafTaskProcessor{
 		currentNode:                currentNode,
 		currentNodeID:              currentNode.Indicator(),

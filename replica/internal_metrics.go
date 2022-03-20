@@ -20,7 +20,15 @@ package replica
 import "github.com/lindb/lindb/internal/linmetric"
 
 var (
-	replicaScope  = linmetric.NewScope("lindb.wal")
+	replicaScope  = linmetric.StorageRegistry.NewScope("lindb.wal")
 	appendSeqVec  = replicaScope.Scope("write").NewGaugeVec("append_seq", "db", "shard", "family")
 	replicaSeqVec = replicaScope.Scope("replica").NewGaugeVec("consume_seq", "db", "shard", "family", "from", "to")
+
+	localReplicaScope       = linmetric.StorageRegistry.NewScope("lindb.replica.local")
+	localMaxDecodedBlockVec = localReplicaScope.NewMaxVec("max_decoded_block", "db", "shard")
+	localReplicaCountsVec   = localReplicaScope.NewCounterVec("replica_count", "db", "shard")
+	localReplicaBytesVec    = localReplicaScope.NewCounterVec("replica_bytes", "db", "shard")
+	localReplicaRowsVec     = localReplicaScope.NewCounterVec("replica_rows", "db", "shard")
+	localReplicaSequenceVec = localReplicaScope.NewGaugeVec("replica_sequence", "db", "shard")
+	localInvalidSequenceVec = localReplicaScope.NewCounterVec("invalid_sequence", "db", "shard")
 )

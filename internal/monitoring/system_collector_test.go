@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/models"
 
 	"github.com/golang/mock/gomock"
@@ -40,7 +41,7 @@ func Test_NewSystemCollector(t *testing.T) {
 	collector := NewSystemCollector(
 		ctx,
 		"/tmp",
-		"standalone",
+		linmetric.StorageRegistry,
 	)
 
 	go func() {
@@ -61,7 +62,7 @@ func Test_SystemCollector_Collect(t *testing.T) {
 	collector := NewSystemCollector(
 		ctx,
 		"/tmp",
-		"standalone",
+		linmetric.StorageRegistry,
 	)
 
 	collector.MemoryStatGetter = func() (*mem.VirtualMemoryStat, error) {
