@@ -38,6 +38,9 @@ func TestAccessLogMiddleware(t *testing.T) {
 
 	r := gin.New()
 	r.Use(AccessLog())
+	r.GET("/home", func(c *gin.Context) {
+		c.JSON(http.StatusOK, "ok")
+	})
 
 	pathUnescapeFunc = func(s string) (string, error) {
 		return "err-path", fmt.Errorf("err")
@@ -45,7 +48,7 @@ func TestAccessLogMiddleware(t *testing.T) {
 	_ = mock.DoRequest(t, r, http.MethodPut, "/test", `{"username": "admin", "password": "admin123"}`)
 
 	pathUnescapeFunc = url.PathUnescape
-	_ = mock.DoRequest(t, r, http.MethodPut, "/test", `{"username": "admin", "password": "admin123"}`)
+	_ = mock.DoRequest(t, r, http.MethodGet, "/home", `{"username": "admin", "password": "admin123"}`)
 }
 
 func Test_real_ip(t *testing.T) {

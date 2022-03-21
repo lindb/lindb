@@ -47,12 +47,16 @@ func AccessLog() gin.HandlerFunc {
 			if err != nil {
 				unescapedPath = path
 			}
+			status := c.Writer.Status()
 			// http://httpd.apache.org/docs/1.3/logs.html?PHPSESSID=026558d61a93eafd6da3438bb9605d4d#common
 			requestInfo := realIP(r) + " " + strconv.Itoa(int(time.Since(start).Microseconds())) + "us" +
 				" \"" + r.Method + " " + unescapedPath + " " + r.Proto + "\" " +
-				strconv.Itoa(c.Writer.Status()) + " " + strconv.Itoa(c.Writer.Size())
-
-			logger.AccessLog.Info(requestInfo)
+				strconv.Itoa(status) + " " + strconv.Itoa(c.Writer.Size())
+			if status >= 400 {
+				logger.AccessLog.Error(requestInfo)
+			} else {
+				logger.AccessLog.Debug(requestInfo)
+			}
 		}()
 		c.Next()
 	}
