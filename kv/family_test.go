@@ -272,3 +272,32 @@ func TestFamily_deleteObsoleteFiles(t *testing.T) {
 	}
 	f1.deleteObsoleteFiles()
 }
+
+func TestFamily_close(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	fv := version.NewMockFamilyVersion(ctrl)
+	snapshot := version.NewMockSnapshot(ctrl)
+	snapshot.EXPECT().Close()
+	current := version.NewMockVersion(ctrl)
+	current.EXPECT().PickL0Compaction(gomock.Any()).
+		Return(version.NewCompaction(1, 0, nil, nil))
+	snapshot.EXPECT().GetCurrent().Return(current)
+	fv.EXPECT().GetSnapshot().Return(snapshot)
+	compactJob := NewMockCompactJob(ctrl)
+	f := &family{
+		familyVersion: fv,
+		newCompactJobFunc: func(family Family, state *compactionState, rollup Rollup) CompactJob {
+			return compactJob
+		},
+	}
+	compactJob.EXPECT().Run().DoAndReturn(func() error {
+		time.Sleep(time.Second)
+		return fmt.Errorf("err")
+	})
+	s := timeutil.Now()
+	f.compact()
+	f.close()
+	assert.True(t, timeutil.Now()-s >= 1000)
+}
