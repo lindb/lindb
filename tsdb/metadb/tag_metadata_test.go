@@ -278,6 +278,8 @@ func TestTagMetadata_Flush(t *testing.T) {
 		ctrl.Finish()
 	}()
 
+	f := kv.NewMockFlusher(ctrl)
+	f.EXPECT().Release().AnyTimes()
 	meta, family, _ := mockTagMetadata(ctrl)
 	flusher := tagkeymeta.NewMockFlusher(ctrl)
 	newTagFlusherFunc = func(kvFlusher kv.Flusher) (tagkeymeta.Flusher, error) {
@@ -296,7 +298,7 @@ func TestTagMetadata_Flush(t *testing.T) {
 	m.rwMutex.Unlock()
 	// case 2: flush tag key err, immutable cannot set nil
 	gomock.InOrder(
-		family.EXPECT().NewFlusher().Return(nil),
+		family.EXPECT().NewFlusher().Return(f),
 		flusher.EXPECT().FlushTagValue([]byte("tag-value-5"), uint32(10)),
 		flusher.EXPECT().FlushTagKeyID(uint32(5), uint32(10)).Return(fmt.Errorf("err")),
 	)
@@ -307,7 +309,7 @@ func TestTagMetadata_Flush(t *testing.T) {
 	m.rwMutex.Unlock()
 	// case 3: commit err, immutable cannot set nil
 	gomock.InOrder(
-		family.EXPECT().NewFlusher().Return(nil),
+		family.EXPECT().NewFlusher().Return(f),
 		flusher.EXPECT().FlushTagValue([]byte("tag-value-5"), uint32(10)),
 		flusher.EXPECT().FlushTagKeyID(uint32(5), uint32(10)).Return(nil),
 		flusher.EXPECT().Close().Return(fmt.Errorf("err")),
@@ -319,7 +321,7 @@ func TestTagMetadata_Flush(t *testing.T) {
 	m.rwMutex.Unlock()
 	// case 4: flush success, immutable is nil
 	gomock.InOrder(
-		family.EXPECT().NewFlusher().Return(nil),
+		family.EXPECT().NewFlusher().Return(f),
 		flusher.EXPECT().FlushTagValue([]byte("tag-value-5"), uint32(10)),
 		flusher.EXPECT().FlushTagKeyID(uint32(5), uint32(10)).Return(nil),
 		flusher.EXPECT().Close().Return(nil),

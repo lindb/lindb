@@ -67,7 +67,10 @@ func TestFamily_New(t *testing.T) {
 	assert.Equal(t, "f", f.Name())
 	vs.EXPECT().GetSnapshot().Return(version.NewMockSnapshot(ctrl))
 	assert.NotNil(t, f.GetSnapshot())
-	assert.NotNil(t, f.NewFlusher())
+	flusher := f.NewFlusher()
+	assert.NotNil(t, flusher)
+	flusher.Release()
+
 	assert.NotNil(t, f.getFamilyVersion())
 	assert.NotNil(t, f.getNewMerger())
 }
@@ -85,6 +88,7 @@ func TestFamily_Data_Write_Read(t *testing.T) {
 	f, err := kv.CreateFamily("f", FamilyOption{Merger: "mockMerger"})
 	assert.Nil(t, err, "cannot create family")
 	flusher := f.NewFlusher()
+	defer flusher.Release()
 	_ = flusher.Add(1, []byte("test"))
 	_ = flusher.Add(10, []byte("test10"))
 	commitErr := flusher.Commit()

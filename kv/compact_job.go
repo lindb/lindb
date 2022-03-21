@@ -342,6 +342,10 @@ func (cf *compactFlusher) Commit() error {
 	panic("Commit is not allowed to call for CompactFlusher")
 }
 
+func (cf *compactFlusher) Release() {
+	panic("Release is not allowed to call for CompactFlusher")
+}
+
 // compactFlusherStreamWriter wraps stream writer with write check
 type compactFlusherStreamWriter struct {
 	compactFlusher *compactFlusher

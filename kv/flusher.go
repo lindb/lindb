@@ -39,6 +39,9 @@ type Flusher interface {
 	Sequence(leader int32, seq int64)
 	// Commit flushes data and commits metadata.
 	Commit() error
+	// Release releases the resource of flusher.
+	// NOTICE: MUST invoke Release() after new fluster instance.
+	Release()
 }
 
 // storeFlusher is family level store flusher.
@@ -48,14 +51,17 @@ type storeFlusher struct {
 	builder   table.Builder
 	editLog   version.EditLog
 	outputs   []table.FileNumber
+
+	releaseFn func()
 }
 
 // newStoreFlusher create family store flusher.
-func newStoreFlusher(family Family) Flusher {
+func newStoreFlusher(family Family, releaseFn func()) Flusher {
 	return &storeFlusher{
 		family:    family,
 		editLog:   version.NewEditLog(family.ID()),
 		sequences: make(map[int32]int64),
+		releaseFn: releaseFn,
 	}
 }
 
@@ -140,6 +146,11 @@ func (sf *storeFlusher) Commit() (err error) {
 	return nil
 }
 
+// Release releases the resource of flusher.
+func (sf *storeFlusher) Release() {
+	sf.releaseFn()
+}
+
 // NopFlusher implements Flusher, but does nothing.
 type NopFlusher struct {
 	buffer bytes.Buffer
@@ -167,14 +178,15 @@ func (nf *NopFlusher) Add(_ uint32, value []byte) error {
 	return nil
 }
 
-func (nf *NopFlusher) Sequence(_ int32, _ int64) {
-}
+func (nf *NopFlusher) Sequence(_ int32, _ int64) {}
 
 // Commit always return nil
 func (nf *NopFlusher) Commit() error {
 	nf.buffer.Reset()
 	return nil
 }
+
+func (nf *NopFlusher) Release() {}
 
 type nopStreamWriter struct {
 	size   uint32
@@ -198,3 +210,4 @@ func (nw *nopStreamWriter) Write(data []byte) (int, error) {
 func (nw *nopStreamWriter) CRC32CheckSum() uint32 { return nw.crc32.Sum32() }
 func (nw *nopStreamWriter) Size() uint32          { return nw.size }
 func (nw *nopStreamWriter) Commit() error         { return nil }
+func (nw *nopStreamWriter) Release()              {}

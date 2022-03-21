@@ -224,6 +224,8 @@ func TestInvertedIndex_FlushInvertedIndexTo(t *testing.T) {
 		newForwardFlusherFunc = tagindex.NewForwardFlusher
 		ctrl.Finish()
 	}()
+	f := kv.NewMockFlusher(ctrl)
+	f.EXPECT().Release().AnyTimes()
 	invertedFamily := kv.NewMockFamily(ctrl)
 	inverted := tagindex.NewMockInvertedFlusher(ctrl)
 	newInvertedFlusherFunc = func(kvFlusher kv.Flusher) (tagindex.InvertedFlusher, error) {
@@ -249,8 +251,8 @@ func TestInvertedIndex_FlushInvertedIndexTo(t *testing.T) {
 
 	// case 1: flush tag index flush err, immutable cannot set nil
 	gomock.InOrder(
-		forwardFamily.EXPECT().NewFlusher().Return(nil),
-		invertedFamily.EXPECT().NewFlusher().Return(nil),
+		forwardFamily.EXPECT().NewFlusher().Return(f),
+		invertedFamily.EXPECT().NewFlusher().Return(f),
 		tagIndex.EXPECT().flush(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err")),
 	)
 	err = index.Flush()
@@ -258,8 +260,8 @@ func TestInvertedIndex_FlushInvertedIndexTo(t *testing.T) {
 	assert.NotNil(t, idx.immutable)
 	// case 2: commit forward err
 	gomock.InOrder(
-		forwardFamily.EXPECT().NewFlusher().Return(nil),
-		invertedFamily.EXPECT().NewFlusher().Return(nil),
+		forwardFamily.EXPECT().NewFlusher().Return(f),
+		invertedFamily.EXPECT().NewFlusher().Return(f),
 		tagIndex.EXPECT().flush(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 		forward.EXPECT().Close().Return(fmt.Errorf("err")),
 	)
@@ -268,8 +270,8 @@ func TestInvertedIndex_FlushInvertedIndexTo(t *testing.T) {
 	assert.NotNil(t, idx.immutable)
 	// case 3: commit inverted err
 	gomock.InOrder(
-		forwardFamily.EXPECT().NewFlusher().Return(nil),
-		invertedFamily.EXPECT().NewFlusher().Return(nil),
+		forwardFamily.EXPECT().NewFlusher().Return(f),
+		invertedFamily.EXPECT().NewFlusher().Return(f),
 		tagIndex.EXPECT().flush(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 		forward.EXPECT().Close().Return(nil),
 		inverted.EXPECT().Close().Return(fmt.Errorf("err")),
@@ -279,8 +281,8 @@ func TestInvertedIndex_FlushInvertedIndexTo(t *testing.T) {
 	assert.NotNil(t, idx.immutable)
 	// case 4: commit success
 	gomock.InOrder(
-		forwardFamily.EXPECT().NewFlusher().Return(nil),
-		invertedFamily.EXPECT().NewFlusher().Return(nil),
+		forwardFamily.EXPECT().NewFlusher().Return(f),
+		invertedFamily.EXPECT().NewFlusher().Return(f),
 		tagIndex.EXPECT().flush(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 		forward.EXPECT().Close().Return(nil),
 		inverted.EXPECT().Close().Return(nil),
