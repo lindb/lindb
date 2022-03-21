@@ -261,13 +261,7 @@ func (s *store) Option() StoreOption {
 
 // ForceRollup does rollup job manual.
 func (s *store) ForceRollup() {
-	var families []Family
-	s.rwMutex.RLock()
-	for _, family := range s.families {
-		families = append(families, family)
-	}
-	defer s.rwMutex.RUnlock()
-
+	families := s.getCurrentFamilies()
 	for _, f := range families {
 		f.rollup()
 	}
@@ -275,7 +269,12 @@ func (s *store) ForceRollup() {
 
 // close the store, then release some resource
 func (s *store) close() error {
-	// FIXME stone1100 need if has background job doing(family compact/flush etc.)
+	// close each family in kv store.
+	families := s.getCurrentFamilies()
+	for _, f := range families {
+		f.close()
+	}
+
 	if err := s.cache.Close(); err != nil {
 		kvLogger.Error("close store cache error", logger.String("store", s.path), logger.Error(err))
 	}
@@ -369,4 +368,14 @@ func (s *store) deleteObsoleteFiles() {
 				logger.String("store", s.path), logger.String("file", fileName))
 		}
 	}
+}
+
+// getCurrentFamilies returns current families in kv store.
+func (s *store) getCurrentFamilies() (families []Family) {
+	s.rwMutex.RLock()
+	defer s.rwMutex.RUnlock()
+	for _, family := range s.families {
+		families = append(families, family)
+	}
+	return families
 }

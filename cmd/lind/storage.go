@@ -73,7 +73,7 @@ var initializeStorageConfigCmd = &cobra.Command{
 	},
 }
 
-func serveStorage(_ *cobra.Command, _ []string) error { // nolint:dupl
+func serveStorage(_ *cobra.Command, _ []string) error {
 	ctx := newCtxWithSignals()
 	storageCfg := config.Storage{}
 
