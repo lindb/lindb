@@ -149,7 +149,10 @@ func (f *family) getStore() Store {
 
 // NewFlusher creates flusher for saving data to family.
 func (f *family) NewFlusher() Flusher {
-	return newStoreFlusher(f)
+	f.condition.Add(1)
+	return newStoreFlusher(f, func() {
+		f.condition.Done()
+	})
 }
 
 // GetSnapshot returns current version's snapshot

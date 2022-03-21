@@ -37,7 +37,8 @@ func TestFlusher_Add(t *testing.T) {
 		family.EXPECT().ID().Return(version.FamilyID(10)),
 		family.EXPECT().newTableBuilder().Return(nil, fmt.Errorf("err")),
 	)
-	flusher := newStoreFlusher(family)
+	flusher := newStoreFlusher(family, func() {})
+	defer flusher.Release()
 	err := flusher.Add(uint32(10), []byte("value10"))
 	assert.Error(t, err)
 
@@ -49,7 +50,8 @@ func TestFlusher_Add(t *testing.T) {
 		family.EXPECT().addPendingOutput(table.FileNumber(100)),
 		builder.EXPECT().Add(uint32(10), []byte("value10")).Return(fmt.Errorf("err")),
 	)
-	flusher = newStoreFlusher(family)
+	flusher = newStoreFlusher(family, func() {})
+	defer flusher.Release()
 	err = flusher.Add(uint32(10), []byte("value10"))
 	assert.Error(t, err)
 
@@ -61,7 +63,8 @@ func TestFlusher_Add(t *testing.T) {
 		family.EXPECT().addPendingOutput(table.FileNumber(100)),
 		builder.EXPECT().Add(uint32(10), []byte("value10")).Return(nil),
 	)
-	flusher = newStoreFlusher(family)
+	flusher = newStoreFlusher(family, func() {})
+	defer flusher.Release()
 	err = flusher.Add(uint32(10), []byte("value10"))
 	assert.NoError(t, err)
 }
@@ -76,7 +79,8 @@ func TestStoreFlusher_Commit(t *testing.T) {
 		family.EXPECT().ID().Return(version.FamilyID(10)),
 		family.EXPECT().commitEditLog(gomock.Any()).Return(false),
 	)
-	flusher := newStoreFlusher(family)
+	flusher := newStoreFlusher(family, func() {})
+	defer flusher.Release()
 	err := flusher.Commit()
 	assert.Error(t, err)
 
@@ -86,7 +90,8 @@ func TestStoreFlusher_Commit(t *testing.T) {
 		family.EXPECT().ID().Return(version.FamilyID(10)),
 		family.EXPECT().commitEditLog(gomock.Any()).Return(true),
 	)
-	flusher = newStoreFlusher(family)
+	flusher = newStoreFlusher(family, func() {})
+	defer flusher.Release()
 	flusher.Sequence(1, 10)
 	flusher.Sequence(2, 20)
 	err = flusher.Commit()
@@ -99,7 +104,8 @@ func TestStoreFlusher_Commit(t *testing.T) {
 		builder.EXPECT().FileNumber().Return(table.FileNumber(10)),
 		family.EXPECT().removePendingOutput(table.FileNumber(10)),
 	)
-	flusher = newStoreFlusher(family)
+	flusher = newStoreFlusher(family, func() {})
+	defer flusher.Release()
 	f := flusher.(*storeFlusher)
 	f.builder = builder
 	err = flusher.Commit()
@@ -116,7 +122,8 @@ func TestStoreFlusher_Commit(t *testing.T) {
 		builder.EXPECT().FileNumber().Return(table.FileNumber(10)),
 		family.EXPECT().removePendingOutput(table.FileNumber(10)),
 	)
-	flusher = newStoreFlusher(family)
+	flusher = newStoreFlusher(family, func() {})
+	defer flusher.Release()
 	f = flusher.(*storeFlusher)
 	f.builder = builder
 	err = flusher.Commit()
@@ -133,7 +140,8 @@ func TestStoreFlusher_Commit(t *testing.T) {
 		builder.EXPECT().FileNumber().Return(table.FileNumber(10)),
 		family.EXPECT().removePendingOutput(table.FileNumber(10)),
 	)
-	flusher = newStoreFlusher(family)
+	flusher = newStoreFlusher(family, func() {})
+	defer flusher.Release()
 	f = flusher.(*storeFlusher)
 	f.builder = builder
 	err = flusher.Commit()

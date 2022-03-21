@@ -521,6 +521,8 @@ func (f *dataFamily) Close() error {
 
 func (f *dataFamily) flushMemoryDatabase(sequences map[int32]int64, memDB memdb.MemoryDatabase) error {
 	flusher := f.family.NewFlusher()
+	defer flusher.Release()
+
 	for leader, seq := range sequences {
 		flusher.Sequence(leader, seq)
 	}

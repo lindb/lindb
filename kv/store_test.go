@@ -236,6 +236,7 @@ func TestStore_Compact(t *testing.T) {
 		_ = flusher.Add(10, []byte("test10"))
 		commitErr := flusher.Commit()
 		assert.Nil(t, commitErr)
+		flusher.Release()
 	}
 	kv.compact()
 	time.Sleep(2 * time.Second)
