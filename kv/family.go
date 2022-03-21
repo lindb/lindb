@@ -75,6 +75,8 @@ type Family interface {
 	rollup()
 	// deleteObsoleteFiles deletes obsolete files
 	deleteObsoleteFiles()
+	// close family, need wait background job completed then releases resource.
+	close()
 }
 
 // family implements Family interface
@@ -92,6 +94,8 @@ type family struct {
 
 	rolluping  atomic.Bool
 	compacting atomic.Bool
+
+	condition sync.WaitGroup // compact/rollup job if it's doing
 }
 
 // newFamily creates new family or open existed family.
@@ -202,11 +206,15 @@ func (f *family) needCompact() bool {
 	return false
 }
 
-// compact does compact job if hasn't compact job running
+// compact does compact job if it hasn't compact job running.
 func (f *family) compact() {
 	if f.compacting.CAS(false, true) {
+		f.condition.Add(1)
 		go func() {
-			defer f.compacting.Store(false)
+			defer func() {
+				f.condition.Done()
+				f.compacting.Store(false)
+			}()
 
 			if err := f.backgroundCompactionJob(); err != nil {
 				kvLogger.Error("do compact job error",
@@ -314,4 +322,10 @@ func (f *family) deleteObsoleteFiles() {
 			}
 		}
 	}
+}
+
+// close family, need wait background job completed then releases resource.
+func (f *family) close() {
+	// wait background job completed.
+	f.condition.Wait()
 }

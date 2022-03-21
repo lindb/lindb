@@ -108,10 +108,12 @@ func (f *family) rollup() {
 	// check if it has background rollup job running already,
 	// has rollup job, return it, else do rollup job.
 	if f.rolluping.CAS(false, true) {
+		f.condition.Add(1)
 		go func() {
 			defer func() {
 				// clean up unused files, maybe some file not used
 				f.deleteObsoleteFiles()
+				f.condition.Done()
 				f.rolluping.Store(false)
 			}()
 
