@@ -263,6 +263,8 @@ func (m *tagMetadata) Flush() error {
 
 	// flush immutable data into kv store
 	fluster := m.family.NewFlusher()
+	defer fluster.Release()
+
 	tagFluster, err := newTagFlusherFunc(fluster)
 	if err != nil {
 		return err
@@ -282,7 +284,7 @@ func (m *tagMetadata) Flush() error {
 	if err := tagFluster.Close(); err != nil {
 		return err
 	}
-	// finally clear immutable
+	// finally, clear immutable
 	m.rwMutex.Lock()
 	m.immutable = nil
 	m.rwMutex.Unlock()
