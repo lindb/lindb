@@ -75,7 +75,6 @@ var initializeStorageConfigCmd = &cobra.Command{
 
 func serveStorage(_ *cobra.Command, _ []string) error { // nolint:dupl
 	ctx := newCtxWithSignals()
-
 	storageCfg := config.Storage{}
 
 	if err := config.LoadAndSetStorageConfig(cfg, defaultStorageCfgFile, &storageCfg); err != nil {
