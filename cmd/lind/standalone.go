@@ -24,6 +24,7 @@ import (
 
 	"github.com/lindb/lindb/app/standalone"
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/ltoml"
 )
@@ -82,9 +83,14 @@ func serveStandalone(cmd *cobra.Command, args []string) error { // nolint:dupl
 	ctx := newCtxWithSignals()
 
 	standaloneCfg := config.Standalone{}
-	if err := config.LoadAndSetStandAloneConfig(cfg, defaultStandaloneCfgFile, &standaloneCfg); err != nil {
-		return err
+	if fileutil.Exist(cfg) || fileutil.Exist(defaultStorageCfgFile) {
+		if err := config.LoadAndSetStandAloneConfig(cfg, defaultStorageCfgFile, &standaloneCfg); err != nil {
+			return err
+		}
+	} else {
+		standaloneCfg = config.NewDefaultStandalone()
 	}
+
 	if err := logger.InitLogger(standaloneCfg.Logging, standaloneLogFileName); err != nil {
 		return fmt.Errorf("init logger error: %s", err)
 	}
@@ -92,6 +98,9 @@ func serveStandalone(cmd *cobra.Command, args []string) error { // nolint:dupl
 	// run cluster as standalone mode
 	runtime := standalone.NewStandaloneRuntime(config.Version, &standaloneCfg)
 	return run(ctx, runtime, func() error {
+		if !fileutil.Exist(cfg) && !fileutil.Exist(defaultStorageCfgFile) {
+			return nil
+		}
 		newStandaloneCfg := config.Standalone{}
 		return config.LoadAndSetStandAloneConfig(cfg, defaultStandaloneCfgFile, &newStandaloneCfg)
 	})
