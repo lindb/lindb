@@ -60,7 +60,7 @@ type Flusher interface {
 	CommitMetric(slotRange timeutil.SlotRange) error
 	// Closer closes the writer, syncs all data to the file.
 	io.Closer
-	// GetFieldMetas returns current metric's field metas
+	// GetFieldMetas returns current field metas of metric.
 	GetFieldMetas() field.Metas
 }
 
@@ -134,7 +134,7 @@ type flusher struct {
 	Level3 struct {
 		// startAt is the absolute position in the Level2's Series Bucket
 		startAt int
-		// highKey is a the higher 16 bits of seriesIDs.
+		// highKey is a higher 16 bits of seriesIDs.
 		// query will be performed concurrently by high key.
 		highKey uint16
 		// highKeySetEver symbols if highKey has been set before
@@ -162,7 +162,7 @@ type flusher struct {
 	// uvariant64 encoding LenOfOffsets, reversed
 	//
 	// Level4 is the fourth level of kv table, context for writing field data.
-	// Each entry is a different field datas ordered by field ids
+	// Each entry is a different field data ordered by field ids
 	// The following are two different scenarios：
 	// Case1: Single Field Metric
 	//        FieldData without other information
@@ -264,7 +264,7 @@ func (w *flusher) FlushSeries(seriesID uint32) error {
 	w.Level3.lowKeyOffsets.Add(int(w.kvWriter.Size()) - w.Level3.startAt)
 	// isHighKeySetEver means this is the first high key
 	// If different high key arrives, level3 is done.
-	// otherwise, we are still at level3, just keeps the low key offset
+	// otherwise, we are still at level3, just keeps the low-key's offset
 	highKey := encoding.HighBits(seriesID)
 	if !w.Level3.isHighKeySetEver {
 		w.Level3.isHighKeySetEver = true
@@ -283,7 +283,7 @@ func (w *flusher) FlushSeries(seriesID uint32) error {
 		// set high key offset to current series bucket
 		w.Level2.highKeyOffsets.Add(int(w.kvWriter.Size()))
 	}
-	// add series id into metric's index block
+	// add series id into index block of metric
 	w.Level2.seriesIDs.Add(seriesID)
 	return nil
 }

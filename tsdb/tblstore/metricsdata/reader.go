@@ -53,9 +53,9 @@ type MetricReader interface {
 	// GetTimeRange returns the time range in this sst file
 	GetTimeRange() timeutil.SlotRange
 	// Load loads the data from sst file, then returns the file metric scanner.
-	Load(highKey uint16, seriesID roaring.Container, fields field.Metas) flow.DataLoader
+	Load(ctx *flow.DataLoadContext) flow.DataLoader
 	// readSeriesData reads series data from file by seriesEntryBlock
-	readSeriesData(seriesEntryBlock []byte) [][]byte
+	readSeriesData(ctx *flow.DataLoadContext, seriesIdx uint16, seriesEntryBlock []byte)
 }
 
 // metricReader implements MetricReader interface that reads metric block
@@ -104,7 +104,7 @@ func (r *metricReader) GetTimeRange() timeutil.SlotRange {
 	return r.timeRange
 }
 
-// prepare prepares the field aggregator based on query condition
+// prepare the field aggregator based on query condition.
 func (r *metricReader) prepare(fields field.Metas) (found bool) {
 	fieldMap := make(map[field.ID]int)
 	for idx, fieldMeta := range r.fields {
@@ -124,16 +124,17 @@ func (r *metricReader) prepare(fields field.Metas) (found bool) {
 }
 
 // Load loads the data from sst file, then returns the file metric scanner.
-func (r *metricReader) Load(highKey uint16, seriesID roaring.Container, fields field.Metas) flow.DataLoader {
+func (r *metricReader) Load(ctx *flow.DataLoadContext) flow.DataLoader {
 	// 1. get high container index by the high key of series ID
-	highContainerIdx := r.seriesIDs.GetContainerIndex(highKey)
+	highContainerIdx := r.seriesIDs.GetContainerIndex(ctx.SeriesIDHighKey)
 	if highContainerIdx < 0 {
 		// if high container index < 0(series IDs not exist) return it
 		return nil
 	}
 	// 2. get low container include all low keys by the high container index, delete op will clean empty low container
 	lowContainer := r.seriesIDs.GetContainerAtIndex(highContainerIdx)
-	foundSeriesIDs := lowContainer.And(seriesID)
+	foundSeriesIDs := lowContainer.And(ctx.LowSeriesIDsContainer)
+	// TODO use foundSeries
 	if foundSeriesIDs.GetCardinality() == 0 {
 		return nil
 	}
@@ -156,7 +157,7 @@ func (r *metricReader) Load(highKey uint16, seriesID roaring.Container, fields f
 		return nil
 	}
 
-	if !r.prepare(fields) {
+	if !r.prepare(ctx.ShardExecuteCtx.StorageExecuteCtx.Fields) {
 		// field not found
 		return nil
 	}
@@ -166,36 +167,37 @@ func (r *metricReader) Load(highKey uint16, seriesID roaring.Container, fields f
 }
 
 // readSeriesData reads series data from file by given position.
-func (r *metricReader) readSeriesData(seriesEntryBlock []byte) [][]byte {
+func (r *metricReader) readSeriesData(ctx *flow.DataLoadContext, seriesIdx uint16, seriesEntryBlock []byte) {
 	fieldCount := r.fields.Len()
 	if fieldCount == 1 {
 		// metric has one field, just read the data
-		return [][]byte{seriesEntryBlock}
+		ctx.DownSampling(r.timeRange, seriesIdx, 0, seriesEntryBlock)
+		return
 	}
 
 	// seriesEntry length too short or out of range
 	fieldOffsetsBlockLen, uVariantEncodingLen := stream.UvarintLittleEndian(seriesEntryBlock)
 	fieldOffsetsAt := len(seriesEntryBlock) - int(fieldOffsetsBlockLen) - uVariantEncodingLen
 	if uVariantEncodingLen <= 0 || fieldOffsetsAt <= 0 || fieldOffsetsAt >= len(seriesEntryBlock) {
-		return nil
+		return
 	}
 
+	// TODO need test
 	// read data for multi-fields
-	fieldOffsetsDecoder := encoding.NewFixedOffsetDecoder()
+	fieldOffsetsDecoder := encoding.GetFixedOffsetDecoder()
 	_, _ = fieldOffsetsDecoder.Unmarshal(seriesEntryBlock[fieldOffsetsAt:])
 
-	rs := make([][]byte, len(r.readFieldIndexes))
-	for i, idx := range r.readFieldIndexes {
-		if idx == -1 {
+	for queryIdx, readIdx := range r.readFieldIndexes {
+		if readIdx == -1 {
 			continue
 		}
-		fieldBlock, err := fieldOffsetsDecoder.GetBlock(idx, seriesEntryBlock[:fieldOffsetsAt])
+		fieldBlock, err := fieldOffsetsDecoder.GetBlock(readIdx, seriesEntryBlock[:fieldOffsetsAt])
 		if err == nil {
 			// read field data
-			rs[i] = fieldBlock
+			ctx.DownSampling(r.timeRange, seriesIdx, queryIdx, fieldBlock)
 		}
 	}
-	return rs
+	encoding.ReleaseFixedOffsetDecoder(fieldOffsetsDecoder)
 }
 
 // initReader initializes the metricReader context includes tag value ids/high offsets
@@ -320,8 +322,7 @@ func (s *dataScanner) slotRange() timeutil.SlotRange {
 	return s.reader.GetTimeRange()
 }
 
-// scan scans the data and returns the seriesEntry if series id exist,
-// else returns nil
+// scan the data and returns the seriesEntry if series id exist, else returns nil.
 func (s *dataScanner) scan(highKey, lowSeriesID uint16) []byte {
 	if s.highKey < highKey {
 		if s.highContainerIdx >= len(s.highKeys) {

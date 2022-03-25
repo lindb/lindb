@@ -38,7 +38,7 @@ type Filter interface {
 // metricsDataFilter represents the sst file data filter
 type metricsDataFilter struct {
 	familyTime int64
-	snapshot   version.Snapshot // FIXME stone1100, need close version snapshot
+	snapshot   version.Snapshot
 	readers    []MetricReader
 }
 
@@ -69,7 +69,7 @@ func (f *metricsDataFilter) Filter(
 			// series ids not found
 			continue
 		}
-		rs = append(rs, newFileFilterResultSet(f.familyTime, fields, matchSeriesIDs, reader))
+		rs = append(rs, newFileFilterResultSet(f.familyTime, matchSeriesIDs, reader, f.snapshot))
 	}
 	// not founds
 	if len(rs) == 0 {
@@ -80,24 +80,24 @@ func (f *metricsDataFilter) Filter(
 
 // fileFilterResultSet represents sst file metricReader for loading file data based on query condition
 type fileFilterResultSet struct {
+	snapshot   version.Snapshot // FIXME stone1100, need close version snapshot
 	reader     MetricReader
 	familyTime int64
-	fields     field.Metas
 	seriesIDs  *roaring.Bitmap
 }
 
 // newFileFilterResultSet creates the file filter result set
 func newFileFilterResultSet(
 	familyTime int64,
-	fields field.Metas,
 	seriesIDs *roaring.Bitmap,
 	reader MetricReader,
+	snapshot version.Snapshot,
 ) flow.FilterResultSet {
 	return &fileFilterResultSet{
 		familyTime: familyTime,
 		reader:     reader,
-		fields:     fields,
 		seriesIDs:  seriesIDs,
+		snapshot:   snapshot,
 	}
 }
 
@@ -122,6 +122,12 @@ func (f *fileFilterResultSet) SlotRange() timeutil.SlotRange {
 }
 
 // Load reads data from sst files, then returns the data file scanner.
-func (f *fileFilterResultSet) Load(highKey uint16, seriesID roaring.Container) flow.DataLoader {
-	return f.reader.Load(highKey, seriesID, f.fields)
+func (f *fileFilterResultSet) Load(ctx *flow.DataLoadContext) flow.DataLoader {
+	return f.reader.Load(ctx)
+}
+
+// Close release the resource during doing query operation.
+func (f *fileFilterResultSet) Close() {
+	// release kv snapshot
+	f.snapshot.Close()
 }

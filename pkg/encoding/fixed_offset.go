@@ -22,9 +22,31 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"sync"
 
 	"github.com/lindb/lindb/pkg/stream"
 )
+
+var (
+	fixedOffsetDecoderPool = sync.Pool{
+		New: func() interface{} {
+			return NewFixedOffsetDecoder()
+		},
+	}
+)
+
+// GetFixedOffsetDecoder returns a FixedOffsetDecoder instance from pool.
+func GetFixedOffsetDecoder() *FixedOffsetDecoder {
+	decoder := fixedOffsetDecoderPool.Get()
+	return decoder.(*FixedOffsetDecoder)
+}
+
+// ReleaseFixedOffsetDecoder pushes back  FixedOffsetDecoder instance to pool.
+func ReleaseFixedOffsetDecoder(decoder *FixedOffsetDecoder) {
+	if decoder != nil {
+		fixedOffsetDecoderPool.Put(decoder)
+	}
+}
 
 // FixedOffsetEncoder represents the offset encoder with fixed length
 // Make sure that added offset is increasing
@@ -204,8 +226,8 @@ func (d *FixedOffsetDecoder) Get(index int) (int, bool) {
 func (d *FixedOffsetDecoder) GetBlock(index int, dataBlock []byte) (block []byte, err error) {
 	startOffset, ok := d.Get(index)
 	if !ok {
-		return nil, fmt.Errorf("corrupted FixedOffsetDecoder block, length: %d, startOffset: %d",
-			len(d.offsetsBlock), startOffset)
+		return nil, fmt.Errorf("corrupted FixedOffsetDecoder block, length: %d, startOffset: %d, index:%d",
+			len(d.offsetsBlock), startOffset, index)
 	}
 	endOffset, ok := d.Get(index + 1)
 	if !ok {

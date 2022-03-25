@@ -18,121 +18,88 @@
 package storagequery
 
 import (
-	"sort"
-
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/sql/stmt"
-
-	"github.com/lindb/roaring"
+	"github.com/lindb/lindb/tsdb"
+	"github.com/lindb/lindb/tsdb/metadb"
 )
 
-// storageExecuteContext represents storage query execute context
-type storageExecuteContext struct {
-	query    *stmt.Query
-	shardIDs []models.ShardID
+// executeContext represents storage query execute context.
+type executeContext struct {
+	database tsdb.Database
+	shards   []tsdb.Shard
 
-	tagFilterResult map[string]*tagFilterResult
-
-	stats *models.StorageStats // storage query stats track for explain query
+	storageExecuteCtx *flow.StorageExecuteContext
 }
 
 // newStorageExecuteContext creates storage execute context
-func newStorageExecuteContext(shardIDs []models.ShardID, query *stmt.Query) *storageExecuteContext {
-	ctx := &storageExecuteContext{
-		query:    query,
-		shardIDs: shardIDs,
+func newStorageExecuteContext(database tsdb.Database, shardIDs []models.ShardID, query *stmt.Query) *executeContext {
+	ctx := &executeContext{
+		database: database,
+		storageExecuteCtx: &flow.StorageExecuteContext{
+			Query:    query,
+			ShardIDs: shardIDs,
+		},
 	}
 	if query.Explain {
 		// if explain query, create storage query stats
-		ctx.stats = models.NewStorageStats()
+		ctx.storageExecuteCtx.Stats = models.NewStorageStats()
 	}
 	return ctx
 }
 
-// QueryStats returns the storage query stats
-func (ctx *storageExecuteContext) QueryStats() *models.StorageStats {
-	if ctx.stats != nil {
-		ctx.stats.Complete()
+// getMetadata returns the database's metadata.
+func (ctx *executeContext) getMetadata() metadb.Metadata {
+	return ctx.database.Metadata()
+}
+
+// prepare the execution context, and validates params.
+func (ctx *executeContext) prepare() error {
+	// do query validation
+	if err := ctx.validation(); err != nil {
+		return err
 	}
-	return ctx.stats
-}
 
-// setTagFilterResult sets tag filter result
-func (ctx *storageExecuteContext) setTagFilterResult(tagFilterResult map[string]*tagFilterResult) {
-	ctx.tagFilterResult = tagFilterResult
-}
-
-// timeSpans represents the time span slice in query time range.
-type timeSpans []*timeSpan
-
-func (f timeSpans) Len() int           { return len(f) }
-func (f timeSpans) Less(i, j int) bool { return f[i].familyTime < f[j].familyTime }
-func (f timeSpans) Swap(i, j int)      { f[i], f[j] = f[j], f[i] }
-
-// timeSpan represents a time span in query time range.
-type timeSpan struct {
-	identifier     string
-	familyTime     int64
-	source, target timeutil.SlotRange
-	interval       timeutil.Interval
-	fieldCount     int
-
-	resultSets []flow.FilterResultSet
-}
-
-type timeSpanResultSet struct {
-	spanMap    map[int64]*timeSpan // familyTime -> timeSpan
-	seriesIDs  *roaring.Bitmap
-	fieldCount int
-}
-
-func newTimeSpanResultSet(fieldCount int) *timeSpanResultSet {
-	return &timeSpanResultSet{
-		spanMap:    make(map[int64]*timeSpan),
-		seriesIDs:  roaring.New(),
-		fieldCount: fieldCount,
-	}
-}
-
-func (s *timeSpanResultSet) addFilterResultSet(interval timeutil.Interval, rs flow.FilterResultSet) {
-	familyTime := rs.FamilyTime()
-	span, ok := s.spanMap[familyTime]
-	if !ok {
-		span = &timeSpan{
-			identifier: rs.Identifier(),
-			familyTime: familyTime,
-			fieldCount: s.fieldCount,
-			source:     rs.SlotRange(),
-			target:     rs.SlotRange(),
-			interval:   interval,
+	// get shard by given query shard id list
+	for _, shardID := range ctx.storageExecuteCtx.ShardIDs {
+		shard, ok := ctx.database.GetShard(shardID)
+		// if shard exist, add shard to query list
+		if ok {
+			ctx.shards = append(ctx.shards, shard)
 		}
-		s.spanMap[familyTime] = span
-	} else {
-		// calc source slot range
-		span.source = span.source.Union(rs.SlotRange())
+	}
+	// check got shards if valid
+	if err := ctx.checkShards(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// validation validates query input params are valid.
+func (ctx *executeContext) validation() error {
+	// check input shardIDs if empty
+	if len(ctx.storageExecuteCtx.ShardIDs) == 0 {
+		return errNoShardID
+	}
+	numOfShards := ctx.database.NumOfShards()
+	// check engine has shard
+	if numOfShards == 0 {
+		return errNoShardInDatabase
 	}
 
-	span.resultSets = append(span.resultSets, rs)
-
-	// merge all series ids after filtering => final series ids
-	s.seriesIDs.Or(rs.SeriesIDs())
+	return nil
 }
 
-func (s *timeSpanResultSet) isEmpty() bool {
-	return len(s.spanMap) == 0
-}
-
-func (s *timeSpanResultSet) getTimeSpans() (ts timeSpans) {
-	for _, span := range s.spanMap {
-		ts = append(ts, span)
+// checkShards checks got shards if valid.
+func (ctx *executeContext) checkShards() error {
+	numOfShards := len(ctx.shards)
+	if numOfShards == 0 {
+		return errShardNotFound
 	}
-	sort.Sort(ts)
-	return ts
-}
-
-// getSeriesIDs returns final series ids after family filtering.
-func (s *timeSpanResultSet) getSeriesIDs() *roaring.Bitmap {
-	return s.seriesIDs
+	numOfShardIDs := len(ctx.storageExecuteCtx.ShardIDs)
+	if numOfShards != numOfShardIDs {
+		return errShardNumNotMatch
+	}
+	return nil
 }

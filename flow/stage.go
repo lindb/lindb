@@ -15,19 +15,30 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package indexdb
+package flow
 
-import (
-	"github.com/lindb/roaring"
+// Stage is the definition of query stage
+type Stage int
 
-	"github.com/lindb/lindb/series"
+const (
+	FilteringStage Stage = iota + 1
+	GroupingStage
+	ScannerStage
+	DownSamplingStage
 )
 
-type groupingContext struct {
-	gCtx series.GroupingContext
-}
-
-func (g *groupingContext) BuildGroup(highKey uint16, container roaring.Container) map[string][]uint16 {
-	// need add read lock
-	return g.gCtx.BuildGroup(highKey, container)
+// String returns string value of stage.
+func (qs Stage) String() string {
+	switch qs {
+	case FilteringStage:
+		return "filtering"
+	case GroupingStage:
+		return "grouping"
+	case ScannerStage:
+		return "scanner"
+	case DownSamplingStage:
+		return "downSampling"
+	default:
+		return "unknown"
+	}
 }

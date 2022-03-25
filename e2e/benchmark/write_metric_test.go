@@ -37,14 +37,14 @@ func TestWriteSumMetric(b *testing.T) {
 	timestamp := timeutil.Now()
 	cli := resty.New()
 	count := 0
-	for i := 0; i < 40; i++ {
+	for i := 0; i < 40000; i++ {
 		var buf bytes.Buffer
 		for j := 0; j < 20; j++ {
 			for k := 0; k < 4; k++ {
 				var brokerRow metric.BrokerRow
 				converter := metric.NewProtoConverter()
 				err := converter.ConvertTo(&protoMetricsV1.Metric{
-					Name:      "host_disk0_200",
+					Name:      "host_disk_3200",
 					Timestamp: timestamp,
 					Tags: []*protoMetricsV1.KeyValue{
 						{Key: "host", Value: "host" + strconv.Itoa(i)},

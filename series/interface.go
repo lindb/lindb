@@ -18,6 +18,8 @@
 package series
 
 import (
+	"github.com/lindb/lindb/series/tag"
+
 	"github.com/lindb/roaring"
 )
 
@@ -34,17 +36,15 @@ type MetricMetaSuggester interface {
 // default max limit of suggestions is set in constants
 type TagValueSuggester interface {
 	// SuggestTagValues returns suggestions from given tag key id and prefix of tagValue
-	SuggestTagValues(tagKeyID uint32, tagValuePrefix string, limit int) []string
+	SuggestTagValues(tagKeyID tag.KeyID, tagValuePrefix string, limit int) []string
 }
 
 // Filter represents the query ability for filtering seriesIDs by expr from an index of tags.
 type Filter interface {
 	// GetSeriesIDsByTagValueIDs gets series ids by tag value ids for spec tag key of metric
-	GetSeriesIDsByTagValueIDs(tagKeyID uint32, tagValueIDs *roaring.Bitmap) (*roaring.Bitmap, error)
+	GetSeriesIDsByTagValueIDs(tagKeyID tag.KeyID, tagValueIDs *roaring.Bitmap) (*roaring.Bitmap, error)
 	// GetSeriesIDsForTag gets series ids for spec tag key of metric
-	GetSeriesIDsForTag(tagKeyID uint32) (*roaring.Bitmap, error)
+	GetSeriesIDsForTag(tagKeyID tag.KeyID) (*roaring.Bitmap, error)
 	// GetSeriesIDsForMetric gets series ids for spec metric name
 	GetSeriesIDsForMetric(namespace, metricName string) (*roaring.Bitmap, error)
-	// GetGroupingContext returns the context of group by
-	GetGroupingContext(tagKeyIDs []uint32, seriesIDs *roaring.Bitmap) (GroupingContext, error)
 }

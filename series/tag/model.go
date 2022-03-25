@@ -23,8 +23,11 @@ import (
 	"github.com/lindb/lindb/pkg/stream"
 )
 
+// KeyID represents tag key id type.
+type KeyID uint32
+
 // EmptyTagKeyID represents empty value for tag key id.
-const EmptyTagKeyID = uint32(0)
+const EmptyTagKeyID = KeyID(0)
 
 // Metas implements sort.Interface, it's sorted by name
 type Metas []Meta
@@ -41,7 +44,7 @@ func UnmarshalBinary(data []byte) (Metas, error) {
 		id := reader.ReadUint32()
 		keyLen := reader.ReadInt16()
 		key := reader.ReadBytes(int(keyLen))
-		fms = append(fms, Meta{ID: id, Key: string(key)})
+		fms = append(fms, Meta{ID: KeyID(id), Key: string(key)})
 	}
 	return fms, reader.Error()
 }
@@ -58,13 +61,13 @@ func (fms Metas) Find(tagKey string) (Meta, bool) {
 // Meta holds the relation of tagKey and its ID
 type Meta struct {
 	Key string
-	ID  uint32
+	ID  KeyID
 }
 
 func (m *Meta) MarshalBinary() (data []byte, err error) {
 	var buf bytes.Buffer
 	writer := stream.NewBufferWriter(&buf)
-	writer.PutUint32(m.ID)
+	writer.PutUint32(uint32(m.ID))
 	writer.PutInt16(int16(len(m.Key)))
 	writer.PutBytes([]byte(m.Key))
 	return buf.Bytes(), writer.Error()

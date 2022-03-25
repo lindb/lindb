@@ -25,6 +25,7 @@ import (
 	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/bit"
 	"github.com/lindb/lindb/pkg/encoding"
@@ -106,5 +107,13 @@ func TestFlusher_TooMany_Data(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
 
-	r.Load(0, roaring.BitmapOf(1, 2, 3, 4).GetContainer(0), field.Metas{{ID: 2}})
+	r.Load(&flow.DataLoadContext{
+		SeriesIDHighKey:       0,
+		LowSeriesIDsContainer: roaring.BitmapOf(1, 2, 3, 4).GetContainer(0),
+		ShardExecuteCtx: &flow.ShardExecuteContext{
+			StorageExecuteCtx: &flow.StorageExecuteContext{
+				Fields: field.Metas{{ID: 2}},
+			},
+		},
+	})
 }

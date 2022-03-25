@@ -15,25 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package indexdb
+package flow
 
 import (
 	"testing"
 
-	"github.com/golang/mock/gomock"
-
-	"github.com/lindb/lindb/series"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestGroupingContext_Build(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	gCtx := series.NewMockGroupingContext(ctrl)
-	gCtx.EXPECT().BuildGroup(gomock.Any(), gomock.Any()).Return(nil)
-
-	ctx := &groupingContext{
-		gCtx: gCtx,
-	}
-	ctx.BuildGroup(uint16(10), nil)
+func TestStage_String(t *testing.T) {
+	assert.Equal(t, "scanner", ScannerStage.String())
+	assert.Equal(t, "filtering", FilteringStage.String())
+	assert.Equal(t, "grouping", GroupingStage.String())
+	assert.Equal(t, "downSampling", DownSamplingStage.String())
+	assert.Equal(t, "unknown", Stage(99999).String())
 }

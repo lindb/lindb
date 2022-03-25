@@ -20,7 +20,7 @@ package collections
 const blockSize = 8
 
 // FloatArray encapsulates methods for using the float array
-// support mark pos if has value
+// support mark pos if it has value
 type FloatArray struct {
 	marks    []uint8
 	values   []float64
@@ -56,7 +56,7 @@ func (f *FloatArray) HasValue(pos int) bool {
 	return mark&(1<<uint64(idx)) != 0
 }
 
-// GetValue returns value with pos, if has not value return 0
+// GetValue returns value with pos, if it has not value return 0
 func (f *FloatArray) GetValue(pos int) float64 {
 	if !f.checkPos(pos) {
 		return 0

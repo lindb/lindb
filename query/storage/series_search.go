@@ -23,7 +23,9 @@ import (
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
@@ -40,15 +42,15 @@ type SeriesSearch interface {
 // return series id set for condition
 type seriesSearch struct {
 	condition    stmt.Expr
-	filterResult map[string]*tagFilterResult
+	filterResult map[string]*flow.TagFilterResult
 
 	filter series.Filter
 
 	err error
 }
 
-// newSeriesSearch creates a a series search using query condition
-func newSeriesSearch(filter series.Filter, filterResult map[string]*tagFilterResult, condition stmt.Expr) SeriesSearch {
+// newSeriesSearch creates a series search using query condition
+func newSeriesSearch(filter series.Filter, filterResult map[string]*flow.TagFilterResult, condition stmt.Expr) SeriesSearch {
 	return &seriesSearch{
 		filterResult: filterResult,
 		filter:       filter,
@@ -66,19 +68,19 @@ func (s *seriesSearch) Search() (*roaring.Bitmap, error) {
 }
 
 // findSeriesIDsByExpr finds series ids by expr, recursion filter for expr
-func (s *seriesSearch) findSeriesIDsByExpr(condition stmt.Expr) (uint32, *roaring.Bitmap) {
+func (s *seriesSearch) findSeriesIDsByExpr(condition stmt.Expr) (tag.KeyID, *roaring.Bitmap) {
 	if condition == nil {
-		return 0, roaring.New() // create a empty series ids for parent expr
+		return 0, roaring.New() // create an empty series ids for parent expr
 	}
 	if s.err != nil {
-		return 0, roaring.New() // create a empty series ids for parent expr
+		return 0, roaring.New() // create an empty series ids for parent expr
 	}
 	switch expr := condition.(type) {
 	case stmt.TagFilter:
 		tagKey, seriesIDs, err := s.getSeriesIDsByExpr(expr)
 		if err != nil {
 			s.err = err
-			return tagKey, roaring.New() // create a empty series ids for parent expr
+			return tagKey, roaring.New() // create an empty series ids for parent expr
 		}
 		return tagKey, seriesIDs
 	case *stmt.ParenExpr:
@@ -90,7 +92,7 @@ func (s *seriesSearch) findSeriesIDsByExpr(condition stmt.Expr) (uint32, *roarin
 		all, err := s.filter.GetSeriesIDsForTag(tagKey)
 		if err != nil {
 			s.err = err
-			return tagKey, roaring.New() // create a empty series ids for parent expr
+			return tagKey, roaring.New() // create an empty series ids for parent expr
 		}
 		// do and not got series ids not in 'a' list
 		all.AndNot(matchResult)
@@ -105,18 +107,18 @@ func (s *seriesSearch) findSeriesIDsByExpr(condition stmt.Expr) (uint32, *roarin
 		}
 		return 0, left
 	}
-	return 0, roaring.New() // create a empty series ids for parent expr
+	return 0, roaring.New() // create an empty series ids for parent expr
 }
 
 // getTagKeyID returns the tag key id by tag key
-func (s *seriesSearch) getSeriesIDsByExpr(expr stmt.Expr) (uint32, *roaring.Bitmap, error) {
+func (s *seriesSearch) getSeriesIDsByExpr(expr stmt.Expr) (tag.KeyID, *roaring.Bitmap, error) {
 	tagValues, ok := s.filterResult[expr.Rewrite()]
 	if !ok {
 		return 0, nil, fmt.Errorf("%w, expr: %s", constants.ErrTagValueFilterResultNotFound, expr.Rewrite())
 	}
-	seriesIDs, err := s.filter.GetSeriesIDsByTagValueIDs(tagValues.tagKey, tagValues.tagValueIDs)
+	seriesIDs, err := s.filter.GetSeriesIDsByTagValueIDs(tagValues.TagKeyID, tagValues.TagValueIDs)
 	if err != nil {
 		return 0, nil, err
 	}
-	return tagValues.tagKey, seriesIDs, nil
+	return tagValues.TagKeyID, seriesIDs, nil
 }

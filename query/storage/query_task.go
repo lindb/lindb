@@ -26,10 +26,7 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/series"
-	"github.com/lindb/lindb/series/field"
-	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb"
 	"github.com/lindb/lindb/tsdb/metadb"
@@ -81,18 +78,18 @@ func (t *queryStatTask) AfterRun() {
 // storagePlanTask represents storage execute plan task
 type storagePlanTask struct {
 	baseQueryTask
-	ctx  *storageExecuteContext
+	ctx  *executeContext
 	plan *storageExecutePlan
 }
 
 // newStoragePlanTask creates storage execute plan task
-func newStoragePlanTask(ctx *storageExecuteContext, plan *storageExecutePlan) flow.QueryTask {
+func newStoragePlanTask(ctx *executeContext, plan *storageExecutePlan) flow.QueryTask {
 	task := &storagePlanTask{
 		ctx:  ctx,
 		plan: plan,
 	}
-	if ctx.query.Explain {
-		// if need explain query, use queryStatTask
+	if ctx.storageExecuteCtx.Query.Explain {
+		// if it needs to explain query, use queryStatTask
 		return &queryStatTask{
 			task: task,
 		}
@@ -108,23 +105,23 @@ func (t *storagePlanTask) Run() error {
 // AfterRun invokes after execute plan, collects plan stats
 func (t *storagePlanTask) AfterRun() {
 	t.baseQueryTask.AfterRun()
-	t.ctx.stats.SetPlanCost(t.cost)
+	t.ctx.storageExecuteCtx.Stats.SetPlanCost(t.cost)
 }
 
 // tagFilterTask represents tag filtering task based on where condition
 type tagFilterTask struct {
 	baseQueryTask
-	ctx       *storageExecuteContext
+	ctx       *executeContext
 	tagSearch TagSearch
 }
 
 // newTagFilterTask creates tag filtering task
-func newTagFilterTask(ctx *storageExecuteContext, tagSearch TagSearch) flow.QueryTask {
+func newTagFilterTask(ctx *executeContext, tagSearch TagSearch) flow.QueryTask {
 	task := &tagFilterTask{
 		ctx:       ctx,
 		tagSearch: tagSearch,
 	}
-	if ctx.query.Explain {
+	if ctx.storageExecuteCtx.Query.Explain {
 		return &queryStatTask{
 			task: task,
 		}
@@ -134,43 +131,38 @@ func newTagFilterTask(ctx *storageExecuteContext, tagSearch TagSearch) flow.Quer
 
 // Run executes tag filtering based on where condition
 func (t *tagFilterTask) Run() error {
-	tagFilterResult, err := t.tagSearch.Filter()
+	err := t.tagSearch.Filter()
 	if err != nil {
 		return err
 	}
-	if len(tagFilterResult) == 0 {
+	if len(t.ctx.storageExecuteCtx.TagFilterResult) == 0 {
 		// filter not match, return not found
 		return constants.ErrNotFound
 	}
-	// set tag filter result
-	t.ctx.setTagFilterResult(tagFilterResult)
 	return nil
 }
 
 // AfterRun invokes after tag filtering, collects tag filtering stats
 func (t *tagFilterTask) AfterRun() {
 	t.baseQueryTask.AfterRun()
-	t.ctx.stats.SetTagFilterCost(t.cost)
+	t.ctx.storageExecuteCtx.Stats.SetTagFilterCost(t.cost)
 }
 
 // seriesIDsSearchTask represents series ids search task based on tag filtering result set
 type seriesIDsSearchTask struct {
 	baseQueryTask
 
-	ctx   *storageExecuteContext
-	shard tsdb.Shard
-
-	result *roaring.Bitmap
+	shardExecuteContext *flow.ShardExecuteContext
+	shard               tsdb.Shard
 }
 
 // newSeriesIDsSearchTask creates series ids search task
-func newSeriesIDsSearchTask(ctx *storageExecuteContext, shard tsdb.Shard, result *roaring.Bitmap) flow.QueryTask {
+func newSeriesIDsSearchTask(shardExecuteContext *flow.ShardExecuteContext, shard tsdb.Shard) flow.QueryTask {
 	task := &seriesIDsSearchTask{
-		ctx:    ctx,
-		shard:  shard,
-		result: result,
+		shardExecuteContext: shardExecuteContext,
+		shard:               shard,
 	}
-	if ctx.query.Explain {
+	if shardExecuteContext.StorageExecuteCtx.Query.Explain {
 		return &queryStatTask{
 			task: task,
 		}
@@ -180,22 +172,23 @@ func newSeriesIDsSearchTask(ctx *storageExecuteContext, shard tsdb.Shard, result
 
 // Run executes series ids search based on tag filtering result
 func (t *seriesIDsSearchTask) Run() (err error) {
-	condition := t.ctx.query.Condition
+	queryStmt := t.shardExecuteContext.StorageExecuteCtx.Query
+	condition := queryStmt.Condition
 	var seriesIDs *roaring.Bitmap
 	if condition != nil {
 		// if it gets tag filter result do series ids searching
-		seriesSearch := newSeriesSearchFunc(t.shard.IndexDatabase(), t.ctx.tagFilterResult, t.ctx.query.Condition)
+		seriesSearch := newSeriesSearchFunc(t.shard.IndexDatabase(), t.shardExecuteContext.StorageExecuteCtx.TagFilterResult, condition)
 		seriesIDs, err = seriesSearch.Search()
 	} else {
 		// get series ids for metric level
-		seriesIDs, err = t.shard.IndexDatabase().GetSeriesIDsForMetric(t.ctx.query.Namespace, t.ctx.query.MetricName)
-		if err == nil && !t.ctx.query.HasGroupBy() {
+		seriesIDs, err = t.shard.IndexDatabase().GetSeriesIDsForMetric(queryStmt.Namespace, queryStmt.MetricName)
+		if err == nil && !queryStmt.HasGroupBy() {
 			// add series id without tags, maybe metric has too many series, but one series without tags
 			seriesIDs.Add(series.IDWithoutTags)
 		}
 	}
 	if err == nil && seriesIDs != nil {
-		t.result.Or(seriesIDs)
+		t.shardExecuteContext.SeriesIDsAfterFiltering.Or(seriesIDs)
 	}
 	return
 }
@@ -203,36 +196,26 @@ func (t *seriesIDsSearchTask) Run() (err error) {
 // AfterRun invokes after series ids search, collects the series ids search stats
 func (t *seriesIDsSearchTask) AfterRun() {
 	t.baseQueryTask.AfterRun()
-	t.ctx.stats.SetShardSeriesIDsSearchStats(t.shard.ShardID(), t.result.GetCardinality(), t.cost)
+	t.shardExecuteContext.StorageExecuteCtx.Stats.SetShardSeriesIDsSearchStats(t.shard.ShardID(),
+		t.shardExecuteContext.SeriesIDsAfterFiltering.GetCardinality(),
+		t.cost)
 }
 
 // familyFilterTask represents family data filtering task
 type familyFilterTask struct {
 	baseQueryTask
 
-	ctx       *storageExecuteContext
-	shard     tsdb.Shard
-	metricID  metric.ID
-	fields    field.Metas
-	seriesIDs *roaring.Bitmap
-
-	rs *timeSpanResultSet
+	shardExecuteContext *flow.ShardExecuteContext
+	shard               tsdb.Shard
 }
 
 // newFamilyFilterTask creates family data filtering task
-func newFamilyFilterTask(ctx *storageExecuteContext, shard tsdb.Shard,
-	metricID metric.ID, fields field.Metas, seriesIDs *roaring.Bitmap,
-	rs *timeSpanResultSet,
-) flow.QueryTask {
+func newFamilyFilterTask(shardExecuteContext *flow.ShardExecuteContext, shard tsdb.Shard) flow.QueryTask {
 	task := &familyFilterTask{
-		ctx:       ctx,
-		shard:     shard,
-		metricID:  metricID,
-		fields:    fields,
-		seriesIDs: seriesIDs,
-		rs:        rs,
+		shardExecuteContext: shardExecuteContext,
+		shard:               shard,
 	}
-	if ctx.query.Explain {
+	if shardExecuteContext.StorageExecuteCtx.Query.Explain {
 		return &queryStatTask{
 			task: task,
 		}
@@ -242,19 +225,20 @@ func newFamilyFilterTask(ctx *storageExecuteContext, shard tsdb.Shard,
 
 // Run executes file data filtering based on series ids and time range for each data family
 func (t *familyFilterTask) Run() error {
-	families := t.shard.GetDataFamilies(t.ctx.query.Interval.Type(), t.ctx.query.TimeRange)
+	families := t.shard.GetDataFamilies(t.shardExecuteContext.StorageExecuteCtx.QueryInterval.Type(),
+		t.shardExecuteContext.StorageExecuteCtx.QueryTimeRange)
 	if len(families) == 0 {
 		return nil
 	}
 	for idx := range families {
 		family := families[idx]
 		// execute data family search in background goroutine
-		resultSet, err := family.Filter(t.metricID, t.seriesIDs, t.ctx.query.TimeRange, t.fields)
+		resultSet, err := family.Filter(t.shardExecuteContext)
 		if err != nil {
 			return err
 		}
 		for _, rs := range resultSet {
-			t.rs.addFilterResultSet(family.Interval(), rs)
+			t.shardExecuteContext.TimeSegmentRS.AddFilterResultSet(family.Interval(), rs)
 		}
 	}
 	return nil
@@ -263,33 +247,24 @@ func (t *familyFilterTask) Run() error {
 // AfterRun invokes after file data filtering, collects the file data filtering stats
 func (t *familyFilterTask) AfterRun() {
 	t.baseQueryTask.AfterRun()
-	t.ctx.stats.SetShardKVDataFilterCost(t.shard.ShardID(), t.cost)
+	t.shardExecuteContext.StorageExecuteCtx.Stats.SetShardKVDataFilterCost(t.shard.ShardID(), t.cost)
 }
 
 // groupingContextFindTask represents group by context find task
 type groupingContextFindTask struct {
 	baseQueryTask
 
-	ctx              *storageExecuteContext
-	groupByTagKeyIDs []uint32
-	shard            tsdb.Shard
-	seriesIDs        *roaring.Bitmap
-	result           *groupingResult
+	executeCtx *flow.ShardExecuteContext
+	shard      tsdb.Shard
 }
 
 // newGroupingContextFindTask creates the group by context find task
-func newGroupingContextFindTask(ctx *storageExecuteContext, shard tsdb.Shard,
-	groupByTagKeyIDs []uint32,
-	seriesIDs *roaring.Bitmap, result *groupingResult,
-) flow.QueryTask {
+func newGroupingContextFindTask(executeCtx *flow.ShardExecuteContext, shard tsdb.Shard) flow.QueryTask {
 	task := &groupingContextFindTask{
-		ctx:              ctx,
-		shard:            shard,
-		groupByTagKeyIDs: groupByTagKeyIDs,
-		seriesIDs:        seriesIDs,
-		result:           result,
+		executeCtx: executeCtx,
+		shard:      shard,
 	}
-	if ctx.query.Explain {
+	if executeCtx.StorageExecuteCtx.Query.Explain {
 		return &queryStatTask{
 			task: task,
 		}
@@ -299,46 +274,36 @@ func newGroupingContextFindTask(ctx *storageExecuteContext, shard tsdb.Shard,
 
 // Run executes group by context finding based on group by tag key ids
 func (t *groupingContextFindTask) Run() error {
-	gCtx, err := t.shard.IndexDatabase().GetGroupingContext(t.groupByTagKeyIDs, t.seriesIDs)
+	err := t.shard.IndexDatabase().GetGroupingContext(t.executeCtx)
 	if err != nil {
 		return err
 	}
 
-	t.result.groupingCtx = gCtx
 	return nil
 }
 
 // AfterRun invokes after group by context, collects the find group by context stats
 func (t *groupingContextFindTask) AfterRun() {
 	t.baseQueryTask.AfterRun()
-	t.ctx.stats.SetShardGroupingCost(t.shard.ShardID(), t.cost)
+	t.executeCtx.StorageExecuteCtx.Stats.SetShardGroupingCost(t.shard.ShardID(), t.cost)
 }
 
 // buildGroupTask represents build grouped tag value ids => series ids mapping
 type buildGroupTask struct {
 	baseQueryTask
-	ctx         *storageExecuteContext
-	shard       tsdb.Shard
-	groupingCtx series.GroupingContext
-	highKey     uint16
-	container   roaring.Container
-	result      *groupedSeriesResult
+	ctx     *flow.ShardExecuteContext
+	shard   tsdb.Shard
+	loadCtx *flow.DataLoadContext
 }
 
 // newBuildGroupTask creates build group task
-func newBuildGroupTask(ctx *storageExecuteContext, shard tsdb.Shard,
-	groupingCtx series.GroupingContext, highKey uint16, container roaring.Container,
-	result *groupedSeriesResult,
-) flow.QueryTask {
+func newBuildGroupTask(ctx *flow.ShardExecuteContext, shard tsdb.Shard, loadCtx *flow.DataLoadContext) flow.QueryTask {
 	task := &buildGroupTask{
-		ctx:         ctx,
-		shard:       shard,
-		groupingCtx: groupingCtx,
-		highKey:     highKey,
-		container:   container,
-		result:      result,
+		ctx:     ctx,
+		shard:   shard,
+		loadCtx: loadCtx,
 	}
-	if ctx.query.Explain {
+	if ctx.StorageExecuteCtx.Query.Explain {
 		return &queryStatTask{
 			task: task,
 		}
@@ -348,11 +313,10 @@ func newBuildGroupTask(ctx *storageExecuteContext, shard tsdb.Shard,
 
 // Run executes grouped series ids(tag value ids=>series ids mapping)
 func (t *buildGroupTask) Run() error {
-	if t.groupingCtx != nil {
+	t.loadCtx.Grouping()
+	if t.ctx.GroupingContext != nil {
 		// build group by data, grouped series: tags => series IDs
-		t.result.groupedSeries = t.groupingCtx.BuildGroup(t.highKey, t.container)
-	} else {
-		t.result.groupedSeries = map[string][]uint16{"": t.container.ToArray()}
+		t.ctx.GroupingContext.BuildGroup(t.loadCtx)
 	}
 	return nil
 }
@@ -360,40 +324,35 @@ func (t *buildGroupTask) Run() error {
 // AfterRun invokes after build grouped series, collects build stats
 func (t *buildGroupTask) AfterRun() {
 	t.baseQueryTask.AfterRun()
-	t.ctx.stats.SetShardGroupBuildStats(t.shard.ShardID(), t.cost)
+	t.ctx.StorageExecuteCtx.Stats.SetShardGroupBuildStats(t.shard.ShardID(), t.cost)
 }
 
 // dataLoadTask represents data load task based on filtering result set
 type dataLoadTask struct {
 	baseQueryTask
-	ctx       *storageExecuteContext
-	spanCtx   *timeSpanCtx
-	shard     tsdb.Shard
-	queryFlow flow.StorageQueryFlow
-	timeSpan  *timeSpan
-	highKey   uint16
-	seriesIDs roaring.Container
+	dataLoadCtx *flow.DataLoadContext
+	shard       tsdb.Shard
+	queryFlow   flow.StorageQueryFlow
+	segmentIdx  int
+	segmentCtx  *flow.TimeSegmentContext
 }
 
 // newDataLoadTask creates the data load task
 func newDataLoadTask(
-	ctx *storageExecuteContext,
 	shard tsdb.Shard,
 	queryFlow flow.StorageQueryFlow,
-	timeSpan *timeSpan,
-	spanCtx *timeSpanCtx,
-	highKey uint16, seriesIDs roaring.Container,
+	dataLoadCtx *flow.DataLoadContext,
+	segmentIdx int,
+	segmentCtx *flow.TimeSegmentContext,
 ) flow.QueryTask {
 	task := &dataLoadTask{
-		ctx:       ctx,
-		shard:     shard,
-		queryFlow: queryFlow,
-		timeSpan:  timeSpan,
-		spanCtx:   spanCtx,
-		highKey:   highKey,
-		seriesIDs: seriesIDs,
+		shard:       shard,
+		queryFlow:   queryFlow,
+		segmentIdx:  segmentIdx,
+		dataLoadCtx: dataLoadCtx,
+		segmentCtx:  segmentCtx,
 	}
-	if ctx.query.Explain {
+	if dataLoadCtx.ShardExecuteCtx.StorageExecuteCtx.Query.Explain {
 		return &queryStatTask{
 			task: task,
 		}
@@ -403,14 +362,10 @@ func newDataLoadTask(
 
 // Run executes data load based on filtering result set
 func (t *dataLoadTask) Run() error {
-	t.spanCtx.loaders = make([]flow.DataLoader, len(t.timeSpan.resultSets))
-	t.spanCtx.decoders = make([][]*encoding.TSDDecoder, t.timeSpan.fieldCount)
-	for i := range t.spanCtx.decoders {
-		t.spanCtx.decoders[i] = make([]*encoding.TSDDecoder, len(t.timeSpan.resultSets))
-	}
-	for idx, rs := range t.timeSpan.resultSets {
+	t.dataLoadCtx.Loaders[t.segmentIdx] = make([]flow.DataLoader, len(t.segmentCtx.FilterRS))
+	for idx, rs := range t.segmentCtx.FilterRS {
 		// maybe return nil loader
-		t.spanCtx.loaders[idx] = rs.Load(t.highKey, t.seriesIDs)
+		t.dataLoadCtx.Loaders[t.segmentIdx][idx] = rs.Load(t.dataLoadCtx)
 	}
 	return nil
 }
@@ -418,21 +373,20 @@ func (t *dataLoadTask) Run() error {
 // AfterRun invokes after data load, collects the data load stats
 func (t *dataLoadTask) AfterRun() {
 	t.baseQueryTask.AfterRun()
-	// TODO need modify
-	identifiers := strings.Split(t.timeSpan.identifier, fmt.Sprintf("shard/%d/segment", t.shard.ShardID()))
+	identifiers := strings.Split(t.segmentCtx.Identifier, fmt.Sprintf("shard/%d/segment", t.shard.ShardID()))
 	var identifier string
 	if len(identifiers) > 1 {
 		identifier = identifiers[1]
 	} else {
 		identifier = identifiers[0]
 	}
-	t.ctx.stats.SetShardScanStats(t.shard.ShardID(), identifier, t.cost)
+	t.dataLoadCtx.ShardExecuteCtx.StorageExecuteCtx.Stats.SetShardScanStats(t.shard.ShardID(), identifier, t.cost)
 }
 
 // collectTagValuesTask represents collect tag values by tag value ids
 type collectTagValuesTask struct {
 	baseQueryTask
-	ctx         *storageExecuteContext
+	ctx         *executeContext
 	metadata    metadb.Metadata
 	tagKey      tag.Meta
 	tagValueIDs *roaring.Bitmap
@@ -440,7 +394,7 @@ type collectTagValuesTask struct {
 }
 
 // newCollectTagValuesTask creates the collect tag values task
-func newCollectTagValuesTask(ctx *storageExecuteContext, metadata metadb.Metadata,
+func newCollectTagValuesTask(ctx *executeContext, metadata metadb.Metadata,
 	tagKey tag.Meta, tagValueIDs *roaring.Bitmap, tagValues map[uint32]string,
 ) flow.QueryTask {
 	task := &collectTagValuesTask{
@@ -450,7 +404,7 @@ func newCollectTagValuesTask(ctx *storageExecuteContext, metadata metadb.Metadat
 		tagValueIDs: tagValueIDs,
 		tagValues:   tagValues,
 	}
-	if ctx.query.Explain {
+	if ctx.storageExecuteCtx.Query.Explain {
 		return &queryStatTask{
 			task: task,
 		}
@@ -466,5 +420,5 @@ func (t *collectTagValuesTask) Run() error {
 // AfterRun invokes after tag value collect, collects execution stats
 func (t *collectTagValuesTask) AfterRun() {
 	t.baseQueryTask.AfterRun()
-	t.ctx.stats.SetCollectTagValuesStats(t.tagKey.Key, t.cost)
+	t.ctx.storageExecuteCtx.Stats.SetCollectTagValuesStats(t.tagKey.Key, t.cost)
 }

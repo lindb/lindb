@@ -84,8 +84,8 @@ type tagKeyMeta struct {
 	tree           trie.SuccinctTrie
 	unmarshalError error
 	offsetsDecoder *encoding.FixedOffsetDecoder
-	trieBlock      []byte
-	bitmapData     []byte
+	trieBlock      []byte // tag value trie
+	bitmapData     []byte // tag value ids
 	offsetsData    []byte
 	bitmapPos      int
 	offsetsPos     int

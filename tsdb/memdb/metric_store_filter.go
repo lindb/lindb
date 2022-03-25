@@ -29,7 +29,7 @@ import (
 )
 
 // Filter filters the data based on fields/seriesIDs/family time,
-// if finds data then returns the FilterResultSet, else returns constants.ErrFieldNotFound
+// if it finds data then returns the FilterResultSet, else returns constants.ErrFieldNotFound
 func (ms *metricStore) Filter(familyTime int64,
 	seriesIDs *roaring.Bitmap, fields field.Metas,
 ) ([]flow.FilterResultSet, error) {
@@ -89,21 +89,26 @@ func (rs *memFilterResultSet) SeriesIDs() *roaring.Bitmap {
 }
 
 // Load loads the data from storage, then returns the memory storage metric scanner.
-func (rs *memFilterResultSet) Load(highKey uint16, seriesIDs roaring.Container) flow.DataLoader {
+func (rs *memFilterResultSet) Load(ctx *flow.DataLoadContext) flow.DataLoader {
 	// FIXME need add lock?????
 	// 1. get high container index by the high key of series ID
-	highContainerIdx := rs.store.keys.GetContainerIndex(highKey)
+	highContainerIdx := rs.store.keys.GetContainerIndex(ctx.SeriesIDHighKey)
 	if highContainerIdx < 0 {
 		// if high container index < 0(series ID not exist) return it
 		return nil
 	}
 	// 2. get low container include all low keys by the high container index, delete op will clean empty low container
 	lowContainer := rs.store.keys.GetContainerAtIndex(highContainerIdx)
-	foundSeriesIDs := lowContainer.And(seriesIDs)
+	foundSeriesIDs := lowContainer.And(ctx.LowSeriesIDsContainer)
 	if foundSeriesIDs.GetCardinality() == 0 {
 		return nil
 	}
 
 	// must use lowContainer from store, because get series index based on container
 	return newMetricStoreLoader(lowContainer, rs.store.values[highContainerIdx], *rs.store.slotRange, rs.fields)
+}
+
+// Close release the resource during doing query operation.
+func (rs *memFilterResultSet) Close() {
+	// do nothing
 }

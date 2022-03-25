@@ -18,14 +18,16 @@
 package query
 
 import (
-	"encoding/binary"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/aggregation"
+	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/series/tag"
 )
 
 func TestGroupingContext_Build(t *testing.T) {
@@ -33,30 +35,33 @@ func TestGroupingContext_Build(t *testing.T) {
 	defer func() {
 		ctrl.Finish()
 	}()
-	scanner := series.NewMockGroupingScanner(ctrl)
-	ctx := NewGroupContext([]uint32{1}, map[uint32][]series.GroupingScanner{1: {scanner}})
+	scanner := flow.NewMockGroupingScanner(ctrl)
+	ctx := NewGroupContext([]tag.KeyID{1}, map[tag.KeyID][]flow.GroupingScanner{1: {scanner}})
 	scanner.EXPECT().GetSeriesAndTagValue(uint16(1)).
 		Return(roaring.BitmapOf(1, 2, 3, 10).GetContainerAtIndex(0), []uint32{10, 20, 30, 10})
-	result := ctx.BuildGroup(1, roaring.BitmapOf(1, 2, 6, 10).GetContainerAtIndex(0))
-	assert.Len(t, result, 2)
-	tagValueIDs := make([]byte, 4)
-	binary.LittleEndian.PutUint32(tagValueIDs[0:], 10)
-	seriesIDs := result[string(tagValueIDs)]
-	assert.Equal(t, []uint16{1, 10}, seriesIDs)
-	binary.LittleEndian.PutUint32(tagValueIDs[0:], 20)
-	seriesIDs = result[string(tagValueIDs)]
-	assert.Equal(t, []uint16{2}, seriesIDs)
+	lowSeriesContainer := roaring.BitmapOf(1, 2, 6, 10).GetContainerAtIndex(0)
+	// found series id 1,2,10, tag value id: 10,20
+	dataLoadCtx := &flow.DataLoadContext{
+		SeriesIDHighKey:       1,
+		LowSeriesIDsContainer: lowSeriesContainer,
+		ShardExecuteCtx: &flow.ShardExecuteContext{
+			StorageExecuteCtx: &flow.StorageExecuteContext{
+				DownSamplingSpecs:   aggregation.AggregatorSpecs{aggregation.NewAggregatorSpec("f", field.SumField)},
+				GroupingTagValueIDs: make([]*roaring.Bitmap, 1),
+			},
+		},
+	}
+	dataLoadCtx.Grouping()
+	ctx.BuildGroup(dataLoadCtx)
+	rs := dataLoadCtx.GroupingSeriesAgg
+	assert.Len(t, rs, 2)
 
-	scanner.EXPECT().GetSeriesAndTagValue(uint16(2)).
-		Return(roaring.BitmapOf(1, 2).GetContainerAtIndex(0), []uint32{30, 10})
-	_ = ctx.BuildGroup(2, roaring.BitmapOf(1, 2).GetContainerAtIndex(0))
-	// container not found
-	scanner.EXPECT().GetSeriesAndTagValue(uint16(3)).Return(nil, nil)
-	_ = ctx.BuildGroup(3, roaring.BitmapOf(1, 2).GetContainerAtIndex(0))
-	// case: get group by tag value ids
-	groupByTagValueIDs := ctx.GetGroupByTagValueIDs()
-	assert.Len(t, groupByTagValueIDs, 1)
-	assert.EqualValues(t, roaring.BitmapOf(10, 20, 30).ToArray(), groupByTagValueIDs[0].ToArray())
+	// high key not found
+	scanner.EXPECT().GetSeriesAndTagValue(uint16(1)).Return(nil, nil)
+	dataLoadCtx.GroupingSeriesAgg = nil
+	ctx.BuildGroup(dataLoadCtx)
+	rs = dataLoadCtx.GroupingSeriesAgg
+	assert.Empty(t, rs)
 }
 
 func TestGroupingContext_ScanTagValueIDs(t *testing.T) {
@@ -64,8 +69,8 @@ func TestGroupingContext_ScanTagValueIDs(t *testing.T) {
 	defer func() {
 		ctrl.Finish()
 	}()
-	scanner := series.NewMockGroupingScanner(ctrl)
-	ctx := NewGroupContext([]uint32{1}, map[uint32][]series.GroupingScanner{1: {scanner}})
+	scanner := flow.NewMockGroupingScanner(ctrl)
+	ctx := NewGroupContext([]tag.KeyID{1}, map[tag.KeyID][]flow.GroupingScanner{1: {scanner}})
 	// case 1: get tag value ids
 	scanner.EXPECT().GetSeriesAndTagValue(uint16(1)).
 		Return(roaring.BitmapOf(1, 2, 3, 10).GetContainerAtIndex(0), []uint32{10, 20, 30, 10})

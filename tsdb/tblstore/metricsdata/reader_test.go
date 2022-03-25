@@ -19,7 +19,6 @@ package metricsdata
 
 import (
 	"fmt"
-
 	"math"
 	"testing"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/bit"
 	"github.com/lindb/lindb/pkg/encoding"
@@ -85,39 +85,72 @@ func TestReader_Load(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
 	// case 1: series high key not found
-	r.Load(1000, nil, field.Metas{{ID: 2}, {ID: 30}, {ID: 50}})
+	r.Load(&flow.DataLoadContext{
+		SeriesIDHighKey: 1000,
+		ShardExecuteCtx: &flow.ShardExecuteContext{
+			StorageExecuteCtx: &flow.StorageExecuteContext{
+				Fields: field.Metas{{ID: 2}, {ID: 30}, {ID: 50}},
+			},
+		},
+	})
 	// case 3: load data success
 	r, err = NewReader("1.sst", mockMetricBlock())
 	assert.NoError(t, err)
-	scanner := r.Load(0, roaring.BitmapOf(4096, 8192).GetContainer(0), field.Metas{{ID: 2}, {ID: 30}, {ID: 50}})
+	scanner := r.Load(&flow.DataLoadContext{
+		SeriesIDHighKey:       0,
+		LowSeriesIDsContainer: roaring.BitmapOf(4096, 8192).GetContainer(0),
+		ShardExecuteCtx: &flow.ShardExecuteContext{
+			StorageExecuteCtx: &flow.StorageExecuteContext{
+				Fields: field.Metas{{ID: 2}, {ID: 30}, {ID: 50}},
+			},
+		},
+	})
+
 	assert.NotNil(t, scanner)
 	// case 4: series ids not found
 	r, err = NewReader("1.sst", mockMetricBlock())
 	assert.NoError(t, err)
-	scanner = r.Load(0,
-		roaring.BitmapOf(10, 12).GetContainer(0),
-		field.Metas{{ID: 2}, {ID: 30}, {ID: 50}})
+	scanner = r.Load(&flow.DataLoadContext{
+		SeriesIDHighKey:       0,
+		LowSeriesIDsContainer: roaring.BitmapOf(10, 12).GetContainer(0),
+		ShardExecuteCtx: &flow.ShardExecuteContext{
+			StorageExecuteCtx: &flow.StorageExecuteContext{
+				Fields: field.Metas{{ID: 2}, {ID: 30}, {ID: 50}},
+			},
+		},
+	})
 	assert.Nil(t, scanner)
 
 	// case 5: load data success, but time slot not in query range
 	r, err = NewReader("1.sst", mockMetricBlock())
 	assert.NoError(t, err)
-	scanner = r.Load(0,
-		roaring.BitmapOf(4096, 8192).GetContainer(0),
-		field.Metas{{ID: 2}, {ID: 30}, {ID: 50}})
-	scanner.Load(4096)
-	scanner.Load(8192)
+	ctx := &flow.DataLoadContext{
+		SeriesIDHighKey:       0,
+		LowSeriesIDsContainer: roaring.BitmapOf(4096, 8192).GetContainer(0),
+		ShardExecuteCtx: &flow.ShardExecuteContext{
+			StorageExecuteCtx: &flow.StorageExecuteContext{
+				Fields: field.Metas{{ID: 2}, {ID: 30}, {ID: 50}},
+			},
+		},
+		DownSampling: func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, fieldData []byte) {
+
+		},
+	}
+	scanner = r.Load(ctx)
+	scanner.Load(ctx)
+	scanner.Load(ctx)
 
 	// case 6: load data success, metric has one field
 	r, err = NewReader("1.sst", mockMetricBlockForOneField())
 	assert.NoError(t, err)
-	scanner = r.Load(0, roaring.BitmapOf(4096, 8192).GetContainer(0), field.Metas{{ID: 2}})
-	scanner.Load(4096)
-	scanner.Load(8192)
+	ctx.ShardExecuteCtx.StorageExecuteCtx.Fields = field.Metas{{ID: 2}}
+	scanner.Load(ctx)
+	scanner.Load(ctx)
 	// case 7: high key not exist
 	r, err = NewReader("1.sst", mockMetricBlockForOneField())
 	assert.NoError(t, err)
-	scanner = r.Load(10, roaring.BitmapOf(4096, 8192).GetContainer(0), field.Metas{{ID: 2}})
+	ctx.SeriesIDHighKey = 10
+	scanner = r.Load(ctx)
 	assert.Nil(t, scanner)
 }
 

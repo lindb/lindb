@@ -78,7 +78,7 @@ type MetadataBackend interface {
 	// if not exist return constants.ErrMetricIDNotFound.
 	getMetricID(namespace string, metricName string) (metricID metric.ID, err error)
 	// saveTagKey saves the tag meta for given metric id.
-	saveTagKey(metricID metric.ID, tagKey string) (uint32, error)
+	saveTagKey(metricID metric.ID, tagKey string) (tag.KeyID, error)
 	// getAllTagKeys returns the all tag keys by metric id,
 	// if not exist return empty.
 	getAllTagKeys(metricID metric.ID) (tags tag.Metas, err error)
@@ -289,12 +289,13 @@ func (mb *metadataBackend) getMetricID(namespace, metricName string) (metricID m
 }
 
 // saveTagKey saves the tag meta for given metric id.
-func (mb *metadataBackend) saveTagKey(metricID metric.ID, tagKey string) (uint32, error) {
+func (mb *metadataBackend) saveTagKey(metricID metric.ID, tagKey string) (tag.KeyID, error) {
 	tagKeyID, err := nextSequence(mb.tagKeyIDSequence, mb.tagKey, tagKeyIDSequenceKey)
 	if err != nil {
 		return tag.EmptyTagKeyID, err
 	}
-	tagMeta := &tag.Meta{Key: tagKey, ID: tagKeyID}
+	id := tag.KeyID(tagKeyID)
+	tagMeta := &tag.Meta{Key: tagKey, ID: id}
 
 	val, err := tagMeta.MarshalBinary()
 	if err != nil {
@@ -306,7 +307,7 @@ func (mb *metadataBackend) saveTagKey(metricID metric.ID, tagKey string) (uint32
 	if err := mb.tagKey.Merge(scratch[:], val); err != nil {
 		return tag.EmptyTagKeyID, err
 	}
-	return tagKeyID, nil
+	return id, nil
 }
 
 // getAllTagKeys returns the all tag keys by metric id, if not exist returns empty.

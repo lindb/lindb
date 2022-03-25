@@ -19,36 +19,28 @@ package query
 
 import (
 	"encoding/binary"
-	"sync"
+	"strings"
 
 	"github.com/lindb/roaring"
 
-	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/series/tag"
 )
 
 // GroupingContext represents the context of group by query for tag keys
 // builds tags => series ids mapping, using such as counting sort
 // https://en.wikipedia.org/wiki/Counting_sort
 type GroupingContext struct {
-	tagKeys     []uint32
-	scanners    map[uint32][]series.GroupingScanner
-	tagValueIDs []*roaring.Bitmap // collect tag value ids for each group by tag key
-
-	mutex sync.Mutex
+	tagKeys  []tag.KeyID
+	scanners map[tag.KeyID][]flow.GroupingScanner
 }
 
 // NewGroupContext creates a GroupingContext
-func NewGroupContext(tagKeys []uint32, scanners map[uint32][]series.GroupingScanner) series.GroupingContext {
+func NewGroupContext(tagKeys []tag.KeyID, scanners map[tag.KeyID][]flow.GroupingScanner) flow.GroupingContext {
 	return &GroupingContext{
-		tagKeys:     tagKeys,
-		scanners:    scanners,
-		tagValueIDs: make([]*roaring.Bitmap, len(tagKeys)),
+		tagKeys:  tagKeys,
+		scanners: scanners,
 	}
-}
-
-// GetGroupByTagValueIDs returns the group by tag value ids for each tag key
-func (g *GroupingContext) GetGroupByTagValueIDs() []*roaring.Bitmap {
-	return g.tagValueIDs
 }
 
 // ScanTagValueIDs scans grouping context by high key/container of series ids,
@@ -83,89 +75,82 @@ func (g *GroupingContext) ScanTagValueIDs(highKey uint16, container roaring.Cont
 
 // BuildGroup builds the grouped series ids by the high key of series id
 // and the container includes low keys of series id.
-func (g *GroupingContext) BuildGroup(highKey uint16, container roaring.Container) map[string][]uint16 {
+func (g *GroupingContext) BuildGroup(ctx *flow.DataLoadContext) {
 	// new tag value ids array for each group by tag key
-	tagValueIDsForTags := g.buildTagValueIDs2SeriesIDs(highKey, container)
+	groupByTagValueIDs := g.buildTagValueIDs2SeriesIDs(ctx)
 
-	min := container.Minimum()
-	result := make(map[string][]uint16)
-	tagValueIDs := make([]byte, len(g.tagKeys)*4)
-	groupByTagValueIDs := make([]*roaring.Bitmap, len(g.tagValueIDs))
-	for idx := range groupByTagValueIDs {
-		groupByTagValueIDs[idx] = roaring.New()
+	// current group by query completed, need merge group by tag value ids
+	ctx.ShardExecuteCtx.StorageExecuteCtx.CollectGroupingTagValueIDs(groupByTagValueIDs)
+}
+
+// buildTagValueIDs2SeriesIDs builds tag value id => series id mapping
+func (g *GroupingContext) buildTagValueIDs2SeriesIDs(ctx *flow.DataLoadContext) []*roaring.Bitmap {
+	// new seriesIDs2Tags array based on range of min ~ max
+	seriesIDHighKey := ctx.SeriesIDHighKey
+	min := ctx.MinSeriesID
+	tagSize := len(g.tagKeys)
+	tagValueIDsForTagKeys := make([]*roaring.Bitmap, tagSize)
+	tagValueIDsForGrouping := make([][]uint32, tagSize)
+
+	for tagKeyIdx, tagKey := range g.tagKeys {
+		scanners := g.scanners[tagKey]
+		tagValueIDsForTagKey := roaring.New()
+		tagValueIDsForTagKeys[tagKeyIdx] = tagValueIDsForTagKey
+
+		groupingTagValueIDs := make([]uint32, len(ctx.LowSeriesIDs))
+		tagValueIDsForGrouping[tagKeyIdx] = groupingTagValueIDs
+
+		for _, scanner := range scanners {
+			lowSeriesIDs, tagValueIDs := scanner.GetSeriesAndTagValue(seriesIDHighKey)
+			if lowSeriesIDs == nil {
+				// high key not exist
+				continue
+			}
+			ctx.IterateLowSeriesIDs(lowSeriesIDs, func(seriesIdxFromQuery uint16, seriesIdxFromStorage int) {
+				tagValueID := tagValueIDs[seriesIdxFromStorage]
+				groupingTagValueIDs[seriesIdxFromQuery] = tagValueID
+			})
+		}
 	}
 
-	// iterator all series ids after filtering
-	it := container.PeekableIterator()
+	var scratch [4]byte
+	result := make(map[string]uint16)
+	var keyBuilder strings.Builder
+
+	groupingSeriesAggIdx := uint16(0)
+
+	it := ctx.LowSeriesIDsContainer.PeekableIterator()
 	for it.HasNext() {
 		seriesID := it.Next()
+		seriesIdx := seriesID - min // series index in query counting sort array
 		found := true
-		for idx := range g.tagKeys {
-			scanners := tagValueIDsForTags[idx]
-			tagValueID := scanners[seriesID-min]
+		keyBuilder.Reset()
+		for tagKeyIdx := range tagValueIDsForGrouping {
+			tagValueID := tagValueIDsForGrouping[tagKeyIdx][seriesIdx]
 			if tagValueID == 0 {
 				found = false
 				break
 			}
-			// collect group by tag value id
-			groupByTagValueIDs[idx].Add(tagValueID)
+			binary.LittleEndian.PutUint32(scratch[:], tagValueID)
+			keyBuilder.Write(scratch[:])
 
-			// build group key with group by tag value ids
-			offset := idx * 4
-			binary.LittleEndian.PutUint32(tagValueIDs[offset:], tagValueID)
+			tagValueIDsForTagKeys[tagKeyIdx].Add(tagValueID)
 		}
 		if found {
-			tagValuesStr := string(tagValueIDs)
-			values, ok := result[tagValuesStr]
+			key := keyBuilder.String()
+			aggIdx, ok := result[key]
 			if !ok {
-				result[tagValuesStr] = []uint16{seriesID}
-			} else {
-				result[tagValuesStr] = append(values, seriesID)
+				ctx.GroupingSeriesAgg = append(ctx.GroupingSeriesAgg, &flow.GroupingSeriesAgg{
+					Key:        key,
+					Aggregator: ctx.NewSeriesAggregator(),
+				})
+				ctx.LowSeriesIDs[seriesIdx] = groupingSeriesAggIdx
+				result[key] = groupingSeriesAggIdx
+				groupingSeriesAggIdx++
 			}
+			ctx.LowSeriesIDs[seriesIdx] = aggIdx
 		}
 	}
 
-	// need add lock, because build group concurrent
-	g.mutex.Lock()
-	for idx, tagValueIDs := range groupByTagValueIDs {
-		tIDs := g.tagValueIDs[idx]
-		if tIDs == nil {
-			g.tagValueIDs[idx] = tagValueIDs
-		} else {
-			g.tagValueIDs[idx].Or(tagValueIDs)
-		}
-	}
-	g.mutex.Unlock()
-	return result
-}
-
-// buildTagValueIDs2SeriesIDs builds tag value id => series id mapping
-func (g *GroupingContext) buildTagValueIDs2SeriesIDs(highKey uint16, container roaring.Container) [][]uint32 {
-	// new seriesIDs2Tags array based on range of min ~ max
-	min := container.Minimum()
-	max := container.Maximum()
-	seriesIDsLength := int(max-min) + 1
-	tagValueIDsForTags := make([][]uint32, len(g.tagKeys))
-	for i, tagKey := range g.tagKeys {
-		scanners := g.scanners[tagKey]
-		v := make([]uint32, seriesIDsLength)
-		for _, scanner := range scanners {
-			lowContainer, tagValueIDs := scanner.GetSeriesAndTagValue(highKey)
-			if lowContainer == nil {
-				// high key not exist
-				continue
-			}
-			it := lowContainer.PeekableIterator()
-			idx := 0
-			for it.HasNext() {
-				seriesID := it.Next()
-				if seriesID >= min && seriesID <= max {
-					v[seriesID-min] = tagValueIDs[idx] // put tag value by index(series ids)
-				}
-				idx++
-			}
-		}
-		tagValueIDsForTags[i] = v
-	}
-	return tagValueIDsForTags
+	return tagValueIDsForTagKeys
 }

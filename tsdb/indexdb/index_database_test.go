@@ -29,6 +29,7 @@ import (
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/unique"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
 	"github.com/lindb/lindb/series"
@@ -354,10 +355,16 @@ func TestIndexDatabase_GetGroupingContext(t *testing.T) {
 	index := NewMockInvertedIndex(ctrl)
 	db1 := db.(*indexDatabase)
 	db1.index = index
-	index.EXPECT().GetGroupingContext(gomock.Any(), gomock.Any()).Return(nil, nil)
-	ctx, err := db.GetGroupingContext([]uint32{1, 2}, roaring.BitmapOf(1, 2, 3))
+	index.EXPECT().GetGroupingContext(gomock.Any())
+	shardExecuteCtx := &flow.ShardExecuteContext{
+		SeriesIDsAfterFiltering: roaring.BitmapOf(1, 2, 3),
+		StorageExecuteCtx: &flow.StorageExecuteContext{
+			GroupByTagKeyIDs: []tag.KeyID{1, 2},
+		},
+	}
+	err = db.GetGroupingContext(shardExecuteCtx)
 	assert.NoError(t, err)
-	assert.Nil(t, ctx)
+	assert.Nil(t, shardExecuteCtx.GroupingContext)
 
 	index.EXPECT().Flush().Return(nil)
 	err = db.Close()
@@ -381,12 +388,12 @@ func TestIndexDatabase_GetSeriesIDs(t *testing.T) {
 	assert.NoError(t, err)
 
 	// case 1: get series ids by tag key
-	index.EXPECT().GetSeriesIDsForTag(uint32(1)).Return(roaring.BitmapOf(1, 2), nil)
+	index.EXPECT().GetSeriesIDsForTag(tag.KeyID(1)).Return(roaring.BitmapOf(1, 2), nil)
 	seriesIDs, err := db.GetSeriesIDsForTag(1)
 	assert.NoError(t, err)
 	assert.NotNil(t, seriesIDs)
 	// case 2: get series ids by tag value ids
-	index.EXPECT().GetSeriesIDsByTagValueIDs(uint32(1), roaring.BitmapOf(1, 2, 3)).Return(roaring.BitmapOf(1, 2), nil)
+	index.EXPECT().GetSeriesIDsByTagValueIDs(tag.KeyID(1), roaring.BitmapOf(1, 2, 3)).Return(roaring.BitmapOf(1, 2), nil)
 	seriesIDs, err = db.GetSeriesIDsByTagValueIDs(1, roaring.BitmapOf(1, 2, 3))
 	assert.NoError(t, err)
 	assert.NotNil(t, seriesIDs)
@@ -402,7 +409,7 @@ func TestIndexDatabase_GetSeriesIDs(t *testing.T) {
 	assert.Equal(t, roaring.BitmapOf(0), seriesIDs)
 	// case 5: get series ids for metric
 	metaDB.EXPECT().GetAllTagKeys(gomock.Any(), gomock.Any()).Return([]tag.Meta{{ID: 1}}, nil)
-	index.EXPECT().GetSeriesIDsForTags([]uint32{1}).Return(roaring.BitmapOf(1, 2, 3), nil)
+	index.EXPECT().GetSeriesIDsForTags([]tag.KeyID{1}).Return(roaring.BitmapOf(1, 2, 3), nil)
 	seriesIDs, err = db.GetSeriesIDsForMetric("ns", "name")
 	assert.NoError(t, err)
 	assert.NotNil(t, seriesIDs)

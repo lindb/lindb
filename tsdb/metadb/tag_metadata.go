@@ -25,6 +25,7 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/strutil"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/tblstore/tagkeymeta"
 
@@ -42,17 +43,17 @@ var (
 // TagMetadata represents the tag metadata, stores all tag values under spec tag key
 type TagMetadata interface {
 	// GenTagValueID generates the tag value id for spec tag key
-	GenTagValueID(tagKeyID uint32, tagValue string) (uint32, error)
+	GenTagValueID(tagKeyID tag.KeyID, tagValue string) (uint32, error)
 	// SuggestTagValues returns suggestions from given tag key id and prefix of tag value
-	SuggestTagValues(tagKeyID uint32, tagValuePrefix string, limit int) []string
+	SuggestTagValues(tagKeyID tag.KeyID, tagValuePrefix string, limit int) []string
 	// FindTagValueDsByExpr finds tag value ids by tag filter expr for spec tag key,
 	// if not exist, return nil, constants.ErrNotFound, else returns tag value ids
-	FindTagValueDsByExpr(tagKeyID uint32, expr stmt.TagFilter) (*roaring.Bitmap, error)
+	FindTagValueDsByExpr(tagKeyID tag.KeyID, expr stmt.TagFilter) (*roaring.Bitmap, error)
 	// GetTagValueIDsForTag get tag value ids for spec tag key of metric,
 	// if not exist, return nil, constants.ErrNotFound, else returns tag value ids
-	GetTagValueIDsForTag(tagKeyID uint32) (*roaring.Bitmap, error)
+	GetTagValueIDsForTag(tagKeyID tag.KeyID) (tagValueIDs *roaring.Bitmap, err error)
 	// CollectTagValues collects the tag values by tag value ids,
-	CollectTagValues(tagKeyID uint32,
+	CollectTagValues(tagKeyID tag.KeyID,
 		tagValueIDs *roaring.Bitmap,
 		tagValues map[uint32]string,
 	) error
@@ -81,7 +82,7 @@ func NewTagMetadata(databaseName string, family kv.Family) TagMetadata {
 }
 
 // GenTagValueID generates the tag value id for spec tag key
-func (m *tagMetadata) GenTagValueID(tagKeyID uint32, tagValue string) (tagValueID uint32, err error) {
+func (m *tagMetadata) GenTagValueID(tagKeyID tag.KeyID, tagValue string) (tagValueID uint32, err error) {
 	// get tag value id from memory with read lock
 	m.rwMutex.RLock()
 	tagValueID, ok := m.getTagValueIDInMem(tagKeyID, tagValue)
@@ -95,7 +96,7 @@ func (m *tagMetadata) GenTagValueID(tagKeyID uint32, tagValue string) (tagValueI
 	snapshot := m.family.GetSnapshot()
 	defer snapshot.Close()
 
-	readers, err := snapshot.FindReaders(tagKeyID)
+	readers, err := snapshot.FindReaders(uint32(tagKeyID))
 	if err != nil {
 		// find table.Reader err, return it
 		return
@@ -125,7 +126,7 @@ func (m *tagMetadata) GenTagValueID(tagKeyID uint32, tagValue string) (tagValueI
 	}
 
 	// assign new tag value id
-	tag, ok := m.mutable.Get(tagKeyID)
+	tagEntry, ok := m.mutable.Get(uint32(tagKeyID))
 	if !ok {
 		if reader != nil {
 			// if tag data exist in kv store, need load tag value id auto sequence
@@ -133,25 +134,25 @@ func (m *tagMetadata) GenTagValueID(tagKeyID uint32, tagValue string) (tagValueI
 			if err != nil {
 				return 0, err
 			}
-			tag = newTagEntry(seq)
+			tagEntry = newTagEntry(seq)
 		} else {
 			// for new tag, auto sequence start with 1
-			tag = newTagEntry(0)
+			tagEntry = newTagEntry(0)
 		}
 		// cache tag entry
-		m.mutable.Put(tagKeyID, tag)
+		m.mutable.Put(uint32(tagKeyID), tagEntry)
 	}
 
 	// assign new id
-	tagValueID = tag.genTagValueID()
-	tag.addTagValue(tagValue, tagValueID)
+	tagValueID = tagEntry.genTagValueID()
+	tagEntry.addTagValue(tagValue, tagValueID)
 	// TODO add wal???
 
 	return tagValueID, nil
 }
 
 // SuggestTagValues returns suggestions from given tag key id and prefix of tag value
-func (m *tagMetadata) SuggestTagValues(tagKeyID uint32, tagValuePrefix string, limit int) []string {
+func (m *tagMetadata) SuggestTagValues(tagKeyID tag.KeyID, tagValuePrefix string, limit int) []string {
 	result := make([]string, 0)
 	m.loadTagValueIDsInMem(tagKeyID, func(tagEntry TagEntry) {
 		for value := range tagEntry.getTagValues() {
@@ -164,7 +165,7 @@ func (m *tagMetadata) SuggestTagValues(tagKeyID uint32, tagValuePrefix string, l
 	snapshot := m.family.GetSnapshot()
 	defer snapshot.Close()
 
-	readers, err := snapshot.FindReaders(tagKeyID)
+	readers, err := snapshot.FindReaders(uint32(tagKeyID))
 	if err != nil {
 		// find table.Reader err, return it
 		return nil
@@ -181,7 +182,7 @@ func (m *tagMetadata) SuggestTagValues(tagKeyID uint32, tagValuePrefix string, l
 
 // FindTagValueDsByExpr finds tag value ids by tag filter expr for spec tag key,
 // if not exist, return nil, constants.ErrNotFound, else returns tag value ids
-func (m *tagMetadata) FindTagValueDsByExpr(tagKeyID uint32, expr stmt.TagFilter) (*roaring.Bitmap, error) {
+func (m *tagMetadata) FindTagValueDsByExpr(tagKeyID tag.KeyID, expr stmt.TagFilter) (*roaring.Bitmap, error) {
 	result := roaring.New()
 	m.loadTagValueIDsInMem(tagKeyID, func(tagEntry TagEntry) {
 		ids := tagEntry.findSeriesIDsByExpr(expr)
@@ -204,9 +205,9 @@ func (m *tagMetadata) FindTagValueDsByExpr(tagKeyID uint32, expr stmt.TagFilter)
 	return result, nil
 }
 
-// GetTagValueIDsForTag get tag value ids for spec metric's tag key,
+// GetTagValueIDsForTag get tag value ids for spec tag key of metric,
 // if not exist, return nil, constants.ErrNotFound, else returns tag value ids
-func (m *tagMetadata) GetTagValueIDsForTag(tagKeyID uint32) (*roaring.Bitmap, error) {
+func (m *tagMetadata) GetTagValueIDsForTag(tagKeyID tag.KeyID) (*roaring.Bitmap, error) {
 	result := roaring.New()
 	m.loadTagValueIDsInMem(tagKeyID, func(tagEntry TagEntry) {
 		ids := tagEntry.getTagValueIDs()
@@ -230,7 +231,7 @@ func (m *tagMetadata) GetTagValueIDsForTag(tagKeyID uint32) (*roaring.Bitmap, er
 }
 
 // CollectTagValues collects the tag values by tag value ids for spec tag key,
-func (m *tagMetadata) CollectTagValues(tagKeyID uint32,
+func (m *tagMetadata) CollectTagValues(tagKeyID tag.KeyID,
 	tagValueIDs *roaring.Bitmap,
 	tagValues map[uint32]string,
 ) error {
@@ -309,12 +310,12 @@ func (m *tagMetadata) checkFlush() bool {
 }
 
 // loadTagValueIDsInKV loads tag value ids in kv store
-func (m *tagMetadata) loadTagValueIDsInKV(tagKeyID uint32, fn func(reader tagkeymeta.Reader) error) error {
+func (m *tagMetadata) loadTagValueIDsInKV(tagKeyID tag.KeyID, fn func(reader tagkeymeta.Reader) error) error {
 	// try load tag value id from kv store
 	snapshot := m.family.GetSnapshot()
 	defer snapshot.Close()
 
-	readers, err := snapshot.FindReaders(tagKeyID)
+	readers, err := snapshot.FindReaders(uint32(tagKeyID))
 	if err != nil {
 		// find table.Reader err, return it
 		return err
@@ -331,12 +332,12 @@ func (m *tagMetadata) loadTagValueIDsInKV(tagKeyID uint32, fn func(reader tagkey
 }
 
 // loadTagValueIDsInMem loads tag value ids from mutable/immutable store
-func (m *tagMetadata) loadTagValueIDsInMem(tagKeyID uint32, fn func(tagEntry TagEntry)) {
+func (m *tagMetadata) loadTagValueIDsInMem(tagKeyID tag.KeyID, fn func(tagEntry TagEntry)) {
 	// define get tag value ids func
 	getTagValueIDs := func(tagStore *TagStore) {
-		tag, ok := tagStore.Get(tagKeyID)
+		tagEntry, ok := tagStore.Get(uint32(tagKeyID))
 		if ok {
-			fn(tag)
+			fn(tagEntry)
 		}
 	}
 
@@ -350,7 +351,7 @@ func (m *tagMetadata) loadTagValueIDsInMem(tagKeyID uint32, fn func(tagEntry Tag
 }
 
 // getTagValueIDInMem gets tag value id from mutable/immutable store
-func (m *tagMetadata) getTagValueIDInMem(tagKeyID uint32, tagValue string) (tagValueID uint32, ok bool) {
+func (m *tagMetadata) getTagValueIDInMem(tagKeyID tag.KeyID, tagValue string) (tagValueID uint32, ok bool) {
 	tagValueID, ok = getTagValueID(m.mutable, tagKeyID, tagValue)
 	if ok {
 		return
@@ -365,10 +366,10 @@ func (m *tagMetadata) getTagValueIDInMem(tagKeyID uint32, tagValue string) (tagV
 }
 
 // getTagValueID gets tag value id from tag store based on tag key id and tag value
-func getTagValueID(tags *TagStore, tagKeyID uint32, tagValue string) (tagValueID uint32, ok bool) {
-	tag, ok := tags.Get(tagKeyID)
+func getTagValueID(tags *TagStore, tagKeyID tag.KeyID, tagValue string) (tagValueID uint32, ok bool) {
+	tagEntry, ok := tags.Get(uint32(tagKeyID))
 	if ok {
-		tagValueID, ok = tag.getTagValueID(tagValue)
+		tagValueID, ok = tagEntry.getTagValueID(tagValue)
 		if ok {
 			return tagValueID, true
 		}
