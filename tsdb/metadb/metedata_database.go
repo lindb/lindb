@@ -142,7 +142,7 @@ func (mdb *metadataDatabase) GetAllTagKeys(namespace, metricName string) (tags t
 }
 
 // GetTagKeyID gets the tag key id by namespace/metric name/tag key, if not exist return constants.ErrTagKeyIDNotFound
-func (mdb *metadataDatabase) GetTagKeyID(namespace, metricName, tagKey string) (tagKeyID uint32, err error) {
+func (mdb *metadataDatabase) GetTagKeyID(namespace, metricName, tagKey string) (tagKeyID tag.KeyID, err error) {
 	tagKeys, err := mdb.GetAllTagKeys(namespace, metricName)
 	if err != nil {
 		return tag.EmptyTagKeyID, err
@@ -275,7 +275,7 @@ func (mdb *metadataDatabase) GenFieldID(
 
 // GenTagKeyID generates the tag key id in the memory
 // !!!!! NOTICE: metric metadata must be existed in memory, because gen metric has been saved
-func (mdb *metadataDatabase) GenTagKeyID(namespace, metricName, tagKey string) (tagKeyID uint32, err error) {
+func (mdb *metadataDatabase) GenTagKeyID(namespace, metricName, tagKey string) (tagKeyID tag.KeyID, err error) {
 	metricMetadata, _ := mdb.getMetricMetadataFromCache(namespace, metricName)
 
 	mdb.rwMux.Lock()

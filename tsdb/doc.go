@@ -244,9 +244,9 @@ Level2 (KV table: Series Bucket Footer)
 └──────────┴──────────┴──────────┴──────────┴──────────┘
 
 
-Level2(Fields Meta)
+Level2(SingleField Meta)
 ┌─────────────────────────────────────────────────────────────────┐
-│                      Fields Meta                                │
+│                      SingleField Meta                                │
 ├──────────┬──────────┬──────────┬──────────┬──────────┬──────────┤
 │   Count  │ FieldID  │  Field   │ FieldID  │  Field   │          │
 │          │ (uint16) │  Type    │ (uint16) │  Type    │  ......  │

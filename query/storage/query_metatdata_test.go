@@ -25,6 +25,7 @@ import (
 	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/series"
@@ -73,6 +74,13 @@ func TestMetadataStorageQuery_Execute(t *testing.T) {
 	result, err = exec.Execute()
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"a"}, result)
+	exec = newStorageMetadataQuery(db, nil, &stmt.MetricMetadata{
+		Type: stmt.TagKey,
+	})
+	metadataIndex.EXPECT().GetAllTagKeys(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+	result, err = exec.Execute()
+	assert.Error(t, err)
+	assert.Empty(t, result)
 	// case 4: get fields err
 	exec = newStorageMetadataQuery(db, nil, &stmt.MetricMetadata{
 		Type: stmt.Field,
@@ -95,7 +103,7 @@ func TestMetadataStorageQuery_Execute(t *testing.T) {
 	exec = newStorageMetadataQuery(db, []models.ShardID{1, 2}, &stmt.MetricMetadata{
 		Type: stmt.TagValue,
 	})
-	metadataIndex.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(2), nil)
+	metadataIndex.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).Return(tag.KeyID(2), nil)
 
 	tagMeta := metadb.NewMockTagMetadata(ctrl)
 	metadata.EXPECT().TagMetadata().Return(tagMeta).AnyTimes()
@@ -131,11 +139,11 @@ func TestMetadataStorageQuery_Execute_With_Tag_Condition(t *testing.T) {
 	db.EXPECT().Metadata().Return(metadata).AnyTimes()
 	metadataIndex := metadb.NewMockMetadataDatabase(ctrl)
 	metadata.EXPECT().MetadataDatabase().Return(metadataIndex).AnyTimes()
-	metadataIndex.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(2), nil).AnyTimes()
+	metadataIndex.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).Return(tag.KeyID(2), nil).AnyTimes()
 
 	// case 1: tag search err
 	tagSearch := NewMockTagSearch(ctrl)
-	newTagSearchFunc = func(namespace, metricName string, condition stmt.Expr, metadata metadb.Metadata) TagSearch {
+	newTagSearchFunc = func(ctx *executeContext) TagSearch {
 		return tagSearch
 	}
 	exec := newStorageMetadataQuery(db, []models.ShardID{1}, &stmt.MetricMetadata{
@@ -143,23 +151,35 @@ func TestMetadataStorageQuery_Execute_With_Tag_Condition(t *testing.T) {
 		Condition: &stmt.EqualsExpr{},
 		Limit:     2,
 	})
-	tagSearch.EXPECT().Filter().Return(nil, fmt.Errorf("err"))
+	tagSearch.EXPECT().Filter().Return(fmt.Errorf("err"))
 	_, err := exec.Execute()
 	assert.Error(t, err)
 	// case 2: tag not found
-	tagSearch.EXPECT().Filter().Return(nil, nil)
+	tagSearch.EXPECT().Filter().Return(nil)
 	_, err = exec.Execute()
 	assert.Error(t, err)
 
 	shard := tsdb.NewMockShard(ctrl)
-	db.EXPECT().GetShard(gomock.Any()).Return(shard, true).AnyTimes()
 	indexDB := indexdb.NewMockIndexDatabase(ctrl)
 	shard.EXPECT().IndexDatabase().Return(indexDB).AnyTimes()
 
-	tagSearch.EXPECT().Filter().Return(map[string]*tagFilterResult{"key": {}}, nil).AnyTimes()
+	newTagSearchFunc = func(ctx *executeContext) TagSearch {
+		ctx.storageExecuteCtx.TagFilterResult = map[string]*flow.TagFilterResult{"key": {}}
+		return tagSearch
+	}
+	tagSearch.EXPECT().Filter().Return(nil).AnyTimes()
+
+	// case: shard not found
+	db.EXPECT().GetShard(gomock.Any()).Return(nil, false)
+
+	db.EXPECT().GetShard(gomock.Any()).Return(shard, true).AnyTimes()
+	result, err := exec.Execute()
+	assert.NoError(t, err)
+	assert.Empty(t, result)
+
 	// case 3: series search err
 	seriesSearch := NewMockSeriesSearch(ctrl)
-	newSeriesSearchFunc = func(filter series.Filter, filterResult map[string]*tagFilterResult, condition stmt.Expr) SeriesSearch {
+	newSeriesSearchFunc = func(filter series.Filter, filterResult map[string]*flow.TagFilterResult, condition stmt.Expr) SeriesSearch {
 		return seriesSearch
 	}
 	seriesSearch.EXPECT().Search().Return(nil, fmt.Errorf("err"))
@@ -168,12 +188,16 @@ func TestMetadataStorageQuery_Execute_With_Tag_Condition(t *testing.T) {
 
 	seriesSearch.EXPECT().Search().Return(roaring.BitmapOf(1, 2, 3), nil).AnyTimes()
 	// case 4: get grouping err
-	indexDB.EXPECT().GetGroupingContext(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+	indexDB.EXPECT().GetGroupingContext(gomock.Any()).Return(fmt.Errorf("err"))
 	_, err = exec.Execute()
 	assert.Error(t, err)
 
-	gCtx := series.NewMockGroupingContext(ctrl)
-	indexDB.EXPECT().GetGroupingContext(gomock.Any(), gomock.Any()).Return(gCtx, nil).AnyTimes()
+	gCtx := flow.NewMockGroupingContext(ctrl)
+
+	indexDB.EXPECT().GetGroupingContext(gomock.Any()).DoAndReturn(func(ctx *flow.ShardExecuteContext) error {
+		ctx.GroupingContext = gCtx
+		return nil
+	}).AnyTimes()
 	gCtx.EXPECT().ScanTagValueIDs(gomock.Any(), gomock.Any()).
 		Return([]*roaring.Bitmap{roaring.BitmapOf(1, 2, 3)}).AnyTimes()
 	tagMeta := metadb.NewMockTagMetadata(ctrl)
@@ -186,7 +210,7 @@ func TestMetadataStorageQuery_Execute_With_Tag_Condition(t *testing.T) {
 
 	// case 6: collect tag values
 	tagMeta.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(tagKeyID uint32,
+		DoAndReturn(func(tagKeyID tag.KeyID,
 			tagValueIDs *roaring.Bitmap,
 			tagValues map[uint32]string,
 		) error {
@@ -196,7 +220,7 @@ func TestMetadataStorageQuery_Execute_With_Tag_Condition(t *testing.T) {
 			tagValues[15] = "d"
 			return nil
 		})
-	result, err := exec.Execute()
+	result, err = exec.Execute()
 	assert.NoError(t, err)
 	assert.Len(t, result, 2)
 }

@@ -241,6 +241,12 @@ func Test_Decoder_Corrupted_data(t *testing.T) {
 	assert.Len(t, block, 0)
 }
 
+func TestGetFixedOffsetDecoder(t *testing.T) {
+	decoder := GetFixedOffsetDecoder()
+	assert.NotNil(t, decoder)
+	ReleaseFixedOffsetDecoder(decoder)
+}
+
 func BenchmarkFixedOffsetDecoder_Get(b *testing.B) {
 	encoder := NewFixedOffsetEncoder(true)
 	var expects = make([]int, 100000)

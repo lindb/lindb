@@ -222,7 +222,7 @@ func TestMetadataDatabase_GetTagKey(t *testing.T) {
 		metricName string
 		prepare    func()
 		out        struct {
-			tagKeyID uint32
+			tagKeyID tag.KeyID
 			err      error
 		}
 	}{
@@ -233,7 +233,7 @@ func TestMetadataDatabase_GetTagKey(t *testing.T) {
 				mockBackend.EXPECT().getMetricID(gomock.Any(), gomock.Any()).Return(metric.EmptyMetricID, fmt.Errorf("err"))
 			},
 			out: struct {
-				tagKeyID uint32
+				tagKeyID tag.KeyID
 				err      error
 			}{
 				tagKeyID: tag.EmptyTagKeyID,
@@ -245,7 +245,7 @@ func TestMetadataDatabase_GetTagKey(t *testing.T) {
 			metricName: "name2",
 			key:        "key3",
 			out: struct {
-				tagKeyID uint32
+				tagKeyID tag.KeyID
 				err      error
 			}{
 				tagKeyID: tag.EmptyTagKeyID,
@@ -257,10 +257,10 @@ func TestMetadataDatabase_GetTagKey(t *testing.T) {
 			metricName: "name2",
 			key:        "key2",
 			out: struct {
-				tagKeyID uint32
+				tagKeyID tag.KeyID
 				err      error
 			}{
-				tagKeyID: uint32(2),
+				tagKeyID: tag.KeyID(2),
 				err:      nil,
 			},
 		},
@@ -721,7 +721,7 @@ func TestMetadataDatabase_GenTagKeyID(t *testing.T) {
 		metricName string
 		prepare    func()
 		out        struct {
-			id  uint32
+			id  tag.KeyID
 			err error
 		}
 	}{
@@ -729,12 +729,12 @@ func TestMetadataDatabase_GenTagKeyID(t *testing.T) {
 			name:       "get tag memory cache",
 			metricName: "cache",
 			prepare: func() {
-				meta.EXPECT().getTagKeyID(gomock.Any()).Return(uint32(3), true)
+				meta.EXPECT().getTagKeyID(gomock.Any()).Return(tag.KeyID(3), true)
 			},
 			out: struct {
-				id  uint32
+				id  tag.KeyID
 				err error
-			}{id: uint32(3), err: nil},
+			}{id: tag.KeyID(3), err: nil},
 		},
 		{
 			name:       "create tag failure",
@@ -744,7 +744,7 @@ func TestMetadataDatabase_GenTagKeyID(t *testing.T) {
 				meta.EXPECT().checkTagKey(gomock.Any()).Return(fmt.Errorf("err"))
 			},
 			out: struct {
-				id  uint32
+				id  tag.KeyID
 				err error
 			}{id: tag.EmptyTagKeyID, err: fmt.Errorf("err")},
 		},
@@ -758,7 +758,7 @@ func TestMetadataDatabase_GenTagKeyID(t *testing.T) {
 				mockBackend.EXPECT().saveTagKey(gomock.Any(), gomock.Any()).Return(tag.EmptyTagKeyID, fmt.Errorf("err"))
 			},
 			out: struct {
-				id  uint32
+				id  tag.KeyID
 				err error
 			}{id: tag.EmptyTagKeyID, err: fmt.Errorf("err")},
 		},
@@ -769,13 +769,13 @@ func TestMetadataDatabase_GenTagKeyID(t *testing.T) {
 				meta.EXPECT().getTagKeyID(gomock.Any()).Return(tag.EmptyTagKeyID, false)
 				meta.EXPECT().checkTagKey(gomock.Any()).Return(nil)
 				meta.EXPECT().getMetricID().Return(metric.ID(3))
-				mockBackend.EXPECT().saveTagKey(gomock.Any(), gomock.Any()).Return(uint32(3), nil)
+				mockBackend.EXPECT().saveTagKey(gomock.Any(), gomock.Any()).Return(tag.KeyID(3), nil)
 				meta.EXPECT().createTagKey(gomock.Any(), gomock.Any())
 			},
 			out: struct {
-				id  uint32
+				id  tag.KeyID
 				err error
-			}{id: uint32(3), err: nil},
+			}{id: tag.KeyID(3), err: nil},
 		},
 	}
 

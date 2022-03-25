@@ -123,7 +123,7 @@ func TestMetricMetadata_createTagKey(t *testing.T) {
 
 	m.createTagKey("key", 1)
 	f1, ok := m.getTagKeyID("key")
-	assert.Equal(t, uint32(1), f1)
+	assert.Equal(t, tag.KeyID(1), f1)
 	assert.True(t, ok)
 }
 
@@ -136,5 +136,5 @@ func TestMetricMetadata_getTag(t *testing.T) {
 	assert.Len(t, tags, 2)
 	tag2, ok := m.getTagKeyID("key1")
 	assert.False(t, ok)
-	assert.Equal(t, uint32(0), tag2)
+	assert.Equal(t, tag.KeyID(0), tag2)
 }

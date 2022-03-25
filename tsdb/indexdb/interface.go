@@ -20,6 +20,7 @@ package indexdb
 import (
 	"io"
 
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/metric"
@@ -42,6 +43,7 @@ type FileIndexDatabase interface {
 // builds inverted index for tags => series id
 type IndexDatabase interface {
 	io.Closer
+	flow.GroupingBuilder
 	series.TagValueSuggester
 	series.Filter
 	// GetOrCreateSeriesID gets series by tags hash, if not exist generate new series id in memory,

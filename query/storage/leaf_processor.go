@@ -185,17 +185,17 @@ func (p *leafTaskProcessor) processDataSearch(
 	}
 
 	// execute leaf task
-	storageExecuteCtx := newStorageExecuteContext(shardIDs, &stmtQuery)
+	storageExecuteCtx := newStorageExecuteContext(db, shardIDs, &stmtQuery)
 	queryFlow := NewStorageQueryFlow(
 		ctx,
-		storageExecuteCtx,
+		storageExecuteCtx.storageExecuteCtx,
 		&stmtQuery,
 		req,
 		p.taskServerFactory,
 		leafNode,
 		db.ExecutorPool(),
 	)
-	exec := newStorageMetricQuery(queryFlow, db, storageExecuteCtx)
+	exec := newStorageMetricQuery(queryFlow, storageExecuteCtx)
 	exec.Execute()
 	return nil
 }

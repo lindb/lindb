@@ -15,21 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package series
+package flow
 
 import (
+	"github.com/lindb/lindb/series/tag"
+
 	"github.com/lindb/roaring"
 )
 
-//go:generate mockgen -source=./grouping.go -destination=./grouping_mock.go -package=series
+//go:generate mockgen -source=./grouping.go -destination=./grouping_mock.go -package=flow
 
 // GroupingContext represents the context of group by query for tag keys
 type GroupingContext interface {
 	// BuildGroup builds the grouped series ids by the high key of series id
 	// and the container includes low keys of series id
-	BuildGroup(highKey uint16, container roaring.Container) map[string][]uint16
-	// GetGroupByTagValueIDs returns the group by tag value ids for each tag key
-	GetGroupByTagValueIDs() []*roaring.Bitmap
+	BuildGroup(ctx *DataLoadContext)
 	// ScanTagValueIDs scans grouping context by high key/container of series ids,
 	// then returns grouped tag value ids for each tag key
 	ScanTagValueIDs(highKey uint16, container roaring.Container) []*roaring.Bitmap
@@ -44,5 +44,11 @@ type GroupingScanner interface {
 // Grouping represents the getter grouping scanners for tag key group by query
 type Grouping interface {
 	// GetGroupingScanner returns the grouping scanners based on tag key ids and series ids
-	GetGroupingScanner(tagKeyID uint32, seriesIDs *roaring.Bitmap) ([]GroupingScanner, error)
+	GetGroupingScanner(tagKeyID tag.KeyID, seriesIDs *roaring.Bitmap) ([]GroupingScanner, error)
+}
+
+// GroupingBuilder represents grouping tag builder.
+type GroupingBuilder interface {
+	// GetGroupingContext returns the context of group by
+	GetGroupingContext(ctx *ShardExecuteContext) error
 }

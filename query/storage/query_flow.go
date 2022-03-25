@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/cespare/xxhash/v2"
@@ -52,10 +53,10 @@ var (
 
 // storageQueryFlow represents the storage engine query execute flow
 type storageQueryFlow struct {
-	storageExecuteCtx StorageExecuteContext
+	storageExecuteCtx *flow.StorageExecuteContext
 	query             *stmt.Query
-	pendingTasks      map[int32]Stage // pending task ref counter for each stage
-	taskIDSeq         atomic.Int32    // task id gen sequence
+	pendingTasks      map[int32]flow.Stage // pending task ref counter for each stage
+	taskIDSeq         atomic.Int32         // task id gen sequence
 	executorPool      *tsdb.ExecutorPool
 	reduceAgg         aggregation.GroupingAggregator
 	leafNode          *models.Leaf
@@ -76,7 +77,7 @@ type storageQueryFlow struct {
 
 func NewStorageQueryFlow(
 	ctx context.Context,
-	storageExecuteCtx StorageExecuteContext,
+	storageExecuteCtx *flow.StorageExecuteContext,
 	query *stmt.Query,
 	req *protoCommonV1.TaskRequest,
 	serverFactory rpc.TaskServerFactory,
@@ -91,17 +92,14 @@ func NewStorageQueryFlow(
 		leafNode:          leafNode,
 		serverFactory:     serverFactory,
 		executorPool:      executorPool,
-		pendingTasks:      make(map[int32]Stage),
+		pendingTasks:      make(map[int32]flow.Stage),
 	}
 }
 
-func (qf *storageQueryFlow) Prepare(
-	interval timeutil.Interval,
-	intervalRatio int,
-	timeRange timeutil.TimeRange,
-	aggregatorSpecs aggregation.AggregatorSpecs,
-) {
-	qf.reduceAgg = aggregation.NewGroupingAggregator(interval, intervalRatio, timeRange, aggregatorSpecs)
+func (qf *storageQueryFlow) Prepare() {
+	aggregatorSpecs := qf.storageExecuteCtx.AggregatorSpecs
+	qf.reduceAgg = aggregation.NewGroupingAggregator(qf.storageExecuteCtx.QueryInterval,
+		qf.storageExecuteCtx.QueryIntervalRatio, qf.storageExecuteCtx.QueryTimeRange, aggregatorSpecs)
 	qf.aggregatorSpecs = make([]*protoCommonV1.AggregatorSpec, len(aggregatorSpecs))
 	for idx, spec := range aggregatorSpecs {
 		qf.aggregatorSpecs[idx] = &protoCommonV1.AggregatorSpec{
@@ -147,19 +145,7 @@ func (qf *storageQueryFlow) Complete(err error) {
 	}
 }
 
-func (qf *storageQueryFlow) Load(task concurrent.Task) {
-	qf.execute(Scanner, task)
-}
-
-func (qf *storageQueryFlow) Grouping(task concurrent.Task) {
-	qf.execute(Grouping, task)
-}
-
-func (qf *storageQueryFlow) Filtering(task concurrent.Task) {
-	qf.execute(Filtering, task)
-}
-
-func (qf *storageQueryFlow) Reduce(_ string, it series.GroupedIterator) {
+func (qf *storageQueryFlow) Reduce(it series.GroupedIterator) {
 	if qf.completed.Load() {
 		storageQueryFlowLogger.Warn("reduce the aggregator data after storage query flow completed")
 		return
@@ -214,12 +200,15 @@ func (qf *storageQueryFlow) completeTask(taskID int32) {
 		return
 	}
 
+	defer qf.storageExecuteCtx.Release()
+
 	hashGroupData := make([][]byte, len(qf.leafNode.Receivers))
 	if qf.reduceAgg != nil {
 		hasGroupBy := qf.query.HasGroupBy()
 		if hasGroupBy {
 			qf.signal.Wait() // wait collect group by tag value complete
 		}
+
 		timeSeriesList := qf.makeTimeSeriesList()
 		// root -> leaf task, return the raw total series
 		if len(qf.leafNode.Receivers) == 1 {
@@ -254,8 +243,9 @@ func (qf *storageQueryFlow) completeTask(taskID int32) {
 
 func (qf *storageQueryFlow) sendResponse(hashGroupData [][]byte) {
 	var stats []byte
-	if qf.storageExecuteCtx.QueryStats() != nil {
-		stats = encoding.JSONMarshal(qf.storageExecuteCtx.QueryStats())
+	executeStats := qf.storageExecuteCtx.QueryStats()
+	if executeStats != nil {
+		stats = encoding.JSONMarshal(executeStats)
 	}
 	// send result to upstream receivers
 	for idx, receiver := range qf.leafNode.Receivers {
@@ -313,19 +303,19 @@ func (qf *storageQueryFlow) makeTimeSeriesList() []*protoCommonV1.TimeSeries {
 	return timeSeriesList
 }
 
-// execute executes the query task by stage
-func (qf *storageQueryFlow) execute(stage Stage, task concurrent.Task) {
+// Submit submits an async task when do query pipeline.
+func (qf *storageQueryFlow) Submit(stage flow.Stage, task concurrent.Task) {
 	if qf.completed.Load() {
 		// query flow is completed, reject new task execute
 		return
 	}
 	var executePool concurrent.Pool
 	switch stage {
-	case Filtering:
+	case flow.FilteringStage:
 		executePool = qf.executorPool.Filtering
-	case Grouping:
+	case flow.GroupingStage:
 		executePool = qf.executorPool.Grouping
-	case Scanner:
+	case flow.ScannerStage:
 		executePool = qf.executorPool.Scanner
 	}
 	if executePool != nil {
@@ -338,6 +328,7 @@ func (qf *storageQueryFlow) execute(stage Stage, task concurrent.Task) {
 		executePool.Submit(func() {
 			defer func() {
 				// 3. complete task and dec task pending after task handle
+				fmt.Println(stage)
 				qf.completeTask(taskID)
 				var err error
 				r := recover()

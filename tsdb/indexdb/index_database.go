@@ -26,10 +26,12 @@ import (
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/metric"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb/metadb"
 )
 
@@ -80,13 +82,13 @@ func NewIndexDatabase(ctx context.Context, parent string, metadata metadb.Metada
 }
 
 // SuggestTagValues returns suggestions from given tag key id and prefix of tagValue
-func (db *indexDatabase) SuggestTagValues(tagKeyID uint32, tagValuePrefix string, limit int) []string {
+func (db *indexDatabase) SuggestTagValues(tagKeyID tag.KeyID, tagValuePrefix string, limit int) []string {
 	return db.metadata.TagMetadata().SuggestTagValues(tagKeyID, tagValuePrefix, limit)
 }
 
 // GetGroupingContext returns the context of group by
-func (db *indexDatabase) GetGroupingContext(tagKeyIDs []uint32, seriesIDs *roaring.Bitmap) (series.GroupingContext, error) {
-	return db.index.GetGroupingContext(tagKeyIDs, seriesIDs)
+func (db *indexDatabase) GetGroupingContext(ctx *flow.ShardExecuteContext) error {
+	return db.index.GetGroupingContext(ctx)
 }
 
 // GetOrCreateSeriesID gets series by tags hash, if not exist generate new series id in memory,
@@ -145,12 +147,12 @@ func (db *indexDatabase) GetOrCreateSeriesID(metricID metric.ID, tagsHash uint64
 }
 
 // GetSeriesIDsByTagValueIDs gets series ids by tag value ids for spec tag key of metric
-func (db *indexDatabase) GetSeriesIDsByTagValueIDs(tagKeyID uint32, tagValueIDs *roaring.Bitmap) (*roaring.Bitmap, error) {
+func (db *indexDatabase) GetSeriesIDsByTagValueIDs(tagKeyID tag.KeyID, tagValueIDs *roaring.Bitmap) (*roaring.Bitmap, error) {
 	return db.index.GetSeriesIDsByTagValueIDs(tagKeyID, tagValueIDs)
 }
 
 // GetSeriesIDsForTag gets series ids for spec tag key of metric
-func (db *indexDatabase) GetSeriesIDsForTag(tagKeyID uint32) (*roaring.Bitmap, error) {
+func (db *indexDatabase) GetSeriesIDsForTag(tagKeyID tag.KeyID) (*roaring.Bitmap, error) {
 	return db.index.GetSeriesIDsForTag(tagKeyID)
 }
 
@@ -166,9 +168,9 @@ func (db *indexDatabase) GetSeriesIDsForMetric(namespace, metricName string) (*r
 		// if metric hasn't any tags, returns default series id(0)
 		return roaring.BitmapOf(series.IDWithoutTags), nil
 	}
-	tagKeyIDs := make([]uint32, tagLength)
-	for idx, tag := range tags {
-		tagKeyIDs[idx] = tag.ID
+	tagKeyIDs := make([]tag.KeyID, tagLength)
+	for idx, tagMeta := range tags {
+		tagKeyIDs[idx] = tagMeta.ID
 	}
 	// get series ids under all tag key ids
 	return db.index.GetSeriesIDsForTags(tagKeyIDs)

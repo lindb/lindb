@@ -25,7 +25,9 @@ import (
 	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql"
 	"github.com/lindb/lindb/sql/stmt"
 )
@@ -46,7 +48,7 @@ func TestSeriesSearch_Search(t *testing.T) {
 	// case 2: equal tag filter
 	q, _ = sql.Parse("select f from cpu where ip='1.1.1.1'")
 	query = q.(*stmt.Query)
-	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(uint32(1), gomock.Any()).Return(seriesIDs.Clone(), nil)
+	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(tag.KeyID(1), gomock.Any()).Return(seriesIDs.Clone(), nil)
 	search = newSeriesSearch(mockFilter, mockFilterResult(), query.Condition)
 	resultSet, err = search.Search()
 	assert.NoError(t, err)
@@ -54,8 +56,8 @@ func TestSeriesSearch_Search(t *testing.T) {
 	// case 3: not expr
 	q, _ = sql.Parse("select f from cpu where ip!='1.1.1.1'")
 	query = q.(*stmt.Query)
-	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(uint32(1), gomock.Any()).Return(seriesIDs.Clone(), nil)
-	mockFilter.EXPECT().GetSeriesIDsForTag(uint32(1)).Return(roaring.BitmapOf(10, 20, 40, 50), nil)
+	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(tag.KeyID(1), gomock.Any()).Return(seriesIDs.Clone(), nil)
+	mockFilter.EXPECT().GetSeriesIDsForTag(tag.KeyID(1)).Return(roaring.BitmapOf(10, 20, 40, 50), nil)
 	search = newSeriesSearch(mockFilter, mockFilterResult(), query.Condition)
 	resultSet, err = search.Search()
 	assert.NoError(t, err)
@@ -64,8 +66,8 @@ func TestSeriesSearch_Search(t *testing.T) {
 	q, _ = sql.Parse("select f from cpu " +
 		"where ip='1.1.1.1' and path='/data' and time>'20190410 00:00:00' and time<'20190410 10:00:00'")
 	query = q.(*stmt.Query)
-	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(uint32(1), gomock.Any()).Return(seriesIDs.Clone(), nil)
-	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(uint32(2), gomock.Any()).Return(roaring.BitmapOf(20), nil)
+	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(tag.KeyID(1), gomock.Any()).Return(seriesIDs.Clone(), nil)
+	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(tag.KeyID(2), gomock.Any()).Return(roaring.BitmapOf(20), nil)
 	search = newSeriesSearch(mockFilter, mockFilterResult(), query.Condition)
 	resultSet, err = search.Search()
 	assert.NoError(t, err)
@@ -74,8 +76,8 @@ func TestSeriesSearch_Search(t *testing.T) {
 	q, _ = sql.Parse("select f from cpu " +
 		"where ip='1.1.1.1' or path='/data' and time>'20190410 00:00:00' and time<'20190410 10:00:00'")
 	query = q.(*stmt.Query)
-	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(uint32(1), gomock.Any()).Return(seriesIDs.Clone(), nil)
-	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(uint32(2), gomock.Any()).Return(roaring.BitmapOf(200), nil)
+	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(tag.KeyID(1), gomock.Any()).Return(seriesIDs.Clone(), nil)
+	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(tag.KeyID(2), gomock.Any()).Return(roaring.BitmapOf(200), nil)
 	search = newSeriesSearch(mockFilter, mockFilterResult(), query.Condition)
 	resultSet, err = search.Search()
 	assert.NoError(t, err)
@@ -83,7 +85,7 @@ func TestSeriesSearch_Search(t *testing.T) {
 	// case 6: paren expr
 	q, _ = sql.Parse("select f from cpu where (ip='1.1.1.1')")
 	query = q.(*stmt.Query)
-	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(uint32(1), gomock.Any()).Return(seriesIDs.Clone(), nil)
+	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(tag.KeyID(1), gomock.Any()).Return(seriesIDs.Clone(), nil)
 	search = newSeriesSearch(mockFilter, mockFilterResult(), query.Condition)
 	resultSet, err = search.Search()
 	assert.NoError(t, err)
@@ -99,7 +101,7 @@ func TestSeriesSearch_Search_err(t *testing.T) {
 	// case 1: expr not exist
 	q, _ := sql.Parse("select f from cpu where ip='1.1.1.1'")
 	query := q.(*stmt.Query)
-	search := newSeriesSearch(mockFilter, make(map[string]*tagFilterResult), query.Condition)
+	search := newSeriesSearch(mockFilter, make(map[string]*flow.TagFilterResult), query.Condition)
 	resultSet, err := search.Search()
 	assert.Error(t, err)
 	assert.Nil(t, resultSet)
@@ -112,8 +114,8 @@ func TestSeriesSearch_Search_err(t *testing.T) {
 	// case 3: not expr err
 	q, _ = sql.Parse("select f from cpu where ip!='1.1.1.1'")
 	query = q.(*stmt.Query)
-	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(uint32(1), gomock.Any()).Return(seriesIDs, nil)
-	mockFilter.EXPECT().GetSeriesIDsForTag(uint32(1)).Return(nil, fmt.Errorf("err"))
+	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(tag.KeyID(1), gomock.Any()).Return(seriesIDs, nil)
+	mockFilter.EXPECT().GetSeriesIDsForTag(tag.KeyID(1)).Return(nil, fmt.Errorf("err"))
 	search = newSeriesSearch(mockFilter, mockFilterResult(), query.Condition)
 	resultSet, err = search.Search()
 	assert.Error(t, err)
@@ -121,7 +123,7 @@ func TestSeriesSearch_Search_err(t *testing.T) {
 	// case 4: recursion err
 	q, _ = sql.Parse("select f from cpu where ip='1.1.1.1' or ip='1.1.1.1'")
 	query = q.(*stmt.Query)
-	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(uint32(1), gomock.Any()).Return(nil, fmt.Errorf("err"))
+	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(tag.KeyID(1), gomock.Any()).Return(nil, fmt.Errorf("err"))
 	search = newSeriesSearch(mockFilter, mockFilterResult(), query.Condition)
 	resultSet, err = search.Search()
 	assert.Error(t, err)
@@ -136,7 +138,7 @@ func TestSeriesSearch_Search_expr_not_match(t *testing.T) {
 	q, _ := sql.Parse("select f from cpu where ip='1.1.1.1'")
 	query := q.(*stmt.Query)
 	query.Condition = &stmt.CallExpr{}
-	search := newSeriesSearch(mockFilter, make(map[string]*tagFilterResult), query.Condition)
+	search := newSeriesSearch(mockFilter, make(map[string]*flow.TagFilterResult), query.Condition)
 	resultSet, err := search.Search()
 	assert.NoError(t, err)
 	assert.Equal(t, uint64(0), resultSet.GetCardinality())
@@ -150,38 +152,38 @@ func TestSeriesSearch_Search_complex(t *testing.T) {
 	q, _ := sql.Parse("select f from cpu" +
 		" where (ip not in ('1.1.1.1','2.2.2.2') and region='sh') and (path='/data' or path='/home')")
 	query := q.(*stmt.Query)
-	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(uint32(1), roaring.BitmapOf(5)).Return(roaring.BitmapOf(1, 2), nil)
-	mockFilter.EXPECT().GetSeriesIDsForTag(uint32(1)).Return(roaring.BitmapOf(1, 2, 3, 4, 5, 6, 7), nil)
-	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(uint32(3), roaring.BitmapOf(4)).Return(roaring.BitmapOf(3, 5, 6, 7), nil)
-	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(uint32(2), roaring.BitmapOf(2)).Return(roaring.BitmapOf(7), nil)
-	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(uint32(2), roaring.BitmapOf(3)).Return(roaring.BitmapOf(5), nil)
+	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(tag.KeyID(1), roaring.BitmapOf(5)).Return(roaring.BitmapOf(1, 2), nil)
+	mockFilter.EXPECT().GetSeriesIDsForTag(tag.KeyID(1)).Return(roaring.BitmapOf(1, 2, 3, 4, 5, 6, 7), nil)
+	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(tag.KeyID(3), roaring.BitmapOf(4)).Return(roaring.BitmapOf(3, 5, 6, 7), nil)
+	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(tag.KeyID(2), roaring.BitmapOf(2)).Return(roaring.BitmapOf(7), nil)
+	mockFilter.EXPECT().GetSeriesIDsByTagValueIDs(tag.KeyID(2), roaring.BitmapOf(3)).Return(roaring.BitmapOf(5), nil)
 	search := newSeriesSearch(mockFilter, mockFilterResult(), query.Condition)
 	resultSet, err := search.Search()
 	assert.NoError(t, err)
 	assert.Equal(t, roaring.BitmapOf(5, 7), resultSet)
 }
 
-func mockFilterResult() map[string]*tagFilterResult {
-	result := make(map[string]*tagFilterResult)
-	result[(&stmt.EqualsExpr{Key: "ip", Value: "1.1.1.1"}).Rewrite()] = &tagFilterResult{
-		tagKey:      1,
-		tagValueIDs: roaring.BitmapOf(1),
+func mockFilterResult() map[string]*flow.TagFilterResult {
+	result := make(map[string]*flow.TagFilterResult)
+	result[(&stmt.EqualsExpr{Key: "ip", Value: "1.1.1.1"}).Rewrite()] = &flow.TagFilterResult{
+		TagKeyID:    1,
+		TagValueIDs: roaring.BitmapOf(1),
 	}
-	result[(&stmt.EqualsExpr{Key: "path", Value: "/data"}).Rewrite()] = &tagFilterResult{
-		tagKey:      2,
-		tagValueIDs: roaring.BitmapOf(2),
+	result[(&stmt.EqualsExpr{Key: "path", Value: "/data"}).Rewrite()] = &flow.TagFilterResult{
+		TagKeyID:    2,
+		TagValueIDs: roaring.BitmapOf(2),
 	}
-	result[(&stmt.EqualsExpr{Key: "path", Value: "/home"}).Rewrite()] = &tagFilterResult{
-		tagKey:      2,
-		tagValueIDs: roaring.BitmapOf(3),
+	result[(&stmt.EqualsExpr{Key: "path", Value: "/home"}).Rewrite()] = &flow.TagFilterResult{
+		TagKeyID:    2,
+		TagValueIDs: roaring.BitmapOf(3),
 	}
-	result[(&stmt.EqualsExpr{Key: "region", Value: "sh"}).Rewrite()] = &tagFilterResult{
-		tagKey:      3,
-		tagValueIDs: roaring.BitmapOf(4),
+	result[(&stmt.EqualsExpr{Key: "region", Value: "sh"}).Rewrite()] = &flow.TagFilterResult{
+		TagKeyID:    3,
+		TagValueIDs: roaring.BitmapOf(4),
 	}
-	result[(&stmt.InExpr{Key: "ip", Values: []string{"1.1.1.1", "2.2.2.2"}}).Rewrite()] = &tagFilterResult{
-		tagKey:      1,
-		tagValueIDs: roaring.BitmapOf(5),
+	result[(&stmt.InExpr{Key: "ip", Values: []string{"1.1.1.1", "2.2.2.2"}}).Rewrite()] = &flow.TagFilterResult{
+		TagKeyID:    1,
+		TagValueIDs: roaring.BitmapOf(5),
 	}
 	return result
 }

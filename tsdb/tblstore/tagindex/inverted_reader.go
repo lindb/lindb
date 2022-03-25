@@ -25,6 +25,7 @@ import (
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/stream"
+	"github.com/lindb/lindb/series/tag"
 )
 
 //go:generate mockgen -source ./inverted_reader.go -destination=./inverted_reader_mock.go -package tagindex
@@ -32,7 +33,7 @@ import (
 // InvertedReader reads seriesID bitmap from series-index-table
 type InvertedReader interface {
 	// GetSeriesIDsByTagValueIDs finds series ids by tag key id and tag value ids
-	GetSeriesIDsByTagValueIDs(tagKeyID uint32, tagValueIDs *roaring.Bitmap) (*roaring.Bitmap, error)
+	GetSeriesIDsByTagValueIDs(tagKeyID tag.KeyID, tagValueIDs *roaring.Bitmap) (*roaring.Bitmap, error)
 }
 
 // inverterReader implements InvertedReader
@@ -48,7 +49,7 @@ func NewInvertedReader(readers []table.Reader) InvertedReader {
 }
 
 // GetSeriesIDsByTagValueIDs finds series ids by tag key id and tag value ids
-func (r *inverterReader) GetSeriesIDsByTagValueIDs(tagKeyID uint32, tagValueIDs *roaring.Bitmap) (*roaring.Bitmap, error) {
+func (r *inverterReader) GetSeriesIDsByTagValueIDs(tagKeyID tag.KeyID, tagValueIDs *roaring.Bitmap) (*roaring.Bitmap, error) {
 	if tagValueIDs == nil || tagValueIDs.IsEmpty() {
 		return roaring.New(), nil
 	}
@@ -59,11 +60,11 @@ func (r *inverterReader) GetSeriesIDsByTagValueIDs(tagKeyID uint32, tagValueIDs 
 }
 
 // loadSeriesIDs loads the series ids by tag key id, function need implement condition
-func (r *inverterReader) loadSeriesIDs(tagKeyID uint32,
+func (r *inverterReader) loadSeriesIDs(tagKeyID tag.KeyID,
 	fn func(indexReader *tagInvertedReader) (*roaring.Bitmap, error)) (*roaring.Bitmap, error) {
 	seriesIDs := roaring.New()
 	for _, reader := range r.readers {
-		value, err := reader.Get(tagKeyID)
+		value, err := reader.Get(uint32(tagKeyID))
 		if err != nil {
 			continue
 		}
@@ -97,8 +98,8 @@ func newTagInvertedReader(buf []byte) (*tagInvertedReader, error) {
 }
 
 // getSeriesIDsByTagValueIDs finds series ids by tag value ids under this tag key
-func (r *tagInvertedReader) getSeriesIDsByTagValueIDs(tagValueIDs *roaring.Bitmap) (*roaring.Bitmap, error) {
-	result := roaring.New()
+func (r *tagInvertedReader) getSeriesIDsByTagValueIDs(tagValueIDs *roaring.Bitmap) (seriesIDs *roaring.Bitmap, err error) {
+	seriesIDs = roaring.New()
 	// get final tag value ids need to load
 	finalTagValueIDs := roaring.And(tagValueIDs, r.keys)
 	highKeys := finalTagValueIDs.GetHighKeys()
@@ -141,14 +142,14 @@ func (r *tagInvertedReader) getSeriesIDsByTagValueIDs(tagValueIDs *roaring.Bitma
 				continue
 			}
 			// unmarshal series ids
-			seriesIDs := roaring.New()
-			if err := encoding.BitmapUnmarshal(seriesIDs, block); err != nil {
+			seriesIDsForTagValue := roaring.New()
+			if err := encoding.BitmapUnmarshal(seriesIDsForTagValue, block); err != nil {
 				return nil, err
 			}
-			result.Or(seriesIDs)
+			seriesIDs.Or(seriesIDsForTagValue)
 		}
 	}
-	return result, nil
+	return seriesIDs, nil
 }
 
 // tagInvertedScanner represents the tag inverted index scanner which scans the index data when merge operation
@@ -203,7 +204,7 @@ func (s *tagInvertedScanner) nextContainer() error {
 	return nil
 }
 
-// scan scans the data then merges the series ids into target series ids
+// scan the data then merges the series ids into target series ids
 func (s *tagInvertedScanner) scan(highKey, lowTagValueID uint16, targetSeriesIDs *roaring.Bitmap) error {
 	if s.highKey < highKey {
 		if s.highContainerIdx >= len(s.highKeys) {

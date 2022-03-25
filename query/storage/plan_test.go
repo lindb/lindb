@@ -29,11 +29,13 @@ import (
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql"
 	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/tsdb"
 	"github.com/lindb/lindb/tsdb/metadb"
 )
 
@@ -43,6 +45,8 @@ func TestStoragePlan_Metric(t *testing.T) {
 
 	metadataDB := metadb.NewMockMetadataDatabase(ctrl)
 	metadata := metadb.NewMockMetadata(ctrl)
+	db := tsdb.NewMockDatabase(ctrl)
+	db.EXPECT().Metadata().Return(metadata).AnyTimes()
 	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
 
 	metadataDB.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(metric.ID(10), nil)
@@ -54,12 +58,18 @@ func TestStoragePlan_Metric(t *testing.T) {
 
 	q, _ := sql.Parse("select f from cpu")
 	query := q.(*stmt.Query)
-	plan := newStorageExecutePlan("ns", metadata, query)
+	ctx := &executeContext{
+		database: db,
+		storageExecuteCtx: &flow.StorageExecuteContext{
+			Query: query,
+		},
+	}
+	plan := newStorageExecutePlan(ctx)
 	err := plan.Plan()
 	assert.NoError(t, err)
 
 	metadataDB.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(metric.ID(0), constants.ErrNotFound)
-	plan = newStorageExecutePlan("ns", metadata, query)
+	plan = newStorageExecutePlan(ctx)
 	err = plan.Plan()
 	assert.Equal(t, constants.ErrNotFound, err)
 }
@@ -70,6 +80,8 @@ func TestStoragePlan_SelectList(t *testing.T) {
 
 	metadataDB := metadb.NewMockMetadataDatabase(ctrl)
 	metadata := metadb.NewMockMetadata(ctrl)
+	db := tsdb.NewMockDatabase(ctrl)
+	db.EXPECT().Metadata().Return(metadata).AnyTimes()
 	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
 
 	metadataDB.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(metric.ID(10), nil).AnyTimes()
@@ -85,30 +97,39 @@ func TestStoragePlan_SelectList(t *testing.T) {
 
 	// error
 	query := &stmt.Query{MetricName: "cpu"}
-	plan := newStorageExecutePlan("ns", metadata, query)
+	ctx := &executeContext{
+		database: db,
+		storageExecuteCtx: &flow.StorageExecuteContext{
+			Query: query,
+		},
+	}
+	plan := newStorageExecutePlan(ctx)
 	err := plan.Plan()
 	assert.NotNil(t, err)
 	q, _ := sql.Parse("select no_f from cpu")
 	query = q.(*stmt.Query)
-	plan = newStorageExecutePlan("ns", metadata, query)
+	ctx.storageExecuteCtx.Query = query
+	plan = newStorageExecutePlan(ctx)
 	err = plan.Plan()
 	assert.Equal(t, constants.ErrNotFound, err)
 
 	// normal
 	q, _ = sql.Parse("select f from cpu")
 	query = q.(*stmt.Query)
-	storagePlan := newStorageExecutePlan("ns", metadata, query)
+	ctx.storageExecuteCtx.Query = query
+	storagePlan := newStorageExecutePlan(ctx)
 	err = storagePlan.Plan()
 	assert.NoError(t, err)
 
 	downSampling := aggregation.NewAggregatorSpec("f", field.SumField)
 	downSampling.AddFunctionType(function.Sum)
 	assert.Equal(t, downSampling, storagePlan.fields[field.ID(10)].DownSampling)
-	assert.Equal(t, field.Metas{{Name: "f", ID: 10, Type: field.SumField}}, storagePlan.getFields())
+	assert.Equal(t, field.Metas{{Name: "f", ID: 10, Type: field.SumField}}, ctx.storageExecuteCtx.Fields)
 
 	q, _ = sql.Parse("select a,b as d from cpu")
 	query = q.(*stmt.Query)
-	storagePlan = newStorageExecutePlan("ns", metadata, query)
+	ctx.storageExecuteCtx.Query = query
+	storagePlan = newStorageExecutePlan(ctx)
 	err = storagePlan.Plan()
 	assert.NoError(t, err)
 
@@ -123,11 +144,12 @@ func TestStoragePlan_SelectList(t *testing.T) {
 			{Name: "a", ID: 11, Type: field.MinField},
 			{Name: "b", ID: 12, Type: field.MaxField},
 		},
-		storagePlan.getFields())
+		ctx.storageExecuteCtx.Fields)
 
 	q, _ = sql.Parse("select min(a) as d from cpu")
 	query = q.(*stmt.Query)
-	storagePlan = newStorageExecutePlan("ns", metadata, query)
+	ctx.storageExecuteCtx.Query = query
+	storagePlan = newStorageExecutePlan(ctx)
 	err = storagePlan.Plan()
 	assert.NoError(t, err)
 
@@ -138,7 +160,7 @@ func TestStoragePlan_SelectList(t *testing.T) {
 		field.Metas{
 			{Name: "a", ID: 11, Type: field.MinField},
 		},
-		storagePlan.getFields())
+		ctx.storageExecuteCtx.Fields)
 }
 
 func TestStorageExecutePlan_groupBy(t *testing.T) {
@@ -146,12 +168,14 @@ func TestStorageExecutePlan_groupBy(t *testing.T) {
 	defer ctrl.Finish()
 	metadataDB := metadb.NewMockMetadataDatabase(ctrl)
 	metadata := metadb.NewMockMetadata(ctrl)
+	db := tsdb.NewMockDatabase(ctrl)
+	db.EXPECT().Metadata().Return(metadata).AnyTimes()
 	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
 
 	gomock.InOrder(
 		metadataDB.EXPECT().GetMetricID(gomock.Any(), "disk").Return(metric.ID(10), nil),
-		metadataDB.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), "host").Return(uint32(10), nil),
-		metadataDB.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), "path").Return(uint32(11), nil),
+		metadataDB.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), "host").Return(tag.KeyID(10), nil),
+		metadataDB.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), "path").Return(tag.KeyID(11), nil),
 		metadataDB.EXPECT().GetField(gomock.Any(), gomock.Any(), field.Name("f")).
 			Return(field.Meta{ID: 12, Type: field.SumField}, nil),
 		metadataDB.EXPECT().GetField(gomock.Any(), gomock.Any(), field.Name("d")).
@@ -161,26 +185,36 @@ func TestStorageExecutePlan_groupBy(t *testing.T) {
 	// normal
 	q, _ := sql.Parse("select f,d from disk group by host,path")
 	query := q.(*stmt.Query)
-	storagePlan := newStorageExecutePlan("ns", metadata, query)
+	ctx := &executeContext{
+		database: db,
+		storageExecuteCtx: &flow.StorageExecuteContext{
+			Query: query,
+		},
+	}
+	storagePlan := newStorageExecutePlan(ctx)
 	err := storagePlan.Plan()
 	assert.NoError(t, err)
 
-	aggSpecs := storagePlan.getDownSamplingAggSpecs()
+	aggSpecs := ctx.storageExecuteCtx.DownSamplingSpecs
 	assert.Equal(t, field.Name("d"), aggSpecs[0].FieldName())
 	assert.Equal(t, field.Name("f"), aggSpecs[1].FieldName())
 
-	assert.Equal(t, field.Metas{{Name: "d", ID: 10, Type: field.SumField}, {Name: "f", ID: 12, Type: field.SumField}}, storagePlan.getFields())
-	assert.Equal(t, 2, len(storagePlan.groupByTags))
-	assert.Equal(t, []tag.Meta{{ID: 10, Key: "host"}, {ID: 11, Key: "path"}}, storagePlan.groupByKeyIDs())
+	assert.Equal(t, field.Metas{
+		{Name: "d", ID: 10, Type: field.SumField}, {Name: "f", ID: 12, Type: field.SumField},
+	}, ctx.storageExecuteCtx.Fields)
+	assert.Equal(t, 2, len(ctx.storageExecuteCtx.GroupByTagKeyIDs))
+	assert.Equal(t, 2, len(ctx.storageExecuteCtx.GroupByTags))
+	assert.Equal(t, tag.Metas{{ID: 10, Key: "host"}, {ID: 11, Key: "path"}}, ctx.storageExecuteCtx.GroupByTags)
 
 	// get tag key err
 	gomock.InOrder(
 		metadataDB.EXPECT().GetMetricID(gomock.Any(), "disk").Return(metric.ID(10), nil),
-		metadataDB.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), "host").Return(uint32(0), fmt.Errorf("err")),
+		metadataDB.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), "host").Return(tag.KeyID(0), fmt.Errorf("err")),
 	)
 	q, _ = sql.Parse("select f from disk group by host,path")
 	query = q.(*stmt.Query)
-	storagePlan = newStorageExecutePlan("ns", metadata, query)
+	ctx.storageExecuteCtx.Query = query
+	storagePlan = newStorageExecutePlan(ctx)
 	err = storagePlan.Plan()
 	assert.Error(t, err)
 }
@@ -190,12 +224,20 @@ func TestStorageExecutePlan_empty_select_item(t *testing.T) {
 	defer ctrl.Finish()
 	metadataDB := metadb.NewMockMetadataDatabase(ctrl)
 	metadata := metadb.NewMockMetadata(ctrl)
+	db := tsdb.NewMockDatabase(ctrl)
+	db.EXPECT().Metadata().Return(metadata).AnyTimes()
 	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
 
 	gomock.InOrder(
 		metadataDB.EXPECT().GetMetricID(gomock.Any(), "disk").Return(metric.ID(10), nil),
 	)
-	plan := newStorageExecutePlan("ns", metadata, &stmt.Query{MetricName: "disk"})
+	ctx := &executeContext{
+		database: db,
+		storageExecuteCtx: &flow.StorageExecuteContext{
+			Query: &stmt.Query{MetricName: "disk"},
+		},
+	}
+	plan := newStorageExecutePlan(ctx)
 	err := plan.Plan()
 	assert.Equal(t, errEmptySelectList, err)
 }
@@ -205,6 +247,8 @@ func TestStorageExecutePlan_field_expr_fail(t *testing.T) {
 	defer ctrl.Finish()
 	metadataDB := metadb.NewMockMetadataDatabase(ctrl)
 	metadata := metadb.NewMockMetadata(ctrl)
+	db := tsdb.NewMockDatabase(ctrl)
+	db.EXPECT().Metadata().Return(metadata).AnyTimes()
 	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
 
 	gomock.InOrder(
@@ -214,7 +258,13 @@ func TestStorageExecutePlan_field_expr_fail(t *testing.T) {
 	)
 	q, _ := sql.Parse("select f from disk")
 	query := q.(*stmt.Query)
-	plan := newStorageExecutePlan("ns", metadata, query)
+	ctx := &executeContext{
+		database: db,
+		storageExecuteCtx: &flow.StorageExecuteContext{
+			Query: query,
+		},
+	}
+	plan := newStorageExecutePlan(ctx)
 	err := plan.Plan()
 	assert.Error(t, err)
 
@@ -227,21 +277,24 @@ func TestStorageExecutePlan_field_expr_fail(t *testing.T) {
 	// params more than one
 	q, _ = sql.Parse("select quantile(0.99,1.0) from disk")
 	query = q.(*stmt.Query)
-	plan = newStorageExecutePlan("ns", metadata, query)
+	ctx.storageExecuteCtx.Query = query
+	plan = newStorageExecutePlan(ctx)
 	err = plan.Plan()
 	assert.Error(t, err)
 
 	// quantile param not float
 	q, _ = sql.Parse("select quantile(xxxx) from disk")
 	query = q.(*stmt.Query)
-	plan = newStorageExecutePlan("ns", metadata, query)
+	ctx.storageExecuteCtx.Query = query
+	plan = newStorageExecutePlan(ctx)
 	err = plan.Plan()
 	assert.Error(t, err)
 
 	// quantile value range bad
 	q, _ = sql.Parse("select quantile(-0.2) from disk")
 	query = q.(*stmt.Query)
-	plan = newStorageExecutePlan("ns", metadata, query)
+	ctx.storageExecuteCtx.Query = query
+	plan = newStorageExecutePlan(ctx)
 	err = plan.Plan()
 	assert.Error(t, err)
 }
@@ -262,6 +315,8 @@ func TestStorageExecutePlan_field_ok(t *testing.T) {
 	defer ctrl.Finish()
 	metadataDB := metadb.NewMockMetadataDatabase(ctrl)
 	metadata := metadb.NewMockMetadata(ctrl)
+	db := tsdb.NewMockDatabase(ctrl)
+	db.EXPECT().Metadata().Return(metadata).AnyTimes()
 	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
 	metadataDB.EXPECT().GetAllHistogramFields(gomock.Any(), gomock.Any()).
 		Return(histogramFieldMetas, nil).AnyTimes()
@@ -279,9 +334,14 @@ func TestStorageExecutePlan_field_ok(t *testing.T) {
 	q, err := sql.Parse("select (d+quantile(0.1)*10+b),e from disk")
 	assert.Nil(t, err)
 	query := q.(*stmt.Query)
-	plan := newStorageExecutePlan("ns", metadata, query)
+	ctx := &executeContext{
+		database: db,
+		storageExecuteCtx: &flow.StorageExecuteContext{
+			Query: query,
+		},
+	}
+	plan := newStorageExecutePlan(ctx)
 	err = plan.Plan()
-	_ = plan.getAggregatorSpecs()
 	assert.Nil(t, err)
 }
 
@@ -290,6 +350,8 @@ func TestStorageExecutePlan_histogramFieldsBad(t *testing.T) {
 	defer ctrl.Finish()
 	metadataDB := metadb.NewMockMetadataDatabase(ctrl)
 	metadata := metadb.NewMockMetadata(ctrl)
+	db := tsdb.NewMockDatabase(ctrl)
+	db.EXPECT().Metadata().Return(metadata).AnyTimes()
 	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
 	metadataDB.EXPECT().GetAllHistogramFields(gomock.Any(), gomock.Any()).
 		Return(nil, io.ErrClosedPipe).AnyTimes()
@@ -297,7 +359,13 @@ func TestStorageExecutePlan_histogramFieldsBad(t *testing.T) {
 
 	q, _ := sql.Parse("select quantile(0.1) from disk")
 	query := q.(*stmt.Query)
-	plan := newStorageExecutePlan("ns", metadata, query)
+	ctx := &executeContext{
+		database: db,
+		storageExecuteCtx: &flow.StorageExecuteContext{
+			Query: query,
+		},
+	}
+	plan := newStorageExecutePlan(ctx)
 	err := plan.Plan()
 	plan.field(nil, nil)
 	assert.Error(t, err)

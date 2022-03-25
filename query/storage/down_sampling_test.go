@@ -20,23 +20,42 @@ package storagequery
 import (
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/tsdb"
 )
 
-func Test_downSamplingTimeRange(t *testing.T) {
-	timeRange, intervalRatio, interval := downSamplingTimeRange(
-		timeutil.Interval(30*timeutil.OneSecond),
-		timeutil.Interval(10*timeutil.OneSecond),
-		timeutil.TimeRange{
-			Start: 35 * timeutil.OneSecond,
-			End:   65 * timeutil.OneSecond,
-		})
-	assert.Equal(t, 3, intervalRatio)
-	assert.Equal(t, 30*timeutil.OneSecond, interval.Int64())
+func Test_buildDownSamplingTimeRange(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	db := tsdb.NewMockDatabase(ctrl)
+	opt := &option.DatabaseOption{Intervals: option.Intervals{{Interval: timeutil.Interval(10 * timeutil.OneSecond)}}}
+	db.EXPECT().GetOption().Return(opt)
+
+	ctx := &executeContext{
+		database: db,
+		storageExecuteCtx: &flow.StorageExecuteContext{
+			Query: &stmt.Query{
+				TimeRange: timeutil.TimeRange{
+					Start: 35 * timeutil.OneSecond,
+					End:   65 * timeutil.OneSecond},
+				Interval: timeutil.Interval(30 * timeutil.OneSecond),
+			},
+		},
+	}
+
+	buildDownSamplingTimeRange(ctx)
+
+	assert.Equal(t, 3, ctx.storageExecuteCtx.QueryIntervalRatio)
+	assert.Equal(t, timeutil.Interval(30*timeutil.OneSecond), ctx.storageExecuteCtx.QueryInterval)
 	assert.Equal(t, timeutil.TimeRange{
 		Start: 30 * timeutil.OneSecond,
 		End:   60 * timeutil.OneSecond,
-	}, timeRange)
+	}, ctx.storageExecuteCtx.QueryTimeRange)
 }

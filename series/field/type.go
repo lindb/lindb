@@ -104,6 +104,8 @@ func (t Type) AggType() AggType {
 		return Min
 	case MaxField:
 		return Max
+	case GaugeField:
+		return LastValue
 	default:
 		panic("need impl")
 	}

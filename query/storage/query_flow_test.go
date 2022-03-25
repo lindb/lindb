@@ -31,6 +31,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/aggregation"
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/models"
@@ -69,8 +70,11 @@ func TestStorageQueryFlow_Execute(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	storageExecuteCtx := NewMockStorageExecuteContext(ctrl)
-	storageExecuteCtx.EXPECT().QueryStats().Return(models.NewStorageStats()).AnyTimes()
+	storageExecuteCtx := &flow.StorageExecuteContext{
+		QueryInterval:      timeutil.Interval(timeutil.OneSecond),
+		QueryIntervalRatio: 1,
+		QueryTimeRange:     timeutil.TimeRange{},
+	}
 	taskServerFactory := rpc.NewMockTaskServerFactory(ctrl)
 	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(nil)
 
@@ -86,7 +90,7 @@ func TestStorageQueryFlow_Execute(t *testing.T) {
 		}},
 		testExecPool,
 	)
-	queryFlow.Prepare(timeutil.Interval(timeutil.OneSecond), 1, timeutil.TimeRange{}, nil)
+	queryFlow.Prepare()
 	qf := queryFlow.(*storageQueryFlow)
 	reduceAgg := aggregation.NewMockGroupingAggregator(ctrl)
 	qf.reduceAgg = reduceAgg
@@ -95,20 +99,20 @@ func TestStorageQueryFlow_Execute(t *testing.T) {
 
 	var wait sync.WaitGroup
 	wait.Add(6)
-	queryFlow.Filtering(func() {
+	queryFlow.Submit(flow.FilteringStage, func() {
 		wait.Done()
-		queryFlow.Grouping(func() {
+		queryFlow.Submit(flow.GroupingStage, func() {
 			wait.Done()
-			queryFlow.Load(func() {
+			queryFlow.Submit(flow.ScannerStage, func() {
 				wait.Done()
 			})
 		})
 	})
-	queryFlow.Filtering(func() {
+	queryFlow.Submit(flow.FilteringStage, func() {
 		wait.Done()
-		queryFlow.Grouping(func() {
+		queryFlow.Submit(flow.GroupingStage, func() {
 			wait.Done()
-			queryFlow.Load(func() {
+			queryFlow.Submit(flow.ScannerStage, func() {
 				wait.Done()
 			})
 		})
@@ -122,8 +126,11 @@ func TestStorageQueryFlow_completeTask(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	storageExecuteCtx := NewMockStorageExecuteContext(ctrl)
-	storageExecuteCtx.EXPECT().QueryStats().Return(nil).AnyTimes()
+	storageExecuteCtx := &flow.StorageExecuteContext{
+		QueryInterval:      timeutil.Interval(timeutil.OneSecond),
+		QueryIntervalRatio: 1,
+		QueryTimeRange:     timeutil.TimeRange{},
+	}
 	taskServerFactory := rpc.NewMockTaskServerFactory(ctrl)
 	server := protoCommonV1.NewMockTaskService_HandleServer(ctrl)
 	server.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()
@@ -142,11 +149,11 @@ func TestStorageQueryFlow_completeTask(t *testing.T) {
 		testExecPool,
 	)
 
-	queryFlow.Prepare(timeutil.Interval(timeutil.OneSecond), 1, timeutil.TimeRange{}, nil)
+	queryFlow.Prepare()
 	qf := queryFlow.(*storageQueryFlow)
 	// case 1: test execute task after completed
 	qf.completed.Store(true)
-	queryFlow.Filtering(func() {
+	queryFlow.Submit(flow.FilteringStage, func() {
 		assert.Fail(t, "exec err")
 	})
 
@@ -163,7 +170,7 @@ func TestStorageQueryFlow_completeTask(t *testing.T) {
 		testExecPool,
 	)
 
-	queryFlow.Prepare(timeutil.Interval(timeutil.OneSecond), 1, timeutil.TimeRange{}, nil)
+	queryFlow.Prepare()
 	qf = queryFlow.(*storageQueryFlow)
 	reduceAgg := aggregation.NewMockGroupingAggregator(ctrl)
 	qf.reduceAgg = reduceAgg
@@ -184,7 +191,7 @@ func TestStorageQueryFlow_completeTask(t *testing.T) {
 	reduceAgg.EXPECT().ResultSet().Return([]series.GroupedIterator{groupIt})
 	var wait1 sync.WaitGroup
 	wait1.Add(1)
-	queryFlow.Filtering(func() {
+	queryFlow.Submit(flow.FilteringStage, func() {
 		wait1.Done()
 	})
 	wait1.Wait()
@@ -198,13 +205,16 @@ func TestStorageQueryFlow_getValues(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	storageExecuteCtx := NewMockStorageExecuteContext(ctrl)
-	storageExecuteCtx.EXPECT().QueryStats().Return(nil).AnyTimes()
 	taskServerFactory := rpc.NewMockTaskServerFactory(ctrl)
 	server := protoCommonV1.NewMockTaskService_HandleServer(ctrl)
 	server.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()
 	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(server).AnyTimes()
 
+	storageExecuteCtx := &flow.StorageExecuteContext{
+		QueryInterval:      timeutil.Interval(timeutil.OneSecond),
+		QueryIntervalRatio: 1,
+		QueryTimeRange:     timeutil.TimeRange{},
+	}
 	queryFlow := NewStorageQueryFlow(
 		context.TODO(),
 		storageExecuteCtx,
@@ -218,7 +228,7 @@ func TestStorageQueryFlow_getValues(t *testing.T) {
 		testExecPool,
 	)
 
-	queryFlow.Prepare(timeutil.Interval(timeutil.OneSecond), 1, timeutil.TimeRange{}, nil)
+	queryFlow.Prepare()
 	qf := queryFlow.(*storageQueryFlow)
 	qf.tagValues = make([]string, 2)
 	qf.tagsMap = make(map[string]string)
@@ -238,26 +248,29 @@ func TestStorageQueryFlow_Task_panic(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	storageExecuteCtx := NewMockStorageExecuteContext(ctrl)
-	storageExecuteCtx.EXPECT().QueryStats().Return(nil).AnyTimes()
+	storageExecuteCtx := &flow.StorageExecuteContext{
+		QueryInterval:      timeutil.Interval(timeutil.OneSecond),
+		QueryIntervalRatio: 1,
+		QueryTimeRange:     timeutil.TimeRange{},
+	}
 	queryFlow := NewStorageQueryFlow(context.TODO(),
 		storageExecuteCtx, &stmt.Query{},
 		&protoCommonV1.TaskRequest{},
 		nil,
 		&models.Leaf{},
 		testExecPool)
-	queryFlow.Prepare(timeutil.Interval(timeutil.OneSecond), 1, timeutil.TimeRange{}, nil)
+	queryFlow.Prepare()
 	var wait sync.WaitGroup
 	wait.Add(3)
-	queryFlow.Filtering(func() {
+	queryFlow.Submit(flow.FilteringStage, func() {
 		wait.Done()
 		panic(fmt.Errorf("xxx"))
 	})
-	queryFlow.Filtering(func() {
+	queryFlow.Submit(flow.FilteringStage, func() {
 		wait.Done()
 		panic("err_str")
 	})
-	queryFlow.Filtering(func() {
+	queryFlow.Submit(flow.FilteringStage, func() {
 		wait.Done()
 		panic(12)
 	})
@@ -269,8 +282,11 @@ func TestStorageQueryFlow_Complete(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	storageExecuteCtx := NewMockStorageExecuteContext(ctrl)
-	storageExecuteCtx.EXPECT().QueryStats().Return(nil).AnyTimes()
+	storageExecuteCtx := &flow.StorageExecuteContext{
+		QueryInterval:      timeutil.Interval(timeutil.OneSecond),
+		QueryIntervalRatio: 1,
+		QueryTimeRange:     timeutil.TimeRange{},
+	}
 	taskServerFactory := rpc.NewMockTaskServerFactory(ctrl)
 	server := protoCommonV1.NewMockTaskService_HandleServer(ctrl)
 	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(server).Times(2)

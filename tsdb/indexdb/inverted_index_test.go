@@ -25,9 +25,11 @@ import (
 	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/tblstore/tagindex"
 )
@@ -131,18 +133,18 @@ func TestInvertedIndex_GetSeriesIDsForTags(t *testing.T) {
 
 	// case 1: get reader err
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, fmt.Errorf("err"))
-	seriesIDs, err := index.GetSeriesIDsForTags([]uint32{1, 2, 3})
+	seriesIDs, err := index.GetSeriesIDsForTags([]tag.KeyID{1, 2, 3})
 	assert.Error(t, err)
 	assert.Nil(t, seriesIDs)
 	// case 2: reader get data success
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{table.NewMockReader(ctrl)}, nil).AnyTimes()
 	reader.EXPECT().GetSeriesIDsForTagKeyID(gomock.Any()).Return(roaring.BitmapOf(1, 2, 3), nil).Times(3)
-	seriesIDs, err = index.GetSeriesIDsForTags([]uint32{1, 2, 3})
+	seriesIDs, err = index.GetSeriesIDsForTags([]tag.KeyID{1, 2, 3})
 	assert.NoError(t, err)
 	assert.Equal(t, roaring.BitmapOf(1, 2, 3), seriesIDs)
 	// case 3: reader get series ids err
 	reader.EXPECT().GetSeriesIDsForTagKeyID(gomock.Any()).Return(nil, fmt.Errorf("err"))
-	seriesIDs, err = index.GetSeriesIDsForTags([]uint32{1, 2, 3})
+	seriesIDs, err = index.GetSeriesIDsForTags([]tag.KeyID{1, 2, 3})
 	assert.Error(t, err)
 	assert.Nil(t, seriesIDs)
 }
@@ -191,14 +193,25 @@ func TestInvertedIndex_GetGroupingContext(t *testing.T) {
 
 	// case 1: get sst file reader err
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, fmt.Errorf("err"))
-	ctx, err := index.GetGroupingContext([]uint32{3, 4}, nil)
+	shardExecuteCtx := &flow.ShardExecuteContext{
+		StorageExecuteCtx: &flow.StorageExecuteContext{
+			GroupByTagKeyIDs: []tag.KeyID{3, 4},
+		},
+	}
+	err := index.GetGroupingContext(shardExecuteCtx)
 	assert.Error(t, err)
-	assert.Nil(t, ctx)
+	assert.Nil(t, shardExecuteCtx.GroupingContext)
 	// case 2: get empty reader
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, nil).Times(2)
-	ctx, err = index.GetGroupingContext([]uint32{1, 2}, roaring.BitmapOf(1, 2, 3))
+	shardExecuteCtx = &flow.ShardExecuteContext{
+		StorageExecuteCtx: &flow.StorageExecuteContext{
+			GroupByTagKeyIDs: []tag.KeyID{1, 2},
+		},
+		SeriesIDsAfterFiltering: roaring.BitmapOf(1, 2, 3),
+	}
+	err = index.GetGroupingContext(shardExecuteCtx)
 	assert.NoError(t, err)
-	assert.NotNil(t, ctx)
+	assert.NotNil(t, shardExecuteCtx.GroupingContext)
 	// case 3: get scanner from file err
 	reader := tagindex.NewMockForwardReader(ctrl)
 	newForwardReaderFunc = func(readers []table.Reader) tagindex.ForwardReader {
@@ -206,15 +219,16 @@ func TestInvertedIndex_GetGroupingContext(t *testing.T) {
 	}
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{table.NewMockReader(ctrl)}, nil)
 	reader.EXPECT().GetGroupingScanner(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
-	ctx, err = index.GetGroupingContext([]uint32{1, 2}, roaring.BitmapOf(1, 2, 3))
+	shardExecuteCtx.GroupingContext = nil
+	err = index.GetGroupingContext(shardExecuteCtx)
 	assert.Error(t, err)
-	assert.Nil(t, ctx)
+	assert.Nil(t, shardExecuteCtx.GroupingContext)
 	// case 4: get scanner from file err
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{table.NewMockReader(ctrl)}, nil).Times(2)
 	reader.EXPECT().GetGroupingScanner(gomock.Any(), gomock.Any()).Return(nil, nil).Times(2)
-	ctx, err = index.GetGroupingContext([]uint32{1, 2}, roaring.BitmapOf(1, 2, 3))
+	err = index.GetGroupingContext(shardExecuteCtx)
 	assert.NoError(t, err)
-	assert.NotNil(t, ctx)
+	assert.NotNil(t, shardExecuteCtx.GroupingContext)
 }
 
 func TestInvertedIndex_FlushInvertedIndexTo(t *testing.T) {
@@ -299,13 +313,13 @@ func prepareInvertedIndex(ctrl *gomock.Controller) InvertedIndex {
 	metadata.EXPECT().DatabaseName().Return("test").AnyTimes()
 	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
 	metadata.EXPECT().TagMetadata().Return(tagMetadata).AnyTimes()
-	metadataDB.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any(), "host").Return(uint32(1), nil).AnyTimes()
-	metadataDB.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any(), "zone").Return(uint32(2), nil).AnyTimes()
-	metadataDB.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any(), "zone_err").Return(uint32(0), fmt.Errorf("err")).AnyTimes()
-	tagMetadata.EXPECT().GenTagValueID(uint32(1), "1.1.1.1").Return(uint32(1), nil).Times(2)
-	tagMetadata.EXPECT().GenTagValueID(uint32(1), "1.1.1.5").Return(uint32(0), fmt.Errorf("err"))
-	tagMetadata.EXPECT().GenTagValueID(uint32(2), "sh").Return(uint32(1), nil)
-	tagMetadata.EXPECT().GenTagValueID(uint32(2), "bj").Return(uint32(2), nil)
+	metadataDB.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any(), "host").Return(tag.KeyID(1), nil).AnyTimes()
+	metadataDB.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any(), "zone").Return(tag.KeyID(2), nil).AnyTimes()
+	metadataDB.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any(), "zone_err").Return(tag.KeyID(0), fmt.Errorf("err")).AnyTimes()
+	tagMetadata.EXPECT().GenTagValueID(tag.KeyID(1), "1.1.1.1").Return(uint32(1), nil).Times(2)
+	tagMetadata.EXPECT().GenTagValueID(tag.KeyID(1), "1.1.1.5").Return(uint32(0), fmt.Errorf("err"))
+	tagMetadata.EXPECT().GenTagValueID(tag.KeyID(2), "sh").Return(uint32(1), nil)
+	tagMetadata.EXPECT().GenTagValueID(tag.KeyID(2), "bj").Return(uint32(2), nil)
 	index := newInvertedIndex(metadata, nil, nil)
 	index.buildInvertIndex("ns", "name", mockTagKeyValueIterator(map[string]string{
 		"host": "1.1.1.1",
