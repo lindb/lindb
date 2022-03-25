@@ -22,6 +22,7 @@ import (
 
 	"github.com/lindb/roaring"
 
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
 
@@ -29,5 +30,8 @@ func TestMetricStoreLoader_Load(t *testing.T) {
 	// case 1: series not exist
 	s := newMetricStoreLoader(roaring.BitmapOf(10, 100).GetContainer(0),
 		nil, timeutil.SlotRange{}, nil)
-	s.Load(200)
+	s.Load(&flow.DataLoadContext{
+		SeriesIDHighKey:       0,
+		LowSeriesIDsContainer: roaring.BitmapOf(10, 100).GetContainer(0),
+	})
 }

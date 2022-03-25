@@ -27,9 +27,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/atomic"
 
+	"github.com/lindb/lindb/aggregation"
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb/query"
 	"github.com/lindb/lindb/tsdb/tblstore/tagindex"
 )
@@ -186,7 +189,7 @@ func (g *groupingScanner) GetSeriesAndTagValue(highKey uint16) (lowSeriesIDs roa
 	return g.forward.Keys().GetContainerAtIndex(idx), g.forward.Values()[idx]
 }
 
-func newScanner() series.GroupingScanner {
+func newScanner() flow.GroupingScanner {
 	return &groupingScanner{
 		forward: NewForwardStore(),
 	}
@@ -217,10 +220,10 @@ func BenchmarkForwardStore_Grouping(b *testing.B) {
 	seriesIDs.AddRange(0, uint64(1000000))
 	keys := seriesIDs.GetHighKeys()
 	// test single group by tag keys
-	scanners := make(map[uint32][]series.GroupingScanner)
-	scanners[1] = []series.GroupingScanner{partitions}
-	scanners[2] = []series.GroupingScanner{hosts}
-	ctx := query.NewGroupContext([]uint32{1, 2}, scanners)
+	scanners := make(map[tag.KeyID][]flow.GroupingScanner)
+	scanners[1] = []flow.GroupingScanner{partitions}
+	scanners[2] = []flow.GroupingScanner{hosts}
+	ctx := query.NewGroupContext([]tag.KeyID{1, 2}, scanners)
 
 	now := timeutil.Now()
 	var wait sync.WaitGroup
@@ -230,8 +233,18 @@ func BenchmarkForwardStore_Grouping(b *testing.B) {
 		k := key
 		wait.Add(1)
 		go func() {
-			rs := ctx.BuildGroup(k, container)
-			c.Add(int32(len(rs)))
+			dataLoadCtx := &flow.DataLoadContext{
+				SeriesIDHighKey:       k,
+				LowSeriesIDsContainer: container,
+				ShardExecuteCtx: &flow.ShardExecuteContext{
+					StorageExecuteCtx: &flow.StorageExecuteContext{
+						DownSamplingSpecs:   aggregation.AggregatorSpecs{aggregation.NewAggregatorSpec("f", field.SumField)},
+						GroupingTagValueIDs: make([]*roaring.Bitmap, 2),
+					},
+				},
+			}
+			dataLoadCtx.Grouping()
+			ctx.BuildGroup(dataLoadCtx)
 			wait.Done()
 		}()
 	}

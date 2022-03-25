@@ -25,7 +25,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lindb/roaring"
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/config"
@@ -35,7 +34,6 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb/memdb"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
@@ -135,9 +133,8 @@ func newDataFamily(
 	}
 	// get current persist write sequence
 	snapshot := family.GetSnapshot()
-	defer func() {
-		snapshot.Close()
-	}()
+	defer snapshot.Close()
+
 	sequences := snapshot.GetCurrent().GetSequences()
 	for leader, seq := range sequences {
 		sequence := *atomic.NewInt64(seq)
@@ -320,15 +317,12 @@ func (f *dataFamily) MemDBSize() int64 {
 
 // Filter filters the data based on metric/version/seriesIDs,
 // if it finds data then returns the FilterResultSet, else returns nil
-func (f *dataFamily) Filter(metricID metric.ID,
-	seriesIDs *roaring.Bitmap, timeRange timeutil.TimeRange,
-	fields field.Metas,
-) (resultSet []flow.FilterResultSet, err error) {
-	memRS, err := f.memoryFilter(metricID, seriesIDs, timeRange, fields)
+func (f *dataFamily) Filter(executeCtx *flow.ShardExecuteContext) (resultSet []flow.FilterResultSet, err error) {
+	memRS, err := f.memoryFilter(executeCtx)
 	if err != nil {
 		return nil, err
 	}
-	fileRS, err := f.fileFilter(metricID, seriesIDs, timeRange, fields)
+	fileRS, err := f.fileFilter(executeCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -337,12 +331,9 @@ func (f *dataFamily) Filter(metricID metric.ID,
 	return
 }
 
-func (f *dataFamily) memoryFilter(metricID metric.ID,
-	seriesIDs *roaring.Bitmap, timeRange timeutil.TimeRange,
-	fields field.Metas,
-) (resultSet []flow.FilterResultSet, err error) {
+func (f *dataFamily) memoryFilter(executeCtx *flow.ShardExecuteContext) (resultSet []flow.FilterResultSet, err error) {
 	memFilter := func(memDB memdb.MemoryDatabase) error {
-		rs, err := memDB.Filter(metricID, seriesIDs, timeRange, fields)
+		rs, err := memDB.Filter(executeCtx)
 		if err != nil {
 			return err
 		}
@@ -364,10 +355,7 @@ func (f *dataFamily) memoryFilter(metricID metric.ID,
 	return
 }
 
-func (f *dataFamily) fileFilter(metricID metric.ID,
-	seriesIDs *roaring.Bitmap, _ timeutil.TimeRange,
-	fields field.Metas,
-) (resultSet []flow.FilterResultSet, err error) {
+func (f *dataFamily) fileFilter(shardExecuteContext *flow.ShardExecuteContext) (resultSet []flow.FilterResultSet, err error) {
 	snapShot := f.family.GetSnapshot()
 	defer func() {
 		if err != nil || len(resultSet) == 0 {
@@ -375,7 +363,7 @@ func (f *dataFamily) fileFilter(metricID metric.ID,
 			snapShot.Close()
 		}
 	}()
-	metricKey := uint32(metricID)
+	metricKey := uint32(shardExecuteContext.StorageExecuteCtx.MetricID)
 	readers, err := snapShot.FindReaders(metricKey)
 	if err != nil {
 		engineLogger.Error("filter data family error", logger.Error(err))
@@ -384,9 +372,9 @@ func (f *dataFamily) fileFilter(metricID metric.ID,
 	// TODO need check time range???
 	var metricReaders []metricsdata.MetricReader
 	for _, reader := range readers {
-		value, err := reader.Get(metricKey)
+		value, err0 := reader.Get(metricKey)
 		// metric data not found
-		if err != nil {
+		if err0 != nil {
 			continue
 		}
 		r, err := newReaderFunc(reader.Path(), value)
@@ -399,7 +387,7 @@ func (f *dataFamily) fileFilter(metricID metric.ID,
 		return
 	}
 	filter := newFilterFunc(f.timeRange.Start, snapShot, metricReaders)
-	return filter.Filter(seriesIDs, fields)
+	return filter.Filter(shardExecuteContext.SeriesIDsAfterFiltering, shardExecuteContext.StorageExecuteCtx.Fields)
 }
 
 func (f *dataFamily) WriteRows(rows []metric.StorageRow) error {

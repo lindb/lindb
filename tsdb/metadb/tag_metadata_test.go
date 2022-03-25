@@ -29,6 +29,7 @@ import (
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/tblstore/tagkeymeta"
 )
@@ -63,24 +64,24 @@ func TestTagMetadata_GenTagValueID(t *testing.T) {
 	assert.Equal(t, uint32(0), tagValueID)
 	// case 4: get tag value from kv store
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{table.NewMockReader(ctrl)}, nil).AnyTimes()
-	tagReader.EXPECT().GetTagValueID(uint32(1), "tag-value-2").Return(uint32(2), nil)
+	tagReader.EXPECT().GetTagValueID(tag.KeyID(1), "tag-value-2").Return(uint32(2), nil)
 	tagValueID, err = meta.GenTagValueID(1, "tag-value-2")
 	assert.NoError(t, err)
 	assert.Equal(t, uint32(2), tagValueID)
 	// case 5: get tag value from kv store err
-	tagReader.EXPECT().GetTagValueID(uint32(1), "tag-value-2-err").Return(uint32(0), fmt.Errorf("err"))
+	tagReader.EXPECT().GetTagValueID(tag.KeyID(1), "tag-value-2-err").Return(uint32(0), fmt.Errorf("err"))
 	tagValueID, err = meta.GenTagValueID(1, "tag-value-2-err")
 	assert.Error(t, err)
 	assert.Equal(t, uint32(0), tagValueID)
 	// case 6: init tag entry from kv store err
-	tagReader.EXPECT().GetTagValueID(uint32(5), "tag-value-2").Return(uint32(0), constants.ErrNotFound)
-	tagReader.EXPECT().GetTagValueSeq(uint32(5)).Return(uint32(0), fmt.Errorf("err"))
+	tagReader.EXPECT().GetTagValueID(tag.KeyID(5), "tag-value-2").Return(uint32(0), constants.ErrNotFound)
+	tagReader.EXPECT().GetTagValueSeq(tag.KeyID(5)).Return(uint32(0), fmt.Errorf("err"))
 	tagValueID, err = meta.GenTagValueID(5, "tag-value-2")
 	assert.Error(t, err)
 	assert.Equal(t, uint32(0), tagValueID)
 	// case 7: init tag entry from kv store
-	tagReader.EXPECT().GetTagValueID(uint32(5), "tag-value-2").Return(uint32(0), constants.ErrNotFound)
-	tagReader.EXPECT().GetTagValueSeq(uint32(5)).Return(uint32(20), nil)
+	tagReader.EXPECT().GetTagValueID(tag.KeyID(5), "tag-value-2").Return(uint32(0), constants.ErrNotFound)
+	tagReader.EXPECT().GetTagValueSeq(tag.KeyID(5)).Return(uint32(20), nil)
 	tagValueID, err = meta.GenTagValueID(5, "tag-value-2")
 	assert.NoError(t, err)
 	assert.Equal(t, uint32(21), tagValueID)
@@ -96,7 +97,7 @@ func TestTagMetadata_GenTagValueID(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, uint32(10), tagValueID)
 	// case 8: get tag value id from immutable not exist
-	tagReader.EXPECT().GetTagValueID(uint32(5), "tag-value-6").Return(uint32(0), constants.ErrNotFound)
+	tagReader.EXPECT().GetTagValueID(tag.KeyID(5), "tag-value-6").Return(uint32(0), constants.ErrNotFound)
 	tagValueID, err = meta.GenTagValueID(5, "tag-value-6")
 	assert.NoError(t, err)
 	assert.Equal(t, uint32(22), tagValueID)
@@ -158,34 +159,34 @@ func TestTagMetadata_FindTagValueDsByExpr(t *testing.T) {
 
 	// case 1: find from mutable
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, nil)
-	ids, err := meta.FindTagValueDsByExpr(uint32(5), &stmt.EqualsExpr{Value: "tag-value-5"})
+	ids, err := meta.FindTagValueDsByExpr(tag.KeyID(5), &stmt.EqualsExpr{Value: "tag-value-5"})
 	assert.NoError(t, err)
 	assert.Equal(t, roaring.BitmapOf(10), ids)
 	// case 2: find from mutable
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, nil)
-	ids, err = meta.FindTagValueDsByExpr(uint32(10), &stmt.EqualsExpr{Value: "tag-value-20"})
+	ids, err = meta.FindTagValueDsByExpr(tag.KeyID(10), &stmt.EqualsExpr{Value: "tag-value-20"})
 	assert.NoError(t, err)
 	assert.Equal(t, roaring.BitmapOf(20), ids)
 	// case 3: no data
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, nil)
-	ids, err = meta.FindTagValueDsByExpr(uint32(10), &stmt.EqualsExpr{Value: "tag-value-210"})
+	ids, err = meta.FindTagValueDsByExpr(tag.KeyID(10), &stmt.EqualsExpr{Value: "tag-value-210"})
 	assert.NoError(t, err)
 	assert.Equal(t, roaring.New(), ids)
 	// case 4: kv store find readers err
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, fmt.Errorf("err"))
-	ids, err = meta.FindTagValueDsByExpr(uint32(10), &stmt.EqualsExpr{Value: "tag-value-20"})
+	ids, err = meta.FindTagValueDsByExpr(tag.KeyID(10), &stmt.EqualsExpr{Value: "tag-value-20"})
 	assert.Error(t, err)
 	assert.Nil(t, ids)
 	// case 5: find ids from kv err
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{table.NewMockReader(ctrl)}, nil)
-	tagReader.EXPECT().FindValueIDsByExprForTagKeyID(uint32(10), gomock.Any()).Return(nil, fmt.Errorf("err"))
-	ids, err = meta.FindTagValueDsByExpr(uint32(10), &stmt.EqualsExpr{Value: "tag-value-20"})
+	tagReader.EXPECT().FindValueIDsByExprForTagKeyID(tag.KeyID(10), gomock.Any()).Return(nil, fmt.Errorf("err"))
+	ids, err = meta.FindTagValueDsByExpr(tag.KeyID(10), &stmt.EqualsExpr{Value: "tag-value-20"})
 	assert.Error(t, err)
 	assert.Nil(t, ids)
 	// case 5: find ids from kv
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{table.NewMockReader(ctrl)}, nil)
-	tagReader.EXPECT().FindValueIDsByExprForTagKeyID(uint32(10), gomock.Any()).Return(roaring.BitmapOf(30, 40), nil)
-	ids, err = meta.FindTagValueDsByExpr(uint32(10), &stmt.EqualsExpr{Value: "tag-value-20"})
+	tagReader.EXPECT().FindValueIDsByExprForTagKeyID(tag.KeyID(10), gomock.Any()).Return(roaring.BitmapOf(30, 40), nil)
+	ids, err = meta.FindTagValueDsByExpr(tag.KeyID(10), &stmt.EqualsExpr{Value: "tag-value-20"})
 	assert.NoError(t, err)
 	assert.Equal(t, roaring.BitmapOf(20, 30, 40), ids)
 }
@@ -207,34 +208,34 @@ func TestTagMetadata_GetTagValueIDsForTag(t *testing.T) {
 
 	// case 1: get from mutable
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, nil)
-	ids, err := meta.GetTagValueIDsForTag(uint32(5))
+	ids, err := meta.GetTagValueIDsForTag(tag.KeyID(5))
 	assert.NoError(t, err)
 	assert.Equal(t, roaring.BitmapOf(10), ids)
 	// case 2: get from mutable
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, nil)
-	ids, err = meta.GetTagValueIDsForTag(uint32(10))
+	ids, err = meta.GetTagValueIDsForTag(tag.KeyID(10))
 	assert.NoError(t, err)
 	assert.Equal(t, roaring.BitmapOf(20), ids)
 	// case 3: no data
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, nil)
-	ids, err = meta.GetTagValueIDsForTag(uint32(100))
+	ids, err = meta.GetTagValueIDsForTag(tag.KeyID(100))
 	assert.NoError(t, err)
 	assert.Equal(t, roaring.New(), ids)
 	// case 4: kv store find readers err
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, fmt.Errorf("err"))
-	ids, err = meta.GetTagValueIDsForTag(uint32(10))
+	ids, err = meta.GetTagValueIDsForTag(tag.KeyID(10))
 	assert.Error(t, err)
 	assert.Nil(t, ids)
 	// case 5: find ids from kv err
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{table.NewMockReader(ctrl)}, nil)
-	tagReader.EXPECT().GetTagValueIDsForTagKeyID(uint32(10)).Return(nil, fmt.Errorf("err"))
-	ids, err = meta.GetTagValueIDsForTag(uint32(10))
+	tagReader.EXPECT().GetTagValueIDsForTagKeyID(tag.KeyID(10)).Return(nil, fmt.Errorf("err"))
+	ids, err = meta.GetTagValueIDsForTag(tag.KeyID(10))
 	assert.Error(t, err)
 	assert.Nil(t, ids)
 	// case 5: find ids from kv
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{table.NewMockReader(ctrl)}, nil)
-	tagReader.EXPECT().GetTagValueIDsForTagKeyID(uint32(10)).Return(roaring.BitmapOf(30, 40), nil)
-	ids, err = meta.GetTagValueIDsForTag(uint32(10))
+	tagReader.EXPECT().GetTagValueIDsForTagKeyID(tag.KeyID(10)).Return(roaring.BitmapOf(30, 40), nil)
+	ids, err = meta.GetTagValueIDsForTag(tag.KeyID(10))
 	assert.NoError(t, err)
 	assert.Equal(t, roaring.BitmapOf(20, 30, 40), ids)
 }

@@ -86,6 +86,6 @@ func TestMaxAgg(t *testing.T) {
 
 func TestReplaceAgg(t *testing.T) {
 	assert.Panics(t, func() {
-		GaugeField.AggType().Aggregate(1, 99.0)
+		Type(99).AggType().Aggregate(1, 99.0)
 	})
 }

@@ -26,6 +26,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 )
 
@@ -63,18 +65,32 @@ func TestMemFilterResultSet_Load(t *testing.T) {
 	rs, err := mStore.Filter(1, roaring.BitmapOf(1, 100, 200), field.Metas{{ID: 1}, {ID: 20}})
 	assert.NoError(t, err)
 	// case 1: load data success
-	loader := rs[0].Load(0, roaring.BitmapOf(100, 200).GetContainer(0))
-	assert.NotNil(t, loader)
-	loader.Load(100)
-	loader.Load(200)
+	ctx := &flow.DataLoadContext{
+		SeriesIDHighKey:       0,
+		LowSeriesIDsContainer: roaring.BitmapOf(100, 200).GetContainerAtIndex(0),
+		DownSampling: func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, fieldData []byte) {
+
+		},
+	}
+	ctx.Grouping()
+	dataLoader := rs[0].Load(ctx)
+	assert.NotNil(t, dataLoader)
+	dataLoader.Load(ctx)
+	dataLoader.Load(ctx)
 	// case 2: series ids not found
 	rs, _ = mStore.Filter(1, roaring.BitmapOf(1, 100, 200), field.Metas{{ID: 1}, {ID: 20}})
-	loader = rs[0].Load(0, roaring.BitmapOf(1, 2).GetContainer(0))
-	assert.Nil(t, loader)
+	dataLoader = rs[0].Load(&flow.DataLoadContext{
+		SeriesIDHighKey:       0,
+		LowSeriesIDsContainer: roaring.BitmapOf(1, 2).GetContainerAtIndex(0),
+	})
+	assert.Nil(t, dataLoader)
 	// case 3: high key not exist
 	rs, _ = mStore.Filter(1, roaring.BitmapOf(1, 100, 200), field.Metas{{ID: 1}, {ID: 20}})
-	loader = rs[0].Load(10, roaring.BitmapOf(1, 2).GetContainer(0))
-	assert.Nil(t, loader)
+	dataLoader = rs[0].Load(&flow.DataLoadContext{
+		SeriesIDHighKey:       10,
+		LowSeriesIDsContainer: roaring.BitmapOf(1, 2).GetContainerAtIndex(0),
+	})
+	assert.Nil(t, dataLoader)
 	// case 4: field not exist
 	rs, err = mStore.Filter(1, roaring.BitmapOf(1, 100, 200), field.Metas{{ID: 100}, {ID: 200}})
 	assert.True(t, errors.Is(err, constants.ErrNotFound))

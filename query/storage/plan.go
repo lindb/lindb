@@ -20,16 +20,15 @@ package storagequery
 import (
 	"errors"
 	"fmt"
-	"sort"
 	"strconv"
+
+	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/series/field"
-	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
-	"github.com/lindb/lindb/tsdb/metadb"
 )
 
 var (
@@ -39,37 +38,32 @@ var (
 // storageExecutePlan represents a storage level execute plan for data search,
 // such as plan down sampling and aggregation specification.
 type storageExecutePlan struct {
-	namespace string
-	query     *stmt.Query
-	metadata  metadb.Metadata
+	ctx *executeContext
 
-	fieldMetas field.Metas
-
-	metricID    metric.ID
-	fields      map[field.ID]*aggregation.Aggregator
-	groupByTags []tag.Meta
+	fields map[field.ID]*aggregation.Aggregator
 
 	err error
 }
 
 // newStorageExecutePlan creates a storage execute plan
-func newStorageExecutePlan(namespace string, metadata metadb.Metadata, query *stmt.Query) *storageExecutePlan {
+func newStorageExecutePlan(ctx *executeContext) *storageExecutePlan {
 	return &storageExecutePlan{
-		namespace: namespace,
-		metadata:  metadata,
-		query:     query,
-		fields:    make(map[field.ID]*aggregation.Aggregator),
+		ctx:    ctx,
+		fields: make(map[field.ID]*aggregation.Aggregator),
 	}
 }
 
 // Plan plans the query language, generates the execute plan for storage query
 func (p *storageExecutePlan) Plan() error {
 	// metric name => id, like table name
-	metricID, err := p.metadata.MetadataDatabase().GetMetricID(p.namespace, p.query.MetricName)
+	query := p.ctx.storageExecuteCtx.Query
+	metricID, err := p.ctx.getMetadata().MetadataDatabase().GetMetricID(query.Namespace, query.MetricName)
 	if err != nil {
 		return err
 	}
-	p.metricID = metricID
+
+	p.ctx.storageExecuteCtx.MetricID = metricID
+
 	if err := p.groupBy(); err != nil {
 		return err
 	}
@@ -79,77 +73,67 @@ func (p *storageExecutePlan) Plan() error {
 	if p.err != nil {
 		return p.err
 	}
-	p.fieldMetas = make(field.Metas, len(p.fields))
+
+	p.buildField()
+
+	return nil
+}
+
+// groupBy parses group by tag keys
+func (p *storageExecutePlan) groupBy() error {
+	groupBy := p.ctx.storageExecuteCtx.Query.GroupBy
+	lengthOfGroupByTagKeys := len(groupBy)
+	if lengthOfGroupByTagKeys == 0 {
+		return nil
+	}
+	p.ctx.storageExecuteCtx.GroupByTags = make(tag.Metas, lengthOfGroupByTagKeys)
+	p.ctx.storageExecuteCtx.GroupByTagKeyIDs = make([]tag.KeyID, lengthOfGroupByTagKeys)
+	queryStmt := p.ctx.storageExecuteCtx.Query
+	for idx, tagKey := range groupBy {
+		tagKeyID, err := p.ctx.getMetadata().MetadataDatabase().GetTagKeyID(queryStmt.Namespace, queryStmt.MetricName, tagKey)
+		if err != nil {
+			return err
+		}
+		p.ctx.storageExecuteCtx.GroupByTags[idx] = tag.Meta{Key: tagKey, ID: tagKeyID}
+		p.ctx.storageExecuteCtx.GroupByTagKeyIDs[idx] = tagKeyID
+	}
+
+	// need cache found grouping tag value id
+	p.ctx.storageExecuteCtx.GroupingTagValueIDs = make([]*roaring.Bitmap, lengthOfGroupByTagKeys)
+
+	return nil
+}
+
+// getDownSamplingAggSpecs returns the down sampling aggregate specs.
+func (p *storageExecutePlan) buildField() {
+	lengthOfFields := len(p.fields)
+	p.ctx.storageExecuteCtx.Fields = make(field.Metas, lengthOfFields)
+
 	idx := 0
 	for fieldID := range p.fields {
 		f := p.fields[fieldID]
-		p.fieldMetas[idx] = field.Meta{
+		p.ctx.storageExecuteCtx.Fields[idx] = field.Meta{
 			ID:   fieldID,
 			Type: f.DownSampling.GetFieldType(),
 			Name: f.DownSampling.FieldName(),
 		}
 		idx++
 	}
-	// sort field ids
-	sort.Slice(p.fieldMetas, func(i, j int) bool {
-		return p.fieldMetas[i].ID < p.fieldMetas[j].ID
-	})
+	p.ctx.storageExecuteCtx.SortFields()
 
-	return nil
-}
-
-// groupByKeyIDs returns group by tag key ids
-func (p *storageExecutePlan) groupByKeyIDs() []tag.Meta {
-	return p.groupByTags
-}
-
-// groupBy parses group by tag keys
-func (p *storageExecutePlan) groupBy() error {
-	groupByTags := len(p.query.GroupBy)
-	if groupByTags == 0 {
-		return nil
+	// after sort filed, build aggregation spec
+	p.ctx.storageExecuteCtx.DownSamplingSpecs = make(aggregation.AggregatorSpecs, lengthOfFields)
+	p.ctx.storageExecuteCtx.AggregatorSpecs = make(aggregation.AggregatorSpecs, lengthOfFields)
+	for fieldIdx, fieldMeta := range p.ctx.storageExecuteCtx.Fields {
+		f := p.fields[fieldMeta.ID]
+		p.ctx.storageExecuteCtx.DownSamplingSpecs[fieldIdx] = f.DownSampling
+		p.ctx.storageExecuteCtx.AggregatorSpecs[fieldIdx] = f.Aggregator
 	}
-	p.groupByTags = make([]tag.Meta, groupByTags)
-
-	for idx, tagKey := range p.query.GroupBy {
-		tagKeyID, err := p.metadata.MetadataDatabase().GetTagKeyID(p.namespace, p.query.MetricName, tagKey)
-		if err != nil {
-			return err
-		}
-		p.groupByTags[idx] = tag.Meta{
-			Key: tagKey,
-			ID:  tagKeyID,
-		}
-	}
-	return nil
-}
-
-// getDownSamplingAggSpecs returns the down sampling aggregate specs.
-func (p *storageExecutePlan) getDownSamplingAggSpecs() aggregation.AggregatorSpecs {
-	result := make(aggregation.AggregatorSpecs, len(p.fieldMetas))
-	for idx, f := range p.fieldMetas {
-		result[idx] = p.fields[f.ID].DownSampling
-	}
-	return result
-}
-
-// getAggregatorSpecs returns aggregator specs for group by.
-func (p *storageExecutePlan) getAggregatorSpecs() aggregation.AggregatorSpecs {
-	result := make(aggregation.AggregatorSpecs, len(p.fieldMetas))
-	for idx, f := range p.fieldMetas {
-		result[idx] = p.fields[f.ID].Aggregator
-	}
-	return result
-}
-
-// getFields returns sorted of field.Metas.
-func (p *storageExecutePlan) getFields() field.Metas {
-	return p.fieldMetas
 }
 
 // selectList plans the select list from down sampling aggregation specification
 func (p *storageExecutePlan) selectList() error {
-	selectItems := p.query.SelectItems
+	selectItems := p.ctx.storageExecuteCtx.Query.SelectItems
 	if len(selectItems) == 0 {
 		return errEmptySelectList
 	}
@@ -185,7 +169,9 @@ func (p *storageExecutePlan) field(parentFunc *stmt.CallExpr, expr stmt.Expr) {
 		p.field(nil, e.Left)
 		p.field(nil, e.Right)
 	case *stmt.FieldExpr:
-		fieldMeta, err := p.metadata.MetadataDatabase().GetField(p.namespace, p.query.MetricName, field.Name(e.Name))
+		queryStmt := p.ctx.storageExecuteCtx.Query
+		fieldMeta, err := p.ctx.getMetadata().
+			MetadataDatabase().GetField(queryStmt.Namespace, queryStmt.MetricName, field.Name(e.Name))
 		if err != nil {
 			p.err = err
 			return
@@ -202,7 +188,7 @@ func (p *storageExecutePlan) field(parentFunc *stmt.CallExpr, expr stmt.Expr) {
 		}
 
 		var funcType function.FuncType
-		// tests if has func with field
+		// tests if it has func with field
 		if parentFunc == nil {
 			// if not using field default down sampling func
 			funcType = fieldType.DownSamplingFunc()
@@ -237,7 +223,8 @@ func (p *storageExecutePlan) planHistogramFields(e *stmt.CallExpr) {
 		p.err = fmt.Errorf("quantile param: %f is illegal", v)
 		return
 	}
-	fieldMetas, err := p.metadata.MetadataDatabase().GetAllHistogramFields(p.namespace, p.query.MetricName)
+	queryStmt := p.ctx.storageExecuteCtx.Query
+	fieldMetas, err := p.ctx.getMetadata().MetadataDatabase().GetAllHistogramFields(queryStmt.Namespace, queryStmt.MetricName)
 	if err != nil {
 		p.err = err
 		return

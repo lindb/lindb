@@ -20,7 +20,7 @@ package indexdb
 import (
 	"github.com/lindb/roaring"
 
-	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/tsdb/tblstore/tagindex"
 )
 
@@ -29,7 +29,7 @@ import (
 // TagIndex represents the tag inverted index
 type TagIndex interface {
 	// GetGroupingScanner returns the grouping scanners based on series ids
-	GetGroupingScanner(seriesIDs *roaring.Bitmap) ([]series.GroupingScanner, error)
+	GetGroupingScanner(seriesIDs *roaring.Bitmap) ([]flow.GroupingScanner, error)
 	// buildInvertedIndex builds inverted index for tag value id
 	buildInvertedIndex(tagValueID uint32, seriesID uint32)
 	// getSeriesIDsByTagValueIDs returns series ids by tag value ids
@@ -73,14 +73,14 @@ func newTagIndex() TagIndex {
 }
 
 // GetGroupingScanner returns the grouping scanners based on series ids
-func (index *tagIndex) GetGroupingScanner(seriesIDs *roaring.Bitmap) ([]series.GroupingScanner, error) {
+func (index *tagIndex) GetGroupingScanner(seriesIDs *roaring.Bitmap) ([]flow.GroupingScanner, error) {
 	// check reader if it has series ids(after filtering)
 	finalSeriesIDs := roaring.FastAnd(seriesIDs, index.forward.Keys())
 	if finalSeriesIDs.IsEmpty() {
 		// not found
 		return nil, nil
 	}
-	return []series.GroupingScanner{&memGroupingScanner{index.forward}}, nil
+	return []flow.GroupingScanner{&memGroupingScanner{index.forward}}, nil
 }
 
 // buildInvertedIndex builds inverted index for tag value id

@@ -79,7 +79,7 @@ var initializeStandaloneConfigCmd = &cobra.Command{
 }
 
 // serveStandalone runs the cluster as standalone mode
-func serveStandalone(cmd *cobra.Command, args []string) error {
+func serveStandalone(_ *cobra.Command, _ []string) error {
 	ctx := newCtxWithSignals()
 
 	standaloneCfg := config.Standalone{}

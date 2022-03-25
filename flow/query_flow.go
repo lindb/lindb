@@ -18,9 +18,7 @@
 package flow
 
 import (
-	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/internal/concurrent"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 )
 
@@ -29,20 +27,11 @@ import (
 // StorageQueryFlow represents the storage query engine execute flow.
 type StorageQueryFlow interface {
 	// Prepare prepares the query flow, builds the flow execute context based on group aggregator specs.
-	Prepare(
-		interval timeutil.Interval,
-		intervalRatio int,
-		timeRange timeutil.TimeRange,
-		aggregatorSpecs aggregation.AggregatorSpecs,
-	)
-	// Filtering does the filtering task.
-	Filtering(task concurrent.Task)
-	// Grouping does the grouping task.
-	Grouping(task concurrent.Task)
-	// Load does the load task.
-	Load(task concurrent.Task)
+	Prepare()
+	// Submit submits an async task when do query pipeline.
+	Submit(stage Stage, task concurrent.Task)
 	// Reduce reduces the down sampling aggregator's result.
-	Reduce(tags string, it series.GroupedIterator)
+	Reduce(it series.GroupedIterator)
 	// ReduceTagValues reduces the group by tag values.
 	ReduceTagValues(tagKeyIndex int, tagValues map[uint32]string)
 	// Complete completes the query flow with error.

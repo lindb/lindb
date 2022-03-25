@@ -20,57 +20,42 @@ package storagequery
 import (
 	"fmt"
 
-	"github.com/lindb/roaring"
-
+	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
-	"github.com/lindb/lindb/tsdb/metadb"
 )
 
 //go:generate mockgen -source ./tag_search.go -destination=./tag_search_mock.go -package=storagequery
 
-// tagFilterResult represents the tag filter result, include tag key id and tag value ids
-type tagFilterResult struct {
-	tagKey      uint32
-	tagValueIDs *roaring.Bitmap
-}
-
 // TagSearch represents the tag filtering by tag filter expr
 type TagSearch interface {
-	// Filter filters tag value ids base on tag filter expr, if fail return nil, else return tag value ids
-	Filter() (map[string]*tagFilterResult, error)
+	// Filter filters tag value ids base on tag filter expr,
+	// if fail return err, else set filtering result in context.
+	Filter() error
 }
 
 // tagSearch implements TagSearch
 type tagSearch struct {
-	namespace  string
-	metricName string
-	condition  stmt.Expr
-	metadata   metadb.Metadata
+	ctx *executeContext
 
-	result map[string]*tagFilterResult
-	tags   map[string]uint32 // for cache tag key
-	err    error
+	tags map[string]tag.KeyID // for cache tag key
+	err  error
 }
 
 // newTagSearch creates tag search
-func newTagSearch(namespace, metricName string, condition stmt.Expr, metadata metadb.Metadata) TagSearch {
+func newTagSearch(ctx *executeContext) TagSearch {
 	return &tagSearch{
-		namespace:  namespace,
-		metricName: metricName,
-		condition:  condition,
-		metadata:   metadata,
-		tags:       make(map[string]uint32),
-		result:     make(map[string]*tagFilterResult),
+		ctx:  ctx,
+		tags: make(map[string]tag.KeyID),
 	}
 }
 
-// Filter filters tag value ids base on tag filter expr, if fail return nil, else return tag value ids
-func (s *tagSearch) Filter() (map[string]*tagFilterResult, error) {
-	s.findTagValueIDsByExpr(s.condition)
-	if s.err != nil {
-		return nil, s.err
-	}
-	return s.result, nil
+// Filter filters tag value ids base on tag filter expr,
+// if fail return err, else set filtering result in context.
+func (s *tagSearch) Filter() error {
+	s.ctx.storageExecuteCtx.TagFilterResult = make(map[string]*flow.TagFilterResult)
+	s.findTagValueIDsByExpr(s.ctx.storageExecuteCtx.Query.Condition)
+	return s.err
 }
 
 // findTagValueIDsByExpr finds tag value ids by expr, recursion filter for expr
@@ -88,16 +73,16 @@ func (s *tagSearch) findTagValueIDsByExpr(expr stmt.Expr) {
 			s.err = err
 			return
 		}
-		tagValueIDs, err := s.metadata.TagMetadata().FindTagValueDsByExpr(tagKeyID, expr)
+		tagValueIDs, err := s.ctx.getMetadata().TagMetadata().FindTagValueDsByExpr(tagKeyID, expr)
 		if err != nil {
 			s.err = err
 			return
 		}
 		if tagValueIDs != nil && !tagValueIDs.IsEmpty() {
 			// save atomic tag filter result
-			s.result[expr.Rewrite()] = &tagFilterResult{
-				tagKey:      tagKeyID,
-				tagValueIDs: tagValueIDs,
+			s.ctx.storageExecuteCtx.TagFilterResult[expr.Rewrite()] = &flow.TagFilterResult{
+				TagKeyID:    tagKeyID,
+				TagValueIDs: tagValueIDs,
 			}
 		}
 	case *stmt.ParenExpr:
@@ -116,12 +101,14 @@ func (s *tagSearch) findTagValueIDsByExpr(expr stmt.Expr) {
 }
 
 // getTagKeyID returns the tag key id by tag key
-func (s *tagSearch) getTagKeyID(tagKey string) (uint32, error) {
+func (s *tagSearch) getTagKeyID(tagKey string) (tag.KeyID, error) {
 	tagKeyID, ok := s.tags[tagKey]
 	if ok {
 		return tagKeyID, nil
 	}
-	tagKeyID, err := s.metadata.MetadataDatabase().GetTagKeyID(s.namespace, s.metricName, tagKey)
+	// TODO try get tag key from context
+	queryStmt := s.ctx.storageExecuteCtx.Query
+	tagKeyID, err := s.ctx.getMetadata().MetadataDatabase().GetTagKeyID(queryStmt.Namespace, queryStmt.MetricName, tagKey)
 	if err != nil {
 		return 0, err
 	}

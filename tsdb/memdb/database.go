@@ -22,7 +22,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lindb/roaring"
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/flow"
@@ -330,22 +329,17 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher) error {
 
 // Filter filters the data based on metric/seriesIDs,
 // if it finds data then returns the flow.FilterResultSet, else returns nil
-func (md *memoryDatabase) Filter(
-	metricID metric.ID,
-	seriesIDs *roaring.Bitmap,
-	_ timeutil.TimeRange,
-	fields field.Metas,
-) ([]flow.FilterResultSet, error) {
+func (md *memoryDatabase) Filter(shardExecuteContext *flow.ShardExecuteContext) ([]flow.FilterResultSet, error) {
 	md.rwMutex.RLock()
 	defer md.rwMutex.RUnlock()
 
-	mStore, ok := md.mStores.Get(uint32(metricID))
+	mStore, ok := md.mStores.Get(uint32(shardExecuteContext.StorageExecuteCtx.MetricID))
 	if !ok {
 		return nil, nil
 	}
 
 	// TODO filter slot range
-	return mStore.Filter(md.familyTime, seriesIDs, fields)
+	return mStore.Filter(md.familyTime, shardExecuteContext.SeriesIDsAfterFiltering, shardExecuteContext.StorageExecuteCtx.Fields)
 }
 
 // MemSize returns the time series database memory size

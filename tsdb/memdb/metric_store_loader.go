@@ -48,14 +48,13 @@ func newMetricStoreLoader(lowContainer roaring.Container,
 }
 
 // Load loads the metric data by given series id from memory storage.
-func (s *metricStoreLoader) Load(lowSeriesID uint16) (slotRange timeutil.SlotRange, fieldsData [][]byte) {
-	// check low series id if exist
-	if !s.lowContainer.Contains(lowSeriesID) {
-		return s.slotRange, nil
-	}
-	// get the index of low series id in container
-	idx := s.lowContainer.Rank(lowSeriesID)
-	// scan the data and aggregate the values
-	store := s.timeSeriesStores[idx-1]
-	return s.slotRange, store.load(s.fields, s.slotRange)
+func (s *metricStoreLoader) Load(loadCtx *flow.DataLoadContext) {
+	loadCtx.IterateLowSeriesIDs(s.lowContainer, func(seriesIdxFromQuery uint16, seriesIdxFromStorage int) {
+		store := s.timeSeriesStores[seriesIdxFromStorage]
+		// read series data of fields
+		fieldData := store.load(s.fields, s.slotRange)
+		for fieldIdx := range fieldData {
+			loadCtx.DownSampling(s.slotRange, seriesIdxFromQuery, fieldIdx, fieldData[fieldIdx])
+		}
+	})
 }

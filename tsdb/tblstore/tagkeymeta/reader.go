@@ -24,6 +24,7 @@ import (
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/strutil"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
 
 	"github.com/lindb/roaring"
@@ -35,32 +36,32 @@ import (
 type Reader interface {
 	// GetTagValueSeq returns the auto sequence of tag value under the tag key,
 	// if not exist return constants.ErrTagValueSeqNotFound
-	GetTagValueSeq(tagKeyID uint32) (tagValueSeq uint32, err error)
+	GetTagValueSeq(tagKeyID tag.KeyID) (tagValueSeq uint32, err error)
 
-	// GetTagValueID returns the tag value id for spec metric's tag key id,
+	// GetTagValueID returns the tag value id for spec tag key id of metric,
 	// if not exist return constants.ErrTagValueIDNotFound
-	GetTagValueID(tagKeyID uint32, tagValue string) (tagValueID uint32, err error)
+	GetTagValueID(tagKeyID tag.KeyID, tagValue string) (tagValueID uint32, err error)
 
-	// GetTagValueIDsForTagKeyID get tag value ids for spec metric's tag key id
-	GetTagValueIDsForTagKeyID(tagKeyID uint32) (tagValueIDs *roaring.Bitmap, err error)
+	// GetTagValueIDsForTagKeyID get tag value ids for spec tag key id of metric
+	GetTagValueIDsForTagKeyID(tagKeyID tag.KeyID) (tagValueIDs *roaring.Bitmap, err error)
 
 	// FindValueIDsByExprForTagKeyID finds tag values ids by tag filter expr and tag key id
-	FindValueIDsByExprForTagKeyID(tagKeyID uint32, expr stmt.TagFilter) (tagValueIDs *roaring.Bitmap, err error)
+	FindValueIDsByExprForTagKeyID(tagKeyID tag.KeyID, expr stmt.TagFilter) (tagValueIDs *roaring.Bitmap, err error)
 
 	// SuggestTagValues finds tag values by prefix search
-	SuggestTagValues(tagKeyID uint32, tagValuePrefix string, limit int) []string
+	SuggestTagValues(tagKeyID tag.KeyID, tagValuePrefix string, limit int) []string
 
 	// WalkTagValues walks each tag value and tag value id via fn.
 	// If fn returns false, the iteration is stopped.
 	// The values are the raw byte slices and not the converted types.
 	WalkTagValues(
-		tagKeyID uint32,
+		tagKeyID tag.KeyID,
 		tagValuePrefix string,
 		fn func(tagValue []byte, tagValueID uint32) bool,
 	) error
 
 	// CollectTagValues collects the tag values by tag value ids,
-	CollectTagValues(tagKeyID uint32, tagValueIDs *roaring.Bitmap, tagValues map[uint32]string) error
+	CollectTagValues(tagKeyID tag.KeyID, tagValueIDs *roaring.Bitmap, tagValues map[uint32]string) error
 }
 
 // tagReader implements TagReader
@@ -77,9 +78,9 @@ func NewReader(readers []table.Reader) Reader {
 // if not exist return constants.ErrTagValueSeqNotFound
 // kv store returns the table.readers in order,
 // so the max sequence will be stored in the first table.reader that is tag key store.
-func (r *tagReader) GetTagValueSeq(tagKeyID uint32) (tagValueSeq uint32, err error) {
+func (r *tagReader) GetTagValueSeq(tagKeyID tag.KeyID) (tagValueSeq uint32, err error) {
 	for _, reader := range r.readers {
-		tagKeyMetaBlock, err := reader.Get(tagKeyID)
+		tagKeyMetaBlock, err := reader.Get(uint32(tagKeyID))
 		if err != nil {
 			continue
 		}
@@ -93,11 +94,11 @@ func (r *tagReader) GetTagValueSeq(tagKeyID uint32) (tagValueSeq uint32, err err
 	return 0, fmt.Errorf("%w, tagKeyID:%d", constants.ErrTagValueSeqNotFound, tagKeyID)
 }
 
-// GetTagValueID returns the tag value id for spec metric's tag key id,
+// GetTagValueID returns the tag value id for spec tag key id of metric,
 // if not exist return constants.ErrTagValueIDNotFound
-func (r *tagReader) GetTagValueID(tagKeyID uint32, tagValue string) (tagValueID uint32, err error) {
+func (r *tagReader) GetTagValueID(tagKeyID tag.KeyID, tagValue string) (tagValueID uint32, err error) {
 	for _, reader := range r.readers {
-		tagKeyMetaBlock, err := reader.Get(tagKeyID)
+		tagKeyMetaBlock, err := reader.Get(uint32(tagKeyID))
 		if err != nil {
 			continue
 		}
@@ -116,7 +117,7 @@ func (r *tagReader) GetTagValueID(tagKeyID uint32, tagValue string) (tagValueID 
 }
 
 // FindValueIDsByExprForTagKeyID finds tag values ids by tag filter expr and tag key id
-func (r *tagReader) FindValueIDsByExprForTagKeyID(tagKeyID uint32, expr stmt.TagFilter) (*roaring.Bitmap, error) {
+func (r *tagReader) FindValueIDsByExprForTagKeyID(tagKeyID tag.KeyID, expr stmt.TagFilter) (*roaring.Bitmap, error) {
 	tagKeyMetas := r.filterTagKeyMetas(tagKeyID)
 	if len(tagKeyMetas) == 0 {
 		return nil, fmt.Errorf("%w, tagKeyID: %d", constants.ErrTagKeyMetaNotFound, tagKeyID)
@@ -143,8 +144,8 @@ func (r *tagReader) FindValueIDsByExprForTagKeyID(tagKeyID uint32, expr stmt.Tag
 	return tagValueIDs, nil
 }
 
-// GetTagValueIDsForTagKeyID get tag value ids for spec metric's tag key id
-func (r *tagReader) GetTagValueIDsForTagKeyID(tagKeyID uint32) (*roaring.Bitmap, error) {
+// GetTagValueIDsForTagKeyID get tag value ids for spec tag key id of metric.
+func (r *tagReader) GetTagValueIDsForTagKeyID(tagKeyID tag.KeyID) (*roaring.Bitmap, error) {
 	tagKeyMetas := r.filterTagKeyMetas(tagKeyID)
 	if len(tagKeyMetas) == 0 {
 		return nil, fmt.Errorf("%w, tagKeyID: %d", constants.ErrTagKeyMetaNotFound, tagKeyID)
@@ -153,9 +154,9 @@ func (r *tagReader) GetTagValueIDsForTagKeyID(tagKeyID uint32) (*roaring.Bitmap,
 }
 
 // filterTagKeyMetas filters the tag-key-metas by tag key id
-func (r *tagReader) filterTagKeyMetas(tagKeyID uint32) (metas TagKeyMetas) {
+func (r *tagReader) filterTagKeyMetas(tagKeyID tag.KeyID) (metas TagKeyMetas) {
 	for _, reader := range r.readers {
-		tagKeyMetaBlock, err := reader.Get(tagKeyID)
+		tagKeyMetaBlock, err := reader.Get(uint32(tagKeyID))
 		if err != nil {
 			continue
 		}
@@ -170,14 +171,14 @@ func (r *tagReader) filterTagKeyMetas(tagKeyID uint32) (metas TagKeyMetas) {
 
 // SuggestTagValues finds tagValues by prefix search
 func (r *tagReader) SuggestTagValues(
-	tagKeyID uint32,
+	tagKeyID tag.KeyID,
 	tagValuePrefix string,
 	limit int,
 ) (
 	tagValues []string,
 ) {
 	for _, reader := range r.readers {
-		tagKeyMetaBlock, err := reader.Get(tagKeyID)
+		tagKeyMetaBlock, err := reader.Get(uint32(tagKeyID))
 		if err != nil {
 			continue
 		}
@@ -193,7 +194,7 @@ func (r *tagReader) SuggestTagValues(
 			if len(tagValues) >= limit {
 				return tagValues
 			}
-			tagValues = append(tagValues, string(itr.Key()))
+			tagValues = append(tagValues, strutil.ByteSlice2String(itr.Key()))
 			itr.Next()
 		}
 	}
@@ -204,12 +205,12 @@ func (r *tagReader) SuggestTagValues(
 // If fn returns false, the iteration is stopped.
 // The values are the raw byte slices and not the converted types.
 func (r *tagReader) WalkTagValues(
-	tagKeyID uint32,
+	tagKeyID tag.KeyID,
 	tagValuePrefix string,
 	fn func(tagValue []byte, tagValueID uint32) bool,
 ) error {
 	for _, reader := range r.readers {
-		tagKeyMetaBlock, err := reader.Get(tagKeyID)
+		tagKeyMetaBlock, err := reader.Get(uint32(tagKeyID))
 		if err != nil {
 			continue
 		}
@@ -234,7 +235,7 @@ func (r *tagReader) WalkTagValues(
 
 // CollectTagValues collects the tag values by tag value ids
 func (r *tagReader) CollectTagValues(
-	tagKeyID uint32,
+	tagKeyID tag.KeyID,
 	tagValueIDs *roaring.Bitmap,
 	tagValues map[uint32]string,
 ) error {
@@ -242,7 +243,7 @@ func (r *tagReader) CollectTagValues(
 		if tagValueIDs.IsEmpty() {
 			return nil
 		}
-		tagKeyMetaBlock, err := reader.Get(tagKeyID)
+		tagKeyMetaBlock, err := reader.Get(uint32(tagKeyID))
 		if err != nil {
 			continue
 		}

@@ -25,6 +25,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
@@ -91,13 +92,23 @@ func TestDataFamily_Filter(t *testing.T) {
 
 	// test find kv readers err
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, fmt.Errorf("err"))
-	rs, err := dataFamily.Filter(metric.ID(10), nil, timeutil.TimeRange{}, nil)
+	rs, err := dataFamily.Filter(&flow.ShardExecuteContext{
+		StorageExecuteCtx: &flow.StorageExecuteContext{
+			MetricID:       metric.ID(10),
+			QueryTimeRange: timeutil.TimeRange{},
+		},
+	})
 	assert.Error(t, err)
 	assert.Nil(t, rs)
 
 	// case 1: find kv readers nil
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, nil)
-	rs, err = dataFamily.Filter(metric.ID(10), nil, timeutil.TimeRange{}, nil)
+	rs, err = dataFamily.Filter(&flow.ShardExecuteContext{
+		StorageExecuteCtx: &flow.StorageExecuteContext{
+			MetricID:       metric.ID(10),
+			QueryTimeRange: timeutil.TimeRange{},
+		},
+	})
 	assert.NoError(t, err)
 	assert.Nil(t, rs)
 
@@ -106,7 +117,12 @@ func TestDataFamily_Filter(t *testing.T) {
 	reader.EXPECT().Path().Return("test_path").AnyTimes()
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{reader}, nil)
 	reader.EXPECT().Get(gomock.Any()).Return(nil, io.EOF)
-	rs, err = dataFamily.Filter(metric.ID(10), nil, timeutil.TimeRange{}, nil)
+	rs, err = dataFamily.Filter(&flow.ShardExecuteContext{
+		StorageExecuteCtx: &flow.StorageExecuteContext{
+			MetricID:       metric.ID(10),
+			QueryTimeRange: timeutil.TimeRange{},
+		},
+	})
 	assert.NoError(t, err)
 	assert.Nil(t, rs)
 
@@ -116,7 +132,12 @@ func TestDataFamily_Filter(t *testing.T) {
 	}
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{reader}, nil)
 	reader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3}, nil)
-	rs, err = dataFamily.Filter(metric.ID(10), nil, timeutil.TimeRange{}, nil)
+	rs, err = dataFamily.Filter(&flow.ShardExecuteContext{
+		StorageExecuteCtx: &flow.StorageExecuteContext{
+			MetricID:       metric.ID(10),
+			QueryTimeRange: timeutil.TimeRange{},
+		},
+	})
 	assert.Error(t, err)
 	assert.Nil(t, rs)
 
@@ -131,7 +152,12 @@ func TestDataFamily_Filter(t *testing.T) {
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{reader}, nil)
 	reader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3}, nil)
 	filter.EXPECT().Filter(gomock.Any(), gomock.Any()).Return(nil, nil)
-	_, err = dataFamily.Filter(metric.ID(10), nil, timeutil.TimeRange{}, nil)
+	_, err = dataFamily.Filter(&flow.ShardExecuteContext{
+		StorageExecuteCtx: &flow.StorageExecuteContext{
+			MetricID:       metric.ID(10),
+			QueryTimeRange: timeutil.TimeRange{},
+		},
+	})
 	assert.NoError(t, err)
 
 	err = dataFamily.Close()

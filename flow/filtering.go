@@ -21,8 +21,6 @@ import (
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/series/field"
-	"github.com/lindb/lindb/series/metric"
 )
 
 //go:generate mockgen -source=./filtering.go -destination=./filtering_mock.go -package=flow
@@ -31,11 +29,7 @@ import (
 type DataFilter interface {
 	// Filter filters the data based on metricIDs/fields/seriesIDs/timeRange,
 	// if finds data then returns filter result set, else returns nil.
-	Filter(metricID metric.ID,
-		seriesIDs *roaring.Bitmap,
-		timeRange timeutil.TimeRange,
-		fields field.Metas,
-	) ([]FilterResultSet, error)
+	Filter(shardExecuteContext *ShardExecuteContext) ([]FilterResultSet, error)
 }
 
 // FilterResultSet represents the filter result set, loads data based on this interface.
@@ -47,13 +41,15 @@ type FilterResultSet interface {
 	// SlotRange returns the slot range of storage.
 	SlotRange() timeutil.SlotRange
 	// Load loads the data from storage, then returns the data loader.
-	Load(highKey uint16, seriesID roaring.Container) DataLoader
+	Load(ctx *DataLoadContext) DataLoader
 	// SeriesIDs returns the series ids which matches with query series ids.
 	SeriesIDs() *roaring.Bitmap
+	// Close release the resource during doing query operation.
+	Close()
 }
 
 // DataLoader represents the loader which load metric data from storage.
 type DataLoader interface {
 	// Load loads the metric data by given low series id.
-	Load(lowSeriesID uint16) (timeutil.SlotRange, [][]byte)
+	Load(ctx *DataLoadContext)
 }

@@ -155,24 +155,8 @@ linters:
     - unused
     - varcheck
     - whitespace
-
-  # don't enable:
-  # - asciicheck
-  # - scopelint
-  # - gochecknoglobals
-  # - gocognit
-  # - godot
-  # - gomnd
-  # - godox
-  # - goerr113
-  # - gochecknoinits
-  # - interfacer
-  # - maligned
-  # - nestif
-  # - prealloc
-  # - testpackage
-  # - revive
-  # - wsl
+    - deadcode
+    - bodyclose
 
 issues:
   # Excluding configuration per-path, per-linter, per-text and per-source

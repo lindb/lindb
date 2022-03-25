@@ -74,7 +74,7 @@ var initializeBrokerConfigCmd = &cobra.Command{
 }
 
 // serveBroker runs the broker
-func serveBroker(cmd *cobra.Command, args []string) error {
+func serveBroker(_ *cobra.Command, _ []string) error {
 	ctx := newCtxWithSignals()
 
 	brokerCfg := config.Broker{}

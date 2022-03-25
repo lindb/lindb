@@ -18,19 +18,24 @@
 package storagequery
 
 import (
-	"sort"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/tsdb"
+	"github.com/lindb/lindb/tsdb/metadb"
 )
 
 func TestStorageExecuteContext(t *testing.T) {
-	ctx := newStorageExecuteContext(nil, &stmt.Query{Explain: true})
-	ctx.setTagFilterResult(nil)
-	assert.NotNil(t, ctx.QueryStats())
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	db := tsdb.NewMockDatabase(ctrl)
+	metadata := metadb.NewMockMetadata(ctrl)
+	db.EXPECT().Metadata().Return(metadata)
 
-	spans := timeSpans{{familyTime: 1}, {familyTime: 1}}
-	sort.Sort(spans)
+	ctx := newStorageExecuteContext(db, []models.ShardID{1}, &stmt.Query{Explain: true})
+	assert.NotNil(t, ctx.getMetadata())
 }

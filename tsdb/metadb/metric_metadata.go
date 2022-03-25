@@ -47,10 +47,10 @@ type MetricMetadata interface {
 	getAllFields() (fields field.Metas)
 
 	// createTagKey creates the tag key
-	createTagKey(tagKey string, tagKeyID uint32)
+	createTagKey(tagKey string, tagKeyID tag.KeyID)
 	checkTagKey(tagKey string) error
 	// getTagKeyID gets the tag key id by tag key, if not exist return false
-	getTagKeyID(tagKey string) (uint32, bool)
+	getTagKeyID(tagKey string) (tag.KeyID, bool)
 	// getAllTags returns the tag keys of the metric
 	getAllTagKeys() (tagKeys tag.Metas)
 }
@@ -121,7 +121,7 @@ func (mm *metricMetadata) getAllFields() (fields field.Metas) {
 
 // createTagKey creates the tag key
 // 1. checks the tag keys if limited, if limit return series.ErrTooManyTagKeys
-func (mm *metricMetadata) createTagKey(tagKey string, tagKeyID uint32) {
+func (mm *metricMetadata) createTagKey(tagKey string, tagKeyID tag.KeyID) {
 	mm.tagKeys = append(mm.tagKeys, tag.Meta{Key: tagKey, ID: tagKeyID})
 }
 
@@ -135,7 +135,7 @@ func (mm *metricMetadata) checkTagKey(_ string) error {
 }
 
 // getTagKeyID gets the tag key id by tag key, if not exist return false
-func (mm *metricMetadata) getTagKeyID(tagKey string) (uint32, bool) {
+func (mm *metricMetadata) getTagKeyID(tagKey string) (tag.KeyID, bool) {
 	t, ok := mm.tagKeys.Find(tagKey)
 	if ok {
 		return t.ID, true

@@ -24,8 +24,10 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -75,13 +77,30 @@ func assertMergeReentrant(t *testing.T, flusher kv.Flusher, mergerIntf kv.Merger
 	assert.Equal(t, timeutil.SlotRange{Start: uint16(5), End: uint16(20)}, r.GetTimeRange())
 
 	container := r.GetSeriesIDs().GetContainer(0)
-	loader := r.Load(0, container, r.GetFields())
+	found := 0
+	ctx := &flow.DataLoadContext{
+		SeriesIDHighKey:       0,
+		LowSeriesIDsContainer: container,
+		ShardExecuteCtx: &flow.ShardExecuteContext{
+			StorageExecuteCtx: &flow.StorageExecuteContext{
+				Fields: r.GetFields(),
+			},
+		},
+		DownSampling: func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, fieldData []byte) {
+			found++
+		},
+	}
+	loader := r.Load(ctx)
 	// not exist
-	_, blocks := loader.Load(0)
-	assert.Len(t, blocks, 0)
+	ctx.LowSeriesIDsContainer = roaring.BitmapOf(0).GetContainerAtIndex(0)
+	ctx.Grouping()
+	loader.Load(ctx)
+	assert.Equal(t, 0, found)
 	// 11-15
-	_, blocks = loader.Load(1)
-	assert.Len(t, blocks, 2)
+	ctx.LowSeriesIDsContainer = roaring.BitmapOf(1).GetContainerAtIndex(0)
+	ctx.Grouping()
+	loader.Load(ctx)
+	assert.Equal(t, 2, found)
 }
 
 func mockRealMetricBlock(seriesIDs []uint32, start, end uint16) []byte {

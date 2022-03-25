@@ -31,7 +31,6 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
-	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql"
@@ -57,18 +56,28 @@ func TestStoragePlanTask_Run(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockMetaData := metadb.NewMockMetadata(ctrl)
+	db := tsdb.NewMockDatabase(ctrl)
+	db.EXPECT().Metadata().Return(mockMetaData).AnyTimes()
 	mockMetaDataBase := metadb.NewMockMetadataDatabase(ctrl)
 	mockMetaData.EXPECT().MetadataDatabase().Return(mockMetaDataBase).AnyTimes()
 	mockMetaDataBase.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(metric.ID(0), io.ErrClosedPipe).AnyTimes()
 
-	plan := &storageExecutePlan{metadata: mockMetaData, query: &stmt.Query{MetricName: ""}}
+	ctx := &executeContext{
+		database: db,
+		storageExecuteCtx: &flow.StorageExecuteContext{
+			Query: &stmt.Query{MetricName: ""},
+			Stats: models.NewStorageStats(),
+		},
+	}
+	plan := &storageExecutePlan{ctx: ctx}
 
 	// case 1: normal
-	task := newStoragePlanTask(newStorageExecuteContext(nil, &stmt.Query{}), plan)
+	task := newStoragePlanTask(ctx, plan)
 	err := task.Run()
 	assert.Error(t, err)
 	// case 2: explain track stats
-	task = newStoragePlanTask(newStorageExecuteContext(nil, &stmt.Query{Explain: true}), plan)
+	ctx.storageExecuteCtx.Query.Explain = true
+	task = newStoragePlanTask(ctx, plan)
 	err = task.Run()
 	assert.Error(t, err)
 }
@@ -78,22 +87,31 @@ func TestTagFilterTask_AfterRun(t *testing.T) {
 	defer ctrl.Finish()
 
 	tagSearch := NewMockTagSearch(ctrl)
-	task := newTagFilterTask(newStorageExecuteContext(nil, &stmt.Query{}), tagSearch)
+	ctx := &executeContext{
+		storageExecuteCtx: &flow.StorageExecuteContext{
+			Query: &stmt.Query{},
+			Stats: models.NewStorageStats(),
+		},
+	}
+	task := newTagFilterTask(ctx, tagSearch)
 	// case 1: tag filter err
-	tagSearch.EXPECT().Filter().Return(nil, fmt.Errorf("err"))
+	tagSearch.EXPECT().Filter().Return(fmt.Errorf("err"))
 	err := task.Run()
 	assert.Error(t, err)
 	// case 2: not found
-	tagSearch.EXPECT().Filter().Return(nil, nil)
+	tagSearch.EXPECT().Filter().Return(nil)
 	err = task.Run()
 	assert.Equal(t, err, constants.ErrNotFound)
 	// case 3: normal
-	tagSearch.EXPECT().Filter().Return(map[string]*tagFilterResult{"test": nil}, nil)
+	ctx.storageExecuteCtx.TagFilterResult = map[string]*flow.TagFilterResult{"test": nil}
+	tagSearch.EXPECT().Filter().Return(nil)
 	err = task.Run()
 	assert.NoError(t, err)
 	// case 4: explain case
-	task = newTagFilterTask(newStorageExecuteContext(nil, &stmt.Query{Explain: true}), tagSearch)
-	tagSearch.EXPECT().Filter().Return(map[string]*tagFilterResult{"test": nil}, nil)
+	ctx.storageExecuteCtx.Query.Explain = true
+	task = newTagFilterTask(ctx, tagSearch)
+	tagSearch.EXPECT().Filter().Return(nil)
+	ctx.storageExecuteCtx.TagFilterResult = map[string]*flow.TagFilterResult{"test": nil}
 	err = task.Run()
 	assert.NoError(t, err)
 }
@@ -108,8 +126,14 @@ func TestSeriesIDsSearchTask_Run(t *testing.T) {
 	shard := tsdb.NewMockShard(ctrl)
 	indexDB := indexdb.NewMockIndexDatabase(ctrl)
 	shard.EXPECT().IndexDatabase().Return(indexDB).AnyTimes()
-	result := roaring.New()
-	task := newSeriesIDsSearchTask(newStorageExecuteContext(nil, &stmt.Query{}), shard, result)
+	ctx := &flow.ShardExecuteContext{
+		StorageExecuteCtx: &flow.StorageExecuteContext{
+			Query: &stmt.Query{},
+			Stats: models.NewStorageStats(),
+		},
+		SeriesIDsAfterFiltering: roaring.New(),
+	}
+	task := newSeriesIDsSearchTask(ctx, shard)
 	// case 1: search err
 	indexDB.EXPECT().GetSeriesIDsForMetric(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
 	err := task.Run()
@@ -118,40 +142,44 @@ func TestSeriesIDsSearchTask_Run(t *testing.T) {
 	indexDB.EXPECT().GetSeriesIDsForMetric(gomock.Any(), gomock.Any()).Return(roaring.New(), nil)
 	err = task.Run()
 	assert.NoError(t, err)
-	assert.Equal(t, roaring.BitmapOf(series.IDWithoutTags), result)
-	result.Clear()
+	assert.Equal(t, roaring.BitmapOf(series.IDWithoutTags), ctx.SeriesIDsAfterFiltering)
+	ctx.SeriesIDsAfterFiltering.Clear()
 	// case 3: group by tag
 	indexDB.EXPECT().GetSeriesIDsForMetric(gomock.Any(), gomock.Any()).Return(roaring.New(), nil)
-	task = newSeriesIDsSearchTask(newStorageExecuteContext(nil, &stmt.Query{GroupBy: []string{"host"}}), shard, result)
+	ctx.StorageExecuteCtx.Query = &stmt.Query{GroupBy: []string{"host"}}
+	task = newSeriesIDsSearchTask(ctx, shard)
 	err = task.Run()
 	assert.NoError(t, err)
-	assert.Equal(t, uint64(0), result.GetCardinality())
+	assert.Equal(t, uint64(0), ctx.SeriesIDsAfterFiltering.GetCardinality())
 	// case 4: has condition, return err
 	q, _ := sql.Parse("select f from cpu where ip<>'1.1.1.1'")
 	query := q.(*stmt.Query)
 	seriesSearch := NewMockSeriesSearch(ctrl)
-	newSeriesSearchFunc = func(filter series.Filter, filterResult map[string]*tagFilterResult, condition stmt.Expr) SeriesSearch {
+	newSeriesSearchFunc = func(filter series.Filter, filterResult map[string]*flow.TagFilterResult, condition stmt.Expr) SeriesSearch {
 		return seriesSearch
 	}
 	seriesSearch.EXPECT().Search().Return(nil, fmt.Errorf("err"))
-	task = newSeriesIDsSearchTask(newStorageExecuteContext(nil, query), shard, result)
+	ctx.StorageExecuteCtx.Query = query
+	task = newSeriesIDsSearchTask(ctx, shard)
 	err = task.Run()
 	assert.Error(t, err)
 	// case 5: has condition, return series ids
 	seriesSearch.EXPECT().Search().Return(roaring.BitmapOf(1, 2, 3), nil)
 	err = task.Run()
 	assert.NoError(t, err)
-	assert.Equal(t, roaring.BitmapOf(1, 2, 3), result)
-	result.Clear()
+	assert.Equal(t, roaring.BitmapOf(1, 2, 3), ctx.SeriesIDsAfterFiltering)
+	ctx.SeriesIDsAfterFiltering.Clear()
 	// case 6: explain
 	q, _ = sql.Parse("explain select f from cpu where ip<>'1.1.1.1'")
 	query = q.(*stmt.Query)
 	seriesSearch.EXPECT().Search().Return(roaring.BitmapOf(1, 2, 3), nil)
 	shard.EXPECT().ShardID().Return(models.ShardID(10))
-	task = newSeriesIDsSearchTask(newStorageExecuteContext(nil, query), shard, result)
+	ctx.StorageExecuteCtx.Query = query
+	task = newSeriesIDsSearchTask(ctx, shard)
+	task = newSeriesIDsSearchTask(ctx, shard)
 	err = task.Run()
 	assert.NoError(t, err)
-	assert.Equal(t, roaring.BitmapOf(1, 2, 3), result)
+	assert.Equal(t, roaring.BitmapOf(1, 2, 3), ctx.SeriesIDsAfterFiltering)
 }
 
 func TestFileDataFilterTask_Run(t *testing.T) {
@@ -159,21 +187,27 @@ func TestFileDataFilterTask_Run(t *testing.T) {
 	defer ctrl.Finish()
 
 	resultSet := flow.NewMockFilterResultSet(ctrl)
-	resultSet.EXPECT().Identifier().Return("memory")
+	resultSet.EXPECT().Identifier().Return("memory").AnyTimes()
 	shard := tsdb.NewMockShard(ctrl)
 	seriesIDs := roaring.BitmapOf(1, 2, 3)
-	rs := newTimeSpanResultSet(1)
-	task := newFamilyFilterTask(newStorageExecuteContext(nil, &stmt.Query{}),
-		shard, 1, field.Metas{{ID: 10}}, seriesIDs, rs)
+	ctx := &flow.ShardExecuteContext{
+		SeriesIDsAfterFiltering: seriesIDs,
+		StorageExecuteCtx: &flow.StorageExecuteContext{
+			Query: &stmt.Query{},
+			Stats: models.NewStorageStats(),
+		},
+		TimeSegmentRS: flow.NewTimeSegmentResultSet(),
+	}
+	task := newFamilyFilterTask(ctx, shard)
 	// case 1: get empty family
 	shard.EXPECT().GetDataFamilies(gomock.Any(), gomock.Any()).Return(nil)
 	err := task.Run()
 	assert.NoError(t, err)
-	assert.True(t, rs.isEmpty())
+	assert.Empty(t, ctx.TimeSegmentRS.TimeSegments)
 	// case 2: family filter err
 	family := tsdb.NewMockDataFamily(ctrl)
 	shard.EXPECT().GetDataFamilies(gomock.Any(), gomock.Any()).Return([]tsdb.DataFamily{family}).AnyTimes()
-	family.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+	family.EXPECT().Filter(gomock.Any()).Return(nil, fmt.Errorf("err"))
 	err = task.Run()
 	assert.Error(t, err)
 	// case 3: get data
@@ -181,24 +215,22 @@ func TestFileDataFilterTask_Run(t *testing.T) {
 	resultSet.EXPECT().FamilyTime().Return(int64(10))
 	resultSet.EXPECT().SeriesIDs().Return(roaring.New())
 	resultSet.EXPECT().SlotRange().Return(timeutil.SlotRange{}).MaxTimes(3)
-	family.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		Return([]flow.FilterResultSet{resultSet}, nil)
+	family.EXPECT().Filter(gomock.Any()).Return([]flow.FilterResultSet{resultSet}, nil)
 	err = task.Run()
 	assert.NoError(t, err)
-	assert.False(t, rs.isEmpty())
+	assert.NotEmpty(t, ctx.TimeSegmentRS.TimeSegments)
 	// case 4: explain
 	family.EXPECT().Interval().Return(timeutil.Interval(10000))
 	resultSet.EXPECT().FamilyTime().Return(int64(10))
 	resultSet.EXPECT().SeriesIDs().Return(roaring.New())
 	resultSet.EXPECT().FamilyTime().Return(int64(10)).MaxTimes(2)
-	task = newFamilyFilterTask(newStorageExecuteContext(nil, &stmt.Query{Explain: true}),
-		shard, 1, field.Metas{{ID: 10}}, seriesIDs, rs)
-	family.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		Return([]flow.FilterResultSet{resultSet}, nil)
+	ctx.StorageExecuteCtx.Query.Explain = true
+	task = newFamilyFilterTask(ctx, shard)
+	family.EXPECT().Filter(gomock.Any()).Return([]flow.FilterResultSet{resultSet}, nil)
 	shard.EXPECT().ShardID().Return(models.ShardID(10))
 	err = task.Run()
 	assert.NoError(t, err)
-	assert.False(t, rs.isEmpty())
+	assert.NotEmpty(t, ctx.TimeSegmentRS.TimeSegments)
 }
 
 func TestGroupingContextFindTask_Run(t *testing.T) {
@@ -209,21 +241,26 @@ func TestGroupingContextFindTask_Run(t *testing.T) {
 	indexDB := indexdb.NewMockIndexDatabase(ctrl)
 	shard.EXPECT().IndexDatabase().Return(indexDB).AnyTimes()
 	seriesIDs := roaring.BitmapOf(1, 2, 3)
-	result := &groupingResult{}
-	task := newGroupingContextFindTask(newStorageExecuteContext(nil, &stmt.Query{}),
-		shard, nil, seriesIDs, result)
+	ctx := &flow.ShardExecuteContext{
+		SeriesIDsAfterFiltering: seriesIDs,
+		StorageExecuteCtx: &flow.StorageExecuteContext{
+			Query: &stmt.Query{},
+			Stats: models.NewStorageStats(),
+		},
+	}
+	task := newGroupingContextFindTask(ctx, shard)
 	// case 1: get grouping context err
-	indexDB.EXPECT().GetGroupingContext(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+	indexDB.EXPECT().GetGroupingContext(gomock.Any()).Return(fmt.Errorf("err"))
 	err := task.Run()
 	assert.Error(t, err)
 	// case 2: get grouping context
-	indexDB.EXPECT().GetGroupingContext(gomock.Any(), gomock.Any()).Return(nil, nil)
+	indexDB.EXPECT().GetGroupingContext(gomock.Any()).Return(nil)
 	err = task.Run()
 	assert.NoError(t, err)
 	// case 3: explain
-	indexDB.EXPECT().GetGroupingContext(gomock.Any(), gomock.Any()).Return(nil, nil)
-	task = newGroupingContextFindTask(newStorageExecuteContext(nil, &stmt.Query{Explain: true}),
-		shard, nil, seriesIDs, result)
+	indexDB.EXPECT().GetGroupingContext(gomock.Any()).Return(nil)
+	ctx.StorageExecuteCtx.Query.Explain = true
+	task = newGroupingContextFindTask(ctx, shard)
 	shard.EXPECT().ShardID().Return(models.ShardID(10))
 	err = task.Run()
 	assert.NoError(t, err)
@@ -234,23 +271,31 @@ func TestBuildGroupTask_Run(t *testing.T) {
 	defer ctrl.Finish()
 
 	shard := tsdb.NewMockShard(ctrl)
-	result := &groupedSeriesResult{}
 	seriesIDs := roaring.BitmapOf(1, 2, 3)
-	task := newBuildGroupTask(newStorageExecuteContext(nil, &stmt.Query{}),
-		shard, nil, 0, seriesIDs.GetContainer(0), result)
+	ctx := &flow.ShardExecuteContext{
+		SeriesIDsAfterFiltering: seriesIDs,
+		StorageExecuteCtx: &flow.StorageExecuteContext{
+			Query: &stmt.Query{},
+			Stats: models.NewStorageStats(),
+		},
+	}
+	dataLoadCtx := &flow.DataLoadContext{
+		LowSeriesIDsContainer: seriesIDs.GetContainerAtIndex(0),
+	}
+	task := newBuildGroupTask(ctx, shard, dataLoadCtx)
 	// case 1: no group
 	err := task.Run()
 	assert.NoError(t, err)
 	// case 2: has grouping
-	groupingCtx := series.NewMockGroupingContext(ctrl)
-	groupingCtx.EXPECT().BuildGroup(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	task = newBuildGroupTask(newStorageExecuteContext(nil, &stmt.Query{}),
-		shard, groupingCtx, 0, seriesIDs.GetContainer(0), result)
+	groupingCtx := flow.NewMockGroupingContext(ctrl)
+	groupingCtx.EXPECT().BuildGroup(gomock.Any()).AnyTimes()
+	ctx.GroupingContext = groupingCtx
+	task = newBuildGroupTask(ctx, shard, dataLoadCtx)
 	err = task.Run()
 	assert.NoError(t, err)
 	// case 3: explain
-	task = newBuildGroupTask(newStorageExecuteContext(nil, &stmt.Query{Explain: true}),
-		shard, groupingCtx, 0, seriesIDs.GetContainer(0), result)
+	ctx.StorageExecuteCtx.Query.Explain = true
+	task = newBuildGroupTask(ctx, shard, dataLoadCtx)
 	shard.EXPECT().ShardID().Return(models.ShardID(10))
 	err = task.Run()
 	assert.NoError(t, err)
@@ -263,21 +308,29 @@ func TestDataLoadTask_Run(t *testing.T) {
 	shard := tsdb.NewMockShard(ctrl)
 	qf := flow.NewMockStorageQueryFlow(ctrl)
 	rs := flow.NewMockFilterResultSet(ctrl)
-	timeSpan := &timeSpan{resultSets: []flow.FilterResultSet{rs}}
-	task := newDataLoadTask(newStorageExecuteContext(nil, &stmt.Query{}),
-		shard, qf, timeSpan, &timeSpanCtx{}, 1, nil)
-	rs.EXPECT().Load(gomock.Any(), gomock.Any()).AnyTimes()
+	ctx := &flow.DataLoadContext{
+		ShardExecuteCtx: &flow.ShardExecuteContext{
+			StorageExecuteCtx: &flow.StorageExecuteContext{
+				Query: &stmt.Query{},
+				Stats: models.NewStorageStats(),
+			},
+		},
+		Loaders: make([][]flow.DataLoader, 1),
+	}
+	segment := &flow.TimeSegmentContext{FilterRS: []flow.FilterResultSet{rs}}
+	task := newDataLoadTask(shard, qf, ctx, 0, segment)
+	rs.EXPECT().Load(gomock.Any()).AnyTimes()
 	// case 1: load data
 	err := task.Run()
 	assert.NoError(t, err)
 	// case 2: explain
-	task = newDataLoadTask(newStorageExecuteContext(nil, &stmt.Query{Explain: true}),
-		shard, qf, timeSpan, &timeSpanCtx{}, 1, nil)
+	ctx.ShardExecuteCtx.StorageExecuteCtx.Query.Explain = true
+	task = newDataLoadTask(shard, qf, ctx, 0, segment)
 	shard.EXPECT().ShardID().Return(models.ShardID(10)).AnyTimes()
-	timeSpan.identifier = "memory"
+	segment.Identifier = "memory"
 	err = task.Run()
 	assert.NoError(t, err)
-	timeSpan.identifier = "shard/10/segment/day/20190202/10/1.sst"
+	segment.Identifier = "shard/10/segment/day/20190202/10/1.sst"
 	err = task.Run()
 	assert.NoError(t, err)
 }
@@ -287,16 +340,26 @@ func TestCollectTagValuesTask_Run(t *testing.T) {
 	defer ctrl.Finish()
 
 	meta := metadb.NewMockMetadata(ctrl)
+	db := tsdb.NewMockDatabase(ctrl)
+	db.EXPECT().Metadata().Return(meta).AnyTimes()
 	tagMeta := metadb.NewMockTagMetadata(ctrl)
 	meta.EXPECT().TagMetadata().Return(tagMeta).AnyTimes()
-	task := newCollectTagValuesTask(newStorageExecuteContext(nil, &stmt.Query{}),
+	ctx := &executeContext{
+		storageExecuteCtx: &flow.StorageExecuteContext{
+			Query: &stmt.Query{},
+			Stats: models.NewStorageStats(),
+		},
+		database: db,
+	}
+	task := newCollectTagValuesTask(ctx,
 		meta, tag.Meta{ID: 10}, roaring.BitmapOf(1, 2), nil)
 	// case 1: collect tag values
 	tagMeta.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	err := task.Run()
 	assert.NoError(t, err)
 	// case 2: explain
-	task = newCollectTagValuesTask(newStorageExecuteContext(nil, &stmt.Query{Explain: true}),
+	ctx.storageExecuteCtx.Query.Explain = true
+	task = newCollectTagValuesTask(ctx,
 		meta, tag.Meta{ID: 10}, roaring.BitmapOf(1, 2), nil)
 	err = task.Run()
 	assert.NoError(t, err)
