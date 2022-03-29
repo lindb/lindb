@@ -197,7 +197,7 @@ func (m *masterController) Stop() {
 	// close master elect
 	m.elect.Close()
 
-	if err := m.registry.Deregister(m.cfg.Node); err != nil {
+	if err := m.registry.Close(); err != nil {
 		log.Warn("unregister elected master node error, when stop master", logger.Error(err))
 	}
 	log.Info("stop master successfully")

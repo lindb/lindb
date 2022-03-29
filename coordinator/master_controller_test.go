@@ -202,7 +202,7 @@ func TestMasterController_Start_Stop(t *testing.T) {
 	assert.True(t, mc.IsMaster())
 	assert.Equal(t, master, mc.GetMaster())
 	masterElect.EXPECT().Close()
-	registry.EXPECT().Deregister(gomock.Any()).Return(fmt.Errorf("err"))
+	registry.EXPECT().Close().Return(fmt.Errorf("err"))
 	mc.Stop()
 }
 

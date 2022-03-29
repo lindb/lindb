@@ -243,7 +243,7 @@ func (e *storageExecutor) executeGroupBy(shardExecuteContext *flow.ShardExecuteC
 							var agg aggregation.FieldAggregator
 							var fieldAgg aggregation.SeriesAggregator
 							if grouping {
-								groupingSeriesIdx := dataLoadCtx.LowSeriesIDs[seriesIdx]
+								groupingSeriesIdx := dataLoadCtx.GroupingSeriesAggRefs[seriesIdx]
 								// TODO check len
 								fieldAgg = dataLoadCtx.GroupingSeriesAgg[groupingSeriesIdx].Aggregator
 							} else {
@@ -269,10 +269,8 @@ func (e *storageExecutor) executeGroupBy(shardExecuteContext *flow.ShardExecuteC
 						// loads the metric data by given series id from load result.
 						// if found data need to do down sampling aggregate.
 						loader.Load(dataLoadCtx)
-
 						// release tsd decoder back to pool for re-use.
 						encoding.ReleaseTSDDecoder(tsdDecoder)
-
 						// after load, need to reduce the aggregator's result to query flow.
 						dataLoadCtx.Reduce(e.queryFlow.Reduce)
 					}
