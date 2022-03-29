@@ -21,7 +21,6 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/cespare/xxhash/v2"
@@ -328,7 +327,6 @@ func (qf *storageQueryFlow) Submit(stage flow.Stage, task concurrent.Task) {
 		executePool.Submit(func() {
 			defer func() {
 				// 3. complete task and dec task pending after task handle
-				fmt.Println(stage)
 				qf.completeTask(taskID)
 				var err error
 				r := recover()

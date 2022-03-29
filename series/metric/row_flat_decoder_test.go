@@ -24,6 +24,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
 	"github.com/lindb/lindb/series/tag"
 )
@@ -33,8 +34,10 @@ func Test_NewBrokerRowFlatDecoder(t *testing.T) {
 	converter2 := NewProtoConverter()
 	var buf bytes.Buffer
 
+	now := timeutil.Now()
 	data1, err := converter1.MarshalProtoMetricV1(&protoMetricsV1.Metric{
-		Name: "test",
+		Name:      "test",
+		Timestamp: now,
 		Tags: []*protoMetricsV1.KeyValue{
 			{Key: "key", Value: "value"},
 		},
@@ -48,6 +51,7 @@ func Test_NewBrokerRowFlatDecoder(t *testing.T) {
 	data2, err := converter2.MarshalProtoMetricV1(&protoMetricsV1.Metric{
 		Name:      "test",
 		Namespace: "ns",
+		Timestamp: now,
 		Tags: []*protoMetricsV1.KeyValue{
 			{Key: "key", Value: "value"},
 		},
@@ -90,4 +94,6 @@ func Test_NewBrokerRowFlatDecoder(t *testing.T) {
 	assert.False(t, decoder.HasNext())
 	assert.Error(t, decoder.DecodeTo(&row))
 	assert.Equal(t, len(buf.Bytes()), decoder.ReadLen())
+	metric := row.Metric()
+	assert.Equal(t, now, metric.Timestamp())
 }
