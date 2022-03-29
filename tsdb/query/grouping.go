@@ -99,7 +99,6 @@ func (g *GroupingContext) buildTagValueIDs2SeriesIDs(ctx *flow.DataLoadContext) 
 
 		groupingTagValueIDs := make([]uint32, len(ctx.LowSeriesIDs))
 		tagValueIDsForGrouping[tagKeyIdx] = groupingTagValueIDs
-
 		for _, scanner := range scanners {
 			lowSeriesIDs, tagValueIDs := scanner.GetSeriesAndTagValue(seriesIDHighKey)
 			if lowSeriesIDs == nil {
@@ -122,11 +121,11 @@ func (g *GroupingContext) buildTagValueIDs2SeriesIDs(ctx *flow.DataLoadContext) 
 	it := ctx.LowSeriesIDsContainer.PeekableIterator()
 	for it.HasNext() {
 		seriesID := it.Next()
-		seriesIdx := seriesID - min // series index in query counting sort array
+		seriesIdxFromQuery := seriesID - min // series index in query counting sort array
 		found := true
 		keyBuilder.Reset()
 		for tagKeyIdx := range tagValueIDsForGrouping {
-			tagValueID := tagValueIDsForGrouping[tagKeyIdx][seriesIdx]
+			tagValueID := tagValueIDsForGrouping[tagKeyIdx][seriesIdxFromQuery]
 			if tagValueID == 0 {
 				found = false
 				break
@@ -144,11 +143,11 @@ func (g *GroupingContext) buildTagValueIDs2SeriesIDs(ctx *flow.DataLoadContext) 
 					Key:        key,
 					Aggregator: ctx.NewSeriesAggregator(),
 				})
-				ctx.LowSeriesIDs[seriesIdx] = groupingSeriesAggIdx
+				ctx.GroupingSeriesAggRefs[seriesIdxFromQuery] = groupingSeriesAggIdx
 				result[key] = groupingSeriesAggIdx
 				groupingSeriesAggIdx++
 			}
-			ctx.LowSeriesIDs[seriesIdx] = aggIdx
+			ctx.GroupingSeriesAggRefs[seriesIdxFromQuery] = aggIdx
 		}
 	}
 
