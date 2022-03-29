@@ -225,8 +225,9 @@ func (s *shard) GetOrCrateDataFamily(familyTime int64) (DataFamily, error) {
 }
 
 func (s *shard) GetDataFamilies(intervalType timeutil.IntervalType, timeRange timeutil.TimeRange) []DataFamily {
-	// first check query interval is writable interval
-	if s.interval.Type() == intervalType {
+	// first check query interval is writable interval.
+	if s.interval.Type() == intervalType || len(s.rollupTargets) == 1 {
+		// if no rollup, need to use current writable interval.
 		return s.segment.getDataFamilies(timeRange)
 	}
 	// then find family from rollup targets

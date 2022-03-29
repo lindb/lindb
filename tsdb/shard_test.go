@@ -199,10 +199,11 @@ func TestShard_GetDataFamilies(t *testing.T) {
 
 	segment := NewMockIntervalSegment(ctrl)
 	rollupSeg := NewMockIntervalSegment(ctrl)
-	shard := &shard{
+	s := &shard{
 		interval: timeutil.Interval(10 * 1000), // 10s
 		segment:  segment,
 		rollupTargets: map[timeutil.Interval]IntervalSegment{
+			timeutil.Interval(10 * 1000):      rollupSeg, // 10s
 			timeutil.Interval(10 * 60 * 1000): rollupSeg, // 10min
 		},
 	}
@@ -247,12 +248,23 @@ func TestShard_GetDataFamilies(t *testing.T) {
 			if tt.prepare != nil {
 				tt.prepare()
 			}
-			families := shard.GetDataFamilies(tt.intervalType, timeutil.TimeRange{})
+			families := s.GetDataFamilies(tt.intervalType, timeutil.TimeRange{})
 			if tt.assert != nil {
 				tt.assert(families)
 			}
 		})
 	}
+	// test no rollup
+	s = &shard{
+		interval: timeutil.Interval(10 * 1000), // 10s
+		segment:  segment,
+		rollupTargets: map[timeutil.Interval]IntervalSegment{
+			timeutil.Interval(10 * 1000): rollupSeg, // 10s
+		},
+	}
+	segment.EXPECT().getDataFamilies(gomock.Any()).Return([]DataFamily{nil})
+	families := s.GetDataFamilies(timeutil.Year, timeutil.TimeRange{})
+	assert.Len(t, families, 1)
 }
 
 func TestShard_Close(t *testing.T) {
