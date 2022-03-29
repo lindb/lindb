@@ -171,6 +171,7 @@ func (itr *BrokerRowFlatDecoder) rebuild() error {
 
 End:
 	itr.rowBuilder.AddMetricName(itr.originRow.Name())
+	itr.rowBuilder.AddTimestamp(itr.originRow.Timestamp())
 	if len(itr.namespace) > 0 {
 		itr.rowBuilder.AddNameSpace(itr.namespace)
 	} else {

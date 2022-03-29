@@ -97,7 +97,7 @@ func (r *registry) register(path string, node models.Node) {
 
 		closed, err := r.repo.Heartbeat(r.ctx, path, nodeBytes, int64(r.ttl.Seconds()))
 		if err != nil {
-			r.log.Error("register node error", logger.Error(err))
+			r.log.Error("register node error", logger.String("path", path), logger.Error(err))
 			time.Sleep(500 * time.Millisecond)
 			continue
 		}
@@ -106,10 +106,10 @@ func (r *registry) register(path string, node models.Node) {
 
 		select {
 		case <-r.ctx.Done():
-			r.log.Warn("context is canceled, exit register loop")
+			r.log.Warn("context is canceled, exit register loop", logger.String("path", path))
 			return
 		case <-closed:
-			r.log.Warn("the heartbeat channel is closed, retry register")
+			r.log.Warn("the heartbeat channel is closed, retry register", logger.String("path", path))
 		}
 	}
 }
