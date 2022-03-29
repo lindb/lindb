@@ -410,18 +410,19 @@ func (f *dataFamily) WriteRows(rows []metric.StorageRow) error {
 	defer releaseFunc()
 
 	for idx := range rows {
-		if !rows[idx].Writable {
+		row := rows[idx]
+		if !row.Writable {
 			f.statistics.writeMetricFailures.Incr()
 			continue
 		}
-		rows[idx].SlotIndex = uint16(f.intervalCalc.CalcSlot(
-			rows[idx].Timestamp(),
+		row.SlotIndex = uint16(f.intervalCalc.CalcSlot(
+			row.Timestamp(),
 			f.familyTime,
 			f.interval.Int64()),
 		)
-		if err = db.WriteRow(&rows[idx]); err == nil {
+		if err = db.WriteRow(&row); err == nil {
 			f.statistics.writeMetrics.Incr()
-			f.statistics.writeFields.Add(float64(len(rows[idx].FieldIDs)))
+			f.statistics.writeFields.Add(float64(len(row.FieldIDs)))
 		} else {
 			f.statistics.writeMetricFailures.Incr()
 			f.logger.Error("failed writing row", logger.Error(err))
