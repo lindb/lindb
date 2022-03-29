@@ -179,12 +179,17 @@ func TestMasterController_Start_Stop(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	registry := discovery.NewMockRegistry(ctrl)
 	ctx, cancel := context.WithCancel(context.TODO())
 	masterElect := elect.NewMockElection(ctrl)
 	mc := &masterController{
-		ctx:    ctx,
-		cancel: cancel,
-		elect:  masterElect,
+		ctx:      ctx,
+		cancel:   cancel,
+		elect:    masterElect,
+		registry: registry,
+		cfg: &MasterCfg{
+			Node: &models.StatelessNode{},
+		},
 	}
 	gomock.InOrder(
 		masterElect.EXPECT().Initialize(),
@@ -197,6 +202,7 @@ func TestMasterController_Start_Stop(t *testing.T) {
 	assert.True(t, mc.IsMaster())
 	assert.Equal(t, master, mc.GetMaster())
 	masterElect.EXPECT().Close()
+	registry.EXPECT().Deregister(gomock.Any()).Return(fmt.Errorf("err"))
 	mc.Stop()
 }
 

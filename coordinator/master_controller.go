@@ -193,10 +193,14 @@ func (m *masterController) Start() {
 
 // Stop stops master if current node is master, cleanup master context and stops state machine
 func (m *masterController) Stop() {
+	defer m.cancel()
 	// close master elect
 	m.elect.Close()
 
-	m.cancel()
+	if err := m.registry.Deregister(m.cfg.Node); err != nil {
+		log.Warn("unregister elected master node error, when stop master", logger.Error(err))
+	}
+	log.Info("stop master successfully")
 }
 
 // FlushDatabase submits the coordinator task for flushing memory database by cluster and database name
