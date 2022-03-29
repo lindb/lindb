@@ -95,9 +95,11 @@ func TestFlusher_TooMany_Data(t *testing.T) {
 
 	nopKVFlusher := kv.NewNopFlusher()
 	flusher, _ := NewFlusher(nopKVFlusher)
-	flusher.PrepareMetric(39, []field.Meta{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}})
+	flusher.PrepareMetric(39, []field.Meta{{ID: 1, Type: field.SumField}})
 
+	seriesIDs := roaring.New()
 	for i := 0; i < 80000; i++ {
+		seriesIDs.Add(uint32(i))
 		assert.NoError(t, flusher.FlushField(data))
 		assert.NoError(t, flusher.FlushSeries(uint32(i)))
 	}
@@ -106,14 +108,25 @@ func TestFlusher_TooMany_Data(t *testing.T) {
 	r, err := NewReader("1.sst", data)
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
-
-	r.Load(&flow.DataLoadContext{
-		SeriesIDHighKey:       0,
-		LowSeriesIDsContainer: roaring.BitmapOf(1, 2, 3, 4).GetContainer(0),
-		ShardExecuteCtx: &flow.ShardExecuteContext{
-			StorageExecuteCtx: &flow.StorageExecuteContext{
-				Fields: field.Metas{{ID: 2}},
+	found := 0
+	highKeys := seriesIDs.GetHighKeys()
+	for idx := range highKeys {
+		highKey := highKeys[idx]
+		ctx := &flow.DataLoadContext{
+			SeriesIDHighKey:       highKey,
+			LowSeriesIDsContainer: seriesIDs.GetContainer(highKey),
+			ShardExecuteCtx: &flow.ShardExecuteContext{
+				StorageExecuteCtx: &flow.StorageExecuteContext{
+					Fields: field.Metas{{ID: 1}},
+				},
 			},
-		},
-	})
+			DownSampling: func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, fieldData []byte) {
+				found++
+			},
+		}
+		ctx.Grouping()
+		loader := r.Load(ctx)
+		loader.Load(ctx)
+	}
+	assert.Equal(t, int(seriesIDs.GetCardinality()), found)
 }
