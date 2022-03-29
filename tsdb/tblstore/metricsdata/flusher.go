@@ -58,10 +58,11 @@ type Flusher interface {
 	// CommitMetric ends writing a full metric block
 	// this will be called after writing all entries of this metric.
 	CommitMetric(slotRange timeutil.SlotRange) error
-	// Closer closes the writer, syncs all data to the file.
-	io.Closer
 	// GetFieldMetas returns current field metas of metric.
 	GetFieldMetas() field.Metas
+
+	// Closer closes the writer, syncs all data to the file.
+	io.Closer
 }
 
 // flusher implements Flusher.
@@ -255,13 +256,6 @@ func (w *flusher) FlushSeries(seriesID uint32) error {
 		// if not field data, drop this series
 		return nil
 	}
-	// flush field offsets in necessary
-	if w.Level2.fieldMetas.Len() > 1 {
-		if err := w.writeLevel4OffsetsFooter(); err != nil {
-			return err
-		}
-	}
-	w.Level3.lowKeyOffsets.Add(int(w.kvWriter.Size()) - w.Level3.startAt)
 	// isHighKeySetEver means this is the first high key
 	// If different high key arrives, level3 is done.
 	// otherwise, we are still at level3, just keeps the low-key's offset
@@ -270,6 +264,7 @@ func (w *flusher) FlushSeries(seriesID uint32) error {
 		w.Level3.isHighKeySetEver = true
 		w.Level3.highKey = highKey
 	}
+	// first need check high key, because if first write offset, first field of low series(next high key) will be lost.
 	if highKey != w.Level3.highKey {
 		// flush data by diff high key
 		if err := w.flushLevel2SeriesBucket(); err != nil {
@@ -283,6 +278,14 @@ func (w *flusher) FlushSeries(seriesID uint32) error {
 		// set high key offset to current series bucket
 		w.Level2.highKeyOffsets.Add(int(w.kvWriter.Size()))
 	}
+
+	// flush field offsets in necessary(multi field).
+	if w.Level2.fieldMetas.Len() > 1 {
+		if err := w.writeLevel4OffsetsFooter(); err != nil {
+			return err
+		}
+	}
+	w.Level3.lowKeyOffsets.Add(int(w.kvWriter.Size()) - w.Level3.startAt)
 	// add series id into index block of metric
 	w.Level2.seriesIDs.Add(seriesID)
 	return nil
@@ -293,7 +296,7 @@ func (w *flusher) flushLevel2SeriesBucket() error {
 	if !(posOfLowKeyOffsets > 0) {
 		return nil
 	}
-	// data in this series bucket has been flushed
+	// data in this series bucket has been flushed.
 	// flush LowKey-Offsets in Level3
 	if err := w.Level3.lowKeyOffsets.Write(w.kvWriter); err != nil {
 		return err
