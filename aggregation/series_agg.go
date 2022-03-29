@@ -156,9 +156,9 @@ func (a *seriesAggregator) GetAggregator(segmentStartTime int64) (agg FieldAggre
 			End:   a.calc.CalcFamilyEndTime(segmentStartTime),
 		}
 		timeRange := a.queryTimeRange.Intersect(storageTimeRange)
-		storageInterval := a.queryInterval.Int64() / int64(a.intervalRatio)
-		startIdx := a.calc.CalcSlot(timeRange.Start, segmentStartTime, storageInterval)
-		endIdx := a.calc.CalcSlot(timeRange.End, segmentStartTime, storageInterval)
+		queryInterval := a.queryInterval.Int64()
+		startIdx := a.calc.CalcSlot(timeRange.Start, segmentStartTime, queryInterval)
+		endIdx := a.calc.CalcSlot(timeRange.End, segmentStartTime, queryInterval)
 
 		agg = NewFieldAggregator(a.aggSpec, segmentStartTime, startIdx, endIdx)
 		a.aggregates[idx] = agg
