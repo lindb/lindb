@@ -211,8 +211,9 @@ type DataLoadContext struct {
 	// time segment => a list of DataLoader(each family)
 	Loaders [][]DataLoader // item maybe DataLoader is nil
 
-	SingleFieldAgg    aggregation.SeriesAggregator
-	GroupingSeriesAgg []*GroupingSeriesAgg
+	GroupingSeriesAggRefs []uint16 // series id => GroupingSeriesAgg index
+	SingleFieldAgg        aggregation.SeriesAggregator
+	GroupingSeriesAgg     []*GroupingSeriesAgg
 
 	DownSampling func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, fieldData []byte)
 }
@@ -247,6 +248,9 @@ func (ctx *DataLoadContext) Grouping() {
 	ctx.MaxSeriesID = ctx.LowSeriesIDsContainer.Maximum()
 	lengthOfSeriesIDs := int(ctx.MaxSeriesID-ctx.MinSeriesID) + 1
 	ctx.LowSeriesIDs = make([]uint16, lengthOfSeriesIDs)
+	if ctx.IsGrouping() {
+		ctx.GroupingSeriesAggRefs = make([]uint16, lengthOfSeriesIDs)
+	}
 	it := ctx.LowSeriesIDsContainer.PeekableIterator()
 	for it.HasNext() {
 		lowSeriesID := it.Next()
@@ -270,7 +274,7 @@ func (ctx *DataLoadContext) IterateLowSeriesIDs(lowSeriesIDsFromStorage roaring.
 			break
 		}
 		seriesIdxFromQuery := seriesID - min
-		if seriesID >= min && ((min == 0 && seriesID == min) || lowSeriesIDs[seriesIdxFromQuery] > 0) {
+		if lowSeriesIDs[seriesIdxFromQuery] == seriesID {
 			// load data by series id index
 			fn(seriesIdxFromQuery, seriesIdxFromStorage)
 		}
