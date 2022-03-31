@@ -238,7 +238,7 @@ func (t *familyFilterTask) Run() error {
 			return err
 		}
 		for _, rs := range resultSet {
-			t.shardExecuteContext.TimeSegmentRS.AddFilterResultSet(family.Interval(), rs)
+			t.shardExecuteContext.TimeSegmentContext.AddFilterResultSet(family.Interval(), rs)
 		}
 	}
 	return nil
@@ -291,19 +291,17 @@ func (t *groupingContextFindTask) AfterRun() {
 // buildGroupTask represents build grouped tag value ids => series ids mapping
 type buildGroupTask struct {
 	baseQueryTask
-	ctx     *flow.ShardExecuteContext
 	shard   tsdb.Shard
 	loadCtx *flow.DataLoadContext
 }
 
 // newBuildGroupTask creates build group task
-func newBuildGroupTask(ctx *flow.ShardExecuteContext, shard tsdb.Shard, loadCtx *flow.DataLoadContext) flow.QueryTask {
+func newBuildGroupTask(shard tsdb.Shard, loadCtx *flow.DataLoadContext) flow.QueryTask {
 	task := &buildGroupTask{
-		ctx:     ctx,
 		shard:   shard,
 		loadCtx: loadCtx,
 	}
-	if ctx.StorageExecuteCtx.Query.Explain {
+	if loadCtx.ShardExecuteCtx.StorageExecuteCtx.Query.Explain {
 		return &queryStatTask{
 			task: task,
 		}
@@ -314,9 +312,11 @@ func newBuildGroupTask(ctx *flow.ShardExecuteContext, shard tsdb.Shard, loadCtx 
 // Run executes grouped series ids(tag value ids=>series ids mapping)
 func (t *buildGroupTask) Run() error {
 	t.loadCtx.Grouping()
-	if t.ctx.GroupingContext != nil {
+	if t.loadCtx.ShardExecuteCtx.GroupingContext != nil {
 		// build group by data, grouped series: tags => series IDs
-		t.ctx.GroupingContext.BuildGroup(t.loadCtx)
+		t.loadCtx.ShardExecuteCtx.GroupingContext.BuildGroup(t.loadCtx)
+	} else {
+		t.loadCtx.PrepareAggregatorWithoutGrouping()
 	}
 	return nil
 }
@@ -324,7 +324,7 @@ func (t *buildGroupTask) Run() error {
 // AfterRun invokes after build grouped series, collects build stats
 func (t *buildGroupTask) AfterRun() {
 	t.baseQueryTask.AfterRun()
-	t.ctx.StorageExecuteCtx.Stats.SetShardGroupBuildStats(t.shard.ShardID(), t.cost)
+	t.loadCtx.ShardExecuteCtx.StorageExecuteCtx.Stats.SetShardGroupBuildStats(t.shard.ShardID(), t.cost)
 }
 
 // dataLoadTask represents data load task based on filtering result set
@@ -334,7 +334,7 @@ type dataLoadTask struct {
 	shard       tsdb.Shard
 	queryFlow   flow.StorageQueryFlow
 	segmentIdx  int
-	segmentCtx  *flow.TimeSegmentContext
+	segmentCtx  *flow.TimeSegmentResultSet
 
 	costs []time.Duration
 }
@@ -345,7 +345,7 @@ func newDataLoadTask(
 	queryFlow flow.StorageQueryFlow,
 	dataLoadCtx *flow.DataLoadContext,
 	segmentIdx int,
-	segmentCtx *flow.TimeSegmentContext,
+	segmentCtx *flow.TimeSegmentResultSet,
 ) flow.QueryTask {
 	task := &dataLoadTask{
 		shard:       shard,

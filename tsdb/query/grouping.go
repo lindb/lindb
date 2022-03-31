@@ -115,8 +115,6 @@ func (g *GroupingContext) buildTagValueIDs2SeriesIDs(ctx *flow.DataLoadContext) 
 	result := make(map[string]uint16)
 	var keyBuilder strings.Builder
 
-	groupingSeriesAggIdx := uint16(0)
-
 	it := ctx.LowSeriesIDsContainer.PeekableIterator()
 	for it.HasNext() {
 		seriesID := it.Next()
@@ -138,13 +136,9 @@ func (g *GroupingContext) buildTagValueIDs2SeriesIDs(ctx *flow.DataLoadContext) 
 			key := keyBuilder.String()
 			aggIdx, ok := result[key]
 			if !ok {
-				ctx.GroupingSeriesAgg = append(ctx.GroupingSeriesAgg, &flow.GroupingSeriesAgg{
-					Key:        key,
-					Aggregator: ctx.NewSeriesAggregator(),
-				})
+				groupingSeriesAggIdx := ctx.NewSeriesAggregator(key)
 				aggIdx = groupingSeriesAggIdx
 				result[key] = aggIdx
-				groupingSeriesAggIdx++
 			}
 			ctx.GroupingSeriesAggRefs[seriesIdxFromQuery] = aggIdx
 		}
