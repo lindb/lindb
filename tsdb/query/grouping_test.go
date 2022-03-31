@@ -38,9 +38,11 @@ func TestGroupingContext_Build(t *testing.T) {
 	}()
 	scanner := flow.NewMockGroupingScanner(ctrl)
 	ctx := NewGroupContext([]tag.KeyID{1}, map[tag.KeyID][]flow.GroupingScanner{1: {scanner}})
+	storageSeriesIDs := roaring.BitmapOf(1, 2, 3, 10)
 	scanner.EXPECT().GetSeriesAndTagValue(uint16(1)).
-		Return(roaring.BitmapOf(1, 2, 3, 10).GetContainerAtIndex(0), []uint32{10, 20, 30, 10})
-	lowSeriesContainer := roaring.BitmapOf(1, 2, 6, 10).GetContainerAtIndex(0)
+		Return(storageSeriesIDs.GetContainerAtIndex(0), []uint32{10, 20, 30, 10})
+	querySeriesIDs := roaring.BitmapOf(1, 2, 6, 10)
+	lowSeriesContainer := querySeriesIDs.GetContainerAtIndex(0)
 	// found series id 1,2,10, tag value id: 10,20
 	dataLoadCtx := &flow.DataLoadContext{
 		SeriesIDHighKey:       1,
@@ -57,6 +59,20 @@ func TestGroupingContext_Build(t *testing.T) {
 	ctx.BuildGroup(dataLoadCtx)
 	rs := dataLoadCtx.GroupingSeriesAgg
 	assert.Len(t, rs, 2)
+	// found series id: 1,2,10, tag value id: 10,20,10, index of refs: 0,1,0
+	refMap := make(map[uint16]int)
+
+	dataLoadCtx.IterateLowSeriesIDs(roaring.FastAnd(querySeriesIDs, storageSeriesIDs).GetContainer(0),
+		func(seriesIdxFromQuery uint16, seriesIdxFromStorage int) {
+			refIdx := dataLoadCtx.GroupingSeriesAggRefs[seriesIdxFromQuery]
+			refMap[refIdx]++
+		})
+	assert.Len(t, refMap, 2)
+	assert.Equal(t, 2, refMap[0])
+	assert.Equal(t, 1, refMap[1])
+	assert.Equal(t, uint16(0), dataLoadCtx.GroupingSeriesAggRefs[1-dataLoadCtx.MinSeriesID])
+	assert.Equal(t, uint16(1), dataLoadCtx.GroupingSeriesAggRefs[2-dataLoadCtx.MinSeriesID])
+	assert.Equal(t, uint16(0), dataLoadCtx.GroupingSeriesAggRefs[10-dataLoadCtx.MinSeriesID])
 
 	// high key not found
 	scanner.EXPECT().GetSeriesAndTagValue(uint16(1)).Return(nil, nil)
