@@ -23,8 +23,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/go-resty/resty/v2"
-
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
@@ -104,7 +102,7 @@ func fetchStateData(nodes []models.Node, stmt *stmtpkg.State) (interface{}, erro
 			node := nodes[i]
 			address := node.HTTPAddress()
 			var state []models.FamilyLogReplicaState
-			_, err := resty.New().R().SetQueryParams(map[string]string{"db": stmt.Database}).
+			_, err := NewRestyFn().R().SetQueryParams(map[string]string{"db": stmt.Database}).
 				SetHeader("Accept", "application/json").
 				SetResult(&state).
 				Get(address + "/api/state/replica")
@@ -144,7 +142,7 @@ func fetchMetricData(nodes []models.Node, names []string) (interface{}, error) {
 			node := nodes[i]
 			address := node.HTTPAddress()
 			metric := make(map[string][]*models.StateMetric)
-			_, err := resty.New().R().SetQueryParamsFromValues(params).
+			_, err := NewRestyFn().R().SetQueryParamsFromValues(params).
 				SetHeader("Accept", "application/json").
 				SetResult(&metric).
 				Get(address + "/api/state/explore/current")

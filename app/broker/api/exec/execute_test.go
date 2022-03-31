@@ -29,9 +29,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-resty/resty/v2"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/app/broker/api/exec/command"
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator"
@@ -885,7 +887,13 @@ func TestExecuteAPI_Execute(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				sqlParseFn = sql.Parse
+				command.NewRestyFn = resty.New
 			}()
+			command.NewRestyFn = func() *resty.Client {
+				c := resty.New()
+				c.SetTimeout(time.Second)
+				return c
+			}
 			if tt.prepare != nil {
 				tt.prepare()
 			}
