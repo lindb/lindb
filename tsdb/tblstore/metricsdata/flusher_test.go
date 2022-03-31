@@ -31,6 +31,7 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/sql/stmt"
 )
 
 func TestFlusher_flush_metric(t *testing.T) {
@@ -85,48 +86,107 @@ func TestFlusher_flush_big_series_id(t *testing.T) {
 }
 
 func TestFlusher_TooMany_Data(t *testing.T) {
+	flushMoreData(t, field.Metas{{ID: 1, Type: field.SumField}},
+		mockSingleField, 1.0, field.Metas{{ID: 1, Type: field.SumField}})
+	flushMoreData(t, field.Metas{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}},
+		mockMultiField1, 1.0, field.Metas{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}})
+	flushMoreData(t, field.Metas{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}},
+		mockMultiField2, 2.0, field.Metas{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}})
+	flushMoreData(t, field.Metas{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}},
+		mockMultiField2, 1.0, field.Metas{{ID: 2, Type: field.SumField}})
+	flushMoreData(t, field.Metas{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}},
+		mockMultiField2, 1.0, field.Metas{{ID: 1, Type: field.SumField}})
+}
+
+func flushMoreData(t *testing.T,
+	fields field.Metas,
+	mockData func(t *testing.T,
+		seriesIDs *roaring.Bitmap, flusher Flusher), assertRatio float64, queryFields field.Metas) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	encoder := encoding.NewTSDEncoder(5)
-	encoder.AppendTime(bit.One)
-	encoder.AppendValue(math.Float64bits(10.0))
-	data, _ := encoder.BytesWithoutTime()
-
 	nopKVFlusher := kv.NewNopFlusher()
 	flusher, _ := NewFlusher(nopKVFlusher)
-	flusher.PrepareMetric(39, []field.Meta{{ID: 1, Type: field.SumField}})
+	flusher.PrepareMetric(39, fields)
 
 	seriesIDs := roaring.New()
-	for i := 0; i < 80000; i++ {
-		seriesIDs.Add(uint32(i))
-		assert.NoError(t, flusher.FlushField(data))
-		assert.NoError(t, flusher.FlushSeries(uint32(i)))
-	}
+	mockData(t, seriesIDs, flusher)
 	assert.NoError(t, flusher.CommitMetric(timeutil.SlotRange{Start: 5, End: 5}))
-	data = nopKVFlusher.Bytes()
+	data := nopKVFlusher.Bytes()
 	r, err := NewReader("1.sst", data)
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
 	found := 0
 	highKeys := seriesIDs.GetHighKeys()
+	tsdDecoder := encoding.GetTSDDecoder()
 	for idx := range highKeys {
 		highKey := highKeys[idx]
+		lowSeriesIDs := seriesIDs.GetContainer(highKey)
 		ctx := &flow.DataLoadContext{
 			SeriesIDHighKey:       highKey,
-			LowSeriesIDsContainer: seriesIDs.GetContainer(highKey),
+			LowSeriesIDsContainer: lowSeriesIDs,
 			ShardExecuteCtx: &flow.ShardExecuteContext{
 				StorageExecuteCtx: &flow.StorageExecuteContext{
-					Fields: field.Metas{{ID: 1}},
+					Fields: queryFields,
+					Query:  &stmt.Query{},
 				},
 			},
 			DownSampling: func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, fieldData []byte) {
-				found++
+				assert.Equal(t, timeutil.SlotRange{Start: 5, End: 5}, slotRange)
+				tsdDecoder.ResetWithTimeRange(fieldData, slotRange.Start, slotRange.End)
+				for movingSourceSlot := tsdDecoder.StartTime(); movingSourceSlot <= tsdDecoder.EndTime(); movingSourceSlot++ {
+					if !tsdDecoder.HasValueWithSlot(movingSourceSlot) {
+						continue
+					}
+					value := math.Float64frombits(tsdDecoder.Value())
+					assert.Equal(t, 5, int(movingSourceSlot))
+					seriesID := float64(int(highKey)*65536 + int(seriesIdx))
+					assert.Equal(t, value, seriesID)
+					found++
+				}
 			},
 		}
 		ctx.Grouping()
 		loader := r.Load(ctx)
 		loader.Load(ctx)
 	}
-	assert.Equal(t, int(seriesIDs.GetCardinality()), found)
+	assert.Equal(t, int(seriesIDs.GetCardinality())*int(assertRatio), found)
+}
+
+func mockSingleField(t *testing.T, seriesIDs *roaring.Bitmap, flusher Flusher) {
+	for i := 0; i < 80000; i++ {
+		seriesIDs.Add(uint32(i))
+		encoder := encoding.NewTSDEncoder(5)
+		encoder.AppendTime(bit.One)
+		encoder.AppendValue(math.Float64bits(float64(i)))
+		data, _ := encoder.BytesWithoutTime()
+		assert.NoError(t, flusher.FlushField(data))
+		assert.NoError(t, flusher.FlushSeries(uint32(i)))
+	}
+}
+
+func mockMultiField1(t *testing.T, seriesIDs *roaring.Bitmap, flusher Flusher) {
+	for i := 0; i < 80000; i++ {
+		seriesIDs.Add(uint32(i))
+		encoder := encoding.NewTSDEncoder(5)
+		encoder.AppendTime(bit.One)
+		encoder.AppendValue(math.Float64bits(float64(i)))
+		data, _ := encoder.BytesWithoutTime()
+		assert.NoError(t, flusher.FlushField(data))
+		assert.NoError(t, flusher.FlushField(nil))
+		assert.NoError(t, flusher.FlushSeries(uint32(i)))
+	}
+}
+
+func mockMultiField2(t *testing.T, seriesIDs *roaring.Bitmap, flusher Flusher) {
+	for i := 0; i < 80000; i++ {
+		seriesIDs.Add(uint32(i))
+		encoder := encoding.NewTSDEncoder(5)
+		encoder.AppendTime(bit.One)
+		encoder.AppendValue(math.Float64bits(float64(i)))
+		data, _ := encoder.BytesWithoutTime()
+		assert.NoError(t, flusher.FlushField(data))
+		assert.NoError(t, flusher.FlushField(data))
+		assert.NoError(t, flusher.FlushSeries(uint32(i)))
+	}
 }

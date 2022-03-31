@@ -335,6 +335,8 @@ type dataLoadTask struct {
 	queryFlow   flow.StorageQueryFlow
 	segmentIdx  int
 	segmentCtx  *flow.TimeSegmentContext
+
+	costs []time.Duration
 }
 
 // newDataLoadTask creates the data load task
@@ -362,10 +364,22 @@ func newDataLoadTask(
 
 // Run executes data load based on filtering result set
 func (t *dataLoadTask) Run() error {
+	explain := t.dataLoadCtx.ShardExecuteCtx.StorageExecuteCtx.Query.Explain
+	if explain {
+		t.costs = make([]time.Duration, len(t.segmentCtx.FilterRS))
+	}
 	t.dataLoadCtx.Loaders[t.segmentIdx] = make([]flow.DataLoader, len(t.segmentCtx.FilterRS))
 	for idx, rs := range t.segmentCtx.FilterRS {
 		// maybe return nil loader
+		var start time.Time
+		if explain {
+			start = time.Now()
+		}
 		t.dataLoadCtx.Loaders[t.segmentIdx][idx] = rs.Load(t.dataLoadCtx)
+		if explain {
+			t.costs[idx] = time.Since(start)
+			start = time.Now()
+		}
 	}
 	return nil
 }
@@ -373,14 +387,22 @@ func (t *dataLoadTask) Run() error {
 // AfterRun invokes after data load, collects the data load stats
 func (t *dataLoadTask) AfterRun() {
 	t.baseQueryTask.AfterRun()
-	identifiers := strings.Split(t.segmentCtx.Identifier, fmt.Sprintf("shard/%d/segment", t.shard.ShardID()))
-	var identifier string
-	if len(identifiers) > 1 {
-		identifier = identifiers[1]
-	} else {
-		identifier = identifiers[0]
+	for idx, rs := range t.segmentCtx.FilterRS {
+		identifiers := strings.Split(rs.Identifier(), fmt.Sprintf("shard/%d/segment", t.shard.ShardID()))
+		var identifier string
+		if len(identifiers) > 1 {
+			identifier = identifiers[1]
+		} else {
+			identifier = identifiers[0]
+		}
+		foundSeries := 0
+		lowContainer := rs.SeriesIDs().GetContainer(t.dataLoadCtx.SeriesIDHighKey)
+		if lowContainer != nil {
+			foundSeries = lowContainer.GetCardinality()
+		}
+		t.dataLoadCtx.ShardExecuteCtx.StorageExecuteCtx.Stats.
+			SetShardScanStats(t.shard.ShardID(), identifier, t.costs[idx], foundSeries)
 	}
-	t.dataLoadCtx.ShardExecuteCtx.StorageExecuteCtx.Stats.SetShardScanStats(t.shard.ShardID(), identifier, t.cost)
 }
 
 // collectTagValuesTask represents collect tag values by tag value ids

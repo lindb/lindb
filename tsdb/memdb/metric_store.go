@@ -164,7 +164,7 @@ func (ms *metricStore) FlushMetricsDataTo(flusher metricsdata.Flusher, flushCtx 
 	return flusher.CommitMetric(flushCtx.SlotRange)
 }
 
-// flush flushes series data
+// flush series data
 func flush(flusher metricsdata.Flusher, flushCtx *flushContext, key uint32, tStore tStoreINTF) error {
 	if err := tStore.FlushFieldsTo(flusher, flushCtx); err != nil {
 		return err

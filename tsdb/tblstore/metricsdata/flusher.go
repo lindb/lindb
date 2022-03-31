@@ -176,6 +176,8 @@ type flusher struct {
 		scratch [binary.MaxVarintLen64]byte
 		// fieldsOffsets holds distances between startAt and position of fieldData
 		fieldDataOffsets *encoding.FixedOffsetEncoder
+		fieldBuffer      [][]byte
+		fieldAppendIdx   int
 	}
 }
 
@@ -208,19 +210,40 @@ func (w *flusher) PrepareMetric(
 	w.Level2.fieldMetas = fieldMetas
 	w.Level2.highKeyOffsets.Add(0)
 
-	w.Level3.lowKeyOffsets.Add(0)
+	w.Level4.fieldBuffer = make([][]byte, len(fieldMetas))
+	w.Level4.fieldAppendIdx = 0
 }
 
 func (w *flusher) FlushField(data []byte) error {
-	// if metric only has one field, just writes field data
-	fieldDataAt := int(w.kvWriter.Size()) - w.Level4.startAt
-	if _, err := w.kvWriter.Write(data); err != nil {
-		return err
+	// just buffer field data
+	w.Level4.fieldBuffer[w.Level4.fieldAppendIdx] = data
+	w.Level4.fieldAppendIdx++
+	return nil
+}
+
+func (w *flusher) flushField() error {
+	defer func() {
+		w.Level4.fieldAppendIdx = 0
+	}()
+	isMultiField := w.Level2.fieldMetas.Len() > 1
+	for fieldIdx := range w.Level4.fieldBuffer {
+		data := w.Level4.fieldBuffer[fieldIdx]
+		// if metric only has one field, just writes field data
+		fieldDataAt := int(w.kvWriter.Size()) - w.Level4.startAt
+		if _, err := w.kvWriter.Write(data); err != nil {
+			return err
+		}
+		// if metric only has one field, just writes field data
+		// multi fields, write the field offset
+		if isMultiField {
+			w.Level4.fieldDataOffsets.Add(fieldDataAt)
+		}
 	}
-	// if metric only has one field, just writes field data
-	// multi fields, write the field offset
-	if w.Level2.fieldMetas.Len() >= 1 {
-		w.Level4.fieldDataOffsets.Add(fieldDataAt)
+	// flush field offsets in necessary(multi field).
+	if isMultiField {
+		if err := w.writeLevel4OffsetsFooter(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -251,7 +274,7 @@ func (w *flusher) FlushSeries(seriesID uint32) error {
 		w.Level4.fieldDataOffsets.Reset()
 	}()
 
-	seriesHasData := int(w.kvWriter.Size())-w.Level4.startAt > 0
+	seriesHasData := w.Level4.fieldAppendIdx > 0
 	if !seriesHasData {
 		// if not field data, drop this series
 		return nil
@@ -277,15 +300,15 @@ func (w *flusher) FlushSeries(seriesID uint32) error {
 		w.Level3.startAt = int(w.kvWriter.Size())
 		// set high key offset to current series bucket
 		w.Level2.highKeyOffsets.Add(int(w.kvWriter.Size()))
+		w.Level4.startAt = int(w.kvWriter.Size())
 	}
 
-	// flush field offsets in necessary(multi field).
-	if w.Level2.fieldMetas.Len() > 1 {
-		if err := w.writeLevel4OffsetsFooter(); err != nil {
-			return err
-		}
-	}
+	// write field's offset for current series id
 	w.Level3.lowKeyOffsets.Add(int(w.kvWriter.Size()) - w.Level3.startAt)
+	// write field data
+	if err := w.flushField(); err != nil {
+		return err
+	}
 	// add series id into index block of metric
 	w.Level2.seriesIDs.Add(seriesID)
 	return nil

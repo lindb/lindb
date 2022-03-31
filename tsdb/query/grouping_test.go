@@ -28,6 +28,7 @@ import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/tag"
+	"github.com/lindb/lindb/sql/stmt"
 )
 
 func TestGroupingContext_Build(t *testing.T) {
@@ -48,6 +49,7 @@ func TestGroupingContext_Build(t *testing.T) {
 			StorageExecuteCtx: &flow.StorageExecuteContext{
 				DownSamplingSpecs:   aggregation.AggregatorSpecs{aggregation.NewAggregatorSpec("f", field.SumField)},
 				GroupingTagValueIDs: make([]*roaring.Bitmap, 1),
+				Query:               &stmt.Query{GroupBy: []string{"a"}},
 			},
 		},
 	}
