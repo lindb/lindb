@@ -117,7 +117,8 @@ func (ts *timeSeriesStore) FlushFieldsTo(flusher metricsdata.Flusher, flushCtx *
 			}
 			idx++
 		} else {
-			// must flush nil data for metric has multi-field
+			// must flush nil data for metric has multi-field.
+			// because each series need fill all field data in order.
 			_ = flusher.FlushField(nil)
 		}
 	}

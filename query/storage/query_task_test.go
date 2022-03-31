@@ -280,6 +280,7 @@ func TestBuildGroupTask_Run(t *testing.T) {
 		},
 	}
 	dataLoadCtx := &flow.DataLoadContext{
+		ShardExecuteCtx:       ctx,
 		LowSeriesIDsContainer: seriesIDs.GetContainerAtIndex(0),
 	}
 	task := newBuildGroupTask(ctx, shard, dataLoadCtx)
@@ -308,6 +309,8 @@ func TestDataLoadTask_Run(t *testing.T) {
 	shard := tsdb.NewMockShard(ctrl)
 	qf := flow.NewMockStorageQueryFlow(ctrl)
 	rs := flow.NewMockFilterResultSet(ctrl)
+	rs.EXPECT().Identifier().Return("memory").AnyTimes()
+	rs.EXPECT().SeriesIDs().Return(roaring.BitmapOf(1, 2, 3)).AnyTimes()
 	ctx := &flow.DataLoadContext{
 		ShardExecuteCtx: &flow.ShardExecuteContext{
 			StorageExecuteCtx: &flow.StorageExecuteContext{
@@ -327,10 +330,8 @@ func TestDataLoadTask_Run(t *testing.T) {
 	ctx.ShardExecuteCtx.StorageExecuteCtx.Query.Explain = true
 	task = newDataLoadTask(shard, qf, ctx, 0, segment)
 	shard.EXPECT().ShardID().Return(models.ShardID(10)).AnyTimes()
-	segment.Identifier = "memory"
 	err = task.Run()
 	assert.NoError(t, err)
-	segment.Identifier = "shard/10/segment/day/20190202/10/1.sst"
 	err = task.Run()
 	assert.NoError(t, err)
 }

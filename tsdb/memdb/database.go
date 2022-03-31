@@ -313,10 +313,10 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher) error {
 	md.writeCondition.Wait()
 
 	var flushCtx flushContext
-	if err := md.mStores.WalkEntry(func(key uint32, value mStoreINTF) error {
-		flushCtx.metricID = key
+	if err := md.mStores.WalkEntry(func(metricID uint32, value mStoreINTF) error {
+		flushCtx.metricID = metricID
 		if err := value.FlushMetricsDataTo(flusher, &flushContext{
-			metricID: key,
+			metricID: metricID,
 		}); err != nil {
 			return err
 		}

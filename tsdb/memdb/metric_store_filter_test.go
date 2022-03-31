@@ -29,6 +29,7 @@ import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/sql/stmt"
 )
 
 func TestMetricStore_Filter(t *testing.T) {
@@ -66,10 +67,14 @@ func TestMemFilterResultSet_Load(t *testing.T) {
 	assert.NoError(t, err)
 	// case 1: load data success
 	ctx := &flow.DataLoadContext{
+		ShardExecuteCtx: &flow.ShardExecuteContext{
+			StorageExecuteCtx: &flow.StorageExecuteContext{
+				Query: &stmt.Query{},
+			},
+		},
 		SeriesIDHighKey:       0,
 		LowSeriesIDsContainer: roaring.BitmapOf(100, 200).GetContainerAtIndex(0),
 		DownSampling: func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, fieldData []byte) {
-
 		},
 	}
 	ctx.Grouping()

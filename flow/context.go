@@ -131,7 +131,6 @@ func (ts *TimeSegmentResultSet) AddFilterResultSet(interval timeutil.Interval, r
 	segment, ok := ts.TimeSegments[familyTime]
 	if !ok {
 		segment = &TimeSegmentContext{
-			Identifier: rs.Identifier(),
 			FamilyTime: familyTime,
 			Source:     rs.SlotRange(),
 			Target:     rs.SlotRange(),
@@ -273,6 +272,9 @@ func (ctx *DataLoadContext) IterateLowSeriesIDs(lowSeriesIDsFromStorage roaring.
 		if seriesID > max {
 			break
 		}
+		if seriesID < min {
+			continue
+		}
 		seriesIdxFromQuery := seriesID - min
 		if lowSeriesIDs[seriesIdxFromQuery] == seriesID {
 			// load data by series id index
@@ -287,6 +289,8 @@ func (ctx *DataLoadContext) Reduce(reduceFn func(it series.GroupedIterator)) {
 	if ctx.IsGrouping() {
 		for _, groupAgg := range ctx.GroupingSeriesAgg {
 			reduceFn(aggregation.FieldAggregates{groupAgg.Aggregator}.ResultSet(groupAgg.Key))
+			// reset aggregate context
+			groupAgg.Aggregator.Reset()
 		}
 	} else {
 		reduceFn(aggregation.FieldAggregates{ctx.SingleFieldAgg}.ResultSet(""))
@@ -304,7 +308,6 @@ func (f TimeSegmentContexts) Swap(i, j int)      { f[i], f[j] = f[j], f[i] }
 
 // TimeSegmentContext represents the time segment in query time range.
 type TimeSegmentContext struct {
-	Identifier     string
 	FamilyTime     int64
 	Source, Target timeutil.SlotRange
 	Interval       timeutil.Interval

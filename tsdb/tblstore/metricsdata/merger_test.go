@@ -32,6 +32,7 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/sql/stmt"
 )
 
 func Test_NewMerger(t *testing.T) {
@@ -84,6 +85,7 @@ func assertMergeReentrant(t *testing.T, flusher kv.Flusher, mergerIntf kv.Merger
 		ShardExecuteCtx: &flow.ShardExecuteContext{
 			StorageExecuteCtx: &flow.StorageExecuteContext{
 				Fields: r.GetFields(),
+				Query:  &stmt.Query{},
 			},
 		},
 		DownSampling: func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, fieldData []byte) {

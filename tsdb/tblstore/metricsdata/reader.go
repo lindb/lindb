@@ -40,6 +40,8 @@ const (
 		4 + // series ids position
 		4 + // high offsets position
 		4 // crc32 checksum
+
+	fieldNotFound = -1
 )
 
 // MetricReader represents the metric block metricReader
@@ -114,7 +116,7 @@ func (r *metricReader) prepare(fields field.Metas) (found bool) {
 	for idx, f := range fields { // sort by field ids
 		fieldIdx, ok := fieldMap[f.ID]
 		if !ok {
-			r.readFieldIndexes[idx] = -1
+			r.readFieldIndexes[idx] = fieldNotFound
 		} else {
 			r.readFieldIndexes[idx] = fieldIdx
 			found = true
@@ -188,7 +190,7 @@ func (r *metricReader) readSeriesData(ctx *flow.DataLoadContext, seriesIdx uint1
 	_, _ = fieldOffsetsDecoder.Unmarshal(seriesEntryBlock[fieldOffsetsAt:])
 
 	for queryIdx, readIdx := range r.readFieldIndexes {
-		if readIdx == -1 {
+		if readIdx == fieldNotFound {
 			continue
 		}
 		fieldBlock, err := fieldOffsetsDecoder.GetBlock(readIdx, seriesEntryBlock[:fieldOffsetsAt])

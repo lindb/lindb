@@ -158,9 +158,13 @@ func (fc *dataFlushChecker) startCheckDataFlush() {
 			if len(needFlushShards) == 0 && !fc.isWatermarkFlushing.Load() && fc.flushInFlight.Load() == 0 {
 				// check Global memory is above than the high watermark, if no shard need flush
 				stat, _ := fc.memoryStatGetterFunc()
-				if stat.UsedPercent > config.GlobalStorageConfig().TSDB.MaxMemUsageBeforeFlush {
+				maxMemUsageLimit := config.GlobalStorageConfig().TSDB.MaxMemUsageBeforeFlush * 100
+				if stat.UsedPercent > maxMemUsageLimit {
 					// memory is higher than the high-watermark
 					// restrict watermarkFlusher concurrency thread-safe
+					fc.logger.Info("memory is higher than the high watermark, need pick biggest memory usage family to flush",
+						logger.Any("memoryUsed", stat.UsedPercent),
+						logger.Any("limit", maxMemUsageLimit))
 					fc.flushBiggestMemoryUsageFamily()
 				}
 			}
@@ -241,7 +245,7 @@ func (fc *dataFlushChecker) flushBiggestMemoryUsageFamily() {
 		biggestFamily DataFamily
 		// ignore family whose memdb size is smaller than 4MB
 		// without this threshold, when tsdb is under insufficient system resources,
-		// watermark flushing may creates a large number of small L0 files，
+		// watermark flushing may create a large number of small L0 files，
 		// which is not helpful for reducing system memory usage
 		biggestMemSize = ignoreMemorySize
 	)
