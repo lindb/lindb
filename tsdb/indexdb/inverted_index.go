@@ -273,11 +273,15 @@ func (index *invertedIndex) Flush() error {
 
 	// flush immutable data into kv store
 	forwardFlusher := index.forwardFamily.NewFlusher()
+	defer forwardFlusher.Release()
+
 	forward, err := newForwardFlusherFunc(forwardFlusher)
 	if err != nil {
 		return err
 	}
 	invertedFlusher := index.invertedFamily.NewFlusher()
+	defer invertedFlusher.Release()
+
 	inverted, err := newInvertedFlusherFunc(invertedFlusher)
 	if err != nil {
 		return err

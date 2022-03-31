@@ -36,6 +36,12 @@ import (
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
+// for testing
+var (
+	// NewRestyFn represents new resty client.
+	NewRestyFn = resty.New
+)
+
 // MetadataCommand executes the metadata query.
 func MetadataCommand(ctx context.Context, deps *depspkg.HTTPDeps,
 	_ *models.ExecuteParam, stmt stmtpkg.Statement) (interface{}, error) {
@@ -76,7 +82,7 @@ func MetadataCommand(ctx context.Context, deps *depspkg.HTTPDeps,
 		masterNode := deps.Master.GetMaster()
 		address := masterNode.Node.HTTPAddress()
 		var meta []interface{}
-		_, err := resty.New().R().SetQueryParams(map[string]string{
+		_, err := NewRestyFn().R().SetQueryParams(map[string]string{
 			"sql": fmt.Sprintf("show storage metedata where path='%s' and storage='%s'",
 				metadataStmt.Type, metadataStmt.StorageName)}).
 			SetHeader("Accept", "application/json").
