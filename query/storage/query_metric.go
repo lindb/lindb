@@ -163,7 +163,7 @@ func (e *storageExecutor) executeQuery() {
 // 2. loading
 func (e *storageExecutor) executeGroupBy(shardExecuteContext *flow.ShardExecuteContext, shard tsdb.Shard) {
 	// time segments sorted by family
-	timeSegments := shardExecuteContext.TimeSegmentRS.GetTimeSegments()
+	timeSegments := shardExecuteContext.TimeSegmentContext.GetTimeSegments()
 	queryIntervalRatio := shardExecuteContext.StorageExecuteCtx.QueryIntervalRatio
 
 	if e.ctx.storageExecuteCtx.Query.HasGroupBy() {
@@ -194,11 +194,14 @@ func (e *storageExecutor) executeGroupBy(shardExecuteContext *flow.ShardExecuteC
 				SeriesIDHighKey:       seriesIDsHighKeys[highSeriesIDIdx],
 				Loaders:               make([][]flow.DataLoader, len(timeSegments)),
 			}
-			dataLoadCtx.PrepareAggregator()
 
-			t := newBuildGroupTaskFunc(shardExecuteContext, shard, dataLoadCtx)
+			t := newBuildGroupTaskFunc(shard, dataLoadCtx)
 			if err := t.Run(); err != nil {
 				e.queryFlow.Complete(err)
+				return
+			}
+			if !dataLoadCtx.HasGroupingData() {
+				// if it hasn't grouping result, after grouping build.
 				return
 			}
 
@@ -218,49 +221,36 @@ func (e *storageExecutor) executeGroupBy(shardExecuteContext *flow.ShardExecuteC
 						e.queryFlow.Complete(err)
 						return
 					}
-					// family => result set
-					// scan metric data from storage(memory/file)
+					// segment = family => data load result set
 					timeSegment := timeSegments[segmentIdx]
-					agg, ok := dataLoadCtx.SingleFieldAgg.GetAggregator(timeSegment.FamilyTime)
-					if !ok {
-						continue
-					}
-					start, end := agg.SlotRange()
-					target := timeutil.SlotRange{
-						Start: uint16(start),
-						End:   uint16(end),
-					}
+					var target *timeutil.SlotRange
 					loaders := dataLoadCtx.Loaders[segmentIdx]
 					for _, loader := range loaders {
 						if loader == nil {
 							continue
 						}
 						// load field series data by series ids
-						grouping := dataLoadCtx.IsGrouping()
 						tsdDecoder := encoding.GetTSDDecoder()
 
-						dataLoadCtx.DownSampling = func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, fieldData []byte) {
+						dataLoadCtx.DownSampling = func(slotRange timeutil.SlotRange, lowSeriesIdx uint16, fieldIdx int, fieldData []byte) {
 							var agg aggregation.FieldAggregator
-							var fieldAgg aggregation.SeriesAggregator
-							if grouping {
-								groupingSeriesIdx := dataLoadCtx.GroupingSeriesAggRefs[seriesIdx]
-								// TODO check len
-								fieldAgg = dataLoadCtx.GroupingSeriesAgg[groupingSeriesIdx].Aggregator
-							} else {
-								fieldAgg = dataLoadCtx.SingleFieldAgg
-							}
-							if fieldAgg == nil {
-								return
-							}
+							seriesAggregator := dataLoadCtx.GetSeriesAggregator(lowSeriesIdx, fieldIdx)
 
 							var ok bool
-							agg, ok = fieldAgg.GetAggregator(timeSegment.FamilyTime)
+							agg, ok = seriesAggregator.GetAggregator(timeSegment.FamilyTime)
 							if !ok {
 								return
 							}
+							if target == nil {
+								start, end := agg.SlotRange()
+								target = &timeutil.SlotRange{
+									Start: uint16(start),
+									End:   uint16(end),
+								}
+							}
 							tsdDecoder.ResetWithTimeRange(fieldData, slotRange.Start, slotRange.End)
 							aggregation.DownSamplingSeries(
-								target, uint16(queryIntervalRatio), 0, // same family, base slot = 0
+								*target, uint16(queryIntervalRatio), 0, // same family, base slot = 0
 								tsdDecoder,
 								agg.AggregateBySlot,
 							)
