@@ -20,14 +20,14 @@ package tagkeymeta
 import (
 	"fmt"
 
+	"github.com/lindb/roaring"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
-
-	"github.com/lindb/roaring"
 )
 
 //go:generate mockgen -source ./reader.go -destination=./reader_mock.go -package tagkeymeta
@@ -194,7 +194,8 @@ func (r *tagReader) SuggestTagValues(
 			if len(tagValues) >= limit {
 				return tagValues
 			}
-			tagValues = append(tagValues, strutil.ByteSlice2String(itr.Key()))
+			// if use strutil.ByteSlice2String will get one tag value(all tag values is duplicate)
+			tagValues = append(tagValues, string(itr.Key()))
 			itr.Next()
 		}
 	}
