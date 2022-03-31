@@ -137,12 +137,12 @@ func (s *StorageStats) SetShardGroupingCost(shardID ShardID, cost time.Duration)
 }
 
 // SetShardScanStats sets data scan cost in shard level
-func (s *StorageStats) SetShardScanStats(shardID ShardID, identifier string, cost time.Duration) {
+func (s *StorageStats) SetShardScanStats(shardID ShardID, identifier string, cost time.Duration, foundSeries int) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	stats, ok := s.Shards[shardID]
 	if ok {
-		stats.SetScanStats(identifier, cost)
+		stats.SetScanStats(identifier, cost, foundSeries)
 	}
 }
 
@@ -182,11 +182,12 @@ func newShardStats() *ShardStats {
 }
 
 // SetScanStats sets the data scan stats in shard level
-func (s *ShardStats) SetScanStats(identifier string, cost time.Duration) {
+func (s *ShardStats) SetScanStats(identifier string, cost time.Duration, foundSeries int) {
 	costVal := cost.Nanoseconds()
 	stats, ok := s.ScanStats[identifier]
 	if ok {
 		stats.Count++
+		stats.Series += foundSeries
 		if stats.Max < costVal {
 			stats.Max = costVal
 		} else if stats.Min > costVal {
@@ -194,9 +195,10 @@ func (s *ShardStats) SetScanStats(identifier string, cost time.Duration) {
 		}
 	} else {
 		s.ScanStats[identifier] = &Stats{
-			Min:   costVal,
-			Max:   costVal,
-			Count: 1,
+			Min:    costVal,
+			Max:    costVal,
+			Count:  1,
+			Series: foundSeries,
 		}
 	}
 }
@@ -222,7 +224,8 @@ func (s *ShardStats) SetGroupBuildStats(cost time.Duration) {
 
 // Stats represents the time stats
 type Stats struct {
-	Min   int64 `json:"min"`
-	Max   int64 `json:"max"`
-	Count int   `json:"count"`
+	Min    int64 `json:"min"`
+	Max    int64 `json:"max"`
+	Count  int   `json:"count"`
+	Series int   `json:"series,omitempty"`
 }

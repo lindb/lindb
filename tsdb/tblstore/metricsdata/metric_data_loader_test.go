@@ -26,6 +26,7 @@ import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/sql/stmt"
 )
 
 func TestMetricLoader_Load(t *testing.T) {
@@ -37,6 +38,11 @@ func TestMetricLoader_Load(t *testing.T) {
 
 	ctx := &flow.DataLoadContext{
 		SeriesIDHighKey: 0,
+		ShardExecuteCtx: &flow.ShardExecuteContext{
+			StorageExecuteCtx: &flow.StorageExecuteContext{
+				Query: &stmt.Query{},
+			},
+		},
 	}
 	var seriesOffsets *encoding.FixedOffsetDecoder
 	cases := []struct {

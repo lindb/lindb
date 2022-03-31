@@ -256,7 +256,7 @@ func (f *dataFamily) Flush() error {
 
 		// add lock when switch memory database
 		f.mutex.Lock()
-		if f.immutableMemDB != nil || f.mutableMemDB == nil || f.mutableMemDB.Size() <= 0 {
+		if f.immutableMemDB != nil || f.mutableMemDB == nil || f.mutableMemDB.Size() == 0 {
 			// if immutable memory database not nil or no data need flush, return it
 			f.mutex.Unlock()
 			return nil
@@ -331,9 +331,9 @@ func (f *dataFamily) Filter(executeCtx *flow.ShardExecuteContext) (resultSet []f
 	return
 }
 
-func (f *dataFamily) memoryFilter(executeCtx *flow.ShardExecuteContext) (resultSet []flow.FilterResultSet, err error) {
+func (f *dataFamily) memoryFilter(shardExecuteContext *flow.ShardExecuteContext) (resultSet []flow.FilterResultSet, err error) {
 	memFilter := func(memDB memdb.MemoryDatabase) error {
-		rs, err := memDB.Filter(executeCtx)
+		rs, err := memDB.Filter(shardExecuteContext)
 		if err != nil {
 			return err
 		}
