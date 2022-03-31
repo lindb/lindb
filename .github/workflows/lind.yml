@@ -16,6 +16,9 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Make Mock files
+        run: make gomock
+
       - name: Lint
         run: make lint
 
