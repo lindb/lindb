@@ -33,7 +33,7 @@ import (
 	"github.com/lindb/lindb/sql/stmt"
 )
 
-// StorageExecuteContext represents storage query execute context.
+// StorageExecuteContext represents storage level query execute context.
 type StorageExecuteContext struct {
 	Query         *stmt.Query
 	ShardIDs      []models.ShardID
@@ -57,7 +57,6 @@ type StorageExecuteContext struct {
 	GroupByTagKeyIDs []tag.KeyID
 	// for group by query store tag value ids for each group tag key
 	GroupingTagValueIDs []*roaring.Bitmap
-	mutex               sync.Mutex
 
 	// Time range and interval
 	QueryTimeRange     timeutil.TimeRange
@@ -65,6 +64,8 @@ type StorageExecuteContext struct {
 	QueryIntervalRatio int
 
 	Stats *models.StorageStats // storage query stats track for explain query
+
+	mutex sync.Mutex
 }
 
 // CollectGroupingTagValueIDs collects grouping tag value ids when does grouping operation.
@@ -102,9 +103,13 @@ func (ctx *StorageExecuteContext) QueryStats() *models.StorageStats {
 	return ctx.Stats
 }
 
+// Release releases context's resource after query.
 func (ctx *StorageExecuteContext) Release() {
 	for idx := range ctx.ShardContexts {
-		ctx.ShardContexts[idx].Release()
+		shardCtx := ctx.ShardContexts[idx]
+		if shardCtx != nil {
+			shardCtx.Release()
+		}
 	}
 }
 
@@ -114,23 +119,26 @@ type TagFilterResult struct {
 	TagValueIDs *roaring.Bitmap
 }
 
-type TimeSegmentResultSet struct {
-	TimeSegments map[int64]*TimeSegmentContext // familyTime -> timeSpan todo need fix
-	SeriesIDs    *roaring.Bitmap
+// TimeSegmentContext represents time segment context
+type TimeSegmentContext struct {
+	TimeSegments map[int64]*TimeSegmentResultSet // familyTime -> time segment result set list
+	SeriesIDs    *roaring.Bitmap                 // matched series ids after data filter
 }
 
-func NewTimeSegmentResultSet() *TimeSegmentResultSet {
-	return &TimeSegmentResultSet{
-		TimeSegments: make(map[int64]*TimeSegmentContext),
+// NewTimeSegmentContext creates a time segment context.
+func NewTimeSegmentContext() *TimeSegmentContext {
+	return &TimeSegmentContext{
+		TimeSegments: make(map[int64]*TimeSegmentResultSet),
 		SeriesIDs:    roaring.New(),
 	}
 }
 
-func (ts *TimeSegmentResultSet) AddFilterResultSet(interval timeutil.Interval, rs FilterResultSet) {
+// AddFilterResultSet adds a result set after data filtering.
+func (ts *TimeSegmentContext) AddFilterResultSet(interval timeutil.Interval, rs FilterResultSet) {
 	familyTime := rs.FamilyTime()
 	segment, ok := ts.TimeSegments[familyTime]
 	if !ok {
-		segment = &TimeSegmentContext{
+		segment = &TimeSegmentResultSet{
 			FamilyTime: familyTime,
 			Source:     rs.SlotRange(),
 			Target:     rs.SlotRange(),
@@ -148,7 +156,8 @@ func (ts *TimeSegmentResultSet) AddFilterResultSet(interval timeutil.Interval, r
 	ts.SeriesIDs.Or(rs.SeriesIDs())
 }
 
-func (ts *TimeSegmentResultSet) GetTimeSegments() (rs TimeSegmentContexts) {
+// GetTimeSegments returns
+func (ts *TimeSegmentContext) GetTimeSegments() (rs TimeSegmentContexts) {
 	for _, segment := range ts.TimeSegments {
 		rs = append(rs, segment)
 	}
@@ -156,46 +165,66 @@ func (ts *TimeSegmentResultSet) GetTimeSegments() (rs TimeSegmentContexts) {
 	return rs
 }
 
-func (ts *TimeSegmentResultSet) Release() {
+// Release releases time segment's data resource after query.
+func (ts *TimeSegmentContext) Release() {
 	for idx := range ts.TimeSegments {
 		ts.TimeSegments[idx].Release()
 	}
 }
 
+// ShardExecuteContext represents shard level query execute context.
 type ShardExecuteContext struct {
-	StorageExecuteCtx *StorageExecuteContext
+	StorageExecuteCtx  *StorageExecuteContext
+	TimeSegmentContext *TimeSegmentContext // result set for each time segment
 
-	TimeSegmentRS *TimeSegmentResultSet // result set for each time segment
-
-	SeriesIDsAfterFiltering *roaring.Bitmap
-
-	GroupingContext GroupingContext
+	GroupingContext         GroupingContext // after get grouping context if it has grouping query
+	SeriesIDsAfterFiltering *roaring.Bitmap // after data filter
 }
 
+// NewShardExecuteContext creates a shard execute context.
 func NewShardExecuteContext(storageExecuteCtx *StorageExecuteContext) *ShardExecuteContext {
 	return &ShardExecuteContext{
 		StorageExecuteCtx:       storageExecuteCtx,
 		SeriesIDsAfterFiltering: roaring.New(),
-		TimeSegmentRS:           NewTimeSegmentResultSet(),
+		TimeSegmentContext:      NewTimeSegmentContext(),
 	}
 }
 
 func (ctx *ShardExecuteContext) IsSeriesIDsEmpty() bool {
 	// maybe some series ids not write data in query time range,
 	// so need reset series ids using ids which after data filtering.
-	ctx.SeriesIDsAfterFiltering = ctx.TimeSegmentRS.SeriesIDs
+	ctx.SeriesIDsAfterFiltering = ctx.TimeSegmentContext.SeriesIDs
 	return ctx.SeriesIDsAfterFiltering.IsEmpty()
 }
 
+// Release releases shard context's resource after query.
 func (ctx *ShardExecuteContext) Release() {
-	ctx.TimeSegmentRS.Release()
+	if ctx.TimeSegmentContext != nil {
+		ctx.TimeSegmentContext.Release()
+	}
 }
 
+// GroupingSeriesAgg represents grouping series aggregator.
 type GroupingSeriesAgg struct {
-	Key        string
-	Aggregator aggregation.SeriesAggregator
+	Key         string
+	Aggregator  aggregation.SeriesAggregator // for single field query
+	Aggregators aggregation.FieldAggregates  // for multi fields query
 }
 
+// reduce aggregator's result set.
+func (agg *GroupingSeriesAgg) reduce(reduceFn func(it series.GroupedIterator)) {
+	if agg.Aggregator != nil {
+		reduceFn(aggregation.FieldAggregates{agg.Aggregator}.ResultSet(agg.Key))
+		// reset aggregate context
+		agg.Aggregator.Reset()
+	} else {
+		reduceFn(agg.Aggregators.ResultSet(agg.Key))
+		// reset aggregate context
+		agg.Aggregators.Reset()
+	}
+}
+
+// DataLoadContext represents data load level query execute context.
 type DataLoadContext struct {
 	ShardExecuteCtx *ShardExecuteContext
 
@@ -210,37 +239,99 @@ type DataLoadContext struct {
 	// time segment => a list of DataLoader(each family)
 	Loaders [][]DataLoader // item maybe DataLoader is nil
 
-	GroupingSeriesAggRefs []uint16 // series id => GroupingSeriesAgg index
-	SingleFieldAgg        aggregation.SeriesAggregator
-	GroupingSeriesAgg     []*GroupingSeriesAgg
+	GroupingSeriesAggRefs    []uint16 // series id => GroupingSeriesAgg index
+	WithoutGroupingSeriesAgg *GroupingSeriesAgg
+	GroupingSeriesAgg        []*GroupingSeriesAgg
+	groupingSeriesAggRefIdx  uint16
 
 	DownSampling func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, fieldData []byte)
 }
 
-func (ctx *DataLoadContext) PrepareAggregator() {
+// PrepareAggregatorWithoutGrouping prepares context for without grouping query.
+func (ctx *DataLoadContext) PrepareAggregatorWithoutGrouping() {
+	ctx.WithoutGroupingSeriesAgg = &GroupingSeriesAgg{
+		Key: "",
+	}
 	if ctx.IsMultiField() {
-		panic("need impl")
+		ctx.WithoutGroupingSeriesAgg.Aggregators = ctx.newSeriesAggregators()
 	} else {
-		ctx.SingleFieldAgg = ctx.NewSeriesAggregator()
+		ctx.WithoutGroupingSeriesAgg.Aggregator = ctx.newSeriesAggregator(0)
 	}
 }
 
-func (ctx *DataLoadContext) NewSeriesAggregator() aggregation.SeriesAggregator {
+// NewSeriesAggregator creates the series aggregator with grouping key for grouping query,
+// returns index of grouping aggregator.
+func (ctx *DataLoadContext) NewSeriesAggregator(groupingKey string) uint16 {
+	rs := ctx.groupingSeriesAggRefIdx
+	groupingSeriesAgg := &GroupingSeriesAgg{
+		Key: groupingKey,
+	}
+	if ctx.IsMultiField() {
+		groupingSeriesAgg.Aggregators = ctx.newSeriesAggregators()
+	} else {
+		groupingSeriesAgg.Aggregator = ctx.newSeriesAggregator(0)
+	}
+	ctx.GroupingSeriesAgg = append(ctx.GroupingSeriesAgg, groupingSeriesAgg)
+	ctx.groupingSeriesAggRefIdx++
+	return rs
+}
+
+// newSeriesAggregators creates the series aggregators for multi field.
+func (ctx *DataLoadContext) newSeriesAggregators() []aggregation.SeriesAggregator {
+	rs := make([]aggregation.SeriesAggregator, len(ctx.ShardExecuteCtx.StorageExecuteCtx.Fields))
+	for fieldIdx := range ctx.ShardExecuteCtx.StorageExecuteCtx.Fields {
+		rs[fieldIdx] = aggregation.NewSeriesAggregator(
+			ctx.ShardExecuteCtx.StorageExecuteCtx.QueryInterval,
+			ctx.ShardExecuteCtx.StorageExecuteCtx.QueryIntervalRatio,
+			ctx.ShardExecuteCtx.StorageExecuteCtx.QueryTimeRange,
+			ctx.ShardExecuteCtx.StorageExecuteCtx.DownSamplingSpecs[fieldIdx])
+	}
+	return rs
+}
+
+// newSeriesAggregator creates a series aggregator with field index.
+func (ctx *DataLoadContext) newSeriesAggregator(fieldIdx int) aggregation.SeriesAggregator {
 	return aggregation.NewSeriesAggregator(
 		ctx.ShardExecuteCtx.StorageExecuteCtx.QueryInterval,
 		ctx.ShardExecuteCtx.StorageExecuteCtx.QueryIntervalRatio,
 		ctx.ShardExecuteCtx.StorageExecuteCtx.QueryTimeRange,
-		ctx.ShardExecuteCtx.StorageExecuteCtx.DownSamplingSpecs[0])
+		ctx.ShardExecuteCtx.StorageExecuteCtx.DownSamplingSpecs[fieldIdx])
 }
 
+// IsMultiField returns if it is multi field select for query.
 func (ctx *DataLoadContext) IsMultiField() bool {
 	return len(ctx.ShardExecuteCtx.StorageExecuteCtx.Fields) > 1
 }
 
+// IsGrouping returns if it is grouping query.
 func (ctx *DataLoadContext) IsGrouping() bool {
 	return ctx.ShardExecuteCtx.StorageExecuteCtx.Query.HasGroupBy()
 }
 
+// HasGroupingData returns if it is grouping data.
+func (ctx *DataLoadContext) HasGroupingData() bool {
+	if ctx.IsGrouping() {
+		return len(ctx.GroupingSeriesAgg) > 0
+	}
+	return true
+}
+
+// GetSeriesAggregator gets series aggregator with low series id and field index.
+func (ctx *DataLoadContext) GetSeriesAggregator(lowSeriesIdx uint16, fieldIdx int) (result aggregation.SeriesAggregator) {
+	var groupingSeriesAgg *GroupingSeriesAgg
+	if ctx.IsGrouping() {
+		groupingSeriesIdx := ctx.GroupingSeriesAggRefs[lowSeriesIdx]
+		groupingSeriesAgg = ctx.GroupingSeriesAgg[groupingSeriesIdx]
+	} else {
+		groupingSeriesAgg = ctx.WithoutGroupingSeriesAgg
+	}
+	if ctx.IsMultiField() {
+		return groupingSeriesAgg.Aggregators[fieldIdx]
+	}
+	return groupingSeriesAgg.Aggregator
+}
+
+// Grouping prepares context for grouping query.
 func (ctx *DataLoadContext) Grouping() {
 	min := ctx.LowSeriesIDsContainer.Minimum()
 	ctx.MinSeriesID = min
@@ -289,26 +380,22 @@ func (ctx *DataLoadContext) IterateLowSeriesIDs(lowSeriesIDsFromStorage roaring.
 func (ctx *DataLoadContext) Reduce(reduceFn func(it series.GroupedIterator)) {
 	if ctx.IsGrouping() {
 		for _, groupAgg := range ctx.GroupingSeriesAgg {
-			reduceFn(aggregation.FieldAggregates{groupAgg.Aggregator}.ResultSet(groupAgg.Key))
-			// reset aggregate context
-			groupAgg.Aggregator.Reset()
+			groupAgg.reduce(reduceFn)
 		}
 	} else {
-		reduceFn(aggregation.FieldAggregates{ctx.SingleFieldAgg}.ResultSet(""))
-		// reset aggregate context
-		ctx.SingleFieldAgg.Reset()
+		ctx.WithoutGroupingSeriesAgg.reduce(reduceFn)
 	}
 }
 
 // TimeSegmentContexts represents the time segment slice in query time range.
-type TimeSegmentContexts []*TimeSegmentContext
+type TimeSegmentContexts []*TimeSegmentResultSet
 
 func (f TimeSegmentContexts) Len() int           { return len(f) }
 func (f TimeSegmentContexts) Less(i, j int) bool { return f[i].FamilyTime < f[j].FamilyTime }
 func (f TimeSegmentContexts) Swap(i, j int)      { f[i], f[j] = f[j], f[i] }
 
-// TimeSegmentContext represents the time segment in query time range.
-type TimeSegmentContext struct {
+// TimeSegmentResultSet represents the time segment in query time range.
+type TimeSegmentResultSet struct {
 	FamilyTime     int64
 	Source, Target timeutil.SlotRange
 	Interval       timeutil.Interval
@@ -316,7 +403,8 @@ type TimeSegmentContext struct {
 	FilterRS []FilterResultSet
 }
 
-func (ctx *TimeSegmentContext) Release() {
+// Release releases filter result set's resource after query.
+func (ctx *TimeSegmentResultSet) Release() {
 	for idx := range ctx.FilterRS {
 		ctx.FilterRS[idx].Close()
 	}

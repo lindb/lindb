@@ -119,8 +119,8 @@ func (p *storageExecutePlan) buildField() {
 		}
 		idx++
 	}
+	// first sort field by field id
 	p.ctx.storageExecuteCtx.SortFields()
-
 	// after sort filed, build aggregation spec
 	p.ctx.storageExecuteCtx.DownSamplingSpecs = make(aggregation.AggregatorSpecs, lengthOfFields)
 	p.ctx.storageExecuteCtx.AggregatorSpecs = make(aggregation.AggregatorSpecs, lengthOfFields)

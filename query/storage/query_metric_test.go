@@ -334,7 +334,7 @@ func TestStorageExecute_Execute(t *testing.T) {
 				familyTask := flow.NewMockQueryTask(ctrl)
 				familyTask.EXPECT().Run().Return(nil).MaxTimes(3)
 				newFamilyFilterTaskFunc = func(shardExecuteContext *flow.ShardExecuteContext, shard tsdb.Shard) flow.QueryTask {
-					shardExecuteContext.TimeSegmentRS.SeriesIDs = roaring.BitmapOf(1, 2)
+					shardExecuteContext.TimeSegmentContext.SeriesIDs = roaring.BitmapOf(1, 2)
 					return familyTask
 				}
 				groupTask := flow.NewMockQueryTask(ctrl)
@@ -354,7 +354,7 @@ func TestStorageExecute_Execute(t *testing.T) {
 				mockGroupData(ctrl)
 				task := flow.NewMockQueryTask(ctrl)
 				task.EXPECT().Run().Return(io.ErrClosedPipe)
-				newBuildGroupTaskFunc = func(ctx *flow.ShardExecuteContext, shard tsdb.Shard,
+				newBuildGroupTaskFunc = func(shard tsdb.Shard,
 					loadCtx *flow.DataLoadContext) flow.QueryTask {
 					return task
 				}
@@ -370,14 +370,22 @@ func TestStorageExecute_Execute(t *testing.T) {
 				mockGroupData(ctrl)
 				task := flow.NewMockQueryTask(ctrl)
 				task.EXPECT().Run().Return(nil).AnyTimes()
-				newBuildGroupTaskFunc = func(ctx *flow.ShardExecuteContext, shard tsdb.Shard,
+				newBuildGroupTaskFunc = func(shard tsdb.Shard,
 					loadCtx *flow.DataLoadContext) flow.QueryTask {
+					loadCtx.ShardExecuteCtx = &flow.ShardExecuteContext{
+						StorageExecuteCtx: &flow.StorageExecuteContext{
+							Query: &stmt.Query{
+								GroupBy: []string{"node"},
+							},
+						},
+					}
+					loadCtx.GroupingSeriesAgg = []*flow.GroupingSeriesAgg{nil}
 					return task
 				}
 				scanTask := flow.NewMockQueryTask(ctrl)
 				scanTask.EXPECT().Run().Return(io.ErrClosedPipe)
 				newDataLoadTaskFunc = func(shard tsdb.Shard, queryFlow flow.StorageQueryFlow,
-					dataLoadCtx *flow.DataLoadContext, segmentIdx int, segmentCtx *flow.TimeSegmentContext) flow.QueryTask {
+					dataLoadCtx *flow.DataLoadContext, segmentIdx int, segmentCtx *flow.TimeSegmentResultSet) flow.QueryTask {
 					return scanTask
 				}
 			},
@@ -392,12 +400,19 @@ func TestStorageExecute_Execute(t *testing.T) {
 				mockGroupData(ctrl)
 				task := flow.NewMockQueryTask(ctrl)
 				task.EXPECT().Run().Return(nil).AnyTimes()
-				newBuildGroupTaskFunc = func(ctx *flow.ShardExecuteContext, shard tsdb.Shard,
+				newBuildGroupTaskFunc = func(shard tsdb.Shard,
 					loadCtx *flow.DataLoadContext) flow.QueryTask {
+					loadCtx.ShardExecuteCtx = &flow.ShardExecuteContext{
+						StorageExecuteCtx: &flow.StorageExecuteContext{
+							Query: &stmt.Query{
+								GroupBy: []string{"node"},
+							},
+						},
+					}
 					return task
 				}
 				newDataLoadTaskFunc = func(shard tsdb.Shard, queryFlow flow.StorageQueryFlow,
-					dataLoadCtx *flow.DataLoadContext, segmentIdx int, segmentCtx *flow.TimeSegmentContext) flow.QueryTask {
+					dataLoadCtx *flow.DataLoadContext, segmentIdx int, segmentCtx *flow.TimeSegmentResultSet) flow.QueryTask {
 					panic("err")
 				}
 			},
@@ -447,11 +462,11 @@ func mockGroupData(ctrl *gomock.Controller) {
 	familyTask := flow.NewMockQueryTask(ctrl)
 	familyTask.EXPECT().Run().Return(nil).MaxTimes(3)
 	newFamilyFilterTaskFunc = func(shardExecuteContext *flow.ShardExecuteContext, shard tsdb.Shard) flow.QueryTask {
-		shardExecuteContext.TimeSegmentRS.SeriesIDs = roaring.BitmapOf(1, 2)
+		shardExecuteContext.TimeSegmentContext.SeriesIDs = roaring.BitmapOf(1, 2)
 		shardExecuteContext.StorageExecuteCtx = &flow.StorageExecuteContext{
 			DownSamplingSpecs: aggregation.AggregatorSpecs{aggregation.NewAggregatorSpec("f", field.SumField)},
 		}
-		shardExecuteContext.TimeSegmentRS.TimeSegments = map[int64]*flow.TimeSegmentContext{10: nil}
+		shardExecuteContext.TimeSegmentContext.TimeSegments = map[int64]*flow.TimeSegmentResultSet{10: nil}
 		return familyTask
 	}
 	groupTask := flow.NewMockQueryTask(ctrl)

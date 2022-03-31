@@ -26,11 +26,13 @@ import (
 	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql"
@@ -196,14 +198,14 @@ func TestFileDataFilterTask_Run(t *testing.T) {
 			Query: &stmt.Query{},
 			Stats: models.NewStorageStats(),
 		},
-		TimeSegmentRS: flow.NewTimeSegmentResultSet(),
+		TimeSegmentContext: flow.NewTimeSegmentContext(),
 	}
 	task := newFamilyFilterTask(ctx, shard)
 	// case 1: get empty family
 	shard.EXPECT().GetDataFamilies(gomock.Any(), gomock.Any()).Return(nil)
 	err := task.Run()
 	assert.NoError(t, err)
-	assert.Empty(t, ctx.TimeSegmentRS.TimeSegments)
+	assert.Empty(t, ctx.TimeSegmentContext.TimeSegments)
 	// case 2: family filter err
 	family := tsdb.NewMockDataFamily(ctrl)
 	shard.EXPECT().GetDataFamilies(gomock.Any(), gomock.Any()).Return([]tsdb.DataFamily{family}).AnyTimes()
@@ -218,7 +220,7 @@ func TestFileDataFilterTask_Run(t *testing.T) {
 	family.EXPECT().Filter(gomock.Any()).Return([]flow.FilterResultSet{resultSet}, nil)
 	err = task.Run()
 	assert.NoError(t, err)
-	assert.NotEmpty(t, ctx.TimeSegmentRS.TimeSegments)
+	assert.NotEmpty(t, ctx.TimeSegmentContext.TimeSegments)
 	// case 4: explain
 	family.EXPECT().Interval().Return(timeutil.Interval(10000))
 	resultSet.EXPECT().FamilyTime().Return(int64(10))
@@ -230,7 +232,7 @@ func TestFileDataFilterTask_Run(t *testing.T) {
 	shard.EXPECT().ShardID().Return(models.ShardID(10))
 	err = task.Run()
 	assert.NoError(t, err)
-	assert.NotEmpty(t, ctx.TimeSegmentRS.TimeSegments)
+	assert.NotEmpty(t, ctx.TimeSegmentContext.TimeSegments)
 }
 
 func TestGroupingContextFindTask_Run(t *testing.T) {
@@ -275,15 +277,16 @@ func TestBuildGroupTask_Run(t *testing.T) {
 	ctx := &flow.ShardExecuteContext{
 		SeriesIDsAfterFiltering: seriesIDs,
 		StorageExecuteCtx: &flow.StorageExecuteContext{
-			Query: &stmt.Query{},
-			Stats: models.NewStorageStats(),
+			Query:             &stmt.Query{},
+			Stats:             models.NewStorageStats(),
+			DownSamplingSpecs: aggregation.AggregatorSpecs{aggregation.NewAggregatorSpec("f", field.SumField)},
 		},
 	}
 	dataLoadCtx := &flow.DataLoadContext{
 		ShardExecuteCtx:       ctx,
 		LowSeriesIDsContainer: seriesIDs.GetContainerAtIndex(0),
 	}
-	task := newBuildGroupTask(ctx, shard, dataLoadCtx)
+	task := newBuildGroupTask(shard, dataLoadCtx)
 	// case 1: no group
 	err := task.Run()
 	assert.NoError(t, err)
@@ -291,12 +294,12 @@ func TestBuildGroupTask_Run(t *testing.T) {
 	groupingCtx := flow.NewMockGroupingContext(ctrl)
 	groupingCtx.EXPECT().BuildGroup(gomock.Any()).AnyTimes()
 	ctx.GroupingContext = groupingCtx
-	task = newBuildGroupTask(ctx, shard, dataLoadCtx)
+	task = newBuildGroupTask(shard, dataLoadCtx)
 	err = task.Run()
 	assert.NoError(t, err)
 	// case 3: explain
 	ctx.StorageExecuteCtx.Query.Explain = true
-	task = newBuildGroupTask(ctx, shard, dataLoadCtx)
+	task = newBuildGroupTask(shard, dataLoadCtx)
 	shard.EXPECT().ShardID().Return(models.ShardID(10))
 	err = task.Run()
 	assert.NoError(t, err)
@@ -320,7 +323,7 @@ func TestDataLoadTask_Run(t *testing.T) {
 		},
 		Loaders: make([][]flow.DataLoader, 1),
 	}
-	segment := &flow.TimeSegmentContext{FilterRS: []flow.FilterResultSet{rs}}
+	segment := &flow.TimeSegmentResultSet{FilterRS: []flow.FilterResultSet{rs}}
 	task := newDataLoadTask(shard, qf, ctx, 0, segment)
 	rs.EXPECT().Load(gomock.Any()).AnyTimes()
 	// case 1: load data
