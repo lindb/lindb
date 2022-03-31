@@ -273,6 +273,7 @@ func (ctx *DataLoadContext) IterateLowSeriesIDs(lowSeriesIDsFromStorage roaring.
 			break
 		}
 		if seriesID < min {
+			seriesIdxFromStorage++
 			continue
 		}
 		seriesIdxFromQuery := seriesID - min
