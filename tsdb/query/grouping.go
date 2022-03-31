@@ -106,8 +106,7 @@ func (g *GroupingContext) buildTagValueIDs2SeriesIDs(ctx *flow.DataLoadContext) 
 				continue
 			}
 			ctx.IterateLowSeriesIDs(lowSeriesIDs, func(seriesIdxFromQuery uint16, seriesIdxFromStorage int) {
-				tagValueID := tagValueIDs[seriesIdxFromStorage]
-				groupingTagValueIDs[seriesIdxFromQuery] = tagValueID
+				groupingTagValueIDs[seriesIdxFromQuery] = tagValueIDs[seriesIdxFromStorage]
 			})
 		}
 	}
@@ -143,8 +142,8 @@ func (g *GroupingContext) buildTagValueIDs2SeriesIDs(ctx *flow.DataLoadContext) 
 					Key:        key,
 					Aggregator: ctx.NewSeriesAggregator(),
 				})
-				ctx.GroupingSeriesAggRefs[seriesIdxFromQuery] = groupingSeriesAggIdx
-				result[key] = groupingSeriesAggIdx
+				aggIdx = groupingSeriesAggIdx
+				result[key] = aggIdx
 				groupingSeriesAggIdx++
 			}
 			ctx.GroupingSeriesAggRefs[seriesIdxFromQuery] = aggIdx
