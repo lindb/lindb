@@ -398,21 +398,6 @@
   resolved "https://registry.nlark.com/@humanwhocodes/object-schema/download/@humanwhocodes/object-schema-1.2.0.tgz?cache=0&sync_timestamp=1625263889550&other_urls=https%3A%2F%2Fregistry.nlark.com%2F%40humanwhocodes%2Fobject-schema%2Fdownload%2F%40humanwhocodes%2Fobject-schema-1.2.0.tgz"
   integrity sha1-h956+cIxgm/daKxyWPd8Qp4OX88=
 
-"@monaco-editor/loader@^1.2.0":
-  version "1.2.0"
-  resolved "https://registry.npmmirror.com/@monaco-editor/loader/-/loader-1.2.0.tgz#373fad69973384624e3d9b60eefd786461a76acd"
-  integrity sha512-cJVCG/T/KxXgzYnjKqyAgsKDbH9mGLjcXxN6AmwumBwa2rVFkwvGcUj1RJtD0ko4XqLqJxwqsN/Z/KURB5f1OQ==
-  dependencies:
-    state-local "^1.0.6"
-
-"@monaco-editor/react@^4.3.1":
-  version "4.3.1"
-  resolved "https://registry.npmmirror.com/@monaco-editor/react/-/react-4.3.1.tgz#d65bcbf174c39b6d4e7fec43d0cddda82b70a12a"
-  integrity sha512-f+0BK1PP/W5I50hHHmwf11+Ea92E5H1VZXs+wvKplWUWOfyMa1VVwqkJrXjRvbcqHL+XdIGYWhWNdi4McEvnZg==
-  dependencies:
-    "@monaco-editor/loader" "^1.2.0"
-    prop-types "^15.7.2"
-
 "@nodelib/fs.scandir@2.1.5":
   version "2.1.5"
   resolved "https://registry.nlark.com/@nodelib/fs.scandir/download/@nodelib/fs.scandir-2.1.5.tgz"
@@ -441,6 +426,11 @@
   dependencies:
     estree-walker "^2.0.1"
     picomatch "^2.2.2"
+
+"@types/convert-units@2.3.5":
+  version "2.3.5"
+  resolved "https://registry.npmmirror.com/@types/convert-units/-/convert-units-2.3.5.tgz#e6b617a6af9ae39daca7a4a199064cfcc3bf28ee"
+  integrity sha512-uPxhvoCflbz9hm0aiLEHnwT7JTdhJcKUmArdmmKtWjbK+tw9hUguYh0vTpA5ugqc9/a+hWdPB7NW0SX6peLS8g==
 
 "@types/history@*":
   version "4.7.9"
@@ -877,6 +867,14 @@ convert-source-map@^1.7.0:
   integrity sha1-8zc8MtIbTXgN2ABFFGhPt5HKQ2k=
   dependencies:
     safe-buffer "~5.1.1"
+
+convert-units@^2.3.4:
+  version "2.3.4"
+  resolved "https://registry.npmmirror.com/convert-units/-/convert-units-2.3.4.tgz#a279f4b3cb9b5d5094beba61abc742dcb46a180d"
+  integrity sha512-ERHfdA0UhHJp1IpwE6PnFJx8LqG7B1ZjJ20UvVCmopEnVCfER68Tbe3kvN63dLbYXDA2xFWRE6zd4Wsf0w7POg==
+  dependencies:
+    lodash.foreach "2.3.x"
+    lodash.keys "2.3.x"
 
 copy-text-to-clipboard@^2.1.1:
   version "2.2.0"
@@ -1762,15 +1760,156 @@ lodash-es@^4.17.21:
   resolved "https://registry.nlark.com/lodash-es/download/lodash-es-4.17.21.tgz#43e626c46e6591b7750beb2b50117390c609e3ee"
   integrity sha1-Q+YmxG5lkbd1C+srUBFzkMYJ4+4=
 
+lodash._basebind@~2.3.0:
+  version "2.3.0"
+  resolved "https://registry.npmmirror.com/lodash._basebind/-/lodash._basebind-2.3.0.tgz#2b5bc452a0e106143b21869f233bdb587417d248"
+  integrity sha512-SHqM7YCuJ+BeGTs7lqpWnmdHEeF4MWxS3dksJctHFNxR81FXPOzA4bS5Vs5CpcGTkBpM8FCl+YEbQEblRw8ABg==
+  dependencies:
+    lodash._basecreate "~2.3.0"
+    lodash._setbinddata "~2.3.0"
+    lodash.isobject "~2.3.0"
+
+lodash._basecreate@~2.3.0:
+  version "2.3.0"
+  resolved "https://registry.npmmirror.com/lodash._basecreate/-/lodash._basecreate-2.3.0.tgz#9b88a86a4dcff7b7f3c61d83a2fcfc0671ec9de0"
+  integrity sha512-vwZaWldZwS2y9b99D8i9+WtgiZXbHKsBsMrpxJEqTsNW20NhJo5W8PBQkeQO9CmxuqEYn8UkMnfEM2MMT4cVrw==
+  dependencies:
+    lodash._renative "~2.3.0"
+    lodash.isobject "~2.3.0"
+    lodash.noop "~2.3.0"
+
+lodash._basecreatecallback@~2.3.0:
+  version "2.3.0"
+  resolved "https://registry.npmmirror.com/lodash._basecreatecallback/-/lodash._basecreatecallback-2.3.0.tgz#37b2ab17591a339e988db3259fcd46019d7ac362"
+  integrity sha512-Ev+pDzzfVfgbiucpXijconLGRBar7/+KNCf05kSnk4CmdDVhAy1RdbU9efCJ/o9GXI08JdUGwZ+5QJ3QX3kj0g==
+  dependencies:
+    lodash._setbinddata "~2.3.0"
+    lodash.bind "~2.3.0"
+    lodash.identity "~2.3.0"
+    lodash.support "~2.3.0"
+
+lodash._basecreatewrapper@~2.3.0:
+  version "2.3.0"
+  resolved "https://registry.npmmirror.com/lodash._basecreatewrapper/-/lodash._basecreatewrapper-2.3.0.tgz#aa0c61ad96044c3933376131483a9759c3651247"
+  integrity sha512-YLycQ7k8AB9Wc1EOvLNxuRWcqipDkMXq2GCgnLWQR6qtgTb3gY3LELzEpnFshrEO4LOLs+R2EpcY+uCOZaLQ8Q==
+  dependencies:
+    lodash._basecreate "~2.3.0"
+    lodash._setbinddata "~2.3.0"
+    lodash._slice "~2.3.0"
+    lodash.isobject "~2.3.0"
+
+lodash._createwrapper@~2.3.0:
+  version "2.3.0"
+  resolved "https://registry.npmmirror.com/lodash._createwrapper/-/lodash._createwrapper-2.3.0.tgz#d1aae1102dadf440e8e06fc133a6edd7fe146075"
+  integrity sha512-XjaI/rzg9W+WO4WJDQ+PRlHD5sAMJ1RhJLuT65cBxLCb1kIYs4U20jqvTDGAWyVT3c34GYiLd9AreHYuB/8yJA==
+  dependencies:
+    lodash._basebind "~2.3.0"
+    lodash._basecreatewrapper "~2.3.0"
+    lodash.isfunction "~2.3.0"
+
+lodash._objecttypes@~2.3.0:
+  version "2.3.0"
+  resolved "https://registry.npmmirror.com/lodash._objecttypes/-/lodash._objecttypes-2.3.0.tgz#6a3ea3987dd6eeb8021b2d5c9c303549cc2bae1e"
+  integrity sha512-jbA6QyHt9cw3BzvbWzIcnU3Z12jSneT6xBgz3Y782CJsN1tV5aTBKrFo2B4AkeHBNaxSrbPYZZpi1Lwj3xjdtg==
+
+lodash._renative@~2.3.0:
+  version "2.3.0"
+  resolved "https://registry.npmmirror.com/lodash._renative/-/lodash._renative-2.3.0.tgz#77d8edd4ced26dd5971f9e15a5f772e4e317fbd3"
+  integrity sha512-v44MRirqYqZGK/h5UKoVqXWF2L+LUiLTU+Ogu5rHRVWJUA1uWIlHaMpG8f/OA8j++BzPMQij9+erXHtgFcbuwg==
+
+lodash._setbinddata@~2.3.0:
+  version "2.3.0"
+  resolved "https://registry.npmmirror.com/lodash._setbinddata/-/lodash._setbinddata-2.3.0.tgz#e5610490acd13277d59858d95b5f2727f1508f04"
+  integrity sha512-xMFfbF7dL+sFtrdE49uHFmfpBAEwlFtfgMp86nQRlAF6aizYL+3MTbnYMKJSkP1W501PhsgiBED5kBbZd8kR2g==
+  dependencies:
+    lodash._renative "~2.3.0"
+    lodash.noop "~2.3.0"
+
+lodash._shimkeys@~2.3.0:
+  version "2.3.0"
+  resolved "https://registry.npmmirror.com/lodash._shimkeys/-/lodash._shimkeys-2.3.0.tgz#611f93149e3e6c721096b48769ef29537ada8ba9"
+  integrity sha512-9Iuyi7TiWMGa/9+2rqEE+Zwye4b/U2w7Saw6UX1h6Xs88mEER+uz9FZcEBPKMVKsad9Pw5GNAcIBRnW2jNpneQ==
+  dependencies:
+    lodash._objecttypes "~2.3.0"
+
+lodash._slice@~2.3.0:
+  version "2.3.0"
+  resolved "https://registry.npmmirror.com/lodash._slice/-/lodash._slice-2.3.0.tgz#147198132859972e4680ca29a5992c855669aa5c"
+  integrity sha512-7C61GhzRUv36gTafr+RIb+AomCAYsSATEoK4OP0VkNBcwvsM022Z22AVgqjjzikeNO1U29LzsJZDvLbiNPUYvA==
+
+lodash.bind@~2.3.0:
+  version "2.3.0"
+  resolved "https://registry.npmmirror.com/lodash.bind/-/lodash.bind-2.3.0.tgz#c2a8e18b68e5ecc152e2b168266116fea5b016cc"
+  integrity sha512-goakyOo+FMN8lttMPnZ0UNlr5RlzX4IrUXyTJPT2A0tGCMXySupond9wzvDqTvVmYTcQjIKGrj8naJDS2xWAlQ==
+  dependencies:
+    lodash._createwrapper "~2.3.0"
+    lodash._renative "~2.3.0"
+    lodash._slice "~2.3.0"
+
 lodash.clonedeep@^4.5.0:
   version "4.5.0"
   resolved "https://registry.nlark.com/lodash.clonedeep/download/lodash.clonedeep-4.5.0.tgz"
   integrity sha1-4j8/nE+Pvd6HJSnBBxhXoIblzO8=
 
+lodash.foreach@2.3.x:
+  version "2.3.0"
+  resolved "https://registry.npmmirror.com/lodash.foreach/-/lodash.foreach-2.3.0.tgz#083404c91e846ee77245fdf9d76519c68b2af168"
+  integrity sha512-yLnyptVRJd0//AbGp480grgQG9iaDIV5uOgSbpurRy1dYybPbjNTLQ3FyLEQ84buVLPG7jyaiyvpzgfOutRB3Q==
+  dependencies:
+    lodash._basecreatecallback "~2.3.0"
+    lodash.forown "~2.3.0"
+
+lodash.forown@~2.3.0:
+  version "2.3.0"
+  resolved "https://registry.npmmirror.com/lodash.forown/-/lodash.forown-2.3.0.tgz#24fb4aaf800d45fc2dc60bfec3ce04c836a3ad7f"
+  integrity sha512-dUnCsuQTtq3Y7bxPNoEEqjJjPL2ftLtcz2PTeRKvhbpdM514AvnqCjewHGsm/W+dwspIwa14KoWEZeizJ7smxA==
+  dependencies:
+    lodash._basecreatecallback "~2.3.0"
+    lodash._objecttypes "~2.3.0"
+    lodash.keys "~2.3.0"
+
+lodash.identity@~2.3.0:
+  version "2.3.0"
+  resolved "https://registry.npmmirror.com/lodash.identity/-/lodash.identity-2.3.0.tgz#6b01a210c9485355c2a913b48b6711219a173ded"
+  integrity sha512-NYJ2r2cwy3tkx/saqbIZEX6oQUzjWTnGRu7d/zmBjMCZos3eHBxCpbvWFWSetv8jFVrptsp6EbWjzNgBKhUoOA==
+
+lodash.isfunction@~2.3.0:
+  version "2.3.0"
+  resolved "https://registry.npmmirror.com/lodash.isfunction/-/lodash.isfunction-2.3.0.tgz#6b2973e47a647cf12e70d676aea13643706e5267"
+  integrity sha512-X5lteBYlCrVO7Qc00fxP8W90fzRp6Ax9XcHANmU3OsZHdSyIVZ9ZlX5QTTpRq8aGY+9I5Rmd0UTzTIIyWPugEQ==
+
+lodash.isobject@~2.3.0:
+  version "2.3.0"
+  resolved "https://registry.npmmirror.com/lodash.isobject/-/lodash.isobject-2.3.0.tgz#2e16d3fc583da9831968953f2d8e6d73434f6799"
+  integrity sha512-jo1pfV61C4TE8BfEzqaHj6EIKiSkFANJrB6yscwuCJMSRw5tbqjk4Gv7nJzk4Z6nFKobZjGZ8Qd41vmnwgeQqQ==
+  dependencies:
+    lodash._objecttypes "~2.3.0"
+
+lodash.keys@2.3.x, lodash.keys@~2.3.0:
+  version "2.3.0"
+  resolved "https://registry.npmmirror.com/lodash.keys/-/lodash.keys-2.3.0.tgz#b350f4f92caa9f45a4a2ecf018454cf2f28ae253"
+  integrity sha512-c0UW0ffqMxSCtoVbmVt2lERJLkEqgoOn2ejPsWXzr0ZrqRbl3uruGgwHzhtqXxi6K/ei3Ey7zimOqSwXgzazPg==
+  dependencies:
+    lodash._renative "~2.3.0"
+    lodash._shimkeys "~2.3.0"
+    lodash.isobject "~2.3.0"
+
 lodash.merge@^4.6.2:
   version "4.6.2"
   resolved "https://registry.nlark.com/lodash.merge/download/lodash.merge-4.6.2.tgz"
   integrity sha1-VYqlO0O2YeGSWgr9+japoQhf5Xo=
+
+lodash.noop@~2.3.0:
+  version "2.3.0"
+  resolved "https://registry.npmmirror.com/lodash.noop/-/lodash.noop-2.3.0.tgz#3059d628d51bbf937cd2a0b6fc3a7f212a669c2c"
+  integrity sha512-NpSm8HRm1WkBBWHUveDukLF4Kfb5P5E3fjHc9Qre9A11nNubozLWD2wH3UBTZbu+KSuX8aSUvy9b+PUyEceJ8g==
+
+lodash.support@~2.3.0:
+  version "2.3.0"
+  resolved "https://registry.npmmirror.com/lodash.support/-/lodash.support-2.3.0.tgz#7eaf038af4f0d6aab776b44aa6dcfc80334c9bfd"
+  integrity sha512-etc7VWbB0U3Iya8ixj2xy4sDBN3jvPX7ODi8iXtn4KkkjNpdngrdc7Vlt5jub/Vgqx6/dWtp7Ml9awhCQPYKGQ==
+  dependencies:
+    lodash._renative "~2.3.0"
 
 lodash.truncate@^4.4.2:
   version "4.4.2"
@@ -1848,6 +1987,11 @@ moment@^2.29.1:
   version "2.29.1"
   resolved "https://registry.nlark.com/moment/download/moment-2.29.1.tgz#b2be769fa31940be9eeea6469c075e35006fa3d3"
   integrity sha1-sr52n6MZQL6e7qZGnAdeNQBvo9M=
+
+monaco-editor@^0.33.0:
+  version "0.33.0"
+  resolved "https://registry.npmmirror.com/monaco-editor/-/monaco-editor-0.33.0.tgz#842e244f3750a2482f8a29c676b5684e75ff34af"
+  integrity sha512-VcRWPSLIUEgQJQIE0pVT8FcGBIgFoxz7jtqctE+IiCxWugD0DwgyQBcZBhdSrdMC84eumoqMZsGl2GTreOzwqw==
 
 ms@2.1.2:
   version "2.1.2"
@@ -2338,11 +2482,6 @@ sprintf-js@~1.0.2:
   version "1.0.3"
   resolved "https://registry.nlark.com/sprintf-js/download/sprintf-js-1.0.3.tgz"
   integrity sha1-BOaSb2YolTVPPdAVIDYzuFcpfiw=
-
-state-local@^1.0.6:
-  version "1.0.7"
-  resolved "https://registry.npmmirror.com/state-local/-/state-local-1.0.7.tgz#da50211d07f05748d53009bee46307a37db386d5"
-  integrity sha512-HTEHMNieakEnoe33shBYcZ7NX83ACUjCu8c40iOGEZsngj9zRnkqS9j1pqQPXwobB0ZcVTk27REb7COQ0UR59w==
 
 strict-uri-encode@^2.0.0:
   version "2.0.0"

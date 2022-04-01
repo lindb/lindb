@@ -21,6 +21,17 @@ import { Console, DataExplore } from "@src/pages";
 import { URLStore } from "@src/stores";
 import React from "react";
 import { Route, Switch, useHistory } from "react-router-dom";
+import * as monaco from "monaco-editor";
+
+monaco.editor.defineTheme("lindb", {
+  base: "vs-dark",
+  inherit: true,
+  rules: [],
+  colors: {
+    "editor.foreground": "#BDAE9D",
+    "editor.background": "#011627",
+  },
+});
 
 export default function App() {
   const history = useHistory();
@@ -30,7 +41,6 @@ export default function App() {
   return (
     <>
       <Switch>
-        <Route path="/explore" component={DataExplore} />
         <Route path="/" component={Console} />
       </Switch>
       <ChartTooltip />

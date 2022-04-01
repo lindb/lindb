@@ -22,7 +22,7 @@ import * as _ from "lodash-es";
 import { useWatchURLChange } from "@src/hooks";
 import { proxy } from "@src/services";
 import { URLStore } from "@src/stores";
-import Editor from "@monaco-editor/react";
+import * as monaco from "monaco-editor";
 
 const { Text } = Typography;
 /**
@@ -88,7 +88,7 @@ export default function ConfigurationView() {
         style={{ marginTop: 12 }}
         loading={loading}
       >
-        <Editor
+        {/* <Editor
           language="ini"
           theme="vs-dark"
           value={_.get(config, "config", "")}
@@ -112,7 +112,7 @@ export default function ConfigurationView() {
             editorElement.style.height = `${height}px`;
             editor.layout();
           }}
-        />
+        /> */}
       </Card>
     </>
   );
