@@ -187,6 +187,7 @@ func (s *ShardStats) SetScanStats(identifier string, cost time.Duration, foundSe
 	stats, ok := s.ScanStats[identifier]
 	if ok {
 		stats.Count++
+		stats.TotalCost += costVal
 		stats.Series += foundSeries
 		if stats.Max < costVal {
 			stats.Max = costVal
@@ -195,10 +196,11 @@ func (s *ShardStats) SetScanStats(identifier string, cost time.Duration, foundSe
 		}
 	} else {
 		s.ScanStats[identifier] = &Stats{
-			Min:    costVal,
-			Max:    costVal,
-			Count:  1,
-			Series: foundSeries,
+			TotalCost: costVal,
+			Min:       costVal,
+			Max:       costVal,
+			Count:     1,
+			Series:    foundSeries,
 		}
 	}
 }
@@ -208,12 +210,14 @@ func (s *ShardStats) SetGroupBuildStats(cost time.Duration) {
 	costVal := cost.Nanoseconds()
 	if s.GroupBuildStats == nil {
 		s.GroupBuildStats = &Stats{
-			Min:   costVal,
-			Max:   costVal,
-			Count: 1,
+			Min:       costVal,
+			Max:       costVal,
+			Count:     1,
+			TotalCost: costVal,
 		}
 	} else {
 		s.GroupBuildStats.Count++
+		s.GroupBuildStats.TotalCost += costVal
 		if s.GroupBuildStats.Max < costVal {
 			s.GroupBuildStats.Max = costVal
 		} else if s.GroupBuildStats.Min > costVal {
@@ -224,8 +228,9 @@ func (s *ShardStats) SetGroupBuildStats(cost time.Duration) {
 
 // Stats represents the time stats
 type Stats struct {
-	Min    int64 `json:"min"`
-	Max    int64 `json:"max"`
-	Count  int   `json:"count"`
-	Series int   `json:"series,omitempty"`
+	TotalCost int64 `json:"totalCost"`
+	Min       int64 `json:"min"`
+	Max       int64 `json:"max"`
+	Count     int   `json:"count"`
+	Series    int   `json:"series,omitempty"`
 }

@@ -26,13 +26,31 @@ import {
   Tooltip,
   Tree,
 } from "@douyinfe/semi-ui";
-import Editor from "@monaco-editor/react";
 import { StorageStatusView } from "@src/components";
 import { StateRoleName } from "@src/constants";
 import { Storage } from "@src/models";
 import { exec } from "@src/services";
 import * as _ from "lodash-es";
-import React, { ReactNode, useEffect, useState } from "react";
+import * as monaco from "monaco-editor";
+import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
+import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
+import React, {
+  MutableRefObject,
+  ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
+//@ts-ignore
+self.MonacoEnvironment = {
+  getWorker(_: any, label: any) {
+    if (label === "json") {
+      return new jsonWorker();
+    }
+    return new editorWorker();
+  },
+};
 
 type Node = {
   role: string;
@@ -49,6 +67,8 @@ type TreeNode = {
 };
 
 export default function MetadataExplore() {
+  const editor = useRef() as MutableRefObject<any>;
+  const editorRef = useRef() as MutableRefObject<HTMLDivElement>;
   const [root, setRoot] = useState<any[]>([]);
   const [loadedKeys, setLoadedKeys] = useState<any[]>([]);
   const [metadata, setMetadata] = useState<any>(null);
@@ -71,6 +91,25 @@ export default function MetadataExplore() {
     );
     return rs;
   };
+
+  useEffect(() => {
+    if (editorRef.current && !editor.current) {
+      // editor no init, create it
+      editor.current = monaco.editor.create(editorRef.current, {
+        value: "no data",
+        language: "json",
+        lineNumbers: "off",
+        minimap: { enabled: false },
+        lineNumbersMinChars: 2,
+        readOnly: true,
+        theme: "lindb",
+      });
+    }
+    editor.current.setValue(
+      JSON.stringify(_.get(metadata, "data", "no data"), null, "\t")
+    );
+  }, [metadata]);
+
   useEffect(() => {
     const fetchMetadata = async () => {
       const metadata = await exec<any>({ sql: "show metadata types" });
@@ -189,22 +228,7 @@ export default function MetadataExplore() {
             </Tooltip>
           </SplitButtonGroup>
           <Card style={treeStyle} bordered={false}>
-            <Editor
-              theme="vs-dark"
-              height="90vh"
-              defaultLanguage="json"
-              options={{
-                readOnly: true,
-                minimap: { enabled: false },
-                lineNumbersMinChars: 2,
-              }}
-              value={JSON.stringify(
-                _.get(metadata, "data", "no data"),
-                null,
-                "\t"
-              )}
-              loading={loading}
-            />
+            <div ref={editorRef} style={{ height: "90vh" }} />
           </Card>
         </Col>
       </Row>

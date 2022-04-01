@@ -17,6 +17,8 @@ specific language governing permissions and limitations
 under the License.
 */
 import { UnitEnum } from "@src/models";
+import convert from "convert-units";
+
 /**
  * format precent value.
  * @param input precent value
@@ -62,6 +64,21 @@ export function transformSeconds(input: number): string {
   }
 }
 
+export function transformNanoSeconds(input: number, decimals?: number): string {
+  if (!input) {
+    return "0ns";
+  }
+  const best = convert(input).from("ns").toBest();
+  const value = convert(input)
+    .from("ns")
+    .to(best.unit as any);
+  if (decimals !== undefined) {
+    return value.toFixed(decimals) + best.unit;
+  } else {
+    return Math.floor(value * 100) / 100 + best.unit;
+  }
+}
+
 export function transformMilliseconds(input: number): string {
   if (input > 24 * 3600 * 1000) {
     return `${(input / (24 * 3600 * 1000)).toFixed(2)} days`;
@@ -94,6 +111,8 @@ export function transformNone(input: number): string {
 
 export function formatter(point: number, unit: UnitEnum): string {
   switch (unit) {
+    case UnitEnum.Nanoseconds:
+      return transformNanoSeconds(point);
     case UnitEnum.Milliseconds:
       return transformMilliseconds(point);
     case UnitEnum.Seconds:

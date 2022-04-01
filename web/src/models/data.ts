@@ -35,10 +35,10 @@ export type Series = {
 };
 
 export type ExplainResult = {
-  totalCost: string;
-  planCost: string;
-  expressCost: string;
-  waitCost: string;
+  totalCost: number;
+  planCost: number;
+  expressCost: number;
+  waitCost: number;
   storageNodes: { [propName: string]: StorageNodeExecStats };
 };
 
