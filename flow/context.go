@@ -83,6 +83,20 @@ func (ctx *StorageExecuteContext) CollectGroupingTagValueIDs(groupingTagValueIDs
 	ctx.mutex.Unlock()
 }
 
+// HasGroupingTagValueIDs returns if it needs collect grouping tag value.
+func (ctx *StorageExecuteContext) HasGroupingTagValueIDs() bool {
+	ctx.mutex.Lock()
+	defer ctx.mutex.Unlock()
+
+	for idx := range ctx.GroupingTagValueIDs {
+		tIDs := ctx.GroupingTagValueIDs[idx]
+		if tIDs != nil && !tIDs.IsEmpty() {
+			return true
+		}
+	}
+	return false
+}
+
 // HasWhereCondition returns if query has where clause condition.
 func (ctx *StorageExecuteContext) HasWhereCondition() bool {
 	return ctx.Query.Condition != nil

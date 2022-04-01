@@ -153,7 +153,6 @@ func (qf *storageQueryFlow) Reduce(it series.GroupedIterator) {
 	qf.mux.Lock()
 	defer qf.mux.Unlock()
 
-	// TODO impl
 	qf.reduceAgg.Aggregate(it)
 }
 
@@ -166,6 +165,9 @@ func (qf *storageQueryFlow) ReduceTagValues(tagKeyIndex int, tagValues map[uint3
 }
 
 func (qf *storageQueryFlow) getTagValues(tags string) string {
+	qf.mux.Lock()
+	defer qf.mux.Unlock()
+
 	tagValues, ok := qf.tagsMap[tags]
 	if ok {
 		return tagValues
@@ -203,9 +205,9 @@ func (qf *storageQueryFlow) completeTask(taskID int32) {
 
 	hashGroupData := make([][]byte, len(qf.leafNode.Receivers))
 	if qf.reduceAgg != nil {
-		hasGroupBy := qf.query.HasGroupBy()
-		if hasGroupBy {
-			qf.signal.Wait() // wait collect group by tag value complete
+		if qf.storageExecuteCtx.HasGroupingTagValueIDs() {
+			// if it has grouping tag value ids, need wait collect group by tag value complete
+			qf.signal.Wait()
 		}
 
 		timeSeriesList := qf.makeTimeSeriesList()
