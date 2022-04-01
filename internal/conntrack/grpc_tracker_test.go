@@ -50,9 +50,13 @@ func (tracker *testGRPCClientTracker) prepare(t *testing.T) {
 		grpc.UnaryInterceptor(serverTracker.UnaryServerInterceptor()),
 	)
 
+	up := make(chan struct{})
 	go func() {
+		up <- struct{}{}
 		_ = tracker.server.Serve(tracker.serverListener)
 	}()
+	<-up
+	time.Sleep(time.Second)
 
 	clientTracker := NewGRPCClientTracker(linmetric.BrokerRegistry)
 	tracker.clientConn, err = grpc.Dial(
