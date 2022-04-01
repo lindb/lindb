@@ -37,6 +37,7 @@ export { default as DashboardView } from "@src/components/data/DashboardView";
 export { default as ExplainResultView } from "@src/components/data/ExplainResultView";
 export { default as TagFilterSelect } from "@src/components/data/TagFilterSelect";
 export { default as TagValueSelect } from "@src/components/data/TagValueSelect";
+export { default as ExplainStatsView } from "@src/components/data/ExplainStatsView";
 
 // state component
 export { default as MasterView } from "@src/components/state/MasterView";

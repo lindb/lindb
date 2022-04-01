@@ -21,36 +21,76 @@ import {
   IconPlay,
   IconSend,
 } from "@douyinfe/semi-icons";
-import { Button, Card, Col, Form, Row, Space } from "@douyinfe/semi-ui";
-import { CanvasChart, MetadataSelect } from "@src/components";
+import { Button, Card, Col, Form, Row, Space, Spin } from "@douyinfe/semi-ui";
+import { CanvasChart, MetadataSelect, ExplainStatsView } from "@src/components";
 import { SQL } from "@src/constants";
 import { useWatchURLChange } from "@src/hooks";
 import { ChartStore, URLStore } from "@src/stores";
 import React, { MutableRefObject, useEffect, useRef } from "react";
+import * as monaco from "monaco-editor";
 
 const chartID = "9999999999999999";
 
 export default function DataSearch() {
   const formApi = useRef() as MutableRefObject<any>;
+  const sqlEditor = useRef() as MutableRefObject<any>;
+  const sqlEditorRef = useRef() as MutableRefObject<HTMLDivElement | null>;
+
   const query = () => {
     const target = formApi.current.getValues();
+    target.sql = sqlEditor.current?.getValue();
     ChartStore.reRegister(chartID, { targets: [target] });
     URLStore.changeURLParams({ params: target, forceChange: true });
   };
+
   useWatchURLChange(() => {
     if (formApi.current) {
       formApi.current.setValues({
         db: URLStore.params.get("db"),
-        sql: URLStore.params.get("sql"),
       });
+    }
+    if (sqlEditor.current) {
+      sqlEditor.current.setValue(URLStore.params.get("sql"));
     }
   });
   useEffect(() => {
+    const sql = URLStore.params.get("sql") || "";
+    if (sqlEditorRef.current && !sqlEditor.current) {
+      // if editor not init, create it
+      monaco.languages.registerCompletionItemProvider("sql", {
+        provideCompletionItems: function (model, position) {
+          // find out if we are completing a property in the 'dependencies' object.
+          let suggestions: any[] = [];
+          let word = model.getWordUntilPosition(position);
+          suggestions.push({
+            label: "select",
+            kind: monaco.languages.CompletionItemKind.Property,
+            insertText: "select ",
+            insertTextRules:
+              monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            detail: "select query metric fields/functions",
+          });
+          return { suggestions: suggestions };
+        },
+      });
+      sqlEditor.current = monaco.editor.create(sqlEditorRef.current, {
+        value: sql,
+        language: "sql",
+        padding: {
+          top: 8,
+          bottom: 8,
+        },
+        lineNumbers: "off",
+        theme: "lindb",
+        fontSize: 14,
+      });
+    }
+
     ChartStore.register(chartID, {
       targets: [
         {
           db: URLStore.params.get("db") || "",
-          sql: URLStore.params.get("sql") || "",
+          sql: sql,
         },
       ],
     });
@@ -81,16 +121,13 @@ export default function DataSearch() {
           />
           <Row>
             <Col span={24}>
-              <Form.TextArea
-                showClear
-                field="sql"
-                initValue={URLStore.params.get("sql")}
-                label={
-                  <Space align="center">
-                    <span>LinDB Query Language</span>
-                    <IconHelpCircleStroked />
-                  </Space>
-                }
+              <Space align="center">
+                <span>LinDB Query Language</span>
+                <IconHelpCircleStroked />
+              </Space>
+              <div
+                ref={sqlEditorRef}
+                style={{ height: 160, marginTop: 12, marginBottom: 12 }}
               />
             </Col>
           </Row>
@@ -101,13 +138,10 @@ export default function DataSearch() {
           >
             Search
           </Button>
-          <Button type="secondary" icon={<IconSend size="large" />}>
-            Explain
-          </Button>
         </Form>
       </Card>
       <Card bordered={false} style={{ marginTop: 12 }}>
-        <CanvasChart chartId={chartID} height={300} />
+        <ExplainStatsView chartId={chartID} />
       </Card>
     </>
   );

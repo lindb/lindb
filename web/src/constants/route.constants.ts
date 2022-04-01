@@ -22,7 +22,7 @@ export enum Route {
   DatabaseOverview = "/overview/database",
   ConfigurationView = "/overview/configuration",
   Search = "/search",
-  Explore = "/expore",
+  Explore = "/explore",
   MetadataStorage = "/metadata/storage",
   MetadataStorageConfig = "/metadata/storage/configuration",
   MetadataDatabase = "/metadata/database",

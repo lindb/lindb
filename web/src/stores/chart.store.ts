@@ -34,6 +34,7 @@ class ChartStore {
   chartErrMap: Map<string, string> = new Map<string, string>(); // for chart load err msg
   charts: Map<string, ChartConfig> = new Map<string, ChartConfig>(); // for chart confi
   seriesCache: Map<string, any> = new Map<string, any>(); // for chart series data
+  stateCache: Map<string, any> = new Map<string, any>(); // for metric explain state data(only store one target in chart config)
 
   constructor() {
     makeObservable(this, {
@@ -79,6 +80,7 @@ class ChartStore {
   unRegister(chartUniqueId: string) {
     this.charts.delete(chartUniqueId);
     this.seriesCache.delete(chartUniqueId);
+    this.stateCache.delete(chartUniqueId);
     // this.chartTrackingMap.delete(uniqueId);
     this.chartStatusMap.delete(chartUniqueId);
     this.chartErrMap.delete(chartUniqueId);
@@ -140,10 +142,12 @@ class ChartStore {
           if (reportData) {
             // console.log("series", series, reportData);
             this.seriesCache.set(chartUniqueId, reportData);
+            this.stateCache.set(chartUniqueId, series.stats);
             this.setChartStatus(chartUniqueId, ChartStatus.OK);
           } else {
             // no data in response
             this.seriesCache.delete(chartUniqueId);
+            this.stateCache.delete(chartUniqueId);
             this.setChartStatus(chartUniqueId, ChartStatus.Empty);
           }
         })
