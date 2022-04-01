@@ -47,6 +47,17 @@ func TestStorageExecuteContext(t *testing.T) {
 	assert.False(t, (&StorageExecuteContext{Query: &stmt.Query{}}).HasWhereCondition())
 }
 
+func TestStorageExecuteContext_HasGroupingTagValueIDs(t *testing.T) {
+	ctx := &StorageExecuteContext{
+		GroupingTagValueIDs: make([]*roaring.Bitmap, 2),
+	}
+	assert.False(t, ctx.HasGroupingTagValueIDs())
+	ctx = &StorageExecuteContext{
+		GroupingTagValueIDs: []*roaring.Bitmap{nil, roaring.BitmapOf(1), nil},
+	}
+	assert.True(t, ctx.HasGroupingTagValueIDs())
+}
+
 func TestStorageExecuteContext_SortFields(t *testing.T) {
 	ctx := &StorageExecuteContext{
 		Fields: field.Metas{{ID: 4}, {ID: 1}, {ID: 3}},
