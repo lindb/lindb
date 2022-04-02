@@ -32,7 +32,7 @@ export interface Database {
   numOfShard?: number;
   replicaFactor?: number;
   option?: {
-    interval?: string;
+    intervals?: Interval[];
     timeWindow?: number;
     autoCreateNS?: boolean;
     behind?: string;
@@ -43,4 +43,9 @@ export interface Database {
     };
   };
   desc?: string;
+}
+
+export interface Interval {
+  interval?: string;
+  retention?: string;
 }

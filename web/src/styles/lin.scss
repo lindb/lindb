@@ -48,3 +48,14 @@
 .identifier {
     color: var(--semi-color-text-0);
 }
+
+.lin-db-form {
+    .semi-form-field-group {
+        display: inline-block;
+    }
+
+    .semi-form-field-group {
+        padding-top: 6px;
+        padding-bottom: 6px;
+    }
+}
