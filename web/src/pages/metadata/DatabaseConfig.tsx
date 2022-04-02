@@ -16,14 +16,37 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { Banner, Card, Form, Row, Col } from "@douyinfe/semi-ui";
+import {
+  IconClose,
+  IconMinusCircle,
+  IconPlusCircle,
+  IconSaveStroked,
+} from "@douyinfe/semi-icons";
+import {
+  ArrayField,
+  Banner,
+  Button,
+  Card,
+  Col,
+  Form,
+  Row,
+  Typography,
+} from "@douyinfe/semi-ui";
+import { Route } from "@src/constants";
 import { Storage } from "@src/models";
 import { exec } from "@src/services";
-import React, { useEffect, useState } from "react";
+import { URLStore } from "@src/stores";
 import * as _ from "lodash-es";
+import React, { MutableRefObject, useEffect, useRef, useState } from "react";
+
+const Text = Typography.Text;
+
 export default function DatabaseConfig() {
+  const formApi = useRef() as MutableRefObject<any>;
   const [storageList, setStorageList] = useState([] as any[]);
   const [error, setError] = useState("");
+  const [submiting, setSubmiting] = useState(false);
+
   useEffect(() => {
     const getStorageList = async () => {
       try {
@@ -42,6 +65,28 @@ export default function DatabaseConfig() {
     getStorageList();
   }, []);
 
+  const create = async () => {
+    if (!formApi.current) {
+    }
+    const createDatabase = async (values: any) => {
+      try {
+        setSubmiting(true);
+        await exec({ sql: `create database ${JSON.stringify(values)}` });
+        URLStore.changeURLParams({ path: Route.MetadataDatabase });
+      } catch (err) {
+        setError(_.get(err, "response.data", "Unknown internal error"));
+      } finally {
+        setSubmiting(false);
+      }
+    };
+    formApi.current
+      .validate()
+      .then((values: any) => {
+        createDatabase(values);
+      })
+      .catch(() => {});
+  };
+
   return (
     <>
       {error && (
@@ -54,43 +99,178 @@ export default function DatabaseConfig() {
       )}
       <Card bordered>
         <Form
+          className="lin-db-form"
+          getFormApi={(api) => (formApi.current = api)}
           labelPosition="left"
           labelAlign="right"
           labelCol={{ span: 4 }}
           wrapperCol={{ span: 12 }}
         >
-          <Form.Input label="Name" field="name" rules={[{ required: true }]} />
+          <Form.Input
+            label="Name"
+            field="name"
+            rules={[{ required: true, message: "Name is required" }]}
+          />
           <Form.Select
             label="Storage"
-            field="storeage"
-            rules={[{ required: true }]}
+            field="storage"
+            rules={[{ required: true, message: "Storage is required" }]}
             optionList={storageList}
             style={{ width: 200 }}
           />
-          <Form.InputNumber label="Num. Of Shard" field="numOfShard" min={1} />
+          <Form.InputNumber
+            rules={[{ required: true, message: "Num. of Shard is required" }]}
+            label="Num. Of Shard"
+            field="numOfShard"
+            min={1}
+          />
           <Form.InputNumber
             field="replicaFactor"
+            rules={[{ required: true, message: "Replica Factor is require" }]}
             label="Replica Factor"
             min={1}
           />
-          <Form.Section
-            text={
-              <Row>
-                <Col
-                  span={4}
-                  style={{ display: "flex", justifyContent: "flex-end" }}
-                >
-                  <div style={{ marginRight: 16 }}>TSDB Options</div>
-                </Col>
-              </Row>
-            }
+          <div
+            style={{
+              borderBottom: "1px solid var(--semi-color-border)",
+              paddingTop: 12,
+              paddingBottom: 12,
+            }}
           >
-            <Form.Switch
-              label="Auto Create Namespace"
-              field="option.autoCreateNS"
-              initValue={true}
-            />
-          </Form.Section>
+            <Row>
+              <Col
+                span={4}
+                style={{ display: "flex", justifyContent: "flex-end" }}
+              >
+                <Text strong style={{ paddingRight: 16 }}>
+                  Storage Engine Options
+                </Text>
+              </Col>
+            </Row>
+          </div>
+          <Form.Switch
+            label="Auto Create Namespace"
+            field="option.autoCreateNS"
+            initValue={true}
+          />
+          <Row>
+            <Col
+              span={4}
+              style={{ display: "flex", justifyContent: "flex-end" }}
+            >
+              <Form.Label style={{ paddingRight: 16 }} required>
+                Intervals
+              </Form.Label>
+            </Col>
+            <Col>
+              <Form.Label style={{ width: 220 }} required>
+                Interval(Seconds)
+              </Form.Label>
+              <Form.Label style={{ width: 200 }} required>
+                Retention(Days)
+              </Form.Label>
+            </Col>
+          </Row>
+          <ArrayField
+            field="option.intervals"
+            initValue={[{ interval: "10s", retention: "30d" }]}
+          >
+            {({ add, arrayFields }) => (
+              <>
+                {arrayFields.map((f: any, idx) => (
+                  <Row key={f.key}>
+                    <Col offset={4}>
+                      <Form.InputGroup>
+                        <Form.Input
+                          field={`${f.field}[interval]`}
+                          style={{ width: 202, marginRight: 16 }}
+                          noLabel
+                        />
+                        <Form.Input
+                          style={{ width: 202 }}
+                          field={`${f.field}[retention]`}
+                          noLabel
+                        />
+                      </Form.InputGroup>
+                      {arrayFields.length > 1 && (
+                        <Button
+                          type="danger"
+                          theme="borderless"
+                          onClick={f.remove}
+                          icon={<IconMinusCircle />}
+                          style={{ marginLeft: 12 }}
+                        />
+                      )}
+                      {idx == arrayFields.length - 1 && (
+                        <Button
+                          type="primary"
+                          theme="borderless"
+                          onClick={add}
+                          icon={<IconPlusCircle />}
+                        />
+                      )}
+                    </Col>
+                  </Row>
+                ))}
+              </>
+            )}
+          </ArrayField>
+          <Row style={{ paddingTop: 12 }}>
+            <Col
+              span={4}
+              style={{ display: "flex", justifyContent: "flex-end" }}
+            >
+              <Form.Label style={{ paddingRight: 16, paddingTop: 10 }}>
+                Writeable Time Range
+              </Form.Label>
+            </Col>
+            <Col>
+              <Form.InputGroup>
+                <Form.Input
+                  label="Behead"
+                  labelPosition="inset"
+                  field="option.behead"
+                  style={{ width: 202, marginRight: 16 }}
+                  placeholder="30m/1h"
+                />
+                <Form.Input
+                  label="Ahead"
+                  labelPosition="inset"
+                  field="option.ahead"
+                  placeholder="30m/1h"
+                  style={{ width: 202, marginRight: 16 }}
+                />
+              </Form.InputGroup>
+              <Text size="small" type="tertiary">
+                For Example: [ now()-1h ~ now()+1h ]
+              </Text>
+            </Col>
+          </Row>
+          <Form.Slot style={{ padding: 0 }}></Form.Slot>
+          <Row style={{ paddingTop: 12 }}>
+            <Col offset={4}>
+              <Button
+                type="secondary"
+                icon={<IconSaveStroked />}
+                style={{ marginRight: 8 }}
+                loading={submiting}
+                onClick={() => {
+                  create();
+                }}
+              >
+                Submit
+              </Button>
+              <Button
+                type="tertiary"
+                icon={<IconClose />}
+                onClick={() =>
+                  URLStore.changeURLParams({ path: Route.MetadataDatabase })
+                }
+              >
+                Cancel
+              </Button>
+            </Col>
+          </Row>
         </Form>
       </Card>
     </>
