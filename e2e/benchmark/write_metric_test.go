@@ -70,3 +70,42 @@ func TestWriteSumMetric(b *testing.T) {
 	}
 	fmt.Println(count)
 }
+
+func TestWriteSumMetric_OneDay(b *testing.T) {
+	timestamp, _ := timeutil.ParseTimestamp("2022-03-27 00:00:00")
+	cli := resty.New()
+	oneDay := timeutil.OneHour * 2 / 2000
+	for n := int64(0); n < oneDay; n++ {
+		var buf bytes.Buffer
+		for i := 0; i < 400; i++ {
+			for j := 0; j < 20; j++ {
+				for k := 0; k < 4; k++ {
+					var brokerRow metric.BrokerRow
+					converter := metric.NewProtoConverter()
+					err := converter.ConvertTo(&protoMetricsV1.Metric{
+						Name:      "host_disk_3400",
+						Timestamp: timestamp + n*2000,
+						Tags: []*protoMetricsV1.KeyValue{
+							{Key: "host", Value: "host" + strconv.Itoa(i)},
+							{Key: "disk", Value: "disk" + strconv.Itoa(k)},
+							{Key: "partition", Value: "partition" + strconv.Itoa(j)},
+						},
+						SimpleFields: []*protoMetricsV1.SimpleField{
+							{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
+						},
+					}, &brokerRow)
+					_, _ = brokerRow.WriteTo(&buf)
+					if err != nil {
+						panic(err)
+					}
+				}
+			}
+		}
+		body := buf.Bytes()
+		_, err := cli.R().SetBody(body).Put("http://127.0.0.1:9000/api/flat/write?db=test")
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(n)
+	}
+}

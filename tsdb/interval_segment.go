@@ -73,7 +73,7 @@ func newIntervalSegment(shard Shard, interval timeutil.Interval) (segment Interv
 	for _, segmentName := range segmentNames {
 		seg, err0 := newSegmentFunc(shard, segmentName, intervalSegment.interval)
 		if err0 != nil {
-			return nil, fmt.Errorf("create segmenet error: %s", err)
+			return nil, fmt.Errorf("create segmenet error: %s", err0)
 		}
 		intervalSegment.segments.Store(segmentName, seg)
 	}

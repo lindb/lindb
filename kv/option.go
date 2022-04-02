@@ -33,8 +33,8 @@ type FamilyOption struct {
 type StoreOption struct {
 	Levels int `toml:"levels"` // num. of levels
 
-	Source timeutil.Interval   `toml:"rollup"` // optional
-	Rollup []timeutil.Interval `toml:"rollup"` // optional
+	Source timeutil.Interval   `toml:"source"` // optional(source interval)
+	Rollup []timeutil.Interval `toml:"rollup"` // optional(target interval)
 }
 
 // DefaultStoreOption builds default store option
