@@ -109,8 +109,9 @@ func newStore(name, path string, option StoreOption) (s Store, err error) {
 	if fileutil.Exist(path) {
 		// exist store, open it, load store info and config from INFO
 		info = &storeInfo{}
-		if err = decodeTomlFunc(filepath.Join(path, version.Options), info); err != nil {
-			return nil, fmt.Errorf("load store info error:%s", err)
+		optionsFile := filepath.Join(path, version.Options)
+		if err = decodeTomlFunc(optionsFile, info); err != nil {
+			return nil, fmt.Errorf("load store info file:%s, error:%s", optionsFile, err)
 		}
 	} else {
 		// create store, initialize path and store info

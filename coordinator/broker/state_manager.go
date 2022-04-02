@@ -395,7 +395,7 @@ func (m *stateManager) GetQueryableReplicas(databaseName string) (map[string][]m
 			logger.String("database", databaseName))
 		return nil, constants.ErrNoStorageCluster
 	}
-	// check if has live nodes
+	// check if it has live nodes
 	liveNodes := storageState.LiveNodes
 	if len(liveNodes) == 0 {
 		m.logger.Warn("there is no live node for this storage",
