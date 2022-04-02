@@ -16,18 +16,14 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import {
-  IconHelpCircleStroked,
-  IconPlay,
-  IconSend,
-} from "@douyinfe/semi-icons";
-import { Button, Card, Col, Form, Row, Space, Spin } from "@douyinfe/semi-ui";
-import { CanvasChart, MetadataSelect, ExplainStatsView } from "@src/components";
+import { IconHelpCircleStroked, IconPlay } from "@douyinfe/semi-icons";
+import { Button, Card, Col, Form, Row, Space } from "@douyinfe/semi-ui";
+import { ExplainStatsView, MetadataSelect } from "@src/components";
 import { SQL } from "@src/constants";
 import { useWatchURLChange } from "@src/hooks";
 import { ChartStore, URLStore } from "@src/stores";
-import React, { MutableRefObject, useEffect, useRef } from "react";
 import * as monaco from "monaco-editor";
+import React, { MutableRefObject, useEffect, useRef } from "react";
 
 const chartID = "9999999999999999";
 
@@ -80,7 +76,7 @@ export default function DataSearch() {
           top: 8,
           bottom: 8,
         },
-        lineNumbers: "off",
+        // lineNumbers: "off",
         theme: "lindb",
         fontSize: 14,
       });

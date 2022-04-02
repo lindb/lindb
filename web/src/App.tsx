@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 import { ChartTooltip } from "@src/components";
-import { Console, DataExplore } from "@src/pages";
+import { Console } from "@src/pages";
 import { URLStore } from "@src/stores";
 import React from "react";
 import { Route, Switch, useHistory } from "react-router-dom";
@@ -26,10 +26,15 @@ import * as monaco from "monaco-editor";
 monaco.editor.defineTheme("lindb", {
   base: "vs-dark",
   inherit: true,
-  rules: [],
+  rules: [
+    { token: "string.sql", foreground: "ce9178" },
+    // { token: "identifier.sql", foreground: "ce9178" },
+  ],
   colors: {
-    "editor.foreground": "#BDAE9D",
-    "editor.background": "#011627",
+    // "editor.foreground": "#f38518", #010f17 identifier
+    "editor.background": "#021627",
+    "editor.lineHighlight": "#f38518",
+    "editor.lineHighlightBackground": "#010f17",
   },
 });
 
