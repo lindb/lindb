@@ -20,6 +20,7 @@ package metadb
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"path"
 
@@ -268,7 +269,7 @@ func (mb *metadataBackend) getMetricID(namespace, metricName string) (metricID m
 		return
 	}
 	if !exist {
-		err = constants.ErrMetricIDNotFound
+		err = fmt.Errorf("%w, metric: %s", constants.ErrMetricIDNotFound, metricName)
 		return
 	}
 	// 2. get metric id by namespace id and name
@@ -280,7 +281,7 @@ func (mb *metadataBackend) getMetricID(namespace, metricName string) (metricID m
 		return
 	}
 	if !exist {
-		err = constants.ErrMetricIDNotFound
+		err = fmt.Errorf("%w, metric: %s", constants.ErrMetricIDNotFound, metricName)
 		return
 	}
 	metricID = metric.ID(binary.LittleEndian.Uint32(metricVal))

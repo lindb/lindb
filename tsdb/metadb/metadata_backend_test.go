@@ -354,7 +354,7 @@ func TestMetadataBackend_getMetricID(t *testing.T) {
 				err      error
 			}{
 				metricID: metric.ID(0),
-				err:      constants.ErrMetricIDNotFound,
+				err:      fmt.Errorf("%w, metric: %s", constants.ErrMetricIDNotFound, "name"),
 			},
 		},
 		{
@@ -382,7 +382,7 @@ func TestMetadataBackend_getMetricID(t *testing.T) {
 				err      error
 			}{
 				metricID: metric.ID(0),
-				err:      constants.ErrMetricIDNotFound,
+				err:      fmt.Errorf("%w, metric: %s", constants.ErrMetricIDNotFound, "name"),
 			},
 		},
 		{

@@ -353,6 +353,7 @@ func TestStorageQueryFlow_Complete(t *testing.T) {
 	taskServerFactory := rpc.NewMockTaskServerFactory(ctrl)
 	server := protoCommonV1.NewMockTaskService_HandleServer(ctrl)
 	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(server).AnyTimes()
+	server.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
 
 	storageExecuteCtx.TaskCtx = flow.NewTaskContextWithTimeout(context.Background(), time.Second)
 	queryFlow := NewStorageQueryFlow(

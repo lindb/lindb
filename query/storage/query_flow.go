@@ -121,7 +121,7 @@ func (qf *storageQueryFlow) Prepare() {
 
 // Complete completes the query flow with error
 func (qf *storageQueryFlow) Complete(err error) {
-	if err != nil && qf.completed.CAS(false, true) {
+	if qf.completed.CAS(false, true) {
 		// if complete with err, need send err msg directly and mark task completed
 		qf.sendResponse(nil, err)
 	}

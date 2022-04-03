@@ -19,12 +19,14 @@ package tagkeymeta
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"testing"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
 
 	"github.com/golang/mock/gomock"
@@ -201,8 +203,8 @@ func TestReader_FindValueIDsByExprForTagKeyID_bad_case(t *testing.T) {
 
 	// value not exist
 	idSet, err = reader.FindValueIDsByExprForTagKeyID(20, &stmt.EqualsExpr{Key: "zone", Value: "not-exist"})
-	assert.Error(t, err)
-	assert.Nil(t, idSet)
+	assert.NoError(t, err)
+	assert.True(t, idSet.IsEmpty())
 }
 
 func TestReader_FindSeriesIDsByExprForTagID_EqualExpr(t *testing.T) {
@@ -214,8 +216,9 @@ func TestReader_FindSeriesIDsByExprForTagID_EqualExpr(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, roaring.BitmapOf(4), idSet)
 	// find not existed host
-	_, err = reader.FindValueIDsByExprForTagKeyID(22, &stmt.EqualsExpr{Key: "host", Value: "eleme-dev-sh-41"})
-	assert.Error(t, err)
+	idSet, err = reader.FindValueIDsByExprForTagKeyID(22, &stmt.EqualsExpr{Key: "host", Value: "eleme-dev-sh-41"})
+	assert.NoError(t, err)
+	assert.True(t, idSet.IsEmpty())
 }
 
 func TestReader_FindValueIDsByExprForTagKeyID_InExpr(t *testing.T) {
@@ -231,10 +234,11 @@ func TestReader_FindValueIDsByExprForTagKeyID_InExpr(t *testing.T) {
 	assert.Equal(t, roaring.BitmapOf(4, 5), idSet)
 
 	// find not existed host
-	_, err = reader.FindValueIDsByExprForTagKeyID(22, &stmt.InExpr{
+	idSet, err = reader.FindValueIDsByExprForTagKeyID(22, &stmt.InExpr{
 		Key: "host", Values: []string{"eleme-dev-sh-55"}},
 	)
-	assert.Error(t, err)
+	assert.NoError(t, err)
+	assert.True(t, idSet.IsEmpty())
 }
 
 func TestReader_FindSeriesIDsByExprForTagID_LikeExpr(t *testing.T) {
@@ -247,8 +251,9 @@ func TestReader_FindSeriesIDsByExprForTagID_LikeExpr(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, roaring.BitmapOf(4, 5, 6000), idSet)
 	// find not existed host
-	_, err = reader.FindValueIDsByExprForTagKeyID(22, &stmt.InExpr{Key: "host", Values: []string{"eleme-dev-sh---"}})
-	assert.Error(t, err)
+	idSet, err = reader.FindValueIDsByExprForTagKeyID(22, &stmt.InExpr{Key: "host", Values: []string{"eleme-dev-sh---"}})
+	assert.NoError(t, err)
+	assert.True(t, idSet.IsEmpty())
 }
 
 func TestReader_FindSeriesIDsByExprForTagID_RegexExpr(t *testing.T) {
@@ -261,13 +266,17 @@ func TestReader_FindSeriesIDsByExprForTagID_RegexExpr(t *testing.T) {
 	assert.Equal(t, roaring.BitmapOf(4, 5, 6000), idSet)
 
 	// find not existed host
-	_, err = reader.FindValueIDsByExprForTagKeyID(22, &stmt.RegexExpr{Key: "host", Regexp: "eleme-prod-sh-"})
-	assert.Error(t, err)
+	idSet, err = reader.FindValueIDsByExprForTagKeyID(22, &stmt.RegexExpr{Key: "host", Regexp: "eleme-prod-sh-"})
+	assert.NoError(t, err)
+	assert.True(t, idSet.IsEmpty())
 }
 
 func TestReader_SuggestTagValues(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	defer func() {
+		newTagKeyMetaFn = newTagKeyMeta
+		ctrl.Finish()
+	}()
 
 	reader := mockTagReader(ctrl)
 
@@ -280,11 +289,21 @@ func TestReader_SuggestTagValues(t *testing.T) {
 	// mock corruption
 	badReader := mockBadTagReader(ctrl)
 	assert.Nil(t, badReader.SuggestTagValues(23, "", 10000000))
+	// iterate err
+	tagMeta := NewMockTagKeyMeta(ctrl)
+	newTagKeyMetaFn = func(tagKeyMetaBlock []byte) (TagKeyMeta, error) {
+		return tagMeta, nil
+	}
+	tagMeta.EXPECT().PrefixIterator(gomock.Any()).Return(nil, fmt.Errorf("err"))
+	assert.Empty(t, reader.SuggestTagValues(21, "192", 3))
 }
 
 func Test_Reader_WalkTagValues(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	defer func() {
+		newTagKeyMetaFn = newTagKeyMeta
+		ctrl.Finish()
+	}()
 
 	reader := mockTagReader(ctrl)
 
@@ -327,19 +346,93 @@ func Test_Reader_WalkTagValues(t *testing.T) {
 			return ipCount2 != 3
 		}))
 	assert.Equal(t, 3, ipCount2)
+
+	// iterate err
+	tagMeta := NewMockTagKeyMeta(ctrl)
+	tagMeta.EXPECT().PrefixIterator(gomock.Any()).Return(nil, fmt.Errorf("err"))
+	newTagKeyMetaFn = func(tagKeyMetaBlock []byte) (TagKeyMeta, error) {
+		return tagMeta, nil
+	}
+	ipCount1 = 0
+	assert.Nil(t, reader.WalkTagValues(
+		21,
+		"192",
+		func(tagValue []byte, tagValueID uint32) bool {
+			ipCount1++
+			return true
+		}))
+	assert.Equal(t, 0, ipCount1)
 }
 
 func TestReader_CollectTagValues(t *testing.T) {
 	ctrl := gomock.NewController(t)
+	defer func() {
+		newTagKeyMetaFn = newTagKeyMeta
+		ctrl.Finish()
+	}()
 	mockReader := mockTagReader(ctrl)
 
-	// case 1: ok
-	err := mockReader.CollectTagValues(21, roaring.BitmapOf(1, 2, 3), map[uint32]string{})
-	assert.Nil(t, err)
-	// case 2: tag value ids is empty
-	err = mockReader.CollectTagValues(21, roaring.New(), map[uint32]string{})
-	assert.NoError(t, err)
-	// case 3: tag key not found
-	err = mockReader.CollectTagValues(19, roaring.BitmapOf(1, 2, 3), map[uint32]string{})
-	assert.NoError(t, err)
+	cases := []struct {
+		name        string
+		tagKeyID    tag.KeyID
+		tagValueIDs *roaring.Bitmap
+		prepare     func()
+		wantErr     bool
+	}{
+		{
+			name:        "successfully",
+			tagKeyID:    21,
+			tagValueIDs: roaring.BitmapOf(1, 2, 3),
+		},
+		{
+			name:        "tag value ids is empty",
+			tagKeyID:    21,
+			tagValueIDs: roaring.New(),
+		},
+		{
+			name:        "tag key not found",
+			tagKeyID:    19,
+			tagValueIDs: roaring.BitmapOf(1, 2, 3),
+		},
+		{
+			name:        "new tag meta failure",
+			tagKeyID:    21,
+			tagValueIDs: roaring.BitmapOf(1, 2, 3),
+			prepare: func() {
+				newTagKeyMetaFn = func(tagKeyMetaBlock []byte) (TagKeyMeta, error) {
+					return nil, fmt.Errorf("err")
+				}
+			},
+		},
+		{
+
+			name:        "collect tag value failure",
+			tagKeyID:    21,
+			tagValueIDs: roaring.BitmapOf(1, 2, 3),
+			prepare: func() {
+				tagMeta := NewMockTagKeyMeta(ctrl)
+				tagMeta.EXPECT().CollectTagValues(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+				newTagKeyMetaFn = func(tagKeyMetaBlock []byte) (TagKeyMeta, error) {
+					return tagMeta, nil
+				}
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				newTagKeyMetaFn = newTagKeyMeta
+			}()
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+			err := mockReader.CollectTagValues(tt.tagKeyID, tt.tagValueIDs, map[uint32]string{})
+			if (err != nil) != tt.wantErr {
+				t.Errorf("CollectTagValues() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
 }

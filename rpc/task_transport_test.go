@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -115,6 +116,9 @@ func TestTaskClientFactory(t *testing.T) {
 	closed, err = fct.CloseTaskClient((&models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 1000}).Indicator())
 	assert.Nil(t, err)
 	assert.False(t, closed)
+
+	// wait goroutine exit
+	time.Sleep(100 * time.Millisecond)
 }
 
 func TestTaskClientFactory_handler(t *testing.T) {
