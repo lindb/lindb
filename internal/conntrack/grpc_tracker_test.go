@@ -30,6 +30,22 @@ import (
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 )
 
+type taskService struct {
+}
+
+func (t *taskService) Handle(stream protoCommonV1.TaskService_HandleServer) (err error) {
+	for {
+		_, err := stream.Recv()
+		if err != nil {
+			return err
+		}
+		err = stream.Send(&protoCommonV1.TaskResponse{})
+		if err != nil {
+			return err
+		}
+	}
+}
+
 type testGRPCClientTracker struct {
 	serverListener net.Listener
 	server         *grpc.Server
@@ -49,6 +65,7 @@ func (tracker *testGRPCClientTracker) prepare(t *testing.T) {
 		grpc.StreamInterceptor(serverTracker.StreamServerInterceptor()),
 		grpc.UnaryInterceptor(serverTracker.UnaryServerInterceptor()),
 	)
+	protoCommonV1.RegisterTaskServiceServer(tracker.server, &taskService{})
 
 	up := make(chan struct{})
 	go func() {
@@ -91,9 +108,11 @@ func Test_GRPC(t *testing.T) {
 
 	tracker.testClient = protoCommonV1.NewTaskServiceClient(tracker.clientConn)
 	client, err := tracker.testClient.Handle(tracker.ctx)
-
 	assert.NoError(t, err)
-	assert.Nil(t, client.Send(&protoCommonV1.TaskRequest{}))
-	_, err = client.Recv()
-	assert.Error(t, err)
+
+	for i := 0; i < 10; i++ {
+		assert.Nil(t, client.Send(&protoCommonV1.TaskRequest{}))
+		_, err = client.Recv()
+		assert.NoError(t, err)
+	}
 }
