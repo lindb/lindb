@@ -27,6 +27,8 @@ import (
 	"go.uber.org/atomic"
 )
 
+//go:generate mockgen -source=./pool.go -destination=./pool_mock.go -package=concurrent
+
 const (
 	// size of the queue that workers register their availability to the dispatcher.
 	readyWorkerQueueSize = 32
@@ -266,7 +268,7 @@ func (w *worker) stop(callable func()) {
 	w.pool.workersAlive.Decr()
 }
 
-// process process task from queue
+// process task from queue
 func (w *worker) process() {
 	var task Task
 	for {

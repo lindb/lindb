@@ -18,8 +18,10 @@
 package flow
 
 import (
+	"context"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/lindb/roaring"
 
@@ -33,8 +35,29 @@ import (
 	"github.com/lindb/lindb/sql/stmt"
 )
 
+// TaskContext represents task execute context.
+type TaskContext struct {
+	Ctx    context.Context
+	Cancel context.CancelFunc
+}
+
+// NewTaskContextWithTimeout creates a task context with timeout.
+func NewTaskContextWithTimeout(ctx context.Context, timeout time.Duration) *TaskContext {
+	c, cancel := context.WithTimeout(ctx, timeout)
+	return &TaskContext{
+		Ctx:    c,
+		Cancel: cancel,
+	}
+}
+
+// Release releases context's resource after query.
+func (ctx *TaskContext) Release() {
+	ctx.Cancel()
+}
+
 // StorageExecuteContext represents storage level query execute context.
 type StorageExecuteContext struct {
+	TaskCtx       *TaskContext
 	Query         *stmt.Query
 	ShardIDs      []models.ShardID
 	ShardContexts []*ShardExecuteContext
@@ -125,6 +148,7 @@ func (ctx *StorageExecuteContext) Release() {
 			shardCtx.Release()
 		}
 	}
+	ctx.TaskCtx.Release()
 }
 
 // TagFilterResult represents the tag filter result, include tag key id and tag value ids.

@@ -15,17 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package query
-
-//go:generate mockgen -source=./task_processor.go -destination=./task_processor_mock.go -package=query
+package error
 
 import (
-	"github.com/lindb/lindb/flow"
-	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
+	"errors"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-// TaskProcessor represents the task processor, all task processors are async.
-type TaskProcessor interface {
-	// Process processes the task request.
-	Process(ctx *flow.TaskContext, stream protoCommonV1.TaskService_HandleServer, req *protoCommonV1.TaskRequest)
+func TestError(t *testing.T) {
+	assert.Error(t, Error(12))
+	assert.Error(t, Error("err"))
+	assert.Error(t, Error(errors.New("err")))
 }

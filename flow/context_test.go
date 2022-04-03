@@ -18,7 +18,9 @@
 package flow
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/lindb/roaring"
@@ -72,7 +74,9 @@ func TestStorageExecuteContext_QueryStats(t *testing.T) {
 }
 
 func TestStorageExecuteContext_Release(t *testing.T) {
-	ctx := &StorageExecuteContext{}
+	ctx := &StorageExecuteContext{
+		TaskCtx: NewTaskContextWithTimeout(context.TODO(), time.Second),
+	}
 	ctx.Release()
 	ctx.ShardContexts = make([]*ShardExecuteContext, 2)
 	ctx.Release()

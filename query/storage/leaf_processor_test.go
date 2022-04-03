@@ -23,10 +23,13 @@ import (
 	"fmt"
 	"io"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
@@ -47,7 +50,7 @@ func TestLeafTaskProcessor_Process_sendStreamFailure(t *testing.T) {
 		nil,
 		nil)
 	leafTaskProcessor.Process(
-		context.Background(),
+		flow.NewTaskContextWithTimeout(context.Background(), time.Second),
 		server,
 		&protoCommonV1.TaskRequest{PhysicalPlan: []byte{1, 1, 1}})
 }
@@ -64,59 +67,113 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 	currentNode := models.StatelessNode{HostIP: "1.1.1.3", GRPCPort: 8000}
 	processorI := NewLeafTaskProcessor(&currentNode, engine, taskServerFactory)
 	processor := processorI.(*leafTaskProcessor)
-	// unmarshal error
-	err := processor.process(
-		context.Background(),
-		&protoCommonV1.TaskRequest{PhysicalPlan: nil})
-	assert.True(t, errors.Is(err, query.ErrUnmarshalPlan))
 
-	plan := encoding.JSONMarshal(&models.PhysicalPlan{
-		Leaves: []*models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.4:8000"}}},
-	})
-	// wrong request
-	err = processor.process(
-		context.Background(),
-		&protoCommonV1.TaskRequest{PhysicalPlan: plan})
-	assert.True(t, errors.Is(err, query.ErrBadPhysicalPlan))
+	cases := []struct {
+		name    string
+		req     *protoCommonV1.TaskRequest
+		prepare func()
+		assert  func(err error)
+	}{
+		{
+			name: "unmarshal error",
+			req:  &protoCommonV1.TaskRequest{PhysicalPlan: nil},
+			assert: func(err error) {
+				assert.True(t, errors.Is(err, query.ErrUnmarshalPlan))
+			},
+		},
+		{
+			name: "wrong request",
+			req: &protoCommonV1.TaskRequest{PhysicalPlan: encoding.JSONMarshal(&models.PhysicalPlan{
+				Leaves: []*models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.4:8000"}}},
+			})},
+			assert: func(err error) {
+				assert.True(t, errors.Is(err, query.ErrBadPhysicalPlan))
+			},
+		},
+		{
+			name: "db not exist",
+			req: &protoCommonV1.TaskRequest{PhysicalPlan: encoding.JSONMarshal(&models.PhysicalPlan{
+				Database: "test_db",
+				Leaves:   []*models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.3:8000"}}},
+			}), Payload: encoding.JSONMarshal(&stmt.Query{MetricName: "cpu"})},
+			prepare: func() {
+				engine.EXPECT().GetDatabase(gomock.Any()).Return(nil, false)
+			},
+			assert: func(err error) {
+				assert.True(t, errors.Is(err, query.ErrNoDatabase))
+			},
+		},
+		{
+			name: "get upstream err",
+			req: &protoCommonV1.TaskRequest{PhysicalPlan: encoding.JSONMarshal(&models.PhysicalPlan{
+				Database: "test_db",
+				Leaves:   []*models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.3:8000"}}},
+			}), Payload: encoding.JSONMarshal(&stmt.Query{MetricName: "cpu"})},
+			prepare: func() {
+				engine.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true)
+				taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(nil)
+			},
+			assert: func(err error) {
+				assert.True(t, errors.Is(err, query.ErrNoSendStream))
+			},
+		},
+		{
+			name: "unmarshal query err",
+			req: &protoCommonV1.TaskRequest{PhysicalPlan: encoding.JSONMarshal(&models.PhysicalPlan{
+				Database: "test_db",
+				Leaves:   []*models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.3:8000"}}},
+			}), Payload: []byte{1, 2, 3}},
+			prepare: func() {
+				engine.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true)
+				taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(serverStream)
+			},
+			assert: func(err error) {
+				assert.True(t, errors.Is(err, query.ErrUnmarshalQuery))
+			},
+		},
+		{
+			name: "test executor fail",
+			req: &protoCommonV1.TaskRequest{PhysicalPlan: encoding.JSONMarshal(&models.PhysicalPlan{
+				Database: "test_db",
+				Leaves:   []*models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.3:8000"}}},
+			}), Payload: encoding.JSONMarshal(&stmt.Query{MetricName: "cpu"})},
+			prepare: func() {
+				mockDatabase.EXPECT().ExecutorPool().Return(&tsdb.ExecutorPool{})
+				taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(serverStream)
+				engine.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true)
+			},
+			assert: func(err error) {
+				assert.NoError(t, err)
+			},
+		},
+		{
+			name: "unknown request type",
+			req: &protoCommonV1.TaskRequest{RequestType: protoCommonV1.RequestType(10),
+				PhysicalPlan: encoding.JSONMarshal(&models.PhysicalPlan{
+					Database: "test_db",
+					Leaves:   []*models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.3:8000"}}},
+				}), Payload: encoding.JSONMarshal(&stmt.Query{MetricName: "cpu"})},
+			prepare: func() {
+				taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(serverStream)
+				engine.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true)
+			},
+			assert: func(err error) {
+				assert.NoError(t, err)
+			},
+		},
+	}
 
-	plan = encoding.JSONMarshal(&models.PhysicalPlan{
-		Database: "test_db",
-		Leaves:   []*models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.3:8000"}}},
-	})
-	qry := stmt.Query{MetricName: "cpu"}
-	data := encoding.JSONMarshal(&qry)
-
-	// db not exist
-	engine.EXPECT().GetDatabase(gomock.Any()).Return(nil, false)
-	err = processor.process(
-		context.Background(),
-		&protoCommonV1.TaskRequest{PhysicalPlan: plan, Payload: data})
-	assert.True(t, errors.Is(err, query.ErrNoDatabase))
-
-	// test get upstream err
-	engine.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true)
-	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(nil)
-	err = processor.process(
-		context.Background(),
-		&protoCommonV1.TaskRequest{PhysicalPlan: plan, Payload: data})
-	assert.True(t, errors.Is(err, query.ErrNoSendStream))
-
-	// unmarshal query err
-	engine.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true)
-	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(serverStream)
-	err = processor.process(
-		context.Background(),
-		&protoCommonV1.TaskRequest{PhysicalPlan: plan, Payload: []byte{1, 2, 3}})
-	assert.Equal(t, query.ErrUnmarshalQuery, err)
-
-	// test executor fail
-	mockDatabase.EXPECT().ExecutorPool().Return(&tsdb.ExecutorPool{})
-	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(serverStream)
-	engine.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true).AnyTimes()
-	err = processor.process(
-		context.Background(),
-		&protoCommonV1.TaskRequest{PhysicalPlan: plan, Payload: data})
-	assert.NoError(t, err)
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+			err := processor.process(
+				flow.NewTaskContextWithTimeout(context.Background(), time.Second), tt.req)
+			tt.assert(err)
+		})
+	}
 }
 
 func TestLeafProcessor_Process(t *testing.T) {
@@ -142,7 +199,8 @@ func TestLeafProcessor_Process(t *testing.T) {
 
 	serverStream := protoCommonV1.NewMockTaskService_HandleServer(ctrl)
 	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(serverStream)
-	err := processor.process(context.Background(), &protoCommonV1.TaskRequest{PhysicalPlan: plan, Payload: data})
+	err := processor.process(flow.NewTaskContextWithTimeout(context.Background(), time.Second),
+		&protoCommonV1.TaskRequest{PhysicalPlan: plan, Payload: data})
 	assert.NoError(t, err)
 }
 
@@ -165,26 +223,90 @@ func TestLeafTask_Suggest_Process(t *testing.T) {
 	serverStream := protoCommonV1.NewMockTaskService_HandleServer(ctrl)
 	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(serverStream).AnyTimes()
 
-	// test unmarshal err
-	err := processor.process(context.Background(), &protoCommonV1.TaskRequest{
-		PhysicalPlan: plan,
-		RequestType:  protoCommonV1.RequestType_Metadata,
-		Payload:      []byte{1, 2, 3}})
-	assert.Error(t, err)
+	cases := []struct {
+		name    string
+		payload []byte
+		prepare func()
+		assert  func(err error)
+	}{
+		{
+			name:    "unmarshal err",
+			payload: []byte{1, 2, 3},
+			assert: func(err error) {
+				assert.Error(t, err)
+			},
+		},
+		{
+			name:    "stream err",
+			payload: encoding.JSONMarshal(&stmt.MetricMetadata{}),
+			prepare: func() {
+				serverStream.EXPECT().Send(gomock.Any()).Return(io.ErrClosedPipe)
+			},
+			assert: func(err error) {
+				assert.Error(t, err)
+			},
+		},
+		{
+			name:    "suggest successfully",
+			payload: encoding.JSONMarshal(&stmt.MetricMetadata{}),
+			prepare: func() {
+				serverStream.EXPECT().Send(gomock.Any()).Return(nil)
+			},
+			assert: func(err error) {
+				assert.NoError(t, err)
+			},
+		},
+		{
+			name:    "suggest not data",
+			payload: encoding.JSONMarshal(&stmt.MetricMetadata{}),
+			prepare: func() {
+				serverStream.EXPECT().Send(gomock.Any()).Return(nil)
+				q := NewMockstorageMetadataQuery(ctrl)
+				q.EXPECT().Execute().Return(nil, constants.ErrNotFound)
+				newStorageMetadataQueryFn = func(database tsdb.Database, shardIDs []models.ShardID,
+					request *stmt.MetricMetadata) storageMetadataQuery {
+					return q
+				}
+			},
+			assert: func(err error) {
+				assert.NoError(t, err)
+			},
+		},
+		{
+			name:    "suggest not data",
+			payload: encoding.JSONMarshal(&stmt.MetricMetadata{}),
+			prepare: func() {
+				q := NewMockstorageMetadataQuery(ctrl)
+				q.EXPECT().Execute().Return(nil, constants.ErrNoLiveNode)
+				newStorageMetadataQueryFn = func(database tsdb.Database, shardIDs []models.ShardID,
+					request *stmt.MetricMetadata) storageMetadataQuery {
+					return q
+				}
+			},
+			assert: func(err error) {
+				assert.Equal(t, constants.ErrNoLiveNode, err)
+			},
+		},
+	}
 
-	// test stream err
-	data := encoding.JSONMarshal(&stmt.MetricMetadata{})
-	serverStream.EXPECT().Send(gomock.Any()).Return(io.ErrClosedPipe)
-	err = processor.process(context.Background(), &protoCommonV1.TaskRequest{
-		PhysicalPlan: plan,
-		RequestType:  protoCommonV1.RequestType_Metadata,
-		Payload:      data})
-	assert.Error(t, err)
-	// test send result ok
-	serverStream.EXPECT().Send(gomock.Any()).Return(nil)
-	err = processor.process(context.Background(), &protoCommonV1.TaskRequest{
-		PhysicalPlan: plan,
-		RequestType:  protoCommonV1.RequestType_Metadata,
-		Payload:      data})
-	assert.Nil(t, err)
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				newStorageMetadataQueryFn = newStorageMetadataQuery
+			}()
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+			err := processor.process(flow.NewTaskContextWithTimeout(context.Background(), time.Second),
+				&protoCommonV1.TaskRequest{
+					PhysicalPlan: plan,
+					RequestType:  protoCommonV1.RequestType_Metadata,
+					Payload:      tt.payload})
+
+			if tt.assert != nil {
+				tt.assert(err)
+			}
+		})
+	}
 }

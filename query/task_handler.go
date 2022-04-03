@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/pkg/logger"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
@@ -85,20 +86,19 @@ func (q *TaskHandler) Handle(stream protoCommonV1.TaskService_HandleServer) (err
 			q.logger.Error("task server stream error", logger.Error(err))
 			return err
 		}
-		q.process(stream, req)
+		q.process(stream.Context(), stream, req)
 	}
 }
 
 // process dispatches request with timeout
-func (q *TaskHandler) process(stream protoCommonV1.TaskService_HandleServer, req *protoCommonV1.TaskRequest) {
-	ctx, cancel := context.WithTimeout(context.Background(), q.timeout)
+func (q *TaskHandler) process(ctx context.Context, stream protoCommonV1.TaskService_HandleServer, req *protoCommonV1.TaskRequest) {
+	taskCtx := flow.NewTaskContextWithTimeout(ctx, q.timeout)
 	q.taskPool.Submit(func() {
 		defer func() {
 			if err := recover(); err != nil {
 				q.logger.Error("dispatch task request", logger.Any("err", err), logger.Stack())
 			}
-			cancel()
 		}()
-		q.processor.Process(ctx, stream, req)
+		q.processor.Process(taskCtx, stream, req)
 	})
 }
