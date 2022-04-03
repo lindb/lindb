@@ -32,6 +32,11 @@ import (
 
 //go:generate mockgen -source ./reader.go -destination=./reader_mock.go -package tagkeymeta
 
+// for testing
+var (
+	newTagKeyMetaFn = newTagKeyMeta
+)
+
 // Reader reads tag value data from tag-index-table
 type Reader interface {
 	// GetTagValueSeq returns the auto sequence of tag value under the tag key,
@@ -138,9 +143,6 @@ func (r *tagReader) FindValueIDsByExprForTagKeyID(tagKeyID tag.KeyID, expr stmt.
 				constants.ErrTagKeyMetaNotFound, tagKeyID)
 		}
 	}
-	if tagValueIDs.IsEmpty() {
-		return nil, fmt.Errorf("%w, tagKeyID: %d", constants.ErrTagValueIDNotFound, tagKeyID)
-	}
 	return tagValueIDs, nil
 }
 
@@ -182,7 +184,7 @@ func (r *tagReader) SuggestTagValues(
 		if err != nil {
 			continue
 		}
-		tagKeyMeta, err := newTagKeyMeta(tagKeyMetaBlock)
+		tagKeyMeta, err := newTagKeyMetaFn(tagKeyMetaBlock)
 		if err != nil {
 			continue
 		}
@@ -215,7 +217,7 @@ func (r *tagReader) WalkTagValues(
 		if err != nil {
 			continue
 		}
-		tagKeyMeta, err := newTagKeyMeta(tagKeyMetaBlock)
+		tagKeyMeta, err := newTagKeyMetaFn(tagKeyMetaBlock)
 		if err != nil {
 			continue
 		}
@@ -248,7 +250,7 @@ func (r *tagReader) CollectTagValues(
 		if err != nil {
 			continue
 		}
-		tagKeyMeta, err := newTagKeyMeta(tagKeyMetaBlock)
+		tagKeyMeta, err := newTagKeyMetaFn(tagKeyMetaBlock)
 		if err != nil {
 			continue
 		}
