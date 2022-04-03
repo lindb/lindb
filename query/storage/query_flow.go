@@ -20,7 +20,7 @@ package storagequery
 import (
 	"context"
 	"encoding/binary"
-	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/cespare/xxhash/v2"
@@ -31,6 +31,7 @@ import (
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
+	errorpkg "github.com/lindb/lindb/pkg/error"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
@@ -38,7 +39,6 @@ import (
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/tag"
-	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
 )
 
@@ -53,7 +53,6 @@ var (
 // storageQueryFlow represents the storage engine query execute flow
 type storageQueryFlow struct {
 	storageExecuteCtx *flow.StorageExecuteContext
-	query             *stmt.Query
 	pendingTasks      map[int32]flow.Stage // pending task ref counter for each stage
 	taskIDSeq         atomic.Int32         // task id gen sequence
 	executorPool      *tsdb.ExecutorPool
@@ -65,33 +64,33 @@ type storageQueryFlow struct {
 
 	aggregatorSpecs []*protoCommonV1.AggregatorSpec
 
-	tagsMap      map[string]string   // tag value ids => tag values
-	tagValuesMap []map[uint32]string // tag value id=> tag value for each group by tag key
-	tagValues    []string
-	signal       sync.WaitGroup
+	tagsMap                    map[string]string   // tag value ids => tag values
+	tagValuesMap               []map[uint32]string // tag value id=> tag value for each group by tag key
+	tagValues                  []string
+	waitingForCollectTagValues atomic.Int32
+	signal                     chan struct{}
 
 	mux       sync.Mutex
 	completed atomic.Bool
 }
 
+// NewStorageQueryFlow creates a storage query flow.
 func NewStorageQueryFlow(
-	ctx context.Context,
 	storageExecuteCtx *flow.StorageExecuteContext,
-	query *stmt.Query,
 	req *protoCommonV1.TaskRequest,
 	serverFactory rpc.TaskServerFactory,
 	leafNode *models.Leaf,
 	executorPool *tsdb.ExecutorPool,
 ) flow.StorageQueryFlow {
 	return &storageQueryFlow{
-		ctx:               ctx,
+		ctx:               storageExecuteCtx.TaskCtx.Ctx,
 		storageExecuteCtx: storageExecuteCtx,
-		query:             query,
 		req:               req,
 		leafNode:          leafNode,
 		serverFactory:     serverFactory,
 		executorPool:      executorPool,
 		pendingTasks:      make(map[int32]flow.Stage),
+		signal:            make(chan struct{}),
 	}
 }
 
@@ -111,12 +110,12 @@ func (qf *storageQueryFlow) Prepare() {
 	}
 
 	// for group by
-	groupByKenLen := len(qf.query.GroupBy)
+	groupByKenLen := len(qf.storageExecuteCtx.Query.GroupBy)
 	if groupByKenLen > 0 {
 		qf.tagValuesMap = make([]map[uint32]string, groupByKenLen)
 		qf.tagsMap = make(map[string]string)
 		qf.tagValues = make([]string, groupByKenLen)
-		qf.signal.Add(groupByKenLen)
+		qf.waitingForCollectTagValues.Add(int32(groupByKenLen))
 	}
 }
 
@@ -124,26 +123,11 @@ func (qf *storageQueryFlow) Prepare() {
 func (qf *storageQueryFlow) Complete(err error) {
 	if err != nil && qf.completed.CAS(false, true) {
 		// if complete with err, need send err msg directly and mark task completed
-		for _, receiver := range qf.leafNode.Receivers {
-			stream := qf.serverFactory.GetStream(receiver.Indicator())
-			if stream == nil {
-				storageQueryFlowLogger.Error("unable to get stream for answering error",
-					logger.String("target", receiver.Indicator()))
-				continue
-			}
-			err = stream.Send(&protoCommonV1.TaskResponse{
-				TaskID:    qf.req.ParentTaskID,
-				Type:      protoCommonV1.TaskType_Leaf,
-				Completed: true,
-				ErrMsg:    err.Error(),
-			})
-			if err != nil {
-				storageQueryFlowLogger.Error("send storage execute result", logger.Error(err))
-			}
-		}
+		qf.sendResponse(nil, err)
 	}
 }
 
+// Reduce reduces the down sampling aggregator's result.
 func (qf *storageQueryFlow) Reduce(it series.GroupedIterator) {
 	if qf.completed.Load() {
 		storageQueryFlowLogger.Warn("reduce the aggregator data after storage query flow completed")
@@ -161,7 +145,9 @@ func (qf *storageQueryFlow) ReduceTagValues(tagKeyIndex int, tagValues map[uint3
 	qf.mux.Lock()
 	defer qf.mux.Unlock()
 	qf.tagValuesMap[tagKeyIndex] = tagValues
-	qf.signal.Done()
+	if qf.waitingForCollectTagValues.Sub(1) == 0 {
+		close(qf.signal)
+	}
 }
 
 func (qf *storageQueryFlow) getTagValues(tags string) string {
@@ -194,7 +180,7 @@ func (qf *storageQueryFlow) completeTask(taskID int32) {
 	// get complete execute result
 	qf.mux.Lock()
 	delete(qf.pendingTasks, taskID)
-	completed = len(qf.pendingTasks) == 0
+	completed = len(qf.pendingTasks) == 0 || qf.ctx.Err() != nil
 	qf.mux.Unlock()
 
 	if !completed || !qf.completed.CAS(false, true) {
@@ -203,11 +189,16 @@ func (qf *storageQueryFlow) completeTask(taskID int32) {
 
 	defer qf.storageExecuteCtx.Release()
 
-	hashGroupData := make([][]byte, len(qf.leafNode.Receivers))
+	resultSet := make([][]byte, len(qf.leafNode.Receivers))
 	if qf.reduceAgg != nil {
 		if qf.storageExecuteCtx.HasGroupingTagValueIDs() {
 			// if it has grouping tag value ids, need wait collect group by tag value complete
-			qf.signal.Wait()
+			select {
+			case <-qf.ctx.Done():
+				qf.sendResponse(nil, qf.ctx.Err())
+				return
+			case <-qf.signal:
+			}
 		}
 
 		timeSeriesList := qf.makeTimeSeriesList()
@@ -218,7 +209,7 @@ func (qf *storageQueryFlow) completeTask(taskID int32) {
 				FieldAggSpecs:  qf.aggregatorSpecs,
 			}
 			leaf2RootSeriesPayload, _ := leaf2RootSeries.Marshal()
-			hashGroupData[0] = leaf2RootSeriesPayload
+			resultSet[0] = leaf2RootSeriesPayload
 		} else {
 			// during intermediate task, time series will be grouped by hash
 			// and send to multi intermediate receiver
@@ -235,18 +226,23 @@ func (qf *storageQueryFlow) completeTask(taskID int32) {
 					FieldAggSpecs:  qf.aggregatorSpecs,
 				}
 				leaf2IntermediatePayload, _ := leaf2IntermediateSeries.Marshal()
-				hashGroupData[idx] = leaf2IntermediatePayload
+				resultSet[idx] = leaf2IntermediatePayload
 			}
 		}
 	}
-	qf.sendResponse(hashGroupData)
+	qf.sendResponse(resultSet, nil)
 }
 
-func (qf *storageQueryFlow) sendResponse(hashGroupData [][]byte) {
+func (qf *storageQueryFlow) sendResponse(resultData [][]byte, err error) {
 	var stats []byte
-	executeStats := qf.storageExecuteCtx.QueryStats()
-	if executeStats != nil {
-		stats = encoding.JSONMarshal(executeStats)
+	var errMsg string
+	if err == nil {
+		executeStats := qf.storageExecuteCtx.QueryStats()
+		if executeStats != nil {
+			stats = encoding.JSONMarshal(executeStats)
+		}
+	} else {
+		errMsg = err.Error()
 	}
 	// send result to upstream receivers
 	for idx, receiver := range qf.leafNode.Receivers {
@@ -257,21 +253,27 @@ func (qf *storageQueryFlow) sendResponse(hashGroupData [][]byte) {
 			qf.Complete(querypkg.ErrNoSendStream)
 			break
 		}
-		if err := stream.Send(&protoCommonV1.TaskResponse{
+		var payload []byte
+		if resultData != nil {
+			payload = resultData[idx]
+		}
+		resp := &protoCommonV1.TaskResponse{
 			TaskID:    qf.req.ParentTaskID,
 			Type:      protoCommonV1.TaskType_Leaf,
 			Completed: true,
 			SendTime:  timeutil.NowNano(),
-			Payload:   hashGroupData[idx],
+			Payload:   payload,
 			Stats:     stats,
-		}); err != nil {
-			storageQueryFlowLogger.Error("send storage query result", logger.Error(err))
+			ErrMsg:    errMsg,
+		}
+		if err0 := stream.Send(resp); err0 != nil {
+			storageQueryFlowLogger.Error("send storage query result", logger.Error(err0))
 		}
 	}
 }
 
 func (qf *storageQueryFlow) makeTimeSeriesList() []*protoCommonV1.TimeSeries {
-	hasGroupBy := qf.query.HasGroupBy()
+	hasGroupBy := qf.storageExecuteCtx.Query.HasGroupBy()
 	// 1. get reduce aggregator result set
 	groupedSeriesList := qf.reduceAgg.ResultSet()
 	// 2. build rpc response data
@@ -304,9 +306,23 @@ func (qf *storageQueryFlow) makeTimeSeriesList() []*protoCommonV1.TimeSeries {
 	return timeSeriesList
 }
 
+func (qf *storageQueryFlow) isCompleted() bool {
+	if qf.completed.Load() {
+		return true
+	}
+
+	err := qf.ctx.Err()
+	if err != nil {
+		// context is done, complete query flow.
+		qf.Complete(err)
+		return true
+	}
+	return false
+}
+
 // Submit submits an async task when do query pipeline.
 func (qf *storageQueryFlow) Submit(stage flow.Stage, task concurrent.Task) {
-	if qf.completed.Load() {
+	if qf.isCompleted() {
 		// query flow is completed, reject new task execute
 		return
 	}
@@ -319,36 +335,33 @@ func (qf *storageQueryFlow) Submit(stage flow.Stage, task concurrent.Task) {
 	case flow.ScannerStage:
 		executePool = qf.executorPool.Scanner
 	}
-	if executePool != nil {
-		// 1. retain the task pending count before submit task
-		qf.mux.Lock()
-		taskID := qf.taskIDSeq.Inc()
-		qf.pendingTasks[taskID] = stage
-		qf.mux.Unlock()
-
-		executePool.Submit(func() {
-			defer func() {
-				// 3. complete task and dec task pending after task handle
-				qf.completeTask(taskID)
-				var err error
-				r := recover()
-				if r != nil {
-					switch t := r.(type) {
-					case string:
-						err = errors.New(t)
-					case error:
-						err = t
-					default:
-						err = errors.New("unknown error")
-					}
-					storageQueryFlowLogger.Error("do task fail when execute storage query flow",
-						logger.Error(err), logger.Stack())
-					qf.Complete(err)
-				}
-			}()
-
-			// 2. handle task logic in background goroutine
-			task()
-		})
+	if executePool == nil {
+		qf.Complete(fmt.Errorf("execute pool not found for stage:%s", stage))
+		return
 	}
+	// 1. retain the task pending count before submit task
+	qf.mux.Lock()
+	taskID := qf.taskIDSeq.Inc()
+	qf.pendingTasks[taskID] = stage
+	qf.mux.Unlock()
+
+	executePool.Submit(func() {
+		defer func() {
+			// 3. complete task and dec task pending after task handle
+			qf.completeTask(taskID)
+			var err error
+			r := recover()
+			if r != nil {
+				err = errorpkg.Error(r)
+				storageQueryFlowLogger.Error("do task fail when execute storage query flow",
+					logger.Error(err), logger.Stack())
+				qf.Complete(err)
+			}
+		}()
+
+		if !qf.isCompleted() {
+			// 2. handle task logic in background goroutine, if it's not completed.
+			task()
+		}
+	})
 }

@@ -15,17 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package query
+package error
 
-//go:generate mockgen -source=./task_processor.go -destination=./task_processor_mock.go -package=query
+import "errors"
 
-import (
-	"github.com/lindb/lindb/flow"
-	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
-)
-
-// TaskProcessor represents the task processor, all task processors are async.
-type TaskProcessor interface {
-	// Process processes the task request.
-	Process(ctx *flow.TaskContext, stream protoCommonV1.TaskService_HandleServer, req *protoCommonV1.TaskRequest)
+func Error(err interface{}) error {
+	switch t := err.(type) {
+	case string:
+		return errors.New(t)
+	case error:
+		return t
+	default:
+		return errors.New("unknown error")
+	}
 }

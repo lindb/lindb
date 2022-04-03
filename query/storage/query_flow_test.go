@@ -28,9 +28,11 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/aggregation"
+	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
@@ -70,56 +72,87 @@ func TestStorageQueryFlow_Execute(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	storageExecuteCtx := &flow.StorageExecuteContext{
-		QueryInterval:      timeutil.Interval(timeutil.OneSecond),
-		QueryIntervalRatio: 1,
-		QueryTimeRange:     timeutil.TimeRange{},
-	}
 	taskServerFactory := rpc.NewMockTaskServerFactory(ctrl)
-	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(nil)
+	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(nil).AnyTimes()
+	execPool := concurrent.NewMockPool(ctrl)
+	execPool.EXPECT().Submit(gomock.Any()).DoAndReturn(func(fn concurrent.Task) {
+		fn()
+	}).AnyTimes()
+	pool := &tsdb.ExecutorPool{
+		Filtering: execPool,
+		Grouping:  execPool,
+		Scanner:   execPool,
+	}
 
-	queryFlow := NewStorageQueryFlow(
-		context.TODO(),
-		storageExecuteCtx,
-		&stmt.Query{},
-		&protoCommonV1.TaskRequest{},
-		taskServerFactory,
-		&models.Leaf{Receivers: []models.StatelessNode{
-			{HostIP: "1.1.1.1", GRPCPort: 1000},
-			{HostIP: "1.1.1.2", GRPCPort: 2000},
-		}},
-		testExecPool,
-	)
-	queryFlow.Prepare()
-	qf := queryFlow.(*storageQueryFlow)
-	reduceAgg := aggregation.NewMockGroupingAggregator(ctrl)
-	qf.reduceAgg = reduceAgg
-	reduceAgg.EXPECT().ResultSet().Return(nil).AnyTimes()
-	reduceAgg.EXPECT().Aggregate(gomock.Any()).AnyTimes()
+	cases := []struct {
+		name  string
+		stage flow.Stage
+	}{
+		{
+			name:  "filtering",
+			stage: flow.FilteringStage,
+		},
+		{
+			name:  "grouping",
+			stage: flow.GroupingStage,
+		},
+		{
+			name:  "scanning",
+			stage: flow.ScannerStage,
+		},
+	}
 
-	var wait sync.WaitGroup
-	wait.Add(6)
-	queryFlow.Submit(flow.FilteringStage, func() {
-		wait.Done()
-		queryFlow.Submit(flow.GroupingStage, func() {
-			wait.Done()
-			queryFlow.Submit(flow.ScannerStage, func() {
-				wait.Done()
-			})
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			storageExecuteCtx := &flow.StorageExecuteContext{
+				QueryInterval:      timeutil.Interval(timeutil.OneSecond),
+				QueryIntervalRatio: 1,
+				QueryTimeRange:     timeutil.TimeRange{},
+				Query:              &stmt.Query{},
+				TaskCtx:            flow.NewTaskContextWithTimeout(context.Background(), time.Second),
+			}
+			queryFlow := NewStorageQueryFlow(
+				storageExecuteCtx,
+				&protoCommonV1.TaskRequest{},
+				taskServerFactory,
+				&models.Leaf{Receivers: []models.StatelessNode{
+					{HostIP: "1.1.1.1", GRPCPort: 1000},
+					{HostIP: "1.1.1.2", GRPCPort: 2000},
+				}},
+				pool,
+			)
+			queryFlow.Prepare()
+			qf := queryFlow.(*storageQueryFlow)
+			reduceAgg := aggregation.NewMockGroupingAggregator(ctrl)
+			qf.reduceAgg = reduceAgg
+			reduceAgg.EXPECT().ResultSet().Return(nil).AnyTimes()
+			reduceAgg.EXPECT().Aggregate(gomock.Any()).AnyTimes()
+			var wait sync.WaitGroup
+			wait.Add(1)
+			go func() {
+				queryFlow.Submit(tt.stage, func() {
+					wait.Done()
+				})
+			}()
+			wait.Wait()
 		})
+	}
+}
+
+func TestStorageQueryFlow_Submit_Fail(t *testing.T) {
+	qf := &storageQueryFlow{}
+	qf.completed.Store(true)
+	qf.Submit(flow.FilteringStage, func() {
+		panic("err")
 	})
-	queryFlow.Submit(flow.FilteringStage, func() {
-		wait.Done()
-		queryFlow.Submit(flow.GroupingStage, func() {
-			wait.Done()
-			queryFlow.Submit(flow.ScannerStage, func() {
-				wait.Done()
-			})
-		})
+	qf = &storageQueryFlow{
+		leafNode: &models.Leaf{},
+		ctx:      context.TODO(),
+	}
+	qf.Submit(flow.DownSamplingStage, func() {
+		panic("err")
 	})
-	wait.Wait()
-	queryFlow.Complete(nil)
-	time.Sleep(100 * time.Millisecond)
 }
 
 func TestStorageQueryFlow_completeTask(t *testing.T) {
@@ -127,51 +160,73 @@ func TestStorageQueryFlow_completeTask(t *testing.T) {
 	defer ctrl.Finish()
 
 	storageExecuteCtx := &flow.StorageExecuteContext{
-		QueryInterval:      timeutil.Interval(timeutil.OneSecond),
-		QueryIntervalRatio: 1,
-		QueryTimeRange:     timeutil.TimeRange{},
+		QueryInterval:       timeutil.Interval(timeutil.OneSecond),
+		QueryIntervalRatio:  1,
+		QueryTimeRange:      timeutil.TimeRange{},
+		Query:               &stmt.Query{GroupBy: []string{"host"}},
+		GroupingTagValueIDs: []*roaring.Bitmap{roaring.BitmapOf(1, 2, 3)},
+		Stats:               models.NewStorageStats(),
 	}
 	taskServerFactory := rpc.NewMockTaskServerFactory(ctrl)
 	server := protoCommonV1.NewMockTaskService_HandleServer(ctrl)
-	server.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()
+	server.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
 	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(server).AnyTimes()
 
-	queryFlow := NewStorageQueryFlow(
-		context.TODO(),
-		storageExecuteCtx,
-		&stmt.Query{},
-		&protoCommonV1.TaskRequest{},
-		taskServerFactory,
-		&models.Leaf{Receivers: []models.StatelessNode{
-			{HostIP: "1.1.1.1", GRPCPort: 1000},
-			{HostIP: "1.1.1.2", GRPCPort: 2000},
-		}},
-		testExecPool,
-	)
+	cases := []struct {
+		name     string
+		receives []models.StatelessNode
+		prepare  func(qf *storageQueryFlow)
+	}{
+		{
+			name: "test execute task after completed",
+			prepare: func(qf *storageQueryFlow) {
+				qf.completed.Store(true)
+			},
+		},
+		{
+			name: "test reduce result send, one receive",
+			receives: []models.StatelessNode{
+				{HostIP: "1.1.1.1", GRPCPort: 1000},
+			},
+			prepare: func(qf *storageQueryFlow) {
+				mockBuildResultSet(qf, ctrl)
+			},
+		},
+		{
+			name: "test reduce result send, more receives",
+			receives: []models.StatelessNode{
+				{HostIP: "1.1.1.1", GRPCPort: 1000},
+				{HostIP: "1.1.1.2", GRPCPort: 1000},
+			},
+			prepare: func(qf *storageQueryFlow) {
+				mockBuildResultSet(qf, ctrl)
+			},
+		},
+	}
 
-	queryFlow.Prepare()
-	qf := queryFlow.(*storageQueryFlow)
-	// case 1: test execute task after completed
-	qf.completed.Store(true)
-	queryFlow.Submit(flow.FilteringStage, func() {
-		assert.Fail(t, "exec err")
-	})
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			storageExecuteCtx.TaskCtx = flow.NewTaskContextWithTimeout(context.Background(), time.Second)
+			queryFlow := NewStorageQueryFlow(
+				storageExecuteCtx,
+				&protoCommonV1.TaskRequest{},
+				taskServerFactory,
+				&models.Leaf{Receivers: tt.receives},
+				testExecPool,
+			)
 
-	// case 2: test reduce result send
-	queryFlow = NewStorageQueryFlow(
-		context.TODO(),
-		storageExecuteCtx,
-		&stmt.Query{GroupBy: []string{"host"}},
-		&protoCommonV1.TaskRequest{},
-		taskServerFactory,
-		&models.Leaf{Receivers: []models.StatelessNode{
-			{HostIP: "1.1.1.1", GRPCPort: 1000},
-		}},
-		testExecPool,
-	)
+			queryFlow.Prepare()
+			qf := queryFlow.(*storageQueryFlow)
+			if tt.prepare != nil {
+				tt.prepare(qf)
+			}
+			qf.completeTask(1)
+		})
+	}
+}
 
-	queryFlow.Prepare()
-	qf = queryFlow.(*storageQueryFlow)
+func mockBuildResultSet(qf *storageQueryFlow, ctrl *gomock.Controller) {
 	reduceAgg := aggregation.NewMockGroupingAggregator(ctrl)
 	qf.reduceAgg = reduceAgg
 	groupIt := series.NewMockGroupedIterator(ctrl)
@@ -189,16 +244,9 @@ func TestStorageQueryFlow_completeTask(t *testing.T) {
 	it.EXPECT().FieldName().Return(field.Name("f1"))
 	groupIt.EXPECT().HasNext().Return(false)
 	reduceAgg.EXPECT().ResultSet().Return([]series.GroupedIterator{groupIt})
-	var wait1 sync.WaitGroup
-	wait1.Add(1)
-	queryFlow.Submit(flow.FilteringStage, func() {
-		wait1.Done()
-	})
-	wait1.Wait()
 	go func() {
-		queryFlow.ReduceTagValues(0, map[uint32]string{100: "1.1.1.1"})
+		qf.ReduceTagValues(0, map[uint32]string{100: "1.1.1.1"})
 	}()
-	time.Sleep(300 * time.Millisecond)
 }
 
 func TestStorageQueryFlow_getValues(t *testing.T) {
@@ -214,11 +262,11 @@ func TestStorageQueryFlow_getValues(t *testing.T) {
 		QueryInterval:      timeutil.Interval(timeutil.OneSecond),
 		QueryIntervalRatio: 1,
 		QueryTimeRange:     timeutil.TimeRange{},
+		Query:              &stmt.Query{},
+		TaskCtx:            flow.NewTaskContextWithTimeout(context.Background(), time.Second),
 	}
 	queryFlow := NewStorageQueryFlow(
-		context.TODO(),
 		storageExecuteCtx,
-		&stmt.Query{},
 		&protoCommonV1.TaskRequest{},
 		taskServerFactory,
 		&models.Leaf{Receivers: []models.StatelessNode{
@@ -252,30 +300,44 @@ func TestStorageQueryFlow_Task_panic(t *testing.T) {
 		QueryInterval:      timeutil.Interval(timeutil.OneSecond),
 		QueryIntervalRatio: 1,
 		QueryTimeRange:     timeutil.TimeRange{},
+		Query:              &stmt.Query{},
 	}
-	queryFlow := NewStorageQueryFlow(context.TODO(),
-		storageExecuteCtx, &stmt.Query{},
-		&protoCommonV1.TaskRequest{},
-		nil,
-		&models.Leaf{},
-		testExecPool)
-	queryFlow.Prepare()
-	var wait sync.WaitGroup
-	wait.Add(3)
-	queryFlow.Submit(flow.FilteringStage, func() {
-		wait.Done()
-		panic(fmt.Errorf("xxx"))
-	})
-	queryFlow.Submit(flow.FilteringStage, func() {
-		wait.Done()
-		panic("err_str")
-	})
-	queryFlow.Submit(flow.FilteringStage, func() {
-		wait.Done()
-		panic(12)
-	})
-	wait.Wait()
-	time.Sleep(100 * time.Millisecond)
+	cases := []struct {
+		name string
+		in   func() (wait sync.WaitGroup, fn func())
+	}{
+		{
+			name: "panic with err",
+			in: func() (wait sync.WaitGroup, fn func()) {
+				wait.Add(1)
+				fn = func() {
+					panic(fmt.Errorf("xxx"))
+				}
+				return
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			storageExecuteCtx.TaskCtx = flow.NewTaskContextWithTimeout(context.Background(), time.Second)
+			queryFlow := NewStorageQueryFlow(
+				storageExecuteCtx,
+				&protoCommonV1.TaskRequest{},
+				nil,
+				&models.Leaf{},
+				testExecPool)
+			queryFlow.Prepare()
+
+			wait, fn := tt.in()
+			queryFlow.Submit(flow.FilteringStage, func() {
+				wait.Done()
+				fn()
+			})
+			wait.Wait()
+		})
+	}
 }
 
 func TestStorageQueryFlow_Complete(t *testing.T) {
@@ -286,13 +348,15 @@ func TestStorageQueryFlow_Complete(t *testing.T) {
 		QueryInterval:      timeutil.Interval(timeutil.OneSecond),
 		QueryIntervalRatio: 1,
 		QueryTimeRange:     timeutil.TimeRange{},
+		Query:              &stmt.Query{},
 	}
 	taskServerFactory := rpc.NewMockTaskServerFactory(ctrl)
 	server := protoCommonV1.NewMockTaskService_HandleServer(ctrl)
-	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(server).Times(2)
+	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(server).AnyTimes()
 
-	queryFlow := NewStorageQueryFlow(context.TODO(),
-		storageExecuteCtx, &stmt.Query{},
+	storageExecuteCtx.TaskCtx = flow.NewTaskContextWithTimeout(context.Background(), time.Second)
+	queryFlow := NewStorageQueryFlow(
+		storageExecuteCtx,
 		&protoCommonV1.TaskRequest{},
 		taskServerFactory,
 		&models.Leaf{Receivers: []models.StatelessNode{
@@ -302,13 +366,14 @@ func TestStorageQueryFlow_Complete(t *testing.T) {
 		testExecPool)
 
 	queryFlow.Complete(nil) // err is nil, need not send err result
-	server.EXPECT().Send(gomock.Any()).Return(io.ErrClosedPipe).Times(2)
+	server.EXPECT().Send(gomock.Any()).Return(io.ErrClosedPipe).AnyTimes()
 	queryFlow.Complete(fmt.Errorf("err")) // send err result
 	queryFlow.Complete(fmt.Errorf("err")) // no send err result
 
-	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(nil).Times(2)
-	queryFlow = NewStorageQueryFlow(context.TODO(),
-		storageExecuteCtx, &stmt.Query{},
+	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(nil).AnyTimes()
+	storageExecuteCtx.TaskCtx = flow.NewTaskContextWithTimeout(context.Background(), time.Second)
+	queryFlow = NewStorageQueryFlow(
+		storageExecuteCtx,
 		&protoCommonV1.TaskRequest{},
 		taskServerFactory,
 		&models.Leaf{Receivers: []models.StatelessNode{
@@ -317,4 +382,62 @@ func TestStorageQueryFlow_Complete(t *testing.T) {
 		}},
 		testExecPool)
 	queryFlow.Complete(fmt.Errorf("err")) // stream not found
+}
+
+func TestStorageQueryFlow_Complete_Wait_Timeout(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	spec := aggregation.NewAggregatorSpec("f", field.SumField)
+	spec.AddFunctionType(function.Sum)
+	storageExecuteCtx := &flow.StorageExecuteContext{
+		GroupingTagValueIDs: []*roaring.Bitmap{roaring.BitmapOf(1, 2, 3)},
+		Query:               &stmt.Query{GroupBy: []string{"db"}},
+		AggregatorSpecs:     aggregation.AggregatorSpecs{spec},
+		Stats:               models.NewStorageStats(),
+		TaskCtx:             flow.NewTaskContextWithTimeout(context.Background(), time.Second),
+	}
+	taskServerFactory := rpc.NewMockTaskServerFactory(ctrl)
+	server := protoCommonV1.NewMockTaskService_HandleServer(ctrl)
+	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(server).MaxTimes(2)
+	server.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err")).MaxTimes(2)
+	start := timeutil.Now()
+	queryFlow := NewStorageQueryFlow(
+		storageExecuteCtx,
+		&protoCommonV1.TaskRequest{},
+		taskServerFactory,
+		&models.Leaf{Receivers: []models.StatelessNode{
+			{HostIP: "1.1.1.1", GRPCPort: 1000},
+			{HostIP: "1.1.1.2", GRPCPort: 2000},
+		}},
+		testExecPool)
+	queryFlow.Prepare()
+	qf := queryFlow.(*storageQueryFlow)
+	qf.completeTask(12)
+	assert.True(t, timeutil.Now()-start >= timeutil.OneSecond)
+}
+
+func TestStorageQueryFlow_Reduce(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	reduceAgg := aggregation.NewMockGroupingAggregator(ctrl)
+	qf := &storageQueryFlow{
+		reduceAgg: reduceAgg,
+	}
+	// reduce agg result set
+	reduceAgg.EXPECT().Aggregate(nil)
+	qf.Reduce(nil)
+	// qf is complete
+	qf.completed.Store(true)
+	qf.Reduce(nil)
+}
+
+func TestStorageQueryFlow_isCompleted(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	qf := &storageQueryFlow{ctx: ctx, leafNode: &models.Leaf{}}
+	assert.False(t, qf.isCompleted())
+	cancel()
+	assert.True(t, qf.isCompleted())
+	qf.completed.Store(true)
+	assert.True(t, qf.isCompleted())
 }

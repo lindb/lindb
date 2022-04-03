@@ -18,11 +18,11 @@
 package storagequery
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
@@ -33,6 +33,11 @@ import (
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
+)
+
+// for testing
+var (
+	newStorageMetadataQueryFn = newStorageMetadataQuery
 )
 
 // leafTaskProcessor represents the leaf node's task, the leaf node is always storage node
@@ -71,31 +76,31 @@ func NewLeafTaskProcessor(
 
 // Process dispatches the request to storage engine query processor
 func (p *leafTaskProcessor) Process(
-	ctx context.Context,
+	ctx *flow.TaskContext,
 	stream protoCommonV1.TaskService_HandleServer,
 	req *protoCommonV1.TaskRequest,
 ) {
 	err := p.process(ctx, req)
-	if err == nil {
-		return
-	}
-	if sendError := stream.Send(&protoCommonV1.TaskResponse{
-		TaskID:    req.ParentTaskID,
-		Type:      protoCommonV1.TaskType_Leaf,
-		Completed: true,
-		ErrMsg:    err.Error(),
-		SendTime:  timeutil.NowNano(),
-	}); sendError != nil {
-		p.logger.Error("failed to send error message to target stream",
-			logger.String("taskID", req.ParentTaskID),
-			logger.Error(err),
-		)
+	if err != nil {
+		// if process fail, need send response with err
+		if sendError := stream.Send(&protoCommonV1.TaskResponse{
+			TaskID:    req.ParentTaskID,
+			Type:      protoCommonV1.TaskType_Leaf,
+			Completed: true,
+			ErrMsg:    err.Error(),
+			SendTime:  timeutil.NowNano(),
+		}); sendError != nil {
+			p.logger.Error("failed to send error message to target stream",
+				logger.String("taskID", req.ParentTaskID),
+				logger.Error(err),
+			)
+		}
 	}
 }
 
 // Process processes the task request, searches the data of metric from time series engine
 func (p *leafTaskProcessor) process(
-	ctx context.Context,
+	ctx *flow.TaskContext,
 	req *protoCommonV1.TaskRequest,
 ) error {
 	physicalPlan := models.PhysicalPlan{}
@@ -135,7 +140,7 @@ func (p *leafTaskProcessor) process(
 		}
 	case protoCommonV1.RequestType_Metadata:
 		p.storageMetaQueryCounter.Incr()
-		if err := p.processMetadataSuggest(db, curLeaf.ShardIDs, req, stream); err != nil {
+		if err := p.processMetadataSuggest(ctx, db, curLeaf.ShardIDs, req, stream); err != nil {
 			return err
 		}
 	default:
@@ -146,16 +151,18 @@ func (p *leafTaskProcessor) process(
 }
 
 func (p *leafTaskProcessor) processMetadataSuggest(
+	ctx *flow.TaskContext,
 	db tsdb.Database,
 	shardIDs []models.ShardID,
 	req *protoCommonV1.TaskRequest,
 	stream protoCommonV1.TaskService_HandleServer,
 ) error {
+	defer ctx.Release()
 	var stmtQuery = &stmt.MetricMetadata{}
 	if err := stmtQuery.UnmarshalJSON(req.Payload); err != nil {
 		return query.ErrUnmarshalSuggest
 	}
-	exec := newStorageMetadataQuery(db, shardIDs, stmtQuery)
+	exec := newStorageMetadataQueryFn(db, shardIDs, stmtQuery)
 	result, err := exec.Execute()
 	if err != nil && !errors.Is(err, constants.ErrNotFound) {
 		return err
@@ -173,7 +180,7 @@ func (p *leafTaskProcessor) processMetadataSuggest(
 }
 
 func (p *leafTaskProcessor) processDataSearch(
-	ctx context.Context,
+	ctx *flow.TaskContext,
 	db tsdb.Database,
 	shardIDs []models.ShardID,
 	req *protoCommonV1.TaskRequest,
@@ -186,10 +193,9 @@ func (p *leafTaskProcessor) processDataSearch(
 
 	// execute leaf task
 	storageExecuteCtx := newStorageExecuteContext(db, shardIDs, &stmtQuery)
+	storageExecuteCtx.storageExecuteCtx.TaskCtx = ctx
 	queryFlow := NewStorageQueryFlow(
-		ctx,
 		storageExecuteCtx.storageExecuteCtx,
-		&stmtQuery,
 		req,
 		p.taskServerFactory,
 		leafNode,

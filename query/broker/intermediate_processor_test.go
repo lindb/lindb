@@ -26,6 +26,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
@@ -67,17 +68,20 @@ func Test_Intermediate_process_error(t *testing.T) {
 		logger: logger.GetLogger("query", "Test"),
 	}
 	stream.EXPECT().Send(gomock.Any()).Return(nil)
-	taskProcessor.Process(context.Background(), stream, &protoCommonV1.TaskRequest{})
+	taskProcessor.Process(flow.NewTaskContextWithTimeout(context.Background(), time.Second),
+		stream, &protoCommonV1.TaskRequest{})
 
 	stream.EXPECT().Send(gomock.Any()).Return(nil)
-	taskProcessor.Process(context.Background(), stream, &protoCommonV1.TaskRequest{
-		RequestType: protoCommonV1.RequestType_Metadata,
-	})
+	taskProcessor.Process(flow.NewTaskContextWithTimeout(context.Background(), time.Second),
+		stream, &protoCommonV1.TaskRequest{
+			RequestType: protoCommonV1.RequestType_Metadata,
+		})
 
 	stream.EXPECT().Send(gomock.Any()).Return(io.ErrClosedPipe)
-	taskProcessor.Process(context.Background(), stream, &protoCommonV1.TaskRequest{
-		Type: protoCommonV1.TaskType_Leaf,
-	})
+	taskProcessor.Process(flow.NewTaskContextWithTimeout(context.Background(), time.Second),
+		stream, &protoCommonV1.TaskRequest{
+			Type: protoCommonV1.TaskType_Leaf,
+		})
 }
 
 func Test_Intermediate_processIntermediateTask(t *testing.T) {
@@ -94,13 +98,15 @@ func Test_Intermediate_processIntermediateTask(t *testing.T) {
 	stream.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()
 
 	// decode stmt error
-	err := taskProcessor.processIntermediateTask(context.Background(), stream, &protoCommonV1.TaskRequest{})
+	err := taskProcessor.processIntermediateTask(flow.NewTaskContextWithTimeout(context.Background(), time.Second),
+		stream, &protoCommonV1.TaskRequest{})
 	assert.Error(t, err)
 	// decode plan error
 	stmtData := []byte("{}")
-	err = taskProcessor.processIntermediateTask(context.Background(), stream, &protoCommonV1.TaskRequest{
-		Payload: stmtData,
-	})
+	err = taskProcessor.processIntermediateTask(flow.NewTaskContextWithTimeout(context.Background(), time.Second),
+		stream, &protoCommonV1.TaskRequest{
+			Payload: stmtData,
+		})
 	assert.Error(t, err)
 
 	// task manager fail
@@ -116,7 +122,8 @@ func Test_Intermediate_processIntermediateTask(t *testing.T) {
 	time.AfterFunc(time.Millisecond*200, func() {
 		close(ch1)
 	})
-	assert.Error(t, taskProcessor.processIntermediateTask(context.Background(),
+	assert.Error(t, taskProcessor.processIntermediateTask(
+		flow.NewTaskContextWithTimeout(context.Background(), time.Second),
 		stream,
 		&protoCommonV1.TaskRequest{
 			Payload:      stmtData,
@@ -130,7 +137,8 @@ func Test_Intermediate_processIntermediateTask(t *testing.T) {
 	time.AfterFunc(time.Millisecond*200, func() {
 		ch2 <- &series.TimeSeriesEvent{Err: io.ErrClosedPipe}
 	})
-	assert.Error(t, taskProcessor.processIntermediateTask(context.Background(),
+	assert.Error(t, taskProcessor.processIntermediateTask(
+		flow.NewTaskContextWithTimeout(context.Background(), time.Second),
 		stream,
 		&protoCommonV1.TaskRequest{
 			Payload:      stmtData,
@@ -138,8 +146,8 @@ func Test_Intermediate_processIntermediateTask(t *testing.T) {
 		}))
 	// context done
 	ch3 := make(chan *series.TimeSeriesEvent)
-	ctx, cancel := context.WithCancel(context.Background())
-	time.AfterFunc(time.Millisecond*200, cancel)
+	ctx := flow.NewTaskContextWithTimeout(context.Background(), time.Second)
+	time.AfterFunc(time.Millisecond*200, ctx.Release)
 	taskManager.EXPECT().SubmitIntermediateMetricTask(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(ch3)
 	assert.Nil(t, taskProcessor.processIntermediateTask(ctx,

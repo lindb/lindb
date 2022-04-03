@@ -18,10 +18,10 @@
 package brokerquery
 
 import (
-	"context"
 	"fmt"
 	"time"
 
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
@@ -83,10 +83,11 @@ func (p *intermediateTaskProcessor) ackIntermediateTask(
 
 // Process dispatches the request to distribution query processor, merges the results
 func (p *intermediateTaskProcessor) Process(
-	ctx context.Context,
+	ctx *flow.TaskContext,
 	stream protoCommonV1.TaskService_HandleServer,
 	req *protoCommonV1.TaskRequest,
 ) {
+	defer ctx.Release()
 	var err error
 	if req.RequestType != protoCommonV1.RequestType_Data {
 		err = query.ErrOnlySupportIntermediateTask
@@ -107,7 +108,7 @@ func (p *intermediateTaskProcessor) Process(
 // processIntermediateTask processes the task request, sends task request to leaf nodes based on physical plan,
 // and tracks the task state
 func (p *intermediateTaskProcessor) processIntermediateTask(
-	ctx context.Context,
+	ctx *flow.TaskContext,
 	stream protoCommonV1.TaskService_HandleServer,
 	req *protoCommonV1.TaskRequest,
 ) error {
@@ -141,7 +142,7 @@ func (p *intermediateTaskProcessor) processIntermediateTask(
 		}
 		taskResponse := p.makeTaskResponse(req, event)
 		return p.taskManager.SendResponse(intermediate.Parent, taskResponse)
-	case <-ctx.Done():
+	case <-ctx.Ctx.Done():
 		// ignore timeout case, as the caller is already timed out
 		return nil
 	}
