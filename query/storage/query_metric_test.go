@@ -190,7 +190,7 @@ func TestStorageExecutor_TagSearch(t *testing.T) {
 			name: "tag search not result",
 			prepare: func() {
 				tagSearch.EXPECT().Filter().Return(nil)
-				qFlow.EXPECT().Complete(constants.ErrNotFound)
+				qFlow.EXPECT().Complete(nil)
 			},
 		},
 	}
@@ -394,7 +394,7 @@ func TestStorageExecute_Execute(t *testing.T) {
 			},
 		},
 		{
-			name: "data scan panic",
+			name: "no group data",
 			sql:  "select f from cpu where host='1.1.1.1' and time>'20190729 11:00:00' and time<'20190729 12:00:00' group by node",
 			prepare: func() {
 				mockGroupData(ctrl)
@@ -413,7 +413,7 @@ func TestStorageExecute_Execute(t *testing.T) {
 				}
 				newDataLoadTaskFunc = func(shard tsdb.Shard, queryFlow flow.StorageQueryFlow,
 					dataLoadCtx *flow.DataLoadContext, segmentIdx int, segmentCtx *flow.TimeSegmentResultSet) flow.QueryTask {
-					panic("err")
+					return task
 				}
 			},
 			assert: func() {

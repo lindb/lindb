@@ -151,7 +151,7 @@ func (mdb *metadataDatabase) GetTagKeyID(namespace, metricName, tagKey string) (
 	if ok {
 		return t.ID, nil
 	}
-	return tag.EmptyTagKeyID, constants.ErrTagKeyIDNotFound
+	return tag.EmptyTagKeyID, fmt.Errorf("%w, tag key: %s", constants.ErrTagKeyIDNotFound, tagKey)
 }
 
 // GetAllFields returns the all visible fields by namespace/metric name,
@@ -202,7 +202,7 @@ func (mdb *metadataDatabase) GetField(namespace, metricName string, fieldName fi
 	if ok {
 		return f, nil
 	}
-	return field.Meta{}, constants.ErrNotFound
+	return field.Meta{}, fmt.Errorf("%w, field: %s", constants.ErrFieldNotFound, fieldName)
 }
 
 // GenMetricID generates the metric id in the memory.

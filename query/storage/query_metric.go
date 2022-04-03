@@ -24,7 +24,6 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/tsdb"
 )
@@ -100,7 +99,11 @@ func (e *storageExecutor) Execute() {
 		tagSearch := newTagSearchFunc(e.ctx)
 		t = newTagFilterTaskFunc(e.ctx, tagSearch)
 		if err := t.Run(); err != nil {
-			e.queryFlow.Complete(err)
+			if errors.Is(constants.ErrNotFound, err) {
+				e.queryFlow.Complete(nil)
+			} else {
+				e.queryFlow.Complete(err)
+			}
 			return
 		}
 	}
@@ -206,14 +209,6 @@ func (e *storageExecutor) executeGroupBy(shardExecuteContext *flow.ShardExecuteC
 			}
 
 			e.queryFlow.Submit(flow.ScannerStage, func() {
-				defer func() {
-					if r := recover(); r != nil {
-						storageQueryFlowLogger.Error("load data after grouping",
-							logger.Any("error", r),
-							logger.Stack())
-					}
-				}()
-
 				for segmentIdx := range timeSegments {
 					// 3.load data by grouped lowSeriesIDs
 					t := newDataLoadTaskFunc(shard, e.queryFlow, dataLoadCtx, segmentIdx, timeSegments[segmentIdx])

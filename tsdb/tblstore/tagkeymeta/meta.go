@@ -289,7 +289,7 @@ func (meta *tagKeyMeta) FindTagValueIDsByLike(tagValue string) (tagValueIDs []ui
 	switch {
 	case tagValue == "":
 		break
-	// only endswith *
+	// only ends with *
 	case !hashPrefix && hasSuffix:
 		itr, err := meta.PrefixIterator(tagValueSlice[:len(tagValueSlice)-1])
 		if err != nil {
@@ -299,7 +299,7 @@ func (meta *tagKeyMeta) FindTagValueIDsByLike(tagValue string) (tagValueIDs []ui
 			tagValueIDs = append(tagValueIDs, encoding.ByteSlice2Uint32(itr.Value()))
 			itr.Next()
 		}
-	// only startswith *
+	// only starts with *
 	case hashPrefix && !hasSuffix:
 		suffix := tagValueSlice[1:]
 		itr, err := meta.PrefixIterator(nil)
@@ -312,7 +312,7 @@ func (meta *tagKeyMeta) FindTagValueIDsByLike(tagValue string) (tagValueIDs []ui
 			}
 			itr.Next()
 		}
-	// startswith and endswith *
+	// starts with and ends with *
 	case hashPrefix && hasSuffix:
 		middle := tagValueSlice[1 : len(tagValueSlice)-1]
 		itr, err := meta.PrefixIterator(nil)

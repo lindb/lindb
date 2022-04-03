@@ -249,7 +249,7 @@ func TestMetadataDatabase_GetTagKey(t *testing.T) {
 				err      error
 			}{
 				tagKeyID: tag.EmptyTagKeyID,
-				err:      constants.ErrTagKeyIDNotFound,
+				err:      fmt.Errorf("%w, tag key: %s", constants.ErrTagKeyIDNotFound, "key3"),
 			},
 		},
 		{
@@ -412,7 +412,7 @@ func TestMetadataDatabase_GetField(t *testing.T) {
 			out: struct {
 				f   field.Meta
 				err error
-			}{f: field.Meta{}, err: constants.ErrNotFound},
+			}{f: field.Meta{}, err: fmt.Errorf("%w, field: %s", constants.ErrFieldNotFound, "max")},
 		},
 		{
 			name:       "get field successfully",
