@@ -72,7 +72,7 @@ func Test_MetadataQuery(t *testing.T) {
 	}).AnyTimes()
 
 	// wait error
-	thisTaskManager.EXPECT().SubmitMetaDataTask(gomock.Any(), gomock.Any()).Return(nil, io.ErrClosedPipe)
+	thisTaskManager.EXPECT().SubmitMetaDataTask(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, io.ErrClosedPipe)
 	_, err = metaDataQuery.WaitResponse()
 	assert.Error(t, err)
 
@@ -81,7 +81,7 @@ func Test_MetadataQuery(t *testing.T) {
 	time.AfterFunc(time.Millisecond*200, func() {
 		response1Ch <- &protoCommonV1.TaskResponse{ErrMsg: "error"}
 	})
-	thisTaskManager.EXPECT().SubmitMetaDataTask(gomock.Any(), gomock.Any()).Return(
+	thisTaskManager.EXPECT().SubmitMetaDataTask(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		response1Ch,
 		nil)
 	_, err = metaDataQuery.WaitResponse()
@@ -92,7 +92,7 @@ func Test_MetadataQuery(t *testing.T) {
 	time.AfterFunc(time.Millisecond*200, func() {
 		response2Ch <- &protoCommonV1.TaskResponse{Payload: nil}
 	})
-	thisTaskManager.EXPECT().SubmitMetaDataTask(gomock.Any(), gomock.Any()).Return(
+	thisTaskManager.EXPECT().SubmitMetaDataTask(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		response2Ch, nil)
 	_, err = metaDataQuery.WaitResponse()
 	assert.Error(t, err)
@@ -105,7 +105,7 @@ func Test_MetadataQuery(t *testing.T) {
 		response3Ch <- &protoCommonV1.TaskResponse{Payload: data}
 		close(response3Ch)
 	})
-	thisTaskManager.EXPECT().SubmitMetaDataTask(gomock.Any(), gomock.Any()).Return(
+	thisTaskManager.EXPECT().SubmitMetaDataTask(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		response3Ch, nil)
 	results, err = metaDataQuery.WaitResponse()
 	assert.Nil(t, err)
@@ -114,7 +114,7 @@ func Test_MetadataQuery(t *testing.T) {
 	// timeout
 	response4Ch := make(chan *protoCommonV1.TaskResponse)
 	time.AfterFunc(time.Millisecond*200, cancel)
-	thisTaskManager.EXPECT().SubmitMetaDataTask(gomock.Any(), gomock.Any()).Return(
+	thisTaskManager.EXPECT().SubmitMetaDataTask(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		response4Ch,
 		nil)
 	_, err = metaDataQuery.WaitResponse()

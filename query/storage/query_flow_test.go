@@ -75,8 +75,8 @@ func TestStorageQueryFlow_Execute(t *testing.T) {
 	taskServerFactory := rpc.NewMockTaskServerFactory(ctrl)
 	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(nil).AnyTimes()
 	execPool := concurrent.NewMockPool(ctrl)
-	execPool.EXPECT().Submit(gomock.Any()).DoAndReturn(func(fn concurrent.Task) {
-		fn()
+	execPool.EXPECT().Submit(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, task *concurrent.Task) {
+		task.Exec()
 	}).AnyTimes()
 	pool := &tsdb.ExecutorPool{
 		Filtering: execPool,

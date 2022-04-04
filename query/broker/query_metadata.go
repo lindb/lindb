@@ -61,7 +61,7 @@ func (mq *metadataQuery) WaitResponse() ([]string, error) {
 		return nil, err
 	}
 
-	resultCh, err := mq.runtime.taskManager.SubmitMetaDataTask(physicalPlan, mq.metaStmtQuery)
+	resultCh, err := mq.runtime.taskManager.SubmitMetaDataTask(mq.ctx, physicalPlan, mq.metaStmtQuery)
 	if err != nil {
 		return nil, err
 	}
