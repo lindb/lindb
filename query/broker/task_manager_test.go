@@ -174,17 +174,17 @@ func TestTaskManager_SubmitMetaDataTask(t *testing.T) {
 	client.EXPECT().Send(gomock.Any()).Return(io.ErrClosedPipe)
 	taskClientFactory.EXPECT().GetTaskClient(gomock.Any()).
 		Return(client)
-	_, err := taskManager2.SubmitMetaDataTask(physicalPlan, &stmt.MetricMetadata{})
+	_, err := taskManager2.SubmitMetaDataTask(context.TODO(), physicalPlan, &stmt.MetricMetadata{})
 	assert.Error(t, err)
 
 	// get client error
 	taskClientFactory.EXPECT().GetTaskClient(gomock.Any()).
 		Return(nil)
-	_, err = taskManager2.SubmitMetaDataTask(physicalPlan, &stmt.MetricMetadata{})
+	_, err = taskManager2.SubmitMetaDataTask(context.TODO(), physicalPlan, &stmt.MetricMetadata{})
 	assert.Error(t, err)
 
 	// SubmitIntermediateMetricTask
-	_ = taskManager2.SubmitIntermediateMetricTask(physicalPlan, &stmt.Query{}, "")
+	_ = taskManager2.SubmitIntermediateMetricTask(context.TODO(), physicalPlan, &stmt.Query{}, "")
 }
 
 func TestTaskManager_cleaner(t *testing.T) {

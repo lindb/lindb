@@ -18,6 +18,8 @@
 package concurrent
 
 import (
+	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -36,9 +38,9 @@ func Test_Pool_Submit(t *testing.T) {
 	finished := make(chan struct{})
 	do := func(iterations int) {
 		for i := 0; i < iterations; i++ {
-			pool.Submit(func() {
+			pool.Submit(context.TODO(), NewTask(func() {
 				c.Inc()
-			})
+			}, nil))
 		}
 		finished <- struct{}{}
 	}
@@ -52,18 +54,41 @@ func Test_Pool_Submit(t *testing.T) {
 	assert.Equal(t, int32(100), c.Load())
 }
 
-func Test_Pool_Statistics(t *testing.T) {
-	p := NewPool("test", 0, time.Millisecond*100, linmetric.BrokerRegistry.NewScope("2"))
-	wp := p.(*workerPool)
+func TestPool_Submit_PanicTask(t *testing.T) {
+	pool := NewPool("test", 0, time.Millisecond*200, linmetric.BrokerRegistry.NewScope("1"))
+	var wait sync.WaitGroup
+	wait.Add(1)
+	pool.Submit(context.TODO(), NewTask(func() {
+		panic("err")
+	}, func(err error) {
+		wait.Done()
+	}))
+	wait.Wait()
 
-	for i := 0; i < 10; i++ {
-		p.SubmitAndWait(nil)
-		p.SubmitAndWait(func() {
-		})
-	}
+	wp := pool.(*workerPool)
 	assert.Equal(t, float64(1), wp.workersAlive.Get())
-
 	time.Sleep(time.Second)
-	p.Stop()
 	assert.Equal(t, float64(0), wp.workersAlive.Get())
+	pool.Stop()
+}
+
+func TestPool_Submit_Task_Timeout(t *testing.T) {
+	pool := NewPool("test", 0, time.Millisecond*100, linmetric.BrokerRegistry.NewScope("1"))
+	submit := func() {
+		ctx, cancel := context.WithTimeout(context.TODO(), time.Millisecond*2)
+		defer cancel()
+		pool.Submit(ctx, NewTask(func() {
+			time.Sleep(20 * time.Millisecond)
+		}, nil))
+	}
+	for i := 0; i < 100; i++ {
+		submit()
+	}
+	time.Sleep(time.Second)
+}
+
+func TestPool_idle(t *testing.T) {
+	NewPool("test", 0, time.Millisecond*100, linmetric.BrokerRegistry.NewScope("1"))
+	// no worker
+	time.Sleep(time.Second)
 }

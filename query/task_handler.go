@@ -93,12 +93,8 @@ func (q *TaskHandler) Handle(stream protoCommonV1.TaskService_HandleServer) (err
 // process dispatches request with timeout
 func (q *TaskHandler) process(ctx context.Context, stream protoCommonV1.TaskService_HandleServer, req *protoCommonV1.TaskRequest) {
 	taskCtx := flow.NewTaskContextWithTimeout(ctx, q.timeout)
-	q.taskPool.Submit(func() {
-		defer func() {
-			if err := recover(); err != nil {
-				q.logger.Error("dispatch task request", logger.Any("err", err), logger.Stack())
-			}
-		}()
-		q.processor.Process(taskCtx, stream, req)
-	})
+	q.taskPool.Submit(taskCtx.Ctx,
+		concurrent.NewTask(func() {
+			q.processor.Process(taskCtx, stream, req)
+		}, nil))
 }

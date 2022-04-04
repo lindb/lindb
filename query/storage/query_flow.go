@@ -31,7 +31,6 @@ import (
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
-	errorpkg "github.com/lindb/lindb/pkg/error"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
@@ -321,7 +320,7 @@ func (qf *storageQueryFlow) isCompleted() bool {
 }
 
 // Submit submits an async task when do query pipeline.
-func (qf *storageQueryFlow) Submit(stage flow.Stage, task concurrent.Task) {
+func (qf *storageQueryFlow) Submit(stage flow.Stage, task func()) {
 	if qf.isCompleted() {
 		// query flow is completed, reject new task execute
 		return
@@ -345,23 +344,16 @@ func (qf *storageQueryFlow) Submit(stage flow.Stage, task concurrent.Task) {
 	qf.pendingTasks[taskID] = stage
 	qf.mux.Unlock()
 
-	executePool.Submit(func() {
+	executePool.Submit(qf.ctx, concurrent.NewTask(func() {
 		defer func() {
 			// 3. complete task and dec task pending after task handle
 			qf.completeTask(taskID)
-			var err error
-			r := recover()
-			if r != nil {
-				err = errorpkg.Error(r)
-				storageQueryFlowLogger.Error("do task fail when execute storage query flow",
-					logger.Error(err), logger.Stack())
-				qf.Complete(err)
-			}
 		}()
-
 		if !qf.isCompleted() {
 			// 2. handle task logic in background goroutine, if it's not completed.
 			task()
 		}
-	})
+	}, func(err error) {
+		qf.Complete(err)
+	}))
 }

@@ -122,6 +122,7 @@ func (p *intermediateTaskProcessor) processIntermediateTask(
 		return err
 	}
 	eventCh := p.taskManager.SubmitIntermediateMetricTask(
+		ctx.Ctx,
 		physicalPlan,
 		&stmtQuery,
 		req.ParentTaskID,

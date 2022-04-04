@@ -18,7 +18,6 @@
 package flow
 
 import (
-	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/series"
 )
 
@@ -29,7 +28,7 @@ type StorageQueryFlow interface {
 	// Prepare prepares the query flow, builds the flow execute context based on group aggregator specs.
 	Prepare()
 	// Submit submits an async task when do query pipeline.
-	Submit(stage Stage, task concurrent.Task)
+	Submit(stage Stage, task func())
 	// Reduce reduces the down sampling aggregator's result.
 	Reduce(it series.GroupedIterator)
 	// ReduceTagValues reduces the group by tag values.

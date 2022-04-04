@@ -18,6 +18,7 @@
 package brokerquery
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -32,6 +33,7 @@ import (
 func Test_TaskContext_metaDataTaskContext(t *testing.T) {
 	ch := make(chan *protoCommonV1.TaskResponse)
 	taskCtx1 := newMetaDataTaskContext(
+		context.TODO(),
 		"1",
 		RootTask,
 		"",
@@ -60,6 +62,7 @@ func Test_TaskContext_metaDataTaskContext(t *testing.T) {
 func Test_TaskContext_metricTaskContext(t *testing.T) {
 	ch := make(chan *series.TimeSeriesEvent)
 	taskCtx2 := newMetricTaskContext(
+		context.TODO(),
 		"1",
 		RootTask,
 		"",
@@ -92,6 +95,7 @@ func Test_TaskContext_metricTaskContext(t *testing.T) {
 
 func Test_TaskContext_handleStats(t *testing.T) {
 	taskCtx3 := newMetricTaskContext(
+		context.TODO(),
 		"1",
 		RootTask,
 		"",
@@ -135,6 +139,7 @@ func Test_TaskContext_handleStats(t *testing.T) {
 func Test_TaskContext_metricTaskContext_notFound(t *testing.T) {
 	ch := make(chan *series.TimeSeriesEvent)
 	taskCtx3 := newMetricTaskContext(
+		context.TODO(),
 		"1",
 		RootTask,
 		"",

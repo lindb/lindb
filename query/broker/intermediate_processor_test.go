@@ -117,7 +117,7 @@ func Test_Intermediate_processIntermediateTask(t *testing.T) {
 
 	// closed error
 	ch1 := make(chan *series.TimeSeriesEvent)
-	taskManager.EXPECT().SubmitIntermediateMetricTask(gomock.Any(), gomock.Any(), gomock.Any()).
+	taskManager.EXPECT().SubmitIntermediateMetricTask(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(ch1)
 	time.AfterFunc(time.Millisecond*200, func() {
 		close(ch1)
@@ -132,7 +132,7 @@ func Test_Intermediate_processIntermediateTask(t *testing.T) {
 
 	// event error
 	ch2 := make(chan *series.TimeSeriesEvent)
-	taskManager.EXPECT().SubmitIntermediateMetricTask(gomock.Any(), gomock.Any(), gomock.Any()).
+	taskManager.EXPECT().SubmitIntermediateMetricTask(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(ch2)
 	time.AfterFunc(time.Millisecond*200, func() {
 		ch2 <- &series.TimeSeriesEvent{Err: io.ErrClosedPipe}
@@ -148,7 +148,7 @@ func Test_Intermediate_processIntermediateTask(t *testing.T) {
 	ch3 := make(chan *series.TimeSeriesEvent)
 	ctx := flow.NewTaskContextWithTimeout(context.Background(), time.Second)
 	time.AfterFunc(time.Millisecond*200, ctx.Release)
-	taskManager.EXPECT().SubmitIntermediateMetricTask(gomock.Any(), gomock.Any(), gomock.Any()).
+	taskManager.EXPECT().SubmitIntermediateMetricTask(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(ch3)
 	assert.Nil(t, taskProcessor.processIntermediateTask(ctx,
 		stream,
