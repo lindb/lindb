@@ -57,6 +57,7 @@ type TaskManager interface {
 	// leaf response will also be merged in task-context.
 	// when all intermediate response arrives to root, event will be returned to the caller
 	SubmitIntermediateMetricTask(
+		ctx context.Context,
 		physicalPlan *models.PhysicalPlan,
 		stmtQuery *stmt.Query,
 		parentTaskID string,
@@ -64,6 +65,7 @@ type TaskManager interface {
 
 	// SubmitMetaDataTask concurrently send query metadata task to multi leafs.
 	SubmitMetaDataTask(
+		ctx context.Context,
 		physicalPlan *models.PhysicalPlan,
 		suggest *stmt.MetricMetadata,
 	) (taskResponse <-chan *protoCommonV1.TaskResponse, err error)
@@ -182,6 +184,7 @@ func (t *taskManager) ensureIntermediateAckTasks(
 	)
 	responseCh := make(chan error)
 	taskCtx := newIntermediateAckTaskContext(
+		ctx,
 		taskRequest.ParentTaskID,
 		RootTask,
 		int32(len(physicalPlan.Intermediates)),
@@ -194,12 +197,12 @@ func (t *taskManager) ensureIntermediateAckTasks(
 	wg.Add(len(physicalPlan.Intermediates))
 	for _, intermediate := range physicalPlan.Intermediates {
 		intermediate := intermediate
-		t.workerPool.Submit(func() {
+		t.workerPool.Submit(ctx, concurrent.NewTask(func() {
 			defer wg.Done()
 			if err := t.SendRequest(intermediate.Indicator, taskRequest); err != nil {
 				sendError.Store(err)
 			}
-		})
+		}, nil))
 	}
 	wg.Wait()
 	if sendError.Load() != nil {
@@ -246,6 +249,7 @@ func (t *taskManager) SubmitMetricTask(
 
 	responseCh := make(chan *series.TimeSeriesEvent)
 	taskCtx := newMetricTaskContext(
+		ctx,
 		rootTaskID,
 		RootTask,
 		"",
@@ -273,12 +277,12 @@ func (t *taskManager) SubmitMetricTask(
 	wg.Add(len(physicalPlan.Leaves))
 	for _, leaf := range physicalPlan.Leaves {
 		leaf := leaf
-		t.workerPool.Submit(func() {
+		t.workerPool.Submit(ctx, concurrent.NewTask(func() {
 			defer wg.Done()
 			if err := t.SendRequest(leaf.Indicator, req); err != nil {
 				sendError.Store(err)
 			}
-		})
+		}, nil))
 	}
 	wg.Wait()
 
@@ -289,12 +293,14 @@ func (t *taskManager) SubmitMetricTask(
 }
 
 func (t *taskManager) SubmitIntermediateMetricTask(
+	ctx context.Context,
 	physicalPlan *models.PhysicalPlan,
 	stmtQuery *stmt.Query,
 	parentTaskID string,
 ) (eventCh <-chan *series.TimeSeriesEvent) {
 	responseCh := make(chan *series.TimeSeriesEvent)
 	taskCtx := newMetricTaskContext(
+		ctx,
 		parentTaskID,
 		IntermediateTask,
 		parentTaskID,
@@ -309,6 +315,7 @@ func (t *taskManager) SubmitIntermediateMetricTask(
 }
 
 func (t *taskManager) SubmitMetaDataTask(
+	ctx context.Context,
 	physicalPlan *models.PhysicalPlan,
 	suggest *stmt.MetricMetadata,
 ) (taskResponse <-chan *protoCommonV1.TaskResponse, err error) {
@@ -324,6 +331,7 @@ func (t *taskManager) SubmitMetaDataTask(
 
 	responseCh := make(chan *protoCommonV1.TaskResponse)
 	taskCtx := newMetaDataTaskContext(
+		ctx,
 		taskID,
 		RootTask,
 		"",
@@ -340,12 +348,12 @@ func (t *taskManager) SubmitMetaDataTask(
 	wg.Add(len(physicalPlan.Leaves))
 	for _, leafNode := range physicalPlan.Leaves {
 		leafNode := leafNode
-		t.workerPool.Submit(func() {
+		t.workerPool.Submit(ctx, concurrent.NewTask(func() {
 			defer wg.Done()
 			if err := t.SendRequest(leafNode.Indicator, req); err != nil {
 				sendError.Store(err)
 			}
-		})
+		}, nil))
 	}
 	wg.Wait()
 	if sendError.Load() != nil {
@@ -409,13 +417,13 @@ func (t *taskManager) Receive(resp *protoCommonV1.TaskResponse, targetNode strin
 		return fmt.Errorf("TaskID: %s may be evicted", resp.TaskID)
 	}
 	t.emitResponseCounter.Incr()
-	t.workerPool.Submit(func() {
+	t.workerPool.Submit(taskCtx.Context(), concurrent.NewTask(func() {
 		// for root task and intermediate task
 		taskCtx.WriteResponse(resp, targetNode)
 
 		if taskCtx.Done() {
 			t.evictTask(resp.TaskID)
 		}
-	})
+	}, nil))
 	return nil
 }

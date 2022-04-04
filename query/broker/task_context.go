@@ -18,6 +18,7 @@
 package brokerquery
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"sync"
@@ -43,6 +44,8 @@ var (
 
 // TaskContext represents the task context for distribution query and computing
 type TaskContext interface {
+	// Context returns the context.
+	Context() context.Context
 	// Expired returns if this task is expired
 	Expired(ttl time.Duration) bool
 	// TaskID returns the id of the task
@@ -60,6 +63,7 @@ type TaskContext interface {
 }
 
 type baseTaskContext struct {
+	ctx          context.Context
 	createTime   int64
 	taskID       string
 	taskType     TaskType
@@ -70,6 +74,10 @@ type baseTaskContext struct {
 	mu            sync.Mutex
 	expectResults int32
 	closed        bool
+}
+
+func (c *baseTaskContext) Context() context.Context {
+	return c.ctx
 }
 
 func (c *baseTaskContext) Expired(ttl time.Duration) bool {
@@ -111,6 +119,7 @@ type intermediateAckTaskContext struct {
 }
 
 func newIntermediateAckTaskContext(
+	ctx context.Context,
 	taskID string,
 	taskType TaskType,
 	expectResults int32,
@@ -118,6 +127,7 @@ func newIntermediateAckTaskContext(
 ) TaskContext {
 	return &intermediateAckTaskContext{
 		baseTaskContext: baseTaskContext{
+			ctx:           ctx,
 			taskID:        taskID,
 			taskType:      taskType,
 			parentTaskID:  "",
@@ -185,6 +195,7 @@ type metricTaskContext struct {
 
 // metricTaskContext creates the task context based on params
 func newMetricTaskContext(
+	ctx context.Context,
 	taskID string,
 	taskType TaskType,
 	parentTaskID string,
@@ -195,6 +206,7 @@ func newMetricTaskContext(
 ) TaskContext {
 	return &metricTaskContext{
 		baseTaskContext: baseTaskContext{
+			ctx:           ctx,
 			taskID:        taskID,
 			taskType:      taskType,
 			parentTaskID:  parentTaskID,
@@ -359,6 +371,7 @@ type metaDataTaskContext struct {
 
 // metricTaskContext creates the task context based on params
 func newMetaDataTaskContext(
+	ctx context.Context,
 	taskID string,
 	taskType TaskType,
 	parentTaskID string,
@@ -368,6 +381,7 @@ func newMetaDataTaskContext(
 ) TaskContext {
 	return &metaDataTaskContext{
 		baseTaskContext: baseTaskContext{
+			ctx:           ctx,
 			taskID:        taskID,
 			taskType:      taskType,
 			parentTaskID:  parentTaskID,

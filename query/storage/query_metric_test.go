@@ -29,7 +29,6 @@ import (
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -44,7 +43,7 @@ type mockQueryFlow struct {
 	err error
 }
 
-func (m *mockQueryFlow) Submit(_ flow.Stage, task concurrent.Task) {
+func (m *mockQueryFlow) Submit(_ flow.Stage, task func()) {
 	if m.err == nil {
 		task()
 	}
