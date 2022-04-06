@@ -74,6 +74,11 @@ func TestStateManager_StorageCfg(t *testing.T) {
 	}()
 	mgr := NewStateManager(context.TODO(), nil, nil)
 	mgr1 := mgr.(*stateManager)
+	mgr1.mutex.Lock()
+	shardAssignment := models.NewShardAssignment("test-db")
+	mgr1.shardAssignments["test-db"] = shardAssignment
+	mgr1.databases["test-db"] = &models.Database{Storage: "/storage/test"}
+	mgr1.mutex.Unlock()
 	// case 1: unmarshal cfg err
 	mgr.EmitEvent(&discovery.Event{
 		Type:  discovery.StorageConfigChanged,
@@ -110,7 +115,7 @@ func TestStateManager_StorageCfg(t *testing.T) {
 	}
 	mgr1.mutex.Unlock()
 	storage1.EXPECT().Start().Return(fmt.Errorf("err"))
-	storage1.EXPECT().Close()
+	storage1.EXPECT().Close().AnyTimes()
 	mgr.EmitEvent(&discovery.Event{
 		Type:  discovery.StorageConfigChanged,
 		Key:   "/storage/test",
@@ -133,13 +138,20 @@ func TestStateManager_StorageCfg(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	storage := mgr.GetStorageCluster("/storage/test")
 	assert.NotNil(t, storage)
-	// case 7: remove storage
-	storage1.EXPECT().Close()
+	// case 7: modify storage config
+	storage1.EXPECT().Start().Return(nil)
+	storage1.EXPECT().GetState().Return(models.NewStorageState("/storage/test"))
+	mgr.EmitEvent(&discovery.Event{
+		Type:  discovery.StorageConfigChanged,
+		Key:   "/storage/test",
+		Value: encoding.JSONMarshal(&config.StorageCluster{Config: &config.RepoState{Namespace: "/storage/test"}}),
+	})
+	// case 8: remove storage
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.StorageDeletion,
 		Key:  "/storage/test",
 	})
-	// case 8: namespace is empty
+	// case 9: namespace is empty
 	mgr.EmitEvent(&discovery.Event{
 		Type:  discovery.StorageConfigChanged,
 		Key:   "/storage/test2",
@@ -270,7 +282,7 @@ func TestStateManager_ShardAssignment(t *testing.T) {
 		Name:   "test",
 		Shards: map[models.ShardID]*models.Replica{1: {Replicas: []models.NodeID{2, 3}}, 2: {Replicas: []models.NodeID{2, 3}}},
 	})
-	storage.EXPECT().GetState().Return(models.NewStorageState("test"))
+	storage.EXPECT().GetState().Return(models.NewStorageState("test")).AnyTimes()
 	elector.EXPECT().ElectLeader(gomock.Any(), gomock.Any(), gomock.Any()).Return(models.NodeID(2), nil)
 	elector.EXPECT().ElectLeader(gomock.Any(), gomock.Any(), gomock.Any()).Return(models.NodeID(0), fmt.Errorf("err"))
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
@@ -280,7 +292,6 @@ func TestStateManager_ShardAssignment(t *testing.T) {
 		Value: data,
 	})
 	// case 2: put state err
-	storage.EXPECT().GetState().Return(models.NewStorageState("test"))
 	elector.EXPECT().ElectLeader(gomock.Any(), gomock.Any(), gomock.Any()).Return(models.NodeID(2), nil)
 	elector.EXPECT().ElectLeader(gomock.Any(), gomock.Any(), gomock.Any()).Return(models.NodeID(0), fmt.Errorf("err"))
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
