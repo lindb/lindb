@@ -249,32 +249,9 @@ func (m *stateManager) onShardAssignmentChange(key string, data []byte) {
 	databaseCfg := m.databases[shardAssignment.Name]
 
 	storage := m.storages[databaseCfg.Storage]
-	s := storage.GetState()
 
-	liveNodes := s.LiveNodes
-	shardStates := make(map[models.ShardID]models.ShardState)
-	for shardID, replicas := range shardAssignment.Shards {
-		leader, err := m.elector.ElectLeader(shardAssignment, liveNodes, shardID)
-		shardState := models.ShardState{ID: shardID, Replica: *replicas}
-		m.statistics.shardElections.Incr()
-		if err != nil {
-			shardState.State = models.OfflineShard
-			shardState.Leader = models.NoLeader
-			m.statistics.shardElectErrors.Incr()
-			m.logger.Warn("elect shard leader err",
-				logger.String("db", shardAssignment.Name),
-				logger.Any("shard", shardID), logger.Error(err))
-		} else {
-			shardState.State = models.OnlineShard
-			shardState.Leader = leader
-		}
-		shardStates[shardID] = shardState
-	}
-	// TODO set shard assignments
-	s.ShardAssignments[shardAssignment.Name] = shardAssignment
-	s.ShardStates[shardAssignment.Name] = shardStates
-
-	m.syncState(s)
+	m.initializeShardState(storage, shardAssignment)
+	m.syncState(storage.GetState())
 }
 
 // onStorageConfigChange triggers when storage config create/modify.
@@ -359,8 +336,12 @@ func (m *stateManager) register(cfg *config.StorageCluster) error {
 		return constants.ErrNameEmpty
 	}
 
-	// shutdown old storageCluster state machine if exist
-	m.unRegister(name)
+	// check storage if it's exist, just config modify
+	_, exist := m.storages[name]
+	if exist {
+		// shutdown old storageCluster state machine if exist
+		m.unRegister(name)
+	}
 
 	// TODO add config
 	cfg.Config.DialTimeout = ltoml.Duration(5 * time.Second)
@@ -370,6 +351,17 @@ func (m *stateManager) register(cfg *config.StorageCluster) error {
 		return err
 	}
 	m.storages[name] = cluster
+	if exist {
+		// if storage is existed, need to load shard assigment for this storage
+		for k := range m.shardAssignments {
+			shardAssignment := m.shardAssignments[k]
+			databaseCfg := m.databases[shardAssignment.Name]
+			if databaseCfg.Storage == name {
+				// if shard assigment belong current cluster, need to do initialize shard state
+				m.initializeShardState(cluster, shardAssignment)
+			}
+		}
+	}
 	// start storage cluster state machine.
 	go func() {
 		// need start storage cluster state machine in background,
@@ -638,7 +630,7 @@ func (m *stateManager) modifyShardAssignment(
 	return nil
 }
 
-// GetShardAssign returns shard assignment by database name, return not exist err if it not exist
+// GetShardAssign returns shard assignment by database name, return not exist err if it's not exist.
 func (m *stateManager) GetShardAssign(databaseName string) (*models.ShardAssignment, error) {
 	data, err := m.masterRepo.Get(m.ctx, constants.GetDatabaseAssignPath(databaseName))
 	if err != nil {
@@ -702,4 +694,31 @@ func (m *stateManager) GetStorageStates() (rs []*models.StorageState) {
 		rs = append(rs, storage.GetState())
 	}
 	return
+}
+
+// initializeShardState initializes the shard state based on shard assignment for storage cluster.
+func (m *stateManager) initializeShardState(storage StorageCluster, shardAssignment *models.ShardAssignment) {
+	storageState := storage.GetState()
+	liveNodes := storageState.LiveNodes
+	shardStates := make(map[models.ShardID]models.ShardState)
+	for shardID, replicas := range shardAssignment.Shards {
+		leader, err := m.elector.ElectLeader(shardAssignment, liveNodes, shardID)
+		shardState := models.ShardState{ID: shardID, Replica: *replicas}
+		m.statistics.shardElections.Incr()
+		if err != nil {
+			shardState.State = models.OfflineShard
+			shardState.Leader = models.NoLeader
+			m.statistics.shardElectErrors.Incr()
+			m.logger.Warn("elect shard leader err",
+				logger.String("db", shardAssignment.Name),
+				logger.Any("shard", shardID), logger.Error(err))
+		} else {
+			shardState.State = models.OnlineShard
+			shardState.Leader = leader
+		}
+		shardStates[shardID] = shardState
+	}
+	// TODO set shard assignments
+	storageState.ShardAssignments[shardAssignment.Name] = shardAssignment
+	storageState.ShardStates[shardAssignment.Name] = shardStates
 }
