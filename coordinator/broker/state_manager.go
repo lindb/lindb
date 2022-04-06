@@ -43,6 +43,8 @@ type StateManager interface {
 	GetLiveNodes() []models.StatelessNode
 	// GetDatabaseCfg returns the database config by name.
 	GetDatabaseCfg(databaseName string) (models.Database, bool)
+	// GetDatabases returns current database config list.
+	GetDatabases() []models.Database
 	// GetQueryableReplicas returns the queryable replicas，
 	// and chooses the leader replica if the shard has multi-replica.
 	// returns storage node => shard id list
@@ -353,6 +355,17 @@ func (m *stateManager) GetDatabaseCfg(databaseName string) (models.Database, boo
 
 	database, ok := m.databases[databaseName]
 	return database, ok
+}
+
+// GetDatabases returns current database config list.
+func (m *stateManager) GetDatabases() (rs []models.Database) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	for idx := range m.databases {
+		rs = append(rs, m.databases[idx])
+	}
+	return
 }
 
 // GetStorage returns storage state by name.

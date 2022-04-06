@@ -25,7 +25,6 @@ import (
 
 	"github.com/go-resty/resty/v2"
 
-	"github.com/lindb/lindb/app/broker/api/exec"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/ltoml"
@@ -62,7 +61,7 @@ func (cli *executeCli) Execute(param models.ExecuteParam, rs interface{}) error 
 	resp, err := cli.cli.R().
 		SetBody(&param).
 		SetHeader("Accept", "application/json").
-		Put(exec.ExecutePath)
+		Put("/exec")
 	if err != nil {
 		return err
 	}

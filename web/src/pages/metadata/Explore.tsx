@@ -16,15 +16,26 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { IconHelpCircleStroked, IconSourceControl } from "@douyinfe/semi-icons";
+import {
+  IconHelpCircleStroked,
+  IconSourceControl,
+  IconSearch,
+  IconTrueFalseStroked,
+  IconTick,
+} from "@douyinfe/semi-icons";
 import {
   Button,
   Card,
   Col,
+  Modal,
   Row,
   SplitButtonGroup,
   Tooltip,
   Tree,
+  List,
+  Input,
+  Spin,
+  Typography,
 } from "@douyinfe/semi-ui";
 import { StorageStatusView } from "@src/components";
 import { StateRoleName } from "@src/constants";
@@ -41,6 +52,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+const { Text, Title } = Typography;
 
 //@ts-ignore
 self.MonacoEnvironment = {
@@ -51,6 +63,90 @@ self.MonacoEnvironment = {
     return new editorWorker();
   },
 };
+
+export type CompareViewProps = {
+  source: any;
+  nodes: any;
+};
+
+export function CompareView(props: CompareViewProps) {
+  const { source, nodes } = props;
+  const diffEditor = useRef() as MutableRefObject<any>;
+  const diffEditorRef = useRef() as MutableRefObject<HTMLDivElement>;
+  const [filter, setFilter] = useState<string>("");
+
+  useEffect(() => {
+    if (diffEditorRef.current && !diffEditor.current) {
+      console.log("xxxxxx");
+      // editor no init, create it
+      diffEditor.current = monaco.editor.createDiffEditor(
+        diffEditorRef.current,
+        {
+          theme: "lindb",
+          readOnly: true,
+        }
+      );
+    }
+    var originalModel = monaco.editor.createModel(
+      _.get(source, "data", "no data"),
+      "json"
+    );
+    var modifiedModel = monaco.editor.createModel(
+      _.get(nodes, "[0]data", "no data"),
+      "json"
+    );
+    console.log("diffEditor.current", diffEditor.current);
+    diffEditor.current.setModel({
+      original: originalModel,
+      modified: modifiedModel,
+    });
+  }, [source, nodes]);
+
+  return (
+    <>
+      <Row gutter={12}>
+        <Col span={4}>
+          <List
+            bordered
+            header={
+              <Input
+                onChange={(v) => (!v ? setFilter(v) : null)}
+                placeholder="Filter nodes"
+                prefix={<IconSearch />}
+              />
+            }
+            size="small"
+            dataSource={_.filter(nodes, function (o) {
+              console.log(
+                "o.node.indexOf(filter)",
+                filter,
+                o.node.indexOf(filter)
+              );
+              return o.node.indexOf(filter) >= 0;
+            })}
+            renderItem={(item) => (
+              <List.Item
+                main={item.node}
+                extra={
+                  item.isDiff ? (
+                    <IconTrueFalseStroked
+                      style={{ color: "var(--semi-color-danger)" }}
+                    />
+                  ) : (
+                    <IconTick style={{ color: "var(--semi-color-success)" }} />
+                  )
+                }
+              />
+            )}
+          />
+        </Col>
+        <Col span={20}>
+          <div ref={diffEditorRef} style={{ height: "90vh" }} />
+        </Col>
+      </Row>
+    </>
+  );
+}
 
 type Node = {
   role: string;
@@ -73,6 +169,11 @@ export default function MetadataExplore() {
   const [loadedKeys, setLoadedKeys] = useState<any[]>([]);
   const [metadata, setMetadata] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [comparing, setComparing] = useState(false);
+  const [currentNode, setCurrentNode] = useState<any>(null);
+  const [stateMachineMetadata, setStateMachineMetadata] = useState<any[]>([]);
+  const [showCompareResult, setShowCompareResult] = useState<boolean>(false);
+
   const getItems = (
     parent: string,
     role: string,
@@ -105,9 +206,7 @@ export default function MetadataExplore() {
         theme: "lindb",
       });
     }
-    editor.current.setValue(
-      JSON.stringify(_.get(metadata, "data", "no data"), null, "\t")
-    );
+    editor.current.setValue(_.get(metadata, "data", "no data"));
   }, [metadata]);
 
   useEffect(() => {
@@ -162,17 +261,19 @@ export default function MetadataExplore() {
 
   const loadMetadata = async (node: Node) => {
     try {
+      setCurrentNode(node);
+      setStateMachineMetadata([]);
       setLoading(true);
       let storageClause = "";
       if (node.storage) {
         storageClause = ` and storage='${node.storage}'`;
       }
       const metadata = await exec<any>({
-        sql: `show ${node.role} metadata where type='${node.type}'${storageClause}`,
+        sql: `show ${node.role} metadata from state_repo where type='${node.type}'${storageClause}`,
       });
       setMetadata({
         type: node.type,
-        data: metadata,
+        data: JSON.stringify(metadata, null, "\t"),
         node: node,
       });
     } finally {
@@ -206,6 +307,33 @@ export default function MetadataExplore() {
     border: "1px solid var(--semi-color-border)",
   };
 
+  const exploreStateMachineData = async () => {
+    try {
+      const node = currentNode as Node;
+      setComparing(true);
+      setStateMachineMetadata([]);
+      let storageClause = "";
+      if (node.storage) {
+        storageClause = ` and storage='${node.storage}'`;
+      }
+      const metadataFromSM = await exec<any>({
+        sql: `show ${node.role} metadata from state_machine where type='${node.type}'${storageClause}`,
+      });
+      const nodes: any[] = [];
+      _.mapKeys(metadataFromSM, function (data, key) {
+        const dataFromSM = JSON.stringify(data, null, "\t");
+        nodes.push({
+          node: key,
+          data: dataFromSM,
+          isDiff: !_.isEqual(dataFromSM, metadata.data),
+        });
+      });
+      setStateMachineMetadata(nodes);
+    } finally {
+      setComparing(false);
+    }
+  };
+
   return (
     <>
       <Row gutter={8}>
@@ -221,17 +349,61 @@ export default function MetadataExplore() {
           </Card>
         </Col>
         <Col span={16}>
-          <SplitButtonGroup style={{ marginBottom: 8 }}>
-            <Button icon={<IconSourceControl />}>Compare</Button>
-            <Tooltip content="Compare with state matchine">
+          <SplitButtonGroup style={{ marginBottom: 8, marginRight: 12 }}>
+            <Button
+              icon={<IconSourceControl />}
+              onClick={exploreStateMachineData}
+            >
+              Compare
+            </Button>
+            <Tooltip content="Compare with state matchine's data in memory">
               <Button icon={<IconHelpCircleStroked />} />
             </Tooltip>
           </SplitButtonGroup>
+          {comparing && (
+            <>
+              <Spin size="middle" />
+              <Text style={{ marginRight: 4 }}>Comparing</Text>
+            </>
+          )}
+          {!_.isEmpty(stateMachineMetadata) && (
+            <Text strong link onClick={() => setShowCompareResult(true)}>
+              Found <Text type="success">{stateMachineMetadata.length}</Text>{" "}
+              nodes, diff{" "}
+              <Text type="danger">
+                {_.filter(stateMachineMetadata, (o) => o.isDiff).length}
+              </Text>{" "}
+              nodes.
+            </Text>
+          )}
+
           <Card style={treeStyle} bordered={false}>
             <div ref={editorRef} style={{ height: "90vh" }} />
           </Card>
         </Col>
       </Row>
+
+      <Modal
+        title={
+          <div>
+            <Title strong heading={4}>
+              State Compare Result
+            </Title>
+            <Text>
+              The state(in storage) compare with in state machine(memory)
+            </Text>
+          </div>
+        }
+        closeOnEsc
+        fullScreen
+        footer={null}
+        visible={showCompareResult}
+        onCancel={() => {
+          setShowCompareResult(false);
+        }}
+      >
+        <CompareView source={metadata} nodes={stateMachineMetadata} />
+      </Modal>
     </>
   );
 }

@@ -49,9 +49,16 @@ type StateManager interface {
 	SetStateMachineFactory(stateMachineFct *StateMachineFactory)
 	// GetStateMachineFactory returns state machine factory.
 	GetStateMachineFactory() *StateMachineFactory
-
 	// GetStorageCluster returns cluster controller for maintain the metadata of storage cluster.
 	GetStorageCluster(name string) StorageCluster
+	// GetDatabases returns the current databases.
+	GetDatabases() []models.Database
+	// GetStorages returns the current storage cluster list.
+	GetStorages() []config.StorageCluster
+	// GetShardAssignments returns the current shard assignment list.
+	GetShardAssignments() []models.ShardAssignment
+	// GetStorageStates returns current storage state list.
+	GetStorageStates() []*models.StorageState
 }
 
 // stateManager implements StateManager.
@@ -69,13 +76,14 @@ type stateManager struct {
 		stateMgr StateManager,
 		repoFactory statepkg.RepositoryFactory) (cluster StorageCluster, err error)
 
-	storages  map[string]StorageCluster
-	databases map[string]*models.Database
+	storages         map[string]StorageCluster
+	databases        map[string]*models.Database
+	shardAssignments map[string]*models.ShardAssignment
 
 	events chan *discovery.Event
 
 	running *atomic.Bool
-	mutex   sync.Mutex
+	mutex   sync.RWMutex
 
 	logger *logger.Logger
 
@@ -107,6 +115,7 @@ func NewStateManager(
 		repoFactory:         repoFactory,
 		storages:            make(map[string]StorageCluster),
 		databases:           make(map[string]*models.Database),
+		shardAssignments:    make(map[string]*models.ShardAssignment),
 		elector:             newReplicaLeaderElector(),
 		events:              make(chan *discovery.Event, 10),
 		running:             atomic.NewBool(true),
@@ -151,7 +160,7 @@ func (m *stateManager) consumeEvent() {
 	}
 }
 
-// processEvent processes each events, if panic will ignore the event handle, maybe lost the state in storage/.
+// processEvent processes each event, if panic will ignore the event handle, maybe lost the state in storage/.
 func (m *stateManager) processEvent(event *discovery.Event) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -216,8 +225,6 @@ func (m *stateManager) onDatabaseCfgChange(key string, data []byte) {
 		return
 	}
 
-	m.databases[cfg.Name] = cfg
-
 	m.shardAssignment(cfg)
 }
 
@@ -237,6 +244,7 @@ func (m *stateManager) onShardAssignmentChange(key string, data []byte) {
 			logger.Error(err))
 		return
 	}
+	m.shardAssignments[shardAssignment.Name] = shardAssignment
 
 	databaseCfg := m.databases[shardAssignment.Name]
 
@@ -411,6 +419,8 @@ func (m *stateManager) shardAssignment(databaseCfg *models.Database) {
 		m.logger.Error("database name cannot be empty")
 		return
 	}
+
+	m.databases[databaseCfg.Name] = databaseCfg
 
 	// get shard assignment from repo, maybe mem state is not sync.
 	shardAssign, err := m.GetShardAssign(databaseCfg.Name)
@@ -643,9 +653,53 @@ func (m *stateManager) GetShardAssign(databaseName string) (*models.ShardAssignm
 
 // GetStorageCluster returns cluster controller for maintain the metadata of storage cluster.
 func (m *stateManager) GetStorageCluster(name string) (cluster StorageCluster) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 
 	cluster = m.storages[name]
+	return
+}
+
+// GetDatabases returns the current databases.
+func (m *stateManager) GetDatabases() (rs []models.Database) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	for _, db := range m.databases {
+		rs = append(rs, *db)
+	}
+	return
+}
+
+// GetStorages returns the current storage cluster list.
+func (m *stateManager) GetStorages() (rs []config.StorageCluster) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	for _, storage := range m.storages {
+		rs = append(rs, *storage.GetConfig())
+	}
+	return
+}
+
+// GetShardAssignments returns the current shard assignment list.
+func (m *stateManager) GetShardAssignments() (rs []models.ShardAssignment) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	for _, shardAssignment := range m.shardAssignments {
+		rs = append(rs, *shardAssignment)
+	}
+	return
+}
+
+// GetStorageStates returns current storage state list.
+func (m *stateManager) GetStorageStates() (rs []*models.StorageState) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	for _, storage := range m.storages {
+		rs = append(rs, storage.GetState())
+	}
 	return
 }

@@ -30,13 +30,13 @@ import (
 var StateMachinePaths = make(map[string]models.StateMachineInfo)
 
 func init() {
-	StateMachinePaths["LiveNode"] = models.StateMachineInfo{
+	StateMachinePaths[constants.LiveNode] = models.StateMachineInfo{
 		Path: constants.LiveNodesPath,
 		CreateState: func() interface{} {
 			return &models.StatefulNode{}
 		},
 	}
-	StateMachinePaths["ShardAssigment"] = models.StateMachineInfo{
+	StateMachinePaths[constants.ShardAssigment] = models.StateMachineInfo{
 		Path: constants.ShardAssigmentPath,
 		CreateState: func() interface{} {
 			return &models.DatabaseAssignment{}

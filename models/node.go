@@ -31,8 +31,13 @@ import (
 // NodeID represents node identifier.
 type NodeID int
 
-func (id NodeID) Int() int       { return int(id) }
+// Int returns node id int value.
+func (id NodeID) Int() int { return int(id) }
+
+// String returns node id string value.
 func (id NodeID) String() string { return strconv.Itoa(int(id)) }
+
+// ParseNodeID parses node id from string value.
 func ParseNodeID(node string) NodeID {
 	id, _ := strconv.Atoi(node)
 	return NodeID(id)
@@ -42,9 +47,11 @@ func ParseNodeID(node string) NodeID {
 type Node interface {
 	// Indicator returns node indicator's string.
 	Indicator() string
+	// HTTPAddress returns address for http.
 	HTTPAddress() string
 }
 
+// StatefulNode represents stateful node basic info.
 type StatefulNode struct {
 	StatelessNode
 

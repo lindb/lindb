@@ -79,3 +79,29 @@ func checkShardAssignResult(shardAssignment *models.ShardAssignment, t *testing.
 		assert.Equal(t, 6, len(replicas))
 	}
 }
+
+func TestModifyShardAssignment(t *testing.T) {
+	err := ModifyShardAssignment([]models.NodeID{0, 1, 2, 3, 4},
+		&models.Database{
+			Name:          "test",
+			NumOfShard:    0,
+			ReplicaFactor: 3,
+		}, models.NewShardAssignment("test"), -1, models.ShardID(1))
+	assert.Error(t, err)
+
+	err = ModifyShardAssignment([]models.NodeID{0},
+		&models.Database{
+			Name:          "test",
+			NumOfShard:    1,
+			ReplicaFactor: 0,
+		}, models.NewShardAssignment("test"), -1, models.ShardID(1))
+	assert.Error(t, err)
+
+	err = ModifyShardAssignment([]models.NodeID{0},
+		&models.Database{
+			Name:          "test",
+			NumOfShard:    1,
+			ReplicaFactor: 3,
+		}, models.NewShardAssignment("test"), -1, models.ShardID(1))
+	assert.Error(t, err)
+}

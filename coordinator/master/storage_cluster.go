@@ -38,8 +38,13 @@ import (
 // 2) save shard assignment
 // 3) generate coordinator task
 type StorageCluster interface {
+	// GetConfig returns storage configuration.
+	GetConfig() *config.StorageCluster
+	// Start starts the state machine for storage state change.
 	Start() error
+	// GetState returns the current state of storage cluster.
 	GetState() *models.StorageState
+	// GetLiveNodes returns the current live nodes of storage cluster.
 	GetLiveNodes() ([]models.StatefulNode, error)
 	// FlushDatabase submits the coordinator task for flushing memory database by name
 	FlushDatabase(databaseName string) error
@@ -74,19 +79,11 @@ func newStorageCluster(ctx context.Context,
 	repoFactory state.RepositoryFactory) (cluster StorageCluster, err error) {
 	var storageRepo state.Repository
 	storageRepo, err = repoFactory.CreateStorageRepo(cfg.Config)
-	defer func() {
-		if err != nil && storageRepo != nil {
-			// TODO add log??
-			_ = storageRepo.Close()
-		}
-	}()
-
 	if err != nil {
 		return nil, err
 	}
 
 	log := logger.GetLogger("coordinator", "Storage")
-
 	cluster = &storageCluster{
 		ctx:         ctx,
 		cfg:         cfg,
@@ -100,6 +97,12 @@ func newStorageCluster(ctx context.Context,
 	return cluster, nil
 }
 
+// GetConfig returns storage configuration.
+func (c *storageCluster) GetConfig() *config.StorageCluster {
+	return c.cfg
+}
+
+// Start starts the state machine for storage state change.
 func (c *storageCluster) Start() error {
 	sm, err := c.stateMgr.GetStateMachineFactory().
 		createStorageNodeStateMachine(c.cfg.Config.Namespace, discovery.NewFactory(c.storageRepo))
@@ -112,10 +115,12 @@ func (c *storageCluster) Start() error {
 	return nil
 }
 
+// GetState returns the current state of storage cluster.
 func (c *storageCluster) GetState() *models.StorageState {
 	return c.state
 }
 
+// GetLiveNodes returns the current live nodes of storage cluster.
 func (c *storageCluster) GetLiveNodes() (rs []models.StatefulNode, err error) {
 	// TODO add timeout ctx
 	kvs, err := c.storageRepo.List(c.ctx, constants.LiveNodesPath)

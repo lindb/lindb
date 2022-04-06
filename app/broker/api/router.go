@@ -23,6 +23,7 @@ import (
 	"github.com/lindb/lindb/app/broker/api/admin"
 	"github.com/lindb/lindb/app/broker/api/exec"
 	"github.com/lindb/lindb/app/broker/api/ingest"
+	"github.com/lindb/lindb/app/broker/api/state"
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/monitoring"
@@ -32,32 +33,34 @@ import (
 type API struct {
 	execute *exec.ExecuteAPI
 
-	database        *admin.DatabaseAPI
-	flusher         *admin.DatabaseFlusherAPI
-	storage         *admin.StorageClusterAPI
-	metricExplore   *monitoring.ExploreAPI
-	log             *monitoring.LoggerAPI
-	config          *monitoring.ConfigAPI
-	influxIngestion *ingest.InfluxWriter
-	protoIngestion  *ingest.ProtoWriter
-	flatIngestion   *ingest.FlatWriter
-	proxy           *ReverseProxy
+	database           *admin.DatabaseAPI
+	flusher            *admin.DatabaseFlusherAPI
+	storage            *admin.StorageClusterAPI
+	brokerStateMachine *state.BrokerStateMachineAPI
+	metricExplore      *monitoring.ExploreAPI
+	log                *monitoring.LoggerAPI
+	config             *monitoring.ConfigAPI
+	influxIngestion    *ingest.InfluxWriter
+	protoIngestion     *ingest.ProtoWriter
+	flatIngestion      *ingest.FlatWriter
+	proxy              *ReverseProxy
 }
 
 // NewAPI creates broker http api.
 func NewAPI(deps *depspkg.HTTPDeps) *API {
 	return &API{
-		execute:         exec.NewExecuteAPI(deps),
-		database:        admin.NewDatabaseAPI(deps),
-		flusher:         admin.NewDatabaseFlusherAPI(deps),
-		storage:         admin.NewStorageClusterAPI(deps),
-		metricExplore:   monitoring.NewExploreAPI(deps.GlobalKeyValues, linmetric.BrokerRegistry),
-		log:             monitoring.NewLoggerAPI(deps.BrokerCfg.Logging.Dir),
-		config:          monitoring.NewConfigAPI(deps.Node, deps.BrokerCfg),
-		influxIngestion: ingest.NewInfluxWriter(deps),
-		protoIngestion:  ingest.NewProtoWriter(deps),
-		flatIngestion:   ingest.NewFlatWriter(deps),
-		proxy:           NewReverseProxy(),
+		execute:            exec.NewExecuteAPI(deps),
+		database:           admin.NewDatabaseAPI(deps),
+		flusher:            admin.NewDatabaseFlusherAPI(deps),
+		storage:            admin.NewStorageClusterAPI(deps),
+		brokerStateMachine: state.NewBrokerStateMachineAPI(deps),
+		metricExplore:      monitoring.NewExploreAPI(deps.GlobalKeyValues, linmetric.BrokerRegistry),
+		log:                monitoring.NewLoggerAPI(deps.BrokerCfg.Logging.Dir),
+		config:             monitoring.NewConfigAPI(deps.Node, deps.BrokerCfg),
+		influxIngestion:    ingest.NewInfluxWriter(deps),
+		protoIngestion:     ingest.NewProtoWriter(deps),
+		flatIngestion:      ingest.NewFlatWriter(deps),
+		proxy:              NewReverseProxy(),
 	}
 }
 
@@ -68,6 +71,8 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 	api.database.Register(router)
 	api.flusher.Register(router)
 	api.storage.Register(router)
+
+	api.brokerStateMachine.Register(router)
 
 	api.influxIngestion.Register(router)
 	api.protoIngestion.Register(router)

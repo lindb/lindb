@@ -17,6 +17,16 @@
 
 package stmt
 
+// SourceType represents metadata source.
+type SourceType int
+
+const (
+	// StateRepoSource represents from state persist repo.
+	StateRepoSource = iota + 1
+	// StateMachineSource represents from state machine in current memory.
+	StateMachineSource
+)
+
 // MetadataType represents metadata type.
 type MetadataType int
 
@@ -34,8 +44,9 @@ const (
 // Metadata represent show metadata lin query language.
 type Metadata struct {
 	MetadataType MetadataType
-	Type         string // broker/master/storage will be used.
-	StorageName  string // storage will be used.
+	Type         string     // broker/master/storage will be used.
+	Source       SourceType // source(from state repo or state manager).
+	StorageName  string     // storage will be used.
 }
 
 // StatementType returns metadata lin query language statement type.
