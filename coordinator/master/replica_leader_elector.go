@@ -24,20 +24,25 @@ import (
 
 //go:generate mockgen -source=./replica_leader_elector.go -destination=./replica_leader_elector_mock.go -package=master
 
+// ReplicaLeaderElector represents replica leader elector for shard.
 type ReplicaLeaderElector interface {
+	// ElectLeader elects the replica's leader based on shard assignment.
 	ElectLeader(shardAssignment *models.ShardAssignment,
 		liveNodes map[models.NodeID]models.StatefulNode,
 		shardID models.ShardID,
 	) (leader models.NodeID, err error)
 }
 
+// replicaLeaderElector implements ReplicaLeaderElector interface.
 type replicaLeaderElector struct {
 }
 
+// newReplicaLeaderElector creates a ReplicaLeaderElector instance.
 func newReplicaLeaderElector() ReplicaLeaderElector {
 	return &replicaLeaderElector{}
 }
 
+// ElectLeader elects the replica's leader based on shard assignment.
 func (r *replicaLeaderElector) ElectLeader(shardAssignment *models.ShardAssignment,
 	liveNodes map[models.NodeID]models.StatefulNode,
 	shardID models.ShardID,

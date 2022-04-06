@@ -25,6 +25,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 )
 
@@ -134,4 +135,10 @@ func TestStateMachineFactory_OnStorage(t *testing.T) {
 		Value: []byte("value"),
 	})
 	fct1.onStorageStateChange("/key", []byte("value"))
+}
+
+func TestStateMachineFactory_CreateState(t *testing.T) {
+	assert.NotNil(t, StateMachinePaths[constants.LiveNode].CreateState())
+	assert.NotNil(t, StateMachinePaths[constants.DatabaseConfig].CreateState())
+	assert.NotNil(t, StateMachinePaths[constants.StorageState].CreateState())
 }

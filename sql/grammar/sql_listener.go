@@ -99,6 +99,9 @@ type SQLListener interface {
 	// EnterNamespace is called when entering the namespace production.
 	EnterNamespace(c *NamespaceContext)
 
+	// EnterSource is called when entering the source production.
+	EnterSource(c *SourceContext)
+
 	// EnterQueryStmt is called when entering the queryStmt production.
 	EnterQueryStmt(c *QueryStmtContext)
 
@@ -335,6 +338,9 @@ type SQLListener interface {
 
 	// ExitNamespace is called when exiting the namespace production.
 	ExitNamespace(c *NamespaceContext)
+
+	// ExitSource is called when exiting the source production.
+	ExitSource(c *SourceContext)
 
 	// ExitQueryStmt is called when exiting the queryStmt production.
 	ExitQueryStmt(c *QueryStmtContext)

@@ -20,6 +20,7 @@ package command
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/go-resty/resty/v2"
@@ -29,6 +30,7 @@ import (
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/master"
 	"github.com/lindb/lindb/coordinator/storage"
+	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
@@ -39,23 +41,38 @@ import (
 // for testing
 var (
 	// NewRestyFn represents new resty client.
-	NewRestyFn = resty.New
+	NewRestyFn           = resty.New
+	NewStateMachineCliFn = client.NewStateMachineCli
 )
 
 // MetadataCommand executes the metadata query.
 func MetadataCommand(ctx context.Context, deps *depspkg.HTTPDeps,
 	_ *models.ExecuteParam, stmt stmtpkg.Statement) (interface{}, error) {
 	metadataStmt := stmt.(*stmtpkg.Metadata)
-	var stateMachineInfo models.StateMachineInfo
-	var ok bool
-	switch metadataStmt.MetadataType {
-	case stmtpkg.MetadataTypes:
+	if metadataStmt.MetadataType == stmtpkg.MetadataTypes {
 		// returns metadata explore define info.
 		return map[string]interface{}{
 			constants.BrokerRole:  broker.StateMachinePaths,
 			constants.MasterRole:  master.StateMachinePaths,
 			constants.StorageRole: storage.StateMachinePaths,
 		}, nil
+	}
+
+	// explore metadata
+	switch metadataStmt.Source {
+	case stmtpkg.StateRepoSource:
+		return exploreStateRepoData(ctx, deps, metadataStmt)
+	case stmtpkg.StateMachineSource:
+		return exploreStateMachineDate(metadataStmt, deps)
+	}
+	return nil, nil
+}
+
+func exploreStateRepoData(ctx context.Context, deps *depspkg.HTTPDeps,
+	metadataStmt *stmtpkg.Metadata) (interface{}, error) {
+	var stateMachineInfo models.StateMachineInfo
+	var ok bool
+	switch metadataStmt.MetadataType {
 	case stmtpkg.BrokerMetadata:
 		stateMachineInfo, ok = broker.StateMachinePaths[metadataStmt.Type]
 	case stmtpkg.MasterMetadata:
@@ -117,4 +134,32 @@ func exploreData(ctx context.Context, repo state.Repository, stateMachineInfo mo
 		return nil, err
 	}
 	return rs, nil
+}
+
+// exploreStateMachineDate explores the state from state machine of broker/master/storage.
+func exploreStateMachineDate(metadataStmt *stmtpkg.Metadata, deps *depspkg.HTTPDeps) (interface{}, error) {
+	param := map[string]string{
+		"type":        metadataStmt.Type,
+		"role":        strconv.Itoa(int(metadataStmt.MetadataType)),
+		"storageName": metadataStmt.StorageName,
+	}
+	var nodes []models.Node
+	switch metadataStmt.MetadataType {
+	case stmtpkg.BrokerMetadata:
+		statelessNodes := deps.StateMgr.GetLiveNodes()
+		for idx := range statelessNodes {
+			nodes = append(nodes, &statelessNodes[idx])
+		}
+	case stmtpkg.MasterMetadata:
+		nodes = append(nodes, deps.Master.GetMaster().Node)
+	case stmtpkg.StorageMetadata:
+		// forward master
+		cli := NewStateMachineCliFn()
+		return cli.FetchStateByNode(param, deps.Master.GetMaster().Node)
+	default:
+		return nil, nil
+	}
+	// forward broker node
+	cli := NewStateMachineCliFn()
+	return cli.FetchStateByNodes(param, nodes), nil
 }

@@ -44,6 +44,10 @@ type StateManager interface {
 	GetLiveNode(nodeID models.NodeID) (models.StatefulNode, bool)
 	// WatchNodeStateChangeEvent registers node state change event handle.
 	WatchNodeStateChangeEvent(nodeID models.NodeID, fn func(state models.NodeStateType))
+	// GetLiveNodes returns the current live nodes.
+	GetLiveNodes() []models.StatefulNode
+	// GetDatabaseAssignments returns the current database assignments.
+	GetDatabaseAssignments() []*models.DatabaseAssignment
 }
 
 // stateManager implements StateManager.
@@ -51,10 +55,11 @@ type stateManager struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	engine  tsdb.Engine
-	current *models.StatefulNode
-	nodes   map[models.NodeID]models.StatefulNode // storage live nodes
-	watches map[models.NodeID][]func(state models.NodeStateType)
+	engine              tsdb.Engine
+	current             *models.StatefulNode
+	nodes               map[models.NodeID]models.StatefulNode // storage live nodes
+	watches             map[models.NodeID][]func(state models.NodeStateType)
+	databaseAssignments map[string]*models.DatabaseAssignment
 
 	events chan *discovery.Event
 
@@ -78,14 +83,15 @@ func NewStateManager(
 ) StateManager {
 	c, cancel := context.WithCancel(ctx)
 	mgr := &stateManager{
-		ctx:     c,
-		cancel:  cancel,
-		current: current,
-		engine:  engine,
-		nodes:   make(map[models.NodeID]models.StatefulNode),
-		events:  make(chan *discovery.Event, 10),
-		watches: make(map[models.NodeID][]func(state models.NodeStateType)),
-		logger:  logger.GetLogger("storage", "StateManager"),
+		ctx:                 c,
+		cancel:              cancel,
+		current:             current,
+		engine:              engine,
+		nodes:               make(map[models.NodeID]models.StatefulNode),
+		databaseAssignments: make(map[string]*models.DatabaseAssignment),
+		events:              make(chan *discovery.Event, 10),
+		watches:             make(map[models.NodeID][]func(state models.NodeStateType)),
+		logger:              logger.GetLogger("storage", "StateManager"),
 	}
 	scope := linmetric.StorageRegistry.NewScope("lindb.storage.state_manager")
 	eventVec := scope.NewCounterVec("emit_events", "type")
@@ -123,7 +129,7 @@ func (m *stateManager) consumeEvent() {
 	}
 }
 
-// processEvent processes each events, if panic will ignore the event handle, maybe lost the state in storage/.
+// processEvent processes each event, if panic will ignore the event handle, maybe lost the state in storage/.
 func (m *stateManager) processEvent(event *discovery.Event) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -161,6 +167,9 @@ func (m *stateManager) onShardAssignmentChange(key string, data []byte) {
 	if param.ShardAssignment == nil {
 		return
 	}
+
+	m.databaseAssignments[param.ShardAssignment.Name] = &param
+
 	var shardIDs []models.ShardID
 	for shardID, replica := range param.ShardAssignment.Shards {
 		if replica.Contain(m.current.ID) {
@@ -258,4 +267,26 @@ func (m *stateManager) WatchNodeStateChangeEvent(nodeID models.NodeID, fn func(s
 	watches := m.watches[nodeID]
 	watches = append(watches, fn)
 	m.watches[nodeID] = watches
+}
+
+// GetLiveNodes returns the current live nodes.
+func (m *stateManager) GetLiveNodes() (rs []models.StatefulNode) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	for idx := range m.nodes {
+		rs = append(rs, m.nodes[idx])
+	}
+	return
+}
+
+// GetDatabaseAssignments returns the current database assignments.
+func (m *stateManager) GetDatabaseAssignments() (rs []*models.DatabaseAssignment) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	for _, databaseAssignment := range m.databaseAssignments {
+		rs = append(rs, databaseAssignment)
+	}
+	return
 }

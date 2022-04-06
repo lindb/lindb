@@ -33,28 +33,34 @@ const storageNameKey = "storageName"
 var StateMachinePaths = make(map[string]models.StateMachineInfo)
 
 func init() {
-	StateMachinePaths["Master"] = models.StateMachineInfo{
+	StateMachinePaths[constants.Master] = models.StateMachineInfo{
 		Path: constants.MasterPath,
 		CreateState: func() interface{} {
 			return &models.Master{}
 		},
 	}
-	StateMachinePaths["DatabaseConfig"] = models.StateMachineInfo{
+	StateMachinePaths[constants.DatabaseConfig] = models.StateMachineInfo{
 		Path: constants.DatabaseConfigPath,
 		CreateState: func() interface{} {
 			return &models.Database{}
 		},
 	}
-	StateMachinePaths["StorageConfig"] = models.StateMachineInfo{
+	StateMachinePaths[constants.StorageConfig] = models.StateMachineInfo{
 		Path: constants.StorageConfigPath,
 		CreateState: func() interface{} {
 			return &config.StorageCluster{}
 		},
 	}
-	StateMachinePaths["ShardAssigment"] = models.StateMachineInfo{
+	StateMachinePaths[constants.ShardAssigment] = models.StateMachineInfo{
 		Path: constants.ShardAssigmentPath,
 		CreateState: func() interface{} {
 			return &models.ShardAssignment{}
+		},
+	}
+	StateMachinePaths[constants.StorageState] = models.StateMachineInfo{
+		Path: constants.StorageStatePath,
+		CreateState: func() interface{} {
+			return &models.StorageState{}
 		},
 	}
 }

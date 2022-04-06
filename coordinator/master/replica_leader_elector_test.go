@@ -15,30 +15,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package constants
+package master
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/models"
 )
 
-func TestGetDatabaseAssignPath(t *testing.T) {
-	assert.Equal(t, ShardAssigmentPath+"/name", GetDatabaseAssignPath("name"))
-}
+func TestReplicaLeaderElector_ElectLeader(t *testing.T) {
+	elect := newReplicaLeaderElector()
+	_, err := elect.ElectLeader(models.NewShardAssignment("test"), nil, models.ShardID(1))
+	assert.Equal(t, constants.ErrShardNotFound, err)
 
-func TestGetDatabaseConfigPath(t *testing.T) {
-	assert.Equal(t, DatabaseConfigPath+"/name", GetDatabaseConfigPath("name"))
-}
+	shardAssignment := models.NewShardAssignment("test")
+	shardAssignment.AddReplica(models.ShardID(1), models.NodeID(1))
+	liveNodes := make(map[models.NodeID]models.StatefulNode)
 
-func TestGetNodePath(t *testing.T) {
-	assert.Equal(t, LiveNodesPath+"/name", GetLiveNodePath("name"))
-}
+	_, err = elect.ElectLeader(shardAssignment, liveNodes, models.ShardID(1))
+	assert.Equal(t, constants.ErrNoLiveReplica, err)
+	liveNodes[models.NodeID(1)] = models.StatefulNode{}
 
-func TestGetStorageClusterConfigPath(t *testing.T) {
-	assert.Equal(t, StorageConfigPath+"/name", GetStorageClusterConfigPath("name"))
-}
-
-func TestGetStorageStatePath(t *testing.T) {
-	assert.Equal(t, StorageStatePath+"/name", GetStorageStatePath("name"))
+	leader, err := elect.ElectLeader(shardAssignment, liveNodes, models.ShardID(1))
+	assert.NoError(t, err)
+	assert.Equal(t, models.NodeID(1), leader)
 }

@@ -45,6 +45,16 @@ func (m *metadataStmtParser) visitTypeFilter(ctx *grammar.TypeFilterContext) {
 	m.metadata.Type = strutil.GetStringValue(ctx.Ident().GetText())
 }
 
+// visitSource visits source form.
+func (m *metadataStmtParser) visitSource(ctx *grammar.SourceContext) {
+	switch {
+	case ctx.T_STATE_MACHINE() != nil:
+		m.metadata.Source = stmt.StateMachineSource
+	case ctx.T_STATE_REPO() != nil:
+		m.metadata.Source = stmt.StateRepoSource
+	}
+}
+
 // build the metadata statement.
 func (m *metadataStmtParser) build() (stmt.Statement, error) {
 	return m.metadata, nil
