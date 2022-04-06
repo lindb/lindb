@@ -139,6 +139,12 @@ func TestStateManager_StorageCfg(t *testing.T) {
 		Type: discovery.StorageDeletion,
 		Key:  "/storage/test",
 	})
+	// case 8: namespace is empty
+	mgr.EmitEvent(&discovery.Event{
+		Type:  discovery.StorageConfigChanged,
+		Key:   "/storage/test2",
+		Value: encoding.JSONMarshal(&config.StorageCluster{Config: &config.RepoState{}}),
+	})
 	time.Sleep(100 * time.Millisecond)
 	storage = mgr.GetStorageCluster("/storage/test")
 	assert.Nil(t, storage)
@@ -231,6 +237,8 @@ func TestStateManager_DatabaseCfg(t *testing.T) {
 	})
 
 	time.Sleep(100 * time.Millisecond)
+	fmt.Println(mgr.GetDatabases())
+	assert.Len(t, mgr.GetDatabases(), 1)
 	storage1.EXPECT().Close()
 	mgr.Close()
 }
@@ -282,6 +290,7 @@ func TestStateManager_ShardAssignment(t *testing.T) {
 		Value: data,
 	})
 	time.Sleep(100 * time.Millisecond)
+	assert.Len(t, mgr.GetShardAssignments(), 1)
 	mgr.Close()
 }
 
@@ -449,6 +458,11 @@ func TestStateManager_StorageNodeStartup(t *testing.T) {
 		Attributes: map[string]string{storageNameKey: "test"},
 	})
 	time.Sleep(100 * time.Millisecond)
+
+	storage.EXPECT().GetState().Return(&models.StorageState{})
+	assert.Len(t, mgr.GetStorageStates(), 1)
+	storage.EXPECT().GetConfig().Return(&config.StorageCluster{})
+	assert.Len(t, mgr.GetStorages(), 1)
 	mgr.Close()
 }
 

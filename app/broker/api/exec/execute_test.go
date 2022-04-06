@@ -39,6 +39,7 @@ import (
 	"github.com/lindb/lindb/coordinator"
 	"github.com/lindb/lindb/coordinator/broker"
 	masterpkg "github.com/lindb/lindb/coordinator/master"
+	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/mock"
@@ -58,6 +59,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 	defer ctrl.Finish()
 
 	// prepare
+	ok := "ok"
 	repo := state.NewMockRepository(ctrl)
 	repoFct := state.NewMockRepositoryFactory(ctrl)
 	master := coordinator.NewMockMasterController(ctrl)
@@ -327,6 +329,9 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			name:    "show fields failure",
 			reqBody: `{"sql":"show fields from cp","db":"db"}`,
 			prepare: func() {
+				sqlParseFn = func(sql string) (stmt stmtpkg.Statement, err error) {
+					return &stmtpkg.MetricMetadata{Type: stmtpkg.Field, Limit: 0}, nil
+				}
 				metricQuery := brokerQuery.NewMockMetaDataQuery(ctrl)
 				queryFactory.EXPECT().NewMetadataQuery(gomock.Any(), gomock.Any(), gomock.Any()).Return(metricQuery)
 				metricQuery.EXPECT().WaitResponse().Return([]string{"ns"}, nil)
@@ -688,15 +693,86 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			},
 		},
 		{
+			name:    "state from state machine, but type not found",
+			reqBody: `{"sql":"show broker metadata from state_machine where type=abc"}`,
+			prepare: func() {
+				sqlParseFn = func(sql string) (stmt stmtpkg.Statement, err error) {
+					return &stmtpkg.Metadata{MetadataType: stmtpkg.MetadataType(1000),
+						Source: stmtpkg.StateMachineSource}, nil
+				}
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusNotFound, resp.Code)
+			},
+		},
+		{
+			name:    "state from state machine, but source not found",
+			reqBody: `{"sql":"show broker metadata from state_machine where type=abc"}`,
+			prepare: func() {
+				sqlParseFn = func(sql string) (stmt stmtpkg.Statement, err error) {
+					return &stmtpkg.Metadata{MetadataType: stmtpkg.BrokerMetadata,
+						Source: stmtpkg.SourceType(100)}, nil
+				}
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusNotFound, resp.Code)
+			},
+		},
+		{
+			name:    "state from state machine, broker state",
+			reqBody: `{"sql":"show broker metadata from state_machine where type=abc"}`,
+			prepare: func() {
+				stateMgr.EXPECT().GetLiveNodes().Return([]models.StatelessNode{{}})
+				cli := client.NewMockStateMachineCli(ctrl)
+				command.NewStateMachineCliFn = func() client.StateMachineCli {
+					return cli
+				}
+				cli.EXPECT().FetchStateByNodes(gomock.Any(), gomock.Any()).Return(&ok)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
+			name:    "state from state machine, master state",
+			reqBody: `{"sql":"show master metadata from state_machine where type=abc"}`,
+			prepare: func() {
+				master.EXPECT().GetMaster().Return(&models.Master{Node: &models.StatelessNode{}})
+				cli := client.NewMockStateMachineCli(ctrl)
+				command.NewStateMachineCliFn = func() client.StateMachineCli {
+					return cli
+				}
+				cli.EXPECT().FetchStateByNodes(gomock.Any(), gomock.Any()).Return(&ok)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
+			name:    "state from state machine, storage state",
+			reqBody: `{"sql":"show storage metadata from state_machine where type=abc and storage=xx"}`,
+			prepare: func() {
+				master.EXPECT().GetMaster().Return(&models.Master{Node: &models.StatelessNode{}})
+				cli := client.NewMockStateMachineCli(ctrl)
+				command.NewStateMachineCliFn = func() client.StateMachineCli {
+					return cli
+				}
+				cli.EXPECT().FetchStateByNode(gomock.Any(), gomock.Any()).Return(&ok, nil)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
 			name:    "show broker metadata, but type not found",
-			reqBody: `{"sql":"show broker metadata where type=abc"}`,
+			reqBody: `{"sql":"show broker metadata from state_repo where type=abc"}`,
 			assert: func(resp *httptest.ResponseRecorder) {
 				assert.Equal(t, http.StatusNotFound, resp.Code)
 			},
 		},
 		{
 			name:    "show broker metadata, but walk entry repo failure",
-			reqBody: `{"sql":"show broker metadata where type=LiveNode"}`,
+			reqBody: `{"sql":"show broker metadata from state_repo where type=LiveNode"}`,
 			prepare: func() {
 				repo.EXPECT().WalkEntry(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 			},
@@ -706,7 +782,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 		},
 		{
 			name:    "show broker metadata, but walk entry unmarshal failure",
-			reqBody: `{"sql":"show broker metadata where type=LiveNode"}`,
+			reqBody: `{"sql":"show broker metadata from state_repo where type=LiveNode"}`,
 			prepare: func() {
 				repo.EXPECT().WalkEntry(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(ctx context.Context, prefix string, fn func(key, value []byte)) error {
@@ -720,7 +796,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 		},
 		{
 			name:    "show broker metadata, get live node successfully",
-			reqBody: `{"sql":"show broker metadata where type=DatabaseConfig"}`,
+			reqBody: `{"sql":"show broker metadata from state_repo where type=DatabaseConfig"}`,
 			prepare: func() {
 				repo.EXPECT().WalkEntry(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(ctx context.Context, prefix string, fn func(key, value []byte)) error {
@@ -734,7 +810,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 		},
 		{
 			name:    "show master metadata, get master successfully",
-			reqBody: `{"sql":"show master metadata where type=Master"}`,
+			reqBody: `{"sql":"show master metadata from state_repo where type=Master"}`,
 			prepare: func() {
 				repo.EXPECT().WalkEntry(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(ctx context.Context, prefix string, fn func(key, value []byte)) error {
@@ -748,14 +824,14 @@ func TestExecuteAPI_Execute(t *testing.T) {
 		},
 		{
 			name:    "show storage metadata, but storage name empty",
-			reqBody: `{"sql":"show storage metadata where type=LiveNode and storage=''"}`,
+			reqBody: `{"sql":"show storage metadata from state_repo where type=LiveNode and storage=''"}`,
 			assert: func(resp *httptest.ResponseRecorder) {
 				assert.Equal(t, http.StatusInternalServerError, resp.Code)
 			},
 		},
 		{
 			name:    "show storage metadata, but type not found",
-			reqBody: `{"sql":"show storage metadata where type=LiveNode1 and storage='abc'"}`,
+			reqBody: `{"sql":"show storage metadata from state_repo where type=LiveNode1 and storage='abc'"}`,
 			prepare: func() {
 				master.EXPECT().IsMaster().Return(true)
 			},
@@ -765,7 +841,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 		},
 		{
 			name:    "show storage metadata, but storage state not found",
-			reqBody: `{"sql":"show storage metadata where type=LiveNode and storage='test'"}`,
+			reqBody: `{"sql":"show storage metadata from state_repo where type=LiveNode and storage='test'"}`,
 			prepare: func() {
 				master.EXPECT().IsMaster().Return(true)
 				masterStateMgr.EXPECT().GetStorageCluster("test").Return(nil)
@@ -776,7 +852,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 		},
 		{
 			name:    "show storage metadata, no data",
-			reqBody: `{"sql":"show storage metadata where type=LiveNode and storage='test'"}`,
+			reqBody: `{"sql":"show storage metadata from state_repo where type=LiveNode and storage='test'"}`,
 			prepare: func() {
 				master.EXPECT().IsMaster().Return(true)
 				storage := masterpkg.NewMockStorageCluster(ctrl)
@@ -790,7 +866,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 		},
 		{
 			name:    "show storage metadata, forward request failure",
-			reqBody: `{"sql":"show storage metadata where type=LiveNode and storage='test'"}`,
+			reqBody: `{"sql":"show storage metadata from state_repo where type=LiveNode and storage='test'"}`,
 			prepare: func() {
 				master.EXPECT().IsMaster().Return(false)
 				master.EXPECT().GetMaster().Return(&models.Master{Node: &models.StatelessNode{HostIP: "127.0.0.1", HTTPPort: 8089}})
@@ -801,7 +877,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 		},
 		{
 			name:    "show storage metadata, forward request successfully",
-			reqBody: `{"sql":"show storage metadata where type=LiveNode and storage='test'"}`,
+			reqBody: `{"sql":"show storage metadata from state_repo where type=LiveNode and storage='test'"}`,
 			prepare: func() {
 				master.EXPECT().IsMaster().Return(false)
 				master.EXPECT().GetMaster().Return(&models.Master{Node: &models.StatelessNode{HostIP: "127.0.0.1", HTTPPort: 8089}})
@@ -888,6 +964,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			defer func() {
 				sqlParseFn = sql.Parse
 				command.NewRestyFn = resty.New
+				command.NewStateMachineCliFn = client.NewStateMachineCli
 			}()
 			command.NewRestyFn = func() *resty.Client {
 				c := resty.New()

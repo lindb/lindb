@@ -28,6 +28,16 @@ const (
 	StorageRole = "Storage"
 )
 
+// defines all metadata type.
+const (
+	LiveNode       = "LiveNode"
+	DatabaseConfig = "DatabaseConfig"
+	StorageState   = "StorageState"
+	ShardAssigment = "ShardAssigment"
+	Master         = "Master"
+	StorageConfig  = "StorageConfig"
+)
+
 // defines common constants will be used in broker and storage.
 const (
 	// LiveNodesPath represents live nodes prefix path for node register.

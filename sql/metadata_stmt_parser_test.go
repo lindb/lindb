@@ -30,15 +30,16 @@ func TestMetadataStatement(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, &stmt.Metadata{MetadataType: stmt.MetadataTypes}, q)
 
-	q, err = Parse("show broker metadata where type='/a/b'")
+	q, err = Parse("show broker metadata from state_repo where type='/a/b'")
 	assert.NoError(t, err)
-	assert.Equal(t, &stmt.Metadata{MetadataType: stmt.BrokerMetadata, Type: "/a/b"}, q)
+	assert.Equal(t, &stmt.Metadata{MetadataType: stmt.BrokerMetadata, Type: "/a/b", Source: stmt.StateRepoSource}, q)
 
-	q, err = Parse("show master metadata where type='/a/b'")
+	q, err = Parse("show master metadata from state_machine where type='/a/b'")
 	assert.NoError(t, err)
-	assert.Equal(t, &stmt.Metadata{MetadataType: stmt.MasterMetadata, Type: "/a/b"}, q)
+	assert.Equal(t, &stmt.Metadata{MetadataType: stmt.MasterMetadata, Type: "/a/b", Source: stmt.StateMachineSource}, q)
 
-	q, err = Parse("show storage metadata where type='/a/b' and storage='abc'")
+	q, err = Parse("show storage metadata from state_repo where type='/a/b' and storage='abc'")
 	assert.NoError(t, err)
-	assert.Equal(t, &stmt.Metadata{MetadataType: stmt.StorageMetadata, Type: "/a/b", StorageName: "abc"}, q)
+	assert.Equal(t, &stmt.Metadata{MetadataType: stmt.StorageMetadata,
+		Type: "/a/b", StorageName: "abc", Source: stmt.StateRepoSource}, q)
 }

@@ -93,6 +93,7 @@ func TestStateManager_Node(t *testing.T) {
 	assert.Equal(t, models.StatefulNode{ID: 1, StatelessNode: models.StatelessNode{
 		HostIP: "1.1.1.1",
 	}}, node)
+	assert.Len(t, mgr.GetLiveNodes(), 1)
 
 	// case 4: remove not exist node
 	mgr.EmitEvent(&discovery.Event{
@@ -158,5 +159,6 @@ func TestStateManager_OnShardAssignment(t *testing.T) {
 		}}),
 	})
 	time.Sleep(100 * time.Millisecond)
+	assert.Len(t, mgr.GetDatabaseAssignments(), 1)
 	mgr.Close()
 }

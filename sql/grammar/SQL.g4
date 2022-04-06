@@ -32,9 +32,9 @@ useStmt              : T_USE ident ;
 showMasterStmt       : T_SHOW T_MASTER ;
 showStoragesStmt     : T_SHOW T_STORAGES ;
 showMetadataTypesStmt: T_SHOW T_METADATA T_TYPES;
-showBrokerMetaStmt   : T_SHOW T_BROKER T_METADATA T_WHERE typeFilter;
-showMasterMetaStmt   : T_SHOW T_MASTER T_METADATA T_WHERE typeFilter;
-showStorageMetaStmt  : T_SHOW T_STORAGE T_METADATA T_WHERE (storageFilter|typeFilter) T_AND (storageFilter|typeFilter);
+showBrokerMetaStmt   : T_SHOW T_BROKER T_METADATA T_FROM source T_WHERE typeFilter;
+showMasterMetaStmt   : T_SHOW T_MASTER T_METADATA T_FROM source T_WHERE typeFilter;
+showStorageMetaStmt  : T_SHOW T_STORAGE T_METADATA T_FROM source T_WHERE (storageFilter|typeFilter) T_AND (storageFilter|typeFilter);
 showAliveStmt        : T_SHOW (T_BROKER | T_STORAGE) T_ALIVE;
 showReplicationStmt  : T_SHOW T_REPLICATION T_WHERE (storageFilter|databaseFilter) T_AND (storageFilter|databaseFilter);
 showBrokerMetricStmt : T_SHOW T_BROKER T_METRIC T_WHERE metricListFilter ;
@@ -51,6 +51,7 @@ showTagValuesStmt    : T_SHOW T_TAG T_VALUES fromClause T_WITH T_KEY T_EQUAL wit
 prefix               : ident ;
 withTagKey           : ident ;
 namespace            : ident ;
+source               : (T_STATE_MACHINE|T_STATE_REPO) ;
 
 //data query plan
 queryStmt               : T_EXPLAIN? selectExpr fromClause whereClause? groupByClause? orderByClause? limitClause? T_WITH_VALUE?;
@@ -278,6 +279,8 @@ nonReservedWords      :
                         | T_ALIVE
                         | T_BROKER
                         | T_SCHEMAS
+                        | T_STATE_REPO
+                        | T_STATE_MACHINE
                         ;
 
 STRING
@@ -325,6 +328,8 @@ T_KILL               : K I L L                          ;
 T_ON                 : O N                              ;
 T_SHOW               : S H O W                          ;
 T_USE                : U S E                            ;
+T_STATE_REPO         : S T A T E T_UNDERLINE R E P O    ;
+T_STATE_MACHINE      : S T A T E T_UNDERLINE M A C H I N E;
 T_MASTER             : M A S T E R                      ;
 T_METADATA           : M E T A D A T A                  ;
 T_TYPES              : T Y P E S                        ;
@@ -424,6 +429,7 @@ T_SUB                :  '-'   ;
 T_DIV                :  '/'   ;
 T_MUL                :  '*'   ;
 T_MOD                :  '%'   ;
+T_UNDERLINE          :  '_'   ;
 
 L_ID                 : L_ID_PART ;
 L_INT                : L_DIGIT+;                                               // Integer

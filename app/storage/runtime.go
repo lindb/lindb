@@ -382,6 +382,8 @@ func (r *runtime) startHTTPServer() {
 	exploreAPI.Register(r.httpServer.GetAPIRouter())
 	replicaAPI := stateapi.NewReplicaAPI(r.walMgr)
 	replicaAPI.Register(r.httpServer.GetAPIRouter())
+	stateMachineAPI := stateapi.NewStorageStateMachineAPI(r.stateMgr)
+	stateMachineAPI.Register(r.httpServer.GetAPIRouter())
 	logAPI := monitoring.NewLoggerAPI(r.config.Logging.Dir)
 	logAPI.Register(r.httpServer.GetAPIRouter())
 	configAPI := monitoring.NewConfigAPI(r.node, r.config)

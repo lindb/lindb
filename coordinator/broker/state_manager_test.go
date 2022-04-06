@@ -72,6 +72,7 @@ func TestStateManager_DatabaseConfig(t *testing.T) {
 	databaseCfg, ok := mgr.GetDatabaseCfg("test")
 	assert.True(t, ok)
 	assert.Equal(t, models.Database{Name: "test"}, databaseCfg)
+	assert.Len(t, mgr.GetDatabases(), 1)
 
 	// case 4: remove not exist database config
 	mgr.EmitEvent(&discovery.Event{

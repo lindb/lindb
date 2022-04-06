@@ -59,6 +59,11 @@ func (l *listener) EnterShowStorageMetaStmt(_ *grammar.ShowStorageMetaStmtContex
 	l.metadataStmt = newMetadataStmtParser(stmt.StorageMetadata)
 }
 
+// EnterSource is called when production source is entered.
+func (l *listener) EnterSource(ctx *grammar.SourceContext) {
+	l.metadataStmt.visitSource(ctx)
+}
+
 // EnterTypeFilter is called when production typeFilter is entered.
 func (l *listener) EnterTypeFilter(ctx *grammar.TypeFilterContext) {
 	l.metadataStmt.visitTypeFilter(ctx)

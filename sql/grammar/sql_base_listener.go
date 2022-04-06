@@ -187,6 +187,12 @@ func (s *BaseSQLListener) EnterNamespace(ctx *NamespaceContext) {}
 // ExitNamespace is called when production namespace is exited.
 func (s *BaseSQLListener) ExitNamespace(ctx *NamespaceContext) {}
 
+// EnterSource is called when production source is entered.
+func (s *BaseSQLListener) EnterSource(ctx *SourceContext) {}
+
+// ExitSource is called when production source is exited.
+func (s *BaseSQLListener) ExitSource(ctx *SourceContext) {}
+
 // EnterQueryStmt is called when production queryStmt is entered.
 func (s *BaseSQLListener) EnterQueryStmt(ctx *QueryStmtContext) {}
 

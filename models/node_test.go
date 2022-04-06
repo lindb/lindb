@@ -29,6 +29,7 @@ func TestNode_Indicator(t *testing.T) {
 	node := &StatelessNode{HostIP: "1.1.1.1", GRPCPort: 19000}
 	indicator := node.Indicator()
 	assert.Equal(t, "1.1.1.1:19000", indicator)
+	assert.Equal(t, "http://1.1.1.1:8080", (&StatelessNode{HostIP: "1.1.1.1", HTTPPort: 8080}).HTTPAddress())
 	node2, err := ParseNode(indicator)
 	assert.NoError(t, err)
 	node3 := node2.(*StatelessNode)
@@ -76,4 +77,10 @@ func TestStatelessNodes_ToTable(t *testing.T) {
 	rows, rs = (StatelessNodes{{OnlineTime: timeutil.Now()}}).ToTable()
 	assert.NotEmpty(t, rs)
 	assert.Equal(t, rows, 1)
+}
+
+func TestNodeID(t *testing.T) {
+	assert.Equal(t, 1, NodeID(1).Int())
+	assert.Equal(t, "1", NodeID(1).String())
+	assert.Equal(t, NodeID(1), ParseNodeID("1"))
 }
