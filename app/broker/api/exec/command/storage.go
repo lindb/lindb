@@ -18,7 +18,9 @@
 package command
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -29,6 +31,7 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/ltoml"
+	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/pkg/validate"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
@@ -98,11 +101,13 @@ func createStorage(ctx context.Context, deps *depspkg.HTTPDeps, stmt *stmtpkg.St
 	if err != nil {
 		return nil, err
 	}
-
-	storage.Config.Timeout = ltoml.Duration(time.Second)
-	storage.Config.DialTimeout = ltoml.Duration(time.Second)
+	// copy config for testing
+	cfg := &config.RepoState{}
+	_ = encoding.JSONUnmarshal(encoding.JSONMarshal(storage.Config), cfg)
+	cfg.Timeout = ltoml.Duration(time.Second)
+	cfg.DialTimeout = ltoml.Duration(time.Second)
 	// check storage repo config if valid
-	repo, err := deps.RepoFactory.CreateStorageRepo(storage.Config)
+	repo, err := deps.RepoFactory.CreateStorageRepo(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -110,9 +115,20 @@ func createStorage(ctx context.Context, deps *depspkg.HTTPDeps, stmt *stmtpkg.St
 	if err != nil {
 		return nil, err
 	}
-
+	// re-marshal storage config, keep same structure with repo.
+	data = encoding.JSONMarshal(storage)
 	log.Info("Creating storage cluster", logger.String("config", stmt.Value))
-	ok, err := deps.Repo.PutWithTX(ctx, constants.GetStorageClusterConfigPath(storage.Config.Namespace), data, nil)
+	ok, err := deps.Repo.PutWithTX(ctx, constants.GetStorageClusterConfigPath(storage.Config.Namespace), data, func(oldVal []byte) error {
+		if bytes.Equal(data, oldVal) {
+			log.Info("storage cluster exist", logger.String("config", string(oldVal)))
+			return state.ErrNotExist
+		}
+		return nil
+	})
+	if errors.Is(state.ErrNotExist, err) {
+		rs := "Storage is exist"
+		return &rs, nil
+	}
 	if err != nil {
 		return nil, err
 	}
