@@ -25,6 +25,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -459,12 +460,42 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			},
 		},
 		{
-			name:    "create storage successfully",
+			name:    "create storage successfully, storage not exist",
 			reqBody: `{"sql":"create storage ` + cfg + `"}`,
 			prepare: func() {
 				repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(repo, nil)
 				repo.EXPECT().Close().Return(nil)
-				repo.EXPECT().PutWithTX(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(true, nil)
+				repo.EXPECT().PutWithTX(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, key string, val []byte, check func([]byte) error) (bool, error) {
+						if err := check([]byte{1, 2, 3}); err != nil {
+							return false, err
+						}
+						return true, nil
+					})
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
+			name:    "create storage successfully, storage exist",
+			reqBody: `{"sql":"create storage ` + cfg + `"}`,
+			prepare: func() {
+				repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(repo, nil)
+				repo.EXPECT().Close().Return(nil)
+				repo.EXPECT().PutWithTX(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, key string, val []byte, check func([]byte) error) (bool, error) {
+						cfg1 := strings.ReplaceAll(cfg, `\"`, `"`)
+						data := []byte(cfg1)
+						storage := &config.StorageCluster{}
+						err := encoding.JSONUnmarshal(data, storage)
+						assert.NoError(t, err)
+						data = encoding.JSONMarshal(storage)
+						if err := check(data); err != nil {
+							return false, err
+						}
+						return true, nil
+					})
 			},
 			assert: func(resp *httptest.ResponseRecorder) {
 				assert.Equal(t, http.StatusOK, resp.Code)
