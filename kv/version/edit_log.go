@@ -28,11 +28,13 @@ import (
 //go:generate mockgen -source=./edit_log.go -destination=./edit_log_mock.go -package=version
 
 // StoreFamilyID is store level edit log,
-// actually store family is not actual family just store store level edit log for metadata.
+// actually store family is not actual family just save store level edit log for metadata.
 const StoreFamilyID = -99999999
 
 // EditLog represents the version metadata edit log
 type EditLog interface {
+	fmt.Stringer
+
 	// FamilyID return family id
 	FamilyID() FamilyID
 	// Add adds edit log into log list
@@ -45,7 +47,7 @@ type EditLog interface {
 	marshal() ([]byte, error)
 	// unmarshal create an edit log from its serialized in buf
 	unmarshal(buf []byte) error
-	// apply applies family edit logs into version metadata
+	// apply family edit logs into version metadata
 	apply(version Version)
 	// applyVersionSet applies store edit logs into version set
 	applyVersionSet(versionSet StoreVersionSet)
@@ -146,7 +148,7 @@ func (el *editLog) unmarshal(buf []byte) error {
 	return reader.Error()
 }
 
-// apply applies family edit logs into version metadata
+// apply family edit logs into version metadata
 func (el *editLog) apply(version Version) {
 	for _, log := range el.logs {
 		log.apply(version)

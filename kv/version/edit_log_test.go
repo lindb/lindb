@@ -43,6 +43,7 @@ func TestEditLogCodec(t *testing.T) {
 	empty := newEmptyEditLog()
 	assert.True(t, empty.IsEmpty())
 	assert.Equal(t, FamilyID(0), empty.FamilyID())
+	assert.Equal(t, "[]", empty.String())
 
 	editLog := NewEditLog(1)
 	assert.True(t, editLog.IsEmpty())
