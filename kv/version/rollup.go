@@ -49,18 +49,22 @@ func (r *rollup) addRollupFile(fileNumber table.FileNumber, interval timeutil.In
 // removeRollupFile removes rollup file and interval after rollup job complete successfully
 func (r *rollup) removeRollupFile(fileNumber table.FileNumber, interval timeutil.Interval) {
 	var rs []timeutil.Interval
-	intervals := r.rollupFiles[fileNumber]
+	intervals, ok := r.rollupFiles[fileNumber]
+	if !ok {
+		// not found
+		return
+	}
 	for idx := range intervals {
 		if interval != intervals[idx] {
-			// remove completed interval
-			rs = append(rs, interval)
+			// keep other, remove completed interval
+			rs = append(rs, intervals[idx])
 		}
 	}
 	if len(rs) == 0 {
 		delete(r.rollupFiles, fileNumber)
-	} else {
-		r.rollupFiles[fileNumber] = rs
+		return
 	}
+	r.rollupFiles[fileNumber] = rs
 }
 
 // getRollupFiles returns all need rollup files
