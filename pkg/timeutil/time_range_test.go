@@ -81,4 +81,9 @@ func TestSlotRange(t *testing.T) {
 	start, end = sr.GetRange()
 	assert.Equal(t, uint16(5), start)
 	assert.Equal(t, uint16(27), end)
+	sr = NewSlotRange(5, 10)
+	sr = sr.Union(NewSlotRange(3, 13))
+	start, end = sr.GetRange()
+	assert.Equal(t, uint16(3), start)
+	assert.Equal(t, uint16(13), end)
 }

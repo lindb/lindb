@@ -166,7 +166,7 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
                 , Total Cost:{" "}
                 {renderCost(shardStats.groupBuildStats.totalCost, total)}, Min:{" "}
                 {renderCost(shardStats.groupBuildStats.min, total)}, Max:{" "}
-                {renderCost(shardStats.groupBuildStats.min, total)} ]`
+                {renderCost(shardStats.groupBuildStats.min, total)} ]
               </span>
             ),
             key: `${key + shardID}group build`,

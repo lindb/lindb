@@ -154,6 +154,7 @@ func TestDataLoadContext_PrepareAggregatorWithoutGrouping(t *testing.T) {
 			StorageExecuteCtx: &StorageExecuteContext{
 				Fields:            field.Metas{{ID: 1}},
 				DownSamplingSpecs: aggregation.AggregatorSpecs{aggregation.NewAggregatorSpec("f", field.SumField)},
+				Query:             &stmt.Query{},
 			},
 		},
 	}
@@ -169,6 +170,7 @@ func TestDataLoadContext_PrepareAggregatorWithoutGrouping(t *testing.T) {
 					aggregation.NewAggregatorSpec("a", field.SumField),
 					aggregation.NewAggregatorSpec("b", field.SumField),
 				},
+				Query: &stmt.Query{},
 			},
 		},
 	}
@@ -183,6 +185,7 @@ func TestDataLoadContext_NewSeriesAggregator(t *testing.T) {
 			StorageExecuteCtx: &StorageExecuteContext{
 				Fields:            field.Metas{{ID: 1}},
 				DownSamplingSpecs: aggregation.AggregatorSpecs{aggregation.NewAggregatorSpec("f", field.SumField)},
+				Query:             &stmt.Query{},
 			},
 		},
 	}
@@ -201,6 +204,7 @@ func TestDataLoadContext_NewSeriesAggregator(t *testing.T) {
 					aggregation.NewAggregatorSpec("a", field.SumField),
 					aggregation.NewAggregatorSpec("b", field.SumField),
 				},
+				Query: &stmt.Query{},
 			},
 		},
 	}

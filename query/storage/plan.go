@@ -70,9 +70,6 @@ func (p *storageExecutePlan) Plan() error {
 	if err := p.selectList(); err != nil {
 		return err
 	}
-	if p.err != nil {
-		return p.err
-	}
 
 	p.buildField()
 
@@ -139,10 +136,10 @@ func (p *storageExecutePlan) selectList() error {
 	}
 
 	for _, selectItem := range selectItems {
+		p.field(nil, selectItem)
 		if p.err != nil {
 			return p.err
 		}
-		p.field(nil, selectItem)
 	}
 	return nil
 }

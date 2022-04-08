@@ -106,11 +106,12 @@ func TestStorageQueryFlow_Execute(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			storageExecuteCtx := &flow.StorageExecuteContext{
-				QueryInterval:      timeutil.Interval(timeutil.OneSecond),
-				QueryIntervalRatio: 1,
-				QueryTimeRange:     timeutil.TimeRange{},
-				Query:              &stmt.Query{},
-				TaskCtx:            flow.NewTaskContextWithTimeout(context.Background(), time.Second),
+				Query: &stmt.Query{
+					Interval:      timeutil.Interval(timeutil.OneSecond),
+					IntervalRatio: 1,
+					TimeRange:     timeutil.TimeRange{},
+				},
+				TaskCtx: flow.NewTaskContextWithTimeout(context.Background(), time.Second),
 			}
 			queryFlow := NewStorageQueryFlow(
 				storageExecuteCtx,
@@ -160,10 +161,12 @@ func TestStorageQueryFlow_completeTask(t *testing.T) {
 	defer ctrl.Finish()
 
 	storageExecuteCtx := &flow.StorageExecuteContext{
-		QueryInterval:       timeutil.Interval(timeutil.OneSecond),
-		QueryIntervalRatio:  1,
-		QueryTimeRange:      timeutil.TimeRange{},
-		Query:               &stmt.Query{GroupBy: []string{"host"}},
+		Query: &stmt.Query{
+			GroupBy:       []string{"host"},
+			Interval:      timeutil.Interval(timeutil.OneSecond),
+			IntervalRatio: 1,
+			TimeRange:     timeutil.TimeRange{},
+		},
 		GroupingTagValueIDs: []*roaring.Bitmap{roaring.BitmapOf(1, 2, 3)},
 		Stats:               models.NewStorageStats(),
 	}
@@ -259,11 +262,12 @@ func TestStorageQueryFlow_getValues(t *testing.T) {
 	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(server).AnyTimes()
 
 	storageExecuteCtx := &flow.StorageExecuteContext{
-		QueryInterval:      timeutil.Interval(timeutil.OneSecond),
-		QueryIntervalRatio: 1,
-		QueryTimeRange:     timeutil.TimeRange{},
-		Query:              &stmt.Query{},
-		TaskCtx:            flow.NewTaskContextWithTimeout(context.Background(), time.Second),
+		Query: &stmt.Query{
+			Interval:      timeutil.Interval(timeutil.OneSecond),
+			IntervalRatio: 1,
+			TimeRange:     timeutil.TimeRange{},
+		},
+		TaskCtx: flow.NewTaskContextWithTimeout(context.Background(), time.Second),
 	}
 	queryFlow := NewStorageQueryFlow(
 		storageExecuteCtx,
@@ -297,10 +301,11 @@ func TestStorageQueryFlow_Task_panic(t *testing.T) {
 	defer ctrl.Finish()
 
 	storageExecuteCtx := &flow.StorageExecuteContext{
-		QueryInterval:      timeutil.Interval(timeutil.OneSecond),
-		QueryIntervalRatio: 1,
-		QueryTimeRange:     timeutil.TimeRange{},
-		Query:              &stmt.Query{},
+		Query: &stmt.Query{
+			Interval:      timeutil.Interval(timeutil.OneSecond),
+			IntervalRatio: 1,
+			TimeRange:     timeutil.TimeRange{},
+		},
 	}
 	cases := []struct {
 		name string
@@ -345,10 +350,11 @@ func TestStorageQueryFlow_Complete(t *testing.T) {
 	defer ctrl.Finish()
 
 	storageExecuteCtx := &flow.StorageExecuteContext{
-		QueryInterval:      timeutil.Interval(timeutil.OneSecond),
-		QueryIntervalRatio: 1,
-		QueryTimeRange:     timeutil.TimeRange{},
-		Query:              &stmt.Query{},
+		Query: &stmt.Query{
+			Interval:      timeutil.Interval(timeutil.OneSecond),
+			IntervalRatio: 1,
+			TimeRange:     timeutil.TimeRange{},
+		},
 	}
 	taskServerFactory := rpc.NewMockTaskServerFactory(ctrl)
 	server := protoCommonV1.NewMockTaskService_HandleServer(ctrl)

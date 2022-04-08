@@ -146,3 +146,13 @@ func TestIntervals_Sort(t *testing.T) {
 
 	assert.Equal(t, "[1s->1M,1m->1M,1h->1M]", intervals.String())
 }
+
+func TestDatabaseOption_FindMatchSmallestInterval(t *testing.T) {
+	opt := DatabaseOption{Intervals: Intervals{
+		{timeutil.Interval(timeutil.OneSecond), timeutil.Interval(timeutil.OneMonth)},
+		{timeutil.Interval(timeutil.OneMinute), timeutil.Interval(timeutil.OneMonth)},
+		{timeutil.Interval(timeutil.OneHour), timeutil.Interval(timeutil.OneMonth)},
+	}}
+	interval := opt.FindMatchSmallestInterval(timeutil.Interval(timeutil.OneMinute * 3))
+	assert.Equal(t, timeutil.Interval(timeutil.OneMinute), interval)
+}

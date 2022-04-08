@@ -81,11 +81,6 @@ type StorageExecuteContext struct {
 	// for group by query store tag value ids for each group tag key
 	GroupingTagValueIDs []*roaring.Bitmap
 
-	// Time range and interval
-	QueryTimeRange     timeutil.TimeRange
-	QueryInterval      timeutil.Interval
-	QueryIntervalRatio int
-
 	Stats *models.StorageStats // storage query stats track for explain query
 
 	mutex sync.Mutex
@@ -319,9 +314,9 @@ func (ctx *DataLoadContext) newSeriesAggregators() []aggregation.SeriesAggregato
 	rs := make([]aggregation.SeriesAggregator, len(ctx.ShardExecuteCtx.StorageExecuteCtx.Fields))
 	for fieldIdx := range ctx.ShardExecuteCtx.StorageExecuteCtx.Fields {
 		rs[fieldIdx] = aggregation.NewSeriesAggregator(
-			ctx.ShardExecuteCtx.StorageExecuteCtx.QueryInterval,
-			ctx.ShardExecuteCtx.StorageExecuteCtx.QueryIntervalRatio,
-			ctx.ShardExecuteCtx.StorageExecuteCtx.QueryTimeRange,
+			ctx.ShardExecuteCtx.StorageExecuteCtx.Query.Interval,
+			ctx.ShardExecuteCtx.StorageExecuteCtx.Query.IntervalRatio,
+			ctx.ShardExecuteCtx.StorageExecuteCtx.Query.TimeRange,
 			ctx.ShardExecuteCtx.StorageExecuteCtx.DownSamplingSpecs[fieldIdx])
 	}
 	return rs
@@ -330,9 +325,9 @@ func (ctx *DataLoadContext) newSeriesAggregators() []aggregation.SeriesAggregato
 // newSeriesAggregator creates a series aggregator with field index.
 func (ctx *DataLoadContext) newSeriesAggregator(fieldIdx int) aggregation.SeriesAggregator {
 	return aggregation.NewSeriesAggregator(
-		ctx.ShardExecuteCtx.StorageExecuteCtx.QueryInterval,
-		ctx.ShardExecuteCtx.StorageExecuteCtx.QueryIntervalRatio,
-		ctx.ShardExecuteCtx.StorageExecuteCtx.QueryTimeRange,
+		ctx.ShardExecuteCtx.StorageExecuteCtx.Query.Interval,
+		ctx.ShardExecuteCtx.StorageExecuteCtx.Query.IntervalRatio,
+		ctx.ShardExecuteCtx.StorageExecuteCtx.Query.TimeRange,
 		ctx.ShardExecuteCtx.StorageExecuteCtx.DownSamplingSpecs[fieldIdx])
 }
 
