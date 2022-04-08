@@ -464,6 +464,7 @@ func mockGroupData(ctrl *gomock.Controller) {
 		shardExecuteContext.TimeSegmentContext.SeriesIDs = roaring.BitmapOf(1, 2)
 		shardExecuteContext.StorageExecuteCtx = &flow.StorageExecuteContext{
 			DownSamplingSpecs: aggregation.AggregatorSpecs{aggregation.NewAggregatorSpec("f", field.SumField)},
+			Query:             &stmt.Query{IntervalRatio: 1},
 		}
 		shardExecuteContext.TimeSegmentContext.TimeSegments = map[int64]*flow.TimeSegmentResultSet{10: nil}
 		return familyTask

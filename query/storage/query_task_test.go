@@ -312,6 +312,7 @@ func TestDataLoadTask_Run(t *testing.T) {
 	shard := tsdb.NewMockShard(ctrl)
 	qf := flow.NewMockStorageQueryFlow(ctrl)
 	rs := flow.NewMockFilterResultSet(ctrl)
+	rs.EXPECT().Identifier().Return(fmt.Sprintf("shard/%d/segment/day/20210703", 10))
 	rs.EXPECT().Identifier().Return("memory").AnyTimes()
 	rs.EXPECT().SeriesIDs().Return(roaring.BitmapOf(1, 2, 3)).AnyTimes()
 	ctx := &flow.DataLoadContext{

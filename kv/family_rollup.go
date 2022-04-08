@@ -18,8 +18,10 @@
 package kv
 
 import (
+	"math/rand"
 	"path"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -69,6 +71,7 @@ func (r *rollup) IntervalRatio() uint16 {
 func (r *rollup) CalcSlot(timestamp int64) uint16 {
 	return uint16(r.target.Calculator().CalcSlot(timestamp, r.targetFTime, r.target.Int64()))
 }
+
 func (r *rollup) BaseSlot() uint16 {
 	return r.CalcSlot(r.sourceFTime)
 }
@@ -95,11 +98,28 @@ func (f *family) needRollup() bool {
 		threshold = defaultRollupThreshold
 	}
 	if rollupFilesLen >= threshold {
-		kvLogger.Info("need to rollup level0 files", logger.String("family", f.familyInfo()),
+		kvLogger.Info("need to rollup level0 files, trigger file threshold", logger.String("family", f.familyInfo()),
 			logger.Any("numOfFiles", rollupFilesLen), logger.Any("threshold", f.option.RollupThreshold))
 		return true
 	}
-	// FIXME need add time threshold????
+	var targetIntervals []timeutil.Interval
+	for _, rollupFile := range rollupFiles {
+		targetIntervals = append(targetIntervals, rollupFile...)
+	}
+	sort.Slice(targetIntervals, func(i, j int) bool {
+		return targetIntervals[i] < targetIntervals[j]
+	})
+	targetInterval := targetIntervals[0]
+	now := timeutil.Now()
+	diff := now - f.lastRollupTime.Load()
+	timeThreshold := int64(targetInterval) + rand.Int63n(180000)
+	if diff > timeThreshold {
+		kvLogger.Info("need to rollup level0 files, trigger time threshold",
+			logger.String("now", timeutil.FormatTimestamp(now, timeutil.DataTimeFormat2)),
+			logger.String("lastRollupTime", timeutil.FormatTimestamp(f.lastRollupTime.Load(), timeutil.DataTimeFormat2)),
+			logger.Int64("diff", diff/timeutil.OneMinute))
+		return true
+	}
 	return false
 }
 
@@ -115,6 +135,7 @@ func (f *family) rollup() {
 				f.deleteObsoleteFiles()
 				f.condition.Done()
 				f.rolluping.Store(false)
+				f.lastRollupTime.Store(timeutil.Now())
 			}()
 
 			rollupFiles := f.familyVersion.GetLiveRollupFiles()

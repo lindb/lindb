@@ -33,8 +33,11 @@ type Query struct {
 	FieldNames  []string // select field names
 	Condition   Expr     // tag filter condition expression
 
-	TimeRange timeutil.TimeRange // query time range
-	Interval  timeutil.Interval  // down sampling interval
+	// broker plan maybe reset
+	TimeRange       timeutil.TimeRange // query time range
+	Interval        timeutil.Interval  // down sampling interval
+	IntervalRatio   int                // down sampling interval ratio
+	StorageInterval timeutil.Interval  // down sampling storage interval, data find
 
 	GroupBy []string // group by tag keys
 	Limit   int      // num. of time series list for result
@@ -59,8 +62,10 @@ type innerQuery struct {
 	FieldNames  []string          `json:"fieldNames,omitempty"`
 	Condition   json.RawMessage   `json:"condition,omitempty"`
 
-	TimeRange timeutil.TimeRange `json:"timeRange,omitempty"`
-	Interval  timeutil.Interval  `json:"interval,omitempty"`
+	TimeRange       timeutil.TimeRange `json:"timeRange,omitempty"`
+	Interval        timeutil.Interval  `json:"interval,omitempty"`
+	IntervalRatio   int                `json:"intervalRatio,omitempty"`
+	StorageInterval timeutil.Interval  `json:"storageInterval,omitempty"`
 
 	GroupBy []string `json:"groupBy,omitempty"`
 	Limit   int      `json:"limit,omitempty"`
@@ -69,15 +74,17 @@ type innerQuery struct {
 // MarshalJSON returns json data of query
 func (q *Query) MarshalJSON() ([]byte, error) {
 	inner := innerQuery{
-		Explain:    q.Explain,
-		MetricName: q.MetricName,
-		Namespace:  q.Namespace,
-		Condition:  Marshal(q.Condition),
-		FieldNames: q.FieldNames,
-		TimeRange:  q.TimeRange,
-		Interval:   q.Interval,
-		GroupBy:    q.GroupBy,
-		Limit:      q.Limit,
+		Explain:         q.Explain,
+		MetricName:      q.MetricName,
+		Namespace:       q.Namespace,
+		Condition:       Marshal(q.Condition),
+		FieldNames:      q.FieldNames,
+		TimeRange:       q.TimeRange,
+		Interval:        q.Interval,
+		IntervalRatio:   q.IntervalRatio,
+		StorageInterval: q.StorageInterval,
+		GroupBy:         q.GroupBy,
+		Limit:           q.Limit,
 	}
 	for _, item := range q.SelectItems {
 		inner.SelectItems = append(inner.SelectItems, Marshal(item))
@@ -113,6 +120,8 @@ func (q *Query) UnmarshalJSON(value []byte) error {
 	q.FieldNames = inner.FieldNames
 	q.TimeRange = inner.TimeRange
 	q.Interval = inner.Interval
+	q.IntervalRatio = inner.IntervalRatio
+	q.StorageInterval = inner.StorageInterval
 	q.GroupBy = inner.GroupBy
 	q.Limit = inner.Limit
 	return nil

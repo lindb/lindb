@@ -28,6 +28,7 @@ import (
 	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 //go:generate mockgen -source ./family.go -destination=./family_mock.go -package kv
@@ -59,8 +60,9 @@ type Family interface {
 	commitEditLog(editLog version.EditLog) bool
 	// newTableBuilder creates table builder instance for storing kv data.
 	newTableBuilder() (table.Builder, error)
-	// needCompact returns level0 files if it needs to do compact job
+	// needCompact returns level0 files if it needs to do compact job.
 	needCompact() bool
+	// needRollup checks if it needs rollup source family data.
 	needRollup() bool
 	// compact does compaction job
 	compact()
@@ -92,8 +94,9 @@ type family struct {
 	pendingOutputs    sync.Map // keep all pending output files, includes flush/compact/rollup.
 	newCompactJobFunc func(family Family, state *compactionState, rollup Rollup) CompactJob
 
-	rolluping  atomic.Bool
-	compacting atomic.Bool
+	rolluping      atomic.Bool
+	lastRollupTime *atomic.Int64
+	compacting     atomic.Bool
 
 	condition sync.WaitGroup // compact/rollup job if it's doing
 }
@@ -127,6 +130,7 @@ func newFamily(store Store, option FamilyOption) (Family, error) {
 		maxFileSize:       maxFileSize,
 		newCompactJobFunc: newCompactJobFunc,
 		familyVersion:     store.createFamilyVersion(name, version.FamilyID(option.ID)),
+		lastRollupTime:    atomic.NewInt64(timeutil.Now()),
 	}
 
 	kvLogger.Info("create new family successfully", logger.String("family", f.familyInfo()))

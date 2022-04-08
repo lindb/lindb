@@ -32,6 +32,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/metric"
+	stmtpkg "github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
@@ -94,8 +95,10 @@ func TestDataFamily_Filter(t *testing.T) {
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, fmt.Errorf("err"))
 	rs, err := dataFamily.Filter(&flow.ShardExecuteContext{
 		StorageExecuteCtx: &flow.StorageExecuteContext{
-			MetricID:       metric.ID(10),
-			QueryTimeRange: timeutil.TimeRange{},
+			MetricID: metric.ID(10),
+			Query: &stmtpkg.Query{
+				TimeRange: timeutil.TimeRange{},
+			},
 		},
 	})
 	assert.Error(t, err)
@@ -105,8 +108,10 @@ func TestDataFamily_Filter(t *testing.T) {
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, nil)
 	rs, err = dataFamily.Filter(&flow.ShardExecuteContext{
 		StorageExecuteCtx: &flow.StorageExecuteContext{
-			MetricID:       metric.ID(10),
-			QueryTimeRange: timeutil.TimeRange{},
+			MetricID: metric.ID(10),
+			Query: &stmtpkg.Query{
+				TimeRange: timeutil.TimeRange{},
+			},
 		},
 	})
 	assert.NoError(t, err)
@@ -119,8 +124,10 @@ func TestDataFamily_Filter(t *testing.T) {
 	reader.EXPECT().Get(gomock.Any()).Return(nil, io.EOF)
 	rs, err = dataFamily.Filter(&flow.ShardExecuteContext{
 		StorageExecuteCtx: &flow.StorageExecuteContext{
-			MetricID:       metric.ID(10),
-			QueryTimeRange: timeutil.TimeRange{},
+			MetricID: metric.ID(10),
+			Query: &stmtpkg.Query{
+				TimeRange: timeutil.TimeRange{},
+			},
 		},
 	})
 	assert.NoError(t, err)
@@ -134,8 +141,10 @@ func TestDataFamily_Filter(t *testing.T) {
 	reader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3}, nil)
 	rs, err = dataFamily.Filter(&flow.ShardExecuteContext{
 		StorageExecuteCtx: &flow.StorageExecuteContext{
-			MetricID:       metric.ID(10),
-			QueryTimeRange: timeutil.TimeRange{},
+			MetricID: metric.ID(10),
+			Query: &stmtpkg.Query{
+				TimeRange: timeutil.TimeRange{},
+			},
 		},
 	})
 	assert.Error(t, err)
@@ -154,8 +163,10 @@ func TestDataFamily_Filter(t *testing.T) {
 	filter.EXPECT().Filter(gomock.Any(), gomock.Any()).Return(nil, nil)
 	_, err = dataFamily.Filter(&flow.ShardExecuteContext{
 		StorageExecuteCtx: &flow.StorageExecuteContext{
-			MetricID:       metric.ID(10),
-			QueryTimeRange: timeutil.TimeRange{},
+			MetricID: metric.ID(10),
+			Query: &stmtpkg.Query{
+				TimeRange: timeutil.TimeRange{},
+			},
 		},
 	})
 	assert.NoError(t, err)

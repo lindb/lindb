@@ -276,3 +276,88 @@ func Test_IntervalCalculator(t *testing.T) {
 	_ = i.ValueOf("10d")
 	assert.NotNil(t, i.Calculator())
 }
+
+func Test_CalcQueryInterval(t *testing.T) {
+	now := Now()
+	cases := []struct {
+		name           string
+		timeRange      TimeRange
+		queryInterval  Interval
+		targetInterval Interval
+	}{
+		{
+			name:           "use input interval",
+			timeRange:      TimeRange{},
+			queryInterval:  Interval(OneSecond),
+			targetInterval: Interval(OneSecond),
+		},
+		{
+			name:           "<3hour",
+			timeRange:      TimeRange{Start: Now(), End: now + 2*OneHour},
+			queryInterval:  Interval(OneSecond),
+			targetInterval: Interval(10 * OneSecond),
+		},
+		{
+			name:           "<6hour",
+			timeRange:      TimeRange{Start: Now(), End: now + 4*OneHour},
+			queryInterval:  Interval(OneSecond),
+			targetInterval: Interval(30 * OneSecond),
+		},
+		{
+			name:           "<12hour",
+			timeRange:      TimeRange{Start: Now(), End: now + 11*OneHour},
+			queryInterval:  Interval(OneSecond),
+			targetInterval: Interval(OneMinute),
+		},
+		{
+			name:           "<1day",
+			timeRange:      TimeRange{Start: Now(), End: now + 23*OneHour},
+			queryInterval:  Interval(OneSecond),
+			targetInterval: Interval(2 * OneMinute),
+		},
+		{
+			name:           "<2day",
+			timeRange:      TimeRange{Start: Now(), End: now + 47*OneHour},
+			queryInterval:  Interval(OneSecond),
+			targetInterval: Interval(5 * OneMinute),
+		},
+		{
+			name:           "<7day",
+			timeRange:      TimeRange{Start: Now(), End: now + 7*OneDay - 1},
+			queryInterval:  Interval(OneSecond),
+			targetInterval: Interval(10 * OneMinute),
+		},
+		{
+			name:           "<1month",
+			timeRange:      TimeRange{Start: Now(), End: now + OneMonth - 1},
+			queryInterval:  Interval(OneSecond),
+			targetInterval: Interval(OneHour),
+		},
+		{
+			name:           "<2month",
+			timeRange:      TimeRange{Start: Now(), End: now + 2*OneMonth - 1},
+			queryInterval:  Interval(OneSecond),
+			targetInterval: Interval(4 * OneHour),
+		},
+		{
+			name:           "<3month",
+			timeRange:      TimeRange{Start: Now(), End: now + 3*OneMonth - 1},
+			queryInterval:  Interval(OneSecond),
+			targetInterval: Interval(12 * OneHour),
+		},
+		{
+			name:           ">3month",
+			timeRange:      TimeRange{Start: Now(), End: now + OneYear},
+			queryInterval:  Interval(OneSecond),
+			targetInterval: Interval(OneDay),
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			interval := CalcQueryInterval(tt.timeRange, tt.queryInterval)
+			assert.Equal(t, tt.targetInterval, interval)
+		})
+	}
+}
