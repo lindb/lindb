@@ -187,6 +187,8 @@ func (e *Expression) funcCall(expr *stmt.CallExpr) []*collections.FloatArray {
 	switch expr.FuncType {
 	case function.Avg:
 		result = function.AvgCall(params...)
+	case function.Rate:
+		result = function.RateCall(e.interval, params...)
 	default:
 		result = function.FuncCall(expr.FuncType, params...)
 	}

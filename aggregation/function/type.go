@@ -29,6 +29,7 @@ const (
 	LastValue
 	Quantile
 	Stddev
+	Rate
 
 	Unknown
 )
@@ -52,6 +53,8 @@ func (t FuncType) String() string {
 		return "quantile"
 	case Stddev:
 		return "stddev"
+	case Rate:
+		return "rate"
 	default:
 		return "unknown"
 	}
