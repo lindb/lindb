@@ -21,17 +21,20 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/pkg/collections"
+	"github.com/lindb/lindb/pkg/timeutil"
 )
 
-func TestFuncTypeString(t *testing.T) {
-	assert.Equal(t, "sum", Sum.String())
-	assert.Equal(t, "min", Min.String())
-	assert.Equal(t, "max", Max.String())
-	assert.Equal(t, "count", Count.String())
-	assert.Equal(t, "avg", Avg.String())
-	assert.Equal(t, "last_value", LastValue.String())
-	assert.Equal(t, "quantile", Quantile.String())
-	assert.Equal(t, "stddev", Stddev.String())
-	assert.Equal(t, "rate", Rate.String())
-	assert.Equal(t, "unknown", Unknown.String())
+func TestRateCall(t *testing.T) {
+	array1 := collections.NewFloatArray(10)
+	array1.SetValue(1, 10.0)
+	array1.SetValue(2, 5.0)
+
+	rs := RateCall(10*timeutil.OneSecond, array1)
+	assert.Equal(t, 1.0, rs.GetValue(1))
+	assert.Equal(t, 0.5, rs.GetValue(2))
+
+	rs = RateCall(10 * timeutil.OneSecond)
+	assert.Nil(t, rs)
 }

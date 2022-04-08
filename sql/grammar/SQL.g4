@@ -141,7 +141,7 @@ intervalItem            :
                          | T_YEAR
                          ;
 exprFunc                : funcName T_OPEN_P exprFuncParams? T_CLOSE_P ;
-funcName                : T_SUM | T_MIN | T_MAX | T_AVG | T_COUNT | T_STDDEV | T_QUANTILE;
+funcName                : T_SUM | T_MIN | T_MAX | T_AVG | T_COUNT | T_STDDEV | T_QUANTILE | T_RATE;
 exprFuncParams          : funcParam (T_COMMA funcParam)* ;
 funcParam               :
                            fieldExpr
@@ -262,6 +262,7 @@ nonReservedWords      :
                         | T_AVG
                         | T_STDDEV
                         | T_QUANTILE
+                        | T_RATE
                         | T_SECOND
                         | T_MINUTE
                         | T_HOUR
@@ -395,6 +396,7 @@ T_COUNT              : C O U N T                        ;
 T_AVG                : A V G                            ;
 T_STDDEV             : S T D D E V                      ;
 T_QUANTILE           : Q U A N T I L E                  ;
+T_RATE               : R A T E                          ;
 
 //time unit
 T_SECOND             : S                                ;

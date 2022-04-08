@@ -132,7 +132,7 @@ func (t Type) IsFuncSupported(funcType function.FuncType) bool {
 	switch t {
 	case SumField:
 		switch funcType {
-		case function.Sum, function.Min, function.Max:
+		case function.Sum, function.Min, function.Max, function.Rate:
 			return true
 		default:
 			return false

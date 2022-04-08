@@ -18,20 +18,20 @@
 package function
 
 import (
-	"testing"
-
-	"github.com/stretchr/testify/assert"
+	"github.com/lindb/lindb/pkg/collections"
+	"github.com/lindb/lindb/pkg/timeutil"
 )
 
-func TestFuncTypeString(t *testing.T) {
-	assert.Equal(t, "sum", Sum.String())
-	assert.Equal(t, "min", Min.String())
-	assert.Equal(t, "max", Max.String())
-	assert.Equal(t, "count", Count.String())
-	assert.Equal(t, "avg", Avg.String())
-	assert.Equal(t, "last_value", LastValue.String())
-	assert.Equal(t, "quantile", Quantile.String())
-	assert.Equal(t, "stddev", Stddev.String())
-	assert.Equal(t, "rate", Rate.String())
-	assert.Equal(t, "unknown", Unknown.String())
+// RateCall represents rate function call.
+func RateCall(interval int64, params ...*collections.FloatArray) *collections.FloatArray {
+	if len(params) == 0 {
+		return nil
+	}
+	result := collections.NewFloatArray(params[0].Capacity())
+	itr := params[0].NewIterator()
+	for itr.HasNext() {
+		idx, val := itr.Next()
+		result.SetValue(idx, val/float64(interval/timeutil.OneSecond))
+	}
+	return result
 }

@@ -133,6 +133,16 @@ func TestSelectFuncItem(t *testing.T) {
 	assert.Equal(t, stmt.SelectItem{
 		Expr: &stmt.CallExpr{FuncType: function.Quantile, Params: []stmt.Expr{&stmt.NumberLiteral{Val: 0.99}}},
 	}, *selectItem)
+
+	sql = "select rate(f) from memory"
+	q, err = Parse(sql)
+	query = q.(*stmt.Query)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(query.SelectItems))
+	selectItem = (query.SelectItems[0]).(*stmt.SelectItem)
+	assert.Equal(t, stmt.SelectItem{
+		Expr: &stmt.CallExpr{FuncType: function.Rate, Params: []stmt.Expr{&stmt.FieldExpr{Name: "f"}}},
+	}, *selectItem)
 }
 
 func TestFieldExpression(t *testing.T) {
