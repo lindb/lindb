@@ -312,6 +312,33 @@ func TestExpression_FuncCall_Sum(t *testing.T) {
 	assert.Equal(t, 0, len(resultSet))
 }
 
+func TestExpression_FuncCall_Rate(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	series1 := mockTimeSeries(ctrl, familyTime, "f1", field.SumField, field.Sum)
+	timeSeries := series.NewMockGroupedIterator(ctrl)
+
+	q, _ := sql.Parse("select rate(f1) from cpu")
+	query := q.(*stmt.Query)
+	expression := NewExpression(timeutil.TimeRange{
+		Start: now,
+		End:   now + timeutil.OneHour*2,
+	}, timeutil.OneMinute, query.SelectItems)
+	gomock.InOrder(
+		timeSeries.EXPECT().HasNext().Return(true),
+		timeSeries.EXPECT().Next().Return(series1),
+		timeSeries.EXPECT().HasNext().Return(false),
+	)
+	expression.Eval(timeSeries)
+	resultSet := expression.ResultSet()
+	assert.Equal(t, 1, len(resultSet))
+
+	value := resultSet["rate(f1)"]
+	assert.Equal(t, 1, value.Size())
+	assert.Equal(t, 50.0/60, value.GetValue(50-10))
+}
+
 func TestExpression_NotSupport_Expr(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

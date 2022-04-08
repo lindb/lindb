@@ -269,6 +269,8 @@ func (q *queryStmtParser) visitFuncName(ctx *grammar.FuncNameContext) {
 		callExpr.FuncType = function.Stddev
 	case ctx.T_QUANTILE() != nil:
 		callExpr.FuncType = function.Quantile
+	case ctx.T_RATE() != nil:
+		callExpr.FuncType = function.Rate
 	}
 }
 
@@ -315,8 +317,8 @@ func (q *queryStmtParser) visitExprAtom(ctx *grammar.ExprAtomContext) {
 }
 
 // completeFieldExpr completes a field expr,
-// only paren and binary expr need do set expr param,
-// set func's param in complete func parse section.
+// only paren and binary expr need to do set expr param,
+// set function's param in complete func parse section.
 func (q *queryStmtParser) completeFieldExpr(ctx *grammar.FieldExprContext) {
 	switch {
 	case ctx.T_OPEN_P() != nil:
