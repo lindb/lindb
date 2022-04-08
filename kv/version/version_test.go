@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/kv/table"
+	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 func TestVersion_New(t *testing.T) {
@@ -77,7 +78,8 @@ func TestVersion_Files(t *testing.T) {
 	fv.EXPECT().GetVersionSet().Return(vs).AnyTimes()
 	vs.EXPECT().numberOfLevels().Return(2).AnyTimes()
 	v := newVersion(1, fv)
-	v.AddFile(0, &FileMeta{fileNumber: 1})
+	f1 := &FileMeta{fileNumber: 1}
+	v.AddFile(0, f1)
 	v.AddFile(-10, &FileMeta{fileNumber: 2})
 	v.AddFile(2, &FileMeta{fileNumber: 3})
 	v.AddFiles(1, []*FileMeta{{fileNumber: 4}})
@@ -86,6 +88,16 @@ func TestVersion_Files(t *testing.T) {
 	assert.Equal(t, 0, v.NumberOfFilesInLevel(10))
 	assert.Equal(t, 1, v.NumberOfFilesInLevel(0))
 	assert.Equal(t, 1, v.NumberOfFilesInLevel(1))
+
+	f, ok := v.GetFile(-1, 1)
+	assert.False(t, ok)
+	assert.Nil(t, f)
+	f, ok = v.GetFile(2, 1)
+	assert.False(t, ok)
+	assert.Nil(t, f)
+	f, ok = v.GetFile(0, 1)
+	assert.True(t, ok)
+	assert.Equal(t, f1, f)
 
 	vs.EXPECT().newVersionID().Return(int64(2))
 	v2 := v.Clone()
@@ -211,4 +223,33 @@ func TestVersion_Sequence(t *testing.T) {
 	assert.Equal(t, int64(0), v.GetSequences()[1])
 	v.Sequence(1, 100)
 	assert.Equal(t, int64(100), v.GetSequences()[1])
+}
+
+func TestVersion_Clone(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+	}()
+	fv := NewMockFamilyVersion(ctrl)
+	vs := NewMockStoreVersionSet(ctrl)
+	fv.EXPECT().GetVersionSet().Return(vs).MaxTimes(3)
+	vs.EXPECT().numberOfLevels().Return(2).MaxTimes(2)
+	vs.EXPECT().newVersionID().Return(int64(0))
+	v := newVersion(123, fv)
+	fileMeta := NewFileMeta(1, 10, 100, 1024)
+	v.AddFile(0, fileMeta)
+	v.Sequence(10, 100)
+	v.AddRollupFile(1, timeutil.Interval(10))
+	v.AddReferenceFile(10, 10)
+
+	newV := v.Clone()
+	v1 := v.(*version)
+	newV1 := newV.(*version)
+	assert.NotEqual(t, v1.id, newV1.id)
+	assert.Equal(t, int32(0), newV1.ref.Load())
+	assert.Equal(t, v1.levels, newV1.levels)
+	assert.Equal(t, v1.numOfLevels, newV1.numOfLevels)
+	assert.Equal(t, v1.sequences, newV1.sequences)
+	assert.Equal(t, v1.rollup, newV1.rollup)
+	assert.Equal(t, v1.fv, newV1.fv)
 }

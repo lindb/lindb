@@ -156,7 +156,7 @@ func (v *version) NumberOfFilesInLevel(level int) int {
 }
 
 // PickL0Compaction picks level0 compaction context,
-// if hasn't congruent compaction return nil.
+// if it hasn't congruent compaction return nil.
 func (v *version) PickL0Compaction(compactThreshold int) *Compaction {
 	// We prefer compactions triggered by too much data level 0 over the compactions triggered by seeks.
 	if v.NumberOfFilesInLevel(0) < compactThreshold {
@@ -219,7 +219,6 @@ func (v *version) GetAllFiles() []*FileMeta {
 
 // Clone builds new version based on current version
 func (v *version) Clone() Version {
-	// TODO need test clone all data
 	newVersion := newVersion(v.fv.GetVersionSet().newVersionID(), v.fv)
 	nv := newVersion.(*version)
 	for k, v := range v.rollup.rollupFiles {
