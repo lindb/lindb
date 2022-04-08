@@ -54,23 +54,39 @@ func newBrokerPlan(
 }
 
 // Plan plans broker level query execute plan, there are some scenarios as below:
-// 1) parse sql => stmt
-// 2) build parallel exec tree
-//    a) no group by => only need leafs
-//    b) one storage node => only need leafs
-//    c) no other active broker node => node need leafs
-//    d) need intermediate computing nodes
+// 1. parse sql => stmt
+// 2. build parallel exec tree
+//    a. no group by => only need leaves
+//    b. one storage node => only need leaves
+//    c. no other active broker node => node need leaves
+//    d. need intermediate computing nodes
 func (p *brokerPlan) Plan() error {
 	lenOfStorageNodes := len(p.storageNodes)
 	if lenOfStorageNodes == 0 {
 		return querypkg.ErrNoAvailableStorageNode
 	}
-
-	if p.query.Interval <= 0 {
-		// TODO need get by time range
-		p.query.Interval = p.databaseCfg.Option.Intervals[0].Interval
+	option := p.databaseCfg.Option
+	interval := p.query.Interval
+	if interval <= 0 {
+		// if query interval not set, first set it using the smallest interval in storage option.
+		interval = option.Intervals[0].Interval
 	}
-	intervalVal := int64(p.query.Interval)
+	// re-calc query interval based on query time range
+	interval = timeutil.CalcQueryInterval(p.query.TimeRange, interval)
+	// if auto calc interval < user input, need to use use input
+	if interval < p.query.Interval {
+		interval = p.query.Interval
+	}
+	storageInterval := option.FindMatchSmallestInterval(interval)
+	intervalRatio := timeutil.CalIntervalRatio(interval.Int64(), storageInterval.Int64())
+	// truncate query interval
+	interval = timeutil.Interval(storageInterval.Int64() * int64(intervalRatio))
+
+	intervalVal := interval.Int64()
+
+	p.query.StorageInterval = storageInterval
+	p.query.Interval = interval
+	p.query.IntervalRatio = intervalRatio
 	p.query.TimeRange.Start = timeutil.Truncate(p.query.TimeRange.Start, intervalVal)
 	p.query.TimeRange.End = timeutil.Truncate(p.query.TimeRange.End, intervalVal)
 

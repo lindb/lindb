@@ -108,8 +108,6 @@ func (e *storageExecutor) Execute() {
 		}
 	}
 
-	buildDownSamplingTimeRange(e.ctx)
-
 	// prepare storage query flow
 	e.queryFlow.Prepare()
 
@@ -167,7 +165,7 @@ func (e *storageExecutor) executeQuery() {
 func (e *storageExecutor) executeGroupBy(shardExecuteContext *flow.ShardExecuteContext, shard tsdb.Shard) {
 	// time segments sorted by family
 	timeSegments := shardExecuteContext.TimeSegmentContext.GetTimeSegments()
-	queryIntervalRatio := shardExecuteContext.StorageExecuteCtx.QueryIntervalRatio
+	queryIntervalRatio := shardExecuteContext.StorageExecuteCtx.Query.IntervalRatio
 
 	if e.ctx.storageExecuteCtx.Query.HasGroupBy() {
 		// 1. grouping, if it has grouping, do group by tag keys, else just split series ids as batch first,

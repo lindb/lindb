@@ -20,6 +20,7 @@ package option
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/lindb/lindb/constants"
@@ -53,6 +54,12 @@ func (m Interval) String() string {
 	return fmt.Sprintf("%s->%s", m.Interval, m.Retention)
 }
 
+// FlusherOption represents a flusher configuration for index and memory db
+type FlusherOption struct {
+	TimeThreshold int64 `toml:"timeThreshold" json:"timeThreshold"` // time level flush threshold
+	SizeThreshold int64 `toml:"sizeThreshold" json:"sizeThreshold"` // size level flush threshold, unit(MB)
+}
+
 // DatabaseOption represents a database option include shard ids and shard's option
 type DatabaseOption struct {
 	// write interval(the number of second) => TTL
@@ -71,10 +78,27 @@ type DatabaseOption struct {
 	ahead, behind int64
 }
 
-// FlusherOption represents a flusher configuration for index and memory db
-type FlusherOption struct {
-	TimeThreshold int64 `toml:"timeThreshold" json:"timeThreshold"` // time level flush threshold
-	SizeThreshold int64 `toml:"sizeThreshold" json:"sizeThreshold"` // size level flush threshold, unit(MB)
+// FindMatchSmallestInterval returns the smallest interval which match query interval.
+func (e *DatabaseOption) FindMatchSmallestInterval(interval timeutil.Interval) timeutil.Interval {
+	storageIntervals := make([]timeutil.Interval, len(e.Intervals))
+	idx := 0
+	for k := range e.Intervals {
+		storageIntervals[idx] = e.Intervals[k].Interval
+		idx++
+	}
+	// desc order
+	sort.Slice(storageIntervals, func(i, j int) bool {
+		return storageIntervals[i] > storageIntervals[j]
+	})
+
+	storageInterval := e.Intervals[0].Interval // init using the smallest interval
+	for _, sInterval := range storageIntervals {
+		if interval >= sInterval {
+			storageInterval = sInterval
+			break
+		}
+	}
+	return storageInterval
 }
 
 // Validate validates engine option if valid

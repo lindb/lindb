@@ -126,6 +126,14 @@ func TestStoragePlan_SelectList(t *testing.T) {
 	assert.Equal(t, downSampling, storagePlan.fields[field.ID(10)].DownSampling)
 	assert.Equal(t, field.Metas{{Name: "f", ID: 10, Type: field.SumField}}, ctx.storageExecuteCtx.Fields)
 
+	// function not support
+	q, _ = sql.Parse("select stddev(f) from cpu")
+	query = q.(*stmt.Query)
+	ctx.storageExecuteCtx.Query = query
+	storagePlan = newStorageExecutePlan(ctx)
+	err = storagePlan.Plan()
+	assert.Error(t, err)
+
 	q, _ = sql.Parse("select a,b as d from cpu")
 	query = q.(*stmt.Query)
 	ctx.storageExecuteCtx.Query = query

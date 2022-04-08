@@ -90,6 +90,7 @@ func TestStore_New(t *testing.T) {
 	kv, err = newStore("test_kv", tmpDir, option)
 	assert.NoError(t, err)
 	assert.NotNil(t, kv, "cannot create kv store")
+	assert.Equal(t, "test_kv", kv.Name())
 	// case 4: new store fail, because try lock file err
 	_, err = newStore("test_kv", tmpDir, option)
 	assert.Error(t, err)
@@ -250,6 +251,46 @@ func TestStore_Compact(t *testing.T) {
 	value, _ = readers[0].Get(10)
 	assert.Equal(t, []byte("test10test10"), value)
 	snapshot.Close()
+}
+
+func TestStore_Rollup(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+		newFamilyFunc = newFamily
+	}()
+
+	path := filepath.Join(t.TempDir(), "test_data")
+	option := DefaultStoreOption()
+
+	kv, err := newStore("test_kv", path, option)
+	assert.NoError(t, err)
+	defer func() {
+		_ = kv.close()
+	}()
+	family := NewMockFamily(ctrl)
+	family.EXPECT().close().AnyTimes()
+	newFamilyFunc = func(store Store, option FamilyOption) (Family, error) {
+		return family, nil
+	}
+	f1, err := kv.CreateFamily("f", FamilyOption{
+		CompactThreshold: 2,
+		Merger:           mergerStr,
+		MaxFileSize:      1 * 1024 * 1024,
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, family, f1)
+
+	family.EXPECT().needCompact().Return(false)
+	family.EXPECT().needRollup().Return(true)
+	family.EXPECT().rollup()
+	kv.compact()
+
+	family.EXPECT().rollup()
+	kv.ForceRollup()
+
+	err = kv.close()
+	assert.NoError(t, err)
 }
 
 func TestStore_Close(t *testing.T) {

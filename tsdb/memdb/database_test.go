@@ -33,6 +33,7 @@ import (
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
+	stmtpkg "github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
@@ -317,9 +318,11 @@ func TestMemoryDatabase_Filter(t *testing.T) {
 	// case 1: family not found
 	rs, err := md.Filter(&flow.ShardExecuteContext{
 		StorageExecuteCtx: &flow.StorageExecuteContext{
-			MetricID:       metric.ID(3333),
-			QueryTimeRange: timeutil.TimeRange{},
-			Fields:         field.Metas{{ID: 1}},
+			MetricID: metric.ID(3333),
+			Query: &stmtpkg.Query{
+				TimeRange: timeutil.TimeRange{},
+			},
+			Fields: field.Metas{{ID: 1}},
 		},
 	})
 	assert.NoError(t, err)
@@ -328,9 +331,11 @@ func TestMemoryDatabase_Filter(t *testing.T) {
 	// case 2: metric store not found
 	rs, err = md.Filter(&flow.ShardExecuteContext{
 		StorageExecuteCtx: &flow.StorageExecuteContext{
-			MetricID:       metric.ID(0),
-			QueryTimeRange: timeutil.TimeRange{Start: now - 10, End: now + 20},
-			Fields:         field.Metas{{ID: 1}},
+			MetricID: metric.ID(0),
+			Query: &stmtpkg.Query{
+				TimeRange: timeutil.TimeRange{Start: now - 10, End: now + 20},
+			},
+			Fields: field.Metas{{ID: 1}},
 		},
 	})
 	assert.NoError(t, err)
@@ -342,9 +347,11 @@ func TestMemoryDatabase_Filter(t *testing.T) {
 	md.mStores.Put(uint32(3333), mockMStore)
 	rs, err = md.Filter(&flow.ShardExecuteContext{
 		StorageExecuteCtx: &flow.StorageExecuteContext{
-			MetricID:       metric.ID(3333),
-			QueryTimeRange: timeutil.TimeRange{Start: now - 10, End: now + 20},
-			Fields:         field.Metas{{ID: 1}},
+			MetricID: metric.ID(3333),
+			Query: &stmtpkg.Query{
+				TimeRange: timeutil.TimeRange{Start: now - 10, End: now + 20},
+			},
+			Fields: field.Metas{{ID: 1}},
 		},
 	})
 	assert.NoError(t, err)

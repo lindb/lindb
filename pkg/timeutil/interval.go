@@ -159,3 +159,32 @@ func (i Interval) Calculator() IntervalCalculator {
 		return dayCalculator
 	}
 }
+
+// CalcQueryInterval returns query interval based on query time range and interval.
+func CalcQueryInterval(queryTimeRange TimeRange, queryInterval Interval) Interval {
+	diff := queryTimeRange.End - queryTimeRange.Start
+	switch {
+	case diff < OneHour:
+		return queryInterval
+	case diff < 3*OneHour:
+		return Interval(10 * OneSecond)
+	case diff < 6*OneHour:
+		return Interval(30 * OneSecond)
+	case diff < 12*OneHour:
+		return Interval(OneMinute)
+	case diff < OneDay:
+		return Interval(2 * OneMinute)
+	case diff < 2*OneDay:
+		return Interval(5 * OneMinute)
+	case diff < 7*OneDay:
+		return Interval(10 * OneMinute)
+	case diff < OneMonth:
+		return Interval(OneHour)
+	case diff < 2*OneMonth:
+		return Interval(4 * OneHour)
+	case diff < 3*OneMonth:
+		return Interval(12 * OneHour)
+	default:
+		return Interval(OneDay)
+	}
+}

@@ -88,7 +88,7 @@ func TestTaskClientFactory(t *testing.T) {
 
 	target := models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: testGRPCPort}
 	conn, _ := grpc.Dial(target.Indicator(), grpc.WithInsecure())
-	mockClientConnFct.EXPECT().GetClientConn(target).Return(conn, nil).AnyTimes()
+	mockClientConnFct.EXPECT().GetClientConn(&target).Return(conn, nil).AnyTimes()
 	taskService.EXPECT().Handle(gomock.Any(), gomock.Any()).Return(mockTaskClient, nil).AnyTimes()
 	err := fct.CreateTaskClient(&target)
 	assert.NoError(t, err)

@@ -271,7 +271,7 @@ func TestBrokerPlan_GroupBy_One_StorageNode(t *testing.T) {
 	storageNodes := map[string][]models.ShardID{"1.1.1.1:9000": {1, 2, 4}}
 	currentNode := generateBrokerActiveNode("1.1.1.3", 8000)
 
-	q, err := sql.Parse("select f from cpu group by host")
+	q, err := sql.Parse("select f from cpu group by host,time(1m)")
 	assert.NoError(t, err)
 	// only one storage node
 	opt := &option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 100}}}

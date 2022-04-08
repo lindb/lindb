@@ -225,8 +225,8 @@ func newFamilyFilterTask(shardExecuteContext *flow.ShardExecuteContext, shard ts
 
 // Run executes file data filtering based on series ids and time range for each data family
 func (t *familyFilterTask) Run() error {
-	families := t.shard.GetDataFamilies(t.shardExecuteContext.StorageExecuteCtx.QueryInterval.Type(),
-		t.shardExecuteContext.StorageExecuteCtx.QueryTimeRange)
+	families := t.shard.GetDataFamilies(t.shardExecuteContext.StorageExecuteCtx.Query.StorageInterval.Type(),
+		t.shardExecuteContext.StorageExecuteCtx.Query.TimeRange)
 	if len(families) == 0 {
 		return nil
 	}

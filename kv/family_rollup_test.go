@@ -40,6 +40,7 @@ func TestRollup(t *testing.T) {
 		timestamp := in.GetTimestamp(20)
 		assert.Equal(t, sf+10*1000*20, timestamp)
 		assert.Equal(t, uint16(10*60/5), in.CalcSlot(timestamp))
+		assert.Equal(t, uint16(10*60/5), in.BaseSlot())
 	})
 	t.Run("10s->1hour", func(t *testing.T) {
 		sf, _ := timeutil.ParseTimestamp("2019-12-12 10:00:00")
@@ -47,6 +48,7 @@ func TestRollup(t *testing.T) {
 		in := newRollup(timeutil.Interval(10*1000), timeutil.Interval(60*60*1000), sf, tf)
 		assert.Equal(t, uint16(360), in.IntervalRatio())
 		timestamp := in.GetTimestamp(20)
+		assert.Equal(t, uint16(10), in.BaseSlot())
 		assert.Equal(t, sf+10*1000*20, timestamp)
 		assert.Equal(t, uint16(10), in.CalcSlot(timestamp))
 	})
@@ -101,6 +103,18 @@ func TestFamily_needRollup(t *testing.T) {
 				fv.EXPECT().GetLiveRollupFiles().Return(
 					map[table.FileNumber][]timeutil.Interval{
 						10: {10}, 11: {10}, 12: {10}, 13: {10},
+					})
+			},
+			need: true,
+		},
+		{
+			name: "need rollup",
+			prepare: func() {
+				f.lastRollupTime.Store(timeutil.Now() - timeutil.OneHour)
+				store.EXPECT().Option().Return(StoreOption{Rollup: []timeutil.Interval{10}})
+				fv.EXPECT().GetLiveRollupFiles().Return(
+					map[table.FileNumber][]timeutil.Interval{
+						10: {20, 10},
 					})
 			},
 			need: true,
