@@ -27,6 +27,7 @@ import (
 
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/rpc"
@@ -58,7 +59,7 @@ func TestPartition_BuildReplicaRelation(t *testing.T) {
 	}
 
 	log := queue.NewMockFanOutQueue(ctrl)
-	log.EXPECT().GetOrCreateFanOut(gomock.Any()).Return(nil, nil).AnyTimes()
+	log.EXPECT().GetOrCreateFanOut(gomock.Any()).Return(nil, nil).MaxTimes(3)
 	family.EXPECT().TimeRange().Return(timeutil.TimeRange{}).AnyTimes()
 	p := NewPartition(context.TODO(), shard, family, 1, log, nil, nil)
 	err := p.BuildReplicaForLeader(2, []models.NodeID{1, 2, 3})
@@ -74,6 +75,19 @@ func TestPartition_BuildReplicaRelation(t *testing.T) {
 
 	p1 := p.(*partition)
 	assert.Len(t, p1.peers, 3)
+
+	log.EXPECT().HeadSeq().Return(int64(10))
+	assert.Equal(t, int64(9), p.ReplicaAckIndex())
+	log.EXPECT().SetAppendSeq(int64(100))
+	p.ResetReplicaIndex(100)
+	log.EXPECT().Path().Return("path")
+	assert.Equal(t, "path", p.Path())
+
+	// create fanout failure
+	p = NewPartition(context.TODO(), shard, family, 1, log, nil, nil)
+	log.EXPECT().GetOrCreateFanOut(gomock.Any()).Return(nil, fmt.Errorf("err"))
+	err = p.BuildReplicaForLeader(1, []models.NodeID{1, 2, 3})
+	assert.Error(t, err)
 }
 
 func TestPartition_BuildReplicaForFollower(t *testing.T) {
@@ -101,7 +115,7 @@ func TestPartition_BuildReplicaForFollower(t *testing.T) {
 	}
 
 	log := queue.NewMockFanOutQueue(ctrl)
-	log.EXPECT().GetOrCreateFanOut(gomock.Any()).Return(nil, nil).AnyTimes()
+	log.EXPECT().GetOrCreateFanOut(gomock.Any()).Return(nil, nil)
 	family.EXPECT().TimeRange().Return(timeutil.TimeRange{}).AnyTimes()
 	p := NewPartition(context.TODO(), shard, family, 1, log, nil, nil)
 	err := p.BuildReplicaForFollower(2, 2)
@@ -111,6 +125,12 @@ func TestPartition_BuildReplicaForFollower(t *testing.T) {
 	r.EXPECT().Consume().Return(int64(-1)).AnyTimes()
 	err = p.BuildReplicaForFollower(2, 1)
 	assert.NoError(t, err)
+
+	// create fan ot failure
+	log.EXPECT().GetOrCreateFanOut(gomock.Any()).Return(nil, fmt.Errorf("err"))
+	p = NewPartition(context.TODO(), shard, family, 1, log, nil, nil)
+	err = p.BuildReplicaForFollower(2, 1)
+	assert.Error(t, err)
 }
 
 func TestPartition_Close(t *testing.T) {
@@ -121,6 +141,7 @@ func TestPartition_Close(t *testing.T) {
 		ctrl.Finish()
 	}()
 	r := NewMockReplicator(ctrl)
+	r.EXPECT().State().Return(&models.ReplicaState{}).AnyTimes()
 	database := tsdb.NewMockDatabase(ctrl)
 	database.EXPECT().Name().Return("test").AnyTimes()
 	shard := tsdb.NewMockShard(ctrl)
@@ -172,6 +193,10 @@ func TestPartition_WriteLog(t *testing.T) {
 	assert.Error(t, err)
 	// msg is empty
 	err = p.WriteLog(nil)
+	assert.NoError(t, err)
+	l.EXPECT().Put(gomock.Any()).Return(nil)
+	l.EXPECT().HeadSeq().Return(int64(12))
+	err = p.WriteLog([]byte{1})
 	assert.NoError(t, err)
 }
 
@@ -234,4 +259,81 @@ func TestPartition_getReplicaState(t *testing.T) {
 	l.EXPECT().HeadSeq().Return(int64(1))
 	state := p.getReplicaState()
 	assert.NotNil(t, state)
+}
+
+func TestPartition_IsExpire(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	shard := tsdb.NewMockShard(ctrl)
+	db := tsdb.NewMockDatabase(ctrl)
+	shard.EXPECT().Database().Return(db).AnyTimes()
+	db.EXPECT().GetOption().Return(&option.DatabaseOption{Ahead: "1h"}).AnyTimes()
+	family := tsdb.NewMockDataFamily(ctrl)
+
+	log := queue.NewMockFanOutQueue(ctrl)
+	log.EXPECT().FanOutNames().Return([]string{"test"}).AnyTimes()
+	p := &partition{
+		shard:  shard,
+		family: family,
+		log:    log,
+	}
+	q := queue.NewMockFanOut(ctrl)
+	log.EXPECT().GetOrCreateFanOut(gomock.Any()).Return(q, nil).AnyTimes()
+	q.EXPECT().IsEmpty().Return(false)
+	assert.False(t, p.IsExpire())
+
+	q.EXPECT().IsEmpty().Return(true).AnyTimes()
+
+	family.EXPECT().TimeRange().Return(timeutil.TimeRange{End: timeutil.Now()})
+	assert.False(t, p.IsExpire())
+
+	family.EXPECT().TimeRange().Return(timeutil.TimeRange{End: timeutil.Now() - timeutil.OneHour - 16*timeutil.OneMinute})
+	assert.True(t, p.IsExpire())
+}
+
+func TestPartition_recovery(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		newLocalReplicatorFn = NewLocalReplicator
+		newReplicatorPeerFn = NewReplicatorPeer
+		ctrl.Finish()
+	}()
+
+	shard := tsdb.NewMockShard(ctrl)
+	db := tsdb.NewMockDatabase(ctrl)
+	shard.EXPECT().Database().Return(db).AnyTimes()
+	db.EXPECT().Name().Return("test").AnyTimes()
+	family := tsdb.NewMockDataFamily(ctrl)
+
+	log := queue.NewMockFanOutQueue(ctrl)
+	log.EXPECT().FanOutNames().Return([]string{"1"}).AnyTimes()
+	p := &partition{
+		shard:         shard,
+		family:        family,
+		currentNodeID: 1,
+		peers:         make(map[models.NodeID]ReplicatorPeer),
+		log:           log,
+	}
+
+	t.Run("recovery failure", func(t *testing.T) {
+		log.EXPECT().GetOrCreateFanOut(gomock.Any()).Return(nil, fmt.Errorf("err"))
+		err := p.recovery(1)
+		assert.Error(t, err)
+	})
+	t.Run("recovery successfully", func(t *testing.T) {
+		q := queue.NewMockFanOut(ctrl)
+		log.EXPECT().GetOrCreateFanOut(gomock.Any()).Return(q, nil)
+		family.EXPECT().TimeRange().Return(timeutil.TimeRange{Start: timeutil.Now()})
+		newLocalReplicatorFn = func(channel *ReplicatorChannel, shard tsdb.Shard, family tsdb.DataFamily) Replicator {
+			return nil
+		}
+		peer := NewMockReplicatorPeer(ctrl)
+		peer.EXPECT().Startup()
+		newReplicatorPeerFn = func(replicator Replicator) ReplicatorPeer {
+			return peer
+		}
+		err := p.recovery(1)
+		assert.NoError(t, err)
+	})
 }

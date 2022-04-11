@@ -27,6 +27,7 @@ import (
 	"github.com/lindb/lindb/tsdb"
 )
 
+// localReplicator represents local replicator which writes data into local tsdb storage.
 type localReplicator struct {
 	replicator
 
@@ -90,7 +91,7 @@ func NewLocalReplicator(channel *ReplicatorChannel, shard tsdb.Shard, family tsd
 
 // Replica replicas local data,
 // 1. check replica replica if valid
-// 2. uncompress/unmarshal msg
+// 2. un-compress/unmarshal msg
 // 3. lookup metadata
 // 4. write metric data
 // 5. commit sequence in data family

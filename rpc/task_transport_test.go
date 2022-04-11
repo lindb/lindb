@@ -70,7 +70,7 @@ func TestTaskClientFactory(t *testing.T) {
 	mockClientConnFct := NewMockClientConnFactory(ctl)
 
 	mockTaskClient := protoCommonV1.NewMockTaskService_HandleClient(ctl)
-	mockTaskClient.EXPECT().Recv().Return(nil, nil).AnyTimes()
+	mockTaskClient.EXPECT().Recv().Return(&protoCommonV1.TaskResponse{}, nil).AnyTimes()
 	mockTaskClient.EXPECT().CloseSend().Return(fmt.Errorf("err")).AnyTimes()
 	taskService := protoCommonV1.NewMockTaskServiceClient(ctl)
 

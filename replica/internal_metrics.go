@@ -20,9 +20,16 @@ package replica
 import "github.com/lindb/lindb/internal/linmetric"
 
 var (
-	replicaScope  = linmetric.StorageRegistry.NewScope("lindb.wal")
-	appendSeqVec  = replicaScope.Scope("write").NewGaugeVec("append_seq", "db", "shard", "family")
-	replicaSeqVec = replicaScope.Scope("replica").NewGaugeVec("consume_seq", "db", "shard", "family", "from", "to")
+	walScope             = linmetric.StorageRegistry.NewScope("lindb.wal")
+	appendSeqVec         = walScope.Scope("write").NewGaugeVec("append_seq", "db", "shard", "family")
+	replicaSeqVec        = walScope.Scope("replica").NewGaugeVec("consume_seq", "db", "shard", "family", "from", "to")
+	activeReplicaChannel = walScope.NewGaugeVec("active_replicas", "db", "type")
+	receiveWriteSize     = walScope.NewCounterVec("receive_write_size", "db")
+	writeWAL             = walScope.NewCounterVec("write_wal", "db")
+	writeWALFailure      = walScope.NewCounterVec("write_wal_failure", "db")
+	receiveReplicaSize   = walScope.NewCounterVec("receive_replica_size", "db")
+	replicaWAL           = walScope.NewCounterVec("replica_wal", "db")
+	replicaWALFailure    = walScope.NewCounterVec("replica_wal_failure", "db")
 
 	localReplicaScope       = linmetric.StorageRegistry.NewScope("lindb.replica.local")
 	localMaxDecodedBlockVec = localReplicaScope.NewMaxVec("max_decoded_block", "db", "shard")
@@ -31,4 +38,17 @@ var (
 	localReplicaRowsVec     = localReplicaScope.NewCounterVec("replica_rows", "db", "shard")
 	localReplicaSequenceVec = localReplicaScope.NewGaugeVec("replica_sequence", "db", "shard")
 	localInvalidSequenceVec = localReplicaScope.NewCounterVec("invalid_sequence", "db", "shard")
+)
+
+var (
+	brokerScope         = linmetric.BrokerRegistry.NewScope("lindb.broker.replica")
+	activeWriteFamilies = brokerScope.NewGaugeVec("active_families", "db")
+	batchMetrics        = brokerScope.NewCounterVec("batch_metrics", "db")
+	batchMetricFailures = brokerScope.NewCounterVec("batch_metrics_failures", "db")
+	pendingSend         = brokerScope.NewGaugeVec("pending_send", "db")
+	sendSuccess         = brokerScope.NewCounterVec("send_success", "db")
+	sendFailure         = brokerScope.NewCounterVec("send_failure", "db")
+	sendSize            = brokerScope.NewCounterVec("send_size", "db")
+	retryCount          = brokerScope.NewCounterVec("retry", "db")
+	retryDrop           = brokerScope.NewCounterVec("retry_drop", "db")
 )

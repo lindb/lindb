@@ -44,8 +44,12 @@ import (
 var (
 	newFanOutQueue   = queue.NewFanOutQueue
 	newWriteAheadLog = NewWriteAheadLog
+	getLogFn         = getLog
+	fileExistFn      = fileutil.Exist
+	listDirFn        = fileutil.ListDir
 )
 
+// partitionKey represents partition unique key.
 type partitionKey struct {
 	shardID    models.ShardID
 	familyTime int64
@@ -68,10 +72,11 @@ type WriteAheadLog interface {
 	// GetOrCreatePartition returns a partition of write ahead log.
 	// if exist returns it, else create a new partition.
 	GetOrCreatePartition(shardID models.ShardID, familyTime int64, leader models.NodeID) (Partition, error)
+	// getReplicaState returns the state of replica.
 	getReplicaState() (rs []models.FamilyLogReplicaState)
 	// recovery recoveries database write ahead log from local storage.
 	recovery() error
-
+	// destroy removes expired write ahead log.
 	destroy()
 }
 
@@ -136,6 +141,7 @@ func (w *writeAheadLogManager) garbageCollectTask() {
 	}()
 }
 
+// getLog returns write ahead log by database, if it's not exist, return nil.
 func (w *writeAheadLogManager) getLog(database string) (WriteAheadLog, bool) {
 	log, ok := w.databaseLogs.Load().(databaseLogs)[database]
 	return log, ok
@@ -162,7 +168,7 @@ func (w *writeAheadLogManager) GetOrCreateLog(database string) WriteAheadLog {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
-	if log, ok = w.getLog(database); ok {
+	if log, ok = getLogFn(w, database); ok {
 		return log
 	}
 
@@ -171,18 +177,21 @@ func (w *writeAheadLogManager) GetOrCreateLog(database string) WriteAheadLog {
 	return log
 }
 
+func getLog(w *writeAheadLogManager, database string) (WriteAheadLog, bool) {
+	return w.getLog(database)
+}
+
 // Recovery recoveries local history wal when server start.
 func (w *writeAheadLogManager) Recovery() error {
-	if !fileutil.Exist(w.cfg.Dir) {
+	if !fileExistFn(w.cfg.Dir) {
 		return nil
 	}
-	databaseNames, err := fileutil.ListDir(w.cfg.Dir)
+	databaseNames, err := listDirFn(w.cfg.Dir)
 	if err != nil {
 		return err
 	}
 	for _, databaseName := range databaseNames {
 		log := w.GetOrCreateLog(databaseName)
-		//
 		if err := log.recovery(); err != nil {
 			return err
 		}
@@ -190,8 +199,9 @@ func (w *writeAheadLogManager) Recovery() error {
 	return nil
 }
 
+// GetReplicaState returns replica state for given database's name.
 func (w *writeAheadLogManager) GetReplicaState(database string) []models.FamilyLogReplicaState {
-	log, ok := w.getLog(database)
+	log, ok := getLogFn(w, database)
 	if ok {
 		return log.getReplicaState()
 	}
@@ -295,6 +305,7 @@ func (w *writeAheadLog) GetOrCreatePartition(
 	return p, nil
 }
 
+// getReplicaState returns the state of replica.
 func (w *writeAheadLog) getReplicaState() (rs []models.FamilyLogReplicaState) {
 	logs := w.familyLogs.Load().(familyLogs)
 	for k, v := range logs {
@@ -354,6 +365,7 @@ func (w *writeAheadLog) recovery() error {
 	return nil
 }
 
+// destroy removes expired write ahead log.
 func (w *writeAheadLog) destroy() {
 	logs := w.familyLogs.Load().(familyLogs)
 	newLogs := make(familyLogs)

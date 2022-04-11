@@ -24,6 +24,7 @@ import (
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fasttime"
+	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
 	"github.com/lindb/lindb/series/metric"
@@ -33,6 +34,27 @@ import (
 	"github.com/klauspost/compress/snappy"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestLocalReplicator_New(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+	}()
+	database := tsdb.NewMockDatabase(ctrl)
+	database.EXPECT().Name().Return("test-database").AnyTimes()
+	shard := tsdb.NewMockShard(ctrl)
+	shard.EXPECT().Database().Return(database).AnyTimes()
+	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
+	family := tsdb.NewMockDataFamily(ctrl)
+	family.EXPECT().CommitSequence(gomock.Any(), gomock.Any()).AnyTimes()
+	family.EXPECT().AckSequence(gomock.Any(), gomock.Any()).DoAndReturn(func(leader int32, fn func(int64)) {
+		fn(10)
+	})
+	q := queue.NewMockFanOut(ctrl)
+	q.EXPECT().Ack(int64(10))
+	replicator := NewLocalReplicator(&ReplicatorChannel{State: &models.ReplicaState{Leader: 1}, Queue: q}, shard, family)
+	assert.NotNil(t, replicator)
+}
 
 func TestLocalReplicator_Replica(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -85,5 +107,8 @@ func TestLocalReplicator_Replica(t *testing.T) {
 	replicator.Replica(1, dst)
 	// bad data
 	dst = snappy.Encode(dst, []byte("bad-data"))
+	replicator.Replica(1, dst)
+	// empty rows
+	dst = snappy.Encode(dst, []byte{})
 	replicator.Replica(1, dst)
 }
