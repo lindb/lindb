@@ -93,6 +93,7 @@ password = "%s"`,
 type Write struct {
 	BatchTimeout   ltoml.Duration `toml:"batch-timeout"`
 	BatchBlockSize ltoml.Size     `toml:"batch-block-size"`
+	GCTaskInterval ltoml.Duration `toml:"gc-task-interval"`
 }
 
 func (rc *Write) TOML() string {
@@ -103,9 +104,12 @@ func (rc *Write) TOML() string {
 ## even if the configured batch-size if not reached.
 batch-timeout = "%s"
 ## Broker will sending block to storage node in this size
-batch-block-size = "%s"`,
+batch-block-size = "%s"
+## interval for how often expired write write family garbage collect task execute
+gc-task-interval = "%s"`,
 		rc.BatchTimeout.String(),
 		rc.BatchBlockSize.String(),
+		rc.GCTaskInterval.String(),
 	)
 }
 
@@ -118,6 +122,7 @@ type BrokerBase struct {
 	GRPC      GRPC      `toml:"grpc"`
 }
 
+// TOML returns broker's base configuration string as toml format.
 func (bb *BrokerBase) TOML() string {
 	return fmt.Sprintf(`
 [broker]
@@ -154,6 +159,7 @@ func NewDefaultBrokerBase() *BrokerBase {
 		Write: Write{
 			BatchTimeout:   ltoml.Duration(time.Second * 2),
 			BatchBlockSize: ltoml.Size(256 * 1024),
+			GCTaskInterval: ltoml.Duration(time.Minute),
 		},
 		GRPC: GRPC{
 			Port:                 9001,
@@ -214,6 +220,7 @@ func NewDefaultBrokerTOML() string {
 	)
 }
 
+// checkBrokerBaseCfg checks broker base configuration, if not set using default value.
 func checkBrokerBaseCfg(brokerBaseCfg *BrokerBase) error {
 	if err := checkGRPCCfg(&brokerBaseCfg.GRPC); err != nil {
 		return err
@@ -246,6 +253,9 @@ func checkBrokerBaseCfg(brokerBaseCfg *BrokerBase) error {
 	}
 	if brokerBaseCfg.Write.BatchBlockSize <= 0 {
 		brokerBaseCfg.Write.BatchBlockSize = defaultBrokerCfg.Write.BatchBlockSize
+	}
+	if brokerBaseCfg.Write.GCTaskInterval <= 0 {
+		brokerBaseCfg.Write.GCTaskInterval = defaultBrokerCfg.Write.GCTaskInterval
 	}
 
 	return nil

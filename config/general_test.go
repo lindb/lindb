@@ -18,25 +18,25 @@
 package config
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
-	"github.com/BurntSushi/toml"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestStorage_TOML(t *testing.T) {
-	defaultCfg := NewDefaultStorageTOML()
-	storageCfg := &Storage{}
-	_, err := toml.Decode(defaultCfg, storageCfg)
-	assert.NoError(t, err)
-	assert.Equal(t, storageCfg.TOML(), defaultCfg)
-}
+func TestGeneral_string(t *testing.T) {
+	repo := &RepoState{
+		Namespace:   "ns",
+		Endpoints:   []string{"1.1.1.1"},
+		LeaseTTL:    10,
+		Timeout:     20,
+		DialTimeout: 30,
+		Username:    "u",
+		Password:    "p",
+	}
 
-func TestWAL_GetDataSizeLimit(t *testing.T) {
-	wal := &WAL{}
-	assert.Equal(t, int64(1024*1024), wal.GetDataSizeLimit())
-	wal = &WAL{DataSizeLimit: 2 * 1024}
-	assert.Equal(t, int64(1024*1024*1024), wal.GetDataSizeLimit())
-	wal = &WAL{DataSizeLimit: 128}
-	assert.Equal(t, int64(128*1024*1024), wal.GetDataSizeLimit())
+	assert.Equal(t, fmt.Sprintf("endpoints:[%s],leaseTTL:%d,timeout:%s,dialTimeout:%s",
+		strings.Join(repo.Endpoints, ","), repo.LeaseTTL, repo.Timeout, repo.DialTimeout),
+		repo.String())
 }

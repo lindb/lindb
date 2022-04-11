@@ -42,11 +42,17 @@ func GlobalBrokerConfig() *BrokerBase {
 	return globalBrokerCfg.Load().(*BrokerBase)
 }
 
+// SetGlobalBrokerConfig sets global broker configuration.
+func SetGlobalBrokerConfig(brokerCfg *BrokerBase) {
+	globalBrokerCfg.Store(brokerCfg)
+}
+
 // GlobalStorageConfig returns the global storage config
 func GlobalStorageConfig() *StorageBase {
 	return globalStorageCfg.Load().(*StorageBase)
 }
 
+// SetGlobalStorageConfig sets global storage configuration.
 func SetGlobalStorageConfig(storageCfg *StorageBase) {
 	globalStorageCfg.Store(storageCfg)
 }

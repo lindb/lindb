@@ -21,7 +21,6 @@ import (
 	"context"
 	"sort"
 	"sync"
-	"time"
 
 	"go.uber.org/atomic"
 
@@ -37,22 +36,26 @@ import (
 
 // for testing
 var (
-	createChannel        = newChannel
+	createChannel        = newShardChannel
 	databaseChannelScope = linmetric.BrokerRegistry.NewScope("lindb.replica.database")
 	evictedCounterVec    = databaseChannelScope.NewCounterVec("metrics_out_of_time_range", "db")
 )
 
-// DatabaseChannel represents the database level replication channel
+// DatabaseChannel represents the database level replication shardChannel
 type DatabaseChannel interface {
-	// Write writes the metric data into channel's buffer
+	// Write writes the metric data into shardChannel's buffer
 	Write(ctx context.Context, brokerBatchRows *metric.BrokerBatchRows) error
-	// CreateChannel creates the shard level replication channel by given shard id
-	CreateChannel(numOfShard int32, shardID models.ShardID) (Channel, error)
+	// CreateChannel creates the shard level replication shardChannel by given shard id
+	CreateChannel(numOfShard int32, shardID models.ShardID) (ShardChannel, error)
+	// Stop stops current database write shardChannel.
 	Stop()
+
+	// garbageCollect recycles write families which is expired.
+	garbageCollect()
 }
 
 type (
-	shard2Channel map[models.ShardID]Channel
+	shard2Channel map[models.ShardID]ShardChannel
 	shardChannels struct {
 		value atomic.Value // readonly shard2Channel
 		mu    sync.Mutex   // lock for modifying shard2Channel
@@ -75,7 +78,7 @@ type (
 	}
 )
 
-// newDatabaseChannel creates a new database replication channel
+// newDatabaseChannel creates a new database replication shardChannel
 func newDatabaseChannel(
 	ctx context.Context,
 	databaseCfg models.Database,
@@ -104,25 +107,10 @@ func newDatabaseChannel(
 	ch.numOfShard.Store(numOfShard)
 	ch.statistics.evictedCounter = evictedCounterVec.WithTagValues(databaseCfg.Name)
 
-	// start family channel garbage collect
-	ch.garbageCollectTask()
 	return ch
 }
 
-func (dc *databaseChannel) garbageCollectTask() {
-	go func() {
-		ticker := time.NewTicker(10 * time.Minute) // TODO add config
-		for {
-			select {
-			case <-ticker.C:
-				dc.garbageCollect()
-			case <-dc.ctx.Done():
-				return
-			}
-		}
-	}()
-}
-
+// garbageCollect recycles write families which is expired.
 func (dc *databaseChannel) garbageCollect() {
 	dc.shardChannels.mu.Lock()
 	defer func() {
@@ -137,7 +125,7 @@ func (dc *databaseChannel) garbageCollect() {
 	}
 }
 
-// Write writes the metric data into channel's buffer
+// Write writes the metric data into shardChannel's buffer
 func (dc *databaseChannel) Write(ctx context.Context, brokerBatchRows *metric.BrokerBatchRows) error {
 	var err error
 
@@ -165,7 +153,7 @@ func (dc *databaseChannel) Write(ctx context.Context, brokerBatchRows *metric.Br
 			familyTime, rows := familyIterator.NextFamily()
 			familyChannel := channel.GetOrCreateFamilyChannel(familyTime)
 			if err = familyChannel.Write(ctx, rows); err != nil {
-				dc.logger.Error("failed writing rows to family channel",
+				dc.logger.Error("failed writing rows to family shardChannel",
 					logger.String("database", dc.databaseCfg.Name),
 					logger.Int("shardID", shardID.Int()),
 					logger.Int("rows", len(rows)),
@@ -174,12 +162,11 @@ func (dc *databaseChannel) Write(ctx context.Context, brokerBatchRows *metric.Br
 			}
 		}
 	}
-	// TODO if need return nil?
 	return err
 }
 
-// CreateChannel creates the shard level replication channel by given shard id
-func (dc *databaseChannel) CreateChannel(numOfShard int32, shardID models.ShardID) (Channel, error) {
+// CreateChannel creates the shard level replication shardChannel by given shard id
+func (dc *databaseChannel) CreateChannel(numOfShard int32, shardID models.ShardID) (ShardChannel, error) {
 	channel, ok := dc.getChannelByShardID(shardID)
 	if !ok {
 		dc.shardChannels.mu.Lock()
@@ -196,7 +183,7 @@ func (dc *databaseChannel) CreateChannel(numOfShard int32, shardID models.ShardI
 			}
 			ch := createChannel(dc.ctx, dc.databaseCfg.Name, shardID, dc.fct)
 
-			// cache shard level channel
+			// cache shard level shardChannel
 			dc.insertShardChannel(shardID, ch)
 			return ch, nil
 		}
@@ -204,6 +191,7 @@ func (dc *databaseChannel) CreateChannel(numOfShard int32, shardID models.ShardI
 	return channel, nil
 }
 
+// Stop stops current database write shardChannel.
 func (dc *databaseChannel) Stop() {
 	dc.shardChannels.mu.Lock()
 	defer func() {
@@ -217,13 +205,13 @@ func (dc *databaseChannel) Stop() {
 	}
 }
 
-// getChannelByShardID gets the replica channel by shard id
-func (dc *databaseChannel) getChannelByShardID(shardID models.ShardID) (Channel, bool) {
+// getChannelByShardID gets the replica shardChannel by shard id
+func (dc *databaseChannel) getChannelByShardID(shardID models.ShardID) (ShardChannel, bool) {
 	ch, ok := dc.shardChannels.value.Load().(shard2Channel)[shardID]
 	return ch, ok
 }
 
-func (dc *databaseChannel) insertShardChannel(newShardID models.ShardID, newChannel Channel) {
+func (dc *databaseChannel) insertShardChannel(newShardID models.ShardID, newChannel ShardChannel) {
 	oldMap := dc.shardChannels.value.Load().(shard2Channel)
 	newMap := make(shard2Channel)
 	for shardID, channel := range oldMap {

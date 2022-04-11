@@ -18,36 +18,15 @@
 package ingest
 
 import (
-	"time"
-
 	"github.com/gin-gonic/gin"
 
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/ingestion/flat"
-	"github.com/lindb/lindb/internal/linmetric"
 )
 
 var (
 	FlatWritePath = "/flat/write"
 )
-
-var (
-	HTTPHandlerTimerVec = linmetric.BrokerRegistry.
-		NewScope(
-			"lindb.http_server.handle_duration",
-		).
-		NewHistogramVec("path").
-		WithExponentBuckets(time.Millisecond, time.Second*5, 20)
-)
-
-func WithHistogram(histogram *linmetric.BoundHistogram) gin.HandlerFunc {
-	// TODO need move??
-	return func(c *gin.Context) {
-		start := time.Now()
-		defer histogram.UpdateSince(start)
-		c.Next()
-	}
-}
 
 // FlatWriter processes native proto metrics.
 type FlatWriter struct {
@@ -68,12 +47,12 @@ func NewFlatWriter(deps *depspkg.HTTPDeps) *FlatWriter {
 func (nw *FlatWriter) Register(route gin.IRoutes) {
 	route.POST(
 		FlatWritePath,
-		WithHistogram(HTTPHandlerTimerVec.WithTagValues(FlatWritePath)),
+		WithHistogram(ingestHandlerTimerVec.WithTagValues(FlatWritePath)),
 		nw.Write,
 	)
 	route.PUT(
 		FlatWritePath,
-		WithHistogram(HTTPHandlerTimerVec.WithTagValues(FlatWritePath)),
+		WithHistogram(ingestHandlerTimerVec.WithTagValues(FlatWritePath)),
 		nw.Write,
 	)
 }

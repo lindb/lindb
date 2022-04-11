@@ -22,13 +22,20 @@ import (
 	"os"
 	"path"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/option"
+	"github.com/lindb/lindb/pkg/timeutil"
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
+	"github.com/lindb/lindb/series/metric"
 )
 
 func TestChannelManager_GetChannel(t *testing.T) {
@@ -86,9 +93,112 @@ func TestChannelManager_Write(t *testing.T) {
 	dbChannel.EXPECT().Write(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	dbChannel.EXPECT().Stop().AnyTimes()
 	err = cm.Write(context.TODO(), "database", nil)
+	assert.NoError(t, err)
+
+	rows := mockBrokerRows(t)
+
+	err = cm.Write(context.TODO(), "database", rows)
+	assert.NoError(t, err)
+	err = cm.Write(context.TODO(), "database_not_exist", rows)
+	assert.Error(t, err)
+
 	cm1.insertDatabaseChannel("database2", dbChannel)
 	cm1.insertDatabaseChannel("database3", dbChannel)
-
-	assert.NoError(t, err)
 	cm.Close()
+}
+
+func TestChannelManager_handleShardStateChangeEvent(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+	}()
+	cm := &channelManager{
+		logger: logger.GetLogger("test", "test"),
+	}
+	cm.databaseChannels.value.Store(make(database2Channel))
+	dbChannel := NewMockDatabaseChannel(ctrl)
+	cm.insertDatabaseChannel("database", dbChannel)
+
+	cases := []struct {
+		name      string
+		db        models.Database
+		shards    map[models.ShardID]models.ShardState
+		liveNodes map[models.NodeID]models.StatefulNode
+		prepare   func()
+	}{
+		{
+			name: "shard empty",
+		},
+		{
+			name: "shard num wrong",
+			db:   models.Database{Name: "database"},
+			shards: map[models.ShardID]models.ShardState{
+				3: {ID: 3},
+			},
+		},
+		{
+			name: "sync shard state successfully",
+			db:   models.Database{Name: "database"},
+			shards: map[models.ShardID]models.ShardState{
+				0: {ID: 0},
+			},
+			prepare: func() {
+				shardCh := NewMockShardChannel(ctrl)
+				dbChannel.EXPECT().CreateChannel(gomock.Any(), gomock.Any()).Return(shardCh, nil)
+				shardCh.EXPECT().SyncShardState(gomock.Any(), gomock.Any())
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+			cm.handleShardStateChangeEvent(tt.db, tt.shards, tt.liveNodes)
+		})
+	}
+}
+
+func TestChannelManager_gcWriteFamilies(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+	}()
+	config.SetGlobalBrokerConfig(&config.BrokerBase{Write: config.Write{
+		GCTaskInterval: ltoml.Duration(time.Millisecond * 10),
+	}})
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	cm := &channelManager{
+		ctx:    ctx,
+		logger: logger.GetLogger("test", "test"),
+	}
+	cm.databaseChannels.value.Store(make(database2Channel))
+	dbChannel := NewMockDatabaseChannel(ctrl)
+	cm.insertDatabaseChannel("database", dbChannel)
+	dbChannel.EXPECT().garbageCollect().AnyTimes()
+
+	cm.gcWriteFamilies()
+
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+	time.Sleep(50 * time.Millisecond)
+}
+
+func mockBrokerRows(t *testing.T) *metric.BrokerBatchRows {
+	converter := metric.NewProtoConverter()
+	var brokerRow metric.BrokerRow
+	assert.NoError(t, converter.ConvertTo(&protoMetricsV1.Metric{
+		Name:      "cpu",
+		Timestamp: timeutil.Now(),
+		SimpleFields: []*protoMetricsV1.SimpleField{
+			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
+	}, &brokerRow))
+	rows := metric.NewBrokerBatchRows()
+	assert.NoError(t, rows.TryAppend(func(row *metric.BrokerRow) error {
+		return nil
+	}))
+	return rows
 }
