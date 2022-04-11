@@ -191,9 +191,13 @@ func (db *indexDatabase) BuildInvertIndex(
 // Flush flushes index data to disk
 func (db *indexDatabase) Flush() error {
 	// TODO need flush metric level time series sequence?
+	db.rwMutex.Lock()
 	if err := db.backend.sync(); err != nil {
+		db.rwMutex.Unlock()
 		return err
 	}
+	db.rwMutex.Unlock()
+
 	// fixme inverted index need add wal??? flush metric metadata(sequence)
 	return db.index.Flush()
 }
@@ -201,13 +205,13 @@ func (db *indexDatabase) Flush() error {
 // Close closes the database, releases the resources
 func (db *indexDatabase) Close() error {
 	db.cancel()
-	db.rwMutex.Lock()
-	defer db.rwMutex.Unlock()
 
 	if err := db.Flush(); err != nil {
 		return err
 	}
 
+	db.rwMutex.Lock()
+	defer db.rwMutex.Unlock()
 	if err := db.backend.Close(); err != nil {
 		return err
 	}

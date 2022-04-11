@@ -303,11 +303,17 @@ func (mdb *metadataDatabase) GenTagKeyID(namespace, metricName, tagKey string) (
 
 // Sync syncs the backend storage.
 func (mdb *metadataDatabase) Sync() error {
+	mdb.rwMux.Lock()
+	defer mdb.rwMux.Unlock()
+
 	return mdb.backend.sync()
 }
 
 // Close closes the resources
 func (mdb *metadataDatabase) Close() error {
+	mdb.rwMux.Lock()
+	defer mdb.rwMux.Unlock()
+
 	mdb.cancel()
 	return mdb.backend.Close()
 }
