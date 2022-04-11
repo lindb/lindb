@@ -30,21 +30,27 @@ import (
 
 //go:generate mockgen -source=./channel_shard.go -destination=./channel_shard_mock.go -package=replica
 
-// Channel represents a place to buffer the data for a specific cluster, database, shardID.
-type Channel interface {
+// for testing
+var (
+	getFamilyFn = getFamily
+)
+
+// ShardChannel represents a place to buffer the data for a specific cluster, database, shardID.
+type ShardChannel interface {
+	// SyncShardState syncs shard state after state event changed.
 	SyncShardState(shardState models.ShardState, liveNodes map[models.NodeID]models.StatefulNode)
-
-	// GetOrCreateFamilyChannel musts picks the family channel by given family time.
+	// GetOrCreateFamilyChannel musts picks the family shardChannel by given family time.
 	GetOrCreateFamilyChannel(familyTime int64) FamilyChannel
-
+	// Stop stops shard shardChannel.
 	Stop()
 
+	// garbageCollect recycles expired write family.
 	garbageCollect(ahead, behind int64)
 }
 
-// channel implements Channel.
-type channel struct {
-	// context to close channel
+// shardChannel implements ShardChannel.
+type shardChannel struct {
+	// context to close shardChannel
 	ctx context.Context
 	cfg config.Write
 
@@ -52,7 +58,7 @@ type channel struct {
 	shardID  models.ShardID
 	fct      rpc.ClientStreamFactory
 
-	families   *familyChannelSet // send channel for each family time
+	families   *familyChannelSet // send shardChannel for each family time
 	shardState models.ShardState
 	liveNodes  map[models.NodeID]models.StatefulNode
 
@@ -61,28 +67,25 @@ type channel struct {
 	logger *logger.Logger
 }
 
-// newChannel returns a new channel with specific attribution.
-func newChannel(
+// newShardChannel returns a new shardChannel with specific attribution.
+func newShardChannel(
 	ctx context.Context,
 	database string,
 	shardID models.ShardID,
 	fct rpc.ClientStreamFactory,
-) Channel {
-	c := &channel{
+) ShardChannel {
+	return &shardChannel{
 		ctx:      ctx,
-		cfg:      config.GlobalBrokerConfig().Write, // TODO
+		cfg:      config.GlobalBrokerConfig().Write,
 		database: database,
 		shardID:  shardID,
 		families: newFamilyChannelSet(),
 		fct:      fct,
 		logger:   logger.GetLogger("replica", "ShardChannel"),
 	}
-
-	// TODO need add family gc task
-	return c
 }
 
-func (c *channel) SyncShardState(shardState models.ShardState, liveNodes map[models.NodeID]models.StatefulNode) {
+func (c *shardChannel) SyncShardState(shardState models.ShardState, liveNodes map[models.NodeID]models.StatefulNode) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -100,8 +103,8 @@ func (c *channel) SyncShardState(shardState models.ShardState, liveNodes map[mod
 	}
 }
 
-// GetOrCreateFamilyChannel returns family channel by given family time.
-func (c *channel) GetOrCreateFamilyChannel(familyTime int64) FamilyChannel {
+// GetOrCreateFamilyChannel returns family shardChannel by given family time.
+func (c *shardChannel) GetOrCreateFamilyChannel(familyTime int64) FamilyChannel {
 	familyChannel, exist := c.families.GetFamilyChannel(familyTime)
 	if exist {
 		return familyChannel
@@ -111,23 +114,29 @@ func (c *channel) GetOrCreateFamilyChannel(familyTime int64) FamilyChannel {
 	defer c.mutex.Unlock()
 
 	// double check
-	familyChannel, exist = c.families.GetFamilyChannel(familyTime)
+	familyChannel, exist = getFamilyFn(c.families, familyTime)
 	if exist {
 		return familyChannel
 	}
 	familyChannel = newFamilyChannel(c.ctx, c.cfg, c.database, c.shardID, familyTime, c.fct, c.shardState, c.liveNodes)
 	c.families.InsertFamily(familyTime, familyChannel)
+
 	return familyChannel
 }
 
-func (c *channel) Stop() {
+// Stop stops shard shardChannel.
+func (c *shardChannel) Stop() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	families := c.families.Entries()
 	for _, family := range families {
 		family.Stop()
 	}
 }
 
-func (c *channel) garbageCollect(ahead, behind int64) {
+// garbageCollect recycles expired write family.
+func (c *shardChannel) garbageCollect(ahead, behind int64) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -135,7 +144,7 @@ func (c *channel) garbageCollect(ahead, behind int64) {
 	needRemovedFamilies := make(map[int64]struct{})
 	for _, family := range families {
 		if family.isExpire(ahead, behind) {
-			c.logger.Info("family channel is expire, need stop it",
+			c.logger.Info("family shardChannel is expire, need stop it",
 				logger.String("database", c.database),
 				logger.Any("shard", c.shardID),
 				logger.String("family", timeutil.FormatTimestamp(family.FamilyTime(), timeutil.DataTimeFormat4)))
@@ -148,4 +157,9 @@ func (c *channel) garbageCollect(ahead, behind int64) {
 	for _, family := range removedFamilies {
 		family.Stop()
 	}
+}
+
+// getFamily returns family channel by family time.
+func getFamily(families *familyChannelSet, familyTime int64) (FamilyChannel, bool) {
+	return families.GetFamilyChannel(familyTime)
 }

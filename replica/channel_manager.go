@@ -22,10 +22,13 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/broker"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/rpc"
@@ -34,16 +37,29 @@ import (
 
 //go:generate mockgen -source=./channel_manager.go -destination=./channel_manager_mock.go -package=replica
 
+var (
+	brokerScope         = linmetric.BrokerRegistry.NewScope("lindb.broker.replica")
+	activeWriteFamilies = brokerScope.NewGaugeVec("active_families", "db")
+	batchMetrics        = brokerScope.NewCounterVec("batch_metrics", "db")
+	batchMetricFailures = brokerScope.NewCounterVec("batch_metrics_failures", "db")
+	pendingSend         = brokerScope.NewGaugeVec("pending_send", "db")
+	sendSuccess         = brokerScope.NewCounterVec("send_success", "db")
+	sendFailure         = brokerScope.NewCounterVec("send_failure", "db")
+	sendSize            = brokerScope.NewCounterVec("send_size", "db")
+	retryCount          = brokerScope.NewCounterVec("retry", "db")
+	retryDrop           = brokerScope.NewCounterVec("retry_drop", "db")
+)
+
 // ChannelManager manages the construction, retrieving, closing for all channels.
 type ChannelManager interface {
 	// Write writes a MetricList, the manager handler the database, sharding things.
 	Write(ctx context.Context, database string, brokerBatchRows *metric.BrokerBatchRows) error
-	// CreateChannel creates a new channel or returns a existed channel for storage with specific database and shardID,
+	// CreateChannel creates a new shardChannel or returns a existed shardChannel for storage with specific database and shardID,
 	// numOfShard should be greater or equal than the origin setting, otherwise error is returned.
 	// numOfShard is used eot calculate the shardID for a given hash.
-	CreateChannel(databaseCfg models.Database, numOfShard int32, shardID models.ShardID) (Channel, error)
+	CreateChannel(databaseCfg models.Database, numOfShard int32, shardID models.ShardID) (ShardChannel, error)
 
-	// Close closes all the channel.
+	// Close closes all the shardChannel.
 	Close()
 }
 
@@ -56,7 +72,7 @@ type (
 	}
 
 	channelManager struct {
-		// context passed to all Channel
+		// context passed to all ShardChannel
 		ctx context.Context
 		// cancelFun to cancel context
 		cancel context.CancelFunc
@@ -87,6 +103,9 @@ func NewChannelManager(
 	}
 	cm.databaseChannels.value.Store(make(database2Channel))
 
+	// start write families garbage collect task
+	cm.gcWriteFamilies()
+
 	stateMgr.WatchShardStateChangeEvent(cm.handleShardStateChangeEvent)
 	return cm
 }
@@ -103,27 +122,9 @@ func (cm *channelManager) Write(ctx context.Context, database string, brokerBatc
 	return databaseChannel.Write(ctx, brokerBatchRows)
 }
 
-func (cm *channelManager) handleShardStateChangeEvent(
-	databaseCfg models.Database,
-	shards map[models.ShardID]models.ShardState,
-	liveNodes map[models.NodeID]models.StatefulNode,
-) {
-	numOfShard := len(shards)
-	for _, shardState := range shards {
-		shardID := shardState.ID
-		ch, err := cm.CreateChannel(databaseCfg, int32(numOfShard), shardID)
-		if err != nil {
-			cm.logger.Error("create shard write channel", logger.String("db", databaseCfg.Name),
-				logger.Any("shard", shardID), logger.Error(err))
-		} else {
-			ch.SyncShardState(shardState, liveNodes)
-		}
-	}
-}
-
-// CreateChannel creates a new channel or returns a existed channel for storage with specific database and shardID.
+// CreateChannel creates a new shardChannel or returns a existed shardChannel for storage with specific database and shardID.
 // NumOfShard should be greater or equal than the origin setting, otherwise error is returned.
-func (cm *channelManager) CreateChannel(databaseCfg models.Database, numOfShard int32, shardID models.ShardID) (Channel, error) {
+func (cm *channelManager) CreateChannel(databaseCfg models.Database, numOfShard int32, shardID models.ShardID) (ShardChannel, error) {
 	if numOfShard <= 0 || int32(shardID) >= numOfShard {
 		return nil, errors.New("numOfShard should be greater than 0 and shardID should less then numOfShard")
 	}
@@ -136,24 +137,24 @@ func (cm *channelManager) CreateChannel(databaseCfg models.Database, numOfShard 
 
 		ch, ok = cm.getDatabaseChannel(database)
 		if !ok {
-			// if not exist, create database channel
+			// if not exist, create database shardChannel
 			ch = newDatabaseChannel(cm.ctx, databaseCfg, numOfShard, cm.fct)
 
 			// clone databases and creates a new map to hold database channels
 			cm.insertDatabaseChannel(database, ch)
 
-			cm.logger.Info("create shard write channel successfully",
+			cm.logger.Info("create shard write shardChannel successfully",
 				logger.String("db", database),
 				logger.Int("shardID", shardID.Int()))
 
-			// create shard level channel
+			// create shard level shardChannel
 			return ch.CreateChannel(numOfShard, shardID)
 		}
 	}
 	return ch.CreateChannel(numOfShard, shardID)
 }
 
-// Close closes all the channel.
+// Close closes all the shardChannel.
 func (cm *channelManager) Close() {
 	cm.cancel()
 
@@ -167,12 +168,13 @@ func (cm *channelManager) Close() {
 	}
 }
 
-// getDatabaseChannel gets the database channel by given database name
+// getDatabaseChannel gets the database shardChannel by given database name
 func (cm *channelManager) getDatabaseChannel(databaseName string) (DatabaseChannel, bool) {
 	ch, ok := cm.databaseChannels.value.Load().(database2Channel)[databaseName]
 	return ch, ok
 }
 
+// insertDatabaseChannel stores database shardChannel into cache.
 func (cm *channelManager) insertDatabaseChannel(newDatabaseName string, newChannel DatabaseChannel) {
 	oldMap := cm.databaseChannels.value.Load().(database2Channel)
 	newMap := make(database2Channel)
@@ -181,4 +183,41 @@ func (cm *channelManager) insertDatabaseChannel(newDatabaseName string, newChann
 	}
 	newMap[newDatabaseName] = newChannel
 	cm.databaseChannels.value.Store(newMap)
+}
+
+// handleShardStateChangeEvent handles shard state change event.
+func (cm *channelManager) handleShardStateChangeEvent(
+	databaseCfg models.Database,
+	shards map[models.ShardID]models.ShardState,
+	liveNodes map[models.NodeID]models.StatefulNode,
+) {
+	numOfShard := len(shards)
+	for _, shardState := range shards {
+		shardID := shardState.ID
+		ch, err := cm.CreateChannel(databaseCfg, int32(numOfShard), shardID)
+		if err != nil {
+			cm.logger.Error("create shard write shardChannel", logger.String("db", databaseCfg.Name),
+				logger.Any("shard", shardID), logger.Error(err))
+		} else {
+			ch.SyncShardState(shardState, liveNodes)
+		}
+	}
+}
+
+// gcWriteFamilies recycles write families which is expired.
+func (cm *channelManager) gcWriteFamilies() {
+	go func() {
+		ticker := time.NewTicker(config.GlobalBrokerConfig().Write.GCTaskInterval.Duration())
+		for {
+			select {
+			case <-ticker.C:
+				channels := cm.databaseChannels.value.Load().(database2Channel)
+				for idx := range channels {
+					channels[idx].garbageCollect()
+				}
+			case <-cm.ctx.Done():
+				return
+			}
+		}
+	}()
 }

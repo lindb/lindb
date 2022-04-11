@@ -23,32 +23,38 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/atomic"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/metric"
 )
 
 //go:generate mockgen -source=./channel_family.go -destination=./channel_family_mock.go -package=replica
 
+// FamilyChannel represents family write shardChannel.
 type FamilyChannel interface {
-	// Write writes the data into the channel,
-	// ErrCanceled is returned when the channel is canceled before data is written successfully.
+	// Write writes the data into the shardChannel,
+	// ErrCanceled is returned when the shardChannel is canceled before data is written successfully.
 	// Concurrent safe.
 	Write(ctx context.Context, rows []metric.BrokerRow) error
-	// leaderChanged notifies family channel need change leader send stream
+	// leaderChanged notifies family shardChannel need change leader send stream
 	leaderChanged(shardState models.ShardState,
 		liveNodes map[models.NodeID]models.StatefulNode)
-	// Stop stops the family channel.
+	// Stop stops the family shardChannel.
 	Stop()
+	// FamilyTime returns the family time of current shardChannel.
 	FamilyTime() int64
+	// isExpire returns if current family is expired.
 	isExpire(ahead, behind int64) bool
 }
 
+// familyChannel implements FamilyChannel interface.
 type familyChannel struct {
-	// context to close channel
+	// context to close shardChannel
 	ctx        context.Context
 	cancel     context.CancelFunc
 	database   string
@@ -67,14 +73,15 @@ type familyChannel struct {
 	liveNodes     map[models.NodeID]models.StatefulNode
 	currentTarget models.Node
 
-	// channel to convert multiple goroutine writeTask to single goroutine writeTask to FanOutQueue
+	// shardChannel to convert multiple goroutine writeTask to single goroutine writeTask to FanOutQueue
 	ch                  chan *compressedChunk
 	leaderChangedSignal chan struct{}
 	chunk               Chunk // buffer current writeTask metric for compress
 
-	lastFlushTime      time.Time     // last flush time
+	lastFlushTime      *atomic.Int64 // last flush time
 	checkFlushInterval time.Duration // interval for check flush
 	batchTimout        time.Duration // interval for flush
+	maxRetryBuf        int
 
 	lock4write sync.Mutex
 	lock4meta  sync.Mutex
@@ -103,26 +110,39 @@ func newFamilyChannel(
 		liveNodes:           liveNodes,
 		newWriteStreamFn:    rpc.NewWriteStream,
 		ch:                  make(chan *compressedChunk, 2),
-		leaderChangedSignal: make(chan struct{}),
+		leaderChangedSignal: make(chan struct{}, 1),
 		checkFlushInterval:  time.Second,
 		batchTimout:         cfg.BatchTimeout.Duration(),
+		maxRetryBuf:         100, // TODO add config
 		chunk:               newChunk(cfg.BatchBlockSize),
-		lastFlushTime:       time.Now(),
+		lastFlushTime:       atomic.NewInt64(timeutil.Now()),
 		logger:              logger.GetLogger("replica", "FamilyChannel"),
 	}
+
+	activeWriteFamilies.WithTagValues(database).Incr()
+
 	go fc.writeTask()
 
 	return fc
 }
 
-// Write writes the data into the channel, ErrCanceled is returned when the ctx is canceled before
+// Write writes the data into the shardChannel, ErrCanceled is returned when the ctx is canceled before
 // data is written successfully.
 // Concurrent safe.
 func (fc *familyChannel) Write(ctx context.Context, rows []metric.BrokerRow) error {
-	fc.lock4write.Lock()
-	defer fc.lock4write.Unlock()
+	total := len(rows)
+	success := 0
 
-	for idx := 0; idx < len(rows); idx++ {
+	fc.lock4write.Lock()
+	defer func() {
+		if total > 0 {
+			batchMetrics.WithTagValues(fc.database).Add(float64(success))
+			batchMetricFailures.WithTagValues(fc.database).Add(float64(total - success))
+		}
+		fc.lock4write.Unlock()
+	}()
+
+	for idx := 0; idx < total; idx++ {
 		if _, err := rows[idx].WriteTo(fc.chunk); err != nil {
 			return err
 		}
@@ -130,11 +150,13 @@ func (fc *familyChannel) Write(ctx context.Context, rows []metric.BrokerRow) err
 		if err := fc.flushChunkOnFull(ctx); err != nil {
 			return err
 		}
+		success++
 	}
+
 	return nil
 }
 
-// leaderChanged notifies family channel need change leader send stream
+// leaderChanged notifies family shardChannel need change leader send stream
 func (fc *familyChannel) leaderChanged(
 	shardState models.ShardState,
 	liveNodes map[models.NodeID]models.StatefulNode,
@@ -143,6 +165,8 @@ func (fc *familyChannel) leaderChanged(
 	fc.shardState = shardState
 	fc.liveNodes = liveNodes
 	fc.lock4meta.Unlock()
+
+	fc.leaderChangedSignal <- struct{}{}
 }
 
 func (fc *familyChannel) flushChunkOnFull(ctx context.Context) error {
@@ -155,12 +179,12 @@ func (fc *familyChannel) flushChunkOnFull(ctx context.Context) error {
 	}
 
 	select {
-	case fc.ch <- compressed:
-		return nil
 	case <-ctx.Done(): // timeout of http ingestion api
 		return ErrIngestTimeout
 	case <-fc.ctx.Done():
 		return ErrFamilyChannelCanceled
+	case fc.ch <- compressed:
+		return nil
 	}
 }
 
@@ -172,18 +196,38 @@ func (fc *familyChannel) writeTask() {
 
 	retryBuffers := make([]*compressedChunk, 0)
 	retry := func(compressed *compressedChunk) {
-		// TODO add config
-		if len(retryBuffers) > 100 {
+		if len(retryBuffers) > fc.maxRetryBuf {
 			fc.logger.Error("too many retry messages, drop current message")
+			retryDrop.WithTagValues(fc.database).Incr()
 		} else {
 			retryBuffers = append(retryBuffers, compressed)
+			retryCount.WithTagValues(fc.database).Incr()
 		}
 	}
-	send := func(stream rpc.WriteStream, compressed *compressedChunk) bool {
+	var stream rpc.WriteStream
+	send := func(compressed *compressedChunk) bool {
+		if compressed == nil {
+			return true
+		}
+		if len(*compressed) == 0 {
+			compressed.Release()
+			return true
+		}
 		if stream == nil {
-			return false
+			fc.lock4meta.Lock()
+			leader := fc.liveNodes[fc.shardState.Leader]
+			shardState := fc.shardState
+			fc.currentTarget = &leader
+			fc.lock4meta.Unlock()
+			s, err := fc.newWriteStreamFn(fc.ctx, fc.currentTarget, fc.database, &shardState, fc.familyTime, fc.fct)
+			if err != nil {
+				retry(compressed)
+				return false
+			}
+			stream = s
 		}
 		if err := stream.Send(*compressed); err != nil {
+			sendFailure.WithTagValues(fc.database).Incr()
 			fc.logger.Error(
 				"failed writing compressed chunk to storage",
 				logger.String("target", fc.currentTarget.Indicator()),
@@ -195,16 +239,19 @@ func (fc *familyChannel) writeTask() {
 						logger.String("target", fc.currentTarget.Indicator()),
 						logger.Error(closeError))
 				}
+				stream = nil
 			}
 			// retry if err
 			retry(compressed)
 			return false
 		}
+		sendSuccess.WithTagValues(fc.database).Incr()
+		sendSize.WithTagValues(fc.database).Add(float64(len(*compressed)))
+		pendingSend.WithTagValues(fc.database).Decr()
 		compressed.Release()
 		return true
 	}
 
-	var stream rpc.WriteStream
 	defer func() {
 		if stream != nil {
 			if err := stream.Close(); err != nil {
@@ -217,12 +264,31 @@ func (fc *familyChannel) writeTask() {
 	for {
 		select {
 		case <-fc.ctx.Done():
+			sendLastMsg := func(compressed *compressedChunk) {
+				if !send(compressed) {
+					fc.logger.Error("send message failure before close channel, message lost")
+				}
+			}
+			// flush chunk pending data if chunk not empty
+			if !fc.chunk.IsEmpty() {
+				// flush chunk pending data if chunk not empty
+				compressed, err0 := fc.chunk.Compress()
+				if err0 != nil {
+					fc.logger.Error("compress chunk err when send last chunk data", logger.Error(err0))
+				} else {
+					sendLastMsg(compressed)
+				}
+			}
+			// try to write pending data
+			for compressed := range fc.ch {
+				sendLastMsg(compressed)
+			}
 			return
 		case <-fc.leaderChangedSignal:
-			fc.logger.Info("shard leader changed, need switch send stream",
-				logger.String("oldTarget", fc.currentTarget.Indicator()),
-				logger.String("database", fc.database))
 			if stream != nil {
+				fc.logger.Info("shard leader changed, need switch send stream",
+					logger.String("oldTarget", fc.currentTarget.Indicator()),
+					logger.String("database", fc.database))
 				// if stream isn't nil, need close old stream first.
 				if err = stream.Close(); err != nil {
 					fc.logger.Error("close write stream err when leader changed", logger.Error(err))
@@ -230,35 +296,14 @@ func (fc *familyChannel) writeTask() {
 				stream = nil
 			}
 		case compressed := <-fc.ch:
-			if compressed == nil {
-				// close chan
-				continue
-			}
-			if stream == nil {
-				fc.lock4meta.Lock()
-				leader := fc.liveNodes[fc.shardState.Leader]
-				shardState := fc.shardState
-				fc.currentTarget = &leader
-				fc.lock4meta.Unlock()
-				stream, err = fc.newWriteStreamFn(fc.ctx, fc.currentTarget, fc.database, &shardState, fc.familyTime, fc.fct)
-				if err != nil {
-					retry(compressed)
-					continue
-				}
-			}
-			if send(stream, compressed) {
-				// if send ok, do pending retry message
+			if send(compressed) {
+				// if send ok, retry pending message
 				if len(retryBuffers) > 0 {
 					messages := retryBuffers
 					retryBuffers = make([]*compressedChunk, 0)
-					fail := false
 					for _, msg := range messages {
-						if fail {
+						if !send(msg) {
 							retry(msg)
-							continue
-						}
-						if !send(stream, msg) {
-							fail = true
 						}
 					}
 				}
@@ -270,41 +315,35 @@ func (fc *familyChannel) writeTask() {
 			fc.checkFlush()
 		}
 	}
-
-	// TODO write pending check after stop???
 }
 
-func (fc *familyChannel) writePendingBeforeClose() {
-	// flush chunk pending data if chunk not empty
-	if !fc.chunk.IsEmpty() {
-		// flush chunk pending data if chunk not empty
-		fc.flushChunk()
-	}
-	close(fc.ch)
-}
-
+// checkFlush checks if channel needs to flush data.
 func (fc *familyChannel) checkFlush() {
-	now := time.Now()
-	if now.After(fc.lastFlushTime.Add(fc.batchTimout)) {
+	now := timeutil.Now()
+	if now-fc.lastFlushTime.Load() >= fc.batchTimout.Milliseconds() {
 		fc.lock4write.Lock()
 		defer fc.lock4write.Unlock()
 
 		if !fc.chunk.IsEmpty() {
 			fc.flushChunk()
 		}
-		fc.lastFlushTime = now
+		fc.lastFlushTime.Store(now)
 	}
 }
 
+// Stop stops current write family shardChannel.
 func (fc *familyChannel) Stop() {
 	fc.cancel()
+	close(fc.ch)
+
+	activeWriteFamilies.WithTagValues(fc.database).Incr()
 }
 
 // flushChunk flushes the chunk data and appends data into queue
 func (fc *familyChannel) flushChunk() {
 	compressed, err := fc.chunk.Compress()
 	if err != nil {
-		fc.logger.Error("chunk marshal err", logger.Error(err))
+		fc.logger.Error("compress chunk err", logger.Error(err))
 		return
 	}
 	if compressed == nil || len(*compressed) == 0 {
@@ -312,20 +351,23 @@ func (fc *familyChannel) flushChunk() {
 	}
 	select {
 	case fc.ch <- compressed:
+		pendingSend.WithTagValues(fc.database).Incr()
 	case <-fc.ctx.Done():
 		fc.logger.Warn("writer is canceled")
 	}
 }
 
+// isExpire returns if current family is expired.
 func (fc *familyChannel) isExpire(ahead, _ int64) bool {
-	now := fasttime.UnixMilliseconds()
+	now := timeutil.Now()
 	// add 15 minute buffer
-	if ahead > 0 && fc.lastFlushTime.Unix()*1000+ahead+15*time.Minute.Milliseconds() > now {
+	if ahead > 0 && fc.lastFlushTime.Load()+ahead+15*time.Minute.Milliseconds() > now {
 		return false
 	}
 	return true
 }
 
+// FamilyTime returns the family time of current shardChannel.
 func (fc *familyChannel) FamilyTime() int64 {
 	return fc.familyTime
 }

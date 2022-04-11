@@ -58,7 +58,7 @@ func TestDatabaseChannel_Write(t *testing.T) {
 	err := ch.Write(context.TODO(), batch)
 	assert.Equal(t, errChannelNotFound, err)
 
-	shardCh := NewMockChannel(ctrl)
+	shardCh := NewMockShardChannel(ctrl)
 	ch1 := ch.(*databaseChannel)
 	ch1.insertShardChannel(models.ShardID(0), shardCh)
 	familyChannel := NewMockFamilyChannel(ctrl)
@@ -89,7 +89,7 @@ func TestDatabaseChannel_CreateChannel(t *testing.T) {
 			Option: opt,
 		}, 4, nil)
 	assert.NotNil(t, ch)
-	shardCh := NewMockChannel(ctrl)
+	shardCh := NewMockShardChannel(ctrl)
 	ch1 := ch.(*databaseChannel)
 	ch1.insertShardChannel(models.ShardID(0), shardCh)
 	shardCh2, err := ch.CreateChannel(int32(1), models.ShardID(0))
@@ -105,4 +105,24 @@ func TestDatabaseChannel_CreateChannel(t *testing.T) {
 
 	_, err = ch.CreateChannel(4, 1)
 	assert.NoError(t, err)
+}
+
+func TestDatabaseChannel_Stop(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	opt := &option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}
+	ch := newDatabaseChannel(context.TODO(),
+		models.Database{
+			Name:   "database",
+			Option: opt,
+		}, 4, nil)
+	shardCh := NewMockShardChannel(ctrl)
+	ch1 := ch.(*databaseChannel)
+	ch1.insertShardChannel(models.ShardID(0), shardCh)
+
+	shardCh.EXPECT().garbageCollect(gomock.Any(), gomock.Any())
+	ch.garbageCollect()
+
+	shardCh.EXPECT().Stop()
+	ch.Stop()
 }
