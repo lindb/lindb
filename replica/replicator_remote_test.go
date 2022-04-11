@@ -57,83 +57,158 @@ func TestRemoteReplicator_IsReady(t *testing.T) {
 		Queue: q,
 	}
 
-	r := NewRemoteReplicator(context.TODO(), rc, stateMgr, cliFct)
-	r1 := r.(*remoteReplicator)
-	// case 1: replicator is ready
-	r1.state = ReplicatorReadyState
-	assert.True(t, r.IsReady())
+	cases := []struct {
+		name    string
+		prepare func(r *remoteReplicator)
+		ready   bool
+	}{
+		{
+			name: "replicator is ready",
+			prepare: func(r *remoteReplicator) {
+				r.state = ReplicatorReadyState
+			},
+			ready: true,
+		},
+		{
+			name: "create replica cli failure",
+			prepare: func(r *remoteReplicator) {
+				cliFct.EXPECT().CreateReplicaServiceClient(gomock.Any()).Return(nil, fmt.Errorf("err"))
+			},
+			ready: false,
+		},
+		{
+			name: "get replica stream err",
+			prepare: func(r *remoteReplicator) {
+				cliFct.EXPECT().CreateReplicaServiceClient(gomock.Any()).Return(replicaCli, nil)
+				replicaCli.EXPECT().Replica(gomock.Any()).Return(nil, fmt.Errorf("err"))
+			},
+			ready: false,
+		},
+		{
+			name: "get replica stream ack err",
+			prepare: func(r *remoteReplicator) {
+				cliFct.EXPECT().CreateReplicaServiceClient(gomock.Any()).Return(replicaCli, nil)
+				replicaCli.EXPECT().Replica(gomock.Any()).Return(nil, nil)
+				replicaCli.EXPECT().GetReplicaAckIndex(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+			},
+			ready: false,
+		},
+		{
+			name: "replica idx == current node",
+			prepare: func(r *remoteReplicator) {
+				cliFct.EXPECT().CreateReplicaServiceClient(gomock.Any()).Return(replicaCli, nil)
+				replicaCli.EXPECT().Replica(gomock.Any()).Return(nil, nil)
+				q.EXPECT().HeadSeq().Return(int64(11))
+				replicaCli.EXPECT().GetReplicaAckIndex(gomock.Any(), gomock.Any()).Return(&protoReplicaV1.GetReplicaAckIndexResponse{
+					AckIndex: 10,
+				}, nil)
+			},
+			ready: true,
+		},
+		{
+			name: "remote replica ack index < current smallest ack, but reset remote replica index err",
+			prepare: func(r *remoteReplicator) {
+				cliFct.EXPECT().CreateReplicaServiceClient(gomock.Any()).Return(replicaCli, nil)
+				replicaCli.EXPECT().Replica(gomock.Any()).Return(nil, nil)
+				fq.EXPECT().HeadSeq().Return(int64(10))
+				q.EXPECT().HeadSeq().Return(int64(12))
+				q.EXPECT().TailSeq().Return(int64(13))
+				replicaCli.EXPECT().GetReplicaAckIndex(gomock.Any(), gomock.Any()).Return(&protoReplicaV1.GetReplicaAckIndexResponse{
+					AckIndex: 10,
+				}, nil)
+				replicaCli.EXPECT().Reset(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+			},
+			ready: false,
+		},
+		{
+			name: " remote replica ack index < current smallest ack, reset success",
+			prepare: func(r *remoteReplicator) {
+				cliFct.EXPECT().CreateReplicaServiceClient(gomock.Any()).Return(replicaCli, nil)
+				replicaCli.EXPECT().Replica(gomock.Any()).Return(nil, nil)
+				fq.EXPECT().HeadSeq().Return(int64(10))
+				q.EXPECT().HeadSeq().Return(int64(12))
+				q.EXPECT().TailSeq().Return(int64(13))
+				replicaCli.EXPECT().GetReplicaAckIndex(gomock.Any(), gomock.Any()).Return(&protoReplicaV1.GetReplicaAckIndexResponse{
+					AckIndex: 10,
+				}, nil)
+				replicaCli.EXPECT().Reset(gomock.Any(), gomock.Any()).Return(nil, nil)
+				q.EXPECT().SetHeadSeq(int64(11))
+			},
+			ready: true,
+		},
+		{
+			name: "remote replica ack index > current append index, maybe leader lost data",
+			prepare: func(r *remoteReplicator) {
+				cliFct.EXPECT().CreateReplicaServiceClient(gomock.Any()).Return(replicaCli, nil)
+				replicaCli.EXPECT().Replica(gomock.Any()).Return(nil, nil)
+				fq.EXPECT().HeadSeq().Return(int64(5))
+				q.EXPECT().HeadSeq().Return(int64(12))
+				q.EXPECT().TailSeq().Return(int64(9))
+				q.EXPECT().Ack(int64(10))
+				replicaCli.EXPECT().GetReplicaAckIndex(gomock.Any(), gomock.Any()).Return(&protoReplicaV1.GetReplicaAckIndexResponse{
+					AckIndex: 10,
+				}, nil)
+				fq.EXPECT().SetAppendSeq(int64(11))
+				q.EXPECT().SetHeadSeq(int64(10)).Return(fmt.Errorf("err"))
+				q.EXPECT().HeadSeq().Return(int64(11))
+			},
+			ready: true,
+		},
+		{
+			name: "remote replica ack index > current append index, maybe leader lost data, reset replica index failure",
+			prepare: func(r *remoteReplicator) {
+				cliFct.EXPECT().CreateReplicaServiceClient(gomock.Any()).Return(replicaCli, nil)
+				replicaCli.EXPECT().Replica(gomock.Any()).Return(nil, nil)
+				fq.EXPECT().HeadSeq().Return(int64(5))
+				q.EXPECT().HeadSeq().Return(int64(12))
+				q.EXPECT().TailSeq().Return(int64(9))
+				q.EXPECT().Ack(int64(10))
+				replicaCli.EXPECT().GetReplicaAckIndex(gomock.Any(), gomock.Any()).Return(&protoReplicaV1.GetReplicaAckIndexResponse{
+					AckIndex: 10,
+				}, nil)
+				fq.EXPECT().SetAppendSeq(int64(11))
+				q.EXPECT().SetHeadSeq(int64(10)).Return(fmt.Errorf("err"))
+				q.EXPECT().HeadSeq().Return(int64(12))
+			},
+			ready: false,
+		},
+		{
+			name: "reconnect after failure",
+			prepare: func(r *remoteReplicator) {
+				r.state = ReplicatorFailureState
+				stream := protoReplicaV1.NewMockReplicaService_ReplicaClient(ctrl)
+				stream.EXPECT().CloseSend().Return(fmt.Errorf("err"))
+				r.replicaStream = stream
 
-	r1.state = ReplicatorInitState
-	// case 2: create replica cli err
-	cliFct.EXPECT().CreateReplicaServiceClient(gomock.Any()).Return(nil, fmt.Errorf("err"))
-	assert.False(t, r.IsReady())
+				cliFct.EXPECT().CreateReplicaServiceClient(gomock.Any()).Return(replicaCli, nil)
+				replicaCli.EXPECT().Replica(gomock.Any()).Return(nil, nil)
+				fq.EXPECT().HeadSeq().Return(int64(5))
+				q.EXPECT().HeadSeq().Return(int64(12))
+				q.EXPECT().TailSeq().Return(int64(9))
+				replicaCli.EXPECT().GetReplicaAckIndex(gomock.Any(), gomock.Any()).Return(&protoReplicaV1.GetReplicaAckIndexResponse{
+					AckIndex: 10,
+				}, nil)
+				fq.EXPECT().SetAppendSeq(int64(11))
+				q.EXPECT().SetHeadSeq(int64(10)).Return(fmt.Errorf("err"))
+				q.EXPECT().Ack(int64(10))
+				q.EXPECT().HeadSeq().Return(int64(11))
+			},
+			ready: true,
+		},
+	}
 
-	cliFct.EXPECT().CreateReplicaServiceClient(gomock.Any()).Return(replicaCli, nil).AnyTimes()
-
-	// case 3: get replica stream err
-	replicaCli.EXPECT().Replica(gomock.Any()).Return(nil, fmt.Errorf("err"))
-	assert.False(t, r.IsReady())
-	replicaStream := protoReplicaV1.NewMockReplicaService_ReplicaClient(ctrl)
-	replicaStream.EXPECT().CloseSend().Return(fmt.Errorf("err")).AnyTimes()
-	replicaCli.EXPECT().Replica(gomock.Any()).Return(replicaStream, nil).AnyTimes()
-
-	// case 4: get remote replica ack err
-	replicaCli.EXPECT().GetReplicaAckIndex(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
-	assert.False(t, r.IsReady())
-	// case 5: replica idx == current node
-	q.EXPECT().HeadSeq().Return(int64(11))
-	replicaCli.EXPECT().GetReplicaAckIndex(gomock.Any(), gomock.Any()).Return(&protoReplicaV1.GetReplicaAckIndexResponse{
-		AckIndex: 10,
-	}, nil)
-	assert.True(t, r.IsReady())
-	// case 6: remote replica ack index < current smallest ack, but reset remote replica index err
-	r = NewRemoteReplicator(context.TODO(), rc, stateMgr, cliFct)
-	fq.EXPECT().HeadSeq().Return(int64(10))
-	q.EXPECT().HeadSeq().Return(int64(12))
-	q.EXPECT().TailSeq().Return(int64(13))
-	replicaCli.EXPECT().GetReplicaAckIndex(gomock.Any(), gomock.Any()).Return(&protoReplicaV1.GetReplicaAckIndexResponse{
-		AckIndex: 10,
-	}, nil)
-	replicaCli.EXPECT().Reset(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
-	assert.False(t, r.IsReady())
-	// case 7: remote replica ack index < current smallest ack, reset success
-	r = NewRemoteReplicator(context.TODO(), rc, stateMgr, cliFct)
-	fq.EXPECT().HeadSeq().Return(int64(10))
-	q.EXPECT().HeadSeq().Return(int64(12))
-	q.EXPECT().TailSeq().Return(int64(13))
-	replicaCli.EXPECT().GetReplicaAckIndex(gomock.Any(), gomock.Any()).Return(&protoReplicaV1.GetReplicaAckIndexResponse{
-		AckIndex: 10,
-	}, nil)
-	replicaCli.EXPECT().Reset(gomock.Any(), gomock.Any()).Return(nil, nil)
-	q.EXPECT().SetHeadSeq(int64(11))
-	assert.True(t, r.IsReady())
-	// case 8: remote replica ack index > current append index, maybe leader lost data.
-	r = NewRemoteReplicator(context.TODO(), rc, stateMgr, cliFct)
-	fq.EXPECT().HeadSeq().Return(int64(5))
-	q.EXPECT().HeadSeq().Return(int64(12))
-	q.EXPECT().TailSeq().Return(int64(9))
-	q.EXPECT().Ack(int64(10))
-	replicaCli.EXPECT().GetReplicaAckIndex(gomock.Any(), gomock.Any()).Return(&protoReplicaV1.GetReplicaAckIndexResponse{
-		AckIndex: 10,
-	}, nil)
-	fq.EXPECT().SetAppendSeq(int64(11))
-	q.EXPECT().SetHeadSeq(int64(10)).Return(fmt.Errorf("err"))
-	q.EXPECT().HeadSeq().Return(int64(11))
-	assert.True(t, r.IsReady())
-	// case 9: reconnect after fail
-	r1 = r.(*remoteReplicator)
-	r1.state = ReplicatorFailureState
-	fq.EXPECT().HeadSeq().Return(int64(5))
-	q.EXPECT().HeadSeq().Return(int64(12))
-	q.EXPECT().TailSeq().Return(int64(9))
-	replicaCli.EXPECT().GetReplicaAckIndex(gomock.Any(), gomock.Any()).Return(&protoReplicaV1.GetReplicaAckIndexResponse{
-		AckIndex: 10,
-	}, nil)
-	fq.EXPECT().SetAppendSeq(int64(11))
-	q.EXPECT().SetHeadSeq(int64(10)).Return(fmt.Errorf("err"))
-	q.EXPECT().Ack(int64(10))
-	q.EXPECT().HeadSeq().Return(int64(11))
-	assert.True(t, r.IsReady())
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			r := NewRemoteReplicator(context.TODO(), rc, stateMgr, cliFct)
+			r1 := r.(*remoteReplicator)
+			if tt.prepare != nil {
+				tt.prepare(r1)
+			}
+			ready := r.IsReady()
+			assert.Equal(t, tt.ready, ready)
+		})
+	}
 }
 
 func TestRemoteReplicator_NodeStateChange(t *testing.T) {

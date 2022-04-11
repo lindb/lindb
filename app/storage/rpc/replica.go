@@ -151,7 +151,7 @@ func (r *ReplicaHandler) getReplicaStateFromCtx(ctx context.Context) (replicator
 	return
 }
 
-// getOrCreatePartition returns write ahead log's partition if exist, else creates a new partition.
+// getOrCreatePartition returns write ahead log's partition if it exists, else creates a new partition.
 func (r *ReplicaHandler) getOrCreatePartition(
 	database string,
 	shardID models.ShardID,

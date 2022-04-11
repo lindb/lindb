@@ -25,13 +25,15 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 )
 
+//go:generate mockgen -source=./replicator_peer.go -destination=./replicator_peer_mock.go -package=replica
+
 // ReplicatorPeer represents wal replica peer.
 // local replicator: from == to.
 // remote replicator: from != to.
 type ReplicatorPeer interface {
 	// Startup starts wal replicator channel,
 	Startup()
-	// Shutdown shutdown gracefully.
+	// Shutdown shutdowns gracefully.
 	Shutdown()
 }
 
@@ -89,6 +91,12 @@ func (r *replicatorRunner) replicaLoop() {
 
 func (r *replicatorRunner) shutdown() {
 	if r.running.CAS(true, false) {
+		replicaType := "local"
+		_, ok := r.replicator.(*remoteReplicator)
+		if ok {
+			replicaType = "remote"
+		}
+		activeReplicaChannel.WithTagValues(r.replicator.State().Database, replicaType).Incr()
 		// wait for stop replica loop
 		<-r.closed
 	}
