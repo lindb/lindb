@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
 
@@ -34,41 +35,60 @@ const (
 	ReplicatorFailureState
 )
 
+// Replicator represents write ahead log replicator.
 type Replicator interface {
 	fmt.Stringer
-
+	// State returns the replica state.
+	State() *models.ReplicaState
 	// Consume returns the index of message replica.
 	Consume() int64
+	// GetMessage returns message by replica index.
 	GetMessage(replicaIdx int64) ([]byte, error)
+	// Replica replicas message by replica index.
 	Replica(idx int64, msg []byte)
+	// IsReady returns if replicator is ready.
 	IsReady() bool
 	// ReplicaIndex returns the index of message replica
 	ReplicaIndex() int64
 	// AckIndex returns the index of message replica ack
 	AckIndex() int64
+	// AppendIndex returns next append index.
 	AppendIndex() int64
+	// ResetReplicaIndex resets replica index.
 	ResetReplicaIndex(idx int64) error
+	// ResetAppendIndex resets append index.
 	ResetAppendIndex(idx int64)
+	// SetAckIndex sets ack index.
 	SetAckIndex(ackIdx int64)
 }
 
+// replicator implements Replicator interface.
 type replicator struct {
 	channel         *ReplicatorChannel
 	replicaSeqGauge *linmetric.BoundGauge
 }
 
+// State returns the replica state.
+func (r *replicator) State() *models.ReplicaState {
+	return r.channel.State
+}
+
+// Replica replicas message by replica index.
 func (r *replicator) Replica(_ int64, _ []byte) {
 	// do nothing, need impl in child class
 }
 
+// IsReady returns if replicator is ready.
 func (r *replicator) IsReady() bool {
 	return true
 }
 
+// Consume returns the index of message replica.
 func (r *replicator) Consume() int64 {
 	return r.channel.Queue.Consume()
 }
 
+// GetMessage returns message by replica index.
 func (r *replicator) GetMessage(replicaIdx int64) ([]byte, error) {
 	r.replicaSeqGauge.Update(float64(replicaIdx))
 	return r.channel.Queue.Get(replicaIdx)
@@ -84,22 +104,27 @@ func (r *replicator) AckIndex() int64 {
 	return r.channel.Queue.TailSeq()
 }
 
+// AppendIndex returns next append index.
 func (r *replicator) AppendIndex() int64 {
 	return r.channel.Queue.Queue().HeadSeq()
 }
 
+// ResetReplicaIndex resets replica index.
 func (r *replicator) ResetReplicaIndex(idx int64) error {
 	return r.channel.Queue.SetHeadSeq(idx)
 }
 
+// ResetAppendIndex resets append index.
 func (r *replicator) ResetAppendIndex(idx int64) {
 	r.channel.Queue.Queue().SetAppendSeq(idx)
 }
 
+// SetAckIndex sets ack index.
 func (r *replicator) SetAckIndex(ackIdx int64) {
 	r.channel.Queue.Ack(ackIdx)
 }
 
+// String returns string value of replicator.
 func (r *replicator) String() string {
 	return "[" +
 		"database:" + r.channel.State.Database +

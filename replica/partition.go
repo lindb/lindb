@@ -22,12 +22,10 @@ import (
 	"fmt"
 	"io"
 	"sync"
-	"time"
 
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -41,6 +39,7 @@ var (
 	// for testing
 	newLocalReplicatorFn  = NewLocalReplicator
 	newRemoteReplicatorFn = NewRemoteReplicator
+	newReplicatorPeerFn   = NewReplicatorPeer
 )
 
 // Partition represents a partition of writeTask ahead log.
@@ -50,18 +49,22 @@ type Partition interface {
 	BuildReplicaForLeader(leader models.NodeID, replicas []models.NodeID) error
 	// BuildReplicaForFollower builds replica relation when handle replica connection.
 	BuildReplicaForFollower(leader models.NodeID, replica models.NodeID) error
-	// ReplicaLog writes msg that leader send replica msg.
+	// ReplicaLog writes msg that leader sends replica msg.
 	// return appended index, if success.
 	ReplicaLog(replicaIdx int64, msg []byte) (int64, error)
 	// WriteLog writes msg that leader handle client writeTask request.
 	WriteLog(msg []byte) error
 	// ReplicaAckIndex returns the index which replica appended index.
 	ReplicaAckIndex() int64
+	// ResetReplicaIndex resets replica index.
 	ResetReplicaIndex(idx int64)
+	// IsExpire returns partition if it is expired.
 	IsExpire() bool
+	// Path returns the path of partition.
 	Path() string
 	// getReplicaState returns each family's log replica state.
 	getReplicaState() models.FamilyLogReplicaState
+	// recovery rebuilds replication relation based on local partition.
 	recovery(leader models.NodeID) error
 }
 
@@ -69,6 +72,7 @@ type Partition interface {
 type partition struct {
 	ctx           context.Context
 	currentNodeID models.NodeID
+	db            string
 	log           queue.FanOutQueue
 	shardID       models.ShardID
 	shard         tsdb.Shard
@@ -98,6 +102,7 @@ func NewPartition(
 	return &partition{
 		ctx:           ctx,
 		log:           log,
+		db:            shard.Database().Name(),
 		shardID:       shard.ShardID(),
 		shard:         shard,
 		family:        family,
@@ -120,25 +125,32 @@ func (p *partition) ReplicaLog(replicaIdx int64, msg []byte) (int64, error) {
 	if replicaIdx != appendIdx {
 		return appendIdx, nil
 	}
+	receiveReplicaSize.WithTagValues(p.db).Add(float64(len(msg)))
 	if err := p.log.Put(msg); err != nil {
+		replicaWALFailure.WithTagValues(p.db).Incr()
 		return -1, err
 	}
+	replicaWAL.WithTagValues(p.db).Incr()
 	p.appendSeqGauge.Update(float64(appendIdx))
 	return appendIdx, nil
 }
 
+// ReplicaAckIndex returns the index which replica appended index.
 func (p *partition) ReplicaAckIndex() int64 {
 	return p.log.HeadSeq() - 1
 }
 
+// ResetReplicaIndex resets replica index.
 func (p *partition) ResetReplicaIndex(idx int64) {
 	p.log.SetAppendSeq(idx)
 }
 
+// Path returns the path of partition.
 func (p *partition) Path() string {
 	return p.log.Path()
 }
 
+// IsExpire returns partition if it is expired.
 func (p *partition) IsExpire() bool {
 	ns := p.log.FanOutNames()
 	for _, n := range ns {
@@ -150,9 +162,9 @@ func (p *partition) IsExpire() bool {
 	opt := p.shard.Database().GetOption()
 	ahead, _ := opt.GetAcceptWritableRange()
 	timeRange := p.family.TimeRange()
-	now := fasttime.UnixMilliseconds()
+	now := timeutil.Now()
 	// add 15 minute buffer
-	if ahead > 0 && timeRange.End+ahead+15*time.Minute.Milliseconds() > now {
+	if ahead > 0 && timeRange.End+ahead+15*timeutil.OneMinute > now {
 		return false
 	}
 	return true
@@ -163,10 +175,13 @@ func (p *partition) WriteLog(msg []byte) error {
 	if len(msg) == 0 {
 		return nil
 	}
+	receiveWriteSize.WithTagValues(p.db).Add(float64(len(msg)))
 	appendIdx := p.log.HeadSeq()
 	if err := p.log.Put(msg); err != nil {
+		writeWALFailure.WithTagValues(p.db).Incr()
 		return err
 	}
+	writeWAL.WithTagValues(p.db).Incr()
 	p.appendSeqGauge.Update(float64(appendIdx))
 	return nil
 }
@@ -198,7 +213,7 @@ func (p *partition) BuildReplicaForLeader(
 // BuildReplicaForFollower builds replica relation when handle replica connection.
 func (p *partition) BuildReplicaForFollower(leader, replica models.NodeID) error {
 	if replica != p.currentNodeID {
-		return fmt.Errorf("[BUG] replica not equals current node")
+		return fmt.Errorf("replica not equals current node")
 	}
 	err := p.buildReplica(leader, replica)
 	if err != nil {
@@ -278,21 +293,27 @@ func (p *partition) buildReplica(leader, replica models.NodeID) error {
 		},
 		Queue: walConsumer,
 	}
+	var replicaType string
 	if replica == p.currentNodeID {
 		// local replicator
 		replicator = newLocalReplicatorFn(&channel, p.shard, p.family)
+		replicaType = "local"
 	} else {
 		// build remote replicator
 		replicator = newRemoteReplicatorFn(p.ctx, &channel, p.stateMgr, p.cliFct)
+		replicaType = "remote"
 	}
 
 	// startup replicator peer
-	peer := NewReplicatorPeer(replicator)
+	peer := newReplicatorPeerFn(replicator)
 	p.peers[replica] = peer
 	peer.Startup()
+
+	activeReplicaChannel.WithTagValues(p.db, replicaType).Incr()
 	return nil
 }
 
+// recovery rebuilds replication relation based on local partition.
 func (p *partition) recovery(leader models.NodeID) error {
 	replicatorNames := p.log.FanOutNames()
 	for _, replica := range replicatorNames {

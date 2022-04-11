@@ -28,7 +28,6 @@ import (
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/broker"
-	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/rpc"
@@ -36,19 +35,6 @@ import (
 )
 
 //go:generate mockgen -source=./channel_manager.go -destination=./channel_manager_mock.go -package=replica
-
-var (
-	brokerScope         = linmetric.BrokerRegistry.NewScope("lindb.broker.replica")
-	activeWriteFamilies = brokerScope.NewGaugeVec("active_families", "db")
-	batchMetrics        = brokerScope.NewCounterVec("batch_metrics", "db")
-	batchMetricFailures = brokerScope.NewCounterVec("batch_metrics_failures", "db")
-	pendingSend         = brokerScope.NewGaugeVec("pending_send", "db")
-	sendSuccess         = brokerScope.NewCounterVec("send_success", "db")
-	sendFailure         = brokerScope.NewCounterVec("send_failure", "db")
-	sendSize            = brokerScope.NewCounterVec("send_size", "db")
-	retryCount          = brokerScope.NewCounterVec("retry", "db")
-	retryDrop           = brokerScope.NewCounterVec("retry_drop", "db")
-)
 
 // ChannelManager manages the construction, retrieving, closing for all channels.
 type ChannelManager interface {

@@ -24,6 +24,9 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"go.uber.org/atomic"
+
+	"github.com/lindb/lindb/models"
 )
 
 func TestReplicatorPeer(t *testing.T) {
@@ -32,14 +35,36 @@ func TestReplicatorPeer(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	replicator := NewMockReplicator(ctrl)
-	replicator.EXPECT().IsReady().Return(false).AnyTimes()
-	replicator.EXPECT().String().Return("str").AnyTimes()
-	peer := NewReplicatorPeer(replicator)
+	mockReplicator := NewMockReplicator(ctrl)
+	mockReplicator.EXPECT().IsReady().Return(false).AnyTimes()
+	mockReplicator.EXPECT().String().Return("str").AnyTimes()
+	mockReplicator.EXPECT().State().Return(&models.ReplicaState{}).AnyTimes()
+	peer := NewReplicatorPeer(mockReplicator)
 	peer.Startup()
 	peer.Startup()
 	time.Sleep(10 * time.Millisecond)
 	peer.Shutdown()
+	peer.Shutdown()
+	time.Sleep(10 * time.Millisecond)
+
+	ch := make(chan struct{})
+	peer = &replicatorPeer{
+		runner: &replicatorRunner{
+			replicator: &remoteReplicator{
+				replicator: replicator{
+					channel: &ReplicatorChannel{
+						State: &models.ReplicaState{},
+					},
+				},
+			},
+			running: atomic.NewBool(true),
+			closed:  ch,
+		},
+		running: atomic.NewBool(true),
+	}
+	go func() {
+		ch <- struct{}{}
+	}()
 	peer.Shutdown()
 	time.Sleep(10 * time.Millisecond)
 }
@@ -52,6 +77,7 @@ func TestNewReplicator_runner(t *testing.T) {
 
 	replicator := NewMockReplicator(ctrl)
 	replicator.EXPECT().String().Return("str").AnyTimes()
+	replicator.EXPECT().State().Return(&models.ReplicaState{}).AnyTimes()
 	peer := NewReplicatorPeer(replicator)
 	var wait sync.WaitGroup
 

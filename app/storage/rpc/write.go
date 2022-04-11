@@ -114,7 +114,7 @@ func (r *WriteHandler) getFamilyInfoFromCtx(ctx context.Context) (familyState mo
 	return
 }
 
-// getOrCreatePartition returns write ahead log's partition if exist, else creates a new partition.
+// getOrCreatePartition returns write ahead log's partition if it exists, else creates a new partition.
 func (r *WriteHandler) getOrCreatePartition(
 	database string,
 	shardID models.ShardID,
