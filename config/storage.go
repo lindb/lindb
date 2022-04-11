@@ -143,7 +143,7 @@ type WAL struct {
 }
 
 func (rc *WAL) GetDataSizeLimit() int64 {
-	if rc.DataSizeLimit <= 1 {
+	if rc.DataSizeLimit <= 0 {
 		return 1024 * 1024 // 1MB
 	}
 	if rc.DataSizeLimit >= 1024 {

@@ -19,9 +19,8 @@ package config
 
 // These variables are populated via the Go linker.
 var (
-	// release version, ldflags
+	// Version represents the release version of lindb(ldflags).
 	Version = "unknown"
-
-	// binary build-time, ldflags
+	// BuildTime represents binary build-time(ldflags).
 	BuildTime = "unknown"
 )

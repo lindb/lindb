@@ -47,12 +47,12 @@ func NewProtoWriter(deps *depspkg.HTTPDeps) *ProtoWriter {
 func (nw *ProtoWriter) Register(route gin.IRoutes) {
 	route.POST(
 		ProtoWritePath,
-		WithHistogram(HTTPHandlerTimerVec.WithTagValues(ProtoWritePath)),
+		WithHistogram(ingestHandlerTimerVec.WithTagValues(ProtoWritePath)),
 		nw.Write,
 	)
 	route.PUT(
 		ProtoWritePath,
-		WithHistogram(HTTPHandlerTimerVec.WithTagValues(ProtoWritePath)),
+		WithHistogram(ingestHandlerTimerVec.WithTagValues(ProtoWritePath)),
 		nw.Write,
 	)
 }

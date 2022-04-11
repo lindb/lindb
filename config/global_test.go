@@ -20,23 +20,15 @@ package config
 import (
 	"testing"
 
-	"github.com/BurntSushi/toml"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestStorage_TOML(t *testing.T) {
-	defaultCfg := NewDefaultStorageTOML()
-	storageCfg := &Storage{}
-	_, err := toml.Decode(defaultCfg, storageCfg)
-	assert.NoError(t, err)
-	assert.Equal(t, storageCfg.TOML(), defaultCfg)
-}
+func TestSetGlobalConfig(t *testing.T) {
+	b := &BrokerBase{}
+	SetGlobalBrokerConfig(b)
+	assert.Equal(t, b, GlobalBrokerConfig())
 
-func TestWAL_GetDataSizeLimit(t *testing.T) {
-	wal := &WAL{}
-	assert.Equal(t, int64(1024*1024), wal.GetDataSizeLimit())
-	wal = &WAL{DataSizeLimit: 2 * 1024}
-	assert.Equal(t, int64(1024*1024*1024), wal.GetDataSizeLimit())
-	wal = &WAL{DataSizeLimit: 128}
-	assert.Equal(t, int64(128*1024*1024), wal.GetDataSizeLimit())
+	s := &StorageBase{}
+	SetGlobalStorageConfig(s)
+	assert.Equal(t, s, GlobalStorageConfig())
 }

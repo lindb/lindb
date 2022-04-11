@@ -20,16 +20,35 @@ package ingest
 import (
 	"context"
 	netHTTP "net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 	ingestCommon "github.com/lindb/lindb/ingestion/common"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 )
+
+var (
+	ingestHandlerTimerVec = linmetric.BrokerRegistry.
+		NewScope(
+			"lindb.http.ingest_duration",
+		).
+		NewHistogramVec("path").
+		WithExponentBuckets(time.Millisecond, time.Second*5, 20)
+)
+
+func WithHistogram(histogram *linmetric.BoundHistogram) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+		defer histogram.UpdateSince(start)
+		c.Next()
+	}
+}
 
 type parserFunc func(req *netHTTP.Request, enrichedTags tag.Tags, namespace string) (*metric.BrokerBatchRows, error)
 

@@ -70,7 +70,7 @@ func (ss *familyChannelSet) Entries() []FamilyChannel {
 }
 
 // RemoveFamilies removes given families from set.
-// returns removed family channel
+// returns removed family shardChannel
 func (ss *familyChannelSet) RemoveFamilies(needRemoveFamilies map[int64]struct{}) []FamilyChannel {
 	if len(needRemoveFamilies) == 0 {
 		return nil
