@@ -79,7 +79,7 @@ func TestShardChannel_Stop(t *testing.T) {
 
 	familyCh.EXPECT().FamilyTime().Return(int64(1)).AnyTimes()
 	familyCh.EXPECT().isExpire(gomock.Any(), gomock.Any()).Return(true)
-	familyCh.EXPECT().Stop()
+	familyCh.EXPECT().Stop(gomock.Any())
 	ch.garbageCollect(1, 1)
 
 	// no family need stop
@@ -92,7 +92,7 @@ func TestShardChannel_Stop(t *testing.T) {
 		Leader: 1,
 	}
 	ch1.mutex.Unlock()
-	familyCh.EXPECT().Stop()
+	familyCh.EXPECT().Stop(gomock.Any())
 	ch.Stop()
 }
 

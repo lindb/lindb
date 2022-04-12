@@ -45,7 +45,7 @@ type FamilyChannel interface {
 	leaderChanged(shardState models.ShardState,
 		liveNodes map[models.NodeID]models.StatefulNode)
 	// Stop stops the family shardChannel.
-	Stop()
+	Stop(timeout int64)
 	// FamilyTime returns the family time of current shardChannel.
 	FamilyTime() int64
 	// isExpire returns if current family is expired.
@@ -76,6 +76,8 @@ type familyChannel struct {
 	// shardChannel to convert multiple goroutine writeTask to single goroutine writeTask to FanOutQueue
 	ch                  chan *compressedChunk
 	leaderChangedSignal chan struct{}
+	stoppedSignal       chan struct{}
+	stoppingSignal      chan struct{}
 	chunk               Chunk // buffer current writeTask metric for compress
 
 	lastFlushTime      *atomic.Int64 // last flush time
@@ -111,6 +113,8 @@ func newFamilyChannel(
 		newWriteStreamFn:    rpc.NewWriteStream,
 		ch:                  make(chan *compressedChunk, 2),
 		leaderChangedSignal: make(chan struct{}, 1),
+		stoppedSignal:       make(chan struct{}, 1),
+		stoppingSignal:      make(chan struct{}, 1),
 		checkFlushInterval:  time.Second,
 		batchTimout:         cfg.BatchTimeout.Duration(),
 		maxRetryBuf:         100, // TODO add config
@@ -259,30 +263,40 @@ func (fc *familyChannel) writeTask() {
 			}
 		}
 	}()
-	var err error
 
-	for {
-		select {
-		case <-fc.ctx.Done():
-			sendLastMsg := func(compressed *compressedChunk) {
-				if !send(compressed) {
-					fc.logger.Error("send message failure before close channel, message lost")
-				}
+	// send pending in buffer before stop channel.
+	sendBeforeStop := func() {
+		defer func() {
+			fc.stoppedSignal <- struct{}{}
+		}()
+		sendLastMsg := func(compressed *compressedChunk) {
+			if !send(compressed) {
+				fc.logger.Error("send message failure before close channel, message lost")
 			}
+		}
+		// flush chunk pending data if chunk not empty
+		if !fc.chunk.IsEmpty() {
 			// flush chunk pending data if chunk not empty
-			if !fc.chunk.IsEmpty() {
-				// flush chunk pending data if chunk not empty
-				compressed, err0 := fc.chunk.Compress()
-				if err0 != nil {
-					fc.logger.Error("compress chunk err when send last chunk data", logger.Error(err0))
-				} else {
-					sendLastMsg(compressed)
-				}
-			}
-			// try to write pending data
-			for compressed := range fc.ch {
+			compressed, err0 := fc.chunk.Compress()
+			if err0 != nil {
+				fc.logger.Error("compress chunk err when send last chunk data", logger.Error(err0))
+			} else {
 				sendLastMsg(compressed)
 			}
+		}
+		// try to write pending data
+		for compressed := range fc.ch {
+			sendLastMsg(compressed)
+		}
+	}
+	var err error
+	for {
+		select {
+		case <-fc.stoppingSignal:
+			sendBeforeStop()
+			return
+		case <-fc.ctx.Done():
+			sendBeforeStop()
 			return
 		case <-fc.leaderChangedSignal:
 			if stream != nil {
@@ -332,9 +346,16 @@ func (fc *familyChannel) checkFlush() {
 }
 
 // Stop stops current write family shardChannel.
-func (fc *familyChannel) Stop() {
-	fc.cancel()
+func (fc *familyChannel) Stop(timeout int64) {
+	close(fc.stoppingSignal)
 	close(fc.ch)
+
+	ticker := time.NewTicker(time.Duration(time.Millisecond.Nanoseconds() * timeout))
+	select {
+	case <-fc.stoppedSignal:
+	case <-ticker.C:
+	}
+	fc.cancel()
 
 	activeWriteFamilies.WithTagValues(fc.database).Incr()
 }
@@ -361,10 +382,7 @@ func (fc *familyChannel) flushChunk() {
 func (fc *familyChannel) isExpire(ahead, _ int64) bool {
 	now := timeutil.Now()
 	// add 15 minute buffer
-	if ahead > 0 && fc.lastFlushTime.Load()+ahead+15*time.Minute.Milliseconds() > now {
-		return false
-	}
-	return true
+	return fc.lastFlushTime.Load()+ahead+15*time.Minute.Milliseconds() < now
 }
 
 // FamilyTime returns the family time of current shardChannel.
