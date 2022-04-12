@@ -171,7 +171,6 @@ class ChartStore {
     const where: string[] = [];
     const timeRange = URLStore.getTimeRange();
     if (timeRange) {
-      console.log("time......", timeRange);
       where.push(timeRange);
     }
     if (tags.length > 0) {
@@ -193,6 +192,14 @@ class ChartStore {
         )}`;
       }
     }
+    if (whereClause.length > 0) {
+      // has tag filter
+      return `${ql.slice(0, whereAt + 6)}  ${whereClause} and ${ql.slice(
+        whereAt + 6,
+        ql.length
+      )}`;
+    }
+    // no tag filter
     return `${ql.slice(0, whereAt + 6)}  ${whereClause} ${ql.slice(
       whereAt + 6,
       ql.length

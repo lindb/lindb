@@ -129,12 +129,12 @@ func NewStateManager(
 	mgr.statistics.databaseDeletes = eventVec.WithTagValues("database_deletes")
 	mgr.statistics.nodeStartUps = eventVec.WithTagValues("node_joins")
 	mgr.statistics.nodeFailures = eventVec.WithTagValues("node_leaves")
-	mgr.statistics.shardAssigns = eventVec.WithTagValues("shard_assigns")
 	mgr.statistics.storageChanges = eventVec.WithTagValues("storage_changes")
 	mgr.statistics.storageDeletes = eventVec.WithTagValues("storage_deletes")
-	mgr.statistics.panics = scope.NewCounter("panics")
 	mgr.statistics.shardElections = scope.NewCounter("shard_elections")
 	mgr.statistics.shardElectErrors = scope.NewCounter("shard_election_errors")
+	mgr.statistics.shardAssigns = eventVec.WithTagValues("shard_assigns")
+	mgr.statistics.panics = scope.NewCounter("panics")
 
 	// start consume event then do coordinate
 	go mgr.consumeEvent()
