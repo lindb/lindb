@@ -41,7 +41,7 @@ func (agg FieldAggregates) Reset() {
 }
 
 // NewFieldAggregates creates the field aggregates based on aggregator specs and query time range.
-// NOTICE: if do down sampling aggregator, aggregator specs must be in order by field id.
+// NOTICE: if it does down sampling aggregator, aggregator specs must be in order by field id.
 func NewFieldAggregates(
 	queryInterval timeutil.Interval,
 	intervalRatio int,
@@ -61,13 +61,17 @@ type SeriesAggregator interface {
 	FieldName() field.Name
 	// GetFieldType returns field type
 	GetFieldType() field.Type
+	// GetAggregator gets field aggregator by segment start time, if not exist return (nil,false).
 	GetAggregator(segmentStartTime int64) (agg FieldAggregator, ok bool)
+	// GetAggregates returns all field aggregators.
 	GetAggregates() []FieldAggregator
-
+	// ResultSet returns the result set of series aggregator.
 	ResultSet() series.Iterator
+	// Reset resets the aggregator's context for reusing.
 	Reset()
 }
 
+// seriesAggregator implements SeriesAggregator.
 type seriesAggregator struct {
 	fieldName field.Name
 	fieldType field.Type
@@ -136,6 +140,7 @@ func (a *seriesAggregator) Reset() {
 	}
 }
 
+// GetAggregates returns all field aggregators.
 func (a *seriesAggregator) GetAggregates() []FieldAggregator {
 	return a.aggregates
 }

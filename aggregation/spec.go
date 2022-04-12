@@ -22,26 +22,35 @@ import (
 	"github.com/lindb/lindb/series/field"
 )
 
+// Aggregator represents aggregator spec for down sampling/aggregator.
 type Aggregator struct {
 	DownSampling AggregatorSpec
 	Aggregator   AggregatorSpec
 }
 
+// AggregatorSpecs represents aggregator spec slice.
 type AggregatorSpecs []AggregatorSpec
 
+// AggregatorSpec represents aggregator spec.
 type AggregatorSpec interface {
+	// FieldName returns field name.
 	FieldName() field.Name
+	// GetFieldType sets field type
 	GetFieldType() field.Type
+	// AddFunctionType adds function type for down sampling.
 	AddFunctionType(funcType function.FuncType)
+	// Functions returns function types for down sampling.
 	Functions() map[function.FuncType]function.FuncType
 }
 
+// aggregatorSpec implements AggregatorSpec interface.
 type aggregatorSpec struct {
 	fieldName field.Name
 	fieldType field.Type
 	functions map[function.FuncType]function.FuncType
 }
 
+// NewAggregatorSpec creates a AggregatorSpec.
 func NewAggregatorSpec(fieldName field.Name, fieldType field.Type) AggregatorSpec {
 	return &aggregatorSpec{
 		fieldName: fieldName,
@@ -50,18 +59,17 @@ func NewAggregatorSpec(fieldName field.Name, fieldType field.Type) AggregatorSpe
 	}
 }
 
+// GetFieldType sets field type
 func (a *aggregatorSpec) GetFieldType() field.Type {
 	return a.fieldType
 }
 
-func (a *aggregatorSpec) SetFieldType(fieldType field.Type) {
-	a.fieldType = fieldType
-}
-
+// FieldName returns field name.
 func (a *aggregatorSpec) FieldName() field.Name {
 	return a.fieldName
 }
 
+// AddFunctionType adds function type for down sampling.
 func (a *aggregatorSpec) AddFunctionType(funcType function.FuncType) {
 	_, exist := a.functions[funcType]
 	if !exist {
@@ -69,6 +77,7 @@ func (a *aggregatorSpec) AddFunctionType(funcType function.FuncType) {
 	}
 }
 
+// Functions returns function types for down sampling.
 func (a *aggregatorSpec) Functions() map[function.FuncType]function.FuncType {
 	return a.functions
 }

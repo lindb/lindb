@@ -28,6 +28,11 @@ import (
 	"github.com/lindb/lindb/series/field"
 )
 
+// for testing
+var (
+	toBytesFn = toBytes
+)
+
 // fieldIterator implements series.FieldIterator interface.
 type fieldIterator struct {
 	startSlot int
@@ -45,13 +50,12 @@ func newFieldIterator(
 	aggTypes []field.AggType,
 	fieldSeriesList []*collections.FloatArray,
 ) series.FieldIterator {
-	it := &fieldIterator{
+	return &fieldIterator{
 		startSlot:       startSlot,
 		aggTypes:        aggTypes,
 		fieldSeriesList: fieldSeriesList,
 		length:          len(fieldSeriesList),
 	}
-	return it
 }
 
 // HasNext returns if the iteration has more fields.
@@ -77,9 +81,16 @@ func (it *fieldIterator) MarshalBinary() ([]byte, error) {
 	// need reset idx
 	it.idx = 0
 	writer := stream.NewBufferWriter(nil)
+	var encoder *encoding.TSDEncoder
+	defer encoding.ReleaseTSDEncoder(encoder)
+
 	for it.HasNext() {
 		primitiveIt := it.Next()
-		encoder := encoding.TSDEncodeFunc(uint16(it.startSlot))
+		if encoder == nil {
+			encoder = encoding.TSDEncodeFunc(uint16(it.startSlot))
+		} else {
+			encoder.RestWithStartTime(uint16(it.startSlot))
+		}
 		idx := it.startSlot // start with start slot
 		for primitiveIt.HasNext() {
 			slot, value := primitiveIt.Next()
@@ -91,7 +102,7 @@ func (it *fieldIterator) MarshalBinary() ([]byte, error) {
 			encoder.AppendValue(math.Float64bits(value))
 			idx++
 		}
-		data, err := encoder.Bytes()
+		data, err := toBytesFn(encoder)
 		if err != nil {
 			return nil, err
 		}
@@ -100,6 +111,10 @@ func (it *fieldIterator) MarshalBinary() ([]byte, error) {
 		writer.PutBytes(data)
 	}
 	return writer.Bytes()
+}
+
+func toBytes(e *encoding.TSDEncoder) ([]byte, error) {
+	return e.Bytes()
 }
 
 // primitiveIterator represents primitive iterator using array.

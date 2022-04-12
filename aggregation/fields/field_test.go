@@ -53,6 +53,7 @@ func TestNewDynamicField(t *testing.T) {
 	f.SetValue(nil)
 	values = f.GetDefaultValues()
 	assert.Nil(t, values)
+	assert.Equal(t, field.SumField, f.Type())
 }
 
 func TestDynamicField_UnknownType(t *testing.T) {

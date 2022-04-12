@@ -61,6 +61,7 @@ func NewDynamicField(fieldType field.Type, startTime, interval int64, capacity i
 	}
 }
 
+// Type returns the type of dynamic field.
 func (f *dynamicField) Type() field.Type {
 	return f.fieldType
 }
