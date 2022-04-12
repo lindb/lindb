@@ -70,7 +70,7 @@ export function buildLineChart(resultSet: ResultSet | null, chart: any) {
       const borderColor = bgColor;
       const backgroundColor =
         chartType === "area" ? color(bgColor).alpha(0.25).rgbString() : bgColor;
-      const label = groupName ? groupName : key;
+      const label = groupName ? `${groupName}:${key}` : key;
       const pointBackgroundColor = toRGBA(bgColor, 0.25);
 
       let data: any = [];

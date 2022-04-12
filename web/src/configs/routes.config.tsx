@@ -28,7 +28,10 @@ import {
   IconTemplate,
 } from "@douyinfe/semi-icons";
 import { DashboardView } from "@src/components";
-import { StorageIngestionDashboard, SystemDashboard } from "@src/configs";
+import {
+  StorageIngestionDashboard,
+  BrokerIngestionDashboard,
+} from "@src/configs";
 import { Route, StateRoleName } from "@src/constants";
 import {
   ConfigurationView,
@@ -127,7 +130,7 @@ export const routes = [
               {
                 label: StateRoleName.Broker,
                 value: StateRoleName.Broker,
-                dashboard: SystemDashboard,
+                dashboard: BrokerIngestionDashboard,
               },
             ]}
           />

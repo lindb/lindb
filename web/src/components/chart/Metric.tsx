@@ -41,7 +41,7 @@ export default function Metric(props: MetricProps) {
       // console.log("unregister chart");
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [chartId]);
   return (
     <Card
       title={
