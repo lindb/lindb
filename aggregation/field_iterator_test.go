@@ -18,11 +18,13 @@
 package aggregation
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/pkg/collections"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 )
@@ -58,7 +60,11 @@ func TestFieldIterator(t *testing.T) {
 }
 
 func TestFieldIterator_MarshalBinary(t *testing.T) {
-	it := newFieldIterator(10, []field.AggType{field.Sum}, []*collections.FloatArray{generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0})})
+	defer func() {
+		toBytesFn = toBytes
+	}()
+	pData := generateFloatArray([]float64{0, 10, 10.0, 100.4, 50.0})
+	it := newFieldIterator(10, []field.AggType{field.Sum}, []*collections.FloatArray{pData})
 	data, err := it.MarshalBinary()
 	assert.NoError(t, err)
 	assert.True(t, len(data) > 0)
@@ -67,4 +73,44 @@ func TestFieldIterator_MarshalBinary(t *testing.T) {
 	expect := map[int]float64{10: 0, 11: 10, 12: 10.0, 13: 100.4, 14: 50.0}
 	AssertFieldIt(t, fIt, expect)
 	assert.False(t, fIt.HasNext())
+
+	floatArray := collections.NewFloatArray(4)
+	floatArray.SetValue(3, float64(3))
+	it = newFieldIterator(5, []field.AggType{field.Sum}, []*collections.FloatArray{floatArray})
+	data, err = it.MarshalBinary()
+	assert.NoError(t, err)
+	assert.True(t, len(data) > 0)
+
+	fIt = series.NewFieldIterator(data)
+	expect = map[int]float64{8: 3.0}
+	AssertFieldIt(t, fIt, expect)
+	assert.False(t, fIt.HasNext())
+
+	it = newFieldIterator(10, []field.AggType{field.Sum, field.Sum}, []*collections.FloatArray{pData, pData})
+	data, err = it.MarshalBinary()
+	assert.NoError(t, err)
+	assert.True(t, len(data) > 0)
+
+	toBytesFn = func(e *encoding.TSDEncoder) ([]byte, error) {
+		return nil, fmt.Errorf("err")
+	}
+	it = newFieldIterator(10, []field.AggType{field.Sum, field.Sum}, []*collections.FloatArray{pData, pData})
+	data, err = it.MarshalBinary()
+	assert.Error(t, err)
+	assert.Nil(t, data)
+}
+
+func TestPrimitiveIterator(t *testing.T) {
+	it := newPrimitiveIterator(1, field.Sum, nil)
+	assert.False(t, it.HasNext())
+	slot, v := it.Next()
+	assert.Equal(t, -1, slot)
+	assert.Equal(t, float64(0), v)
+
+	floatArray := collections.NewFloatArray(4)
+	floatArray.SetValue(3, float64(3))
+	it = newPrimitiveIterator(1, field.Sum, floatArray)
+	slot, v = it.Next()
+	assert.Equal(t, -1, slot)
+	assert.Equal(t, float64(0), v)
 }
