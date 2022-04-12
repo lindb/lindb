@@ -255,7 +255,7 @@ export default function CanvasChart(props: CanvasChartProps) {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [chartId]);
 
   return (
     <div>
