@@ -35,7 +35,9 @@ type FieldAggregator interface {
 	AggregateBySlot(pos int, value float64)
 	// ResultSet returns the result set of field aggregator.
 	ResultSet() (startTime int64, it series.FieldIterator)
+	// SlotRange returns the slot range of field aggregator.
 	SlotRange() (start, end int)
+	// reset aggregator context for reusing.
 	reset()
 }
 
@@ -69,6 +71,7 @@ func NewFieldAggregator(aggSpec AggregatorSpec, segmentStartTime int64, start, e
 	return agg
 }
 
+// SlotRange returns the slot range of field aggregator.
 func (a *fieldAggregator) SlotRange() (start, end int) {
 	return a.start, a.end
 }
@@ -113,6 +116,7 @@ func (a *fieldAggregator) AggregateBySlot(pos int, value float64) {
 	}
 }
 
+// reset aggregator context for reusing.
 func (a *fieldAggregator) reset() {
 	for idx := range a.fieldSeriesList {
 		if a.fieldSeriesList[idx] == nil {
