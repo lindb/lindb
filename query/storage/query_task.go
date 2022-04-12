@@ -18,6 +18,7 @@
 package storagequery
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -234,6 +235,9 @@ func (t *familyFilterTask) Run() error {
 		family := families[idx]
 		// execute data family search in background goroutine
 		resultSet, err := family.Filter(t.shardExecuteContext)
+		if errors.Is(err, constants.ErrNotFound) {
+			continue
+		}
 		if err != nil {
 			return err
 		}
