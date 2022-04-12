@@ -184,7 +184,7 @@ func TestSeriesIDsSearchTask_Run(t *testing.T) {
 	assert.Equal(t, roaring.BitmapOf(1, 2, 3), ctx.SeriesIDsAfterFiltering)
 }
 
-func TestFileDataFilterTask_Run(t *testing.T) {
+func TestFamilyFilterTask_Run(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -212,7 +212,11 @@ func TestFileDataFilterTask_Run(t *testing.T) {
 	family.EXPECT().Filter(gomock.Any()).Return(nil, fmt.Errorf("err"))
 	err = task.Run()
 	assert.Error(t, err)
-	// case 3: get data
+	// case 3: family filter not found err
+	family.EXPECT().Filter(gomock.Any()).Return(nil, constants.ErrNotFound)
+	err = task.Run()
+	assert.NoError(t, err)
+	// case 4: get data
 	family.EXPECT().Interval().Return(timeutil.Interval(10000))
 	resultSet.EXPECT().FamilyTime().Return(int64(10))
 	resultSet.EXPECT().SeriesIDs().Return(roaring.New())
@@ -221,7 +225,7 @@ func TestFileDataFilterTask_Run(t *testing.T) {
 	err = task.Run()
 	assert.NoError(t, err)
 	assert.NotEmpty(t, ctx.TimeSegmentContext.TimeSegments)
-	// case 4: explain
+	// case 5: explain
 	family.EXPECT().Interval().Return(timeutil.Interval(10000))
 	resultSet.EXPECT().FamilyTime().Return(int64(10))
 	resultSet.EXPECT().SeriesIDs().Return(roaring.New())
