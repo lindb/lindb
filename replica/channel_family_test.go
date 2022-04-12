@@ -41,7 +41,17 @@ func TestFamilyChannel_new(t *testing.T) {
 	f := newFamilyChannel(context.TODO(), config.Write{}, "db", 1,
 		1, nil, models.ShardState{}, nil)
 	assert.NotNil(t, f)
-	f.Stop()
+	f.Stop(10)
+
+	f = newFamilyChannel(context.TODO(), config.Write{}, "db", 1,
+		1, nil, models.ShardState{}, nil)
+	assert.NotNil(t, f)
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		f1 := f.(*familyChannel)
+		f1.stoppedSignal <- struct{}{}
+	}()
+	f.Stop(timeutil.OneSecond)
 }
 
 func TestFamilyChannel_Write(t *testing.T) {
@@ -50,9 +60,6 @@ func TestFamilyChannel_Write(t *testing.T) {
 		ctrl.Finish()
 	}()
 	chunk := NewMockChunk(ctrl)
-	ch := &familyChannel{
-		chunk: chunk,
-	}
 	converter := metric.NewProtoConverter()
 	var brokerRow metric.BrokerRow
 	assert.NoError(t, converter.ConvertTo(&protoMetricsV1.Metric{
@@ -104,6 +111,11 @@ func TestFamilyChannel_Write(t *testing.T) {
 	for _, tt := range cases {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			ch := &familyChannel{
+				chunk:          chunk,
+				stoppedSignal:  make(chan struct{}, 1),
+				stoppingSignal: make(chan struct{}, 1),
+			}
 			if tt.prepare != nil {
 				tt.prepare()
 			}
@@ -139,13 +151,15 @@ func TestChannel_checkFlush(t *testing.T) {
 	chunk := NewMockChunk(ctrl)
 	ctx, cancel := context.WithCancel(context.TODO())
 	f := &familyChannel{
-		cancel:        cancel,
-		ctx:           ctx,
-		chunk:         chunk,
-		batchTimout:   5 * time.Second,
-		lastFlushTime: atomic.NewInt64(timeutil.Now()),
-		ch:            make(chan *compressedChunk),
-		logger:        logger.GetLogger("test", "test"),
+		cancel:         cancel,
+		ctx:            ctx,
+		chunk:          chunk,
+		batchTimout:    5 * time.Second,
+		lastFlushTime:  atomic.NewInt64(timeutil.Now()),
+		stoppingSignal: make(chan struct{}, 1),
+		stoppedSignal:  make(chan struct{}, 1),
+		ch:             make(chan *compressedChunk),
+		logger:         logger.GetLogger("test", "test"),
 	}
 	f.checkFlush()
 
@@ -154,7 +168,7 @@ func TestChannel_checkFlush(t *testing.T) {
 	chunk.EXPECT().Compress().Return(nil, nil)
 	f.checkFlush()
 
-	f.Stop()
+	f.Stop(10)
 }
 
 func TestFamilyChannel_flushChunkOnFull(t *testing.T) {
@@ -187,20 +201,23 @@ func TestFamilyChannel_flushChunkOnFull(t *testing.T) {
 func TestFamilyChannel_isExpire(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	f := &familyChannel{
-		ctx:           ctx,
-		cancel:        cancel,
-		familyTime:    1,
-		ch:            make(chan *compressedChunk),
-		lastFlushTime: atomic.NewInt64(timeutil.Now()),
+		ctx:            ctx,
+		cancel:         cancel,
+		familyTime:     1,
+		ch:             make(chan *compressedChunk),
+		stoppingSignal: make(chan struct{}, 1),
+		lastFlushTime:  atomic.NewInt64(timeutil.Now()),
 	}
 	assert.Equal(t, int64(1), f.FamilyTime())
 
 	assert.False(t, f.isExpire(timeutil.OneHour, 0))
-	assert.True(t, f.isExpire(0, 0))
+	assert.False(t, f.isExpire(0, 0))
 	f.lastFlushTime.Store(timeutil.Now() - timeutil.OneHour - 16*timeutil.OneMinute)
 	assert.True(t, f.isExpire(timeutil.OneHour, 0))
+	f.lastFlushTime.Store(timeutil.Now() - 16*timeutil.OneMinute)
+	assert.True(t, f.isExpire(0, 0))
 
-	f.Stop()
+	f.Stop(10)
 }
 
 func TestFamilyChannel_flushChunk(t *testing.T) {
@@ -250,7 +267,7 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 				f.chunk = chunk
 				chunk.EXPECT().IsEmpty().Return(true)
 				go func() {
-					f.Stop()
+					f.Stop(10)
 				}()
 			},
 		},
@@ -262,7 +279,7 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 				chunk.EXPECT().IsEmpty().Return(false)
 				chunk.EXPECT().Compress().Return(nil, fmt.Errorf("err"))
 				go func() {
-					f.Stop()
+					f.Stop(10)
 				}()
 			},
 		},
@@ -274,7 +291,7 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 				chunk.EXPECT().IsEmpty().Return(false)
 				chunk.EXPECT().Compress().Return(nil, nil)
 				go func() {
-					f.Stop()
+					f.Stop(10)
 				}()
 			},
 		},
@@ -286,7 +303,7 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 				chunk.EXPECT().IsEmpty().Return(false)
 				chunk.EXPECT().Compress().Return(&compressedChunk{}, nil)
 				go func() {
-					f.Stop()
+					f.Stop(10)
 				}()
 			},
 		},
@@ -303,7 +320,7 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 					return nil, fmt.Errorf("err")
 				}
 				go func() {
-					f.Stop()
+					f.Stop(10)
 				}()
 			},
 		},
@@ -323,7 +340,7 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 				stream.EXPECT().Close()
 				stream.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err"))
 				go func() {
-					f.Stop()
+					f.Stop(10)
 				}()
 			},
 		},
@@ -343,7 +360,7 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 				stream.EXPECT().Close().Return(fmt.Errorf("err"))
 				stream.EXPECT().Send(gomock.Any()).Return(io.EOF)
 				go func() {
-					f.Stop()
+					f.Stop(10)
 				}()
 			},
 		},
@@ -363,7 +380,7 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 				stream.EXPECT().Close().Return(fmt.Errorf("err"))
 				stream.EXPECT().Send(gomock.Any()).Return(nil)
 				go func() {
-					f.Stop()
+					f.Stop(timeutil.OneSecond)
 				}()
 			},
 		},
@@ -406,7 +423,7 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 					time.Sleep(200 * time.Millisecond)
 					f.leaderChangedSignal <- struct{}{} // mock leader change
 					time.Sleep(20 * time.Millisecond)
-					f.Stop()
+					f.Stop(10)
 				}()
 			},
 		},
@@ -430,7 +447,7 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 
 				go func() {
 					time.Sleep(200 * time.Millisecond)
-					f.Stop()
+					f.Stop(10)
 				}()
 			},
 		},
@@ -456,7 +473,7 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 
 				go func() {
 					time.Sleep(200 * time.Millisecond)
-					f.Stop()
+					f.Stop(10)
 				}()
 			},
 		},
@@ -475,6 +492,8 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 				lastFlushTime:       atomic.NewInt64(timeutil.Now()),
 				shardState:          models.ShardState{ID: 0, Leader: 1},
 				leaderChangedSignal: make(chan struct{}, 1),
+				stoppedSignal:       make(chan struct{}, 1),
+				stoppingSignal:      make(chan struct{}, 1),
 				currentTarget:       &models.StatefulNode{},
 				liveNodes: map[models.NodeID]models.StatefulNode{
 					1: {},

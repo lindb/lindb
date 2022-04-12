@@ -86,6 +86,7 @@ func TestWriteStream_Recv(t *testing.T) {
 	defer ctrl.Finish()
 
 	stream := &writeStream{
+		target: &models.StatefulNode{},
 		closed: atomic.NewBool(false),
 		logger: logger.GetLogger("rpc", "WriteStream"),
 	}
@@ -98,6 +99,7 @@ func TestWriteStream_Recv(t *testing.T) {
 	cli := protoWriteV1.NewMockWriteService_WriteClient(ctrl)
 	stream = &writeStream{
 		cli:    cli,
+		target: &models.StatefulNode{},
 		closed: atomic.NewBool(false),
 		logger: logger.GetLogger("rpc", "WriteStream"),
 	}
@@ -108,6 +110,7 @@ func TestWriteStream_Recv(t *testing.T) {
 	stream = &writeStream{
 		cli:    cli,
 		closed: atomic.NewBool(false),
+		target: &models.StatefulNode{},
 		logger: logger.GetLogger("rpc", "WriteStream"),
 	}
 	cli.EXPECT().Context().Return(context.TODO()).AnyTimes()
