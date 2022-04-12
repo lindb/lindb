@@ -131,7 +131,7 @@ func (c *shardChannel) Stop() {
 
 	families := c.families.Entries()
 	for _, family := range families {
-		family.Stop()
+		family.Stop(10 * timeutil.OneSecond)
 	}
 }
 
@@ -155,7 +155,7 @@ func (c *shardChannel) garbageCollect(ahead, behind int64) {
 	// stop family after remove, just stop removed family.
 	// maybe family will be used before remove.
 	for _, family := range removedFamilies {
-		family.Stop()
+		family.Stop(10 * timeutil.OneSecond)
 	}
 }
 

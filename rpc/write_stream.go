@@ -84,7 +84,7 @@ func NewWriteStream(
 	return s, nil
 }
 
-// initialize initializes grpc connection, then starts receive response task.
+// initialize grpc connection, then starts receive response task.
 func (s *writeStream) initialize() error {
 	writeService, err := s.fct.CreateWriteServiceClient(s.target)
 	if err != nil {
@@ -113,7 +113,7 @@ func (s *writeStream) initialize() error {
 	s.logger.Info("initialize write client stream successfully",
 		logger.String("database", s.database),
 		logger.Any("shard", s.shardState.ID),
-		logger.String("leader", s.target.Indicator()))
+		logger.String("target", s.target.Indicator()))
 	return nil
 }
 
@@ -129,7 +129,8 @@ func (s *writeStream) Send(data []byte) error {
 // Close closes send stream, and cancel stream context, server will stop receive write request under this stream.
 func (s *writeStream) Close() error {
 	defer s.cancel() // close stream context
-	s.logger.Info("close write stream")
+	s.logger.Info("close write stream",
+		logger.String("target", s.target.Indicator()))
 	return s.cli.CloseSend()
 }
 
@@ -139,6 +140,7 @@ func (s *writeStream) recvLoop() {
 	defer func() {
 		if err := recover(); err != nil {
 			s.logger.Error("panic when receive response from write stream",
+				logger.String("target", s.target.Indicator()),
 				logger.Any("err", err),
 				logger.Stack())
 			s.closed.Store(true)
@@ -150,14 +152,18 @@ func (s *writeStream) recvLoop() {
 		case <-s.cli.Context().Done():
 			// stream is closed, return it.
 			if err := s.cli.Context().Err(); err != nil {
-				s.logger.Error("write stream context is canceled", logger.Error(err))
+				s.logger.Error("write stream context is canceled",
+					logger.String("target", s.target.Indicator()),
+					logger.Error(err))
 			}
 			s.closed.Store(true)
 			return
 		default:
 			resp, err := s.cli.Recv()
 			if err != nil {
-				s.logger.Error("receive error from write stream", logger.Error(err))
+				s.logger.Error("receive error from write stream",
+					logger.String("target", s.target.Indicator()),
+					logger.Error(err))
 				if err == io.EOF {
 					s.closed.Store(true)
 					// stream is closed, return it.
@@ -167,7 +173,9 @@ func (s *writeStream) recvLoop() {
 			}
 			if resp.Err != "" {
 				// get err from response
-				s.logger.Error("get err write response", logger.String("err", resp.Err))
+				s.logger.Error("get err write response",
+					logger.String("target", s.target.Indicator()),
+					logger.String("err", resp.Err))
 			}
 		}
 	}
