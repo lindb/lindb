@@ -19,13 +19,13 @@ under the License.
 import { MonitoringDB } from "@src/constants";
 import { Dashboard, UnitEnum } from "@src/models";
 
-export const StorageIngestionDashboard: Dashboard = {
+export const BrokerIngestionDashboard: Dashboard = {
   variates: [
     {
       tagKey: "db",
       label: "Database",
       db: MonitoringDB,
-      sql: "show tag values from 'lindb.tsdb.shard' with key=db",
+      sql: "show tag values from 'lindb.broker.replica' with key=db",
       watch: { clear: ["node"] },
     },
     {
@@ -34,7 +34,7 @@ export const StorageIngestionDashboard: Dashboard = {
       watch: { cascade: ["db"] },
       db: MonitoringDB,
       multiple: true,
-      sql: "show tag values from 'lindb.tsdb.shard' with key=node",
+      sql: "show tag values from 'lindb.broker.replica' with key=node",
     },
   ],
   rows: [
@@ -42,12 +42,12 @@ export const StorageIngestionDashboard: Dashboard = {
       panels: [
         {
           chart: {
-            title: "Write Metric Batch",
+            title: "Current Active Family Channels",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select rate('write_batches') from 'lindb.tsdb.shard' group by db,node",
+                sql: "select 'active_families' from 'lindb.broker.replica' group by db,node",
                 watch: ["node", "db"],
               },
             ],
@@ -57,12 +57,12 @@ export const StorageIngestionDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Write Metric",
+            title: "Batch Metric",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select rate('write_metrics') from 'lindb.tsdb.shard' group by db,node",
+                sql: "select rate('batch_metrics') from 'lindb.broker.replica' group by db,node",
                 watch: ["node", "db"],
               },
             ],
@@ -72,61 +72,12 @@ export const StorageIngestionDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Write Field Data Points",
+            title: "Batch Metric Failure",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select rate('write_fields') from 'lindb.tsdb.shard' group by db,node",
-                watch: ["node", "db"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 8,
-        },
-      ],
-    },
-    {
-      panels: [
-        {
-          chart: {
-            title: "Generate Metric ID",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select rate('gen_metric_ids') from 'lindb.tsdb.metadb' group by db,node",
-                watch: ["node", "db"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 8,
-        },
-        {
-          chart: {
-            title: "Generate Tag Key ID",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select rate('gen_tag_key_ids') from 'lindb.tsdb.metadb' group by db,node",
-                watch: ["node", "db"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 8,
-        },
-        {
-          chart: {
-            title: "Generate Field ID",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select rate('gen_field_ids') from 'lindb.tsdb.metadb' group by db,node",
+                sql: "select rate('batch_metrics_failures') from 'lindb.broker.replica' group by db,node",
                 watch: ["node", "db"],
               },
             ],
@@ -140,33 +91,97 @@ export const StorageIngestionDashboard: Dashboard = {
       panels: [
         {
           chart: {
-            title: "Build Inverted Index",
+            title: "Sent Successfully",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select rate('build_inverted_index_counter') from 'lindb.tsdb.indexdb' group by db,node",
+                sql: "select rate('send_success') from 'lindb.broker.replica' group by db,node",
                 watch: ["node", "db"],
               },
             ],
             unit: UnitEnum.Short,
           },
-          span: 12,
+          span: 8,
         },
         {
           chart: {
-            title: "Generate Tag Value Failure",
+            title: "Sent Failure",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select rate('gen_tag_value_id_fails') from 'lindb.tsdb.indexdb' group by db,node",
+                sql: "select rate('send_failure') from 'lindb.broker.replica' group by db,node",
                 watch: ["node", "db"],
               },
             ],
             unit: UnitEnum.Short,
           },
-          span: 12,
+          span: 8,
+        },
+        {
+          chart: {
+            title: "Sent Size",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'send_size' from 'lindb.broker.replica' group by db,node",
+                watch: ["node", "db"],
+              },
+            ],
+            unit: UnitEnum.Bytes,
+          },
+          span: 8,
+        },
+      ],
+    },
+    {
+      panels: [
+        {
+          chart: {
+            title: "Pending For Sending",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'pending_send' from 'lindb.broker.replica' group by db,node",
+                watch: ["node", "db"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 8,
+        },
+        {
+          chart: {
+            title: "Retry Send",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'retry' from 'lindb.broker.replica' group by db,node",
+                watch: ["node", "db"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 8,
+        },
+        {
+          chart: {
+            title: "Drop After Retry Failure",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'retry_drop' from 'lindb.broker.replica' group by db,node",
+                watch: ["node", "db"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 8,
         },
       ],
     },
