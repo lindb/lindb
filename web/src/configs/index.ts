@@ -19,5 +19,8 @@ under the License.
 export * from "@src/configs/monitoring/system.monitoring";
 export * from "@src/configs/monitoring/storage.ingestion";
 export * from "@src/configs/monitoring/broker.ingestion";
+export * from "@src/configs/monitoring/broker.coordinator";
+export * from "@src/configs/monitoring/master.coordinator";
+export * from "@src/configs/monitoring/storage.coordinator";
 export * from "@src/configs/routes.config";
 export * from "@src/configs/chart.config";

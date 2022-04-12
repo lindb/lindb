@@ -180,6 +180,7 @@ func (r *runtime) Run() error {
 	r.globalKeyValues = tag.Tags{
 		{Key: []byte("node"), Value: []byte(r.node.Indicator())},
 		{Key: []byte("role"), Value: []byte(constants.StorageRole)},
+		{Key: []byte("namespace"), Value: []byte(r.config.Coordinator.Namespace)},
 	}
 
 	r.factory = factory{taskServer: rpc.NewTaskServerFactory()}

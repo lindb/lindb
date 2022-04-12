@@ -24,13 +24,18 @@ import {
   IconSearch,
   IconSendStroked,
   IconServer,
+  IconSourceControl,
   IconServerStroked,
+  IconVennChartStroked,
   IconTemplate,
 } from "@douyinfe/semi-icons";
 import { DashboardView } from "@src/components";
 import {
   StorageIngestionDashboard,
   BrokerIngestionDashboard,
+  BrokerCoordinatorDashboard,
+  MasterCoordinatorDashboard,
+  StorageCoordinatorDashboard,
 } from "@src/configs";
 import { Route, StateRoleName } from "@src/constants";
 import {
@@ -109,14 +114,8 @@ export const routes = [
     text: "Monitoring",
     items: [
       {
-        text: "Log View",
-        path: "/monitoring/logs",
-        icon: <IconListView size="large" />,
-        content: <LogView />,
-      },
-      {
         text: "Ingestion",
-        path: "/monitoring/ingestion",
+        path: Route.MonitoringIngestion,
         icon: <IconSendStroked size="large" />,
         timePicker: true,
         content: (
@@ -138,6 +137,45 @@ export const routes = [
         keep: ["start", "end", "node", "db"],
       },
       {
+        text: "Replication",
+        path: Route.MonitoringReplication,
+        icon: <IconSourceControl size="large" />,
+        keep: ["start", "end", "node"],
+      },
+      {
+        text: "Coordinator",
+        path: Route.MonitoringCoordinator,
+        icon: <IconVennChartStroked size="large" />,
+        timePicker: true,
+        content: (
+          <DashboardView
+            dashboards={[
+              {
+                label: StateRoleName.Master,
+                value: StateRoleName.Master,
+                dashboard: MasterCoordinatorDashboard,
+              },
+              {
+                label: StateRoleName.Broker,
+                value: StateRoleName.Broker,
+                dashboard: BrokerCoordinatorDashboard,
+              },
+              {
+                label: StateRoleName.Storage,
+                value: StateRoleName.Storage,
+                dashboard: StorageCoordinatorDashboard,
+              },
+            ]}
+          />
+        ),
+        keep: ["start", "end", "node"],
+      },
+      {
+        text: "Database",
+        path: "/monitoring/databasea",
+        icon: <IconServer size="large" />,
+      },
+      {
         text: "System",
         path: "/monitoring/system",
         icon: <IconServerStroked size="large" />,
@@ -145,9 +183,10 @@ export const routes = [
         keep: ["start", "end", "node"],
       },
       {
-        text: "Database",
-        path: "/monitoring/databasea",
-        icon: <IconServer size="large" />,
+        text: "Log View",
+        path: "/monitoring/logs",
+        icon: <IconListView size="large" />,
+        content: <LogView />,
       },
     ],
   },
