@@ -373,7 +373,13 @@ func (t *dataLoadTask) Run() error {
 		t.costs = make([]time.Duration, len(t.segmentCtx.FilterRS))
 	}
 	t.dataLoadCtx.Loaders[t.segmentIdx] = make([]flow.DataLoader, len(t.segmentCtx.FilterRS))
+	seriesIDs := t.dataLoadCtx.ShardExecuteCtx.SeriesIDsAfterFiltering // after group result
 	for idx, rs := range t.segmentCtx.FilterRS {
+		// double filtering, maybe some series ids be filtered out when do grouping.
+		// filter logic: forward_reader.go -> GetGroupingScanner
+		if roaring.FastAnd(seriesIDs, rs.SeriesIDs()).IsEmpty() {
+			continue
+		}
 		// maybe return nil loader
 		var start time.Time
 		if explain {
