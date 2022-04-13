@@ -170,6 +170,7 @@ func (e *storageExecutor) executeGroupBy(shardExecuteContext *flow.ShardExecuteC
 	if e.ctx.storageExecuteCtx.Query.HasGroupBy() {
 		// 1. grouping, if it has grouping, do group by tag keys, else just split series ids as batch first,
 		// get grouping context if it needs
+		// group context find task maybe change shardExecuteContext.SeriesIDsAfterFiltering value.
 		t := newGroupingContextFindTaskFunc(shardExecuteContext, shard)
 		err := t.Run()
 		if err != nil && !errors.Is(err, constants.ErrNotFound) {

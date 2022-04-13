@@ -124,6 +124,7 @@ func TestMetaNotFound(t *testing.T) {
 }
 
 func mockMetricData() {
+	// TODO write tag(a,b,c) then tag(a,b,c,d)
 	timestamp := timeutil.Now()
 	var buf bytes.Buffer
 	for i := 0; i < 50; i++ {

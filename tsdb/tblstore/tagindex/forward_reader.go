@@ -63,8 +63,8 @@ func (r *forwardReader) GetGroupingScanner(tagKeyID tag.KeyID, seriesIDs *roarin
 	var scanners []flow.GroupingScanner
 	if err := r.findReader(tagKeyID, func(reader TagForwardReader) {
 		// check reader if it has series ids(after filtering)
-		finalSeriesIDs := roaring.FastAnd(seriesIDs, reader.getSeriesIDs())
-		if finalSeriesIDs.IsEmpty() {
+		seriesIDs.And(reader.getSeriesIDs())
+		if seriesIDs.IsEmpty() {
 			// not found
 			return
 		}
