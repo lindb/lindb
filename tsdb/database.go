@@ -59,6 +59,8 @@ type Database interface {
 	Metadata() metadb.Metadata
 	// FlushMeta flushes meta to disk
 	FlushMeta() error
+	// WaitFlushMetaCompleted waits flush metadata job completed.
+	WaitFlushMetaCompleted()
 	// Flush flushes memory data of all families to disk
 	Flush() error
 }
@@ -72,14 +74,15 @@ type databaseConfig struct {
 // database implements Database for storing families,
 // each shard represents a time series storage
 type database struct {
-	name         string          // database-name
-	config       *databaseConfig // meta configuration
-	executorPool *ExecutorPool   // executor pool for querying task
-	mutex        sync.Mutex      // mutex for creating families
-	shardSet     shardSet        // atomic value
-	metadata     metadb.Metadata // underlying metric metadata
-	metaStore    kv.Store        // underlying meta kv store
-	isFlushing   atomic.Bool     // restrict flusher concurrency
+	name           string          // database-name
+	config         *databaseConfig // meta configuration
+	executorPool   *ExecutorPool   // executor pool for querying task
+	mutex          sync.Mutex      // mutex for creating families
+	shardSet       shardSet        // atomic value
+	metadata       metadb.Metadata // underlying metric metadata
+	metaStore      kv.Store        // underlying meta kv store
+	isFlushing     atomic.Bool     // restrict flusher concurrency
+	flushCondition *sync.Cond      // flush condition
 
 	flushChecker DataFlushChecker
 }
@@ -121,7 +124,8 @@ func newDatabase(
 					"pool_name", databaseName+"-scanner"),
 			),
 		},
-		isFlushing: *atomic.NewBool(false),
+		isFlushing:     *atomic.NewBool(false),
+		flushCondition: sync.NewCond(&sync.Mutex{}),
 	}
 	if err := createDatabasePath(databaseName); err != nil {
 		return nil, err
@@ -157,18 +161,22 @@ func newDatabase(
 	return db, nil
 }
 
+// Metadata returns the metadata include metric/tag
 func (db *database) Metadata() metadb.Metadata {
 	return db.metadata
 }
 
+// Name returns time series database's name
 func (db *database) Name() string {
 	return db.name
 }
 
+// NumOfShards returns number of families in time series database
 func (db *database) NumOfShards() int {
 	return db.shardSet.GetShardNum()
 }
 
+// GetOption returns the database options
 func (db *database) GetOption() *option.DatabaseOption {
 	return db.config.Option
 }
@@ -234,6 +242,9 @@ func (db *database) ExecutorPool() *ExecutorPool {
 
 // Close closes database's underlying resource
 func (db *database) Close() error {
+	// wait previous flush job completed
+	db.WaitFlushMetaCompleted()
+
 	if err := db.metadata.Close(); err != nil {
 		return err
 	}
@@ -285,24 +296,43 @@ func (db *database) initMetadata() error {
 	return nil
 }
 
+// FlushMeta flushes meta to disk.
 func (db *database) FlushMeta() (err error) {
 	// another flush process is running
 	if !db.isFlushing.CAS(false, true) {
 		return nil
 	}
-	defer db.isFlushing.Store(false)
-
+	db.flushCondition.L.Lock()
+	defer func() {
+		db.isFlushing.Store(false)
+		db.flushCondition.L.Unlock()
+		db.flushCondition.Broadcast()
+	}()
 	return db.metadata.Flush()
 }
 
-// Flush flushes memory data of all families to disk
+// WaitFlushMetaCompleted waits flush metadata job completed.
+func (db *database) WaitFlushMetaCompleted() {
+	db.flushCondition.L.Lock()
+	if db.isFlushing.Load() {
+		db.flushCondition.Wait()
+	}
+	db.flushCondition.L.Unlock()
+}
+
+// Flush flushes memory data of all families to disk.
 func (db *database) Flush() error {
 	for _, shardEntry := range db.shardSet.Entries() {
 		shard := shardEntry.shard
 		db.flushChecker.requestFlushJob(&flushRequest{
-			shard:    shard,
-			families: GetFamilyManager().GetFamiliesByShard(shard),
-			global:   false,
+			db: db,
+			shards: map[models.ShardID]*flushShard{
+				shard.ShardID(): {
+					shard:    shard,
+					families: GetFamilyManager().GetFamiliesByShard(shard),
+				},
+			},
+			global: false,
 		})
 	}
 	return nil

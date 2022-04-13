@@ -21,7 +21,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -284,6 +286,7 @@ func TestShard_Close(t *testing.T) {
 		rollupTargets: map[timeutil.Interval]IntervalSegment{
 			timeutil.Interval(10 * 60 * 1000): rollupSeg, // 10min
 		},
+		flushCondition: sync.NewCond(&sync.Mutex{}),
 	}
 	cases := []struct {
 		name    string
@@ -347,9 +350,10 @@ func TestShard_Flush(t *testing.T) {
 	db := NewMockDatabase(ctrl)
 	db.EXPECT().Name().Return("test").AnyTimes()
 	s := &shard{
-		indexDB: index,
-		db:      db,
-		logger:  logger.GetLogger("TSDB", "test"),
+		indexDB:        index,
+		db:             db,
+		flushCondition: sync.NewCond(&sync.Mutex{}),
+		logger:         logger.GetLogger("TSDB", "test"),
 	}
 	s.statistics.indexFlushTimer = indexFlushTimerVec.WithTagValues("test", "1")
 	cases := []struct {
@@ -386,8 +390,8 @@ func TestShard_Flush(t *testing.T) {
 			if tt.prepare != nil {
 				tt.prepare()
 			}
-			if err := s.Flush(); (err != nil) != tt.wantErr {
-				t.Errorf("Flush() error = %v, wantErr %v", err, tt.wantErr)
+			if err := s.FlushIndex(); (err != nil) != tt.wantErr {
+				t.Errorf("FlushIndex() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -515,6 +519,48 @@ func TestShard_lookupRowMeta(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestShard_WaitFlushIndexCompleted(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	now := timeutil.Now()
+
+	index := indexdb.NewMockIndexDatabase(ctrl)
+	db := NewMockDatabase(ctrl)
+	db.EXPECT().Name().Return("test").AnyTimes()
+	s := &shard{
+		indexDB:        index,
+		db:             db,
+		flushCondition: sync.NewCond(&sync.Mutex{}),
+		logger:         logger.GetLogger("TSDB", "test"),
+	}
+	s.statistics.indexFlushTimer = indexFlushTimerVec.WithTagValues("test", "1")
+	s.isFlushing.Store(false)
+	index.EXPECT().Flush().DoAndReturn(func() error {
+		time.Sleep(100 * time.Millisecond)
+		return nil
+	})
+	var wait sync.WaitGroup
+	wait.Add(2)
+	ch := make(chan struct{})
+	go func() {
+		ch <- struct{}{}
+		err := s.FlushIndex()
+		assert.NoError(t, err)
+	}()
+	<-ch
+	time.Sleep(10 * time.Millisecond)
+	go func() {
+		s.WaitFlushIndexCompleted()
+		wait.Done()
+	}()
+	go func() {
+		s.WaitFlushIndexCompleted()
+		wait.Done()
+	}()
+	wait.Wait()
+	assert.True(t, timeutil.Now()-now >= 90*time.Millisecond.Milliseconds())
 }
 
 func mockBatchRows(m *protoMetricsV1.Metric) []metric.StorageRow {

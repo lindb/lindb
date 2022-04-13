@@ -27,6 +27,7 @@ import (
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/monitoring"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/ltoml"
 )
@@ -67,11 +68,17 @@ type DataFlushChecker interface {
 	requestFlushJob(request *flushRequest)
 }
 
-// flushRequest represents the families flush job request
-type flushRequest struct {
+// flushShard represents the shard flush job request
+type flushShard struct {
 	shard    Shard
 	families []DataFamily
-	global   bool // above high memory watermark
+}
+
+// flushRequest represents the families flush job request
+type flushRequest struct {
+	db     Database
+	shards map[models.ShardID]*flushShard
+	global bool // above high memory watermark
 }
 
 // dataFlushChecker implements DataFlushCheck interface
@@ -79,12 +86,12 @@ type dataFlushChecker struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	shardInFlushing      sync.Map
-	flushRequestCh       chan *flushRequest          // family to flush
-	flushInFlight        atomic.Int32                // current pending in flushing
-	isWatermarkFlushing  atomic.Bool                 // this flag symbols if has goroutine in high water-mark flushing
-	memoryStatGetterFunc monitoring.MemoryStatGetter // used for mocking
+	dbInFlushing         sync.Map           // database name => flush request
+	flushRequestCh       chan *flushRequest // family to flush
+	flushInFlight        atomic.Int32       // current pending in flushing
+	isWatermarkFlushing  atomic.Bool        // this flag symbols if it has goroutine in high water-mark flushing
 	running              *atomic.Bool
+	memoryStatGetterFunc monitoring.MemoryStatGetter // used for mocking
 	logger               *logger.Logger
 }
 
@@ -133,43 +140,56 @@ func (fc *dataFlushChecker) startCheckDataFlush() {
 		case <-fc.ctx.Done():
 			return
 		case <-timer.C:
-			needFlushShards := make(map[string]*flushRequest)
-			// check each family if it needs to do flush job
-			GetFamilyManager().WalkEntry(func(family DataFamily) {
-				if family.NeedFlush() {
-					shard := family.Shard()
-					needFlushShard, ok := needFlushShards[shard.Indicator()]
-					if !ok {
-						needFlushShards[shard.Indicator()] = &flushRequest{
-							shard:    shard,
-							families: []DataFamily{family},
-							global:   false,
-						}
-					} else {
-						needFlushShard.families = append(needFlushShard.families, family)
-					}
-				}
-			})
-
-			for _, request := range needFlushShards {
-				fc.requestFlushJob(request)
-			}
-
-			if len(needFlushShards) == 0 && !fc.isWatermarkFlushing.Load() && fc.flushInFlight.Load() == 0 {
-				// check Global memory is above than the high watermark, if no shard need flush
-				stat, _ := fc.memoryStatGetterFunc()
-				maxMemUsageLimit := config.GlobalStorageConfig().TSDB.MaxMemUsageBeforeFlush * 100
-				if stat.UsedPercent > maxMemUsageLimit {
-					// memory is higher than the high-watermark
-					// restrict watermarkFlusher concurrency thread-safe
-					fc.logger.Info("memory is higher than the high watermark, need pick biggest memory usage family to flush",
-						logger.Any("memoryUsed", stat.UsedPercent),
-						logger.Any("limit", maxMemUsageLimit))
-					fc.flushBiggestMemoryUsageFamily()
-				}
-			}
+			fc.check()
 			// reset check interval
 			timer.Reset(memoryUsageCheckInterval.Load())
+		}
+	}
+}
+
+// check finds family which need flush data.
+func (fc *dataFlushChecker) check() {
+	needFlushDBs := make(map[string]*flushRequest)
+	// check each family if it needs to do flush job
+	GetFamilyManager().WalkEntry(func(family DataFamily) {
+		if family.NeedFlush() {
+			shard := family.Shard()
+			dbName := shard.Database().Name()
+			needFlushDB, ok := needFlushDBs[dbName]
+			if !ok {
+				needFlushDB = &flushRequest{
+					db:     shard.Database(),
+					shards: make(map[models.ShardID]*flushShard),
+					global: false,
+				}
+				needFlushDBs[dbName] = needFlushDB
+			}
+			needFlushShard, ok := needFlushDB.shards[shard.ShardID()]
+			if !ok {
+				needFlushShard = &flushShard{
+					shard: shard,
+				}
+				needFlushDB.shards[shard.ShardID()] = needFlushShard
+			}
+			needFlushShard.families = append(needFlushShard.families, family)
+		}
+	})
+
+	for _, request := range needFlushDBs {
+		fc.requestFlushJob(request)
+	}
+
+	if len(needFlushDBs) == 0 && !fc.isWatermarkFlushing.Load() && fc.flushInFlight.Load() == 0 {
+		// check Global memory is above than the high watermark, if no shard need flush
+		stat, _ := fc.memoryStatGetterFunc()
+		maxMemUsageLimit := config.GlobalStorageConfig().TSDB.MaxMemUsageBeforeFlush * 100
+		if stat.UsedPercent > maxMemUsageLimit {
+			// memory is higher than the high-watermark
+			// restrict watermarkFlusher concurrency thread-safe
+			fc.logger.Info("memory is higher than the high watermark, need pick biggest memory usage family to flush",
+				logger.Any("memoryUsed", stat.UsedPercent),
+				logger.Any("limit", maxMemUsageLimit))
+			fc.flushBiggestMemoryUsageFamily()
 		}
 	}
 }
@@ -179,16 +199,16 @@ func (fc *dataFlushChecker) requestFlushJob(request *flushRequest) {
 	if !fc.running.Load() {
 		return
 	}
-	_, ok := fc.shardInFlushing.Load(request.shard.Indicator())
+	_, ok := fc.dbInFlushing.Load(request.db.Name())
 	if ok {
 		// if shard is in flushing queue, returns it
 		return
 	}
-	fc.shardInFlushing.Store(request.shard.Indicator(), request)
 	select {
 	case <-fc.ctx.Done():
 		return
 	case fc.flushRequestCh <- request:
+		fc.dbInFlushing.Store(request.db.Name(), request)
 		// add count of flush in flight
 		fc.flushInFlight.Inc()
 	}
@@ -211,24 +231,49 @@ func (fc *dataFlushChecker) flushWorker() {
 
 // doFlush does the flush job for the spec family.
 func (fc *dataFlushChecker) doFlush(request *flushRequest) {
-	indicator := request.shard.Indicator()
+	indicator := request.db.Name()
 	defer func() {
-		// after flush, try garbage collect(write buffer)
-		request.shard.BufferManager().GarbageCollect()
-
 		if request.global {
 			fc.isWatermarkFlushing.Store(false)
 		}
 		fc.flushInFlight.Dec()
 		// delete family from flushing queue
-		fc.shardInFlushing.Delete(indicator)
+		fc.dbInFlushing.Delete(indicator)
 	}()
 
 	if request.global {
 		fc.isWatermarkFlushing.Store(true)
 	}
-	// TODO
-	_ = request.shard.Flush()
+	// flush data step:
+	// 1. flush database metadata(metric/tag/field) if it needs
+	// 2. flush index database for each shard if it needs
+	// 3. flush family data
+	if err := request.db.FlushMeta(); err != nil {
+		engineLogger.Error("flush database metadata error",
+			logger.String("database", request.db.Name()), logger.Error(err))
+		return
+	}
+	// wait metadata flush job completed, maybe other goroutine is flushing.
+	request.db.WaitFlushMetaCompleted()
+	// flush each shard
+	for shardID := range request.shards {
+		shardReq := request.shards[shardID]
+		fc.flushShard(shardReq)
+	}
+}
+
+// flushShard flushes index data and family metric data.
+func (fc *dataFlushChecker) flushShard(request *flushShard) {
+	// after flush, try garbage collect(write buffer)
+	defer request.shard.BufferManager().GarbageCollect()
+
+	if err := request.shard.FlushIndex(); err != nil {
+		engineLogger.Error("flush shard index memory database error",
+			logger.String("shard", request.shard.Indicator()), logger.Error(err))
+		return
+	}
+	// wait index flush job completed, maybe other goroutine is flushing.
+	request.shard.WaitFlushIndexCompleted()
 
 	// TODO add flush timeout?
 	for _, family := range request.families {
@@ -264,10 +309,16 @@ func (fc *dataFlushChecker) flushBiggestMemoryUsageFamily() {
 	if biggestFamily == nil {
 		return
 	}
+	shard := biggestFamily.Shard()
 	// request flush job
 	fc.requestFlushJob(&flushRequest{
-		shard:    biggestFamily.Shard(),
-		families: []DataFamily{biggestFamily},
-		global:   true,
+		db: shard.Database(),
+		shards: map[models.ShardID]*flushShard{
+			shard.ShardID(): {
+				shard:    biggestFamily.Shard(),
+				families: []DataFamily{biggestFamily},
+			},
+		},
+		global: true,
 	})
 }
