@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -32,6 +33,7 @@ import (
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/option"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/tsdb/metadb"
 )
 
@@ -305,9 +307,10 @@ func TestDatabase_Close(t *testing.T) {
 	store := kv.NewMockStore(ctrl)
 	store.EXPECT().Name().Return("metaStore").AnyTimes()
 	db := &database{
-		metadata:  metadata,
-		shardSet:  *newShardSet(),
-		metaStore: store,
+		metadata:       metadata,
+		shardSet:       *newShardSet(),
+		metaStore:      store,
+		flushCondition: sync.NewCond(&sync.Mutex{}),
 	}
 	cases := []struct {
 		name    string
@@ -364,8 +367,9 @@ func TestDatabase_FlushMeta(t *testing.T) {
 
 	metadata := metadb.NewMockMetadata(ctrl)
 	db := &database{
-		metadata:   metadata,
-		isFlushing: *atomic.NewBool(false)}
+		metadata:       metadata,
+		flushCondition: sync.NewCond(&sync.Mutex{}),
+		isFlushing:     *atomic.NewBool(false)}
 	cases := []struct {
 		name    string
 		prepare func()
@@ -418,8 +422,8 @@ func TestDatabase_Flush(t *testing.T) {
 	}
 	shard1 := NewMockShard(ctrl)
 	shard2 := NewMockShard(ctrl)
-	shard1.EXPECT().Indicator().Return("shard1").AnyTimes()
-	shard2.EXPECT().Indicator().Return("shard2").AnyTimes()
+	shard1.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
+	shard2.EXPECT().ShardID().Return(models.ShardID(2)).AnyTimes()
 	db.shardSet.InsertShard(1, shard1)
 	db.shardSet.InsertShard(2, shard2)
 	checker.EXPECT().requestFlushJob(gomock.Any())
@@ -444,6 +448,43 @@ func Test_ShardSet_multi(t *testing.T) {
 	assert.False(t, ok)
 	_, ok = set.GetShard(101)
 	assert.False(t, ok)
+}
+
+func TestDatabase_WaitFlushMetaCompleted(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	now := timeutil.Now()
+	metadata := metadb.NewMockMetadata(ctrl)
+	db := &database{
+		metadata:       metadata,
+		isFlushing:     *atomic.NewBool(false),
+		flushCondition: sync.NewCond(&sync.Mutex{}),
+	}
+	metadata.EXPECT().Flush().DoAndReturn(func() error {
+		time.Sleep(100 * time.Millisecond)
+		return nil
+	})
+	var wait sync.WaitGroup
+	wait.Add(2)
+	ch := make(chan struct{})
+	go func() {
+		ch <- struct{}{}
+		err := db.FlushMeta()
+		assert.NoError(t, err)
+	}()
+	<-ch
+	time.Sleep(10 * time.Millisecond)
+	go func() {
+		db.WaitFlushMetaCompleted()
+		wait.Done()
+	}()
+	go func() {
+		db.WaitFlushMetaCompleted()
+		wait.Done()
+	}()
+	wait.Wait()
+	assert.True(t, timeutil.Now()-now >= 100*time.Millisecond.Milliseconds())
 }
 
 func Benchmark_LoadSyncMap(b *testing.B) {

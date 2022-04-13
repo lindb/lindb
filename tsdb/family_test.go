@@ -60,6 +60,8 @@ func TestDataFamily_BaseTime(t *testing.T) {
 	assert.Equal(t, timeRange, dataFamily.TimeRange())
 	assert.Equal(t, timeutil.Interval(10000), dataFamily.Interval())
 	assert.NotNil(t, dataFamily.Family())
+	assert.Equal(t, shard, dataFamily.Shard())
+	assert.Equal(t, int64(10), dataFamily.FamilyTime())
 
 	err := dataFamily.Close()
 	assert.NoError(t, err)
