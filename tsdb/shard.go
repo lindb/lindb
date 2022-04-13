@@ -75,11 +75,14 @@ type Shard interface {
 	GetDataFamilies(intervalType timeutil.IntervalType, timeRange timeutil.TimeRange) []DataFamily
 	// IndexDatabase returns the index-database
 	IndexDatabase() indexdb.IndexDatabase
+	// BufferManager returns write temp memory manager.
 	BufferManager() memdb.BufferManager
 	// LookupRowMetricMeta lookups the metadata of metric data for each row with same family in batch.
 	LookupRowMetricMeta(rows []metric.StorageRow) error
-
-	Flush() error
+	// FlushIndex flushes index data to disk.
+	FlushIndex() error
+	// WaitFlushIndexCompleted waits flush index job completed.
+	WaitFlushIndexCompleted()
 	// initIndexDatabase initializes index database
 	initIndexDatabase() error
 	// Closer releases shard's resource, such as flush data, spawned goroutines etc.
@@ -103,7 +106,7 @@ type shard struct {
 	rollupTargets  map[timeutil.Interval]IntervalSegment
 	segment        IntervalSegment // smallest interval for writing data
 	isFlushing     atomic.Bool     // restrict flusher concurrency
-	flushCondition sync.WaitGroup  // flush condition
+	flushCondition *sync.Cond      // flush condition
 
 	indexStore     kv.Store  // kv stores
 	forwardFamily  kv.Family // forward store
@@ -129,15 +132,16 @@ func newShard(
 	}
 	dbOption := db.GetOption()
 	createdShard := &shard{
-		db:            db,
-		indicator:     shardIndicator(db.Name(), shardID),
-		id:            shardID,
-		option:        dbOption,
-		metadata:      db.Metadata(),
-		bufferMgr:     memdb.NewBufferManager(shardTempBufferPath(db.Name(), shardID)),
-		rollupTargets: make(map[timeutil.Interval]IntervalSegment),
-		isFlushing:    *atomic.NewBool(false),
-		logger:        logger.GetLogger("TSDB", "Shard"),
+		db:             db,
+		indicator:      shardIndicator(db.Name(), shardID),
+		id:             shardID,
+		option:         dbOption,
+		metadata:       db.Metadata(),
+		bufferMgr:      memdb.NewBufferManager(shardTempBufferPath(db.Name(), shardID)),
+		rollupTargets:  make(map[timeutil.Interval]IntervalSegment),
+		isFlushing:     *atomic.NewBool(false),
+		flushCondition: sync.NewCond(&sync.Mutex{}),
+		logger:         logger.GetLogger("TSDB", "Shard"),
 	}
 	// try cleanup history dirty write buffer
 	createdShard.bufferMgr.Cleanup()
@@ -199,6 +203,7 @@ func (s *shard) CurrentInterval() timeutil.Interval { return s.interval }
 
 func (s *shard) IndexDatabase() indexdb.IndexDatabase { return s.indexDB }
 
+// BufferManager returns write temp memory manager.
 func (s *shard) BufferManager() memdb.BufferManager {
 	return s.bufferMgr
 }
@@ -244,6 +249,7 @@ func (s *shard) lookupRowMeta(row *metric.StorageRow) (err error) {
 	metricName := string(row.Name())
 
 	if len(row.NameSpace()) > 0 {
+		// TODO add auto create ns check
 		namespace = string(row.NameSpace())
 	}
 
@@ -345,7 +351,7 @@ func (s *shard) LookupRowMetricMeta(rows []metric.StorageRow) error {
 
 func (s *shard) Close() error {
 	// wait previous flush job completed
-	s.flushCondition.Wait()
+	s.WaitFlushIndexCompleted()
 
 	if s.indexDB != nil {
 		if err := s.indexDB.Close(); err != nil {
@@ -365,24 +371,23 @@ func (s *shard) Close() error {
 	return nil
 }
 
-// Flush flushes index and memory data to disk
-func (s *shard) Flush() (err error) {
+// FlushIndex flushes index data to disk
+func (s *shard) FlushIndex() (err error) {
 	// another flush process is running
 	if !s.isFlushing.CAS(false, true) {
 		return nil
 	}
 	// 1. mark flush job doing
-	s.flushCondition.Add(1)
+	s.flushCondition.L.Lock()
 
 	defer func() {
-		// TODO add commit kv meta after ack successfully
-		// mark flush job complete, notify
-		s.flushCondition.Done()
 		s.isFlushing.Store(false)
+		s.flushCondition.L.Unlock()
+		// mark flush job complete, notify
+		s.flushCondition.Broadcast()
 	}()
 
 	startTime := time.Now()
-	// FIXME stone1100
 	// index flush
 	if err = s.indexDB.Flush(); err != nil {
 		s.logger.Error("failed to flush indexDB ",
@@ -397,8 +402,16 @@ func (s *shard) Flush() (err error) {
 	)
 	s.statistics.indexFlushTimer.UpdateSince(startTime)
 
-	// FIXME(stone1100) commit replica sequence
 	return nil
+}
+
+// WaitFlushIndexCompleted waits flush index job completed.
+func (s *shard) WaitFlushIndexCompleted() {
+	s.flushCondition.L.Lock()
+	if s.isFlushing.Load() {
+		s.flushCondition.Wait()
+	}
+	s.flushCondition.L.Unlock()
 }
 
 // initIndexDatabase initializes the index database

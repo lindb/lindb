@@ -166,6 +166,7 @@ func (f *dataFamily) Indicator() string {
 	return f.indicator
 }
 
+// Shard returns shard.
 func (f *dataFamily) Shard() Shard {
 	return f.shard
 }
@@ -252,8 +253,6 @@ func (f *dataFamily) Flush() error {
 		f.flushCondition.Add(1)
 
 		startTime := time.Now()
-		// TODO flush index first????
-
 		// add lock when switch memory database
 		f.mutex.Lock()
 		if f.immutableMemDB != nil || f.mutableMemDB == nil || f.mutableMemDB.Size() == 0 {
