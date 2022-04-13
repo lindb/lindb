@@ -318,19 +318,20 @@ func TestDataLoadTask_Run(t *testing.T) {
 	rs := flow.NewMockFilterResultSet(ctrl)
 	rs.EXPECT().Identifier().Return(fmt.Sprintf("shard/%d/segment/day/20210703", 10))
 	rs.EXPECT().Identifier().Return("memory").AnyTimes()
-	rs.EXPECT().SeriesIDs().Return(roaring.BitmapOf(1, 2, 3)).AnyTimes()
 	ctx := &flow.DataLoadContext{
 		ShardExecuteCtx: &flow.ShardExecuteContext{
 			StorageExecuteCtx: &flow.StorageExecuteContext{
 				Query: &stmt.Query{},
 				Stats: models.NewStorageStats(),
 			},
+			SeriesIDsAfterFiltering: roaring.BitmapOf(1, 2, 3),
 		},
 		Loaders: make([][]flow.DataLoader, 1),
 	}
 	segment := &flow.TimeSegmentResultSet{FilterRS: []flow.FilterResultSet{rs}}
 	task := newDataLoadTask(shard, qf, ctx, 0, segment)
 	rs.EXPECT().Load(gomock.Any()).AnyTimes()
+	rs.EXPECT().SeriesIDs().Return(roaring.BitmapOf(10, 20))
 	// case 1: load data
 	err := task.Run()
 	assert.NoError(t, err)
@@ -338,6 +339,7 @@ func TestDataLoadTask_Run(t *testing.T) {
 	ctx.ShardExecuteCtx.StorageExecuteCtx.Query.Explain = true
 	task = newDataLoadTask(shard, qf, ctx, 0, segment)
 	shard.EXPECT().ShardID().Return(models.ShardID(10)).AnyTimes()
+	rs.EXPECT().SeriesIDs().Return(roaring.BitmapOf(1, 2)).AnyTimes()
 	err = task.Run()
 	assert.NoError(t, err)
 	err = task.Run()
