@@ -62,6 +62,8 @@ type Partition interface {
 	IsExpire() bool
 	// Path returns the path of partition.
 	Path() string
+	// Stop stops replicator channel.
+	Stop()
 	// getReplicaState returns each family's log replica state.
 	getReplicaState() models.FamilyLogReplicaState
 	// recovery rebuilds replication relation based on local partition.
@@ -227,6 +229,13 @@ func (p *partition) BuildReplicaForFollower(leader, replica models.NodeID) error
 
 // Close shutdowns all replica workers.
 func (p *partition) Close() error {
+	// close log
+	p.log.Close()
+	return nil
+}
+
+// Stop stops replicator channel.
+func (p *partition) Stop() {
 	var waiter sync.WaitGroup
 	waiter.Add(len(p.peers))
 	for k := range p.peers {
@@ -237,10 +246,6 @@ func (p *partition) Close() error {
 		}()
 	}
 	waiter.Wait()
-
-	// close log
-	p.log.Close()
-	return nil
 }
 
 // getReplicaState returns each family's log replica state.
