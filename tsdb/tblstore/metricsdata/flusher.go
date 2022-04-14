@@ -60,6 +60,8 @@ type Flusher interface {
 	CommitMetric(slotRange timeutil.SlotRange) error
 	// GetFieldMetas returns current field metas of metric.
 	GetFieldMetas() field.Metas
+	// GetEncoder returns tsd encoder by field index.
+	GetEncoder(fieldIdx int) *encoding.TSDEncoder
 
 	// Closer closes the writer, syncs all data to the file.
 	io.Closer
@@ -70,6 +72,8 @@ type flusher struct {
 	// Level1 flusher
 	kvFlusher kv.Flusher
 	kvWriter  table.StreamWriter
+
+	encoders []*encoding.TSDEncoder // each encoder ref field store
 
 	// ━━━━━━━━━━━━━━━━━━━━━━━━━━Layout of Metric Data Table━━━━━━━━━━━━━━━━━━━━━━
 	//                     Level1
@@ -212,6 +216,17 @@ func (w *flusher) PrepareMetric(
 
 	w.Level4.fieldBuffer = make([][]byte, len(fieldMetas))
 	w.Level4.fieldAppendIdx = 0
+
+	w.prepareEncoder()
+}
+
+// prepareEncoder prepares tsd encoder slice based on current field metas.
+func (w *flusher) prepareEncoder() {
+	countOfFixEncode := len(w.Level2.fieldMetas) - len(w.encoders)
+	for i := 0; i < countOfFixEncode; i++ {
+		// NOTICE: set invalid start time, need to reset before use
+		w.encoders = append(w.encoders, encoding.GetTSDEncoder(0))
+	}
 }
 
 func (w *flusher) FlushField(data []byte) error {
@@ -409,10 +424,17 @@ func (w *flusher) CommitMetric(slotRange timeutil.SlotRange) error {
 // Close adds the footer and then closes the kv builder,
 // this will be called after writing all metric-blocks.
 func (w *flusher) Close() error {
+	for idx := range w.encoders {
+		encoding.ReleaseTSDEncoder(w.encoders[idx])
+	}
 	return w.kvFlusher.Commit()
 }
 
 // GetFieldMetas returns the file metas of current metric.
 func (w *flusher) GetFieldMetas() field.Metas {
 	return w.Level2.fieldMetas
+}
+
+func (w *flusher) GetEncoder(fieldIdx int) *encoding.TSDEncoder {
+	return w.encoders[fieldIdx]
 }

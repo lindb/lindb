@@ -145,7 +145,7 @@ func TestMerger_Compact_Merge(t *testing.T) {
 	flusher.EXPECT().PrepareMetric(uint32(1),
 		field.Metas{{ID: 2, Type: field.SumField}, {ID: 10, Type: field.MinField}}).AnyTimes()
 
-	seriesMerger.EXPECT().merge(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+	seriesMerger.EXPECT().merge(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(fmt.Errorf("err"))
 	err = merge.Merge(
 		1,
@@ -157,7 +157,7 @@ func TestMerger_Compact_Merge(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, nopFlusher.Bytes())
 	// case 3: merge success
-	seriesMerger.EXPECT().merge(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+	seriesMerger.EXPECT().merge(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(nil).Times(4)
 	gomock.InOrder(
 		flusher.EXPECT().FlushSeries(uint32(1)),
@@ -175,7 +175,7 @@ func TestMerger_Compact_Merge(t *testing.T) {
 	assert.NoError(t, err)
 	assert.False(t, len(nopFlusher.Bytes()) > 0) // data flush is mock
 	// case 4: flush metric err
-	seriesMerger.EXPECT().merge(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+	seriesMerger.EXPECT().merge(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(nil)
 	gomock.InOrder(
 		flusher.EXPECT().FlushSeries(uint32(1)).Return(nil),
@@ -212,7 +212,7 @@ func TestMerger_Rollup_Merge(t *testing.T) {
 	rollup.EXPECT().GetTimestamp(uint16(15)).Return(int64(150))
 	rollup.EXPECT().CalcSlot(int64(150)).Return(uint16(0))
 	rollup.EXPECT().BaseSlot().Return(uint16(10))
-	seriesMerger.EXPECT().merge(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+	seriesMerger.EXPECT().merge(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(nil).Times(4)
 	gomock.InOrder(
 		flusher.EXPECT().FlushSeries(uint32(1)),

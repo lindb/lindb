@@ -39,7 +39,7 @@ type tStoreINTF interface {
 	InsertFStore(fStore fStoreINTF)
 	// FlushFieldsTo flushes the field data segment.
 	FlushFieldsTo(flusher metricsdata.Flusher, flushCtx *flushContext) error
-	// load loads the time series data based on field ids
+	// load the time series data based on field ids
 	load(fields field.Metas, slotRange timeutil.SlotRange) [][]byte
 }
 
@@ -112,6 +112,7 @@ func (ts *timeSeriesStore) FlushFieldsTo(flusher metricsdata.Flusher, flushCtx *
 	for _, fieldMeta := range fieldMetas {
 		if idx < fStoreLen && fieldMeta.ID == stores[idx].GetFieldID() {
 			// flush field data
+			flushCtx.fieldIdx = idx
 			if err := stores[idx].FlushFieldTo(flusher, fieldMeta, flushCtx); err != nil {
 				return err
 			}
@@ -125,7 +126,7 @@ func (ts *timeSeriesStore) FlushFieldsTo(flusher metricsdata.Flusher, flushCtx *
 	return nil
 }
 
-// load loads the time series data based on key(family+field).
+// load the time series data based on key(family+field).
 // NOTICE: field ids and fields aggregator must be in order.
 func (ts *timeSeriesStore) load(fields field.Metas, slotRange timeutil.SlotRange) [][]byte {
 	fieldLength := len(ts.fStoreNodes)

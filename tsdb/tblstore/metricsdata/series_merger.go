@@ -26,10 +26,9 @@ import (
 
 // SeriesMerger represents series data merger which merge multi fields under same series id
 type SeriesMerger interface {
-	// merge merges the multi fields data with same series id
+	// merge the multi-fields' data with same series id
 	merge(mergeCtx *mergerContext,
 		decodeStreams []*encoding.TSDDecoder,
-		encodeStream *encoding.TSDEncoder,
 		fieldReaders []FieldReader,
 	) error
 }
@@ -46,15 +45,16 @@ func newSeriesMerger(flusher Flusher) SeriesMerger {
 	}
 }
 
-// merge merges the multi fields data with same series id
+// merge the multi-fields' data with same series id
 func (sm *seriesMerger) merge(
 	mergeCtx *mergerContext,
 	streams []*encoding.TSDDecoder,
-	encodeStream *encoding.TSDEncoder,
 	fieldReaders []FieldReader,
 ) error {
-	for _, f := range mergeCtx.targetFields {
+	for idx, f := range mergeCtx.targetFields {
 		fieldID := f.ID
+		encodeStream := sm.flusher.GetEncoder(idx)
+		encodeStream.RestWithStartTime(mergeCtx.targetRange.Start)
 
 		for idx, reader := range fieldReaders {
 			if reader == nil {
@@ -94,7 +94,7 @@ func (sm *seriesMerger) merge(
 	}
 
 	// need mark metricReader completed, because next series id maybe haven't field data in metricReader,
-	// if don't mark metricReader completed, some data will read duplicate.
+	// if it doesn't mark metricReader completed, some data will read duplicate.
 	for _, reader := range fieldReaders {
 		if reader != nil {
 			reader.Close()
