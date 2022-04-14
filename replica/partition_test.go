@@ -337,3 +337,20 @@ func TestPartition_recovery(t *testing.T) {
 		assert.NoError(t, err)
 	})
 }
+
+func TestPartition_Stop(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	peer1 := NewMockReplicatorPeer(ctrl)
+	peer2 := NewMockReplicatorPeer(ctrl)
+	p := &partition{
+		peers: map[models.NodeID]ReplicatorPeer{
+			1: peer1,
+			2: peer2,
+		},
+	}
+	peer1.EXPECT().Shutdown()
+	peer2.EXPECT().Shutdown()
+	p.Stop()
+}

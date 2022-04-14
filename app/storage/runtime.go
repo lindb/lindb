@@ -360,11 +360,26 @@ func (r *runtime) Stop() {
 		r.log.Info("stopped GRPC server")
 	}
 
+	if r.walMgr != nil {
+		r.log.Info("stopping write ahead log replicator...")
+		r.walMgr.Stop()
+		r.log.Info("stopped write ahead log replicator...")
+	}
+
 	// close the storage engine
 	if r.engine != nil {
 		r.log.Info("stopping tsdb engine...")
 		r.engine.Close()
 		r.log.Info("stopped tsdb engine")
+	}
+
+	if r.walMgr != nil {
+		r.log.Info("Closing write ahead log ...")
+		if err := r.walMgr.Close(); err != nil {
+			r.log.Error("stopped write ahead log replicator with error", logger.Error(err))
+		} else {
+			r.log.Info("write ahead log closed...")
+		}
 	}
 
 	r.log.Info("stopped storage server successfully")

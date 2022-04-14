@@ -28,7 +28,7 @@ var (
 	removeFunc    = os.Remove
 )
 
-// MkDirIfNotExist creates given dir if it not exist
+// MkDirIfNotExist creates given dir if it's not exist
 func MkDirIfNotExist(path string) error {
 	if !Exist(path) {
 		if e := mkdirAllFunc(path, os.ModePerm); e != nil {
