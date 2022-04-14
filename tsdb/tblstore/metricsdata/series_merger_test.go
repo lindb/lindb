@@ -35,6 +35,7 @@ func TestSeriesMerger_compact_merge(t *testing.T) {
 	defer ctrl.Finish()
 
 	flusher := NewMockFlusher(ctrl)
+	flusher.EXPECT().GetEncoder(gomock.Any()).Return(encoding.GetTSDEncoder(0)).AnyTimes()
 	merger := newSeriesMerger(flusher)
 	decodeStreams := make([]*encoding.TSDDecoder, 3)
 	reader1 := NewMockFieldReader(ctrl)
@@ -43,7 +44,6 @@ func TestSeriesMerger_compact_merge(t *testing.T) {
 	reader2.EXPECT().Close().AnyTimes()
 	readers := []FieldReader{reader1, nil, reader2}
 
-	encodeStream := encoding.NewTSDEncoder(5)
 	// case 1: merge success and rollup
 	reader1.EXPECT().GetFieldData(gomock.Any()).Return(mockField(10))
 	reader1.EXPECT().SlotRange().Return(timeutil.SlotRange{Start: 10, End: 10})
@@ -60,7 +60,7 @@ func TestSeriesMerger_compact_merge(t *testing.T) {
 			sourceRange:  timeutil.SlotRange{Start: 5, End: 15},
 			targetRange:  timeutil.SlotRange{Start: 5, End: 15},
 			ratio:        1,
-		}, decodeStreams, encodeStream, readers)
+		}, decodeStreams, readers)
 	assert.NoError(t, err)
 	tsd := encoding.GetTSDDecoder()
 	tsd.ResetWithTimeRange(result, 5, 15)
@@ -87,7 +87,7 @@ func TestSeriesMerger_compact_merge(t *testing.T) {
 			sourceRange:  timeutil.SlotRange{Start: 5, End: 15},
 			targetRange:  timeutil.SlotRange{Start: 5, End: 15},
 			ratio:        1,
-		}, decodeStreams, encodeStream, readers)
+		}, decodeStreams, readers)
 	assert.NoError(t, err)
 	tsd.ResetWithTimeRange(result, 5, 15)
 	c := 0
@@ -105,6 +105,7 @@ func TestSeriesMerger_rollup_merge(t *testing.T) {
 	defer ctrl.Finish()
 
 	flusher := NewMockFlusher(ctrl)
+	flusher.EXPECT().GetEncoder(gomock.Any()).Return(encoding.GetTSDEncoder(0)).AnyTimes()
 	merger := newSeriesMerger(flusher)
 	decodeStreams := make([]*encoding.TSDDecoder, 3)
 	reader1 := NewMockFieldReader(ctrl)
@@ -113,7 +114,6 @@ func TestSeriesMerger_rollup_merge(t *testing.T) {
 	reader2.EXPECT().Close().AnyTimes()
 	readers := []FieldReader{reader1, reader2, nil}
 
-	encodeStream := encoding.NewTSDEncoder(5)
 	// case 1: merge success and rollup
 	reader1.EXPECT().GetFieldData(gomock.Any()).Return(mockField(10))
 	reader1.EXPECT().SlotRange().Return(timeutil.SlotRange{Start: 10, End: 10})
@@ -131,7 +131,7 @@ func TestSeriesMerger_rollup_merge(t *testing.T) {
 			sourceRange:  timeutil.SlotRange{Start: 5, End: 15},
 			targetRange:  timeutil.SlotRange{Start: 0, End: 0},
 			ratio:        30,
-		}, decodeStreams, encodeStream, readers)
+		}, decodeStreams, readers)
 	assert.NoError(t, err)
 	tsd := encoding.GetTSDDecoder()
 	tsd.ResetWithTimeRange(result, 0, 0)
@@ -159,7 +159,7 @@ func TestSeriesMerger_rollup_merge(t *testing.T) {
 			sourceRange:  timeutil.SlotRange{Start: 5, End: 182},
 			targetRange:  timeutil.SlotRange{Start: 0, End: 6},
 			ratio:        30,
-		}, decodeStreams, encodeStream, readers)
+		}, decodeStreams, readers)
 	assert.NoError(t, err)
 	tsd = encoding.GetTSDDecoder()
 	tsd.ResetWithTimeRange(result, 0, 6)

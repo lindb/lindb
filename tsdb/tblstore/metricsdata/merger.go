@@ -90,7 +90,6 @@ func (m *merger) Merge(key uint32, metricBlocks [][]byte) error {
 			encoding.ReleaseTSDDecoder(stream)
 		}
 	}()
-	encodeStream := encoding.TSDEncodeFunc(mergeCtx.targetRange.Start)
 	fieldReaders := make([]FieldReader, blockCount)
 	for idx, highKey := range highKeys {
 		container := mergeCtx.seriesIDs.GetContainerAtIndex(idx)
@@ -110,7 +109,7 @@ func (m *merger) Merge(key uint32, metricBlocks [][]byte) error {
 					fieldReaders[blockIdx].Reset(seriesEntry, timeRange)
 				}
 			}
-			if err := m.seriesMerger.merge(mergeCtx, decodeStreams, encodeStream, fieldReaders); err != nil {
+			if err := m.seriesMerger.merge(mergeCtx, decodeStreams, fieldReaders); err != nil {
 				return err
 			}
 			// flush series id

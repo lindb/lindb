@@ -60,7 +60,7 @@ type fStoreINTF interface {
 	GetFieldID() field.ID
 	// Write writes the field data into current buffer
 	// if time slot out of current time window, need compress time window then resets the current buffer
-	// if has same time slot in current buffer, need do rollup operation by field type
+	// if it has same time slot in current buffer, need do rollup operation by field type
 	Write(fieldType field.Type, slotIndex uint16, value float64)
 	// FlushFieldTo flushes field store data into kv store, need align slot range in metric level
 	FlushFieldTo(tableFlusher metricsdata.Flusher, fieldMeta field.Meta, flushCtx *flushContext) error
@@ -108,7 +108,7 @@ func (fs *fieldStore) Write(fieldType field.Type, slotIndex uint16, value float6
 	delta := slotIndex - startTime
 	pos, markIdx, flagIdx := fs.position(delta)
 	if fs.buf[markOffset+markIdx]&flagIdx != 0 {
-		// has same point of same time slot
+		// there is same point of same time slot
 		oldValue := math.Float64frombits(binary.LittleEndian.Uint64(fs.buf[pos:]))
 		value = fieldType.AggType().Aggregate(oldValue, value)
 	} else {
@@ -116,7 +116,7 @@ func (fs *fieldStore) Write(fieldType field.Type, slotIndex uint16, value float6
 		fs.buf[endOffset] = byte(delta)
 		fs.buf[markOffset+markIdx] |= flagIdx // mark value exist
 	}
-	// finally write value into the body of current write buffer
+	// finally, write value into the body of current write buffer
 	binary.LittleEndian.PutUint64(fs.buf[pos:], math.Float64bits(value))
 }
 
@@ -129,8 +129,9 @@ func (fs *fieldStore) FlushFieldTo(tableFlusher metricsdata.Flusher, fieldMeta f
 		defer encoding.ReleaseTSDDecoder(decoder)
 		decoder.Reset(fs.compress)
 	}
-	encoder := encoding.GetTSDEncoder(flushCtx.SlotRange.Start)
-	defer encoding.ReleaseTSDEncoder(encoder)
+
+	encoder := tableFlusher.GetEncoder(flushCtx.fieldIdx)
+	encoder.RestWithStartTime(flushCtx.SlotRange.Start)
 
 	data, err := fs.merge(fieldMeta.Type, encoder, decoder, fs.getStart(), flushCtx.SlotRange, false)
 	if err != nil {
@@ -155,7 +156,7 @@ func (fs *fieldStore) timeWindow() uint16 {
 	return uint16((len(fs.buf) - headLen) / valueSize)
 }
 
-// resetBuf resets the write buffer mark, makes the current buffer is new
+// resetBuf resets the writer buffer mark, makes the current buffer is new
 func (fs *fieldStore) resetBuf() {
 	fs.buf[markOffset] = 0
 	fs.buf[markOffset+1] = 0
@@ -166,7 +167,7 @@ func (fs *fieldStore) Capacity() int {
 	return cap(fs.compress) + len(fs.buf) + emptyFieldStoreSize
 }
 
-// compact compacts the current write buffer,
+// compact the current write buffer,
 // new compress operation will be executed when it's necessary
 func (fs *fieldStore) compact(fieldType field.Type, startTime uint16) {
 	length := len(fs.compress)
@@ -210,7 +211,7 @@ func (fs *fieldStore) getEnd() uint16 {
 	return uint16(fs.buf[endOffset])
 }
 
-// merge merges the current and compress data based on field aggregate function,
+// merge the current and compress data based on field aggregate function,
 // startTime => current write start time
 // start/end slot => target compact time slot
 func (fs *fieldStore) merge(

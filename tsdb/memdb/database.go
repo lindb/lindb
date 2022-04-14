@@ -96,6 +96,7 @@ type flushContext struct {
 	metricID uint32
 
 	timeutil.SlotRange // start/end time slot, metric level flush context
+	fieldIdx           int
 }
 
 // memoryDatabase implements MemoryDatabase.

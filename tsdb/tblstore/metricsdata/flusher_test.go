@@ -34,6 +34,31 @@ import (
 	"github.com/lindb/lindb/sql/stmt"
 )
 
+func TestFlusher_PrepareEncoder(t *testing.T) {
+	nopKVFlusher := kv.NewNopFlusher()
+	f, err := NewFlusher(nopKVFlusher)
+	assert.NoError(t, err)
+	f.PrepareMetric(39,
+		[]field.Meta{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}},
+	)
+	assert.NotNil(t, f.GetEncoder(0))
+	assert.NotNil(t, f.GetEncoder(1))
+	f1 := f.(*flusher)
+	assert.Len(t, f1.encoders, 2)
+
+	f.PrepareMetric(39,
+		[]field.Meta{{ID: 1, Type: field.SumField}},
+	)
+	assert.Len(t, f1.encoders, 2)
+
+	f.PrepareMetric(39,
+		[]field.Meta{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}, {ID: 3, Type: field.SumField}},
+	)
+	assert.Len(t, f1.encoders, 3)
+	err = f.Close()
+	assert.NoError(t, err)
+}
+
 func TestFlusher_flush_metric(t *testing.T) {
 	nopKVFlusher := kv.NewNopFlusher()
 	flusher, err := NewFlusher(nopKVFlusher)
@@ -88,14 +113,22 @@ func TestFlusher_flush_big_series_id(t *testing.T) {
 func TestFlusher_TooMany_Data(t *testing.T) {
 	flushMoreData(t, field.Metas{{ID: 1, Type: field.SumField}},
 		mockSingleField, 1.0, field.Metas{{ID: 1, Type: field.SumField}})
+
 	flushMoreData(t, field.Metas{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}},
-		mockMultiField1, 1.0, field.Metas{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}})
+		mockMultiField1, 1.0, field.Metas{{ID: 1, Type: field.SumField},
+			{ID: 2, Type: field.SumField}})
+
 	flushMoreData(t, field.Metas{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}},
 		mockMultiField2, 2.0, field.Metas{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}})
+
 	flushMoreData(t, field.Metas{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}},
 		mockMultiField2, 1.0, field.Metas{{ID: 2, Type: field.SumField}})
+
 	flushMoreData(t, field.Metas{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}},
 		mockMultiField2, 1.0, field.Metas{{ID: 1, Type: field.SumField}})
+
+	flushMoreData(t, field.Metas{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}},
+		mockMultiField2, 1.0, field.Metas{{ID: 2, Type: field.SumField}})
 }
 
 func flushMoreData(t *testing.T,
@@ -141,7 +174,7 @@ func flushMoreData(t *testing.T,
 					value := math.Float64frombits(tsdDecoder.Value())
 					assert.Equal(t, 5, int(movingSourceSlot))
 					seriesID := float64(int(highKey)*65536 + int(seriesIdx))
-					assert.Equal(t, value, seriesID)
+					assert.Equal(t, value, seriesID*float64(queryFields[fieldIdx].ID))
 					found++
 				}
 			},
@@ -186,6 +219,10 @@ func mockMultiField2(t *testing.T, seriesIDs *roaring.Bitmap, flusher Flusher) {
 		encoder.AppendValue(math.Float64bits(float64(i)))
 		data, _ := encoder.BytesWithoutTime()
 		assert.NoError(t, flusher.FlushField(data))
+		encoder = encoding.NewTSDEncoder(5)
+		encoder.AppendTime(bit.One)
+		encoder.AppendValue(math.Float64bits(float64(i * 2)))
+		data, _ = encoder.BytesWithoutTime()
 		assert.NoError(t, flusher.FlushField(data))
 		assert.NoError(t, flusher.FlushSeries(uint32(i)))
 	}
