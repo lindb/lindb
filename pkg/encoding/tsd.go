@@ -107,7 +107,7 @@ func (e *TSDEncoder) RestWithStartTime(startTime uint16) {
 }
 
 // EmitDownSamplingValue appends the value after down sampling
-// Inf value symbols a empty value to omit
+// Inf value symbols an empty value to omit
 func (e *TSDEncoder) EmitDownSamplingValue(pos int, value float64) {
 	_ = pos
 	if math.IsInf(value, 1) {

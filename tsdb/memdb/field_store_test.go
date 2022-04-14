@@ -18,16 +18,20 @@
 package memdb
 
 import (
+	"fmt"
 	"math"
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/pkg/bit"
+	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
@@ -189,37 +193,64 @@ func TestFieldStore_FlushFieldTo(t *testing.T) {
 		encoding.TSDEncodeFunc = encodeFunc
 		ctrl.Finish()
 	}()
+	nopKVFlusher := kv.NewNopFlusher()
+	flusher, err := metricsdata.NewFlusher(nopKVFlusher)
+	assert.NoError(t, err)
+	fields := field.Metas{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}}
+	flusher.PrepareMetric(39, fields)
 
-	flusher := metricsdata.NewMockFlusher(ctrl)
-
-	buf := make([]byte, pageSize)
-	store := newFieldStore(buf, field.ID(2))
-	store.Write(field.SumField, 10, 10.1)
-	store.Write(field.SumField, 5, 5.1)
-
-	assert.NotNil(t, store)
-	// case 1: flush success
-	flusher.EXPECT().FlushField(mockFlushData())
-
-	assert.NoError(t, store.FlushFieldTo(flusher,
-		field.Meta{Type: field.SumField},
-		&flushContext{SlotRange: timeutil.SlotRange{Start: 2, End: 20}}))
-}
-
-func mockFlushData() []byte {
-	encode := encoding.NewTSDEncoder(2)
-	for i := 2; i <= 20; i++ {
-		if i == 5 || i == 10 {
-			encode.AppendTime(bit.One)
-			if i == 5 {
-				encode.AppendValue(math.Float64bits(5.1))
-			} else {
-				encode.AppendValue(math.Float64bits(10.1))
-			}
-		} else {
-			encode.AppendTime(bit.Zero)
-		}
+	slotRange := timeutil.SlotRange{Start: 5, End: 5}
+	for idx, f := range fields {
+		buf := make([]byte, pageSize)
+		store := newFieldStore(buf, f.ID)
+		store.Write(field.SumField, 5, float64(f.ID))
+		assert.NoError(t, store.FlushFieldTo(flusher,
+			field.Meta{Type: field.SumField},
+			&flushContext{SlotRange: slotRange, fieldIdx: idx}))
 	}
-	d, _ := encode.BytesWithoutTime()
-	return d
+
+	err = flusher.FlushSeries(10)
+	assert.NoError(t, err)
+	assert.NoError(t, flusher.CommitMetric(slotRange))
+	data := nopKVFlusher.Bytes()
+	r, err := metricsdata.NewReader("1.sst", data)
+	assert.NoError(t, err)
+	assert.NotNil(t, r)
+
+	seriesIDs := roaring.BitmapOf(10)
+	found := 0
+	highKeys := seriesIDs.GetHighKeys()
+	tsdDecoder := encoding.GetTSDDecoder()
+	for idx := range highKeys {
+		highKey := highKeys[idx]
+		lowSeriesIDs := seriesIDs.GetContainer(highKey)
+		ctx := &flow.DataLoadContext{
+			SeriesIDHighKey:       highKey,
+			LowSeriesIDsContainer: lowSeriesIDs,
+			ShardExecuteCtx: &flow.ShardExecuteContext{
+				StorageExecuteCtx: &flow.StorageExecuteContext{
+					Fields: fields,
+					Query:  &stmt.Query{},
+				},
+			},
+			DownSampling: func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, fieldData []byte) {
+				assert.Equal(t, timeutil.SlotRange{Start: 5, End: 5}, slotRange)
+				tsdDecoder.ResetWithTimeRange(fieldData, slotRange.Start, slotRange.End)
+				for movingSourceSlot := tsdDecoder.StartTime(); movingSourceSlot <= tsdDecoder.EndTime(); movingSourceSlot++ {
+					if !tsdDecoder.HasValueWithSlot(movingSourceSlot) {
+						continue
+					}
+					value := math.Float64frombits(tsdDecoder.Value())
+					assert.Equal(t, 5, int(movingSourceSlot))
+					fmt.Println(value)
+					assert.Equal(t, value, float64(fields[fieldIdx].ID))
+					found++
+				}
+			},
+		}
+		ctx.Grouping()
+		loader := r.Load(ctx)
+		loader.Load(ctx)
+	}
+	assert.Equal(t, 2, found)
 }
