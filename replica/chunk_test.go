@@ -124,3 +124,12 @@ func Test_Snappy(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, dst, 5)
 }
+
+func TestCompressChunk(t *testing.T) {
+	for i := 0; i < 1000; i++ {
+		cc := newCompressedChunk(10)
+		assert.NotNil(t, cc)
+	}
+	cc := newCompressedChunk(10)
+	cc.Release()
+}

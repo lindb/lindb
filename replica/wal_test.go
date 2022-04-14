@@ -20,209 +20,86 @@ package replica
 import (
 	"context"
 	"fmt"
+	"path"
 	"testing"
 	"time"
+
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/tsdb"
-
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 )
-
-func TestWriteAheadLogManager_GetOrCreateLog(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer func() {
-		newWriteAheadLog = NewWriteAheadLog
-		getLogFn = getLog
-		ctrl.Finish()
-	}()
-
-	newWriteAheadLog = func(_ context.Context, cfg config.WAL,
-		currentNodeID models.NodeID, database string,
-		engine tsdb.Engine,
-		cliFct rpc.ClientStreamFactory,
-		_ storage.StateManager,
-	) WriteAheadLog {
-		return NewMockWriteAheadLog(ctrl)
-	}
-	m := NewWriteAheadLogManager(context.TODO(), config.WAL{RemoveTaskInterval: ltoml.Duration(time.Minute)},
-		1, nil, nil, nil)
-	// create new
-	l := m.GetOrCreateLog("test")
-	assert.NotNil(t, l)
-	// return exist
-	l = m.GetOrCreateLog("test")
-	assert.NotNil(t, l)
-	// other db
-	l = m.GetOrCreateLog("test-2")
-	assert.NotNil(t, l)
-	// other db
-	getLogFn = func(w *writeAheadLogManager, database string) (WriteAheadLog, bool) {
-		return NewMockWriteAheadLog(ctrl), true
-	}
-	l = m.GetOrCreateLog("test-3")
-	assert.NotNil(t, l)
-}
 
 func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer func() {
-		newFanOutQueue = queue.NewFanOutQueue
-		ctrl.Finish()
-	}()
-	engine := tsdb.NewMockEngine(ctrl)
-	l := NewWriteAheadLog(context.TODO(), config.WAL{RemoveTaskInterval: ltoml.Duration(time.Minute)},
-		1, "test", engine, nil, nil)
-
-	// case 1: shard not exist
-	engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(nil, false)
-	p, err := l.GetOrCreatePartition(1, 1, 1)
-	assert.Error(t, err)
-	assert.Nil(t, p)
-	// case 2: new log err
-	newFanOutQueue = func(dirPath string, dataSizeLimit int64,
-		removeTaskInterval time.Duration) (queue.FanOutQueue, error) {
-		return nil, fmt.Errorf("err")
-	}
-	shard := tsdb.NewMockShard(ctrl)
-	db := tsdb.NewMockDatabase(ctrl)
-	db.EXPECT().Name().Return("test").AnyTimes()
-	shard.EXPECT().Database().Return(db).AnyTimes()
-	engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(shard, true)
-	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
-	shard.EXPECT().GetOrCrateDataFamily(gomock.Any()).Return(nil, nil)
-	p, err = l.GetOrCreatePartition(1, 1, 1)
-	assert.Error(t, err)
-	assert.Nil(t, p)
-	// case 3: create log ok
-	log := queue.NewMockFanOutQueue(ctrl)
-	newFanOutQueue = func(dirPath string, dataSizeLimit int64,
-		removeTaskInterval time.Duration) (queue.FanOutQueue, error) {
-		return log, nil
-	}
-	engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(shard, true)
-	family := tsdb.NewMockDataFamily(ctrl)
-	family.EXPECT().FamilyTime().Return(timeutil.Now()).AnyTimes()
-	shard.EXPECT().GetOrCrateDataFamily(gomock.Any()).Return(family, nil)
-	p, err = l.GetOrCreatePartition(1, 1, 1)
-	assert.NoError(t, err)
-	assert.NotNil(t, p)
-	// case 4: return exist one
-	p, err = l.GetOrCreatePartition(1, 1, 1)
-	assert.NoError(t, err)
-	assert.NotNil(t, p)
-
-	// case 5: get replica state
-	log.EXPECT().FanOutNames().Return([]string{"1"})
-	fan := queue.NewMockFanOut(ctrl)
-	log.EXPECT().GetOrCreateFanOut(gomock.Any()).Return(fan, nil)
-	fan.EXPECT().HeadSeq().Return(int64(1))
-	fan.EXPECT().TailSeq().Return(int64(1))
-	fan.EXPECT().Pending().Return(int64(1))
-	log.EXPECT().HeadSeq().Return(int64(1))
-	rs := l.getReplicaState()
-	assert.Len(t, rs, 1)
-}
-
-func TestWAL_garbageCollectTask(t *testing.T) {
-	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	ctx, cancel := context.WithCancel(context.TODO())
-	wal := &writeAheadLogManager{
-		ctx: ctx,
-		cfg: config.WAL{RemoveTaskInterval: ltoml.Duration(time.Millisecond * 10)},
-	}
-	dbs := make(databaseLogs)
-	log := NewMockWriteAheadLog(ctrl)
-	log.EXPECT().destroy().AnyTimes()
-	dbs["test"] = log
-	wal.databaseLogs.Store(dbs)
-	wal.garbageCollectTask()
+	engine := tsdb.NewMockEngine(ctrl)
+	shard := tsdb.NewMockShard(ctrl)
 
-	time.Sleep(time.Millisecond * 50)
-	cancel()
-	time.Sleep(time.Millisecond * 50)
-}
-
-func TestWriteAheadLogManager_GetReplicaState(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer func() {
-		getLogFn = getLog
-		ctrl.Finish()
-	}()
-	mgr := &writeAheadLogManager{}
-	log := NewMockWriteAheadLog(ctrl)
-	getLogFn = func(w *writeAheadLogManager, database string) (WriteAheadLog, bool) {
-		return log, true
-	}
-	log.EXPECT().getReplicaState().Return([]models.FamilyLogReplicaState{{}})
-	s := mgr.GetReplicaState("test")
-	assert.Len(t, s, 1)
-
-	getLogFn = func(w *writeAheadLogManager, database string) (WriteAheadLog, bool) {
-		return nil, false
-	}
-	s = mgr.GetReplicaState("test")
-	assert.Nil(t, s)
-}
-
-func TestWriteAheadLogManager_Recovery(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer func() {
-		fileExistFn = fileutil.Exist
-		listDirFn = fileutil.ListDir
-		ctrl.Finish()
-	}()
 	cases := []struct {
 		name    string
-		prepare func()
+		prepare func(l *writeAheadLog)
 		wantErr bool
 	}{
 		{
-			name: "wal path not exist",
-			prepare: func() {
-				fileExistFn = func(file string) bool {
-					return false
-				}
+			name: "shard not exist",
+			prepare: func(l *writeAheadLog) {
+				engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(nil, false)
 			},
-			wantErr: false,
+			wantErr: true,
 		},
 		{
-			name: "list wal path failure",
-			prepare: func() {
-				listDirFn = func(path string) ([]string, error) {
+			name: "get exist partition",
+			prepare: func(l *writeAheadLog) {
+				l.mutex.Lock()
+				l.familyLogs[partitionKey{shardID: 1, familyTime: 1, leader: 1}] = NewMockPartition(ctrl)
+				defer l.mutex.Unlock()
+			},
+			wantErr: true,
+		},
+		{
+			name: "get data family failure",
+			prepare: func(l *writeAheadLog) {
+				engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(shard, true)
+				shard.EXPECT().GetOrCrateDataFamily(gomock.Any()).Return(nil, fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "new log queue failure",
+			prepare: func(l *writeAheadLog) {
+				engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(shard, true)
+				shard.EXPECT().GetOrCrateDataFamily(gomock.Any()).Return(nil, nil)
+				newFanOutQueue = func(dirPath string, dataSizeLimit int64,
+					removeTaskInterval time.Duration) (q queue.FanOutQueue, err error) {
 					return nil, fmt.Errorf("err")
 				}
 			},
 			wantErr: true,
 		},
 		{
-			name: "recovery write ahead log failure",
-			prepare: func() {
-				log := NewMockWriteAheadLog(ctrl)
-				getLogFn = func(w *writeAheadLogManager, database string) (WriteAheadLog, bool) {
-					return log, true
+			name: "create partition successfully",
+			prepare: func(l *writeAheadLog) {
+				engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(shard, true)
+				shard.EXPECT().GetOrCrateDataFamily(gomock.Any()).Return(nil, nil)
+				newFanOutQueue = func(dirPath string, dataSizeLimit int64,
+					removeTaskInterval time.Duration) (q queue.FanOutQueue, err error) {
+					return nil, nil
 				}
-				log.EXPECT().recovery().Return(fmt.Errorf("err"))
-			},
-			wantErr: true,
-		},
-		{
-			name: "recovery write ahead log successfully",
-			prepare: func() {
-				log := NewMockWriteAheadLog(ctrl)
-				getLogFn = func(w *writeAheadLogManager, database string) (WriteAheadLog, bool) {
-					return log, true
+				NewPartitionFn = func(ctx context.Context, shard tsdb.Shard, family tsdb.DataFamily,
+					currentNodeID models.NodeID, log queue.FanOutQueue,
+					cliFct rpc.ClientStreamFactory, stateMgr storage.StateManager) Partition {
+					return NewMockPartition(ctrl)
 				}
-				log.EXPECT().recovery().Return(nil)
 			},
 			wantErr: false,
 		},
@@ -232,23 +109,226 @@ func TestWriteAheadLogManager_Recovery(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
-				getLogFn = getLog
-				fileExistFn = func(file string) bool {
-					return true
-				}
-				listDirFn = func(path string) ([]string, error) {
-					return []string{"test"}, nil
-				}
+				newFanOutQueue = queue.NewFanOutQueue
+				NewPartitionFn = NewPartition
 			}()
-			mgr := &writeAheadLogManager{}
-			mgr.databaseLogs.Store(make(databaseLogs))
+			l := NewWriteAheadLog(context.TODO(), config.WAL{RemoveTaskInterval: ltoml.Duration(time.Minute)},
+				1, "test", engine, nil, nil)
+			l1 := l.(*writeAheadLog)
+
 			if tt.prepare != nil {
-				tt.prepare()
+				tt.prepare(l1)
 			}
-			err := mgr.Recovery()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Recovery() error = %v, wantErr %v", err, tt.wantErr)
+
+			p, err := l.GetOrCreatePartition(1, 1, 1)
+			if ((err != nil) != tt.wantErr && p == nil) || (!tt.wantErr && p == nil) {
+				t.Errorf("GetOrCreatePartition() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
+}
+
+func TestMockWriteAheadLogManager_GetReplicaState(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		newFanOutQueue = queue.NewFanOutQueue
+		ctrl.Finish()
+	}()
+	p1 := NewMockPartition(ctrl)
+	key := partitionKey{
+		shardID: 1,
+	}
+	wal := &writeAheadLog{
+		database: "test",
+		familyLogs: map[partitionKey]Partition{
+			key: p1,
+		},
+	}
+	p1.EXPECT().getReplicaState().Return(models.FamilyLogReplicaState{})
+	state := wal.getReplicaState()
+	assert.Len(t, state, 1)
+	assert.Equal(t, "test", wal.Name())
+}
+
+func TestWriteAheadLog_recovery(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	now := timeutil.Now() - timeutil.Now()%timeutil.OneHour
+	engine := tsdb.NewMockEngine(ctrl)
+	p := NewMockPartition(ctrl)
+	cases := []struct {
+		name    string
+		prepare func(wal *writeAheadLog)
+		wantErr bool
+	}{
+		{
+			name: "list partition path failure",
+			prepare: func(wal *writeAheadLog) {
+				listDirFn = func(path string) ([]string, error) {
+					return nil, fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "list shard path failure",
+			prepare: func(wal *writeAheadLog) {
+				listDirFn = func(p string) ([]string, error) {
+					if p == wal.dir {
+						return []string{"1"}, nil
+					}
+					return nil, fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "list family path failure",
+			prepare: func(wal *writeAheadLog) {
+				listDirFn = func(p string) ([]string, error) {
+					if p == wal.dir {
+						return []string{"1"}, nil
+					}
+					if p == path.Join(wal.dir, "1") {
+						return []string{"1"}, nil
+					}
+					return nil, fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "create partition failure",
+			prepare: func(wal *writeAheadLog) {
+				listDirFn = func(p string) ([]string, error) {
+					if p == wal.dir {
+						return []string{"1"}, nil
+					}
+					if p == path.Join(wal.dir, "1") {
+						return []string{"2"}, nil
+					}
+					return []string{timeutil.FormatTimestamp(now, timeutil.DataTimeFormat4)}, nil
+				}
+				engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(nil, false)
+			},
+			wantErr: true,
+		},
+		{
+			name: "partition recovery failure",
+			prepare: func(wal *writeAheadLog) {
+				listDirFn = func(p string) ([]string, error) {
+					if p == wal.dir {
+						return []string{"1"}, nil
+					}
+					if p == path.Join(wal.dir, "1") {
+						return []string{timeutil.FormatTimestamp(now, timeutil.DataTimeFormat4)}, nil
+					}
+					return []string{"1"}, nil
+				}
+				p.EXPECT().recovery(gomock.Any()).Return(fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "partition recovery successfully",
+			prepare: func(wal *writeAheadLog) {
+				listDirFn = func(p string) ([]string, error) {
+					if p == wal.dir {
+						return []string{"1"}, nil
+					}
+					if p == path.Join(wal.dir, "1") {
+						return []string{timeutil.FormatTimestamp(now, timeutil.DataTimeFormat4)}, nil
+					}
+					return []string{"1"}, nil
+				}
+				p.EXPECT().recovery(gomock.Any()).Return(nil)
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				listDirFn = fileutil.ListDir
+			}()
+			key := partitionKey{
+				shardID:    1,
+				familyTime: now,
+				leader:     1,
+			}
+			wal := &writeAheadLog{
+				dir:    "db",
+				engine: engine,
+				familyLogs: map[partitionKey]Partition{
+					key: p,
+				},
+			}
+			if tt.prepare != nil {
+				tt.prepare(wal)
+			}
+			err := wal.recovery()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("recovery() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestWriteAheadLog_destroy(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		removeDirFn = fileutil.RemoveDir
+		ctrl.Finish()
+	}()
+
+	p1 := NewMockPartition(ctrl)
+	p1.EXPECT().Path().Return("p1").AnyTimes()
+	p2 := NewMockPartition(ctrl)
+	p2.EXPECT().Path().Return("p2").AnyTimes()
+	key1 := partitionKey{shardID: 1}
+	key2 := partitionKey{shardID: 2}
+	wal := &writeAheadLog{
+		familyLogs: map[partitionKey]Partition{
+			key1: p1,
+			key2: p2,
+		},
+		logger: logger.GetLogger("test", "wal"),
+	}
+	p1.EXPECT().IsExpire().Return(false)
+	p2.EXPECT().IsExpire().Return(true)
+	p2.EXPECT().Stop()
+	p2.EXPECT().Close().Return(fmt.Errorf("err"))
+	removeDirFn = func(path string) error {
+		return fmt.Errorf("err")
+	}
+	wal.destroy()
+
+	assert.Len(t, wal.familyLogs, 1)
+}
+
+func TestWriteAheadLog_Stop_Close(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	p1 := NewMockPartition(ctrl)
+	p1.EXPECT().Path().Return("p1").AnyTimes()
+	p2 := NewMockPartition(ctrl)
+	p2.EXPECT().Path().Return("p2").AnyTimes()
+	key1 := partitionKey{shardID: 1}
+	key2 := partitionKey{shardID: 2}
+	wal := &writeAheadLog{
+		familyLogs: map[partitionKey]Partition{
+			key1: p1,
+			key2: p2,
+		},
+		logger: logger.GetLogger("test", "wal"),
+	}
+	p1.EXPECT().Stop()
+	p2.EXPECT().Stop()
+	p1.EXPECT().Close().Return(fmt.Errorf("err"))
+	p2.EXPECT().Close().Return(nil)
+	wal.Stop()
+	_ = wal.Close()
 }
