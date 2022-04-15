@@ -156,23 +156,25 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
             ),
             key: `${key + shardID}Grouping`,
           },
-          {
-            label: (
-              <span>
-                <Text strong>Group Build(Async)</Text>: [ Count:{" "}
-                <Text link>
-                  {formatter(shardStats.groupBuildStats.count, UnitEnum.None)}
-                </Text>
-                , Total Cost:{" "}
-                {renderCost(shardStats.groupBuildStats.totalCost, total)}, Min:{" "}
-                {renderCost(shardStats.groupBuildStats.min, total)}, Max:{" "}
-                {renderCost(shardStats.groupBuildStats.min, total)} ]
-              </span>
-            ),
-            key: `${key + shardID}group build`,
-          },
         ],
       };
+      if (shardStats.groupBuildStats) {
+        nodeStats.children.push({
+          label: (
+            <span>
+              <Text strong>Group Build(Async)</Text>: [ Count:{" "}
+              <Text link>
+                {formatter(shardStats.groupBuildStats.count, UnitEnum.None)}
+              </Text>
+              , Total Cost:{" "}
+              {renderCost(shardStats.groupBuildStats.totalCost, total)}, Min:{" "}
+              {renderCost(shardStats.groupBuildStats.min, total)}, Max:{" "}
+              {renderCost(shardStats.groupBuildStats.min, total)} ]
+            </span>
+          ),
+          key: `${key + shardID}group build`,
+        });
+      }
       children.push(nodeStats);
       if (shardStats.scanStats) {
         nodeStats.children.push(

@@ -31,15 +31,17 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
-func TestStorageExecuteContext_CollectGroupingTagValueIDs(t *testing.T) {
+func TestStorageExecuteContext_collectGroupingTagValueIDs(t *testing.T) {
 	ctx := &StorageExecuteContext{
 		GroupingTagValueIDs: make([]*roaring.Bitmap, 2),
 	}
-	ctx.CollectGroupingTagValueIDs([]*roaring.Bitmap{roaring.BitmapOf(1, 2), roaring.BitmapOf(4, 5)})
-	ctx.CollectGroupingTagValueIDs([]*roaring.Bitmap{roaring.BitmapOf(8), roaring.BitmapOf(10)})
+	ctx.collectGroupingTagValueIDs([]uint32{1, 4})
+	ctx.collectGroupingTagValueIDs([]uint32{2, 5})
+	ctx.collectGroupingTagValueIDs([]uint32{8, 10})
 	assert.Equal(t, roaring.BitmapOf(1, 2, 8), ctx.GroupingTagValueIDs[0])
 	assert.Equal(t, roaring.BitmapOf(4, 5, 10), ctx.GroupingTagValueIDs[1])
 }
@@ -183,15 +185,17 @@ func TestDataLoadContext_NewSeriesAggregator(t *testing.T) {
 	ctx := &DataLoadContext{
 		ShardExecuteCtx: &ShardExecuteContext{
 			StorageExecuteCtx: &StorageExecuteContext{
-				Fields:            field.Metas{{ID: 1}},
-				DownSamplingSpecs: aggregation.AggregatorSpecs{aggregation.NewAggregatorSpec("f", field.SumField)},
-				Query:             &stmt.Query{},
+				Fields:              field.Metas{{ID: 1}},
+				DownSamplingSpecs:   aggregation.AggregatorSpecs{aggregation.NewAggregatorSpec("f", field.SumField)},
+				Query:               &stmt.Query{},
+				GroupByTagKeyIDs:    []tag.KeyID{1},
+				GroupingTagValueIDs: make([]*roaring.Bitmap, 1),
 			},
 		},
 	}
-	idx := ctx.NewSeriesAggregator("")
+	idx := ctx.NewSeriesAggregator(string([]byte{1, 0, 0, 0}))
 	assert.Equal(t, uint16(0), idx)
-	idx = ctx.NewSeriesAggregator("")
+	idx = ctx.NewSeriesAggregator(string([]byte{2, 0, 0, 0}))
 	assert.Equal(t, uint16(1), idx)
 	assert.NotNil(t, ctx.GroupingSeriesAgg[0].Aggregator)
 	assert.Nil(t, ctx.GroupingSeriesAgg[0].Aggregators)
