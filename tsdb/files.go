@@ -30,8 +30,11 @@ import (
 // define database storage structure.
 // directory tree for database[xx]:
 //    xx/OPTIONS => config file
-//    xx/meta/metric => metrics' metadata
-//    xx/meta/tag => metrics' tag metadata
+//    xx/meta/namespace => namespace metadata
+//    xx/meta/metric => metrics' name metadata
+//    xx/meta/field => metrics' field metadata
+//    xx/meta/tagkey => metrics' tag key metadata
+//    xx/meta/tagvalue => metrics' tag value metadata
 //    xx/shard/1/(path)
 //    xx/shard/1/buffer/123213123131 // time of ns
 //    xx/shard/1/meta/
@@ -42,8 +45,7 @@ const (
 	options          = "OPTIONS"
 	shardDir         = "shard"
 	metaDir          = "meta"
-	metricMetaDir    = "metric"
-	tagMetaDir       = "tag"
+	tagValueMetaDir  = "tagvalue"
 	tagValueDir      = "tag_value"
 	segmentDir       = "segment"
 	indexParentDir   = "index"
@@ -68,12 +70,12 @@ func optionsPath(database string) string {
 
 // metricsMetaPath returns metrics' metadata storage path.
 func metricsMetaPath(database string) string {
-	return filepath.Join(config.GlobalStorageConfig().TSDB.Dir, database, metaDir, metricMetaDir)
+	return filepath.Join(config.GlobalStorageConfig().TSDB.Dir, database, metaDir)
 }
 
 // tagMetaIndicator returns database's tag metadata indicator information.
 func tagMetaIndicator(database string) string {
-	return filepath.Join(database, metaDir, tagMetaDir)
+	return filepath.Join(database, metaDir, tagValueMetaDir)
 }
 
 // shardIndicator returns shard indicator information.
