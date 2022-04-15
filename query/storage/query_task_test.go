@@ -315,22 +315,30 @@ func TestDataLoadTask_Run(t *testing.T) {
 
 	shard := tsdb.NewMockShard(ctrl)
 	qf := flow.NewMockStorageQueryFlow(ctrl)
+	qf.EXPECT().Reduce(gomock.Any())
 	rs := flow.NewMockFilterResultSet(ctrl)
 	rs.EXPECT().Identifier().Return(fmt.Sprintf("shard/%d/segment/day/20210703", 10))
 	rs.EXPECT().Identifier().Return("memory").AnyTimes()
 	ctx := &flow.DataLoadContext{
 		ShardExecuteCtx: &flow.ShardExecuteContext{
 			StorageExecuteCtx: &flow.StorageExecuteContext{
-				Query: &stmt.Query{},
-				Stats: models.NewStorageStats(),
+				Query: &stmt.Query{
+					Interval:      1,
+					IntervalRatio: 1.0,
+				},
+				Stats:             models.NewStorageStats(),
+				DownSamplingSpecs: aggregation.AggregatorSpecs{aggregation.NewAggregatorSpec("f", field.SumField)},
 			},
 			SeriesIDsAfterFiltering: roaring.BitmapOf(1, 2, 3),
 		},
-		Loaders: make([][]flow.DataLoader, 1),
 	}
+	ctx.PrepareAggregatorWithoutGrouping()
+	agg := aggregation.NewMockSeriesAggregator(ctrl)
+	ctx.WithoutGroupingSeriesAgg.Aggregator = agg
 	segment := &flow.TimeSegmentResultSet{FilterRS: []flow.FilterResultSet{rs}}
 	task := newDataLoadTask(shard, qf, ctx, 0, segment)
-	rs.EXPECT().Load(gomock.Any()).AnyTimes()
+	loader := flow.NewMockDataLoader(ctrl)
+	rs.EXPECT().Load(gomock.Any()).Return(nil)
 	rs.EXPECT().SeriesIDs().Return(roaring.BitmapOf(10, 20))
 	// case 1: load data
 	err := task.Run()
@@ -340,6 +348,16 @@ func TestDataLoadTask_Run(t *testing.T) {
 	task = newDataLoadTask(shard, qf, ctx, 0, segment)
 	shard.EXPECT().ShardID().Return(models.ShardID(10)).AnyTimes()
 	rs.EXPECT().SeriesIDs().Return(roaring.BitmapOf(1, 2)).AnyTimes()
+	rs.EXPECT().Load(gomock.Any()).Return(loader).AnyTimes()
+	agg.EXPECT().GetAggregator(gomock.Any()).Return(nil, false)
+	fAgg := aggregation.NewMockFieldAggregator(ctrl)
+	fAgg.EXPECT().SlotRange().Return(1, 100)
+	agg.EXPECT().Reset()
+	agg.EXPECT().GetAggregator(gomock.Any()).Return(fAgg, true)
+	loader.EXPECT().Load(gomock.Any()).Do(func(ctx *flow.DataLoadContext) {
+		ctx.DownSampling(timeutil.SlotRange{Start: 5, End: 5}, 0, 0, []byte{})
+		ctx.DownSampling(timeutil.SlotRange{Start: 5, End: 5}, 0, 0, []byte{})
+	})
 	err = task.Run()
 	assert.NoError(t, err)
 	err = task.Run()

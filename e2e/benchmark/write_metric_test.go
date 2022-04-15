@@ -37,7 +37,7 @@ func TestWriteSumMetric(b *testing.T) {
 	timestamp := timeutil.Now()
 	cli := resty.New()
 	count := 0
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < 40000; i++ {
 		var buf bytes.Buffer
 		for j := 0; j < 20; j++ {
 			for k := 0; k < 4; k++ {

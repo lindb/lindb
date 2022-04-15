@@ -19,6 +19,7 @@ package flow
 
 import (
 	"context"
+	"encoding/binary"
 	"sort"
 	"sync"
 	"time"
@@ -86,16 +87,16 @@ type StorageExecuteContext struct {
 	mutex sync.Mutex
 }
 
-// CollectGroupingTagValueIDs collects grouping tag value ids when does grouping operation.
-func (ctx *StorageExecuteContext) CollectGroupingTagValueIDs(groupingTagValueIDs []*roaring.Bitmap) {
+// collectGroupingTagValueIDs collects grouping tag value ids when does grouping operation.
+func (ctx *StorageExecuteContext) collectGroupingTagValueIDs(tagValueIDs []uint32) {
 	// need add lock, because build group concurrent
 	ctx.mutex.Lock()
-	for idx, tagValueIDs := range groupingTagValueIDs {
+	for idx, tagValueID := range tagValueIDs {
 		tIDs := ctx.GroupingTagValueIDs[idx]
 		if tIDs == nil {
-			ctx.GroupingTagValueIDs[idx] = tagValueIDs
+			ctx.GroupingTagValueIDs[idx] = roaring.BitmapOf(tagValueID)
 		} else {
-			ctx.GroupingTagValueIDs[idx].Or(tagValueIDs)
+			ctx.GroupingTagValueIDs[idx].Add(tagValueID)
 		}
 	}
 	ctx.mutex.Unlock()
@@ -269,9 +270,6 @@ type DataLoadContext struct {
 	SeriesIDHighKey       uint16
 	LowSeriesIDsContainer roaring.Container
 
-	// time segment => a list of DataLoader(each family)
-	Loaders [][]DataLoader // item maybe DataLoader is nil
-
 	GroupingSeriesAggRefs    []uint16 // series id => GroupingSeriesAgg index
 	WithoutGroupingSeriesAgg *GroupingSeriesAgg
 	GroupingSeriesAgg        []*GroupingSeriesAgg
@@ -299,6 +297,15 @@ func (ctx *DataLoadContext) NewSeriesAggregator(groupingKey string) uint16 {
 	groupingSeriesAgg := &GroupingSeriesAgg{
 		Key: groupingKey,
 	}
+	tagsData := []byte(groupingKey)
+	var tagValueIDs []uint32
+	for idx := range ctx.ShardExecuteCtx.StorageExecuteCtx.GroupByTagKeyIDs {
+		offset := idx * 4
+		tagValueID := binary.LittleEndian.Uint32(tagsData[offset:])
+		tagValueIDs = append(tagValueIDs, tagValueID)
+	}
+	ctx.ShardExecuteCtx.StorageExecuteCtx.collectGroupingTagValueIDs(tagValueIDs)
+
 	if ctx.IsMultiField() {
 		groupingSeriesAgg.Aggregators = ctx.newSeriesAggregators()
 	} else {
@@ -402,7 +409,7 @@ func (ctx *DataLoadContext) IterateLowSeriesIDs(lowSeriesIDsFromStorage roaring.
 		}
 		seriesIdxFromQuery := seriesID - min
 		if lowSeriesIDs[seriesIdxFromQuery] == seriesID {
-			// load data by series id index
+			// match low series invoke callback
 			fn(seriesIdxFromQuery, seriesIdxFromStorage)
 		}
 		seriesIdxFromStorage++
