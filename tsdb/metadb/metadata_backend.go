@@ -39,7 +39,6 @@ import (
 //go:generate mockgen -source ./metadata_backend.go -destination=./metadata_backend_mock.go -package=metadb
 
 const (
-	MetaDB      = "meta"
 	NamespaceDB = "namespace"
 	MetricDB    = "metric"
 	TagKeyDB    = "tagkey"
@@ -211,7 +210,7 @@ func newStorageDB(parent string) (map[string]unique.IDStore, error) {
 	}
 	dbs := make(map[string]unique.IDStore)
 	for _, name := range storageDBNames {
-		db, err := newIDStoreFn(path.Join(parent, MetaDB, name))
+		db, err := newIDStoreFn(path.Join(parent, name))
 		if err != nil {
 			return dbs, err
 		}

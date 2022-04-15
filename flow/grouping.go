@@ -19,6 +19,7 @@ package flow
 
 import (
 	"encoding/binary"
+
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/series/tag"
 

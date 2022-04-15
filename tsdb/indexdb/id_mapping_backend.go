@@ -39,7 +39,7 @@ var (
 	newIDStoreFn = unique.NewIDStore
 )
 
-const MappingDB = "mapping"
+const SeriesDB = "series"
 
 // IDMappingBackend represents the id mapping backend storage,
 // save series data(tags hash => series id) under metric
@@ -67,7 +67,7 @@ func newIDMappingBackend(parent string) (IDMappingBackend, error) {
 	if err := mkDir(parent); err != nil {
 		return nil, err
 	}
-	db, err := newIDStoreFn(path.Join(parent, MappingDB))
+	db, err := newIDStoreFn(path.Join(parent, SeriesDB))
 	if err != nil {
 		return nil, err
 	}
