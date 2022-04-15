@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package query
+package flow
 
 import (
 	"testing"
@@ -25,7 +25,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/aggregation"
-	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
@@ -36,19 +35,19 @@ func TestGroupingContext_BuildSingleTag(t *testing.T) {
 	defer func() {
 		ctrl.Finish()
 	}()
-	scanner := flow.NewMockGroupingScanner(ctrl)
-	ctx := NewGroupContext([]tag.KeyID{1}, map[tag.KeyID][]flow.GroupingScanner{1: {scanner}})
+	scanner := NewMockGroupingScanner(ctrl)
+	ctx := NewGroupContext([]tag.KeyID{1}, map[tag.KeyID][]GroupingScanner{1: {scanner}})
 	storageSeriesIDs := roaring.BitmapOf(1, 2, 3, 10)
 	scanner.EXPECT().GetSeriesAndTagValue(uint16(1)).
 		Return(storageSeriesIDs.GetContainerAtIndex(0), []uint32{10, 20, 30, 10})
 	querySeriesIDs := roaring.BitmapOf(1, 2, 6, 10)
 	lowSeriesContainer := querySeriesIDs.GetContainerAtIndex(0)
 	// found series id 1,2,10, tag value id: 10,20
-	dataLoadCtx := &flow.DataLoadContext{
+	dataLoadCtx := &DataLoadContext{
 		SeriesIDHighKey:       1,
 		LowSeriesIDsContainer: lowSeriesContainer,
-		ShardExecuteCtx: &flow.ShardExecuteContext{
-			StorageExecuteCtx: &flow.StorageExecuteContext{
+		ShardExecuteCtx: &ShardExecuteContext{
+			StorageExecuteCtx: &StorageExecuteContext{
 				DownSamplingSpecs:   aggregation.AggregatorSpecs{aggregation.NewAggregatorSpec("f", field.SumField)},
 				GroupingTagValueIDs: make([]*roaring.Bitmap, 1),
 				Query:               &stmt.Query{GroupBy: []string{"a"}},
@@ -87,19 +86,19 @@ func TestGroupingContext_BuildMultiTag(t *testing.T) {
 	defer func() {
 		ctrl.Finish()
 	}()
-	scanner := flow.NewMockGroupingScanner(ctrl)
-	ctx := NewGroupContext([]tag.KeyID{1, 2}, map[tag.KeyID][]flow.GroupingScanner{1: {scanner}, 2: {scanner}})
+	scanner := NewMockGroupingScanner(ctrl)
+	ctx := NewGroupContext([]tag.KeyID{1, 2}, map[tag.KeyID][]GroupingScanner{1: {scanner}, 2: {scanner}})
 	storageSeriesIDs := roaring.BitmapOf(1, 2, 3, 10)
 	scanner.EXPECT().GetSeriesAndTagValue(uint16(1)).
 		Return(storageSeriesIDs.GetContainerAtIndex(0), []uint32{10, 20, 30, 10}).MaxTimes(2)
 	querySeriesIDs := roaring.BitmapOf(1, 2, 6, 10)
 	lowSeriesContainer := querySeriesIDs.GetContainerAtIndex(0)
 	// found series id 1,2,10, tag value id: 10,20
-	dataLoadCtx := &flow.DataLoadContext{
+	dataLoadCtx := &DataLoadContext{
 		SeriesIDHighKey:       1,
 		LowSeriesIDsContainer: lowSeriesContainer,
-		ShardExecuteCtx: &flow.ShardExecuteContext{
-			StorageExecuteCtx: &flow.StorageExecuteContext{
+		ShardExecuteCtx: &ShardExecuteContext{
+			StorageExecuteCtx: &StorageExecuteContext{
 				DownSamplingSpecs:   aggregation.AggregatorSpecs{aggregation.NewAggregatorSpec("f", field.SumField)},
 				GroupingTagValueIDs: make([]*roaring.Bitmap, 2),
 				Query:               &stmt.Query{GroupBy: []string{"a", "b"}},
@@ -131,8 +130,8 @@ func TestGroupingContext_ScanTagValueIDs(t *testing.T) {
 	defer func() {
 		ctrl.Finish()
 	}()
-	scanner := flow.NewMockGroupingScanner(ctrl)
-	ctx := NewGroupContext([]tag.KeyID{1}, map[tag.KeyID][]flow.GroupingScanner{1: {scanner}})
+	scanner := NewMockGroupingScanner(ctrl)
+	ctx := NewGroupContext([]tag.KeyID{1}, map[tag.KeyID][]GroupingScanner{1: {scanner}})
 	// case 1: get tag value ids
 	scanner.EXPECT().GetSeriesAndTagValue(uint16(1)).
 		Return(roaring.BitmapOf(1, 2, 3, 10).GetContainerAtIndex(0), []uint32{10, 20, 30, 10})
