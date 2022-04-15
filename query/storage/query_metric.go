@@ -20,11 +20,8 @@ package storagequery
 import (
 	"errors"
 
-	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/tsdb"
 )
 
@@ -165,7 +162,6 @@ func (e *storageExecutor) executeQuery() {
 func (e *storageExecutor) executeGroupBy(shardExecuteContext *flow.ShardExecuteContext, shard tsdb.Shard) {
 	// time segments sorted by family
 	timeSegments := shardExecuteContext.TimeSegmentContext.GetTimeSegments()
-	queryIntervalRatio := shardExecuteContext.StorageExecuteCtx.Query.IntervalRatio
 
 	if e.ctx.storageExecuteCtx.Query.HasGroupBy() {
 		// 1. grouping, if it has grouping, do group by tag keys, else just split series ids as batch first,
@@ -194,7 +190,6 @@ func (e *storageExecutor) executeGroupBy(shardExecuteContext *flow.ShardExecuteC
 				ShardExecuteCtx:       shardExecuteContext,
 				LowSeriesIDsContainer: lowSeriesIDs,
 				SeriesIDHighKey:       seriesIDsHighKeys[highSeriesIDIdx],
-				Loaders:               make([][]flow.DataLoader, len(timeSegments)),
 			}
 
 			t := newBuildGroupTaskFunc(shard, dataLoadCtx)
@@ -214,49 +209,6 @@ func (e *storageExecutor) executeGroupBy(shardExecuteContext *flow.ShardExecuteC
 					if err := t.Run(); err != nil {
 						e.queryFlow.Complete(err)
 						return
-					}
-					// segment = family => data load result set
-					timeSegment := timeSegments[segmentIdx]
-					var target *timeutil.SlotRange
-					loaders := dataLoadCtx.Loaders[segmentIdx]
-					for _, loader := range loaders {
-						if loader == nil {
-							continue
-						}
-						// load field series data by series ids
-						tsdDecoder := encoding.GetTSDDecoder()
-
-						dataLoadCtx.DownSampling = func(slotRange timeutil.SlotRange, lowSeriesIdx uint16, fieldIdx int, fieldData []byte) {
-							var agg aggregation.FieldAggregator
-							seriesAggregator := dataLoadCtx.GetSeriesAggregator(lowSeriesIdx, fieldIdx)
-
-							var ok bool
-							agg, ok = seriesAggregator.GetAggregator(timeSegment.FamilyTime)
-							if !ok {
-								return
-							}
-							if target == nil {
-								start, end := agg.SlotRange()
-								target = &timeutil.SlotRange{
-									Start: uint16(start),
-									End:   uint16(end),
-								}
-							}
-							tsdDecoder.ResetWithTimeRange(fieldData, slotRange.Start, slotRange.End)
-							aggregation.DownSamplingSeries(
-								*target, uint16(queryIntervalRatio), 0, // same family, base slot = 0
-								tsdDecoder,
-								agg.AggregateBySlot,
-							)
-						}
-
-						// loads the metric data by given series id from load result.
-						// if found data need to do down sampling aggregate.
-						loader.Load(dataLoadCtx)
-						// release tsd decoder back to pool for re-use.
-						encoding.ReleaseTSDDecoder(tsdDecoder)
-						// after load, need to reduce the aggregator's result to query flow.
-						dataLoadCtx.Reduce(e.queryFlow.Reduce)
 					}
 				}
 			})

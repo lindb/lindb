@@ -25,8 +25,11 @@ import (
 
 	"github.com/lindb/roaring"
 
+	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb"
@@ -372,8 +375,10 @@ func (t *dataLoadTask) Run() error {
 	if explain {
 		t.costs = make([]time.Duration, len(t.segmentCtx.FilterRS))
 	}
-	t.dataLoadCtx.Loaders[t.segmentIdx] = make([]flow.DataLoader, len(t.segmentCtx.FilterRS))
+	queryIntervalRatio := t.dataLoadCtx.ShardExecuteCtx.StorageExecuteCtx.Query.IntervalRatio
 	seriesIDs := t.dataLoadCtx.ShardExecuteCtx.SeriesIDsAfterFiltering // after group result
+	var target *timeutil.SlotRange
+
 	for idx, rs := range t.segmentCtx.FilterRS {
 		// double filtering, maybe some series ids be filtered out when do grouping.
 		// filter logic: forward_reader.go -> GetGroupingScanner
@@ -385,7 +390,46 @@ func (t *dataLoadTask) Run() error {
 		if explain {
 			start = time.Now()
 		}
-		t.dataLoadCtx.Loaders[t.segmentIdx][idx] = rs.Load(t.dataLoadCtx)
+
+		loader := rs.Load(t.dataLoadCtx)
+		if loader == nil {
+			continue
+		}
+
+		// load field series data by series ids
+		tsdDecoder := encoding.GetTSDDecoder()
+		t.dataLoadCtx.DownSampling = func(slotRange timeutil.SlotRange, lowSeriesIdx uint16, fieldIdx int, fieldData []byte) {
+			var agg aggregation.FieldAggregator
+			seriesAggregator := t.dataLoadCtx.GetSeriesAggregator(lowSeriesIdx, fieldIdx)
+
+			var ok bool
+			agg, ok = seriesAggregator.GetAggregator(t.segmentCtx.FamilyTime)
+			if !ok {
+				return
+			}
+			if target == nil {
+				start, end := agg.SlotRange()
+				target = &timeutil.SlotRange{
+					Start: uint16(start),
+					End:   uint16(end),
+				}
+			}
+			tsdDecoder.ResetWithTimeRange(fieldData, slotRange.Start, slotRange.End)
+			aggregation.DownSamplingSeries(
+				*target, uint16(queryIntervalRatio), 0, // same family, base slot = 0
+				tsdDecoder,
+				agg.AggregateBySlot,
+			)
+		}
+
+		// loads the metric data by given series id from load result.
+		// if found data need to do down sampling aggregate.
+		loader.Load(t.dataLoadCtx)
+		// release tsd decoder back to pool for re-use.
+		encoding.ReleaseTSDDecoder(tsdDecoder)
+		// after load, need to reduce the aggregator's result to query flow.
+		t.dataLoadCtx.Reduce(t.queryFlow.Reduce)
+
 		if explain {
 			t.costs[idx] = time.Since(start)
 			start = time.Now()

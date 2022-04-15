@@ -19,11 +19,11 @@ package query
 
 import (
 	"encoding/binary"
-	"strings"
 
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/series/tag"
 )
 
@@ -76,64 +76,30 @@ func (g *GroupingContext) ScanTagValueIDs(highKey uint16, container roaring.Cont
 // BuildGroup builds the grouped series ids by the high key of series id
 // and the container includes low keys of series id.
 func (g *GroupingContext) BuildGroup(ctx *flow.DataLoadContext) {
-	// new tag value ids array for each group by tag key
-	groupByTagValueIDs := g.buildTagValueIDs2SeriesIDs(ctx)
-
-	// current group by query completed, need merge group by tag value ids
-	ctx.ShardExecuteCtx.StorageExecuteCtx.CollectGroupingTagValueIDs(groupByTagValueIDs)
+	if len(g.tagKeys) == 1 {
+		g.buildGroupForSingleTag(ctx)
+	} else {
+		g.buildGroupForMultiTags(ctx)
+	}
 }
 
-// buildTagValueIDs2SeriesIDs builds tag value id => series id mapping
-func (g *GroupingContext) buildTagValueIDs2SeriesIDs(ctx *flow.DataLoadContext) []*roaring.Bitmap {
-	// new seriesIDs2Tags array based on range of min ~ max
-	seriesIDHighKey := ctx.SeriesIDHighKey
-	min := ctx.MinSeriesID
+// buildGroupForMultiTags builds grouping for multi-tags.
+func (g *GroupingContext) buildGroupForMultiTags(ctx *flow.DataLoadContext) {
 	tagSize := len(g.tagKeys)
-	tagValueIDsForTagKeys := make([]*roaring.Bitmap, tagSize)
-	tagValueIDsForGrouping := make([][]uint32, tagSize)
-
-	for tagKeyIdx, tagKey := range g.tagKeys {
-		scanners := g.scanners[tagKey]
-		tagValueIDsForTagKey := roaring.New()
-		tagValueIDsForTagKeys[tagKeyIdx] = tagValueIDsForTagKey
-
-		groupingTagValueIDs := make([]uint32, len(ctx.LowSeriesIDs))
-		tagValueIDsForGrouping[tagKeyIdx] = groupingTagValueIDs
-		for _, scanner := range scanners {
-			lowSeriesIDs, tagValueIDs := scanner.GetSeriesAndTagValue(seriesIDHighKey)
-			if lowSeriesIDs == nil {
-				// high key not exist
-				continue
-			}
-			ctx.IterateLowSeriesIDs(lowSeriesIDs, func(seriesIdxFromQuery uint16, seriesIdxFromStorage int) {
-				groupingTagValueIDs[seriesIdxFromQuery] = tagValueIDs[seriesIdxFromStorage]
-			})
-		}
-	}
-
-	var scratch [4]byte
+	tagValueIDsForGrouping := make([][]byte, len(ctx.LowSeriesIDs))
 	result := make(map[string]uint16)
-	var keyBuilder strings.Builder
-
-	it := ctx.LowSeriesIDsContainer.PeekableIterator()
-	for it.HasNext() {
-		seriesID := it.Next()
-		seriesIdxFromQuery := seriesID - min // series index in query counting sort array
-		found := true
-		keyBuilder.Reset()
-		for tagKeyIdx := range tagValueIDsForGrouping {
-			tagValueID := tagValueIDsForGrouping[tagKeyIdx][seriesIdxFromQuery]
-			if tagValueID == 0 {
-				found = false
-				break
-			}
-			binary.LittleEndian.PutUint32(scratch[:], tagValueID)
-			keyBuilder.Write(scratch[:])
-
-			tagValueIDsForTagKeys[tagKeyIdx].Add(tagValueID)
+	g.scanGroupingTags(ctx, func(seriesIdxFromQuery uint16, tagKeyIDIdx int, tagValueID uint32) {
+		tagValueIDs := tagValueIDsForGrouping[seriesIdxFromQuery]
+		if tagValueIDs == nil {
+			tagValueIDs = make([]byte, tagSize*4)
+			tagValueIDsForGrouping[seriesIdxFromQuery] = tagValueIDs
 		}
-		if found {
-			key := keyBuilder.String()
+		tagOffset := tagKeyIDIdx * 4
+		binary.LittleEndian.PutUint32(tagValueIDs[tagOffset:], tagValueID)
+
+		if tagKeyIDIdx == tagSize-1 {
+			key := strutil.ByteSlice2String(tagValueIDs)
+			// last tag key
 			aggIdx, ok := result[key]
 			if !ok {
 				groupingSeriesAggIdx := ctx.NewSeriesAggregator(key)
@@ -142,7 +108,45 @@ func (g *GroupingContext) buildTagValueIDs2SeriesIDs(ctx *flow.DataLoadContext) 
 			}
 			ctx.GroupingSeriesAggRefs[seriesIdxFromQuery] = aggIdx
 		}
-	}
+	})
+}
 
-	return tagValueIDsForTagKeys
+// buildGroupForMultiTags builds grouping for single-tags.
+func (g *GroupingContext) buildGroupForSingleTag(ctx *flow.DataLoadContext) {
+	tagSize := len(g.tagKeys)
+	result := make(map[uint32]uint16)
+	var scratch [4]byte
+	g.scanGroupingTags(ctx, func(seriesIdxFromQuery uint16, tagKeyIDIdx int, tagValueID uint32) {
+		if tagKeyIDIdx == tagSize-1 {
+			// last tag key
+			aggIdx, ok := result[tagValueID]
+			if !ok {
+				binary.LittleEndian.PutUint32(scratch[:], tagValueID)
+				groupingSeriesAggIdx := ctx.NewSeriesAggregator(string(scratch[:]))
+				aggIdx = groupingSeriesAggIdx
+				result[tagValueID] = aggIdx
+			}
+			ctx.GroupingSeriesAggRefs[seriesIdxFromQuery] = aggIdx
+		}
+	})
+}
+
+// scanGroupingTags scans grouping tags(series ids=>tag value ids)
+func (g *GroupingContext) scanGroupingTags(ctx *flow.DataLoadContext,
+	fn func(seriesIdxFromQuery uint16, tagKeyIDIdx int, tagValueID uint32),
+) {
+	seriesIDHighKey := ctx.SeriesIDHighKey
+	for tagKeyIdx, tagKey := range g.tagKeys {
+		scanners := g.scanners[tagKey]
+		for _, scanner := range scanners {
+			lowSeriesIDs, tagValueIDs := scanner.GetSeriesAndTagValue(seriesIDHighKey)
+			if lowSeriesIDs == nil {
+				// high key not exist
+				continue
+			}
+			ctx.IterateLowSeriesIDs(lowSeriesIDs, func(seriesIdxFromQuery uint16, seriesIdxFromStorage int) {
+				fn(seriesIdxFromQuery, tagKeyIdx, tagValueIDs[seriesIdxFromStorage])
+			})
+		}
+	}
 }
