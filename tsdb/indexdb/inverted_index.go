@@ -28,7 +28,6 @@ import (
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb/metadb"
-	"github.com/lindb/lindb/tsdb/query"
 	"github.com/lindb/lindb/tsdb/tblstore/tagindex"
 
 	"github.com/lindb/roaring"
@@ -187,7 +186,7 @@ func (index *invertedIndex) GetGroupingContext(ctx *flow.ShardExecuteContext) er
 	}
 
 	// set context for next execution stage of query
-	ctx.GroupingContext = query.NewGroupContext(tagKeyIDs, scannerMap)
+	ctx.GroupingContext = flow.NewGroupContext(tagKeyIDs, scannerMap)
 	return nil
 }
 
