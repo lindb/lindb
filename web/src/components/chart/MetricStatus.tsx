@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 import { IconSpin, IconUploadError } from "@douyinfe/semi-icons";
-import { Tooltip, Typography } from "@douyinfe/semi-ui";
+import { Tooltip, Typography, Banner } from "@douyinfe/semi-ui";
 import { ChartStatus } from "@src/models";
 import { ChartStore } from "@src/stores";
 import { reaction } from "mobx";
@@ -29,8 +29,11 @@ const { Text } = Typography;
  *
  * @param props chartId which need watch
  */
-export default function MetricStatus(props: { chartId: string }) {
-  const { chartId } = props;
+export default function MetricStatus(props: {
+  chartId: string;
+  showMsg?: boolean;
+}) {
+  const { chartId, showMsg } = props;
   const [status, setStatus] = useState(ChartStatus.Init);
   useEffect(() => {
     const disposer = [
@@ -53,6 +56,16 @@ export default function MetricStatus(props: { chartId: string }) {
     case ChartStatus.Loading:
       return <IconSpin spin style={{ color: "var(--semi-color-primary)" }} />;
     case ChartStatus.Error:
+      if (showMsg) {
+        return (
+          <Banner
+            type="danger"
+            description={ChartStore.chartErrMap.get(chartId)}
+            closeIcon
+            fullMode={false}
+          />
+        );
+      }
       return (
         <Tooltip position="left" content={ChartStore.chartErrMap.get(chartId)}>
           <IconUploadError style={{ color: "var(--semi-color-danger)" }} />

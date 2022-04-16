@@ -18,6 +18,7 @@
 package sql
 
 import (
+	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/sql/grammar"
 	"github.com/lindb/lindb/sql/stmt"
 )
@@ -39,7 +40,7 @@ func (s *schemasStmtParser) visitCfg(ctx *grammar.JsonContext) {
 
 // visitDropDatabase visits when production database name expression is entered.
 func (s *schemasStmtParser) visitDatabaseName(ctx *grammar.DatabaseNameContext) {
-	s.schema.Value = ctx.GetText()
+	s.schema.Value = strutil.GetStringValue(ctx.GetText())
 }
 
 // build returns the state statement.
