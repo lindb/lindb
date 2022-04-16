@@ -40,10 +40,6 @@ import (
 type ChannelManager interface {
 	// Write writes a MetricList, the manager handler the database, sharding things.
 	Write(ctx context.Context, database string, brokerBatchRows *metric.BrokerBatchRows) error
-	// CreateChannel creates a new shardChannel or returns a existed shardChannel for storage with specific database and shardID,
-	// numOfShard should be greater or equal than the origin setting, otherwise error is returned.
-	// numOfShard is used eot calculate the shardID for a given hash.
-	CreateChannel(databaseCfg models.Database, numOfShard int32, shardID models.ShardID) (ShardChannel, error)
 
 	// Close closes all the shardChannel.
 	Close()
@@ -108,8 +104,9 @@ func (cm *channelManager) Write(ctx context.Context, database string, brokerBatc
 	return databaseChannel.Write(ctx, brokerBatchRows)
 }
 
-// CreateChannel creates a new shardChannel or returns a existed shardChannel for storage with specific database and shardID.
-// NumOfShard should be greater or equal than the origin setting, otherwise error is returned.
+// CreateChannel creates a new shardChannel or returns an existed shardChannel for storage with specific database and shardID,
+// numOfShard should be greater or equal than the origin setting, otherwise error is returned.
+// numOfShard is used eot calculate the shardID for a given hash.
 func (cm *channelManager) CreateChannel(databaseCfg models.Database, numOfShard int32, shardID models.ShardID) (ShardChannel, error) {
 	if numOfShard <= 0 || int32(shardID) >= numOfShard {
 		return nil, errors.New("numOfShard should be greater than 0 and shardID should less then numOfShard")

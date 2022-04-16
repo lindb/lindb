@@ -222,3 +222,24 @@ func TestStorageCluster_FlushDatabase(t *testing.T) {
 		_ = sc.FlushDatabase("test")
 	})
 }
+
+func TestStorageCluster_DropDatabaseAssignment(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+	}()
+
+	repo := state.NewMockRepository(ctrl)
+	sc := &storageCluster{
+		cfg:         &config.StorageCluster{Config: &config.RepoState{Namespace: "test"}},
+		storageRepo: repo,
+		logger:      logger.GetLogger("test", "test"),
+	}
+	repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	err := sc.DropDatabaseAssignment("test")
+	assert.Error(t, err)
+
+	repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
+	err = sc.DropDatabaseAssignment("test")
+	assert.NoError(t, err)
+}

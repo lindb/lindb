@@ -20,9 +20,10 @@ package models
 import (
 	"testing"
 
-	"github.com/lindb/lindb/pkg/encoding"
-
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/pkg/encoding"
 )
 
 func TestStorageStatus_MarshalJSON(t *testing.T) {
@@ -72,4 +73,33 @@ func TestStorageState(t *testing.T) {
 	rs1 := storageState.LeadersOnNode(2)
 	assert.Len(t, rs1, 1)
 	assert.Equal(t, rs1["test"], []ShardID{1})
+
+	assert.NotEmpty(t, storageState.String())
+
+	storageState.DropDatabase("test")
+	_, ok := storageState.ShardAssignments["test"]
+	assert.False(t, ok)
+	_, ok = storageState.ShardStates["test"]
+	assert.False(t, ok)
+}
+
+func TestReplicaState_String(t *testing.T) {
+	assert.NotEmpty(t, ReplicaState{}.String())
+}
+
+func TestStorages_ToTable(t *testing.T) {
+	s := Storages{}
+	str, rows := s.ToTable()
+	assert.Empty(t, str)
+	assert.Zero(t, rows)
+
+	s = Storages{{
+		StorageCluster: config.StorageCluster{
+			Config: &config.RepoState{Namespace: "ns"},
+		},
+		Status: 0,
+	}}
+	str, rows = s.ToTable()
+	assert.NotEmpty(t, str)
+	assert.NotZero(t, rows)
 }

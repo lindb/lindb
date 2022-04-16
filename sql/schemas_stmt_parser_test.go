@@ -31,6 +31,12 @@ func TestShowSchemasStatement(t *testing.T) {
 	assert.Equal(t, &stmt.Schema{Type: stmt.DatabaseSchemaType}, q)
 }
 
+func TestDropDatabaseStatement(t *testing.T) {
+	q, err := Parse("drop database test")
+	assert.NoError(t, err)
+	assert.Equal(t, &stmt.Schema{Type: stmt.DropDatabaseSchemaType, Value: "test"}, q)
+}
+
 func TestCreateDatabase(t *testing.T) {
 	cfg := `{\"name\":\"test\"}`
 	sql := `create database ` + cfg

@@ -72,6 +72,9 @@ type SQLListener interface {
 	// EnterCreateDatabaseStmt is called when entering the createDatabaseStmt production.
 	EnterCreateDatabaseStmt(c *CreateDatabaseStmtContext)
 
+	// EnterDropDatabaseStmt is called when entering the dropDatabaseStmt production.
+	EnterDropDatabaseStmt(c *DropDatabaseStmtContext)
+
 	// EnterShowDatabaseStmt is called when entering the showDatabaseStmt production.
 	EnterShowDatabaseStmt(c *ShowDatabaseStmtContext)
 
@@ -98,6 +101,9 @@ type SQLListener interface {
 
 	// EnterNamespace is called when entering the namespace production.
 	EnterNamespace(c *NamespaceContext)
+
+	// EnterDatabaseName is called when entering the databaseName production.
+	EnterDatabaseName(c *DatabaseNameContext)
 
 	// EnterSource is called when entering the source production.
 	EnterSource(c *SourceContext)
@@ -312,6 +318,9 @@ type SQLListener interface {
 	// ExitCreateDatabaseStmt is called when exiting the createDatabaseStmt production.
 	ExitCreateDatabaseStmt(c *CreateDatabaseStmtContext)
 
+	// ExitDropDatabaseStmt is called when exiting the dropDatabaseStmt production.
+	ExitDropDatabaseStmt(c *DropDatabaseStmtContext)
+
 	// ExitShowDatabaseStmt is called when exiting the showDatabaseStmt production.
 	ExitShowDatabaseStmt(c *ShowDatabaseStmtContext)
 
@@ -338,6 +347,9 @@ type SQLListener interface {
 
 	// ExitNamespace is called when exiting the namespace production.
 	ExitNamespace(c *NamespaceContext)
+
+	// ExitDatabaseName is called when exiting the databaseName production.
+	ExitDatabaseName(c *DatabaseNameContext)
 
 	// ExitSource is called when exiting the source production.
 	ExitSource(c *SourceContext)

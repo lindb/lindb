@@ -19,6 +19,7 @@ package command
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/lindb/lindb/pkg/validate"
 
@@ -30,6 +31,7 @@ import (
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
+// SchemaCommand executes database schema statement.
 func SchemaCommand(ctx context.Context, deps *depspkg.HTTPDeps, _ *models.ExecuteParam, stmt stmtpkg.Statement) (interface{}, error) {
 	schemaStmt := stmt.(*stmtpkg.Schema)
 	switch schemaStmt.Type {
@@ -37,6 +39,8 @@ func SchemaCommand(ctx context.Context, deps *depspkg.HTTPDeps, _ *models.Execut
 		return listDataBases(ctx, deps)
 	case stmtpkg.CreateDatabaseSchemaType:
 		return saveDataBase(ctx, deps, schemaStmt)
+	case stmtpkg.DropDatabaseSchemaType:
+		return dropDatabase(ctx, deps, schemaStmt)
 	case stmtpkg.DatabaseNameSchemaType:
 		dbs, err := listDataBases(ctx, deps)
 		if err != nil {
@@ -50,6 +54,19 @@ func SchemaCommand(ctx context.Context, deps *depspkg.HTTPDeps, _ *models.Execut
 		return databaseNames, nil
 	}
 	return nil, nil
+}
+
+// dropDatabase drops database config.
+func dropDatabase(ctx context.Context, deps *depspkg.HTTPDeps, stmt *stmtpkg.Schema) (interface{}, error) {
+	databaseName := stmt.Value
+	if err := deps.Repo.Delete(ctx, constants.GetDatabaseConfigPath(databaseName)); err != nil {
+		return nil, err
+	}
+	if err := deps.Repo.Delete(ctx, constants.GetDatabaseAssignPath(databaseName)); err != nil {
+		return nil, err
+	}
+	rs := fmt.Sprintf("Drop database[%s] ok", stmt.Value)
+	return &rs, nil
 }
 
 // listDataBases returns database list in cluster.

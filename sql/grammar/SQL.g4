@@ -25,6 +25,7 @@ statementList           : showMasterStmt
                         | showTagValuesStmt
                         | queryStmt
                         | createDatabaseStmt
+                        | dropDatabaseStmt
                         ;
 
 useStmt              : T_USE ident ;
@@ -42,6 +43,7 @@ showStorageMetricStmt: T_SHOW T_STORAGE T_METRIC T_WHERE (storageFilter|metricLi
 createStorageStmt    : T_CREATE T_STORAGE json;
 showSchemasStmt      : T_SHOW T_SCHEMAS ;
 createDatabaseStmt   : T_CREATE T_DATASBAE json;
+dropDatabaseStmt     : T_DROP T_DATASBAE databaseName;
 showDatabaseStmt     : T_SHOW T_DATASBAES ;
 showNameSpacesStmt   : T_SHOW T_NAMESPACES (T_WHERE T_NAMESPACE T_EQUAL prefix)? limitClause?;
 showMetricsStmt      : T_SHOW T_METRICS (T_ON namespace)? (T_WHERE T_METRIC T_EQUAL prefix)? limitClause?;
@@ -51,6 +53,7 @@ showTagValuesStmt    : T_SHOW T_TAG T_VALUES fromClause T_WITH T_KEY T_EQUAL wit
 prefix               : ident ;
 withTagKey           : ident ;
 namespace            : ident ;
+databaseName         : ident ;
 source               : (T_STATE_MACHINE|T_STATE_REPO) ;
 
 //data query plan

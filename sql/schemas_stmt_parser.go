@@ -37,6 +37,11 @@ func (s *schemasStmtParser) visitCfg(ctx *grammar.JsonContext) {
 	s.schema.Value = ctx.GetText()
 }
 
+// visitDropDatabase visits when production database name expression is entered.
+func (s *schemasStmtParser) visitDatabaseName(ctx *grammar.DatabaseNameContext) {
+	s.schema.Value = ctx.GetText()
+}
+
 // build returns the state statement.
 func (s *schemasStmtParser) build() (stmt.Statement, error) {
 	return s.schema, nil

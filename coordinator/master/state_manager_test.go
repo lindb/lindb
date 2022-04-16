@@ -43,13 +43,37 @@ func TestStateManager_Close(t *testing.T) {
 	mgr.Close()
 }
 
-func TestStateManager_Handle_Event_Panic(t *testing.T) {
+func TestStateManager_DropDatabase(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	sc := NewMockStorageCluster(ctrl)
+	repo := state.NewMockRepository(ctrl)
 	mgr := NewStateManager(context.TODO(), nil, nil)
-	// case 1: panic
+	mgr1 := mgr.(*stateManager)
+	mgr1.mutex.Lock()
+	shardAssignment := models.NewShardAssignment("test-db")
+	mgr1.shardAssignments["test-db"] = shardAssignment
+	mgr1.databases["test-db"] = &models.Database{Storage: "/storage/test"}
+	mgr1.storages["/storage/test"] = sc
+	mgr1.masterRepo = repo
+	mgr1.mutex.Unlock()
+
+	// case 1: database not exist
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.DatabaseConfigDeletion,
-		Key:  "/shard/assign/test",
+		Key:  "/database/config/test",
 	})
+	// case 2: drop database config
+	sc.EXPECT().GetState().Return(models.NewStorageState("/storage/test")).MaxTimes(2)
+	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	sc.EXPECT().DropDatabaseAssignment(gomock.Any()).Return(fmt.Errorf("err"))
+	sc.EXPECT().Close()
+	mgr.EmitEvent(&discovery.Event{
+		Type: discovery.DatabaseConfigDeletion,
+		Key:  "/database/config/test-db",
+	})
+
 	time.Sleep(100 * time.Millisecond)
 	mgr.Close()
 }
@@ -58,7 +82,7 @@ func TestStateManager_NotRunning(t *testing.T) {
 	mgr := NewStateManager(context.TODO(), nil, nil)
 	mgr1 := mgr.(*stateManager)
 	mgr1.running.Store(false)
-	// case 1: panic
+	// case 1: not running
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.DatabaseConfigDeletion,
 		Key:  "/shard/assign/test",
