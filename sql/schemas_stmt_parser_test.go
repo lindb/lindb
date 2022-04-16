@@ -32,7 +32,7 @@ func TestShowSchemasStatement(t *testing.T) {
 }
 
 func TestDropDatabaseStatement(t *testing.T) {
-	q, err := Parse("drop database test")
+	q, err := Parse("drop database 'test'")
 	assert.NoError(t, err)
 	assert.Equal(t, &stmt.Schema{Type: stmt.DropDatabaseSchemaType, Value: "test"}, q)
 }

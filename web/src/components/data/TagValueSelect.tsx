@@ -127,6 +127,7 @@ const TagValueSelect: React.FC<MetadataSelectProps> = (
         title: "Fetch tag values error",
         content: _.get(err, "response.data", "Unknown internal error"),
         position: "top",
+        theme: "light",
         duration: 5,
       });
     } finally {

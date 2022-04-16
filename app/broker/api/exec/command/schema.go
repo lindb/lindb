@@ -59,6 +59,7 @@ func SchemaCommand(ctx context.Context, deps *depspkg.HTTPDeps, _ *models.Execut
 // dropDatabase drops database config.
 func dropDatabase(ctx context.Context, deps *depspkg.HTTPDeps, stmt *stmtpkg.Schema) (interface{}, error) {
 	databaseName := stmt.Value
+	log.Info("drop database", logger.String("name", databaseName))
 	if err := deps.Repo.Delete(ctx, constants.GetDatabaseConfigPath(databaseName)); err != nil {
 		return nil, err
 	}
