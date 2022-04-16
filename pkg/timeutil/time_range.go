@@ -45,6 +45,16 @@ func (sr *SlotRange) GetRange() (start, end uint16) {
 	return sr.Start, sr.End
 }
 
+// Contains tests if timestamp in current time range
+func (sr *SlotRange) Contains(slot uint16) bool {
+	return slot >= sr.Start && slot <= sr.End
+}
+
+// Overlap tests if overlap with current time range
+func (sr *SlotRange) Overlap(o SlotRange) bool {
+	return sr.Contains(o.Start) || o.Contains(sr.Start)
+}
+
 // Union returns the union of two slot range
 func (sr *SlotRange) Union(o SlotRange) SlotRange {
 	var result SlotRange

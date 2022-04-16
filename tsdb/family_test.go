@@ -113,6 +113,7 @@ func TestDataFamily_Filter(t *testing.T) {
 			MetricID: metric.ID(10),
 			Query: &stmtpkg.Query{
 				TimeRange: timeutil.TimeRange{},
+				Interval:  timeutil.Interval(timeutil.OneMinute),
 			},
 		},
 	})
@@ -129,6 +130,7 @@ func TestDataFamily_Filter(t *testing.T) {
 			MetricID: metric.ID(10),
 			Query: &stmtpkg.Query{
 				TimeRange: timeutil.TimeRange{},
+				Interval:  timeutil.Interval(timeutil.OneMinute),
 			},
 		},
 	})
@@ -146,6 +148,7 @@ func TestDataFamily_Filter(t *testing.T) {
 			MetricID: metric.ID(10),
 			Query: &stmtpkg.Query{
 				TimeRange: timeutil.TimeRange{},
+				Interval:  timeutil.Interval(timeutil.OneMinute),
 			},
 		},
 	})
@@ -153,8 +156,10 @@ func TestDataFamily_Filter(t *testing.T) {
 	assert.Nil(t, rs)
 
 	// case 4: normal case
+	now := timeutil.Now()
+	metricReader := metricsdata.NewMockMetricReader(ctrl)
 	newReaderFunc = func(file string, buf []byte) (reader metricsdata.MetricReader, err error) {
-		return nil, nil
+		return metricReader, nil
 	}
 	filter := metricsdata.NewMockFilter(ctrl)
 	newFilterFunc = func(familyTime int64, snapshot version.Snapshot, readers []metricsdata.MetricReader) metricsdata.Filter {
@@ -163,15 +168,32 @@ func TestDataFamily_Filter(t *testing.T) {
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{reader}, nil)
 	reader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3}, nil)
 	filter.EXPECT().Filter(gomock.Any(), gomock.Any()).Return(nil, nil)
+	metricReader.EXPECT().GetTimeRange().Return(timeutil.SlotRange{Start: 0, End: 60})
 	_, err = dataFamily.Filter(&flow.ShardExecuteContext{
 		StorageExecuteCtx: &flow.StorageExecuteContext{
 			MetricID: metric.ID(10),
 			Query: &stmtpkg.Query{
-				TimeRange: timeutil.TimeRange{},
+				TimeRange: timeutil.TimeRange{Start: now, End: now + 60000},
+				Interval:  timeutil.Interval(timeutil.OneMinute),
 			},
 		},
 	})
 	assert.NoError(t, err)
+	// case 4: slot range not match
+	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{reader}, nil)
+	reader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3}, nil)
+	metricReader.EXPECT().GetTimeRange().Return(timeutil.SlotRange{Start: 600, End: 600})
+	rs, err = dataFamily.Filter(&flow.ShardExecuteContext{
+		StorageExecuteCtx: &flow.StorageExecuteContext{
+			MetricID: metric.ID(10),
+			Query: &stmtpkg.Query{
+				TimeRange: timeutil.TimeRange{Start: now, End: now + 60000},
+				Interval:  timeutil.Interval(timeutil.OneMinute),
+			},
+		},
+	})
+	assert.NoError(t, err)
+	assert.Empty(t, rs)
 
 	err = dataFamily.Close()
 	assert.NoError(t, err)

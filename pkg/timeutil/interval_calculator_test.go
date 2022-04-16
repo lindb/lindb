@@ -42,6 +42,7 @@ func TestCalcSlot(t *testing.T) {
 	calc = yearCalculator
 	assert.Equal(t, 9, calc.CalcSlot(now, t1, OneDay))
 }
+
 func TestGetSegment(t *testing.T) {
 	t2, _ := ParseTimestamp("02/07/2019", "02/01/2006")
 	calc := dayCalculator
@@ -87,24 +88,30 @@ func TestCalcSegmentTime(t *testing.T) {
 
 func TestCalcFamily(t *testing.T) {
 	now, _ := ParseTimestamp("20190702 12:30:30", "20060102 15:04:05")
+	ft, _ := ParseTimestamp("20190702 12:00:00", "20060102 15:04:05")
 
 	t1, _ := ParseTimestamp("20190702 00:00:00", "20060102 15:04:05")
 	calc := dayCalculator
 	t2, _ := calc.ParseSegmentTime("20190702")
 	assert.Equal(t, t1, t2)
 	assert.Equal(t, 12, calc.CalcFamily(now, t2))
+	assert.Equal(t, ft, calc.CalcFamilyTime(now))
 
 	t1, _ = ParseTimestamp("20190701 00:00:00", "20060102 15:04:05")
+	ft, _ = ParseTimestamp("20190702 00:00:00", "20060102 15:04:05")
 	calc = monthCalculator
 	t2, _ = calc.ParseSegmentTime("201907")
 	assert.Equal(t, t1, t2)
 	assert.Equal(t, 2, calc.CalcFamily(now, t2))
+	assert.Equal(t, ft, calc.CalcFamilyTime(now))
 
 	t1, _ = ParseTimestamp("20190101 00:00:00", "20060102 15:04:05")
+	ft, _ = ParseTimestamp("20190701 00:00:00", "20060102 15:04:05")
 	calc = yearCalculator
 	t2, _ = calc.ParseSegmentTime("2019")
 	assert.Equal(t, t1, t2)
 	assert.Equal(t, 7, calc.CalcFamily(now, t2))
+	assert.Equal(t, ft, calc.CalcFamilyTime(now))
 }
 
 func TestCalcFamilyTimeRange(t *testing.T) {

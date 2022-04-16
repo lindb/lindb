@@ -51,6 +51,25 @@ func TestStorageExecuteContext(t *testing.T) {
 	assert.False(t, (&StorageExecuteContext{Query: &stmt.Query{}}).HasWhereCondition())
 }
 
+func TestStorageExecuteContext_CalcQuerySlotRange(t *testing.T) {
+	t1, _ := timeutil.ParseTimestamp("20190101 00:00:00", "20060102 15:04:05")
+	t2, _ := timeutil.ParseTimestamp("20190101 03:10:00", "20060102 15:04:05")
+	ctx := &StorageExecuteContext{
+		Query: &stmt.Query{
+			Interval: timeutil.Interval(timeutil.OneMinute),
+			TimeRange: timeutil.TimeRange{
+				Start: t1,
+				End:   t2,
+			},
+		},
+	}
+	slotRange := ctx.CalcQuerySlotRange(t1)
+	assert.Equal(t, timeutil.SlotRange{
+		Start: 0,
+		End:   59,
+	}, slotRange)
+}
+
 func TestStorageExecuteContext_HasGroupingTagValueIDs(t *testing.T) {
 	ctx := &StorageExecuteContext{
 		GroupingTagValueIDs: make([]*roaring.Bitmap, 2),

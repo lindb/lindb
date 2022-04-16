@@ -149,6 +149,7 @@ func (i Interval) Type() IntervalType {
 	}
 }
 
+// Calculator returns the calculator for current interval.
 func (i Interval) Calculator() IntervalCalculator {
 	switch i.Type() {
 	case Year:
@@ -157,6 +158,21 @@ func (i Interval) Calculator() IntervalCalculator {
 		return monthCalculator
 	default:
 		return dayCalculator
+	}
+}
+
+// CalcQuerySlotRange returns slot range for query by family time and query time range.
+func (i Interval) CalcQuerySlotRange(familyTime int64, queryTimeRange TimeRange) SlotRange {
+	calc := i.Calculator()
+	storageTimeRange := TimeRange{
+		Start: familyTime,
+		End:   calc.CalcFamilyEndTime(familyTime),
+	}
+	timeRange := queryTimeRange.Intersect(storageTimeRange)
+	queryIntervalVal := i.Int64()
+	return SlotRange{
+		Start: uint16(calc.CalcSlot(timeRange.Start, familyTime, queryIntervalVal)),
+		End:   uint16(calc.CalcSlot(timeRange.End, familyTime, queryIntervalVal)),
 	}
 }
 
