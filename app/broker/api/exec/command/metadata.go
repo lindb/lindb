@@ -68,6 +68,7 @@ func MetadataCommand(ctx context.Context, deps *depspkg.HTTPDeps,
 	return nil, nil
 }
 
+// exploreStateRepoData explores state data from repo.
 func exploreStateRepoData(ctx context.Context, deps *depspkg.HTTPDeps,
 	metadataStmt *stmtpkg.Metadata) (interface{}, error) {
 	var stateMachineInfo models.StateMachineInfo

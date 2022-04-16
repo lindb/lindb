@@ -51,17 +51,18 @@ func TestChannelManager_GetChannel(t *testing.T) {
 	stateMgr := broker.NewMockStateManager(ctrl)
 	stateMgr.EXPECT().WatchShardStateChangeEvent(gomock.Any())
 	cm := NewChannelManager(context.TODO(), nil, stateMgr)
+	cm1 := cm.(*channelManager)
 
-	_, err := cm.CreateChannel(models.Database{Name: "database"}, 2, 2)
+	_, err := cm1.CreateChannel(models.Database{Name: "database"}, 2, 2)
 	assert.Error(t, err)
 
 	opt := &option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}
-	ch1, err := cm.CreateChannel(models.Database{Name: "database",
+	ch1, err := cm1.CreateChannel(models.Database{Name: "database",
 		Option: opt,
 	}, 3, 0)
 	assert.NoError(t, err)
 
-	ch111, err := cm.CreateChannel(models.Database{Name: "database",
+	ch111, err := cm1.CreateChannel(models.Database{Name: "database",
 		Option: opt,
 	}, 3, 0)
 	assert.NoError(t, err)

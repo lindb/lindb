@@ -987,6 +987,40 @@ func TestExecuteAPI_Execute(t *testing.T) {
 				assert.Equal(t, http.StatusOK, resp.Code)
 			},
 		},
+		{name: "drop database, but delete cfg failure",
+			reqBody: `{"sql":"drop database test"}`,
+			prepare: func() {
+				// delete database cfg failure
+				repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{name: "drop database, but delete shard assignment failure",
+			reqBody: `{"sql":"drop database test"}`,
+			prepare: func() {
+				// delete database cfg ok
+				repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
+				// delete database shard assignment failure
+				repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{name: "drop database successfully",
+			reqBody: `{"sql":"drop database test"}`,
+			prepare: func() {
+				// delete database cfg ok
+				repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
+				// delete database shard assignment ok
+				repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
 	}
 
 	for _, tt := range cases {

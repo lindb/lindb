@@ -29,6 +29,7 @@ func TestNewQueryStats(t *testing.T) {
 	storageStats, ok := stats.StorageNodes["task-1"]
 	assert.NotNil(t, storageStats)
 	assert.True(t, ok)
+	stats.MergeBrokerTaskStats("node-1", stats)
 }
 
 func TestStorageStats(t *testing.T) {

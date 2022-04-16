@@ -172,6 +172,7 @@ func NewStorageState(name string) *StorageState {
 	}
 }
 
+// LeadersOnNode returns leaders on this node.
 func (s *StorageState) LeadersOnNode(nodeID NodeID) map[string][]ShardID {
 	result := make(map[string][]ShardID)
 	for name, shards := range s.ShardStates {
@@ -184,6 +185,7 @@ func (s *StorageState) LeadersOnNode(nodeID NodeID) map[string][]ShardID {
 	return result
 }
 
+// ReplicasOnNode returns replicas on this node.
 func (s *StorageState) ReplicasOnNode(nodeID NodeID) map[string][]ShardID {
 	result := make(map[string][]ShardID)
 	for name, shardAssignment := range s.ShardAssignments {
@@ -195,6 +197,12 @@ func (s *StorageState) ReplicasOnNode(nodeID NodeID) map[string][]ShardID {
 		}
 	}
 	return result
+}
+
+// DropDatabase drops shard state/assignment by database's name.
+func (s *StorageState) DropDatabase(name string) {
+	delete(s.ShardStates, name)
+	delete(s.ShardAssignments, name)
 }
 
 // NodeOnline adds a live node into node list.
@@ -209,8 +217,7 @@ func (s *StorageState) NodeOffline(nodeID NodeID) {
 
 // Stringer returns a human readable string
 func (s *StorageState) String() string {
-	content := encoding.JSONMarshal(s)
-	return string(content)
+	return string(encoding.JSONMarshal(s))
 }
 
 // StateMachineInfo represents state machine register info.

@@ -229,8 +229,30 @@ func (m *stateManager) onDatabaseCfgChange(key string, data []byte) {
 }
 
 // onDatabaseCfgDelete triggers when database config is deletion.
-func (m *stateManager) onDatabaseCfgDelete(_ string) {
-	panic("need impl")
+func (m *stateManager) onDatabaseCfgDelete(key string) {
+	m.logger.Info("database config deleted",
+		logger.String("key", key))
+	name := strings.TrimPrefix(key, constants.GetDatabaseConfigPath(""))
+	databaseCfg, ok := m.databases[name]
+	if !ok {
+		return
+	}
+	delete(m.databases, name)
+	delete(m.shardAssignments, name)
+
+	storage := m.storages[databaseCfg.Storage]
+	// remove database state from storage cluster
+	storage.GetState().DropDatabase(name)
+
+	// finally, sync storage state
+	m.syncState(storage.GetState())
+	if err := storage.DropDatabaseAssignment(name); err != nil {
+		// TODO add metric
+		m.logger.Error("drop database assignment failure",
+			logger.String("storage", databaseCfg.Storage),
+			logger.String("database", name),
+			logger.Error(err))
+	}
 }
 
 // onShardAssignmentChange triggers when shard assignment modify.

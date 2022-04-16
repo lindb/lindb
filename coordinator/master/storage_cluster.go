@@ -53,6 +53,8 @@ type StorageCluster interface {
 		shardAssign *models.ShardAssignment,
 		databaseOption *option.DatabaseOption,
 	) error
+	// DropDatabaseAssignment drops database assignment from storage state repo.
+	DropDatabaseAssignment(databaseName string) error
 	// GetRepo returns current storage storageCluster's state repo
 	GetRepo() state.Repository
 	// Close closes storageCluster controller
@@ -157,12 +159,23 @@ func (c *storageCluster) SaveDatabaseAssignment(
 		ShardAssignment: shardAssign,
 		Option:          databaseOption,
 	})
-	if err := c.storageRepo.Put(c.ctx, constants.ShardAssigmentPath+"/"+shardAssign.Name, data); err != nil {
+	if err := c.storageRepo.Put(c.ctx, constants.GetDatabaseAssignPath(shardAssign.Name), data); err != nil {
 		return err
 	}
 	c.logger.Info("save database assignment successfully",
 		logger.String("storage", c.cfg.Config.Namespace),
 		logger.String("database", shardAssign.Name))
+	return nil
+}
+
+// DropDatabaseAssignment drops database assignment from storage state repo.
+func (c *storageCluster) DropDatabaseAssignment(databaseName string) error {
+	if err := c.storageRepo.Delete(c.ctx, constants.GetDatabaseAssignPath(databaseName)); err != nil {
+		return err
+	}
+	c.logger.Info("drop database assignment successfully",
+		logger.String("storage", c.cfg.Config.Namespace),
+		logger.String("database", databaseName))
 	return nil
 }
 

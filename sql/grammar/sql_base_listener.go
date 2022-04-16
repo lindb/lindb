@@ -133,6 +133,12 @@ func (s *BaseSQLListener) EnterCreateDatabaseStmt(ctx *CreateDatabaseStmtContext
 // ExitCreateDatabaseStmt is called when production createDatabaseStmt is exited.
 func (s *BaseSQLListener) ExitCreateDatabaseStmt(ctx *CreateDatabaseStmtContext) {}
 
+// EnterDropDatabaseStmt is called when production dropDatabaseStmt is entered.
+func (s *BaseSQLListener) EnterDropDatabaseStmt(ctx *DropDatabaseStmtContext) {}
+
+// ExitDropDatabaseStmt is called when production dropDatabaseStmt is exited.
+func (s *BaseSQLListener) ExitDropDatabaseStmt(ctx *DropDatabaseStmtContext) {}
+
 // EnterShowDatabaseStmt is called when production showDatabaseStmt is entered.
 func (s *BaseSQLListener) EnterShowDatabaseStmt(ctx *ShowDatabaseStmtContext) {}
 
@@ -186,6 +192,12 @@ func (s *BaseSQLListener) EnterNamespace(ctx *NamespaceContext) {}
 
 // ExitNamespace is called when production namespace is exited.
 func (s *BaseSQLListener) ExitNamespace(ctx *NamespaceContext) {}
+
+// EnterDatabaseName is called when production databaseName is entered.
+func (s *BaseSQLListener) EnterDatabaseName(ctx *DatabaseNameContext) {}
+
+// ExitDatabaseName is called when production databaseName is exited.
+func (s *BaseSQLListener) ExitDatabaseName(ctx *DatabaseNameContext) {}
 
 // EnterSource is called when production source is entered.
 func (s *BaseSQLListener) EnterSource(ctx *SourceContext) {}
