@@ -101,7 +101,12 @@ func TestMetricStore_FlushMetricsDataTo(t *testing.T) {
 	)
 	err = mStoreInterface.FlushMetricsDataTo(flusher, &flushContext{})
 	assert.NoError(t, err)
-	// case 4: flush err
+	// case 4: flush field err
+	flusher.EXPECT().PrepareMetric(gomock.Any(), gomock.Any())
+	tStore.EXPECT().FlushFieldsTo(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	err = mStoreInterface.FlushMetricsDataTo(flusher, &flushContext{})
+	assert.Error(t, err)
+	// case 5: flush err
 	flushFunc = func(flusher metricsdata.Flusher, flushCtx *flushContext, key uint32, value tStoreINTF) error {
 		return fmt.Errorf("err")
 	}

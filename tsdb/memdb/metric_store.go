@@ -54,7 +54,7 @@ type mStoreINTF interface {
 	Capacity() int
 	// Filter filters the data based on fields/seriesIDs/family time,
 	// if data founded then returns the flow.FilterResultSet, else returns constants.ErrNotFound
-	Filter(familyTime int64, seriesIDs *roaring.Bitmap, fields field.Metas) ([]flow.FilterResultSet, error)
+	Filter(shardExecuteContext *flow.ShardExecuteContext, db MemoryDatabase) ([]flow.FilterResultSet, error)
 	// SetSlot sets the current write slot
 	SetSlot(slot uint16)
 	// GetSlotRange returns slot range.

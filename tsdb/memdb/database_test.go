@@ -45,13 +45,15 @@ func TestMemoryDatabase_New(t *testing.T) {
 
 	bufferMgr := NewMockBufferManager(ctrl)
 	cfg := MemoryDatabaseCfg{
-		BufferMgr: bufferMgr,
+		FamilyTime: 10,
+		BufferMgr:  bufferMgr,
 	}
 	buf := NewMockDataPointBuffer(ctrl)
 	bufferMgr.EXPECT().AllocBuffer().Return(buf, nil)
 	mdINTF, err := NewMemoryDatabase(cfg)
 	assert.NoError(t, err)
 	assert.NotNil(t, mdINTF)
+	assert.Equal(t, int64(10), mdINTF.FamilyTime())
 	buf.EXPECT().Release()
 	err = mdINTF.Close()
 	assert.NoError(t, err)
@@ -151,6 +153,7 @@ func TestMemoryDatabase_Write(t *testing.T) {
 	row.SlotIndex = 1
 	row.FieldIDs = []field.ID{10}
 	assert.NoError(t, md.WriteRow(row))
+	assert.NotZero(t, md.Size())
 
 	// case 2: new metric store
 	row = protoToStorageRow(&protoMetricsV1.Metric{
@@ -343,7 +346,7 @@ func TestMemoryDatabase_Filter(t *testing.T) {
 	// case 3: filter success
 	// mock mStore
 	mockMStore := NewMockmStoreINTF(ctrl)
-	mockMStore.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any()).Return([]flow.FilterResultSet{}, nil)
+	mockMStore.EXPECT().Filter(gomock.Any(), gomock.Any()).Return([]flow.FilterResultSet{}, nil)
 	md.mStores.Put(uint32(3333), mockMStore)
 	rs, err = md.Filter(&flow.ShardExecuteContext{
 		StorageExecuteCtx: &flow.StorageExecuteContext{

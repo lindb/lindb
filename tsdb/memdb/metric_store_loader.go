@@ -27,6 +27,7 @@ import (
 
 // metricStoreLoader implements flow.DataLoader interface that loads metric data from memory storage.
 type metricStoreLoader struct {
+	db               MemoryDatabase
 	lowContainer     roaring.Container
 	timeSeriesStores []tStoreINTF
 	slotRange        timeutil.SlotRange
@@ -34,12 +35,14 @@ type metricStoreLoader struct {
 }
 
 // newMetricStoreLoader creates a memory storage metric loader.
-func newMetricStoreLoader(lowContainer roaring.Container,
+func newMetricStoreLoader(db MemoryDatabase,
+	lowContainer roaring.Container,
 	timeSeriesStores []tStoreINTF,
 	slotRange timeutil.SlotRange,
 	fields field.Metas,
 ) flow.DataLoader {
 	return &metricStoreLoader{
+		db:               db,
 		lowContainer:     lowContainer,
 		timeSeriesStores: timeSeriesStores,
 		slotRange:        slotRange,
@@ -49,6 +52,9 @@ func newMetricStoreLoader(lowContainer roaring.Container,
 
 // Load loads the metric data by given series id from memory storage.
 func (s *metricStoreLoader) Load(loadCtx *flow.DataLoadContext) {
+	release := s.db.WithLock()
+	defer release()
+
 	loadCtx.IterateLowSeriesIDs(s.lowContainer, func(seriesIdxFromQuery uint16, seriesIdxFromStorage int) {
 		store := s.timeSeriesStores[seriesIdxFromStorage]
 		// read series data of fields
