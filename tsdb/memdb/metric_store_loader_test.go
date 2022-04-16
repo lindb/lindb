@@ -18,8 +18,10 @@
 package memdb
 
 import (
+	"sync"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/flow"
@@ -27,8 +29,15 @@ import (
 )
 
 func TestMetricStoreLoader_Load(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	var mutex sync.Mutex
+	db := NewMockMemoryDatabase(ctrl)
+	db.EXPECT().WithLock().Return(mutex.Unlock)
 	// case 1: series not exist
-	s := newMetricStoreLoader(roaring.BitmapOf(10, 100).GetContainer(0),
+	mutex.Lock()
+	s := newMetricStoreLoader(db, roaring.BitmapOf(10, 100).GetContainer(0),
 		nil, timeutil.SlotRange{}, nil)
 	s.Load(&flow.DataLoadContext{
 		SeriesIDHighKey:       0,
