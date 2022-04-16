@@ -339,7 +339,11 @@ func (md *memoryDatabase) Filter(shardExecuteContext *flow.ShardExecuteContext) 
 		return nil, nil
 	}
 
-	// TODO filter slot range
+	querySlotRange := shardExecuteContext.StorageExecuteCtx.CalcQuerySlotRange(md.familyTime)
+	storageSlotRange := mStore.GetSlotRange()
+	if !storageSlotRange.Overlap(querySlotRange) {
+		return nil, nil
+	}
 	return mStore.Filter(shardExecuteContext, md)
 }
 

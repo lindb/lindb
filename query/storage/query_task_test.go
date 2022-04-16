@@ -351,7 +351,6 @@ func TestDataLoadTask_Run(t *testing.T) {
 	rs.EXPECT().Load(gomock.Any()).Return(loader).AnyTimes()
 	agg.EXPECT().GetAggregator(gomock.Any()).Return(nil, false)
 	fAgg := aggregation.NewMockFieldAggregator(ctrl)
-	fAgg.EXPECT().SlotRange().Return(1, 100)
 	agg.EXPECT().Reset()
 	agg.EXPECT().GetAggregator(gomock.Any()).Return(fAgg, true)
 	loader.EXPECT().Load(gomock.Any()).Do(func(ctx *flow.DataLoadContext) {

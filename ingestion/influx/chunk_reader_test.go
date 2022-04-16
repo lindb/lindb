@@ -77,6 +77,8 @@ func Test_ChunkReaderPool(t *testing.T) {
 	assertReadAll(t, cr1)
 	PutChunkReader(cr1)
 
-	cr2 := GetChunkReader(strings.NewReader(influxText))
-	assertReadAll(t, cr2)
+	for i := 0; i < 100; i++ {
+		cr2 := GetChunkReader(strings.NewReader(influxText))
+		assertReadAll(t, cr2)
+	}
 }

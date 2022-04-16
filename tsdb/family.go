@@ -368,7 +368,7 @@ func (f *dataFamily) fileFilter(shardExecuteContext *flow.ShardExecuteContext) (
 		engineLogger.Error("filter data family error", logger.Error(err))
 		return
 	}
-	// TODO need check time range???
+	querySlotRange := shardExecuteContext.StorageExecuteCtx.CalcQuerySlotRange(f.familyTime)
 	var metricReaders []metricsdata.MetricReader
 	for _, reader := range readers {
 		value, err0 := reader.Get(metricKey)
@@ -380,7 +380,10 @@ func (f *dataFamily) fileFilter(shardExecuteContext *flow.ShardExecuteContext) (
 		if err != nil {
 			return nil, err
 		}
-		metricReaders = append(metricReaders, r)
+		storageSlotRange := r.GetTimeRange()
+		if storageSlotRange.Overlap(querySlotRange) {
+			metricReaders = append(metricReaders, r)
+		}
 	}
 	if len(metricReaders) == 0 {
 		return

@@ -87,3 +87,13 @@ func TestSlotRange(t *testing.T) {
 	assert.Equal(t, uint16(3), start)
 	assert.Equal(t, uint16(13), end)
 }
+
+func TestSlotRange_Overlap(t *testing.T) {
+	timeRange := &SlotRange{Start: 10, End: 100}
+	assert.True(t, timeRange.Overlap(SlotRange{Start: 10, End: 1000}))
+	assert.True(t, timeRange.Overlap(SlotRange{Start: 6, End: 100}))
+	assert.True(t, timeRange.Overlap(SlotRange{Start: 60, End: 70}))
+
+	assert.False(t, timeRange.Overlap(SlotRange{Start: 6, End: 9}))
+	assert.False(t, timeRange.Overlap(SlotRange{Start: 600, End: 900}))
+}
