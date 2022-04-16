@@ -111,6 +111,7 @@ const MetadataSelect: React.FC<MetadataSelectProps> = (
         title: "Fetch metadata values error",
         content: _.get(err, "response.data", "Unknown internal error"),
         position: "top",
+        theme: "light",
         duration: 5,
       });
     } finally {

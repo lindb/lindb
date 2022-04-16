@@ -16,18 +16,18 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { Tree, Typography } from "@douyinfe/semi-ui";
 import {
+  IconFile,
   IconFlowChartStroked,
   IconServerStroked,
-  IconFile,
 } from "@douyinfe/semi-icons";
-import { UnitEnum, ChartStatus, ExplainResult } from "@src/models";
-import { formatter } from "@src/utils";
-import React, { useEffect, useState } from "react";
+import { Tree, Typography } from "@douyinfe/semi-ui";
+import { CanvasChart, MetricStatus } from "@src/components";
+import { ChartStatus, ExplainResult, UnitEnum } from "@src/models";
 import { ChartStore } from "@src/stores";
+import { formatter } from "@src/utils";
 import { reaction } from "mobx";
-import { CanvasChart } from "@src/components";
+import React, { useEffect, useState } from "react";
 const Text = Typography.Text;
 
 interface ExplainStatsViewProps {
@@ -325,6 +325,7 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
 
   return (
     <>
+      <MetricStatus chartId={chartId} showMsg />
       <Tree
         expandAll
         // icon
