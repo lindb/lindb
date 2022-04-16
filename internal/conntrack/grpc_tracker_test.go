@@ -73,7 +73,7 @@ func (tracker *testGRPCClientTracker) prepare(t *testing.T) {
 		_ = tracker.server.Serve(tracker.serverListener)
 	}()
 	<-up
-	time.Sleep(time.Second)
+	time.Sleep(100 * time.Millisecond)
 
 	clientTracker := NewGRPCClientTracker(linmetric.BrokerRegistry)
 	tracker.clientConn, err = grpc.Dial(
