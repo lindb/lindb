@@ -22,6 +22,7 @@ import (
 	"net"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -43,9 +44,13 @@ func (tracker *testListenerTracker) Prepare(t *testing.T) {
 			resp.WriteHeader(http.StatusOK)
 		}),
 	}
+	up := make(chan struct{})
 	go func() {
+		up <- struct{}{}
 		_ = tracker.httpServer.Serve(tracker.serverListener)
 	}()
+	<-up
+	time.Sleep(100 * time.Millisecond)
 }
 
 func (tracker *testListenerTracker) shutdown() {
@@ -61,7 +66,11 @@ func Test_TrackedListenerTracker(t *testing.T) {
 
 	conn, err := (&net.Dialer{}).DialContext(context.TODO(), "tcp", tracker.serverListener.Addr().String())
 	assert.NoError(t, err)
-	_, err = conn.Write([]byte("hello"))
-	assert.NoError(t, err)
+	for i := 0; i < 10; i++ {
+		_, err = conn.Write([]byte("hello"))
+		assert.NoError(t, err)
+	}
 	assert.Nil(t, conn.Close())
+
+	time.Sleep(200 * time.Millisecond)
 }
