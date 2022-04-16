@@ -25,6 +25,7 @@ import (
 	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
@@ -197,6 +198,7 @@ func TestInvertedIndex_GetGroupingContext(t *testing.T) {
 		StorageExecuteCtx: &flow.StorageExecuteContext{
 			GroupByTagKeyIDs: []tag.KeyID{3, 4},
 		},
+		SeriesIDsAfterFiltering: roaring.BitmapOf(1, 2, 3),
 	}
 	err := index.GetGroupingContext(shardExecuteCtx)
 	assert.Error(t, err)
@@ -213,6 +215,7 @@ func TestInvertedIndex_GetGroupingContext(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, shardExecuteCtx.GroupingContext)
 	// case 3: get scanner from file err
+	shardExecuteCtx.GroupingContext = nil
 	reader := tagindex.NewMockForwardReader(ctrl)
 	newForwardReaderFunc = func(readers []table.Reader) tagindex.ForwardReader {
 		return reader
@@ -223,12 +226,22 @@ func TestInvertedIndex_GetGroupingContext(t *testing.T) {
 	err = index.GetGroupingContext(shardExecuteCtx)
 	assert.Error(t, err)
 	assert.Nil(t, shardExecuteCtx.GroupingContext)
-	// case 4: get scanner from file err
+	// case 4: get scanner from file
+	shardExecuteCtx.GroupingContext = nil
 	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{table.NewMockReader(ctrl)}, nil).Times(2)
 	reader.EXPECT().GetGroupingScanner(gomock.Any(), gomock.Any()).Return(nil, nil).Times(2)
 	err = index.GetGroupingContext(shardExecuteCtx)
 	assert.NoError(t, err)
 	assert.NotNil(t, shardExecuteCtx.GroupingContext)
+	// case 4: grouping series not match
+	shardExecuteCtx.GroupingContext = nil
+	snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{table.NewMockReader(ctrl)}, nil).MaxTimes(2)
+	reader.EXPECT().GetGroupingScanner(gomock.Any(), gomock.Any()).Return(nil, nil).MaxTimes(2)
+	shardExecuteCtx.SeriesIDsAfterFiltering = roaring.BitmapOf(1000)
+	err = index.GetGroupingContext(shardExecuteCtx)
+	assert.Equal(t, constants.ErrNotFound, err)
+	assert.Nil(t, shardExecuteCtx.GroupingContext)
+	assert.True(t, shardExecuteCtx.SeriesIDsAfterFiltering.IsEmpty())
 }
 
 func TestInvertedIndex_FlushInvertedIndexTo(t *testing.T) {
@@ -293,7 +306,30 @@ func TestInvertedIndex_FlushInvertedIndexTo(t *testing.T) {
 	err = index.Flush()
 	assert.Error(t, err)
 	assert.NotNil(t, idx.immutable)
-	// case 4: commit success
+	// case 4: new forward flusher err
+	forwardFamily.EXPECT().NewFlusher().Return(f)
+	newForwardFlusherFunc = func(kvFlusher kv.Flusher) (tagindex.ForwardFlusher, error) {
+		return nil, fmt.Errorf("err")
+	}
+	err = index.Flush()
+	assert.Error(t, err)
+	assert.NotNil(t, idx.immutable)
+	newForwardFlusherFunc = func(kvFlusher kv.Flusher) (tagindex.ForwardFlusher, error) {
+		return forward, nil
+	}
+	// case 5: new invert flusher err
+	forwardFamily.EXPECT().NewFlusher().Return(f)
+	invertedFamily.EXPECT().NewFlusher().Return(f)
+	newInvertedFlusherFunc = func(kvFlusher kv.Flusher) (tagindex.InvertedFlusher, error) {
+		return nil, fmt.Errorf("err")
+	}
+	err = index.Flush()
+	assert.Error(t, err)
+	assert.NotNil(t, idx.immutable)
+	newInvertedFlusherFunc = func(kvFlusher kv.Flusher) (tagindex.InvertedFlusher, error) {
+		return inverted, nil
+	}
+	// case 6: commit success
 	gomock.InOrder(
 		forwardFamily.EXPECT().NewFlusher().Return(f),
 		invertedFamily.EXPECT().NewFlusher().Return(f),

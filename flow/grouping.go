@@ -42,6 +42,8 @@ type GroupingContext interface {
 type GroupingScanner interface {
 	// GetSeriesAndTagValue returns group by container and tag value ids
 	GetSeriesAndTagValue(highKey uint16) (roaring.Container, []uint32)
+	// GetSeriesIDs returns the series ids in current scanner.
+	GetSeriesIDs() *roaring.Bitmap
 }
 
 // Grouping represents the getter grouping scanners for tag key group by query

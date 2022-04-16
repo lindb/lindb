@@ -46,6 +46,7 @@ func TestTagIndex_GetGroupingScanner(t *testing.T) {
 	scanners, err = index.GetGroupingScanner(roaring.BitmapOf(1, 2, 3))
 	assert.NoError(t, err)
 	assert.Len(t, scanners, 1)
+	assert.Equal(t, index.getAllSeriesIDs(), scanners[0].GetSeriesIDs())
 	container, tagValueIDs := scanners[0].GetSeriesAndTagValue(0)
 	assert.Equal(t, 8, container.GetCardinality())
 	assert.Len(t, tagValueIDs, 8)
@@ -186,6 +187,10 @@ func (g *groupingScanner) GetSeriesAndTagValue(highKey uint16) (lowSeriesIDs roa
 		return nil, nil
 	}
 	return g.forward.Keys().GetContainerAtIndex(idx), g.forward.Values()[idx]
+}
+
+func (g *groupingScanner) GetSeriesIDs() *roaring.Bitmap {
+	return g.forward.keys
 }
 
 func newScanner() flow.GroupingScanner {
