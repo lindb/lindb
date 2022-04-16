@@ -340,7 +340,7 @@ func (md *memoryDatabase) Filter(shardExecuteContext *flow.ShardExecuteContext) 
 	}
 
 	// TODO filter slot range
-	return mStore.Filter(md.familyTime, shardExecuteContext.SeriesIDsAfterFiltering, shardExecuteContext.StorageExecuteCtx.Fields)
+	return mStore.Filter(shardExecuteContext, md)
 }
 
 // MemSize returns the time series database memory size

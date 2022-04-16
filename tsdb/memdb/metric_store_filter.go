@@ -30,9 +30,8 @@ import (
 
 // Filter filters the data based on fields/seriesIDs/family time,
 // if it finds data then returns the FilterResultSet, else returns constants.ErrFieldNotFound
-func (ms *metricStore) Filter(familyTime int64,
-	seriesIDs *roaring.Bitmap, fields field.Metas,
-) ([]flow.FilterResultSet, error) {
+func (ms *metricStore) Filter(shardExecuteContext *flow.ShardExecuteContext, db MemoryDatabase) ([]flow.FilterResultSet, error) {
+	fields := shardExecuteContext.StorageExecuteCtx.Fields
 	// first need check query's fields is match store's fields, if not return.
 	foundFields, _ := ms.fields.Intersects(fields)
 	if len(foundFields) == 0 {
@@ -40,6 +39,8 @@ func (ms *metricStore) Filter(familyTime int64,
 		return nil, fmt.Errorf("%w, fields: %s", constants.ErrFieldNotFound, fields.String())
 	}
 
+	seriesIDs := shardExecuteContext.SeriesIDsAfterFiltering
+	familyTime := db.FamilyTime()
 	// after and operator, query bitmap is sub of store bitmap
 	matchSeriesIDs := roaring.FastAnd(seriesIDs, ms.keys)
 	if matchSeriesIDs.IsEmpty() {
@@ -51,6 +52,7 @@ func (ms *metricStore) Filter(familyTime int64,
 	// returns the filter result set
 	return []flow.FilterResultSet{
 		&memFilterResultSet{
+			db:         db,
 			familyTime: familyTime,
 			store:      ms,
 			fields:     fields,
@@ -61,6 +63,7 @@ func (ms *metricStore) Filter(familyTime int64,
 
 // memFilterResultSet represents memory filter result set for loading data in query flow
 type memFilterResultSet struct {
+	db         MemoryDatabase
 	familyTime int64
 	store      *metricStore
 	fields     field.Metas // sort by field id
@@ -90,7 +93,6 @@ func (rs *memFilterResultSet) SeriesIDs() *roaring.Bitmap {
 
 // Load loads the data from storage, then returns the memory storage metric scanner.
 func (rs *memFilterResultSet) Load(ctx *flow.DataLoadContext) flow.DataLoader {
-	// FIXME need add lock?????
 	// 1. get high container index by the high key of series ID
 	highContainerIdx := rs.store.keys.GetContainerIndex(ctx.SeriesIDHighKey)
 	if highContainerIdx < 0 {
@@ -105,7 +107,7 @@ func (rs *memFilterResultSet) Load(ctx *flow.DataLoadContext) flow.DataLoader {
 	}
 
 	// must use lowContainer from store, because get series index based on container
-	return newMetricStoreLoader(lowContainer, rs.store.values[highContainerIdx], *rs.store.slotRange, rs.fields)
+	return newMetricStoreLoader(rs.db, lowContainer, rs.store.values[highContainerIdx], *rs.store.slotRange, rs.fields)
 }
 
 // Close release the resource during doing query operation.

@@ -33,18 +33,38 @@ import (
 )
 
 func TestMetricStore_Filter(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	db := NewMockMemoryDatabase(ctrl)
+	db.EXPECT().FamilyTime().Return(int64(1)).AnyTimes()
+
 	metricStore := mockMetricStore()
 
 	// case 1: field not found
-	rs, err := metricStore.Filter(1, nil, field.Metas{{ID: 1}, {ID: 2}})
+	rs, err := metricStore.Filter(&flow.ShardExecuteContext{
+		StorageExecuteCtx: &flow.StorageExecuteContext{
+			Fields: field.Metas{{ID: 1}, {ID: 2}},
+		},
+	}, db)
 	assert.True(t, errors.Is(err, constants.ErrNotFound))
 	assert.Nil(t, rs)
 	// case 3: series ids not found
-	rs, err = metricStore.Filter(1, roaring.BitmapOf(1, 2), field.Metas{{ID: 1}, {ID: 20, Type: field.SumField}})
+	rs, err = metricStore.Filter(&flow.ShardExecuteContext{
+		StorageExecuteCtx: &flow.StorageExecuteContext{
+			Fields: field.Metas{{ID: 1}, {ID: 20, Type: field.SumField}},
+		},
+		SeriesIDsAfterFiltering: roaring.BitmapOf(1, 2),
+	}, db)
 	assert.True(t, errors.Is(err, constants.ErrNotFound))
 	assert.Nil(t, rs)
 	// case 3: found data
-	rs, err = metricStore.Filter(1, roaring.BitmapOf(1, 100, 200), field.Metas{{ID: 1}, {ID: 20, Type: field.SumField}})
+	rs, err = metricStore.Filter(&flow.ShardExecuteContext{
+		StorageExecuteCtx: &flow.StorageExecuteContext{
+			Fields: field.Metas{{ID: 1}, {ID: 20, Type: field.SumField}},
+		},
+		SeriesIDsAfterFiltering: roaring.BitmapOf(1, 100, 200),
+	}, db)
 	assert.NoError(t, err)
 	assert.NotNil(t, rs)
 	mrs := rs[0].(*memFilterResultSet)
@@ -56,6 +76,9 @@ func TestMetricStore_Filter(t *testing.T) {
 				Type: field.SumField,
 			}}, mrs.fields)
 	assert.Equal(t, "memory", rs[0].Identifier())
+	assert.Equal(t, int64(1), rs[0].FamilyTime())
+	assert.Equal(t, timeutil.SlotRange{Start: 10, End: 20}, rs[0].SlotRange())
+	rs[0].Close()
 }
 
 func TestMemFilterResultSet_Load(t *testing.T) {
@@ -63,7 +86,16 @@ func TestMemFilterResultSet_Load(t *testing.T) {
 	defer ctrl.Finish()
 	mStore := mockMetricStore()
 
-	rs, err := mStore.Filter(1, roaring.BitmapOf(1, 100, 200), field.Metas{{ID: 1}, {ID: 20}})
+	db := NewMockMemoryDatabase(ctrl)
+	db.EXPECT().FamilyTime().Return(int64(1)).AnyTimes()
+	db.EXPECT().WithLock().Return(func() {}).AnyTimes()
+	shardCtx := &flow.ShardExecuteContext{
+		StorageExecuteCtx: &flow.StorageExecuteContext{
+			Fields: field.Metas{{ID: 1}, {ID: 20, Type: field.SumField}},
+		},
+		SeriesIDsAfterFiltering: roaring.BitmapOf(1, 100, 200),
+	}
+	rs, err := mStore.Filter(shardCtx, db)
 	assert.NoError(t, err)
 	// case 1: load data success
 	ctx := &flow.DataLoadContext{
@@ -83,21 +115,22 @@ func TestMemFilterResultSet_Load(t *testing.T) {
 	dataLoader.Load(ctx)
 	dataLoader.Load(ctx)
 	// case 2: series ids not found
-	rs, _ = mStore.Filter(1, roaring.BitmapOf(1, 100, 200), field.Metas{{ID: 1}, {ID: 20}})
+	rs, _ = mStore.Filter(shardCtx, db)
 	dataLoader = rs[0].Load(&flow.DataLoadContext{
 		SeriesIDHighKey:       0,
 		LowSeriesIDsContainer: roaring.BitmapOf(1, 2).GetContainerAtIndex(0),
 	})
 	assert.Nil(t, dataLoader)
 	// case 3: high key not exist
-	rs, _ = mStore.Filter(1, roaring.BitmapOf(1, 100, 200), field.Metas{{ID: 1}, {ID: 20}})
+	rs, _ = mStore.Filter(shardCtx, db)
 	dataLoader = rs[0].Load(&flow.DataLoadContext{
 		SeriesIDHighKey:       10,
 		LowSeriesIDsContainer: roaring.BitmapOf(1, 2).GetContainerAtIndex(0),
 	})
 	assert.Nil(t, dataLoader)
 	// case 4: field not exist
-	rs, err = mStore.Filter(1, roaring.BitmapOf(1, 100, 200), field.Metas{{ID: 100}, {ID: 200}})
+	shardCtx.StorageExecuteCtx.Fields = field.Metas{{ID: 100}, {ID: 200}}
+	rs, err = mStore.Filter(shardCtx, db)
 	assert.True(t, errors.Is(err, constants.ErrNotFound))
 	assert.Nil(t, rs)
 }
