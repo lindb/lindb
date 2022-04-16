@@ -20,6 +20,7 @@ package indexdb
 import (
 	"sync"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/kv"
@@ -176,11 +177,25 @@ func (index *invertedIndex) GetGroupingContext(ctx *flow.ShardExecuteContext) er
 	scannerMap := make(map[tag.KeyID][]flow.GroupingScanner)
 	tagKeyIDs := ctx.StorageExecuteCtx.GroupByTagKeyIDs
 	seriesIDs := ctx.SeriesIDsAfterFiltering
+	finalSeriesIDs := seriesIDs.Clone()
+	defer func() {
+		// maybe filtering some series ids that is result of filtering.
+		// if not found, return empty series ids.
+		ctx.SeriesIDsAfterFiltering = finalSeriesIDs
+	}()
 	for _, tagKeyID := range tagKeyIDs {
 		// get grouping scanners by tag key
 		scanners, err := index.getGroupingScanners(tagKeyID, seriesIDs, snapshot)
 		if err != nil {
 			return err
+		}
+		seriesIDsForCurrentTagKey := roaring.New()
+		for idx := range scanners {
+			seriesIDsForCurrentTagKey.Or(scanners[idx].GetSeriesIDs())
+		}
+		finalSeriesIDs.And(seriesIDsForCurrentTagKey)
+		if finalSeriesIDs.IsEmpty() {
+			return constants.ErrNotFound
 		}
 		scannerMap[tagKeyID] = scanners
 	}

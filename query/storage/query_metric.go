@@ -175,6 +175,7 @@ func (e *storageExecutor) executeGroupBy(shardExecuteContext *flow.ShardExecuteC
 			return
 		}
 	}
+	// if not grouping found, series id is empty.
 	seriesIDs := shardExecuteContext.SeriesIDsAfterFiltering
 	seriesIDsHighKeys := seriesIDs.GetHighKeys()
 

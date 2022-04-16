@@ -41,7 +41,7 @@ func TestForwardMerger_Merge(t *testing.T) {
 	assert.NoError(t, err)
 	assert.EqualValues(t,
 		roaring.BitmapOf(1, 2, 3, 4, 65535+10, 65535+20, 65535+30, 65535+40).ToArray(),
-		reader.getSeriesIDs().ToArray())
+		reader.GetSeriesIDs().ToArray())
 	_, tagValueIDs := reader.GetSeriesAndTagValue(0)
 	assert.Equal(t, []uint32{1, 2, 3, 4}, tagValueIDs)
 	_, tagValueIDs = reader.GetSeriesAndTagValue(1)

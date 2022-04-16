@@ -60,7 +60,7 @@ func (m *forwardMerger) Merge(key uint32, values [][]byte) error {
 		if err != nil {
 			return err
 		}
-		seriesIDs.Or(reader.getSeriesIDs())
+		seriesIDs.Or(reader.GetSeriesIDs())
 		scanners = append(scanners, newTagForwardScanner(reader))
 	}
 
