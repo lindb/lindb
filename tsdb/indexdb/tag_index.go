@@ -45,7 +45,7 @@ type TagIndex interface {
 
 // memGroupingScanner implements series.GroupingScanner for memory tag index
 type memGroupingScanner struct {
-	forward *ForwardStore
+	forward *ForwardStore // TODO add read lock
 }
 
 // GetSeriesAndTagValue returns group by container and tag value ids
@@ -56,6 +56,11 @@ func (g *memGroupingScanner) GetSeriesAndTagValue(highKey uint16) (lowSeriesIDs 
 		return nil, nil
 	}
 	return g.forward.keys.GetContainerAtIndex(index), g.forward.values[index]
+}
+
+// GetSeriesIDs returns the series ids in current memory scanner.
+func (g *memGroupingScanner) GetSeriesIDs() *roaring.Bitmap {
+	return g.forward.keys
 }
 
 // tagIndex is a inverted mapping relation of tag-value and seriesID group.
@@ -80,7 +85,8 @@ func (index *tagIndex) GetGroupingScanner(seriesIDs *roaring.Bitmap) ([]flow.Gro
 		// not found
 		return nil, nil
 	}
-	return []flow.GroupingScanner{&memGroupingScanner{index.forward}}, nil
+	// TODO add lock
+	return []flow.GroupingScanner{&memGroupingScanner{forward: index.forward}}, nil
 }
 
 // buildInvertedIndex builds inverted index for tag value id

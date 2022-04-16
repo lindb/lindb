@@ -51,7 +51,7 @@ func NewForwardReader(readers []table.Reader) ForwardReader {
 func (r *forwardReader) GetSeriesIDsForTagKeyID(tagKeyID tag.KeyID) (*roaring.Bitmap, error) {
 	seriesIDs := roaring.New()
 	if err := r.findReader(tagKeyID, func(reader TagForwardReader) {
-		seriesIDs.Or(reader.getSeriesIDs())
+		seriesIDs.Or(reader.GetSeriesIDs())
 	}); err != nil {
 		return nil, err
 	}
@@ -63,8 +63,8 @@ func (r *forwardReader) GetGroupingScanner(tagKeyID tag.KeyID, seriesIDs *roarin
 	var scanners []flow.GroupingScanner
 	if err := r.findReader(tagKeyID, func(reader TagForwardReader) {
 		// check reader if it has series ids(after filtering)
-		seriesIDs.And(reader.getSeriesIDs())
-		if seriesIDs.IsEmpty() {
+		finalSeriesIDs := roaring.FastAnd(seriesIDs, reader.GetSeriesIDs())
+		if finalSeriesIDs.IsEmpty() {
 			// not found
 			return
 		}
@@ -96,8 +96,6 @@ func (r *forwardReader) findReader(tagKeyID tag.KeyID, callback func(reader TagF
 // TagForwardReader represents the forward index inverterReader for one tag(series id=>tag value id)
 type TagForwardReader interface {
 	flow.GroupingScanner
-	// getSeriesIDs gets all series ids under this tag key
-	getSeriesIDs() *roaring.Bitmap
 }
 
 // tagForwardReader implements TagForwardReader interface
@@ -138,8 +136,8 @@ func (r *tagForwardReader) GetSeriesAndTagValue(highKey uint16) (lowSeriesIDs ro
 	return lowSeriesIDs, tagValueIDs
 }
 
-// getSeriesIDs gets all series ids under this tag key
-func (r *tagForwardReader) getSeriesIDs() *roaring.Bitmap {
+// GetSeriesIDs gets all series ids under this tag key
+func (r *tagForwardReader) GetSeriesIDs() *roaring.Bitmap {
 	return r.keys
 }
 
