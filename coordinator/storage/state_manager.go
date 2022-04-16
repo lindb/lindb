@@ -33,6 +33,7 @@ import (
 )
 
 //go:generate mockgen -source=./state_manager.go -destination=./state_manager_mock.go -package=storage
+
 // for test
 var getConnFct = rpc.GetStorageClientConnFactory
 

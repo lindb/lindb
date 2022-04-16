@@ -149,6 +149,16 @@ func (l *listener) EnterShowSchemasStmt(_ *grammar.ShowSchemasStmtContext) {
 	l.schemasStmt = newSchemasStmtParse(stmt.DatabaseSchemaType)
 }
 
+// EnterDropDatabaseStmt is called when production dropDatabaseStmt is entered.
+func (l *listener) EnterDropDatabaseStmt(_ *grammar.DropDatabaseStmtContext) {
+	l.schemasStmt = newSchemasStmtParse(stmt.DropDatabaseSchemaType)
+}
+
+// EnterDatabaseName is called when production databaseName is entered.
+func (l *listener) EnterDatabaseName(ctx *grammar.DatabaseNameContext) {
+	l.schemasStmt.visitDatabaseName(ctx)
+}
+
 // EnterUseStmt is called when production useStmt is entered.
 func (l *listener) EnterUseStmt(ctx *grammar.UseStmtContext) {
 	l.useStmt = newUseStmtParse()

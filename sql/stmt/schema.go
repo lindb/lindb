@@ -23,11 +23,14 @@ const (
 	DatabaseNameSchemaType SchemaType = iota + 1
 	DatabaseSchemaType
 	CreateDatabaseSchemaType
+	DropDatabaseSchemaType
 )
 
 // Schema represents show all database schemas statement.
 type Schema struct {
-	Type  SchemaType
+	Type SchemaType
+	// create stmt: value is database json config.
+	// drop stmt: value is database name.
 	Value string
 }
 
