@@ -16,14 +16,13 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { Layout, Nav, Space, Tag } from "@douyinfe/semi-ui";
+import { Layout, Nav, Space } from "@douyinfe/semi-ui";
 import Logo from "@src/assets/logo_dark.svg";
 import { defaultOpenKeys, menus, routeMap } from "@src/configs";
+import { useWatchURLChange } from "@src/hooks";
 import { URLStore } from "@src/stores";
 import * as _ from "lodash-es";
-import { reaction } from "mobx";
-import React, { useEffect, useState } from "react";
-import { useWatchURLChange } from "@src/hooks";
+import React, { useState } from "react";
 const { Sider } = Layout;
 
 export type SiderMenuProps = {
@@ -35,12 +34,14 @@ export default function SiderMenu(props: SiderMenuProps) {
   const [selectedKeys, setSelectedKeys] = useState([] as string[]);
 
   useWatchURLChange(() => {
-    const selectedKeys: string[] = [];
     const path = URLStore.path;
+    let key = "";
     const findSelectedKeys = (menus: any[]) => {
       (menus || []).map((item) => {
         if (path.includes(item.path)) {
-          selectedKeys.push(item.path);
+          if (key.length < item.path.length) {
+            key = item.path;
+          }
         }
         if (item.items) {
           findSelectedKeys(item.items);
@@ -48,7 +49,7 @@ export default function SiderMenu(props: SiderMenuProps) {
       });
     };
     findSelectedKeys(menus);
-    setSelectedKeys(selectedKeys);
+    setSelectedKeys([key]);
   });
 
   return (
