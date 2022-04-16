@@ -377,7 +377,7 @@ func (t *dataLoadTask) Run() error {
 	}
 	queryIntervalRatio := t.dataLoadCtx.ShardExecuteCtx.StorageExecuteCtx.Query.IntervalRatio
 	seriesIDs := t.dataLoadCtx.ShardExecuteCtx.SeriesIDsAfterFiltering // after group result
-	var target *timeutil.SlotRange
+	targetSlotRange := t.dataLoadCtx.ShardExecuteCtx.StorageExecuteCtx.CalcQuerySlotRange(t.segmentCtx.FamilyTime)
 
 	for idx, rs := range t.segmentCtx.FilterRS {
 		// double filtering, maybe some series ids be filtered out when do grouping.
@@ -407,16 +407,9 @@ func (t *dataLoadTask) Run() error {
 			if !ok {
 				return
 			}
-			if target == nil {
-				start, end := agg.SlotRange()
-				target = &timeutil.SlotRange{
-					Start: uint16(start),
-					End:   uint16(end),
-				}
-			}
 			tsdDecoder.ResetWithTimeRange(fieldData, slotRange.Start, slotRange.End)
 			aggregation.DownSamplingSeries(
-				*target, uint16(queryIntervalRatio), 0, // same family, base slot = 0
+				targetSlotRange, uint16(queryIntervalRatio), 0, // same family, base slot = 0
 				tsdDecoder,
 				agg.AggregateBySlot,
 			)

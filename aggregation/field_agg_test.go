@@ -37,9 +37,6 @@ func TestFieldAggregator_Aggregate(t *testing.T) {
 	aggSpec.AddFunctionType(function.Sum)
 
 	agg := NewFieldAggregator(aggSpec, 1, 10, 20)
-	start, end := agg.SlotRange()
-	assert.Equal(t, 10, start)
-	assert.Equal(t, 20, end)
 	ts, rs := agg.ResultSet()
 	assert.Equal(t, int64(1), ts)
 	assert.NotNil(t, rs)

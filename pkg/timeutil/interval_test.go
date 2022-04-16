@@ -361,3 +361,16 @@ func Test_CalcQueryInterval(t *testing.T) {
 		})
 	}
 }
+
+func TestInterval_CalcQuerySlotRange(t *testing.T) {
+	t1, _ := ParseTimestamp("20190101 00:00:00", "20060102 15:04:05")
+	t2, _ := ParseTimestamp("20190101 03:10:00", "20060102 15:04:05")
+	slotRange := Interval(OneMinute).CalcQuerySlotRange(t1, TimeRange{
+		Start: t1,
+		End:   t2,
+	})
+	assert.Equal(t, SlotRange{
+		Start: 0,
+		End:   59,
+	}, slotRange)
+}

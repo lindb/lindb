@@ -307,8 +307,10 @@ func TestMemoryDatabase_Filter(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	bufferMgr := NewMockBufferManager(ctrl)
+	now := timeutil.Now()
 	cfg := MemoryDatabaseCfg{
-		BufferMgr: bufferMgr,
+		BufferMgr:  bufferMgr,
+		FamilyTime: now,
 	}
 	buf, err := newDataPointBuffer(filepath.Join(t.TempDir(), "db_dir"))
 	assert.NoError(t, err)
@@ -323,6 +325,7 @@ func TestMemoryDatabase_Filter(t *testing.T) {
 		StorageExecuteCtx: &flow.StorageExecuteContext{
 			MetricID: metric.ID(3333),
 			Query: &stmtpkg.Query{
+				Interval:  timeutil.Interval(timeutil.OneMinute),
 				TimeRange: timeutil.TimeRange{},
 			},
 			Fields: field.Metas{{ID: 1}},
@@ -330,17 +333,18 @@ func TestMemoryDatabase_Filter(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	assert.Nil(t, rs)
-	now := timeutil.Now()
 	// case 2: metric store not found
-	rs, err = md.Filter(&flow.ShardExecuteContext{
+	ctx := &flow.ShardExecuteContext{
 		StorageExecuteCtx: &flow.StorageExecuteContext{
-			MetricID: metric.ID(0),
+			MetricID: metric.ID(3333),
 			Query: &stmtpkg.Query{
+				Interval:  timeutil.Interval(timeutil.OneMinute),
 				TimeRange: timeutil.TimeRange{Start: now - 10, End: now + 20},
 			},
 			Fields: field.Metas{{ID: 1}},
 		},
-	})
+	}
+	rs, err = md.Filter(ctx)
 	assert.NoError(t, err)
 	assert.Nil(t, rs)
 	// case 3: filter success
@@ -348,17 +352,16 @@ func TestMemoryDatabase_Filter(t *testing.T) {
 	mockMStore := NewMockmStoreINTF(ctrl)
 	mockMStore.EXPECT().Filter(gomock.Any(), gomock.Any()).Return([]flow.FilterResultSet{}, nil)
 	md.mStores.Put(uint32(3333), mockMStore)
-	rs, err = md.Filter(&flow.ShardExecuteContext{
-		StorageExecuteCtx: &flow.StorageExecuteContext{
-			MetricID: metric.ID(3333),
-			Query: &stmtpkg.Query{
-				TimeRange: timeutil.TimeRange{Start: now - 10, End: now + 20},
-			},
-			Fields: field.Metas{{ID: 1}},
-		},
-	})
+	mockMStore.EXPECT().GetSlotRange().Return(&timeutil.SlotRange{Start: 0, End: 60})
+	rs, err = md.Filter(ctx)
 	assert.NoError(t, err)
 	assert.NotNil(t, rs)
+
+	// case 4: slot range not match
+	mockMStore.EXPECT().GetSlotRange().Return(&timeutil.SlotRange{Start: 600, End: 600})
+	rs, err = md.Filter(ctx)
+	assert.NoError(t, err)
+	assert.Nil(t, rs)
 
 	err = md.Close()
 	assert.NoError(t, err)
