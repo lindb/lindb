@@ -19,9 +19,9 @@ under the License.
 import {
   ChartConfig,
   ChartStatus,
+  QueryStatement,
   ResultSet,
   Target,
-  QueryStatement,
 } from "@src/models";
 import { exec } from "@src/services";
 import { URLStore } from "@src/stores";
@@ -138,22 +138,28 @@ class ChartStore {
       })
         .then((response) => {
           const series: ResultSet | undefined = response;
+          // first need to set explain stats, if set status first will get wrong explain stats.
+          if (series.stats) {
+            this.stateCache.set(chartUniqueId, series.stats);
+          } else {
+            this.stateCache.delete(chartUniqueId);
+          }
+
           const reportData: any = buildLineChart(series!, chart!.config);
           if (reportData) {
             // console.log("series", series, reportData);
             this.seriesCache.set(chartUniqueId, reportData);
-            this.stateCache.set(chartUniqueId, series.stats);
             this.setChartStatus(chartUniqueId, ChartStatus.OK);
           } else {
             // no data in response
             this.seriesCache.delete(chartUniqueId);
-            this.stateCache.delete(chartUniqueId);
             this.setChartStatus(chartUniqueId, ChartStatus.Empty);
           }
         })
         .catch((err) => {
           console.log("err", err);
           this.seriesCache.delete(chartUniqueId);
+          this.stateCache.delete(chartUniqueId);
           this.chartErrMap.set(
             chartUniqueId,
             _.get(err, "response.data", "Unknown internal error")
