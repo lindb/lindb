@@ -22,5 +22,7 @@ export * from "@src/configs/monitoring/broker.ingestion";
 export * from "@src/configs/monitoring/broker.coordinator";
 export * from "@src/configs/monitoring/master.coordinator";
 export * from "@src/configs/monitoring/storage.coordinator";
+export * from "@src/configs/monitoring/broker.system";
+export * from "@src/configs/monitoring/storage.system";
 export * from "@src/configs/routes.config";
 export * from "@src/configs/chart.config";
