@@ -102,9 +102,14 @@ func (ctx *StorageExecuteContext) collectGroupingTagValueIDs(tagValueIDs []uint3
 	ctx.mutex.Unlock()
 }
 
-// CalcQuerySlotRange returns slot range for query by family time and query time range.
-func (ctx *StorageExecuteContext) CalcQuerySlotRange(familyTime int64) timeutil.SlotRange {
-	return ctx.Query.Interval.CalcQuerySlotRange(familyTime, ctx.Query.TimeRange)
+// CalcSourceSlotRange returns slot range for filtering by family time and query time range.
+func (ctx *StorageExecuteContext) CalcSourceSlotRange(familyTime int64) timeutil.SlotRange {
+	return ctx.Query.StorageInterval.CalcSlotRange(familyTime, ctx.Query.TimeRange)
+}
+
+// CalcTargetSlotRange returns slot range for aggregator by family time and query time range.
+func (ctx *StorageExecuteContext) CalcTargetSlotRange(familyTime int64) timeutil.SlotRange {
+	return ctx.Query.Interval.CalcSlotRange(familyTime, ctx.Query.TimeRange)
 }
 
 // HasGroupingTagValueIDs returns if it needs collect grouping tag value.
