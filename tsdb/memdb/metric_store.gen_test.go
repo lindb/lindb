@@ -101,3 +101,10 @@ func TestMetricStore_Keys(t *testing.T) {
 	m.Put(8, newTimeSeriesStore())
 	assert.Equal(t, roaring.BitmapOf(1, 8), m.Keys())
 }
+
+func TestMetricStore_tryOptimize(t *testing.T) {
+	m := NewMetricStore()
+	for i := 0; i < 100; i++ {
+		m.Put(uint32(i), newTimeSeriesStore())
+	}
+}

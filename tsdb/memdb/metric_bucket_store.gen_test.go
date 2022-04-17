@@ -101,3 +101,10 @@ func TestMetricBucketStore_Keys(t *testing.T) {
 	m.Put(8, newMetricStore())
 	assert.Equal(t, roaring.BitmapOf(1, 8), m.Keys())
 }
+
+func TestMetricBucketStore_tryOptimize(t *testing.T) {
+	m := NewMetricBucketStore()
+	for i := 0; i < 100; i++ {
+		m.Put(uint32(i), newMetricStore())
+	}
+}

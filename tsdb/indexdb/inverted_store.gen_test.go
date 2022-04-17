@@ -101,3 +101,10 @@ func TestInvertedStore_Keys(t *testing.T) {
 	m.Put(8, roaring.New())
 	assert.Equal(t, roaring.BitmapOf(1, 8), m.Keys())
 }
+
+func TestInvertedStore_tryOptimize(t *testing.T) {
+	m := NewInvertedStore()
+	for i := 0; i < 100; i++ {
+		m.Put(uint32(i), roaring.New())
+	}
+}

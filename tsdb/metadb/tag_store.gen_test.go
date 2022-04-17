@@ -101,3 +101,10 @@ func TestTagStore_Keys(t *testing.T) {
 	m.Put(8, newTagEntry(0))
 	assert.Equal(t, roaring.BitmapOf(1, 8), m.Keys())
 }
+
+func TestTagStore_tryOptimize(t *testing.T) {
+	m := NewTagStore()
+	for i := 0; i < 100; i++ {
+		m.Put(uint32(i), newTagEntry(0))
+	}
+}
