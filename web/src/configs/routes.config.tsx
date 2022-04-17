@@ -28,6 +28,7 @@ import {
   IconServerStroked,
   IconVennChartStroked,
   IconTemplate,
+  IconFixedStroked,
 } from "@douyinfe/semi-icons";
 import { DashboardView } from "@src/components";
 import {
@@ -38,6 +39,8 @@ import {
   StorageCoordinatorDashboard,
   StorageSystemsDashboard,
   BrokerSystemsDashboard,
+  BrokerRuntimeDashboard,
+  StorageRuntimeDashboard,
 } from "@src/configs";
 import { Route, StateRoleName } from "@src/constants";
 import {
@@ -176,6 +179,29 @@ export const routes = [
         text: "Database",
         path: "/monitoring/databasea",
         icon: <IconServer size="large" />,
+      },
+      {
+        text: "Runtime",
+        path: "/monitoring/runtime",
+        icon: <IconFixedStroked size="large" />,
+        timePicker: true,
+        content: (
+          <DashboardView
+            dashboards={[
+              {
+                value: "broker.runtime",
+                label: StateRoleName.Broker,
+                dashboard: BrokerRuntimeDashboard,
+              },
+              {
+                value: "storage.runtime",
+                label: StateRoleName.Storage,
+                dashboard: StorageRuntimeDashboard,
+              },
+            ]}
+          />
+        ),
+        keep: ["start", "end", "node"],
       },
       {
         text: "System",
