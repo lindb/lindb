@@ -112,8 +112,8 @@ func TestDataFamily_Filter(t *testing.T) {
 		StorageExecuteCtx: &flow.StorageExecuteContext{
 			MetricID: metric.ID(10),
 			Query: &stmtpkg.Query{
-				TimeRange: timeutil.TimeRange{},
-				Interval:  timeutil.Interval(timeutil.OneMinute),
+				TimeRange:       timeutil.TimeRange{},
+				StorageInterval: timeutil.Interval(timeutil.OneMinute),
 			},
 		},
 	})
@@ -129,8 +129,8 @@ func TestDataFamily_Filter(t *testing.T) {
 		StorageExecuteCtx: &flow.StorageExecuteContext{
 			MetricID: metric.ID(10),
 			Query: &stmtpkg.Query{
-				TimeRange: timeutil.TimeRange{},
-				Interval:  timeutil.Interval(timeutil.OneMinute),
+				TimeRange:       timeutil.TimeRange{},
+				StorageInterval: timeutil.Interval(timeutil.OneMinute),
 			},
 		},
 	})
@@ -147,8 +147,8 @@ func TestDataFamily_Filter(t *testing.T) {
 		StorageExecuteCtx: &flow.StorageExecuteContext{
 			MetricID: metric.ID(10),
 			Query: &stmtpkg.Query{
-				TimeRange: timeutil.TimeRange{},
-				Interval:  timeutil.Interval(timeutil.OneMinute),
+				TimeRange:       timeutil.TimeRange{},
+				StorageInterval: timeutil.Interval(timeutil.OneMinute),
 			},
 		},
 	})
@@ -173,8 +173,8 @@ func TestDataFamily_Filter(t *testing.T) {
 		StorageExecuteCtx: &flow.StorageExecuteContext{
 			MetricID: metric.ID(10),
 			Query: &stmtpkg.Query{
-				TimeRange: timeutil.TimeRange{Start: now, End: now + 60000},
-				Interval:  timeutil.Interval(timeutil.OneMinute),
+				TimeRange:       timeutil.TimeRange{Start: now, End: now + 60000},
+				StorageInterval: timeutil.Interval(timeutil.OneMinute),
 			},
 		},
 	})
@@ -187,8 +187,8 @@ func TestDataFamily_Filter(t *testing.T) {
 		StorageExecuteCtx: &flow.StorageExecuteContext{
 			MetricID: metric.ID(10),
 			Query: &stmtpkg.Query{
-				TimeRange: timeutil.TimeRange{Start: now, End: now + 60000},
-				Interval:  timeutil.Interval(timeutil.OneMinute),
+				TimeRange:       timeutil.TimeRange{Start: now, End: now + 60000},
+				StorageInterval: timeutil.Interval(timeutil.OneMinute),
 			},
 		},
 	})
