@@ -46,6 +46,10 @@ var (
 
 // MemoryDatabase is a database-like concept of Shard as memTable in cassandra.
 type MemoryDatabase interface {
+	// MarkReadOnly marks memory database cannot writable.
+	MarkReadOnly()
+	// IsReadOnly returns memory database if it is readonly.
+	IsReadOnly() bool
 	// AcquireWrite acquires writing data points
 	AcquireWrite()
 	// WithLock retrieves the lock of memdb, and returns the release function
@@ -112,6 +116,8 @@ type memoryDatabase struct {
 	writeCondition sync.WaitGroup
 	rwMutex        sync.RWMutex // lock of create metric store
 
+	readonly atomic.Bool
+
 	metrics     memoryDBMetrics
 	createdTime int64
 }
@@ -131,6 +137,16 @@ func NewMemoryDatabase(cfg MemoryDatabaseCfg) (MemoryDatabase, error) {
 		metrics:     *newMemoryDBMetrics(cfg.Name),
 		createdTime: fasttime.UnixNano(),
 	}, err
+}
+
+// MarkReadOnly marks memory database cannot writable.
+func (md *memoryDatabase) MarkReadOnly() {
+	md.readonly.Store(true)
+}
+
+// IsReadOnly returns memory database if it is readonly.
+func (md *memoryDatabase) IsReadOnly() bool {
+	return md.readonly.Load()
 }
 
 func (md *memoryDatabase) FamilyTime() int64 { return md.familyTime }

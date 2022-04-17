@@ -61,8 +61,11 @@ type DataFamily interface {
 	CommitSequence(leader int32, seq int64)
 	AckSequence(leader int32, fn func(seq int64))
 
+	// NeedFlush checks if memory database need to flush.
 	NeedFlush() bool
+	// IsFlushing returns it has flush job doing in background.
 	IsFlushing() bool
+	// Flush flushes memory database.
 	Flush() error
 	MemDBSize() int64
 
@@ -190,6 +193,7 @@ func (f *dataFamily) FamilyTime() int64 {
 	return f.familyTime
 }
 
+// NeedFlush checks if memory database need to flush.
 func (f *dataFamily) NeedFlush() bool {
 	if f.IsFlushing() {
 		return false
@@ -236,14 +240,15 @@ func (f *dataFamily) NeedFlush() bool {
 	return false
 }
 
+// IsFlushing returns it has flush job doing in background.
 func (f *dataFamily) IsFlushing() bool {
 	return f.isFlushing.Load()
 }
 
+// Flush flushes memory database.
 func (f *dataFamily) Flush() error {
 	if f.isFlushing.CAS(false, true) {
 		defer func() {
-			// TODO add commit kv meta after ack successfully
 			// mark flush job complete, notify
 			f.flushCondition.Done()
 			f.isFlushing.Store(false)
@@ -263,6 +268,7 @@ func (f *dataFamily) Flush() error {
 		waitingFlushMemDB := f.mutableMemDB
 		f.immutableMemDB = waitingFlushMemDB
 		f.mutableMemDB = nil // mark mutable memory database nil, write data will be created
+		waitingFlushMemDB.MarkReadOnly()
 		immutableSeq := make(map[int32]int64)
 		for leader, seq := range f.seq {
 			immutableSeq[leader] = seq.Load()
