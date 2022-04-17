@@ -34,6 +34,13 @@ func GetRootAsMetric(buf []byte, offset flatbuffers.UOffsetT) *Metric {
 	return x
 }
 
+func GetSizePrefixedRootAsMetric(buf []byte, offset flatbuffers.UOffsetT) *Metric {
+	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
+	x := &Metric{}
+	x.Init(buf, n+offset+flatbuffers.SizeUint32)
+	return x
+}
+
 func (rcv *Metric) Init(buf []byte, i flatbuffers.UOffsetT) {
 	rcv._tab.Bytes = buf
 	rcv._tab.Pos = i

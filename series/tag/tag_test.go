@@ -78,6 +78,22 @@ func Test_XXHashOfKeyValues(t *testing.T) {
 	assert.Equal(t, xxhash.Sum64String(""), XXHashOfKeyValues(nil))
 }
 
+func Test_getSlice(t *testing.T) {
+	for i := 0; i < 100; i++ {
+		s := getSlice(10)
+		assert.Len(t, *s, 10)
+	}
+	for i := 0; i < 100; i++ {
+		s := getSlice(100)
+		assert.Len(t, *s, 100)
+		putSlice(s)
+	}
+	for i := 0; i < 100; i++ {
+		s := getSlice(1000)
+		assert.Len(t, *s, 1000)
+	}
+}
+
 var (
 	singleKeyValues KeyValues = []*protoMetricsV1.KeyValue{{Key: "env", Value: "prd"}}
 	logKeyValues    KeyValues = []*protoMetricsV1.KeyValue{

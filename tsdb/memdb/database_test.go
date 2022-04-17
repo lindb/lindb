@@ -328,8 +328,8 @@ func TestMemoryDatabase_Filter(t *testing.T) {
 		StorageExecuteCtx: &flow.StorageExecuteContext{
 			MetricID: metric.ID(3333),
 			Query: &stmtpkg.Query{
-				Interval:  timeutil.Interval(timeutil.OneMinute),
-				TimeRange: timeutil.TimeRange{},
+				StorageInterval: timeutil.Interval(timeutil.OneMinute),
+				TimeRange:       timeutil.TimeRange{},
 			},
 			Fields: field.Metas{{ID: 1}},
 		},
@@ -341,8 +341,8 @@ func TestMemoryDatabase_Filter(t *testing.T) {
 		StorageExecuteCtx: &flow.StorageExecuteContext{
 			MetricID: metric.ID(3333),
 			Query: &stmtpkg.Query{
-				Interval:  timeutil.Interval(timeutil.OneMinute),
-				TimeRange: timeutil.TimeRange{Start: now - 10, End: now + 20},
+				StorageInterval: timeutil.Interval(timeutil.OneMinute),
+				TimeRange:       timeutil.TimeRange{Start: now - 10, End: now + 20},
 			},
 			Fields: field.Metas{{ID: 1}},
 		},

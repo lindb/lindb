@@ -34,6 +34,13 @@ func GetRootAsCompoundField(buf []byte, offset flatbuffers.UOffsetT) *CompoundFi
 	return x
 }
 
+func GetSizePrefixedRootAsCompoundField(buf []byte, offset flatbuffers.UOffsetT) *CompoundField {
+	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
+	x := &CompoundField{}
+	x.Init(buf, n+offset+flatbuffers.SizeUint32)
+	return x
+}
+
 func (rcv *CompoundField) Init(buf []byte, i flatbuffers.UOffsetT) {
 	rcv._tab.Bytes = buf
 	rcv._tab.Pos = i

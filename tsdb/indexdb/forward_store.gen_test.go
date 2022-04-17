@@ -101,3 +101,10 @@ func TestForwardStore_Keys(t *testing.T) {
 	m.Put(8, 0)
 	assert.Equal(t, roaring.BitmapOf(1, 8), m.Keys())
 }
+
+func TestForwardStore_tryOptimize(t *testing.T) {
+	m := NewForwardStore()
+	for i := 0; i < 100; i++ {
+		m.Put(uint32(i), 0)
+	}
+}
