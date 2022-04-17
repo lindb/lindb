@@ -35,7 +35,6 @@ func (ms *metricStore) Filter(shardExecuteContext *flow.ShardExecuteContext, db 
 	// first need check query's fields is match store's fields, if not return.
 	foundFields, _ := ms.fields.Intersects(fields)
 	if len(foundFields) == 0 {
-		fmt.Println("field not")
 		// field not found
 		return nil, fmt.Errorf("%w, fields: %s", constants.ErrFieldNotFound, fields.String())
 	}
@@ -45,7 +44,6 @@ func (ms *metricStore) Filter(shardExecuteContext *flow.ShardExecuteContext, db 
 	// after and operator, query bitmap is sub of store bitmap
 	matchSeriesIDs := roaring.FastAnd(seriesIDs, ms.keys)
 	if matchSeriesIDs.IsEmpty() {
-		fmt.Println("series not ")
 		// series id not found
 		return nil, fmt.Errorf("%w when Filter, familyTime: %d, fields: %s",
 			constants.ErrSeriesIDNotFound, familyTime, fields.String())
@@ -75,7 +73,12 @@ type memFilterResultSet struct {
 
 // Identifier identifies the source of result set from memory storage
 func (rs *memFilterResultSet) Identifier() string {
-	return "memory"
+	dbStatus := "readwrite"
+	if rs.db.IsReadOnly() {
+		dbStatus = "readonly"
+	}
+	return fmt.Sprintf("%s/memory/%s",
+		timeutil.FormatTimestamp(rs.familyTime, timeutil.DataTimeFormat2), dbStatus)
 }
 
 // FamilyTime returns the family time of storage.

@@ -19,6 +19,7 @@ package memdb
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -36,8 +37,9 @@ func TestMetricStore_Filter(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	now := timeutil.Now()
 	db := NewMockMemoryDatabase(ctrl)
-	db.EXPECT().FamilyTime().Return(int64(1)).AnyTimes()
+	db.EXPECT().FamilyTime().Return(now).AnyTimes()
 
 	metricStore := mockMetricStore()
 
@@ -68,6 +70,7 @@ func TestMetricStore_Filter(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, rs)
 	mrs := rs[0].(*memFilterResultSet)
+	db.EXPECT().IsReadOnly().Return(true)
 	assert.EqualValues(t, roaring.BitmapOf(100, 200).ToArray(), mrs.SeriesIDs().ToArray())
 	assert.Equal(t,
 		field.Metas{
@@ -75,8 +78,10 @@ func TestMetricStore_Filter(t *testing.T) {
 				ID:   20,
 				Type: field.SumField,
 			}}, mrs.fields)
-	assert.Equal(t, "memory", rs[0].Identifier())
-	assert.Equal(t, int64(1), rs[0].FamilyTime())
+	assert.Equal(t,
+		fmt.Sprintf("%s/memory/readonly", timeutil.FormatTimestamp(now, timeutil.DataTimeFormat2)),
+		rs[0].Identifier())
+	assert.Equal(t, now, rs[0].FamilyTime())
 	assert.Equal(t, timeutil.SlotRange{Start: 10, End: 20}, rs[0].SlotRange())
 	rs[0].Close()
 }
