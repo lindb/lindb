@@ -81,4 +81,11 @@ func Test{{.type}}Store_Keys(t *testing.T) {
 	assert.Equal(t, roaring.BitmapOf(1, 8), m.Keys())
 }
 
+func Test{{.type}}Store_tryOptimize(t *testing.T) {
+	m := New{{.type}}Store()
+	for i := 0; i < 100; i++ {
+		m.Put(uint32(i), {{.value}})
+	}
+}
+
 {{end}}
