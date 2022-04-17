@@ -374,7 +374,7 @@ func (f *dataFamily) fileFilter(shardExecuteContext *flow.ShardExecuteContext) (
 		engineLogger.Error("filter data family error", logger.Error(err))
 		return
 	}
-	querySlotRange := shardExecuteContext.StorageExecuteCtx.CalcQuerySlotRange(f.familyTime)
+	querySlotRange := shardExecuteContext.StorageExecuteCtx.CalcSourceSlotRange(f.familyTime)
 	var metricReaders []metricsdata.MetricReader
 	for _, reader := range readers {
 		value, err0 := reader.Get(metricKey)

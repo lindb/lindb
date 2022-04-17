@@ -161,18 +161,18 @@ func (i Interval) Calculator() IntervalCalculator {
 	}
 }
 
-// CalcQuerySlotRange returns slot range for query by family time and query time range.
-func (i Interval) CalcQuerySlotRange(familyTime int64, queryTimeRange TimeRange) SlotRange {
+// CalcSlotRange returns slot range by family time and time range.
+func (i Interval) CalcSlotRange(familyTime int64, timeRange TimeRange) SlotRange {
 	calc := i.Calculator()
 	storageTimeRange := TimeRange{
 		Start: familyTime,
 		End:   calc.CalcFamilyEndTime(familyTime),
 	}
-	timeRange := queryTimeRange.Intersect(storageTimeRange)
+	rs := timeRange.Intersect(storageTimeRange)
 	queryIntervalVal := i.Int64()
 	return SlotRange{
-		Start: uint16(calc.CalcSlot(timeRange.Start, familyTime, queryIntervalVal)),
-		End:   uint16(calc.CalcSlot(timeRange.End, familyTime, queryIntervalVal)),
+		Start: uint16(calc.CalcSlot(rs.Start, familyTime, queryIntervalVal)),
+		End:   uint16(calc.CalcSlot(rs.End, familyTime, queryIntervalVal)),
 	}
 }
 
