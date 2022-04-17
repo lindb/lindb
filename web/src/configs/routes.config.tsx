@@ -36,6 +36,8 @@ import {
   BrokerCoordinatorDashboard,
   MasterCoordinatorDashboard,
   StorageCoordinatorDashboard,
+  StorageSystemsDashboard,
+  BrokerSystemsDashboard,
 } from "@src/configs";
 import { Route, StateRoleName } from "@src/constants";
 import {
@@ -122,14 +124,14 @@ export const routes = [
           <DashboardView
             dashboards={[
               {
-                label: StateRoleName.Storage,
-                value: StateRoleName.Storage,
-                dashboard: StorageIngestionDashboard,
+                value: "broker.ingestion",
+                label: StateRoleName.Broker,
+                dashboard: BrokerIngestionDashboard,
               },
               {
-                label: StateRoleName.Broker,
-                value: StateRoleName.Broker,
-                dashboard: BrokerIngestionDashboard,
+                value: "storage.ingestion",
+                label: StateRoleName.Storage,
+                dashboard: StorageIngestionDashboard,
               },
             ]}
           />
@@ -151,18 +153,18 @@ export const routes = [
           <DashboardView
             dashboards={[
               {
+                value: "master.coordinator",
                 label: StateRoleName.Master,
-                value: StateRoleName.Master,
                 dashboard: MasterCoordinatorDashboard,
               },
               {
+                value: "broker.coordinator",
                 label: StateRoleName.Broker,
-                value: StateRoleName.Broker,
                 dashboard: BrokerCoordinatorDashboard,
               },
               {
+                value: "storage.coordinator",
                 label: StateRoleName.Storage,
-                value: StateRoleName.Storage,
                 dashboard: StorageCoordinatorDashboard,
               },
             ]}
@@ -180,6 +182,22 @@ export const routes = [
         path: "/monitoring/system",
         icon: <IconServerStroked size="large" />,
         timePicker: true,
+        content: (
+          <DashboardView
+            dashboards={[
+              {
+                value: "broker.system",
+                label: StateRoleName.Broker,
+                dashboard: BrokerSystemsDashboard,
+              },
+              {
+                value: "storage.system",
+                label: StateRoleName.Storage,
+                dashboard: StorageSystemsDashboard,
+              },
+            ]}
+          />
+        ),
         keep: ["start", "end", "node"],
       },
       {

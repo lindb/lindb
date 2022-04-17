@@ -20,6 +20,8 @@ import { IconGridStroked } from "@douyinfe/semi-icons";
 import { Card, Col, Row, Form, Select } from "@douyinfe/semi-ui";
 import { Metric, VariatesSelect } from "@src/components";
 import { Dashboard, DashboardItem } from "@src/models";
+import { URLStore } from "@src/stores";
+import { useWatchURLChange } from "@src/hooks";
 import React, { useState } from "react";
 import * as _ from "lodash-es";
 import { v4 as uuidv4 } from "uuid";
@@ -37,6 +39,21 @@ export default function DashboardView(props: DashboardViewProps) {
     _.get(dashboards, "[0].dashboard", {})
   );
 
+  const changeDashboard = (value: string) => {
+    const dashboardItem = _.find(dashboards, (item: DashboardItem) => {
+      return item.value == value;
+    });
+    setDashboard(_.get(dashboardItem, "dashboard", {}) as Dashboard);
+    setSelectedDashboard(value);
+  };
+
+  useWatchURLChange(() => {
+    const d = URLStore.params.get("d");
+    if (d) {
+      changeDashboard(d as string);
+    }
+  });
+
   return (
     <>
       <Card>
@@ -45,11 +62,8 @@ export default function DashboardView(props: DashboardViewProps) {
           value={selectedDashboard}
           optionList={dashboards}
           onChange={(value) => {
-            const dashboardItem = _.find(dashboards, (item: DashboardItem) => {
-              return item.value == value;
-            });
-            setDashboard(_.get(dashboardItem, "dashboard", {}) as Dashboard);
-            setSelectedDashboard(value);
+            changeDashboard(value as string);
+            URLStore.changeURLParams({ params: { d: value } });
           }}
           style={{ minWidth: 60, marginRight: 16 }}
         />

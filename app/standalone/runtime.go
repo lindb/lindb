@@ -79,7 +79,7 @@ func NewStandaloneRuntime(version string, cfg *config.Standalone) server.Service
 				BrokerBase:  cfg.BrokerBase,
 				Monitor:     cfg.Monitor,
 				Logging:     cfg.Logging,
-			}, false),
+			}, true),
 		storage: storage.NewStorageRuntime(version,
 			&config.Storage{
 				Query:       cfg.Query,
