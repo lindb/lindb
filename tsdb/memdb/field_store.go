@@ -21,6 +21,7 @@ import (
 	"encoding/binary"
 	"math"
 
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/bit"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
@@ -65,7 +66,10 @@ type fStoreINTF interface {
 	// FlushFieldTo flushes field store data into kv store, need align slot range in metric level
 	FlushFieldTo(tableFlusher metricsdata.Flusher, fieldMeta field.Meta, flushCtx *flushContext) error
 	// Load loads field series data.
-	Load(fieldType field.Type, slotRange timeutil.SlotRange) []byte
+	Load(ctx *flow.DataLoadContext,
+		seriesIdxFromQuery uint16, fieldIdx int,
+		fieldType field.Type, slotRange timeutil.SlotRange,
+	)
 }
 
 // fieldStore implements fStoreINTF interface
@@ -259,23 +263,23 @@ func (fs *fieldStore) merge(
 }
 
 // Load loads field series data.
-func (fs *fieldStore) Load(fieldType field.Type, slotRange timeutil.SlotRange) []byte {
+func (fs *fieldStore) Load(ctx *flow.DataLoadContext,
+	seriesIdxFromQuery uint16, fieldIdx int,
+	_ field.Type, slotRange timeutil.SlotRange,
+) {
 	var tsd *encoding.TSDDecoder
 	size := len(fs.compress)
 	if size > 0 {
-		// calc new start/end based on old compress values
-		tsd = encoding.GetTSDDecoder()
-		defer encoding.ReleaseTSDDecoder(tsd)
+		tsd = ctx.Decoder
 		tsd.Reset(fs.compress)
+		ctx.DownSampling(slotRange, seriesIdxFromQuery, fieldIdx, tsd)
 	}
-	// todo: pool encoder after loading ?
-	encoder := encoding.NewTSDEncoder(slotRange.Start)
-	data, err := fs.merge(fieldType, encoder, tsd, fs.getStart(), slotRange, false)
-	if err != nil {
-		memDBLogger.Error("load field store err", logger.Error(err))
-		return nil
-	}
-	return data
+	ctx.DownSampling(slotRange, seriesIdxFromQuery, fieldIdx, fs)
+}
+
+// GetValue returns value by time slot, if it hasn't, return false.
+func (fs *fieldStore) GetValue(slot uint16) (float64, bool) {
+	return fs.getCurrentValue(fs.getStart(), slot)
 }
 
 // slotRange returns time slot range in current/compress buffer

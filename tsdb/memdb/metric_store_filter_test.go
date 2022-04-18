@@ -28,6 +28,7 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/sql/stmt"
@@ -111,7 +112,7 @@ func TestMemFilterResultSet_Load(t *testing.T) {
 		},
 		SeriesIDHighKey:       0,
 		LowSeriesIDsContainer: roaring.BitmapOf(100, 200).GetContainerAtIndex(0),
-		DownSampling: func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, fieldData []byte) {
+		DownSampling: func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, getter encoding.TSDValueGetter) {
 		},
 	}
 	ctx.Grouping()

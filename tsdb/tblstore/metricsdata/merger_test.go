@@ -88,9 +88,10 @@ func assertMergeReentrant(t *testing.T, flusher kv.Flusher, mergerIntf kv.Merger
 				Query:  &stmt.Query{},
 			},
 		},
-		DownSampling: func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, fieldData []byte) {
+		DownSampling: func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, getter encoding.TSDValueGetter) {
 			found++
 		},
+		Decoder: encoding.GetTSDDecoder(),
 	}
 	loader := r.Load(ctx)
 	// not exist

@@ -18,8 +18,6 @@
 package memdb
 
 import (
-	"fmt"
-	"math"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -133,12 +131,6 @@ func TestFieldStore_Write(t *testing.T) {
 	value, ok = s.getCurrentValue(10, 10)
 	assert.True(t, ok)
 	assert.InDelta(t, 10.1, value, 0)
-
-	// case 10: test final data by load
-	capacity = store.Capacity()
-	store.Write(field.SumField, 15, 15.1)
-	assert.Zero(t, store.Capacity()-capacity)
-	s.Load(field.SumField, thisSlotRange)
 }
 
 func TestFieldStore_Write2(t *testing.T) {
@@ -220,7 +212,6 @@ func TestFieldStore_FlushFieldTo(t *testing.T) {
 	seriesIDs := roaring.BitmapOf(10)
 	found := 0
 	highKeys := seriesIDs.GetHighKeys()
-	tsdDecoder := encoding.GetTSDDecoder()
 	for idx := range highKeys {
 		highKey := highKeys[idx]
 		lowSeriesIDs := seriesIDs.GetContainer(highKey)
@@ -233,24 +224,48 @@ func TestFieldStore_FlushFieldTo(t *testing.T) {
 					Query:  &stmt.Query{},
 				},
 			},
-			DownSampling: func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, fieldData []byte) {
+			DownSampling: func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, getter encoding.TSDValueGetter) {
 				assert.Equal(t, timeutil.SlotRange{Start: 5, End: 5}, slotRange)
-				tsdDecoder.ResetWithTimeRange(fieldData, slotRange.Start, slotRange.End)
-				for movingSourceSlot := tsdDecoder.StartTime(); movingSourceSlot <= tsdDecoder.EndTime(); movingSourceSlot++ {
-					if !tsdDecoder.HasValueWithSlot(movingSourceSlot) {
+				for movingSourceSlot := slotRange.Start; movingSourceSlot <= slotRange.End; movingSourceSlot++ {
+					value, ok := getter.GetValue(movingSourceSlot)
+					if !ok {
 						continue
 					}
-					value := math.Float64frombits(tsdDecoder.Value())
 					assert.Equal(t, 5, int(movingSourceSlot))
-					fmt.Println(value)
 					assert.Equal(t, value, float64(fields[fieldIdx].ID))
 					found++
 				}
 			},
+			Decoder: encoding.GetTSDDecoder(),
 		}
 		ctx.Grouping()
 		loader := r.Load(ctx)
 		loader.Load(ctx)
 	}
 	assert.Equal(t, 2, found)
+}
+
+func TestFieldStore_Load(t *testing.T) {
+	buf := make([]byte, pageSize)
+	f := field.Meta{ID: 1}
+	store := newFieldStore(buf, f.ID)
+	store.Write(field.SumField, 5, float64(f.ID))
+
+	ctx := &flow.DataLoadContext{
+		DownSampling: func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, getter encoding.TSDValueGetter) {
+			for movingSourceSlot := slotRange.Start; movingSourceSlot <= slotRange.End; movingSourceSlot++ {
+				value, ok := getter.GetValue(movingSourceSlot)
+				if !ok {
+					continue
+				}
+				assert.Equal(t, 5, int(movingSourceSlot))
+				assert.Equal(t, value, 1.0)
+			}
+		},
+		Decoder: encoding.GetTSDDecoder(),
+	}
+	store.Load(ctx, 0, 0, field.SumField, timeutil.SlotRange{Start: 5, End: 10})
+	store1 := store.(*fieldStore)
+	store1.compact(field.SumField, 5)
+	store.Load(ctx, 0, 0, field.SumField, timeutil.SlotRange{Start: 5, End: 10})
 }

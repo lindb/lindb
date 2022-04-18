@@ -30,8 +30,8 @@ type metricStoreLoader struct {
 	db               MemoryDatabase
 	lowContainer     roaring.Container
 	timeSeriesStores []tStoreINTF
-	slotRange        timeutil.SlotRange
-	fields           field.Metas // sort by field id
+	slotRange        timeutil.SlotRange // slot range of metric store
+	fields           field.Metas        // sort by field id
 }
 
 // newMetricStoreLoader creates a memory storage metric loader.
@@ -58,9 +58,6 @@ func (s *metricStoreLoader) Load(loadCtx *flow.DataLoadContext) {
 	loadCtx.IterateLowSeriesIDs(s.lowContainer, func(seriesIdxFromQuery uint16, seriesIdxFromStorage int) {
 		store := s.timeSeriesStores[seriesIdxFromStorage]
 		// read series data of fields
-		fieldData := store.load(s.fields, s.slotRange)
-		for fieldIdx := range fieldData {
-			loadCtx.DownSampling(s.slotRange, seriesIdxFromQuery, fieldIdx, fieldData[fieldIdx])
-		}
+		store.load(loadCtx, seriesIdxFromQuery, s.fields, s.slotRange)
 	})
 }

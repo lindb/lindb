@@ -170,10 +170,12 @@ func (r *metricReader) Load(ctx *flow.DataLoadContext) flow.DataLoader {
 
 // readSeriesData reads series data from file by given position.
 func (r *metricReader) readSeriesData(ctx *flow.DataLoadContext, seriesIdx uint16, seriesEntryBlock []byte) {
+	decoder := ctx.Decoder
 	fieldCount := r.fields.Len()
 	if fieldCount == 1 {
+		decoder.ResetWithTimeRange(seriesEntryBlock, r.timeRange.Start, r.timeRange.End)
 		// metric has one field, just read the data
-		ctx.DownSampling(r.timeRange, seriesIdx, 0, seriesEntryBlock)
+		ctx.DownSampling(r.timeRange, seriesIdx, 0, decoder)
 		return
 	}
 
@@ -183,8 +185,6 @@ func (r *metricReader) readSeriesData(ctx *flow.DataLoadContext, seriesIdx uint1
 	if uVariantEncodingLen <= 0 || fieldOffsetsAt <= 0 || fieldOffsetsAt >= len(seriesEntryBlock) {
 		return
 	}
-
-	// TODO need test
 	// read data for multi-fields
 	fieldOffsetsDecoder := encoding.GetFixedOffsetDecoder()
 	_, _ = fieldOffsetsDecoder.Unmarshal(seriesEntryBlock[fieldOffsetsAt:])
@@ -195,8 +195,9 @@ func (r *metricReader) readSeriesData(ctx *flow.DataLoadContext, seriesIdx uint1
 		}
 		fieldBlock, err := fieldOffsetsDecoder.GetBlock(readIdx, seriesEntryBlock[:fieldOffsetsAt])
 		if err == nil {
+			decoder.ResetWithTimeRange(fieldBlock, r.timeRange.Start, r.timeRange.End)
 			// read field data
-			ctx.DownSampling(r.timeRange, seriesIdx, queryIdx, fieldBlock)
+			ctx.DownSampling(r.timeRange, seriesIdx, queryIdx, decoder)
 		}
 	}
 	encoding.ReleaseFixedOffsetDecoder(fieldOffsetsDecoder)

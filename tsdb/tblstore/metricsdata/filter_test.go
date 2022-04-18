@@ -27,6 +27,8 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/kv/version"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 )
 
@@ -35,10 +37,21 @@ func TestFileFilterResultSet_Load(t *testing.T) {
 	defer ctrl.Finish()
 
 	reader := NewMockMetricReader(ctrl)
-
-	rs := newFileFilterResultSet(1, nil, reader, nil)
+	snapshot := version.NewMockSnapshot(ctrl)
+	rs := newFileFilterResultSet(1, nil, reader, snapshot)
 	reader.EXPECT().Load(gomock.Any())
 	rs.Load(&flow.DataLoadContext{})
+	assert.Equal(t, int64(1), rs.FamilyTime())
+	reader.EXPECT().GetTimeRange().Return(timeutil.SlotRange{
+		Start: 10,
+		End:   20,
+	})
+	assert.Equal(t, timeutil.SlotRange{
+		Start: 10,
+		End:   20,
+	}, rs.SlotRange())
+	snapshot.EXPECT().Close()
+	rs.Close()
 }
 
 func TestMetricsDataFilter_Filter(t *testing.T) {

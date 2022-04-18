@@ -20,6 +20,7 @@ package memdb
 import (
 	"sort"
 
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
@@ -40,7 +41,7 @@ type tStoreINTF interface {
 	// FlushFieldsTo flushes the field data segment.
 	FlushFieldsTo(flusher metricsdata.Flusher, flushCtx *flushContext) error
 	// load the time series data based on field ids
-	load(fields field.Metas, slotRange timeutil.SlotRange) [][]byte
+	load(loadCtx *flow.DataLoadContext, seriesIdxFromQuery uint16, fields field.Metas, slotRange timeutil.SlotRange)
 }
 
 // fStoreNodes implements sort.Interface
@@ -128,32 +129,29 @@ func (ts *timeSeriesStore) FlushFieldsTo(flusher metricsdata.Flusher, flushCtx *
 
 // load the time series data based on key(family+field).
 // NOTICE: field ids and fields aggregator must be in order.
-func (ts *timeSeriesStore) load(fields field.Metas, slotRange timeutil.SlotRange) [][]byte {
+func (ts *timeSeriesStore) load(loadCtx *flow.DataLoadContext,
+	seriesIdxFromQuery uint16,
+	fields field.Metas, slotRange timeutil.SlotRange,
+) {
 	fieldLength := len(ts.fStoreNodes)
 	fieldCount := len(fields)
-	rs := make([][]byte, fieldCount)
-	// find equals field id index
-	idx := sort.Search(fieldLength, func(i int) bool {
-		return ts.fStoreNodes[i].GetFieldID() >= fields[0].ID
-	})
 	j := 0
-	for i := idx; i < fieldLength; i++ {
+	for i := 0; i < fieldLength; i++ {
 		fieldStore := ts.fStoreNodes[i]
 		queryFieldID := fields[j].ID
 		storeFieldID := fieldStore.GetFieldID()
 		switch {
 		case storeFieldID == queryFieldID:
 			// load field data
-			rs[j] = fieldStore.Load(fields[j].Type, slotRange)
+			fieldStore.Load(loadCtx, seriesIdxFromQuery, j, fields[j].Type, slotRange)
 			j++ // goto next query field id
 			// found all query fields return it
 			if fieldCount == j {
-				return rs
+				return
 			}
 		case storeFieldID > queryFieldID:
 			// store field id > query field id, return it
-			return rs
+			return
 		}
 	}
-	return rs
 }

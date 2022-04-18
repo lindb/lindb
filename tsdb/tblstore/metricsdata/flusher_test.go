@@ -151,7 +151,6 @@ func flushMoreData(t *testing.T,
 	assert.NotNil(t, r)
 	found := 0
 	highKeys := seriesIDs.GetHighKeys()
-	tsdDecoder := encoding.GetTSDDecoder()
 	for idx := range highKeys {
 		highKey := highKeys[idx]
 		lowSeriesIDs := seriesIDs.GetContainer(highKey)
@@ -164,20 +163,20 @@ func flushMoreData(t *testing.T,
 					Query:  &stmt.Query{},
 				},
 			},
-			DownSampling: func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, fieldData []byte) {
+			DownSampling: func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, getter encoding.TSDValueGetter) {
 				assert.Equal(t, timeutil.SlotRange{Start: 5, End: 5}, slotRange)
-				tsdDecoder.ResetWithTimeRange(fieldData, slotRange.Start, slotRange.End)
-				for movingSourceSlot := tsdDecoder.StartTime(); movingSourceSlot <= tsdDecoder.EndTime(); movingSourceSlot++ {
-					if !tsdDecoder.HasValueWithSlot(movingSourceSlot) {
+				for movingSourceSlot := slotRange.Start; movingSourceSlot <= slotRange.End; movingSourceSlot++ {
+					value, ok := getter.GetValue(movingSourceSlot)
+					if !ok {
 						continue
 					}
-					value := math.Float64frombits(tsdDecoder.Value())
 					assert.Equal(t, 5, int(movingSourceSlot))
 					seriesID := float64(int(highKey)*65536 + int(seriesIdx))
 					assert.Equal(t, value, seriesID*float64(queryFields[fieldIdx].ID))
 					found++
 				}
 			},
+			Decoder: encoding.GetTSDDecoder(),
 		}
 		ctx.Grouping()
 		loader := r.Load(ctx)

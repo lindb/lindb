@@ -18,11 +18,13 @@
 package memdb
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
@@ -42,13 +44,18 @@ func TestTimeSeriesStore_GetOrCreateFStore(t *testing.T) {
 	f, ok = tStore.GetFStore(100)
 	assert.Nil(t, f)
 	assert.False(t, ok)
-	for i := 1; i < 10; i++ {
+	for i := 1; i < 100; i++ {
 		tStore.InsertFStore(newFieldStore(make([]byte, pageSize), field.ID(10*i)))
 		tStore.InsertFStore(newFieldStore(make([]byte, pageSize), 10))
 		f, ok = tStore.GetFStore(10)
 		assert.NotNil(t, f)
 		assert.True(t, ok)
 	}
+	assert.True(t, tStore.Capacity() > 0)
+
+	f, ok = tStore.GetFStore(101)
+	assert.False(t, ok)
+	assert.Nil(t, f)
 }
 
 func TestTimeSeriesStore_FlushSeriesTo(t *testing.T) {
@@ -57,6 +64,10 @@ func TestTimeSeriesStore_FlushSeriesTo(t *testing.T) {
 
 	flusher := metricsdata.NewMockFlusher(ctrl)
 	tStore := newTimeSeriesStore()
+	// no field store
+	err := tStore.FlushFieldsTo(nil, nil)
+	assert.NoError(t, err)
+
 	s := tStore.(*timeSeriesStore)
 	fStore := NewMockfStoreINTF(ctrl)
 	s.InsertFStore(fStore)
@@ -71,52 +82,59 @@ func TestTimeSeriesStore_FlushSeriesTo(t *testing.T) {
 		flusher.EXPECT().FlushField(nil),
 	)
 	assert.NoError(t, tStore.FlushFieldsTo(flusher, &flushContext{}))
+
+	gomock.InOrder(
+		flusher.EXPECT().GetFieldMetas().Return(field.Metas{{ID: 1}, {ID: 2}, {ID: 3}}),
+		fStore.EXPECT().GetFieldID().Return(field.ID(2)),
+		flusher.EXPECT().FlushField(nil),
+		fStore.EXPECT().GetFieldID().Return(field.ID(2)),
+		fStore.EXPECT().FlushFieldTo(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err")),
+	)
+	assert.Error(t, tStore.FlushFieldsTo(flusher, &flushContext{}))
 }
 
-func TestTimeSeriesStore_scan(t *testing.T) {
+func TestTimeSeriesStore_load(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	tStoreInterface := newTimeSeriesStore()
 	tStore := tStoreInterface.(*timeSeriesStore)
-
-	for i := 0; i < 10; i++ {
-		fStore := newFieldStore(make([]byte, pageSize), field.ID(i*10))
+	fs := make(map[field.ID]*MockfStoreINTF)
+	for i := 3; i < 10; i++ {
+		fStore := NewMockfStoreINTF(ctrl)
+		id := field.ID(i)
+		fStore.EXPECT().GetFieldID().Return(id).AnyTimes()
 		tStore.InsertFStore(fStore)
-		fStore.Write(field.SumField, uint16(i), 10.1)
+		fs[id] = fStore
 	}
 
-	// case 1: family time not match
-	tStore.load(field.Metas{{
-		ID:   10,
-		Type: field.SumField,
-	}}, timeutil.SlotRange{})
+	ctx := &flow.DataLoadContext{}
 	// case 2: field id not match
-	tStore.load(field.Metas{{
+	tStore.load(ctx, 1, field.Metas{{
 		ID:   200,
 		Type: field.SumField,
 	}}, timeutil.SlotRange{})
 	// case 3: field id not match
-	tStore.load(field.Metas{{
-		ID:   80,
-		Type: field.SumField,
-	}}, timeutil.SlotRange{})
-	// case 4: field key not match
-	tStore.load(field.Metas{{
-		ID:   80,
+	tStore.load(ctx, 1, field.Metas{{
+		ID:   1,
 		Type: field.SumField,
 	}}, timeutil.SlotRange{})
 	// case 4: match one field
-	tStore.load(field.Metas{{
-		ID:   50,
+	f5 := fs[field.ID(5)]
+	f5.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
+	tStore.load(ctx, 1, field.Metas{{
+		ID:   5,
 		Type: field.SumField,
 	}}, timeutil.SlotRange{})
 	// case 4: match two fields
-	tStore.load(field.Metas{{
-		ID:   50,
+	f5.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
+	f8 := fs[field.ID(8)]
+	f8.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
+	tStore.load(ctx, 0, field.Metas{{
+		ID:   5,
 		Type: field.SumField,
 	}, {
-		ID:   80,
+		ID:   8,
 		Type: field.SumField,
 	}}, timeutil.SlotRange{})
 }
