@@ -234,6 +234,27 @@ func Test_Engine_Flush_Database(t *testing.T) {
 	assert.False(t, ok)
 }
 
+func TestEngine_DropDatabases(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	e, _ := NewEngine()
+	engineImpl := e.(*engine)
+	mockDatabase1 := NewMockDatabase(ctrl)
+	engineImpl.dbSet.PutDatabase("test_db_1", mockDatabase1)
+	mockDatabase2 := NewMockDatabase(ctrl)
+	engineImpl.dbSet.PutDatabase("test_db_2", mockDatabase2)
+
+	// drop fail
+	mockDatabase1.EXPECT().Drop().Return(fmt.Errorf("err"))
+	e.DropDatabases(map[string]struct{}{"test_db_2": {}})
+	assert.Len(t, engineImpl.dbSet.Entries(), 2)
+	// drop ok
+	mockDatabase1.EXPECT().Drop().Return(nil)
+	e.DropDatabases(map[string]struct{}{"test_db_2": {}})
+	assert.Len(t, engineImpl.dbSet.Entries(), 1)
+}
+
 var testDatabaseNames = []string{
 	"_internal", "system", "docker", "network", "java",
 	"runtime", "go", "php", "k8s", "infra", "prometheus",

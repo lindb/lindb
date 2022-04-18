@@ -37,6 +37,8 @@ import (
 	"github.com/lindb/lindb/pkg/hostutil"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/state"
+	"github.com/lindb/lindb/replica"
+	"github.com/lindb/lindb/tsdb"
 )
 
 var cfg = config.Storage{
@@ -57,8 +59,21 @@ var cfg = config.Storage{
 }
 
 func TestStorageRun(t *testing.T) {
+	ctrl := gomock.NewController(t)
 	cluster := mock.StartEtcdCluster(t, "http://localhost:8100")
-	defer cluster.Terminate(t)
+	defer func() {
+		newDatabaseLifecycleFn = NewDatabaseLifecycle
+		cluster.Terminate(t)
+		ctrl.Finish()
+	}()
+
+	dbLifecycle := NewMockDatabaseLifecycle(ctrl)
+	dbLifecycle.EXPECT().Startup()
+	dbLifecycle.EXPECT().Shutdown()
+	newDatabaseLifecycleFn = func(ctx context.Context, repo state.Repository,
+		walMgr replica.WriteAheadLogManager, engine tsdb.Engine) DatabaseLifecycle {
+		return dbLifecycle
+	}
 
 	// test normal storage run
 	cfg.Coordinator.Endpoints = cluster.Endpoints
@@ -89,13 +104,23 @@ func TestStorageRun(t *testing.T) {
 }
 
 func TestStorageRun_GetHost_Err(t *testing.T) {
+	ctrl := gomock.NewController(t)
 	cluster := mock.StartEtcdCluster(t, "http://localhost:8101")
 	defer cluster.Terminate(t)
 
 	defer func() {
 		getHostIP = hostutil.GetHostIP
+		newDatabaseLifecycleFn = NewDatabaseLifecycle
 		hostName = os.Hostname
+		ctrl.Finish()
 	}()
+	dbLifecycle := NewMockDatabaseLifecycle(ctrl)
+	dbLifecycle.EXPECT().Startup()
+	dbLifecycle.EXPECT().Shutdown()
+	newDatabaseLifecycleFn = func(ctx context.Context, repo state.Repository,
+		walMgr replica.WriteAheadLogManager, engine tsdb.Engine) DatabaseLifecycle {
+		return dbLifecycle
+	}
 	cfg.Coordinator.Endpoints = cluster.Endpoints
 	cfg.StorageBase.GRPC.Port = 8889
 	cfg.StorageBase.Indicator = 2

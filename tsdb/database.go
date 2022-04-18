@@ -63,6 +63,8 @@ type Database interface {
 	WaitFlushMetaCompleted()
 	// Flush flushes memory data of all families to disk
 	Flush() error
+	// Drop drops current database include all data.
+	Drop() error
 }
 
 // databaseConfig represents a database configuration about config and families
@@ -74,7 +76,8 @@ type databaseConfig struct {
 // database implements Database for storing families,
 // each shard represents a time series storage
 type database struct {
-	name           string          // database-name
+	name           string // database-name
+	dir            string
 	config         *databaseConfig // meta configuration
 	executorPool   *ExecutorPool   // executor pool for querying task
 	mutex          sync.Mutex      // mutex for creating families
@@ -127,9 +130,11 @@ func newDatabase(
 		isFlushing:     *atomic.NewBool(false),
 		flushCondition: sync.NewCond(&sync.Mutex{}),
 	}
-	if err := createDatabasePath(databaseName); err != nil {
-		return nil, err
+	dbPath, err0 := createDatabasePath(databaseName)
+	if err0 != nil {
+		return nil, err0
 	}
+	db.dir = dbPath
 	if err := db.dumpDatabaseConfig(cfg); err != nil {
 		return nil, err
 	}
@@ -334,6 +339,17 @@ func (db *database) Flush() error {
 			},
 			global: false,
 		})
+	}
+	return nil
+}
+
+// Drop drops current database include all data.
+func (db *database) Drop() error {
+	if err := db.Close(); err != nil {
+		return err
+	}
+	if err := removeDir(db.dir); err != nil {
+		return err
 	}
 	return nil
 }

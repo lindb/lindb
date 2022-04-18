@@ -73,6 +73,7 @@ var (
 	getHostIP              = hostutil.GetHostIP
 	hostName               = os.Hostname
 	newStateMachineFactory = storage.NewStateMachineFactory
+	newDatabaseLifecycleFn = NewDatabaseLifecycle
 )
 
 // runtime represents storage runtime dependency
@@ -92,6 +93,7 @@ type runtime struct {
 	stateMachineFactory discovery.StateMachineFactory
 	stateMgr            storage.StateManager
 	walMgr              replica.WriteAheadLogManager
+	dbLifecycle         DatabaseLifecycle
 
 	node            *models.StatefulNode
 	server          rpc.GRPCServer
@@ -210,6 +212,9 @@ func (r *runtime) Run() error {
 		r.state = server.Failed
 		return err
 	}
+
+	r.dbLifecycle = newDatabaseLifecycleFn(r.ctx, r.repo, r.walMgr, r.engine)
+	r.dbLifecycle.Startup()
 
 	// Use Leader election mechanism to ensure the uniqueness of stateful node id
 	if err := r.MustRegisterStateFulNode(); err != nil {
@@ -360,26 +365,8 @@ func (r *runtime) Stop() {
 		r.log.Info("stopped GRPC server")
 	}
 
-	if r.walMgr != nil {
-		r.log.Info("stopping write ahead log replicator...")
-		r.walMgr.Stop()
-		r.log.Info("stopped write ahead log replicator...")
-	}
-
-	// close the storage engine
-	if r.engine != nil {
-		r.log.Info("stopping tsdb engine...")
-		r.engine.Close()
-		r.log.Info("stopped tsdb engine")
-	}
-
-	if r.walMgr != nil {
-		r.log.Info("Closing write ahead log ...")
-		if err := r.walMgr.Close(); err != nil {
-			r.log.Error("stopped write ahead log replicator with error", logger.Error(err))
-		} else {
-			r.log.Info("write ahead log closed...")
-		}
+	if r.dbLifecycle != nil {
+		r.dbLifecycle.Shutdown()
 	}
 
 	r.log.Info("stopped storage server successfully")
