@@ -21,12 +21,23 @@ import (
 	"math"
 	"testing"
 
+	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/timeutil"
+
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
 func Test_fillInfBlock(t *testing.T) {
 	for i := infBlockSize - 10; i < infBlockSize+100; i++ {
 		assertBlockInf(t, i)
+	}
+	assert.Len(t, getFloat64Slice(1), 1)
+}
+
+func Test_getFloat64Slice(t *testing.T) {
+	for i := 0; i < 100; i++ {
+		assert.Len(t, getFloat64Slice(10), 10)
 	}
 }
 
@@ -38,4 +49,26 @@ func assertBlockInf(t *testing.T, size int) {
 	}
 	assert.Len(t, sl, size)
 	putFloat64Slice(&sl)
+}
+
+func TestDownSampling(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	// case 1: no data
+	found := 0
+	getter := encoding.NewMockTSDValueGetter(ctrl)
+	getter.EXPECT().GetValue(gomock.Any()).Return(0.0, false)
+	DownSampling(timeutil.SlotRange{}, timeutil.SlotRange{}, 1, 0, getter, nil)
+	assert.Equal(t, 0, found)
+	// case 2: out of target range
+	getter.EXPECT().GetValue(gomock.Any()).Return(1.0, true)
+	DownSampling(timeutil.SlotRange{}, timeutil.SlotRange{Start: 10}, 1, 0, getter, nil)
+	assert.Equal(t, 0, found)
+	// case 3: find data
+	getter.EXPECT().GetValue(gomock.Any()).Return(1.0, true)
+	DownSampling(timeutil.SlotRange{}, timeutil.SlotRange{}, 1, 0, getter, func(targetPos int, value float64) {
+		found++
+	})
+	assert.Equal(t, 1, found)
 }

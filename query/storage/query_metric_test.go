@@ -408,6 +408,7 @@ func TestStorageExecute_Execute(t *testing.T) {
 							},
 						},
 					}
+					loadCtx.IsGrouping = true
 					return task
 				}
 				newDataLoadTaskFunc = func(shard tsdb.Shard, queryFlow flow.StorageQueryFlow,

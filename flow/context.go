@@ -28,6 +28,7 @@ import (
 
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
@@ -269,7 +270,8 @@ func (agg *GroupingSeriesAgg) reduce(reduceFn func(it series.GroupedIterator)) {
 
 // DataLoadContext represents data load level query execute context.
 type DataLoadContext struct {
-	ShardExecuteCtx *ShardExecuteContext
+	ShardExecuteCtx          *ShardExecuteContext
+	IsMultiField, IsGrouping bool
 
 	MinSeriesID, MaxSeriesID uint16
 	// range of min/max low series id
@@ -284,7 +286,8 @@ type DataLoadContext struct {
 	GroupingSeriesAgg        []*GroupingSeriesAgg
 	groupingSeriesAggRefIdx  uint16
 
-	DownSampling func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, fieldData []byte)
+	Decoder      *encoding.TSDDecoder
+	DownSampling func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, getter encoding.TSDValueGetter)
 }
 
 // PrepareAggregatorWithoutGrouping prepares context for without grouping query.
@@ -292,7 +295,7 @@ func (ctx *DataLoadContext) PrepareAggregatorWithoutGrouping() {
 	ctx.WithoutGroupingSeriesAgg = &GroupingSeriesAgg{
 		Key: "",
 	}
-	if ctx.IsMultiField() {
+	if ctx.IsMultiField {
 		ctx.WithoutGroupingSeriesAgg.Aggregators = ctx.newSeriesAggregators()
 	} else {
 		ctx.WithoutGroupingSeriesAgg.Aggregator = ctx.newSeriesAggregator(0)
@@ -315,7 +318,7 @@ func (ctx *DataLoadContext) NewSeriesAggregator(groupingKey string) uint16 {
 	}
 	ctx.ShardExecuteCtx.StorageExecuteCtx.collectGroupingTagValueIDs(tagValueIDs)
 
-	if ctx.IsMultiField() {
+	if ctx.IsMultiField {
 		groupingSeriesAgg.Aggregators = ctx.newSeriesAggregators()
 	} else {
 		groupingSeriesAgg.Aggregator = ctx.newSeriesAggregator(0)
@@ -347,19 +350,9 @@ func (ctx *DataLoadContext) newSeriesAggregator(fieldIdx int) aggregation.Series
 		ctx.ShardExecuteCtx.StorageExecuteCtx.DownSamplingSpecs[fieldIdx])
 }
 
-// IsMultiField returns if it is multi field select for query.
-func (ctx *DataLoadContext) IsMultiField() bool {
-	return len(ctx.ShardExecuteCtx.StorageExecuteCtx.Fields) > 1
-}
-
-// IsGrouping returns if it is grouping query.
-func (ctx *DataLoadContext) IsGrouping() bool {
-	return ctx.ShardExecuteCtx.StorageExecuteCtx.Query.HasGroupBy()
-}
-
 // HasGroupingData returns if it is grouping data.
 func (ctx *DataLoadContext) HasGroupingData() bool {
-	if ctx.IsGrouping() {
+	if ctx.IsGrouping {
 		return len(ctx.GroupingSeriesAgg) > 0
 	}
 	return true
@@ -368,13 +361,13 @@ func (ctx *DataLoadContext) HasGroupingData() bool {
 // GetSeriesAggregator gets series aggregator with low series id and field index.
 func (ctx *DataLoadContext) GetSeriesAggregator(lowSeriesIdx uint16, fieldIdx int) (result aggregation.SeriesAggregator) {
 	var groupingSeriesAgg *GroupingSeriesAgg
-	if ctx.IsGrouping() {
+	if ctx.IsGrouping {
 		groupingSeriesIdx := ctx.GroupingSeriesAggRefs[lowSeriesIdx]
 		groupingSeriesAgg = ctx.GroupingSeriesAgg[groupingSeriesIdx]
 	} else {
 		groupingSeriesAgg = ctx.WithoutGroupingSeriesAgg
 	}
-	if ctx.IsMultiField() {
+	if ctx.IsMultiField {
 		return groupingSeriesAgg.Aggregators[fieldIdx]
 	}
 	return groupingSeriesAgg.Aggregator
@@ -387,7 +380,7 @@ func (ctx *DataLoadContext) Grouping() {
 	ctx.MaxSeriesID = ctx.LowSeriesIDsContainer.Maximum()
 	lengthOfSeriesIDs := int(ctx.MaxSeriesID-ctx.MinSeriesID) + 1
 	ctx.LowSeriesIDs = make([]uint16, lengthOfSeriesIDs)
-	if ctx.IsGrouping() {
+	if ctx.IsGrouping {
 		ctx.GroupingSeriesAggRefs = make([]uint16, lengthOfSeriesIDs)
 	}
 	it := ctx.LowSeriesIDsContainer.PeekableIterator()
@@ -427,7 +420,7 @@ func (ctx *DataLoadContext) IterateLowSeriesIDs(lowSeriesIDsFromStorage roaring.
 
 // Reduce reduces down sampling result.
 func (ctx *DataLoadContext) Reduce(reduceFn func(it series.GroupedIterator)) {
-	if ctx.IsGrouping() {
+	if ctx.IsGrouping {
 		for _, groupAgg := range ctx.GroupingSeriesAgg {
 			groupAgg.reduce(reduceFn)
 		}

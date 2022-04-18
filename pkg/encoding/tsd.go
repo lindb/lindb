@@ -29,11 +29,19 @@ import (
 	"github.com/lindb/lindb/pkg/stream"
 )
 
+//go:generate mockgen -source ./tsd.go -destination=./tsd_mock.go -package=encoding
+
 // for testing
 var (
 	TSDEncodeFunc = GetTSDEncoder
 	flushFunc     = flush
 )
+
+// TSDValueGetter represents value getter from tsd.
+type TSDValueGetter interface {
+	// GetValue returns value by time slot, if it hasn't, return false.
+	GetValue(slot uint16) (float64, bool)
+}
 
 var (
 	decoderPool = sync.Pool{
@@ -296,6 +304,14 @@ func (d *TSDDecoder) HasValueWithSlot(slot uint16) bool {
 		return d.HasValue()
 	}
 	return false
+}
+
+// GetValue returns value by time slot, if it hasn't, return false.
+func (d *TSDDecoder) GetValue(slot uint16) (float64, bool) {
+	if !d.HasValueWithSlot(slot) {
+		return 0, false
+	}
+	return math.Float64frombits(d.Value()), true
 }
 
 func (d *TSDDecoder) Slot() uint16 {

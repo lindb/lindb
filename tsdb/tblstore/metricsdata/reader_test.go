@@ -26,7 +26,6 @@ import (
 	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/bit"
@@ -86,6 +85,8 @@ func TestReader_Load(t *testing.T) {
 	r, err := NewReader("1.sst", mockMetricBlock())
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
+	r1 := r.(*metricReader)
+	assert.Len(t, r1.fieldIndexes(), 4)
 	// case 1: series high key not found
 	r.Load(&flow.DataLoadContext{
 		SeriesIDHighKey: 1000,
@@ -123,11 +124,7 @@ func TestReader_Load(t *testing.T) {
 	})
 	assert.Nil(t, scanner)
 
-	// case 5: load data success, but time slot not in query range
 	found := 0
-	r, err = NewReader("1.sst", mockMetricBlock())
-	assert.NoError(t, err)
-	tsdDecoder := encoding.GetTSDDecoder()
 	ctx := &flow.DataLoadContext{
 		SeriesIDHighKey:       0,
 		LowSeriesIDsContainer: roaring.BitmapOf(4096, 8192).GetContainer(0),
@@ -137,29 +134,27 @@ func TestReader_Load(t *testing.T) {
 				Query:  &stmt.Query{},
 			},
 		},
-		DownSampling: func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, fieldData []byte) {
-			tsdDecoder.ResetWithTimeRange(fieldData, slotRange.Start, slotRange.End)
-			aggregation.DownSamplingSeries(
-				timeutil.SlotRange{Start: 6, End: 7}, 1.0, 0, // same family, base slot = 0
-				tsdDecoder,
-				func(targetPos int, value float64) {
-					found++
-				},
-			)
+		DownSampling: func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, getter encoding.TSDValueGetter) {
+			assert.Equal(t, timeutil.SlotRange{Start: 5, End: 5}, slotRange)
+			for movingSourceSlot := slotRange.Start; movingSourceSlot <= slotRange.End; movingSourceSlot++ {
+				_, ok := getter.GetValue(movingSourceSlot)
+				if !ok {
+					continue
+				}
+				found++
+			}
 		},
+		Decoder: encoding.GetTSDDecoder(),
 	}
 	ctx.Grouping()
 	scanner = r.Load(ctx)
-	scanner.Load(ctx)
-	assert.Equal(t, 0, found)
-
-	// case 6: load data success, metric has one field
+	// case 5: load data success, metric has one field
 	r, err = NewReader("1.sst", mockMetricBlockForOneField())
 	assert.NoError(t, err)
 	ctx.ShardExecuteCtx.StorageExecuteCtx.Fields = field.Metas{{ID: 2}}
 	ctx.Grouping()
 	scanner.Load(ctx)
-	// case 7: high key not exist
+	// case 6: high key not exist
 	r, err = NewReader("1.sst", mockMetricBlockForOneField())
 	assert.NoError(t, err)
 	ctx.SeriesIDHighKey = 10

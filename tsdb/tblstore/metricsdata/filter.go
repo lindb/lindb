@@ -57,7 +57,6 @@ func (f *metricsDataFilter) Filter(
 	seriesIDs *roaring.Bitmap, fields field.Metas,
 ) (rs []flow.FilterResultSet, err error) {
 	for _, reader := range f.readers {
-		// FIXME add time range compare????
 		fieldMetas, _ := reader.GetFields().Intersects(fields)
 		if len(fieldMetas) == 0 {
 			// field not found
@@ -80,7 +79,7 @@ func (f *metricsDataFilter) Filter(
 
 // fileFilterResultSet represents sst file metricReader for loading file data based on query condition
 type fileFilterResultSet struct {
-	snapshot   version.Snapshot // FIXME stone1100, need close version snapshot
+	snapshot   version.Snapshot
 	reader     MetricReader
 	familyTime int64
 	seriesIDs  *roaring.Bitmap
