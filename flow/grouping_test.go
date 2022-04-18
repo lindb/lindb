@@ -53,6 +53,7 @@ func TestGroupingContext_BuildSingleTag(t *testing.T) {
 				Query:               &stmt.Query{GroupBy: []string{"a"}},
 			},
 		},
+		IsGrouping: true,
 	}
 	dataLoadCtx.Grouping()
 	ctx.BuildGroup(dataLoadCtx)
@@ -104,6 +105,7 @@ func TestGroupingContext_BuildMultiTag(t *testing.T) {
 				Query:               &stmt.Query{GroupBy: []string{"a", "b"}},
 			},
 		},
+		IsGrouping: true,
 	}
 	dataLoadCtx.Grouping()
 	ctx.BuildGroup(dataLoadCtx)

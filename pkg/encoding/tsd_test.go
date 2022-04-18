@@ -195,3 +195,26 @@ func TestGetTSDDecoder(t *testing.T) {
 	assert.NotNil(t, decoder)
 	ReleaseTSDDecoder(decoder)
 }
+
+func TestTSDDecoder_GetValue(t *testing.T) {
+	encoder := NewTSDEncoder(10)
+	encoder.AppendTime(bit.One)
+	encoder.AppendValue(uint64(10))
+	encoder.AppendTime(bit.One)
+	encoder.AppendValue(uint64(100))
+	encoder.AppendTime(bit.Zero)
+	encoder.AppendTime(bit.One)
+	encoder.AppendValue(uint64(50))
+
+	data, err := encoder.Bytes()
+	assert.Nil(t, err)
+	assert.True(t, len(data) > 0)
+
+	decoder0 := NewTSDDecoder(data)
+	v, ok := decoder0.GetValue(10)
+	assert.True(t, ok)
+	assert.Equal(t, math.Float64frombits(10), v)
+	v, ok = decoder0.GetValue(10)
+	assert.False(t, ok)
+	assert.Equal(t, 0.0, v)
+}

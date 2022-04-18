@@ -33,6 +33,7 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/tag"
+	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/tblstore/tagindex"
 )
 
@@ -244,6 +245,7 @@ func BenchmarkForwardStore_Grouping(b *testing.B) {
 					StorageExecuteCtx: &flow.StorageExecuteContext{
 						DownSamplingSpecs:   aggregation.AggregatorSpecs{aggregation.NewAggregatorSpec("f", field.SumField)},
 						GroupingTagValueIDs: make([]*roaring.Bitmap, 2),
+						Query:               &stmt.Query{},
 					},
 				},
 			}

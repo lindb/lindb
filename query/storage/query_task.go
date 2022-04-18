@@ -397,8 +397,8 @@ func (t *dataLoadTask) Run() error {
 		}
 
 		// load field series data by series ids
-		tsdDecoder := encoding.GetTSDDecoder()
-		t.dataLoadCtx.DownSampling = func(slotRange timeutil.SlotRange, lowSeriesIdx uint16, fieldIdx int, fieldData []byte) {
+		t.dataLoadCtx.Decoder = encoding.GetTSDDecoder()
+		t.dataLoadCtx.DownSampling = func(slotRange timeutil.SlotRange, lowSeriesIdx uint16, fieldIdx int, getter encoding.TSDValueGetter) {
 			var agg aggregation.FieldAggregator
 			seriesAggregator := t.dataLoadCtx.GetSeriesAggregator(lowSeriesIdx, fieldIdx)
 
@@ -407,10 +407,9 @@ func (t *dataLoadTask) Run() error {
 			if !ok {
 				return
 			}
-			tsdDecoder.ResetWithTimeRange(fieldData, slotRange.Start, slotRange.End)
-			aggregation.DownSamplingSeries(
-				targetSlotRange, uint16(queryIntervalRatio), 0, // same family, base slot = 0
-				tsdDecoder,
+			aggregation.DownSampling(
+				slotRange, targetSlotRange, uint16(queryIntervalRatio), 0, // same family, base slot = 0
+				getter,
 				agg.AggregateBySlot,
 			)
 		}
@@ -419,7 +418,7 @@ func (t *dataLoadTask) Run() error {
 		// if found data need to do down sampling aggregate.
 		loader.Load(t.dataLoadCtx)
 		// release tsd decoder back to pool for re-use.
-		encoding.ReleaseTSDDecoder(tsdDecoder)
+		encoding.ReleaseTSDDecoder(t.dataLoadCtx.Decoder)
 		// after load, need to reduce the aggregator's result to query flow.
 		t.dataLoadCtx.Reduce(t.queryFlow.Reduce)
 

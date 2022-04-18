@@ -184,6 +184,7 @@ func TestDataLoadContext_PrepareAggregatorWithoutGrouping(t *testing.T) {
 				Query:             &stmt.Query{},
 			},
 		},
+		IsMultiField: false,
 	}
 	ctx.PrepareAggregatorWithoutGrouping()
 	assert.NotNil(t, ctx.WithoutGroupingSeriesAgg.Aggregator)
@@ -200,6 +201,7 @@ func TestDataLoadContext_PrepareAggregatorWithoutGrouping(t *testing.T) {
 				Query: &stmt.Query{},
 			},
 		},
+		IsMultiField: true,
 	}
 	ctx.PrepareAggregatorWithoutGrouping()
 	assert.Nil(t, ctx.WithoutGroupingSeriesAgg.Aggregator)
@@ -217,6 +219,7 @@ func TestDataLoadContext_NewSeriesAggregator(t *testing.T) {
 				GroupingTagValueIDs: make([]*roaring.Bitmap, 1),
 			},
 		},
+		IsMultiField: false,
 	}
 	idx := ctx.NewSeriesAggregator(string([]byte{1, 0, 0, 0}))
 	assert.Equal(t, uint16(0), idx)
@@ -236,6 +239,7 @@ func TestDataLoadContext_NewSeriesAggregator(t *testing.T) {
 				Query: &stmt.Query{},
 			},
 		},
+		IsMultiField: true,
 	}
 	idx = ctx.NewSeriesAggregator("")
 	assert.Equal(t, uint16(0), idx)
@@ -250,6 +254,7 @@ func TestDataLoadContext_HasGroupingData(t *testing.T) {
 				Query: &stmt.Query{},
 			},
 		},
+		IsGrouping: false,
 	}
 	assert.True(t, ctx.HasGroupingData())
 	ctx = &DataLoadContext{
@@ -258,6 +263,7 @@ func TestDataLoadContext_HasGroupingData(t *testing.T) {
 				Query: &stmt.Query{GroupBy: []string{"ip"}},
 			},
 		},
+		IsGrouping: true,
 	}
 	assert.False(t, ctx.HasGroupingData())
 	ctx.GroupingSeriesAgg = []*GroupingSeriesAgg{nil}
@@ -274,6 +280,7 @@ func TestDataLoadContext_IterateLowSeriesIDs(t *testing.T) {
 				Query: &stmt.Query{GroupBy: []string{"ip"}},
 			},
 		},
+		IsGrouping: true,
 	}
 	ctx.Grouping()
 	findSeriesIDs := roaring.New()
@@ -299,6 +306,7 @@ func TestDataLoadContext_GetSeriesAggregator(t *testing.T) {
 		},
 		GroupingSeriesAggRefs: []uint16{1},
 		GroupingSeriesAgg:     []*GroupingSeriesAgg{{Aggregator: agg}, {Aggregator: agg}},
+		IsGrouping:            true,
 	}
 	aggregator := ctx.GetSeriesAggregator(0, 0)
 	assert.NotNil(t, aggregator)
@@ -312,6 +320,8 @@ func TestDataLoadContext_GetSeriesAggregator(t *testing.T) {
 			},
 		},
 		WithoutGroupingSeriesAgg: &GroupingSeriesAgg{Aggregators: aggregation.FieldAggregates{agg, agg}},
+		IsMultiField:             true,
+		IsGrouping:               false,
 	}
 	aggregator = ctx.GetSeriesAggregator(0, 1)
 	assert.NotNil(t, aggregator)

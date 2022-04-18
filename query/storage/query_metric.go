@@ -191,6 +191,8 @@ func (e *storageExecutor) executeGroupBy(shardExecuteContext *flow.ShardExecuteC
 				ShardExecuteCtx:       shardExecuteContext,
 				LowSeriesIDsContainer: lowSeriesIDs,
 				SeriesIDHighKey:       seriesIDsHighKeys[highSeriesIDIdx],
+				IsMultiField:          len(shardExecuteContext.StorageExecuteCtx.Fields) > 1,
+				IsGrouping:            shardExecuteContext.StorageExecuteCtx.Query.HasGroupBy(),
 			}
 
 			t := newBuildGroupTaskFunc(shard, dataLoadCtx)

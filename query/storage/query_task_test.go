@@ -30,6 +30,7 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
@@ -289,6 +290,7 @@ func TestBuildGroupTask_Run(t *testing.T) {
 	dataLoadCtx := &flow.DataLoadContext{
 		ShardExecuteCtx:       ctx,
 		LowSeriesIDsContainer: seriesIDs.GetContainerAtIndex(0),
+		IsGrouping:            false,
 	}
 	task := newBuildGroupTask(shard, dataLoadCtx)
 	// case 1: no group
@@ -353,9 +355,11 @@ func TestDataLoadTask_Run(t *testing.T) {
 	fAgg := aggregation.NewMockFieldAggregator(ctrl)
 	agg.EXPECT().Reset()
 	agg.EXPECT().GetAggregator(gomock.Any()).Return(fAgg, true)
+	getter := encoding.NewMockTSDValueGetter(ctrl)
+	getter.EXPECT().GetValue(gomock.Any()).Return(5.0, true).AnyTimes()
 	loader.EXPECT().Load(gomock.Any()).Do(func(ctx *flow.DataLoadContext) {
-		ctx.DownSampling(timeutil.SlotRange{Start: 5, End: 5}, 0, 0, []byte{})
-		ctx.DownSampling(timeutil.SlotRange{Start: 5, End: 5}, 0, 0, []byte{})
+		ctx.DownSampling(timeutil.SlotRange{Start: 5, End: 5}, 0, 0, getter)
+		ctx.DownSampling(timeutil.SlotRange{Start: 5, End: 5}, 0, 0, getter)
 	})
 	err = task.Run()
 	assert.NoError(t, err)
