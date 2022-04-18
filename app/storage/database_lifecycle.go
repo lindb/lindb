@@ -109,8 +109,10 @@ func (l *databaseLifecycle) ttlTask() {
 		for {
 			select {
 			case <-ticker.C:
+				// try drop databases
 				l.tryDropDatabases()
-
+				// do data ttl
+				l.engine.TTL()
 				// support dynamic modify config
 				ticker.Reset(config.GlobalStorageConfig().TTLTaskInterval.Duration())
 			case <-l.ctx.Done():

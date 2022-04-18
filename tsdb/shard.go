@@ -85,6 +85,8 @@ type Shard interface {
 	WaitFlushIndexCompleted()
 	// initIndexDatabase initializes index database
 	initIndexDatabase() error
+	// TTL expires the data of each segment base on time to live.
+	TTL()
 	// Closer releases shard's resource, such as flush data, spawned goroutines etc.
 	io.Closer
 }
@@ -157,10 +159,9 @@ func newShard(
 	createdShard.statistics.indexFlushTimer = indexFlushTimerVec.WithTagValues(db.Name(), shardIDStr)
 
 	for idx, targetInterval := range dbOption.Intervals {
-		interval := targetInterval.Interval
 		// new segment for rollup
 		var segment IntervalSegment
-		segment, err = newIntervalSegmentFunc(createdShard, interval)
+		segment, err = newIntervalSegmentFunc(createdShard, targetInterval)
 
 		if err != nil {
 			return nil, err
@@ -170,7 +171,7 @@ func newShard(
 			createdShard.segment = segment
 		}
 		// set rollup target segment
-		createdShard.rollupTargets[interval] = segment
+		createdShard.rollupTargets[targetInterval.Interval] = segment
 	}
 
 	defer func() {
@@ -412,6 +413,20 @@ func (s *shard) WaitFlushIndexCompleted() {
 		s.flushCondition.Wait()
 	}
 	s.flushCondition.L.Unlock()
+}
+
+// TTL expires the data of each segment base on time to live.
+func (s *shard) TTL() {
+	for interval, rollupSegment := range s.rollupTargets {
+		if err := rollupSegment.TTL(); err != nil {
+			s.logger.Warn("do segment ttl failure",
+				logger.String("database", s.db.Name()),
+				logger.Any("shardID", s.id),
+				logger.String("segment", interval.Type().String()),
+				logger.Error(err),
+			)
+		}
+	}
 }
 
 // initIndexDatabase initializes the index database

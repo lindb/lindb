@@ -26,6 +26,7 @@ import (
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
@@ -100,7 +101,7 @@ func TestIntervalSegment_New(t *testing.T) {
 			if tt.prepare != nil {
 				tt.prepare()
 			}
-			s, err := newIntervalSegment(shard, timeutil.Interval(timeutil.OneSecond*10))
+			s, err := newIntervalSegment(shard, option.Interval{Interval: timeutil.Interval(timeutil.OneSecond * 10)})
 			if ((err != nil) != tt.wantErr && s == nil) || (!tt.wantErr && s == nil) {
 				t.Errorf("newIntervalSegment() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -130,7 +131,7 @@ func TestIntervalSegment_GetOrCreateSegment(t *testing.T) {
 		return segment, nil
 	}
 
-	s, _ := newIntervalSegment(shard, timeutil.Interval(timeutil.OneSecond*10))
+	s, _ := newIntervalSegment(shard, option.Interval{Interval: timeutil.Interval(timeutil.OneSecond * 10)})
 	seg, err := s.GetOrCreateSegment("20190702")
 	assert.Nil(t, err)
 	assert.NotNil(t, seg)
@@ -150,13 +151,15 @@ func TestIntervalSegment_GetOrCreateSegment(t *testing.T) {
 	listDir = func(path string) ([]string, error) {
 		return []string{"20190702"}, nil
 	}
-	s, _ = newIntervalSegment(shard, timeutil.Interval(timeutil.OneSecond*10))
+	s, _ = newIntervalSegment(shard, option.Interval{Interval: timeutil.Interval(timeutil.OneSecond * 10)})
 
 	s1, ok := s.(*intervalSegment)
 	if ok {
-		seg, ok = s1.getSegment("20190702")
+		s1.mutex.Lock()
+		seg, ok = s1.segments["20190702"]
 		assert.NotNil(t, seg)
 		assert.True(t, ok)
+		s1.mutex.Unlock()
 	} else {
 		t.Fail()
 	}
@@ -173,7 +176,7 @@ func TestIntervalSegment_getDataFamilies(t *testing.T) {
 	shard := NewMockShard(ctrl)
 	shard.EXPECT().Database().Return(database).AnyTimes()
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
-	interval := timeutil.Interval(timeutil.OneSecond * 10)
+	interval := option.Interval{Interval: timeutil.Interval(timeutil.OneSecond * 10)}
 	newSegmentFunc = func(shard Shard, segmentName string, interval timeutil.Interval) (Segment, error) {
 		segment := NewMockSegment(ctrl)
 		segment.EXPECT().GetOrCreateDataFamily(gomock.Any()).Return(nil, nil).AnyTimes()
@@ -213,4 +216,90 @@ func TestIntervalSegment_getDataFamilies(t *testing.T) {
 	end, _ = timeutil.ParseTimestamp("20190905 22:10:48", "20060102 15:04:05")
 	families = s.getDataFamilies(timeutil.TimeRange{Start: start, End: end})
 	assert.Equal(t, 2, len(families))
+}
+
+func TestIntervalSegment_TTL(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	now := timeutil.Now() - 40*timeutil.OneDay
+	segmentDir := timeutil.FormatTimestamp(now, "20060102")
+
+	segment := NewMockSegment(ctrl)
+	cases := []struct {
+		name    string
+		prepare func()
+		wantErr bool
+	}{
+		{
+			name: "list segment dir failure",
+			prepare: func() {
+				listDir = func(path string) ([]string, error) {
+					return nil, fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "parse segment base time failure",
+			prepare: func() {
+				listDir = func(path string) ([]string, error) {
+					return []string{"abc"}, nil
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "remove data dir failure",
+			prepare: func() {
+				listDir = func(path string) ([]string, error) {
+					return []string{segmentDir}, nil
+				}
+				segment.EXPECT().Close()
+				removeDir = func(path string) error {
+					return fmt.Errorf("err")
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "remove data dir successfully",
+			prepare: func() {
+				listDir = func(path string) ([]string, error) {
+					return []string{segmentDir}, nil
+				}
+				segment.EXPECT().Close()
+				removeDir = func(path string) error {
+					return nil
+				}
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				listDir = fileutil.ListDir
+			}()
+			s := &intervalSegment{
+				interval: option.Interval{
+					Interval:  timeutil.Interval(10 * timeutil.OneSecond),
+					Retention: timeutil.Interval(30 * timeutil.OneDay),
+				},
+				segments: map[string]Segment{
+					segmentDir: segment,
+				},
+				logger: logger.GetLogger("TSDB", "segment"),
+			}
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+			err := s.TTL()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("TTL() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
 }
