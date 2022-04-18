@@ -30,6 +30,7 @@ import (
 var (
 	mkDirIfNotExist        = fileutil.MkDirIfNotExist
 	listDir                = fileutil.ListDir
+	removeDir              = fileutil.RemoveDir
 	decodeToml             = ltoml.DecodeToml
 	newDatabaseFunc        = newDatabase
 	newSegmentFunc         = newSegment

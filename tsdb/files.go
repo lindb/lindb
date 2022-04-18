@@ -55,12 +55,12 @@ const (
 )
 
 // createDatabasePath creates database's root path if existed.
-func createDatabasePath(database string) error {
+func createDatabasePath(database string) (string, error) {
 	dbPath := filepath.Join(config.GlobalStorageConfig().TSDB.Dir, database)
 	if err := mkDirIfNotExist(dbPath); err != nil {
-		return fmt.Errorf("create database[%s]'s path with error: %s", database, err)
+		return "", fmt.Errorf("create database[%s]'s path with error: %s", database, err)
 	}
-	return nil
+	return dbPath, nil
 }
 
 // optionsPath returns database's options file path.

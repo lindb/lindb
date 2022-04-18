@@ -184,7 +184,7 @@ func TestWriteAheadLogManager_Stop_Close(t *testing.T) {
 	log1 := NewMockWriteAheadLog(ctrl)
 	log1.EXPECT().Name().Return("test1").AnyTimes()
 	log2 := NewMockWriteAheadLog(ctrl)
-	log2.EXPECT().Name().Return("test1").AnyTimes()
+	log2.EXPECT().Name().Return("test2").AnyTimes()
 	cases := []struct {
 		name    string
 		prepare func()
@@ -215,6 +215,105 @@ func TestWriteAheadLogManager_Stop_Close(t *testing.T) {
 			}
 			mgr.Stop()
 			_ = mgr.Close()
+		})
+	}
+}
+
+func TestMockWriteAheadLogMockRecorder_Drop(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	log1 := NewMockWriteAheadLog(ctrl)
+	log1.EXPECT().Name().Return("test1").AnyTimes()
+	log2 := NewMockWriteAheadLog(ctrl)
+	log2.EXPECT().Name().Return("test2").AnyTimes()
+	cases := []struct {
+		name    string
+		prepare func()
+		assert  func(d *writeAheadLogManager)
+	}{
+		{
+			name: "close log failure",
+			prepare: func() {
+				log2.EXPECT().Close().Return(fmt.Errorf("err"))
+			},
+			assert: func(d *writeAheadLogManager) {
+				assert.Len(t, d.databaseLogs, 2)
+			},
+		},
+		{
+			name: "drop log failure",
+			prepare: func() {
+				log2.EXPECT().Close().Return(nil)
+				log2.EXPECT().Drop().Return(fmt.Errorf("err"))
+			},
+			assert: func(d *writeAheadLogManager) {
+				assert.Len(t, d.databaseLogs, 2)
+			},
+		},
+		{
+			name: "drop database successfully",
+			prepare: func() {
+				log2.EXPECT().Close().Return(nil)
+				log2.EXPECT().Drop().Return(nil)
+			},
+			assert: func(d *writeAheadLogManager) {
+				assert.Len(t, d.databaseLogs, 1)
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			mgr := &writeAheadLogManager{
+				databaseLogs: map[string]WriteAheadLog{
+					"test1": log1,
+					"test2": log2,
+				},
+				logger: logger.GetLogger("test", "wal"),
+			}
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+			mgr.DropDatabases(map[string]struct{}{"test1": {}})
+			tt.assert(mgr)
+		})
+	}
+}
+func TestMockWriteAheadLogMockRecorder_Stop(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	log1 := NewMockWriteAheadLog(ctrl)
+	log1.EXPECT().Name().Return("test1").AnyTimes()
+	log2 := NewMockWriteAheadLog(ctrl)
+	log2.EXPECT().Name().Return("test2").AnyTimes()
+	cases := []struct {
+		name    string
+		prepare func()
+		assert  func(d *writeAheadLogManager)
+	}{
+		{
+			name: "stop database successfully",
+			prepare: func() {
+				log2.EXPECT().Stop()
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			mgr := &writeAheadLogManager{
+				databaseLogs: map[string]WriteAheadLog{
+					"test1": log1,
+					"test2": log2,
+				},
+				logger: logger.GetLogger("test", "wal"),
+			}
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+			mgr.StopDatabases(map[string]struct{}{"test1": {}})
 		})
 	}
 }

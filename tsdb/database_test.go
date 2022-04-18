@@ -487,6 +487,40 @@ func TestDatabase_WaitFlushMetaCompleted(t *testing.T) {
 	assert.True(t, timeutil.Now()-now >= 100*time.Millisecond.Milliseconds())
 }
 
+func TestDatabase_Drop(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		removeDir = fileutil.RemoveDir
+		kv.InitStoreManager(nil)
+		ctrl.Finish()
+	}()
+	storeMgr := kv.NewMockStoreManager(ctrl)
+	kv.InitStoreManager(storeMgr)
+	storeMgr.EXPECT().CloseStore(gomock.Any()).Return(nil).AnyTimes()
+	metadata := metadb.NewMockMetadata(ctrl)
+	store := kv.NewMockStore(ctrl)
+	db := &database{
+		metadata:       metadata,
+		metaStore:      store,
+		shardSet:       *newShardSet(),
+		isFlushing:     *atomic.NewBool(false),
+		flushCondition: sync.NewCond(&sync.Mutex{}),
+	}
+	store.EXPECT().Name().Return("test").AnyTimes()
+	metadata.EXPECT().Close().Return(fmt.Errorf("err"))
+	assert.Error(t, db.Drop())
+	removeDir = func(path string) error {
+		return fmt.Errorf("err")
+	}
+	metadata.EXPECT().Close().Return(nil)
+	assert.Error(t, db.Drop())
+	removeDir = func(path string) error {
+		return nil
+	}
+	metadata.EXPECT().Close().Return(nil)
+	assert.NoError(t, db.Drop())
+}
+
 func Benchmark_LoadSyncMap(b *testing.B) {
 	var m sync.Map
 	for i := 0; i < boundaryShardSetLen; i++ {

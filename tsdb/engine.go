@@ -54,6 +54,8 @@ type Engine interface {
 	GetDatabase(databaseName string) (Database, bool)
 	// FlushDatabase produces a signal to workers for flushing memory database by name
 	FlushDatabase(ctx context.Context, databaseName string) bool
+	// DropDatabases drops databases, keep active database.
+	DropDatabases(activeDatabases map[string]struct{})
 	// Close closes the cached time series databases
 	Close()
 }
@@ -183,6 +185,22 @@ func (e *engine) FlushDatabase(_ context.Context, name string) bool {
 		return false
 	}
 	return true
+}
+
+// DropDatabases drops databases, keep active database.
+func (e *engine) DropDatabases(activeDatabases map[string]struct{}) {
+	for dbName, db := range e.dbSet.Entries() {
+		_, ok := activeDatabases[dbName]
+		if ok {
+			continue
+		}
+		if err := db.Drop(); err != nil {
+			engineLogger.Warn("drop database failure", logger.String("database", dbName), logger.Error(err))
+			continue
+		}
+		e.dbSet.DropDatabase(dbName)
+		engineLogger.Info("drop database successfully", logger.String("database", dbName))
+	}
 }
 
 // load the time series engines if exist
