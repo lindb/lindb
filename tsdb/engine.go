@@ -56,6 +56,8 @@ type Engine interface {
 	FlushDatabase(ctx context.Context, databaseName string) bool
 	// DropDatabases drops databases, keep active database.
 	DropDatabases(activeDatabases map[string]struct{})
+	// TTL expires the data of each database base on time to live.
+	TTL()
 	// Close closes the cached time series databases
 	Close()
 }
@@ -200,6 +202,13 @@ func (e *engine) DropDatabases(activeDatabases map[string]struct{}) {
 		}
 		e.dbSet.DropDatabase(dbName)
 		engineLogger.Info("drop database successfully", logger.String("database", dbName))
+	}
+}
+
+// TTL expires the data of each database base on time to live.
+func (e *engine) TTL() {
+	for _, db := range e.dbSet.Entries() {
+		db.TTL()
 	}
 }
 

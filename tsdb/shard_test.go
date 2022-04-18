@@ -78,7 +78,7 @@ func TestShard_New(t *testing.T) {
 		{
 			name: "create interval segment err",
 			prepare: func() {
-				newIntervalSegmentFunc = func(shard Shard, interval timeutil.Interval) (segment IntervalSegment, err error) {
+				newIntervalSegmentFunc = func(shard Shard, interval option.Interval) (segment IntervalSegment, err error) {
 					return nil, fmt.Errorf("err")
 				}
 				db.EXPECT().GetOption().Return(&option.DatabaseOption{Intervals: option.Intervals{{}}})
@@ -179,7 +179,7 @@ func TestShard_New(t *testing.T) {
 				seq.EXPECT().Close().AnyTimes()
 
 				newIntervalSegmentFunc = func(shard Shard,
-					interval timeutil.Interval,
+					interval option.Interval,
 				) (IntervalSegment, error) {
 					return seq, nil
 				}
@@ -561,6 +561,23 @@ func TestShard_WaitFlushIndexCompleted(t *testing.T) {
 	}()
 	wait.Wait()
 	assert.True(t, timeutil.Now()-now >= 90*time.Millisecond.Milliseconds())
+}
+
+func TestShard_TTL(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	db := NewMockDatabase(ctrl)
+	db.EXPECT().Name().Return("test").AnyTimes()
+	segment := NewMockIntervalSegment(ctrl)
+	s := &shard{
+		rollupTargets: map[timeutil.Interval]IntervalSegment{
+			10: segment,
+		},
+		db:     db,
+		logger: logger.GetLogger("TSDB", "test"),
+	}
+	segment.EXPECT().TTL().Return(fmt.Errorf("err"))
+	s.TTL()
 }
 
 func mockBatchRows(m *protoMetricsV1.Metric) []metric.StorageRow {

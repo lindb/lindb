@@ -255,6 +255,18 @@ func TestEngine_DropDatabases(t *testing.T) {
 	assert.Len(t, engineImpl.dbSet.Entries(), 1)
 }
 
+func TestEngine_TTL(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	e, _ := NewEngine()
+	engineImpl := e.(*engine)
+	mockDatabase1 := NewMockDatabase(ctrl)
+	engineImpl.dbSet.PutDatabase("test_db_1", mockDatabase1)
+	mockDatabase1.EXPECT().TTL()
+	e.TTL()
+}
+
 var testDatabaseNames = []string{
 	"_internal", "system", "docker", "network", "java",
 	"runtime", "go", "php", "k8s", "infra", "prometheus",
