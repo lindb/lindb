@@ -40,6 +40,17 @@ func (ds *databaseSet) PutDatabase(newDBName string, newDB Database) {
 	ds.value.Store(newDBSet)
 }
 
+func (ds *databaseSet) DropDatabase(newDBName string) {
+	oldDBSet := ds.Entries()
+	delete(oldDBSet, newDBName)
+
+	var newDBSet = make(map[string]Database)
+	for dbName, db := range oldDBSet {
+		newDBSet[dbName] = db
+	}
+	ds.value.Store(newDBSet)
+}
+
 func (ds *databaseSet) GetDatabase(dbName string) (Database, bool) {
 	db, ok := ds.Entries()[dbName]
 	return db, ok

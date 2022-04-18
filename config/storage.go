@@ -100,12 +100,13 @@ max-tagKeys = %d`,
 
 // StorageBase represents a storage configuration
 type StorageBase struct {
-	HTTP           HTTP   `toml:"http"`
-	Indicator      int    `toml:"indicator"` // Indicator is unique id under current storage cluster.
-	GRPC           GRPC   `toml:"grpc"`
-	TSDB           TSDB   `toml:"tsdb"`
-	WAL            WAL    `toml:"wal"`
-	BrokerEndpoint string `toml:"broker-endpoint"` // Broker http endpoint, auto register current storage cluster.
+	Indicator       int            `toml:"indicator"`       // Indicator is unique id under current storage cluster.
+	BrokerEndpoint  string         `toml:"broker-endpoint"` // Broker http endpoint, auto register current storage cluster.
+	TTLTaskInterval ltoml.Duration `toml:"ttl-task-interval"`
+	HTTP            HTTP           `toml:"http"`
+	GRPC            GRPC           `toml:"grpc"`
+	TSDB            TSDB           `toml:"tsdb"`
+	WAL             WAL            `toml:"wal"`
 }
 
 // TOML returns StorageBase's toml config string
@@ -115,6 +116,8 @@ func (s *StorageBase) TOML() string {
 ## Indicator is a unique id for identifing each storage node
 ## Make sure indicator on each node is different
 indicator = %d
+## interval for how often do ttl job
+ttl-task-interval = "%s"
 ## Broker http endpoint which storage self register address
 broker-endpoint = "%s"
 ## on which port http server for self monitoring is listening on
@@ -127,6 +130,7 @@ broker-endpoint = "%s"
 
 [storage.tsdb]%s`,
 		s.Indicator,
+		s.TTLTaskInterval,
 		s.BrokerEndpoint,
 		s.HTTP.TOML(),
 		s.GRPC.TOML(),
@@ -159,7 +163,7 @@ dir = "%s"
 ## data-size-limit is the maximum size in megabytes of the page file before a new
 ## file is created. It defaults to 512 megabytes, available size is in [1MB, 1GB]
 data-size-limit = %d
-## interval for how often a new segment will be created
+## interval for how often remove expired write ahead log
 remove-task-interval = "%s"`,
 		rc.Dir,
 		rc.DataSizeLimit,
@@ -198,8 +202,9 @@ func (s *Storage) TOML() string {
 // NewDefaultStorageBase returns a new default StorageBase struct
 func NewDefaultStorageBase() *StorageBase {
 	return &StorageBase{
-		Indicator:      1,
-		BrokerEndpoint: "http://localhost:9000",
+		Indicator:       1,
+		TTLTaskInterval: ltoml.Duration(time.Hour * 24),
+		BrokerEndpoint:  "http://localhost:9000",
 		HTTP: HTTP{
 			Port:         2892,
 			IdleTimeout:  ltoml.Duration(time.Minute * 2),
@@ -297,8 +302,13 @@ func checkStorageBaseCfg(storageBaseCfg *StorageBase) error {
 	if storageBaseCfg.Indicator <= 0 {
 		return fmt.Errorf("indicator must > 0")
 	}
+
 	if err := checkGRPCCfg(&storageBaseCfg.GRPC); err != nil {
 		return err
+	}
+	defaultStorageCfg := NewDefaultStorageBase()
+	if storageBaseCfg.TTLTaskInterval <= 0 {
+		storageBaseCfg.TTLTaskInterval = defaultStorageCfg.TTLTaskInterval
 	}
 	return checkTSDBCfg(&storageBaseCfg.TSDB)
 }

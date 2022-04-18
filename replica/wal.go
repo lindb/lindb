@@ -47,6 +47,8 @@ type WriteAheadLog interface {
 	GetOrCreatePartition(shardID models.ShardID, familyTime int64, leader models.NodeID) (Partition, error)
 	// Stop stops all replicator channels.
 	Stop()
+	// Drop drops write ahead log.
+	Drop() error
 	// getReplicaState returns the state of replica.
 	getReplicaState() (rs []models.FamilyLogReplicaState)
 	// recovery recoveries database write ahead log from local storage.
@@ -240,6 +242,8 @@ func (w *writeAheadLog) Close() error {
 			w.logger.Warn("close write ahead log err", logger.String("path", log.Path()))
 		}
 	}
+	// set family logs as empty
+	w.familyLogs = make(map[partitionKey]Partition)
 	return nil
 }
 
@@ -251,4 +255,9 @@ func (w *writeAheadLog) Stop() {
 	for _, log := range w.familyLogs {
 		log.Stop()
 	}
+}
+
+// Drop drops write ahead log.
+func (w *writeAheadLog) Drop() error {
+	return removeDirFn(w.dir)
 }

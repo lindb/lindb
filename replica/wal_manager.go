@@ -61,6 +61,10 @@ type WriteAheadLogManager interface {
 	GetOrCreateLog(database string) WriteAheadLog
 	// GetReplicaState returns replica state for given database's name.
 	GetReplicaState(database string) []models.FamilyLogReplicaState
+	// DropDatabases drops write ahead log of databases, keep active databases.
+	DropDatabases(activeDatabases map[string]struct{})
+	// StopDatabases stop the replicator for write ahead log of databases, keep active databases.
+	StopDatabases(activeDatabases map[string]struct{})
 	// Recovery recoveries local history wal when server start.
 	Recovery() error
 	// Stop stops all replicator channel.
@@ -189,6 +193,50 @@ func (w *writeAheadLogManager) GetReplicaState(database string) []models.FamilyL
 		return log.getReplicaState()
 	}
 	return nil
+}
+
+// dropDatabase drops write ahead log.
+func (w *writeAheadLogManager) dropDatabase(log WriteAheadLog) {
+	if err := log.Close(); err != nil {
+		w.logger.Error("close write ahead log err",
+			logger.String("database", log.Name()), logger.Error(err))
+		return
+	}
+	if err := log.Drop(); err != nil {
+		w.logger.Warn("remove write ahead log dir failure", logger.String("path", log.Name()), logger.Error(err))
+		return
+	}
+
+	// remove memory data
+	w.mutex.Lock()
+	delete(w.databaseLogs, log.Name())
+	w.mutex.Unlock()
+}
+
+// DropDatabases drops write ahead log of databases, keep active databases.
+func (w *writeAheadLogManager) DropDatabases(activeDatabases map[string]struct{}) {
+	logs := w.getDatabaseLogs()
+	for _, db := range logs {
+		_, ok := activeDatabases[db.Name()]
+		if ok {
+			continue
+		}
+		w.dropDatabase(db)
+		w.logger.Info("drop write ahead log successfully", logger.String("database", db.Name()))
+	}
+}
+
+// StopDatabases stop the replicator for write ahead log of databases, keep active databases.
+func (w *writeAheadLogManager) StopDatabases(activeDatabases map[string]struct{}) {
+	logs := w.getDatabaseLogs()
+	for _, db := range logs {
+		_, ok := activeDatabases[db.Name()]
+		if ok {
+			continue
+		}
+		db.Stop()
+		w.logger.Info("stop write ahead log replica successfully", logger.String("database", db.Name()))
+	}
 }
 
 // Close closes all log queues.

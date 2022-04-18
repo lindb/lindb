@@ -332,3 +332,14 @@ func TestWriteAheadLog_Stop_Close(t *testing.T) {
 	wal.Stop()
 	_ = wal.Close()
 }
+
+func TestWriteAheadLog_Drop(t *testing.T) {
+	defer func() {
+		removeDirFn = fileutil.RemoveDir
+	}()
+	wal := &writeAheadLog{}
+	removeDirFn = func(path string) error {
+		return fmt.Errorf("err")
+	}
+	assert.Error(t, wal.Drop())
+}
