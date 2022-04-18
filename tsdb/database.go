@@ -65,6 +65,8 @@ type Database interface {
 	Flush() error
 	// Drop drops current database include all data.
 	Drop() error
+	// TTL expires the data of each shard base on time to live.
+	TTL()
 }
 
 // databaseConfig represents a database configuration about config and families
@@ -264,6 +266,14 @@ func (db *database) Close() error {
 		}
 	}
 	return nil
+}
+
+// TTL expires the data of each shard base on time to live.
+func (db *database) TTL() {
+	for _, shardEntry := range db.shardSet.Entries() {
+		thisShard := shardEntry.shard
+		thisShard.TTL()
+	}
 }
 
 // dumpDatabaseConfig persists option info to OPTIONS file

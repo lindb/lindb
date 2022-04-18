@@ -93,6 +93,7 @@ func TestDatabaseLifecycle_ttlTask(t *testing.T) {
 	cfg.TTLTaskInterval = ltoml.Duration(time.Millisecond * 10)
 	config.SetGlobalStorageConfig(cfg)
 	repo.EXPECT().WalkEntry(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	engine.EXPECT().TTL().AnyTimes()
 	dbLifecycle1.ttlTask()
 	<-ch
 }
