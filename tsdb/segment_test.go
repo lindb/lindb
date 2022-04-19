@@ -62,7 +62,6 @@ func TestSegment_New(t *testing.T) {
 			prepare: func() {
 				database.EXPECT().GetOption().Return(&option.DatabaseOption{Intervals: option.Intervals{{Interval: interval}}})
 				storeMgr.EXPECT().CreateStore(gomock.Any(), gomock.Any()).Return(store, nil)
-				store.EXPECT().ListFamilyNames().Return(nil)
 			},
 		},
 		{
@@ -76,23 +75,6 @@ func TestSegment_New(t *testing.T) {
 					},
 				})
 				storeMgr.EXPECT().CreateStore(gomock.Any(), gomock.Any()).Return(store, nil)
-				store.EXPECT().ListFamilyNames().Return(nil)
-			},
-		},
-		{
-			name:        "create segment and data family successfully",
-			segmentName: segmentName,
-			prepare: func() {
-				newDataFamilyFunc = func(shard Shard, interval timeutil.Interval,
-					timeRange timeutil.TimeRange, familyTime int64, family kv.Family) DataFamily {
-					return nil
-				}
-				gomock.InOrder(
-					database.EXPECT().GetOption().Return(&option.DatabaseOption{Intervals: option.Intervals{{Interval: interval}}}),
-					storeMgr.EXPECT().CreateStore(gomock.Any(), gomock.Any()).Return(store, nil),
-					store.EXPECT().ListFamilyNames().Return([]string{"10"}),
-					store.EXPECT().GetFamily("10").Return(nil),
-				)
 			},
 		},
 		{
@@ -106,16 +88,6 @@ func TestSegment_New(t *testing.T) {
 			prepare: func() {
 				database.EXPECT().GetOption().Return(&option.DatabaseOption{Intervals: option.Intervals{{Interval: interval}}})
 				storeMgr.EXPECT().CreateStore(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
-			},
-			wantErr: true,
-		},
-		{
-			name:        "parse family name err",
-			segmentName: segmentName,
-			prepare: func() {
-				database.EXPECT().GetOption().Return(&option.DatabaseOption{Intervals: option.Intervals{{Interval: interval}}})
-				storeMgr.EXPECT().CreateStore(gomock.Any(), gomock.Any()).Return(store, nil)
-				store.EXPECT().ListFamilyNames().Return([]string{"aa"})
 			},
 			wantErr: true,
 		},
@@ -144,25 +116,17 @@ func TestSegment_New(t *testing.T) {
 	}
 }
 
-func TestSegment_GetDataFamily(t *testing.T) {
+func TestSegment_GetOrCreateDataFamily(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer func() {
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
 
 	store := kv.NewMockStore(ctrl)
 	interval := timeutil.Interval(10 * 1000)
 	baseTime, _ := timeutil.ParseTimestamp("20190904 00:00:00", "20060102 15:04:05")
-	seg := &segment{
-		baseTime: baseTime,
-		kvStore:  store,
-		interval: interval,
-		families: make(map[int]DataFamily),
-	}
 	cases := []struct {
 		name      string
 		timestamp string
-		prepare   func()
+		prepare   func(seg *segment)
 		wantErr   bool
 	}{
 		{
@@ -173,18 +137,31 @@ func TestSegment_GetDataFamily(t *testing.T) {
 		{
 			name:      "create new family",
 			timestamp: "20190904 19:10:48",
-			prepare: func() {
+			prepare: func(seg *segment) {
 				newDataFamilyFunc = func(shard Shard, interval timeutil.Interval, timeRange timeutil.TimeRange,
 					familyTime int64, family kv.Family) DataFamily {
 					return NewMockDataFamily(ctrl)
 				}
+				store.EXPECT().GetFamily(gomock.Any()).Return(nil)
 				store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, nil)
+			},
+		},
+		{
+			name:      "family exist in kv store",
+			timestamp: "20190904 19:10:48",
+			prepare: func(seg *segment) {
+				newDataFamilyFunc = func(shard Shard, interval timeutil.Interval, timeRange timeutil.TimeRange,
+					familyTime int64, family kv.Family) DataFamily {
+					return NewMockDataFamily(ctrl)
+				}
+				store.EXPECT().GetFamily(gomock.Any()).Return(kv.NewMockFamily(ctrl))
 			},
 		},
 		{
 			name:      "create new family err",
 			timestamp: "20190904 20:10:48",
-			prepare: func() {
+			prepare: func(seg *segment) {
+				store.EXPECT().GetFamily(gomock.Any()).Return(nil)
 				store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
 			},
 			wantErr: true,
@@ -192,7 +169,7 @@ func TestSegment_GetDataFamily(t *testing.T) {
 		{
 			name:      "get exist family",
 			timestamp: "20190904 22:10:48",
-			prepare: func() {
+			prepare: func(seg *segment) {
 				now, _ := timeutil.ParseTimestamp("20190904 22:10:48", "20060102 15:04:05")
 				familyTime := interval.Calculator().CalcFamily(now, seg.baseTime)
 				seg.mutex.Lock()
@@ -208,14 +185,96 @@ func TestSegment_GetDataFamily(t *testing.T) {
 			defer func() {
 				newDataFamilyFunc = newDataFamily
 			}()
+			seg := &segment{
+				baseTime: baseTime,
+				kvStore:  store,
+				interval: interval,
+				families: make(map[int]DataFamily),
+			}
 			if tt.prepare != nil {
-				tt.prepare()
+				tt.prepare(seg)
 			}
 			now, _ := timeutil.ParseTimestamp(tt.timestamp, "20060102 15:04:05")
 			dataFamily, err := seg.GetOrCreateDataFamily(now)
 			if ((err != nil) != tt.wantErr && dataFamily == nil) || (!tt.wantErr && dataFamily == nil) {
 				t.Errorf("GetOrCreateDataFamily() error = %v, wantErr %v", err, tt.wantErr)
 			}
+		})
+	}
+}
+
+func TestSegment_GetDataFamilies(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	store := kv.NewMockStore(ctrl)
+	now, _ := timeutil.ParseTimestamp("20220326 10:30:00", "20060102 15:04:05")
+	timeRange := timeutil.TimeRange{
+		Start: now - timeutil.OneHour,
+		End:   now,
+	}
+	cases := []struct {
+		name      string
+		timeRange timeutil.TimeRange
+		prepare   func(seg *segment)
+		len       int
+	}{
+		{
+			name: "family empty",
+			prepare: func(seq *segment) {
+				store.EXPECT().ListFamilyNames().Return(nil)
+			},
+			len: 0,
+		},
+		{
+			name: "parse family name failure",
+			prepare: func(seq *segment) {
+				store.EXPECT().ListFamilyNames().Return([]string{"a"})
+			},
+			len: 0,
+		},
+		{
+			name:      "get family from memory",
+			timeRange: timeRange,
+			prepare: func(seq *segment) {
+				family := NewMockDataFamily(ctrl)
+				seq.families[10] = family
+				store.EXPECT().ListFamilyNames().Return([]string{"10"})
+				family.EXPECT().TimeRange().Return(timeRange)
+			},
+			len: 1,
+		},
+		{
+			name:      "get family from storage",
+			timeRange: timeRange,
+			prepare: func(seq *segment) {
+				dataFamily := NewMockDataFamily(ctrl)
+				family := kv.NewMockFamily(ctrl)
+				store.EXPECT().GetFamily(gomock.Any()).Return(family)
+				newDataFamilyFunc = func(shard Shard, interval timeutil.Interval,
+					timeRange timeutil.TimeRange, familyTime int64, family kv.Family) DataFamily {
+					return dataFamily
+				}
+				store.EXPECT().ListFamilyNames().Return([]string{"10"})
+				dataFamily.EXPECT().TimeRange().Return(timeRange)
+			},
+			len: 1,
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			s := &segment{
+				kvStore:  store,
+				interval: timeutil.Interval(10 * 1000),
+				families: make(map[int]DataFamily),
+			}
+			if tt.prepare != nil {
+				tt.prepare(s)
+			}
+			families := s.GetDataFamilies(tt.timeRange)
+			assert.Len(t, families, tt.len)
 		})
 	}
 }

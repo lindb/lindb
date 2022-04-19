@@ -197,6 +197,9 @@ func TestDataFamilyCheck_check(t *testing.T) {
 				config.SetGlobalStorageConfig(config.NewDefaultStorageBase())
 				checker1.dbInFlushing.Delete("db")
 			}()
+			cfg := config.GlobalStorageConfig()
+			cfg.TSDB.MaxMemUsageBeforeFlush = 1.0
+
 			if tt.prepare != nil {
 				tt.prepare(checker1)
 			}

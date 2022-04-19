@@ -39,10 +39,10 @@ type Segment interface {
 	BaseTime() int64
 	// GetOrCreateDataFamily returns the data family based on timestamp.
 	GetOrCreateDataFamily(timestamp int64) (DataFamily, error)
+	// GetDataFamilies returns data family list by time range, return nil if not match.
+	GetDataFamilies(timeRange timeutil.TimeRange) []DataFamily
 	// Close closes segment, include kv store.
 	Close()
-	// getDataFamilies returns data family list by time range, return nil if not match.
-	getDataFamilies(timeRange timeutil.TimeRange) []DataFamily
 }
 
 // segment implements Segment interface.
@@ -60,14 +60,7 @@ type segment struct {
 }
 
 // newSegment returns segment, segment is wrapper of kv store.
-func newSegment(
-	shard Shard,
-	segmentName string,
-	interval timeutil.Interval,
-) (
-	Segment,
-	error,
-) {
+func newSegment(shard Shard, segmentName string, interval timeutil.Interval) (Segment, error) {
 	indicator := ShardSegmentIndicator(shard.Database().Name(), shard.ShardID(), interval, segmentName)
 	// parse base time from segment name
 	calc := interval.Calculator()
@@ -92,8 +85,7 @@ func newSegment(
 	if err != nil {
 		return nil, fmt.Errorf("create kv store for segment error:%s", err)
 	}
-	familyNames := kvStore.ListFamilyNames()
-	s := &segment{
+	return &segment{
 		shard:     shard,
 		indicator: indicator,
 		baseTime:  baseTime,
@@ -101,15 +93,7 @@ func newSegment(
 		interval:  interval,
 		families:  make(map[int]DataFamily),
 		logger:    logger.GetLogger("TSDB", "Segment"),
-	}
-	for _, familyName := range familyNames {
-		familyTime, err := strconv.Atoi(familyName)
-		if err != nil {
-			return nil, fmt.Errorf("load data family error:%s", err)
-		}
-		_ = s.initDataFamily(familyTime, kvStore.GetFamily(familyName))
-	}
-	return s, nil
+	}, nil
 }
 
 // BaseTime returns segment base time
@@ -118,7 +102,7 @@ func (s *segment) BaseTime() int64 {
 }
 
 // GetDataFamilies returns data family list by time range, return nil if not match
-func (s *segment) getDataFamilies(timeRange timeutil.TimeRange) []DataFamily {
+func (s *segment) GetDataFamilies(timeRange timeutil.TimeRange) []DataFamily {
 	var result []DataFamily
 	calc := s.interval.Calculator()
 
@@ -126,9 +110,15 @@ func (s *segment) getDataFamilies(timeRange timeutil.TimeRange) []DataFamily {
 		Start: calc.CalcFamilyStartTime(s.baseTime, calc.CalcFamily(timeRange.Start, s.baseTime)),
 		End:   calc.CalcFamilyStartTime(s.baseTime, calc.CalcFamily(timeRange.End, s.baseTime)),
 	}
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	for _, family := range s.families {
+	familyNames := s.kvStore.ListFamilyNames()
+
+	for _, familyName := range familyNames {
+		familyTime, err := strconv.Atoi(familyName)
+		if err != nil {
+			// TODO add metric
+			continue
+		}
+		family := s.getOrLoadFamily(familyName, familyTime)
 		timeRange := family.TimeRange()
 		if familyQueryTimeRange.Overlap(timeRange) {
 			result = append(result, family)
@@ -143,7 +133,7 @@ func (s *segment) GetOrCreateDataFamily(timestamp int64) (DataFamily, error) {
 
 	segmentTime := calc.CalcSegmentTime(timestamp)
 	if segmentTime != s.baseTime {
-		return nil, fmt.Errorf("%w ,segment base time not match, segmentTime: %d, baseTime: %d",
+		return nil, fmt.Errorf("%w, segment base time not match, segmentTime: %d, baseTime: %d",
 			constants.ErrDataFamilyNotFound, timestamp, s.baseTime)
 	}
 
@@ -158,13 +148,18 @@ func (s *segment) GetOrCreateDataFamily(timestamp int64) (DataFamily, error) {
 			CompactThreshold: 0,
 			Merger:           string(metricsdata.MetricDataMerger),
 		}
-		// create kv family
-		f, err := s.kvStore.CreateFamily(fmt.Sprintf("%d", familyTime), familyOption)
-		if err != nil {
-			return nil, fmt.Errorf("%w ,failed to create data family: %s",
-				constants.ErrDataFamilyNotFound, err)
+		familyName := strconv.Itoa(familyTime)
+		family := s.kvStore.GetFamily(familyName)
+		if family == nil {
+			// create kv family
+			var err error
+			family, err = s.kvStore.CreateFamily(fmt.Sprintf("%d", familyTime), familyOption)
+			if err != nil {
+				return nil, fmt.Errorf("%w ,failed to create data family: %s",
+					constants.ErrDataFamilyNotFound, err)
+			}
 		}
-		dataFamily := s.initDataFamily(familyTime, f)
+		dataFamily := s.initDataFamily(familyTime, family)
 		return dataFamily, nil
 	}
 	return family, nil
@@ -187,6 +182,19 @@ func (s *segment) Close() {
 	s.families = make(map[int]DataFamily)
 }
 
+// getOrLoadFamily returns data family if it's exist in memory or storage.
+func (s *segment) getOrLoadFamily(familyName string, familyTime int) DataFamily {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	family, ok := s.families[familyTime]
+	if !ok {
+		family = s.initDataFamily(familyTime, s.kvStore.GetFamily(familyName))
+	}
+	return family
+}
+
+// initDataFamily initializes data family from storage.
 func (s *segment) initDataFamily(familyTime int, family kv.Family) DataFamily {
 	calc := s.interval.Calculator()
 	// create data family
