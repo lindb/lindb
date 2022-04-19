@@ -219,7 +219,7 @@ func TestShard_GetDataFamilies(t *testing.T) {
 			name:         "match writable segment",
 			intervalType: timeutil.Day,
 			prepare: func() {
-				segment.EXPECT().getDataFamilies(gomock.Any()).Return([]DataFamily{nil})
+				segment.EXPECT().GetDataFamilies(gomock.Any()).Return([]DataFamily{nil})
 			},
 			assert: func(families []DataFamily) {
 				assert.Len(t, families, 1)
@@ -229,7 +229,7 @@ func TestShard_GetDataFamilies(t *testing.T) {
 			name:         "match rollup segment",
 			intervalType: timeutil.Month,
 			prepare: func() {
-				rollupSeg.EXPECT().getDataFamilies(gomock.Any()).Return([]DataFamily{nil})
+				rollupSeg.EXPECT().GetDataFamilies(gomock.Any()).Return([]DataFamily{nil})
 			},
 			assert: func(families []DataFamily) {
 				assert.Len(t, families, 1)
@@ -264,7 +264,7 @@ func TestShard_GetDataFamilies(t *testing.T) {
 			timeutil.Interval(10 * 1000): rollupSeg, // 10s
 		},
 	}
-	segment.EXPECT().getDataFamilies(gomock.Any()).Return([]DataFamily{nil})
+	segment.EXPECT().GetDataFamilies(gomock.Any()).Return([]DataFamily{nil})
 	families := s.GetDataFamilies(timeutil.Year, timeutil.TimeRange{})
 	assert.Len(t, families, 1)
 }
