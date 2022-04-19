@@ -21,14 +21,14 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
+
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestIntervalSegment_New(t *testing.T) {
@@ -56,37 +56,13 @@ func TestIntervalSegment_New(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "list segment dir err",
-			prepare: func() {
-				listDir = func(path string) ([]string, error) {
-					return nil, fmt.Errorf("err")
-				}
-			},
-			wantErr: true,
-		},
-		{
-			name: "create segment err",
-			prepare: func() {
-				listDir = func(path string) ([]string, error) {
-					return []string{"20190707"}, nil
-				}
-				newSegmentFunc = func(shard Shard, segmentName string, interval timeutil.Interval) (Segment, error) {
-					return nil, fmt.Errorf("err")
-				}
-			},
-			wantErr: true,
-		},
-		{
 			name: "create segment successfully",
 			prepare: func() {
-				listDir = func(path string) ([]string, error) {
-					return []string{"20190707"}, nil
-				}
-				newSegmentFunc = func(shard Shard, segmentName string, interval timeutil.Interval) (Segment, error) {
-					return nil, nil
+				mkDirIfNotExist = func(path string) error {
+					return nil
 				}
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 	}
 
@@ -112,110 +88,215 @@ func TestIntervalSegment_New(t *testing.T) {
 func TestIntervalSegment_GetOrCreateSegment(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		newSegmentFunc = newSegment
 		ctrl.Finish()
 	}()
-
-	shard := NewMockShard(ctrl)
-	db := NewMockDatabase(ctrl)
-	db.EXPECT().Name().Return("test-db").AnyTimes()
-	shard.EXPECT().Database().Return(db).AnyTimes()
-	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
-	db.EXPECT().GetOption().Return(&option.DatabaseOption{}).AnyTimes()
 	segment := NewMockSegment(ctrl)
-	segment.EXPECT().Close()
-	newSegmentFunc = func(shard Shard, segmentName string, interval timeutil.Interval) (Segment, error) {
-		if segmentName == "201907-a" {
-			return nil, fmt.Errorf("er")
-		}
-		return segment, nil
+
+	cases := []struct {
+		name        string
+		segmentName string
+		prepare     func()
+		wantErr     bool
+	}{
+		{
+			name:        "get from memory",
+			segmentName: "test",
+			wantErr:     false,
+		},
+		{
+			name:        "create segment failure",
+			segmentName: "test-2",
+			prepare: func() {
+				newSegmentFunc = func(shard Shard, segmentName string, interval timeutil.Interval) (Segment, error) {
+					return nil, fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name:        "create segment failure",
+			segmentName: "test-2",
+			prepare: func() {
+				newSegmentFunc = func(shard Shard, segmentName string, interval timeutil.Interval) (Segment, error) {
+					return segment, nil
+				}
+			},
+			wantErr: false,
+		},
 	}
 
-	s, _ := newIntervalSegment(shard, option.Interval{Interval: timeutil.Interval(timeutil.OneSecond * 10)})
-	seg, err := s.GetOrCreateSegment("20190702")
-	assert.Nil(t, err)
-	assert.NotNil(t, seg)
-
-	seg1, err1 := s.GetOrCreateSegment("20190702")
-	assert.NoError(t, err1)
-	assert.Equal(t, seg, seg1)
-
-	// test create fail
-	seg, err = s.GetOrCreateSegment("201907-a")
-	assert.Nil(t, seg)
-	assert.NotNil(t, err)
-
-	s.Close()
-
-	// test re-open
-	listDir = func(path string) ([]string, error) {
-		return []string{"20190702"}, nil
-	}
-	s, _ = newIntervalSegment(shard, option.Interval{Interval: timeutil.Interval(timeutil.OneSecond * 10)})
-
-	s1, ok := s.(*intervalSegment)
-	if ok {
-		s1.mutex.Lock()
-		seg, ok = s1.segments["20190702"]
-		assert.NotNil(t, seg)
-		assert.True(t, ok)
-		s1.mutex.Unlock()
-	} else {
-		t.Fail()
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				newSegmentFunc = newSegment
+			}()
+			s := &intervalSegment{
+				interval: option.Interval{Interval: timeutil.Interval(timeutil.OneSecond * 10)},
+				segments: map[string]Segment{
+					"test": segment,
+				},
+			}
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+			seg, err := s.GetOrCreateSegment(tt.segmentName)
+			if ((err != nil) != tt.wantErr && seg == nil) || (!tt.wantErr && seg == nil) {
+				t.Errorf("GetOrCreateSegment() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }
 
-func TestIntervalSegment_getDataFamilies(t *testing.T) {
+func TestIntervalSegment_Close(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer func() {
-		newSegmentFunc = newSegment
-		ctrl.Finish()
-	}()
-	database := NewMockDatabase(ctrl)
-	database.EXPECT().Name().Return("test").AnyTimes()
-	shard := NewMockShard(ctrl)
-	shard.EXPECT().Database().Return(database).AnyTimes()
-	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
-	interval := option.Interval{Interval: timeutil.Interval(timeutil.OneSecond * 10)}
-	newSegmentFunc = func(shard Shard, segmentName string, interval timeutil.Interval) (Segment, error) {
-		segment := NewMockSegment(ctrl)
-		segment.EXPECT().GetOrCreateDataFamily(gomock.Any()).Return(nil, nil).AnyTimes()
-		baseTime, _ := interval.Calculator().ParseSegmentTime(segmentName)
-		segment.EXPECT().BaseTime().Return(baseTime).AnyTimes()
-		start, _ := timeutil.ParseTimestamp("20190902 19:05:48", "20060102 15:04:05")
-		end, _ := timeutil.ParseTimestamp("20190905 22:10:48", "20060102 15:04:05")
-		segment.EXPECT().getDataFamilies(timeutil.TimeRange{Start: start, End: end}).Return([]DataFamily{nil}).AnyTimes()
-		return segment, nil
+	defer ctrl.Finish()
+
+	segment := NewMockSegment(ctrl)
+	s := &intervalSegment{
+		interval: option.Interval{Interval: timeutil.Interval(timeutil.OneSecond * 10)},
+		segments: map[string]Segment{
+			"test": segment,
+		},
+	}
+	segment.EXPECT().Close()
+	s.Close()
+}
+
+func TestIntervalSegment_GetDataFamilies(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	now := timeutil.Now() - 4*timeutil.OneDay
+	segmentDir := timeutil.FormatTimestamp(now, "20060102")
+	segment := NewMockSegment(ctrl)
+
+	cases := []struct {
+		name      string
+		timeRange timeutil.TimeRange
+		prepare   func(s *intervalSegment)
+		len       int
+	}{
+		{
+			name: "list segment path failure",
+			prepare: func(s *intervalSegment) {
+				listDir = func(path string) ([]string, error) {
+					return nil, fmt.Errorf("err")
+				}
+			},
+			len: 0,
+		},
+		{
+			name: "list empty segment path",
+			prepare: func(s *intervalSegment) {
+				listDir = func(path string) ([]string, error) {
+					return nil, nil
+				}
+			},
+			len: 0,
+		},
+		{
+			name: "segment is expired",
+			prepare: func(s *intervalSegment) {
+				s.interval = option.Interval{
+					Interval:  timeutil.Interval(timeutil.OneSecond * 10),
+					Retention: timeutil.Interval(timeutil.OneDay * 2),
+				}
+				listDir = func(path string) ([]string, error) {
+					return []string{segmentDir}, nil
+				}
+			},
+			len: 0,
+		},
+		{
+			name: "time range not match",
+			timeRange: timeutil.TimeRange{
+				Start: timeutil.Now() - 4*timeutil.OneHour,
+				End:   timeutil.Now(),
+			},
+			prepare: func(s *intervalSegment) {
+				listDir = func(path string) ([]string, error) {
+					return []string{segmentDir}, nil
+				}
+			},
+			len: 0,
+		},
+		{
+			name: "get segment from memory",
+			timeRange: timeutil.TimeRange{
+				Start: now - 4*timeutil.OneHour,
+				End:   now,
+			},
+			prepare: func(s *intervalSegment) {
+				listDir = func(path string) ([]string, error) {
+					return []string{segmentDir}, nil
+				}
+				segment.EXPECT().GetDataFamilies(gomock.Any()).Return([]DataFamily{nil})
+			},
+			len: 1,
+		},
+		{
+			name: "load segment failure",
+			timeRange: timeutil.TimeRange{
+				Start: now - 2*timeutil.OneHour,
+				End:   now,
+			},
+			prepare: func(s *intervalSegment) {
+				listDir = func(path string) ([]string, error) {
+					return []string{segmentDir}, nil
+				}
+				delete(s.segments, segmentDir)
+				newSegmentFunc = func(shard Shard, segmentName string, interval timeutil.Interval) (Segment, error) {
+					return nil, fmt.Errorf("err")
+				}
+			},
+			len: 0,
+		},
+		{
+			name: "load segment successfully",
+			timeRange: timeutil.TimeRange{
+				Start: now - 2*timeutil.OneHour,
+				End:   now,
+			},
+			prepare: func(s *intervalSegment) {
+				listDir = func(path string) ([]string, error) {
+					return []string{segmentDir}, nil
+				}
+				delete(s.segments, segmentDir)
+				newSegmentFunc = func(shard Shard, segmentName string, interval timeutil.Interval) (Segment, error) {
+					return segment, nil
+				}
+				segment.EXPECT().GetDataFamilies(gomock.Any()).Return([]DataFamily{nil})
+			},
+			len: 1,
+		},
 	}
 
-	s, _ := newIntervalSegment(shard, interval)
-	segment1, _ := s.GetOrCreateSegment("20190902")
-	now, _ := timeutil.ParseTimestamp("20190902 19:10:48", "20060102 15:04:05")
-	_, _ = segment1.GetOrCreateDataFamily(now)
-	now, _ = timeutil.ParseTimestamp("20190902 20:10:48", "20060102 15:04:05")
-	_, _ = segment1.GetOrCreateDataFamily(now)
-	now, _ = timeutil.ParseTimestamp("20190902 22:10:48", "20060102 15:04:05")
-	_, _ = segment1.GetOrCreateDataFamily(now)
-	segment2, _ := s.GetOrCreateSegment("20190904")
-	now, _ = timeutil.ParseTimestamp("20190904 22:10:48", "20060102 15:04:05")
-	_, _ = segment2.GetOrCreateDataFamily(now)
-	now, _ = timeutil.ParseTimestamp("20190904 20:10:48", "20060102 15:04:05")
-	_, _ = segment2.GetOrCreateDataFamily(now)
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				listDir = fileutil.ListDir
+				newSegmentFunc = newSegment
+			}()
+			s := &intervalSegment{
+				segments: map[string]Segment{
+					segmentDir: segment,
+				},
+				interval: option.Interval{
+					Interval:  timeutil.Interval(timeutil.OneSecond * 10),
+					Retention: timeutil.Interval(timeutil.OneDay * 20),
+				},
+				logger: logger.GetLogger("test", "segment"),
+			}
+			if tt.prepare != nil {
+				tt.prepare(s)
+			}
 
-	start, _ := timeutil.ParseTimestamp("20190901 20:10:48", "20060102 15:04:05")
-	end, _ := timeutil.ParseTimestamp("20190901 22:10:48", "20060102 15:04:05")
-	families := s.getDataFamilies(timeutil.TimeRange{Start: start, End: end})
-	assert.Equal(t, 0, len(families))
-
-	start, _ = timeutil.ParseTimestamp("20190905 20:10:48", "20060102 15:04:05")
-	end, _ = timeutil.ParseTimestamp("20190905 22:10:48", "20060102 15:04:05")
-	families = s.getDataFamilies(timeutil.TimeRange{Start: start, End: end})
-	assert.Equal(t, 0, len(families))
-
-	start, _ = timeutil.ParseTimestamp("20190902 19:05:48", "20060102 15:04:05")
-	end, _ = timeutil.ParseTimestamp("20190905 22:10:48", "20060102 15:04:05")
-	families = s.getDataFamilies(timeutil.TimeRange{Start: start, End: end})
-	assert.Equal(t, 2, len(families))
+			families := s.GetDataFamilies(tt.timeRange)
+			assert.Len(t, families, tt.len)
+		})
+	}
 }
 
 func TestIntervalSegment_TTL(t *testing.T) {

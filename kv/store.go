@@ -171,6 +171,7 @@ func newStore(name, path string, option StoreOption) (s Store, err error) {
 			if store1.familySeq < familyOption.ID {
 				store1.familySeq = familyOption.ID
 			}
+			// TODO lazy load??????
 			var family Family
 			// open existed family
 			family, err = newFamily(store1, familyOption)
