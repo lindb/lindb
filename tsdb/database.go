@@ -67,6 +67,8 @@ type Database interface {
 	Drop() error
 	// TTL expires the data of each shard base on time to live.
 	TTL()
+	// EvictSegment evicts segment which long term no read operation.
+	EvictSegment()
 }
 
 // databaseConfig represents a database configuration about config and families
@@ -273,6 +275,14 @@ func (db *database) TTL() {
 	for _, shardEntry := range db.shardSet.Entries() {
 		thisShard := shardEntry.shard
 		thisShard.TTL()
+	}
+}
+
+// EvictSegment evicts segment which long term no read operation.
+func (db *database) EvictSegment() {
+	for _, shardEntry := range db.shardSet.Entries() {
+		thisShard := shardEntry.shard
+		thisShard.EvictSegment()
 	}
 }
 

@@ -29,6 +29,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/option"
@@ -117,6 +118,7 @@ func TestEngine_createDatabase(t *testing.T) {
 	tmpDir := t.TempDir()
 	defer func() {
 		mkDirIfNotExist = fileutil.MkDirIfNotExist
+		fileExist = fileutil.Exist
 		decodeToml = ltoml.DecodeToml
 		ctrl.Finish()
 	}()
@@ -144,6 +146,15 @@ func TestEngine_createDatabase(t *testing.T) {
 		db, ok = e.GetDatabase("db_not_exist")
 		assert.Nil(t, db)
 		assert.False(t, ok)
+
+		shard, ok := e.GetShard("db_not_exist", models.ShardID(1))
+		assert.False(t, ok)
+		assert.Nil(t, shard)
+
+		mockDB.EXPECT().GetShard(gomock.Any()).Return(NewMockShard(ctrl), true)
+		shard, ok = e.GetShard("test_db", models.ShardID(1))
+		assert.True(t, ok)
+		assert.NotNil(t, shard)
 
 		mockDB.EXPECT().Close()
 		e.Close()
@@ -181,6 +192,22 @@ func TestEngine_createDatabase(t *testing.T) {
 		db, ok = e.GetDatabase("db_not_exist")
 		assert.Nil(t, db)
 		assert.False(t, ok)
+	})
+	t.Run("option file decode failure", func(t *testing.T) {
+		defer func() {
+			fileExist = fileutil.Exist
+			decodeToml = ltoml.DecodeToml
+		}()
+		e := &engine{}
+		fileExist = func(file string) bool {
+			return true
+		}
+		decodeToml = func(fileName string, v interface{}) error {
+			return fmt.Errorf("err")
+		}
+		db, err := e.createDatabase("test_reopen_db", &option.DatabaseOption{})
+		assert.Error(t, err)
+		assert.Nil(t, db)
 	})
 }
 
@@ -265,6 +292,103 @@ func TestEngine_TTL(t *testing.T) {
 	engineImpl.dbSet.PutDatabase("test_db_1", mockDatabase1)
 	mockDatabase1.EXPECT().TTL()
 	e.TTL()
+}
+
+func TestEngine_EvictSegment(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	e, _ := NewEngine()
+	engineImpl := e.(*engine)
+	mockDatabase1 := NewMockDatabase(ctrl)
+	engineImpl.dbSet.PutDatabase("test_db_1", mockDatabase1)
+	mockDatabase1.EXPECT().EvictSegment()
+	e.EvictSegment()
+}
+
+func TestEngine_CreateShards(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		fileExist = fileutil.Exist
+		ctrl.Finish()
+	}()
+	fileExist = func(file string) bool {
+		return false
+	}
+	mockDatabase := NewMockDatabase(ctrl)
+
+	cases := []struct {
+		name     string
+		db       string
+		shardIDs []models.ShardID
+		prepare  func(e *engine)
+		wantErr  bool
+	}{
+		{
+			name:    "shard ids is empty",
+			wantErr: true,
+		},
+		{
+			name:     "create shard failure",
+			db:       "test",
+			shardIDs: []models.ShardID{1},
+			prepare: func(e *engine) {
+				mockDatabase.EXPECT().CreateShards(gomock.Any()).Return(fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name:     "create shard successfully",
+			db:       "test",
+			shardIDs: []models.ShardID{1},
+			prepare: func(e *engine) {
+				mockDatabase.EXPECT().CreateShards(gomock.Any()).Return(nil)
+			},
+			wantErr: false,
+		},
+		{
+			name:     "create db failure",
+			db:       "test-2",
+			shardIDs: []models.ShardID{1},
+			prepare: func(e *engine) {
+				newDatabaseFunc = func(databaseName string, cfg *databaseConfig,
+					flushChecker DataFlushChecker) (Database, error) {
+					return nil, fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name:     "create db/shard successfully",
+			db:       "test-2",
+			shardIDs: []models.ShardID{1},
+			prepare: func(e *engine) {
+				newDatabaseFunc = func(databaseName string, cfg *databaseConfig,
+					flushChecker DataFlushChecker) (Database, error) {
+					return mockDatabase, nil
+				}
+				mockDatabase.EXPECT().CreateShards(gomock.Any()).Return(nil)
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			e := &engine{
+				dbSet: *newDatabaseSet(),
+			}
+			e.dbSet.PutDatabase("test", mockDatabase)
+			if tt.prepare != nil {
+				tt.prepare(e)
+			}
+			err := e.CreateShards(tt.db, &option.DatabaseOption{}, tt.shardIDs...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("newShard() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
 }
 
 var testDatabaseNames = []string{

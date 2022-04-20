@@ -94,6 +94,7 @@ func TestDatabaseLifecycle_ttlTask(t *testing.T) {
 	config.SetGlobalStorageConfig(cfg)
 	repo.EXPECT().WalkEntry(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	engine.EXPECT().TTL().AnyTimes()
+	engine.EXPECT().EvictSegment().AnyTimes()
 	dbLifecycle1.ttlTask()
 	<-ch
 }

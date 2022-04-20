@@ -384,3 +384,27 @@ func TestIntervalSegment_TTL(t *testing.T) {
 		})
 	}
 }
+
+func TestIntervalSegment_EvictSegment(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	segment := NewMockSegment(ctrl)
+	s := &intervalSegment{
+		interval: option.Interval{
+			Interval:  timeutil.Interval(10 * timeutil.OneSecond),
+			Retention: timeutil.Interval(30 * timeutil.OneDay),
+		},
+		segments: map[string]Segment{
+			segmentDir: segment,
+		},
+		logger: logger.GetLogger("TSDB", "segment"),
+	}
+	segment.EXPECT().NeedEvict().Return(false)
+	s.EvictSegment()
+	assert.Len(t, s.segments, 1)
+
+	segment.EXPECT().NeedEvict().Return(true)
+	segment.EXPECT().Close()
+	s.EvictSegment()
+	assert.Len(t, s.segments, 0)
+}

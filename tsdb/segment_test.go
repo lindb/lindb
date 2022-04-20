@@ -23,6 +23,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/models"
@@ -266,9 +267,10 @@ func TestSegment_GetDataFamilies(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			s := &segment{
-				kvStore:  store,
-				interval: timeutil.Interval(10 * 1000),
-				families: make(map[int]DataFamily),
+				kvStore:      store,
+				interval:     timeutil.Interval(10 * 1000),
+				families:     make(map[int]DataFamily),
+				lastReadTime: atomic.NewInt64(10),
 			}
 			if tt.prepare != nil {
 				tt.prepare(s)
@@ -348,4 +350,22 @@ func TestSegment_Close(t *testing.T) {
 			assertFamilyEmpty()
 		})
 	}
+}
+
+func TestSegment_NeedEvict(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	shard := NewMockShard(ctrl)
+	db := NewMockDatabase(ctrl)
+	shard.EXPECT().Database().Return(db).AnyTimes()
+	opt := &option.DatabaseOption{Ahead: "1h", Behind: "1h"}
+	db.EXPECT().GetOption().Return(opt).AnyTimes()
+	s := &segment{
+		shard:        shard,
+		lastReadTime: atomic.NewInt64(timeutil.Now()),
+	}
+	assert.False(t, s.NeedEvict())
+	s.lastReadTime.Store(timeutil.Now() - 7*timeutil.OneHour - timeutil.OneMinute)
+	assert.True(t, s.NeedEvict())
 }

@@ -535,6 +535,20 @@ func TestDatabase_TTL(t *testing.T) {
 	db.TTL()
 }
 
+func TestDatabase_EvictSegment(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	set := newShardSet()
+	shard1 := NewMockShard(ctrl)
+	set.InsertShard(models.ShardID(0), shard1)
+	db := &database{
+		shardSet: *set,
+	}
+	shard1.EXPECT().EvictSegment()
+	db.EvictSegment()
+}
+
 func Benchmark_LoadSyncMap(b *testing.B) {
 	var m sync.Map
 	for i := 0; i < boundaryShardSetLen; i++ {
