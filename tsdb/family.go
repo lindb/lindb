@@ -57,8 +57,11 @@ type DataFamily interface {
 	Family() kv.Family
 	// WriteRows writes metric rows with same family in batch.
 	WriteRows(rows []metric.StorageRow) error
+	// ValidateSequence validates replica sequence if valid.
 	ValidateSequence(leader int32, seq int64) bool
+	// CommitSequence commits written sequence after write data.
 	CommitSequence(leader int32, seq int64)
+	// AckSequence acknowledges sequence after memory database flush successfully.
 	AckSequence(leader int32, fn func(seq int64))
 
 	// NeedFlush checks if memory database need to flush.
@@ -67,6 +70,7 @@ type DataFamily interface {
 	IsFlushing() bool
 	// Flush flushes memory database.
 	Flush() error
+	// MemDBSize returns memory database heap size.
 	MemDBSize() int64
 
 	// DataFilter filters data under data family based on query condition
@@ -267,7 +271,8 @@ func (f *dataFamily) Flush() error {
 		}
 		waitingFlushMemDB := f.mutableMemDB
 		f.immutableMemDB = waitingFlushMemDB
-		f.mutableMemDB = nil // mark mutable memory database nil, write data will be created
+		f.mutableMemDB = nil
+		// mark mutable memory database nil, write data will be created
 		waitingFlushMemDB.MarkReadOnly()
 		immutableSeq := make(map[int32]int64)
 		for leader, seq := range f.seq {
@@ -311,6 +316,7 @@ func (f *dataFamily) Flush() error {
 	return nil
 }
 
+// MemDBSize returns memory database heap size.
 func (f *dataFamily) MemDBSize() int64 {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
@@ -398,9 +404,8 @@ func (f *dataFamily) fileFilter(shardExecuteContext *flow.ShardExecuteContext) (
 	return filter.Filter(shardExecuteContext.SeriesIDsAfterFiltering, shardExecuteContext.StorageExecuteCtx.Fields)
 }
 
+// WriteRows writes metric rows with same family in batch.
 func (f *dataFamily) WriteRows(rows []metric.StorageRow) error {
-	defer f.statistics.writeBatches.Incr()
-
 	if len(rows) == 0 {
 		return nil
 	}
@@ -412,10 +417,12 @@ func (f *dataFamily) WriteRows(rows []metric.StorageRow) error {
 		return err
 	}
 	db.AcquireWrite()
-	defer db.CompleteWrite()
-
 	releaseFunc := db.WithLock()
-	defer releaseFunc()
+	defer func() {
+		f.statistics.writeBatches.Incr()
+		db.CompleteWrite()
+		releaseFunc()
+	}()
 
 	for idx := range rows {
 		row := rows[idx]
@@ -440,6 +447,7 @@ func (f *dataFamily) WriteRows(rows []metric.StorageRow) error {
 	return nil
 }
 
+// ValidateSequence validates replica sequence if valid.
 func (f *dataFamily) ValidateSequence(leader int32, seq int64) bool {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
@@ -450,6 +458,7 @@ func (f *dataFamily) ValidateSequence(leader int32, seq int64) bool {
 	return seq > seqForLeader.Load()
 }
 
+// CommitSequence commits written sequence after write data.
 func (f *dataFamily) CommitSequence(leader int32, seq int64) {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
@@ -459,6 +468,7 @@ func (f *dataFamily) CommitSequence(leader int32, seq int64) {
 	f.seq[leader] = seqForLeader
 }
 
+// AckSequence acknowledges sequence after memory database flush successfully.
 func (f *dataFamily) AckSequence(leader int32, fn func(seq int64)) {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
@@ -491,6 +501,7 @@ func (f *dataFamily) GetOrCreateMemoryDatabase(familyTime int64) (memdb.MemoryDa
 	return f.mutableMemDB, nil
 }
 
+// Close flushes memory database, then removes it from online family list.
 func (f *dataFamily) Close() error {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
@@ -516,6 +527,7 @@ func (f *dataFamily) Close() error {
 	return nil
 }
 
+// flushMemoryDatabase flushes memory database to disk.
 func (f *dataFamily) flushMemoryDatabase(sequences map[int32]int64, memDB memdb.MemoryDatabase) error {
 	flusher := f.family.NewFlusher()
 	defer flusher.Release()
@@ -524,7 +536,7 @@ func (f *dataFamily) flushMemoryDatabase(sequences map[int32]int64, memDB memdb.
 		flusher.Sequence(leader, seq)
 	}
 
-	dataFlusher, err := metricsdata.NewFlusher(flusher)
+	dataFlusher, err := newMetricDataFlusher(flusher)
 	if err != nil {
 		return err
 	}

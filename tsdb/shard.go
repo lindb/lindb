@@ -87,6 +87,8 @@ type Shard interface {
 	initIndexDatabase() error
 	// TTL expires the data of each segment base on time to live.
 	TTL()
+	// EvictSegment evicts segment which long term no read operation.
+	EvictSegment()
 	// Closer releases shard's resource, such as flush data, spawned goroutines etc.
 	io.Closer
 }
@@ -426,6 +428,13 @@ func (s *shard) TTL() {
 				logger.Error(err),
 			)
 		}
+	}
+}
+
+// EvictSegment evicts segment which long term no read operation.
+func (s *shard) EvictSegment() {
+	for _, rollupSegment := range s.rollupTargets {
+		rollupSegment.EvictSegment()
 	}
 }
 

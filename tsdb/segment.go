@@ -28,6 +28,8 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
+
+	"go.uber.org/atomic"
 )
 
 //go:generate mockgen -source=./segment.go -destination=./segment_mock.go -package=tsdb
@@ -41,6 +43,8 @@ type Segment interface {
 	GetOrCreateDataFamily(timestamp int64) (DataFamily, error)
 	// GetDataFamilies returns data family list by time range, return nil if not match.
 	GetDataFamilies(timeRange timeutil.TimeRange) []DataFamily
+	// NeedEvict checks segment if it can evict, long term no read operation.
+	NeedEvict() bool
 	// Close closes segment, include kv store.
 	Close()
 }
@@ -54,7 +58,8 @@ type segment struct {
 	interval  timeutil.Interval
 	families  map[int]DataFamily
 
-	mutex sync.RWMutex
+	lastReadTime *atomic.Int64
+	mutex        sync.RWMutex
 
 	logger *logger.Logger
 }
@@ -86,13 +91,14 @@ func newSegment(shard Shard, segmentName string, interval timeutil.Interval) (Se
 		return nil, fmt.Errorf("create kv store for segment error:%s", err)
 	}
 	return &segment{
-		shard:     shard,
-		indicator: indicator,
-		baseTime:  baseTime,
-		kvStore:   kvStore,
-		interval:  interval,
-		families:  make(map[int]DataFamily),
-		logger:    logger.GetLogger("TSDB", "Segment"),
+		shard:        shard,
+		indicator:    indicator,
+		baseTime:     baseTime,
+		kvStore:      kvStore,
+		interval:     interval,
+		families:     make(map[int]DataFamily),
+		lastReadTime: atomic.NewInt64(timeutil.Now()),
+		logger:       logger.GetLogger("TSDB", "Segment"),
 	}, nil
 }
 
@@ -103,6 +109,8 @@ func (s *segment) BaseTime() int64 {
 
 // GetDataFamilies returns data family list by time range, return nil if not match
 func (s *segment) GetDataFamilies(timeRange timeutil.TimeRange) []DataFamily {
+	s.lastReadTime.Store(timeutil.Now())
+
 	var result []DataFamily
 	calc := s.interval.Calculator()
 
@@ -125,6 +133,13 @@ func (s *segment) GetDataFamilies(timeRange timeutil.TimeRange) []DataFamily {
 		}
 	}
 	return result
+}
+
+// NeedEvict checks segment if it can evict, long term no read operation.
+func (s *segment) NeedEvict() bool {
+	diff := timeutil.Now() - s.lastReadTime.Load() - 6*timeutil.OneHour
+	ahead, _ := s.shard.Database().GetOption().GetAcceptWritableRange()
+	return diff > ahead
 }
 
 // GetOrCreateDataFamily returns the data family based on timestamp.

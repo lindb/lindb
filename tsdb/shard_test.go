@@ -580,6 +580,23 @@ func TestShard_TTL(t *testing.T) {
 	s.TTL()
 }
 
+func TestShard_EvictSegment(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	db := NewMockDatabase(ctrl)
+	db.EXPECT().Name().Return("test").AnyTimes()
+	segment := NewMockIntervalSegment(ctrl)
+	s := &shard{
+		rollupTargets: map[timeutil.Interval]IntervalSegment{
+			10: segment,
+		},
+		db:     db,
+		logger: logger.GetLogger("TSDB", "test"),
+	}
+	segment.EXPECT().EvictSegment()
+	s.EvictSegment()
+}
+
 func mockBatchRows(m *protoMetricsV1.Metric) []metric.StorageRow {
 	var ml = protoMetricsV1.MetricList{Metrics: []*protoMetricsV1.Metric{m}}
 	var buf bytes.Buffer
