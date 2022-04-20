@@ -31,6 +31,7 @@ var (
 	mkDirIfNotExist        = fileutil.MkDirIfNotExist
 	listDir                = fileutil.ListDir
 	removeDir              = fileutil.RemoveDir
+	fileExist              = fileutil.Exist
 	decodeToml             = ltoml.DecodeToml
 	newDatabaseFunc        = newDatabase
 	newSegmentFunc         = newSegment
@@ -43,4 +44,5 @@ var (
 	newIndexDBFunc         = indexdb.NewIndexDatabase
 	newMemoryDBFunc        = memdb.NewMemoryDatabase
 	newDataFamilyFunc      = newDataFamily
+	newMetricDataFlusher   = metricsdata.NewFlusher
 )

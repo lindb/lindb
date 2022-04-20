@@ -25,7 +25,6 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
 )
@@ -58,6 +57,8 @@ type Engine interface {
 	DropDatabases(activeDatabases map[string]struct{})
 	// TTL expires the data of each database base on time to live.
 	TTL()
+	// EvictSegment evicts segment which long term no read operation.
+	EvictSegment()
 	// Close closes the cached time series databases
 	Close()
 }
@@ -99,7 +100,7 @@ func NewEngine() (Engine, error) {
 func (e *engine) createDatabase(databaseName string, dbOption *option.DatabaseOption) (Database, error) {
 	cfgPath := optionsPath(databaseName)
 	cfg := &databaseConfig{Option: dbOption}
-	if fileutil.Exist(cfgPath) {
+	if fileExist(cfgPath) {
 		if err := decodeToml(cfgPath, cfg); err != nil {
 			return nil, fmt.Errorf("load database[%s] config from file[%s] with error: %s",
 				databaseName, cfgPath, err)
@@ -209,6 +210,13 @@ func (e *engine) DropDatabases(activeDatabases map[string]struct{}) {
 func (e *engine) TTL() {
 	for _, db := range e.dbSet.Entries() {
 		db.TTL()
+	}
+}
+
+// EvictSegment evicts segment which long term no read operation.
+func (e *engine) EvictSegment() {
+	for _, db := range e.dbSet.Entries() {
+		db.EvictSegment()
 	}
 }
 

@@ -39,6 +39,8 @@ type IntervalSegment interface {
 	Close()
 	// TTL expires segment base on time to live.
 	TTL() error
+	// EvictSegment evicts segment which long term no read operation.
+	EvictSegment()
 }
 
 // intervalSegment implements IntervalSegment interface
@@ -170,6 +172,21 @@ func (s *intervalSegment) TTL() error {
 			s.dropSegment(segmentName)
 		}
 	})
+}
+
+// EvictSegment evicts segment which long term no read operation.
+func (s *intervalSegment) EvictSegment() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	for segmentName := range s.segments {
+		segment := s.segments[segmentName]
+		// add 2 hours buffer, for some cases stop write.
+		if segment.NeedEvict() {
+			segment.Close()
+			delete(s.segments, segmentName)
+		}
+	}
 }
 
 // walkSegment lists all segment under current interval segment dir.

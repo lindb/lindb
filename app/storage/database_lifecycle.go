@@ -113,6 +113,8 @@ func (l *databaseLifecycle) ttlTask() {
 				l.tryDropDatabases()
 				// do data ttl
 				l.engine.TTL()
+				// try to evict segment(long term no read)
+				l.engine.EvictSegment()
 				// support dynamic modify config
 				ticker.Reset(config.GlobalStorageConfig().TTLTaskInterval.Duration())
 			case <-l.ctx.Done():
