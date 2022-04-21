@@ -40,6 +40,7 @@ func TestFamilyVersion(t *testing.T) {
 	}()
 
 	cache := table.NewMockCache(ctrl)
+	cache.EXPECT().ReleaseReaders(gomock.Any()).AnyTimes()
 
 	var vs = NewStoreVersionSet(vsTestPath, cache, 2)
 	familyVersion1 := vs.CreateFamilyVersion("f", 1)

@@ -21,7 +21,9 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
+	"sort"
 	"testing"
+	"time"
 
 	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
@@ -41,7 +43,7 @@ func TestReader_Fail(t *testing.T) {
 	mapFunc = func(path string) (bytes []byte, err error) {
 		return nil, fmt.Errorf("err")
 	}
-	reader, err := newMMapStoreReader(testKVPath + "/000010.sst")
+	reader, err := newMMapStoreReader(testKVPath+"/000010.sst", "000010.sst")
 	assert.Error(t, err)
 	assert.Nil(t, reader)
 	// case 2: footer length err
@@ -51,14 +53,14 @@ func TestReader_Fail(t *testing.T) {
 	unmapFunc = func(data []byte) error {
 		return fmt.Errorf("err")
 	}
-	reader, err = newMMapStoreReader(testKVPath + "/000010.sst")
+	reader, err = newMMapStoreReader(testKVPath+"/000010.sst", "000010.sst")
 	assert.Error(t, err)
 	assert.Nil(t, reader)
 	// case 3: init err
 	mapFunc = func(path string) (bytes []byte, err error) {
 		return []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5}, nil
 	}
-	reader, err = newMMapStoreReader(testKVPath + "/000010.sst")
+	reader, err = newMMapStoreReader(testKVPath+"/000010.sst", "000010.sst")
 	assert.Error(t, err)
 	assert.Nil(t, reader)
 }
@@ -67,7 +69,9 @@ func TestStoreMMapReader_readBytes_Err(t *testing.T) {
 	_ = fileutil.MkDirIfNotExist(testKVPath)
 	defer func() {
 		uint64Func = binary.LittleEndian.Uint64
+		intsAreSortedFunc = sort.IntsAreSorted
 		encoding.BitmapUnmarshal = bitmapUnmarshal
+		unmarshalFixedOffsetFunc = unmarshalFixedOffset
 		_ = os.RemoveAll(testKVPath)
 	}()
 	builder, err := NewStoreBuilder(10, testKVPath+"/000010.sst")
@@ -80,9 +84,10 @@ func TestStoreMMapReader_readBytes_Err(t *testing.T) {
 	assert.Nil(t, err)
 
 	// case1, ok
-	r, err := newMMapStoreReader(testKVPath + "/000010.sst")
+	r, err := newMMapStoreReader(testKVPath+"/000010.sst", "000010.sst")
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
+	assert.Equal(t, "000010.sst", r.FileName())
 
 	block, err := r.(*storeMMapReader).getBlock(0)
 	assert.NoError(t, err)
@@ -95,22 +100,41 @@ func TestStoreMMapReader_readBytes_Err(t *testing.T) {
 	block, err = r.(*storeMMapReader).getBlock(2)
 	assert.Error(t, err)
 	assert.Len(t, block, 0)
+	// case 2: offset not in sort
+	uint64Func = binary.LittleEndian.Uint64
+	intsAreSortedFunc = func(x []int) bool {
+		return false
+	}
+	r, err = newMMapStoreReader(testKVPath+"/000010.sst", "000010.sst")
+	assert.Error(t, err)
+	assert.Nil(t, r)
+	intsAreSortedFunc = sort.IntsAreSorted
 
-	// case 2: unmarshal keys err
+	// case 3: unmarshal fixed offset failure
+	unmarshalFixedOffsetFunc = func(decoder *encoding.FixedOffsetDecoder, data []byte) error {
+		return fmt.Errorf("err")
+	}
+	r, err = newMMapStoreReader(testKVPath+"/000010.sst", "000010.sst")
+	assert.Error(t, err)
+	assert.Nil(t, r)
+
+	unmarshalFixedOffsetFunc = unmarshalFixedOffset
+
+	// case 4: unmarshal keys err
 	uint64Func = binary.LittleEndian.Uint64
 	encoding.BitmapUnmarshal = func(bitmap *roaring.Bitmap, data []byte) error {
 		return fmt.Errorf("err")
 	}
-	r, err = newMMapStoreReader(testKVPath + "/000010.sst")
+	r, err = newMMapStoreReader(testKVPath+"/000010.sst", "000010.sst")
 	assert.Error(t, err)
 	assert.Nil(t, r)
 
-	// case 3: offset's size != key's size
+	// case 5: offset's size != key's size
 	encoding.BitmapUnmarshal = func(bitmap *roaring.Bitmap, data []byte) error {
 		bitmap.AddRange(1, 1000)
 		return nil
 	}
-	r, err = newMMapStoreReader(testKVPath + "/000010.sst")
+	r, err = newMMapStoreReader(testKVPath+"/000010.sst", "000010.sst")
 	assert.Error(t, err)
 	assert.Nil(t, r)
 }
@@ -130,7 +154,7 @@ func TestReader(t *testing.T) {
 	err = builder.Close()
 	assert.Nil(t, err)
 
-	cache := NewCache(testKVPath)
+	cache := NewCache(testKVPath, time.Hour)
 
 	reader, err := cache.GetReader("", "000010.sst")
 	assert.NoError(t, err)
@@ -153,9 +177,9 @@ func TestReader(t *testing.T) {
 	assert.Equal(t, []byte("test"), value)
 	value, _ = reader.Get(10)
 	assert.Equal(t, []byte("test10"), value)
-	cache.Evict("", "000100.sst")
+	cache.Evict("000100.sst")
 	_ = reader.Close()
-	cache.Evict("", "000010.sst")
+	cache.Evict("000010.sst")
 	_ = cache.Close()
 }
 
@@ -173,7 +197,7 @@ func TestStoreIterator(t *testing.T) {
 	err = builder.Close()
 	assert.Nil(t, err)
 
-	cache := NewCache(testKVPath)
+	cache := NewCache(testKVPath, time.Hour)
 	reader, err := cache.GetReader("", "000010.sst")
 	assert.NoError(t, err)
 

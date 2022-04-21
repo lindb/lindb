@@ -22,96 +22,72 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"sync"
 
-	"github.com/lindb/roaring"
-
-	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
+
+	"github.com/lindb/roaring"
 )
 
 //go:generate mockgen -source ./reader.go -destination=./reader_mock.go -package table
 
 // for testing
 var (
-	ErrKeyNotExist            = errors.New("key not exist in kv table")
-	mapFunc                   = fileutil.Map
-	unmapFunc                 = fileutil.Unmap
-	uint64Func                = binary.LittleEndian.Uint64
-	_once4ReaderStatistics    sync.Once
-	_instanceReaderStatistics *readerStatistics
+	ErrKeyNotExist           = errors.New("key not exist in kv table")
+	mapFunc                  = fileutil.Map
+	unmapFunc                = fileutil.Unmap
+	unmarshalFixedOffsetFunc = unmarshalFixedOffset
+	uint64Func               = binary.LittleEndian.Uint64
+	intsAreSortedFunc        = sort.IntsAreSorted
 )
 
-func getReaderStatistics() *readerStatistics {
-	_once4ReaderStatistics.Do(func() {
-		tableReaderScope := linmetric.StorageRegistry.NewScope("lindb.kv.table.reader")
-		_instanceReaderStatistics = &readerStatistics{
-			getErrors:    tableReaderScope.NewCounter("get_errors"),
-			getCounts:    tableReaderScope.NewCounter("get_counts"),
-			getBytes:     tableReaderScope.NewCounter("get_bytes"),
-			mmapCounts:   tableReaderScope.NewCounter("mmap_counts"),
-			mmapErros:    tableReaderScope.NewCounter("mmap_errors"),
-			unmmapCounts: tableReaderScope.NewCounter("unmmap_counts"),
-			unmmapErrors: tableReaderScope.NewCounter("unmmap_errors"),
-		}
-	})
-	return _instanceReaderStatistics
-}
-
-type readerStatistics struct {
-	getErrors    *linmetric.BoundCounter
-	getCounts    *linmetric.BoundCounter
-	getBytes     *linmetric.BoundCounter
-	mmapCounts   *linmetric.BoundCounter
-	mmapErros    *linmetric.BoundCounter
-	unmmapCounts *linmetric.BoundCounter
-	unmmapErrors *linmetric.BoundCounter
-}
-
-// Reader represents reader which reads k/v pair from store file
+// Reader represents reader which reads k/v pair from store file.
 type Reader interface {
-	// Path returns the file path
+	// Path returns the file path.
 	Path() string
+	// FileName returns the file name of reader.
+	FileName() string
 	// Get returns value for giving key,
-	// if key not exist, return nil, ErrKeyNotExist
+	// if key not exist, return nil, ErrKeyNotExist.
 	Get(key uint32) ([]byte, error)
 	// Iterator iterates over a store's key/value pairs in key order.
 	Iterator() Iterator
-	// Close closes reader, release related resources
+	// Close closes reader, release related resources.
 	Close() error
 }
 
-// storeMMapReader represents mmap store file reader
+// storeMMapReader represents mmap store file reader.
 type storeMMapReader struct {
-	path         string                       // path of sst-file
+	path         string // path of sst-file
+	fileName     string
 	fullBlock    []byte                       // mmaped file content
 	entriesBlock []byte                       // mmaped file content without footer
 	keys         *roaring.Bitmap              // bitmap of keys
 	offsets      *encoding.FixedOffsetDecoder // offset of values
 }
 
-// newMMapStoreReader creates mmap store file reader
-func newMMapStoreReader(path string) (r Reader, err error) {
+// newMMapStoreReader creates mmap store file reader.
+func newMMapStoreReader(path, fileName string) (r Reader, err error) {
 	data, err := mapFunc(path)
 	defer func() {
 		if err != nil && len(data) > 0 {
 			// if init err and map data exist, need unmap it
 			if e := unmapFunc(data); e != nil {
-				getReaderStatistics().unmmapErrors.Incr()
+				metrics.TableReadStatistics.UnMMapErrors.Incr()
 				tableLogger.Warn("unmap error when new store reader fail",
 					logger.String("path", path), logger.Error(err))
 			} else {
-				getReaderStatistics().unmmapCounts.Incr()
+				metrics.TableReadStatistics.UnMMapCounts.Incr()
 			}
 		}
 	}()
 	if err != nil {
-		getReaderStatistics().mmapErros.Incr()
+		metrics.TableReadStatistics.MMapErrors.Incr()
 		return
 	}
-	getReaderStatistics().mmapCounts.Incr()
+	metrics.TableReadStatistics.MMapCounts.Incr()
 
 	if len(data) < sstFileFooterSize {
 		err = fmt.Errorf("length of sstfile:%s length is too short", path)
@@ -119,6 +95,7 @@ func newMMapStoreReader(path string) (r Reader, err error) {
 	}
 	reader := &storeMMapReader{
 		path:      path,
+		fileName:  fileName,
 		fullBlock: data,
 		keys:      roaring.New(),
 	}
@@ -130,7 +107,7 @@ func newMMapStoreReader(path string) (r Reader, err error) {
 	return reader, nil
 }
 
-// initialize initializes store reader, reads index block(keys,offset etc.), then caches it
+// initialize store reader, reads index block(keys,offset etc.), then caches it.
 func (r *storeMMapReader) initialize() error {
 	// decode footer
 	footerStart := len(r.fullBlock) - sstFileFooterSize
@@ -140,7 +117,7 @@ func (r *storeMMapReader) initialize() error {
 	}
 	posOfOffset := int(binary.LittleEndian.Uint32(r.fullBlock[footerStart : footerStart+4]))
 	posOfKeys := int(binary.LittleEndian.Uint32(r.fullBlock[footerStart+4 : footerStart+8]))
-	if !sort.IntsAreSorted([]int{
+	if !intsAreSortedFunc([]int{
 		0, posOfOffset, posOfKeys, footerStart}) {
 		return fmt.Errorf("bad footer data, posOfOffsets: %d posOfKeys: %d,"+
 			" footerStart: %d", posOfOffset, posOfKeys, footerStart)
@@ -148,7 +125,7 @@ func (r *storeMMapReader) initialize() error {
 	// decode offsets
 	offsetsBlock := r.fullBlock[posOfOffset:posOfKeys]
 	r.offsets = encoding.NewFixedOffsetDecoder()
-	if _, err := r.offsets.Unmarshal(offsetsBlock); err != nil {
+	if err := unmarshalFixedOffsetFunc(r.offsets, offsetsBlock); err != nil {
 		return fmt.Errorf("unmarshal fixed-offsets decoder with error: %s", err)
 	}
 	// decode keys
@@ -164,12 +141,22 @@ func (r *storeMMapReader) initialize() error {
 	return nil
 }
 
-// Path returns the file path
+func unmarshalFixedOffset(decoder *encoding.FixedOffsetDecoder, data []byte) error {
+	_, err := decoder.Unmarshal(data)
+	return err
+}
+
+// Path returns the file path.
 func (r *storeMMapReader) Path() string {
 	return r.path
 }
 
-// Get return value for key, if not exist return nil,false
+// FileName returns the file name of reader.
+func (r *storeMMapReader) FileName() string {
+	return r.fileName
+}
+
+// Get return value for key, if not exist return nil, false.
 func (r *storeMMapReader) Get(key uint32) ([]byte, error) {
 	if !r.keys.Contains(key) {
 		return nil, ErrKeyNotExist
@@ -182,10 +169,10 @@ func (r *storeMMapReader) Get(key uint32) ([]byte, error) {
 func (r *storeMMapReader) getBlock(idx int) ([]byte, error) {
 	block, err := r.offsets.GetBlock(idx, r.entriesBlock)
 	if err == nil {
-		getReaderStatistics().getCounts.Incr()
-		getReaderStatistics().getBytes.Add(float64(len(block)))
+		metrics.TableReadStatistics.GetCounts.Incr()
+		metrics.TableReadStatistics.ReadBytes.Add(float64(len(block)))
 	} else {
-		getReaderStatistics().getErrors.Incr()
+		metrics.TableReadStatistics.GetErrors.Get()
 	}
 	return block, err
 }
@@ -200,9 +187,9 @@ func (r *storeMMapReader) Close() error {
 	r.entriesBlock = nil
 	err := fileutil.Unmap(r.fullBlock)
 	if err == nil {
-		getReaderStatistics().unmmapCounts.Incr()
+		metrics.TableReadStatistics.UnMMapErrors.Incr()
 	} else {
-		getReaderStatistics().unmmapErrors.Incr()
+		metrics.TableReadStatistics.UnMMapCounts.Incr()
 	}
 	return err
 }

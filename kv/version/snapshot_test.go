@@ -38,6 +38,7 @@ func TestSnapshot_FindReaders(t *testing.T) {
 	v := NewMockVersion(ctrl)
 	v.EXPECT().Retain().AnyTimes()
 	cache := table.NewMockCache(ctrl)
+	cache.EXPECT().ReleaseReaders(gomock.Any()).AnyTimes()
 	snapshot := newSnapshot("test", v, cache)
 
 	// case 1: get reader err

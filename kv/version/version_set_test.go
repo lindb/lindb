@@ -190,6 +190,7 @@ func TestCommitFamilyEditLog(t *testing.T) {
 		ctrl.Finish()
 	}()
 	cache := table.NewMockCache(ctrl)
+	cache.EXPECT().ReleaseReaders(gomock.Any()).AnyTimes()
 
 	var vs = NewStoreVersionSet(vsTestPath, cache, 2)
 	assert.NotNil(t, vs, "cannot create store version")

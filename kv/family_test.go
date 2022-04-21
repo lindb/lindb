@@ -267,10 +267,10 @@ func TestFamily_deleteObsoleteFiles(t *testing.T) {
 	fv.EXPECT().GetAllActiveFiles().
 		Return([]*version.FileMeta{version.NewFileMeta(2, 0, 0, 0)}).AnyTimes()
 	fv.EXPECT().GetLiveRollupFiles().Return(map[table.FileNumber][]timeutil.Interval{3: {10}}).AnyTimes()
-	store.EXPECT().evictFamilyFile(gomock.Any(), table.FileNumber(1))
+	store.EXPECT().evictFamilyFile(table.FileNumber(1))
 	f1.deleteObsoleteFiles()
 	// case 3: delete file err
-	store.EXPECT().evictFamilyFile(gomock.Any(), table.FileNumber(1))
+	store.EXPECT().evictFamilyFile(table.FileNumber(1))
 	removeDirFunc = func(name string) error {
 		return fmt.Errorf("err")
 	}
