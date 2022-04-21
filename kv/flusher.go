@@ -22,9 +22,11 @@ import (
 	"fmt"
 	"hash"
 	"hash/crc32"
+	"time"
 
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
+	"github.com/lindb/lindb/metrics"
 )
 
 //go:generate mockgen -source ./flusher.go -destination=./flusher_mock.go -package kv
@@ -51,17 +53,20 @@ type storeFlusher struct {
 	builder   table.Builder
 	editLog   version.EditLog
 	outputs   []table.FileNumber
+	start     time.Time
 
 	releaseFn func()
 }
 
 // newStoreFlusher create family store flusher.
 func newStoreFlusher(family Family, releaseFn func()) Flusher {
+	metrics.FlushStatistics.Flushing.Incr()
 	return &storeFlusher{
 		family:    family,
 		editLog:   version.NewEditLog(family.ID()),
 		sequences: make(map[int32]int64),
 		releaseFn: releaseFn,
+		start:     time.Now(),
 	}
 }
 
@@ -83,6 +88,7 @@ func (sf *storeFlusher) checkBuilder() error {
 // NOTICE: key must key in sort by desc
 func (sf *storeFlusher) Add(key uint32, value []byte) error {
 	if err := sf.checkBuilder(); err != nil {
+		metrics.FlushStatistics.Failure.Incr()
 		return err
 	}
 	// TODO add file size limit
@@ -96,6 +102,7 @@ func (sf *storeFlusher) Sequence(leader int32, seq int64) {
 
 func (sf *storeFlusher) StreamWriter() (table.StreamWriter, error) {
 	if err := sf.checkBuilder(); err != nil {
+		metrics.FlushStatistics.Failure.Incr()
 		return nil, err
 	}
 	return sf.builder.StreamWriter(), nil
@@ -105,6 +112,9 @@ func (sf *storeFlusher) StreamWriter() (table.StreamWriter, error) {
 func (sf *storeFlusher) Commit() (err error) {
 	builder := sf.builder
 	defer func() {
+		if err != nil {
+			metrics.FlushStatistics.Failure.Incr()
+		}
 		if builder != nil {
 			// remove temp file number if fail
 			fileNumber := builder.FileNumber()
@@ -129,12 +139,10 @@ func (sf *storeFlusher) Commit() (err error) {
 	if len(sf.outputs) > 0 {
 		store := sf.family.getStore()
 		rollupTargetStores := store.Option().Rollup
-		if len(rollupTargetStores) > 0 {
-			for _, interval := range rollupTargetStores {
-				// add rollup files edit log in source version
-				for _, output := range sf.outputs {
-					sf.editLog.Add(version.CreateNewRollupFile(output, interval))
-				}
+		for _, interval := range rollupTargetStores {
+			// add rollup files edit log in source version
+			for _, output := range sf.outputs {
+				sf.editLog.Add(version.CreateNewRollupFile(output, interval))
 			}
 		}
 	}
@@ -148,6 +156,8 @@ func (sf *storeFlusher) Commit() (err error) {
 
 // Release releases the resource of flusher.
 func (sf *storeFlusher) Release() {
+	metrics.FlushStatistics.Flushing.Decr()
+	metrics.FlushStatistics.Duration.UpdateSince(sf.start)
 	sf.releaseFn()
 }
 

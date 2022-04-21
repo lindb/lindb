@@ -26,6 +26,7 @@ export enum Route {
   MonitoringIngestion = "/monitoring/ingestion",
   MonitoringReplication = "/monitoring/replication",
   MonitoringCoordinator = "/monitoring/coordinator",
+  MonitoringKVStore = "/monitoring/kv",
   MetadataStorage = "/metadata/storage",
   MetadataStorageConfig = "/metadata/storage/configuration",
   MetadataDatabase = "/metadata/database",

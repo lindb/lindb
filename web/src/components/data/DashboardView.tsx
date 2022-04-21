@@ -57,16 +57,18 @@ export default function DashboardView(props: DashboardViewProps) {
   return (
     <>
       <Card>
-        <Select
-          prefix={<IconGridStroked />}
-          value={selectedDashboard}
-          optionList={dashboards}
-          onChange={(value) => {
-            changeDashboard(value as string);
-            URLStore.changeURLParams({ params: { d: value } });
-          }}
-          style={{ minWidth: 60, marginRight: 16 }}
-        />
+        {dashboards && dashboards.length > 1 && (
+          <Select
+            prefix={<IconGridStroked />}
+            value={selectedDashboard}
+            optionList={dashboards}
+            onChange={(value) => {
+              changeDashboard(value as string);
+              URLStore.changeURLParams({ params: { d: value } });
+            }}
+            style={{ minWidth: 60, marginRight: 16 }}
+          />
+        )}
         {dashboard.variates && <VariatesSelect variates={dashboard.variates} />}
       </Card>
       {(dashboard.rows || []).map((row, rowIdx) => (
