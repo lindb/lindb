@@ -23,19 +23,19 @@ var (
 	// table cache
 	tableCacheScope      = linmetric.StorageRegistry.NewScope("lindb.kv.table.cache")
 	TableCacheStatistics = struct {
-		EvictCounter    *linmetric.BoundCounter
-		HitCounter      *linmetric.BoundCounter
-		MissCounter     *linmetric.BoundCounter
-		CloseCounter    *linmetric.BoundCounter
-		CloseErrCounter *linmetric.BoundCounter
-		ActiveReaders   *linmetric.BoundGauge
+		Evict         *linmetric.BoundCounter
+		Hit           *linmetric.BoundCounter
+		Miss          *linmetric.BoundCounter
+		Close         *linmetric.BoundCounter
+		CloseErr      *linmetric.BoundCounter
+		ActiveReaders *linmetric.BoundGauge
 	}{
-		EvictCounter:    tableCacheScope.NewCounter("evict_counts"),
-		HitCounter:      tableCacheScope.NewCounter("cache_hits"),
-		MissCounter:     tableCacheScope.NewCounter("cache_misses"),
-		CloseCounter:    tableCacheScope.NewCounter("close_counts"),
-		CloseErrCounter: tableCacheScope.NewCounter("close_errors"),
-		ActiveReaders:   tableCacheScope.NewGauge("active_readers"),
+		Evict:         tableCacheScope.NewCounter("evict_counts"),
+		Hit:           tableCacheScope.NewCounter("cache_hits"),
+		Miss:          tableCacheScope.NewCounter("cache_misses"),
+		Close:         tableCacheScope.NewCounter("close_counts"),
+		CloseErr:      tableCacheScope.NewCounter("close_errors"),
+		ActiveReaders: tableCacheScope.NewGauge("active_readers"),
 	}
 
 	// table write
@@ -68,5 +68,29 @@ var (
 		MMapErrors:   tableReadScope.NewCounter("mmap_errors"),
 		UnMMapCounts: tableReadScope.NewCounter("unmmap_counts"),
 		UnMMapErrors: tableReadScope.NewCounter("unmmap_errors"),
+	}
+
+	// compact job
+	compactScope      = linmetric.StorageRegistry.NewScope("lindb.kv.compaction")
+	CompactStatistics = struct {
+		Compacting *linmetric.GaugeVec
+		Failure    *linmetric.DeltaCounterVec
+		Duration   *linmetric.DeltaHistogramVec
+	}{
+		Compacting: flushScope.NewGaugeVec("compacting", "type"),
+		Failure:    flushScope.NewCounterVec("failure", "type"),
+		Duration:   compactScope.Scope("duration").NewHistogramVec("type"),
+	}
+
+	// flush job
+	flushScope      = linmetric.StorageRegistry.NewScope("lindb.kv.flush")
+	FlushStatistics = struct {
+		Flushing *linmetric.BoundGauge
+		Failure  *linmetric.BoundCounter
+		Duration *linmetric.BoundHistogram
+	}{
+		Flushing: flushScope.NewGauge("flushing"),
+		Failure:  flushScope.NewCounter("failure"),
+		Duration: flushScope.Scope("duration").NewHistogram(),
 	}
 )

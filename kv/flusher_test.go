@@ -26,6 +26,7 @@ import (
 
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
+	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 func TestFlusher_Add(t *testing.T) {
@@ -142,10 +143,62 @@ func TestStoreFlusher_Commit(t *testing.T) {
 	)
 	flusher = newStoreFlusher(family, func() {})
 	defer flusher.Release()
+	store := NewMockStore(ctrl)
+	family.EXPECT().getStore().Return(store)
+	opt := StoreOption{Rollup: []timeutil.Interval{10, 20}}
+	store.EXPECT().Option().Return(opt)
+	flusher1 := flusher.(*storeFlusher)
+	flusher1.outputs = []table.FileNumber{1, 2, 3}
 	f = flusher.(*storeFlusher)
 	f.builder = builder
 	err = flusher.Commit()
 	assert.NoError(t, err)
+}
+
+func TestStoreFlusher_StreamWriter(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	family := NewMockFamily(ctrl)
+	family.EXPECT().ID().Return(version.FamilyID(10)).AnyTimes()
+	flusher := newStoreFlusher(family, func() {})
+	cases := []struct {
+		name    string
+		prepare func()
+		wantErr bool
+	}{
+		{
+			name: "create stream writer failure",
+			prepare: func() {
+				family.EXPECT().newTableBuilder().Return(nil, fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "create stream writer successfully",
+			prepare: func() {
+				builder := table.NewMockBuilder(ctrl)
+				builder.EXPECT().FileNumber().Return(table.FileNumber(10))
+				builder.EXPECT().StreamWriter().Return(&nopStreamWriter{})
+				family.EXPECT().newTableBuilder().Return(builder, nil)
+				family.EXPECT().addPendingOutput(gomock.Any())
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+			sw, err := flusher.StreamWriter()
+			if ((err != nil) != tt.wantErr && sw == nil) || (!tt.wantErr && sw == nil) {
+				t.Errorf("StreamWriter() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
 }
 
 func Test_NopFlusher(t *testing.T) {
@@ -179,4 +232,8 @@ func Test_NopFlusher(t *testing.T) {
 	_, _ = writer.Write([]byte{5, 6})
 	assert.Equal(t, uint32(6), writer.Size())
 	assert.Equal(t, uint32(2180413220), writer.CRC32CheckSum())
+	nf.Release()
+
+	nopSW := &nopStreamWriter{}
+	nopSW.Release()
 }

@@ -29,6 +29,7 @@ import {
   IconVennChartStroked,
   IconTemplate,
   IconFixedStroked,
+  IconSonicStroked,
 } from "@douyinfe/semi-icons";
 import { DashboardView } from "@src/components";
 import {
@@ -41,6 +42,10 @@ import {
   BrokerSystemsDashboard,
   BrokerRuntimeDashboard,
   StorageRuntimeDashboard,
+  KVStoreFlushDashboard,
+  KVStoreCompactDashboard,
+  KVStoreReadDashboard,
+  KVStoreWriteDashboard,
 } from "@src/configs";
 import { Route, StateRoleName } from "@src/constants";
 import {
@@ -179,6 +184,38 @@ export const routes = [
         text: "Database",
         path: "/monitoring/databasea",
         icon: <IconServer size="large" />,
+      },
+      {
+        text: "KV Store",
+        path: Route.MonitoringKVStore,
+        icon: <IconSonicStroked size="large" />,
+        content: (
+          <DashboardView
+            dashboards={[
+              {
+                value: "kvstore.read",
+                label: "Read",
+                dashboard: KVStoreReadDashboard,
+              },
+              {
+                value: "kvstore.write",
+                label: "Write",
+                dashboard: KVStoreWriteDashboard,
+              },
+              {
+                value: "kvstore.flush",
+                label: "Flush",
+                dashboard: KVStoreFlushDashboard,
+              },
+              {
+                value: "kvstore.compaction",
+                label: "Compaction",
+                dashboard: KVStoreCompactDashboard,
+              },
+            ]}
+          />
+        ),
+        keep: ["start", "end", "node"],
       },
       {
         text: "Runtime",

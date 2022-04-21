@@ -105,11 +105,11 @@ func (c *storeCache) GetReader(family, fileName string) (Reader, error) {
 	entry, ok := c.cache.Get(fileName)
 	if ok {
 		entry.retain()
-		metrics.TableCacheStatistics.HitCounter.Incr()
+		metrics.TableCacheStatistics.Hit.Incr()
 		return entry.reader, nil
 	}
 
-	metrics.TableCacheStatistics.MissCounter.Incr()
+	metrics.TableCacheStatistics.Miss.Incr()
 	metrics.TableCacheStatistics.ActiveReaders.Incr()
 	// create new reader
 	path := filepath.Join(c.storePath, family, fileName)
@@ -145,7 +145,7 @@ func (c *storeCache) Cleanup() {
 	c.cache.Walk(func(entry *cacheEntry) bool {
 		if entry.ref.Load() == 0 && timeutil.Now()-entry.last > ttl {
 			c.evict(entry)
-			metrics.TableCacheStatistics.EvictCounter.Incr()
+			metrics.TableCacheStatistics.Evict.Incr()
 			return true
 		}
 		return false
@@ -159,7 +159,7 @@ func (c *storeCache) Close() error {
 
 	c.cache.Purge(func(entry *cacheEntry) {
 		c.closeReader(entry)
-		metrics.TableCacheStatistics.EvictCounter.Incr()
+		metrics.TableCacheStatistics.Evict.Incr()
 	})
 	return nil
 }
@@ -167,13 +167,13 @@ func (c *storeCache) Close() error {
 func (c *storeCache) closeReader(entry *cacheEntry) {
 	metrics.TableCacheStatistics.ActiveReaders.Decr()
 	if err := entry.reader.Close(); err != nil {
-		metrics.TableCacheStatistics.CloseErrCounter.Incr()
+		metrics.TableCacheStatistics.CloseErr.Incr()
 		tableLogger.Error("close store reader error",
 			logger.String("path", c.storePath),
 			logger.String("family", entry.family),
 			logger.String("file", entry.fileName), logger.Error(err))
 	} else {
-		metrics.TableCacheStatistics.CloseCounter.Incr()
+		metrics.TableCacheStatistics.Close.Incr()
 	}
 }
 
@@ -185,7 +185,7 @@ func (c *storeCache) evict(entry *cacheEntry) {
 	if len(files) == 0 {
 		delete(c.families, entry.family)
 	}
-	metrics.TableCacheStatistics.EvictCounter.Incr()
+	metrics.TableCacheStatistics.Evict.Incr()
 }
 
 // cacheEntry represents entry in lru cache.

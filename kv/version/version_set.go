@@ -116,7 +116,7 @@ func (vs *storeVersionSet) Destroy() error {
 	vs.mutex.Lock()
 	defer vs.mutex.Unlock()
 
-	// close manifest journal writer if it exist
+	// close manifest journal writer if it's exist
 	if vs.manifest != nil {
 		if err := vs.manifest.Close(); err != nil {
 			return err
