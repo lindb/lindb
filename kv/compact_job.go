@@ -22,16 +22,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/logger"
-)
-
-var (
-	compactScope     = linmetric.StorageRegistry.NewScope("lindb.kv.compaction")
-	kvMergeHistogram = compactScope.Scope("merge_duration").NewHistogram()
-	kvMoveHistogram  = compactScope.Scope("move_duration").NewHistogram()
 )
 
 //go:generate mockgen -source ./compact_job.go -destination=./compact_job_mock.go -package kv
@@ -48,20 +42,33 @@ type compactJob struct {
 	state     *compactionState
 	newMerger NewMerger
 	rollup    Rollup // if rollup isn't nil, need do rollup job
+
+	compactType string
 }
 
 // newCompactJob creates a compaction job
 func newCompactJob(family Family, state *compactionState, rollup Rollup) CompactJob {
+	cType := "merge"
+	if rollup != nil {
+		cType = "rollup"
+	}
 	return &compactJob{
-		family:    family,
-		newMerger: family.getNewMerger(),
-		state:     state,
-		rollup:    rollup,
+		family:      family,
+		newMerger:   family.getNewMerger(),
+		state:       state,
+		rollup:      rollup,
+		compactType: cType,
 	}
 }
 
 // Run runs compact job
 func (c *compactJob) Run() error {
+	startTime := time.Now()
+	metrics.CompactStatistics.Compacting.WithTagValues(c.compactType).Incr()
+	defer func() {
+		metrics.CompactStatistics.Compacting.WithTagValues(c.compactType).Decr()
+		metrics.CompactStatistics.Duration.WithTagValues(c.compactType).UpdateSince(startTime)
+	}()
 	compaction := c.state.compaction
 	switch {
 	case c.rollup == nil && compaction.IsTrivialMove():
@@ -69,6 +76,7 @@ func (c *compactJob) Run() error {
 		c.moveCompaction()
 	default:
 		if err := c.mergeCompaction(); err != nil {
+			metrics.CompactStatistics.Failure.WithTagValues(c.compactType).Incr()
 			return err
 		}
 	}
@@ -88,7 +96,6 @@ func (c *compactJob) moveCompaction() {
 	c.family.commitEditLog(compaction.GetEditLog())
 
 	elapsed := time.Since(startTime)
-	kvMoveHistogram.UpdateDuration(elapsed)
 	kvLogger.Info("finish move file compaction",
 		logger.String("family", c.family.familyInfo()),
 		logger.String("cost", elapsed.String()),
@@ -97,13 +104,11 @@ func (c *compactJob) moveCompaction() {
 
 // mergeCompaction merges input files to up level
 func (c *compactJob) mergeCompaction() (err error) {
-	startTime := time.Now()
 	kvLogger.Info("starting compaction job, do merge compaction",
 		logger.String("family", c.family.familyInfo()))
 	defer func() {
 		// cleanup compaction context, include temp pending output files
 		c.cleanupCompaction()
-		kvMergeHistogram.UpdateSince(startTime)
 	}()
 
 	// do merge logic
