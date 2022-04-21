@@ -17,7 +17,12 @@
 
 package kv
 
-import "github.com/lindb/lindb/pkg/timeutil"
+import (
+	"time"
+
+	"github.com/lindb/lindb/pkg/ltoml"
+	"github.com/lindb/lindb/pkg/timeutil"
+)
 
 // FamilyOption defines config items for family level
 type FamilyOption struct {
@@ -31,7 +36,8 @@ type FamilyOption struct {
 
 // StoreOption defines config item for store level
 type StoreOption struct {
-	Levels int `toml:"levels"` // num. of levels
+	Levels int            `toml:"levels"` // num. of levels
+	TTL    ltoml.Duration `toml:"ttl"`
 
 	Source timeutil.Interval   `toml:"source"` // optional(source interval)
 	Rollup []timeutil.Interval `toml:"rollup"` // optional(target interval)
@@ -41,6 +47,7 @@ type StoreOption struct {
 func DefaultStoreOption() StoreOption {
 	return StoreOption{
 		Levels: 2,
+		TTL:    ltoml.Duration(time.Hour),
 	}
 }
 

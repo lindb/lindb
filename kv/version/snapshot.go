@@ -43,6 +43,7 @@ type snapshot struct {
 	familyName string
 	cache      table.Cache
 
+	readers []table.Reader // current read table.Reader list
 	version Version
 	closed  atomic.Bool
 }
@@ -75,6 +76,7 @@ func (s *snapshot) FindReaders(key uint32) ([]table.Reader, error) {
 			return nil, err
 		}
 		if reader != nil {
+			s.readers = append(s.readers, reader)
 			readers = append(readers, reader)
 		}
 	}
@@ -83,7 +85,11 @@ func (s *snapshot) FindReaders(key uint32) ([]table.Reader, error) {
 
 // GetReader returns the file reader
 func (s *snapshot) GetReader(fileNumber table.FileNumber) (table.Reader, error) {
-	return s.cache.GetReader(s.familyName, Table(fileNumber))
+	reader, err := s.cache.GetReader(s.familyName, Table(fileNumber))
+	if reader != nil {
+		s.readers = append(s.readers, reader)
+	}
+	return reader, err
 }
 
 // Close releases related resources
@@ -91,5 +97,6 @@ func (s *snapshot) Close() {
 	// atomic set closed status, make sure only release once
 	if s.closed.CAS(false, true) {
 		s.version.Release()
+		s.cache.ReleaseReaders(s.readers)
 	}
 }

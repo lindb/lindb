@@ -78,7 +78,7 @@ type Store interface {
 	// commitFamilyEditLog persists edit logs to manifest file, then apply new version to family version
 	commitFamilyEditLog(name string, editLog version.EditLog) error
 	// evictFamilyFile evicts family file reader from cache
-	evictFamilyFile(name string, fileNumber table.FileNumber)
+	evictFamilyFile(fileNumber table.FileNumber)
 }
 
 // store implements Store interface
@@ -155,7 +155,7 @@ func newStore(name, path string, option StoreOption) (s Store, err error) {
 	}()
 
 	// build store reader cache
-	store1.cache = table.NewCache(path)
+	store1.cache = table.NewCache(path, option.TTL.Duration())
 	// init version set
 	store1.versions = newVersionSetFunc(path, store1.cache, store1.option.Levels)
 
@@ -289,8 +289,8 @@ func (s *store) close() error {
 }
 
 // evictFamilyFile evicts family file reader from cache
-func (s *store) evictFamilyFile(name string, fileNumber table.FileNumber) {
-	s.cache.Evict(name, version.Table(fileNumber))
+func (s *store) evictFamilyFile(fileNumber table.FileNumber) {
+	s.cache.Evict(version.Table(fileNumber))
 }
 
 // createFamilyVersion creates family version using family name and family id,
@@ -339,6 +339,9 @@ func (s *store) compact() {
 			family.rollup()
 		}
 	}
+
+	// try to evict expired reader from cache.
+	s.cache.Cleanup()
 }
 
 // deleteFamilyObsoleteFiles deletes the all families obsolete files when init kv store

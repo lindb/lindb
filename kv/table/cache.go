@@ -18,124 +18,260 @@
 package table
 
 import (
+	"container/list"
 	"path/filepath"
 	"sync"
+	"time"
 
-	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/timeutil"
+
+	"go.uber.org/atomic"
 )
 
 //go:generate mockgen -source ./cache.go -destination=./cache_mock.go -package table
 
 // for test
 var (
-	newMMapStoreReaderFunc   = newMMapStoreReader
-	_once4Cache              sync.Once
-	_instanceCacheStatistics *cacheStatistics
+	newMMapStoreReaderFunc = newMMapStoreReader
 )
 
-func getCacheStatistics() *cacheStatistics {
-	_once4Cache.Do(func() {
-		tableCacheScope := linmetric.StorageRegistry.NewScope("lindb.kv.table.cache")
-		_instanceCacheStatistics = &cacheStatistics{
-			evictCounts: tableCacheScope.NewCounter("evict_counts"),
-			cacheHits:   tableCacheScope.NewCounter("cache_hits"),
-			cacheMisses: tableCacheScope.NewCounter("cache_misses"),
-			CloseCounts: tableCacheScope.NewCounter("close_counts"),
-			CloseErrors: tableCacheScope.NewCounter("close_errors"),
-		}
-	})
-	return _instanceCacheStatistics
-}
-
-type cacheStatistics struct {
-	evictCounts *linmetric.BoundCounter
-	cacheHits   *linmetric.BoundCounter
-	cacheMisses *linmetric.BoundCounter
-	CloseCounts *linmetric.BoundCounter
-	CloseErrors *linmetric.BoundCounter
-}
-
-// Cache caches table readers
+// Cache caches table readers.
 type Cache interface {
 	// GetReader returns store reader from cache, create new reader if not exist.
 	GetReader(family string, fileName string) (Reader, error)
-	// Evict evicts file reader from cache
-	Evict(family string, fileName string)
-	// Close cleans cache data after closing reader resource firstly
+	// ReleaseReaders releases reader after read completed.
+	ReleaseReaders(readers []Reader)
+	// Evict evicts file reader from cache.
+	Evict(fileName string)
+	// Cleanup cleans the expired reader from cache.
+	Cleanup()
+	// Close cleans cache data after closing reader resource firstly.
 	Close() error
 }
 
-// Cache caches table readers based on map
-type mapCache struct {
+// Cache caches table readers based on lru cache.
+type storeCache struct {
+	ttl       time.Duration
 	storePath string
-	readers   map[string]Reader
+	families  map[string]map[string]struct{} // family name => files
+	cache     *LRUCache
 	mutex     sync.Mutex
 }
 
-// NewCache creates cache for store readers
-func NewCache(storePath string) Cache {
-	return &mapCache{
+// NewCache creates cache for store readers.
+func NewCache(storePath string, ttl time.Duration) Cache {
+	return &storeCache{
+		ttl:       ttl,
 		storePath: storePath,
-		readers:   make(map[string]Reader),
+		families:  make(map[string]map[string]struct{}),
+		cache:     NewLRUCache(),
 	}
 }
 
-// Evict evicts file reader from cache
-func (c *mapCache) Evict(family, fileName string) {
-	filePath := filepath.Join(family, fileName)
+// Evict evicts file reader from cache.
+func (c *storeCache) Evict(fileName string) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	reader, ok := c.readers[filePath]
+
+	entry, ok := c.cache.Get(fileName)
 	if ok {
-		if err := reader.Close(); err != nil {
-			getCacheStatistics().CloseErrors.Incr()
-			tableLogger.Error("close store reader error",
-				logger.String("path", c.storePath),
-				logger.String("file", filePath), logger.Error(err))
-		} else {
-			getCacheStatistics().CloseCounts.Incr()
-		}
-		getCacheStatistics().evictCounts.Incr()
-		delete(c.readers, filePath)
+		c.evict(entry)
+
+		c.cache.Remove(fileName)
 	}
 }
 
-// GetReader returns store reader from cache, create new reader if not exist
-func (c *mapCache) GetReader(family, fileName string) (Reader, error) {
-	filePath := filepath.Join(family, fileName)
+// ReleaseReaders releases reader after read completed.
+func (c *storeCache) ReleaseReaders(readers []Reader) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	for _, r := range readers {
+		entry, ok := c.cache.Get(r.FileName())
+		if ok {
+			entry.release()
+		}
+	}
+}
+
+// GetReader returns store reader from cache, create new reader if not exist.
+func (c *storeCache) GetReader(family, fileName string) (Reader, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	// find from cache
-	reader, ok := c.readers[filePath]
+	entry, ok := c.cache.Get(fileName)
 	if ok {
-		getCacheStatistics().cacheHits.Incr()
-		return reader, nil
+		entry.retain()
+		metrics.TableCacheStatistics.HitCounter.Incr()
+		return entry.reader, nil
 	}
 
-	getCacheStatistics().cacheMisses.Incr()
+	metrics.TableCacheStatistics.MissCounter.Incr()
+	metrics.TableCacheStatistics.ActiveReaders.Incr()
 	// create new reader
-	path := filepath.Join(c.storePath, filePath)
-	newReader, err := newMMapStoreReaderFunc(path)
+	path := filepath.Join(c.storePath, family, fileName)
+	newReader, err := newMMapStoreReaderFunc(path, fileName)
 	if err != nil {
 		return nil, err
 	}
-	c.readers[filePath] = newReader
+	entry = &cacheEntry{
+		key:      fileName,
+		reader:   newReader,
+		family:   family,
+		fileName: fileName,
+	}
+	entry.retain()
+	c.cache.Add(fileName, entry)
+
+	files, ok := c.families[family]
+	if ok {
+		files[fileName] = struct{}{}
+	} else {
+		c.families[family] = map[string]struct{}{fileName: {}}
+	}
+
 	return newReader, nil
 }
 
+// Cleanup cleans the expired reader from cache.
+func (c *storeCache) Cleanup() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	ttl := c.ttl.Milliseconds()
+	c.cache.Walk(func(entry *cacheEntry) bool {
+		if entry.ref.Load() == 0 && timeutil.Now()-entry.last > ttl {
+			c.evict(entry)
+			metrics.TableCacheStatistics.EvictCounter.Incr()
+			return true
+		}
+		return false
+	})
+}
+
 // Close closes reader resource and cleans cache data.
-func (c *mapCache) Close() error {
-	for k, v := range c.readers {
-		if err := v.Close(); err != nil {
-			getCacheStatistics().CloseErrors.Incr()
-			tableLogger.Error("close store reader error",
-				logger.String("path", c.storePath),
-				logger.String("file", k), logger.Error(err))
-		} else {
-			getCacheStatistics().CloseCounts.Incr()
+func (c *storeCache) Close() error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.cache.Purge(func(entry *cacheEntry) {
+		c.closeReader(entry)
+		metrics.TableCacheStatistics.EvictCounter.Incr()
+	})
+	return nil
+}
+
+func (c *storeCache) closeReader(entry *cacheEntry) {
+	metrics.TableCacheStatistics.ActiveReaders.Decr()
+	if err := entry.reader.Close(); err != nil {
+		metrics.TableCacheStatistics.CloseErrCounter.Incr()
+		tableLogger.Error("close store reader error",
+			logger.String("path", c.storePath),
+			logger.String("family", entry.family),
+			logger.String("file", entry.fileName), logger.Error(err))
+	} else {
+		metrics.TableCacheStatistics.CloseCounter.Incr()
+	}
+}
+
+func (c *storeCache) evict(entry *cacheEntry) {
+	c.closeReader(entry)
+
+	files := c.families[entry.family]
+	delete(files, entry.fileName)
+	if len(files) == 0 {
+		delete(c.families, entry.family)
+	}
+	metrics.TableCacheStatistics.EvictCounter.Incr()
+}
+
+// cacheEntry represents entry in lru cache.
+type cacheEntry struct {
+	key              string       // file name
+	reader           Reader       // file reader
+	ref              atomic.Int32 // how many read
+	family, fileName string
+	last             int64 // last read timestamp
+}
+
+func (e *cacheEntry) retain() {
+	e.ref.Inc()
+	e.last = timeutil.Now()
+}
+
+func (e *cacheEntry) release() {
+	e.ref.Dec()
+}
+
+type LRUCache struct {
+	items     map[string]*list.Element
+	evictList *list.List
+}
+
+// NewLRUCache constructs an LRU cache.
+func NewLRUCache() *LRUCache {
+	return &LRUCache{
+		evictList: list.New(),
+		items:     make(map[string]*list.Element),
+	}
+}
+
+// Add adds a value to the cache.
+func (c *LRUCache) Add(key string, value *cacheEntry) {
+	entry := c.evictList.PushFront(value)
+	c.items[key] = entry
+}
+
+// Get looks up a key's value from the cache.
+func (c *LRUCache) Get(key string) (value *cacheEntry, ok bool) {
+	if ent, ok := c.items[key]; ok {
+		c.evictList.MoveToFront(ent)
+		value := ent.Value.(*cacheEntry)
+		return value, true
+	}
+	return
+}
+
+// Remove removes the provided key from the cache.
+func (c *LRUCache) Remove(key string) {
+	if ent, ok := c.items[key]; ok {
+		c.removeElement(ent)
+	}
+}
+
+// Walk walks the old entries, if it's expired, need to remove.
+func (c *LRUCache) Walk(fn func(entry *cacheEntry) bool) {
+	size := len(c.items)
+	for i := 0; i < size; i++ {
+		// get oldest entry
+		ent := c.evictList.Back()
+		if ent != nil {
+			entry := ent.Value.(*cacheEntry)
+			if fn(entry) {
+				c.removeElement(ent)
+			} else {
+				break
+			}
 		}
 	}
-	return nil
+}
+
+// Purge is used to completely clear the cache.
+func (c *LRUCache) Purge(fn func(entry *cacheEntry)) {
+	for k, v := range c.items {
+		entry := v.Value.(*cacheEntry)
+		fn(entry)
+		delete(c.items, k)
+	}
+	c.evictList.Init()
+}
+
+// removeElement is used to remove a given list element from the cache
+func (c *LRUCache) removeElement(e *list.Element) {
+	c.evictList.Remove(e)
+	kv := e.Value.(*cacheEntry)
+	delete(c.items, kv.key)
 }

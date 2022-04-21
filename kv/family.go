@@ -319,7 +319,7 @@ func (f *family) deleteObsoleteFiles() {
 			_, keep = liveFiles[fileNumber]
 		}
 		if !keep {
-			f.store.evictFamilyFile(f.name, fileNumber)
+			f.store.evictFamilyFile(fileNumber)
 			if err := f.deleteSST(fileNumber); err != nil {
 				kvLogger.Error("delete sst file fail",
 					logger.String("family", f.familyInfo()), logger.Any("fileNumber", fileNumber))
