@@ -23,42 +23,21 @@ import (
 	"hash"
 	"hash/crc32"
 	"io"
-	"sync"
 
-	"github.com/lindb/roaring"
-
-	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/bufioutil"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
+
+	"github.com/lindb/roaring"
 )
 
 //go:generate mockgen -source ./builder.go -destination=./builder_mock.go -package table
 
 // for testing
 var (
-	newBufioWriterFunc         = bufioutil.NewBufioStreamWriter
-	_once4Builder              sync.Once
-	_instanceBuilderStatistics *builderStatistics
+	newBufioWriterFunc = bufioutil.NewBufioStreamWriter
 )
-
-func getBuilderStatistics() *builderStatistics {
-	_once4Builder.Do(func() {
-		tableBuilderScope := linmetric.StorageRegistry.NewScope("lindb.kv.table.builder")
-		_instanceBuilderStatistics = &builderStatistics{
-			AddBadKeys: tableBuilderScope.NewCounter("bad_keys"),
-			AddKeys:    tableBuilderScope.NewCounter("add_keys"),
-			AddBytes:   tableBuilderScope.NewCounter("add_bytes"),
-		}
-	})
-	return _instanceBuilderStatistics
-}
-
-type builderStatistics struct {
-	AddBadKeys *linmetric.BoundCounter
-	AddKeys    *linmetric.BoundCounter
-	AddBytes   *linmetric.BoundCounter
-}
 
 // FileNumber represents sst file number
 type FileNumber int64
@@ -153,7 +132,7 @@ func (b *storeBuilder) ensureIncreasingKey(key uint32) bool {
 		return true
 	}
 	if key <= b.maxKey {
-		getBuilderStatistics().AddBadKeys.Incr()
+		metrics.TableWriteStatistics.AddBadKeys.Incr()
 		tableLogger.Warn("key is smaller then last key ignore current options.",
 			logger.String("file", b.fileName),
 			logger.Uint32("last", b.maxKey),
@@ -186,8 +165,8 @@ func (b *storeBuilder) Add(key uint32, value []byte) error {
 	if _, err := b.writer.Write(value); err != nil {
 		return fmt.Errorf("write data into store file error:%s", err)
 	}
-	getBuilderStatistics().AddKeys.Incr()
-	getBuilderStatistics().AddBytes.Add(float64(len(value)))
+	metrics.TableWriteStatistics.AddKeys.Incr()
+	metrics.TableWriteStatistics.WriteBytes.Add(float64(len(value)))
 	b.afterWrite(key, int(offset))
 	return nil
 }
@@ -288,7 +267,7 @@ func (sw *streamWriter) Write(data []byte) (int, error) {
 	if err == nil {
 		sw.size += uint32(n)
 	}
-	getBuilderStatistics().AddBytes.Add(float64(len(data)))
+	metrics.TableWriteStatistics.WriteBytes.Add(float64(len(data)))
 	return n, err
 }
 

@@ -20,6 +20,7 @@ package table
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -31,9 +32,9 @@ func TestMapCache_GetReader(t *testing.T) {
 		newMMapStoreReaderFunc = newMMapStoreReader
 		ctrl.Finish()
 	}()
-	cache := NewCache(t.TempDir())
+	cache := NewCache(t.TempDir(), time.Hour)
 	// case 1: get reader err
-	newMMapStoreReaderFunc = func(path string) (r Reader, err error) {
+	newMMapStoreReaderFunc = func(path, fileName string) (r Reader, err error) {
 		return nil, fmt.Errorf("err")
 	}
 	r, err := cache.GetReader("f", "100000.sst")
@@ -41,7 +42,7 @@ func TestMapCache_GetReader(t *testing.T) {
 	assert.Nil(t, r)
 	// case 2: get reader success
 	mockReader := NewMockReader(ctrl)
-	newMMapStoreReaderFunc = func(path string) (reader Reader, err error) {
+	newMMapStoreReaderFunc = func(path, fileName string) (reader Reader, err error) {
 		return mockReader, nil
 	}
 	r, err = cache.GetReader("f", "100000.sst")
@@ -51,16 +52,16 @@ func TestMapCache_GetReader(t *testing.T) {
 	r, err = cache.GetReader("f", "100000.sst")
 	assert.NoError(t, err)
 	assert.Equal(t, mockReader, r)
+
 	// case 4: evict not exist
-	cache.Evict("f", "200000.sst")
-	cache.Evict("f1", "100000.sst")
+	cache.Evict("200000.sst")
 	// case 5: evict reader err
 	mockReader.EXPECT().Close().Return(fmt.Errorf("err"))
-	cache.Evict("f", "100000.sst")
+	cache.Evict("100000.sst")
 	// case6, evict ok
 	mockReader.EXPECT().Close().Return(nil)
 	_, _ = cache.GetReader("f", "100000.sst")
-	cache.Evict("f", "100000.sst")
+	cache.Evict("100000.sst")
 
 	// case 6: close err
 	mockReader.EXPECT().Close().Return(fmt.Errorf("err")).MaxTimes(2)
@@ -70,6 +71,38 @@ func TestMapCache_GetReader(t *testing.T) {
 	assert.NoError(t, err)
 	// case7, close ok
 	mockReader.EXPECT().Close().Return(nil).AnyTimes()
+	err = cache.Close()
+	assert.NoError(t, err)
+}
+
+func TestStoreCache_Cleanup(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		newMMapStoreReaderFunc = newMMapStoreReader
+		ctrl.Finish()
+	}()
+
+	cache := NewCache(t.TempDir(), time.Millisecond)
+	mockReader := NewMockReader(ctrl)
+	newMMapStoreReaderFunc = func(path, fileName string) (reader Reader, err error) {
+		return mockReader, nil
+	}
+	r, err := cache.GetReader("f", "100000.sst")
+	assert.NoError(t, err)
+	assert.Equal(t, mockReader, r)
+
+	time.Sleep(time.Millisecond * 100)
+	cache.Cleanup()
+	cache1 := cache.(*storeCache)
+	assert.Len(t, cache1.cache.items, 1)
+
+	mockReader.EXPECT().FileName().Return("100000.sst")
+	cache.ReleaseReaders([]Reader{r})
+
+	mockReader.EXPECT().Close().Return(nil)
+	cache.Cleanup()
+	assert.Len(t, cache1.cache.items, 0)
+
 	err = cache.Close()
 	assert.NoError(t, err)
 }
