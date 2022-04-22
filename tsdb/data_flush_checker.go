@@ -19,6 +19,7 @@ package tsdb
 
 import (
 	"context"
+	"strconv"
 	"sync"
 	"time"
 
@@ -27,6 +28,7 @@ import (
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/monitoring"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/ltoml"
@@ -101,7 +103,7 @@ func newDataFlushChecker(ctx context.Context) DataFlushChecker {
 	return &dataFlushChecker{
 		ctx:                  c,
 		cancel:               cancel,
-		flushRequestCh:       make(chan *flushRequest),
+		flushRequestCh:       make(chan *flushRequest, 8),
 		memoryStatGetterFunc: mem.VirtualMemory,
 		running:              atomic.NewBool(false),
 		logger:               engineLogger,
@@ -172,6 +174,7 @@ func (fc *dataFlushChecker) check() {
 				needFlushDB.shards[shard.ShardID()] = needFlushShard
 			}
 			needFlushShard.families = append(needFlushShard.families, family)
+			metrics.ShardStatistics.FlushInFlight.WithTagValues(dbName, strconv.Itoa(int(shard.ShardID()))).Incr()
 		}
 	})
 
@@ -281,6 +284,8 @@ func (fc *dataFlushChecker) flushShard(request *flushShard) {
 			engineLogger.Error("flush family memory database error",
 				logger.String("family", family.Indicator()), logger.Error(err))
 		}
+		metrics.ShardStatistics.FlushInFlight.
+			WithTagValues(request.shard.Database().Name(), strconv.Itoa(int(request.shard.ShardID()))).Decr()
 	}
 }
 

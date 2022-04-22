@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/cespare/xxhash/v2"
+	xxhash "github.com/cespare/xxhash/v2"
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/aggregation"

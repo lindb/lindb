@@ -26,10 +26,13 @@ import (
 )
 
 const sstSuffix = "sst"
+
 const TmpSuffix = "tmp"
 
 const Lock = "LOCK"
+
 const Options = "OPTIONS"
+
 const ManifestPrefix = "MANIFEST-"
 
 // FileType represents a file type.

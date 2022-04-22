@@ -20,10 +20,10 @@ package state
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/mock"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestNewRepo(t *testing.T) {

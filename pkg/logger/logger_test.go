@@ -22,11 +22,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/lindb/lindb/config"
-
 	"github.com/stretchr/testify/assert"
-
 	"go.uber.org/zap/zapcore"
+
+	"github.com/lindb/lindb/config"
 )
 
 func Test_Logger(t *testing.T) {

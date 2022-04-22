@@ -22,13 +22,13 @@ import (
 	"strconv"
 	"testing"
 
+	xxhash "github.com/cespare/xxhash/v2"
+	flatbuffers "github.com/google/flatbuffers/go"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
 	"github.com/lindb/lindb/series/field"
-
-	"github.com/cespare/xxhash/v2"
-	flatbuffers "github.com/google/flatbuffers/go"
-	"github.com/stretchr/testify/assert"
 )
 
 func buildFlatMetric(builder *flatbuffers.Builder) {

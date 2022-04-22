@@ -20,10 +20,10 @@ package flow
 import (
 	"encoding/binary"
 
+	"github.com/lindb/roaring"
+
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/series/tag"
-
-	"github.com/lindb/roaring"
 )
 
 //go:generate mockgen -source=./grouping.go -destination=./grouping_mock.go -package=flow

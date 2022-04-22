@@ -225,8 +225,10 @@ func (it *Iterator) Reset() {
 	it.fullKeyBuf = it.fullKeyBuf[:0]
 }
 
-func (it *Iterator) moveToLeftMostKey()  { it.moveToMostKey(true) }
+func (it *Iterator) moveToLeftMostKey() { it.moveToMostKey(true) }
+
 func (it *Iterator) moveToRightMostKey() { it.moveToMostKey(false) }
+
 func (it *Iterator) moveToMostKey(left bool) {
 	var labelPosFunc func(nodeID uint32) uint32
 	if left {

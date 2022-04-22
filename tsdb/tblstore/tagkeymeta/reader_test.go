@@ -23,15 +23,15 @@ import (
 	"io"
 	"testing"
 
+	"github.com/golang/mock/gomock"
+	"github.com/lindb/roaring"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
-
-	"github.com/golang/mock/gomock"
-	"github.com/lindb/roaring"
-	"github.com/stretchr/testify/assert"
 )
 
 func buildTrieBlock() (zoneBlock, ipBlock, hostBlock []byte) {

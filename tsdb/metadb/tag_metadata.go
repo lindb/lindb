@@ -22,14 +22,16 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/lindb/roaring"
+
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/tblstore/tagkeymeta"
-
-	"github.com/lindb/roaring"
 )
 
 //go:generate mockgen -source ./tag_metadata.go -destination=./tag_metadata_mock.go -package metadb
@@ -69,6 +71,11 @@ type tagMetadata struct {
 	immutable    *TagStore // immutable need to flush into kv store
 
 	rwMutex sync.RWMutex
+
+	statistics struct {
+		genTagValueIDs        *linmetric.BoundCounter
+		genTagValueIDFailures *linmetric.BoundCounter
+	}
 }
 
 // NewTagMetadata creates a tag metadata
@@ -78,6 +85,8 @@ func NewTagMetadata(databaseName string, family kv.Family) TagMetadata {
 		family:       family,
 		mutable:      NewTagStore(),
 	}
+	m.statistics.genTagValueIDs = metrics.MetaDBStatistics.GenTagValueIDs.WithTagValues(databaseName)
+	m.statistics.genTagValueIDFailures = metrics.MetaDBStatistics.GenTagValueIDFailures.WithTagValues(databaseName)
 	return m
 }
 
@@ -99,6 +108,7 @@ func (m *tagMetadata) GenTagValueID(tagKeyID tag.KeyID, tagValue string) (tagVal
 	readers, err := snapshot.FindReaders(uint32(tagKeyID))
 	if err != nil {
 		// find table.Reader err, return it
+		m.statistics.genTagValueIDFailures.Incr()
 		return
 	}
 	var reader tagkeymeta.Reader
@@ -112,6 +122,7 @@ func (m *tagMetadata) GenTagValueID(tagKeyID tag.KeyID, tagValue string) (tagVal
 		}
 		if !errors.Is(err, constants.ErrNotFound) {
 			// if load tag value id err, return it
+			m.statistics.genTagValueIDFailures.Incr()
 			return
 		}
 	}
@@ -132,6 +143,7 @@ func (m *tagMetadata) GenTagValueID(tagKeyID tag.KeyID, tagValue string) (tagVal
 			// if tag data exist in kv store, need load tag value id auto sequence
 			seq, err := reader.GetTagValueSeq(tagKeyID)
 			if err != nil {
+				m.statistics.genTagValueIDFailures.Incr()
 				return 0, err
 			}
 			tagEntry = newTagEntry(seq)
@@ -146,7 +158,8 @@ func (m *tagMetadata) GenTagValueID(tagKeyID tag.KeyID, tagValue string) (tagVal
 	// assign new id
 	tagValueID = tagEntry.genTagValueID()
 	tagEntry.addTagValue(tagValue, tagValueID)
-	// TODO add wal???
+
+	m.statistics.genTagValueIDs.Incr()
 
 	return tagValueID, nil
 }

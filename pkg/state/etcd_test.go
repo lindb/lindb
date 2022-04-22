@@ -24,12 +24,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/hostutil"
-
-	"github.com/stretchr/testify/assert"
 )
 
 type address struct {

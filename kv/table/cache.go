@@ -23,11 +23,11 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/atomic"
+
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
-
-	"go.uber.org/atomic"
 )
 
 //go:generate mockgen -source ./cache.go -destination=./cache_mock.go -package table

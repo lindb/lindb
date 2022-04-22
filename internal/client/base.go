@@ -17,7 +17,7 @@
 
 package client
 
-import "github.com/go-resty/resty/v2"
+import resty "github.com/go-resty/resty/v2"
 
 // Base represents base client.
 type Base struct {

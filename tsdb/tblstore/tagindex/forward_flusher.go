@@ -21,11 +21,11 @@ import (
 	"encoding/binary"
 	"io"
 
+	"github.com/lindb/roaring"
+
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/encoding"
-
-	"github.com/lindb/roaring"
 )
 
 //go:generate mockgen -source ./forward_flusher.go -destination=./forward_flusher_mock.go -package tagindex

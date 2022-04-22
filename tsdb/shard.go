@@ -31,6 +31,7 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
@@ -45,19 +46,6 @@ import (
 )
 
 //go:generate mockgen -source=./shard.go -destination=./shard_mock.go -package=tsdb
-
-var (
-	shardScope                  = linmetric.StorageRegistry.NewScope("lindb.tsdb.shard")
-	lookupMetricMetaFailuresVec = shardScope.NewCounterVec("lookup_metric_meta_failures", "db", "shard")
-	writeBatchesVec             = shardScope.NewCounterVec("write_batches", "db", "shard")
-	writeMetricsVec             = shardScope.NewCounterVec("write_metrics", "db", "shard")
-	metricMetricFailuresVec     = shardScope.NewCounterVec("write_metrics_failures", "db", "shard")
-	writeFieldsVec              = shardScope.NewCounterVec("write_fields", "db", "shard")
-	memdbTotalSizeVec           = shardScope.NewGaugeVec("memdb_total_size", "db", "shard")
-	memdbNumberVec              = shardScope.NewGaugeVec("memdb_number", "db", "shard")
-	memFlushTimerVec            = shardScope.Scope("memdb_flush_duration").NewHistogramVec("db", "shard")
-	indexFlushTimerVec          = shardScope.Scope("indexdb_flush_duration").NewHistogramVec("db", "shard")
-)
 
 // Shard is a horizontal partition of metrics for LinDB.
 type Shard interface {
@@ -119,7 +107,8 @@ type shard struct {
 
 	statistics struct {
 		lookupMetricMetaFailures *linmetric.BoundCounter
-		indexFlushTimer          *linmetric.BoundHistogram
+		indexDBFlushFailures     *linmetric.BoundCounter
+		indexDBFlushDuration     *linmetric.BoundHistogram
 	}
 }
 
@@ -157,8 +146,9 @@ func newShard(
 
 	// initialize metrics
 	shardIDStr := strconv.Itoa(int(shardID))
-	createdShard.statistics.lookupMetricMetaFailures = lookupMetricMetaFailuresVec.WithTagValues(db.Name(), shardIDStr)
-	createdShard.statistics.indexFlushTimer = indexFlushTimerVec.WithTagValues(db.Name(), shardIDStr)
+	createdShard.statistics.lookupMetricMetaFailures = metrics.ShardStatistics.LookupMetricMetaFailures.WithTagValues(db.Name(), shardIDStr)
+	createdShard.statistics.indexDBFlushFailures = metrics.ShardStatistics.IndexDBFlushFailures.WithTagValues(db.Name(), shardIDStr)
+	createdShard.statistics.indexDBFlushDuration = metrics.ShardStatistics.IndexDBFlushDuration.WithTagValues(db.Name(), shardIDStr)
 
 	for idx, targetInterval := range dbOption.Intervals {
 		// new segment for rollup
@@ -381,18 +371,18 @@ func (s *shard) FlushIndex() (err error) {
 		return nil
 	}
 	// 1. mark flush job doing
-	s.flushCondition.L.Lock()
-
+	startTime := time.Now()
 	defer func() {
+		s.flushCondition.L.Lock()
 		s.isFlushing.Store(false)
 		s.flushCondition.L.Unlock()
 		// mark flush job complete, notify
 		s.flushCondition.Broadcast()
+		s.statistics.indexDBFlushDuration.UpdateSince(startTime)
 	}()
-
-	startTime := time.Now()
 	// index flush
 	if err = s.indexDB.Flush(); err != nil {
+		s.statistics.indexDBFlushFailures.Incr()
 		s.logger.Error("failed to flush indexDB ",
 			logger.String("database", s.db.Name()),
 			logger.Any("shardID", s.id),
@@ -403,7 +393,6 @@ func (s *shard) FlushIndex() (err error) {
 		logger.String("database", s.db.Name()),
 		logger.Any("shardID", s.id),
 	)
-	s.statistics.indexFlushTimer.UpdateSince(startTime)
 
 	return nil
 }

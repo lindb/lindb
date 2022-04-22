@@ -21,11 +21,11 @@ import (
 	"math"
 	"testing"
 
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/timeutil"
-
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 func Test_fillInfBlock(t *testing.T) {

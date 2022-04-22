@@ -35,7 +35,9 @@ var (
 )
 
 var log = logger.GetLogger("sql", "Parser")
+
 var errorHandle = &errorListener{}
+
 var walker = antlr.ParseTreeWalkerDefault
 
 // Parse parses sql using the grammar of LinDB query language
@@ -94,6 +96,7 @@ func getSQLLexer(input *antlr.InputStream) *grammar.SQLLexer {
 	l.SetInputStream(input)
 	return l
 }
+
 func putSQLLexer(l *grammar.SQLLexer) {
 	lexerPool.Put(l)
 }

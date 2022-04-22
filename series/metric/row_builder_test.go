@@ -21,9 +21,9 @@ import (
 	"math"
 	"testing"
 
-	"github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
-
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
 )
 
 func Test_NewRowBuilder(t *testing.T) {
@@ -206,6 +206,7 @@ func Test_dedupTags_SortedKVs(t *testing.T) {
 	_ = rb.dedupTagsThenXXHash()
 	assert.Equal(t, "a=a,c=c", rb.hashBuf.String())
 }
+
 func Test_dedupTagsThenXXHash_One(t *testing.T) {
 	rb := newRowBuilder()
 	_ = rb.AddTag([]byte("ccc"), []byte("a"))

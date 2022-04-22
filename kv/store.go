@@ -25,6 +25,8 @@ import (
 	"strings"
 	"sync"
 
+	"go.uber.org/atomic"
+
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/pkg/fileutil"
@@ -90,7 +92,7 @@ type store struct {
 	lock     lockers.FileLock
 	versions version.StoreVersionSet
 	// each family instance need to be assigned a unique family id
-	familySeq int
+	familySeq atomic.Int32
 	families  map[string]Family
 	// RWMutex for accessing family
 	rwMutex sync.RWMutex
@@ -166,12 +168,11 @@ func newStore(name, path string, option StoreOption) (s Store, err error) {
 			return nil, err
 		}
 	} else {
-		// existed store need loading all families instance
+		// existed store calc family sequence
 		for familyName, familyOption := range info.Families {
-			if store1.familySeq < familyOption.ID {
-				store1.familySeq = familyOption.ID
+			if int(store1.familySeq.Load()) < familyOption.ID {
+				store1.familySeq.Store(int32(familyOption.ID))
 			}
-			// TODO lazy load??????
 			var family Family
 			// open existed family
 			family, err = newFamily(store1, familyOption)
@@ -202,8 +203,9 @@ func (s *store) Path() string {
 
 // CreateFamily create/load column family.
 func (s *store) CreateFamily(familyName string, option FamilyOption) (family Family, err error) {
+	var ok bool
 	s.rwMutex.RLock()
-	family, ok := s.families[familyName]
+	family, ok = s.families[familyName]
 	s.rwMutex.RUnlock()
 	if ok {
 		// return exist family
@@ -219,8 +221,8 @@ func (s *store) CreateFamily(familyName string, option FamilyOption) (family Fam
 		// create new family
 		option.Name = familyName
 		// assign unique family id
-		s.familySeq++
-		option.ID = s.familySeq
+		s.familySeq.Inc()
+		option.ID = int(s.familySeq.Load())
 		s.storeInfo.Families[familyName] = option
 		if err = s.dumpStoreInfo(); err != nil {
 			// if dump store info error remove family option from store info

@@ -85,6 +85,7 @@ func (m *connectionManager) Close() error {
 	}
 	return nil
 }
+
 func (m *connectionManager) closeConnection(target string) {
 	closed, err := m.taskClientFct.CloseTaskClient(target)
 	delete(m.connections, target)

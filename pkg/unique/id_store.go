@@ -21,9 +21,9 @@ import (
 	"bytes"
 	"io"
 
-	"github.com/lindb/lindb/pkg/logger"
-
 	"github.com/cockroachdb/pebble"
+
+	"github.com/lindb/lindb/pkg/logger"
 )
 
 //go:generate mockgen -source ./id_store.go -destination=./id_store_mock.go -package=unique

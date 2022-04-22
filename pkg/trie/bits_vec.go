@@ -38,6 +38,7 @@ func (v *bitVector) numWords() uint32 {
 	}
 	return wordSz
 }
+
 func (v *bitVector) String() string {
 	var s strings.Builder
 	for i := uint32(0); i < v.numBits; i++ {

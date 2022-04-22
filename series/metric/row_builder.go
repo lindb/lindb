@@ -24,7 +24,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/cespare/xxhash/v2"
+	xxhash "github.com/cespare/xxhash/v2"
 	flatbuffers "github.com/google/flatbuffers/go"
 
 	"github.com/lindb/lindb/config"
@@ -44,8 +44,10 @@ type rowKVs struct {
 	kvCount int
 }
 
-func (items rowKVs) Len() int      { return items.kvCount }
+func (items rowKVs) Len() int { return items.kvCount }
+
 func (items rowKVs) Swap(i, j int) { items.kvs[i], items.kvs[j] = items.kvs[j], items.kvs[i] }
+
 func (items rowKVs) Less(i, j int) bool {
 	return bytes.Compare(items.kvs[i].key, items.kvs[j].key) < 0
 }

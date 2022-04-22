@@ -58,8 +58,11 @@ func (m *BoundMax) Update(newValue float64) {
 func (m *BoundMax) Get() float64 {
 	return m.value.Load()
 }
+
 func (m *BoundMax) gather() float64 { return m.value.Load() }
-func (m *BoundMax) name() string    { return m.fieldName }
+
+func (m *BoundMax) name() string { return m.fieldName }
+
 func (m *BoundMax) flatType() flatMetricsV1.SimpleFieldType {
 	return flatMetricsV1.SimpleFieldTypeMax
 }

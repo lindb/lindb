@@ -29,6 +29,7 @@ import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
@@ -40,11 +41,6 @@ var (
 	createBackendFn = newIDMappingBackend
 )
 
-var (
-	indexDBScope                 = linmetric.StorageRegistry.NewScope("lindb.tsdb.indexdb")
-	buildInvertedIndexCounterVec = indexDBScope.NewCounterVec("build_inverted_index_counter", "db")
-)
-
 // indexDatabase implements IndexDatabase interface
 type indexDatabase struct {
 	path             string
@@ -54,6 +50,10 @@ type indexDatabase struct {
 	metricID2Mapping map[metric.ID]MetricIDMapping // key: metric id, value: metric id mapping
 	metadata         metadb.Metadata               // the metadata for generating ID of metric, field
 	index            InvertedIndex
+
+	statistics struct {
+		buildInvertedIndex *linmetric.BoundCounter
+	}
 
 	rwMutex sync.RWMutex // lock of create metric index
 }
@@ -77,6 +77,7 @@ func NewIndexDatabase(ctx context.Context, parent string, metadata metadb.Metada
 		metricID2Mapping: make(map[metric.ID]MetricIDMapping),
 		index:            newInvertedIndex(metadata, forwardFamily, invertedFamily),
 	}
+	db.statistics.buildInvertedIndex = metrics.IndexDBStatistics.BuildInvertedIndex.WithTagValues(db.metadata.DatabaseName())
 
 	return db, nil
 }
@@ -185,7 +186,7 @@ func (db *indexDatabase) BuildInvertIndex(
 ) {
 	db.index.buildInvertIndex(namespace, metricName, tagIterator, seriesID)
 
-	buildInvertedIndexCounterVec.WithTagValues(db.metadata.DatabaseName()).Incr()
+	db.statistics.buildInvertedIndex.Incr()
 }
 
 // Flush flushes index data to disk
@@ -198,7 +199,6 @@ func (db *indexDatabase) Flush() error {
 	}
 	db.rwMutex.Unlock()
 
-	// fixme inverted index need add wal??? flush metric metadata(sequence)
 	return db.index.Flush()
 }
 
