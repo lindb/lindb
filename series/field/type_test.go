@@ -20,9 +20,9 @@ package field
 import (
 	"testing"
 
-	"github.com/lindb/lindb/aggregation/function"
-
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/aggregation/function"
 )
 
 func TestDownSamplingFunc(t *testing.T) {

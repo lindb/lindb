@@ -23,10 +23,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lindb/lindb/internal/linmetric"
-
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/atomic"
+
+	"github.com/lindb/lindb/internal/linmetric"
 )
 
 func Test_Pool_Submit(t *testing.T) {

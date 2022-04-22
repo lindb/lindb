@@ -43,6 +43,7 @@ var (
 )
 
 var pageLogger = logger.GetLogger("queue", "PageFactory")
+
 var errFactoryClosed = errors.New("page factory is closed")
 
 // pageSuffix represents the page file suffix

@@ -20,12 +20,12 @@ package main
 import (
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/lindb/lindb/app/storage"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/ltoml"
-
-	"github.com/spf13/cobra"
 )
 
 const (

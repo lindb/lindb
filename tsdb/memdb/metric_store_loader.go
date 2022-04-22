@@ -18,11 +18,11 @@
 package memdb
 
 import (
+	"github.com/lindb/roaring"
+
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
-
-	"github.com/lindb/roaring"
 )
 
 // metricStoreLoader implements flow.DataLoader interface that loads metric data from memory storage.

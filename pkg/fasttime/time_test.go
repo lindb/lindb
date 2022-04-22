@@ -21,9 +21,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lindb/lindb/pkg/fasttime"
-
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/pkg/fasttime"
 )
 
 func Test_FastTime(t *testing.T) {

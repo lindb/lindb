@@ -18,13 +18,13 @@
 package common
 
 import (
-	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/series/tag"
-
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/series/tag"
 )
 
 const enrichTagsQueryKey = "enrich_tag"

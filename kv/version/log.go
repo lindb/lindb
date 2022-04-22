@@ -84,6 +84,7 @@ type NewLogFunc func() Log
 
 // Stores log create function => log type mapping
 var newLogFuncMap = make(map[LogType]NewLogFunc)
+
 var logTypes = make(map[reflect.Type]LogType)
 
 // RegisterLogType registers edit log type when system init,

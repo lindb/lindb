@@ -33,9 +33,11 @@ type bucket struct {
 
 type buckets []bucket
 
-func (bkt buckets) Len() int           { return len(bkt) }
+func (bkt buckets) Len() int { return len(bkt) }
+
 func (bkt buckets) Less(i, j int) bool { return bkt[i].upperBound < bkt[j].upperBound }
-func (bkt buckets) Swap(i, j int)      { bkt[i], bkt[j] = bkt[j], bkt[i] }
+
+func (bkt buckets) Swap(i, j int) { bkt[i], bkt[j] = bkt[j], bkt[i] }
 
 // EnsureCountFieldCumulative ensures count in buckets are cumulative for quantile function
 func (bkt buckets) EnsureCountFieldCumulative() {

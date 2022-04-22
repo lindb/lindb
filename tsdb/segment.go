@@ -23,13 +23,13 @@ import (
 	"strconv"
 	"sync"
 
+	"go.uber.org/atomic"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
-
-	"go.uber.org/atomic"
 )
 
 //go:generate mockgen -source=./segment.go -destination=./segment_mock.go -package=tsdb

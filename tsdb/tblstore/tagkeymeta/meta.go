@@ -24,12 +24,12 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/lindb/roaring"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/pkg/trie"
-
-	"github.com/lindb/roaring"
 )
 
 //go:generate mockgen -source ./meta.go -destination=./meta_mock.go -package tagkeymeta
@@ -160,8 +160,11 @@ func makeIDRankOffsets(size int) *idRanksOffsets {
 		offsets: make([]uint32, 0, size),
 	}
 }
-func (ir *idRanksOffsets) Len() int           { return len(ir.ranks) }
+
+func (ir *idRanksOffsets) Len() int { return len(ir.ranks) }
+
 func (ir *idRanksOffsets) Less(i, j int) bool { return ir.ranks[i] < ir.ranks[j] }
+
 func (ir *idRanksOffsets) Swap(i, j int) {
 	ir.ranks[i], ir.ranks[j] = ir.ranks[j], ir.ranks[i]
 	ir.ids[i], ir.ids[j] = ir.ids[j], ir.ids[i]

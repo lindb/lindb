@@ -19,7 +19,6 @@ package tsdb
 
 import (
 	"fmt"
-
 	"io"
 	"strconv"
 	"sync"
@@ -31,6 +30,7 @@ import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -108,10 +108,11 @@ type dataFamily struct {
 		writeMetrics        *linmetric.BoundCounter
 		writeMetricFailures *linmetric.BoundCounter
 		writeFields         *linmetric.BoundCounter
-		memdbTotalSize      *linmetric.BoundGauge
-		memdbNumber         *linmetric.BoundGauge
-		memFlushTimer       *linmetric.BoundHistogram
-		indexFlushTimer     *linmetric.BoundHistogram
+		memDBTotalSize      *linmetric.BoundGauge
+		activeMemDBs        *linmetric.BoundGauge
+		activeFamilies      *linmetric.BoundGauge
+		memDBFlushFailure   *linmetric.BoundCounter
+		memDBFlushDuration  *linmetric.BoundHistogram
 	}
 
 	logger *logger.Logger
@@ -152,19 +153,21 @@ func newDataFamily(
 	dbName := shard.Database().Name()
 	shardIDStr := strconv.Itoa(int(shard.ShardID()))
 
-	f.statistics.writeBatches = writeBatchesVec.WithTagValues(dbName, shardIDStr)
-	f.statistics.writeMetrics = writeMetricsVec.WithTagValues(dbName, shardIDStr)
-	f.statistics.writeMetricFailures = metricMetricFailuresVec.WithTagValues(dbName, shardIDStr)
-	f.statistics.writeFields = writeFieldsVec.WithTagValues(dbName, shardIDStr)
-	f.statistics.memdbTotalSize = memdbTotalSizeVec.WithTagValues(dbName, shardIDStr)
-	f.statistics.memdbNumber = memdbNumberVec.WithTagValues(dbName, shardIDStr)
-	f.statistics.memFlushTimer = memFlushTimerVec.WithTagValues(dbName, shardIDStr)
-	f.statistics.indexFlushTimer = indexFlushTimerVec.WithTagValues(dbName, shardIDStr)
+	f.statistics.writeBatches = metrics.ShardStatistics.WriteBatches.WithTagValues(dbName, shardIDStr)
+	f.statistics.writeMetrics = metrics.ShardStatistics.WriteMetrics.WithTagValues(dbName, shardIDStr)
+	f.statistics.writeFields = metrics.ShardStatistics.WriteFields.WithTagValues(dbName, shardIDStr)
+	f.statistics.writeMetricFailures = metrics.ShardStatistics.WriteMetricFailures.WithTagValues(dbName, shardIDStr)
+	f.statistics.memDBTotalSize = metrics.ShardStatistics.MemDBTotalSize.WithTagValues(dbName, shardIDStr)
+	f.statistics.memDBFlushFailure = metrics.ShardStatistics.MemDBFlushFailures.WithTagValues(dbName, shardIDStr)
+	f.statistics.activeMemDBs = metrics.ShardStatistics.ActiveMemDBs.WithTagValues(dbName, shardIDStr)
+	f.statistics.activeFamilies = metrics.ShardStatistics.ActiveFamilies.WithTagValues(dbName, shardIDStr)
+	f.statistics.memDBFlushDuration = metrics.ShardStatistics.MemDBFlushDuration.WithTagValues(dbName, shardIDStr)
 
 	f.indicator = fmt.Sprintf("%s/%s/%d", dbName, shardIDStr, familyTime)
 
 	// add data family into global family manager
 	GetFamilyManager().AddFamily(f)
+	f.statistics.activeFamilies.Incr()
 	return f
 }
 
@@ -226,7 +229,7 @@ func (f *dataFamily) NeedFlush() bool {
 	}
 
 	// check memory database's heap size
-	maxMemDBSize := int64(config.GlobalStorageConfig().TSDB.MaxMemDBSize) // TODO need cfg
+	maxMemDBSize := int64(config.GlobalStorageConfig().TSDB.MaxMemDBSize)
 	if f.mutableMemDB.MemSize() >= maxMemDBSize {
 		f.logger.Info("memory database is above memory threshold, need do flush job",
 			logger.String("family", f.indicator),
@@ -236,11 +239,6 @@ func (f *dataFamily) NeedFlush() bool {
 		)
 		return true
 	}
-
-	// TODO need change metric
-	// f.statistics.memdbNumber.Update(float64(len(s.families.Entries())))
-	// f.statistics.memdbTotalSize.Update(float64(s.MemDBTotalSize()))
-
 	return false
 }
 
@@ -262,6 +260,7 @@ func (f *dataFamily) Flush() error {
 		f.flushCondition.Add(1)
 
 		startTime := time.Now()
+
 		// add lock when switch memory database
 		f.mutex.Lock()
 		if f.immutableMemDB != nil || f.mutableMemDB == nil || f.mutableMemDB.Size() == 0 {
@@ -309,7 +308,6 @@ func (f *dataFamily) Flush() error {
 			logger.String("flush-duration", endTime.Sub(startTime).String()),
 			logger.Int64("familyTime", f.familyTime),
 			logger.Int64("memDBSize", waitingFlushMemDB.MemSize()))
-		f.statistics.memFlushTimer.UpdateDuration(endTime.Sub(startTime))
 	}
 
 	// another flush process is running
@@ -440,10 +438,11 @@ func (f *dataFamily) WriteRows(rows []metric.StorageRow) error {
 			f.statistics.writeFields.Add(float64(len(row.FieldIDs)))
 		} else {
 			f.statistics.writeMetricFailures.Incr()
-			f.logger.Error("failed writing row", logger.Error(err))
+			f.logger.Error("failed writing row", logger.String("family", f.indicator), logger.Error(err))
 		}
 	}
-	// check memory database size in background flush checker job
+
+	f.statistics.memDBTotalSize.Add(float64(f.mutableMemDB.MemSize()))
 	return nil
 }
 
@@ -497,6 +496,7 @@ func (f *dataFamily) GetOrCreateMemoryDatabase(familyTime int64) (memdb.MemoryDa
 			return nil, err
 		}
 		f.mutableMemDB = newDB
+		f.statistics.activeMemDBs.Incr()
 	}
 	return f.mutableMemDB, nil
 }
@@ -524,13 +524,18 @@ func (f *dataFamily) Close() error {
 	}
 
 	GetFamilyManager().RemoveFamily(f)
+	f.statistics.activeFamilies.Decr()
 	return nil
 }
 
 // flushMemoryDatabase flushes memory database to disk.
 func (f *dataFamily) flushMemoryDatabase(sequences map[int32]int64, memDB memdb.MemoryDatabase) error {
+	startTime := time.Now()
 	flusher := f.family.NewFlusher()
-	defer flusher.Release()
+	defer func() {
+		flusher.Release()
+		f.statistics.memDBFlushDuration.UpdateSince(startTime)
+	}()
 
 	for leader, seq := range sequences {
 		flusher.Sequence(leader, seq)
@@ -545,6 +550,7 @@ func (f *dataFamily) flushMemoryDatabase(sequences map[int32]int64, memDB memdb.
 		f.logger.Error("failed to flush memory database",
 			logger.String("family", f.indicator),
 			logger.Int64("memDBSize", memDB.MemSize()))
+		f.statistics.memDBFlushFailure.Incr()
 		return err
 	}
 
@@ -557,6 +563,9 @@ func (f *dataFamily) flushMemoryDatabase(sequences map[int32]int64, memDB memdb.
 			}
 		}
 	}
+
+	f.statistics.activeMemDBs.Decr()
+	f.statistics.memDBTotalSize.Sub(float64(memDB.MemSize()))
 
 	if err := memDB.Close(); err != nil {
 		// ignore close memory database err, if not maybe write duplicate data into file storage

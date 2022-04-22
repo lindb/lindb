@@ -26,6 +26,7 @@ import (
 
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -37,12 +38,6 @@ import (
 //go:generate mockgen -source ./database.go -destination=./database_mock.go -package memdb
 
 var memDBLogger = logger.GetLogger("TSDB", "MemDB")
-
-var (
-	memDBScope               = linmetric.StorageRegistry.NewScope("lindb.tsdb.memdb")
-	pageAllocatedCounterVec  = memDBScope.NewCounterVec("allocated_pages", "db")
-	pageAllocatedFailuresVec = memDBScope.NewCounterVec("allocated_page_failures", "db")
-)
 
 // MemoryDatabase is a database-like concept of Shard as memTable in cassandra.
 type MemoryDatabase interface {
@@ -76,18 +71,6 @@ type MemoryDatabase interface {
 	Size() int
 }
 
-type memoryDBMetrics struct {
-	allocatedPages        *linmetric.BoundCounter
-	allocatedPageFailures *linmetric.BoundCounter
-}
-
-func newMemoryDBMetrics(name string) *memoryDBMetrics {
-	return &memoryDBMetrics{
-		allocatedPages:        pageAllocatedCounterVec.WithTagValues(name),
-		allocatedPageFailures: pageAllocatedFailuresVec.WithTagValues(name),
-	}
-}
-
 // MemoryDatabaseCfg represents the memory database config
 type MemoryDatabaseCfg struct {
 	FamilyTime int64
@@ -118,8 +101,12 @@ type memoryDatabase struct {
 
 	readonly atomic.Bool
 
-	metrics     memoryDBMetrics
 	createdTime int64
+
+	statistics struct {
+		allocatedPages       *linmetric.BoundCounter
+		allocatePageFailures *linmetric.BoundCounter
+	}
 }
 
 // NewMemoryDatabase returns a new MemoryDatabase.
@@ -128,15 +115,17 @@ func NewMemoryDatabase(cfg MemoryDatabaseCfg) (MemoryDatabase, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &memoryDatabase{
+	db := &memoryDatabase{
 		familyTime:  cfg.FamilyTime,
 		name:        cfg.Name,
 		buf:         buf,
 		mStores:     NewMetricBucketStore(),
 		allocSize:   *atomic.NewInt64(0),
-		metrics:     *newMemoryDBMetrics(cfg.Name),
 		createdTime: fasttime.UnixNano(),
-	}, err
+	}
+	db.statistics.allocatedPages = metrics.MemDBStatistics.AllocatedPages.WithTagValues(cfg.Name)
+	db.statistics.allocatePageFailures = metrics.MemDBStatistics.AllocatePageFailures.WithTagValues(cfg.Name)
+	return db, nil
 }
 
 // MarkReadOnly marks memory database cannot writable.
@@ -307,10 +296,10 @@ func (md *memoryDatabase) writeLinField(
 	if !ok {
 		buf, err := md.buf.AllocPage()
 		if err != nil {
-			md.metrics.allocatedPageFailures.Incr()
+			md.statistics.allocatePageFailures.Incr()
 			return 0, err
 		}
-		md.metrics.allocatedPages.Incr()
+		md.statistics.allocatedPages.Incr()
 		fStore = newFieldStore(buf, fieldID)
 		writtenSize += fStore.Capacity()
 		beforeTStoreSize := tStore.Capacity()

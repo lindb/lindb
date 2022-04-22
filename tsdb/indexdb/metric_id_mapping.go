@@ -18,11 +18,11 @@
 package indexdb
 
 import (
+	"go.uber.org/atomic"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/pkg/unique"
 	"github.com/lindb/lindb/series/metric"
-
-	"go.uber.org/atomic"
 )
 
 //go:generate mockgen -source ./metric_id_mapping.go -destination=./metric_id_mapping_mock.go -package=indexdb

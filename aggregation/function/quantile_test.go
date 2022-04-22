@@ -21,9 +21,9 @@ import (
 	"math"
 	"testing"
 
-	"github.com/lindb/lindb/pkg/collections"
-
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/pkg/collections"
 )
 
 func makeFloatArray(data []float64) []*collections.FloatArray {

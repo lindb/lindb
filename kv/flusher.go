@@ -218,6 +218,9 @@ func (nw *nopStreamWriter) Write(data []byte) (int, error) {
 }
 
 func (nw *nopStreamWriter) CRC32CheckSum() uint32 { return nw.crc32.Sum32() }
-func (nw *nopStreamWriter) Size() uint32          { return nw.size }
-func (nw *nopStreamWriter) Commit() error         { return nil }
-func (nw *nopStreamWriter) Release()              {}
+
+func (nw *nopStreamWriter) Size() uint32 { return nw.size }
+
+func (nw *nopStreamWriter) Commit() error { return nil }
+
+func (nw *nopStreamWriter) Release() {}

@@ -25,14 +25,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/pkg/logger"
-
 	etcdcliv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
+
+	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/pkg/logger"
 )
 
 // etcdRepository is repository based on etcd storage

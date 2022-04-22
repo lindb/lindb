@@ -18,10 +18,10 @@
 package common
 
 import (
-	"github.com/stretchr/testify/assert"
-
 	"io"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 type mockReader struct {

@@ -18,13 +18,8 @@
 package fileutil
 
 import (
-	"errors"
 	"os"
 	"reflect"
-	"sync"
-	"unsafe"
-
-	"golang.org/x/sys/windows"
 )
 
 type mapHandle struct {

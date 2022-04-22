@@ -22,7 +22,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cespare/xxhash/v2"
+	xxhash "github.com/cespare/xxhash/v2"
 
 	"github.com/lindb/lindb/pkg/strutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
@@ -30,9 +30,11 @@ import (
 
 type KeyValues []*protoMetricsV1.KeyValue
 
-func (kvs KeyValues) Len() int           { return len(kvs) }
+func (kvs KeyValues) Len() int { return len(kvs) }
+
 func (kvs KeyValues) Less(i, j int) bool { return kvs[i].Key < kvs[j].Key }
-func (kvs KeyValues) Swap(i, j int)      { kvs[i], kvs[j] = kvs[j], kvs[i] }
+
+func (kvs KeyValues) Swap(i, j int) { kvs[i], kvs[j] = kvs[j], kvs[i] }
 
 // DeDup sorts keyvalues and removes the duplicates
 func (kvs KeyValues) DeDup() KeyValues {

@@ -29,6 +29,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/ltoml"
@@ -370,6 +371,8 @@ func TestDatabase_FlushMeta(t *testing.T) {
 		metadata:       metadata,
 		flushCondition: sync.NewCond(&sync.Mutex{}),
 		isFlushing:     *atomic.NewBool(false)}
+	db.statistics.metaDBFlushDuration = metrics.DatabaseStatistics.MetaDBFlushDuration.WithTagValues("test")
+	db.statistics.metaDBFlushFailures = metrics.DatabaseStatistics.MetaDBFlushFailures.WithTagValues("test")
 	cases := []struct {
 		name    string
 		prepare func()
@@ -383,7 +386,15 @@ func TestDatabase_FlushMeta(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "need flush meta",
+			name: "flush meta failure",
+			prepare: func() {
+				db.isFlushing.Store(false)
+				metadata.EXPECT().Flush().Return(fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "flush meta successfully",
 			prepare: func() {
 				db.isFlushing.Store(false)
 				metadata.EXPECT().Flush().Return(nil)
@@ -461,6 +472,9 @@ func TestDatabase_WaitFlushMetaCompleted(t *testing.T) {
 		isFlushing:     *atomic.NewBool(false),
 		flushCondition: sync.NewCond(&sync.Mutex{}),
 	}
+	db.statistics.metaDBFlushDuration = metrics.DatabaseStatistics.MetaDBFlushDuration.WithTagValues("test")
+	db.statistics.metaDBFlushFailures = metrics.DatabaseStatistics.MetaDBFlushFailures.WithTagValues("test")
+
 	metadata.EXPECT().Flush().DoAndReturn(func() error {
 		time.Sleep(100 * time.Millisecond)
 		return nil

@@ -58,8 +58,11 @@ func (m *BoundMin) Update(newValue float64) {
 func (m *BoundMin) Get() float64 {
 	return m.value.Load()
 }
+
 func (m *BoundMin) gather() float64 { return m.value.Load() }
-func (m *BoundMin) name() string    { return m.fieldName }
+
+func (m *BoundMin) name() string { return m.fieldName }
+
 func (m *BoundMin) flatType() flatMetricsV1.SimpleFieldType {
 	return flatMetricsV1.SimpleFieldTypeMin
 }

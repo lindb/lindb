@@ -74,6 +74,7 @@ func (c *BoundCounter) gather() float64 {
 }
 
 func (c *BoundCounter) name() string { return c.fieldName }
+
 func (c *BoundCounter) flatType() flatMetricsV1.SimpleFieldType {
 	return flatMetricsV1.SimpleFieldTypeDeltaSum
 }

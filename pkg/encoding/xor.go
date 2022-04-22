@@ -26,6 +26,7 @@ import (
 // reference facebook gorilla paper(https://www.vldb.org/pvldb/vol8/p1816-teller.pdf)
 
 const blockSizeAdjustment = 1
+
 const firstValueLen = 64
 
 // XOREncoder encodes uint64 value using xor compress

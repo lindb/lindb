@@ -22,10 +22,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/lindb/lindb/kv"
-
 	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/kv"
 )
 
 func Test_newTagKeyMeta_error_cases(t *testing.T) {
@@ -44,6 +44,7 @@ func Test_newTagKeyMeta_error_cases(t *testing.T) {
 }
 
 var testOnce sync.Once
+
 var testData []byte
 
 func buildTestTrieData() []byte {

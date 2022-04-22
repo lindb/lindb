@@ -24,11 +24,11 @@ import (
 	"strings"
 	"testing"
 
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
-	"github.com/lindb/lindb/series/tag"
-
 	"github.com/klauspost/compress/gzip"
 	"github.com/stretchr/testify/assert"
+
+	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
+	"github.com/lindb/lindb/series/tag"
 )
 
 var testMetricList = &protoMetricsV1.MetricList{Metrics: []*protoMetricsV1.Metric{

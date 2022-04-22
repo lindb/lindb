@@ -21,7 +21,7 @@ import (
 	"crypto/md5"
 	"fmt"
 
-	"github.com/dgrijalva/jwt-go"
+	jwt "github.com/dgrijalva/jwt-go"
 
 	"github.com/lindb/lindb/config"
 )

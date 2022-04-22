@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dustin/go-humanize"
+	humanize "github.com/dustin/go-humanize"
 	jsoniter "github.com/json-iterator/go"
 )
 

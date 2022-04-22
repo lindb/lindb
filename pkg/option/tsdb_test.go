@@ -21,10 +21,10 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/timeutil"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestDatabaseOption_Validate(t *testing.T) {

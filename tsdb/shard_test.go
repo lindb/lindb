@@ -30,6 +30,7 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
@@ -355,7 +356,8 @@ func TestShard_Flush(t *testing.T) {
 		flushCondition: sync.NewCond(&sync.Mutex{}),
 		logger:         logger.GetLogger("TSDB", "test"),
 	}
-	s.statistics.indexFlushTimer = indexFlushTimerVec.WithTagValues("test", "1")
+	s.statistics.indexDBFlushDuration = metrics.ShardStatistics.IndexDBFlushDuration.WithTagValues("test", "1")
+	s.statistics.indexDBFlushFailures = metrics.ShardStatistics.IndexDBFlushFailures.WithTagValues("test", "1")
 	cases := []struct {
 		name    string
 		prepare func()
@@ -413,7 +415,7 @@ func TestShard_Write(t *testing.T) {
 		metadata: metadata,
 		logger:   logger.GetLogger("TSDB", "test"),
 	}
-	s.statistics.lookupMetricMetaFailures = lookupMetricMetaFailuresVec.WithTagValues("test", "1")
+	s.statistics.lookupMetricMetaFailures = metrics.ShardStatistics.LookupMetricMetaFailures.WithTagValues("test", "1")
 	cases := []struct {
 		name    string
 		prepare func()
@@ -465,7 +467,7 @@ func TestShard_lookupRowMeta(t *testing.T) {
 		metadata: metadata,
 		logger:   logger.GetLogger("TSDB", "test"),
 	}
-	s.statistics.lookupMetricMetaFailures = lookupMetricMetaFailuresVec.WithTagValues("test", "1")
+	s.statistics.lookupMetricMetaFailures = metrics.ShardStatistics.LookupMetricMetaFailures.WithTagValues("test", "1")
 	cases := []struct {
 		name    string
 		tags    []*protoMetricsV1.KeyValue
@@ -535,7 +537,7 @@ func TestShard_WaitFlushIndexCompleted(t *testing.T) {
 		flushCondition: sync.NewCond(&sync.Mutex{}),
 		logger:         logger.GetLogger("TSDB", "test"),
 	}
-	s.statistics.indexFlushTimer = indexFlushTimerVec.WithTagValues("test", "1")
+	s.statistics.indexDBFlushDuration = metrics.ShardStatistics.IndexDBFlushDuration.WithTagValues("test", "1")
 	s.isFlushing.Store(false)
 	index.EXPECT().Flush().DoAndReturn(func() error {
 		time.Sleep(100 * time.Millisecond)

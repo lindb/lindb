@@ -99,7 +99,7 @@ func TestStore_New(t *testing.T) {
 	_, err = kv.CreateFamily("f", FamilyOption{Merger: mergerStr})
 	assert.NoError(t, err, "cannot create family")
 	if ok {
-		assert.Equal(t, 1, kvStore.familySeq, "store family id is wrong")
+		assert.Equal(t, int32(1), kvStore.familySeq.Load(), "store family id is wrong")
 	}
 	assert.True(t, ok)
 	_ = kv.close()
@@ -110,7 +110,7 @@ func TestStore_New(t *testing.T) {
 
 	kvStore, ok = kv2.(*store)
 	if ok {
-		assert.Equal(t, 1, kvStore.familySeq, "store family id is wrong")
+		assert.Equal(t, int32(1), kvStore.familySeq.Load(), "store family id is wrong")
 	}
 	assert.True(t, ok)
 	_ = kv2.close()
@@ -185,6 +185,8 @@ func TestStore_CreateFamily(t *testing.T) {
 	names := kv.ListFamilyNames()
 	assert.Len(t, names, 1)
 	assert.Equal(t, "f", names[0])
+	s := kv.(*store)
+	s.deleteFamilyObsoleteFiles()
 }
 
 func TestStore_deleteObsoleteFiles(t *testing.T) {

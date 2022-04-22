@@ -23,13 +23,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lindb/lindb/internal/linmetric"
-	"github.com/lindb/lindb/models"
-
 	"github.com/golang/mock/gomock"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/shirou/gopsutil/mem"
 	"github.com/shirou/gopsutil/net"
+
+	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/models"
 )
 
 func Test_NewSystemCollector(t *testing.T) {

@@ -22,6 +22,10 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/golang/mock/gomock"
+	"github.com/klauspost/compress/snappy"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/pkg/queue"
@@ -29,10 +33,6 @@ import (
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb"
-
-	"github.com/golang/mock/gomock"
-	"github.com/klauspost/compress/snappy"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestLocalReplicator_New(t *testing.T) {

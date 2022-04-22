@@ -21,9 +21,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/lindb/lindb/pkg/logger"
-
 	"go.uber.org/atomic"
+
+	"github.com/lindb/lindb/pkg/logger"
 )
 
 // JobScheduler represents a background compaction job scheduler.

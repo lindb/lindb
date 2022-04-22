@@ -18,9 +18,9 @@
 package series
 
 import (
-	"github.com/lindb/lindb/series/tag"
-
 	"github.com/lindb/roaring"
+
+	"github.com/lindb/lindb/series/tag"
 )
 
 //go:generate mockgen -source ./interface.go -destination=./interface_mock.go -package=series

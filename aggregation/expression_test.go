@@ -32,6 +32,7 @@ import (
 )
 
 var now, _ = timeutil.ParseTimestamp("20190702 19:10:00", "20060102 15:04:05")
+
 var familyTime, _ = timeutil.ParseTimestamp("20190702 19:00:00", "20060102 15:04:05")
 
 func TestExpression_prepare(t *testing.T) {

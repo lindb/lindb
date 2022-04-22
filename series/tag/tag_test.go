@@ -22,7 +22,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cespare/xxhash/v2"
+	xxhash "github.com/cespare/xxhash/v2"
 	"github.com/stretchr/testify/assert"
 
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"

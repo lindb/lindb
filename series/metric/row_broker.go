@@ -23,7 +23,7 @@ import (
 	"sync"
 
 	flatbuffers "github.com/google/flatbuffers/go"
-	"github.com/lithammer/go-jump-consistent-hash"
+	jump "github.com/lithammer/go-jump-consistent-hash"
 
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/fasttime"
@@ -98,10 +98,13 @@ func (br *BrokerBatchRows) Release() { brokerBatchRowsPool.Put(br) }
 func (br *BrokerBatchRows) reset() { br.rowCount = 0 }
 
 func (br *BrokerBatchRows) Len() int { return br.rowCount }
+
 func (br *BrokerBatchRows) Less(i, j int) bool {
 	return br.rows[i].shardIdx < br.rows[j].shardIdx
 }
-func (br *BrokerBatchRows) Swap(i, j int)     { br.rows[i], br.rows[j] = br.rows[j], br.rows[i] }
+
+func (br *BrokerBatchRows) Swap(i, j int) { br.rows[i], br.rows[j] = br.rows[j], br.rows[i] }
+
 func (br *BrokerBatchRows) Rows() []BrokerRow { return br.rows[:br.rowCount] }
 
 // EvictOutOfTimeRange evicts and marks out-of-range metrics invalid
@@ -279,6 +282,8 @@ func (itr *BrokerBatchShardFamilyIterator) timeRangeOfTimestamp(timestamp int64)
 // sort rows by timestamp, so we will
 type familySortedRows []BrokerRow
 
-func (fr familySortedRows) Len() int           { return len(fr) }
+func (fr familySortedRows) Len() int { return len(fr) }
+
 func (fr familySortedRows) Less(i, j int) bool { return fr[i].m.Timestamp() < fr[j].m.Timestamp() }
-func (fr familySortedRows) Swap(i, j int)      { fr[i], fr[j] = fr[j], fr[i] }
+
+func (fr familySortedRows) Swap(i, j int) { fr[i], fr[j] = fr[j], fr[i] }

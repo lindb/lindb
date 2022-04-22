@@ -64,7 +64,8 @@ func (dbs Databases) ToTable() (rows int, tableStr string) {
 type ShardID int
 
 func (s ShardID) String() string { return strconv.Itoa(int(s)) }
-func (s ShardID) Int() int       { return int(s) }
+
+func (s ShardID) Int() int { return int(s) }
 
 // ParseShardID returns ShardID by given shard string value.
 func ParseShardID(shard string) ShardID {

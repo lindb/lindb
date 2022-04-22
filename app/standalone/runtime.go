@@ -44,6 +44,7 @@ import (
 var (
 	startEtcdFn = embed.StartEtcd
 )
+
 var log = logger.GetLogger("standalone", "Runtime")
 
 // runtime represents the runtime dependency of standalone mode

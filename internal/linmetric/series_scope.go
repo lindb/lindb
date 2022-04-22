@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/cespare/xxhash/v2"
+	xxhash "github.com/cespare/xxhash/v2"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fasttime"
@@ -90,6 +90,7 @@ func (s *taggedSeries) ensurePayload() {
 		s.payload = &fieldPayload{}
 	}
 }
+
 func assertMetricName(metricName string) {
 	if metricName == "" {
 		panic("metric-name cannot be empty string")
@@ -155,6 +156,7 @@ func (s *taggedSeries) NewCounter(fieldName string) *BoundCounter {
 		return newCounter(fieldName)
 	}).(*BoundCounter)
 }
+
 func (s *taggedSeries) NewMax(fieldName string) *BoundMax {
 	return s.findSimpleField(fieldName, flatMetricsV1.SimpleFieldTypeMax, func() simpleField {
 		return newMax(fieldName)
