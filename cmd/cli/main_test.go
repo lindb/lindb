@@ -23,7 +23,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/c-bata/go-prompt"
+	prompt "github.com/c-bata/go-prompt"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 

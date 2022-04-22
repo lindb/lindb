@@ -248,6 +248,7 @@ func TestDataFlushChecker_requestFlush(t *testing.T) {
 		{
 			name: "checker is stopped",
 			prepare: func(c *dataFlushChecker) {
+				c.flushRequestCh = make(chan *flushRequest)
 				c.Stop()
 				c.running.Store(true)
 			},
@@ -326,8 +327,10 @@ func TestDataFlushChecker_doFlush(t *testing.T) {
 	family := NewMockDataFamily(ctrl)
 	family.EXPECT().Indicator().Return("family").AnyTimes()
 	bufMgr := memdb.NewMockBufferManager(ctrl)
+	shard.EXPECT().Database().Return(db).AnyTimes()
 	shard.EXPECT().BufferManager().Return(bufMgr).AnyTimes()
 	shard.EXPECT().Indicator().Return("shard").AnyTimes()
+	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 	bufMgr.EXPECT().GarbageCollect().AnyTimes()
 
 	cases := []struct {

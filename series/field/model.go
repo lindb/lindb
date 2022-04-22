@@ -31,8 +31,10 @@ type Field struct {
 // Fields implements sort.Interface
 type Fields []Field
 
-func (fs Fields) Len() int           { return len(fs) }
-func (fs Fields) Swap(i, j int)      { fs[i], fs[j] = fs[j], fs[i] }
+func (fs Fields) Len() int { return len(fs) }
+
+func (fs Fields) Swap(i, j int) { fs[i], fs[j] = fs[j], fs[i] }
+
 func (fs Fields) Less(i, j int) bool { return bytes.Compare(fs[i].Name, fs[j].Name) < 0 }
 
 func (fs Fields) Search(name []byte) (idx int, ok bool) {

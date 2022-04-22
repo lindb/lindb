@@ -18,9 +18,9 @@
 package metric
 
 import (
-	"github.com/lindb/lindb/series/field"
-
 	flatbuffers "github.com/google/flatbuffers/go"
+
+	"github.com/lindb/lindb/series/field"
 )
 
 // StorageRow represents a metric row with meta information and fields.
@@ -55,6 +55,7 @@ type StorageBatchRows struct {
 func NewStorageBatchRows() (ctx *StorageBatchRows) {
 	return &StorageBatchRows{}
 }
+
 func (br *StorageBatchRows) reset() { br.appendIndex = 0 }
 
 func (br *StorageBatchRows) UnmarshalRows(rowsBlock []byte) {
@@ -79,8 +80,11 @@ func (br *StorageBatchRows) append(data []byte) {
 }
 
 func (br *StorageBatchRows) Len() int { return br.appendIndex }
+
 func (br *StorageBatchRows) Less(i, j int) bool {
 	return br.rows[i].Timestamp() < br.rows[j].Timestamp()
 }
-func (br *StorageBatchRows) Swap(i, j int)      { br.rows[i], br.rows[j] = br.rows[j], br.rows[i] }
+
+func (br *StorageBatchRows) Swap(i, j int) { br.rows[i], br.rows[j] = br.rows[j], br.rows[i] }
+
 func (br *StorageBatchRows) Rows() []StorageRow { return br.rows[:br.Len()] }

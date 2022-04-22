@@ -241,6 +241,7 @@ func (r *SystemCollector) logDiskUsageStat() {
 		r.inodesUsedPercentGauge.Update(stat.InodesUsedPercent)
 	}
 }
+
 func (r *SystemCollector) logNetStat() {
 	for _, stat := range r.netStats {
 		lastStat, ok := r.netStats[stat.Name]

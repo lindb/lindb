@@ -22,11 +22,11 @@ import (
 	"io"
 	"testing"
 
-	"github.com/lindb/lindb/kv"
-	"github.com/lindb/lindb/kv/table"
-
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/kv/table"
 )
 
 func TestFlusher_NewError(t *testing.T) {

@@ -145,6 +145,7 @@ func bytesToU64Slice(b []byte) []uint64 {
 	hdr.Data = uintptr(unsafe.Pointer(&b[0]))
 	return u32s
 }
+
 func u32SliceToBytes(u []uint32) []byte {
 	if len(u) == 0 {
 		return nil

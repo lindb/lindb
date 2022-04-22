@@ -18,12 +18,12 @@
 package tagindex
 
 import (
+	"github.com/lindb/roaring"
+
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/series/tag"
-
-	"github.com/lindb/roaring"
 )
 
 //go:generate mockgen -source ./forward_reader.go -destination=./forward_reader_mock.go -package tagindex

@@ -22,11 +22,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/atomic"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/ltoml"
@@ -36,10 +41,6 @@ import (
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/memdb"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
-
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/atomic"
 )
 
 func TestDataFamily_BaseTime(t *testing.T) {
@@ -360,7 +361,7 @@ func TestDataFamily_Flush(t *testing.T) {
 				memDB.EXPECT().MarkReadOnly()
 				memDB.EXPECT().FlushFamilyTo(gomock.Any()).Return(nil)
 				memDB.EXPECT().Close().Return(nil)
-				memDB.EXPECT().MemSize()
+				memDB.EXPECT().MemSize().MaxTimes(2)
 				f.mutableMemDB = memDB
 				dataFlusher := metricsdata.NewMockFlusher(ctrl)
 				newMetricDataFlusher = func(kvFlusher kv.Flusher) (metricsdata.Flusher, error) {
@@ -393,7 +394,7 @@ func TestDataFamily_Flush(t *testing.T) {
 				memDB.EXPECT().MarkReadOnly()
 				memDB.EXPECT().FlushFamilyTo(gomock.Any()).Return(nil)
 				memDB.EXPECT().Close().Return(fmt.Errorf("err"))
-				memDB.EXPECT().MemSize().MaxTimes(2)
+				memDB.EXPECT().MemSize().MaxTimes(3)
 				f.mutableMemDB = memDB
 				dataFlusher := metricsdata.NewMockFlusher(ctrl)
 				newMetricDataFlusher = func(kvFlusher kv.Flusher) (metricsdata.Flusher, error) {
@@ -420,7 +421,10 @@ func TestDataFamily_Flush(t *testing.T) {
 				},
 				logger: logger.GetLogger("TSDB", "test"),
 			}
-			f.statistics.memFlushTimer = memFlushTimerVec.WithTagValues("test", "1")
+			f.statistics.memDBFlushDuration = metrics.ShardStatistics.MemDBFlushDuration.WithTagValues("test", "1")
+			f.statistics.memDBFlushFailure = metrics.ShardStatistics.IndexDBFlushFailures.WithTagValues("test", "1")
+			f.statistics.activeMemDBs = metrics.ShardStatistics.ActiveMemDBs.WithTagValues("test", "1")
+			f.statistics.memDBTotalSize = metrics.ShardStatistics.MemDBTotalSize.WithTagValues("test", "1")
 			if tt.prepare != nil {
 				tt.prepare(f)
 			}
@@ -490,6 +494,11 @@ func TestDataFamily_Close(t *testing.T) {
 				},
 				logger: logger.GetLogger("TSDB", "test"),
 			}
+			f.statistics.memDBFlushDuration = metrics.ShardStatistics.MemDBFlushDuration.WithTagValues("test", "1")
+			f.statistics.memDBFlushFailure = metrics.ShardStatistics.IndexDBFlushFailures.WithTagValues("test", "1")
+			f.statistics.activeMemDBs = metrics.ShardStatistics.ActiveMemDBs.WithTagValues("test", "1")
+			f.statistics.memDBTotalSize = metrics.ShardStatistics.MemDBTotalSize.WithTagValues("test", "1")
+			f.statistics.activeFamilies = metrics.ShardStatistics.ActiveFamilies.WithTagValues("test", "1")
 			if tt.prepare != nil {
 				tt.prepare(f)
 			}
@@ -530,6 +539,7 @@ func TestDataFamily_GetOrCreateMemoryDatabase(t *testing.T) {
 	f := &dataFamily{
 		shard: shard,
 	}
+	f.statistics.activeMemDBs = metrics.ShardStatistics.ActiveMemDBs.WithTagValues("db", "1")
 	newMemoryDBFunc = func(cfg memdb.MemoryDatabaseCfg) (memdb.MemoryDatabase, error) {
 		return nil, fmt.Errorf("err")
 	}
@@ -578,6 +588,7 @@ func TestDataFamily_WriteRows(t *testing.T) {
 	memDB.EXPECT().WithLock().Return(func() {}).AnyTimes()
 	memDB.EXPECT().CompleteWrite().AnyTimes()
 	memDB.EXPECT().AcquireWrite().AnyTimes()
+	memDB.EXPECT().MemSize().Return(int64(10)).AnyTimes()
 	shard := NewMockShard(ctrl)
 	db := NewMockDatabase(ctrl)
 	shard.EXPECT().Database().Return(db).AnyTimes()
@@ -679,10 +690,12 @@ func TestDataFamily_WriteRows(t *testing.T) {
 				logger:   logger.GetLogger("TSDB", "test"),
 			}
 			f.intervalCalc = f.interval.Calculator()
-			f.statistics.writeBatches = writeBatchesVec.WithTagValues("test", "1")
-			f.statistics.writeMetricFailures = metricMetricFailuresVec.WithTagValues("test", "1")
-			f.statistics.writeMetrics = writeMetricsVec.WithTagValues("db", "1")
-			f.statistics.writeFields = writeFieldsVec.WithTagValues("db", "1")
+			f.statistics.writeBatches = metrics.ShardStatistics.WriteBatches.WithTagValues("test", "1")
+			f.statistics.writeMetricFailures = metrics.ShardStatistics.WriteMetricFailures.WithTagValues("test", "1")
+			f.statistics.writeMetrics = metrics.ShardStatistics.WriteMetrics.WithTagValues("db", "1")
+			f.statistics.writeFields = metrics.ShardStatistics.WriteFields.WithTagValues("db", "1")
+			f.statistics.activeMemDBs = metrics.ShardStatistics.ActiveMemDBs.WithTagValues("db", "1")
+			f.statistics.memDBTotalSize = metrics.ShardStatistics.MemDBTotalSize.WithTagValues("db", "1")
 			newMemoryDBFunc = func(cfg memdb.MemoryDatabaseCfg) (memdb.MemoryDatabase, error) {
 				return memDB, nil
 			}

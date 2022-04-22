@@ -25,9 +25,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/lindb/lindb/config"
-
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/config"
 )
 
 func Test_ParseToken(t *testing.T) {

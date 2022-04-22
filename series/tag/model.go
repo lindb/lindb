@@ -32,9 +32,11 @@ const EmptyTagKeyID = KeyID(0)
 // Metas implements sort.Interface, it's sorted by name
 type Metas []Meta
 
-func (fms Metas) Len() int           { return len(fms) }
+func (fms Metas) Len() int { return len(fms) }
+
 func (fms Metas) Less(i, j int) bool { return fms[i].Key < fms[j].Key }
-func (fms Metas) Swap(i, j int)      { fms[i], fms[j] = fms[j], fms[i] }
+
+func (fms Metas) Swap(i, j int) { fms[i], fms[j] = fms[j], fms[i] }
 
 func UnmarshalBinary(data []byte) (Metas, error) {
 	reader := stream.NewReader(data)
@@ -90,9 +92,12 @@ func NewTag(key, value []byte) Tag {
 // Tags implements sort.Interface
 type Tags []Tag
 
-func (tags Tags) Len() int           { return len(tags) }
-func (tags Tags) Swap(i, j int)      { tags[i], tags[j] = tags[j], tags[i] }
+func (tags Tags) Len() int { return len(tags) }
+
+func (tags Tags) Swap(i, j int) { tags[i], tags[j] = tags[j], tags[i] }
+
 func (tags Tags) Less(i, j int) bool { return bytes.Compare(tags[i].Key, tags[j].Key) < 0 }
+
 func (tags Tags) Size() int {
 	var total int
 	for i := range tags {

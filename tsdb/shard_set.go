@@ -32,9 +32,11 @@ type shardEntry struct {
 
 type shardEntries []shardEntry
 
-func (se shardEntries) Len() int           { return len(se) }
+func (se shardEntries) Len() int { return len(se) }
+
 func (se shardEntries) Less(i, j int) bool { return se[i].shardID < se[j].shardID }
-func (se shardEntries) Swap(i, j int)      { se[i], se[j] = se[j], se[i] }
+
+func (se shardEntries) Swap(i, j int) { se[i], se[j] = se[j], se[i] }
 
 // shardSet is a immutable data structure in database to provide lock-free lookup
 type shardSet struct {

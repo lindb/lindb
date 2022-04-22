@@ -432,9 +432,11 @@ func (ctx *DataLoadContext) Reduce(reduceFn func(it series.GroupedIterator)) {
 // TimeSegmentContexts represents the time segment slice in query time range.
 type TimeSegmentContexts []*TimeSegmentResultSet
 
-func (f TimeSegmentContexts) Len() int           { return len(f) }
+func (f TimeSegmentContexts) Len() int { return len(f) }
+
 func (f TimeSegmentContexts) Less(i, j int) bool { return f[i].FamilyTime < f[j].FamilyTime }
-func (f TimeSegmentContexts) Swap(i, j int)      { f[i], f[j] = f[j], f[i] }
+
+func (f TimeSegmentContexts) Swap(i, j int) { f[i], f[j] = f[j], f[i] }
 
 // TimeSegmentResultSet represents the time segment in query time range.
 type TimeSegmentResultSet struct {

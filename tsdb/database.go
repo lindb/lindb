@@ -30,6 +30,7 @@ import (
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
@@ -90,6 +91,11 @@ type database struct {
 	metaStore      kv.Store        // underlying meta kv store
 	isFlushing     atomic.Bool     // restrict flusher concurrency
 	flushCondition *sync.Cond      // flush condition
+
+	statistics struct {
+		metaDBFlushFailures *linmetric.BoundCounter
+		metaDBFlushDuration *linmetric.BoundHistogram
+	}
 
 	flushChecker DataFlushChecker
 }
@@ -166,6 +172,9 @@ func newDatabase(
 			db.shardSet.InsertShard(shardID, shard)
 		}
 	}
+
+	db.statistics.metaDBFlushFailures = metrics.DatabaseStatistics.MetaDBFlushFailures.WithTagValues(db.name)
+	db.statistics.metaDBFlushDuration = metrics.DatabaseStatistics.MetaDBFlushDuration.WithTagValues(db.name)
 
 	return db, nil
 }
@@ -327,13 +336,19 @@ func (db *database) FlushMeta() (err error) {
 	if !db.isFlushing.CAS(false, true) {
 		return nil
 	}
-	db.flushCondition.L.Lock()
+	start := time.Now()
 	defer func() {
+		db.flushCondition.L.Lock()
 		db.isFlushing.Store(false)
 		db.flushCondition.L.Unlock()
 		db.flushCondition.Broadcast()
+		db.statistics.metaDBFlushDuration.UpdateSince(start)
 	}()
-	return db.metadata.Flush()
+	if err := db.metadata.Flush(); err != nil {
+		db.statistics.metaDBFlushFailures.Incr()
+		return err
+	}
+	return nil
 }
 
 // WaitFlushMetaCompleted waits flush metadata job completed.

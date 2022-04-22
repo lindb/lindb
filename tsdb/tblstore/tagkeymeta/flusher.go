@@ -23,12 +23,12 @@ import (
 	"io"
 	"sort"
 
+	"github.com/lindb/roaring"
+
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/trie"
-
-	"github.com/lindb/roaring"
 )
 
 //go:generate mockgen -source ./flusher.go -destination=./flusher_mock.go -package tagkeymeta
@@ -124,15 +124,19 @@ type idRanks struct {
 	ranks  []int    // tag-value's rank list on the tree
 }
 
-func (ir idRanks) Len() int           { return len(ir.rawIDs) }
+func (ir idRanks) Len() int { return len(ir.rawIDs) }
+
 func (ir idRanks) Less(i, j int) bool { return ir.rawIDs[i] < ir.rawIDs[j] }
+
 func (ir idRanks) Swap(i, j int) {
 	ir.rawIDs[i], ir.rawIDs[j] = ir.rawIDs[j], ir.rawIDs[i]
 	ir.ranks[i], ir.ranks[j] = ir.ranks[j], ir.ranks[i]
 }
 
-func (m *tagValueMapping) Len() int           { return len(m.keys) }
+func (m *tagValueMapping) Len() int { return len(m.keys) }
+
 func (m *tagValueMapping) Less(i, j int) bool { return bytes.Compare(m.keys[i], m.keys[j]) < 0 }
+
 func (m *tagValueMapping) Swap(i, j int) {
 	m.keys[i], m.keys[j] = m.keys[j], m.keys[i]
 	m.ids[i], m.ids[j] = m.ids[j], m.ids[i]

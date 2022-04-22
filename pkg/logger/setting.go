@@ -22,11 +22,11 @@ import (
 	"path/filepath"
 	"sync/atomic"
 
-	"github.com/lindb/lindb/config"
-
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
+
+	"github.com/lindb/lindb/config"
 )
 
 var (

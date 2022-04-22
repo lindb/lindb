@@ -47,9 +47,11 @@ type tStoreINTF interface {
 // fStoreNodes implements sort.Interface
 type fStoreNodes []fStoreINTF
 
-func (f fStoreNodes) Len() int           { return len(f) }
+func (f fStoreNodes) Len() int { return len(f) }
+
 func (f fStoreNodes) Less(i, j int) bool { return f[i].GetFieldID() < f[j].GetFieldID() }
-func (f fStoreNodes) Swap(i, j int)      { f[i], f[j] = f[j], f[i] }
+
+func (f fStoreNodes) Swap(i, j int) { f[i], f[j] = f[j], f[i] }
 
 // timeSeriesStore holds a mapping relation of field and fieldStore.
 type timeSeriesStore struct {

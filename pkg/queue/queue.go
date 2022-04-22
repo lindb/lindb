@@ -42,8 +42,11 @@ var (
 
 // ErrExceedingMessageSizeLimit returns when appending message exceeds the max size limit.
 var ErrExceedingMessageSizeLimit = errors.New("message exceeds the max page size limit")
+
 var ErrOutOfSequenceRange = errors.New("out of sequence range")
+
 var ErrExceedingTotalSizeLimit = errors.New("queue data size exceeds the max size limit")
+
 var ErrMsgNotFound = errors.New("message not found")
 
 var queueLogger = logger.GetLogger("queue", "FanOutQueue")

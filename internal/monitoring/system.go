@@ -23,13 +23,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
-
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/shirou/gopsutil/mem"
 	"github.com/shirou/gopsutil/net"
+
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/logger"
 )
 
 var collectorLogger = logger.GetLogger("monitoring", "SystemCollector")

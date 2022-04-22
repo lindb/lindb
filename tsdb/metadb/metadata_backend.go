@@ -24,7 +24,7 @@ import (
 	"io"
 	"path"
 
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"

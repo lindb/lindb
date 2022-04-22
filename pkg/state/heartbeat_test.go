@@ -22,10 +22,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lindb/lindb/internal/mock"
-
 	"github.com/stretchr/testify/assert"
 	etcdcliv3 "go.etcd.io/etcd/client/v3"
+
+	"github.com/lindb/lindb/internal/mock"
 )
 
 func TestHeartBeat_keepalive_stop(t *testing.T) {

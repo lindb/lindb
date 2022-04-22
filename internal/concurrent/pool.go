@@ -22,11 +22,11 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/atomic"
+
 	"github.com/lindb/lindb/internal/linmetric"
 	errorpkg "github.com/lindb/lindb/pkg/error"
 	"github.com/lindb/lindb/pkg/logger"
-
-	"go.uber.org/atomic"
 )
 
 //go:generate mockgen -source=./pool.go -destination=./pool_mock.go -package=concurrent

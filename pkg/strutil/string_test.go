@@ -18,9 +18,9 @@
 package strutil
 
 import (
-	"github.com/stretchr/testify/assert"
-
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_GetStringValue(t *testing.T) {

@@ -26,7 +26,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/c-bata/go-prompt"
+	prompt "github.com/c-bata/go-prompt"
 	"github.com/fatih/color"
 
 	"github.com/lindb/lindb/internal/client"

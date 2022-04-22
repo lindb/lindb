@@ -24,6 +24,7 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
@@ -33,17 +34,6 @@ import (
 // for testing
 var (
 	createMetadataBackendFn = newMetadataBackend
-)
-
-var (
-	metaDBScope             = linmetric.StorageRegistry.NewScope("lindb.tsdb.metadb")
-	getMetricIDCounterVec   = metaDBScope.NewCounterVec("get_metric_ids", "db")
-	genMetricIDCounterVec   = metaDBScope.NewCounterVec("gen_metric_ids", "db")
-	getTagKeysCounterVec    = metaDBScope.NewCounterVec("get_tag_keys", "db")
-	genTagKeyIDCounterVec   = metaDBScope.NewCounterVec("gen_tag_key_ids", "db")
-	getFieldsCounterVec     = metaDBScope.NewCounterVec("get_fields", "db")
-	genFieldIDCounterVec    = metaDBScope.NewCounterVec("gen_field_ids", "db")
-	recoveryMetaWALTimerVec = metaDBScope.Scope("recovery_wal_duration").NewHistogramVec("db")
 )
 
 // metadataDatabase implements the MetadataDatabase interface,
@@ -59,13 +49,12 @@ type metadataDatabase struct {
 	rwMux sync.RWMutex
 
 	statistics struct {
-		genMetricIDCounter   *linmetric.BoundCounter
-		getMetricIDCounter   *linmetric.BoundCounter
-		genTagKeyIDCounter   *linmetric.BoundCounter
-		getTagKeysCounter    *linmetric.BoundCounter
-		genFieldIDCounter    *linmetric.BoundCounter
-		getFieldsCounter     *linmetric.BoundCounter
-		recoveryMetaWALTimer *linmetric.BoundHistogram
+		genMetricIDs        *linmetric.BoundCounter
+		genMetricIDFailures *linmetric.BoundCounter
+		genTagKeyIDs        *linmetric.BoundCounter
+		genTagKeyIDFailures *linmetric.BoundCounter
+		genFieldIDs         *linmetric.BoundCounter
+		genFieldIDFailures  *linmetric.BoundCounter
 	}
 }
 
@@ -85,13 +74,12 @@ func NewMetadataDatabase(ctx context.Context, databaseName, parent string) (Meta
 		backend:      backend,
 		metrics:      make(map[string]MetricMetadata),
 	}
-	mdb.statistics.genMetricIDCounter = genMetricIDCounterVec.WithTagValues(databaseName)
-	mdb.statistics.getMetricIDCounter = getMetricIDCounterVec.WithTagValues(databaseName)
-	mdb.statistics.genFieldIDCounter = genFieldIDCounterVec.WithTagValues(databaseName)
-	mdb.statistics.getFieldsCounter = getFieldsCounterVec.WithTagValues(databaseName)
-	mdb.statistics.genTagKeyIDCounter = genTagKeyIDCounterVec.WithTagValues(databaseName)
-	mdb.statistics.getTagKeysCounter = getTagKeysCounterVec.WithTagValues(databaseName)
-	mdb.statistics.recoveryMetaWALTimer = recoveryMetaWALTimerVec.WithTagValues(databaseName)
+	mdb.statistics.genMetricIDs = metrics.MetaDBStatistics.GenMetricIDs.WithTagValues(databaseName)
+	mdb.statistics.genMetricIDFailures = metrics.MetaDBStatistics.GenMetricIDFailures.WithTagValues(databaseName)
+	mdb.statistics.genTagKeyIDs = metrics.MetaDBStatistics.GenTagKeyIDs.WithTagValues(databaseName)
+	mdb.statistics.genTagKeyIDFailures = metrics.MetaDBStatistics.GenTagKeyIDFailures.WithTagValues(databaseName)
+	mdb.statistics.genFieldIDs = metrics.MetaDBStatistics.GenFieldIDs.WithTagValues(databaseName)
+	mdb.statistics.genFieldIDFailures = metrics.MetaDBStatistics.GenFieldIDFailures.WithTagValues(databaseName)
 
 	return mdb, nil
 }
@@ -120,8 +108,6 @@ func (mdb *metadataDatabase) GetMetricID(namespace, metricName string) (metricID
 // GetAllTagKeys returns the all tag keys by namespace/metric name,
 // if not exist return constants.ErrMetricIDNotFound.
 func (mdb *metadataDatabase) GetAllTagKeys(namespace, metricName string) (tags tag.Metas, err error) {
-	mdb.statistics.getTagKeysCounter.Incr()
-
 	metricMetadata, ok := mdb.getMetricMetadataFromCache(namespace, metricName)
 
 	if ok {
@@ -157,8 +143,6 @@ func (mdb *metadataDatabase) GetTagKeyID(namespace, metricName, tagKey string) (
 // GetAllFields returns the all visible fields by namespace/metric name,
 // if not exist return series.ErrNotFound
 func (mdb *metadataDatabase) GetAllFields(namespace, metricName string) (fields field.Metas, err error) {
-	mdb.statistics.getFieldsCounter.Incr()
-
 	metricMetadata, ok := mdb.getMetricMetadataFromCache(namespace, metricName)
 	if ok {
 		// need add read lock for getting fields from metric metadata.
@@ -227,11 +211,11 @@ func (mdb *metadataDatabase) GenMetricID(namespace, metricName string) (metricID
 	}
 
 	metricMetadata, err = mdb.backend.getOrCreateMetricMetadata(namespace, metricName)
-	mdb.statistics.genMetricIDCounter.Incr()
-
 	if err != nil {
+		mdb.statistics.genMetricIDFailures.Incr()
 		return
 	}
+	mdb.statistics.genMetricIDs.Incr()
 	mdb.metrics[key] = metricMetadata
 
 	return metricMetadata.getMetricID(), nil
@@ -253,23 +237,25 @@ func (mdb *metadataDatabase) GenFieldID(
 	// read from memory metric metadata
 	f, ok := metricMetadata.getField(fieldName)
 	if ok {
-		mdb.statistics.getFieldsCounter.Incr()
 		if f.Type == fieldType {
 			return f.ID, nil
 		}
+		mdb.statistics.genFieldIDFailures.Incr()
 		return field.EmptyFieldID, series.ErrWrongFieldType
 	}
 	// assign new field id, then add field into metric metadata
 	fieldMeta, err := metricMetadata.createField(fieldName, fieldType)
-	mdb.statistics.genFieldIDCounter.Incr()
 	if err != nil {
+		mdb.statistics.genFieldIDFailures.Incr()
 		return field.EmptyFieldID, err
 	}
 	// TODO need change?
 	err = mdb.backend.saveField(metricMetadata.getMetricID(), fieldMeta)
 	if err != nil {
+		mdb.statistics.genFieldIDFailures.Incr()
 		return field.EmptyFieldID, err
 	}
+	mdb.statistics.genFieldIDs.Incr()
 	return fieldMeta.ID, nil
 }
 
@@ -283,21 +269,22 @@ func (mdb *metadataDatabase) GenTagKeyID(namespace, metricName, tagKey string) (
 	// read from memory metric metadata
 	tagKeyID, ok := metricMetadata.getTagKeyID(tagKey)
 	if ok {
-		mdb.statistics.genTagKeyIDCounter.Incr()
 		return tagKeyID, nil
 	}
 
 	err = metricMetadata.checkTagKey(tagKey)
 	if err != nil {
+		mdb.statistics.genTagKeyIDFailures.Incr()
 		return tag.EmptyTagKeyID, err
 	}
 	// assign new tag key id
 	tagKeyID, err = mdb.backend.saveTagKey(metricMetadata.getMetricID(), tagKey)
-	mdb.statistics.genTagKeyIDCounter.Incr()
 	if err != nil {
+		mdb.statistics.genTagKeyIDFailures.Incr()
 		return tag.EmptyTagKeyID, err
 	}
 	metricMetadata.createTagKey(tagKey, tagKeyID)
+	mdb.statistics.genTagKeyIDs.Incr()
 	return tagKeyID, nil
 }
 
@@ -320,7 +307,6 @@ func (mdb *metadataDatabase) Close() error {
 
 // getMetricMetadataFromCache gets metric metadata from memory cache.
 func (mdb *metadataDatabase) getMetricMetadataFromCache(namespace, metricName string) (MetricMetadata, bool) {
-	mdb.statistics.getMetricIDCounter.Incr()
 	key := metric.JoinNamespaceMetric(namespace, metricName)
 
 	// read from memory

@@ -24,14 +24,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/tsdb"
-
-	"github.com/golang/mock/gomock"
 )
 
 func TestNewDatabaseLifecycle(t *testing.T) {

@@ -20,9 +20,9 @@ package timeutil
 import (
 	"testing"
 
-	"github.com/lindb/lindb/pkg/encoding"
-
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/pkg/encoding"
 )
 
 type retention struct {

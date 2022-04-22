@@ -23,12 +23,12 @@ import (
 	_ "net/http/pprof"
 	"os"
 
-	"github.com/lindb/lindb/internal/server"
-	"github.com/lindb/lindb/pkg/logger"
-
 	"github.com/gin-gonic/gin"
 	"go.uber.org/automaxprocs/maxprocs"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/lindb/lindb/internal/server"
+	"github.com/lindb/lindb/pkg/logger"
 )
 
 // serveStandalone runs the cluster as standalone mode

@@ -21,11 +21,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/internal/linmetric"
-
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/internal/linmetric"
 )
 
 func init() {

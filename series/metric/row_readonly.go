@@ -37,18 +37,25 @@ type readOnlyRow struct {
 	compoundFieldIterator CompoundFieldIterator
 }
 
-func (mr *readOnlyRow) Timestamp() int64     { return mr.m.Timestamp() }
-func (mr *readOnlyRow) Name() []byte         { return mr.m.Name() }
-func (mr *readOnlyRow) NameSpace() []byte    { return mr.m.Namespace() }
-func (mr *readOnlyRow) TagsHash() uint64     { return mr.m.Hash() }
-func (mr *readOnlyRow) TagsLen() int         { return mr.m.KeyValuesLength() }
+func (mr *readOnlyRow) Timestamp() int64 { return mr.m.Timestamp() }
+
+func (mr *readOnlyRow) Name() []byte { return mr.m.Name() }
+
+func (mr *readOnlyRow) NameSpace() []byte { return mr.m.Namespace() }
+
+func (mr *readOnlyRow) TagsHash() uint64 { return mr.m.Hash() }
+
+func (mr *readOnlyRow) TagsLen() int { return mr.m.KeyValuesLength() }
+
 func (mr *readOnlyRow) SimpleFieldsLen() int { return mr.m.SimpleFieldsLength() }
+
 func (mr *readOnlyRow) NewKeyValueIterator() *KeyValueIterator {
 	mr.keyValueIterator.idx = -1
 	mr.keyValueIterator.m = &mr.m
 	mr.keyValueIterator.num = mr.m.KeyValuesLength()
 	return &mr.keyValueIterator
 }
+
 func (mr *readOnlyRow) NewSimpleFieldIterator() *SimpleFieldIterator {
 	mr.simpleFieldIterator.idx = -1
 	mr.simpleFieldIterator.m = &mr.m
@@ -84,10 +91,14 @@ func (itr *KeyValueIterator) HasNext() bool {
 	}
 	return itr.m.KeyValues(&itr.kv, itr.idx)
 }
-func (itr *KeyValueIterator) Len() int          { return itr.num }
-func (itr *KeyValueIterator) NextKey() []byte   { return itr.kv.Key() }
+
+func (itr *KeyValueIterator) Len() int { return itr.num }
+
+func (itr *KeyValueIterator) NextKey() []byte { return itr.kv.Key() }
+
 func (itr *KeyValueIterator) NextValue() []byte { return itr.kv.Value() }
-func (itr *KeyValueIterator) Reset()            { itr.idx = -1 }
+
+func (itr *KeyValueIterator) Reset() { itr.idx = -1 }
 
 type SimpleFieldIterator struct {
 	m   *flatMetricsV1.Metric
@@ -105,12 +116,18 @@ func (itr *SimpleFieldIterator) HasNext() bool {
 }
 
 // Reset iterator for re-iterating simpleFields
-func (itr *SimpleFieldIterator) Reset()                                     { itr.idx = -1 }
-func (itr *SimpleFieldIterator) Len() int                                   { return itr.num }
-func (itr *SimpleFieldIterator) NextName() field.Name                       { return field.Name(itr.f.Name()) }
-func (itr *SimpleFieldIterator) NextRawName() []byte                        { return itr.f.Name() }
-func (itr *SimpleFieldIterator) NextValue() float64                         { return itr.f.Value() }
+func (itr *SimpleFieldIterator) Reset() { itr.idx = -1 }
+
+func (itr *SimpleFieldIterator) Len() int { return itr.num }
+
+func (itr *SimpleFieldIterator) NextName() field.Name { return field.Name(itr.f.Name()) }
+
+func (itr *SimpleFieldIterator) NextRawName() []byte { return itr.f.Name() }
+
+func (itr *SimpleFieldIterator) NextValue() float64 { return itr.f.Value() }
+
 func (itr *SimpleFieldIterator) NextRawType() flatMetricsV1.SimpleFieldType { return itr.f.Type() }
+
 func (itr *SimpleFieldIterator) NextType() field.Type {
 	switch itr.f.Type() {
 	// assertion: cumulative should be converted before writing into memdb
@@ -138,16 +155,25 @@ func (itr *CompoundFieldIterator) HasNextBucket() bool {
 	itr.idx++
 	return itr.idx < itr.num
 }
+
 func (itr *CompoundFieldIterator) NextExplicitBound() float64 {
 	return itr.f.ExplicitBounds(itr.idx)
 }
-func (itr *CompoundFieldIterator) BucketLen() int     { return itr.num }
+
+func (itr *CompoundFieldIterator) BucketLen() int { return itr.num }
+
 func (itr *CompoundFieldIterator) NextValue() float64 { return itr.f.Values(itr.idx) }
-func (itr *CompoundFieldIterator) Reset()             { itr.idx = -1 }
-func (itr *CompoundFieldIterator) Min() float64       { return itr.f.Min() }
-func (itr *CompoundFieldIterator) Max() float64       { return itr.f.Max() }
-func (itr *CompoundFieldIterator) Sum() float64       { return itr.f.Sum() }
-func (itr *CompoundFieldIterator) Count() float64     { return itr.f.Count() }
+
+func (itr *CompoundFieldIterator) Reset() { itr.idx = -1 }
+
+func (itr *CompoundFieldIterator) Min() float64 { return itr.f.Min() }
+
+func (itr *CompoundFieldIterator) Max() float64 { return itr.f.Max() }
+
+func (itr *CompoundFieldIterator) Sum() float64 { return itr.f.Sum() }
+
+func (itr *CompoundFieldIterator) Count() float64 { return itr.f.Count() }
+
 func (itr *CompoundFieldIterator) BucketName() field.Name {
 	return field.Name(BucketNameOfHistogramExplicitBound(itr.NextExplicitBound()))
 }
@@ -159,10 +185,13 @@ const (
 	histogramMin   = field.Name("HistogramMin")
 )
 
-func (itr *CompoundFieldIterator) HistogramSumFieldName() field.Name   { return histogramSum }
+func (itr *CompoundFieldIterator) HistogramSumFieldName() field.Name { return histogramSum }
+
 func (itr *CompoundFieldIterator) HistogramCountFieldName() field.Name { return histogramCount }
-func (itr *CompoundFieldIterator) HistogramMaxFieldName() field.Name   { return histogramMax }
-func (itr *CompoundFieldIterator) HistogramMinFieldName() field.Name   { return histogramMin }
+
+func (itr *CompoundFieldIterator) HistogramMaxFieldName() field.Name { return histogramMax }
+
+func (itr *CompoundFieldIterator) HistogramMinFieldName() field.Name { return histogramMin }
 
 // BucketNameOfHistogramExplicitBound converts reserved field-name for histogram buckets.
 func BucketNameOfHistogramExplicitBound(upperBound float64) string {

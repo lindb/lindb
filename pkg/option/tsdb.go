@@ -30,9 +30,11 @@ import (
 // Intervals represents the list of Interval.
 type Intervals []Interval
 
-func (m Intervals) Len() int           { return len(m) }
+func (m Intervals) Len() int { return len(m) }
+
 func (m Intervals) Less(i, j int) bool { return m[i].Interval < m[j].Interval }
-func (m Intervals) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
+
+func (m Intervals) Swap(i, j int) { m[i], m[j] = m[j], m[i] }
 
 // String returns the string representation of the Intervals.
 func (m Intervals) String() string {

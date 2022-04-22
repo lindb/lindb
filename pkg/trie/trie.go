@@ -219,6 +219,7 @@ func (tree *trie) firstLabelPos(nodeID uint32) uint32 {
 func (tree *trie) sparseLevels() uint32 {
 	return tree.height
 }
+
 func (tree *trie) prefixID(nodeID uint32) uint32 {
 	return nodeID
 }

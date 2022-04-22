@@ -67,7 +67,9 @@ func (g *BoundGauge) Get() float64 {
 }
 
 func (g *BoundGauge) gather() float64 { return g.value.Load() }
-func (g *BoundGauge) name() string    { return g.fieldName }
+
+func (g *BoundGauge) name() string { return g.fieldName }
+
 func (g *BoundGauge) flatType() flatMetricsV1.SimpleFieldType {
 	return flatMetricsV1.SimpleFieldTypeGauge
 }

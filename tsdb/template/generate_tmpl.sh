@@ -4,7 +4,7 @@ set -ex
 
 # install tmpl
 if ! type tmpl >/dev/null;  then \
-  go get github.com/benbjohnson/tmpl
+  go install github.com/benbjohnson/tmpl
 fi
 
 tmpl -data=@tag_store.data -o=../metadb/tag_store.gen.go int_map.tmpl

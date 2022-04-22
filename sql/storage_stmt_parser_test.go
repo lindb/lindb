@@ -20,9 +20,9 @@ package sql
 import (
 	"testing"
 
-	"github.com/lindb/lindb/sql/stmt"
-
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/sql/stmt"
 )
 
 func TestShowStorage(t *testing.T) {

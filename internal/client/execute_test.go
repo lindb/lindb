@@ -24,11 +24,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestExecuteCli_Execute(t *testing.T) {

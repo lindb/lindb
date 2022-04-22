@@ -280,6 +280,7 @@ func TestMockWriteAheadLogMockRecorder_Drop(t *testing.T) {
 		})
 	}
 }
+
 func TestMockWriteAheadLogMockRecorder_Stop(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

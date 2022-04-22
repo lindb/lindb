@@ -18,10 +18,10 @@
 package common
 
 import (
-	"github.com/klauspost/compress/gzip"
-
 	"io"
 	"sync"
+
+	"github.com/klauspost/compress/gzip"
 )
 
 var gzipReaderPool sync.Pool

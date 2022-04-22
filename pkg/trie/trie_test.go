@@ -30,10 +30,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lindb/lindb/pkg/trie"
-
 	"github.com/klauspost/compress/gzip"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/pkg/trie"
 )
 
 type kvPair struct {

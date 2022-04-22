@@ -36,6 +36,9 @@ gomock: ## go generate mock file.
 header: ## check and add license header.
 	sh license.sh
 
+import: ## opt go imports format.
+	sh imports.sh
+
 lint: ## run lint
 	go install "github.com/golangci/golangci-lint/cmd/golangci-lint@v1.45.0"
 	golangci-lint run ./...
