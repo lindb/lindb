@@ -21,7 +21,8 @@ import "github.com/lindb/lindb/internal/linmetric"
 
 var (
 	// table cache
-	tableCacheScope      = linmetric.StorageRegistry.NewScope("lindb.kv.table.cache")
+	tableCacheScope = linmetric.StorageRegistry.NewScope("lindb.kv.table.cache")
+	// TableCacheStatistics represents table reader cache statistics.
 	TableCacheStatistics = struct {
 		Evict         *linmetric.BoundCounter
 		Hit           *linmetric.BoundCounter
@@ -39,7 +40,8 @@ var (
 	}
 
 	// table write
-	tableWriteScope      = linmetric.StorageRegistry.NewScope("lindb.kv.table.write")
+	tableWriteScope = linmetric.StorageRegistry.NewScope("lindb.kv.table.write")
+	// TableWriteStatistics represents table file write statistics.
 	TableWriteStatistics = struct {
 		AddBadKeys *linmetric.BoundCounter
 		AddKeys    *linmetric.BoundCounter
@@ -51,7 +53,8 @@ var (
 	}
 
 	// table read
-	tableReadScope      = linmetric.StorageRegistry.NewScope("lindb.kv.table.read")
+	tableReadScope = linmetric.StorageRegistry.NewScope("lindb.kv.table.read")
+	// TableReadStatistics represents table file read statistics.
 	TableReadStatistics = struct {
 		GetErrors    *linmetric.BoundCounter
 		GetCounts    *linmetric.BoundCounter
@@ -71,7 +74,8 @@ var (
 	}
 
 	// compact job
-	compactScope      = linmetric.StorageRegistry.NewScope("lindb.kv.compaction")
+	compactScope = linmetric.StorageRegistry.NewScope("lindb.kv.compaction")
+	// CompactStatistics represents compact job statistics.
 	CompactStatistics = struct {
 		Compacting *linmetric.GaugeVec
 		Failure    *linmetric.DeltaCounterVec
@@ -83,7 +87,8 @@ var (
 	}
 
 	// flush job
-	flushScope      = linmetric.StorageRegistry.NewScope("lindb.kv.flush")
+	flushScope = linmetric.StorageRegistry.NewScope("lindb.kv.flush")
+	// FlushStatistics represents flush job statistics.
 	FlushStatistics = struct {
 		Flushing *linmetric.BoundGauge
 		Failure  *linmetric.BoundCounter

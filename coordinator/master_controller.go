@@ -27,6 +27,7 @@ import (
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/elect"
 	masterpkg "github.com/lindb/lindb/coordinator/master"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
@@ -94,15 +95,18 @@ type masterController struct {
 	fns []func(master *models.Master)
 
 	mutex sync.Mutex
+
+	statistics *metrics.MasterStatistics
 }
 
 // NewMasterController create MasterController for current node
 func NewMasterController(cfg *MasterCfg) (MasterController, error) {
 	ctx, cancel := context.WithCancel(cfg.Ctx)
 	m := &masterController{
-		cfg:    cfg,
-		ctx:    ctx,
-		cancel: cancel,
+		cfg:        cfg,
+		ctx:        ctx,
+		cancel:     cancel,
+		statistics: metrics.NewMasterStatistics(),
 	}
 	// create master election
 	m.elect = newElectionFn(ctx, cfg.Repo, cfg.Node, cfg.TTL, m)
@@ -139,12 +143,15 @@ func (m *masterController) OnFailOver() error {
 	}()
 	// start master state machine
 	if err = stateMachineFct.Start(); err != nil {
+		m.statistics.FailOverFailures.Incr()
 		return fmt.Errorf("start master state machine error:%s", err)
 	}
 	// register master node info after election, tell other nodes finish master election.
 	if err = m.registry.Register(m.cfg.Node); err != nil {
+		m.statistics.FailOverFailures.Incr()
 		return fmt.Errorf("register elected master node error:%s", err)
 	}
+	m.statistics.FailOvers.Incr()
 	return nil
 }
 
@@ -164,6 +171,9 @@ func (m *masterController) OnResignation() {
 	}
 	if err := m.registry.Deregister(m.cfg.Node); err != nil {
 		log.Warn("unregister elected master node error", logger.Error(err))
+		m.statistics.ReassignFailures.Incr()
+	} else {
+		m.statistics.Reassigns.Incr()
 	}
 }
 

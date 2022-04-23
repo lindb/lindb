@@ -99,7 +99,7 @@ func TestStateMachineFactory_StorageCfg(t *testing.T) {
 	sm.OnCreate("/test", []byte("value"))
 
 	stateMgr.EXPECT().EmitEvent(&discovery.Event{
-		Type: discovery.StorageDeletion,
+		Type: discovery.StorageConfigDeletion,
 		Key:  "/test",
 	})
 	sm.OnDelete("/test")

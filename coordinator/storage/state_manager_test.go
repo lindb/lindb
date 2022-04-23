@@ -64,7 +64,6 @@ func TestStateManager_Node(t *testing.T) {
 	getConnFct = func() rpc.ClientConnFactory {
 		return conFct
 	}
-	conFct.EXPECT().CloseClientConn(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
 
 	c := 0
 	mgr := NewStateManager(context.TODO(), &models.StatefulNode{ID: 1}, nil)
@@ -87,13 +86,20 @@ func TestStateManager_Node(t *testing.T) {
 			HostIP: "1.1.1.1",
 		}}),
 	})
-	time.Sleep(time.Second) // wait
+	mgr.EmitEvent(&discovery.Event{
+		Type: discovery.NodeStartup,
+		Key:  "/lives/4",
+		Value: encoding.JSONMarshal(&models.StatefulNode{ID: 4, StatelessNode: models.StatelessNode{
+			HostIP: "1.1.1.4",
+		}}),
+	})
+	time.Sleep(100 * time.Millisecond) // wait
 	node, ok := mgr.GetLiveNode(models.NodeID(1))
 	assert.True(t, ok)
 	assert.Equal(t, models.StatefulNode{ID: 1, StatelessNode: models.StatelessNode{
 		HostIP: "1.1.1.1",
 	}}, node)
-	assert.Len(t, mgr.GetLiveNodes(), 1)
+	assert.Len(t, mgr.GetLiveNodes(), 2)
 
 	// case 4: remove not exist node
 	mgr.EmitEvent(&discovery.Event{
@@ -101,16 +107,22 @@ func TestStateManager_Node(t *testing.T) {
 		Key:  "/lives/2",
 	})
 	// case 5: remove node
+	conFct.EXPECT().CloseClientConn(gomock.Any()).Return(fmt.Errorf("err"))
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.NodeFailure,
 		Key:  "/lives/1",
+	})
+	conFct.EXPECT().CloseClientConn(gomock.Any()).Return(nil)
+	mgr.EmitEvent(&discovery.Event{
+		Type: discovery.NodeFailure,
+		Key:  "/lives/4",
 	})
 	// case 6: remove node, node id err
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.NodeFailure,
 		Key:  "/lives/wrong_id",
 	})
-	time.Sleep(time.Second) // wait
+	time.Sleep(100 * time.Millisecond) // wait
 
 	node, ok = mgr.GetLiveNode(models.NodeID(1))
 	assert.False(t, ok)
@@ -129,6 +141,16 @@ func TestStateManager_OnShardAssignment(t *testing.T) {
 	mgr := NewStateManager(context.TODO(), &models.StatefulNode{ID: 1}, engine)
 	// case 1: create shard storage engine err
 	engine.EXPECT().CreateShards(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	mgr.EmitEvent(&discovery.Event{
+		Type: discovery.ShardAssignmentChanged,
+		Key:  "/shard/assign/test",
+		Value: encoding.JSONMarshal(&models.DatabaseAssignment{ShardAssignment: &models.ShardAssignment{
+			Name:   "test",
+			Shards: map[models.ShardID]*models.Replica{1: {Replicas: []models.NodeID{1, 2, 3}}},
+		}}),
+	})
+	// case 1: create shard storage engine successfully
+	engine.EXPECT().CreateShards(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.ShardAssignmentChanged,
 		Key:  "/shard/assign/test",

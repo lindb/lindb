@@ -54,7 +54,11 @@ func TestStateManager_DropDatabase(t *testing.T) {
 	mgr1.mutex.Lock()
 	shardAssignment := models.NewShardAssignment("test-db")
 	mgr1.shardAssignments["test-db"] = shardAssignment
+	mgr1.shardAssignments["test-db2"] = shardAssignment
+	mgr1.shardAssignments["test-db3"] = shardAssignment
 	mgr1.databases["test-db"] = &models.Database{Storage: "/storage/test"}
+	mgr1.databases["test-db2"] = &models.Database{Storage: "/storage/test"}
+	mgr1.databases["test-db3"] = &models.Database{Storage: "/storage/test"}
 	mgr1.storages["/storage/test"] = sc
 	mgr1.masterRepo = repo
 	mgr1.mutex.Unlock()
@@ -68,13 +72,30 @@ func TestStateManager_DropDatabase(t *testing.T) {
 	sc.EXPECT().GetState().Return(models.NewStorageState("/storage/test")).MaxTimes(2)
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	sc.EXPECT().DropDatabaseAssignment(gomock.Any()).Return(fmt.Errorf("err"))
-	sc.EXPECT().Close()
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.DatabaseConfigDeletion,
 		Key:  "/database/config/test-db",
 	})
 
+	// case 3: sync state failure
+	sc.EXPECT().GetState().Return(models.NewStorageState("/storage/test")).MaxTimes(2)
+	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("errj"))
+	mgr.EmitEvent(&discovery.Event{
+		Type: discovery.DatabaseConfigDeletion,
+		Key:  "/database/config/test-db2",
+	})
+
+	// case 4: successfully
+	sc.EXPECT().GetState().Return(models.NewStorageState("/storage/test")).MaxTimes(2)
+	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	sc.EXPECT().DropDatabaseAssignment(gomock.Any()).Return(nil)
+	mgr.EmitEvent(&discovery.Event{
+		Type: discovery.DatabaseConfigDeletion,
+		Key:  "/database/config/test-db3",
+	})
+
 	time.Sleep(100 * time.Millisecond)
+	sc.EXPECT().Close()
 	mgr.Close()
 }
 
@@ -156,7 +177,7 @@ func TestStateManager_StorageCfg(t *testing.T) {
 	})
 	// case 6: remove not exist storage
 	mgr.EmitEvent(&discovery.Event{
-		Type: discovery.StorageDeletion,
+		Type: discovery.StorageConfigDeletion,
 		Key:  "/storage/test2",
 	})
 	time.Sleep(100 * time.Millisecond)
@@ -172,7 +193,7 @@ func TestStateManager_StorageCfg(t *testing.T) {
 	})
 	// case 8: remove storage
 	mgr.EmitEvent(&discovery.Event{
-		Type: discovery.StorageDeletion,
+		Type: discovery.StorageConfigDeletion,
 		Key:  "/storage/test",
 	})
 	// case 9: namespace is empty
