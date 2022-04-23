@@ -33,6 +33,7 @@ import (
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/mock"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/ltoml"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
 	"github.com/lindb/lindb/replica"
@@ -56,7 +57,7 @@ func Test_NativeWriter(t *testing.T) {
 			context.TODO(),
 			32,
 			time.Second,
-			linmetric.BrokerRegistry.NewScope("proto_write_test")),
+			metrics.NewLimitStatistics("test", linmetric.BrokerRegistry)),
 	})
 	r := gin.New()
 	api.Register(r)

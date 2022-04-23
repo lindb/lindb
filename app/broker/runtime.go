@@ -38,6 +38,7 @@ import (
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/monitoring"
 	"github.com/lindb/lindb/internal/server"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/hostutil"
 	httppkg "github.com/lindb/lindb/pkg/http"
@@ -131,7 +132,7 @@ func NewBrokerRuntime(version string, cfg *config.Broker, enableSystemMonitor bo
 			"task-pool",
 			cfg.Query.QueryConcurrency,
 			cfg.Query.IdleTimeout.Duration(),
-			linmetric.BrokerRegistry.NewScope("lindb.concurrent", "pool_name", "broker-query"),
+			metrics.NewConcurrentStatistics("broker-query", linmetric.BrokerRegistry),
 		),
 		enableSystemMonitor: enableSystemMonitor,
 		log:                 logger.GetLogger("broker", "Runtime"),
@@ -356,13 +357,13 @@ func (r *runtime) startHTTPServer() {
 			r.ctx,
 			r.config.BrokerBase.Ingestion.MaxConcurrency,
 			r.config.BrokerBase.Ingestion.IngestTimeout.Duration(),
-			linmetric.BrokerRegistry.NewScope("lindb.broker.ingestion_limiter"),
+			metrics.NewLimitStatistics("ingestion", linmetric.BrokerRegistry),
 		),
 		QueryLimiter: concurrent.NewLimiter(
 			r.ctx,
 			r.config.Query.QueryConcurrency,
 			r.config.Query.Timeout.Duration(),
-			linmetric.BrokerRegistry.NewScope("lindb.broker.query_limiter"),
+			metrics.NewLimitStatistics("query", linmetric.BrokerRegistry),
 		),
 		QueryFactory: brokerQuery.NewQueryFactory(
 			r.stateMgr,

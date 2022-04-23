@@ -119,22 +119,19 @@ func newDatabase(
 				databaseName+"-filtering-pool",
 				runtime.GOMAXPROCS(-1), /*nRoutines*/
 				time.Second*5,
-				linmetric.StorageRegistry.NewScope("lindb.concurrent",
-					"pool_name", databaseName+"-filtering"),
+				metrics.NewConcurrentStatistics(databaseName+"-filtering", linmetric.StorageRegistry),
 			),
 			Grouping: concurrent.NewPool(
 				databaseName+"-grouping-pool",
 				runtime.GOMAXPROCS(-1), /*nRoutines*/
 				time.Second*5,
-				linmetric.StorageRegistry.NewScope("lindb.concurrent",
-					"pool_name", databaseName+"-grouping"),
+				metrics.NewConcurrentStatistics(databaseName+"-grouping", linmetric.StorageRegistry),
 			),
 			Scanner: concurrent.NewPool(
 				databaseName+"-scanner-pool",
 				runtime.GOMAXPROCS(-1), /*nRoutines*/
 				time.Second*5,
-				linmetric.StorageRegistry.NewScope("lindb.concurrent",
-					"pool_name", databaseName+"-scanner"),
+				metrics.NewConcurrentStatistics(databaseName+"-scanner", linmetric.StorageRegistry),
 			),
 		},
 		isFlushing:     *atomic.NewBool(false),
