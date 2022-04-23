@@ -27,11 +27,14 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/metrics"
 )
+
+var statistics = metrics.NewConcurrentStatistics("test", linmetric.BrokerRegistry)
 
 func Test_Pool_Submit(t *testing.T) {
 	// num. of pool + 1 dispatcher, workers has not been spawned
-	pool := NewPool("test", 2, time.Second*5, linmetric.BrokerRegistry.NewScope("1"))
+	pool := NewPool("test", 2, time.Second*5, statistics)
 
 	var c atomic.Int32
 
@@ -55,7 +58,7 @@ func Test_Pool_Submit(t *testing.T) {
 }
 
 func TestPool_Submit_PanicTask(t *testing.T) {
-	pool := NewPool("test", 0, time.Millisecond*200, linmetric.BrokerRegistry.NewScope("1"))
+	pool := NewPool("test", 0, time.Millisecond*200, statistics)
 	var wait sync.WaitGroup
 	wait.Add(1)
 	pool.Submit(context.TODO(), NewTask(func() {
@@ -66,14 +69,14 @@ func TestPool_Submit_PanicTask(t *testing.T) {
 	wait.Wait()
 
 	wp := pool.(*workerPool)
-	assert.Equal(t, float64(1), wp.workersAlive.Get())
+	assert.Equal(t, float64(1), wp.statistics.WorkersAlive.Get())
 	time.Sleep(time.Second)
-	assert.Equal(t, float64(0), wp.workersAlive.Get())
+	assert.Equal(t, float64(0), wp.statistics.WorkersAlive.Get())
 	pool.Stop()
 }
 
 func TestPool_Submit_Task_Timeout(t *testing.T) {
-	pool := NewPool("test", 0, time.Millisecond*100, linmetric.BrokerRegistry.NewScope("1"))
+	pool := NewPool("test", 0, time.Millisecond*100, statistics)
 	submit := func() {
 		ctx, cancel := context.WithTimeout(context.TODO(), time.Millisecond*2)
 		defer cancel()
@@ -88,7 +91,22 @@ func TestPool_Submit_Task_Timeout(t *testing.T) {
 }
 
 func TestPool_idle(t *testing.T) {
-	NewPool("test", 0, time.Millisecond*100, linmetric.BrokerRegistry.NewScope("1"))
+	p := NewPool("test", 0, time.Millisecond*100, statistics)
 	// no worker
 	time.Sleep(time.Second)
+
+	p1 := p.(*workerPool)
+	p1.statistics.WorkersAlive.Incr()
+	p1.readyWorkers <- newWorker(p1)
+	ch := make(chan struct{})
+	go func() {
+		p1.idle()
+		time.Sleep(10 * time.Millisecond)
+		p1.cancel()
+		time.Sleep(10 * time.Millisecond)
+		p1.idle()
+		ch <- struct{}{}
+	}()
+	p1.idle()
+	<-ch
 }

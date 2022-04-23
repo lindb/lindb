@@ -27,6 +27,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/metrics"
 )
 
 func Test_Limiter(t *testing.T) {
@@ -34,7 +35,7 @@ func Test_Limiter(t *testing.T) {
 		context.TODO(),
 		1,
 		time.Millisecond,
-		linmetric.BrokerRegistry.NewScope("test_limiter"),
+		metrics.NewLimitStatistics("test", linmetric.BrokerRegistry),
 	)
 	var (
 		wg          sync.WaitGroup

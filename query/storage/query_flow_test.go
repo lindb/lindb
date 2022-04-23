@@ -36,6 +36,7 @@ import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
@@ -52,19 +53,19 @@ var testExecPool = &tsdb.ExecutorPool{
 		"test-filtering-pool",
 		runtime.GOMAXPROCS(-1), /*nRoutines*/
 		time.Second*5,
-		linmetric.StorageRegistry.NewScope("test-filtering-pool"),
+		metrics.NewConcurrentStatistics("test", linmetric.StorageRegistry),
 	),
 	Grouping: concurrent.NewPool(
 		"test-grouping-pool",
 		runtime.GOMAXPROCS(-1), /*nRoutines*/
 		time.Second*5,
-		linmetric.StorageRegistry.NewScope("test-filtering-pool"),
+		metrics.NewConcurrentStatistics("test", linmetric.StorageRegistry),
 	),
 	Scanner: concurrent.NewPool(
 		"test-scanner-pool",
 		runtime.GOMAXPROCS(-1), /*nRoutines*/
 		time.Second*5,
-		linmetric.StorageRegistry.NewScope("test-filtering-pool"),
+		metrics.NewConcurrentStatistics("test", linmetric.StorageRegistry),
 	),
 }
 

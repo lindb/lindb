@@ -24,7 +24,7 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/metrics"
 	errorpkg "github.com/lindb/lindb/pkg/error"
 	"github.com/lindb/lindb/pkg/logger"
 )
@@ -85,28 +85,22 @@ type Pool interface {
 type workerPool struct {
 	name                string
 	maxWorkers          int
-	tasks               chan *Task              // tasks channel
-	readyWorkers        chan *worker            // available worker
-	idleTimeout         time.Duration           // idle goroutine recycle time
-	onDispatcherStopped chan struct{}           // signal that dispatcher is stopped
-	stopped             atomic.Bool             // mark if the pool is closed or not
-	workersAlive        *linmetric.BoundGauge   // current workers count in use
-	workersCreated      *linmetric.BoundCounter // workers created count since start
-	workersKilled       *linmetric.BoundCounter // workers killed since start
-	tasksConsumed       *linmetric.BoundCounter // tasks consumed count
-	tasksRejected       *linmetric.BoundCounter // tasks rejected count
-	tasksPanic          *linmetric.BoundCounter // tasks execute panic count
-	tasksWaitingTime    *linmetric.BoundCounter // tasks waiting total time
-	tasksExecutingTime  *linmetric.BoundCounter // tasks executing total time with waiting period
+	tasks               chan *Task    // tasks channel
+	readyWorkers        chan *worker  // available worker
+	idleTimeout         time.Duration // idle goroutine recycle time
+	onDispatcherStopped chan struct{} // signal that dispatcher is stopped
+	stopped             atomic.Bool   // mark if the pool is closed or not
 	ctx                 context.Context
 	cancel              context.CancelFunc
+
+	statistics *metrics.ConcurrentStatistics
 
 	logger *logger.Logger
 }
 
 // NewPool returns a new worker pool,
 // maxWorkers parameter specifies the maximum number workers that will execute tasks concurrently.
-func NewPool(name string, maxWorkers int, idleTimeout time.Duration, scope linmetric.Scope) Pool {
+func NewPool(name string, maxWorkers int, idleTimeout time.Duration, statistics *metrics.ConcurrentStatistics) Pool {
 	if maxWorkers < 1 {
 		maxWorkers = 1
 	}
@@ -119,16 +113,9 @@ func NewPool(name string, maxWorkers int, idleTimeout time.Duration, scope linme
 		idleTimeout:         idleTimeout,
 		onDispatcherStopped: make(chan struct{}),
 		stopped:             *atomic.NewBool(false),
-		workersAlive:        scope.NewGauge("workers_alive"),
-		workersCreated:      scope.NewCounter("workers_created"),
-		workersKilled:       scope.NewCounter("workers_killed"),
-		tasksConsumed:       scope.NewCounter("tasks_consumed"),
-		tasksRejected:       scope.NewCounter("tasks_rejected"),
-		tasksPanic:          scope.NewCounter("tasks_panic"),
-		tasksWaitingTime:    scope.NewCounter("tasks_waiting_duration_sum"),
-		tasksExecutingTime:  scope.NewCounter("tasks_executing_duration_sum"),
 		ctx:                 ctx,
 		cancel:              cancel,
+		statistics:          statistics,
 		logger:              logger.GetLogger("Pool", name),
 	}
 	go pool.dispatch()
@@ -141,7 +128,7 @@ func (p *workerPool) Submit(ctx context.Context, task *Task) {
 	}
 	select {
 	case <-ctx.Done():
-		p.tasksRejected.Incr()
+		p.statistics.TasksRejected.Incr()
 		return
 	case p.tasks <- task:
 	}
@@ -156,7 +143,7 @@ func (p *workerPool) mustGetWorker() *worker {
 		case worker = <-p.readyWorkers:
 			return worker
 		default:
-			if int(p.workersAlive.Get()) >= p.maxWorkers {
+			if int(p.statistics.WorkersAlive.Get()) >= p.maxWorkers {
 				// no available workers
 				time.Sleep(sleepInterval)
 				continue
@@ -188,15 +175,21 @@ func (p *workerPool) dispatch() {
 			worker = p.mustGetWorker()
 			worker.execute(task)
 		case <-idleTimeoutTimer.C:
-			// timed out waiting, kill a ready worker
-			if p.workersAlive.Get() > 0 {
-				select {
-				case worker = <-p.readyWorkers:
-					worker.stop(func() {})
-				default:
-					// workers are busy now
-				}
-			}
+			p.idle()
+		}
+	}
+}
+
+func (p *workerPool) idle() {
+	// timed out waiting, kill a ready worker
+	if p.statistics.WorkersAlive.Get() > 0 {
+		select {
+		case worker := <-p.readyWorkers:
+			worker.stop(func() {})
+		case <-p.ctx.Done():
+			// pool is stopped
+		default:
+			// workers are busy now
 		}
 	}
 }
@@ -208,7 +201,7 @@ func (p *workerPool) Stopped() bool {
 // stopWorkers stops all workers
 func (p *workerPool) stopWorkers() {
 	var wg sync.WaitGroup
-	for p.workersAlive.Get() > 0 {
+	for p.statistics.WorkersAlive.Get() > 0 {
 		wg.Add(1)
 		worker := <-p.readyWorkers
 		worker.stop(func() {
@@ -235,7 +228,7 @@ func (p *workerPool) execTask(task *Task) {
 		var err error
 		r := recover()
 		if r != nil {
-			p.tasksPanic.Incr()
+			p.statistics.TasksPanic.Incr()
 			err = errorpkg.Error(r)
 			p.logger.Error("panic when execute task",
 				logger.Error(err), logger.Stack())
@@ -244,11 +237,11 @@ func (p *workerPool) execTask(task *Task) {
 			}
 		}
 	}()
-	p.tasksWaitingTime.Add(float64(time.Since(task.createTime).Nanoseconds() / 1e6))
+	p.statistics.TasksWaitingTime.Add(float64(time.Since(task.createTime).Nanoseconds() / 1e6))
 	task.Exec()
-	p.tasksExecutingTime.Add(float64(time.Since(task.createTime).Nanoseconds() / 1e6))
+	p.statistics.TasksExecutingTime.Add(float64(time.Since(task.createTime).Nanoseconds() / 1e6))
 
-	p.tasksConsumed.Incr()
+	p.statistics.TasksConsumed.Incr()
 }
 
 // Stop tells the dispatcher to exit with pending tasks done.
@@ -281,8 +274,8 @@ func newWorker(pool *workerPool) *worker {
 		tasks:  make(chan *Task),
 		stopCh: make(chan struct{}),
 	}
-	w.pool.workersAlive.Incr()
-	w.pool.workersCreated.Incr()
+	w.pool.statistics.WorkersAlive.Incr()
+	w.pool.statistics.WorkersCreated.Incr()
 	go w.process()
 	return w
 }
@@ -295,8 +288,8 @@ func (w *worker) execute(task *Task) {
 func (w *worker) stop(callable func()) {
 	defer callable()
 	w.stopCh <- struct{}{}
-	w.pool.workersKilled.Incr()
-	w.pool.workersAlive.Decr()
+	w.pool.statistics.WorkersKilled.Incr()
+	w.pool.statistics.WorkersAlive.Decr()
 }
 
 // process task from queue
