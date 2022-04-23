@@ -192,12 +192,12 @@ func TestStateManager_Storage(t *testing.T) {
 	connectionMgr.EXPECT().CloseConnection("1.1.1.1:9000")
 	connectionMgr.EXPECT().CloseConnection("3.3.3.3:9000")
 	mgr.EmitEvent(&discovery.Event{
-		Type: discovery.StorageDeletion,
+		Type: discovery.StorageStateDeletion,
 		Key:  "/lin/storage/test",
 	})
 	// case 6: remove not exist storage
 	mgr.EmitEvent(&discovery.Event{
-		Type: discovery.StorageDeletion,
+		Type: discovery.StorageStateDeletion,
 		Key:  "/lin/storage/test",
 	})
 	time.Sleep(time.Second)

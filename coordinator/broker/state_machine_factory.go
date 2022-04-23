@@ -197,7 +197,7 @@ func (f *stateMachineFactory) onStorageStateChange(key string, data []byte) {
 // onStorageDeletion triggers when storage is deletion.
 func (f *stateMachineFactory) onStorageDeletion(key string) {
 	f.stateMgr.EmitEvent(&discovery.Event{
-		Type: discovery.StorageDeletion,
+		Type: discovery.StorageStateDeletion,
 		Key:  key,
 	})
 }

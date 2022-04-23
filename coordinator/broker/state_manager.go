@@ -20,11 +20,12 @@ package broker
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
-	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
@@ -82,17 +83,8 @@ type stateManager struct {
 	events chan *discovery.Event
 	mutex  sync.RWMutex
 
-	logger *logger.Logger
-
-	statistics struct {
-		databaseChanges *linmetric.BoundCounter
-		databaseDeletes *linmetric.BoundCounter
-		nodeStartUps    *linmetric.BoundCounter
-		nodeFailures    *linmetric.BoundCounter
-		storageChanges  *linmetric.BoundCounter
-		storageDeletes  *linmetric.BoundCounter
-		panics          *linmetric.BoundCounter
-	}
+	statistics *metrics.StateManagerStatistics
+	logger     *logger.Logger
 }
 
 // NewStateManager creates a broker state manager instance.
@@ -113,18 +105,10 @@ func NewStateManager(
 		databases:         make(map[string]models.Database),
 		nodes:             make(map[string]models.StatelessNode),
 		events:            make(chan *discovery.Event, 10),
+		statistics:        metrics.NewStateManagerStatistics(strings.ToLower(constants.BrokerRole)),
 		logger:            logger.GetLogger("broker", "StateManager"),
 	}
 
-	scope := linmetric.BrokerRegistry.NewScope("lindb.broker.state_manager")
-	eventVec := scope.NewCounterVec("emit_events", "type")
-	mgr.statistics.databaseChanges = eventVec.WithTagValues("database_changes")
-	mgr.statistics.databaseDeletes = eventVec.WithTagValues("database_deletes")
-	mgr.statistics.nodeStartUps = eventVec.WithTagValues("node_joins")
-	mgr.statistics.nodeFailures = eventVec.WithTagValues("node_leaves")
-	mgr.statistics.storageChanges = eventVec.WithTagValues("storage_changes")
-	mgr.statistics.storageDeletes = eventVec.WithTagValues("storage_deletes")
-	mgr.statistics.panics = scope.NewCounter("panics")
 	// start consume discovery event task
 	go mgr.consumeEvent()
 
@@ -167,9 +151,10 @@ func (m *stateManager) consumeEvent() {
 
 // processEvent processes each event, if panic will ignore the event handle, maybe lost the state in broker.
 func (m *stateManager) processEvent(event *discovery.Event) {
+	eventType := event.Type.String()
 	defer func() {
 		if err := recover(); err != nil {
-			m.statistics.panics.Incr()
+			m.statistics.Panics.WithTagValues(eventType).Incr()
 			m.logger.Error("panic when process discovery event, lost the state",
 				logger.Any("err", err), logger.Stack())
 		}
@@ -178,30 +163,30 @@ func (m *stateManager) processEvent(event *discovery.Event) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
+	var err error
 	switch event.Type {
 	case discovery.DatabaseConfigChanged:
-		m.statistics.databaseChanges.Incr()
-		m.onDatabaseCfgChange(event.Key, event.Value)
+		err = m.onDatabaseCfgChange(event.Key, event.Value)
 	case discovery.DatabaseConfigDeletion:
-		m.statistics.databaseDeletes.Incr()
 		m.onDatabaseCfgDelete(event.Key)
 	case discovery.NodeStartup:
-		m.statistics.nodeStartUps.Incr()
-		m.onNodeStartup(event.Key, event.Value)
+		err = m.onNodeStartup(event.Key, event.Value)
 	case discovery.NodeFailure:
-		m.statistics.nodeFailures.Incr()
 		m.onNodeFailure(event.Key)
 	case discovery.StorageStateChanged:
-		m.statistics.storageChanges.Incr()
-		m.onStorageStateChange(event.Key, event.Value)
-	case discovery.StorageDeletion:
-		m.statistics.storageDeletes.Incr()
+		err = m.onStorageStateChange(event.Key, event.Value)
+	case discovery.StorageStateDeletion:
 		m.onStorageDelete(event.Key)
+	}
+	if err != nil {
+		m.statistics.HandleEventFailure.WithTagValues(eventType).Incr()
+	} else {
+		m.statistics.HandleEvents.WithTagValues(eventType).Incr()
 	}
 }
 
 // onDatabaseCfgChange triggers when database create/modify.
-func (m *stateManager) onDatabaseCfgChange(key string, data []byte) {
+func (m *stateManager) onDatabaseCfgChange(key string, data []byte) error {
 	m.logger.Info("database config is modified",
 		logger.String("key", key),
 		logger.String("data", string(data)))
@@ -209,15 +194,16 @@ func (m *stateManager) onDatabaseCfgChange(key string, data []byte) {
 	cfg := models.Database{}
 	if err := encoding.JSONUnmarshal(data, &cfg); err != nil {
 		m.logger.Error("database config modified but unmarshal error", logger.Error(err))
-		return
+		return err
 	}
 
 	if cfg.Name == "" {
 		m.logger.Error("database name cannot be empty")
-		return
+		return constants.ErrNameEmpty
 	}
 
 	m.databases[cfg.Name] = cfg
+	return nil
 }
 
 // onDatabaseCfgDelete triggers when database is deletion.
@@ -231,7 +217,7 @@ func (m *stateManager) onDatabaseCfgDelete(key string) {
 }
 
 // onNodeStartup triggers when broker node online.
-func (m *stateManager) onNodeStartup(key string, data []byte) {
+func (m *stateManager) onNodeStartup(key string, data []byte) error {
 	m.logger.Info("new broker node online",
 		logger.String("key", key),
 		logger.String("data", string(data)))
@@ -239,7 +225,7 @@ func (m *stateManager) onNodeStartup(key string, data []byte) {
 	node := &models.StatelessNode{}
 	if err := encoding.JSONUnmarshal(data, node); err != nil {
 		m.logger.Error("new broker node online but unmarshal error", logger.Error(err))
-		return
+		return err
 	}
 
 	_, fileName := filepath.Split(key)
@@ -248,6 +234,8 @@ func (m *stateManager) onNodeStartup(key string, data []byte) {
 	m.connectionManager.CreateConnection(node)
 
 	m.nodes[nodeID] = *node
+
+	return nil
 }
 
 // onNodeFailure triggers when broker node offline.
@@ -265,7 +253,7 @@ func (m *stateManager) onNodeFailure(key string) {
 }
 
 // onStorageStateChange triggers when storage cluster state changed.
-func (m *stateManager) onStorageStateChange(key string, data []byte) {
+func (m *stateManager) onStorageStateChange(key string, data []byte) error {
 	m.logger.Info("storage state is changed",
 		logger.String("key", key),
 		logger.String("data", string(data)))
@@ -273,11 +261,11 @@ func (m *stateManager) onStorageStateChange(key string, data []byte) {
 	newState := &models.StorageState{}
 	if err := encoding.JSONUnmarshal(data, newState); err != nil {
 		m.logger.Error("storage state is changed but unmarshal error", logger.Error(err))
-		return
+		return err
 	}
 	if newState.Name == "" {
 		m.logger.Error("storage name is empty")
-		return
+		return constants.ErrNameEmpty
 	}
 
 	oldState, ok := m.storages[newState.Name]
@@ -311,6 +299,7 @@ func (m *stateManager) onStorageStateChange(key string, data []byte) {
 		logger.String("storage", newState.Name))
 
 	m.notifyShardStateChange(newState)
+	return nil
 }
 
 // onStorageDelete triggers when storage cluster is deletion.
