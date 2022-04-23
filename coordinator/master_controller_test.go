@@ -28,6 +28,7 @@ import (
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/elect"
 	masterpkg "github.com/lindb/lindb/coordinator/master"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/state"
@@ -138,7 +139,8 @@ func TestMasterController_OnFailOver(t *testing.T) {
 				cfg: &MasterCfg{
 					DiscoveryFactory: discoveryFactory,
 				},
-				registry: registry,
+				registry:   registry,
+				statistics: metrics.NewMasterStatistics(),
 			}
 			if tt.prepare != nil {
 				tt.prepare()
@@ -160,9 +162,8 @@ func TestMasterController_OnResignation(t *testing.T) {
 	defer ctrl.Finish()
 
 	stateMgr := masterpkg.NewMockStateManager(ctrl)
-	stateMgr.EXPECT().Close()
+	stateMgr.EXPECT().Close().AnyTimes()
 	registry := discovery.NewMockRegistry(ctrl)
-	registry.EXPECT().Deregister(gomock.Any()).Return(fmt.Errorf("err"))
 
 	mc := &masterController{
 		stateMgr: stateMgr,
@@ -171,7 +172,13 @@ func TestMasterController_OnResignation(t *testing.T) {
 		},
 		registry:        registry,
 		stateMachineFct: masterpkg.NewStateMachineFactory(context.TODO(), nil, stateMgr),
+		statistics:      metrics.NewMasterStatistics(),
 	}
+	// resign failure
+	registry.EXPECT().Deregister(gomock.Any()).Return(fmt.Errorf("err"))
+	mc.OnResignation()
+	// resign successfully
+	registry.EXPECT().Deregister(gomock.Any()).Return(nil)
 	mc.OnResignation()
 }
 

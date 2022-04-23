@@ -141,7 +141,7 @@ func (f *StateMachineFactory) createStorageConfigStateMachine() (discovery.State
 		},
 		func(key string) {
 			f.stateMgr.EmitEvent(&discovery.Event{
-				Type: discovery.StorageDeletion,
+				Type: discovery.StorageConfigDeletion,
 				Key:  key,
 			})
 		},

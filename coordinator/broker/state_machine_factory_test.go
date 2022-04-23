@@ -125,7 +125,7 @@ func TestStateMachineFactory_OnStorage(t *testing.T) {
 	fct := NewStateMachineFactory(context.TODO(), nil, stateMgr)
 	fct1 := fct.(*stateMachineFactory)
 	stateMgr.EXPECT().EmitEvent(&discovery.Event{
-		Type: discovery.StorageDeletion,
+		Type: discovery.StorageStateDeletion,
 		Key:  "/key",
 	})
 	fct1.onStorageDeletion("/key")

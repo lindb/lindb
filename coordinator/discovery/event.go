@@ -17,6 +17,7 @@
 
 package discovery
 
+// EventType represents coordinator event type.
 type EventType int
 
 const (
@@ -27,9 +28,38 @@ const (
 	NodeStartup
 	NodeFailure
 	StorageStateChanged
-	StorageDeletion
+	StorageStateDeletion
 	StorageConfigChanged
+	StorageConfigDeletion
 )
+
+// String returns string value of EventType.
+func (e EventType) String() string {
+	switch e {
+	case DatabaseConfigChanged:
+		return "DatabaseConfigChanged"
+	case DatabaseConfigDeletion:
+		return "DatabaseConfigDeletion"
+	case ShardAssignmentChanged:
+		return "ShardAssignmentChanged"
+	case ShardAssignmentDeletion:
+		return "ShardAssignmentDeletion"
+	case NodeStartup:
+		return "NodeStartup"
+	case NodeFailure:
+		return "NodeFailure"
+	case StorageStateChanged:
+		return "StorageStateChanged"
+	case StorageStateDeletion:
+		return "StorageStateDeletion"
+	case StorageConfigChanged:
+		return "StorageConfigChanged"
+	case StorageConfigDeletion:
+		return "StorageConfigDeletion"
+	default:
+		return "unknown"
+	}
+}
 
 // Event represents discovery state change event.
 type Event struct {

@@ -19,12 +19,15 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
-	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
@@ -68,12 +71,7 @@ type stateManager struct {
 
 	logger *logger.Logger
 
-	statistics struct {
-		nodeStartUps *linmetric.BoundCounter
-		nodeFailures *linmetric.BoundCounter
-		shardAssigns *linmetric.BoundCounter
-		panics       *linmetric.BoundCounter
-	}
+	statistics *metrics.StateManagerStatistics
 }
 
 // NewStateManager creates a StateManager instance.
@@ -92,14 +90,9 @@ func NewStateManager(
 		databaseAssignments: make(map[string]*models.DatabaseAssignment),
 		events:              make(chan *discovery.Event, 10),
 		watches:             make(map[models.NodeID][]func(state models.NodeStateType)),
+		statistics:          metrics.NewStateManagerStatistics(strings.ToLower(constants.StorageRole)),
 		logger:              logger.GetLogger("storage", "StateManager"),
 	}
-	scope := linmetric.StorageRegistry.NewScope("lindb.storage.state_manager")
-	eventVec := scope.NewCounterVec("emit_events", "type")
-	mgr.statistics.nodeStartUps = eventVec.WithTagValues("node_joins")
-	mgr.statistics.nodeFailures = eventVec.WithTagValues("node_leaves")
-	mgr.statistics.shardAssigns = eventVec.WithTagValues("shard_assigns")
-	mgr.statistics.panics = scope.NewCounter("panics")
 
 	// start consume discovery event task
 	go mgr.consumeEvent()
@@ -132,9 +125,10 @@ func (m *stateManager) consumeEvent() {
 
 // processEvent processes each event, if panic will ignore the event handle, maybe lost the state in storage/.
 func (m *stateManager) processEvent(event *discovery.Event) {
+	eventType := event.Type.String()
 	defer func() {
 		if err := recover(); err != nil {
-			m.statistics.panics.Incr()
+			m.statistics.Panics.WithTagValues(eventType).Incr()
 			m.logger.Error("panic when process discovery event, lost the state",
 				logger.Any("err", err), logger.Stack())
 		}
@@ -143,30 +137,34 @@ func (m *stateManager) processEvent(event *discovery.Event) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
+	var err error
+
 	switch event.Type {
 	case discovery.NodeStartup:
-		m.statistics.nodeStartUps.Incr()
-		m.onNodeStartup(event.Key, event.Value)
+		err = m.onNodeStartup(event.Key, event.Value)
 	case discovery.NodeFailure:
-		m.statistics.nodeFailures.Incr()
-		m.onNodeFailure(event.Key)
+		err = m.onNodeFailure(event.Key)
 	case discovery.ShardAssignmentChanged:
-		m.statistics.shardAssigns.Incr()
-		m.onShardAssignmentChange(event.Key, event.Value)
+		err = m.onShardAssignmentChange(event.Key, event.Value)
+	}
+	if err != nil {
+		m.statistics.HandleEventFailure.WithTagValues(eventType).Incr()
+	} else {
+		m.statistics.HandleEvents.WithTagValues(eventType).Incr()
 	}
 }
 
 // onShardAssignmentChange triggers when shard assignment changed after database config modified.
-func (m *stateManager) onShardAssignmentChange(key string, data []byte) {
+func (m *stateManager) onShardAssignmentChange(key string, data []byte) error {
 	m.logger.Info("shard assignment is changed",
 		logger.String("key", key),
 		logger.String("data", string(data)))
 	param := models.DatabaseAssignment{}
 	if err := encoding.JSONUnmarshal(data, &param); err != nil {
-		return
+		return err
 	}
 	if param.ShardAssignment == nil {
-		return
+		return constants.ErrShardNotFound
 	}
 
 	m.databaseAssignments[param.ShardAssignment.Name] = &param
@@ -178,7 +176,7 @@ func (m *stateManager) onShardAssignmentChange(key string, data []byte) {
 		}
 	}
 	if len(shardIDs) == 0 {
-		return
+		return constants.ErrShardNotFound
 	}
 	if err := m.engine.CreateShards(
 		param.ShardAssignment.Name,
@@ -189,12 +187,13 @@ func (m *stateManager) onShardAssignmentChange(key string, data []byte) {
 			logger.String("db", param.ShardAssignment.Name),
 			logger.Any("shards", shardIDs),
 			logger.Error(err))
-		return
+		return err
 	}
+	return nil
 }
 
 // onNodeStartup triggers when storage node online.
-func (m *stateManager) onNodeStartup(key string, data []byte) {
+func (m *stateManager) onNodeStartup(key string, data []byte) error {
 	m.logger.Info("new node online",
 		logger.String("key", key),
 		logger.String("data", string(data)))
@@ -202,7 +201,7 @@ func (m *stateManager) onNodeStartup(key string, data []byte) {
 	node := &models.StatefulNode{}
 	if err := encoding.JSONUnmarshal(data, node); err != nil {
 		m.logger.Error("new node online but unmarshal error", logger.Error(err))
-		return
+		return err
 	}
 
 	m.nodes[node.ID] = *node
@@ -212,10 +211,11 @@ func (m *stateManager) onNodeStartup(key string, data []byte) {
 	for _, handle := range watches {
 		handle(models.NodeOnline)
 	}
+	return nil
 }
 
 // onNodeFailure triggers when storage node offline.
-func (m *stateManager) onNodeFailure(key string) {
+func (m *stateManager) onNodeFailure(key string) error {
 	_, fileName := filepath.Split(key)
 
 	m.logger.Info("node online => offline",
@@ -225,14 +225,14 @@ func (m *stateManager) onNodeFailure(key string) {
 	id, err := strconv.ParseInt(fileName, 10, 64)
 	if err != nil {
 		m.logger.Error("parse offline node id err", logger.Error(err))
-		return
+		return err
 	}
 
 	nodeID := models.NodeID(id)
 	node, ok := m.nodes[nodeID]
 	if !ok {
 		// node not exist in alive node list
-		return
+		return fmt.Errorf("node not alive")
 	}
 	delete(m.nodes, nodeID)
 
@@ -244,7 +244,9 @@ func (m *stateManager) onNodeFailure(key string) {
 	// try close offline node connection in pool
 	if err := getConnFct().CloseClientConn(&node); err != nil {
 		m.logger.Error("close connection for offline node err", logger.Error(err))
+		return err
 	}
+	return nil
 }
 
 // GetLiveNode returns storage live node by node id, return false if not exist.
