@@ -19,6 +19,7 @@ package flow
 
 import (
 	"context"
+	"sort"
 	"testing"
 	"time"
 
@@ -326,4 +327,19 @@ func TestDataLoadContext_GetSeriesAggregator(t *testing.T) {
 	aggregator = ctx.GetSeriesAggregator(0, 1)
 	assert.NotNil(t, aggregator)
 	ctx.Reduce(func(it series.GroupedIterator) {})
+}
+
+func TestTimeSegmentContexts(t *testing.T) {
+	segments := TimeSegmentContexts{
+		{
+			FamilyTime: 10,
+		},
+		{
+			FamilyTime: 100,
+		},
+		{
+			FamilyTime: 5,
+		},
+	}
+	sort.Sort(segments)
 }
