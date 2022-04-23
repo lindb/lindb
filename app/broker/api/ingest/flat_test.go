@@ -34,6 +34,7 @@ import (
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/mock"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
@@ -59,7 +60,7 @@ func Test_Flat_Write(t *testing.T) {
 			context.TODO(),
 			32,
 			time.Second,
-			linmetric.BrokerRegistry.NewScope("influx_write_test")),
+			metrics.NewLimitStatistics("influx_write_test", linmetric.BrokerRegistry)),
 	})
 	r := gin.New()
 	api.Register(r)

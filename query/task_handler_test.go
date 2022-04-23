@@ -32,6 +32,7 @@ import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/ltoml"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
@@ -60,7 +61,8 @@ func TestTaskHandler_Handle(t *testing.T) {
 	taskServerFactory.EXPECT().Register(gomock.Any(), gomock.Any()).AnyTimes()
 	taskServerFactory.EXPECT().Deregister(gomock.Any(), gomock.Any()).Return(true).AnyTimes()
 	handler := NewTaskHandler(cfg, taskServerFactory, processor,
-		concurrent.NewPool("", 10, time.Second, linmetric.BrokerRegistry.NewScope("22")))
+		concurrent.NewPool("", 10, time.Second,
+			metrics.NewConcurrentStatistics("test", linmetric.BrokerRegistry)))
 
 	server := protoCommonV1.NewMockTaskService_HandleServer(ctrl)
 	ctx := metadata.NewOutgoingContext(context.TODO(), metadata.Pairs())
@@ -80,7 +82,8 @@ func TestTaskHandler_Handle(t *testing.T) {
 
 func TestTaskHandler_dispatch(t *testing.T) {
 	handler := NewTaskHandler(cfg, nil, &mockTaskProcessor{},
-		concurrent.NewPool("", 10, time.Second, linmetric.BrokerRegistry.NewScope("22")))
+		concurrent.NewPool("", 10, time.Second,
+			metrics.NewConcurrentStatistics("test", linmetric.BrokerRegistry)))
 	// test process panic
 	handler.process(context.Background(), nil, nil)
 }

@@ -33,6 +33,7 @@ import (
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/mock"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/replica"
 )
@@ -55,7 +56,7 @@ func Test_Influx_Write(t *testing.T) {
 			context.TODO(),
 			32,
 			time.Second,
-			linmetric.BrokerRegistry.NewScope("influx_write_test")),
+			metrics.NewLimitStatistics("test", linmetric.BrokerRegistry)),
 	})
 	r := gin.New()
 	api.Register(r)

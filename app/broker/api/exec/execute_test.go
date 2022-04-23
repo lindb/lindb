@@ -44,6 +44,7 @@ import (
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/mock"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/ltoml"
@@ -83,7 +84,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			context.TODO(),
 			2,
 			time.Second*5,
-			linmetric.BrokerRegistry.NewScope("metric_data_search"),
+			metrics.NewLimitStatistics("exec", linmetric.BrokerRegistry),
 		),
 	})
 	cfg := `{\"config\":{\"namespace\":\"test\",\"timeout\":10,\"dialTimeout\":10,`

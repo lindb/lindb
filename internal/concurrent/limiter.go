@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/metrics"
 )
 
 var ErrConcurrencyLimiterTimeout = errors.New("reaches the max concurrency for writing")
@@ -33,23 +33,18 @@ type Limiter struct {
 	timeout time.Duration
 	tokens  chan struct{}
 
-	statistics struct {
-		throttles *linmetric.BoundCounter // counter reaches the max-concurrency
-		timeouts  *linmetric.BoundCounter // counter pending and then timeout
-	}
+	statistics *metrics.LimitStatistics
 }
 
 // NewLimiter creates a limiter based of buffer channel.
 // It limits the concurrency for writing.
-func NewLimiter(ctx context.Context, maxConcurrency int, timeout time.Duration, scope linmetric.Scope) *Limiter {
-	l := &Limiter{
-		ctx:     ctx,
-		timeout: timeout,
-		tokens:  make(chan struct{}, maxConcurrency),
+func NewLimiter(ctx context.Context, maxConcurrency int, timeout time.Duration, statistics *metrics.LimitStatistics) *Limiter {
+	return &Limiter{
+		ctx:        ctx,
+		timeout:    timeout,
+		tokens:     make(chan struct{}, maxConcurrency),
+		statistics: statistics,
 	}
-	l.statistics.throttles = scope.NewCounter("throttle_requests")
-	l.statistics.timeouts = scope.NewCounter("timeout_requests")
-	return l
 }
 
 func (l *Limiter) Do(f func() error) error {
@@ -61,7 +56,7 @@ func (l *Limiter) Do(f func() error) error {
 	default:
 		// tokens are taken, so waits one to be free
 	}
-	l.statistics.throttles.Incr()
+	l.statistics.Throttles.Incr()
 
 	timer := acquireTimer(l.timeout)
 	select {
@@ -74,7 +69,7 @@ func (l *Limiter) Do(f func() error) error {
 		return nil
 	case <-timer.C:
 		releaseTimer(timer)
-		l.statistics.timeouts.Incr()
+		l.statistics.Timeouts.Incr()
 		return ErrConcurrencyLimiterTimeout
 	}
 }

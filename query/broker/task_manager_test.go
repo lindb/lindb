@@ -28,6 +28,7 @@ import (
 
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/rpc"
@@ -53,7 +54,7 @@ func TestTaskManager_SubmitMetricTask_WithoutIntermediates(t *testing.T) {
 			"p",
 			10,
 			time.Minute,
-			linmetric.BrokerRegistry.NewScope("test"),
+			metrics.NewConcurrentStatistics("test", linmetric.BrokerRegistry),
 		),
 		time.Second*10,
 	)
@@ -119,7 +120,7 @@ func TestTaskManager_SendResponse(t *testing.T) {
 			"p",
 			10,
 			time.Minute,
-			linmetric.BrokerRegistry.NewScope("test"),
+			metrics.NewConcurrentStatistics("test", linmetric.BrokerRegistry),
 		), time.Second)
 
 	// empty stream
@@ -154,7 +155,7 @@ func TestTaskManager_SubmitMetaDataTask(t *testing.T) {
 			"p",
 			10,
 			time.Minute,
-			linmetric.BrokerRegistry.NewScope("test"),
+			metrics.NewConcurrentStatistics("test", linmetric.BrokerRegistry),
 		),
 		time.Second*10,
 	)
@@ -200,7 +201,7 @@ func TestTaskManager_cleaner(t *testing.T) {
 			"p",
 			10,
 			time.Minute,
-			linmetric.BrokerRegistry.NewScope("test"),
+			metrics.NewConcurrentStatistics("test", linmetric.BrokerRegistry),
 		),
 		time.Second*10,
 	).(*taskManager)
