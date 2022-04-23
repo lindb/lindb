@@ -29,6 +29,7 @@ import (
 	"github.com/shirou/gopsutil/net"
 
 	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 )
 
@@ -41,7 +42,7 @@ func Test_NewSystemCollector(t *testing.T) {
 	collector := NewSystemCollector(
 		ctx,
 		"/tmp",
-		linmetric.StorageRegistry,
+		metrics.NewSystemStatistics(linmetric.StorageRegistry),
 	)
 
 	go func() {
@@ -62,7 +63,7 @@ func Test_SystemCollector_Collect(t *testing.T) {
 	collector := NewSystemCollector(
 		ctx,
 		"/tmp",
-		linmetric.StorageRegistry,
+		metrics.NewSystemStatistics(linmetric.BrokerRegistry),
 	)
 
 	collector.MemoryStatGetter = func() (*mem.VirtualMemoryStat, error) {
