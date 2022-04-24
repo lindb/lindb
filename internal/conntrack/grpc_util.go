@@ -36,15 +36,6 @@ func splitMethodName(fullMethodName string) (service, method string) {
 	return unknown, unknown
 }
 
-func streamRPCType(info *grpc.StreamServerInfo) grpcType {
-	if info.IsClientStream && !info.IsServerStream {
-		return ClientStream
-	} else if !info.IsClientStream && info.IsServerStream {
-		return ServerStream
-	}
-	return BidiStream
-}
-
 type grpcType string
 
 const (
@@ -58,6 +49,15 @@ func clientStreamType(desc *grpc.StreamDesc) grpcType {
 	if desc.ClientStreams && !desc.ServerStreams {
 		return ClientStream
 	} else if !desc.ClientStreams && desc.ServerStreams {
+		return ServerStream
+	}
+	return BidiStream
+}
+
+func streamRPCType(info *grpc.StreamServerInfo) grpcType {
+	if info.IsClientStream && !info.IsServerStream {
+		return ClientStream
+	} else if !info.IsClientStream && info.IsServerStream {
 		return ServerStream
 	}
 	return BidiStream

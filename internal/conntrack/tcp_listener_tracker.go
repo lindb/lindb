@@ -23,50 +23,33 @@ import (
 	"time"
 
 	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/metrics"
 )
 
-type connStatistics struct {
-	acceptCounter *linmetric.BoundCounter
-	acceptErrors  *linmetric.BoundCounter
-	connNum       *linmetric.BoundGauge
-	readCounter   *linmetric.BoundCounter
-	readBytes     *linmetric.BoundCounter
-	readErrors    *linmetric.BoundCounter
-	writeCounter  *linmetric.BoundCounter
-	writeBytes    *linmetric.BoundCounter
-	writeErrors   *linmetric.BoundCounter
-	closeCounter  *linmetric.BoundCounter
-	closeErrors   *linmetric.BoundCounter
-}
+//go:generate mockgen  -destination=./listener_mock.go -package=conntrack net Listener
 
+// for testing
+var (
+	newListenFn = net.Listen
+)
+
+// TrackedListener represents net.Listener wrapper for track network statistics.
 type TrackedListener struct {
 	net.Listener
-	connStatistics connStatistics
+
+	statistics *metrics.ConnStatistics
 }
 
 // NewTrackedListener returns new tracked TCP listener for the given addr.
 func NewTrackedListener(network, addr string, r *linmetric.Registry) (*TrackedListener, error) {
-	ln, err := net.Listen(network, addr)
+	ln, err := newListenFn(network, addr)
 	if err != nil {
 		return nil, err
 	}
 
-	tcpScope := r.NewScope("lindb.traffic.tcp", "addr", addr)
 	return &TrackedListener{
-		Listener: ln,
-		connStatistics: connStatistics{
-			acceptCounter: tcpScope.NewCounter("accept_conns"),
-			acceptErrors:  tcpScope.NewCounter("accept_errors"),
-			connNum:       tcpScope.NewGauge("conns_num"),
-			readCounter:   tcpScope.NewCounter("read_count"),
-			readBytes:     tcpScope.NewCounter("read_bytes"),
-			readErrors:    tcpScope.NewCounter("read_errors"),
-			writeCounter:  tcpScope.NewCounter("write_count"),
-			writeBytes:    tcpScope.NewCounter("write_bytes"),
-			writeErrors:   tcpScope.NewCounter("write_errors"),
-			closeCounter:  tcpScope.NewCounter("close_conns"),
-			closeErrors:   tcpScope.NewCounter("close_errors"),
-		},
+		Listener:   ln,
+		statistics: metrics.NewConnStatistics(r, addr),
 	}, nil
 }
 
@@ -74,18 +57,18 @@ func NewTrackedListener(network, addr string, r *linmetric.Registry) (*TrackedLi
 func (tl *TrackedListener) Accept() (net.Conn, error) {
 	for {
 		conn, err := tl.Listener.Accept()
-		tl.connStatistics.acceptCounter.Incr()
+		tl.statistics.Accept.Incr()
 		if err != nil {
 			var ne net.Error
 			if errors.As(err, &ne) && ne.Temporary() {
 				time.Sleep(time.Millisecond * 100)
 				continue
 			}
-			tl.connStatistics.acceptErrors.Incr()
+			tl.statistics.AcceptErrors.Incr()
 			return nil, err
 		}
-		tl.connStatistics.connNum.Incr()
-		tc := &TrackedConn{Conn: conn, statistics: &tl.connStatistics}
+		tl.statistics.ActiveConn.Incr()
+		tc := &TrackedConn{Conn: conn, statistics: tl.statistics}
 		return tc, nil
 	}
 }

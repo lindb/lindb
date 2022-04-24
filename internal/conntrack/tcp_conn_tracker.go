@@ -20,40 +20,44 @@ package conntrack
 import (
 	"io"
 	"net"
+
+	"github.com/lindb/lindb/metrics"
 )
 
-// TrackedConn tracks a net.Conn with linmetric
+//go:generate mockgen  -destination=./conn_mock.go -package=conntrack net Conn
+
+// TrackedConn tracks a net.Conn with linmetric.
 type TrackedConn struct {
 	net.Conn
-	statistics *connStatistics
+	statistics *metrics.ConnStatistics
 }
 
 func (tc *TrackedConn) Read(p []byte) (int, error) {
 	n, err := tc.Conn.Read(p)
-	tc.statistics.readCounter.Incr()
-	tc.statistics.readBytes.Add(float64(n))
+	tc.statistics.Read.Incr()
+	tc.statistics.ReadBytes.Add(float64(n))
 	if err != nil && err != io.EOF {
-		tc.statistics.readErrors.Incr()
+		tc.statistics.ReadErrors.Incr()
 	}
 	return n, err
 }
 
 func (tc *TrackedConn) Write(p []byte) (int, error) {
 	n, err := tc.Conn.Write(p)
-	tc.statistics.writeCounter.Incr()
-	tc.statistics.writeBytes.Add(float64(n))
+	tc.statistics.Write.Incr()
+	tc.statistics.WriteBytes.Add(float64(n))
 	if err != nil {
-		tc.statistics.writeErrors.Incr()
+		tc.statistics.WriteErrors.Incr()
 	}
 	return n, err
 }
 
 func (tc *TrackedConn) Close() error {
-	tc.statistics.closeCounter.Incr()
 	err := tc.Conn.Close()
+	tc.statistics.Close.Incr()
 	if err != nil {
-		tc.statistics.closeErrors.Incr()
+		tc.statistics.Close.Incr()
 	}
-	tc.statistics.connNum.Decr()
+	tc.statistics.ActiveConn.Decr()
 	return err
 }
