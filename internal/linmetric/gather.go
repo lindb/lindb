@@ -24,6 +24,8 @@ import (
 	"github.com/lindb/lindb/series/tag"
 )
 
+//go:generate mockgen -source ./gather.go -destination=./gather_mock.go -package=linmetric
+
 // Gather gathers native lindb dto metrics
 type Gather interface {
 	// Gather gathers and returns the gathered metrics
@@ -34,10 +36,14 @@ type GatherOption interface {
 	ApplyConfig(g *gather)
 }
 
+type Observer interface {
+	Observe()
+}
+
 type gather struct {
 	r               *Registry
 	namespace       string
-	runtimeObserver *runtimeObserver
+	runtimeObserver Observer
 	tags            tag.Tags
 	buf             bytes.Buffer
 }
@@ -64,12 +70,18 @@ func (g *gather) Gather() (data []byte, count int) {
 }
 
 type readRuntimeOption struct {
-	r *Registry
+	observer Observer
 }
 
-func (o *readRuntimeOption) ApplyConfig(g *gather) { g.runtimeObserver = newRuntimeObserver(o.r) }
+func (o *readRuntimeOption) ApplyConfig(g *gather) {
+	g.runtimeObserver = o.observer
+}
 
-func WithReadRuntimeOption(r *Registry) GatherOption { return &readRuntimeOption{r: r} }
+func WithReadRuntimeOption(observer Observer) GatherOption {
+	return &readRuntimeOption{
+		observer: observer,
+	}
+}
 
 type globalKeyValuesOption struct {
 	keyValues tag.Tags

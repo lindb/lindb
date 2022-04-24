@@ -24,10 +24,14 @@ import (
 )
 
 func Test_BufioReader(t *testing.T) {
-	r, release := NewBufioReader(nil)
-	release(r)
+	for i := 0; i < 10; i++ {
+		r, release := NewBufioReader(nil)
+		release(r)
+	}
 
-	r, release = NewBufioReader(nil)
-	release(r)
-	assert.NotNil(t, r)
+	for i := 0; i < 10; i++ {
+		r, release := NewBufioReader(nil)
+		assert.NotNil(t, r)
+		assert.NotNil(t, release)
+	}
 }
