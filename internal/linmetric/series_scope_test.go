@@ -22,10 +22,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
 func Test_MetricScope(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	observer := NewMockObserver(ctrl)
+	observer.EXPECT().Observe().AnyTimes()
+
 	scope0 := BrokerRegistry.NewScope("0")
 	scope0.Scope("x")
 	scope0.Scope("x")
@@ -53,7 +59,7 @@ func Test_MetricScope(t *testing.T) {
 	scope12.NewHistogram().UpdateDuration(time.Second)
 	scope12.NewHistogram().UpdateDuration(time.Second)
 	time.Sleep(time.Second)
-	gather := BrokerRegistry.NewGather(WithReadRuntimeOption(BrokerRegistry))
+	gather := BrokerRegistry.NewGather(WithReadRuntimeOption(observer))
 	_, _ = gather.Gather()
 	_, _ = gather.Gather()
 }

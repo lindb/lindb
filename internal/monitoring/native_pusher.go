@@ -86,7 +86,7 @@ func NewNativeProtoPusher(
 		interval:        interval,
 		globalKeyValues: globalKeyValues,
 		gather: r.NewGather(
-			linmetric.WithReadRuntimeOption(r),
+			linmetric.WithReadRuntimeOption(newRuntimeObserver(r)),
 			linmetric.WithGlobalKeyValueOption(globalKeyValues),
 		),
 		client: &http.Client{Timeout: pushTimeout},
