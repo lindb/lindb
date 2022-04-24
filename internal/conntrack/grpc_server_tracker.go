@@ -19,28 +19,29 @@ package conntrack
 
 import (
 	"context"
+	"time"
 
 	"google.golang.org/grpc"
 
 	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/metrics"
 )
+
+//go:generate mockgen  -destination=./server_stream_mock.go -package=conntrack google.golang.org/grpc ServerStream
 
 // GRPCServerTracker represents a collection of lin-metrics to be collected
 // for a gRPC server.
 type GRPCServerTracker struct {
-	streamMsgReceivedVec *linmetric.DeltaCounterVec
-	streamMsgSentVec     *linmetric.DeltaCounterVec
+	r          *linmetric.Registry
+	statistics *metrics.GRPCUnaryStatistics
 }
 
 // NewGRPCServerTracker returns a metric tracker for grpc server.
 func NewGRPCServerTracker(r *linmetric.Registry) *GRPCServerTracker {
-	tracker := &GRPCServerTracker{}
-	grpcServerScope := r.NewScope("lindb.traffic.grpc_server")
-	tracker.streamMsgReceivedVec = grpcServerScope.NewCounterVec(
-		"msg_received", "grpc_type", "grpc_service", "grpc_method")
-	tracker.streamMsgSentVec = grpcServerScope.NewCounterVec(
-		"msg_sent", "grpc_type", "grpc_service", "grpc_method")
-	return tracker
+	return &GRPCServerTracker{
+		r:          r,
+		statistics: metrics.NewGRPCUnaryServerStatistics(r),
+	}
 }
 
 // UnaryServerInterceptor is a gRPC server-side interceptor for tracking Unary RPCs.
@@ -48,11 +49,12 @@ func (tracker *GRPCServerTracker) UnaryServerInterceptor() func(
 	ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler,
 ) (interface{}, error) {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		start := time.Now()
 		serviceName, methodName := splitMethodName(info.FullMethod)
-		tracker.streamMsgReceivedVec.WithTagValues(string(Unary), serviceName, methodName).Incr()
 		resp, err := handler(ctx, req)
-		if err == nil {
-			tracker.streamMsgSentVec.WithTagValues(string(Unary), serviceName, methodName).Incr()
+		tracker.statistics.Duration.WithTagValues(serviceName, methodName).UpdateSince(start)
+		if err != nil {
+			tracker.statistics.Failures.WithTagValues(serviceName, methodName).Incr()
 		}
 		return resp, err
 	}
@@ -67,10 +69,7 @@ func (tracker *GRPCServerTracker) StreamServerInterceptor() func(
 
 		return handler(srv, &wrappedServerStream{
 			ServerStream: ss,
-			serverStreamMsgReceived: tracker.streamMsgReceivedVec.WithTagValues(
-				string(streamRPCType(info)), serviceName, methodName),
-			serverStreamMsgSent: tracker.streamMsgSentVec.WithTagValues(
-				string(streamRPCType(info)), serviceName, methodName),
+			statistics:   metrics.NewGRPCStreamServerStatistics(tracker.r, string(streamRPCType(info)), serviceName, methodName),
 		})
 	}
 }
@@ -78,22 +77,25 @@ func (tracker *GRPCServerTracker) StreamServerInterceptor() func(
 // wrappedServerStream wraps grpc.ServerStream allowing each Sent/Recv of message to increment counters.
 type wrappedServerStream struct {
 	grpc.ServerStream
-	serverStreamMsgReceived *linmetric.BoundCounter
-	serverStreamMsgSent     *linmetric.BoundCounter
+	statistics *metrics.GRPCStreamStatistics
 }
 
 func (s *wrappedServerStream) SendMsg(m interface{}) error {
+	start := time.Now()
 	err := s.ServerStream.SendMsg(m)
-	if err == nil {
-		s.serverStreamMsgSent.Incr()
+	s.statistics.MsgSentDuration.UpdateSince(start)
+	if err != nil {
+		s.statistics.MsgSentFailures.Incr()
 	}
 	return err
 }
 
 func (s *wrappedServerStream) RecvMsg(m interface{}) error {
+	start := time.Now()
 	err := s.ServerStream.RecvMsg(m)
-	if err == nil {
-		s.serverStreamMsgReceived.Incr()
+	s.statistics.MsgReceivedDuration.UpdateSince(start)
+	if err != nil {
+		s.statistics.MsgReceivedFailures.Incr()
 	}
 	return err
 }
