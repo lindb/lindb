@@ -20,16 +20,22 @@ package linmetric
 import (
 	"testing"
 
+	"github.com/golang/mock/gomock"
+
 	"github.com/lindb/lindb/series/tag"
 )
 
 func Test_Gather(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	observer := NewMockObserver(ctrl)
+	observer.EXPECT().Observe()
 	gather := BrokerRegistry.NewGather(
 		WithGlobalKeyValueOption(tag.TagsFromMap(map[string]string{
 			"host": "alpha",
 			"ip":   "1.1.1.1",
 		})),
-		WithReadRuntimeOption(BrokerRegistry),
+		WithReadRuntimeOption(observer),
 		WithNamespaceOption("default-ns"),
 	)
 	_, _ = gather.Gather()
