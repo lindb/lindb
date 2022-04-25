@@ -142,7 +142,7 @@ func (r *SystemCollector) logCPUStat() {
 		r.statistics.User.Update(cpuStat.User)
 		r.statistics.Irq.Update(cpuStat.Irq)
 		r.statistics.Steal.Update(cpuStat.Steal)
-		r.statistics.SoftRiq.Update(cpuStat.Softirq)
+		r.statistics.SoftIrq.Update(cpuStat.Softirq)
 		r.statistics.IOWait.Update(cpuStat.Iowait)
 	}
 }

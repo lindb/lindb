@@ -30,6 +30,7 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/conntrack"
 	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/logger"
 )
 
@@ -45,29 +46,28 @@ type GRPCServer interface {
 }
 
 type grpcServer struct {
-	bindAddress  string
-	logger       *logger.Logger
-	gs           *grpc.Server
-	panicCounter *linmetric.BoundCounter
+	bindAddress string
+	gs          *grpc.Server
+	statistics  *metrics.GRPCServerStatistics
+	logger      *logger.Logger
 }
 
 func NewGRPCServer(cfg config.GRPC, r *linmetric.Registry) GRPCServer {
 	log := logger.GetLogger("rpc", "GRPCServer")
 	grpcServerTracker := conntrack.NewGRPCServerTracker(r)
+	statistics := metrics.NewGRPCServerStatistics(r)
 	// Shared options for the logger, with a custom gRPC code to log level function.
-	panicCounter := r.NewScope("lindb.traffic.grpc_server").
-		NewCounter("panics")
 	opts := []grpcrecovery.Option{
 		grpcrecovery.WithRecoveryHandler(func(p interface{}) (err error) {
-			panicCounter.Incr()
+			statistics.Panics.Incr()
 			log.Error("panic trigger when handle rpc request", logger.Any("err", p), logger.Stack())
 			return status.Errorf(codes.Internal, "panic triggered: %v", p)
 		}),
 	}
 	return &grpcServer{
-		logger:       log,
-		panicCounter: panicCounter,
-		bindAddress:  fmt.Sprintf(":%d", cfg.Port),
+		logger:      log,
+		statistics:  statistics,
+		bindAddress: fmt.Sprintf(":%d", cfg.Port),
 		gs: grpc.NewServer(
 			grpc.ConnectionTimeout(cfg.ConnectTimeout.Duration()),
 			grpc.StreamInterceptor(grpcmiddleware.ChainStreamServer(

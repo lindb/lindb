@@ -167,7 +167,7 @@ func (c *storeCache) Close() error {
 func (c *storeCache) closeReader(entry *cacheEntry) {
 	metrics.TableCacheStatistics.ActiveReaders.Decr()
 	if err := entry.reader.Close(); err != nil {
-		metrics.TableCacheStatistics.CloseErr.Incr()
+		metrics.TableCacheStatistics.CloseFailures.Incr()
 		tableLogger.Error("close store reader error",
 			logger.String("path", c.storePath),
 			logger.String("family", entry.family),
