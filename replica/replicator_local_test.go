@@ -72,8 +72,14 @@ func TestLocalReplicator_Replica(t *testing.T) {
 	family := tsdb.NewMockDataFamily(ctrl)
 	family.EXPECT().CommitSequence(gomock.Any(), gomock.Any()).AnyTimes()
 	family.EXPECT().AckSequence(gomock.Any(), gomock.Any()).AnyTimes()
+	q := queue.NewMockFanOut(ctrl)
+	q.EXPECT().Pending().Return(int64(10)).AnyTimes()
 
-	replicator := NewLocalReplicator(&ReplicatorChannel{State: &models.ReplicaState{Leader: 1}}, shard, family)
+	replicator := NewLocalReplicator(
+		&ReplicatorChannel{
+			State: &models.ReplicaState{Leader: 1},
+			Queue: q,
+		}, shard, family)
 	assert.True(t, replicator.IsReady())
 	// bad sequence
 	family.EXPECT().ValidateSequence(gomock.Any(), gomock.Any()).Return(false)
@@ -102,12 +108,20 @@ func TestLocalReplicator_Replica(t *testing.T) {
 	shard.EXPECT().LookupRowMetricMeta(gomock.Any()).Return(fmt.Errorf("err"))
 	replicator.Replica(1, dst)
 
+	// write failure
 	shard.EXPECT().LookupRowMetricMeta(gomock.Any()).Return(nil)
 	family.EXPECT().WriteRows(gomock.Any()).Return(fmt.Errorf("err"))
 	replicator.Replica(1, dst)
+	// write success
+	shard.EXPECT().LookupRowMetricMeta(gomock.Any()).Return(nil)
+	family.EXPECT().WriteRows(gomock.Any()).Return(nil)
+	replicator.Replica(1, dst)
 	// bad data
 	dst = snappy.Encode(dst, []byte("bad-data"))
-	replicator.Replica(1, dst)
+	assert.Panics(t, func() {
+		replicator.Replica(1, dst)
+	})
+
 	// empty rows
 	dst = snappy.Encode(dst, []byte{})
 	replicator.Replica(1, dst)

@@ -24,7 +24,7 @@ import (
 	"sync"
 
 	"github.com/lindb/lindb/coordinator/storage"
-	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/queue"
@@ -86,7 +86,7 @@ type partition struct {
 
 	mutex sync.Mutex
 
-	appendSeqGauge *linmetric.BoundGauge
+	statistics *metrics.StorageWriteAheadLogStatistics
 
 	logger *logger.Logger
 }
@@ -112,11 +112,8 @@ func NewPartition(
 		cliFct:        cliFct,
 		stateMgr:      stateMgr,
 		peers:         make(map[models.NodeID]ReplicatorPeer),
-		appendSeqGauge: appendSeqVec.WithTagValues(
-			shard.Database().Name(),
-			shard.ShardID().String(),
-			timeutil.FormatTimestamp(family.FamilyTime(), timeutil.DataTimeFormat4)),
-		logger: logger.GetLogger("replica", "Partition"),
+		statistics:    metrics.NewStorageWriteAheadLogStatistics(shard.Database().Name(), shard.ShardID().String()),
+		logger:        logger.GetLogger("replica", "Partition"),
 	}
 }
 
@@ -127,13 +124,12 @@ func (p *partition) ReplicaLog(replicaIdx int64, msg []byte) (int64, error) {
 	if replicaIdx != appendIdx {
 		return appendIdx, nil
 	}
-	receiveReplicaSize.WithTagValues(p.db).Add(float64(len(msg)))
+	p.statistics.ReceiveReplicaSize.Add(float64(len(msg)))
 	if err := p.log.Put(msg); err != nil {
-		replicaWALFailure.WithTagValues(p.db).Incr()
+		p.statistics.ReplicaWALFailures.Incr()
 		return -1, err
 	}
-	replicaWAL.WithTagValues(p.db).Incr()
-	p.appendSeqGauge.Update(float64(appendIdx))
+	p.statistics.ReplicaWAL.Incr()
 	return appendIdx, nil
 }
 
@@ -177,14 +173,12 @@ func (p *partition) WriteLog(msg []byte) error {
 	if len(msg) == 0 {
 		return nil
 	}
-	receiveWriteSize.WithTagValues(p.db).Add(float64(len(msg)))
-	appendIdx := p.log.HeadSeq()
+	p.statistics.ReceiveWriteSize.Add(float64(len(msg)))
 	if err := p.log.Put(msg); err != nil {
-		writeWALFailure.WithTagValues(p.db).Incr()
+		p.statistics.WriteWALFailures.Incr()
 		return err
 	}
-	writeWAL.WithTagValues(p.db).Incr()
-	p.appendSeqGauge.Update(float64(appendIdx))
+	p.statistics.WriteWAL.Incr()
 	return nil
 }
 
@@ -298,15 +292,12 @@ func (p *partition) buildReplica(leader, replica models.NodeID) error {
 		},
 		Queue: walConsumer,
 	}
-	var replicaType string
 	if replica == p.currentNodeID {
 		// local replicator
 		replicator = newLocalReplicatorFn(&channel, p.shard, p.family)
-		replicaType = "local"
 	} else {
 		// build remote replicator
 		replicator = newRemoteReplicatorFn(p.ctx, &channel, p.stateMgr, p.cliFct)
-		replicaType = "remote"
 	}
 
 	// startup replicator peer
@@ -314,7 +305,6 @@ func (p *partition) buildReplica(leader, replica models.NodeID) error {
 	p.peers[replica] = peer
 	peer.Startup()
 
-	activeReplicaChannel.WithTagValues(p.db, replicaType).Incr()
 	return nil
 }
 

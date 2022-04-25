@@ -29,6 +29,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -115,6 +116,7 @@ func TestFamilyChannel_Write(t *testing.T) {
 				chunk:          chunk,
 				stoppedSignal:  make(chan struct{}, 1),
 				stoppingSignal: make(chan struct{}, 1),
+				statistics:     metrics.NewBrokerFamilyWriteStatistics("db"),
 			}
 			if tt.prepare != nil {
 				tt.prepare()
@@ -134,6 +136,7 @@ func TestFamilyChannel_leaderChanged(t *testing.T) {
 	liveNodes := make(map[models.NodeID]models.StatefulNode)
 	fc := &familyChannel{
 		leaderChangedSignal: make(chan struct{}, 1),
+		statistics:          metrics.NewBrokerFamilyWriteStatistics("db"),
 	}
 	fc.leaderChanged(shard, liveNodes)
 	fc.lock4meta.Lock()
@@ -159,6 +162,7 @@ func TestChannel_checkFlush(t *testing.T) {
 		stoppingSignal: make(chan struct{}, 1),
 		stoppedSignal:  make(chan struct{}, 1),
 		ch:             make(chan *compressedChunk),
+		statistics:     metrics.NewBrokerFamilyWriteStatistics("test"),
 		logger:         logger.GetLogger("test", "test"),
 	}
 	f.checkFlush()
@@ -188,6 +192,7 @@ func TestFamilyChannel_flushChunkOnFull(t *testing.T) {
 		batchTimout:   5 * time.Second,
 		lastFlushTime: atomic.NewInt64(timeutil.Now()),
 		ch:            make(chan *compressedChunk, 1),
+		statistics:    metrics.NewBrokerFamilyWriteStatistics("db"),
 		logger:        logger.GetLogger("test", "test"),
 	}
 	assert.NoError(t, f.flushChunkOnFull(context.TODO()))
@@ -206,6 +211,7 @@ func TestFamilyChannel_isExpire(t *testing.T) {
 		familyTime:     1,
 		ch:             make(chan *compressedChunk),
 		stoppingSignal: make(chan struct{}, 1),
+		statistics:     metrics.NewBrokerFamilyWriteStatistics("db"),
 		lastFlushTime:  atomic.NewInt64(timeutil.Now()),
 	}
 	assert.Equal(t, int64(1), f.FamilyTime())
@@ -228,11 +234,12 @@ func TestFamilyChannel_flushChunk(t *testing.T) {
 	chunk := NewMockChunk(ctrl)
 	ctx, cancel := context.WithCancel(context.TODO())
 	f := &familyChannel{
-		cancel: cancel,
-		ctx:    ctx,
-		chunk:  chunk,
-		ch:     make(chan *compressedChunk, 1),
-		logger: logger.GetLogger("test", "test"),
+		cancel:     cancel,
+		ctx:        ctx,
+		chunk:      chunk,
+		ch:         make(chan *compressedChunk, 1),
+		statistics: metrics.NewBrokerFamilyWriteStatistics("db"),
+		logger:     logger.GetLogger("test", "test"),
 	}
 	// compress failure
 	chunk.EXPECT().Compress().Return(nil, fmt.Errorf("err"))
@@ -345,7 +352,27 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 			},
 		},
 		{
-			name: "stop family, create stream ok, but send failure, EOF",
+			name: "stop family, create stream ok, but send failure, EOF, close stream ok",
+			prepare: func(f *familyChannel) {
+				chunk := NewMockChunk(ctrl)
+				f.chunk = chunk
+				chunk.EXPECT().IsEmpty().Return(false)
+				chunk.EXPECT().Compress().Return(&compressedChunk{1, 2, 3}, nil)
+				stream := rpc.NewMockWriteStream(ctrl)
+				f.newWriteStreamFn = func(ctx context.Context, target models.Node,
+					database string, shardState *models.ShardState, familyTime int64,
+					fct rpc.ClientStreamFactory) (rpc.WriteStream, error) {
+					return stream, nil
+				}
+				stream.EXPECT().Close().Return(nil)
+				stream.EXPECT().Send(gomock.Any()).Return(io.EOF)
+				go func() {
+					f.Stop(10)
+				}()
+			},
+		},
+		{
+			name: "stop family, create stream ok, but send failure, EOF, close stream failure",
 			prepare: func(f *familyChannel) {
 				chunk := NewMockChunk(ctrl)
 				f.chunk = chunk
@@ -498,7 +525,8 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 				liveNodes: map[models.NodeID]models.StatefulNode{
 					1: {},
 				},
-				logger: logger.GetLogger("test", "test"),
+				statistics: metrics.NewBrokerFamilyWriteStatistics("db"),
+				logger:     logger.GetLogger("test", "test"),
 			}
 			if tt.prepare != nil {
 				tt.prepare(f)

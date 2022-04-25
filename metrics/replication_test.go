@@ -15,15 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package monitoring
+package metrics
 
 import (
 	"testing"
 
-	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestRuntimeObserver_Observe(t *testing.T) {
-	r := newRuntimeObserver(linmetric.BrokerRegistry)
-	r.Observe()
+func TestReplication_New(t *testing.T) {
+	assert.NotNil(t, NewBrokerFamilyWriteStatistics("db"))
+	assert.NotNil(t, NewBrokerDatabaseWriteStatistics("db"))
+	assert.NotNil(t, NewStorageReplicatorRunnerStatistics("type", "db", "shard"))
+	assert.NotNil(t, NewStorageLocalReplicatorStatistics("db", "shard"))
+	assert.NotNil(t, NewStorageRemoteReplicatorStatistics("db", "shard"))
+	assert.NotNil(t, NewStorageWriteAheadLogStatistics("db", "shard"))
 }

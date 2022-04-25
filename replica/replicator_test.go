@@ -60,7 +60,6 @@ func TestReplicator_Base(t *testing.T) {
 			State: state,
 			Queue: q,
 		},
-		replicaSeqGauge: walScope.NewGauge("test"),
 	}
 	assert.Equal(t, state, r.State())
 	r.Replica(0, []byte{1, 2, 3})
@@ -90,4 +89,6 @@ func TestReplicator_Base(t *testing.T) {
 	q.EXPECT().SetHeadSeq(int64(10))
 	err = r.ResetReplicaIndex(int64(10))
 	assert.NoError(t, err)
+	q.EXPECT().Pending().Return(int64(10))
+	assert.Equal(t, int64(10), r.Pending())
 }
