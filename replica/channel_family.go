@@ -26,6 +26,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -87,6 +88,8 @@ type familyChannel struct {
 
 	lock4write sync.Mutex
 	lock4meta  sync.Mutex
+
+	statistics *metrics.BrokerFamilyWriteStatistics
 	logger     *logger.Logger
 }
 
@@ -120,10 +123,11 @@ func newFamilyChannel(
 		maxRetryBuf:         100, // TODO add config
 		chunk:               newChunk(cfg.BatchBlockSize),
 		lastFlushTime:       atomic.NewInt64(timeutil.Now()),
+		statistics:          metrics.NewBrokerFamilyWriteStatistics(database),
 		logger:              logger.GetLogger("replica", "FamilyChannel"),
 	}
 
-	activeWriteFamilies.WithTagValues(database).Incr()
+	fc.statistics.ActiveWriteFamilies.Incr()
 
 	go fc.writeTask()
 
@@ -140,8 +144,8 @@ func (fc *familyChannel) Write(ctx context.Context, rows []metric.BrokerRow) err
 	fc.lock4write.Lock()
 	defer func() {
 		if total > 0 {
-			batchMetrics.WithTagValues(fc.database).Add(float64(success))
-			batchMetricFailures.WithTagValues(fc.database).Add(float64(total - success))
+			fc.statistics.BatchMetrics.Add(float64(success))
+			fc.statistics.BatchMetricFailures.Add(float64(total - success))
 		}
 		fc.lock4write.Unlock()
 	}()
@@ -171,6 +175,7 @@ func (fc *familyChannel) leaderChanged(
 	fc.lock4meta.Unlock()
 
 	fc.leaderChangedSignal <- struct{}{}
+	fc.statistics.LeaderChanged.Incr()
 }
 
 func (fc *familyChannel) flushChunkOnFull(ctx context.Context) error {
@@ -202,10 +207,10 @@ func (fc *familyChannel) writeTask() {
 	retry := func(compressed *compressedChunk) {
 		if len(retryBuffers) > fc.maxRetryBuf {
 			fc.logger.Error("too many retry messages, drop current message")
-			retryDrop.WithTagValues(fc.database).Incr()
+			fc.statistics.RetryDrop.Incr()
 		} else {
 			retryBuffers = append(retryBuffers, compressed)
-			retryCount.WithTagValues(fc.database).Incr()
+			fc.statistics.Retry.Incr()
 		}
 	}
 	var stream rpc.WriteStream
@@ -225,13 +230,15 @@ func (fc *familyChannel) writeTask() {
 			fc.lock4meta.Unlock()
 			s, err := fc.newWriteStreamFn(fc.ctx, fc.currentTarget, fc.database, &shardState, fc.familyTime, fc.fct)
 			if err != nil {
+				fc.statistics.CreateStreamFailures.Incr()
 				retry(compressed)
 				return false
 			}
+			fc.statistics.CreateStream.Incr()
 			stream = s
 		}
 		if err := stream.Send(*compressed); err != nil {
-			sendFailure.WithTagValues(fc.database).Incr()
+			fc.statistics.SendFailure.Incr()
 			fc.logger.Error(
 				"failed writing compressed chunk to storage",
 				logger.String("target", fc.currentTarget.Indicator()),
@@ -239,9 +246,12 @@ func (fc *familyChannel) writeTask() {
 				logger.Error(err))
 			if err == io.EOF {
 				if closeError := stream.Close(); closeError != nil {
+					fc.statistics.CloseStreamFailures.Incr()
 					fc.logger.Error("failed closing write stream",
 						logger.String("target", fc.currentTarget.Indicator()),
 						logger.Error(closeError))
+				} else {
+					fc.statistics.CloseStream.Incr()
 				}
 				stream = nil
 			}
@@ -249,9 +259,9 @@ func (fc *familyChannel) writeTask() {
 			retry(compressed)
 			return false
 		}
-		sendSuccess.WithTagValues(fc.database).Incr()
-		sendSize.WithTagValues(fc.database).Add(float64(len(*compressed)))
-		pendingSend.WithTagValues(fc.database).Decr()
+		fc.statistics.SendSuccess.Incr()
+		fc.statistics.SendSize.Add(float64(len(*compressed)))
+		fc.statistics.PendingSend.Decr()
 		compressed.Release()
 		return true
 	}
@@ -259,7 +269,10 @@ func (fc *familyChannel) writeTask() {
 	defer func() {
 		if stream != nil {
 			if err := stream.Close(); err != nil {
+				fc.statistics.CloseStreamFailures.Incr()
 				fc.logger.Error("close write stream err when exit write task", logger.Error(err))
+			} else {
+				fc.statistics.CloseStream.Incr()
 			}
 		}
 	}()
@@ -357,7 +370,7 @@ func (fc *familyChannel) Stop(timeout int64) {
 	}
 	fc.cancel()
 
-	activeWriteFamilies.WithTagValues(fc.database).Incr()
+	fc.statistics.ActiveWriteFamilies.Decr()
 }
 
 // flushChunk flushes the chunk data and appends data into queue
@@ -372,7 +385,7 @@ func (fc *familyChannel) flushChunk() {
 	}
 	select {
 	case fc.ch <- compressed:
-		pendingSend.WithTagValues(fc.database).Incr()
+		fc.statistics.PendingSend.Incr()
 	case <-fc.ctx.Done():
 		fc.logger.Warn("writer is canceled")
 	}

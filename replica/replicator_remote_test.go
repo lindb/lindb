@@ -301,4 +301,11 @@ func TestRemoteReplicator_Replica(t *testing.T) {
 	}, nil)
 	q.EXPECT().Ack(int64(1))
 	r.Replica(1, []byte{})
+	// invalid ack sequence
+	cli.EXPECT().Send(gomock.Any()).Return(nil)
+	cli.EXPECT().Recv().Return(&protoReplicaV1.ReplicaResponse{
+		AckIndex:     1,
+		ReplicaIndex: 2,
+	}, nil)
+	r.Replica(1, []byte{})
 }

@@ -20,9 +20,8 @@ package replica
 import (
 	"github.com/golang/snappy"
 
-	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb"
 )
@@ -39,14 +38,7 @@ type localReplicator struct {
 
 	block []byte
 
-	statistics struct {
-		localMaxDecodedBlock    *linmetric.BoundMax
-		localReplicaCounts      *linmetric.BoundCounter
-		localReplicaBytes       *linmetric.BoundCounter
-		localReplicaRows        *linmetric.BoundCounter
-		localReplicaSequence    *linmetric.BoundGauge
-		localInvalidSequenceVec *linmetric.BoundCounter
-	}
+	statistics *metrics.StorageLocalReplicatorStatistics
 }
 
 func NewLocalReplicator(channel *ReplicatorChannel, shard tsdb.Shard, family tsdb.DataFamily) Replicator {
@@ -54,36 +46,23 @@ func NewLocalReplicator(channel *ReplicatorChannel, shard tsdb.Shard, family tsd
 		leader: int32(channel.State.Leader),
 		replicator: replicator{
 			channel: channel,
-			replicaSeqGauge: replicaSeqVec.WithTagValues(
-				channel.State.Database,
-				channel.State.ShardID.String(),
-				timeutil.FormatTimestamp(channel.State.FamilyTime, timeutil.DataTimeFormat4),
-				channel.State.Leader.String(),
-				channel.State.Follower.String()),
 		},
-		shard:     shard,
-		family:    family,
-		batchRows: metric.NewStorageBatchRows(),
-		logger:    logger.GetLogger("replica", "LocalReplicator"),
-		block:     make([]byte, 256*1024),
+		shard:      shard,
+		family:     family,
+		batchRows:  metric.NewStorageBatchRows(),
+		statistics: metrics.NewStorageLocalReplicatorStatistics(channel.State.Database, channel.State.ShardID.String()),
+		logger:     logger.GetLogger("replica", "LocalReplicator"),
+		block:      make([]byte, 256*1024),
 	}
 
 	// add ack sequence callback
 	family.AckSequence(lr.leader, func(seq int64) {
 		lr.SetAckIndex(seq)
+		lr.statistics.AckSequence.Incr()
 		lr.logger.Info("ack local replica index",
 			logger.String("replica", lr.String()),
 			logger.Int64("ackIdx", seq))
 	})
-
-	shardStr := shard.ShardID().String()
-	databaseName := shard.Database().Name()
-	lr.statistics.localMaxDecodedBlock = localMaxDecodedBlockVec.WithTagValues(databaseName, shardStr)
-	lr.statistics.localReplicaCounts = localReplicaCountsVec.WithTagValues(databaseName, shardStr)
-	lr.statistics.localReplicaBytes = localReplicaBytesVec.WithTagValues(databaseName, shardStr)
-	lr.statistics.localReplicaRows = localReplicaRowsVec.WithTagValues(databaseName, shardStr)
-	lr.statistics.localReplicaSequence = localReplicaSequenceVec.WithTagValues(databaseName, shardStr)
-	lr.statistics.localInvalidSequenceVec = localInvalidSequenceVec.WithTagValues(databaseName, shardStr)
 
 	lr.logger.Info("start local replicator", logger.String("replica", lr.String()))
 	return lr
@@ -97,7 +76,7 @@ func NewLocalReplicator(channel *ReplicatorChannel, shard tsdb.Shard, family tsd
 // 5. commit sequence in data family
 func (r *localReplicator) Replica(sequence int64, msg []byte) {
 	if !r.family.ValidateSequence(r.leader, sequence) {
-		r.statistics.localInvalidSequenceVec.Incr()
+		r.statistics.InvalidSequence.Incr()
 		return
 	}
 
@@ -109,25 +88,14 @@ func (r *localReplicator) Replica(sequence int64, msg []byte) {
 		return
 	}
 
-	r.statistics.localMaxDecodedBlock.Update(float64(len(r.block)))
-	r.statistics.localReplicaBytes.Add(float64(len(r.block)))
-	r.statistics.localReplicaSequence.Update(float64(sequence))
-	r.statistics.localReplicaCounts.Incr()
+	r.statistics.ReplicaBytes.Add(float64(len(r.block)))
 
 	// flat will always panic when data are corrupted,
 	// or data are not serialized correctly
 	defer func() {
-		if recovered := recover(); recovered != nil {
-			r.logger.Error("corrupted flat block",
-				logger.Int("message-length", len(msg)),
-				logger.Int("decoded-length", len(r.block)),
-				logger.Any("err", recovered),
-				logger.Stack(),
-			)
-		}
 		r.block = r.block[:0]
 
-		// after write need commit sequence
+		// after write need commit sequence, drop write failure data.
 		r.family.CommitSequence(r.leader, sequence)
 	}()
 
@@ -136,11 +104,11 @@ func (r *localReplicator) Replica(sequence int64, msg []byte) {
 	if rowsLen == 0 {
 		return
 	}
-	r.statistics.localReplicaRows.Add(float64(rowsLen))
 	rows := r.batchRows.Rows()
 
 	// lookup metric metadata
 	if err := r.shard.LookupRowMetricMeta(rows); err != nil {
+		r.statistics.ReplicaFailures.Incr()
 		r.logger.Error("failed writing family rows",
 			logger.Int("rows", r.batchRows.Len()),
 			logger.String("database", r.shard.Database().Name()),
@@ -150,10 +118,15 @@ func (r *localReplicator) Replica(sequence int64, msg []byte) {
 	}
 	// write metric data
 	if err := r.family.WriteRows(rows); err != nil {
+		r.statistics.ReplicaFailures.Incr()
 		r.logger.Error("failed writing family rows",
 			logger.Int("rows", r.batchRows.Len()),
 			logger.String("database", r.shard.Database().Name()),
 			logger.Int("shardID", int(r.shard.ShardID())),
 			logger.Error(err))
+		return
 	}
+	r.statistics.Replica.Incr()
+	r.statistics.ReplicaRows.Add(float64(rowsLen))
+	r.statistics.ReplicaLag.Add(float64(r.Pending()))
 }

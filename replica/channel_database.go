@@ -24,7 +24,7 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -36,9 +36,7 @@ import (
 
 // for testing
 var (
-	createChannel        = newShardChannel
-	databaseChannelScope = linmetric.BrokerRegistry.NewScope("lindb.replica.database")
-	evictedCounterVec    = databaseChannelScope.NewCounterVec("metrics_out_of_time_range", "db")
+	createChannel = newShardChannel
 )
 
 // DatabaseChannel represents the database level replication shardChannel
@@ -70,11 +68,9 @@ type (
 		numOfShard    atomic.Int32
 		shardChannels shardChannels
 		interval      timeutil.Interval
-		logger        *logger.Logger
 
-		statistics struct {
-			evictedCounter *linmetric.BoundCounter
-		}
+		statistics *metrics.BrokerDatabaseWriteStatistics
+		logger     *logger.Logger
 	}
 )
 
@@ -91,6 +87,7 @@ func newDatabaseChannel(
 		ctx:         c,
 		cancel:      cancel,
 		fct:         fct,
+		statistics:  metrics.NewBrokerDatabaseWriteStatistics(databaseCfg.Name),
 		logger:      logger.GetLogger("replica", "DatabaseChannel"),
 	}
 	ch.shardChannels.value.Store(make(shard2Channel))
@@ -105,7 +102,6 @@ func newDatabaseChannel(
 	ch.interval = databaseCfg.Option.Intervals[0].Interval
 
 	ch.numOfShard.Store(numOfShard)
-	ch.statistics.evictedCounter = evictedCounterVec.WithTagValues(databaseCfg.Name)
 
 	return ch
 }
@@ -133,7 +129,7 @@ func (dc *databaseChannel) Write(ctx context.Context, brokerBatchRows *metric.Br
 	ahead := dc.ahead.Load()
 
 	evicted := brokerBatchRows.EvictOutOfTimeRange(behind, ahead)
-	dc.statistics.evictedCounter.Add(float64(evicted))
+	dc.statistics.OutOfTimeRange.Add(float64(evicted))
 
 	// sharding metrics to shards
 	shardingIterator := brokerBatchRows.NewShardGroupIterator(dc.numOfShard.Load())
@@ -142,6 +138,7 @@ func (dc *databaseChannel) Write(ctx context.Context, brokerBatchRows *metric.Br
 		shardID := models.ShardID(shardIdx)
 		channel, ok := dc.getChannelByShardID(shardID)
 		if !ok {
+			dc.statistics.ShardNotFound.Incr()
 			err = errChannelNotFound
 			// broker error, do not return to client
 			dc.logger.Error("shardChannel not found",
