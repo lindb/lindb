@@ -25,10 +25,10 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/storage"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/timeutil"
 	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
 	"github.com/lindb/lindb/rpc"
 )
@@ -50,7 +50,8 @@ type remoteReplicator struct {
 
 	rwMutex sync.RWMutex
 
-	logger *logger.Logger
+	statistics *metrics.StorageRemoteReplicatorStatistics
+	logger     *logger.Logger
 }
 
 // NewRemoteReplicator creates remote replicator.
@@ -64,19 +65,14 @@ func NewRemoteReplicator(
 		ctx: ctx,
 		replicator: replicator{
 			channel: channel,
-			replicaSeqGauge: replicaSeqVec.WithTagValues(
-				channel.State.Database,
-				channel.State.ShardID.String(),
-				timeutil.FormatTimestamp(channel.State.FamilyTime, timeutil.DataTimeFormat4),
-				channel.State.Leader.String(),
-				channel.State.Follower.String()),
 		},
-		cliFct:    cliFct,
-		stateMgr:  stateMgr,
-		state:     ReplicatorInitState,
-		isSuspend: atomic.NewBool(false),
-		suspend:   make(chan struct{}),
-		logger:    logger.GetLogger("replica", "RemoteReplicator"),
+		cliFct:     cliFct,
+		stateMgr:   stateMgr,
+		state:      ReplicatorInitState,
+		isSuspend:  atomic.NewBool(false),
+		suspend:    make(chan struct{}),
+		statistics: metrics.NewStorageRemoteReplicatorStatistics(channel.State.Database, channel.State.ShardID.String()),
+		logger:     logger.GetLogger("replica", "RemoteReplicator"),
 	}
 
 	// watch follower node state change
@@ -109,6 +105,8 @@ func (r *remoteReplicator) IsReady() bool {
 		return true
 	}
 
+	r.statistics.NotReady.Incr()
+
 	// replicator is not ready, need do init like tcp three-way handshake
 	follower := r.replicator.channel.State.Follower
 	node, ok := r.stateMgr.GetLiveNode(follower)
@@ -117,6 +115,7 @@ func (r *remoteReplicator) IsReady() bool {
 
 		r.rwMutex.Unlock() // unlock
 		if r.isSuspend.CAS(false, true) {
+			r.statistics.FollowerOffline.Incr()
 			<-r.suspend // wait follower node online
 		}
 		return r.IsReady() // check replicator is ready now
@@ -124,7 +123,9 @@ func (r *remoteReplicator) IsReady() bool {
 
 	defer r.rwMutex.Unlock()
 	if r.replicaStream != nil {
+		r.statistics.NeedCloseLastStream.Incr()
 		if err := r.replicaStream.CloseSend(); err != nil {
+			r.statistics.CloseLastStreamFailures.Incr()
 			r.logger.Warn("close replica service client stream err, when reconnection",
 				logger.String("replicator", r.String()),
 				logger.Error(err))
@@ -132,28 +133,32 @@ func (r *remoteReplicator) IsReady() bool {
 	}
 	replicaCli, err := r.cliFct.CreateReplicaServiceClient(&node)
 	if err != nil {
-		// TODO add metric
+		r.statistics.CreateReplicaCliFailures.Incr()
 		r.logger.Warn("create replica service client err",
 			logger.String("replicator", r.String()),
 			logger.Error(err))
 		return false
 	}
 	r.replicaCli = replicaCli
+	r.statistics.CreateReplicaCli.Incr()
+
 	// pass metadata(database/shard state) when create rpc connection.
 	replicaState := encoding.JSONMarshal(&r.channel.State)
 	ctx := rpc.CreateOutgoingContextWithPairs(r.ctx,
 		constants.RPCMetaReplicaState, string(replicaState))
 	r.replicaStream, err = replicaCli.Replica(ctx) // TODO add timeout ??
 	if err != nil {
-		// TODO add metric
+		r.statistics.CloseLastStreamFailures.Incr()
 		r.logger.Warn("create replica service client stream err",
 			logger.String("replicator", r.String()),
 			logger.Error(err))
 		return false
 	}
+	r.statistics.CreateReplicaStream.Incr()
 
 	remoteLastReplicaAckIdx, err := r.getLastAckIdxFromReplica() // last ack index remote replica node
 	if err != nil {
+		r.statistics.GetLastAckFailures.Incr()
 		r.logger.Warn("do get replica ack index err",
 			logger.String("replicator", r.String()),
 			logger.Error(err))
@@ -188,17 +193,20 @@ func (r *remoteReplicator) IsReady() bool {
 			AppendIndex: needResetReplicaIdx,
 		})
 		if err != nil {
+			r.statistics.ResetFollowerAppendIdxFailures.Incr()
 			r.logger.Warn("do reset replica append index err",
 				logger.String("replicator", r.String()),
 				logger.Error(err))
 			return false
 		}
+		r.statistics.ResetFollowerAppendIdx.Incr()
 		_ = r.ResetReplicaIndex(nextReplicaIdx)
 		r.state = ReplicatorReadyState
 		return true
 	case remoteLastReplicaAckIdx > appendIdx:
 		// new writeTask data will be lost, because leader's lost old wal data
 		r.ResetAppendIndex(nextReplicaIdx)
+		r.statistics.ResetAppendIdx.Incr()
 	}
 	// remote replica ack idx > current ack idx, maybe ack request lost
 	_ = r.ResetReplicaIndex(nextReplicaIdx - 1)
@@ -214,11 +222,13 @@ func (r *remoteReplicator) IsReady() bool {
 	)
 	if newLocalReplicaIdx == nextReplicaIdx {
 		// replica index == remote replica append index, can do replicator
+		r.statistics.ResetReplicaIdx.Incr()
 		r.state = ReplicatorReadyState
 		r.logger.Info("remote replica ack idx != current replica idx, reset current replica idx successfully",
 			logger.String("replicator", r.String()))
 		return true
 	}
+	r.statistics.ResetReplicaIdxFailures.Incr()
 	return false
 }
 
@@ -231,13 +241,17 @@ func (r *remoteReplicator) Replica(idx int64, msg []byte) {
 	})
 	if err != nil {
 		r.state = ReplicatorFailureState
+		r.statistics.SendMsgFailures.Incr()
 		return
 	}
+	r.statistics.SendMsg.Incr()
 	resp, err := cli.Recv()
 	if err != nil {
 		r.state = ReplicatorFailureState
+		r.statistics.ReceiveMsgFailures.Incr()
 		return
 	}
+	r.statistics.ReceiveMsg.Incr()
 	r.logger.Debug("receive replica response",
 		logger.String("replicator", r.String()),
 		logger.Int64("replicaIdx", resp.ReplicaIndex),
@@ -245,6 +259,9 @@ func (r *remoteReplicator) Replica(idx int64, msg []byte) {
 	if resp.AckIndex == resp.ReplicaIndex {
 		// if ack index = replica, need ack wal
 		r.SetAckIndex(resp.AckIndex)
+		r.statistics.AckSequence.Incr()
+	} else {
+		r.statistics.InvalidAckSequence.Incr()
 	}
 }
 

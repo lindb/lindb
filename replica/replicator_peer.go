@@ -22,6 +22,7 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/logger"
 )
 
@@ -71,32 +72,35 @@ type replicatorRunner struct {
 
 	closed chan struct{}
 
-	logger *logger.Logger
+	statistics *metrics.StorageReplicatorRunnerStatistics
+	logger     *logger.Logger
 }
 
 func newReplicatorRunner(replicator Replicator) *replicatorRunner {
+	replicaType := "local"
+	_, ok := replicator.(*remoteReplicator)
+	if ok {
+		replicaType = "remote"
+	}
+	state := replicator.State()
 	return &replicatorRunner{
 		replicator: replicator,
 		running:    atomic.NewBool(false),
 		closed:     make(chan struct{}),
+		statistics: metrics.NewStorageReplicatorRunnerStatistics(replicaType, state.Database, state.ShardID.String()),
 		logger:     logger.GetLogger("replica", "ReplicatorRunner"),
 	}
 }
 
 func (r *replicatorRunner) replicaLoop() {
 	if r.running.CAS(false, true) {
+		r.statistics.ActiveReplicators.Incr()
 		r.loop()
 	}
 }
 
 func (r *replicatorRunner) shutdown() {
 	if r.running.CAS(true, false) {
-		replicaType := "local"
-		_, ok := r.replicator.(*remoteReplicator)
-		if ok {
-			replicaType = "remote"
-		}
-		activeReplicaChannel.WithTagValues(r.replicator.State().Database, replicaType).Incr()
 		// wait for stop replica loop
 		<-r.closed
 	}
@@ -104,35 +108,51 @@ func (r *replicatorRunner) shutdown() {
 
 func (r *replicatorRunner) loop() {
 	for r.running.Load() {
-		// TODO need handle panic
-		hasData := false
-
-		if r.replicator.IsReady() {
-			seq := r.replicator.Consume()
-			if seq >= 0 {
-				r.logger.Debug("replica write ahead log",
-					logger.String("replicator", r.replicator.String()),
-					logger.Int64("index", seq))
-				hasData = true
-				data, err := r.replicator.GetMessage(seq)
-				if err != nil {
-					// TODO add metric
-					r.logger.Warn("cannot get replica message data",
-						logger.String("replicator", r.replicator.String()),
-						logger.Int64("index", seq))
-				} else {
-					r.replicator.Replica(seq, data)
-				}
-			}
-		} else {
-			r.logger.Warn("replica is not ready", logger.String("replicator", r.replicator.String()))
-		}
-		if !hasData {
-			// TODO add config?
-			time.Sleep(10 * time.Millisecond)
-		}
+		r.replica()
 	}
 
 	// exit replica loop
 	close(r.closed)
+
+	r.statistics.ActiveReplicators.Decr()
+}
+
+func (r *replicatorRunner) replica() {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			r.statistics.ReplicaPanics.Incr()
+			r.logger.Error("panic when replica data",
+				logger.Any("err", recovered),
+				logger.Stack(),
+			)
+		}
+	}()
+
+	hasData := false
+
+	if r.replicator.IsReady() {
+		seq := r.replicator.Consume()
+		if seq >= 0 {
+			r.logger.Debug("replica write ahead log",
+				logger.String("replicator", r.replicator.String()),
+				logger.Int64("index", seq))
+			hasData = true
+			data, err := r.replicator.GetMessage(seq)
+			if err != nil {
+				r.statistics.ConsumeMessageFailures.Incr()
+				r.logger.Warn("cannot get replica message data",
+					logger.String("replicator", r.replicator.String()),
+					logger.Int64("index", seq))
+			} else {
+				r.statistics.ConsumeMessage.Incr()
+				r.replicator.Replica(seq, data)
+			}
+		}
+	} else {
+		r.logger.Warn("replica is not ready", logger.String("replicator", r.replicator.String()))
+	}
+	if !hasData {
+		// TODO add config?
+		time.Sleep(10 * time.Millisecond)
+	}
 }

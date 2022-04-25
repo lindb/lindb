@@ -50,6 +50,7 @@ func TestPartition_BuildReplicaRelation(t *testing.T) {
 	shard.EXPECT().Database().Return(database).AnyTimes()
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 	r.EXPECT().String().Return("TestPartition_BuildReplicaRelation").AnyTimes()
+	r.EXPECT().State().Return(&models.ReplicaState{}).AnyTimes()
 	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ tsdb.Shard, _ tsdb.DataFamily) Replicator {
 		return r
 	}
@@ -106,6 +107,7 @@ func TestPartition_BuildReplicaForFollower(t *testing.T) {
 	family := tsdb.NewMockDataFamily(ctrl)
 	family.EXPECT().FamilyTime().Return(timeutil.Now()).AnyTimes()
 	r.EXPECT().String().Return("TestPartition_BuildReplicaForFollower").AnyTimes()
+	r.EXPECT().State().Return(&models.ReplicaState{}).AnyTimes()
 	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ tsdb.Shard, _ tsdb.DataFamily) Replicator {
 		return r
 	}
@@ -188,14 +190,12 @@ func TestPartition_WriteLog(t *testing.T) {
 	family.EXPECT().FamilyTime().Return(timeutil.Now()).AnyTimes()
 	p := NewPartition(context.TODO(), shard, family, 1, l, nil, nil)
 	l.EXPECT().Put(gomock.Any()).Return(fmt.Errorf("err"))
-	l.EXPECT().HeadSeq().Return(int64(12))
 	err := p.WriteLog([]byte{1})
 	assert.Error(t, err)
 	// msg is empty
 	err = p.WriteLog(nil)
 	assert.NoError(t, err)
 	l.EXPECT().Put(gomock.Any()).Return(nil)
-	l.EXPECT().HeadSeq().Return(int64(12))
 	err = p.WriteLog([]byte{1})
 	assert.NoError(t, err)
 }

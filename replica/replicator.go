@@ -20,7 +20,6 @@ package replica
 import (
 	"fmt"
 
-	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
@@ -60,12 +59,13 @@ type Replicator interface {
 	ResetAppendIndex(idx int64)
 	// SetAckIndex sets ack index.
 	SetAckIndex(ackIdx int64)
+	// Pending returns lag of queue.
+	Pending() int64
 }
 
 // replicator implements Replicator interface.
 type replicator struct {
-	channel         *ReplicatorChannel
-	replicaSeqGauge *linmetric.BoundGauge
+	channel *ReplicatorChannel
 }
 
 // State returns the replica state.
@@ -90,7 +90,6 @@ func (r *replicator) Consume() int64 {
 
 // GetMessage returns message by replica index.
 func (r *replicator) GetMessage(replicaIdx int64) ([]byte, error) {
-	r.replicaSeqGauge.Update(float64(replicaIdx))
 	return r.channel.Queue.Get(replicaIdx)
 }
 
@@ -122,6 +121,11 @@ func (r *replicator) ResetAppendIndex(idx int64) {
 // SetAckIndex sets ack index.
 func (r *replicator) SetAckIndex(ackIdx int64) {
 	r.channel.Queue.Ack(ackIdx)
+}
+
+// Pending returns lag of queue.
+func (r *replicator) Pending() int64 {
+	return r.channel.Queue.Pending()
 }
 
 // String returns string value of replicator.

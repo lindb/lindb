@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/models"
@@ -102,4 +103,37 @@ func TestNewReplicator_runner(t *testing.T) {
 	peer.Startup()
 	wait.Add(1)
 	wait.Wait()
+}
+
+func TestReplicatorPeer_newReplicatorRunner(t *testing.T) {
+	rc := &ReplicatorChannel{
+		State: &models.ReplicaState{
+			Database: "test",
+			ShardID:  models.ShardID(1),
+		},
+	}
+	assert.NotNil(t, newReplicatorRunner(&localReplicator{
+		replicator: replicator{
+			channel: rc,
+		},
+	}))
+	assert.NotNil(t, newReplicatorRunner(&remoteReplicator{
+		replicator: replicator{
+			channel: rc,
+		},
+	}))
+}
+
+func TestReplicatorPeer_replica_panic(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	replicator := NewMockReplicator(ctrl)
+	r := &replicatorRunner{
+		replicator: replicator,
+	}
+	replicator.EXPECT().IsReady().DoAndReturn(func() bool {
+		panic("err")
+	})
+	assert.Panics(t, r.replica)
 }
