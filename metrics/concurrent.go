@@ -31,6 +31,12 @@ type ConcurrentStatistics struct {
 	TasksExecutingTime *linmetric.BoundCounter // tasks executing total time with waiting period
 }
 
+// LimitStatistics represents rate limit statistics.
+type LimitStatistics struct {
+	Throttles *linmetric.BoundCounter // counter reaches the max-concurrency
+	Timeouts  *linmetric.BoundCounter // counter pending and then timeout
+}
+
 // NewConcurrentStatistics creates concurrent statistics.
 func NewConcurrentStatistics(poolName string, registry *linmetric.Registry) *ConcurrentStatistics {
 	scope := registry.NewScope("lindb.concurrent.pool", "pool_name", poolName)
@@ -44,12 +50,6 @@ func NewConcurrentStatistics(poolName string, registry *linmetric.Registry) *Con
 		TasksWaitingTime:   scope.NewCounter("tasks_waiting_duration_sum"),
 		TasksExecutingTime: scope.NewCounter("tasks_executing_duration_sum"),
 	}
-}
-
-// LimitStatistics represents rate limit statistics.
-type LimitStatistics struct {
-	Throttles *linmetric.BoundCounter // counter reaches the max-concurrency
-	Timeouts  *linmetric.BoundCounter // counter pending and then timeout
 }
 
 // NewLimitStatistics creates a rate limit statistics.

@@ -48,6 +48,11 @@ type GRPCStreamStatistics struct {
 	MsgSentDuration     *linmetric.BoundHistogram // send msg duration, include send total count
 }
 
+// GRPCServerStatistics represents grpc server statistics.
+type GRPCServerStatistics struct {
+	Panics *linmetric.BoundCounter // panic when grpc process
+}
+
 // NewConnStatistics creates tcp connection statistics.
 func NewConnStatistics(r *linmetric.Registry, addr string) *ConnStatistics {
 	tcpScope := r.NewScope("lindb.traffic.tcp", "addr", addr)
@@ -84,6 +89,14 @@ func NewGRPCUnaryServerStatistics(registry *linmetric.Registry) *GRPCUnaryStatis
 // NewGRPCStreamServerStatistics creates stream grpc server statistics.
 func NewGRPCStreamServerStatistics(registry *linmetric.Registry, grpcType, grpcService, grpcMethod string) *GRPCStreamStatistics {
 	return newGPRCStreamStatistics(registry, "lindb.traffic.grpc_server.stream", grpcType, grpcService, grpcMethod)
+}
+
+// NewGRPCServerStatistics creates grpc server statistics.
+func NewGRPCServerStatistics(registry *linmetric.Registry) *GRPCServerStatistics {
+	scope := registry.NewScope("lindb.traffic.grpc_server")
+	return &GRPCServerStatistics{
+		Panics: scope.NewCounter("panics"),
+	}
 }
 
 // newGPRCStreamStatistics creates grpc client/server stream statistics.

@@ -26,7 +26,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/internal/concurrent"
-	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
@@ -89,17 +89,10 @@ type taskManager struct {
 
 	workerPool concurrent.Pool // workers for
 	tasks      sync.Map        // taskID -> taskCtx
-	logger     *logger.Logger
 	ttl        time.Duration
 
-	createdTaskCounter   *linmetric.BoundCounter
-	aliveTaskGauge       *linmetric.BoundGauge
-	emitResponseCounter  *linmetric.BoundCounter
-	omitResponseCounter  *linmetric.BoundCounter
-	sentRequestCounter   *linmetric.BoundCounter
-	sentResponsesCounter *linmetric.BoundCounter
-	sentResponseFailures *linmetric.BoundCounter
-	sentRequestFailures  *linmetric.BoundCounter
+	statistics *metrics.BrokerQueryStatistics
+	logger     *logger.Logger
 }
 
 // NewTaskManager creates the task manager
@@ -111,24 +104,16 @@ func NewTaskManager(
 	taskPool concurrent.Pool,
 	ttl time.Duration,
 ) TaskManager {
-	taskManagerScope := linmetric.BrokerRegistry.NewScope("lindb.broker.query")
 	tm := &taskManager{
-		ctx:                  ctx,
-		currentNodeID:        currentNode.Indicator(),
-		taskClientFactory:    taskClientFactory,
-		taskServerFactory:    taskServerFactory,
-		seq:                  atomic.NewInt64(0),
-		workerPool:           taskPool,
-		logger:               logger.GetLogger("query", "TaskManager"),
-		ttl:                  ttl,
-		createdTaskCounter:   taskManagerScope.NewCounter("created_tasks"),
-		aliveTaskGauge:       taskManagerScope.NewGauge("alive_tasks"),
-		emitResponseCounter:  taskManagerScope.NewCounter("emitted_responses"),
-		omitResponseCounter:  taskManagerScope.NewCounter("omitted_responses"),
-		sentRequestCounter:   taskManagerScope.NewCounter("sent_requests"),
-		sentResponsesCounter: taskManagerScope.NewCounter("sent_responses"),
-		sentResponseFailures: taskManagerScope.NewCounter("sent_responses_failures"),
-		sentRequestFailures:  taskManagerScope.NewCounter("sent_requests_failures"),
+		ctx:               ctx,
+		currentNodeID:     currentNode.Indicator(),
+		taskClientFactory: taskClientFactory,
+		taskServerFactory: taskServerFactory,
+		seq:               atomic.NewInt64(0),
+		workerPool:        taskPool,
+		ttl:               ttl,
+		statistics:        metrics.NewBrokerQueryStatistics(),
+		logger:            logger.GetLogger("query", "TaskManager"),
 	}
 	duration := ttl
 	if ttl < time.Minute {
@@ -149,7 +134,8 @@ func (t *taskManager) cleaner(duration time.Duration) {
 			t.tasks.Range(func(key, value interface{}) bool {
 				taskCtx := value.(TaskContext)
 				if taskCtx.Expired(t.ttl) {
-					t.aliveTaskGauge.Decr()
+					t.statistics.AliveTask.Decr()
+					t.statistics.ExpireTasks.Incr()
 					t.tasks.Delete(key)
 				}
 				return true
@@ -163,14 +149,14 @@ func (t *taskManager) cleaner(duration time.Duration) {
 func (t *taskManager) evictTask(taskID string) {
 	_, loaded := t.tasks.LoadAndDelete(taskID)
 	if loaded {
-		t.aliveTaskGauge.Decr()
+		t.statistics.AliveTask.Decr()
 	}
 }
 
 func (t *taskManager) storeTask(taskID string, taskCtx TaskContext) {
 	t.tasks.Store(taskID, taskCtx)
-	t.createdTaskCounter.Incr()
-	t.aliveTaskGauge.Incr()
+	t.statistics.CreatedTasks.Incr()
+	t.statistics.AliveTask.Incr()
 }
 
 func (t *taskManager) ensureIntermediateAckTasks(
@@ -383,14 +369,14 @@ func (t *taskManager) SendRequest(targetNodeID string, req *protoCommonV1.TaskRe
 	t.logger.Debug("send query task", logger.String("target", targetNodeID))
 	client := t.taskClientFactory.GetTaskClient(targetNodeID)
 	if client == nil {
-		t.sentRequestFailures.Incr()
+		t.statistics.SentRequestFailures.Incr()
 		return fmt.Errorf("SendRequest: %w, targetNodeID: %s", query.ErrNoSendStream, targetNodeID)
 	}
 	if err := client.Send(req); err != nil {
-		t.sentRequestFailures.Incr()
+		t.statistics.SentRequestFailures.Incr()
 		return fmt.Errorf("%w, targetNodeID: %s", query.ErrTaskSend, targetNodeID)
 	}
-	t.sentRequestCounter.Incr()
+	t.statistics.SentRequest.Incr()
 	return nil
 }
 
@@ -399,24 +385,24 @@ func (t *taskManager) SendRequest(targetNodeID string, req *protoCommonV1.TaskRe
 func (t *taskManager) SendResponse(parentNodeID string, resp *protoCommonV1.TaskResponse) error {
 	stream := t.taskServerFactory.GetStream(parentNodeID)
 	if stream == nil {
-		t.sentResponseFailures.Incr()
+		t.statistics.SentResponseFailures.Incr()
 		return fmt.Errorf("SendResponse: %w, parentNodeID: %s", query.ErrNoSendStream, parentNodeID)
 	}
 	if err := stream.Send(resp); err != nil {
-		t.sentResponseFailures.Incr()
+		t.statistics.SentResponseFailures.Incr()
 		return fmt.Errorf("SendResponse: %w, parentNodeID: %s", query.ErrResponseSend, parentNodeID)
 	}
-	t.sentResponsesCounter.Incr()
+	t.statistics.SentResponses.Incr()
 	return nil
 }
 
 func (t *taskManager) Receive(resp *protoCommonV1.TaskResponse, targetNode string) error {
 	taskCtx := t.Get(resp.TaskID)
 	if taskCtx == nil {
-		t.omitResponseCounter.Incr()
+		t.statistics.OmitResponse.Incr()
 		return fmt.Errorf("TaskID: %s may be evicted", resp.TaskID)
 	}
-	t.emitResponseCounter.Incr()
+	t.statistics.EmitResponse.Incr()
 	t.workerPool.Submit(taskCtx.Context(), concurrent.NewTask(func() {
 		// for root task and intermediate task
 		taskCtx.WriteResponse(resp, targetNode)

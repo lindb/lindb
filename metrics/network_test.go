@@ -31,4 +31,5 @@ func TestNewNetworkStatistics(t *testing.T) {
 	assert.NotNil(t, NewGRPCStreamClientStatistics(linmetric.BrokerRegistry, "t", "s", "m"))
 	assert.NotNil(t, NewGRPCUnaryServerStatistics(linmetric.BrokerRegistry))
 	assert.NotNil(t, NewGRPCStreamServerStatistics(linmetric.BrokerRegistry, "t", "s", "m"))
+	assert.NotNil(t, NewGRPCServerStatistics(linmetric.BrokerRegistry))
 }
