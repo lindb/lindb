@@ -75,19 +75,19 @@ func newMMapStoreReader(path, fileName string) (r Reader, err error) {
 		if err != nil && len(data) > 0 {
 			// if init err and map data exist, need unmap it
 			if e := unmapFunc(data); e != nil {
-				metrics.TableReadStatistics.UnMMapErrors.Incr()
+				metrics.TableReadStatistics.UnMMapFailures.Incr()
 				tableLogger.Warn("unmap error when new store reader fail",
 					logger.String("path", path), logger.Error(err))
 			} else {
-				metrics.TableReadStatistics.UnMMapCounts.Incr()
+				metrics.TableReadStatistics.UnMMaps.Incr()
 			}
 		}
 	}()
 	if err != nil {
-		metrics.TableReadStatistics.MMapErrors.Incr()
+		metrics.TableReadStatistics.MMapFailures.Incr()
 		return
 	}
-	metrics.TableReadStatistics.MMapCounts.Incr()
+	metrics.TableReadStatistics.MMaps.Incr()
 
 	if len(data) < sstFileFooterSize {
 		err = fmt.Errorf("length of sstfile:%s length is too short", path)
@@ -169,10 +169,10 @@ func (r *storeMMapReader) Get(key uint32) ([]byte, error) {
 func (r *storeMMapReader) getBlock(idx int) ([]byte, error) {
 	block, err := r.offsets.GetBlock(idx, r.entriesBlock)
 	if err == nil {
-		metrics.TableReadStatistics.GetCounts.Incr()
+		metrics.TableReadStatistics.Gets.Incr()
 		metrics.TableReadStatistics.ReadBytes.Add(float64(len(block)))
 	} else {
-		metrics.TableReadStatistics.GetErrors.Get()
+		metrics.TableReadStatistics.GetFailures.Get()
 	}
 	return block, err
 }
@@ -187,9 +187,9 @@ func (r *storeMMapReader) Close() error {
 	r.entriesBlock = nil
 	err := fileutil.Unmap(r.fullBlock)
 	if err == nil {
-		metrics.TableReadStatistics.UnMMapErrors.Incr()
+		metrics.TableReadStatistics.UnMMapFailures.Incr()
 	} else {
-		metrics.TableReadStatistics.UnMMapCounts.Incr()
+		metrics.TableReadStatistics.UnMMaps.Incr()
 	}
 	return err
 }

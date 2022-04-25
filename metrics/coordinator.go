@@ -19,7 +19,6 @@ package metrics
 
 import (
 	"fmt"
-
 	"github.com/lindb/lindb/internal/linmetric"
 )
 
@@ -28,6 +27,20 @@ type StateManagerStatistics struct {
 	HandleEvents       *linmetric.DeltaCounterVec // handle event success count
 	HandleEventFailure *linmetric.DeltaCounterVec // handle event failure count
 	Panics             *linmetric.DeltaCounterVec // panic count when handle event
+}
+
+// ShardLeaderStatistics represents shard leader elect statistics.
+type ShardLeaderStatistics struct {
+	LeaderElections     *linmetric.BoundCounter // shard leader elect successfully
+	LeaderElectFailures *linmetric.BoundCounter // shard leader elect failure
+}
+
+// MasterStatistics represents master statistics.
+type MasterStatistics struct {
+	FailOvers        *linmetric.BoundCounter // master fail over successfully
+	FailOverFailures *linmetric.BoundCounter // master fail over failure
+	Reassigns        *linmetric.BoundCounter // master reassign successfully
+	ReassignFailures *linmetric.BoundCounter // master reassign failure
 }
 
 // NewStateManagerStatistics creates a state manager statistics.
@@ -40,12 +53,6 @@ func NewStateManagerStatistics(role string) *StateManagerStatistics {
 	}
 }
 
-// ShardLeaderStatistics represents shard leader elect statistics.
-type ShardLeaderStatistics struct {
-	LeaderElections     *linmetric.BoundCounter // shard leader elect successfully
-	LeaderElectFailures *linmetric.BoundCounter // shard leader elect failure
-}
-
 // NewShardLeaderStatistics create a shard leader elect statistics.
 func NewShardLeaderStatistics() *ShardLeaderStatistics {
 	scope := linmetric.BrokerRegistry.NewScope("lindb.master.shard.leader")
@@ -53,14 +60,6 @@ func NewShardLeaderStatistics() *ShardLeaderStatistics {
 		LeaderElections:     scope.NewCounter("elections"),
 		LeaderElectFailures: scope.NewCounter("elect_failures"),
 	}
-}
-
-// MasterStatistics represents master statistics.
-type MasterStatistics struct {
-	FailOvers        *linmetric.BoundCounter // master fail over successfully
-	FailOverFailures *linmetric.BoundCounter // master fail over failure
-	Reassigns        *linmetric.BoundCounter // master reassign successfully
-	ReassignFailures *linmetric.BoundCounter // master reassign failure
 }
 
 // NewMasterStatistics creates a master statistics.

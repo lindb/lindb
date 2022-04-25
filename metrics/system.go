@@ -24,38 +24,38 @@ import (
 // SystemStatistics represents system statistics.
 type SystemStatistics struct {
 	// memory
-	MemTotal *linmetric.BoundGauge
-	MemUsed  *linmetric.BoundGauge
-	MemFree  *linmetric.BoundGauge
-	MemUsage *linmetric.BoundGauge
+	MemTotal *linmetric.BoundGauge // Total amount of RAM on this system
+	MemUsed  *linmetric.BoundGauge // RAM used by programs
+	MemFree  *linmetric.BoundGauge // Free RAM
+	MemUsage *linmetric.BoundGauge // Percentage of RAM used by programs
 	// cpu
-	Idle    *linmetric.BoundGauge
-	Nice    *linmetric.BoundGauge
-	System  *linmetric.BoundGauge
-	User    *linmetric.BoundGauge
-	Irq     *linmetric.BoundGauge
-	Steal   *linmetric.BoundGauge
-	SoftRiq *linmetric.BoundGauge
-	IOWait  *linmetric.BoundGauge
+	Idle    *linmetric.BoundGauge // CPU time that's not actively being used
+	Nice    *linmetric.BoundGauge // CPU time used by processes that have a positive niceness
+	System  *linmetric.BoundGauge // CPU time used by the kernel
+	User    *linmetric.BoundGauge // CPU time used by user space processes
+	Irq     *linmetric.BoundGauge // Interrupt Requests
+	Steal   *linmetric.BoundGauge // The percentage of time a virtual CPU waits for a real CPU
+	SoftIrq *linmetric.BoundGauge // The kernel is servicing interrupt requests (IRQs)
+	IOWait  *linmetric.BoundGauge // It marks time spent waiting for input or output operations
 	// disk usage
-	DiskTotal *linmetric.BoundGauge
-	DiskUsed  *linmetric.BoundGauge
-	DiskFree  *linmetric.BoundGauge
-	DiskUsage *linmetric.BoundGauge
+	DiskTotal *linmetric.BoundGauge // Total amount of disk
+	DiskUsed  *linmetric.BoundGauge // Disk used by programs
+	DiskFree  *linmetric.BoundGauge // Free disk
+	DiskUsage *linmetric.BoundGauge // Percentage of disk used by programs
 	// disk inode
-	INodesFree  *linmetric.BoundGauge
-	INodesUsed  *linmetric.BoundGauge
-	INodesTotal *linmetric.BoundGauge
-	INodesUsage *linmetric.BoundGauge
+	INodesTotal *linmetric.BoundGauge // Total amount of inode
+	INodesUsed  *linmetric.BoundGauge // INode used by programs
+	INodesFree  *linmetric.BoundGauge // Free inode
+	INodesUsage *linmetric.BoundGauge // Percentage of inode used by programs
 	// net
-	NetBytesSent   *linmetric.DeltaCounterVec
-	NetBytesRecv   *linmetric.DeltaCounterVec
-	NetPacketsSent *linmetric.DeltaCounterVec
-	NetPacketsRecv *linmetric.DeltaCounterVec
-	NetErrIn       *linmetric.DeltaCounterVec
-	NetErrOut      *linmetric.DeltaCounterVec
-	NetDropIn      *linmetric.DeltaCounterVec
-	NetDropOut     *linmetric.DeltaCounterVec
+	NetBytesSent   *linmetric.DeltaCounterVec // number of bytes sent
+	NetBytesRecv   *linmetric.DeltaCounterVec // number of bytes received
+	NetPacketsSent *linmetric.DeltaCounterVec // number of packets sent
+	NetPacketsRecv *linmetric.DeltaCounterVec // number of packets received
+	NetErrIn       *linmetric.DeltaCounterVec // total number of errors while receiving
+	NetErrOut      *linmetric.DeltaCounterVec // total number of errors while sending
+	NetDropIn      *linmetric.DeltaCounterVec // total number of incoming packets which were dropped
+	NetDropOut     *linmetric.DeltaCounterVec // total number of outgoing packets which were dropped (always 0 on OSX and BSD)
 }
 
 // NewSystemStatistics creates a system statistics.
@@ -78,7 +78,7 @@ func NewSystemStatistics(registry *linmetric.Registry) *SystemStatistics {
 		User:    cpuScope.NewGauge("user"),
 		Irq:     cpuScope.NewGauge("irq"),
 		Steal:   cpuScope.NewGauge("steal"),
-		SoftRiq: cpuScope.NewGauge("softirq"),
+		SoftIrq: cpuScope.NewGauge("softirq"),
 		IOWait:  cpuScope.NewGauge("iowait"),
 
 		DiskTotal: diskScope.NewGauge("total"),
