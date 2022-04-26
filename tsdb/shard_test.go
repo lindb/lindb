@@ -354,10 +354,9 @@ func TestShard_Flush(t *testing.T) {
 		indexDB:        index,
 		db:             db,
 		flushCondition: sync.NewCond(&sync.Mutex{}),
+		statistics:     metrics.NewShardStatistics("data", "1"),
 		logger:         logger.GetLogger("TSDB", "test"),
 	}
-	s.statistics.indexDBFlushDuration = metrics.ShardStatistics.IndexDBFlushDuration.WithTagValues("test", "1")
-	s.statistics.indexDBFlushFailures = metrics.ShardStatistics.IndexDBFlushFailures.WithTagValues("test", "1")
 	cases := []struct {
 		name    string
 		prepare func()
@@ -410,12 +409,12 @@ func TestShard_Write(t *testing.T) {
 	db := NewMockDatabase(ctrl)
 	db.EXPECT().Name().Return("tet").AnyTimes()
 	s := &shard{
-		indexDB:  indexDB,
-		db:       db,
-		metadata: metadata,
-		logger:   logger.GetLogger("TSDB", "test"),
+		indexDB:    indexDB,
+		db:         db,
+		metadata:   metadata,
+		statistics: metrics.NewShardStatistics("data", "1"),
+		logger:     logger.GetLogger("TSDB", "test"),
 	}
-	s.statistics.lookupMetricMetaFailures = metrics.ShardStatistics.LookupMetricMetaFailures.WithTagValues("test", "1")
 	cases := []struct {
 		name    string
 		prepare func()
@@ -462,12 +461,12 @@ func TestShard_lookupRowMeta(t *testing.T) {
 	db := NewMockDatabase(ctrl)
 	db.EXPECT().Name().Return("tet").AnyTimes()
 	s := &shard{
-		indexDB:  indexDB,
-		db:       db,
-		metadata: metadata,
-		logger:   logger.GetLogger("TSDB", "test"),
+		indexDB:    indexDB,
+		db:         db,
+		metadata:   metadata,
+		statistics: metrics.NewShardStatistics("data", "1"),
+		logger:     logger.GetLogger("TSDB", "test"),
 	}
-	s.statistics.lookupMetricMetaFailures = metrics.ShardStatistics.LookupMetricMetaFailures.WithTagValues("test", "1")
 	cases := []struct {
 		name    string
 		tags    []*protoMetricsV1.KeyValue
@@ -535,9 +534,9 @@ func TestShard_WaitFlushIndexCompleted(t *testing.T) {
 		indexDB:        index,
 		db:             db,
 		flushCondition: sync.NewCond(&sync.Mutex{}),
+		statistics:     metrics.NewShardStatistics("data", "1"),
 		logger:         logger.GetLogger("TSDB", "test"),
 	}
-	s.statistics.indexDBFlushDuration = metrics.ShardStatistics.IndexDBFlushDuration.WithTagValues("test", "1")
 	s.isFlushing.Store(false)
 	index.EXPECT().Flush().DoAndReturn(func() error {
 		time.Sleep(100 * time.Millisecond)

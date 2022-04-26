@@ -94,7 +94,8 @@ type dataFlushChecker struct {
 	isWatermarkFlushing  atomic.Bool        // this flag symbols if it has goroutine in high water-mark flushing
 	running              *atomic.Bool
 	memoryStatGetterFunc monitoring.MemoryStatGetter // used for mocking
-	logger               *logger.Logger
+
+	logger *logger.Logger
 }
 
 // newDataFlushChecker creates the data flush checker
@@ -174,7 +175,7 @@ func (fc *dataFlushChecker) check() {
 				needFlushDB.shards[shard.ShardID()] = needFlushShard
 			}
 			needFlushShard.families = append(needFlushShard.families, family)
-			metrics.ShardStatistics.FlushInFlight.WithTagValues(dbName, strconv.Itoa(int(shard.ShardID()))).Incr()
+			metrics.FlushCheckerStatistics.FlushInFlight.WithTagValues(dbName, strconv.Itoa(int(shard.ShardID()))).Incr()
 		}
 	})
 
@@ -284,7 +285,7 @@ func (fc *dataFlushChecker) flushShard(request *flushShard) {
 			engineLogger.Error("flush family memory database error",
 				logger.String("family", family.Indicator()), logger.Error(err))
 		}
-		metrics.ShardStatistics.FlushInFlight.
+		metrics.FlushCheckerStatistics.FlushInFlight.
 			WithTagValues(request.shard.Database().Name(), strconv.Itoa(int(request.shard.ShardID()))).Decr()
 	}
 }

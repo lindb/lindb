@@ -27,7 +27,6 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/series"
@@ -51,9 +50,7 @@ type indexDatabase struct {
 	metadata         metadb.Metadata               // the metadata for generating ID of metric, field
 	index            InvertedIndex
 
-	statistics struct {
-		buildInvertedIndex *linmetric.BoundCounter
-	}
+	statistics *metrics.IndexDBStatistics
 
 	rwMutex sync.RWMutex // lock of create metric index
 }
@@ -76,8 +73,8 @@ func NewIndexDatabase(ctx context.Context, parent string, metadata metadb.Metada
 		metadata:         metadata,
 		metricID2Mapping: make(map[metric.ID]MetricIDMapping),
 		index:            newInvertedIndex(metadata, forwardFamily, invertedFamily),
+		statistics:       metrics.NewIndexDBStatistics(metadata.DatabaseName()),
 	}
-	db.statistics.buildInvertedIndex = metrics.IndexDBStatistics.BuildInvertedIndex.WithTagValues(db.metadata.DatabaseName())
 
 	return db, nil
 }
@@ -186,7 +183,7 @@ func (db *indexDatabase) BuildInvertIndex(
 ) {
 	db.index.buildInvertIndex(namespace, metricName, tagIterator, seriesID)
 
-	db.statistics.buildInvertedIndex.Incr()
+	db.statistics.BuildInvertedIndex.Incr()
 }
 
 // Flush flushes index data to disk

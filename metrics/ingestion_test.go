@@ -23,7 +23,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestQueryStatistics(t *testing.T) {
-	assert.NotNil(t, NewBrokerQueryStatistics())
-	assert.NotNil(t, NewStorageQueryStatistics())
+func TestIngestionStatistics_New(t *testing.T) {
+	assert.NotNil(t, NewFlatIngestionStatistics())
+	assert.NotNil(t, NewCommonIngestionStatistics())
+	assert.NotNil(t, NewInfluxIngestionStatistics())
+	assert.NotNil(t, NewNativeIngestionStatistics())
 }

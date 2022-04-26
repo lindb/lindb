@@ -24,7 +24,7 @@ import (
 	"strings"
 
 	ingestCommon "github.com/lindb/lindb/ingestion/common"
-	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/strutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
 	"github.com/lindb/lindb/series/metric"
@@ -32,11 +32,7 @@ import (
 )
 
 var (
-	protoIngestionScope          = linmetric.BrokerRegistry.NewScope("lindb.ingestion.proto")
-	nativeCorruptedDataCounter   = protoIngestionScope.NewCounter("data_corrupted_count")
-	nativeUnmarshalMetricCounter = protoIngestionScope.NewCounter("ingested_metrics")
-	droppedMetricCounter         = protoIngestionScope.NewCounter("dropped_metrics")
-	nativeReadBytesCounter       = protoIngestionScope.NewCounter("read_bytes")
+	protoIngestionStatistics = metrics.NewNativeIngestionStatistics()
 )
 
 func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*metric.BrokerBatchRows, error) {
@@ -44,7 +40,7 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*metric.
 	if strings.EqualFold(req.Header.Get("Content-Encoding"), "gzip") {
 		gzipReader, err := ingestCommon.GetGzipReader(req.Body)
 		if err != nil {
-			nativeCorruptedDataCounter.Incr()
+			protoIngestionStatistics.CorruptedData.Incr()
 			return nil, fmt.Errorf("ingestion corrupted gzip data: %w", err)
 		}
 		defer ingestCommon.PutGzipReader(gzipReader)
@@ -56,16 +52,16 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*metric.
 		return nil, err
 	}
 
-	nativeReadBytesCounter.Add(float64(len(data)))
+	protoIngestionStatistics.ReadBytes.Add(float64(len(data)))
 	batch, err := parseProtoMetric(data, enrichedTags, namespace)
 	if err != nil {
-		nativeCorruptedDataCounter.Incr()
+		protoIngestionStatistics.CorruptedData.Incr()
 		return nil, err
 	}
 	if batch.Len() == 0 {
 		return nil, fmt.Errorf("empty metrics")
 	}
-	nativeUnmarshalMetricCounter.Add(float64(batch.Len()))
+	protoIngestionStatistics.IngestedMetrics.Add(float64(batch.Len()))
 	return batch, nil
 }
 
@@ -90,7 +86,7 @@ func parseProtoMetric(
 		if err := batch.TryAppend(func(row *metric.BrokerRow) error {
 			return converter.ConvertTo(m, row)
 		}); err != nil {
-			droppedMetricCounter.Incr()
+			protoIngestionStatistics.DroppedMetrics.Incr()
 		}
 	}
 	return batch, nil

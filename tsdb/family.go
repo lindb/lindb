@@ -28,7 +28,6 @@ import (
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/logger"
@@ -103,19 +102,8 @@ type dataFamily struct {
 
 	mutex sync.Mutex
 
-	statistics struct {
-		writeBatches        *linmetric.BoundCounter
-		writeMetrics        *linmetric.BoundCounter
-		writeMetricFailures *linmetric.BoundCounter
-		writeFields         *linmetric.BoundCounter
-		memDBTotalSize      *linmetric.BoundGauge
-		activeMemDBs        *linmetric.BoundGauge
-		activeFamilies      *linmetric.BoundGauge
-		memDBFlushFailure   *linmetric.BoundCounter
-		memDBFlushDuration  *linmetric.BoundHistogram
-	}
-
-	logger *logger.Logger
+	statistics *metrics.FamilyStatistics
+	logger     *logger.Logger
 }
 
 // newDataFamily creates a data family storage unit
@@ -126,6 +114,8 @@ func newDataFamily(
 	familyTime int64,
 	family kv.Family,
 ) DataFamily {
+	dbName := shard.Database().Name()
+	shardIDStr := strconv.Itoa(int(shard.ShardID()))
 	f := &dataFamily{
 		shard:        shard,
 		interval:     interval,
@@ -136,8 +126,8 @@ func newDataFamily(
 		seq:          make(map[int32]atomic.Int64),
 		persistSeq:   make(map[int32]atomic.Int64),
 		callbacks:    make(map[int32][]func(seq int64)),
-
-		logger: logger.GetLogger("TSDB", "family"),
+		statistics:   metrics.NewFamilyStatistics(dbName, shardIDStr),
+		logger:       logger.GetLogger("TSDB", "family"),
 	}
 	// get current persist write sequence
 	snapshot := family.GetSnapshot()
@@ -150,24 +140,11 @@ func newDataFamily(
 		f.persistSeq[leader] = sequence
 	}
 
-	dbName := shard.Database().Name()
-	shardIDStr := strconv.Itoa(int(shard.ShardID()))
-
-	f.statistics.writeBatches = metrics.ShardStatistics.WriteBatches.WithTagValues(dbName, shardIDStr)
-	f.statistics.writeMetrics = metrics.ShardStatistics.WriteMetrics.WithTagValues(dbName, shardIDStr)
-	f.statistics.writeFields = metrics.ShardStatistics.WriteFields.WithTagValues(dbName, shardIDStr)
-	f.statistics.writeMetricFailures = metrics.ShardStatistics.WriteMetricFailures.WithTagValues(dbName, shardIDStr)
-	f.statistics.memDBTotalSize = metrics.ShardStatistics.MemDBTotalSize.WithTagValues(dbName, shardIDStr)
-	f.statistics.memDBFlushFailure = metrics.ShardStatistics.MemDBFlushFailures.WithTagValues(dbName, shardIDStr)
-	f.statistics.activeMemDBs = metrics.ShardStatistics.ActiveMemDBs.WithTagValues(dbName, shardIDStr)
-	f.statistics.activeFamilies = metrics.ShardStatistics.ActiveFamilies.WithTagValues(dbName, shardIDStr)
-	f.statistics.memDBFlushDuration = metrics.ShardStatistics.MemDBFlushDuration.WithTagValues(dbName, shardIDStr)
-
 	f.indicator = fmt.Sprintf("%s/%s/%d", dbName, shardIDStr, familyTime)
 
 	// add data family into global family manager
 	GetFamilyManager().AddFamily(f)
-	f.statistics.activeFamilies.Incr()
+	f.statistics.ActiveFamilies.Incr()
 	return f
 }
 
@@ -411,13 +388,13 @@ func (f *dataFamily) WriteRows(rows []metric.StorageRow) error {
 	db, err := f.GetOrCreateMemoryDatabase(f.familyTime)
 	if err != nil {
 		// all rows are dropped
-		f.statistics.writeMetricFailures.Add(float64(len(rows)))
+		f.statistics.WriteMetricFailures.Add(float64(len(rows)))
 		return err
 	}
 	db.AcquireWrite()
 	releaseFunc := db.WithLock()
 	defer func() {
-		f.statistics.writeBatches.Incr()
+		f.statistics.WriteBatches.Incr()
 		db.CompleteWrite()
 		releaseFunc()
 	}()
@@ -425,7 +402,7 @@ func (f *dataFamily) WriteRows(rows []metric.StorageRow) error {
 	for idx := range rows {
 		row := rows[idx]
 		if !row.Writable {
-			f.statistics.writeMetricFailures.Incr()
+			f.statistics.WriteMetricFailures.Incr()
 			continue
 		}
 		row.SlotIndex = uint16(f.intervalCalc.CalcSlot(
@@ -434,15 +411,15 @@ func (f *dataFamily) WriteRows(rows []metric.StorageRow) error {
 			f.interval.Int64()),
 		)
 		if err = db.WriteRow(&row); err == nil {
-			f.statistics.writeMetrics.Incr()
-			f.statistics.writeFields.Add(float64(len(row.FieldIDs)))
+			f.statistics.WriteMetrics.Incr()
+			f.statistics.WriteFields.Add(float64(len(row.FieldIDs)))
 		} else {
-			f.statistics.writeMetricFailures.Incr()
+			f.statistics.WriteMetricFailures.Incr()
 			f.logger.Error("failed writing row", logger.String("family", f.indicator), logger.Error(err))
 		}
 	}
 
-	f.statistics.memDBTotalSize.Add(float64(f.mutableMemDB.MemSize()))
+	f.statistics.MemDBTotalSize.Add(float64(f.mutableMemDB.MemSize()))
 	return nil
 }
 
@@ -496,7 +473,7 @@ func (f *dataFamily) GetOrCreateMemoryDatabase(familyTime int64) (memdb.MemoryDa
 			return nil, err
 		}
 		f.mutableMemDB = newDB
-		f.statistics.activeMemDBs.Incr()
+		f.statistics.ActiveMemDBs.Incr()
 	}
 	return f.mutableMemDB, nil
 }
@@ -524,7 +501,7 @@ func (f *dataFamily) Close() error {
 	}
 
 	GetFamilyManager().RemoveFamily(f)
-	f.statistics.activeFamilies.Decr()
+	f.statistics.ActiveFamilies.Decr()
 	return nil
 }
 
@@ -534,7 +511,7 @@ func (f *dataFamily) flushMemoryDatabase(sequences map[int32]int64, memDB memdb.
 	flusher := f.family.NewFlusher()
 	defer func() {
 		flusher.Release()
-		f.statistics.memDBFlushDuration.UpdateSince(startTime)
+		f.statistics.MemDBFlushDuration.UpdateSince(startTime)
 	}()
 
 	for leader, seq := range sequences {
@@ -550,7 +527,7 @@ func (f *dataFamily) flushMemoryDatabase(sequences map[int32]int64, memDB memdb.
 		f.logger.Error("failed to flush memory database",
 			logger.String("family", f.indicator),
 			logger.Int64("memDBSize", memDB.MemSize()))
-		f.statistics.memDBFlushFailure.Incr()
+		f.statistics.MemDBFlushFailures.Incr()
 		return err
 	}
 
@@ -564,8 +541,8 @@ func (f *dataFamily) flushMemoryDatabase(sequences map[int32]int64, memDB memdb.
 		}
 	}
 
-	f.statistics.activeMemDBs.Decr()
-	f.statistics.memDBTotalSize.Sub(float64(memDB.MemSize()))
+	f.statistics.ActiveMemDBs.Decr()
+	f.statistics.MemDBTotalSize.Sub(float64(memDB.MemSize()))
 
 	if err := memDB.Close(); err != nil {
 		// ignore close memory database err, if not maybe write duplicate data into file storage

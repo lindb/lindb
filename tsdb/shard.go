@@ -29,7 +29,6 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
@@ -105,11 +104,7 @@ type shard struct {
 	invertedFamily kv.Family // inverted store
 	logger         *logger.Logger
 
-	statistics struct {
-		lookupMetricMetaFailures *linmetric.BoundCounter
-		indexDBFlushFailures     *linmetric.BoundCounter
-		indexDBFlushDuration     *linmetric.BoundHistogram
-	}
+	statistics *metrics.ShardStatistics
 }
 
 // newShard creates shard instance, if shard path exist then load shard data for init.
@@ -134,6 +129,7 @@ func newShard(
 		rollupTargets:  make(map[timeutil.Interval]IntervalSegment),
 		isFlushing:     *atomic.NewBool(false),
 		flushCondition: sync.NewCond(&sync.Mutex{}),
+		statistics:     metrics.NewShardStatistics(db.Name(), strconv.Itoa(int(shardID))),
 		logger:         logger.GetLogger("TSDB", "Shard"),
 	}
 	// try cleanup history dirty write buffer
@@ -143,12 +139,6 @@ func newShard(
 	sort.Sort(dbOption.Intervals)
 
 	createdShard.interval = dbOption.Intervals[0].Interval
-
-	// initialize metrics
-	shardIDStr := strconv.Itoa(int(shardID))
-	createdShard.statistics.lookupMetricMetaFailures = metrics.ShardStatistics.LookupMetricMetaFailures.WithTagValues(db.Name(), shardIDStr)
-	createdShard.statistics.indexDBFlushFailures = metrics.ShardStatistics.IndexDBFlushFailures.WithTagValues(db.Name(), shardIDStr)
-	createdShard.statistics.indexDBFlushDuration = metrics.ShardStatistics.IndexDBFlushDuration.WithTagValues(db.Name(), shardIDStr)
 
 	for idx, targetInterval := range dbOption.Intervals {
 		// new segment for rollup
@@ -332,7 +322,7 @@ Done:
 func (s *shard) LookupRowMetricMeta(rows []metric.StorageRow) error {
 	for idx := range rows {
 		if err := s.lookupRowMeta(&rows[idx]); err != nil {
-			s.statistics.lookupMetricMetaFailures.Incr()
+			s.statistics.LookupMetricMetaFailures.Incr()
 			s.logger.Error("failed to lookup meta of row",
 				logger.String("database", s.db.Name()),
 				logger.Any("shardID", s.id), logger.Error(err))
@@ -378,11 +368,11 @@ func (s *shard) FlushIndex() (err error) {
 		s.flushCondition.L.Unlock()
 		// mark flush job complete, notify
 		s.flushCondition.Broadcast()
-		s.statistics.indexDBFlushDuration.UpdateSince(startTime)
+		s.statistics.IndexDBFlushDuration.UpdateSince(startTime)
 	}()
 	// index flush
 	if err = s.indexDB.Flush(); err != nil {
-		s.statistics.indexDBFlushFailures.Incr()
+		s.statistics.IndexDBFlushFailures.Incr()
 		s.logger.Error("failed to flush indexDB ",
 			logger.String("database", s.db.Name()),
 			logger.Any("shardID", s.id),

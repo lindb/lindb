@@ -49,12 +49,12 @@ func NewInfluxWriter(deps *depspkg.HTTPDeps) *InfluxWriter {
 func (iw *InfluxWriter) Register(route gin.IRoutes) {
 	route.POST(
 		InfluxWritePath,
-		WithHistogram(ingestHandlerTimerVec.WithTagValues(InfluxWritePath)),
+		WithHistogram(ingestStatistics.Duration.WithTagValues(InfluxWritePath)),
 		iw.Write,
 	)
 	route.PUT(
 		InfluxWritePath,
-		WithHistogram(ingestHandlerTimerVec.WithTagValues(InfluxWritePath)),
+		WithHistogram(ingestStatistics.Duration.WithTagValues(InfluxWritePath)),
 		iw.Write,
 	)
 

@@ -370,9 +370,9 @@ func TestDatabase_FlushMeta(t *testing.T) {
 	db := &database{
 		metadata:       metadata,
 		flushCondition: sync.NewCond(&sync.Mutex{}),
-		isFlushing:     *atomic.NewBool(false)}
-	db.statistics.metaDBFlushDuration = metrics.DatabaseStatistics.MetaDBFlushDuration.WithTagValues("test")
-	db.statistics.metaDBFlushFailures = metrics.DatabaseStatistics.MetaDBFlushFailures.WithTagValues("test")
+		isFlushing:     *atomic.NewBool(false),
+		statistics:     metrics.NewDatabaseStatistics("test"),
+	}
 	cases := []struct {
 		name    string
 		prepare func()
@@ -471,9 +471,8 @@ func TestDatabase_WaitFlushMetaCompleted(t *testing.T) {
 		metadata:       metadata,
 		isFlushing:     *atomic.NewBool(false),
 		flushCondition: sync.NewCond(&sync.Mutex{}),
+		statistics:     metrics.NewDatabaseStatistics("test"),
 	}
-	db.statistics.metaDBFlushDuration = metrics.DatabaseStatistics.MetaDBFlushDuration.WithTagValues("test")
-	db.statistics.metaDBFlushFailures = metrics.DatabaseStatistics.MetaDBFlushFailures.WithTagValues("test")
 
 	metadata.EXPECT().Flush().DoAndReturn(func() error {
 		time.Sleep(100 * time.Millisecond)
