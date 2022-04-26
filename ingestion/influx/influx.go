@@ -42,7 +42,7 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*metric.
 	if strings.EqualFold(req.Header.Get("Content-Encoding"), "gzip") {
 		gzipReader, err := ingestCommon.GetGzipReader(req.Body)
 		if err != nil {
-			influxCorruptedDataCounter.Incr()
+			influxIngestionStatistics.CorruptedData.Incr()
 			return nil, fmt.Errorf("ingestion corrupted gzip data: %w", err)
 		}
 		defer ingestCommon.PutGzipReader(gzipReader)
@@ -64,7 +64,7 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*metric.
 		// reset for constructing next row
 		rowBuilder.Reset()
 
-		influxReadBytesCounter.Add(float64(len(nextLine)))
+		influxIngestionStatistics.ReadBytes.Add(float64(len(nextLine)))
 		// skip comment line
 		if bytes.HasPrefix(nextLine, []byte{'#'}) {
 			continue
@@ -73,7 +73,7 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*metric.
 			influxLogger.Warn("ingest error",
 				logger.String("line", string(nextLine)),
 				logger.Error(err))
-			droppedMetricsCounter.Incr()
+			influxIngestionStatistics.DroppedMetrics.Incr()
 			continue
 		}
 
@@ -83,12 +83,12 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*metric.
 			}
 		}
 		if err := batch.TryAppend(rowBuilder.BuildTo); err != nil {
-			droppedMetricsCounter.Incr()
+			influxIngestionStatistics.DroppedMetrics.Incr()
 			continue
 		}
 
-		ingestedMetricsCounter.Incr()
-		ingestedFieldsCounter.Add(float64(rowBuilder.SimpleFieldsLen()))
+		influxIngestionStatistics.IngestedMetrics.Incr()
+		influxIngestionStatistics.IngestedFields.Add(float64(rowBuilder.SimpleFieldsLen()))
 	}
 	if cr.Error() == nil || cr.Error() == io.EOF {
 		return batch, nil

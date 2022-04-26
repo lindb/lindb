@@ -23,7 +23,6 @@ import (
 	"sync"
 
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
@@ -48,14 +47,7 @@ type metadataDatabase struct {
 
 	rwMux sync.RWMutex
 
-	statistics struct {
-		genMetricIDs        *linmetric.BoundCounter
-		genMetricIDFailures *linmetric.BoundCounter
-		genTagKeyIDs        *linmetric.BoundCounter
-		genTagKeyIDFailures *linmetric.BoundCounter
-		genFieldIDs         *linmetric.BoundCounter
-		genFieldIDFailures  *linmetric.BoundCounter
-	}
+	statistics *metrics.MetaDBStatistics
 }
 
 // NewMetadataDatabase creates new metadata database
@@ -66,22 +58,15 @@ func NewMetadataDatabase(ctx context.Context, databaseName, parent string) (Meta
 	}
 
 	c, cancel := context.WithCancel(ctx)
-	mdb := &metadataDatabase{
+	return &metadataDatabase{
 		databaseName: databaseName,
 		path:         parent,
 		ctx:          c,
 		cancel:       cancel,
 		backend:      backend,
 		metrics:      make(map[string]MetricMetadata),
-	}
-	mdb.statistics.genMetricIDs = metrics.MetaDBStatistics.GenMetricIDs.WithTagValues(databaseName)
-	mdb.statistics.genMetricIDFailures = metrics.MetaDBStatistics.GenMetricIDFailures.WithTagValues(databaseName)
-	mdb.statistics.genTagKeyIDs = metrics.MetaDBStatistics.GenTagKeyIDs.WithTagValues(databaseName)
-	mdb.statistics.genTagKeyIDFailures = metrics.MetaDBStatistics.GenTagKeyIDFailures.WithTagValues(databaseName)
-	mdb.statistics.genFieldIDs = metrics.MetaDBStatistics.GenFieldIDs.WithTagValues(databaseName)
-	mdb.statistics.genFieldIDFailures = metrics.MetaDBStatistics.GenFieldIDFailures.WithTagValues(databaseName)
-
-	return mdb, nil
+		statistics:   metrics.NewMetaDBStatistics(databaseName),
+	}, nil
 }
 
 // SuggestNamespace suggests the namespace by namespace's prefix
@@ -212,10 +197,10 @@ func (mdb *metadataDatabase) GenMetricID(namespace, metricName string) (metricID
 
 	metricMetadata, err = mdb.backend.getOrCreateMetricMetadata(namespace, metricName)
 	if err != nil {
-		mdb.statistics.genMetricIDFailures.Incr()
+		mdb.statistics.GenMetricIDFailures.Incr()
 		return
 	}
-	mdb.statistics.genMetricIDs.Incr()
+	mdb.statistics.GenMetricIDs.Incr()
 	mdb.metrics[key] = metricMetadata
 
 	return metricMetadata.getMetricID(), nil
@@ -240,22 +225,22 @@ func (mdb *metadataDatabase) GenFieldID(
 		if f.Type == fieldType {
 			return f.ID, nil
 		}
-		mdb.statistics.genFieldIDFailures.Incr()
+		mdb.statistics.GenFieldIDFailures.Incr()
 		return field.EmptyFieldID, series.ErrWrongFieldType
 	}
 	// assign new field id, then add field into metric metadata
 	fieldMeta, err := metricMetadata.createField(fieldName, fieldType)
 	if err != nil {
-		mdb.statistics.genFieldIDFailures.Incr()
+		mdb.statistics.GenFieldIDFailures.Incr()
 		return field.EmptyFieldID, err
 	}
 	// TODO need change?
 	err = mdb.backend.saveField(metricMetadata.getMetricID(), fieldMeta)
 	if err != nil {
-		mdb.statistics.genFieldIDFailures.Incr()
+		mdb.statistics.GenFieldIDFailures.Incr()
 		return field.EmptyFieldID, err
 	}
-	mdb.statistics.genFieldIDs.Incr()
+	mdb.statistics.GenFieldIDs.Incr()
 	return fieldMeta.ID, nil
 }
 
@@ -274,17 +259,17 @@ func (mdb *metadataDatabase) GenTagKeyID(namespace, metricName, tagKey string) (
 
 	err = metricMetadata.checkTagKey(tagKey)
 	if err != nil {
-		mdb.statistics.genTagKeyIDFailures.Incr()
+		mdb.statistics.GenTagKeyIDFailures.Incr()
 		return tag.EmptyTagKeyID, err
 	}
 	// assign new tag key id
 	tagKeyID, err = mdb.backend.saveTagKey(metricMetadata.getMetricID(), tagKey)
 	if err != nil {
-		mdb.statistics.genTagKeyIDFailures.Incr()
+		mdb.statistics.GenTagKeyIDFailures.Incr()
 		return tag.EmptyTagKeyID, err
 	}
 	metricMetadata.createTagKey(tagKey, tagKeyID)
-	mdb.statistics.genTagKeyIDs.Incr()
+	mdb.statistics.GenTagKeyIDs.Incr()
 	return tagKeyID, nil
 }
 

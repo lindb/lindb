@@ -24,7 +24,7 @@ import (
 	"strings"
 
 	ingestCommon "github.com/lindb/lindb/ingestion/common"
-	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/series/metric"
@@ -32,20 +32,7 @@ import (
 )
 
 var (
-	flatIngestionScope         = linmetric.BrokerRegistry.NewScope("lindb.ingestion.flat")
-	flatCorruptedDataCounter   = flatIngestionScope.NewCounter("data_corrupted_count")
-	flatDroppedMetricCounter   = flatIngestionScope.NewCounter("dropped_metrics")
-	flatUnmarshalMetricCounter = flatIngestionScope.NewCounter("ingested_metrics")
-	flatReadBytesCounter       = flatIngestionScope.NewCounter("read_bytes")
-	flatIngestionBlockScope    = flatIngestionScope.NewCounterVec("block", "size")
-	// small block
-	lt10KiBCounter  = flatIngestionBlockScope.WithTagValues("<10KiB")
-	lt100KiBCounter = flatIngestionBlockScope.WithTagValues("<100KiB")
-	// medium block
-	lt1MiBCounter  = flatIngestionBlockScope.WithTagValues("<1MiB")
-	lt10MiBCounter = flatIngestionBlockScope.WithTagValues("<10MiB")
-	// big block
-	gt10MiBCounter = flatIngestionBlockScope.WithTagValues(">=10MiB")
+	flatIngestionStatistics = metrics.NewFlatIngestionStatistics()
 )
 
 var flatLogger = logger.GetLogger("ingestion", "Flat")
@@ -55,7 +42,7 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*metric.
 	if strings.EqualFold(req.Header.Get("Content-Encoding"), "gzip") {
 		gzipReader, err := ingestCommon.GetGzipReader(req.Body)
 		if err != nil {
-			flatCorruptedDataCounter.Incr()
+			flatIngestionStatistics.CorruptedData.Incr()
 			return nil, fmt.Errorf("ingestion corrupted gzip data: %w", err)
 		}
 		defer ingestCommon.PutGzipReader(gzipReader)
@@ -66,13 +53,13 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*metric.
 
 	batch, err := parseFlatMetric(reader, enrichedTags, namespace)
 	if err != nil {
-		flatCorruptedDataCounter.Incr()
+		flatIngestionStatistics.CorruptedData.Incr()
 		return nil, err
 	}
 	if batch.Len() == 0 {
 		return nil, fmt.Errorf("empty metrics")
 	}
-	flatUnmarshalMetricCounter.Add(float64(batch.Len()))
+	flatIngestionStatistics.IngestedMetrics.Add(float64(batch.Len()))
 	return batch, nil
 }
 
@@ -101,23 +88,23 @@ func parseFlatMetric(
 	for decoder.HasNext() {
 		if err := batch.TryAppend(decoder.DecodeTo); err != nil {
 			flatLogger.Warn("failed ingesting flat metric", logger.Error(err))
-			flatDroppedMetricCounter.Incr()
+			flatIngestionStatistics.DroppedMetric.Incr()
 		}
 	}
 
 	switch {
 	case decoder.ReadLen() < 10*1024:
-		lt10KiBCounter.Incr()
+		flatIngestionStatistics.LT10KiBCounter.Incr()
 	case decoder.ReadLen() < 100*1024:
-		lt100KiBCounter.Incr()
+		flatIngestionStatistics.LT100KiBCounter.Incr()
 	case decoder.ReadLen() < 1024*1024:
-		lt1MiBCounter.Incr()
+		flatIngestionStatistics.LT1MiBCounter.Incr()
 	case decoder.ReadLen() < 10*1024*1024:
-		lt10MiBCounter.Incr()
+		flatIngestionStatistics.LT10MiBCounter.Incr()
 	default:
-		gt10MiBCounter.Incr()
+		flatIngestionStatistics.GT10MiBCounter.Incr()
 	}
-	flatReadBytesCounter.Add(float64(decoder.ReadLen()))
+	flatIngestionStatistics.ReadBytes.Add(float64(decoder.ReadLen()))
 
 	return batch, nil
 }

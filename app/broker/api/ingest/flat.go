@@ -47,12 +47,12 @@ func NewFlatWriter(deps *depspkg.HTTPDeps) *FlatWriter {
 func (nw *FlatWriter) Register(route gin.IRoutes) {
 	route.POST(
 		FlatWritePath,
-		WithHistogram(ingestHandlerTimerVec.WithTagValues(FlatWritePath)),
+		WithHistogram(ingestStatistics.Duration.WithTagValues(FlatWritePath)),
 		nw.Write,
 	)
 	route.PUT(
 		FlatWritePath,
-		WithHistogram(ingestHandlerTimerVec.WithTagValues(FlatWritePath)),
+		WithHistogram(ingestStatistics.Duration.WithTagValues(FlatWritePath)),
 		nw.Write,
 	)
 }

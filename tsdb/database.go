@@ -92,10 +92,7 @@ type database struct {
 	isFlushing     atomic.Bool     // restrict flusher concurrency
 	flushCondition *sync.Cond      // flush condition
 
-	statistics struct {
-		metaDBFlushFailures *linmetric.BoundCounter
-		metaDBFlushDuration *linmetric.BoundHistogram
-	}
+	statistics *metrics.DatabaseStatistics
 
 	flushChecker DataFlushChecker
 }
@@ -136,6 +133,7 @@ func newDatabase(
 		},
 		isFlushing:     *atomic.NewBool(false),
 		flushCondition: sync.NewCond(&sync.Mutex{}),
+		statistics:     metrics.NewDatabaseStatistics(databaseName),
 	}
 	dbPath, err0 := createDatabasePath(databaseName)
 	if err0 != nil {
@@ -169,9 +167,6 @@ func newDatabase(
 			db.shardSet.InsertShard(shardID, shard)
 		}
 	}
-
-	db.statistics.metaDBFlushFailures = metrics.DatabaseStatistics.MetaDBFlushFailures.WithTagValues(db.name)
-	db.statistics.metaDBFlushDuration = metrics.DatabaseStatistics.MetaDBFlushDuration.WithTagValues(db.name)
 
 	return db, nil
 }
@@ -339,10 +334,10 @@ func (db *database) FlushMeta() (err error) {
 		db.isFlushing.Store(false)
 		db.flushCondition.L.Unlock()
 		db.flushCondition.Broadcast()
-		db.statistics.metaDBFlushDuration.UpdateSince(start)
+		db.statistics.MetaDBFlushDuration.UpdateSince(start)
 	}()
 	if err := db.metadata.Flush(); err != nil {
-		db.statistics.metaDBFlushFailures.Incr()
+		db.statistics.MetaDBFlushFailures.Incr()
 		return err
 	}
 	return nil
