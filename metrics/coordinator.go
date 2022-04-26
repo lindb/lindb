@@ -19,6 +19,7 @@ package metrics
 
 import (
 	"fmt"
+
 	"github.com/lindb/lindb/internal/linmetric"
 )
 

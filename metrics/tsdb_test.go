@@ -23,7 +23,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestQueryStatistics(t *testing.T) {
-	assert.NotNil(t, NewBrokerQueryStatistics())
-	assert.NotNil(t, NewStorageQueryStatistics())
+func TestTSDBStatistics_New(t *testing.T) {
+	assert.NotNil(t, NewIndexDBStatistics("test"))
+	assert.NotNil(t, NewMemDBStatistics("test"))
+	assert.NotNil(t, NewDatabaseStatistics("test"))
+	assert.NotNil(t, NewShardStatistics("test", "shard"))
+	assert.NotNil(t, NewFamilyStatistics("test", "shard"))
+	assert.NotNil(t, NewTagMetaStatistics("test"))
+	assert.NotNil(t, NewMetaDBStatistics("test"))
 }

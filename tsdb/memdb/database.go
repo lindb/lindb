@@ -25,7 +25,6 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/pkg/logger"
@@ -103,10 +102,7 @@ type memoryDatabase struct {
 
 	createdTime int64
 
-	statistics struct {
-		allocatedPages       *linmetric.BoundCounter
-		allocatePageFailures *linmetric.BoundCounter
-	}
+	statistics *metrics.MemDBStatistics
 }
 
 // NewMemoryDatabase returns a new MemoryDatabase.
@@ -122,9 +118,8 @@ func NewMemoryDatabase(cfg MemoryDatabaseCfg) (MemoryDatabase, error) {
 		mStores:     NewMetricBucketStore(),
 		allocSize:   *atomic.NewInt64(0),
 		createdTime: fasttime.UnixNano(),
+		statistics:  metrics.NewMemDBStatistics(cfg.Name),
 	}
-	db.statistics.allocatedPages = metrics.MemDBStatistics.AllocatedPages.WithTagValues(cfg.Name)
-	db.statistics.allocatePageFailures = metrics.MemDBStatistics.AllocatePageFailures.WithTagValues(cfg.Name)
 	return db, nil
 }
 
@@ -296,10 +291,10 @@ func (md *memoryDatabase) writeLinField(
 	if !ok {
 		buf, err := md.buf.AllocPage()
 		if err != nil {
-			md.statistics.allocatePageFailures.Incr()
+			md.statistics.AllocatePageFailures.Incr()
 			return 0, err
 		}
-		md.statistics.allocatedPages.Incr()
+		md.statistics.AllocatedPages.Incr()
 		fStore = newFieldStore(buf, fieldID)
 		writtenSize += fStore.Capacity()
 		beforeTStoreSize := tStore.Capacity()

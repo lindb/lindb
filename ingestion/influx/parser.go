@@ -23,7 +23,7 @@ import (
 	"strconv"
 
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -40,13 +40,7 @@ var (
 )
 
 var (
-	influxIngestionScope       = linmetric.BrokerRegistry.NewScope("lindb.ingestion.influx")
-	influxCorruptedDataCounter = influxIngestionScope.NewCounter("data_corrupted_count")
-	ingestedMetricsCounter     = influxIngestionScope.NewCounter("ingested_metrics")
-	ingestedFieldsCounter      = influxIngestionScope.NewCounter("ingested_fields")
-	influxReadBytesCounter     = influxIngestionScope.NewCounter("read_bytes")
-	droppedMetricsCounter      = influxIngestionScope.NewCounter("dropped_metrics")
-	droppedFieldsCounter       = influxIngestionScope.NewCounter("dropped_fields")
+	influxIngestionStatistics = metrics.NewInfluxIngestionStatistics()
 )
 
 // Test cases in
@@ -281,7 +275,7 @@ WalkBeforeComma:
 		if err == nil {
 			fields = append(fields, parsedFields...)
 		} else {
-			droppedFieldsCounter.Incr()
+			influxIngestionStatistics.DroppedFields.Incr()
 		}
 		startAt = boundaryAt + 1
 		goto WalkBeforeComma

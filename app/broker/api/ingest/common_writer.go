@@ -28,18 +28,14 @@ import (
 	"github.com/lindb/lindb/constants"
 	ingestCommon "github.com/lindb/lindb/ingestion/common"
 	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 )
 
 var (
-	ingestHandlerTimerVec = linmetric.BrokerRegistry.
-		NewScope(
-			"lindb.http.ingest_duration",
-		).
-		NewHistogramVec("path").
-		WithExponentBuckets(time.Millisecond, time.Second*5, 20)
+	ingestStatistics = metrics.NewCommonIngestionStatistics()
 )
 
 func WithHistogram(histogram *linmetric.BoundHistogram) gin.HandlerFunc {
@@ -87,11 +83,11 @@ func (cw *commonWriter) realWrite(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
-	metrics, err := cw.parser(c.Request, enrichedTags, param.Namespace)
+	metricsData, err := cw.parser(c.Request, enrichedTags, param.Namespace)
 	if err != nil {
 		return err
 	}
-	if err := cw.deps.CM.Write(ctx, param.Database, metrics); err != nil {
+	if err := cw.deps.CM.Write(ctx, param.Database, metricsData); err != nil {
 		return err
 	}
 	return nil

@@ -419,12 +419,9 @@ func TestDataFamily_Flush(t *testing.T) {
 				callbacks: map[int32][]func(seq int64){
 					1: {func(seq int64) {}},
 				},
-				logger: logger.GetLogger("TSDB", "test"),
+				statistics: metrics.NewFamilyStatistics("data", "1"),
+				logger:     logger.GetLogger("TSDB", "test"),
 			}
-			f.statistics.memDBFlushDuration = metrics.ShardStatistics.MemDBFlushDuration.WithTagValues("test", "1")
-			f.statistics.memDBFlushFailure = metrics.ShardStatistics.IndexDBFlushFailures.WithTagValues("test", "1")
-			f.statistics.activeMemDBs = metrics.ShardStatistics.ActiveMemDBs.WithTagValues("test", "1")
-			f.statistics.memDBTotalSize = metrics.ShardStatistics.MemDBTotalSize.WithTagValues("test", "1")
 			if tt.prepare != nil {
 				tt.prepare(f)
 			}
@@ -492,13 +489,9 @@ func TestDataFamily_Close(t *testing.T) {
 				callbacks: map[int32][]func(seq int64){
 					1: {func(seq int64) {}},
 				},
-				logger: logger.GetLogger("TSDB", "test"),
+				statistics: metrics.NewFamilyStatistics("data", "1"),
+				logger:     logger.GetLogger("TSDB", "test"),
 			}
-			f.statistics.memDBFlushDuration = metrics.ShardStatistics.MemDBFlushDuration.WithTagValues("test", "1")
-			f.statistics.memDBFlushFailure = metrics.ShardStatistics.IndexDBFlushFailures.WithTagValues("test", "1")
-			f.statistics.activeMemDBs = metrics.ShardStatistics.ActiveMemDBs.WithTagValues("test", "1")
-			f.statistics.memDBTotalSize = metrics.ShardStatistics.MemDBTotalSize.WithTagValues("test", "1")
-			f.statistics.activeFamilies = metrics.ShardStatistics.ActiveFamilies.WithTagValues("test", "1")
 			if tt.prepare != nil {
 				tt.prepare(f)
 			}
@@ -537,9 +530,9 @@ func TestDataFamily_GetOrCreateMemoryDatabase(t *testing.T) {
 	shard.EXPECT().BufferManager().Return(memdb.NewMockBufferManager(ctrl)).AnyTimes()
 
 	f := &dataFamily{
-		shard: shard,
+		shard:      shard,
+		statistics: metrics.NewFamilyStatistics("data", "1"),
 	}
-	f.statistics.activeMemDBs = metrics.ShardStatistics.ActiveMemDBs.WithTagValues("db", "1")
 	newMemoryDBFunc = func(cfg memdb.MemoryDatabaseCfg) (memdb.MemoryDatabase, error) {
 		return nil, fmt.Errorf("err")
 	}
@@ -685,17 +678,12 @@ func TestDataFamily_WriteRows(t *testing.T) {
 				newMemoryDBFunc = memdb.NewMemoryDatabase
 			}()
 			f := &dataFamily{
-				shard:    shard,
-				interval: timeutil.Interval(10 * timeutil.OneSecond),
-				logger:   logger.GetLogger("TSDB", "test"),
+				shard:      shard,
+				interval:   timeutil.Interval(10 * timeutil.OneSecond),
+				statistics: metrics.NewFamilyStatistics("data", "1"),
+				logger:     logger.GetLogger("TSDB", "test"),
 			}
 			f.intervalCalc = f.interval.Calculator()
-			f.statistics.writeBatches = metrics.ShardStatistics.WriteBatches.WithTagValues("test", "1")
-			f.statistics.writeMetricFailures = metrics.ShardStatistics.WriteMetricFailures.WithTagValues("test", "1")
-			f.statistics.writeMetrics = metrics.ShardStatistics.WriteMetrics.WithTagValues("db", "1")
-			f.statistics.writeFields = metrics.ShardStatistics.WriteFields.WithTagValues("db", "1")
-			f.statistics.activeMemDBs = metrics.ShardStatistics.ActiveMemDBs.WithTagValues("db", "1")
-			f.statistics.memDBTotalSize = metrics.ShardStatistics.MemDBTotalSize.WithTagValues("db", "1")
 			newMemoryDBFunc = func(cfg memdb.MemoryDatabaseCfg) (memdb.MemoryDatabase, error) {
 				return memDB, nil
 			}
