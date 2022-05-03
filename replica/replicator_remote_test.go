@@ -65,7 +65,7 @@ func TestRemoteReplicator_IsReady(t *testing.T) {
 		{
 			name: "replicator is ready",
 			prepare: func(r *remoteReplicator) {
-				r.state = ReplicatorReadyState
+				r.state = models.ReplicatorReadyState
 			},
 			ready: true,
 		},
@@ -175,7 +175,7 @@ func TestRemoteReplicator_IsReady(t *testing.T) {
 		{
 			name: "reconnect after failure",
 			prepare: func(r *remoteReplicator) {
-				r.state = ReplicatorFailureState
+				r.state = models.ReplicatorFailureState
 				stream := protoReplicaV1.NewMockReplicaService_ReplicaClient(ctrl)
 				stream.EXPECT().CloseSend().Return(fmt.Errorf("err"))
 				r.replicaStream = stream
@@ -248,7 +248,7 @@ func TestRemoteReplicator_NodeStateChange(t *testing.T) {
 	stateMgr.EXPECT().GetLiveNode(gomock.Any()).Return(models.StatefulNode{}, false)
 	r1 := r.(*remoteReplicator)
 	r1.rwMutex.Lock()
-	r1.state = ReplicatorInitState
+	r1.state = models.ReplicatorInitState
 	r1.rwMutex.Unlock()
 	var wait sync.WaitGroup
 	wait.Add(1)

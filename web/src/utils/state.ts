@@ -17,6 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 import * as _ from "lodash-es";
+import { StorageState } from "@src/models";
 /**
  * get field value of metric by given metric name and node from internal state metric.
  *
@@ -46,4 +47,40 @@ export function getMetricField(
     return 0;
   }
   return fields[idleIdx].value;
+}
+
+/**
+ * get database state list
+ * @param storage storage state list
+ */
+export function getDatabaseList(storages: StorageState[]): any[] {
+  const rs: any[] = [];
+  _.forEach(storages, (storage: StorageState) => {
+    const databaseMap: any = _.get(storage, "shardStates", {});
+    const databaseNames = _.keys(databaseMap);
+    const liveNodes = _.get(storage, "liveNodes", []);
+    databaseNames.map((name: string) => {
+      const db = databaseMap[name];
+      const stats = {
+        totalReplica: 0,
+        availableReplica: 0,
+        unavailableReplica: 0,
+        numOfShards: 0,
+      };
+      _.mapValues(db, function (shard: any) {
+        const replicas = _.get(shard, "replica.replicas", []);
+        stats.numOfShards++;
+        stats.totalReplica += replicas.length;
+        replicas.map((nodeId: number) => {
+          if (_.has(liveNodes, nodeId)) {
+            stats.availableReplica++;
+          } else {
+            stats.unavailableReplica++;
+          }
+        });
+      });
+      rs.push({ name: name, stats: stats, storage: storage });
+    });
+  });
+  return rs;
 }

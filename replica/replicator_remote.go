@@ -38,7 +38,7 @@ type remoteReplicator struct {
 	replicator
 
 	ctx   context.Context
-	state ReplicatorState
+	state models.ReplicatorState
 
 	cliFct        rpc.ClientStreamFactory
 	replicaCli    protoReplicaV1.ReplicaServiceClient
@@ -68,7 +68,7 @@ func NewRemoteReplicator(
 		},
 		cliFct:     cliFct,
 		stateMgr:   stateMgr,
-		state:      ReplicatorInitState,
+		state:      models.ReplicatorInitState,
 		isSuspend:  atomic.NewBool(false),
 		suspend:    make(chan struct{}),
 		statistics: metrics.NewStorageRemoteReplicatorStatistics(channel.State.Database, channel.State.ShardID.String()),
@@ -100,7 +100,7 @@ func (r *remoteReplicator) handleNodeStateChangeEvent(state models.NodeStateType
 //   	 need reset current append index/replica index, then return true.
 func (r *remoteReplicator) IsReady() bool {
 	r.rwMutex.Lock()
-	if r.state == ReplicatorReadyState {
+	if r.state == models.ReplicatorReadyState {
 		r.rwMutex.Unlock()
 		return true
 	}
@@ -168,7 +168,7 @@ func (r *remoteReplicator) IsReady() bool {
 	nextReplicaIdx := remoteLastReplicaAckIdx + 1
 	if nextReplicaIdx == localReplicaIdx {
 		// replica index == remote replica append index, can do replicator
-		r.state = ReplicatorReadyState
+		r.state = models.ReplicatorReadyState
 		return true
 	}
 
@@ -201,7 +201,7 @@ func (r *remoteReplicator) IsReady() bool {
 		}
 		r.statistics.ResetFollowerAppendIdx.Incr()
 		_ = r.ResetReplicaIndex(nextReplicaIdx)
-		r.state = ReplicatorReadyState
+		r.state = models.ReplicatorReadyState
 		return true
 	case remoteLastReplicaAckIdx > appendIdx:
 		// new writeTask data will be lost, because leader's lost old wal data
@@ -223,7 +223,7 @@ func (r *remoteReplicator) IsReady() bool {
 	if newLocalReplicaIdx == nextReplicaIdx {
 		// replica index == remote replica append index, can do replicator
 		r.statistics.ResetReplicaIdx.Incr()
-		r.state = ReplicatorReadyState
+		r.state = models.ReplicatorReadyState
 		r.logger.Info("remote replica ack idx != current replica idx, reset current replica idx successfully",
 			logger.String("replicator", r.String()))
 		return true
@@ -240,14 +240,14 @@ func (r *remoteReplicator) Replica(idx int64, msg []byte) {
 		Record:       msg,
 	})
 	if err != nil {
-		r.state = ReplicatorFailureState
+		r.state = models.ReplicatorFailureState
 		r.statistics.SendMsgFailures.Incr()
 		return
 	}
 	r.statistics.SendMsg.Incr()
 	resp, err := cli.Recv()
 	if err != nil {
-		r.state = ReplicatorFailureState
+		r.state = models.ReplicatorFailureState
 		r.statistics.ReceiveMsgFailures.Incr()
 		return
 	}

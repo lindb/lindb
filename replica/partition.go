@@ -261,7 +261,7 @@ func (p *partition) getReplicaState() models.FamilyLogReplicaState {
 	}
 	rs := models.FamilyLogReplicaState{
 		ShardID:     p.shardID,
-		FamilyTime:  timeutil.FormatTimestamp(p.family.FamilyTime(), timeutil.DataTimeFormat4),
+		FamilyTime:  timeutil.FormatTimestamp(p.family.FamilyTime(), timeutil.DataTimeFormat2),
 		Append:      p.log.HeadSeq(),
 		Replicators: stateOfReplicators,
 	}
