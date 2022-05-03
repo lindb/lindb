@@ -26,14 +26,6 @@ import (
 
 //go:generate mockgen -source=./replicator.go -destination=./replicator_mock.go -package=replica
 
-type ReplicatorState int
-
-const (
-	ReplicatorInitState ReplicatorState = iota
-	ReplicatorReadyState
-	ReplicatorFailureState
-)
-
 // Replicator represents write ahead log replicator.
 type Replicator interface {
 	fmt.Stringer

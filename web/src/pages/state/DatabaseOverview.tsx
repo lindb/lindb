@@ -29,6 +29,7 @@ export default function DatabaseOverview() {
   return (
     <>
       <DatabaseView
+        title="Database List"
         liveNodes={_.get(storages, "[0].liveNodes", {})}
         storage={_.get(storages, "[0]", {})}
         loading={loading}

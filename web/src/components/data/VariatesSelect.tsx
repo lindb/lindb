@@ -40,7 +40,6 @@ export default function VariatesSelect(props: { variates: Variate[] }) {
         formApi.current = api;
       }}
       onSubmit={(values: object) => {
-        console.log("valuesss...", values);
         URLStore.changeURLParams({ params: values });
       }}
     >

@@ -17,7 +17,6 @@ specific language governing permissions and limitations
 under the License.
 */
 import {
-  Button,
   Card,
   List,
   Popover,
@@ -25,6 +24,9 @@ import {
   Switch,
   Tag,
   Typography,
+  ButtonGroup,
+  Button,
+  Descriptions,
 } from "@douyinfe/semi-ui";
 import { ReplicaState } from "@src/models";
 import { exec } from "@src/services";
@@ -77,6 +79,7 @@ export default function ReplicaView(props: ReplicaViewProps) {
     });
     return rs;
   };
+
   useEffect(() => {
     const fetchReplicaState = async (sql: string) => {
       try {
@@ -95,6 +98,15 @@ export default function ReplicaView(props: ReplicaViewProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const renderReplicator = (family: any, fn: Function) => {
+    return _.get(family, "replicators", []).map((r: any) => (
+      <span key={r.replicator}>
+        <Text link>{fn(family, r)}</Text>
+        <br />
+      </span>
+    ));
+  };
+
   const renderShardDetail = (shard: any) => {
     return (
       <>
@@ -103,7 +115,7 @@ export default function ReplicaView(props: ReplicaViewProps) {
           size="small"
           dataSource={_.orderBy(shard.families, ["familyTime"], ["desc"])}
           renderItem={(item) => (
-            <List.Item key={item.familyTime}>
+            <List.Item>
               <Space align="center">
                 <div style={{ textAlign: "center", rowGap: 4 }}>
                   <div>{item.familyTime}</div>
@@ -115,28 +127,58 @@ export default function ReplicaView(props: ReplicaViewProps) {
                   </div>
                 </div>
                 <div>
-                  {_.get(item, "replicators", []).map((r: any) => (
-                    <>
-                      <div
-                        style={{
-                          border: "1px solid var(--semi-color-border)",
-                          marginBottom: 4,
-                          padding: 4,
-                          display: "flex",
-                          columnGap: 4,
-                        }}
-                      >
-                        <Tag color="blue">
-                          Peer:{item.leader}=&gt;{r.replicator}
-                        </Tag>
-                        <Tag color="blue">
-                          Consume:{r.consume > 0 ? r.consume - 1 : 0}
-                        </Tag>
-                        <Tag color="blue">Ack:{r.ack}</Tag>
-                        <Tag color="blue">Lag:{r.pending}</Tag>
-                      </div>
-                    </>
-                  ))}
+                  <Descriptions
+                    className="lin-small-desc"
+                    row
+                    size="small"
+                    data={[
+                      {
+                        key: "Peer",
+                        value: (
+                          <>
+                            {renderReplicator(
+                              item,
+                              (f: any, r: any) => `${f.leader}->${r.replicator}`
+                            )}
+                          </>
+                        ),
+                      },
+                      {
+                        key: "Consume",
+                        value: (
+                          <>
+                            {renderReplicator(
+                              item,
+                              (f: any, r: any) =>
+                                `${r.consume > 0 ? r.consume - 1 : 0}`
+                            )}
+                          </>
+                        ),
+                      },
+                      {
+                        key: "Ack",
+                        value: (
+                          <>
+                            {renderReplicator(
+                              item,
+                              (f: any, r: any) => `${r.ack}`
+                            )}
+                          </>
+                        ),
+                      },
+                      {
+                        key: "Lag",
+                        value: (
+                          <>
+                            {renderReplicator(
+                              item,
+                              (f: any, r: any) => `${r.pending}`
+                            )}
+                          </>
+                        ),
+                      },
+                    ]}
+                  />
                 </div>
               </Space>
             </List.Item>
@@ -147,7 +189,7 @@ export default function ReplicaView(props: ReplicaViewProps) {
   };
   return (
     <Card
-      bordered
+      bordered={false}
       title="Replication Status"
       headerExtraContent={
         <>
@@ -192,6 +234,7 @@ export default function ReplicaView(props: ReplicaViewProps) {
                       size="small"
                     >
                       {showShard ? <span>S:{shard.shardId}</span> : ""}
+                      {showShard && showLag ? " " : ""}
                       {showLag ? <span>L:{shard.pending}</span> : ""}
                     </Button>
                   </Popover>
