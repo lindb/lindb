@@ -16,17 +16,20 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+import { StateRoleName } from "@src/constants";
 import { ChartConfig } from "@src/models";
 
 export type DashboardItem = {
   label: string;
   value: string;
+  variates?: Variate[];
+  scope?: StateRoleName[];
   dashboard: Dashboard;
 };
 
 export type Dashboard = {
-  gutter?: number;
   variates?: Variate[];
+  gutter?: number;
   rows: {
     panels: {
       chart: ChartConfig;
@@ -46,4 +49,5 @@ export type Variate = {
     cascade?: string[];
     clear?: string[];
   };
+  scope?: StateRoleName[];
 };

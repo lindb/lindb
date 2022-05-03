@@ -40,13 +40,13 @@ export default function Header() {
     const breadcrumbItems: any[] = [];
     if (currentRouter) {
       const generate = (item: RouteItem) => {
-        if (item.parnet) {
-          generate(item.parnet);
+        if (item.parent) {
+          generate(item.parent);
         }
         breadcrumbItems.push({
           href: item.content ? `#${item.path}` : null,
           name: item.text,
-          icon: !item.parnet ? <IconHomeStroked /> : null,
+          icon: !item.parent ? <IconHomeStroked /> : null,
         });
       };
 

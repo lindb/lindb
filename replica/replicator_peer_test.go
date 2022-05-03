@@ -79,6 +79,7 @@ func TestNewReplicator_runner(t *testing.T) {
 	replicator := NewMockReplicator(ctrl)
 	replicator.EXPECT().String().Return("str").AnyTimes()
 	replicator.EXPECT().State().Return(&models.ReplicaState{}).AnyTimes()
+	replicator.EXPECT().Pending().Return(int64(19)).AnyTimes()
 	peer := NewReplicatorPeer(replicator)
 	var wait sync.WaitGroup
 

@@ -68,12 +68,6 @@ export default function SiderMenu(props: SiderMenuProps) {
             URLStore.getParamKeys(),
             _.get(item, "keep", [])
           );
-          console.log(
-            "mmmmmm",
-            item?.path,
-            needClearKeys,
-            Object.keys(URLStore.params)
-          );
           URLStore.changeURLParams({
             path: item?.path,
             needDelete: needClearKeys,

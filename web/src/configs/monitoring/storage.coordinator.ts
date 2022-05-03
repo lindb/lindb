@@ -20,23 +20,6 @@ import { MonitoringDB } from "@src/constants";
 import { Dashboard, UnitEnum } from "@src/models";
 
 export const StorageCoordinatorDashboard: Dashboard = {
-  variates: [
-    {
-      tagKey: "namespace",
-      label: "Namespace",
-      db: MonitoringDB,
-      sql: "show tag values from 'lindb.storage.state_manager' with key=namespace",
-      watch: { clear: ["node"] },
-    },
-    {
-      tagKey: "node",
-      label: "Node",
-      watch: { cascade: ["namespace"] },
-      db: MonitoringDB,
-      multiple: true,
-      sql: "show tag values from 'lindb.storage.state_manager' with key=node",
-    },
-  ],
   rows: [
     {
       panels: [
@@ -47,7 +30,7 @@ export const StorageCoordinatorDashboard: Dashboard = {
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'emit_events' from 'lindb.storage.state_manager' where type='node_joins' group by namespace,node",
+                sql: "select 'handle_events' from 'lindb.storage.state_manager' where type='NodeStartup' group by node",
                 watch: ["namespace", "node"],
               },
             ],
@@ -62,7 +45,7 @@ export const StorageCoordinatorDashboard: Dashboard = {
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'emit_events' from 'lindb.storage.state_manager' where type='node_leaves' group by namespace,node",
+                sql: "select 'handle_events' from 'lindb.storage.state_manager' where type='NodeFailure' group by node",
                 watch: ["namespace", "node"],
               },
             ],
@@ -81,13 +64,28 @@ export const StorageCoordinatorDashboard: Dashboard = {
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'emit_events' from 'lindb.storage.state_manager' where type='shard_assigns' group by namespace,node",
+                sql: "select 'handle_events' from 'lindb.storage.state_manager' where type='ShardAssignmentChanged' group by node",
                 watch: ["namespace", "node"],
               },
             ],
             unit: UnitEnum.Short,
           },
-          span: 12,
+          span: 8,
+        },
+        {
+          chart: {
+            title: "Failure(Process Event)",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'handle_event_failures' from 'lindb.storage.state_manager' group by node",
+                watch: ["namespace", "node"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 8,
         },
         {
           chart: {
@@ -96,13 +94,13 @@ export const StorageCoordinatorDashboard: Dashboard = {
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'panics' from 'lindb.storage.state_manager' group by namespace,node",
+                sql: "select 'panics' from 'lindb.storage.state_manager' group by node",
                 watch: ["namespace", "node"],
               },
             ],
             unit: UnitEnum.Short,
           },
-          span: 12,
+          span: 8,
         },
       ],
     },

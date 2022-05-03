@@ -19,20 +19,19 @@ under the License.
 import { MonitoringDB } from "@src/constants";
 import { Dashboard, UnitEnum } from "@src/models";
 
-export const BrokerCoordinatorDashboard: Dashboard = {
+export const KVStoreJobDashboard: Dashboard = {
   rows: [
     {
       panels: [
         {
           chart: {
-            title: "Broker Node Joins",
-            description: "trigger while broker node online",
+            title: "Flushing",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.broker.state_manager' where type='NodeStartup' group by node",
-                watch: ["node"],
+                sql: "select 'flushing' from 'lindb.kv.flush' group by node",
+                watch: ["node", "namespace"],
               },
             ],
             unit: UnitEnum.Short,
@@ -41,48 +40,13 @@ export const BrokerCoordinatorDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Broker Node Leaves",
-            description: "trigger while broker node offline",
+            title: "Complete Flush Job",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.broker.state_manager' where type='NodeFailure' group by node",
-                watch: ["node"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 12,
-        },
-      ],
-    },
-    {
-      panels: [
-        {
-          chart: {
-            title: "Storage State Changed",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.broker.state_manager' where type='StorageStateChanged' group by node",
-                watch: ["node"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 12,
-        },
-        {
-          chart: {
-            title: "Storage State Deletion",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.broker.state_manager' where type='StorageStateDeletion' group by node",
-                watch: ["node"],
+                sql: "select 'HistogramCount' as flush from 'lindb.kv.flush.duration' group by node",
+                watch: ["node", "namespace"],
               },
             ],
             unit: UnitEnum.Short,
@@ -95,12 +59,46 @@ export const BrokerCoordinatorDashboard: Dashboard = {
       panels: [
         {
           chart: {
-            title: "Database Config Changed",
+            title: "Flush Job Failure",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.broker.state_manager' where type='DatabaseConfigChanged' group by node",
+                sql: "select 'failure' from 'lindb.kv.flush' group by node",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 12,
+        },
+        {
+          chart: {
+            title: "Flush Duration(P99)",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select quantile(0.99) as p99 from 'lindb.kv.flush.duration' group by node",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Milliseconds,
+          },
+          span: 12,
+        },
+      ],
+    },
+    {
+      panels: [
+        {
+          chart: {
+            title: "Compacting",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'compacting' from 'lindb.kv.compaction' group by node,type",
                 watch: ["node"],
               },
             ],
@@ -110,13 +108,13 @@ export const BrokerCoordinatorDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Database Config Deletion",
+            title: "Complete Compact Job",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.broker.state_manager' where type='DatabaseConfigDeletion' group by node",
-                watch: ["node"],
+                sql: "select 'HistogramCount' as compact from 'lindb.kv.compaction.duration' group by node,type",
+                watch: ["node", "namespace"],
               },
             ],
             unit: UnitEnum.Short,
@@ -129,13 +127,13 @@ export const BrokerCoordinatorDashboard: Dashboard = {
       panels: [
         {
           chart: {
-            title: "Failure(Process Event)",
+            title: "Compact Job Failure",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_event_failures' from 'lindb.broker.state_manager' group by node,type",
-                watch: ["node"],
+                sql: "select 'failure' from 'lindb.kv.compaction' group by node,type",
+                watch: ["node", "namespace"],
               },
             ],
             unit: UnitEnum.Short,
@@ -144,16 +142,16 @@ export const BrokerCoordinatorDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Panic(Process Event)",
+            title: "Compact Duration(P99)",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'panics' from 'lindb.broker.state_manager' group by node,type",
-                watch: ["node"],
+                sql: "select quantile(0.99) as p99 from 'lindb.kv.compaction.duration' group by node,type",
+                watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: UnitEnum.Milliseconds,
           },
           span: 12,
         },

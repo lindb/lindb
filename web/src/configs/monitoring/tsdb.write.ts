@@ -19,18 +19,18 @@ under the License.
 import { MonitoringDB } from "@src/constants";
 import { Dashboard, UnitEnum } from "@src/models";
 
-export const KVStoreReadDashboard: Dashboard = {
+export const TSDBWriteDashboard: Dashboard = {
   rows: [
     {
       panels: [
         {
           chart: {
-            title: "Read(QPS)",
+            title: "Current Active Families",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select rate('gets') from 'lindb.kv.table.read' group by node",
+                sql: "select 'active_families' from 'lindb.tsdb.shard' group by node",
                 watch: ["node", "namespace"],
               },
             ],
@@ -40,12 +40,27 @@ export const KVStoreReadDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Read Traffic",
+            title: "Current Active Memory Databases",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'read_bytes' from 'lindb.kv.table.read' group by node",
+                sql: "select 'active_memdbs' from 'lindb.tsdb.shard' group by node",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 8,
+        },
+        {
+          chart: {
+            title: "Memory Databases Total Size",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'memdb_total_size' from 'lindb.tsdb.shard' group by node",
                 watch: ["node", "namespace"],
               },
             ],
@@ -53,33 +68,18 @@ export const KVStoreReadDashboard: Dashboard = {
           },
           span: 8,
         },
-        {
-          chart: {
-            title: "Read Failure",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'get_failures' from 'lindb.kv.table.read' group by node",
-                watch: ["node", "namespace"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 8,
-        },
       ],
     },
     {
       panels: [
         {
           chart: {
-            title: "MMap File",
+            title: "Batch",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'mmaps' from 'lindb.kv.table.read' group by node",
+                sql: "select 'write_batches' from 'lindb.tsdb.shard' group by node",
                 watch: ["node", "namespace"],
               },
             ],
@@ -89,12 +89,12 @@ export const KVStoreReadDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "MMap File Failures",
+            title: "Write Failures",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'mmap_failures' from 'lindb.kv.table.read' group by node",
+                sql: "select 'write_metrics_failures' from 'lindb.tsdb.shard' group by node",
                 watch: ["node", "namespace"],
               },
             ],
@@ -108,12 +108,12 @@ export const KVStoreReadDashboard: Dashboard = {
       panels: [
         {
           chart: {
-            title: "UNMMap File",
+            title: "Write Metrics",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'unmmaps' from 'lindb.kv.table.read' group by node",
+                sql: "select 'write_metrics' from 'lindb.tsdb.shard' group by node",
                 watch: ["node", "namespace"],
               },
             ],
@@ -123,46 +123,12 @@ export const KVStoreReadDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "UNMMap File Failure",
+            title: "Write Fields",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'unmmap_failures' from 'lindb.kv.table.read' group by node",
-                watch: ["node", "namespace"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 12,
-        },
-      ],
-    },
-    {
-      panels: [
-        {
-          chart: {
-            title: "Current Active Reader",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'active_readers' from 'lindb.kv.table.cache' group by node",
-                watch: ["node", "namesapce"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 12,
-        },
-        {
-          chart: {
-            title: "Evict Reader From Cache",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'evicts' from 'lindb.kv.table.cache' group by node",
+                sql: "select 'write_fields' from 'lindb.tsdb.shard' group by node",
                 watch: ["node", "namespace"],
               },
             ],
@@ -176,12 +142,12 @@ export const KVStoreReadDashboard: Dashboard = {
       panels: [
         {
           chart: {
-            title: "Hit Reader Cache",
+            title: "Build Inverted Index",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'cache_hits' from 'lindb.kv.table.cache' group by node",
+                sql: "select 'build_inverted_index' from 'lindb.tsdb.indexdb' group by node",
                 watch: ["node", "namespace"],
               },
             ],
@@ -191,12 +157,12 @@ export const KVStoreReadDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Miss Reader Cache",
+            title: "Lookup Metric Meta Failure",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'cache_misses' from 'lindb.kv.table.cache' group by node",
+                sql: "select 'lookup_metric_meta_failures' from 'lindb.tsdb.shard' group by node",
                 watch: ["node", "namespace"],
               },
             ],
@@ -210,12 +176,12 @@ export const KVStoreReadDashboard: Dashboard = {
       panels: [
         {
           chart: {
-            title: "Close Reader",
+            title: "Generate Metric Id",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'closes' from 'lindb.kv.table.cache' group by node",
+                sql: "select 'gen_metric_ids' from 'lindb.tsdb.metadb' group by node",
                 watch: ["node", "namespace"],
               },
             ],
@@ -225,12 +191,148 @@ export const KVStoreReadDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Close Reader Failure",
+            title: "Generate Metric Id Failure",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'close_failures' from 'lindb.kv.table.cache' group by node",
+                sql: "select 'gen_metric_id_failures' from 'lindb.tsdb.metadb' group by node",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 12,
+        },
+      ],
+    },
+    {
+      panels: [
+        {
+          chart: {
+            title: "Generate Field Id",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'gen_field_ids' from 'lindb.tsdb.metadb' group by node",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 12,
+        },
+        {
+          chart: {
+            title: "Generate Field Id Failure",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'gen_field_id_failures' from 'lindb.tsdb.metadb' group by node",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 12,
+        },
+      ],
+    },
+    {
+      panels: [
+        {
+          chart: {
+            title: "Generate Tag Key Id",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'gen_tag_key_ids' from 'lindb.tsdb.metadb' group by node",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 12,
+        },
+        {
+          chart: {
+            title: "Generate Tag Key Id Failure",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'gen_tag_key_id_failures' from 'lindb.tsdb.metadb' group by node",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 12,
+        },
+      ],
+    },
+    {
+      panels: [
+        {
+          chart: {
+            title: "Generate Tag Value Id",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'gen_tag_value_ids' from 'lindb.tsdb.metadb' group by node",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 12,
+        },
+        {
+          chart: {
+            title: "Generate Tag Value Id Failure",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'gen_tag_value_id_failures' from 'lindb.tsdb.metadb' group by node",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 12,
+        },
+      ],
+    },
+    {
+      panels: [
+        {
+          chart: {
+            title: "Allocated Pages",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'allocated_pages' from 'lindb.tsdb.memdb' group by node",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 12,
+        },
+        {
+          chart: {
+            title: "Allocate Page Failure",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'allocated_page_failures' from 'lindb.tsdb.memdb' group by node",
                 watch: ["node", "namespace"],
               },
             ],

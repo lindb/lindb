@@ -45,11 +45,8 @@ type BrokerFamilyWriteStatistics struct {
 
 // StorageLocalReplicatorStatistics represents local replicator statistics.
 type StorageLocalReplicatorStatistics struct {
-	Replica         *linmetric.BoundCounter // replica success count
 	ReplicaFailures *linmetric.BoundCounter // replica failure count
-	ReplicaBytes    *linmetric.BoundCounter // bytes of replica data
 	ReplicaRows     *linmetric.BoundCounter // row number of replica
-	ReplicaLag      *linmetric.BoundCounter // replica lag message count
 	AckSequence     *linmetric.BoundCounter // ack persist sequence count
 	InvalidSequence *linmetric.BoundCounter // invalid replica sequence count
 }
@@ -84,6 +81,9 @@ type StorageReplicatorRunnerStatistics struct {
 	ReplicaPanics          *linmetric.BoundCounter // replica panic count
 	ConsumeMessage         *linmetric.BoundCounter // get message success count
 	ConsumeMessageFailures *linmetric.BoundCounter // get message failure count
+	ReplicaLag             *linmetric.BoundCounter // replica lag message count
+	ReplicaBytes           *linmetric.BoundCounter // bytes of replica data
+	Replica                *linmetric.BoundCounter // replica success count
 }
 
 // StorageWriteAheadLogStatistics represents storage write ahead log statistics.
@@ -121,7 +121,7 @@ func NewBrokerFamilyWriteStatistics(database string) *BrokerFamilyWriteStatistic
 		CreateStream:         scope.NewCounterVec("create_stream", "db").WithTagValues(database),
 		CreateStreamFailures: scope.NewCounterVec("create_stream_failures", "db").WithTagValues(database),
 		CloseStream:          scope.NewCounterVec("close_stream", "db").WithTagValues(database),
-		CloseStreamFailures:  scope.NewCounterVec("create_stream_failures", "db").WithTagValues(database),
+		CloseStreamFailures:  scope.NewCounterVec("close_stream_failures", "db").WithTagValues(database),
 		LeaderChanged:        scope.NewCounterVec("leader_changed", "db").WithTagValues(database),
 	}
 }
@@ -130,11 +130,8 @@ func NewBrokerFamilyWriteStatistics(database string) *BrokerFamilyWriteStatistic
 func NewStorageLocalReplicatorStatistics(database, shard string) *StorageLocalReplicatorStatistics {
 	scope := linmetric.StorageRegistry.NewScope("lindb.storage.replica.local")
 	return &StorageLocalReplicatorStatistics{
-		Replica:         scope.NewCounterVec("replicas", "db", "shard").WithTagValues(database, shard),
 		ReplicaFailures: scope.NewCounterVec("replica_failures", "db", "shard").WithTagValues(database, shard),
-		ReplicaBytes:    scope.NewCounterVec("replica_bytes", "db", "shard").WithTagValues(database, shard),
 		ReplicaRows:     scope.NewCounterVec("replica_rows", "db", "shard").WithTagValues(database, shard),
-		ReplicaLag:      scope.NewCounterVec("replica_lag", "db", "shard").WithTagValues(database, shard),
 		AckSequence:     scope.NewCounterVec("ack_sequence", "db", "shard").WithTagValues(database, shard),
 		InvalidSequence: scope.NewCounterVec("invalid_sequence", "db", "shard").WithTagValues(database, shard),
 	}
@@ -151,6 +148,12 @@ func NewStorageReplicatorRunnerStatistics(replicatorType, database, shard string
 		ConsumeMessage: scope.NewCounterVec("consume_msg", "type", "db", "shard").
 			WithTagValues(replicatorType, database, shard),
 		ConsumeMessageFailures: scope.NewCounterVec("consume_msg_failures", "type", "db", "shard").
+			WithTagValues(replicatorType, database, shard),
+		ReplicaLag: scope.NewCounterVec("replica_lag", "type", "db", "shard").
+			WithTagValues(replicatorType, database, shard),
+		ReplicaBytes: scope.NewCounterVec("replica_bytes", "type", "db", "shard").
+			WithTagValues(replicatorType, database, shard),
+		Replica: scope.NewCounterVec("replicas", "type", "db", "shard").
 			WithTagValues(replicatorType, database, shard),
 	}
 }
@@ -181,7 +184,7 @@ func NewStorageRemoteReplicatorStatistics(database, shard string) *StorageRemote
 			WithTagValues(database, shard),
 		ResetFollowerAppendIdxFailures: scope.NewCounterVec("reset_follower_append_idx_failures", "db", "shard").
 			WithTagValues(database, shard),
-		ResetAppendIdx: scope.NewCounterVec("reset_append_aid", "db", "shard").
+		ResetAppendIdx: scope.NewCounterVec("reset_append_idx", "db", "shard").
 			WithTagValues(database, shard),
 		ResetReplicaIdx: scope.NewCounterVec("reset_replica_idx", "db", "shard").
 			WithTagValues(database, shard),

@@ -61,7 +61,7 @@ type CommonIngestionStatistics struct {
 
 // NewNativeIngestionStatistics creates a native ingestion statistics.
 func NewNativeIngestionStatistics() *NativeIngestionStatistics {
-	influxIngestionScope := linmetric.BrokerRegistry.NewScope("lindb.ingestion.influx")
+	influxIngestionScope := linmetric.BrokerRegistry.NewScope("lindb.ingestion.proto")
 	return &NativeIngestionStatistics{
 		CorruptedData:   influxIngestionScope.NewCounter("data_corrupted"),
 		IngestedMetrics: influxIngestionScope.NewCounter("ingested_metrics"),

@@ -19,19 +19,38 @@ under the License.
 import { MonitoringDB } from "@src/constants";
 import { Dashboard, UnitEnum } from "@src/models";
 
-export const MasterCoordinatorDashboard: Dashboard = {
+export const LocalReplicationDashboard: Dashboard = {
   rows: [
     {
       panels: [
         {
           chart: {
-            title: "Storage Node Joins",
+            title: "Replica Lag",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.master.state_manager' where type='NodeStartup' group by node",
-                watch: ["node"],
+                sql: "select 'replica_lag' from 'lindb.storage.replicator.runner' where type='local' group by db,node",
+                watch: ["node", "db"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 24,
+        },
+      ],
+    },
+    {
+      panels: [
+        {
+          chart: {
+            title: "Number Of Replica",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'replicas' from 'lindb.storage.replicator.runner' where type='local' group by db,node",
+                watch: ["node", "db"],
               },
             ],
             unit: UnitEnum.Short,
@@ -40,13 +59,47 @@ export const MasterCoordinatorDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Storage Node Leaves",
+            title: "Replica Traffic",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.master.state_manager' where type='NodeFailure' group by node",
-                watch: ["node"],
+                sql: "select 'replica_bytes' from 'lindb.storage.replicator.runner' where type='local' group by db,node",
+                watch: ["node", "db"],
+              },
+            ],
+            unit: UnitEnum.Bytes,
+          },
+          span: 12,
+        },
+      ],
+    },
+    {
+      panels: [
+        {
+          chart: {
+            title: "Active Replicators",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'active_replicators' from 'lindb.storage.replicator.runner' where type='local' group by db,node",
+                watch: ["node", "db"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 12,
+        },
+        {
+          chart: {
+            title: "Consumer Message",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'consume_msg' from 'lindb.storage.replicator.runner' where type='local' group by db,node",
+                watch: ["node", "db"],
               },
             ],
             unit: UnitEnum.Short,
@@ -59,13 +112,13 @@ export const MasterCoordinatorDashboard: Dashboard = {
       panels: [
         {
           chart: {
-            title: "Database Config Changed",
+            title: "Consumer Message Failure",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.master.state_manager' where type='DatabaseConfigChanged' group by node",
-                watch: ["node"],
+                sql: "select 'consume_msg_failures' from 'lindb.storage.replicator.runner' where type='local' group by db,node",
+                watch: ["node", "db"],
               },
             ],
             unit: UnitEnum.Short,
@@ -74,47 +127,13 @@ export const MasterCoordinatorDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Database Config Deletion",
+            title: "Replica Painc",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.master.state_manager' where type='DatabaseConfigDeletion' group by node",
-                watch: ["node"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 12,
-        },
-      ],
-    },
-    {
-      panels: [
-        {
-          chart: {
-            title: "Storage Config Changed",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.master.state_manager' where type='StorageConfigChanged' group by node",
-                watch: ["node"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 12,
-        },
-        {
-          chart: {
-            title: "Storage Config Deletion",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.master.state_manager' where type='StorageConfigDeletion' group by node",
-                watch: ["node"],
+                sql: "select 'replica_panics' from 'lindb.storage.replicator.runner' where type='local' group by db,node",
+                watch: ["node", "db"],
               },
             ],
             unit: UnitEnum.Short,
@@ -127,13 +146,13 @@ export const MasterCoordinatorDashboard: Dashboard = {
       panels: [
         {
           chart: {
-            title: "Shard Leader Election",
+            title: "Number of Replica Rows",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'elections' from 'lindb.master.shard.leader' group by node",
-                watch: ["node"],
+                sql: "select 'replica_rows' from 'lindb.storage.replica.local' group by db,node",
+                watch: ["node", "db"],
               },
             ],
             unit: UnitEnum.Short,
@@ -142,13 +161,13 @@ export const MasterCoordinatorDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Shard Leader Election Failure",
+            title: "Replica Failure",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'elect_failures' from 'lindb.master.shard.leader' group by node",
-                watch: ["node"],
+                sql: "select 'replica_rows' from 'lindb.storage.replica.local' group by db,node",
+                watch: ["node", "db"],
               },
             ],
             unit: UnitEnum.Short,
@@ -161,48 +180,33 @@ export const MasterCoordinatorDashboard: Dashboard = {
       panels: [
         {
           chart: {
-            title: "Shard Assigns",
+            title: "Ack Replica",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.master.state_manager' where type='ShardAssignmentChanged' group by node",
-                watch: ["node"],
+                sql: "select 'ack_sequence' from 'lindb.storage.replica.local' group by db,node",
+                watch: ["node", "db"],
               },
             ],
             unit: UnitEnum.Short,
           },
-          span: 8,
+          span: 12,
         },
         {
           chart: {
-            title: "Failure(Process Event)",
+            title: "Invalid Replica Sequence",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_event_failures' from 'lindb.master.state_manager' group by node,type",
-                watch: ["node"],
+                sql: "select 'invalid_sequence' from 'lindb.storage.replica.local' group by db,node",
+                watch: ["node", "db"],
               },
             ],
             unit: UnitEnum.Short,
           },
-          span: 8,
-        },
-        {
-          chart: {
-            title: "Panic(Process Event)",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'panics' from 'lindb.master.state_manager' group by node",
-                watch: ["node"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 8,
+          span: 12,
         },
       ],
     },

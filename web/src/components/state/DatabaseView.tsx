@@ -69,6 +69,7 @@ export default function DatabaseView(props: DatabaseViewProps) {
       render: (text: any, record: any, index: any) => {
         return (
           <Descriptions
+            className="lin-small-desc"
             row
             size="small"
             data={[

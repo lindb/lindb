@@ -36,7 +36,7 @@ var (
 		Hit:           tableCacheScope.NewCounter("cache_hits"),
 		Miss:          tableCacheScope.NewCounter("cache_misses"),
 		Close:         tableCacheScope.NewCounter("closes"),
-		CloseFailures: tableCacheScope.NewCounter("close_failuress"),
+		CloseFailures: tableCacheScope.NewCounter("close_failures"),
 		ActiveReaders: tableCacheScope.NewGauge("active_readers"),
 	}
 

@@ -19,19 +19,53 @@ under the License.
 import { MonitoringDB } from "@src/constants";
 import { Dashboard, UnitEnum } from "@src/models";
 
-export const KVStoreReadDashboard: Dashboard = {
+export const BrokerWriteDashboard: Dashboard = {
   rows: [
     {
       panels: [
         {
           chart: {
-            title: "Read(QPS)",
+            title: "Out Of Time Range",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select rate('gets') from 'lindb.kv.table.read' group by node",
-                watch: ["node", "namespace"],
+                sql: "select 'out_of_time_range' from 'lindb.broker.database.write' group by db,node",
+                watch: ["node", "db"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 12,
+        },
+        {
+          chart: {
+            title: "Shard Not Found",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'shard_not_found' from 'lindb.broker.database.write' group by db,node",
+                watch: ["node", "db"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 12,
+        },
+      ],
+    },
+    {
+      panels: [
+        {
+          chart: {
+            title: "Current Active Family Channels",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'active_families' from 'lindb.broker.family.write' group by db,node",
+                watch: ["node", "db"],
               },
             ],
             unit: UnitEnum.Short,
@@ -40,28 +74,126 @@ export const KVStoreReadDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Read Traffic",
+            title: "Batch Metric",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'read_bytes' from 'lindb.kv.table.read' group by node",
-                watch: ["node", "namespace"],
+                sql: "select 'batch_metrics' from 'lindb.broker.family.write' group by db,node",
+                watch: ["node", "db"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 8,
+        },
+        {
+          chart: {
+            title: "Batch Metric Failure",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'batch_metrics_failures' from 'lindb.broker.family.write' group by db,node",
+                watch: ["node", "db"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 8,
+        },
+      ],
+    },
+    {
+      panels: [
+        {
+          chart: {
+            title: "Sent Successfully",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'send_success' from 'lindb.broker.family.write' group by db,node",
+                watch: ["node", "db"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 8,
+        },
+        {
+          chart: {
+            title: "Sent Failure",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'send_failures' from 'lindb.broker.family.write' group by db,node",
+                watch: ["node", "db"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 8,
+        },
+        {
+          chart: {
+            title: "Sent Size",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'send_size' from 'lindb.broker.family.write' group by db,node",
+                watch: ["node", "db"],
               },
             ],
             unit: UnitEnum.Bytes,
           },
           span: 8,
         },
+      ],
+    },
+    {
+      panels: [
         {
           chart: {
-            title: "Read Failure",
+            title: "Pending For Sending",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'get_failures' from 'lindb.kv.table.read' group by node",
-                watch: ["node", "namespace"],
+                sql: "select 'pending_send' from 'lindb.broker.family.write' group by db,node",
+                watch: ["node", "db"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 8,
+        },
+        {
+          chart: {
+            title: "Retry Send",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'retry' from 'lindb.broker.family.write' group by db,node",
+                watch: ["node", "db"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 8,
+        },
+        {
+          chart: {
+            title: "Drop After Retry Failure",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'retry_drop' from 'lindb.broker.family.write' group by db,node",
+                watch: ["node", "db"],
               },
             ],
             unit: UnitEnum.Short,
@@ -74,67 +206,48 @@ export const KVStoreReadDashboard: Dashboard = {
       panels: [
         {
           chart: {
-            title: "MMap File",
+            title: "Create Write Stream",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'mmaps' from 'lindb.kv.table.read' group by node",
-                watch: ["node", "namespace"],
+                sql: "select 'create_stream' from 'lindb.broker.family.write' group by db,node",
+                watch: ["node", "db"],
               },
             ],
             unit: UnitEnum.Short,
           },
-          span: 12,
+          span: 8,
         },
         {
           chart: {
-            title: "MMap File Failures",
+            title: "Create Write Stream Failure",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'mmap_failures' from 'lindb.kv.table.read' group by node",
-                watch: ["node", "namespace"],
+                sql: "select 'create_stream_failures' from 'lindb.broker.family.write' group by db,node",
+                watch: ["node", "db"],
               },
             ],
             unit: UnitEnum.Short,
           },
-          span: 12,
-        },
-      ],
-    },
-    {
-      panels: [
-        {
-          chart: {
-            title: "UNMMap File",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'unmmaps' from 'lindb.kv.table.read' group by node",
-                watch: ["node", "namespace"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 12,
+          span: 8,
         },
         {
           chart: {
-            title: "UNMMap File Failure",
+            title: "Leader Changed",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'unmmap_failures' from 'lindb.kv.table.read' group by node",
-                watch: ["node", "namespace"],
+                sql: "select 'leader_changed' from 'lindb.broker.family.write' group by db,node",
+                watch: ["node", "db"],
               },
             ],
             unit: UnitEnum.Short,
           },
-          span: 12,
+          span: 8,
         },
       ],
     },
@@ -142,13 +255,13 @@ export const KVStoreReadDashboard: Dashboard = {
       panels: [
         {
           chart: {
-            title: "Current Active Reader",
+            title: "Create Write Stream",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'active_readers' from 'lindb.kv.table.cache' group by node",
-                watch: ["node", "namesapce"],
+                sql: "select 'close_stream' from 'lindb.broker.family.write' group by db,node",
+                watch: ["node", "db"],
               },
             ],
             unit: UnitEnum.Short,
@@ -157,81 +270,13 @@ export const KVStoreReadDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Evict Reader From Cache",
+            title: "Close Write Stream Failure",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'evicts' from 'lindb.kv.table.cache' group by node",
-                watch: ["node", "namespace"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 12,
-        },
-      ],
-    },
-    {
-      panels: [
-        {
-          chart: {
-            title: "Hit Reader Cache",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'cache_hits' from 'lindb.kv.table.cache' group by node",
-                watch: ["node", "namespace"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 12,
-        },
-        {
-          chart: {
-            title: "Miss Reader Cache",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'cache_misses' from 'lindb.kv.table.cache' group by node",
-                watch: ["node", "namespace"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 12,
-        },
-      ],
-    },
-    {
-      panels: [
-        {
-          chart: {
-            title: "Close Reader",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'closes' from 'lindb.kv.table.cache' group by node",
-                watch: ["node", "namespace"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 12,
-        },
-        {
-          chart: {
-            title: "Close Reader Failure",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'close_failures' from 'lindb.kv.table.cache' group by node",
-                watch: ["node", "namespace"],
+                sql: "select 'close_stream_failures' from 'lindb.broker.family.write' group by db,node",
+                watch: ["node", "db"],
               },
             ],
             unit: UnitEnum.Short,
