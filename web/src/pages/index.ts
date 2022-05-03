@@ -29,3 +29,4 @@ export { default as StorageOverview } from "@src/pages/state/StorageOverview";
 export { default as DatabaseOverview } from "@src/pages/state/DatabaseOverview";
 export { default as ConfigurationView } from "@src/pages/state/ConfigurationView";
 export { default as LogView } from "@src/pages/monitoring/LogView";
+export { default as DashboardView } from "@src/pages/monitoring/DashboardView";

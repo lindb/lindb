@@ -21,34 +21,37 @@ import "github.com/lindb/lindb/internal/linmetric"
 
 // ConcurrentStatistics represents concurrent pool statistics.
 type ConcurrentStatistics struct {
-	WorkersAlive       *linmetric.BoundGauge   // current workers count in use
-	WorkersCreated     *linmetric.BoundCounter // workers created count since start
-	WorkersKilled      *linmetric.BoundCounter // workers killed since start
-	TasksConsumed      *linmetric.BoundCounter // tasks consumed count
-	TasksRejected      *linmetric.BoundCounter // tasks rejected count
-	TasksPanic         *linmetric.BoundCounter // tasks execute panic count
-	TasksWaitingTime   *linmetric.BoundCounter // tasks waiting total time
-	TasksExecutingTime *linmetric.BoundCounter // tasks executing total time with waiting period
+	WorkersAlive       *linmetric.BoundGauge     // current workers count in use
+	WorkersCreated     *linmetric.BoundCounter   // workers created count since start
+	WorkersKilled      *linmetric.BoundCounter   // workers killed since start
+	TasksConsumed      *linmetric.BoundCounter   // tasks consumed count
+	TasksRejected      *linmetric.BoundCounter   // tasks rejected count
+	TasksPanic         *linmetric.BoundCounter   // tasks execute panic count
+	TasksWaitingTime   *linmetric.BoundHistogram // tasks waiting time
+	TasksExecutingTime *linmetric.BoundHistogram // tasks executing time with waiting period
 }
 
 // LimitStatistics represents rate limit statistics.
 type LimitStatistics struct {
-	Throttles *linmetric.BoundCounter // counter reaches the max-concurrency
-	Timeouts  *linmetric.BoundCounter // counter pending and then timeout
+	Throttles *linmetric.BoundCounter // number of reaches the max-concurrency
+	Timeouts  *linmetric.BoundCounter // number pending and then timeout
+	Processed *linmetric.BoundCounter // number of processed requests
 }
 
 // NewConcurrentStatistics creates concurrent statistics.
 func NewConcurrentStatistics(poolName string, registry *linmetric.Registry) *ConcurrentStatistics {
 	scope := registry.NewScope("lindb.concurrent.pool", "pool_name", poolName)
 	return &ConcurrentStatistics{
-		WorkersAlive:       scope.NewGauge("workers_alive"),
-		WorkersCreated:     scope.NewCounter("workers_created"),
-		WorkersKilled:      scope.NewCounter("workers_killed"),
-		TasksConsumed:      scope.NewCounter("tasks_consumed"),
-		TasksRejected:      scope.NewCounter("tasks_rejected"),
-		TasksPanic:         scope.NewCounter("tasks_panic"),
-		TasksWaitingTime:   scope.NewCounter("tasks_waiting_duration_sum"),
-		TasksExecutingTime: scope.NewCounter("tasks_executing_duration_sum"),
+		WorkersAlive:   scope.NewGauge("workers_alive"),
+		WorkersCreated: scope.NewCounter("workers_created"),
+		WorkersKilled:  scope.NewCounter("workers_killed"),
+		TasksConsumed:  scope.NewCounter("tasks_consumed"),
+		TasksRejected:  scope.NewCounter("tasks_rejected"),
+		TasksPanic:     scope.NewCounter("tasks_panic"),
+		TasksWaitingTime: scope.Scope("tasks_waiting_duration").
+			NewHistogramVec("pool_name").WithTagValues(poolName),
+		TasksExecutingTime: scope.Scope("tasks_executing_duration").
+			NewHistogramVec("tasks_executing_duration").WithTagValues(poolName),
 	}
 }
 
@@ -58,5 +61,6 @@ func NewLimitStatistics(limitType string, registry *linmetric.Registry) *LimitSt
 	return &LimitStatistics{
 		Throttles: scope.NewCounter("throttle_requests"),
 		Timeouts:  scope.NewCounter("timeout_requests"),
+		Processed: scope.NewCounter("processed"),
 	}
 }

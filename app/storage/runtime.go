@@ -465,6 +465,6 @@ func (r *runtime) systemCollector() {
 
 	go monitoring.NewSystemCollector(
 		r.ctx,
-		r.config.StorageBase.TSDB.Dir,
+		"/",
 		metrics.NewSystemStatistics(linmetric.StorageRegistry)).Run()
 }

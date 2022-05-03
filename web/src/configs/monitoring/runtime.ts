@@ -19,28 +19,20 @@ under the License.
 import { MonitoringDB } from "@src/constants";
 import { Dashboard, UnitEnum } from "@src/models";
 
-export const BrokerRuntimeDashboard: Dashboard = {
-  variates: [
-    {
-      tagKey: "node",
-      label: "Node",
-      db: MonitoringDB,
-      multiple: true,
-      sql: "show tag values from 'lindb.runtime.mem' with key=node where role=Broker",
-    },
-  ],
+export const RuntimeDashboard: Dashboard = {
   rows: [
     {
       panels: [
         {
           chart: {
-            title: "Sys (number of heap bytes obtained from system)",
+            title: "Sys",
+            description: "number of heap bytes obtained from system",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select heap_sys_bytes from lindb.runtime.mem where role=Broker group by node",
-                watch: ["node"],
+                sql: "select sys from lindb.runtime.mem group by node",
+                watch: ["role", "namespace", "node"],
               },
             ],
             unit: UnitEnum.Bytes,
@@ -49,13 +41,14 @@ export const BrokerRuntimeDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Frees (number of frees)",
+            title: "Frees",
+            description: "number of frees",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select frees_total from lindb.runtime.mem where role=Broker group by node",
-                watch: ["node"],
+                sql: "select frees from lindb.runtime.mem group by node",
+                watch: ["role", "node"],
               },
             ],
             unit: UnitEnum.Bytes,
@@ -64,13 +57,14 @@ export const BrokerRuntimeDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Total Alloc (bytes allocated even if freed)",
+            title: "Total Alloc",
+            description: "bytes allocated even if freed",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select alloc_bytes_total from lindb.runtime.mem where role=Broker group by node",
-                watch: ["node"],
+                sql: "select total_alloc from lindb.runtime.mem group by node",
+                watch: ["role", "node"],
               },
             ],
             unit: UnitEnum.Bytes,
@@ -83,13 +77,14 @@ export const BrokerRuntimeDashboard: Dashboard = {
       panels: [
         {
           chart: {
-            title: "HeapAlloc (bytes allocated and not yet freed)",
+            title: "Heap Alloc",
+            description: "bytes allocated and not yet freed",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select heap_alloc_bytes from lindb.runtime.mem where role=Broker group by node",
-                watch: ["node"],
+                sql: "select heap_alloc from lindb.runtime.mem group by node",
+                watch: ["role", "node"],
               },
             ],
             unit: UnitEnum.Bytes,
@@ -98,13 +93,14 @@ export const BrokerRuntimeDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Heap Objects (total number of allocated objects)",
+            title: "Heap Objects",
+            description: "total number of allocated objects",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select heap_objects from lindb.runtime.mem where role=Broker group by node",
-                watch: ["node"],
+                sql: "select heap_objects from lindb.runtime.mem group by node",
+                watch: ["role", "node"],
               },
             ],
             unit: UnitEnum.Short,
@@ -113,13 +109,14 @@ export const BrokerRuntimeDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "HeapInUsed (bytes in non-idle span)",
+            title: "Heap In Used",
+            description: "bytes in non-idle span",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select heap_inuse_bytes from lindb.runtime.mem where role=Broker group by node",
-                watch: ["node"],
+                sql: "select heap_inuse from lindb.runtime.mem group by node",
+                watch: ["role", "node"],
               },
             ],
             unit: UnitEnum.Bytes,
@@ -133,12 +130,13 @@ export const BrokerRuntimeDashboard: Dashboard = {
         {
           chart: {
             title: "Number of goroutines",
+            description: "Number of goroutines",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select go_goroutines from lindb.runtime where role=Broker group by node",
-                watch: ["node"],
+                sql: "select go_goroutines from lindb.runtime group by node",
+                watch: ["role", "node"],
               },
             ],
             unit: UnitEnum.Short,
@@ -148,12 +146,13 @@ export const BrokerRuntimeDashboard: Dashboard = {
         {
           chart: {
             title: "Number of Threads",
+            description: "Number of Threads",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select go_threads from lindb.runtime where role=Broker group by node",
-                watch: ["node"],
+                sql: "select go_threads from lindb.runtime group by node",
+                watch: ["role", "node"],
               },
             ],
             unit: UnitEnum.Short,
@@ -163,12 +162,13 @@ export const BrokerRuntimeDashboard: Dashboard = {
         {
           chart: {
             title: "Next GC Bytes",
+            description: "Next GC Bytes",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select next_gc_bytes from lindb.runtime.mem where role=Broker group by node",
-                watch: ["node"],
+                sql: "select next_gc from lindb.runtime.mem group by node",
+                watch: ["role", "node"],
               },
             ],
             unit: UnitEnum.Bytes,
@@ -182,12 +182,13 @@ export const BrokerRuntimeDashboard: Dashboard = {
         {
           chart: {
             title: "GC CPU Fraction",
+            description: "GC CPU Fraction",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select gc_cpu_fraction from lindb.runtime where role=Broker group by node",
-                watch: ["node"],
+                sql: "select gc_cpu_fraction from lindb.runtime group by node",
+                watch: ["role", "node"],
               },
             ],
             unit: UnitEnum.Short,
@@ -196,13 +197,14 @@ export const BrokerRuntimeDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Lookups(number of pointer lookups)",
+            title: "Lookups",
+            description: "number of pointer lookups",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select lookups_total from lindb.runtime.mem where role=Broker group by node",
-                watch: ["node"],
+                sql: "select lookups from lindb.runtime.mem group by node",
+                watch: ["role", "node"],
               },
             ],
             unit: UnitEnum.Short,

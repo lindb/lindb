@@ -64,7 +64,7 @@ func (tl *TrackedListener) Accept() (net.Conn, error) {
 				time.Sleep(time.Millisecond * 100)
 				continue
 			}
-			tl.statistics.AcceptErrors.Incr()
+			tl.statistics.AcceptFailures.Incr()
 			return nil, err
 		}
 		tl.statistics.ActiveConn.Incr()

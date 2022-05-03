@@ -146,8 +146,11 @@ func (r *replicatorRunner) replica() {
 			} else {
 				r.statistics.ConsumeMessage.Incr()
 				r.replicator.Replica(seq, data)
+
+				r.statistics.ReplicaBytes.Add(float64(len(data)))
 			}
 		}
+		r.statistics.ReplicaLag.Add(float64(r.replicator.Pending()))
 	} else {
 		r.logger.Warn("replica is not ready", logger.String("replicator", r.replicator.String()))
 	}

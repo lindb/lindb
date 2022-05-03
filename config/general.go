@@ -74,7 +74,7 @@ endpoints = %s
 ## Lease-TTL is a number in seconds.
 ## It controls how long a ephemeral node like zookeeper will be removed when heartbeat fails.
 ## lease expiration will cause a re-elect.
-## Min: 5； Default: 10
+## Min: 5; Default: 10
 lease-ttl = %d
 ## Timeout is the timeout for failing to executing a etcd command.
 ## Default: 5s

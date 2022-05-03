@@ -68,9 +68,7 @@ func NewSystemCollector(
 		NetStatGetter:       GetNetStat,
 		statistics:          statistics,
 	}
-	if storage != "" {
-		sc.storage = fileutil.GetExistPath(storage)
-	}
+	sc.storage = fileutil.GetExistPath(storage)
 	return sc
 }
 
@@ -103,10 +101,8 @@ func (r *SystemCollector) collect() {
 	if r.systemStat.CPUStat, err = r.CPUStatGetter(); err != nil {
 		collectorLogger.Error("get cpu stat", logger.Error(err))
 	}
-	if r.storage != "" {
-		if r.systemStat.DiskUsageStat, err = r.DiskUsageStatGetter(r.ctx, r.storage); err != nil {
-			collectorLogger.Error("get disk usage stat", logger.Error(err))
-		}
+	if r.systemStat.DiskUsageStat, err = r.DiskUsageStatGetter(r.ctx, r.storage); err != nil {
+		collectorLogger.Error("get disk usage stat", logger.Error(err))
 	}
 	if stats, err := r.NetStatGetter(r.ctx); err != nil {
 		collectorLogger.Error("get net stat", logger.Error(err))
@@ -154,7 +150,7 @@ func (r *SystemCollector) logDiskUsageStat() {
 		r.statistics.DiskTotal.Update(float64(stat.Total))
 		r.statistics.DiskUsed.Update(float64(stat.Used))
 		r.statistics.DiskFree.Update(float64(stat.Free))
-		r.statistics.DiskUsed.Update(stat.UsedPercent)
+		r.statistics.DiskUsage.Update(stat.UsedPercent)
 		// inode
 		r.statistics.INodesFree.Update(float64(stat.InodesFree))
 		r.statistics.INodesUsed.Update(float64(stat.InodesUsed))

@@ -473,6 +473,6 @@ func (r *runtime) systemCollector() {
 
 	go monitoring.NewSystemCollector(
 		r.ctx,
-		"",
+		"/",
 		metrics.NewSystemStatistics(linmetric.BrokerRegistry)).Run()
 }

@@ -19,36 +19,38 @@ under the License.
 import { MonitoringDB } from "@src/constants";
 import { Dashboard, UnitEnum } from "@src/models";
 
-export const BrokerIngestionDashboard: Dashboard = {
-  variates: [
-    {
-      tagKey: "db",
-      label: "Database",
-      db: MonitoringDB,
-      sql: "show tag values from 'lindb.broker.replica' with key=db",
-      watch: { clear: ["node"] },
-    },
-    {
-      tagKey: "node",
-      label: "Node",
-      watch: { cascade: ["db"] },
-      db: MonitoringDB,
-      multiple: true,
-      sql: "show tag values from 'lindb.broker.replica' with key=node",
-    },
-  ],
+export const TSDBJobDashboard: Dashboard = {
   rows: [
     {
       panels: [
         {
           chart: {
-            title: "Current Active Family Channels",
+            title: "Number Of Flush Request Inflight",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'active_families' from 'lindb.broker.replica' group by db,node",
-                watch: ["node", "db"],
+                sql: "select 'flush_inflight' from 'lindb.tsdb.shard' group by node",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 24,
+        },
+      ],
+    },
+    {
+      panels: [
+        {
+          chart: {
+            title: "Flush Data Job",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'HistogramCount' as count from 'lindb.tsdb.shard.memdb_flush_duration' group by node",
+                watch: ["node", "namespace"],
               },
             ],
             unit: UnitEnum.Short,
@@ -57,13 +59,13 @@ export const BrokerIngestionDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Batch Metric",
+            title: "Flush Data Job Failure",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select rate('batch_metrics') from 'lindb.broker.replica' group by db,node",
-                watch: ["node", "db"],
+                sql: "select 'memdb_flush_failures' from 'lindb.tsdb.shard' group by node",
+                watch: ["node", "namespace"],
               },
             ],
             unit: UnitEnum.Short,
@@ -72,16 +74,16 @@ export const BrokerIngestionDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Batch Metric Failure",
+            title: "Flush Data Duration(P99)",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select rate('batch_metrics_failures') from 'lindb.broker.replica' group by db,node",
-                watch: ["node", "db"],
+                sql: "select quantile(0.99) as p99 from 'lindb.tsdb.shard.memdb_flush_duration' group by node",
+                watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: UnitEnum.Milliseconds,
           },
           span: 8,
         },
@@ -91,13 +93,13 @@ export const BrokerIngestionDashboard: Dashboard = {
       panels: [
         {
           chart: {
-            title: "Sent Successfully",
+            title: "Flush Metric Meta Job",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select rate('send_success') from 'lindb.broker.replica' group by db,node",
-                watch: ["node", "db"],
+                sql: "select 'HistogramCount' as count from 'lindb.tsdb.database.metadb_flush_duration' group by node",
+                watch: ["node", "namespace"],
               },
             ],
             unit: UnitEnum.Short,
@@ -106,13 +108,13 @@ export const BrokerIngestionDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Sent Failure",
+            title: "Flush Metric Meta Job Failure",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select rate('send_failure') from 'lindb.broker.replica' group by db,node",
-                watch: ["node", "db"],
+                sql: "select 'metadb_flush_failures' from 'lindb.tsdb.database' group by node",
+                watch: ["node", "namespace"],
               },
             ],
             unit: UnitEnum.Short,
@@ -121,16 +123,16 @@ export const BrokerIngestionDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Sent Size",
+            title: "Flush Metric Meta Duration(P99)",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'send_size' from 'lindb.broker.replica' group by db,node",
-                watch: ["node", "db"],
+                sql: "select quantile(0.99) as p99 from 'lindb.tsdb.database.metadb_flush_duration' group by node",
+                watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Bytes,
+            unit: UnitEnum.Milliseconds,
           },
           span: 8,
         },
@@ -140,13 +142,13 @@ export const BrokerIngestionDashboard: Dashboard = {
       panels: [
         {
           chart: {
-            title: "Pending For Sending",
+            title: "Flush Index Job",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'pending_send' from 'lindb.broker.replica' group by db,node",
-                watch: ["node", "db"],
+                sql: "select 'HistogramCount' as count from 'lindb.tsdb.shard.indexdb_flush_duration' group by node",
+                watch: ["node", "namespace"],
               },
             ],
             unit: UnitEnum.Short,
@@ -155,13 +157,13 @@ export const BrokerIngestionDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Retry Send",
+            title: "Flush Index Job Failure",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'retry' from 'lindb.broker.replica' group by db,node",
-                watch: ["node", "db"],
+                sql: "select 'indexdb_flush_failures' from 'lindb.tsdb.shard' group by node",
+                watch: ["node", "namespace"],
               },
             ],
             unit: UnitEnum.Short,
@@ -170,16 +172,16 @@ export const BrokerIngestionDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Drop After Retry Failure",
+            title: "Flush Index Duration(P99)",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'retry_drop' from 'lindb.broker.replica' group by db,node",
-                watch: ["node", "db"],
+                sql: "select quantile(0.99) as p99 from 'lindb.tsdb.shard.indexdb_flush_duration' group by node",
+                watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: UnitEnum.Milliseconds,
           },
           span: 8,
         },

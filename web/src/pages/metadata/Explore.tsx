@@ -43,8 +43,6 @@ import { Storage } from "@src/models";
 import { exec } from "@src/services";
 import * as _ from "lodash-es";
 import * as monaco from "monaco-editor";
-import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
-import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
 import React, {
   MutableRefObject,
   ReactNode,
@@ -53,16 +51,6 @@ import React, {
   useState,
 } from "react";
 const { Text, Title } = Typography;
-
-//@ts-ignore
-self.MonacoEnvironment = {
-  getWorker(_: any, label: any) {
-    if (label === "json") {
-      return new jsonWorker();
-    }
-    return new editorWorker();
-  },
-};
 
 export type CompareViewProps = {
   source: any;

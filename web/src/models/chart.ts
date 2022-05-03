@@ -59,6 +59,7 @@ export enum UnitEnum {
   Bytes = "bytes",
   KBytesPerSecond = "KB/s",
   Percent = "percent",
+  Percent2 = "percent(0-1)",
   Seconds = "seconds(s)",
   Milliseconds = "milliseconds(ms)",
   Nanoseconds = "nanoseconds(ns)",

@@ -19,75 +19,57 @@ under the License.
 import { MonitoringDB } from "@src/constants";
 import { Dashboard, UnitEnum } from "@src/models";
 
-export const BrokerCoordinatorDashboard: Dashboard = {
+export const ConcurrentPoolDashboard: Dashboard = {
   rows: [
     {
       panels: [
         {
           chart: {
-            title: "Broker Node Joins",
-            description: "trigger while broker node online",
+            title: "Active Wrokers",
+            description: "current workers count in use",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.broker.state_manager' where type='NodeStartup' group by node",
-                watch: ["node"],
+                sql: "select workers_alive from lindb.concurrent.pool group by node,pool_name",
+                watch: ["namespace", "node", "role"],
               },
             ],
             unit: UnitEnum.Short,
           },
-          span: 12,
+          span: 8,
         },
         {
           chart: {
-            title: "Broker Node Leaves",
-            description: "trigger while broker node offline",
+            title: "Number Of Workers Created",
+            description: "workers created count since start",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.broker.state_manager' where type='NodeFailure' group by node",
-                watch: ["node"],
+                sql: "select workers_created from lindb.concurrent.pool group by node,pool_name",
+                watch: ["namespace", "node", "role"],
               },
             ],
             unit: UnitEnum.Short,
           },
-          span: 12,
-        },
-      ],
-    },
-    {
-      panels: [
-        {
-          chart: {
-            title: "Storage State Changed",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.broker.state_manager' where type='StorageStateChanged' group by node",
-                watch: ["node"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 12,
+          span: 8,
         },
         {
           chart: {
-            title: "Storage State Deletion",
+            title: "Number Of Workers Killed",
+            description: "workers killed since start",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.broker.state_manager' where type='StorageStateDeletion' group by node",
-                watch: ["node"],
+                sql: "select workers_killed from lindb.concurrent.pool group by node,pool_name",
+                watch: ["namespace", "node", "role"],
               },
             ],
             unit: UnitEnum.Short,
           },
-          span: 12,
+          span: 8,
         },
       ],
     },
@@ -95,33 +77,50 @@ export const BrokerCoordinatorDashboard: Dashboard = {
       panels: [
         {
           chart: {
-            title: "Database Config Changed",
+            title: "Tasks Consumed",
+            description: "task consumed and executed success",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.broker.state_manager' where type='DatabaseConfigChanged' group by node",
-                watch: ["node"],
+                sql: "select tasks_consumed from lindb.concurrent.pool group by node,pool_name",
+                watch: ["namespace", "node", "role"],
               },
             ],
             unit: UnitEnum.Short,
           },
-          span: 12,
+          span: 8,
         },
         {
           chart: {
-            title: "Database Config Deletion",
+            title: "Task Rejected",
+            description: "task rejected because pool is busy",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.broker.state_manager' where type='DatabaseConfigDeletion' group by node",
-                watch: ["node"],
+                sql: "select tasks_rejected from lindb.concurrent.pool group by node,pool_name",
+                watch: ["namespace", "node", "role"],
               },
             ],
             unit: UnitEnum.Short,
           },
-          span: 12,
+          span: 8,
+        },
+        {
+          chart: {
+            title: "Tasks Execute Panic",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select tasks_panic from lindb.concurrent.pool group by node,pool_name",
+                watch: ["namespace", "node", "role"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 8,
         },
       ],
     },
@@ -129,31 +128,32 @@ export const BrokerCoordinatorDashboard: Dashboard = {
       panels: [
         {
           chart: {
-            title: "Failure(Process Event)",
-            config: { type: "line" },
+            title: "Task Waiting Time(P99)",
+            config: { type: "area" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_event_failures' from 'lindb.broker.state_manager' group by node,type",
-                watch: ["node"],
+                sql: "select quantile(0.99) as p99 from lindb.concurrent.pool.tasks_waiting_duration group by node,pool_name",
+                watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: UnitEnum.Milliseconds,
           },
           span: 12,
         },
         {
           chart: {
-            title: "Panic(Process Event)",
-            config: { type: "line" },
+            title: "Task Executing Time(P99)",
+            description: "include task waiting time",
+            config: { type: "area" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'panics' from 'lindb.broker.state_manager' group by node,type",
-                watch: ["node"],
+                sql: "select quantile(0.99) as p99 from lindb.concurrent.pool.tasks_executing_duration group by node,pool_name",
+                watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: UnitEnum.Milliseconds,
           },
           span: 12,
         },

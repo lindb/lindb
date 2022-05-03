@@ -19,18 +19,188 @@ under the License.
 import { MonitoringDB } from "@src/constants";
 import { Dashboard, UnitEnum } from "@src/models";
 
-export const KVStoreReadDashboard: Dashboard = {
+export const IngestionDashboard: Dashboard = {
   rows: [
     {
       panels: [
         {
           chart: {
-            title: "Read(QPS)",
+            title: "Number Of Ingest",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select rate('gets') from 'lindb.kv.table.read' group by node",
+                sql: "select 'HistogramCount' as count from 'lindb.http.ingest_duration' group by node,path",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 12,
+        },
+        {
+          chart: {
+            title: "Ingest Duration(P99)",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select quantile(0.99) as p99 from 'lindb.http.ingest_duration' group by node,path",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Milliseconds,
+          },
+          span: 12,
+        },
+      ],
+    },
+    {
+      panels: [
+        {
+          chart: {
+            title: "Ingest Metric(Flat)",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'ingested_metrics' from 'lindb.ingestion.flat' group by node",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 12,
+        },
+        {
+          chart: {
+            title: "Ingest Flat Traffic",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select read_bytes from 'lindb.ingestion.flat' group by node",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Bytes,
+          },
+          span: 12,
+        },
+      ],
+    },
+    {
+      panels: [
+        {
+          chart: {
+            title: "Data Corrupted(Flat)",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'data_corrupted' from 'lindb.ingestion.flat' group by node",
+                watch: ["node"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 12,
+        },
+        {
+          chart: {
+            title: "Drop Metrics(Flat)",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'dropped_metrics' from 'lindb.ingestion.flat' group by node",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 12,
+        },
+      ],
+    },
+    {
+      panels: [
+        {
+          chart: {
+            title: "Ingest Metric(Proto)",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'ingested_metrics' from 'lindb.ingestion.proto' group by node",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 12,
+        },
+        {
+          chart: {
+            title: "Ingest Proto Traffic",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'read_bytes' from 'lindb.ingestion.proto' group by node",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Bytes,
+          },
+          span: 12,
+        },
+      ],
+    },
+    {
+      panels: [
+        {
+          chart: {
+            title: "Data Corrupted(Proto)",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'data_corrupted' from 'lindb.ingestion.proto' group by node",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 12,
+        },
+        {
+          chart: {
+            title: "Drop Metric(Proto)",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'dropped_metrics' from 'lindb.ingestion.proto' group by node",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 12,
+        },
+      ],
+    },
+    {
+      panels: [
+        {
+          chart: {
+            title: "Ingest Metric(Influx)",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'ingested_metrics' from 'lindb.ingestion.influx' group by node",
                 watch: ["node", "namespace"],
               },
             ],
@@ -40,12 +210,27 @@ export const KVStoreReadDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Read Traffic",
+            title: "Ingest Field(Field)",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'read_bytes' from 'lindb.kv.table.read' group by node",
+                sql: "select 'ingested_fields' from 'lindb.ingestion.influx' group by node",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 8,
+        },
+        {
+          chart: {
+            title: "Ingest Traffic(Proto)",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'read_bytes' from 'lindb.ingestion.influx' group by node",
                 watch: ["node", "namespace"],
               },
             ],
@@ -53,14 +238,18 @@ export const KVStoreReadDashboard: Dashboard = {
           },
           span: 8,
         },
+      ],
+    },
+    {
+      panels: [
         {
           chart: {
-            title: "Read Failure",
+            title: "Data Corrupted(Influx)",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'get_failures' from 'lindb.kv.table.read' group by node",
+                sql: "select 'data_corrupted' from 'lindb.ingestion.influx' group by node",
                 watch: ["node", "namespace"],
               },
             ],
@@ -68,175 +257,35 @@ export const KVStoreReadDashboard: Dashboard = {
           },
           span: 8,
         },
-      ],
-    },
-    {
-      panels: [
         {
           chart: {
-            title: "MMap File",
+            title: "Drop Metric(Influx)",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'mmaps' from 'lindb.kv.table.read' group by node",
+                sql: "select 'dropped_metrics' from 'lindb.ingestion.influx' group by node",
                 watch: ["node", "namespace"],
               },
             ],
             unit: UnitEnum.Short,
           },
-          span: 12,
+          span: 8,
         },
         {
           chart: {
-            title: "MMap File Failures",
+            title: "Drop Field(Influx)",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'mmap_failures' from 'lindb.kv.table.read' group by node",
+                sql: "select 'dropped_fields' from 'lindb.ingestion.influx' group by node",
                 watch: ["node", "namespace"],
               },
             ],
             unit: UnitEnum.Short,
           },
-          span: 12,
-        },
-      ],
-    },
-    {
-      panels: [
-        {
-          chart: {
-            title: "UNMMap File",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'unmmaps' from 'lindb.kv.table.read' group by node",
-                watch: ["node", "namespace"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 12,
-        },
-        {
-          chart: {
-            title: "UNMMap File Failure",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'unmmap_failures' from 'lindb.kv.table.read' group by node",
-                watch: ["node", "namespace"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 12,
-        },
-      ],
-    },
-    {
-      panels: [
-        {
-          chart: {
-            title: "Current Active Reader",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'active_readers' from 'lindb.kv.table.cache' group by node",
-                watch: ["node", "namesapce"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 12,
-        },
-        {
-          chart: {
-            title: "Evict Reader From Cache",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'evicts' from 'lindb.kv.table.cache' group by node",
-                watch: ["node", "namespace"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 12,
-        },
-      ],
-    },
-    {
-      panels: [
-        {
-          chart: {
-            title: "Hit Reader Cache",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'cache_hits' from 'lindb.kv.table.cache' group by node",
-                watch: ["node", "namespace"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 12,
-        },
-        {
-          chart: {
-            title: "Miss Reader Cache",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'cache_misses' from 'lindb.kv.table.cache' group by node",
-                watch: ["node", "namespace"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 12,
-        },
-      ],
-    },
-    {
-      panels: [
-        {
-          chart: {
-            title: "Close Reader",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'closes' from 'lindb.kv.table.cache' group by node",
-                watch: ["node", "namespace"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 12,
-        },
-        {
-          chart: {
-            title: "Close Reader Failure",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'close_failures' from 'lindb.kv.table.cache' group by node",
-                watch: ["node", "namespace"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 12,
+          span: 8,
         },
       ],
     },

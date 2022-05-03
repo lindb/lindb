@@ -51,6 +51,7 @@ func TestPartition_BuildReplicaRelation(t *testing.T) {
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 	r.EXPECT().String().Return("TestPartition_BuildReplicaRelation").AnyTimes()
 	r.EXPECT().State().Return(&models.ReplicaState{}).AnyTimes()
+	r.EXPECT().Pending().Return(int64(10)).AnyTimes()
 	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ tsdb.Shard, _ tsdb.DataFamily) Replicator {
 		return r
 	}
@@ -108,6 +109,7 @@ func TestPartition_BuildReplicaForFollower(t *testing.T) {
 	family.EXPECT().FamilyTime().Return(timeutil.Now()).AnyTimes()
 	r.EXPECT().String().Return("TestPartition_BuildReplicaForFollower").AnyTimes()
 	r.EXPECT().State().Return(&models.ReplicaState{}).AnyTimes()
+	r.EXPECT().Pending().Return(int64(10)).AnyTimes()
 	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ tsdb.Shard, _ tsdb.DataFamily) Replicator {
 		return r
 	}
@@ -154,6 +156,7 @@ func TestPartition_Close(t *testing.T) {
 	l := queue.NewMockFanOutQueue(ctrl)
 	l.EXPECT().GetOrCreateFanOut(gomock.Any()).Return(nil, nil).AnyTimes()
 	r.EXPECT().String().Return("TestPartition_Close").AnyTimes()
+	r.EXPECT().Pending().Return(int64(10)).AnyTimes()
 	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ tsdb.Shard, _ tsdb.DataFamily) Replicator {
 		return r
 	}

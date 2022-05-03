@@ -19,27 +19,19 @@ under the License.
 import { MonitoringDB } from "@src/constants";
 import { Dashboard, UnitEnum } from "@src/models";
 
-export const KVStoreFlushDashboard: Dashboard = {
-  variates: [
-    {
-      tagKey: "node",
-      label: "Node",
-      db: MonitoringDB,
-      multiple: true,
-      sql: "show tag values from 'lindb.kv.flush' with key=node",
-    },
-  ],
+export const MasterControllerDashboard: Dashboard = {
   rows: [
     {
       panels: [
         {
           chart: {
-            title: "Flushing",
+            title: "Master Failover",
+            description: "elected new master node",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'flushing' from 'lindb.kv.flush' group by node",
+                sql: "select 'failovers' from 'lindb.master.controller' group by node",
                 watch: ["node"],
               },
             ],
@@ -49,12 +41,12 @@ export const KVStoreFlushDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Complete Flush",
+            title: "Master Failover Failures",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'HistogramSum' as flush from 'lindb.kv.flush.duration' group by node",
+                sql: "select 'failover_failures' from 'lindb.master.controller' group by node",
                 watch: ["node"],
               },
             ],
@@ -68,12 +60,12 @@ export const KVStoreFlushDashboard: Dashboard = {
       panels: [
         {
           chart: {
-            title: "Flush Failure",
+            title: "Master Reassign",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'failure' from 'lindb.kv.flush' group by node",
+                sql: "select 'reassigns' from 'lindb.master.controller' group by node",
                 watch: ["node"],
               },
             ],
@@ -83,12 +75,12 @@ export const KVStoreFlushDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Flush Duration",
+            title: "Master Reassign Failure",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select quantile(0.99) from 'lindb.kv.flush.duration' group by node",
+                sql: "select 'reassign_failures' from 'lindb.master.controller' group by node",
                 watch: ["node"],
               },
             ],

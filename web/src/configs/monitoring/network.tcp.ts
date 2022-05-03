@@ -19,69 +19,52 @@ under the License.
 import { MonitoringDB } from "@src/constants";
 import { Dashboard, UnitEnum } from "@src/models";
 
-export const StorageRuntimeDashboard: Dashboard = {
-  variates: [
-    {
-      tagKey: "db",
-      label: "Database",
-      db: MonitoringDB,
-      sql: "show tag values from 'lindb.runtime.mem' with key=namespace where role=Storage",
-      watch: { clear: ["node"] },
-    },
-    {
-      tagKey: "node",
-      label: "Node",
-      watch: { cascade: ["namespace"] },
-      db: MonitoringDB,
-      multiple: true,
-      sql: "show tag values from 'lindb.runtime.mem' with key=node where role=Storage",
-    },
-  ],
+export const NetworkTCPDasbhoard: Dashboard = {
   rows: [
     {
       panels: [
         {
           chart: {
-            title: "Sys (number of heap bytes obtained from system)",
+            title: "Current Active Connections",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select heap_sys_bytes from lindb.runtime.mem where role=Storage group by namespace,node",
-                watch: ["namespace", "node"],
+                sql: "select 'active_conns' from 'lindb.traffic.tcp' group by node",
+                watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Bytes,
+            unit: UnitEnum.Short,
           },
           span: 8,
         },
         {
           chart: {
-            title: "Frees (number of frees)",
+            title: "Accpet",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select frees_total from lindb.runtime.mem where role=Storage group by namespace,node",
-                watch: ["namespace", "node"],
+                sql: "select 'accept_conns' from 'lindb.traffic.tcp' group by node",
+                watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Bytes,
+            unit: UnitEnum.Short,
           },
           span: 8,
         },
         {
           chart: {
-            title: "Total Alloc (bytes allocated even if freed)",
+            title: "Accpet Failure",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select alloc_bytes_total from lindb.runtime.mem where role=Storage group by namespace,node",
-                watch: ["namespace", "node"],
+                sql: "select 'accept_failures' from 'lindb.traffic.tcp' group by node",
+                watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Bytes,
+            unit: UnitEnum.Short,
           },
           span: 8,
         },
@@ -91,28 +74,13 @@ export const StorageRuntimeDashboard: Dashboard = {
       panels: [
         {
           chart: {
-            title: "HeapAlloc (bytes allocated and not yet freed)",
+            title: "Number Of Read",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select heap_alloc_bytes from lindb.runtime.mem where role=Storage group by namespace,node",
-                watch: ["namespace", "node"],
-              },
-            ],
-            unit: UnitEnum.Bytes,
-          },
-          span: 8,
-        },
-        {
-          chart: {
-            title: "Heap Objects (total number of allocated objects)",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select heap_objects from lindb.runtime.mem where role=Storage group by namespace,node",
-                watch: ["namespace", "node"],
+                sql: "select 'reads' from 'lindb.traffic.tcp' group by node",
+                watch: ["node", "namespace"],
               },
             ],
             unit: UnitEnum.Short,
@@ -121,16 +89,31 @@ export const StorageRuntimeDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "HeapInUsed (bytes in non-idle span)",
+            title: "Read Traffic",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select heap_inuse_bytes from lindb.runtime.mem where role=Storage group by namespace,node",
-                watch: ["namespace", "node"],
+                sql: "select 'read_bytes' from 'lindb.traffic.tcp' group by node",
+                watch: ["node", "namespace"],
               },
             ],
             unit: UnitEnum.Bytes,
+          },
+          span: 8,
+        },
+        {
+          chart: {
+            title: "Read Failure",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'read_failures' from 'lindb.traffic.tcp' group by node",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Short,
           },
           span: 8,
         },
@@ -140,13 +123,13 @@ export const StorageRuntimeDashboard: Dashboard = {
       panels: [
         {
           chart: {
-            title: "Number of goroutines",
+            title: "Number Of Write",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select go_goroutines from lindb.runtime where role=Storage group by namespace,node",
-                watch: ["namespace", "node"],
+                sql: "select 'writes' from 'lindb.traffic.tcp' group by node",
+                watch: ["node", "namespace"],
               },
             ],
             unit: UnitEnum.Short,
@@ -155,31 +138,31 @@ export const StorageRuntimeDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Number of Threads",
+            title: "WRite Traffic",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select go_threads from lindb.runtime where role=Storage group by namespace,node",
-                watch: ["namespace", "node"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 8,
-        },
-        {
-          chart: {
-            title: "Next GC Bytes",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select next_gc_bytes from lindb.runtime.mem where role=Storage group by namespace,node",
-                watch: ["namespace", "node"],
+                sql: "select 'write_bytes' from 'lindb.traffic.tcp' group by node",
+                watch: ["node", "namespace"],
               },
             ],
             unit: UnitEnum.Bytes,
+          },
+          span: 8,
+        },
+        {
+          chart: {
+            title: "Write Failure",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'write_failures' from 'lindb.traffic.tcp' group by node",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Short,
           },
           span: 8,
         },
@@ -189,13 +172,13 @@ export const StorageRuntimeDashboard: Dashboard = {
       panels: [
         {
           chart: {
-            title: "GC CPU Fraction",
+            title: "Closed Connections",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select gc_cpu_fraction from lindb.runtime where role=Storage group by namespace,node",
-                watch: ["namespace", "node"],
+                sql: "select 'close_conns' from 'lindb.traffic.tcp' group by node",
+                watch: ["node", "namespace"],
               },
             ],
             unit: UnitEnum.Short,
@@ -204,13 +187,13 @@ export const StorageRuntimeDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Lookups(number of pointer lookups)",
+            title: "Close Connection Failure",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select lookups_total from lindb.runtime.mem where role=Storage group by namespace,node",
-                watch: ["namespace", "node"],
+                sql: "select 'close_failures' from 'lindb.traffic.tcp' group by node",
+                watch: ["node", "namespace"],
               },
             ],
             unit: UnitEnum.Short,

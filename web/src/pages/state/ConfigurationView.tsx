@@ -16,7 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef, MutableRefObject } from "react";
 import { Card, Descriptions, Space, Typography } from "@douyinfe/semi-ui";
 import * as _ from "lodash-es";
 import { useWatchURLChange } from "@src/hooks";
@@ -31,6 +31,9 @@ const { Text } = Typography;
 export default function ConfigurationView() {
   const [config, setConfig] = useState();
   const [loading, setLoading] = useState(false);
+  const editor = useRef() as MutableRefObject<any>;
+  const editorRef = useRef() as MutableRefObject<HTMLDivElement>;
+
   useWatchURLChange(async () => {
     const target = URLStore.params.get("target");
     if (!target) {
@@ -47,6 +50,22 @@ export default function ConfigurationView() {
       setLoading(false);
     }
   });
+  useEffect(() => {
+    if (editorRef.current && !editor.current) {
+      // editor no init, create it
+      editor.current = monaco.editor.create(editorRef.current, {
+        value: "no data",
+        language: "ini",
+        // lineNumbers: "off",
+        minimap: { enabled: false },
+        // lineNumbersMinChars: 2,
+        readOnly: true,
+        theme: "lindb",
+      });
+    }
+    editor.current.setValue(_.get(config, "config", "no data"));
+  }, [config]);
+
   return (
     <>
       <Card bodyStyle={{ padding: 12 }} loading={loading}>
@@ -88,31 +107,7 @@ export default function ConfigurationView() {
         style={{ marginTop: 12 }}
         loading={loading}
       >
-        {/* <Editor
-          language="ini"
-          theme="vs-dark"
-          value={_.get(config, "config", "")}
-          options={{
-            readOnly: true,
-            minimap: {
-              enabled: false,
-            },
-            padding: { top: 12 },
-          }}
-          onMount={(editor: any, monaco: any) => {
-            const editorElement = editor.getDomNode();
-
-            if (!editorElement) {
-              return;
-            }
-
-            const lineCount = editor.getModel()?.getLineCount() || 1;
-            const height = editor.getTopForLineNumber(lineCount + 1);
-
-            editorElement.style.height = `${height}px`;
-            editor.layout();
-          }}
-        /> */}
+        <div ref={editorRef} style={{ height: "90vh" }} />
       </Card>
     </>
   );

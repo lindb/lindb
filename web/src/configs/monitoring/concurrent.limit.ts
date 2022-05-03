@@ -19,58 +19,57 @@ under the License.
 import { MonitoringDB } from "@src/constants";
 import { Dashboard, UnitEnum } from "@src/models";
 
-export const KVStoreWriteDashboard: Dashboard = {
+export const ConcurrentLimitDashboard: Dashboard = {
   rows: [
     {
       panels: [
         {
           chart: {
-            title: "Add Keys",
+            title: "Processed Requests",
+            description: "number of processed requests",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'add_keys' from 'lindb.kv.table.write' group by node",
-                watch: ["node", "namespace"],
+                sql: "select processed from lindb.concurrent.limit group by node,type",
+                watch: ["namespace", "node", "role"],
               },
             ],
             unit: UnitEnum.Short,
           },
-          span: 12,
+          span: 8,
         },
         {
           chart: {
-            title: "Add Bad Keys",
+            title: "Throttles",
+            description: "number of reaches the max-concurrency",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'bad_keys' from 'lindb.kv.table.write' group by node",
-                watch: ["node", "namespace"],
+                sql: "select throttle_requests from lindb.concurrent.limit group by node,type",
+                watch: ["namespace", "node", "role"],
               },
             ],
             unit: UnitEnum.Short,
           },
-          span: 12,
+          span: 8,
         },
-      ],
-    },
-    {
-      panels: [
         {
           chart: {
-            title: "Write Traffic",
+            title: "Timeouts",
+            description: "number pending and then timeout",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'write_bytes' from 'lindb.kv.table.write' group by node",
-                watch: ["node", "namespace"],
+                sql: "select timeout_requests from lindb.concurrent.limit group by node,type",
+                watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Bytes,
+            unit: UnitEnum.Short,
           },
-          span: 24,
+          span: 8,
         },
       ],
     },

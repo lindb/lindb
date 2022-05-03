@@ -45,6 +45,7 @@ export default function CapacityView(props: CapacityViewProps) {
         />
       </div>
       <Descriptions
+        className="lin-small-desc"
         row
         size="small"
         data={[

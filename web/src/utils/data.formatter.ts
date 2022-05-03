@@ -20,14 +20,25 @@ import { UnitEnum } from "@src/models";
 import convert from "convert-units";
 
 /**
- * format precent value.
- * @param input precent value
+ * format percent value for 0-100.
+ * @param input percent value
  */
 export function transformPercent(input: number): string {
   if (!input) {
     return "0%";
   } else {
     return `${input.toFixed(2).toString()}%`;
+  }
+}
+/**
+ * format percent value for 0-1.
+ * @param input percent value
+ */
+export function transformPercent2(input: number): string {
+  if (!input) {
+    return "0%";
+  } else {
+    return `${(100 * input).toFixed(2).toString()}%`;
   }
 }
 
@@ -45,7 +56,7 @@ export function transformBytes(input: number): string {
   } else if (!input) {
     return "0 Byte";
   } else {
-    return `${input.toString()} Byte`;
+    return `${input.toFixed(2)} Byte`;
   }
 }
 export function transformSeconds(input: number): string {
@@ -121,6 +132,8 @@ export function formatter(point: number, unit: UnitEnum): string {
       return transformBytes(point);
     case UnitEnum.Percent:
       return transformPercent(point);
+    case UnitEnum.Percent2:
+      return transformPercent2(point);
     default:
       return transformNone(point);
   }

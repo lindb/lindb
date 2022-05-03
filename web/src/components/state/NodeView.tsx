@@ -60,6 +60,7 @@ export default function NodeView(props: NodeViewProps) {
         return (
           <Space align="center">
             <Descriptions
+              className="lin-small-desc"
               row
               size="small"
               data={[

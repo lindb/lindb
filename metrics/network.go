@@ -21,17 +21,17 @@ import "github.com/lindb/lindb/internal/linmetric"
 
 // ConnStatistics represents tpc connection statistics.
 type ConnStatistics struct {
-	Accept       *linmetric.BoundCounter // accept total count
-	AcceptErrors *linmetric.BoundCounter // accept failure
-	ActiveConn   *linmetric.BoundGauge   // current active connections
-	Read         *linmetric.BoundCounter // read total count
-	ReadBytes    *linmetric.BoundCounter // read byte size
-	ReadErrors   *linmetric.BoundCounter // read failure
-	Write        *linmetric.BoundCounter // write total count
-	WriteBytes   *linmetric.BoundCounter // write byte size
-	WriteErrors  *linmetric.BoundCounter // write failure
-	Close        *linmetric.BoundCounter // close total count
-	CloseErrors  *linmetric.BoundCounter // close failure
+	Accept         *linmetric.BoundCounter // accept total count
+	AcceptFailures *linmetric.BoundCounter // accept failure
+	ActiveConn     *linmetric.BoundGauge   // current active connections
+	Read           *linmetric.BoundCounter // read total count
+	ReadBytes      *linmetric.BoundCounter // read byte size
+	ReadFailures   *linmetric.BoundCounter // read failure
+	Write          *linmetric.BoundCounter // write total count
+	WriteBytes     *linmetric.BoundCounter // write byte size
+	WriteFailures  *linmetric.BoundCounter // write failure
+	Close          *linmetric.BoundCounter // close total count
+	CloseFailures  *linmetric.BoundCounter // close failure
 }
 
 // GRPCUnaryStatistics represents unary grpc client/server statistics.
@@ -57,17 +57,17 @@ type GRPCServerStatistics struct {
 func NewConnStatistics(r *linmetric.Registry, addr string) *ConnStatistics {
 	tcpScope := r.NewScope("lindb.traffic.tcp", "addr", addr)
 	return &ConnStatistics{
-		Accept:       tcpScope.NewCounter("accept_conns"),
-		AcceptErrors: tcpScope.NewCounter("accept_errors"),
-		ActiveConn:   tcpScope.NewGauge("active_conns"),
-		Read:         tcpScope.NewCounter("read_count"),
-		ReadBytes:    tcpScope.NewCounter("read_bytes"),
-		ReadErrors:   tcpScope.NewCounter("read_errors"),
-		Write:        tcpScope.NewCounter("write_count"),
-		WriteBytes:   tcpScope.NewCounter("write_bytes"),
-		WriteErrors:  tcpScope.NewCounter("write_errors"),
-		Close:        tcpScope.NewCounter("close_conns"),
-		CloseErrors:  tcpScope.NewCounter("close_errors"),
+		Accept:         tcpScope.NewCounter("accept_conns"),
+		AcceptFailures: tcpScope.NewCounter("accept_failures"),
+		ActiveConn:     tcpScope.NewGauge("active_conns"),
+		Read:           tcpScope.NewCounter("reads"),
+		ReadBytes:      tcpScope.NewCounter("read_bytes"),
+		ReadFailures:   tcpScope.NewCounter("read_failures"),
+		Write:          tcpScope.NewCounter("writes"),
+		WriteBytes:     tcpScope.NewCounter("write_bytes"),
+		WriteFailures:  tcpScope.NewCounter("write_failures"),
+		Close:          tcpScope.NewCounter("close_conns"),
+		CloseFailures:  tcpScope.NewCounter("close_failures"),
 	}
 }
 
