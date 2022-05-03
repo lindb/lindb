@@ -139,7 +139,11 @@ export default function LogView() {
 
   return (
     <>
-      <Card style={{ marginBottom: 12 }} bodyStyle={{ padding: 12 }}>
+      <Card
+        style={{ marginBottom: 12 }}
+        bodyStyle={{ padding: 12 }}
+        bordered={false}
+      >
         <Form
           getFormApi={(api) => (formApi.current = api)}
           onValueChange={(values: any) => {
@@ -202,7 +206,7 @@ export default function LogView() {
           />
         </Form>
       </Card>
-      <Card bodyStyle={{ padding: 12 }} loading={tailing}>
+      <Card bodyStyle={{ padding: 12 }} loading={tailing} bordered={false}>
         {!logs ? (
           <Empty
             image={<IllustrationIdle style={{ width: 150, height: 150 }} />}

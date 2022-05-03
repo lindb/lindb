@@ -35,7 +35,8 @@ export default function Footer() {
       }}
     >
       <span>
-        Copyright &copy; {new Date().getFullYear()} LinDB. All Rights Reserved.
+        Copyright &copy; {new Date().getFullYear()} LinDB.io. All Rights
+        Reserved.
       </span>
     </UIFooter>
   );

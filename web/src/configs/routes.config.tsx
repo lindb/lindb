@@ -19,41 +19,34 @@ under the License.
 import {
   IconAppCenter,
   IconComponentPlaceholderStroked,
+  IconElementStroked,
+  IconGridStroked,
   IconInherit,
   IconListView,
   IconSearch,
-  IconSendStroked,
   IconServer,
-  IconSourceControl,
-  IconServerStroked,
-  IconVennChartStroked,
   IconTemplate,
-  IconFixedStroked,
-  IconSonicStroked,
-  IconGlobeStroke,
-  IconNineGridStroked,
-  IconGridStroked,
 } from "@douyinfe/semi-icons";
-import { Route, StateRoleName } from "@src/constants";
+import { CommonVariates, Dashboards } from "@src/configs";
+import { Route } from "@src/constants";
 import {
+  Overview,
   ConfigurationView,
-  DatabaseConfig,
-  DatabaseList,
   DatabaseOverview,
   DataExplore,
   DataSearch,
-  LogView,
+  ReplicationView,
   DashboardView,
-  MetadataExplore,
-  Overview,
+  LogView,
+  DatabaseConfig,
+  DatabaseList,
   StorageConfig,
   StorageList,
   StorageOverview,
+  MetadataExplore,
 } from "@src/pages";
 import * as _ from "lodash-es";
 import React from "react";
-import { MonitoringDB } from "@src/constants";
-import { CommonVariates, Dashboards } from "@src/configs";
 
 export type RouteItem = {
   itemKey?: string;
@@ -124,8 +117,14 @@ export const routes = [
         keep: ["start", "end", "node", "db"],
       },
       {
+        text: "Replication",
+        path: Route.MonitoringReplication,
+        icon: <IconElementStroked size="large" />,
+        content: <ReplicationView />,
+      },
+      {
         text: "Log View",
-        path: "/monitoring/logs",
+        path: Route.MonitoringLogs,
         icon: <IconListView size="large" />,
         content: <LogView />,
       },

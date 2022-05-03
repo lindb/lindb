@@ -18,9 +18,59 @@
 package models
 
 import (
+	"encoding/json"
+
 	"github.com/shirou/gopsutil/disk"
 	"github.com/shirou/gopsutil/mem"
 )
+
+// ReplicatorState represents the replicator channel state.
+type ReplicatorState int
+
+const (
+	ReplicatorUnknownState ReplicatorState = iota
+	ReplicatorInitState
+	ReplicatorReadyState
+	ReplicatorFailureState
+)
+
+// String returns the string value of ReplicatorState.
+func (s ReplicatorState) String() string {
+	switch s {
+	case ReplicatorInitState:
+		return "Init"
+	case ReplicatorReadyState:
+		return "Ready"
+	case ReplicatorFailureState:
+		return "Failure"
+	default:
+		return "Unknown"
+	}
+}
+
+// MarshalJSON encodes replicator status.
+func (s ReplicatorState) MarshalJSON() ([]byte, error) {
+	val := s.String()
+	return json.Marshal(&val)
+}
+
+// UnmarshalJSON decodes storage status.
+func (s *ReplicatorState) UnmarshalJSON(value []byte) error {
+	switch string(value) {
+	case `"Init"`:
+		*s = ReplicatorInitState
+		return nil
+	case `"Ready"`:
+		*s = ReplicatorReadyState
+		return nil
+	case `"Failure"`:
+		*s = ReplicatorFailureState
+		return nil
+	default:
+		*s = ReplicatorUnknownState
+		return nil
+	}
+}
 
 // FamilyLogReplicaState represents the family's log replica state.
 type FamilyLogReplicaState struct {
@@ -35,10 +85,11 @@ type FamilyLogReplicaState struct {
 
 // ReplicaPeerState represents current wal replica peer state.
 type ReplicaPeerState struct {
-	Replicator string `json:"replicator"`
-	Consume    int64  `json:"consume"`
-	ACK        int64  `json:"ack"`
-	Pending    int64  `json:"pending"`
+	Replicator string          `json:"replicator"`
+	Consume    int64           `json:"consume"`
+	ACK        int64           `json:"ack"`
+	Pending    int64           `json:"pending"`
+	State      ReplicatorState `json:"state"`
 }
 
 // SystemStat represents the system statistics

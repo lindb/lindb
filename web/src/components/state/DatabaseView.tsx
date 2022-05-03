@@ -28,9 +28,10 @@ interface DatabaseViewProps {
   liveNodes: any;
   storage: any;
   loading: boolean;
+  title?: string;
 }
 export default function DatabaseView(props: DatabaseViewProps) {
-  const { loading, storage, liveNodes } = props;
+  const { loading, storage, liveNodes, title } = props;
   const columns = [
     {
       title: "Name",
@@ -133,8 +134,8 @@ export default function DatabaseView(props: DatabaseViewProps) {
   return (
     <>
       <Card
-        bordered
-        title={"Database List"}
+        bordered={false}
+        title={title}
         headerStyle={{ padding: 12 }}
         bodyStyle={{ padding: 12 }}
       >

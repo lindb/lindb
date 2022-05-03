@@ -18,15 +18,16 @@ under the License.
 */
 export { default as Console } from "@src/pages/Console";
 export { default as Overview } from "@src/pages/state/Overview";
+export { default as StorageOverview } from "@src/pages/state/StorageOverview";
+export { default as DatabaseOverview } from "@src/pages/state/DatabaseOverview";
+export { default as ConfigurationView } from "@src/pages/state/ConfigurationView";
 export { default as DataSearch } from "@src/pages/search/DataSearch";
 export { default as DataExplore } from "@src/pages/search/DataExplore";
+export { default as DashboardView } from "@src/pages/monitoring/DashboardView";
+export { default as ReplicationView } from "@src/pages/monitoring/ReplicationView";
+export { default as LogView } from "@src/pages/monitoring/LogView";
 export { default as StorageList } from "@src/pages/metadata/StorageList";
 export { default as StorageConfig } from "@src/pages/metadata/StorageConfig";
 export { default as DatabaseList } from "@src/pages/metadata/DatabaseList";
 export { default as DatabaseConfig } from "@src/pages/metadata/DatabaseConfig";
 export { default as MetadataExplore } from "@src/pages/metadata/Explore";
-export { default as StorageOverview } from "@src/pages/state/StorageOverview";
-export { default as DatabaseOverview } from "@src/pages/state/DatabaseOverview";
-export { default as ConfigurationView } from "@src/pages/state/ConfigurationView";
-export { default as LogView } from "@src/pages/monitoring/LogView";
-export { default as DashboardView } from "@src/pages/monitoring/DashboardView";
