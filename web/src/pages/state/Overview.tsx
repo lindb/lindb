@@ -21,7 +21,7 @@ import { StateMetricName, SQL } from "@src/constants";
 import { useAliveState, useStorage } from "@src/hooks";
 import React from "react";
 
-// must define outside function component, if defie in component maybe endless loop.
+// must define outside function component, if define in component maybe endless loop.
 const brokerMetric = `show broker metric where metric in ('${StateMetricName.CPU}','${StateMetricName.Memory}')`;
 
 export default function Overview() {

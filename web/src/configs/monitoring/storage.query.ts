@@ -19,28 +19,19 @@ under the License.
 import { MonitoringDB } from "@src/constants";
 import { Dashboard, UnitEnum } from "@src/models";
 
-export const KVStoreCompactDashboard: Dashboard = {
-  variates: [
-    {
-      tagKey: "node",
-      label: "Node",
-      db: MonitoringDB,
-      multiple: true,
-      sql: "show tag values from 'lindb.kv.compaction' with key=node",
-    },
-  ],
+export const StorageQueryDashboard: Dashboard = {
   rows: [
     {
       panels: [
         {
           chart: {
-            title: "Compacting",
+            title: "Metric Query(Plan)",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'compacting' from 'lindb.kv.compaction' group by node,type",
-                watch: ["node"],
+                sql: "select metric_queries from lindb.storage.query group by node",
+                watch: ["namespace", "node", "role"],
               },
             ],
             unit: UnitEnum.Short,
@@ -49,13 +40,13 @@ export const KVStoreCompactDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Complete Compact",
+            title: "Metric Query(Plan) Failure",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'HistogramCount' as compact from 'lindb.kv.compaction.duration' group by node,type",
-                watch: ["node"],
+                sql: "select metric_query_failures from lindb.storage.query group by node",
+                watch: ["namespace", "node", "role"],
               },
             ],
             unit: UnitEnum.Short,
@@ -68,13 +59,13 @@ export const KVStoreCompactDashboard: Dashboard = {
       panels: [
         {
           chart: {
-            title: "Compact Failure",
+            title: "Meta Query",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'failure' from 'lindb.kv.compaction' group by node,type",
-                watch: ["node"],
+                sql: "select meta_queries from lindb.storage.query group by node",
+                watch: ["namespace", "node", "role"],
               },
             ],
             unit: UnitEnum.Short,
@@ -83,18 +74,37 @@ export const KVStoreCompactDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Compact Duration",
+            title: "Meta Query Failure",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select quantile(0.99) from 'lindb.kv.compaction.duration' group by node,type",
-                watch: ["node"],
+                sql: "select meta_query_failures from lindb.storage.query group by node",
+                watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Milliseconds,
+            unit: UnitEnum.Short,
           },
           span: 12,
+        },
+      ],
+    },
+    {
+      panels: [
+        {
+          chart: {
+            title: "Ommited Rquests",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select omitted_requests from lindb.storage.query group by node",
+                watch: ["namespace", "node", "role"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 24,
         },
       ],
     },

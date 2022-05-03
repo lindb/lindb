@@ -22,6 +22,18 @@ import { URLStore } from "@src/stores";
 import React from "react";
 import { Route, Switch, useHistory } from "react-router-dom";
 import * as monaco from "monaco-editor";
+import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
+import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
+
+//@ts-ignore
+self.MonacoEnvironment = {
+  getWorker(_: any, label: any) {
+    if (label === "json") {
+      return new jsonWorker();
+    }
+    return new editorWorker();
+  },
+};
 
 monaco.editor.defineTheme("lindb", {
   base: "vs-dark",

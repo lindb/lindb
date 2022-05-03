@@ -72,6 +72,7 @@ export default function StorageView(props: StorageViewProps) {
       render: (text: any, record: StorageState, index: any) => {
         return (
           <Descriptions
+            className="lin-small-desc"
             row
             size="small"
             data={[
@@ -118,6 +119,7 @@ export default function StorageView(props: StorageViewProps) {
         return (
           <Descriptions
             row
+            className="lin-small-desc"
             size="small"
             data={[
               {

@@ -23,6 +23,7 @@ export enum Route {
   ConfigurationView = "/overview/configuration",
   Search = "/search",
   Explore = "/explore",
+  MonitoringDashboard = "/monitoring/dashboard",
   MonitoringIngestion = "/monitoring/ingestion",
   MonitoringReplication = "/monitoring/replication",
   MonitoringCoordinator = "/monitoring/coordinator",

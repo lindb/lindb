@@ -30,23 +30,10 @@ import {
   IconTemplate,
   IconFixedStroked,
   IconSonicStroked,
+  IconGlobeStroke,
+  IconNineGridStroked,
+  IconGridStroked,
 } from "@douyinfe/semi-icons";
-import { DashboardView } from "@src/components";
-import {
-  StorageIngestionDashboard,
-  BrokerIngestionDashboard,
-  BrokerCoordinatorDashboard,
-  MasterCoordinatorDashboard,
-  StorageCoordinatorDashboard,
-  StorageSystemsDashboard,
-  BrokerSystemsDashboard,
-  BrokerRuntimeDashboard,
-  StorageRuntimeDashboard,
-  KVStoreFlushDashboard,
-  KVStoreCompactDashboard,
-  KVStoreReadDashboard,
-  KVStoreWriteDashboard,
-} from "@src/configs";
 import { Route, StateRoleName } from "@src/constants";
 import {
   ConfigurationView,
@@ -56,6 +43,7 @@ import {
   DataExplore,
   DataSearch,
   LogView,
+  DashboardView,
   MetadataExplore,
   Overview,
   StorageConfig,
@@ -64,10 +52,12 @@ import {
 } from "@src/pages";
 import * as _ from "lodash-es";
 import React from "react";
+import { MonitoringDB } from "@src/constants";
+import { CommonVariates, Dashboards } from "@src/configs";
 
 export type RouteItem = {
   itemKey?: string;
-  parnet?: RouteItem | null;
+  parent?: RouteItem | null;
   text: string;
   path?: string;
   inner?: boolean;
@@ -124,144 +114,14 @@ export const routes = [
     text: "Monitoring",
     items: [
       {
-        text: "Ingestion",
-        path: Route.MonitoringIngestion,
-        icon: <IconSendStroked size="large" />,
-        timePicker: true,
+        text: "Dashboard",
+        path: Route.MonitoringDashboard,
+        icon: <IconGridStroked size="large" />,
         content: (
-          <DashboardView
-            dashboards={[
-              {
-                value: "broker.ingestion",
-                label: StateRoleName.Broker,
-                dashboard: BrokerIngestionDashboard,
-              },
-              {
-                value: "storage.ingestion",
-                label: StateRoleName.Storage,
-                dashboard: StorageIngestionDashboard,
-              },
-            ]}
-          />
+          <DashboardView variates={CommonVariates} dashboards={Dashboards} />
         ),
+        timePicker: true,
         keep: ["start", "end", "node", "db"],
-      },
-      {
-        text: "Replication",
-        path: Route.MonitoringReplication,
-        icon: <IconSourceControl size="large" />,
-        keep: ["start", "end", "node"],
-      },
-      {
-        text: "Coordinator",
-        path: Route.MonitoringCoordinator,
-        icon: <IconVennChartStroked size="large" />,
-        timePicker: true,
-        content: (
-          <DashboardView
-            dashboards={[
-              {
-                value: "master.coordinator",
-                label: StateRoleName.Master,
-                dashboard: MasterCoordinatorDashboard,
-              },
-              {
-                value: "broker.coordinator",
-                label: StateRoleName.Broker,
-                dashboard: BrokerCoordinatorDashboard,
-              },
-              {
-                value: "storage.coordinator",
-                label: StateRoleName.Storage,
-                dashboard: StorageCoordinatorDashboard,
-              },
-            ]}
-          />
-        ),
-        keep: ["start", "end", "node"],
-      },
-      {
-        text: "Database",
-        path: "/monitoring/databasea",
-        icon: <IconServer size="large" />,
-      },
-      {
-        text: "KV Store",
-        path: Route.MonitoringKVStore,
-        icon: <IconSonicStroked size="large" />,
-        content: (
-          <DashboardView
-            dashboards={[
-              {
-                value: "kvstore.read",
-                label: "Read",
-                dashboard: KVStoreReadDashboard,
-              },
-              {
-                value: "kvstore.write",
-                label: "Write",
-                dashboard: KVStoreWriteDashboard,
-              },
-              {
-                value: "kvstore.flush",
-                label: "Flush",
-                dashboard: KVStoreFlushDashboard,
-              },
-              {
-                value: "kvstore.compaction",
-                label: "Compaction",
-                dashboard: KVStoreCompactDashboard,
-              },
-            ]}
-          />
-        ),
-        keep: ["start", "end", "node"],
-      },
-      {
-        text: "Runtime",
-        path: "/monitoring/runtime",
-        icon: <IconFixedStroked size="large" />,
-        timePicker: true,
-        content: (
-          <DashboardView
-            dashboards={[
-              {
-                value: "broker.runtime",
-                label: StateRoleName.Broker,
-                dashboard: BrokerRuntimeDashboard,
-              },
-              {
-                value: "storage.runtime",
-                label: StateRoleName.Storage,
-                dashboard: StorageRuntimeDashboard,
-              },
-            ]}
-          />
-        ),
-        keep: ["start", "end", "node"],
-      },
-      {
-        text: "System",
-        path: "/monitoring/system",
-        icon: <IconServerStroked size="large" />,
-        timePicker: true,
-        content: (
-          <DashboardView
-            dashboards={[
-              {
-                value: "broker.system",
-                label: StateRoleName.Broker,
-                dashboard: BrokerSystemsDashboard,
-              },
-              {
-                value: "storage.system",
-                label: StateRoleName.Storage,
-                dashboard: StorageSystemsDashboard,
-              },
-            ]}
-          />
-        ),
-        keep: ["start", "end", "node"],
       },
       {
         text: "Log View",
@@ -312,13 +172,13 @@ export const routes = [
       },
     ],
   },
-] as RouteItem[];
+] as unknown as RouteItem[];
 
 function flattenRouters(routeItems: RouteItem[]): Map<string, RouteItem> {
   const rs = new Map<string, RouteItem>();
   const flatten = (items: RouteItem[], parent: RouteItem | null) => {
     items.map((item: RouteItem) => {
-      item.parnet = parent;
+      item.parent = parent;
       if (item.items) {
         flatten(item.items, item);
       }

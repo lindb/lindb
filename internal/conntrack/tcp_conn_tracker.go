@@ -37,7 +37,7 @@ func (tc *TrackedConn) Read(p []byte) (int, error) {
 	tc.statistics.Read.Incr()
 	tc.statistics.ReadBytes.Add(float64(n))
 	if err != nil && err != io.EOF {
-		tc.statistics.ReadErrors.Incr()
+		tc.statistics.ReadFailures.Incr()
 	}
 	return n, err
 }
@@ -47,7 +47,7 @@ func (tc *TrackedConn) Write(p []byte) (int, error) {
 	tc.statistics.Write.Incr()
 	tc.statistics.WriteBytes.Add(float64(n))
 	if err != nil {
-		tc.statistics.WriteErrors.Incr()
+		tc.statistics.WriteFailures.Incr()
 	}
 	return n, err
 }

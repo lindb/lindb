@@ -237,9 +237,9 @@ func (p *workerPool) execTask(task *Task) {
 			}
 		}
 	}()
-	p.statistics.TasksWaitingTime.Add(float64(time.Since(task.createTime).Nanoseconds() / 1e6))
+	p.statistics.TasksWaitingTime.UpdateDuration(time.Since(task.createTime))
 	task.Exec()
-	p.statistics.TasksExecutingTime.Add(float64(time.Since(task.createTime).Nanoseconds() / 1e6))
+	p.statistics.TasksExecutingTime.UpdateDuration(time.Since(task.createTime))
 
 	p.statistics.TasksConsumed.Incr()
 }

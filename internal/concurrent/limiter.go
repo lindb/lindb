@@ -51,6 +51,7 @@ func (l *Limiter) Do(f func() error) error {
 	select {
 	case l.tokens <- struct{}{}:
 		err := f()
+		l.statistics.Processed.Incr()
 		<-l.tokens
 		return err
 	default:
@@ -63,6 +64,7 @@ func (l *Limiter) Do(f func() error) error {
 	case l.tokens <- struct{}{}:
 		releaseTimer(timer)
 		err := f()
+		l.statistics.Processed.Incr()
 		<-l.tokens
 		return err
 	case <-l.ctx.Done():

@@ -133,7 +133,7 @@ func (p *leafTaskProcessor) process(
 			p.statistics.MetricQueryFailures.Incr()
 			return err
 		}
-		p.statistics.MetaQuery.Incr()
+		p.statistics.MetricQuery.Incr()
 	case protoCommonV1.RequestType_Metadata:
 		if err := p.processMetadataSuggest(ctx, db, curLeaf.ShardIDs, req, stream); err != nil {
 			p.statistics.MetaQueryFailures.Incr()

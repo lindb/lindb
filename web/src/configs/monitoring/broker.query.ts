@@ -19,36 +19,19 @@ under the License.
 import { MonitoringDB } from "@src/constants";
 import { Dashboard, UnitEnum } from "@src/models";
 
-export const StorageIngestionDashboard: Dashboard = {
-  variates: [
-    {
-      tagKey: "db",
-      label: "Database",
-      db: MonitoringDB,
-      sql: "show tag values from 'lindb.tsdb.shard' with key=db",
-      watch: { clear: ["node"] },
-    },
-    {
-      tagKey: "node",
-      label: "Node",
-      watch: { cascade: ["db"] },
-      db: MonitoringDB,
-      multiple: true,
-      sql: "show tag values from 'lindb.tsdb.shard' with key=node",
-    },
-  ],
+export const BrokerQueryDashboard: Dashboard = {
   rows: [
     {
       panels: [
         {
           chart: {
-            title: "Write Metric Batch",
+            title: "Current Executing Task(Alive)",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select rate('write_batches') from 'lindb.tsdb.shard' group by db,node",
-                watch: ["node", "db"],
+                sql: "select alive_tasks from lindb.broker.query group by node",
+                watch: ["namespace", "node", "role"],
               },
             ],
             unit: UnitEnum.Short,
@@ -57,13 +40,13 @@ export const StorageIngestionDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Write Metric",
+            title: "Create Query Tasks",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select rate('write_metrics') from 'lindb.tsdb.shard' group by db,node",
-                watch: ["node", "db"],
+                sql: "select created_tasks from lindb.broker.query group by node",
+                watch: ["namespace", "node", "role"],
               },
             ],
             unit: UnitEnum.Short,
@@ -72,62 +55,14 @@ export const StorageIngestionDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Write Field Data Points",
+            title: "Expired Tasks",
+            description: "long-term no response",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select rate('write_fields') from 'lindb.tsdb.shard' group by db,node",
-                watch: ["node", "db"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 8,
-        },
-      ],
-    },
-    {
-      panels: [
-        {
-          chart: {
-            title: "Generate Metric ID",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select rate('gen_metric_ids') from 'lindb.tsdb.metadb' group by db,node",
-                watch: ["node", "db"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 8,
-        },
-        {
-          chart: {
-            title: "Generate Tag Key ID",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select rate('gen_tag_key_ids') from 'lindb.tsdb.metadb' group by db,node",
-                watch: ["node", "db"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 8,
-        },
-        {
-          chart: {
-            title: "Generate Field ID",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select rate('gen_field_ids') from 'lindb.tsdb.metadb' group by db,node",
-                watch: ["node", "db"],
+                sql: "select expire_tasks from lindb.broker.query group by node",
+                watch: ["namespace", "node", "role"],
               },
             ],
             unit: UnitEnum.Short,
@@ -140,13 +75,13 @@ export const StorageIngestionDashboard: Dashboard = {
       panels: [
         {
           chart: {
-            title: "Build Inverted Index",
+            title: "Emit Response To Parent Node",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select rate('build_inverted_index_counter') from 'lindb.tsdb.indexdb' group by db,node",
-                watch: ["node", "db"],
+                sql: "select emitted_responses from lindb.broker.query group by node",
+                watch: ["namespace", "node", "role"],
               },
             ],
             unit: UnitEnum.Short,
@@ -155,13 +90,81 @@ export const StorageIngestionDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Generate Tag Value Failure",
+            title: "Omit Response Because Task Evicted",
             config: { type: "line" },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select rate('gen_tag_value_id_fails') from 'lindb.tsdb.indexdb' group by db,node",
-                watch: ["node", "db"],
+                sql: "select omitted_responses from lindb.broker.query group by node",
+                watch: ["namespace", "node", "role"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 12,
+        },
+      ],
+    },
+    {
+      panels: [
+        {
+          chart: {
+            title: "Sent Request",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select sent_requests from lindb.broker.query group by node",
+                watch: ["namespace", "node", "role"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 12,
+        },
+        {
+          chart: {
+            title: "Rend Requst Failure",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select sent_requests_failures from lindb.broker.query group by node",
+                watch: ["namespace", "node", "role"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 12,
+        },
+      ],
+    },
+    {
+      panels: [
+        {
+          chart: {
+            title: "Send Response",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select sent_responses from lindb.broker.query group by node",
+                watch: ["namespace", "node", "role"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 12,
+        },
+        {
+          chart: {
+            title: "Send Response Failure",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select sent_responses_failures from lindb.broker.query group by node",
+                watch: ["namespace", "node", "role"],
               },
             ],
             unit: UnitEnum.Short,

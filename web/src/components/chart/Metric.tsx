@@ -18,11 +18,12 @@ under the License.
 */
 
 import { IconHistogram } from "@douyinfe/semi-icons";
-import { Card, Space, Typography } from "@douyinfe/semi-ui";
+import { Card, Space, Typography, Tooltip } from "@douyinfe/semi-ui";
 import { CanvasChart, MetricStatus } from "@src/components";
 import { ChartConfig } from "@src/models";
 import { ChartStore, URLStore } from "@src/stores";
 import React, { useEffect } from "react";
+import * as _ from "lodash-es";
 const { Text } = Typography;
 
 interface MetricProps {
@@ -46,8 +47,17 @@ export default function Metric(props: MetricProps) {
     <Card
       title={
         <Space align="center">
-          <IconHistogram />
-          <Text strong>{config.title}</Text>
+          <Space>
+            {config.description ? (
+              <Tooltip content={config.description}>
+                <IconHistogram />
+              </Tooltip>
+            ) : (
+              <IconHistogram />
+            )}
+
+            <Text strong>{config.title}</Text>
+          </Space>
         </Space>
       }
       headerExtraContent={<MetricStatus chartId={chartId} />}

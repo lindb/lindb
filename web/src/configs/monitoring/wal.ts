@@ -19,42 +19,8 @@ under the License.
 import { MonitoringDB } from "@src/constants";
 import { Dashboard, UnitEnum } from "@src/models";
 
-export const KVStoreWriteDashboard: Dashboard = {
+export const WALDashboard: Dashboard = {
   rows: [
-    {
-      panels: [
-        {
-          chart: {
-            title: "Add Keys",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'add_keys' from 'lindb.kv.table.write' group by node",
-                watch: ["node", "namespace"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 12,
-        },
-        {
-          chart: {
-            title: "Add Bad Keys",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'bad_keys' from 'lindb.kv.table.write' group by node",
-                watch: ["node", "namespace"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 12,
-        },
-      ],
-    },
     {
       panels: [
         {
@@ -64,13 +30,92 @@ export const KVStoreWriteDashboard: Dashboard = {
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'write_bytes' from 'lindb.kv.table.write' group by node",
+                sql: "select 'receive_write_bytes' from 'lindb.storage.wal' group by node",
                 watch: ["node", "namespace"],
               },
             ],
             unit: UnitEnum.Bytes,
           },
-          span: 24,
+          span: 8,
+        },
+        {
+          chart: {
+            title: "Write",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'write_wal' from 'lindb.storage.wal' group by node",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 8,
+        },
+        {
+          chart: {
+            title: "Write Failure",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'write_wal_failures' from 'lindb.storage.wal' group by node",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 8,
+        },
+      ],
+    },
+    {
+      panels: [
+        {
+          chart: {
+            title: "Replica Traffic",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'receive_replica_bytes' from 'lindb.storage.wal' group by node",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Bytes,
+          },
+          span: 8,
+        },
+        {
+          chart: {
+            title: "Replica",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'replica_wal' from 'lindb.storage.wal' group by node",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 8,
+        },
+        {
+          chart: {
+            title: "Replica Failure",
+            config: { type: "line" },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'replica_wal_failures' from 'lindb.storage.wal' group by node",
+                watch: ["node", "namespace"],
+              },
+            ],
+            unit: UnitEnum.Short,
+          },
+          span: 8,
         },
       ],
     },

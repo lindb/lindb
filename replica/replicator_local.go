@@ -88,8 +88,6 @@ func (r *localReplicator) Replica(sequence int64, msg []byte) {
 		return
 	}
 
-	r.statistics.ReplicaBytes.Add(float64(len(r.block)))
-
 	// flat will always panic when data are corrupted,
 	// or data are not serialized correctly
 	defer func() {
@@ -126,7 +124,5 @@ func (r *localReplicator) Replica(sequence int64, msg []byte) {
 			logger.Error(err))
 		return
 	}
-	r.statistics.Replica.Incr()
 	r.statistics.ReplicaRows.Add(float64(rowsLen))
-	r.statistics.ReplicaLag.Add(float64(r.Pending()))
 }

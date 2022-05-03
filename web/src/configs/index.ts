@@ -16,19 +16,28 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-export * from "@src/configs/monitoring/system.monitoring";
-export * from "@src/configs/monitoring/storage.ingestion";
-export * from "@src/configs/monitoring/broker.ingestion";
 export * from "@src/configs/monitoring/broker.coordinator";
 export * from "@src/configs/monitoring/master.coordinator";
+export * from "@src/configs/monitoring/master.controller";
 export * from "@src/configs/monitoring/storage.coordinator";
-export * from "@src/configs/monitoring/broker.runtime";
-export * from "@src/configs/monitoring/storage.runtime";
-export * from "@src/configs/monitoring/broker.system";
-export * from "@src/configs/monitoring/storage.system";
-export * from "@src/configs/monitoring/kv.flush";
-export * from "@src/configs/monitoring/kv.compact";
+export * from "@src/configs/monitoring/ingestion";
+export * from "@src/configs/monitoring/runtime";
+export * from "@src/configs/monitoring/system";
+export * from "@src/configs/monitoring/broker.query";
+export * from "@src/configs/monitoring/storage.query";
+export * from "@src/configs/monitoring/concurrent.pool";
+export * from "@src/configs/monitoring/concurrent.limit";
+export * from "@src/configs/monitoring/broker.write";
+export * from "@src/configs/monitoring/replication.local";
+export * from "@src/configs/monitoring/replication.remote";
+export * from "@src/configs/monitoring/wal";
 export * from "@src/configs/monitoring/kv.read";
 export * from "@src/configs/monitoring/kv.write";
+export * from "@src/configs/monitoring/kv.job";
+export * from "@src/configs/monitoring/tsdb.write";
+export * from "@src/configs/monitoring/tsdb.job";
+export * from "@src/configs/monitoring/network.tcp";
+export * from "@src/configs/monitoring/network.grpc";
+export * from "@src/configs/dashboard.config";
 export * from "@src/configs/routes.config";
 export * from "@src/configs/chart.config";
