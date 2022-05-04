@@ -2,12 +2,12 @@
     <img width="400" src="https://github.com/lindb/lindb/wiki/images/readme/lindb_logo.png">
 </p>
 
-[![LICENSE](https://img.shields.io/github/license/stone1100/lindb)](https://github.com/lindb/lindb/blob/develop/LICENSE)
+[![LICENSE](https://img.shields.io/github/license/lindb/lindb)](https://github.com/lindb/lindb/blob/main/LICENSE)
 [![Language](https://img.shields.io/badge/Language-Go-blue.svg)](https://golang.org/)
 [![Go Report Card](https://goreportcard.com/badge/github.com/lindb/lindb)](https://goreportcard.com/report/github.com/lindb/lindb)
 [![Github Actions Status](https://github.com/lindb/lindb/workflows/LinDB%20CI/badge.svg)](https://github.com/lindb/lindb/actions?query=workflow%3A%22LinDB+CI%22)
 [![Github Actions Status](https://github.com/lindb/lindb/workflows/Forntend%20CI/badge.svg)](https://github.com/lindb/lindb/actions?query=workflow%3A%22Forntend+CI%22)
-[![codecov](https://codecov.io/gh/lindb/lindb/branch/develop/graph/badge.svg)](https://codecov.io/gh/lindb/lindb)
+[![codecov](https://codecov.io/gh/lindb/lindb/branch/main/graph/badge.svg)](https://codecov.io/gh/lindb/lindb)
 [![GoDoc](https://img.shields.io/badge/Godoc-reference-blue.svg)](https://godoc.org/github.com/lindb/lindb)
 [![contribution](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](CONTRIBUTING.md)
 
@@ -45,14 +45,6 @@ LinDB stores all monitoring data of ELEME Inc, there is 88TB incremental writes 
 + __Governance capability of metrics__
 
   To ensure the robustness of the system, LinDB do not assume that users has understood the best practices of using metrics, therefore, LinDB provides the ability of restricting unfriendly user based on metric granularity and tags granularity.
-
-## State of this project
-
-The current develop branch is unstable and is not recommended for production use. LinDB 0.1(what will be the first release version) is currently in the development stage. 
-Additional features will arrive during July and August, we will translate the JAVA version of LinDB currently used under the production environment to Golang as soon as possible.
-The GO version is not only a simple translation of the JAVA version, but has been redesigned in many aspects.
-
-Once we implement the final feature and replace the LinDB under production environment with the Golang version, LinDB 0.1.0 will be released. At that point, we will move into the stable phase, our intention is to avoid breaking changes to the API and storage file format.
 
 ## Build
 

@@ -34,7 +34,7 @@ gomock: ## go generate mock file.
 	go list ./... |grep -v '/gomock' | xargs go generate -v
 
 header: ## check and add license header.
-	sh license.sh
+	sh addlicense.sh
 
 import: ## opt go imports format.
 	sh imports.sh
