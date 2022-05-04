@@ -2,12 +2,12 @@
     <img width="400" src="https://github.com/lindb/lindb/wiki/images/readme/lindb_logo.png">
 </p>
 
-[![LICENSE](https://img.shields.io/github/license/stone1100/lindb)](https://github.com/lindb/lindb/blob/develop/LICENSE)
+[![LICENSE](https://img.shields.io/github/license/lindb/lindb)](https://github.com/lindb/lindb/blob/main/LICENSE)
 [![Language](https://img.shields.io/badge/Language-Go-blue.svg)](https://golang.org/)
 [![Go Report Card](https://goreportcard.com/badge/github.com/lindb/lindb)](https://goreportcard.com/report/github.com/lindb/lindb)
 [![Github Actions Status](https://github.com/lindb/lindb/workflows/LinDB%20CI/badge.svg)](https://github.com/lindb/lindb/actions?query=workflow%3A%22LinDB+CI%22)
 [![Github Actions Status](https://github.com/lindb/lindb/workflows/Forntend%20CI/badge.svg)](https://github.com/lindb/lindb/actions?query=workflow%3A%22Forntend+CI%22)
-[![codecov](https://codecov.io/gh/lindb/lindb/branch/develop/graph/badge.svg)](https://codecov.io/gh/lindb/lindb)
+[![codecov](https://codecov.io/gh/lindb/lindb/branch/main/graph/badge.svg)](https://codecov.io/gh/lindb/lindb)
 [![GoDoc](https://img.shields.io/badge/Godoc-reference-blue.svg)](https://godoc.org/github.com/lindb/lindb)
 [![contribution](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](CONTRIBUTING.md)
 
@@ -44,12 +44,6 @@ LinDB 目前在饿了么存储了全量的监控数据，每天增量写入 88TB
 + __Metric的治理能力__
 
   为了保证系统的健壮性，LinDB 并不假设所有用户都已了解 metric 使用的最佳实践。因此，LinDB 提供了 metric 和 tag 粒度的限制能力，避免整体集群在部分用户错误的使用姿势下崩溃。
-
-## 项目状态
-
-当前的分支还不稳定，并且不推荐生产环境的使用，LinDB 0.1 还处在开发阶段。新的功能点会在七月、八月陆续完成开发。
-目前我们在饿了么生产环境中使用的是 JAVA 版本的 LinDB，开源的 Go 版本不仅仅是对 JAVA 版的简单翻译，在很多地方都进行了重新设计，同时受开发资源的影响，功能开发速度较慢。
-当完成基本的功能开发后，我们会 release 0.1.0 的 alpha 版本。在此之后，当进入稳定版的迭代过程时，我们会尽量避免 API 的不兼容更新以及存储文件格式的变更。
 
 #### JAVA 版 LinDB 相关文章
 - [数据分析之时序数据库](https://zhuanlan.zhihu.com/p/36804890)
