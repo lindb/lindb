@@ -24,7 +24,7 @@ import (
 )
 
 func TestGetDatabaseAssignPath(t *testing.T) {
-	assert.Equal(t, ShardAssigmentPath+"/name", GetDatabaseAssignPath("name"))
+	assert.Equal(t, ShardAssignmentPath+"/name", GetDatabaseAssignPath("name"))
 }
 
 func TestGetDatabaseConfigPath(t *testing.T) {

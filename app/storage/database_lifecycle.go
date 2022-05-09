@@ -127,7 +127,7 @@ func (l *databaseLifecycle) ttlTask() {
 // tryDropDatabases tries drop database's resource(data/write ahead log), keeps active databases.
 func (l *databaseLifecycle) tryDropDatabases() {
 	activeDatabases := make(map[string]struct{})
-	if err := l.repo.WalkEntry(l.ctx, constants.ShardAssigmentPath, func(key, _ []byte) {
+	if err := l.repo.WalkEntry(l.ctx, constants.ShardAssignmentPath, func(key, _ []byte) {
 		_, name := path.Split(string(key))
 		activeDatabases[name] = struct{}{}
 	}); err != nil {

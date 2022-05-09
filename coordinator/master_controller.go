@@ -64,7 +64,7 @@ type MasterCfg struct {
 type MasterController interface {
 	// Start starts master do election master, if success build master context,
 	// starts state machine do cluster coordinate such metadata, cluster state etc.
-	Start()
+	Start() error
 	// IsMaster returns current node if is master
 	IsMaster() bool
 	// GetMaster returns the current master info
@@ -100,7 +100,7 @@ type masterController struct {
 }
 
 // NewMasterController create MasterController for current node
-func NewMasterController(cfg *MasterCfg) (MasterController, error) {
+func NewMasterController(cfg *MasterCfg) MasterController {
 	ctx, cancel := context.WithCancel(cfg.Ctx)
 	m := &masterController{
 		cfg:        cfg,
@@ -111,11 +111,7 @@ func NewMasterController(cfg *MasterCfg) (MasterController, error) {
 	// create master election
 	m.elect = newElectionFn(ctx, cfg.Repo, cfg.Node, cfg.TTL, m)
 	m.registry = newRegistryFn(cfg.Repo, constants.MasterElectedPath, time.Duration(cfg.TTL))
-	masterElectedDiscovery := cfg.DiscoveryFactory.CreateDiscovery(constants.MasterElectedPath, m)
-	if err := masterElectedDiscovery.Discovery(true); err != nil {
-		return nil, err
-	}
-	return m, nil
+	return m
 }
 
 // OnFailOver invoked after master electing, current node become a new master
@@ -196,9 +192,15 @@ func (m *masterController) GetStateManager() masterpkg.StateManager {
 
 // Start starts master do election master, if success build master context,
 // starts state machine do cluster coordinate such metadata, cluster state etc.
-func (m *masterController) Start() {
+func (m *masterController) Start() error {
+	masterElectedDiscovery := m.cfg.DiscoveryFactory.CreateDiscovery(constants.MasterElectedPath, m)
+	if err := masterElectedDiscovery.Discovery(true); err != nil {
+		return err
+	}
+
 	m.elect.Initialize()
 	m.elect.Elect()
+	return nil
 }
 
 // Stop stops master if current node is master, cleanup master context and stops state machine

@@ -114,7 +114,7 @@ func (p *brokerPlan) Plan() error {
 	return nil
 }
 
-// buildIntermediateNodes builds intermediate nodes if need
+// buildIntermediateNodes builds intermediate nodes if it needs.
 func (p *brokerPlan) buildIntermediateNodes() {
 	if len(p.query.GroupBy) == 0 {
 		return
