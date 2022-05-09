@@ -27,7 +27,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/grpc"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator"
@@ -111,17 +110,6 @@ func TestBrokerRuntime_Run(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "create master controller failure",
-			prepare: func() {
-				mockGrpcServer(ctrl)
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
-				newMasterController = func(cfg *coordinator.MasterCfg) (coordinator.MasterController, error) {
-					return nil, fmt.Errorf("err")
-				}
-			},
-			wantErr: true,
-		},
-		{
 			name: "registry alive node failure",
 			prepare: func() {
 				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
@@ -130,6 +118,24 @@ func TestBrokerRuntime_Run(t *testing.T) {
 				newRegistry = func(repo state.Repository, prefixPath string, ttl time.Duration) discovery.Registry {
 					return registry
 				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "start master controller failure",
+			prepare: func() {
+				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
+				registry := discovery.NewMockRegistry(ctrl)
+				registry.EXPECT().Register(gomock.Any()).Return(nil)
+				newRegistry = func(repo state.Repository, prefixPath string, ttl time.Duration) discovery.Registry {
+					return registry
+				}
+				mc := coordinator.NewMockMasterController(ctrl)
+				newMasterController = func(cfg *coordinator.MasterCfg) coordinator.MasterController {
+					return mc
+				}
+				mc.EXPECT().WatchMasterElected(gomock.Any())
+				mc.EXPECT().Start().Return(fmt.Errorf("err"))
 			},
 			wantErr: true,
 		},
@@ -143,8 +149,8 @@ func TestBrokerRuntime_Run(t *testing.T) {
 					return registry
 				}
 				mc := coordinator.NewMockMasterController(ctrl)
-				newMasterController = func(cfg *coordinator.MasterCfg) (coordinator.MasterController, error) {
-					return mc, nil
+				newMasterController = func(cfg *coordinator.MasterCfg) coordinator.MasterController {
+					return mc
 				}
 				mc.EXPECT().WatchMasterElected(gomock.Any()).DoAndReturn(func(fn func(_ *models.Master)) {
 					fn(&models.Master{})
@@ -169,8 +175,8 @@ func TestBrokerRuntime_Run(t *testing.T) {
 					return registry
 				}
 				mc := coordinator.NewMockMasterController(ctrl)
-				newMasterController = func(cfg *coordinator.MasterCfg) (coordinator.MasterController, error) {
-					return mc, nil
+				newMasterController = func(cfg *coordinator.MasterCfg) coordinator.MasterController {
+					return mc
 				}
 				mc.EXPECT().WatchMasterElected(gomock.Any()).DoAndReturn(func(fn func(_ *models.Master)) {
 					fn(&models.Master{})
@@ -363,8 +369,8 @@ func resetNewDepsMock() {
 		taskPool concurrent.Pool, ttl time.Duration) brokerQuery.TaskManager {
 		return nil
 	}
-	newMasterController = func(cfg *coordinator.MasterCfg) (coordinator.MasterController, error) {
-		return nil, nil
+	newMasterController = func(cfg *coordinator.MasterCfg) coordinator.MasterController {
+		return nil
 	}
 	newRegistry = func(repo state.Repository, prefixPath string, ttl time.Duration) discovery.Registry {
 		return nil
@@ -378,13 +384,5 @@ func resetNewDepsMock() {
 	newNativeProtoPusher = func(ctx context.Context, endpoint string, interval time.Duration,
 		pushTimeout time.Duration, r *linmetric.Registry, globalKeyValues tag.Tags) monitoring.NativePusher {
 		return nil
-	}
-}
-
-func mockGrpcServer(ctrl *gomock.Controller) {
-	grpcServer := rpc.NewMockGRPCServer(ctrl)
-	grpcServer.EXPECT().GetServer().Return(grpc.NewServer())
-	newGRPCServer = func(cfg config.GRPC, r *linmetric.Registry) rpc.GRPCServer {
-		return grpcServer
 	}
 }

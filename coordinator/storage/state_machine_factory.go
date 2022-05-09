@@ -37,7 +37,7 @@ func init() {
 		},
 	}
 	StateMachinePaths[constants.ShardAssigment] = models.StateMachineInfo{
-		Path: constants.ShardAssigmentPath,
+		Path: constants.ShardAssignmentPath,
 		CreateState: func() interface{} {
 			return &models.DatabaseAssignment{}
 		},
@@ -103,7 +103,7 @@ func (f *StateMachineFactory) createShardAssignStateMachine() (discovery.StateMa
 		f.ctx,
 		discovery.ShardAssignmentStateMachine,
 		f.discoveryFactory,
-		constants.ShardAssigmentPath,
+		constants.ShardAssignmentPath,
 		true,
 		f.onShardAssignmentChange,
 		nil,

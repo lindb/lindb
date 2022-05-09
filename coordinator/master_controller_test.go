@@ -38,47 +38,14 @@ func TestNewMasterController(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	dis := discovery.NewMockDiscovery(ctrl)
 	disFct := discovery.NewMockFactory(ctrl)
-	disFct.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(dis).AnyTimes()
-	cases := []struct {
-		name    string
-		prepare func()
-		wantErr bool
-	}{
-		{
-			name: "create master controller failure",
-			prepare: func() {
-				dis.EXPECT().Discovery(true).Return(fmt.Errorf("err"))
-			},
-			wantErr: true,
-		},
-		{
-			name: "create master controller failure",
-			prepare: func() {
-				dis.EXPECT().Discovery(true).Return(nil)
-			},
-			wantErr: true,
-		},
+	cfg := &MasterCfg{
+		Ctx:              context.TODO(),
+		DiscoveryFactory: disFct,
 	}
 
-	for _, tt := range cases {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := &MasterCfg{
-				Ctx:              context.TODO(),
-				DiscoveryFactory: disFct,
-			}
-			if tt.prepare != nil {
-				tt.prepare()
-			}
-
-			mc, err := NewMasterController(cfg)
-			if ((err != nil) != tt.wantErr && mc == nil) || (!tt.wantErr && mc == nil) {
-				t.Errorf("NewMasterController() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
+	mc := NewMasterController(cfg)
+	assert.NotNil(t, mc)
 }
 
 func TestMasterController_OnFailOver(t *testing.T) {
@@ -186,6 +153,10 @@ func TestMasterController_Start_Stop(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	discoveryFct := discovery.NewMockFactory(ctrl)
+	discovery1 := discovery.NewMockDiscovery(ctrl)
+	discoveryFct.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
+
 	registry := discovery.NewMockRegistry(ctrl)
 	ctx, cancel := context.WithCancel(context.TODO())
 	masterElect := elect.NewMockElection(ctrl)
@@ -195,14 +166,17 @@ func TestMasterController_Start_Stop(t *testing.T) {
 		elect:    masterElect,
 		registry: registry,
 		cfg: &MasterCfg{
-			Node: &models.StatelessNode{},
+			Node:             &models.StatelessNode{},
+			DiscoveryFactory: discoveryFct,
 		},
 	}
 	gomock.InOrder(
+		discovery1.EXPECT().Discovery(true).Return(nil),
 		masterElect.EXPECT().Initialize(),
 		masterElect.EXPECT().Elect(),
 	)
-	mc.Start()
+	err := mc.Start()
+	assert.NoError(t, err)
 	master := &models.Master{}
 	masterElect.EXPECT().IsMaster().Return(true)
 	masterElect.EXPECT().GetMaster().Return(master)
@@ -211,6 +185,10 @@ func TestMasterController_Start_Stop(t *testing.T) {
 	masterElect.EXPECT().Close()
 	registry.EXPECT().Close().Return(fmt.Errorf("err"))
 	mc.Stop()
+
+	discovery1.EXPECT().Discovery(true).Return(fmt.Errorf("err"))
+	err = mc.Start()
+	assert.Error(t, err)
 }
 
 func TestMasterController_Elect_Listener(t *testing.T) {

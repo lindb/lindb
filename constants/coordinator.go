@@ -52,8 +52,8 @@ const (
 	MasterElectedPath = "/master/elected"
 	// DatabaseConfigPath represents database config path.
 	DatabaseConfigPath = "/database/config"
-	// ShardAssigmentPath represents database shard assignment.
-	ShardAssigmentPath = "/database/assign"
+	// ShardAssignmentPath represents database shard assignment.
+	ShardAssignmentPath = "/database/assign"
 	// StorageConfigPath represents storage cluster's config.
 	StorageConfigPath = "/storage/config"
 	// StorageStatePath represents storage cluster's state.
@@ -76,7 +76,7 @@ func GetDatabaseConfigPath(name string) string {
 
 // GetDatabaseAssignPath returns path which storing shard assignment of database
 func GetDatabaseAssignPath(name string) string {
-	return fmt.Sprintf("%s/%s", ShardAssigmentPath, name)
+	return fmt.Sprintf("%s/%s", ShardAssignmentPath, name)
 }
 
 // GetLiveNodePath returns live node register path.

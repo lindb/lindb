@@ -204,7 +204,7 @@ func (r *remoteReplicator) IsReady() bool {
 		r.state = models.ReplicatorReadyState
 		return true
 	case remoteLastReplicaAckIdx > appendIdx:
-		// new writeTask data will be lost, because leader's lost old wal data
+		// new write data will be lost, because leader's lost old wal data
 		r.ResetAppendIndex(nextReplicaIdx)
 		r.statistics.ResetAppendIdx.Incr()
 	}

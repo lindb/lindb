@@ -206,11 +206,7 @@ func (r *runtime) Run() error {
 		DiscoveryFactory: discoveryFactory,
 		RepoFactory:      r.repoFactory,
 	}
-	r.master, err = newMasterController(masterCfg)
-	if err != nil {
-		r.state = server.Failed
-		return fmt.Errorf("create master controller error:%s", err)
-	}
+	r.master = newMasterController(masterCfg)
 
 	// register broker node info
 	r.registry = newRegistry(r.repo, constants.LiveNodesPath, time.Second*time.Duration(r.config.Coordinator.LeaseTTL))
@@ -223,20 +219,29 @@ func (r *runtime) Run() error {
 	var wait sync.WaitGroup
 	wait.Add(1)
 	var errStore atomic.Value
+	var stateMachineStarted atomic.Bool
 
 	r.master.WatchMasterElected(func(_ *models.Master) {
-		// after 5 second when master elected, wait master state sync.
-		time.AfterFunc(5*time.Second, func() {
-			defer wait.Done()
-			// finally, start all state machine
-			r.stateMachineFactory = newStateMachineFactory(r.ctx, discoveryFactory, r.stateMgr)
-			if err := r.stateMachineFactory.Start(); err != nil {
-				errStore.Store(err)
-			}
-		})
+		if stateMachineStarted.CAS(false, true) {
+			// if state machine is not started, after 5 second when master elected, wait master state sync.
+			time.AfterFunc(5*time.Second, func() {
+				defer wait.Done()
+				// finally, start all state machine
+				r.stateMachineFactory = newStateMachineFactory(r.ctx, discoveryFactory, r.stateMgr)
+				if err0 := r.stateMachineFactory.Start(); err0 != nil {
+					errStore.Store(err0)
+				}
+			})
+		}
 	})
-	r.master.Start()
 
+	err = r.master.Start()
+	if err != nil {
+		r.state = server.Failed
+		return fmt.Errorf("start master controller error:%s", err)
+	}
+
+	r.log.Info("waiting broker state machine start")
 	// waiting broker state machine started
 	wait.Wait()
 	// check if it has error when start state machine
@@ -244,6 +249,7 @@ func (r *runtime) Run() error {
 		r.state = server.Failed
 		return fmt.Errorf("start state machines error: %v", errVal)
 	}
+	r.log.Info("broker state machine started successfully")
 
 	// start http server
 	r.startHTTPServer()
