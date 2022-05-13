@@ -70,11 +70,7 @@ export default function ReplicationView() {
 
   return (
     <>
-      <Card
-        bordered={false}
-        style={{ marginBottom: 12 }}
-        bodyStyle={{ padding: 12 }}
-      >
+      <Card style={{ marginBottom: 12 }} bodyStyle={{ padding: 12 }}>
         <Form
           style={{ paddingTop: 0, paddingBottom: 0 }}
           wrapperCol={{ span: 20 }}
@@ -103,7 +99,7 @@ export default function ReplicationView() {
         </Form>
       </Card>
       {!selectDatabase ? (
-        <Card bordered={false} loading={loading} bodyStyle={{ padding: 12 }}>
+        <Card loading={loading} bodyStyle={{ padding: 12 }}>
           <Empty
             image={<IllustrationIdle style={{ width: 150, height: 150 }} />}
             darkModeImage={
@@ -119,9 +115,11 @@ export default function ReplicationView() {
             liveNodes={_.get(selectDatabase, "storage.liveNodes", {})}
             storage={_.get(selectDatabase, "storage", {})}
             loading={false}
+            databaseName={selectDatabase.name}
           />
           <div style={{ marginTop: 12 }}>
             <ReplicaView
+              liveNodes={_.get(selectDatabase, "storage.liveNodes", {})}
               db={selectDatabase.name as string}
               storage={selectDatabase.storage.name as string}
             />

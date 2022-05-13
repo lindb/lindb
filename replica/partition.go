@@ -252,12 +252,22 @@ func (p *partition) getReplicaState() models.FamilyLogReplicaState {
 			p.logger.Error("get fan out error when get replica state, ignore it")
 			continue
 		}
-		stateOfReplicators = append(stateOfReplicators, models.ReplicaPeerState{
+		peerState := models.ReplicaPeerState{
 			Replicator: name,
 			Consume:    fanout.HeadSeq(),
 			ACK:        fanout.TailSeq(),
 			Pending:    fanout.Pending(),
-		})
+		}
+		nodeID := models.ParseNodeID(name)
+		peer, ok := p.getReplicatorRunner(nodeID)
+		if ok {
+			replicatorType, replicatorState := peer.ReplicatorState()
+			peerState.ReplicatorType = replicatorType
+			peerState.State = replicatorState.state
+			peerState.StateErrMsg = replicatorState.errMsg
+		}
+
+		stateOfReplicators = append(stateOfReplicators, peerState)
 	}
 	rs := models.FamilyLogReplicaState{
 		ShardID:     p.shardID,
@@ -306,6 +316,14 @@ func (p *partition) buildReplica(leader, replica models.NodeID) error {
 	peer.Startup()
 
 	return nil
+}
+
+func (p *partition) getReplicatorRunner(nodeID models.NodeID) (ReplicatorPeer, bool) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	peer, ok := p.peers[nodeID]
+	return peer, ok
 }
 
 // recovery rebuilds replication relation based on local partition.

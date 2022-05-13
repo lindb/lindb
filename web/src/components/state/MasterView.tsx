@@ -44,7 +44,6 @@ export default function MasterView() {
   return (
     <>
       <Card
-        bordered
         title="Master"
         headerStyle={{ padding: 12 }}
         bodyStyle={{ padding: 12 }}

@@ -32,7 +32,6 @@ import { Route } from "@src/constants";
 import {
   Overview,
   ConfigurationView,
-  DatabaseOverview,
   DataExplore,
   DataSearch,
   ReplicationView,
@@ -73,13 +72,6 @@ export const routes = [
         text: "Storage",
         path: Route.StorageOverview,
         content: <StorageOverview />,
-      },
-      {
-        inner: true,
-        itemKey: "Overview/Database",
-        text: "Database",
-        path: Route.DatabaseOverview,
-        content: <DatabaseOverview />,
       },
       {
         inner: true,

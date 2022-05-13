@@ -36,6 +36,7 @@ export default function StorageOverview() {
             loading={loading}
           />
           <NodeView
+            showNodeId
             title="Live Nodes"
             loading={loading}
             nodes={_.values(_.get(storages, "[0].liveNodes", {}))}
@@ -43,6 +44,7 @@ export default function StorageOverview() {
             style={{ marginTop: 12, marginBottom: 12 }}
           />
           <DatabaseView
+            title="Database List"
             liveNodes={_.get(storages, "[0].liveNodes", {})}
             storage={_.get(storages, "[0]", {})}
             loading={loading}

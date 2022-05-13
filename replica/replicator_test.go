@@ -40,7 +40,7 @@ func TestReplicator_String(t *testing.T) {
 		},
 	}}
 
-	assert.Equal(t, "[database:test,shard:1,family:20191212101110,from(leader):1,to(follower):2]", r.String())
+	assert.Equal(t, "[database:test,shard:1,family:2019-12-12 10:11:10,from(leader):1,to(follower):2]", r.String())
 }
 
 func TestReplicator_Base(t *testing.T) {
@@ -61,7 +61,7 @@ func TestReplicator_Base(t *testing.T) {
 			Queue: q,
 		},
 	}
-	assert.Equal(t, state, r.State())
+	assert.Equal(t, state, r.ReplicaState())
 	r.Replica(0, []byte{1, 2, 3})
 	assert.True(t, r.IsReady())
 	q.EXPECT().Consume().Return(int64(10))

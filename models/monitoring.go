@@ -85,11 +85,13 @@ type FamilyLogReplicaState struct {
 
 // ReplicaPeerState represents current wal replica peer state.
 type ReplicaPeerState struct {
-	Replicator string          `json:"replicator"`
-	Consume    int64           `json:"consume"`
-	ACK        int64           `json:"ack"`
-	Pending    int64           `json:"pending"`
-	State      ReplicatorState `json:"state"`
+	Replicator     string          `json:"replicator"`
+	ReplicatorType string          `json:"replicatorType"`
+	Consume        int64           `json:"consume"`
+	ACK            int64           `json:"ack"`
+	Pending        int64           `json:"pending"`
+	State          ReplicatorState `json:"state"`
+	StateErrMsg    string          `json:"stateErrMsg"`
 }
 
 // SystemStat represents the system statistics

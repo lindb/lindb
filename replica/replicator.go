@@ -26,11 +26,19 @@ import (
 
 //go:generate mockgen -source=./replicator.go -destination=./replicator_mock.go -package=replica
 
+// state represents the state of replicator.
+type state struct {
+	state  models.ReplicatorState
+	errMsg string
+}
+
 // Replicator represents write ahead log replicator.
 type Replicator interface {
 	fmt.Stringer
-	// State returns the replica state.
-	State() *models.ReplicaState
+	// ReplicaState returns the replica state.
+	ReplicaState() *models.ReplicaState
+	// State returns the state of replicator.
+	State() *state
 	// Consume returns the index of message replica.
 	Consume() int64
 	// GetMessage returns message by replica index.
@@ -60,8 +68,8 @@ type replicator struct {
 	channel *ReplicatorChannel
 }
 
-// State returns the replica state.
-func (r *replicator) State() *models.ReplicaState {
+// ReplicaState returns the replica state.
+func (r *replicator) ReplicaState() *models.ReplicaState {
 	return r.channel.State
 }
 
@@ -125,7 +133,7 @@ func (r *replicator) String() string {
 	return "[" +
 		"database:" + r.channel.State.Database +
 		",shard:" + r.channel.State.ShardID.String() +
-		",family:" + timeutil.FormatTimestamp(r.channel.State.FamilyTime, timeutil.DataTimeFormat4) +
+		",family:" + timeutil.FormatTimestamp(r.channel.State.FamilyTime, timeutil.DataTimeFormat2) +
 		",from(leader):" + r.channel.State.Leader.String() +
 		",to(follower):" + r.channel.State.Follower.String() +
 		"]"

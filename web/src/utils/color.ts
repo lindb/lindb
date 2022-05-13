@@ -16,6 +16,28 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+export function getShardColor(idx: number): string {
+  const colors = [
+    "rgb(250, 85, 61)",
+    "rgb(33, 136, 251)",
+    "rgb(28, 167, 183)",
+    "rgb(117, 113, 107)",
+    "rgb(161, 210, 28)",
+    "rgb(234, 57, 114)",
+    "rgb(23, 179, 167)",
+    "rgb(241, 189, 49)",
+    "rgb(255, 174, 67)",
+    "rgb(62, 179, 75)",
+    "rgb(64, 81, 182)",
+    "rgb(254, 154, 33)",
+    "rgb(162, 58, 179)",
+    "rgb(116, 70, 200)",
+    "rgb(251, 208, 33)",
+    "rgb(31, 160, 239)",
+    "rgb(125, 183, 64)",
+  ];
+  return colors[idx % colors.length];
+}
 export function getColor(idx: number): string {
   const colors = [
     "#7EB26D", // 0: pale green

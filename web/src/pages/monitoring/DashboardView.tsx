@@ -68,7 +68,7 @@ export default function DashboardView(props: DashboardViewProps) {
   });
   return (
     <>
-      <Card bordered={false} bodyStyle={{ padding: 12 }}>
+      <Card bodyStyle={{ padding: 12 }}>
         <Select
           value={role}
           prefix={<IconFixedStroked />}

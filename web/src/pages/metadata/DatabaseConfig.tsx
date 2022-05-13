@@ -97,7 +97,7 @@ export default function DatabaseConfig() {
           style={{ marginBottom: 12, justifyContent: "left" }}
         />
       )}
-      <Card bordered>
+      <Card>
         <Form
           className="lin-db-form"
           getFormApi={(api) => (formApi.current = api)}

@@ -100,7 +100,7 @@ export default function StorageConfig() {
           style={{ marginBottom: 12, justifyContent: "left" }}
         />
       )}
-      <Card bordered={false}>
+      <Card>
         <Form
           // layout="horizontal"
           labelPosition="left"

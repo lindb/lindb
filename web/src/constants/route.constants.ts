@@ -19,7 +19,6 @@ under the License.
 export enum Route {
   Overview = "/overview",
   StorageOverview = "/overview/storage",
-  DatabaseOverview = "/overview/database",
   ConfigurationView = "/overview/configuration",
   Search = "/search",
   Explore = "/explore",

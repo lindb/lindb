@@ -50,7 +50,7 @@ const chartId = "666666666666666666";
 export default function DataExplore() {
   const formApi = useRef() as MutableRefObject<any>;
   const [params, setParams] = useState<any>(URLStore.params);
-  const [showSQL, setShowSQL] = useState(false);
+  const [showLQL, setShowLQL] = useState(false);
   const [sql, setSql] = useState("");
   const tagFilter = useRef() as MutableRefObject<Object>;
 
@@ -116,10 +116,9 @@ export default function DataExplore() {
     }
     return (
       <>
-        {showSQL && sql && (
+        {showLQL && sql && (
           <Card
             headerStyle={{ padding: 12 }}
-            bordered={false}
             bodyStyle={{ padding: 12 }}
             style={{ marginBottom: 12 }}
           >
@@ -128,7 +127,7 @@ export default function DataExplore() {
                 target={"_blank"}
                 to={`${Route.Search}?db=${params.get("db")}&sql=${sql}`}
               >
-                Execute SQL:
+                Execute LQL:
               </Link>
             </Text>
             <Text style={{ marginLeft: 8 }}>{sql}</Text>
@@ -142,7 +141,6 @@ export default function DataExplore() {
             </Space>
           }
           headerStyle={{ padding: 12 }}
-          bordered={false}
           style={{ marginBottom: 12 }}
           bodyStyle={{ padding: 12 }}
           headerExtraContent={<MetricStatus chartId={chartId} />}
@@ -219,11 +217,7 @@ export default function DataExplore() {
 
   return (
     <>
-      <Card
-        bordered={false}
-        style={{ marginBottom: 12 }}
-        bodyStyle={{ padding: 12 }}
-      >
+      <Card style={{ marginBottom: 12 }} bodyStyle={{ padding: 12 }}>
         <Form
           style={{ paddingBottom: 0, paddingTop: 0 }}
           wrapperCol={{ span: 20 }}
@@ -266,8 +260,8 @@ export default function DataExplore() {
             labelPosition="inset"
           />
           <Space>
-            <Switch onChange={setShowSQL} />
-            Show SQL
+            <Switch onChange={setShowLQL} />
+            Show LQL
           </Space>
         </Form>
       </Card>

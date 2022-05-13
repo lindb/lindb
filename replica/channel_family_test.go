@@ -531,7 +531,7 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 			if tt.prepare != nil {
 				tt.prepare(f)
 			}
-			f.writeTask()
+			f.writeTask(context.TODO())
 		})
 	}
 }

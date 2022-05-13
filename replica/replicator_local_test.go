@@ -54,6 +54,8 @@ func TestLocalReplicator_New(t *testing.T) {
 	q.EXPECT().Ack(int64(10))
 	replicator := NewLocalReplicator(&ReplicatorChannel{State: &models.ReplicaState{Leader: 1}, Queue: q}, shard, family)
 	assert.NotNil(t, replicator)
+	s := replicator.State()
+	assert.Equal(t, state{state: models.ReplicatorReadyState}, *s)
 }
 
 func TestLocalReplicator_Replica(t *testing.T) {
