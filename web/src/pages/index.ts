@@ -19,7 +19,6 @@ under the License.
 export { default as Console } from "@src/pages/Console";
 export { default as Overview } from "@src/pages/state/Overview";
 export { default as StorageOverview } from "@src/pages/state/StorageOverview";
-export { default as DatabaseOverview } from "@src/pages/state/DatabaseOverview";
 export { default as ConfigurationView } from "@src/pages/state/ConfigurationView";
 export { default as DataSearch } from "@src/pages/search/DataSearch";
 export { default as DataExplore } from "@src/pages/search/DataExplore";

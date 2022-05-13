@@ -127,7 +127,7 @@ export default function StorageList() {
   };
 
   return (
-    <Card bordered={false}>
+    <Card>
       <SplitButtonGroup style={{ marginBottom: 20 }}>
         <RegisterBtn text="Register" />
         <Button

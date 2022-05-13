@@ -61,7 +61,6 @@ export default function Metric(props: MetricProps) {
         </Space>
       }
       headerExtraContent={<MetricStatus chartId={chartId} />}
-      bordered={false}
       // bodyStyle={{ height: "100vh" }}
       headerStyle={{ padding: 12 }}
     >

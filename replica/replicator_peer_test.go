@@ -18,6 +18,7 @@
 package replica
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"testing"
@@ -39,7 +40,7 @@ func TestReplicatorPeer(t *testing.T) {
 	mockReplicator := NewMockReplicator(ctrl)
 	mockReplicator.EXPECT().IsReady().Return(false).AnyTimes()
 	mockReplicator.EXPECT().String().Return("str").AnyTimes()
-	mockReplicator.EXPECT().State().Return(&models.ReplicaState{}).AnyTimes()
+	mockReplicator.EXPECT().ReplicaState().Return(&models.ReplicaState{}).AnyTimes()
 	peer := NewReplicatorPeer(mockReplicator)
 	peer.Startup()
 	peer.Startup()
@@ -49,20 +50,27 @@ func TestReplicatorPeer(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	ch := make(chan struct{})
+	remote := &remoteReplicator{
+		replicator: replicator{
+			channel: &ReplicatorChannel{
+				State: &models.ReplicaState{},
+			},
+		},
+	}
+	remote.state.Store(&state{state: models.ReplicatorInitState})
 	peer = &replicatorPeer{
 		runner: &replicatorRunner{
-			replicator: &remoteReplicator{
-				replicator: replicator{
-					channel: &ReplicatorChannel{
-						State: &models.ReplicaState{},
-					},
-				},
-			},
-			running: atomic.NewBool(true),
-			closed:  ch,
+			replicatorType: "remote",
+			replicator:     remote,
+			running:        atomic.NewBool(true),
+			closed:         ch,
 		},
 		running: atomic.NewBool(true),
 	}
+
+	rt, s := peer.ReplicatorState()
+	assert.Equal(t, "remote", rt)
+	assert.Equal(t, state{state: models.ReplicatorInitState}, *s)
 	go func() {
 		ch <- struct{}{}
 	}()
@@ -78,7 +86,7 @@ func TestNewReplicator_runner(t *testing.T) {
 
 	replicator := NewMockReplicator(ctrl)
 	replicator.EXPECT().String().Return("str").AnyTimes()
-	replicator.EXPECT().State().Return(&models.ReplicaState{}).AnyTimes()
+	replicator.EXPECT().ReplicaState().Return(&models.ReplicaState{}).AnyTimes()
 	replicator.EXPECT().Pending().Return(int64(19)).AnyTimes()
 	peer := NewReplicatorPeer(replicator)
 	var wait sync.WaitGroup
@@ -136,5 +144,7 @@ func TestReplicatorPeer_replica_panic(t *testing.T) {
 	replicator.EXPECT().IsReady().DoAndReturn(func() bool {
 		panic("err")
 	})
-	assert.Panics(t, r.replica)
+	assert.Panics(t, func() {
+		r.replica(context.TODO())
+	})
 }

@@ -29,9 +29,10 @@ interface DatabaseViewProps {
   storage: any;
   loading: boolean;
   title?: string;
+  databaseName?: string;
 }
 export default function DatabaseView(props: DatabaseViewProps) {
-  const { loading, storage, liveNodes, title } = props;
+  const { loading, storage, liveNodes, title, databaseName } = props;
   const columns = [
     {
       title: "Name",
@@ -45,8 +46,8 @@ export default function DatabaseView(props: DatabaseViewProps) {
               if (!name) {
                 // only in storage list can click
                 URLStore.changeURLParams({
-                  path: Route.DatabaseOverview,
-                  params: { db: text, storage: storage.name },
+                  path: Route.MonitoringReplication,
+                  params: { db: text },
                 });
               }
             }}
@@ -107,6 +108,10 @@ export default function DatabaseView(props: DatabaseViewProps) {
     const databaseMap = _.get(storage, "shardStates", {});
     const databaseNames = _.keys(databaseMap);
     databaseNames.map((name: string) => {
+      if (databaseName && databaseName !== name) {
+        // if database selected, only show selected database's state
+        return;
+      }
       const db = databaseMap[name];
       const stats = {
         totalReplica: 0,
@@ -125,7 +130,6 @@ export default function DatabaseView(props: DatabaseViewProps) {
             stats.unavailableReplica++;
           }
         });
-        console.log("shard....", shard, replicas);
       });
       rs.push({ name: name, stats: stats });
     });
@@ -134,7 +138,6 @@ export default function DatabaseView(props: DatabaseViewProps) {
   return (
     <>
       <Card
-        bordered={false}
         title={title}
         headerStyle={{ padding: 12 }}
         bodyStyle={{ padding: 12 }}

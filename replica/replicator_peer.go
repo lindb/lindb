@@ -18,6 +18,8 @@
 package replica
 
 import (
+	"context"
+	"runtime/pprof"
 	"time"
 
 	"go.uber.org/atomic"
@@ -36,6 +38,8 @@ type ReplicatorPeer interface {
 	Startup()
 	// Shutdown shutdowns gracefully.
 	Shutdown()
+	// ReplicatorState returns the state and type of the replicator.
+	ReplicatorState() (string, *state)
 }
 
 // replicatorPeer implements ReplicatorPeer
@@ -53,22 +57,32 @@ func NewReplicatorPeer(replicator Replicator) ReplicatorPeer {
 }
 
 // Startup starts wal replicator channel,
-func (r replicatorPeer) Startup() {
+func (r *replicatorPeer) Startup() {
 	if r.running.CAS(false, true) {
-		go r.runner.replicaLoop()
+		go func() {
+			replicatorLabels := pprof.Labels("type", r.runner.replicatorType,
+				"replicator", r.runner.replicator.String())
+			pprof.Do(context.Background(), replicatorLabels, r.runner.replicaLoop)
+		}()
 	}
 }
 
 // Shutdown shutdowns gracefully.
-func (r replicatorPeer) Shutdown() {
+func (r *replicatorPeer) Shutdown() {
 	if r.running.CAS(true, false) {
 		r.runner.shutdown()
 	}
 }
 
+// ReplicatorState returns the state and type of the replicator.
+func (r *replicatorPeer) ReplicatorState() (string, *state) {
+	return r.runner.replicatorType, r.runner.replicator.State()
+}
+
 type replicatorRunner struct {
-	running    *atomic.Bool
-	replicator Replicator
+	running        *atomic.Bool
+	replicatorType string
+	replicator     Replicator
 
 	closed chan struct{}
 
@@ -82,20 +96,21 @@ func newReplicatorRunner(replicator Replicator) *replicatorRunner {
 	if ok {
 		replicaType = "remote"
 	}
-	state := replicator.State()
+	state := replicator.ReplicaState()
 	return &replicatorRunner{
-		replicator: replicator,
-		running:    atomic.NewBool(false),
-		closed:     make(chan struct{}),
-		statistics: metrics.NewStorageReplicatorRunnerStatistics(replicaType, state.Database, state.ShardID.String()),
-		logger:     logger.GetLogger("replica", "ReplicatorRunner"),
+		replicator:     replicator,
+		replicatorType: replicaType,
+		running:        atomic.NewBool(false),
+		closed:         make(chan struct{}),
+		statistics:     metrics.NewStorageReplicatorRunnerStatistics(replicaType, state.Database, state.ShardID.String()),
+		logger:         logger.GetLogger("replica", "ReplicatorRunner"),
 	}
 }
 
-func (r *replicatorRunner) replicaLoop() {
+func (r *replicatorRunner) replicaLoop(ctx context.Context) {
 	if r.running.CAS(false, true) {
 		r.statistics.ActiveReplicators.Incr()
-		r.loop()
+		r.loop(ctx)
 	}
 }
 
@@ -106,9 +121,9 @@ func (r *replicatorRunner) shutdown() {
 	}
 }
 
-func (r *replicatorRunner) loop() {
+func (r *replicatorRunner) loop(ctx context.Context) {
 	for r.running.Load() {
-		r.replica()
+		r.replica(ctx)
 	}
 
 	// exit replica loop
@@ -117,7 +132,7 @@ func (r *replicatorRunner) loop() {
 	r.statistics.ActiveReplicators.Decr()
 }
 
-func (r *replicatorRunner) replica() {
+func (r *replicatorRunner) replica(_ context.Context) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			r.statistics.ReplicaPanics.Incr()
@@ -134,6 +149,7 @@ func (r *replicatorRunner) replica() {
 		seq := r.replicator.Consume()
 		if seq >= 0 {
 			r.logger.Debug("replica write ahead log",
+				logger.String("type", r.replicatorType),
 				logger.String("replicator", r.replicator.String()),
 				logger.Int64("index", seq))
 			hasData = true
@@ -150,6 +166,7 @@ func (r *replicatorRunner) replica() {
 				r.statistics.ReplicaBytes.Add(float64(len(data)))
 			}
 		}
+		// TODO modify maybe
 		r.statistics.ReplicaLag.Add(float64(r.replicator.Pending()))
 	} else {
 		r.logger.Warn("replica is not ready", logger.String("replicator", r.replicator.String()))

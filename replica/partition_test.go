@@ -50,7 +50,7 @@ func TestPartition_BuildReplicaRelation(t *testing.T) {
 	shard.EXPECT().Database().Return(database).AnyTimes()
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 	r.EXPECT().String().Return("TestPartition_BuildReplicaRelation").AnyTimes()
-	r.EXPECT().State().Return(&models.ReplicaState{}).AnyTimes()
+	r.EXPECT().ReplicaState().Return(&models.ReplicaState{}).AnyTimes()
 	r.EXPECT().Pending().Return(int64(10)).AnyTimes()
 	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ tsdb.Shard, _ tsdb.DataFamily) Replicator {
 		return r
@@ -108,7 +108,7 @@ func TestPartition_BuildReplicaForFollower(t *testing.T) {
 	family := tsdb.NewMockDataFamily(ctrl)
 	family.EXPECT().FamilyTime().Return(timeutil.Now()).AnyTimes()
 	r.EXPECT().String().Return("TestPartition_BuildReplicaForFollower").AnyTimes()
-	r.EXPECT().State().Return(&models.ReplicaState{}).AnyTimes()
+	r.EXPECT().ReplicaState().Return(&models.ReplicaState{}).AnyTimes()
 	r.EXPECT().Pending().Return(int64(10)).AnyTimes()
 	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ tsdb.Shard, _ tsdb.DataFamily) Replicator {
 		return r
@@ -145,7 +145,7 @@ func TestPartition_Close(t *testing.T) {
 		ctrl.Finish()
 	}()
 	r := NewMockReplicator(ctrl)
-	r.EXPECT().State().Return(&models.ReplicaState{}).AnyTimes()
+	r.EXPECT().ReplicaState().Return(&models.ReplicaState{}).AnyTimes()
 	database := tsdb.NewMockDatabase(ctrl)
 	database.EXPECT().Name().Return("test").AnyTimes()
 	shard := tsdb.NewMockShard(ctrl)
@@ -252,6 +252,13 @@ func TestPartition_getReplicaState(t *testing.T) {
 	shard.EXPECT().Database().Return(db).AnyTimes()
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 	p := NewPartition(context.TODO(), shard, family, 1, l, nil, nil)
+	p1 := p.(*partition)
+	peer := NewMockReplicatorPeer(ctrl)
+	peer.EXPECT().ReplicatorState().Return("remote", &state{state: models.ReplicatorReadyState}).AnyTimes()
+	p1.mutex.Lock()
+	p1.peers[models.NodeID(1)] = peer
+	p1.peers[models.NodeID(2)] = peer
+	p1.mutex.Unlock()
 	l.EXPECT().FanOutNames().Return([]string{"1", "2"})
 	fan := queue.NewMockFanOut(ctrl)
 	l.EXPECT().GetOrCreateFanOut(gomock.Any()).Return(nil, fmt.Errorf("err"))

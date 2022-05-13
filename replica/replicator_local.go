@@ -21,6 +21,7 @@ import (
 	"github.com/golang/snappy"
 
 	"github.com/lindb/lindb/metrics"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb"
@@ -66,6 +67,11 @@ func NewLocalReplicator(channel *ReplicatorChannel, shard tsdb.Shard, family tsd
 
 	lr.logger.Info("start local replicator", logger.String("replica", lr.String()))
 	return lr
+}
+
+// State returns the state of local replicator, it's always ready.
+func (r *localReplicator) State() *state {
+	return &state{state: models.ReplicatorReadyState}
 }
 
 // Replica replicas local data,

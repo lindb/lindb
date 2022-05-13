@@ -291,7 +291,7 @@ export default function MetadataExplore() {
   };
   const treeStyle = {
     width: "100%",
-    height: "80vh",
+    height: "83vh",
     border: "1px solid var(--semi-color-border)",
   };
 
@@ -326,7 +326,7 @@ export default function MetadataExplore() {
     <>
       <Row gutter={8}>
         <Col span={8}>
-          <Card bordered={true}>
+          <Card>
             <Tree
               loadedKeys={loadedKeys}
               treeData={root}
@@ -336,37 +336,39 @@ export default function MetadataExplore() {
             />
           </Card>
         </Col>
-        <Col span={16}>
-          <SplitButtonGroup style={{ marginBottom: 8, marginRight: 12 }}>
-            <Button
-              icon={<IconSourceControl />}
-              onClick={exploreStateMachineData}
-            >
-              Compare
-            </Button>
-            <Tooltip content="Compare with state matchine's data in memory">
-              <Button icon={<IconHelpCircleStroked />} />
-            </Tooltip>
-          </SplitButtonGroup>
-          {comparing && (
-            <>
-              <Spin size="middle" />
-              <Text style={{ marginRight: 4 }}>Comparing</Text>
-            </>
-          )}
-          {!_.isEmpty(stateMachineMetadata) && (
-            <Text strong link onClick={() => setShowCompareResult(true)}>
-              Found <Text type="success">{stateMachineMetadata.length}</Text>{" "}
-              nodes, diff{" "}
-              <Text type="danger">
-                {_.filter(stateMachineMetadata, (o) => o.isDiff).length}
-              </Text>{" "}
-              nodes.
-            </Text>
-          )}
+        <Col span={16} style={{ display: "flex", flexDirection: "column" }}>
+          <div>
+            <SplitButtonGroup style={{ marginBottom: 8, marginRight: 12 }}>
+              <Button
+                icon={<IconSourceControl />}
+                onClick={exploreStateMachineData}
+              >
+                Compare
+              </Button>
+              <Tooltip content="Compare with state matchine's data in memory">
+                <Button icon={<IconHelpCircleStroked />} />
+              </Tooltip>
+            </SplitButtonGroup>
+            {comparing && (
+              <>
+                <Spin size="middle" />
+                <Text style={{ marginRight: 4 }}>Comparing</Text>
+              </>
+            )}
+            {!_.isEmpty(stateMachineMetadata) && (
+              <Text strong link onClick={() => setShowCompareResult(true)}>
+                Found <Text type="success">{stateMachineMetadata.length}</Text>{" "}
+                nodes, diff{" "}
+                <Text type="danger">
+                  {_.filter(stateMachineMetadata, (o) => o.isDiff).length}
+                </Text>{" "}
+                nodes.
+              </Text>
+            )}
+          </div>
 
-          <Card style={treeStyle} bordered={false}>
-            <div ref={editorRef} style={{ height: "90vh" }} />
+          <Card style={{ height: "83.5vh" }}>
+            <div ref={editorRef} style={{ height: "80vh" }} />
           </Card>
         </Col>
       </Row>

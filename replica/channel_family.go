@@ -20,6 +20,7 @@ package replica
 import (
 	"context"
 	"io"
+	"runtime/pprof"
 	"sync"
 	"time"
 
@@ -129,7 +130,11 @@ func newFamilyChannel(
 
 	fc.statistics.ActiveWriteFamilies.Incr()
 
-	go fc.writeTask()
+	go func() {
+		channelFamilyLabels := pprof.Labels("database", database,
+			"shard", shardID.String(), "family", timeutil.FormatTimestamp(familyTime, timeutil.DataTimeFormat2))
+		pprof.Do(c, channelFamilyLabels, fc.writeTask)
+	}()
 
 	return fc
 }
@@ -198,7 +203,7 @@ func (fc *familyChannel) flushChunkOnFull(ctx context.Context) error {
 }
 
 // writeTask consumes data from chan, then appends the data into queue
-func (fc *familyChannel) writeTask() {
+func (fc *familyChannel) writeTask(_ context.Context) {
 	// on avg 2 * limit could avoid buffer grow
 	ticker := time.NewTicker(fc.checkFlushInterval)
 	defer ticker.Stop()

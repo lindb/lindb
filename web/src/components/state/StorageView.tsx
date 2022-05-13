@@ -60,6 +60,36 @@ export default function StorageView(props: StorageViewProps) {
       },
     },
     {
+      title: "Node Status",
+      render: (text: any, record: StorageState, index: any) => {
+        return (
+          <Descriptions
+            row
+            className="lin-small-desc"
+            size="small"
+            data={[
+              {
+                key: "Alive Nodes",
+                value: (
+                  <Text type="success">
+                    {_.get(record, "stats.liveNodes", 0)}
+                  </Text>
+                ),
+              },
+              {
+                key: "Dead Nodes",
+                value: (
+                  <Text type="danger">
+                    {_.get(record, "stats.deadNodes.length", 0)}
+                  </Text>
+                ),
+              },
+            ]}
+          />
+        );
+      },
+    },
+    {
       title: "Num. Of Database",
       key: "num_db",
       render: (text: any, record: StorageState, index: any) => {
@@ -113,42 +143,11 @@ export default function StorageView(props: StorageViewProps) {
         );
       },
     },
-    {
-      title: "Node Status",
-      render: (text: any, record: StorageState, index: any) => {
-        return (
-          <Descriptions
-            row
-            className="lin-small-desc"
-            size="small"
-            data={[
-              {
-                key: "Alive Nodes",
-                value: (
-                  <Text type="success">
-                    {_.get(record, "stats.liveNodes", 0)}
-                  </Text>
-                ),
-              },
-              {
-                key: "Dead Nodes",
-                value: (
-                  <Text type="danger">
-                    {_.get(record, "stats.deadNodes.length", 0)}
-                  </Text>
-                ),
-              },
-            ]}
-          />
-        );
-      },
-    },
   ];
 
   return (
     <Card
-      bordered
-      title={name ? "Overview" : "Storage Cluster List"}
+      title={name ? "" : "Storage Cluster List"}
       headerStyle={{ padding: 12 }}
       bodyStyle={{ padding: 12 }}
     >

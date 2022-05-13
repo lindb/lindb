@@ -36,6 +36,7 @@ import {
 } from "@src/utils";
 import React, { CSSProperties } from "react";
 import { URLStore } from "@src/stores";
+import * as _ from "lodash-es";
 
 const { Text } = Typography;
 const { CPU, Memory } = StateMetricName;
@@ -46,12 +47,19 @@ interface NodeViewProps {
   loading?: boolean;
   nodes: Node[];
   sql: string;
+  showNodeId?: boolean;
 }
 export default function NodeView(props: NodeViewProps) {
-  const { title, style, loading, nodes, sql } = props;
+  const { showNodeId, title, style, loading, nodes, sql } = props;
   const { stateMetric } = useStateMetric(sql);
 
-  const columns = [
+  const nodeIdCol = {
+    title: "Node Id",
+    dataIndex: "id",
+    key: "id",
+  };
+
+  const columns: any[] = [
     {
       title: "Host Information",
       dataIndex: "hostIp",
@@ -170,7 +178,6 @@ export default function NodeView(props: NodeViewProps) {
 
   return (
     <Card
-      bordered
       style={{ ...style }}
       title={title}
       headerStyle={{ padding: 12 }}
@@ -179,7 +186,7 @@ export default function NodeView(props: NodeViewProps) {
       <Table
         size="small"
         bordered={false}
-        columns={columns}
+        columns={showNodeId ? _.concat([nodeIdCol], columns) : columns}
         dataSource={nodes}
         loading={loading}
         pagination={false}

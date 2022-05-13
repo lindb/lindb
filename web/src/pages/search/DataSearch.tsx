@@ -97,11 +97,7 @@ export default function DataSearch() {
   }, []);
   return (
     <>
-      <Card
-        bordered={false}
-        style={{ marginBottom: 12 }}
-        bodyStyle={{ padding: 12 }}
-      >
+      <Card style={{ marginBottom: 12 }} bodyStyle={{ padding: 12 }}>
         <Form
           style={{ paddingTop: 0, paddingBottom: 0 }}
           getFormApi={(api) => (formApi.current = api)}
@@ -136,7 +132,7 @@ export default function DataSearch() {
           </Button>
         </Form>
       </Card>
-      <Card bordered={false} style={{ marginTop: 12 }}>
+      <Card style={{ marginTop: 12 }}>
         <ExplainStatsView chartId={chartID} />
       </Card>
     </>

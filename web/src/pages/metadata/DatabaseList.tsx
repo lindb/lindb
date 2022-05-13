@@ -145,7 +145,7 @@ export default function DatabaseList() {
   };
 
   return (
-    <Card bordered={false}>
+    <Card>
       <SplitButtonGroup style={{ marginBottom: 20 }}>
         <CreateBtn text="Create" />
         <Button

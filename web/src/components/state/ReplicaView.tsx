@@ -17,20 +17,26 @@ specific language governing permissions and limitations
 under the License.
 */
 import {
+  IconChecklistStroked,
+  IconDoubleChevronRight,
+  IconGridStroked,
+} from "@douyinfe/semi-icons";
+import {
+  Avatar,
+  Button,
   Card,
+  Col,
   List,
   Popover,
-  Space,
+  Row,
   Switch,
-  Tag,
+  Table,
+  Tooltip,
   Typography,
-  ButtonGroup,
-  Button,
-  Descriptions,
 } from "@douyinfe/semi-ui";
 import { ReplicaState } from "@src/models";
 import { exec } from "@src/services";
-import { getColor } from "@src/utils";
+import { getShardColor } from "@src/utils";
 import * as _ from "lodash-es";
 import React, { useEffect, useState } from "react";
 
@@ -39,15 +45,26 @@ const { Text } = Typography;
 interface ReplicaViewProps {
   db: string;
   storage: string;
+  liveNodes: Node[];
 }
 
 export default function ReplicaView(props: ReplicaViewProps) {
-  const { db, storage } = props;
+  const { db, storage, liveNodes } = props;
   const [loading, setLoading] = useState(true);
-  const [replicaState, setReplicaState] = useState<ReplicaState>();
+  const [replicaState, setReplicaState] = useState<any>({
+    shards: [],
+    nodes: [],
+  });
   const [showShard, setShowShard] = useState(true);
   const [showLag, setShowLag] = useState(true);
-  const buildReplicaState = (): any[] => {
+  const [showTable, setShowTable] = useState(false);
+
+  /**
+   * build replica state by node.
+   * node=>shard list
+   * shard=>family list
+   */
+  const buildReplicaState = (replicaState: ReplicaState): any[] => {
     const nodes = _.keys(replicaState);
     const rs: any[] = [];
     _.forEach(nodes, (node) => {
@@ -56,26 +73,83 @@ export default function ReplicaView(props: ReplicaViewProps) {
       _.forEach(logs, (log) => {
         const shardIdx = _.findIndex(shards, { shardId: log.shardId });
         const families = _.get(log, "replicators", []);
-        const totalPending = _.reduce(
-          families,
-          function (sum, n) {
-            return sum + n.pending;
-          },
-          0
+        let totalPending = 0;
+        let replicators: any[] = [];
+        _.forEach(families || [], (r) => {
+          replicators.push(_.merge(r, log));
+          totalPending += r.pending;
+        });
+        _.orderBy(
+          replicators,
+          ["replicator", "replicatorType"],
+          ["desc", "desc"]
         );
+        log.replicators = replicators;
         if (shardIdx < 0) {
           shards.push({
             shardId: log.shardId,
             pending: totalPending,
-            families: [log],
+            channels: [log],
           });
         } else {
           const shard = shards[shardIdx];
           shard.pending += totalPending;
-          shard.families.push(log);
+          shard.channels.push(log);
         }
       });
       rs.push({ node: node, shards: shards });
+    });
+    return rs;
+  };
+
+  /**
+   * build replica state by shard id
+   * shard => family list
+   * family => leader->follower
+   */
+  const buildReplicaStateByShard = (replicaState: ReplicaState): any[] => {
+    const rs: any[] = [];
+    const nodes = _.keys(replicaState);
+    const shardMap = new Map();
+    _.forEach(nodes, (node) => {
+      const familyList = _.get(replicaState, node, []);
+      _.forEach(familyList, (family) => {
+        const shardId = family.shardId;
+        const familyTime = family.familyTime;
+        _.set(family, "sourceNode", node);
+
+        let replicators: any[] = [];
+        _.forEach(family.replicators || [], (r) => {
+          replicators.push(_.merge(r, family));
+        });
+        _.orderBy(
+          replicators,
+          ["replicator", "replicatorType"],
+          ["desc", "desc"]
+        );
+
+        if (shardMap.has(shardId)) {
+          const shard = shardMap.get(shardId);
+          const channels = _.find(shard.channels, { familyTime: familyTime });
+          if (channels) {
+            // add family into exist family channel
+            channels.replicators.push(...replicators);
+          } else {
+            // add family into exist shard as new channel
+            shard.channels.push({
+              familyTime: familyTime,
+              replicators: replicators,
+            });
+          }
+        } else {
+          const shard = {
+            shardId: shardId,
+            channels: [{ familyTime: familyTime, replicators: replicators }],
+          };
+          shardMap.set(shardId, shard);
+          rs.push(shard);
+        }
+      });
     });
     return rs;
   };
@@ -85,7 +159,9 @@ export default function ReplicaView(props: ReplicaViewProps) {
       try {
         setLoading(true);
         const state = await exec<ReplicaState>({ sql: sql });
-        setReplicaState(state);
+        const shards = buildReplicaStateByShard(state);
+        const nodes = buildReplicaState(state);
+        setReplicaState({ shards: shards || [], nodes: nodes || [] });
       } catch (err) {
         console.log(err);
       } finally {
@@ -95,155 +171,291 @@ export default function ReplicaView(props: ReplicaViewProps) {
     fetchReplicaState(
       `show replication where storage='${storage}' and database='${db}'`
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [storage, db]);
 
-  const renderReplicator = (family: any, fn: Function) => {
-    return _.get(family, "replicators", []).map((r: any) => (
-      <span key={r.replicator}>
-        <Text link>{fn(family, r)}</Text>
-        <br />
-      </span>
-    ));
-  };
-
-  const renderShardDetail = (shard: any) => {
+  const renderReplicatorState = (r: any) => {
+    let color = "warning";
+    switch (r.state) {
+      case "Ready":
+        color = "success";
+        break;
+      case "Init":
+        color = "secondary";
+        break;
+      case "Failure":
+        color = "danger";
+        break;
+    }
     return (
-      <>
-        <List
-          bordered
-          size="small"
-          dataSource={_.orderBy(shard.families, ["familyTime"], ["desc"])}
-          renderItem={(item) => (
-            <List.Item>
-              <Space align="center">
-                <div style={{ textAlign: "center", rowGap: 4 }}>
-                  <div>{item.familyTime}</div>
-                  <div style={{ columnGap: 4, display: "flex" }}>
-                    <Tag color="blue">Leader:{item.leader}</Tag>
-                    <Tag color="blue">
-                      Append:{item.append > 0 ? item.append - 1 : 0}
-                    </Tag>
-                  </div>
-                </div>
-                <div>
-                  <Descriptions
-                    className="lin-small-desc"
-                    row
-                    size="small"
-                    data={[
-                      {
-                        key: "Peer",
-                        value: (
-                          <>
-                            {renderReplicator(
-                              item,
-                              (f: any, r: any) => `${f.leader}->${r.replicator}`
-                            )}
-                          </>
-                        ),
-                      },
-                      {
-                        key: "Consume",
-                        value: (
-                          <>
-                            {renderReplicator(
-                              item,
-                              (f: any, r: any) =>
-                                `${r.consume > 0 ? r.consume - 1 : 0}`
-                            )}
-                          </>
-                        ),
-                      },
-                      {
-                        key: "Ack",
-                        value: (
-                          <>
-                            {renderReplicator(
-                              item,
-                              (f: any, r: any) => `${r.ack}`
-                            )}
-                          </>
-                        ),
-                      },
-                      {
-                        key: "Lag",
-                        value: (
-                          <>
-                            {renderReplicator(
-                              item,
-                              (f: any, r: any) => `${r.pending}`
-                            )}
-                          </>
-                        ),
-                      },
-                    ]}
-                  />
-                </div>
-              </Space>
-            </List.Item>
-          )}
-        />
-      </>
+      <Tooltip content={r.stateErrMsg || "Ready"}>
+        <div
+          style={{
+            borderRadius: "var(--semi-border-radius-circle)",
+            width: 12,
+            height: 12,
+            marginTop: 4,
+            backgroundColor: `var(--semi-color-${color})`,
+          }}
+        ></div>
+      </Tooltip>
     );
   };
+
+  const getNode = (id: string) => {
+    const follower = _.find(liveNodes, {
+      id: parseInt(id),
+    });
+    return `${_.get(follower, "hostIp", "unkonw")}:${_.get(
+      follower,
+      "grpcPort",
+      "unkonw"
+    )}`;
+  };
+
+  const renderChannel = (shard: any, shardIdx: any) => {
+    return _.orderBy(shard.channels || [], ["familyTime"], ["desc"]).map(
+      (channel: any, idx: any) => {
+        return (
+          <div
+            key={idx}
+            style={{
+              display: "flex",
+            }}
+          >
+            <Typography.Text
+              style={{
+                borderLeft: "1px solid var(--semi-color-border)",
+                borderRight: "1px solid var(--semi-color-border)",
+                borderBottom: "1px solid var(--semi-color-border)",
+                minWidth: 180,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {channel.familyTime}
+            </Typography.Text>
+            <Table
+              size="small"
+              pagination={false}
+              dataSource={channel.replicators}
+              showHeader={idx == 0 && shardIdx == 0}
+              columns={[
+                {
+                  title: "Type",
+                  dataIndex: "replicatorType",
+                  width: 100,
+                  render: (text, record, _index) => {
+                    return (
+                      <div style={{ display: "flex" }}>
+                        {renderReplicatorState(record)}
+                        <span style={{ marginLeft: 4 }}>{text}</span>
+                      </div>
+                    );
+                  },
+                },
+                {
+                  title: "Peer",
+                  dataIndex: "replicator",
+                  render: (_text, record, _index) => {
+                    return (
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                        }}
+                      >
+                        <span style={{ display: "flex" }}>
+                          <Avatar
+                            color="amber"
+                            size="extra-extra-small"
+                            style={{ margin: 4 }}
+                          >
+                            L
+                          </Avatar>
+                          <span style={{ marginTop: 4 }}>
+                            {getNode(record.leader)}
+                          </span>
+                        </span>
+                        <IconDoubleChevronRight
+                          style={{
+                            marginLeft: 4,
+                            color: "var(--semi-color-success)",
+                          }}
+                        />
+                        <span style={{ display: "flex" }}>
+                          <Avatar
+                            color={
+                              `${record.leader}` === record.replicator
+                                ? "amber"
+                                : "light-blue"
+                            }
+                            size="extra-extra-small"
+                            style={{ margin: 4 }}
+                          >
+                            {`${record.leader}` === record.replicator
+                              ? "L"
+                              : "F"}
+                          </Avatar>
+                          <span style={{ marginTop: 4 }}>
+                            {getNode(record.replicator)}
+                          </span>
+                        </span>
+                      </div>
+                    );
+                  },
+                },
+                {
+                  title: "Append",
+                  dataIndex: "append",
+                  width: 100,
+                },
+                {
+                  title: "Consume",
+                  dataIndex: "consume",
+                  width: 100,
+                },
+                {
+                  title: "Ack",
+                  dataIndex: "ack",
+                  width: 100,
+                },
+                {
+                  title: "Lag",
+                  dataIndex: "pending",
+                  width: 100,
+                },
+              ]}
+            />
+          </div>
+        );
+      }
+    );
+  };
+
+  const renderShards = () => {
+    return (
+      <Row
+        type="flex"
+        gutter={8}
+        style={{ display: !showTable ? "block" : "none" }}
+      >
+        {replicaState.nodes.map((item: any) => {
+          return (
+            <Col span={8} key={item.node}>
+              <Card bodyStyle={{ padding: 12 }}>
+                <div style={{ marginBottom: 2, textAlign: "center" }}>
+                  {item.node}
+                </div>
+                {_.get(item, "shards", []).map((shard: any) => {
+                  return (
+                    <Popover
+                      showArrow
+                      key={shard.shardId}
+                      content={renderChannel(shard, 0)}
+                    >
+                      <Button
+                        style={{
+                          minWidth: 50,
+                          margin: "0px 4px 4px 0px",
+                          color: "var(--semi-color-text-0)",
+                          backgroundColor: getShardColor(shard.shardId),
+                        }}
+                        size="small"
+                      >
+                        {showShard ? <span>S:{shard.shardId}</span> : ""}
+                        {showShard && showLag ? " " : ""}
+                        {showLag ? <span>L:{shard.pending}</span> : ""}
+                      </Button>
+                    </Popover>
+                  );
+                })}
+              </Card>
+            </Col>
+          );
+        })}
+      </Row>
+    );
+  };
+
+  const renderShardsAsTable = () => {
+    const shards = replicaState.shards;
+    return (
+      <List
+        style={{ display: showTable ? "block" : "none" }}
+        dataSource={_.orderBy(shards, ["shardId"])}
+        renderItem={(item: any, shardIdx: any) => (
+          <List.Item
+            style={{ display: "block", padding: "0", borderBottom: 0 }}
+          >
+            <div style={{ display: "flex" }}>
+              <div
+                style={{
+                  borderLeft: "1px solid var(--semi-color-border)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "0 8px 0 8px",
+                  borderBottom: "1px solid var(--semi-color-border)",
+                }}
+              >
+                <Avatar
+                  size="default"
+                  style={{
+                    margin: 4,
+                    backgroundColor: getShardColor(item.shardId),
+                  }}
+                >
+                  {item.shardId}
+                </Avatar>
+              </div>
+              <div
+                style={{
+                  width: "100%",
+                  borderRight: "1px solid var(--semi-color-border)",
+                }}
+              >
+                {renderChannel(item, shardIdx)}
+              </div>
+            </div>
+          </List.Item>
+        )}
+      />
+    );
+  };
+
   return (
     <Card
-      bordered={false}
       title="Replication Status"
       headerExtraContent={
         <>
           <div style={{ display: "flex", alignItems: "center" }}>
-            <Text style={{ margin: 4 }}>Shard</Text>
-            <Switch checked={showShard} onChange={setShowShard} size="small" />
-            <Text style={{ margin: 4 }}>Lag</Text>
-            <Switch checked={showLag} onChange={setShowLag} size="small" />
+            {!showTable && (
+              <>
+                <Text style={{ margin: 4 }}>Shard</Text>
+                <Switch
+                  checked={showShard}
+                  onChange={setShowShard}
+                  size="small"
+                />
+                <Text style={{ margin: 4 }}>Lag</Text>
+                <Switch checked={showLag} onChange={setShowLag} size="small" />
+              </>
+            )}
+            <Button
+              style={{ marginLeft: 8 }}
+              icon={showTable ? <IconChecklistStroked /> : <IconGridStroked />}
+              onClick={() => setShowTable(!showTable)}
+            />
           </div>
         </>
       }
       headerStyle={{ padding: 12 }}
-      bodyStyle={{ padding: "12px 12px 0px 12px", display: "flex" }}
+      bodyStyle={{ padding: 12 }}
       loading={loading}
     >
-      <Space wrap>
-        {buildReplicaState().map((item) => {
-          return (
-            <Card
-              bordered
-              style={{ margin: "0px 10px 10px 0px", width: 300 }}
-              bodyStyle={{ padding: 12 }}
-              key={item.node}
-            >
-              <div style={{ marginBottom: 2, textAlign: "center" }}>
-                {item.node}
-              </div>
-              {_.get(item, "shards", []).map((shard: any) => {
-                return (
-                  <Popover
-                    showArrow
-                    key={shard.shardId}
-                    content={renderShardDetail(shard)}
-                  >
-                    <Button
-                      style={{
-                        minWidth: 50,
-                        margin: "0px 4px 4px 0px",
-                        color: "var(--semi-color-text-0)",
-                        backgroundColor: getColor(shard.shardId),
-                      }}
-                      size="small"
-                    >
-                      {showShard ? <span>S:{shard.shardId}</span> : ""}
-                      {showShard && showLag ? " " : ""}
-                      {showLag ? <span>L:{shard.pending}</span> : ""}
-                    </Button>
-                  </Popover>
-                );
-              })}
-            </Card>
-          );
-        })}
-      </Space>
+      {renderShardsAsTable()}
+      {renderShards()}
     </Card>
   );
 }
