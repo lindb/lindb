@@ -21,12 +21,14 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"runtime/pprof"
 	"time"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
+	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 //go:generate mockgen -source=./registry.go -destination=./registry_mock.go -package=discovery
@@ -71,7 +73,13 @@ func (r *registry) Register(node models.Node) error {
 	path := fmt.Sprintf("%s/%s", r.prefixPath, node.Indicator())
 	r.log.Info("starting register node", logger.String("path", path))
 	// register node if fail retry it
-	go r.register(path, node)
+	go func() {
+		registerLabels := pprof.Labels("path", path,
+			"timestamp", timeutil.FormatTimestamp(timeutil.Now(), timeutil.DataTimeFormat2))
+		pprof.Do(r.ctx, registerLabels, func(ctx context.Context) {
+			r.register(path, node)
+		})
+	}()
 	return nil
 }
 
