@@ -20,14 +20,13 @@ package models
 import (
 	"sync"
 	"time"
-
-	"github.com/lindb/lindb/pkg/ltoml"
 )
 
 // QueryStats represents the query stats when need explain query flow stat
 type QueryStats struct {
 	BrokerNodes  map[string]*QueryStats   `json:"brokerNodes,omitempty"`
 	StorageNodes map[string]*StorageStats `json:"storageNodes,omitempty"`
+	NetPayload   int64                    `json:"netPayload"`
 	PlanCost     int64                    `json:"planCost,omitempty"`
 	WaitCost     int64                    `json:"waitCost,omitempty"` // wait intermediate or leaf response duration
 	ExpressCost  int64                    `json:"expressCost,omitempty"`
@@ -54,7 +53,7 @@ func (s *QueryStats) MergeStorageTaskStats(nodeID string, stats *StorageStats) {
 
 // StorageStats represents query stats in storage side
 type StorageStats struct {
-	NetPayload            ltoml.Size              `json:"netPayload"`
+	NetPayload            int64                   `json:"netPayload"`
 	TotalCost             int64                   `json:"totalCost"`
 	PlanCost              int64                   `json:"planCost"`
 	TagFilterCost         int64                   `json:"tagFilterCost"`
