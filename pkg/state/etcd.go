@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 	"time"
@@ -33,6 +34,7 @@ import (
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 // etcdRepository is repository based on etcd storage
@@ -189,7 +191,10 @@ func (r *etcdRepository) Heartbeat(ctx context.Context, key string, value []byte
 	go func() {
 		// closed channel, if keep alive stopped
 		defer close(ch)
-		h.keepAlive(ctx)
+		heartbeatLabels := pprof.Labels("key", key,
+			"value", string(value), "ttl", fmt.Sprintf("%d", ttl),
+			"timestamp", timeutil.FormatTimestamp(timeutil.Now(), timeutil.DataTimeFormat2))
+		pprof.Do(ctx, heartbeatLabels, h.keepAlive)
 	}()
 	return ch, nil
 }
@@ -216,7 +221,10 @@ func (r *etcdRepository) Elect(
 			defer func() {
 				close(ch)
 			}()
-			h.keepAlive(ctx)
+			electLabels := pprof.Labels("key", key,
+				"value", string(value), "ttl", fmt.Sprintf("%d", ttl),
+				"timestamp", timeutil.FormatTimestamp(timeutil.Now(), timeutil.DataTimeFormat2))
+			pprof.Do(ctx, electLabels, h.keepAlive)
 		}()
 		return success, ch, nil
 	}
