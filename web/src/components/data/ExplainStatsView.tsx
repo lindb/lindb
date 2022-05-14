@@ -20,6 +20,7 @@ import {
   IconFile,
   IconFlowChartStroked,
   IconServerStroked,
+  IconTemplateStroked,
 } from "@douyinfe/semi-icons";
 import { Tree, Typography } from "@douyinfe/semi-ui";
 import { CanvasChart, MetricStatus } from "@src/components";
@@ -184,11 +185,12 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
     }
     return shardNodes;
   };
-  const buildStorageNodes = (total: any, storageNodes: any) => {
+
+  const buildStorageNodes = (parent: string, total: any, storageNodes: any) => {
     let children: any = [];
     let storageNode = {
       label: <Text strong>Storage Nodes</Text>,
-      key: "Storage-Nodes",
+      key: `${parent}-Storage-Nodes`,
       children: children,
     };
     for (let key of Object.keys(storageNodes)) {
@@ -209,7 +211,7 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
             ]
           </span>
         ),
-        key: key,
+        key: `${parent}-Storage-Nodes-${key}`,
         icon: <IconServerStroked />,
         children: [
           {
@@ -219,7 +221,7 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
                 {renderCost(storageNodeStats.planCost, total)}
               </span>
             ),
-            key: `${key}plan-execute`,
+            key: `${parent}-${key}plan-execute`,
           },
           {
             label: (
@@ -228,7 +230,7 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
                 {renderCost(storageNodeStats.tagFilterCost, total)}
               </span>
             ),
-            key: `${key}tag-filtering`,
+            key: `${parent}-${key}tag-filtering`,
           },
         ],
       };
@@ -237,18 +239,57 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
         nodeStats.children.push(
           buildCollectValueStats(
             total,
-            key,
+            `${parent}-${key}`,
             storageNodeStats.collectTagValuesStats
           )
         );
       }
       if (storageNodeStats.shards) {
         nodeStats.children.push(
-          buildShardNodes(total, key, storageNodeStats.shards)
+          buildShardNodes(total, `${parent}-${key}`, storageNodeStats.shards)
         );
       }
     }
     return storageNode;
+  };
+
+  const buildIntermediateBrokers = (total: any, brokerNodes: any) => {
+    let children: any = [];
+    let IntermediateNode = {
+      label: <Text strong>Intermediate Nodes</Text>,
+      key: "Intermediate-Nodes",
+      children: children,
+    };
+    for (let key of Object.keys(brokerNodes)) {
+      const brokerNodeStats = brokerNodes[key];
+      const nodeStats = {
+        label: (
+          <span>
+            <Text strong link>
+              {key}
+            </Text>
+            : [ Waiting: {renderCost(brokerNodeStats.waitCost, total)}, Cost:{" "}
+            {renderCost(brokerNodeStats.totalCost, total)}, Network Payload:{" "}
+            <Text link>
+              {" "}
+              {formatter(brokerNodeStats.netPayload, UnitEnum.Bytes)})
+            </Text>{" "}
+            ]
+          </span>
+        ),
+        icon: <IconTemplateStroked />,
+        key: `Intermediate-${key}`,
+        children: [] as any,
+      };
+      children.push(nodeStats);
+      if (brokerNodeStats.storageNodes) {
+        nodeStats.children.push(
+          buildStorageNodes(key, total, brokerNodeStats.storageNodes)
+        );
+      }
+    }
+    console.log("IntermediateNode", IntermediateNode);
+    return IntermediateNode;
   };
 
   const buildStatsData = () => {
@@ -276,11 +317,11 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
         {
           label: (
             <span>
-              <Text strong>Waiting Storeage Response</Text>:{" "}
+              <Text strong>Waiting Response</Text>:{" "}
               {renderCost(state.waitCost, state.totalCost)}
             </span>
           ),
-          key: "Waiting Storeage Response",
+          key: "Waiting Intermediate Response",
         },
         {
           label: (
@@ -293,9 +334,14 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
         },
       ],
     };
+    if (state.brokerNodes) {
+      root.children.push(
+        buildIntermediateBrokers(state.totalCost, state.brokerNodes)
+      );
+    }
     if (state.storageNodes) {
       root.children.push(
-        buildStorageNodes(state.totalCost, state.storageNodes)
+        buildStorageNodes("root", state.totalCost, state.storageNodes)
       );
     }
     return [root];
@@ -311,7 +357,6 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
           }
           const state = ChartStore.stateCache.get(chartId);
           setState(state);
-          console.log("explain state", state);
         }
       ),
     ];
@@ -321,7 +366,8 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  console.log("buildStatsData()", buildStatsData());
+
+  console.log("buildStatsData", buildStatsData());
 
   return (
     <>

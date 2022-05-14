@@ -40,6 +40,12 @@ export type ExplainResult = {
   expressCost: number;
   waitCost: number;
   storageNodes: { [propName: string]: StorageNodeExecStats };
+  brokerNodes: { [propName: string]: BrokerNodeExecStats };
+};
+
+export type BrokerNodeExecStats = {
+  waitCost: number;
+  storageNodes: { [propName: string]: StorageNodeExecStats };
 };
 
 export type StorageNodeExecStats = {

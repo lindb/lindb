@@ -29,7 +29,6 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/fasttime"
-	"github.com/lindb/lindb/pkg/ltoml"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
@@ -302,21 +301,26 @@ func (c *metricTaskContext) handleStats(resp *protoCommonV1.TaskResponse, fromNo
 		// from leaf node
 		storageStats := models.NewStorageStats()
 		_ = encoding.JSONUnmarshal(resp.Stats, storageStats)
-		storageStats.NetPayload = ltoml.Size(len(resp.Stats) + len(resp.Payload))
+		storageStats.NetPayload = int64(len(resp.Stats) + len(resp.Payload))
 		c.stats.MergeStorageTaskStats(fromNode, storageStats)
+		c.stats.NetPayload += storageStats.NetPayload
 	}
 }
 
 func (c *metricTaskContext) handleTaskResponse(resp *protoCommonV1.TaskResponse, fromNode string) error {
 	c.handleStats(resp, fromNode)
 
-	ignoreReponse, err := c.checkError(resp.ErrMsg)
+	ignoreResponse, err := c.checkError(resp.ErrMsg)
 	if err != nil {
 		return err
 	}
 	// partial not-found errors
-	if ignoreReponse {
+	if ignoreResponse {
 		return nil
+	}
+	var start time.Time
+	if c.stats != nil {
+		start = time.Now()
 	}
 
 	tsList := &protoCommonV1.TimeSeriesList{}
@@ -358,6 +362,10 @@ func (c *metricTaskContext) handleTaskResponse(resp *protoCommonV1.TaskResponse,
 			fields[field.Name(k)] = v
 		}
 		c.groupAgg.Aggregate(series.NewGroupedIterator(ts.Tags, fields))
+	}
+
+	if c.stats != nil {
+		c.stats.TotalCost = time.Since(start).Nanoseconds()
 	}
 	return nil
 }

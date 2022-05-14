@@ -19,15 +19,20 @@ package brokerquery
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/sql/stmt"
 )
 
 func Test_TaskContext_metaDataTaskContext(t *testing.T) {
@@ -161,4 +166,87 @@ func Test_TaskContext_metricTaskContext_notFound(t *testing.T) {
 		&protoCommonV1.TaskResponse{ErrMsg: "metricID not found"},
 		"1.1.1.1",
 	)
+}
+
+func TestTaskContext_handleTaskResponse(t *testing.T) {
+	tsList := &protoCommonV1.TimeSeriesList{
+		FieldAggSpecs: []*protoCommonV1.AggregatorSpec{
+			{
+				FieldName:    "test",
+				FieldType:    uint32(field.Sum),
+				FuncTypeList: []uint32{uint32(field.Sum)},
+			},
+		},
+		TimeSeriesList: []*protoCommonV1.TimeSeries{{Fields: nil}},
+	}
+	payload, _ := tsList.Marshal()
+	tsListWithField := &protoCommonV1.TimeSeriesList{
+		FieldAggSpecs: []*protoCommonV1.AggregatorSpec{
+			{
+				FieldName:    "test",
+				FieldType:    uint32(field.Sum),
+				FuncTypeList: []uint32{uint32(field.Sum)},
+			},
+		},
+		TimeSeriesList: []*protoCommonV1.TimeSeries{{Fields: map[string][]byte{"test": nil}}},
+	}
+	payloadWithField, _ := tsListWithField.Marshal()
+	cases := []struct {
+		name    string
+		resp    *protoCommonV1.TaskResponse
+		wantErr bool
+	}{
+		{
+			name: "resp with err",
+			resp: &protoCommonV1.TaskResponse{
+				ErrMsg: fmt.Errorf("err").Error(),
+			},
+			wantErr: true,
+		},
+		{
+			name: "resp with not found err",
+			resp: &protoCommonV1.TaskResponse{
+				ErrMsg: constants.ErrNotFound.Error(),
+			},
+			wantErr: false,
+		},
+		{
+			name: "unmarshal payload failure",
+			resp: &protoCommonV1.TaskResponse{
+				Payload: []byte("abc"),
+			},
+			wantErr: true,
+		},
+		{
+			name: "no field data",
+			resp: &protoCommonV1.TaskResponse{
+				Payload: payload,
+			},
+			wantErr: false,
+		},
+		{
+			name: "agg field data",
+			resp: &protoCommonV1.TaskResponse{
+				Payload: payloadWithField,
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := &metricTaskContext{
+				stats:             &models.QueryStats{},
+				tolerantNotFounds: 10,
+				aggregatorSpecs:   make(map[string]*protoCommonV1.AggregatorSpec),
+				stmtQuery:         &stmt.Query{Interval: timeutil.Interval(10 * timeutil.OneSecond)},
+			}
+
+			err := ctx.handleTaskResponse(tt.resp, "leaf")
+			if (err != nil) != tt.wantErr {
+				t.Errorf("handleTaskResponse() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
 }
