@@ -119,7 +119,7 @@ func (e *storageExecutor) executeQuery() {
 	for idx := range shards {
 		shardIdx := idx
 		shard := shards[shardIdx]
-		e.queryFlow.Submit(flow.FilteringStage, func() {
+		e.track.submitTask(flow.FilteringStage, func() {
 			// 1. get series ids by query condition
 			shardExecuteCtx := flow.NewShardExecuteContext(e.ctx.storageExecuteCtx)
 			e.ctx.storageExecuteCtx.ShardContexts[shardIdx] = shardExecuteCtx
@@ -149,7 +149,7 @@ func (e *storageExecutor) executeQuery() {
 			}
 
 			// 3. execute group by
-			e.queryFlow.Submit(flow.GroupingStage, func() {
+			e.track.submitTask(flow.GroupingStage, func() {
 				e.executeGroupBy(shardExecuteCtx, shard)
 			})
 		})
