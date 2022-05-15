@@ -142,8 +142,6 @@ func Test_checkStorageBaseCfg(t *testing.T) {
 	}
 	assert.NoError(t, checkStorageBaseCfg(storageCfg4))
 	assert.NotZero(t, storageCfg4.TSDB.MaxMemDBSize)
-	assert.NotZero(t, storageCfg4.TSDB.MaxMemDBTotalSize)
-	assert.NotZero(t, storageCfg4.TSDB.MaxMemDBNumber)
 	assert.NotZero(t, storageCfg4.TSDB.MutableMemDBTTL)
 	assert.NotZero(t, storageCfg4.TSDB.MaxMemUsageBeforeFlush)
 	assert.NotZero(t, storageCfg4.TSDB.TargetMemUsageAfterFlush)

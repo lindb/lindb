@@ -18,9 +18,12 @@
 package config
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/pkg/ltoml"
 )
 
 func TestSetGlobalConfig(t *testing.T) {
@@ -31,4 +34,219 @@ func TestSetGlobalConfig(t *testing.T) {
 	s := &StorageBase{}
 	SetGlobalStorageConfig(s)
 	assert.Equal(t, s, GlobalStorageConfig())
+}
+
+func TestLoadAndSetBrokerConfig(t *testing.T) {
+	cases := []struct {
+		name    string
+		prepare func(cfg *Broker)
+		wantErr bool
+	}{
+		{
+			name: "load config failure",
+			prepare: func(_ *Broker) {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+					return fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "valid coordinator failure",
+			prepare: func(cfg *Broker) {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+					return nil
+				}
+				cfg.Coordinator.Namespace = ""
+			},
+			wantErr: true,
+		},
+		{
+			name: "valid broker failure",
+			prepare: func(cfg *Broker) {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+					return nil
+				}
+				cfg.BrokerBase.HTTP.Port = 0
+			},
+			wantErr: true,
+		},
+		{
+			name: "load and set cfg success",
+			prepare: func(_ *Broker) {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+					return nil
+				}
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				loadConfigFn = ltoml.LoadConfig
+			}()
+			cfg := &Broker{
+				Coordinator: *NewDefaultCoordinator(),
+				Query:       *NewDefaultQuery(),
+				BrokerBase:  *NewDefaultBrokerBase(),
+			}
+			if tt.prepare != nil {
+				tt.prepare(cfg)
+			}
+			err := LoadAndSetBrokerConfig("test", "broker.toml", cfg)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("LoadAndSetBrokerConfig() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestLoadAndSetStorageConfig(t *testing.T) {
+	cases := []struct {
+		name    string
+		prepare func(cfg *Storage)
+		wantErr bool
+	}{
+		{
+			name: "load config failure",
+			prepare: func(_ *Storage) {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+					return fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "valid coordinator failure",
+			prepare: func(cfg *Storage) {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+					return nil
+				}
+				cfg.Coordinator.Namespace = ""
+			},
+			wantErr: true,
+		},
+		{
+			name: "valid storage failure",
+			prepare: func(cfg *Storage) {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+					return nil
+				}
+				cfg.StorageBase.Indicator = 0
+			},
+			wantErr: true,
+		},
+		{
+			name: "load and set cfg success",
+			prepare: func(_ *Storage) {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+					return nil
+				}
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				loadConfigFn = ltoml.LoadConfig
+			}()
+			cfg := &Storage{
+				Coordinator: *NewDefaultCoordinator(),
+				Query:       *NewDefaultQuery(),
+				StorageBase: *NewDefaultStorageBase(),
+			}
+			if tt.prepare != nil {
+				tt.prepare(cfg)
+			}
+			err := LoadAndSetStorageConfig("test", "storage.toml", cfg)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("LoadAndSetStorageConfig() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestLoadAndSetStandaloneConfig(t *testing.T) {
+	cases := []struct {
+		name    string
+		prepare func(cfg *Standalone)
+		wantErr bool
+	}{
+		{
+			name: "load config failure",
+			prepare: func(_ *Standalone) {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+					return fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "valid coordinator failure",
+			prepare: func(cfg *Standalone) {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+					return nil
+				}
+				cfg.Coordinator.Namespace = ""
+			},
+			wantErr: true,
+		},
+		{
+			name: "valid broker failure",
+			prepare: func(cfg *Standalone) {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+					return nil
+				}
+				cfg.BrokerBase.HTTP.Port = 0
+			},
+			wantErr: true,
+		},
+		{
+			name: "valid storage failure",
+			prepare: func(cfg *Standalone) {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+					return nil
+				}
+				cfg.StorageBase.Indicator = 0
+			},
+			wantErr: true,
+		},
+		{
+			name: "load and set cfg success",
+			prepare: func(_ *Standalone) {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+					return nil
+				}
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				loadConfigFn = ltoml.LoadConfig
+			}()
+			cfg := &Standalone{
+				Coordinator: *NewDefaultCoordinator(),
+				Query:       *NewDefaultQuery(),
+				StorageBase: *NewDefaultStorageBase(),
+				BrokerBase:  *NewDefaultBrokerBase(),
+			}
+			if tt.prepare != nil {
+				tt.prepare(cfg)
+			}
+			err := LoadAndSetStandAloneConfig("test", "standalone.toml", cfg)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("LoadAndSetStandAloneConfig() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
 }

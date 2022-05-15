@@ -39,19 +39,23 @@ type Monitor struct {
 // TOML returns Monitor's toml config
 func (m *Monitor) TOML() string {
 	return fmt.Sprintf(`
-[monitor]
 ## Config for the Internal Monitor
+[monitor]
 ## time period to process an HTTP metrics push call
-## Default: 3s
+## Default: %s
 push-timeout = "%s"
 ## monitor won't start when interval is sets to 0
 ## such as cpu, memory, and disk, process and go runtime
-## Default: 10s
+## Default: %s
 report-interval = "%s"
 ## URL is the target of broker native ingestion url
+## Default: %s
 url = "%s"`,
 		m.PushTimeout.String(),
+		m.PushTimeout.String(),
 		m.ReportInterval.String(),
+		m.ReportInterval.String(),
+		m.URL,
 		m.URL,
 	)
 }

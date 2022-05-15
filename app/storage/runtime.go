@@ -251,7 +251,7 @@ func (r *runtime) Run() error {
 func (r *runtime) MustRegisterStateFulNode() error {
 	r.log.Info("registering stateful storage node...",
 		logger.Int("indicator", int(r.node.ID)),
-		logger.Int64("lease-ttl", r.config.Coordinator.LeaseTTL),
+		logger.String("lease-ttl", r.config.Coordinator.LeaseTTL.String()),
 	)
 	var (
 		ok            bool
@@ -270,11 +270,11 @@ func (r *runtime) MustRegisterStateFulNode() error {
 			r.ctx,
 			constants.GetLiveNodePath(strconv.Itoa(int(r.node.ID))),
 			encoding.JSONMarshal(r.node),
-			r.config.Coordinator.LeaseTTL)
+			int64(r.config.Coordinator.LeaseTTL.Duration().Seconds()))
 		if ok {
 			r.log.Info("registered state node successfully",
 				logger.Int("indicator", int(r.node.ID)),
-				logger.Int64("lease-ttl", r.config.Coordinator.LeaseTTL),
+				logger.String("lease-ttl", r.config.Coordinator.LeaseTTL.String()),
 			)
 			return nil
 		}

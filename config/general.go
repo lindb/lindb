@@ -38,7 +38,7 @@ type Configuration interface {
 type RepoState struct {
 	Namespace   string         `toml:"namespace" json:"namespace" validate:"required"`
 	Endpoints   []string       `toml:"endpoints" json:"endpoints" validate:"required,gt=0"`
-	LeaseTTL    int64          `toml:"lease-ttl" json:"leaseTTL"`
+	LeaseTTL    ltoml.Duration `toml:"lease-ttl" json:"leaseTTL"`
 	Timeout     ltoml.Duration `toml:"timeout" json:"timeout"`
 	DialTimeout ltoml.Duration `toml:"dial-timeout" json:"dialTimeout"`
 	Username    string         `toml:"username" json:"username"`
@@ -47,7 +47,7 @@ type RepoState struct {
 
 // String returns string value of RepoState.
 func (rs *RepoState) String() string {
-	return fmt.Sprintf("endpoints:[%s],leaseTTL:%d,timeout:%s,dialTimeout:%s",
+	return fmt.Sprintf("endpoints:[%s],leaseTTL:%s,timeout:%s,dialTimeout:%s",
 		strings.Join(rs.Endpoints, ","), rs.LeaseTTL, rs.Timeout, rs.DialTimeout)
 }
 
@@ -68,30 +68,42 @@ func (rs *RepoState) TOML() string {
 	return fmt.Sprintf(`[coordinator]
 ## Coordinator coordinates reads/writes operations between different nodes
 ## namespace organizes etcd keys into a isolated complete keyspaces for coordinator
+## Default: %s
 namespace = "%s"
 ## Endpoints config list of ETCD cluster
+## Default: %s
 endpoints = %s
 ## Lease-TTL is a number in seconds.
 ## It controls how long a ephemeral node like zookeeper will be removed when heartbeat fails.
 ## lease expiration will cause a re-elect.
-## Min: 5; Default: 10
-lease-ttl = %d
+## Min: 5s
+## Default: %s
+lease-ttl = "%s"
 ## Timeout is the timeout for failing to executing a etcd command.
-## Default: 5s
+## Default: %s
 timeout = "%s"
 ## DialTimeout is the timeout for failing to establish a etcd connection.
-## Default: 5s
+## Default: %s
 dial-timeout = "%s"
 ## Username is a user name for etcd authentication.
+## Default: "%s"
 username = "%s"
 ## Password is a password for etcd authentication.
+## Default: "%s"
 password = "%s"`,
 		rs.Namespace,
+		rs.Namespace,
 		coordinatorEndpoints,
-		rs.LeaseTTL,
+		coordinatorEndpoints,
+		rs.LeaseTTL.String(),
+		rs.LeaseTTL.String(),
+		rs.Timeout.String(),
 		rs.Timeout.String(),
 		rs.DialTimeout.String(),
+		rs.DialTimeout.String(),
 		rs.Username,
+		rs.Username,
+		rs.Password,
 		rs.Password,
 	)
 }
@@ -100,7 +112,7 @@ func NewDefaultCoordinator() *RepoState {
 	return &RepoState{
 		Namespace:   "/lindb-cluster",
 		Endpoints:   []string{"http://localhost:2379"},
-		LeaseTTL:    10,
+		LeaseTTL:    ltoml.Duration(time.Second * 10),
 		Timeout:     ltoml.Duration(time.Second * 5),
 		DialTimeout: ltoml.Duration(time.Second * 5),
 	}
@@ -115,15 +127,20 @@ type GRPC struct {
 
 func (g *GRPC) TOML() string {
 	return fmt.Sprintf(`
+## port which the GRPC Server is listening on
+## Default: %d
 port = %d
 ## max-concurrent-streams limits the number of concurrent streams to each ServerTransport
-## Default: runtime.GOMAXPROCS(-1) * 2
+## Default: %d 
 max-concurrent-streams = %d
 ## connect-timeout sets the timeout for connection establishment.
-## Default: 3s
+## Default: %s
 connect-timeout = "%s"`,
 		g.Port,
+		g.Port,
 		g.MaxConcurrentStreams,
+		g.MaxConcurrentStreams,
+		g.ConnectTimeout.Duration().String(),
 		g.ConnectTimeout.Duration().String(),
 	)
 }
@@ -141,19 +158,21 @@ type Query struct {
 }
 
 func (q *Query) TOML() string {
-	return fmt.Sprintf(`
-[query]
+	return fmt.Sprintf(`[query]
 ## Number of queries allowed to execute concurrently
-## Default: runtime.GOMAXPROCS(-1) * 2
+## Default: %d
 query-concurrency = %d
 ## Idle worker will be canceled in this duration
-## Default: 5s
+## Default: %s
 idle-timeout = "%s"
 ## Maximum timeout threshold for query.
-## Default: 5s
+## Default: %s
 timeout = "%s"`,
 		q.QueryConcurrency,
+		q.QueryConcurrency,
 		q.IdleTimeout,
+		q.IdleTimeout,
+		q.Timeout,
 		q.Timeout,
 	)
 }

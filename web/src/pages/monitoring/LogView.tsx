@@ -22,7 +22,7 @@ import {
 } from "@douyinfe/semi-illustrations";
 import { Card, Empty, Form, Typography, useFormState } from "@douyinfe/semi-ui";
 import { StateRoleName, SQL } from "@src/constants";
-import { useAliveState } from "@src/hooks";
+import { useAliveState, useStorage } from "@src/hooks";
 import { proxy } from "@src/services";
 import * as _ from "lodash-es";
 import React, { MutableRefObject, useRef, useState } from "react";
@@ -30,8 +30,8 @@ import React, { MutableRefObject, useRef, useState } from "react";
 const { Text } = Typography;
 
 export default function LogView() {
-  const { aliveState: liveNodes } = useAliveState(SQL.ShowDatabases);
-  const { aliveState: storages } = useAliveState(SQL.ShowBrokerAliveNodes);
+  const { aliveState: liveNodes } = useAliveState(SQL.ShowBrokerAliveNodes);
+  const { storages } = useStorage();
   const [tailing, setTailing] = useState(false);
   const [logs, setLogs] = useState("");
   const [files, setFiles] = useState([]);

@@ -43,17 +43,20 @@ type ETCD struct {
 func (etcd *ETCD) TOML() string {
 	return fmt.Sprintf(`[etcd]
 ## Where the ETCD data is stored
+## Default: %s
 dir = "%s"
-
 ## URL to listen on for client traffic 
 ## If 0.0.0.0 if specified as the IP, 
 ## etcd listens to the given port on all interfaces.
 ## If an IP address is given as well as a port, 
 ## etcd will listen on the given port and interface.
-## example: http://10.0.0.1:2379
+## Default: %s
 url = "%s"`,
 		etcd.Dir,
-		etcd.URL)
+		etcd.Dir,
+		etcd.URL,
+		etcd.URL,
+	)
 }
 
 // NewDefaultETCD returns a default ETCD
@@ -66,18 +69,17 @@ func NewDefaultETCD() *ETCD {
 
 // NewDefaultStandaloneTOML creates default toml config for standalone
 func NewDefaultStandaloneTOML() string {
-	return fmt.Sprintf(`%s
-
+	return fmt.Sprintf(`## Embed ETCD related configuration.
 %s
 
+## Coordinator related configuration.
 %s
 
+## Query related configuration.
 %s
-
 %s
-
 %s
-
+%s
 %s`,
 
 		NewDefaultETCD().TOML(),

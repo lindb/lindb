@@ -24,6 +24,10 @@ import (
 	"github.com/lindb/lindb/pkg/ltoml"
 )
 
+// for testing
+var (
+	loadConfigFn = ltoml.LoadConfig
+)
 var (
 	// StandaloneMode represents LinDB run as standalone mode
 	StandaloneMode = false
@@ -60,7 +64,7 @@ func SetGlobalStorageConfig(storageCfg *StorageBase) {
 // LoadAndSetBrokerConfig parses the broker config file
 // this config will be triggered to reload when receiving a SIGHUP signal
 func LoadAndSetBrokerConfig(cfgName, defaultPath string, brokerCfg *Broker) error {
-	if err := ltoml.LoadConfig(cfgName, defaultPath, &brokerCfg); err != nil {
+	if err := loadConfigFn(cfgName, defaultPath, &brokerCfg); err != nil {
 		return fmt.Errorf("decode broker config file error: %s", err)
 	}
 	checkQueryCfg(&brokerCfg.Query)
@@ -77,7 +81,7 @@ func LoadAndSetBrokerConfig(cfgName, defaultPath string, brokerCfg *Broker) erro
 // LoadAndSetStorageConfig parses the storage config file
 // this config will be triggered to reload when receiving a SIGHUP signal
 func LoadAndSetStorageConfig(cfgName, defaultPath string, storageCfg *Storage) error {
-	if err := ltoml.LoadConfig(cfgName, defaultPath, &storageCfg); err != nil {
+	if err := loadConfigFn(cfgName, defaultPath, &storageCfg); err != nil {
 		return fmt.Errorf("decode storage config file error: %s", err)
 	}
 	checkQueryCfg(&storageCfg.Query)
@@ -95,7 +99,7 @@ func LoadAndSetStorageConfig(cfgName, defaultPath string, storageCfg *Storage) e
 // then sets the global broker and storage config
 // this config will be triggered to reload when receiving a SIGHUP signal
 func LoadAndSetStandAloneConfig(cfgName, defaultPath string, standaloneCfg *Standalone) error {
-	if err := ltoml.LoadConfig(cfgName, defaultPath, &standaloneCfg); err != nil {
+	if err := loadConfigFn(cfgName, defaultPath, &standaloneCfg); err != nil {
 		return fmt.Errorf("decode standalone config file error: %s", err)
 	}
 	checkQueryCfg(&standaloneCfg.Query)
