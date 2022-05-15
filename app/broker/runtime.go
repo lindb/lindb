@@ -202,14 +202,14 @@ func (r *runtime) Run() error {
 		Ctx:              r.ctx,
 		Repo:             r.repo,
 		Node:             r.node,
-		TTL:              r.config.Coordinator.LeaseTTL,
+		TTL:              int64(r.config.Coordinator.LeaseTTL.Duration().Seconds()),
 		DiscoveryFactory: discoveryFactory,
 		RepoFactory:      r.repoFactory,
 	}
 	r.master = newMasterController(masterCfg)
 
 	// register broker node info
-	r.registry = newRegistry(r.repo, constants.LiveNodesPath, time.Second*time.Duration(r.config.Coordinator.LeaseTTL))
+	r.registry = newRegistry(r.repo, constants.LiveNodesPath, r.config.Coordinator.LeaseTTL.Duration())
 	err = r.registry.Register(r.node)
 	if err != nil {
 		r.state = server.Failed

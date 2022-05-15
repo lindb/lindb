@@ -35,8 +35,8 @@ func TestStorage_TOML(t *testing.T) {
 func TestWAL_GetDataSizeLimit(t *testing.T) {
 	wal := &WAL{}
 	assert.Equal(t, int64(1024*1024), wal.GetDataSizeLimit())
-	wal = &WAL{DataSizeLimit: 2 * 1024}
+	wal = &WAL{DataSizeLimit: 2 * 1024 * 1024 * 1024}
 	assert.Equal(t, int64(1024*1024*1024), wal.GetDataSizeLimit())
-	wal = &WAL{DataSizeLimit: 128}
+	wal = &WAL{DataSizeLimit: 128 * 1024 * 1024}
 	assert.Equal(t, int64(128*1024*1024), wal.GetDataSizeLimit())
 }

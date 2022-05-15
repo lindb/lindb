@@ -78,4 +78,4 @@ jobs:
           fetch-depth: 1
 
       - name: Build
-        run: make build
+        run: make build-lind

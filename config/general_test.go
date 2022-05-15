@@ -21,22 +21,25 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/pkg/ltoml"
 )
 
 func TestGeneral_string(t *testing.T) {
 	repo := &RepoState{
 		Namespace:   "ns",
 		Endpoints:   []string{"1.1.1.1"},
-		LeaseTTL:    10,
-		Timeout:     20,
-		DialTimeout: 30,
+		LeaseTTL:    ltoml.Duration(time.Second * 10),
+		Timeout:     ltoml.Duration(time.Second * 5),
+		DialTimeout: ltoml.Duration(time.Second * 3),
 		Username:    "u",
 		Password:    "p",
 	}
 
-	assert.Equal(t, fmt.Sprintf("endpoints:[%s],leaseTTL:%d,timeout:%s,dialTimeout:%s",
+	assert.Equal(t, fmt.Sprintf("endpoints:[%s],leaseTTL:%s,timeout:%s,dialTimeout:%s",
 		strings.Join(repo.Endpoints, ","), repo.LeaseTTL, repo.Timeout, repo.DialTimeout),
 		repo.String())
 }

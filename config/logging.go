@@ -41,30 +41,39 @@ type Logging struct {
 // TOML returns Logging's toml config string
 func (l *Logging) TOML() string {
 	return fmt.Sprintf(`
+## logging related configuration.
 [logging]
 ## Dir is the output directory for log-files
+## Default: %s
 dir = "%s"
 ## Determine which level of logs will be emitted.
 ## error, warn, info, and debug are available
+## Default: %s
 level = "%s"
-## MaxSize is the maximum size in megabytes of the log file before it gets
-## rotated. Default: 100 MiB.
+## MaxSize is the maximum size in megabytes of the log file before it gets rotated. 
+## Default: %s
 maxsize = "%s"
 ## MaxBackups is the maximum number of old log files to retain. The default
 ## is to retain all old log files (though MaxAge may still cause them to get deleted.)
-## Default: 3
+## Default: %d
 maxbackups = %d
 ## MaxAge is the maximum number of days to retain old log files based on the
-## timestamp encoded in their filename.  Note that a day is defined as 24 hours 
-## and may not exactly correspond to calendar days due to daylight savings, leap seconds, etc. 
+## timestamp encoded in their filename.  Note that a day is defined as 24 hours
+## and may not exactly correspond to calendar days due to daylight savings, leap seconds, etc.
 ## The default is not to remove old log files based on age.
-## Default: 7
+## Default: %d
 maxage = %d`,
 		l.Dir,
+		l.Dir,
+		l.Level,
 		l.Level,
 		l.MaxSize,
+		l.MaxSize,
 		l.MaxBackups,
-		l.MaxAge)
+		l.MaxBackups,
+		l.MaxAge,
+		l.MaxAge,
+	)
 }
 
 // NewDefaultLogging returns a new default logging config

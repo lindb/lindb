@@ -35,22 +35,25 @@ type HTTP struct {
 
 func (h *HTTP) TOML() string {
 	return fmt.Sprintf(`
-## Controls how HTTP Server are configured.
-##
-## port which the HTTP Server is listening on 
+## port which the HTTP Server is listening on
+## Default: %d
 port = %d
 ## maximum duration the server should keep established connections alive.
-## Default: 2m
+## Default: %s
 idle-timeout = "%s"
 ## maximum duration before timing out for server writes of the response
-## Default: 5s
-write-timeout = "%s"	
+## Default: %s
+write-timeout = "%s"
 ## maximum duration for reading the entire request, including the body.
-## Default: 5s
+## Default: %s
 read-timeout = "%s"`,
 		h.Port,
+		h.Port,
+		h.IdleTimeout.Duration().String(),
 		h.IdleTimeout.Duration().String(),
 		h.WriteTimeout.Duration().String(),
+		h.WriteTimeout.Duration().String(),
+		h.ReadTimeout.Duration().String(),
 		h.ReadTimeout.Duration().String(),
 	)
 }
@@ -63,14 +66,16 @@ type Ingestion struct {
 func (i *Ingestion) TOML() string {
 	return fmt.Sprintf(`
 ## How many goroutines can write metrics at the same time.
-## If writes requests exceeds the concurrency, 
+## If writes requests exceeds the concurrency,
 ## ingestion HTTP API will be throttled.
-## Default: runtime.GOMAXPROCS(-1) * 2
+## Default: %d
 max-concurrency = %d
 ## maximum duration before timeout for server ingesting metrics
-## Default: 5s
+## Default: %s
 ingest-timeout = "%s"`,
 		i.MaxConcurrency,
+		i.MaxConcurrency,
+		i.IngestTimeout.Duration().String(),
 		i.IngestTimeout.Duration().String())
 }
 
@@ -98,17 +103,21 @@ type Write struct {
 
 func (rc *Write) TOML() string {
 	return fmt.Sprintf(`
-## Write Configuration for writing replication block
-## 
 ## Broker will write at least this often,
 ## even if the configured batch-size if not reached.
+## Default: %s
 batch-timeout = "%s"
 ## Broker will sending block to storage node in this size
+## Default: %s
 batch-block-size = "%s"
 ## interval for how often expired write write family garbage collect task execute
+## Default: %s
 gc-task-interval = "%s"`,
 		rc.BatchTimeout.String(),
+		rc.BatchTimeout.String(),
 		rc.BatchBlockSize.String(),
+		rc.BatchBlockSize.String(),
+		rc.GCTaskInterval.String(),
 		rc.GCTaskInterval.String(),
 	)
 }
@@ -118,28 +127,29 @@ type BrokerBase struct {
 	HTTP      HTTP      `toml:"http"`
 	Ingestion Ingestion `toml:"ingestion"`
 	Write     Write     `toml:"write"`
-	User      User      `toml:"user"`
 	GRPC      GRPC      `toml:"grpc"`
 }
 
 // TOML returns broker's base configuration string as toml format.
 func (bb *BrokerBase) TOML() string {
 	return fmt.Sprintf(`
+## Broker related configuration.
 [broker]
 
+## Controls how HTTP Server are configured.
 [broker.http]%s
 
+## Ingestion configuration for broker handle ingest request.
 [broker.ingestion]%s
 
+## Write configuration for writing replication block.
 [broker.write]%s
 
-[broker.user]%s
-
+## Controls how GRPC Server are configured.
 [broker.grpc]%s`,
 		bb.HTTP.TOML(),
 		bb.Ingestion.TOML(),
 		bb.Write.TOML(),
-		bb.User.TOML(),
 		bb.GRPC.TOML(),
 	)
 }
@@ -163,12 +173,8 @@ func NewDefaultBrokerBase() *BrokerBase {
 		},
 		GRPC: GRPC{
 			Port:                 9001,
-			MaxConcurrentStreams: runtime.GOMAXPROCS(-1) * 2,
+			MaxConcurrentStreams: runtime.GOMAXPROCS(-1) * 20,
 			ConnectTimeout:       ltoml.Duration(time.Second * 3),
-		},
-		User: User{
-			UserName: "admin",
-			Password: "admin123",
 		},
 	}
 }
@@ -184,14 +190,13 @@ type Broker struct {
 
 // TOML returns broker's configuration string as toml format.
 func (b *Broker) TOML() string {
-	return fmt.Sprintf(`%s
-
+	return fmt.Sprintf(`## Coordinator related configuration.
 %s
 
+## Query related configuration.
 %s
-
 %s
-
+%s
 %s`,
 		b.Coordinator.TOML(),
 		b.Query.TOML(),
@@ -203,14 +208,13 @@ func (b *Broker) TOML() string {
 
 // NewDefaultBrokerTOML creates broker default toml config
 func NewDefaultBrokerTOML() string {
-	return fmt.Sprintf(`%s
-
+	return fmt.Sprintf(`## Coordinator related configuration.
 %s
 
+## Query related configuration.
 %s
-
 %s
-
+%s
 %s`,
 		NewDefaultCoordinator().TOML(),
 		NewDefaultQuery().TOML(),
