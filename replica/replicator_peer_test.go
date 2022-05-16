@@ -29,6 +29,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/queue"
 )
 
 func TestReplicatorPeer(t *testing.T) {
@@ -38,6 +39,7 @@ func TestReplicatorPeer(t *testing.T) {
 	}()
 
 	mockReplicator := NewMockReplicator(ctrl)
+	mockReplicator.EXPECT().Pending().Return(int64(10)).AnyTimes()
 	mockReplicator.EXPECT().IsReady().Return(false).AnyTimes()
 	mockReplicator.EXPECT().String().Return("str").AnyTimes()
 	mockReplicator.EXPECT().ReplicaState().Return(&models.ReplicaState{}).AnyTimes()
@@ -115,22 +117,35 @@ func TestNewReplicator_runner(t *testing.T) {
 }
 
 func TestReplicatorPeer_newReplicatorRunner(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	q := queue.NewMockFanOut(ctrl)
+	q.EXPECT().Pending().Return(int64(10))
+	q.EXPECT().Pending().Return(int64(5)).AnyTimes()
 	rc := &ReplicatorChannel{
 		State: &models.ReplicaState{
 			Database: "test",
 			ShardID:  models.ShardID(1),
 		},
+		Queue: q,
 	}
-	assert.NotNil(t, newReplicatorRunner(&localReplicator{
+	lr := newReplicatorRunner(&localReplicator{
 		replicator: replicator{
 			channel: rc,
 		},
-	}))
-	assert.NotNil(t, newReplicatorRunner(&remoteReplicator{
+	})
+	assert.NotNil(t, lr)
+	val := lr.statistics.ReplicaLag.Get()
+	assert.Equal(t, float64(5), val)
+	rr := newReplicatorRunner(&remoteReplicator{
 		replicator: replicator{
 			channel: rc,
 		},
-	}))
+	})
+	assert.NotNil(t, rr)
+	val = rr.statistics.ReplicaLag.Get()
+	assert.Equal(t, float64(0), val)
 }
 
 func TestReplicatorPeer_replica_panic(t *testing.T) {

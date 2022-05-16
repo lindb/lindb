@@ -25,15 +25,22 @@ import (
 
 // BoundGauge is a gauge which has Bound to a certain metric with field-name and tags
 type BoundGauge struct {
-	value     atomic.Float64
+	value     *atomic.Float64
 	fieldName string
+
+	fn func(val *atomic.Float64)
 }
 
 func newGauge(fieldName string) *BoundGauge {
 	return &BoundGauge{
 		fieldName: fieldName,
-		value:     *atomic.NewFloat64(0),
+		value:     atomic.NewFloat64(0),
 	}
+}
+
+// SetGetValueFn sets get value callback, when Get/gather invokes this callback for getting new value.
+func (g *BoundGauge) SetGetValueFn(fn func(val *atomic.Float64)) {
+	g.fn = fn
 }
 
 // Update updates gauge with a new value
@@ -63,10 +70,15 @@ func (g *BoundGauge) Decr() {
 
 // Get returns the current gauge value
 func (g *BoundGauge) Get() float64 {
+	if g.fn != nil {
+		g.fn(g.value)
+	}
 	return g.value.Load()
 }
 
-func (g *BoundGauge) gather() float64 { return g.value.Load() }
+func (g *BoundGauge) gather() float64 {
+	return g.Get()
+}
 
 func (g *BoundGauge) name() string { return g.fieldName }
 

@@ -81,6 +81,7 @@ func (r *replicatorPeer) ReplicatorState() (string, *state) {
 
 type replicatorRunner struct {
 	running        *atomic.Bool
+	lastPending    *atomic.Int64
 	replicatorType string
 	replicator     Replicator
 
@@ -97,14 +98,22 @@ func newReplicatorRunner(replicator Replicator) *replicatorRunner {
 		replicaType = "remote"
 	}
 	state := replicator.ReplicaState()
-	return &replicatorRunner{
+	r := &replicatorRunner{
 		replicator:     replicator,
+		lastPending:    atomic.NewInt64(replicator.Pending()),
 		replicatorType: replicaType,
 		running:        atomic.NewBool(false),
 		closed:         make(chan struct{}),
 		statistics:     metrics.NewStorageReplicatorRunnerStatistics(replicaType, state.Database, state.ShardID.String()),
 		logger:         logger.GetLogger("replica", "ReplicatorRunner"),
 	}
+	// set replica lag callback
+	r.statistics.ReplicaLag.SetGetValueFn(func(val *atomic.Float64) {
+		pending := replicator.Pending()
+		val.Add(float64(r.lastPending.Load() - pending))
+		r.lastPending.Store(pending)
+	})
+	return r
 }
 
 func (r *replicatorRunner) replicaLoop(ctx context.Context) {
@@ -166,8 +175,6 @@ func (r *replicatorRunner) replica(_ context.Context) {
 				r.statistics.ReplicaBytes.Add(float64(len(data)))
 			}
 		}
-		// TODO modify maybe
-		r.statistics.ReplicaLag.Add(float64(r.replicator.Pending()))
 	} else {
 		r.logger.Warn("replica is not ready", logger.String("replicator", r.replicator.String()))
 	}

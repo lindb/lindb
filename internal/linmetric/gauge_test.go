@@ -18,6 +18,7 @@
 package linmetric
 
 import (
+	"go.uber.org/atomic"
 	"sync"
 	"testing"
 
@@ -45,4 +46,13 @@ func Test_Gauge(t *testing.T) {
 	// reset
 	g1.Update(1)
 	assert.Equal(t, float64(1), g1.Get())
+}
+
+func TestBoundGauge_SetGetValueFn(t *testing.T) {
+	g1 := newGauge("gauge")
+	g1.SetGetValueFn(func(val *atomic.Float64) {
+		val.Add(10)
+	})
+	assert.Equal(t, float64(10), g1.Get())
+	assert.Equal(t, float64(20), g1.gather())
 }
