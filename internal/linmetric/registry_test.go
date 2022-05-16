@@ -17,14 +17,23 @@
 
 package linmetric
 
-import "github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
+import (
+	"testing"
 
-// simpleField is implemented by gauge, sum, min, max
-type simpleField interface {
-	// Get returns current field value.
-	Get() float64
-	// gather returns the field value, if field type is delta, need sub the value.
-	gather() float64
-	name() string
-	flatType() flatMetricsV1.SimpleFieldType
+	"github.com/stretchr/testify/assert"
+)
+
+func TestRegistry_FindMetricList(t *testing.T) {
+	r := &Registry{
+		series: make(map[uint64]*taggedSeries),
+	}
+	r.NewScope("test-1", "a", "a-1", "b", "b").NewCounter("f")
+	r.NewScope("test-1", "a", "a-2", "b", "b").NewCounter("f")
+	r.NewScope("test-2", "a", "a-2", "b", "b").NewCounter("f")
+
+	rs := r.FindMetricList([]string{"test-1"}, nil)
+	assert.Len(t, rs["test-1"], 2)
+
+	rs = r.FindMetricList([]string{"test-1"}, map[string]string{"a": "a-1"})
+	assert.Len(t, rs["test-1"], 1)
 }

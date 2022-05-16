@@ -281,7 +281,7 @@ func (s *taggedSeries) toStateMetric(includeTags map[string]string) *models.Stat
 		rs.Fields = append(rs.Fields, models.StateField{
 			Name:  sf.name(),
 			Type:  sf.flatType().String(),
-			Value: sf.gather(),
+			Value: sf.Get(),
 		})
 	}
 

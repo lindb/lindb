@@ -60,8 +60,37 @@ func (r *Registry) NewGather(options ...GatherOption) Gather {
 	return g
 }
 
+// FindMetricList returns metric list by given names/tags.
 func (r *Registry) FindMetricList(names []string, includeTags map[string]string) map[string][]*models.StateMetric {
-	return r.findMetricList(names, includeTags)
+	nameMap := make(map[string]struct{})
+	for _, name := range names {
+		nameMap[name] = struct{}{}
+	}
+	var rs []*taggedSeries
+	r.mu.RLock()
+	for _, nm := range r.series {
+		_, ok := nameMap[nm.metricName]
+		if ok {
+			rs = append(rs, nm)
+		}
+	}
+	r.mu.RUnlock()
+
+	result := make(map[string][]*models.StateMetric)
+	for _, s := range rs {
+		stateMetric := s.toStateMetric(includeTags)
+		if stateMetric == nil {
+			continue
+		}
+		metrics, ok := result[s.metricName]
+		if ok {
+			metrics = append(metrics, stateMetric)
+			result[s.metricName] = metrics
+		} else {
+			result[s.metricName] = []*models.StateMetric{stateMetric}
+		}
+	}
+	return result
 }
 
 // register registers a named metric
@@ -109,36 +138,4 @@ func (r *Registry) gatherMetricList(
 		count++
 	}
 	return count
-}
-
-func (r *Registry) findMetricList(names []string, includeTags map[string]string) map[string][]*models.StateMetric {
-	nameMap := make(map[string]struct{})
-	for _, name := range names {
-		nameMap[name] = struct{}{}
-	}
-	var rs []*taggedSeries
-	r.mu.RLock()
-	for _, nm := range r.series {
-		_, ok := nameMap[nm.metricName]
-		if ok {
-			rs = append(rs, nm)
-		}
-	}
-	r.mu.RUnlock()
-
-	result := make(map[string][]*models.StateMetric)
-	for _, s := range rs {
-		stateMetric := s.toStateMetric(includeTags)
-		if stateMetric == nil {
-			continue
-		}
-		metrics, ok := result[s.metricName]
-		if ok {
-			metrics = append(metrics, stateMetric)
-			result[s.metricName] = metrics
-		} else {
-			result[s.metricName] = []*models.StateMetric{stateMetric}
-		}
-	}
-	return result
 }
