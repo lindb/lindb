@@ -61,7 +61,7 @@ func BenchmarkMemoryDatabase_write(b *testing.B) {
 		row.MetricID = 1
 		row.SeriesID = uint32(i)
 		row.FieldIDs = []field.ID{1}
-		_ = db.WriteRow(row)
+		_, _ = db.WriteRow(row)
 	}
 	release()
 
@@ -83,7 +83,7 @@ func BenchmarkMemoryDatabase_write(b *testing.B) {
 		row.SlotIndex = uint16(i % 1024)
 		row.FieldIDs = []field.ID{1}
 		release := db.WithLock()
-		_ = db.WriteRow(row)
+		_, _ = db.WriteRow(row)
 		release()
 	}
 	runtime.GC()
@@ -116,7 +116,7 @@ func BenchmarkMemoryDatabase_write_sum(b *testing.B) {
 			row.SlotIndex = uint16(i % 1024)
 			row.FieldIDs = []field.ID{1}
 
-			_ = db.WriteRow(row)
+			_, _ = db.WriteRow(row)
 		}
 		fmt.Printf("n:=%d, cost:=%d\n", n, timeutil.Now()-now)
 	}

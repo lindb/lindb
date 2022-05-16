@@ -50,7 +50,7 @@ type MemoryDatabase interface {
 	WithLock() (release func())
 	// WriteRow must be called after WithLock
 	// Used for batch write
-	WriteRow(row *metric.StorageRow) error
+	WriteRow(row *metric.StorageRow) (heapSize int, err error)
 	// CompleteWrite completes writing data points
 	CompleteWrite()
 	// FlushFamilyTo flushes the corresponded family data to builder.
@@ -177,7 +177,7 @@ func (md *memoryDatabase) WithLock() (release func()) {
 	return md.rwMutex.Unlock
 }
 
-func (md *memoryDatabase) WriteRow(row *metric.StorageRow) error {
+func (md *memoryDatabase) WriteRow(row *metric.StorageRow) (int, error) {
 	mStore := md.getOrCreateMStore(row.MetricID)
 	var size int
 	beforeMStoreCapacity := mStore.Capacity()
@@ -204,7 +204,7 @@ func (md *memoryDatabase) WriteRow(row *metric.StorageRow) error {
 			mStore, tStore,
 		)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		afterWrite(writtenLinFieldSize)
 	}
@@ -225,7 +225,7 @@ func (md *memoryDatabase) WriteRow(row *metric.StorageRow) error {
 			field.MinField, compoundFieldItr.Min(),
 			mStore, tStore)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		afterWrite(writtenLinFieldSize)
 	}
@@ -236,7 +236,7 @@ func (md *memoryDatabase) WriteRow(row *metric.StorageRow) error {
 			field.MaxField, compoundFieldItr.Max(),
 			mStore, tStore)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		afterWrite(writtenLinFieldSize)
 	}
@@ -246,7 +246,7 @@ func (md *memoryDatabase) WriteRow(row *metric.StorageRow) error {
 		field.SumField, compoundFieldItr.Sum(),
 		mStore, tStore)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	afterWrite(writtenLinFieldSize)
 
@@ -256,7 +256,7 @@ func (md *memoryDatabase) WriteRow(row *metric.StorageRow) error {
 		field.SumField, compoundFieldItr.Count(),
 		mStore, tStore)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	afterWrite(writtenLinFieldSize)
 
@@ -269,7 +269,7 @@ func (md *memoryDatabase) WriteRow(row *metric.StorageRow) error {
 			field.HistogramField, compoundFieldItr.NextValue(),
 			mStore, tStore)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		afterWrite(writtenLinFieldSize)
 	}
@@ -279,7 +279,7 @@ End:
 		mStore.SetSlot(row.SlotIndex)
 	}
 	md.allocSize.Add(int64(size))
-	return nil
+	return size, nil
 }
 
 func (md *memoryDatabase) writeLinField(

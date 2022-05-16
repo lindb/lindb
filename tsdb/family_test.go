@@ -636,7 +636,7 @@ func TestDataFamily_WriteRows(t *testing.T) {
 		{
 			name: "write metric failure",
 			prepare: func() []metric.StorageRow {
-				memDB.EXPECT().WriteRow(gomock.Any()).Return(fmt.Errorf("err"))
+				memDB.EXPECT().WriteRow(gomock.Any()).Return(0, fmt.Errorf("err"))
 				rows := mockBatchRows(&protoMetricsV1.Metric{
 					Name:      "test",
 					Timestamp: timeutil.Now(),
@@ -654,7 +654,7 @@ func TestDataFamily_WriteRows(t *testing.T) {
 		{
 			name: "write metric successfully",
 			prepare: func() []metric.StorageRow {
-				memDB.EXPECT().WriteRow(gomock.Any()).Return(nil)
+				memDB.EXPECT().WriteRow(gomock.Any()).Return(10, nil)
 				rows := mockBatchRows(&protoMetricsV1.Metric{
 					Name:      "test",
 					Timestamp: timeutil.Now(),
