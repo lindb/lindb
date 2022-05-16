@@ -65,12 +65,9 @@ func (c *BoundCounter) Get() float64 {
 // gather returns the current cumulative counter value
 // and resets the delta value by spin lock.
 func (c *BoundCounter) gather() float64 {
-	for {
-		v := c.delta.Load()
-		if c.delta.CAS(v, 0) {
-			return v
-		}
-	}
+	v := c.delta.Load()
+	c.delta.Sub(v)
+	return v
 }
 
 func (c *BoundCounter) name() string { return c.fieldName }
