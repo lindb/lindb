@@ -81,7 +81,7 @@ type StorageReplicatorRunnerStatistics struct {
 	ReplicaPanics          *linmetric.BoundCounter // replica panic count
 	ConsumeMessage         *linmetric.BoundCounter // get message success count
 	ConsumeMessageFailures *linmetric.BoundCounter // get message failure count
-	ReplicaLag             *linmetric.BoundCounter // replica lag message count
+	ReplicaLag             *linmetric.BoundGauge   // replica lag message count
 	ReplicaBytes           *linmetric.BoundCounter // bytes of replica data
 	Replica                *linmetric.BoundCounter // replica success count
 }
@@ -149,7 +149,7 @@ func NewStorageReplicatorRunnerStatistics(replicatorType, database, shard string
 			WithTagValues(replicatorType, database, shard),
 		ConsumeMessageFailures: scope.NewCounterVec("consume_msg_failures", "type", "db", "shard").
 			WithTagValues(replicatorType, database, shard),
-		ReplicaLag: scope.NewCounterVec("replica_lag", "type", "db", "shard").
+		ReplicaLag: scope.NewGaugeVec("replica_lag", "type", "db", "shard").
 			WithTagValues(replicatorType, database, shard),
 		ReplicaBytes: scope.NewCounterVec("replica_bytes", "type", "db", "shard").
 			WithTagValues(replicatorType, database, shard),
