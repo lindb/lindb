@@ -398,6 +398,7 @@ func (f *dataFamily) WriteRows(rows []metric.StorageRow) error {
 		db.CompleteWrite()
 		releaseFunc()
 	}()
+	total := 0
 
 	for idx := range rows {
 		row := rows[idx]
@@ -410,7 +411,9 @@ func (f *dataFamily) WriteRows(rows []metric.StorageRow) error {
 			f.familyTime,
 			f.interval.Int64()),
 		)
-		if err = db.WriteRow(&row); err == nil {
+		size, err := db.WriteRow(&row)
+		if err == nil {
+			total += size
 			f.statistics.WriteMetrics.Incr()
 			f.statistics.WriteFields.Add(float64(len(row.FieldIDs)))
 		} else {
@@ -419,7 +422,7 @@ func (f *dataFamily) WriteRows(rows []metric.StorageRow) error {
 		}
 	}
 
-	f.statistics.MemDBTotalSize.Add(float64(f.mutableMemDB.MemSize()))
+	f.statistics.MemDBTotalSize.Add(float64(total))
 	return nil
 }
 

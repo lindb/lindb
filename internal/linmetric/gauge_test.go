@@ -18,11 +18,11 @@
 package linmetric
 
 import (
-	"go.uber.org/atomic"
 	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/atomic"
 )
 
 func Test_Gauge(t *testing.T) {

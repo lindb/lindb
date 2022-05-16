@@ -124,9 +124,16 @@ func TestMemoryDatabase_Write(t *testing.T) {
 	// mock
 	mockMStore := NewMockmStoreINTF(ctrl)
 	tStore := NewMocktStoreINTF(ctrl)
-	tStore.EXPECT().Capacity().Return(100).AnyTimes()
+	capacity := 0
+	tStore.EXPECT().Capacity().DoAndReturn(func() int {
+		capacity++
+		return capacity
+	}).AnyTimes()
 	fStore := NewMockfStoreINTF(ctrl)
-	fStore.EXPECT().Capacity().Return(100).AnyTimes()
+	fStore.EXPECT().Capacity().DoAndReturn(func() int {
+		capacity++
+		return capacity
+	}).AnyTimes()
 	mockMStore.EXPECT().Capacity().Return(100).AnyTimes()
 	mockMStore.EXPECT().GetOrCreateTStore(uint32(10)).Return(tStore, false).AnyTimes()
 	// build memory-database
@@ -155,7 +162,9 @@ func TestMemoryDatabase_Write(t *testing.T) {
 	row.SeriesID = 10
 	row.SlotIndex = 1
 	row.FieldIDs = []field.ID{10}
-	assert.NoError(t, md.WriteRow(row))
+	size, err := md.WriteRow(row)
+	assert.NoError(t, err)
+	assert.NotZero(t, size)
 	assert.NotZero(t, md.Size())
 
 	// case 2: new metric store
@@ -170,7 +179,9 @@ func TestMemoryDatabase_Write(t *testing.T) {
 	row.SeriesID = 20
 	row.SlotIndex = 1
 	row.FieldIDs = []field.ID{10}
-	assert.NoError(t, md.WriteRow(row))
+	size, err = md.WriteRow(row)
+	assert.NoError(t, err)
+	assert.NotZero(t, size)
 
 	// case 3: create new field store
 	gomock.InOrder(
@@ -190,7 +201,9 @@ func TestMemoryDatabase_Write(t *testing.T) {
 	row.SeriesID = 10
 	row.SlotIndex = 15
 	row.FieldIDs = []field.ID{10}
-	assert.NoError(t, md.WriteRow(row))
+	size, err = md.WriteRow(row)
+	assert.NoError(t, err)
+	assert.NotZero(t, size)
 	assert.True(t, md.MemSize() > 0)
 
 	// case4, write histogram field
@@ -220,7 +233,9 @@ func TestMemoryDatabase_Write(t *testing.T) {
 	row.SlotIndex = 15
 	row.FieldIDs = []field.ID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}
 	releaseLock()
-	assert.NoError(t, md.WriteRow(row))
+	size, err = md.WriteRow(row)
+	assert.NoError(t, err)
+	assert.NotZero(t, size)
 	err = md.Close()
 	assert.NoError(t, err)
 }
@@ -265,7 +280,10 @@ func TestMemoryDatabase_Write_err(t *testing.T) {
 	row.SeriesID = 10
 	row.SlotIndex = 15
 	row.FieldIDs = []field.ID{10}
-	assert.Error(t, md.WriteRow(row))
+
+	size, err := md.WriteRow(row)
+	assert.Error(t, err)
+	assert.Zero(t, size)
 
 	buf.EXPECT().Release()
 	err = md.Close()
