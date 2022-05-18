@@ -39,12 +39,15 @@ import (
 
 func TestTagIndex_GetGroupingScanner(t *testing.T) {
 	index := prepareTagIdx()
+	withLock := func() (release func()) {
+		return func() {}
+	}
 	// case 1: series ids not match
-	scanners, err := index.GetGroupingScanner(roaring.BitmapOf(1000, 2000))
+	scanners, err := index.GetGroupingScanner(roaring.BitmapOf(1000, 2000), withLock)
 	assert.NoError(t, err)
 	assert.Nil(t, scanners)
 	// case 2: get scanner
-	scanners, err = index.GetGroupingScanner(roaring.BitmapOf(1, 2, 3))
+	scanners, err = index.GetGroupingScanner(roaring.BitmapOf(1, 2, 3), withLock)
 	assert.NoError(t, err)
 	assert.Len(t, scanners, 1)
 	assert.Equal(t, index.getAllSeriesIDs(), scanners[0].GetSeriesIDs())

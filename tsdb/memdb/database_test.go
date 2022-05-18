@@ -290,6 +290,92 @@ func TestMemoryDatabase_Write_err(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestMemoryDatabase_WriteHistogram_Err(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		defer ctrl.Finish()
+	}()
+	bufferMgr := NewMockBufferManager(ctrl)
+	cfg := MemoryDatabaseCfg{
+		BufferMgr: bufferMgr,
+	}
+	buf := NewMockDataPointBuffer(ctrl)
+	bufferMgr.EXPECT().AllocBuffer().Return(buf, nil).AnyTimes()
+
+	// mock
+	fStore := NewMockfStoreINTF(ctrl)
+	fStore.EXPECT().Capacity().Return(100).AnyTimes()
+	fStore.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	mockMStore := NewMockmStoreINTF(ctrl)
+	mockMStore.EXPECT().Capacity().Return(100).AnyTimes()
+	tStore := NewMocktStoreINTF(ctrl)
+	tStore.EXPECT().Capacity().Return(100).AnyTimes()
+	mockMStore.EXPECT().GetOrCreateTStore(uint32(10)).Return(tStore, true).AnyTimes()
+	// build memory-database
+	mdINTF, err := NewMemoryDatabase(cfg)
+	assert.NoError(t, err)
+	md := mdINTF.(*memoryDatabase)
+	md.mStores.Put(uint32(1), mockMStore)
+
+	row := protoToStorageRow(&protoMetricsV1.Metric{
+		Name:      "test1",
+		Namespace: "ns",
+		CompoundField: &protoMetricsV1.CompoundField{
+			Min:            10,
+			Max:            10,
+			Sum:            10,
+			Count:          10,
+			ExplicitBounds: []float64{1, 1, 1, 1, 1, math.Inf(1) + 1},
+			Values:         []float64{1, 1, 1, 1, 1, 1},
+		},
+	})
+	row.MetricID = 1
+	row.SeriesID = 10
+	row.SlotIndex = 15
+	row.FieldIDs = []field.ID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+
+	// write min failure
+	tStore.EXPECT().GetFStore(field.ID(1)).Return(nil, false)
+	buf.EXPECT().AllocPage().Return(nil, fmt.Errorf("err"))
+	size, err := md.WriteRow(row)
+	assert.Zero(t, size)
+	assert.Error(t, err)
+	// write max failure
+	tStore.EXPECT().GetFStore(field.ID(1)).Return(fStore, true)
+	tStore.EXPECT().GetFStore(field.ID(2)).Return(nil, false)
+	buf.EXPECT().AllocPage().Return(nil, fmt.Errorf("err"))
+	size, err = md.WriteRow(row)
+	assert.Zero(t, size)
+	assert.Error(t, err)
+	// write sum failure
+	tStore.EXPECT().GetFStore(field.ID(1)).Return(fStore, true)
+	tStore.EXPECT().GetFStore(field.ID(2)).Return(fStore, true)
+	tStore.EXPECT().GetFStore(field.ID(3)).Return(nil, false)
+	buf.EXPECT().AllocPage().Return(nil, fmt.Errorf("err"))
+	size, err = md.WriteRow(row)
+	assert.Zero(t, size)
+	assert.Error(t, err)
+	// write count failure
+	tStore.EXPECT().GetFStore(field.ID(1)).Return(fStore, true)
+	tStore.EXPECT().GetFStore(field.ID(2)).Return(fStore, true)
+	tStore.EXPECT().GetFStore(field.ID(3)).Return(fStore, true)
+	tStore.EXPECT().GetFStore(field.ID(4)).Return(nil, false)
+	buf.EXPECT().AllocPage().Return(nil, fmt.Errorf("err"))
+	size, err = md.WriteRow(row)
+	assert.Zero(t, size)
+	assert.Error(t, err)
+	// write bucket failure
+	tStore.EXPECT().GetFStore(field.ID(1)).Return(fStore, true)
+	tStore.EXPECT().GetFStore(field.ID(2)).Return(fStore, true)
+	tStore.EXPECT().GetFStore(field.ID(3)).Return(fStore, true)
+	tStore.EXPECT().GetFStore(field.ID(4)).Return(fStore, true)
+	tStore.EXPECT().GetFStore(gomock.Any()).Return(nil, false)
+	buf.EXPECT().AllocPage().Return(nil, fmt.Errorf("err"))
+	size, err = md.WriteRow(row)
+	assert.Zero(t, size)
+	assert.Error(t, err)
+}
+
 func TestMemoryDatabase_FlushFamilyTo(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

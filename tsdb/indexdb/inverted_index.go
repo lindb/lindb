@@ -195,6 +195,13 @@ func (index *invertedIndex) GetGroupingContext(ctx *flow.ShardExecuteContext) er
 	return nil
 }
 
+// withLock retrieves the lock of inverted index, and returns the release function.
+func (index *invertedIndex) withLock() (release func()) {
+	index.rwMutex.RLock()
+
+	return index.rwMutex.RUnlock
+}
+
 // getGroupingScanners returns the grouping scanner list for tag key, need match series ids
 func (index *invertedIndex) getGroupingScanners(
 	tagKeyID tag.KeyID,
@@ -205,7 +212,7 @@ func (index *invertedIndex) getGroupingScanners(
 	// read data from mem
 	index.loadSeriesIDsInMem(tagKeyID, func(tagIndex TagIndex) {
 		// get grouping scanner in memory, no err throw
-		scanners, _ := tagIndex.GetGroupingScanner(seriesIDs)
+		scanners, _ := tagIndex.GetGroupingScanner(seriesIDs, index.withLock)
 		result = append(result, scanners...)
 	})
 

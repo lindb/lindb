@@ -29,7 +29,7 @@ import (
 // TagIndex represents the tag inverted index
 type TagIndex interface {
 	// GetGroupingScanner returns the grouping scanners based on series ids
-	GetGroupingScanner(seriesIDs *roaring.Bitmap) ([]flow.GroupingScanner, error)
+	GetGroupingScanner(seriesIDs *roaring.Bitmap, withLock func() (release func())) ([]flow.GroupingScanner, error)
 	// buildInvertedIndex builds inverted index for tag value id
 	buildInvertedIndex(tagValueID uint32, seriesID uint32)
 	// getSeriesIDsByTagValueIDs returns series ids by tag value ids
@@ -41,26 +41,6 @@ type TagIndex interface {
 	// flush flushes tag index under spec tag key,
 	// write series ids of tag key level with constants.TagValueIDForTag
 	flush(tagKeyID uint32, forward tagindex.ForwardFlusher, inverted tagindex.InvertedFlusher) error
-}
-
-// memGroupingScanner implements series.GroupingScanner for memory tag index
-type memGroupingScanner struct {
-	forward *ForwardStore // TODO add read lock
-}
-
-// GetSeriesAndTagValue returns group by container and tag value ids
-func (g *memGroupingScanner) GetSeriesAndTagValue(highKey uint16) (lowSeriesIDs roaring.Container, tagValueIDs []uint32) {
-	index := g.forward.keys.GetContainerIndex(highKey)
-	if index < 0 {
-		// data not found
-		return nil, nil
-	}
-	return g.forward.keys.GetContainerAtIndex(index), g.forward.values[index]
-}
-
-// GetSeriesIDs returns the series ids in current memory scanner.
-func (g *memGroupingScanner) GetSeriesIDs() *roaring.Bitmap {
-	return g.forward.keys
 }
 
 // tagIndex is a inverted mapping relation of tag-value and seriesID group.
@@ -78,15 +58,16 @@ func newTagIndex() TagIndex {
 }
 
 // GetGroupingScanner returns the grouping scanners based on series ids
-func (index *tagIndex) GetGroupingScanner(seriesIDs *roaring.Bitmap) ([]flow.GroupingScanner, error) {
+func (index *tagIndex) GetGroupingScanner(seriesIDs *roaring.Bitmap,
+	withLock func() (release func()),
+) ([]flow.GroupingScanner, error) {
 	// check reader if it has series ids(after filtering)
 	finalSeriesIDs := roaring.FastAnd(seriesIDs, index.forward.Keys())
 	if finalSeriesIDs.IsEmpty() {
 		// not found
 		return nil, nil
 	}
-	// TODO add lock
-	return []flow.GroupingScanner{&memGroupingScanner{forward: index.forward}}, nil
+	return []flow.GroupingScanner{&memGroupingScanner{forward: index.forward, withLock: withLock}}, nil
 }
 
 // buildInvertedIndex builds inverted index for tag value id
