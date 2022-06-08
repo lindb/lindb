@@ -84,7 +84,7 @@ type familyChannel struct {
 
 	lastFlushTime      *atomic.Int64 // last flush time
 	checkFlushInterval time.Duration // interval for check flush
-	batchTimout        time.Duration // interval for flush
+	batchTimeout       time.Duration // interval for flush
 	maxRetryBuf        int
 
 	lock4write sync.Mutex
@@ -120,7 +120,7 @@ func newFamilyChannel(
 		stoppedSignal:       make(chan struct{}, 1),
 		stoppingSignal:      make(chan struct{}, 1),
 		checkFlushInterval:  time.Second,
-		batchTimout:         cfg.BatchTimeout.Duration(),
+		batchTimeout:        cfg.BatchTimeout.Duration(),
 		maxRetryBuf:         100, // TODO add config
 		chunk:               newChunk(cfg.BatchBlockSize),
 		lastFlushTime:       atomic.NewInt64(timeutil.Now()),
@@ -198,6 +198,7 @@ func (fc *familyChannel) flushChunkOnFull(ctx context.Context) error {
 	case <-fc.ctx.Done():
 		return ErrFamilyChannelCanceled
 	case fc.ch <- compressed:
+		fc.lastFlushTime.Store(timeutil.Now())
 		return nil
 	}
 }
@@ -352,14 +353,14 @@ func (fc *familyChannel) writeTask(_ context.Context) {
 // checkFlush checks if channel needs to flush data.
 func (fc *familyChannel) checkFlush() {
 	now := timeutil.Now()
-	if now-fc.lastFlushTime.Load() >= fc.batchTimout.Milliseconds() {
+	if now-fc.lastFlushTime.Load() >= fc.batchTimeout.Milliseconds() {
 		fc.lock4write.Lock()
 		defer fc.lock4write.Unlock()
 
 		if !fc.chunk.IsEmpty() {
 			fc.flushChunk()
+			fc.lastFlushTime.Store(now)
 		}
-		fc.lastFlushTime.Store(now)
 	}
 }
 
@@ -399,6 +400,11 @@ func (fc *familyChannel) flushChunk() {
 // isExpire returns if current family is expired.
 func (fc *familyChannel) isExpire(ahead, _ int64) bool {
 	now := timeutil.Now()
+	fc.logger.Info("family channel expire check",
+		logger.String("database", fc.database),
+		logger.Any("shard", fc.shardID),
+		logger.Int64("head", ahead),
+		logger.String("family", timeutil.FormatTimestamp(fc.lastFlushTime.Load(), timeutil.DataTimeFormat2)))
 	// add 15 minute buffer
 	return fc.lastFlushTime.Load()+ahead+15*time.Minute.Milliseconds() < now
 }

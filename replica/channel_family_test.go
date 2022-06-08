@@ -157,7 +157,7 @@ func TestChannel_checkFlush(t *testing.T) {
 		cancel:         cancel,
 		ctx:            ctx,
 		chunk:          chunk,
-		batchTimout:    5 * time.Second,
+		batchTimeout:   5 * time.Second,
 		lastFlushTime:  atomic.NewInt64(timeutil.Now()),
 		stoppingSignal: make(chan struct{}, 1),
 		stoppedSignal:  make(chan struct{}, 1),
@@ -189,7 +189,7 @@ func TestFamilyChannel_flushChunkOnFull(t *testing.T) {
 		cancel:        cancel,
 		ctx:           ctx,
 		chunk:         chunk,
-		batchTimout:   5 * time.Second,
+		batchTimeout:  5 * time.Second,
 		lastFlushTime: atomic.NewInt64(timeutil.Now()),
 		ch:            make(chan *compressedChunk, 1),
 		statistics:    metrics.NewBrokerFamilyWriteStatistics("db"),
@@ -213,6 +213,7 @@ func TestFamilyChannel_isExpire(t *testing.T) {
 		stoppingSignal: make(chan struct{}, 1),
 		statistics:     metrics.NewBrokerFamilyWriteStatistics("db"),
 		lastFlushTime:  atomic.NewInt64(timeutil.Now()),
+		logger:         logger.GetLogger("replica", "test"),
 	}
 	assert.Equal(t, int64(1), f.FamilyTime())
 
