@@ -105,7 +105,7 @@ func InitLogger(cfg config.Logging, fileName string) error {
 func initLogger(logFilename string, cfg config.Logging) error {
 	w := zapcore.AddSync(&lumberjack.Logger{
 		Filename:   filepath.Join(cfg.Dir, logFilename),
-		MaxSize:    int(cfg.MaxSize),
+		MaxSize:    int(cfg.MaxSize / 1024 / 1024), // because in lumberjack will * megabyte
 		MaxBackups: int(cfg.MaxBackups),
 		MaxAge:     int(cfg.MaxAge),
 	})
