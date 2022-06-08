@@ -150,7 +150,7 @@ export default function NodeView(props: NodeViewProps) {
         const used = getMetricField(stateMetric, Memory, "used", node);
         return (
           <CapacityView
-            percent={getMetricField(stateMetric, Memory, "used_percent", node)}
+            percent={getMetricField(stateMetric, Memory, "usage", node)}
             total={total}
             free={total - used}
             used={used}
