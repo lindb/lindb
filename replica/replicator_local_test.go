@@ -50,9 +50,9 @@ func TestLocalReplicator_New(t *testing.T) {
 	family.EXPECT().AckSequence(gomock.Any(), gomock.Any()).DoAndReturn(func(leader int32, fn func(int64)) {
 		fn(10)
 	})
-	q := queue.NewMockFanOut(ctrl)
+	q := queue.NewMockConsumerGroup(ctrl)
 	q.EXPECT().Ack(int64(10))
-	replicator := NewLocalReplicator(&ReplicatorChannel{State: &models.ReplicaState{Leader: 1}, Queue: q}, shard, family)
+	replicator := NewLocalReplicator(&ReplicatorChannel{State: &models.ReplicaState{Leader: 1}, ConsumerGroup: q}, shard, family)
 	assert.NotNil(t, replicator)
 	s := replicator.State()
 	assert.Equal(t, state{state: models.ReplicatorReadyState}, *s)
@@ -74,13 +74,13 @@ func TestLocalReplicator_Replica(t *testing.T) {
 	family := tsdb.NewMockDataFamily(ctrl)
 	family.EXPECT().CommitSequence(gomock.Any(), gomock.Any()).AnyTimes()
 	family.EXPECT().AckSequence(gomock.Any(), gomock.Any()).AnyTimes()
-	q := queue.NewMockFanOut(ctrl)
+	q := queue.NewMockConsumerGroup(ctrl)
 	q.EXPECT().Pending().Return(int64(10)).AnyTimes()
 
 	replicator := NewLocalReplicator(
 		&ReplicatorChannel{
-			State: &models.ReplicaState{Leader: 1},
-			Queue: q,
+			State:         &models.ReplicaState{Leader: 1},
+			ConsumerGroup: q,
 		}, shard, family)
 	assert.True(t, replicator.IsReady())
 	// bad sequence

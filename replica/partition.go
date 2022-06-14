@@ -123,12 +123,12 @@ func NewPartition(
 // ReplicaLog writes msg that leader sends replica msg.
 // return appended index, if success.
 func (p *partition) ReplicaLog(replicaIdx int64, msg []byte) (int64, error) {
-	appendIdx := p.log.HeadSeq()
+	appendIdx := p.log.Queue().AppendedSeq() + 1
 	if replicaIdx != appendIdx {
 		return appendIdx, nil
 	}
 	p.statistics.ReceiveReplicaSize.Add(float64(len(msg)))
-	if err := p.log.Put(msg); err != nil {
+	if err := p.log.Queue().Put(msg); err != nil {
 		p.statistics.ReplicaWALFailures.Incr()
 		return -1, err
 	}
@@ -138,12 +138,12 @@ func (p *partition) ReplicaLog(replicaIdx int64, msg []byte) (int64, error) {
 
 // ReplicaAckIndex returns the index which replica appended index.
 func (p *partition) ReplicaAckIndex() int64 {
-	return p.log.HeadSeq() - 1
+	return p.log.Queue().AppendedSeq()
 }
 
 // ResetReplicaIndex resets replica index.
 func (p *partition) ResetReplicaIndex(idx int64) {
-	p.log.SetAppendSeq(idx)
+	p.log.SetAppendedSeq(idx - 1)
 }
 
 // Path returns the path of partition.
@@ -153,9 +153,12 @@ func (p *partition) Path() string {
 
 // IsExpire returns partition if it is expired.
 func (p *partition) IsExpire() bool {
-	ns := p.log.FanOutNames()
+	p.log.Sync()       // sync acknowledged sequence of each ConsumerGroup
+	p.log.Queue().GC() // try gc old data in queue
+
+	ns := p.log.ConsumerGroupNames()
 	for _, n := range ns {
-		q, _ := p.log.GetOrCreateFanOut(n)
+		q, _ := p.log.GetOrCreateConsumerGroup(n)
 		if !q.IsEmpty() {
 			return false
 		}
@@ -177,7 +180,7 @@ func (p *partition) WriteLog(msg []byte) error {
 		return nil
 	}
 	p.statistics.ReceiveWriteSize.Add(float64(len(msg)))
-	if err := p.log.Put(msg); err != nil {
+	if err := p.log.Queue().Put(msg); err != nil {
 		p.statistics.WriteWALFailures.Incr()
 		return err
 	}
@@ -251,18 +254,18 @@ func (p *partition) Stop() {
 
 // getReplicaState returns each family's log replica state.
 func (p *partition) getReplicaState() models.FamilyLogReplicaState {
-	replicators := p.log.FanOutNames()
+	replicators := p.log.ConsumerGroupNames()
 	var stateOfReplicators []models.ReplicaPeerState
 	for _, name := range replicators {
-		fanout, err := p.log.GetOrCreateFanOut(name)
+		fanout, err := p.log.GetOrCreateConsumerGroup(name)
 		if err != nil {
 			p.logger.Error("get fan out error when get replica state, ignore it")
 			continue
 		}
 		peerState := models.ReplicaPeerState{
 			Replicator: name,
-			Consume:    fanout.HeadSeq(),
-			ACK:        fanout.TailSeq(),
+			Consume:    fanout.ConsumedSeq(),
+			ACK:        fanout.AcknowledgedSeq(),
 			Pending:    fanout.Pending(),
 		}
 		nodeID := models.ParseNodeID(name)
@@ -279,7 +282,7 @@ func (p *partition) getReplicaState() models.FamilyLogReplicaState {
 	rs := models.FamilyLogReplicaState{
 		ShardID:     p.shardID,
 		FamilyTime:  timeutil.FormatTimestamp(p.family.FamilyTime(), timeutil.DataTimeFormat2),
-		Append:      p.log.HeadSeq(),
+		Append:      p.log.Queue().AppendedSeq(),
 		Replicators: stateOfReplicators,
 	}
 	return rs
@@ -294,7 +297,7 @@ func (p *partition) buildReplica(leader, replica models.NodeID) error {
 		// exist
 		return nil
 	}
-	walConsumer, err := p.log.GetOrCreateFanOut(fmt.Sprintf("%d", replica))
+	walConsumer, err := p.log.GetOrCreateConsumerGroup(fmt.Sprintf("%d", replica))
 	if err != nil {
 		return err
 	}
@@ -307,7 +310,7 @@ func (p *partition) buildReplica(leader, replica models.NodeID) error {
 			Follower:   replica,
 			FamilyTime: p.family.TimeRange().Start,
 		},
-		Queue: walConsumer,
+		ConsumerGroup: walConsumer,
 	}
 	if replica == p.currentNodeID {
 		// local replicator
@@ -335,7 +338,7 @@ func (p *partition) getReplicatorRunner(nodeID models.NodeID) (ReplicatorPeer, b
 
 // recovery rebuilds replication relation based on local partition.
 func (p *partition) recovery(leader models.NodeID) error {
-	replicatorNames := p.log.FanOutNames()
+	replicatorNames := p.log.ConsumerGroupNames()
 	for _, replica := range replicatorNames {
 		if err := p.buildReplica(leader, models.ParseNodeID(replica)); err != nil {
 			return err

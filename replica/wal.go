@@ -139,9 +139,7 @@ func (w *writeAheadLog) GetOrCreatePartition(
 		strconv.Itoa(int(leader)))
 	dirPath := path.Join(w.dir, dir)
 
-	interval := w.cfg.RemoveTaskInterval.Duration()
-
-	q, err := newFanOutQueue(dirPath, w.cfg.GetDataSizeLimit(), interval)
+	q, err := newFanOutQueue(dirPath, w.cfg.GetDataSizeLimit())
 	if err != nil {
 		return nil, err
 	}

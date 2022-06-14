@@ -155,7 +155,9 @@ func (r *remoteReplicator) IsReady() bool {
 	}
 
 	defer r.rwMutex.Unlock()
+
 	if r.replicaStream != nil {
+		// need close old replica stream
 		r.statistics.NeedCloseLastStream.Incr()
 		if err := r.replicaStream.CloseSend(); err != nil {
 			r.statistics.CloseLastStreamFailures.Incr()
@@ -226,7 +228,7 @@ func (r *remoteReplicator) IsReady() bool {
 			return false
 		}
 		r.statistics.ResetFollowerAppendIdx.Incr()
-		_ = r.ResetReplicaIndex(nextReplicaIdx)
+		r.ResetReplicaIndex(needResetReplicaIdx)
 		r.state.Store(&state{state: models.ReplicatorReadyState})
 		return true
 	case remoteLastReplicaAckIdx > appendIdx:
@@ -236,7 +238,7 @@ func (r *remoteReplicator) IsReady() bool {
 	}
 	r.state.Store(&state{state: models.ReplicatorInitState, errMsg: "resetting replica index"})
 	// remote replica ack idx > current ack idx, maybe ack request lost
-	_ = r.ResetReplicaIndex(nextReplicaIdx - 1)
+	r.ResetReplicaIndex(nextReplicaIdx)
 	r.SetAckIndex(remoteLastReplicaAckIdx)
 	// get new local replica idx, double check if reset replica index successfully.
 	newLocalReplicaIdx := r.ReplicaIndex()

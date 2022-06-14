@@ -36,7 +36,7 @@ FanOutQueue structure
 |         |                 |                             ^
 |         |                 |                             |
 +---------+--+   +----------+-+                           | Append
-|  FanOut    |   |   FanOut.. |                           |
+|  ConsumerGroup    |   |   ConsumerGroup.. |                           |
 |  Name      |   |            |                           + +--------+
 |  Consume   |   |            |                             | Data...|
 |  Get       |   |            |                             |        |
@@ -69,7 +69,7 @@ directory structure
 		100.idx
 		100.dat
 		...
-	/fanOut
+	/consumerGroup
 		fanOutName1.meta
 		fanOutName2.meta
 		...

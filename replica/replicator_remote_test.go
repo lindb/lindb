@@ -44,9 +44,11 @@ func TestRemoteReplicator_IsReady(t *testing.T) {
 	stateMgr.EXPECT().WatchNodeStateChangeEvent(gomock.Any(), gomock.Any()).AnyTimes()
 	stateMgr.EXPECT().GetLiveNode(gomock.Any()).Return(models.StatefulNode{}, true).AnyTimes()
 	replicaCli := protoReplicaV1.NewMockReplicaServiceClient(ctrl)
-	q := queue.NewMockFanOut(ctrl)
+	cg := queue.NewMockConsumerGroup(ctrl)
 	fq := queue.NewMockFanOutQueue(ctrl)
-	q.EXPECT().Queue().Return(fq).AnyTimes()
+	q := queue.NewMockQueue(ctrl)
+	fq.EXPECT().Queue().Return(q).AnyTimes()
+	cg.EXPECT().Queue().Return(fq).AnyTimes()
 	rc := &ReplicatorChannel{
 		State: &models.ReplicaState{
 			Database: "test",
@@ -54,7 +56,7 @@ func TestRemoteReplicator_IsReady(t *testing.T) {
 			Leader:   1,
 			Follower: 2,
 		},
-		Queue: q,
+		ConsumerGroup: cg,
 	}
 
 	cases := []struct {
@@ -88,7 +90,7 @@ func TestRemoteReplicator_IsReady(t *testing.T) {
 			name: "replica idx == current node",
 			prepare: func(r *remoteReplicator) {
 				cliFct.EXPECT().CreateReplicaServiceClient(gomock.Any()).Return(replicaCli, nil)
-				q.EXPECT().HeadSeq().Return(int64(11))
+				cg.EXPECT().ConsumedSeq().Return(int64(10))
 				replicaCli.EXPECT().GetReplicaAckIndex(gomock.Any(), gomock.Any()).Return(&protoReplicaV1.GetReplicaAckIndexResponse{
 					AckIndex: 10,
 				}, nil)
@@ -99,9 +101,9 @@ func TestRemoteReplicator_IsReady(t *testing.T) {
 			name: "remote replica ack index < current smallest ack, but reset remote replica index err",
 			prepare: func(r *remoteReplicator) {
 				cliFct.EXPECT().CreateReplicaServiceClient(gomock.Any()).Return(replicaCli, nil)
-				fq.EXPECT().HeadSeq().Return(int64(10))
-				q.EXPECT().HeadSeq().Return(int64(12))
-				q.EXPECT().TailSeq().Return(int64(13))
+				q.EXPECT().AppendedSeq().Return(int64(10))
+				cg.EXPECT().ConsumedSeq().Return(int64(12))
+				cg.EXPECT().AcknowledgedSeq().Return(int64(13))
 				replicaCli.EXPECT().GetReplicaAckIndex(gomock.Any(), gomock.Any()).Return(&protoReplicaV1.GetReplicaAckIndexResponse{
 					AckIndex: 10,
 				}, nil)
@@ -113,14 +115,14 @@ func TestRemoteReplicator_IsReady(t *testing.T) {
 			name: " remote replica ack index < current smallest ack, reset success",
 			prepare: func(r *remoteReplicator) {
 				cliFct.EXPECT().CreateReplicaServiceClient(gomock.Any()).Return(replicaCli, nil)
-				fq.EXPECT().HeadSeq().Return(int64(10))
-				q.EXPECT().HeadSeq().Return(int64(12))
-				q.EXPECT().TailSeq().Return(int64(13))
+				q.EXPECT().AppendedSeq().Return(int64(10))
+				cg.EXPECT().ConsumedSeq().Return(int64(7))
+				cg.EXPECT().AcknowledgedSeq().Return(int64(8))
 				replicaCli.EXPECT().GetReplicaAckIndex(gomock.Any(), gomock.Any()).Return(&protoReplicaV1.GetReplicaAckIndexResponse{
-					AckIndex: 10,
+					AckIndex: 5,
 				}, nil)
 				replicaCli.EXPECT().Reset(gomock.Any(), gomock.Any()).Return(nil, nil)
-				q.EXPECT().SetHeadSeq(int64(11))
+				cg.EXPECT().SetConsumedSeq(int64(8))
 			},
 			ready: true,
 		},
@@ -128,16 +130,16 @@ func TestRemoteReplicator_IsReady(t *testing.T) {
 			name: "remote replica ack index > current append index, maybe leader lost data",
 			prepare: func(r *remoteReplicator) {
 				cliFct.EXPECT().CreateReplicaServiceClient(gomock.Any()).Return(replicaCli, nil)
-				fq.EXPECT().HeadSeq().Return(int64(5))
-				q.EXPECT().HeadSeq().Return(int64(12))
-				q.EXPECT().TailSeq().Return(int64(9))
-				q.EXPECT().Ack(int64(10))
+				q.EXPECT().AppendedSeq().Return(int64(5))
+				cg.EXPECT().ConsumedSeq().Return(int64(12))
+				cg.EXPECT().AcknowledgedSeq().Return(int64(9))
+				cg.EXPECT().Ack(int64(10))
 				replicaCli.EXPECT().GetReplicaAckIndex(gomock.Any(), gomock.Any()).Return(&protoReplicaV1.GetReplicaAckIndexResponse{
 					AckIndex: 10,
 				}, nil)
-				fq.EXPECT().SetAppendSeq(int64(11))
-				q.EXPECT().SetHeadSeq(int64(10)).Return(fmt.Errorf("err"))
-				q.EXPECT().HeadSeq().Return(int64(11))
+				fq.EXPECT().SetAppendedSeq(int64(10))
+				cg.EXPECT().SetConsumedSeq(int64(10))
+				cg.EXPECT().ConsumedSeq().Return(int64(10))
 			},
 			ready: true,
 		},
@@ -145,16 +147,16 @@ func TestRemoteReplicator_IsReady(t *testing.T) {
 			name: "remote replica ack index > current append index, maybe leader lost data, reset replica index failure",
 			prepare: func(r *remoteReplicator) {
 				cliFct.EXPECT().CreateReplicaServiceClient(gomock.Any()).Return(replicaCli, nil)
-				fq.EXPECT().HeadSeq().Return(int64(5))
-				q.EXPECT().HeadSeq().Return(int64(12))
-				q.EXPECT().TailSeq().Return(int64(9))
-				q.EXPECT().Ack(int64(10))
+				q.EXPECT().AppendedSeq().Return(int64(5))
+				cg.EXPECT().ConsumedSeq().Return(int64(12))
+				cg.EXPECT().AcknowledgedSeq().Return(int64(9))
+				cg.EXPECT().Ack(int64(10))
 				replicaCli.EXPECT().GetReplicaAckIndex(gomock.Any(), gomock.Any()).Return(&protoReplicaV1.GetReplicaAckIndexResponse{
 					AckIndex: 10,
 				}, nil)
-				fq.EXPECT().SetAppendSeq(int64(11))
-				q.EXPECT().SetHeadSeq(int64(10)).Return(fmt.Errorf("err"))
-				q.EXPECT().HeadSeq().Return(int64(12))
+				fq.EXPECT().SetAppendedSeq(int64(10))
+				cg.EXPECT().SetConsumedSeq(int64(10))
+				cg.EXPECT().ConsumedSeq().Return(int64(12))
 			},
 			ready: false,
 		},
@@ -167,16 +169,16 @@ func TestRemoteReplicator_IsReady(t *testing.T) {
 				r.replicaStream = stream
 
 				cliFct.EXPECT().CreateReplicaServiceClient(gomock.Any()).Return(replicaCli, nil)
-				fq.EXPECT().HeadSeq().Return(int64(5))
-				q.EXPECT().HeadSeq().Return(int64(12))
-				q.EXPECT().TailSeq().Return(int64(9))
+				q.EXPECT().AppendedSeq().Return(int64(5))
+				cg.EXPECT().ConsumedSeq().Return(int64(12))
+				cg.EXPECT().AcknowledgedSeq().Return(int64(9))
+				cg.EXPECT().Ack(int64(10))
 				replicaCli.EXPECT().GetReplicaAckIndex(gomock.Any(), gomock.Any()).Return(&protoReplicaV1.GetReplicaAckIndexResponse{
 					AckIndex: 10,
 				}, nil)
-				fq.EXPECT().SetAppendSeq(int64(11))
-				q.EXPECT().SetHeadSeq(int64(10)).Return(fmt.Errorf("err"))
-				q.EXPECT().Ack(int64(10))
-				q.EXPECT().HeadSeq().Return(int64(11))
+				fq.EXPECT().SetAppendedSeq(int64(10))
+				cg.EXPECT().SetConsumedSeq(int64(10))
+				cg.EXPECT().ConsumedSeq().Return(int64(10))
 			},
 			ready: true,
 		},
@@ -204,10 +206,12 @@ func TestRemoteReplicator_NodeStateChange(t *testing.T) {
 	cliFct := rpc.NewMockClientStreamFactory(ctrl)
 	stateMgr := storage.NewMockStateManager(ctrl)
 	stateMgr.EXPECT().WatchNodeStateChangeEvent(gomock.Any(), gomock.Any()).AnyTimes()
-	q := queue.NewMockFanOut(ctrl)
+	cg := queue.NewMockConsumerGroup(ctrl)
+	q := queue.NewMockQueue(ctrl)
 	fq := queue.NewMockFanOutQueue(ctrl)
-	q.EXPECT().Queue().Return(fq).AnyTimes()
-	q.EXPECT().HeadSeq().Return(int64(11)).AnyTimes()
+	fq.EXPECT().Queue().Return(q).AnyTimes()
+	cg.EXPECT().Queue().Return(fq).AnyTimes()
+	cg.EXPECT().ConsumedSeq().Return(int64(10)).AnyTimes()
 	replicaCli := protoReplicaV1.NewMockReplicaServiceClient(ctrl)
 	cliFct.EXPECT().CreateReplicaServiceClient(gomock.Any()).Return(replicaCli, nil).AnyTimes()
 	replicaCli.EXPECT().Replica(gomock.Any()).Return(nil, nil).AnyTimes()
@@ -222,7 +226,7 @@ func TestRemoteReplicator_NodeStateChange(t *testing.T) {
 			Leader:   1,
 			Follower: 2,
 		},
-		Queue: q,
+		ConsumerGroup: cg,
 	}
 
 	r := NewRemoteReplicator(context.TODO(), rc, stateMgr, cliFct)
@@ -258,7 +262,7 @@ func TestRemoteReplicator_Replica(t *testing.T) {
 	cliFct := rpc.NewMockClientStreamFactory(ctrl)
 	stateMgr := storage.NewMockStateManager(ctrl)
 	stateMgr.EXPECT().WatchNodeStateChangeEvent(gomock.Any(), gomock.Any()).AnyTimes()
-	q := queue.NewMockFanOut(ctrl)
+	q := queue.NewMockConsumerGroup(ctrl)
 	rc := &ReplicatorChannel{
 		State: &models.ReplicaState{
 			Database: "test",
@@ -266,7 +270,7 @@ func TestRemoteReplicator_Replica(t *testing.T) {
 			Leader:   1,
 			Follower: 2,
 		},
-		Queue: q,
+		ConsumerGroup: q,
 	}
 
 	r := NewRemoteReplicator(context.TODO(), rc, stateMgr, cliFct)
@@ -307,7 +311,7 @@ func TestRemoteReplicator_Connect(t *testing.T) {
 	stateMgr.EXPECT().GetLiveNode(gomock.Any()).Return(models.StatefulNode{}, true).AnyTimes()
 	cliFct := rpc.NewMockClientStreamFactory(ctrl)
 	replicaCli := protoReplicaV1.NewMockReplicaServiceClient(ctrl)
-	q := queue.NewMockFanOut(ctrl)
+	q := queue.NewMockConsumerGroup(ctrl)
 	fq := queue.NewMockFanOutQueue(ctrl)
 	q.EXPECT().Queue().Return(fq).AnyTimes()
 	rc := &ReplicatorChannel{
@@ -317,7 +321,7 @@ func TestRemoteReplicator_Connect(t *testing.T) {
 			Leader:   1,
 			Follower: 2,
 		},
-		Queue: q,
+		ConsumerGroup: q,
 	}
 
 	cases := []struct {

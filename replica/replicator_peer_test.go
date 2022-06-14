@@ -123,7 +123,7 @@ func TestReplicatorPeer_newReplicatorRunner(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	q := queue.NewMockFanOut(ctrl)
+	q := queue.NewMockConsumerGroup(ctrl)
 	q.EXPECT().Pending().Return(int64(10))
 	q.EXPECT().Pending().Return(int64(5)).AnyTimes()
 	rc := &ReplicatorChannel{
@@ -131,7 +131,7 @@ func TestReplicatorPeer_newReplicatorRunner(t *testing.T) {
 			Database: "test",
 			ShardID:  models.ShardID(1),
 		},
-		Queue: q,
+		ConsumerGroup: q,
 	}
 	lr := newReplicatorRunner(&localReplicator{
 		replicator: replicator{

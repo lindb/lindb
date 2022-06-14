@@ -122,23 +122,6 @@ func TestFactory_AcquirePage(t *testing.T) {
 	page2, err = fct.AcquirePage(2)
 	assert.Equal(t, errFactoryClosed, err)
 	assert.Nil(t, page2)
-
-	// case 6: release page after close
-	err = fct.ReleasePage(0)
-	assert.Equal(t, errFactoryClosed, err)
-}
-
-func TestFactory_GetPageIDs(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	fct, err := NewFactory(tmpDir, 128)
-	assert.NoError(t, err)
-	_, _ = fct.AcquirePage(0)
-	_, _ = fct.AcquirePage(4)
-	_, _ = fct.AcquirePage(1)
-	pageIDs := fct.GetPageIDs()
-	assert.Len(t, pageIDs, 3)
-	assert.Equal(t, []int64{0, 1, 4}, pageIDs)
 }
 
 func TestFactory_Close(t *testing.T) {
@@ -160,7 +143,7 @@ func TestFactory_Close(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestFactory_ReleasePage(t *testing.T) {
+func TestFactory_TruncatePages(t *testing.T) {
 	tmpDir := t.TempDir()
 	ctrl := gomock.NewController(t)
 
@@ -184,15 +167,14 @@ func TestFactory_ReleasePage(t *testing.T) {
 	removeFileFunc = func(file string) error {
 		return fmt.Errorf("err")
 	}
-	err = fct.ReleasePage(10)
-	assert.Error(t, err)
+	fct.TruncatePages(11)
 	files, err = fileutil.ListDir(tmpDir)
 	assert.NoError(t, err)
 	assert.Len(t, files, 1)
 
 	// remove file success
 	removeFileFunc = fileutil.RemoveFile
-	err = fct.ReleasePage(10)
+	fct.TruncatePages(11)
 	assert.NoError(t, err)
 	files, err = fileutil.ListDir(tmpDir)
 	assert.NoError(t, err)
@@ -202,4 +184,7 @@ func TestFactory_ReleasePage(t *testing.T) {
 
 	err = fct.Close()
 	assert.NoError(t, err)
+
+	// truncate after closed
+	fct.TruncatePages(11)
 }

@@ -56,7 +56,7 @@ type Replicator interface {
 	// AppendIndex returns next append index.
 	AppendIndex() int64
 	// ResetReplicaIndex resets replica index.
-	ResetReplicaIndex(idx int64) error
+	ResetReplicaIndex(idx int64)
 	// ResetAppendIndex resets append index.
 	ResetAppendIndex(idx int64)
 	// SetAckIndex sets ack index.
@@ -92,47 +92,47 @@ func (r *replicator) Connect() bool {
 
 // Consume returns the index of message replica.
 func (r *replicator) Consume() int64 {
-	return r.channel.Queue.Consume()
+	return r.channel.ConsumerGroup.Consume()
 }
 
 // GetMessage returns message by replica index.
 func (r *replicator) GetMessage(replicaIdx int64) ([]byte, error) {
-	return r.channel.Queue.Get(replicaIdx)
+	return r.channel.ConsumerGroup.Queue().Queue().Get(replicaIdx)
 }
 
-// ReplicaIndex returns the index of message replica
+// ReplicaIndex returns the index of message replica.
 func (r *replicator) ReplicaIndex() int64 {
-	return r.channel.Queue.HeadSeq()
+	return r.channel.ConsumerGroup.ConsumedSeq() + 1
 }
 
 // AckIndex returns the index of message replica ack.
 func (r *replicator) AckIndex() int64 {
-	return r.channel.Queue.TailSeq()
+	return r.channel.ConsumerGroup.AcknowledgedSeq()
 }
 
 // AppendIndex returns next append index.
 func (r *replicator) AppendIndex() int64 {
-	return r.channel.Queue.Queue().HeadSeq()
+	return r.channel.ConsumerGroup.Queue().Queue().AppendedSeq() + 1
 }
 
 // ResetReplicaIndex resets replica index.
-func (r *replicator) ResetReplicaIndex(idx int64) error {
-	return r.channel.Queue.SetHeadSeq(idx)
+func (r *replicator) ResetReplicaIndex(idx int64) {
+	r.channel.ConsumerGroup.SetConsumedSeq(idx - 1)
 }
 
 // ResetAppendIndex resets append index.
 func (r *replicator) ResetAppendIndex(idx int64) {
-	r.channel.Queue.Queue().SetAppendSeq(idx)
+	r.channel.ConsumerGroup.Queue().SetAppendedSeq(idx - 1)
 }
 
 // SetAckIndex sets ack index.
 func (r *replicator) SetAckIndex(ackIdx int64) {
-	r.channel.Queue.Ack(ackIdx)
+	r.channel.ConsumerGroup.Ack(ackIdx)
 }
 
 // Pending returns lag of queue.
 func (r *replicator) Pending() int64 {
-	return r.channel.Queue.Pending()
+	return r.channel.ConsumerGroup.Pending()
 }
 
 // String returns string value of replicator.

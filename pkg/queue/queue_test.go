@@ -36,24 +36,21 @@ import (
 func TestQueue_Put(t *testing.T) {
 	dir := path.Join(t.TempDir(), t.Name())
 
-	q, err := NewQueue(dir, 1024, time.Minute)
+	q, err := NewQueue(dir, 1024)
 	assert.NoError(t, err)
 	// case 1: init queue
-	assert.Equal(t, int64(0), q.Size())
-	assert.Equal(t, int64(-1), q.HeadSeq())
-	assert.Equal(t, int64(-1), q.TailSeq())
+	assert.Equal(t, int64(-1), q.AppendedSeq())
+	assert.Equal(t, int64(-1), q.AcknowledgedSeq())
 	// case 2: put data
 	err = q.Put([]byte("123"))
 	assert.NoError(t, err)
-	assert.Equal(t, int64(1), q.Size())
-	assert.Equal(t, int64(0), q.HeadSeq())
-	assert.Equal(t, int64(-1), q.TailSeq())
+	assert.Equal(t, int64(0), q.AppendedSeq())
+	assert.Equal(t, int64(-1), q.AcknowledgedSeq())
 	// case 4: put data
 	err = q.Put([]byte("456"))
 	assert.NoError(t, err)
-	assert.Equal(t, int64(2), q.Size())
-	assert.Equal(t, int64(1), q.HeadSeq())
-	assert.Equal(t, int64(-1), q.TailSeq())
+	assert.Equal(t, int64(1), q.AppendedSeq())
+	assert.Equal(t, int64(-1), q.AcknowledgedSeq())
 	// read data
 	data, err := q.Get(0)
 	assert.NoError(t, err)
@@ -66,13 +63,12 @@ func TestQueue_Put(t *testing.T) {
 	assert.Nil(t, data)
 	q.Close()
 	// case 5: re-open
-	q, err = NewQueue(dir, 1024, time.Minute)
+	q, err = NewQueue(dir, 1024)
 	assert.NoError(t, err)
 	err = q.Put([]byte("789"))
 	assert.NoError(t, err)
-	assert.Equal(t, int64(3), q.Size())
-	assert.Equal(t, int64(2), q.HeadSeq())
-	assert.Equal(t, int64(-1), q.TailSeq())
+	assert.Equal(t, int64(2), q.AppendedSeq())
+	assert.Equal(t, int64(-1), q.AcknowledgedSeq())
 	// case 6: get message
 	data, err = q.Get(0)
 	assert.NoError(t, err)
@@ -85,7 +81,7 @@ func TestQueue_Put(t *testing.T) {
 	assert.Equal(t, []byte("789"), data)
 	q.Close()
 	// case 6: re-open can read data
-	q, err = NewQueue(dir, 1024, time.Minute)
+	q, err = NewQueue(dir, 1024)
 	assert.NoError(t, err)
 	data, err = q.Get(0)
 	assert.NoError(t, err)
@@ -96,14 +92,13 @@ func TestQueue_Put(t *testing.T) {
 	data, err = q.Get(2)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("789"), data)
-	assert.False(t, q.IsEmpty())
 	q.Close()
 }
 
 func TestQueue_Ack(t *testing.T) {
 	dir := path.Join(t.TempDir(), t.Name())
 
-	q, err := NewQueue(dir, 1024, time.Minute)
+	q, err := NewQueue(dir, 1024)
 	assert.NoError(t, err)
 	err = q.Put([]byte("123"))
 	assert.NoError(t, err)
@@ -115,9 +110,9 @@ func TestQueue_Ack(t *testing.T) {
 	data, err = q.Get(1)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("456"), data)
-	q.Ack(1)
-	assert.Equal(t, int64(0), q.Size())
-	assert.True(t, q.IsEmpty())
+	q.SetAcknowledgedSeq(1)
+	q.SetAcknowledgedSeq(0)
+	assert.Equal(t, int64(1), q.AcknowledgedSeq())
 
 	for i := 0; i < 10; i++ {
 		data, err = q.Get(int64(i))
@@ -125,6 +120,53 @@ func TestQueue_Ack(t *testing.T) {
 		assert.Nil(t, data)
 	}
 	q.Close()
+
+	q, err = NewQueue(dir, 1024)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), q.AcknowledgedSeq())
+}
+
+func TestQueue_SetAppendSeq(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	dir := path.Join(t.TempDir(), t.Name())
+	q, err := NewQueue(dir, 1024)
+	assert.NoError(t, err)
+	assert.NotNil(t, q)
+
+	err = q.Put([]byte("123"))
+	assert.NoError(t, err)
+	assert.Equal(t, int64(0), q.AppendedSeq())
+
+	err = q.Put([]byte("456"))
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), q.AppendedSeq())
+
+	q.SetAppendedSeq(0)
+	err = q.Put([]byte("78910"))
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), q.AppendedSeq())
+
+	data, err := q.Get(1)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("78910"), data)
+
+	q.SetAppendedSeq(100000000)
+	err = q.Put([]byte("100000001"))
+	assert.NoError(t, err)
+	assert.Equal(t, int64(100000001), q.AppendedSeq())
+
+	data, err = q.Get(100000001)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("100000001"), data)
+
+	q1 := q.(*queue)
+	metaPage := page.NewMockMappedPage(ctrl)
+	q1.metaPage = metaPage
+	metaPage.EXPECT().PutUint64(gomock.Any(), gomock.Any()).MaxTimes(2)
+	metaPage.EXPECT().Sync().Return(fmt.Errorf("err"))
+	q.SetAppendedSeq(1)
 }
 
 func TestQueue_new_err(t *testing.T) {
@@ -142,7 +184,7 @@ func TestQueue_new_err(t *testing.T) {
 	mkDirFunc = func(path string) error {
 		return fmt.Errorf("err")
 	}
-	q, err := NewQueue(dir, 1024, time.Minute)
+	q, err := NewQueue(dir, 1024)
 	assert.Error(t, err)
 	assert.Nil(t, q)
 
@@ -151,7 +193,7 @@ func TestQueue_new_err(t *testing.T) {
 	newPageFactoryFunc = func(path string, pageSize int) (page.Factory, error) {
 		return nil, fmt.Errorf("err")
 	}
-	q, err = NewQueue(dir, 1024, time.Minute)
+	q, err = NewQueue(dir, 1024)
 	assert.Error(t, err)
 	assert.Nil(t, q)
 	// case 3: create index page factory err
@@ -166,7 +208,7 @@ func TestQueue_new_err(t *testing.T) {
 
 	fct.EXPECT().Close().Return(nil)
 
-	q, err = NewQueue(dir, 1024, time.Minute)
+	q, err = NewQueue(dir, 1024)
 	assert.Error(t, err)
 	assert.Nil(t, q)
 	// case 4: create meta page factory err
@@ -182,7 +224,7 @@ func TestQueue_new_err(t *testing.T) {
 
 	fct.EXPECT().Close().Return(nil).MaxTimes(2)
 
-	q, err = NewQueue(dir, 1024, time.Minute)
+	q, err = NewQueue(dir, 1024)
 	assert.Error(t, err)
 	assert.Nil(t, q)
 	// case 5: acquire meta page err
@@ -193,7 +235,7 @@ func TestQueue_new_err(t *testing.T) {
 	fct.EXPECT().Close().Return(nil).MaxTimes(3)
 	fct.EXPECT().AcquirePage(gomock.Any()).Return(nil, fmt.Errorf("err"))
 
-	q, err = NewQueue(dir, 1024, time.Minute)
+	q, err = NewQueue(dir, 1024)
 	assert.Error(t, err)
 	assert.Nil(t, q)
 	// case 6: acquire index page err when empty queue
@@ -209,7 +251,7 @@ func TestQueue_new_err(t *testing.T) {
 	indexFct.EXPECT().Close().Return(nil)
 	indexFct.EXPECT().AcquirePage(gomock.Any()).Return(nil, fmt.Errorf("err"))
 
-	q, err = NewQueue(dir, 1024, time.Minute)
+	q, err = NewQueue(dir, 1024)
 	assert.Error(t, err)
 	assert.Nil(t, q)
 	// case 6: acquire data page err when empty queue
@@ -224,7 +266,7 @@ func TestQueue_new_err(t *testing.T) {
 	fct.EXPECT().Close().Return(nil)
 	fct.EXPECT().AcquirePage(gomock.Any()).Return(nil, fmt.Errorf("err"))
 
-	q, err = NewQueue(dir, 1024, time.Minute)
+	q, err = NewQueue(dir, 1024)
 	assert.Error(t, err)
 	assert.Nil(t, q)
 	// case 7: sync meta data err
@@ -244,7 +286,7 @@ func TestQueue_new_err(t *testing.T) {
 	metaPage.EXPECT().PutUint64(gomock.Any(), gomock.Any()).MaxTimes(4)
 	metaPage.EXPECT().Sync().Return(fmt.Errorf("err"))
 	// remove old data
-	q, err = NewQueue(filepath.Join(t.TempDir(), t.Name()), 1024, time.Minute)
+	q, err = NewQueue(filepath.Join(t.TempDir(), t.Name()), 1024)
 	assert.Error(t, err)
 	assert.Nil(t, q)
 }
@@ -256,7 +298,7 @@ func TestQueue_Close(t *testing.T) {
 	defer ctrl.Finish()
 	pageFct := page.NewMockFactory(ctrl)
 	pageFct.EXPECT().Close().Return(fmt.Errorf("err")).MaxTimes(3)
-	q, err := NewQueue(dir, 1024, time.Minute)
+	q, err := NewQueue(dir, 1024)
 	q1 := q.(*queue)
 	q1.dataPageFct = pageFct
 	q1.indexPageFct = pageFct
@@ -275,7 +317,7 @@ func TestQueue_reopen_err(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	q, err := NewQueue(dir, 1024, time.Minute)
+	q, err := NewQueue(dir, 1024)
 	assert.NoError(t, err)
 	err = q.Put([]byte("123"))
 	assert.NoError(t, err)
@@ -294,7 +336,7 @@ func TestQueue_reopen_err(t *testing.T) {
 	fct.EXPECT().AcquirePage(gomock.Any()).Return(nil, fmt.Errorf("err"))
 	fct.EXPECT().Close().Return(nil)
 
-	q, err = NewQueue(dir, 1024, time.Minute)
+	q, err = NewQueue(dir, 1024)
 	assert.Error(t, err)
 	assert.Nil(t, q)
 
@@ -311,7 +353,7 @@ func TestQueue_reopen_err(t *testing.T) {
 	fct.EXPECT().AcquirePage(gomock.Any()).Return(nil, fmt.Errorf("err"))
 	fct.EXPECT().Close().Return(nil)
 
-	q, err = NewQueue(dir, 1024, time.Minute)
+	q, err = NewQueue(dir, 1024)
 	assert.Error(t, err)
 	assert.Nil(t, q)
 }
@@ -324,7 +366,7 @@ func TestQueue_Put_err(t *testing.T) {
 
 	mockPage := page.NewMockMappedPage(ctrl)
 	mockPage.EXPECT().Sync().Return(fmt.Errorf("err")).AnyTimes()
-	q, err := NewQueue(dir, 1024, time.Minute)
+	q, err := NewQueue(dir, 1024)
 	assert.NoError(t, err)
 	// case 1: data > page size, return err
 	data := make([]byte, dataPageSize+10)
@@ -355,7 +397,7 @@ func TestQueue_Put_err(t *testing.T) {
 	indexFct.EXPECT().Size().Return(int64(1000)).AnyTimes()
 	indexFct.EXPECT().AcquirePage(gomock.Any()).Return(nil, fmt.Errorf("err"))
 	q1.indexPageFct = indexFct
-	q1.headSeq.Store(indexItemsPerPage)
+	q1.appendedSeq.Store(indexItemsPerPage)
 
 	err = q.Put(data)
 	assert.Error(t, err)
@@ -370,7 +412,7 @@ func TestQueue_Get_err(t *testing.T) {
 
 	defer ctrl.Finish()
 
-	q, err := NewQueue(dir, 1024, time.Minute)
+	q, err := NewQueue(dir, 1024)
 	assert.NoError(t, err)
 	err = q.Put([]byte("123456789"))
 	assert.NoError(t, err)
@@ -412,7 +454,7 @@ func TestQueue_Ack_err(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	q, err := NewQueue(dir, 1024, time.Minute)
+	q, err := NewQueue(dir, 1024)
 	assert.NoError(t, err)
 	err = q.Put([]byte("123456789"))
 	assert.NoError(t, err)
@@ -425,7 +467,7 @@ func TestQueue_Ack_err(t *testing.T) {
 	// sync meta page err
 	mockMetaPage.EXPECT().PutUint64(gomock.Any(), gomock.Any())
 	mockMetaPage.EXPECT().Sync().Return(fmt.Errorf("err"))
-	q.Ack(0)
+	q.SetAcknowledgedSeq(0)
 
 	q1.metaPage = metaPage
 
@@ -435,7 +477,7 @@ func TestQueue_Ack_err(t *testing.T) {
 func TestQueue_data_limit(t *testing.T) {
 	dir := path.Join(t.TempDir(), t.Name())
 
-	q, err := NewQueue(dir, 128*1024*1024, time.Second)
+	q, err := NewQueue(dir, 128*1024*1024)
 	assert.NoError(t, err)
 	q1 := q.(*queue)
 	q1.dataSizeLimit = dataPageSize - 10
@@ -448,7 +490,7 @@ func TestQueue_data_limit(t *testing.T) {
 	assert.Equal(t, ErrExceedingTotalSizeLimit, err)
 
 	q1.dataSizeLimit = 2 * dataPageSize
-	q1.headSeq.Store(indexItemsPerPage)
+	q1.appendedSeq.Store(indexItemsPerPage)
 	// need acquire index page, but size limit
 	err = q.Put(data)
 	assert.Equal(t, ErrExceedingTotalSizeLimit, err)
@@ -457,7 +499,7 @@ func TestQueue_data_limit(t *testing.T) {
 func TestQueue_concurrently(t *testing.T) {
 	dir := path.Join(t.TempDir(), t.Name())
 
-	q, err := NewQueue(dir, 128*1024*1024, time.Second)
+	q, err := NewQueue(dir, 128*1024*1024)
 	assert.NoError(t, err)
 
 	var (
@@ -490,7 +532,6 @@ func TestQueue_concurrently(t *testing.T) {
 	}
 
 	wait.Wait()
-	assert.Equal(t, int64(400), q.Size())
 
 	for i := 0; i < 400; i++ {
 		data, err := q.Get(int64(i))
@@ -503,7 +544,7 @@ func TestQueue_concurrently(t *testing.T) {
 	})
 }
 
-func TestQueue_remove_expire_page(t *testing.T) {
+func TestQueue_GC(t *testing.T) {
 	dir := path.Join(t.TempDir(), t.Name())
 	ctrl := gomock.NewController(t)
 
@@ -512,7 +553,7 @@ func TestQueue_remove_expire_page(t *testing.T) {
 	indexPageFct := page.NewMockFactory(ctrl)
 	dataPageFct := page.NewMockFactory(ctrl)
 	metaPage := page.NewMockMappedPage(ctrl)
-	q, err := NewQueue(dir, dataPageSize*8, 500*time.Second)
+	q, err := NewQueue(dir, dataPageSize*8)
 	assert.NoError(t, err)
 	q.Close()
 
@@ -521,33 +562,24 @@ func TestQueue_remove_expire_page(t *testing.T) {
 	q1.indexPageFct = indexPageFct
 	q1.dataPageFct = dataPageFct
 	// case 1: ack sequence < 0
-	q1.removeExpirePage()
-	q1.tailSeq.Store(indexItemsPerPage * 3)
+	q1.GC()
+	q1.acknowledgedSeq.Store(indexItemsPerPage * 3)
 	// case 2: index page not exist
 	indexPageFct.EXPECT().GetPage(gomock.Any()).Return(nil, false)
-	q1.removeExpirePage()
-	// case 3: release page
+	q1.GC()
+	// case 3: truncate pages
 	indexPage := page.NewMockMappedPage(ctrl)
-	gomock.InOrder(
-		indexPageFct.EXPECT().GetPage(gomock.Any()).Return(indexPage, true),
-		indexPage.EXPECT().ReadUint64(gomock.Any()).Return(uint64(3)),
-		dataPageFct.EXPECT().ReleasePage(int64(0)).Return(nil),
-		metaPage.EXPECT().PutUint64(uint64(0), queueExpireDataOffset),
-		dataPageFct.EXPECT().ReleasePage(int64(1)).Return(nil),
-		metaPage.EXPECT().PutUint64(uint64(1), queueExpireDataOffset),
-		dataPageFct.EXPECT().ReleasePage(int64(2)).Return(fmt.Errorf("err")),
-		indexPageFct.EXPECT().ReleasePage(int64(0)).Return(nil),
-		metaPage.EXPECT().PutUint64(uint64(0), queueExpireIndexOffset),
-		indexPageFct.EXPECT().ReleasePage(int64(1)).Return(fmt.Errorf("err")),
-		metaPage.EXPECT().Sync().Return(fmt.Errorf("err")),
-	)
-	q1.removeExpirePage()
+	dataPageFct.EXPECT().TruncatePages(gomock.Any())
+	indexPageFct.EXPECT().TruncatePages(gomock.Any())
+	indexPageFct.EXPECT().GetPage(gomock.Any()).Return(indexPage, true)
+	indexPage.EXPECT().ReadUint64(gomock.Any()).Return(uint64(3))
+	q1.GC()
 }
 
 func TestQueue_big_loop(t *testing.T) {
 	dir := path.Join(t.TempDir(), t.Name())
 
-	q, err := NewQueue(dir, dataPageSize*8, 500*time.Millisecond)
+	q, err := NewQueue(dir, dataPageSize*8)
 	assert.NoError(t, err)
 	loop := 1000000
 	str := "big_loop_test"
@@ -560,7 +592,7 @@ func TestQueue_big_loop(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, []byte(fmt.Sprintf("%s-%d", str, i)), data)
 	}
-	q.Ack(1000000 - 10)
+	q.SetAcknowledgedSeq(1000000 - 10)
 	time.Sleep(time.Second)
 
 	q.Close()

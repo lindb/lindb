@@ -47,7 +47,11 @@ func TestReplicator_Base(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	q := queue.NewMockFanOut(ctrl)
+	cg := queue.NewMockConsumerGroup(ctrl)
+	fanoutQ := queue.NewMockFanOutQueue(ctrl)
+	cg.EXPECT().Queue().Return(fanoutQ).AnyTimes()
+	q := queue.NewMockQueue(ctrl)
+	fanoutQ.EXPECT().Queue().Return(q).AnyTimes()
 	state := &models.ReplicaState{
 		Database:   "test",
 		ShardID:    1,
@@ -57,39 +61,35 @@ func TestReplicator_Base(t *testing.T) {
 	}
 	r := replicator{
 		channel: &ReplicatorChannel{
-			State: state,
-			Queue: q,
+			State:         state,
+			ConsumerGroup: cg,
 		},
 	}
 	assert.Equal(t, state, r.ReplicaState())
 	r.Replica(0, []byte{1, 2, 3})
 	assert.True(t, r.IsReady())
 	assert.True(t, r.Connect())
-	q.EXPECT().Consume().Return(int64(10))
+	cg.EXPECT().Consume().Return(int64(10))
 	assert.Equal(t, int64(10), r.Consume())
 	q.EXPECT().Get(int64(10)).Return([]byte{1, 2, 3}, nil)
 	rs, err := r.GetMessage(10)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte{1, 2, 3}, rs)
-	q.EXPECT().HeadSeq().Return(int64(10))
-	assert.Equal(t, int64(10), r.ReplicaIndex())
-	q.EXPECT().TailSeq().Return(int64(10))
+	cg.EXPECT().ConsumedSeq().Return(int64(10))
+	assert.Equal(t, int64(11), r.ReplicaIndex())
+	cg.EXPECT().AcknowledgedSeq().Return(int64(10))
 	assert.Equal(t, int64(10), r.AckIndex())
 
-	fanoutQ := queue.NewMockFanOutQueue(ctrl)
-	q.EXPECT().Queue().Return(fanoutQ).AnyTimes()
+	q.EXPECT().AppendedSeq().Return(int64(10))
+	assert.Equal(t, int64(11), r.AppendIndex())
+	fanoutQ.EXPECT().SetAppendedSeq(int64(10))
+	r.ResetAppendIndex(int64(11))
 
-	fanoutQ.EXPECT().HeadSeq().Return(int64(10))
-	assert.Equal(t, int64(10), r.AppendIndex())
-	fanoutQ.EXPECT().SetAppendSeq(int64(10))
-	r.ResetAppendIndex(int64(10))
-
-	q.EXPECT().Ack(int64(10))
+	cg.EXPECT().Ack(int64(10))
 	r.SetAckIndex(int64(10))
 
-	q.EXPECT().SetHeadSeq(int64(10))
-	err = r.ResetReplicaIndex(int64(10))
-	assert.NoError(t, err)
-	q.EXPECT().Pending().Return(int64(10))
+	cg.EXPECT().SetConsumedSeq(int64(9))
+	r.ResetReplicaIndex(int64(10))
+	cg.EXPECT().Pending().Return(int64(10))
 	assert.Equal(t, int64(10), r.Pending())
 }
