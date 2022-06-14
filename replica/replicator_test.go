@@ -64,6 +64,7 @@ func TestReplicator_Base(t *testing.T) {
 	assert.Equal(t, state, r.ReplicaState())
 	r.Replica(0, []byte{1, 2, 3})
 	assert.True(t, r.IsReady())
+	assert.True(t, r.Connect())
 	q.EXPECT().Consume().Return(int64(10))
 	assert.Equal(t, int64(10), r.Consume())
 	q.EXPECT().Get(int64(10)).Return([]byte{1, 2, 3}, nil)

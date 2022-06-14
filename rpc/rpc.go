@@ -23,6 +23,7 @@ import (
 	"sync"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 
 	"github.com/lindb/lindb/constants"
@@ -102,7 +103,7 @@ func (fct *clientConnFactory) GetClientConn(target models.Node) (*grpc.ClientCon
 	}
 	conn, err := grpc.Dial(
 		target.Indicator(),
-		grpc.WithInsecure(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStreamInterceptor(fct.clientTracker.StreamClientInterceptor()),
 		grpc.WithUnaryInterceptor(fct.clientTracker.UnaryClientInterceptor()),
 	)

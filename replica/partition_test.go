@@ -68,6 +68,7 @@ func TestPartition_BuildReplicaRelation(t *testing.T) {
 	assert.Error(t, err)
 
 	r.EXPECT().IsReady().Return(true).AnyTimes()
+	r.EXPECT().Connect().Return(true).AnyTimes()
 	r.EXPECT().Consume().Return(int64(-1)).AnyTimes()
 	err = p.BuildReplicaForLeader(1, []models.NodeID{1, 2, 3})
 	assert.NoError(t, err)
@@ -126,6 +127,7 @@ func TestPartition_BuildReplicaForFollower(t *testing.T) {
 	assert.Error(t, err)
 
 	r.EXPECT().IsReady().Return(true).AnyTimes()
+	r.EXPECT().Connect().Return(true).AnyTimes()
 	r.EXPECT().Consume().Return(int64(-1)).AnyTimes()
 	err = p.BuildReplicaForFollower(2, 1)
 	assert.NoError(t, err)
@@ -171,6 +173,7 @@ func TestPartition_Close(t *testing.T) {
 	err := p.Close()
 	assert.NoError(t, err)
 	r.EXPECT().IsReady().Return(true).AnyTimes()
+	r.EXPECT().Connect().Return(true).AnyTimes()
 	r.EXPECT().Consume().Return(int64(-1)).AnyTimes()
 	err = p.BuildReplicaForLeader(1, []models.NodeID{1, 2, 3})
 	assert.NoError(t, err)
@@ -354,7 +357,10 @@ func TestPartition_Stop(t *testing.T) {
 
 	peer1 := NewMockReplicatorPeer(ctrl)
 	peer2 := NewMockReplicatorPeer(ctrl)
+	ctx, cancel := context.WithCancel(context.TODO())
 	p := &partition{
+		ctx:    ctx,
+		cancel: cancel,
 		peers: map[models.NodeID]ReplicatorPeer{
 			1: peer1,
 			2: peer2,

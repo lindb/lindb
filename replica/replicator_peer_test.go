@@ -95,13 +95,16 @@ func TestNewReplicator_runner(t *testing.T) {
 
 	// loop 1: no data
 	replicator.EXPECT().IsReady().Return(true)
+	replicator.EXPECT().Connect().Return(true)
 	replicator.EXPECT().Consume().Return(int64(-1)) // no data
 	// loop 2: get message err
 	replicator.EXPECT().IsReady().Return(true)
+	replicator.EXPECT().Connect().Return(true)
 	replicator.EXPECT().Consume().Return(int64(1))                          // has data
 	replicator.EXPECT().GetMessage(int64(1)).Return(nil, fmt.Errorf("err")) // get message err
 	// loop 3: do replica
 	replicator.EXPECT().IsReady().Return(true)
+	replicator.EXPECT().Connect().Return(true)
 	replicator.EXPECT().Consume().Return(int64(1))            // has data
 	replicator.EXPECT().GetMessage(int64(1)).Return(nil, nil) // get message
 	replicator.EXPECT().Replica(gomock.Any(), gomock.Any())   // replica

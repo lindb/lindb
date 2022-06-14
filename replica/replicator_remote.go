@@ -96,6 +96,32 @@ func (r *remoteReplicator) handleNodeStateChangeEvent(state models.NodeStateType
 	}
 }
 
+// Connect connects follower node, if replica stream exist, use old one, else creates new stream.
+func (r *remoteReplicator) Connect() bool {
+	if r.replicaStream != nil {
+		return true
+	}
+
+	r.state.Store(&state{state: models.ReplicatorInitState, errMsg: "creating replica stream"})
+	// pass metadata(database/shard state) when create rpc connection.
+	replicaState := encoding.JSONMarshal(&r.channel.State)
+	ctx := rpc.CreateOutgoingContextWithPairs(r.ctx,
+		constants.RPCMetaReplicaState, string(replicaState))
+	replicaStream, err := r.replicaCli.Replica(ctx) // TODO add timeout ??
+	if err != nil {
+		r.statistics.CloseLastStreamFailures.Incr()
+		r.logger.Warn("create replica service client stream err",
+			logger.String("replicator", r.String()),
+			logger.Error(err))
+		r.state.Store(&state{state: models.ReplicatorFailureState, errMsg: "create replica stream failure"})
+		return false
+	}
+	r.statistics.CreateReplicaStream.Incr()
+	r.replicaStream = replicaStream
+	r.state.Store(&state{state: models.ReplicatorReadyState})
+	return true
+}
+
 // IsReady returns remote replicator channel is ready.
 // 1. state == ready, return true
 // 2. state != ready, do channel init like tcp three-way handshake.
@@ -137,6 +163,7 @@ func (r *remoteReplicator) IsReady() bool {
 				logger.String("replicator", r.String()),
 				logger.Error(err))
 		}
+		r.replicaStream = nil
 	}
 	r.state.Store(&state{state: models.ReplicatorInitState, errMsg: "creating replica client"})
 	replicaCli, err := r.cliFct.CreateReplicaServiceClient(&node)
@@ -150,22 +177,6 @@ func (r *remoteReplicator) IsReady() bool {
 	}
 	r.replicaCli = replicaCli
 	r.statistics.CreateReplicaCli.Incr()
-
-	r.state.Store(&state{state: models.ReplicatorInitState, errMsg: "creating replica stream"})
-	// pass metadata(database/shard state) when create rpc connection.
-	replicaState := encoding.JSONMarshal(&r.channel.State)
-	ctx := rpc.CreateOutgoingContextWithPairs(r.ctx,
-		constants.RPCMetaReplicaState, string(replicaState))
-	r.replicaStream, err = replicaCli.Replica(ctx) // TODO add timeout ??
-	if err != nil {
-		r.statistics.CloseLastStreamFailures.Incr()
-		r.logger.Warn("create replica service client stream err",
-			logger.String("replicator", r.String()),
-			logger.Error(err))
-		r.state.Store(&state{state: models.ReplicatorFailureState, errMsg: "create replica stream failure"})
-		return false
-	}
-	r.statistics.CreateReplicaStream.Incr()
 
 	r.state.Store(&state{state: models.ReplicatorInitState, errMsg: "getting ack index"})
 	remoteLastReplicaAckIdx, err := r.getLastAckIdxFromReplica() // last ack index remote replica node
@@ -199,7 +210,7 @@ func (r *remoteReplicator) IsReady() bool {
 			logger.Int64("resetReplicaIdx", needResetReplicaIdx))
 		r.state.Store(&state{state: models.ReplicatorInitState, errMsg: "resetting replica append index"})
 		// send reset index request
-		_, err := r.replicaCli.Reset(context.TODO(), &protoReplicaV1.ResetIndexRequest{
+		_, err := r.replicaCli.Reset(r.ctx, &protoReplicaV1.ResetIndexRequest{
 			Database:    r.channel.State.Database,
 			Shard:       int32(r.channel.State.ShardID),
 			Leader:      int32(r.channel.State.Leader),
@@ -259,6 +270,9 @@ func (r *remoteReplicator) Replica(idx int64, msg []byte) {
 	if err != nil {
 		r.state.Store(&state{state: models.ReplicatorFailureState, errMsg: "send replica req failure"})
 		r.statistics.SendMsgFailures.Incr()
+		r.logger.Error("send replica request",
+			logger.String("replicator", r.String()),
+			logger.Int64("replicaIdx", idx), logger.Error(err))
 		return
 	}
 	r.statistics.SendMsg.Incr()
@@ -266,6 +280,9 @@ func (r *remoteReplicator) Replica(idx int64, msg []byte) {
 	if err != nil {
 		r.state.Store(&state{state: models.ReplicatorFailureState, errMsg: "receive replica resp failure"})
 		r.statistics.ReceiveMsgFailures.Incr()
+		r.logger.Error("receive replica response",
+			logger.String("replicator", r.String()),
+			logger.Int64("replicaIdx", idx), logger.Error(err))
 		return
 	}
 	r.statistics.ReceiveMsg.Incr()
@@ -285,7 +302,7 @@ func (r *remoteReplicator) Replica(idx int64, msg []byte) {
 
 // getLastAckIdxFromReplica returns replica replica ack index.
 func (r *remoteReplicator) getLastAckIdxFromReplica() (int64, error) {
-	resp, err := r.replicaCli.GetReplicaAckIndex(context.TODO(), &protoReplicaV1.GetReplicaAckIndexRequest{
+	resp, err := r.replicaCli.GetReplicaAckIndex(r.ctx, &protoReplicaV1.GetReplicaAckIndexRequest{
 		Database:   r.channel.State.Database,
 		Shard:      int32(r.channel.State.ShardID),
 		Leader:     int32(r.channel.State.Leader),
