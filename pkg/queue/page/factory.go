@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -56,10 +55,8 @@ type Factory interface {
 	AcquirePage(index int64) (MappedPage, error)
 	// GetPage returns a mapped page with specific index
 	GetPage(index int64) (MappedPage, bool)
-	// GetPageIDs returns all page ids in order
-	GetPageIDs() []int64
-	// ReleasePage releases the page and recycle the memory
-	ReleasePage(index int64) error
+	// TruncatePages truncates expired page by index(page id).
+	TruncatePages(index int64)
 	// Size returns the total page size
 	Size() int64
 }
@@ -73,7 +70,8 @@ type factory struct {
 	closed atomic.Bool
 	size   atomic.Int64 // current total queue data size
 
-	mutex sync.RWMutex
+	mutex  sync.RWMutex
+	logger *logger.Logger
 }
 
 // NewFactory creates page factory based on page size
@@ -86,6 +84,7 @@ func NewFactory(path string, pageSize int) (fct Factory, err error) {
 		path:     path,
 		pageSize: pageSize,
 		pages:    make(map[int64]MappedPage),
+		logger:   logger.GetLogger("Queue", "Page"),
 	}
 
 	if err := f.loadPages(); err != nil {
@@ -131,38 +130,29 @@ func (f *factory) GetPage(index int64) (MappedPage, bool) {
 	return page, ok
 }
 
-// GetPageIDs returns all page ids in order
-func (f *factory) GetPageIDs() (pageIDs []int64) {
-	f.mutex.RLock()
-	defer f.mutex.RUnlock()
-
-	for pageID := range f.pages {
-		pageIDs = append(pageIDs, pageID)
-	}
-
-	sort.Slice(pageIDs, func(i, j int) bool { return pageIDs[i] < pageIDs[j] })
-
-	return
-}
-
-// ReleasePage releases the page and recycle the memory
-func (f *factory) ReleasePage(index int64) error {
+// TruncatePages truncates expired page by index(page id).
+func (f *factory) TruncatePages(index int64) {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
 	if f.closed.Load() {
-		return errFactoryClosed
+		return
 	}
 
-	_, ok := f.pages[index]
-	if ok {
-		if err := removeFileFunc(f.pageFileName(index)); err != nil {
-			return err
+	for pageID := range f.pages {
+		if pageID < index {
+			if err := removeFileFunc(f.pageFileName(pageID)); err != nil {
+				f.logger.Info("remove page failure",
+					logger.String("path", f.path), logger.Any("page", pageID))
+				continue
+			}
+			delete(f.pages, index)
+			f.size.Sub(int64(f.pageSize))
+
+			f.logger.Info("remove page successfully",
+				logger.String("path", f.path), logger.Any("page", pageID))
 		}
-		delete(f.pages, index)
-		f.size.Sub(int64(f.pageSize))
 	}
-	return nil
 }
 
 // Size returns the total page size

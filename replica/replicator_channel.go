@@ -26,6 +26,6 @@ import (
 type ReplicatorChannel struct {
 	State *models.ReplicaState
 
-	// underlying fanOut records the replication process.
-	Queue queue.FanOut
+	// underlying ConsumerGroup records the replication process.
+	ConsumerGroup queue.ConsumerGroup
 }

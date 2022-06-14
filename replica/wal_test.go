@@ -79,8 +79,7 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 			prepare: func(l *writeAheadLog) {
 				engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(shard, true)
 				shard.EXPECT().GetOrCrateDataFamily(gomock.Any()).Return(nil, nil)
-				newFanOutQueue = func(dirPath string, dataSizeLimit int64,
-					removeTaskInterval time.Duration) (q queue.FanOutQueue, err error) {
+				newFanOutQueue = func(dirPath string, dataSizeLimit int64) (q queue.FanOutQueue, err error) {
 					return nil, fmt.Errorf("err")
 				}
 			},
@@ -91,8 +90,7 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 			prepare: func(l *writeAheadLog) {
 				engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(shard, true)
 				shard.EXPECT().GetOrCrateDataFamily(gomock.Any()).Return(nil, nil)
-				newFanOutQueue = func(dirPath string, dataSizeLimit int64,
-					removeTaskInterval time.Duration) (q queue.FanOutQueue, err error) {
+				newFanOutQueue = func(dirPath string, dataSizeLimit int64) (q queue.FanOutQueue, err error) {
 					return nil, nil
 				}
 				NewPartitionFn = func(ctx context.Context, shard tsdb.Shard, family tsdb.DataFamily,
