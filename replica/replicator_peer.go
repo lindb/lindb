@@ -154,7 +154,7 @@ func (r *replicatorRunner) replica(_ context.Context) {
 
 	hasData := false
 
-	if r.replicator.IsReady() {
+	if r.replicator.IsReady() && r.replicator.Connect() {
 		seq := r.replicator.Consume()
 		if seq >= 0 {
 			r.logger.Debug("replica write ahead log",

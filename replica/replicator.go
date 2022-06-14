@@ -47,6 +47,8 @@ type Replicator interface {
 	Replica(idx int64, msg []byte)
 	// IsReady returns if replicator is ready.
 	IsReady() bool
+	// Connect connects follower for sending replica message.
+	Connect() bool
 	// ReplicaIndex returns the index of message replica
 	ReplicaIndex() int64
 	// AckIndex returns the index of message replica ack
@@ -80,6 +82,11 @@ func (r *replicator) Replica(_ int64, _ []byte) {
 
 // IsReady returns if replicator is ready.
 func (r *replicator) IsReady() bool {
+	return true
+}
+
+// Connect connects follower for sending replica message.
+func (r *replicator) Connect() bool {
 	return true
 }
 

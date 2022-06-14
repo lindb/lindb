@@ -208,7 +208,7 @@ func (w *writeAheadLog) destroy() {
 
 	for key, log := range w.familyLogs {
 		isExpire := log.IsExpire()
-		w.logger.Debug("check write ahead log if expire", logger.String("path",
+		w.logger.Info("check write ahead log if expire", logger.String("path",
 			log.Path()), logger.Any("expire", isExpire))
 		if isExpire {
 			expireLogs[key] = log

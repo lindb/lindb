@@ -73,6 +73,7 @@ type Partition interface {
 // partition implements Partition interface.
 type partition struct {
 	ctx           context.Context
+	cancel        context.CancelFunc
 	currentNodeID models.NodeID
 	db            string
 	log           queue.FanOutQueue
@@ -101,8 +102,10 @@ func NewPartition(
 	cliFct rpc.ClientStreamFactory,
 	stateMgr storage.StateManager,
 ) Partition {
+	c, cancel := context.WithCancel(ctx)
 	return &partition{
-		ctx:           ctx,
+		ctx:           c,
+		cancel:        cancel,
 		log:           log,
 		db:            shard.Database().Name(),
 		shardID:       shard.ShardID(),
@@ -230,6 +233,10 @@ func (p *partition) Close() error {
 
 // Stop stops replicator channel.
 func (p *partition) Stop() {
+	// 1. cancel context of partition(will stop replicator)
+	p.cancel()
+
+	// 2. stop the peer of replicator
 	var waiter sync.WaitGroup
 	waiter.Add(len(p.peers))
 	for k := range p.peers {
