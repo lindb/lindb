@@ -333,6 +333,8 @@ func (s *shard) LookupRowMetricMeta(rows []metric.StorageRow) error {
 }
 
 func (s *shard) Close() error {
+	// finally, cleanup temp buffer.
+	defer s.bufferMgr.Cleanup()
 	// wait previous flush job completed
 	s.WaitFlushIndexCompleted()
 

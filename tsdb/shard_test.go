@@ -281,6 +281,8 @@ func TestShard_Close(t *testing.T) {
 	index := indexdb.NewMockIndexDatabase(ctrl)
 	segment := NewMockIntervalSegment(ctrl)
 	rollupSeg := NewMockIntervalSegment(ctrl)
+	bufferMgr := memdb.NewMockBufferManager(ctrl)
+	bufferMgr.EXPECT().Cleanup().AnyTimes()
 	s := &shard{
 		indexDB: index,
 		segment: segment,
@@ -288,6 +290,7 @@ func TestShard_Close(t *testing.T) {
 			timeutil.Interval(10 * 60 * 1000): rollupSeg, // 10min
 		},
 		flushCondition: sync.NewCond(&sync.Mutex{}),
+		bufferMgr:      bufferMgr,
 	}
 	cases := []struct {
 		name    string
