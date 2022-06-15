@@ -32,7 +32,7 @@ import (
 // BufferManager represents data points write buffer manager, maintains all buffers for spec shard.
 type BufferManager interface {
 	// AllocBuffer allocates a new DataPointBuffer.
-	AllocBuffer() (buf DataPointBuffer, err error)
+	AllocBuffer(familyTime int64) (buf DataPointBuffer, err error)
 	// GarbageCollect cleans all dirty buffers.
 	GarbageCollect()
 	// Cleanup cleans all history buffers.
@@ -59,8 +59,11 @@ func NewBufferManager(path string) BufferManager {
 }
 
 // AllocBuffer allocates a new DataPointBuffer.
-func (b *bufferManager) AllocBuffer() (buf DataPointBuffer, err error) {
-	path := filepath.Join(b.path, fmt.Sprintf("%d", timeutil.Now()))
+func (b *bufferManager) AllocBuffer(familyTime int64) (buf DataPointBuffer, err error) {
+	// path = root path + family time + create time(nano)
+	path := filepath.Join(b.path,
+		timeutil.FormatTimestamp(familyTime, timeutil.DataTimeFormat4),
+		fmt.Sprintf("%d", timeutil.NowNano()))
 	buf, err = newDataPointBuffer(path)
 	if err != nil {
 		return nil, err

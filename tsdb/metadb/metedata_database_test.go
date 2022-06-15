@@ -627,7 +627,8 @@ func TestMetadataDatabase_GenFieldID(t *testing.T) {
 			out: struct {
 				id  field.ID
 				err error
-			}{id: field.EmptyFieldID, err: series.ErrWrongFieldType},
+			}{id: field.EmptyFieldID, err: fmt.Errorf("field name:%s,field type:%s/%s,err:%s", "sum",
+				field.MaxField.String(), field.SumField.String(), series.ErrWrongFieldType)},
 		},
 		{
 			name:       "get field from memory cache",

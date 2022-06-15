@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 func TestBufferManager_AllocBuffer(t *testing.T) {
@@ -37,13 +38,13 @@ func TestBufferManager_AllocBuffer(t *testing.T) {
 	mkdirFunc = func(path string) error {
 		return fmt.Errorf("err")
 	}
-	buf, err := mgr.AllocBuffer()
+	buf, err := mgr.AllocBuffer(timeutil.Now())
 	assert.Error(t, err)
 	assert.Nil(t, buf)
 
 	// case 2: allocate ok
 	mkdirFunc = fileutil.MkDirIfNotExist
-	buf, err = mgr.AllocBuffer()
+	buf, err = mgr.AllocBuffer(timeutil.Now())
 	assert.NoError(t, err)
 	assert.NotNil(t, buf)
 }
