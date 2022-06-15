@@ -226,7 +226,8 @@ func (mdb *metadataDatabase) GenFieldID(
 			return f.ID, nil
 		}
 		mdb.statistics.GenFieldIDFailures.Incr()
-		return field.EmptyFieldID, series.ErrWrongFieldType
+		return field.EmptyFieldID, fmt.Errorf("field name:%s,field type:%s/%s,err:%s", fieldName,
+			fieldType.String(), f.Type.String(), series.ErrWrongFieldType)
 	}
 	// assign new field id, then add field into metric metadata
 	fieldMeta, err := metricMetadata.createField(fieldName, fieldType)

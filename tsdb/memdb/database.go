@@ -107,7 +107,7 @@ type memoryDatabase struct {
 
 // NewMemoryDatabase returns a new MemoryDatabase.
 func NewMemoryDatabase(cfg MemoryDatabaseCfg) (MemoryDatabase, error) {
-	buf, err := cfg.BufferMgr.AllocBuffer()
+	buf, err := cfg.BufferMgr.AllocBuffer(cfg.FamilyTime)
 	if err != nil {
 		return nil, err
 	}

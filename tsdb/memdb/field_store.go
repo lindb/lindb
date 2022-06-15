@@ -37,16 +37,17 @@ import (
 // header: field id[2bytes]
 //        + start time[2byte] + end time(delta of start time)[1byte] + mark container[2byte]
 // body: data points(value.....)
-// last mark flag of container marks the buf if has data written
+// last mark flag of container marks the buf if it has data written
 
 const (
-	fieldOffset = 0
-	startOffset = fieldOffset + 2
-	endOffset   = startOffset + 2
-	markOffset  = endOffset + 1
-	bodyOffset  = markOffset + 2
-	headLen     = 8
-	valueSize   = 8
+	fieldOffset   = 0               // field id
+	startOffset   = fieldOffset + 2 // start time
+	endOffset     = startOffset + 2
+	markOffset    = endOffset + 1
+	bodyOffset    = markOffset + 2
+	headLen       = 8
+	valueSize     = 8
+	markContainer = 8
 
 	emptyFieldStoreSize = 24 + // empty buf slice cost
 		24 // empty compress slice cost
@@ -145,7 +146,7 @@ func (fs *fieldStore) FlushFieldTo(tableFlusher metricsdata.Flusher, fieldMeta f
 	return tableFlusher.FlushField(data)
 }
 
-// writeFirstPoint writes first point in current write buffer
+// writeFirstPoint writes first point in current write buffer.
 func (fs *fieldStore) writeFirstPoint(slotIndex uint16, value float64) {
 	pos, markIdx, flagIdx := fs.position(0)
 	binary.LittleEndian.PutUint16(fs.buf[startOffset:], slotIndex) // write start time
@@ -197,11 +198,14 @@ func (fs *fieldStore) compact(fieldType field.Type, startTime uint16) {
 	fs.resetBuf()
 }
 
-// position returns the point write position/mark index/flag index
+// position returns the point write position/mark index/flag index.
+// position: write value
+// markIdx: mark container index
+// flagIdx: flag if pos has value
 func (fs *fieldStore) position(deltaOfTime uint16) (pos, markIdx uint16, flagIdx uint8) {
 	pos = bodyOffset + valueSize*deltaOfTime
 	markIdx = deltaOfTime / valueSize
-	flagIdx = uint8(1 << (valueSize - deltaOfTime%valueSize - 1))
+	flagIdx = uint8(1 << (markContainer - deltaOfTime%markContainer - 1))
 	return
 }
 
