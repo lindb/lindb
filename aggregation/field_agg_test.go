@@ -52,9 +52,9 @@ func TestFieldAggregator_Aggregate(t *testing.T) {
 	pIt.EXPECT().HasNext().Return(false)
 	agg.Aggregate(it)
 
-	agg.AggregateBySlot(1, math.Inf(1))
-	agg.AggregateBySlot(1, 1.0)
-	agg.AggregateBySlot(1, 1.0)
+	agg.AggregateBySlot(11, math.Inf(1))
+	agg.AggregateBySlot(11, 1.0)
+	agg.AggregateBySlot(11, 1.0)
 
 	agg.reset()
 }

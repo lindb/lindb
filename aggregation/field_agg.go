@@ -32,7 +32,7 @@ type FieldAggregator interface {
 	// Aggregate aggregates the field series into current aggregator.
 	Aggregate(it series.FieldIterator)
 	// AggregateBySlot aggregates the field series into current aggregator.
-	AggregateBySlot(pos int, value float64)
+	AggregateBySlot(slot int, value float64)
 	// ResultSet returns the result set of field aggregator.
 	ResultSet() (startTime int64, it series.FieldIterator)
 	// reset aggregator context for reusing.
@@ -80,18 +80,18 @@ func (a *fieldAggregator) Aggregate(it series.FieldIterator) {
 		pIt := it.Next()
 		for pIt.HasNext() {
 			slot, value := pIt.Next()
-			a.AggregateBySlot(slot-a.start, value)
+			a.AggregateBySlot(slot, value)
 		}
 	}
 }
 
 // AggregateBySlot aggregates the field series into current aggregator
-func (a *fieldAggregator) AggregateBySlot(pos int, value float64) {
+func (a *fieldAggregator) AggregateBySlot(slot int, value float64) {
 	// drop inf value
 	if math.IsInf(value, 1) {
 		return
 	}
-
+	pos := slot - a.start
 	for idx, aggType := range a.aggTypes {
 		values := a.fieldSeriesList[idx]
 		if values == nil {
