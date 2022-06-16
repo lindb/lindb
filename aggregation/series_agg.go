@@ -95,8 +95,7 @@ func NewSeriesAggregator(
 	aggSpec AggregatorSpec,
 ) SeriesAggregator {
 	calc := queryInterval.Calculator()
-	segmentTime := calc.CalcSegmentTime(queryTimeRange.Start)
-	startTime := calc.CalcFamilyStartTime(segmentTime, calc.CalcFamily(queryTimeRange.Start, segmentTime))
+	startTime := calc.CalcFamilyTime(queryTimeRange.Start)
 
 	length := calc.CalcTimeWindows(queryTimeRange.Start, queryTimeRange.End)
 
@@ -156,8 +155,9 @@ func (a *seriesAggregator) GetAggregator(segmentStartTime int64) (agg FieldAggre
 	}
 	agg = a.aggregates[idx]
 	if agg == nil {
-		slotRange := a.queryInterval.CalcSlotRange(segmentStartTime, a.queryTimeRange)
-		agg = NewFieldAggregator(a.aggSpec, segmentStartTime, int(slotRange.Start), int(slotRange.End))
+		familyTimeForQuery := a.calc.CalcFamilyTime(segmentStartTime)
+		slotRange := a.queryInterval.CalcSlotRange(familyTimeForQuery, a.queryTimeRange)
+		agg = NewFieldAggregator(a.aggSpec, familyTimeForQuery, int(slotRange.Start), int(slotRange.End))
 		a.aggregates[idx] = agg
 	}
 	ok = true
