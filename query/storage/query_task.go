@@ -377,12 +377,12 @@ func (t *dataLoadTask) Run() error {
 	}
 	queryIntervalRatio := t.dataLoadCtx.ShardExecuteCtx.StorageExecuteCtx.Query.IntervalRatio
 	seriesIDs := t.dataLoadCtx.ShardExecuteCtx.SeriesIDsAfterFiltering // after group result
-	targetSlotRange := t.dataLoadCtx.ShardExecuteCtx.StorageExecuteCtx.CalcTargetSlotRange(t.segmentCtx.FamilyTime)
 	// calc base slot based on query interval and family time of storage
 	queryInterval := t.dataLoadCtx.ShardExecuteCtx.StorageExecuteCtx.Query.Interval
 	calc := queryInterval.Calculator()
 	familyTimeForQuery := calc.CalcFamilyTime(t.segmentCtx.FamilyTime)
 	baseSlot := uint16(calc.CalcSlot(t.segmentCtx.FamilyTime, familyTimeForQuery, queryInterval.Int64()))
+	targetSlotRange := t.dataLoadCtx.ShardExecuteCtx.StorageExecuteCtx.CalcTargetSlotRange(familyTimeForQuery)
 
 	for idx, rs := range t.segmentCtx.FilterRS {
 		// double filtering, maybe some series ids be filtered out when do grouping.
