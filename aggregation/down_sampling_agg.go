@@ -129,21 +129,24 @@ func DownSampling(
 	source, target timeutil.SlotRange, ratio uint16, baseSlot uint16, getter encoding.TSDValueGetter,
 	emitValue func(targetPos int, value float64),
 ) {
-	length := int(target.End-target.Start) + 1
+	start := int(target.Start)
+	end := int(target.End)
 	bs := int(baseSlot)
 	for movingSourceSlot := source.Start; movingSourceSlot <= source.End; movingSourceSlot++ {
 		value, ok := getter.GetValue(movingSourceSlot)
 		if !ok {
+			// no data, goto next loop
 			continue
 		}
-		targetPos := bs + int(movingSourceSlot/ratio) - int(target.Start)
-		if targetPos < 0 {
+		targetSlot := bs + int(movingSourceSlot/ratio) // base slot + source slot(down sampling)
+		if targetSlot < start {
+			// target slot < query start slot, goto next loop
 			continue
 		}
-		// exhausted
-		if targetPos >= length {
+		if targetSlot > end {
+			// exhausted when target slot > query end slot
 			break
 		}
-		emitValue(targetPos, value)
+		emitValue(targetSlot, value)
 	}
 }
