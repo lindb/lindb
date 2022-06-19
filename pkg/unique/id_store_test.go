@@ -21,14 +21,21 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/cockroachdb/pebble"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestIDStore_New_err(t *testing.T) {
+	defer func() {
+		pebbleOpenFn = pebble.Open
+	}()
 	p := t.TempDir()
 	_, _ = NewIDStore(p)
 
 	// cannot create duplicate
+	pebbleOpenFn = func(dir string, opts *pebble.Options) (db *pebble.DB, _ error) {
+		return nil, fmt.Errorf("err")
+	}
 	store, err := NewIDStore(p)
 	assert.Error(t, err)
 	assert.Nil(t, store)

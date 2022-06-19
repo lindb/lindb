@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Code generated from /Users/jacklhuang/Documents/code/gopath/src/github.com/lindb/lindb/sql/grammar/SQL.g4 by ANTLR 4.9.2. DO NOT EDIT.
+// Code generated from /Users/huangjie/go/src/github.com/lindb/lindb/sql/grammar/SQL.g4 by ANTLR 4.10.1. DO NOT EDIT.
 
 package grammar // SQL
 import "github.com/antlr/antlr4/runtime/Go/antlr"

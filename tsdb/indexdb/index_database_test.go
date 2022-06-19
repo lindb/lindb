@@ -41,14 +41,20 @@ import (
 func TestNewIndexDatabase(t *testing.T) {
 	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	defer func() {
+		ctrl.Finish()
+		createBackendFn = newIDMappingBackend
+	}()
 
 	mockMetadata := metadb.NewMockMetadata(ctrl)
 	mockMetadata.EXPECT().DatabaseName().Return("test").AnyTimes()
 	db, err := NewIndexDatabase(context.TODO(), testPath, mockMetadata, nil, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
-	// can't new duplicate
+	// create index database failure
+	createBackendFn = func(parent string) (IDMappingBackend, error) {
+		return nil, fmt.Errorf("err")
+	}
 	db2, err := NewIndexDatabase(context.TODO(), testPath, nil, nil, nil)
 	assert.Error(t, err)
 	assert.Nil(t, db2)
