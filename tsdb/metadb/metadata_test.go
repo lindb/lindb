@@ -29,12 +29,19 @@ import (
 func TestNewMetadata(t *testing.T) {
 	testPath := t.TempDir()
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	defer func() {
+		createMetadataBackendFn = newMetadataBackend
+		ctrl.Finish()
+	}()
 	metadata1, err := NewMetadata(context.TODO(), "test", testPath, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, metadata1.TagMetadata())
 	assert.NotNil(t, metadata1.MetadataDatabase())
 	assert.Equal(t, "test", metadata1.DatabaseName())
+
+	createMetadataBackendFn = func(parent string) (MetadataBackend, error) {
+		return nil, fmt.Errorf("err")
+	}
 	metadata2, err := NewMetadata(context.TODO(), "test", testPath, nil)
 	assert.Error(t, err)
 	assert.Nil(t, metadata2)

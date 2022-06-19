@@ -28,6 +28,11 @@ import (
 
 //go:generate mockgen -source ./id_store.go -destination=./id_store_mock.go -package=unique
 
+// for testing
+var (
+	pebbleOpenFn = pebble.Open
+)
+
 // IDStore represents unique id store for LinDB's metadata.
 type IDStore interface {
 	io.Closer
@@ -55,7 +60,8 @@ type idStore struct {
 
 // NewIDStore creates an IDStore instance.
 func NewIDStore(path string) (IDStore, error) {
-	db, err := pebble.Open(path, DefaultOptions())
+	// panic when reopen exist db(https://github.com/cockroachdb/pebble/issues/1777)
+	db, err := pebbleOpenFn(path, DefaultOptions())
 	if err != nil {
 		return nil, err
 	}

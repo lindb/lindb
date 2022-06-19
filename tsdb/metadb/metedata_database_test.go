@@ -46,11 +46,6 @@ func TestMetadataDatabase_New(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
-	// test: can't re-open
-	db1, err := NewMetadataDatabase(context.TODO(), "test", testPath)
-	assert.Error(t, err)
-	assert.Nil(t, db1)
-
 	// close db
 	err = db.Close()
 	assert.NoError(t, err)

@@ -60,7 +60,7 @@ func (tl *TrackedListener) Accept() (net.Conn, error) {
 		tl.statistics.Accept.Incr()
 		if err != nil {
 			var ne net.Error
-			if errors.As(err, &ne) && ne.Temporary() {
+			if errors.As(err, &ne) && ne.Timeout() {
 				time.Sleep(time.Millisecond * 100)
 				continue
 			}
