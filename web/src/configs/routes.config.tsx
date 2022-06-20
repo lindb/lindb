@@ -26,6 +26,7 @@ import {
   IconSearch,
   IconServer,
   IconTemplate,
+  IconShareStroked,
 } from "@douyinfe/semi-icons";
 import { CommonVariates, Dashboards } from "@src/configs";
 import { Route } from "@src/constants";
@@ -43,6 +44,7 @@ import {
   StorageList,
   StorageOverview,
   MetadataExplore,
+  MultipleIDCList,
 } from "@src/pages";
 import * as _ from "lodash-es";
 import React from "react";
@@ -160,6 +162,12 @@ export const routes = [
         path: Route.MetadataExplore,
         icon: <IconInherit size="large" />,
         content: <MetadataExplore />,
+      },
+      {
+        text: "Multiple IDCs",
+        path: Route.MetadataMultipleIDC,
+        icon: <IconShareStroked size="large" />,
+        content: <MultipleIDCList />,
       },
     ],
   },

@@ -380,7 +380,7 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
         style={{ display: state ? "block" : "none" }}
       />
       <div style={{ display: !state ? "block" : "none" }}>
-        <CanvasChart chartId={chartId} height={300} />
+        <CanvasChart chartId={chartId} height={300} disableDrag />
       </div>
     </>
   );

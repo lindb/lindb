@@ -41,9 +41,8 @@ import * as _ from "lodash-es";
 import React, { useState, useRef, MutableRefObject } from "react";
 import moment from "moment";
 import { DateTimeFormat } from "@src/constants";
-import { format } from "url";
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 const defaultQuickItem = { title: "Last 1 hour", value: "now()-1h" };
 const defaultAutoRefreshItem = { title: "off", value: "" };
 
@@ -280,9 +279,13 @@ export default function TimePicker() {
             </Dropdown.Menu>
           }
         >
-          <Button icon={<IconChevronDown />} iconPosition="right">
-            {autoRefresh.title}
-          </Button>
+          {autoRefresh.title === "off" ? (
+            <Button icon={<IconChevronDown />} iconPosition="right" />
+          ) : (
+            <Button icon={<IconChevronDown />} iconPosition="right">
+              {autoRefresh.title}
+            </Button>
+          )}
         </Dropdown>
       </SplitButtonGroup>
     </>

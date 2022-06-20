@@ -32,6 +32,7 @@ import { DateTimeFormat } from "@src/constants";
 interface CanvasChartProps {
   chartId: string;
   height?: number;
+  disableDrag?: boolean;
 }
 const Zoom = {
   drag: false,
@@ -41,7 +42,7 @@ const Zoom = {
 };
 
 export default function CanvasChart(props: CanvasChartProps) {
-  const { chartId, height } = props;
+  const { chartId, height, disableDrag } = props;
   const eventCallbacks: Map<string, any> = new Map();
   const chartRef = useRef() as MutableRefObject<HTMLCanvasElement | null>;
   const crosshairRef = useRef() as MutableRefObject<HTMLDivElement>;
@@ -88,7 +89,7 @@ export default function CanvasChart(props: CanvasChartProps) {
       const height = chartArea.height;
       const top = chartArea.top;
       const x = e.offsetX;
-      if (zoomRef.current.isMouseDown) {
+      if (!disableDrag && zoomRef.current.isMouseDown) {
         zoomRef.current.selectedEnd = seriesRef.current.times[points[0].index];
         zoomRef.current.drag = true;
         const width = e.offsetX - start;
@@ -133,60 +134,61 @@ export default function CanvasChart(props: CanvasChartProps) {
       ChartEventStore.mouseLeave(e);
       ChartEventStore.setShowTooltip(false);
     });
-    eventCallbacks.set("mousedown", function (e: any) {
-      if (chartStatusRef.current != ChartStatus.OK) {
-        return;
-      }
-      zoomRef.current.isMouseDown = true;
-      const points: any = chartInstance.getElementsAtEventForMode(
-        e,
-        "index",
-        { intersect: false },
-        false
-      );
-      if (points && points.length > 0) {
-        zoomRef.current.selectedStart =
-          seriesRef.current.times[points[0].index];
-      }
-      start = e.offsetX;
-      const chartArea = chartInstance.chartArea;
-      const height = chartArea.height;
-      setStyle(zoomDivRef.current, {
-        display: "block",
-        height: `${height}px`,
-        // left: start,
-        transform: `translate(${start}px, ${chartArea.top}px)`,
-      });
-    });
-    eventCallbacks.set("mouseup", function (_e: any) {
-      console.log("uppppppppppppp");
-      if (chartStatusRef.current != ChartStatus.OK) {
-        return;
-      }
-      setStyle(zoomDivRef.current, {
-        display: "none",
-        width: "0px",
-      });
-      zoomRef.current.isMouseDown = false;
-      if (zoomRef.current.drag) {
-        const start = Math.min(
-          zoomRef.current.selectedStart,
-          zoomRef.current.selectedEnd
+    if (!disableDrag) {
+      eventCallbacks.set("mousedown", function (e: any) {
+        if (chartStatusRef.current != ChartStatus.OK) {
+          return;
+        }
+        zoomRef.current.isMouseDown = true;
+        const points: any = chartInstance.getElementsAtEventForMode(
+          e,
+          "index",
+          { intersect: false },
+          false
         );
-        const end = Math.max(
-          zoomRef.current.selectedStart,
-          zoomRef.current.selectedEnd
-        );
-        const from = moment(start).format(DateTimeFormat);
-        const to = moment(end).format(DateTimeFormat);
-        urlStore.changeURLParams({ params: { from: from, to: to } });
-      }
+        if (points && points.length > 0) {
+          zoomRef.current.selectedStart =
+            seriesRef.current.times[points[0].index];
+        }
+        start = e.offsetX;
+        const chartArea = chartInstance.chartArea;
+        const height = chartArea.height;
+        setStyle(zoomDivRef.current, {
+          display: "block",
+          height: `${height}px`,
+          // left: start,
+          transform: `translate(${start}px, ${chartArea.top}px)`,
+        });
+      });
+      eventCallbacks.set("mouseup", function (_e: any) {
+        console.log("uppppppppppppp");
+        if (chartStatusRef.current != ChartStatus.OK) {
+          return;
+        }
+        setStyle(zoomDivRef.current, {
+          display: "none",
+          width: "0px",
+        });
+        zoomRef.current.isMouseDown = false;
+        if (zoomRef.current.drag) {
+          const start = Math.min(
+            zoomRef.current.selectedStart,
+            zoomRef.current.selectedEnd
+          );
+          const end = Math.max(
+            zoomRef.current.selectedStart,
+            zoomRef.current.selectedEnd
+          );
+          const from = moment(start).format(DateTimeFormat);
+          const to = moment(end).format(DateTimeFormat);
+          urlStore.changeURLParams({ params: { from: from, to: to } });
+        }
 
-      zoomRef.current.drag = false;
-      zoomRef.current.selectedStart = 0;
-      zoomRef.current.selectedEnd = 0;
-    });
-
+        zoomRef.current.drag = false;
+        zoomRef.current.selectedStart = 0;
+        zoomRef.current.selectedEnd = 0;
+      });
+    }
     eventCallbacks.forEach((v, k) => {
       console.log("canvas......", canvas);
       canvas.addEventListener(k, v);
@@ -262,7 +264,7 @@ export default function CanvasChart(props: CanvasChartProps) {
       <div className="lin-chart" style={{ height: height || 200 }}>
         <canvas className="chart" ref={chartRef} height={height || 200} />
         <div ref={crosshairRef} className="crosshair" />
-        <div ref={zoomDivRef} className="zoom" />
+        {!disableDrag && <div ref={zoomDivRef} className="zoom" />}
       </div>
       <ChartLegend />
     </div>

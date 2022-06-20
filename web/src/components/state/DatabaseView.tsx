@@ -42,6 +42,7 @@ export default function DatabaseView(props: DatabaseViewProps) {
         return (
           <Text
             link
+            className="lin-link"
             onClick={() => {
               if (!name) {
                 // only in storage list can click
