@@ -44,6 +44,7 @@ export default function StorageView(props: StorageViewProps) {
         return (
           <Text
             link
+            className="lin-link"
             onClick={() => {
               if (!name) {
                 // only in storage list can click

@@ -30,4 +30,5 @@ export enum Route {
   MetadataDatabase = "/metadata/database",
   MetadataDatabaseConfig = "/metadata/database/configuration",
   MetadataExplore = "/metadata/explore",
+  MetadataMultipleIDC = "/metadata/multiple-idcs",
 }

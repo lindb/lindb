@@ -162,7 +162,7 @@ export default function NodeView(props: NodeViewProps) {
       title: "",
       key: "operator",
       render: (_text: any, record: any, _index: any) => (
-        <Text link>
+        <Text link className="lin-link">
           <IconSettingStroked
             onClick={() => {
               URLStore.changeURLParams({

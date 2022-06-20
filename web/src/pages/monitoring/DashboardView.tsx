@@ -51,7 +51,7 @@ export default function DashboardView(props: DashboardViewProps) {
     let dashboardItem = _.find(currentDashboards, (item: DashboardItem) => {
       return item.value == value;
     });
-    if (!dashboardItem) {
+    if (_.isUndefined(dashboardItem) || _.isNull(dashboardItem)) {
       dashboardItem = currentDashboards[0];
     }
     setDashboard(_.get(dashboardItem, "dashboard", {}) as Dashboard);
@@ -62,9 +62,7 @@ export default function DashboardView(props: DashboardViewProps) {
     const role = URLStore.params.get("role") || StateRoleName.Broker;
     setRole(role);
     const d = URLStore.params.get("d");
-    if (d) {
-      changeDashboard(d as string);
-    }
+    changeDashboard(d as string);
   });
   return (
     <>
@@ -77,7 +75,6 @@ export default function DashboardView(props: DashboardViewProps) {
             { value: StateRoleName.Storage, label: StateRoleName.Storage },
           ]}
           onChange={(value) => {
-            changeDashboard(value as string);
             URLStore.changeURLParams({
               params: { role: value },
               needDelete: ["namespace", "node"],
@@ -89,7 +86,6 @@ export default function DashboardView(props: DashboardViewProps) {
           value={selectedDashboard?.value}
           prefix={<IconGridStroked />}
           onChange={(value) => {
-            changeDashboard(value as string);
             URLStore.changeURLParams({ params: { d: value } });
           }}
           optionList={_.filter(
