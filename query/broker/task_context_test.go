@@ -191,6 +191,9 @@ func TestTaskContext_handleTaskResponse(t *testing.T) {
 		TimeSeriesList: []*protoCommonV1.TimeSeries{{Fields: map[string][]byte{"test": nil}}},
 	}
 	payloadWithField, _ := tsListWithField.Marshal()
+
+	tsList2 := &protoCommonV1.TimeSeriesList{}
+	payload2, _ := tsList2.Marshal()
 	cases := []struct {
 		name    string
 		resp    *protoCommonV1.TaskResponse
@@ -228,6 +231,13 @@ func TestTaskContext_handleTaskResponse(t *testing.T) {
 			name: "agg field data",
 			resp: &protoCommonV1.TaskResponse{
 				Payload: payloadWithField,
+			},
+			wantErr: false,
+		},
+		{
+			name: "no field aggregator specs",
+			resp: &protoCommonV1.TaskResponse{
+				Payload: payload2,
 			},
 			wantErr: false,
 		},

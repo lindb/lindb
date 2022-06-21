@@ -272,10 +272,14 @@ func (c *metricTaskContext) WriteResponse(resp *protoCommonV1.TaskResponse, from
 		return
 	}
 
+	var seriesList series.GroupedIterators
+	if c.groupAgg != nil {
+		seriesList = c.groupAgg.ResultSet()
+	}
 	select {
 	case c.eventCh <- &series.TimeSeriesEvent{
 		AggregatorSpecs: c.aggregatorSpecs,
-		SeriesList:      c.groupAgg.ResultSet(),
+		SeriesList:      seriesList,
 		Stats:           c.stats,
 	}:
 	default:
@@ -318,14 +322,23 @@ func (c *metricTaskContext) handleTaskResponse(resp *protoCommonV1.TaskResponse,
 	if ignoreResponse {
 		return nil
 	}
-	var start time.Time
+
 	if c.stats != nil {
-		start = time.Now()
+		start := time.Now()
+		defer func() {
+			c.stats.TotalCost = time.Since(start).Nanoseconds()
+		}()
 	}
 
 	tsList := &protoCommonV1.TimeSeriesList{}
 	if err := tsList.Unmarshal(resp.Payload); err != nil {
 		return err
+	}
+
+	if len(tsList.FieldAggSpecs) == 0 {
+		// if it gets empty aggregator spec(empty response), need ignore response.
+		// if not ignore, will build empty group aggregator, and cannot aggregate real response data.
+		return nil
 	}
 
 	for _, spec := range tsList.FieldAggSpecs {
@@ -364,9 +377,6 @@ func (c *metricTaskContext) handleTaskResponse(resp *protoCommonV1.TaskResponse,
 		c.groupAgg.Aggregate(series.NewGroupedIterator(ts.Tags, fields))
 	}
 
-	if c.stats != nil {
-		c.stats.TotalCost = time.Since(start).Nanoseconds()
-	}
 	return nil
 }
 
