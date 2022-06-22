@@ -44,7 +44,7 @@ var (
 	newStateMachineFctFn = masterpkg.NewStateMachineFactory
 )
 
-var log = logger.GetLogger("coordinator", "MasterController")
+var log = logger.GetLogger("Master", "MasterController")
 
 // MasterCfg represents the config for masterController creating
 type MasterCfg struct {

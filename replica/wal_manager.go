@@ -103,7 +103,7 @@ func NewWriteAheadLogManager(
 		cliFct:        cliFct,
 		databaseLogs:  make(map[string]WriteAheadLog),
 		stateMgr:      stateMgr,
-		logger:        logger.GetLogger("replica", "WriteAheadLogManager"),
+		logger:        logger.GetLogger("Replica", "WriteAheadLogManager"),
 	}
 
 	mgr.garbageCollectTask()

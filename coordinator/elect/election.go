@@ -86,7 +86,7 @@ func NewElection(ctx context.Context, repo state.Repository, node models.Node, t
 		ctx:      c,
 		cancel:   cancel,
 		retryCh:  make(chan int),
-		logger:   logger.GetLogger("coordinator", "Election"),
+		logger:   logger.GetLogger("Coordinator", "Election"),
 	}
 }
 

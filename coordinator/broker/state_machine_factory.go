@@ -71,7 +71,7 @@ func NewStateMachineFactory(
 		ctx:              ctx,
 		discoveryFactory: discoveryFactory,
 		stateMgr:         stateMgr,
-		logger:           logger.GetLogger("broker", "StateMachineFactory"),
+		logger:           logger.GetLogger("Broker", "StateMachineFactory"),
 	}
 }
 

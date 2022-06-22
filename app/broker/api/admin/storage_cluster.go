@@ -46,7 +46,7 @@ type StorageClusterAPI struct {
 func NewStorageClusterAPI(deps *depspkg.HTTPDeps) *StorageClusterAPI {
 	return &StorageClusterAPI{
 		deps:   deps,
-		logger: logger.GetLogger("broker", "StorageClusterAPI"),
+		logger: logger.GetLogger("Broker", "StorageClusterAPI"),
 	}
 }
 

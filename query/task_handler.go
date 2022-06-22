@@ -54,7 +54,7 @@ func NewTaskHandler(
 		taskPool:  pool,
 		fct:       fct,
 		processor: processor,
-		logger:    logger.GetLogger("query", "TaskHandler"),
+		logger:    logger.GetLogger("Query", "TaskHandler"),
 	}
 }
 

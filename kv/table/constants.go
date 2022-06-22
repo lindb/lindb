@@ -40,4 +40,4 @@ const (
 	magicNumberAtFooter = 9
 )
 
-var tableLogger = logger.GetLogger("kv", "Table")
+var tableLogger = logger.GetLogger("KV", "Table")

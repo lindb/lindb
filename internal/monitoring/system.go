@@ -32,7 +32,7 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 )
 
-var collectorLogger = logger.GetLogger("monitoring", "SystemCollector")
+var collectorLogger = logger.GetLogger("Monitoring", "SystemCollector")
 
 var (
 	cpuCount      = 0

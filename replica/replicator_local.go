@@ -52,7 +52,7 @@ func NewLocalReplicator(channel *ReplicatorChannel, shard tsdb.Shard, family tsd
 		family:     family,
 		batchRows:  metric.NewStorageBatchRows(),
 		statistics: metrics.NewStorageLocalReplicatorStatistics(channel.State.Database, channel.State.ShardID.String()),
-		logger:     logger.GetLogger("replica", "LocalReplicator"),
+		logger:     logger.GetLogger("Replica", "LocalReplicator"),
 		block:      make([]byte, 256*1024),
 	}
 

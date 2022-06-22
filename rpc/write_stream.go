@@ -74,7 +74,7 @@ func NewWriteStream(
 		familyTime: familyTime,
 		fct:        fct,
 		closed:     atomic.NewBool(false),
-		logger:     logger.GetLogger("rpc", "WriteStream"),
+		logger:     logger.GetLogger("RPC", "WriteStream"),
 	}
 
 	// initialize write stream

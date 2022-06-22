@@ -88,7 +88,7 @@ func newDatabaseChannel(
 		cancel:      cancel,
 		fct:         fct,
 		statistics:  metrics.NewBrokerDatabaseWriteStatistics(databaseCfg.Name),
-		logger:      logger.GetLogger("replica", "DatabaseChannel"),
+		logger:      logger.GetLogger("Replica", "DatabaseChannel"),
 	}
 	ch.shardChannels.value.Store(make(shard2Channel))
 

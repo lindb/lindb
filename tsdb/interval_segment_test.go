@@ -287,7 +287,7 @@ func TestIntervalSegment_GetDataFamilies(t *testing.T) {
 					Interval:  timeutil.Interval(timeutil.OneSecond * 10),
 					Retention: timeutil.Interval(timeutil.OneDay * 20),
 				},
-				logger: logger.GetLogger("test", "segment"),
+				logger: logger.GetLogger("test", "Segment"),
 			}
 			if tt.prepare != nil {
 				tt.prepare(s)
@@ -397,7 +397,7 @@ func TestIntervalSegment_EvictSegment(t *testing.T) {
 		segments: map[string]Segment{
 			segmentDir: segment,
 		},
-		logger: logger.GetLogger("TSDB", "segment"),
+		logger: logger.GetLogger("TSDB", "Segment"),
 	}
 	segment.EXPECT().NeedEvict().Return(false)
 	s.EvictSegment()

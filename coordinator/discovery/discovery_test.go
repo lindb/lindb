@@ -152,7 +152,7 @@ func TestDiscovery_Discovery(t *testing.T) {
 
 	repo := state.NewMockRepository(ctrl)
 	listener := NewMockListener(ctrl)
-	d := &discovery{prefix: "/test", repo: repo, listener: listener, logger: logger.GetLogger("test", "test")}
+	d := &discovery{prefix: "/test", repo: repo, listener: listener, logger: logger.GetLogger("Coordinator", "Test")}
 
 	// case 1: list err
 	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))

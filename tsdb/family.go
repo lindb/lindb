@@ -127,7 +127,7 @@ func newDataFamily(
 		persistSeq:   make(map[int32]atomic.Int64),
 		callbacks:    make(map[int32][]func(seq int64)),
 		statistics:   metrics.NewFamilyStatistics(dbName, shardIDStr),
-		logger:       logger.GetLogger("TSDB", "family"),
+		logger:       logger.GetLogger("TSDB", "Family"),
 	}
 	// get current persist write sequence
 	snapshot := family.GetSnapshot()

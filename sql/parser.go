@@ -34,7 +34,7 @@ var (
 	getSQLParserFunc = getSQLParser
 )
 
-var log = logger.GetLogger("sql", "Parser")
+var log = logger.GetLogger("SQL", "Parser")
 
 var errorHandle = &errorListener{}
 

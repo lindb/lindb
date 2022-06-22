@@ -45,7 +45,7 @@ type StorageStateMachineAPI struct {
 func NewStorageStateMachineAPI(stateMgr storage.StateManager) *StorageStateMachineAPI {
 	return &StorageStateMachineAPI{
 		stateMgr: stateMgr,
-		logger:   logger.GetLogger("storage", "StateMachineAPI"),
+		logger:   logger.GetLogger("Storage", "StateMachineAPI"),
 	}
 }
 

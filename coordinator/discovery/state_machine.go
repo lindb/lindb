@@ -129,7 +129,7 @@ func NewStateMachine(ctx context.Context,
 		onCreateFn:       onCreateFn,
 		onDeleteFn:       onDeleteFn,
 		running:          atomic.NewBool(true),
-		logger:           logger.GetLogger("coordinator", "StateMachine"),
+		logger:           logger.GetLogger("Coordinator", "StateMachine"),
 	}
 
 	// new state discovery

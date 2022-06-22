@@ -42,7 +42,7 @@ type DatabaseAPI struct {
 func NewDatabaseAPI(deps *depspkg.HTTPDeps) *DatabaseAPI {
 	return &DatabaseAPI{
 		deps:   deps,
-		logger: logger.GetLogger("broker", "DatabaseAPI"),
+		logger: logger.GetLogger("Broker", "DatabaseAPI"),
 	}
 }
 

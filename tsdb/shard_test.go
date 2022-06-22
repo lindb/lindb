@@ -358,7 +358,7 @@ func TestShard_Flush(t *testing.T) {
 		db:             db,
 		flushCondition: sync.NewCond(&sync.Mutex{}),
 		statistics:     metrics.NewShardStatistics("data", "1"),
-		logger:         logger.GetLogger("TSDB", "test"),
+		logger:         logger.GetLogger("TSDB", "Test"),
 	}
 	cases := []struct {
 		name    string
@@ -416,7 +416,7 @@ func TestShard_Write(t *testing.T) {
 		db:         db,
 		metadata:   metadata,
 		statistics: metrics.NewShardStatistics("data", "1"),
-		logger:     logger.GetLogger("TSDB", "test"),
+		logger:     logger.GetLogger("TSDB", "Test"),
 	}
 	cases := []struct {
 		name    string
@@ -468,7 +468,7 @@ func TestShard_lookupRowMeta(t *testing.T) {
 		db:         db,
 		metadata:   metadata,
 		statistics: metrics.NewShardStatistics("data", "1"),
-		logger:     logger.GetLogger("TSDB", "test"),
+		logger:     logger.GetLogger("TSDB", "Test"),
 	}
 	cases := []struct {
 		name    string
@@ -538,7 +538,7 @@ func TestShard_WaitFlushIndexCompleted(t *testing.T) {
 		db:             db,
 		flushCondition: sync.NewCond(&sync.Mutex{}),
 		statistics:     metrics.NewShardStatistics("data", "1"),
-		logger:         logger.GetLogger("TSDB", "test"),
+		logger:         logger.GetLogger("TSDB", "Test"),
 	}
 	s.isFlushing.Store(false)
 	index.EXPECT().Flush().DoAndReturn(func() error {
@@ -578,7 +578,7 @@ func TestShard_TTL(t *testing.T) {
 			10: segment,
 		},
 		db:     db,
-		logger: logger.GetLogger("TSDB", "test"),
+		logger: logger.GetLogger("TSDB", "Test"),
 	}
 	segment.EXPECT().TTL().Return(fmt.Errorf("err"))
 	s.TTL()
@@ -595,7 +595,7 @@ func TestShard_EvictSegment(t *testing.T) {
 			10: segment,
 		},
 		db:     db,
-		logger: logger.GetLogger("TSDB", "test"),
+		logger: logger.GetLogger("TSDB", "Test"),
 	}
 	segment.EXPECT().EvictSegment()
 	s.EvictSegment()

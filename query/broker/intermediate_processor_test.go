@@ -65,7 +65,7 @@ func Test_Intermediate_process_error(t *testing.T) {
 	stream := protoCommonV1.NewMockTaskService_HandleServer(ctrl)
 
 	taskProcessor := intermediateTaskProcessor{
-		logger: logger.GetLogger("query", "Test"),
+		logger: logger.GetLogger("Query", "Test"),
 	}
 	stream.EXPECT().Send(gomock.Any()).Return(nil)
 	taskProcessor.Process(flow.NewTaskContextWithTimeout(context.Background(), time.Second),
@@ -92,7 +92,7 @@ func Test_Intermediate_processIntermediateTask(t *testing.T) {
 	taskProcessor := intermediateTaskProcessor{
 		taskManager:   taskManager,
 		currentNodeID: "1.1.1.1:80",
-		logger:        logger.GetLogger("query", "Test"),
+		logger:        logger.GetLogger("Query", "Test"),
 	}
 	stream := protoCommonV1.NewMockTaskService_HandleServer(ctrl)
 	stream.EXPECT().Send(gomock.Any()).Return(nil).AnyTimes()

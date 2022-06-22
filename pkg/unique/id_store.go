@@ -68,7 +68,7 @@ func NewIDStore(path string) (IDStore, error) {
 	return &idStore{
 		db:     db,
 		path:   path,
-		logger: logger.GetLogger("pkg", "idStore"),
+		logger: logger.GetLogger("PKG", "IDStore"),
 	}, nil
 }
 

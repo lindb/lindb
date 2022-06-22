@@ -65,7 +65,7 @@ func NewLeafTaskProcessor(
 		engine:            engine,
 		taskServerFactory: taskServerFactory,
 		statistics:        metrics.NewStorageQueryStatistics(),
-		logger:            logger.GetLogger("query", "LeafTaskDispatcher"),
+		logger:            logger.GetLogger("Query", "LeafTaskDispatcher"),
 	}
 }
 

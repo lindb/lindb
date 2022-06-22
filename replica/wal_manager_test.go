@@ -208,7 +208,7 @@ func TestWriteAheadLogManager_Stop_Close(t *testing.T) {
 					"test1": log1,
 					"test2": log2,
 				},
-				logger: logger.GetLogger("test", "wal"),
+				logger: logger.GetLogger("Test", "WAL"),
 			}
 			if tt.prepare != nil {
 				tt.prepare()
@@ -270,7 +270,7 @@ func TestMockWriteAheadLogMockRecorder_Drop(t *testing.T) {
 					"test1": log1,
 					"test2": log2,
 				},
-				logger: logger.GetLogger("test", "wal"),
+				logger: logger.GetLogger("Test", "WAL"),
 			}
 			if tt.prepare != nil {
 				tt.prepare()
@@ -309,7 +309,7 @@ func TestMockWriteAheadLogMockRecorder_Stop(t *testing.T) {
 					"test1": log1,
 					"test2": log2,
 				},
-				logger: logger.GetLogger("test", "wal"),
+				logger: logger.GetLogger("Test", "WAL"),
 			}
 			if tt.prepare != nil {
 				tt.prepare()

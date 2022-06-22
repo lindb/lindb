@@ -66,7 +66,7 @@ func NewDatabaseLifecycle(
 		repo:   repo,
 		walMgr: walMgr,
 		engine: engine,
-		logger: logger.GetLogger("lifecycle", "Database"),
+		logger: logger.GetLogger("Lifecycle", "Database"),
 	}
 }
 

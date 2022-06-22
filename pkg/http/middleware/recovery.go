@@ -26,7 +26,7 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 )
 
-var log = logger.GetLogger("http", "middleware")
+var log = logger.GetLogger("HTTP", "Middleware")
 
 // Recovery handles panic when process http request.
 func Recovery() gin.HandlerFunc {

@@ -105,7 +105,7 @@ func newReplicatorRunner(replicator Replicator) *replicatorRunner {
 		running:        atomic.NewBool(false),
 		closed:         make(chan struct{}),
 		statistics:     metrics.NewStorageReplicatorRunnerStatistics(replicaType, state.Database, state.ShardID.String()),
-		logger:         logger.GetLogger("replica", "ReplicatorRunner"),
+		logger:         logger.GetLogger("Replica", "ReplicatorRunner"),
 	}
 	// set replica lag callback
 	r.statistics.ReplicaLag.SetGetValueFn(func(val *atomic.Float64) {

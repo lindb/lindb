@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	log  = logger.GetLogger("encoding", "JSONMarshaller")
+	log  = logger.GetLogger("Encoding", "JSONMarshaller")
 	json = jsoniter.ConfigCompatibleWithStandardLibrary
 )
 

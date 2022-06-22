@@ -95,7 +95,7 @@ func NewWriteAheadLog(
 		cliFct:        cliFct,
 		stateMgr:      stateMgr,
 		familyLogs:    make(map[partitionKey]Partition),
-		logger:        logger.GetLogger("replica", "WriteAheadLog"),
+		logger:        logger.GetLogger("Replica", "WriteAheadLog"),
 	}
 	return log
 }

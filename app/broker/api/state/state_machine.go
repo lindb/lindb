@@ -53,7 +53,7 @@ func NewBrokerStateMachineAPI(deps *depspkg.HTTPDeps) *BrokerStateMachineAPI {
 	return &BrokerStateMachineAPI{
 		deps:   deps,
 		cli:    client.NewStateMachineCli(),
-		logger: logger.GetLogger("broker", "StateMachineAPI"),
+		logger: logger.GetLogger("Broker", "StateMachineAPI"),
 	}
 }
 

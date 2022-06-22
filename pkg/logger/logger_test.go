@@ -29,7 +29,7 @@ import (
 )
 
 func Test_Logger(t *testing.T) {
-	logger1 := GetLogger("pkg/logger", "test")
+	logger1 := GetLogger("PKG", "Log")
 	RunningAtomicLevel.SetLevel(zapcore.DebugLevel)
 
 	fmt.Println(White.Add("white"))
@@ -41,13 +41,13 @@ func Test_Logger(t *testing.T) {
 
 	assert.NotNil(t, defaultLogger)
 
-	logger3 := GetLogger("pkg/logger", "")
+	logger3 := GetLogger("PKG", "")
 	logger3.Error("error test")
 }
 
 func Test_Access_logger(t *testing.T) {
 	assert.Nil(t, InitLogger(config.Logging{Level: "debug"}, "access.log"))
-	logger1 := GetLogger(HTTPModule, "access")
+	logger1 := GetLogger(HTTPModule, "Access")
 	logger1.Info("access log")
 	isTerminal = true
 	defer func() {
@@ -74,7 +74,7 @@ func Test_Logger_Stack(t *testing.T) {
 	panicFunc := func() {
 		defer func() {
 			if r := recover(); r != nil {
-				GetLogger("pkg/logger", "test-panic").
+				GetLogger("PKG", "Logger").
 					getInitializedOrDefaultLogger().Panic("panic stack", Stack())
 			}
 		}()
@@ -95,14 +95,14 @@ func Test_IsDebug(t *testing.T) {
 }
 
 func Test_InitLogger(t *testing.T) {
-	assert.NotNil(t, GetLogger("test", "test").getInitializedOrDefaultLogger())
+	assert.NotNil(t, GetLogger("PKG", "Log").getInitializedOrDefaultLogger())
 
 	cfg1 := config.Logging{Level: "LLL"}
 	assert.NotNil(t, InitLogger(cfg1, "test.log"))
 
 	cfg2 := config.NewDefaultLogging()
 	assert.Nil(t, InitLogger(*cfg2, "test.log"))
-	thisLogger := GetLogger("test", "test")
+	thisLogger := GetLogger("PKG", "Log")
 	assert.NotNil(t, thisLogger.getInitializedOrDefaultLogger())
 	assert.NotNil(t, thisLogger.getInitializedOrDefaultLogger())
 

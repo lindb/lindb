@@ -31,7 +31,7 @@ import (
 )
 
 var (
-	influxLogger = logger.GetLogger("ingestion", "InfluxDB")
+	influxLogger = logger.GetLogger("Ingestion", "InfluxDB")
 )
 
 // Parse parses influxdb line protocol data to LinDB pb prometheus.

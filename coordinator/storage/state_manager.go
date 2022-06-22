@@ -91,7 +91,7 @@ func NewStateManager(
 		events:              make(chan *discovery.Event, 10),
 		watches:             make(map[models.NodeID][]func(state models.NodeStateType)),
 		statistics:          metrics.NewStateManagerStatistics(strings.ToLower(constants.StorageRole)),
-		logger:              logger.GetLogger("storage", "StateManager"),
+		logger:              logger.GetLogger("Storage", "StateManager"),
 	}
 
 	// start consume discovery event task

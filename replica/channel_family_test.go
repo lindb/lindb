@@ -163,7 +163,7 @@ func TestChannel_checkFlush(t *testing.T) {
 		stoppedSignal:  make(chan struct{}, 1),
 		ch:             make(chan *compressedChunk),
 		statistics:     metrics.NewBrokerFamilyWriteStatistics("test"),
-		logger:         logger.GetLogger("test", "test"),
+		logger:         logger.GetLogger("Replica", "Test"),
 	}
 	f.checkFlush()
 
@@ -193,7 +193,7 @@ func TestFamilyChannel_flushChunkOnFull(t *testing.T) {
 		lastFlushTime: atomic.NewInt64(timeutil.Now()),
 		ch:            make(chan *compressedChunk, 1),
 		statistics:    metrics.NewBrokerFamilyWriteStatistics("db"),
-		logger:        logger.GetLogger("test", "test"),
+		logger:        logger.GetLogger("Replica", "Test"),
 	}
 	assert.NoError(t, f.flushChunkOnFull(context.TODO()))
 	ctx1, cancel1 := context.WithCancel(context.TODO())
@@ -213,7 +213,7 @@ func TestFamilyChannel_isExpire(t *testing.T) {
 		stoppingSignal: make(chan struct{}, 1),
 		statistics:     metrics.NewBrokerFamilyWriteStatistics("db"),
 		lastFlushTime:  atomic.NewInt64(timeutil.Now()),
-		logger:         logger.GetLogger("replica", "test"),
+		logger:         logger.GetLogger("Replica", "Test"),
 	}
 	assert.Equal(t, int64(1), f.FamilyTime())
 
@@ -240,7 +240,7 @@ func TestFamilyChannel_flushChunk(t *testing.T) {
 		chunk:      chunk,
 		ch:         make(chan *compressedChunk, 1),
 		statistics: metrics.NewBrokerFamilyWriteStatistics("db"),
-		logger:     logger.GetLogger("test", "test"),
+		logger:     logger.GetLogger("Replica", "Test"),
 	}
 	// compress failure
 	chunk.EXPECT().Compress().Return(nil, fmt.Errorf("err"))
@@ -527,7 +527,7 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 					1: {},
 				},
 				statistics: metrics.NewBrokerFamilyWriteStatistics("db"),
-				logger:     logger.GetLogger("test", "test"),
+				logger:     logger.GetLogger("Replica", "Test"),
 			}
 			if tt.prepare != nil {
 				tt.prepare(f)

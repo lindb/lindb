@@ -81,7 +81,7 @@ func newShardChannel(
 		shardID:  shardID,
 		families: newFamilyChannelSet(),
 		fct:      fct,
-		logger:   logger.GetLogger("replica", "ShardChannel"),
+		logger:   logger.GetLogger("Replica", "ShardChannel"),
 	}
 }
 

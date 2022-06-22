@@ -64,7 +64,7 @@ func NewStateMachineFactory(ctx context.Context,
 		ctx:              ctx,
 		discoveryFactory: discoveryFactory,
 		stateMgr:         stateMgr,
-		logger:           logger.GetLogger("storage", "StateMachineFactory"),
+		logger:           logger.GetLogger("Storage", "StateMachineFactory"),
 	}
 }
 

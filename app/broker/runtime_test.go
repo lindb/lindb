@@ -217,7 +217,7 @@ func TestBrokerRuntime_Run(t *testing.T) {
 				enableSystemMonitor: true,
 				config:              &cfg,
 				repoFactory:         repoFct,
-				log:                 logger.GetLogger("runtime", "test"),
+				log:                 logger.GetLogger("Runtime", "Test"),
 			}
 			resetNewDepsMock()
 			if tt.prepare != nil {
@@ -308,7 +308,7 @@ func TestBrokerRuntime_Stop(t *testing.T) {
 					connectionMgr: connectionMgr,
 				},
 				grpcServer: grpcServer,
-				log:        logger.GetLogger("runtime", "test"),
+				log:        logger.GetLogger("Runtime", "Test"),
 			}
 			if tt.prepare != nil {
 				tt.prepare()
@@ -344,7 +344,7 @@ func TestBrokerRuntime_push_metric(t *testing.T) {
 		return pusher
 	}
 	r := &runtime{
-		log: logger.GetLogger("runtime", "test"),
+		log: logger.GetLogger("Runtime", "Test"),
 		config: &config.Broker{Monitor: config.Monitor{
 			ReportInterval: 10,
 		}},

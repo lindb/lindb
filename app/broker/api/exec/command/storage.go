@@ -36,7 +36,7 @@ import (
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
-var log = logger.GetLogger("exec", "Command")
+var log = logger.GetLogger("Exec", "Command")
 
 // storageCommandFn represents storage command function define.
 type storageCommandFn = func(ctx context.Context, deps *depspkg.HTTPDeps, stmt *stmtpkg.Storage) (interface{}, error)

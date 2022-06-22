@@ -59,7 +59,7 @@ func NewIntermediateTaskProcessor(
 		taskClientFactory: taskClientFactory,
 		taskServerFactory: taskServerFactory,
 		taskManager:       taskManager,
-		logger:            logger.GetLogger("query", "IntermediateTaskProcessor"),
+		logger:            logger.GetLogger("Query", "IntermediateTaskProcessor"),
 	}
 }
 

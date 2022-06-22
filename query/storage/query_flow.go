@@ -46,7 +46,7 @@ const (
 )
 
 var (
-	storageQueryFlowLogger = logger.GetLogger("query", "StorageQueryFlow")
+	storageQueryFlowLogger = logger.GetLogger("Query", "StorageQueryFlow")
 )
 
 // storageQueryFlow represents the storage engine query execute flow

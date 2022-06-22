@@ -88,7 +88,7 @@ func TestWriteStream_Recv(t *testing.T) {
 	stream := &writeStream{
 		target: &models.StatefulNode{},
 		closed: atomic.NewBool(false),
-		logger: logger.GetLogger("rpc", "WriteStream"),
+		logger: logger.GetLogger("RPC", "WriteStream"),
 	}
 	// case 1: panic
 	stream.recvLoop()
@@ -101,7 +101,7 @@ func TestWriteStream_Recv(t *testing.T) {
 		cli:    cli,
 		target: &models.StatefulNode{},
 		closed: atomic.NewBool(false),
-		logger: logger.GetLogger("rpc", "WriteStream"),
+		logger: logger.GetLogger("RPC", "WriteStream"),
 	}
 	cli.EXPECT().Context().Return(ctx).MaxTimes(2)
 	stream.recvLoop()
@@ -111,7 +111,7 @@ func TestWriteStream_Recv(t *testing.T) {
 		cli:    cli,
 		closed: atomic.NewBool(false),
 		target: &models.StatefulNode{},
-		logger: logger.GetLogger("rpc", "WriteStream"),
+		logger: logger.GetLogger("RPC", "WriteStream"),
 	}
 	cli.EXPECT().Context().Return(context.TODO()).AnyTimes()
 	cli.EXPECT().Recv().Return(nil, fmt.Errorf("err"))

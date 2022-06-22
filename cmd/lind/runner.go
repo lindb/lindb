@@ -35,7 +35,7 @@ import (
 func run(ctx context.Context, service server.Service, reloadConfigFunc func() error) error {
 	printLogoWhenIsTty()
 
-	var mainLogger = logger.GetLogger("cmd", "Main")
+	var mainLogger = logger.GetLogger("CMD", "Main")
 
 	mainLogger.Info(fmt.Sprintf("Lind running as %s with PID: %d (debug: %v)",
 		service.Name(), os.Getpid(), debug))
