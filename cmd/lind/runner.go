@@ -23,10 +23,9 @@ import (
 	_ "net/http/pprof"
 	"os"
 
-	"github.com/gin-gonic/gin"
 	"go.uber.org/automaxprocs/maxprocs"
-	"go.uber.org/zap/zapcore"
 
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/server"
 	"github.com/lindb/lindb/pkg/logger"
 )
@@ -37,15 +36,10 @@ func run(ctx context.Context, service server.Service, reloadConfigFunc func() er
 
 	var mainLogger = logger.GetLogger("CMD", "Main")
 
-	mainLogger.Info(fmt.Sprintf("Lind running as %s with PID: %d (debug: %v)",
-		service.Name(), os.Getpid(), debug))
-	// enabled debug log level
-	if debug {
-		logger.RunningAtomicLevel.SetLevel(zapcore.DebugLevel)
-		gin.SetMode(gin.DebugMode)
-	} else {
-		gin.SetMode(gin.ReleaseMode)
-	}
+	mainLogger.Info(fmt.Sprintf("Lind running as %s with PID: %d (pprof: %v)",
+		service.Name(), os.Getpid(), pprof))
+
+	config.Profile = pprof
 
 	// auto set maxprocs
 	_, _ = maxprocs.Set(maxprocs.Logger(func(s string, i ...interface{}) {

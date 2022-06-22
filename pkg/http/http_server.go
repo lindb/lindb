@@ -88,7 +88,7 @@ func (s *server) init() {
 	s.gin.Use(middleware.Recovery())
 	s.gin.Use(cors.Default())
 
-	if logger.IsDebug() {
+	if config.Profile {
 		s.logger.Info("/debug/pprof is enabled")
 		pprof.Register(s.gin)
 		s.logger.Info("/debug/fgprof is enabled")

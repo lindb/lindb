@@ -27,8 +27,8 @@ import (
 )
 
 var (
-	// debug mode
-	debug = false
+	// pprof mode
+	pprof = false
 	// cfg path
 	cfg = ""
 )

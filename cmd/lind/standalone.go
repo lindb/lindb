@@ -48,7 +48,7 @@ func newStandaloneCmd() *cobra.Command {
 		initializeStandaloneConfigCmd,
 	)
 
-	runStandaloneCmd.PersistentFlags().BoolVar(&debug, "debug", false,
+	runStandaloneCmd.PersistentFlags().BoolVar(&pprof, "pprof", false,
 		"profiling Go programs with pprof")
 	runStandaloneCmd.PersistentFlags().StringVar(&cfg, "config", "",
 		fmt.Sprintf("config file path for standalone mode, default is %s", defaultStandaloneCfgFile))
