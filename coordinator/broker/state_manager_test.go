@@ -296,3 +296,28 @@ func TestStateManager_ShardState(t *testing.T) {
 
 	assert.True(t, c > 0)
 }
+
+func TestStateManager_GetLiveNodes(t *testing.T) {
+	s := &stateManager{
+		nodes: make(map[string]models.StatelessNode),
+	}
+	nodes := s.GetLiveNodes()
+	assert.Empty(t, nodes)
+
+	s.nodes["test1"] = models.StatelessNode{HostIP: "1.1.1.1"}
+	s.nodes["test2"] = models.StatelessNode{HostIP: "1.1.2.1"}
+	nodes = s.GetLiveNodes()
+	assert.Equal(t, []models.StatelessNode{{HostIP: "1.1.1.1"}, {HostIP: "1.1.2.1"}}, nodes)
+}
+
+func TestStateManager_GetStorageList(t *testing.T) {
+	s := &stateManager{
+		storages: make(map[string]*models.StorageState),
+	}
+	storageList := s.GetStorageList()
+	assert.Empty(t, storageList)
+
+	s.storages["s1"] = &models.StorageState{Name: "s1"}
+	s.storages["s2"] = &models.StorageState{Name: "s2"}
+	assert.Equal(t, []*models.StorageState{{Name: "s1"}, {Name: "s2"}}, s.GetStorageList())
+}

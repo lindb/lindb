@@ -147,7 +147,7 @@ export default function DatabaseView(props: DatabaseViewProps) {
           size="small"
           bordered={false}
           columns={columns}
-          dataSource={getDatabaseList()}
+          dataSource={_.orderBy(getDatabaseList(), ["name"], ["asc"])}
           loading={loading}
           pagination={false}
         />
