@@ -24,6 +24,7 @@ import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
@@ -34,6 +35,8 @@ type metadataStorageExecutor struct {
 	database tsdb.Database
 	request  *stmt.MetricMetadata
 	shardIDs []models.ShardID
+
+	logger *logger.Logger
 }
 
 // newMetadataStorageExecutor creates a metadata suggest executor in storage side
@@ -46,6 +49,7 @@ func newStorageMetadataQuery(
 		database: database,
 		request:  request,
 		shardIDs: shardIDs,
+		logger:   logger.GetLogger("Query", "Metadata"),
 	}
 }
 
@@ -109,47 +113,68 @@ func (e *metadataStorageExecutor) Execute() (result []string, err error) {
 				return nil, fmt.Errorf("%w , namespace: %s, metricName: %s",
 					constants.ErrTagFilterResultNotFound, req.Namespace, req.MetricName)
 			}
-			groupByTagKeyIDs := []tag.KeyID{tagKeyID}
 			// get shard by given query shard id list
 			for _, shardID := range e.shardIDs {
-				shard, ok := e.database.GetShard(shardID)
-				if !ok {
+				tagValues, err := e.findTagValuesFromShard(ctx, req, shardID, tagKeyID, limit)
+				if err != nil {
+					// ignore shard level err
+					e.logger.Warn("find tag values failure",
+						logger.Any("db", e.database), logger.Any("shard", shardID),
+						logger.String("metric", req.MetricName), logger.String("tagKey", req.TagKey),
+						logger.Error(err))
 					continue
 				}
-				// if shard exist, do series search
-				// if it gets tag filter result do series ids searching
-				seriesSearch := newSeriesSearchFunc(shard.IndexDatabase(), ctx.storageExecuteCtx.TagFilterResult, req.Condition)
-				seriesIDs, err := seriesSearch.Search()
-				if err != nil {
-					return nil, err
-				}
-				ctx.storageExecuteCtx.GroupByTagKeyIDs = groupByTagKeyIDs
-				shardExecuteCtx := &flow.ShardExecuteContext{
-					StorageExecuteCtx:       ctx.storageExecuteCtx,
-					SeriesIDsAfterFiltering: seriesIDs,
-				}
-				// get grouping based on tag keys and series ids
-				err = shard.IndexDatabase().GetGroupingContext(shardExecuteCtx)
-				if err != nil {
-					return nil, err
-				}
-				highKeys := seriesIDs.GetHighKeys()
-				for i, highKey := range highKeys {
-					// get tag value ids
-					tagValueIDs := shardExecuteCtx.GroupingContext.ScanTagValueIDs(highKey, seriesIDs.GetContainerAtIndex(i))
-					tagValues := make(map[uint32]string)
-					// get tag value
-					err = e.database.Metadata().TagMetadata().CollectTagValues(tagKeyID, tagValueIDs[0], tagValues)
-					if err != nil {
-						return nil, err
-					}
-					for _, tagValue := range tagValues {
-						result = append(result, tagValue)
-						if len(result) >= limit {
-							return result, nil
-						}
+				for _, tagValue := range tagValues {
+					result = append(result, tagValue)
+					if len(result) >= limit {
+						return result, nil
 					}
 				}
+			}
+		}
+	}
+	return result, nil
+}
+
+// findTagValuesFromShard returns tag values from shard by given condition.
+func (e *metadataStorageExecutor) findTagValuesFromShard(ctx *executeContext,
+	req *stmt.MetricMetadata, shardID models.ShardID, tagKeyID tag.KeyID, limit int,
+) (result []string, err error) {
+	shard, ok := e.database.GetShard(shardID)
+	if !ok {
+		return
+	}
+	// if shard exist, do series search
+	// if it gets tag filter result do series ids searching
+	seriesSearch := newSeriesSearchFunc(shard.IndexDatabase(), ctx.storageExecuteCtx.TagFilterResult, req.Condition)
+	seriesIDs, err := seriesSearch.Search()
+	if err != nil {
+		return nil, err
+	}
+	ctx.storageExecuteCtx.GroupByTagKeyIDs = []tag.KeyID{tagKeyID}
+	shardExecuteCtx := &flow.ShardExecuteContext{
+		StorageExecuteCtx:       ctx.storageExecuteCtx,
+		SeriesIDsAfterFiltering: seriesIDs,
+	}
+	// get grouping based on tag keys and series ids
+	err = shard.IndexDatabase().GetGroupingContext(shardExecuteCtx)
+	if err != nil {
+		return nil, err
+	}
+	highKeys := seriesIDs.GetHighKeys()
+	for i, highKey := range highKeys {
+		// get tag value ids
+		tagValueIDs := shardExecuteCtx.GroupingContext.ScanTagValueIDs(highKey, seriesIDs.GetContainerAtIndex(i))
+		tagValues := make(map[uint32]string)
+		// get tag value
+		err = e.database.Metadata().TagMetadata().CollectTagValues(tagKeyID, tagValueIDs[0], tagValues)
+		if err != nil {
+			return nil, err
+		}
+		for _, tagValue := range tagValues {
+			result = append(result, tagValue)
+			if len(result) >= limit {
+				return result, nil
 			}
 		}
 	}
