@@ -45,7 +45,7 @@ var (
 	startEtcdFn = embed.StartEtcd
 )
 
-var log = logger.GetLogger("standalone", "Runtime")
+var log = logger.GetLogger("Standalone", "Runtime")
 
 // runtime represents the runtime dependency of standalone mode
 type runtime struct {

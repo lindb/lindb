@@ -56,7 +56,7 @@ func newHeartbeat(client *etcd.Client, key string, value []byte, ttl int64, isEl
 		key:     key,
 		value:   value,
 		ttl:     ttl,
-		logger:  logger.GetLogger("etcdState", "HeartBeat"),
+		logger:  logger.GetLogger("ETCDState", "HeartBeat"),
 	}
 }
 

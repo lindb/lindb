@@ -128,7 +128,7 @@ func NewStorageRuntime(version string, cfg *config.Storage) server.Service {
 			metrics.NewConcurrentStatistics("storage-query", linmetric.StorageRegistry)),
 		delayInit:   time.Second,
 		initializer: bootstrap.NewClusterInitializer(cfg.StorageBase.BrokerEndpoint),
-		log:         logger.GetLogger("storage", "Runtime"),
+		log:         logger.GetLogger("Storage", "Runtime"),
 	}
 }
 

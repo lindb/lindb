@@ -46,7 +46,7 @@ type fileLock struct {
 func NewFileLock(fileName string) FileLock {
 	return &fileLock{
 		fileName: fileName,
-		logger:   logger.GetLogger("lockers", "FileLock"),
+		logger:   logger.GetLogger("Lockers", "FileLock"),
 	}
 }
 

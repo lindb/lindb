@@ -63,7 +63,7 @@ func NewRegistry(repo state.Repository, prefixPath string, ttl time.Duration) Re
 		repo:       repo,
 		ctx:        ctx,
 		cancel:     cancel,
-		log:        logger.GetLogger("coordinator", "Registry"),
+		log:        logger.GetLogger("Coordinator", "Registry"),
 	}
 }
 

@@ -42,7 +42,7 @@ func NewExploreAPI(globalKeyValues tag.Tags, r *linmetric.Registry) *ExploreAPI 
 	return &ExploreAPI{
 		globalKeyValues: globalKeyValues,
 		r:               r,
-		logger:          logger.GetLogger("monitoring", "ExploreAPI"),
+		logger:          logger.GetLogger("Monitoring", "ExploreAPI"),
 	}
 }
 

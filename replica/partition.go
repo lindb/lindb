@@ -116,7 +116,7 @@ func NewPartition(
 		stateMgr:      stateMgr,
 		peers:         make(map[models.NodeID]ReplicatorPeer),
 		statistics:    metrics.NewStorageWriteAheadLogStatistics(shard.Database().Name(), shard.ShardID().String()),
-		logger:        logger.GetLogger("replica", "Partition"),
+		logger:        logger.GetLogger("Replica", "Partition"),
 	}
 }
 

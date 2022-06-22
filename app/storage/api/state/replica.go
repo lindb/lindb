@@ -39,7 +39,7 @@ type ReplicaAPI struct {
 func NewReplicaAPI(walMgr replica.WriteAheadLogManager) *ReplicaAPI {
 	return &ReplicaAPI{
 		walMgr: walMgr,
-		logger: logger.GetLogger("storage", "ReplicaAPI"),
+		logger: logger.GetLogger("Storage", "ReplicaAPI"),
 	}
 }
 

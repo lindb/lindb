@@ -75,7 +75,7 @@ func NewTaskClientFactory(ctx context.Context, currentNode models.Node, connFct 
 		connFct:                  connFct,
 		taskStreams:              make(map[string]*taskClient),
 		newTaskServiceClientFunc: protoCommonV1.NewTaskServiceClient,
-		logger:                   logger.GetLogger("rpc", "TaskClient"),
+		logger:                   logger.GetLogger("RPC", "TaskClient"),
 	}
 }
 
@@ -240,7 +240,7 @@ type taskServerFactory struct {
 func NewTaskServerFactory() TaskServerFactory {
 	return &taskServerFactory{
 		nodeMap: make(map[string]*taskService),
-		logger:  logger.GetLogger("rpc", "TaskServer"),
+		logger:  logger.GetLogger("RPC", "TaskServer"),
 	}
 }
 

@@ -74,7 +74,7 @@ func NewServer(cfg config.HTTP, staticResource bool, r *linmetric.Registry) Serv
 			IdleTimeout:  cfg.IdleTimeout.Duration(),
 		},
 		r:      r,
-		logger: logger.GetLogger("http", "Server"),
+		logger: logger.GetLogger("HTTP", "Server"),
 	}
 	s.init()
 	return s

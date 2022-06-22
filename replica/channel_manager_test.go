@@ -114,7 +114,7 @@ func TestChannelManager_handleShardStateChangeEvent(t *testing.T) {
 		ctrl.Finish()
 	}()
 	cm := &channelManager{
-		logger: logger.GetLogger("test", "test"),
+		logger: logger.GetLogger("Replica", "Test"),
 	}
 	cm.databaseChannels.value.Store(make(database2Channel))
 	dbChannel := NewMockDatabaseChannel(ctrl)
@@ -174,7 +174,7 @@ func TestChannelManager_gcWriteFamilies(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	cm := &channelManager{
 		ctx:    ctx,
-		logger: logger.GetLogger("test", "test"),
+		logger: logger.GetLogger("Replica", "Test"),
 	}
 	cm.databaseChannels.value.Store(make(database2Channel))
 	dbChannel := NewMockDatabaseChannel(ctrl)

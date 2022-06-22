@@ -293,7 +293,7 @@ func TestSegment_Close(t *testing.T) {
 	seg := &segment{
 		kvStore:  store,
 		families: make(map[int]DataFamily),
-		logger:   logger.GetLogger("TSDB", "test"),
+		logger:   logger.GetLogger("TSDB", "Test"),
 	}
 	assertFamilyEmpty := func() {
 		seg.mutex.Lock()

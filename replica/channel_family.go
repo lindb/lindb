@@ -125,7 +125,7 @@ func newFamilyChannel(
 		chunk:               newChunk(cfg.BatchBlockSize),
 		lastFlushTime:       atomic.NewInt64(timeutil.Now()),
 		statistics:          metrics.NewBrokerFamilyWriteStatistics(database),
-		logger:              logger.GetLogger("replica", "FamilyChannel"),
+		logger:              logger.GetLogger("Replica", "FamilyChannel"),
 	}
 
 	fc.statistics.ActiveWriteFamilies.Incr()

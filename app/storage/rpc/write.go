@@ -46,7 +46,7 @@ func NewWriteHandler(
 ) *WriteHandler {
 	return &WriteHandler{
 		walMgr: walMgr,
-		logger: logger.GetLogger("storage", "WriteRPC"),
+		logger: logger.GetLogger("Storage", "WriteRPC"),
 	}
 }
 

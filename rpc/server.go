@@ -53,7 +53,7 @@ type grpcServer struct {
 }
 
 func NewGRPCServer(cfg config.GRPC, r *linmetric.Registry) GRPCServer {
-	log := logger.GetLogger("rpc", "GRPCServer")
+	log := logger.GetLogger("RPC", "GRPCServer")
 	grpcServerTracker := conntrack.NewGRPCServerTracker(r)
 	statistics := metrics.NewGRPCServerStatistics(r)
 	// Shared options for the logger, with a custom gRPC code to log level function.

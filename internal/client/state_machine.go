@@ -45,7 +45,7 @@ type stateMachineCli struct {
 // NewStateMachineCli creates a state machine explore client instance.
 func NewStateMachineCli() StateMachineCli {
 	return &stateMachineCli{
-		logger: logger.GetLogger("client", "StateMachine"),
+		logger: logger.GetLogger("Client", "StateMachine"),
 	}
 }
 

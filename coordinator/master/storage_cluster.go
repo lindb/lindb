@@ -85,7 +85,7 @@ func newStorageCluster(ctx context.Context,
 		return nil, err
 	}
 
-	log := logger.GetLogger("coordinator", "Storage")
+	log := logger.GetLogger("Master", "Storage")
 	cluster = &storageCluster{
 		ctx:         ctx,
 		cfg:         cfg,

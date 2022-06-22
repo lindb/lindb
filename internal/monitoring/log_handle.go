@@ -46,7 +46,7 @@ type LoggerAPI struct {
 func NewLoggerAPI(logDir string) *LoggerAPI {
 	return &LoggerAPI{
 		logDir: logDir,
-		logger: logger.GetLogger("monitoring", "ExploreAPI"),
+		logger: logger.GetLogger("Monitoring", "ExploreAPI"),
 	}
 }
 

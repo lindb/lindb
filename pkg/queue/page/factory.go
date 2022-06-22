@@ -41,7 +41,7 @@ var (
 	listDirFunc    = fileutil.ListDir
 )
 
-var pageLogger = logger.GetLogger("queue", "PageFactory")
+var pageLogger = logger.GetLogger("Queue", "PageFactory")
 
 var errFactoryClosed = errors.New("page factory is closed")
 

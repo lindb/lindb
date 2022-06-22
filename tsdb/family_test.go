@@ -305,7 +305,7 @@ func TestDataFamily_NeedFlush(t *testing.T) {
 				config.SetGlobalStorageConfig(config.NewDefaultStorageBase())
 			}()
 			f := &dataFamily{
-				logger: logger.GetLogger("test", "family"),
+				logger: logger.GetLogger("TSDB", "Test"),
 			}
 			if tt.prepare != nil {
 				tt.prepare(f)
@@ -420,7 +420,7 @@ func TestDataFamily_Flush(t *testing.T) {
 					1: {func(seq int64) {}},
 				},
 				statistics: metrics.NewFamilyStatistics("data", "1"),
-				logger:     logger.GetLogger("TSDB", "test"),
+				logger:     logger.GetLogger("TSDB", "Test"),
 			}
 			if tt.prepare != nil {
 				tt.prepare(f)
@@ -490,7 +490,7 @@ func TestDataFamily_Close(t *testing.T) {
 					1: {func(seq int64) {}},
 				},
 				statistics: metrics.NewFamilyStatistics("data", "1"),
-				logger:     logger.GetLogger("TSDB", "test"),
+				logger:     logger.GetLogger("TSDB", "Test"),
 			}
 			if tt.prepare != nil {
 				tt.prepare(f)
@@ -681,7 +681,7 @@ func TestDataFamily_WriteRows(t *testing.T) {
 				shard:      shard,
 				interval:   timeutil.Interval(10 * timeutil.OneSecond),
 				statistics: metrics.NewFamilyStatistics("data", "1"),
-				logger:     logger.GetLogger("TSDB", "test"),
+				logger:     logger.GetLogger("TSDB", "Test"),
 			}
 			f.intervalCalc = f.interval.Calculator()
 			newMemoryDBFunc = func(cfg memdb.MemoryDatabaseCfg) (memdb.MemoryDatabase, error) {

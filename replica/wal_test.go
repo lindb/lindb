@@ -292,7 +292,7 @@ func TestWriteAheadLog_destroy(t *testing.T) {
 			key1: p1,
 			key2: p2,
 		},
-		logger: logger.GetLogger("test", "wal"),
+		logger: logger.GetLogger("Test", "WAL"),
 	}
 	p1.EXPECT().IsExpire().Return(false)
 	p2.EXPECT().IsExpire().Return(true)
@@ -321,7 +321,7 @@ func TestWriteAheadLog_Stop_Close(t *testing.T) {
 			key1: p1,
 			key2: p2,
 		},
-		logger: logger.GetLogger("test", "wal"),
+		logger: logger.GetLogger("Test", "WAL"),
 	}
 	p1.EXPECT().Stop()
 	p2.EXPECT().Stop()

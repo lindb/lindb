@@ -71,7 +71,7 @@ func NewRemoteReplicator(
 		isSuspend:  atomic.NewBool(false),
 		suspend:    make(chan struct{}),
 		statistics: metrics.NewStorageRemoteReplicatorStatistics(channel.State.Database, channel.State.ShardID.String()),
-		logger:     logger.GetLogger("replica", "RemoteReplicator"),
+		logger:     logger.GetLogger("Replica", "RemoteReplicator"),
 	}
 	r.state.Store(&state{state: models.ReplicatorInitState, errMsg: "replicator initialized"})
 

@@ -113,7 +113,7 @@ func NewTaskManager(
 		workerPool:        taskPool,
 		ttl:               ttl,
 		statistics:        metrics.NewBrokerQueryStatistics(),
-		logger:            logger.GetLogger("query", "TaskManager"),
+		logger:            logger.GetLogger("Query", "TaskManager"),
 	}
 	duration := ttl
 	if ttl < time.Minute {

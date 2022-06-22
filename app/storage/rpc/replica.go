@@ -46,7 +46,7 @@ func NewReplicaHandler(
 ) *ReplicaHandler {
 	return &ReplicaHandler{
 		walMgr: walMgr,
-		logger: logger.GetLogger("storage", "ReplicaRPC"),
+		logger: logger.GetLogger("Storage", "ReplicaRPC"),
 	}
 }
 

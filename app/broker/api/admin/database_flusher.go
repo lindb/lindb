@@ -46,7 +46,7 @@ type DatabaseFlusherAPI struct {
 func NewDatabaseFlusherAPI(deps *depspkg.HTTPDeps) *DatabaseFlusherAPI {
 	return &DatabaseFlusherAPI{
 		deps:   deps,
-		logger: logger.GetLogger("broker", "DatabaseFlusherAPI"),
+		logger: logger.GetLogger("Broker", "DatabaseFlusherAPI"),
 	}
 }
 

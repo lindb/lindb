@@ -135,7 +135,7 @@ func NewBrokerRuntime(version string, cfg *config.Broker, enableSystemMonitor bo
 			metrics.NewConcurrentStatistics("broker-query", linmetric.BrokerRegistry),
 		),
 		enableSystemMonitor: enableSystemMonitor,
-		log:                 logger.GetLogger("broker", "Runtime"),
+		log:                 logger.GetLogger("Broker", "Runtime"),
 	}
 }
 

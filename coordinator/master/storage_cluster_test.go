@@ -106,7 +106,7 @@ func TestStorageCluster_Start(t *testing.T) {
 		stateMgr:    stateMgr,
 		cfg:         cfg,
 		storageRepo: repo,
-		logger:      logger.GetLogger("test", "test"),
+		logger:      logger.GetLogger("Master", "Test"),
 	}
 	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
 	err := sc.Start()
@@ -188,7 +188,7 @@ func TestStorageCluster_close(t *testing.T) {
 		cfg:         &config.StorageCluster{Config: &config.RepoState{Namespace: "test"}},
 		sm:          sm,
 		storageRepo: repo,
-		logger:      logger.GetLogger("test", "test"),
+		logger:      logger.GetLogger("Master", "Test"),
 	}
 	sm.EXPECT().Close().Return(fmt.Errorf("err"))
 	repo.EXPECT().Close().Return(fmt.Errorf("err"))
@@ -205,7 +205,7 @@ func TestStorageCluster_SaveDatabaseAssignment(t *testing.T) {
 	sc := &storageCluster{
 		cfg:         &config.StorageCluster{Config: &config.RepoState{Namespace: "test"}},
 		storageRepo: repo,
-		logger:      logger.GetLogger("test", "test"),
+		logger:      logger.GetLogger("Master", "Test"),
 	}
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	err := sc.SaveDatabaseAssignment(models.NewShardAssignment("test"), &option.DatabaseOption{})
@@ -233,7 +233,7 @@ func TestStorageCluster_DropDatabaseAssignment(t *testing.T) {
 	sc := &storageCluster{
 		cfg:         &config.StorageCluster{Config: &config.RepoState{Namespace: "test"}},
 		storageRepo: repo,
-		logger:      logger.GetLogger("test", "test"),
+		logger:      logger.GetLogger("Master", "Test"),
 	}
 	repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	err := sc.DropDatabaseAssignment("test")

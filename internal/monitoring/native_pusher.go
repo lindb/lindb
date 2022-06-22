@@ -33,7 +33,7 @@ import (
 
 //go:generate mockgen -source ./native_pusher.go -destination=./native_pusher_mock.go -package=monitoring
 
-var nativePushLogger = logger.GetLogger("monitoring", "Pusher")
+var nativePushLogger = logger.GetLogger("Monitoring", "Pusher")
 
 const (
 	ProtoType     = `application/protobuf`

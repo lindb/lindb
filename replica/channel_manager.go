@@ -81,7 +81,7 @@ func NewChannelManager(
 		cancel:   cancel,
 		fct:      fct,
 		stateMgr: stateMgr,
-		logger:   logger.GetLogger("replica", "ChannelManager"),
+		logger:   logger.GetLogger("Replica", "ChannelManager"),
 	}
 	cm.databaseChannels.value.Store(make(database2Channel))
 

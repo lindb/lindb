@@ -42,7 +42,7 @@ type LoginAPI struct {
 func NewLoginAPI(user config.User) *LoginAPI {
 	return &LoginAPI{
 		user:   user,
-		logger: logger.GetLogger("broker", "LoginAPI"),
+		logger: logger.GetLogger("Broker", "LoginAPI"),
 	}
 }
 

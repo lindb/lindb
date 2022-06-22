@@ -111,7 +111,7 @@ func NewStateManager(
 		newStorageClusterFn:   newStorageCluster,
 		statistics:            metrics.NewStateManagerStatistics(strings.ToLower(constants.MasterRole)),
 		shardLeaderStatistics: metrics.NewShardLeaderStatistics(),
-		logger:                logger.GetLogger("master", "StateManager"),
+		logger:                logger.GetLogger("Master", "StateManager"),
 	}
 
 	// start consume event then do coordinate

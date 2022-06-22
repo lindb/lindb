@@ -35,7 +35,7 @@ var (
 	flatIngestionStatistics = metrics.NewFlatIngestionStatistics()
 )
 
-var flatLogger = logger.GetLogger("ingestion", "Flat")
+var flatLogger = logger.GetLogger("Ingestion", "Flat")
 
 func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*metric.BrokerBatchRows, error) {
 	var reader = req.Body

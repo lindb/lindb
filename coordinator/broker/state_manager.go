@@ -106,7 +106,7 @@ func NewStateManager(
 		nodes:             make(map[string]models.StatelessNode),
 		events:            make(chan *discovery.Event, 10),
 		statistics:        metrics.NewStateManagerStatistics(strings.ToLower(constants.BrokerRole)),
-		logger:            logger.GetLogger("broker", "StateManager"),
+		logger:            logger.GetLogger("Broker", "StateManager"),
 	}
 
 	// start consume discovery event task
