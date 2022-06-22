@@ -153,7 +153,7 @@ type FamilyState struct {
 // StorageState represents storage cluster state.
 // NOTICE: it is not safe for concurrent use. //TODO need concurrent safe????
 type StorageState struct {
-	Name string `json:"name"`
+	Name string `json:"name"` // ref Namespace
 
 	LiveNodes map[NodeID]StatefulNode `json:"liveNodes"`
 

@@ -39,7 +39,11 @@ export default function StorageOverview() {
             showNodeId
             title="Live Nodes"
             loading={loading}
-            nodes={_.values(_.get(storages, "[0].liveNodes", {}))}
+            nodes={_.orderBy(
+              _.values(_.get(storages, "[0].liveNodes", {})),
+              ["id"],
+              ["asc"]
+            )}
             sql={`show storage metric where storage='${name}' and metric in ('${StateMetricName.CPU}','${StateMetricName.Memory}')`}
             style={{ marginTop: 12, marginBottom: 12 }}
           />

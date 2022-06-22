@@ -20,6 +20,7 @@ package broker
 import (
 	"context"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
@@ -334,6 +335,11 @@ func (m *stateManager) GetLiveNodes() (rs []models.StatelessNode) {
 	for _, node := range m.nodes {
 		rs = append(rs, node)
 	}
+
+	// return nodes in order(by ip)
+	sort.Slice(rs, func(i, j int) bool {
+		return rs[i].HostIP < rs[j].HostIP
+	})
 	return
 }
 
@@ -374,6 +380,10 @@ func (m *stateManager) GetStorageList() (rs []*models.StorageState) {
 	for _, s := range m.storages {
 		rs = append(rs, s)
 	}
+	// return storage in order(by node)
+	sort.Slice(rs, func(i, j int) bool {
+		return rs[i].Name < rs[j].Name
+	})
 	return
 }
 
