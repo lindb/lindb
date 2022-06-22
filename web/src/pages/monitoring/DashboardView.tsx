@@ -24,7 +24,7 @@ import { useWatchURLChange } from "@src/hooks";
 import { Dashboard, DashboardItem } from "@src/models";
 import { URLStore } from "@src/stores";
 import * as _ from "lodash-es";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 
 export type DashboardViewProps = {
@@ -41,6 +41,12 @@ export default function DashboardView(props: DashboardViewProps) {
     _.get(dashboards, "[0].dashboard", {})
   );
   const [role, setRole] = useState<any>(null);
+
+  useEffect(() => {
+    URLStore.changeURLParams({
+      params: { role: URLStore.params.get("role") || StateRoleName.Broker },
+    });
+  }, []);
 
   const changeDashboard = (value: string) => {
     const r = URLStore.params.get("role") || StateRoleName.Broker;
@@ -64,6 +70,7 @@ export default function DashboardView(props: DashboardViewProps) {
     const d = URLStore.params.get("d");
     changeDashboard(d as string);
   });
+
   return (
     <>
       <Card bodyStyle={{ padding: 12 }}>

@@ -244,61 +244,61 @@ export const DefaultChartConfig = {
       x: {
         type: "category",
         grid: {
-          drawTicks: false,
+          //       drawTicks: false,
           lineWidth: 0.3,
-          // tickMarkLength: 2,
-          tickLength: 2,
-          // drawOnChartArea: false,
-          drawBorder: false,
-          color: "rgba(249, 249, 249, 0.35)",
+          //       // tickMarkLength: 2,
+          tickLength: 0,
+          //       // drawOnChartArea: false,
+          //       drawBorder: false,
+          color: "rgba(255, 255, 255, 0.1)",
         },
         ticks: {
           font: {
             size: 12,
           },
-          // fontSize: 10,
+          //       // fontSize: 10,
           maxRotation: 0, // angle in degrees
           color: "rgb(249, 249, 249)",
           callback: function (_value: any, index: number, _values: any) {
             const times = _.get(this, "chart.config._config.data.times", []);
             const labels = _.get(this, "chart.config._config.data.labels", []);
-            if (index == 0 || times[index] % (5 * 60 * 1000) == 0) {
+            if (times[index] % (5 * 60 * 1000) == 0) {
               return labels[index];
             }
             return null;
           },
-          align: "start", // default: center, start/end
-          // tickOffset: 100,
-          // fontColor: undefined,
+          //       // align: "end", // default: center, start/end
+          //       // tickOffset: 100,
+          //       // fontColor: undefined,
         },
-        display: undefined,
-        stacked: undefined,
+        //     display: undefined,
+        //     stacked: undefined,
       },
       y: {
         grid: {
-          drawTicks: false,
-          lineWidth: 0.3,
-          autoSkip: true,
+          //       drawTicks: false,
+          //       lineWidth: 0.3,
+          //       autoSkip: true,
           tickLength: 0,
-          // zeroLineWidth: 0,
-          drawBorder: false,
-          // drawOnChartArea: false,
-          // borderDash: [1, 1],
-          color: "rgba(249, 249, 249, 0.35)",
+          //       // zeroLineWidth: 0,
+          //       drawBorder: false,
+          //       // drawOnChartArea: false,
+          //       // borderDash: [1, 1],
+          color: "rgba(255, 255, 255, 0.1)",
         },
         ticks: {
-          mirror: true, // draw tick in chart area
-          display: true,
-          // min: 0,
+          //       mirror: true, // draw tick in chart area
+          //       display: true,
+          //       // min: 0,
           font: { size: 12 },
           color: "rgb(249, 249, 249)",
-          autoSkip: true,
+          // autoSkip: true,
           callback: function (value: any, index: number, _values: any) {
-            if (index == 0) {
-              //ignore first tick
-              return null;
-            }
-            if (index % 3 == 0) {
+            // if (index == 0) {
+            //   //ignore first tick
+            //   return null;
+            // }
+            if (index % 2 == 0) {
               return formatter(
                 value,
                 _.get(this, "chart.config._config.unit", UnitEnum.None)
@@ -306,8 +306,8 @@ export const DefaultChartConfig = {
             }
             return null;
           },
-          // tickMarkLength: 0,
-          // maxTicksLimit: 6,
+          //       // tickMarkLength: 0,
+          //       // maxTicksLimit: 6,
           suggestedMin: 0,
         },
         // suggestedMax: 10,

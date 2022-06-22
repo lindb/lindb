@@ -45,6 +45,7 @@ export default function Metric(props: MetricProps) {
   }, [chartId]);
   return (
     <Card
+      bodyStyle={{ padding: 8 }}
       title={
         <Space align="center">
           <Space>
