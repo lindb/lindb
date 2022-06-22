@@ -34,6 +34,9 @@ var (
 
 	globalBrokerCfg  atomic.Value
 	globalStorageCfg atomic.Value
+
+	// Profile represents profiling Go programs with pprof
+	Profile = false
 )
 
 func init() {
