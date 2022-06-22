@@ -419,7 +419,7 @@ export default function ChartToltip() {
         <div className="lindb-chart-tooltip__timestamp">
           {_.get(event, `chart.config.data.timeLabels[${event?.index}]`, null)}
         </div>
-        <ChartTooltipToolBar />
+        {/* <ChartTooltipToolBar /> */}
       </div>
       <div className="content-wrapper">
         <div className="content">
