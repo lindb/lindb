@@ -184,13 +184,13 @@ func TestMetadataStorageQuery_Execute_With_Tag_Condition(t *testing.T) {
 	}
 	seriesSearch.EXPECT().Search().Return(nil, fmt.Errorf("err"))
 	_, err = exec.Execute()
-	assert.Error(t, err)
+	assert.NoError(t, err)
 
 	seriesSearch.EXPECT().Search().Return(roaring.BitmapOf(1, 2, 3), nil).AnyTimes()
 	// case 4: get grouping err
 	indexDB.EXPECT().GetGroupingContext(gomock.Any()).Return(fmt.Errorf("err"))
 	_, err = exec.Execute()
-	assert.Error(t, err)
+	assert.NoError(t, err)
 
 	gCtx := flow.NewMockGroupingContext(ctrl)
 
@@ -206,9 +206,9 @@ func TestMetadataStorageQuery_Execute_With_Tag_Condition(t *testing.T) {
 	// case 5: collect tag value err
 	tagMeta.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	_, err = exec.Execute()
-	assert.Error(t, err)
+	assert.NoError(t, err)
 
-	// case 6: collect tag values
+	// case 6: collect tag values, limit
 	tagMeta.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(tagKeyID tag.KeyID,
 			tagValueIDs *roaring.Bitmap,
@@ -221,6 +221,95 @@ func TestMetadataStorageQuery_Execute_With_Tag_Condition(t *testing.T) {
 			return nil
 		})
 	result, err = exec.Execute()
+	assert.NoError(t, err)
+	assert.Len(t, result, 2)
+
+	// case 7: collect tag values, no limit
+	tagMeta.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(tagKeyID tag.KeyID,
+			tagValueIDs *roaring.Bitmap,
+			tagValues map[uint32]string,
+		) error {
+			tagValues[12] = "a"
+			return nil
+		})
+	result, err = exec.Execute()
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+}
+
+func TestMetadataStorageQuery_Execute_With_Tag_Condition_OneShardFail(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		newTagSearchFunc = newTagSearch
+		newSeriesSearchFunc = newSeriesSearch
+
+		ctrl.Finish()
+	}()
+
+	db := tsdb.NewMockDatabase(ctrl)
+
+	metadata := metadb.NewMockMetadata(ctrl)
+	db.EXPECT().Metadata().Return(metadata).AnyTimes()
+	metadataIndex := metadb.NewMockMetadataDatabase(ctrl)
+	metadata.EXPECT().MetadataDatabase().Return(metadataIndex).AnyTimes()
+	metadataIndex.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).Return(tag.KeyID(2), nil).AnyTimes()
+
+	// case 1: tag search err
+	tagSearch := NewMockTagSearch(ctrl)
+	newTagSearchFunc = func(ctx *executeContext) TagSearch {
+		return tagSearch
+	}
+	exec := newStorageMetadataQuery(db, []models.ShardID{1, 2}, &stmt.MetricMetadata{
+		Type:      stmt.TagValue,
+		Condition: &stmt.EqualsExpr{},
+		Limit:     2,
+	})
+
+	shard := tsdb.NewMockShard(ctrl)
+	indexDB := indexdb.NewMockIndexDatabase(ctrl)
+	shard.EXPECT().IndexDatabase().Return(indexDB).AnyTimes()
+
+	newTagSearchFunc = func(ctx *executeContext) TagSearch {
+		ctx.storageExecuteCtx.TagFilterResult = map[string]*flow.TagFilterResult{"key": {}}
+		return tagSearch
+	}
+	tagSearch.EXPECT().Filter().Return(nil).AnyTimes()
+
+	db.EXPECT().GetShard(gomock.Any()).Return(shard, true).AnyTimes()
+
+	// case 3: series search err
+	seriesSearch := NewMockSeriesSearch(ctrl)
+	newSeriesSearchFunc = func(filter series.Filter, filterResult map[string]*flow.TagFilterResult, condition stmt.Expr) SeriesSearch {
+		return seriesSearch
+	}
+	// shard 1 fail
+	seriesSearch.EXPECT().Search().Return(nil, fmt.Errorf("err"))
+	// shard 2 ok
+	seriesSearch.EXPECT().Search().Return(roaring.BitmapOf(1, 2, 3), nil)
+
+	gCtx := flow.NewMockGroupingContext(ctrl)
+	indexDB.EXPECT().GetGroupingContext(gomock.Any()).DoAndReturn(func(ctx *flow.ShardExecuteContext) error {
+		ctx.GroupingContext = gCtx
+		return nil
+	}).AnyTimes()
+	gCtx.EXPECT().ScanTagValueIDs(gomock.Any(), gomock.Any()).
+		Return([]*roaring.Bitmap{roaring.BitmapOf(1, 2, 3)}).AnyTimes()
+	tagMeta := metadb.NewMockTagMetadata(ctrl)
+	metadata.EXPECT().TagMetadata().Return(tagMeta).AnyTimes()
+
+	tagMeta.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(tagKeyID tag.KeyID,
+			tagValueIDs *roaring.Bitmap,
+			tagValues map[uint32]string,
+		) error {
+			tagValues[12] = "a"
+			tagValues[13] = "b"
+			tagValues[14] = "c"
+			tagValues[15] = "d"
+			return nil
+		})
+	result, err := exec.Execute()
 	assert.NoError(t, err)
 	assert.Len(t, result, 2)
 }
