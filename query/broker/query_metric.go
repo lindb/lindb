@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sort"
 	"time"
 
 	"github.com/lindb/lindb/aggregation"
@@ -150,8 +151,10 @@ func (mq *metricQuery) makeResultSet(event *series.TimeSeriesEvent) (resultSet *
 	fieldsMap := make(map[string]struct{})
 	for _, ts := range event.SeriesList {
 		var tags map[string]string
+		var tagValues string
 		if groupByKeysLength > 0 {
-			tagValues := tag.SplitTagValues(ts.Tags())
+			tagValues = ts.Tags()
+			tagValues := tag.SplitTagValues(tagValues)
 			if groupByKeysLength != len(tagValues) {
 				// if tag values not match group by tag keys, ignore this time series
 				continue
@@ -162,7 +165,7 @@ func (mq *metricQuery) makeResultSet(event *series.TimeSeriesEvent) (resultSet *
 				tags[tagKey] = tagValues[idx]
 			}
 		}
-		timeSeries := models.NewSeries(tags)
+		timeSeries := models.NewSeries(tags, tagValues)
 		resultSet.AddSeries(timeSeries)
 		mq.expression.Eval(ts)
 		rs := mq.expression.ResultSet()
@@ -185,6 +188,10 @@ func (mq *metricQuery) makeResultSet(event *series.TimeSeriesEvent) (resultSet *
 		}
 		mq.expression.Reset()
 	}
+
+	sort.Slice(resultSet.Series, func(i, j int) bool {
+		return resultSet.Series[i].TagValues < resultSet.Series[j].TagValues
+	})
 
 	resultSet.MetricName = mq.stmtQuery.MetricName
 	resultSet.GroupBy = mq.stmtQuery.GroupBy

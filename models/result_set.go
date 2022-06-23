@@ -116,15 +116,21 @@ func (rs *ResultSet) ToTable() (rows int, tableStr string) {
 	return len(rs.Series), result.Render()
 }
 
-// Series represents one time series for metric
+// Series represents one time series for metric.
 type Series struct {
 	Tags   map[string]string            `json:"tags,omitempty"`
 	Fields map[string]map[int64]float64 `json:"fields,omitempty"`
+
+	TagValues string `json:"-"` // return series in order by tag values
 }
 
-// NewSeries creates a new series
-func NewSeries(tags map[string]string) *Series {
-	return &Series{Tags: tags, Fields: make(map[string]map[int64]float64)}
+// NewSeries creates a new series.
+func NewSeries(tags map[string]string, tagValues string) *Series {
+	return &Series{
+		Tags:      tags,
+		Fields:    make(map[string]map[int64]float64),
+		TagValues: tagValues,
+	}
 }
 
 // AddField adds a field

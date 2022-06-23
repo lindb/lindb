@@ -27,7 +27,7 @@ import (
 
 func TestResultSet(t *testing.T) {
 	rs := NewResultSet()
-	series := NewSeries(map[string]string{"key": "value"})
+	series := NewSeries(map[string]string{"key": "value"}, "value")
 	rs.AddSeries(series)
 	points := NewPoints()
 	points.AddPoint(int64(10), 10.0)
