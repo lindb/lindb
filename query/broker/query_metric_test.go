@@ -167,7 +167,7 @@ func Test_MetricQuery_makeResultSet(t *testing.T) {
 	series2 := mockTimeSeries(ctrl, familyTime, "f2", field.MinField, field.Min)
 	timeSeries := series.NewMockGroupedIterator(ctrl)
 
-	q, err := sql.Parse("select (f1+f2)*100 as f from cpu")
+	q, err := sql.Parse("select (f1+f2)*100 as f from cpu group by node")
 	assert.NoError(t, err)
 	query := q.(*stmt.Query)
 	expression := aggregation.NewExpression(timeutil.TimeRange{
@@ -175,6 +175,7 @@ func Test_MetricQuery_makeResultSet(t *testing.T) {
 		End:   now + timeutil.OneHour*2,
 	}, timeutil.OneMinute, query.SelectItems)
 	gomock.InOrder(
+		timeSeries.EXPECT().Tags().Return("node2"),
 		timeSeries.EXPECT().HasNext().Return(true),
 		timeSeries.EXPECT().Next().Return(series1),
 		timeSeries.EXPECT().HasNext().Return(true),
@@ -186,6 +187,7 @@ func Test_MetricQuery_makeResultSet(t *testing.T) {
 		stmtQuery: &stmt.Query{
 			MetricName: "1",
 			TimeRange:  timeutil.TimeRange{End: 2, Start: 1},
+			GroupBy:    []string{"node"},
 		},
 	}
 	_ = qry.makeResultSet(&series.TimeSeriesEvent{
