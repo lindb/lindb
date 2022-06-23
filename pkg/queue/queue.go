@@ -194,7 +194,7 @@ func (q *queue) Put(data []byte) error {
 		return ErrExceedingMessageSizeLimit
 	}
 
-	dataPage, offset, err := q.alloc(dataLength)
+	dataPageIndex, dataPage, offset, err := q.alloc(dataLength)
 	if err != nil {
 		return err
 	}
@@ -202,7 +202,8 @@ func (q *queue) Put(data []byte) error {
 	// write message data
 	dataPage.WriteBytes(data, offset)
 
-	return nil
+	// persist metadata of message after write data
+	return q.persistMetaOfMessage(dataPageIndex, dataLength, offset)
 }
 
 // Get gets the message data at specific index
@@ -236,6 +237,9 @@ func (q *queue) Get(sequence int64) (data []byte, err error) {
 // AppendedSeq returns the written sequence which stands for the latest write barrier.
 // New message is appended at append sequence.
 func (q *queue) AppendedSeq() int64 {
+	q.rwMutex.RLock()
+	defer q.rwMutex.RUnlock()
+
 	return q.appendedSeq.Load()
 }
 
@@ -247,8 +251,8 @@ func (q *queue) SetAppendedSeq(seq int64) {
 	q.appendedSeq.Store(seq)
 	q.acknowledgedSeq.Store(seq)
 
-	q.metaPage.PutUint64(uint64(q.AppendedSeq()), queueAppendedSeqOffset)
-	q.metaPage.PutUint64(uint64(q.AcknowledgedSeq()), queueAcknowledgedSeqOffset)
+	q.metaPage.PutUint64(uint64(q.appendedSeq.Load()), queueAppendedSeqOffset)
+	q.metaPage.PutUint64(uint64(q.acknowledgedSeq.Load()), queueAcknowledgedSeqOffset)
 	if err := q.metaPage.Sync(); err != nil {
 		queueLogger.Error("sync queue meta page error, when set append seq",
 			logger.String("path", q.dirPath), logger.Error(err))
@@ -258,6 +262,9 @@ func (q *queue) SetAppendedSeq(seq int64) {
 // AcknowledgedSeq returns the acknowledged sequence which stands for the oldest read barrier.
 // Message with req less than acknowledged sequence would be deleted at some point.
 func (q *queue) AcknowledgedSeq() int64 {
+	q.rwMutex.RLock()
+	defer q.rwMutex.RUnlock()
+
 	return q.acknowledgedSeq.Load()
 }
 
@@ -266,7 +273,7 @@ func (q *queue) SetAcknowledgedSeq(seq int64) {
 	q.rwMutex.Lock()
 	defer q.rwMutex.Unlock()
 
-	if seq > q.AcknowledgedSeq() && seq <= q.AppendedSeq() {
+	if seq > q.acknowledgedSeq.Load() && seq <= q.appendedSeq.Load() {
 		q.acknowledgedSeq.Store(seq)
 		q.metaPage.PutUint64(uint64(seq), queueAcknowledgedSeqOffset)
 
@@ -327,7 +334,7 @@ func (q *queue) GC() {
 }
 
 // alloc allocates the data page and offset for message writing
-func (q *queue) alloc(dataLen int) (dataPage page.MappedPage, offset int, err error) {
+func (q *queue) alloc(dataLen int) (dataPageIndex int64, dataPage page.MappedPage, offset int, err error) {
 	q.rwMutex.Lock()
 	defer q.rwMutex.Unlock()
 
@@ -335,7 +342,7 @@ func (q *queue) alloc(dataLen int) (dataPage page.MappedPage, offset int, err er
 	if q.messageOffset+dataLen > dataPageSize {
 		// check size limit before data page acquire
 		if err := q.checkDataSize(); err != nil {
-			return nil, 0, err
+			return 0, nil, 0, err
 		}
 		// sync previous data page
 		if err := q.dataPage.Sync(); err != nil {
@@ -346,20 +353,30 @@ func (q *queue) alloc(dataLen int) (dataPage page.MappedPage, offset int, err er
 		// not enough space in current data page, need create new page
 		dataPage, err := q.dataPageFct.AcquirePage(nextDataPageIndex)
 		if err != nil {
-			return nil, 0, err
+			return 0, nil, 0, err
 		}
 
 		q.dataPage = dataPage
 		q.dataPageIndex = nextDataPageIndex
 		q.messageOffset = 0 // need reset message offset for new data page
 	}
+	// advance dataOffset
+	messageOffset := q.messageOffset
+	q.messageOffset += dataLen // set next message offset
+	return q.dataPageIndex, q.dataPage, messageOffset, nil
+}
 
-	seq := q.AppendedSeq() + 1 // append sequence
+// persistMetaOfMessage persists metadata of message after write data
+func (q *queue) persistMetaOfMessage(dataPageIndex int64, dataLen, messageOffset int) error {
+	q.rwMutex.Lock()
+	defer q.rwMutex.Unlock()
+
+	seq := q.appendedSeq.Load() + 1 // append sequence
 	indexPageIndex := seq / indexItemsPerPage
 	if indexPageIndex != q.indexPageIndex {
 		// check size limit before index page acquire
 		if err := q.checkDataSize(); err != nil {
-			return nil, 0, err
+			return err
 		}
 		// sync previous data page
 		if err := q.indexPage.Sync(); err != nil {
@@ -368,28 +385,23 @@ func (q *queue) alloc(dataLen int) (dataPage page.MappedPage, offset int, err er
 		}
 		indexPage, err := q.indexPageFct.AcquirePage(indexPageIndex)
 		if err != nil {
-			return nil, 0, err
+			return err
 		}
 
 		q.indexPage = indexPage
 		q.indexPageIndex = indexPageIndex
 	}
-	// advance dataOffset
-	messageOffset := q.messageOffset
 
 	// save index data
 	indexOffset := int((seq % indexItemsPerPage) * indexItemLength)
-	q.indexPage.PutUint64(uint64(q.dataPageIndex), indexOffset+queueDataPageIndexOffset)
+	q.indexPage.PutUint64(uint64(dataPageIndex), indexOffset+queueDataPageIndexOffset)
 	q.indexPage.PutUint32(uint32(messageOffset), indexOffset+messageOffsetOffset)
 	q.indexPage.PutUint32(uint32(dataLen), indexOffset+messageLengthOffset)
 
-	q.messageOffset += dataLen
-
 	// save metadata
+	q.metaPage.PutUint64(uint64(seq), queueAppendedSeqOffset)
 	q.appendedSeq.Store(seq)
-	q.metaPage.PutUint64(uint64(q.AppendedSeq()), queueAppendedSeqOffset)
-
-	return q.dataPage, messageOffset, nil
+	return nil
 }
 
 // initSequence initializes sequences from the metadata.
@@ -400,7 +412,7 @@ func (q *queue) initSequence() {
 
 // initDataPageIndex finds out data page head index and message offset
 func (q *queue) initDataPageIndex() (err error) {
-	if q.AppendedSeq() == SeqNoNewMessageAvailable {
+	if q.appendedSeq.Load() == SeqNoNewMessageAvailable {
 		// if queue is empty, start with new empty queue
 		q.dataPageIndex = 0
 		q.messageOffset = 0
@@ -416,7 +428,7 @@ func (q *queue) initDataPageIndex() (err error) {
 		return nil
 	}
 
-	previousSeq := q.AppendedSeq() // get previous sequence
+	previousSeq := q.appendedSeq.Load() // get previous sequence
 	q.indexPageIndex = previousSeq / indexItemsPerPage
 
 	if q.indexPage, err = q.indexPageFct.AcquirePage(q.indexPageIndex); err != nil {

@@ -45,10 +45,11 @@ type BrokerFamilyWriteStatistics struct {
 
 // StorageLocalReplicatorStatistics represents local replicator statistics.
 type StorageLocalReplicatorStatistics struct {
-	ReplicaFailures *linmetric.BoundCounter // replica failure count
-	ReplicaRows     *linmetric.BoundCounter // row number of replica
-	AckSequence     *linmetric.BoundCounter // ack persist sequence count
-	InvalidSequence *linmetric.BoundCounter // invalid replica sequence count
+	DecompressFailures *linmetric.BoundCounter // decompress message failure count
+	ReplicaFailures    *linmetric.BoundCounter // replica failure count
+	ReplicaRows        *linmetric.BoundCounter // row number of replica
+	AckSequence        *linmetric.BoundCounter // ack persist sequence count
+	InvalidSequence    *linmetric.BoundCounter // invalid replica sequence count
 }
 
 // StorageRemoteReplicatorStatistics represents remote replicator statistics.
@@ -130,10 +131,11 @@ func NewBrokerFamilyWriteStatistics(database string) *BrokerFamilyWriteStatistic
 func NewStorageLocalReplicatorStatistics(database, shard string) *StorageLocalReplicatorStatistics {
 	scope := linmetric.StorageRegistry.NewScope("lindb.storage.replica.local")
 	return &StorageLocalReplicatorStatistics{
-		ReplicaFailures: scope.NewCounterVec("replica_failures", "db", "shard").WithTagValues(database, shard),
-		ReplicaRows:     scope.NewCounterVec("replica_rows", "db", "shard").WithTagValues(database, shard),
-		AckSequence:     scope.NewCounterVec("ack_sequence", "db", "shard").WithTagValues(database, shard),
-		InvalidSequence: scope.NewCounterVec("invalid_sequence", "db", "shard").WithTagValues(database, shard),
+		DecompressFailures: scope.NewCounterVec("decompress_failures", "db", "shard").WithTagValues(database, shard),
+		ReplicaFailures:    scope.NewCounterVec("replica_failures", "db", "shard").WithTagValues(database, shard),
+		ReplicaRows:        scope.NewCounterVec("replica_rows", "db", "shard").WithTagValues(database, shard),
+		AckSequence:        scope.NewCounterVec("ack_sequence", "db", "shard").WithTagValues(database, shard),
+		InvalidSequence:    scope.NewCounterVec("invalid_sequence", "db", "shard").WithTagValues(database, shard),
 	}
 }
 

@@ -90,7 +90,12 @@ func (r *localReplicator) Replica(sequence int64, msg []byte) {
 	var err error
 	r.block, err = snappy.Decode(r.block, msg)
 	if err != nil {
-		r.logger.Error("decompress replica data error", logger.Error(err))
+		r.statistics.DecompressFailures.Incr()
+		r.logger.Error("decompress replica data error",
+			logger.Int("rows", r.batchRows.Len()),
+			logger.String("database", r.shard.Database().Name()),
+			logger.Int("shardID", int(r.shard.ShardID())),
+			logger.Error(err))
 		return
 	}
 
