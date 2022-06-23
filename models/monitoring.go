@@ -20,8 +20,8 @@ package models
 import (
 	"encoding/json"
 
-	"github.com/shirou/gopsutil/disk"
-	"github.com/shirou/gopsutil/mem"
+	"github.com/shirou/gopsutil/v3/disk"
+	"github.com/shirou/gopsutil/v3/mem"
 )
 
 // ReplicatorState represents the replicator channel state.

@@ -21,9 +21,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/shirou/gopsutil/disk"
-	"github.com/shirou/gopsutil/mem"
-	"github.com/shirou/gopsutil/net"
+	"github.com/shirou/gopsutil/v3/disk"
+	"github.com/shirou/gopsutil/v3/mem"
+	"github.com/shirou/gopsutil/v3/net"
 
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"

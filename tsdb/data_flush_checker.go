@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shirou/gopsutil/mem"
+	"github.com/shirou/gopsutil/v3/mem"
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/config"
