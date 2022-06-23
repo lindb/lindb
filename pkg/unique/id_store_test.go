@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/cockroachdb/pebble"
+	"github.com/cockroachdb/pebble/vfs"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -211,4 +212,18 @@ func mock(t *testing.T, store IDStore) {
 	}
 	err := store.Put([]byte("word"), []byte("word"))
 	assert.NoError(t, err)
+}
+
+func TestPebble_Reopen(t *testing.T) {
+	p := t.TempDir()
+	opt := &pebble.Options{
+		FS: vfs.Default, // need set FS, it not set will panic.
+	}
+	db, err := pebble.Open(p, opt)
+	assert.NotNil(t, db)
+	assert.NoError(t, err)
+
+	db, err = pebble.Open(p, opt)
+	assert.Error(t, err)
+	assert.Nil(t, db)
 }
