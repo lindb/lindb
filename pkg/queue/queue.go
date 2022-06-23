@@ -455,7 +455,7 @@ func (q *queue) validateSequence(sequence int64) error {
 	q.rwMutex.RLock()
 	defer q.rwMutex.RUnlock()
 
-	if sequence > q.AppendedSeq() || sequence <= q.AcknowledgedSeq() {
+	if sequence > q.appendedSeq.Load() || sequence <= q.acknowledgedSeq.Load() {
 		return ErrOutOfSequenceRange
 	}
 
