@@ -66,6 +66,7 @@ export default function CanvasChart(props: CanvasChartProps) {
       },
       DefaultChartConfig
     );
+    config.options.crosshair = crosshairRef.current;
 
     const chartInstance = new Chart(canvas, config);
     chartObjRef.current = chartInstance;
@@ -86,8 +87,6 @@ export default function CanvasChart(props: CanvasChartProps) {
       }
       const chartArea = chartInstance.chartArea;
       const currIdx = points[0].index;
-      const height = chartArea.height;
-      const top = chartArea.top;
       const x = e.offsetX;
       if (!disableDrag && zoomRef.current.isMouseDown) {
         zoomRef.current.selectedEnd = seriesRef.current.times[points[0].index];
@@ -107,12 +106,42 @@ export default function CanvasChart(props: CanvasChartProps) {
 
       const canvaxRect = canvas.getBoundingClientRect();
 
-      // console.log("heeee", e);
-      setStyle(crosshairRef.current, {
-        display: "block",
-        height: `${height}px`,
-        transform: `translate(${x}px, ${top}px)`,
-      });
+      const interval =
+        _.get(chartInstance, "config._config.data.interval", 0) / 1000;
+      const v = currIdx * interval;
+      // cross hair
+      for (let key of Object.keys(Chart.instances)) {
+        const currChart = Chart.instances[`${key}`];
+        const crosshair = _.get(currChart, "options.crosshair", null);
+        const len = _.get(currChart, "config._config.data.times", []).length;
+        if (!crosshair || len == 0) {
+          continue;
+        }
+
+        const chartArea = currChart.chartArea;
+        const width = _.get(currChart, "chartArea.width", 0);
+        const i = _.get(currChart, "config._config.data.interval", 0) / 1000;
+
+        const x = (v / ((len - 1) * i)) * width + chartArea.left;
+        if (x > chartArea.right) {
+          continue;
+        }
+        const top = chartArea.top;
+        const bottom = chartArea.bottom;
+        setStyle(crosshair, {
+          display: "block",
+          height: `${bottom - top}px`,
+          transform: `translate(${x}px, ${top}px)`,
+        });
+      }
+
+      // // console.log("heeee", e);
+      // setStyle(crosshairRef.current, {
+      //   display: "block",
+      //   height: `${height}px`,
+      //   transform: `translate(${x}px, ${top}px)`,
+      // });
+
       ChartEventStore.setShowTooltip(true);
       ChartEventStore.mouseMove({
         index: currIdx,
@@ -161,7 +190,6 @@ export default function CanvasChart(props: CanvasChartProps) {
         });
       });
       eventCallbacks.set("mouseup", function (_e: any) {
-        console.log("uppppppppppppp");
         if (chartStatusRef.current != ChartStatus.OK) {
           return;
         }
@@ -190,7 +218,6 @@ export default function CanvasChart(props: CanvasChartProps) {
       });
     }
     eventCallbacks.forEach((v, k) => {
-      console.log("canvas......", canvas);
       canvas.addEventListener(k, v);
     });
   };
@@ -203,12 +230,6 @@ export default function CanvasChart(props: CanvasChartProps) {
     const chartInstance = chartObjRef.current;
     if (chartInstance) {
       chartInstance.data = series;
-      // _.set(
-      //   config,
-      //   "options.scales.y.ticks.suggestedMax",
-      //   _.get(series, "leftMax", 0) * 1.5
-      // );
-      console.log("set chart data", series, _.get(series, "leftMax", 0));
     }
   };
 
@@ -236,7 +257,6 @@ export default function CanvasChart(props: CanvasChartProps) {
             createChart();
             setChartData(series);
           }
-          console.log("status", s);
         }
       ),
     ];

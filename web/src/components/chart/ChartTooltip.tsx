@@ -252,7 +252,7 @@ export default function ChartToltip() {
           right: reachRightBoundary ? TOOLTIP_SPACING : undefined,
         };
         kickPosition = {
-          top: chartCanvasRect.y + 4,
+          top: chartCanvasRect.y + 2,
           left: chartCanvasRect.left + event.mouseX,
         };
         break;
