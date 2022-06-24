@@ -142,6 +142,7 @@ export default function DatabaseView(props: DatabaseViewProps) {
         title={title}
         headerStyle={{ padding: 12 }}
         bodyStyle={{ padding: 12 }}
+        loading={loading}
       >
         <Table
           size="small"

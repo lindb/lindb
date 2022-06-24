@@ -16,7 +16,8 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { Card, Form, Empty } from "@douyinfe/semi-ui";
+import { Card, Form, Empty, Button,Notification } from "@douyinfe/semi-ui";
+import { IconRefresh } from "@douyinfe/semi-icons";
 import {
   IllustrationIdle,
   IllustrationIdleDark,
@@ -58,7 +59,13 @@ export default function ReplicationView() {
         setSelectDatabase(db);
       }
     } catch (err) {
-      // setError(err?.message);
+      Notification.error({
+        title: "Fetch database state error",
+        content: _.get(err, "response.data", "Unknown internal error"),
+        position: "top",
+        theme: "light",
+        duration: 5,
+      });
     } finally {
       setLoading(false);
     }
@@ -96,6 +103,15 @@ export default function ReplicationView() {
               });
             }}
           />
+          <Button
+            icon={<IconRefresh />}
+            onClick={() => {
+              getStorageList();
+              URLStore.changeURLParams({
+                params: { ts: `${new Date().getTime()}` },
+              });
+            }}
+          />
         </Form>
       </Card>
       {!selectDatabase ? (
@@ -114,7 +130,7 @@ export default function ReplicationView() {
           <DatabaseView
             liveNodes={_.get(selectDatabase, "storage.liveNodes", {})}
             storage={_.get(selectDatabase, "storage", {})}
-            loading={false}
+            loading={loading}
             databaseName={selectDatabase.name}
           />
           <div style={{ marginTop: 12 }}>

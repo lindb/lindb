@@ -16,24 +16,9 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import {
-  IconChecklistStroked,
-  IconDoubleChevronRight,
-  IconGridStroked,
-} from "@douyinfe/semi-icons";
-import {
-  Avatar,
-  Button,
-  Card,
-  Col,
-  List,
-  Popover,
-  Row,
-  Switch,
-  Table,
-  Tooltip,
-  Typography,
-} from "@douyinfe/semi-ui";
+import { IconChecklistStroked, IconDoubleChevronRight, IconGridStroked } from "@douyinfe/semi-icons";
+import { Avatar, Button, Card, Col, List, Notification, Popover, Row, Select, Switch, Table, Tooltip, Typography } from "@douyinfe/semi-ui";
+import { useWatchURLChange } from "@src/hooks";
 import { ReplicaState } from "@src/models";
 import { exec } from "@src/services";
 import { getShardColor } from "@src/utils";
@@ -54,10 +39,13 @@ export default function ReplicaView(props: ReplicaViewProps) {
   const [replicaState, setReplicaState] = useState<any>({
     shards: [],
     nodes: [],
+    families: [],
   });
   const [showShard, setShowShard] = useState(true);
   const [showLag, setShowLag] = useState(true);
   const [showTable, setShowTable] = useState(false);
+  const [family, setFamily] = useState("");
+  const [shard, setShard] = useState("");
 
   /**
    * build replica state by node.
@@ -107,15 +95,17 @@ export default function ReplicaView(props: ReplicaViewProps) {
    * shard => family list
    * family => leader->follower
    */
-  const buildReplicaStateByShard = (replicaState: ReplicaState): any[] => {
+  const buildReplicaStateByShard = (replicaState: ReplicaState): any => {
     const rs: any[] = [];
     const nodes = _.keys(replicaState);
     const shardMap = new Map();
+    const familyMap = new Map();
     _.forEach(nodes, (node) => {
       const familyList = _.get(replicaState, node, []);
       _.forEach(familyList, (family) => {
         const shardId = family.shardId;
         const familyTime = family.familyTime;
+        familyMap.set(familyTime, familyTime);
         _.set(family, "sourceNode", node);
 
         let replicators: any[] = [];
@@ -151,27 +141,43 @@ export default function ReplicaView(props: ReplicaViewProps) {
         }
       });
     });
-    return rs;
+    return { shards: rs, families: Array.from(familyMap.keys()) };
+  };
+
+  const fetchReplicaState = async () => {
+    try {
+      setLoading(true);
+      const state = await exec<ReplicaState>({
+        sql: `show replication where storage='${storage}' and database='${db}'`,
+      });
+      const rs = buildReplicaStateByShard(state);
+      const nodes = buildReplicaState(state);
+      setReplicaState({
+        shards: rs.shards || [],
+        nodes: nodes || [],
+        families: rs.families || [],
+      });
+    } catch (err) {
+      Notification.error({
+        title: "Fetch replica state error",
+        content: _.get(err, "response.data", "Unknown internal error"),
+        position: "top",
+        theme: "light",
+        duration: 5,
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    const fetchReplicaState = async (sql: string) => {
-      try {
-        setLoading(true);
-        const state = await exec<ReplicaState>({ sql: sql });
-        const shards = buildReplicaStateByShard(state);
-        const nodes = buildReplicaState(state);
-        setReplicaState({ shards: shards || [], nodes: nodes || [] });
-      } catch (err) {
-        console.log(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchReplicaState(
-      `show replication where storage='${storage}' and database='${db}'`
-    );
+    fetchReplicaState();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storage, db]);
+
+  useWatchURLChange(() => {
+    fetchReplicaState();
+  });
 
   const renderReplicatorState = (r: any) => {
     let color = "warning";
@@ -379,11 +385,26 @@ export default function ReplicaView(props: ReplicaViewProps) {
   };
 
   const renderShardsAsTable = () => {
-    const shards = replicaState.shards;
+    let shards = _.cloneDeep(replicaState.shards);
+    if (!_.isEmpty(shard)) {
+      shards = _.filter(shards, function (o) {
+        return `${o.shardId}` == shard;
+      });
+    }
+    if (!_.isEmpty(family)) {
+      shards = _.filter(shards, function (o) {
+        o.channels = _.filter(o.channels, function (f) {
+          return f.familyTime == family;
+        });
+        return !_.isEmpty(o.channels);
+      });
+    }
+
+    shards = _.orderBy(shards, ["shardId"]);
     return (
       <List
         style={{ display: showTable ? "block" : "none" }}
-        dataSource={_.orderBy(shards, ["shardId"])}
+        dataSource={shards}
         renderItem={(item: any, shardIdx: any) => (
           <List.Item
             style={{ display: "block", padding: "0", borderBottom: 0 }}
@@ -400,9 +421,8 @@ export default function ReplicaView(props: ReplicaViewProps) {
                 }}
               >
                 <Avatar
-                  size="default"
+                  size="small"
                   style={{
-                    margin: 4,
                     backgroundColor: getShardColor(item.shardId),
                   }}
                 >
@@ -442,6 +462,46 @@ export default function ReplicaView(props: ReplicaViewProps) {
                 <Switch checked={showLag} onChange={setShowLag} size="small" />
               </>
             )}
+            {showTable && (
+              <>
+                <Select
+                  insetLabel="Shard"
+                  style={{ marginRight: 8 }}
+                  showClear
+                  value={shard}
+                  onClear={() => {
+                    setShard("");
+                  }}
+                  optionList={_.orderBy(
+                    _.map(replicaState.shards, (shard: any) => {
+                      return { label: shard.shardId, value: shard.shardId };
+                    }),
+                    ["label"]
+                  )}
+                  onChange={(value) => {
+                    setShard(`${value}`);
+                  }}
+                />
+                <Select
+                  insetLabel="Family"
+                  showClear
+                  value={family}
+                  onClear={() => {
+                    setFamily("");
+                  }}
+                  optionList={_.orderBy(
+                    _.map(replicaState.families, (f: any) => {
+                      return { label: f, value: f };
+                    }),
+                    ["label"],
+                    ["desc"]
+                  )}
+                  onChange={(value) => {
+                    setFamily(`${value}`);
+                  }}
+                />
+              </>
+            )}
             <Button
               style={{ marginLeft: 8 }}
               icon={showTable ? <IconChecklistStroked /> : <IconGridStroked />}
@@ -451,7 +511,7 @@ export default function ReplicaView(props: ReplicaViewProps) {
         </>
       }
       headerStyle={{ padding: 12 }}
-      bodyStyle={{ padding: 12 }}
+      bodyStyle={{ padding: showTable ? 0 : 12 }}
       loading={loading}
     >
       {renderShardsAsTable()}
