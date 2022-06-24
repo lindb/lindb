@@ -416,6 +416,7 @@ func TestDataFamily_Flush(t *testing.T) {
 				seq: map[int32]atomic.Int64{
 					1: *atomic.NewInt64(10),
 				},
+				persistSeq: make(map[int32]atomic.Int64),
 				callbacks: map[int32][]func(seq int64){
 					1: {func(seq int64) {}},
 				},
@@ -556,8 +557,12 @@ func TestDataFamily_GetOrCreateMemoryDatabase(t *testing.T) {
 
 func TestDataFamily_Sequence(t *testing.T) {
 	f := &dataFamily{
-		seq:       make(map[int32]atomic.Int64),
+		seq: make(map[int32]atomic.Int64),
+		persistSeq: map[int32]atomic.Int64{
+			1: *atomic.NewInt64(10),
+		},
 		callbacks: make(map[int32][]func(seq int64)),
+		logger:    logger.GetLogger("TSDB", "Test"),
 	}
 	f.CommitSequence(1, 10)
 	assert.True(t, f.ValidateSequence(2, 10))

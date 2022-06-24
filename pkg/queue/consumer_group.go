@@ -18,11 +18,13 @@
 package queue
 
 import (
+	"fmt"
 	"path/filepath"
 	"sync"
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/queue/page"
 )
@@ -90,25 +92,37 @@ func NewConsumerGroup(parent, fanOutPath string, q FanOutQueue) (ConsumerGroup, 
 		}
 	}()
 
+	hasMeta := false
+	if fileutil.Exist(filepath.Join(name, fmt.Sprintf("%d.bat", metaPageIndex))) {
+		hasMeta = true
+	}
+
 	metaPage, err := metaPageFct.AcquirePage(metaPageIndex)
 	if err != nil {
 		return nil, err
 	}
 
-	consumerSeq := int64(metaPage.ReadUint64(consumerGroupConsumedSeqOffset))
-	ackSeq := int64(metaPage.ReadUint64(consumerGroupAcknowledgedSeqOffset))
-	// reset to queue ack sequence
-	if consumerSeq == 0 && ackSeq == 0 {
-		ackSeq = q.Queue().AcknowledgedSeq()
-		consumerSeq = ackSeq
+	consumedSeq := int64(-1)
+	ackSeq := int64(-1)
+
+	if hasMeta {
+		consumedSeq = int64(metaPage.ReadUint64(consumerGroupConsumedSeqOffset))
+		ackSeq = int64(metaPage.ReadUint64(consumerGroupAcknowledgedSeqOffset))
+		// reset consumed sequence using ack sequence, re-consume not acknowledged message
+		if consumedSeq >= 0 && consumedSeq > ackSeq {
+			consumedSeq = ackSeq
+		}
 	}
+	// persist metadata
+	metaPage.PutUint64(uint64(consumedSeq), consumerGroupConsumedSeqOffset)
+	metaPage.PutUint64(uint64(ackSeq), consumerGroupAcknowledgedSeqOffset)
 
 	return &consumerGroup{
 		name:            name,
 		q:               q,
 		metaPageFct:     metaPageFct,
 		metaPage:        metaPage,
-		consumedSeq:     atomic.NewInt64(consumerSeq),
+		consumedSeq:     atomic.NewInt64(consumedSeq),
 		acknowledgedSeq: atomic.NewInt64(ackSeq),
 	}, nil
 }
@@ -127,6 +141,7 @@ func (f *consumerGroup) Consume() int64 {
 	headSeq := f.consumedSeq.Load() + 1
 	if headSeq <= f.q.Queue().AppendedSeq() {
 		f.consumedSeq.Store(headSeq)
+		f.metaPage.PutUint64(uint64(headSeq), consumerGroupConsumedSeqOffset)
 		return headSeq
 	}
 

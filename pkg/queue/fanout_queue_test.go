@@ -96,8 +96,6 @@ func TestFanOutQueue_New(t *testing.T) {
 	listDirFunc = fileutil.ListDir
 
 	// case 4: create success
-	queue.EXPECT().AcknowledgedSeq().Return(int64(0))
-
 	fq, err = NewFanOutQueue(dir, 1024)
 	assert.NoError(t, err)
 	assert.NotNil(t, fq)
