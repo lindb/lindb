@@ -181,7 +181,7 @@ func (f *factory) pageFileName(index int64) string {
 	return filepath.Join(f.path, fmt.Sprintf("%d.%s", index, pageSuffix))
 }
 
-// loadPages loads the exist pages when factory init
+// loadPages loads exist pages when factory init
 func (f *factory) loadPages() error {
 	fileNames, err := listDirFunc(f.path)
 	if err != nil {

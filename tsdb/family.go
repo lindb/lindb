@@ -265,8 +265,9 @@ func (f *dataFamily) Flush() error {
 		f.mutex.Lock()
 		f.immutableMemDB = nil
 		f.immutableSeq = nil
+		// save persisted sequence
 		for leader, seq := range immutableSeq {
-			f.seq[leader] = *atomic.NewInt64(seq)
+			f.persistSeq[leader] = *atomic.NewInt64(seq)
 		}
 		for leader, fns := range f.callbacks {
 			seq, ok := f.seq[leader]
@@ -430,6 +431,7 @@ func (f *dataFamily) WriteRows(rows []metric.StorageRow) error {
 func (f *dataFamily) ValidateSequence(leader int32, seq int64) bool {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
+
 	seqForLeader, ok := f.seq[leader]
 	if !ok {
 		return true
@@ -454,7 +456,10 @@ func (f *dataFamily) AckSequence(leader int32, fn func(seq int64)) {
 
 	f.callbacks[leader] = append(f.callbacks[leader], fn)
 
-	seqForLeader, ok := f.seq[leader]
+	seqForLeader, ok := f.persistSeq[leader]
+	f.logger.Info("register ack sequence callback",
+		logger.String("family", f.indicator), logger.Any("sequences", f.seq),
+		logger.Any("leader", leader), logger.Any("exist", ok))
 	if ok {
 		// invoke ack sequence after register function, maybe some cases lost ack index.
 		fn(seqForLeader.Load())

@@ -61,11 +61,13 @@ func NewLocalReplicator(channel *ReplicatorChannel, shard tsdb.Shard, family tsd
 		lr.SetAckIndex(seq)
 		lr.statistics.AckSequence.Incr()
 		lr.logger.Info("ack local replica index",
-			logger.String("replica", lr.String()),
+			logger.String("replicator", lr.String()),
 			logger.Int64("ackIdx", seq))
 	})
 
-	lr.logger.Info("start local replicator", logger.String("replica", lr.String()))
+	lr.logger.Info("start local replicator", logger.String("replica", lr.String()),
+		logger.Int64("replicaIndex", lr.channel.ConsumerGroup.ConsumedSeq()),
+		logger.Int64("ackIndex", lr.AckIndex()))
 	return lr
 }
 
@@ -81,32 +83,46 @@ func (r *localReplicator) State() *state {
 // 4. write metric data
 // 5. commit sequence in data family
 func (r *localReplicator) Replica(sequence int64, msg []byte) {
+	var err error
+
 	if !r.family.ValidateSequence(r.leader, sequence) {
 		r.statistics.InvalidSequence.Incr()
-		return
-	}
-
-	// TODO add util
-	var err error
-	r.block, err = snappy.Decode(r.block, msg)
-	if err != nil {
-		r.statistics.DecompressFailures.Incr()
-		r.logger.Error("decompress replica data error",
-			logger.Int("rows", r.batchRows.Len()),
-			logger.String("database", r.shard.Database().Name()),
-			logger.Int("shardID", int(r.shard.ShardID())),
-			logger.Error(err))
 		return
 	}
 
 	// flat will always panic when data are corrupted,
 	// or data are not serialized correctly
 	defer func() {
+		if err != nil {
+			// if it has error after replica msg, need try ack sequence.
+			// if not, maybe always consume wrong message will haven't any new message.
+			currentAck := r.AckIndex()
+			if currentAck+1 == sequence {
+				// if next ack sequence = replica sequence
+				r.SetAckIndex(sequence)
+				r.logger.Warn("ack sequence when replica message failure, will ignore message",
+					logger.Int64("sequence", sequence),
+					logger.String("replicator", r.String()),
+					logger.Error(err))
+			}
+		}
 		r.block = r.block[:0]
 
 		// after write need commit sequence, drop write failure data.
 		r.family.CommitSequence(r.leader, sequence)
 	}()
+
+	// TODO add util
+	r.block, err = snappy.Decode(r.block, msg)
+	if err != nil {
+		r.statistics.DecompressFailures.Incr()
+		r.logger.Error("decompress replica data error",
+			logger.Int64("sequence", sequence),
+			logger.Int("message", len(msg)),
+			logger.String("replicator", r.String()),
+			logger.Error(err))
+		return
+	}
 
 	r.batchRows.UnmarshalRows(r.block)
 	rowsLen := r.batchRows.Len()
@@ -118,10 +134,10 @@ func (r *localReplicator) Replica(sequence int64, msg []byte) {
 	// lookup metric metadata
 	if err := r.shard.LookupRowMetricMeta(rows); err != nil {
 		r.statistics.ReplicaFailures.Incr()
-		r.logger.Error("failed writing family rows",
+		r.logger.Error("failed lookup row metric meta",
+			logger.Int64("sequence", sequence),
 			logger.Int("rows", r.batchRows.Len()),
-			logger.String("database", r.shard.Database().Name()),
-			logger.Int("shardID", int(r.shard.ShardID())),
+			logger.String("replicator", r.String()),
 			logger.Error(err))
 		return
 	}
@@ -129,9 +145,9 @@ func (r *localReplicator) Replica(sequence int64, msg []byte) {
 	if err := r.family.WriteRows(rows); err != nil {
 		r.statistics.ReplicaFailures.Incr()
 		r.logger.Error("failed writing family rows",
+			logger.Int64("sequence", sequence),
 			logger.Int("rows", r.batchRows.Len()),
-			logger.String("database", r.shard.Database().Name()),
-			logger.Int("shardID", int(r.shard.ShardID())),
+			logger.String("replicator", r.String()),
 			logger.Error(err))
 		return
 	}
