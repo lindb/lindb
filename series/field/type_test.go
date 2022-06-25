@@ -41,6 +41,7 @@ func TestType_String(t *testing.T) {
 	assert.Equal(t, "gauge", GaugeField.String())
 	assert.Equal(t, "histogram", HistogramField.String())
 	assert.Equal(t, "unknown", Unknown.String())
+	assert.Equal(t, "name", Name("name").String())
 }
 
 func TestIsSupportFunc(t *testing.T) {
@@ -84,8 +85,41 @@ func TestMaxAgg(t *testing.T) {
 	assert.Equal(t, 99.0, MaxField.AggType().Aggregate(99.0, 1))
 }
 
-func TestReplaceAgg(t *testing.T) {
+func TestLastAgg(t *testing.T) {
+	assert.Equal(t, 99.0, GaugeField.AggType().Aggregate(1, 99.0))
+}
+
+func TestPanicAgg(t *testing.T) {
 	assert.Panics(t, func() {
 		Type(99).AggType().Aggregate(1, 99.0)
 	})
+}
+
+func TestType_GetFuncFieldParams(t *testing.T) {
+	assert.Empty(t, Type(99).GetFuncFieldParams(function.Min))
+	assert.Equal(t, []AggType{Sum}, HistogramField.GetFuncFieldParams(function.Min))
+
+	assert.Equal(t, []AggType{Max}, MaxField.GetFuncFieldParams(function.Max))
+	assert.Equal(t, []AggType{Min}, MaxField.GetFuncFieldParams(function.Min))
+
+	assert.Equal(t, []AggType{Max}, MinField.GetFuncFieldParams(function.Max))
+	assert.Equal(t, []AggType{Min}, MinField.GetFuncFieldParams(function.Min))
+
+	assert.Equal(t, []AggType{Sum}, SumField.GetFuncFieldParams(function.Sum))
+	assert.Equal(t, []AggType{Max}, SumField.GetFuncFieldParams(function.Max))
+	assert.Equal(t, []AggType{Min}, SumField.GetFuncFieldParams(function.Min))
+
+	assert.Equal(t, []AggType{Sum}, GaugeField.GetFuncFieldParams(function.Sum))
+	assert.Equal(t, []AggType{Max}, GaugeField.GetFuncFieldParams(function.Max))
+	assert.Equal(t, []AggType{Min}, GaugeField.GetFuncFieldParams(function.Min))
+	assert.Equal(t, []AggType{LastValue}, GaugeField.GetFuncFieldParams(function.LastValue))
+}
+
+func TestType_GetDefaultFuncFieldParams(t *testing.T) {
+	assert.Empty(t, Type(99).GetDefaultFuncFieldParams())
+	assert.Equal(t, []AggType{Sum}, HistogramField.GetDefaultFuncFieldParams())
+	assert.Equal(t, []AggType{Sum}, SumField.GetDefaultFuncFieldParams())
+	assert.Equal(t, []AggType{Max}, MaxField.GetDefaultFuncFieldParams())
+	assert.Equal(t, []AggType{Min}, MinField.GetDefaultFuncFieldParams())
+	assert.Equal(t, []AggType{LastValue}, GaugeField.GetDefaultFuncFieldParams())
 }

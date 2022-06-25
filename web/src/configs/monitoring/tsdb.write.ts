@@ -30,7 +30,7 @@ export const TSDBWriteDashboard: Dashboard = {
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'active_families' from 'lindb.tsdb.shard' group by node",
+                sql: "select sum('active_families') as families from 'lindb.tsdb.shard' group by node",
                 watch: ["node", "namespace"],
               },
             ],
@@ -45,7 +45,7 @@ export const TSDBWriteDashboard: Dashboard = {
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'active_memdbs' from 'lindb.tsdb.shard' group by node",
+                sql: "select sum('active_memdbs') as memdb from 'lindb.tsdb.shard' group by node",
                 watch: ["node", "namespace"],
               },
             ],
@@ -60,7 +60,7 @@ export const TSDBWriteDashboard: Dashboard = {
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'memdb_total_size' from 'lindb.tsdb.shard' group by node",
+                sql: "select sum('memdb_total_size') as memdb_size from 'lindb.tsdb.shard' group by node",
                 watch: ["node", "namespace"],
               },
             ],
