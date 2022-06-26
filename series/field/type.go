@@ -120,7 +120,7 @@ func (t Type) DownSamplingFunc() function.FuncType {
 	case MaxField:
 		return function.Max
 	case GaugeField:
-		return function.LastValue
+		return function.Last
 	case HistogramField:
 		return function.Sum
 	default:
@@ -153,7 +153,7 @@ func (t Type) IsFuncSupported(funcType function.FuncType) bool {
 		}
 	case GaugeField:
 		switch funcType {
-		case function.Sum, function.Min, function.Max, function.LastValue:
+		case function.Sum, function.Min, function.Max, function.Last:
 			return true
 		default:
 			return false

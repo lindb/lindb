@@ -30,7 +30,7 @@ func TestDownSamplingFunc(t *testing.T) {
 	assert.Equal(t, function.Sum, HistogramField.DownSamplingFunc())
 	assert.Equal(t, function.Min, MinField.DownSamplingFunc())
 	assert.Equal(t, function.Max, MaxField.DownSamplingFunc())
-	assert.Equal(t, function.LastValue, GaugeField.DownSamplingFunc())
+	assert.Equal(t, function.Last, GaugeField.DownSamplingFunc())
 	assert.Equal(t, function.Unknown, Unknown.DownSamplingFunc())
 }
 
@@ -46,7 +46,7 @@ func TestType_String(t *testing.T) {
 
 func TestIsSupportFunc(t *testing.T) {
 	assert.True(t, HistogramField.IsFuncSupported(function.Sum))
-	assert.False(t, HistogramField.IsFuncSupported(function.LastValue))
+	assert.False(t, HistogramField.IsFuncSupported(function.Last))
 
 	assert.True(t, SumField.IsFuncSupported(function.Sum))
 	assert.True(t, SumField.IsFuncSupported(function.Min))
@@ -56,7 +56,7 @@ func TestIsSupportFunc(t *testing.T) {
 	assert.True(t, MaxField.IsFuncSupported(function.Max))
 	assert.False(t, MaxField.IsFuncSupported(function.Quantile))
 
-	assert.True(t, GaugeField.IsFuncSupported(function.LastValue))
+	assert.True(t, GaugeField.IsFuncSupported(function.Last))
 	assert.False(t, GaugeField.IsFuncSupported(function.Quantile))
 
 	assert.True(t, MinField.IsFuncSupported(function.Min))
@@ -112,7 +112,7 @@ func TestType_GetFuncFieldParams(t *testing.T) {
 	assert.Equal(t, []AggType{Sum}, GaugeField.GetFuncFieldParams(function.Sum))
 	assert.Equal(t, []AggType{Max}, GaugeField.GetFuncFieldParams(function.Max))
 	assert.Equal(t, []AggType{Min}, GaugeField.GetFuncFieldParams(function.Min))
-	assert.Equal(t, []AggType{LastValue}, GaugeField.GetFuncFieldParams(function.LastValue))
+	assert.Equal(t, []AggType{LastValue}, GaugeField.GetFuncFieldParams(function.Last))
 }
 
 func TestType_GetDefaultFuncFieldParams(t *testing.T) {

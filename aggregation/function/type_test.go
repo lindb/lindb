@@ -29,7 +29,7 @@ func TestFuncTypeString(t *testing.T) {
 	assert.Equal(t, "max", Max.String())
 	assert.Equal(t, "count", Count.String())
 	assert.Equal(t, "avg", Avg.String())
-	assert.Equal(t, "last_value", LastValue.String())
+	assert.Equal(t, "last", Last.String())
 	assert.Equal(t, "quantile", Quantile.String())
 	assert.Equal(t, "stddev", Stddev.String())
 	assert.Equal(t, "rate", Rate.String())
