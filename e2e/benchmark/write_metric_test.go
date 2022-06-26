@@ -45,16 +45,17 @@ func TestWriteSumMetric(b *testing.T) {
 				var brokerRow metric.BrokerRow
 				converter := metric.NewProtoConverter()
 				err := converter.ConvertTo(&protoMetricsV1.Metric{
-					Name:      "host_disk_400",
+					Name:      "host_disk_700",
 					Timestamp: timestamp,
 					Tags: []*protoMetricsV1.KeyValue{
 						{Key: "host", Value: "host" + strconv.Itoa(i)},
-						{Key: "disk", Value: "disk" + strconv.Itoa(k)},
-						{Key: "partition", Value: "partition" + strconv.Itoa(j)},
+						{Key: "disk", Value: "disk" + strconv.Itoa(i)},
+						{Key: "partition", Value: "partition" + strconv.Itoa(i)},
 					},
 					SimpleFields: []*protoMetricsV1.SimpleField{
-						{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
-						{Name: "f2", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 2},
+						{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: float64(k)},
+						{Name: "f2", Type: protoMetricsV1.SimpleFieldType_LAST, Value: float64(k)},
+						{Name: "f3", Type: protoMetricsV1.SimpleFieldType_FIRST, Value: float64(k)},
 					},
 				}, &brokerRow)
 				_, _ = brokerRow.WriteTo(&buf)

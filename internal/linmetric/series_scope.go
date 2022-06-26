@@ -146,7 +146,7 @@ func tagList2Tags(tagList ...string) tag.Tags {
 }
 
 func (s *taggedSeries) NewGauge(fieldName string) *BoundGauge {
-	return s.findSimpleField(fieldName, flatMetricsV1.SimpleFieldTypeGauge, func() simpleField {
+	return s.findSimpleField(fieldName, flatMetricsV1.SimpleFieldTypeLast, func() simpleField {
 		return newGauge(fieldName)
 	}).(*BoundGauge)
 }

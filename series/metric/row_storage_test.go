@@ -19,6 +19,7 @@ package metric
 
 import (
 	"math"
+	"sort"
 	"strconv"
 	"testing"
 
@@ -57,7 +58,20 @@ func buildFlatMetric(builder *flatbuffers.Builder) {
 	for i := 0; i < 10; i++ {
 		flatMetricsV1.SimpleFieldStart(builder)
 		flatMetricsV1.SimpleFieldAddName(builder, fieldNames[i])
-		flatMetricsV1.SimpleFieldAddType(builder, flatMetricsV1.SimpleFieldTypeDeltaSum)
+		switch i {
+		case 0:
+			flatMetricsV1.SimpleFieldAddType(builder, flatMetricsV1.SimpleFieldTypeLast)
+		case 1:
+			flatMetricsV1.SimpleFieldAddType(builder, flatMetricsV1.SimpleFieldTypeFirst)
+		case 2:
+			flatMetricsV1.SimpleFieldAddType(builder, flatMetricsV1.SimpleFieldTypeMin)
+		case 3:
+			flatMetricsV1.SimpleFieldAddType(builder, flatMetricsV1.SimpleFieldTypeMax)
+		case 4:
+			flatMetricsV1.SimpleFieldAddType(builder, flatMetricsV1.SimpleFieldTypeUnSpecified)
+		default:
+			flatMetricsV1.SimpleFieldAddType(builder, flatMetricsV1.SimpleFieldTypeDeltaSum)
+		}
 		flatMetricsV1.SimpleFieldAddValue(builder, float64(i))
 		fields[i] = flatMetricsV1.SimpleFieldEnd(builder)
 	}
@@ -148,8 +162,26 @@ func Test_MetricRow_WithSimpleFields(t *testing.T) {
 		for sfItr.HasNext() {
 			assert.Equal(t, "counter"+strconv.Itoa(count), string(sfItr.NextName()))
 			assert.Equal(t, "counter"+strconv.Itoa(count), string(sfItr.NextRawName()))
-			assert.Equal(t, field.SumField, sfItr.NextType())
-			assert.Equal(t, flatMetricsV1.SimpleFieldTypeDeltaSum, sfItr.NextRawType())
+			switch count {
+			case 0:
+				assert.Equal(t, field.LastField, sfItr.NextType())
+				assert.Equal(t, flatMetricsV1.SimpleFieldTypeLast, sfItr.NextRawType())
+			case 1:
+				assert.Equal(t, field.FirstField, sfItr.NextType())
+				assert.Equal(t, flatMetricsV1.SimpleFieldTypeFirst, sfItr.NextRawType())
+			case 2:
+				assert.Equal(t, field.MinField, sfItr.NextType())
+				assert.Equal(t, flatMetricsV1.SimpleFieldTypeMin, sfItr.NextRawType())
+			case 3:
+				assert.Equal(t, field.MaxField, sfItr.NextType())
+				assert.Equal(t, flatMetricsV1.SimpleFieldTypeMax, sfItr.NextRawType())
+			case 4:
+				assert.Equal(t, field.Unknown, sfItr.NextType())
+				assert.Equal(t, flatMetricsV1.SimpleFieldTypeUnSpecified, sfItr.NextRawType())
+			default:
+				assert.Equal(t, field.SumField, sfItr.NextType())
+				assert.Equal(t, flatMetricsV1.SimpleFieldTypeDeltaSum, sfItr.NextRawType())
+			}
 			assert.InDelta(t, float64(count), sfItr.NextValue(), 1e-6)
 			count++
 		}
@@ -212,4 +244,17 @@ func Test_HistogramConverter(t *testing.T) {
 
 	_, err = UpperBound("__bucket_x")
 	assert.NotNil(t, err)
+}
+
+func TestStorageBatchRows_Sorts(t *testing.T) {
+	var builder = flatbuffers.NewBuilder(1024)
+	buildFlatMetric(builder)
+
+	var mr1 StorageRow
+	mr1.Unmarshal(builder.FinishedBytes())
+	var mr2 StorageRow
+	mr2.Unmarshal(builder.FinishedBytes())
+	rows := NewStorageBatchRows()
+	rows.rows = []StorageRow{mr1, mr2}
+	sort.Sort(rows)
 }

@@ -52,10 +52,17 @@ func makeProtoMetricV1(timestamp int64) *protoMetricsV1.Metric {
 			Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
 			Value: 100,
 		},
-		{Name: "gauge",
-			Type:  protoMetricsV1.SimpleFieldType_GAUGE,
+		{
+			Name:  "last",
+			Type:  protoMetricsV1.SimpleFieldType_LAST,
 			Value: 10,
-		}, {
+		},
+		{
+			Name:  "first",
+			Type:  protoMetricsV1.SimpleFieldType_FIRST,
+			Value: 10,
+		},
+		{
 			Name:  "min",
 			Type:  protoMetricsV1.SimpleFieldType_Min,
 			Value: 1,

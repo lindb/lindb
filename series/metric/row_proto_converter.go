@@ -219,12 +219,14 @@ func (rc *BrokerRowProtoConverter) MarshalProtoMetricV1(m *protoMetricsV1.Metric
 		switch sf.Type {
 		case protoMetricsV1.SimpleFieldType_DELTA_SUM:
 			flatMetricsV1.SimpleFieldAddType(rc.flatBuilder, flatMetricsV1.SimpleFieldTypeDeltaSum)
-		case protoMetricsV1.SimpleFieldType_GAUGE:
-			flatMetricsV1.SimpleFieldAddType(rc.flatBuilder, flatMetricsV1.SimpleFieldTypeGauge)
+		case protoMetricsV1.SimpleFieldType_LAST:
+			flatMetricsV1.SimpleFieldAddType(rc.flatBuilder, flatMetricsV1.SimpleFieldTypeLast)
 		case protoMetricsV1.SimpleFieldType_Max:
 			flatMetricsV1.SimpleFieldAddType(rc.flatBuilder, flatMetricsV1.SimpleFieldTypeMax)
 		case protoMetricsV1.SimpleFieldType_Min:
 			flatMetricsV1.SimpleFieldAddType(rc.flatBuilder, flatMetricsV1.SimpleFieldTypeMin)
+		case protoMetricsV1.SimpleFieldType_FIRST:
+			flatMetricsV1.SimpleFieldAddType(rc.flatBuilder, flatMetricsV1.SimpleFieldTypeFirst)
 		}
 		flatMetricsV1.SimpleFieldAddValue(rc.flatBuilder, sf.Value)
 		rc.fields = append(rc.fields, flatMetricsV1.SimpleFieldEnd(rc.flatBuilder))

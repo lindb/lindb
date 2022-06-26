@@ -144,7 +144,7 @@ intervalItem            :
                          | T_YEAR
                          ;
 exprFunc                : funcName T_OPEN_P exprFuncParams? T_CLOSE_P ;
-funcName                : T_SUM | T_MIN | T_MAX | T_AVG | T_COUNT | T_LAST | T_STDDEV | T_QUANTILE | T_RATE;
+funcName                : T_SUM | T_MIN | T_MAX | T_AVG | T_COUNT | T_LAST | T_FIRST | T_STDDEV | T_QUANTILE | T_RATE;
 exprFuncParams          : funcParam (T_COMMA funcParam)* ;
 funcParam               :
                            fieldExpr
@@ -263,6 +263,7 @@ nonReservedWords      :
                         | T_MAX
                         | T_COUNT
                         | T_LAST
+                        | T_FIRST
                         | T_AVG
                         | T_STDDEV
                         | T_QUANTILE
@@ -398,6 +399,7 @@ T_MIN                : M I N                            ;
 T_MAX                : M A X                            ;
 T_COUNT              : C O U N T                        ;
 T_LAST               : L A S T                          ;
+T_FIRST              : F I R S T                        ;
 T_AVG                : A V G                            ;
 T_STDDEV             : S T D D E V                      ;
 T_QUANTILE           : Q U A N T I L E                  ;

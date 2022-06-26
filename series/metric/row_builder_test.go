@@ -129,7 +129,7 @@ func Test_RowBuilder_BuildError(t *testing.T) {
 func Test_RowBuilder_OneSimpleField(t *testing.T) {
 	rb := newRowBuilder()
 	rb.AddMetricName([]byte("cpu"))
-	_ = rb.AddSimpleField([]byte("idle"), flatMetricsV1.SimpleFieldTypeGauge, 1)
+	_ = rb.AddSimpleField([]byte("idle"), flatMetricsV1.SimpleFieldTypeLast, 1)
 	var row BrokerRow
 	assert.NoError(t, rb.BuildTo(&row))
 	assert.NotZero(t, row.m.Timestamp())
@@ -142,7 +142,7 @@ func Test_RowBuilder_BuildTo(t *testing.T) {
 	assert.NoError(t, rb.AddTag([]byte("ip"), []byte("1.1.1.1")))
 	assert.NoError(t, rb.AddTag([]byte("host"), []byte("dev-ecs")))
 	rb.AddMetricName([]byte("cpu|load"))
-	assert.NoError(t, rb.AddSimpleField([]byte("idle"), flatMetricsV1.SimpleFieldTypeGauge, 1))
+	assert.NoError(t, rb.AddSimpleField([]byte("idle"), flatMetricsV1.SimpleFieldTypeLast, 1))
 	assert.NoError(t, rb.AddCompoundFieldMMSC(1, 1, 1, 1))
 
 	assert.NoError(t, rb.AddCompoundFieldData(

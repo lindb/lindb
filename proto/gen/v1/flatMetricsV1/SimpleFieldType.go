@@ -25,26 +25,29 @@ type SimpleFieldType int8
 
 const (
 	SimpleFieldTypeUnSpecified SimpleFieldType = 0
-	SimpleFieldTypeGauge       SimpleFieldType = 1
+	SimpleFieldTypeLast        SimpleFieldType = 1
 	SimpleFieldTypeDeltaSum    SimpleFieldType = 2
 	SimpleFieldTypeMin         SimpleFieldType = 3
 	SimpleFieldTypeMax         SimpleFieldType = 4
+	SimpleFieldTypeFirst       SimpleFieldType = 5
 )
 
 var EnumNamesSimpleFieldType = map[SimpleFieldType]string{
 	SimpleFieldTypeUnSpecified: "UnSpecified",
-	SimpleFieldTypeGauge:       "Gauge",
+	SimpleFieldTypeLast:        "Last",
 	SimpleFieldTypeDeltaSum:    "DeltaSum",
 	SimpleFieldTypeMin:         "Min",
 	SimpleFieldTypeMax:         "Max",
+	SimpleFieldTypeFirst:       "First",
 }
 
 var EnumValuesSimpleFieldType = map[string]SimpleFieldType{
 	"UnSpecified": SimpleFieldTypeUnSpecified,
-	"Gauge":       SimpleFieldTypeGauge,
+	"Last":        SimpleFieldTypeLast,
 	"DeltaSum":    SimpleFieldTypeDeltaSum,
 	"Min":         SimpleFieldTypeMin,
 	"Max":         SimpleFieldTypeMax,
+	"First":       SimpleFieldTypeFirst,
 }
 
 func (v SimpleFieldType) String() string {

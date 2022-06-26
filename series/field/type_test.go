@@ -30,7 +30,8 @@ func TestDownSamplingFunc(t *testing.T) {
 	assert.Equal(t, function.Sum, HistogramField.DownSamplingFunc())
 	assert.Equal(t, function.Min, MinField.DownSamplingFunc())
 	assert.Equal(t, function.Max, MaxField.DownSamplingFunc())
-	assert.Equal(t, function.Last, GaugeField.DownSamplingFunc())
+	assert.Equal(t, function.Last, LastField.DownSamplingFunc())
+	assert.Equal(t, function.First, FirstField.DownSamplingFunc())
 	assert.Equal(t, function.Unknown, Unknown.DownSamplingFunc())
 }
 
@@ -38,7 +39,8 @@ func TestType_String(t *testing.T) {
 	assert.Equal(t, "sum", SumField.String())
 	assert.Equal(t, "max", MaxField.String())
 	assert.Equal(t, "min", MinField.String())
-	assert.Equal(t, "gauge", GaugeField.String())
+	assert.Equal(t, "last", LastField.String())
+	assert.Equal(t, "first", FirstField.String())
 	assert.Equal(t, "histogram", HistogramField.String())
 	assert.Equal(t, "unknown", Unknown.String())
 	assert.Equal(t, "name", Name("name").String())
@@ -56,8 +58,11 @@ func TestIsSupportFunc(t *testing.T) {
 	assert.True(t, MaxField.IsFuncSupported(function.Max))
 	assert.False(t, MaxField.IsFuncSupported(function.Quantile))
 
-	assert.True(t, GaugeField.IsFuncSupported(function.Last))
-	assert.False(t, GaugeField.IsFuncSupported(function.Quantile))
+	assert.True(t, LastField.IsFuncSupported(function.Last))
+	assert.False(t, LastField.IsFuncSupported(function.Quantile))
+
+	assert.True(t, FirstField.IsFuncSupported(function.First))
+	assert.False(t, FirstField.IsFuncSupported(function.Quantile))
 
 	assert.True(t, MinField.IsFuncSupported(function.Min))
 	assert.False(t, MinField.IsFuncSupported(function.Quantile))
@@ -65,28 +70,22 @@ func TestIsSupportFunc(t *testing.T) {
 	assert.False(t, Unknown.IsFuncSupported(function.Quantile))
 }
 
-func TestSumAgg(t *testing.T) {
+func TestAggType_Aggregate(t *testing.T) {
 	assert.Equal(t, 100.0, SumField.AggType().Aggregate(1, 99.0))
-}
 
-func Test_UnspecifiedField(t *testing.T) {
+	assert.Equal(t, 1.0, MinField.AggType().Aggregate(1, 99.0))
+	assert.Equal(t, 1.0, MinField.AggType().Aggregate(99.0, 1))
+
+	assert.Equal(t, 99.0, MaxField.AggType().Aggregate(1, 99.0))
+	assert.Equal(t, 99.0, MaxField.AggType().Aggregate(99.0, 1))
+
+	assert.Equal(t, 99.0, LastField.AggType().Aggregate(1, 99.0))
+
+	assert.Equal(t, 1.0, FirstField.AggType().Aggregate(1, 99.0))
+
 	assert.Panics(t, func() {
 		AggType(22).Aggregate(1, 2)
 	})
-}
-
-func TestMinAgg(t *testing.T) {
-	assert.Equal(t, 1.0, MinField.AggType().Aggregate(1, 99.0))
-	assert.Equal(t, 1.0, MinField.AggType().Aggregate(99.0, 1))
-}
-
-func TestMaxAgg(t *testing.T) {
-	assert.Equal(t, 99.0, MaxField.AggType().Aggregate(1, 99.0))
-	assert.Equal(t, 99.0, MaxField.AggType().Aggregate(99.0, 1))
-}
-
-func TestLastAgg(t *testing.T) {
-	assert.Equal(t, 99.0, GaugeField.AggType().Aggregate(1, 99.0))
 }
 
 func TestPanicAgg(t *testing.T) {
@@ -109,10 +108,15 @@ func TestType_GetFuncFieldParams(t *testing.T) {
 	assert.Equal(t, []AggType{Max}, SumField.GetFuncFieldParams(function.Max))
 	assert.Equal(t, []AggType{Min}, SumField.GetFuncFieldParams(function.Min))
 
-	assert.Equal(t, []AggType{Sum}, GaugeField.GetFuncFieldParams(function.Sum))
-	assert.Equal(t, []AggType{Max}, GaugeField.GetFuncFieldParams(function.Max))
-	assert.Equal(t, []AggType{Min}, GaugeField.GetFuncFieldParams(function.Min))
-	assert.Equal(t, []AggType{LastValue}, GaugeField.GetFuncFieldParams(function.Last))
+	assert.Equal(t, []AggType{Sum}, LastField.GetFuncFieldParams(function.Sum))
+	assert.Equal(t, []AggType{Max}, LastField.GetFuncFieldParams(function.Max))
+	assert.Equal(t, []AggType{Min}, LastField.GetFuncFieldParams(function.Min))
+	assert.Equal(t, []AggType{Last}, LastField.GetFuncFieldParams(function.Last))
+
+	assert.Equal(t, []AggType{Sum}, FirstField.GetFuncFieldParams(function.Sum))
+	assert.Equal(t, []AggType{Max}, FirstField.GetFuncFieldParams(function.Max))
+	assert.Equal(t, []AggType{Min}, FirstField.GetFuncFieldParams(function.Min))
+	assert.Equal(t, []AggType{First}, FirstField.GetFuncFieldParams(function.First))
 }
 
 func TestType_GetDefaultFuncFieldParams(t *testing.T) {
@@ -121,5 +125,6 @@ func TestType_GetDefaultFuncFieldParams(t *testing.T) {
 	assert.Equal(t, []AggType{Sum}, SumField.GetDefaultFuncFieldParams())
 	assert.Equal(t, []AggType{Max}, MaxField.GetDefaultFuncFieldParams())
 	assert.Equal(t, []AggType{Min}, MinField.GetDefaultFuncFieldParams())
-	assert.Equal(t, []AggType{LastValue}, GaugeField.GetDefaultFuncFieldParams())
+	assert.Equal(t, []AggType{Last}, LastField.GetDefaultFuncFieldParams())
+	assert.Equal(t, []AggType{First}, FirstField.GetDefaultFuncFieldParams())
 }

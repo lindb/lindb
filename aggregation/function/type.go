@@ -27,6 +27,7 @@ const (
 	Count
 	Avg
 	Last
+	First
 	Quantile
 	Stddev
 	Rate
@@ -49,6 +50,8 @@ func (t FuncType) String() string {
 		return "avg"
 	case Last:
 		return "last"
+	case First:
+		return "first"
 	case Quantile:
 		return "quantile"
 	case Stddev:
