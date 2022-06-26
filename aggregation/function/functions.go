@@ -24,7 +24,7 @@ import (
 // FuncCall calls the function calc by function type and params
 func FuncCall(funcType FuncType, params ...*collections.FloatArray) *collections.FloatArray {
 	switch funcType {
-	case Sum, Min, Max, Count:
+	case Sum, Min, Max, Count, Last:
 		if len(params) == 0 {
 			return nil
 		}

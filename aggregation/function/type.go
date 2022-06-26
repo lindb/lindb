@@ -26,7 +26,7 @@ const (
 	Max
 	Count
 	Avg
-	LastValue
+	Last
 	Quantile
 	Stddev
 	Rate
@@ -47,8 +47,8 @@ func (t FuncType) String() string {
 		return "count"
 	case Avg:
 		return "avg"
-	case LastValue:
-		return "last_value"
+	case Last:
+		return "last"
 	case Quantile:
 		return "quantile"
 	case Stddev:
