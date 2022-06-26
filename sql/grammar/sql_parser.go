@@ -55,8 +55,8 @@ func sqlParserInit() {
     "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", 
     "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", 
     "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", 
-    "", "", "", "", "", "", "", "", "", "'m'", "", "", "", "'M'", "", "'.'", 
-    "':'", "'='", "'<>'", "'!='", "'>'", "'>='", "'<'", "'<='", "'=~'", 
+    "", "", "", "", "", "", "", "", "", "", "'m'", "", "", "", "'M'", "", 
+    "'.'", "':'", "'='", "'<>'", "'!='", "'>'", "'>='", "'<'", "'<='", "'=~'", 
     "'!~'", "','", "'{'", "'}'", "'['", "']'", "'('", "')'", "'+'", "'-'", 
     "'/'", "'*'", "'%'", "'_'",
   }
@@ -73,13 +73,14 @@ func sqlParserInit() {
     "T_AS", "T_AND", "T_OR", "T_FILL", "T_NULL", "T_PREVIOUS", "T_ORDER", 
     "T_ASC", "T_DESC", "T_LIKE", "T_NOT", "T_BETWEEN", "T_IS", "T_GROUP", 
     "T_HAVING", "T_BY", "T_FOR", "T_STATS", "T_TIME", "T_NOW", "T_IN", "T_LOG", 
-    "T_PROFILE", "T_SUM", "T_MIN", "T_MAX", "T_COUNT", "T_LAST", "T_AVG", 
-    "T_STDDEV", "T_QUANTILE", "T_RATE", "T_SECOND", "T_MINUTE", "T_HOUR", 
-    "T_DAY", "T_WEEK", "T_MONTH", "T_YEAR", "T_DOT", "T_COLON", "T_EQUAL", 
-    "T_NOTEQUAL", "T_NOTEQUAL2", "T_GREATER", "T_GREATEREQUAL", "T_LESS", 
-    "T_LESSEQUAL", "T_REGEXP", "T_NEQREGEXP", "T_COMMA", "T_OPEN_B", "T_CLOSE_B", 
-    "T_OPEN_SB", "T_CLOSE_SB", "T_OPEN_P", "T_CLOSE_P", "T_ADD", "T_SUB", 
-    "T_DIV", "T_MUL", "T_MOD", "T_UNDERLINE", "L_ID", "L_INT", "L_DEC",
+    "T_PROFILE", "T_SUM", "T_MIN", "T_MAX", "T_COUNT", "T_LAST", "T_FIRST", 
+    "T_AVG", "T_STDDEV", "T_QUANTILE", "T_RATE", "T_SECOND", "T_MINUTE", 
+    "T_HOUR", "T_DAY", "T_WEEK", "T_MONTH", "T_YEAR", "T_DOT", "T_COLON", 
+    "T_EQUAL", "T_NOTEQUAL", "T_NOTEQUAL2", "T_GREATER", "T_GREATEREQUAL", 
+    "T_LESS", "T_LESSEQUAL", "T_REGEXP", "T_NEQREGEXP", "T_COMMA", "T_OPEN_B", 
+    "T_CLOSE_B", "T_OPEN_SB", "T_CLOSE_SB", "T_OPEN_P", "T_CLOSE_P", "T_ADD", 
+    "T_SUB", "T_DIV", "T_MUL", "T_MOD", "T_UNDERLINE", "L_ID", "L_INT", 
+    "L_DEC",
   }
   staticData.ruleNames = []string{
     "statement", "statementList", "useStmt", "showMasterStmt", "showStoragesStmt", 
@@ -102,7 +103,7 @@ func sqlParserInit() {
   }
   staticData.predictionContextCache = antlr.NewPredictionContextCache()
   staticData.serializedATN = []int32{
-	4, 1, 122, 735, 2, 0, 7, 0, 2, 1, 7, 1, 2, 2, 7, 2, 2, 3, 7, 3, 2, 4, 7, 
+	4, 1, 123, 735, 2, 0, 7, 0, 2, 1, 7, 1, 2, 2, 7, 2, 2, 3, 7, 3, 2, 4, 7, 
 	4, 2, 5, 7, 5, 2, 6, 7, 6, 2, 7, 7, 7, 2, 8, 7, 8, 2, 9, 7, 9, 2, 10, 7, 
 	10, 2, 11, 7, 11, 2, 12, 7, 12, 2, 13, 7, 13, 2, 14, 7, 14, 2, 15, 7, 15, 
 	2, 16, 7, 16, 2, 17, 7, 17, 2, 18, 7, 18, 2, 19, 7, 19, 2, 20, 7, 20, 2, 
@@ -183,8 +184,8 @@ func sqlParserInit() {
 	86, 88, 90, 92, 94, 96, 98, 100, 102, 104, 106, 108, 110, 112, 114, 116, 
 	118, 120, 122, 124, 126, 128, 130, 132, 134, 136, 138, 140, 142, 144, 146, 
 	148, 150, 152, 154, 156, 158, 160, 162, 0, 10, 1, 0, 29, 30, 1, 0, 22, 
-	23, 1, 0, 58, 59, 2, 0, 61, 62, 121, 122, 1, 0, 64, 65, 2, 0, 66, 66, 105, 
-	105, 1, 0, 89, 95, 1, 0, 80, 88, 1, 0, 114, 115, 1, 0, 6, 95, 758, 0, 164, 
+	23, 1, 0, 58, 59, 2, 0, 61, 62, 122, 123, 1, 0, 64, 65, 2, 0, 66, 66, 106, 
+	106, 1, 0, 90, 96, 1, 0, 80, 89, 1, 0, 115, 116, 1, 0, 6, 96, 758, 0, 164, 
 	1, 0, 0, 0, 2, 189, 1, 0, 0, 0, 4, 191, 1, 0, 0, 0, 6, 194, 1, 0, 0, 0, 
 	8, 197, 1, 0, 0, 0, 10, 200, 1, 0, 0, 0, 12, 204, 1, 0, 0, 0, 14, 212, 
 	1, 0, 0, 0, 16, 220, 1, 0, 0, 0, 18, 235, 1, 0, 0, 0, 20, 239, 1, 0, 0, 
@@ -257,13 +258,13 @@ func sqlParserInit() {
 	280, 31, 1, 0, 0, 0, 281, 282, 5, 9, 0, 0, 282, 283, 5, 33, 0, 0, 283, 
 	284, 3, 52, 26, 0, 284, 33, 1, 0, 0, 0, 285, 286, 5, 20, 0, 0, 286, 287, 
 	5, 34, 0, 0, 287, 35, 1, 0, 0, 0, 288, 289, 5, 20, 0, 0, 289, 294, 5, 36, 
-	0, 0, 290, 291, 5, 50, 0, 0, 291, 292, 5, 35, 0, 0, 292, 293, 5, 98, 0, 
+	0, 0, 290, 291, 5, 50, 0, 0, 291, 292, 5, 35, 0, 0, 292, 293, 5, 99, 0, 
 	0, 293, 295, 3, 46, 23, 0, 294, 290, 1, 0, 0, 0, 294, 295, 1, 0, 0, 0, 
 	295, 297, 1, 0, 0, 0, 296, 298, 3, 152, 76, 0, 297, 296, 1, 0, 0, 0, 297, 
 	298, 1, 0, 0, 0, 298, 37, 1, 0, 0, 0, 299, 300, 5, 20, 0, 0, 300, 303, 
 	5, 38, 0, 0, 301, 302, 5, 19, 0, 0, 302, 304, 3, 50, 25, 0, 303, 301, 1, 
 	0, 0, 0, 303, 304, 1, 0, 0, 0, 304, 309, 1, 0, 0, 0, 305, 306, 5, 50, 0, 
-	0, 306, 307, 5, 39, 0, 0, 307, 308, 5, 98, 0, 0, 308, 310, 3, 46, 23, 0, 
+	0, 306, 307, 5, 39, 0, 0, 307, 308, 5, 99, 0, 0, 308, 310, 3, 46, 23, 0, 
 	309, 305, 1, 0, 0, 0, 309, 310, 1, 0, 0, 0, 310, 312, 1, 0, 0, 0, 311, 
 	313, 3, 152, 76, 0, 312, 311, 1, 0, 0, 0, 312, 313, 1, 0, 0, 0, 313, 39, 
 	1, 0, 0, 0, 314, 315, 5, 20, 0, 0, 315, 316, 5, 41, 0, 0, 316, 317, 3, 
@@ -271,7 +272,7 @@ func sqlParserInit() {
 	0, 0, 320, 321, 5, 44, 0, 0, 321, 322, 3, 72, 36, 0, 322, 43, 1, 0, 0, 
 	0, 323, 324, 5, 20, 0, 0, 324, 325, 5, 42, 0, 0, 325, 326, 5, 47, 0, 0, 
 	326, 327, 3, 72, 36, 0, 327, 328, 5, 46, 0, 0, 328, 329, 5, 45, 0, 0, 329, 
-	330, 5, 98, 0, 0, 330, 332, 3, 48, 24, 0, 331, 333, 3, 74, 37, 0, 332, 
+	330, 5, 99, 0, 0, 330, 332, 3, 48, 24, 0, 331, 333, 3, 74, 37, 0, 332, 
 	331, 1, 0, 0, 0, 332, 333, 1, 0, 0, 0, 333, 335, 1, 0, 0, 0, 334, 336, 
 	3, 152, 76, 0, 335, 334, 1, 0, 0, 0, 335, 336, 1, 0, 0, 0, 336, 45, 1, 
 	0, 0, 0, 337, 338, 3, 160, 80, 0, 338, 47, 1, 0, 0, 0, 339, 340, 3, 160, 
@@ -286,15 +287,15 @@ func sqlParserInit() {
 	363, 3, 152, 76, 0, 362, 361, 1, 0, 0, 0, 362, 363, 1, 0, 0, 0, 363, 365, 
 	1, 0, 0, 0, 364, 366, 5, 55, 0, 0, 365, 364, 1, 0, 0, 0, 365, 366, 1, 0, 
 	0, 0, 366, 57, 1, 0, 0, 0, 367, 368, 5, 56, 0, 0, 368, 369, 3, 60, 30, 
-	0, 369, 59, 1, 0, 0, 0, 370, 375, 3, 62, 31, 0, 371, 372, 5, 107, 0, 0, 
+	0, 369, 59, 1, 0, 0, 0, 370, 375, 3, 62, 31, 0, 371, 372, 5, 108, 0, 0, 
 	372, 374, 3, 62, 31, 0, 373, 371, 1, 0, 0, 0, 374, 377, 1, 0, 0, 0, 375, 
 	373, 1, 0, 0, 0, 375, 376, 1, 0, 0, 0, 376, 61, 1, 0, 0, 0, 377, 375, 1, 
 	0, 0, 0, 378, 380, 3, 120, 60, 0, 379, 381, 3, 64, 32, 0, 380, 379, 1, 
 	0, 0, 0, 380, 381, 1, 0, 0, 0, 381, 63, 1, 0, 0, 0, 382, 383, 5, 57, 0, 
 	0, 383, 384, 3, 160, 80, 0, 384, 65, 1, 0, 0, 0, 385, 386, 5, 29, 0, 0, 
-	386, 387, 5, 98, 0, 0, 387, 388, 3, 160, 80, 0, 388, 67, 1, 0, 0, 0, 389, 
-	390, 5, 33, 0, 0, 390, 391, 5, 98, 0, 0, 391, 392, 3, 160, 80, 0, 392, 
-	69, 1, 0, 0, 0, 393, 394, 5, 27, 0, 0, 394, 395, 5, 98, 0, 0, 395, 396, 
+	386, 387, 5, 99, 0, 0, 387, 388, 3, 160, 80, 0, 388, 67, 1, 0, 0, 0, 389, 
+	390, 5, 33, 0, 0, 390, 391, 5, 99, 0, 0, 391, 392, 3, 160, 80, 0, 392, 
+	69, 1, 0, 0, 0, 393, 394, 5, 27, 0, 0, 394, 395, 5, 99, 0, 0, 395, 396, 
 	3, 160, 80, 0, 396, 71, 1, 0, 0, 0, 397, 398, 5, 49, 0, 0, 398, 401, 3, 
 	154, 77, 0, 399, 400, 5, 19, 0, 0, 400, 402, 3, 50, 25, 0, 401, 399, 1, 
 	0, 0, 0, 401, 402, 1, 0, 0, 0, 402, 73, 1, 0, 0, 0, 403, 404, 5, 50, 0, 
@@ -303,27 +304,27 @@ func sqlParserInit() {
 	410, 417, 1, 0, 0, 0, 411, 414, 3, 86, 43, 0, 412, 413, 5, 58, 0, 0, 413, 
 	415, 3, 78, 39, 0, 414, 412, 1, 0, 0, 0, 414, 415, 1, 0, 0, 0, 415, 417, 
 	1, 0, 0, 0, 416, 406, 1, 0, 0, 0, 416, 407, 1, 0, 0, 0, 416, 411, 1, 0, 
-	0, 0, 417, 77, 1, 0, 0, 0, 418, 419, 6, 39, -1, 0, 419, 420, 5, 112, 0, 
-	0, 420, 421, 3, 78, 39, 0, 421, 422, 5, 113, 0, 0, 422, 447, 1, 0, 0, 0, 
-	423, 432, 3, 156, 78, 0, 424, 433, 5, 98, 0, 0, 425, 433, 5, 66, 0, 0, 
-	426, 427, 5, 67, 0, 0, 427, 433, 5, 66, 0, 0, 428, 433, 5, 105, 0, 0, 429, 
-	433, 5, 106, 0, 0, 430, 433, 5, 99, 0, 0, 431, 433, 5, 100, 0, 0, 432, 
+	0, 0, 417, 77, 1, 0, 0, 0, 418, 419, 6, 39, -1, 0, 419, 420, 5, 113, 0, 
+	0, 420, 421, 3, 78, 39, 0, 421, 422, 5, 114, 0, 0, 422, 447, 1, 0, 0, 0, 
+	423, 432, 3, 156, 78, 0, 424, 433, 5, 99, 0, 0, 425, 433, 5, 66, 0, 0, 
+	426, 427, 5, 67, 0, 0, 427, 433, 5, 66, 0, 0, 428, 433, 5, 106, 0, 0, 429, 
+	433, 5, 107, 0, 0, 430, 433, 5, 100, 0, 0, 431, 433, 5, 101, 0, 0, 432, 
 	424, 1, 0, 0, 0, 432, 425, 1, 0, 0, 0, 432, 426, 1, 0, 0, 0, 432, 428, 
 	1, 0, 0, 0, 432, 429, 1, 0, 0, 0, 432, 430, 1, 0, 0, 0, 432, 431, 1, 0, 
 	0, 0, 433, 434, 1, 0, 0, 0, 434, 435, 3, 158, 79, 0, 435, 447, 1, 0, 0, 
 	0, 436, 440, 3, 156, 78, 0, 437, 441, 5, 77, 0, 0, 438, 439, 5, 67, 0, 
 	0, 439, 441, 5, 77, 0, 0, 440, 437, 1, 0, 0, 0, 440, 438, 1, 0, 0, 0, 441, 
-	442, 1, 0, 0, 0, 442, 443, 5, 112, 0, 0, 443, 444, 3, 80, 40, 0, 444, 445, 
-	5, 113, 0, 0, 445, 447, 1, 0, 0, 0, 446, 418, 1, 0, 0, 0, 446, 423, 1, 
+	442, 1, 0, 0, 0, 442, 443, 5, 113, 0, 0, 443, 444, 3, 80, 40, 0, 444, 445, 
+	5, 114, 0, 0, 445, 447, 1, 0, 0, 0, 446, 418, 1, 0, 0, 0, 446, 423, 1, 
 	0, 0, 0, 446, 436, 1, 0, 0, 0, 447, 453, 1, 0, 0, 0, 448, 449, 10, 1, 0, 
 	0, 449, 450, 7, 2, 0, 0, 450, 452, 3, 78, 39, 2, 451, 448, 1, 0, 0, 0, 
 	452, 455, 1, 0, 0, 0, 453, 451, 1, 0, 0, 0, 453, 454, 1, 0, 0, 0, 454, 
 	79, 1, 0, 0, 0, 455, 453, 1, 0, 0, 0, 456, 461, 3, 158, 79, 0, 457, 458, 
-	5, 107, 0, 0, 458, 460, 3, 158, 79, 0, 459, 457, 1, 0, 0, 0, 460, 463, 
+	5, 108, 0, 0, 458, 460, 3, 158, 79, 0, 459, 457, 1, 0, 0, 0, 460, 463, 
 	1, 0, 0, 0, 461, 459, 1, 0, 0, 0, 461, 462, 1, 0, 0, 0, 462, 81, 1, 0, 
 	0, 0, 463, 461, 1, 0, 0, 0, 464, 465, 5, 39, 0, 0, 465, 466, 5, 77, 0, 
-	0, 466, 467, 5, 112, 0, 0, 467, 468, 3, 84, 42, 0, 468, 469, 5, 113, 0, 
-	0, 469, 83, 1, 0, 0, 0, 470, 475, 3, 160, 80, 0, 471, 472, 5, 107, 0, 0, 
+	0, 466, 467, 5, 113, 0, 0, 467, 468, 3, 84, 42, 0, 468, 469, 5, 114, 0, 
+	0, 469, 83, 1, 0, 0, 0, 470, 475, 3, 160, 80, 0, 471, 472, 5, 108, 0, 0, 
 	472, 474, 3, 160, 80, 0, 473, 471, 1, 0, 0, 0, 474, 477, 1, 0, 0, 0, 475, 
 	473, 1, 0, 0, 0, 475, 476, 1, 0, 0, 0, 476, 85, 1, 0, 0, 0, 477, 475, 1, 
 	0, 0, 0, 478, 481, 3, 88, 44, 0, 479, 480, 5, 58, 0, 0, 480, 482, 3, 88, 
@@ -332,78 +333,78 @@ func sqlParserInit() {
 	486, 488, 3, 160, 80, 0, 487, 485, 1, 0, 0, 0, 487, 486, 1, 0, 0, 0, 488, 
 	89, 1, 0, 0, 0, 489, 491, 3, 92, 46, 0, 490, 492, 3, 122, 61, 0, 491, 490, 
 	1, 0, 0, 0, 491, 492, 1, 0, 0, 0, 492, 91, 1, 0, 0, 0, 493, 494, 5, 76, 
-	0, 0, 494, 496, 5, 112, 0, 0, 495, 497, 3, 130, 65, 0, 496, 495, 1, 0, 
-	0, 0, 496, 497, 1, 0, 0, 0, 497, 498, 1, 0, 0, 0, 498, 499, 5, 113, 0, 
+	0, 0, 494, 496, 5, 113, 0, 0, 495, 497, 3, 130, 65, 0, 496, 495, 1, 0, 
+	0, 0, 496, 497, 1, 0, 0, 0, 497, 498, 1, 0, 0, 0, 498, 499, 5, 114, 0, 
 	0, 499, 93, 1, 0, 0, 0, 500, 501, 5, 70, 0, 0, 501, 502, 5, 72, 0, 0, 502, 
-	508, 3, 96, 48, 0, 503, 504, 5, 60, 0, 0, 504, 505, 5, 112, 0, 0, 505, 
-	506, 3, 100, 50, 0, 506, 507, 5, 113, 0, 0, 507, 509, 1, 0, 0, 0, 508, 
+	508, 3, 96, 48, 0, 503, 504, 5, 60, 0, 0, 504, 505, 5, 113, 0, 0, 505, 
+	506, 3, 100, 50, 0, 506, 507, 5, 114, 0, 0, 507, 509, 1, 0, 0, 0, 508, 
 	503, 1, 0, 0, 0, 508, 509, 1, 0, 0, 0, 509, 511, 1, 0, 0, 0, 510, 512, 
 	3, 108, 54, 0, 511, 510, 1, 0, 0, 0, 511, 512, 1, 0, 0, 0, 512, 95, 1, 
-	0, 0, 0, 513, 518, 3, 98, 49, 0, 514, 515, 5, 107, 0, 0, 515, 517, 3, 98, 
+	0, 0, 0, 513, 518, 3, 98, 49, 0, 514, 515, 5, 108, 0, 0, 515, 517, 3, 98, 
 	49, 0, 516, 514, 1, 0, 0, 0, 517, 520, 1, 0, 0, 0, 518, 516, 1, 0, 0, 0, 
 	518, 519, 1, 0, 0, 0, 519, 97, 1, 0, 0, 0, 520, 518, 1, 0, 0, 0, 521, 528, 
-	3, 160, 80, 0, 522, 523, 5, 75, 0, 0, 523, 524, 5, 112, 0, 0, 524, 525, 
-	3, 122, 61, 0, 525, 526, 5, 113, 0, 0, 526, 528, 1, 0, 0, 0, 527, 521, 
+	3, 160, 80, 0, 522, 523, 5, 75, 0, 0, 523, 524, 5, 113, 0, 0, 524, 525, 
+	3, 122, 61, 0, 525, 526, 5, 114, 0, 0, 526, 528, 1, 0, 0, 0, 527, 521, 
 	1, 0, 0, 0, 527, 522, 1, 0, 0, 0, 528, 99, 1, 0, 0, 0, 529, 530, 7, 3, 
 	0, 0, 530, 101, 1, 0, 0, 0, 531, 532, 5, 63, 0, 0, 532, 533, 5, 72, 0, 
 	0, 533, 534, 3, 106, 53, 0, 534, 103, 1, 0, 0, 0, 535, 539, 3, 120, 60, 
 	0, 536, 538, 7, 4, 0, 0, 537, 536, 1, 0, 0, 0, 538, 541, 1, 0, 0, 0, 539, 
 	537, 1, 0, 0, 0, 539, 540, 1, 0, 0, 0, 540, 105, 1, 0, 0, 0, 541, 539, 
-	1, 0, 0, 0, 542, 547, 3, 104, 52, 0, 543, 544, 5, 107, 0, 0, 544, 546, 
+	1, 0, 0, 0, 542, 547, 3, 104, 52, 0, 543, 544, 5, 108, 0, 0, 544, 546, 
 	3, 104, 52, 0, 545, 543, 1, 0, 0, 0, 546, 549, 1, 0, 0, 0, 547, 545, 1, 
 	0, 0, 0, 547, 548, 1, 0, 0, 0, 548, 107, 1, 0, 0, 0, 549, 547, 1, 0, 0, 
 	0, 550, 551, 5, 71, 0, 0, 551, 552, 3, 110, 55, 0, 552, 109, 1, 0, 0, 0, 
-	553, 554, 6, 55, -1, 0, 554, 555, 5, 112, 0, 0, 555, 556, 3, 110, 55, 0, 
-	556, 557, 5, 113, 0, 0, 557, 560, 1, 0, 0, 0, 558, 560, 3, 114, 57, 0, 
+	553, 554, 6, 55, -1, 0, 554, 555, 5, 113, 0, 0, 555, 556, 3, 110, 55, 0, 
+	556, 557, 5, 114, 0, 0, 557, 560, 1, 0, 0, 0, 558, 560, 3, 114, 57, 0, 
 	559, 553, 1, 0, 0, 0, 559, 558, 1, 0, 0, 0, 560, 567, 1, 0, 0, 0, 561, 
 	562, 10, 2, 0, 0, 562, 563, 3, 112, 56, 0, 563, 564, 3, 110, 55, 3, 564, 
 	566, 1, 0, 0, 0, 565, 561, 1, 0, 0, 0, 566, 569, 1, 0, 0, 0, 567, 565, 
 	1, 0, 0, 0, 567, 568, 1, 0, 0, 0, 568, 111, 1, 0, 0, 0, 569, 567, 1, 0, 
 	0, 0, 570, 571, 7, 2, 0, 0, 571, 113, 1, 0, 0, 0, 572, 573, 3, 116, 58, 
 	0, 573, 115, 1, 0, 0, 0, 574, 575, 3, 120, 60, 0, 575, 576, 3, 118, 59, 
-	0, 576, 577, 3, 120, 60, 0, 577, 117, 1, 0, 0, 0, 578, 587, 5, 98, 0, 0, 
-	579, 587, 5, 99, 0, 0, 580, 587, 5, 100, 0, 0, 581, 587, 5, 103, 0, 0, 
-	582, 587, 5, 104, 0, 0, 583, 587, 5, 101, 0, 0, 584, 587, 5, 102, 0, 0, 
+	0, 576, 577, 3, 120, 60, 0, 577, 117, 1, 0, 0, 0, 578, 587, 5, 99, 0, 0, 
+	579, 587, 5, 100, 0, 0, 580, 587, 5, 101, 0, 0, 581, 587, 5, 104, 0, 0, 
+	582, 587, 5, 105, 0, 0, 583, 587, 5, 102, 0, 0, 584, 587, 5, 103, 0, 0, 
 	585, 587, 7, 5, 0, 0, 586, 578, 1, 0, 0, 0, 586, 579, 1, 0, 0, 0, 586, 
 	580, 1, 0, 0, 0, 586, 581, 1, 0, 0, 0, 586, 582, 1, 0, 0, 0, 586, 583, 
 	1, 0, 0, 0, 586, 584, 1, 0, 0, 0, 586, 585, 1, 0, 0, 0, 587, 119, 1, 0, 
-	0, 0, 588, 589, 6, 60, -1, 0, 589, 590, 5, 112, 0, 0, 590, 591, 3, 120, 
-	60, 0, 591, 592, 5, 113, 0, 0, 592, 597, 1, 0, 0, 0, 593, 597, 3, 126, 
+	0, 0, 588, 589, 6, 60, -1, 0, 589, 590, 5, 113, 0, 0, 590, 591, 3, 120, 
+	60, 0, 591, 592, 5, 114, 0, 0, 592, 597, 1, 0, 0, 0, 593, 597, 3, 126, 
 	63, 0, 594, 597, 3, 134, 67, 0, 595, 597, 3, 122, 61, 0, 596, 588, 1, 0, 
 	0, 0, 596, 593, 1, 0, 0, 0, 596, 594, 1, 0, 0, 0, 596, 595, 1, 0, 0, 0, 
-	597, 612, 1, 0, 0, 0, 598, 599, 10, 8, 0, 0, 599, 600, 5, 117, 0, 0, 600, 
-	611, 3, 120, 60, 9, 601, 602, 10, 7, 0, 0, 602, 603, 5, 116, 0, 0, 603, 
-	611, 3, 120, 60, 8, 604, 605, 10, 6, 0, 0, 605, 606, 5, 114, 0, 0, 606, 
-	611, 3, 120, 60, 7, 607, 608, 10, 5, 0, 0, 608, 609, 5, 115, 0, 0, 609, 
+	597, 612, 1, 0, 0, 0, 598, 599, 10, 8, 0, 0, 599, 600, 5, 118, 0, 0, 600, 
+	611, 3, 120, 60, 9, 601, 602, 10, 7, 0, 0, 602, 603, 5, 117, 0, 0, 603, 
+	611, 3, 120, 60, 8, 604, 605, 10, 6, 0, 0, 605, 606, 5, 115, 0, 0, 606, 
+	611, 3, 120, 60, 7, 607, 608, 10, 5, 0, 0, 608, 609, 5, 116, 0, 0, 609, 
 	611, 3, 120, 60, 6, 610, 598, 1, 0, 0, 0, 610, 601, 1, 0, 0, 0, 610, 604, 
 	1, 0, 0, 0, 610, 607, 1, 0, 0, 0, 611, 614, 1, 0, 0, 0, 612, 610, 1, 0, 
 	0, 0, 612, 613, 1, 0, 0, 0, 613, 121, 1, 0, 0, 0, 614, 612, 1, 0, 0, 0, 
 	615, 616, 3, 148, 74, 0, 616, 617, 3, 124, 62, 0, 617, 123, 1, 0, 0, 0, 
 	618, 619, 7, 6, 0, 0, 619, 125, 1, 0, 0, 0, 620, 621, 3, 128, 64, 0, 621, 
-	623, 5, 112, 0, 0, 622, 624, 3, 130, 65, 0, 623, 622, 1, 0, 0, 0, 623, 
-	624, 1, 0, 0, 0, 624, 625, 1, 0, 0, 0, 625, 626, 5, 113, 0, 0, 626, 127, 
+	623, 5, 113, 0, 0, 622, 624, 3, 130, 65, 0, 623, 622, 1, 0, 0, 0, 623, 
+	624, 1, 0, 0, 0, 624, 625, 1, 0, 0, 0, 625, 626, 5, 114, 0, 0, 626, 127, 
 	1, 0, 0, 0, 627, 628, 7, 7, 0, 0, 628, 129, 1, 0, 0, 0, 629, 634, 3, 132, 
-	66, 0, 630, 631, 5, 107, 0, 0, 631, 633, 3, 132, 66, 0, 632, 630, 1, 0, 
+	66, 0, 630, 631, 5, 108, 0, 0, 631, 633, 3, 132, 66, 0, 632, 630, 1, 0, 
 	0, 0, 633, 636, 1, 0, 0, 0, 634, 632, 1, 0, 0, 0, 634, 635, 1, 0, 0, 0, 
 	635, 131, 1, 0, 0, 0, 636, 634, 1, 0, 0, 0, 637, 640, 3, 120, 60, 0, 638, 
 	640, 3, 78, 39, 0, 639, 637, 1, 0, 0, 0, 639, 638, 1, 0, 0, 0, 640, 133, 
 	1, 0, 0, 0, 641, 643, 3, 160, 80, 0, 642, 644, 3, 136, 68, 0, 643, 642, 
 	1, 0, 0, 0, 643, 644, 1, 0, 0, 0, 644, 648, 1, 0, 0, 0, 645, 648, 3, 150, 
 	75, 0, 646, 648, 3, 148, 74, 0, 647, 641, 1, 0, 0, 0, 647, 645, 1, 0, 0, 
-	0, 647, 646, 1, 0, 0, 0, 648, 135, 1, 0, 0, 0, 649, 650, 5, 110, 0, 0, 
-	650, 651, 3, 78, 39, 0, 651, 652, 5, 111, 0, 0, 652, 137, 1, 0, 0, 0, 653, 
-	654, 3, 146, 73, 0, 654, 139, 1, 0, 0, 0, 655, 656, 5, 108, 0, 0, 656, 
-	661, 3, 142, 71, 0, 657, 658, 5, 107, 0, 0, 658, 660, 3, 142, 71, 0, 659, 
+	0, 647, 646, 1, 0, 0, 0, 648, 135, 1, 0, 0, 0, 649, 650, 5, 111, 0, 0, 
+	650, 651, 3, 78, 39, 0, 651, 652, 5, 112, 0, 0, 652, 137, 1, 0, 0, 0, 653, 
+	654, 3, 146, 73, 0, 654, 139, 1, 0, 0, 0, 655, 656, 5, 109, 0, 0, 656, 
+	661, 3, 142, 71, 0, 657, 658, 5, 108, 0, 0, 658, 660, 3, 142, 71, 0, 659, 
 	657, 1, 0, 0, 0, 660, 663, 1, 0, 0, 0, 661, 659, 1, 0, 0, 0, 661, 662, 
-	1, 0, 0, 0, 662, 664, 1, 0, 0, 0, 663, 661, 1, 0, 0, 0, 664, 665, 5, 109, 
-	0, 0, 665, 669, 1, 0, 0, 0, 666, 667, 5, 108, 0, 0, 667, 669, 5, 109, 0, 
+	1, 0, 0, 0, 662, 664, 1, 0, 0, 0, 663, 661, 1, 0, 0, 0, 664, 665, 5, 110, 
+	0, 0, 665, 669, 1, 0, 0, 0, 666, 667, 5, 109, 0, 0, 667, 669, 5, 110, 0, 
 	0, 668, 655, 1, 0, 0, 0, 668, 666, 1, 0, 0, 0, 669, 141, 1, 0, 0, 0, 670, 
-	671, 5, 4, 0, 0, 671, 672, 5, 97, 0, 0, 672, 673, 3, 146, 73, 0, 673, 143, 
-	1, 0, 0, 0, 674, 675, 5, 110, 0, 0, 675, 680, 3, 146, 73, 0, 676, 677, 
-	5, 107, 0, 0, 677, 679, 3, 146, 73, 0, 678, 676, 1, 0, 0, 0, 679, 682, 
+	671, 5, 4, 0, 0, 671, 672, 5, 98, 0, 0, 672, 673, 3, 146, 73, 0, 673, 143, 
+	1, 0, 0, 0, 674, 675, 5, 111, 0, 0, 675, 680, 3, 146, 73, 0, 676, 677, 
+	5, 108, 0, 0, 677, 679, 3, 146, 73, 0, 678, 676, 1, 0, 0, 0, 679, 682, 
 	1, 0, 0, 0, 680, 678, 1, 0, 0, 0, 680, 681, 1, 0, 0, 0, 681, 683, 1, 0, 
-	0, 0, 682, 680, 1, 0, 0, 0, 683, 684, 5, 111, 0, 0, 684, 688, 1, 0, 0, 
-	0, 685, 686, 5, 110, 0, 0, 686, 688, 5, 111, 0, 0, 687, 674, 1, 0, 0, 0, 
+	0, 0, 682, 680, 1, 0, 0, 0, 683, 684, 5, 112, 0, 0, 684, 688, 1, 0, 0, 
+	0, 685, 686, 5, 111, 0, 0, 686, 688, 5, 112, 0, 0, 687, 674, 1, 0, 0, 0, 
 	687, 685, 1, 0, 0, 0, 688, 145, 1, 0, 0, 0, 689, 698, 5, 4, 0, 0, 690, 
 	698, 3, 148, 74, 0, 691, 698, 3, 150, 75, 0, 692, 698, 3, 140, 70, 0, 693, 
 	698, 3, 144, 72, 0, 694, 698, 5, 1, 0, 0, 695, 698, 5, 2, 0, 0, 696, 698, 
@@ -411,14 +412,14 @@ func sqlParserInit() {
 	0, 0, 697, 692, 1, 0, 0, 0, 697, 693, 1, 0, 0, 0, 697, 694, 1, 0, 0, 0, 
 	697, 695, 1, 0, 0, 0, 697, 696, 1, 0, 0, 0, 698, 147, 1, 0, 0, 0, 699, 
 	701, 7, 8, 0, 0, 700, 699, 1, 0, 0, 0, 700, 701, 1, 0, 0, 0, 701, 702, 
-	1, 0, 0, 0, 702, 703, 5, 121, 0, 0, 703, 149, 1, 0, 0, 0, 704, 706, 7, 
+	1, 0, 0, 0, 702, 703, 5, 122, 0, 0, 703, 149, 1, 0, 0, 0, 704, 706, 7, 
 	8, 0, 0, 705, 704, 1, 0, 0, 0, 705, 706, 1, 0, 0, 0, 706, 707, 1, 0, 0, 
-	0, 707, 708, 5, 122, 0, 0, 708, 151, 1, 0, 0, 0, 709, 710, 5, 51, 0, 0, 
-	710, 711, 5, 121, 0, 0, 711, 153, 1, 0, 0, 0, 712, 713, 3, 160, 80, 0, 
+	0, 707, 708, 5, 123, 0, 0, 708, 151, 1, 0, 0, 0, 709, 710, 5, 51, 0, 0, 
+	710, 711, 5, 122, 0, 0, 711, 153, 1, 0, 0, 0, 712, 713, 3, 160, 80, 0, 
 	713, 155, 1, 0, 0, 0, 714, 715, 3, 160, 80, 0, 715, 157, 1, 0, 0, 0, 716, 
-	717, 3, 160, 80, 0, 717, 159, 1, 0, 0, 0, 718, 721, 5, 120, 0, 0, 719, 
+	717, 3, 160, 80, 0, 717, 159, 1, 0, 0, 0, 718, 721, 5, 121, 0, 0, 719, 
 	721, 3, 162, 81, 0, 720, 718, 1, 0, 0, 0, 720, 719, 1, 0, 0, 0, 721, 729, 
-	1, 0, 0, 0, 722, 725, 5, 96, 0, 0, 723, 726, 5, 120, 0, 0, 724, 726, 3, 
+	1, 0, 0, 0, 722, 725, 5, 97, 0, 0, 723, 726, 5, 121, 0, 0, 724, 726, 3, 
 	162, 81, 0, 725, 723, 1, 0, 0, 0, 725, 724, 1, 0, 0, 0, 726, 728, 1, 0, 
 	0, 0, 727, 722, 1, 0, 0, 0, 728, 731, 1, 0, 0, 0, 729, 727, 1, 0, 0, 0, 
 	729, 730, 1, 0, 0, 0, 730, 161, 1, 0, 0, 0, 731, 729, 1, 0, 0, 0, 732, 
@@ -550,44 +551,45 @@ const (
 	SQLParserT_MAX = 82
 	SQLParserT_COUNT = 83
 	SQLParserT_LAST = 84
-	SQLParserT_AVG = 85
-	SQLParserT_STDDEV = 86
-	SQLParserT_QUANTILE = 87
-	SQLParserT_RATE = 88
-	SQLParserT_SECOND = 89
-	SQLParserT_MINUTE = 90
-	SQLParserT_HOUR = 91
-	SQLParserT_DAY = 92
-	SQLParserT_WEEK = 93
-	SQLParserT_MONTH = 94
-	SQLParserT_YEAR = 95
-	SQLParserT_DOT = 96
-	SQLParserT_COLON = 97
-	SQLParserT_EQUAL = 98
-	SQLParserT_NOTEQUAL = 99
-	SQLParserT_NOTEQUAL2 = 100
-	SQLParserT_GREATER = 101
-	SQLParserT_GREATEREQUAL = 102
-	SQLParserT_LESS = 103
-	SQLParserT_LESSEQUAL = 104
-	SQLParserT_REGEXP = 105
-	SQLParserT_NEQREGEXP = 106
-	SQLParserT_COMMA = 107
-	SQLParserT_OPEN_B = 108
-	SQLParserT_CLOSE_B = 109
-	SQLParserT_OPEN_SB = 110
-	SQLParserT_CLOSE_SB = 111
-	SQLParserT_OPEN_P = 112
-	SQLParserT_CLOSE_P = 113
-	SQLParserT_ADD = 114
-	SQLParserT_SUB = 115
-	SQLParserT_DIV = 116
-	SQLParserT_MUL = 117
-	SQLParserT_MOD = 118
-	SQLParserT_UNDERLINE = 119
-	SQLParserL_ID = 120
-	SQLParserL_INT = 121
-	SQLParserL_DEC = 122
+	SQLParserT_FIRST = 85
+	SQLParserT_AVG = 86
+	SQLParserT_STDDEV = 87
+	SQLParserT_QUANTILE = 88
+	SQLParserT_RATE = 89
+	SQLParserT_SECOND = 90
+	SQLParserT_MINUTE = 91
+	SQLParserT_HOUR = 92
+	SQLParserT_DAY = 93
+	SQLParserT_WEEK = 94
+	SQLParserT_MONTH = 95
+	SQLParserT_YEAR = 96
+	SQLParserT_DOT = 97
+	SQLParserT_COLON = 98
+	SQLParserT_EQUAL = 99
+	SQLParserT_NOTEQUAL = 100
+	SQLParserT_NOTEQUAL2 = 101
+	SQLParserT_GREATER = 102
+	SQLParserT_GREATEREQUAL = 103
+	SQLParserT_LESS = 104
+	SQLParserT_LESSEQUAL = 105
+	SQLParserT_REGEXP = 106
+	SQLParserT_NEQREGEXP = 107
+	SQLParserT_COMMA = 108
+	SQLParserT_OPEN_B = 109
+	SQLParserT_CLOSE_B = 110
+	SQLParserT_OPEN_SB = 111
+	SQLParserT_CLOSE_SB = 112
+	SQLParserT_OPEN_P = 113
+	SQLParserT_CLOSE_P = 114
+	SQLParserT_ADD = 115
+	SQLParserT_SUB = 116
+	SQLParserT_DIV = 117
+	SQLParserT_MUL = 118
+	SQLParserT_MOD = 119
+	SQLParserT_UNDERLINE = 120
+	SQLParserL_ID = 121
+	SQLParserL_INT = 122
+	SQLParserL_DEC = 123
 )
 
 // SQLParser rules.
@@ -8425,7 +8427,7 @@ func (p *SQLParser) NowExpr() (localctx INowExprContext) {
 	_la = p.GetTokenStream().LA(1)
 
 
-	if ((((_la - 114)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 114))) & ((1 << (SQLParserT_ADD - 114)) | (1 << (SQLParserT_SUB - 114)) | (1 << (SQLParserL_INT - 114)))) != 0) {
+	if ((((_la - 115)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 115))) & ((1 << (SQLParserT_ADD - 115)) | (1 << (SQLParserT_SUB - 115)) | (1 << (SQLParserL_INT - 115)))) != 0) {
 		{
 			p.SetState(490)
 			p.DurationLit()
@@ -8568,7 +8570,7 @@ func (p *SQLParser) NowFunc() (localctx INowFuncContext) {
 	_la = p.GetTokenStream().LA(1)
 
 
-	if (((_la) & -(0x1f+1)) == 0 && ((1 << uint(_la)) & ((1 << SQLParserT_CREATE) | (1 << SQLParserT_UPDATE) | (1 << SQLParserT_SET) | (1 << SQLParserT_DROP) | (1 << SQLParserT_INTERVAL) | (1 << SQLParserT_INTERVAL_NAME) | (1 << SQLParserT_SHARD) | (1 << SQLParserT_REPLICATION) | (1 << SQLParserT_TTL) | (1 << SQLParserT_META_TTL) | (1 << SQLParserT_PAST_TTL) | (1 << SQLParserT_FUTURE_TTL) | (1 << SQLParserT_KILL) | (1 << SQLParserT_ON) | (1 << SQLParserT_SHOW) | (1 << SQLParserT_USE) | (1 << SQLParserT_STATE_REPO) | (1 << SQLParserT_STATE_MACHINE) | (1 << SQLParserT_MASTER) | (1 << SQLParserT_METADATA) | (1 << SQLParserT_TYPES) | (1 << SQLParserT_TYPE) | (1 << SQLParserT_STORAGES) | (1 << SQLParserT_STORAGE) | (1 << SQLParserT_BROKER) | (1 << SQLParserT_ALIVE))) != 0) || ((((_la - 32)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 32))) & ((1 << (SQLParserT_SCHEMAS - 32)) | (1 << (SQLParserT_DATASBAE - 32)) | (1 << (SQLParserT_DATASBAES - 32)) | (1 << (SQLParserT_NAMESPACE - 32)) | (1 << (SQLParserT_NAMESPACES - 32)) | (1 << (SQLParserT_NODE - 32)) | (1 << (SQLParserT_METRICS - 32)) | (1 << (SQLParserT_METRIC - 32)) | (1 << (SQLParserT_FIELD - 32)) | (1 << (SQLParserT_FIELDS - 32)) | (1 << (SQLParserT_TAG - 32)) | (1 << (SQLParserT_INFO - 32)) | (1 << (SQLParserT_KEYS - 32)) | (1 << (SQLParserT_KEY - 32)) | (1 << (SQLParserT_WITH - 32)) | (1 << (SQLParserT_VALUES - 32)) | (1 << (SQLParserT_VALUE - 32)) | (1 << (SQLParserT_FROM - 32)) | (1 << (SQLParserT_WHERE - 32)) | (1 << (SQLParserT_LIMIT - 32)) | (1 << (SQLParserT_QUERIES - 32)) | (1 << (SQLParserT_QUERY - 32)) | (1 << (SQLParserT_EXPLAIN - 32)) | (1 << (SQLParserT_WITH_VALUE - 32)) | (1 << (SQLParserT_SELECT - 32)) | (1 << (SQLParserT_AS - 32)) | (1 << (SQLParserT_AND - 32)) | (1 << (SQLParserT_OR - 32)) | (1 << (SQLParserT_FILL - 32)) | (1 << (SQLParserT_NULL - 32)) | (1 << (SQLParserT_PREVIOUS - 32)) | (1 << (SQLParserT_ORDER - 32)))) != 0) || ((((_la - 64)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 64))) & ((1 << (SQLParserT_ASC - 64)) | (1 << (SQLParserT_DESC - 64)) | (1 << (SQLParserT_LIKE - 64)) | (1 << (SQLParserT_NOT - 64)) | (1 << (SQLParserT_BETWEEN - 64)) | (1 << (SQLParserT_IS - 64)) | (1 << (SQLParserT_GROUP - 64)) | (1 << (SQLParserT_HAVING - 64)) | (1 << (SQLParserT_BY - 64)) | (1 << (SQLParserT_FOR - 64)) | (1 << (SQLParserT_STATS - 64)) | (1 << (SQLParserT_TIME - 64)) | (1 << (SQLParserT_NOW - 64)) | (1 << (SQLParserT_IN - 64)) | (1 << (SQLParserT_LOG - 64)) | (1 << (SQLParserT_PROFILE - 64)) | (1 << (SQLParserT_SUM - 64)) | (1 << (SQLParserT_MIN - 64)) | (1 << (SQLParserT_MAX - 64)) | (1 << (SQLParserT_COUNT - 64)) | (1 << (SQLParserT_LAST - 64)) | (1 << (SQLParserT_AVG - 64)) | (1 << (SQLParserT_STDDEV - 64)) | (1 << (SQLParserT_QUANTILE - 64)) | (1 << (SQLParserT_RATE - 64)) | (1 << (SQLParserT_SECOND - 64)) | (1 << (SQLParserT_MINUTE - 64)) | (1 << (SQLParserT_HOUR - 64)) | (1 << (SQLParserT_DAY - 64)) | (1 << (SQLParserT_WEEK - 64)) | (1 << (SQLParserT_MONTH - 64)) | (1 << (SQLParserT_YEAR - 64)))) != 0) || ((((_la - 112)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 112))) & ((1 << (SQLParserT_OPEN_P - 112)) | (1 << (SQLParserT_ADD - 112)) | (1 << (SQLParserT_SUB - 112)) | (1 << (SQLParserL_ID - 112)) | (1 << (SQLParserL_INT - 112)) | (1 << (SQLParserL_DEC - 112)))) != 0) {
+	if (((_la) & -(0x1f+1)) == 0 && ((1 << uint(_la)) & ((1 << SQLParserT_CREATE) | (1 << SQLParserT_UPDATE) | (1 << SQLParserT_SET) | (1 << SQLParserT_DROP) | (1 << SQLParserT_INTERVAL) | (1 << SQLParserT_INTERVAL_NAME) | (1 << SQLParserT_SHARD) | (1 << SQLParserT_REPLICATION) | (1 << SQLParserT_TTL) | (1 << SQLParserT_META_TTL) | (1 << SQLParserT_PAST_TTL) | (1 << SQLParserT_FUTURE_TTL) | (1 << SQLParserT_KILL) | (1 << SQLParserT_ON) | (1 << SQLParserT_SHOW) | (1 << SQLParserT_USE) | (1 << SQLParserT_STATE_REPO) | (1 << SQLParserT_STATE_MACHINE) | (1 << SQLParserT_MASTER) | (1 << SQLParserT_METADATA) | (1 << SQLParserT_TYPES) | (1 << SQLParserT_TYPE) | (1 << SQLParserT_STORAGES) | (1 << SQLParserT_STORAGE) | (1 << SQLParserT_BROKER) | (1 << SQLParserT_ALIVE))) != 0) || ((((_la - 32)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 32))) & ((1 << (SQLParserT_SCHEMAS - 32)) | (1 << (SQLParserT_DATASBAE - 32)) | (1 << (SQLParserT_DATASBAES - 32)) | (1 << (SQLParserT_NAMESPACE - 32)) | (1 << (SQLParserT_NAMESPACES - 32)) | (1 << (SQLParserT_NODE - 32)) | (1 << (SQLParserT_METRICS - 32)) | (1 << (SQLParserT_METRIC - 32)) | (1 << (SQLParserT_FIELD - 32)) | (1 << (SQLParserT_FIELDS - 32)) | (1 << (SQLParserT_TAG - 32)) | (1 << (SQLParserT_INFO - 32)) | (1 << (SQLParserT_KEYS - 32)) | (1 << (SQLParserT_KEY - 32)) | (1 << (SQLParserT_WITH - 32)) | (1 << (SQLParserT_VALUES - 32)) | (1 << (SQLParserT_VALUE - 32)) | (1 << (SQLParserT_FROM - 32)) | (1 << (SQLParserT_WHERE - 32)) | (1 << (SQLParserT_LIMIT - 32)) | (1 << (SQLParserT_QUERIES - 32)) | (1 << (SQLParserT_QUERY - 32)) | (1 << (SQLParserT_EXPLAIN - 32)) | (1 << (SQLParserT_WITH_VALUE - 32)) | (1 << (SQLParserT_SELECT - 32)) | (1 << (SQLParserT_AS - 32)) | (1 << (SQLParserT_AND - 32)) | (1 << (SQLParserT_OR - 32)) | (1 << (SQLParserT_FILL - 32)) | (1 << (SQLParserT_NULL - 32)) | (1 << (SQLParserT_PREVIOUS - 32)) | (1 << (SQLParserT_ORDER - 32)))) != 0) || ((((_la - 64)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 64))) & ((1 << (SQLParserT_ASC - 64)) | (1 << (SQLParserT_DESC - 64)) | (1 << (SQLParserT_LIKE - 64)) | (1 << (SQLParserT_NOT - 64)) | (1 << (SQLParserT_BETWEEN - 64)) | (1 << (SQLParserT_IS - 64)) | (1 << (SQLParserT_GROUP - 64)) | (1 << (SQLParserT_HAVING - 64)) | (1 << (SQLParserT_BY - 64)) | (1 << (SQLParserT_FOR - 64)) | (1 << (SQLParserT_STATS - 64)) | (1 << (SQLParserT_TIME - 64)) | (1 << (SQLParserT_NOW - 64)) | (1 << (SQLParserT_IN - 64)) | (1 << (SQLParserT_LOG - 64)) | (1 << (SQLParserT_PROFILE - 64)) | (1 << (SQLParserT_SUM - 64)) | (1 << (SQLParserT_MIN - 64)) | (1 << (SQLParserT_MAX - 64)) | (1 << (SQLParserT_COUNT - 64)) | (1 << (SQLParserT_LAST - 64)) | (1 << (SQLParserT_FIRST - 64)) | (1 << (SQLParserT_AVG - 64)) | (1 << (SQLParserT_STDDEV - 64)) | (1 << (SQLParserT_QUANTILE - 64)) | (1 << (SQLParserT_RATE - 64)) | (1 << (SQLParserT_SECOND - 64)) | (1 << (SQLParserT_MINUTE - 64)) | (1 << (SQLParserT_HOUR - 64)) | (1 << (SQLParserT_DAY - 64)) | (1 << (SQLParserT_WEEK - 64)) | (1 << (SQLParserT_MONTH - 64)))) != 0) || ((((_la - 96)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 96))) & ((1 << (SQLParserT_YEAR - 96)) | (1 << (SQLParserT_OPEN_P - 96)) | (1 << (SQLParserT_ADD - 96)) | (1 << (SQLParserT_SUB - 96)) | (1 << (SQLParserL_ID - 96)) | (1 << (SQLParserL_INT - 96)) | (1 << (SQLParserL_DEC - 96)))) != 0) {
 		{
 			p.SetState(495)
 			p.ExprFuncParams()
@@ -11268,7 +11270,7 @@ func (p *SQLParser) IntervalItem() (localctx IIntervalItemContext) {
 		p.SetState(618)
 		_la = p.GetTokenStream().LA(1)
 
-		if !(((((_la - 89)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 89))) & ((1 << (SQLParserT_SECOND - 89)) | (1 << (SQLParserT_MINUTE - 89)) | (1 << (SQLParserT_HOUR - 89)) | (1 << (SQLParserT_DAY - 89)) | (1 << (SQLParserT_WEEK - 89)) | (1 << (SQLParserT_MONTH - 89)) | (1 << (SQLParserT_YEAR - 89)))) != 0)) {
+		if !(((((_la - 90)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 90))) & ((1 << (SQLParserT_SECOND - 90)) | (1 << (SQLParserT_MINUTE - 90)) | (1 << (SQLParserT_HOUR - 90)) | (1 << (SQLParserT_DAY - 90)) | (1 << (SQLParserT_WEEK - 90)) | (1 << (SQLParserT_MONTH - 90)) | (1 << (SQLParserT_YEAR - 90)))) != 0)) {
 			p.GetErrorHandler().RecoverInline(p)
 		} else {
 			p.GetErrorHandler().ReportMatch(p)
@@ -11423,7 +11425,7 @@ func (p *SQLParser) ExprFunc() (localctx IExprFuncContext) {
 	_la = p.GetTokenStream().LA(1)
 
 
-	if (((_la) & -(0x1f+1)) == 0 && ((1 << uint(_la)) & ((1 << SQLParserT_CREATE) | (1 << SQLParserT_UPDATE) | (1 << SQLParserT_SET) | (1 << SQLParserT_DROP) | (1 << SQLParserT_INTERVAL) | (1 << SQLParserT_INTERVAL_NAME) | (1 << SQLParserT_SHARD) | (1 << SQLParserT_REPLICATION) | (1 << SQLParserT_TTL) | (1 << SQLParserT_META_TTL) | (1 << SQLParserT_PAST_TTL) | (1 << SQLParserT_FUTURE_TTL) | (1 << SQLParserT_KILL) | (1 << SQLParserT_ON) | (1 << SQLParserT_SHOW) | (1 << SQLParserT_USE) | (1 << SQLParserT_STATE_REPO) | (1 << SQLParserT_STATE_MACHINE) | (1 << SQLParserT_MASTER) | (1 << SQLParserT_METADATA) | (1 << SQLParserT_TYPES) | (1 << SQLParserT_TYPE) | (1 << SQLParserT_STORAGES) | (1 << SQLParserT_STORAGE) | (1 << SQLParserT_BROKER) | (1 << SQLParserT_ALIVE))) != 0) || ((((_la - 32)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 32))) & ((1 << (SQLParserT_SCHEMAS - 32)) | (1 << (SQLParserT_DATASBAE - 32)) | (1 << (SQLParserT_DATASBAES - 32)) | (1 << (SQLParserT_NAMESPACE - 32)) | (1 << (SQLParserT_NAMESPACES - 32)) | (1 << (SQLParserT_NODE - 32)) | (1 << (SQLParserT_METRICS - 32)) | (1 << (SQLParserT_METRIC - 32)) | (1 << (SQLParserT_FIELD - 32)) | (1 << (SQLParserT_FIELDS - 32)) | (1 << (SQLParserT_TAG - 32)) | (1 << (SQLParserT_INFO - 32)) | (1 << (SQLParserT_KEYS - 32)) | (1 << (SQLParserT_KEY - 32)) | (1 << (SQLParserT_WITH - 32)) | (1 << (SQLParserT_VALUES - 32)) | (1 << (SQLParserT_VALUE - 32)) | (1 << (SQLParserT_FROM - 32)) | (1 << (SQLParserT_WHERE - 32)) | (1 << (SQLParserT_LIMIT - 32)) | (1 << (SQLParserT_QUERIES - 32)) | (1 << (SQLParserT_QUERY - 32)) | (1 << (SQLParserT_EXPLAIN - 32)) | (1 << (SQLParserT_WITH_VALUE - 32)) | (1 << (SQLParserT_SELECT - 32)) | (1 << (SQLParserT_AS - 32)) | (1 << (SQLParserT_AND - 32)) | (1 << (SQLParserT_OR - 32)) | (1 << (SQLParserT_FILL - 32)) | (1 << (SQLParserT_NULL - 32)) | (1 << (SQLParserT_PREVIOUS - 32)) | (1 << (SQLParserT_ORDER - 32)))) != 0) || ((((_la - 64)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 64))) & ((1 << (SQLParserT_ASC - 64)) | (1 << (SQLParserT_DESC - 64)) | (1 << (SQLParserT_LIKE - 64)) | (1 << (SQLParserT_NOT - 64)) | (1 << (SQLParserT_BETWEEN - 64)) | (1 << (SQLParserT_IS - 64)) | (1 << (SQLParserT_GROUP - 64)) | (1 << (SQLParserT_HAVING - 64)) | (1 << (SQLParserT_BY - 64)) | (1 << (SQLParserT_FOR - 64)) | (1 << (SQLParserT_STATS - 64)) | (1 << (SQLParserT_TIME - 64)) | (1 << (SQLParserT_NOW - 64)) | (1 << (SQLParserT_IN - 64)) | (1 << (SQLParserT_LOG - 64)) | (1 << (SQLParserT_PROFILE - 64)) | (1 << (SQLParserT_SUM - 64)) | (1 << (SQLParserT_MIN - 64)) | (1 << (SQLParserT_MAX - 64)) | (1 << (SQLParserT_COUNT - 64)) | (1 << (SQLParserT_LAST - 64)) | (1 << (SQLParserT_AVG - 64)) | (1 << (SQLParserT_STDDEV - 64)) | (1 << (SQLParserT_QUANTILE - 64)) | (1 << (SQLParserT_RATE - 64)) | (1 << (SQLParserT_SECOND - 64)) | (1 << (SQLParserT_MINUTE - 64)) | (1 << (SQLParserT_HOUR - 64)) | (1 << (SQLParserT_DAY - 64)) | (1 << (SQLParserT_WEEK - 64)) | (1 << (SQLParserT_MONTH - 64)) | (1 << (SQLParserT_YEAR - 64)))) != 0) || ((((_la - 112)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 112))) & ((1 << (SQLParserT_OPEN_P - 112)) | (1 << (SQLParserT_ADD - 112)) | (1 << (SQLParserT_SUB - 112)) | (1 << (SQLParserL_ID - 112)) | (1 << (SQLParserL_INT - 112)) | (1 << (SQLParserL_DEC - 112)))) != 0) {
+	if (((_la) & -(0x1f+1)) == 0 && ((1 << uint(_la)) & ((1 << SQLParserT_CREATE) | (1 << SQLParserT_UPDATE) | (1 << SQLParserT_SET) | (1 << SQLParserT_DROP) | (1 << SQLParserT_INTERVAL) | (1 << SQLParserT_INTERVAL_NAME) | (1 << SQLParserT_SHARD) | (1 << SQLParserT_REPLICATION) | (1 << SQLParserT_TTL) | (1 << SQLParserT_META_TTL) | (1 << SQLParserT_PAST_TTL) | (1 << SQLParserT_FUTURE_TTL) | (1 << SQLParserT_KILL) | (1 << SQLParserT_ON) | (1 << SQLParserT_SHOW) | (1 << SQLParserT_USE) | (1 << SQLParserT_STATE_REPO) | (1 << SQLParserT_STATE_MACHINE) | (1 << SQLParserT_MASTER) | (1 << SQLParserT_METADATA) | (1 << SQLParserT_TYPES) | (1 << SQLParserT_TYPE) | (1 << SQLParserT_STORAGES) | (1 << SQLParserT_STORAGE) | (1 << SQLParserT_BROKER) | (1 << SQLParserT_ALIVE))) != 0) || ((((_la - 32)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 32))) & ((1 << (SQLParserT_SCHEMAS - 32)) | (1 << (SQLParserT_DATASBAE - 32)) | (1 << (SQLParserT_DATASBAES - 32)) | (1 << (SQLParserT_NAMESPACE - 32)) | (1 << (SQLParserT_NAMESPACES - 32)) | (1 << (SQLParserT_NODE - 32)) | (1 << (SQLParserT_METRICS - 32)) | (1 << (SQLParserT_METRIC - 32)) | (1 << (SQLParserT_FIELD - 32)) | (1 << (SQLParserT_FIELDS - 32)) | (1 << (SQLParserT_TAG - 32)) | (1 << (SQLParserT_INFO - 32)) | (1 << (SQLParserT_KEYS - 32)) | (1 << (SQLParserT_KEY - 32)) | (1 << (SQLParserT_WITH - 32)) | (1 << (SQLParserT_VALUES - 32)) | (1 << (SQLParserT_VALUE - 32)) | (1 << (SQLParserT_FROM - 32)) | (1 << (SQLParserT_WHERE - 32)) | (1 << (SQLParserT_LIMIT - 32)) | (1 << (SQLParserT_QUERIES - 32)) | (1 << (SQLParserT_QUERY - 32)) | (1 << (SQLParserT_EXPLAIN - 32)) | (1 << (SQLParserT_WITH_VALUE - 32)) | (1 << (SQLParserT_SELECT - 32)) | (1 << (SQLParserT_AS - 32)) | (1 << (SQLParserT_AND - 32)) | (1 << (SQLParserT_OR - 32)) | (1 << (SQLParserT_FILL - 32)) | (1 << (SQLParserT_NULL - 32)) | (1 << (SQLParserT_PREVIOUS - 32)) | (1 << (SQLParserT_ORDER - 32)))) != 0) || ((((_la - 64)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 64))) & ((1 << (SQLParserT_ASC - 64)) | (1 << (SQLParserT_DESC - 64)) | (1 << (SQLParserT_LIKE - 64)) | (1 << (SQLParserT_NOT - 64)) | (1 << (SQLParserT_BETWEEN - 64)) | (1 << (SQLParserT_IS - 64)) | (1 << (SQLParserT_GROUP - 64)) | (1 << (SQLParserT_HAVING - 64)) | (1 << (SQLParserT_BY - 64)) | (1 << (SQLParserT_FOR - 64)) | (1 << (SQLParserT_STATS - 64)) | (1 << (SQLParserT_TIME - 64)) | (1 << (SQLParserT_NOW - 64)) | (1 << (SQLParserT_IN - 64)) | (1 << (SQLParserT_LOG - 64)) | (1 << (SQLParserT_PROFILE - 64)) | (1 << (SQLParserT_SUM - 64)) | (1 << (SQLParserT_MIN - 64)) | (1 << (SQLParserT_MAX - 64)) | (1 << (SQLParserT_COUNT - 64)) | (1 << (SQLParserT_LAST - 64)) | (1 << (SQLParserT_FIRST - 64)) | (1 << (SQLParserT_AVG - 64)) | (1 << (SQLParserT_STDDEV - 64)) | (1 << (SQLParserT_QUANTILE - 64)) | (1 << (SQLParserT_RATE - 64)) | (1 << (SQLParserT_SECOND - 64)) | (1 << (SQLParserT_MINUTE - 64)) | (1 << (SQLParserT_HOUR - 64)) | (1 << (SQLParserT_DAY - 64)) | (1 << (SQLParserT_WEEK - 64)) | (1 << (SQLParserT_MONTH - 64)))) != 0) || ((((_la - 96)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 96))) & ((1 << (SQLParserT_YEAR - 96)) | (1 << (SQLParserT_OPEN_P - 96)) | (1 << (SQLParserT_ADD - 96)) | (1 << (SQLParserT_SUB - 96)) | (1 << (SQLParserL_ID - 96)) | (1 << (SQLParserL_INT - 96)) | (1 << (SQLParserL_DEC - 96)))) != 0) {
 		{
 			p.SetState(622)
 			p.ExprFuncParams()
@@ -11503,6 +11505,10 @@ func (s *FuncNameContext) T_LAST() antlr.TerminalNode {
 	return s.GetToken(SQLParserT_LAST, 0)
 }
 
+func (s *FuncNameContext) T_FIRST() antlr.TerminalNode {
+	return s.GetToken(SQLParserT_FIRST, 0)
+}
+
 func (s *FuncNameContext) T_STDDEV() antlr.TerminalNode {
 	return s.GetToken(SQLParserT_STDDEV, 0)
 }
@@ -11569,7 +11575,7 @@ func (p *SQLParser) FuncName() (localctx IFuncNameContext) {
 		p.SetState(627)
 		_la = p.GetTokenStream().LA(1)
 
-		if !(((((_la - 80)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 80))) & ((1 << (SQLParserT_SUM - 80)) | (1 << (SQLParserT_MIN - 80)) | (1 << (SQLParserT_MAX - 80)) | (1 << (SQLParserT_COUNT - 80)) | (1 << (SQLParserT_LAST - 80)) | (1 << (SQLParserT_AVG - 80)) | (1 << (SQLParserT_STDDEV - 80)) | (1 << (SQLParserT_QUANTILE - 80)) | (1 << (SQLParserT_RATE - 80)))) != 0)) {
+		if !(((((_la - 80)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 80))) & ((1 << (SQLParserT_SUM - 80)) | (1 << (SQLParserT_MIN - 80)) | (1 << (SQLParserT_MAX - 80)) | (1 << (SQLParserT_COUNT - 80)) | (1 << (SQLParserT_LAST - 80)) | (1 << (SQLParserT_FIRST - 80)) | (1 << (SQLParserT_AVG - 80)) | (1 << (SQLParserT_STDDEV - 80)) | (1 << (SQLParserT_QUANTILE - 80)) | (1 << (SQLParserT_RATE - 80)))) != 0)) {
 			p.GetErrorHandler().RecoverInline(p)
 		} else {
 			p.GetErrorHandler().ReportMatch(p)
@@ -13950,7 +13956,7 @@ func (p *SQLParser) Ident() (localctx IIdentContext) {
 		}
 
 
-	case SQLParserT_CREATE, SQLParserT_UPDATE, SQLParserT_SET, SQLParserT_DROP, SQLParserT_INTERVAL, SQLParserT_INTERVAL_NAME, SQLParserT_SHARD, SQLParserT_REPLICATION, SQLParserT_TTL, SQLParserT_META_TTL, SQLParserT_PAST_TTL, SQLParserT_FUTURE_TTL, SQLParserT_KILL, SQLParserT_ON, SQLParserT_SHOW, SQLParserT_USE, SQLParserT_STATE_REPO, SQLParserT_STATE_MACHINE, SQLParserT_MASTER, SQLParserT_METADATA, SQLParserT_TYPES, SQLParserT_TYPE, SQLParserT_STORAGES, SQLParserT_STORAGE, SQLParserT_BROKER, SQLParserT_ALIVE, SQLParserT_SCHEMAS, SQLParserT_DATASBAE, SQLParserT_DATASBAES, SQLParserT_NAMESPACE, SQLParserT_NAMESPACES, SQLParserT_NODE, SQLParserT_METRICS, SQLParserT_METRIC, SQLParserT_FIELD, SQLParserT_FIELDS, SQLParserT_TAG, SQLParserT_INFO, SQLParserT_KEYS, SQLParserT_KEY, SQLParserT_WITH, SQLParserT_VALUES, SQLParserT_VALUE, SQLParserT_FROM, SQLParserT_WHERE, SQLParserT_LIMIT, SQLParserT_QUERIES, SQLParserT_QUERY, SQLParserT_EXPLAIN, SQLParserT_WITH_VALUE, SQLParserT_SELECT, SQLParserT_AS, SQLParserT_AND, SQLParserT_OR, SQLParserT_FILL, SQLParserT_NULL, SQLParserT_PREVIOUS, SQLParserT_ORDER, SQLParserT_ASC, SQLParserT_DESC, SQLParserT_LIKE, SQLParserT_NOT, SQLParserT_BETWEEN, SQLParserT_IS, SQLParserT_GROUP, SQLParserT_HAVING, SQLParserT_BY, SQLParserT_FOR, SQLParserT_STATS, SQLParserT_TIME, SQLParserT_NOW, SQLParserT_IN, SQLParserT_LOG, SQLParserT_PROFILE, SQLParserT_SUM, SQLParserT_MIN, SQLParserT_MAX, SQLParserT_COUNT, SQLParserT_LAST, SQLParserT_AVG, SQLParserT_STDDEV, SQLParserT_QUANTILE, SQLParserT_RATE, SQLParserT_SECOND, SQLParserT_MINUTE, SQLParserT_HOUR, SQLParserT_DAY, SQLParserT_WEEK, SQLParserT_MONTH, SQLParserT_YEAR:
+	case SQLParserT_CREATE, SQLParserT_UPDATE, SQLParserT_SET, SQLParserT_DROP, SQLParserT_INTERVAL, SQLParserT_INTERVAL_NAME, SQLParserT_SHARD, SQLParserT_REPLICATION, SQLParserT_TTL, SQLParserT_META_TTL, SQLParserT_PAST_TTL, SQLParserT_FUTURE_TTL, SQLParserT_KILL, SQLParserT_ON, SQLParserT_SHOW, SQLParserT_USE, SQLParserT_STATE_REPO, SQLParserT_STATE_MACHINE, SQLParserT_MASTER, SQLParserT_METADATA, SQLParserT_TYPES, SQLParserT_TYPE, SQLParserT_STORAGES, SQLParserT_STORAGE, SQLParserT_BROKER, SQLParserT_ALIVE, SQLParserT_SCHEMAS, SQLParserT_DATASBAE, SQLParserT_DATASBAES, SQLParserT_NAMESPACE, SQLParserT_NAMESPACES, SQLParserT_NODE, SQLParserT_METRICS, SQLParserT_METRIC, SQLParserT_FIELD, SQLParserT_FIELDS, SQLParserT_TAG, SQLParserT_INFO, SQLParserT_KEYS, SQLParserT_KEY, SQLParserT_WITH, SQLParserT_VALUES, SQLParserT_VALUE, SQLParserT_FROM, SQLParserT_WHERE, SQLParserT_LIMIT, SQLParserT_QUERIES, SQLParserT_QUERY, SQLParserT_EXPLAIN, SQLParserT_WITH_VALUE, SQLParserT_SELECT, SQLParserT_AS, SQLParserT_AND, SQLParserT_OR, SQLParserT_FILL, SQLParserT_NULL, SQLParserT_PREVIOUS, SQLParserT_ORDER, SQLParserT_ASC, SQLParserT_DESC, SQLParserT_LIKE, SQLParserT_NOT, SQLParserT_BETWEEN, SQLParserT_IS, SQLParserT_GROUP, SQLParserT_HAVING, SQLParserT_BY, SQLParserT_FOR, SQLParserT_STATS, SQLParserT_TIME, SQLParserT_NOW, SQLParserT_IN, SQLParserT_LOG, SQLParserT_PROFILE, SQLParserT_SUM, SQLParserT_MIN, SQLParserT_MAX, SQLParserT_COUNT, SQLParserT_LAST, SQLParserT_FIRST, SQLParserT_AVG, SQLParserT_STDDEV, SQLParserT_QUANTILE, SQLParserT_RATE, SQLParserT_SECOND, SQLParserT_MINUTE, SQLParserT_HOUR, SQLParserT_DAY, SQLParserT_WEEK, SQLParserT_MONTH, SQLParserT_YEAR:
 		{
 			p.SetState(719)
 			p.NonReservedWords()
@@ -13982,7 +13988,7 @@ func (p *SQLParser) Ident() (localctx IIdentContext) {
 				}
 
 
-			case SQLParserT_CREATE, SQLParserT_UPDATE, SQLParserT_SET, SQLParserT_DROP, SQLParserT_INTERVAL, SQLParserT_INTERVAL_NAME, SQLParserT_SHARD, SQLParserT_REPLICATION, SQLParserT_TTL, SQLParserT_META_TTL, SQLParserT_PAST_TTL, SQLParserT_FUTURE_TTL, SQLParserT_KILL, SQLParserT_ON, SQLParserT_SHOW, SQLParserT_USE, SQLParserT_STATE_REPO, SQLParserT_STATE_MACHINE, SQLParserT_MASTER, SQLParserT_METADATA, SQLParserT_TYPES, SQLParserT_TYPE, SQLParserT_STORAGES, SQLParserT_STORAGE, SQLParserT_BROKER, SQLParserT_ALIVE, SQLParserT_SCHEMAS, SQLParserT_DATASBAE, SQLParserT_DATASBAES, SQLParserT_NAMESPACE, SQLParserT_NAMESPACES, SQLParserT_NODE, SQLParserT_METRICS, SQLParserT_METRIC, SQLParserT_FIELD, SQLParserT_FIELDS, SQLParserT_TAG, SQLParserT_INFO, SQLParserT_KEYS, SQLParserT_KEY, SQLParserT_WITH, SQLParserT_VALUES, SQLParserT_VALUE, SQLParserT_FROM, SQLParserT_WHERE, SQLParserT_LIMIT, SQLParserT_QUERIES, SQLParserT_QUERY, SQLParserT_EXPLAIN, SQLParserT_WITH_VALUE, SQLParserT_SELECT, SQLParserT_AS, SQLParserT_AND, SQLParserT_OR, SQLParserT_FILL, SQLParserT_NULL, SQLParserT_PREVIOUS, SQLParserT_ORDER, SQLParserT_ASC, SQLParserT_DESC, SQLParserT_LIKE, SQLParserT_NOT, SQLParserT_BETWEEN, SQLParserT_IS, SQLParserT_GROUP, SQLParserT_HAVING, SQLParserT_BY, SQLParserT_FOR, SQLParserT_STATS, SQLParserT_TIME, SQLParserT_NOW, SQLParserT_IN, SQLParserT_LOG, SQLParserT_PROFILE, SQLParserT_SUM, SQLParserT_MIN, SQLParserT_MAX, SQLParserT_COUNT, SQLParserT_LAST, SQLParserT_AVG, SQLParserT_STDDEV, SQLParserT_QUANTILE, SQLParserT_RATE, SQLParserT_SECOND, SQLParserT_MINUTE, SQLParserT_HOUR, SQLParserT_DAY, SQLParserT_WEEK, SQLParserT_MONTH, SQLParserT_YEAR:
+			case SQLParserT_CREATE, SQLParserT_UPDATE, SQLParserT_SET, SQLParserT_DROP, SQLParserT_INTERVAL, SQLParserT_INTERVAL_NAME, SQLParserT_SHARD, SQLParserT_REPLICATION, SQLParserT_TTL, SQLParserT_META_TTL, SQLParserT_PAST_TTL, SQLParserT_FUTURE_TTL, SQLParserT_KILL, SQLParserT_ON, SQLParserT_SHOW, SQLParserT_USE, SQLParserT_STATE_REPO, SQLParserT_STATE_MACHINE, SQLParserT_MASTER, SQLParserT_METADATA, SQLParserT_TYPES, SQLParserT_TYPE, SQLParserT_STORAGES, SQLParserT_STORAGE, SQLParserT_BROKER, SQLParserT_ALIVE, SQLParserT_SCHEMAS, SQLParserT_DATASBAE, SQLParserT_DATASBAES, SQLParserT_NAMESPACE, SQLParserT_NAMESPACES, SQLParserT_NODE, SQLParserT_METRICS, SQLParserT_METRIC, SQLParserT_FIELD, SQLParserT_FIELDS, SQLParserT_TAG, SQLParserT_INFO, SQLParserT_KEYS, SQLParserT_KEY, SQLParserT_WITH, SQLParserT_VALUES, SQLParserT_VALUE, SQLParserT_FROM, SQLParserT_WHERE, SQLParserT_LIMIT, SQLParserT_QUERIES, SQLParserT_QUERY, SQLParserT_EXPLAIN, SQLParserT_WITH_VALUE, SQLParserT_SELECT, SQLParserT_AS, SQLParserT_AND, SQLParserT_OR, SQLParserT_FILL, SQLParserT_NULL, SQLParserT_PREVIOUS, SQLParserT_ORDER, SQLParserT_ASC, SQLParserT_DESC, SQLParserT_LIKE, SQLParserT_NOT, SQLParserT_BETWEEN, SQLParserT_IS, SQLParserT_GROUP, SQLParserT_HAVING, SQLParserT_BY, SQLParserT_FOR, SQLParserT_STATS, SQLParserT_TIME, SQLParserT_NOW, SQLParserT_IN, SQLParserT_LOG, SQLParserT_PROFILE, SQLParserT_SUM, SQLParserT_MIN, SQLParserT_MAX, SQLParserT_COUNT, SQLParserT_LAST, SQLParserT_FIRST, SQLParserT_AVG, SQLParserT_STDDEV, SQLParserT_QUANTILE, SQLParserT_RATE, SQLParserT_SECOND, SQLParserT_MINUTE, SQLParserT_HOUR, SQLParserT_DAY, SQLParserT_WEEK, SQLParserT_MONTH, SQLParserT_YEAR:
 				{
 					p.SetState(724)
 					p.NonReservedWords()
@@ -14313,6 +14319,10 @@ func (s *NonReservedWordsContext) T_LAST() antlr.TerminalNode {
 	return s.GetToken(SQLParserT_LAST, 0)
 }
 
+func (s *NonReservedWordsContext) T_FIRST() antlr.TerminalNode {
+	return s.GetToken(SQLParserT_FIRST, 0)
+}
+
 func (s *NonReservedWordsContext) T_AVG() antlr.TerminalNode {
 	return s.GetToken(SQLParserT_AVG, 0)
 }
@@ -14459,7 +14469,7 @@ func (p *SQLParser) NonReservedWords() (localctx INonReservedWordsContext) {
 		p.SetState(732)
 		_la = p.GetTokenStream().LA(1)
 
-		if !((((_la) & -(0x1f+1)) == 0 && ((1 << uint(_la)) & ((1 << SQLParserT_CREATE) | (1 << SQLParserT_UPDATE) | (1 << SQLParserT_SET) | (1 << SQLParserT_DROP) | (1 << SQLParserT_INTERVAL) | (1 << SQLParserT_INTERVAL_NAME) | (1 << SQLParserT_SHARD) | (1 << SQLParserT_REPLICATION) | (1 << SQLParserT_TTL) | (1 << SQLParserT_META_TTL) | (1 << SQLParserT_PAST_TTL) | (1 << SQLParserT_FUTURE_TTL) | (1 << SQLParserT_KILL) | (1 << SQLParserT_ON) | (1 << SQLParserT_SHOW) | (1 << SQLParserT_USE) | (1 << SQLParserT_STATE_REPO) | (1 << SQLParserT_STATE_MACHINE) | (1 << SQLParserT_MASTER) | (1 << SQLParserT_METADATA) | (1 << SQLParserT_TYPES) | (1 << SQLParserT_TYPE) | (1 << SQLParserT_STORAGES) | (1 << SQLParserT_STORAGE) | (1 << SQLParserT_BROKER) | (1 << SQLParserT_ALIVE))) != 0) || ((((_la - 32)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 32))) & ((1 << (SQLParserT_SCHEMAS - 32)) | (1 << (SQLParserT_DATASBAE - 32)) | (1 << (SQLParserT_DATASBAES - 32)) | (1 << (SQLParserT_NAMESPACE - 32)) | (1 << (SQLParserT_NAMESPACES - 32)) | (1 << (SQLParserT_NODE - 32)) | (1 << (SQLParserT_METRICS - 32)) | (1 << (SQLParserT_METRIC - 32)) | (1 << (SQLParserT_FIELD - 32)) | (1 << (SQLParserT_FIELDS - 32)) | (1 << (SQLParserT_TAG - 32)) | (1 << (SQLParserT_INFO - 32)) | (1 << (SQLParserT_KEYS - 32)) | (1 << (SQLParserT_KEY - 32)) | (1 << (SQLParserT_WITH - 32)) | (1 << (SQLParserT_VALUES - 32)) | (1 << (SQLParserT_VALUE - 32)) | (1 << (SQLParserT_FROM - 32)) | (1 << (SQLParserT_WHERE - 32)) | (1 << (SQLParserT_LIMIT - 32)) | (1 << (SQLParserT_QUERIES - 32)) | (1 << (SQLParserT_QUERY - 32)) | (1 << (SQLParserT_EXPLAIN - 32)) | (1 << (SQLParserT_WITH_VALUE - 32)) | (1 << (SQLParserT_SELECT - 32)) | (1 << (SQLParserT_AS - 32)) | (1 << (SQLParserT_AND - 32)) | (1 << (SQLParserT_OR - 32)) | (1 << (SQLParserT_FILL - 32)) | (1 << (SQLParserT_NULL - 32)) | (1 << (SQLParserT_PREVIOUS - 32)) | (1 << (SQLParserT_ORDER - 32)))) != 0) || ((((_la - 64)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 64))) & ((1 << (SQLParserT_ASC - 64)) | (1 << (SQLParserT_DESC - 64)) | (1 << (SQLParserT_LIKE - 64)) | (1 << (SQLParserT_NOT - 64)) | (1 << (SQLParserT_BETWEEN - 64)) | (1 << (SQLParserT_IS - 64)) | (1 << (SQLParserT_GROUP - 64)) | (1 << (SQLParserT_HAVING - 64)) | (1 << (SQLParserT_BY - 64)) | (1 << (SQLParserT_FOR - 64)) | (1 << (SQLParserT_STATS - 64)) | (1 << (SQLParserT_TIME - 64)) | (1 << (SQLParserT_NOW - 64)) | (1 << (SQLParserT_IN - 64)) | (1 << (SQLParserT_LOG - 64)) | (1 << (SQLParserT_PROFILE - 64)) | (1 << (SQLParserT_SUM - 64)) | (1 << (SQLParserT_MIN - 64)) | (1 << (SQLParserT_MAX - 64)) | (1 << (SQLParserT_COUNT - 64)) | (1 << (SQLParserT_LAST - 64)) | (1 << (SQLParserT_AVG - 64)) | (1 << (SQLParserT_STDDEV - 64)) | (1 << (SQLParserT_QUANTILE - 64)) | (1 << (SQLParserT_RATE - 64)) | (1 << (SQLParserT_SECOND - 64)) | (1 << (SQLParserT_MINUTE - 64)) | (1 << (SQLParserT_HOUR - 64)) | (1 << (SQLParserT_DAY - 64)) | (1 << (SQLParserT_WEEK - 64)) | (1 << (SQLParserT_MONTH - 64)) | (1 << (SQLParserT_YEAR - 64)))) != 0)) {
+		if !(((((_la - 6)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 6))) & ((1 << (SQLParserT_CREATE - 6)) | (1 << (SQLParserT_UPDATE - 6)) | (1 << (SQLParserT_SET - 6)) | (1 << (SQLParserT_DROP - 6)) | (1 << (SQLParserT_INTERVAL - 6)) | (1 << (SQLParserT_INTERVAL_NAME - 6)) | (1 << (SQLParserT_SHARD - 6)) | (1 << (SQLParserT_REPLICATION - 6)) | (1 << (SQLParserT_TTL - 6)) | (1 << (SQLParserT_META_TTL - 6)) | (1 << (SQLParserT_PAST_TTL - 6)) | (1 << (SQLParserT_FUTURE_TTL - 6)) | (1 << (SQLParserT_KILL - 6)) | (1 << (SQLParserT_ON - 6)) | (1 << (SQLParserT_SHOW - 6)) | (1 << (SQLParserT_USE - 6)) | (1 << (SQLParserT_STATE_REPO - 6)) | (1 << (SQLParserT_STATE_MACHINE - 6)) | (1 << (SQLParserT_MASTER - 6)) | (1 << (SQLParserT_METADATA - 6)) | (1 << (SQLParserT_TYPES - 6)) | (1 << (SQLParserT_TYPE - 6)) | (1 << (SQLParserT_STORAGES - 6)) | (1 << (SQLParserT_STORAGE - 6)) | (1 << (SQLParserT_BROKER - 6)) | (1 << (SQLParserT_ALIVE - 6)) | (1 << (SQLParserT_SCHEMAS - 6)) | (1 << (SQLParserT_DATASBAE - 6)) | (1 << (SQLParserT_DATASBAES - 6)) | (1 << (SQLParserT_NAMESPACE - 6)) | (1 << (SQLParserT_NAMESPACES - 6)) | (1 << (SQLParserT_NODE - 6)))) != 0) || ((((_la - 38)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 38))) & ((1 << (SQLParserT_METRICS - 38)) | (1 << (SQLParserT_METRIC - 38)) | (1 << (SQLParserT_FIELD - 38)) | (1 << (SQLParserT_FIELDS - 38)) | (1 << (SQLParserT_TAG - 38)) | (1 << (SQLParserT_INFO - 38)) | (1 << (SQLParserT_KEYS - 38)) | (1 << (SQLParserT_KEY - 38)) | (1 << (SQLParserT_WITH - 38)) | (1 << (SQLParserT_VALUES - 38)) | (1 << (SQLParserT_VALUE - 38)) | (1 << (SQLParserT_FROM - 38)) | (1 << (SQLParserT_WHERE - 38)) | (1 << (SQLParserT_LIMIT - 38)) | (1 << (SQLParserT_QUERIES - 38)) | (1 << (SQLParserT_QUERY - 38)) | (1 << (SQLParserT_EXPLAIN - 38)) | (1 << (SQLParserT_WITH_VALUE - 38)) | (1 << (SQLParserT_SELECT - 38)) | (1 << (SQLParserT_AS - 38)) | (1 << (SQLParserT_AND - 38)) | (1 << (SQLParserT_OR - 38)) | (1 << (SQLParserT_FILL - 38)) | (1 << (SQLParserT_NULL - 38)) | (1 << (SQLParserT_PREVIOUS - 38)) | (1 << (SQLParserT_ORDER - 38)) | (1 << (SQLParserT_ASC - 38)) | (1 << (SQLParserT_DESC - 38)) | (1 << (SQLParserT_LIKE - 38)) | (1 << (SQLParserT_NOT - 38)) | (1 << (SQLParserT_BETWEEN - 38)) | (1 << (SQLParserT_IS - 38)))) != 0) || ((((_la - 70)) & -(0x1f+1)) == 0 && ((1 << uint((_la - 70))) & ((1 << (SQLParserT_GROUP - 70)) | (1 << (SQLParserT_HAVING - 70)) | (1 << (SQLParserT_BY - 70)) | (1 << (SQLParserT_FOR - 70)) | (1 << (SQLParserT_STATS - 70)) | (1 << (SQLParserT_TIME - 70)) | (1 << (SQLParserT_NOW - 70)) | (1 << (SQLParserT_IN - 70)) | (1 << (SQLParserT_LOG - 70)) | (1 << (SQLParserT_PROFILE - 70)) | (1 << (SQLParserT_SUM - 70)) | (1 << (SQLParserT_MIN - 70)) | (1 << (SQLParserT_MAX - 70)) | (1 << (SQLParserT_COUNT - 70)) | (1 << (SQLParserT_LAST - 70)) | (1 << (SQLParserT_FIRST - 70)) | (1 << (SQLParserT_AVG - 70)) | (1 << (SQLParserT_STDDEV - 70)) | (1 << (SQLParserT_QUANTILE - 70)) | (1 << (SQLParserT_RATE - 70)) | (1 << (SQLParserT_SECOND - 70)) | (1 << (SQLParserT_MINUTE - 70)) | (1 << (SQLParserT_HOUR - 70)) | (1 << (SQLParserT_DAY - 70)) | (1 << (SQLParserT_WEEK - 70)) | (1 << (SQLParserT_MONTH - 70)) | (1 << (SQLParserT_YEAR - 70)))) != 0)) {
 			p.GetErrorHandler().RecoverInline(p)
 		} else {
 			p.GetErrorHandler().ReportMatch(p)

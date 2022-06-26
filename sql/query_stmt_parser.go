@@ -265,6 +265,8 @@ func (q *queryStmtParser) visitFuncName(ctx *grammar.FuncNameContext) {
 		callExpr.FuncType = function.Count
 	case ctx.T_LAST() != nil:
 		callExpr.FuncType = function.Last
+	case ctx.T_FIRST() != nil:
+		callExpr.FuncType = function.First
 	case ctx.T_AVG() != nil:
 		callExpr.FuncType = function.Avg
 	case ctx.T_STDDEV() != nil:

@@ -153,6 +153,16 @@ func TestSelectFuncItem(t *testing.T) {
 	assert.Equal(t, stmt.SelectItem{
 		Expr: &stmt.CallExpr{FuncType: function.Last, Params: []stmt.Expr{&stmt.FieldExpr{Name: "f"}}},
 	}, *selectItem)
+
+	sql = "select first(f) from memory"
+	q, err = Parse(sql)
+	query = q.(*stmt.Query)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(query.SelectItems))
+	selectItem = (query.SelectItems[0]).(*stmt.SelectItem)
+	assert.Equal(t, stmt.SelectItem{
+		Expr: &stmt.CallExpr{FuncType: function.First, Params: []stmt.Expr{&stmt.FieldExpr{Name: "f"}}},
+	}, *selectItem)
 }
 
 func TestFieldExpression(t *testing.T) {

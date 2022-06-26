@@ -300,12 +300,12 @@ func parseField(key, value []byte) ([]flatSimpleField, error) {
 		if err != nil {
 			return nil, ErrBadFields
 		}
-		return toLinGaugeAndSumField(unescapedKey, float64(v)), nil
+		return toLinSimpleField(unescapedKey, float64(v)), nil
 	case 't', 'T': // boolean true
 		if len(value) == 1 {
 			return []flatSimpleField{{
 				Name:  unescapedKey,
-				Type:  flatMetricsV1.SimpleFieldTypeGauge,
+				Type:  flatMetricsV1.SimpleFieldTypeLast,
 				Value: float64(1),
 			}}, nil
 		}
@@ -314,7 +314,7 @@ func parseField(key, value []byte) ([]flatSimpleField, error) {
 		if len(value) == 1 {
 			return []flatSimpleField{{
 				Name:  unescapedKey,
-				Type:  flatMetricsV1.SimpleFieldTypeGauge,
+				Type:  flatMetricsV1.SimpleFieldTypeLast,
 				Value: float64(0),
 			}}, nil
 		}
@@ -327,13 +327,13 @@ func parseField(key, value []byte) ([]flatSimpleField, error) {
 		case "false", "False", "FALSE":
 			return []flatSimpleField{{
 				Name:  unescapedKey,
-				Type:  flatMetricsV1.SimpleFieldTypeGauge,
+				Type:  flatMetricsV1.SimpleFieldTypeLast,
 				Value: float64(0),
 			}}, nil
 		case "true", "True", "TRUE":
 			return []flatSimpleField{{
 				Name:  unescapedKey,
-				Type:  flatMetricsV1.SimpleFieldTypeGauge,
+				Type:  flatMetricsV1.SimpleFieldTypeLast,
 				Value: float64(1),
 			}}, nil
 		default:
@@ -341,17 +341,23 @@ func parseField(key, value []byte) ([]flatSimpleField, error) {
 			if err != nil {
 				return nil, ErrBadFields
 			}
-			return toLinGaugeAndSumField(unescapedKey, v), nil
+			return toLinSimpleField(unescapedKey, v), nil
 		}
 	}
 }
 
-func toLinGaugeAndSumField(key []byte, value float64) []flatSimpleField {
+func toLinSimpleField(key []byte, value float64) []flatSimpleField {
 	switch {
-	case bytes.HasSuffix(key, []byte("gauge")):
+	case bytes.HasSuffix(key, []byte("last")):
 		return []flatSimpleField{{
 			Name:  key,
-			Type:  flatMetricsV1.SimpleFieldTypeGauge,
+			Type:  flatMetricsV1.SimpleFieldTypeLast,
+			Value: value,
+		}}
+	case bytes.HasSuffix(key, []byte("first")):
+		return []flatSimpleField{{
+			Name:  key,
+			Type:  flatMetricsV1.SimpleFieldTypeFirst,
 			Value: value,
 		}}
 	case bytes.HasSuffix(key, []byte("sum")):
@@ -368,8 +374,8 @@ func toLinGaugeAndSumField(key []byte, value float64) []flatSimpleField {
 				Value: value,
 			},
 			{
-				Name:  []byte(string(key) + "_gauge"),
-				Type:  flatMetricsV1.SimpleFieldTypeGauge,
+				Name:  []byte(string(key) + "_last"),
+				Type:  flatMetricsV1.SimpleFieldTypeLast,
 				Value: value,
 			},
 		}

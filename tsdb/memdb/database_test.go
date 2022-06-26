@@ -192,7 +192,7 @@ func TestMemoryDatabase_Write(t *testing.T) {
 		Name:      "test1",
 		Namespace: "ns",
 		SimpleFields: []*protoMetricsV1.SimpleField{
-			{Name: "f4", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 10},
+			{Name: "f4", Type: protoMetricsV1.SimpleFieldType_LAST, Value: 10},
 		},
 	})
 	row.MetricID = 1
@@ -214,7 +214,7 @@ func TestMemoryDatabase_Write(t *testing.T) {
 		Name:      "test1",
 		Namespace: "ns",
 		SimpleFields: []*protoMetricsV1.SimpleField{
-			{Name: "f4", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 10},
+			{Name: "f4", Type: protoMetricsV1.SimpleFieldType_LAST, Value: 10},
 		},
 		CompoundField: &protoMetricsV1.CompoundField{
 			Min:            10,
@@ -269,7 +269,7 @@ func TestMemoryDatabase_Write_err(t *testing.T) {
 		Name:      "test1",
 		Namespace: "ns",
 		SimpleFields: []*protoMetricsV1.SimpleField{
-			{Name: "f4", Type: protoMetricsV1.SimpleFieldType_GAUGE, Value: 10},
+			{Name: "f4", Type: protoMetricsV1.SimpleFieldType_LAST, Value: 10},
 		},
 	})
 	row.MetricID = 1

@@ -6,7 +6,7 @@ message MetricList {
     repeated Metric metrics = 2;
 }
 
-// Defines a Metric which has one or more timeseries.  The following is a
+// Defines a Metric which has one or more time series.  The following is a
 // brief summary of the Metric data model.  For more details, see:
 //
 //   https://lindb.io/zh/docs/concept/datamodel.html
@@ -16,7 +16,7 @@ message MetricList {
 //
 // - Metric is composed of metadata、timestamp and fields.
 // - Metadata part contains a namespace, name, tags and its sorted-concat-string hash.
-// - Fields is the array of the possible fields (Sum, Gauge, Histogram).
+// - Fields is the array of the possible fields (Sum, Last, Histogram).
 // - Fields contains exemplars, names, and the underlying value or value list
 //
 //     Metric
@@ -26,11 +26,11 @@ message MetricList {
 //  |tags           |
 //  |tags-hash      |
 //  |timestamp      |     +------------------------------------+
-//  |simple-fields  |---> |Gauge, Sum, ...                     |
+//  |simple-fields  |---> |Last, Sum, ...                     |
 //  |compound-field |---> |Histogram                           |
 //  +---------------+     +------------------------------------+
 //
-//  SimpleField   [One of Gauge, DeltaSum, Min, Max ...]
+//  SimpleField   [One of Last, DeltaSum, Min, Max ...]
 //  +-----------+
 //  |name       |  // field-name
 //  |type       |  // field-type
@@ -57,10 +57,11 @@ message Metric {
 }
 enum SimpleFieldType {
     SIMPLE_UNSPECIFIED = 0;
-    GAUGE = 1;
+    LAST = 1;
     DELTA_SUM = 2;
     Min = 3;
     Max = 4;
+    FIRST = 5;
 }
 
 

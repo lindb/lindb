@@ -133,12 +133,14 @@ func (itr *SimpleFieldIterator) NextType() field.Type {
 	// assertion: cumulative should be converted before writing into memdb
 	case flatMetricsV1.SimpleFieldTypeDeltaSum:
 		return field.SumField
-	case flatMetricsV1.SimpleFieldTypeGauge:
-		return field.GaugeField
+	case flatMetricsV1.SimpleFieldTypeLast:
+		return field.LastField
 	case flatMetricsV1.SimpleFieldTypeMax:
 		return field.MaxField
 	case flatMetricsV1.SimpleFieldTypeMin:
 		return field.MinField
+	case flatMetricsV1.SimpleFieldTypeFirst:
+		return field.FirstField
 	default:
 		return field.Unknown
 	}

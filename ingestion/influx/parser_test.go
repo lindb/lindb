@@ -234,7 +234,7 @@ func Test_parseUnescapedMetric(t *testing.T) {
 					Name: []byte("value_total_sum"), Type: flatMetricsV1.SimpleFieldTypeDeltaSum, Value: 1,
 				},
 				{
-					Name: []byte("value_total_gauge"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 1,
+					Name: []byte("value_total_last"), Type: flatMetricsV1.SimpleFieldTypeLast, Value: 1,
 				},
 			},
 		},
@@ -247,7 +247,7 @@ func Test_parseUnescapedMetric(t *testing.T) {
 					Name: []byte("value_sum"), Type: flatMetricsV1.SimpleFieldTypeDeltaSum, Value: 1,
 				},
 				{
-					Name: []byte("value_gauge"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 1,
+					Name: []byte("value_last"), Type: flatMetricsV1.SimpleFieldTypeLast, Value: 1,
 				},
 			},
 		},
@@ -264,7 +264,7 @@ func Test_parseUnescapedMetric(t *testing.T) {
 			`cpu\=load`,
 			map[string]string{"region": "east"},
 			[]flatSimpleField{{
-				Name: []byte("value"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 0,
+				Name: []byte("value"), Type: flatMetricsV1.SimpleFieldTypeLast, Value: 0,
 			}},
 		},
 		// equals in metric name, boolean true
@@ -272,7 +272,7 @@ func Test_parseUnescapedMetric(t *testing.T) {
 			`cpu\=load`,
 			map[string]string{"region": "east"},
 			[]flatSimpleField{{
-				Name: []byte("value"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 1,
+				Name: []byte("value"), Type: flatMetricsV1.SimpleFieldTypeLast, Value: 1,
 			}},
 		},
 		// commas in tag names, boolean true
@@ -280,7 +280,7 @@ func Test_parseUnescapedMetric(t *testing.T) {
 			`cpu`,
 			map[string]string{"region,zone": "east"},
 			[]flatSimpleField{{
-				Name: []byte("value"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 1,
+				Name: []byte("value"), Type: flatMetricsV1.SimpleFieldTypeLast, Value: 1,
 			}},
 		},
 		// spaces in tag name, boolean false
@@ -288,7 +288,7 @@ func Test_parseUnescapedMetric(t *testing.T) {
 			`cpu`,
 			map[string]string{"region zone": "east"},
 			[]flatSimpleField{{
-				Name: []byte("value"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 0,
+				Name: []byte("value"), Type: flatMetricsV1.SimpleFieldTypeLast, Value: 0,
 			}},
 		},
 		// backslash with escaped equals in tag name, decimal value
@@ -300,7 +300,7 @@ func Test_parseUnescapedMetric(t *testing.T) {
 					Name: []byte("value_sum"), Type: flatMetricsV1.SimpleFieldTypeDeltaSum, Value: 1,
 				},
 				{
-					Name: []byte("value_gauge"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 1,
+					Name: []byte("value_last"), Type: flatMetricsV1.SimpleFieldTypeLast, Value: 1,
 				},
 			},
 		},
@@ -310,7 +310,7 @@ func Test_parseUnescapedMetric(t *testing.T) {
 			map[string]string{` `: "east"},
 			[]flatSimpleField{
 				{Name: []byte("value_sum"), Type: flatMetricsV1.SimpleFieldTypeDeltaSum, Value: 1},
-				{Name: []byte("value_gauge"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 1},
+				{Name: []byte("value_last"), Type: flatMetricsV1.SimpleFieldTypeLast, Value: 1},
 			},
 		},
 		// commas in tag values
@@ -319,7 +319,7 @@ func Test_parseUnescapedMetric(t *testing.T) {
 			map[string]string{"regions": "east,west"},
 			[]flatSimpleField{
 				{Name: []byte("value_sum"), Type: flatMetricsV1.SimpleFieldTypeDeltaSum, Value: 1},
-				{Name: []byte("value_gauge"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 1},
+				{Name: []byte("value_last"), Type: flatMetricsV1.SimpleFieldTypeLast, Value: 1},
 			},
 		},
 		// backslash literal followed by trailing space
@@ -328,7 +328,7 @@ func Test_parseUnescapedMetric(t *testing.T) {
 			map[string]string{"regions": `east `},
 			[]flatSimpleField{
 				{Name: []byte("value_sum"), Type: flatMetricsV1.SimpleFieldTypeDeltaSum, Value: 1},
-				{Name: []byte("value_gauge"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 1},
+				{Name: []byte("value_last"), Type: flatMetricsV1.SimpleFieldTypeLast, Value: 1},
 			},
 		},
 		// spaces in tag values
@@ -337,16 +337,26 @@ func Test_parseUnescapedMetric(t *testing.T) {
 			map[string]string{"regions": `east west`},
 			[]flatSimpleField{
 				{Name: []byte("value_sum"), Type: flatMetricsV1.SimpleFieldTypeDeltaSum, Value: 1},
-				{Name: []byte("value_gauge"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 1},
+				{Name: []byte("value_last"), Type: flatMetricsV1.SimpleFieldTypeLast, Value: 1},
 			},
 		},
 		// commas in field keys
-		{`cpu,regions=east value\,ms_gauge=1.0`,
+		{`cpu,regions=east value\,ms_last=1.0`,
 			`cpu`,
 			map[string]string{"regions": "east"},
 			[]flatSimpleField{
 				{
-					Name: []byte("value,ms_gauge"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 1,
+					Name: []byte("value,ms_last"), Type: flatMetricsV1.SimpleFieldTypeLast, Value: 1,
+				},
+			},
+		},
+		// commas in field keys
+		{`cpu,regions=east value\,ms_first=1.0`,
+			`cpu`,
+			map[string]string{"regions": "east"},
+			[]flatSimpleField{
+				{
+					Name: []byte("value,ms_first"), Type: flatMetricsV1.SimpleFieldTypeFirst, Value: 1,
 				},
 			},
 		},
@@ -356,7 +366,7 @@ func Test_parseUnescapedMetric(t *testing.T) {
 			map[string]string{"regions": "east"},
 			[]flatSimpleField{
 				{Name: []byte("value ms_sum"), Type: flatMetricsV1.SimpleFieldTypeDeltaSum, Value: 1},
-				{Name: []byte("value ms_gauge"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 1},
+				{Name: []byte("value ms_last"), Type: flatMetricsV1.SimpleFieldTypeLast, Value: 1},
 			},
 		},
 		// random character escaped
@@ -368,7 +378,7 @@ func Test_parseUnescapedMetric(t *testing.T) {
 					Name: []byte("value_sum"), Type: flatMetricsV1.SimpleFieldTypeDeltaSum, Value: 1,
 				},
 				{
-					Name: []byte("value_gauge"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 1,
+					Name: []byte("value_last"), Type: flatMetricsV1.SimpleFieldTypeLast, Value: 1,
 				},
 			},
 		},
@@ -381,7 +391,7 @@ func Test_parseUnescapedMetric(t *testing.T) {
 					Name: []byte("\\a_sum"), Type: flatMetricsV1.SimpleFieldTypeDeltaSum, Value: 1,
 				},
 				{
-					Name: []byte("\\a_gauge"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 1,
+					Name: []byte("\\a_last"), Type: flatMetricsV1.SimpleFieldTypeLast, Value: 1,
 				},
 			},
 		},
@@ -391,8 +401,8 @@ func Test_parseUnescapedMetric(t *testing.T) {
 			map[string]string{"equals=foo": "tag=value"},
 			[]flatSimpleField{
 				{Name: []byte("value_sum"), Type: flatMetricsV1.SimpleFieldTypeDeltaSum, Value: 1},
-				{Name: []byte("value_gauge"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 1},
-				{Name: []byte("bool"), Type: flatMetricsV1.SimpleFieldTypeGauge, Value: 0},
+				{Name: []byte("value_last"), Type: flatMetricsV1.SimpleFieldTypeLast, Value: 1},
+				{Name: []byte("bool"), Type: flatMetricsV1.SimpleFieldTypeLast, Value: 0},
 			}},
 	}
 

@@ -2,10 +2,11 @@ namespace flatMetricsV1;
 
 enum SimpleFieldType:byte {
     UnSpecified = 0,
-    Gauge = 1,
+    Last = 1,
     DeltaSum = 2,
     Min = 3,
     Max = 4,
+    First = 5,
 }
 
 table SimpleField {
@@ -68,7 +69,7 @@ table Exemplar {
 //
 // - Metric is composed of metadata、timestamp and fields.
 // - Metadata part contains a namespace, name, tags and its sorted-concat-string hash.
-// - Fields is the array of the possible fields (Sum, Gauge, Histogram, Min, Max).
+// - Fields is the array of the possible fields (Sum, Last, Histogram, Min, Max).
 // - Fields contains exemplars, names, and the underlying value or value list
 //
 //     Metric
@@ -78,11 +79,11 @@ table Exemplar {
 //  |tags           |
 //  |tags-hash      |
 //  |timestamp      |     +------------------------------------+
-//  |simple-fields  |---> |Gauge, Sum, ...                     |
+//  |simple-fields  |---> |Last, Sum, ...                     |
 //  |compound-field |---> |Histogram                           |
 //  +---------------+     +------------------------------------+
 //
-//  SimpleField   [One of Gauge, DeltaSum, Min, Max ...]
+//  SimpleField   [One of Last, DeltaSum, Min, Max ...]
 //  +-----------+
 //  |name       |  // field-name
 //  |type       |  // field-type

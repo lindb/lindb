@@ -45,7 +45,8 @@ const (
 	Count
 	Min
 	Max
-	LastValue
+	Last
+	First
 )
 
 // Aggregate aggregates two float64 values into one
@@ -53,8 +54,10 @@ func (t AggType) Aggregate(a, b float64) float64 {
 	switch t {
 	case Sum, Count:
 		return a + b
-	case LastValue:
+	case Last:
 		return b
+	case First:
+		return a
 	case Min:
 		return math.Min(a, b)
 	case Max:
@@ -73,8 +76,9 @@ const (
 	SumField
 	MinField
 	MaxField
-	GaugeField
+	LastField
 	HistogramField // alias for sumField, only visible for tsdb
+	FirstField
 )
 
 // String returns the field type's string value
@@ -86,10 +90,12 @@ func (t Type) String() string {
 		return "min"
 	case MaxField:
 		return "max"
-	case GaugeField:
-		return "gauge"
+	case LastField:
+		return "last"
 	case HistogramField:
 		return "histogram"
+	case FirstField:
+		return "first"
 	default:
 		return "unknown"
 	}
@@ -104,8 +110,10 @@ func (t Type) AggType() AggType {
 		return Min
 	case MaxField:
 		return Max
-	case GaugeField:
-		return LastValue
+	case LastField:
+		return Last
+	case FirstField:
+		return First
 	default:
 		panic("need impl")
 	}
@@ -119,8 +127,10 @@ func (t Type) DownSamplingFunc() function.FuncType {
 		return function.Min
 	case MaxField:
 		return function.Max
-	case GaugeField:
+	case LastField:
 		return function.Last
+	case FirstField:
+		return function.First
 	case HistogramField:
 		return function.Sum
 	default:
@@ -151,9 +161,16 @@ func (t Type) IsFuncSupported(funcType function.FuncType) bool {
 		default:
 			return false
 		}
-	case GaugeField:
+	case LastField:
 		switch funcType {
 		case function.Sum, function.Min, function.Max, function.Last:
+			return true
+		default:
+			return false
+		}
+	case FirstField:
+		switch funcType {
+		case function.Sum, function.Min, function.Max, function.First:
 			return true
 		default:
 			return false
@@ -175,8 +192,10 @@ func (t Type) GetFuncFieldParams(funcType function.FuncType) []AggType {
 	switch t {
 	case SumField:
 		return getFieldParamsForSumField(funcType)
-	case GaugeField:
-		return getFieldParamsForGaugeField(funcType)
+	case LastField:
+		return getFieldParamsForLastField(funcType)
+	case FirstField:
+		return getFieldParamsForFirstField(funcType)
 	case MinField:
 		return getFieldParamsForMinField(funcType)
 	case MaxField:
@@ -195,8 +214,10 @@ func (t Type) GetDefaultFuncFieldParams() []AggType {
 		return []AggType{Sum}
 	case MinField:
 		return []AggType{Min}
-	case GaugeField:
-		return []AggType{LastValue}
+	case LastField:
+		return []AggType{Last}
+	case FirstField:
+		return []AggType{First}
 	case MaxField:
 		return []AggType{Max}
 	case HistogramField:
@@ -234,7 +255,7 @@ func getFieldParamsForMinField(funcType function.FuncType) []AggType {
 	}
 }
 
-func getFieldParamsForGaugeField(funcType function.FuncType) []AggType {
+func getFieldParamsForFirstField(funcType function.FuncType) []AggType {
 	switch funcType {
 	case function.Max:
 		return []AggType{Max}
@@ -243,6 +264,19 @@ func getFieldParamsForGaugeField(funcType function.FuncType) []AggType {
 	case function.Sum:
 		return []AggType{Sum}
 	default:
-		return []AggType{LastValue}
+		return []AggType{First}
+	}
+}
+
+func getFieldParamsForLastField(funcType function.FuncType) []AggType {
+	switch funcType {
+	case function.Max:
+		return []AggType{Max}
+	case function.Min:
+		return []AggType{Min}
+	case function.Sum:
+		return []AggType{Sum}
+	default:
+		return []AggType{Last}
 	}
 }
