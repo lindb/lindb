@@ -17,13 +17,25 @@ specific language governing permissions and limitations
 under the License.
 */
 import { IconHelpCircleStroked, IconPlay } from "@douyinfe/semi-icons";
-import { Button, Card, Col, Form, Row, Space } from "@douyinfe/semi-ui";
+import {
+  Button,
+  Card,
+  Col,
+  Form,
+  Row,
+  Space,
+  List,
+  Typography,
+} from "@douyinfe/semi-ui";
 import { ExplainStatsView, MetadataSelect } from "@src/components";
 import { SQL } from "@src/constants";
 import { useWatchURLChange } from "@src/hooks";
 import { ChartStore, URLStore } from "@src/stores";
 import * as monaco from "monaco-editor";
-import React, { MutableRefObject, useEffect, useRef } from "react";
+import React, { MutableRefObject, useEffect, useRef, useState } from "react";
+import * as _ from "lodash-es";
+import { exec } from "@src/services";
+import { Metadata } from "@src/models";
 
 const chartID = "9999999999999999";
 
@@ -31,12 +43,46 @@ export default function DataSearch() {
   const formApi = useRef() as MutableRefObject<any>;
   const sqlEditor = useRef() as MutableRefObject<any>;
   const sqlEditorRef = useRef() as MutableRefObject<HTMLDivElement | null>;
+  const [metadata, setMetadata] = useState<Metadata | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [isMetadata, setIsMetadata] = useState(false);
+  const [error, setError] = useState("");
 
-  const query = () => {
-    const target = formApi.current.getValues();
-    target.sql = sqlEditor.current?.getValue();
-    ChartStore.reRegister(chartID, { targets: [target] });
+  const isDataSearch = (sql: string): boolean => {
+    const sqlOfLowerCase = _.lowerCase(sql);
+    return (
+      _.startsWith(sqlOfLowerCase, "select") ||
+      _.startsWith(sqlOfLowerCase, "explain")
+    );
+  };
+
+  const fetchMetadata = async (target: any) => {
+    try {
+      setIsMetadata(true);
+      setLoading(true);
+      const metadata = await exec<Metadata>(target);
+      setMetadata(metadata);
+    } catch (err) {
+      setError(_.get(err, "response.data", "Unknown internal error"));
+    } finally {
+      setLoading(false);
+    }
+    ChartStore.unRegister(chartID);
     URLStore.changeURLParams({ params: target, forceChange: true });
+  };
+
+  const query = async () => {
+    const target = formApi.current.getValues();
+    const sql = _.trim(sqlEditor.current?.getValue());
+    target.sql = sql;
+    if (isDataSearch(sql)) {
+      setIsMetadata(false);
+      setMetadata(null);
+      ChartStore.reRegister(chartID, { targets: [target] });
+      URLStore.changeURLParams({ params: target, forceChange: true });
+    } else {
+      fetchMetadata(target);
+    }
   };
 
   useWatchURLChange(() => {
@@ -49,6 +95,7 @@ export default function DataSearch() {
       sqlEditor.current.setValue(URLStore.params.get("sql"));
     }
   });
+
   useEffect(() => {
     const sql = URLStore.params.get("sql") || "";
     if (sqlEditorRef.current && !sqlEditor.current) {
@@ -81,15 +128,23 @@ export default function DataSearch() {
         fontSize: 14,
       });
     }
+    if (isDataSearch(sql)) {
+      setIsMetadata(false);
+      ChartStore.register(chartID, {
+        targets: [
+          {
+            db: URLStore.params.get("db") || "",
+            sql: sql,
+          },
+        ],
+      });
+    } else {
+      fetchMetadata({
+        db: URLStore.params.get("db") || "",
+        sql: sql,
+      });
+    }
 
-    ChartStore.register(chartID, {
-      targets: [
-        {
-          db: URLStore.params.get("db") || "",
-          sql: sql,
-        },
-      ],
-    });
     return () => {
       // unRegister chart config when component destroy.
       ChartStore.unRegister(chartID);
@@ -133,7 +188,34 @@ export default function DataSearch() {
         </Form>
       </Card>
       <Card style={{ marginTop: 12 }}>
-        <ExplainStatsView chartId={chartID} />
+        {isMetadata && (
+          <List
+            loading={loading}
+            emptyContent={
+              error ? (
+                <Typography.Text type="danger">{error}</Typography.Text>
+              ) : (
+                "No Result"
+              )
+            }
+            header={
+              <Typography.Title heading={6}>
+                {_.startCase(metadata?.type)}
+              </Typography.Title>
+            }
+            dataSource={metadata?.values}
+            renderItem={(item: any) => (
+              <List.Item>
+                {metadata?.type === "field"
+                  ? `${item.name}(${item.type})`
+                  : item}
+              </List.Item>
+            )}
+          />
+        )}
+        <div style={{ display: isMetadata ? "none" : "block" }}>
+          <ExplainStatsView chartId={chartID} />
+        </div>
       </Card>
     </>
   );

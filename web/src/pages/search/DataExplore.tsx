@@ -16,13 +16,12 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { IconHistogram, IconRefresh } from "@douyinfe/semi-icons";
+import { IconHistogram } from "@douyinfe/semi-icons";
 import {
   IllustrationIdle,
   IllustrationIdleDark,
 } from "@douyinfe/semi-illustrations";
 import {
-  Button,
   Card,
   Empty,
   Form,
@@ -33,8 +32,8 @@ import {
 import {
   CanvasChart,
   MetadataSelect,
-  TagFilterSelect,
   MetricStatus,
+  TagFilterSelect,
 } from "@src/components";
 import { Route, SQL } from "@src/constants";
 import { useWatchURLChange } from "@src/hooks";
