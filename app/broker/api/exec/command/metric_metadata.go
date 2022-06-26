@@ -19,6 +19,7 @@ package command
 
 import (
 	"context"
+	"sort"
 	"strings"
 
 	depspkg "github.com/lindb/lindb/app/broker/deps"
@@ -91,11 +92,15 @@ func suggest(ctx context.Context, deps *depspkg.HTTPDeps,
 				models.Field{Name: "quantile(0.90)", Type: field.HistogramField.String()},
 			)
 		}
+		sort.Slice(resultFields, func(i, j int) bool {
+			return resultFields[i].Name < resultFields[j].Name
+		})
 		return &models.Metadata{
 			Type:   request.Type.String(),
 			Values: resultFields,
 		}, nil
 	default:
+		sort.Strings(values)
 		return &models.Metadata{
 			Type:   request.Type.String(),
 			Values: values,
