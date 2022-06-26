@@ -17,8 +17,8 @@ specific language governing permissions and limitations
 under the License.
 */
 export type Metadata = {
-  type: "database";
-  values: string[];
+  type: "database" | "namespace" | "metric" | "field" | "tagKey" | "tagValue";
+  values: string[] | Object[];
 };
 
 export type ResultSet = {

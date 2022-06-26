@@ -73,7 +73,11 @@ class ChartStore {
 
   reRegister(chartUniqueId: string, chart: ChartConfig) {
     if (chart) {
-      this.charts.set(chartUniqueId, chart);
+      if (this.charts.has(chartUniqueId)) {
+        this.charts.set(chartUniqueId, chart);
+      } else {
+        this.register(chartUniqueId, chart);
+      }
     }
   }
 

@@ -16,8 +16,26 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { IconChecklistStroked, IconDoubleChevronRight, IconGridStroked } from "@douyinfe/semi-icons";
-import { Avatar, Button, Card, Col, List, Notification, Popover, Row, Select, Switch, Table, Tooltip, Typography } from "@douyinfe/semi-ui";
+import {
+  IconChecklistStroked,
+  IconDoubleChevronRight,
+  IconGridStroked,
+} from "@douyinfe/semi-icons";
+import {
+  Avatar,
+  Button,
+  Card,
+  Col,
+  List,
+  Notification,
+  Popover,
+  Row,
+  Select,
+  Switch,
+  Table,
+  Tooltip,
+  Typography,
+} from "@douyinfe/semi-ui";
 import { useWatchURLChange } from "@src/hooks";
 import { ReplicaState } from "@src/models";
 import { exec } from "@src/services";

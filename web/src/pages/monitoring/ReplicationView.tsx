@@ -16,7 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { Card, Form, Empty, Button,Notification } from "@douyinfe/semi-ui";
+import { Card, Form, Empty, Button, Notification } from "@douyinfe/semi-ui";
 import { IconRefresh } from "@douyinfe/semi-icons";
 import {
   IllustrationIdle,
