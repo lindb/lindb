@@ -162,9 +162,8 @@ func TestMemoryDatabase_Write(t *testing.T) {
 	row.SeriesID = 10
 	row.SlotIndex = 1
 	row.FieldIDs = []field.ID{10}
-	size, err := md.WriteRow(row)
+	err = md.WriteRow(row)
 	assert.NoError(t, err)
-	assert.NotZero(t, size)
 	assert.NotZero(t, md.Size())
 
 	// case 2: new metric store
@@ -179,9 +178,8 @@ func TestMemoryDatabase_Write(t *testing.T) {
 	row.SeriesID = 20
 	row.SlotIndex = 1
 	row.FieldIDs = []field.ID{10}
-	size, err = md.WriteRow(row)
+	err = md.WriteRow(row)
 	assert.NoError(t, err)
-	assert.NotZero(t, size)
 
 	// case 3: create new field store
 	gomock.InOrder(
@@ -201,9 +199,8 @@ func TestMemoryDatabase_Write(t *testing.T) {
 	row.SeriesID = 10
 	row.SlotIndex = 15
 	row.FieldIDs = []field.ID{10}
-	size, err = md.WriteRow(row)
+	err = md.WriteRow(row)
 	assert.NoError(t, err)
-	assert.NotZero(t, size)
 	assert.True(t, md.MemSize() > 0)
 
 	// case4, write histogram field
@@ -233,9 +230,8 @@ func TestMemoryDatabase_Write(t *testing.T) {
 	row.SlotIndex = 15
 	row.FieldIDs = []field.ID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}
 	releaseLock()
-	size, err = md.WriteRow(row)
+	err = md.WriteRow(row)
 	assert.NoError(t, err)
-	assert.NotZero(t, size)
 	err = md.Close()
 	assert.NoError(t, err)
 }
@@ -281,9 +277,8 @@ func TestMemoryDatabase_Write_err(t *testing.T) {
 	row.SlotIndex = 15
 	row.FieldIDs = []field.ID{10}
 
-	size, err := md.WriteRow(row)
+	err = md.WriteRow(row)
 	assert.Error(t, err)
-	assert.Zero(t, size)
 
 	buf.EXPECT().Release()
 	err = md.Close()
@@ -337,23 +332,20 @@ func TestMemoryDatabase_WriteHistogram_Err(t *testing.T) {
 	// write min failure
 	tStore.EXPECT().GetFStore(field.ID(1)).Return(nil, false)
 	buf.EXPECT().AllocPage().Return(nil, fmt.Errorf("err"))
-	size, err := md.WriteRow(row)
-	assert.Zero(t, size)
+	err = md.WriteRow(row)
 	assert.Error(t, err)
 	// write max failure
 	tStore.EXPECT().GetFStore(field.ID(1)).Return(fStore, true)
 	tStore.EXPECT().GetFStore(field.ID(2)).Return(nil, false)
 	buf.EXPECT().AllocPage().Return(nil, fmt.Errorf("err"))
-	size, err = md.WriteRow(row)
-	assert.Zero(t, size)
+	err = md.WriteRow(row)
 	assert.Error(t, err)
 	// write sum failure
 	tStore.EXPECT().GetFStore(field.ID(1)).Return(fStore, true)
 	tStore.EXPECT().GetFStore(field.ID(2)).Return(fStore, true)
 	tStore.EXPECT().GetFStore(field.ID(3)).Return(nil, false)
 	buf.EXPECT().AllocPage().Return(nil, fmt.Errorf("err"))
-	size, err = md.WriteRow(row)
-	assert.Zero(t, size)
+	err = md.WriteRow(row)
 	assert.Error(t, err)
 	// write count failure
 	tStore.EXPECT().GetFStore(field.ID(1)).Return(fStore, true)
@@ -361,8 +353,7 @@ func TestMemoryDatabase_WriteHistogram_Err(t *testing.T) {
 	tStore.EXPECT().GetFStore(field.ID(3)).Return(fStore, true)
 	tStore.EXPECT().GetFStore(field.ID(4)).Return(nil, false)
 	buf.EXPECT().AllocPage().Return(nil, fmt.Errorf("err"))
-	size, err = md.WriteRow(row)
-	assert.Zero(t, size)
+	err = md.WriteRow(row)
 	assert.Error(t, err)
 	// write bucket failure
 	tStore.EXPECT().GetFStore(field.ID(1)).Return(fStore, true)
@@ -371,8 +362,7 @@ func TestMemoryDatabase_WriteHistogram_Err(t *testing.T) {
 	tStore.EXPECT().GetFStore(field.ID(4)).Return(fStore, true)
 	tStore.EXPECT().GetFStore(gomock.Any()).Return(nil, false)
 	buf.EXPECT().AllocPage().Return(nil, fmt.Errorf("err"))
-	size, err = md.WriteRow(row)
-	assert.Zero(t, size)
+	err = md.WriteRow(row)
 	assert.Error(t, err)
 }
 
