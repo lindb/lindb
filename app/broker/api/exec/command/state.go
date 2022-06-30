@@ -105,7 +105,7 @@ func fetchStateData(nodes []models.Node, stmt *stmtpkg.State) (interface{}, erro
 			_, err := NewRestyFn().R().SetQueryParams(map[string]string{"db": stmt.Database}).
 				SetHeader("Accept", "application/json").
 				SetResult(&state).
-				Get(address + "/api/state/replica")
+				Get(address + constants.APIVersion1CliPath + "/state/replica")
 			if err != nil {
 				log.Error("get replication state from storage node", logger.String("url", address), logger.Error(err))
 				return
@@ -145,7 +145,7 @@ func fetchMetricData(nodes []models.Node, names []string) (interface{}, error) {
 			_, err := NewRestyFn().R().SetQueryParamsFromValues(params).
 				SetHeader("Accept", "application/json").
 				SetResult(&metric).
-				Get(address + "/api/state/explore/current")
+				Get(address + constants.APIVersion1CliPath + "/state/explore/current")
 			if err != nil {
 				log.Error("get current metric state from alive node", logger.String("url", address), logger.Error(err))
 				return

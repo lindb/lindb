@@ -21,12 +21,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/ltoml"
 )
 
 var (
 	// defaultPusherURL is the default push target url of LinDB
-	defaultPusherURL = "http://127.0.0.1:9000/api/flat/write?db=_internal"
+	defaultPusherURL = fmt.Sprintf("http://127.0.0.1:9000%s/flat/write?db=_internal", constants.APIVersion1CliPath)
 )
 
 // Monitor represents a configuration for the internal monitor

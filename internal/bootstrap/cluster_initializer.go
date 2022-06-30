@@ -22,6 +22,7 @@ import (
 	"path"
 
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
@@ -37,8 +38,6 @@ type ClusterInitializer interface {
 	InitInternalDatabase(database models.Database) error
 }
 
-const brokerAPIPrefix = "/api/"
-
 // clusterInitializer implements ClusterInitializer interface.
 type clusterInitializer struct {
 	endpoint string
@@ -47,7 +46,7 @@ type clusterInitializer struct {
 // NewClusterInitializer creates a initializer
 func NewClusterInitializer(endpoint string) ClusterInitializer {
 	u, _ := url.Parse(endpoint)
-	u.Path = path.Join(u.Path, brokerAPIPrefix)
+	u.Path = path.Join(u.Path, constants.APIVersion1CliPath)
 	return &clusterInitializer{endpoint: u.String()}
 }
 

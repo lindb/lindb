@@ -29,6 +29,7 @@ import (
 	prompt "github.com/c-bata/go-prompt"
 	"github.com/fatih/color"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/sql"
@@ -197,7 +198,7 @@ func main() {
 		return
 	}
 
-	apiEndpoint := fmt.Sprintf("%s/api", endpoint)
+	apiEndpoint := endpoint + constants.APIVersion1CliPath
 	cli = newExecuteCli(apiEndpoint)
 
 	// first retry connect and get master state

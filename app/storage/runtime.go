@@ -383,15 +383,16 @@ func (r *runtime) startHTTPServer() {
 
 	r.httpServer = httppkg.NewServer(r.config.StorageBase.HTTP, false, linmetric.StorageRegistry)
 	exploreAPI := monitoring.NewExploreAPI(r.globalKeyValues, linmetric.StorageRegistry)
-	exploreAPI.Register(r.httpServer.GetAPIRouter())
+	v1 := r.httpServer.GetAPIRouter().Group(constants.APIVersion1)
+	exploreAPI.Register(v1)
 	replicaAPI := stateapi.NewReplicaAPI(r.walMgr)
-	replicaAPI.Register(r.httpServer.GetAPIRouter())
+	replicaAPI.Register(v1)
 	stateMachineAPI := stateapi.NewStorageStateMachineAPI(r.stateMgr)
-	stateMachineAPI.Register(r.httpServer.GetAPIRouter())
+	stateMachineAPI.Register(v1)
 	logAPI := monitoring.NewLoggerAPI(r.config.Logging.Dir)
-	logAPI.Register(r.httpServer.GetAPIRouter())
+	logAPI.Register(v1)
 	configAPI := monitoring.NewConfigAPI(r.node, r.config)
-	configAPI.Register(r.httpServer.GetAPIRouter())
+	configAPI.Register(v1)
 
 	go func() {
 		if err := r.httpServer.Run(); err != http.ErrServerClosed {

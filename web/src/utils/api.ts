@@ -21,11 +21,11 @@ import qs from "qs";
 // env control
 switch (import.meta.env.MODE) {
   case "development":
-    axios.defaults.baseURL = "http://localhost:9000/api";
+    axios.defaults.baseURL = "http://localhost:9000/api/v1";
     break;
   case "production":
   default:
-    axios.defaults.baseURL = "/api";
+    axios.defaults.baseURL = "/api/v1";
     break;
 }
 axios.defaults.timeout = 60000; // set timeout
