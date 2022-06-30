@@ -99,6 +99,7 @@ export const routes = [
   },
   {
     text: "Monitoring",
+    itemKey: "Monitoring",
     items: [
       {
         text: "Dashboard",
@@ -126,6 +127,7 @@ export const routes = [
   },
   {
     text: "Metadata",
+    itemKey: "Metadata",
     items: [
       {
         text: "Storage",
@@ -214,7 +216,7 @@ function getMenuList(routeItems: RouteItem[]): RouteItem[] {
         item.items = forEach(item.items);
       }
       if (!item.inner) {
-        rs.push({ ...item, itemKey: item.path });
+        rs.push({ ...item, itemKey: item.itemKey || item.path });
       }
     });
     return rs;
