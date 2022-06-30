@@ -65,7 +65,7 @@ func TestWriteSumMetric(b *testing.T) {
 			}
 		}
 		body := buf.Bytes()
-		_, err := cli.R().SetBody(body).Put("http://127.0.0.1:9000/api/flat/write?db=_internal")
+		_, err := cli.R().SetBody(body).Put("http://127.0.0.1:9000/api/v1/flat/write?db=_internal")
 		if err != nil {
 			panic(err)
 		}
@@ -104,7 +104,7 @@ func TestWriteSumMetric_OneDay(b *testing.T) {
 			}
 		}
 		body := buf.Bytes()
-		_, err := cli.R().SetBody(body).Put("http://127.0.0.1:9000/api/flat/write?db=_internal")
+		_, err := cli.R().SetBody(body).Put("http://127.0.0.1:9000/api/v1/flat/write?db=_internal")
 		if err != nil {
 			panic(err)
 		}
@@ -141,7 +141,7 @@ func TestWriteSumMetric_7Days(b *testing.T) {
 			}
 		}
 		body := buf.Bytes()
-		_, err := cli.R().SetBody(body).Put("http://127.0.0.1:9000/api/flat/write?db=test")
+		_, err := cli.R().SetBody(body).Put("http://127.0.0.1:9000/api/v1/flat/write?db=test")
 		if err != nil {
 			panic(err)
 		}

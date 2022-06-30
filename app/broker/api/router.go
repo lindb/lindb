@@ -25,6 +25,7 @@ import (
 	"github.com/lindb/lindb/app/broker/api/ingest"
 	"github.com/lindb/lindb/app/broker/api/state"
 	depspkg "github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/monitoring"
 )
@@ -66,22 +67,23 @@ func NewAPI(deps *depspkg.HTTPDeps) *API {
 
 // RegisterRouter registers http api router.
 func (api *API) RegisterRouter(router *gin.RouterGroup) {
-	api.execute.Register(router)
+	v1 := router.Group(constants.APIVersion1)
+	api.execute.Register(v1)
 
-	api.database.Register(router)
-	api.flusher.Register(router)
-	api.storage.Register(router)
+	api.database.Register(v1)
+	api.flusher.Register(v1)
+	api.storage.Register(v1)
 
-	api.brokerStateMachine.Register(router)
+	api.brokerStateMachine.Register(v1)
 
-	api.influxIngestion.Register(router)
-	api.protoIngestion.Register(router)
-	api.flatIngestion.Register(router)
+	api.influxIngestion.Register(v1)
+	api.protoIngestion.Register(v1)
+	api.flatIngestion.Register(v1)
 
 	// monitoring
-	api.metricExplore.Register(router)
-	api.log.Register(router)
-	api.config.Register(router)
+	api.metricExplore.Register(v1)
+	api.log.Register(v1)
+	api.config.Register(v1)
 
-	api.proxy.Register(router)
+	api.proxy.Register(v1)
 }

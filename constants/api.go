@@ -15,19 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package api
+package constants
 
-import (
-	"testing"
-
-	"github.com/gin-gonic/gin"
-
-	"github.com/lindb/lindb/app/broker/deps"
-	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/constants"
+const (
+	// APIRoot represents api root path.
+	APIRoot = "/api"
+	// APIVersion1 represents api version 1 path.
+	APIVersion1 = "/v1"
+	// APIVersion1CliPath represents api version 1 path for client.
+	APIVersion1CliPath = "/api/v1"
 )
-
-func TestNewRouter(t *testing.T) {
-	r := NewAPI(&deps.HTTPDeps{BrokerCfg: &config.Broker{}})
-	r.RegisterRouter(gin.New().Group(constants.APIRoot))
-}

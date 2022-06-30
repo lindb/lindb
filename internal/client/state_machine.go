@@ -23,6 +23,7 @@ import (
 
 	resty "github.com/go-resty/resty/v2"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 )
@@ -57,7 +58,7 @@ func (cli *stateMachineCli) FetchStateByNode(params map[string]string, node mode
 		SetQueryParams(params).
 		SetHeader("Accept", "application/json").
 		SetResult(&r).
-		Get(address + "/api/state/machine/explore")
+		Get(address + constants.APIVersion1CliPath + "/state/machine/explore")
 	if err != nil {
 		return nil, err
 	}

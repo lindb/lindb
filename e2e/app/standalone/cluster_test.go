@@ -34,6 +34,7 @@ import (
 
 	"github.com/lindb/lindb/app/standalone"
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
@@ -70,7 +71,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestQuery_Group_by(t *testing.T) {
-	cli := client.NewExecuteCli("http://localhost:9000/api")
+	cli := client.NewExecuteCli("http://localhost:9000" + constants.APIVersion1CliPath)
 	rs, err := cli.ExecuteAsResult(models.ExecuteParam{
 		Database: "_internal",
 		SQL:      "select f1 from cpu_data where host='host1' and time>now()-1h group by host,app",
@@ -88,7 +89,7 @@ func TestQuery_Group_by(t *testing.T) {
 }
 
 func TestTagValueNotFound(t *testing.T) {
-	cli := client.NewExecuteCli("http://localhost:9000/api")
+	cli := client.NewExecuteCli("http://localhost:9000/" + constants.APIVersion1CliPath)
 	rs, err := cli.ExecuteAsResult(models.ExecuteParam{
 		Database: "_internal",
 		SQL:      "select f1 from cpu_data where host='host' and time>now()-1h group by host,app",
@@ -98,7 +99,7 @@ func TestTagValueNotFound(t *testing.T) {
 }
 
 func TestMetaNotFound(t *testing.T) {
-	cli := client.NewExecuteCli("http://localhost:9000/api")
+	cli := client.NewExecuteCli("http://localhost:9000" + constants.APIVersion1CliPath)
 	err := cli.Execute(models.ExecuteParam{
 		Database: "_internal",
 		SQL:      "select f4 from cpu_data where host='host' and time>now()-1h group by host,app",
@@ -148,7 +149,7 @@ func mockMetricData() {
 		}
 	}
 	body := buf.Bytes()
-	_, err := resty.New().R().SetBody(body).Put("http://127.0.0.1:9000/api/flat/write?db=_internal")
+	_, err := resty.New().R().SetBody(body).Put("http://127.0.0.1:9000/api/v1/flat/write?db=_internal")
 	if err != nil {
 		panic(err)
 	}

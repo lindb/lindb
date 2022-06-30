@@ -105,7 +105,7 @@ func exploreStateRepoData(ctx context.Context, deps *depspkg.HTTPDeps,
 				metadataStmt.Type, metadataStmt.StorageName)}).
 			SetHeader("Accept", "application/json").
 			SetResult(&meta).
-			Get(address + "/api/exec")
+			Get(address + constants.APIVersion1CliPath + "/exec")
 		if err != nil {
 			return nil, err
 		}

@@ -30,6 +30,7 @@ import (
 
 	"github.com/lindb/lindb"
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/conntrack"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/pkg/http/middleware"
@@ -37,8 +38,6 @@ import (
 )
 
 //go:generate mockgen -source ./http_server.go -destination=./http_server_mock.go -package=http
-
-const _apiRootPath = "/api"
 
 // Server represents http server with gin framework.
 type Server interface {
@@ -113,7 +112,7 @@ func (s *server) init() {
 
 // GetAPIRouter returns api router.
 func (s *server) GetAPIRouter() *gin.RouterGroup {
-	return s.gin.Group(_apiRootPath)
+	return s.gin.Group(constants.APIRoot)
 }
 
 // Run runs the HTTP server.
