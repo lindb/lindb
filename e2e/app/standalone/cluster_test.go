@@ -89,7 +89,7 @@ func TestQuery_Group_by(t *testing.T) {
 }
 
 func TestTagValueNotFound(t *testing.T) {
-	cli := client.NewExecuteCli("http://localhost:9000/" + constants.APIVersion1CliPath)
+	cli := client.NewExecuteCli("http://localhost:9000" + constants.APIVersion1CliPath)
 	rs, err := cli.ExecuteAsResult(models.ExecuteParam{
 		Database: "_internal",
 		SQL:      "select f1 from cpu_data where host='host' and time>now()-1h group by host,app",
