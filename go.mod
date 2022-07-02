@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	github.com/BurntSushi/toml v1.1.0
+	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
 	github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20220527190237-ee62e23da966
 	github.com/c-bata/go-prompt v0.2.6
 	github.com/cespare/xxhash/v2 v2.1.2
@@ -33,6 +34,9 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.5
 	github.com/spf13/cobra v1.4.0
 	github.com/stretchr/testify v1.7.2
+	github.com/swaggo/files v0.0.0-20220610200504-28940afbdbfe
+	github.com/swaggo/gin-swagger v1.5.0
+	github.com/swaggo/swag v1.8.3
 	go.etcd.io/etcd/api/v3 v3.5.4
 	go.etcd.io/etcd/client/v3 v3.5.4
 	go.etcd.io/etcd/server/v3 v3.5.4
@@ -47,6 +51,9 @@ require (
 require (
 	github.com/DataDog/zstd v1.4.5 // indirect
 	github.com/HdrHistogram/hdrhistogram-go v1.1.2 // indirect
+	github.com/KyleBanks/depth v1.2.1 // indirect
+	github.com/PuerkitoBio/purell v1.1.1 // indirect
+	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.2.0 // indirect
 	github.com/cockroachdb/errors v1.8.1 // indirect
@@ -59,6 +66,10 @@ require (
 	github.com/form3tech-oss/jwt-go v3.2.3+incompatible // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
+	github.com/go-openapi/jsonpointer v0.19.5 // indirect
+	github.com/go-openapi/jsonreference v0.19.6 // indirect
+	github.com/go-openapi/spec v0.20.4 // indirect
+	github.com/go-openapi/swag v0.19.15 // indirect
 	github.com/go-playground/locales v0.14.0 // indirect
 	github.com/go-playground/universal-translator v0.18.0 // indirect
 	github.com/goccy/go-json v0.9.7 // indirect
@@ -71,10 +82,12 @@ require (
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jonboulle/clockwork v0.2.2 // indirect
+	github.com/josharian/intern v1.0.0 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
+	github.com/mailru/easyjson v0.7.6 // indirect
 	github.com/mattn/go-colorable v0.1.9 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/mattn/go-tty v0.0.3 // indirect
@@ -119,9 +132,10 @@ require (
 	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/crypto v0.0.0-20220131195533-30dcbda58838 // indirect
 	golang.org/x/exp v0.0.0-20200513190911-00229845015e // indirect
-	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2 // indirect
+	golang.org/x/net v0.0.0-20220425223048-2871e0cb64e4 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
+	golang.org/x/tools v0.1.10 // indirect
 	google.golang.org/genproto v0.0.0-20210602131652-f16073e35f0c // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

@@ -35,7 +35,7 @@ var (
 	ExplorePath = "/state/machine/explore"
 )
 
-type param struct {
+type Param struct {
 	Type        string               `form:"type" binding:"required"`
 	Role        stmtpkg.MetadataType `form:"role" binding:"required"`
 	StorageName string               `form:"storageName"`
@@ -63,8 +63,24 @@ func (api *BrokerStateMachineAPI) Register(route gin.IRoutes) {
 }
 
 // Explore explores the state from state machine of broker/master/storage.
+// @BasePath /api/v1
+// @Summary explore the state from state machine.
+// @Schemes
+// @Description explores the state from state machine of current node.
+// @Description 1. Broker State Machine;
+// @Description 2. Master State Machine;
+// @Description 3. Storage State Machine;
+// @Tags Internal
+// @Accept json
+// @Param param body Param ture "param data"
+// @Produce json
+// @Success 200 {array} models.Database
+// @Success 200 {array} models.StorageState
+// @Failure 404 {string} string "not found"
+// @Failure 500 {string} string "internal error"
+// @Router /state/machine/explore [get]
 func (api *BrokerStateMachineAPI) Explore(c *gin.Context) {
-	param := &param{}
+	param := &Param{}
 	err := c.ShouldBindQuery(param)
 	if err != nil {
 		http.Error(c, err)
@@ -98,7 +114,7 @@ func (api *BrokerStateMachineAPI) Explore(c *gin.Context) {
 }
 
 // exploreMaster explores the state from state machine of master.
-func (api *BrokerStateMachineAPI) exploreMaster(c *gin.Context, param *param) {
+func (api *BrokerStateMachineAPI) exploreMaster(c *gin.Context, param *Param) {
 	switch param.Type {
 	case constants.StorageState:
 		api.writeStorageState(c, api.deps.Master.GetStateManager().GetStorageStates())
@@ -122,7 +138,7 @@ func (api *BrokerStateMachineAPI) exploreMaster(c *gin.Context, param *param) {
 }
 
 // exploreMaster explores the state from state machine of broker.
-func (api *BrokerStateMachineAPI) exploreBroker(c *gin.Context, param *param) {
+func (api *BrokerStateMachineAPI) exploreBroker(c *gin.Context, param *Param) {
 	switch param.Type {
 	case constants.StorageState:
 		api.writeStorageState(c, api.deps.StateMgr.GetStorageList())

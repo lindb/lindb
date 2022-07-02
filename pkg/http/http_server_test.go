@@ -33,6 +33,8 @@ func init() {
 }
 
 func TestNewHTTPServer(t *testing.T) {
+	config.Profile = true
+	config.Doc = true
 	s := NewServer(config.HTTP{Port: 9999}, true, linmetric.BrokerRegistry)
 	assert.NotNil(t, s.GetAPIRouter())
 	go func() {

@@ -59,7 +59,6 @@ var (
 	}
 )
 
-// ExecuteAPI represent lin query language execution api.
 type ExecuteAPI struct {
 	deps *depspkg.HTTPDeps
 
@@ -83,7 +82,28 @@ func (e *ExecuteAPI) Register(route gin.IRoutes) {
 	route.PUT(ExecutePath, e.Execute)
 }
 
-// Execute executes lin query language with limit.
+// Execute executes lin query language with rate limit.
+// 1. metric data/metadata query statement;
+// 2. cluster metadata/state query statement;
+// 3. database/storage management statement;
+//
+// @BasePath /api/v1
+// @Summary execute lin query language
+// @Schemes
+// @Description execute lin query language with rate limit, based on execution statement returns different response.
+// @Description 1. metric data/metadata query statement;
+// @Description 2. cluster metadata/state query statement;
+// @Description 3. database/storage management statement;
+// @Tags LinQL
+// @Accept json
+// @Param param body models.ExecuteParam ture "param data"
+// @Produce json
+// @Success 200 {object} models.ResultSet
+// @Success 200 {object} models.Metadata
+// @Failure 404 {string} string "not found"
+// @Failure 500 {string} string "can't parse lin query language"
+// @Failure 500 {string} string "internal error"
+// @Router /exec [put]
 func (e *ExecuteAPI) Execute(c *gin.Context) {
 	if err := e.deps.QueryLimiter.Do(func() error {
 		return e.execute(c)
