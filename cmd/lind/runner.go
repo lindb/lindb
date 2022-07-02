@@ -40,6 +40,7 @@ func run(ctx context.Context, service server.Service, reloadConfigFunc func() er
 		service.Name(), os.Getpid(), pprof))
 
 	config.Profile = pprof
+	config.Doc = doc
 
 	// auto set maxprocs
 	_, _ = maxprocs.Set(maxprocs.Logger(func(s string, i ...interface{}) {

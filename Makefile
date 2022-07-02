@@ -43,6 +43,10 @@ lint: ## run lint
 	go install "github.com/golangci/golangci-lint/cmd/golangci-lint@v1.45.0"
 	golangci-lint run ./...
 
+api-doc: ## generate api document
+	go install "github.com/swaggo/swag/cmd/swag@v1.5.0"
+	swag init -g pkg/http/doc.go
+
 test-without-lint: ## Run test without lint
 	go install "github.com/rakyll/gotest@v0.0.6"
 	GIN_MODE=release

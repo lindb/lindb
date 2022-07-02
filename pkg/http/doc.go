@@ -15,37 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package main
+package http
 
-import (
-	"fmt"
-	"runtime"
+// @title LinDB Open API
+// @version 2.0
 
-	"github.com/spf13/cobra"
+// @contact.name API Support
+// @contact.url https://lindb.io
 
-	"github.com/lindb/lindb/config"
-)
+// @license.name Apache 2.0
+// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
 
-var (
-	// pprof mode
-	pprof = false
-	// cfg path
-	cfg = ""
-	// enable swagger api doc
-	doc = false
-)
-
-func printVersion() {
-	fmt.Printf("LinDB: %v, BuildDate: %v\n", config.Version, config.BuildTime)
-}
-
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print the version",
-	Run: func(cmd *cobra.Command, args []string) {
-		printVersion()
-		fmt.Printf("GOOS=%q\n", runtime.GOOS)
-		fmt.Printf("GOARCH=%q\n", runtime.GOARCH)
-		fmt.Printf("GOVERSION=%q\n", runtime.Version())
-	},
-}
+// @BasePath /api/v1
+// @schemes http

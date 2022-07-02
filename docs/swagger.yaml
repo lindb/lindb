@@ -1,0 +1,250 @@
+basePath: /api/v1
+definitions:
+  models.Database:
+    properties:
+      desc:
+        type: string
+      name:
+        description: database's name
+        type: string
+      numOfShard:
+        description: num. of shard
+        type: integer
+      option:
+        $ref: '#/definitions/option.DatabaseOption'
+        description: time series database option
+        type: object
+      replicaFactor:
+        description: replica refactor
+        type: integer
+      storage:
+        description: storage cluster's name
+        type: string
+    required:
+    - name
+    - storage
+    type: object
+  models.ExecuteParam:
+    properties:
+      db:
+        type: string
+      sql:
+        type: string
+    required:
+    - sql
+    type: object
+  models.Metadata:
+    properties:
+      type:
+        type: string
+      values:
+        type: object
+    type: object
+  models.QueryStats:
+    properties:
+      brokerNodes:
+        type: object
+      expressCost:
+        type: integer
+      netPayload:
+        type: integer
+      planCost:
+        type: integer
+      storageNodes:
+        type: object
+      totalCost:
+        description: total query cost
+        type: integer
+      waitCost:
+        description: wait intermediate or leaf response duration
+        type: integer
+    type: object
+  models.ResultSet:
+    properties:
+      endTime:
+        type: integer
+      fields:
+        items:
+          type: string
+        type: array
+      groupBy:
+        items:
+          type: string
+        type: array
+      interval:
+        type: integer
+      metricName:
+        type: string
+      series:
+        items:
+          $ref: '#/definitions/models.Series'
+        type: array
+      startTime:
+        type: integer
+      stats:
+        $ref: '#/definitions/models.QueryStats'
+        type: object
+    type: object
+  models.Series:
+    properties:
+      fields:
+        type: object
+      tags:
+        type: object
+    type: object
+  models.StorageState:
+    properties:
+      liveNodes:
+        type: object
+      name:
+        description: ref Namespace
+        type: string
+      shardAssignments:
+        description: TODO remove??
+        type: object
+      shardStates:
+        description: database's name => shard state
+        type: object
+    type: object
+  option.DatabaseOption:
+    properties:
+      ahead:
+        type: integer
+      autoCreateNS:
+        description: auto create namespace
+        type: boolean
+      behind:
+        description: allowed timestamp write behind
+        type: string
+      data:
+        $ref: '#/definitions/option.FlusherOption'
+        description: data flusher data
+        type: object
+      index:
+        $ref: '#/definitions/option.FlusherOption'
+        description: index flusher option
+        type: object
+      intervals:
+        $ref: '#/definitions/option.Intervals'
+        description: |-
+          write interval(the number of second) => TTL
+          rollup intervals(like seconds->minute->hour->day)
+        type: object
+    type: object
+  option.FlusherOption:
+    properties:
+      sizeThreshold:
+        description: size level flush threshold, unit(MB)
+        type: integer
+      timeThreshold:
+        description: time level flush threshold
+        type: integer
+    type: object
+  option.Interval:
+    properties:
+      interval:
+        type: integer
+      retention:
+        type: integer
+    required:
+    - interval
+    - retention
+    type: object
+  option.Intervals:
+    items:
+      properties:
+        interval:
+          type: integer
+        retention:
+          type: integer
+      required:
+      - interval
+      - retention
+      type: object
+    type: array
+host: '{{.Host}}'
+info:
+  contact:
+    name: API Support
+    url: https://lindb.io
+  description: '{{.Description}}'
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  title: LinDB Open API
+  version: "2.0"
+paths:
+  /exec:
+    put:
+      consumes:
+      - application/json
+      description: |-
+        execute lin query language with rate limit, based on execution statement returns different response.
+        1. metric data/metadata query statement;
+        2. cluster metadata/state query statement;
+        3. database/storage management statement;
+      parameters:
+      - description: param data
+        in: body
+        name: param
+        schema:
+          $ref: '#/definitions/models.ExecuteParam'
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Metadata'
+            type: object
+        "404":
+          description: not found
+          schema:
+            type: string
+        "500":
+          description: internal error
+          schema:
+            type: string
+      summary: execute lin query language
+      tags:
+      - LinQL
+  /state/machine/explore:
+    get:
+      consumes:
+      - application/json
+      description: |-
+        explores the state from state machine of current node.
+        1. Broker State Machine;
+        2. Master State Machine;
+        3. Storage State Machine;
+      parameters:
+      - description: param data
+        in: body
+        name: param
+        schema:
+          $ref: '#/definitions/Param'
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.StorageState'
+            type: array
+        "404":
+          description: not found
+          schema:
+            type: string
+        "500":
+          description: internal error
+          schema:
+            type: string
+      summary: explore the state from state machine.
+      tags:
+      - Internal
+schemes:
+- http
+swagger: "2.0"

@@ -27,12 +27,16 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 
 	"github.com/lindb/lindb"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
+	_ "github.com/lindb/lindb/docs"
 	"github.com/lindb/lindb/internal/conntrack"
 	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/pkg/hostutil"
 	"github.com/lindb/lindb/pkg/http/middleware"
 	"github.com/lindb/lindb/pkg/logger"
 )
@@ -55,6 +59,7 @@ type server struct {
 	server         http.Server
 	gin            *gin.Engine
 	staticResource bool
+	cfg            config.HTTP
 
 	r      *linmetric.Registry
 	logger *logger.Logger
@@ -63,6 +68,7 @@ type server struct {
 // NewServer creates http server.
 func NewServer(cfg config.HTTP, staticResource bool, r *linmetric.Registry) Server {
 	s := &server{
+		cfg:            cfg,
 		addr:           fmt.Sprintf(":%d", cfg.Port),
 		gin:            gin.New(),
 		staticResource: staticResource,
@@ -92,6 +98,13 @@ func (s *server) init() {
 		pprof.Register(s.gin)
 		s.logger.Info("/debug/fgprof is enabled")
 		s.gin.GET("/debug/fgprof", gin.WrapH(fgprof.Handler()))
+	}
+
+	if config.Doc {
+		ip, _ := hostutil.GetHostIP()
+		s.gin.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler,
+			ginSwagger.URL(fmt.Sprintf("http://%s:%d/swagger/doc.json", ip, s.cfg.Port)),
+			ginSwagger.DefaultModelsExpandDepth(-1)))
 	}
 	if s.staticResource {
 		// server static file

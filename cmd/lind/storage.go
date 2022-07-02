@@ -46,10 +46,12 @@ func newStorageCmd() *cobra.Command {
 		Use:   "storage",
 		Short: "Run as a storage node with cluster mode enabled",
 	}
-	runStorageCmd.PersistentFlags().BoolVar(&pprof, "pprof", false,
-		"profiling Go programs with pprof")
 	runStorageCmd.PersistentFlags().StringVar(&cfg, "config", "",
 		fmt.Sprintf("storage config file path, default is %s", defaultStorageCfgFile))
+	runStorageCmd.PersistentFlags().BoolVar(&doc, "doc", false,
+		"enable swagger api doc")
+	runStorageCmd.PersistentFlags().BoolVar(&pprof, "pprof", false,
+		"profiling Go programs with pprof")
 
 	storageCmd.AddCommand(
 		runStorageCmd,
