@@ -27,7 +27,7 @@ import (
 
 var (
 	// defaultPusherURL is the default push target url of LinDB
-	defaultPusherURL = fmt.Sprintf("http://127.0.0.1:9000%s/flat/write?db=_internal", constants.APIVersion1CliPath)
+	defaultPusherURL = fmt.Sprintf("http://127.0.0.1:9000%s/write?db=_internal", constants.APIVersion1CliPath)
 )
 
 // Monitor represents a configuration for the internal monitor

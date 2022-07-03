@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-http-utils/headers"
 	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/assert"
 
@@ -149,7 +150,9 @@ func mockMetricData() {
 		}
 	}
 	body := buf.Bytes()
-	_, err := resty.New().R().SetBody(body).Put("http://127.0.0.1:9000/api/v1/flat/write?db=_internal")
+	r := resty.New().R()
+	r.Header.Set(headers.ContentType, constants.ContentTypeFlat)
+	_, err := r.SetBody(body).Put("http://127.0.0.1:9000/api/v1/write?db=_internal")
 	if err != nil {
 		panic(err)
 	}

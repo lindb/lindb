@@ -26,6 +26,7 @@ import (
 
 	"github.com/klauspost/compress/gzip"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series/tag"
@@ -34,12 +35,6 @@ import (
 //go:generate mockgen -source ./native_pusher.go -destination=./native_pusher_mock.go -package=monitoring
 
 var nativePushLogger = logger.GetLogger("Monitoring", "Pusher")
-
-const (
-	ProtoType     = `application/protobuf`
-	ProtoProtocol = `io.lindb.proto.Metric`
-	ProtoFmt      = ProtoType + "; proto=" + ProtoProtocol + ";"
-)
 
 // NativePusher collects metrics from internal lin-metric registry,
 // then pushes metrics data via http.
@@ -141,7 +136,7 @@ func (np *nativeProtoPusher) push(r io.Reader) {
 	}
 	req, _ := http.NewRequestWithContext(context.TODO(), http.MethodPut, np.endpoint, r)
 	req.Header.Set("Content-Encoding", "gzip")
-	req.Header.Set("Content-Type", ProtoFmt)
+	req.Header.Set("Content-Type", constants.ContentTypeFlat)
 
 	resp, err := np.client.Do(req)
 	defer func() {

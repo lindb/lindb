@@ -102,8 +102,8 @@ push-timeout = "3s"
 ## Default: 10s
 report-interval = "10s"
 ## URL is the target of broker native ingestion url
-## Default: http://127.0.0.1:9000/api/v1/flat/write?db=_internal
-url = "http://127.0.0.1:9000/api/v1/flat/write?db=_internal"
+## Default: http://127.0.0.1:9000/api/v1/write?db=_internal
+url = "http://127.0.0.1:9000/api/v1/write?db=_internal"
 
 ## logging related configuration.
 [logging]

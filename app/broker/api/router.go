@@ -41,9 +41,7 @@ type API struct {
 	metricExplore      *monitoring.ExploreAPI
 	log                *monitoring.LoggerAPI
 	config             *monitoring.ConfigAPI
-	influxIngestion    *ingest.InfluxWriter
-	protoIngestion     *ingest.ProtoWriter
-	flatIngestion      *ingest.FlatWriter
+	write              *ingest.Write
 	proxy              *ReverseProxy
 }
 
@@ -58,9 +56,7 @@ func NewAPI(deps *depspkg.HTTPDeps) *API {
 		metricExplore:      monitoring.NewExploreAPI(deps.GlobalKeyValues, linmetric.BrokerRegistry),
 		log:                monitoring.NewLoggerAPI(deps.BrokerCfg.Logging.Dir),
 		config:             monitoring.NewConfigAPI(deps.Node, deps.BrokerCfg),
-		influxIngestion:    ingest.NewInfluxWriter(deps),
-		protoIngestion:     ingest.NewProtoWriter(deps),
-		flatIngestion:      ingest.NewFlatWriter(deps),
+		write:              ingest.NewWrite(deps),
 		proxy:              NewReverseProxy(),
 	}
 }
@@ -68,6 +64,7 @@ func NewAPI(deps *depspkg.HTTPDeps) *API {
 // RegisterRouter registers http api router.
 func (api *API) RegisterRouter(router *gin.RouterGroup) {
 	v1 := router.Group(constants.APIVersion1)
+	// execute lin query language statement
 	api.execute.Register(v1)
 
 	api.database.Register(v1)
@@ -76,9 +73,8 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 
 	api.brokerStateMachine.Register(v1)
 
-	api.influxIngestion.Register(v1)
-	api.protoIngestion.Register(v1)
-	api.flatIngestion.Register(v1)
+	// write metric data
+	api.write.Register(v1)
 
 	// monitoring
 	api.metricExplore.Register(v1)

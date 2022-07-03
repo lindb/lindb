@@ -114,6 +114,61 @@
                     }
                 }
             }
+        },
+        "/write": {
+            "put": {
+                "description": "receive metric data, then parse the data based on content type(flat buffer/proto buffer/influx).\nwrite data via database channel, support content-type as below:\n1. application/flatbuffer\n2. application/protobuf\n3. application/influx",
+                "consumes": [
+                    "application/flatbuffer",
+                    "application/protobuf",
+                    "application/influx"
+                ],
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "Write"
+                ],
+                "summary": "write metric data",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "database name",
+                        "name": "db",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "namespace, default value: default-ns",
+                        "name": "ns",
+                        "in": "query"
+                    },
+                    {
+                        "description": "metric data",
+                        "name": "string",
+                        "in": "body",
+                        "schema": {
+                            "type": "object",
+                            "$ref": "#/definitions/string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "internal error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
