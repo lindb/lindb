@@ -27,8 +27,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-http-utils/headers"
 	"github.com/go-resty/resty/v2"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
 	"github.com/lindb/lindb/series/metric"
@@ -65,7 +67,9 @@ func TestWriteSumMetric(b *testing.T) {
 			}
 		}
 		body := buf.Bytes()
-		_, err := cli.R().SetBody(body).Put("http://127.0.0.1:9000/api/v1/flat/write?db=_internal")
+		r := cli.R()
+		r.Header.Set(headers.ContentType, constants.ContentTypeFlat)
+		_, err := r.SetBody(body).Put("http://127.0.0.1:9000/api/v1/write?db=_internal")
 		if err != nil {
 			panic(err)
 		}
@@ -104,7 +108,9 @@ func TestWriteSumMetric_OneDay(b *testing.T) {
 			}
 		}
 		body := buf.Bytes()
-		_, err := cli.R().SetBody(body).Put("http://127.0.0.1:9000/api/v1/flat/write?db=_internal")
+		r := cli.R()
+		r.Header.Set(headers.ContentType, constants.ContentTypeFlat)
+		_, err := r.SetBody(body).Put("http://127.0.0.1:9000/api/v1/write?db=_internal")
 		if err != nil {
 			panic(err)
 		}
@@ -141,7 +147,9 @@ func TestWriteSumMetric_7Days(b *testing.T) {
 			}
 		}
 		body := buf.Bytes()
-		_, err := cli.R().SetBody(body).Put("http://127.0.0.1:9000/api/v1/flat/write?db=test")
+		r := cli.R()
+		r.Header.Set(headers.ContentType, constants.ContentTypeFlat)
+		_, err := r.SetBody(body).Put("http://127.0.0.1:9000/api/v1/write?db=test")
 		if err != nil {
 			panic(err)
 		}

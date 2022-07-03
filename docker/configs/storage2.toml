@@ -16,7 +16,7 @@ dir = "/lindb/storage2/data"
 
 [monitor]
 report-interval = "10s"
-url = "http://broker2:9000/api/flat/write?db=_internal"
+url = "http://broker2:9000/api/v1/write?db=_internal"
 
 [logging]
 dir = "/lindb/storage2"

@@ -245,6 +245,48 @@ paths:
       summary: explore the state from state machine.
       tags:
       - Internal
+  /write:
+    put:
+      consumes:
+      - application/flatbuffer
+      - application/protobuf
+      - application/influx
+      description: |-
+        receive metric data, then parse the data based on content type(flat buffer/proto buffer/influx).
+        write data via database channel, support content-type as below:
+        1. application/flatbuffer
+        2. application/protobuf
+        3. application/influx
+      parameters:
+      - description: database name
+        in: query
+        name: db
+        required: true
+        type: string
+      - description: 'namespace, default value: default-ns'
+        in: query
+        name: ns
+        type: string
+      - description: metric data
+        in: body
+        name: string
+        schema:
+          $ref: '#/definitions/string'
+          type: object
+      produces:
+      - text/plain
+      responses:
+        "204":
+          description: No Content
+          schema:
+            type: string
+        "500":
+          description: internal error
+          schema:
+            type: string
+      summary: write metric data
+      tags:
+      - Write
 schemes:
 - http
 swagger: "2.0"

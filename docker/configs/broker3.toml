@@ -11,7 +11,7 @@ port = 9001
 
 [monitor]
 report-interval = "10s"
-url = "http://broker3:9000/api/flat/write?db=_internal"
+url = "http://broker3:9000/api/v1/write?db=_internal"
 
 [logging]
 dir = "/lindb/broker3"

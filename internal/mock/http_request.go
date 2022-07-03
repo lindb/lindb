@@ -49,7 +49,7 @@ func (c *closeNotifyingRecorder) CloseNotify() <-chan bool {
 }
 
 // DoRequest does http request for test.
-func DoRequest(t *testing.T, r *gin.Engine, method, path, reqBody string) *httptest.ResponseRecorder {
+func DoRequest(t *testing.T, r *gin.Engine, method, path, reqBody string, headers ...http.Header) *httptest.ResponseRecorder {
 	t.Helper()
 
 	var body io.Reader
@@ -57,7 +57,13 @@ func DoRequest(t *testing.T, r *gin.Engine, method, path, reqBody string) *httpt
 		body = bytes.NewBufferString(reqBody)
 	}
 	req, _ := http.NewRequestWithContext(context.TODO(), method, path, body)
-	req.Header.Set("content-type", "application/json")
+	if len(headers) == 0 {
+		req.Header.Set("content-type", "application/json")
+	} else {
+		for _, header := range headers {
+			req.Header = header
+		}
+	}
 	resp := newCloseNotifyingRecorder()
 	r.ServeHTTP(resp, req)
 	return resp.ResponseRecorder
