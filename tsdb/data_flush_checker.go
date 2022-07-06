@@ -38,7 +38,7 @@ import (
 
 var (
 	// can be modified in runtime
-	memoryUsageCheckInterval = *atomic.NewDuration(time.Second)
+	memoryUsageCheckInterval = *atomic.NewDuration(time.Minute) // todo config?
 	ignoreMemorySize         = ltoml.Size(4 * 1024 * 1024)
 )
 

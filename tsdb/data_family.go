@@ -30,6 +30,7 @@ import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/metrics"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -38,7 +39,7 @@ import (
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
-//go:generate mockgen -source=./family.go -destination=./family_mock.go -package=tsdb
+//go:generate mockgen -source=./data_family.go -destination=./data_family_mock.go -package=tsdb
 
 // DataFamily represents a storage unit for time series data, support multi-version.
 type DataFamily interface {
@@ -71,6 +72,9 @@ type DataFamily interface {
 	Flush() error
 	// MemDBSize returns memory database heap size.
 	MemDBSize() int64
+
+	// GetState returns the current state include memory database state.
+	GetState() models.DataFamilyState
 
 	// DataFilter filters data under data family based on query condition
 	flow.DataFilter
@@ -140,7 +144,8 @@ func newDataFamily(
 		f.persistSeq[leader] = sequence
 	}
 
-	f.indicator = fmt.Sprintf("%s/%s/%d", dbName, shardIDStr, familyTime)
+	f.indicator = fmt.Sprintf("%s/%s/%s", dbName, shardIDStr,
+		timeutil.FormatTimestamp(familyTime, timeutil.DataTimeFormat4))
 
 	// add data family into global family manager
 	GetFamilyManager().AddFamily(f)
@@ -182,6 +187,7 @@ func (f *dataFamily) NeedFlush() bool {
 	if f.IsFlushing() {
 		return false
 	}
+
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
@@ -194,26 +200,23 @@ func (f *dataFamily) NeedFlush() bool {
 		return false
 	}
 
-	// check memory database's uptime
 	ttl := config.GlobalStorageConfig().TSDB.MutableMemDBTTL.Duration()
+	maxMemDBSize := config.GlobalStorageConfig().TSDB.MaxMemDBSize
+
+	f.logger.Info("check memory database if need flush",
+		logger.String("family", f.indicator),
+		logger.String("uptime", f.mutableMemDB.Uptime().String()),
+		logger.String("mutable-memdb-ttl", ttl.String()),
+		logger.String("memdb-size", ltoml.Size(f.mutableMemDB.MemSize()).String()),
+		logger.String("max-memdb-size", maxMemDBSize.String()),
+	)
+
+	// check memory database's uptime
 	if f.mutableMemDB.Uptime() >= ttl {
-		f.logger.Info("memory database is expired, need do flush job",
-			logger.String("family", f.indicator),
-			logger.String("uptime", f.mutableMemDB.Uptime().String()),
-			logger.String("mutable-memdb-ttl", ttl.String()),
-		)
 		return true
 	}
-
 	// check memory database's heap size
-	maxMemDBSize := int64(config.GlobalStorageConfig().TSDB.MaxMemDBSize)
-	if f.mutableMemDB.MemSize() >= maxMemDBSize {
-		f.logger.Info("memory database is above memory threshold, need do flush job",
-			logger.String("family", f.indicator),
-			logger.String("uptime", f.mutableMemDB.Uptime().String()),
-			logger.String("memdb-size", ltoml.Size(f.mutableMemDB.MemSize()).String()),
-			logger.Int64("max-memdb-size", maxMemDBSize),
-		)
+	if f.mutableMemDB.MemSize() >= int64(maxMemDBSize) {
 		return true
 	}
 	return false
@@ -316,6 +319,52 @@ func (f *dataFamily) Filter(executeCtx *flow.ShardExecuteContext) (resultSet []f
 	resultSet = append(resultSet, memRS...)
 	resultSet = append(resultSet, fileRS...)
 	return
+}
+
+// GetState returns the current state include memory database state.
+func (f *dataFamily) GetState() models.DataFamilyState {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
+	ackSequences := make(map[int32]int64)
+	replicaSequences := make(map[int32]int64)
+
+	for k, v := range f.persistSeq {
+		ackSequences[k] = v.Load()
+	}
+
+	for k, v := range f.seq {
+		replicaSequences[k] = v.Load()
+	}
+
+	var memoryDatabaseState []models.MemoryDatabaseState
+
+	memoryDBState := func(state string, memoryDatabase memdb.MemoryDatabase) {
+		memoryDatabaseState = append(memoryDatabaseState, models.MemoryDatabaseState{
+			State:       state,
+			Uptime:      memoryDatabase.Uptime(),
+			MemSize:     memoryDatabase.MemSize(),
+			NumOfMetric: memoryDatabase.Size(),
+		})
+	}
+
+	if f.immutableMemDB != nil {
+		memoryDBState("immutable", f.immutableMemDB)
+	}
+
+	if f.mutableMemDB != nil {
+		memoryDBState("mutable", f.mutableMemDB)
+	}
+
+	state := models.DataFamilyState{
+		ShardID:          f.shard.ShardID(),
+		FamilyTime:       f.familyTime,
+		AckSequences:     ackSequences,
+		ReplicaSequences: replicaSequences,
+		MemoryDatabases:  memoryDatabaseState,
+	}
+
+	return state
 }
 
 func (f *dataFamily) memoryFilter(shardExecuteContext *flow.ShardExecuteContext) (resultSet []flow.FilterResultSet, err error) {

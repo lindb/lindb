@@ -387,6 +387,8 @@ func (r *runtime) startHTTPServer() {
 	exploreAPI.Register(v1)
 	replicaAPI := stateapi.NewReplicaAPI(r.walMgr)
 	replicaAPI.Register(v1)
+	tsdbStateAPI := stateapi.NewTSDBAPI()
+	tsdbStateAPI.Register(v1)
 	stateMachineAPI := stateapi.NewStorageStateMachineAPI(r.stateMgr)
 	stateMachineAPI.Register(v1)
 	logAPI := monitoring.NewLoggerAPI(r.config.Logging.Dir)

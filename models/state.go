@@ -20,6 +20,7 @@ package models
 import (
 	"encoding/json"
 	"strconv"
+	"time"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 
@@ -237,4 +238,21 @@ type StateField struct {
 	Name  string  `json:"name"`
 	Type  string  `json:"type"`
 	Value float64 `json:"value"`
+}
+
+// DataFamilyState represents the state of data family.
+type DataFamilyState struct {
+	ShardID          ShardID               `json:"shardId"`
+	FamilyTime       int64                 `json:"familyTime"`
+	AckSequences     map[int32]int64       `json:"ackSequences"`
+	ReplicaSequences map[int32]int64       `json:"replicaSequences"`
+	MemoryDatabases  []MemoryDatabaseState `json:"memoryDatabases"`
+}
+
+// MemoryDatabaseState represents the state of memory database.
+type MemoryDatabaseState struct {
+	State       string        `json:"state"`
+	Uptime      time.Duration `json:"uptime"`
+	MemSize     int64         `json:"memSize"`
+	NumOfMetric int           `json:"numOfMetric"`
 }
