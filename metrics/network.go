@@ -44,13 +44,13 @@ type GRPCUnaryStatistics struct {
 type GRPCStreamStatistics struct {
 	MsgReceivedFailures *linmetric.BoundCounter   // receive msg failure
 	MsgSentFailures     *linmetric.BoundCounter   // send msg failure
-	MsgReceivedDuration *linmetric.BoundHistogram // receive msg duration, include receive total count/server handle duration
+	MsgReceivedDuration *linmetric.BoundHistogram // receive msg duration, include receive total count/handle duration
 	MsgSentDuration     *linmetric.BoundHistogram // send msg duration, include send total count
 }
 
 // GRPCServerStatistics represents grpc server statistics.
 type GRPCServerStatistics struct {
-	Panics *linmetric.BoundCounter // panic when grpc process
+	Panics *linmetric.BoundCounter // panic when grpc server handle request
 }
 
 // NewConnStatistics creates tcp connection statistics.

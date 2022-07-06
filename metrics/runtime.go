@@ -36,7 +36,7 @@ type RuntimeStatistics struct {
 	HeapReleased *linmetric.BoundGauge   // bytes of physical memory returned to the OS
 	HeapObjects  *linmetric.BoundGauge   // the number of allocated heap objects
 	StackInUse   *linmetric.BoundGauge   // bytes in stack spans
-	StackSys     *linmetric.BoundGauge   //  bytes of stack memory obtained from the OS
+	StackSys     *linmetric.BoundGauge   // bytes of stack memory obtained from the OS
 	MSpanInuse   *linmetric.BoundGauge   // bytes of allocated mspan structures
 	MSpanSys     *linmetric.BoundGauge   // bytes of memory obtained from the OS for mspan
 	MCacheInuse  *linmetric.BoundGauge   // bytes of allocated mcache structures

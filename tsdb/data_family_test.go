@@ -261,6 +261,7 @@ func TestDataFamily_NeedFlush(t *testing.T) {
 				config.SetGlobalStorageConfig(cfg)
 				memDB := memdb.NewMockMemoryDatabase(ctrl)
 				f.mutableMemDB = memDB
+				memDB.EXPECT().MemSize().Return(int64(10))
 				memDB.EXPECT().Size().Return(10)
 				memDB.EXPECT().Uptime().Return(time.Duration(timeutil.Now() - timeutil.OneMinute)).MaxTimes(2)
 			},
@@ -292,7 +293,7 @@ func TestDataFamily_NeedFlush(t *testing.T) {
 				f.mutableMemDB = memDB
 				memDB.EXPECT().Size().Return(10)
 				memDB.EXPECT().Uptime().Return(time.Duration(timeutil.Now() - timeutil.OneMinute)).MaxTimes(2)
-				memDB.EXPECT().MemSize().Return(int64(10))
+				memDB.EXPECT().MemSize().Return(int64(10)).MaxTimes(2)
 			},
 			needFlush: false,
 		},
@@ -699,4 +700,44 @@ func TestDataFamily_WriteRows(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDataFamily_GetState(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	shard := NewMockShard(ctrl)
+	shard.EXPECT().ShardID().Return(models.ShardID(1))
+	db := memdb.NewMockMemoryDatabase(ctrl)
+	db.EXPECT().Size().Return(10).MaxTimes(2)
+	db.EXPECT().MemSize().Return(int64(10)).MaxTimes(2)
+	db.EXPECT().Uptime().Return(time.Duration(10)).MaxTimes(2)
+	f := &dataFamily{
+		shard:          shard,
+		familyTime:     10,
+		mutableMemDB:   db,
+		immutableMemDB: db,
+		seq:            map[int32]atomic.Int64{10: *atomic.NewInt64(10)},
+		persistSeq:     map[int32]atomic.Int64{10: *atomic.NewInt64(10)},
+	}
+
+	state := f.GetState()
+	assert.Equal(t, models.DataFamilyState{
+		ShardID:          models.ShardID(1),
+		FamilyTime:       10,
+		AckSequences:     map[int32]int64{10: 10},
+		ReplicaSequences: map[int32]int64{10: 10},
+		MemoryDatabases: []models.MemoryDatabaseState{
+			{
+				State:       "immutable",
+				Uptime:      time.Duration(10),
+				MemSize:     10,
+				NumOfMetric: 10,
+			}, {
+				State:       "mutable",
+				Uptime:      time.Duration(10),
+				MemSize:     10,
+				NumOfMetric: 10,
+			}},
+	}, state)
 }
