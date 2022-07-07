@@ -190,7 +190,7 @@ func (f *family) commitEditLog(editLog version.EditLog) bool {
 	return true
 }
 
-// needCompat returns level0 files if it needs to do compact job
+// needCompact returns level0 files if it needs to do compact job
 func (f *family) needCompact() bool {
 	// has compaction job doing
 	if f.compacting.Load() {
