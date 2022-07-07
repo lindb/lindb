@@ -271,16 +271,15 @@ func (f *dataFamily) Flush() error {
 		// save persisted sequence
 		for leader, seq := range immutableSeq {
 			f.persistSeq[leader] = *atomic.NewInt64(seq)
-		}
-		for leader, fns := range f.callbacks {
-			seq, ok := f.seq[leader]
+			// ack replica sequence
+			fns, ok := f.callbacks[leader]
 			if ok {
-				s := seq.Load()
 				for _, fn := range fns {
-					fn(s)
+					fn(seq)
 				}
 			}
 		}
+
 		f.mutex.Unlock()
 
 		endTime := time.Now()

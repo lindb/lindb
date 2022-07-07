@@ -189,7 +189,7 @@ func (vs *storeVersionSet) CreateFamilyVersion(family string, familyID FamilyID)
 	return familyVersion
 }
 
-// GetFamilyVersion returns family version if exist, else return nil
+// GetFamilyVersion returns family version if it exists, else return nil
 func (vs *storeVersionSet) GetFamilyVersion(family string) FamilyVersion {
 	vs.mutex.RLock()
 	defer vs.mutex.RUnlock()
@@ -200,7 +200,7 @@ func (vs *storeVersionSet) GetFamilyVersion(family string) FamilyVersion {
 	return nil
 }
 
-// Recover recover version set if exist, recover been invoked when kv store init.
+// Recover recovers version set if it exist, recover been invoked when kv store init.
 // Initialize if version file not exists, else recover old data then init journal writer.
 func (vs *storeVersionSet) Recover() error {
 	if !fileutil.Exist(filepath.Join(vs.storePath, current())) {
@@ -295,7 +295,7 @@ func (vs *storeVersionSet) readManifestFileName() (string, error) {
 }
 
 // initJournal creates journal writer,
-// 1. must writes version set's data into journal,
+// 1. must write version set's data into journal,
 // 2. set current manifest file name into current file.
 // 3. set version set's manifest writer
 func (vs *storeVersionSet) initJournal() error {
@@ -376,13 +376,17 @@ func (vs *storeVersionSet) createSnapshot() (editLogs []EditLog) {
 	return
 }
 
-// createFamilySnapshot creates snapshot of edit log for family level
+// createFamilySnapshot creates snapshot of edit log for family level.
+// NOTICE: IMPORTANT!!!!!, need write edit logs for all data of version.
 func (vs *storeVersionSet) createFamilySnapshot(familyID FamilyID, familyVersion FamilyVersion) EditLog {
 	editLog := NewEditLog(familyID)
 	// save current version all active files
 	snapshot := familyVersion.GetSnapshot()
 	defer snapshot.Close()
-	levels := snapshot.GetCurrent().Levels()
+	current := snapshot.GetCurrent()
+
+	// write log for current file list under this family.
+	levels := current.Levels()
 	for numOfLevel, level := range levels {
 		files := level.getFiles()
 		for _, file := range files {
@@ -391,6 +395,29 @@ func (vs *storeVersionSet) createFamilySnapshot(familyID FamilyID, familyVersion
 			editLog.Add(newFile)
 		}
 	}
+	// write log if family has replica sequences.
+	sequences := current.GetSequences()
+	for leader, seq := range sequences {
+		// leader -> replica sequence
+		editLog.Add(CreateSequence(leader, seq))
+	}
+
+	// write log if family has reference files
+	refFiles := current.GetReferenceFiles()
+	for familyID, files := range refFiles {
+		for _, file := range files {
+			editLog.Add(CreateNewReferenceFile(familyID, file))
+		}
+	}
+
+	// write log if family has rollup files
+	rollupFiles := current.GetRollupFiles()
+	for file, intervals := range rollupFiles {
+		for _, interval := range intervals {
+			editLog.Add(CreateNewRollupFile(file, interval))
+		}
+	}
+
 	return editLog
 }
 
