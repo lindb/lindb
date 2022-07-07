@@ -52,6 +52,19 @@ export default function CanvasChart(props: CanvasChartProps) {
   const seriesRef = useRef() as MutableRefObject<any>;
   const chartStatusRef = useRef() as MutableRefObject<ChartStatus | undefined>;
 
+  const resetZoomRange = () => {
+    if (!disableDrag) {
+      setStyle(zoomDivRef.current, {
+        display: "none",
+        width: "0px",
+      });
+      zoomRef.current.isMouseDown = false;
+      zoomRef.current.drag = false;
+      zoomRef.current.selectedStart = 0;
+      zoomRef.current.selectedEnd = 0;
+    }
+  };
+
   const createChart = () => {
     // console.log("config", { type: "line", data: series }, config);
     const canvas = chartRef.current;
@@ -135,13 +148,6 @@ export default function CanvasChart(props: CanvasChartProps) {
         });
       }
 
-      // // console.log("heeee", e);
-      // setStyle(crosshairRef.current, {
-      //   display: "block",
-      //   height: `${height}px`,
-      //   transform: `translate(${x}px, ${top}px)`,
-      // });
-
       ChartEventStore.setShowTooltip(true);
       ChartEventStore.mouseMove({
         index: currIdx,
@@ -157,9 +163,19 @@ export default function CanvasChart(props: CanvasChartProps) {
       if (chartStatusRef.current != ChartStatus.OK) {
         return;
       }
-      setStyle(crosshairRef.current, {
-        display: "none",
-      });
+
+      // hide cross hair
+      for (let key of Object.keys(Chart.instances)) {
+        const currChart = Chart.instances[`${key}`];
+        const crosshair = _.get(currChart, "options.crosshair", null);
+        setStyle(crosshair, {
+          display: "none",
+        });
+      }
+
+      // reset zoom range selection if leave chart area
+      resetZoomRange();
+
       ChartEventStore.mouseLeave(e);
       ChartEventStore.setShowTooltip(false);
     });
@@ -193,11 +209,6 @@ export default function CanvasChart(props: CanvasChartProps) {
         if (chartStatusRef.current != ChartStatus.OK) {
           return;
         }
-        setStyle(zoomDivRef.current, {
-          display: "none",
-          width: "0px",
-        });
-        zoomRef.current.isMouseDown = false;
         if (zoomRef.current.drag) {
           const start = Math.min(
             zoomRef.current.selectedStart,
@@ -211,10 +222,7 @@ export default function CanvasChart(props: CanvasChartProps) {
           const to = moment(end).format(DateTimeFormat);
           urlStore.changeURLParams({ params: { from: from, to: to } });
         }
-
-        zoomRef.current.drag = false;
-        zoomRef.current.selectedStart = 0;
-        zoomRef.current.selectedEnd = 0;
+        resetZoomRange();
       });
     }
     eventCallbacks.forEach((v, k) => {
