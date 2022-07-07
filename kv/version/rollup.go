@@ -29,7 +29,7 @@ type rollup struct {
 	rollupFiles map[table.FileNumber][]timeutil.Interval // source family
 
 	// family id -> file number for source family,
-	// reference to raw family file number, reference add after rollup successfully
+	// reference to raw family file number, add reference files after rollup successfully
 	referenceFiles map[FamilyID][]table.FileNumber // target family
 }
 
