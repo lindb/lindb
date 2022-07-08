@@ -137,11 +137,11 @@ func newDataFamily(
 	snapshot := family.GetSnapshot()
 	defer snapshot.Close()
 
+	// init replica/ack sequence
 	sequences := snapshot.GetCurrent().GetSequences()
 	for leader, seq := range sequences {
-		sequence := *atomic.NewInt64(seq)
-		f.seq[leader] = sequence
-		f.persistSeq[leader] = sequence
+		f.seq[leader] = *atomic.NewInt64(seq)
+		f.persistSeq[leader] = *atomic.NewInt64(seq)
 	}
 
 	f.indicator = fmt.Sprintf("%s/%s/%s", dbName, shardIDStr,
@@ -588,8 +588,7 @@ func (f *dataFamily) flushMemoryDatabase(sequences map[int32]int64, memDB memdb.
 
 	// invoke sequence ack callback
 	for leader, seq := range sequences {
-		callbacks, ok := f.callbacks[leader]
-		if ok {
+		if callbacks, ok := f.callbacks[leader]; ok {
 			for _, fn := range callbacks {
 				fn(seq)
 			}

@@ -88,7 +88,7 @@ var newLogFuncMap = make(map[LogType]NewLogFunc)
 var logTypes = make(map[reflect.Type]LogType)
 
 // RegisterLogType registers edit log type when system init,
-// if has duplicate log type, system need panic and exit.
+// if it has duplicate log type, system need panic and exit.
 func RegisterLogType(logType LogType, fn NewLogFunc) {
 	if _, ok := newLogFuncMap[logType]; ok {
 		panic(fmt.Sprintf("log type already registered: %d", logType))
@@ -106,7 +106,7 @@ type Log interface {
 	Encode() ([]byte, error)
 	// Decode reads log from binary, if error return err
 	Decode(v []byte) error
-	// apply applies edit log to family's current version
+	// apply edit log to family's current version
 	apply(version Version)
 }
 

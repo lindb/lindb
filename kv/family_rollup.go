@@ -231,12 +231,12 @@ func (f *family) doRollupWork(sourceFamily Family, rollup Rollup, sourceFiles []
 	for _, file := range sourceFiles {
 		targetFiles[file] = struct{}{}
 	}
+	sourceFamilyID := sourceFamily.ID()
 	referenceFiles := f.familyVersion.GetLiveReferenceFiles()
-	files, ok := referenceFiles[sourceFamily.ID()]
-	if ok {
+	if files, ok := referenceFiles[sourceFamilyID]; ok {
+		// check if file already rollup
 		for _, file := range files {
-			_, exist := targetFiles[file]
-			if exist {
+			if _, exist := targetFiles[file]; exist {
 				delete(targetFiles, file)
 				kvLogger.Warn("skip rollup for this file, because file already rollup",
 					logger.Int64("fileNumber", file.Int64()),
@@ -256,14 +256,18 @@ func (f *family) doRollupWork(sourceFamily Family, rollup Rollup, sourceFiles []
 		snapshot.Close()
 	}()
 	v := snapshot.GetCurrent()
+
 	var inputFiles []*version.FileMeta
+	var logs []version.Log
 	for fileNumber := range targetFiles {
-		fm, ok := v.GetFile(0, fileNumber)
-		if ok {
+		if fm, ok := v.GetFile(0, fileNumber); ok {
 			inputFiles = append(inputFiles, fm)
+			logs = append(logs, version.CreateNewReferenceFile(sourceFamilyID, fileNumber))
 		}
 	}
 	compaction := version.NewCompaction(f.ID(), 0, inputFiles, nil)
+	// add reference file edit logs
+	compaction.AddReferenceFiles(logs)
 
 	compactionState := newCompactionState(f.maxFileSize, snapshot, compaction)
 	compactJob := newCompactJobFunc(f, compactionState, rollup)
