@@ -331,9 +331,9 @@ func TestFamily_doRollupWork(t *testing.T) {
 			files: []table.FileNumber{10, 20, 30},
 			prepare: func() {
 				gomock.InOrder(
+					sourceFamily.EXPECT().ID().Return(version.FamilyID(10)),
 					fv.EXPECT().GetLiveReferenceFiles().
 						Return(map[version.FamilyID][]table.FileNumber{10: {10, 20, 30}}),
-					sourceFamily.EXPECT().ID().Return(version.FamilyID(10)),
 					sourceFamily.EXPECT().familyInfo().Return("familyInfo").MaxTimes(3),
 				)
 			},
@@ -350,8 +350,8 @@ func TestFamily_doRollupWork(t *testing.T) {
 					return compactJob
 				}
 				gomock.InOrder(
-					fv.EXPECT().GetLiveReferenceFiles().Return(map[version.FamilyID][]table.FileNumber{10: {10, 30}}),
 					sourceFamily.EXPECT().ID().Return(version.FamilyID(10)),
+					fv.EXPECT().GetLiveReferenceFiles().Return(map[version.FamilyID][]table.FileNumber{10: {10, 30}}),
 					sourceFamily.EXPECT().familyInfo().Return("familyInfo").MaxTimes(2),
 					sourceFamily.EXPECT().GetSnapshot().Return(snapshot),
 					snapshot.EXPECT().GetCurrent().Return(v),
@@ -373,8 +373,8 @@ func TestFamily_doRollupWork(t *testing.T) {
 					return compactJob
 				}
 				gomock.InOrder(
-					fv.EXPECT().GetLiveReferenceFiles().Return(map[version.FamilyID][]table.FileNumber{10: {10, 30}}),
 					sourceFamily.EXPECT().ID().Return(version.FamilyID(10)),
+					fv.EXPECT().GetLiveReferenceFiles().Return(map[version.FamilyID][]table.FileNumber{10: {10, 30}}),
 					sourceFamily.EXPECT().familyInfo().Return("familyInfo").MaxTimes(2),
 					sourceFamily.EXPECT().GetSnapshot().Return(snapshot),
 					snapshot.EXPECT().GetCurrent().Return(v),

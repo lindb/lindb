@@ -21,6 +21,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/kv/table"
 )
 
 func TestCompaction(t *testing.T) {
@@ -46,5 +48,15 @@ func TestCompaction(t *testing.T) {
 	)
 	assert.True(t, compaction.IsTrivialMove())
 	compaction.DeleteFile(0, 2)
+	assert.False(t, compaction.GetEditLog().IsEmpty())
+}
+
+func TestCompaction_AddReferenceFiles(t *testing.T) {
+	compaction := NewCompaction(1, 0,
+		[]*FileMeta{},
+		nil,
+	)
+	assert.True(t, compaction.GetEditLog().IsEmpty())
+	compaction.AddReferenceFiles([]Log{CreateNewReferenceFile(FamilyID(10), table.FileNumber(10))})
 	assert.False(t, compaction.GetEditLog().IsEmpty())
 }
