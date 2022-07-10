@@ -19,6 +19,7 @@ package page
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -32,7 +33,7 @@ func TestMappedPage_err(t *testing.T) {
 		mapFileFunc = fileutil.RWMap
 	}()
 
-	mapFileFunc = func(filePath string, size int) ([]byte, error) {
+	mapFileFunc = func(file *os.File, size int) ([]byte, error) {
 		return nil, fmt.Errorf("err")
 	}
 	mp, err := NewMappedPage(filepath.Join(t.TempDir(), t.Name()), 128)

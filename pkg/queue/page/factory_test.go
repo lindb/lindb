@@ -19,6 +19,7 @@ package page
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -51,7 +52,7 @@ func TestNewFactory(t *testing.T) {
 	listDirFunc = func(path string) ([]string, error) {
 		return []string{"10.bat"}, nil
 	}
-	mapFileFunc = func(filePath string, size int) ([]byte, error) {
+	mapFileFunc = func(file *os.File, size int) ([]byte, error) {
 		return nil, fmt.Errorf("err")
 	}
 	fct, err = NewFactory(tmpDir, 128)
@@ -69,6 +70,8 @@ func TestNewFactory(t *testing.T) {
 	page, ok := fct1.pages[10]
 	assert.True(t, ok)
 	assert.NotNil(t, page)
+	err = fct.Close()
+	assert.NoError(t, err)
 }
 
 func TestFactory_AcquirePage(t *testing.T) {
@@ -106,7 +109,7 @@ func TestFactory_AcquirePage(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, page1, page2)
 	// case 4: get page err
-	mapFileFunc = func(filePath string, size int) ([]byte, error) {
+	mapFileFunc = func(file *os.File, size int) ([]byte, error) {
 		return nil, fmt.Errorf("err")
 	}
 	page2, err = fct.AcquirePage(2)

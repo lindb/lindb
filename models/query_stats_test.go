@@ -19,6 +19,7 @@ package models
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -57,6 +58,7 @@ func TestStorageStats(t *testing.T) {
 	stats.SetShardGroupingCost(10, 10)
 	stats.SetShardKVDataFilterCost(10, 10)
 	stats.SetShardMemoryDataFilterCost(10, 10)
+	time.Sleep(20 * time.Millisecond) // for windows test
 	stats.Complete()
 	assert.True(t, stats.TotalCost > 0)
 	shard, ok = stats.Shards[10]

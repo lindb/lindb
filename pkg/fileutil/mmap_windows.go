@@ -15,12 +15,30 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//go:build windows
+
 package fileutil
 
 import (
+	"errors"
 	"os"
 	"reflect"
+	"sync"
+	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
+
+type MMap []byte
+
+func (m *MMap) header() *reflect.SliceHeader {
+	return (*reflect.SliceHeader)(unsafe.Pointer(m))
+}
+
+func (m *MMap) addrLen() (data, length uintptr) {
+	header := m.header()
+	return header.Data, uintptr(header.Len)
+}
 
 type mapHandle struct {
 	file     windows.Handle
@@ -32,21 +50,12 @@ var handleMap = make(map[uintptr]*mapHandle)
 
 var lock4map sync.Mutex
 
-func header(bytes []byte) *reflect.SliceHeader {
-	return (*reflect.SliceHeader)(unsafe.Pointer(&bytes))
-}
-
-func addressAndSize(bytes []byte) (uintptr, uintptr) {
-	h := header(bytes)
-	return h.Data, uintptr(h.Len)
-}
-
 // todo: @TianliangXia test on windows
-func mmap(fd int, offset int64, size int, mode int) ([]byte, error) {
+func mmap(fd int, offset int64, size, mode int) ([]byte, error) {
 	prot := windows.PAGE_READONLY
 	access := windows.FILE_MAP_READ
 	writable := false
-	if mode&write == 1 {
+	if mode&write != 0 {
 		prot = windows.PAGE_READWRITE
 		access = windows.FILE_MAP_WRITE
 		writable = true
@@ -59,7 +68,7 @@ func mmap(fd int, offset int64, size int, mode int) ([]byte, error) {
 	maxSizeHigh := uint32((offset + int64(size)) >> 32)
 	maxSizeLow := uint32((offset + int64(size)) & 0xFFFFFFFF)
 	// TODO: Do we need to set some security attributes? It might help portability.
-	h, errno := windows.CreateFileMapping(windows.Handle(fd), nil, uint32(prot), maxSizeHigh, maxSizeLow, nil)
+	h, errno := windows.CreateFileMapping(windows.Handle(uintptr(fd)), nil, uint32(prot), maxSizeHigh, maxSizeLow, nil)
 	if h == 0 {
 		return nil, os.NewSyscallError("CreateFileMapping", errno)
 	}
@@ -76,23 +85,28 @@ func mmap(fd int, offset int64, size int, mode int) ([]byte, error) {
 	lock4map.Lock()
 	defer lock4map.Unlock()
 	handleMap[addr] = &mapHandle{
-		file:     windows.Handle(fd),
+		file:     windows.Handle(uintptr(fd)),
 		view:     h,
 		writable: writable,
 	}
 
-	bytes := make([]byte, 0)
+	mmap := MMap{}
 
-	hd := header(bytes)
+	hd := mmap.header()
 	hd.Data = addr
 	hd.Len = size
 	hd.Cap = hd.Len
 
-	return bytes, nil
+	return mmap, nil
 }
 
-func munmap(bytes []byte) error {
-	hd := header(bytes)
+func munmap(f *os.File, bytes []byte) error {
+	defer func() {
+		// if not close file, when remove file will throw file be used other process.
+		_ = f.Close()
+	}()
+	mmap := MMap(bytes)
+	hd := mmap.header()
 	addr := hd.Data
 	// Lock the UnmapViewOfFile along with the handleMap deletion.
 	// As soon as we unmap the view, the OS is free to give the
@@ -113,12 +127,13 @@ func munmap(bytes []byte) error {
 	}
 	delete(handleMap, addr)
 
-	e := windows.CloseHandle(windows.Handle(handle.view))
+	e := windows.CloseHandle(handle.view)
 	return os.NewSyscallError("CloseHandle", e)
 }
 
 func msync(bytes []byte) error {
-	addr, size := addressAndSize(bytes)
+	mmap := MMap(bytes)
+	addr, size := mmap.addrLen()
 	errno := windows.FlushViewOfFile(addr, size)
 	if errno != nil {
 		return os.NewSyscallError("FlushViewOfFile", errno)
@@ -126,13 +141,14 @@ func msync(bytes []byte) error {
 
 	lock4map.Lock()
 	defer lock4map.Unlock()
+
 	handle, ok := handleMap[addr]
 	if !ok {
 		// should be impossible; we would've errored above
 		return errors.New("unknown base address")
 	}
 
-	if handle.writable {
+	if handle.writable && handle.file != windows.Handle(^uintptr(0)) {
 		if err := windows.FlushFileBuffers(handle.file); err != nil {
 			return os.NewSyscallError("FlushFileBuffers", err)
 		}

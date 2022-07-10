@@ -31,7 +31,7 @@ import (
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 )
 
-const testGRPCPort = 9999
+const testGRPCPort = 9996
 
 func TestTaskServerFactory(t *testing.T) {
 	ctl := gomock.NewController(t)

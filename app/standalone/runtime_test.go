@@ -20,7 +20,6 @@ package standalone
 import (
 	"context"
 	"fmt"
-	"os"
 	"path"
 	"testing"
 	"time"
@@ -48,10 +47,7 @@ func newDefaultStandaloneConfig(_ *testing.T) config.Standalone {
 		ETCD:        *config.NewDefaultETCD(),
 		Monitor:     *config.NewDefaultMonitor(),
 	}
-	dir := path.Join(os.TempDir(), "app", "standalone")
-	defer func() {
-		_ = fileutil.RemoveDir(dir)
-	}()
+	dir := "."
 	saCfg.StorageBase.TSDB.Dir = path.Join(dir, "data")
 	saCfg.StorageBase.WAL.Dir = path.Join(dir, "wal")
 	saCfg.StorageBase.GRPC.Port = 3901
@@ -63,6 +59,9 @@ func newDefaultStandaloneConfig(_ *testing.T) config.Standalone {
 }
 
 func TestRuntime_New(t *testing.T) {
+	defer func() {
+		assert.NoError(t, fileutil.RemoveDir("data"))
+	}()
 	cfg := newDefaultStandaloneConfig(t)
 	standalone := NewStandaloneRuntime("test-version", &cfg)
 	assert.NotNil(t, standalone)
@@ -71,7 +70,10 @@ func TestRuntime_New(t *testing.T) {
 
 func TestRuntime_Run(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	defer func() {
+		assert.NoError(t, fileutil.RemoveDir("data"))
+		ctrl.Finish()
+	}()
 
 	repoFct := state.NewMockRepositoryFactory(ctrl)
 	s := server.NewMockService(ctrl)

@@ -32,7 +32,7 @@ const (
 
 // BufioWriter writes entries to a specified file by buffered I/O. Not thread-safe.
 type BufioWriter interface {
-	// Write writes a new entry containing logs in order.
+	// WriteCloser writes a new entry containing logs in order.
 	// Close syncs data to disk, then closes the opened file.
 	io.WriteCloser
 	// Reset switches the buffered writer to write to a new file:
@@ -78,7 +78,7 @@ func newBufioEntryWriter(fileName string) (*bufioEntryWriter, error) {
 	}, nil
 }
 
-// NewBufioEntryWriter returns a new BufioWriter from fileName.
+// NewBufioStreamWriter returns a new BufioWriter from fileName.
 // BufioStreamWriter writes each block content without length header
 func NewBufioStreamWriter(fileName string) (BufioWriter, error) {
 	entryWriter, err := newBufioEntryWriter(fileName)

@@ -124,10 +124,13 @@ func newStore(name, path string, option StoreOption) (s Store, err error) {
 		isCreate = true
 	}
 	// try lock
-	lock := newFileLockFunc(filepath.Join(path, version.Lock))
-	err = lock.Lock()
+	lock, err := newFileLockFunc(filepath.Join(path, version.Lock))
 	if err != nil {
 		return nil, err
+	}
+
+	if err0 := lock.Lock(); err0 != nil {
+		return nil, err0
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -147,7 +150,7 @@ func newStore(name, path string, option StoreOption) (s Store, err error) {
 			// if init err, need close store for release resource
 			if err2 := store1.close(); err2 != nil {
 				kvLogger.Error("close store err when create store fail",
-					logger.String("store", path), logger.Error(err))
+					logger.String("store", path), logger.Error(err), logger.Error(err2))
 			}
 		}
 

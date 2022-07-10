@@ -21,6 +21,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"testing"
 	"time"
@@ -38,29 +39,38 @@ func TestReader_Fail(t *testing.T) {
 	defer func() {
 		mapFunc = fileutil.Map
 		unmapFunc = fileutil.Unmap
+		openFileFn = os.Open
+		_ = os.RemoveAll(testKVPath)
 	}()
-	// case 1: map err
-	mapFunc = func(path string) (bytes []byte, err error) {
+	// open file fail
+	openFileFn = func(name string) (*os.File, error) {
 		return nil, fmt.Errorf("err")
 	}
-	reader, err := newMMapStoreReader(testKVPath+"/000010.sst", "000010.sst")
+	reader, err := newMMapStoreReader(testKVPath, "000010.sst")
+	assert.Error(t, err)
+	assert.Nil(t, reader)
+	// case 1: map err
+	mapFunc = func(path *os.File) (bytes []byte, err error) {
+		return nil, fmt.Errorf("err")
+	}
+	reader, err = newMMapStoreReader(testKVPath, "000010.sst")
 	assert.Error(t, err)
 	assert.Nil(t, reader)
 	// case 2: footer length err
-	mapFunc = func(path string) (bytes []byte, err error) {
+	mapFunc = func(path *os.File) (bytes []byte, err error) {
 		return []byte{1, 2, 3}, nil
 	}
-	unmapFunc = func(data []byte) error {
+	unmapFunc = func(_ *os.File, _ []byte) error {
 		return fmt.Errorf("err")
 	}
-	reader, err = newMMapStoreReader(testKVPath+"/000010.sst", "000010.sst")
+	reader, err = newMMapStoreReader(testKVPath, "000010.sst")
 	assert.Error(t, err)
 	assert.Nil(t, reader)
 	// case 3: init err
-	mapFunc = func(path string) (bytes []byte, err error) {
+	mapFunc = func(path *os.File) (bytes []byte, err error) {
 		return []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5}, nil
 	}
-	reader, err = newMMapStoreReader(testKVPath+"/000010.sst", "000010.sst")
+	reader, err = newMMapStoreReader(testKVPath, "000010.sst")
 	assert.Error(t, err)
 	assert.Nil(t, reader)
 }
@@ -72,9 +82,9 @@ func TestStoreMMapReader_readBytes_Err(t *testing.T) {
 		intsAreSortedFunc = sort.IntsAreSorted
 		encoding.BitmapUnmarshal = bitmapUnmarshal
 		unmarshalFixedOffsetFunc = unmarshalFixedOffset
-		_ = os.RemoveAll(testKVPath)
+		assert.NoError(t, os.RemoveAll(testKVPath))
 	}()
-	builder, err := NewStoreBuilder(10, testKVPath+"/000010.sst")
+	builder, err := NewStoreBuilder(10, filepath.Join(testKVPath, "000010.sst"))
 	assert.NoError(t, err)
 
 	_ = builder.Add(1, []byte("test"))
@@ -84,7 +94,7 @@ func TestStoreMMapReader_readBytes_Err(t *testing.T) {
 	assert.Nil(t, err)
 
 	// case1, ok
-	r, err := newMMapStoreReader(testKVPath+"/000010.sst", "000010.sst")
+	r, err := newMMapStoreReader(filepath.Join(testKVPath, "000010.sst"), "000010.sst")
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
 	assert.Equal(t, "000010.sst", r.FileName())
@@ -100,12 +110,13 @@ func TestStoreMMapReader_readBytes_Err(t *testing.T) {
 	block, err = r.(*storeMMapReader).getBlock(2)
 	assert.Error(t, err)
 	assert.Len(t, block, 0)
+	assert.NoError(t, r.Close())
 	// case 2: offset not in sort
 	uint64Func = binary.LittleEndian.Uint64
 	intsAreSortedFunc = func(x []int) bool {
 		return false
 	}
-	r, err = newMMapStoreReader(testKVPath+"/000010.sst", "000010.sst")
+	r, err = newMMapStoreReader(filepath.Join(testKVPath, "000010.sst"), "000010.sst")
 	assert.Error(t, err)
 	assert.Nil(t, r)
 	intsAreSortedFunc = sort.IntsAreSorted
@@ -114,7 +125,7 @@ func TestStoreMMapReader_readBytes_Err(t *testing.T) {
 	unmarshalFixedOffsetFunc = func(decoder *encoding.FixedOffsetDecoder, data []byte) error {
 		return fmt.Errorf("err")
 	}
-	r, err = newMMapStoreReader(testKVPath+"/000010.sst", "000010.sst")
+	r, err = newMMapStoreReader(testKVPath, "000010.sst")
 	assert.Error(t, err)
 	assert.Nil(t, r)
 
@@ -125,7 +136,7 @@ func TestStoreMMapReader_readBytes_Err(t *testing.T) {
 	encoding.BitmapUnmarshal = func(bitmap *roaring.Bitmap, data []byte) error {
 		return fmt.Errorf("err")
 	}
-	r, err = newMMapStoreReader(testKVPath+"/000010.sst", "000010.sst")
+	r, err = newMMapStoreReader(filepath.Join(testKVPath, "000010.sst"), "000010.sst")
 	assert.Error(t, err)
 	assert.Nil(t, r)
 
@@ -134,7 +145,7 @@ func TestStoreMMapReader_readBytes_Err(t *testing.T) {
 		bitmap.AddRange(1, 1000)
 		return nil
 	}
-	r, err = newMMapStoreReader(testKVPath+"/000010.sst", "000010.sst")
+	r, err = newMMapStoreReader(filepath.Join(testKVPath, "000010.sst"), "000010.sst")
 	assert.Error(t, err)
 	assert.Nil(t, r)
 }
@@ -145,7 +156,7 @@ func TestReader(t *testing.T) {
 		_ = os.RemoveAll(testKVPath)
 	}()
 
-	builder, err := NewStoreBuilder(10, testKVPath+"/000010.sst")
+	builder, err := NewStoreBuilder(10, filepath.Join(testKVPath, "000010.sst"))
 	assert.NoError(t, err)
 
 	_ = builder.Add(1, []byte("test"))
@@ -161,7 +172,7 @@ func TestReader(t *testing.T) {
 	defer func() {
 		_ = reader.Close()
 	}()
-	assert.Equal(t, testKVPath+"/000010.sst", reader.Path())
+	assert.Equal(t, filepath.Join(testKVPath, "000010.sst"), reader.Path())
 
 	// get from store cache
 	reader, err = cache.GetReader("", "000010.sst")
@@ -188,7 +199,7 @@ func TestStoreIterator(t *testing.T) {
 	defer func() {
 		_ = os.RemoveAll(testKVPath)
 	}()
-	builder, err := NewStoreBuilder(10, testKVPath+"/000010.sst")
+	builder, err := NewStoreBuilder(10, filepath.Join(testKVPath, "000010.sst"))
 	assert.NoError(t, err)
 
 	_ = builder.Add(1, []byte("test"))

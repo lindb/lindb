@@ -34,23 +34,19 @@ func TestLoadConfig(t *testing.T) {
 	assert.NotNil(t, LoadConfig(cfgFile, cfgFile, &TestCfg{}))
 
 	f, err := os.Create(cfgFile)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
+	assert.NotNil(t, f)
 	_, _ = f.WriteString("Hello World")
 	assert.NotNil(t, LoadConfig(cfgFile, cfgFile, &TestCfg{}))
+	_ = f.Close()
 
 	_ = EncodeToml(cfgFile, &TestCfg{Path: "/data/path"})
 	cfg := TestCfg{}
 	err = LoadConfig(cfgFile, cfgFile, &cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	assert.Equal(t, TestCfg{Path: "/data/path"}, cfg)
 
 	err = LoadConfig("", cfgFile, &cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	assert.Equal(t, TestCfg{Path: "/data/path"}, cfg)
 }

@@ -20,6 +20,7 @@ package config
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 )
 
 // Standalone represents the configuration of standalone mode
@@ -52,8 +53,8 @@ dir = "%s"
 ## etcd will listen on the given port and interface.
 ## Default: %s
 url = "%s"`,
-		etcd.Dir,
-		etcd.Dir,
+		strings.ReplaceAll(etcd.Dir, "\\", "\\\\"),
+		strings.ReplaceAll(etcd.Dir, "\\", "\\\\"),
 		etcd.URL,
 		etcd.URL,
 	)

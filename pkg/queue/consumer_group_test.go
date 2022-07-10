@@ -96,6 +96,8 @@ func TestConsumerGroup_IsEmpty(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, idx, f1.ConsumedSeq())
 	assert.Equal(t, idx, f1.AcknowledgedSeq())
+	f1.Close()
+	fq.Close()
 }
 
 func TestConsumerGroup_one_consumer(t *testing.T) {

@@ -107,6 +107,14 @@ func (b *bufferManager) GarbageCollect() {
 
 // Cleanup cleans all history buffers.
 func (b *bufferManager) Cleanup() {
+	oldSet := b.value.Load().([]DataPointBuffer)
+	for _, buf := range oldSet {
+		buf.Release()
+		if err := buf.Close(); err != nil {
+			b.logger.Error("close data point write buffer", logger.String("path", b.path), logger.Error(err))
+		}
+	}
+
 	err := removeFunc(b.path)
 	if err != nil {
 		b.logger.Error("clean up data point write buffer", logger.String("path", b.path), logger.Error(err))

@@ -30,25 +30,29 @@ func TestRead(t *testing.T) {
 	filename := path.Join(t.TempDir(), "testdata")
 	file, err := os.Create(filename)
 	assert.NoError(t, err)
-
 	content := "abc123"
-
 	_, err = file.WriteString(content)
 	assert.NoError(t, err)
+	assert.NoError(t, file.Close())
 
-	bys, err := Map(filename)
+	file, err = os.Open(filename)
+	assert.NoError(t, err)
+	bys, err := Map(file)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte(content), bys)
+	assert.NoError(t, Unmap(file, bys))
 }
 
 func TestRWMap(t *testing.T) {
 	var content = []byte("12345")
 	var size = 1024
 	filename := path.Join(t.TempDir(), "testdata")
-
-	mapBytes, err := RWMap(filename, size)
+	f, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR, 0644)
 	assert.NoError(t, err)
-	if Unmap(nil) != nil {
+	assert.NotNil(t, f)
+	mapBytes, err := RWMap(f, size)
+	assert.NoError(t, err)
+	if Unmap(f, nil) != nil {
 		t.Error("unmap nil returns not nil")
 	}
 
@@ -60,7 +64,7 @@ func TestRWMap(t *testing.T) {
 	err = Sync(mapBytes)
 	assert.NoError(t, err)
 
-	if Unmap(mapBytes) != nil {
+	if Unmap(f, mapBytes) != nil {
 		t.Errorf("unmap mapBytes with error: %v", err)
 	}
 

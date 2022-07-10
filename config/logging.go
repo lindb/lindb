@@ -20,13 +20,14 @@ package config
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/lindb/lindb/pkg/ltoml"
 )
 
 var (
 	// defaultParentDir is the default directory of lindb
-	defaultParentDir = "/tmp/lindb"
+	defaultParentDir = filepath.Join(".", "data")
 )
 
 // Logging represents a logging configuration
@@ -63,8 +64,8 @@ maxbackups = %d
 ## The default is not to remove old log files based on age.
 ## Default: %d
 maxage = %d`,
-		l.Dir,
-		l.Dir,
+		strings.ReplaceAll(l.Dir, "\\", "\\\\"),
+		strings.ReplaceAll(l.Dir, "\\", "\\\\"),
 		l.Level,
 		l.Level,
 		l.MaxSize,

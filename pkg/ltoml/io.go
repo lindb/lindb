@@ -30,12 +30,12 @@ import (
 func EncodeToml(fileName string, v interface{}) error {
 	tmp := fmt.Sprintf("%s.tmp", fileName)
 	f, _ := os.Create(tmp)
-	defer func() {
-		_ = f.Close()
-	}()
 	w := bufio.NewWriter(f)
 	// write info using toml format
 	if err := toml.NewEncoder(w).Encode(v); err != nil {
+		return err
+	}
+	if err := f.Close(); err != nil {
 		return err
 	}
 	if err := os.Rename(tmp, fileName); err != nil {
@@ -47,9 +47,6 @@ func EncodeToml(fileName string, v interface{}) error {
 func WriteConfig(fileName, content string) error {
 	tmp := fmt.Sprintf("%s.tmp", fileName)
 	f, _ := os.Create(tmp)
-	defer func() {
-		_ = f.Close()
-	}()
 	w := bufio.NewWriter(f)
 	if _, err := w.WriteString(content); err != nil {
 		return err
@@ -57,6 +54,11 @@ func WriteConfig(fileName, content string) error {
 	if err := w.Flush(); err != nil {
 		return err
 	}
+	// need close file before rename file name
+	if err := f.Close(); err != nil {
+		return err
+	}
+	// if file isn't closed, will throw the file be processed other process in windows.
 	if err := os.Rename(tmp, fileName); err != nil {
 		return fmt.Errorf("rename tmp file[%s] name error:%s", tmp, err)
 	}

@@ -20,11 +20,11 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/ltoml"
 )
 
@@ -53,7 +53,7 @@ func (rs *RepoState) String() string {
 
 func (rs *RepoState) WithSubNamespace(subDir string) *RepoState {
 	return &RepoState{
-		Namespace:   filepath.Join(rs.Namespace, subDir),
+		Namespace:   rs.Namespace + constants.StatePathSeparator + subDir,
 		Endpoints:   rs.Endpoints,
 		Timeout:     rs.Timeout,
 		DialTimeout: rs.DialTimeout,

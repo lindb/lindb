@@ -18,6 +18,8 @@
 package page
 
 import (
+	"os"
+
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/pkg/fileutil"
@@ -64,7 +66,7 @@ type MappedPage interface {
 
 // CloseFunc defines the way to release underlying bytes.
 // This makes it easy to use normal non-mmapped bytes for test.
-type CloseFunc func(mappedBytes []byte) error
+type CloseFunc func(f *os.File, mappedBytes []byte) error
 
 // MMapCloseFunc defines the way to release mmaped bytes.
 var MMapCloseFunc CloseFunc = fileutil.Unmap
@@ -79,6 +81,7 @@ var MMapSyncFunc SyncFunc = fileutil.Sync
 // mappedPage implements MappedPage
 type mappedPage struct {
 	fileName    string
+	f           *os.File
 	mappedBytes []byte
 	size        int
 	// false -> opened, true -> closed
@@ -87,13 +90,20 @@ type mappedPage struct {
 
 // NewMappedPage returns a new MappedPage wrapping the give bytes.
 func NewMappedPage(fileName string, size int) (MappedPage, error) {
-	bytes, err := mapFileFunc(fileName, size)
+	f, err := os.OpenFile(fileName, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
+		return nil, err
+	}
+	bytes, err := mapFileFunc(f, size)
+	if err != nil {
+		// need close file, if map file failure
+		_ = f.Close()
 		return nil, err
 	}
 
 	return &mappedPage{
 		fileName:    fileName,
+		f:           f,
 		mappedBytes: bytes,
 		size:        size,
 	}, nil
@@ -152,7 +162,7 @@ func (mp *mappedPage) Sync() error {
 // Close releases underlying bytes.
 func (mp *mappedPage) Close() error {
 	if mp.closed.CAS(false, true) {
-		return MMapCloseFunc(mp.mappedBytes)
+		return MMapCloseFunc(mp.f, mp.mappedBytes)
 	}
 
 	return nil

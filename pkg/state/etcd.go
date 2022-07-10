@@ -20,7 +20,6 @@ package state
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"runtime/pprof"
 	"strconv"
 	"strings"
@@ -33,6 +32,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
@@ -348,7 +348,7 @@ func (r *etcdRepository) NextSequence(ctx context.Context, key string) (int64, e
 // keyPath return new key path with namespace prefix
 func (r *etcdRepository) keyPath(key string) string {
 	if len(r.namespace) > 0 {
-		return filepath.Join(r.namespace, key)
+		return r.namespace + constants.StatePathSeparator + key
 	}
 	return key
 }

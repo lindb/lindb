@@ -33,10 +33,15 @@ func Test_NewBufioEntryReader(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Nil(t, br)
 
-	_, _ = os.Create(_testFile)
+	f, _ := os.Create(_testFile)
+	defer func() {
+		_ = f.Close()
+	}()
 	br, err = NewBufioEntryReader(_testFile)
 	assert.Nil(t, err)
 	assert.NotNil(t, br)
+	err = br.Close()
+	assert.NoError(t, err)
 }
 
 func TestBufioReader_content(t *testing.T) {
@@ -67,6 +72,10 @@ func TestBufioReader_content(t *testing.T) {
 	br.Next()
 	assert.Equal(t, 2, len(br.content))
 	assert.Equal(t, 5, cap(br.content))
+	err := bw.Close()
+	assert.NoError(t, err)
+	err = br.Close()
+	assert.NoError(t, err)
 }
 
 func BenchmarkBufioReader_Read(b *testing.B) {
@@ -96,11 +105,12 @@ func BenchmarkBufioReader_Read(b *testing.B) {
 func TestBufioReader_Count_Reset_Close(t *testing.T) {
 	defer func() {
 		_ = os.Remove(_testFile)
-	}()
-	defer func() {
 		_ = os.Remove("new" + _testFile)
 	}()
-	_, _ = os.Create("new" + _testFile)
+	f, _ := os.Create("new" + _testFile)
+	defer func() {
+		_ = f.Close()
+	}()
 	bw, _ := NewBufioEntryWriter(_testFile)
 	br, _ := NewBufioEntryReader(_testFile)
 
@@ -119,6 +129,7 @@ func TestBufioReader_Count_Reset_Close(t *testing.T) {
 	assert.Equal(t, 0, int(br.Count()))
 
 	assert.Nil(t, br.Close())
+	assert.NoError(t, bw.Close())
 }
 
 func TestBufioReader_Size(t *testing.T) {
