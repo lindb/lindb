@@ -31,7 +31,12 @@ func TestIDStore_New_err(t *testing.T) {
 		pebbleOpenFn = pebble.Open
 	}()
 	p := t.TempDir()
-	_, _ = NewIDStore(p)
+	s, err := NewIDStore(p)
+	assert.NoError(t, err)
+	assert.NotNil(t, s)
+	defer func() {
+		_ = s.Close()
+	}()
 
 	// cannot create duplicate
 	pebbleOpenFn = func(dir string, opts *pebble.Options) (db *pebble.DB, _ error) {
@@ -45,6 +50,9 @@ func TestIDStore_New_err(t *testing.T) {
 func TestIDStore_CRUD(t *testing.T) {
 	p := t.TempDir()
 	store, err := NewIDStore(p)
+	defer func() {
+		_ = store.Close()
+	}()
 	assert.NoError(t, err)
 	assert.NotNil(t, store)
 
@@ -154,6 +162,9 @@ func TestIdStore_IterIDKeys(t *testing.T) {
 	p := t.TempDir()
 	store, err := NewIDStore(p)
 	assert.NoError(t, err)
+	defer func() {
+		_ = store.Close()
+	}()
 	mock(t, store)
 
 	cases := []struct {
@@ -222,8 +233,11 @@ func TestPebble_Reopen(t *testing.T) {
 	db, err := pebble.Open(p, opt)
 	assert.NotNil(t, db)
 	assert.NoError(t, err)
+	defer func() {
+		_ = db.Close()
+	}()
 
-	db, err = pebble.Open(p, opt)
+	db2, err := pebble.Open(p, opt)
 	assert.Error(t, err)
-	assert.Nil(t, db)
+	assert.Nil(t, db2)
 }

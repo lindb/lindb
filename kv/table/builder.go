@@ -197,13 +197,18 @@ func (b *storeBuilder) Abandon() error {
 }
 
 // Close writes file footer before closing resources
-func (b *storeBuilder) Close() error {
+func (b *storeBuilder) Close() (err error) {
+	defer func() {
+		if err0 := b.writer.Close(); err0 != nil {
+			err = err0
+		}
+	}()
 	if b.keys.IsEmpty() {
 		return ErrEmptyKeys
 	}
 	posOfOffset := b.writer.Size()
 	offset := b.offset.MarshalBinary()
-	if _, err := b.writer.Write(offset); err != nil {
+	if _, err = b.writer.Write(offset); err != nil {
 		return err
 	}
 
@@ -226,7 +231,7 @@ func (b *storeBuilder) Close() error {
 	if _, err = b.writer.Write(buf[:]); err != nil {
 		return err
 	}
-	return b.writer.Close()
+	return nil
 }
 
 func (b *storeBuilder) StreamWriter() StreamWriter {

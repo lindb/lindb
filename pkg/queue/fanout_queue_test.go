@@ -152,6 +152,7 @@ func TestFanOutQueue_GetOrCreateConsumerGroup(t *testing.T) {
 
 	foNames := fq.ConsumerGroupNames()
 	assert.Equal(t, "group-1", foNames[0])
+	fq.Close()
 }
 
 func TestFanOutQueue_Sync(t *testing.T) {
@@ -198,6 +199,7 @@ func TestFanOutQueue_Sync(t *testing.T) {
 	metaPage.EXPECT().PutUint64(gomock.Any(), gomock.Any()).MaxTimes(2)
 	metaPage.EXPECT().Sync().Return(fmt.Errorf("err"))
 	fo2.Ack(s2)
+	fq.Close()
 }
 
 func TestFanOutQueue_Close(t *testing.T) {
@@ -214,6 +216,10 @@ func TestFanOutQueue_Close(t *testing.T) {
 
 	fo1 := fo.(*consumerGroup)
 	pageFct := page.NewMockFactory(ctrl)
+	metaPageFct := fo1.metaPageFct
+	defer func() {
+		_ = metaPageFct.Close()
+	}()
 	fo1.metaPageFct = pageFct
 	pageFct.EXPECT().Close().Return(fmt.Errorf("err"))
 

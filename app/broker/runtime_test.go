@@ -56,7 +56,7 @@ var cfg = config.Broker{
 	},
 	BrokerBase: config.BrokerBase{
 		HTTP: config.HTTP{
-			Port: 9999,
+			Port: 9998,
 		},
 		GRPC: config.GRPC{
 			Port: 2881,

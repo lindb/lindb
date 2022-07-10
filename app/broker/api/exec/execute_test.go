@@ -94,6 +94,8 @@ func TestExecuteAPI_Execute(t *testing.T) {
 	r := gin.New()
 	api.Register(r)
 
+	var backend *httptest.Server
+
 	cases := []struct {
 		name    string
 		reqBody string
@@ -911,14 +913,15 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			name:    "show storage metadata, forward request successfully",
 			reqBody: `{"sql":"show storage metadata from state_repo where type=LiveNode and storage='test'"}`,
 			prepare: func() {
+				port := uint16(8789)
 				master.EXPECT().IsMaster().Return(false)
-				master.EXPECT().GetMaster().Return(&models.Master{Node: &models.StatelessNode{HostIP: "127.0.0.1", HTTPPort: 8089}})
-				backend := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				master.EXPECT().GetMaster().Return(&models.Master{Node: &models.StatelessNode{HostIP: "127.0.0.1", HTTPPort: port}})
+				backend = httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					_, _ = w.Write([]byte("test"))
 				}))
 				// hack
 				_ = backend.Listener.Close()
-				l, err := net.Listen("tcp", "127.0.0.1:8089")
+				l, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 				assert.NoError(t, err)
 				backend.Listener = l
 				// Start the server.
@@ -1043,6 +1046,10 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			resp := mock.DoRequest(t, r, http.MethodPut, ExecutePath, tt.reqBody)
 			if tt.assert != nil {
 				tt.assert(resp)
+			}
+			if backend != nil {
+				backend.Close()
+				backend = nil
 			}
 		})
 	}

@@ -78,7 +78,7 @@ func TestStorageRun(t *testing.T) {
 	// test normal storage run
 	cfg.Coordinator.Endpoints = cluster.Endpoints
 	cfg.Coordinator.Timeout = ltoml.Duration(time.Second * 10)
-	cfg.StorageBase.GRPC.Port = 9999
+	cfg.StorageBase.GRPC.Port = 9997
 	config.SetGlobalStorageConfig(&cfg.StorageBase)
 	storage := NewStorageRuntime("test-version", &cfg)
 	err := storage.Run()

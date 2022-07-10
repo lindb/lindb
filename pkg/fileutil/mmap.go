@@ -27,13 +27,7 @@ const (
 )
 
 // Map memory-maps a file.
-func Map(path string) ([]byte, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
+func Map(f *os.File) ([]byte, error) {
 	fs, err := f.Stat()
 	if err != nil {
 		return nil, err
@@ -54,18 +48,8 @@ func Map(path string) ([]byte, error) {
 
 // RWMap maps a file for read and write with give size.
 // New file is created is not existed.
-func RWMap(filePath string, size int) (data []byte, err error) {
-	f, err := os.OpenFile(filePath, os.O_CREATE|os.O_RDWR, 0644)
-	if err != nil {
-		return nil, err
-	}
-
-	defer func() {
-		_ = f.Close()
-	}()
-
+func RWMap(f *os.File, size int) (data []byte, err error) {
 	fstat, err := f.Stat()
-
 	if err != nil {
 		return nil, err
 	}
@@ -87,11 +71,11 @@ func RWMap(filePath string, size int) (data []byte, err error) {
 }
 
 // Unmap closes the memory-map.
-func Unmap(data []byte) error {
+func Unmap(f *os.File, data []byte) error {
 	if data == nil {
 		return nil
 	}
-	return munmap(data)
+	return munmap(f, data)
 }
 
 func Sync(data []byte) error {

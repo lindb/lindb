@@ -141,16 +141,22 @@ func (f *factory) TruncatePages(index int64) {
 
 	for pageID := range f.pages {
 		if pageID < index {
-			if err := removeFileFunc(f.pageFileName(pageID)); err != nil {
-				f.logger.Info("remove page failure",
-					logger.String("path", f.path), logger.Any("page", pageID))
-				continue
-			}
-			delete(f.pages, index)
-			f.size.Sub(int64(f.pageSize))
+			if page, ok := f.pages[pageID]; ok {
+				if err := page.Close(); err != nil {
+					f.logger.Warn("close page failure",
+						logger.String("path", f.path), logger.Any("page", pageID), logger.Error(err))
+				}
+				if err := removeFileFunc(f.pageFileName(pageID)); err != nil {
+					f.logger.Warn("remove page failure",
+						logger.String("path", f.path), logger.Any("page", pageID), logger.Error(err))
+					continue
+				}
+				delete(f.pages, index)
+				f.size.Sub(int64(f.pageSize))
 
-			f.logger.Info("remove page successfully",
-				logger.String("path", f.path), logger.Any("page", pageID))
+				f.logger.Info("remove page successfully",
+					logger.String("path", f.path), logger.Any("page", pageID))
+			}
 		}
 	}
 }

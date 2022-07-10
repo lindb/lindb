@@ -22,6 +22,7 @@ import (
 	"math"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/lindb/lindb/pkg/ltoml"
@@ -78,8 +79,8 @@ max-seriesIDs = %d
 ## Limit for tagKeys
 ## Default: %d
 max-tagKeys = %d`,
-		t.Dir,
-		t.Dir,
+		strings.ReplaceAll(t.Dir, "\\", "\\\\"),
+		strings.ReplaceAll(t.Dir, "\\", "\\\\"),
 		t.MaxMemDBSize.String(),
 		t.MaxMemDBSize.String(),
 		t.MutableMemDBTTL.String(),
@@ -177,8 +178,8 @@ data-size-limit = "%s"
 ## interval for how often remove expired write ahead log
 ## Default: %s
 remove-task-interval = "%s"`,
-		rc.Dir,
-		rc.Dir,
+		strings.ReplaceAll(rc.Dir, "\\", "\\\\"),
+		strings.ReplaceAll(rc.Dir, "\\", "\\\\"),
 		rc.DataSizeLimit.String(),
 		rc.DataSizeLimit.String(),
 		rc.RemoveTaskInterval.String(),

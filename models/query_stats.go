@@ -77,6 +77,7 @@ func NewStorageStats() *StorageStats {
 func (s *StorageStats) Complete() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
 	s.TotalCost = time.Since(s.start).Nanoseconds()
 }
 

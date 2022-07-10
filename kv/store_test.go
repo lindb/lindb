@@ -53,7 +53,7 @@ func TestRegisterMerger(t *testing.T) {
 
 func TestStore_New(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	tmpDir := filepath.Join(t.TempDir(), "test_data")
+	tmpDir := "store_data"
 	option := DefaultStoreOption()
 	defer func() {
 		encodeTomlFunc = ltoml.EncodeToml
@@ -61,6 +61,7 @@ func TestStore_New(t *testing.T) {
 		newVersionSetFunc = version.NewStoreVersionSet
 		newFileLockFunc = lockers.NewFileLock
 		ctrl.Finish()
+		assert.NoError(t, fileutil.RemoveDir(tmpDir))
 	}()
 	// case 1: create store dir err
 	mkDirFunc = func(path string) error {
@@ -71,8 +72,8 @@ func TestStore_New(t *testing.T) {
 	assert.Nil(t, kv)
 	// case 2: dump store option err
 	lock := lockers.NewMockFileLock(ctrl)
-	newFileLockFunc = func(fileName string) lockers.FileLock {
-		return lock
+	newFileLockFunc = func(fileName string) (lockers.FileLock, error) {
+		return lock, nil
 	}
 	lock.EXPECT().Lock().Return(nil)
 	lock.EXPECT().Unlock().Return(fmt.Errorf("err"))
@@ -83,7 +84,7 @@ func TestStore_New(t *testing.T) {
 	kv, err = newStore("test_kv", tmpDir, option)
 	assert.Error(t, err)
 	assert.Nil(t, kv)
-	_ = fileutil.RemoveDir(tmpDir)
+	assert.NoError(t, fileutil.RemoveDir(tmpDir))
 	encodeTomlFunc = ltoml.EncodeToml
 	newFileLockFunc = lockers.NewFileLock
 	// case 3: new store success
@@ -91,9 +92,6 @@ func TestStore_New(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, kv, "cannot create kv store")
 	assert.Equal(t, "test_kv", kv.Name())
-	// case 4: new store fail, because try lock file err
-	_, err = newStore("test_kv", tmpDir, option)
-	assert.Error(t, err)
 	kv, _ = kv.(*store)
 	kvStore, ok := kv.(*store)
 	_, err = kv.CreateFamily("f", FamilyOption{Merger: mergerStr})
@@ -102,8 +100,17 @@ func TestStore_New(t *testing.T) {
 		assert.Equal(t, int32(1), kvStore.familySeq.Load(), "store family id is wrong")
 	}
 	assert.True(t, ok)
-	_ = kv.close()
+	assert.NoError(t, kv.close())
+	// case 4: new store fail, because try lock file err
+	newFileLockFunc = func(fileName string) (lockers.FileLock, error) {
+		return lock, nil
+	}
+	lock.EXPECT().Lock().Return(fmt.Errorf("err"))
+	_, err = newStore("test_kv", tmpDir, option)
+	assert.Error(t, err)
+
 	// case 5: reopen store
+	newFileLockFunc = lockers.NewFileLock
 	kv2, e := newStore("test_kv", tmpDir, option)
 	assert.NoError(t, e)
 	assert.NotNil(t, kv2, "cannot re-open kv store")
@@ -113,10 +120,10 @@ func TestStore_New(t *testing.T) {
 		assert.Equal(t, int32(1), kvStore.familySeq.Load(), "store family id is wrong")
 	}
 	assert.True(t, ok)
-	_ = kv2.close()
+	assert.NoError(t, kv2.close())
 	delete(mergers, MergerType(mergerStr))
 	// case 6: decode option err
-	_, e = newStore("test_kv", tmpDir, option)
+	kv, e = newStore("test_kv", tmpDir, option)
 	assert.NotNil(t, e)
 	assert.Nil(t, nil)
 	RegisterMerger(MergerType(mergerStr), newMockMerger)
@@ -134,17 +141,25 @@ func TestStore_New(t *testing.T) {
 	vs.EXPECT().Recover().Return(fmt.Errorf("err"))
 	vs.EXPECT().Destroy().Return(nil) // close store
 	vs.EXPECT().ManifestFileNumber().Return(table.FileNumber(10))
-	_, e = newStore("test_kv", tmpDir, option)
+	kv, e = newStore("test_kv", tmpDir, option)
+	assert.Error(t, e)
+	assert.Nil(t, kv)
+	// case 8: create file lock fail
+	newFileLockFunc = func(fileName string) (lockers.FileLock, error) {
+		return nil, fmt.Errorf("err")
+	}
+	kv, e = newStore("test_kv", tmpDir, option)
 	assert.Error(t, e)
 	assert.Nil(t, kv)
 }
 
 func TestStore_CreateFamily(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "test_data")
+	path := "create_family_test"
 	option := DefaultStoreOption()
 	defer func() {
 		encodeTomlFunc = ltoml.EncodeToml
 		newFamilyFunc = newFamily
+		assert.NoError(t, fileutil.RemoveDir(path))
 	}()
 
 	kv, err := newStore("test_kv", path, option)
@@ -218,13 +233,14 @@ func TestStore_deleteObsoleteFiles(t *testing.T) {
 }
 
 func TestStore_Compact(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "test_data")
+	path := "compact_test"
 	option := DefaultStoreOption()
 
 	kv, err := newStore("test_kv", path, option)
 	assert.NoError(t, err)
 	defer func() {
-		_ = kv.close()
+		assert.NoError(t, kv.close())
+		assert.NoError(t, fileutil.RemoveDir(path))
 	}()
 	f1, err2 := kv.CreateFamily("f", FamilyOption{
 		CompactThreshold: 2,
@@ -257,18 +273,19 @@ func TestStore_Compact(t *testing.T) {
 
 func TestStore_Rollup(t *testing.T) {
 	ctrl := gomock.NewController(t)
+	path := "rollup_test"
 	defer func() {
 		ctrl.Finish()
 		newFamilyFunc = newFamily
+		assert.NoError(t, fileutil.RemoveDir(path))
 	}()
 
-	path := filepath.Join(t.TempDir(), "test_data")
 	option := DefaultStoreOption()
 
 	kv, err := newStore("test_kv", path, option)
 	assert.NoError(t, err)
 	defer func() {
-		_ = kv.close()
+		assert.NoError(t, kv.close())
 	}()
 	family := NewMockFamily(ctrl)
 	family.EXPECT().close().AnyTimes()
@@ -290,16 +307,16 @@ func TestStore_Rollup(t *testing.T) {
 
 	family.EXPECT().rollup()
 	kv.ForceRollup()
-
-	err = kv.close()
-	assert.NoError(t, err)
 }
 
 func TestStore_Close(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "test_data")
+	path := "store_close_test"
 	option := DefaultStoreOption()
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	defer func() {
+		assert.NoError(t, fileutil.RemoveDir(path))
+		ctrl.Finish()
+	}()
 
 	kv, err := newStore("test_kv", path, option)
 	assert.NoError(t, err)
@@ -307,9 +324,12 @@ func TestStore_Close(t *testing.T) {
 	cache := table.NewMockCache(ctrl)
 	cache.EXPECT().Close().Return(fmt.Errorf("err"))
 	kv1.cache = cache
+	versionSet := kv1.versions
+	defer func() {
+		assert.NoError(t, versionSet.Destroy())
+	}()
 	vs := version.NewMockStoreVersionSet(ctrl)
 	vs.EXPECT().Destroy().Return(fmt.Errorf("err"))
 	kv1.versions = vs
-	err = kv.close()
-	assert.NoError(t, err)
+	assert.NoError(t, kv.close())
 }

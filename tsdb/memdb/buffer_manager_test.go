@@ -50,11 +50,20 @@ func TestBufferManager_AllocBuffer(t *testing.T) {
 }
 
 func TestBufferManager_Cleanup(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	path := "buf_test"
 	defer func() {
 		removeFunc = fileutil.RemoveDir
+		ctrl.Finish()
+		assert.NoError(t, fileutil.RemoveDir(path))
 	}()
 
-	mgr := NewBufferManager(t.TempDir())
+	buf := NewMockDataPointBuffer(ctrl)
+	buf.EXPECT().Release().AnyTimes()
+	buf.EXPECT().Close().Return(fmt.Errorf("err")).AnyTimes()
+	mgr := NewBufferManager(path)
+	mgr1 := mgr.(*bufferManager)
+	mgr1.value.Store([]DataPointBuffer{buf})
 
 	// case 1: cleanup err
 	removeFunc = func(path string) error {

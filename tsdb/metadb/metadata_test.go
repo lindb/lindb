@@ -65,6 +65,10 @@ func TestMetadata_Flush(t *testing.T) {
 	assert.NoError(t, err)
 	db := NewMockMetadataDatabase(ctrl)
 	m := metadata1.(*metadata)
+	backendDB := m.metadataDatabase
+	defer func() {
+		_ = backendDB.Close()
+	}()
 	m.metadataDatabase = db
 	db.EXPECT().Sync().Return(fmt.Errorf("err"))
 	err = metadata1.Flush()

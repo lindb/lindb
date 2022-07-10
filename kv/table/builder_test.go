@@ -99,6 +99,7 @@ func TestStoreBuilder_Build_Err(t *testing.T) {
 	err = builder.Add(10, []byte{1, 2, 3})
 	assert.Error(t, err)
 	// case 2: close empty keys
+	writer.EXPECT().Close().Return(nil)
 	err = builder.Close()
 	assert.Equal(t, ErrEmptyKeys, err)
 	// case 3: close write offset err
@@ -106,6 +107,7 @@ func TestStoreBuilder_Build_Err(t *testing.T) {
 	writer.EXPECT().Write(gomock.Any()).Return(0, fmt.Errorf("err"))
 	err = builder.Add(10, []byte{1, 2, 3})
 	assert.NoError(t, err)
+	writer.EXPECT().Close().Return(nil)
 	err = builder.Close()
 	assert.Error(t, err)
 	// case 4: bitmap marshal err
@@ -113,20 +115,29 @@ func TestStoreBuilder_Build_Err(t *testing.T) {
 		return nil, fmt.Errorf("err")
 	}
 	writer.EXPECT().Write(gomock.Any()).Return(10, nil)
+	writer.EXPECT().Close().Return(nil)
 	err = builder.Close()
 	assert.Error(t, err)
 	// case 5: write keys err
 	encoding.BitmapMarshal = bitmapMarshal
 	writer.EXPECT().Write(gomock.Any()).Return(10, nil)              // write offset
 	writer.EXPECT().Write(gomock.Any()).Return(0, fmt.Errorf("err")) // write keys
+	writer.EXPECT().Close().Return(nil)
 	err = builder.Close()
 	assert.Error(t, err)
 	// case 6: write footer err
 	writer.EXPECT().Write(gomock.Any()).Return(10, nil).MaxTimes(2)  // write offset/keys
 	writer.EXPECT().Write(gomock.Any()).Return(0, fmt.Errorf("err")) // write footer
+	writer.EXPECT().Close().Return(nil)
 	err = builder.Close()
 	assert.Error(t, err)
-	// case 6: new builder err
+	// case 7: write close err
+	writer.EXPECT().Write(gomock.Any()).Return(10, nil).MaxTimes(2) // write offset/keys
+	writer.EXPECT().Write(gomock.Any()).Return(0, nil)              // write footer
+	writer.EXPECT().Close().Return(fmt.Errorf("err"))
+	err = builder.Close()
+	assert.Error(t, err)
+	// case 8: new builder err
 	newBufioWriterFunc = func(fileName string) (bufioutil.BufioWriter, error) {
 		return nil, fmt.Errorf("err")
 	}

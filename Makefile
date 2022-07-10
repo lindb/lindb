@@ -24,8 +24,10 @@ build-all: clean-frontend-build build-frontend clean-build build-lind ## Build e
 build-lind: ## build lindb binary
 	env GOOS=darwin GOARCH=$(GOARCH) go build -o 'bin/lind-darwin' $(LD_FLAGS) ./cmd/lind
 	env GOOS=linux GOARCH=$(GOARCH) go build -o 'bin/lind-linux' $(LD_FLAGS) ./cmd/lind
+	env GOOS=windows GOARCH=$(GOARCH) go build -o 'bin/lind-windows.exe' $(LD_FLAGS) ./cmd/lind
 	env GOOS=darwin GOARCH=$(GOARCH) go build -o 'bin/lindcli-darwin' $(LD_FLAGS) ./cmd/cli
 	env GOOS=linux GOARCH=$(GOARCH) go build -o 'bin/lindcli-linux' $(LD_FLAGS) ./cmd/cli
+	env GOOS=windows GOARCH=$(GOARCH) go build -o 'bin/lindcli-windows.exe' $(LD_FLAGS) ./cmd/cli
 
 GOMOCK_VERSION = "v1.5.0"
 

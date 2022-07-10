@@ -40,6 +40,8 @@ func TestNewBufioEntryWriter(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.NotNil(t, bw)
+	err = bw.Close()
+	assert.NoError(t, err)
 }
 
 func TestBufioWriter_Reset(t *testing.T) {
@@ -56,10 +58,14 @@ func TestBufioWriter_Reset(t *testing.T) {
 	err := bw.Reset("new" + _testFile)
 	assert.Nil(t, err)
 	assert.Equal(t, int64(0), bw.Size())
-	_, _ = bw.Write([]byte("abcd"))
+	_, err = bw.Write([]byte("abcd"))
+	assert.NoError(t, err)
 
 	stat, _ := os.Stat(_testFile)
 	assert.Equal(t, int64(5), stat.Size())
+
+	err = bw.Close()
+	assert.NoError(t, err)
 }
 
 func TestBufioWriter_Write_Size(t *testing.T) {
@@ -81,6 +87,9 @@ func TestBufioWriter_Write_Size(t *testing.T) {
 	n, _ = bw.Write(s[:])
 	assert.Equal(t, 130, n)
 	assert.Equal(t, int64(135), bw.Size())
+
+	err = bw.Close()
+	assert.NoError(t, err)
 }
 
 func TestBufioStreamWriter_Write_Size(t *testing.T) {
@@ -102,6 +111,8 @@ func TestBufioStreamWriter_Write_Size(t *testing.T) {
 	n, _ = bw.Write(s[:])
 	assert.Equal(t, 128, n)
 	assert.Equal(t, int64(131), bw.Size())
+	err = bw.Close()
+	assert.NoError(t, err)
 }
 
 func BenchmarkBufioWriter_Write(b *testing.B) {
@@ -115,6 +126,10 @@ func BenchmarkBufioWriter_Write(b *testing.B) {
 		if _, err := bw.Write(_testContent); err != nil {
 			assert.Nil(b, err)
 		}
+	}
+	err := bw.Close()
+	if err != nil {
+		b.Fatal(err)
 	}
 }
 

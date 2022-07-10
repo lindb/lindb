@@ -124,6 +124,7 @@ func TestQueue_Ack(t *testing.T) {
 	q, err = NewQueue(dir, 1024)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(1), q.AcknowledgedSeq())
+	q.Close()
 }
 
 func TestQueue_SetAppendSeq(t *testing.T) {
@@ -167,6 +168,7 @@ func TestQueue_SetAppendSeq(t *testing.T) {
 	metaPage.EXPECT().PutUint64(gomock.Any(), gomock.Any()).MaxTimes(2)
 	metaPage.EXPECT().Sync().Return(fmt.Errorf("err"))
 	q.SetAppendedSeq(1)
+	q.Close()
 }
 
 func TestQueue_new_err(t *testing.T) {
@@ -293,17 +295,15 @@ func TestQueue_new_err(t *testing.T) {
 
 func TestQueue_Close(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	dir := path.Join(t.TempDir(), t.Name())
-
 	defer ctrl.Finish()
+
 	pageFct := page.NewMockFactory(ctrl)
 	pageFct.EXPECT().Close().Return(fmt.Errorf("err")).MaxTimes(3)
-	q, err := NewQueue(dir, 1024)
-	q1 := q.(*queue)
-	q1.dataPageFct = pageFct
-	q1.indexPageFct = pageFct
-	q1.metaPageFct = pageFct
-	assert.NoError(t, err)
+	q := &queue{
+		dataPageFct:  pageFct,
+		indexPageFct: pageFct,
+		metaPageFct:  pageFct,
+	}
 	q.Close()
 }
 
@@ -375,7 +375,6 @@ func TestQueue_Put_err(t *testing.T) {
 	// case 2: alloc new data page err
 	err = q.Put([]byte("123456789"))
 	assert.NoError(t, err)
-
 	q1 := q.(*queue)
 	q1.dataPage = mockPage
 	q1.indexPage = mockPage
@@ -396,6 +395,10 @@ func TestQueue_Put_err(t *testing.T) {
 	indexFct := page.NewMockFactory(ctrl)
 	indexFct.EXPECT().Size().Return(int64(1000)).AnyTimes()
 	indexFct.EXPECT().AcquirePage(gomock.Any()).Return(nil, fmt.Errorf("err"))
+	indexPageFct := q1.indexPageFct
+	defer func() {
+		_ = indexPageFct.Close()
+	}()
 	q1.indexPageFct = indexFct
 	q1.appendedSeq.Store(indexItemsPerPage)
 
@@ -494,6 +497,7 @@ func TestQueue_data_limit(t *testing.T) {
 	// need acquire index page, but size limit
 	err = q.Put(data)
 	assert.Equal(t, ErrExceedingTotalSizeLimit, err)
+	q.Close()
 }
 
 func TestQueue_concurrently(t *testing.T) {
@@ -542,6 +546,8 @@ func TestQueue_concurrently(t *testing.T) {
 	messages.Range(func(key, value interface{}) bool {
 		panic("get data")
 	})
+
+	q.Close()
 }
 
 func TestQueue_GC(t *testing.T) {

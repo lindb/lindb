@@ -22,7 +22,6 @@ package indexdb
 
 import (
 	"context"
-	"os"
 	"path"
 	"testing"
 
@@ -38,7 +37,7 @@ import (
 )
 
 var (
-	dataPath                                     = path.Join(os.TempDir(), "lindb", "index_database")
+	dataPath                                     = "index_database_test"
 	indexStore, metaStore                        kv.Store
 	forwardFamily, invertedFamily, tagMetaFamily kv.Family
 	indexDB                                      indexdb.IndexDatabase
@@ -49,14 +48,21 @@ func TestMain(m *testing.M) {
 	defer func() {
 		kv.Options.Store(&kv.StoreOptions{})
 		kv.InitStoreManager(nil)
-		_ = fileutil.RemoveDir(dataPath)
 	}()
+
 	kv.Options.Store(&kv.StoreOptions{Dir: dataPath})
 
 	if err := newIndexDatabase(); err != nil {
 		panic(err)
 	}
 	m.Run()
+	_ = kv.GetStoreManager().CloseStore("index")
+	_ = kv.GetStoreManager().CloseStore("tag_value")
+	_ = indexDB.Close()
+	_ = metadata.Close()
+	if err := fileutil.RemoveDir(dataPath); err != nil {
+		panic(err)
+	}
 }
 
 func TestIndexDatabase_GetOrCreateSeriesID(t *testing.T) {
@@ -83,7 +89,7 @@ func TestIndexDatabase_GetOrCreateSeriesID(t *testing.T) {
 }
 
 func newIndexDatabase() (err error) {
-	indexStore, err = kv.GetStoreManager().CreateStore(path.Join(dataPath, "index_db"), kv.DefaultStoreOption())
+	indexStore, err = kv.GetStoreManager().CreateStore("index", kv.DefaultStoreOption())
 	if err != nil {
 		return err
 	}
@@ -104,7 +110,7 @@ func newIndexDatabase() (err error) {
 		return err
 	}
 
-	metaStore, err = kv.GetStoreManager().CreateStore(path.Join(dataPath, "meta/db"), kv.DefaultStoreOption())
+	metaStore, err = kv.GetStoreManager().CreateStore("tag_value", kv.DefaultStoreOption())
 	if err != nil {
 		return err
 	}

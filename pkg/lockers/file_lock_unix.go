@@ -15,34 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//go:build !windows
+//go:build !aix && !windows
+// +build !aix,!windows
 
-package fileutil
+package lockers
 
 import (
-	"os"
-
-	"golang.org/x/sys/unix"
+	"fmt"
+	"syscall"
 )
 
-func mmap(fd int, offset int64, size, mode int) ([]byte, error) {
-	var prot int
-	if mode&read != 0 {
-		prot |= unix.PROT_READ
+// Lock try locking file, return err if fails.
+func (l *fileLock) lock() error {
+	// invoke syscall for file lock
+	if err := syscall.Flock(int(l.file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		return fmt.Errorf("cannot flock directory %s - %s", l.fileName, err)
 	}
-
-	if mode&write != 0 {
-		prot |= unix.PROT_WRITE
-	}
-
-	data, err := unix.Mmap(fd, offset, size, prot, unix.MAP_SHARED)
-	return data, err
+	return nil
 }
 
-func munmap(_ *os.File, data []byte) error {
-	return unix.Munmap(data)
-}
-
-func msync(data []byte) error {
-	return unix.Msync(data, unix.MS_SYNC)
+// Unlock unlock file lock, if fail return err
+func (l *fileLock) unlock() error {
+	return syscall.Flock(int(l.file.Fd()), syscall.LOCK_UN)
 }

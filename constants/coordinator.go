@@ -21,6 +21,9 @@ import (
 	"fmt"
 )
 
+// StatePathSeparator represents the separator of state store's path.
+const StatePathSeparator = "/"
+
 // defines the role type of node.
 const (
 	MasterRole  = "Master"

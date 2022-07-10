@@ -5,77 +5,144 @@ jobs:
     name: Golangci-Lint
     runs-on: ubuntu-latest
     steps:
-      - name: Setup Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.18
-        id: go
-
       - name: Check out code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 1
-
+      - name: Setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.18
+          cache: true
+        id: go
       - name: Make Mock files
         run: make gomock
-
       - name: Lint
         run: make lint
 
-  test:
-    name: Test-With-Coverage
+  linux-test-with-coverage:
+    name: Uint Test With Coverage(Linux)
     runs-on: ubuntu-latest
     steps:
-      - name: Setup Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.18
-        id: go
-
       - name: Check out code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 1
-
+      - name: Setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.18
+          cache: true
+        id: go
       - name: Make Mock files
         run: make gomock
-
       - name: Test
         run: make test-without-lint
-
       - name: Upload
         run: bash <(curl -s https://codecov.io/bash) -t 571f35bb-4929-4ac5-88cd-8d2c21302b40
 
-  e2e-test:
-    name: E2E Test
-    runs-on: ubuntu-latest
+  darwin-test:
+    name: Unit Test(MacOS)
+    runs-on: macos-latest
     steps:
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.18
-
       - name: Check out code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 1
+      - name: Setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.18
+          cache: true
+        id: go
+      - name: Make Mock files
+        run: make gomock
+      - name: Test
+        run: make test-without-lint
 
+  windows-test:
+    name: Unit Test(Windows)
+    runs-on: windows-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+      - name: Setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.18
+          cache: true
+        id: go
+      - name: Install mingw 10.2.0
+        run: choco install mingw --version 10.2.0 --allow-downgrade
+      - name: Make Mock files
+        run: make gomock
+      - name: Test
+        run: make test-without-lint
+
+  linux-e2e-test:
+    name: E2E Test(Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.18
+          cache: true
       - name: Test
         run: make e2e
 
-  build:
-    name: Build-Lind
-    runs-on: ubuntu-latest
+  e2e-test-darwin:
+    name: E2E Test(MacOS)
+    runs-on: macos-latest
     steps:
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.18
-
       - name: Check out code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 1
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.18
+          cache: true
+      - name: Test
+        run: make e2e
 
+  e2e-test-windows:
+    name: E2E Test(Windows)
+    runs-on: windows-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.18
+          cache: true
+      - name: Install mingw 10.2.0
+        run: choco install mingw --version 10.2.0 --allow-downgrade
+      - name: Test
+        run: make e2e
+
+  linux-crossversion:
+    name: Build-Lind-CrossVersion
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.18
+          cache: true
       - name: Build
         run: make build-lind

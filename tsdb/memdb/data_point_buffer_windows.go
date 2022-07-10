@@ -15,34 +15,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//go:build !windows
+//go:build windows
 
-package fileutil
+package memdb
 
 import (
-	"os"
-
-	"golang.org/x/sys/unix"
+	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/logger"
 )
 
-func mmap(fd int, offset int64, size, mode int) ([]byte, error) {
-	var prot int
-	if mode&read != 0 {
-		prot |= unix.PROT_READ
+var (
+	unmapFunc = fileutil.Unmap
+)
+
+// closeBuffer just closes file and unmap file.
+func (d *dataPointBuffer) closeBuffer() {
+	for i, buf := range d.buf {
+		if err := unmapFunc(d.files[i], buf); err != nil {
+			memDBLogger.Error("unmap file in memory database err",
+				logger.String("file", d.path), logger.Error(err))
+		}
 	}
-
-	if mode&write != 0 {
-		prot |= unix.PROT_WRITE
-	}
-
-	data, err := unix.Mmap(fd, offset, size, prot, unix.MAP_SHARED)
-	return data, err
-}
-
-func munmap(_ *os.File, data []byte) error {
-	return unix.Munmap(data)
-}
-
-func msync(data []byte) error {
-	return unix.Msync(data, unix.MS_SYNC)
 }

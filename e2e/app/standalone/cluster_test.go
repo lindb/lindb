@@ -38,6 +38,7 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
@@ -45,6 +46,9 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	defer func() {
+		_ = fileutil.RemoveDir("data")
+	}()
 	cfg := config.NewDefaultStandalone()
 	if err := logger.InitLogger(cfg.Logging, "standalone.log"); err != nil {
 		panic(fmt.Errorf("init logging err: %s", err))

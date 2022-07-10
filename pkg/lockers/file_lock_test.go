@@ -18,6 +18,7 @@
 package lockers
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -25,27 +26,28 @@ import (
 )
 
 func TestFileLock(t *testing.T) {
-	var lock = NewFileLock("t.lock")
-	var err = lock.Lock()
-	assert.Nil(t, err, "lock error")
-
-	err = lock.Lock()
-	assert.NotNil(t, err, "cannot lock again for locked file")
-
-	err = lock.Unlock()
-	assert.Nil(t, err, "unlock error")
-
-	lock = NewFileLock("t.lock")
+	defer func() {
+		openFileFn = os.OpenFile
+	}()
+	lock, err := NewFileLock("t.lock")
+	assert.NoError(t, err)
+	assert.NotNil(t, lock)
 	err = lock.Lock()
 	assert.Nil(t, err, "lock error")
+
+	fileInfo, _ := os.Stat("t.lock")
+	assert.NotNil(t, fileInfo, "lock file not exist")
 
 	err = lock.Unlock()
 	assert.NoError(t, err)
 
-	fileInfo, _ := os.Stat("t.lock")
+	fileInfo, _ = os.Stat("t.lock")
 	assert.Nil(t, fileInfo, "lock file exist")
 
-	lock = NewFileLock("/tmp/not_dir/t.lock")
-	err = lock.Lock()
-	assert.NotNil(t, err, "cannot lock not exist file")
+	openFileFn = func(name string, flag int, perm os.FileMode) (*os.File, error) {
+		return nil, fmt.Errorf("err")
+	}
+	lock, err = NewFileLock("/tmp/not_dir/t.lock")
+	assert.Error(t, err)
+	assert.Nil(t, lock)
 }

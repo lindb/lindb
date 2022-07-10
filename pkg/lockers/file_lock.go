@@ -20,12 +20,15 @@ package lockers
 import (
 	"fmt"
 	"os"
-	"syscall"
 
 	"github.com/lindb/lindb/pkg/logger"
 )
 
 //go:generate mockgen -source ./file_lock.go -destination=./file_lock_mock.go -package lockers
+
+var (
+	openFileFn = os.OpenFile
+)
 
 // FileLock represents file lock
 type FileLock interface {
@@ -39,29 +42,26 @@ type FileLock interface {
 type fileLock struct {
 	fileName string
 	file     *os.File
-	logger   *logger.Logger
+
+	logger *logger.Logger
 }
 
 // NewFileLock create new file lock instance
-func NewFileLock(fileName string) FileLock {
+func NewFileLock(fileName string) (FileLock, error) {
+	f, err := openFileFn(fileName, os.O_CREATE|os.O_RDONLY, os.FileMode(0600))
+	if err != nil {
+		return nil, fmt.Errorf("cannot create file[%s] for lock err: %s", fileName, err)
+	}
 	return &fileLock{
+		file:     f,
 		fileName: fileName,
 		logger:   logger.GetLogger("Lockers", "FileLock"),
-	}
+	}, nil
 }
 
 // Lock try locking file, return err if fails.
 func (l *fileLock) Lock() error {
-	f, err := os.Create(l.fileName)
-	if err != nil {
-		return fmt.Errorf("cannot create file[%s] for lock err: %s", l.fileName, err)
-	}
-	l.file = f
-	// invoke syscall for file lock
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		return fmt.Errorf("cannot flock directory %s - %s", l.fileName, err)
-	}
-	return nil
+	return l.lock()
 }
 
 // Unlock unlock file lock, if fail return err
@@ -78,5 +78,5 @@ func (l *fileLock) Unlock() error {
 			l.logger.Error("close file lock error", logger.String("file", l.fileName), logger.Error(err))
 		}
 	}()
-	return syscall.Flock(int(l.file.Fd()), syscall.LOCK_UN)
+	return l.unlock()
 }

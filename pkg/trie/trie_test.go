@@ -28,7 +28,6 @@ import (
 	"sort"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/klauspost/compress/gzip"
 	"github.com/stretchr/testify/assert"
@@ -223,7 +222,8 @@ func Test_Trie_idList(t *testing.T) {
 	var ids [][]byte
 	var indexes [][]byte
 	for i := 0; i < 10000; i++ {
-		rand.Seed(time.Now().UnixNano())
+		// windows rand wrond data
+		// rand.Seed(time.Now().UnixNano())
 		id := fmt.Sprintf("%d", rand.Int63n(math.MaxInt64))
 		ids = append(ids, []byte(id))
 		binary.LittleEndian.PutUint32(scratch[:], uint32(i))
@@ -235,11 +235,14 @@ func Test_Trie_idList(t *testing.T) {
 	if len(indexes) == 0 || len(ids) == 0 {
 		panic("length is zero")
 	}
+	count := 0
 	for idx := range ids {
 		value, ok := tree.Get(ids[idx])
 		assert.True(t, ok)
 		assert.Equal(t, indexes[idx], value)
+		count++
 	}
+	fmt.Println(count)
 	data, err := tree.MarshalBinary()
 	assert.Nil(t, err)
 	tree2 := trie.NewTrie()
@@ -257,6 +260,7 @@ func Test_Trie_idList(t *testing.T) {
 		itr.Next()
 		idx++
 	}
+	fmt.Println(idx)
 	itr.Next()
 	assert.False(t, itr.Valid())
 }

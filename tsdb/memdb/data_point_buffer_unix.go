@@ -17,32 +17,16 @@
 
 //go:build !windows
 
-package fileutil
+package memdb
 
-import (
-	"os"
+import "github.com/lindb/lindb/pkg/logger"
 
-	"golang.org/x/sys/unix"
-)
-
-func mmap(fd int, offset int64, size, mode int) ([]byte, error) {
-	var prot int
-	if mode&read != 0 {
-		prot |= unix.PROT_READ
+// closeBuffer just closes file for unix.
+func (d *dataPointBuffer) closeBuffer() {
+	for _, f := range d.files {
+		if err := f.Close(); err != nil {
+			memDBLogger.Error("close file in memory database err",
+				logger.String("file", d.path), logger.Error(err))
+		}
 	}
-
-	if mode&write != 0 {
-		prot |= unix.PROT_WRITE
-	}
-
-	data, err := unix.Mmap(fd, offset, size, prot, unix.MAP_SHARED)
-	return data, err
-}
-
-func munmap(_ *os.File, data []byte) error {
-	return unix.Munmap(data)
-}
-
-func msync(data []byte) error {
-	return unix.Msync(data, unix.MS_SYNC)
 }

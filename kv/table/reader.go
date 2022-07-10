@@ -21,6 +21,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"os"
 	"sort"
 
 	"github.com/lindb/roaring"
@@ -36,6 +37,7 @@ import (
 // for testing
 var (
 	ErrKeyNotExist           = errors.New("key not exist in kv table")
+	openFileFn               = os.Open
 	mapFunc                  = fileutil.Map
 	unmapFunc                = fileutil.Unmap
 	unmarshalFixedOffsetFunc = unmarshalFixedOffset
@@ -61,6 +63,7 @@ type Reader interface {
 // storeMMapReader represents mmap store file reader.
 type storeMMapReader struct {
 	path         string // path of sst-file
+	f            *os.File
 	fileName     string
 	fullBlock    []byte                       // mmaped file content
 	entriesBlock []byte                       // mmaped file content without footer
@@ -70,11 +73,15 @@ type storeMMapReader struct {
 
 // newMMapStoreReader creates mmap store file reader.
 func newMMapStoreReader(path, fileName string) (r Reader, err error) {
-	data, err := mapFunc(path)
+	f, err := openFileFn(path)
+	if err != nil {
+		return nil, err
+	}
+	data, err := mapFunc(f)
 	defer func() {
 		if err != nil && len(data) > 0 {
 			// if init err and map data exist, need unmap it
-			if e := unmapFunc(data); e != nil {
+			if e := unmapFunc(f, data); e != nil {
 				metrics.TableReadStatistics.UnMMapFailures.Incr()
 				tableLogger.Warn("unmap error when new store reader fail",
 					logger.String("path", path), logger.Error(err))
@@ -96,6 +103,7 @@ func newMMapStoreReader(path, fileName string) (r Reader, err error) {
 	reader := &storeMMapReader{
 		path:      path,
 		fileName:  fileName,
+		f:         f,
 		fullBlock: data,
 		keys:      roaring.New(),
 	}
@@ -185,7 +193,7 @@ func (r *storeMMapReader) Iterator() Iterator {
 // Close store reader, release resource
 func (r *storeMMapReader) Close() error {
 	r.entriesBlock = nil
-	err := fileutil.Unmap(r.fullBlock)
+	err := fileutil.Unmap(r.f, r.fullBlock)
 	if err == nil {
 		metrics.TableReadStatistics.UnMMapFailures.Incr()
 	} else {

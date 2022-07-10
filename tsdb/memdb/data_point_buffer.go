@@ -20,6 +20,7 @@ package memdb
 import (
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 
 	"go.uber.org/atomic"
@@ -31,10 +32,10 @@ import (
 //go:generate mockgen -source ./data_point_buffer.go -destination=./data_point_buffer_mock.go -package memdb
 
 var (
-	mkdirFunc  = fileutil.MkDirIfNotExist
-	mapFunc    = fileutil.RWMap
-	removeFunc = fileutil.RemoveDir
-	unmapFunc  = fileutil.Unmap
+	mkdirFunc    = fileutil.MkDirIfNotExist
+	mapFunc      = fileutil.RWMap
+	removeFunc   = fileutil.RemoveDir
+	openFileFunc = os.OpenFile
 )
 
 const (
@@ -58,6 +59,7 @@ type DataPointBuffer interface {
 type dataPointBuffer struct {
 	path      string
 	buf       [][]byte
+	files     []*os.File
 	pageIDSeq atomic.Int32
 	dirty     atomic.Bool
 }
@@ -80,10 +82,16 @@ func (d *dataPointBuffer) AllocPage() (buf []byte, err error) {
 		if err := mkdirFunc(d.path); err != nil {
 			return nil, err
 		}
-		buf, err := mapFunc(filepath.Join(d.path, fmt.Sprintf("%d.tmp", pageID/pageCount)), regionSize)
+		f, err := openFileFunc(filepath.Join(d.path, fmt.Sprintf("%d.tmp", pageID/pageCount)), os.O_CREATE|os.O_RDWR, 0644)
 		if err != nil {
 			return nil, err
 		}
+		buf, err := mapFunc(f, regionSize)
+		if err != nil {
+			_ = f.Close()
+			return nil, err
+		}
+		d.files = append(d.files, f)
 		d.buf = append(d.buf, buf)
 	}
 	region := uint16(pageID / pageCount)
@@ -111,15 +119,10 @@ func (d *dataPointBuffer) Close() error {
 			logger.String("file", d.path))
 		return nil
 	}
+	d.closeBuffer()
 	if err := removeFunc(d.path); err != nil {
 		memDBLogger.Error("remove buffer file in memory database err",
 			logger.String("file", d.path), logger.Error(err))
-	}
-	for _, buf := range d.buf {
-		if err := unmapFunc(buf); err != nil {
-			memDBLogger.Error("unmap file in memory database err",
-				logger.String("file", d.path), logger.Error(err))
-		}
 	}
 	return nil
 }

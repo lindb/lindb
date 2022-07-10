@@ -119,6 +119,10 @@ func TestMemoryDatabase_Write(t *testing.T) {
 	}
 	buf, err := newDataPointBuffer(filepath.Join(t.TempDir(), "db_dir"))
 	assert.NoError(t, err)
+	defer func() {
+		buf.Release()
+		_ = buf.Close()
+	}()
 
 	bufferMgr.EXPECT().AllocBuffer(gomock.Any()).Return(buf, nil).AnyTimes()
 	// mock
