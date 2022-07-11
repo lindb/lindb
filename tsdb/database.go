@@ -199,8 +199,7 @@ func (db *database) CreateShards(
 		return fmt.Errorf("shardIDs list is empty")
 	}
 	for _, shardID := range shardIDs {
-		_, ok := db.GetShard(shardID)
-		if ok {
+		if _, ok := db.GetShard(shardID); ok {
 			continue
 		}
 		if err := db.createShard(shardID); err != nil {
@@ -217,8 +216,7 @@ func (db *database) createShard(shardID models.ShardID) error {
 	defer db.mutex.Unlock()
 
 	// double check
-	_, ok := db.GetShard(shardID)
-	if ok {
+	if _, ok := db.GetShard(shardID); ok {
 		return nil
 	}
 	// new shard

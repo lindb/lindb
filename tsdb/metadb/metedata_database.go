@@ -81,8 +81,7 @@ func (mdb *metadataDatabase) SuggestMetrics(namespace, metricPrefix string, limi
 
 // GetMetricID gets the metric id by namespace and metric name, if not exist return constants.ErrMetricIDNotFound.
 func (mdb *metadataDatabase) GetMetricID(namespace, metricName string) (metricID metric.ID, err error) {
-	metricMetadata, ok := mdb.getMetricMetadataFromCache(namespace, metricName)
-	if ok {
+	if metricMetadata, ok := mdb.getMetricMetadataFromCache(namespace, metricName); ok {
 		return metricMetadata.getMetricID(), nil
 	}
 
@@ -93,9 +92,7 @@ func (mdb *metadataDatabase) GetMetricID(namespace, metricName string) (metricID
 // GetAllTagKeys returns the all tag keys by namespace/metric name,
 // if not exist return constants.ErrMetricIDNotFound.
 func (mdb *metadataDatabase) GetAllTagKeys(namespace, metricName string) (tags tag.Metas, err error) {
-	metricMetadata, ok := mdb.getMetricMetadataFromCache(namespace, metricName)
-
-	if ok {
+	if metricMetadata, ok := mdb.getMetricMetadataFromCache(namespace, metricName); ok {
 		// need add read lock for getting tag keys from metric metadata.
 		mdb.rwMux.RLock()
 		tags = metricMetadata.getAllTagKeys()
@@ -118,8 +115,7 @@ func (mdb *metadataDatabase) GetTagKeyID(namespace, metricName, tagKey string) (
 	if err != nil {
 		return tag.EmptyTagKeyID, err
 	}
-	t, ok := tagKeys.Find(tagKey)
-	if ok {
+	if t, ok := tagKeys.Find(tagKey); ok {
 		return t.ID, nil
 	}
 	return tag.EmptyTagKeyID, fmt.Errorf("%w, tag key: %s", constants.ErrTagKeyIDNotFound, tagKey)
@@ -128,8 +124,7 @@ func (mdb *metadataDatabase) GetTagKeyID(namespace, metricName, tagKey string) (
 // GetAllFields returns the all visible fields by namespace/metric name,
 // if not exist return series.ErrNotFound
 func (mdb *metadataDatabase) GetAllFields(namespace, metricName string) (fields field.Metas, err error) {
-	metricMetadata, ok := mdb.getMetricMetadataFromCache(namespace, metricName)
-	if ok {
+	if metricMetadata, ok := mdb.getMetricMetadataFromCache(namespace, metricName); ok {
 		// need add read lock for getting fields from metric metadata.
 		mdb.rwMux.RLock()
 		fields = metricMetadata.getAllFields()
@@ -167,8 +162,7 @@ func (mdb *metadataDatabase) GetField(namespace, metricName string, fieldName fi
 	if err != nil {
 		return field.Meta{}, err
 	}
-	f, ok := fields.Find(fieldName)
-	if ok {
+	if f, ok := fields.Find(fieldName); ok {
 		return f, nil
 	}
 	return field.Meta{}, fmt.Errorf("%w, field: %s", constants.ErrFieldNotFound, fieldName)
@@ -179,23 +173,18 @@ func (mdb *metadataDatabase) GetField(namespace, metricName string, fieldName fi
 // 2) get metric metadata from backend storage, if not exist need create new metric metadata
 func (mdb *metadataDatabase) GenMetricID(namespace, metricName string) (metricID metric.ID, err error) {
 	// get metric id from memory
-	metricMetadata, ok := mdb.getMetricMetadataFromCache(namespace, metricName)
-	if ok {
+	if metricMetadata, ok := mdb.getMetricMetadataFromCache(namespace, metricName); ok {
 		return metricMetadata.getMetricID(), nil
 	}
-
 	key := metric.JoinNamespaceMetric(namespace, metricName)
-
 	// assign metric id from memory, add write lock
 	mdb.rwMux.Lock()
 	defer mdb.rwMux.Unlock()
 	// double check with memory
-	metricMetadata, ok = mdb.metrics[key]
-	if ok {
+	if metricMetadata, ok := mdb.metrics[key]; ok {
 		return metricMetadata.getMetricID(), nil
 	}
-
-	metricMetadata, err = mdb.backend.getOrCreateMetricMetadata(namespace, metricName)
+	metricMetadata, err := mdb.backend.getOrCreateMetricMetadata(namespace, metricName)
 	if err != nil {
 		mdb.statistics.GenMetricIDFailures.Incr()
 		return
@@ -220,8 +209,7 @@ func (mdb *metadataDatabase) GenFieldID(
 	mdb.rwMux.Lock()
 	defer mdb.rwMux.Unlock()
 	// read from memory metric metadata
-	f, ok := metricMetadata.getField(fieldName)
-	if ok {
+	if f, ok := metricMetadata.getField(fieldName); ok {
 		if f.Type == fieldType {
 			return f.ID, nil
 		}
@@ -253,9 +241,8 @@ func (mdb *metadataDatabase) GenTagKeyID(namespace, metricName, tagKey string) (
 	mdb.rwMux.Lock()
 	defer mdb.rwMux.Unlock()
 	// read from memory metric metadata
-	tagKeyID, ok := metricMetadata.getTagKeyID(tagKey)
-	if ok {
-		return tagKeyID, nil
+	if tagKeyID0, ok := metricMetadata.getTagKeyID(tagKey); ok {
+		return tagKeyID0, nil
 	}
 
 	err = metricMetadata.checkTagKey(tagKey)

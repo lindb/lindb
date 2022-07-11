@@ -69,8 +69,7 @@ func (r *Registry) FindMetricList(names []string, includeTags map[string]string)
 	var rs []*taggedSeries
 	r.mu.RLock()
 	for _, nm := range r.series {
-		_, ok := nameMap[nm.metricName]
-		if ok {
+		if _, ok := nameMap[nm.metricName]; ok {
 			rs = append(rs, nm)
 		}
 	}

@@ -272,8 +272,7 @@ func (f *dataFamily) Flush() error {
 		for leader, seq := range immutableSeq {
 			f.persistSeq[leader] = *atomic.NewInt64(seq)
 			// ack replica sequence
-			fns, ok := f.callbacks[leader]
-			if ok {
+			if fns, ok := f.callbacks[leader]; ok {
 				for _, fn := range fns {
 					fn(seq)
 				}
@@ -479,11 +478,10 @@ func (f *dataFamily) ValidateSequence(leader int32, seq int64) bool {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
-	seqForLeader, ok := f.seq[leader]
-	if !ok {
-		return true
+	if seqForLeader, ok := f.seq[leader]; ok {
+		return seq > seqForLeader.Load()
 	}
-	return seq > seqForLeader.Load()
+	return true
 }
 
 // CommitSequence commits written sequence after write data.

@@ -158,11 +158,10 @@ func (e *engine) GetDatabase(databaseName string) (Database, bool) {
 
 // GetShard returns shard by given db and shard id
 func (e *engine) GetShard(databaseName string, shardID models.ShardID) (Shard, bool) {
-	db, ok := e.GetDatabase(databaseName)
-	if !ok {
-		return nil, false
+	if db, ok := e.GetDatabase(databaseName); ok {
+		return db.GetShard(shardID)
 	}
-	return db.GetShard(shardID)
+	return nil, false
 }
 
 // Close closes the cached time series databases
@@ -181,14 +180,13 @@ func (e *engine) Close() {
 
 // FlushDatabase produces a signal to workers for flushing memory database by name
 func (e *engine) FlushDatabase(_ context.Context, name string) bool {
-	db, ok := e.dbSet.GetDatabase(name)
-	if !ok {
-		return false
+	if db, ok := e.dbSet.GetDatabase(name); ok {
+		if err := db.Flush(); err != nil {
+			return false
+		}
+		return true
 	}
-	if err := db.Flush(); err != nil {
-		return false
-	}
-	return true
+	return false
 }
 
 // DropDatabases drops databases, keep active database.

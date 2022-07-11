@@ -76,16 +76,15 @@ func (s *intervalSegment) GetOrCreateSegment(segmentName string) (Segment, error
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	segment, ok := s.segments[segmentName]
-	if !ok {
-		seg, err := newSegmentFunc(s.shard, segmentName, s.interval.Interval)
-		if err != nil {
-			return nil, fmt.Errorf("create segmenet error: %s", err)
-		}
-		s.segments[segmentName] = seg
-		return seg, nil
+	if segment, ok := s.segments[segmentName]; ok {
+		return segment, nil
 	}
-	return segment, nil
+	seg, err := newSegmentFunc(s.shard, segmentName, s.interval.Interval)
+	if err != nil {
+		return nil, fmt.Errorf("create segmenet error: %s", err)
+	}
+	s.segments[segmentName] = seg
+	return seg, nil
 }
 
 // GetDataFamilies returns data family list by time range, return nil if not match
@@ -138,15 +137,15 @@ func (s *intervalSegment) getOrLoadSegment(segmentName string) (Segment, error) 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	segment, ok := s.segments[segmentName]
-	if !ok {
-		var err error
-		segment, err = newSegmentFunc(s.shard, segmentName, s.interval.Interval)
-		if err != nil {
-			return nil, err
-		}
-		s.segments[segmentName] = segment
+	if segment, ok := s.segments[segmentName]; ok {
+		return segment, nil
 	}
+	var err error
+	segment, err := newSegmentFunc(s.shard, segmentName, s.interval.Interval)
+	if err != nil {
+		return nil, err
+	}
+	s.segments[segmentName] = segment
 	return segment, nil
 }
 
@@ -213,8 +212,8 @@ func (s *intervalSegment) walkSegment(fn func(segmentName string, segmentTime in
 func (s *intervalSegment) dropSegment(segmentName string) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	segment, ok := s.segments[segmentName]
-	if ok {
+
+	if segment, ok := s.segments[segmentName]; ok {
 		segment.Close()
 	}
 	delete(s.segments, segmentName)

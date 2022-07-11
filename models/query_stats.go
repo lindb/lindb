@@ -110,8 +110,8 @@ func (s *StorageStats) SetShardSeriesIDsSearchStats(shardID ShardID, numOfSeries
 func (s *StorageStats) SetShardMemoryDataFilterCost(shardID ShardID, cost time.Duration) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	stats, ok := s.Shards[shardID]
-	if ok {
+
+	if stats, ok := s.Shards[shardID]; ok {
 		stats.MemFilterCost = cost.Nanoseconds()
 	}
 }
@@ -120,8 +120,8 @@ func (s *StorageStats) SetShardMemoryDataFilterCost(shardID ShardID, cost time.D
 func (s *StorageStats) SetShardKVDataFilterCost(shardID ShardID, cost time.Duration) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	stats, ok := s.Shards[shardID]
-	if ok {
+
+	if stats, ok := s.Shards[shardID]; ok {
 		stats.KVFilterCost = cost.Nanoseconds()
 	}
 }
@@ -130,8 +130,8 @@ func (s *StorageStats) SetShardKVDataFilterCost(shardID ShardID, cost time.Durat
 func (s *StorageStats) SetShardGroupingCost(shardID ShardID, cost time.Duration) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	stats, ok := s.Shards[shardID]
-	if ok {
+
+	if stats, ok := s.Shards[shardID]; ok {
 		stats.GroupingCost = cost.Nanoseconds()
 	}
 }
@@ -140,8 +140,8 @@ func (s *StorageStats) SetShardGroupingCost(shardID ShardID, cost time.Duration)
 func (s *StorageStats) SetShardScanStats(shardID ShardID, identifier string, cost time.Duration, foundSeries int) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	stats, ok := s.Shards[shardID]
-	if ok {
+
+	if stats, ok := s.Shards[shardID]; ok {
 		stats.SetScanStats(identifier, cost, foundSeries)
 	}
 }
@@ -150,8 +150,8 @@ func (s *StorageStats) SetShardScanStats(shardID ShardID, identifier string, cos
 func (s *StorageStats) SetShardGroupBuildStats(shardID ShardID, cost time.Duration) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	stats, ok := s.Shards[shardID]
-	if ok {
+
+	if stats, ok := s.Shards[shardID]; ok {
 		stats.SetGroupBuildStats(cost)
 	}
 }
@@ -184,8 +184,8 @@ func newShardStats() *ShardStats {
 // SetScanStats sets the data scan stats in shard level
 func (s *ShardStats) SetScanStats(identifier string, cost time.Duration, foundSeries int) {
 	costVal := cost.Nanoseconds()
-	stats, ok := s.ScanStats[identifier]
-	if ok {
+
+	if stats, ok := s.ScanStats[identifier]; ok {
 		stats.Count++
 		stats.TotalCost += costVal
 		stats.Series += foundSeries

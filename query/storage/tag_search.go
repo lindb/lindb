@@ -102,8 +102,7 @@ func (s *tagSearch) findTagValueIDsByExpr(expr stmt.Expr) {
 
 // getTagKeyID returns the tag key id by tag key
 func (s *tagSearch) getTagKeyID(tagKey string) (tag.KeyID, error) {
-	tagKeyID, ok := s.tags[tagKey]
-	if ok {
+	if tagKeyID, ok := s.tags[tagKey]; ok {
 		return tagKeyID, nil
 	}
 	// TODO try get tag key from context

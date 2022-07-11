@@ -153,8 +153,7 @@ func (qf *storageQueryFlow) getTagValues(tags string) string {
 	qf.mux.Lock()
 	defer qf.mux.Unlock()
 
-	tagValues, ok := qf.tagsMap[tags]
-	if ok {
+	if tagValues, ok := qf.tagsMap[tags]; ok {
 		return tagValues
 	}
 	tagsData := []byte(tags)
@@ -162,8 +161,7 @@ func (qf *storageQueryFlow) getTagValues(tags string) string {
 		tagValuesForKey := qf.tagValuesMap[idx]
 		offset := idx * 4
 		tagValueID := binary.LittleEndian.Uint32(tagsData[offset:])
-		tagValue, ok := tagValuesForKey[tagValueID]
-		if ok {
+		if tagValue, ok := tagValuesForKey[tagValueID]; ok {
 			qf.tagValues[idx] = tagValue
 		} else {
 			qf.tagValues[idx] = tagValueNotFound

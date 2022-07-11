@@ -93,8 +93,7 @@ type replicatorRunner struct {
 
 func newReplicatorRunner(replicator Replicator) *replicatorRunner {
 	replicaType := "local"
-	_, ok := replicator.(*remoteReplicator)
-	if ok {
+	if _, ok := replicator.(*remoteReplicator); ok {
 		replicaType = "remote"
 	}
 	state := replicator.ReplicaState()

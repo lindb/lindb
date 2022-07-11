@@ -386,8 +386,7 @@ func (m *stateManager) register(cfg *config.StorageCluster) error {
 
 // deleteCluster deletes the storageCluster if exist.
 func (m *stateManager) unRegister(name string) {
-	cluster, ok := m.storages[name]
-	if ok {
+	if cluster, ok := m.storages[name]; ok {
 		// need cleanup storage cluster resource
 		cluster.Close()
 
@@ -473,17 +472,15 @@ func (m *stateManager) onNodeStartup(state *models.StorageState, node models.Sta
 	// 1. do when a new node come up is send it the entire list of shards that it is supposed to host.
 	replicasOnOnlineNode := state.ReplicasOnNode(node.ID)
 	for db, shards := range replicasOnOnlineNode {
-		shardStates, ok := state.ShardStates[db]
-		if !ok {
-			continue
-		}
-		for _, shardID := range shards {
-			shardState := shardStates[shardID]
-			if shardState.State != models.OnlineShard {
-				shardState.State = models.OnlineShard
-				shardState.Leader = node.ID
+		if shardStates, ok := state.ShardStates[db]; ok {
+			for _, shardID := range shards {
+				shardState := shardStates[shardID]
+				if shardState.State != models.OnlineShard {
+					shardState.State = models.OnlineShard
+					shardState.Leader = node.ID
+				}
+				shardStates[shardID] = shardState
 			}
-			shardStates[shardID] = shardState
 		}
 	}
 }

@@ -114,8 +114,7 @@ func (fv *familyVersion) GetAllActiveFiles() []*FileMeta {
 		for _, file := range versionFiles {
 			fileNumber := file.fileNumber
 			// remove duplicate file in diff versions
-			_, ok := fileNumbers[fileNumber]
-			if !ok {
+			if _, ok := fileNumbers[fileNumber]; !ok {
 				files = append(files, file)
 				fileNumbers[fileNumber] = fileNumber
 			}

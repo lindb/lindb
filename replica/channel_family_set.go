@@ -80,11 +80,10 @@ func (ss *familyChannelSet) RemoveFamilies(needRemoveFamilies map[int64]struct{}
 	var removed []FamilyChannel
 
 	for _, family := range set {
-		_, ok := needRemoveFamilies[family.familyTime]
-		if !ok {
-			dst = append(dst, family)
-		} else {
+		if _, ok := needRemoveFamilies[family.familyTime]; ok {
 			removed = append(removed, family.channel)
+		} else {
+			dst = append(dst, family)
 		}
 	}
 	ss.value.Store(dst)

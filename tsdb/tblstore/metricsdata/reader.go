@@ -114,12 +114,11 @@ func (r *metricReader) prepare(fields field.Metas) (found bool) {
 	}
 	r.readFieldIndexes = make([]int, len(fields))
 	for idx, f := range fields { // sort by field ids
-		fieldIdx, ok := fieldMap[f.ID]
-		if !ok {
-			r.readFieldIndexes[idx] = fieldNotFound
-		} else {
+		if fieldIdx, ok := fieldMap[f.ID]; ok {
 			r.readFieldIndexes[idx] = fieldIdx
 			found = true
+		} else {
+			r.readFieldIndexes[idx] = fieldNotFound
 		}
 	}
 	return

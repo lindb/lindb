@@ -93,8 +93,7 @@ func (s *storeManager) CreateStore(name string, option StoreOption) (Store, erro
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	store, ok := s.stores[name]
-	if ok {
+	if store, ok := s.stores[name]; ok {
 		return store, nil
 	}
 

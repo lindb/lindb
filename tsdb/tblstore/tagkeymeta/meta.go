@@ -263,11 +263,11 @@ func (meta *tagKeyMeta) FindTagValueID(tagValue string) (tagValueIDs []uint32) {
 	if err != nil {
 		return nil
 	}
-	slice, ok := tree.Get(strutil.String2ByteSlice(tagValue))
-	if !ok {
-		return nil
+
+	if slice, ok := tree.Get(strutil.String2ByteSlice(tagValue)); ok {
+		return []uint32{encoding.ByteSlice2Uint32(slice)}
 	}
-	return []uint32{encoding.ByteSlice2Uint32(slice)}
+	return nil
 }
 
 func (meta *tagKeyMeta) FindTagValueIDs(tagValues []string) (tagValueIDs []uint32) {

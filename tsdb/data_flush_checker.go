@@ -203,8 +203,7 @@ func (fc *dataFlushChecker) requestFlushJob(request *flushRequest) {
 	if !fc.running.Load() {
 		return
 	}
-	_, ok := fc.dbInFlushing.Load(request.db.Name())
-	if ok {
+	if _, ok := fc.dbInFlushing.Load(request.db.Name()); ok {
 		// if shard is in flushing queue, returns it
 		return
 	}

@@ -166,14 +166,12 @@ func flushMoreData(t *testing.T,
 			DownSampling: func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, getter encoding.TSDValueGetter) {
 				assert.Equal(t, timeutil.SlotRange{Start: 5, End: 5}, slotRange)
 				for movingSourceSlot := slotRange.Start; movingSourceSlot <= slotRange.End; movingSourceSlot++ {
-					value, ok := getter.GetValue(movingSourceSlot)
-					if !ok {
-						continue
+					if value, ok := getter.GetValue(movingSourceSlot); ok {
+						assert.Equal(t, 5, int(movingSourceSlot))
+						seriesID := float64(int(highKey)*65536 + int(seriesIdx))
+						assert.Equal(t, value, seriesID*float64(queryFields[fieldIdx].ID))
+						found++
 					}
-					assert.Equal(t, 5, int(movingSourceSlot))
-					seriesID := float64(int(highKey)*65536 + int(seriesIdx))
-					assert.Equal(t, value, seriesID*float64(queryFields[fieldIdx].ID))
-					found++
 				}
 			},
 			Decoder: encoding.GetTSDDecoder(),

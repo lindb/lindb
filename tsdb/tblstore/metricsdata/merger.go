@@ -66,8 +66,7 @@ func NewMerger(flusher kv.Flusher) (kv.Merger, error) {
 
 // Init initializes metric data merger, if rollup context exist do rollup job, else do compact job
 func (m *merger) Init(params map[string]interface{}) {
-	rollupCtx, ok := params[kv.RollupContext]
-	if ok {
+	if rollupCtx, ok := params[kv.RollupContext]; ok {
 		m.rollup = rollupCtx.(kv.Rollup)
 	}
 }
@@ -153,8 +152,7 @@ func (m *merger) prepare(metricBlocks [][]byte) (*mergerContext, error) {
 		}
 		// merge target fields under metric level
 		for _, f := range reader.GetFields() {
-			_, ok := ctx.targetFields.GetFromID(f.ID)
-			if !ok {
+			if _, ok := ctx.targetFields.GetFromID(f.ID); !ok {
 				ctx.targetFields = ctx.targetFields.Insert(f)
 			}
 		}

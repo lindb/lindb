@@ -115,8 +115,7 @@ func (fms Metas) Insert(m Meta) Metas {
 func (fms Metas) Intersects(fields Metas) (x2 Metas, isSubSet bool) {
 	isSubSet = true
 	for _, f := range fields {
-		fm, ok := fms.GetFromID(f.ID)
-		if ok {
+		if fm, ok := fms.GetFromID(f.ID); ok {
 			x2 = append(x2, fm)
 		} else {
 			isSubSet = false

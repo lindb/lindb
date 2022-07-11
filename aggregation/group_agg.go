@@ -110,10 +110,10 @@ func (ga *groupingAggregator) ResultSet() series.GroupedIterators {
 // getAggregator returns the time series aggregator by the tag of time series.
 func (ga *groupingAggregator) getAggregator(tags string) (agg FieldAggregates) {
 	// get series aggregator
-	agg, ok := ga.aggregates[tags]
-	if !ok {
-		agg = NewFieldAggregates(ga.interval, ga.intervalRatio, ga.timeRange, ga.aggSpecs)
-		ga.aggregates[tags] = agg
+	if agg0, ok := ga.aggregates[tags]; ok {
+		return agg0
 	}
+	agg = NewFieldAggregates(ga.interval, ga.intervalRatio, ga.timeRange, ga.aggSpecs)
+	ga.aggregates[tags] = agg
 	return
 }

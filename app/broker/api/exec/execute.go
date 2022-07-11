@@ -127,18 +127,17 @@ func (e *ExecuteAPI) execute(c *gin.Context) error {
 		return err
 	}
 
-	commandFn, ok := commands[stmt.StatementType()]
-	if !ok {
-		return errors.New("can't parse lin query language")
+	if commandFn, ok := commands[stmt.StatementType()]; ok {
+		result, err := commandFn(ctx, e.deps, &param, stmt)
+		if err != nil {
+			return err
+		}
+		if result == nil || reflect.ValueOf(result).IsNil() {
+			httppkg.NotFound(c)
+		} else {
+			httppkg.OK(c, result)
+		}
+		return nil
 	}
-	result, err := commandFn(ctx, e.deps, &param, stmt)
-	if err != nil {
-		return err
-	}
-	if result == nil || reflect.ValueOf(result).IsNil() {
-		httppkg.NotFound(c)
-	} else {
-		httppkg.OK(c, result)
-	}
-	return nil
+	return errors.New("can't parse lin query language")
 }

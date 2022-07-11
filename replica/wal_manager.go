@@ -155,12 +155,11 @@ func (w *writeAheadLogManager) GetOrCreateLog(database string) WriteAheadLog {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
-	log, ok := w.databaseLogs[database]
-	if ok {
+	if log, ok := w.databaseLogs[database]; ok {
 		return log
 	}
 
-	log = newWriteAheadLog(w.ctx, w.cfg, w.currentNodeID, database, w.engine, w.cliFct, w.stateMgr)
+	log := newWriteAheadLog(w.ctx, w.cfg, w.currentNodeID, database, w.engine, w.cliFct, w.stateMgr)
 	w.databaseLogs[database] = log
 	return log
 }
@@ -188,8 +187,7 @@ func (w *writeAheadLogManager) GetReplicaState(database string) []models.FamilyL
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
-	log, ok := w.databaseLogs[database]
-	if ok {
+	if log, ok := w.databaseLogs[database]; ok {
 		return log.getReplicaState()
 	}
 	return nil
@@ -217,8 +215,7 @@ func (w *writeAheadLogManager) dropDatabase(log WriteAheadLog) {
 func (w *writeAheadLogManager) DropDatabases(activeDatabases map[string]struct{}) {
 	logs := w.getDatabaseLogs()
 	for _, db := range logs {
-		_, ok := activeDatabases[db.Name()]
-		if ok {
+		if _, ok := activeDatabases[db.Name()]; ok {
 			continue
 		}
 		w.dropDatabase(db)
@@ -230,8 +227,7 @@ func (w *writeAheadLogManager) DropDatabases(activeDatabases map[string]struct{}
 func (w *writeAheadLogManager) StopDatabases(activeDatabases map[string]struct{}) {
 	logs := w.getDatabaseLogs()
 	for _, db := range logs {
-		_, ok := activeDatabases[db.Name()]
-		if ok {
+		if _, ok := activeDatabases[db.Name()]; ok {
 			continue
 		}
 		db.Stop()

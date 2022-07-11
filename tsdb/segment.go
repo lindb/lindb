@@ -157,27 +157,26 @@ func (s *segment) GetOrCreateDataFamily(timestamp int64) (DataFamily, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	family, ok := s.families[familyTime]
-	if !ok {
-		familyOption := kv.FamilyOption{
-			CompactThreshold: 0,
-			Merger:           string(metricsdata.MetricDataMerger),
-		}
-		familyName := strconv.Itoa(familyTime)
-		family := s.kvStore.GetFamily(familyName)
-		if family == nil {
-			// create kv family
-			var err error
-			family, err = s.kvStore.CreateFamily(fmt.Sprintf("%d", familyTime), familyOption)
-			if err != nil {
-				return nil, fmt.Errorf("%w ,failed to create data family: %s",
-					constants.ErrDataFamilyNotFound, err)
-			}
-		}
-		dataFamily := s.initDataFamily(familyTime, family)
-		return dataFamily, nil
+	if family, ok := s.families[familyTime]; ok {
+		return family, nil
 	}
-	return family, nil
+	familyOption := kv.FamilyOption{
+		CompactThreshold: 0,
+		Merger:           string(metricsdata.MetricDataMerger),
+	}
+	familyName := strconv.Itoa(familyTime)
+	family := s.kvStore.GetFamily(familyName)
+	if family == nil {
+		// create kv family
+		var err error
+		family, err = s.kvStore.CreateFamily(fmt.Sprintf("%d", familyTime), familyOption)
+		if err != nil {
+			return nil, fmt.Errorf("%w ,failed to create data family: %s",
+				constants.ErrDataFamilyNotFound, err)
+		}
+	}
+	dataFamily := s.initDataFamily(familyTime, family)
+	return dataFamily, nil
 }
 
 // Close closes segment, include kv store.
@@ -202,11 +201,10 @@ func (s *segment) getOrLoadFamily(familyName string, familyTime int) DataFamily 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	family, ok := s.families[familyTime]
-	if !ok {
-		family = s.initDataFamily(familyTime, s.kvStore.GetFamily(familyName))
+	if family, ok := s.families[familyTime]; ok {
+		return family
 	}
-	return family
+	return s.initDataFamily(familyTime, s.kvStore.GetFamily(familyName))
 }
 
 // initDataFamily initializes data family from storage.

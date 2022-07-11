@@ -161,9 +161,8 @@ func (r *SystemCollector) logDiskUsageStat() {
 
 func (r *SystemCollector) logNetStat() {
 	for _, stat := range r.netStats {
-		lastStat, ok := r.netStats[stat.Name]
 		// check time interval
-		if ok && time.Since(r.netStatsUpdated[stat.Name]) <= 2*r.interval {
+		if lastStat, ok := r.netStats[stat.Name]; ok && time.Since(r.netStatsUpdated[stat.Name]) <= 2*r.interval {
 			r.statistics.NetBytesSent.WithTagValues(stat.Name).Add(float64(stat.BytesSent - lastStat.BytesSent))
 			r.statistics.NetBytesRecv.WithTagValues(stat.Name).Add(float64(stat.BytesRecv - lastStat.BytesRecv))
 			r.statistics.NetPacketsSent.WithTagValues(stat.Name).Add(float64(stat.PacketsSent - lastStat.PacketsSent))

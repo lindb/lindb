@@ -97,11 +97,10 @@ func (cm *channelManager) Write(ctx context.Context, database string, brokerBatc
 	if brokerBatchRows == nil || brokerBatchRows.Len() == 0 {
 		return nil
 	}
-	databaseChannel, ok := cm.getDatabaseChannel(database)
-	if !ok {
-		return fmt.Errorf("database [%s] not found", database)
+	if databaseChannel, ok := cm.getDatabaseChannel(database); ok {
+		return databaseChannel.Write(ctx, brokerBatchRows)
 	}
-	return databaseChannel.Write(ctx, brokerBatchRows)
+	return fmt.Errorf("database [%s] not found", database)
 }
 
 // CreateChannel creates a new shardChannel or returns an existed shardChannel for storage with specific database and shardID,
@@ -112,28 +111,28 @@ func (cm *channelManager) CreateChannel(databaseCfg models.Database, numOfShard 
 		return nil, errors.New("numOfShard should be greater than 0 and shardID should less then numOfShard")
 	}
 	database := databaseCfg.Name
-	ch, ok := cm.getDatabaseChannel(database)
-	if !ok {
-		// double check, need lock
-		cm.databaseChannels.mu.Lock()
-		defer cm.databaseChannels.mu.Unlock()
 
-		ch, ok = cm.getDatabaseChannel(database)
-		if !ok {
-			// if not exist, create database shardChannel
-			ch = newDatabaseChannel(cm.ctx, databaseCfg, numOfShard, cm.fct)
-
-			// clone databases and creates a new map to hold database channels
-			cm.insertDatabaseChannel(database, ch)
-
-			cm.logger.Info("create shard write shardChannel successfully",
-				logger.String("db", database),
-				logger.Int("shardID", shardID.Int()))
-
-			// create shard level shardChannel
-			return ch.CreateChannel(numOfShard, shardID)
-		}
+	if ch, ok := cm.getDatabaseChannel(database); ok {
+		return ch.CreateChannel(numOfShard, shardID)
 	}
+	// double check, need lock
+	cm.databaseChannels.mu.Lock()
+	defer cm.databaseChannels.mu.Unlock()
+
+	if ch, ok := cm.getDatabaseChannel(database); ok {
+		return ch.CreateChannel(numOfShard, shardID)
+	}
+	// if not exist, create database shardChannel
+	ch := newDatabaseChannel(cm.ctx, databaseCfg, numOfShard, cm.fct)
+
+	// clone databases and creates a new map to hold database channels
+	cm.insertDatabaseChannel(database, ch)
+
+	cm.logger.Info("create shard write shardChannel successfully",
+		logger.String("db", database),
+		logger.Int("shardID", shardID.Int()))
+
+	// create shard level shardChannel
 	return ch.CreateChannel(numOfShard, shardID)
 }
 

@@ -86,10 +86,9 @@ func (cli *executeCli) ExecuteAsResult(param models.ExecuteParam, rs interface{}
 	if err != nil {
 		return "", err
 	}
-	formatter, ok := rs.(models.TableFormatter)
 	result := ""
 	rows := 0
-	if ok {
+	if formatter, ok := rs.(models.TableFormatter); ok {
 		rows, result = formatter.ToTable()
 	}
 	if rows == 0 {

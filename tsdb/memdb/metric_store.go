@@ -106,8 +106,7 @@ func (ms *metricStore) GetSlotRange() *timeutil.SlotRange {
 
 // AddField adds field meta into metric level
 func (ms *metricStore) AddField(fieldID field.ID, fieldType field.Type) {
-	_, ok := ms.fields.GetFromID(fieldID)
-	if !ok {
+	if _, ok := ms.fields.GetFromID(fieldID); !ok {
 		fieldsCap := cap(ms.fields)
 		ms.fields = ms.fields.Insert(field.Meta{
 			ID:   fieldID,

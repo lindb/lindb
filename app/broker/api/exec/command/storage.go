@@ -50,8 +50,7 @@ var storageCommands = map[stmtpkg.StorageOpType]storageCommandFn{
 // StorageCommand executes lin query language for storage related.
 func StorageCommand(ctx context.Context, deps *depspkg.HTTPDeps, _ *models.ExecuteParam, stmt stmtpkg.Statement) (interface{}, error) {
 	storageStmt := stmt.(*stmtpkg.Storage)
-	commandFn, ok := storageCommands[storageStmt.Type]
-	if ok {
+	if commandFn, ok := storageCommands[storageStmt.Type]; ok {
 		return commandFn(ctx, deps, storageStmt)
 	}
 	return nil, nil
@@ -72,8 +71,7 @@ func listStorages(ctx context.Context, deps *depspkg.HTTPDeps, _ *stmtpkg.Storag
 			log.Warn("unmarshal data error",
 				logger.String("data", string(val.Value)))
 		} else {
-			_, ok := stateMgr.GetStorage(storage.Config.Namespace)
-			if ok {
+			if _, ok := stateMgr.GetStorage(storage.Config.Namespace); ok {
 				storage.Status = models.StorageStatusReady
 			} else {
 				storage.Status = models.StorageStatusInitialize

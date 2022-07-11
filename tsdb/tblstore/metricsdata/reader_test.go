@@ -137,8 +137,7 @@ func TestReader_Load(t *testing.T) {
 		DownSampling: func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, getter encoding.TSDValueGetter) {
 			assert.Equal(t, timeutil.SlotRange{Start: 5, End: 5}, slotRange)
 			for movingSourceSlot := slotRange.Start; movingSourceSlot <= slotRange.End; movingSourceSlot++ {
-				_, ok := getter.GetValue(movingSourceSlot)
-				if !ok {
+				if _, ok := getter.GetValue(movingSourceSlot); !ok {
 					continue
 				}
 				found++

@@ -56,8 +56,7 @@ func (r *replicaLeaderElector) ElectLeader(shardAssignment *models.ShardAssignme
 	// build live replica node
 	liveReplicaNodes := models.Replica{}
 	for _, replica := range replicas.Replicas {
-		_, ok := liveNodes[replica]
-		if ok {
+		if _, ok := liveNodes[replica]; ok {
 			liveReplicaNodes.Replicas = append(liveReplicaNodes.Replicas, replica)
 		}
 	}

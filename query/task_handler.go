@@ -73,8 +73,7 @@ func (q *TaskHandler) Handle(stream protoCommonV1.TaskService_HandleServer) (err
 
 	// when return, the stream is closed, Deregister the stream
 	defer func() {
-		ok := q.fct.Deregister(epoch, nodeID)
-		if ok {
+		if ok := q.fct.Deregister(epoch, nodeID); ok {
 			q.logger.Info("unregister task stream successfully",
 				logger.String("client", nodeID), logger.Int64("epoch", epoch))
 		}

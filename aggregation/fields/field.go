@@ -118,8 +118,7 @@ func (f *dynamicField) getFieldValues(aggTypes []field.AggType) (result []*colle
 		return
 	}
 	for _, aggType := range aggTypes {
-		pField, ok := f.fields[aggType]
-		if ok {
+		if pField, ok := f.fields[aggType]; ok {
 			result = append(result, pField)
 		}
 	}

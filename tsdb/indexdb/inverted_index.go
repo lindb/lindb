@@ -358,8 +358,7 @@ func (index *invertedIndex) loadSeriesIDsInKV(tagKeyID tag.KeyID, fn func(reader
 func (index *invertedIndex) loadSeriesIDsInMem(tagKeyID tag.KeyID, fn func(tagIndex TagIndex)) {
 	// define get tag series ids func
 	getSeriesIDsIDs := func(tagIndexStore *TagIndexStore) {
-		tagIndex, ok := tagIndexStore.Get(uint32(tagKeyID))
-		if ok {
+		if tagIndex, ok := tagIndexStore.Get(uint32(tagKeyID)); ok {
 			fn(tagIndex)
 		}
 	}

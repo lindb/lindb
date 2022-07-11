@@ -239,8 +239,7 @@ func (q *queryStmtParser) visitAlias(ctx *grammar.AliasContext) {
 	if len(q.selectItems) == 0 {
 		return
 	}
-	selectItem, ok := (q.selectItems[len(q.selectItems)-1]).(*stmt.SelectItem)
-	if ok {
+	if selectItem, ok := (q.selectItems[len(q.selectItems)-1]).(*stmt.SelectItem); ok {
 		selectItem.Alias = strutil.GetStringValue(ctx.Ident().GetText())
 	}
 }
