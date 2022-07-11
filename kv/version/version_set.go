@@ -193,8 +193,8 @@ func (vs *storeVersionSet) CreateFamilyVersion(family string, familyID FamilyID)
 func (vs *storeVersionSet) GetFamilyVersion(family string) FamilyVersion {
 	vs.mutex.RLock()
 	defer vs.mutex.RUnlock()
-	familyVersion, ok := vs.familyVersions[family]
-	if ok {
+
+	if familyVersion, ok := vs.familyVersions[family]; ok {
 		return familyVersion
 	}
 	return nil
@@ -326,11 +326,11 @@ func (vs *storeVersionSet) initJournal() error {
 func (vs *storeVersionSet) getFamilyVersion(familyID FamilyID) FamilyVersion {
 	vs.mutex.RLock()
 	defer vs.mutex.RUnlock()
-	familyName, ok := vs.familyIDs[familyID]
-	if !ok {
-		return nil
+
+	if familyName, ok := vs.familyIDs[familyID]; ok {
+		return vs.familyVersions[familyName]
 	}
-	return vs.familyVersions[familyName]
+	return nil
 }
 
 // newVersionID generates new version id

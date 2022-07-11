@@ -75,10 +75,8 @@ func (c *storeCache) Evict(fileName string) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	entry, ok := c.cache.Get(fileName)
-	if ok {
+	if entry, ok := c.cache.Get(fileName); ok {
 		c.evict(entry)
-
 		c.cache.Remove(fileName)
 	}
 }
@@ -89,8 +87,7 @@ func (c *storeCache) ReleaseReaders(readers []Reader) {
 	defer c.mutex.Unlock()
 
 	for _, r := range readers {
-		entry, ok := c.cache.Get(r.FileName())
-		if ok {
+		if entry, ok := c.cache.Get(r.FileName()); ok {
 			entry.release()
 		}
 	}
@@ -102,8 +99,7 @@ func (c *storeCache) GetReader(family, fileName string) (Reader, error) {
 	defer c.mutex.Unlock()
 
 	// find from cache
-	entry, ok := c.cache.Get(fileName)
-	if ok {
+	if entry, ok := c.cache.Get(fileName); ok {
 		entry.retain()
 		metrics.TableCacheStatistics.Hit.Incr()
 		return entry.reader, nil
@@ -117,7 +113,7 @@ func (c *storeCache) GetReader(family, fileName string) (Reader, error) {
 	if err != nil {
 		return nil, err
 	}
-	entry = &cacheEntry{
+	entry := &cacheEntry{
 		key:      fileName,
 		reader:   newReader,
 		family:   family,
@@ -126,8 +122,7 @@ func (c *storeCache) GetReader(family, fileName string) (Reader, error) {
 	entry.retain()
 	c.cache.Add(fileName, entry)
 
-	files, ok := c.families[family]
-	if ok {
+	if files, ok := c.families[family]; ok {
 		files[fileName] = struct{}{}
 	} else {
 		c.families[family] = map[string]struct{}{fileName: {}}

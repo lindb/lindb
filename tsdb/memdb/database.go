@@ -147,18 +147,19 @@ func (md *memoryDatabase) metricBucketSize() int {
 // getOrCreateMStore returns the mStore by metricHash.
 func (md *memoryDatabase) getOrCreateMStore(metricID metric.ID) (mStore mStoreINTF) {
 	metricKey := uint32(metricID)
-	mStore, ok := md.mStores.Get(metricKey)
-	if !ok {
-		// not found need create new metric store
-		beforeMetricBucketSize := md.metricBucketSize()
-		mStore = newMetricStore()
-		// add metric-store size
-		md.allocSize.Add(int64(mStore.Capacity()))
-		// add metric-bucket increased
-		md.mStores.Put(metricKey, mStore)
-		md.allocSize.Add(int64(md.metricBucketSize() - beforeMetricBucketSize))
+
+	if mStore0, ok := md.mStores.Get(metricKey); ok {
+		// found metric store in current memory database
+		return mStore0
 	}
-	// found metric store in current memory database
+	// not found need create new metric store
+	beforeMetricBucketSize := md.metricBucketSize()
+	mStore = newMetricStore()
+	// add metric-store size
+	md.allocSize.Add(int64(mStore.Capacity()))
+	// add metric-bucket increased
+	md.mStores.Put(metricKey, mStore)
+	md.allocSize.Add(int64(md.metricBucketSize() - beforeMetricBucketSize))
 	return
 }
 
@@ -335,17 +336,15 @@ func (md *memoryDatabase) Filter(shardExecuteContext *flow.ShardExecuteContext) 
 	md.rwMutex.RLock()
 	defer md.rwMutex.RUnlock()
 
-	mStore, ok := md.mStores.Get(uint32(shardExecuteContext.StorageExecuteCtx.MetricID))
-	if !ok {
-		return nil, nil
+	if mStore, ok := md.mStores.Get(uint32(shardExecuteContext.StorageExecuteCtx.MetricID)); ok {
+		querySlotRange := shardExecuteContext.StorageExecuteCtx.CalcSourceSlotRange(md.familyTime)
+		storageSlotRange := mStore.GetSlotRange()
+		if !storageSlotRange.Overlap(querySlotRange) {
+			return nil, nil
+		}
+		return mStore.Filter(shardExecuteContext, md)
 	}
-
-	querySlotRange := shardExecuteContext.StorageExecuteCtx.CalcSourceSlotRange(md.familyTime)
-	storageSlotRange := mStore.GetSlotRange()
-	if !storageSlotRange.Overlap(querySlotRange) {
-		return nil, nil
-	}
-	return mStore.Filter(shardExecuteContext, md)
+	return nil, nil
 }
 
 // MemSize returns the time series database memory size

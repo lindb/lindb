@@ -112,8 +112,7 @@ func (fq *fanOutQueue) GetOrCreateConsumerGroup(name string) (ConsumerGroup, err
 	fq.lock4map.Lock()
 	defer fq.lock4map.Unlock()
 
-	fo, ok := fq.consumerGroups[name]
-	if ok {
+	if fo, ok := fq.consumerGroups[name]; ok {
 		return fo, nil
 	}
 

@@ -120,8 +120,7 @@ func (w *writeAheadLog) GetOrCreatePartition(
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
-	p, ok := w.familyLogs[key]
-	if ok {
+	if p, ok := w.familyLogs[key]; ok {
 		return p, nil
 	}
 	shard, ok := w.engine.GetShard(w.database, shardID)
@@ -143,7 +142,7 @@ func (w *writeAheadLog) GetOrCreatePartition(
 	if err != nil {
 		return nil, err
 	}
-	p = NewPartitionFn(w.ctx, shard, family, w.currentNodeID, q, w.cliFct, w.stateMgr)
+	p := NewPartitionFn(w.ctx, shard, family, w.currentNodeID, q, w.cliFct, w.stateMgr)
 
 	w.familyLogs[key] = p
 	return p, nil

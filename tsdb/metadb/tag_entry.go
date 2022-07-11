@@ -115,22 +115,19 @@ func (t *tagEntry) findSeriesIDsByExpr(expr stmt.TagFilter) *roaring.Bitmap {
 
 // findSeriesIDsByEqual finds tag value ids by tag value - equal
 func (t *tagEntry) findSeriesIDsByEqual(value string) *roaring.Bitmap {
-	tagValueID, ok := t.tagValues[value]
-	if !ok {
-		return nil
+	if tagValueID, ok := t.tagValues[value]; ok {
+		return roaring.BitmapOf(tagValueID)
 	}
-	return roaring.BitmapOf(tagValueID)
+	return nil
 }
 
 // findSeriesIDsByIn finds series ids by tag value - in
 func (t *tagEntry) findSeriesIDsByIn(expr *stmt.InExpr) *roaring.Bitmap {
 	union := roaring.New()
 	for _, value := range expr.Values {
-		tagValueID, ok := t.tagValues[value]
-		if !ok {
-			continue
+		if tagValueID, ok := t.tagValues[value]; ok {
+			union.Add(tagValueID)
 		}
-		union.Add(tagValueID)
 	}
 	return union
 }

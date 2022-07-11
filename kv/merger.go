@@ -30,8 +30,7 @@ var mergers = make(map[MergerType]NewMerger)
 // RegisterMerger registers family merger
 // NOTICE: must register before create family
 func RegisterMerger(name MergerType, merger NewMerger) {
-	_, ok := mergers[name]
-	if ok {
+	if _, ok := mergers[name]; ok {
 		panic("merger already register")
 	}
 	mergers[name] = merger

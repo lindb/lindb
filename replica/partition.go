@@ -269,8 +269,7 @@ func (p *partition) getReplicaState() models.FamilyLogReplicaState {
 			Pending:    fanout.Pending(),
 		}
 		nodeID := models.ParseNodeID(name)
-		peer, ok := p.getReplicatorRunner(nodeID)
-		if ok {
+		if peer, ok := p.getReplicatorRunner(nodeID); ok {
 			replicatorType, replicatorState := peer.ReplicatorState()
 			peerState.ReplicatorType = replicatorType
 			peerState.State = replicatorState.state
@@ -292,8 +291,7 @@ func (p *partition) getReplicaState() models.FamilyLogReplicaState {
 func (p *partition) buildReplica(leader, replica models.NodeID) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	_, ok := p.peers[replica]
-	if ok {
+	if _, ok := p.peers[replica]; ok {
 		// exist
 		return nil
 	}

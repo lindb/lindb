@@ -102,18 +102,17 @@ func (r *fieldReader) GetFieldData(fieldID field.ID) []byte {
 	if r.completed {
 		return nil
 	}
-	idx, ok := r.fieldIndexes[fieldID]
-	if !ok {
-		return nil
+	if idx, ok := r.fieldIndexes[fieldID]; ok {
+		if r.fieldCount == 1 {
+			return r.seriesEntry
+		}
+		fieldBlock, err := r.fieldOffsets.GetBlock(idx, r.fieldDatas)
+		if err != nil {
+			return nil
+		}
+		return fieldBlock
 	}
-	if r.fieldCount == 1 {
-		return r.seriesEntry
-	}
-	fieldBlock, err := r.fieldOffsets.GetBlock(idx, r.fieldDatas)
-	if err != nil {
-		return nil
-	}
-	return fieldBlock
+	return nil
 }
 
 // Close marks the metricReader completed

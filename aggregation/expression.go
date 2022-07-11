@@ -71,8 +71,7 @@ func (e *Expression) Eval(timeSeries series.GroupedIterator) {
 	for _, selectItem := range e.selectItems {
 		values := e.eval(nil, selectItem)
 		if len(values) != 0 {
-			item, ok := selectItem.(*stmt.SelectItem)
-			if ok && len(item.Alias) > 0 {
+			if item, ok := selectItem.(*stmt.SelectItem); ok && len(item.Alias) > 0 {
 				e.resultSet[item.Alias] = values[0]
 			} else {
 				e.resultSet[item.Rewrite()] = values[0]
@@ -126,17 +125,15 @@ func (e *Expression) eval(parentFunc *stmt.CallExpr, expr stmt.Expr) []*collecti
 		return []*collections.FloatArray{values}
 	case *stmt.FieldExpr:
 		fieldName := ex.Name
-		fieldValues, ok := e.fieldStore[field.Name(fieldName)]
-		if !ok {
-			return nil
+		if fieldValues, ok := e.fieldStore[field.Name(fieldName)]; ok {
+			// tests if it has func with field
+			if parentFunc == nil {
+				return fieldValues.GetDefaultValues()
+			}
+			// get field data by function type
+			return fieldValues.GetValues(parentFunc.FuncType)
 		}
-
-		// tests if has func with field
-		if parentFunc == nil {
-			return fieldValues.GetDefaultValues()
-		}
-		// get field data by function type
-		return fieldValues.GetValues(parentFunc.FuncType)
+		return nil
 	default:
 		return nil
 	}

@@ -356,11 +356,10 @@ func (t *taskManager) AllocTaskID() string {
 
 // Get returns the task context by task id
 func (t *taskManager) Get(taskID string) TaskContext {
-	task, ok := t.tasks.Load(taskID)
-	if !ok {
-		return nil
+	if task, ok := t.tasks.Load(taskID); ok {
+		return task.(TaskContext)
 	}
-	return task.(TaskContext)
+	return nil
 }
 
 // SendRequest sends the task request to target node based on node's indicator,

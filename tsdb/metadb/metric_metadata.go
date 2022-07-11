@@ -136,8 +136,7 @@ func (mm *metricMetadata) checkTagKey(_ string) error {
 
 // getTagKeyID gets the tag key id by tag key, if not exist return false
 func (mm *metricMetadata) getTagKeyID(tagKey string) (tag.KeyID, bool) {
-	t, ok := mm.tagKeys.Find(tagKey)
-	if ok {
+	if t, ok := mm.tagKeys.Find(tagKey); ok {
 		return t.ID, true
 	}
 	return tag.EmptyTagKeyID, false

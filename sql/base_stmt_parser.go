@@ -112,9 +112,8 @@ func (b *baseStmtParser) setTagFilterExprValue(expr stmt.Expr, tagValue string) 
 // createTagFilterExpr creates tag filer expr like equals, like, in and regex etc.
 func (b *baseStmtParser) createTagFilterExpr(tagKey grammar.ITagKeyContext,
 	ctx *grammar.TagFilterExprContext) stmt.Expr {
-	tagKeyCtx, ok := tagKey.(*grammar.TagKeyContext)
 	var expr stmt.Expr
-	if ok {
+	if tagKeyCtx, ok := tagKey.(*grammar.TagKeyContext); ok {
 		tagKeyStr := strutil.GetStringValue(tagKeyCtx.Ident().GetText())
 		switch {
 		case ctx.T_EQUAL() != nil:

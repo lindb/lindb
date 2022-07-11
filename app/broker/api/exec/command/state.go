@@ -55,17 +55,16 @@ func StateCommand(_ context.Context, deps *depspkg.HTTPDeps,
 		if storageName == "" {
 			return nil, constants.ErrStorageNameRequired
 		}
-		storage, ok := deps.StateMgr.GetStorage(storageName)
-		if !ok {
-			return nil, nil
+		if storage, ok := deps.StateMgr.GetStorage(storageName); ok {
+			liveNodes := storage.LiveNodes
+			var nodes []models.Node
+			for id := range liveNodes {
+				n := liveNodes[id]
+				nodes = append(nodes, &n)
+			}
+			return fetchMetricData(nodes, stateStmt.MetricNames)
 		}
-		liveNodes := storage.LiveNodes
-		var nodes []models.Node
-		for id := range liveNodes {
-			n := liveNodes[id]
-			nodes = append(nodes, &n)
-		}
-		return fetchMetricData(nodes, stateStmt.MetricNames)
+		return nil, nil
 	default:
 		return nil, nil
 	}
@@ -73,17 +72,16 @@ func StateCommand(_ context.Context, deps *depspkg.HTTPDeps,
 
 // getReplicaState returns wal replica state.
 func getReplicaState(deps *depspkg.HTTPDeps, stmt *stmtpkg.State) (interface{}, error) {
-	storage, ok := deps.StateMgr.GetStorage(stmt.StorageName)
-	if !ok {
-		return nil, nil
+	if storage, ok := deps.StateMgr.GetStorage(stmt.StorageName); ok {
+		liveNodes := storage.LiveNodes
+		var nodes []models.Node
+		for id := range liveNodes {
+			n := liveNodes[id]
+			nodes = append(nodes, &n)
+		}
+		return fetchStateData(nodes, stmt)
 	}
-	liveNodes := storage.LiveNodes
-	var nodes []models.Node
-	for id := range liveNodes {
-		n := liveNodes[id]
-		nodes = append(nodes, &n)
-	}
-	return fetchStateData(nodes, stmt)
+	return nil, nil
 }
 
 // fetchStateData fetches the state metric from each live nodes.
@@ -160,8 +158,7 @@ func fetchMetricData(nodes []models.Node, names []string) (interface{}, error) {
 			continue
 		}
 		for name, list := range metricList {
-			l, ok := rs[name]
-			if ok {
+			if l, ok := rs[name]; ok {
 				l = append(l, list...)
 				rs[name] = l
 			} else {

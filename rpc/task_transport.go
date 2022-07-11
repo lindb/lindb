@@ -89,8 +89,7 @@ func (f *taskClientFactory) GetTaskClient(target string) protoCommonV1.TaskServi
 	f.mutex.RLock()
 	defer f.mutex.RUnlock()
 
-	stream, ok := f.taskStreams[target]
-	if ok && stream != nil {
+	if stream, ok := f.taskStreams[target]; ok && stream != nil {
 		return stream.cli
 	}
 	return nil
@@ -103,8 +102,7 @@ func (f *taskClientFactory) CreateTaskClient(target models.Node) error {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
-	_, ok := f.taskStreams[targetNodeID]
-	if ok {
+	if _, ok := f.taskStreams[targetNodeID]; ok {
 		return nil
 	}
 
@@ -126,8 +124,7 @@ func (f *taskClientFactory) CloseTaskClient(targetNodeID string) (closed bool, e
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
-	client, ok := f.taskStreams[targetNodeID]
-	if ok && client.cli != nil {
+	if client, ok := f.taskStreams[targetNodeID]; ok && client.cli != nil {
 		client.running.Store(false)
 		err = client.cli.CloseSend()
 		delete(f.taskStreams, targetNodeID)
@@ -249,8 +246,7 @@ func (fct *taskServerFactory) GetStream(node string) protoCommonV1.TaskService_H
 	fct.lock.RLock()
 	defer fct.lock.RUnlock()
 
-	st, ok := fct.nodeMap[node]
-	if ok {
+	if st, ok := fct.nodeMap[node]; ok {
 		return st.handle
 	}
 	return nil
@@ -289,8 +285,8 @@ func (fct *taskServerFactory) Nodes() []models.Node {
 func (fct *taskServerFactory) Deregister(epoch int64, node string) bool {
 	fct.lock.Lock()
 	defer fct.lock.Unlock()
-	st, ok := fct.nodeMap[node]
-	if ok && st.epoch == epoch {
+
+	if st, ok := fct.nodeMap[node]; ok && st.epoch == epoch {
 		delete(fct.nodeMap, node)
 		return true
 	}

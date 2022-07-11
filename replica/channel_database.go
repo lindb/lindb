@@ -164,28 +164,27 @@ func (dc *databaseChannel) Write(ctx context.Context, brokerBatchRows *metric.Br
 
 // CreateChannel creates the shard level replication shardChannel by given shard id
 func (dc *databaseChannel) CreateChannel(numOfShard int32, shardID models.ShardID) (ShardChannel, error) {
-	channel, ok := dc.getChannelByShardID(shardID)
-	if !ok {
-		dc.shardChannels.mu.Lock()
-		defer dc.shardChannels.mu.Unlock()
-
-		// double check
-		channel, ok = dc.getChannelByShardID(shardID)
-		if !ok {
-			if numOfShard <= 0 || int32(shardID) >= numOfShard {
-				return nil, errInvalidShardID
-			}
-			if numOfShard < dc.numOfShard.Load() {
-				return nil, errInvalidShardNum
-			}
-			ch := createChannel(dc.ctx, dc.databaseCfg.Name, shardID, dc.fct)
-
-			// cache shard level shardChannel
-			dc.insertShardChannel(shardID, ch)
-			return ch, nil
-		}
+	if channel, ok := dc.getChannelByShardID(shardID); ok {
+		return channel, nil
 	}
-	return channel, nil
+	dc.shardChannels.mu.Lock()
+	defer dc.shardChannels.mu.Unlock()
+
+	// double check
+	if channel, ok := dc.getChannelByShardID(shardID); ok {
+		return channel, nil
+	}
+	if numOfShard <= 0 || int32(shardID) >= numOfShard {
+		return nil, errInvalidShardID
+	}
+	if numOfShard < dc.numOfShard.Load() {
+		return nil, errInvalidShardNum
+	}
+	ch := createChannel(dc.ctx, dc.databaseCfg.Name, shardID, dc.fct)
+
+	// cache shard level shardChannel
+	dc.insertShardChannel(shardID, ch)
+	return ch, nil
 }
 
 // Stop stops current database write shardChannel.

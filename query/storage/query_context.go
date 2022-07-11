@@ -63,9 +63,8 @@ func (ctx *executeContext) prepare() error {
 
 	// get shard by given query shard id list
 	for _, shardID := range ctx.storageExecuteCtx.ShardIDs {
-		shard, ok := ctx.database.GetShard(shardID)
 		// if shard exist, add shard to query list
-		if ok {
+		if shard, ok := ctx.database.GetShard(shardID); ok {
 			ctx.shards = append(ctx.shards, shard)
 		}
 	}

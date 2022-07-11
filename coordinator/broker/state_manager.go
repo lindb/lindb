@@ -269,8 +269,7 @@ func (m *stateManager) onStorageStateChange(key string, data []byte) error {
 		return constants.ErrNameEmpty
 	}
 
-	oldState, ok := m.storages[newState.Name]
-	if ok {
+	if oldState, ok := m.storages[newState.Name]; ok {
 		liveNodesSet := make(map[string]struct{})
 		for idx := range newState.LiveNodes {
 			node := newState.LiveNodes[idx]
@@ -311,8 +310,7 @@ func (m *stateManager) onStorageDelete(key string) {
 		logger.String("storage", name),
 		logger.String("key", key))
 
-	state, ok := m.storages[name]
-	if ok {
+	if state, ok := m.storages[name]; ok {
 		// close all connection [current broker node=>storage live nodes]
 		for _, node := range state.LiveNodes {
 			m.connectionManager.CloseConnection(node.Indicator())

@@ -119,8 +119,7 @@ func (e *election) IsMaster() bool {
 // GetMaster returns the current master
 func (e *election) GetMaster() *models.Master {
 	m := e.master.Load()
-	master, ok := m.(*models.Master)
-	if ok {
+	if master, ok := m.(*models.Master); ok {
 		return master
 	}
 	return nil

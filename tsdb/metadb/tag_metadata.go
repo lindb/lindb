@@ -88,10 +88,9 @@ func NewTagMetadata(databaseName string, family kv.Family) TagMetadata {
 func (m *tagMetadata) GenTagValueID(tagKeyID tag.KeyID, tagValue string) (tagValueID uint32, err error) {
 	// get tag value id from memory with read lock
 	m.rwMutex.RLock()
-	tagValueID, ok := m.getTagValueIDInMem(tagKeyID, tagValue)
-	if ok {
+	if tagValueID0, ok := m.getTagValueIDInMem(tagKeyID, tagValue); ok {
 		m.rwMutex.RUnlock()
-		return tagValueID, nil
+		return tagValueID0, nil
 	}
 	m.rwMutex.RUnlock()
 
@@ -125,9 +124,8 @@ func (m *tagMetadata) GenTagValueID(tagKeyID tag.KeyID, tagValue string) (tagVal
 	m.rwMutex.Lock()
 	defer m.rwMutex.Unlock()
 	// double check, memory if exist tag value
-	tagValueID, ok = m.getTagValueIDInMem(tagKeyID, tagValue)
-	if ok {
-		return tagValueID, nil
+	if tagValueID0, ok := m.getTagValueIDInMem(tagKeyID, tagValue); ok {
+		return tagValueID0, nil
 	}
 
 	// assign new tag value id
@@ -342,8 +340,7 @@ func (m *tagMetadata) loadTagValueIDsInKV(tagKeyID tag.KeyID, fn func(reader tag
 func (m *tagMetadata) loadTagValueIDsInMem(tagKeyID tag.KeyID, fn func(tagEntry TagEntry)) {
 	// define get tag value ids func
 	getTagValueIDs := func(tagStore *TagStore) {
-		tagEntry, ok := tagStore.Get(uint32(tagKeyID))
-		if ok {
+		if tagEntry, ok := tagStore.Get(uint32(tagKeyID)); ok {
 			fn(tagEntry)
 		}
 	}
@@ -374,8 +371,7 @@ func (m *tagMetadata) getTagValueIDInMem(tagKeyID tag.KeyID, tagValue string) (t
 
 // getTagValueID gets tag value id from tag store based on tag key id and tag value
 func getTagValueID(tags *TagStore, tagKeyID tag.KeyID, tagValue string) (tagValueID uint32, ok bool) {
-	tagEntry, ok := tags.Get(uint32(tagKeyID))
-	if ok {
+	if tagEntry, ok := tags.Get(uint32(tagKeyID)); ok {
 		tagValueID, ok = tagEntry.getTagValueID(tagValue)
 		if ok {
 			return tagValueID, true

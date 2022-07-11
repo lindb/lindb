@@ -291,8 +291,7 @@ func (f *family) deleteObsoleteFiles() {
 	// make a map for all live files
 	liveFiles := make(map[table.FileNumber]string)
 	f.pendingOutputs.Range(func(key, value interface{}) bool {
-		k, ok := key.(table.FileNumber)
-		if ok {
+		if k, ok := key.(table.FileNumber); ok {
 			liveFiles[k] = dummy
 		}
 		return true

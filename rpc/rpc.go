@@ -97,9 +97,8 @@ func (fct *clientConnFactory) GetClientConn(target models.Node) (*grpc.ClientCon
 	defer fct.mu.Unlock()
 
 	// double check
-	conn, ok = fct.connMap[indicator]
-	if ok {
-		return conn, nil
+	if conn0, ok := fct.connMap[indicator]; ok {
+		return conn0, nil
 	}
 	conn, err := grpc.Dial(
 		target.Indicator(),
@@ -140,7 +139,7 @@ func (fct *clientConnFactory) CloseClientConn(target models.Node) error {
 
 // ClientStreamFactory is the factory to get ClientStream.
 type ClientStreamFactory interface {
-	// LogicNode returns the a logic Node which will be transferred to the target server for identification.
+	// LogicNode returns the logic Node which will be transferred to the target server for identification.
 	LogicNode() models.Node
 	// CreateTaskClient creates a stream task client
 	CreateTaskClient(target models.Node) (protoCommonV1.TaskService_HandleClient, error)
@@ -166,7 +165,7 @@ func NewClientStreamFactory(ctx context.Context, logicNode models.Node, connFct 
 	}
 }
 
-// LogicNode returns the a logic Node which will be transferred to the target server for identification.
+// LogicNode returns the logic Node which will be transferred to the target server for identification.
 func (w *clientStreamFactory) LogicNode() models.Node {
 	return w.logicNode
 }
@@ -211,17 +210,14 @@ func CreateOutgoingContextWithPairs(ctx context.Context, pairs ...string) contex
 
 // GetStringFromContext retrieving string metaValue from context for metaKey.
 func GetStringFromContext(ctx context.Context, metaKey string) (string, error) {
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return "", errors.New("meta data not exists, key: " + metaKey)
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
+		strList := md.Get(metaKey)
+		if len(strList) != 1 {
+			return "", errors.New("meta data should have exactly one string value")
+		}
+		return strList[0], nil
 	}
-
-	strList := md.Get(metaKey)
-
-	if len(strList) != 1 {
-		return "", errors.New("meta data should have exactly one string value")
-	}
-	return strList[0], nil
+	return "", errors.New("meta data not exists, key: " + metaKey)
 }
 
 // GetLogicNodeFromContext returns the logicNode.
