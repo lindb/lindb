@@ -128,6 +128,7 @@ func (r *etcdRepository) WalkEntry(ctx context.Context, prefix string, fn func(k
 func (r *etcdRepository) Put(ctx context.Context, key string, val []byte) error {
 	thisCtx, cancelFunc := context.WithTimeout(ctx, r.timeout)
 	defer cancelFunc()
+
 	_, err := r.client.Put(thisCtx, r.keyPath(key), string(val))
 	if err != nil {
 		r.logger.Error("put error", logger.String("path", key),
@@ -348,7 +349,11 @@ func (r *etcdRepository) NextSequence(ctx context.Context, key string) (int64, e
 // keyPath return new key path with namespace prefix
 func (r *etcdRepository) keyPath(key string) string {
 	if len(r.namespace) > 0 {
-		return r.namespace + constants.StatePathSeparator + key
+		newKey := r.namespace + constants.StatePathSeparator + key
+		// maybe namespace end with separator or key start with separator
+		return strings.ReplaceAll(newKey,
+			constants.StatePathSeparator+constants.StatePathSeparator,
+			constants.StatePathSeparator)
 	}
 	return key
 }

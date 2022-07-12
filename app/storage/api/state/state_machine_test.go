@@ -63,7 +63,7 @@ func TestStorageStateMachineAPI_Explore(t *testing.T) {
 		},
 		{
 			name:    "shard assignment",
-			reqBody: `type=` + constants.ShardAssigment,
+			reqBody: `type=` + constants.ShardAssignment,
 			prepare: func() {
 				statMgr.EXPECT().GetDatabaseAssignments().Return([]*models.DatabaseAssignment{
 					{ShardAssignment: &models.ShardAssignment{Name: "test2"}},

@@ -36,7 +36,7 @@ func init() {
 			return &models.StatefulNode{}
 		},
 	}
-	StateMachinePaths[constants.ShardAssigment] = models.StateMachineInfo{
+	StateMachinePaths[constants.ShardAssignment] = models.StateMachineInfo{
 		Path: constants.ShardAssignmentPath,
 		CreateState: func() interface{} {
 			return &models.DatabaseAssignment{}

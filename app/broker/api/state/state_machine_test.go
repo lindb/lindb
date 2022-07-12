@@ -79,7 +79,7 @@ func TestBrokerStateMachineAPI_Explore(t *testing.T) {
 		},
 		{
 			name: "broker state, type not match",
-			req:  `role=2&type=` + constants.ShardAssigment,
+			req:  `role=2&type=` + constants.ShardAssignment,
 			assert: func(resp *httptest.ResponseRecorder) {
 				assert.Equal(t, http.StatusNotFound, resp.Code)
 			},
@@ -171,7 +171,7 @@ func TestBrokerStateMachineAPI_Explore(t *testing.T) {
 		},
 		{
 			name: "master state, shard assignment",
-			req:  `role=3&type=` + constants.ShardAssigment,
+			req:  `role=3&type=` + constants.ShardAssignment,
 			prepare: func() {
 				masterStateMgr.EXPECT().GetShardAssignments().Return([]models.ShardAssignment{
 					{Name: "test1"},
@@ -184,7 +184,7 @@ func TestBrokerStateMachineAPI_Explore(t *testing.T) {
 		},
 		{
 			name: "storage state, storage not found",
-			req:  `role=4&type=` + constants.ShardAssigment,
+			req:  `role=4&type=` + constants.ShardAssignment,
 			prepare: func() {
 				masterStateMgr.EXPECT().GetStorageCluster(gomock.Any()).Return(nil)
 			},
@@ -194,7 +194,7 @@ func TestBrokerStateMachineAPI_Explore(t *testing.T) {
 		},
 		{
 			name: "storage state, get storage live node failure",
-			req:  `role=4&type=` + constants.ShardAssigment,
+			req:  `role=4&type=` + constants.ShardAssignment,
 			prepare: func() {
 				cluster := masterpkg.NewMockStorageCluster(ctrl)
 				masterStateMgr.EXPECT().GetStorageCluster(gomock.Any()).Return(cluster)
@@ -206,7 +206,7 @@ func TestBrokerStateMachineAPI_Explore(t *testing.T) {
 		},
 		{
 			name: "storage state, get storage state successfully",
-			req:  `role=4&type=` + constants.ShardAssigment,
+			req:  `role=4&type=` + constants.ShardAssignment,
 			prepare: func() {
 				cluster := masterpkg.NewMockStorageCluster(ctrl)
 				masterStateMgr.EXPECT().GetStorageCluster(gomock.Any()).Return(cluster)

@@ -51,7 +51,7 @@ func init() {
 			return &config.StorageCluster{}
 		},
 	}
-	StateMachinePaths[constants.ShardAssigment] = models.StateMachineInfo{
+	StateMachinePaths[constants.ShardAssignment] = models.StateMachineInfo{
 		Path: constants.ShardAssignmentPath,
 		CreateState: func() interface{} {
 			return &models.ShardAssignment{}

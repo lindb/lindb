@@ -126,7 +126,7 @@ func (api *BrokerStateMachineAPI) exploreMaster(c *gin.Context, param *Param) {
 		http.OK(c, nodes)
 	case constants.DatabaseConfig:
 		api.writeDatabaseState(c, api.deps.Master.GetStateManager().GetDatabases())
-	case constants.ShardAssigment:
+	case constants.ShardAssignment:
 		shardAssignments := api.deps.Master.GetStateManager().GetShardAssignments()
 		sort.Slice(shardAssignments, func(i, j int) bool {
 			return shardAssignments[i].Name < shardAssignments[j].Name
