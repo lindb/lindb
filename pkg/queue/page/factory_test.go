@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/pkg/logger"
 )
 
 func TestNewFactory(t *testing.T) {
@@ -189,5 +190,13 @@ func TestFactory_TruncatePages(t *testing.T) {
 	assert.NoError(t, err)
 
 	// truncate after closed
+	fct.TruncatePages(11)
+
+	page := NewMockMappedPage(ctrl)
+	fct = &factory{
+		pages:  map[int64]MappedPage{10: page},
+		logger: logger.GetLogger("Queue", "Test"),
+	}
+	page.EXPECT().Close().Return(fmt.Errorf("err"))
 	fct.TruncatePages(11)
 }

@@ -31,12 +31,20 @@ import (
 func TestMappedPage_err(t *testing.T) {
 	defer func() {
 		mapFileFunc = fileutil.RWMap
+		openFileFunc = os.OpenFile
 	}()
 
 	mapFileFunc = func(file *os.File, size int) ([]byte, error) {
 		return nil, fmt.Errorf("err")
 	}
 	mp, err := NewMappedPage(filepath.Join(t.TempDir(), t.Name()), 128)
+	assert.Error(t, err)
+	assert.Nil(t, mp)
+
+	openFileFunc = func(name string, flag int, perm os.FileMode) (*os.File, error) {
+		return nil, fmt.Errorf("err")
+	}
+	mp, err = NewMappedPage(filepath.Join(t.TempDir(), t.Name()), 128)
 	assert.Error(t, err)
 	assert.Nil(t, mp)
 }

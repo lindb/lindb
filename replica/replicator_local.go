@@ -59,6 +59,7 @@ func NewLocalReplicator(channel *ReplicatorChannel, shard tsdb.Shard, family tsd
 	// add ack sequence callback
 	family.AckSequence(lr.leader, func(seq int64) {
 		lr.SetAckIndex(seq)
+		lr.ResetReplicaIndex(seq + 1) // reset replica index = ack index + 1
 		lr.statistics.AckSequence.Incr()
 		lr.logger.Info("ack local replica index",
 			logger.String("replicator", lr.String()),

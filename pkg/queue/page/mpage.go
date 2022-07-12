@@ -30,7 +30,8 @@ import (
 
 // for testing
 var (
-	mapFileFunc = fileutil.RWMap
+	mapFileFunc  = fileutil.RWMap
+	openFileFunc = os.OpenFile
 )
 
 // MappedPage represents a holder for mmap bytes,
@@ -90,7 +91,7 @@ type mappedPage struct {
 
 // NewMappedPage returns a new MappedPage wrapping the give bytes.
 func NewMappedPage(fileName string, size int) (MappedPage, error) {
-	f, err := os.OpenFile(fileName, os.O_CREATE|os.O_RDWR, 0644)
+	f, err := openFileFunc(fileName, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return nil, err
 	}
