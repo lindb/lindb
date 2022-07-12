@@ -2,9 +2,18 @@
 // antlr4 SQL.g4 -Dlanguage=Go -package grammar
 grammar SQL;
 
-statement               : statementList EOF;
+statement               : showStmt
+                        | createStorageStmt
+                        | useStmt
+                        | queryStmt
+                        | createDatabaseStmt
+                        | dropDatabaseStmt
+                        | ident // just for suggest filtering.
+                        EOF ;
 
-statementList           : showMasterStmt
+useStmt                 : T_USE ident ;
+
+showStmt                : showMasterStmt
                         | showMetadataTypesStmt
                         | showBrokerMetaStmt
                         | showMasterMetaStmt
@@ -13,22 +22,15 @@ statementList           : showMasterStmt
                         | showAliveStmt
                         | showBrokerMetricStmt
                         | showStorageMetricStmt
-                        | createStorageStmt
                         | showReplicationStmt
                         | showSchemasStmt
                         | showDatabaseStmt
-                        | useStmt
                         | showNameSpacesStmt
                         | showMetricsStmt
                         | showFieldsStmt
                         | showTagKeysStmt
                         | showTagValuesStmt
-                        | queryStmt
-                        | createDatabaseStmt
-                        | dropDatabaseStmt
                         ;
-
-useStmt              : T_USE ident ;
 //meta data query statement
 showMasterStmt       : T_SHOW T_MASTER ;
 showStoragesStmt     : T_SHOW T_STORAGES ;
@@ -57,7 +59,8 @@ databaseName         : ident ;
 source               : (T_STATE_MACHINE|T_STATE_REPO) ;
 
 //data query plan
-queryStmt               : T_EXPLAIN? selectExpr fromClause whereClause? groupByClause? orderByClause? limitClause? T_WITH_VALUE?;
+queryStmt               : T_EXPLAIN? sourceAndSelect whereClause? groupByClause? orderByClause? limitClause? T_WITH_VALUE?;
+sourceAndSelect         : selectExpr fromClause | fromClause selectExpr ;
 selectExpr              : T_SELECT fields;
 //select fields
 fields                  : field ( T_COMMA field )* ;

@@ -107,10 +107,6 @@ func Test_executor(t *testing.T) {
 		prepare func()
 	}{
 		{
-			name: "input not complete",
-			in:   "show",
-		},
-		{
 			name: "exit",
 			in:   "exit;",
 			prepare: func() {
@@ -185,6 +181,18 @@ func Test_executor(t *testing.T) {
 				inputC.db = "test"
 				mockCli.EXPECT().ExecuteAsResult(gomock.Any(), gomock.Any())
 			},
+		},
+		{
+			name: "from query successfully",
+			in:   "from cpu select f;",
+			prepare: func() {
+				inputC.db = "test_2"
+				mockCli.EXPECT().ExecuteAsResult(gomock.Any(), gomock.Any())
+			},
+		},
+		{
+			name: "parse query sql failure",
+			in:   "select f;",
 		},
 	}
 

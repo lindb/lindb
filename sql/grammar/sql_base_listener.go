@@ -43,17 +43,17 @@ func (s *BaseSQLListener) EnterStatement(ctx *StatementContext) {}
 // ExitStatement is called when production statement is exited.
 func (s *BaseSQLListener) ExitStatement(ctx *StatementContext) {}
 
-// EnterStatementList is called when production statementList is entered.
-func (s *BaseSQLListener) EnterStatementList(ctx *StatementListContext) {}
-
-// ExitStatementList is called when production statementList is exited.
-func (s *BaseSQLListener) ExitStatementList(ctx *StatementListContext) {}
-
 // EnterUseStmt is called when production useStmt is entered.
 func (s *BaseSQLListener) EnterUseStmt(ctx *UseStmtContext) {}
 
 // ExitUseStmt is called when production useStmt is exited.
 func (s *BaseSQLListener) ExitUseStmt(ctx *UseStmtContext) {}
+
+// EnterShowStmt is called when production showStmt is entered.
+func (s *BaseSQLListener) EnterShowStmt(ctx *ShowStmtContext) {}
+
+// ExitShowStmt is called when production showStmt is exited.
+func (s *BaseSQLListener) ExitShowStmt(ctx *ShowStmtContext) {}
 
 // EnterShowMasterStmt is called when production showMasterStmt is entered.
 func (s *BaseSQLListener) EnterShowMasterStmt(ctx *ShowMasterStmtContext) {}
@@ -210,6 +210,12 @@ func (s *BaseSQLListener) EnterQueryStmt(ctx *QueryStmtContext) {}
 
 // ExitQueryStmt is called when production queryStmt is exited.
 func (s *BaseSQLListener) ExitQueryStmt(ctx *QueryStmtContext) {}
+
+// EnterSourceAndSelect is called when production sourceAndSelect is entered.
+func (s *BaseSQLListener) EnterSourceAndSelect(ctx *SourceAndSelectContext) {}
+
+// ExitSourceAndSelect is called when production sourceAndSelect is exited.
+func (s *BaseSQLListener) ExitSourceAndSelect(ctx *SourceAndSelectContext) {}
 
 // EnterSelectExpr is called when production selectExpr is entered.
 func (s *BaseSQLListener) EnterSelectExpr(ctx *SelectExprContext) {}

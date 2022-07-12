@@ -29,8 +29,8 @@ password = ""
 ## Query related configuration.
 [query]
 ## Number of queries allowed to execute concurrently
-## Default: 24
-query-concurrency = 24
+## Default: 8
+query-concurrency = 8
 ## Idle worker will be canceled in this duration
 ## Default: 5s
 idle-timeout = "5s"
@@ -61,8 +61,8 @@ read-timeout = "5s"
 ## How many goroutines can write metrics at the same time.
 ## If writes requests exceeds the concurrency,
 ## ingestion HTTP API will be throttled.
-## Default: 24
-max-concurrency = 24
+## Default: 8
+max-concurrency = 8
 ## maximum duration before timeout for server ingesting metrics
 ## Default: 5s
 ingest-timeout = "5s"
@@ -86,8 +86,8 @@ gc-task-interval = "1m0s"
 ## Default: 9001
 port = 9001
 ## max-concurrent-streams limits the number of concurrent streams to each ServerTransport
-## Default: 240 
-max-concurrent-streams = 240
+## Default: 80 
+max-concurrent-streams = 80
 ## connect-timeout sets the timeout for connection establishment.
 ## Default: 3s
 connect-timeout = "3s"

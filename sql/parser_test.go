@@ -30,12 +30,15 @@ import (
 )
 
 func Test_SQL_Parse(t *testing.T) {
-	query, err := Parse("select f+100 from cpu")
+	query, err := Parse("select f+100 from cpu where time>='2020-10-10 10:00:00' and time<='2020-10-10 11:00:00'")
 	assert.NoError(t, err)
 	data := encoding.JSONMarshal(&query)
 	query1 := stmt.Query{}
 	err = encoding.JSONUnmarshal(data, &query1)
 	assert.NoError(t, err)
+	query2, err := Parse("from cpu select f+100 where time>='2020-10-10 10:00:00' and time<='2020-10-10 11:00:00'")
+	assert.NoError(t, err)
+	assert.EqualValues(t, query, query2)
 }
 
 func Test_Sql_examples(t *testing.T) {
