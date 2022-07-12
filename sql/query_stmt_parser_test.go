@@ -51,17 +51,26 @@ func TestQueryStmt_validation(t *testing.T) {
 }
 
 func TestQueryStmt_Namespace(t *testing.T) {
-	sql := "select f from cpu on 'ns' where host='1.1.1.1'"
+	sql := "select f from cpu on 'ns' where host='1.1.1.1' and time>='2020-10-10 10:00:00' and time<='2020-10-10 11:00:00'"
 	q, err := Parse(sql)
 	query := q.(*stmt.Query)
 	assert.Nil(t, err)
 	assert.Equal(t, "ns", query.Namespace)
+	sql2 := "from cpu on 'ns' select f where host='1.1.1.1' and time>='2020-10-10 10:00:00' and time<='2020-10-10 11:00:00'"
+	q2, err := Parse(sql2)
+	assert.NoError(t, err)
+	assert.EqualValues(t, q, q2)
 }
 
 func TestExplainStatement(t *testing.T) {
 	sql := "explain select f from cpu where host='1.1.1.1'"
 	q, err := Parse(sql)
 	query := q.(*stmt.Query)
+	assert.Nil(t, err)
+	assert.True(t, query.Explain)
+	sql = "explain from cpu select f where host='1.1.1.1'"
+	q, err = Parse(sql)
+	query = q.(*stmt.Query)
 	assert.Nil(t, err)
 	assert.True(t, query.Explain)
 	sql = "select f from cpu where host='2.2.2.2'"
@@ -292,32 +301,36 @@ func TestMathExpress(t *testing.T) {
 	q, err := Parse(sql)
 	query := q.(*stmt.Query)
 	assert.NoError(t, err)
-	assert.Equal(t,
-		[]stmt.Expr{
-			&stmt.SelectItem{
-				Expr: &stmt.CallExpr{
-					FuncType: function.Max,
-					Params: []stmt.Expr{
-						&stmt.BinaryExpr{
-							Left: &stmt.CallExpr{
-								FuncType: function.Sum,
-								Params:   []stmt.Expr{&stmt.FieldExpr{Name: "c"}}},
-							Operator: stmt.ADD,
-							Right: &stmt.BinaryExpr{
-								Left: &stmt.BinaryExpr{
-									Left:     &stmt.FieldExpr{Name: "c"},
-									Operator: stmt.MUL,
-									Right:    &stmt.FieldExpr{Name: "d"},
-								},
-								Operator: stmt.DIV,
-								Right:    &stmt.FieldExpr{Name: "e"},
+	expr := []stmt.Expr{
+		&stmt.SelectItem{
+			Expr: &stmt.CallExpr{
+				FuncType: function.Max,
+				Params: []stmt.Expr{
+					&stmt.BinaryExpr{
+						Left: &stmt.CallExpr{
+							FuncType: function.Sum,
+							Params:   []stmt.Expr{&stmt.FieldExpr{Name: "c"}}},
+						Operator: stmt.ADD,
+						Right: &stmt.BinaryExpr{
+							Left: &stmt.BinaryExpr{
+								Left:     &stmt.FieldExpr{Name: "c"},
+								Operator: stmt.MUL,
+								Right:    &stmt.FieldExpr{Name: "d"},
 							},
+							Operator: stmt.DIV,
+							Right:    &stmt.FieldExpr{Name: "e"},
 						},
 					},
 				},
 			},
 		},
-		query.SelectItems)
+	}
+	assert.Equal(t, expr, query.SelectItems)
+	sql = "from memory select max(sum(c)+c*d/e)"
+	q, err = Parse(sql)
+	query = q.(*stmt.Query)
+	assert.NoError(t, err)
+	assert.Equal(t, expr, query.SelectItems)
 }
 
 func TestLimit(t *testing.T) {

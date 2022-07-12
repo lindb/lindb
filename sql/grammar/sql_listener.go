@@ -27,11 +27,11 @@ type SQLListener interface {
 	// EnterStatement is called when entering the statement production.
 	EnterStatement(c *StatementContext)
 
-	// EnterStatementList is called when entering the statementList production.
-	EnterStatementList(c *StatementListContext)
-
 	// EnterUseStmt is called when entering the useStmt production.
 	EnterUseStmt(c *UseStmtContext)
+
+	// EnterShowStmt is called when entering the showStmt production.
+	EnterShowStmt(c *ShowStmtContext)
 
 	// EnterShowMasterStmt is called when entering the showMasterStmt production.
 	EnterShowMasterStmt(c *ShowMasterStmtContext)
@@ -110,6 +110,9 @@ type SQLListener interface {
 
 	// EnterQueryStmt is called when entering the queryStmt production.
 	EnterQueryStmt(c *QueryStmtContext)
+
+	// EnterSourceAndSelect is called when entering the sourceAndSelect production.
+	EnterSourceAndSelect(c *SourceAndSelectContext)
 
 	// EnterSelectExpr is called when entering the selectExpr production.
 	EnterSelectExpr(c *SelectExprContext)
@@ -273,11 +276,11 @@ type SQLListener interface {
 	// ExitStatement is called when exiting the statement production.
 	ExitStatement(c *StatementContext)
 
-	// ExitStatementList is called when exiting the statementList production.
-	ExitStatementList(c *StatementListContext)
-
 	// ExitUseStmt is called when exiting the useStmt production.
 	ExitUseStmt(c *UseStmtContext)
+
+	// ExitShowStmt is called when exiting the showStmt production.
+	ExitShowStmt(c *ShowStmtContext)
 
 	// ExitShowMasterStmt is called when exiting the showMasterStmt production.
 	ExitShowMasterStmt(c *ShowMasterStmtContext)
@@ -356,6 +359,9 @@ type SQLListener interface {
 
 	// ExitQueryStmt is called when exiting the queryStmt production.
 	ExitQueryStmt(c *QueryStmtContext)
+
+	// ExitSourceAndSelect is called when exiting the sourceAndSelect production.
+	ExitSourceAndSelect(c *SourceAndSelectContext)
 
 	// ExitSelectExpr is called when exiting the selectExpr production.
 	ExitSelectExpr(c *SelectExprContext)
