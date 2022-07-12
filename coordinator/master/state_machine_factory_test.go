@@ -198,6 +198,6 @@ func TestStateMachineFactory_CreateState(t *testing.T) {
 	assert.NotNil(t, StateMachinePaths[constants.Master].CreateState())
 	assert.NotNil(t, StateMachinePaths[constants.DatabaseConfig].CreateState())
 	assert.NotNil(t, StateMachinePaths[constants.StorageConfig].CreateState())
-	assert.NotNil(t, StateMachinePaths[constants.ShardAssigment].CreateState())
+	assert.NotNil(t, StateMachinePaths[constants.ShardAssignment].CreateState())
 	assert.NotNil(t, StateMachinePaths[constants.StorageState].CreateState())
 }

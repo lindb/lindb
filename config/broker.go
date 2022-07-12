@@ -25,7 +25,7 @@ import (
 	"github.com/lindb/lindb/pkg/ltoml"
 )
 
-// HTTP represents a HTTP level configuration of broker.
+// HTTP represents an HTTP level configuration of broker.
 type HTTP struct {
 	Port         uint16         `toml:"port"`
 	IdleTimeout  ltoml.Duration `toml:"idle-timeout"`

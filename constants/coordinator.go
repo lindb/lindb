@@ -33,12 +33,12 @@ const (
 
 // defines all metadata type.
 const (
-	LiveNode       = "LiveNode"
-	DatabaseConfig = "DatabaseConfig"
-	StorageState   = "StorageState"
-	ShardAssigment = "ShardAssigment"
-	Master         = "Master"
-	StorageConfig  = "StorageConfig"
+	LiveNode        = "LiveNode"
+	DatabaseConfig  = "DatabaseConfig"
+	StorageState    = "StorageState"
+	ShardAssignment = "ShardAssignment"
+	Master          = "Master"
+	StorageConfig   = "StorageConfig"
 )
 
 // defines common constants will be used in broker and storage.

@@ -104,5 +104,5 @@ func TestStateMachineFactory_OnShardAssign(t *testing.T) {
 
 func TestStateMachineFactory_CreateState(t *testing.T) {
 	assert.NotNil(t, StateMachinePaths[constants.LiveNode].CreateState())
-	assert.NotNil(t, StateMachinePaths[constants.ShardAssigment].CreateState())
+	assert.NotNil(t, StateMachinePaths[constants.ShardAssignment].CreateState())
 }

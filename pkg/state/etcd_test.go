@@ -42,6 +42,7 @@ func Test_Write_Read(t *testing.T) {
 
 	var rep, err = newEtcdRepository(&config.RepoState{
 		Endpoints: cluster.Endpoints,
+		Namespace: "/broker",
 	}, "nobody")
 	assert.NoError(t, err)
 

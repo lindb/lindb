@@ -63,7 +63,7 @@ func (api *StorageStateMachineAPI) Explore(c *gin.Context) {
 		return
 	}
 	switch param.Type {
-	case constants.ShardAssigment:
+	case constants.ShardAssignment:
 		databases := api.stateMgr.GetDatabaseAssignments()
 		sort.Slice(databases, func(i, j int) bool {
 			return databases[i].ShardAssignment.Name < databases[j].ShardAssignment.Name
