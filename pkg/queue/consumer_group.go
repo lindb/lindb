@@ -108,10 +108,6 @@ func NewConsumerGroup(parent, fanOutPath string, q FanOutQueue) (ConsumerGroup, 
 	if hasMeta {
 		consumedSeq = int64(metaPage.ReadUint64(consumerGroupConsumedSeqOffset))
 		ackSeq = int64(metaPage.ReadUint64(consumerGroupAcknowledgedSeqOffset))
-		// reset consumed sequence using ack sequence, re-consume not acknowledged message
-		if consumedSeq >= 0 && consumedSeq > ackSeq {
-			consumedSeq = ackSeq
-		}
 	}
 	// persist metadata
 	metaPage.PutUint64(uint64(consumedSeq), consumerGroupConsumedSeqOffset)

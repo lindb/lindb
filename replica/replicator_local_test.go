@@ -54,6 +54,7 @@ func TestLocalReplicator_New(t *testing.T) {
 	q.EXPECT().ConsumedSeq().Return(int64(10)).AnyTimes()
 	q.EXPECT().AcknowledgedSeq().Return(int64(10)).AnyTimes()
 	q.EXPECT().Ack(int64(10))
+	q.EXPECT().SetConsumedSeq(int64(10))
 	replicator := NewLocalReplicator(&ReplicatorChannel{State: &models.ReplicaState{Leader: 1}, ConsumerGroup: q}, shard, family)
 	assert.NotNil(t, replicator)
 	s := replicator.State()
