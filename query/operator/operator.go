@@ -15,21 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package storagequery
+package operator
 
-import (
-	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/metadb"
-)
+//go:generate mockgen -source=./operator.go -destination=./operator_mock.go -package=operator
 
-// executeContext represents storage query execute context.
-type executeContext struct {
-	database          tsdb.Database
-	storageExecuteCtx *flow.StorageExecuteContext
-}
-
-// getMetadata returns the database's metadata.
-func (ctx *executeContext) getMetadata() metadb.Metadata {
-	return ctx.database.Metadata()
+// Operator represents the query operator.
+type Operator interface {
+	// Execute executes current query operator, return error if failure.
+	Execute() error
 }

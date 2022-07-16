@@ -15,21 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package storagequery
+package operator
 
 import (
-	"github.com/lindb/lindb/flow"
+	"testing"
+
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/metadb"
+	"github.com/lindb/lindb/tsdb/indexdb"
 )
 
-// executeContext represents storage query execute context.
-type executeContext struct {
-	database          tsdb.Database
-	storageExecuteCtx *flow.StorageExecuteContext
-}
+func TestGroupingContextBuild_Execute(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-// getMetadata returns the database's metadata.
-func (ctx *executeContext) getMetadata() metadb.Metadata {
-	return ctx.database.Metadata()
+	shard := tsdb.NewMockShard(ctrl)
+	indexDB := indexdb.NewMockIndexDatabase(ctrl)
+	shard.EXPECT().IndexDatabase().Return(indexDB)
+	indexDB.EXPECT().GetGroupingContext(gomock.Any()).Return(nil)
+	op := NewGroupingContextBuild(nil, shard)
+	assert.NoError(t, op.Execute())
 }

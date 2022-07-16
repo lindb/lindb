@@ -138,7 +138,11 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 				Leaves:   []*models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.3:8000"}}},
 			}), Payload: encoding.JSONMarshal(&stmt.Query{MetricName: "cpu"})},
 			prepare: func() {
-				mockDatabase.EXPECT().ExecutorPool().Return(&tsdb.ExecutorPool{})
+				pipeline := NewMockPipeline(ctrl)
+				newExecutePipelineFn = func(needStats bool, completeCallback func(err error)) Pipeline {
+					return pipeline
+				}
+				pipeline.EXPECT().Execute(gomock.Any())
 				taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(serverStream)
 				engine.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true)
 			},
@@ -166,6 +170,9 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 	for _, tt := range cases {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				newExecutePipelineFn = NewExecutePipeline
+			}()
 			if tt.prepare != nil {
 				tt.prepare()
 			}
@@ -178,7 +185,10 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 
 func TestLeafProcessor_Process(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	defer func() {
+		newExecutePipelineFn = NewExecutePipeline
+		ctrl.Finish()
+	}()
 
 	taskServerFactory := rpc.NewMockTaskServerFactory(ctrl)
 	engine := tsdb.NewMockEngine(ctrl)
@@ -194,8 +204,13 @@ func TestLeafProcessor_Process(t *testing.T) {
 	qry := stmt.Query{MetricName: "cpu"}
 	data := encoding.JSONMarshal(&qry)
 
-	mockDatabase.EXPECT().ExecutorPool().Return(&tsdb.ExecutorPool{})
 	engine.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true)
+	pipeline := NewMockPipeline(ctrl)
+	newExecutePipelineFn = func(needStats bool, completeCallback func(err error)) Pipeline {
+		completeCallback(nil) // just mock invoke
+		return pipeline
+	}
+	pipeline.EXPECT().Execute(gomock.Any())
 
 	serverStream := protoCommonV1.NewMockTaskService_HandleServer(ctrl)
 	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(serverStream)

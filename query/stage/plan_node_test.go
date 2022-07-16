@@ -15,21 +15,34 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package storagequery
+package stage
 
 import (
-	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/metadb"
+	"fmt"
+	"testing"
+
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/query/operator"
 )
 
-// executeContext represents storage query execute context.
-type executeContext struct {
-	database          tsdb.Database
-	storageExecuteCtx *flow.StorageExecuteContext
-}
+func TestPlanNode(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-// getMetadata returns the database's metadata.
-func (ctx *executeContext) getMetadata() metadb.Metadata {
-	return ctx.database.Metadata()
+	op := operator.NewMockOperator(ctrl)
+	empty := NewEmptyPlanNode()
+	n := empty.(*planNode)
+	assert.Nil(t, n.op)
+	assert.NoError(t, n.Execute())
+
+	plan := NewPlanNode(op)
+	n = plan.(*planNode)
+	assert.NotNil(t, n.op)
+	op.EXPECT().Execute().Return(fmt.Errorf("err"))
+	assert.Error(t, plan.Execute())
+
+	plan.AddChild(NewEmptyPlanNode())
+	assert.Len(t, plan.Children(), 1)
 }

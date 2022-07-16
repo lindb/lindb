@@ -19,7 +19,6 @@ package storagequery
 
 import (
 	"fmt"
-	"io"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -34,13 +33,10 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
-	"github.com/lindb/lindb/series/metric"
-	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
 	"github.com/lindb/lindb/tsdb/indexdb"
-	"github.com/lindb/lindb/tsdb/metadb"
 )
 
 func TestBaseQueryTask_Run(t *testing.T) {
@@ -52,71 +48,6 @@ func TestQueryStatTask_Run(t *testing.T) {
 	task := &queryStatTask{}
 	task.BeforeRun()
 	task.AfterRun()
-}
-
-func TestStoragePlanTask_Run(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockMetaData := metadb.NewMockMetadata(ctrl)
-	db := tsdb.NewMockDatabase(ctrl)
-	db.EXPECT().Metadata().Return(mockMetaData).AnyTimes()
-	mockMetaDataBase := metadb.NewMockMetadataDatabase(ctrl)
-	mockMetaData.EXPECT().MetadataDatabase().Return(mockMetaDataBase).AnyTimes()
-	mockMetaDataBase.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(metric.ID(0), io.ErrClosedPipe).AnyTimes()
-
-	ctx := &executeContext{
-		database: db,
-		storageExecuteCtx: &flow.StorageExecuteContext{
-			Query: &stmt.Query{MetricName: ""},
-			Stats: models.NewStorageStats(),
-		},
-	}
-	plan := &storageExecutePlan{ctx: ctx}
-
-	// case 1: normal
-	task := newStoragePlanTask(ctx, plan)
-	err := task.Run()
-	assert.Error(t, err)
-	// case 2: explain track stats
-	ctx.storageExecuteCtx.Query.Explain = true
-	task = newStoragePlanTask(ctx, plan)
-	err = task.Run()
-	assert.Error(t, err)
-}
-
-func TestTagFilterTask_AfterRun(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	tagSearch := NewMockTagSearch(ctrl)
-	ctx := &executeContext{
-		storageExecuteCtx: &flow.StorageExecuteContext{
-			Query: &stmt.Query{},
-			Stats: models.NewStorageStats(),
-		},
-	}
-	task := newTagFilterTask(ctx, tagSearch)
-	// case 1: tag filter err
-	tagSearch.EXPECT().Filter().Return(fmt.Errorf("err"))
-	err := task.Run()
-	assert.Error(t, err)
-	// case 2: not found
-	tagSearch.EXPECT().Filter().Return(nil)
-	err = task.Run()
-	assert.Equal(t, err, constants.ErrNotFound)
-	// case 3: normal
-	ctx.storageExecuteCtx.TagFilterResult = map[string]*flow.TagFilterResult{"test": nil}
-	tagSearch.EXPECT().Filter().Return(nil)
-	err = task.Run()
-	assert.NoError(t, err)
-	// case 4: explain case
-	ctx.storageExecuteCtx.Query.Explain = true
-	task = newTagFilterTask(ctx, tagSearch)
-	tagSearch.EXPECT().Filter().Return(nil)
-	ctx.storageExecuteCtx.TagFilterResult = map[string]*flow.TagFilterResult{"test": nil}
-	err = task.Run()
-	assert.NoError(t, err)
 }
 
 func TestSeriesIDsSearchTask_Run(t *testing.T) {
@@ -363,36 +294,6 @@ func TestDataLoadTask_Run(t *testing.T) {
 	})
 	err = task.Run()
 	assert.NoError(t, err)
-	err = task.Run()
-	assert.NoError(t, err)
-}
-
-func TestCollectTagValuesTask_Run(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	meta := metadb.NewMockMetadata(ctrl)
-	db := tsdb.NewMockDatabase(ctrl)
-	db.EXPECT().Metadata().Return(meta).AnyTimes()
-	tagMeta := metadb.NewMockTagMetadata(ctrl)
-	meta.EXPECT().TagMetadata().Return(tagMeta).AnyTimes()
-	ctx := &executeContext{
-		storageExecuteCtx: &flow.StorageExecuteContext{
-			Query: &stmt.Query{},
-			Stats: models.NewStorageStats(),
-		},
-		database: db,
-	}
-	task := newCollectTagValuesTask(ctx,
-		meta, tag.Meta{ID: 10}, roaring.BitmapOf(1, 2), nil)
-	// case 1: collect tag values
-	tagMeta.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	err := task.Run()
-	assert.NoError(t, err)
-	// case 2: explain
-	ctx.storageExecuteCtx.Query.Explain = true
-	task = newCollectTagValuesTask(ctx,
-		meta, tag.Meta{ID: 10}, roaring.BitmapOf(1, 2), nil)
 	err = task.Run()
 	assert.NoError(t, err)
 }

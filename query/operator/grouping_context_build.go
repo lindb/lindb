@@ -15,21 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package storagequery
+package operator
 
 import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/metadb"
 )
 
-// executeContext represents storage query execute context.
-type executeContext struct {
-	database          tsdb.Database
-	storageExecuteCtx *flow.StorageExecuteContext
+// groupingContextBuild represents grouping context build operator.
+type groupingContextBuild struct {
+	executeCtx *flow.ShardExecuteContext
+	shard      tsdb.Shard
 }
 
-// getMetadata returns the database's metadata.
-func (ctx *executeContext) getMetadata() metadb.Metadata {
-	return ctx.database.Metadata()
+// NewGroupingContextBuild creates a groupingContextBuild instance.
+func NewGroupingContextBuild(executeCtx *flow.ShardExecuteContext, shard tsdb.Shard) Operator {
+	return &groupingContextBuild{
+		executeCtx: executeCtx,
+		shard:      shard,
+	}
+}
+
+// Execute executes grouping context build based on series ids after tag filtering.
+func (op *groupingContextBuild) Execute() error {
+	return op.shard.IndexDatabase().GetGroupingContext(op.executeCtx)
 }
