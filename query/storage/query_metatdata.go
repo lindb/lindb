@@ -30,6 +30,11 @@ import (
 	"github.com/lindb/lindb/tsdb"
 )
 
+var (
+	newTagSearchFunc    = newTagSearch
+	newSeriesSearchFunc = newSeriesSearch
+)
+
 // metadataStorageExecutor represents the executor which executes metric metadata suggest in storage side
 type metadataStorageExecutor struct {
 	database tsdb.Database

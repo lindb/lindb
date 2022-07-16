@@ -62,4 +62,7 @@ var (
 	ErrDatabaseNameRequired = errors.New("database name cannot be empty")
 	// ErrStorageNameRequired represents storage name not input.
 	ErrStorageNameRequired = errors.New("storage name cannot be empty")
+
+	// ErrEmptySelectList represents empty select list.
+	ErrEmptySelectList = errors.New("select item list is empty")
 )

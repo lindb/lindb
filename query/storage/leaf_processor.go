@@ -30,6 +30,8 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/query"
+	"github.com/lindb/lindb/query/context"
+	"github.com/lindb/lindb/query/stage"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
@@ -38,6 +40,7 @@ import (
 // for testing
 var (
 	newStorageMetadataQueryFn = newStorageMetadataQuery
+	newExecutePipelineFn      = NewExecutePipeline
 )
 
 // leafTaskProcessor represents the leaf node's task, the leaf node is always storage node
@@ -129,7 +132,7 @@ func (p *leafTaskProcessor) process(
 
 	switch req.RequestType {
 	case protoCommonV1.RequestType_Data:
-		if err := p.processDataSearch(ctx, db, curLeaf.ShardIDs, req, curLeaf); err != nil {
+		if err := p.processDataSearch(ctx, db, req, curLeaf); err != nil {
 			p.statistics.MetricQueryFailures.Incr()
 			return err
 		}
@@ -179,7 +182,6 @@ func (p *leafTaskProcessor) processMetadataSuggest(
 func (p *leafTaskProcessor) processDataSearch(
 	ctx *flow.TaskContext,
 	db tsdb.Database,
-	shardIDs []models.ShardID,
 	req *protoCommonV1.TaskRequest,
 	leafNode *models.Leaf,
 ) error {
@@ -188,17 +190,12 @@ func (p *leafTaskProcessor) processDataSearch(
 		return query.ErrUnmarshalQuery
 	}
 
-	// execute leaf task
-	storageExecuteCtx := newStorageExecuteContext(db, shardIDs, &stmtQuery)
-	storageExecuteCtx.storageExecuteCtx.TaskCtx = ctx
-	queryFlow := NewStorageQueryFlow(
-		storageExecuteCtx.storageExecuteCtx,
-		req,
-		p.taskServerFactory,
-		leafNode,
-		db.ExecutorPool(),
-	)
-	exec := newStorageMetricQuery(queryFlow, storageExecuteCtx)
-	exec.Execute()
+	// execute leaf pipeline
+	leafExecuteCtx := context.NewLeafExecuteContext(ctx, &stmtQuery, req, p.taskServerFactory, leafNode, db)
+
+	pipeline := newExecutePipelineFn(stmtQuery.Explain, func(err error) {
+		leafExecuteCtx.SendResponse(err)
+	})
+	pipeline.Execute(stage.NewMetadataLookupStage(leafExecuteCtx))
 	return nil
 }

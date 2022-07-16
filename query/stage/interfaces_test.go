@@ -15,27 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package storagequery
+package stage
 
 import (
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/sql/stmt"
-	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/metadb"
 )
 
-func TestStorageExecuteContext(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	db := tsdb.NewMockDatabase(ctrl)
-	metadata := metadb.NewMockMetadata(ctrl)
-	db.EXPECT().Metadata().Return(metadata)
-
-	ctx := newStorageExecuteContext(db, []models.ShardID{1}, &stmt.Query{Explain: true})
-	assert.NotNil(t, ctx.getMetadata())
+func TestType_String(t *testing.T) {
+	assert.Equal(t, "Unknown", Unknown.String())
+	assert.Equal(t, "MetadataLookup", MetadataLookup.String())
+	assert.Equal(t, "ShardScan", ShardScan.String())
+	assert.Equal(t, "Grouping", Grouping.String())
+	assert.Equal(t, "DataLoad", DataLoad.String())
 }

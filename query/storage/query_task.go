@@ -31,9 +31,7 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
-	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/metadb"
 )
 
 // baseQueryTask represents base query task stats track for task execute cost
@@ -77,79 +75,6 @@ func (t *queryStatTask) Run() error {
 
 // AfterRun invokes after task run function
 func (t *queryStatTask) AfterRun() {
-}
-
-// storagePlanTask represents storage execute plan task
-type storagePlanTask struct {
-	baseQueryTask
-	ctx  *executeContext
-	plan *storageExecutePlan
-}
-
-// newStoragePlanTask creates storage execute plan task
-func newStoragePlanTask(ctx *executeContext, plan *storageExecutePlan) flow.QueryTask {
-	task := &storagePlanTask{
-		ctx:  ctx,
-		plan: plan,
-	}
-	if ctx.storageExecuteCtx.Query.Explain {
-		// if it needs to explain query, use queryStatTask
-		return &queryStatTask{
-			task: task,
-		}
-	}
-	return task
-}
-
-// Run executes storage execute plan
-func (t *storagePlanTask) Run() error {
-	return t.plan.Plan()
-}
-
-// AfterRun invokes after execute plan, collects plan stats
-func (t *storagePlanTask) AfterRun() {
-	t.baseQueryTask.AfterRun()
-	t.ctx.storageExecuteCtx.Stats.SetPlanCost(t.cost)
-}
-
-// tagFilterTask represents tag filtering task based on where condition
-type tagFilterTask struct {
-	baseQueryTask
-	ctx       *executeContext
-	tagSearch TagSearch
-}
-
-// newTagFilterTask creates tag filtering task
-func newTagFilterTask(ctx *executeContext, tagSearch TagSearch) flow.QueryTask {
-	task := &tagFilterTask{
-		ctx:       ctx,
-		tagSearch: tagSearch,
-	}
-	if ctx.storageExecuteCtx.Query.Explain {
-		return &queryStatTask{
-			task: task,
-		}
-	}
-	return task
-}
-
-// Run executes tag filtering based on where condition
-func (t *tagFilterTask) Run() error {
-	err := t.tagSearch.Filter()
-	if err != nil {
-		return err
-	}
-	if len(t.ctx.storageExecuteCtx.TagFilterResult) == 0 {
-		// filter not match, return not found
-		return constants.ErrNotFound
-	}
-	return nil
-}
-
-// AfterRun invokes after tag filtering, collects tag filtering stats
-func (t *tagFilterTask) AfterRun() {
-	t.baseQueryTask.AfterRun()
-	t.ctx.storageExecuteCtx.Stats.SetTagFilterCost(t.cost)
 }
 
 // seriesIDsSearchTask represents series ids search task based on tag filtering result set
@@ -454,44 +379,4 @@ func (t *dataLoadTask) AfterRun() {
 		t.dataLoadCtx.ShardExecuteCtx.StorageExecuteCtx.Stats.
 			SetShardScanStats(t.shard.ShardID(), identifier, t.costs[idx], foundSeries)
 	}
-}
-
-// collectTagValuesTask represents collect tag values by tag value ids
-type collectTagValuesTask struct {
-	baseQueryTask
-	ctx         *executeContext
-	metadata    metadb.Metadata
-	tagKey      tag.Meta
-	tagValueIDs *roaring.Bitmap
-	tagValues   map[uint32]string
-}
-
-// newCollectTagValuesTask creates the collect tag values task
-func newCollectTagValuesTask(ctx *executeContext, metadata metadb.Metadata,
-	tagKey tag.Meta, tagValueIDs *roaring.Bitmap, tagValues map[uint32]string,
-) flow.QueryTask {
-	task := &collectTagValuesTask{
-		ctx:         ctx,
-		metadata:    metadata,
-		tagKey:      tagKey,
-		tagValueIDs: tagValueIDs,
-		tagValues:   tagValues,
-	}
-	if ctx.storageExecuteCtx.Query.Explain {
-		return &queryStatTask{
-			task: task,
-		}
-	}
-	return task
-}
-
-// Run executes collect tag values by ids
-func (t *collectTagValuesTask) Run() error {
-	return t.metadata.TagMetadata().CollectTagValues(t.tagKey.ID, t.tagValueIDs, t.tagValues)
-}
-
-// AfterRun invokes after tag value collect, collects execution stats
-func (t *collectTagValuesTask) AfterRun() {
-	t.baseQueryTask.AfterRun()
-	t.ctx.storageExecuteCtx.Stats.SetCollectTagValuesStats(t.tagKey.Key, t.cost)
 }

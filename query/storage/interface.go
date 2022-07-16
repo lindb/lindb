@@ -19,12 +19,6 @@ package storagequery
 
 //go:generate mockgen -source=./interface.go -destination=./interface_mock.go -package=storagequery
 
-// storageMetricQuery represents the metric data query interface in storage side.
-type storageMetricQuery interface {
-	// Execute executes metric data query.
-	Execute()
-}
-
 // storageMetricQuery represents the metric metadata query interface in storage side.
 type storageMetadataQuery interface {
 	// Execute executes metric metadata query.
