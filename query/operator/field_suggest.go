@@ -15,21 +15,34 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package storagequery
+package operator
 
 import (
-	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/metadb"
+	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/query/context"
 )
 
-// executeContext represents storage query execute context.
-type executeContext struct {
-	database          tsdb.Database
-	storageExecuteCtx *flow.StorageExecuteContext
+// fieldSuggest represents field suggest operator.
+type fieldSuggest struct {
+	ctx *context.LeafMetadataContext
 }
 
-// getMetadata returns the database's metadata.
-func (ctx *executeContext) getMetadata() metadb.Metadata {
-	return ctx.database.Metadata()
+// NewFieldSuggest creates a fieldSuggest operator.
+func NewFieldSuggest(ctx *context.LeafMetadataContext) Operator {
+	return &fieldSuggest{
+		ctx: ctx,
+	}
+}
+
+// Execute returns all fields by given metric.
+func (op *fieldSuggest) Execute() error {
+	req := op.ctx.Request
+	fields, err := op.ctx.Database.Metadata().MetadataDatabase().GetAllFields(req.Namespace, req.MetricName)
+	if err != nil {
+		return err
+	}
+	var result []string
+	result = append(result, string(encoding.JSONMarshal(fields)))
+	op.ctx.ResultSet = result
+	return nil
 }

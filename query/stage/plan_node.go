@@ -31,13 +31,16 @@ type PlanNode interface {
 	Children() []PlanNode
 	// AddChild adds child node.
 	AddChild(node PlanNode)
+	// IgnoreNotFound returns if the stage ignore not found error.
+	IgnoreNotFound() bool
 }
 
 // planNode implements PlanNode interface.
 type planNode struct {
-	op operator.Operator
-
+	op       operator.Operator
 	children []PlanNode
+
+	ignore bool
 }
 
 // NewEmptyPlanNode creates a PlanNode without operator.
@@ -49,6 +52,14 @@ func NewEmptyPlanNode() PlanNode {
 func NewPlanNode(op operator.Operator) PlanNode {
 	return &planNode{
 		op: op,
+	}
+}
+
+// NewPlanNodeWithIgnore creates a PlanNode with operator, need ignore not found error.
+func NewPlanNodeWithIgnore(op operator.Operator) PlanNode {
+	return &planNode{
+		op:     op,
+		ignore: true,
 	}
 }
 
@@ -68,4 +79,9 @@ func (p *planNode) Children() []PlanNode {
 // AddChild adds child node.
 func (p *planNode) AddChild(child PlanNode) {
 	p.children = append(p.children, child)
+}
+
+// IgnoreNotFound returns if the stage ignore not found error.
+func (p *planNode) IgnoreNotFound() bool {
+	return p.ignore
 }

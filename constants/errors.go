@@ -26,21 +26,19 @@ var (
 	// ErrNotFound represents the data not found
 	ErrNotFound = errors.New("not found")
 
-	ErrTagFilterResultNotFound      = fmt.Errorf("tagFilter result %w", ErrNotFound)
-	ErrTagValueFilterResultNotFound = fmt.Errorf("tagValueFitler result %w", ErrNotFound)
+	ErrTagValueFilterResultNotFound = fmt.Errorf("tag value fitler result %w", ErrNotFound)
 
-	ErrDatabaseNotFound       = fmt.Errorf("database %w", ErrNotFound)
-	ErrShardNotFound          = fmt.Errorf("shard %w", ErrNotFound)
-	ErrReplicaNotFound        = fmt.Errorf("replica %w", ErrNotFound)
-	ErrMetricIDNotFound       = fmt.Errorf("metric %w", ErrNotFound)
-	ErrHistogramFieldNotFound = fmt.Errorf("histogram field %w", ErrNotFound)
-	ErrTagKeyIDNotFound       = fmt.Errorf("tag key %w", ErrNotFound)
-	ErrTagKeyMetaNotFound     = fmt.Errorf("tag key %w", ErrNotFound)
-	ErrTagValueSeqNotFound    = fmt.Errorf("tagValueSeq %w", ErrNotFound)
-	ErrTagValueIDNotFound     = fmt.Errorf("tag value %w", ErrNotFound)
-	ErrFieldNotFound          = fmt.Errorf("field %w", ErrNotFound)
-	ErrSeriesIDNotFound       = fmt.Errorf("seriesID %w", ErrNotFound)
-	ErrDataFamilyNotFound     = fmt.Errorf("data family %w", ErrNotFound)
+	ErrDatabaseNotFound    = fmt.Errorf("database %w", ErrNotFound)
+	ErrShardNotFound       = fmt.Errorf("shard %w", ErrNotFound)
+	ErrReplicaNotFound     = fmt.Errorf("replica %w", ErrNotFound)
+	ErrMetricIDNotFound    = fmt.Errorf("metric %w", ErrNotFound)
+	ErrTagKeyIDNotFound    = fmt.Errorf("tag key %w", ErrNotFound)
+	ErrTagKeyMetaNotFound  = fmt.Errorf("tag key %w", ErrNotFound)
+	ErrTagValueSeqNotFound = fmt.Errorf("tagValueSeq %w", ErrNotFound)
+	ErrTagValueIDNotFound  = fmt.Errorf("tag value %w", ErrNotFound)
+	ErrFieldNotFound       = fmt.Errorf("field %w", ErrNotFound)
+	ErrSeriesIDNotFound    = fmt.Errorf("seriesID %w", ErrNotFound)
+	ErrDataFamilyNotFound  = fmt.Errorf("data family %w", ErrNotFound)
 
 	// ErrDataFileCorruption represents data in tsdb's file is corrupted
 	ErrDataFileCorruption = errors.New("data corruption")

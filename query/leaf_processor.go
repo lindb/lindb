@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package storagequery
+package query
 
 import (
 	"errors"
@@ -29,7 +29,6 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
-	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/query/context"
 	"github.com/lindb/lindb/query/stage"
 	"github.com/lindb/lindb/rpc"
@@ -39,8 +38,7 @@ import (
 
 // for testing
 var (
-	newStorageMetadataQueryFn = newStorageMetadataQuery
-	newExecutePipelineFn      = NewExecutePipeline
+	newExecutePipelineFn = NewExecutePipeline
 )
 
 // leafTaskProcessor represents the leaf node's task, the leaf node is always storage node
@@ -61,7 +59,7 @@ func NewLeafTaskProcessor(
 	currentNode models.Node,
 	engine tsdb.Engine,
 	taskServerFactory rpc.TaskServerFactory,
-) query.TaskProcessor {
+) TaskProcessor {
 	return &leafTaskProcessor{
 		currentNode:       currentNode,
 		currentNodeID:     currentNode.Indicator(),
@@ -103,7 +101,7 @@ func (p *leafTaskProcessor) process(
 ) error {
 	physicalPlan := models.PhysicalPlan{}
 	if err := encoding.JSONUnmarshal(req.PhysicalPlan, &physicalPlan); err != nil {
-		return fmt.Errorf("%w: %s", query.ErrUnmarshalPlan, err)
+		return fmt.Errorf("%w: %s", ErrUnmarshalPlan, err)
 	}
 
 	foundTask := false
@@ -117,17 +115,17 @@ func (p *leafTaskProcessor) process(
 	}
 	if !foundTask {
 		p.statistics.OmitRequest.Incr()
-		return fmt.Errorf("%w, i: %s am not a leaf node", query.ErrBadPhysicalPlan, p.currentNodeID)
+		return fmt.Errorf("%w, i: %s am not a leaf node", ErrBadPhysicalPlan, p.currentNodeID)
 	}
 	db, ok := p.engine.GetDatabase(physicalPlan.Database)
 	if !ok {
 		p.statistics.OmitRequest.Incr()
-		return fmt.Errorf("%w: %s", query.ErrNoDatabase, physicalPlan.Database)
+		return fmt.Errorf("%w: %s", ErrNoDatabase, physicalPlan.Database)
 	}
 	stream := p.taskServerFactory.GetStream(curLeaf.Parent)
 	if stream == nil {
 		p.statistics.OmitRequest.Incr()
-		return fmt.Errorf("%w: %s", query.ErrNoSendStream, curLeaf.Parent)
+		return fmt.Errorf("%w: %s", ErrNoSendStream, curLeaf.Parent)
 	}
 
 	switch req.RequestType {
@@ -160,22 +158,34 @@ func (p *leafTaskProcessor) processMetadataSuggest(
 	defer ctx.Release()
 	var stmtQuery = &stmt.MetricMetadata{}
 	if err := stmtQuery.UnmarshalJSON(req.Payload); err != nil {
-		return query.ErrUnmarshalSuggest
+		return ErrUnmarshalSuggest
 	}
-	exec := newStorageMetadataQueryFn(db, shardIDs, stmtQuery)
-	result, err := exec.Execute()
-	if err != nil && !errors.Is(err, constants.ErrNotFound) {
-		return err
-	}
-	// send result to upstream
-	if err := stream.Send(&protoCommonV1.TaskResponse{
-		Type:      protoCommonV1.TaskType_Leaf,
-		TaskID:    req.ParentTaskID,
-		Completed: true,
-		Payload:   encoding.JSONMarshal(&models.SuggestResult{Values: result}),
-	}); err != nil {
-		return err
-	}
+	leafExecuteCtx := context.NewLeafMetadataContext(stmtQuery, db, shardIDs)
+	pipeline := newExecutePipelineFn(false, func(err error) {
+		var errMsg string
+		var payload []byte
+		if err != nil && !errors.Is(err, constants.ErrNotFound) {
+			errMsg = err.Error()
+			p.statistics.MetaQueryFailures.Incr()
+		} else {
+			payload = encoding.JSONMarshal(&models.SuggestResult{Values: leafExecuteCtx.ResultSet})
+		}
+		// send result to upstream
+		if err := stream.Send(&protoCommonV1.TaskResponse{
+			Type:      protoCommonV1.TaskType_Leaf,
+			TaskID:    req.ParentTaskID,
+			Completed: true,
+			ErrMsg:    errMsg,
+			SendTime:  timeutil.NowNano(),
+			Payload:   payload,
+		}); err != nil {
+			p.logger.Error("failed to send error message to target stream",
+				logger.String("taskID", req.ParentTaskID),
+				logger.Error(err),
+			)
+		}
+	})
+	pipeline.Execute(stage.NewMetadataSuggestStage(leafExecuteCtx))
 	return nil
 }
 
@@ -187,7 +197,7 @@ func (p *leafTaskProcessor) processDataSearch(
 ) error {
 	stmtQuery := stmt.Query{}
 	if err := stmtQuery.UnmarshalJSON(req.Payload); err != nil {
-		return query.ErrUnmarshalQuery
+		return ErrUnmarshalQuery
 	}
 
 	// execute leaf pipeline

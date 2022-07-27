@@ -67,23 +67,23 @@ func (stage *shardScanStage) Plan() PlanNode {
 	execPlan := NewEmptyPlanNode()
 	if queryStmt.Condition != nil {
 		// add shard level series filtering node
-		execPlan.AddChild(NewPlanNode(operator.NewSeriesFiltering(shardExecuteCtx, shard)))
+		execPlan.AddChild(NewPlanNodeWithIgnore(operator.NewSeriesFiltering(shardExecuteCtx, shard)))
 	} else {
 		// add shard level all series lookup node
-		execPlan.AddChild(NewPlanNode(operator.NewMetricAllSeries(shardExecuteCtx, shard)))
+		execPlan.AddChild(NewPlanNodeWithIgnore(operator.NewMetricAllSeries(shardExecuteCtx, shard)))
 	}
 
 	for idx := range families {
 		family := families[idx]
 		// add data family reader node, found series ids which match condition.
-		execPlan.AddChild(NewPlanNode(operator.NewDataFamilyRead(shardExecuteCtx, family)))
+		execPlan.AddChild(NewPlanNodeWithIgnore(operator.NewDataFamilyRead(shardExecuteCtx, family)))
 	}
 
 	if shardExecuteCtx.StorageExecuteCtx.Query.HasGroupBy() {
 		// if it has grouping, do group by tag keys, else just split series ids as batch first,
 		// get grouping context if it needs
 		// group context find task maybe change shardExecuteContext.SeriesIDsAfterFiltering value.
-		execPlan.AddChild(NewPlanNode(operator.NewGroupingContextBuild(shardExecuteCtx, shard)))
+		execPlan.AddChild(NewPlanNodeWithIgnore(operator.NewGroupingContextBuild(shardExecuteCtx, shard)))
 	}
 	return execPlan
 }

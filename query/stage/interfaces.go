@@ -28,7 +28,7 @@ type State int
 const (
 	// Unknown represents unknown stage.
 	Unknown Type = iota
-	// MetadataLookup represents metadata stage.
+	// MetadataLookup represents metadata lookup stage.
 	MetadataLookup
 	// ShardScan represents shard scan stage.
 	ShardScan
@@ -36,6 +36,10 @@ const (
 	Grouping
 	// DataLoad represents data load stage.
 	DataLoad
+	// MetadataSuggest represents metadata suggest stage.
+	MetadataSuggest
+	// ShardLookup represents shard lookup stage.
+	ShardLookup
 )
 
 const (
@@ -60,6 +64,10 @@ func (t Type) String() string {
 		return "Grouping"
 	case DataLoad:
 		return "DataLoad"
+	case MetadataSuggest:
+		return "MetadataSuggest"
+	case ShardLookup:
+		return "ShardLookup"
 	default:
 		return "Unknown"
 	}

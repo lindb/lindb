@@ -15,37 +15,30 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package stage
+package operator
 
-import (
-	"fmt"
-	"testing"
+import "github.com/lindb/lindb/query/context"
 
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
+// metricSuggest represents metric suggest operator.
+type metricSuggest struct {
+	ctx *context.LeafMetadataContext
+}
 
-	"github.com/lindb/lindb/query/operator"
-)
+// NewMetricSuggest creates a metricSuggest instance.
+func NewMetricSuggest(ctx *context.LeafMetadataContext) Operator {
+	return &metricSuggest{
+		ctx: ctx,
+	}
+}
 
-func TestPlanNode(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	op := operator.NewMockOperator(ctrl)
-	empty := NewEmptyPlanNode()
-	n := empty.(*planNode)
-	assert.Nil(t, n.op)
-	assert.NoError(t, n.Execute())
-
-	plan := NewPlanNode(op)
-	n = plan.(*planNode)
-	assert.NotNil(t, n.op)
-	op.EXPECT().Execute().Return(fmt.Errorf("err"))
-	assert.Error(t, plan.Execute())
-
-	plan.AddChild(NewEmptyPlanNode())
-	assert.Len(t, plan.Children(), 1)
-	assert.False(t, plan.IgnoreNotFound())
-
-	assert.True(t, NewPlanNodeWithIgnore(op).IgnoreNotFound())
+// Execute returns metric list by given namespace/prefix.
+func (op *metricSuggest) Execute() error {
+	req := op.ctx.Request
+	limit := op.ctx.Limit
+	rs, err := op.ctx.Database.Metadata().MetadataDatabase().SuggestMetrics(req.Namespace, req.Prefix, limit)
+	if err != nil {
+		return err
+	}
+	op.ctx.ResultSet = rs
+	return nil
 }

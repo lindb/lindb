@@ -25,6 +25,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/concurrent"
 )
 
@@ -72,6 +73,7 @@ func TestBaseStage_Execute(t *testing.T) {
 			name: "execute plan failure",
 			plan: NewMockPlanNode(ctrl),
 			prepare: func(p *MockPlanNode) {
+				p.EXPECT().IgnoreNotFound().Return(false)
 				p.EXPECT().Execute().Return(fmt.Errorf("err"))
 			},
 			errHandler: func(err error) {
@@ -79,11 +81,23 @@ func TestBaseStage_Execute(t *testing.T) {
 			},
 		},
 		{
-			name: "execute children plan faliure",
+			name: "execute plan failure, ignore not found err",
+			plan: NewMockPlanNode(ctrl),
+			prepare: func(p *MockPlanNode) {
+				p.EXPECT().IgnoreNotFound().Return(true)
+				p.EXPECT().Execute().Return(constants.ErrNotFound)
+			},
+			completeHandle: func() {
+				assert.True(t, true)
+			},
+		},
+		{
+			name: "execute children plan failure",
 			plan: NewMockPlanNode(ctrl),
 			prepare: func(p *MockPlanNode) {
 				p.EXPECT().Execute().Return(nil)
 				p1 := NewMockPlanNode(ctrl)
+				p1.EXPECT().IgnoreNotFound().Return(false)
 				p1.EXPECT().Execute().Return(fmt.Errorf("err"))
 				p.EXPECT().Children().Return([]PlanNode{p1})
 			},

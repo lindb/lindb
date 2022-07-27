@@ -15,12 +15,29 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package storagequery
+package operator
 
-//go:generate mockgen -source=./interface.go -destination=./interface_mock.go -package=storagequery
+import "github.com/lindb/lindb/query/context"
 
-// storageMetricQuery represents the metric metadata query interface in storage side.
-type storageMetadataQuery interface {
-	// Execute executes metric metadata query.
-	Execute() (result []string, err error)
+// tagKeyIDLookup represents tag key id lookup operator.
+type tagKeyIDLookup struct {
+	ctx *context.LeafMetadataContext
+}
+
+// NewTagKeyIDLookup create a tagKeyIDLookup instance.
+func NewTagKeyIDLookup(ctx *context.LeafMetadataContext) Operator {
+	return &tagKeyIDLookup{
+		ctx: ctx,
+	}
+}
+
+// Execute finds tag key id by given namespace/metric/tag key.
+func (op *tagKeyIDLookup) Execute() error {
+	req := op.ctx.Request
+	tagKeyID, err := op.ctx.Database.Metadata().MetadataDatabase().GetTagKeyID(req.Namespace, req.MetricName, req.TagKey)
+	if err != nil {
+		return err
+	}
+	op.ctx.TagKeyID = tagKeyID
+	return nil
 }

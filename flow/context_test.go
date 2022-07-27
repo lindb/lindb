@@ -45,6 +45,13 @@ func TestStorageExecuteContext_collectGroupingTagValueIDs(t *testing.T) {
 	ctx.collectGroupingTagValueIDs([]uint32{8, 10})
 	assert.Equal(t, roaring.BitmapOf(1, 2, 8), ctx.GroupingTagValueIDs[0])
 	assert.Equal(t, roaring.BitmapOf(4, 5, 10), ctx.GroupingTagValueIDs[1])
+
+	c := 0
+	ctx.CollectTagValues(func() {
+		assert.True(t, true)
+		c++
+	})
+	assert.Equal(t, 1, c)
 }
 
 func TestStorageExecuteContext(t *testing.T) {

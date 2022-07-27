@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package storagequery
+package query
 
 import (
 	"github.com/google/uuid"
@@ -23,7 +23,7 @@ import (
 	stagepkg "github.com/lindb/lindb/query/stage"
 )
 
-//go:generate mockgen -source=./pipeline.go -destination=./pipeline_mock.go -package=storagequery
+//go:generate mockgen -source=./pipeline.go -destination=./pipeline_mock.go -package=query
 
 // Pipeline represents the pipeline execution model, pipeline executes all query stage.
 type Pipeline interface {

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package storagequery
+package query
 
 import (
 	"context"
@@ -28,12 +28,10 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
-	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
@@ -78,7 +76,7 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 			name: "unmarshal error",
 			req:  &protoCommonV1.TaskRequest{PhysicalPlan: nil},
 			assert: func(err error) {
-				assert.True(t, errors.Is(err, query.ErrUnmarshalPlan))
+				assert.True(t, errors.Is(err, ErrUnmarshalPlan))
 			},
 		},
 		{
@@ -87,7 +85,7 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 				Leaves: []*models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.4:8000"}}},
 			})},
 			assert: func(err error) {
-				assert.True(t, errors.Is(err, query.ErrBadPhysicalPlan))
+				assert.True(t, errors.Is(err, ErrBadPhysicalPlan))
 			},
 		},
 		{
@@ -100,7 +98,7 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 				engine.EXPECT().GetDatabase(gomock.Any()).Return(nil, false)
 			},
 			assert: func(err error) {
-				assert.True(t, errors.Is(err, query.ErrNoDatabase))
+				assert.True(t, errors.Is(err, ErrNoDatabase))
 			},
 		},
 		{
@@ -114,7 +112,7 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 				taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(nil)
 			},
 			assert: func(err error) {
-				assert.True(t, errors.Is(err, query.ErrNoSendStream))
+				assert.True(t, errors.Is(err, ErrNoSendStream))
 			},
 		},
 		{
@@ -128,7 +126,7 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 				taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(serverStream)
 			},
 			assert: func(err error) {
-				assert.True(t, errors.Is(err, query.ErrUnmarshalQuery))
+				assert.True(t, errors.Is(err, ErrUnmarshalQuery))
 			},
 		},
 		{
@@ -258,7 +256,7 @@ func TestLeafTask_Suggest_Process(t *testing.T) {
 				serverStream.EXPECT().Send(gomock.Any()).Return(io.ErrClosedPipe)
 			},
 			assert: func(err error) {
-				assert.Error(t, err)
+				assert.NoError(t, err)
 			},
 		},
 		{
@@ -272,34 +270,19 @@ func TestLeafTask_Suggest_Process(t *testing.T) {
 			},
 		},
 		{
-			name:    "suggest not data",
+			name:    "suggest failure",
 			payload: encoding.JSONMarshal(&stmt.MetricMetadata{}),
 			prepare: func() {
-				serverStream.EXPECT().Send(gomock.Any()).Return(nil)
-				q := NewMockstorageMetadataQuery(ctrl)
-				q.EXPECT().Execute().Return(nil, constants.ErrNotFound)
-				newStorageMetadataQueryFn = func(database tsdb.Database, shardIDs []models.ShardID,
-					request *stmt.MetricMetadata) storageMetadataQuery {
-					return q
+				pipeline := NewMockPipeline(ctrl)
+				newExecutePipelineFn = func(needStats bool, completeCallback func(err error)) Pipeline {
+					completeCallback(fmt.Errorf("err")) // mock invoke callback
+					return pipeline
 				}
+				pipeline.EXPECT().Execute(gomock.Any())
+				serverStream.EXPECT().Send(gomock.Any()).Return(nil)
 			},
 			assert: func(err error) {
 				assert.NoError(t, err)
-			},
-		},
-		{
-			name:    "suggest not data",
-			payload: encoding.JSONMarshal(&stmt.MetricMetadata{}),
-			prepare: func() {
-				q := NewMockstorageMetadataQuery(ctrl)
-				q.EXPECT().Execute().Return(nil, constants.ErrNoLiveNode)
-				newStorageMetadataQueryFn = func(database tsdb.Database, shardIDs []models.ShardID,
-					request *stmt.MetricMetadata) storageMetadataQuery {
-					return q
-				}
-			},
-			assert: func(err error) {
-				assert.Equal(t, constants.ErrNoLiveNode, err)
 			},
 		},
 	}
@@ -308,7 +291,7 @@ func TestLeafTask_Suggest_Process(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
-				newStorageMetadataQueryFn = newStorageMetadataQuery
+				newExecutePipelineFn = NewExecutePipeline
 			}()
 			if tt.prepare != nil {
 				tt.prepare()

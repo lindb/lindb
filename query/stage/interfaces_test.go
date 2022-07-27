@@ -29,4 +29,6 @@ func TestType_String(t *testing.T) {
 	assert.Equal(t, "ShardScan", ShardScan.String())
 	assert.Equal(t, "Grouping", Grouping.String())
 	assert.Equal(t, "DataLoad", DataLoad.String())
+	assert.Equal(t, "MetadataSuggest", MetadataSuggest.String())
+	assert.Equal(t, "ShardLookup", ShardLookup.String())
 }

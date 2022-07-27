@@ -15,37 +15,35 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package stage
+package operator
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/query/operator"
+	"github.com/lindb/lindb/query/context"
+	stmtpkg "github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/tsdb"
+	"github.com/lindb/lindb/tsdb/metadb"
 )
 
-func TestPlanNode(t *testing.T) {
+func TestTagValueSuggest_Execute(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	op := operator.NewMockOperator(ctrl)
-	empty := NewEmptyPlanNode()
-	n := empty.(*planNode)
-	assert.Nil(t, n.op)
-	assert.NoError(t, n.Execute())
+	db := tsdb.NewMockDatabase(ctrl)
+	meta := metadb.NewMockMetadata(ctrl)
+	tagMeta := metadb.NewMockTagMetadata(ctrl)
+	meta.EXPECT().TagMetadata().Return(tagMeta).AnyTimes()
+	db.EXPECT().Metadata().Return(meta).AnyTimes()
 
-	plan := NewPlanNode(op)
-	n = plan.(*planNode)
-	assert.NotNil(t, n.op)
-	op.EXPECT().Execute().Return(fmt.Errorf("err"))
-	assert.Error(t, plan.Execute())
-
-	plan.AddChild(NewEmptyPlanNode())
-	assert.Len(t, plan.Children(), 1)
-	assert.False(t, plan.IgnoreNotFound())
-
-	assert.True(t, NewPlanNodeWithIgnore(op).IgnoreNotFound())
+	ctx := &context.LeafMetadataContext{
+		Database: db,
+		Request:  &stmtpkg.MetricMetadata{},
+	}
+	op := NewTagValueSuggest(ctx)
+	tagMeta.EXPECT().SuggestTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{"name"})
+	assert.NoError(t, op.Execute())
 }
