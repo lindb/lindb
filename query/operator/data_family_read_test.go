@@ -25,7 +25,6 @@ import (
 	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/tsdb"
@@ -40,11 +39,6 @@ func TestDataFamilyReader_Execute(t *testing.T) {
 		op := NewDataFamilyRead(nil, family)
 		family.EXPECT().Filter(gomock.Any()).Return(nil, fmt.Errorf("err"))
 		assert.Error(t, op.Execute())
-	})
-	t.Run("not found", func(t *testing.T) {
-		op := NewDataFamilyRead(nil, family)
-		family.EXPECT().Filter(gomock.Any()).Return(nil, constants.ErrNotFound)
-		assert.NoError(t, op.Execute())
 	})
 	t.Run("found data", func(t *testing.T) {
 		op := NewDataFamilyRead(&flow.ShardExecuteContext{

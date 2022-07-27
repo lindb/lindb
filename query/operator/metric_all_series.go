@@ -18,9 +18,6 @@
 package operator
 
 import (
-	"errors"
-
-	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/tsdb"
@@ -46,12 +43,8 @@ func (op *metricAllSeries) Execute() error {
 	queryStmt := op.executeCtx.StorageExecuteCtx.Query
 	// get series ids for metric level
 	seriesIDs, err := op.indexDB.GetSeriesIDsForMetric(queryStmt.Namespace, queryStmt.MetricName)
-	if err != nil && !errors.Is(err, constants.ErrNotFound) {
+	if err != nil {
 		return err
-	}
-	if seriesIDs == nil {
-		// maybe not found any series
-		return nil
 	}
 	if !queryStmt.HasGroupBy() {
 		// add series id without tags, maybe metric has too many series, but one series without tags

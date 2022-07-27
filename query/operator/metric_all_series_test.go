@@ -60,7 +60,7 @@ func TestMetricAllSeries_Execute(t *testing.T) {
 		ctx.SeriesIDsAfterFiltering = roaring.New()
 		op := NewMetricAllSeries(ctx, shard)
 		indexDB.EXPECT().GetSeriesIDsForMetric(gomock.Any(), gomock.Any()).Return(nil, constants.ErrNotFound)
-		assert.NoError(t, op.Execute())
+		assert.Error(t, op.Execute())
 		assert.Equal(t, roaring.New(), ctx.SeriesIDsAfterFiltering)
 	})
 	t.Run("found series ids", func(t *testing.T) {

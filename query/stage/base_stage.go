@@ -19,7 +19,9 @@ package stage
 
 import (
 	"context"
+	"errors"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/concurrent"
 )
 
@@ -62,7 +64,11 @@ func (stage *baseStage) execute(node PlanNode) error {
 	}
 
 	// execute current plan node logic
-	if err := node.Execute(); err != nil {
+	err := node.Execute()
+	if err != nil {
+		if node.IgnoreNotFound() && errors.Is(err, constants.ErrNotFound) {
+			return nil
+		}
 		return err
 	}
 

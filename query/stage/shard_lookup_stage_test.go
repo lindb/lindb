@@ -18,34 +18,23 @@
 package stage
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/query/operator"
+	"github.com/lindb/lindb/tsdb"
+	"github.com/lindb/lindb/tsdb/indexdb"
 )
 
-func TestPlanNode(t *testing.T) {
+func TestShardLookupStage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	op := operator.NewMockOperator(ctrl)
-	empty := NewEmptyPlanNode()
-	n := empty.(*planNode)
-	assert.Nil(t, n.op)
-	assert.NoError(t, n.Execute())
+	shard := tsdb.NewMockShard(ctrl)
+	indexDB := indexdb.NewMockIndexDatabase(ctrl)
+	shard.EXPECT().IndexDatabase().Return(indexDB)
 
-	plan := NewPlanNode(op)
-	n = plan.(*planNode)
-	assert.NotNil(t, n.op)
-	op.EXPECT().Execute().Return(fmt.Errorf("err"))
-	assert.Error(t, plan.Execute())
-
-	plan.AddChild(NewEmptyPlanNode())
-	assert.Len(t, plan.Children(), 1)
-	assert.False(t, plan.IgnoreNotFound())
-
-	assert.True(t, NewPlanNodeWithIgnore(op).IgnoreNotFound())
+	s := NewShardLookupStage(nil, nil, shard)
+	assert.NotNil(t, s.Plan())
 }

@@ -84,23 +84,26 @@ func (ctx *LeafGroupingContext) collectGroupByTagValues() {
 	// all shard pending query tasks and grouping task completed, start collect tag values
 	metadata := ctx.leafExecuteCtx.Database.Metadata()
 	tagMetadata := metadata.TagMetadata()
-	for idx, tagKeyID := range storageExecuteCtx.GroupByTags {
-		tagKey := tagKeyID
-		tagValueIDs := storageExecuteCtx.GroupingTagValueIDs[idx]
-		tagIndex := idx
-		if tagValueIDs == nil || tagValueIDs.IsEmpty() {
-			ctx.reduceTagValues(tagIndex, nil)
-			continue
-		}
 
-		tagValues := make(map[uint32]string) // tag value id => tag value
-		err := tagMetadata.CollectTagValues(tagKey.ID, tagValueIDs, tagValues)
-		if err != nil {
-			ctx.leafExecuteCtx.SendResponse(err)
-			return
+	storageExecuteCtx.CollectTagValues(func() {
+		for idx, tagKeyID := range storageExecuteCtx.GroupByTags {
+			tagKey := tagKeyID
+			tagValueIDs := storageExecuteCtx.GroupingTagValueIDs[idx]
+			tagIndex := idx
+			if tagValueIDs == nil || tagValueIDs.IsEmpty() {
+				ctx.reduceTagValues(tagIndex, nil)
+				continue
+			}
+
+			tagValues := make(map[uint32]string) // tag value id => tag value
+			err := tagMetadata.CollectTagValues(tagKey.ID, tagValueIDs, tagValues)
+			if err != nil {
+				ctx.leafExecuteCtx.SendResponse(err)
+				return
+			}
+			ctx.reduceTagValues(tagIndex, tagValues)
 		}
-		ctx.reduceTagValues(tagIndex, tagValues)
-	}
+	})
 }
 
 // reduceTagValues reduces the group by tag values

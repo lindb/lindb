@@ -92,6 +92,14 @@ type StorageExecuteContext struct {
 	mutex sync.Mutex
 }
 
+// CollectTagValues collects tag value with lock.
+func (ctx *StorageExecuteContext) CollectTagValues(fn func()) {
+	ctx.mutex.Lock()
+	defer ctx.mutex.Unlock()
+
+	fn()
+}
+
 // collectGroupingTagValueIDs collects grouping tag value ids when does grouping operation.
 func (ctx *StorageExecuteContext) collectGroupingTagValueIDs(tagValueIDs []uint32) {
 	// need add lock, because build group concurrent(multi-shard)

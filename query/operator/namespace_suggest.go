@@ -15,37 +15,30 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package stage
+package operator
 
-import (
-	"fmt"
-	"testing"
+import "github.com/lindb/lindb/query/context"
 
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
+// namespaceSuggest represents namespace suggest operator.
+type namespaceSuggest struct {
+	ctx *context.LeafMetadataContext
+}
 
-	"github.com/lindb/lindb/query/operator"
-)
+// NewNamespaceSuggest creates a namespaceSuggest instance.
+func NewNamespaceSuggest(ctx *context.LeafMetadataContext) Operator {
+	return &namespaceSuggest{
+		ctx: ctx,
+	}
+}
 
-func TestPlanNode(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	op := operator.NewMockOperator(ctrl)
-	empty := NewEmptyPlanNode()
-	n := empty.(*planNode)
-	assert.Nil(t, n.op)
-	assert.NoError(t, n.Execute())
-
-	plan := NewPlanNode(op)
-	n = plan.(*planNode)
-	assert.NotNil(t, n.op)
-	op.EXPECT().Execute().Return(fmt.Errorf("err"))
-	assert.Error(t, plan.Execute())
-
-	plan.AddChild(NewEmptyPlanNode())
-	assert.Len(t, plan.Children(), 1)
-	assert.False(t, plan.IgnoreNotFound())
-
-	assert.True(t, NewPlanNodeWithIgnore(op).IgnoreNotFound())
+// Execute returns namespace list by given prefix.
+func (op *namespaceSuggest) Execute() error {
+	req := op.ctx.Request
+	limit := op.ctx.Limit
+	rs, err := op.ctx.Database.Metadata().MetadataDatabase().SuggestNamespace(req.Prefix, limit)
+	if err != nil {
+		return err
+	}
+	op.ctx.ResultSet = rs
+	return nil
 }

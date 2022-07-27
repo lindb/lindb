@@ -15,37 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package stage
+package operator
 
-import (
-	"fmt"
-	"testing"
+import "github.com/lindb/lindb/query/context"
 
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
+// tagValueSuggest represent tag value suggest without condition operator.
+type tagValueSuggest struct {
+	ctx *context.LeafMetadataContext
+}
 
-	"github.com/lindb/lindb/query/operator"
-)
+// NewTagValueSuggest creates a tagValueSuggest instance.
+func NewTagValueSuggest(ctx *context.LeafMetadataContext) Operator {
+	return &tagValueSuggest{
+		ctx: ctx,
+	}
+}
 
-func TestPlanNode(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	op := operator.NewMockOperator(ctrl)
-	empty := NewEmptyPlanNode()
-	n := empty.(*planNode)
-	assert.Nil(t, n.op)
-	assert.NoError(t, n.Execute())
-
-	plan := NewPlanNode(op)
-	n = plan.(*planNode)
-	assert.NotNil(t, n.op)
-	op.EXPECT().Execute().Return(fmt.Errorf("err"))
-	assert.Error(t, plan.Execute())
-
-	plan.AddChild(NewEmptyPlanNode())
-	assert.Len(t, plan.Children(), 1)
-	assert.False(t, plan.IgnoreNotFound())
-
-	assert.True(t, NewPlanNodeWithIgnore(op).IgnoreNotFound())
+// Execute returns tag value list by given tag key/prefix.
+func (op *tagValueSuggest) Execute() error {
+	req := op.ctx.Request
+	limit := op.ctx.Limit
+	op.ctx.ResultSet = op.ctx.Database.Metadata().TagMetadata().SuggestTagValues(op.ctx.TagKeyID, req.Prefix, limit)
+	return nil
 }
