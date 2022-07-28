@@ -20,8 +20,9 @@ package memdb
 import (
 	"sort"
 
-	"github.com/lindb/roaring"
 	"go.uber.org/atomic"
+
+	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/timeutil"

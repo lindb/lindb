@@ -24,6 +24,8 @@ import (
 	"net/http"
 	"strings"
 
+	commonseries "github.com/lindb/common/series"
+
 	ingestCommon "github.com/lindb/lindb/ingestion/common"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series/metric"
@@ -54,7 +56,7 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*metric.
 	cr := GetChunkReader(reader)
 	defer PutChunkReader(cr)
 
-	rowBuilder, releaseFunc := metric.NewRowBuilder()
+	rowBuilder, releaseFunc := commonseries.NewRowBuilder()
 	defer releaseFunc(rowBuilder)
 
 	batch := metric.NewBrokerBatchRows()
@@ -82,7 +84,14 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*metric.
 				return nil, err
 			}
 		}
-		if err := batch.TryAppend(rowBuilder.BuildTo); err != nil {
+		if err := batch.TryAppend(func(row *metric.BrokerRow) error {
+			data, err := rowBuilder.Build()
+			if err != nil {
+				return err
+			}
+			row.FromBlock(data)
+			return nil
+		}); err != nil {
 			influxIngestionStatistics.DroppedMetrics.Incr()
 			continue
 		}

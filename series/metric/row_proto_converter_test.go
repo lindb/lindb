@@ -24,11 +24,11 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/lindb/common/pkg/fasttime"
+	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/pkg/strutil"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
 	"github.com/lindb/lindb/series/tag"
 )
 

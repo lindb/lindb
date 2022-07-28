@@ -23,8 +23,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	commonconstants "github.com/lindb/common/constants"
+
 	"github.com/lindb/lindb/aggregation/function"
-	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/sql/stmt"
 )
@@ -79,7 +80,7 @@ func TestExplainStatement(t *testing.T) {
 	query = q.(*stmt.Query)
 	assert.Nil(t, err)
 	assert.False(t, query.Explain)
-	assert.Equal(t, constants.DefaultNamespace, query.Namespace)
+	assert.Equal(t, commonconstants.DefaultNamespace, query.Namespace)
 }
 
 func TestMetricName(t *testing.T) {

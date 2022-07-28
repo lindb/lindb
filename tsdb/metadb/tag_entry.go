@@ -21,8 +21,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/lindb/roaring"
 	"go.uber.org/atomic"
+
+	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/sql/stmt"
 )

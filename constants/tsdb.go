@@ -35,7 +35,4 @@ const (
 	// If current timestamp is 2021-08-19 23:00:00, metric before 2021-08-18 23:00:00 will be dropped.
 	MetricMaxBehindDuration    = int64(24 * 60 * 60 * 1000)
 	MetricMaxBehindDurationStr = "1d"
-
-	// DefaultNamespace represents default namespace if not set
-	DefaultNamespace = "default-ns"
 )

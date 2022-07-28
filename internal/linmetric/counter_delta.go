@@ -20,7 +20,7 @@ package linmetric
 import (
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
+	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
 )
 
 // BoundCounter is a counter which has been Bound to a certain metric

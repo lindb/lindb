@@ -26,8 +26,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/fileutil"

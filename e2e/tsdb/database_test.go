@@ -25,16 +25,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
+	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestDatabase_Write_And_Rollup(t *testing.T) {

@@ -24,8 +24,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lindb/roaring"
 	"go.uber.org/atomic"
+
+	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/models"

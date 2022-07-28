@@ -25,6 +25,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	commonseries "github.com/lindb/common/series"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
@@ -101,7 +103,7 @@ func TestMetadataDatabase_GetMetricID(t *testing.T) {
 	db := newMockMetadataDatabase(t, t.TempDir())
 	db2 := db.(*metadataDatabase)
 	db2.rwMux.Lock()
-	db2.metrics[metric.JoinNamespaceMetric("ns-1", "name2")] = newMetricMetadata(metric.ID(2))
+	db2.metrics[commonseries.JoinNamespaceMetric("ns-1", "name2")] = newMetricMetadata(metric.ID(2))
 	db2.rwMux.Unlock()
 
 	backend.EXPECT().getMetricID("ns-1", "name1").Return(metric.EmptyMetricID, fmt.Errorf("err"))
@@ -144,7 +146,7 @@ func TestMetadataDatabase_GetAllTagKeys(t *testing.T) {
 				db2.rwMux.Lock()
 				metricMeta := newMetricMetadata(metric.ID(2))
 				metricMeta.initialize(nil, 0, tags)
-				db2.metrics[metric.JoinNamespaceMetric("ns-1", "name2")] = metricMeta
+				db2.metrics[commonseries.JoinNamespaceMetric("ns-1", "name2")] = metricMeta
 				db2.rwMux.Unlock()
 			},
 			out: struct {
@@ -209,7 +211,7 @@ func TestMetadataDatabase_GetTagKey(t *testing.T) {
 	db2.rwMux.Lock()
 	metricMeta := newMetricMetadata(metric.ID(2))
 	metricMeta.initialize(nil, 0, tags)
-	db2.metrics[metric.JoinNamespaceMetric("ns-1", "name2")] = metricMeta
+	db2.metrics[commonseries.JoinNamespaceMetric("ns-1", "name2")] = metricMeta
 	db2.rwMux.Unlock()
 	cases := []struct {
 		name       string
@@ -308,7 +310,7 @@ func TestMetadataDatabase_GetAllFields(t *testing.T) {
 				db2.rwMux.Lock()
 				metricMeta := newMetricMetadata(metric.ID(2))
 				metricMeta.initialize(fields, 0, nil)
-				db2.metrics[metric.JoinNamespaceMetric("ns-1", "cache")] = metricMeta
+				db2.metrics[commonseries.JoinNamespaceMetric("ns-1", "cache")] = metricMeta
 				db2.rwMux.Unlock()
 			},
 			out: struct {
@@ -376,7 +378,7 @@ func TestMetadataDatabase_GetField(t *testing.T) {
 	db2.rwMux.Lock()
 	metricMeta := newMetricMetadata(metric.ID(2))
 	metricMeta.initialize(fields, 0, nil)
-	db2.metrics[metric.JoinNamespaceMetric("ns-1", "cache")] = metricMeta
+	db2.metrics[commonseries.JoinNamespaceMetric("ns-1", "cache")] = metricMeta
 	db2.rwMux.Unlock()
 
 	cases := []struct {
@@ -454,7 +456,7 @@ func TestMetadataDatabase_GetAllHistogramFields(t *testing.T) {
 	db2.rwMux.Lock()
 	metricMeta := newMetricMetadata(metric.ID(2))
 	metricMeta.initialize(fields, 0, nil)
-	db2.metrics[metric.JoinNamespaceMetric("ns-1", "cache")] = metricMeta
+	db2.metrics[commonseries.JoinNamespaceMetric("ns-1", "cache")] = metricMeta
 	db2.rwMux.Unlock()
 
 	cases := []struct {
@@ -531,7 +533,7 @@ func TestMetadataDatabase_GenMetricID(t *testing.T) {
 				db2 := db.(*metadataDatabase)
 				db2.rwMux.Lock()
 				metricMeta := newMetricMetadata(metric.ID(2))
-				db2.metrics[metric.JoinNamespaceMetric("ns-1", "cache")] = metricMeta
+				db2.metrics[commonseries.JoinNamespaceMetric("ns-1", "cache")] = metricMeta
 				db2.rwMux.Unlock()
 			},
 			out: struct {
@@ -592,7 +594,7 @@ func TestMetadataDatabase_GenFieldID(t *testing.T) {
 	db := newMockMetadataDatabase(t, t.TempDir())
 	db2 := db.(*metadataDatabase)
 	db2.rwMux.Lock()
-	db2.metrics[metric.JoinNamespaceMetric("ns-1", "cache")] = meta
+	db2.metrics[commonseries.JoinNamespaceMetric("ns-1", "cache")] = meta
 	db2.rwMux.Unlock()
 	cases := []struct {
 		name       string
@@ -710,7 +712,7 @@ func TestMetadataDatabase_GenTagKeyID(t *testing.T) {
 	db := newMockMetadataDatabase(t, t.TempDir())
 	db2 := db.(*metadataDatabase)
 	db2.rwMux.Lock()
-	db2.metrics[metric.JoinNamespaceMetric("ns-1", "cache")] = meta
+	db2.metrics[commonseries.JoinNamespaceMetric("ns-1", "cache")] = meta
 	db2.rwMux.Unlock()
 	cases := []struct {
 		name       string

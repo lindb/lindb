@@ -25,10 +25,12 @@ import (
 
 	flatbuffers "github.com/google/flatbuffers/go"
 
-	"github.com/lindb/lindb/pkg/fasttime"
+	"github.com/lindb/common/pkg/fasttime"
+	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
+	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
+	commonseries "github.com/lindb/common/series"
+
 	"github.com/lindb/lindb/pkg/strutil"
-	"github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
 	"github.com/lindb/lindb/series/tag"
 )
 
@@ -69,7 +71,7 @@ func (rc *BrokerRowProtoConverter) validateMetric(m *protoMetricsV1.Metric) erro
 	if m.Name == "" {
 		return ErrMetricPBEmptyMetricName
 	}
-	m.Name = SanitizeMetricName(m.Name)
+	m.Name = commonseries.SanitizeMetricName(m.Name)
 	// empty field
 	if len(m.SimpleFields) == 0 && m.CompoundField == nil {
 		return ErrMetricPBEmptyField
@@ -88,7 +90,7 @@ func (rc *BrokerRowProtoConverter) validateMetric(m *protoMetricsV1.Metric) erro
 	if len(rc.namespace) > 0 {
 		m.Namespace = string(rc.namespace)
 	}
-	m.Namespace = SanitizeNamespace(m.Namespace)
+	m.Namespace = commonseries.SanitizeNamespace(m.Namespace)
 
 	// validate empty tags
 	if len(m.Tags) > 0 {
@@ -116,8 +118,8 @@ func (rc *BrokerRowProtoConverter) validateMetric(m *protoMetricsV1.Metric) erro
 		}
 		// check sanitize
 		fieldName := strutil.String2ByteSlice(m.SimpleFields[idx].Name)
-		if ShouldSanitizeFieldName(fieldName) {
-			m.SimpleFields[idx].Name = string(SanitizeFieldName(fieldName))
+		if commonseries.ShouldSanitizeFieldName(fieldName) {
+			m.SimpleFields[idx].Name = string(commonseries.SanitizeFieldName(fieldName))
 		}
 		// field type unspecified
 		if m.SimpleFields[idx].Type == protoMetricsV1.SimpleFieldType_SIMPLE_UNSPECIFIED {

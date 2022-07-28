@@ -22,8 +22,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/kv"
 )

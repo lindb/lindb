@@ -25,7 +25,7 @@ import (
 	xxhash "github.com/cespare/xxhash/v2"
 	"github.com/stretchr/testify/assert"
 
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
+	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 )
 
 func TestConcatTagValues(t *testing.T) {

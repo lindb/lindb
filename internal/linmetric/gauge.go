@@ -20,7 +20,7 @@ package linmetric
 import (
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
+	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
 )
 
 // BoundGauge is a gauge which has Bound to a certain metric with field-name and tags

@@ -25,10 +25,11 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 	jump "github.com/lithammer/go-jump-consistent-hash"
 
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/fasttime"
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/fasttime"
+	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
+
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
 )
 
 type BrokerRow struct {

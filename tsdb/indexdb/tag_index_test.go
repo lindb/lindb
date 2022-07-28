@@ -23,9 +23,10 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/atomic"
+
+	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/flow"

@@ -380,6 +380,8 @@ github.com/leodido/go-urn v1.1.0/go.mod h1:+cyI34gQWZcE1eQU7NVgKkkzdXDQHr1dBMtdA
 github.com/leodido/go-urn v1.2.0/go.mod h1:+8+nEpDfqqsY+g338gtMEUOtuK+4dEMhiQEgxpxOKII=
 github.com/leodido/go-urn v1.2.1 h1:BqpAaACuzVSgi/VLzGZIobT2z4v53pjosyNd9Yv6n/w=
 github.com/leodido/go-urn v1.2.1/go.mod h1:zt4jvISO2HfUBqxjfIshjdMTYS56ZS/qv49ictyFfxY=
+github.com/lindb/common v0.0.1 h1:sxs/JiIap+3uD3peeo0S43voPDsDQDuq0txUu02Aboc=
+github.com/lindb/common v0.0.1/go.mod h1:P8A02GL3yoUy4oLhKzau7jnPjhRkzXb6gsNYj5QWwMg=
 github.com/lindb/roaring v0.9.2 h1:FwuJuXrnv4KUAjbJ+j4cJpf5aUBz1p7vHs96+/vieAU=
 github.com/lindb/roaring v0.9.2/go.mod h1:bWgH3/iubtrWRiWWJHlXH5EaY2dPH6s6ygFR7vYi9Uw=
 github.com/lithammer/go-jump-consistent-hash v1.0.2 h1:w74N9XiMa4dWZdoVnfLbnDhfpGOMCxlrudzt2e7wtyk=
