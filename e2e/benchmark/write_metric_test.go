@@ -30,9 +30,10 @@ import (
 	"github.com/go-http-utils/headers"
 	"github.com/go-resty/resty/v2"
 
+	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/timeutil"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
 	"github.com/lindb/lindb/series/metric"
 )
 

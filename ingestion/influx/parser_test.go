@@ -25,14 +25,17 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	commonseries "github.com/lindb/common/series"
+
+	"github.com/lindb/common/pkg/fasttime"
+	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
+
 	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/pkg/fasttime"
-	"github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
 	"github.com/lindb/lindb/series/metric"
 )
 
 func Test_tooManyTags(t *testing.T) {
-	builder, releaseFunc := metric.NewRowBuilder()
+	builder, releaseFunc := commonseries.NewRowBuilder()
 	defer releaseFunc(builder)
 	var tagPair []string
 	for i := 0; i <= config.GlobalStorageConfig().TSDB.MaxTagKeysNumber+1; i++ {
@@ -43,25 +46,26 @@ func Test_tooManyTags(t *testing.T) {
 	err := parseInfluxLine(builder, []byte(line), "ns", -1e6)
 	assert.NoError(t, err)
 	_, err = builder.Build()
-	assert.Error(t, err)
+	assert.NoError(t, err)
 }
 
 func Test_noTags_noTimestamp(t *testing.T) {
-	builder, releaseFunc := metric.NewRowBuilder()
+	builder, releaseFunc := commonseries.NewRowBuilder()
 	defer releaseFunc(builder)
 
 	err := parseInfluxLine(builder, []byte("cpu value=1"), "ns2", -1e6)
 	assert.Nil(t, err)
 	var row metric.BrokerRow
-	err = builder.BuildTo(&row)
+	data, err := builder.Build()
 	assert.NoError(t, err)
+	(&row).FromBlock(data)
 	m := row.Metric()
 	assert.NotZero(t, m.Timestamp())
 	assert.Equal(t, 0, m.KeyValuesLength())
 }
 
 func Test_badTimestamp(t *testing.T) {
-	builder, releaseFunc := metric.NewRowBuilder()
+	builder, releaseFunc := commonseries.NewRowBuilder()
 	defer releaseFunc(builder)
 
 	lines := []string{
@@ -81,7 +85,7 @@ func Test_badTimestamp(t *testing.T) {
 }
 
 func Test_tags(t *testing.T) {
-	builder, releaseFunc := metric.NewRowBuilder()
+	builder, releaseFunc := commonseries.NewRowBuilder()
 	defer releaseFunc(builder)
 
 	examples := []struct {
@@ -103,7 +107,9 @@ func Test_tags(t *testing.T) {
 		err := parseInfluxLine(builder, []byte(example.Line), "ns", 1e6)
 		assert.Nil(t, err)
 		var br metric.BrokerRow
-		assert.NoError(t, builder.BuildTo(&br))
+		data, err := builder.Build()
+		assert.NoError(t, err)
+		(&br).FromBlock(data)
 		m := br.Metric()
 		var mp = make(map[string]string)
 		var kv flatMetricsV1.KeyValue
@@ -116,7 +122,7 @@ func Test_tags(t *testing.T) {
 }
 
 func Test_InvalidLine(t *testing.T) {
-	builder, releaseFunc := metric.NewRowBuilder()
+	builder, releaseFunc := commonseries.NewRowBuilder()
 	defer releaseFunc(builder)
 
 	examples := []struct {
@@ -138,7 +144,7 @@ func Test_InvalidLine(t *testing.T) {
 }
 
 func Test_metricName(t *testing.T) {
-	builder, releaseFunc := metric.NewRowBuilder()
+	builder, releaseFunc := commonseries.NewRowBuilder()
 	defer releaseFunc(builder)
 
 	examples := []struct {
@@ -158,14 +164,16 @@ func Test_metricName(t *testing.T) {
 		err := parseInfluxLine(builder, []byte(example.Line), "ns", 1e6)
 		assert.NoError(t, err)
 		var row metric.BrokerRow
-		assert.NoError(t, builder.BuildTo(&row))
+		data, err := builder.Build()
+		assert.NoError(t, err)
+		(&row).FromBlock(data)
 		m := row.Metric()
 		assert.Equal(t, example.MetricName, string(m.Name()))
 	}
 }
 
 func Test_missingTagValues(t *testing.T) {
-	builder, releaseFunc := metric.NewRowBuilder()
+	builder, releaseFunc := commonseries.NewRowBuilder()
 	defer releaseFunc(builder)
 
 	examples := []struct {
@@ -190,7 +198,7 @@ func Test_missingTagValues(t *testing.T) {
 }
 
 func Test_missingFieldNames(t *testing.T) {
-	builder, releaseFunc := metric.NewRowBuilder()
+	builder, releaseFunc := commonseries.NewRowBuilder()
 	defer releaseFunc(builder)
 
 	examples := []struct {
@@ -211,7 +219,9 @@ func Test_missingFieldNames(t *testing.T) {
 			assert.Error(t, err)
 		} else {
 			var row metric.BrokerRow
-			assert.NoError(t, builder.BuildTo(&row))
+			data, err := builder.Build()
+			assert.NoError(t, err)
+			(&row).FromBlock(data)
 			m := row.Metric()
 			assert.Equalf(t, m.SimpleFieldsLength(), example.FieldCount, example.Line)
 		}
@@ -406,7 +416,7 @@ func Test_parseUnescapedMetric(t *testing.T) {
 			}},
 	}
 
-	builder, releaseFunc := metric.NewRowBuilder()
+	builder, releaseFunc := commonseries.NewRowBuilder()
 	defer releaseFunc(builder)
 
 	for _, example := range examples {
@@ -414,7 +424,9 @@ func Test_parseUnescapedMetric(t *testing.T) {
 		err := parseInfluxLine(builder, []byte(example.Line), "ns", -1e6)
 		assert.Nil(t, err)
 		var row metric.BrokerRow
-		assert.NoError(t, builder.BuildTo(&row))
+		data, err := builder.Build()
+		assert.NoError(t, err)
+		(&row).FromBlock(data)
 		var m = row.Metric()
 		assert.Equal(t, example.MetricName, string(m.Name()))
 		var mp = make(map[string]string)
@@ -454,7 +466,7 @@ func Test_parseBadFields(t *testing.T) {
 		`cpu,regions=east value=1t`,
 		`cpu,regions=east value=2f`,
 	}
-	builder, releaseFunc := metric.NewRowBuilder()
+	builder, releaseFunc := commonseries.NewRowBuilder()
 	defer releaseFunc(builder)
 	for _, line := range lines {
 		builder.Reset()

@@ -28,12 +28,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/atomic"
 
+	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/metric"
 )

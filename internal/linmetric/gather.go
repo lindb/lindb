@@ -20,7 +20,8 @@ package linmetric
 import (
 	"bytes"
 
-	"github.com/lindb/lindb/series/metric"
+	commonseries "github.com/lindb/common/series"
+
 	"github.com/lindb/lindb/series/tag"
 )
 
@@ -48,7 +49,7 @@ type gather struct {
 	buf             bytes.Buffer
 }
 
-func (g *gather) enrichTagsNameSpace(builder *metric.RowBuilder) {
+func (g *gather) enrichTagsNameSpace(builder *commonseries.RowBuilder) {
 	if len(g.tags) == 0 {
 		return
 	}

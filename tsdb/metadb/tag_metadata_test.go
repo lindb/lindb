@@ -22,8 +22,9 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"

@@ -23,10 +23,11 @@ import (
 	"net/http"
 	"strings"
 
+	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
+
 	ingestCommon "github.com/lindb/lindb/ingestion/common"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/strutil"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 )

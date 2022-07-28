@@ -28,9 +28,10 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
+
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/timeutil"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"

@@ -22,13 +22,14 @@ import (
 	"errors"
 	"strconv"
 
+	"github.com/lindb/common/pkg/fasttime"
+	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
+	commonseries "github.com/lindb/common/series"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/metrics"
-	"github.com/lindb/lindb/pkg/fasttime"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
-	"github.com/lindb/lindb/series/metric"
 )
 
 var (
@@ -47,7 +48,7 @@ var (
 // https://github.com/influxdata/influxdb/blob/master/models/points_test.go
 
 func parseInfluxLine(
-	builder *metric.RowBuilder,
+	builder *commonseries.RowBuilder,
 	content []byte,
 	namespace string,
 	multiplier int64,

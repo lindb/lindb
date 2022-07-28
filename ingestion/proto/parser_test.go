@@ -27,7 +27,8 @@ import (
 	"github.com/klauspost/compress/gzip"
 	"github.com/stretchr/testify/assert"
 
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
+	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
+
 	"github.com/lindb/lindb/series/tag"
 )
 

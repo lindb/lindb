@@ -27,6 +27,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/models"
@@ -34,7 +36,6 @@ import (
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
 	"github.com/lindb/lindb/series/metric"
 )
 

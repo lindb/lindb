@@ -24,11 +24,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lindb/common/pkg/fasttime"
+
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/fasttime"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"

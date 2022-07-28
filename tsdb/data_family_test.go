@@ -26,6 +26,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/atomic"
 
+	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/kv"
@@ -36,7 +38,6 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/timeutil"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
 	"github.com/lindb/lindb/series/metric"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb/memdb"

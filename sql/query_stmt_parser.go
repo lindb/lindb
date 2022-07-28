@@ -22,8 +22,9 @@ import (
 	"sort"
 	"strconv"
 
+	commonconstants "github.com/lindb/common/constants"
+
 	"github.com/lindb/lindb/aggregation/function"
-	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -55,7 +56,7 @@ func newQueryStmtParse(explain bool) *queryStmtParser {
 		fieldID:    1,
 		baseStmtParser: baseStmtParser{
 			exprStack: collections.NewStack(),
-			namespace: constants.DefaultNamespace,
+			namespace: commonconstants.DefaultNamespace,
 			limit:     20,
 		},
 	}

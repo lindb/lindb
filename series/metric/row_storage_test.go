@@ -27,8 +27,9 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/pkg/fasttime"
-	"github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
+	"github.com/lindb/common/pkg/fasttime"
+	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
+
 	"github.com/lindb/lindb/series/field"
 )
 

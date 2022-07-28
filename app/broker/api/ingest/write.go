@@ -25,6 +25,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-http-utils/headers"
 
+	commonconstants "github.com/lindb/common/constants"
+
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 	ingestCommon "github.com/lindb/lindb/ingestion/common"
@@ -122,7 +124,7 @@ func (w *Write) write(c *gin.Context) (err error) {
 	defer cancel()
 
 	if param.Namespace == "" {
-		param.Namespace = constants.DefaultNamespace
+		param.Namespace = commonconstants.DefaultNamespace
 	}
 	enrichedTags, err := ingestCommon.ExtractEnrichTags(c.Request)
 	if err != nil {

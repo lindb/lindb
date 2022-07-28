@@ -8,8 +8,6 @@ bin/
 *.bat
 
 # temp file during testing
-*.test
-.vscode/
 cpu_profile
 *gomock*
 *.db

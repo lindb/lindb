@@ -25,9 +25,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/pkg/fasttime"
+	"github.com/lindb/common/pkg/fasttime"
+	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
+	commonseries "github.com/lindb/common/series"
+
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
 )
 
 func Test_BrokerBatchRows(t *testing.T) {
@@ -89,14 +91,15 @@ func assertBrokerBatchRows(t *testing.T, brokerRows *BrokerBatchRows) {
 }
 
 func buildRow(row *BrokerRow, timestamp int64) {
-	builder, releaseFunc := NewRowBuilder()
+	builder, releaseFunc := commonseries.NewRowBuilder()
 	defer releaseFunc(builder)
 
 	builder.AddMetricName([]byte("test"))
 	_ = builder.AddTag([]byte("ts"), []byte(strconv.FormatInt(timestamp, 10)))
 	_ = builder.AddSimpleField([]byte("f1"), flatMetricsV1.SimpleFieldTypeDeltaSum, 100)
 	builder.AddTimestamp(timestamp)
-	_ = builder.BuildTo(row)
+	data, _ := builder.Build()
+	row.FromBlock(data)
 }
 
 func Test_BrokerBatchRows_AppendError(t *testing.T) {

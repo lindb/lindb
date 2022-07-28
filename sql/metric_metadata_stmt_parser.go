@@ -18,7 +18,8 @@
 package sql
 
 import (
-	"github.com/lindb/lindb/constants"
+	commonconstants "github.com/lindb/common/constants"
+
 	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/sql/grammar"
@@ -39,7 +40,7 @@ func newMetricMetadataStmtParser(metadataType stmt.MetricMetadataType) *metricMe
 		metadataType: metadataType,
 		baseStmtParser: baseStmtParser{
 			exprStack: collections.NewStack(),
-			namespace: constants.DefaultNamespace,
+			namespace: commonconstants.DefaultNamespace,
 		},
 	}
 }

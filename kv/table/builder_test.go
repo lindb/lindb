@@ -26,8 +26,9 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/pkg/bufioutil"
 	"github.com/lindb/lindb/pkg/encoding"

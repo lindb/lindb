@@ -24,14 +24,15 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
+
+	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
+	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/unique"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"

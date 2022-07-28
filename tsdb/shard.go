@@ -26,9 +26,9 @@ import (
 	"sync"
 	"time"
 
+	commonconstants "github.com/lindb/common/constants"
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
@@ -228,7 +228,7 @@ func (s *shard) GetDataFamilies(intervalType timeutil.IntervalType, timeRange ti
 }
 
 func (s *shard) lookupRowMeta(row *metric.StorageRow) (err error) {
-	namespace := constants.DefaultNamespace
+	namespace := commonconstants.DefaultNamespace
 	metricName := string(row.Name())
 
 	if len(row.NameSpace()) > 0 {

@@ -17,7 +17,7 @@
 
 package linmetric
 
-import "github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
+import "github.com/lindb/common/proto/gen/v1/flatMetricsV1"
 
 // simpleField is implemented by gauge, sum, min, max
 type simpleField interface {

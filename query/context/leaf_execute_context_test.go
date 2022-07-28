@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/flow"

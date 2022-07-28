@@ -24,8 +24,9 @@ import (
 
 	xxhash "github.com/cespare/xxhash/v2"
 
+	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
+
 	"github.com/lindb/lindb/pkg/strutil"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
 )
 
 type KeyValues []*protoMetricsV1.KeyValue

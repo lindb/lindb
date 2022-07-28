@@ -26,16 +26,16 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	commonconstants "github.com/lindb/common/constants"
+	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
-	protoMetricsV1 "github.com/lindb/lindb/proto/gen/v1/linmetrics"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
@@ -426,7 +426,7 @@ func TestShard_Write(t *testing.T) {
 		{
 			name: "gen metric id err",
 			prepare: func() {
-				metadataDB.EXPECT().GenMetricID(constants.DefaultNamespace, "test").
+				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test").
 					Return(metric.ID(0), fmt.Errorf("err"))
 			},
 		},
@@ -479,7 +479,7 @@ func TestShard_lookupRowMeta(t *testing.T) {
 		{
 			name: "gen metric id err",
 			prepare: func() {
-				metadataDB.EXPECT().GenMetricID(constants.DefaultNamespace, "test").Return(metric.ID(0), fmt.Errorf("err"))
+				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test").Return(metric.ID(0), fmt.Errorf("err"))
 			},
 			wantErr: true,
 		},
@@ -487,7 +487,7 @@ func TestShard_lookupRowMeta(t *testing.T) {
 			name: "gen series id err",
 			tags: tag.KeyValuesFromMap(map[string]string{"ip": "1.1.1.1"}),
 			prepare: func() {
-				metadataDB.EXPECT().GenMetricID(constants.DefaultNamespace, "test").Return(metric.ID(10), nil).AnyTimes()
+				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test").Return(metric.ID(10), nil).AnyTimes()
 				indexDB.EXPECT().GetOrCreateSeriesID(metric.ID(10), gomock.Any()).Return(uint32(0), false, fmt.Errorf("err"))
 			},
 			wantErr: true,
@@ -496,7 +496,7 @@ func TestShard_lookupRowMeta(t *testing.T) {
 			name: "get old series id",
 			tags: tag.KeyValuesFromMap(map[string]string{"ip": "1.1.1.1"}),
 			prepare: func() {
-				metadataDB.EXPECT().GenMetricID(constants.DefaultNamespace, "test").Return(metric.ID(10), nil).AnyTimes()
+				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test").Return(metric.ID(10), nil).AnyTimes()
 				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(field.ID(1), nil)
 				indexDB.EXPECT().GetOrCreateSeriesID(metric.ID(10), gomock.Any()).Return(uint32(10), false, nil)
 			},

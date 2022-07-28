@@ -24,6 +24,8 @@ import (
 
 	flatbuffers "github.com/google/flatbuffers/go"
 
+	commonseries "github.com/lindb/common/series"
+
 	"github.com/lindb/lindb/series/tag"
 )
 
@@ -37,7 +39,7 @@ type BrokerRowFlatDecoder struct {
 	buf     []byte
 	readLen int
 
-	rowBuilder RowBuilder
+	rowBuilder commonseries.RowBuilder
 	originRow  readOnlyRow // used for unmarshal
 
 	compoundValues []float64
@@ -66,7 +68,7 @@ func NewBrokerRowFlatDecoder(
 	if item != nil {
 		decoder = item.(*BrokerRowFlatDecoder)
 	} else {
-		decoder = &BrokerRowFlatDecoder{rowBuilder: *newRowBuilder()}
+		decoder = &BrokerRowFlatDecoder{rowBuilder: *commonseries.CreateRowBuilder()}
 	}
 	decoder.namespace = namespace
 	decoder.reader = reader
@@ -118,10 +120,15 @@ func (itr *BrokerRowFlatDecoder) DecodeTo(row *BrokerRow) error {
 
 	itr.originRow.m.Init(itr.buf, flatbuffers.GetUOffsetT(itr.buf))
 
-	if err := itr.rebuild(); err != nil {
+	if err0 := itr.rebuild(); err0 != nil {
+		return err0
+	}
+	data, err := itr.rowBuilder.Build()
+	if err != nil {
 		return err
 	}
-	return itr.rowBuilder.BuildTo(row)
+	row.FromBlock(data)
+	return nil
 }
 
 func (itr *BrokerRowFlatDecoder) rebuild() error {

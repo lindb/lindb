@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"sync"
 
+	commonseries "github.com/lindb/common/series"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/series"
@@ -176,7 +178,7 @@ func (mdb *metadataDatabase) GenMetricID(namespace, metricName string) (metricID
 	if metricMetadata, ok := mdb.getMetricMetadataFromCache(namespace, metricName); ok {
 		return metricMetadata.getMetricID(), nil
 	}
-	key := metric.JoinNamespaceMetric(namespace, metricName)
+	key := commonseries.JoinNamespaceMetric(namespace, metricName)
 	// assign metric id from memory, add write lock
 	mdb.rwMux.Lock()
 	defer mdb.rwMux.Unlock()
@@ -280,7 +282,7 @@ func (mdb *metadataDatabase) Close() error {
 
 // getMetricMetadataFromCache gets metric metadata from memory cache.
 func (mdb *metadataDatabase) getMetricMetadataFromCache(namespace, metricName string) (MetricMetadata, bool) {
-	key := metric.JoinNamespaceMetric(namespace, metricName)
+	key := commonseries.JoinNamespaceMetric(namespace, metricName)
 
 	// read from memory
 	mdb.rwMux.RLock()

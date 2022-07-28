@@ -23,7 +23,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/lindb/lindb/proto/gen/v1/flatMetricsV1"
+	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
+
 	"github.com/lindb/lindb/series/field"
 )
 
