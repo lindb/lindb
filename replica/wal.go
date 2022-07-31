@@ -175,9 +175,18 @@ func (w *writeAheadLog) recovery() error {
 
 		shardID := models.ParseShardID(shard)
 		for _, family := range families {
-			leaders, err := listDirFn(path.Join(w.dir, shard, family))
+			familyDir := path.Join(w.dir, shard, family)
+			leaders, err := listDirFn(familyDir)
 			if err != nil {
 				return err
+			}
+			if len(leaders) == 0 {
+				// if no leader, need remove it
+				if err = removeDirFn(familyDir); err != nil {
+					w.logger.Warn("remove family dir when recovery",
+						logger.String("path", familyDir), logger.Error(err))
+					continue
+				}
 			}
 			familyTime, _ := timeutil.ParseTimestamp(family, timeutil.DataTimeFormat4)
 			for _, leader := range leaders {
@@ -202,6 +211,7 @@ func (w *writeAheadLog) destroy() {
 
 	newLogs := make(map[partitionKey]Partition)
 	expireLogs := make(map[partitionKey]Partition)
+	expireFamilies := make(map[string]int64)
 
 	for key, log := range w.familyLogs {
 		isExpire := log.IsExpire()
@@ -217,7 +227,7 @@ func (w *writeAheadLog) destroy() {
 	w.familyLogs = newLogs
 	w.mutex.Unlock()
 
-	for _, log := range expireLogs {
+	for key, log := range expireLogs {
 		w.logger.Info("write ahead log is expire, need destroy it", logger.String("path", log.Path()))
 		log.Stop()
 		if err := log.Close(); err != nil {
@@ -225,6 +235,27 @@ func (w *writeAheadLog) destroy() {
 		}
 		if err := removeDirFn(log.Path()); err != nil {
 			w.logger.Warn("remove write ahead log dir", logger.String("path", log.Path()), logger.Error(err))
+		}
+		familyDir := path.Join(
+			w.dir,
+			strconv.Itoa(int(key.shardID)),
+			timeutil.FormatTimestamp(key.familyTime, timeutil.DataTimeFormat4))
+		expireFamilies[familyDir] = key.familyTime
+	}
+
+	// remove family wal dir if it is expired
+	for familyDir := range expireFamilies {
+		subDirs, err := listDirFn(familyDir)
+		if err != nil {
+			w.logger.Warn("list leader dir", logger.String("path", familyDir), logger.Error(err))
+			continue
+		}
+		// if it has leader write data
+		if len(subDirs) > 0 {
+			continue
+		}
+		if err := removeDirFn(familyDir); err != nil {
+			w.logger.Warn("remove family dir", logger.String("path", familyDir), logger.Error(err))
 		}
 	}
 }
