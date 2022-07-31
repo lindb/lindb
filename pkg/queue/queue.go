@@ -36,6 +36,7 @@ import (
 var (
 	mkDirFunc          = fileutil.MkDirIfNotExist
 	newPageFactoryFunc = page.NewFactory
+	existFunc          = fileutil.Exist
 )
 
 var (
@@ -456,7 +457,8 @@ func (q *queue) validateSequence(sequence int64) error {
 	defer q.rwMutex.RUnlock()
 
 	if sequence > q.appendedSeq.Load() || sequence <= q.acknowledgedSeq.Load() {
-		return ErrOutOfSequenceRange
+		return fmt.Errorf("%w: get %d, range [%d~%d]", ErrOutOfSequenceRange,
+			sequence, q.appendedSeq.Load(), q.acknowledgedSeq.Load())
 	}
 
 	return nil

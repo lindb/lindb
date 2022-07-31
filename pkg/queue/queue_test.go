@@ -18,6 +18,7 @@
 package queue
 
 import (
+	"errors"
 	"fmt"
 	"path"
 	"path/filepath"
@@ -116,7 +117,7 @@ func TestQueue_Ack(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		data, err = q.Get(int64(i))
-		assert.Equal(t, ErrOutOfSequenceRange, err)
+		assert.True(t, errors.Is(err, ErrOutOfSequenceRange))
 		assert.Nil(t, data)
 	}
 	q.Close()

@@ -80,6 +80,7 @@ func TestLocalReplicator_Replica(t *testing.T) {
 	family.EXPECT().AckSequence(gomock.Any(), gomock.Any()).AnyTimes()
 	q := queue.NewMockConsumerGroup(ctrl)
 	q.EXPECT().ConsumedSeq().Return(int64(10)).AnyTimes()
+	q.EXPECT().SetConsumedSeq(gomock.Any()).AnyTimes()
 	q.EXPECT().Pending().Return(int64(10)).AnyTimes()
 	q.EXPECT().AcknowledgedSeq().Return(int64(0)).AnyTimes()
 	q.EXPECT().Ack(gomock.Any()).AnyTimes()
