@@ -43,7 +43,7 @@ export default function ConfigurationView() {
     try {
       const config = await proxy({
         target: URLStore.params.get("target"),
-        path: "/api/config",
+        path: "/api/v1/config",
       });
       setConfig(config);
     } finally {

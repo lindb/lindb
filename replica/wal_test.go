@@ -243,6 +243,24 @@ func TestWriteAheadLog_recovery(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "partition recovery successfully, no leader need remove family family",
+			prepare: func(wal *writeAheadLog) {
+				listDirFn = func(p string) ([]string, error) {
+					if p == wal.dir {
+						return []string{"1"}, nil
+					}
+					if p == path.Join(wal.dir, "1") {
+						return []string{timeutil.FormatTimestamp(now, timeutil.DataTimeFormat4)}, nil
+					}
+					return nil, nil
+				}
+				removeDirFn = func(path string) error {
+					return fmt.Errorf("err")
+				}
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range cases {
@@ -262,6 +280,7 @@ func TestWriteAheadLog_recovery(t *testing.T) {
 				familyLogs: map[partitionKey]Partition{
 					key: p,
 				},
+				logger: logger.GetLogger("Test", "WAL"),
 			}
 			if tt.prepare != nil {
 				tt.prepare(wal)
@@ -294,15 +313,32 @@ func TestWriteAheadLog_destroy(t *testing.T) {
 		},
 		logger: logger.GetLogger("Test", "WAL"),
 	}
-	p1.EXPECT().IsExpire().Return(false)
-	p2.EXPECT().IsExpire().Return(true)
-	p2.EXPECT().Stop()
-	p2.EXPECT().Close().Return(fmt.Errorf("err"))
+	p1.EXPECT().IsExpire().Return(false).AnyTimes()
+	p2.EXPECT().IsExpire().Return(true).AnyTimes()
+	p2.EXPECT().Stop().AnyTimes()
+	p2.EXPECT().Close().Return(fmt.Errorf("err")).AnyTimes()
 	removeDirFn = func(path string) error {
 		return fmt.Errorf("err")
 	}
 	wal.destroy()
+	assert.Len(t, wal.familyLogs, 1)
 
+	// case 2: test remove family dir when on leader
+	wal.familyLogs[key2] = p2
+	// mock no leader write data
+	listDirFn = func(path string) ([]string, error) {
+		return nil, nil
+	}
+	wal.destroy()
+	assert.Len(t, wal.familyLogs, 1)
+
+	// case 3: don't remove family dir because has leader write data
+	wal.familyLogs[key2] = p2
+	// mock leader write data
+	listDirFn = func(path string) ([]string, error) {
+		return []string{"1"}, nil
+	}
+	wal.destroy()
 	assert.Len(t, wal.familyLogs, 1)
 }
 
