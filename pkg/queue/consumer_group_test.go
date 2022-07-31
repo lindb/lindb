@@ -26,6 +26,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/queue/page"
 )
 
@@ -35,6 +36,7 @@ func TestNewConsumerGroup(t *testing.T) {
 
 	defer func() {
 		newPageFactoryFunc = page.NewFactory
+		existFunc = fileutil.Exist
 		ctrl.Finish()
 	}()
 
@@ -55,6 +57,23 @@ func TestNewConsumerGroup(t *testing.T) {
 	fo, err = NewConsumerGroup(dir, "f1", nil)
 	assert.Error(t, err)
 	assert.Nil(t, fo)
+
+	// case 3: reset ack
+	existFunc = func(file string) bool {
+		return true
+	}
+	p := page.NewMockMappedPage(ctrl)
+	p.EXPECT().ReadUint64(gomock.Any()).Return(uint64(50)).MaxTimes(2)
+	p.EXPECT().PutUint64(gomock.Any(), gomock.Any()).MaxTimes(2)
+	pageFct.EXPECT().AcquirePage(gomock.Any()).Return(p, nil)
+	fq := NewMockFanOutQueue(ctrl)
+	q := NewMockQueue(ctrl)
+	q.EXPECT().AcknowledgedSeq().Return(int64(100))
+	fq.EXPECT().Queue().Return(q)
+	fo, err = NewConsumerGroup(dir, "f1", fq)
+	assert.NoError(t, err)
+	assert.NotNil(t, fo)
+	assert.Equal(t, int64(100), fo.AcknowledgedSeq())
 }
 
 func TestConsumerGroup_IsEmpty(t *testing.T) {

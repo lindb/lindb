@@ -24,7 +24,6 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/queue/page"
 )
@@ -93,7 +92,7 @@ func NewConsumerGroup(parent, fanOutPath string, q FanOutQueue) (ConsumerGroup, 
 	}()
 
 	hasMeta := false
-	if fileutil.Exist(filepath.Join(name, fmt.Sprintf("%d.bat", metaPageIndex))) {
+	if existFunc(filepath.Join(name, fmt.Sprintf("%d.bat", metaPageIndex))) {
 		hasMeta = true
 	}
 
@@ -108,6 +107,11 @@ func NewConsumerGroup(parent, fanOutPath string, q FanOutQueue) (ConsumerGroup, 
 	if hasMeta {
 		consumedSeq = int64(metaPage.ReadUint64(consumerGroupConsumedSeqOffset))
 		ackSeq = int64(metaPage.ReadUint64(consumerGroupAcknowledgedSeqOffset))
+		ackOfQueue := q.Queue().AcknowledgedSeq()
+		// if queue ack > consume group ack, need reset use queue ack
+		if ackSeq < ackOfQueue {
+			ackSeq = ackOfQueue
+		}
 	}
 	// persist metadata
 	metaPage.PutUint64(uint64(consumedSeq), consumerGroupConsumedSeqOffset)
