@@ -83,6 +83,7 @@ type MetaDataQuery interface {
 type Factory interface {
 	NewMetricQuery(
 		ctx context.Context,
+		root models.Node,
 		databaseName string,
 		sql *stmt.Query,
 	) MetricQuery

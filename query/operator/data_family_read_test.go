@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package stage
+package operator
 
 import (
 	"fmt"
@@ -24,42 +24,39 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/roaring"
+
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/query/context"
-	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
 )
 
-func TestDataLoadStage_Plan(t *testing.T) {
+func TestDataFamilyRead_Execute(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	db := tsdb.NewMockDatabase(ctrl)
-	db.EXPECT().ExecutorPool().Return(&tsdb.ExecutorPool{}).AnyTimes()
-	rs := flow.NewMockFilterResultSet(ctrl)
+	family := tsdb.NewMockDataFamily(ctrl)
+	shardCtx := &flow.ShardExecuteContext{
+		TimeSegmentContext: flow.NewTimeSegmentContext(),
+	}
 
-	now := timeutil.Now()
-	stage := NewDataLoadStage(
-		&context.LeafExecuteContext{
-			TaskCtx:  &flow.TaskContext{},
-			Database: db,
-		},
-		&flow.DataLoadContext{
-			ShardExecuteCtx: &flow.ShardExecuteContext{
-				StorageExecuteCtx: &flow.StorageExecuteContext{
-					Query: &stmt.Query{
-						Interval:      1,
-						IntervalRatio: 1.0,
-					},
-				},
-			},
-		},
-		&flow.TimeSegmentResultSet{
-			FilterRS:   []flow.FilterResultSet{rs},
-			FamilyTime: now,
-		})
-	assert.NotEmpty(t, stage.Plan())
-	id := fmt.Sprintf("Data Load[%s]", timeutil.FormatTimestamp(now, timeutil.DataTimeFormat2))
-	assert.Equal(t, id, stage.Identifier())
+	t.Run("filter data failure", func(t *testing.T) {
+		op := NewDataFamilyRead(shardCtx, family)
+		family.EXPECT().Filter(gomock.Any()).Return(nil, fmt.Errorf("err"))
+		assert.Error(t, op.Execute())
+	})
+
+	t.Run("filter data success", func(t *testing.T) {
+		rs := flow.NewMockFilterResultSet(ctrl)
+		rs.EXPECT().FamilyTime().Return(int64(1010))
+		rs.EXPECT().SlotRange().Return(timeutil.SlotRange{})
+		rs.EXPECT().SeriesIDs().Return(roaring.BitmapOf(1, 2, 3))
+		op := NewDataFamilyRead(shardCtx, family)
+		family.EXPECT().Interval().Return(timeutil.Interval(10))
+		family.EXPECT().Filter(gomock.Any()).Return([]flow.FilterResultSet{rs}, nil)
+		assert.NoError(t, op.Execute())
+	})
+
+	op := NewDataFamilyRead(nil, nil)
+	assert.NotEmpty(t, op.Identifier())
 }

@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/query/context"
 	"github.com/lindb/lindb/series/tag"
@@ -79,4 +80,8 @@ func TestTagKeyIDLookup_Execute(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestTagKeyIDLookup_Identifier(t *testing.T) {
+	assert.Equal(t, "Tag Key Lookup", NewTagKeyIDLookup(nil).Identifier())
 }

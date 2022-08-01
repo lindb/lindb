@@ -106,3 +106,8 @@ func (op *tagValuesLookup) getTagKeyID(tagKey string) (tag.KeyID, error) {
 	op.executeCtx.TagKeys[tagKey] = tagKeyID
 	return tagKeyID, nil
 }
+
+// Identifier returns identifier value of tag value lookup operator.
+func (op *tagValuesLookup) Identifier() string {
+	return "Tag Value Lookup"
+}

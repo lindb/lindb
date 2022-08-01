@@ -38,3 +38,8 @@ func (op *tagValueSuggest) Execute() error {
 	op.ctx.ResultSet = op.ctx.Database.Metadata().TagMetadata().SuggestTagValues(op.ctx.TagKeyID, req.Prefix, limit)
 	return nil
 }
+
+// Identifier returns identifier value of tag value suggest operator.
+func (op *tagValueSuggest) Identifier() string {
+	return "Tag Value Suggest"
+}

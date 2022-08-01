@@ -81,4 +81,7 @@ func TestShardScanStage(t *testing.T) {
 	shardExecuteCtx.SeriesIDsAfterFiltering = roaring.BitmapOf(1, 2, 3)
 	assert.NotEmpty(t, s.NextStages())
 	s.Complete()
+
+	shard.EXPECT().ShardID().Return(models.ShardID(19))
+	assert.Equal(t, "Shard Scan[Shard(19)]", s.Identifier())
 }

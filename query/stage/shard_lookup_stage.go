@@ -18,6 +18,8 @@
 package stage
 
 import (
+	"fmt"
+
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/query/context"
 	"github.com/lindb/lindb/query/operator"
@@ -52,4 +54,9 @@ func (stage *shardLookupStage) Plan() PlanNode {
 	// add tag values collect node
 	execPlan.AddChild(NewPlanNode(operator.NewTagValueCollect(stage.executeCtx, stage.shardExecuteCtx, stage.shard)))
 	return execPlan
+}
+
+// Identifier returns identifier value of shard lookup stage.
+func (stage *shardLookupStage) Identifier() string {
+	return fmt.Sprintf("Shard Lookup[Shard(%d)]", stage.shard.ShardID())
 }

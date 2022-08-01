@@ -19,32 +19,37 @@ package query
 
 import (
 	"sync"
+	"time"
 
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/models"
 	stagepkg "github.com/lindb/lindb/query/stage"
 )
 
 // stageTracker represents track the stat of the stage execution.
 type stageTracker struct {
+	stageID            string
 	stage              stagepkg.Stage // current execute stage
 	state              stagepkg.State // stage execute stage
-	startTime, endTime int64          // stage start/end time(ns)
+	startTime, endTime time.Time      // stage start/end time
+	stats              *models.StageStats
 }
 
 // pipelineStateMachine represents pipeline stage machine which track all stage execution state under this pipeline.
 type pipelineStateMachine struct {
-	stages              map[string]*stageTracker // store schedule stage
-	pending             atomic.Int32             // how many stages are pending, not completed
-	completedCallbackFn func(err error)          // pipeline execute completed will invoke
+	stages              map[string]*stageTracker                    // store schedule stage
+	pending             atomic.Int32                                // how many stages are pending, not completed
+	completedCallbackFn func(stats []*models.StageStats, err error) // pipeline execute completed will invoke
 	mutex               sync.Mutex
 	completed           atomic.Bool
-	needStats           bool
+
+	needStats     bool
+	statsOfStages []*models.StageStats
 }
 
 // newPipelineStateMachine creates a pipelineStateMachine instance.
-func newPipelineStateMachine(needStats bool, completeCallback func(err error)) *pipelineStateMachine {
+func newPipelineStateMachine(needStats bool, completeCallback func(stats []*models.StageStats, err error)) *pipelineStateMachine {
 	return &pipelineStateMachine{
 		stages:              make(map[string]*stageTracker),
 		completedCallbackFn: completeCallback,
@@ -53,34 +58,53 @@ func newPipelineStateMachine(needStats bool, completeCallback func(err error)) *
 }
 
 // executeStage tracks stage start execution state.
-func (sm *pipelineStateMachine) executeStage(stageID string, stage stagepkg.Stage) {
+func (sm *pipelineStateMachine) executeStage(parentStageID, stageID string, stage stagepkg.Stage) {
 	sm.mutex.Lock()
 	defer sm.mutex.Unlock()
 
 	sm.pending.Inc()
 	ts := &stageTracker{
-		stage: stage,
-		state: stagepkg.ExecutingState,
+		stageID: stageID,
+		stage:   stage,
+		state:   stagepkg.ExecutingState,
 	}
 	sm.stages[stageID] = ts
-
 	if sm.needStats {
-		ts.startTime = timeutil.NowNano()
+		ts.stage.Track()
+		ts.stats = &models.StageStats{}
+		if parentStageID == "" {
+			sm.statsOfStages = append(sm.statsOfStages, ts.stats)
+		}
+		ts.startTime = time.Now()
 	}
 }
 
 // completeStage tracks stage complete execution state.
-func (sm *pipelineStateMachine) completeStage(stageID string, err error) {
+func (sm *pipelineStateMachine) completeStage(parentStageID, stageID string, err error) {
 	sm.mutex.Lock()
 	if s, ok := sm.stages[stageID]; ok {
+		var errMsg string
 		if err != nil {
 			s.state = stagepkg.ErrorState
+			errMsg = err.Error()
 		} else {
-			s.state = stagepkg.FinishState
+			s.state = stagepkg.CompleteState
 		}
 
 		if sm.needStats {
-			s.endTime = timeutil.NowNano()
+			s.stats.Operators = s.stage.Stats()
+			s.endTime = time.Now()
+			s.stats.Identifier = s.stage.Identifier()
+			s.stats.Start = s.startTime.UnixMilli()
+			s.stats.End = s.endTime.UnixMilli()
+			s.stats.Cost = s.endTime.Sub(s.startTime).Nanoseconds()
+			s.stats.State = s.state.String()
+			s.stats.ErrMsg = errMsg
+
+			if parentStageID != "" {
+				parent := sm.stages[parentStageID]
+				parent.stats.Children = append(parent.stats.Children, s.stats)
+			}
 		}
 	}
 	sm.mutex.Unlock()
@@ -95,7 +119,7 @@ func (sm *pipelineStateMachine) completeStage(stageID string, err error) {
 func (sm *pipelineStateMachine) complete(err error) {
 	if sm.completed.CAS(false, true) && sm.completedCallbackFn != nil {
 		// check if all stages execute completed
-		sm.completedCallbackFn(err)
+		sm.completedCallbackFn(sm.statsOfStages, err)
 	}
 }
 

@@ -48,3 +48,8 @@ func (op *dataFamilyRead) Execute() error {
 	}
 	return nil
 }
+
+// Identifier returns identifier string value of data family reader operator.
+func (op *dataFamilyRead) Identifier() string {
+	return "Data Family Read"
+}

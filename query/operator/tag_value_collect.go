@@ -81,3 +81,8 @@ func (op *tagValueCollect) execute() error {
 	}
 	return nil
 }
+
+// Identifier returns identifier value of tag value collect operator.
+func (op *tagValueCollect) Identifier() string {
+	return "Tag Value Collect"
+}

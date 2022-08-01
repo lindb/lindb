@@ -23,6 +23,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/tsdb"
 	"github.com/lindb/lindb/tsdb/indexdb"
 )
@@ -37,4 +38,7 @@ func TestShardLookupStage(t *testing.T) {
 
 	s := NewShardLookupStage(nil, nil, shard)
 	assert.NotNil(t, s.Plan())
+
+	shard.EXPECT().ShardID().Return(models.ShardID(19))
+	assert.Equal(t, "Shard Lookup[Shard(19)]", s.Identifier())
 }

@@ -21,6 +21,14 @@ package operator
 
 // Operator represents the query operator.
 type Operator interface {
+	// Identifier returns identifier value of the operator.
+	Identifier() string
 	// Execute executes current query operator, return error if failure.
 	Execute() error
+}
+
+// TrackableOperator represents operator can be tracked.
+type TrackableOperator interface {
+	// Stats returns the stats of operator.
+	Stats() interface{}
 }

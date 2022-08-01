@@ -20,6 +20,7 @@ package query
 import (
 	"github.com/google/uuid"
 
+	"github.com/lindb/lindb/models"
 	stagepkg "github.com/lindb/lindb/query/stage"
 )
 
@@ -37,7 +38,7 @@ type pipeline struct {
 }
 
 // NewExecutePipeline creates a Pipeline instance for executing query stage.
-func NewExecutePipeline(needStats bool, completeCallback func(err error)) Pipeline {
+func NewExecutePipeline(needStats bool, completeCallback func(stats []*models.StageStats, err error)) Pipeline {
 	return &pipeline{
 		sm: newPipelineStateMachine(needStats, completeCallback),
 	}
@@ -45,7 +46,7 @@ func NewExecutePipeline(needStats bool, completeCallback func(err error)) Pipeli
 
 // Execute executes the stage(sub plan tree).
 func (p *pipeline) Execute(stage stagepkg.Stage) {
-	p.executeStage(stage)
+	p.executeStage("", stage)
 }
 
 // executeStage executes current the plan tree of current stage,
@@ -61,26 +62,26 @@ func (p *pipeline) Execute(stage stagepkg.Stage) {
 //  |  |stage1 |   |stage2 |  |
 //  |  +-------+   +-------+  |
 //  +-------------------------+
-func (p *pipeline) executeStage(stage stagepkg.Stage) {
+func (p *pipeline) executeStage(parentStageID string, stage stagepkg.Stage) {
 	if stage == nil || p.sm.isCompleted() {
 		return
 	}
 
 	stageID := uuid.New().String()
-	p.sm.executeStage(stageID, stage)
+	p.sm.executeStage(parentStageID, stageID, stage)
 
 	stage.Execute(stage.Plan(), func() {
 		// after current stage execute completed, then plan next stages
 		nextStages := stage.NextStages()
 		for idx := range nextStages {
-			p.executeStage(nextStages[idx])
+			p.executeStage(stageID, nextStages[idx])
 		}
 
 		// completed current stage, change stage state
-		p.sm.completeStage(stageID, nil)
+		p.sm.completeStage(parentStageID, stageID, nil)
 		stage.Complete()
 	}, func(err error) {
 		// complete stage with err
-		p.sm.completeStage(stageID, err)
+		p.sm.completeStage(parentStageID, stageID, err)
 	})
 }

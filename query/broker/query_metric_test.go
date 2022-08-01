@@ -62,6 +62,7 @@ func Test_MetricQuery(t *testing.T) {
 	assert.NoError(t, err)
 	// case 1: database not found
 	qry := newMetricQuery(context.Background(),
+		&models.StatelessNode{},
 		"test_db",
 		q.(*stmt.Query),
 		queryFactory)
@@ -75,6 +76,7 @@ func Test_MetricQuery(t *testing.T) {
 		Return(models.Database{Option: opt}, true).
 		AnyTimes()
 	qry = newMetricQuery(context.Background(),
+		&models.StatelessNode{},
 		"test_db",
 		q.(*stmt.Query),
 		queryFactory)
@@ -99,14 +101,14 @@ func Test_MetricQuery(t *testing.T) {
 	taskManager.EXPECT().SubmitMetricTask(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(eventCh1, nil)
 	ctx, cancel := context.WithCancel(context.Background())
-	qry = newMetricQuery(ctx,
+	qry = newMetricQuery(ctx, &models.StatelessNode{},
 		"test_db", q.(*stmt.Query),
 		queryFactory)
 	time.AfterFunc(time.Millisecond*200, cancel)
 	_, err = qry.WaitResponse()
 	assert.Error(t, err)
 
-	qry = newMetricQuery(context.Background(),
+	qry = newMetricQuery(context.Background(), &models.StatelessNode{},
 		"test_db", q.(*stmt.Query),
 		queryFactory)
 	// has error
@@ -183,6 +185,7 @@ func Test_MetricQuery_makeResultSet(t *testing.T) {
 		timeSeries.EXPECT().HasNext().Return(false),
 	)
 	qry := &metricQuery{
+		root:       &models.StatelessNode{},
 		expression: expression,
 		stmtQuery: &stmt.Query{
 			MetricName: "1",

@@ -40,6 +40,7 @@ type metricQuery struct {
 
 	ctx      context.Context
 	database string
+	root     models.Node
 
 	startTime   time.Time
 	endPlanTime time.Time
@@ -52,12 +53,14 @@ type metricQuery struct {
 // newMetricQuery creates the execution which executes the job of parallel query.
 func newMetricQuery(
 	ctx context.Context,
+	root models.Node,
 	database string,
 	sql *stmt.Query,
 	queryFactory *queryFactory,
 ) MetricQuery {
 	return &metricQuery{
 		stmtQuery:    sql,
+		root:         root,
 		database:     database,
 		ctx:          ctx,
 		queryFactory: queryFactory,
@@ -205,6 +208,7 @@ func (mq *metricQuery) makeResultSet(event *series.TimeSeriesEvent) (resultSet *
 	resultSet.Stats = event.Stats
 	if resultSet.Stats != nil {
 		now := time.Now()
+		resultSet.Stats.Root = mq.root.Indicator()
 		resultSet.Stats.PlanCost = mq.endPlanTime.Sub(mq.startTime).Nanoseconds()
 		resultSet.Stats.WaitCost = makeResultStartTime.Sub(mq.endPlanTime).Nanoseconds()
 		resultSet.Stats.ExpressCost = now.Sub(makeResultStartTime).Nanoseconds()

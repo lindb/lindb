@@ -24,6 +24,7 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
@@ -112,4 +113,16 @@ func (op *seriesFiltering) getSeriesIDsByExpr(expr stmt.Expr) (tag.KeyID, *roari
 		return 0, nil, err
 	}
 	return tagValues.TagKeyID, seriesIDs, nil
+}
+
+// Identifier returns identifier value of series filtering operator.
+func (op *seriesFiltering) Identifier() string {
+	return "Series Filtering"
+}
+
+// Stats returns the stats of series filtering operator.
+func (op *seriesFiltering) Stats() interface{} {
+	return &models.SeriesStats{
+		NumOfSeries: op.executeCtx.SeriesIDsAfterFiltering.GetCardinality(),
+	}
 }

@@ -45,3 +45,8 @@ func (op *tagKeySuggest) Execute() error {
 	op.ctx.ResultSet = result
 	return nil
 }
+
+// Identifier returns identifier value of tag key suggest operator.
+func (op *tagKeySuggest) Identifier() string {
+	return "Tag Key Suggest"
+}

@@ -22,8 +22,9 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/models"
@@ -81,8 +82,8 @@ func TestTagValueCollect_Execute(t *testing.T) {
 			name: "collect tag value successfully",
 			prepare: func() {
 				indexDB.EXPECT().GetGroupingContext(gomock.Any()).Return(nil)
-				tagMeta.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(tagKeyID tag.KeyID,
-					tagValueIDs *roaring.Bitmap,
+				tagMeta.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ tag.KeyID,
+					_ *roaring.Bitmap,
 					tagValues map[uint32]string) error {
 					tagValues[10] = "value10"
 					return nil
@@ -101,4 +102,8 @@ func TestTagValueCollect_Execute(t *testing.T) {
 			assert.NoError(t, op.Execute())
 		})
 	}
+}
+
+func TestTagValueCollect_Identifier(t *testing.T) {
+	assert.Equal(t, "Tag Value Collect", NewTagValueCollect(nil, nil, nil).Identifier())
 }

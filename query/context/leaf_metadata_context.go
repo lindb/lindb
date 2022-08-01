@@ -26,6 +26,7 @@ import (
 	"github.com/lindb/lindb/tsdb"
 )
 
+// LeafMetadataContext represents leaf node execution metadata query context.
 type LeafMetadataContext struct {
 	Request  *stmt.MetricMetadata
 	Database tsdb.Database
@@ -39,6 +40,7 @@ type LeafMetadataContext struct {
 	Limit int
 }
 
+// NewLeafMetadataContext creates a LeafMetadataContext instance.
 func NewLeafMetadataContext(request *stmt.MetricMetadata, database tsdb.Database, shardIDs []models.ShardID) *LeafMetadataContext {
 	ctx := &LeafMetadataContext{
 		Request:  request,
@@ -49,6 +51,7 @@ func NewLeafMetadataContext(request *stmt.MetricMetadata, database tsdb.Database
 	return ctx
 }
 
+// getLimit returns result limit.
 func (ctx *LeafMetadataContext) getLimit() int {
 	req := ctx.Request
 	limit := req.Limit
@@ -59,6 +62,7 @@ func (ctx *LeafMetadataContext) getLimit() int {
 	return limit
 }
 
+// AddValue adds value into result set.
 func (ctx *LeafMetadataContext) AddValue(val string) {
 	if len(ctx.ResultSet) >= ctx.Limit {
 		return

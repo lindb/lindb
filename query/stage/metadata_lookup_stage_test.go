@@ -59,4 +59,6 @@ func TestMetadataLookupStage(t *testing.T) {
 	db.EXPECT().GetShard(gomock.Any()).Return(shard, true).MaxTimes(2)
 	db.EXPECT().ExecutorPool().Return(&tsdb.ExecutorPool{}).MaxTimes(2)
 	assert.NotEmpty(t, s.NextStages())
+
+	assert.Equal(t, "Metadata Lookup", s.Identifier())
 }

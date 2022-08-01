@@ -41,3 +41,8 @@ func (op *tagKeyIDLookup) Execute() error {
 	op.ctx.TagKeyID = tagKeyID
 	return nil
 }
+
+// Identifier returns identifier value of tag key lookup operator.
+func (op *tagKeyIDLookup) Identifier() string {
+	return "Tag Key Lookup"
+}

@@ -38,3 +38,7 @@ func TestGroupingContextBuild_Execute(t *testing.T) {
 	op := NewGroupingContextBuild(nil, shard)
 	assert.NoError(t, op.Execute())
 }
+
+func TestGroupingContextBuild_Identifier(t *testing.T) {
+	assert.Equal(t, "Grouping Context Build", NewGroupingContextBuild(nil, nil).Identifier())
+}

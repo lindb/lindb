@@ -41,7 +41,7 @@ func TestGroupingTagsLookup_Execute(t *testing.T) {
 		SeriesIDsAfterFiltering: seriesIDs,
 		StorageExecuteCtx: &flow.StorageExecuteContext{
 			Query:             &stmt.Query{},
-			Stats:             models.NewStorageStats(),
+			Stats:             &models.LeafNodeStats{},
 			DownSamplingSpecs: aggregation.AggregatorSpecs{aggregation.NewAggregatorSpec("f", field.SumField)},
 		},
 	}
@@ -61,4 +61,8 @@ func TestGroupingTagsLookup_Execute(t *testing.T) {
 		op := NewGroupingTagsLookup(dataLoadCtx)
 		assert.NoError(t, op.Execute())
 	})
+}
+
+func TestGroupingTagsLookup_Identifier(t *testing.T) {
+	assert.Equal(t, "Grouping Tags Lookup", NewGroupingTagsLookup(nil).Identifier())
 }

@@ -125,7 +125,7 @@ func TestMetadataLookup_field(t *testing.T) {
 		Name: "f",
 	}, nil).AnyTimes()
 
-	t.Run("has err", func(t *testing.T) {
+	t.Run("has err", func(_ *testing.T) {
 		op := &metadataLookup{err: fmt.Errorf("err")}
 		op.field(nil, nil)
 	})
@@ -304,4 +304,16 @@ func TestMetadataLookup_planHistogramFields(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMetadataLookup_Identifier(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	db := tsdb.NewMockDatabase(ctrl)
+	meta := metadb.NewMockMetadata(ctrl)
+	metaDB := metadb.NewMockMetadataDatabase(ctrl)
+	db.EXPECT().Metadata().Return(meta).AnyTimes()
+	meta.EXPECT().MetadataDatabase().Return(metaDB).AnyTimes()
+	assert.Equal(t, "Metadata Lookup", NewMetadataLookup(nil, db).Identifier())
 }

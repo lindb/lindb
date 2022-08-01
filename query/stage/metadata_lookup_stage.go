@@ -68,3 +68,8 @@ func (stage *metadataLookupStage) NextStages() (stages []Stage) {
 	}
 	return
 }
+
+// Identifier returns identifier value of metadata lookup stage.
+func (stage *metadataLookupStage) Identifier() string {
+	return "Metadata Lookup"
+}

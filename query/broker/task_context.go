@@ -304,10 +304,10 @@ func (c *metricTaskContext) handleStats(resp *protoCommonV1.TaskResponse, fromNo
 		c.stats.MergeBrokerTaskStats(fromNode, queryStats)
 	default:
 		// from leaf node
-		storageStats := models.NewStorageStats()
+		storageStats := &models.LeafNodeStats{}
 		_ = encoding.JSONUnmarshal(resp.Stats, storageStats)
 		storageStats.NetPayload = int64(len(resp.Stats) + len(resp.Payload))
-		c.stats.MergeStorageTaskStats(fromNode, storageStats)
+		c.stats.MergeLeafTaskStats(fromNode, storageStats)
 		c.stats.NetPayload += storageStats.NetPayload
 	}
 }

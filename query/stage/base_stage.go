@@ -23,6 +23,7 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/concurrent"
+	"github.com/lindb/lindb/models"
 )
 
 // baseStage represents common implements for Stage interface.
@@ -31,6 +32,19 @@ type baseStage struct {
 
 	stageType Type
 	execPool  concurrent.Pool
+	track     bool
+
+	operators []*models.OperatorStats
+}
+
+// Track tracks the stage exeucte stats.
+func (stage *baseStage) Track() {
+	stage.track = true
+}
+
+// Stats returns the stats of current stage.
+func (stage *baseStage) Stats() []*models.OperatorStats {
+	return stage.operators
 }
 
 // Type returns the type of stage.
@@ -58,13 +72,21 @@ func (stage *baseStage) Execute(node PlanNode, completeHandle func(), errHandle 
 }
 
 // execute the plan node under current stage.
-func (stage *baseStage) execute(node PlanNode) error {
+func (stage *baseStage) execute(node PlanNode) (err error) {
 	if node == nil {
 		return nil
 	}
 
+	var stats *models.OperatorStats
 	// execute current plan node logic
-	err := node.Execute()
+	if stage.track {
+		stats, err = node.ExecuteWithStats()
+		if stats != nil {
+			stage.operators = append(stage.operators, stats)
+		}
+	} else {
+		err = node.Execute()
+	}
 	if err != nil {
 		if node.IgnoreNotFound() && errors.Is(err, constants.ErrNotFound) {
 			return nil

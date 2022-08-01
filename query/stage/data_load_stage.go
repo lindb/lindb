@@ -18,7 +18,10 @@
 package stage
 
 import (
+	"fmt"
+
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/query/context"
 	"github.com/lindb/lindb/query/operator"
 )
@@ -65,4 +68,10 @@ func (stage *dataLoadStage) Plan() PlanNode {
 		execPlan.AddChild(NewPlanNode(operator.NewLeafReduce(stage.leafExecuteCtx, stage.executeCtx)))
 	}
 	return execPlan
+}
+
+// Identifier returns identifier value of data load stage.
+func (stage *dataLoadStage) Identifier() string {
+	return fmt.Sprintf("Data Load[%s]",
+		timeutil.FormatTimestamp(stage.segmentRS.FamilyTime, timeutil.DataTimeFormat2))
 }

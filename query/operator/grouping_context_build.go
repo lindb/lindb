@@ -40,3 +40,8 @@ func NewGroupingContextBuild(executeCtx *flow.ShardExecuteContext, shard tsdb.Sh
 func (op *groupingContextBuild) Execute() error {
 	return op.shard.IndexDatabase().GetGroupingContext(op.executeCtx)
 }
+
+// Identifier returns identifier string value of grouping context build operator.
+func (op *groupingContextBuild) Identifier() string {
+	return "Grouping Context Build"
+}

@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/query/context"
 	"github.com/lindb/lindb/series/field"
@@ -78,4 +79,8 @@ func TestFieldSuggest_Execute(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFieldSuggest_Identifier(t *testing.T) {
+	assert.Equal(t, "Field Suggest", NewFieldSuggest(nil).Identifier())
 }

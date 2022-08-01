@@ -161,7 +161,7 @@ func (p *leafTaskProcessor) processMetadataSuggest(
 		return ErrUnmarshalSuggest
 	}
 	leafExecuteCtx := context.NewLeafMetadataContext(stmtQuery, db, shardIDs)
-	pipeline := newExecutePipelineFn(false, func(err error) {
+	pipeline := newExecutePipelineFn(false, func(stats []*models.StageStats, err error) {
 		var errMsg string
 		var payload []byte
 		if err != nil && !errors.Is(err, constants.ErrNotFound) {
@@ -203,7 +203,12 @@ func (p *leafTaskProcessor) processDataSearch(
 	// execute leaf pipeline
 	leafExecuteCtx := context.NewLeafExecuteContext(ctx, &stmtQuery, req, p.taskServerFactory, leafNode, db)
 
-	pipeline := newExecutePipelineFn(stmtQuery.Explain, func(err error) {
+	pipeline := newExecutePipelineFn(stmtQuery.Explain, func(stats []*models.StageStats, err error) {
+		if stmtQuery.Explain {
+			leafExecuteCtx.StorageExecuteCtx.Stats = &models.LeafNodeStats{
+				Stages: stats,
+			}
+		}
 		leafExecuteCtx.SendResponse(err)
 	})
 	pipeline.Execute(stage.NewMetadataLookupStage(leafExecuteCtx))

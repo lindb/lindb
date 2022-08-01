@@ -57,7 +57,7 @@ func TestLeafReducer_Execute(t *testing.T) {
 					Interval:      1,
 					IntervalRatio: 1.0,
 				},
-				Stats:             models.NewStorageStats(),
+				Stats:             &models.LeafNodeStats{},
 				DownSamplingSpecs: aggregation.AggregatorSpecs{aggregation.NewAggregatorSpec("f", field.SumField)},
 			},
 		}
@@ -70,4 +70,8 @@ func TestLeafReducer_Execute(t *testing.T) {
 		}, dataLoadCtx)
 		assert.NoError(t, op.Execute())
 	})
+}
+
+func TestLeafReducer_Identifier(t *testing.T) {
+	assert.Equal(t, "Reduce", NewLeafReduce(nil, nil).Identifier())
 }

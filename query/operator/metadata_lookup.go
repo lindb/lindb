@@ -206,7 +206,7 @@ func (op *metadataLookup) field(parentFunc *stmt.CallExpr, expr stmt.Expr) {
 				return
 			}
 			funcType = parentFunc.FuncType
-			// TODO ignore down sampling func?
+			// TODO: ignore down sampling func?
 			aggregator.Aggregator.AddFunctionType(parentFunc.FuncType)
 		}
 		aggregator.DownSampling.AddFunctionType(funcType)
@@ -242,4 +242,9 @@ func (op *metadataLookup) planHistogramFields(e *stmt.CallExpr) {
 		aggregator.Aggregator.AddFunctionType(function.Sum)
 		aggregator.DownSampling.AddFunctionType(function.Sum)
 	}
+}
+
+// Identifier returns identifier string value of metadata lookup operator.
+func (op *metadataLookup) Identifier() string {
+	return "Metadata Lookup"
 }

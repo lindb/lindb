@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/query/context"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
@@ -76,4 +77,8 @@ func TestNamespaceSuggest_Execute(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNamespaceSuggest_Identifier(t *testing.T) {
+	assert.Equal(t, "Namespace Suggest", NewNamespaceSuggest(nil).Identifier())
 }

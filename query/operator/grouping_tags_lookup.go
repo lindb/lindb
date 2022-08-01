@@ -42,3 +42,8 @@ func (op *groupingTagsLookup) Execute() error {
 	}
 	return nil
 }
+
+// Identifier returns identifier string value of grouping tags lookup operator.
+func (op *groupingTagsLookup) Identifier() string {
+	return "Grouping Tags Lookup"
+}

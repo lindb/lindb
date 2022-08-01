@@ -51,21 +51,21 @@ func TestLeafExecuteContext_SendResponse(t *testing.T) {
 		{
 			name: "send response with err",
 			in:   fmt.Errorf("err"),
-			prepare: func(ctx *LeafExecuteContext) {
+			prepare: func(_ *LeafExecuteContext) {
 				leaf.Receivers = nil
 			},
 		},
 		{
 			name: "not found send stream",
 			in:   fmt.Errorf("err"),
-			prepare: func(ctx *LeafExecuteContext) {
+			prepare: func(_ *LeafExecuteContext) {
 				taskServerFct.EXPECT().GetStream(gomock.Any()).Return(nil)
 			},
 		},
 		{
 			name: "send response failure",
 			in:   fmt.Errorf("err"),
-			prepare: func(ctx *LeafExecuteContext) {
+			prepare: func(_ *LeafExecuteContext) {
 				taskServerFct.EXPECT().GetStream(gomock.Any()).Return(stream)
 				stream.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err"))
 			},
@@ -75,6 +75,8 @@ func TestLeafExecuteContext_SendResponse(t *testing.T) {
 			in:   nil,
 			prepare: func(ctx *LeafExecuteContext) {
 				ctx.StorageExecuteCtx.GroupingTagValueIDs = []*roaring.Bitmap{roaring.BitmapOf(1, 2)}
+				ctx.StorageExecuteCtx.Query.Explain = true
+				ctx.StorageExecuteCtx.Stats = &models.LeafNodeStats{}
 				ctx.GroupingCtx.collectGroupingTagsCompleted = make(chan struct{})
 				taskServerFct.EXPECT().GetStream(gomock.Any()).Return(stream)
 				stream.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err"))
@@ -100,7 +102,7 @@ func TestLeafExecuteContext_SendResponse(t *testing.T) {
 
 	for _, tt := range cases {
 		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			defer func() {
 				leaf.Receivers = []models.StatelessNode{{}}
 			}()

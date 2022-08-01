@@ -25,6 +25,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/query/context"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
@@ -37,6 +38,7 @@ func TestGroupingStage(t *testing.T) {
 	db := tsdb.NewMockDatabase(ctrl)
 	db.EXPECT().ExecutorPool().Return(&tsdb.ExecutorPool{}).AnyTimes()
 	dataLoadCtx := &flow.DataLoadContext{}
+	shard := tsdb.NewMockShard(ctrl)
 	stage := NewGroupingStage(&context.LeafExecuteContext{
 		TaskCtx:  &flow.TaskContext{},
 		Database: db,
@@ -44,10 +46,12 @@ func TestGroupingStage(t *testing.T) {
 			StorageExecuteCtx: &flow.StorageExecuteContext{Query: &stmtpkg.Query{}},
 			Database:          db,
 		}),
-	}, dataLoadCtx, nil)
+	}, dataLoadCtx, shard)
 
 	assert.NotNil(t, stage.Plan())
 	stage.Complete()
+	shard.EXPECT().ShardID().Return(models.ShardID(19))
+	assert.Equal(t, "Grouping[Shard(19)]", stage.Identifier())
 
 	t.Run("group not found", func(t *testing.T) {
 		dataLoadCtx.IsGrouping = true

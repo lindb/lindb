@@ -15,24 +15,29 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package command
+package context
 
 import (
-	"context"
-	"strings"
+	"fmt"
+	"testing"
 
-	depspkg "github.com/lindb/lindb/app/broker/deps"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/models"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
-// QueryCommand executes metric query.
-func QueryCommand(ctx context.Context, deps *depspkg.HTTPDeps,
-	param *models.ExecuteParam, stmt stmtpkg.Statement) (interface{}, error) {
-	if strings.TrimSpace(param.Database) == "" {
-		return nil, constants.ErrDatabaseNameRequired
+func TestLeafMetadataContext(t *testing.T) {
+	ctx := NewLeafMetadataContext(&stmtpkg.MetricMetadata{}, nil, nil)
+	assert.Equal(t, constants.MaxSuggestions, ctx.Limit)
+	for i := 0; i < 1000; i++ {
+		ctx.AddValue(fmt.Sprintf("value-%d", i))
 	}
-	metricQuery := deps.QueryFactory.NewMetricQuery(ctx, deps.Node, param.Database, stmt.(*stmtpkg.Query))
-	return metricQuery.WaitResponse()
+	assert.Len(t, ctx.ResultSet, constants.MaxSuggestions)
+
+	ctx = NewLeafMetadataContext(&stmtpkg.MetricMetadata{Limit: 50}, nil, nil)
+	assert.Equal(t, 50, ctx.Limit)
+
+	ctx = NewLeafMetadataContext(&stmtpkg.MetricMetadata{Limit: 500}, nil, nil)
+	assert.Equal(t, constants.MaxSuggestions, ctx.Limit)
 }

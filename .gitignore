@@ -43,9 +43,11 @@ web/package-lock.json
 
 # Test binary, built with `go test -c`
 *.test
+1.txt
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+*.cov
 
 data
 

@@ -86,3 +86,7 @@ func TestDataLoader_Execute(t *testing.T) {
 		assert.NoError(t, op.Execute())
 	})
 }
+
+func TestDataLoad_Stats(t *testing.T) {
+	assert.NotNil(t, NewDataLoad(nil, nil, nil))
+}

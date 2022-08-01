@@ -42,3 +42,8 @@ func (op *metricSuggest) Execute() error {
 	op.ctx.ResultSet = rs
 	return nil
 }
+
+// Identifier returns identifier string value of metric suggest operator.
+func (op *metricSuggest) Identifier() string {
+	return "Metric Suggest"
+}

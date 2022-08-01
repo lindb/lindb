@@ -18,10 +18,14 @@
 package operator
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
@@ -31,6 +35,8 @@ type dataLoad struct {
 	executeCtx *flow.DataLoadContext
 	segmentRS  *flow.TimeSegmentResultSet
 	rs         flow.FilterResultSet
+
+	foundSeries uint64
 }
 
 // NewDataLoad creates a dataLoad instance.
@@ -76,6 +82,7 @@ func (op *dataLoad) Execute() error {
 		if !ok {
 			return
 		}
+		op.foundSeries++
 		aggregation.DownSampling(
 			slotRange, targetSlotRange, queryIntervalRatio, baseSlot,
 			getter,
@@ -89,4 +96,23 @@ func (op *dataLoad) Execute() error {
 	// release tsd decoder back to pool for re-use.
 	encoding.ReleaseTSDDecoder(op.executeCtx.Decoder)
 	return nil
+}
+
+// Identifier returns identifier value of data load operator.
+func (op *dataLoad) Identifier() string {
+	identifiers := strings.Split(op.rs.Identifier(), "segment")
+	var identifier string
+	if len(identifiers) > 1 {
+		identifier = identifiers[1]
+	} else {
+		identifier = identifiers[0]
+	}
+	return fmt.Sprintf("Data Load[%s]", identifier)
+}
+
+// Stats returns the stats of data load operator.
+func (op *dataLoad) Stats() interface{} {
+	return &models.SeriesStats{
+		NumOfSeries: op.foundSeries,
+	}
 }

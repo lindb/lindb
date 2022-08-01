@@ -18,6 +18,9 @@
 package stage
 
 import (
+	"time"
+
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/query/operator"
 )
 
@@ -27,6 +30,8 @@ import (
 type PlanNode interface {
 	// Execute executes the operator of current node.
 	Execute() error
+	// ExecuteWithStats executes the operator of current node with stats.
+	ExecuteWithStats() (stats *models.OperatorStats, err error)
 	// Children returns the children nodes of current node.
 	Children() []PlanNode
 	// AddChild adds child node.
@@ -69,6 +74,28 @@ func (p *planNode) Execute() error {
 		return nil
 	}
 	return p.op.Execute()
+}
+
+// ExecuteWithStats executes the operator of current node with stats.
+func (p *planNode) ExecuteWithStats() (stats *models.OperatorStats, err error) {
+	if p.op == nil {
+		return nil, nil
+	}
+	start := time.Now()
+	defer func() {
+		end := time.Now()
+		stats = &models.OperatorStats{
+			Identifier: p.op.Identifier(),
+			Start:      start.UnixMilli(),
+			End:        end.UnixMilli(),
+			Cost:       end.Sub(start).Nanoseconds(),
+		}
+		if track, ok := p.op.(operator.TrackableOperator); ok {
+			stats.Stats = track.Stats()
+		}
+	}()
+	err = p.op.Execute()
+	return
 }
 
 // Children returns the children nodes of current node.

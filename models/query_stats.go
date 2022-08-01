@@ -18,212 +18,51 @@
 package models
 
 import (
-	"sync"
+	"fmt"
+	"strings"
 	"time"
+
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/xlab/treeprint"
+
+	"github.com/lindb/lindb/pkg/ltoml"
 )
 
-// QueryStats represents the query stats when need explain query flow stat
-type QueryStats struct {
-	BrokerNodes  map[string]*QueryStats   `json:"brokerNodes,omitempty"`
-	StorageNodes map[string]*StorageStats `json:"storageNodes,omitempty"`
-	NetPayload   int64                    `json:"netPayload"`
-	PlanCost     int64                    `json:"planCost,omitempty"`
-	WaitCost     int64                    `json:"waitCost,omitempty"` // wait intermediate or leaf response duration
-	ExpressCost  int64                    `json:"expressCost,omitempty"`
-	TotalCost    int64                    `json:"totalCost,omitempty"` // total query cost
+// SeriesStats represents the stats for series.
+type SeriesStats struct {
+	NumOfSeries uint64 `json:"numOfSeries"`
 }
 
-// NewQueryStats creates the query stats
-func NewQueryStats() *QueryStats {
-	return &QueryStats{
-		BrokerNodes:  make(map[string]*QueryStats),
-		StorageNodes: make(map[string]*StorageStats),
-	}
+// OperatorStats represents the stats of operator.
+type OperatorStats struct {
+	Identifier string      `json:"identifier"`
+	Start      int64       `json:"start"`
+	End        int64       `json:"end"`
+	Cost       int64       `json:"cost"`
+	Stats      interface{} `json:"stats,omitempty"`
+	ErrMsg     string      `json:"errMsg,omitempty"`
 }
 
-// MergeBrokerTaskStats merges intermediate task execution stats
-func (s *QueryStats) MergeBrokerTaskStats(nodeID string, stats *QueryStats) {
-	s.BrokerNodes[nodeID] = stats
+// StageStats represents the stats of stage.
+type StageStats struct {
+	Identifier string           `json:"identifier"`
+	Start      int64            `json:"start"`
+	End        int64            `json:"end"`
+	Cost       int64            `json:"cost"`
+	State      string           `json:"state"`
+	ErrMsg     string           `json:"errMsg"`
+	Operators  []*OperatorStats `json:"operators,omitempty"`
+
+	Children []*StageStats `json:"children"`
 }
 
-// MergeStorageTaskStats merges storage task execution stats
-func (s *QueryStats) MergeStorageTaskStats(nodeID string, stats *StorageStats) {
-	s.StorageNodes[nodeID] = stats
-}
-
-// StorageStats represents query stats in storage side
-type StorageStats struct {
-	NetPayload            int64                   `json:"netPayload"`
-	TotalCost             int64                   `json:"totalCost"`
-	PlanCost              int64                   `json:"planCost"`
-	TagFilterCost         int64                   `json:"tagFilterCost"`
-	Shards                map[ShardID]*ShardStats `json:"shards,omitempty"`
-	CollectTagValuesStats map[string]int64        `json:"collectTagValuesStats,omitempty"`
-
-	start time.Time  // track search start time in storage side
-	mutex sync.Mutex // need add lock for goroutine update stats data
-}
-
-// NewStorageStats creates the query stats in storage side
-func NewStorageStats() *StorageStats {
-	return &StorageStats{
-		Shards:                make(map[ShardID]*ShardStats),
-		CollectTagValuesStats: make(map[string]int64),
-		start:                 time.Now(),
-	}
-}
-
-// Complete completes the query stats when query completed
-func (s *StorageStats) Complete() {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	s.TotalCost = time.Since(s.start).Nanoseconds()
-}
-
-// SetPlanCost sets plan cost
-func (s *StorageStats) SetPlanCost(cost time.Duration) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.PlanCost = cost.Nanoseconds()
-}
-
-// SetTagFilterCost sets tag filter cost
-func (s *StorageStats) SetTagFilterCost(cost time.Duration) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.TagFilterCost = cost.Nanoseconds()
-}
-
-// SetShardSeriesIDsSearchStats sets shard series ids search stats
-func (s *StorageStats) SetShardSeriesIDsSearchStats(shardID ShardID, numOfSeries uint64, seriesFilterCost time.Duration) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	stats := newShardStats()
-	stats.NumOfSeries = numOfSeries
-	stats.SeriesFilterCost = seriesFilterCost.Nanoseconds()
-	s.Shards[shardID] = stats
-}
-
-// SetShardMemoryDataFilterCost sets shard memory data filter cost
-func (s *StorageStats) SetShardMemoryDataFilterCost(shardID ShardID, cost time.Duration) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if stats, ok := s.Shards[shardID]; ok {
-		stats.MemFilterCost = cost.Nanoseconds()
-	}
-}
-
-// SetShardKVDataFilterCost sets shard data filter cost in kv store
-func (s *StorageStats) SetShardKVDataFilterCost(shardID ShardID, cost time.Duration) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if stats, ok := s.Shards[shardID]; ok {
-		stats.KVFilterCost = cost.Nanoseconds()
-	}
-}
-
-// SetShardGroupingCost sets get shard grouping context cost
-func (s *StorageStats) SetShardGroupingCost(shardID ShardID, cost time.Duration) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if stats, ok := s.Shards[shardID]; ok {
-		stats.GroupingCost = cost.Nanoseconds()
-	}
-}
-
-// SetShardScanStats sets data scan cost in shard level
-func (s *StorageStats) SetShardScanStats(shardID ShardID, identifier string, cost time.Duration, foundSeries int) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if stats, ok := s.Shards[shardID]; ok {
-		stats.SetScanStats(identifier, cost, foundSeries)
-	}
-}
-
-// SetShardGroupBuildStats sets grouping build stats in shard level
-func (s *StorageStats) SetShardGroupBuildStats(shardID ShardID, cost time.Duration) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if stats, ok := s.Shards[shardID]; ok {
-		stats.SetGroupBuildStats(cost)
-	}
-}
-
-// SetCollectTagValuesStats sets collect tag values stats after search for group by query
-func (s *StorageStats) SetCollectTagValuesStats(tagKey string, cost time.Duration) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.CollectTagValuesStats[tagKey] = cost.Nanoseconds()
-}
-
-// ShardStats represents the shard level stats
-type ShardStats struct {
-	SeriesFilterCost int64             `json:"seriesFilterCost"`
-	NumOfSeries      uint64            `json:"numOfSeries"`
-	MemFilterCost    int64             `json:"memFilterCost"`
-	KVFilterCost     int64             `json:"kvFilterCost"`
-	GroupingCost     int64             `json:"groupingCost"`
-	ScanStats        map[string]*Stats `json:"scanStats,omitempty"`
-	GroupBuildStats  *Stats            `json:"groupBuildStats,omitempty"`
-}
-
-// newShardStats creates the shard level stats
-func newShardStats() *ShardStats {
-	return &ShardStats{
-		ScanStats: make(map[string]*Stats),
-	}
-}
-
-// SetScanStats sets the data scan stats in shard level
-func (s *ShardStats) SetScanStats(identifier string, cost time.Duration, foundSeries int) {
-	costVal := cost.Nanoseconds()
-
-	if stats, ok := s.ScanStats[identifier]; ok {
-		stats.Count++
-		stats.TotalCost += costVal
-		stats.Series += foundSeries
-		if stats.Max < costVal {
-			stats.Max = costVal
-		} else if stats.Min > costVal {
-			stats.Min = costVal
-		}
-	} else {
-		s.ScanStats[identifier] = &Stats{
-			TotalCost: costVal,
-			Min:       costVal,
-			Max:       costVal,
-			Count:     1,
-			Series:    foundSeries,
-		}
-	}
-}
-
-// SetGroupBuildStats sets the group build stats in shard level
-func (s *ShardStats) SetGroupBuildStats(cost time.Duration) {
-	costVal := cost.Nanoseconds()
-	if s.GroupBuildStats == nil {
-		s.GroupBuildStats = &Stats{
-			Min:       costVal,
-			Max:       costVal,
-			Count:     1,
-			TotalCost: costVal,
-		}
-	} else {
-		s.GroupBuildStats.Count++
-		s.GroupBuildStats.TotalCost += costVal
-		if s.GroupBuildStats.Max < costVal {
-			s.GroupBuildStats.Max = costVal
-		} else if s.GroupBuildStats.Min > costVal {
-			s.GroupBuildStats.Min = costVal
-		}
-	}
+// LeafNodeStats represents query stats in storage side
+type LeafNodeStats struct {
+	NetPayload int64         `json:"netPayload"`
+	TotalCost  int64         `json:"totalCost"`
+	Start      int64         `json:"start"`
+	End        int64         `json:"end"`
+	Stages     []*StageStats `json:"stages,omitempty"`
 }
 
 // Stats represents the time stats
@@ -233,4 +72,83 @@ type Stats struct {
 	Max       int64 `json:"max"`
 	Count     int   `json:"count"`
 	Series    int   `json:"series,omitempty"`
+}
+
+// QueryStats represents the query stats when need explain query flow stat
+type QueryStats struct {
+	Root        string                    `json:"root"`
+	BrokerNodes map[string]*QueryStats    `json:"brokerNodes,omitempty"`
+	LeafNodes   map[string]*LeafNodeStats `json:"leafNodes,omitempty"`
+	NetPayload  int64                     `json:"netPayload"`
+	PlanCost    int64                     `json:"planCost,omitempty"`
+	WaitCost    int64                     `json:"waitCost,omitempty"` // wait intermediate or leaf response duration
+	ExpressCost int64                     `json:"expressCost,omitempty"`
+	TotalCost   int64                     `json:"totalCost,omitempty"` // total query cost
+}
+
+// NewQueryStats creates the query stats
+func NewQueryStats() *QueryStats {
+	return &QueryStats{
+		BrokerNodes: make(map[string]*QueryStats),
+		LeafNodes:   make(map[string]*LeafNodeStats),
+	}
+}
+
+// MergeBrokerTaskStats merges intermediate task execution stats
+func (s *QueryStats) MergeBrokerTaskStats(nodeID string, stats *QueryStats) {
+	s.BrokerNodes[nodeID] = stats
+}
+
+// MergeLeafTaskStats merges leaf task execution stats
+func (s *QueryStats) MergeLeafTaskStats(nodeID string, stats *LeafNodeStats) {
+	s.LeafNodes[nodeID] = stats
+}
+
+// ToTable returns the result of query as table if it has value, else return empty string.
+func (s *QueryStats) ToTable() (rows int, tableStr string) {
+	// 1. set headers
+	headers := table.Row{}
+	headers = append(headers, "Query Plan")
+	result := NewTableFormatter()
+	result.AppendHeader(headers)
+	// fix calc row width
+	treeprint.EdgeTypeLink = "!"
+	treeprint.EdgeTypeMid = "^^"
+	treeprint.EdgeTypeEnd = "~~"
+	treeprint.IndentSize = 2
+	tree := treeprint.NewWithRoot(fmt.Sprintf("Root(%s): [Cost:%s, Plan:%s, Wait:%s, Express: %s], Net Payload:%s",
+		s.Root, time.Duration(s.TotalCost), time.Duration(s.PlanCost), time.Duration(s.WaitCost),
+		time.Duration(s.ExpressCost), ltoml.Size(s.NetPayload),
+	))
+
+	for node, leaf := range s.LeafNodes {
+		leafNode := tree.AddBranch(fmt.Sprintf("Leaf(%s): [Cost:%s], Net Payload:%s",
+			node, time.Duration(leaf.TotalCost), ltoml.Size(leaf.NetPayload)))
+		for _, stage := range leaf.Stages {
+			s.stageToTable(leafNode, stage)
+		}
+		leafNode = tree.AddBranch(fmt.Sprintf("Leaf(%s): [Cost:%s], Net Payload:%s",
+			node, time.Duration(leaf.TotalCost), ltoml.Size(leaf.NetPayload)))
+		for _, stage := range leaf.Stages {
+			s.stageToTable(leafNode, stage)
+		}
+	}
+	str := strings.TrimSuffix(tree.String(), "\n")
+	result.AppendRow(table.Row{str})
+	rs := result.Render()
+	rs = strings.ReplaceAll(rs, "!", "│")
+	rs = strings.ReplaceAll(rs, "^^", "├─")
+	rs = strings.ReplaceAll(rs, "~~", "└─")
+	return 1, rs
+}
+
+// stageToTable builds stage stats as table.
+func (s *QueryStats) stageToTable(tree treeprint.Tree, stage *StageStats) {
+	stageNode := tree.AddBranch(fmt.Sprintf("Stage(%s), [Cost:%s]", stage.Identifier, time.Duration(stage.Cost)))
+	for _, op := range stage.Operators {
+		stageNode.AddNode(fmt.Sprintf("Operator(%s), [Cost:%s]", op.Identifier, time.Duration(op.Cost)))
+	}
+	for _, child := range stage.Children {
+		s.stageToTable(stageNode, child)
+	}
 }
