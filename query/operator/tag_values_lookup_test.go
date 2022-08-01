@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/roaring"
 
@@ -182,4 +183,13 @@ func TestTagValuesLookup_Execute(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestTagValuesLookup_Identifier(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	db := tsdb.NewMockDatabase(ctrl)
+	db.EXPECT().Metadata().Return(nil)
+	assert.Equal(t, "Tag Value Lookup", NewTagValuesLookup(nil, db).Identifier())
 }

@@ -21,6 +21,7 @@ import (
 	"context"
 
 	"github.com/lindb/lindb/coordinator/broker"
+	"github.com/lindb/lindb/models"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
@@ -41,10 +42,11 @@ func NewQueryFactory(
 
 func (qh *queryFactory) NewMetricQuery(
 	ctx context.Context,
+	root models.Node,
 	databaseName string,
 	sql *stmtpkg.Query,
 ) MetricQuery {
-	return newMetricQuery(ctx, databaseName, sql, qh)
+	return newMetricQuery(ctx, root, databaseName, sql, qh)
 }
 
 func (qh *queryFactory) NewMetadataQuery(

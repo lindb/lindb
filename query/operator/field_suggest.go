@@ -46,3 +46,8 @@ func (op *fieldSuggest) Execute() error {
 	op.ctx.ResultSet = result
 	return nil
 }
+
+// Identifier returns identifier string value of field suggest operator.
+func (op *fieldSuggest) Identifier() string {
+	return "Field Suggest"
+}

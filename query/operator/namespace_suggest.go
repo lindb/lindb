@@ -42,3 +42,8 @@ func (op *namespaceSuggest) Execute() error {
 	op.ctx.ResultSet = rs
 	return nil
 }
+
+// Identifier returns identifier string value of namespace suggest operator.
+func (op *namespaceSuggest) Identifier() string {
+	return "Namespace Suggest"
+}

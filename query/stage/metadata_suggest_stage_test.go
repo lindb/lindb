@@ -125,3 +125,7 @@ func TestMetadataSuggestStage_NextStages(t *testing.T) {
 		assert.Len(t, NewMetadataSuggestStage(ctx).NextStages(), 1)
 	})
 }
+
+func TestMetadataSuggest_Identifier(t *testing.T) {
+	assert.Equal(t, "Metadata Suggest", NewMetadataSuggestStage(nil).Identifier())
+}

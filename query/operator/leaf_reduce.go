@@ -44,3 +44,8 @@ func (op *leafReduce) Execute() error {
 	}
 	return nil
 }
+
+// Identifier returns identifier string value of reduce operator.
+func (op *leafReduce) Identifier() string {
+	return "Reduce"
+}

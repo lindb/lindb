@@ -63,6 +63,10 @@ type row struct {
 
 // ToTable returns the result of query as table if it has value, else return empty string.
 func (rs *ResultSet) ToTable() (rows int, tableStr string) {
+	// if explain query return query plan
+	if rs.Stats != nil {
+		return rs.Stats.ToTable()
+	}
 	if len(rs.Series) == 0 {
 		return 0, ""
 	}

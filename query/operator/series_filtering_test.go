@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/roaring"
 
@@ -201,4 +202,20 @@ func TestSeriesFiltering_Execute(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSeriesFiltering_Stats(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	shard := tsdb.NewMockShard(ctrl)
+	indexDB := indexdb.NewMockIndexDatabase(ctrl)
+	shard.EXPECT().IndexDatabase().Return(indexDB).AnyTimes()
+	shardCtx := &flow.ShardExecuteContext{
+		SeriesIDsAfterFiltering: roaring.BitmapOf(1, 2),
+	}
+	op := NewSeriesFiltering(shardCtx, shard)
+	assert.Equal(t, "Series Filtering", op.Identifier())
+	op1 := op.(TrackableOperator)
+	assert.NotNil(t, op1.Stats())
 }

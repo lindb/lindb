@@ -24,6 +24,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
@@ -34,6 +35,7 @@ func TestExecutorFactory_NewExecutor(t *testing.T) {
 	factory := NewQueryFactory(nil, nil)
 	assert.NotNil(t, factory.NewMetricQuery(
 		context.Background(),
+		&models.StatelessNode{},
 		"",
 		&stmt.Query{}))
 	assert.NotNil(t, factory.NewMetadataQuery(

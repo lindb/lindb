@@ -72,3 +72,29 @@ func TestMetricAllSeries_Execute(t *testing.T) {
 		assert.Equal(t, roaring.BitmapOf(0, 3, 5), ctx.SeriesIDsAfterFiltering)
 	})
 }
+
+func TestMetricAllSeries_Stats(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	shard := tsdb.NewMockShard(ctrl)
+	indexDB := indexdb.NewMockIndexDatabase(ctrl)
+	shard.EXPECT().IndexDatabase().Return(indexDB).AnyTimes()
+
+	ctx := &flow.ShardExecuteContext{
+		StorageExecuteCtx: &flow.StorageExecuteContext{
+			Query: &stmt.Query{
+				Interval:      1,
+				IntervalRatio: 1.0,
+			},
+			DownSamplingSpecs: aggregation.AggregatorSpecs{aggregation.NewAggregatorSpec("f", field.SumField)},
+		},
+		SeriesIDsAfterFiltering: roaring.BitmapOf(1, 2),
+	}
+
+	op := NewMetricAllSeries(ctx, shard)
+	assert.Equal(t, "All Series", op.Identifier())
+
+	op1 := op.(TrackableOperator)
+	assert.NotNil(t, op1.Stats())
+}

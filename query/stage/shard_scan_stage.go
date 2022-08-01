@@ -18,6 +18,8 @@
 package stage
 
 import (
+	"fmt"
+
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/flow"
@@ -118,4 +120,9 @@ func (stage *shardScanStage) NextStages() (stages []Stage) {
 // Complete completes shard scan stage, dec grouping task counter.
 func (stage *shardScanStage) Complete() {
 	stage.leafExecuteCtx.GroupingCtx.CompleteGroupingTask()
+}
+
+// Identifier returns identifier value of shard scan stage.
+func (stage *shardScanStage) Identifier() string {
+	return fmt.Sprintf("Shard Scan[Shard(%d)]", stage.shard.ShardID())
 }

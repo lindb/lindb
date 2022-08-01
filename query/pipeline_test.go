@@ -24,17 +24,18 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/query/stage"
 )
 
 func TestPipeline_Execute(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	t.Run("execute nil stage", func(t *testing.T) {
+	t.Run("execute nil stage", func(_ *testing.T) {
 		p := NewExecutePipeline(false, nil)
 		p.Execute(nil)
 	})
-	t.Run("execute stage after pipeline completed", func(t *testing.T) {
+	t.Run("execute stage after pipeline completed", func(_ *testing.T) {
 		p := NewExecutePipeline(false, nil)
 		p1 := p.(*pipeline)
 		s := stage.NewMockStage(ctrl)
@@ -42,13 +43,16 @@ func TestPipeline_Execute(t *testing.T) {
 		p.Execute(s)
 	})
 	t.Run("stage execute successfully", func(t *testing.T) {
-		p := NewExecutePipeline(true, func(err error) {
+		p := NewExecutePipeline(true, func(_ []*models.StageStats, err error) {
 			assert.NoError(t, err)
 		})
 		s := stage.NewMockStage(ctrl)
 		s.EXPECT().Plan()
 		s.EXPECT().NextStages().Return([]stage.Stage{nil})
 		s.EXPECT().Complete()
+		s.EXPECT().Track()
+		s.EXPECT().Stats()
+		s.EXPECT().Identifier()
 		s.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(_ stage.PlanNode, completeFn func(), _ func(err error)) {
 				completeFn()
@@ -56,11 +60,14 @@ func TestPipeline_Execute(t *testing.T) {
 		p.Execute(s)
 	})
 	t.Run("stage execute failure", func(t *testing.T) {
-		p := NewExecutePipeline(true, func(err error) {
+		p := NewExecutePipeline(true, func(_ []*models.StageStats, err error) {
 			assert.Error(t, err)
 		})
 		s := stage.NewMockStage(ctrl)
 		s.EXPECT().Plan()
+		s.EXPECT().Track()
+		s.EXPECT().Stats()
+		s.EXPECT().Identifier()
 		s.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(_ stage.PlanNode, _ func(), errFn func(err error)) {
 				errFn(fmt.Errorf("err"))

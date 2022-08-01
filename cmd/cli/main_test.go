@@ -37,7 +37,7 @@ func Test_main(t *testing.T) {
 
 	cli := client.NewMockExecuteCli(ctrl)
 
-	endpoint = "test/url"
+	endpoint = "localhost/url"
 	cases := []struct {
 		name    string
 		prepare func()

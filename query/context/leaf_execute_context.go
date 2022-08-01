@@ -18,10 +18,13 @@
 package context
 
 import (
+	"time"
+
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
@@ -115,6 +118,13 @@ func (ctx *LeafExecuteContext) SendResponse(err error) {
 func (ctx *LeafExecuteContext) sendResponse(resultData [][]byte, err error) {
 	var stats []byte
 	var errMsg string
+	if ctx.StorageExecuteCtx.Query.Explain && ctx.StorageExecuteCtx.Stats != nil {
+		end := time.Now()
+		ctx.StorageExecuteCtx.Stats.Start = ctx.TaskCtx.Start.UnixMilli()
+		ctx.StorageExecuteCtx.Stats.End = end.UnixMilli()
+		ctx.StorageExecuteCtx.Stats.TotalCost = end.Sub(ctx.TaskCtx.Start).Nanoseconds()
+		stats = encoding.JSONMarshal(ctx.StorageExecuteCtx.Stats)
+	}
 	if err != nil {
 		errMsg = err.Error()
 	}

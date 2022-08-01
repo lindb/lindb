@@ -29,7 +29,6 @@ import (
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/aggregation"
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
@@ -102,11 +101,6 @@ func TestStorageExecuteContext_SortFields(t *testing.T) {
 	}
 	ctx.SortFields()
 	assert.Equal(t, field.Metas{{ID: 1}, {ID: 3}, {ID: 4}}, ctx.Fields)
-}
-
-func TestStorageExecuteContext_QueryStats(t *testing.T) {
-	assert.Nil(t, (&StorageExecuteContext{}).QueryStats())
-	assert.NotNil(t, (&StorageExecuteContext{Stats: models.NewStorageStats()}).QueryStats())
 }
 
 func TestStorageExecuteContext_Release(t *testing.T) {

@@ -33,6 +33,7 @@ func Test_NewConfig(t *testing.T) {
 	var brokerCfg Broker
 	// not-exist
 	assert.NotNil(t, LoadAndSetBrokerConfig("not-exist-path", "broker.toml", &brokerCfg))
+
 	// bad broker config
 	assert.Nil(t, ltoml.WriteConfig(brokerCfgPath, ""))
 	assert.Error(t, LoadAndSetBrokerConfig(brokerCfgPath, "broker.toml", &brokerCfg))

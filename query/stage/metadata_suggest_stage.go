@@ -98,3 +98,8 @@ func (stage *metadataSuggestStage) NextStages() (stages []Stage) {
 	}
 	return
 }
+
+// Identifier returns identifier value of metadata suggest stage.
+func (stage *metadataSuggestStage) Identifier() string {
+	return "Metadata Suggest"
+}

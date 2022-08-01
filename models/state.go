@@ -58,6 +58,7 @@ const (
 	StorageStatusReady
 )
 
+// String returns the string value of StorageStatus.
 func (s StorageStatus) String() string {
 	val := "Unknown"
 	switch s {
@@ -126,6 +127,7 @@ type ReplicaState struct {
 	FamilyTime int64   `json:"familyTime"`
 }
 
+// String returns the string value of ReplicaState.
 func (r ReplicaState) String() string {
 	return "[" +
 		"database:" + r.Database +

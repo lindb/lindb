@@ -47,3 +47,7 @@ func TestTagValueSuggest_Execute(t *testing.T) {
 	tagMeta.EXPECT().SuggestTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{"name"})
 	assert.NoError(t, op.Execute())
 }
+
+func TestTagValueSuggest_Identifier(t *testing.T) {
+	assert.Equal(t, "Tag Value Suggest", NewTagValueSuggest(nil).Identifier())
+}

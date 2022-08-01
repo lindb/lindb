@@ -19,6 +19,7 @@ package operator
 
 import (
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/tsdb"
 	"github.com/lindb/lindb/tsdb/indexdb"
@@ -52,4 +53,16 @@ func (op *metricAllSeries) Execute() error {
 	}
 	op.executeCtx.SeriesIDsAfterFiltering.Or(seriesIDs)
 	return nil
+}
+
+// Identifier returns identifier string value of all series operator.
+func (op *metricAllSeries) Identifier() string {
+	return "All Series"
+}
+
+// Stats returns the stats of all series operator.
+func (op *metricAllSeries) Stats() interface{} {
+	return &models.SeriesStats{
+		NumOfSeries: op.executeCtx.SeriesIDsAfterFiltering.GetCardinality(),
+	}
 }

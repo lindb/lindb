@@ -18,6 +18,8 @@
 package stage
 
 import (
+	"fmt"
+
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/query/context"
 	"github.com/lindb/lindb/query/operator"
@@ -75,4 +77,9 @@ func (stage *groupingStage) NextStages() (stages []Stage) {
 // Complete completes grouping task.
 func (stage *groupingStage) Complete() {
 	stage.leafExecuteCtx.GroupingCtx.CompleteGroupingTask()
+}
+
+// Identifier returns identifier value of grouping stage.
+func (stage *groupingStage) Identifier() string {
+	return fmt.Sprintf("Grouping[Shard(%d)]", stage.shard.ShardID())
 }

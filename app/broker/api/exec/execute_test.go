@@ -269,7 +269,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			reqBody: `{"sql":"select f from mem","db":"test"}`,
 			prepare: func() {
 				metricQuery := brokerQuery.NewMockMetricQuery(ctrl)
-				queryFactory.EXPECT().NewMetricQuery(gomock.Any(), gomock.Any(), gomock.Any()).Return(metricQuery)
+				queryFactory.EXPECT().NewMetricQuery(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(metricQuery)
 				metricQuery.EXPECT().WaitResponse().Return(nil, fmt.Errorf("err"))
 			},
 			assert: func(resp *httptest.ResponseRecorder) {
@@ -281,7 +281,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			reqBody: `{"sql":"select f from mem","db":"test"}`,
 			prepare: func() {
 				metricQuery := brokerQuery.NewMockMetricQuery(ctrl)
-				queryFactory.EXPECT().NewMetricQuery(gomock.Any(), gomock.Any(), gomock.Any()).Return(metricQuery)
+				queryFactory.EXPECT().NewMetricQuery(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(metricQuery)
 				metricQuery.EXPECT().WaitResponse().Return(&models.ResultSet{}, nil)
 			},
 			assert: func(resp *httptest.ResponseRecorder) {
