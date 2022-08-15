@@ -161,7 +161,7 @@ func (p *leafTaskProcessor) processMetadataSuggest(
 		return ErrUnmarshalSuggest
 	}
 	leafExecuteCtx := context.NewLeafMetadataContext(stmtQuery, db, shardIDs)
-	pipeline := newExecutePipelineFn(false, func(stats []*models.StageStats, err error) {
+	pipeline := newExecutePipelineFn(false, func(_ []*models.StageStats, err error) {
 		var errMsg string
 		var payload []byte
 		if err != nil && !errors.Is(err, constants.ErrNotFound) {

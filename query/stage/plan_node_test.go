@@ -27,6 +27,19 @@ import (
 	"github.com/lindb/lindb/query/operator"
 )
 
+type mockOp struct {
+}
+
+func (op *mockOp) Identifier() string {
+	return "id"
+}
+func (op *mockOp) Execute() error {
+	return nil
+}
+func (op *mockOp) Stats() interface{} {
+	return nil
+}
+
 func TestPlanNode(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -56,4 +69,8 @@ func TestPlanNode(t *testing.T) {
 	assert.False(t, plan.IgnoreNotFound())
 
 	assert.True(t, NewPlanNodeWithIgnore(op).IgnoreNotFound())
+	plan = NewPlanNode(&mockOp{})
+	stats, err = plan.ExecuteWithStats()
+	assert.NoError(t, err)
+	assert.NotNil(t, stats)
 }
