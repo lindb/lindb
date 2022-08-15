@@ -167,7 +167,7 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 
 	for _, tt := range cases {
 		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			defer func() {
 				newExecutePipelineFn = NewExecutePipeline
 			}()
@@ -199,12 +199,12 @@ func TestLeafProcessor_Process(t *testing.T) {
 		Database: "test_db",
 		Leaves:   []*models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.3:8000"}}},
 	})
-	qry := stmt.Query{MetricName: "cpu"}
+	qry := stmt.Query{MetricName: "cpu", Explain: true}
 	data := encoding.JSONMarshal(&qry)
 
 	engine.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true)
 	pipeline := NewMockPipeline(ctrl)
-	newExecutePipelineFn = func(needStats bool, completeCallback func(_ []*models.StageStats, err error)) Pipeline {
+	newExecutePipelineFn = func(_ bool, completeCallback func(_ []*models.StageStats, err error)) Pipeline {
 		completeCallback(nil, nil) // just mock invoke
 		return pipeline
 	}
@@ -274,7 +274,7 @@ func TestLeafTask_Suggest_Process(t *testing.T) {
 			payload: encoding.JSONMarshal(&stmt.MetricMetadata{}),
 			prepare: func() {
 				pipeline := NewMockPipeline(ctrl)
-				newExecutePipelineFn = func(needStats bool, completeCallback func(_ []*models.StageStats, err error)) Pipeline {
+				newExecutePipelineFn = func(_ bool, completeCallback func(_ []*models.StageStats, err error)) Pipeline {
 					completeCallback(nil, fmt.Errorf("err")) // mock invoke callback
 					return pipeline
 				}
@@ -289,7 +289,7 @@ func TestLeafTask_Suggest_Process(t *testing.T) {
 
 	for _, tt := range cases {
 		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			defer func() {
 				newExecutePipelineFn = NewExecutePipeline
 			}()

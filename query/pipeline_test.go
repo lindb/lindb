@@ -47,13 +47,24 @@ func TestPipeline_Execute(t *testing.T) {
 			assert.NoError(t, err)
 		})
 		s := stage.NewMockStage(ctrl)
+		s2 := stage.NewMockStage(ctrl)
 		s.EXPECT().Plan()
-		s.EXPECT().NextStages().Return([]stage.Stage{nil})
+		s.EXPECT().NextStages().Return([]stage.Stage{s2})
 		s.EXPECT().Complete()
 		s.EXPECT().Track()
 		s.EXPECT().Stats()
 		s.EXPECT().Identifier()
 		s.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any()).Do(
+			func(_ stage.PlanNode, completeFn func(), _ func(err error)) {
+				completeFn()
+			})
+		s2.EXPECT().Plan()
+		s2.EXPECT().NextStages().Return([]stage.Stage{nil})
+		s2.EXPECT().Complete()
+		s2.EXPECT().Track()
+		s2.EXPECT().Stats()
+		s2.EXPECT().Identifier()
+		s2.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(_ stage.PlanNode, completeFn func(), _ func(err error)) {
 				completeFn()
 			})
