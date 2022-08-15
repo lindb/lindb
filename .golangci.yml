@@ -1,4 +1,9 @@
 linters-settings:
+  revive:
+    # Maximum number of open files at the same time.
+    # See https://github.com/mgechev/revive#command-line-flags
+    # Defaults to unlimited.
+    max-open-files: 512 
   gocyclo:
     # Minimal code complexity to report.
     # Default: 30 (but we recommend 10-20)

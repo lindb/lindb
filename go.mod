@@ -13,7 +13,7 @@ require (
 	github.com/dustin/go-humanize v1.0.0
 	github.com/fatih/color v1.13.0
 	github.com/felixge/fgprof v0.9.2
-	github.com/gin-contrib/cors v1.3.1
+	github.com/gin-contrib/cors v1.4.0
 	github.com/gin-contrib/pprof v1.3.0
 	github.com/gin-gonic/gin v1.8.1
 	github.com/go-http-utils/headers v0.0.0-20181008091004-fed159eddc2a
@@ -36,9 +36,9 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/shirou/gopsutil/v3 v3.22.5
 	github.com/spf13/cobra v1.4.0
-	github.com/stretchr/testify v1.7.2
+	github.com/stretchr/testify v1.8.0
 	github.com/swaggo/files v0.0.0-20220610200504-28940afbdbfe
-	github.com/swaggo/gin-swagger v1.5.0
+	github.com/swaggo/gin-swagger v1.5.2
 	github.com/swaggo/swag v1.8.3
 	github.com/xlab/treeprint v1.1.0
 	go.etcd.io/etcd/api/v3 v3.5.4
@@ -48,7 +48,7 @@ require (
 	go.uber.org/automaxprocs v1.5.1
 	go.uber.org/zap v1.21.0
 	golang.org/x/sys v0.0.0-20220615213510-4f61da869c0c
-	google.golang.org/grpc v1.47.0
+	google.golang.org/grpc v1.48.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 
