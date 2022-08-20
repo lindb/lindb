@@ -120,8 +120,8 @@ func (ctx *LeafExecuteContext) sendResponse(resultData [][]byte, err error) {
 	var errMsg string
 	if ctx.StorageExecuteCtx.Query.Explain && ctx.StorageExecuteCtx.Stats != nil {
 		end := time.Now()
-		ctx.StorageExecuteCtx.Stats.Start = ctx.TaskCtx.Start.UnixMilli()
-		ctx.StorageExecuteCtx.Stats.End = end.UnixMilli()
+		ctx.StorageExecuteCtx.Stats.Start = ctx.TaskCtx.Start.UnixNano()
+		ctx.StorageExecuteCtx.Stats.End = end.UnixNano()
 		ctx.StorageExecuteCtx.Stats.TotalCost = end.Sub(ctx.TaskCtx.Start).Nanoseconds()
 		stats = encoding.JSONMarshal(ctx.StorageExecuteCtx.Stats)
 	}

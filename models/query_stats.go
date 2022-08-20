@@ -51,6 +51,7 @@ type StageStats struct {
 	Cost       int64            `json:"cost"`
 	State      string           `json:"state"`
 	ErrMsg     string           `json:"errMsg"`
+	Async      bool             `json:"async"`
 	Operators  []*OperatorStats `json:"operators,omitempty"`
 
 	Children []*StageStats `json:"children"`
@@ -84,6 +85,8 @@ type QueryStats struct {
 	WaitCost    int64                     `json:"waitCost,omitempty"` // wait intermediate or leaf response duration
 	ExpressCost int64                     `json:"expressCost,omitempty"`
 	TotalCost   int64                     `json:"totalCost,omitempty"` // total query cost
+	Start       int64                     `json:"start"`
+	End         int64                     `json:"end"`
 }
 
 // NewQueryStats creates the query stats

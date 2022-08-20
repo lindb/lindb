@@ -52,6 +52,11 @@ func (stage *baseStage) Type() Type {
 	return stage.stageType
 }
 
+// IsAsync returns stage if stage async execute.
+func (stage *baseStage) IsAsync() bool {
+	return stage.execPool != nil && stage.ctx != nil
+}
+
 // Execute executes the plan node, if it executes success invoke completeHandle func else invoke errHande func.
 func (stage *baseStage) Execute(node PlanNode, completeHandle func(), errHandle func(err error)) {
 	execFn := func() {
@@ -62,12 +67,12 @@ func (stage *baseStage) Execute(node PlanNode, completeHandle func(), errHandle 
 			completeHandle()
 		}
 	}
-	if stage.execPool == nil || stage.ctx == nil {
-		execFn()
-	} else {
+	if stage.IsAsync() {
 		stage.execPool.Submit(stage.ctx, concurrent.NewTask(func() {
 			execFn()
 		}, errHandle))
+	} else {
+		execFn()
 	}
 }
 

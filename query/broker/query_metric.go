@@ -213,6 +213,8 @@ func (mq *metricQuery) makeResultSet(event *series.TimeSeriesEvent) (resultSet *
 		resultSet.Stats.WaitCost = makeResultStartTime.Sub(mq.endPlanTime).Nanoseconds()
 		resultSet.Stats.ExpressCost = now.Sub(makeResultStartTime).Nanoseconds()
 		resultSet.Stats.TotalCost = now.Sub(mq.startTime).Nanoseconds()
+		resultSet.Stats.Start = mq.startTime.UnixNano()
+		resultSet.Stats.End = now.UnixNano()
 	}
 	return resultSet
 }

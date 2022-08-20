@@ -107,4 +107,6 @@ type Stage interface {
 	Execute(node PlanNode, completeHandle func(), errHandle func(err error))
 	// Complete completes this stage, does some resource release operate.
 	Complete()
+	// IsAsync returns stage if stage async execute.
+	IsAsync() bool
 }
