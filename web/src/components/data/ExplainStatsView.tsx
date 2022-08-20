@@ -17,18 +17,26 @@ specific language governing permissions and limitations
 under the License.
 */
 import {
-  IconFile,
-  IconFlowChartStroked,
+  IconFixedStroked,
+  IconShareStroked,
   IconServerStroked,
   IconTemplateStroked,
 } from "@douyinfe/semi-icons";
 import { Tree, Typography } from "@douyinfe/semi-ui";
 import { CanvasChart, MetricStatus } from "@src/components";
-import { ChartStatus, ExplainResult, UnitEnum } from "@src/models";
+import {
+  ChartStatus,
+  ExplainResult,
+  LeafNodeStats,
+  OperatorStats,
+  StageStats,
+  UnitEnum,
+} from "@src/models";
 import { ChartStore } from "@src/stores";
 import { formatter } from "@src/utils";
 import { reaction } from "mobx";
 import React, { useEffect, useState } from "react";
+import * as _ from "lodash-es";
 const Text = Typography.Text;
 
 interface ExplainStatsViewProps {
@@ -52,205 +60,98 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
     return <Text type={type}>{formatter(cost, UnitEnum.Nanoseconds)}</Text>;
   };
 
-  const buildCollectValueStats = (total: any, key: string, stats: any) => {
-    let children: any = [];
-    const loadNodes = {
-      label: <Text strong>Collect Tag Values(Async)</Text>,
-      key: `${key}collect tag values`,
-      children: children,
-    };
-    for (let groupgTagKey of Object.keys(stats)) {
-      const cost = stats[groupgTagKey];
-      children.push({
+  const buildOperatorStats = (
+    parent: string,
+    total: number,
+    operators: OperatorStats[]
+  ): any[] => {
+    const children: any[] = [];
+    _.forEach(operators, (item: OperatorStats, idx: number) => {
+      const key = `${`${parent}-Leaf-Stage-Operator-${item.identifier}-${idx}`}`;
+      const operatorNode = {
         label: (
           <span>
-            <Text link strong>
-              {groupgTagKey}
-            </Text>
-            : {renderCost(cost, total)}
+            <Text strong>{item.identifier}</Text>: [ Cost:{" "}
+            {renderCost(item.cost, total)} ]
           </span>
         ),
-        key: `${key + groupgTagKey}cost`,
-        // icon: <HddOutlined />,
-      });
-    }
-    return loadNodes;
-  };
-
-  const buildLoadStats = (total: any, key: string, loadStats: any) => {
-    let children: any = [];
-    const loadNodes = {
-      label: <Text strong>Load Data(Async)</Text>,
-      key: `${key}load data`,
-      children: children,
-    };
-    for (let id of Object.keys(loadStats)) {
-      const stats = loadStats[id];
-      children.push({
-        label: (
-          <span>
-            <Text strong link>
-              {id}
-            </Text>
-            : [ Count: <Text link>{formatter(stats.count, UnitEnum.None)}</Text>
-            , Total Cost: {renderCost(stats.totalCost, total)}, Min:{" "}
-            {renderCost(stats.min, total)}, Max: {renderCost(stats.min, total)},
-            Num. Of Series:{" "}
-            <Text link>{formatter(stats.series, UnitEnum.None)}</Text> ]
-          </span>
-        ),
-        key: `${key + id}cost`,
-        icon: <IconFile />,
-      });
-    }
-    return loadNodes;
-  };
-
-  const buildShardNodes = (total: any, key: string, shards: any) => {
-    let children: any = [];
-    const shardNodes = {
-      label: <Text strong>Shards(Async)</Text>,
-      key: `${key}shards`,
-      children: children,
-    };
-    for (let shardID of Object.keys(shards)) {
-      const shardStats = shards[shardID];
-      let nodeStats = {
-        label: (
-          <span>
-            <Text strong link>
-              {shardID}{" "}
-            </Text>
-            : Series Filtering: [ Cost:{" "}
-            {renderCost(shardStats.seriesFilterCost, total)}, Num. Of Series:{" "}
-            <Text link>{formatter(shardStats.numOfSeries, UnitEnum.None)}</Text>{" "}
-            ]
-          </span>
-        ),
-        key: key + shardID,
-        icon: <IconFlowChartStroked />,
-        children: [
-          {
-            label: (
-              <span>
-                <Text strong> Memory Filtering</Text>:{" "}
-                {renderCost(shardStats.memFilterCost, total)}
-              </span>
-            ),
-            key: `${key + shardID}memory filtering`,
-          },
-          {
-            label: (
-              <span>
-                <Text strong>KV Store Filtering:</Text>{" "}
-                {renderCost(shardStats.kvFilterCost, total)}
-              </span>
-            ),
-            key: `${key + shardID}kv store filtering`,
-          },
-          {
-            label: (
-              <span>
-                <Text strong>Grouping</Text>:{" "}
-                {renderCost(shardStats.groupingCost, total)}
-              </span>
-            ),
-            key: `${key + shardID}Grouping`,
-          },
-        ],
+        key: key,
+        icon: <IconFixedStroked />,
       };
-      if (shardStats.groupBuildStats) {
-        nodeStats.children.push({
-          label: (
-            <span>
-              <Text strong>Group Build(Async)</Text>: [ Count:{" "}
-              <Text link>
-                {formatter(shardStats.groupBuildStats.count, UnitEnum.None)}
-              </Text>
-              , Total Cost:{" "}
-              {renderCost(shardStats.groupBuildStats.totalCost, total)}, Min:{" "}
-              {renderCost(shardStats.groupBuildStats.min, total)}, Max:{" "}
-              {renderCost(shardStats.groupBuildStats.min, total)} ]
-            </span>
-          ),
-          key: `${key + shardID}group build`,
-        });
-      }
-      children.push(nodeStats);
-      if (shardStats.scanStats) {
-        nodeStats.children.push(
-          buildLoadStats(total, key + shardID, shardStats.scanStats)
+      children.push(operatorNode);
+    });
+    return children;
+  };
+
+  const buildStageStats = (
+    parent: string,
+    total: number,
+    stages: StageStats[]
+  ): any[] => {
+    if (_.isEmpty(stages)) {
+      return [];
+    }
+    let children: any = [];
+    _.forEach(stages, (item: StageStats, idx: number) => {
+      const key = `${`${parent}-Leaf-Stage-${item.identifier}-${idx}`}`;
+      const stageNode = {
+        label: (
+          <span>
+            <Text strong>{item.identifier}</Text>: [{" "}
+            {item.async && <Text type="success">Async</Text>} Cost:{" "}
+            {renderCost(item.cost, total)} ]
+          </span>
+        ),
+        key: key,
+        icon: <IconShareStroked />,
+        children: [] as any[],
+      };
+      children.push(stageNode);
+      if (!_.isEmpty(item.operators)) {
+        stageNode.children.push(
+          ...buildOperatorStats(key, total, item.operators)
         );
       }
-    }
-    return shardNodes;
+
+      if (!_.isEmpty(item.children)) {
+        stageNode.children.push(...buildStageStats(key, total, item.children));
+      }
+    });
+    return children;
   };
 
-  const buildStorageNodes = (parent: string, total: any, storageNodes: any) => {
+  const buildLeafNodes = (parent: string, total: number, leafNodes: any) => {
     let children: any = [];
-    let storageNode = {
-      label: <Text strong>Storage Nodes</Text>,
-      key: `${parent}-Storage-Nodes`,
-      children: children,
-    };
-    for (let key of Object.keys(storageNodes)) {
-      const storageNodeStats = storageNodes[key];
+    for (let key of Object.keys(leafNodes)) {
+      const leafNodeStats = leafNodes[key] as LeafNodeStats;
+      const nKey = `${parent}-Leaf-Nodes-${key}`;
 
       let nodeStats = {
         label: (
           <span>
-            <Text strong link>
-              {key}
+            <Text strong>
+              Leaf[
+              <Text strong link>
+                {key}
+              </Text>
+              ]
             </Text>
-            : [ Cost: {renderCost(storageNodeStats.totalCost, total)}, Network
+            : [ Cost: {renderCost(leafNodeStats.totalCost, total)}, Network
             Payload:{" "}
             <Text link>
               {" "}
-              {formatter(storageNodeStats.netPayload, UnitEnum.Bytes)})
+              {formatter(leafNodeStats.netPayload, UnitEnum.Bytes)}
             </Text>{" "}
             ]
           </span>
         ),
-        key: `${parent}-Storage-Nodes-${key}`,
+        key: nKey,
         icon: <IconServerStroked />,
-        children: [
-          {
-            label: (
-              <span>
-                <Text strong>Execute Plan</Text>:{" "}
-                {renderCost(storageNodeStats.planCost, total)}
-              </span>
-            ),
-            key: `${parent}-${key}plan-execute`,
-          },
-          {
-            label: (
-              <span>
-                <Text strong>Tag Metadata Filtering</Text>:{" "}
-                {renderCost(storageNodeStats.tagFilterCost, total)}
-              </span>
-            ),
-            key: `${parent}-${key}tag-filtering`,
-          },
-        ],
+        children: buildStageStats(nKey, total, leafNodeStats.stages),
       };
       children.push(nodeStats);
-      if (storageNodeStats.collectTagValuesStats) {
-        nodeStats.children.push(
-          buildCollectValueStats(
-            total,
-            `${parent}-${key}`,
-            storageNodeStats.collectTagValuesStats
-          )
-        );
-      }
-      if (storageNodeStats.shards) {
-        nodeStats.children.push(
-          buildShardNodes(total, `${parent}-${key}`, storageNodeStats.shards)
-        );
-      }
     }
-    return storageNode;
+    return children;
   };
 
   const buildIntermediateBrokers = (total: any, brokerNodes: any) => {
@@ -284,11 +185,10 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
       children.push(nodeStats);
       if (brokerNodeStats.storageNodes) {
         nodeStats.children.push(
-          buildStorageNodes(key, total, brokerNodeStats.storageNodes)
+          buildLeafNodes(key, total, brokerNodeStats.storageNodes)
         );
       }
     }
-    console.log("IntermediateNode", IntermediateNode);
     return IntermediateNode;
   };
 
@@ -299,11 +199,21 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
     let root = {
       label: (
         <>
-          <Text strong>Root</Text>:{" "}
-          <Text link>{formatter(state.totalCost, UnitEnum.Nanoseconds)}</Text>
+          <Text strong>
+            Root[
+            <Text strong link>
+              {state.root}
+            </Text>
+            ]
+          </Text>
+          : [ Cost:{" "}
+          <Text link>{formatter(state.totalCost, UnitEnum.Nanoseconds)}</Text>,
+          Network Payload:{" "}
+          <Text link>{formatter(state.netPayload, UnitEnum.Bytes)}</Text> ]
         </>
       ),
       key: "Root",
+      icon: <IconServerStroked />,
       children: [
         {
           label: (
@@ -339,9 +249,9 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
         buildIntermediateBrokers(state.totalCost, state.brokerNodes)
       );
     }
-    if (state.storageNodes) {
+    if (state.leafNodes) {
       root.children.push(
-        buildStorageNodes("root", state.totalCost, state.storageNodes)
+        ...buildLeafNodes("root", state.totalCost, state.leafNodes)
       );
     }
     return [root];
@@ -366,8 +276,6 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  console.log("buildStatsData", buildStatsData());
 
   return (
     <>

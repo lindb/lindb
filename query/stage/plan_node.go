@@ -86,8 +86,8 @@ func (p *planNode) ExecuteWithStats() (stats *models.OperatorStats, err error) {
 		end := time.Now()
 		stats = &models.OperatorStats{
 			Identifier: p.op.Identifier(),
-			Start:      start.UnixMilli(),
-			End:        end.UnixMilli(),
+			Start:      start.UnixNano(),
+			End:        end.UnixNano(),
 			Cost:       end.Sub(start).Nanoseconds(),
 		}
 		if track, ok := p.op.(operator.TrackableOperator); ok {

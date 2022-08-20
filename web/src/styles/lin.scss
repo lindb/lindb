@@ -64,3 +64,12 @@
 .lin-link {
     cursor: pointer;
 }
+
+.lin-explain-timeline {
+	.semi-progress-track-inner {
+		border-radius: 0px;
+	}
+	.semi-progress-track {
+		background-color: unset !important;
+	}
+}

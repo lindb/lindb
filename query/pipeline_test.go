@@ -54,6 +54,7 @@ func TestPipeline_Execute(t *testing.T) {
 		s.EXPECT().Track()
 		s.EXPECT().Stats()
 		s.EXPECT().Identifier()
+		s.EXPECT().IsAsync().Return(true)
 		s.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(_ stage.PlanNode, completeFn func(), _ func(err error)) {
 				completeFn()
@@ -64,6 +65,7 @@ func TestPipeline_Execute(t *testing.T) {
 		s2.EXPECT().Track()
 		s2.EXPECT().Stats()
 		s2.EXPECT().Identifier()
+		s2.EXPECT().IsAsync().Return(true)
 		s2.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(_ stage.PlanNode, completeFn func(), _ func(err error)) {
 				completeFn()
@@ -79,6 +81,7 @@ func TestPipeline_Execute(t *testing.T) {
 		s.EXPECT().Track()
 		s.EXPECT().Stats()
 		s.EXPECT().Identifier()
+		s.EXPECT().IsAsync().Return(true)
 		s.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(_ stage.PlanNode, _ func(), errFn func(err error)) {
 				errFn(fmt.Errorf("err"))

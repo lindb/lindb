@@ -35,6 +35,7 @@ export { default as MetadataSelect } from "@src/components/data/MetadataSelect";
 export { default as VariatesSelect } from "@src/components/data/VariatesSelect";
 export { default as TagFilterSelect } from "@src/components/data/TagFilterSelect";
 export { default as TagValueSelect } from "@src/components/data/TagValueSelect";
+export { default as ExplainStatsTimeline } from "@src/components/data/ExplainStatsTimeline";
 export { default as ExplainStatsView } from "@src/components/data/ExplainStatsView";
 
 // state component

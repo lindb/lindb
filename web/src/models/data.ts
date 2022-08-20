@@ -35,25 +35,49 @@ export type Series = {
 };
 
 export type ExplainResult = {
+  root: string;
   totalCost: number;
+  netPayload: number;
   planCost: number;
   expressCost: number;
   waitCost: number;
-  storageNodes: { [propName: string]: StorageNodeExecStats };
+  start: number;
+  end: number;
+  leafNodes: { [propName: string]: LeafNodeStats };
   brokerNodes: { [propName: string]: BrokerNodeExecStats };
 };
 
 export type BrokerNodeExecStats = {
   waitCost: number;
-  storageNodes: { [propName: string]: StorageNodeExecStats };
+  storageNodes: { [propName: string]: LeafNodeStats };
 };
 
-export type StorageNodeExecStats = {
-  netPayload: string;
-  planCost: string;
-  tagFilterCost: string;
-  totalCost: string;
-  shards: { [propName: string]: ShardExecStats };
+export type LeafNodeStats = {
+  netPayload: number;
+  totalCost: number;
+  start: number;
+  end: number;
+  stages: StageStats[];
+};
+
+export type StageStats = {
+  identifier: string;
+  start: number;
+  end: number;
+  async: boolean;
+  cost: number;
+  stage: string;
+  errMsg: string;
+  operators: OperatorStats[];
+  children: StageStats[];
+};
+export type OperatorStats = {
+  identifier: string;
+  start: number;
+  end: number;
+  cost: number;
+  errMsg: string;
+  stats: any;
 };
 
 export type ShardExecStats = {

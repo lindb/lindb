@@ -95,11 +95,12 @@ func (sm *pipelineStateMachine) completeStage(parentStageID, stageID string, err
 			s.stats.Operators = s.stage.Stats()
 			s.endTime = time.Now()
 			s.stats.Identifier = s.stage.Identifier()
-			s.stats.Start = s.startTime.UnixMilli()
-			s.stats.End = s.endTime.UnixMilli()
+			s.stats.Start = s.startTime.UnixNano()
+			s.stats.End = s.endTime.UnixNano()
 			s.stats.Cost = s.endTime.Sub(s.startTime).Nanoseconds()
 			s.stats.State = s.state.String()
 			s.stats.ErrMsg = errMsg
+			s.stats.Async = s.stage.IsAsync()
 
 			if parentStageID != "" {
 				parent := sm.stages[parentStageID]

@@ -167,4 +167,5 @@ func TestBaseStage_Track(t *testing.T) {
 	}, func(err error) {
 	})
 	assert.NotNil(t, s.Stats())
+	assert.True(t, s.IsAsync())
 }
