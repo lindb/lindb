@@ -41,7 +41,7 @@ export default function TagFilterSelect(props: {
         sql: `show tag keys from '${metric}'`,
       });
       const tagKeys = (metadata as Metadata).values || [];
-      setTagKeys(tagKeys);
+      setTagKeys(tagKeys as string[]);
     };
     fetchTagKeys();
   }, [db, metric]);
