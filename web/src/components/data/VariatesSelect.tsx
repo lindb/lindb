@@ -49,6 +49,7 @@ export default function VariatesSelect(props: { variates: Variate[] }) {
           key={v.tagKey}
           labelPosition="inset"
           multiple={v.multiple}
+          type="tagValue"
         />
       ))}
     </Form>

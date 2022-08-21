@@ -206,6 +206,7 @@ export default function DataExplore() {
               }}
               labelPosition="inset"
               multiple
+              type="tagKey"
             />
           </Form>
           <CanvasChart chartId={chartId} height={300} />
@@ -244,6 +245,7 @@ export default function DataExplore() {
               watch: { clear: ["metric"] },
             }}
             labelPosition="inset"
+            type="namespace"
           />
           <MetadataSelect
             variate={{
@@ -257,6 +259,7 @@ export default function DataExplore() {
               },
             }}
             labelPosition="inset"
+            type="metric"
           />
           <Space>
             <Switch onChange={setShowLQL} />

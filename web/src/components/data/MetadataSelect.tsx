@@ -27,7 +27,7 @@ import React, { MutableRefObject, useRef, useState } from "react";
 interface MetadataSelectProps {
   labelPosition?: "top" | "left" | "inset";
   multiple?: boolean;
-  type?: "db" | "namespace" | "metric" | "field" | "tagKey" | "tagValue";
+  type: "db" | "namespace" | "metric" | "field" | "tagKey" | "tagValue";
   variate: Variate;
   placeholder?: string;
   style?: React.CSSProperties;
@@ -68,29 +68,48 @@ const MetadataSelect: React.FC<MetadataSelectProps> = (
     }
   });
 
-  const findMetadata = async () => {
-    console.log("find...", variate.tagKey, loaded.current);
-    if (loaded.current && _.isEqual(oldVariate.current, variate)) {
-      // if data alread load, return it
+  const findMetadata = async (prefix?: string) => {
+    if (type != "db" && _.isEmpty(variate.db)) {
+      // not input db return it, except find db metadata
+      setOptionList([]);
       return;
     }
     setLoading(true);
     try {
-      let showTagValuesSQL = variate.sql;
+      let targetSQL = variate.sql;
 
+      let whereClause = "";
+      if (!_.isEmpty(prefix)) {
+        switch (type) {
+          case "namespace":
+            targetSQL += ` where namespace='${prefix}'`;
+            break;
+          case "metric":
+            targetSQL += ` where metric='${prefix}'`;
+            break;
+          case "tagValue":
+            whereClause = `${variate.tagKey}='${prefix}'`;
+            break;
+        }
+      }
       if (where.current) {
-        showTagValuesSQL += where.current;
+        targetSQL += where.current;
+        if (!_.isEmpty(whereClause)) {
+          targetSQL += ` and ${whereClause}`;
+        }
+      } else if (type == "tagValue" && !_.isEmpty(whereClause)) {
+        targetSQL += ` where ${whereClause}`;
       }
 
       const metadata = await exec<Metadata | string[]>({
-        sql: showTagValuesSQL,
+        sql: targetSQL,
         db: variate.db,
       });
       var values: string[];
       if (type === "db") {
         values = metadata as string[];
       } else {
-        values = (metadata as Metadata).values;
+        values = (metadata as Metadata).values as string[];
       }
       const optionList: any[] = [];
       (values || []).map((item: any) => {
@@ -118,6 +137,7 @@ const MetadataSelect: React.FC<MetadataSelectProps> = (
       setLoading(false);
     }
   };
+
   const handleAfterSelect = () => {
     const clear = _.get(variate, "watch.clear", []);
     clear.forEach((key: string) => {
@@ -125,10 +145,14 @@ const MetadataSelect: React.FC<MetadataSelectProps> = (
     });
     formApi.submitForm(); //trigger form submit, after use selected
   };
+
+  // lazy find metadata when user input.
+  const search = _.debounce(findMetadata, 200);
+
   return (
     <>
       <Form.Select
-        style={style}
+        style={_.merge({ minWidth: 200 }, style)}
         multiple={multiple}
         field={variate.tagKey}
         placeholder={placeholder}
@@ -137,8 +161,15 @@ const MetadataSelect: React.FC<MetadataSelectProps> = (
         label={variate.label}
         showClear
         filter
+        remote
+        onSearch={(input: string) => {
+          search(input);
+        }}
         onBlur={handleAfterSelect}
-        onClear={handleAfterSelect}
+        onClear={() => {
+          formApi.setValue(variate.tagKey, null);
+          handleAfterSelect();
+        }}
         onDropdownVisibleChange={(val) => {
           dropdownVisible.current = val;
         }}
@@ -148,7 +179,7 @@ const MetadataSelect: React.FC<MetadataSelectProps> = (
           }
         }}
         loading={loading}
-        onFocus={findMetadata}
+        onFocus={() => findMetadata()}
       />
     </>
   );
