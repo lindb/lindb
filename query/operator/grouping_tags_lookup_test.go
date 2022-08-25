@@ -27,7 +27,6 @@ import (
 
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/sql/stmt"
 )
@@ -41,7 +40,6 @@ func TestGroupingTagsLookup_Execute(t *testing.T) {
 		SeriesIDsAfterFiltering: seriesIDs,
 		StorageExecuteCtx: &flow.StorageExecuteContext{
 			Query:             &stmt.Query{},
-			Stats:             &models.LeafNodeStats{},
 			DownSamplingSpecs: aggregation.AggregatorSpecs{aggregation.NewAggregatorSpec("f", field.SumField)},
 		},
 	}

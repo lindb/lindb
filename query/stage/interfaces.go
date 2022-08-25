@@ -24,9 +24,6 @@ import "github.com/lindb/lindb/models"
 // Type represents the type of stage.
 type Type int
 
-// State represents the state of stage.
-type State int
-
 const (
 	// Unknown represents unknown stage.
 	Unknown Type = iota
@@ -43,31 +40,6 @@ const (
 	// ShardLookup represents shard lookup stage.
 	ShardLookup
 )
-
-const (
-	// UnknownState represents unknown stage state.
-	UnknownState State = iota
-	// ExecutingState represents stage is executing.
-	ExecutingState
-	// CompleteState represents stage completed successfully.
-	CompleteState
-	// ErrorState represents stage completed with error.
-	ErrorState
-)
-
-// String returns string value of stage state.
-func (s State) String() string {
-	switch s {
-	case ExecutingState:
-		return "Executing"
-	case CompleteState:
-		return "Complete"
-	case ErrorState:
-		return "Error"
-	default:
-		return "Unknown"
-	}
-}
 
 // String returns string value of stage type.
 func (t Type) String() string {
@@ -93,8 +65,6 @@ func (t Type) String() string {
 type Stage interface {
 	// Identifier returns identifier value of current stage.
 	Identifier() string
-	// Track tracks the stage exeucte stats.
-	Track()
 	// Stats returns the execution stats of current stage.
 	Stats() []*models.OperatorStats
 	// Type returns the type of stage.

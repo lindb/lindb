@@ -49,9 +49,10 @@ func AccessLog() gin.HandlerFunc {
 			}
 			status := c.Writer.Status()
 			// http://httpd.apache.org/docs/1.3/logs.html?PHPSESSID=026558d61a93eafd6da3438bb9605d4d#common
-			requestInfo := realIP(r) + " " + time.Since(start).String() + "us" +
+			requestInfo := realIP(r) + " " + time.Since(start).String() +
 				" \"" + r.Method + " " + unescapedPath + " " + r.Proto + "\" " +
 				strconv.Itoa(status) + " " + strconv.Itoa(c.Writer.Size())
+			// TODO: add show requst log
 			if status >= 400 {
 				logger.AccessLog.Error(requestInfo)
 			} else {

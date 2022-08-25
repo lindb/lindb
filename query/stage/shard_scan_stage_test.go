@@ -18,7 +18,9 @@
 package stage
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -27,7 +29,8 @@ import (
 
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/query/context"
+	contextpkg "github.com/lindb/lindb/query/context"
+	trackerpkg "github.com/lindb/lindb/query/tracker"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
 	"github.com/lindb/lindb/tsdb/indexdb"
@@ -48,12 +51,13 @@ func TestShardScanStage(t *testing.T) {
 		},
 		ShardIDs: []models.ShardID{1, 2},
 	}
-	ctx := &context.LeafExecuteContext{
-		TaskCtx:           &flow.TaskContext{},
+	ctx := &contextpkg.LeafExecuteContext{
+		TaskCtx:           flow.NewTaskContextWithTimeout(context.TODO(), time.Minute),
 		Database:          db,
 		StorageExecuteCtx: storageCtx,
 	}
-	ctx.GroupingCtx = context.NewLeafGroupingContext(ctx)
+	ctx.Tracker = trackerpkg.NewStageTracker(ctx.TaskCtx)
+	ctx.GroupingCtx = contextpkg.NewLeafGroupingContext(ctx)
 	shard := tsdb.NewMockShard(ctrl)
 	shardExecuteCtx := flow.NewShardExecuteContext(storageCtx)
 	db.EXPECT().ExecutorPool().Return(&tsdb.ExecutorPool{}).AnyTimes()

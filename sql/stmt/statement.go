@@ -27,6 +27,7 @@ const (
 	StateStatement
 	MetricMetadataStatement
 	QueryStatement
+	RequestStatement
 )
 
 // Statement represents LinDB query language statement

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Code generated from /Users/huangjie/go/src/github.com/lindb/lindb/sql/grammar/SQL.g4 by ANTLR 4.10.1. DO NOT EDIT.
+// Code generated from SQL.g4 by ANTLR 4.10.1. DO NOT EDIT.
 
 package grammar // SQL
 import "github.com/antlr/antlr4/runtime/Go/antlr"
@@ -60,6 +60,18 @@ func (s *BaseSQLListener) EnterShowMasterStmt(ctx *ShowMasterStmtContext) {}
 
 // ExitShowMasterStmt is called when production showMasterStmt is exited.
 func (s *BaseSQLListener) ExitShowMasterStmt(ctx *ShowMasterStmtContext) {}
+
+// EnterShowRequestsStmt is called when production showRequestsStmt is entered.
+func (s *BaseSQLListener) EnterShowRequestsStmt(ctx *ShowRequestsStmtContext) {}
+
+// ExitShowRequestsStmt is called when production showRequestsStmt is exited.
+func (s *BaseSQLListener) ExitShowRequestsStmt(ctx *ShowRequestsStmtContext) {}
+
+// EnterShowRequestStmt is called when production showRequestStmt is entered.
+func (s *BaseSQLListener) EnterShowRequestStmt(ctx *ShowRequestStmtContext) {}
+
+// ExitShowRequestStmt is called when production showRequestStmt is exited.
+func (s *BaseSQLListener) ExitShowRequestStmt(ctx *ShowRequestStmtContext) {}
 
 // EnterShowStoragesStmt is called when production showStoragesStmt is entered.
 func (s *BaseSQLListener) EnterShowStoragesStmt(ctx *ShowStoragesStmtContext) {}
@@ -198,6 +210,12 @@ func (s *BaseSQLListener) EnterDatabaseName(ctx *DatabaseNameContext) {}
 
 // ExitDatabaseName is called when production databaseName is exited.
 func (s *BaseSQLListener) ExitDatabaseName(ctx *DatabaseNameContext) {}
+
+// EnterRequestID is called when production requestID is entered.
+func (s *BaseSQLListener) EnterRequestID(ctx *RequestIDContext) {}
+
+// ExitRequestID is called when production requestID is exited.
+func (s *BaseSQLListener) ExitRequestID(ctx *RequestIDContext) {}
 
 // EnterSource is called when production source is entered.
 func (s *BaseSQLListener) EnterSource(ctx *SourceContext) {}

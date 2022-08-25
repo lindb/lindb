@@ -32,10 +32,3 @@ func TestType_String(t *testing.T) {
 	assert.Equal(t, "MetadataSuggest", MetadataSuggest.String())
 	assert.Equal(t, "ShardLookup", ShardLookup.String())
 }
-
-func TestState_String(t *testing.T) {
-	assert.Equal(t, "Unknown", UnknownState.String())
-	assert.Equal(t, "Executing", ExecutingState.String())
-	assert.Equal(t, "Complete", CompleteState.String())
-	assert.Equal(t, "Error", ErrorState.String())
-}

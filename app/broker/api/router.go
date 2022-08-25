@@ -38,6 +38,7 @@ type API struct {
 	flusher            *admin.DatabaseFlusherAPI
 	storage            *admin.StorageClusterAPI
 	brokerStateMachine *state.BrokerStateMachineAPI
+	request            *state.RequestAPI
 	metricExplore      *monitoring.ExploreAPI
 	log                *monitoring.LoggerAPI
 	config             *monitoring.ConfigAPI
@@ -53,6 +54,7 @@ func NewAPI(deps *depspkg.HTTPDeps) *API {
 		flusher:            admin.NewDatabaseFlusherAPI(deps),
 		storage:            admin.NewStorageClusterAPI(deps),
 		brokerStateMachine: state.NewBrokerStateMachineAPI(deps),
+		request:            state.NewRequestAPI(),
 		metricExplore:      monitoring.NewExploreAPI(deps.GlobalKeyValues, linmetric.BrokerRegistry),
 		log:                monitoring.NewLoggerAPI(deps.BrokerCfg.Logging.Dir),
 		config:             monitoring.NewConfigAPI(deps.Node, deps.BrokerCfg),
@@ -71,7 +73,9 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 	api.flusher.Register(v1)
 	api.storage.Register(v1)
 
+	// state
 	api.brokerStateMachine.Register(v1)
+	api.request.Register(v1)
 
 	// write metric data
 	api.write.Register(v1)

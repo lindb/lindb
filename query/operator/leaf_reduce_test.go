@@ -26,7 +26,6 @@ import (
 
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/query/context"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
@@ -57,7 +56,6 @@ func TestLeafReducer_Execute(t *testing.T) {
 					Interval:      1,
 					IntervalRatio: 1.0,
 				},
-				Stats:             &models.LeafNodeStats{},
 				DownSamplingSpecs: aggregation.AggregatorSpecs{aggregation.NewAggregatorSpec("f", field.SumField)},
 			},
 		}

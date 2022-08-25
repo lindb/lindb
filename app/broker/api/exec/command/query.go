@@ -20,10 +20,12 @@ package command
 import (
 	"context"
 	"strings"
+	"time"
 
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
+	brokerquery "github.com/lindb/lindb/query/broker"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
@@ -33,6 +35,17 @@ func QueryCommand(ctx context.Context, deps *depspkg.HTTPDeps,
 	if strings.TrimSpace(param.Database) == "" {
 		return nil, constants.ErrDatabaseNameRequired
 	}
-	metricQuery := deps.QueryFactory.NewMetricQuery(ctx, deps.Node, param.Database, stmt.(*stmtpkg.Query))
+	req := &models.Request{
+		DB:    param.Database,
+		SQL:   param.SQL,
+		Start: time.Now().UnixNano(),
+	}
+
+	// track request
+	reqID := brokerquery.GetRequestManager().NewRequest(req)
+	defer brokerquery.GetRequestManager().CompleteRequest(reqID)
+
+	metricQuery := deps.QueryFactory.NewMetricQuery(context.WithValue(ctx, constants.ContextKeySQL, req),
+		deps.Node, param.Database, stmt.(*stmtpkg.Query))
 	return metricQuery.WaitResponse()
 }

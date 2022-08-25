@@ -469,7 +469,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 				repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(repo, nil)
 				repo.EXPECT().Close().Return(nil)
 				repo.EXPECT().PutWithTX(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-					DoAndReturn(func(ctx context.Context, key string, val []byte, check func([]byte) error) (bool, error) {
+					DoAndReturn(func(_ context.Context, _ string, _ []byte, check func([]byte) error) (bool, error) {
 						if err := check([]byte{1, 2, 3}); err != nil {
 							return false, err
 						}
@@ -487,7 +487,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 				repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(repo, nil)
 				repo.EXPECT().Close().Return(nil)
 				repo.EXPECT().PutWithTX(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-					DoAndReturn(func(ctx context.Context, key string, val []byte, check func([]byte) error) (bool, error) {
+					DoAndReturn(func(_ context.Context, _ string, _ []byte, check func([]byte) error) (bool, error) {
 						cfg1 := strings.ReplaceAll(cfg, `\"`, `"`)
 						data := []byte(cfg1)
 						storage := &config.StorageCluster{}
@@ -614,7 +614,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			name:    "show replication state, but fetch state failure",
 			reqBody: `{"sql":"show replication where storage=a and database=b"}`,
 			prepare: func() {
-				svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 					_, _ = w.Write([]byte("[]"))
 				}))
 				u, err := url.Parse(svr.URL)
@@ -661,7 +661,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			name:    "show broker metric successfully",
 			reqBody: `{"sql":"show broker metric where metric in (a,b)"}`,
 			prepare: func() {
-				svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 					w.Header().Add("content-type", "application/json")
 					_, _ = w.Write([]byte(`{"cpu":[{"fields":[{"value":1}]},{"fields":[{"value":1}]}]}`))
 				}))
@@ -819,7 +819,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			reqBody: `{"sql":"show broker metadata from state_repo where type=LiveNode"}`,
 			prepare: func() {
 				repo.EXPECT().WalkEntry(gomock.Any(), gomock.Any(), gomock.Any()).
-					DoAndReturn(func(ctx context.Context, prefix string, fn func(key, value []byte)) error {
+					DoAndReturn(func(_ context.Context, _ string, fn func(key, value []byte)) error {
 						fn([]byte("key"), []byte("value"))
 						return nil
 					})
@@ -833,7 +833,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			reqBody: `{"sql":"show broker metadata from state_repo where type=DatabaseConfig"}`,
 			prepare: func() {
 				repo.EXPECT().WalkEntry(gomock.Any(), gomock.Any(), gomock.Any()).
-					DoAndReturn(func(ctx context.Context, prefix string, fn func(key, value []byte)) error {
+					DoAndReturn(func(_ context.Context, _ string, fn func(key, value []byte)) error {
 						fn([]byte("key"), encoding.JSONMarshal(&models.Database{Name: "1.1.1.1"}))
 						return nil
 					})
@@ -847,7 +847,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			reqBody: `{"sql":"show master metadata from state_repo where type=Master"}`,
 			prepare: func() {
 				repo.EXPECT().WalkEntry(gomock.Any(), gomock.Any(), gomock.Any()).
-					DoAndReturn(func(ctx context.Context, prefix string, fn func(key, value []byte)) error {
+					DoAndReturn(func(_ context.Context, _ string, fn func(key, value []byte)) error {
 						fn([]byte("key"), encoding.JSONMarshal(&models.Master{ElectTime: 11}))
 						return nil
 					})
@@ -916,7 +916,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 				port := uint16(8789)
 				master.EXPECT().IsMaster().Return(false)
 				master.EXPECT().GetMaster().Return(&models.Master{Node: &models.StatelessNode{HostIP: "127.0.0.1", HTTPPort: port}})
-				backend = httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				backend = httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 					_, _ = w.Write([]byte("test"))
 				}))
 				// hack
@@ -1020,6 +1020,54 @@ func TestExecuteAPI_Execute(t *testing.T) {
 				repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
 				// delete database shard assignment ok
 				repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{name: "show all requests, but no alive broker",
+			reqBody: `{"sql":"show requests"}`,
+			prepare: func() {
+				stateMgr.EXPECT().GetLiveNodes().Return(nil)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusNotFound, resp.Code)
+			},
+		},
+		{name: "show all requests, but get err from broker",
+			reqBody: `{"sql":"show requests"}`,
+			prepare: func() {
+				svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					_, _ = w.Write([]byte("{}"))
+				}))
+				u, err := url.Parse(svr.URL)
+				assert.NoError(t, err)
+				p, err := strconv.Atoi(u.Port())
+				assert.NoError(t, err)
+				stateMgr.EXPECT().GetLiveNodes().Return([]models.StatelessNode{{
+					HostIP:   "127.0.0.1",
+					HTTPPort: uint16(p),
+				}})
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusNotFound, resp.Code)
+			},
+		},
+		{name: "show all requests successfully",
+			reqBody: `{"sql":"show requests"}`,
+			prepare: func() {
+				svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					w.Header().Add("content-type", "application/json")
+					_, _ = w.Write([]byte(`[{"start":12314}]`))
+				}))
+				u, err := url.Parse(svr.URL)
+				assert.NoError(t, err)
+				p, err := strconv.Atoi(u.Port())
+				assert.NoError(t, err)
+				stateMgr.EXPECT().GetLiveNodes().Return([]models.StatelessNode{{
+					HostIP:   "127.0.0.1",
+					HTTPPort: uint16(p),
+				}})
 			},
 			assert: func(resp *httptest.ResponseRecorder) {
 				assert.Equal(t, http.StatusOK, resp.Code)

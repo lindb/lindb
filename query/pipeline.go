@@ -22,6 +22,7 @@ import (
 
 	"github.com/lindb/lindb/models"
 	stagepkg "github.com/lindb/lindb/query/stage"
+	trackerpkg "github.com/lindb/lindb/query/tracker"
 )
 
 //go:generate mockgen -source=./pipeline.go -destination=./pipeline_mock.go -package=query
@@ -30,6 +31,8 @@ import (
 type Pipeline interface {
 	// Execute executes the stage(sub plan tree).
 	Execute(stage stagepkg.Stage)
+	// Stats returns the stats of stages.
+	Stats() []*models.StageStats
 }
 
 // pipeline implements Pipeline interface.
@@ -38,15 +41,20 @@ type pipeline struct {
 }
 
 // NewExecutePipeline creates a Pipeline instance for executing query stage.
-func NewExecutePipeline(needStats bool, completeCallback func(stats []*models.StageStats, err error)) Pipeline {
+func NewExecutePipeline(tracker *trackerpkg.StageTracker, completeCallback func(err error)) Pipeline {
 	return &pipeline{
-		sm: newPipelineStateMachine(needStats, completeCallback),
+		sm: newPipelineStateMachine(tracker, completeCallback),
 	}
 }
 
 // Execute executes the stage(sub plan tree).
 func (p *pipeline) Execute(stage stagepkg.Stage) {
 	p.executeStage("", stage)
+}
+
+// Stats returns the stats of stages.
+func (p *pipeline) Stats() []*models.StageStats {
+	return p.sm.GetStats()
 }
 
 // executeStage executes current the plan tree of current stage,
@@ -78,10 +86,10 @@ func (p *pipeline) executeStage(parentStageID string, stage stagepkg.Stage) {
 		}
 
 		// completed current stage, change stage state
-		p.sm.completeStage(parentStageID, stageID, nil)
+		p.sm.completeStage(stageID, nil)
 		stage.Complete()
 	}, func(err error) {
 		// complete stage with err
-		p.sm.completeStage(parentStageID, stageID, err)
+		p.sm.completeStage(stageID, err)
 	})
 }
