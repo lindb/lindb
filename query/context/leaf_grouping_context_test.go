@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -29,6 +30,7 @@ import (
 
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/query/tracker"
 	"github.com/lindb/lindb/series/tag"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
@@ -55,6 +57,7 @@ func TestLeafGroupingContext(t *testing.T) {
 		},
 	}
 	ctx := NewLeafGroupingContext(&LeafExecuteContext{
+		Tracker:           tracker.NewStageTracker(flow.NewTaskContextWithTimeout(context.TODO(), time.Minute)),
 		StorageExecuteCtx: storageCtx,
 		Database:          db,
 		LeafNode:          &models.Leaf{},
@@ -111,7 +114,7 @@ func TestLeafGroupingContext(t *testing.T) {
 
 	for _, tt := range cases {
 		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			defer func() {
 				storageCtx.Query.GroupBy = nil
 				storageCtx.GroupByTags = nil

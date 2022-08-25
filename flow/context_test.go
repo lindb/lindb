@@ -164,7 +164,7 @@ func TestGroupingSeriesAgg_reduce(t *testing.T) {
 	agg := &GroupingSeriesAgg{Aggregator: seriesAgg}
 	c := 0
 	seriesAgg.EXPECT().Reset()
-	agg.reduce(func(it series.GroupedIterator) {
+	agg.reduce(func(_ series.GroupedIterator) {
 		c++
 	})
 	assert.Equal(t, 1, c)
@@ -172,7 +172,7 @@ func TestGroupingSeriesAgg_reduce(t *testing.T) {
 	c = 0
 	seriesAgg.EXPECT().Reset()
 	agg = &GroupingSeriesAgg{Aggregators: aggregation.FieldAggregates{seriesAgg}}
-	agg.reduce(func(it series.GroupedIterator) {
+	agg.reduce(func(_ series.GroupedIterator) {
 		c++
 	})
 	assert.Equal(t, 1, c)
@@ -289,7 +289,7 @@ func TestDataLoadContext_IterateLowSeriesIDs(t *testing.T) {
 	findSeriesIDs := roaring.New()
 	storageLowSeriesContainer := storageSeriesIDs.GetContainer(0)
 	storageLowSeriesIDs := storageLowSeriesContainer.ToArray()
-	ctx.IterateLowSeriesIDs(storageLowSeriesContainer, func(seriesIdxFromQuery uint16, seriesIdxFromStorage int) {
+	ctx.IterateLowSeriesIDs(storageLowSeriesContainer, func(_ uint16, seriesIdxFromStorage int) {
 		findSeriesIDs.Add(uint32(storageLowSeriesIDs[seriesIdxFromStorage]))
 	})
 	assert.Equal(t, querySeriesIDs, findSeriesIDs)

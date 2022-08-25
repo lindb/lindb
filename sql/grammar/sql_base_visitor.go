@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Code generated from /Users/huangjie/go/src/github.com/lindb/lindb/sql/grammar/SQL.g4 by ANTLR 4.10.1. DO NOT EDIT.
+// Code generated from SQL.g4 by ANTLR 4.10.1. DO NOT EDIT.
 
 package grammar // SQL
 import "github.com/antlr/antlr4/runtime/Go/antlr"
@@ -37,6 +37,14 @@ func (v *BaseSQLVisitor) VisitShowStmt(ctx *ShowStmtContext) interface{} {
 }
 
 func (v *BaseSQLVisitor) VisitShowMasterStmt(ctx *ShowMasterStmtContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLVisitor) VisitShowRequestsStmt(ctx *ShowRequestsStmtContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLVisitor) VisitShowRequestStmt(ctx *ShowRequestStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -129,6 +137,10 @@ func (v *BaseSQLVisitor) VisitNamespace(ctx *NamespaceContext) interface{} {
 }
 
 func (v *BaseSQLVisitor) VisitDatabaseName(ctx *DatabaseNameContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLVisitor) VisitRequestID(ctx *RequestIDContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

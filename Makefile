@@ -71,7 +71,7 @@ deps:  ## Update vendor.
 
 generate:  ## generate pb/tmpl file.
 	# go get github.com/benbjohnson/tmpl
-	# go install github.com/benbjohnson/tmpl
+	go install github.com/benbjohnson/tmpl@latest
     # brew install flatbuffers
 	sh ./proto/generate.sh
 	cd tsdb/template && sh generate_tmpl.sh

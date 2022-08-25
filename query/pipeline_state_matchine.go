@@ -25,36 +25,41 @@ import (
 
 	"github.com/lindb/lindb/models"
 	stagepkg "github.com/lindb/lindb/query/stage"
+	trackerpkg "github.com/lindb/lindb/query/tracker"
 )
 
 // stageTracker represents track the stat of the stage execution.
 type stageTracker struct {
 	stageID            string
-	stage              stagepkg.Stage // current execute stage
-	state              stagepkg.State // stage execute stage
-	startTime, endTime time.Time      // stage start/end time
+	stage              stagepkg.Stage   // current execute stage
+	state              trackerpkg.State // stage execute stage
+	startTime, endTime time.Time        // stage start/end time
 	stats              *models.StageStats
 }
 
 // pipelineStateMachine represents pipeline stage machine which track all stage execution state under this pipeline.
 type pipelineStateMachine struct {
-	stages              map[string]*stageTracker                    // store schedule stage
-	pending             atomic.Int32                                // how many stages are pending, not completed
-	completedCallbackFn func(stats []*models.StageStats, err error) // pipeline execute completed will invoke
+	stages              map[string]*stageTracker // store schedule stage
+	pending             atomic.Int32             // how many stages are pending, not completed
+	completedCallbackFn func(err error)          // pipeline execute completed will invoke
 	mutex               sync.Mutex
 	completed           atomic.Bool
 
-	needStats     bool
-	statsOfStages []*models.StageStats
+	tracker *trackerpkg.StageTracker
 }
 
 // newPipelineStateMachine creates a pipelineStateMachine instance.
-func newPipelineStateMachine(needStats bool, completeCallback func(stats []*models.StageStats, err error)) *pipelineStateMachine {
+func newPipelineStateMachine(tracker *trackerpkg.StageTracker, completeCallback func(err error)) *pipelineStateMachine {
 	return &pipelineStateMachine{
 		stages:              make(map[string]*stageTracker),
 		completedCallbackFn: completeCallback,
-		needStats:           needStats,
+		tracker:             tracker,
 	}
+}
+
+// GetStats returns the states of stages.
+func (sm *pipelineStateMachine) GetStats() []*models.StageStats {
+	return sm.tracker.GetStages()
 }
 
 // executeStage tracks stage start execution state.
@@ -63,50 +68,46 @@ func (sm *pipelineStateMachine) executeStage(parentStageID, stageID string, stag
 	defer sm.mutex.Unlock()
 
 	sm.pending.Inc()
+
 	ts := &stageTracker{
 		stageID: stageID,
 		stage:   stage,
-		state:   stagepkg.ExecutingState,
+		state:   trackerpkg.ExecutingState,
 	}
 	sm.stages[stageID] = ts
-	if sm.needStats {
-		ts.stage.Track()
-		ts.stats = &models.StageStats{}
-		if parentStageID == "" {
-			sm.statsOfStages = append(sm.statsOfStages, ts.stats)
-		}
-		ts.startTime = time.Now()
+	ts.startTime = time.Now()
+	ts.stats = &models.StageStats{
+		Start:      ts.startTime.UnixNano(),
+		Identifier: stage.Identifier(),
+		State:      ts.state.String(),
+	}
+	if parentStageID == "" {
+		sm.tracker.AddStage(ts.stats)
+	} else {
+		parent := sm.stages[parentStageID]
+		parent.stats.Children = append(parent.stats.Children, ts.stats)
 	}
 }
 
 // completeStage tracks stage complete execution state.
-func (sm *pipelineStateMachine) completeStage(parentStageID, stageID string, err error) {
+func (sm *pipelineStateMachine) completeStage(stageID string, err error) {
 	sm.mutex.Lock()
 	if s, ok := sm.stages[stageID]; ok {
 		var errMsg string
 		if err != nil {
-			s.state = stagepkg.ErrorState
+			s.state = trackerpkg.ErrorState
 			errMsg = err.Error()
 		} else {
-			s.state = stagepkg.CompleteState
+			s.state = trackerpkg.CompleteState
 		}
 
-		if sm.needStats {
-			s.stats.Operators = s.stage.Stats()
-			s.endTime = time.Now()
-			s.stats.Identifier = s.stage.Identifier()
-			s.stats.Start = s.startTime.UnixNano()
-			s.stats.End = s.endTime.UnixNano()
-			s.stats.Cost = s.endTime.Sub(s.startTime).Nanoseconds()
-			s.stats.State = s.state.String()
-			s.stats.ErrMsg = errMsg
-			s.stats.Async = s.stage.IsAsync()
-
-			if parentStageID != "" {
-				parent := sm.stages[parentStageID]
-				parent.stats.Children = append(parent.stats.Children, s.stats)
-			}
-		}
+		s.stats.Operators = s.stage.Stats()
+		s.endTime = time.Now()
+		s.stats.End = s.endTime.UnixNano()
+		s.stats.Cost = s.endTime.Sub(s.startTime).Nanoseconds()
+		s.stats.State = s.state.String()
+		s.stats.ErrMsg = errMsg
+		s.stats.Async = s.stage.IsAsync()
 	}
 	sm.mutex.Unlock()
 
@@ -120,7 +121,7 @@ func (sm *pipelineStateMachine) completeStage(parentStageID, stageID string, err
 func (sm *pipelineStateMachine) complete(err error) {
 	if sm.completed.CAS(false, true) && sm.completedCallbackFn != nil {
 		// check if all stages execute completed
-		sm.completedCallbackFn(sm.statsOfStages, err)
+		sm.completedCallbackFn(err)
 	}
 }
 

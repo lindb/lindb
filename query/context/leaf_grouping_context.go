@@ -20,9 +20,12 @@ package context
 import (
 	"encoding/binary"
 	"sync"
+	"time"
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/query/tracker"
 	"github.com/lindb/lindb/series/tag"
 )
 
@@ -64,6 +67,14 @@ func NewLeafGroupingContext(leafExecuteCtx *LeafExecuteContext) *LeafGroupingCon
 
 // ForkGroupingTask forks a grouping task.
 func (ctx *LeafGroupingContext) ForkGroupingTask() {
+	if ctx.groupingRelatedTasks.Load() == 0 && ctx.leafExecuteCtx.StorageExecuteCtx.Query.HasGroupBy() {
+		ctx.leafExecuteCtx.Tracker.SetGroupingCollectStageValues(func(stage *models.StageStats) {
+			stage.Identifier = "Grouping Collect"
+			stage.Start = time.Now().UnixNano()
+			stage.State = tracker.InitState.String()
+		})
+	}
+
 	ctx.groupingRelatedTasks.Inc()
 }
 
@@ -81,6 +92,13 @@ func (ctx *LeafGroupingContext) collectGroupByTagValues() {
 		// task not completed or isn't grouping query, return it.
 		return
 	}
+	// start execute collect grouping tag values
+	ctx.leafExecuteCtx.Tracker.SetGroupingCollectStageValues(func(stage *models.StageStats) {
+		if stage.State == tracker.InitState.String() {
+			stage.State = tracker.ExecutingState.String()
+		}
+	})
+
 	// all shard pending query tasks and grouping task completed, start collect tag values
 	metadata := ctx.leafExecuteCtx.Database.Metadata()
 	tagMetadata := metadata.TagMetadata()
@@ -98,6 +116,12 @@ func (ctx *LeafGroupingContext) collectGroupByTagValues() {
 			tagValues := make(map[uint32]string) // tag value id => tag value
 			err := tagMetadata.CollectTagValues(tagKey.ID, tagValueIDs, tagValues)
 			if err != nil {
+				ctx.leafExecuteCtx.Tracker.SetGroupingCollectStageValues(func(stage *models.StageStats) {
+					stage.End = time.Now().UnixNano()
+					stage.Cost = stage.End - stage.Start
+					stage.ErrMsg = err.Error()
+					stage.State = tracker.ErrorState.String()
+				})
 				ctx.leafExecuteCtx.SendResponse(err)
 				return
 			}

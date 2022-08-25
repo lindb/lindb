@@ -394,6 +394,8 @@ func (r *runtime) startHTTPServer() {
 	logAPI.Register(v1)
 	configAPI := monitoring.NewConfigAPI(r.node, r.config)
 	configAPI.Register(v1)
+	requestAPI := stateapi.NewRequestAPI()
+	requestAPI.Register(v1)
 
 	go func() {
 		if err := r.httpServer.Run(); err != http.ErrServerClosed {

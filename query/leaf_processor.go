@@ -31,6 +31,7 @@ import (
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/query/context"
 	"github.com/lindb/lindb/query/stage"
+	trackerpkg "github.com/lindb/lindb/query/tracker"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
@@ -161,7 +162,7 @@ func (p *leafTaskProcessor) processMetadataSuggest(
 		return ErrUnmarshalSuggest
 	}
 	leafExecuteCtx := context.NewLeafMetadataContext(stmtQuery, db, shardIDs)
-	pipeline := newExecutePipelineFn(false, func(_ []*models.StageStats, err error) {
+	pipeline := newExecutePipelineFn(trackerpkg.NewStageTracker(ctx), func(err error) {
 		var errMsg string
 		var payload []byte
 		if err != nil && !errors.Is(err, constants.ErrNotFound) {
@@ -189,6 +190,7 @@ func (p *leafTaskProcessor) processMetadataSuggest(
 	return nil
 }
 
+// processDataSearch processes metric data search.
 func (p *leafTaskProcessor) processDataSearch(
 	ctx *flow.TaskContext,
 	db tsdb.Database,
@@ -201,16 +203,17 @@ func (p *leafTaskProcessor) processDataSearch(
 	}
 
 	// execute leaf pipeline
-	leafExecuteCtx := context.NewLeafExecuteContext(ctx, &stmtQuery, req, p.taskServerFactory, leafNode, db)
+	tracker := trackerpkg.NewStageTracker(ctx)
+	leafExecuteCtx := context.NewLeafExecuteContext(ctx, tracker, &stmtQuery, req, p.taskServerFactory, leafNode, db)
 
-	pipeline := newExecutePipelineFn(stmtQuery.Explain, func(stats []*models.StageStats, err error) {
-		if stmtQuery.Explain {
-			leafExecuteCtx.StorageExecuteCtx.Stats = &models.LeafNodeStats{
-				Stages: stats,
-			}
-		}
+	pipeline := newExecutePipelineFn(tracker, func(err error) {
+		// remove pipeline from cache after execute completed
+		defer GetPipelineManager().RemovePipeline(req.RequestID)
+
 		leafExecuteCtx.SendResponse(err)
 	})
+	// cache pipeline
+	GetPipelineManager().AddPipeline(req.RequestID, pipeline)
 	pipeline.Execute(stage.NewMetadataLookupStage(leafExecuteCtx))
 	return nil
 }

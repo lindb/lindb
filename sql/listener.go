@@ -32,6 +32,7 @@ type listener struct {
 	useStmt            *useStmtParser
 	schemasStmt        *schemasStmtParser
 	storageStmt        *storageStmtParser
+	requestStmt        *requestStmtParser
 }
 
 // EnterQueryStmt is called when production queryStmt is entered.
@@ -42,6 +43,21 @@ func (l *listener) EnterQueryStmt(ctx *grammar.QueryStmtContext) {
 // EnterShowMetadataTypesStmt is called when production showMetadataTypesStmt is entered.
 func (l *listener) EnterShowMetadataTypesStmt(_ *grammar.ShowMetadataTypesStmtContext) {
 	l.metadataStmt = newMetadataStmtParser(stmt.MetadataTypes)
+}
+
+// EnterShowRequestsStmt is called when production showRequestssStmt is entered.
+func (l *listener) EnterShowRequestsStmt(_ *grammar.ShowRequestsStmtContext) {
+	l.requestStmt = newRequestStmtParse()
+}
+
+// EnterShowRequestStmt is called when production showRequestStmt is entered.
+func (l *listener) EnterShowRequestStmt(_ *grammar.ShowRequestStmtContext) {
+	l.requestStmt = newRequestStmtParse()
+}
+
+// EnterRequestID is called when production requestID is entered.
+func (l *listener) EnterRequestID(ctx *grammar.RequestIDContext) {
+	l.requestStmt.visitRequestID(ctx)
 }
 
 // EnterShowBrokerMetaStmt is called when production showBrokerMetaStmt is entered.
@@ -356,6 +372,8 @@ func (l *listener) statement() (stmt.Statement, error) {
 		return l.metricMetadataStmt.build()
 	case l.stateStmt != nil:
 		return l.stateStmt.build()
+	case l.requestStmt != nil:
+		return l.requestStmt.build()
 	default:
 		return nil, nil
 	}

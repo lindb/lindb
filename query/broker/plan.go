@@ -155,10 +155,7 @@ func (p *brokerPlan) buildIntermediates() {
 	storageNodeIDs := p.getStorageNodeIDs()
 
 	var pos, end, idx = 0, 0, 0
-	for {
-		if pos > lenOfStorageNodes {
-			break
-		}
+	for pos <= lenOfStorageNodes {
 		end += parallel
 
 		if end > lenOfStorageNodes {

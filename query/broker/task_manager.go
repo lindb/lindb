@@ -25,11 +25,13 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/utils"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/rpc"
@@ -233,6 +235,14 @@ func (t *taskManager) SubmitMetricTask(
 		}
 	}
 
+	// get request from context
+	reqFromCtx := utils.GetFromContext(ctx, constants.ContextKeySQL)
+	request, ok := reqFromCtx.(*models.Request)
+	requestID := ""
+	if ok {
+		requestID = request.RequestID
+	}
+
 	responseCh := make(chan *series.TimeSeriesEvent)
 	taskCtx := newMetricTaskContext(
 		ctx,
@@ -254,6 +264,7 @@ func (t *taskManager) SubmitMetricTask(
 	)
 	// notify error to other peer nodes
 	req := &protoCommonV1.TaskRequest{
+		RequestID:    requestID,
 		ParentTaskID: rootTaskID,
 		Type:         protoCommonV1.TaskType_Leaf,
 		RequestType:  protoCommonV1.RequestType_Data,

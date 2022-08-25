@@ -30,9 +30,13 @@ showStmt                : showMasterStmt
                         | showFieldsStmt
                         | showTagKeysStmt
                         | showTagValuesStmt
+						| showRequestsStmt
+						| showRequestStmt
                         ;
 //meta data query statement
 showMasterStmt       : T_SHOW T_MASTER ;
+showRequestsStmt     : T_SHOW T_REQUESTS ; 
+showRequestStmt      : T_SHOW T_REQUEST T_WHERE T_ID T_EQUAL requestID;
 showStoragesStmt     : T_SHOW T_STORAGES ;
 showMetadataTypesStmt: T_SHOW T_METADATA T_TYPES;
 showBrokerMetaStmt   : T_SHOW T_BROKER T_METADATA T_FROM source T_WHERE typeFilter;
@@ -56,6 +60,7 @@ prefix               : ident ;
 withTagKey           : ident ;
 namespace            : ident ;
 databaseName         : ident ;
+requestID            : ident ;
 source               : (T_STATE_MACHINE|T_STATE_REPO) ;
 
 //data query plan
@@ -290,6 +295,9 @@ nonReservedWords      :
                         | T_SCHEMAS
                         | T_STATE_REPO
                         | T_STATE_MACHINE
+                        | T_REQUESTS
+                        | T_REQUEST
+                        | T_ID
                         ;
 
 STRING
@@ -396,6 +404,9 @@ T_IN                 : I N                              ;
 
 T_LOG                : L O G                            ;
 T_PROFILE            : P R O F I L E                    ;
+T_REQUESTS           : R E Q U E S T S                  ;
+T_REQUEST            : R E Q U E S T                    ;
+T_ID                 : I D                              ;
 
 T_SUM                : S U M                            ;
 T_MIN                : M I N                            ;

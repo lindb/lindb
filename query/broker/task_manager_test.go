@@ -26,6 +26,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/metrics"
@@ -42,7 +43,8 @@ func TestTaskManager_SubmitMetricTask_WithoutIntermediates(t *testing.T) {
 	currentNode := models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 8000}
 	taskClientFactory := rpc.NewMockTaskClientFactory(ctrl)
 	taskServerFactory := rpc.NewMockTaskServerFactory(ctrl)
-	ctx, cancel := context.WithCancel(context.Background())
+	parentCtx := context.WithValue(context.TODO(), constants.ContextKeySQL, &models.Request{RequestID: "req"})
+	ctx, cancel := context.WithCancel(parentCtx)
 	defer cancel()
 
 	taskManager1 := NewTaskManager(

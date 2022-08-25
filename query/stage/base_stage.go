@@ -32,14 +32,8 @@ type baseStage struct {
 
 	stageType Type
 	execPool  concurrent.Pool
-	track     bool
 
 	operators []*models.OperatorStats
-}
-
-// Track tracks the stage exeucte stats.
-func (stage *baseStage) Track() {
-	stage.track = true
 }
 
 // Stats returns the stats of current stage.
@@ -84,13 +78,9 @@ func (stage *baseStage) execute(node PlanNode) (err error) {
 
 	var stats *models.OperatorStats
 	// execute current plan node logic
-	if stage.track {
-		stats, err = node.ExecuteWithStats()
-		if stats != nil {
-			stage.operators = append(stage.operators, stats)
-		}
-	} else {
-		err = node.Execute()
+	stats, err = node.ExecuteWithStats()
+	if stats != nil {
+		stage.operators = append(stage.operators, stats)
 	}
 	if err != nil {
 		if node.IgnoreNotFound() && errors.Is(err, constants.ErrNotFound) {

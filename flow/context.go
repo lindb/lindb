@@ -91,8 +91,6 @@ type StorageExecuteContext struct {
 	// for group by query store tag value ids for each group tag key
 	GroupingTagValueIDs []*roaring.Bitmap
 
-	Stats *models.LeafNodeStats // storage query stats track for explain query
-
 	mutex sync.Mutex
 }
 

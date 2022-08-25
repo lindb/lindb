@@ -32,6 +32,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
+	trackerpkg "github.com/lindb/lindb/query/tracker"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
@@ -137,7 +138,8 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 			}), Payload: encoding.JSONMarshal(&stmt.Query{MetricName: "cpu"})},
 			prepare: func() {
 				pipeline := NewMockPipeline(ctrl)
-				newExecutePipelineFn = func(needStats bool, completeCallback func(_ []*models.StageStats, err error)) Pipeline {
+				newExecutePipelineFn = func(tracker *trackerpkg.StageTracker,
+					completeCallback func(err error)) Pipeline {
 					return pipeline
 				}
 				pipeline.EXPECT().Execute(gomock.Any())
@@ -204,8 +206,9 @@ func TestLeafProcessor_Process(t *testing.T) {
 
 	engine.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true)
 	pipeline := NewMockPipeline(ctrl)
-	newExecutePipelineFn = func(_ bool, completeCallback func(_ []*models.StageStats, err error)) Pipeline {
-		completeCallback(nil, nil) // just mock invoke
+	newExecutePipelineFn = func(_ *trackerpkg.StageTracker,
+		completeCallback func(err error)) Pipeline {
+		completeCallback(nil) // just mock invoke
 		return pipeline
 	}
 	pipeline.EXPECT().Execute(gomock.Any())
@@ -274,8 +277,9 @@ func TestLeafTask_Suggest_Process(t *testing.T) {
 			payload: encoding.JSONMarshal(&stmt.MetricMetadata{}),
 			prepare: func() {
 				pipeline := NewMockPipeline(ctrl)
-				newExecutePipelineFn = func(_ bool, completeCallback func(_ []*models.StageStats, err error)) Pipeline {
-					completeCallback(nil, fmt.Errorf("err")) // mock invoke callback
+				newExecutePipelineFn = func(_ *trackerpkg.StageTracker,
+					completeCallback func(err error)) Pipeline {
+					completeCallback(fmt.Errorf("err")) // mock invoke callback
 					return pipeline
 				}
 				pipeline.EXPECT().Execute(gomock.Any())

@@ -77,7 +77,7 @@ func (mq *metricQuery) makePlan() error {
 		return query.ErrDatabaseNotExist
 	}
 
-	// FIXME need using storage's replica state ???
+	// FIXME: need using storage's replica state ???
 	storageNodes, err := mq.queryFactory.stateMgr.GetQueryableReplicas(mq.database)
 	if err != nil {
 		return err
@@ -148,7 +148,7 @@ func (mq *metricQuery) makeResultSet(event *series.TimeSeriesEvent) (resultSet *
 	makeResultStartTime := time.Now()
 
 	resultSet = new(models.ResultSet)
-	// TODO merge stats for cross idc query?
+	// TODO: merge stats for cross idc query?
 	groupByKeys := mq.stmtQuery.GroupBy
 	groupByKeysLength := len(groupByKeys)
 	fieldsMap := make(map[string]struct{})
@@ -181,7 +181,7 @@ func (mq *metricQuery) makeResultSet(event *series.TimeSeriesEvent) (resultSet *
 			for it.HasNext() {
 				slot, val := it.Next()
 				if math.IsNaN(val) {
-					// TODO need check
+					// TODO: need check
 					continue
 				}
 				points.AddPoint(timeutil.CalcTimestamp(mq.stmtQuery.TimeRange.Start, slot, mq.stmtQuery.Interval), val)
