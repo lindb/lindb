@@ -19,6 +19,7 @@ package error
 
 import "errors"
 
+// Error returns error based on given err interface.
 func Error(err interface{}) error {
 	switch t := err.(type) {
 	case string:

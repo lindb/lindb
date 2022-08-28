@@ -90,4 +90,14 @@ func TestPipeline_Execute(t *testing.T) {
 			})
 		p.Execute(s)
 	})
+	t.Run("panic", func(t *testing.T) {
+		p := NewExecutePipeline(tracker, func(err error) {
+			assert.Error(t, err)
+		})
+		s := stage.NewMockStage(ctrl)
+		s.EXPECT().Identifier().Do(func() string {
+			panic("xx")
+		})
+		p.Execute(s)
+	})
 }
