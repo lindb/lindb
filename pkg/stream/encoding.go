@@ -58,9 +58,9 @@ func PutUvariantLittleEndian(buf []byte, x uint64) int {
 // and returns that value and the number of bytes read (> 0).
 // If an error occurred, the value is 0 and the number of bytes n is <= 0 meaning:
 //
-// 	n == 0: buf too small
-// 	n  < 0: value larger than 64 bits (overflow)
-// 	        and -n is the number of bytes read
+//	n == 0: buf too small
+//	n  < 0: value larger than 64 bits (overflow)
+//	        and -n is the number of bytes read
 func UvarintLittleEndian(buf []byte) (x uint64, s int) {
 	for cursor := len(buf) - 1; cursor >= 0; cursor-- {
 		b := buf[cursor]

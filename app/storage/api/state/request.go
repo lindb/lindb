@@ -47,9 +47,9 @@ func (r *RequestAPI) Register(route gin.IRoutes) {
 // GetRequestState returns request stats by given request id.
 func (r *RequestAPI) GetRequestState(c *gin.Context) {
 	var param struct {
-		RequestID string `form:"requestId" json:"requestId" binding:"required"`
+		RequestID string `form:"requestId" binding:"required"`
 	}
-	err := c.ShouldBind(&param)
+	err := c.ShouldBindQuery(&param)
 	if err != nil {
 		httppkg.Error(c, err)
 		return

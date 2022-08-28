@@ -19,9 +19,7 @@ package aggregation
 
 import "github.com/lindb/lindb/series"
 
-//////////////////////////////////////////////////////
-// groupedIterator implements GroupedIterator
-//////////////////////////////////////////////////////
+// groupedIterator implements GroupedIterator interface.
 type groupedIterator struct {
 	tags       string // tag values
 	aggregates FieldAggregates

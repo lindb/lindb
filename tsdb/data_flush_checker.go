@@ -44,18 +44,18 @@ var (
 
 // DataFlushChecker represents the memory database flush checker.
 // There are 4 flush policies of the Engine as below:
-// 1. FullFlush
-//    the highest priority, triggered by external API from the users.
-//    this action will block any other flush checkers.
-// 2. GlobalMemoryUsageChecker
-//    This checker will check the global memory usage of the host periodically,
-//    when the metric is above MemoryHighWaterMark, a `watermarkFlusher` will be spawned
-//    whose responsibility is to flush the biggest family until memory is lower than  MemoryLowWaterMark.
-// 3. FamilyMemoryUsageChecker
-//    This checker will check each family's memory usage periodically,
-//    If this family is above FamilyMemoryUsedThreshold. it will be flushed to disk.
-// 4. DatabaseMetaFlusher
-//    It is a simple checker which flush the meta of database to disk periodically.
+//  1. FullFlush
+//     the highest priority, triggered by external API from the users.
+//     this action will block any other flush checkers.
+//  2. GlobalMemoryUsageChecker
+//     This checker will check the global memory usage of the host periodically,
+//     when the metric is above MemoryHighWaterMark, a `watermarkFlusher` will be spawned
+//     whose responsibility is to flush the biggest family until memory is lower than  MemoryLowWaterMark.
+//  3. FamilyMemoryUsageChecker
+//     This checker will check each family's memory usage periodically,
+//     If this family is above FamilyMemoryUsedThreshold. it will be flushed to disk.
+//  4. DatabaseMetaFlusher
+//     It is a simple checker which flush the meta of database to disk periodically.
 //
 // a). Each family or database is restricted to flush by one goroutine at the same time via CAS operation;
 // b). The flush workers runs concurrently;
