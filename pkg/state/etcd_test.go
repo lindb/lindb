@@ -122,7 +122,7 @@ func TestWalkEntry(t *testing.T) {
 	// value is empty, will ignore
 	_ = rep.Put(context.TODO(), "/test/key3", []byte{})
 	count := 0
-	err = rep.WalkEntry(context.TODO(), "/test", func(key, value []byte) {
+	err = rep.WalkEntry(context.TODO(), "/test", func(_, _ []byte) {
 		count++
 	})
 	assert.NoError(t, err)
@@ -245,7 +245,7 @@ func TestGetWatchPrefix(t *testing.T) {
 	_ = b.Put(context.TODO(), "/lindb/broker/1", []byte("1"))
 	_ = b.Put(context.TODO(), "/lindb/broker/2", []byte("2"))
 	ch := b.WatchPrefix(ctx, "/lindb/broker", true)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 
 	_ = b.Put(context.TODO(), "/lindb/broker/3", []byte("3"))
 	bytes1, _ := b.Get(context.TODO(), "/lindb/broker/3")

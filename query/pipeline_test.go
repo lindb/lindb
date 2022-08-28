@@ -88,6 +88,7 @@ func TestPipeline_Execute(t *testing.T) {
 			func(_ stage.PlanNode, _ func(), errFn func(err error)) {
 				errFn(fmt.Errorf("err"))
 			})
+		s.EXPECT().Complete()
 		p.Execute(s)
 	})
 	t.Run("panic", func(t *testing.T) {

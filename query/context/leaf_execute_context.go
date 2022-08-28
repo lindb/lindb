@@ -86,7 +86,7 @@ func NewLeafExecuteContext(taskCtx *flow.TaskContext,
 
 // waitCollectGroupingTagsCompleted waits collect grouping tag value tasks completed.
 func (ctx *LeafExecuteContext) waitCollectGroupingTagsCompleted() (err error) {
-	if ctx.StorageExecuteCtx.HasGroupingTagValueIDs() {
+	if ctx.StorageExecuteCtx.Query.HasGroupBy() {
 		defer func() {
 			ctx.Tracker.SetGroupingCollectStageValues(func(stageStats *models.StageStats) {
 				stageStats.End = time.Now().UnixNano()
@@ -100,7 +100,8 @@ func (ctx *LeafExecuteContext) waitCollectGroupingTagsCompleted() (err error) {
 				}
 			})
 		}()
-
+	}
+	if ctx.StorageExecuteCtx.HasGroupingTagValueIDs() {
 		// if it has grouping tag value ids, need wait collect group by tag values completed
 		select {
 		case <-ctx.TaskCtx.Ctx.Done():

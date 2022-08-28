@@ -108,6 +108,8 @@ func (sm *pipelineStateMachine) completeStage(stageID string, err error) {
 		s.stats.State = s.state.String()
 		s.stats.ErrMsg = errMsg
 		s.stats.Async = s.stage.IsAsync()
+
+		s.stage.Complete()
 	}
 	sm.mutex.Unlock()
 

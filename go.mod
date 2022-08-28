@@ -1,6 +1,6 @@
 module github.com/lindb/lindb
 
-go 1.18
+go 1.19
 
 require (
 	github.com/BurntSushi/toml v1.1.0

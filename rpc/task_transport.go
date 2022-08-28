@@ -191,7 +191,11 @@ func (f *taskClientFactory) handleTaskResponse(client *taskClient) {
 				client.ready.Store(true)
 			}
 		}
-		resp, err := client.cli.Recv()
+		var cli protoCommonV1.TaskService_HandleClient
+		f.mutex.RLock()
+		cli = client.cli
+		f.mutex.RUnlock()
+		resp, err := cli.Recv()
 		if err != nil {
 			client.ready.Store(false)
 			// todo: suppress errors before shard assignment
