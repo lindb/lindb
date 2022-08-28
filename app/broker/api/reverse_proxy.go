@@ -50,7 +50,7 @@ func (p *ReverseProxy) Proxy(c *gin.Context) {
 		Target string `form:"target" binding:"required"`
 		Path   string `form:"path" binding:"required"`
 	}
-	err := c.ShouldBind(&param)
+	err := c.ShouldBindQuery(&param)
 	if err != nil {
 		httppkg.Error(c, err)
 		return

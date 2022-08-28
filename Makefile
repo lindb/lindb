@@ -42,7 +42,7 @@ import: ## opt go imports format.
 	sh imports.sh
 
 lint: ## run lint
-	go install "github.com/golangci/golangci-lint/cmd/golangci-lint@v1.45.0"
+	go install "github.com/golangci/golangci-lint/cmd/golangci-lint@v1.48.0"
 	golangci-lint run ./...
 
 api-doc: ## generate api document

@@ -73,7 +73,7 @@ func (d *LoggerAPI) View(c *gin.Context) {
 		// default: read last 1MB data from log file
 		Size int64 `form:"size,default=1048576"`
 	}
-	err := c.ShouldBind(&param)
+	err := c.ShouldBindQuery(&param)
 	if err != nil {
 		httppkg.Error(c, err)
 		return

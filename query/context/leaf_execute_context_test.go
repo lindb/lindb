@@ -77,6 +77,7 @@ func TestLeafExecuteContext_SendResponse(t *testing.T) {
 			prepare: func(ctx *LeafExecuteContext) {
 				ctx.StorageExecuteCtx.GroupingTagValueIDs = []*roaring.Bitmap{roaring.BitmapOf(1, 2)}
 				ctx.StorageExecuteCtx.Query.Explain = true
+				ctx.StorageExecuteCtx.Query.GroupBy = []string{"key"}
 				ctx.GroupingCtx.collectGroupingTagsCompleted = make(chan struct{})
 				taskServerFct.EXPECT().GetStream(gomock.Any()).Return(stream)
 				stream.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err"))
@@ -91,6 +92,7 @@ func TestLeafExecuteContext_SendResponse(t *testing.T) {
 			prepare: func(ctx *LeafExecuteContext) {
 				ctx.StorageExecuteCtx.GroupingTagValueIDs = []*roaring.Bitmap{roaring.BitmapOf(1, 2)}
 				ctx.GroupingCtx.collectGroupingTagsCompleted = make(chan struct{})
+				ctx.StorageExecuteCtx.Query.GroupBy = []string{"key"}
 				taskServerFct.EXPECT().GetStream(gomock.Any()).Return(stream)
 				stream.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err"))
 				time.AfterFunc(time.Millisecond*100, func() {

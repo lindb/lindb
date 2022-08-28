@@ -26,9 +26,7 @@ import (
 	"github.com/lindb/lindb/series/field"
 )
 
-//////////////////////////////////////////////////////
-// binaryGroupedIterator implements GroupedIterator
-//////////////////////////////////////////////////////
+// binaryGroupedIterator implements GroupedIterator interface.
 type binaryGroupedIterator struct {
 	tags       string
 	fields     map[field.Name][]byte
@@ -69,8 +67,7 @@ func (g *binaryGroupedIterator) Next() Iterator {
 	return g.it
 }
 
-// BinaryIterator implements Iterator
-//////////////////////////////////////////////////////
+// BinaryIterator implements Iterator interface.
 type BinaryIterator struct {
 	fieldName field.Name
 	fieldType field.Type
@@ -123,8 +120,7 @@ func (b *BinaryIterator) MarshalBinary() ([]byte, error) {
 	return b.data, nil
 }
 
-// BinaryFieldIterator implements FieldIterator
-//////////////////////////////////////////////////////
+// BinaryFieldIterator implements FieldIterator interface.
 type BinaryFieldIterator struct {
 	reader *stream.Reader
 	pIt    *BinaryPrimitiveIterator
@@ -161,9 +157,7 @@ func (it *BinaryFieldIterator) MarshalBinary() ([]byte, error) {
 	return nil, fmt.Errorf("not support")
 }
 
-//////////////////////////////////////////////////////
-// BinaryPrimitiveIterator implements PrimitiveIterator
-//////////////////////////////////////////////////////
+// BinaryPrimitiveIterator implements PrimitiveIterator interface.
 type BinaryPrimitiveIterator struct {
 	aggType field.AggType
 	tsd     *encoding.TSDDecoder
@@ -198,7 +192,6 @@ func (pi *BinaryPrimitiveIterator) HasNext() bool {
 }
 
 func (pi *BinaryPrimitiveIterator) Next() (timeSlot int, value float64) {
-	// FIXME
 	timeSlot = int(pi.tsd.Slot())
 	val := pi.tsd.Value()
 	value = math.Float64frombits(val)

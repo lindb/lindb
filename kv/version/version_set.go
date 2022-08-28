@@ -19,7 +19,6 @@ package version
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -36,8 +35,8 @@ import (
 
 // for test
 var (
-	writeFileFunc       = ioutil.WriteFile
-	readFileFunc        = ioutil.ReadFile
+	writeFileFunc       = os.WriteFile
+	readFileFunc        = os.ReadFile
 	renameFunc          = os.Rename
 	newBufferReaderFunc = bufioutil.NewBufioEntryReader
 	newBufferWriterFunc = bufioutil.NewBufioEntryWriter

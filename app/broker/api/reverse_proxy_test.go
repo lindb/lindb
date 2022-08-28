@@ -38,7 +38,7 @@ func TestReverseProxy_Proxy(t *testing.T) {
 	r := gin.New()
 	api.Register(r)
 
-	backend := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	backend := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte("test"))
 	}))
 	// hack

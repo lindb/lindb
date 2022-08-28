@@ -123,12 +123,12 @@ func (r *remoteReplicator) Connect() bool {
 }
 
 // IsReady returns remote replicator channel is ready.
-// 1. state == ready, return true
-// 2. state != ready, do channel init like tcp three-way handshake.
-//    a. next remote replica index = current node's replica index, return true.
-//    b. last remote ack index < current node's smallest ack, need reset remote replica index, then return true.
-//    c. last remote ack index > current node's append index,
-//   	 need reset current append index/replica index, then return true.
+//  1. state == ready, return true
+//  2. state != ready, do channel init like tcp three-way handshake.
+//     a. next remote replica index = current node's replica index, return true.
+//     b. last remote ack index < current node's smallest ack, need reset remote replica index, then return true.
+//     c. last remote ack index > current node's append index,
+//     need reset current append index/replica index, then return true.
 func (r *remoteReplicator) IsReady() bool {
 	stateVal := r.state.Load().(*state)
 	r.rwMutex.Lock()
@@ -140,7 +140,7 @@ func (r *remoteReplicator) IsReady() bool {
 	r.statistics.NotReady.Incr()
 
 	// replicator is not ready, need do init like tcp three-way handshake
-	follower := r.replicator.channel.State.Follower
+	follower := r.channel.State.Follower
 	node, ok := r.stateMgr.GetLiveNode(follower)
 	if !ok {
 		r.logger.Warn("follower node is offline, need suspend replicator", logger.String("replicator", r.String()))

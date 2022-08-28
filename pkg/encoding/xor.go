@@ -63,11 +63,14 @@ func (e *XOREncoder) Reset() {
 // only a single '0' bit is stored, otherwise '1' bit is stored.
 // For non-zero XOR result, there are two choices:
 // 1). If the block of meaningful bits falls in between the block of previous meaningful bits,
-//     i.e., there are at least as many leading and trailing zeros as with the previous value,
-//           use that information for the block position and just store the XOR value.
+//
+//	i.e., there are at least as many leading and trailing zeros as with the previous value,
+//	      use that information for the block position and just store the XOR value.
+//
 // 2). Length of the number of leading zeros is stored in the next 6 bits,
-//     then length of the XOR value is stored in the next 6 bits,
-//     finally the XOR value is stored.
+//
+//	then length of the XOR value is stored in the next 6 bits,
+//	finally the XOR value is stored.
 func (e *XOREncoder) Write(val uint64) error {
 	if e.first {
 		// write first value

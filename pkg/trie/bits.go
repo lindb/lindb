@@ -28,20 +28,21 @@ const wordSize = 64
 
 var endian = binary.LittleEndian
 
-//  A precomputed tabled containing the positions of the set bits in the binary
-//  representations of all 8-bit unsigned integers.
+// A precomputed tabled containing the positions of the set bits in the binary
+// representations of all 8-bit unsigned integers.
 //
-//  For i: [0, 256) ranging over all 8-bit unsigned integers and for j: [0, 8)
-//  ranging over all 0-based bit positions in an 8-bit unsigned integer, the
-//  table entry selectInByteLut[i][j] is the 0-based bit position of the j-th set
-//  bit in the binary representation of i, or 8 if it has fewer than j set bits.
+// For i: [0, 256) ranging over all 8-bit unsigned integers and for j: [0, 8)
+// ranging over all 0-based bit positions in an 8-bit unsigned integer, the
+// table entry selectInByteLut[i][j] is the 0-based bit position of the j-th set
+// bit in the binary representation of i, or 8 if it has fewer than j set bits.
 //
-//  Example: i: 17 (b00010001), j: [0, 8)
-//    selectInByteLut[b00010001][0] = 0
-//    selectInByteLut[b00010001][1] = 4
-//    selectInByteLut[b00010001][2] = 8
-//    ...
-//    selectInByteLut[b00010001][7] = 8
+// Example: i: 17 (b00010001), j: [0, 8)
+//
+//	selectInByteLut[b00010001][0] = 0
+//	selectInByteLut[b00010001][1] = 4
+//	selectInByteLut[b00010001][2] = 8
+//	...
+//	selectInByteLut[b00010001][7] = 8
 var selectInByteLut [256][8]uint8
 
 func init() {

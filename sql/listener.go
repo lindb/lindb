@@ -141,7 +141,7 @@ func (l *listener) EnterShowStoragesStmt(_ *grammar.ShowStoragesStmtContext) {
 }
 
 // EnterJson is called when production json is entered.
-func (l *listener) EnterJson(ctx *grammar.JsonContext) { // nolint:stylecheck
+func (l *listener) EnterJson(ctx *grammar.JsonContext) { //nolint:stylecheck
 	switch {
 	case l.storageStmt != nil:
 		l.storageStmt.visitCfg(ctx)

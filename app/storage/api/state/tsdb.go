@@ -52,7 +52,7 @@ func (db *TSDBAPI) GetMemoryDatabaseState(c *gin.Context) {
 	var param struct {
 		DB string `form:"db" binding:"required"`
 	}
-	err := c.ShouldBind(&param)
+	err := c.ShouldBindQuery(&param)
 	if err != nil {
 		httppkg.Error(c, err)
 		return

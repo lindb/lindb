@@ -64,12 +64,12 @@ func (b *builder) Build(keys, vals [][]byte, valueWidth uint32) SuccinctTrie {
 }
 
 // buildNodes is recursive algorithm to bulk building Trie nodes.
-//	* We divide keys into groups by the `key[depth]`, so keys in each group shares the same prefix
-//	* If depth larger than the length if the first key in group, the key is prefix of others in group
-//	  So we should append `labelTerminator` to labels and update `b.isLastItemTerminator`, then remove it from group.
-//	* Scan over keys in current group when meets different label, use the new sub group call buildNodes with level+1 recursively
-//	* If all keys in current group have the same label, this node can be compressed, use this group call buildNodes with level recursively.
-//	* If current group contains only one key constract suffix of this key and return.
+// We divide keys into groups by the `key[depth]`, so keys in each group shares the same prefix
+// If depth larger than the length if the first key in group, the key is prefix of others in group
+// So we should append `labelTerminator` to labels and update `b.isLastItemTerminator`, then remove it from group.
+// Scan over keys in current group when meets different label, use the new sub group call buildNodes with level+1 recursively
+// If all keys in current group have the same label, this node can be compressed, use this group call buildNodes with level recursively.
+// If current group contains only one key constract suffix of this key and return.
 func (b *builder) buildNodes(keys, vals [][]byte, prefixDepth, depth, level int) {
 	b.ensureLevel(level)
 	nodeStartPos := b.numItems(level)

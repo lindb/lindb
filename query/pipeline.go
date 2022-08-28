@@ -73,16 +73,16 @@ func (p *pipeline) Stats() []*models.StageStats {
 // executeStage executes current the plan tree of current stage,
 // if it executes success, plan next stages and executes them.
 //
-//       +----------------+ 1.Plan&Execute +-----------+
-//       | current stage  |--------------->| plan tree |
-//       +----------------+                +-----------+
-//               | 2. Plan Next Stages
-//               v
-//  +-------------------------+
-//  |  +-------+   +-------+  |
-//  |  |stage1 |   |stage2 |  |
-//  |  +-------+   +-------+  |
-//  +-------------------------+
+//	     +----------------+ 1.Plan&Execute +-----------+
+//	     | current stage  |--------------->| plan tree |
+//	     +----------------+                +-----------+
+//	             | 2. Plan Next Stages
+//	             v
+//	+-------------------------+
+//	|  +-------+   +-------+  |
+//	|  |stage1 |   |stage2 |  |
+//	|  +-------+   +-------+  |
+//	+-------------------------+
 func (p *pipeline) executeStage(parentStageID string, stage stagepkg.Stage) {
 	if stage == nil || p.sm.isCompleted() {
 		return

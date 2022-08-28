@@ -56,7 +56,7 @@ func (d *ExploreAPI) ExploreCurrent(c *gin.Context) {
 	var param struct {
 		Names []string `form:"names" binding:"required"`
 	}
-	err := c.ShouldBind(&param)
+	err := c.ShouldBindQuery(&param)
 	if err != nil {
 		httppkg.Error(c, err)
 		return
