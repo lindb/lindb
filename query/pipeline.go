@@ -21,6 +21,8 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/lindb/lindb/models"
+	errorpkg "github.com/lindb/lindb/pkg/error"
+	"github.com/lindb/lindb/pkg/logger"
 	stagepkg "github.com/lindb/lindb/query/stage"
 	trackerpkg "github.com/lindb/lindb/query/tracker"
 )
@@ -38,17 +40,28 @@ type Pipeline interface {
 // pipeline implements Pipeline interface.
 type pipeline struct {
 	sm *pipelineStateMachine
+
+	logger *logger.Logger
 }
 
 // NewExecutePipeline creates a Pipeline instance for executing query stage.
 func NewExecutePipeline(tracker *trackerpkg.StageTracker, completeCallback func(err error)) Pipeline {
 	return &pipeline{
-		sm: newPipelineStateMachine(tracker, completeCallback),
+		sm:     newPipelineStateMachine(tracker, completeCallback),
+		logger: logger.GetLogger("Query", "Pipeline"),
 	}
 }
 
 // Execute executes the stage(sub plan tree).
 func (p *pipeline) Execute(stage stagepkg.Stage) {
+	defer func() {
+		if r := recover(); r != nil {
+			err := errorpkg.Error(r)
+			p.sm.complete(err)
+			p.logger.Error("execute query pipeline panic", logger.Error(err), logger.Stack())
+		}
+	}()
+
 	p.executeStage("", stage)
 }
 

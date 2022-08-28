@@ -56,18 +56,18 @@ func (stage *metadataSuggestStage) Plan() PlanNode {
 	case stmt.TagValue:
 		execPlan := NewEmptyPlanNode()
 		execPlan.AddChild(NewPlanNode(operator.NewTagKeyIDLookup(stage.ctx)))
+		stage.ctx.StorageExecuteCtx = &flow.StorageExecuteContext{
+			Query: &stmt.Query{
+				Namespace:  req.Namespace,
+				MetricName: req.MetricName,
+				Condition:  req.Condition,
+			},
+			TagKeys: make(map[string]tag.KeyID),
+		}
 		if req.Condition == nil {
 			// if not tag filter condition, just get tag value by tag key
 			execPlan.AddChild(NewPlanNode(operator.NewTagValueSuggest(stage.ctx)))
 		} else {
-			stage.ctx.StorageExecuteCtx = &flow.StorageExecuteContext{
-				Query: &stmt.Query{
-					Namespace:  req.Namespace,
-					MetricName: req.MetricName,
-					Condition:  req.Condition,
-				},
-				TagKeys: make(map[string]tag.KeyID),
-			}
 			// 1. do tag values lookup
 			execPlan.AddChild(NewPlanNode(operator.NewTagValuesLookup(stage.ctx.StorageExecuteCtx, stage.ctx.Database)))
 		}
