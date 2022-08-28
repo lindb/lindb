@@ -100,7 +100,6 @@ func (p *pipeline) executeStage(parentStageID string, stage stagepkg.Stage) {
 
 		// completed current stage, change stage state
 		p.sm.completeStage(stageID, nil)
-		stage.Complete()
 	}, func(err error) {
 		// complete stage with err
 		p.sm.completeStage(stageID, err)

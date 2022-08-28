@@ -164,7 +164,7 @@ func TestTaskClientFactory_handler(t *testing.T) {
 		receiver.EXPECT().Receive(gomock.Any(), gomock.Any()).Return(nil),
 		mockTaskClient.EXPECT().Recv().Return(&protoCommonV1.TaskResponse{}, nil),
 		receiver.EXPECT().Receive(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(req *protoCommonV1.TaskResponse, targetID string) error {
+			func(_ *protoCommonV1.TaskResponse, _ string) error {
 				taskClient.running.Store(false)
 				return fmt.Errorf("err")
 			}),

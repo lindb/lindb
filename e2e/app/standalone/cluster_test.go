@@ -92,6 +92,14 @@ func TestQuery_Group_by(t *testing.T) {
 	}, &models.ResultSet{})
 	assert.NoError(t, err)
 	fmt.Println(rs)
+
+	// no data found(out of time range)
+	rs, err = cli.ExecuteAsResult(models.ExecuteParam{
+		Database: "_internal",
+		SQL:      "select f1 from cpu_data where time>now()+5m and time<now()+10m group by host,app",
+	}, &models.ResultSet{})
+	assert.NoError(t, err)
+	fmt.Println(rs)
 }
 
 func TestTagValueNotFound(t *testing.T) {
