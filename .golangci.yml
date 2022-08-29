@@ -152,7 +152,7 @@ linters:
     - noctx
     - nolintlint
     - staticcheck
-    - structcheck
+    # - structcheck
     - stylecheck
     - typecheck
     - unconvert
