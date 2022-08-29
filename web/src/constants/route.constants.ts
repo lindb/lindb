@@ -24,6 +24,7 @@ export enum Route {
   Explore = "/explore",
   MonitoringDashboard = "/monitoring/dashboard",
   MonitoringReplication = "/monitoring/replication",
+  MonitoringRequest = "/monitoring/request",
   MonitoringLogs = "/monitoring/logs",
   MetadataStorage = "/metadata/storage",
   MetadataStorageConfig = "/metadata/storage/configuration",

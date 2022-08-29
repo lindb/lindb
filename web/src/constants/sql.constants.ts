@@ -20,4 +20,5 @@ export enum SQL {
   ShowDatabases = "show databases",
   ShowBrokerAliveNodes = "show broker alive",
   ShowStorageAliveNodes = "show storage alive",
+  ShowRequests = "show requests",
 }

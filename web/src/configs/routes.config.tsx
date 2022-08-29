@@ -24,6 +24,7 @@ import {
   IconInherit,
   IconListView,
   IconSearch,
+  IconSendStroked,
   IconServer,
   IconTemplate,
   IconShareStroked,
@@ -45,6 +46,7 @@ import {
   StorageOverview,
   MetadataExplore,
   MultipleIDCList,
+  RequestView,
 } from "@src/pages";
 import * as _ from "lodash-es";
 import React from "react";
@@ -116,6 +118,12 @@ export const routes = [
         path: Route.MonitoringReplication,
         icon: <IconElementStroked size="large" />,
         content: <ReplicationView />,
+      },
+      {
+        text: "Request",
+        path: Route.MonitoringRequest,
+        icon: <IconSendStroked size="large" />,
+        content: <RequestView />,
       },
       {
         text: "Log View",
