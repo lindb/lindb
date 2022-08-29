@@ -74,9 +74,12 @@ func NewServer(cfg config.HTTP, staticResource bool, r *linmetric.Registry) Serv
 		staticResource: staticResource,
 		server: http.Server{
 			// use extra timeout for ingestion and query timeout
-			WriteTimeout: cfg.WriteTimeout.Duration(),
-			ReadTimeout:  cfg.ReadTimeout.Duration(),
-			IdleTimeout:  cfg.IdleTimeout.Duration(),
+			// if write timeout will return ERR_EMPTY_RESPONSE, chrome will does auto retry.
+			// https://www.bennadel.com/blog/3257-google-chrome-will-automatically-retry-requests-on-certain-error-responses.htm
+			// https://mariocarrion.com/2021/09/17/golang-software-architecture-resilience-http-servers.html
+			// WriteTimeout: cfg.WriteTimeout.Duration(),
+			ReadTimeout: cfg.ReadTimeout.Duration(),
+			IdleTimeout: cfg.IdleTimeout.Duration(),
 		},
 		r:      r,
 		logger: logger.GetLogger("HTTP", "Server"),

@@ -219,7 +219,7 @@ func TestWatch(t *testing.T) {
 
 	// modify value of key2
 	_ = b.Put(ctx, "/cluster1/controller/2", []byte("222"))
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 	cancel()
 	wg.Wait()
 
