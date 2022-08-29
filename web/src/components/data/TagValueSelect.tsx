@@ -16,14 +16,21 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { IconChevronDownStroked } from "@douyinfe/semi-icons";
-import { Form, Notification, useFormApi } from "@douyinfe/semi-ui";
+import {
+  Form,
+  Notification,
+  Tag,
+  Typography,
+  useFormApi,
+} from "@douyinfe/semi-ui";
 import { useWatchURLChange } from "@src/hooks";
 import { Variate, Metadata } from "@src/models";
 import { URLStore } from "@src/stores";
 import * as _ from "lodash-es";
 import React, { MutableRefObject, useRef, useState } from "react";
 import { exec } from "@src/services";
+
+const Text = Typography.Text;
 
 interface MetadataSelectProps {
   labelPosition?: "top" | "left" | "inset";
@@ -37,9 +44,6 @@ const TagValueSelect: React.FC<MetadataSelectProps> = (
   const { variate, placeholder, labelPosition, style } = props;
   const [optionList, setOptionList] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const oldVariate = useRef() as MutableRefObject<Variate>;
-  const loaded = useRef() as MutableRefObject<boolean>;
-  const where = useRef() as MutableRefObject<string>;
   const dropdownVisible = useRef() as MutableRefObject<boolean>;
   const formApi = useFormApi();
 
@@ -54,60 +58,26 @@ const TagValueSelect: React.FC<MetadataSelectProps> = (
       }
     }
   });
-  const triggerRender: React.FC<any> = ({ value }) => {
-    return (
-      <div
-        style={{
-          minWidth: "112",
-          backgroundColor: "var(--semi-color-fill-0)",
-          height: 32,
-          display: "flex",
-          alignItems: "center",
-          borderRadius: "var(--semi-border-radius-small)",
-          border: "1px solid transparent",
-          paddingLeft: 12,
-          // borderRadius: 3,
-          color: "var(--semi-color-text-0)",
-        }}
-      >
-        <div
-          style={{
-            fontWeight: 600,
-            flexShrink: 0,
-            fontSize: 14,
-            color: "var(--semi-color-secondary)",
-          }}
-        >
-          {variate.label}
-        </div>
-        <div
-          style={{
-            margin: 4,
-            whiteSpace: "nowrap",
-            textOverflow: "ellipsis",
-            flexGrow: 1,
-            fontSize: 12,
-            overflow: "hidden",
-          }}
-        >
-          {(value || []).map((item: any) => item.label).join(", ")}
-        </div>
-        <IconChevronDownStroked style={{ marginRight: 8, flexShrink: 0 }} />
-      </div>
+
+  const renderMultipleWithCustomTag = (optionNode: any, { onClose }: any) => {
+    const content = (
+      <Tag avatarShape="square" closable={true} onClose={onClose} size="large">
+        {optionNode.label}
+      </Tag>
     );
+    return {
+      isRenderInTag: false,
+      content,
+    };
   };
 
-  const fetchTagValues = async () => {
-    if (loaded.current && _.isEqual(oldVariate.current, variate)) {
-      // if data alread load, return it
-      return;
-    }
+  const fetchTagValues = async (prefix?: string) => {
     setLoading(true);
     try {
       let showTagValuesSQL = variate.sql;
 
-      if (where.current) {
-        showTagValuesSQL += where.current;
+      if (!_.isEmpty(prefix)) {
+        showTagValuesSQL += ` where ${variate.tagKey} like '${prefix}*'`;
       }
 
       const metadata = await exec<Metadata | string[]>({
@@ -120,8 +90,6 @@ const TagValueSelect: React.FC<MetadataSelectProps> = (
         optionList.push({ value: item, label: item });
       });
       setOptionList(optionList);
-      loaded.current = true; // set tag values alread loaded
-      oldVariate.current = variate;
     } catch (err) {
       Notification.error({
         title: "Fetch tag values error",
@@ -134,24 +102,38 @@ const TagValueSelect: React.FC<MetadataSelectProps> = (
       setLoading(false);
     }
   };
+
   const handleAfterSelect = () => {
     const clear = _.get(variate, "watch.clear", []);
     clear.forEach((key: string) => {
       formApi.setValue(key, null);
     });
   };
+
+  // lazy find metadata when user input.
+  const search = _.debounce(fetchTagValues, 200);
+
   return (
     <>
       <Form.Select
         style={style}
         multiple
         field={variate.tagKey}
+        label={
+          <Text link strong style={{ marginLeft: 4 }}>
+            {variate.tagKey}
+          </Text>
+        }
         placeholder={placeholder}
         optionList={optionList}
         labelPosition={labelPosition}
         showClear
-        triggerRender={triggerRender}
+        renderSelectedItem={renderMultipleWithCustomTag}
         filter
+        remote
+        onSearch={(input: string) => {
+          search(input);
+        }}
         onBlur={handleAfterSelect}
         onClear={handleAfterSelect}
         onDropdownVisibleChange={(val) => {
@@ -163,7 +145,7 @@ const TagValueSelect: React.FC<MetadataSelectProps> = (
           }
         }}
         loading={loading}
-        onFocus={fetchTagValues}
+        onFocus={() => fetchTagValues()}
       />
     </>
   );
