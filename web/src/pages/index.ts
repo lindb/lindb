@@ -25,6 +25,7 @@ export { default as DataExplore } from "@src/pages/search/DataExplore";
 export { default as DashboardView } from "@src/pages/monitoring/DashboardView";
 export { default as ReplicationView } from "@src/pages/monitoring/ReplicationView";
 export { default as LogView } from "@src/pages/monitoring/LogView";
+export { default as RequestView } from "@src/pages/monitoring/RequestView";
 export { default as StorageList } from "@src/pages/metadata/StorageList";
 export { default as StorageConfig } from "@src/pages/metadata/StorageConfig";
 export { default as DatabaseList } from "@src/pages/metadata/DatabaseList";

@@ -31,6 +31,14 @@ export type Node = {
   onlineTime?: string;
 };
 
+export type Request = {
+  broker: string;
+  requestId: string;
+  db: string;
+  sql: string;
+  start: number;
+};
+
 export enum ShardStateType {
   UnknownShard = 0,
   NewShard = 1,

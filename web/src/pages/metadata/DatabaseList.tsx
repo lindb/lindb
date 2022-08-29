@@ -56,7 +56,7 @@ export default function DatabaseList() {
       const list = await exec<Database[]>({ sql: "show schemas" });
       setDatabaseList(list || []);
     } catch (err) {
-      setError(err?.message);
+      setError(_.get(err, "message", "Unknown internal error"));
       setDatabaseList([]);
     } finally {
       setLoading(false);
