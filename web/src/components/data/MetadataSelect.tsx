@@ -88,7 +88,7 @@ const MetadataSelect: React.FC<MetadataSelectProps> = (
             targetSQL += ` where metric='${prefix}'`;
             break;
           case "tagValue":
-            whereClause = `${variate.tagKey}='${prefix}'`;
+            whereClause = `${variate.tagKey} like '${prefix}*'`;
             break;
         }
       }

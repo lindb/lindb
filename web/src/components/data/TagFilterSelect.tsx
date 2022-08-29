@@ -94,7 +94,7 @@ export default function TagFilterSelect(props: {
       }
     >
       <IconFilter
-        style={{ cursor: "pointer" }}
+        style={{ cursor: "pointer", width: 32 }}
         onClick={() => setVisible(true)}
       />
     </Popover>
