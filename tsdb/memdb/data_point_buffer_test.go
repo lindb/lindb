@@ -20,6 +20,7 @@ package memdb
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -112,28 +113,40 @@ func TestDataPointBuffer_AllocPage_err(t *testing.T) {
 func TestDataPointBuffer_Close_err(t *testing.T) {
 	path := "buf_close_err_test"
 	defer func() {
+		closeFileFunc = closeFile
 		removeFunc = fileutil.RemoveDir
-		assert.NoError(t, fileutil.RemoveDir(path))
+		unmapFunc = fileutil.Unmap
+		_ = fileutil.RemoveDir(path)
 	}()
-	buf, err := newDataPointBuffer(path)
+
+	// case 1: remove dir err
+	buf, err := newDataPointBuffer(filepath.Join(path, "case1"))
 	assert.NoError(t, err)
 	b, err := buf.AllocPage()
 	assert.NoError(t, err)
 	assert.NotNil(t, b)
 	buf.Release()
-	// case 1: remove dir err
 	removeFunc = func(path string) error {
+		_ = fileutil.RemoveDir(path)
 		return fmt.Errorf("err")
 	}
 	assert.NoError(t, buf.Close())
 
 	// case 2: unmap err
-	buf, err = newDataPointBuffer(path)
+	buf, err = newDataPointBuffer(filepath.Join(path, "case2"))
 	assert.NoError(t, err)
 	b, err = buf.AllocPage()
 	assert.NoError(t, err)
 	assert.NotNil(t, b)
 	buf.Release()
-	removeFunc = fileutil.RemoveDir
+	unmapFunc = func(f *os.File, data []byte) error {
+		_ = fileutil.Unmap(f, data)
+		return fmt.Errorf("unmap err")
+	}
+	closeFileFunc = func(f *os.File) error {
+		// windows need close file
+		_ = f.Close()
+		return fmt.Errorf("close file err")
+	}
 	assert.NoError(t, buf.Close())
 }

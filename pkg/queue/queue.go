@@ -143,10 +143,7 @@ func NewQueue(dirPath string, dataSizeLimit int64) (Queue, error) {
 
 	q.indexPageFct = indexPageFct
 
-	hasMeta := false
-	if fileutil.Exist(filepath.Join(dirPath, metaPath, fmt.Sprintf("%d.bat", metaPageIndex))) {
-		hasMeta = true
-	}
+	hasMeta := fileutil.Exist(filepath.Join(dirPath, metaPath, fmt.Sprintf("%d.bat", metaPageIndex)))
 
 	// init meta page factory
 	var metaPageFct page.Factory

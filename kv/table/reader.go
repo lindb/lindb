@@ -80,6 +80,9 @@ func newMMapStoreReader(path, fileName string) (r Reader, err error) {
 	data, err := mapFunc(f)
 	defer func() {
 		if err != nil && len(data) > 0 {
+			defer func() {
+				_ = f.Close()
+			}()
 			// if init err and map data exist, need unmap it
 			if e := unmapFunc(f, data); e != nil {
 				metrics.TableReadStatistics.UnMMapFailures.Incr()
@@ -192,9 +195,12 @@ func (r *storeMMapReader) Iterator() Iterator {
 
 // Close store reader, release resource
 func (r *storeMMapReader) Close() error {
+	defer func() {
+		_ = r.f.Close()
+	}()
 	r.entriesBlock = nil
-	err := fileutil.Unmap(r.f, r.fullBlock)
-	if err == nil {
+	err := unmapFunc(r.f, r.fullBlock)
+	if err != nil {
 		metrics.TableReadStatistics.UnMMapFailures.Incr()
 	} else {
 		metrics.TableReadStatistics.UnMMaps.Incr()

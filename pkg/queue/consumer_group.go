@@ -91,10 +91,7 @@ func NewConsumerGroup(parent, fanOutPath string, q FanOutQueue) (ConsumerGroup, 
 		}
 	}()
 
-	hasMeta := false
-	if existFunc(filepath.Join(name, fmt.Sprintf("%d.bat", metaPageIndex))) {
-		hasMeta = true
-	}
+	hasMeta := existFunc(filepath.Join(name, fmt.Sprintf("%d.bat", metaPageIndex)))
 
 	metaPage, err := metaPageFct.AcquirePage(metaPageIndex)
 	if err != nil {
