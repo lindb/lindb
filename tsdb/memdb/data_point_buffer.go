@@ -31,11 +31,14 @@ import (
 
 //go:generate mockgen -source ./data_point_buffer.go -destination=./data_point_buffer_mock.go -package memdb
 
+// for testing
 var (
-	mkdirFunc    = fileutil.MkDirIfNotExist
-	mapFunc      = fileutil.RWMap
-	removeFunc   = fileutil.RemoveDir
-	openFileFunc = os.OpenFile
+	closeFileFunc = closeFile
+	mkdirFunc     = fileutil.MkDirIfNotExist
+	mapFunc       = fileutil.RWMap
+	unmapFunc     = fileutil.Unmap
+	removeFunc    = fileutil.RemoveDir
+	openFileFunc  = os.OpenFile
 )
 
 const (
@@ -125,4 +128,25 @@ func (d *dataPointBuffer) Close() error {
 			logger.String("file", d.path), logger.Error(err))
 	}
 	return nil
+}
+
+// closeBuffer just closes file for unix.
+func (d *dataPointBuffer) closeBuffer() {
+	for i, buf := range d.buf {
+		if err := unmapFunc(d.files[i], buf); err != nil {
+			memDBLogger.Error("unmap file in memory database err",
+				logger.String("file", d.path), logger.Error(err))
+		}
+	}
+	for _, f := range d.files {
+		if err := closeFileFunc(f); err != nil {
+			memDBLogger.Error("close file in memory database err",
+				logger.String("file", d.path), logger.Error(err))
+		}
+	}
+}
+
+// closeFile closes file.
+func closeFile(f *os.File) error {
+	return f.Close()
 }
