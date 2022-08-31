@@ -39,8 +39,14 @@ export type ExplainResult = {
   totalCost: number;
   netPayload: number;
   planCost: number;
+  planStart: number;
+  planEnd: number;
   expressCost: number;
+  expressStart: number;
+  expressEnd: number;
   waitCost: number;
+  waitStart: number;
+  waitEnd: number;
   start: number;
   end: number;
   leafNodes: { [propName: string]: LeafNodeStats };

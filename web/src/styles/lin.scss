@@ -66,10 +66,11 @@
 }
 
 .lin-explain-timeline {
-	.semi-progress-track-inner {
-		border-radius: 0px;
-	}
-	.semi-progress-track {
-		background-color: unset !important;
+    height: 14px;
+    width: 100px;
+    border: 1px solid var(--semi-color-fill-2);
+	.inner {
+		height: 12px;
+		min-width: 1px;
 	}
 }
