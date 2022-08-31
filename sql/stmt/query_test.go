@@ -49,7 +49,6 @@ func TestQuery_Marshal(t *testing.T) {
 				},
 			},
 		},
-		FieldNames: []string{"a", "b", "c"},
 		Condition: &BinaryExpr{
 			Left: &ParenExpr{Expr: &BinaryExpr{
 				Left:     &InExpr{Key: "ip", Values: []string{"1.1.1.1", "2.2.2.2"}},
@@ -66,7 +65,14 @@ func TestQuery_Marshal(t *testing.T) {
 		TimeRange: timeutil.TimeRange{Start: 10, End: 30},
 		Interval:  1000,
 		GroupBy:   []string{"a", "b", "c"},
-		Limit:     100,
+		OrderByItems: []Expr{
+			&FieldExpr{Name: "b"},
+			&CallExpr{
+				FuncType: function.Max,
+				Params:   []Expr{&FieldExpr{Name: "c"}},
+			},
+		},
+		Limit: 100,
 	}
 
 	data := encoding.JSONMarshal(&query)
@@ -80,11 +86,13 @@ func TestQuery_Marshal(t *testing.T) {
 func TestQuery_Marshal_Fail(t *testing.T) {
 	query := &Query{}
 	err := query.UnmarshalJSON([]byte{1, 2, 3})
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 	err = query.UnmarshalJSON([]byte("{\"condition\":\"123\"}"))
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 	err = query.UnmarshalJSON([]byte("{\"selectItems\":[\"123\"]}"))
-	assert.NotNil(t, err)
+	assert.Error(t, err)
+	err = query.UnmarshalJSON([]byte("{\"orderByItems\":[\"123\"]}"))
+	assert.Error(t, err)
 }
 
 func TestQuery_StatementType(t *testing.T) {

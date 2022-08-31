@@ -36,3 +36,9 @@ func TestFuncTypeString(t *testing.T) {
 	assert.Equal(t, "rate", Rate.String())
 	assert.Equal(t, "unknown", Unknown.String())
 }
+
+func TestIsSupportOrderBy(t *testing.T) {
+	assert.True(t, IsSupportOrderBy(Max))
+	assert.False(t, IsSupportOrderBy(Quantile))
+	assert.False(t, IsSupportOrderBy(Unknown))
+}

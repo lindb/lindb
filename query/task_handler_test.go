@@ -86,4 +86,5 @@ func TestTaskHandler_dispatch(t *testing.T) {
 			metrics.NewConcurrentStatistics("test", linmetric.BrokerRegistry)))
 	// test process panic
 	handler.process(context.Background(), nil, nil)
+	time.Sleep(300 * time.Millisecond)
 }

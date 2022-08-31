@@ -15,6 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package stmt
 
 import (
@@ -27,6 +42,27 @@ import (
 )
 
 //go:generate mockgen -source ./expr.go -destination=./expr_mock.go -package=stmt
+
+// OrderByExpr represents order by expr item.
+type OrderByExpr struct {
+	Expr Expr // support field name/function for select field item.
+	Desc bool
+}
+
+// Rewrite rewrites the order by expr after parse
+func (e *OrderByExpr) Rewrite() string {
+	sort := "asc"
+	if e.Desc {
+		sort = "desc"
+	}
+	return fmt.Sprintf("%s %s", e.Expr.Rewrite(), sort)
+}
+
+// innerOrderByExpr represents inner wrapper of order by for json marshal
+type innerOrderByExpr struct {
+	exprData
+	Desc bool `json:"desc"`
+}
 
 // exprData represents inner wrapper of expr for json marshal
 type exprData struct {
@@ -220,6 +256,15 @@ func Marshal(expr Expr) []byte {
 			Alias: e.Alias,
 		}
 		return encoding.JSONMarshal(&inner)
+	case *OrderByExpr:
+		inner := innerOrderByExpr{
+			exprData: exprData{
+				Type: "orderBy",
+				Expr: Marshal(e.Expr),
+			},
+			Desc: e.Desc,
+		}
+		return encoding.JSONMarshal(&inner)
 	case *CallExpr:
 		inner := innerCallExpr{
 			Type:     "call",
@@ -272,6 +317,8 @@ func Unmarshal(value []byte) (Expr, error) {
 		return unmarshalBinary(value)
 	case "selectItem":
 		return unmarshalSelectItem(value)
+	case "orderBy":
+		return unmarshalOrderByExpr(value)
 	case "call":
 		return unmarshalCall(value)
 	case "not":
@@ -315,6 +362,20 @@ func unmarshalSelectItem(value []byte) (Expr, error) {
 		return nil, err
 	}
 	return &SelectItem{Alias: innerExpr.Alias, Expr: e}, nil
+}
+
+// unmarshalOrderByExpr parses value to order by expr
+func unmarshalOrderByExpr(value []byte) (Expr, error) {
+	innerExpr := innerOrderByExpr{}
+	err := encoding.JSONUnmarshal(value, &innerExpr)
+	if err != nil {
+		return nil, err
+	}
+	e, err := Unmarshal(innerExpr.Expr)
+	if err != nil {
+		return nil, err
+	}
+	return &OrderByExpr{Expr: e, Desc: innerExpr.Desc}, nil
 }
 
 // unmarshalBinary parses value to binary expr

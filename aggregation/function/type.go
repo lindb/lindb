@@ -21,7 +21,8 @@ package function
 type FuncType int
 
 const (
-	Sum FuncType = iota + 1
+	Unknown FuncType = iota
+	Sum
 	Min
 	Max
 	Count
@@ -31,8 +32,6 @@ const (
 	Quantile
 	Stddev
 	Rate
-
-	Unknown
 )
 
 // String return the function's name
@@ -61,4 +60,9 @@ func (t FuncType) String() string {
 	default:
 		return "unknown"
 	}
+}
+
+// IsSupportOrderBy checks if function support order by.
+func IsSupportOrderBy(t FuncType) bool {
+	return t == Sum || t == Min || t == Max || t == Count || t == Avg || t == Last || t == First || t == Stddev
 }

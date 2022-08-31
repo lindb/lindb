@@ -118,8 +118,7 @@ func TestSingleSelectItem(t *testing.T) {
 	sql = "select f,a,sum(d),avg(a) as f1 from cpu"
 	q, _ = Parse(sql)
 	query = q.(*stmt.Query)
-	assert.Len(t, query.FieldNames, 3)
-	assert.Equal(t, []string{"a", "d", "f"}, query.FieldNames)
+	assert.Len(t, query.SelectItems, 4)
 }
 
 func TestSelectFuncItem(t *testing.T) {
@@ -566,4 +565,105 @@ func TestTagFilterBinary(t *testing.T) {
 				Right:    &stmt.EqualsExpr{Key: "path", Value: "/home"},
 			}},
 		}, *expr)
+}
+
+func TestOrderBy(t *testing.T) {
+	cases := []struct {
+		name    string
+		sql     string
+		rs      []stmt.Expr
+		wantErr bool
+	}{
+		{
+			name: "no order by",
+			sql:  "select f from cpu",
+		},
+		{
+			name:    "order by field no in select list",
+			sql:     "select f from cpu order by b",
+			wantErr: true,
+		},
+		{
+			name:    "order by field not in select list",
+			sql:     "select ff from cpu order by f desc",
+			wantErr: true,
+		},
+		{
+			name:    "function not support",
+			sql:     "select ff from cpu order by quantile(f,0.99) desc",
+			wantErr: true,
+		},
+		{
+			name:    "function param not support function, not in select list",
+			sql:     "select ff from cpu order by max(min(f)) desc",
+			wantErr: true,
+		},
+		{
+			name: "function param support function, in select list",
+			sql:  "select min(f) from cpu order by max(min(f)) desc",
+			rs: []stmt.Expr{&stmt.OrderByExpr{
+				Desc: true,
+				Expr: &stmt.CallExpr{
+					FuncType: function.Max,
+					Params: []stmt.Expr{
+						&stmt.CallExpr{
+							FuncType: function.Min,
+							Params:   []stmt.Expr{&stmt.FieldExpr{Name: "f"}},
+						},
+					},
+				},
+			}},
+		},
+		{
+			name: "order by field asc",
+			sql:  "select f from cpu order by f",
+			rs:   []stmt.Expr{&stmt.OrderByExpr{Expr: &stmt.FieldExpr{Name: "f"}}},
+		},
+		{
+			name: "order by field asc with func",
+			sql:  "select f from cpu order by max(f)",
+			rs: []stmt.Expr{&stmt.OrderByExpr{
+				Expr: &stmt.CallExpr{FuncType: function.Max, Params: []stmt.Expr{&stmt.FieldExpr{Name: "f"}}},
+			}},
+		},
+		{
+			name: "order by field desc",
+			sql:  "select f from cpu order by f desc",
+			rs:   []stmt.Expr{&stmt.OrderByExpr{Expr: &stmt.FieldExpr{Name: "f"}, Desc: true}},
+		},
+		{
+			name: "order by field desc(alias)",
+			sql:  "select ff from cpu order by ff desc",
+			rs:   []stmt.Expr{&stmt.OrderByExpr{Expr: &stmt.FieldExpr{Name: "ff"}, Desc: true}},
+		},
+		{
+			name: "order by multi-field desc(alias)",
+			sql:  "select f as ff,bb from cpu order by bb,ff desc",
+			rs: []stmt.Expr{
+				&stmt.OrderByExpr{Expr: &stmt.FieldExpr{Name: "bb"}, Desc: false},
+				&stmt.OrderByExpr{Expr: &stmt.FieldExpr{Name: "ff"}, Desc: true},
+			},
+		},
+		{
+			name: "order by multi-field desc(alias) with func",
+			sql:  "select min(f) as ff,bb from cpu order by bb,max(ff) desc",
+			rs: []stmt.Expr{
+				&stmt.OrderByExpr{Expr: &stmt.FieldExpr{Name: "bb"}, Desc: false},
+				&stmt.OrderByExpr{Expr: &stmt.CallExpr{FuncType: function.Max, Params: []stmt.Expr{&stmt.FieldExpr{Name: "ff"}}}, Desc: true},
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			q, err := Parse(tt.sql)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				query := q.(*stmt.Query)
+				assert.Equal(t, tt.rs, query.OrderByItems)
+			}
+		})
+	}
 }

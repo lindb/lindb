@@ -226,6 +226,26 @@ func (t Type) GetDefaultFuncFieldParams() []AggType {
 	return nil
 }
 
+// GetOrderByFunc returns the order by function.
+func (t Type) GetOrderByFunc() function.FuncType {
+	switch t {
+	case SumField:
+		return function.Sum
+	case MinField:
+		return function.Min
+	case MaxField:
+		return function.Max
+	case LastField:
+		return function.Last
+	case FirstField:
+		return function.First
+	case HistogramField:
+		return function.Stddev
+	default:
+		return function.Stddev
+	}
+}
+
 func getFieldParamsForSumField(funcType function.FuncType) []AggType {
 	switch funcType {
 	case function.Max:

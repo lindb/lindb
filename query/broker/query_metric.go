@@ -19,19 +19,28 @@ package brokerquery
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"sort"
 	"time"
 
 	"github.com/lindb/lindb/aggregation"
+	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
+)
+
+// for testing
+var (
+	newExpressionFn = aggregation.NewExpression
+	newBrokerPlanFn = newBrokerPlan
 )
 
 // metricQuery implements MetricQuery.
@@ -45,9 +54,8 @@ type metricQuery struct {
 	startTime   time.Time
 	endPlanTime time.Time
 
-	stmtQuery  *stmt.Query
-	plan       *brokerPlan
-	expression *aggregation.Expression
+	stmtQuery *stmt.Query
+	plan      *brokerPlan
 }
 
 // newMetricQuery creates the execution which executes the job of parallel query.
@@ -87,7 +95,7 @@ func (mq *metricQuery) makePlan() error {
 	}
 	brokerNodes := mq.queryFactory.stateMgr.GetLiveNodes()
 
-	mq.plan = newBrokerPlan(
+	mq.plan = newBrokerPlanFn(
 		mq.stmtQuery,
 		databaseCfg,
 		storageNodes,
@@ -101,11 +109,6 @@ func (mq *metricQuery) makePlan() error {
 	mq.startTime = startTime
 	mq.plan.physicalPlan.Database = mq.database
 	mq.stmtQuery = mq.plan.query
-	mq.expression = aggregation.NewExpression(
-		mq.plan.query.TimeRange,
-		mq.plan.query.Interval.Int64(),
-		mq.plan.query.SelectItems,
-	)
 	return nil
 }
 
@@ -140,23 +143,83 @@ func (mq *metricQuery) WaitResponse() (*models.ResultSet, error) {
 	case <-mq.ctx.Done():
 		return nil, ErrTimeout
 	}
-
-	return mq.makeResultSet(event), nil
+	return mq.makeResultSet(event)
 }
 
-func (mq *metricQuery) makeResultSet(event *series.TimeSeriesEvent) (resultSet *models.ResultSet) {
+// buildOrderBy builds order by container.
+func (mq *metricQuery) buildOrderBy(event *series.TimeSeriesEvent) (aggregation.OrderBy, error) {
+	// build order by items if need do order by query
+	orderByExprs := mq.stmtQuery.OrderByItems
+	if len(orderByExprs) == 0 {
+		// use default limiter
+		return aggregation.NewResultLimiter(mq.stmtQuery.Limit), nil
+	}
+	var orderByItems []*aggregation.OrderByItem
+	fields := event.AggregatorSpecs
+	for _, orderBy := range orderByExprs {
+		expr := orderBy.(*stmt.OrderByExpr)
+		funcType := function.Unknown
+		var fieldName string
+		switch e := expr.Expr.(type) {
+		case *stmt.FieldExpr:
+			aggSpec, ok := fields[e.Name]
+			if ok {
+				funcType = field.Type(aggSpec.FieldType).GetOrderByFunc()
+				fieldName = e.Name
+			}
+		case *stmt.CallExpr:
+			funcType = e.FuncType
+			fieldName = e.Params[0].Rewrite()
+		}
+		if funcType == function.Unknown {
+			return nil, errors.New("cannot parse order by function")
+		}
+		orderByItems = append(orderByItems, &aggregation.OrderByItem{
+			Expr:     expr,
+			Name:     fieldName,
+			FuncType: funcType,
+			Desc:     expr.Desc,
+		})
+	}
+	return aggregation.NewTopNOrderBy(orderByItems, mq.stmtQuery.Limit), nil
+}
+
+// makeResultSet makes final result set from time series event(GroupedIterators).
+// TODO: can opt use stream, leaf node need return grouping if completed.
+func (mq *metricQuery) makeResultSet(event *series.TimeSeriesEvent) (resultSet *models.ResultSet, err error) {
 	makeResultStartTime := time.Now()
+
+	orderBy, err := mq.buildOrderBy(event)
+	if err != nil {
+		return nil, err
+	}
 
 	resultSet = new(models.ResultSet)
 	// TODO: merge stats for cross idc query?
 	groupByKeys := mq.stmtQuery.GroupBy
 	groupByKeysLength := len(groupByKeys)
 	fieldsMap := make(map[string]struct{})
+
+	queryStmt := mq.stmtQuery
 	for _, ts := range event.SeriesList {
+		// TODO: reuse expression??
+		expression := newExpressionFn(
+			queryStmt.TimeRange,
+			queryStmt.Interval.Int64(),
+			queryStmt.SelectItems,
+		)
+		// do expression eval
+		expression.Eval(ts)
+
+		// result order by/limit
+		orderBy.Push(aggregation.NewOrderByRow(ts.Tags(), expression.ResultSet()))
+	}
+
+	rows := orderBy.ResultSet()
+	for _, row := range rows {
 		var tags map[string]string
-		var tagValues string
+		tagValues, fields := row.ResultSet()
 		if groupByKeysLength > 0 {
-			tagValues = ts.Tags()
 			tagValues := tag.SplitTagValues(tagValues)
 			if groupByKeysLength != len(tagValues) {
 				// if tag values not match group by tag keys, ignore this time series
@@ -170,12 +233,11 @@ func (mq *metricQuery) makeResultSet(event *series.TimeSeriesEvent) (resultSet *
 		}
 		timeSeries := models.NewSeries(tags, tagValues)
 		resultSet.AddSeries(timeSeries)
-		mq.expression.Eval(ts)
-		rs := mq.expression.ResultSet()
-		for fieldName, values := range rs {
+		for fieldName, values := range fields {
 			if values == nil {
 				continue
 			}
+
 			points := models.NewPoints()
 			it := values.NewIterator()
 			for it.HasNext() {
@@ -189,7 +251,6 @@ func (mq *metricQuery) makeResultSet(event *series.TimeSeriesEvent) (resultSet *
 			timeSeries.AddField(fieldName, points)
 			fieldsMap[fieldName] = struct{}{}
 		}
-		mq.expression.Reset()
 	}
 
 	sort.Slice(resultSet.Series, func(i, j int) bool {
@@ -222,5 +283,5 @@ func (mq *metricQuery) makeResultSet(event *series.TimeSeriesEvent) (resultSet *
 		resultSet.Stats.Start = mq.startTime.UnixNano()
 		resultSet.Stats.End = now.UnixNano()
 	}
-	return resultSet
+	return resultSet, nil
 }

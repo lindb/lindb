@@ -355,6 +355,20 @@ func (l *listener) EnterGroupByKey(ctx *grammar.GroupByKeyContext) {
 	}
 }
 
+// EnterSortField is called when production sortField is entered.
+func (l *listener) EnterSortField(ctx *grammar.SortFieldContext) {
+	if l.queryStmt != nil {
+		l.queryStmt.visitSortField(ctx)
+	}
+}
+
+// ExitSortField is called when production sortField is exited.
+func (l *listener) ExitSortField(ctx *grammar.SortFieldContext) {
+	if l.queryStmt != nil {
+		l.queryStmt.completeSortField(ctx)
+	}
+}
+
 // statement returns query statement, if failure return error
 func (l *listener) statement() (stmt.Statement, error) {
 	switch {
