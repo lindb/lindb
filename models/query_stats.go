@@ -77,16 +77,22 @@ type Stats struct {
 
 // QueryStats represents the query stats when need explain query flow stat
 type QueryStats struct {
-	Root        string                    `json:"root"`
-	BrokerNodes map[string]*QueryStats    `json:"brokerNodes,omitempty"`
-	LeafNodes   map[string]*LeafNodeStats `json:"leafNodes,omitempty"`
-	NetPayload  int64                     `json:"netPayload"`
-	PlanCost    int64                     `json:"planCost,omitempty"`
-	WaitCost    int64                     `json:"waitCost,omitempty"` // wait intermediate or leaf response duration
-	ExpressCost int64                     `json:"expressCost,omitempty"`
-	TotalCost   int64                     `json:"totalCost,omitempty"` // total query cost
-	Start       int64                     `json:"start"`
-	End         int64                     `json:"end"`
+	Root         string                    `json:"root"`
+	BrokerNodes  map[string]*QueryStats    `json:"brokerNodes,omitempty"`
+	LeafNodes    map[string]*LeafNodeStats `json:"leafNodes,omitempty"`
+	NetPayload   int64                     `json:"netPayload"`
+	PlanCost     int64                     `json:"planCost,omitempty"`
+	PlanStart    int64                     `json:"planStart,omitempty"`
+	PlanEnd      int64                     `json:"planEnd,omitempty"`
+	WaitCost     int64                     `json:"waitCost,omitempty"` // wait intermediate or leaf response duration
+	WaitStart    int64                     `json:"waitStart,omitempty"`
+	WaitEnd      int64                     `json:"waitEnd,omitempty"`
+	ExpressCost  int64                     `json:"expressCost,omitempty"`
+	ExpressStart int64                     `json:"expressStart,omitempty"`
+	ExpressEnd   int64                     `json:"expressEnd,omitempty"`
+	TotalCost    int64                     `json:"totalCost,omitempty"` // total query cost
+	Start        int64                     `json:"start"`
+	End          int64                     `json:"end"`
 }
 
 // NewQueryStats creates the query stats

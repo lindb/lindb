@@ -35,7 +35,7 @@ import {
 import { ChartStore } from "@src/stores";
 import { formatter } from "@src/utils";
 import { reaction } from "mobx";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, MutableRefObject } from "react";
 import * as _ from "lodash-es";
 const Text = Typography.Text;
 
@@ -43,26 +43,69 @@ interface ExplainStatsViewProps {
   chartId: string;
 }
 
+type totalStats = {
+  total: number;
+  start: number;
+  end: number;
+};
+
+type stats = {
+  start: number;
+  end: Number;
+  cost: number;
+};
+
 const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
   props: ExplainStatsViewProps
 ) => {
   const { chartId } = props;
   const [state, setState] = useState<ExplainResult>();
+  const totalStats = useRef() as MutableRefObject<totalStats>;
 
-  const renderCost = (cost: any, total: any) => {
-    const percent = (cost * 100.0) / total;
+  const getColor = (percent: number) => {
     let type: any = "success";
     if (percent > 50) {
       type = "danger";
     } else if (percent > 30) {
       type = "warning";
     }
+    return type;
+  };
+
+  const timeline = (stats: stats, color?: string) => {
+    const totalS = totalStats.current;
+    const percent = (stats.cost * 100) / totalS.total;
+    const offset = ((stats.start - totalS.start) * 100) / totalS.total;
+    const background = color ? color : getColor(percent);
+    return (
+      <>
+        <div className="lin-explain-timeline">
+          <div
+            className="inner"
+            style={{
+              backgroundColor: `var(--semi-color-${background})`,
+              width: `${percent}%`,
+              marginLeft: `calc(${offset}%)`,
+            }}
+          ></div>
+        </div>
+      </>
+    );
+  };
+  const style = {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  };
+
+  const renderCost = (cost: any) => {
+    const percent = (cost * 100.0) / totalStats.current.total;
+    let type: any = getColor(percent);
     return <Text type={type}>{formatter(cost, UnitEnum.Nanoseconds)}</Text>;
   };
 
   const buildOperatorStats = (
     parent: string,
-    total: number,
     operators: OperatorStats[]
   ): any[] => {
     const children: any[] = [];
@@ -70,10 +113,17 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
       const key = `${`${parent}-Leaf-Stage-Operator-${item.identifier}-${idx}`}`;
       const operatorNode = {
         label: (
-          <span>
-            <Text strong>{item.identifier}</Text>: [ Cost:{" "}
-            {renderCost(item.cost, total)} ]
-          </span>
+          <div style={style}>
+            <span>
+              <Text strong>{item.identifier}</Text>: [ Cost:{" "}
+              {renderCost(item.cost)} ]
+            </span>
+            {timeline({
+              start: item.start,
+              end: item.end,
+              cost: item.cost,
+            })}
+          </div>
         ),
         key: key,
         icon: <IconFixedStroked />,
@@ -96,11 +146,14 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
       const key = `${`${parent}-Leaf-Stage-${item.identifier}-${idx}`}`;
       const stageNode = {
         label: (
-          <span>
-            <Text strong>{item.identifier}</Text>: [{" "}
-            {item.async && <Text type="success">Async</Text>} Cost:{" "}
-            {renderCost(item.cost, total)} ]
-          </span>
+          <div style={style}>
+            <span>
+              <Text strong>{item.identifier}</Text>: [{" "}
+              {item.async && <Text type="success">Async</Text>} Cost:{" "}
+              {renderCost(item.cost)} ]
+            </span>
+            {timeline({ start: item.start, end: item.end, cost: item.cost })}
+          </div>
         ),
         key: key,
         icon: <IconShareStroked />,
@@ -108,9 +161,7 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
       };
       children.push(stageNode);
       if (!_.isEmpty(item.operators)) {
-        stageNode.children.push(
-          ...buildOperatorStats(key, total, item.operators)
-        );
+        stageNode.children.push(...buildOperatorStats(key, item.operators));
       }
 
       if (!_.isEmpty(item.children)) {
@@ -128,22 +179,28 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
 
       let nodeStats = {
         label: (
-          <span>
-            <Text strong>
-              Leaf[
-              <Text strong link>
-                {key}
+          <div style={style}>
+            <span>
+              <Text strong>
+                Leaf[
+                <Text strong link>
+                  {key}
+                </Text>
+                ]
               </Text>
+              : [ Cost: {renderCost(leafNodeStats.totalCost)}, Network Payload:{" "}
+              <Text link>
+                {" "}
+                {formatter(leafNodeStats.netPayload, UnitEnum.Bytes)}
+              </Text>{" "}
               ]
-            </Text>
-            : [ Cost: {renderCost(leafNodeStats.totalCost, total)}, Network
-            Payload:{" "}
-            <Text link>
-              {" "}
-              {formatter(leafNodeStats.netPayload, UnitEnum.Bytes)}
-            </Text>{" "}
-            ]
-          </span>
+            </span>
+            {timeline({
+              start: leafNodeStats.start,
+              end: leafNodeStats.end,
+              cost: leafNodeStats.totalCost,
+            })}
+          </div>
         ),
         key: nKey,
         icon: <IconServerStroked />,
@@ -165,18 +222,21 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
       const brokerNodeStats = brokerNodes[key];
       const nodeStats = {
         label: (
-          <span>
-            <Text strong link>
-              {key}
-            </Text>
-            : [ Waiting: {renderCost(brokerNodeStats.waitCost, total)}, Cost:{" "}
-            {renderCost(brokerNodeStats.totalCost, total)}, Network Payload:{" "}
-            <Text link>
-              {" "}
-              {formatter(brokerNodeStats.netPayload, UnitEnum.Bytes)})
-            </Text>{" "}
-            ]
-          </span>
+          <div style={style}>
+            <span>
+              <Text strong link>
+                {key}
+              </Text>
+              : [ Waiting: {renderCost(brokerNodeStats.waitCost)}, Cost:{" "}
+              {renderCost(brokerNodeStats.totalCost)}, Network Payload:{" "}
+              <Text link>
+                {" "}
+                {formatter(brokerNodeStats.netPayload, UnitEnum.Bytes)})
+              </Text>{" "}
+              ]
+            </span>
+            {timeline}
+          </div>
         ),
         icon: <IconTemplateStroked />,
         key: `Intermediate-${key}`,
@@ -196,49 +256,84 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
     if (!state) {
       return [];
     }
+    totalStats.current = {
+      total: state.totalCost,
+      start: state.start,
+      end: state.end,
+    };
     let root = {
       label: (
-        <>
-          <Text strong>
-            Root[
-            <Text strong link>
-              {state.root}
+        <div style={style}>
+          <span>
+            <Text strong>
+              Root[
+              <Text strong link>
+                {state.root}
+              </Text>
+              ]
             </Text>
-            ]
-          </Text>
-          : [ Cost:{" "}
-          <Text link>{formatter(state.totalCost, UnitEnum.Nanoseconds)}</Text>,
-          Network Payload:{" "}
-          <Text link>{formatter(state.netPayload, UnitEnum.Bytes)}</Text> ]
-        </>
+            : [ Cost:{" "}
+            <Text link>{formatter(state.totalCost, UnitEnum.Nanoseconds)}</Text>
+            , Network Payload:{" "}
+            <Text link>{formatter(state.netPayload, UnitEnum.Bytes)}</Text> ]
+          </span>
+          {timeline(
+            {
+              start: state.start,
+              end: state.end,
+              cost: state.totalCost,
+            },
+            "success"
+          )}
+        </div>
       ),
       key: "Root",
       icon: <IconServerStroked />,
       children: [
         {
           label: (
-            <span>
-              <Text strong>Execute Plan</Text> :{" "}
-              {renderCost(state.planCost, state.totalCost)}
-            </span>
+            <div style={style}>
+              <span>
+                <Text strong>Execute Plan</Text> : {renderCost(state.planCost)}
+              </span>
+              {timeline({
+                start: state.planStart,
+                end: state.planEnd,
+                cost: state.planCost,
+              })}
+            </div>
           ),
           key: "Execute Plan",
         },
         {
           label: (
-            <span>
-              <Text strong>Waiting Response</Text>:{" "}
-              {renderCost(state.waitCost, state.totalCost)}
-            </span>
+            <div style={style}>
+              <span>
+                <Text strong>Waiting Response</Text>:{" "}
+                {renderCost(state.waitCost)}
+              </span>
+              {timeline({
+                start: state.waitStart,
+                end: state.waitEnd,
+                cost: state.waitCost,
+              })}
+            </div>
           ),
           key: "Waiting Intermediate Response",
         },
         {
           label: (
-            <span>
-              <Text strong>Expression Eval</Text>:{" "}
-              {renderCost(state.expressCost, state.totalCost)}
-            </span>
+            <div style={style}>
+              <span>
+                <Text strong>Expression Eval</Text>:{" "}
+                {renderCost(state.expressCost)}
+              </span>
+              {timeline({
+                start: state.expressStart,
+                end: state.expressEnd,
+                cost: state.expressCost,
+              })}
+            </div>
           ),
           key: "Expression Eval",
         },

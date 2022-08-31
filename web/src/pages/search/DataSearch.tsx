@@ -101,10 +101,10 @@ export default function DataSearch() {
     if (sqlEditorRef.current && !sqlEditor.current) {
       // if editor not init, create it
       monaco.languages.registerCompletionItemProvider("sql", {
-        provideCompletionItems: function (model, position) {
+        provideCompletionItems: function(_model, _position) {
           // find out if we are completing a property in the 'dependencies' object.
           let suggestions: any[] = [];
-          let word = model.getWordUntilPosition(position);
+          // let word = model.getWordUntilPosition(position);
           suggestions.push({
             label: "select",
             kind: monaco.languages.CompletionItemKind.Property,
@@ -123,9 +123,14 @@ export default function DataSearch() {
           top: 8,
           bottom: 8,
         },
+        automaticLayout: true,
         // lineNumbers: "off",
         theme: "lindb",
         fontSize: 14,
+        lineNumbers: "off",
+        minimap: { enabled: false },
+        wordWrap: "on",
+        wrappingIndent: "same",
       });
     }
     if (isDataSearch(sql)) {
