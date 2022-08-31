@@ -62,6 +62,9 @@ func TestExpr_Rewrite(t *testing.T) {
 	assert.Equal(t, "tagKey in ()", (&InExpr{Key: "tagKey"}).Rewrite())
 
 	assert.Equal(t, "tagKey=~Regexp", (&RegexExpr{Key: "tagKey", Regexp: "Regexp"}).Rewrite())
+
+	assert.Equal(t, "f desc", (&OrderByExpr{Expr: &FieldExpr{Name: "f"}, Desc: true}).Rewrite())
+	assert.Equal(t, "max(f) asc", (&OrderByExpr{Expr: &CallExpr{FuncType: function.Max, Params: []Expr{&FieldExpr{Name: "f"}}}}).Rewrite())
 }
 
 func TestTagFilter(t *testing.T) {
@@ -96,6 +99,10 @@ func TestExpr_Unmarshal_Fail(t *testing.T) {
 	_, err = unmarshalSelectItem([]byte("324"))
 	assert.NotNil(t, err)
 	_, err = unmarshalSelectItem([]byte("{\"type\":\"selectItem\",\"expr\":[\"213\"]}"))
+	assert.NotNil(t, err)
+	_, err = unmarshalOrderByExpr([]byte("324"))
+	assert.NotNil(t, err)
+	_, err = unmarshalOrderByExpr([]byte("{\"type\":\"orderBy\",\"expr\":[\"213\"]}"))
 	assert.NotNil(t, err)
 	_, err = unmarshalBinary([]byte("123"))
 	assert.NotNil(t, err)
@@ -167,20 +174,35 @@ func TestSelectItem_Marshal(t *testing.T) {
 	expr := &SelectItem{Expr: &FieldExpr{Name: "f"}, Alias: "f1"}
 	data := Marshal(expr)
 	exprData, err := Unmarshal(data)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	e := exprData.(*SelectItem)
 	assert.Equal(t, *expr, *e)
+}
+
+func TestOrderByExpr_Marshal(t *testing.T) {
+	t.Run("sample", func(t *testing.T) {
+		expr := &OrderByExpr{Expr: &FieldExpr{Name: "f"}, Desc: true}
+		data := Marshal(expr)
+		exprData, err := Unmarshal(data)
+		assert.NoError(t, err)
+		e := exprData.(*OrderByExpr)
+		assert.Equal(t, *expr, *e)
+	})
+	t.Run("order by with func", func(t *testing.T) {
+		expr := &OrderByExpr{Expr: &CallExpr{FuncType: function.Sum, Params: []Expr{&FieldExpr{Name: "f"}}}}
+		data := Marshal(expr)
+		exprData, err := Unmarshal(data)
+		assert.NoError(t, err)
+		e := exprData.(*OrderByExpr)
+		assert.Equal(t, *expr, *e)
+	})
 }
 
 func TestCallExpr_Marshal(t *testing.T) {
 	expr := &CallExpr{FuncType: function.Sum, Params: []Expr{&FieldExpr{Name: "f"}}}
 	data := Marshal(expr)
 	exprData, err := Unmarshal(data)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	e := exprData.(*CallExpr)
 	assert.Equal(t, *expr, *e)
 }
@@ -194,9 +216,7 @@ func TestParenExpr_Marshal(t *testing.T) {
 		}}
 	data := Marshal(expr)
 	exprData, err := Unmarshal(data)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	e := exprData.(*ParenExpr)
 	assert.Equal(t, *expr, *e)
 }

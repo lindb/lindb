@@ -40,13 +40,10 @@ func newMin(fieldName string) *BoundMin {
 // Update updates Min with a new value
 // Skip updating when newValue is biger than v
 func (m *BoundMin) Update(newValue float64) {
-	if m.value.Load() <= newValue {
-		return
-	}
 	for {
 		v := m.value.Load()
 		if newValue > v {
-			break
+			return
 		}
 		if m.value.CAS(v, newValue) {
 			return

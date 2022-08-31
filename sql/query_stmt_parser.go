@@ -18,8 +18,8 @@
 package sql
 
 import (
+	"errors"
 	"fmt"
-	"sort"
 	"strconv"
 
 	commonconstants "github.com/lindb/common/constants"
@@ -38,14 +38,17 @@ type queryStmtParser struct {
 	explain bool
 
 	selectItems []stmt.Expr
-	fieldNames  map[string]struct{}
+	fieldNames  map[string]struct{} // cache field name include alias
 
 	startTime int64
 	endTime   int64
 
 	groupBy  []string
 	interval int64
-	fieldID  int
+	orderBy  []stmt.Expr
+
+	curOrderByExpr *stmt.OrderByExpr
+	hasOrderBy     bool
 }
 
 // newQueryStmtParse create a query statement parser
@@ -53,7 +56,6 @@ func newQueryStmtParse(explain bool) *queryStmtParser {
 	return &queryStmtParser{
 		explain:    explain,
 		fieldNames: make(map[string]struct{}),
-		fieldID:    1,
 		baseStmtParser: baseStmtParser{
 			exprStack: collections.NewStack(),
 			namespace: commonconstants.DefaultNamespace,
@@ -75,17 +77,6 @@ func (q *queryStmtParser) build() (stmt.Statement, error) {
 	query.SelectItems = q.selectItems
 	query.Condition = q.condition
 
-	fieldNames := make([]string, len(q.fieldNames))
-	idx := 0
-	for fieldName := range q.fieldNames {
-		fieldNames[idx] = fieldName
-		idx++
-	}
-	sort.Slice(fieldNames, func(i, j int) bool {
-		return fieldNames[i] < fieldNames[j]
-	})
-	query.FieldNames = fieldNames
-
 	now := timeutil.Now()
 	query.TimeRange = timeutil.TimeRange{Start: q.startTime, End: q.endTime}
 	if query.TimeRange.Start <= 0 {
@@ -100,6 +91,7 @@ func (q *queryStmtParser) build() (stmt.Statement, error) {
 
 	query.Interval = timeutil.Interval(q.interval)
 	query.GroupBy = q.groupBy
+	query.OrderByItems = q.orderBy
 	query.Limit = q.limit
 	return query, nil
 }
@@ -134,7 +126,48 @@ func (q *queryStmtParser) visitGroupByKey(ctx *grammar.GroupByKeyContext) {
 	}
 }
 
-// visitTimeRangeExpr visits when production timeRange expression is entered
+// visitSortField visits when production sort field expression is entered.
+func (q *queryStmtParser) visitSortField(ctx *grammar.SortFieldContext) {
+	q.hasOrderBy = true
+	q.curOrderByExpr = &stmt.OrderByExpr{Desc: len(ctx.AllT_DESC()) > 0}
+}
+
+// completeSortField compelted prase order by field.
+func (q *queryStmtParser) completeSortField(_ *grammar.SortFieldContext) {
+	if q.curOrderByExpr != nil {
+		if err := q.check(); err != nil {
+			q.err = err
+			return
+		}
+		q.orderBy = append(q.orderBy, q.curOrderByExpr)
+	}
+	q.hasOrderBy = true
+	q.curOrderByExpr = nil
+}
+
+// check order by expr if valid, returns err when invalid.
+func (q *queryStmtParser) check() error {
+	var fieldName string
+	switch e := q.curOrderByExpr.Expr.(type) {
+	case *stmt.CallExpr:
+		if !function.IsSupportOrderBy(e.FuncType) {
+			return fmt.Errorf("[%s] function not support order by", e.FuncType)
+		}
+		if len(e.Params) != 1 {
+			return errors.New("order by function params length invalid")
+		}
+		fieldName = e.Params[0].Rewrite()
+	case *stmt.FieldExpr:
+		fieldName = e.Name
+	}
+	_, ok := q.fieldNames[fieldName]
+	if !ok {
+		return fmt.Errorf("order by field not in select fields, order by field: %s", fieldName)
+	}
+	return nil
+}
+
+// visitTimeRangeExpr visits when production timeRange expression is entered.
 func (q *queryStmtParser) visitTimeRangeExpr(ctx *grammar.TimeRangeExprContext) {
 	timeExprCtxList := ctx.AllTimeExpr()
 	for _, timeExpr := range timeExprCtxList {
@@ -241,7 +274,9 @@ func (q *queryStmtParser) visitAlias(ctx *grammar.AliasContext) {
 		return
 	}
 	if selectItem, ok := (q.selectItems[len(q.selectItems)-1]).(*stmt.SelectItem); ok {
-		selectItem.Alias = strutil.GetStringValue(ctx.Ident().GetText())
+		alias := strutil.GetStringValue(ctx.Ident().GetText())
+		selectItem.Alias = alias
+		q.fieldNames[alias] = struct{}{}
 	}
 }
 
@@ -287,7 +322,14 @@ func (q *queryStmtParser) completeFuncExpr() {
 			q.setExprParam(expr)
 		}
 		if q.exprStack.Empty() {
-			q.selectItems = append(q.selectItems, &stmt.SelectItem{Expr: expr})
+			if q.hasOrderBy {
+				q.curOrderByExpr.Expr = expr
+			} else {
+				q.selectItems = append(q.selectItems, &stmt.SelectItem{Expr: expr})
+
+				// select field(func rewrite name)
+				q.fieldNames[expr.Rewrite()] = struct{}{}
+			}
 		}
 	}
 }
@@ -295,14 +337,8 @@ func (q *queryStmtParser) completeFuncExpr() {
 // visitExprAtom visits when production atom expr expression is entered
 func (q *queryStmtParser) visitExprAtom(ctx *grammar.ExprAtomContext) {
 	switch {
-	case ctx.Ident() != nil:
-		val := strutil.GetStringValue(ctx.Ident().GetText())
-		if q.exprStack.Empty() {
-			q.selectItems = append(q.selectItems, &stmt.SelectItem{Expr: &stmt.FieldExpr{Name: val}})
-		} else {
-			q.setExprParam(&stmt.FieldExpr{Name: val})
-		}
-		q.fieldNames[val] = struct{}{}
+	case ctx.Ident() != nil: // field
+		q.parseFieldName(strutil.GetStringValue(ctx.Ident().GetText()))
 	case ctx.DecNumber() != nil || ctx.IntNumber() != nil:
 		valStr := ""
 		switch {
@@ -317,6 +353,27 @@ func (q *queryStmtParser) visitExprAtom(ctx *grammar.ExprAtomContext) {
 			q.setExprParam(&stmt.NumberLiteral{Val: val})
 		}
 	default:
+	}
+}
+
+// parseFieldName parses field name for select/order by expr.
+func (q *queryStmtParser) parseFieldName(fieldName string) {
+	fieldExpr := &stmt.FieldExpr{Name: fieldName}
+
+	switch {
+	case q.hasOrderBy: // handle order by item
+		if q.exprStack.Empty() {
+			q.curOrderByExpr.Expr = fieldExpr
+		} else {
+			q.setExprParam(fieldExpr)
+		}
+	default: // handle select item
+		if q.exprStack.Empty() {
+			q.selectItems = append(q.selectItems, &stmt.SelectItem{Expr: fieldExpr})
+		} else {
+			q.setExprParam(fieldExpr)
+		}
+		q.fieldNames[fieldName] = struct{}{}
 	}
 }
 

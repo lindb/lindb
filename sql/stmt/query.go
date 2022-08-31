@@ -26,12 +26,11 @@ import (
 
 // Query represents search statement
 type Query struct {
-	Explain     bool     // need explain query execute stat
-	Namespace   string   // namespace
-	MetricName  string   // like table name
-	SelectItems []Expr   // select list, such as field, function call, math expression etc.
-	FieldNames  []string // select field names
-	Condition   Expr     // tag filter condition expression
+	Explain     bool   // need explain query execute stat
+	Namespace   string // namespace
+	MetricName  string // like table name
+	SelectItems []Expr // select list, such as field, function call, math expression etc.
+	Condition   Expr   // tag filter condition expression
 
 	// broker plan maybe reset
 	TimeRange       timeutil.TimeRange // query time range
@@ -39,8 +38,9 @@ type Query struct {
 	IntervalRatio   int                // down sampling interval ratio
 	StorageInterval timeutil.Interval  // down sampling storage interval, data find
 
-	GroupBy []string // group by tag keys
-	Limit   int      // num. of time series list for result
+	GroupBy      []string // group by tag keys
+	OrderByItems []Expr   // order by field expr list
+	Limit        int      // num. of time series list for result
 }
 
 // StatementType returns metric query type.
@@ -59,7 +59,6 @@ type innerQuery struct {
 	Namespace   string            `json:"namespace,omitempty"`
 	MetricName  string            `json:"metricName,omitempty"`
 	SelectItems []json.RawMessage `json:"selectItems,omitempty"`
-	FieldNames  []string          `json:"fieldNames,omitempty"`
 	Condition   json.RawMessage   `json:"condition,omitempty"`
 
 	TimeRange       timeutil.TimeRange `json:"timeRange,omitempty"`
@@ -67,8 +66,9 @@ type innerQuery struct {
 	IntervalRatio   int                `json:"intervalRatio,omitempty"`
 	StorageInterval timeutil.Interval  `json:"storageInterval,omitempty"`
 
-	GroupBy []string `json:"groupBy,omitempty"`
-	Limit   int      `json:"limit,omitempty"`
+	GroupBy      []string          `json:"groupBy,omitempty"`
+	OrderByItems []json.RawMessage `json:"orderByItems,omitempty"`
+	Limit        int               `json:"limit,omitempty"`
 }
 
 // MarshalJSON returns json data of query
@@ -78,7 +78,6 @@ func (q *Query) MarshalJSON() ([]byte, error) {
 		MetricName:      q.MetricName,
 		Namespace:       q.Namespace,
 		Condition:       Marshal(q.Condition),
-		FieldNames:      q.FieldNames,
 		TimeRange:       q.TimeRange,
 		Interval:        q.Interval,
 		IntervalRatio:   q.IntervalRatio,
@@ -88,6 +87,9 @@ func (q *Query) MarshalJSON() ([]byte, error) {
 	}
 	for _, item := range q.SelectItems {
 		inner.SelectItems = append(inner.SelectItems, Marshal(item))
+	}
+	for _, item := range q.OrderByItems {
+		inner.OrderByItems = append(inner.OrderByItems, Marshal(item))
 	}
 	return encoding.JSONMarshal(&inner), nil
 }
@@ -105,6 +107,7 @@ func (q *Query) UnmarshalJSON(value []byte) error {
 		}
 		q.Condition = condition
 	}
+	// select list
 	var selectItems []Expr
 	for _, item := range inner.SelectItems {
 		selectItem, err := Unmarshal(item)
@@ -113,16 +116,26 @@ func (q *Query) UnmarshalJSON(value []byte) error {
 		}
 		selectItems = append(selectItems, selectItem)
 	}
+	// order by list
+	var orderByItems []Expr
+	for _, item := range inner.OrderByItems {
+		orderByItem, err := Unmarshal(item)
+		if err != nil {
+			return err
+		}
+		orderByItems = append(orderByItems, orderByItem)
+	}
+
 	q.Explain = inner.Explain
 	q.MetricName = inner.MetricName
 	q.Namespace = inner.Namespace
 	q.SelectItems = selectItems
-	q.FieldNames = inner.FieldNames
 	q.TimeRange = inner.TimeRange
 	q.Interval = inner.Interval
 	q.IntervalRatio = inner.IntervalRatio
 	q.StorageInterval = inner.StorageInterval
 	q.GroupBy = inner.GroupBy
+	q.OrderByItems = orderByItems
 	q.Limit = inner.Limit
 	return nil
 }

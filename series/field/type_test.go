@@ -128,3 +128,13 @@ func TestType_GetDefaultFuncFieldParams(t *testing.T) {
 	assert.Equal(t, []AggType{Last}, LastField.GetDefaultFuncFieldParams())
 	assert.Equal(t, []AggType{First}, FirstField.GetDefaultFuncFieldParams())
 }
+
+func Test_GetOrderByFunc(t *testing.T) {
+	assert.Equal(t, function.Stddev, Unknown.GetOrderByFunc())
+	assert.Equal(t, function.Stddev, HistogramField.GetOrderByFunc())
+	assert.Equal(t, function.Sum, SumField.GetOrderByFunc())
+	assert.Equal(t, function.Min, MinField.GetOrderByFunc())
+	assert.Equal(t, function.Max, MaxField.GetOrderByFunc())
+	assert.Equal(t, function.Last, LastField.GetOrderByFunc())
+	assert.Equal(t, function.First, FirstField.GetOrderByFunc())
+}

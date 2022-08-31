@@ -63,7 +63,7 @@ var runBrokerCmd = &cobra.Command{
 var initializeBrokerConfigCmd = &cobra.Command{
 	Use:   "init-config",
 	Short: "create a new default broker-config",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(_ *cobra.Command, _ []string) error {
 		path := cfg
 		if path == "" {
 			path = defaultBrokerCfgFile
