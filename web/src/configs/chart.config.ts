@@ -211,14 +211,14 @@ function getVisibleInterval(times: any, interval: number, width: number) {
 // });
 Chart.register({
   id: "message",
-  beforeDraw: function (chart: any, _args: any, _options: any): boolean {
+  beforeDraw: function(chart: any, _args: any, _options: any): boolean {
     const datasets = _.get(chart, "config._config.data.datasets", []);
     if (datasets.length <= 0) {
       // display no data message
       chart.clear();
       const ctx = chart.ctx;
-      const width = chart.canvas.clientWidth;
-      const height = chart.canvas.clientHeight;
+      const width = chart.width;
+      const height = chart.height;
       ctx.font = "14px Arial";
       ctx.fillStyle = "rgba(249, 249, 249, 0.6)";
       ctx.textAlign = "center";
@@ -228,7 +228,7 @@ Chart.register({
     }
     return true;
   },
-});
+} as any);
 
 export const DefaultChartConfig = {
   type: undefined,
@@ -259,7 +259,7 @@ export const DefaultChartConfig = {
           //       // fontSize: 10,
           maxRotation: 0, // angle in degrees
           color: "rgb(249, 249, 249)",
-          callback: function (_value: any, index: number, _values: any) {
+          callback: function(_value: any, index: number, _values: any) {
             const times = _.get(this, "chart.config._config.data.times", []);
             const labels = _.get(this, "chart.config._config.data.labels", []);
             if (times[index] % (5 * 60 * 1000) == 0) {
@@ -293,7 +293,7 @@ export const DefaultChartConfig = {
           font: { size: 12 },
           color: "rgb(249, 249, 249)",
           // autoSkip: true,
-          callback: function (value: any, index: number, _values: any) {
+          callback: function(value: any, index: number, _values: any) {
             // if (index == 0) {
             //   //ignore first tick
             //   return null;
