@@ -85,7 +85,7 @@ export default function CanvasChart(props: CanvasChartProps) {
     chartObjRef.current = chartInstance;
     let start = 0;
 
-    eventCallbacks.set("mousemove", function (e: MouseEvent) {
+    eventCallbacks.set("mousemove", function(e: MouseEvent) {
       if (chartStatusRef.current != ChartStatus.OK) {
         return;
       }
@@ -159,7 +159,7 @@ export default function CanvasChart(props: CanvasChartProps) {
         nativeEvent: e,
       });
     });
-    eventCallbacks.set("mouseleave", function (e: any) {
+    eventCallbacks.set("mouseleave", function(e: any) {
       if (chartStatusRef.current != ChartStatus.OK) {
         return;
       }
@@ -180,7 +180,7 @@ export default function CanvasChart(props: CanvasChartProps) {
       ChartEventStore.setShowTooltip(false);
     });
     if (!disableDrag) {
-      eventCallbacks.set("mousedown", function (e: any) {
+      eventCallbacks.set("mousedown", function(e: any) {
         if (chartStatusRef.current != ChartStatus.OK) {
           return;
         }
@@ -205,7 +205,7 @@ export default function CanvasChart(props: CanvasChartProps) {
           transform: `translate(${start}px, ${chartArea.top}px)`,
         });
       });
-      eventCallbacks.set("mouseup", function (_e: any) {
+      eventCallbacks.set("mouseup", function(_e: any) {
         if (chartStatusRef.current != ChartStatus.OK) {
           return;
         }
