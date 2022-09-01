@@ -24,6 +24,11 @@ import (
 	"github.com/klauspost/compress/gzip"
 )
 
+// for testing
+var (
+	resetReaderFn = resetReader
+)
+
 var gzipReaderPool sync.Pool
 
 // GetGzipReader picks a cached reader from the pool
@@ -33,7 +38,7 @@ func GetGzipReader(r io.Reader) (*gzip.Reader, error) {
 		return gzip.NewReader(r)
 	}
 	gzipReader := reader.(*gzip.Reader)
-	if err := gzipReader.Reset(r); err != nil {
+	if err := resetReaderFn(gzipReader, r); err != nil {
 		// illegal reader, put it back
 		PutGzipReader(gzipReader)
 		return nil, err
@@ -48,4 +53,9 @@ func PutGzipReader(gzipReader *gzip.Reader) {
 	}
 	_ = gzipReader.Close()
 	gzipReaderPool.Put(gzipReader)
+}
+
+// resetReader resets gzip reader.
+func resetReader(reader *gzip.Reader, r io.Reader) error {
+	return reader.Reset(r)
 }

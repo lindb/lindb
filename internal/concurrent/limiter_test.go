@@ -33,8 +33,8 @@ import (
 func Test_Limiter(t *testing.T) {
 	limiter := NewLimiter(
 		context.TODO(),
-		1,
-		time.Millisecond,
+		10,
+		100*time.Millisecond,
 		metrics.NewLimitStatistics("test", linmetric.BrokerRegistry),
 	)
 	var (
@@ -54,7 +54,82 @@ func Test_Limiter(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-	assert.Error(t, atomicError.Load())
+	assert.NoError(t, atomicError.Load())
+}
+
+func Test_Limiter_Timeout(t *testing.T) {
+	limiter := NewLimiter(
+		context.TODO(),
+		1,
+		10*time.Millisecond,
+		metrics.NewLimitStatistics("test", linmetric.BrokerRegistry),
+	)
+	var (
+		wg          sync.WaitGroup
+		atomicError atomic.Error
+	)
+	limiter.tokens <- struct{}{} // put one
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := limiter.Do(func() error {
+			time.Sleep(20 * time.Millisecond)
+			return nil
+		}); err != nil {
+			atomicError.Store(err)
+		}
+	}()
+	wg.Wait()
+	assert.Equal(t, ErrConcurrencyLimiterTimeout, atomicError.Load())
+}
+
+func Test_Limiter_Cancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	cancel() // cancel contexxt
+	limiter := NewLimiter(
+		ctx,
+		1,
+		10*time.Millisecond,
+		metrics.NewLimitStatistics("test", linmetric.BrokerRegistry),
+	)
+	var (
+		wg          sync.WaitGroup
+		atomicError atomic.Error
+	)
+	limiter.tokens <- struct{}{} // put one
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := limiter.Do(func() error {
+			time.Sleep(10 * time.Millisecond)
+			return nil
+		}); err != nil {
+			atomicError.Store(err)
+		}
+	}()
+	wg.Wait()
+	assert.NoError(t, atomicError.Load())
+}
+
+func TestTimerPool(t *testing.T) {
+	defer func() {
+		timerPool = sync.Pool{}
+	}()
+	t.Run("test put failure", func(_ *testing.T) {
+		timerPool = sync.Pool{}
+		for i := 0; i < 100; i++ {
+			timer := acquireTimer(time.Minute)
+			assert.NotNil(t, timer)
+			timer.Stop()
+			releaseTimer(timer)
+		}
+	})
+	t.Run("timer active, need new one", func(_ *testing.T) {
+		timerPool = sync.Pool{}
+		timerPool.Put(time.NewTimer(time.Minute))
+		timer := acquireTimer(time.Minute)
+		assert.NotNil(t, timer)
+	})
 }
 
 func Benchmark_TimerPool(b *testing.B) {

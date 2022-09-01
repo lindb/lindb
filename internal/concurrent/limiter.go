@@ -84,6 +84,7 @@ func acquireTimer(d time.Duration) *time.Timer {
 		return time.NewTimer(d)
 	}
 	t := item.(*time.Timer)
+	// timer.Reset returns if timer is active.
 	if t.Reset(d) {
 		return time.NewTimer(d)
 	}

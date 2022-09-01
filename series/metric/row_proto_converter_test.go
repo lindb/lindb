@@ -323,3 +323,15 @@ func Test_BrokerRowProtoConverter_deDupTags(t *testing.T) {
 		{Key: "a", Value: "1"},
 	}, m2.Tags)
 }
+
+func TestNewProtoCoverter(t *testing.T) {
+	t.Run("Test Coverter From Pool", func(_ *testing.T) {
+		for i := 0; i < 100; i++ {
+			converter, releaseFunc := NewBrokerRowProtoConverter(
+				nil, nil)
+			releaseFunc(converter)
+		}
+		_, _ = NewBrokerRowProtoConverter(
+			nil, nil)
+	})
+}

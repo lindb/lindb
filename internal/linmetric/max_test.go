@@ -41,5 +41,6 @@ func Test_Max(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+	m1.Update(0)
 	assert.Equal(t, float64(21), m1.Get())
 }

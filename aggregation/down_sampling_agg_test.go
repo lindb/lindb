@@ -39,6 +39,9 @@ func Test_getFloat64Slice(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		assert.Len(t, getFloat64Slice(10), 10)
 	}
+	for i := 0; i < 100; i++ {
+		assert.Len(t, getFloat64Slice(5), 5)
+	}
 }
 
 func assertBlockInf(t *testing.T, size int) {
@@ -65,9 +68,12 @@ func TestDownSampling(t *testing.T) {
 	getter.EXPECT().GetValue(gomock.Any()).Return(1.0, true)
 	DownSampling(timeutil.SlotRange{}, timeutil.SlotRange{Start: 10}, 1, 0, getter, nil)
 	assert.Equal(t, 0, found)
+	getter.EXPECT().GetValue(gomock.Any()).Return(1.0, true)
+	DownSampling(timeutil.SlotRange{Start: 10, End: 11}, timeutil.SlotRange{}, 1, 0, getter, nil)
+	assert.Equal(t, 0, found)
 	// case 3: find data
 	getter.EXPECT().GetValue(gomock.Any()).Return(1.0, true)
-	DownSampling(timeutil.SlotRange{}, timeutil.SlotRange{}, 1, 0, getter, func(targetPos int, value float64) {
+	DownSampling(timeutil.SlotRange{}, timeutil.SlotRange{}, 1, 0, getter, func(_ int, _ float64) {
 		found++
 	})
 	assert.Equal(t, 1, found)
