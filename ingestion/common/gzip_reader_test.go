@@ -18,9 +18,12 @@
 package common
 
 import (
+	"fmt"
 	"io"
+	"sync"
 	"testing"
 
+	"github.com/klauspost/compress/gzip"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -42,20 +45,24 @@ func (mr *mockReader) Read(p []byte) (n int, err error) {
 }
 
 func Test_GetGzipReader(t *testing.T) {
+	gzipReaderPool = sync.Pool{}
 	PutGzipReader(nil)
+	for i := 0; i < 100; i++ {
+		mr := &mockReader{}
+		r, err := GetGzipReader(mr)
+		assert.Nil(t, err)
+		assert.NotNil(t, r)
+		PutGzipReader(r)
+	}
+	defer func() {
+		resetReaderFn = resetReader
+	}()
 
-	mr := &mockReader{}
-	r, err := GetGzipReader(mr)
-	assert.Nil(t, err)
-	assert.NotNil(t, r)
-	PutGzipReader(r)
-
-	r, err = GetGzipReader(mr)
-	assert.Nil(t, err)
-	assert.NotNil(t, r)
-	PutGzipReader(r)
-
-	r, err = GetGzipReader(mr)
-	assert.NotNil(t, err)
-	assert.Nil(t, r)
+	resetReaderFn = func(_ *gzip.Reader, _ io.Reader) error {
+		return fmt.Errorf("err")
+	}
+	for i := 0; i < 100; i++ {
+		mr := &mockReader{}
+		_, _ = GetGzipReader(mr)
+	}
 }
