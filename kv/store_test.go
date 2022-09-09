@@ -57,7 +57,7 @@ func TestStore_New(t *testing.T) {
 	option := DefaultStoreOption()
 	defer func() {
 		encodeTomlFunc = ltoml.EncodeToml
-		mkDirFunc = fileutil.MkDir
+		mkDirFunc = fileutil.MkDirIfNotExist
 		newVersionSetFunc = version.NewStoreVersionSet
 		newFileLockFunc = lockers.NewFileLock
 		ctrl.Finish()
@@ -77,7 +77,7 @@ func TestStore_New(t *testing.T) {
 	}
 	lock.EXPECT().Lock().Return(nil)
 	lock.EXPECT().Unlock().Return(fmt.Errorf("err"))
-	mkDirFunc = fileutil.MkDir
+	mkDirFunc = fileutil.MkDirIfNotExist
 	encodeTomlFunc = func(fileName string, v interface{}) error {
 		return fmt.Errorf("err")
 	}
@@ -124,8 +124,8 @@ func TestStore_New(t *testing.T) {
 	delete(mergers, MergerType(mergerStr))
 	// case 6: decode option err
 	kv, e = newStore("test_kv", tmpDir, option)
-	assert.NotNil(t, e)
-	assert.Nil(t, nil)
+	assert.Error(t, e)
+	assert.Nil(t, kv)
 	RegisterMerger(MergerType(mergerStr), newMockMerger)
 
 	_ = os.WriteFile(filepath.Join(tmpDir, version.Options), []byte("err"), 0644)

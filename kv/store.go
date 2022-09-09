@@ -44,7 +44,7 @@ var (
 	newFamilyFunc     = newFamily
 	newVersionSetFunc = version.NewStoreVersionSet
 	listDirFunc       = fileutil.ListDir
-	mkDirFunc         = fileutil.MkDir
+	mkDirFunc         = fileutil.MkDirIfNotExist
 	removeFunc        = os.Remove
 	newFileLockFunc   = lockers.NewFileLock
 	newStoreFunc      = newStore
@@ -108,10 +108,11 @@ type store struct {
 func newStore(name, path string, option StoreOption) (s Store, err error) {
 	var info *storeInfo
 	var isCreate bool
-	if fileutil.Exist(path) {
+	optionsFile := filepath.Join(path, version.Options)
+	// need check options cfg file if exist, because kv path maybe created but option file persisted
+	if fileutil.Exist(optionsFile) {
 		// exist store, open it, load store info and config from INFO
 		info = &storeInfo{}
-		optionsFile := filepath.Join(path, version.Options)
 		if err = decodeTomlFunc(optionsFile, info); err != nil {
 			return nil, fmt.Errorf("load store info file:%s, error:%s", optionsFile, err)
 		}

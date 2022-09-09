@@ -44,7 +44,7 @@ export default function LogView() {
 
     setTailing(true);
     try {
-      const logs = await proxy({ ...params, path: "/api/log/view" });
+      const logs = await proxy({ ...params, path: "/api/v1/log/view" });
       setLogs(logs as string);
     } finally {
       setTailing(false);
@@ -53,7 +53,7 @@ export default function LogView() {
   const listFiles = async (target: any) => {
     const files = await proxy({
       target: target,
-      path: "/api/log/list",
+      path: "/api/v1/log/list",
     });
     setFiles(files);
   };
