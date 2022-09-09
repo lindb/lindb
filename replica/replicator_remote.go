@@ -174,7 +174,7 @@ func (r *remoteReplicator) IsReady() bool {
 		r.logger.Warn("create replica service client err",
 			logger.String("replicator", r.String()),
 			logger.Error(err))
-		r.state.Store(&state{state: models.ReplicatorFailureState, errMsg: "create replica client failure"})
+		r.state.Store(&state{state: models.ReplicatorFailureState, errMsg: "create replica client failure, root cause: " + err.Error()})
 		return false
 	}
 	r.replicaCli = replicaCli
@@ -187,7 +187,7 @@ func (r *remoteReplicator) IsReady() bool {
 		r.logger.Warn("do get replica ack index err",
 			logger.String("replicator", r.String()),
 			logger.Error(err))
-		r.state.Store(&state{state: models.ReplicatorFailureState, errMsg: "get ack index failure"})
+		r.state.Store(&state{state: models.ReplicatorFailureState, errMsg: "get ack index failure, root cause: " + err.Error()})
 		return false
 	}
 	localReplicaIdx := r.ReplicaIndex() // current need replica index from current node
@@ -212,7 +212,7 @@ func (r *remoteReplicator) IsReady() bool {
 			logger.Int64("resetReplicaIdx", needResetReplicaIdx))
 		r.state.Store(&state{state: models.ReplicatorInitState, errMsg: "resetting replica append index"})
 		// send reset index request
-		_, err := r.replicaCli.Reset(r.ctx, &protoReplicaV1.ResetIndexRequest{
+		_, err = r.replicaCli.Reset(r.ctx, &protoReplicaV1.ResetIndexRequest{
 			Database:    r.channel.State.Database,
 			Shard:       int32(r.channel.State.ShardID),
 			Leader:      int32(r.channel.State.Leader),
@@ -224,7 +224,8 @@ func (r *remoteReplicator) IsReady() bool {
 			r.logger.Warn("do reset replica append index err",
 				logger.String("replicator", r.String()),
 				logger.Error(err))
-			r.state.Store(&state{state: models.ReplicatorFailureState, errMsg: "reset replica append index failure"})
+			r.state.Store(&state{state: models.ReplicatorFailureState,
+				errMsg: "reset replica append index failure, root cause: " + err.Error()})
 			return false
 		}
 		r.statistics.ResetFollowerAppendIdx.Incr()
@@ -270,7 +271,7 @@ func (r *remoteReplicator) Replica(idx int64, msg []byte) {
 		Record:       msg,
 	})
 	if err != nil {
-		r.state.Store(&state{state: models.ReplicatorFailureState, errMsg: "send replica req failure"})
+		r.state.Store(&state{state: models.ReplicatorFailureState, errMsg: "send replica req failure, root cause: " + err.Error()})
 		r.statistics.SendMsgFailures.Incr()
 		r.logger.Error("send replica request",
 			logger.String("replicator", r.String()),
@@ -280,7 +281,7 @@ func (r *remoteReplicator) Replica(idx int64, msg []byte) {
 	r.statistics.SendMsg.Incr()
 	resp, err := cli.Recv()
 	if err != nil {
-		r.state.Store(&state{state: models.ReplicatorFailureState, errMsg: "receive replica resp failure"})
+		r.state.Store(&state{state: models.ReplicatorFailureState, errMsg: "receive replica resp failure, root case: " + err.Error()})
 		r.statistics.ReceiveMsgFailures.Incr()
 		r.logger.Error("receive replica response",
 			logger.String("replicator", r.String()),
@@ -297,7 +298,7 @@ func (r *remoteReplicator) Replica(idx int64, msg []byte) {
 		r.SetAckIndex(resp.AckIndex)
 		r.statistics.AckSequence.Incr()
 	} else {
-		// TODO need reset ack sequence?
+		// TODO: need reset ack sequence?
 		r.statistics.InvalidAckSequence.Incr()
 	}
 }
