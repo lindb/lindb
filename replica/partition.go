@@ -156,13 +156,6 @@ func (p *partition) IsExpire() bool {
 	p.log.Sync()       // sync acknowledged sequence of each ConsumerGroup
 	p.log.Queue().GC() // try gc old data in queue
 
-	ns := p.log.ConsumerGroupNames()
-	for _, n := range ns {
-		q, _ := p.log.GetOrCreateConsumerGroup(n)
-		if !q.IsEmpty() {
-			return false
-		}
-	}
 	opt := p.shard.Database().GetOption()
 	ahead, _ := opt.GetAcceptWritableRange()
 	timeRange := p.family.TimeRange()
@@ -171,7 +164,36 @@ func (p *partition) IsExpire() bool {
 	if ahead > 0 && timeRange.End+ahead+15*timeutil.OneMinute > now {
 		return false
 	}
-	return true
+	// partition is expired, check if all write ahead logs have been replicated
+	hasData := false
+	ns := p.log.ConsumerGroupNames()
+	for _, name := range ns {
+		consumerGroup, _ := p.log.GetOrCreateConsumerGroup(name)
+		if !consumerGroup.IsEmpty() {
+			hasData = true
+			continue
+		}
+		// no data consume, can stop this replicator
+		p.stopReplicator(name)
+	}
+	// no data means all data can be deleted
+	return !hasData
+}
+
+// stopReplicator stops the replicator when no data can consume.
+func (p *partition) stopReplicator(node string) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	p.log.StopConsumerGroup(node)
+
+	nodeID := models.ParseNodeID(node)
+	// shutdown replicator if exist
+	peer, ok := p.peers[nodeID]
+	if ok {
+		peer.Shutdown()
+		delete(p.peers, nodeID)
+	}
 }
 
 // WriteLog writes msg that leader sends replica msg.
@@ -278,19 +300,19 @@ func (p *partition) getReplicaState() models.FamilyLogReplicaState {
 
 		stateOfReplicators = append(stateOfReplicators, peerState)
 	}
-	rs := models.FamilyLogReplicaState{
+	return models.FamilyLogReplicaState{
 		ShardID:     p.shardID,
 		FamilyTime:  timeutil.FormatTimestamp(p.family.FamilyTime(), timeutil.DataTimeFormat2),
 		Append:      p.log.Queue().AppendedSeq(),
 		Replicators: stateOfReplicators,
 	}
-	return rs
 }
 
 // buildReplica builds replica replication based on leader/follower node.
 func (p *partition) buildReplica(leader, replica models.NodeID) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
+
 	if _, ok := p.peers[replica]; ok {
 		// exist
 		return nil

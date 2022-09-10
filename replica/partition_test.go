@@ -297,24 +297,42 @@ func TestPartition_IsExpire(t *testing.T) {
 	q.EXPECT().GC().AnyTimes()
 	log.EXPECT().Sync().AnyTimes()
 	log.EXPECT().Queue().Return(q).AnyTimes()
-	log.EXPECT().ConsumerGroupNames().Return([]string{"test"}).AnyTimes()
+	log.EXPECT().ConsumerGroupNames().Return([]string{"1"}).AnyTimes()
+	peer := NewMockReplicatorPeer(ctrl)
 	p := &partition{
 		shard:  shard,
 		family: family,
 		log:    log,
+		peers: map[models.NodeID]ReplicatorPeer{
+			models.NodeID(1): peer,
+		},
 	}
 	cg := queue.NewMockConsumerGroup(ctrl)
 	log.EXPECT().GetOrCreateConsumerGroup(gomock.Any()).Return(cg, nil).AnyTimes()
-	cg.EXPECT().IsEmpty().Return(false)
-	assert.False(t, p.IsExpire())
 
-	cg.EXPECT().IsEmpty().Return(true).AnyTimes()
+	t.Run("partition not expire", func(t *testing.T) {
+		family.EXPECT().TimeRange().Return(timeutil.TimeRange{End: timeutil.Now()})
+		assert.False(t, p.IsExpire())
+	})
 
-	family.EXPECT().TimeRange().Return(timeutil.TimeRange{End: timeutil.Now()})
-	assert.False(t, p.IsExpire())
-
-	family.EXPECT().TimeRange().Return(timeutil.TimeRange{End: timeutil.Now() - timeutil.OneHour - 16*timeutil.OneMinute})
-	assert.True(t, p.IsExpire())
+	t.Run("partition is expire, but has data need replica", func(t *testing.T) {
+		family.EXPECT().TimeRange().Return(timeutil.TimeRange{End: timeutil.Now() - timeutil.OneHour - 16*timeutil.OneMinute})
+		cg.EXPECT().IsEmpty().Return(false)
+		assert.False(t, p.IsExpire())
+	})
+	t.Run("partition is expire, no data replica, can stop replicator", func(t *testing.T) {
+		p.mutex.Lock()
+		assert.Len(t, p.peers, 1)
+		p.mutex.Unlock()
+		family.EXPECT().TimeRange().Return(timeutil.TimeRange{End: timeutil.Now() - timeutil.OneHour - 16*timeutil.OneMinute})
+		cg.EXPECT().IsEmpty().Return(true)
+		log.EXPECT().StopConsumerGroup(gomock.Any())
+		peer.EXPECT().Shutdown()
+		assert.True(t, p.IsExpire())
+		p.mutex.Lock()
+		assert.Empty(t, p.peers)
+		p.mutex.Unlock()
+	})
 }
 
 func TestPartition_recovery(t *testing.T) {

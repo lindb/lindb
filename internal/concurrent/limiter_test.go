@@ -34,7 +34,7 @@ func Test_Limiter(t *testing.T) {
 	limiter := NewLimiter(
 		context.TODO(),
 		10,
-		100*time.Millisecond,
+		500*time.Millisecond,
 		metrics.NewLimitStatistics("test", linmetric.BrokerRegistry),
 	)
 	var (
