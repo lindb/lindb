@@ -268,15 +268,9 @@ func (f *dataFamily) Flush() error {
 		f.mutex.Lock()
 		f.immutableMemDB = nil
 		f.immutableSeq = nil
-		// save persisted sequence
+		// save persisted sequence, ack replica sequence in flushMemoryDatabase func
 		for leader, seq := range immutableSeq {
 			f.persistSeq[leader] = *atomic.NewInt64(seq)
-			// ack replica sequence
-			if fns, ok := f.callbacks[leader]; ok {
-				for _, fn := range fns {
-					fn(seq)
-				}
-			}
 		}
 
 		f.mutex.Unlock()

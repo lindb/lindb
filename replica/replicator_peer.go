@@ -178,7 +178,7 @@ func (r *replicatorRunner) replica(_ context.Context) {
 		r.logger.Warn("replica is not ready", logger.String("replicator", r.replicator.String()))
 	}
 	if !hasData {
-		// TODO add config?
+		// TODO: add config?
 		time.Sleep(10 * time.Millisecond)
 	}
 }

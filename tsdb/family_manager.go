@@ -27,6 +27,7 @@ var (
 )
 
 // GetFamilyManager returns the data family manager singleton instance.
+// FIXME: need clean readonly family when no read long term
 func GetFamilyManager() FamilyManager {
 	once4FamilyManager.Do(func() {
 		fManager = newFamilyManager()

@@ -47,6 +47,8 @@ type FanOutQueue interface {
 	GetOrCreateConsumerGroup(name string) (ConsumerGroup, error)
 	// ConsumerGroupNames returns all names of ConsumerGroup.
 	ConsumerGroupNames() []string
+	// StopConsumerGroup stops consumer group by name.
+	StopConsumerGroup(name string)
 	// Sync checks the acknowledged sequence of each ConsumerGroup, update the acknowledged sequence as the smallest one.
 	// Then syncs metadata to storage.
 	Sync()
@@ -135,6 +137,18 @@ func (fq *fanOutQueue) ConsumerGroupNames() (names []string) {
 		names = append(names, name)
 	}
 	return names
+}
+
+// StopConsumerGroup stops consumer group by name.
+func (fq *fanOutQueue) StopConsumerGroup(name string) {
+	fq.lock4map.Lock()
+	defer fq.lock4map.Unlock()
+
+	consumerGroup, ok := fq.consumerGroups[name]
+	if ok {
+		consumerGroup.Close()
+		delete(fq.consumerGroups, name)
+	}
 }
 
 // SetAppendedSeq sets appended sequence underlying queue, then set consumed/acknowledged sequence for each ConsumerGroup.

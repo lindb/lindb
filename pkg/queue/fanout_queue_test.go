@@ -155,6 +155,45 @@ func TestFanOutQueue_GetOrCreateConsumerGroup(t *testing.T) {
 	fq.Close()
 }
 
+func TestFanoutQueue_StopConsumerGroup(t *testing.T) {
+	dir := path.Join(t.TempDir(), t.Name())
+	fq, err := NewFanOutQueue(dir, 1024)
+	assert.NoError(t, err)
+	assert.NotNil(t, fq)
+
+	cgName := "group-1"
+
+	fo, err := fq.GetOrCreateConsumerGroup(cgName)
+	assert.NoError(t, err)
+	assert.NotNil(t, fo)
+
+	for i := 0; i < 10; i++ {
+		_ = fq.Queue().Put([]byte(fmt.Sprintf("test-%d", i)))
+	}
+
+	seq := fo.Consume()
+	assert.Equal(t, int64(0), seq)
+
+	foNames := fq.ConsumerGroupNames()
+	assert.Equal(t, cgName, foNames[0])
+
+	// stop consumer group
+	fq.StopConsumerGroup(cgName)
+	assert.Empty(t, fq.ConsumerGroupNames())
+
+	// reopen consumer group , can continue consume data
+	fo, err = fq.GetOrCreateConsumerGroup(cgName)
+	assert.NoError(t, err)
+	assert.NotNil(t, fo)
+
+	seq = fo.Consume()
+	assert.Equal(t, int64(1), seq)
+	foNames = fq.ConsumerGroupNames()
+	assert.Equal(t, cgName, foNames[0])
+
+	fq.Close()
+}
+
 func TestFanOutQueue_Sync(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	dir := path.Join(t.TempDir(), t.Name())
