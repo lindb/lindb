@@ -17,13 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 import { Layout } from "@douyinfe/semi-ui";
-import {
-  Footer,
-  Header,
-  SiderMenu,
-  DashboardView,
-  ChartTooltip,
-} from "@src/components";
+import { Footer, Header, SiderMenu } from "@src/components";
 import { switchRouters } from "@src/configs";
 import React from "react";
 import { Redirect, Route, Switch } from "react-router-dom";
@@ -38,7 +32,7 @@ export default function Console() {
         <Header />
         <Content
           style={{
-            padding: "71px 12px 12px",
+            padding: "12px 12px 12px",
             backgroundColor: "var(--semi-color-bg-0)",
           }}
         >

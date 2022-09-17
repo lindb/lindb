@@ -32,6 +32,7 @@ export type SiderMenuProps = {
 export default function SiderMenu(props: SiderMenuProps) {
   const { defaultOpenAll } = props;
   const [selectedKeys, setSelectedKeys] = useState([] as string[]);
+  const [collapsed, setCollapsed] = useState(false);
 
   useWatchURLChange(() => {
     const path = URLStore.path;
@@ -56,6 +57,10 @@ export default function SiderMenu(props: SiderMenuProps) {
     <Sider>
       <Nav
         defaultOpenKeys={defaultOpenAll ? defaultOpenKeys : []}
+        subNavMotion={false}
+        limitIndent={false}
+        isCollapsed={collapsed}
+        onCollapseChange={(isCollapsed: boolean) => setCollapsed(isCollapsed)}
         style={{
           maxWidth: 220,
           height: "100%",
@@ -75,10 +80,7 @@ export default function SiderMenu(props: SiderMenuProps) {
         }}
         header={{
           logo: (
-            <img
-              src={Logo}
-              style={{ width: 48, height: 48, marginLeft: 8, marginRight: 8 }}
-            />
+            <img src={Logo} style={{ width: 48, height: 48, marginRight: 8 }} />
           ),
           text: (
             <Space align="end">
@@ -96,6 +98,9 @@ export default function SiderMenu(props: SiderMenuProps) {
             </Space>
           ),
           style: { paddingTop: 12, paddingBottom: 12, paddingLeft: 2 },
+        }}
+        footer={{
+          collapseButton: true,
         }}
       />
     </Sider>

@@ -39,6 +39,7 @@ import {
 import { useWatchURLChange } from "@src/hooks";
 import { ReplicaState } from "@src/models";
 import { exec } from "@src/services";
+import { URLStore } from "@src/stores";
 import { getShardColor } from "@src/utils";
 import * as _ from "lodash-es";
 import React, { useEffect, useState } from "react";
@@ -61,7 +62,9 @@ export default function ReplicaView(props: ReplicaViewProps) {
   });
   const [showShard, setShowShard] = useState(true);
   const [showLag, setShowLag] = useState(true);
-  const [showTable, setShowTable] = useState(false);
+  const [showTable, setShowTable] = useState(
+    URLStore.params.get("showTable") === "true"
+  );
   const [family, setFamily] = useState("");
   const [shard, setShard] = useState("");
 
@@ -405,13 +408,13 @@ export default function ReplicaView(props: ReplicaViewProps) {
   const renderShardsAsTable = () => {
     let shards = _.cloneDeep(replicaState.shards);
     if (!_.isEmpty(shard)) {
-      shards = _.filter(shards, function (o) {
+      shards = _.filter(shards, function(o) {
         return `${o.shardId}` == shard;
       });
     }
     if (!_.isEmpty(family)) {
-      shards = _.filter(shards, function (o) {
-        o.channels = _.filter(o.channels, function (f) {
+      shards = _.filter(shards, function(o) {
+        o.channels = _.filter(o.channels, function(f) {
           return f.familyTime == family;
         });
         return !_.isEmpty(o.channels);
@@ -523,7 +526,12 @@ export default function ReplicaView(props: ReplicaViewProps) {
             <Button
               style={{ marginLeft: 8 }}
               icon={showTable ? <IconChecklistStroked /> : <IconGridStroked />}
-              onClick={() => setShowTable(!showTable)}
+              onClick={() => {
+                setShowTable(!showTable);
+                URLStore.changeURLParams({
+                  params: { showTable: `${!showTable}` },
+                });
+              }}
             />
           </div>
         </>

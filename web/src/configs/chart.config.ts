@@ -32,6 +32,7 @@ export const INTERVALS = [
   15 * 60 * 1000,
   30 * 60 * 1000,
 ];
+
 function getVisibleInterval(times: any, interval: number, width: number) {
   const ticksCount = times.length;
   const perTickPX = width / (ticksCount - 1);
