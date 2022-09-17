@@ -29,6 +29,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/queue"
 )
 
@@ -166,4 +167,22 @@ func TestReplicatorPeer_replica_panic(t *testing.T) {
 	assert.Panics(t, func() {
 		r.replica(context.TODO())
 	})
+}
+
+func TestReplicatorPeer_replicaNoData(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	replicator := NewMockReplicator(ctrl)
+	r := &replicatorRunner{
+		replicator: replicator,
+		sleepFn:    func(d time.Duration) {},
+		logger:     logger.GetLogger("Replica", "Test"),
+	}
+	replicator.EXPECT().IsReady().Return(false).AnyTimes()
+	replicator.EXPECT().String().Return("test").AnyTimes()
+
+	for i := 0; i < 100; i++ {
+		r.replica(context.TODO())
+	}
 }
