@@ -527,6 +527,9 @@ func (f *dataFamily) GetOrCreateMemoryDatabase(familyTime int64) (memdb.MemoryDa
 
 // Close flushes memory database, then removes it from online family list.
 func (f *dataFamily) Close() error {
+	f.logger.Info("starting close data family", logger.String("family", f.indicator))
+	start := time.Now()
+
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
@@ -549,6 +552,8 @@ func (f *dataFamily) Close() error {
 
 	GetFamilyManager().RemoveFamily(f)
 	f.statistics.ActiveFamilies.Decr()
+
+	f.logger.Info("close data family complete", logger.String("family", f.indicator), logger.Any("cost", time.Since(start)))
 	return nil
 }
 

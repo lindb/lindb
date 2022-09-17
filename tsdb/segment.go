@@ -123,7 +123,7 @@ func (s *segment) GetDataFamilies(timeRange timeutil.TimeRange) []DataFamily {
 	for _, familyName := range familyNames {
 		familyTime, err := strconv.Atoi(familyName)
 		if err != nil {
-			// TODO add metric
+			// TODO: add metric
 			continue
 		}
 		family := s.getOrLoadFamily(familyName, familyTime)
@@ -137,8 +137,14 @@ func (s *segment) GetDataFamilies(timeRange timeutil.TimeRange) []DataFamily {
 
 // NeedEvict checks segment if it can evict, long term no read operation.
 func (s *segment) NeedEvict() bool {
-	diff := timeutil.Now() - s.lastReadTime.Load() - 6*timeutil.OneHour
+	now := timeutil.Now()
 	ahead, _ := s.shard.Database().GetOption().GetAcceptWritableRange()
+	diff := now - s.baseTime - 6*timeutil.OneHour
+	if diff <= ahead {
+		// check writeable segment if expire
+		return false
+	}
+	diff = now - s.lastReadTime.Load() - 2*timeutil.OneHour
 	return diff > ahead
 }
 
