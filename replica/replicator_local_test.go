@@ -48,7 +48,7 @@ func TestLocalReplicator_New(t *testing.T) {
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 	family := tsdb.NewMockDataFamily(ctrl)
 	family.EXPECT().CommitSequence(gomock.Any(), gomock.Any()).AnyTimes()
-	family.EXPECT().AckSequence(gomock.Any(), gomock.Any()).DoAndReturn(func(leader int32, fn func(int64)) {
+	family.EXPECT().AckSequence(gomock.Any(), gomock.Any()).DoAndReturn(func(_ int32, fn func(int64)) {
 		fn(10)
 	})
 	q := queue.NewMockConsumerGroup(ctrl)

@@ -90,6 +90,7 @@ func TestNewReplicator_runner(t *testing.T) {
 	replicator.EXPECT().String().Return("str").AnyTimes()
 	replicator.EXPECT().ReplicaState().Return(&models.ReplicaState{}).AnyTimes()
 	replicator.EXPECT().Pending().Return(int64(19)).AnyTimes()
+	replicator.EXPECT().IgnoreMessage(gomock.Any()).AnyTimes()
 	peer := NewReplicatorPeer(replicator)
 	var wait sync.WaitGroup
 

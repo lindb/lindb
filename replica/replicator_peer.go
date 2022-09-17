@@ -163,8 +163,9 @@ func (r *replicatorRunner) replica(_ context.Context) {
 			hasData = true
 			data, err := r.replicator.GetMessage(seq)
 			if err != nil {
+				r.replicator.IgnoreMessage(seq)
 				r.statistics.ConsumeMessageFailures.Incr()
-				r.logger.Warn("cannot get replica message data",
+				r.logger.Warn("cannot get replica message data, ignore replica message",
 					logger.String("replicator", r.replicator.String()),
 					logger.Int64("index", seq), logger.Error(err))
 			} else {

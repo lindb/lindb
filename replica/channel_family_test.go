@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sync"
 	"testing"
 	"time"
 
@@ -543,4 +544,21 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 			f.writeTask(context.TODO())
 		})
 	}
+}
+
+func TestFamilyChannel_sendingLastMessage(t *testing.T) {
+	f := &familyChannel{
+		ch:     make(chan *compressedChunk, 2),
+		logger: logger.GetLogger("Replica", "Test"),
+	}
+	f.ch <- &compressedChunk{}
+	var wait sync.WaitGroup
+	wait.Add(1)
+	go func() {
+		f.sendPendingMessage(func(_ *compressedChunk) {
+		})
+		wait.Done()
+	}()
+	close(f.ch)
+	wait.Wait()
 }

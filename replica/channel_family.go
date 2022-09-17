@@ -303,10 +303,7 @@ func (fc *familyChannel) writeTask(_ context.Context) {
 				sendLastMsg(compressed)
 			}
 		}
-		// try to write pending data
-		for compressed := range fc.ch {
-			sendLastMsg(compressed)
-		}
+		fc.sendPendingMessage(sendLastMsg)
 	}
 	var err error
 	for {
@@ -347,6 +344,14 @@ func (fc *familyChannel) writeTask(_ context.Context) {
 			// check
 			fc.checkFlush()
 		}
+	}
+}
+
+// sendPendingMessage sends pending message before close this channel.
+func (fc *familyChannel) sendPendingMessage(sendLastMsg func(compressed *compressedChunk)) {
+	// try to write pending data
+	for compressed := range fc.ch {
+		sendLastMsg(compressed)
 	}
 }
 
