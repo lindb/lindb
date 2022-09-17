@@ -23,7 +23,10 @@ import {
 import { Card, Empty, Form, Typography, useFormState } from "@douyinfe/semi-ui";
 import { StateRoleName, SQL } from "@src/constants";
 import { useAliveState, useStorage } from "@src/hooks";
+import { UnitEnum } from "@src/models";
 import { proxy } from "@src/services";
+import { URLStore } from "@src/stores";
+import { formatter } from "@src/utils";
 import * as _ from "lodash-es";
 import React, { MutableRefObject, useRef, useState } from "react";
 
@@ -33,30 +36,11 @@ export default function LogView() {
   const { aliveState: liveNodes } = useAliveState(SQL.ShowBrokerAliveNodes);
   const { storages } = useStorage();
   const [tailing, setTailing] = useState(false);
-  const [logs, setLogs] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [logs, setLogs] = useState<any>(null);
   const [files, setFiles] = useState([]);
   const [nodes, setNodes] = useState<any[]>([]);
   const formApi = useRef() as MutableRefObject<any>;
-  const tailLog = async (params: any) => {
-    if (!_.get(params, "target") || !_.get(params, "file")) {
-      return;
-    }
-
-    setTailing(true);
-    try {
-      const logs = await proxy({ ...params, path: "/api/v1/log/view" });
-      setLogs(logs as string);
-    } finally {
-      setTailing(false);
-    }
-  };
-  const listFiles = async (target: any) => {
-    const files = await proxy({
-      target: target,
-      path: "/api/v1/log/list",
-    });
-    setFiles(files);
-  };
 
   const getLogColor = (text: string) => {
     switch (text) {
@@ -74,7 +58,11 @@ export default function LogView() {
         return "link";
     }
   };
+
   const renderLogs = (text: string) => {
+    if (!text) {
+      return null;
+    }
     const textArray = text.split(
       /(INFO|DEBUG|ERROR|WARN|POST|PUT|GET|DELETE)/g
     );
@@ -91,16 +79,40 @@ export default function LogView() {
     });
   };
 
-  const handleSelectRole = (value: any, _option: any) => {
-    if (value === StateRoleName.Broker) {
-      setNodes(
-        _.map(liveNodes || [], (n: any) => {
-          const target = `${n.hostIp}:${n.httpPort}`;
-          return { value: target, label: target };
-        })
-      );
+  const tailLog = async (params: any) => {
+    if (!_.get(params, "target") || !_.get(params, "file")) {
+      return;
     }
-    formApi.current.setValues({ node: "", file: "" });
+    URLStore.changeURLParams({
+      params: formApi.current.getValues(),
+      clearAll: true,
+    });
+
+    setTailing(true);
+    try {
+      const logs = await proxy({ ...params, path: "/api/v1/log/view" });
+
+      setLogs(renderLogs(logs as string));
+    } finally {
+      setTailing(false);
+    }
+  };
+
+  const listFiles = async (target: any) => {
+    setLoading(true);
+    try {
+      const files = await proxy({
+        target: target,
+        path: "/api/v1/log/list",
+      });
+      setFiles(files);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectRole = (_value: any, _option: any) => {
+    formApi.current.setValues({ node: "", file: "", storage: "" });
   };
 
   const StorageSelectInput = () => {
@@ -118,19 +130,6 @@ export default function LogView() {
             labelPosition="inset"
             label="Storage"
             style={{ width: 180 }}
-            onSelect={(value) => {
-              const nodes = _.get(
-                _.find(storages, { name: value }),
-                "liveNodes",
-                []
-              );
-              setNodes(
-                _.map(nodes, (n: any) => {
-                  const target = `${n.hostIp}:${n.httpPort}`;
-                  return { value: target, label: target };
-                })
-              );
-            }}
           />
         )}
       </>
@@ -141,7 +140,12 @@ export default function LogView() {
     <>
       <Card style={{ marginBottom: 12 }} bodyStyle={{ padding: 12 }}>
         <Form
-          getFormApi={(api) => (formApi.current = api)}
+          getFormApi={(api) => {
+            formApi.current = api;
+            URLStore.params.forEach((value: string, key: string) => {
+              formApi.current.setValue(key, value);
+            });
+          }}
           onValueChange={(values: any) => {
             const params = _.pick(values, ["target", "file", "size"]);
             tailLog({ ...params });
@@ -172,20 +176,49 @@ export default function LogView() {
             optionList={nodes}
             labelPosition="inset"
             label="Node"
+            loading={loading}
             style={{ width: 230 }}
-            onSelect={(value: any) => {
-              listFiles(value);
+            onFocus={() => {
+              if (formApi.current.getValue("role") === StateRoleName.Broker) {
+                setNodes(
+                  _.map(liveNodes || [], (n: any) => {
+                    const target = `${n.hostIp}:${n.httpPort}`;
+                    return { value: target, label: target };
+                  })
+                );
+              } else {
+                const nodes = _.get(
+                  _.find(storages, {
+                    name: formApi.current.getValue("storage"),
+                  }),
+                  "liveNodes",
+                  []
+                );
+                setNodes(
+                  _.map(nodes, (n: any) => {
+                    const target = `${n.hostIp}:${n.httpPort}`;
+                    return { value: target, label: target };
+                  })
+                );
+              }
             }}
           />
           <Form.Select
             field="file"
             placeholder={`Please select`}
-            optionList={_.map(files || [], (f) => {
-              return { value: f, label: f };
+            optionList={_.map(files || [], (f: any) => {
+              return {
+                value: f.name,
+                label: `${f.name}(${formatter(f.size, UnitEnum.Bytes)})`,
+              };
             })}
             labelPosition="inset"
             label="File"
             style={{ width: 240 }}
+            loading={loading}
+            onFocus={() => {
+              listFiles(formApi.current.getValue("target"));
+            }}
           />
           <Form.Select
             field="size"
@@ -213,7 +246,11 @@ export default function LogView() {
             style={{ marginTop: 50, minHeight: 400 }}
           />
         ) : (
-          <pre>{renderLogs(logs)}</pre>
+          <pre
+            style={{ wordWrap: "normal", whiteSpace: "pre", overflow: "auto" }}
+          >
+            {logs}
+          </pre>
         )}
       </Card>
     </>
