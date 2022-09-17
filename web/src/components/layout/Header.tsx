@@ -57,16 +57,7 @@ export default function Header() {
   });
 
   return (
-    <HeaderUI
-      style={{
-        position: "fixed",
-        width: "calc(100% - 220px)",
-        left: 220,
-        top: 0,
-        right: 0,
-        zIndex: 1000,
-      }}
-    >
+    <HeaderUI>
       <Nav
         mode="horizontal"
         style={{ paddingRight: 12, paddingLeft: 16 }}

@@ -16,7 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import axios, { AxiosResponse } from "axios";
+import axios from "axios";
 import qs from "qs";
 // env control
 switch (import.meta.env.MODE) {

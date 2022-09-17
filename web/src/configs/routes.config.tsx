@@ -28,6 +28,8 @@ import {
   IconServer,
   IconTemplate,
   IconShareStroked,
+  IconSettingStroked,
+  IconMonitorStroked,
 } from "@douyinfe/semi-icons";
 import { CommonVariates, Dashboards } from "@src/configs";
 import { Route } from "@src/constants";
@@ -102,6 +104,7 @@ export const routes = [
   {
     text: "Monitoring",
     itemKey: "Monitoring",
+    icon: <IconMonitorStroked size="large" />,
     items: [
       {
         text: "Dashboard",
@@ -136,6 +139,7 @@ export const routes = [
   {
     text: "Metadata",
     itemKey: "Metadata",
+    icon: <IconSettingStroked size="large" />,
     items: [
       {
         text: "Storage",
