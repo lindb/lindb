@@ -20,6 +20,7 @@ package tag
 import (
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 
 	xxhash "github.com/cespare/xxhash/v2"
@@ -247,4 +248,18 @@ func Test_KeyValuesDeDup(t *testing.T) {
 		{Key: "1", Value: "2"},
 		{Key: "3", Value: "6"},
 	}.DeDup())
+}
+
+func TestTag_Pool(t *testing.T) {
+	defer func() {
+		slicePool = sync.Pool{}
+	}()
+	slicePool = sync.Pool{}
+	for i := 0; i < 10; i++ {
+		s := getSlice(10)
+		assert.Len(t, *s, 10)
+		putSlice(s)
+	}
+
+	assert.Len(t, *(getSlice(100)), 100)
 }

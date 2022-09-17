@@ -63,6 +63,8 @@ type Replicator interface {
 	SetAckIndex(ackIdx int64)
 	// Pending returns lag of queue.
 	Pending() int64
+	// IgnoreMessage ignores invalid message.
+	IgnoreMessage(replicaIdx int64)
 }
 
 // replicator implements Replicator interface.
@@ -133,6 +135,17 @@ func (r *replicator) SetAckIndex(ackIdx int64) {
 // Pending returns lag of queue.
 func (r *replicator) Pending() int64 {
 	return r.channel.ConsumerGroup.Pending()
+}
+
+// IgnoreMessage ignores invalid message.
+// if it has error after replica msg, need try ack sequence.
+// if not, maybe always consume wrong message will haven't any new message.
+func (r *replicator) IgnoreMessage(replicaIdx int64) {
+	currentAck := r.AckIndex()
+	if currentAck+1 == replicaIdx {
+		// if next ack sequence = replica sequence
+		r.SetAckIndex(replicaIdx)
+	}
 }
 
 // String returns string value of replicator.

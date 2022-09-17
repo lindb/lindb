@@ -177,6 +177,9 @@ func (f *consumerGroup) Ack(ackSeq int64) {
 		if err := f.metaPage.Sync(); err != nil {
 			queueLogger.Error("sync consumerGroup meta page error", logger.String("consumerGroup", f.name), logger.Error(err))
 		}
+	} else {
+		queueLogger.Warn("ack failure, invalid ack seq", logger.Int64("ack", ackSeq),
+			logger.Int64("lastAck", ts), logger.Int64("consumedSeq", hs))
 	}
 }
 

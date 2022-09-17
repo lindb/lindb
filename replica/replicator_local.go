@@ -97,17 +97,11 @@ func (r *localReplicator) Replica(sequence int64, msg []byte) {
 	// or data are not serialized correctly
 	defer func() {
 		if err != nil {
-			// if it has error after replica msg, need try ack sequence.
-			// if not, maybe always consume wrong message will haven't any new message.
-			currentAck := r.AckIndex()
-			if currentAck+1 == sequence {
-				// if next ack sequence = replica sequence
-				r.SetAckIndex(sequence)
-				r.logger.Warn("ack sequence when replica message failure, will ignore message",
-					logger.Int64("sequence", sequence),
-					logger.String("replicator", r.String()),
-					logger.Error(err))
-			}
+			r.IgnoreMessage(sequence)
+			r.logger.Warn("ack sequence when replica message failure, will ignore message",
+				logger.Int64("sequence", sequence),
+				logger.String("replicator", r.String()),
+				logger.Error(err))
 		}
 		r.block = r.block[:0]
 
@@ -115,7 +109,7 @@ func (r *localReplicator) Replica(sequence int64, msg []byte) {
 		r.family.CommitSequence(r.leader, sequence)
 	}()
 
-	// TODO add util
+	// TODO: add util
 	r.block, err = snappy.Decode(r.block, msg)
 	if err != nil {
 		r.statistics.DecompressFailures.Incr()
