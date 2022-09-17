@@ -184,6 +184,9 @@ func (s *intervalSegment) EvictSegment() {
 		if segment.NeedEvict() {
 			segment.Close()
 			delete(s.segments, segmentName)
+
+			s.logger.Info("evict segment complete",
+				logger.String("path", s.dir), logger.String("segment", segmentName))
 		}
 	}
 }
