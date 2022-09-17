@@ -22,14 +22,25 @@ import (
 	"io"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/pkg/fileutil"
 	httppkg "github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/logger"
 )
+
+// for testing
+var (
+	readDirFn = os.ReadDir
+)
+
+// FileInfo represents file info include name/size.
+type FileInfo struct {
+	Name string `json:"name"`
+	Size int64  `json:"size"`
+}
 
 var (
 	LogListPath = "/log/list"
@@ -58,10 +69,25 @@ func (d *LoggerAPI) Register(route gin.IRoutes) {
 
 // List returns all log files in log dir.
 func (d *LoggerAPI) List(c *gin.Context) {
-	logFiles, err := fileutil.ListDir(d.logDir)
+	files, err := readDirFn(d.logDir)
 	if err != nil {
 		httppkg.Error(c, err)
 		return
+	}
+	var logFiles []FileInfo
+	for _, file := range files {
+		name := file.Name()
+		if strings.HasSuffix(name, ".log") {
+			fileInfo, err := file.Info()
+			if err != nil {
+				httppkg.Error(c, err)
+				return
+			}
+			logFiles = append(logFiles, FileInfo{
+				Name: name,
+				Size: fileInfo.Size(),
+			})
+		}
 	}
 	httppkg.OK(c, logFiles)
 }

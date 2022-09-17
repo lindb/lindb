@@ -18,7 +18,10 @@
 package monitoring
 
 import (
+	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -26,18 +29,35 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/internal/mock"
+	"github.com/lindb/lindb/pkg/fileutil"
 )
 
 func TestLoggerAPI(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	path := "."
+	logFile := filepath.Join(path, "1.log")
+	f, err := os.Create(logFile)
+	assert.NoError(t, err)
+	defer func() {
+		ctrl.Finish()
+		readDirFn = os.ReadDir
+		_ = f.Close()
+		_ = fileutil.RemoveFile(logFile)
+	}()
 
-	api := NewLoggerAPI("./")
+	api := NewLoggerAPI(path)
 	r := gin.New()
 	api.Register(r)
 	resp := mock.DoRequest(t, r, http.MethodGet, LogListPath, "")
 	assert.Equal(t, http.StatusOK, resp.Code)
 
+	readDirFn = func(dirname string) ([]os.DirEntry, error) {
+		return nil, fmt.Errorf("err")
+	}
+	resp = mock.DoRequest(t, r, http.MethodGet, LogListPath, "")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+
+	readDirFn = os.ReadDir
 	resp = mock.DoRequest(t, r, http.MethodGet, LogViewPath, "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
