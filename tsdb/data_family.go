@@ -26,6 +26,8 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/common/pkg/fasttime"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/kv"
@@ -76,6 +78,9 @@ type DataFamily interface {
 	// GetState returns the current state include memory database state.
 	GetState() models.DataFamilyState
 
+	// Compact compacts all data if long term no data write.
+	Compact()
+
 	// DataFilter filters data under data family based on query condition
 	flow.DataFilter
 	io.Closer
@@ -83,13 +88,14 @@ type DataFamily interface {
 
 // dataFamily represents a wrapper of kv store's family with basic info
 type dataFamily struct {
-	indicator    string // database + shard + family time
-	shard        Shard
-	interval     timeutil.Interval
-	intervalCalc timeutil.IntervalCalculator
-	familyTime   int64
-	timeRange    timeutil.TimeRange
-	family       kv.Family
+	indicator     string // database + shard + family time
+	shard         Shard
+	interval      timeutil.Interval
+	intervalCalc  timeutil.IntervalCalculator
+	familyTime    int64
+	timeRange     timeutil.TimeRange
+	family        kv.Family
+	lastFlushTime int64
 
 	mutableMemDB   memdb.MemoryDatabase
 	immutableMemDB memdb.MemoryDatabase
@@ -121,17 +127,18 @@ func newDataFamily(
 	dbName := shard.Database().Name()
 	shardIDStr := strconv.Itoa(int(shard.ShardID()))
 	f := &dataFamily{
-		shard:        shard,
-		interval:     interval,
-		intervalCalc: interval.Calculator(),
-		timeRange:    timeRange,
-		familyTime:   familyTime,
-		family:       family,
-		seq:          make(map[int32]atomic.Int64),
-		persistSeq:   make(map[int32]atomic.Int64),
-		callbacks:    make(map[int32][]func(seq int64)),
-		statistics:   metrics.NewFamilyStatistics(dbName, shardIDStr),
-		logger:       logger.GetLogger("TSDB", "Family"),
+		shard:         shard,
+		interval:      interval,
+		intervalCalc:  interval.Calculator(),
+		timeRange:     timeRange,
+		familyTime:    familyTime,
+		family:        family,
+		lastFlushTime: timeutil.Now(),
+		seq:           make(map[int32]atomic.Int64),
+		persistSeq:    make(map[int32]atomic.Int64),
+		callbacks:     make(map[int32][]func(seq int64)),
+		statistics:    metrics.NewFamilyStatistics(dbName, shardIDStr),
+		logger:        logger.GetLogger("TSDB", "Family"),
 	}
 	// get current persist write sequence
 	snapshot := family.GetSnapshot()
@@ -276,6 +283,7 @@ func (f *dataFamily) Flush() error {
 		f.mutex.Unlock()
 
 		endTime := time.Now()
+		f.lastFlushTime = endTime.UnixMilli()
 		f.logger.Info("flush memory database successfully",
 			logger.String("family", f.indicator),
 			logger.String("flush-duration", endTime.Sub(startTime).String()),
@@ -285,6 +293,21 @@ func (f *dataFamily) Flush() error {
 
 	// another flush process is running
 	return nil
+}
+
+// Compact compacts all data if long term no data write.
+func (f *dataFamily) Compact() {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+	if f.mutableMemDB != nil || f.immutableMemDB != nil {
+		return
+	}
+
+	diff := fasttime.UnixMilliseconds() - f.lastFlushTime - 2*timeutil.OneHour
+	if diff >= 0 {
+		// long term no data write, does full comapct
+		f.family.Compact()
+	}
 }
 
 // MemDBSize returns memory database heap size.

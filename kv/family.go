@@ -41,14 +41,16 @@ var (
 
 // Family implements column family for data isolation each family.
 type Family interface {
-	// ID return family's id
+	// ID return family's id.
 	ID() version.FamilyID
-	// Name return family's name
+	// Name return family's name.
 	Name() string
 	// NewFlusher creates flusher for saving data to family.
 	NewFlusher() Flusher
-	// GetSnapshot returns current version's snapshot
+	// GetSnapshot returns current version's snapshot.
 	GetSnapshot() version.Snapshot
+	// Compact compacts all files of level0.
+	Compact()
 
 	getStore() Store
 	// familyInfo return family info
@@ -62,9 +64,7 @@ type Family interface {
 	newTableBuilder() (table.Builder, error)
 	// needCompact returns level0 files if it needs to do compact job.
 	needCompact() bool
-	// needRollup checks if it needs rollup source family data.
-	needRollup() bool
-	// compact does compaction job
+	// compact does compaction job.
 	compact()
 	// getNewMerger returns new merger function, merger need implement Merger interface
 	getNewMerger() NewMerger
@@ -72,10 +72,13 @@ type Family interface {
 	addPendingOutput(fileNumber table.FileNumber)
 	// removePendingOutput removes pending output file after compact or flush
 	removePendingOutput(fileNumber table.FileNumber)
-	// doRollupWork does rollup job, merge source family data to target family
-	doRollupWork(sourceFamily Family, rollup Rollup, sourceFiles []table.FileNumber) (err error)
+	// needRollup checks if it needs rollup source family data.
+	needRollup() bool
+	// rollup does rollup job.
 	rollup()
-	// deleteObsoleteFiles deletes obsolete files
+	// doRollupWork does rollup job, merge source family data to target family.
+	doRollupWork(sourceFamily Family, rollup Rollup, sourceFiles []table.FileNumber) (err error)
+	// deleteObsoleteFiles deletes obsolete files.
 	deleteObsoleteFiles()
 	// close family, need wait background job completed then releases resource.
 	close()
@@ -190,6 +193,22 @@ func (f *family) commitEditLog(editLog version.EditLog) bool {
 	return true
 }
 
+// Compact compacts all files of level0.
+func (f *family) Compact() {
+	// has compaction job doing
+	if f.compacting.Load() {
+		return
+	}
+
+	snapshot := f.GetSnapshot()
+	numberOfFiles := snapshot.GetCurrent().NumberOfFilesInLevel(0)
+	snapshot.Close()
+
+	if numberOfFiles > 1 {
+		f.compact()
+	}
+}
+
 // needCompact returns level0 files if it needs to do compact job
 func (f *family) needCompact() bool {
 	// has compaction job doing
@@ -290,7 +309,7 @@ func (f *family) deleteObsoleteFiles() {
 	}
 	// make a map for all live files
 	liveFiles := make(map[table.FileNumber]string)
-	f.pendingOutputs.Range(func(key, value interface{}) bool {
+	f.pendingOutputs.Range(func(key, _ interface{}) bool {
 		if k, ok := key.(table.FileNumber); ok {
 			liveFiles[k] = dummy
 		}

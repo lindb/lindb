@@ -25,6 +25,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
@@ -304,4 +305,27 @@ func TestFamily_close(t *testing.T) {
 	f.compact()
 	f.close()
 	assert.True(t, timeutil.Now()-s >= 1000)
+}
+
+func TestFamily_Comapct(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	f := &family{
+		compacting: *atomic.NewBool(true),
+	}
+	f.Compact()
+
+	f.compacting.Store(false)
+	fv := version.NewMockFamilyVersion(ctrl)
+	f.familyVersion = fv
+	snapshot := version.NewMockSnapshot(ctrl)
+	snapshot.EXPECT().Close().AnyTimes()
+	fv.EXPECT().GetSnapshot().Return(snapshot).AnyTimes()
+	current := version.NewMockVersion(ctrl)
+	snapshot.EXPECT().GetCurrent().Return(current).AnyTimes()
+	current.EXPECT().NumberOfFilesInLevel(0).Return(2)
+	current.EXPECT().PickL0Compaction(0).Return(nil)
+	f.Compact()
+	time.Sleep(100 * time.Millisecond)
 }

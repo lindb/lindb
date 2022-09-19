@@ -19,16 +19,15 @@ package kv
 
 import "github.com/lindb/lindb/pkg/logger"
 
-const dummy = ""
+const (
+	dummy                   = ""
+	RollupContext           = "RollupContext"
+	defaultMaxFileSize      = uint32(256 * 1024 * 1024)
+	defaultCompactThreshold = 4
+	defaultRollupThreshold  = 3
+)
 
-const RollupContext = "RollupContext"
-
-const defaultMaxFileSize = uint32(256 * 1024 * 1024)
-
-const defaultCompactThreshold = 4
-
-const defaultRollupThreshold = 3
-
-var defaultCompactCheckInterval = 60
-
-var kvLogger = logger.GetLogger("KV", "Store")
+var (
+	defaultCompactCheckInterval = 60
+	kvLogger                    = logger.GetLogger("KV", "Store")
+)

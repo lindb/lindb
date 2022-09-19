@@ -72,6 +72,10 @@ func TestDatabaseLifecycle_ttlTask(t *testing.T) {
 		config.SetGlobalStorageConfig(config.NewDefaultStorageBase())
 		ctrl.Finish()
 	}()
+	family := tsdb.NewMockDataFamily(ctrl)
+	family.EXPECT().Compact().AnyTimes()
+	family.EXPECT().Indicator().Return("family").AnyTimes()
+	tsdb.GetFamilyManager().AddFamily(family)
 
 	repo := state.NewMockRepository(ctrl)
 	walMgr := replica.NewMockWriteAheadLogManager(ctrl)
