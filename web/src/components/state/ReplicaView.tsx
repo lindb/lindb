@@ -408,13 +408,13 @@ export default function ReplicaView(props: ReplicaViewProps) {
   const renderShardsAsTable = () => {
     let shards = _.cloneDeep(replicaState.shards);
     if (!_.isEmpty(shard)) {
-      shards = _.filter(shards, function(o) {
+      shards = _.filter(shards, function (o) {
         return `${o.shardId}` == shard;
       });
     }
     if (!_.isEmpty(family)) {
-      shards = _.filter(shards, function(o) {
-        o.channels = _.filter(o.channels, function(f) {
+      shards = _.filter(shards, function (o) {
+        o.channels = _.filter(o.channels, function (f) {
           return f.familyTime == family;
         });
         return !_.isEmpty(o.channels);

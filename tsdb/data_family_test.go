@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/atomic"
 
+	"github.com/lindb/common/pkg/fasttime"
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 
 	"github.com/lindb/lindb/config"
@@ -741,4 +742,22 @@ func TestDataFamily_GetState(t *testing.T) {
 				NumOfMetric: 10,
 			}},
 	}, state)
+}
+
+func TestDataFamily_Compact(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	f := &dataFamily{
+		lastFlushTime: fasttime.UnixMilliseconds(),
+		mutableMemDB:  memdb.NewMockMemoryDatabase(ctrl),
+	}
+	f.Compact()
+
+	f.mutableMemDB = nil
+	f.lastFlushTime = fasttime.UnixMilliseconds() - 2*timeutil.OneHour - 5*timeutil.OneMinute
+	kvFamily := kv.NewMockFamily(ctrl)
+	f.family = kvFamily
+	kvFamily.EXPECT().Compact()
+	f.Compact()
 }
