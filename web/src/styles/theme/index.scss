@@ -103,3 +103,11 @@ body[theme-mode='dark'] {
 .semi-progress-horizontal .semi-progress-track-inner {
     transition: width 0s;
 }
+
+.semi-navigation-collapsed {
+    transition: padding-left 0s ease-out,width 0s cubic-bezier(.62,.05,.36,.95);
+}
+
+.semi-navigation {
+    transition: padding-left 0s ease-out,width 0s cubic-bezier(.62,.05,.36,.95); 
+}

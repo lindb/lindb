@@ -60,7 +60,6 @@ export default function ConfigurationView() {
         minimap: { enabled: false },
         // lineNumbersMinChars: 2,
         readOnly: true,
-        theme: "lindb",
       });
     }
     editor.current.setValue(_.get(config, "config", "no data"));

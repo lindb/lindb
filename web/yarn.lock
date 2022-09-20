@@ -417,6 +417,13 @@
     estree-walker "^2.0.1"
     picomatch "^2.2.2"
 
+"@types/chart.js@^2.9.37":
+  version "2.9.37"
+  resolved "https://registry.npmjs.org/@types/chart.js/-/chart.js-2.9.37.tgz#8af70862b154fedf938b5b87debdb3a70f6e3208"
+  integrity sha512-9bosRfHhkXxKYfrw94EmyDQcdjMaQPkU1fH2tDxu8DWXxf1mjzWQAV4laJF51ZbC2ycYwNDvIm1rGez8Bug0vg==
+  dependencies:
+    moment "^2.10.2"
+
 "@types/convert-units@2.3.5":
   version "2.3.5"
   resolved "https://registry.npmmirror.com/@types/convert-units/-/convert-units-2.3.5.tgz"
@@ -1965,6 +1972,11 @@ mobx@^6.3.5:
   version "6.3.5"
   resolved "https://registry.npmmirror.com/mobx/download/mobx-6.3.5.tgz"
   integrity "sha1-RGRWW/L6D3T13C5NapcTvO4N35w= sha512-MeDfqtiSbhVoJgXqQsrJwvq2klj7Xk9pPdMThCdFiwFt33vgWJe82ATppPwVzQoz0AI3QpSSwQzcp3TBDK4syg=="
+
+moment@^2.10.2:
+  version "2.29.4"
+  resolved "https://registry.npmjs.org/moment/-/moment-2.29.4.tgz#3dbe052889fe7c1b2ed966fcb3a77328964ef108"
+  integrity sha512-5LC9SOxjSc2HF6vO2CyuTDNivEdoz2IvyJJGj6X8DJ0eFyfszE0QiEd+iXmBvUP3WHxSjFH/vIsA0EN00cgr8w==
 
 moment@^2.29.1:
   version "2.29.1"

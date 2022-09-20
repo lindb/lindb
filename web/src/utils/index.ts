@@ -22,3 +22,4 @@ export * from "@src/utils/data.formatter";
 export * from "@src/utils/state";
 export * from "@src/utils/color";
 export * from "@src/utils/css";
+export * from "@src/utils/local.storage";

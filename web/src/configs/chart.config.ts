@@ -21,6 +21,7 @@ import * as helpers from "chart.js/helpers";
 import * as _ from "lodash-es";
 import { UnitEnum } from "@src/models";
 import { formatter } from "@src/utils";
+import { Theme } from "@src/constants";
 
 export const INTERVALS = [
   10000,
@@ -212,7 +213,7 @@ function getVisibleInterval(times: any, interval: number, width: number) {
 // });
 Chart.register({
   id: "message",
-  beforeDraw: function(chart: any, _args: any, _options: any): boolean {
+  beforeDraw: function (chart: any, _args: any, _options: any): boolean {
     const datasets = _.get(chart, "config._config.data.datasets", []);
     if (datasets.length <= 0) {
       // display no data message
@@ -230,6 +231,61 @@ Chart.register({
     return true;
   },
 } as any);
+
+export const DarkChart = {
+  options: {
+    scales: {
+      x: {
+        grid: {
+          color: "rgba(255, 255, 255, 0.1)",
+        },
+        ticks: {
+          color: "rgb(249, 249, 249)",
+        },
+      },
+      y: {
+        grid: {
+          color: "rgba(255, 255, 255, 0.1)",
+        },
+        ticks: {
+          color: "rgb(249, 249, 249)",
+        },
+      },
+    },
+  },
+};
+
+export const LightChart = {
+  options: {
+    scales: {
+      x: {
+        grid: {
+          color: "rgba(232,233,234,1)",
+        },
+        ticks: {
+          color: "rgba(28,31,35,0.8)",
+        },
+      },
+      y: {
+        grid: {
+          // color: "rgba(28,31,35,0.2)",
+          color: "rgba(232,233,234,1)",
+        },
+        ticks: {
+          color: "rgba(28,31,35,0.8)",
+        },
+      },
+    },
+  },
+};
+
+export function getChartThemeConfig(theme: Theme, raw: any) {
+  let chartTheme: any = LightChart;
+  if (theme === Theme.dark) {
+    chartTheme = DarkChart;
+  }
+  return _.merge(raw, chartTheme);
+}
 
 export const DefaultChartConfig = {
   type: undefined,
@@ -251,7 +307,6 @@ export const DefaultChartConfig = {
           tickLength: 0,
           //       // drawOnChartArea: false,
           //       drawBorder: false,
-          color: "rgba(255, 255, 255, 0.1)",
         },
         ticks: {
           font: {
@@ -259,8 +314,7 @@ export const DefaultChartConfig = {
           },
           //       // fontSize: 10,
           maxRotation: 0, // angle in degrees
-          color: "rgb(249, 249, 249)",
-          callback: function(_value: any, index: number, _values: any) {
+          callback: function (_value: any, index: number, _values: any) {
             const times = _.get(this, "chart.config._config.data.times", []);
             const labels = _.get(this, "chart.config._config.data.labels", []);
             if (times[index] % (5 * 60 * 1000) == 0) {
@@ -285,16 +339,14 @@ export const DefaultChartConfig = {
           //       drawBorder: false,
           //       // drawOnChartArea: false,
           //       // borderDash: [1, 1],
-          color: "rgba(255, 255, 255, 0.1)",
         },
         ticks: {
           //       mirror: true, // draw tick in chart area
           //       display: true,
           //       // min: 0,
           font: { size: 12 },
-          color: "rgb(249, 249, 249)",
           // autoSkip: true,
-          callback: function(value: any, index: number, _values: any) {
+          callback: function (value: any, index: number, _values: any) {
             // if (index == 0) {
             //   //ignore first tick
             //   return null;

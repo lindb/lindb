@@ -20,3 +20,4 @@ export * from "@src/constants/api.constants";
 export * from "@src/constants/route.constants";
 export * from "@src/constants/name.constants";
 export * from "@src/constants/sql.constants";
+export * from "@src/constants/ui.constants";

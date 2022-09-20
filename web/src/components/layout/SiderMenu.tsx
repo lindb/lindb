@@ -17,22 +17,24 @@ specific language governing permissions and limitations
 under the License.
 */
 import { Layout, Nav, Space } from "@douyinfe/semi-ui";
-import Logo from "@src/assets/logo_dark.svg";
+import DarkLogo from "@src/assets/logo_dark.svg";
+import Logo from "@src/assets/logo.svg";
 import { defaultOpenKeys, menus, routeMap } from "@src/configs";
 import { useWatchURLChange } from "@src/hooks";
 import { URLStore } from "@src/stores";
 import * as _ from "lodash-es";
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
+import { UIContext } from "@src/context/UIContextProvider";
 const { Sider } = Layout;
 
 export type SiderMenuProps = {
   defaultOpenAll?: boolean;
 };
 
-export default function SiderMenu(props: SiderMenuProps) {
+const SiderMenu: React.FC<SiderMenuProps> = (props: SiderMenuProps) => {
   const { defaultOpenAll } = props;
   const [selectedKeys, setSelectedKeys] = useState([] as string[]);
-  const [collapsed, setCollapsed] = useState(false);
+  const { isDark, collapsed, toggleCollapse } = useContext(UIContext);
 
   useWatchURLChange(() => {
     const path = URLStore.path;
@@ -54,13 +56,20 @@ export default function SiderMenu(props: SiderMenuProps) {
   });
 
   return (
-    <Sider>
+    <Sider
+    // conflict local setting
+    // breakpoint={["lg"]}
+    // onBreakpoint={(_screen, bool) => {
+    //   UIStore.setSidebarCollapse(!bool);
+    // }}
+    >
       <Nav
+        className="lin-nav"
         defaultOpenKeys={defaultOpenAll ? defaultOpenKeys : []}
         subNavMotion={false}
         limitIndent={false}
         isCollapsed={collapsed}
-        onCollapseChange={(isCollapsed: boolean) => setCollapsed(isCollapsed)}
+        onCollapseChange={() => toggleCollapse()}
         style={{
           maxWidth: 220,
           height: "100%",
@@ -80,7 +89,10 @@ export default function SiderMenu(props: SiderMenuProps) {
         }}
         header={{
           logo: (
-            <img src={Logo} style={{ width: 48, height: 48, marginRight: 8 }} />
+            <img
+              src={isDark() ? DarkLogo : Logo}
+              style={{ width: 48, height: 48, marginRight: 8 }}
+            />
           ),
           text: (
             <Space align="end">
@@ -105,4 +117,6 @@ export default function SiderMenu(props: SiderMenuProps) {
       />
     </Sider>
   );
-}
+};
+
+export default SiderMenu;

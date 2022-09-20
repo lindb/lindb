@@ -16,24 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import * as React from "react";
-import * as ReactDOM from "react-dom";
-import App from "@src/App";
-import "@src/styles/index.scss";
-import en_US from "@douyinfe/semi-ui/lib/es/locale/source/en_US";
-import { LocaleProvider } from "@douyinfe/semi-ui";
-import { HashRouter as Router, Route, Switch } from "react-router-dom";
-import { UIContextProvider } from "@src/context";
-
-ReactDOM.render(
-  <LocaleProvider locale={en_US}>
-    <UIContextProvider>
-      <Router>
-        <Switch>
-          <Route path="/" component={App} />
-        </Switch>
-      </Router>
-    </UIContextProvider>
-  </LocaleProvider>,
-  document.getElementById("root") as HTMLElement
-);
+export enum Theme {
+  light = "light",
+  dark = "dark",
+}

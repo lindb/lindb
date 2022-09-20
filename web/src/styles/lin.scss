@@ -74,3 +74,13 @@
 		min-width: 1px;
 	}
 }
+
+.lin-nav .semi-navigation-header-list-outer {
+	overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.lin-nav .semi-navigation-list {
+	overflow: auto;
+}
