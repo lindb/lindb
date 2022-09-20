@@ -17,6 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 import { Chart, ChartArea } from "chart.js/auto";
+import { Series } from "@src/models";
 
 export type MouseMoveEvent = {
   index: number;
@@ -79,3 +80,34 @@ export type QueryStatement = {
   tags?: Object;
   groupBy?: string[];
 };
+
+export interface ChartDataSource {
+  datasets: SeriesData[];
+  times?: number[];
+  interval: any;
+}
+
+export interface SeriesData {
+  data: number[];
+  targetType: SeriesDataType;
+  metric: Series;
+  lineNum: string;
+  name?: string;
+  label: string;
+  display: boolean;
+  spanGaps: boolean;
+  type: string;
+  yAxisID: string;
+  value: {
+    total?: number;
+    max?: number;
+    min?: number;
+    avg?: number;
+    current?: number;
+  };
+}
+
+export enum SeriesDataType {
+  DEFAULT = "default",
+  COMPUTED = "computed",
+}

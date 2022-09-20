@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 import ChartLegend from "@src/components/chart/ChartLegend";
-import { DefaultChartConfig } from "@src/configs";
+import { DefaultChartConfig, getChartThemeConfig } from "@src/configs";
 import { ChartStatus, ChartTypeEnum, UnitEnum } from "@src/models";
 import { ChartEventStore, ChartStore } from "@src/stores";
 import urlStore from "@src/stores/url.store";
@@ -26,8 +26,9 @@ import Chart from "chart.js/auto";
 import * as _ from "lodash-es";
 import { reaction } from "mobx";
 import moment from "moment";
-import React, { MutableRefObject, useEffect, useRef } from "react";
+import React, { MutableRefObject, useContext, useEffect, useRef } from "react";
 import { DateTimeFormat } from "@src/constants";
+import { UIContext } from "@src/context/UIContextProvider";
 
 interface CanvasChartProps {
   chartId: string;
@@ -44,6 +45,7 @@ const Zoom = {
 export default function CanvasChart(props: CanvasChartProps) {
   const { chartId, height, disableDrag } = props;
   const eventCallbacks: Map<string, any> = new Map();
+  const { theme } = useContext(UIContext);
   const chartRef = useRef() as MutableRefObject<HTMLCanvasElement | null>;
   const crosshairRef = useRef() as MutableRefObject<HTMLDivElement>;
   const chartObjRef = useRef() as MutableRefObject<Chart | null>;
@@ -51,6 +53,18 @@ export default function CanvasChart(props: CanvasChartProps) {
   const zoomDivRef = useRef() as MutableRefObject<HTMLDivElement>;
   const seriesRef = useRef() as MutableRefObject<any>;
   const chartStatusRef = useRef() as MutableRefObject<ChartStatus | undefined>;
+
+  useEffect(() => {
+    // set chart theme if chart instance exist
+    for (let key of Object.keys(Chart.instances)) {
+      const currChart = Chart.instances[`${key}`];
+      currChart.config = getChartThemeConfig(
+        theme,
+        _.get(currChart, "config", {})
+      );
+      currChart.update();
+    }
+  }, [theme]);
 
   const resetZoomRange = () => {
     if (!disableDrag) {
@@ -77,7 +91,7 @@ export default function CanvasChart(props: CanvasChartProps) {
         type: _.get(chartCfg, "type", ChartTypeEnum.Line),
         unit: _.get(chartCfg, "unit", UnitEnum.None),
       },
-      DefaultChartConfig
+      getChartThemeConfig(theme, DefaultChartConfig)
     );
     config.options.crosshair = crosshairRef.current;
 
@@ -85,7 +99,7 @@ export default function CanvasChart(props: CanvasChartProps) {
     chartObjRef.current = chartInstance;
     let start = 0;
 
-    eventCallbacks.set("mousemove", function(e: MouseEvent) {
+    eventCallbacks.set("mousemove", function (e: MouseEvent) {
       if (chartStatusRef.current != ChartStatus.OK) {
         return;
       }
@@ -159,7 +173,7 @@ export default function CanvasChart(props: CanvasChartProps) {
         nativeEvent: e,
       });
     });
-    eventCallbacks.set("mouseleave", function(e: any) {
+    eventCallbacks.set("mouseleave", function (e: any) {
       if (chartStatusRef.current != ChartStatus.OK) {
         return;
       }
@@ -180,7 +194,7 @@ export default function CanvasChart(props: CanvasChartProps) {
       ChartEventStore.setShowTooltip(false);
     });
     if (!disableDrag) {
-      eventCallbacks.set("mousedown", function(e: any) {
+      eventCallbacks.set("mousedown", function (e: any) {
         if (chartStatusRef.current != ChartStatus.OK) {
           return;
         }
@@ -205,7 +219,7 @@ export default function CanvasChart(props: CanvasChartProps) {
           transform: `translate(${start}px, ${chartArea.top}px)`,
         });
       });
-      eventCallbacks.set("mouseup", function(_e: any) {
+      eventCallbacks.set("mouseup", function (_e: any) {
         if (chartStatusRef.current != ChartStatus.OK) {
           return;
         }

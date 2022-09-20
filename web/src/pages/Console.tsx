@@ -32,7 +32,7 @@ export default function Console() {
         <Header />
         <Content
           style={{
-            padding: "12px 12px 12px",
+            padding: "71px 12px 12px",
             backgroundColor: "var(--semi-color-bg-0)",
           }}
         >

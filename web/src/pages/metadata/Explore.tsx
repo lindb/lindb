@@ -57,7 +57,7 @@ export type CompareViewProps = {
   nodes: any;
 };
 
-export function CompareView(props: CompareViewProps) {
+const CompareView: React.FC<CompareViewProps> = (props: CompareViewProps) => {
   const { source, nodes } = props;
   const diffEditor = useRef() as MutableRefObject<any>;
   const diffEditorRef = useRef() as MutableRefObject<HTMLDivElement>;
@@ -65,12 +65,10 @@ export function CompareView(props: CompareViewProps) {
 
   useEffect(() => {
     if (diffEditorRef.current && !diffEditor.current) {
-      console.log("xxxxxx");
       // editor no init, create it
       diffEditor.current = monaco.editor.createDiffEditor(
         diffEditorRef.current,
         {
-          theme: "lindb",
           readOnly: true,
         }
       );
@@ -134,7 +132,7 @@ export function CompareView(props: CompareViewProps) {
       </Row>
     </>
   );
-}
+};
 
 type Node = {
   role: string;
@@ -150,7 +148,7 @@ type TreeNode = {
   children: any[];
 };
 
-export default function MetadataExplore() {
+const MetadataExplore: React.FC = () => {
   const editor = useRef() as MutableRefObject<any>;
   const editorRef = useRef() as MutableRefObject<HTMLDivElement>;
   const [root, setRoot] = useState<any[]>([]);
@@ -191,7 +189,6 @@ export default function MetadataExplore() {
         minimap: { enabled: false },
         lineNumbersMinChars: 2,
         readOnly: true,
-        theme: "lindb",
       });
     }
     editor.current.setValue(_.get(metadata, "data", "no data"));
@@ -396,4 +393,6 @@ export default function MetadataExplore() {
       </Modal>
     </>
   );
-}
+};
+
+export default MetadataExplore;

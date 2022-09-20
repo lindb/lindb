@@ -16,10 +16,13 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+import React, { useState, useContext } from "react";
 import {
   IconGithubLogo,
   IconHelpCircleStroked,
   IconHomeStroked,
+  IconSun,
+  IconMoon,
 } from "@douyinfe/semi-icons";
 import { Breadcrumb, Button, Layout, Nav, Space } from "@douyinfe/semi-ui";
 import { TimePicker } from "@src/components";
@@ -27,10 +30,11 @@ import { RouteItem, routeMap } from "@src/configs";
 import { useWatchURLChange } from "@src/hooks";
 import { URLStore } from "@src/stores";
 import * as _ from "lodash-es";
-import React, { useState } from "react";
+import { UIContext } from "@src/context/UIContextProvider";
 const { Header: HeaderUI } = Layout;
 
-export default function Header() {
+const Header: React.FC = () => {
+  const { toggleTheme, collapsed, isDark } = useContext(UIContext);
   const [breadcrumbRoutes, setBreadcrumbRoutes] = useState<any[]>([]);
   const [currentRouter, setCurrentRouter] = useState<any>({});
 
@@ -57,7 +61,15 @@ export default function Header() {
   });
 
   return (
-    <HeaderUI>
+    <HeaderUI
+      style={{
+        position: "fixed",
+        left: collapsed ? 60 : 220,
+        top: 0,
+        right: 0,
+        zIndex: 1000,
+      }}
+    >
       <Nav
         mode="horizontal"
         style={{ paddingRight: 12, paddingLeft: 16 }}
@@ -72,6 +84,18 @@ export default function Header() {
         footer={
           <>
             {_.get(currentRouter, "timePicker", false) && <TimePicker />}
+            <Button
+              icon={
+                isDark() ? <IconMoon size="large" /> : <IconSun size="large" />
+              }
+              style={{
+                color: "var(--semi-color-text-2)",
+                marginLeft: 12,
+              }}
+              onClick={() => {
+                toggleTheme();
+              }}
+            />
             <Button
               icon={<IconGithubLogo size="large" />}
               style={{
@@ -93,4 +117,6 @@ export default function Header() {
       ></Nav>
     </HeaderUI>
   );
-}
+};
+
+export default Header;

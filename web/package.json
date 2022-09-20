@@ -41,6 +41,7 @@
     "uuid": "^8.3.2"
   },
   "devDependencies": {
+    "@types/chart.js":"^2.9.37",
     "@types/convert-units": "2.3.5",
     "@types/lodash-es": "^4.17.5",
     "@types/node": "^16.11.6",

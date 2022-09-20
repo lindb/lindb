@@ -16,8 +16,20 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+import { ChartDataSource } from "@src/models";
 import React from "react";
 
-export default function ChartLegend() {
+const ChartLegend: React.FC<{
+  // chart: ChartInfo;
+  dataSource?: ChartDataSource;
+  // maxHeight?: number;
+  // selectedKeys?: string[];
+  // onSelect?(
+  //   legend: ChartSeriesInfo,
+  //   nativeEvent: React.MouseEvent<HTMLDivElement>
+  // ): void;
+}> = (props) => {
   return null;
-}
+};
+
+export default ChartLegend;
