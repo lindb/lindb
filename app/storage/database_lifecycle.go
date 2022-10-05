@@ -116,6 +116,7 @@ func (l *databaseLifecycle) ttlTask() {
 				// do data compaction
 				tsdb.GetFamilyManager().WalkEntry(func(family tsdb.DataFamily) {
 					family.Compact()
+					family.Evict()
 				})
 				// try to evict segment(long term no read)
 				l.engine.EvictSegment()

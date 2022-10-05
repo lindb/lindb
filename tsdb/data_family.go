@@ -77,9 +77,15 @@ type DataFamily interface {
 
 	// GetState returns the current state include memory database state.
 	GetState() models.DataFamilyState
-
+	// Evict evicts family if long term no data write.
+	Evict()
 	// Compact compacts all data if long term no data write.
 	Compact()
+	// Retain increments write ref count
+	Retain()
+	// Release decrements write ref count,
+	// if ref==0, no data will write this family.
+	Release()
 
 	// DataFilter filters data under data family based on query condition
 	flow.DataFilter
@@ -90,6 +96,7 @@ type DataFamily interface {
 type dataFamily struct {
 	indicator     string // database + shard + family time
 	shard         Shard
+	segment       Segment
 	interval      timeutil.Interval
 	intervalCalc  timeutil.IntervalCalculator
 	familyTime    int64
@@ -110,7 +117,9 @@ type dataFamily struct {
 	isFlushing     atomic.Bool    // restrict flusher concurrency
 	flushCondition sync.WaitGroup // flush condition
 
-	mutex sync.Mutex
+	ref          atomic.Int32 // ref count for writing
+	lastReadTime *atomic.Int64
+	mutex        sync.Mutex
 
 	statistics *metrics.FamilyStatistics
 	logger     *logger.Logger
@@ -119,6 +128,7 @@ type dataFamily struct {
 // newDataFamily creates a data family storage unit
 func newDataFamily(
 	shard Shard,
+	segment Segment,
 	interval timeutil.Interval,
 	timeRange timeutil.TimeRange,
 	familyTime int64,
@@ -128,6 +138,7 @@ func newDataFamily(
 	shardIDStr := strconv.Itoa(int(shard.ShardID()))
 	f := &dataFamily{
 		shard:         shard,
+		segment:       segment,
 		interval:      interval,
 		intervalCalc:  interval.Calculator(),
 		timeRange:     timeRange,
@@ -137,8 +148,10 @@ func newDataFamily(
 		seq:           make(map[int32]atomic.Int64),
 		persistSeq:    make(map[int32]atomic.Int64),
 		callbacks:     make(map[int32][]func(seq int64)),
-		statistics:    metrics.NewFamilyStatistics(dbName, shardIDStr),
-		logger:        logger.GetLogger("TSDB", "Family"),
+		lastReadTime:  atomic.NewInt64(fasttime.UnixMilliseconds()),
+
+		statistics: metrics.NewFamilyStatistics(dbName, shardIDStr),
+		logger:     logger.GetLogger("TSDB", "Family"),
 	}
 	// get current persist write sequence
 	snapshot := family.GetSnapshot()
@@ -185,6 +198,7 @@ func (f *dataFamily) Family() kv.Family {
 	return f.family
 }
 
+// FamilyTime returns the timestamp of family.
 func (f *dataFamily) FamilyTime() int64 {
 	return f.familyTime
 }
@@ -305,9 +319,58 @@ func (f *dataFamily) Compact() {
 
 	diff := fasttime.UnixMilliseconds() - f.lastFlushTime - 2*timeutil.OneHour
 	if diff >= 0 {
-		// long term no data write, does full comapct
+		// long term no data write, does full compact
 		f.family.Compact()
 	}
+}
+
+// Retain increments write ref count
+func (f *dataFamily) Retain() {
+	f.ref.Inc()
+}
+
+// Release decrements write ref count,
+// if ref==0, no data will write this family.
+func (f *dataFamily) Release() {
+	f.ref.Dec()
+}
+
+// Evict evicts family if long term no data write.
+func (f *dataFamily) Evict() {
+	ref := f.ref.Load()
+	if ref > 0 {
+		return
+	}
+
+	f.mutex.Lock()
+	if f.mutableMemDB != nil || f.immutableMemDB != nil {
+		f.mutex.Unlock()
+		return
+	}
+	f.mutex.Unlock()
+
+	now := timeutil.Now()
+	ahead, _ := f.shard.Database().GetOption().GetAcceptWritableRange()
+	diff := now - f.familyTime - 6*timeutil.OneHour
+	f.logger.Info("check family if expire",
+		logger.String("baseTime", timeutil.FormatTimestamp(f.familyTime, timeutil.DataTimeFormat2)),
+		logger.String("lastRead", timeutil.FormatTimestamp(f.lastReadTime.Load(), timeutil.DataTimeFormat2)),
+		logger.Any("ahead", time.Duration(ahead).String()), logger.String("diff", time.Duration(diff).String()))
+	if diff <= ahead {
+		return
+	}
+	diff = now - f.lastReadTime.Load() - 2*timeutil.OneHour
+	if diff > ahead {
+		if err := closeFamilyFunc(f); err != nil {
+			f.logger.Error("close family err when evict", logger.String("family", f.Indicator()))
+		} else {
+			f.segment.EvictFamily(f.familyTime)
+		}
+	}
+}
+
+func closeFamily(f *dataFamily) error {
+	return f.Close()
 }
 
 // MemDBSize returns memory database heap size.
@@ -323,6 +386,7 @@ func (f *dataFamily) MemDBSize() int64 {
 // Filter filters the data based on metric/version/seriesIDs,
 // if it finds data then returns the FilterResultSet, else returns nil
 func (f *dataFamily) Filter(executeCtx *flow.ShardExecuteContext) (resultSet []flow.FilterResultSet, err error) {
+	f.lastReadTime.Store(fasttime.UnixMilliseconds())
 	memRS, err := f.memoryFilter(executeCtx)
 	if err != nil {
 		return nil, err

@@ -23,8 +23,6 @@ import (
 	"strconv"
 	"sync"
 
-	"go.uber.org/atomic"
-
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/logger"
@@ -45,6 +43,8 @@ type Segment interface {
 	GetDataFamilies(timeRange timeutil.TimeRange) []DataFamily
 	// NeedEvict checks segment if it can evict, long term no read operation.
 	NeedEvict() bool
+	// EvictFamily evicts data family.
+	EvictFamily(familyTime int64)
 	// Close closes segment, include kv store.
 	Close()
 }
@@ -58,8 +58,7 @@ type segment struct {
 	interval  timeutil.Interval
 	families  map[int]DataFamily
 
-	lastReadTime *atomic.Int64
-	mutex        sync.RWMutex
+	mutex sync.RWMutex
 
 	logger *logger.Logger
 }
@@ -91,14 +90,13 @@ func newSegment(shard Shard, segmentName string, interval timeutil.Interval) (Se
 		return nil, fmt.Errorf("create kv store for segment error:%s", err)
 	}
 	return &segment{
-		shard:        shard,
-		indicator:    indicator,
-		baseTime:     baseTime,
-		kvStore:      kvStore,
-		interval:     interval,
-		families:     make(map[int]DataFamily),
-		lastReadTime: atomic.NewInt64(timeutil.Now()),
-		logger:       logger.GetLogger("TSDB", "Segment"),
+		shard:     shard,
+		indicator: indicator,
+		baseTime:  baseTime,
+		kvStore:   kvStore,
+		interval:  interval,
+		families:  make(map[int]DataFamily),
+		logger:    logger.GetLogger("TSDB", "Segment"),
 	}, nil
 }
 
@@ -109,8 +107,6 @@ func (s *segment) BaseTime() int64 {
 
 // GetDataFamilies returns data family list by time range, return nil if not match
 func (s *segment) GetDataFamilies(timeRange timeutil.TimeRange) []DataFamily {
-	s.lastReadTime.Store(timeutil.Now())
-
 	var result []DataFamily
 	calc := s.interval.Calculator()
 
@@ -137,15 +133,21 @@ func (s *segment) GetDataFamilies(timeRange timeutil.TimeRange) []DataFamily {
 
 // NeedEvict checks segment if it can evict, long term no read operation.
 func (s *segment) NeedEvict() bool {
-	now := timeutil.Now()
-	ahead, _ := s.shard.Database().GetOption().GetAcceptWritableRange()
-	diff := now - s.baseTime - 6*timeutil.OneHour
-	if diff <= ahead {
-		// check writeable segment if expire
-		return false
-	}
-	diff = now - s.lastReadTime.Load() - 2*timeutil.OneHour
-	return diff > ahead
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	return len(s.families) == 0
+}
+
+// EvictFamily evicts data family.
+func (s *segment) EvictFamily(familyTime int64) {
+	calc := s.interval.Calculator()
+	family := calc.CalcFamily(familyTime, s.baseTime)
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	delete(s.families, family)
 }
 
 // GetOrCreateDataFamily returns the data family based on timestamp.
@@ -218,7 +220,7 @@ func (s *segment) initDataFamily(familyTime int, family kv.Family) DataFamily {
 	calc := s.interval.Calculator()
 	// create data family
 	familyStartTime := calc.CalcFamilyStartTime(s.baseTime, familyTime)
-	dataFamily := newDataFamilyFunc(s.shard, s.interval, timeutil.TimeRange{
+	dataFamily := newDataFamilyFunc(s.shard, s, s.interval, timeutil.TimeRange{
 		Start: familyStartTime,
 		End:   calc.CalcFamilyEndTime(familyStartTime),
 	}, familyStartTime, family)

@@ -67,6 +67,7 @@ func NewLocalReplicator(channel *ReplicatorChannel, shard tsdb.Shard, family tsd
 
 	// reset replica index = ack index + 1, replay wal log
 	lr.ResetReplicaIndex(lr.AckIndex() + 1)
+	family.Retain() // mark family will write data
 
 	lr.logger.Info("start local replicator", logger.String("replica", lr.String()),
 		logger.Int64("replicaIndex", lr.channel.ConsumerGroup.ConsumedSeq()),
@@ -149,4 +150,10 @@ func (r *localReplicator) Replica(sequence int64, msg []byte) {
 		return
 	}
 	r.statistics.ReplicaRows.Add(float64(rowsLen))
+}
+
+// Close closes local replicator.
+func (r *localReplicator) Close() {
+	// mark write data completed.
+	r.family.Release()
 }

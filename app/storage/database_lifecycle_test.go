@@ -74,6 +74,7 @@ func TestDatabaseLifecycle_ttlTask(t *testing.T) {
 	}()
 	family := tsdb.NewMockDataFamily(ctrl)
 	family.EXPECT().Compact().AnyTimes()
+	family.EXPECT().Evict().AnyTimes()
 	family.EXPECT().Indicator().Return("family").AnyTimes()
 	tsdb.GetFamilyManager().AddFamily(family)
 

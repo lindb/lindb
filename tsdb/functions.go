@@ -45,4 +45,5 @@ var (
 	newMemoryDBFunc        = memdb.NewMemoryDatabase
 	newDataFamilyFunc      = newDataFamily
 	newMetricDataFlusher   = metricsdata.NewFlusher
+	closeFamilyFunc        = closeFamily
 )

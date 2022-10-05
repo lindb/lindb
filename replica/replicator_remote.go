@@ -156,17 +156,8 @@ func (r *remoteReplicator) IsReady() bool {
 
 	defer r.rwMutex.Unlock()
 
-	if r.replicaStream != nil {
-		// need close old replica stream
-		r.statistics.NeedCloseLastStream.Incr()
-		if err := r.replicaStream.CloseSend(); err != nil {
-			r.statistics.CloseLastStreamFailures.Incr()
-			r.logger.Warn("close replica service client stream err, when reconnection",
-				logger.String("replicator", r.String()),
-				logger.Error(err))
-		}
-		r.replicaStream = nil
-	}
+	r.closeStream()
+
 	r.state.Store(&state{state: models.ReplicatorInitState, errMsg: "creating replica client"})
 	replicaCli, err := r.cliFct.CreateReplicaServiceClient(&node)
 	if err != nil {
@@ -300,6 +291,26 @@ func (r *remoteReplicator) Replica(idx int64, msg []byte) {
 	} else {
 		// TODO: need reset ack sequence?
 		r.statistics.InvalidAckSequence.Incr()
+	}
+}
+
+// Close closes remote replica stream.
+func (r *remoteReplicator) Close() {
+	r.closeStream()
+}
+
+// closeStream closes remote replica stream if exist.
+func (r *remoteReplicator) closeStream() {
+	if r.replicaStream != nil {
+		// need close old replica stream
+		r.statistics.NeedCloseLastStream.Incr()
+		if err := r.replicaStream.CloseSend(); err != nil {
+			r.statistics.CloseLastStreamFailures.Incr()
+			r.logger.Warn("close replica service client stream err, when reconnection",
+				logger.String("replicator", r.String()),
+				logger.Error(err))
+		}
+		r.replicaStream = nil
 	}
 }
 
