@@ -38,6 +38,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/ltoml"
+	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/metric"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
@@ -65,7 +66,7 @@ func TestDataFamily_BaseTime(t *testing.T) {
 	shard := NewMockShard(ctrl)
 	shard.EXPECT().Database().Return(database)
 	shard.EXPECT().ShardID().Return(models.ShardID(1))
-	dataFamily := newDataFamily(shard, timeutil.Interval(timeutil.OneSecond*10), timeRange, 10, family)
+	dataFamily := newDataFamily(shard, nil, timeutil.Interval(timeutil.OneSecond*10), timeRange, 10, family)
 	assert.Equal(t, timeRange, dataFamily.TimeRange())
 	assert.Equal(t, timeutil.Interval(10000), dataFamily.Interval())
 	assert.NotNil(t, dataFamily.Family())
@@ -193,8 +194,9 @@ func TestDataFamily_Filter(t *testing.T) {
 				newFilterFunc = metricsdata.NewFilter
 			}()
 			f := &dataFamily{
-				familyTime: now,
-				family:     family,
+				familyTime:   now,
+				family:       family,
+				lastReadTime: atomic.NewInt64(fasttime.UnixMilliseconds()),
 			}
 			if tt.prepare != nil {
 				tt.prepare(f)
@@ -760,4 +762,82 @@ func TestDataFamily_Compact(t *testing.T) {
 	f.family = kvFamily
 	kvFamily.EXPECT().Compact()
 	f.Compact()
+}
+
+func TestDataFamily_Evict(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	shard := NewMockShard(ctrl)
+	db := NewMockDatabase(ctrl)
+	shard.EXPECT().Database().Return(db).AnyTimes()
+	opt := &option.DatabaseOption{Ahead: "1h", Behind: "1h"}
+	db.EXPECT().GetOption().Return(opt).AnyTimes()
+	segment := NewMockSegment(ctrl)
+	segment.EXPECT().EvictFamily(gomock.Any()).AnyTimes()
+
+	cases := []struct {
+		name    string
+		prepare func(f *dataFamily)
+	}{
+		{
+			name: "family write data",
+			prepare: func(f *dataFamily) {
+				f.Retain()
+			},
+		},
+		{
+			name: "family has mem database",
+			prepare: func(f *dataFamily) {
+				f.Retain()
+				f.Release()
+				f.mutableMemDB = memdb.NewMockMemoryDatabase(ctrl)
+			},
+		},
+		{
+			name: "family time in write time range",
+			prepare: func(f *dataFamily) {
+				f.familyTime = timeutil.Now()
+				f.familyTime = f.familyTime - 6*timeutil.OneHour - timeutil.OneMinute
+			},
+		},
+		{
+			name: "family time expire",
+			prepare: func(f *dataFamily) {
+				f.familyTime = timeutil.Now()
+				f.familyTime = f.familyTime - 7*timeutil.OneHour - timeutil.OneMinute
+				f.lastReadTime.Store(timeutil.Now() - 3*timeutil.OneHour - timeutil.OneMinute)
+			},
+		},
+		{
+			name: "family time expire, but close family failure",
+			prepare: func(f *dataFamily) {
+				f.familyTime = timeutil.Now()
+				f.familyTime = f.familyTime - 7*timeutil.OneHour - timeutil.OneMinute
+				f.lastReadTime.Store(timeutil.Now() - 3*timeutil.OneHour - timeutil.OneMinute)
+				closeFamilyFunc = func(_ *dataFamily) error {
+					return fmt.Errorf("err")
+				}
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(_ *testing.T) {
+			defer func() {
+				closeFamilyFunc = closeFamily
+			}()
+			f := &dataFamily{
+				shard:        shard,
+				segment:      segment,
+				lastReadTime: atomic.NewInt64(fasttime.UnixMilliseconds()),
+				statistics:   metrics.NewFamilyStatistics("data", "1"),
+				logger:       logger.GetLogger("TSDB", "Test"),
+			}
+			if tt.prepare != nil {
+				tt.prepare(f)
+			}
+			f.Evict()
+		})
+	}
 }

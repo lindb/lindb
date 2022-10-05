@@ -92,4 +92,6 @@ func TestReplicator_Base(t *testing.T) {
 	r.ResetReplicaIndex(int64(10))
 	cg.EXPECT().Pending().Return(int64(10))
 	assert.Equal(t, int64(10), r.Pending())
+
+	r.Close()
 }

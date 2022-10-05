@@ -65,6 +65,8 @@ type Replicator interface {
 	Pending() int64
 	// IgnoreMessage ignores invalid message.
 	IgnoreMessage(replicaIdx int64)
+	// Close closes replicator, releases resource.
+	Close()
 }
 
 // replicator implements Replicator interface.
@@ -146,6 +148,11 @@ func (r *replicator) IgnoreMessage(replicaIdx int64) {
 		// if next ack sequence = replica sequence
 		r.SetAckIndex(replicaIdx)
 	}
+}
+
+// Close closes replicator.
+func (r *replicator) Close() {
+	// do nothing
 }
 
 // String returns string value of replicator.

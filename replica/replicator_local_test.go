@@ -47,6 +47,7 @@ func TestLocalReplicator_New(t *testing.T) {
 	shard.EXPECT().Database().Return(database).AnyTimes()
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 	family := tsdb.NewMockDataFamily(ctrl)
+	family.EXPECT().Retain().AnyTimes()
 	family.EXPECT().CommitSequence(gomock.Any(), gomock.Any()).AnyTimes()
 	family.EXPECT().AckSequence(gomock.Any(), gomock.Any()).DoAndReturn(func(_ int32, fn func(int64)) {
 		fn(10)
@@ -76,6 +77,7 @@ func TestLocalReplicator_Replica(t *testing.T) {
 	shard.EXPECT().Database().Return(database).AnyTimes()
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 	family := tsdb.NewMockDataFamily(ctrl)
+	family.EXPECT().Retain().AnyTimes()
 	family.EXPECT().CommitSequence(gomock.Any(), gomock.Any()).AnyTimes()
 	family.EXPECT().AckSequence(gomock.Any(), gomock.Any()).AnyTimes()
 	q := queue.NewMockConsumerGroup(ctrl)
@@ -135,4 +137,15 @@ func TestLocalReplicator_Replica(t *testing.T) {
 	// empty rows
 	dst = snappy.Encode(dst, []byte{})
 	replicator.Replica(1, dst)
+}
+
+func TestLocalReplicator_Close(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	family := tsdb.NewMockDataFamily(ctrl)
+	r := &localReplicator{
+		family: family,
+	}
+	family.EXPECT().Release()
+	r.Close()
 }

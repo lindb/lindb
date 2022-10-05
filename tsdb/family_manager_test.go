@@ -47,14 +47,14 @@ func TestFamilyManager_AddFamily(t *testing.T) {
 
 	c := 0
 	GetFamilyManager().WalkEntry(func(family DataFamily) {
+		GetFamilyManager().RemoveFamily(family)
 		c++
 	})
 	assert.Equal(t, 2, c)
-	GetFamilyManager().RemoveFamily(family1)
 
 	c = 0
 	GetFamilyManager().WalkEntry(func(family DataFamily) {
 		c++
 	})
-	assert.Equal(t, 1, c)
+	assert.Equal(t, 0, c)
 }

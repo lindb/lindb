@@ -139,6 +139,8 @@ func (r *replicatorRunner) loop(ctx context.Context) {
 		r.replica(ctx)
 	}
 
+	// close replicator
+	r.replicator.Close()
 	// exit replica loop
 	close(r.closed)
 

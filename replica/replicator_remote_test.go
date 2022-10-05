@@ -28,7 +28,9 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/coordinator/storage"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/queue"
 	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
 	"github.com/lindb/lindb/rpc"
@@ -365,4 +367,32 @@ func TestRemoteReplicator_Connect(t *testing.T) {
 			assert.Equal(t, tt.ready, ready)
 		})
 	}
+}
+
+func TestRemoteReplicator_Close(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("no stream", func(_ *testing.T) {
+		r := &remoteReplicator{}
+		r.Close()
+	})
+	t.Run("close stream failure", func(_ *testing.T) {
+		stream := protoReplicaV1.NewMockReplicaService_ReplicaClient(ctrl)
+		r := &remoteReplicator{
+			replicaStream: stream,
+			statistics:    metrics.NewStorageRemoteReplicatorStatistics("test", "0"),
+			logger:        logger.GetLogger("Test", "RemoteReplicator"),
+			replicator: replicator{channel: &ReplicatorChannel{
+				State: &models.ReplicaState{
+					Database: "test",
+					ShardID:  0,
+					Leader:   1,
+					Follower: 2,
+				},
+			}},
+		}
+		stream.EXPECT().CloseSend().Return(fmt.Errorf("err"))
+		r.Close()
+	})
 }
