@@ -170,6 +170,16 @@ func TestBrokerStateMachineAPI_Explore(t *testing.T) {
 			},
 		},
 		{
+			name: "master state, master",
+			req:  `role=3&type=` + constants.Master,
+			prepare: func() {
+				master.EXPECT().GetMaster().Return(&models.Master{})
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
 			name: "master state, shard assignment",
 			req:  `role=3&type=` + constants.ShardAssignment,
 			prepare: func() {
