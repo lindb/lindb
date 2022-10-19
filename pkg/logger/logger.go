@@ -94,8 +94,8 @@ func (l *Logger) GetLogger() *zap.Logger {
 // if failure, it will use the default logger
 func (l *Logger) getInitializedOrDefaultLogger() *zap.Logger {
 	var item interface{}
-	switch {
-	case l.module == HTTPModule:
+	switch l.module {
+	case HTTPModule:
 		accessLogger.Load()
 	default:
 		item = lindLogger.Load()

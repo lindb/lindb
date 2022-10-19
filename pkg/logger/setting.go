@@ -87,7 +87,7 @@ func newDefaultLogger() *zap.Logger {
 		zapcore.NewConsoleEncoder(encoderConfig),
 		os.Stdout,
 		RunningAtomicLevel)
-	return zap.New(core)
+	return zap.New(core, zap.AddCaller(), zap.AddCallerSkip(2))
 }
 
 // InitLogger initializes a zap logger from user config
@@ -119,8 +119,8 @@ func initLogger(logFilename string, cfg config.Logging) error {
 	}
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = SimpleTimeEncoder
-	switch {
-	case logFilename == accessLogFileName:
+	switch logFilename {
+	case accessLogFileName:
 		encoderConfig.EncodeLevel = SimpleAccessLevelEncoder
 	default:
 		encoderConfig.EncodeLevel = SimpleLevelEncoder
@@ -130,11 +130,11 @@ func initLogger(logFilename string, cfg config.Logging) error {
 		zapcore.NewConsoleEncoder(encoderConfig),
 		w,
 		RunningAtomicLevel)
-	switch {
-	case logFilename == accessLogFileName:
+	switch logFilename {
+	case accessLogFileName:
 		accessLogger.Store(zap.New(core))
 	default:
-		lindLogger.Store(zap.New(core))
+		lindLogger.Store(zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1)))
 	}
 	return nil
 }
