@@ -212,7 +212,11 @@ func (f *consumerGroup) Pending() int64 {
 	fh := f.ConsumedSeq()
 	qh := f.q.Queue().AppendedSeq()
 
-	return qh - fh
+	pending := qh - fh
+	if pending < 0 {
+		return 0
+	}
+	return pending
 }
 
 // IsEmpty returns if fan out consumer cannot consume any data.
@@ -222,7 +226,7 @@ func (f *consumerGroup) IsEmpty() bool {
 
 	qh := f.q.Queue().AppendedSeq()
 
-	return qh == f.AcknowledgedSeq()
+	return qh <= f.AcknowledgedSeq()
 }
 
 // Close persists headSeq, tailSeq.
