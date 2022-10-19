@@ -17,7 +17,17 @@ specific language governing permissions and limitations
 under the License.
 */
 import { MonitoringDB } from "@src/constants";
-import { Dashboard, UnitEnum } from "@src/models";
+import { Dashboard, LegendAggregateType, Unit } from "@src/models";
+
+export const chartOptions = {
+  legend: {
+    values: [
+      LegendAggregateType.MAX,
+      LegendAggregateType.MIN,
+      LegendAggregateType.CURRENT,
+    ],
+  },
+};
 
 export const SystemDashboard: Dashboard = {
   rows: [
@@ -26,7 +36,10 @@ export const SystemDashboard: Dashboard = {
         {
           chart: {
             title: "CPU Usage",
-            config: { type: "area" },
+            config: {
+              type: "area",
+              options: chartOptions,
+            },
             targets: [
               {
                 db: MonitoringDB,
@@ -34,14 +47,14 @@ export const SystemDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Percent,
+            unit: Unit.Percent,
           },
           span: 12,
         },
         {
           chart: {
             title: "CPU",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -49,7 +62,7 @@ export const SystemDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Percent2,
+            unit: Unit.Percent2,
           },
           span: 12,
         },
@@ -60,7 +73,7 @@ export const SystemDashboard: Dashboard = {
         {
           chart: {
             title: "Memory Usage",
-            config: { type: "area" },
+            config: { type: "area", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -68,14 +81,14 @@ export const SystemDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Percent,
+            unit: Unit.Percent,
           },
           span: 12,
         },
         {
           chart: {
             title: "Memory Size",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -83,7 +96,7 @@ export const SystemDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Bytes,
+            unit: Unit.Bytes,
           },
           span: 12,
         },
@@ -94,7 +107,7 @@ export const SystemDashboard: Dashboard = {
         {
           chart: {
             title: "Disk Usage",
-            config: { type: "area" },
+            config: { type: "area", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -102,14 +115,14 @@ export const SystemDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Percent,
+            unit: Unit.Percent,
           },
           span: 8,
         },
         {
           chart: {
             title: "INodes Usage",
-            config: { type: "area" },
+            config: { type: "area", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -117,14 +130,14 @@ export const SystemDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Percent,
+            unit: Unit.Percent,
           },
           span: 8,
         },
         {
           chart: {
             title: "Disk Size",
-            config: { type: "link" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -132,7 +145,7 @@ export const SystemDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Bytes,
+            unit: Unit.Bytes,
           },
           span: 8,
         },
@@ -143,7 +156,7 @@ export const SystemDashboard: Dashboard = {
         {
           chart: {
             title: "Number Of Bytes Sent",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -151,14 +164,14 @@ export const SystemDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.KBytesPerSecond,
+            unit: Unit.KBytesPerSecond,
           },
           span: 12,
         },
         {
           chart: {
             title: "Number Of Bytes Receive",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -166,7 +179,7 @@ export const SystemDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.KBytesPerSecond,
+            unit: Unit.KBytesPerSecond,
           },
           span: 12,
         },
@@ -177,7 +190,7 @@ export const SystemDashboard: Dashboard = {
         {
           chart: {
             title: "Number Of Packages Sent",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -185,14 +198,14 @@ export const SystemDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Number Of Packages Receive",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -200,7 +213,7 @@ export const SystemDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -211,7 +224,7 @@ export const SystemDashboard: Dashboard = {
         {
           chart: {
             title: "Number Of Errors While Sending",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -219,14 +232,14 @@ export const SystemDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Number Of Errors While Receiving",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -234,41 +247,7 @@ export const SystemDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
-          },
-          span: 12,
-        },
-      ],
-    },
-    {
-      panels: [
-        {
-          chart: {
-            title: "Number Of Incoming Packets Which Were Dropped",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select dropin from lindb.monitor.system.net_stat group by node",
-                watch: ["namespace", "node", "role"],
-              },
-            ],
-            unit: UnitEnum.Short,
-          },
-          span: 12,
-        },
-        {
-          chart: {
-            title: "Number Of Outcoming Packets Which Were Dropped",
-            config: { type: "line" },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select dropout from lindb.monitor.system.net_stat group by node",
-                watch: ["namespace", "node", "role"],
-              },
-            ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },

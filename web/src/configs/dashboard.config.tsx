@@ -72,7 +72,7 @@ export const CommonVariates = [
   {
     tagKey: "namespace",
     label: "Namespace",
-    watch: { cascade: ["role"], clear: "node" },
+    watch: { cascade: ["role"], clear: ["node"] },
     scope: [StateRoleName.Storage],
     db: MonitoringDB,
     sql: "show tag values from 'lindb.runtime.mem' with key=namespace",

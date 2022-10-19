@@ -34,7 +34,7 @@ import {
 } from "@douyinfe/semi-ui";
 import { Route } from "@src/constants";
 import { Storage } from "@src/models";
-import { exec } from "@src/services";
+import { ExecService } from "@src/services";
 import { URLStore } from "@src/stores";
 import * as _ from "lodash-es";
 import React, { MutableRefObject, useEffect, useRef, useState } from "react";
@@ -50,7 +50,9 @@ export default function DatabaseConfig() {
   useEffect(() => {
     const getStorageList = async () => {
       try {
-        const list = await exec<Storage[]>({ sql: "show storages" });
+        const list = await ExecService.exec<Storage[]>({
+          sql: "show storages",
+        });
         const selectList: any[] = [];
         _.forEach(list || [], (s) => {
           const ns = _.get(s, "config.namespace");

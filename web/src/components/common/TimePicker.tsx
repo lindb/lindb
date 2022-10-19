@@ -16,12 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import {
-  IconChevronDown,
-  IconClock,
-  IconRefresh,
-  IconTick,
-} from "@douyinfe/semi-icons";
+import { IconChevronDown, IconRefresh, IconTick } from "@douyinfe/semi-icons";
 import {
   Button,
   Dropdown,
@@ -32,12 +27,13 @@ import {
   Typography,
   Space,
 } from "@douyinfe/semi-ui";
-import { useWatchURLChange } from "@src/hooks";
+import { useParams } from "@src/hooks";
 import { URLStore } from "@src/stores";
 import * as _ from "lodash-es";
-import React, { useState, useRef, MutableRefObject } from "react";
+import React, { useState, useRef, MutableRefObject, useEffect } from "react";
 import moment from "moment";
 import { DateTimeFormat } from "@src/constants";
+import { Icon } from "@src/components";
 
 const { Title } = Typography;
 const defaultQuickItem = { title: "Last 1 hour", value: "now()-1h" };
@@ -74,6 +70,7 @@ const autoRefreshList: QuickSelectItem[] = [
 ];
 
 export default function TimePicker() {
+  const { from, to, refresh } = useParams(["from", "to", "refresh"]);
   const formApi = useRef() as MutableRefObject<any>;
   const [quick, setQuick] = useState<QuickSelectItem | undefined>(
     defaultQuickItem
@@ -98,18 +95,16 @@ export default function TimePicker() {
       }, 1000 * interval);
     }
   };
-
-  useWatchURLChange(() => {
-    const from = URLStore.params.get("from");
-
+  useEffect(() => {
     if (_.isEmpty(from)) {
       setQuick(defaultQuickItem);
     } else {
       const quickItem = _.find(quickSelectList, { value: `${from}` });
       setQuick(quickItem);
     }
+  }, [from]);
 
-    const refresh = URLStore.params.get("refresh");
+  useEffect(() => {
     const refreshItem = _.find(autoRefreshList, { title: `${refresh}` });
     if (refreshItem && refreshItem.value !== "") {
       buildCountDown(parseInt(refreshItem.value));
@@ -117,7 +112,7 @@ export default function TimePicker() {
       clearInterval(countDown.current);
     }
     setAutoRefresh(refreshItem || defaultAutoRefreshItem);
-  });
+  }, [refresh]);
 
   const renderQuickSelectItem = (items: QuickSelectItem[]) => {
     const SelectItems = items.map((item) => (
@@ -148,10 +143,8 @@ export default function TimePicker() {
    * Render current selected time
    */
   function renderSelectedTime() {
-    const from = URLStore.params.get("from");
-    const to = URLStore.params.get("to");
     return (
-      <Button icon={<IconClock />} onClick={() => setVisible(true)}>
+      <Button icon={<Icon icon="iconclock" />} onClick={() => setVisible(true)}>
         {quick?.title}
         {!quick && `${from} ~ ${to ? `${to}` : "now"}`}
       </Button>
@@ -174,12 +167,7 @@ export default function TimePicker() {
               label="From"
               labelPosition="top"
               onOpenChange={(v) => (timeRangeVisible.current = v)}
-              initValue={
-                !quick
-                  ? URLStore.params.get("from") &&
-                    new Date(`${URLStore.params.get("from")}`)
-                  : null
-              }
+              initValue={!quick ? from && new Date(`${from}`) : null}
             />
             <Form.DatePicker
               field="to"
@@ -187,10 +175,7 @@ export default function TimePicker() {
               labelPosition="top"
               label="To"
               onOpenChange={(v) => (timeRangeVisible.current = v)}
-              initValue={
-                URLStore.params.get("to") &&
-                new Date(`${URLStore.params.get("to")}`)
-              }
+              initValue={to && new Date(`${to}`)}
             />
             <Button
               style={{ marginTop: 12 }}

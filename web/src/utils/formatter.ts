@@ -16,14 +16,14 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { UnitEnum } from "@src/models";
+import { Unit } from "@src/models";
 import convert from "convert-units";
 
 /**
  * format percent value for 0-100.
  * @param input percent value
  */
-export function transformPercent(input: number): string {
+function transformPercent(input: number): string {
   if (!input) {
     return "0%";
   } else {
@@ -34,7 +34,7 @@ export function transformPercent(input: number): string {
  * format percent value for 0-1.
  * @param input percent value
  */
-export function transformPercent2(input: number): string {
+function transformPercent2(input: number): string {
   if (!input) {
     return "0%";
   } else {
@@ -42,7 +42,7 @@ export function transformPercent2(input: number): string {
   }
 }
 
-export function transformBytes(input: number): string {
+function transformBytes(input: number): string {
   if (input > 1024 * 1024 * 1024 * 1024 * 1024) {
     return `${(input / (1024 * 1024 * 1024 * 1024 * 1024)).toFixed(2)} PB`;
   } else if (input > 1024 * 1024 * 1024 * 1024) {
@@ -59,7 +59,8 @@ export function transformBytes(input: number): string {
     return `${input.toFixed(2)} Byte`;
   }
 }
-export function transformSeconds(input: number): string {
+
+function transformSeconds(input: number): string {
   if (input > 365 * 24 * 3600) {
     return `${(input / (365 * 24 * 3600)).toFixed(2)} years`;
   } else if (input > 24 * 3600) {
@@ -75,7 +76,7 @@ export function transformSeconds(input: number): string {
   }
 }
 
-export function transformNanoSeconds(input: number, decimals?: number): string {
+function transformNanoSeconds(input: number, decimals?: number): string {
   if (!input) {
     return "0ns";
   }
@@ -90,7 +91,7 @@ export function transformNanoSeconds(input: number, decimals?: number): string {
   }
 }
 
-export function transformMilliseconds(input: number): string {
+function transformMilliseconds(input: number): string {
   if (input > 24 * 3600 * 1000) {
     return `${(input / (24 * 3600 * 1000)).toFixed(2)} days`;
   } else if (input > 3600 * 1000) {
@@ -106,7 +107,7 @@ export function transformMilliseconds(input: number): string {
   }
 }
 
-export function transformNone(input: number): string {
+function transformNone(input: number): string {
   if (input > 1000 * 1000 * 1000) {
     return `${(input / (1000 * 1000 * 1000)).toFixed(2)} B`;
   } else if (input > 1000 * 1000) {
@@ -116,25 +117,41 @@ export function transformNone(input: number): string {
   } else if (!input) {
     return "0";
   } else {
-    return `${input.toString()}`;
+    return `${input.toFixed(2).toString()}`;
   }
 }
 
-export function formatter(point: number, unit: UnitEnum): string {
+function format(point: number, unit: Unit): string {
   switch (unit) {
-    case UnitEnum.Nanoseconds:
+    case Unit.Nanoseconds:
       return transformNanoSeconds(point);
-    case UnitEnum.Milliseconds:
+    case Unit.Milliseconds:
       return transformMilliseconds(point);
-    case UnitEnum.Seconds:
+    case Unit.Seconds:
       return transformSeconds(point);
-    case UnitEnum.Bytes:
+    case Unit.Bytes:
       return transformBytes(point);
-    case UnitEnum.Percent:
+    case Unit.Percent:
       return transformPercent(point);
-    case UnitEnum.Percent2:
+    case Unit.Percent2:
       return transformPercent2(point);
     default:
       return transformNone(point);
   }
 }
+
+function toObject(input: string): any {
+  switch (input) {
+    case "false":
+      return false;
+    case "true":
+      return true;
+    default:
+      return input;
+  }
+}
+
+export default {
+  format,
+  toObject,
+};

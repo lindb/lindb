@@ -21,3 +21,4 @@ export * from "@src/models/metadata";
 export * from "@src/models/data";
 export * from "@src/models/state";
 export * from "@src/models/chart";
+export * from "@src/models/route";

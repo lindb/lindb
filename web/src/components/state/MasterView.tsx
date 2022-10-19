@@ -16,30 +16,66 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { Card } from "@douyinfe/semi-ui";
-import { MasterNodeView } from "@src/components";
+import { Card, Descriptions, Typography } from "@douyinfe/semi-ui";
+import { DateTimeFormat } from "@src/constants";
 import { Master } from "@src/models";
-import { exec } from "@src/services";
-import React, { useCallback, useEffect, useState } from "react";
+import { ExecService } from "@src/services";
+import { useQuery } from "@tanstack/react-query";
+import moment from "moment";
+import React from "react";
+import { StatusTip } from "@src/components";
 
-export default function MasterView() {
-  const [master, setMaster] = useState<Master>();
-  const [loading, setLoading] = useState(true);
-  const getCurrentMaster = useCallback(async () => {
-    try {
-      setLoading(true);
-      const currentMaster = await exec<Master>({ sql: "show master" });
-      setMaster(currentMaster);
-    } catch (err) {
-      console.log(err);
-    } finally {
-      setLoading(false);
+const { Text } = Typography;
+
+const MasterView: React.FC = () => {
+  const {
+    isLoading,
+    data: master,
+    isError,
+    error,
+  } = useQuery(["show_master"], async () => {
+    return ExecService.exec<Master>({ sql: "show master" });
+  });
+
+  const renderMaster = () => {
+    if (isLoading || isError) {
+      return (
+        <StatusTip isLoading={isLoading} isError={isError} error={error} />
+      );
     }
-  }, []);
 
-  useEffect(() => {
-    getCurrentMaster();
-  }, [getCurrentMaster]);
+    return (
+      <Descriptions
+        className="lin-description"
+        row
+        size="small"
+        data={[
+          {
+            key: "Elect Time",
+            value: (
+              <Text link>
+                {master?.electTime &&
+                  moment(master?.electTime).format(DateTimeFormat)}
+              </Text>
+            ),
+          },
+          { key: "Host IP", value: <Text link>{master?.node?.hostIp}</Text> },
+          {
+            key: "Host Name",
+            value: <Text link>{master?.node?.hostName}</Text>,
+          },
+          {
+            key: "GRPC Port",
+            value: <Text link>{master?.node?.grpcPort}</Text>,
+          },
+          {
+            key: "HTTP Port",
+            value: <Text link>{master?.node?.httpPort}</Text>,
+          },
+        ]}
+      />
+    );
+  };
 
   return (
     <>
@@ -47,10 +83,11 @@ export default function MasterView() {
         title="Master"
         headerStyle={{ padding: 12 }}
         bodyStyle={{ padding: 12 }}
-        loading={loading}
       >
-        <MasterNodeView master={master} />
+        {renderMaster()}
       </Card>
     </>
   );
-}
+};
+
+export default MasterView;

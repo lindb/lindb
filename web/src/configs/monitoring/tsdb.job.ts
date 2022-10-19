@@ -17,7 +17,8 @@ specific language governing permissions and limitations
 under the License.
 */
 import { MonitoringDB } from "@src/constants";
-import { Dashboard, UnitEnum } from "@src/models";
+import { Dashboard, Unit } from "@src/models";
+import { chartOptions } from "./system";
 
 export const TSDBJobDashboard: Dashboard = {
   rows: [
@@ -26,7 +27,7 @@ export const TSDBJobDashboard: Dashboard = {
         {
           chart: {
             title: "Number Of Flush Request Inflight",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -34,7 +35,7 @@ export const TSDBJobDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 24,
         },
@@ -45,7 +46,7 @@ export const TSDBJobDashboard: Dashboard = {
         {
           chart: {
             title: "Flush Data Job",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -53,14 +54,14 @@ export const TSDBJobDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Flush Data Job Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -68,14 +69,14 @@ export const TSDBJobDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Flush Data Duration(P99)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -83,7 +84,7 @@ export const TSDBJobDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Milliseconds,
+            unit: Unit.Milliseconds,
           },
           span: 8,
         },
@@ -94,7 +95,7 @@ export const TSDBJobDashboard: Dashboard = {
         {
           chart: {
             title: "Flush Metric Meta Job",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -102,14 +103,14 @@ export const TSDBJobDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Flush Metric Meta Job Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -117,14 +118,14 @@ export const TSDBJobDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Flush Metric Meta Duration(P99)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -132,7 +133,7 @@ export const TSDBJobDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Milliseconds,
+            unit: Unit.Milliseconds,
           },
           span: 8,
         },
@@ -143,7 +144,7 @@ export const TSDBJobDashboard: Dashboard = {
         {
           chart: {
             title: "Flush Index Job",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -151,14 +152,14 @@ export const TSDBJobDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Flush Index Job Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -166,14 +167,14 @@ export const TSDBJobDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Flush Index Duration(P99)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -181,7 +182,7 @@ export const TSDBJobDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Milliseconds,
+            unit: Unit.Milliseconds,
           },
           span: 8,
         },

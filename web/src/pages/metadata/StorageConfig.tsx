@@ -32,7 +32,7 @@ import {
   useFormApi,
 } from "@douyinfe/semi-ui";
 import { Route } from "@src/constants";
-import { exec } from "@src/services";
+import { ExecService } from "@src/services";
 import { URLStore } from "@src/stores";
 import * as _ from "lodash-es";
 import React, { useState } from "react";
@@ -46,7 +46,9 @@ export default function StorageConfig() {
     const create = async (values: any) => {
       try {
         setSubmiting(true);
-        await exec({ sql: `create storage ${JSON.stringify(values)}` });
+        await ExecService.exec({
+          sql: `create storage ${JSON.stringify(values)}`,
+        });
       } catch (err) {
         setError(_.get(err, "response.data", "Unknown internal error"));
       } finally {

@@ -30,10 +30,11 @@ interface StorageViewProps {
   name?: string;
   storages: StorageState[];
   loading?: boolean;
+  statusTip?: React.ReactNode;
 }
 
 export default function StorageView(props: StorageViewProps) {
-  const { name, loading, storages } = props;
+  const { name, loading, storages, statusTip } = props;
 
   const columns = [
     {
@@ -62,7 +63,7 @@ export default function StorageView(props: StorageViewProps) {
     },
     {
       title: "Node Status",
-      render: (text: any, record: StorageState, index: any) => {
+      render: (_text: any, record: StorageState, _index: any) => {
         return (
           <Descriptions
             row
@@ -93,14 +94,14 @@ export default function StorageView(props: StorageViewProps) {
     {
       title: "Num. Of Database",
       key: "num_db",
-      render: (text: any, record: StorageState, index: any) => {
+      render: (_text: any, record: StorageState, _index: any) => {
         return _.keys(_.get(record, "shardStates", {})).length;
       },
     },
     {
       title: "Replication Status",
       width: "30%",
-      render: (text: any, record: StorageState, index: any) => {
+      render: (_text: any, record: StorageState, _index: any) => {
         return (
           <Descriptions
             className="lin-small-desc"
@@ -136,7 +137,7 @@ export default function StorageView(props: StorageViewProps) {
     },
     {
       title: "Disk Capacity Usage",
-      render: (text: any, record: any, index: any) => {
+      render: (_text: any, record: any) => {
         return (
           <DiskUsageView
             sql={`show storage metric where storage='${record.name}' and metric in ('${StateMetricName.Disk}')`}
@@ -159,6 +160,7 @@ export default function StorageView(props: StorageViewProps) {
         dataSource={storages}
         loading={loading}
         pagination={false}
+        empty={statusTip}
       />
     </Card>
   );

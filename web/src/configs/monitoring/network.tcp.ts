@@ -17,7 +17,8 @@ specific language governing permissions and limitations
 under the License.
 */
 import { MonitoringDB } from "@src/constants";
-import { Dashboard, UnitEnum } from "@src/models";
+import { Dashboard, Unit } from "@src/models";
+import { chartOptions } from "./system";
 
 export const NetworkTCPDasbhoard: Dashboard = {
   rows: [
@@ -26,7 +27,7 @@ export const NetworkTCPDasbhoard: Dashboard = {
         {
           chart: {
             title: "Current Active Connections",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -34,14 +35,14 @@ export const NetworkTCPDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Accpet",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -49,14 +50,14 @@ export const NetworkTCPDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Accpet Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -64,7 +65,7 @@ export const NetworkTCPDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
@@ -75,7 +76,7 @@ export const NetworkTCPDasbhoard: Dashboard = {
         {
           chart: {
             title: "Number Of Read",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -83,14 +84,14 @@ export const NetworkTCPDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Read Traffic",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -98,14 +99,14 @@ export const NetworkTCPDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Bytes,
+            unit: Unit.Bytes,
           },
           span: 8,
         },
         {
           chart: {
             title: "Read Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -113,7 +114,7 @@ export const NetworkTCPDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
@@ -124,7 +125,7 @@ export const NetworkTCPDasbhoard: Dashboard = {
         {
           chart: {
             title: "Number Of Write",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -132,14 +133,14 @@ export const NetworkTCPDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "WRite Traffic",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -147,14 +148,14 @@ export const NetworkTCPDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Bytes,
+            unit: Unit.Bytes,
           },
           span: 8,
         },
         {
           chart: {
             title: "Write Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -162,7 +163,7 @@ export const NetworkTCPDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
@@ -173,7 +174,7 @@ export const NetworkTCPDasbhoard: Dashboard = {
         {
           chart: {
             title: "Closed Connections",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -181,14 +182,14 @@ export const NetworkTCPDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Close Connection Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -196,7 +197,7 @@ export const NetworkTCPDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },

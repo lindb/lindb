@@ -16,7 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-export function getShardColor(idx: number): string {
+function getShardColor(idx: number): string {
   const colors = [
     "rgb(250, 85, 61)",
     "rgb(33, 136, 251)",
@@ -38,7 +38,8 @@ export function getShardColor(idx: number): string {
   ];
   return colors[idx % colors.length];
 }
-export function getColor(idx: number): string {
+
+function getColor(idx: number): string {
   const colors = [
     "#7EB26D", // 0: pale green
     "#EAB839", // 1: mustard
@@ -106,7 +107,7 @@ export function getColor(idx: number): string {
  * @param {number} alpha
  * @return {string} rgba
  */
-export function toRGBA(hex: string, alpha: number) {
+function toRGBA(hex: string, alpha: number) {
   const hexReg = /^#?([0-9a-fA-f]{3}|[0-9a-fA-f]{6})$/;
 
   if (hexReg.test(hex)) {
@@ -125,3 +126,9 @@ export function toRGBA(hex: string, alpha: number) {
     return hex;
   }
 }
+
+export default {
+  toRGBA,
+  getColor,
+  getShardColor,
+};

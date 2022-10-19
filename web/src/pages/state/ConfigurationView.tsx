@@ -16,62 +16,75 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import React, { useState, useEffect, useRef, MutableRefObject } from "react";
+import React, { useEffect, useRef, MutableRefObject } from "react";
 import { Card, Descriptions, Space, Typography } from "@douyinfe/semi-ui";
 import * as _ from "lodash-es";
-import { useWatchURLChange } from "@src/hooks";
-import { proxy } from "@src/services";
-import { URLStore } from "@src/stores";
+import { useParams } from "@src/hooks";
+import { ProxyService } from "@src/services";
 import * as monaco from "monaco-editor";
+import { useQuery } from "@tanstack/react-query";
+import { StatusTip } from "@src/components";
 
 const { Text } = Typography;
 /**
  * ConfigurationView which view configuration in node's memory.
  */
-export default function ConfigurationView() {
-  const [config, setConfig] = useState();
-  const [loading, setLoading] = useState(false);
-  const editor = useRef() as MutableRefObject<any>;
+const ConfigurationView: React.FC = () => {
   const editorRef = useRef() as MutableRefObject<HTMLDivElement>;
-
-  useWatchURLChange(async () => {
-    const target = URLStore.params.get("target");
-    if (!target) {
-      return;
-    }
-    setLoading(true);
-    try {
-      const config = await proxy({
-        target: URLStore.params.get("target"),
+  const { target } = useParams(["target"]);
+  const {
+    isLoading,
+    isInitialLoading,
+    isFetching,
+    isError,
+    data: config,
+    error,
+  } = useQuery(
+    ["show_cfg", target],
+    async () => {
+      return ProxyService.proxy({
+        target: target,
         path: "/api/v1/config",
       });
-      setConfig(config);
-    } finally {
-      setLoading(false);
+    },
+    {
+      enabled: !_.isEmpty(target),
     }
-  });
+  );
+
   useEffect(() => {
-    if (editorRef.current && !editor.current) {
-      // editor no init, create it
-      editor.current = monaco.editor.create(editorRef.current, {
-        value: "no data",
-        language: "ini",
-        // lineNumbers: "off",
-        minimap: { enabled: false },
-        // lineNumbersMinChars: 2,
-        readOnly: true,
-      });
+    if (isLoading || isError || !editorRef.current) {
+      return;
     }
-    editor.current.setValue(_.get(config, "config", "no data"));
-  }, [config]);
+    monaco.editor.create(editorRef.current, {
+      language: "ini",
+      // lineNumbers: "off",
+      minimap: { enabled: false },
+      // lineNumbersMinChars: 2,
+      readOnly: true,
+      value: _.get(config, "config", "no data"),
+    });
+  }, [config, isLoading, isError, editorRef]);
+
+  if (isError || isLoading || isInitialLoading || isFetching) {
+    return (
+      <StatusTip
+        style={{ marginTop: 150 }}
+        isLoading={isLoading || isInitialLoading || isFetching}
+        isError={isError}
+        error={error}
+      />
+    );
+  }
 
   return (
     <>
-      <Card bodyStyle={{ padding: 12 }} loading={loading}>
+      <Card bodyStyle={{ padding: 12 }}>
         <Space align="center">
           <Descriptions
             row
             size="small"
+            className="lin-description"
             data={[
               {
                 key: "Host IP",
@@ -101,13 +114,11 @@ export default function ConfigurationView() {
           />
         </Space>
       </Card>
-      <Card
-        bodyStyle={{ padding: 0 }}
-        style={{ marginTop: 12 }}
-        loading={loading}
-      >
+      <Card bodyStyle={{ padding: 0 }} style={{ marginTop: 12 }}>
         <div ref={editorRef} style={{ height: "90vh" }} />
       </Card>
     </>
   );
-}
+};
+
+export default ConfigurationView;

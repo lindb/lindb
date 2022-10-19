@@ -23,25 +23,17 @@ import {
   IconTemplateStroked,
 } from "@douyinfe/semi-icons";
 import { Tree, Typography } from "@douyinfe/semi-ui";
-import { CanvasChart, MetricStatus } from "@src/components";
 import {
-  ChartStatus,
   ExplainResult,
   LeafNodeStats,
   OperatorStats,
   StageStats,
-  UnitEnum,
+  Unit,
 } from "@src/models";
-import { ChartStore } from "@src/stores";
-import { formatter } from "@src/utils";
-import { reaction } from "mobx";
-import React, { useEffect, useState, useRef, MutableRefObject } from "react";
+import { FormatKit } from "@src/utils";
+import React, { useRef, MutableRefObject } from "react";
 import * as _ from "lodash-es";
 const Text = Typography.Text;
-
-interface ExplainStatsViewProps {
-  chartId: string;
-}
 
 type totalStats = {
   total: number;
@@ -55,11 +47,8 @@ type stats = {
   cost: number;
 };
 
-const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
-  props: ExplainStatsViewProps
-) => {
-  const { chartId } = props;
-  const [state, setState] = useState<ExplainResult>();
+const ExplainStatsView: React.FC<{ state: ExplainResult }> = (props) => {
+  const { state } = props;
   const totalStats = useRef() as MutableRefObject<totalStats>;
 
   const getColor = (percent: number) => {
@@ -101,7 +90,7 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
   const renderCost = (cost: any) => {
     const percent = (cost * 100.0) / totalStats.current.total;
     let type: any = getColor(percent);
-    return <Text type={type}>{formatter(cost, UnitEnum.Nanoseconds)}</Text>;
+    return <Text type={type}>{FormatKit.format(cost, Unit.Nanoseconds)}</Text>;
   };
 
   const buildOperatorStats = (
@@ -191,7 +180,7 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
               : [ Cost: {renderCost(leafNodeStats.totalCost)}, Network Payload:{" "}
               <Text link>
                 {" "}
-                {formatter(leafNodeStats.netPayload, UnitEnum.Bytes)}
+                {FormatKit.format(leafNodeStats.netPayload, Unit.Bytes)}
               </Text>{" "}
               ]
             </span>
@@ -231,7 +220,7 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
               {renderCost(brokerNodeStats.totalCost)}, Network Payload:{" "}
               <Text link>
                 {" "}
-                {formatter(brokerNodeStats.netPayload, UnitEnum.Bytes)})
+                {FormatKit.format(brokerNodeStats.netPayload, Unit.Bytes)})
               </Text>{" "}
               ]
             </span>
@@ -273,9 +262,11 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
               ]
             </Text>
             : [ Cost:{" "}
-            <Text link>{formatter(state.totalCost, UnitEnum.Nanoseconds)}</Text>
+            <Text link>
+              {FormatKit.format(state.totalCost, Unit.Nanoseconds)}
+            </Text>
             , Network Payload:{" "}
-            <Text link>{formatter(state.netPayload, UnitEnum.Bytes)}</Text> ]
+            <Text link>{FormatKit.format(state.netPayload, Unit.Bytes)}</Text> ]
           </span>
           {timeline(
             {
@@ -352,29 +343,8 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
     return [root];
   };
 
-  useEffect(() => {
-    const disposer = [
-      reaction(
-        () => ChartStore.chartStatusMap.get(chartId),
-        (s: ChartStatus | undefined) => {
-          if (!s || s == ChartStatus.Loading) {
-            return;
-          }
-          const state = ChartStore.stateCache.get(chartId);
-          setState(state);
-        }
-      ),
-    ];
-
-    return () => {
-      disposer.forEach((d) => d());
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   return (
     <>
-      <MetricStatus chartId={chartId} showMsg />
       <Tree
         expandAll
         // icon
@@ -382,9 +352,6 @@ const ExplainStatsView: React.FC<ExplainStatsViewProps> = (
         treeData={buildStatsData()}
         style={{ display: state ? "block" : "none" }}
       />
-      <div style={{ display: !state ? "block" : "none" }}>
-        <CanvasChart chartId={chartId} height={300} disableDrag />
-      </div>
     </>
   );
 };

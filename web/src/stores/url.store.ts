@@ -17,6 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 import { QueryStatement } from "@src/models";
+import { FormatKit } from "@src/utils";
 import { History } from "history";
 import * as _ from "lodash-es";
 import { action, makeObservable, observable } from "mobx";
@@ -24,18 +25,20 @@ import { action, makeObservable, observable } from "mobx";
 class URLStore {
   public changed: boolean = false;
   public forceChanged: boolean = false;
-  public params: URLSearchParams = new URLSearchParams();
-  public path: string = "";
 
+  private params: URLSearchParams = new URLSearchParams();
+  private paramObj = {};
+  private defaultParams = {}; // default params just save in store, don't put them into url params.
+  private path: string = "";
   private history: History | undefined = undefined;
 
   constructor() {
     makeObservable(this, {
       changed: observable,
       forceChanged: observable,
-      params: observable,
       applyURLChange: action,
       forceChange: action,
+      changeDefaultParams: action,
     });
   }
 
@@ -45,65 +48,62 @@ class URLStore {
       return;
     }
     history.listen(() => {
-      console.log("linten.........................");
       this.applyURLChange();
     });
     this.history = history;
     this.applyURLChange();
   }
 
-  getTagConditions(tagKeys: string[]): string[] {
-    const tags: string[] = [];
-    (tagKeys || []).forEach((item: string) => {
-      const watchValues = this.params.getAll(item);
-      const tagValues: string[] = _.map(watchValues, (v: string) => `'${v}'`);
-      if (tagValues.length > 0) {
-        tags.push(`'${item}' in (${tagValues.join(",")})`);
-      }
-    });
-    return tags;
-  }
-
-  getTimeRange(): string {
-    const times: string[] = [];
-    ["from", "to"].forEach((item: string) => {
-      const time = this.params.get(item);
-      if (time) {
-        const val = time.indexOf("now()") >= 0 ? time : `'${time}'`;
-        switch (item) {
-          case "from":
-            times.push(`time>${val}`);
-            break;
-          case "to":
-            times.push(`time<${val}`);
-            break;
-        }
-      }
-    });
-    return times.join(" and ");
-  }
-
-  getParamKeys(): string[] {
-    const rs: string[] = [];
-    for (var key of this.params.keys()) {
-      rs.push(key);
+  public changeDefaultParams(defaultParams: {}, change = true) {
+    this.defaultParams = _.merge(
+      _.cloneDeep(this.defaultParams),
+      defaultParams
+    );
+    if (change) {
+      this.changed = !this.changed;
     }
-    return rs;
   }
 
-  forceChange() {
+  public deleteDefaultParams(keys: string[], change = true) {
+    if (_.isEmpty(keys)) {
+      return;
+    }
+    const newDefault = _.omit(this.defaultParams, keys);
+    if (_.isEqual(this.defaultParams, newDefault)) {
+      return;
+    }
+    this.defaultParams = newDefault;
+    if (change) {
+      this.changed = !this.changed;
+    }
+  }
+
+  public forceChange() {
     this.forceChanged = !this.forceChanged;
+  }
+
+  public getPath(): string {
+    return this.path;
   }
 
   changeURLParams(p: {
     path?: string;
     params?: { [key: string]: any };
+    defaultParams?: { [key: string]: any };
     needDelete?: string[];
     clearAll?: boolean;
     clearTime?: boolean;
     forceChange?: boolean;
   }): void {
-    const { params, needDelete, clearAll, clearTime, path, forceChange } = p;
+    const {
+      params,
+      defaultParams,
+      needDelete,
+      clearAll,
+      clearTime,
+      path,
+      forceChange,
+    } = p;
     const { hash } = window.location;
     const oldSearchParams = this.getSearchParams();
     const searchParams = clearAll
@@ -131,6 +131,10 @@ class URLStore {
         }
       }
     }
+
+    if (!_.isEmpty(defaultParams)) {
+      this.changeDefaultParams(defaultParams || {}, false);
+    }
     this.updateSearchParams(searchParams, params || {});
     // Because of Hash history cannot PUSH the same path so delete the logic of checking path consistency
     const paramsStr = searchParams.toString();
@@ -144,44 +148,95 @@ class URLStore {
       this.forceChange();
     }
   }
+
   applyURLChange(): void {
+    const groupParamsByKey = (params: any) =>
+      [...params.entries()].reduce((acc, tuple) => {
+        // getting the key and value from each tuple
+        const [key, val] = tuple;
+        const v = FormatKit.toObject(val);
+        if (acc.hasOwnProperty(key)) {
+          // if the current key is already an array, we'll add the value to it
+          if (Array.isArray(acc[key])) {
+            acc[key] = [...acc[key], v];
+          } else {
+            // if it's not an array, but contains a value, we'll convert it into an array
+            // and add the current value to it
+            acc[key] = [acc[key], v];
+          }
+        } else {
+          // plain assignment if no special case is present
+          acc[key] = v;
+        }
+
+        return acc;
+      }, {});
+
     this.params = this.getSearchParams();
-    this.path = _.get(this.history, "location.pathname", "");
+    this.paramObj = groupParamsByKey(this.params);
+    const newPath = _.get(this.history, "location.pathname", "");
+    if (newPath != this.path) {
+      // if change path need clear default params
+      this.defaultParams = {};
+    }
+    this.path = newPath;
     this.changed = !this.changed;
-    console.log("apply........", this.history?.location.pathname);
   }
 
-  getSearchParams(): URLSearchParams {
-    // console.log(
-    //   window.location.href,
-    //   window.location.href.indexOf("?"),
-    //   window.location.href.split("?")[1]
-    // );
+  public getParams(): object {
+    return _.merge(_.cloneDeep(this.defaultParams), this.paramObj);
+  }
+
+  private getSearchParams(): URLSearchParams {
     if (window.location.href.indexOf("?") > -1) {
       return new URLSearchParams(window.location.href.split("?")[1]);
     } else {
       return new URLSearchParams();
     }
   }
-  updateSearchParams(
+
+  private updateSearchParams(
     searchParams: URLSearchParams,
     params: { [key: string]: any }
   ) {
-    for (let k of Object.keys(params)) {
-      const v = params[`${k}`];
+    _.forIn(params, (v, k) => {
       if (k) {
-        if (!_.isEmpty(v)) {
+        if (!_.isUndefined(v)) {
           if (Array.isArray(v)) {
             searchParams.delete(k);
-            v.forEach((oneValue) => searchParams.append(k, oneValue));
+            v.forEach((oneValue) =>
+              searchParams.append(
+                k,
+                _.isString(oneValue) ? oneValue : `${oneValue}`
+              )
+            );
           } else {
-            searchParams.set(k, v);
+            searchParams.set(k, _.isString(v) ? v : `${v}`);
           }
         } else {
           searchParams.delete(k);
         }
       }
-    }
+    });
+  }
+
+  getTimeRange(): string {
+    const times: string[] = [];
+    ["from", "to"].forEach((item: string) => {
+      const time = this.params.get(item);
+      if (time) {
+        const val = time.indexOf("now()") >= 0 ? time : `'${time}'`;
+        switch (item) {
+          case "from":
+            times.push(`time>${val}`);
+            break;
+          case "to":
+            times.push(`time<${val}`);
+            break;
+        }
+      }
+    });
+    return times.join(" and ");
   }
 
   bindSQL(stmt: QueryStatement): string {
@@ -224,6 +279,14 @@ class URLStore {
     }
 
     return `select ${fields} from '${stmt.metric}'${nsCluase}${whereClauseStr} ${groupByStr}`;
+  }
+
+  getParamKeys(): string[] {
+    const rs: string[] = [];
+    for (var key of this.params.keys()) {
+      rs.push(key);
+    }
+    return rs;
   }
 }
 

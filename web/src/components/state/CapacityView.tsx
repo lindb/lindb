@@ -18,7 +18,8 @@ under the License.
 */
 import React from "react";
 import { Progress, Descriptions, Typography } from "@douyinfe/semi-ui";
-import { transformPercent, transformBytes } from "@src/utils";
+import { FormatKit } from "@src/utils";
+import { Unit } from "@src/models";
 
 const { Text } = Typography;
 
@@ -40,7 +41,7 @@ export default function CapacityView(props: CapacityViewProps) {
           percent={percent}
           stroke="#fc8800"
           size="large"
-          format={(val) => transformPercent(val)}
+          format={(val) => FormatKit.format(val, Unit.Percent)}
           showInfo={true}
         />
       </div>
@@ -51,15 +52,19 @@ export default function CapacityView(props: CapacityViewProps) {
         data={[
           {
             key: "Total",
-            value: <Text link>{transformBytes(total)}</Text>,
+            value: <Text link>{FormatKit.format(total, Unit.Bytes)}</Text>,
           },
           {
             key: "Used",
-            value: <Text type="warning">{transformBytes(used)}</Text>,
+            value: (
+              <Text type="warning">{FormatKit.format(used, Unit.Bytes)}</Text>
+            ),
           },
           {
             key: "Free",
-            value: <Text type="success">{transformBytes(free)}</Text>,
+            value: (
+              <Text type="success">{FormatKit.format(free, Unit.Bytes)}</Text>
+            ),
           },
         ]}
       />

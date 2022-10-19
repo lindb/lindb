@@ -16,243 +16,209 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import {
-  IllustrationIdle,
-  IllustrationIdleDark,
-} from "@douyinfe/semi-illustrations";
-import { Card, Empty, Form, Typography, useFormState } from "@douyinfe/semi-ui";
+import { Card, Empty, Form, Typography } from "@douyinfe/semi-ui";
+import { Icon, LinSelect, StatusTip } from "@src/components";
 import { StateRoleName, SQL } from "@src/constants";
-import { useAliveState, useStorage } from "@src/hooks";
-import { UnitEnum } from "@src/models";
-import { proxy } from "@src/services";
+import { useParams } from "@src/hooks";
+import { Unit } from "@src/models";
+import { ExecService, ProxyService } from "@src/services";
 import { URLStore } from "@src/stores";
-import { formatter } from "@src/utils";
+import { FormatKit } from "@src/utils";
+import { useQuery } from "@tanstack/react-query";
 import * as _ from "lodash-es";
-import React, { MutableRefObject, useRef, useState } from "react";
+import React from "react";
 
 const { Text } = Typography;
 
-export default function LogView() {
-  const { aliveState: liveNodes } = useAliveState(SQL.ShowBrokerAliveNodes);
-  const { storages } = useStorage();
-  const [tailing, setTailing] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [logs, setLogs] = useState<any>(null);
-  const [files, setFiles] = useState([]);
-  const [nodes, setNodes] = useState<any[]>([]);
-  const formApi = useRef() as MutableRefObject<any>;
+const getLogColor = (text: string) => {
+  switch (text) {
+    case "INFO":
+    case "POST":
+      return "success";
+    case "ERROR":
+    case "DELETE":
+      return "danger";
+    case "WARN":
+    case "PUT":
+      return "warning";
+    case "DEBUG":
+    case "GET":
+      return "link";
+  }
+};
 
-  const getLogColor = (text: string) => {
-    switch (text) {
-      case "INFO":
-      case "POST":
-        return "success";
-      case "ERROR":
-      case "DELETE":
-        return "danger";
-      case "WARN":
-      case "PUT":
-        return "warning";
-      case "DEBUG":
-      case "GET":
-        return "link";
+const LogContent: React.FC = () => {
+  const { node, file, size } = useParams(["node", "file", "size"]);
+  const { isError, error, data, isInitialLoading } = useQuery(
+    ["tail_log", node, file, size],
+    async () => {
+      const renderLogs = (text: string) => {
+        if (!text) {
+          return null;
+        }
+        const textArray = text.split(
+          /(INFO|DEBUG|ERROR|WARN|POST|PUT|GET|DELETE)/g
+        );
+        return textArray.map((str, idx) => {
+          return (
+            <Text
+              key={idx}
+              style={{ color: `var(--semi-color-${getLogColor(str)})` }}
+              strong
+            >
+              {str}
+            </Text>
+          );
+        });
+      };
+      return ProxyService.proxy({
+        target: node,
+        file: file,
+        size: size || 256 * 1024,
+        path: "/api/v1/log/view",
+      }).then((data) => renderLogs(data));
+    },
+    {
+      enabled: !_.isEmpty(node) && !_.isEmpty(file),
     }
-  };
+  );
 
-  const renderLogs = (text: string) => {
-    if (!text) {
-      return null;
-    }
-    const textArray = text.split(
-      /(INFO|DEBUG|ERROR|WARN|POST|PUT|GET|DELETE)/g
-    );
-    return textArray.map((str, idx) => {
-      return (
-        <Text
-          key={idx}
-          style={{ color: `var(--semi-color-${getLogColor(str)})` }}
-          strong
-        >
-          {str}
-        </Text>
-      );
-    });
-  };
-
-  const tailLog = async (params: any) => {
-    if (!_.get(params, "target") || !_.get(params, "file")) {
-      return;
-    }
-    URLStore.changeURLParams({
-      params: formApi.current.getValues(),
-      clearAll: true,
-    });
-
-    setTailing(true);
-    try {
-      const logs = await proxy({ ...params, path: "/api/v1/log/view" });
-
-      setLogs(renderLogs(logs as string));
-    } finally {
-      setTailing(false);
-    }
-  };
-
-  const listFiles = async (target: any) => {
-    setLoading(true);
-    try {
-      const files = await proxy({
-        target: target,
-        path: "/api/v1/log/list",
-      });
-      setFiles(files);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSelectRole = (_value: any, _option: any) => {
-    formApi.current.setValues({ node: "", file: "", storage: "" });
-  };
-
-  const StorageSelectInput = () => {
-    const formState = useFormState();
-
+  if (isInitialLoading || isError) {
     return (
-      <>
-        {_.get(formState, "values.role") === StateRoleName.Storage && (
-          <Form.Select
-            field="storage"
-            placeholder={`Please select`}
-            optionList={_.map(storages || [], (s) => {
-              return { value: s.name, label: s.name };
-            })}
-            labelPosition="inset"
-            label="Storage"
-            style={{ width: 180 }}
-          />
-        )}
-      </>
+      <StatusTip
+        style={{ marginTop: 100, marginBottom: 100 }}
+        isLoading={isInitialLoading}
+        isError={isError}
+        error={error}
+      />
     );
-  };
+  }
+  if (!data) {
+    return (
+      <Empty
+        image={<Icon icon="iconempty" style={{ fontSize: 48 }} />}
+        description="No data"
+        style={{ marginTop: 100, marginBottom: 100 }}
+      />
+    );
+  }
+  return (
+    <pre style={{ wordWrap: "normal", whiteSpace: "pre", overflow: "auto" }}>
+      {data}
+    </pre>
+  );
+};
 
+const LogView: React.FC = () => {
   return (
     <>
       <Card style={{ marginBottom: 12 }} bodyStyle={{ padding: 12 }}>
-        <Form
-          getFormApi={(api) => {
-            formApi.current = api;
-            URLStore.params.forEach((value: string, key: string) => {
-              formApi.current.setValue(key, value);
-            });
-          }}
-          onValueChange={(values: any) => {
-            const params = _.pick(values, ["target", "file", "size"]);
-            tailLog({ ...params });
-          }}
-          layout="horizontal"
-          style={{ paddingTop: 0, paddingBottom: 0 }}
-        >
-          <Form.Select
+        <Form layout="horizontal" style={{ paddingTop: 0, paddingBottom: 0 }}>
+          <LinSelect
             field="role"
-            placeholder={`Please select`}
-            optionList={[
+            loader={() => [
               { value: StateRoleName.Broker, label: StateRoleName.Broker },
               {
                 value: StateRoleName.Storage,
                 label: StateRoleName.Storage,
               },
             ]}
-            labelPosition="inset"
-            label="Role"
             style={{ width: 150 }}
-            onSelect={handleSelectRole}
+            clearKeys={["storage", "node", "file"]}
           />
-          <StorageSelectInput />
-          <Form.Select
-            field="target"
-            rules={[{ required: true }]}
-            placeholder={`Please select`}
-            optionList={nodes}
-            labelPosition="inset"
-            label="Node"
-            loading={loading}
+
+          <LinSelect
+            field="storage"
+            style={{ width: 200 }}
+            loader={() =>
+              ExecService.exec<any[]>({ sql: SQL.ShowStorageAliveNodes }).then(
+                (data) =>
+                  _.map(data || [], (s) => {
+                    return { value: s.name, label: s.name };
+                  })
+              )
+            }
+            visible={() =>
+              _.get(URLStore.getParams(), "role") === StateRoleName.Storage
+            }
+            reloadKeys={["role"]}
+            clearKeys={["node", "file"]}
+          />
+          <LinSelect
+            field="node"
             style={{ width: 230 }}
-            onFocus={() => {
-              if (formApi.current.getValue("role") === StateRoleName.Broker) {
-                setNodes(
-                  _.map(liveNodes || [], (n: any) => {
+            loader={async () => {
+              const params = URLStore.getParams();
+              if (_.get(params, "role") == StateRoleName.Broker) {
+                return ExecService.exec<any>({
+                  sql: SQL.ShowBrokerAliveNodes,
+                }).then((data) =>
+                  _.map(data || [], (n: any) => {
                     const target = `${n.hostIp}:${n.httpPort}`;
                     return { value: target, label: target };
                   })
                 );
               } else {
-                const nodes = _.get(
-                  _.find(storages, {
-                    name: formApi.current.getValue("storage"),
-                  }),
-                  "liveNodes",
-                  []
-                );
-                setNodes(
-                  _.map(nodes, (n: any) => {
+                return ExecService.exec<any[]>({
+                  sql: SQL.ShowStorageAliveNodes,
+                }).then((data) => {
+                  const nodes = _.get(
+                    _.find(data, {
+                      name: _.get(params, "storage"),
+                    }),
+                    "liveNodes",
+                    []
+                  );
+                  return _.map(nodes, (n: any) => {
                     const target = `${n.hostIp}:${n.httpPort}`;
                     return { value: target, label: target };
-                  })
-                );
+                  });
+                });
               }
             }}
+            clearKeys={["file"]}
+            reloadKeys={["role", "storage"]}
           />
-          <Form.Select
+          <LinSelect
             field="file"
-            placeholder={`Please select`}
-            optionList={_.map(files || [], (f: any) => {
-              return {
-                value: f.name,
-                label: `${f.name}(${formatter(f.size, UnitEnum.Bytes)})`,
-              };
-            })}
-            labelPosition="inset"
-            label="File"
-            style={{ width: 240 }}
-            loading={loading}
-            onFocus={() => {
-              listFiles(formApi.current.getValue("target"));
+            loader={() => {
+              const params = URLStore.getParams();
+              const target = _.get(params, "node");
+              if (!target) {
+                return null;
+              }
+              return ProxyService.proxy({
+                target: target,
+                path: "/api/v1/log/list",
+              }).then((files) =>
+                _.map(files || [], (f: any) => {
+                  return {
+                    value: f.name,
+                    label: `${f.name}(${FormatKit.format(f.size, Unit.Bytes)})`,
+                  };
+                })
+              );
             }}
+            style={{ width: 240 }}
+            reloadKeys={["node"]}
           />
-          <Form.Select
+          <LinSelect
             field="size"
-            placeholder={`Please select`}
-            optionList={[
-              { label: "256KB", value: 256 * 1024 },
-              { label: "1MB", value: 1024 * 1024 },
-              { label: "3MB", value: 3 * 1024 * 1024 },
-              { label: "5MB", value: 5 * 1024 * 1024 },
+            loader={() => [
+              { label: "256KB", value: `${256 * 1024}` },
+              { label: "1MB", value: `${1024 * 1024}` },
+              { label: "3MB", value: `${3 * 1024 * 1024}` },
+              { label: "5MB", value: `${5 * 1024 * 1024}` },
             ]}
-            labelPosition="inset"
-            label="Last"
             style={{ width: 140 }}
           />
         </Form>
       </Card>
-      <Card bodyStyle={{ padding: 12 }} loading={tailing}>
-        {!logs ? (
-          <Empty
-            image={<IllustrationIdle style={{ width: 150, height: 150 }} />}
-            darkModeImage={
-              <IllustrationIdleDark style={{ width: 150, height: 150 }} />
-            }
-            description="No log data"
-            style={{ marginTop: 50, minHeight: 400 }}
-          />
-        ) : (
-          <pre
-            style={{ wordWrap: "normal", whiteSpace: "pre", overflow: "auto" }}
-          >
-            {logs}
-          </pre>
-        )}
+      <Card bodyStyle={{ padding: 12 }}>
+        <LogContent />
       </Card>
     </>
   );
-}
+};
+
+export default LogView;

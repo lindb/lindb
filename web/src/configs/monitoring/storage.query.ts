@@ -17,7 +17,8 @@ specific language governing permissions and limitations
 under the License.
 */
 import { MonitoringDB } from "@src/constants";
-import { Dashboard, UnitEnum } from "@src/models";
+import { Dashboard, Unit } from "@src/models";
+import { chartOptions } from "./system";
 
 export const StorageQueryDashboard: Dashboard = {
   rows: [
@@ -26,7 +27,7 @@ export const StorageQueryDashboard: Dashboard = {
         {
           chart: {
             title: "Metric Query(Plan)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -34,14 +35,14 @@ export const StorageQueryDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Metric Query(Plan) Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -49,7 +50,7 @@ export const StorageQueryDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -60,7 +61,7 @@ export const StorageQueryDashboard: Dashboard = {
         {
           chart: {
             title: "Meta Query",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -68,14 +69,14 @@ export const StorageQueryDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Meta Query Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -83,7 +84,7 @@ export const StorageQueryDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -94,7 +95,7 @@ export const StorageQueryDashboard: Dashboard = {
         {
           chart: {
             title: "Ommited Rquests",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -102,7 +103,7 @@ export const StorageQueryDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 24,
         },

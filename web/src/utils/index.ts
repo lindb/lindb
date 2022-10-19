@@ -16,10 +16,13 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-export * from "@src/utils/api";
-export * from "@src/utils/chart.data";
-export * from "@src/utils/data.formatter";
-export * from "@src/utils/state";
-export * from "@src/utils/color";
-export * from "@src/utils/css";
-export * from "@src/utils/local.storage";
+
+export { default as ApiKit } from "@src/utils/api";
+export { default as ChartKit } from "@src/utils/chart";
+export { default as FormatKit } from "@src/utils/formatter";
+export { default as StateKit } from "@src/utils/state";
+export { default as ColorKit } from "@src/utils/color";
+export { default as CSSKit } from "@src/utils/css";
+export { default as LocalStorageKit } from "@src/utils/local.storage";
+export { default as TemplateKit } from "@src/utils/template";
+export { default as URLKit } from "@src/utils/url";

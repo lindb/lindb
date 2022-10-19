@@ -16,13 +16,17 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { GET } from "@src/utils";
+import { ApiKit } from "@src/utils";
 import { ApiPath } from "@src/constants";
 
 /**
  *  Reverse proxy to target server
  *  @param  target/path/params
  */
-export function proxy(params: any) {
-  return GET<any>(ApiPath.Proxy, params);
+function proxy(params: any) {
+  return ApiKit.GET<any>(ApiPath.Proxy, params);
 }
+
+export default {
+  proxy,
+};

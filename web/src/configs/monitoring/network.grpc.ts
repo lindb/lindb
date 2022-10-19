@@ -17,7 +17,8 @@ specific language governing permissions and limitations
 under the License.
 */
 import { MonitoringDB } from "@src/constants";
-import { Dashboard, UnitEnum } from "@src/models";
+import { Dashboard, Unit } from "@src/models";
+import { chartOptions } from "./system";
 
 export const NetworkGRPCDasbhoard: Dashboard = {
   rows: [
@@ -26,7 +27,7 @@ export const NetworkGRPCDasbhoard: Dashboard = {
         {
           chart: {
             title: "Number Of Send(Client Stream)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -34,14 +35,14 @@ export const NetworkGRPCDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Send Failure(Client Stream)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -49,14 +50,14 @@ export const NetworkGRPCDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Send Duration(P99)(Client Stream)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -64,7 +65,7 @@ export const NetworkGRPCDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Milliseconds,
+            unit: Unit.Milliseconds,
           },
           span: 8,
         },
@@ -75,7 +76,7 @@ export const NetworkGRPCDasbhoard: Dashboard = {
         {
           chart: {
             title: "Number Of Receive(Client Stream)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -83,14 +84,14 @@ export const NetworkGRPCDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Receive Failure(Client Stream)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -98,14 +99,14 @@ export const NetworkGRPCDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Receive Duration(P99)(Client Stream)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -113,7 +114,7 @@ export const NetworkGRPCDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Milliseconds,
+            unit: Unit.Milliseconds,
           },
           span: 8,
         },
@@ -124,7 +125,7 @@ export const NetworkGRPCDasbhoard: Dashboard = {
         {
           chart: {
             title: "Number Of Send(Server Stream)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -132,14 +133,14 @@ export const NetworkGRPCDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Send Failure(Server Stream)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -147,14 +148,14 @@ export const NetworkGRPCDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Send Duration(P99)(Server Stream)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -162,7 +163,7 @@ export const NetworkGRPCDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Milliseconds,
+            unit: Unit.Milliseconds,
           },
           span: 8,
         },
@@ -173,7 +174,7 @@ export const NetworkGRPCDasbhoard: Dashboard = {
         {
           chart: {
             title: "Number Of Receive(Server Stream)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -181,14 +182,14 @@ export const NetworkGRPCDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Receive Failure(Server Stream)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -196,14 +197,14 @@ export const NetworkGRPCDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Receive Duration(P99)(Server Stream)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -211,7 +212,7 @@ export const NetworkGRPCDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Milliseconds,
+            unit: Unit.Milliseconds,
           },
           span: 8,
         },
@@ -222,7 +223,7 @@ export const NetworkGRPCDasbhoard: Dashboard = {
         {
           chart: {
             title: "Handle Request(Client Unary)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -230,14 +231,14 @@ export const NetworkGRPCDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Handle Request Failure(Client Unary)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -245,14 +246,14 @@ export const NetworkGRPCDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Handle Request Duration(P99)(Client Unary)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -260,7 +261,7 @@ export const NetworkGRPCDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Milliseconds,
+            unit: Unit.Milliseconds,
           },
           span: 8,
         },
@@ -271,7 +272,7 @@ export const NetworkGRPCDasbhoard: Dashboard = {
         {
           chart: {
             title: "Handle Request(Server Unary)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -279,14 +280,14 @@ export const NetworkGRPCDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Handle Request Failure(Server Unary)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -294,14 +295,14 @@ export const NetworkGRPCDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Handle Request Duration(P99)(Server Unary)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -309,7 +310,7 @@ export const NetworkGRPCDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Milliseconds,
+            unit: Unit.Milliseconds,
           },
           span: 8,
         },
@@ -320,7 +321,7 @@ export const NetworkGRPCDasbhoard: Dashboard = {
         {
           chart: {
             title: "Server Handle Panic",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -328,7 +329,7 @@ export const NetworkGRPCDasbhoard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 24,
         },

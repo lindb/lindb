@@ -19,7 +19,7 @@ under the License.
 import { StorageType } from "@src/constants";
 import * as _ from "lodash-es";
 
-export function getObject(key: StorageType): Object {
+function getObject(key: StorageType): Object {
   const val = localStorage.getItem(key);
   if (!val) {
     return {};
@@ -33,12 +33,18 @@ export function getObject(key: StorageType): Object {
   }
 }
 
-export function setValue(key: string, value: string) {
+function setValue(key: string, value: string) {
   return localStorage.setItem(key, value);
 }
 
-export function setObjectValue(key: StorageType, oKey: string, oVal: any) {
+function setObjectValue(key: StorageType, oKey: string, oVal: any) {
   const obj = getObject(key);
   _.set(obj, oKey, oVal);
   setValue(key, JSON.stringify(obj));
 }
+
+export default {
+  getObject,
+  setValue,
+  setObjectValue,
+};

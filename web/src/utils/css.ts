@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-export function setStyle(target: any, style: any) {
+function setStyle(target: any, style: any) {
   if (!target || !target.style) {
     return;
   }
@@ -25,3 +25,7 @@ export function setStyle(target: any, style: any) {
     target.style[key] = style[key];
   });
 }
+
+export default {
+  setStyle,
+};

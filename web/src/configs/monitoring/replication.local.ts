@@ -17,7 +17,8 @@ specific language governing permissions and limitations
 under the License.
 */
 import { MonitoringDB } from "@src/constants";
-import { Dashboard, UnitEnum } from "@src/models";
+import { Dashboard, Unit } from "@src/models";
+import { chartOptions } from "./system";
 
 export const LocalReplicationDashboard: Dashboard = {
   rows: [
@@ -26,7 +27,7 @@ export const LocalReplicationDashboard: Dashboard = {
         {
           chart: {
             title: "Replica Lag",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -34,7 +35,7 @@ export const LocalReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 24,
         },
@@ -45,7 +46,7 @@ export const LocalReplicationDashboard: Dashboard = {
         {
           chart: {
             title: "Number Of Replica",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -53,14 +54,14 @@ export const LocalReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Replica Traffic",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -68,7 +69,7 @@ export const LocalReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Bytes,
+            unit: Unit.Bytes,
           },
           span: 12,
         },
@@ -79,7 +80,7 @@ export const LocalReplicationDashboard: Dashboard = {
         {
           chart: {
             title: "Active Replicators",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -87,14 +88,14 @@ export const LocalReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Consumer Message",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -102,7 +103,7 @@ export const LocalReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -113,7 +114,7 @@ export const LocalReplicationDashboard: Dashboard = {
         {
           chart: {
             title: "Consumer Message Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -121,14 +122,14 @@ export const LocalReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Replica Painc",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -136,7 +137,7 @@ export const LocalReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -147,7 +148,7 @@ export const LocalReplicationDashboard: Dashboard = {
         {
           chart: {
             title: "Number of Replica Rows",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -155,14 +156,14 @@ export const LocalReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Replica Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -170,7 +171,7 @@ export const LocalReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -181,7 +182,7 @@ export const LocalReplicationDashboard: Dashboard = {
         {
           chart: {
             title: "Ack Replica",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -189,14 +190,14 @@ export const LocalReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Invalid Replica Sequence",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -204,7 +205,7 @@ export const LocalReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },

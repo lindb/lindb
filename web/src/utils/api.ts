@@ -18,6 +18,7 @@ under the License.
 */
 import axios from "axios";
 import qs from "qs";
+import * as _ from "lodash-es";
 // env control
 switch (import.meta.env.MODE) {
   case "development":
@@ -31,7 +32,7 @@ switch (import.meta.env.MODE) {
 axios.defaults.timeout = 60000; // set timeout
 axios.defaults.headers.common["Content-Type"] = "application/json";
 
-export async function GET<T>(
+async function GET<T>(
   url: string,
   params?: { [index: string]: any } | undefined
 ): Promise<T> {
@@ -47,7 +48,7 @@ export async function GET<T>(
     });
 }
 
-export async function POST<T>(
+async function POST<T>(
   url: string,
   params?: { [index: string]: any } | undefined
 ): Promise<T> {
@@ -60,3 +61,18 @@ export async function POST<T>(
       return Promise.reject(err);
     });
 }
+
+const getErrorMsg = (err: any) => {
+  return _.get(err, "response.data", "Unknown internal error");
+};
+
+const getErrorCode = (err: any) => {
+  return _.get(err, "response.status", 0);
+};
+
+export default {
+  getErrorMsg,
+  getErrorCode,
+  GET,
+  POST,
+};

@@ -274,21 +274,19 @@
     "@babel/helper-validator-identifier" "^7.14.9"
     to-fast-properties "^2.0.0"
 
-"@douyinfe/semi-animation-react@2.19.0":
-  version "2.19.0"
-  resolved "https://registry.npmjs.org/@douyinfe/semi-animation-react/-/semi-animation-react-2.19.0.tgz#182c6786fc1f9b2f44bc5f2440f363e14fba18e1"
-  integrity sha512-y/TX1laLv5BtTt2a1dYt/S3k8XeRn0tlOY63f/VZGrK0NA8krt6/HmA/V1sHY5wFhRsXTg18dhRukgLY+pnXKg==
+"@douyinfe/semi-animation-react@2.20.0":
+  version "2.20.0"
+  resolved "https://registry.npmjs.org/@douyinfe/semi-animation-react/-/semi-animation-react-2.20.0.tgz#9246bd0032e9c51619667ccc99dfc16b873f4d79"
+  integrity sha512-ilu1AodUJlB05cnw3znDBwe3MBwAOJzt/VyuHnKZKRLyLlDg35lUkEjrIo53exGac9Nve3Zmltda1YX8IDSaKg==
   dependencies:
     "@douyinfe/semi-animation" "2.12.0"
-    "@douyinfe/semi-animation-styled" "2.19.0"
+    "@douyinfe/semi-animation-styled" "2.20.0"
     classnames "^2.2.6"
 
-"@douyinfe/semi-animation-styled@2.19.0":
-  version "2.19.0"
-  resolved "https://registry.npmjs.org/@douyinfe/semi-animation-styled/-/semi-animation-styled-2.19.0.tgz#9e78fccf1bb5b523af213021c2dcb5a6889c098c"
-  integrity sha512-9m28W9rzzwHesNmnubvwi+SQOSpFwwx0y7+2HVYJCjYaoz8JmbqlPWWsRbwLFfGEndLXtrCDHatVrcXgUq7Hpg==
-  dependencies:
-    "@babel/runtime-corejs3" "^7.15.4"
+"@douyinfe/semi-animation-styled@2.20.0":
+  version "2.20.0"
+  resolved "https://registry.npmjs.org/@douyinfe/semi-animation-styled/-/semi-animation-styled-2.20.0.tgz#ef1c4aa4c24f282a7a737be3f83db94e84f2fff1"
+  integrity sha512-j53k17IdftLvgw0Ww3BSwzAX9IdKr1P6nPLsCIqnIppjesLJ0lwfc64kHVyRPtcEIs1mkc/GlIzloDTkyGXmLw==
 
 "@douyinfe/semi-animation@2.12.0":
   version "2.12.0"
@@ -298,10 +296,10 @@
     "@babel/runtime-corejs3" "^7.15.4"
     bezier-easing "^2.1.0"
 
-"@douyinfe/semi-foundation@2.19.0":
-  version "2.19.0"
-  resolved "https://registry.npmjs.org/@douyinfe/semi-foundation/-/semi-foundation-2.19.0.tgz#3a9bb1eb6511982c015078acd4ef14c1cd8704ce"
-  integrity sha512-aJ0WWqGjEj7yIgk7+Y2aTaAfwOKgybpEEEZAHPtEgpnBTrwDQ/qJ8IQSqRypNuE6/gRE3+fvUXdzRDvL/7IYxg==
+"@douyinfe/semi-foundation@2.20.0":
+  version "2.20.0"
+  resolved "https://registry.npmjs.org/@douyinfe/semi-foundation/-/semi-foundation-2.20.0.tgz#aec22aa5c579a89f9b4f035c4914ecd57ba9d24c"
+  integrity sha512-TssBXYPf3ySu7oCt58aeku2ZovxFSkzfJVPB3UpnKNNBnusBzqbUQxjz7YRZES93gyBBRgEnrWk975jUQEjlgw==
   dependencies:
     "@douyinfe/semi-animation" "2.12.0"
     async-validator "^3.5.0"
@@ -312,12 +310,11 @@
     memoize-one "^5.2.1"
     scroll-into-view-if-needed "^2.2.24"
 
-"@douyinfe/semi-icons@2.19.0":
-  version "2.19.0"
-  resolved "https://registry.npmjs.org/@douyinfe/semi-icons/-/semi-icons-2.19.0.tgz#a12ad9fd5572f832a41bb39978ff68021b7a0208"
-  integrity sha512-ixqK/Xt5hvEQt+g1ou09+Qw5DOh0pGorcCWpWswSiyW6PbEg8gpn3a/VOkYFQUvK9K9r32Zcasr+iavGIaEsEQ==
+"@douyinfe/semi-icons@2.20.0":
+  version "2.20.0"
+  resolved "https://registry.npmjs.org/@douyinfe/semi-icons/-/semi-icons-2.20.0.tgz#689c7a5efd6611d38c30da25a7d3af2abfcb5d7d"
+  integrity sha512-7PC2VqAitKWpL2cEhLb632Pnel9QrpVmdCPGEuuwEWi/t/ERb0sIb5fZR7dFWc2SQUZ8s6n9FtQRggna8ubxQQ==
   dependencies:
-    "@babel/runtime-corejs3" "^7.15.4"
     classnames "^2.2.6"
 
 "@douyinfe/semi-illustrations@2.15.0":
@@ -327,24 +324,24 @@
   dependencies:
     "@babel/runtime-corejs3" "^7.15.4"
 
-"@douyinfe/semi-theme-default@2.19.0":
-  version "2.19.0"
-  resolved "https://registry.npmjs.org/@douyinfe/semi-theme-default/-/semi-theme-default-2.19.0.tgz#c88e874df91538518d90308c0ecca988e39ed78a"
-  integrity sha512-WZrUg3RNpxIITx2zLSJgVK8ovkCD7+P34yDIivOYryOzSplP2equcfI9TqjMOM+qh6LPheRDwDVeZVryoOCFtA==
+"@douyinfe/semi-theme-default@2.20.0":
+  version "2.20.0"
+  resolved "https://registry.npmjs.org/@douyinfe/semi-theme-default/-/semi-theme-default-2.20.0.tgz#c9098857db8f48835fcbeabce9ac6981b6c86c67"
+  integrity sha512-rFV+QAR4zXx7qmQnE2o/hVTUjvQKKLMaiUiflWynEXkfQsokv5AGht5fyKcOh/nHrigCk+sQOAysGK/FOVkObQ==
   dependencies:
     glob "^7.1.6"
 
-"@douyinfe/semi-ui@^2.19.0":
-  version "2.19.0"
-  resolved "https://registry.npmjs.org/@douyinfe/semi-ui/-/semi-ui-2.19.0.tgz#95e892cabf08babb7451e670594a550de62ca181"
-  integrity sha512-zBxfkpcQoa9A+QVDiCHDLszWS1iCeWu2lSX5zW7XH+7XKEe/9pp9o7WdYnLyZmt2dmFSLLDvrPlCs3s4PT8FHg==
+"@douyinfe/semi-ui@^2.20.0":
+  version "2.20.0"
+  resolved "https://registry.npmjs.org/@douyinfe/semi-ui/-/semi-ui-2.20.0.tgz#bc3c7dbad094aff2f3676da825646a370916386c"
+  integrity sha512-C2BkiDpgGEtE8XqPDxJKHIsiL0l3NGZD6E3SABsdTEICRbbXLeuEn7wLnvF4yR37TpWFu/m5UeyUc3WuiECgTQ==
   dependencies:
     "@douyinfe/semi-animation" "2.12.0"
-    "@douyinfe/semi-animation-react" "2.19.0"
-    "@douyinfe/semi-foundation" "2.19.0"
-    "@douyinfe/semi-icons" "2.19.0"
+    "@douyinfe/semi-animation-react" "2.20.0"
+    "@douyinfe/semi-foundation" "2.20.0"
+    "@douyinfe/semi-icons" "2.20.0"
     "@douyinfe/semi-illustrations" "2.15.0"
-    "@douyinfe/semi-theme-default" "2.19.0"
+    "@douyinfe/semi-theme-default" "2.20.0"
     async-validator "^3.5.0"
     classnames "^2.2.6"
     copy-text-to-clipboard "^2.1.1"
@@ -416,6 +413,19 @@
   dependencies:
     estree-walker "^2.0.1"
     picomatch "^2.2.2"
+
+"@tanstack/query-core@4.10.1":
+  version "4.10.1"
+  resolved "https://registry.npmjs.org/@tanstack/query-core/-/query-core-4.10.1.tgz#a587e39c28a905168bdf8a3906e36715c30ec083"
+  integrity sha512-UZRYzjgQSfYhQ+cJX0CspAbzutf8p93gR1xFjQuH3OYcb/7t3WnHkdb/qC9mbqrfWXN/JAbBTJlTU/XQHc5HbA==
+
+"@tanstack/react-query@^4.10.1":
+  version "4.10.1"
+  resolved "https://registry.npmjs.org/@tanstack/react-query/-/react-query-4.10.1.tgz#baab36cf41362ed75a00ef0aa31e96e20a065124"
+  integrity sha512-6GaLYAsAu/4aX6HR4krpOej9qbKWXe0X0eccikpv5hAw4CoAAPG29Pydql1nTl9cYF2zd21unVm4yApklFY0AA==
+  dependencies:
+    "@tanstack/query-core" "4.10.1"
+    use-sync-external-store "^1.2.0"
 
 "@types/chart.js@^2.9.37":
   version "2.9.37"
@@ -784,13 +794,6 @@ chart.js@^3.9.1:
   version "3.9.1"
   resolved "https://registry.npmjs.org/chart.js/-/chart.js-3.9.1.tgz#3abf2c775169c4c71217a107163ac708515924b8"
   integrity sha512-Ro2JbLmvg83gXF5F4sniaQ+lTbSv18E+TIf2cOeiH1Iqd2PGFOtem+DUufMZsCJwFE7ywPOpfXFBwRTGq7dh6w==
-
-chartjs-plugin-zoom@^1.2.0:
-  version "1.2.0"
-  resolved "https://registry.npmmirror.com/chartjs-plugin-zoom/-/chartjs-plugin-zoom-1.2.0.tgz"
-  integrity sha512-cLYKUHHx4bevuZQDpEKdjpvZ6HGu6NF8laTThgA0I9af+PV1N4qVTRZmyDNh0SAzsHZPtDOhuO3I7B4CF1lstw==
-  dependencies:
-    hammerjs "^2.0.8"
 
 "chokidar@>=3.0.0 <4.0.0":
   version "3.5.2"
@@ -1452,11 +1455,6 @@ globby@^11.0.4:
     ignore "^5.1.4"
     merge2 "^1.3.0"
     slash "^3.0.0"
-
-hammerjs@^2.0.8:
-  version "2.0.8"
-  resolved "https://registry.npmmirror.com/hammerjs/-/hammerjs-2.0.8.tgz"
-  integrity sha512-tSQXBXS/MWQOn/RKckawJ61vvsDpCom87JgxiYdGwHdOa0ht0vzUWDlfioofFCRU0L+6NGDt6XzbgoJvZkMeRQ==
 
 has-bigints@^1.0.1:
   version "1.0.1"
@@ -2632,6 +2630,11 @@ uri-js@^4.2.2:
   integrity "sha1-mxpSWVIlhZ5V9mnZKPiMbFfyp34= sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg=="
   dependencies:
     punycode "^2.1.0"
+
+use-sync-external-store@^1.2.0:
+  version "1.2.0"
+  resolved "https://registry.npmjs.org/use-sync-external-store/-/use-sync-external-store-1.2.0.tgz#7dbefd6ef3fe4e767a0cf5d7287aacfb5846928a"
+  integrity sha512-eEgnFxGQ1Ife9bzYs6VLi8/4X6CObHMw9Qr9tPY43iKwsPw8xE8+EFsf/2cFZ5S3esXgpWgtSCtLNS41F+sKPA==
 
 utility-types@^3.10.0:
   version "3.10.0"

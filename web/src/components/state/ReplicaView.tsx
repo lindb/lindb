@@ -27,7 +27,6 @@ import {
   Card,
   Col,
   List,
-  Notification,
   Popover,
   Row,
   Select,
@@ -36,38 +35,124 @@ import {
   Tooltip,
   Typography,
 } from "@douyinfe/semi-ui";
-import { useWatchURLChange } from "@src/hooks";
+import { useParams } from "@src/hooks";
 import { ReplicaState } from "@src/models";
-import { exec } from "@src/services";
 import { URLStore } from "@src/stores";
-import { getShardColor } from "@src/utils";
+import { ColorKit } from "@src/utils";
 import * as _ from "lodash-es";
 import React, { useEffect, useState } from "react";
 
 const { Text } = Typography;
 
-interface ReplicaViewProps {
-  db: string;
-  storage: string;
-  liveNodes: Node[];
-}
+const ReplicaFilterForm: React.FC<{ replicaState: any }> = (props) => {
+  const { replicaState } = props;
+  const { showTable, showShard, showLag, shard, family } = useParams([
+    "showTable",
+    "showShard",
+    "showLag",
+    "shard",
+    "family",
+  ]);
 
-export default function ReplicaView(props: ReplicaViewProps) {
-  const { db, storage, liveNodes } = props;
-  const [loading, setLoading] = useState(true);
+  return (
+    <>
+      {showTable ? (
+        <>
+          <Select
+            insetLabel="Shard"
+            style={{ marginRight: 8 }}
+            showClear
+            value={shard}
+            onClear={() => {
+              URLStore.changeURLParams({ needDelete: ["shard"] });
+            }}
+            optionList={_.orderBy(
+              _.map(replicaState.shards, (shard: any) => {
+                return { label: shard.shardId, value: shard.shardId };
+              }),
+              ["label"]
+            )}
+            onChange={(v) => {
+              URLStore.changeURLParams({ params: { shard: v } });
+            }}
+          />
+          <Select
+            insetLabel="Family"
+            showClear
+            value={family}
+            onClear={() => {
+              URLStore.changeURLParams({ needDelete: ["family"] });
+            }}
+            optionList={_.orderBy(
+              _.map(replicaState.families, (f: any) => {
+                return { label: f, value: f };
+              }),
+              ["label"],
+              ["desc"]
+            )}
+            onChange={(v) => {
+              URLStore.changeURLParams({ params: { family: v } });
+            }}
+          />
+        </>
+      ) : (
+        <>
+          <Text style={{ margin: 4 }}>Shard</Text>
+          <Switch
+            checked={showShard}
+            onChange={(v) =>
+              URLStore.changeURLParams({ params: { showShard: v } })
+            }
+            size="small"
+          />
+          <Text style={{ margin: 4 }}>Lag</Text>
+          <Switch
+            checked={showLag}
+            onChange={(v) => {
+              URLStore.changeURLParams({ params: { showLag: v } });
+            }}
+            size="small"
+          />
+        </>
+      )}
+      <Button
+        style={{ marginLeft: 8 }}
+        icon={showTable ? <IconChecklistStroked /> : <IconGridStroked />}
+        onClick={() => {
+          URLStore.changeURLParams({
+            params: { showTable: !showTable },
+          });
+        }}
+      />
+    </>
+  );
+};
+
+const ReplicaView: React.FC<{
+  liveNodes: Node[];
+  state: ReplicaState;
+}> = (props) => {
+  const { liveNodes, state } = props;
   const [replicaState, setReplicaState] = useState<any>({
     shards: [],
     nodes: [],
     families: [],
   });
-  const [showShard, setShowShard] = useState(true);
-  const [showLag, setShowLag] = useState(true);
-  const [showTable, setShowTable] = useState(
-    URLStore.params.get("showTable") === "true"
-  );
-  const [family, setFamily] = useState("");
-  const [shard, setShard] = useState("");
+  const { showTable, showShard, showLag, shard, family } = useParams([
+    "showTable",
+    "showShard",
+    "showLag",
+    "shard",
+    "family",
+  ]);
 
+  useEffect(() => {
+    URLStore.changeDefaultParams({
+      showTable: false,
+      showLag: true,
+      showShard: true,
+    });
+  }, []);
   /**
    * build replica state by node.
    * node=>shard list
@@ -106,7 +191,7 @@ export default function ReplicaView(props: ReplicaViewProps) {
           shard.channels.push(log);
         }
       });
-      rs.push({ node: node, shards: shards });
+      rs.push({ node: node, shards: _.orderBy(shards, ["shardId"]) });
     });
     return rs;
   };
@@ -162,43 +247,25 @@ export default function ReplicaView(props: ReplicaViewProps) {
         }
       });
     });
-    return { shards: rs, families: Array.from(familyMap.keys()) };
-  };
-
-  const fetchReplicaState = async () => {
-    try {
-      setLoading(true);
-      const state = await exec<ReplicaState>({
-        sql: `show replication where storage='${storage}' and database='${db}'`,
-      });
-      const rs = buildReplicaStateByShard(state);
-      const nodes = buildReplicaState(state);
-      setReplicaState({
-        shards: rs.shards || [],
-        nodes: nodes || [],
-        families: rs.families || [],
-      });
-    } catch (err) {
-      Notification.error({
-        title: "Fetch replica state error",
-        content: _.get(err, "response.data", "Unknown internal error"),
-        position: "top",
-        theme: "light",
-        duration: 5,
-      });
-    } finally {
-      setLoading(false);
-    }
+    const shards = _.orderBy(rs, ["shardId"]);
+    _.forEach(shards, (s) => {
+      s.channels = _.orderBy(s.channels, ["familyTime"], ["desc"]);
+    });
+    return {
+      shards: shards,
+      families: Array.from(familyMap.keys()),
+    };
   };
 
   useEffect(() => {
-    fetchReplicaState();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storage, db]);
-
-  useWatchURLChange(() => {
-    fetchReplicaState();
-  });
+    const rs = buildReplicaStateByShard(state);
+    const nodes = buildReplicaState(state);
+    setReplicaState({
+      shards: rs.shards || [],
+      nodes: nodes || [],
+      families: rs.families || [],
+    });
+  }, [state]);
 
   const renderReplicatorState = (r: any) => {
     let color = "warning";
@@ -240,133 +307,125 @@ export default function ReplicaView(props: ReplicaViewProps) {
   };
 
   const renderChannel = (shard: any, shardIdx: any) => {
-    return _.orderBy(shard.channels || [], ["familyTime"], ["desc"]).map(
-      (channel: any, idx: any) => {
-        return (
-          <div
-            key={idx}
+    return (shard.channelList || []).map((channel: any, idx: any) => {
+      return (
+        <div
+          key={idx}
+          style={{
+            display: "flex",
+          }}
+        >
+          <Typography.Text
             style={{
+              borderLeft: "1px solid var(--semi-color-border)",
+              borderRight: "1px solid var(--semi-color-border)",
+              borderBottom: "1px solid var(--semi-color-border)",
+              minWidth: 180,
               display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
-            <Typography.Text
-              style={{
-                borderLeft: "1px solid var(--semi-color-border)",
-                borderRight: "1px solid var(--semi-color-border)",
-                borderBottom: "1px solid var(--semi-color-border)",
-                minWidth: 180,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              {channel.familyTime}
-            </Typography.Text>
-            <Table
-              size="small"
-              pagination={false}
-              dataSource={channel.replicators}
-              showHeader={idx == 0 && shardIdx == 0}
-              columns={[
-                {
-                  title: "Type",
-                  dataIndex: "replicatorType",
-                  width: 100,
-                  render: (text, record, _index) => {
-                    return (
-                      <div style={{ display: "flex" }}>
-                        {renderReplicatorState(record)}
-                        <span style={{ marginLeft: 4 }}>{text}</span>
-                      </div>
-                    );
-                  },
+            {channel.familyTime}
+          </Typography.Text>
+          <Table
+            size="small"
+            pagination={false}
+            dataSource={channel.replicators}
+            showHeader={idx == 0 && shardIdx == 0}
+            columns={[
+              {
+                title: "Type",
+                dataIndex: "replicatorType",
+                width: 100,
+                render: (text, record, _index) => {
+                  return (
+                    <div style={{ display: "flex" }}>
+                      {renderReplicatorState(record)}
+                      <span style={{ marginLeft: 4 }}>{text}</span>
+                    </div>
+                  );
                 },
-                {
-                  title: "Peer",
-                  dataIndex: "replicator",
-                  render: (_text, record, _index) => {
-                    return (
-                      <div
+              },
+              {
+                title: "Peer",
+                dataIndex: "replicator",
+                render: (_text, record, _index) => {
+                  return (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                    >
+                      <span style={{ display: "flex" }}>
+                        <Avatar
+                          color="amber"
+                          size="extra-extra-small"
+                          style={{ margin: 4 }}
+                        >
+                          L
+                        </Avatar>
+                        <span style={{ marginTop: 4 }}>
+                          {getNode(record.leader)}
+                        </span>
+                      </span>
+                      <IconDoubleChevronRight
                         style={{
-                          display: "flex",
-                          alignItems: "center",
+                          marginLeft: 4,
+                          color: "var(--semi-color-success)",
                         }}
-                      >
-                        <span style={{ display: "flex" }}>
-                          <Avatar
-                            color="amber"
-                            size="extra-extra-small"
-                            style={{ margin: 4 }}
-                          >
-                            L
-                          </Avatar>
-                          <span style={{ marginTop: 4 }}>
-                            {getNode(record.leader)}
-                          </span>
+                      />
+                      <span style={{ display: "flex" }}>
+                        <Avatar
+                          color={
+                            `${record.leader}` === record.replicator
+                              ? "amber"
+                              : "light-blue"
+                          }
+                          size="extra-extra-small"
+                          style={{ margin: 4 }}
+                        >
+                          {`${record.leader}` === record.replicator ? "L" : "F"}
+                        </Avatar>
+                        <span style={{ marginTop: 4 }}>
+                          {getNode(record.replicator)}
                         </span>
-                        <IconDoubleChevronRight
-                          style={{
-                            marginLeft: 4,
-                            color: "var(--semi-color-success)",
-                          }}
-                        />
-                        <span style={{ display: "flex" }}>
-                          <Avatar
-                            color={
-                              `${record.leader}` === record.replicator
-                                ? "amber"
-                                : "light-blue"
-                            }
-                            size="extra-extra-small"
-                            style={{ margin: 4 }}
-                          >
-                            {`${record.leader}` === record.replicator
-                              ? "L"
-                              : "F"}
-                          </Avatar>
-                          <span style={{ marginTop: 4 }}>
-                            {getNode(record.replicator)}
-                          </span>
-                        </span>
-                      </div>
-                    );
-                  },
+                      </span>
+                    </div>
+                  );
                 },
-                {
-                  title: "Append",
-                  dataIndex: "append",
-                  width: 100,
-                },
-                {
-                  title: "Consume",
-                  dataIndex: "consume",
-                  width: 100,
-                },
-                {
-                  title: "Ack",
-                  dataIndex: "ack",
-                  width: 100,
-                },
-                {
-                  title: "Lag",
-                  dataIndex: "pending",
-                  width: 100,
-                },
-              ]}
-            />
-          </div>
-        );
-      }
-    );
+              },
+              {
+                title: "Append",
+                dataIndex: "append",
+                width: 100,
+              },
+              {
+                title: "Consume",
+                dataIndex: "consume",
+                width: 100,
+              },
+              {
+                title: "Ack",
+                dataIndex: "ack",
+                width: 100,
+              },
+              {
+                title: "Lag",
+                dataIndex: "pending",
+                width: 100,
+              },
+            ]}
+          />
+        </div>
+      );
+    });
   };
 
   const renderShards = () => {
     return (
-      <Row
-        type="flex"
-        gutter={8}
-        style={{ display: !showTable ? "block" : "none" }}
-      >
+      <Row type="flex" gutter={8}>
         {replicaState.nodes.map((item: any) => {
           return (
             <Col span={8} key={item.node}>
@@ -386,7 +445,9 @@ export default function ReplicaView(props: ReplicaViewProps) {
                           minWidth: 50,
                           margin: "0px 4px 4px 0px",
                           color: "var(--semi-color-text-0)",
-                          backgroundColor: getShardColor(shard.shardId),
+                          backgroundColor: ColorKit.getShardColor(
+                            shard.shardId
+                          ),
                         }}
                         size="small"
                       >
@@ -406,7 +467,7 @@ export default function ReplicaView(props: ReplicaViewProps) {
   };
 
   const renderShardsAsTable = () => {
-    let shards = _.cloneDeep(replicaState.shards);
+    let shards = replicaState.shards;
     if (!_.isEmpty(shard)) {
       shards = _.filter(shards, function (o) {
         return `${o.shardId}` == shard;
@@ -414,17 +475,19 @@ export default function ReplicaView(props: ReplicaViewProps) {
     }
     if (!_.isEmpty(family)) {
       shards = _.filter(shards, function (o) {
-        o.channels = _.filter(o.channels, function (f) {
+        o.channelList = _.filter(o.channels, function (f) {
           return f.familyTime == family;
         });
-        return !_.isEmpty(o.channels);
+        return !_.isEmpty(o.channelList);
+      });
+    } else {
+      _.forEach(shards, (s) => {
+        s.channelList = s.channels;
       });
     }
 
-    shards = _.orderBy(shards, ["shardId"]);
     return (
       <List
-        style={{ display: showTable ? "block" : "none" }}
         dataSource={shards}
         renderItem={(item: any, shardIdx: any) => (
           <List.Item
@@ -444,7 +507,7 @@ export default function ReplicaView(props: ReplicaViewProps) {
                 <Avatar
                   size="small"
                   style={{
-                    backgroundColor: getShardColor(item.shardId),
+                    backgroundColor: ColorKit.getShardColor(item.shardId),
                   }}
                 >
                   {item.shardId}
@@ -471,77 +534,16 @@ export default function ReplicaView(props: ReplicaViewProps) {
       headerExtraContent={
         <>
           <div style={{ display: "flex", alignItems: "center" }}>
-            {!showTable && (
-              <>
-                <Text style={{ margin: 4 }}>Shard</Text>
-                <Switch
-                  checked={showShard}
-                  onChange={setShowShard}
-                  size="small"
-                />
-                <Text style={{ margin: 4 }}>Lag</Text>
-                <Switch checked={showLag} onChange={setShowLag} size="small" />
-              </>
-            )}
-            {showTable && (
-              <>
-                <Select
-                  insetLabel="Shard"
-                  style={{ marginRight: 8 }}
-                  showClear
-                  value={shard}
-                  onClear={() => {
-                    setShard("");
-                  }}
-                  optionList={_.orderBy(
-                    _.map(replicaState.shards, (shard: any) => {
-                      return { label: shard.shardId, value: shard.shardId };
-                    }),
-                    ["label"]
-                  )}
-                  onChange={(value) => {
-                    setShard(`${value}`);
-                  }}
-                />
-                <Select
-                  insetLabel="Family"
-                  showClear
-                  value={family}
-                  onClear={() => {
-                    setFamily("");
-                  }}
-                  optionList={_.orderBy(
-                    _.map(replicaState.families, (f: any) => {
-                      return { label: f, value: f };
-                    }),
-                    ["label"],
-                    ["desc"]
-                  )}
-                  onChange={(value) => {
-                    setFamily(`${value}`);
-                  }}
-                />
-              </>
-            )}
-            <Button
-              style={{ marginLeft: 8 }}
-              icon={showTable ? <IconChecklistStroked /> : <IconGridStroked />}
-              onClick={() => {
-                setShowTable(!showTable);
-                URLStore.changeURLParams({
-                  params: { showTable: `${!showTable}` },
-                });
-              }}
-            />
+            <ReplicaFilterForm replicaState={replicaState} />
           </div>
         </>
       }
       headerStyle={{ padding: 12 }}
       bodyStyle={{ padding: showTable ? 0 : 12 }}
-      loading={loading}
     >
-      {renderShardsAsTable()}
-      {renderShards()}
+      {showTable ? renderShardsAsTable() : renderShards()}
     </Card>
   );
-}
+};
+
+export default ReplicaView;

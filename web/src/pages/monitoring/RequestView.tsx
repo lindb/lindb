@@ -16,33 +16,35 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { Route, SQL } from "@src/constants";
-import { exec } from "@src/services";
+import { ExecService } from "@src/services";
 import { Request } from "@src/models";
 import {
   Card,
   Table,
   SplitButtonGroup,
   Button,
-  Empty,
-  Typography,
   Tooltip,
 } from "@douyinfe/semi-ui";
 import * as _ from "lodash-es";
 import { IconRefresh, IconPlay } from "@douyinfe/semi-icons";
 import moment from "moment";
-import {
-  IllustrationConstructionDark,
-  IllustrationNoContentDark,
-} from "@douyinfe/semi-illustrations";
+import { useQuery } from "@tanstack/react-query";
+import { StatusTip } from "@src/components";
 
-const Text = Typography.Text;
-
-export default function RequestView() {
-  const [requests, setRequests] = useState<Request[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+const RequestView: React.FC = () => {
+  const {
+    isLoading,
+    isError,
+    error,
+    data: requests,
+    refetch,
+  } = useQuery(["show_requests"], async () => {
+    return ExecService.exec<Request[]>({
+      sql: SQL.ShowRequests,
+    });
+  });
 
   const columns: any[] = [
     {
@@ -88,64 +90,28 @@ export default function RequestView() {
     },
   ];
 
-  // get request list
-  const fetchRequests = async () => {
-    setLoading(true);
-    try {
-      const requests = await exec<Request[]>({ sql: SQL.ShowRequests });
-      setRequests(requests);
-    } catch (err) {
-      setError(_.get(err, "response.data", "Unknown internal error"));
-      setRequests([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchRequests();
-  }, []);
-
   return (
     <Card>
       <SplitButtonGroup style={{ marginBottom: 20 }}>
-        <Button icon={<IconRefresh />} onClick={fetchRequests} />
+        <Button icon={<IconRefresh />} onClick={() => refetch()} />
       </SplitButtonGroup>
       <Table
         className="lin-table"
-        dataSource={requests}
-        loading={loading}
+        dataSource={requests || []}
         pagination={false}
         columns={columns}
         rowKey="requestId"
         empty={
-          <Empty
-            image={
-              error ? (
-                <IllustrationConstructionDark />
-              ) : (
-                <IllustrationNoContentDark />
-              )
-            }
-            imageStyle={{
-              height: 60,
-            }}
-            title={
-              error ? (
-                <Text type="danger">
-                  {error}, please{" "}
-                  <Text link onClick={fetchRequests}>
-                    retry
-                  </Text>{" "}
-                  later.
-                </Text>
-              ) : (
-                "No alive request"
-              )
-            }
-          ></Empty>
+          <StatusTip
+            style={{ marginTop: 32 }}
+            isLoading={isLoading}
+            isError={isError}
+            error={error}
+          />
         }
       />
     </Card>
   );
-}
+};
+
+export default RequestView;

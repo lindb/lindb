@@ -1,9 +1,5 @@
 
 .lin-table {
-    .semi-empty-image {
-        height: 150px !important;
-        width: 150px;
-    }
 
     .semi-descriptions-item-th {
         padding-right: 8px;
@@ -19,6 +15,15 @@
         padding-bottom: 6px;
         padding-right: 12px;
     }
+	.semi-typography a{
+		cursor: default;
+	}
+}
+
+.lin-description{
+	.semi-typography a{
+		cursor: default;
+	}
 }
 
 .lin-stats {
@@ -83,4 +88,24 @@
 
 .lin-nav .semi-navigation-list {
 	overflow: auto;
+}
+
+.lin-tree{
+  width: 100%;
+  .semi-tree-option-list {
+	  padding:0;
+  }
+}
+
+.lin-spin {
+	svg {
+		margin-left: 10px;
+	}
+}
+
+.lin-small-space {
+	column-gap:2px !important;
+}
+.lin-variate-form .semi-form-field {
+	padding-right:12px;
 }

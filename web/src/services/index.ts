@@ -16,7 +16,8 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-export * from "@src/services/metadata.service";
-export * from "@src/services/query.service";
-export * from "@src/services/proxy.service";
-export * from "@src/services/exec.service";
+
+export { default as MetadataService } from "@src/services/metadata.service";
+export { default as QueryService } from "@src/services/query.service";
+export { default as ProxyService } from "@src/services/proxy.service";
+export { default as ExecService } from "@src/services/exec.service";

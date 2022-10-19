@@ -18,8 +18,8 @@ under the License.
 */
 import React, { useEffect, useState } from "react";
 import * as monaco from "monaco-editor";
-import { Theme } from "@src/constants";
-import { getObject, setObjectValue } from "@src/utils";
+import { Theme, StorageType } from "@src/constants";
+import { LocalStorageKit } from "@src/utils";
 import * as _ from "lodash-es";
 import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
@@ -42,10 +42,10 @@ monaco.editor.defineTheme("lindb-light", {
     // { token: "identifier.sql", foreground: "ce9178" },
   ],
   colors: {
-    // "editor.foreground": "#f38518", #010f17 identifier
-    // "editor.background": "#021627",
-    // "editor.lineHighlight": "#f38518",
-    // "editor.lineHighlightBackground": "#010f17",
+    // "editor.foreground": "#f5f5f5", // #010f17 identifier
+    "editor.background": "#f5f5f5",
+    "editor.lineHighlight": "#f38518",
+    "editor.lineHighlightBackground": "#eee",
   },
 });
 
@@ -64,10 +64,6 @@ monaco.editor.defineTheme("lindb-dark", {
   },
 });
 
-enum StorageType {
-  ui = "LINDB_UI",
-}
-
 export const UIContext = React.createContext({
   theme: Theme.dark,
   collapsed: false,
@@ -80,22 +76,20 @@ export const UIContext = React.createContext({
 
 const UIContextProvider: React.FC = (props) => {
   const { children } = props;
-  const [theme, setTheme] = useState(Theme.dark);
-  const [collapsed, setCollapsed] = useState(false);
+  const localUISetting = LocalStorageKit.getObject(StorageType.ui);
+  const [theme, setTheme] = useState(
+    _.get(localUISetting, "theme", Theme.dark)
+  );
+  const [collapsed, setCollapsed] = useState(
+    _.get(localUISetting, "sidebarCollapsed", false)
+  );
 
   const isDark = (): boolean => {
     return theme === Theme.dark;
   };
 
   useEffect(() => {
-    // init ui setting
-    const localUISetting = getObject(StorageType.ui);
-    setTheme(_.get(localUISetting, "theme", Theme.dark));
-    setCollapsed(_.get(localUISetting, "sidebarCollapsed", false));
-  }, []);
-
-  useEffect(() => {
-    setObjectValue(StorageType.ui, "theme", theme);
+    LocalStorageKit.setObjectValue(StorageType.ui, "theme", theme);
     if (theme === Theme.dark) {
       document.body.setAttribute("theme-mode", "dark");
     } else {
@@ -107,11 +101,15 @@ const UIContextProvider: React.FC = (props) => {
   }, [theme]);
 
   useEffect(() => {
-    setObjectValue(StorageType.ui, "sidebarCollapsed", collapsed);
+    LocalStorageKit.setObjectValue(
+      StorageType.ui,
+      "sidebarCollapsed",
+      collapsed
+    );
   }, [collapsed]);
 
   const handleToggleTheme = () => {
-    setTheme((t) => {
+    setTheme((t: Theme) => {
       switch (t) {
         case Theme.dark:
           return Theme.light;

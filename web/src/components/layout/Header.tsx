@@ -21,26 +21,25 @@ import {
   IconGithubLogo,
   IconHelpCircleStroked,
   IconHomeStroked,
-  IconSun,
-  IconMoon,
 } from "@douyinfe/semi-icons";
 import { Breadcrumb, Button, Layout, Nav, Space } from "@douyinfe/semi-ui";
-import { TimePicker } from "@src/components";
-import { RouteItem, routeMap } from "@src/configs";
+import { TimePicker, Icon } from "@src/components";
+import { RouteItem } from "@src/models";
 import { useWatchURLChange } from "@src/hooks";
 import { URLStore } from "@src/stores";
 import * as _ from "lodash-es";
 import { UIContext } from "@src/context/UIContextProvider";
 const { Header: HeaderUI } = Layout;
 
-const Header: React.FC = () => {
+const Header: React.FC<{ routes: Map<string, RouteItem> }> = (props) => {
+  const { routes } = props;
   const { toggleTheme, collapsed, isDark } = useContext(UIContext);
   const [breadcrumbRoutes, setBreadcrumbRoutes] = useState<any[]>([]);
   const [currentRouter, setCurrentRouter] = useState<any>({});
 
   useWatchURLChange(() => {
-    const pathname = URLStore.path;
-    const currentRouter = routeMap.get(pathname || "");
+    const pathname = URLStore.getPath();
+    const currentRouter = routes.get(pathname || "");
     const breadcrumbItems: any[] = [];
     if (currentRouter) {
       const generate = (item: RouteItem) => {
@@ -86,7 +85,11 @@ const Header: React.FC = () => {
             {_.get(currentRouter, "timePicker", false) && <TimePicker />}
             <Button
               icon={
-                isDark() ? <IconMoon size="large" /> : <IconSun size="large" />
+                isDark() ? (
+                  <Icon icon="iconmoon-line" />
+                ) : (
+                  <Icon icon="iconSun" />
+                )
               }
               style={{
                 color: "var(--semi-color-text-2)",

@@ -17,5 +17,4 @@ specific language governing permissions and limitations
 under the License.
 */
 export { default as URLStore } from "@src/stores/url.store";
-export { default as ChartEventStore } from "@src/stores/chart.event.store";
-export { default as ChartStore } from "@src/stores/chart.store";
+export { default as PlatformStore } from "@src/stores/platform.store";

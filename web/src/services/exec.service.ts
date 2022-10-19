@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 import { ApiPath } from "@src/constants";
-import { POST } from "@src/utils";
+import { ApiKit } from "@src/utils";
 
 /**
  * send params to server, execute lin query language
@@ -25,9 +25,10 @@ import { POST } from "@src/utils";
  * @param params lin query lanugage params
  * @returns result of execution
  */
-export async function exec<T>(params: {
-  sql: string;
-  db?: string;
-}): Promise<T> {
-  return POST<T>(ApiPath.Exec, params);
+async function exec<T>(params: { sql: string; db?: string }): Promise<T> {
+  return ApiKit.POST<T>(ApiPath.Exec, params);
 }
+
+export default {
+  exec,
+};

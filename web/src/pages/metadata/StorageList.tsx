@@ -22,37 +22,34 @@ import {
   IconRefresh,
 } from "@douyinfe/semi-icons";
 import {
-  IllustrationConstructionDark,
-  IllustrationNoContentDark,
-} from "@douyinfe/semi-illustrations";
-import {
   Button,
   Card,
   Descriptions,
-  Empty,
   Popconfirm,
   SplitButtonGroup,
   Table,
-  Typography,
 } from "@douyinfe/semi-ui";
-import { StorageStatusView } from "@src/components";
+import { StatusTip, StorageStatusView } from "@src/components";
 import { Route } from "@src/constants";
 import { Storage } from "@src/models";
-import { exec } from "@src/services";
+import { ExecService } from "@src/services";
 import { URLStore } from "@src/stores";
-import React, { useCallback, useEffect, useState } from "react";
+import * as _ from "lodash-es";
+import { useQuery } from "@tanstack/react-query";
+import React from "react";
 
-const { Text } = Typography;
 const columns = [
   {
     title: "Name(Namespace)",
     dataIndex: "config.namespace",
+    width: 170,
     key: "name",
   },
   {
     title: "Status",
     dataIndex: "status",
     key: "status",
+    width: 100,
     render: (item: any) => {
       return <StorageStatusView text={item} showBadge={true} />;
     },
@@ -78,6 +75,7 @@ const columns = [
   {
     title: "Actions",
     key: "actions",
+    width: 100,
     render: () => {
       return (
         <Popconfirm
@@ -91,27 +89,16 @@ const columns = [
   },
 ];
 export default function StorageList() {
-  const [storageList, setStorageList] = useState([] as Storage[]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const getStorageList = useCallback(async () => {
-    setError("");
-    setLoading(true);
-    try {
-      const list = await exec<Storage[]>({ sql: "show storages" });
-      setStorageList(list || []);
-    } catch (err) {
-      setError(err?.message);
-      setStorageList([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    getStorageList();
-  }, [getStorageList]);
+  const {
+    isLoading,
+    isFetching,
+    data: storageList,
+    refetch,
+    error,
+    isError,
+  } = useQuery(["show_storage"], async () => {
+    return ExecService.exec<Storage[]>({ sql: "show storages" });
+  });
 
   const RegisterBtn: React.FC<any> = ({ text }) => {
     return (
@@ -133,41 +120,20 @@ export default function StorageList() {
         <Button
           icon={<IconRefresh />}
           style={{ marginLeft: 4 }}
-          onClick={getStorageList}
+          onClick={() => refetch()}
         />
       </SplitButtonGroup>
       <Table
         className="lin-table"
         dataSource={storageList}
-        loading={loading}
+        loading={isLoading || isFetching}
         empty={
-          <Empty
-            image={
-              error ? (
-                <IllustrationConstructionDark />
-              ) : (
-                <IllustrationNoContentDark />
-              )
-            }
-            imageStyle={{
-              height: 60,
-            }}
-            title={
-              error ? (
-                <Text type="danger">
-                  {error}, please{" "}
-                  <Text link onClick={getStorageList}>
-                    retry
-                  </Text>{" "}
-                  later.
-                </Text>
-              ) : (
-                "No storage cluster, please register one."
-              )
-            }
-          >
-            {!error && <RegisterBtn text="Register Now" />}
-          </Empty>
+          <StatusTip
+            isLoading={isLoading || isFetching}
+            isError={isError}
+            isEmpty={_.isEmpty(storageList)}
+            error={error}
+          />
         }
         columns={columns}
         pagination={false}
