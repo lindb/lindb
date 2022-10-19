@@ -27,7 +27,7 @@ const { Text } = Typography;
 interface DatabaseViewProps {
   liveNodes: any;
   storage: any;
-  loading: boolean;
+  loading?: boolean;
   title?: string;
   databaseName?: string;
 }

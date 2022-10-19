@@ -20,3 +20,7 @@ export enum Theme {
   light = "light",
   dark = "dark",
 }
+
+export enum StorageType {
+  ui = "LINDB_UI",
+}

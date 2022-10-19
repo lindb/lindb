@@ -16,35 +16,22 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { makeObservable, observable, action } from "mobx";
-import { MouseMoveEvent } from "@src/models";
 
-class ChartEventStore {
-  public mouseMoveEvent: MouseMoveEvent | null = null;
-  public mouseLeaveEvent: any = null;
-  public showTooltip: boolean = false;
+import { PlatformStore } from "@src/stores";
+import { reaction } from "mobx";
+import { useEffect, useState } from "react";
 
-  constructor() {
-    makeObservable(this, {
-      mouseMoveEvent: observable,
-      mouseLeaveEvent: observable,
-      showTooltip: observable,
-      mouseMove: action,
-      mouseLeave: action,
-      setShowTooltip: action,
-    });
-  }
+export function useChartEvent() {
+  const [mouseEvent, setMouseEvent] = useState(null);
+  useEffect(() => {
+    const disposer = reaction(
+      () => PlatformStore.chartMouseEvent,
+      () => {
+        setMouseEvent(PlatformStore.chartMouseEvent);
+      }
+    );
 
-  setShowTooltip(flag: boolean) {
-    this.showTooltip = flag;
-  }
-  mouseMove(e: MouseMoveEvent) {
-    this.mouseMoveEvent = e;
-  }
-
-  mouseLeave(e: any) {
-    this.mouseLeaveEvent = e;
-  }
+    return () => disposer();
+  }, []);
+  return { mouseEvent };
 }
-
-export default new ChartEventStore();

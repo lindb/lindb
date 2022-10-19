@@ -16,13 +16,18 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { GET, POST } from "@src/utils";
+import { ApiKit } from "@src/utils";
 import { ApiPath } from "@src/constants";
 
-export function metaExplore() {
-  return GET<any>(ApiPath.MetaExplore);
+function metaExplore() {
+  return ApiKit.GET<any>(ApiPath.MetaExplore);
 }
 
-export function exploreRepoData(params: any) {
-  return GET<any>(ApiPath.RepoExplore, params);
+function exploreRepoData(params: any) {
+  return ApiKit.GET<any>(ApiPath.RepoExplore, params);
 }
+
+export default {
+  metaExplore,
+  exploreRepoData,
+};

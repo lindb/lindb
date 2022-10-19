@@ -16,95 +16,65 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { Form, Notification, useFormApi } from "@douyinfe/semi-ui";
-import { useWatchURLChange } from "@src/hooks";
 import { Metadata, Variate } from "@src/models";
-import { exec } from "@src/services";
+import { ExecService } from "@src/services";
 import { URLStore } from "@src/stores";
+import { LinSelect } from "@src/components";
 import * as _ from "lodash-es";
-import React, { MutableRefObject, useRef, useState } from "react";
+import React from "react";
+import { TemplateKit, URLKit } from "@src/utils";
 
-interface MetadataSelectProps {
+const MetadataSelect: React.FC<{
   labelPosition?: "top" | "left" | "inset";
   multiple?: boolean;
   type: "db" | "namespace" | "metric" | "field" | "tagKey" | "tagValue";
   variate: Variate;
   placeholder?: string;
   style?: React.CSSProperties;
-}
-const MetadataSelect: React.FC<MetadataSelectProps> = (
-  props: MetadataSelectProps
-) => {
+}> = (props) => {
   const { variate, placeholder, labelPosition, multiple, type, style } = props;
-  const [optionList, setOptionList] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const oldVariate = useRef() as MutableRefObject<Variate>;
-  const loaded = useRef() as MutableRefObject<boolean>;
-  const where = useRef() as MutableRefObject<string>;
-  const dropdownVisible = useRef() as MutableRefObject<boolean>;
-  const formApi = useFormApi();
-
-  useWatchURLChange(() => {
-    // build where clause
-    const tags: string[] = URLStore.getTagConditions(
-      _.get(variate, "watch.cascade", [])
-    );
-    let whereClause = "";
-    if (tags.length > 0) {
-      whereClause = ` where ${tags.join(" and ")}`;
-    }
-    const field = variate.tagKey;
-    if (where.current && whereClause != where.current) {
-      where.current = whereClause;
-      loaded.current = false; // if where cluase changed, need load tag values
-      formApi.setValue(field, null);
-    } else {
-      where.current = whereClause;
-      const value = multiple
-        ? URLStore.params.getAll(field)
-        : URLStore.params.get(field);
-      // set select value of url params changed
-      formApi.setValue(field, value);
-    }
-  });
 
   const findMetadata = async (prefix?: string) => {
-    if (type != "db" && _.isEmpty(variate.db)) {
+    const params = URLStore.getParams();
+    const db = variate.db ? TemplateKit.template(variate.db, params || {}) : "";
+    if (type != "db" && _.isEmpty(db)) {
       // not input db return it, except find db metadata
-      setOptionList([]);
-      return;
+      return [];
     }
-    setLoading(true);
-    try {
-      let targetSQL = variate.sql;
+    let targetSQL = variate.sql;
 
-      let whereClause = "";
-      if (!_.isEmpty(prefix)) {
-        switch (type) {
-          case "namespace":
-            targetSQL += ` where namespace='${prefix}'`;
-            break;
-          case "metric":
-            targetSQL += ` where metric='${prefix}'`;
-            break;
-          case "tagValue":
-            whereClause = `${variate.tagKey} like '${prefix}*'`;
-            break;
-        }
+    const whereClause = [];
+    if (!_.isEmpty(prefix)) {
+      switch (type) {
+        case "namespace":
+          whereClause.push(`namespace='${prefix}'`);
+          break;
+        case "metric":
+          whereClause.push(`metric='${prefix}'`);
+          break;
+        case "tagValue":
+          whereClause.push(`${variate.tagKey} like '${prefix}*'`);
+          break;
       }
-      if (where.current) {
-        targetSQL += where.current;
-        if (!_.isEmpty(whereClause)) {
-          targetSQL += ` and ${whereClause}`;
-        }
-      } else if (type == "tagValue" && !_.isEmpty(whereClause)) {
-        targetSQL += ` where ${whereClause}`;
+    }
+    if (type == "tagValue") {
+      // build tag where clause
+      const tags: string[] = URLKit.getTagConditions(
+        params,
+        _.get(variate, "watch.cascade", [])
+      );
+      if (!_.isEmpty(tags)) {
+        whereClause.push(...tags);
       }
+    }
+    if (!_.isEmpty(whereClause)) {
+      targetSQL += ` where ${whereClause.join(" and ")}`;
+    }
 
-      const metadata = await exec<Metadata | string[]>({
-        sql: targetSQL,
-        db: variate.db,
-      });
+    return ExecService.exec<Metadata | string[]>({
+      sql: targetSQL,
+      db: db,
+    }).then((metadata) => {
       var values: string[];
       if (type === "db") {
         values = metadata as string[];
@@ -122,64 +92,25 @@ const MetadataSelect: React.FC<MetadataSelectProps> = (
           optionList.push({ value: item, label: item });
         }
       });
-      setOptionList(optionList);
-      loaded.current = true; // set tag values alread loaded
-      oldVariate.current = variate;
-    } catch (err) {
-      Notification.error({
-        title: "Fetch metadata values error",
-        content: _.get(err, "response.data", "Unknown internal error"),
-        position: "top",
-        theme: "light",
-        duration: 5,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAfterSelect = () => {
-    const clear = _.get(variate, "watch.clear", []);
-    clear.forEach((key: string) => {
-      formApi.setValue(key, null);
+      return optionList;
     });
-    formApi.submitForm(); //trigger form submit, after use selected
   };
-
-  // lazy find metadata when user input.
-  const search = _.debounce(findMetadata, 200);
 
   return (
     <>
-      <Form.Select
+      <LinSelect
         style={_.merge({ minWidth: 200 }, style)}
         multiple={multiple}
         field={variate.tagKey}
         placeholder={placeholder}
-        optionList={optionList}
         labelPosition={labelPosition}
         label={variate.label}
         showClear
         filter
         remote
-        onSearch={(input: string) => {
-          search(input);
-        }}
-        onBlur={handleAfterSelect}
-        onClear={() => {
-          formApi.setValue(variate.tagKey, null);
-          handleAfterSelect();
-        }}
-        onDropdownVisibleChange={(val) => {
-          dropdownVisible.current = val;
-        }}
-        onChange={(_val: any) => {
-          if (!dropdownVisible.current) {
-            handleAfterSelect();
-          }
-        }}
-        loading={loading}
-        onFocus={() => findMetadata()}
+        loader={findMetadata}
+        reloadKeys={variate.watch?.cascade}
+        clearKeys={variate.watch?.clear}
       />
     </>
   );

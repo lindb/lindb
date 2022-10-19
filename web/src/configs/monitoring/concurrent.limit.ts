@@ -17,7 +17,8 @@ specific language governing permissions and limitations
 under the License.
 */
 import { MonitoringDB } from "@src/constants";
-import { Dashboard, UnitEnum } from "@src/models";
+import { Dashboard, Unit } from "@src/models";
+import { chartOptions } from "./system";
 
 export const ConcurrentLimitDashboard: Dashboard = {
   rows: [
@@ -27,7 +28,7 @@ export const ConcurrentLimitDashboard: Dashboard = {
           chart: {
             title: "Processed Requests",
             description: "number of processed requests",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -35,7 +36,7 @@ export const ConcurrentLimitDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
@@ -43,7 +44,7 @@ export const ConcurrentLimitDashboard: Dashboard = {
           chart: {
             title: "Throttles",
             description: "number of reaches the max-concurrency",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -51,7 +52,7 @@ export const ConcurrentLimitDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
@@ -59,7 +60,7 @@ export const ConcurrentLimitDashboard: Dashboard = {
           chart: {
             title: "Timeouts",
             description: "number pending and then timeout",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -67,7 +68,7 @@ export const ConcurrentLimitDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },

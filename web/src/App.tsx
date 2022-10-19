@@ -16,7 +16,6 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { ChartTooltip } from "@src/components";
 import { Console } from "@src/pages";
 import { URLStore } from "@src/stores";
 import React from "react";
@@ -32,7 +31,6 @@ export default function App() {
       <Switch>
         <Route path="/" component={Console} />
       </Switch>
-      <ChartTooltip />
     </>
   );
 }

@@ -18,6 +18,7 @@ under the License.
 */
 import * as _ from "lodash-es";
 import { StorageState } from "@src/models";
+
 /**
  * get field value of metric by given metric name and node from internal state metric.
  *
@@ -26,7 +27,7 @@ import { StorageState } from "@src/models";
  * @param field field name
  * @param node node address
  */
-export function getMetricField(
+function getMetricField(
   stateMetric: any,
   metricName: string,
   fieldName: string,
@@ -53,7 +54,7 @@ export function getMetricField(
  * get database state list
  * @param storage storage state list
  */
-export function getDatabaseList(storages: StorageState[]): any[] {
+function getDatabaseList(storages: StorageState[]): any[] {
   const rs: any[] = [];
   _.forEach(storages, (storage: StorageState) => {
     const databaseMap: any = _.get(storage, "shardStates", {});
@@ -84,3 +85,50 @@ export function getDatabaseList(storages: StorageState[]): any[] {
   });
   return rs;
 }
+
+function getStorageState(storageData: any, name?: string) {
+  if (!storageData) {
+    return null;
+  }
+  let storages = storageData;
+  if (name) {
+    const idx = _.findIndex(storages, { name: name });
+    storages = idx >= 0 ? _.pullAt(storages, [idx]) : [];
+  }
+  (storages || []).map((storage: StorageState) => {
+    const liveNodes = _.get(storage, "liveNodes", {});
+    const databases = _.get(storage, "shardStates", {});
+    const stats = {
+      numOfDatabase: 0,
+      totalReplica: 0,
+      availableReplica: 0,
+      unavailableReplica: 0,
+      liveNodes: _.keys(liveNodes).length,
+      deadNodes: [] as number[],
+    };
+    _.set(storage, "stats", stats);
+    _.mapValues(databases, function (db: any) {
+      stats.numOfDatabase++;
+      _.mapValues(db, function (shard: any) {
+        const replicas = _.get(shard, "replica.replicas", []);
+        stats.totalReplica += replicas.length;
+        replicas.map((nodeId: number) => {
+          if (_.has(liveNodes, nodeId)) {
+            stats.availableReplica++;
+          } else {
+            stats.unavailableReplica++;
+            stats.deadNodes.push(nodeId);
+          }
+        });
+      });
+    });
+    stats.deadNodes = _.uniq(stats.deadNodes);
+  });
+  return storages;
+}
+
+export default {
+  getDatabaseList,
+  getMetricField,
+  getStorageState,
+};

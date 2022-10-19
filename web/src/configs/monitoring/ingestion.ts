@@ -17,7 +17,8 @@ specific language governing permissions and limitations
 under the License.
 */
 import { MonitoringDB } from "@src/constants";
-import { Dashboard, UnitEnum } from "@src/models";
+import { Dashboard, Unit } from "@src/models";
+import { chartOptions } from "./system";
 
 export const IngestionDashboard: Dashboard = {
   rows: [
@@ -26,7 +27,7 @@ export const IngestionDashboard: Dashboard = {
         {
           chart: {
             title: "Number Of Ingest",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -34,14 +35,14 @@ export const IngestionDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Ingest Duration(P99)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -49,7 +50,7 @@ export const IngestionDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Milliseconds,
+            unit: Unit.Milliseconds,
           },
           span: 12,
         },
@@ -60,7 +61,7 @@ export const IngestionDashboard: Dashboard = {
         {
           chart: {
             title: "Ingest Metric(Flat)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -68,14 +69,14 @@ export const IngestionDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Ingest Flat Traffic",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -83,7 +84,7 @@ export const IngestionDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Bytes,
+            unit: Unit.Bytes,
           },
           span: 12,
         },
@@ -94,7 +95,7 @@ export const IngestionDashboard: Dashboard = {
         {
           chart: {
             title: "Data Corrupted(Flat)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -102,14 +103,14 @@ export const IngestionDashboard: Dashboard = {
                 watch: ["node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Drop Metrics(Flat)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -117,7 +118,7 @@ export const IngestionDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -128,7 +129,7 @@ export const IngestionDashboard: Dashboard = {
         {
           chart: {
             title: "Ingest Metric(Proto)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -136,14 +137,14 @@ export const IngestionDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Ingest Proto Traffic",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -151,7 +152,7 @@ export const IngestionDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Bytes,
+            unit: Unit.Bytes,
           },
           span: 12,
         },
@@ -162,7 +163,7 @@ export const IngestionDashboard: Dashboard = {
         {
           chart: {
             title: "Data Corrupted(Proto)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -170,14 +171,14 @@ export const IngestionDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Drop Metric(Proto)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -185,7 +186,7 @@ export const IngestionDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -196,7 +197,7 @@ export const IngestionDashboard: Dashboard = {
         {
           chart: {
             title: "Ingest Metric(Influx)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -204,14 +205,14 @@ export const IngestionDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Ingest Field(Field)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -219,14 +220,14 @@ export const IngestionDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Ingest Traffic(Proto)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -234,7 +235,7 @@ export const IngestionDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Bytes,
+            unit: Unit.Bytes,
           },
           span: 8,
         },
@@ -245,7 +246,7 @@ export const IngestionDashboard: Dashboard = {
         {
           chart: {
             title: "Data Corrupted(Influx)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -253,14 +254,14 @@ export const IngestionDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Drop Metric(Influx)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -268,14 +269,14 @@ export const IngestionDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Drop Field(Influx)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -283,7 +284,7 @@ export const IngestionDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },

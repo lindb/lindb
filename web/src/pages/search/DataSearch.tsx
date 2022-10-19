@@ -16,7 +16,11 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { IconHelpCircleStroked, IconPlay } from "@douyinfe/semi-icons";
+import {
+  IconHelpCircleStroked,
+  IconLineChartStroked,
+  IconPlay,
+} from "@douyinfe/semi-icons";
 import {
   Button,
   Card,
@@ -27,81 +31,39 @@ import {
   List,
   Typography,
 } from "@douyinfe/semi-ui";
-import { ExplainStatsView, MetadataSelect } from "@src/components";
+import {
+  ExplainStatsView,
+  MetadataSelect,
+  SimpleStatusTip,
+  StatusTip,
+} from "@src/components";
 import { SQL } from "@src/constants";
-import { useWatchURLChange } from "@src/hooks";
-import { ChartStore, URLStore } from "@src/stores";
+import { useMetric, useParams } from "@src/hooks";
+import { URLStore } from "@src/stores";
 import * as monaco from "monaco-editor";
-import React, { MutableRefObject, useEffect, useRef, useState } from "react";
+import React, { MutableRefObject, useEffect, useRef } from "react";
 import * as _ from "lodash-es";
-import { exec } from "@src/services";
-import { Metadata } from "@src/models";
+import { ExecService } from "@src/services";
+import { ChartType, Metadata, ResultSet } from "@src/models";
+import { useQuery } from "@tanstack/react-query";
+import CanvasChart from "@src/components/chart/CanvasChart";
+import { ChartKit } from "@src/utils";
+const { Text } = Typography;
 
-const chartID = "9999999999999999";
-
-export default function DataSearch() {
-  const formApi = useRef() as MutableRefObject<any>;
+const SearchForm: React.FC = () => {
   const sqlEditor = useRef() as MutableRefObject<any>;
   const sqlEditorRef = useRef() as MutableRefObject<HTMLDivElement | null>;
-  const [metadata, setMetadata] = useState<Metadata | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [isMetadata, setIsMetadata] = useState(false);
-  const [error, setError] = useState("");
-
-  const isDataSearch = (sql: string): boolean => {
-    const sqlOfLowerCase = _.lowerCase(sql);
-    return (
-      _.startsWith(sqlOfLowerCase, "select") ||
-      _.startsWith(sqlOfLowerCase, "explain")
-    );
-  };
-
-  const fetchMetadata = async (target: any) => {
-    try {
-      setIsMetadata(true);
-      setLoading(true);
-      const metadata = await exec<Metadata>(target);
-      setMetadata(metadata);
-    } catch (err) {
-      setError(_.get(err, "response.data", "Unknown internal error"));
-    } finally {
-      setLoading(false);
-    }
-    ChartStore.unRegister(chartID);
-    URLStore.changeURLParams({ params: target, forceChange: true });
-  };
-
-  const query = async () => {
-    const target = formApi.current.getValues();
-    const sql = _.trim(sqlEditor.current?.getValue());
-    target.sql = sql;
-    if (isDataSearch(sql)) {
-      setIsMetadata(false);
-      setMetadata(null);
-      ChartStore.reRegister(chartID, { targets: [target] });
-      URLStore.changeURLParams({ params: target, forceChange: true });
-    } else {
-      fetchMetadata(target);
-    }
-  };
-
-  useWatchURLChange(() => {
-    if (formApi.current) {
-      formApi.current.setValues({
-        db: URLStore.params.get("db"),
-      });
-    }
-    if (sqlEditor.current) {
-      sqlEditor.current.setValue(URLStore.params.get("sql"));
-    }
-  });
+  const { sql } = useParams(["sql"]);
 
   useEffect(() => {
-    const sql = URLStore.params.get("sql") || "";
-    if (sqlEditorRef.current && !sqlEditor.current) {
+    if (sqlEditor.current) {
+      sqlEditor.current.setValue(sql);
+      return;
+    }
+    if (sqlEditorRef.current) {
       // if editor not init, create it
       monaco.languages.registerCompletionItemProvider("sql", {
-        provideCompletionItems: function(_model, _position) {
+        provideCompletionItems: function (_model, _position) {
           // find out if we are completing a property in the 'dependencies' object.
           let suggestions: any[] = [];
           // let word = model.getWordUntilPosition(position);
@@ -120,108 +82,184 @@ export default function DataSearch() {
         value: sql,
         language: "sql",
         padding: {
-          top: 8,
-          bottom: 8,
+          top: 4,
+          bottom: 4,
         },
         automaticLayout: true,
-        // lineNumbers: "off",
+        lineNumbers: "off",
+        glyphMargin: false,
+        folding: false,
+        // Undocumented see https://github.com/Microsoft/vscode/issues/30795#issuecomment-410998882
+        lineDecorationsWidth: 4,
+        lineNumbersMinChars: 0,
         theme: "lindb",
         fontSize: 14,
-        lineNumbers: "off",
         minimap: { enabled: false },
         wordWrap: "on",
         wrappingIndent: "same",
       });
     }
-    if (isDataSearch(sql)) {
-      setIsMetadata(false);
-      ChartStore.register(chartID, {
-        targets: [
-          {
-            db: URLStore.params.get("db") || "",
-            sql: sql,
-          },
-        ],
-      });
-    } else {
-      fetchMetadata({
-        db: URLStore.params.get("db") || "",
-        sql: sql,
-      });
-    }
+  }, [sql]);
 
-    return () => {
-      // unRegister chart config when component destroy.
-      ChartStore.unRegister(chartID);
-    };
-  }, []);
+  return (
+    <Form style={{ paddingTop: 0, paddingBottom: 0 }}>
+      <MetadataSelect
+        type="db"
+        variate={{
+          tagKey: "db",
+          label: "Database",
+          sql: SQL.ShowDatabases,
+        }}
+        labelPosition="left"
+      />
+      <Row>
+        <Col span={24}>
+          <Space align="center">
+            <span>LinDB Query Language</span>
+            <IconHelpCircleStroked />
+          </Space>
+          <div
+            style={{
+              border: "1px solid var(--semi-color-primary)",
+              marginTop: 12,
+              marginBottom: 12,
+            }}
+          >
+            <div ref={sqlEditorRef} style={{ height: 160 }} />
+          </div>
+        </Col>
+      </Row>
+      <Button
+        style={{ marginRight: 12 }}
+        icon={<IconPlay size="large" />}
+        onClick={() => {
+          const sql = _.trim(sqlEditor.current?.getValue());
+          URLStore.changeURLParams({ params: { sql: sql }, forceChange: true });
+        }}
+      >
+        Search
+      </Button>
+    </Form>
+  );
+};
+
+const SearchMetadata: React.FC = () => {
+  const { db, sql } = useParams(["db", "sql"]);
+
+  const { isInitialLoading, isError, error, data } = useQuery(
+    ["show_metadata", sql, db, URLStore.forceChanged],
+    async () => {
+      return ExecService.exec<Metadata>({
+        sql: sql,
+        db: db,
+      });
+    },
+    { enabled: !_.isEmpty(db) && !_.isEmpty(sql) }
+  );
+
+  if (isInitialLoading || isError) {
+    return (
+      <StatusTip
+        isLoading={isInitialLoading}
+        isError={isError}
+        error={error}
+        style={{ marginTop: 50, marginBottom: 50 }}
+      />
+    );
+  }
+  return (
+    <List
+      header={
+        <Typography.Title heading={6}>
+          {_.startCase(data?.type)}
+        </Typography.Title>
+      }
+      size="small"
+      bordered
+      dataSource={data?.values}
+      renderItem={(item: any) => (
+        <List.Item>
+          {data?.type === "field" ? `${item.name}(${item.type})` : item}
+        </List.Item>
+      )}
+    />
+  );
+};
+
+const SearchData: React.FC = () => {
+  const type = ChartType.Line;
+  const { db, sql } = useParams(["db", "sql"]);
+
+  const { isLoading, isError, data, error } = useMetric([
+    {
+      db: db,
+      sql: sql,
+    },
+  ]);
+  const content = () => {
+    const explainState = _.get(data, "[0].stats", null);
+    if (explainState) {
+      return <ExplainStatsView state={explainState} />;
+    }
+    const datasets = ChartKit.createDatasets(data as ResultSet[], type);
+    return (
+      <div style={{ height: 400 }}>
+        <CanvasChart
+          type={type}
+          datasets={datasets}
+          config={{ options: { zoom: false } }}
+        />
+      </div>
+    );
+  };
+  return (
+    <Card
+      bodyStyle={{ padding: 8 }}
+      headerStyle={{ padding: 6 }}
+      title={
+        <Space align="center" className="lin-small-space">
+          <IconLineChartStroked />
+          <Text>{sql}</Text>
+        </Space>
+      }
+      headerExtraContent={
+        <SimpleStatusTip
+          isLoading={isLoading}
+          isError={isError}
+          error={error}
+        />
+      }
+    >
+      {content()}
+    </Card>
+  );
+};
+
+const DataSearch: React.FC = () => {
+  const { db, sql } = useParams(["sql", "db"]);
+  const isDataSearch = (sql: string): boolean => {
+    const sqlOfLowerCase = _.lowerCase(sql);
+    return (
+      _.startsWith(sqlOfLowerCase, "select") ||
+      _.startsWith(sqlOfLowerCase, "explain")
+    );
+  };
+
+  const content = () => {
+    if (_.isEmpty(db) || _.isEmpty(sql)) {
+      return null;
+    }
+    return isDataSearch(sql) ? <SearchData /> : <SearchMetadata />;
+  };
+
   return (
     <>
       <Card style={{ marginBottom: 12 }} bodyStyle={{ padding: 12 }}>
-        <Form
-          style={{ paddingTop: 0, paddingBottom: 0 }}
-          getFormApi={(api) => (formApi.current = api)}
-        >
-          <MetadataSelect
-            type="db"
-            variate={{
-              tagKey: "db",
-              label: "Database",
-              sql: SQL.ShowDatabases,
-            }}
-            labelPosition="left"
-          />
-          <Row>
-            <Col span={24}>
-              <Space align="center">
-                <span>LinDB Query Language</span>
-                <IconHelpCircleStroked />
-              </Space>
-              <div
-                ref={sqlEditorRef}
-                style={{ height: 160, marginTop: 12, marginBottom: 12 }}
-              />
-            </Col>
-          </Row>
-          <Button
-            style={{ marginRight: 12 }}
-            icon={<IconPlay size="large" />}
-            onClick={query}
-          >
-            Search
-          </Button>
-        </Form>
+        <SearchForm />
       </Card>
-      <Card style={{ marginTop: 12 }}>
-        {isMetadata && (
-          <List
-            loading={loading}
-            emptyContent={
-              error ? (
-                <Typography.Text type="danger">{error}</Typography.Text>
-              ) : (
-                "No Result"
-              )
-            }
-            header={
-              <Typography.Title heading={6}>
-                {_.startCase(metadata?.type)}
-              </Typography.Title>
-            }
-            dataSource={metadata?.values}
-            renderItem={(item: any) => (
-              <List.Item>
-                {metadata?.type === "field"
-                  ? `${item.name}(${item.type})`
-                  : item}
-              </List.Item>
-            )}
-          />
-        )}
-        <div style={{ display: isMetadata ? "none" : "block" }}>
-          <ExplainStatsView chartId={chartID} />
-        </div>
-      </Card>
+      {content()}
     </>
   );
-}
+};
+
+export default DataSearch;

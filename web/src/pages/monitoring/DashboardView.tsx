@@ -17,107 +17,136 @@ specific language governing permissions and limitations
 under the License.
 */
 import { IconFixedStroked, IconGridStroked } from "@douyinfe/semi-icons";
-import { Card, Col, Row, Select } from "@douyinfe/semi-ui";
-import { Metric, VariatesSelect } from "@src/components";
+import { Card, Form, Col, Row } from "@douyinfe/semi-ui";
+import { Chart, LinSelect, MetadataSelect } from "@src/components";
 import { StateRoleName } from "@src/constants";
-import { useWatchURLChange } from "@src/hooks";
-import { Dashboard, DashboardItem } from "@src/models";
+import { useParams } from "@src/hooks";
+import { ChartType, Dashboard, DashboardItem } from "@src/models";
 import { URLStore } from "@src/stores";
 import * as _ from "lodash-es";
-import React, { useState, useEffect } from "react";
-import { v4 as uuidv4 } from "uuid";
+import React, { useMemo } from "react";
 
-export type DashboardViewProps = {
+const DashboardForm: React.FC<{
   dashboards?: DashboardItem[];
   variates?: any;
+}> = (props) => {
+  const { dashboards, variates } = props;
+  const { role } = useParams(["role"]);
+
+  const dashboardForRole = _.filter(
+    dashboards,
+    (o) => _.indexOf(o.scope, role || StateRoleName.Broker) >= 0
+  );
+  return (
+    <Form
+      className="lin-variate-form"
+      style={{ paddingBottom: 0, paddingTop: 0, display: "inline-flex" }}
+      layout="horizontal"
+    >
+      <LinSelect
+        showClear
+        field="role"
+        defaultValue={StateRoleName.Broker}
+        prefix={<IconFixedStroked />}
+        loader={() => [
+          { value: StateRoleName.Broker, label: StateRoleName.Broker },
+          { value: StateRoleName.Storage, label: StateRoleName.Storage },
+        ]}
+        clearKeys={["namespace", "node", "d"]}
+        style={{ minWidth: 60 }}
+      />
+      <LinSelect
+        field="d"
+        defaultValue={_.get(dashboardForRole, "[0].value")}
+        prefix={<IconGridStroked />}
+        loader={() => {
+          const params = URLStore.getParams();
+          return _.filter(
+            dashboards,
+            (o) =>
+              _.indexOf(o.scope, _.get(params, "role", StateRoleName.Broker)) >=
+              0
+          );
+        }}
+        style={{ minWidth: 60 }}
+        reloadKeys={["role"]}
+      />
+      {_.map(
+        _.filter(
+          variates,
+          (o) => _.indexOf(o.scope, role || StateRoleName.Broker) >= 0
+        ),
+        (v: any) => (
+          <MetadataSelect
+            key={v.tagKey}
+            variate={v}
+            multiple={v.multiple}
+            type="tagValue"
+          />
+        )
+      )}
+    </Form>
+  );
 };
 
-export default function DashboardView(props: DashboardViewProps) {
-  const { dashboards, variates } = props;
-  const [selectedDashboard, setSelectedDashboard] = useState(
-    _.get(dashboards, "[0]", {})
-  );
-  const [dashboard, setDashboard] = useState<Dashboard>(
-    _.get(dashboards, "[0].dashboard", {})
-  );
-  const [role, setRole] = useState<any>(null);
+const ViewDashboard: React.FC<{
+  dashboards: DashboardItem[];
+}> = (props) => {
+  const { dashboards } = props;
+  const { d, role } = useParams(["d", "role"]);
 
-  useEffect(() => {
-    URLStore.changeURLParams({
-      params: { role: URLStore.params.get("role") || StateRoleName.Broker },
-    });
-  }, []);
-
-  const changeDashboard = (value: string) => {
-    const r = URLStore.params.get("role") || StateRoleName.Broker;
+  const dashboard = useMemo(() => {
+    const r = role || StateRoleName.Broker;
     const currentDashboards = _.filter(
       dashboards,
       (o) => _.indexOf(o.scope, r) >= 0
     );
     let dashboardItem = _.find(currentDashboards, (item: DashboardItem) => {
-      return item.value == value;
+      return item.value == d;
     });
     if (_.isUndefined(dashboardItem) || _.isNull(dashboardItem)) {
       dashboardItem = currentDashboards[0];
     }
-    setDashboard(_.get(dashboardItem, "dashboard", {}) as Dashboard);
-    setSelectedDashboard(dashboardItem);
-  };
-
-  useWatchURLChange(() => {
-    const role = URLStore.params.get("role") || StateRoleName.Broker;
-    setRole(role);
-    const d = URLStore.params.get("d");
-    changeDashboard(d as string);
-  });
+    return _.get(dashboardItem, "dashboard") as Dashboard;
+  }, [d, role, dashboards]);
 
   return (
     <>
-      <Card bodyStyle={{ padding: 12 }}>
-        <Select
-          value={role}
-          prefix={<IconFixedStroked />}
-          optionList={[
-            { value: StateRoleName.Broker, label: StateRoleName.Broker },
-            { value: StateRoleName.Storage, label: StateRoleName.Storage },
-          ]}
-          onChange={(value) => {
-            URLStore.changeURLParams({
-              params: { role: value },
-              needDelete: ["namespace", "node"],
-            });
-          }}
-          style={{ minWidth: 60, marginRight: 16 }}
-        />
-        <Select
-          value={selectedDashboard?.value}
-          prefix={<IconGridStroked />}
-          onChange={(value) => {
-            URLStore.changeURLParams({ params: { d: value } });
-          }}
-          optionList={_.filter(
-            dashboards,
-            (o) => _.indexOf(o.scope, role) >= 0
-          )}
-          style={{ minWidth: 60, marginRight: 16 }}
-        />
-        <VariatesSelect
-          variates={_.filter(variates, (o) => _.indexOf(o.scope, role) >= 0)}
-        />
-      </Card>
-      {(dashboard.rows || []).map((row, rowIdx) => (
+      {(dashboard.rows || []).map((row: any, rowIdx: any) => (
         <Row
           style={{ marginTop: 12 }}
           key={rowIdx}
           gutter={dashboard.gutter || 8}
         >
-          {row?.panels.map((panel, panelIdx) => (
+          {row?.panels.map((panel: any, panelIdx: any) => (
             <Col span={panel.span || 12} key={`${rowIdx}-${panelIdx}`}>
-              <Metric chartId={uuidv4()} config={panel.chart} />
+              <Chart
+                type={_.get(panel.chart, "config.type", ChartType.Line)}
+                queries={panel.chart.targets || []}
+                config={panel.chart}
+              />
             </Col>
           ))}
         </Row>
       ))}
     </>
   );
-}
+};
+
+const DashboardView: React.FC<{
+  dashboards?: DashboardItem[];
+  variates?: any;
+}> = (props) => {
+  const { dashboards } = props;
+
+  return (
+    <>
+      <Card bodyStyle={{ padding: 12 }}>
+        <DashboardForm {...props} />
+      </Card>
+      <ViewDashboard dashboards={dashboards || []} />
+    </>
+  );
+};
+
+export default DashboardView;

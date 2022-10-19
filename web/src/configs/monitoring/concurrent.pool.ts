@@ -17,7 +17,8 @@ specific language governing permissions and limitations
 under the License.
 */
 import { MonitoringDB } from "@src/constants";
-import { Dashboard, UnitEnum } from "@src/models";
+import { Dashboard, Unit } from "@src/models";
+import { chartOptions } from "./system";
 
 export const ConcurrentPoolDashboard: Dashboard = {
   rows: [
@@ -27,7 +28,7 @@ export const ConcurrentPoolDashboard: Dashboard = {
           chart: {
             title: "Active Wrokers",
             description: "current workers count in use",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -35,7 +36,7 @@ export const ConcurrentPoolDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
@@ -43,7 +44,7 @@ export const ConcurrentPoolDashboard: Dashboard = {
           chart: {
             title: "Number Of Workers Created",
             description: "workers created count since start",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -51,7 +52,7 @@ export const ConcurrentPoolDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
@@ -59,7 +60,7 @@ export const ConcurrentPoolDashboard: Dashboard = {
           chart: {
             title: "Number Of Workers Killed",
             description: "workers killed since start",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -67,7 +68,7 @@ export const ConcurrentPoolDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
@@ -79,7 +80,7 @@ export const ConcurrentPoolDashboard: Dashboard = {
           chart: {
             title: "Tasks Consumed",
             description: "task consumed and executed success",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -87,7 +88,7 @@ export const ConcurrentPoolDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
@@ -95,7 +96,7 @@ export const ConcurrentPoolDashboard: Dashboard = {
           chart: {
             title: "Task Rejected",
             description: "task rejected because pool is busy",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -103,14 +104,14 @@ export const ConcurrentPoolDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Tasks Execute Panic",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -118,7 +119,7 @@ export const ConcurrentPoolDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
@@ -129,7 +130,7 @@ export const ConcurrentPoolDashboard: Dashboard = {
         {
           chart: {
             title: "Task Waiting Time(P99)",
-            config: { type: "area" },
+            config: { type: "area", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -137,7 +138,7 @@ export const ConcurrentPoolDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Milliseconds,
+            unit: Unit.Milliseconds,
           },
           span: 12,
         },
@@ -145,7 +146,7 @@ export const ConcurrentPoolDashboard: Dashboard = {
           chart: {
             title: "Task Executing Time(P99)",
             description: "include task waiting time",
-            config: { type: "area" },
+            config: { type: "area", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -153,7 +154,7 @@ export const ConcurrentPoolDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Milliseconds,
+            unit: Unit.Milliseconds,
           },
           span: 12,
         },

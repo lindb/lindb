@@ -19,20 +19,21 @@ under the License.
 import { Layout, Nav, Space } from "@douyinfe/semi-ui";
 import DarkLogo from "@src/assets/logo_dark.svg";
 import Logo from "@src/assets/logo.svg";
-import { defaultOpenKeys, menus, routeMap } from "@src/configs";
 import { useWatchURLChange } from "@src/hooks";
 import { URLStore } from "@src/stores";
 import * as _ from "lodash-es";
 import React, { useState, useContext } from "react";
 import { UIContext } from "@src/context/UIContextProvider";
+import { RouteItem } from "@src/models";
 const { Sider } = Layout;
 
-export type SiderMenuProps = {
+const SiderMenu: React.FC<{
   defaultOpenAll?: boolean;
-};
-
-const SiderMenu: React.FC<SiderMenuProps> = (props: SiderMenuProps) => {
-  const { defaultOpenAll } = props;
+  openKeys: string[];
+  routes: Map<string, RouteItem>;
+  menus: RouteItem[];
+}> = (props) => {
+  const { defaultOpenAll, routes, menus, openKeys } = props;
   const [selectedKeys, setSelectedKeys] = useState([] as string[]);
   const { isDark, collapsed, toggleCollapse } = useContext(UIContext);
 
@@ -65,7 +66,7 @@ const SiderMenu: React.FC<SiderMenuProps> = (props: SiderMenuProps) => {
     >
       <Nav
         className="lin-nav"
-        defaultOpenKeys={defaultOpenAll ? defaultOpenKeys : []}
+        defaultOpenKeys={defaultOpenAll ? openKeys : []}
         subNavMotion={false}
         limitIndent={false}
         isCollapsed={collapsed}
@@ -77,7 +78,7 @@ const SiderMenu: React.FC<SiderMenuProps> = (props: SiderMenuProps) => {
         items={menus as any[]}
         selectedKeys={selectedKeys}
         onClick={(data) => {
-          const item = routeMap.get(`${data.itemKey}`);
+          const item = routes.get(`${data.itemKey}`);
           const needClearKeys = _.pullAll(
             URLStore.getParamKeys(),
             _.get(item, "keep", [])

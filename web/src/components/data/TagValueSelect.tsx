@@ -28,7 +28,7 @@ import { Variate, Metadata } from "@src/models";
 import { URLStore } from "@src/stores";
 import * as _ from "lodash-es";
 import React, { MutableRefObject, useRef, useState } from "react";
-import { exec } from "@src/services";
+import { ExecService } from "@src/services";
 
 const Text = Typography.Text;
 
@@ -80,7 +80,7 @@ const TagValueSelect: React.FC<MetadataSelectProps> = (
         showTagValuesSQL += ` where ${variate.tagKey} like '${prefix}*'`;
       }
 
-      const metadata = await exec<Metadata | string[]>({
+      const metadata = await ExecService.exec<Metadata | string[]>({
         sql: showTagValuesSQL,
         db: variate.db,
       });

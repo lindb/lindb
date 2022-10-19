@@ -16,20 +16,26 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { ChartDataSource } from "@src/models";
-import React from "react";
 
-const ChartLegend: React.FC<{
-  // chart: ChartInfo;
-  dataSource?: ChartDataSource;
-  // maxHeight?: number;
-  // selectedKeys?: string[];
-  // onSelect?(
-  //   legend: ChartSeriesInfo,
-  //   nativeEvent: React.MouseEvent<HTMLDivElement>
-  // ): void;
-}> = (props) => {
-  return null;
+import React, { useRef, MutableRefObject } from "react";
+import { useIsInViewport } from "@src/hooks";
+
+const LazyLoad: React.FC<{ children: any }> = (props) => {
+  const { children } = props;
+  const divRef = useRef() as MutableRefObject<HTMLDivElement>;
+  const { isIntersecting } = useIsInViewport(divRef);
+
+  const render = () => {
+    if (isIntersecting) {
+      return children;
+    }
+    return null;
+  };
+  return (
+    <div style={{ height: "100%" }} ref={divRef}>
+      {render()}
+    </div>
+  );
 };
 
-export default ChartLegend;
+export default LazyLoad;

@@ -16,7 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-export { default as Console } from "@src/pages/Console";
+
 export { default as Overview } from "@src/pages/state/Overview";
 export { default as StorageOverview } from "@src/pages/state/StorageOverview";
 export { default as ConfigurationView } from "@src/pages/state/ConfigurationView";
@@ -32,3 +32,6 @@ export { default as DatabaseList } from "@src/pages/metadata/DatabaseList";
 export { default as DatabaseConfig } from "@src/pages/metadata/DatabaseConfig";
 export { default as MetadataExplore } from "@src/pages/metadata/Explore";
 export { default as MultipleIDCList } from "@src/pages/metadata/MultipleIDCList";
+
+export * from "@src/pages/routes.config";
+export { default as Console } from "@src/pages/Console";

@@ -17,7 +17,8 @@ specific language governing permissions and limitations
 under the License.
 */
 import { MonitoringDB } from "@src/constants";
-import { Dashboard, UnitEnum } from "@src/models";
+import { Dashboard, Unit } from "@src/models";
+import { chartOptions } from "./system";
 
 export const RemoteReplicationDashboard: Dashboard = {
   rows: [
@@ -26,7 +27,7 @@ export const RemoteReplicationDashboard: Dashboard = {
         {
           chart: {
             title: "Replica Lag",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -34,7 +35,7 @@ export const RemoteReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 24,
         },
@@ -45,7 +46,7 @@ export const RemoteReplicationDashboard: Dashboard = {
         {
           chart: {
             title: "Number Of Replica",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -53,14 +54,14 @@ export const RemoteReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Replica Traffic",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -68,7 +69,7 @@ export const RemoteReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Bytes,
+            unit: Unit.Bytes,
           },
           span: 12,
         },
@@ -79,7 +80,7 @@ export const RemoteReplicationDashboard: Dashboard = {
         {
           chart: {
             title: "Active Replicators",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -87,14 +88,14 @@ export const RemoteReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Consumer Message",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -102,7 +103,7 @@ export const RemoteReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -113,7 +114,7 @@ export const RemoteReplicationDashboard: Dashboard = {
         {
           chart: {
             title: "Consumer Message Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -121,14 +122,14 @@ export const RemoteReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Replica Painc",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -136,7 +137,7 @@ export const RemoteReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -147,7 +148,7 @@ export const RemoteReplicationDashboard: Dashboard = {
         {
           chart: {
             title: "Send Message",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -155,14 +156,14 @@ export const RemoteReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Send Message Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -170,7 +171,7 @@ export const RemoteReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -181,7 +182,7 @@ export const RemoteReplicationDashboard: Dashboard = {
         {
           chart: {
             title: "Receive Message",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -189,14 +190,14 @@ export const RemoteReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Receive Message Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -204,7 +205,7 @@ export const RemoteReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -215,7 +216,7 @@ export const RemoteReplicationDashboard: Dashboard = {
         {
           chart: {
             title: "Ack Replica Sequence",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -223,14 +224,14 @@ export const RemoteReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Invalid Ack Sequence",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -238,7 +239,7 @@ export const RemoteReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -249,7 +250,7 @@ export const RemoteReplicationDashboard: Dashboard = {
         {
           chart: {
             title: "Not Ready",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -257,14 +258,14 @@ export const RemoteReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Remote Follower Offline",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -272,7 +273,7 @@ export const RemoteReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -283,7 +284,7 @@ export const RemoteReplicationDashboard: Dashboard = {
         {
           chart: {
             title: "Need Close Last Replica Stream",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -291,14 +292,14 @@ export const RemoteReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Close Last Stream Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -306,7 +307,7 @@ export const RemoteReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -317,7 +318,7 @@ export const RemoteReplicationDashboard: Dashboard = {
         {
           chart: {
             title: "Create Replica Client",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -325,14 +326,14 @@ export const RemoteReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Create Reaplica Client Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -340,7 +341,7 @@ export const RemoteReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -351,7 +352,7 @@ export const RemoteReplicationDashboard: Dashboard = {
         {
           chart: {
             title: "Create Replica Stream",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -359,14 +360,14 @@ export const RemoteReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Create Replica Stream Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -374,7 +375,7 @@ export const RemoteReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -385,7 +386,7 @@ export const RemoteReplicationDashboard: Dashboard = {
         {
           chart: {
             title: "Get Last Ack Sequence Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -393,14 +394,14 @@ export const RemoteReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Reset Remote Follower Append Index",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -408,7 +409,7 @@ export const RemoteReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -419,7 +420,7 @@ export const RemoteReplicationDashboard: Dashboard = {
         {
           chart: {
             title: "Reset Remote Follower Append Index Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -427,14 +428,14 @@ export const RemoteReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Reset Append Index",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -442,7 +443,7 @@ export const RemoteReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -453,7 +454,7 @@ export const RemoteReplicationDashboard: Dashboard = {
         {
           chart: {
             title: "Reset Replica Index",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -461,14 +462,14 @@ export const RemoteReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Reset Replica Index Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -476,7 +477,7 @@ export const RemoteReplicationDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },

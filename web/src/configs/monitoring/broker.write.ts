@@ -17,7 +17,8 @@ specific language governing permissions and limitations
 under the License.
 */
 import { MonitoringDB } from "@src/constants";
-import { Dashboard, UnitEnum } from "@src/models";
+import { Dashboard, Unit } from "@src/models";
+import { chartOptions } from "./system";
 
 export const BrokerWriteDashboard: Dashboard = {
   rows: [
@@ -26,7 +27,7 @@ export const BrokerWriteDashboard: Dashboard = {
         {
           chart: {
             title: "Out Of Time Range",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -34,14 +35,14 @@ export const BrokerWriteDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Shard Not Found",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -49,7 +50,7 @@ export const BrokerWriteDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -60,7 +61,7 @@ export const BrokerWriteDashboard: Dashboard = {
         {
           chart: {
             title: "Current Active Family Channels",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -68,14 +69,14 @@ export const BrokerWriteDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Batch Metric",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -83,14 +84,14 @@ export const BrokerWriteDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Batch Metric Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -98,7 +99,7 @@ export const BrokerWriteDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
@@ -109,7 +110,7 @@ export const BrokerWriteDashboard: Dashboard = {
         {
           chart: {
             title: "Sent Successfully",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -117,14 +118,14 @@ export const BrokerWriteDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Sent Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -132,14 +133,14 @@ export const BrokerWriteDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Sent Size",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -147,7 +148,7 @@ export const BrokerWriteDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Bytes,
+            unit: Unit.Bytes,
           },
           span: 8,
         },
@@ -158,7 +159,7 @@ export const BrokerWriteDashboard: Dashboard = {
         {
           chart: {
             title: "Pending For Sending",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -166,14 +167,14 @@ export const BrokerWriteDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Retry Send",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -181,14 +182,14 @@ export const BrokerWriteDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Drop After Retry Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -196,7 +197,7 @@ export const BrokerWriteDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
@@ -207,7 +208,7 @@ export const BrokerWriteDashboard: Dashboard = {
         {
           chart: {
             title: "Create Write Stream",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -215,14 +216,14 @@ export const BrokerWriteDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Create Write Stream Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -230,14 +231,14 @@ export const BrokerWriteDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Leader Changed",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -245,7 +246,7 @@ export const BrokerWriteDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
@@ -256,7 +257,7 @@ export const BrokerWriteDashboard: Dashboard = {
         {
           chart: {
             title: "Create Write Stream",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -264,14 +265,14 @@ export const BrokerWriteDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Close Write Stream Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -279,7 +280,7 @@ export const BrokerWriteDashboard: Dashboard = {
                 watch: ["node", "db"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },

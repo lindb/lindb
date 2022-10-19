@@ -17,7 +17,8 @@ specific language governing permissions and limitations
 under the License.
 */
 import { MonitoringDB } from "@src/constants";
-import { Dashboard, UnitEnum } from "@src/models";
+import { Dashboard, Unit } from "@src/models";
+import { chartOptions } from "./system";
 
 export const MasterCoordinatorDashboard: Dashboard = {
   rows: [
@@ -26,7 +27,7 @@ export const MasterCoordinatorDashboard: Dashboard = {
         {
           chart: {
             title: "Storage Node Joins",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -34,14 +35,14 @@ export const MasterCoordinatorDashboard: Dashboard = {
                 watch: ["node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Storage Node Leaves",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -49,7 +50,7 @@ export const MasterCoordinatorDashboard: Dashboard = {
                 watch: ["node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -60,7 +61,7 @@ export const MasterCoordinatorDashboard: Dashboard = {
         {
           chart: {
             title: "Database Config Changed",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -68,14 +69,14 @@ export const MasterCoordinatorDashboard: Dashboard = {
                 watch: ["node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Database Config Deletion",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -83,7 +84,7 @@ export const MasterCoordinatorDashboard: Dashboard = {
                 watch: ["node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -94,7 +95,7 @@ export const MasterCoordinatorDashboard: Dashboard = {
         {
           chart: {
             title: "Storage Config Changed",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -102,14 +103,14 @@ export const MasterCoordinatorDashboard: Dashboard = {
                 watch: ["node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Storage Config Deletion",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -117,7 +118,7 @@ export const MasterCoordinatorDashboard: Dashboard = {
                 watch: ["node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -128,7 +129,7 @@ export const MasterCoordinatorDashboard: Dashboard = {
         {
           chart: {
             title: "Shard Leader Election",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -136,14 +137,14 @@ export const MasterCoordinatorDashboard: Dashboard = {
                 watch: ["node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Shard Leader Election Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -151,7 +152,7 @@ export const MasterCoordinatorDashboard: Dashboard = {
                 watch: ["node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -162,7 +163,7 @@ export const MasterCoordinatorDashboard: Dashboard = {
         {
           chart: {
             title: "Shard Assigns",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -170,14 +171,14 @@ export const MasterCoordinatorDashboard: Dashboard = {
                 watch: ["node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Failure(Process Event)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -185,14 +186,14 @@ export const MasterCoordinatorDashboard: Dashboard = {
                 watch: ["node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Panic(Process Event)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -200,7 +201,7 @@ export const MasterCoordinatorDashboard: Dashboard = {
                 watch: ["node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },

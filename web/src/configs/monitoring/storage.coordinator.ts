@@ -17,7 +17,8 @@ specific language governing permissions and limitations
 under the License.
 */
 import { MonitoringDB } from "@src/constants";
-import { Dashboard, UnitEnum } from "@src/models";
+import { Dashboard, Unit } from "@src/models";
+import { chartOptions } from "./system";
 
 export const StorageCoordinatorDashboard: Dashboard = {
   rows: [
@@ -26,7 +27,7 @@ export const StorageCoordinatorDashboard: Dashboard = {
         {
           chart: {
             title: "Node Joins",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -34,14 +35,14 @@ export const StorageCoordinatorDashboard: Dashboard = {
                 watch: ["namespace", "node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Node Leaves",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -49,7 +50,7 @@ export const StorageCoordinatorDashboard: Dashboard = {
                 watch: ["namespace", "node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -60,7 +61,7 @@ export const StorageCoordinatorDashboard: Dashboard = {
         {
           chart: {
             title: "Shard Assigns",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -68,14 +69,14 @@ export const StorageCoordinatorDashboard: Dashboard = {
                 watch: ["namespace", "node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Failure(Process Event)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -83,14 +84,14 @@ export const StorageCoordinatorDashboard: Dashboard = {
                 watch: ["namespace", "node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Panic(Process Event)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -98,7 +99,7 @@ export const StorageCoordinatorDashboard: Dashboard = {
                 watch: ["namespace", "node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },

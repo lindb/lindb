@@ -16,132 +16,112 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { Card, Form, Empty, Button, Notification } from "@douyinfe/semi-ui";
+import { Card, Form, Button } from "@douyinfe/semi-ui";
 import { IconRefresh } from "@douyinfe/semi-icons";
 import {
-  IllustrationIdle,
-  IllustrationIdleDark,
-} from "@douyinfe/semi-illustrations";
-import { DatabaseView, ReplicaView } from "@src/components";
+  DatabaseView,
+  LinSelect,
+  ReplicaView,
+  StatusTip,
+} from "@src/components";
 import { SQL } from "@src/constants";
-import { StorageState } from "@src/models";
-import { exec } from "@src/services";
-import { getDatabaseList } from "@src/utils";
+import { ReplicaState, StorageState } from "@src/models";
+import { ExecService } from "@src/services";
+import { StateKit } from "@src/utils";
 import * as _ from "lodash-es";
-import React, {
-  MutableRefObject,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import React from "react";
 import { URLStore } from "@src/stores";
+import { useQuery } from "@tanstack/react-query";
+import { useParams } from "@src/hooks";
+import { observer } from "mobx-react-lite";
 
-export default function ReplicationView() {
-  const formApi = useRef() as MutableRefObject<any>;
-  const [databases, setDatabases] = useState<any[]>([]);
-  const [selectDatabase, setSelectDatabase] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-
-  const getStorageList = useCallback(async () => {
-    setLoading(true);
-    try {
-      const storages = await exec<StorageState[]>({
+const ReplicationStatus: React.FC = observer(() => {
+  const { db } = useParams(["db"]);
+  const { isInitialLoading, isFetching, isError, error, data } = useQuery(
+    ["show_replication", db, URLStore.forceChanged],
+    async () => {
+      const storages = await ExecService.exec<StorageState[]>({
         sql: SQL.ShowStorageAliveNodes,
       });
-      const databases = getDatabaseList(storages);
-      setDatabases(databases);
-      const databaseName = URLStore.params.get("db");
-      if (databaseName) {
-        const db = _.find(databases, (item: any) => {
-          return item.name == databaseName;
-        });
-        setSelectDatabase(db);
+      const databases = StateKit.getDatabaseList(storages);
+      const database = _.find(databases, { name: db });
+      if (!database) {
+        return null;
       }
-    } catch (err) {
-      Notification.error({
-        title: "Fetch database state error",
-        content: _.get(err, "response.data", "Unknown internal error"),
-        position: "top",
-        theme: "light",
-        duration: 5,
+      const replicaState = await ExecService.exec<ReplicaState>({
+        sql: `show replication where storage='${database.storage.name}' and database='${db}'`,
       });
-    } finally {
-      setLoading(false);
+      return { database: database, replicaState: replicaState };
+    },
+    {
+      enabled: !_.isEmpty(db),
     }
-  }, []);
+  );
+  if (isInitialLoading || isFetching || isError || !data) {
+    return (
+      <StatusTip
+        isLoading={isInitialLoading || isFetching}
+        isError={isError}
+        error={error}
+        isEmpty={!data}
+        style={{ marginTop: 100, marginBottom: 100 }}
+      />
+    );
+  }
+  return (
+    <>
+      <DatabaseView
+        liveNodes={_.get(data, "database.storage.liveNodes", {})}
+        storage={_.get(data, "database.storage", {})}
+        databaseName={_.get(data, "database.name")}
+      />
+      <div style={{ marginTop: 12 }}>
+        <ReplicaView
+          liveNodes={_.get(data, "database.storage.liveNodes", {})}
+          state={_.get(data, "replicaState", {})}
+        />
+      </div>
+    </>
+  );
+});
 
-  useEffect(() => {
-    getStorageList();
-  }, [getStorageList]);
-
+const ReplicationView: React.FC = () => {
   return (
     <>
       <Card style={{ marginBottom: 12 }} bodyStyle={{ padding: 12 }}>
         <Form
           style={{ paddingTop: 0, paddingBottom: 0 }}
           wrapperCol={{ span: 20 }}
-          getFormApi={(api) => (formApi.current = api)}
           layout="horizontal"
         >
-          <Form.Select
-            field="database"
+          <LinSelect
+            field="db"
             label="Database"
-            labelPosition="inset"
-            initValue={URLStore.params.get("db")}
-            optionList={_.map(databases, (db: any) => {
-              return { label: db.name, value: db.name };
-            })}
-            onChange={(value) => {
-              const db = _.find(databases, (item: any) => {
-                return item.name == value;
-              });
-              setSelectDatabase(db);
-              formApi.current.setValue("database", db.name);
-              URLStore.changeURLParams({
-                params: { db: value },
-              });
-            }}
+            loader={() =>
+              ExecService.exec<StorageState[]>({
+                sql: SQL.ShowStorageAliveNodes,
+              }).then((storages) => {
+                const databases = StateKit.getDatabaseList(storages);
+                return _.map(databases, (db: any) => {
+                  return { label: db.name, value: db.name };
+                });
+              })
+            }
+            clearKeys={["shard", "family"]}
           />
           <Button
             icon={<IconRefresh />}
             onClick={() => {
-              getStorageList();
               URLStore.changeURLParams({
-                params: { ts: `${new Date().getTime()}` },
+                forceChange: true,
               });
             }}
           />
         </Form>
       </Card>
-      {!selectDatabase ? (
-        <Card loading={loading} bodyStyle={{ padding: 12 }}>
-          <Empty
-            image={<IllustrationIdle style={{ width: 150, height: 150 }} />}
-            darkModeImage={
-              <IllustrationIdleDark style={{ width: 150, height: 150 }} />
-            }
-            description="Please Select Database"
-            style={{ marginTop: 50, minHeight: 400 }}
-          />
-        </Card>
-      ) : (
-        <>
-          <DatabaseView
-            liveNodes={_.get(selectDatabase, "storage.liveNodes", {})}
-            storage={_.get(selectDatabase, "storage", {})}
-            loading={loading}
-            databaseName={selectDatabase.name}
-          />
-          <div style={{ marginTop: 12 }}>
-            <ReplicaView
-              liveNodes={_.get(selectDatabase, "storage.liveNodes", {})}
-              db={selectDatabase.name as string}
-              storage={selectDatabase.storage.name as string}
-            />
-          </div>
-        </>
-      )}
+      <ReplicationStatus />
     </>
   );
-}
+};
+
+export default ReplicationView;

@@ -22,58 +22,45 @@ import {
   IconRefresh,
 } from "@douyinfe/semi-icons";
 import {
-  IllustrationConstructionDark,
-  IllustrationNoContentDark,
-} from "@douyinfe/semi-illustrations";
-import {
   Button,
   Card,
-  Empty,
   Popconfirm,
   SplitButtonGroup,
   Table,
   Typography,
   Notification,
 } from "@douyinfe/semi-ui";
+import StatusTip from "@src/components/common/StatusTip";
 import { Route } from "@src/constants";
 import { Database } from "@src/models";
-import { exec } from "@src/services";
+import { ExecService } from "@src/services";
 import { URLStore } from "@src/stores";
+import { useQuery } from "@tanstack/react-query";
 import * as _ from "lodash-es";
-import React, { useCallback, useEffect, useState } from "react";
+import React from "react";
 
 const { Text } = Typography;
 
 export default function DatabaseList() {
-  const [databaseList, setDatabaseList] = useState([] as Database[]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const getDatabaseList = useCallback(async () => {
-    setError("");
-    setLoading(true);
-    try {
-      const list = await exec<Database[]>({ sql: "show schemas" });
-      setDatabaseList(list || []);
-    } catch (err) {
-      setError(_.get(err, "message", "Unknown internal error"));
-      setDatabaseList([]);
-    } finally {
-      setLoading(false);
+  const { isLoading, isError, isFetching, error, data, refetch } = useQuery(
+    ["show_database_schemas"],
+    async () => {
+      return ExecService.exec<Database[]>({ sql: "show schemas" });
     }
-  }, []);
+  );
 
-  const dropDatabase = useCallback(async (name) => {
-    setError("");
+  const dropDatabase = async (name: string) => {
     try {
-      const rs = await exec<string>({ sql: `drop database '${name}'` });
+      const rs = await ExecService.exec<string>({
+        sql: `drop database '${name}'`,
+      });
       Notification.success({
         content: `${rs}`,
         position: "top",
         duration: 5,
         theme: "light",
       });
-      getDatabaseList();
+      refetch();
     } catch (err) {
       Notification.error({
         title: "Drop database error",
@@ -83,8 +70,7 @@ export default function DatabaseList() {
         duration: 5,
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  };
 
   const columns = [
     {
@@ -103,6 +89,7 @@ export default function DatabaseList() {
     {
       title: "Actions",
       key: "actions",
+      width: 100,
       render: (_text: any, record: any, _index: any) => {
         return (
           <Popconfirm
@@ -127,10 +114,6 @@ export default function DatabaseList() {
     },
   ];
 
-  useEffect(() => {
-    getDatabaseList();
-  }, [getDatabaseList]);
-
   const CreateBtn: React.FC<any> = ({ text }) => {
     return (
       <Button
@@ -151,41 +134,20 @@ export default function DatabaseList() {
         <Button
           icon={<IconRefresh />}
           style={{ marginLeft: 4 }}
-          onClick={getDatabaseList}
+          onClick={() => refetch()}
         />
       </SplitButtonGroup>
       <Table
         className="lin-table"
-        dataSource={databaseList}
-        loading={loading}
+        dataSource={data}
+        loading={isLoading || isFetching}
         empty={
-          <Empty
-            image={
-              error ? (
-                <IllustrationConstructionDark />
-              ) : (
-                <IllustrationNoContentDark />
-              )
-            }
-            imageStyle={{
-              height: 60,
-            }}
-            title={
-              error ? (
-                <Text type="danger">
-                  {error}, please{" "}
-                  <Text link onClick={getDatabaseList}>
-                    retry
-                  </Text>{" "}
-                  later.
-                </Text>
-              ) : (
-                "No database, please create one."
-              )
-            }
-          >
-            {!error && <CreateBtn text="Create Now" />}
-          </Empty>
+          <StatusTip
+            isLoading={isLoading || isFetching}
+            isError={isError}
+            isEmpty={_.isEmpty(data)}
+            error={error}
+          />
         }
         columns={columns}
         pagination={false}

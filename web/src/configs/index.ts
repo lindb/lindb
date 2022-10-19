@@ -39,5 +39,4 @@ export * from "@src/configs/monitoring/tsdb.job";
 export * from "@src/configs/monitoring/network.tcp";
 export * from "@src/configs/monitoring/network.grpc";
 export * from "@src/configs/dashboard.config";
-export * from "@src/configs/routes.config";
 export * from "@src/configs/chart.config";

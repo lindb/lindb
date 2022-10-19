@@ -16,59 +16,60 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import ChartLegend from "@src/components/chart/ChartLegend";
-import { DefaultChartConfig, getChartThemeConfig } from "@src/configs";
-import { ChartStatus, ChartTypeEnum, UnitEnum } from "@src/models";
-import { ChartEventStore, ChartStore } from "@src/stores";
-import urlStore from "@src/stores/url.store";
-import { setStyle } from "@src/utils";
-import Chart from "chart.js/auto";
-import * as _ from "lodash-es";
-import { reaction } from "mobx";
-import moment from "moment";
-import React, { MutableRefObject, useContext, useEffect, useRef } from "react";
-import { DateTimeFormat } from "@src/constants";
+import React, {
+  MutableRefObject,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { Chart } from "chart.js";
 import { UIContext } from "@src/context/UIContextProvider";
+import { DefaultChartConfig, getChartThemeConfig } from "@src/configs";
+import classNames from "classnames";
+import Legend from "./Legend";
+import Tooltip from "./Tooltip";
+import * as _ from "lodash-es";
+import { ChartKit, CSSKit } from "@src/utils";
+import { PlatformStore, URLStore } from "@src/stores";
+import { MouseEventType } from "@src/stores/platform.store";
+import { ChartType, Unit } from "@src/models";
+import moment from "moment";
+import { DateTimeFormat } from "@src/constants";
 
-interface CanvasChartProps {
-  chartId: string;
-  height?: number;
-  disableDrag?: boolean;
-}
 const Zoom = {
   drag: false,
   isMouseDown: false,
   selectedStart: 0,
   selectedEnd: 0,
+  x: 0,
 };
 
-export default function CanvasChart(props: CanvasChartProps) {
-  const { chartId, height, disableDrag } = props;
-  const eventCallbacks: Map<string, any> = new Map();
+const CanvasChart: React.FC<{
+  type: ChartType;
+  unit?: Unit;
+  config?: any;
+  datasets?: any;
+}> = (props) => {
+  const { type, unit, config, datasets } = props;
+  const [selectedSeries, setSelectedSeries] = useState<string[]>([]);
   const { theme } = useContext(UIContext);
-  const chartRef = useRef() as MutableRefObject<HTMLCanvasElement | null>;
-  const crosshairRef = useRef() as MutableRefObject<HTMLDivElement>;
-  const chartObjRef = useRef() as MutableRefObject<Chart | null>;
+
+  const canvasRef = useRef() as MutableRefObject<HTMLCanvasElement | null>;
+  const chartInstance = useRef() as MutableRefObject<Chart | null>;
   const zoomRef = useRef(_.cloneDeep(Zoom));
   const zoomDivRef = useRef() as MutableRefObject<HTMLDivElement>;
-  const seriesRef = useRef() as MutableRefObject<any>;
-  const chartStatusRef = useRef() as MutableRefObject<ChartStatus | undefined>;
+  const crosshairRef = useRef() as MutableRefObject<HTMLDivElement>;
+  const hiddenSeriesMap = new Map<string, string>();
 
-  useEffect(() => {
-    // set chart theme if chart instance exist
-    for (let key of Object.keys(Chart.instances)) {
-      const currChart = Chart.instances[`${key}`];
-      currChart.config = getChartThemeConfig(
-        theme,
-        _.get(currChart, "config", {})
-      );
-      currChart.update();
-    }
-  }, [theme]);
+  const isZoom = (chart: Chart | null) => {
+    return _.get(chart, "options.zoom", false);
+  };
 
   const resetZoomRange = () => {
-    if (!disableDrag) {
-      setStyle(zoomDivRef.current, {
+    if (isZoom(chartInstance.current)) {
+      CSSKit.setStyle(zoomDivRef.current, {
         display: "none",
         width: "0px",
       });
@@ -76,239 +77,272 @@ export default function CanvasChart(props: CanvasChartProps) {
       zoomRef.current.drag = false;
       zoomRef.current.selectedStart = 0;
       zoomRef.current.selectedEnd = 0;
+      zoomRef.current.x = 0;
     }
   };
 
-  const createChart = () => {
-    // console.log("config", { type: "line", data: series }, config);
-    const canvas = chartRef.current;
-    if (!canvas) {
-      return;
-    }
-    const chartCfg = ChartStore.charts.get(chartId);
-    const config: any = _.merge(
-      {
-        type: _.get(chartCfg, "type", ChartTypeEnum.Line),
-        unit: _.get(chartCfg, "unit", UnitEnum.None),
-      },
-      getChartThemeConfig(theme, DefaultChartConfig)
-    );
-    config.options.crosshair = crosshairRef.current;
-
-    const chartInstance = new Chart(canvas, config);
-    chartObjRef.current = chartInstance;
-    let start = 0;
-
-    eventCallbacks.set("mousemove", function (e: MouseEvent) {
-      if (chartStatusRef.current != ChartStatus.OK) {
+  const onSeriesSelect = useCallback(
+    (series: any, e: React.MouseEvent) => {
+      const chart = chartInstance.current;
+      if (!chart) {
         return;
       }
-      const points: any = chartInstance.getElementsAtEventForMode(
+      // document.getSelection().removeAllRanges();
+
+      const label = series.label;
+      hiddenSeriesMap.set(label, label);
+      const datasets = _.get(chart, "data.datasets", []);
+      const currentSelectedSet = new Set<string>(selectedSeries);
+      if (e.shiftKey) {
+        currentSelectedSet.add(label);
+      } else if (e.metaKey) {
+        let hidden = false;
+        datasets.forEach((series: any) => {
+          if (!series.hidden) {
+            currentSelectedSet.add(series.label);
+          } else if (label === series.label) {
+            hidden = true;
+          }
+        });
+        if (hidden) {
+          currentSelectedSet.add(label);
+        } else {
+          currentSelectedSet.delete(series.label);
+        }
+      } else {
+        currentSelectedSet.clear();
+        currentSelectedSet.add(label);
+      }
+
+      setSelectedSeries(Array.from(currentSelectedSet));
+      datasets.forEach((series: any) => {
+        series.hidden = !currentSelectedSet.has(series.label);
+      });
+      chart.update();
+    },
+    [selectedSeries]
+  );
+
+  const handleMouseDown = (e: MouseEvent) => {
+    if (!chartInstance.current) {
+      return;
+    }
+    const chart = chartInstance.current;
+    const datasets = _.get(chart, "data", {}) as any;
+    if (!_.isEmpty(datasets) && isZoom(chart)) {
+      zoomRef.current.isMouseDown = true;
+      const points: any = chart.getElementsAtEventForMode(
         e,
         "index",
         { intersect: false },
         false
       );
-      if (!points || points.length <= 0) {
-        return;
+      if (points && points.length > 0) {
+        zoomRef.current.selectedStart = datasets.times[points[0].index];
       }
-      const chartArea = chartInstance.chartArea;
-      const currIdx = points[0].index;
-      const x = e.offsetX;
-      if (!disableDrag && zoomRef.current.isMouseDown) {
-        zoomRef.current.selectedEnd = seriesRef.current.times[points[0].index];
-        zoomRef.current.drag = true;
-        const width = e.offsetX - start;
-        if (width >= 0) {
-          setStyle(zoomDivRef.current, {
-            width: `${width}px`,
-          });
-        } else {
-          setStyle(zoomDivRef.current, {
-            width: `${-width}px`,
-            transform: `translate(${e.offsetX}px, ${chartArea.top}px)`,
-          });
-        }
-      }
+      zoomRef.current.x = e.offsetX;
+      const chartArea = chart.chartArea;
+      const height = chartArea.height;
+      CSSKit.setStyle(zoomDivRef.current, {
+        display: "block",
+        height: `${height}px`,
+        transform: `translate(${zoomRef.current.x}px, ${chartArea.top}px)`,
+      });
+    }
+  };
 
-      const canvaxRect = canvas.getBoundingClientRect();
+  const handleMouseUp = (_e: MouseEvent) => {
+    if (zoomRef.current.drag) {
+      const start = Math.min(
+        zoomRef.current.selectedStart,
+        zoomRef.current.selectedEnd
+      );
+      const end = Math.max(
+        zoomRef.current.selectedStart,
+        zoomRef.current.selectedEnd
+      );
+      const from = moment(start).format(DateTimeFormat);
+      const to = moment(end).format(DateTimeFormat);
+      URLStore.changeURLParams({ params: { from: from, to: to } });
+    }
+    resetZoomRange();
+  };
 
-      const interval =
-        _.get(chartInstance, "config._config.data.interval", 0) / 1000;
-      const v = currIdx * interval;
-      // cross hair
-      for (let key of Object.keys(Chart.instances)) {
-        const currChart = Chart.instances[`${key}`];
-        const crosshair = _.get(currChart, "options.crosshair", null);
-        const len = _.get(currChart, "config._config.data.times", []).length;
-        if (!crosshair || len == 0) {
-          continue;
-        }
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!chartInstance.current) {
+      return;
+    }
+    const chart = chartInstance.current;
+    const points: any = chart.getElementsAtEventForMode(
+      e,
+      "index",
+      { intersect: false },
+      false
+    );
+    if (!points || points.length <= 0) {
+      return;
+    }
+    const currIdx = points[0].index;
+    const interval = _.get(chart, "config.data.interval", 0) / 1000;
+    const v = currIdx * interval;
 
-        const chartArea = currChart.chartArea;
-        const width = _.get(currChart, "chartArea.width", 0);
-        const i = _.get(currChart, "config._config.data.interval", 0) / 1000;
-
-        const x = (v / ((len - 1) * i)) * width + chartArea.left;
-        if (x > chartArea.right) {
-          continue;
-        }
-        const top = chartArea.top;
-        const bottom = chartArea.bottom;
-        setStyle(crosshair, {
-          display: "block",
-          height: `${bottom - top}px`,
-          transform: `translate(${x}px, ${top}px)`,
+    if (zoomRef.current.isMouseDown && isZoom(chart)) {
+      const chartArea = chart.chartArea;
+      const datasets = _.get(chart, "data", {}) as any;
+      zoomRef.current.selectedEnd = datasets.times[points[0].index];
+      zoomRef.current.drag = true;
+      const width = e.offsetX - zoomRef.current.x;
+      if (width >= 0) {
+        CSSKit.setStyle(zoomDivRef.current, {
+          width: `${width}px`,
+        });
+      } else {
+        CSSKit.setStyle(zoomDivRef.current, {
+          width: `${-width}px`,
+          transform: `translate(${e.offsetX}px, ${chartArea.top}px)`,
         });
       }
+    }
 
-      ChartEventStore.setShowTooltip(true);
-      ChartEventStore.mouseMove({
-        index: currIdx,
-        mouseX: x,
-        chart: chartInstance,
-        chartArea: chartArea,
-        chartCanvas: canvas,
-        chartCanvasRect: canvaxRect,
-        nativeEvent: e,
-      });
-    });
-    eventCallbacks.set("mouseleave", function (e: any) {
-      if (chartStatusRef.current != ChartStatus.OK) {
-        return;
+    // move cross hair
+    for (let key of Object.keys(Chart.instances)) {
+      const currChart = Chart.instances[`${key}`];
+      const crosshair = _.get(currChart, "lin.extend.crosshair", null);
+      const len = _.get(currChart, "config.data.times", []).length;
+      if (!crosshair || len == 0) {
+        continue;
       }
 
-      // hide cross hair
+      const chartArea = currChart.chartArea;
+      const width = _.get(currChart, "chartArea.width", 0);
+      const i = _.get(currChart, "config.data.interval", 0) / 1000;
+
+      const x = (v / ((len - 1) * i)) * width + chartArea.left;
+      if (x > chartArea.right) {
+        continue;
+      }
+      const top = chartArea.top;
+      const bottom = chartArea.bottom;
+      CSSKit.setStyle(crosshair, {
+        display: "block",
+        height: `${bottom - top}px`,
+        transform: `translate(${x}px, ${top}px)`,
+      });
+    }
+    // set platform state context
+    PlatformStore.setChartMouseEvent({
+      type: MouseEventType.Move,
+      index: currIdx,
+      native: e,
+      chart: chartInstance.current,
+    });
+  };
+
+  const handleMouseOut = (e: MouseEvent) => {
+    try {
+      resetZoomRange();
       for (let key of Object.keys(Chart.instances)) {
         const currChart = Chart.instances[`${key}`];
-        const crosshair = _.get(currChart, "options.crosshair", null);
-        setStyle(crosshair, {
+        const crosshair = _.get(currChart, "lin.extend.crosshair", null);
+        if (!crosshair) {
+          continue;
+        }
+
+        CSSKit.setStyle(crosshair, {
           display: "none",
         });
       }
-
-      // reset zoom range selection if leave chart area
-      resetZoomRange();
-
-      ChartEventStore.mouseLeave(e);
-      ChartEventStore.setShowTooltip(false);
-    });
-    if (!disableDrag) {
-      eventCallbacks.set("mousedown", function (e: any) {
-        if (chartStatusRef.current != ChartStatus.OK) {
-          return;
-        }
-        zoomRef.current.isMouseDown = true;
-        const points: any = chartInstance.getElementsAtEventForMode(
-          e,
-          "index",
-          { intersect: false },
-          false
-        );
-        if (points && points.length > 0) {
-          zoomRef.current.selectedStart =
-            seriesRef.current.times[points[0].index];
-        }
-        start = e.offsetX;
-        const chartArea = chartInstance.chartArea;
-        const height = chartArea.height;
-        setStyle(zoomDivRef.current, {
-          display: "block",
-          height: `${height}px`,
-          // left: start,
-          transform: `translate(${start}px, ${chartArea.top}px)`,
-        });
+    } finally {
+      PlatformStore.setChartMouseEvent({
+        type: MouseEventType.Out,
+        native: e,
       });
-      eventCallbacks.set("mouseup", function (_e: any) {
-        if (chartStatusRef.current != ChartStatus.OK) {
-          return;
-        }
-        if (zoomRef.current.drag) {
-          const start = Math.min(
-            zoomRef.current.selectedStart,
-            zoomRef.current.selectedEnd
-          );
-          const end = Math.max(
-            zoomRef.current.selectedStart,
-            zoomRef.current.selectedEnd
-          );
-          const from = moment(start).format(DateTimeFormat);
-          const to = moment(end).format(DateTimeFormat);
-          urlStore.changeURLParams({ params: { from: from, to: to } });
-        }
-        resetZoomRange();
-      });
-    }
-    eventCallbacks.forEach((v, k) => {
-      canvas.addEventListener(k, v);
-    });
-  };
-
-  /**
-   * set chart display data
-   * @param series data which display in chart
-   */
-  const setChartData = (series: any) => {
-    const chartInstance = chartObjRef.current;
-    if (chartInstance) {
-      chartInstance.data = series;
     }
   };
 
+  useEffect(() => {
+    // if canvas is null, return it.
+    if (!canvasRef.current) {
+      return;
+    }
+    const chartCfg: any = _.merge(
+      getChartThemeConfig(theme, DefaultChartConfig),
+      config
+    );
+    if (!chartInstance.current) {
+      // component init
+      chartCfg.type = ChartKit.getChartType(type);
+      chartCfg.data = datasets || [];
+
+      const canvas = canvasRef.current;
+      const chart = new Chart(canvas, chartCfg);
+      _.set(chart, "lin.extend.crosshair", crosshairRef.current);
+      _.set(chart, "lin.extend.unit", unit || Unit.Short);
+      _.set(chart, "lin.extend.onSeriesSelect", onSeriesSelect);
+      _.set(chart, "lin.extend.theme", theme);
+      chartInstance.current = chart;
+      // add mouse event handles, after chart created
+      canvas.addEventListener("mousemove", handleMouseMove);
+      canvas.addEventListener("mouseout", handleMouseOut);
+      canvas.addEventListener("mousedown", handleMouseDown);
+      canvas.addEventListener("mouseup", handleMouseUp);
+    } else {
+      const chart = chartInstance.current;
+      chart.data = datasets || [];
+      chart.options = chartCfg.options;
+      _.set(chart, "lin.extend.unit", unit || Unit.Short);
+      if (theme !== _.get(chart, "lin.extend.theme")) {
+        // theme changed
+        _.set(chart, "lin.extend.theme", theme);
+        chartInstance.current.config.options = getChartThemeConfig(theme, {
+          options: _.get(chart, "config.options", {}),
+        }).options;
+      }
+      // data set or config update
+      chart.update();
+    }
+
+    const chartDatasets = _.get(chartInstance.current, "data.datasets", []);
+    const currentSelectedSet = new Set<string>(selectedSeries);
+    chartDatasets.forEach((series: any) => {
+      if (!series.hidden) {
+        currentSelectedSet.add(series.label);
+      }
+    });
+    setSelectedSeries(Array.from(currentSelectedSet));
+  }, [config, datasets, theme]);
+
   /**
-   * Init canvas chart component.
-   * 1. watch chart status from ChartStore.
+   * destroy resource
    */
   useEffect(() => {
-    const disposer = [
-      reaction(
-        () => ChartStore.chartStatusMap.get(chartId),
-        (s: ChartStatus | undefined) => {
-          chartStatusRef.current = s;
-          if (!s || s == ChartStatus.Loading) {
-            return;
-          }
-          const series = ChartStore.seriesCache.get(chartId);
-          seriesRef.current = series;
-          const chartInstance = chartObjRef.current;
-
-          if (chartInstance) {
-            setChartData(series);
-            chartInstance.update();
-          } else {
-            createChart();
-            setChartData(series);
-          }
-        }
-      ),
-    ];
-    const canvas = chartRef.current;
-
     return () => {
-      if (canvas) {
-        eventCallbacks.forEach((v, k) => {
-          canvas.removeEventListener(k, v);
-        });
-      }
-      disposer.forEach((d) => d());
-      if (chartObjRef.current) {
-        chartObjRef.current.destroy();
-        // reset chart obj as null, maybe after hot load(develop) canvas element not ready.
-        // invoke chart update will fail.
-        chartObjRef.current = null;
+      if (chartInstance.current) {
+        const canvas = chartInstance.current.canvas;
+        canvas.removeEventListener("mousemove", handleMouseMove);
+        canvas.removeEventListener("mouseout", handleMouseOut);
+        canvas.removeEventListener("mousedown", handleMouseDown);
+        canvas.removeEventListener("mouseup", handleMouseUp);
+        chartInstance.current.destroy();
+        chartInstance.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chartId]);
+  }, []);
 
+  const chartMetricCls = classNames("chart-metric-container", {
+    "chart-cursor-pointer": false,
+  });
   return (
-    <div>
-      <div className="lin-chart" style={{ height: height || 200 }}>
-        <canvas className="chart" ref={chartRef} height={height || 200} />
+    <div className={chartMetricCls}>
+      <div className="chart-canvas-wrapper">
+        <canvas ref={canvasRef} />
         <div ref={crosshairRef} className="crosshair" />
-        {!disableDrag && <div ref={zoomDivRef} className="zoom" />}
+        <div ref={zoomDivRef} className="zoom" />
       </div>
-      <ChartLegend />
+      <Legend chart={chartInstance.current} />
+      <Tooltip chart={chartInstance.current} />
     </div>
   );
-}
+};
+
+export default CanvasChart;

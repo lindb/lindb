@@ -17,22 +17,20 @@ specific language governing permissions and limitations
 under the License.
 */
 import {
-  IconAppCenter,
   IconComponentPlaceholderStroked,
   IconElementStroked,
   IconGridStroked,
-  IconInherit,
-  IconListView,
-  IconSearch,
+  IconFixedStroked,
+  IconChecklistStroked,
+  IconSearchStroked,
   IconSendStroked,
-  IconServer,
-  IconTemplate,
   IconShareStroked,
   IconSettingStroked,
   IconMonitorStroked,
 } from "@douyinfe/semi-icons";
 import { CommonVariates, Dashboards } from "@src/configs";
 import { Route } from "@src/constants";
+import { Icon } from "@src/components";
 import {
   Overview,
   ConfigurationView,
@@ -52,18 +50,7 @@ import {
 } from "@src/pages";
 import * as _ from "lodash-es";
 import React from "react";
-
-export type RouteItem = {
-  itemKey?: string;
-  parent?: RouteItem | null;
-  text: string;
-  path?: string;
-  inner?: boolean;
-  icon?: React.ReactNode | string;
-  content?: React.FunctionComponent;
-  items?: RouteItem[];
-  keep?: string[]; //keep url params when change route
-};
+import { RouteItem } from "@src/models";
 
 export const routes = [
   {
@@ -91,14 +78,14 @@ export const routes = [
   {
     text: "Search",
     path: Route.Search,
-    icon: <IconSearch size="large" />,
+    icon: <IconSearchStroked size="large" />,
     content: <DataSearch />,
   },
   {
     text: "Explore",
     path: Route.Explore,
     timePicker: true,
-    icon: <IconAppCenter size="large" />,
+    icon: <Icon icon="iconExplore" style={{ fontSize: 20 }} />,
     content: <DataExplore />,
   },
   {
@@ -114,7 +101,6 @@ export const routes = [
           <DashboardView variates={CommonVariates} dashboards={Dashboards} />
         ),
         timePicker: true,
-        keep: ["start", "end", "node", "db"],
       },
       {
         text: "Replication",
@@ -131,7 +117,7 @@ export const routes = [
       {
         text: "Log View",
         path: Route.MonitoringLogs,
-        icon: <IconListView size="large" />,
+        icon: <IconChecklistStroked size="large" />,
         content: <LogView />,
       },
     ],
@@ -144,7 +130,7 @@ export const routes = [
       {
         text: "Storage",
         path: Route.MetadataStorage,
-        icon: <IconTemplate size="large" />,
+        icon: <Icon icon="iconts-tubiao_APPCluster" style={{ fontSize: 20 }} />,
         content: <StorageList />,
         items: [
           {
@@ -159,7 +145,7 @@ export const routes = [
       {
         text: "Database",
         path: Route.MetadataDatabase,
-        icon: <IconServer size="large" />,
+        icon: <Icon icon="icondatabase" style={{ fontSize: 20 }} />,
         content: <DatabaseList />,
         items: [
           {
@@ -174,7 +160,7 @@ export const routes = [
       {
         text: "Explore",
         path: Route.MetadataExplore,
-        icon: <IconInherit size="large" />,
+        icon: <IconFixedStroked size="large" />,
         content: <MetadataExplore />,
       },
       {

@@ -17,3 +17,4 @@ specific language governing permissions and limitations
 under the License.
 */
 export { default as UIContextProvider } from "@src/context/UIContextProvider";
+export { default as PlatformStateContextProvider } from "@src/context/PlatformStateContextProvider";

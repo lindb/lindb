@@ -17,7 +17,8 @@ specific language governing permissions and limitations
 under the License.
 */
 import { MonitoringDB } from "@src/constants";
-import { Dashboard, UnitEnum } from "@src/models";
+import { Dashboard, Unit } from "@src/models";
+import { chartOptions } from "./system";
 
 export const WALDashboard: Dashboard = {
   rows: [
@@ -26,7 +27,7 @@ export const WALDashboard: Dashboard = {
         {
           chart: {
             title: "Write Traffic",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -34,14 +35,14 @@ export const WALDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Bytes,
+            unit: Unit.Bytes,
           },
           span: 8,
         },
         {
           chart: {
             title: "Write",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -49,14 +50,14 @@ export const WALDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Write Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -64,7 +65,7 @@ export const WALDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
@@ -75,7 +76,7 @@ export const WALDashboard: Dashboard = {
         {
           chart: {
             title: "Replica Traffic",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -83,14 +84,14 @@ export const WALDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Bytes,
+            unit: Unit.Bytes,
           },
           span: 8,
         },
         {
           chart: {
             title: "Replica",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -98,14 +99,14 @@ export const WALDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Replica Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -113,7 +114,7 @@ export const WALDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },

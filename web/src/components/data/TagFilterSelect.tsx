@@ -20,7 +20,7 @@ import React, { useEffect, useState, useRef, MutableRefObject } from "react";
 import { Popover, Form, Button, SplitButtonGroup } from "@douyinfe/semi-ui";
 import { IconFilter } from "@douyinfe/semi-icons";
 import { TagValueSelect } from "@src/components";
-import { exec } from "@src/services";
+import { ExecService } from "@src/services";
 import { Metadata } from "@src/models";
 import { URLStore } from "@src/stores";
 
@@ -36,7 +36,7 @@ export default function TagFilterSelect(props: {
 
   useEffect(() => {
     const fetchTagKeys = async () => {
-      const metadata = await exec<Metadata>({
+      const metadata = await ExecService.exec<Metadata>({
         db: db,
         sql: `show tag keys from '${metric}'`,
       });

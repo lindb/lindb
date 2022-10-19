@@ -16,30 +16,60 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { MasterView, NodeView, StorageView } from "@src/components";
+import { MasterView, NodeView, StatusTip, StorageView } from "@src/components";
 import { StateMetricName, SQL } from "@src/constants";
-import { useAliveState, useStorage } from "@src/hooks";
+import { useStorage } from "@src/hooks";
+import { ExecService } from "@src/services";
+import { useQuery } from "@tanstack/react-query";
 import React from "react";
 
 // must define outside function component, if define in component maybe endless loop.
 const brokerMetric = `show broker metric where metric in ('${StateMetricName.CPU}','${StateMetricName.Memory}')`;
 
-export default function Overview() {
-  const { loading, storages } = useStorage();
-  const { aliveState: liveNodes, loading: nodeLoading } = useAliveState(
-    SQL.ShowBrokerAliveNodes
-  );
+const Overview: React.FC = () => {
+  const {
+    isLoading: storageLoading,
+    isError: storageHasError,
+    error: storageError,
+    storages,
+  } = useStorage();
+  const {
+    isLoading: nodeLoading,
+    data: liveNodes,
+    isError: nodeHasError,
+    error: nodeError,
+  } = useQuery(["show_broker_alive_nodes"], async () => {
+    return ExecService.exec<any[]>({ sql: SQL.ShowBrokerAliveNodes });
+  });
+
   return (
     <>
       <MasterView />
       <NodeView
         title="Broke Live Nodes"
-        loading={nodeLoading}
-        nodes={liveNodes}
+        nodes={liveNodes || []}
         sql={brokerMetric}
         style={{ marginTop: 12, marginBottom: 12 }}
+        statusTip={
+          <StatusTip
+            isLoading={nodeLoading}
+            isError={nodeHasError}
+            error={nodeError}
+          />
+        }
       />
-      <StorageView loading={loading} storages={storages || []} />
+      <StorageView
+        storages={storages || []}
+        statusTip={
+          <StatusTip
+            isLoading={storageLoading}
+            isError={storageHasError}
+            error={storageError}
+          />
+        }
+      />
     </>
   );
-}
+};
+
+export default Overview;

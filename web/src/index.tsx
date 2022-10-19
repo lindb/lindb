@@ -24,16 +24,29 @@ import en_US from "@douyinfe/semi-ui/lib/es/locale/source/en_US";
 import { LocaleProvider } from "@douyinfe/semi-ui";
 import { HashRouter as Router, Route, Switch } from "react-router-dom";
 import { UIContextProvider } from "@src/context";
+import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false,
+      refetchOnWindowFocus: false,
+      cacheTime: 0,
+    },
+  },
+});
 
 ReactDOM.render(
   <LocaleProvider locale={en_US}>
-    <UIContextProvider>
-      <Router>
-        <Switch>
-          <Route path="/" component={App} />
-        </Switch>
-      </Router>
-    </UIContextProvider>
+    <QueryClientProvider client={queryClient}>
+      <UIContextProvider>
+        <Router>
+          <Switch>
+            <Route path="/" component={App} />
+          </Switch>
+        </Router>
+      </UIContextProvider>
+    </QueryClientProvider>
   </LocaleProvider>,
   document.getElementById("root") as HTMLElement
 );

@@ -17,7 +17,8 @@ specific language governing permissions and limitations
 under the License.
 */
 import { MonitoringDB } from "@src/constants";
-import { Dashboard, UnitEnum } from "@src/models";
+import { Dashboard, Unit } from "@src/models";
+import { chartOptions } from "./system";
 
 export const RuntimeDashboard: Dashboard = {
   rows: [
@@ -27,7 +28,7 @@ export const RuntimeDashboard: Dashboard = {
           chart: {
             title: "Sys",
             description: "number of heap bytes obtained from system",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -35,7 +36,7 @@ export const RuntimeDashboard: Dashboard = {
                 watch: ["role", "namespace", "node"],
               },
             ],
-            unit: UnitEnum.Bytes,
+            unit: Unit.Bytes,
           },
           span: 8,
         },
@@ -43,7 +44,7 @@ export const RuntimeDashboard: Dashboard = {
           chart: {
             title: "Frees",
             description: "number of frees",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -51,7 +52,7 @@ export const RuntimeDashboard: Dashboard = {
                 watch: ["role", "node"],
               },
             ],
-            unit: UnitEnum.Bytes,
+            unit: Unit.Bytes,
           },
           span: 8,
         },
@@ -59,7 +60,7 @@ export const RuntimeDashboard: Dashboard = {
           chart: {
             title: "Total Alloc",
             description: "bytes allocated even if freed",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -67,7 +68,7 @@ export const RuntimeDashboard: Dashboard = {
                 watch: ["role", "node"],
               },
             ],
-            unit: UnitEnum.Bytes,
+            unit: Unit.Bytes,
           },
           span: 8,
         },
@@ -79,7 +80,7 @@ export const RuntimeDashboard: Dashboard = {
           chart: {
             title: "Heap Alloc",
             description: "bytes allocated and not yet freed",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -87,7 +88,7 @@ export const RuntimeDashboard: Dashboard = {
                 watch: ["role", "node"],
               },
             ],
-            unit: UnitEnum.Bytes,
+            unit: Unit.Bytes,
           },
           span: 8,
         },
@@ -95,7 +96,7 @@ export const RuntimeDashboard: Dashboard = {
           chart: {
             title: "Heap Objects",
             description: "total number of allocated objects",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -103,7 +104,7 @@ export const RuntimeDashboard: Dashboard = {
                 watch: ["role", "node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
@@ -111,7 +112,7 @@ export const RuntimeDashboard: Dashboard = {
           chart: {
             title: "Heap In Used",
             description: "bytes in non-idle span",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -119,7 +120,7 @@ export const RuntimeDashboard: Dashboard = {
                 watch: ["role", "node"],
               },
             ],
-            unit: UnitEnum.Bytes,
+            unit: Unit.Bytes,
           },
           span: 8,
         },
@@ -131,7 +132,7 @@ export const RuntimeDashboard: Dashboard = {
           chart: {
             title: "Number of goroutines",
             description: "Number of goroutines",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -139,7 +140,7 @@ export const RuntimeDashboard: Dashboard = {
                 watch: ["role", "node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
@@ -147,7 +148,7 @@ export const RuntimeDashboard: Dashboard = {
           chart: {
             title: "Number of Threads",
             description: "Number of Threads",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -155,7 +156,7 @@ export const RuntimeDashboard: Dashboard = {
                 watch: ["role", "node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
@@ -163,7 +164,7 @@ export const RuntimeDashboard: Dashboard = {
           chart: {
             title: "Next GC Bytes",
             description: "Next GC Bytes",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -171,7 +172,7 @@ export const RuntimeDashboard: Dashboard = {
                 watch: ["role", "node"],
               },
             ],
-            unit: UnitEnum.Bytes,
+            unit: Unit.Bytes,
           },
           span: 8,
         },
@@ -183,7 +184,7 @@ export const RuntimeDashboard: Dashboard = {
           chart: {
             title: "GC CPU Fraction",
             description: "GC CPU Fraction",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -191,7 +192,7 @@ export const RuntimeDashboard: Dashboard = {
                 watch: ["role", "node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -199,7 +200,7 @@ export const RuntimeDashboard: Dashboard = {
           chart: {
             title: "Lookups",
             description: "number of pointer lookups",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -207,7 +208,7 @@ export const RuntimeDashboard: Dashboard = {
                 watch: ["role", "node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },

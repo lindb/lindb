@@ -16,45 +16,64 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { DatabaseView, NodeView, StorageView } from "@src/components";
-import { StateMetricName } from "@src/constants";
-import { useStorage } from "@src/hooks";
-import { URLStore } from "@src/stores";
+import {
+  DatabaseView,
+  NodeView,
+  StatusTip,
+  StorageView,
+} from "@src/components";
+import { SQL, StateMetricName } from "@src/constants";
+import { useParams } from "@src/hooks";
+import { ExecService } from "@src/services";
+import { StateKit } from "@src/utils";
+import { useQuery } from "@tanstack/react-query";
 import * as _ from "lodash-es";
 import React from "react";
 
-export default function StorageOverview() {
-  const name = URLStore.params.get("name");
-  const { loading, storages } = useStorage(name as string);
+const StorageOverview: React.FC = () => {
+  const { name } = useParams(["name"]);
+  const { isLoading, isInitialLoading, isFetching, isError, error, data } =
+    useQuery(
+      ["show_alive_storage", name],
+      async () => {
+        return ExecService.exec<any[]>({ sql: SQL.ShowStorageAliveNodes });
+      },
+      { enabled: !_.isEmpty(name) }
+    );
+  const storages = StateKit.getStorageState(data, name || "");
+
+  if (isError || isLoading || isInitialLoading || isFetching) {
+    return (
+      <StatusTip
+        style={{ marginTop: 150 }}
+        isLoading={isLoading || isInitialLoading || isFetching}
+        isError={isError}
+        error={error}
+      />
+    );
+  }
+
   return (
     <>
-      {!loading && (
-        <>
-          <StorageView
-            name={name as string}
-            storages={storages || []}
-            loading={loading}
-          />
-          <NodeView
-            showNodeId
-            title="Live Nodes"
-            loading={loading}
-            nodes={_.orderBy(
-              _.values(_.get(storages, "[0].liveNodes", {})),
-              ["id"],
-              ["asc"]
-            )}
-            sql={`show storage metric where storage='${name}' and metric in ('${StateMetricName.CPU}','${StateMetricName.Memory}')`}
-            style={{ marginTop: 12, marginBottom: 12 }}
-          />
-          <DatabaseView
-            title="Database List"
-            liveNodes={_.get(storages, "[0].liveNodes", {})}
-            storage={_.get(storages, "[0]", {})}
-            loading={loading}
-          />
-        </>
-      )}
+      <StorageView name={name as string} storages={storages || []} />
+      <NodeView
+        showNodeId
+        title="Live Nodes"
+        nodes={_.orderBy(
+          _.values(_.get(storages, "[0].liveNodes", {})),
+          ["id"],
+          ["asc"]
+        )}
+        sql={`show storage metric where storage='${name}' and metric in ('${StateMetricName.CPU}','${StateMetricName.Memory}')`}
+        style={{ marginTop: 12, marginBottom: 12 }}
+      />
+      <DatabaseView
+        title="Database List"
+        liveNodes={_.get(storages, "[0].liveNodes", {})}
+        storage={_.get(storages, "[0]", {})}
+      />
     </>
   );
-}
+};
+
+export default StorageOverview;

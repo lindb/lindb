@@ -36,32 +36,38 @@ import {
   Input,
   Spin,
   Typography,
+  Empty,
 } from "@douyinfe/semi-ui";
-import { StorageStatusView } from "@src/components";
+import { Icon, StatusTip, StorageStatusView } from "@src/components";
 import { StateRoleName } from "@src/constants";
 import { Storage } from "@src/models";
-import { exec } from "@src/services";
+import { ExecService } from "@src/services";
+import { useQuery } from "@tanstack/react-query";
 import * as _ from "lodash-es";
 import * as monaco from "monaco-editor";
 import React, {
   MutableRefObject,
   ReactNode,
+  useCallback,
   useEffect,
   useRef,
   useState,
 } from "react";
 const { Text, Title } = Typography;
 
-export type CompareViewProps = {
+const CompareView: React.FC<{
   source: any;
   nodes: any;
-};
-
-const CompareView: React.FC<CompareViewProps> = (props: CompareViewProps) => {
+}> = (props) => {
   const { source, nodes } = props;
   const diffEditor = useRef() as MutableRefObject<any>;
   const diffEditorRef = useRef() as MutableRefObject<HTMLDivElement>;
   const [filter, setFilter] = useState<string>("");
+  const [current, setCurrent] = useState<string>("");
+
+  const buildOriginal = useCallback(() => {
+    return monaco.editor.createModel(_.get(source, "data", "no data"), "json");
+  }, [source]);
 
   useEffect(() => {
     if (diffEditorRef.current && !diffEditor.current) {
@@ -73,20 +79,16 @@ const CompareView: React.FC<CompareViewProps> = (props: CompareViewProps) => {
         }
       );
     }
-    var originalModel = monaco.editor.createModel(
-      _.get(source, "data", "no data"),
-      "json"
-    );
     var modifiedModel = monaco.editor.createModel(
-      _.get(nodes, "[0]data", "no data"),
+      _.get(nodes, "[0].data", "no data"),
       "json"
     );
-    console.log("diffEditor.current", diffEditor.current);
     diffEditor.current.setModel({
-      original: originalModel,
+      original: buildOriginal(),
       modified: modifiedModel,
     });
-  }, [source, nodes]);
+    setCurrent(_.get(nodes, "[0].node", "-"));
+  }, [source, nodes, buildOriginal]);
 
   return (
     <>
@@ -96,23 +98,37 @@ const CompareView: React.FC<CompareViewProps> = (props: CompareViewProps) => {
             bordered
             header={
               <Input
-                onChange={(v) => (!v ? setFilter(v) : null)}
+                onChange={setFilter}
                 placeholder="Filter nodes"
                 prefix={<IconSearch />}
               />
             }
             size="small"
             dataSource={_.filter(nodes, function (o) {
-              console.log(
-                "o.node.indexOf(filter)",
-                filter,
-                o.node.indexOf(filter)
-              );
               return o.node.indexOf(filter) >= 0;
             })}
             renderItem={(item) => (
               <List.Item
+                style={{
+                  cursor: "pointer",
+                  backgroundColor:
+                    item.node === current
+                      ? "var(--semi-color-primary-light-default)"
+                      : "",
+                }}
                 main={item.node}
+                className="list-item"
+                onClick={() => {
+                  setCurrent(item.node);
+                  var modifiedModel = monaco.editor.createModel(
+                    item.data,
+                    "json"
+                  );
+                  diffEditor.current.setModel({
+                    modified: modifiedModel,
+                    original: buildOriginal(),
+                  });
+                }}
                 extra={
                   item.isDiff ? (
                     <IconTrueFalseStroked
@@ -134,179 +150,65 @@ const CompareView: React.FC<CompareViewProps> = (props: CompareViewProps) => {
   );
 };
 
-type Node = {
-  role: string;
-  type: string;
-  storage?: string;
-};
-
-type TreeNode = {
-  label: string | ReactNode;
-  value: string;
-  key: string;
-  parent: StateRoleName;
-  children: any[];
-};
-
-const MetadataExplore: React.FC = () => {
-  const editor = useRef() as MutableRefObject<any>;
+const MetadataView: React.FC<{
+  node: Node;
+}> = (props) => {
+  const { node } = props;
   const editorRef = useRef() as MutableRefObject<HTMLDivElement>;
-  const [root, setRoot] = useState<any[]>([]);
-  const [loadedKeys, setLoadedKeys] = useState<any[]>([]);
-  const [metadata, setMetadata] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
   const [comparing, setComparing] = useState(false);
-  const [currentNode, setCurrentNode] = useState<any>(null);
   const [stateMachineMetadata, setStateMachineMetadata] = useState<any[]>([]);
   const [showCompareResult, setShowCompareResult] = useState<boolean>(false);
-
-  const getItems = (
-    parent: string,
-    role: string,
-    obj: any,
-    storage?: string
-  ) => {
-    const keys = _.keys(obj);
-    const rs: any[] = [];
-    _.forEach(keys, (k) =>
-      rs.push({
-        label: k,
-        value: { role: role, type: k, storage: storage },
-        key: `${parent}-${k}`,
-        parent: parent,
-      })
-    );
-    return rs;
-  };
+  const [metadata, setMetadata] = useState<any>(null);
+  const { isLoading, isInitialLoading, isError, error, data } = useQuery(
+    ["load_metadata", node],
+    async () => {
+      setStateMachineMetadata([]);
+      let storageClause = "";
+      if (node.storage) {
+        storageClause = ` and storage='${node.storage}'`;
+      }
+      return ExecService.exec<any>({
+        sql: `show ${node.role} metadata from state_repo where type='${node.type}'${storageClause}`,
+      });
+    },
+    {
+      enabled: node != null,
+    }
+  );
 
   useEffect(() => {
-    if (editorRef.current && !editor.current) {
-      // editor no init, create it
-      editor.current = monaco.editor.create(editorRef.current, {
-        value: "no data",
+    const metadata = {
+      type: node?.type,
+      data: JSON.stringify(data, null, "\t"),
+      node: node,
+    };
+    if (editorRef.current) {
+      monaco.editor.create(editorRef.current, {
         language: "json",
         lineNumbers: "off",
         minimap: { enabled: false },
         lineNumbersMinChars: 2,
         readOnly: true,
+        value: _.get(metadata, "data", "no data"),
       });
     }
-    editor.current.setValue(_.get(metadata, "data", "no data"));
-  }, [metadata]);
-
-  useEffect(() => {
-    const fetchMetadata = async () => {
-      const metadata = await exec<any>({ sql: "show metadata types" });
-      const storages = await exec<Storage[]>({ sql: "show storages" });
-      const keys = _.keys(metadata);
-      _.sortBy(keys);
-      const root: any[] = [];
-      const loadedKeys: any[] = [];
-      _.forEach(keys, (key) => {
-        const data = _.get(metadata, key, {});
-        loadedKeys.push(key);
-        if (key === StateRoleName.Storage) {
-          const storageNodes: TreeNode[] = [];
-          _.forEach(storages || [], (storage: any) => {
-            const namespace = storage.config.namespace;
-            const storageKey = `${key}-${namespace}`;
-            const storageTypes = getItems(storageKey, key, data, namespace);
-            storageNodes.push({
-              label: (
-                <>
-                  {namespace} (<StorageStatusView text={storage.status} />)
-                </>
-              ),
-              value: namespace,
-              key: storageKey,
-              parent: key,
-              children: storageTypes,
-            });
-          });
-          root.push({
-            label: key,
-            value: key,
-            key: key,
-            children: storageNodes,
-          });
-        } else {
-          root.push({
-            label: key,
-            value: key,
-            key: key,
-            children: getItems(key, key, data),
-          });
-        }
-      });
-      setLoadedKeys(loadedKeys);
-      setRoot(root);
-    };
-    fetchMetadata();
-  }, []);
-
-  const loadMetadata = async (node: Node) => {
-    try {
-      setCurrentNode(node);
-      setStateMachineMetadata([]);
-      setLoading(true);
-      let storageClause = "";
-      if (node.storage) {
-        storageClause = ` and storage='${node.storage}'`;
-      }
-      const metadata = await exec<any>({
-        sql: `show ${node.role} metadata from state_repo where type='${node.type}'${storageClause}`,
-      });
-      setMetadata({
-        type: node.type,
-        data: JSON.stringify(metadata, null, "\t"),
-        node: node,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const renderLabel: React.FC<any> = ({
-    className,
-    onExpand,
-    onClick,
-    data,
-    expandIcon,
-  }) => {
-    const { label } = data;
-    let isLeaf = !(data.children && data.children.length);
-    return (
-      <li
-        className={className}
-        role="treeitem"
-        onClick={isLeaf ? onClick : onExpand}
-      >
-        {isLeaf ? null : expandIcon}
-        <span>{label}</span>
-      </li>
-    );
-  };
-  const treeStyle = {
-    width: "100%",
-    height: "83vh",
-    border: "1px solid var(--semi-color-border)",
-  };
+    setMetadata(metadata);
+  }, [data, node]);
 
   const exploreStateMachineData = async () => {
     try {
-      const node = currentNode as Node;
       setComparing(true);
       setStateMachineMetadata([]);
       let storageClause = "";
       if (node.storage) {
         storageClause = ` and storage='${node.storage}'`;
       }
-      const metadataFromSM = await exec<any>({
+      const metadataFromSM = await ExecService.exec<any>({
         sql: `show ${node.role} metadata from state_machine where type='${node.type}'${storageClause}`,
       });
       const nodes: any[] = [];
-      _.mapKeys(metadataFromSM, function (data, key) {
-        const dataFromSM = JSON.stringify(data, null, "\t");
+      _.mapKeys(metadataFromSM, function (val, key) {
+        const dataFromSM = JSON.stringify(val, null, "\t");
         nodes.push({
           node: key,
           data: dataFromSM,
@@ -319,56 +221,70 @@ const MetadataExplore: React.FC = () => {
     }
   };
 
+  const renderData = () => {
+    if (!node) {
+      return (
+        <Empty
+          image={<Icon icon="iconempty" style={{ fontSize: 48 }} />}
+          description="No data"
+          style={{ paddingTop: 100 }}
+        />
+      );
+    }
+    if (isLoading || isInitialLoading || isError) {
+      return (
+        <StatusTip
+          style={{ paddingTop: 100 }}
+          isLoading={isLoading || isInitialLoading}
+          isError={isError}
+          error={error}
+        />
+      );
+    }
+    return (
+      <>
+        <div ref={editorRef} style={{ height: "100%" }} />
+      </>
+    );
+  };
+
   return (
     <>
-      <Row gutter={8}>
-        <Col span={8}>
-          <Card>
-            <Tree
-              loadedKeys={loadedKeys}
-              treeData={root}
-              renderFullLabel={renderLabel}
-              style={treeStyle}
-              onChange={(args: any) => loadMetadata(args as Node)}
-            />
-          </Card>
-        </Col>
-        <Col span={16} style={{ display: "flex", flexDirection: "column" }}>
-          <div>
-            <SplitButtonGroup style={{ marginBottom: 8, marginRight: 12 }}>
-              <Button
-                icon={<IconSourceControl />}
-                onClick={exploreStateMachineData}
-              >
-                Compare
-              </Button>
-              <Tooltip content="Compare with state matchine's data in memory">
-                <Button icon={<IconHelpCircleStroked />} />
-              </Tooltip>
-            </SplitButtonGroup>
-            {comparing && (
-              <>
-                <Spin size="middle" />
-                <Text style={{ marginRight: 4 }}>Comparing</Text>
-              </>
-            )}
-            {!_.isEmpty(stateMachineMetadata) && (
-              <Text strong link onClick={() => setShowCompareResult(true)}>
-                Found <Text type="success">{stateMachineMetadata.length}</Text>{" "}
-                nodes, diff{" "}
-                <Text type="danger">
-                  {_.filter(stateMachineMetadata, (o) => o.isDiff).length}
-                </Text>{" "}
-                nodes.
-              </Text>
-            )}
-          </div>
+      {node && (
+        <div>
+          <SplitButtonGroup style={{ marginBottom: 8, marginRight: 12 }}>
+            <Button
+              icon={<IconSourceControl />}
+              onClick={exploreStateMachineData}
+            >
+              Compare
+            </Button>
+            <Tooltip content="Compare with state matchine's data in memory">
+              <Button icon={<IconHelpCircleStroked />} />
+            </Tooltip>
+          </SplitButtonGroup>
+          {comparing && (
+            <>
+              <Spin size="middle" />
+              <Text style={{ marginRight: 4 }}>Comparing</Text>
+            </>
+          )}
+          {!_.isEmpty(stateMachineMetadata) && (
+            <Text strong link onClick={() => setShowCompareResult(true)}>
+              Found <Text type="success">{stateMachineMetadata.length}</Text>{" "}
+              nodes, diff{" "}
+              <Text type="danger">
+                {_.filter(stateMachineMetadata, (o) => o.isDiff).length}
+              </Text>{" "}
+              nodes.
+            </Text>
+          )}
+        </div>
+      )}
 
-          <Card style={{ height: "83.5vh" }}>
-            <div ref={editorRef} style={{ height: "80vh" }} />
-          </Card>
-        </Col>
-      </Row>
+      <Card>
+        <div style={{ height: "80vh" }}>{renderData()}</div>
+      </Card>
 
       <Modal
         title={
@@ -391,6 +307,171 @@ const MetadataExplore: React.FC = () => {
       >
         <CompareView source={metadata} nodes={stateMachineMetadata} />
       </Modal>
+    </>
+  );
+};
+
+type Node = {
+  role: string;
+  type: string;
+  storage?: string;
+};
+
+type TreeNode = {
+  label: string | ReactNode;
+  value: string;
+  key: string;
+  parent: StateRoleName;
+  children: any[];
+};
+
+const MetadataExplore: React.FC = () => {
+  const [root, setRoot] = useState<any[]>([]);
+  const [loadedKeys, setLoadedKeys] = useState<any[]>([]);
+  const [currentNode, setCurrentNode] = useState<any>(null);
+
+  const { isLoading, isError, error, data } = useQuery(
+    ["show_metadata"],
+    async () => {
+      return Promise.allSettled([
+        ExecService.exec<any>({
+          sql: "show metadata types",
+        }),
+        ExecService.exec<Storage[]>({
+          sql: "show storages",
+        }),
+      ]).then((res) => {
+        return res.map((item) =>
+          item.status === "fulfilled" ? item.value : []
+        );
+      });
+    }
+  );
+
+  const getItems = (
+    parent: string,
+    role: string,
+    obj: any,
+    storage?: string
+  ) => {
+    const keys = _.keys(obj);
+    const rs: any[] = [];
+    _.forEach(keys, (k) =>
+      rs.push({
+        label: k,
+        value: { role: role, type: k, storage: storage },
+        key: `${parent}-${k}`,
+        parent: parent,
+      })
+    );
+    return rs;
+  };
+
+  useEffect(() => {
+    if ((data || []).length != 2) {
+      return;
+    }
+    const metadata = data![0];
+    const storages = data![1];
+    const keys = _.keys(metadata);
+    _.sortBy(keys);
+    const root: any[] = [];
+    const loadedKeys: any[] = [];
+    _.forEach(keys, (key) => {
+      const data = _.get(metadata, key, {});
+      loadedKeys.push(key);
+      if (key === StateRoleName.Storage) {
+        const storageNodes: TreeNode[] = [];
+        _.forEach(storages || [], (storage: any) => {
+          const namespace = storage.config.namespace;
+          const storageKey = `${key}-${namespace}`;
+          const storageTypes = getItems(storageKey, key, data, namespace);
+          storageNodes.push({
+            label: (
+              <>
+                {namespace} (<StorageStatusView text={storage.status} />)
+              </>
+            ),
+            value: namespace,
+            key: storageKey,
+            parent: key,
+            children: storageTypes,
+          });
+        });
+        root.push({
+          label: key,
+          value: key,
+          key: key,
+          children: storageNodes,
+        });
+      } else {
+        root.push({
+          label: key,
+          value: key,
+          key: key,
+          children: getItems(key, key, data),
+        });
+      }
+    });
+    setLoadedKeys(loadedKeys);
+    setRoot(root);
+  }, [data]);
+
+  const renderLabel: React.FC<any> = ({
+    className,
+    onExpand,
+    onClick,
+    data,
+    expandIcon,
+  }) => {
+    const { label } = data;
+    let isLeaf = !(data.children && data.children.length);
+    return (
+      <li
+        className={className}
+        role="treeitem"
+        onClick={isLeaf ? onClick : onExpand}
+      >
+        {isLeaf ? null : expandIcon}
+        <span>{label}</span>
+      </li>
+    );
+  };
+
+  const renderMetadata = () => {
+    if (isLoading || isError) {
+      return (
+        <StatusTip
+          style={{ marginTop: 50 }}
+          isLoading={isLoading}
+          isError={isError}
+          error={error}
+        />
+      );
+    }
+    return (
+      <Tree
+        className="lin-tree"
+        loadedKeys={loadedKeys}
+        treeData={root}
+        renderFullLabel={renderLabel}
+        onChange={(args: any) => setCurrentNode(args as Node)}
+      />
+    );
+  };
+
+  return (
+    <>
+      <Row gutter={8} style={{ display: "flex" }}>
+        <Col span={8}>
+          <Card bodyStyle={{ padding: 12 }} style={{ height: "100%" }}>
+            {renderMetadata()}
+          </Card>
+        </Col>
+        <Col span={16} style={{ display: "flex", flexDirection: "column" }}>
+          <MetadataView node={currentNode} />
+        </Col>
+      </Row>
     </>
   );
 };

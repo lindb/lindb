@@ -17,7 +17,8 @@ specific language governing permissions and limitations
 under the License.
 */
 import { MonitoringDB } from "@src/constants";
-import { Dashboard, UnitEnum } from "@src/models";
+import { Dashboard, Unit } from "@src/models";
+import { chartOptions } from "./system";
 
 export const BrokerCoordinatorDashboard: Dashboard = {
   rows: [
@@ -27,7 +28,7 @@ export const BrokerCoordinatorDashboard: Dashboard = {
           chart: {
             title: "Broker Node Joins",
             description: "trigger while broker node online",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -35,7 +36,7 @@ export const BrokerCoordinatorDashboard: Dashboard = {
                 watch: ["node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -43,7 +44,7 @@ export const BrokerCoordinatorDashboard: Dashboard = {
           chart: {
             title: "Broker Node Leaves",
             description: "trigger while broker node offline",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -51,7 +52,7 @@ export const BrokerCoordinatorDashboard: Dashboard = {
                 watch: ["node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -62,7 +63,7 @@ export const BrokerCoordinatorDashboard: Dashboard = {
         {
           chart: {
             title: "Storage State Changed",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -70,14 +71,14 @@ export const BrokerCoordinatorDashboard: Dashboard = {
                 watch: ["node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Storage State Deletion",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -85,7 +86,7 @@ export const BrokerCoordinatorDashboard: Dashboard = {
                 watch: ["node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -96,7 +97,7 @@ export const BrokerCoordinatorDashboard: Dashboard = {
         {
           chart: {
             title: "Database Config Changed",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -104,14 +105,14 @@ export const BrokerCoordinatorDashboard: Dashboard = {
                 watch: ["node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Database Config Deletion",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -119,7 +120,7 @@ export const BrokerCoordinatorDashboard: Dashboard = {
                 watch: ["node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -130,7 +131,7 @@ export const BrokerCoordinatorDashboard: Dashboard = {
         {
           chart: {
             title: "Failure(Process Event)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -138,14 +139,14 @@ export const BrokerCoordinatorDashboard: Dashboard = {
                 watch: ["node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Panic(Process Event)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -153,7 +154,7 @@ export const BrokerCoordinatorDashboard: Dashboard = {
                 watch: ["node"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },

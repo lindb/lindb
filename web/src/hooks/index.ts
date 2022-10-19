@@ -19,3 +19,6 @@ under the License.
 export * from "@src/hooks/use.state";
 export * from "@src/hooks/use.storage";
 export * from "@src/hooks/use.url";
+export * from "@src/hooks/use.metric";
+export * from "@src/hooks/use.chart";
+export * from "@src/hooks/use.ui";

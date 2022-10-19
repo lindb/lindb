@@ -17,7 +17,8 @@ specific language governing permissions and limitations
 under the License.
 */
 import { MonitoringDB } from "@src/constants";
-import { Dashboard, UnitEnum } from "@src/models";
+import { Dashboard, Unit } from "@src/models";
+import { chartOptions } from "./system";
 
 export const BrokerQueryDashboard: Dashboard = {
   rows: [
@@ -26,7 +27,7 @@ export const BrokerQueryDashboard: Dashboard = {
         {
           chart: {
             title: "Current Executing Task(Alive)",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -34,14 +35,14 @@ export const BrokerQueryDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Create Query Tasks",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -49,7 +50,7 @@ export const BrokerQueryDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
@@ -57,7 +58,7 @@ export const BrokerQueryDashboard: Dashboard = {
           chart: {
             title: "Expired Tasks",
             description: "long-term no response",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -65,7 +66,7 @@ export const BrokerQueryDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
@@ -76,7 +77,7 @@ export const BrokerQueryDashboard: Dashboard = {
         {
           chart: {
             title: "Emit Response To Parent Node",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -84,14 +85,14 @@ export const BrokerQueryDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Omit Response Because Task Evicted",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -99,7 +100,7 @@ export const BrokerQueryDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -110,7 +111,7 @@ export const BrokerQueryDashboard: Dashboard = {
         {
           chart: {
             title: "Sent Request",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -118,14 +119,14 @@ export const BrokerQueryDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Rend Requst Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -133,7 +134,7 @@ export const BrokerQueryDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -144,7 +145,7 @@ export const BrokerQueryDashboard: Dashboard = {
         {
           chart: {
             title: "Send Response",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -152,14 +153,14 @@ export const BrokerQueryDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Send Response Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -167,7 +168,7 @@ export const BrokerQueryDashboard: Dashboard = {
                 watch: ["namespace", "node", "role"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },

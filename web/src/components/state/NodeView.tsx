@@ -28,13 +28,9 @@ import { IconSettingStroked } from "@douyinfe/semi-icons";
 import { CapacityView } from "@src/components";
 import { StateMetricName, Route } from "@src/constants";
 import { useStateMetric } from "@src/hooks";
-import { Node } from "@src/models";
-import {
-  getMetricField,
-  transformMilliseconds,
-  transformPercent,
-} from "@src/utils";
-import React, { CSSProperties } from "react";
+import { Node, Unit } from "@src/models";
+import { StateKit, FormatKit } from "@src/utils";
+import React, { CSSProperties, ReactNode } from "react";
 import { URLStore } from "@src/stores";
 import * as _ from "lodash-es";
 
@@ -44,13 +40,13 @@ const { CPU, Memory } = StateMetricName;
 interface NodeViewProps {
   title: string;
   style?: CSSProperties;
-  loading?: boolean;
   nodes: Node[];
   sql: string;
   showNodeId?: boolean;
+  statusTip?: ReactNode;
 }
 export default function NodeView(props: NodeViewProps) {
-  const { showNodeId, title, style, loading, nodes, sql } = props;
+  const { showNodeId, title, style, statusTip, nodes, sql } = props;
   const { stateMetric } = useStateMetric(sql);
 
   const nodeIdCol = {
@@ -111,7 +107,7 @@ export default function NodeView(props: NodeViewProps) {
                 backgroundColor: `var(--semi-color-success)`,
               }}
             />
-            {transformMilliseconds(new Date().getTime() - text)}
+            {FormatKit.format(new Date().getTime() - text, Unit.Milliseconds)}
           </Space>
         );
       },
@@ -127,15 +123,16 @@ export default function NodeView(props: NodeViewProps) {
       render: (_text: any, record: any, _index: any) => {
         return (
           <>
-            {transformPercent(
+            {FormatKit.format(
               100 -
-                getMetricField(
+                StateKit.getMetricField(
                   stateMetric,
                   CPU,
                   "idle",
                   `${record.hostIp}:${record.grpcPort}`
                 ) *
-                  100
+                  100,
+              Unit.Percent
             )}
           </>
         );
@@ -146,11 +143,21 @@ export default function NodeView(props: NodeViewProps) {
       key: "memory",
       render: (_text: any, record: any, _index: any) => {
         const node = `${record.hostIp}:${record.grpcPort}`;
-        const total = getMetricField(stateMetric, Memory, "total", node);
-        const used = getMetricField(stateMetric, Memory, "used", node);
+        const total = StateKit.getMetricField(
+          stateMetric,
+          Memory,
+          "total",
+          node
+        );
+        const used = StateKit.getMetricField(stateMetric, Memory, "used", node);
         return (
           <CapacityView
-            percent={getMetricField(stateMetric, Memory, "usage", node)}
+            percent={StateKit.getMetricField(
+              stateMetric,
+              Memory,
+              "usage",
+              node
+            )}
             total={total}
             free={total - used}
             used={used}
@@ -188,8 +195,8 @@ export default function NodeView(props: NodeViewProps) {
         bordered={false}
         columns={showNodeId ? _.concat([nodeIdCol], columns) : columns}
         dataSource={nodes}
-        loading={loading}
         pagination={false}
+        empty={statusTip}
       />
     </Card>
   );

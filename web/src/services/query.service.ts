@@ -18,7 +18,7 @@ under the License.
 */
 import { ApiPath } from "@src/constants";
 import { Metadata } from "@src/models";
-import { GET } from "@src/utils";
+import { ApiKit } from "@src/utils";
 
 /**
  *  fecth metadata data by lin query lanage.
@@ -26,6 +26,10 @@ import { GET } from "@src/utils";
  *  @param params lin query lanuage
  *  @return Metadata
  */
-export function fetchMetadata(params: any) {
-  return GET<Metadata>(ApiPath.Metadata, params);
+function fetchMetadata(params: any) {
+  return ApiKit.GET<Metadata>(ApiPath.Metadata, params);
 }
+
+export default {
+  fetchMetadata,
+};

@@ -17,7 +17,8 @@ specific language governing permissions and limitations
 under the License.
 */
 import { MonitoringDB } from "@src/constants";
-import { Dashboard, UnitEnum } from "@src/models";
+import { Dashboard, Unit } from "@src/models";
+import { chartOptions } from "./system";
 
 export const TSDBWriteDashboard: Dashboard = {
   rows: [
@@ -26,7 +27,7 @@ export const TSDBWriteDashboard: Dashboard = {
         {
           chart: {
             title: "Current Active Families",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -34,14 +35,14 @@ export const TSDBWriteDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Current Active Memory Databases",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -49,14 +50,14 @@ export const TSDBWriteDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 8,
         },
         {
           chart: {
             title: "Memory Databases Total Size",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -64,7 +65,7 @@ export const TSDBWriteDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Bytes,
+            unit: Unit.Bytes,
           },
           span: 8,
         },
@@ -75,7 +76,7 @@ export const TSDBWriteDashboard: Dashboard = {
         {
           chart: {
             title: "Batch",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -83,14 +84,14 @@ export const TSDBWriteDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Write Failures",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -98,7 +99,7 @@ export const TSDBWriteDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -109,7 +110,7 @@ export const TSDBWriteDashboard: Dashboard = {
         {
           chart: {
             title: "Write Metrics",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -117,14 +118,14 @@ export const TSDBWriteDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Write Fields",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -132,7 +133,7 @@ export const TSDBWriteDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -143,7 +144,7 @@ export const TSDBWriteDashboard: Dashboard = {
         {
           chart: {
             title: "Build Inverted Index",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -151,14 +152,14 @@ export const TSDBWriteDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Lookup Metric Meta Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -166,7 +167,7 @@ export const TSDBWriteDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -177,7 +178,7 @@ export const TSDBWriteDashboard: Dashboard = {
         {
           chart: {
             title: "Generate Metric Id",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -185,14 +186,14 @@ export const TSDBWriteDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Generate Metric Id Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -200,7 +201,7 @@ export const TSDBWriteDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -211,7 +212,7 @@ export const TSDBWriteDashboard: Dashboard = {
         {
           chart: {
             title: "Generate Field Id",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -219,14 +220,14 @@ export const TSDBWriteDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Generate Field Id Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -234,7 +235,7 @@ export const TSDBWriteDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -245,7 +246,7 @@ export const TSDBWriteDashboard: Dashboard = {
         {
           chart: {
             title: "Generate Tag Key Id",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -253,14 +254,14 @@ export const TSDBWriteDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Generate Tag Key Id Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -268,7 +269,7 @@ export const TSDBWriteDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -279,7 +280,7 @@ export const TSDBWriteDashboard: Dashboard = {
         {
           chart: {
             title: "Generate Tag Value Id",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -287,14 +288,14 @@ export const TSDBWriteDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Generate Tag Value Id Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -302,7 +303,7 @@ export const TSDBWriteDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
@@ -313,7 +314,7 @@ export const TSDBWriteDashboard: Dashboard = {
         {
           chart: {
             title: "Allocated Pages",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -321,14 +322,14 @@ export const TSDBWriteDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },
         {
           chart: {
             title: "Allocate Page Failure",
-            config: { type: "line" },
+            config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
@@ -336,7 +337,7 @@ export const TSDBWriteDashboard: Dashboard = {
                 watch: ["node", "namespace"],
               },
             ],
-            unit: UnitEnum.Short,
+            unit: Unit.Short,
           },
           span: 12,
         },

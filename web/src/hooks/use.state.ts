@@ -17,18 +17,19 @@ specific language governing permissions and limitations
 under the License.
 */
 import { StateMetric } from "@src/models";
-import { exec } from "@src/services";
+import { ExecService } from "@src/services";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 export function useStateMetric(sql: string) {
   const [loading, setLoading] = useState(true);
-  const [stateMetric, setStateMetric] = useState();
+  const [stateMetric, setStateMetric] = useState<StateMetric>();
 
   useEffect(() => {
     const fetchStateMetric = async () => {
       try {
         setLoading(true);
-        const metric = await exec<StateMetric>({ sql: sql });
+        const metric = await ExecService.exec<StateMetric>({ sql: sql });
         setStateMetric(metric);
       } catch (err) {
         console.log(err);
@@ -49,24 +50,14 @@ export function useStateMetric(sql: string) {
  * @param sql query alive state
  */
 export function useAliveState(sql: string) {
-  const [loading, setLoading] = useState(true);
-  const [aliveState, setAliveState] = useState();
+  const {
+    isLoading,
+    isError,
+    error,
+    data: aliveState,
+  } = useQuery(["show_alive_state", sql], async () => {
+    return ExecService.exec<any[]>({ sql: sql });
+  });
 
-  useEffect(() => {
-    const fetchAliveState = async () => {
-      try {
-        setLoading(true);
-        const aliveState = await exec<any[]>({ sql: sql });
-        setAliveState(aliveState);
-      } catch (err) {
-        console.log(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAliveState();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return { loading, aliveState };
+  return { isLoading, isError, error, aliveState };
 }
