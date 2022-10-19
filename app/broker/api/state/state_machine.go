@@ -132,6 +132,9 @@ func (api *BrokerStateMachineAPI) exploreMaster(c *gin.Context, param *Param) {
 			return shardAssignments[i].Name < shardAssignments[j].Name
 		})
 		http.OK(c, shardAssignments)
+	case constants.Master:
+		// return master slice, because common logic read state from repo.
+		http.OK(c, []*models.Master{api.deps.Master.GetMaster()})
 	default:
 		http.NotFound(c)
 	}
