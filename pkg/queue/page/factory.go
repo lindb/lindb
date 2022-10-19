@@ -151,7 +151,7 @@ func (f *factory) TruncatePages(index int64) {
 						logger.String("path", f.path), logger.Any("page", pageID), logger.Error(err))
 					continue
 				}
-				delete(f.pages, index)
+				delete(f.pages, pageID)
 				f.size.Sub(int64(f.pageSize))
 
 				f.logger.Info("remove page successfully",
