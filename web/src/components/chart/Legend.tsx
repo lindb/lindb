@@ -105,7 +105,6 @@ const Legend: React.FC<{
     table: asTable,
     active: _.find(datasets, { hidden: false }),
   });
-  console.log("legend", _.get(chart, "options.legend.values"));
 
   return (
     <div className={legendCls}>
