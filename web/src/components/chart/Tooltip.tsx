@@ -36,17 +36,30 @@ import {
 } from "./util";
 import * as _ from "lodash-es";
 import { MouseEventType } from "@src/stores/platform.store";
-import {
-  IconDescend2,
-  IconOrderedList,
-  IconSearchStroked,
-} from "@douyinfe/semi-icons";
+import { IconSearchStroked } from "@douyinfe/semi-icons";
 import { useChartEvent } from "@src/hooks";
 import { Unit } from "@src/models";
 import { CSSKit, FormatKit } from "@src/utils";
+import { Icon } from "@src/components";
 
-const TooltipTitle: React.FC<{ timestamp?: string }> = (props) => {
-  const { timestamp } = props;
+enum SortBy {
+  Name = "name",
+  Value = "value",
+}
+
+type Sort = {
+  by: SortBy;
+  asc: boolean;
+};
+
+const TooltipToolbar: React.FC<{
+  timestamp?: string;
+  search: string;
+  onSearch: (val: string) => void;
+  sort: Sort;
+  selectSort: (val: Sort) => void;
+}> = (props) => {
+  const { timestamp, search, onSearch, sort, selectSort } = props;
   const [searchVisible, setSearchVisible] = useState(false);
   return (
     <div className="tooltip-toolbar">
@@ -56,27 +69,64 @@ const TooltipTitle: React.FC<{ timestamp?: string }> = (props) => {
           <Button
             size="small"
             className="tooltip-toolbar-btn"
-            icon={<IconOrderedList />}
+            onClick={() =>
+              selectSort({
+                by: SortBy.Value,
+                asc: sort.by === SortBy.Value ? !sort.asc : true,
+              })
+            }
+            icon={
+              <Icon
+                icon={
+                  sort.by === SortBy.Value
+                    ? sort.asc
+                      ? "iconsort-numeric-down"
+                      : "iconsort-numeric-up-alt"
+                    : "iconsort-numeric"
+                }
+              />
+            }
+            theme={sort.by === SortBy.Value ? "solid" : "light"}
           />
           <Button
             size="small"
             className="tooltip-toolbar-btn"
-            icon={<IconDescend2 />}
+            onClick={() =>
+              selectSort({
+                by: SortBy.Name,
+                asc: sort.by === SortBy.Name ? !sort.asc : true,
+              })
+            }
+            icon={
+              <Icon
+                icon={
+                  sort.by === SortBy.Name
+                    ? sort.asc
+                      ? "iconsort-alpha-down"
+                      : "iconsort-alpha-up"
+                    : "iconsort-alphabetical"
+                }
+              />
+            }
+            theme={sort.by === SortBy.Name ? "solid" : "light"}
           />
           <Button
             size="small"
             className="tooltip-toolbar-btn"
             icon={<IconSearchStroked />}
-            onClick={() => setSearchVisible(!searchVisible)}
+            onClick={() => {
+              setSearchVisible(!searchVisible);
+              onSearch("");
+            }}
           />
         </div>
       </div>
-      {searchVisible && (
+      {(searchVisible || search) && (
         <Input
           className="tooltip-toolbar__search-input"
           size="small"
-          // value={search}
-          // onChange={(e) => onSearch && onSearch(e.target.value)}
+          value={search}
+          onChange={(v) => onSearch(v)}
           placeholder="Please input series"
         />
       )}
@@ -89,16 +139,20 @@ const TooltipItem: React.FC<{
   index: number;
   unit: Unit;
   chart: Chart | null;
+  onClick: (chart: Chart | null, series: any, event: React.MouseEvent) => void;
 }> = (props) => {
-  const { series, index, unit, chart } = props;
+  const { series, index, unit, chart, onClick } = props;
   const { borderColor, label, hidden } = series;
   const itemCls = classNames("tooltip-content-list-item", {
     selected: !hidden,
   });
+
   return (
     <div
       className={itemCls}
-      onClick={(e) => handleSeriesClick(chart, series, e)}
+      onClick={(e) => {
+        onClick(chart, series, e);
+      }}
     >
       <span className="tooltip-series-key">
         <i
@@ -119,18 +173,43 @@ const TooltipContent: React.FC<{
   index: number;
   unit: Unit;
   chart: Chart | null;
+  sort: Sort;
 }> = (props) => {
-  const { datasets, index, unit, chart } = props;
+  const { datasets, index, unit, chart, sort } = props;
+  const [selected, setSelected] = useState(false);
+
+  const sortDatasets = () => {
+    const d = (datasets || []).sort((a: any, b: any) => {
+      if (sort.by === SortBy.Name) {
+        return sort.asc
+          ? a.label.localeCompare(b.label)
+          : b.label.localeCompare(a.label);
+      } else {
+        return sort.asc
+          ? a.data[index] - b.data[index]
+          : b.data[index] - a.data[index];
+      }
+    });
+    return d;
+  };
 
   return (
     <div className="tooltip-list">
-      {datasets.map((item: any, idx: number) => (
+      {sortDatasets().map((item: any, idx: number) => (
         <TooltipItem
           key={idx}
           chart={chart}
           series={item}
           index={index}
           unit={unit}
+          onClick={(
+            chart: Chart | null,
+            series: any,
+            event: React.MouseEvent
+          ) => {
+            handleSeriesClick(chart, series, event);
+            setSelected(!selected); // just triger tooltip content render
+          }}
         />
       ))}
     </div>
@@ -148,6 +227,12 @@ const Tooltip: React.FC<{
   const kick = useRef() as MutableRefObject<HTMLDivElement>;
   const timer = useRef<number | null>();
   const [tooltipPosition, setTooltipPosition] = useState<any>(null);
+  const [search, setSearch] = useState<string>("");
+  const [datasets, setDatasets] = useState<any[]>();
+  const [sort, setSort] = useState<Sort>({
+    by: SortBy.Name,
+    asc: true,
+  });
 
   const { mouseEvent } = useChartEvent();
   const boundaryRect = useRef() as MutableRefObject<DOMRect | null>;
@@ -158,10 +243,11 @@ const Tooltip: React.FC<{
     if (timer.current) {
       return;
     }
-    timer.current = +setTimeout(() => {
+    const timeoutId = +setTimeout(() => {
       setVisible(false);
       timer.current = null;
     }, 200);
+    timer.current = timeoutId;
   };
 
   useEffect(() => {
@@ -237,8 +323,22 @@ const Tooltip: React.FC<{
   );
 
   const handleMouseOut = useCallback((_e: MouseEvent) => {
+    removeTooltip();
     clearRect();
   }, []);
+
+  useEffect(() => {
+    if (search) {
+      setDatasets(
+        _.filter(
+          _.get(chart, "data.datasets", []),
+          (o) => _.upperCase(o.label).indexOf(_.upperCase(search)) >= 0
+        )
+      );
+    } else {
+      setDatasets(_.get(chart, "data.datasets", []));
+    }
+  }, [search, chart]);
 
   useEffect(() => {
     const {
@@ -260,7 +360,6 @@ const Tooltip: React.FC<{
         handleMouseMove(native);
         return;
       case MouseEventType.Out:
-        removeTooltip();
         handleMouseOut(native);
         return;
     }
@@ -280,25 +379,30 @@ const Tooltip: React.FC<{
     <div
       className={tooltipCls}
       ref={container}
-      onMouseEnter={keepTooltip}
+      onMouseMove={keepTooltip}
       onMouseLeave={removeTooltip}
     >
       <div ref={kick} className="tooltip-top-kick" />
       <div className="tooltip-title">
-        <TooltipTitle
+        <TooltipToolbar
           timestamp={_.get(
             chart,
             `data.timeLabels[${currentIndex.current}]`,
             null
           )}
+          search={search}
+          onSearch={setSearch}
+          sort={sort}
+          selectSort={setSort}
         />
       </div>
       <div className="tooltip-content-list">
         <TooltipContent
           unit={_.get(chart, "lin.extend.unit", Unit.Short)}
-          datasets={_.get(chart, "data.datasets", [])}
+          datasets={datasets}
           index={currentIndex.current || 0}
           chart={chart}
+          sort={sort}
         />
       </div>
     </div>
