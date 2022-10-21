@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/antlr/antlr4/runtime/Go/antlr"
+	"github.com/antlr/antlr4/runtime/Go/antlr/v4"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/pkg/encoding"
@@ -111,6 +111,12 @@ func TestShowReplication(t *testing.T) {
 	query, err := Parse("show replication where storage=s and database=d")
 	assert.NoError(t, err)
 	assert.Equal(t, &stmt.State{Type: stmt.Replication, StorageName: "s", Database: "d"}, query)
+}
+
+func TestShowMemoryDatabase(t *testing.T) {
+	query, err := Parse("show memory database where storage=s and database=d")
+	assert.NoError(t, err)
+	assert.Equal(t, &stmt.State{Type: stmt.MemoryDatabase, StorageName: "s", Database: "d"}, query)
 }
 
 func TestShowBrokerMetric(t *testing.T) {

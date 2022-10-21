@@ -22,7 +22,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/antlr/antlr4/runtime/Go/antlr"
+	antlr "github.com/antlr/antlr4/runtime/Go/antlr/v4"
 
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/sql/grammar"

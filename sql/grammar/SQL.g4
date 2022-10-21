@@ -23,6 +23,7 @@ showStmt                : showMasterStmt
                         | showBrokerMetricStmt
                         | showStorageMetricStmt
                         | showReplicationStmt
+                        | showMemoryDatabaseStmt
                         | showSchemasStmt
                         | showDatabaseStmt
                         | showNameSpacesStmt
@@ -44,6 +45,7 @@ showMasterMetaStmt   : T_SHOW T_MASTER T_METADATA T_FROM source T_WHERE typeFilt
 showStorageMetaStmt  : T_SHOW T_STORAGE T_METADATA T_FROM source T_WHERE (storageFilter|typeFilter) T_AND (storageFilter|typeFilter);
 showAliveStmt        : T_SHOW (T_BROKER | T_STORAGE) T_ALIVE;
 showReplicationStmt  : T_SHOW T_REPLICATION T_WHERE (storageFilter|databaseFilter) T_AND (storageFilter|databaseFilter);
+showMemoryDatabaseStmt  : T_SHOW T_MEMORY T_DATASBAE T_WHERE (storageFilter|databaseFilter) T_AND (storageFilter|databaseFilter);
 showBrokerMetricStmt : T_SHOW T_BROKER T_METRIC T_WHERE metricListFilter ;
 showStorageMetricStmt: T_SHOW T_STORAGE T_METRIC T_WHERE (storageFilter|metricListFilter) T_AND (storageFilter|metricListFilter) ;
 createStorageStmt    : T_CREATE T_STORAGE json;
@@ -212,6 +214,7 @@ nonReservedWords      :
                         | T_INTERVAL_NAME
                         | T_SHARD
                         | T_REPLICATION
+                        | T_MEMORY
                         | T_TTL
                         | T_META_TTL
                         | T_PAST_TTL
@@ -337,6 +340,7 @@ T_INTERVAL           : I N T E R V A L                  ;
 T_INTERVAL_NAME      : N A M E                          ;
 T_SHARD              : S H A R D                        ;
 T_REPLICATION        : R E P L I C A T I O N            ;
+T_MEMORY             : M E M O R Y                      ;
 T_TTL                : T T L                            ;
 T_META_TTL           : M E T A T T L                    ;
 T_PAST_TTL           : P A S T T T L                    ;

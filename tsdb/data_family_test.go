@@ -125,14 +125,14 @@ func TestDataFamily_Filter(t *testing.T) {
 		},
 		{
 			name: "get file reader failure",
-			prepare: func(f *dataFamily) {
+			prepare: func(_ *dataFamily) {
 				snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, fmt.Errorf("err"))
 			},
 			wantErr: true,
 		},
 		{
 			name: "get metric reader data failure",
-			prepare: func(f *dataFamily) {
+			prepare: func(_ *dataFamily) {
 				snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{reader}, nil)
 				reader.EXPECT().Get(gomock.Any()).Return(nil, fmt.Errorf("err"))
 			},
@@ -141,7 +141,7 @@ func TestDataFamily_Filter(t *testing.T) {
 		},
 		{
 			name: "new metric reader failure",
-			prepare: func(f *dataFamily) {
+			prepare: func(_ *dataFamily) {
 				snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{reader}, nil)
 				reader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3}, nil)
 				newReaderFunc = func(path string, metricBlock []byte) (metricsdata.MetricReader, error) {
@@ -152,7 +152,7 @@ func TestDataFamily_Filter(t *testing.T) {
 		},
 		{
 			name: "time range not match",
-			prepare: func(f *dataFamily) {
+			prepare: func(_ *dataFamily) {
 				snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{reader}, nil)
 				reader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3}, nil)
 				mReader := metricsdata.NewMockMetricReader(ctrl)
@@ -166,7 +166,7 @@ func TestDataFamily_Filter(t *testing.T) {
 		},
 		{
 			name: "find data",
-			prepare: func(f *dataFamily) {
+			prepare: func(_ *dataFamily) {
 				snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{reader}, nil)
 				reader.EXPECT().Get(gomock.Any()).Return([]byte{1, 2, 3}, nil)
 				mReader := metricsdata.NewMockMetricReader(ctrl)
@@ -253,7 +253,7 @@ func TestDataFamily_NeedFlush(t *testing.T) {
 			prepare: func(f *dataFamily) {
 				memDB := memdb.NewMockMemoryDatabase(ctrl)
 				f.mutableMemDB = memDB
-				memDB.EXPECT().Size().Return(0)
+				memDB.EXPECT().NumOfMetrics().Return(0)
 			},
 			needFlush: false,
 		},
@@ -266,7 +266,7 @@ func TestDataFamily_NeedFlush(t *testing.T) {
 				memDB := memdb.NewMockMemoryDatabase(ctrl)
 				f.mutableMemDB = memDB
 				memDB.EXPECT().MemSize().Return(int64(10))
-				memDB.EXPECT().Size().Return(10)
+				memDB.EXPECT().NumOfMetrics().Return(10)
 				memDB.EXPECT().Uptime().Return(time.Duration(timeutil.Now() - timeutil.OneMinute)).MaxTimes(2)
 			},
 			needFlush: true,
@@ -280,7 +280,7 @@ func TestDataFamily_NeedFlush(t *testing.T) {
 				config.SetGlobalStorageConfig(cfg)
 				memDB := memdb.NewMockMemoryDatabase(ctrl)
 				f.mutableMemDB = memDB
-				memDB.EXPECT().Size().Return(10)
+				memDB.EXPECT().NumOfMetrics().Return(10)
 				memDB.EXPECT().Uptime().Return(time.Duration(timeutil.Now() - timeutil.OneMinute)).MaxTimes(2)
 				memDB.EXPECT().MemSize().Return(int64(1000)).MaxTimes(2)
 			},
@@ -295,7 +295,7 @@ func TestDataFamily_NeedFlush(t *testing.T) {
 				config.SetGlobalStorageConfig(cfg)
 				memDB := memdb.NewMockMemoryDatabase(ctrl)
 				f.mutableMemDB = memDB
-				memDB.EXPECT().Size().Return(10)
+				memDB.EXPECT().NumOfMetrics().Return(10)
 				memDB.EXPECT().Uptime().Return(time.Duration(timeutil.Now() - timeutil.OneMinute)).MaxTimes(2)
 				memDB.EXPECT().MemSize().Return(int64(10)).MaxTimes(2)
 			},
@@ -349,7 +349,7 @@ func TestDataFamily_Flush(t *testing.T) {
 			name: "create data flusher failure",
 			prepare: func(f *dataFamily) {
 				memDB := memdb.NewMockMemoryDatabase(ctrl)
-				memDB.EXPECT().Size().Return(100)
+				memDB.EXPECT().NumOfMetrics().Return(100)
 				memDB.EXPECT().MarkReadOnly()
 				f.mutableMemDB = memDB
 				newMetricDataFlusher = func(kvFlusher kv.Flusher) (metricsdata.Flusher, error) {
@@ -362,7 +362,7 @@ func TestDataFamily_Flush(t *testing.T) {
 			name: "flush successfully",
 			prepare: func(f *dataFamily) {
 				memDB := memdb.NewMockMemoryDatabase(ctrl)
-				memDB.EXPECT().Size().Return(100)
+				memDB.EXPECT().NumOfMetrics().Return(100)
 				memDB.EXPECT().MarkReadOnly()
 				memDB.EXPECT().FlushFamilyTo(gomock.Any()).Return(nil)
 				memDB.EXPECT().Close().Return(nil)
@@ -379,7 +379,7 @@ func TestDataFamily_Flush(t *testing.T) {
 			name: "flush metric data failure",
 			prepare: func(f *dataFamily) {
 				memDB := memdb.NewMockMemoryDatabase(ctrl)
-				memDB.EXPECT().Size().Return(100)
+				memDB.EXPECT().NumOfMetrics().Return(100)
 				memDB.EXPECT().MarkReadOnly()
 				memDB.EXPECT().FlushFamilyTo(gomock.Any()).Return(fmt.Errorf("err"))
 				memDB.EXPECT().MemSize()
@@ -395,7 +395,7 @@ func TestDataFamily_Flush(t *testing.T) {
 			name: "flush successfully, but close memory database failure",
 			prepare: func(f *dataFamily) {
 				memDB := memdb.NewMockMemoryDatabase(ctrl)
-				memDB.EXPECT().Size().Return(100)
+				memDB.EXPECT().NumOfMetrics().Return(100)
 				memDB.EXPECT().MarkReadOnly()
 				memDB.EXPECT().FlushFamilyTo(gomock.Any()).Return(nil)
 				memDB.EXPECT().Close().Return(fmt.Errorf("err"))
@@ -573,11 +573,11 @@ func TestDataFamily_Sequence(t *testing.T) {
 	assert.True(t, f.ValidateSequence(2, 10))
 	assert.False(t, f.ValidateSequence(1, 5))
 	c := 0
-	f.AckSequence(2, func(seq int64) {
+	f.AckSequence(2, func(_ int64) {
 		c++
 	})
 	assert.Equal(t, 0, c)
-	f.AckSequence(1, func(seq int64) {
+	f.AckSequence(1, func(_ int64) {
 		c++
 	})
 	assert.Equal(t, 1, c)
@@ -713,12 +713,14 @@ func TestDataFamily_GetState(t *testing.T) {
 	shard := NewMockShard(ctrl)
 	shard.EXPECT().ShardID().Return(models.ShardID(1))
 	db := memdb.NewMockMemoryDatabase(ctrl)
-	db.EXPECT().Size().Return(10).MaxTimes(2)
+	db.EXPECT().NumOfMetrics().Return(10).MaxTimes(2)
+	db.EXPECT().NumOfSeries().Return(100).MaxTimes(2)
 	db.EXPECT().MemSize().Return(int64(10)).MaxTimes(2)
 	db.EXPECT().Uptime().Return(time.Duration(10)).MaxTimes(2)
+	now := timeutil.Now()
 	f := &dataFamily{
 		shard:          shard,
-		familyTime:     10,
+		familyTime:     now,
 		mutableMemDB:   db,
 		immutableMemDB: db,
 		seq:            map[int32]atomic.Int64{10: *atomic.NewInt64(10)},
@@ -728,20 +730,22 @@ func TestDataFamily_GetState(t *testing.T) {
 	state := f.GetState()
 	assert.Equal(t, models.DataFamilyState{
 		ShardID:          models.ShardID(1),
-		FamilyTime:       10,
+		FamilyTime:       timeutil.FormatTimestamp(now, timeutil.DataTimeFormat2),
 		AckSequences:     map[int32]int64{10: 10},
 		ReplicaSequences: map[int32]int64{10: 10},
 		MemoryDatabases: []models.MemoryDatabaseState{
 			{
-				State:       "immutable",
-				Uptime:      time.Duration(10),
-				MemSize:     10,
-				NumOfMetric: 10,
+				State:        "immutable",
+				Uptime:       time.Duration(10),
+				MemSize:      10,
+				NumOfMetrics: 10,
+				NumOfSeries:  100,
 			}, {
-				State:       "mutable",
-				Uptime:      time.Duration(10),
-				MemSize:     10,
-				NumOfMetric: 10,
+				State:        "mutable",
+				Uptime:       time.Duration(10),
+				MemSize:      10,
+				NumOfMetrics: 10,
+				NumOfSeries:  100,
 			}},
 	}, state)
 }

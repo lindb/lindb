@@ -245,7 +245,7 @@ type StateField struct {
 // DataFamilyState represents the state of data family.
 type DataFamilyState struct {
 	ShardID          ShardID               `json:"shardId"`
-	FamilyTime       int64                 `json:"familyTime"`
+	FamilyTime       string                `json:"familyTime"`
 	AckSequences     map[int32]int64       `json:"ackSequences"`
 	ReplicaSequences map[int32]int64       `json:"replicaSequences"`
 	MemoryDatabases  []MemoryDatabaseState `json:"memoryDatabases"`
@@ -253,8 +253,9 @@ type DataFamilyState struct {
 
 // MemoryDatabaseState represents the state of memory database.
 type MemoryDatabaseState struct {
-	State       string        `json:"state"`
-	Uptime      time.Duration `json:"uptime"`
-	MemSize     int64         `json:"memSize"`
-	NumOfMetric int           `json:"numOfMetric"`
+	State        string        `json:"state"`
+	Uptime       time.Duration `json:"uptime"`
+	MemSize      int64         `json:"memSize"`
+	NumOfMetrics int           `json:"numOfMetric"`
+	NumOfSeries  int           `json:"numOfSeries"`
 }

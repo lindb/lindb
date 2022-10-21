@@ -42,7 +42,15 @@ func StateCommand(_ context.Context, deps *depspkg.HTTPDeps,
 	case stmtpkg.StorageAlive:
 		return deps.StateMgr.GetStorageList(), nil
 	case stmtpkg.Replication:
-		return getReplicaState(deps, stateStmt)
+		return getStateFromStorage(deps, stateStmt, "/state/replica", func() interface{} {
+			var state []models.FamilyLogReplicaState
+			return &state
+		})
+	case stmtpkg.MemoryDatabase:
+		return getStateFromStorage(deps, stateStmt, "/state/tsdb/memory", func() interface{} {
+			var state []models.DataFamilyState
+			return &state
+		})
 	case stmtpkg.BrokerMetric:
 		liveNodes := deps.StateMgr.GetLiveNodes()
 		var nodes []models.Node
@@ -70,8 +78,8 @@ func StateCommand(_ context.Context, deps *depspkg.HTTPDeps,
 	}
 }
 
-// getReplicaState returns wal replica state.
-func getReplicaState(deps *depspkg.HTTPDeps, stmt *stmtpkg.State) (interface{}, error) {
+// getStateFromStorage returns the state from storage cluster.
+func getStateFromStorage(deps *depspkg.HTTPDeps, stmt *stmtpkg.State, path string, newStateFn func() interface{}) (interface{}, error) {
 	if storage, ok := deps.StateMgr.GetStorage(stmt.StorageName); ok {
 		liveNodes := storage.LiveNodes
 		var nodes []models.Node
@@ -79,18 +87,18 @@ func getReplicaState(deps *depspkg.HTTPDeps, stmt *stmtpkg.State) (interface{}, 
 			n := liveNodes[id]
 			nodes = append(nodes, &n)
 		}
-		return fetchStateData(nodes, stmt)
+		return fetchStateData(nodes, stmt, path, newStateFn)
 	}
 	return nil, nil
 }
 
-// fetchStateData fetches the state metric from each live nodes.
-func fetchStateData(nodes []models.Node, stmt *stmtpkg.State) (interface{}, error) {
+// fetchStateData fetches the state metric from each live node.
+func fetchStateData(nodes []models.Node, stmt *stmtpkg.State, path string, newStateFn func() interface{}) (interface{}, error) {
 	size := len(nodes)
 	if size == 0 {
 		return nil, nil
 	}
-	result := make([][]models.FamilyLogReplicaState, size)
+	result := make([]interface{}, size)
 	var wait sync.WaitGroup
 	wait.Add(size)
 	for idx := range nodes {
@@ -99,20 +107,20 @@ func fetchStateData(nodes []models.Node, stmt *stmtpkg.State) (interface{}, erro
 			defer wait.Done()
 			node := nodes[i]
 			address := node.HTTPAddress()
-			var state []models.FamilyLogReplicaState
+			state := newStateFn()
 			_, err := NewRestyFn().R().SetQueryParams(map[string]string{"db": stmt.Database}).
 				SetHeader("Accept", "application/json").
 				SetResult(&state).
-				Get(address + constants.APIVersion1CliPath + "/state/replica")
+				Get(address + constants.APIVersion1CliPath + path)
 			if err != nil {
-				log.Error("get replication state from storage node", logger.String("url", address), logger.Error(err))
+				log.Error("get state from storage node", logger.String("url", address), logger.Error(err))
 				return
 			}
 			result[i] = state
 		}()
 	}
 	wait.Wait()
-	rs := make(map[string][]models.FamilyLogReplicaState)
+	rs := make(map[string]interface{})
 	for idx := range nodes {
 		rs[nodes[idx].Indicator()] = result[idx]
 	}
