@@ -216,7 +216,7 @@ func (f *dataFamily) NeedFlush() bool {
 		// check immutable memory database, make sure it is nil
 		return false
 	}
-	if f.mutableMemDB == nil || f.mutableMemDB.Size() <= 0 {
+	if f.mutableMemDB == nil || f.mutableMemDB.NumOfMetrics() <= 0 {
 		// no data
 		return false
 	}
@@ -264,7 +264,7 @@ func (f *dataFamily) Flush() error {
 
 		// add lock when switch memory database
 		f.mutex.Lock()
-		if f.immutableMemDB != nil || f.mutableMemDB == nil || f.mutableMemDB.Size() == 0 {
+		if f.immutableMemDB != nil || f.mutableMemDB == nil || f.mutableMemDB.NumOfMetrics() == 0 {
 			// if immutable memory database not nil or no data need flush, return it
 			f.mutex.Unlock()
 			return nil
@@ -420,10 +420,11 @@ func (f *dataFamily) GetState() models.DataFamilyState {
 
 	memoryDBState := func(state string, memoryDatabase memdb.MemoryDatabase) {
 		memoryDatabaseState = append(memoryDatabaseState, models.MemoryDatabaseState{
-			State:       state,
-			Uptime:      memoryDatabase.Uptime(),
-			MemSize:     memoryDatabase.MemSize(),
-			NumOfMetric: memoryDatabase.Size(),
+			State:        state,
+			Uptime:       memoryDatabase.Uptime(),
+			MemSize:      memoryDatabase.MemSize(),
+			NumOfMetrics: memoryDatabase.NumOfMetrics(),
+			NumOfSeries:  memoryDatabase.NumOfSeries(),
 		})
 	}
 
@@ -437,7 +438,7 @@ func (f *dataFamily) GetState() models.DataFamilyState {
 
 	state := models.DataFamilyState{
 		ShardID:          f.shard.ShardID(),
-		FamilyTime:       f.familyTime,
+		FamilyTime:       timeutil.FormatTimestamp(f.familyTime, timeutil.DataTimeFormat2),
 		AckSequences:     ackSequences,
 		ReplicaSequences: replicaSequences,
 		MemoryDatabases:  memoryDatabaseState,

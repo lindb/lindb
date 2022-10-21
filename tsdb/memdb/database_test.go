@@ -169,7 +169,7 @@ func TestMemoryDatabase_Write(t *testing.T) {
 	row.FieldIDs = []field.ID{10}
 	err = md.WriteRow(row)
 	assert.NoError(t, err)
-	assert.NotZero(t, md.Size())
+	assert.NotZero(t, md.NumOfMetrics())
 
 	// case 2: new metric store
 	row = protoToStorageRow(&protoMetricsV1.Metric{
@@ -237,6 +237,7 @@ func TestMemoryDatabase_Write(t *testing.T) {
 	releaseLock()
 	err = md.WriteRow(row)
 	assert.NoError(t, err)
+	assert.NotZero(t, md.NumOfSeries())
 	err = md.Close()
 	assert.NoError(t, err)
 }

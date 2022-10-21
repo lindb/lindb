@@ -67,8 +67,10 @@ type MemoryDatabase interface {
 	FamilyTime() int64
 	// Uptime returns duration since created
 	Uptime() time.Duration
-	// Size returns the number of metric names.
-	Size() int
+	// NumOfMetrics returns the number of metrics.
+	NumOfMetrics() int
+	// NumOfSeries returns the number of series.
+	NumOfSeries() int
 }
 
 // MemoryDatabaseCfg represents the memory database config
@@ -88,7 +90,8 @@ type flushContext struct {
 
 // memoryDatabase implements MemoryDatabase.
 type memoryDatabase struct {
-	allocSize atomic.Int64 // allocated size
+	allocSize   atomic.Int64 // allocated size
+	numOfSeries atomic.Int32 // num of series
 
 	familyTime int64
 	name       string
@@ -305,6 +308,8 @@ func (md *memoryDatabase) writeLinField(
 		writtenSize += tStore.Capacity() - beforeTStoreSize
 		// if write data success, add field into metric level for cache
 		mStore.AddField(fieldID, fieldType)
+
+		md.numOfSeries.Inc()
 	}
 	beforeFStoreCapacity := fStore.Capacity()
 	fStore.Write(fieldType, slotIndex, fieldValue)
@@ -363,9 +368,15 @@ func (md *memoryDatabase) Uptime() time.Duration {
 	return time.Duration(fasttime.UnixNano() - md.createdTime)
 }
 
-// Size returns the number of metric names.
-func (md *memoryDatabase) Size() int {
+// NumOfMetrics returns the number of metrics.
+func (md *memoryDatabase) NumOfMetrics() int {
 	md.rwMutex.RLock()
 	defer md.rwMutex.RUnlock()
+
 	return md.mStores.Size()
+}
+
+// NumOfSeries returns the number of series.
+func (md *memoryDatabase) NumOfSeries() int {
+	return int(md.numOfSeries.Load())
 }

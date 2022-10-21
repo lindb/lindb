@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Code generated from SQL.g4 by ANTLR 4.10.1. DO NOT EDIT.
+// Code generated from java-escape by ANTLR 4.11.1. DO NOT EDIT.
 
 package grammar // SQL
-import "github.com/antlr/antlr4/runtime/Go/antlr"
+import "github.com/antlr/antlr4/runtime/Go/antlr/v4"
 
 // SQLListener is a complete listener for a parse tree produced by SQLParser.
 type SQLListener interface {
@@ -62,6 +62,9 @@ type SQLListener interface {
 
 	// EnterShowReplicationStmt is called when entering the showReplicationStmt production.
 	EnterShowReplicationStmt(c *ShowReplicationStmtContext)
+
+	// EnterShowMemoryDatabaseStmt is called when entering the showMemoryDatabaseStmt production.
+	EnterShowMemoryDatabaseStmt(c *ShowMemoryDatabaseStmtContext)
 
 	// EnterShowBrokerMetricStmt is called when entering the showBrokerMetricStmt production.
 	EnterShowBrokerMetricStmt(c *ShowBrokerMetricStmtContext)
@@ -320,6 +323,9 @@ type SQLListener interface {
 
 	// ExitShowReplicationStmt is called when exiting the showReplicationStmt production.
 	ExitShowReplicationStmt(c *ShowReplicationStmtContext)
+
+	// ExitShowMemoryDatabaseStmt is called when exiting the showMemoryDatabaseStmt production.
+	ExitShowMemoryDatabaseStmt(c *ShowMemoryDatabaseStmtContext)
 
 	// ExitShowBrokerMetricStmt is called when exiting the showBrokerMetricStmt production.
 	ExitShowBrokerMetricStmt(c *ShowBrokerMetricStmtContext)

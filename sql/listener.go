@@ -120,6 +120,11 @@ func (l *listener) EnterShowReplicationStmt(_ *grammar.ShowReplicationStmtContex
 	l.stateStmt = newStateStmtParse(stmt.Replication)
 }
 
+// EnterShowMemoryDatabaseStmt is called when production showMemoryDatabaseStmt is entered.
+func (l *listener) EnterShowMemoryDatabaseStmt(_ *grammar.ShowMemoryDatabaseStmtContext) {
+	l.stateStmt = newStateStmtParse(stmt.MemoryDatabase)
+}
+
 // EnterStorageFilter is called when production storageFilter is entered.
 func (l *listener) EnterStorageFilter(ctx *grammar.StorageFilterContext) {
 	switch {

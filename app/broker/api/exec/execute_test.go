@@ -573,6 +573,16 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			},
 		},
 		{
+			name:    "show memory database state, but storage not found",
+			reqBody: `{"sql":"show memory database where storage=a and database=b"}`,
+			prepare: func() {
+				stateMgr.EXPECT().GetStorage(gomock.Any()).Return(nil, false)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusNotFound, resp.Code)
+			},
+		},
+		{
 			name:    "show replication state, but storage not found",
 			reqBody: `{"sql":"show replication where storage=a and database=b"}`,
 			prepare: func() {

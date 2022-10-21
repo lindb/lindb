@@ -15,10 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Code generated from SQL.g4 by ANTLR 4.10.1. DO NOT EDIT.
+// Code generated from java-escape by ANTLR 4.11.1. DO NOT EDIT.
 
 package grammar // SQL
-import "github.com/antlr/antlr4/runtime/Go/antlr"
+import "github.com/antlr/antlr4/runtime/Go/antlr/v4"
+
 // A complete Visitor for a parse tree produced by SQLParser.
 type SQLVisitor interface {
 	antlr.ParseTreeVisitor
@@ -61,6 +62,9 @@ type SQLVisitor interface {
 
 	// Visit a parse tree produced by SQLParser#showReplicationStmt.
 	VisitShowReplicationStmt(ctx *ShowReplicationStmtContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#showMemoryDatabaseStmt.
+	VisitShowMemoryDatabaseStmt(ctx *ShowMemoryDatabaseStmtContext) interface{}
 
 	// Visit a parse tree produced by SQLParser#showBrokerMetricStmt.
 	VisitShowBrokerMetricStmt(ctx *ShowBrokerMetricStmtContext) interface{}
@@ -280,5 +284,4 @@ type SQLVisitor interface {
 
 	// Visit a parse tree produced by SQLParser#nonReservedWords.
 	VisitNonReservedWords(ctx *NonReservedWordsContext) interface{}
-
 }

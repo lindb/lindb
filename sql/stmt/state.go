@@ -33,6 +33,8 @@ const (
 	BrokerMetric
 	// StorageMetric represents show current storage's metric statement
 	StorageMetric
+	// MemoryDatabase represents show memory database statement.
+	MemoryDatabase
 )
 
 // State represents show state statement.

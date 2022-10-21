@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Code generated from SQL.g4 by ANTLR 4.10.1. DO NOT EDIT.
+// Code generated from java-escape by ANTLR 4.11.1. DO NOT EDIT.
 
 package grammar // SQL
-import "github.com/antlr/antlr4/runtime/Go/antlr"
+import "github.com/antlr/antlr4/runtime/Go/antlr/v4"
 
 type BaseSQLVisitor struct {
 	*antlr.BaseParseTreeVisitor
@@ -73,6 +73,10 @@ func (v *BaseSQLVisitor) VisitShowAliveStmt(ctx *ShowAliveStmtContext) interface
 }
 
 func (v *BaseSQLVisitor) VisitShowReplicationStmt(ctx *ShowReplicationStmtContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLVisitor) VisitShowMemoryDatabaseStmt(ctx *ShowMemoryDatabaseStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

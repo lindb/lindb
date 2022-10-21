@@ -79,6 +79,11 @@ generate:  ## generate pb/tmpl file.
 	sh ./proto/generate.sh
 	cd tsdb/template && sh generate_tmpl.sh
 
+gen-sql-grammar: ## generate lin query language gen-sql-grammar
+	# need install antrl4-tools
+	# https://github.com/antlr/antlr4/blob/master/doc/getting-started.md
+	antlr4 -Dlanguage=Go -listener -visitor -package grammar ./sql/grammar/SQL.g4
+
 clean-mock: ## remove all mock files
 	find ./ -name "*_mock.go" | xargs rm
 

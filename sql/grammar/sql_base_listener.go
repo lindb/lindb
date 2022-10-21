@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Code generated from SQL.g4 by ANTLR 4.10.1. DO NOT EDIT.
+// Code generated from java-escape by ANTLR 4.11.1. DO NOT EDIT.
 
 package grammar // SQL
-import "github.com/antlr/antlr4/runtime/Go/antlr"
+import "github.com/antlr/antlr4/runtime/Go/antlr/v4"
 
 // BaseSQLListener is a complete listener for a parse tree produced by SQLParser.
 type BaseSQLListener struct{}
@@ -114,6 +114,12 @@ func (s *BaseSQLListener) EnterShowReplicationStmt(ctx *ShowReplicationStmtConte
 
 // ExitShowReplicationStmt is called when production showReplicationStmt is exited.
 func (s *BaseSQLListener) ExitShowReplicationStmt(ctx *ShowReplicationStmtContext) {}
+
+// EnterShowMemoryDatabaseStmt is called when production showMemoryDatabaseStmt is entered.
+func (s *BaseSQLListener) EnterShowMemoryDatabaseStmt(ctx *ShowMemoryDatabaseStmtContext) {}
+
+// ExitShowMemoryDatabaseStmt is called when production showMemoryDatabaseStmt is exited.
+func (s *BaseSQLListener) ExitShowMemoryDatabaseStmt(ctx *ShowMemoryDatabaseStmtContext) {}
 
 // EnterShowBrokerMetricStmt is called when production showBrokerMetricStmt is entered.
 func (s *BaseSQLListener) EnterShowBrokerMetricStmt(ctx *ShowBrokerMetricStmtContext) {}
