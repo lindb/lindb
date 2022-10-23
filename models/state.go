@@ -256,6 +256,6 @@ type MemoryDatabaseState struct {
 	State        string        `json:"state"`
 	Uptime       time.Duration `json:"uptime"`
 	MemSize      int64         `json:"memSize"`
-	NumOfMetrics int           `json:"numOfMetric"`
+	NumOfMetrics int           `json:"numOfMetrics"`
 	NumOfSeries  int           `json:"numOfSeries"`
 }
