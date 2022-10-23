@@ -16,16 +16,25 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { Card, Form, Button } from "@douyinfe/semi-ui";
+import {
+  Card,
+  Form,
+  Button,
+  RadioGroup,
+  Radio,
+  Space,
+} from "@douyinfe/semi-ui";
 import { IconRefresh } from "@douyinfe/semi-icons";
 import {
   DatabaseView,
+  Icon,
   LinSelect,
+  MemoryDatabaseView,
   ReplicaView,
   StatusTip,
 } from "@src/components";
 import { SQL } from "@src/constants";
-import { ReplicaState, StorageState } from "@src/models";
+import { ReplicaState, MemoryDatabaseState, StorageState } from "@src/models";
 import { ExecService } from "@src/services";
 import { StateKit } from "@src/utils";
 import * as _ from "lodash-es";
@@ -35,10 +44,15 @@ import { useQuery } from "@tanstack/react-query";
 import { useParams } from "@src/hooks";
 import { observer } from "mobx-react-lite";
 
+enum StateType {
+  WAL = "wal",
+  Memory = "memory",
+}
+
 const ReplicationStatus: React.FC = observer(() => {
-  const { db } = useParams(["db"]);
+  const { db, type } = useParams(["db", "type"]);
   const { isInitialLoading, isFetching, isError, error, data } = useQuery(
-    ["show_replication", db, URLStore.forceChanged],
+    ["show_replication", db, type, URLStore.forceChanged],
     async () => {
       const storages = await ExecService.exec<StorageState[]>({
         sql: SQL.ShowStorageAliveNodes,
@@ -48,10 +62,17 @@ const ReplicationStatus: React.FC = observer(() => {
       if (!database) {
         return null;
       }
-      const replicaState = await ExecService.exec<ReplicaState>({
-        sql: `show replication where storage='${database.storage.name}' and database='${db}'`,
-      });
-      return { database: database, replicaState: replicaState };
+      if (type === StateType.Memory) {
+        const memoryDatabase = await ExecService.exec<MemoryDatabaseState>({
+          sql: `show memory database where storage='${database.storage.name}' and database='${db}'`,
+        });
+        return { database: database, memoryDatabaseState: memoryDatabase };
+      } else {
+        const replicaState = await ExecService.exec<ReplicaState>({
+          sql: `show replication where storage='${database.storage.name}' and database='${db}'`,
+        });
+        return { database: database, replicaState: replicaState };
+      }
     },
     {
       enabled: !_.isEmpty(db),
@@ -76,22 +97,30 @@ const ReplicationStatus: React.FC = observer(() => {
         databaseName={_.get(data, "database.name")}
       />
       <div style={{ marginTop: 12 }}>
-        <ReplicaView
-          liveNodes={_.get(data, "database.storage.liveNodes", {})}
-          state={_.get(data, "replicaState", {})}
-        />
+        {type === StateType.Memory ? (
+          <MemoryDatabaseView
+            liveNodes={_.get(data, "database.storage.liveNodes", {})}
+            state={_.get(data, "memoryDatabaseState", {})}
+          />
+        ) : (
+          <ReplicaView
+            liveNodes={_.get(data, "database.storage.liveNodes", {})}
+            state={_.get(data, "replicaState", {})}
+          />
+        )}
       </div>
     </>
   );
 });
 
 const ReplicationView: React.FC = () => {
+  const { type } = useParams(["type"]);
   return (
     <>
       <Card style={{ marginBottom: 12 }} bodyStyle={{ padding: 12 }}>
         <Form
           style={{ paddingTop: 0, paddingBottom: 0 }}
-          wrapperCol={{ span: 20 }}
+          wrapperCol={{ span: 12 }}
           layout="horizontal"
         >
           <LinSelect
@@ -109,6 +138,28 @@ const ReplicationView: React.FC = () => {
             }
             clearKeys={["shard", "family"]}
           />
+          <RadioGroup
+            style={{ marginRight: 16 }}
+            defaultValue={type || "wal"}
+            buttonSize="small"
+            type="button"
+            onChange={(e) =>
+              URLStore.changeURLParams({ params: { type: e.target.value } })
+            }
+          >
+            <Radio value="wal" style={{ marginTop: 4, padding: "2px 8px" }}>
+              <Space align="center">
+                <Icon icon="iconbx-git-repo-forked" style={{ fontSize: 14 }} />
+                <div>WAL</div>
+              </Space>
+            </Radio>
+            <Radio value="memory" style={{ marginTop: 4, padding: "2px 8px" }}>
+              <Space align="center">
+                <Icon icon="icondatabase" style={{ fontSize: 14 }} />
+                <div>Memory</div>
+              </Space>
+            </Radio>
+          </RadioGroup>
           <Button
             icon={<IconRefresh />}
             onClick={() => {

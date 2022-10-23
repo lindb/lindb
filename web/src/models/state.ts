@@ -83,3 +83,19 @@ export type ReplicaState = {
     }[];
   }[];
 };
+
+export type MemoryDatabaseState = {
+  [node: string]: {
+    shardId: number;
+    familyTime: string;
+    ackSequences: { [leader: number]: number }; // leader=>ack sequence
+    replicaSequences: { [leader: number]: number }; // leader=>replica sequence
+    memoryDatabases: {
+      State: string; // memory database state
+      uptime: number; // uptime
+      memSize: number;
+      numOfMetrics: number;
+      numOfSeries: number;
+    }[];
+  }[];
+};
