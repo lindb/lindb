@@ -19,33 +19,36 @@ package main
 
 import (
 	"fmt"
-	"runtime"
+	"reflect"
+	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 
-	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/sql/grammar"
 )
 
-var (
-	// pprof mode
-	pprof = false
-	// cfg path
-	cfg = ""
-	// enable swagger api doc
-	doc = false
-)
-
-func printVersion() {
-	fmt.Printf("LinDB: %v, BuildDate: %v\n", config.Version, config.BuildTime)
-}
-
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print the version",
+var keyWordsCmd = &cobra.Command{
+	Use:   "keywords",
+	Short: "Print the keywords for lin query language",
 	Run: func(_ *cobra.Command, _ []string) {
-		printVersion()
-		fmt.Printf("GOOS=%q\n", runtime.GOOS)
-		fmt.Printf("GOARCH=%q\n", runtime.GOARCH)
-		fmt.Printf("GOVERSION=%q\n", runtime.Version())
+		typ := reflect.TypeOf(&grammar.NonReservedWordsContext{})
+		var keyWords []string
+		for i := 0; i < typ.NumMethod(); i++ {
+			methodName := typ.Method(i).Name
+			if strings.HasPrefix(methodName, "T_") {
+				keyWords = append(keyWords, strings.ReplaceAll(methodName, "T_", ""))
+			}
+		}
+		sort.Strings(keyWords)
+		count := 0
+		for _, name := range keyWords {
+			fmt.Printf("%-15s", name)
+			count++
+			if count%6 == 0 {
+				fmt.Printf("\n")
+			}
+		}
+		fmt.Println()
 	},
 }
