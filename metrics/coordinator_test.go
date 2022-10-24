@@ -24,7 +24,9 @@ import (
 )
 
 func TestNewStateManagerStatistics(t *testing.T) {
-	assert.NotNil(t, NewStateManagerStatistics("test"))
+	assert.NotNil(t, NewStateManagerStatistics("master"))
+	assert.NotNil(t, NewStateManagerStatistics("storage"))
+	assert.NotNil(t, NewStateManagerStatistics("broker"))
 }
 
 func TestNewShardLeaderStatistics(t *testing.T) {
