@@ -84,6 +84,9 @@ gen-sql-grammar: ## generate lin query language gen-sql-grammar
 	# https://github.com/antlr/antlr4/blob/master/doc/getting-started.md
 	antlr4 -Dlanguage=Go -listener -visitor -package grammar ./sql/grammar/SQL.g4
 
+key-words: ## print all key words for lin query language
+	go run github.com/lindb/lindb/cmd/tools keywords 
+
 clean-mock: ## remove all mock files
 	find ./ -name "*_mock.go" | xargs rm
 

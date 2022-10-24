@@ -19,33 +19,25 @@ package main
 
 import (
 	"fmt"
-	"runtime"
+	"os"
 
 	"github.com/spf13/cobra"
-
-	"github.com/lindb/lindb/config"
 )
 
-var (
-	// pprof mode
-	pprof = false
-	// cfg path
-	cfg = ""
-	// enable swagger api doc
-	doc = false
-)
-
-func printVersion() {
-	fmt.Printf("LinDB: %v, BuildDate: %v\n", config.Version, config.BuildTime)
+// RootCmd command of cobra
+var RootCmd = &cobra.Command{
+	Use:   "tools",
+	Short: "tools is the tool commands",
 }
 
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print the version",
-	Run: func(_ *cobra.Command, _ []string) {
-		printVersion()
-		fmt.Printf("GOOS=%q\n", runtime.GOOS)
-		fmt.Printf("GOARCH=%q\n", runtime.GOARCH)
-		fmt.Printf("GOVERSION=%q\n", runtime.Version())
-	},
+func init() {
+	RootCmd.AddCommand(
+		keyWordsCmd,
+	)
+}
+
+func main() {
+	if err := RootCmd.Execute(); err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
+	}
 }
