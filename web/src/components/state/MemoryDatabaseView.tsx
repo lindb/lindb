@@ -120,7 +120,7 @@ const MemoryDatabaseView: React.FC<{
         const familyTime = family.familyTime;
         familyMap.set(familyTime, familyTime);
 
-        const databases = family.memoryDatabases;
+        const databases = family.memoryDatabases || [];
         const replica: any[] = [];
         _.forIn(family.replicaSequences, (v, k) => {
           replica.push({ nodeId: k, replicaSeq: v });
@@ -223,7 +223,7 @@ const MemoryDatabaseView: React.FC<{
           {
             title: "Replica",
             dataIndex: "replicaSeq",
-            width: 150,
+            width: 180,
             render: (text, _record, _index) => {
               return FormatKit.format(text, Unit.Short);
             },
@@ -231,7 +231,7 @@ const MemoryDatabaseView: React.FC<{
           {
             title: "Ack",
             dataIndex: "ack",
-            width: 150,
+            width: 180,
             render: (_text, record, _index) => {
               return FormatKit.format(_.get(ack, record.nodeId, 0), Unit.Short);
             },
@@ -281,7 +281,7 @@ const MemoryDatabaseView: React.FC<{
           {
             title: "Mem Size",
             dataIndex: "memSize",
-            width: 100,
+            width: 130,
             render: (text, _record, _index) => {
               return FormatKit.format(text, Unit.Bytes);
             },
@@ -365,6 +365,16 @@ const MemoryDatabaseView: React.FC<{
     } else {
       _.forEach(shards, (s) => {
         s.channelList = s.channels;
+      });
+    }
+
+    if (show !== "replica") {
+      // filter empty memory database when show memory database write state
+      shards = _.filter(shards, function (o) {
+        o.channelList = _.filter(o.channels, function (f) {
+          return !_.isEmpty(f.databases);
+        });
+        return !_.isEmpty(o.channelList);
       });
     }
 
