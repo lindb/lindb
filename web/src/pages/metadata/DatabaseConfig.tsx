@@ -73,7 +73,9 @@ export default function DatabaseConfig() {
     const createDatabase = async (values: any) => {
       try {
         setSubmiting(true);
-        await exec({ sql: `create database ${JSON.stringify(values)}` });
+        await ExecService.exec({
+          sql: `create database ${JSON.stringify(values)}`,
+        });
         URLStore.changeURLParams({ path: Route.MetadataDatabase });
       } catch (err) {
         setError(_.get(err, "response.data", "Unknown internal error"));
