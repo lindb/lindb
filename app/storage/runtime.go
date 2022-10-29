@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -41,6 +42,7 @@ import (
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/hostutil"
 	httppkg "github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/logger"
@@ -70,14 +72,23 @@ type rpcHandler struct {
 
 // just for testing
 var (
-	getHostIP              = hostutil.GetHostIP
-	hostName               = os.Hostname
-	newStateMachineFactory = storage.NewStateMachineFactory
-	newDatabaseLifecycleFn = NewDatabaseLifecycle
+	getHostIP                 = hostutil.GetHostIP
+	hostName                  = os.Hostname
+	newStateMachineFactory    = storage.NewStateMachineFactory
+	newDatabaseLifecycleFn    = NewDatabaseLifecycle
+	newEngineFn               = tsdb.NewEngine
+	newWriteAheadLogManagerFn = replica.NewWriteAheadLogManager
+	mkDirIfNotExistFn         = fileutil.MkDirIfNotExist
+	readFileFn                = os.ReadFile
+	writeFileFn               = os.WriteFile
+
+	atoiFn  = strconv.Atoi
+	existFn = fileutil.Exist
 )
 
 // runtime represents storage runtime dependency
 type runtime struct {
+	myID    int // default myid value
 	state   server.State
 	version string
 	config  *config.Storage
@@ -111,9 +122,10 @@ type runtime struct {
 }
 
 // NewStorageRuntime creates storage runtime
-func NewStorageRuntime(version string, cfg *config.Storage) server.Service {
+func NewStorageRuntime(version string, myID int, cfg *config.Storage) server.Service {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &runtime{
+		myID:        myID,
 		state:       server.New,
 		repoFactory: state.NewRepositoryFactory("storage"),
 		version:     version,
@@ -131,16 +143,22 @@ func NewStorageRuntime(version string, cfg *config.Storage) server.Service {
 	}
 }
 
-// Name returns the storage service's name
+// Name returns the storage service's name.
 func (r *runtime) Name() string {
 	return "storage"
 }
 
-// Run runs storage server
+// Run runs storage server.
 func (r *runtime) Run() error {
-	if r.config.StorageBase.Indicator <= 0 {
+	myID, err := r.initMyID()
+	if err != nil {
 		r.state = server.Failed
-		return errors.New("storage indicator must be > 0")
+		return fmt.Errorf("init myid failure, err: %s", err)
+	}
+
+	if myID <= 0 {
+		r.state = server.Failed
+		return errors.New("myid of storage server must be > 0")
 	}
 	ip, err := getHostIP()
 	if err != nil {
@@ -156,7 +174,7 @@ func (r *runtime) Run() error {
 	r.jobScheduler.Startup() // startup kv compact job scheduler
 
 	// start TSDB engine for storage server
-	engine, err := tsdb.NewEngine()
+	engine, err := newEngineFn()
 	if err != nil {
 		r.state = server.Failed
 		return err
@@ -169,7 +187,7 @@ func (r *runtime) Run() error {
 		hostName = "unknown"
 	}
 	r.node = &models.StatefulNode{
-		ID: models.NodeID(r.config.StorageBase.Indicator),
+		ID: models.NodeID(r.myID),
 		StatelessNode: models.StatelessNode{
 			HostIP:     ip,
 			GRPCPort:   r.config.StorageBase.GRPC.Port,
@@ -188,7 +206,7 @@ func (r *runtime) Run() error {
 	r.factory = factory{taskServer: rpc.NewTaskServerFactory()}
 	r.stateMgr = storage.NewStateManager(r.ctx, r.node, engine)
 
-	walMgr := replica.NewWriteAheadLogManager(
+	walMgr := newWriteAheadLogManagerFn(
 		r.ctx,
 		r.config.StorageBase.WAL,
 		r.node.ID, r.engine,
@@ -471,4 +489,46 @@ func (r *runtime) systemCollector() {
 		r.ctx,
 		"/",
 		metrics.NewSystemStatistics(linmetric.StorageRegistry)).Run()
+}
+
+// initMyID initializes myid for storage server.
+func (r *runtime) initMyID() (int, error) {
+	dataPath := config.GlobalStorageConfig().TSDB.Dir
+	if err := mkDirIfNotExistFn(dataPath); err != nil {
+		return 0, err
+	}
+	myIDPath := filepath.Join(dataPath, "myid")
+	var myID int
+	if !existFn(myIDPath) {
+		// if myid file not exist, use default value from start cmd and write myid file
+		myID = r.myID
+		if err := r.writeMyID(myIDPath, myID); err != nil {
+			return 0, err
+		}
+	} else {
+		myID0, err := r.readMyID(myIDPath)
+		if err != nil {
+			return 0, err
+		}
+		myID = myID0
+	}
+	return myID, nil
+}
+
+// readMyID reads myid from file.
+func (r *runtime) readMyID(path string) (int, error) {
+	myIDStr, err := readFileFn(path)
+	if err != nil {
+		return 0, err
+	}
+	myID, err := atoiFn(string(myIDStr))
+	if err != nil {
+		return 0, err
+	}
+	return myID, nil
+}
+
+// writeMyID writes myid into file.
+func (r *runtime) writeMyID(path string, myID int) error {
+	return writeFileFn(path, []byte(fmt.Sprintf("%d", myID)), 0644)
 }

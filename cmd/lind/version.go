@@ -32,7 +32,8 @@ var (
 	// cfg path
 	cfg = ""
 	// enable swagger api doc
-	doc = false
+	doc  = false
+	myID = 1
 )
 
 func printVersion() {

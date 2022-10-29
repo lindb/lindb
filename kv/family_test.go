@@ -297,14 +297,14 @@ func TestFamily_close(t *testing.T) {
 			return compactJob
 		},
 	}
+	ch := make(chan struct{}, 1)
 	compactJob.EXPECT().Run().DoAndReturn(func() error {
-		time.Sleep(time.Second)
+		ch <- struct{}{}
 		return fmt.Errorf("err")
 	})
-	s := timeutil.Now()
 	f.compact()
 	f.close()
-	assert.True(t, timeutil.Now()-s >= 1000)
+	<-ch
 }
 
 func TestFamily_Comapct(t *testing.T) {

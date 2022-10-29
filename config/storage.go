@@ -100,7 +100,6 @@ max-tagKeys = %d`,
 
 // StorageBase represents a storage configuration
 type StorageBase struct {
-	Indicator       int            `toml:"indicator"`       // Indicator is unique id under current storage cluster.
 	BrokerEndpoint  string         `toml:"broker-endpoint"` // Broker http endpoint, auto register current storage cluster.
 	TTLTaskInterval ltoml.Duration `toml:"ttl-task-interval"`
 	HTTP            HTTP           `toml:"http"`
@@ -114,10 +113,6 @@ func (s *StorageBase) TOML() string {
 	return fmt.Sprintf(`
 ## Storage related configuration
 [storage]
-## Indicator is a unique id for identifing each storage node
-## Make sure indicator on each node is different
-## Default: %d
-indicator = %d
 ## interval for how often do ttl job
 ## Default: %s
 ttl-task-interval = "%s"
@@ -136,8 +131,6 @@ broker-endpoint = "%s"
 
 ## TSDB related configuration.
 [storage.tsdb]%s`,
-		s.Indicator,
-		s.Indicator,
 		s.TTLTaskInterval,
 		s.TTLTaskInterval,
 		s.BrokerEndpoint,
@@ -217,7 +210,6 @@ func (s *Storage) TOML() string {
 // NewDefaultStorageBase returns a new default StorageBase struct
 func NewDefaultStorageBase() *StorageBase {
 	return &StorageBase{
-		Indicator:       1,
 		TTLTaskInterval: ltoml.Duration(time.Hour * 24),
 		BrokerEndpoint:  "http://localhost:9000",
 		HTTP: HTTP{
@@ -305,10 +297,6 @@ func checkTSDBCfg(tsdbCfg *TSDB) error {
 }
 
 func checkStorageBaseCfg(storageBaseCfg *StorageBase) error {
-	if storageBaseCfg.Indicator <= 0 {
-		return fmt.Errorf("indicator must > 0")
-	}
-
 	if err := checkGRPCCfg(&storageBaseCfg.GRPC); err != nil {
 		return err
 	}

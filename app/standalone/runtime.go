@@ -82,6 +82,7 @@ func NewStandaloneRuntime(version string, cfg *config.Standalone) server.Service
 				Logging:     cfg.Logging,
 			}, true),
 		storage: storage.NewStorageRuntime(version,
+			1, // default: 1
 			&config.Storage{
 				Query:       cfg.Query,
 				Coordinator: cfg.Coordinator,

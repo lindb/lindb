@@ -135,7 +135,7 @@ func TestLoadAndSetStorageConfig(t *testing.T) {
 				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
 					return nil
 				}
-				cfg.StorageBase.Indicator = 0
+				cfg.StorageBase.GRPC.Port = 0
 			},
 			wantErr: true,
 		},
@@ -213,7 +213,7 @@ func TestLoadAndSetStandaloneConfig(t *testing.T) {
 				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
 					return nil
 				}
-				cfg.StorageBase.Indicator = 0
+				cfg.StorageBase.GRPC.Port = 0
 			},
 			wantErr: true,
 		},

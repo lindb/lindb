@@ -34,7 +34,7 @@ var statistics = metrics.NewConcurrentStatistics("test", linmetric.BrokerRegistr
 
 func Test_Pool_Submit(t *testing.T) {
 	// num. of pool + 1 dispatcher, workers has not been spawned
-	pool := NewPool("test", 2, time.Second*5, statistics)
+	pool := NewPool("test", 2, 0, statistics)
 
 	var c atomic.Int32
 
@@ -63,7 +63,7 @@ func TestPool_Submit_PanicTask(t *testing.T) {
 	wait.Add(1)
 	pool.Submit(context.TODO(), NewTask(func() {
 		panic("err")
-	}, func(err error) {
+	}, func(_ error) {
 		wait.Done()
 	}))
 	wait.Wait()

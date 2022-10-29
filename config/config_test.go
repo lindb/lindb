@@ -118,28 +118,25 @@ func Test_checkStorageBaseCfg(t *testing.T) {
 	assert.Error(t, checkStorageBaseCfg(emptyStorageBase))
 
 	// grpc failure
-	storageCfg1 := &StorageBase{Indicator: 1}
+	storageCfg1 := &StorageBase{}
 	assert.Error(t, checkStorageBaseCfg(storageCfg1))
 
 	// http port failure
 	storageCfg2 := &StorageBase{
-		Indicator: 1,
-		GRPC:      GRPC{Port: 2379},
+		GRPC: GRPC{Port: 2379},
 	}
 	assert.Error(t, checkStorageBaseCfg(storageCfg2))
 
 	// tsdb error
 	storageCfg3 := &StorageBase{
-		Indicator: 1,
-		GRPC:      GRPC{Port: 2379},
+		GRPC: GRPC{Port: 2379},
 	}
 	assert.Error(t, checkStorageBaseCfg(storageCfg3))
 
 	// ok
 	storageCfg4 := &StorageBase{
-		Indicator: 1,
-		GRPC:      GRPC{Port: 2379},
-		TSDB:      TSDB{Dir: "/tmp/lindb"},
+		GRPC: GRPC{Port: 2379},
+		TSDB: TSDB{Dir: "/tmp/lindb"},
 	}
 	assert.NoError(t, checkStorageBaseCfg(storageCfg4))
 	assert.NotZero(t, storageCfg4.TSDB.MaxMemDBSize)
