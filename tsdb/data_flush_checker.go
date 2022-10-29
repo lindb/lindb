@@ -135,8 +135,11 @@ func (fc *dataFlushChecker) startCheckDataFlush() {
 	for i := 0; i < config.GlobalStorageConfig().TSDB.FlushConcurrency; i++ {
 		go fc.flushWorker()
 	}
-	fc.logger.Info("DataFlusher Checker is running",
+	fc.logger.Info("Data flush checker is running",
 		logger.Int32("workers", int32(config.GlobalStorageConfig().TSDB.FlushConcurrency)))
+	defer func() {
+		fc.logger.Info("Data flush checker exist")
+	}()
 
 	for {
 		select {

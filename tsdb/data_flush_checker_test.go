@@ -47,7 +47,7 @@ func TestDataFlushChecker_Lifecycle(t *testing.T) {
 }
 
 func TestDataFlushCheck_startCheckDataFlush(t *testing.T) {
-	defer memoryUsageCheckInterval.Store(time.Second)
+	defer memoryUsageCheckInterval.Store(time.Minute)
 
 	memoryUsageCheckInterval.Store(10 * time.Millisecond)
 	checker := newDataFlushChecker(context.TODO())
@@ -63,7 +63,7 @@ func TestDataFlushCheck_startCheckDataFlush(t *testing.T) {
 func TestDataFamilyCheck_check(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		memoryUsageCheckInterval.Store(time.Second)
+		memoryUsageCheckInterval.Store(time.Minute)
 		ctrl.Finish()
 	}()
 	shard := NewMockShard(ctrl)
@@ -97,7 +97,7 @@ func TestDataFamilyCheck_check(t *testing.T) {
 		},
 		{
 			name: "no family need flush",
-			prepare: func(c *dataFlushChecker) {
+			prepare: func(_ *dataFlushChecker) {
 				GetFamilyManager().AddFamily(family1)
 				family1.EXPECT().NeedFlush().Return(false)
 			},
@@ -109,7 +109,7 @@ func TestDataFamilyCheck_check(t *testing.T) {
 		},
 		{
 			name: "family need flush",
-			prepare: func(c *dataFlushChecker) {
+			prepare: func(_ *dataFlushChecker) {
 				GetFamilyManager().AddFamily(family2)
 				family2.EXPECT().NeedFlush().Return(true)
 				GetFamilyManager().AddFamily(family1)
@@ -132,7 +132,7 @@ func TestDataFamilyCheck_check(t *testing.T) {
 		},
 		{
 			name: "pick family for Global memory limit",
-			prepare: func(c *dataFlushChecker) {
+			prepare: func(_ *dataFlushChecker) {
 				GetFamilyManager().AddFamily(family2)
 				family2.EXPECT().NeedFlush().Return(false)
 				family2.EXPECT().MemDBSize().Return(int64(2 * ignoreMemorySize))
@@ -163,7 +163,7 @@ func TestDataFamilyCheck_check(t *testing.T) {
 		},
 		{
 			name: "pick family for Global memory limit, but no match family",
-			prepare: func(c *dataFlushChecker) {
+			prepare: func(_ *dataFlushChecker) {
 				GetFamilyManager().AddFamily(family2)
 				family2.EXPECT().NeedFlush().Return(false)
 				family2.EXPECT().MemDBSize().Return(int64(199))
@@ -186,7 +186,7 @@ func TestDataFamilyCheck_check(t *testing.T) {
 
 	for _, tt := range cases {
 		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			memoryUsageCheckInterval.Store(10 * time.Millisecond)
 			checker := newDataFlushChecker(context.TODO())
 			checker1 := checker.(*dataFlushChecker)
@@ -278,7 +278,7 @@ func TestDataFlushChecker_requestFlush(t *testing.T) {
 
 	for _, tt := range cases {
 		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			checker := newDataFlushChecker(context.TODO())
 			checker1 := checker.(*dataFlushChecker)
 			checker1.running.Store(true)
@@ -339,13 +339,13 @@ func TestDataFlushChecker_doFlush(t *testing.T) {
 	}{
 		{
 			name: "flush meta db failure",
-			prepare: func(c *dataFlushChecker) {
+			prepare: func(_ *dataFlushChecker) {
 				db.EXPECT().FlushMeta().Return(fmt.Errorf("err"))
 			},
 		},
 		{
 			name: "flush index db failure",
-			prepare: func(c *dataFlushChecker) {
+			prepare: func(_ *dataFlushChecker) {
 				db.EXPECT().FlushMeta().Return(nil)
 				db.EXPECT().WaitFlushMetaCompleted()
 				shard.EXPECT().FlushIndex().Return(fmt.Errorf("err"))
@@ -353,7 +353,7 @@ func TestDataFlushChecker_doFlush(t *testing.T) {
 		},
 		{
 			name: "flush family failure",
-			prepare: func(c *dataFlushChecker) {
+			prepare: func(_ *dataFlushChecker) {
 				db.EXPECT().FlushMeta().Return(nil)
 				db.EXPECT().WaitFlushMetaCompleted()
 				shard.EXPECT().FlushIndex().Return(nil)
@@ -363,7 +363,7 @@ func TestDataFlushChecker_doFlush(t *testing.T) {
 		},
 		{
 			name: "flush family successfully",
-			prepare: func(c *dataFlushChecker) {
+			prepare: func(_ *dataFlushChecker) {
 				db.EXPECT().FlushMeta().Return(nil)
 				db.EXPECT().WaitFlushMetaCompleted()
 				shard.EXPECT().FlushIndex().Return(nil)
@@ -375,7 +375,7 @@ func TestDataFlushChecker_doFlush(t *testing.T) {
 
 	for _, tt := range cases {
 		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			checker := newDataFlushChecker(context.TODO())
 			checker1 := checker.(*dataFlushChecker)
 			checker1.running.Store(true)

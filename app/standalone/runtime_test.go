@@ -51,7 +51,6 @@ func newDefaultStandaloneConfig(_ *testing.T) config.Standalone {
 	saCfg.StorageBase.TSDB.Dir = path.Join(dir, "data")
 	saCfg.StorageBase.WAL.Dir = path.Join(dir, "wal")
 	saCfg.StorageBase.GRPC.Port = 3901
-	saCfg.StorageBase.Indicator = 1
 	saCfg.StorageBase.HTTP.Port = 3902
 	saCfg.StorageBase.WAL.RemoveTaskInterval = ltoml.Duration(10 * time.Minute)
 	config.SetGlobalStorageConfig(&saCfg.StorageBase)
@@ -96,7 +95,7 @@ func TestRuntime_Run(t *testing.T) {
 		},
 		{
 			name: "create broker state failure",
-			prepare: func(cfg *config.Standalone) {
+			prepare: func(_ *config.Standalone) {
 				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
 			},
 			wantErr: true,
@@ -104,7 +103,7 @@ func TestRuntime_Run(t *testing.T) {
 		{
 
 			name: "clean up master state failure",
-			prepare: func(cfg *config.Standalone) {
+			prepare: func(_ *config.Standalone) {
 				repo := state.NewMockRepository(ctrl)
 				repo.EXPECT().Close().Return(fmt.Errorf("err"))
 				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
@@ -115,7 +114,7 @@ func TestRuntime_Run(t *testing.T) {
 		{
 
 			name: "create storage state failure",
-			prepare: func(cfg *config.Standalone) {
+			prepare: func(_ *config.Standalone) {
 				repo := state.NewMockRepository(ctrl)
 				repo.EXPECT().Close().Return(nil)
 				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
@@ -126,7 +125,7 @@ func TestRuntime_Run(t *testing.T) {
 		},
 		{
 			name: "list storage alive nodes failure",
-			prepare: func(cfg *config.Standalone) {
+			prepare: func(_ *config.Standalone) {
 				repo := state.NewMockRepository(ctrl)
 				repo.EXPECT().Close().Return(nil).MaxTimes(2)
 				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
@@ -138,7 +137,7 @@ func TestRuntime_Run(t *testing.T) {
 		},
 		{
 			name: "delete storage alive node failure",
-			prepare: func(cfg *config.Standalone) {
+			prepare: func(_ *config.Standalone) {
 				repo := state.NewMockRepository(ctrl)
 				gomock.InOrder(
 					repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil),
@@ -154,7 +153,7 @@ func TestRuntime_Run(t *testing.T) {
 		},
 		{
 			name: "run broker failure",
-			prepare: func(cfg *config.Standalone) {
+			prepare: func(_ *config.Standalone) {
 				mockCleanState(ctrl, repoFct)
 				s.EXPECT().Run().Return(fmt.Errorf("err"))
 			},
@@ -162,7 +161,7 @@ func TestRuntime_Run(t *testing.T) {
 		},
 		{
 			name: "run storage failure",
-			prepare: func(cfg *config.Standalone) {
+			prepare: func(_ *config.Standalone) {
 				mockCleanState(ctrl, repoFct)
 				s.EXPECT().Run().Return(nil)
 				s.EXPECT().Run().Return(fmt.Errorf("err"))
@@ -171,7 +170,7 @@ func TestRuntime_Run(t *testing.T) {
 		},
 		{
 			name: "run storage failure",
-			prepare: func(cfg *config.Standalone) {
+			prepare: func(_ *config.Standalone) {
 				mockCleanState(ctrl, repoFct)
 				s.EXPECT().Run().Return(nil)
 				s.EXPECT().Run().Return(fmt.Errorf("err"))
@@ -180,7 +179,7 @@ func TestRuntime_Run(t *testing.T) {
 		},
 		{
 			name: "init internal database failure",
-			prepare: func(cfg *config.Standalone) {
+			prepare: func(_ *config.Standalone) {
 				mockCleanState(ctrl, repoFct)
 				s.EXPECT().Run().Return(nil).MaxTimes(2)
 				init.EXPECT().InitInternalDatabase(gomock.Any()).Return(fmt.Errorf("err"))
@@ -189,7 +188,7 @@ func TestRuntime_Run(t *testing.T) {
 		},
 		{
 			name: "init internal database successfully",
-			prepare: func(cfg *config.Standalone) {
+			prepare: func(_ *config.Standalone) {
 				mockCleanState(ctrl, repoFct)
 				s.EXPECT().Run().Return(nil).MaxTimes(2)
 				init.EXPECT().InitInternalDatabase(gomock.Any()).Return(nil)

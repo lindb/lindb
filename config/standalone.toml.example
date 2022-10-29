@@ -107,10 +107,6 @@ connect-timeout = "3s"
 
 ## Storage related configuration
 [storage]
-## Indicator is a unique id for identifing each storage node
-## Make sure indicator on each node is different
-## Default: 1
-indicator = 1
 ## interval for how often do ttl job
 ## Default: 24h0m0s
 ttl-task-interval = "24h0m0s"

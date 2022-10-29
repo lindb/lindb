@@ -75,8 +75,11 @@ func TestDatabaseLifecycle_ttlTask(t *testing.T) {
 	family := tsdb.NewMockDataFamily(ctrl)
 	family.EXPECT().Compact().AnyTimes()
 	family.EXPECT().Evict().AnyTimes()
-	family.EXPECT().Indicator().Return("family").AnyTimes()
+	family.EXPECT().Indicator().Return("ttl_family").AnyTimes()
 	tsdb.GetFamilyManager().AddFamily(family)
+	defer func() {
+		tsdb.GetFamilyManager().RemoveFamily(family)
+	}()
 
 	repo := state.NewMockRepository(ctrl)
 	walMgr := replica.NewMockWriteAheadLogManager(ctrl)
@@ -133,7 +136,7 @@ func TestDatabaseLifecycle_dropDatabases(t *testing.T) {
 			name: "drop database",
 			prepare: func() {
 				repo.EXPECT().WalkEntry(gomock.Any(), gomock.Any(), gomock.Any()).
-					DoAndReturn(func(ctx context.Context, prefix string, fn func([]byte, []byte)) error {
+					DoAndReturn(func(_ context.Context, _ string, fn func([]byte, []byte)) error {
 						fn([]byte(constants.GetDatabaseAssignPath("test")), []byte{})
 						return nil
 					})
@@ -149,7 +152,7 @@ func TestDatabaseLifecycle_dropDatabases(t *testing.T) {
 
 	for _, tt := range cases {
 		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			dbLifecycle := NewDatabaseLifecycle(context.TODO(), repo, walMgr, engine)
 			dbLifecycle1 := dbLifecycle.(*databaseLifecycle)
 			if tt.prepare != nil {

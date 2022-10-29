@@ -18,6 +18,7 @@
 package fileutil
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 )
@@ -28,7 +29,7 @@ var (
 	removeFunc    = os.Remove
 )
 
-// MkDirIfNotExist creates given dir if it's not exist
+// MkDirIfNotExist creates given dir if it's not exist.
 func MkDirIfNotExist(path string) error {
 	if !Exist(path) {
 		if e := mkdirAllFunc(path, os.ModePerm); e != nil {
@@ -38,7 +39,7 @@ func MkDirIfNotExist(path string) error {
 	return nil
 }
 
-// RemoveDir deletes dir include children if exist
+// RemoveDir deletes dir include children if exist.
 func RemoveDir(path string) error {
 	if Exist(path) {
 		if e := removeAllFunc(path); e != nil {
@@ -48,7 +49,7 @@ func RemoveDir(path string) error {
 	return nil
 }
 
-// RemoveFile removes the file if exist
+// RemoveFile removes the file if exist.
 func RemoveFile(file string) error {
 	if Exist(file) {
 		if e := removeFunc(file); e != nil {
@@ -58,7 +59,7 @@ func RemoveFile(file string) error {
 	return nil
 }
 
-// MkDir create dir
+// MkDir creates dir.
 func MkDir(path string) error {
 	if e := mkdirAllFunc(path, os.ModePerm); e != nil {
 		return e
@@ -68,18 +69,29 @@ func MkDir(path string) error {
 
 // ListDir reads the directory named by dirname and returns a list of filename.
 func ListDir(path string) ([]string, error) {
-	files, err := os.ReadDir(path)
-	if err != nil {
-		return nil, err
-	}
 	var result []string
-	for _, file := range files {
-		result = append(result, file.Name())
+	if err := readDir(path, func(f fs.DirEntry) {
+		result = append(result, f.Name())
+	}); err != nil {
+		return nil, err
 	}
 	return result, nil
 }
 
-// Exist check file or dir if exist
+// GetDirectoryList reads the directory named by dirname and returns a list of directory.
+func GetDirectoryList(path string) ([]string, error) {
+	var result []string
+	if err := readDir(path, func(f fs.DirEntry) {
+		if f.IsDir() {
+			result = append(result, f.Name())
+		}
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// Exist checks file or dir if exist.
 func Exist(file string) bool {
 	if _, err := os.Stat(file); err != nil && os.IsNotExist(err) {
 		return false
@@ -87,7 +99,7 @@ func Exist(file string) bool {
 	return true
 }
 
-// GetExistPath get exist path based on given path
+// GetExistPath gets exist path based on given path.
 func GetExistPath(path string) string {
 	if Exist(path) {
 		return path
@@ -101,4 +113,16 @@ func GetExistPath(path string) string {
 		dir = dir[:length-1]
 	}
 	return GetExistPath(dir)
+}
+
+// readDir lists all files/directories.
+func readDir(path string, fn func(f fs.DirEntry)) error {
+	files, err := os.ReadDir(path)
+	if err != nil {
+		return err
+	}
+	for _, file := range files {
+		fn(file)
+	}
+	return nil
 }

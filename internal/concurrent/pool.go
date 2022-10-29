@@ -104,6 +104,9 @@ func NewPool(name string, maxWorkers int, idleTimeout time.Duration, statistics 
 	if maxWorkers < 1 {
 		maxWorkers = 1
 	}
+	if idleTimeout <= 0 {
+		idleTimeout = time.Second * 5
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	pool := &workerPool{
 		name:                name,

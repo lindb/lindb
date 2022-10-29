@@ -52,6 +52,8 @@ func newStorageCmd() *cobra.Command {
 		"enable swagger api doc")
 	runStorageCmd.PersistentFlags().BoolVar(&pprof, "pprof", false,
 		"profiling Go programs with pprof")
+	runStorageCmd.PersistentFlags().IntVar(&myID, "myid", 1,
+		"unique server id for single storage cluster")
 
 	storageCmd.AddCommand(
 		runStorageCmd,
@@ -63,7 +65,7 @@ func newStorageCmd() *cobra.Command {
 var initializeStorageConfigCmd = &cobra.Command{
 	Use:   "init-config",
 	Short: "create a new default storage-config",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(_ *cobra.Command, _ []string) error {
 		path := cfg
 		if path == "" {
 			path = defaultStorageCfgFile
@@ -87,7 +89,7 @@ func serveStorage(_ *cobra.Command, _ []string) error {
 	}
 
 	// start storage server
-	storageRuntime := storage.NewStorageRuntime(config.Version, &storageCfg)
+	storageRuntime := storage.NewStorageRuntime(config.Version, myID, &storageCfg)
 	return run(ctx, storageRuntime, func() error {
 		newStorageCfg := config.Storage{}
 		return config.LoadAndSetStorageConfig(cfg, defaultStorageCfgFile, &newStorageCfg)
