@@ -13,8 +13,8 @@ help:  ## Display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\nTargets:\n"} \
 		/^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
-run: ## run local standalone cluster
-	go run github.com/lindb/lindb/cmd/lind standalone run --pprof
+run: ## run local standalone cluster for demo/debug
+	go run github.com/lindb/lindb/cmd/lind standalone run --pprof --doc
 
 build-frontend: ## build frontend
 	cd web/ && make web_build
@@ -49,7 +49,7 @@ lint: ## run lint
 	golangci-lint run ./...
 
 api-doc: ## generate api document
-	go install "github.com/swaggo/swag/cmd/swag@v1.5.0"
+	go install "github.com/swaggo/swag/cmd/swag@v1.8.7"
 	swag init -g pkg/http/doc.go
 
 test-without-lint: ## Run test without lint

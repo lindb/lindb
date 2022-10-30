@@ -68,6 +68,16 @@ func (d *LoggerAPI) Register(route gin.IRoutes) {
 }
 
 // List returns all log files in log dir.
+
+// @Summary list log files
+// @Description return all log files in log dir.
+// @Tags State
+// @Accept json
+// @Produce json
+// @Success 200 {object} object
+// @Failure 404 {string} string "not found"
+// @Failure 500 {string} string "internal error"
+// @Router /log/list [get]
 func (d *LoggerAPI) List(c *gin.Context) {
 	files, err := readDirFn(d.logDir)
 	if err != nil {
@@ -93,6 +103,15 @@ func (d *LoggerAPI) List(c *gin.Context) {
 }
 
 // View tails the log file, return the last n lines.
+// @Summary tail log file
+// @Description return last N lines in log file.
+// @Tags State
+// @Accept json
+// @Produce plain
+// @Success 200 {string} string
+// @Failure 404 {string} string "not found"
+// @Failure 500 {string} string "internal error"
+// @Router /log/view [get]
 func (d *LoggerAPI) View(c *gin.Context) {
 	var param struct {
 		FileName string `form:"file" binding:"required"`

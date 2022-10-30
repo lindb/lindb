@@ -104,6 +104,7 @@ func (s *server) init() {
 	}
 
 	if config.Doc {
+		// swagger-ui: http://localhost:port/swagger/index.html
 		ip, _ := hostutil.GetHostIP()
 		s.gin.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler,
 			ginSwagger.URL(fmt.Sprintf("http://%s:%d/swagger/doc.json", ip, s.cfg.Port)),

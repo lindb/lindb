@@ -88,10 +88,8 @@ func (e *ExecuteAPI) Register(route gin.IRoutes) {
 // 2. cluster metadata/state query statement;
 // 3. database/storage management statement;
 //
-// @BasePath /api/v1
 // @Summary execute lin query language
-// @Schemes
-// @Description execute lin query language with rate limit, based on execution statement returns different response.
+// @Description Execute lin query language with rate limit, then return different response based on execution statement.
 // @Description 1. metric data/metadata query statement;
 // @Description 2. cluster metadata/state query statement;
 // @Description 3. database/storage management statement;
@@ -104,7 +102,9 @@ func (e *ExecuteAPI) Register(route gin.IRoutes) {
 // @Failure 404 {string} string "not found"
 // @Failure 500 {string} string "can't parse lin query language"
 // @Failure 500 {string} string "internal error"
+// @Router /exec [get]
 // @Router /exec [put]
+// @Router /exec [post]
 func (e *ExecuteAPI) Execute(c *gin.Context) {
 	if err := e.deps.QueryLimiter.Do(func() error {
 		return e.execute(c)
