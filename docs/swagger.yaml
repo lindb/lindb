@@ -1,29 +1,5 @@
 basePath: /api/v1
 definitions:
-  models.Database:
-    properties:
-      desc:
-        type: string
-      name:
-        description: database's name
-        type: string
-      numOfShard:
-        description: num. of shard
-        type: integer
-      option:
-        $ref: '#/definitions/option.DatabaseOption'
-        description: time series database option
-        type: object
-      replicaFactor:
-        description: replica refactor
-        type: integer
-      storage:
-        description: storage cluster's name
-        type: string
-    required:
-    - name
-    - storage
-    type: object
   models.ExecuteParam:
     properties:
       db:
@@ -33,30 +9,90 @@ definitions:
     required:
     - sql
     type: object
+  models.LeafNodeStats:
+    properties:
+      end:
+        type: integer
+      netPayload:
+        type: integer
+      stages:
+        items:
+          $ref: '#/definitions/models.StageStats'
+        type: array
+      start:
+        type: integer
+      totalCost:
+        type: integer
+    type: object
   models.Metadata:
     properties:
       type:
         type: string
-      values:
-        type: object
+      values: {}
+    type: object
+  models.OperatorStats:
+    properties:
+      cost:
+        type: integer
+      end:
+        type: integer
+      errMsg:
+        type: string
+      identifier:
+        type: string
+      start:
+        type: integer
+      stats: {}
+    type: object
+  models.ProxyParam:
+    properties:
+      path:
+        type: string
+      target:
+        type: string
+    required:
+    - path
+    - target
     type: object
   models.QueryStats:
     properties:
       brokerNodes:
+        additionalProperties:
+          $ref: '#/definitions/models.QueryStats'
         type: object
+      end:
+        type: integer
       expressCost:
         type: integer
+      expressEnd:
+        type: integer
+      expressStart:
+        type: integer
+      leafNodes:
+        additionalProperties:
+          $ref: '#/definitions/models.LeafNodeStats'
+        type: object
       netPayload:
         type: integer
       planCost:
         type: integer
-      storageNodes:
-        type: object
+      planEnd:
+        type: integer
+      planStart:
+        type: integer
+      root:
+        type: string
+      start:
+        type: integer
       totalCost:
         description: total query cost
         type: integer
       waitCost:
         description: wait intermediate or leaf response duration
+        type: integer
+      waitEnd:
+        type: integer
+      waitStart:
         type: integer
     type: object
   models.ResultSet:
@@ -83,103 +119,78 @@ definitions:
         type: integer
       stats:
         $ref: '#/definitions/models.QueryStats'
-        type: object
     type: object
   models.Series:
     properties:
       fields:
+        additionalProperties:
+          additionalProperties:
+            type: number
+          type: object
         type: object
       tags:
+        additionalProperties:
+          type: string
         type: object
     type: object
-  models.StorageState:
+  models.StageStats:
     properties:
-      liveNodes:
-        type: object
-      name:
-        description: ref Namespace
-        type: string
-      shardAssignments:
-        description: TODO remove??
-        type: object
-      shardStates:
-        description: database's name => shard state
-        type: object
-    type: object
-  option.DatabaseOption:
-    properties:
-      ahead:
-        type: integer
-      autoCreateNS:
-        description: auto create namespace
+      async:
         type: boolean
-      behind:
-        description: allowed timestamp write behind
+      children:
+        items:
+          $ref: '#/definitions/models.StageStats'
+        type: array
+      cost:
+        type: integer
+      end:
+        type: integer
+      errMsg:
         type: string
-      data:
-        $ref: '#/definitions/option.FlusherOption'
-        description: data flusher data
-        type: object
-      index:
-        $ref: '#/definitions/option.FlusherOption'
-        description: index flusher option
-        type: object
-      intervals:
-        $ref: '#/definitions/option.Intervals'
-        description: |-
-          write interval(the number of second) => TTL
-          rollup intervals(like seconds->minute->hour->day)
-        type: object
+      identifier:
+        type: string
+      operators:
+        items:
+          $ref: '#/definitions/models.OperatorStats'
+        type: array
+      start:
+        type: integer
+      state:
+        type: string
     type: object
-  option.FlusherOption:
-    properties:
-      sizeThreshold:
-        description: size level flush threshold, unit(MB)
-        type: integer
-      timeThreshold:
-        description: time level flush threshold
-        type: integer
-    type: object
-  option.Interval:
-    properties:
-      interval:
-        type: integer
-      retention:
-        type: integer
-    required:
-    - interval
-    - retention
-    type: object
-  option.Intervals:
-    items:
-      properties:
-        interval:
-          type: integer
-        retention:
-          type: integer
-      required:
-      - interval
-      - retention
-      type: object
-    type: array
-host: '{{.Host}}'
+host: http://localhost:9000
 info:
   contact:
     name: API Support
     url: https://lindb.io
-  description: '{{.Description}}'
+  description: LinDB Open API
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
   title: LinDB Open API
-  version: "2.0"
+  version: "1.0"
 paths:
+  /config:
+    get:
+      consumes:
+      - application/json
+      description: return current node's configuration.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+      summary: current node's configuration
+      tags:
+      - State
   /exec:
-    put:
+    get:
       consumes:
       - application/json
       description: |-
-        execute lin query language with rate limit, based on execution statement returns different response.
+        Execute lin query language with rate limit, then return different response based on execution statement.
         1. metric data/metadata query statement;
         2. cluster metadata/state query statement;
         3. database/storage management statement;
@@ -189,7 +200,6 @@ paths:
         name: param
         schema:
           $ref: '#/definitions/models.ExecuteParam'
-          type: object
       produces:
       - application/json
       responses:
@@ -197,7 +207,6 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/models.Metadata'
-            type: object
         "404":
           description: not found
           schema:
@@ -209,31 +218,27 @@ paths:
       summary: execute lin query language
       tags:
       - LinQL
-  /state/machine/explore:
-    get:
+    post:
       consumes:
       - application/json
       description: |-
-        explores the state from state machine of current node.
-        1. Broker State Machine;
-        2. Master State Machine;
-        3. Storage State Machine;
+        Execute lin query language with rate limit, then return different response based on execution statement.
+        1. metric data/metadata query statement;
+        2. cluster metadata/state query statement;
+        3. database/storage management statement;
       parameters:
       - description: param data
         in: body
         name: param
         schema:
-          $ref: '#/definitions/Param'
-          type: object
+          $ref: '#/definitions/models.ExecuteParam'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/models.StorageState'
-            type: array
+            $ref: '#/definitions/models.Metadata'
         "404":
           description: not found
           schema:
@@ -242,10 +247,157 @@ paths:
           description: internal error
           schema:
             type: string
-      summary: explore the state from state machine.
+      summary: execute lin query language
       tags:
-      - Internal
+      - LinQL
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Execute lin query language with rate limit, then return different response based on execution statement.
+        1. metric data/metadata query statement;
+        2. cluster metadata/state query statement;
+        3. database/storage management statement;
+      parameters:
+      - description: param data
+        in: body
+        name: param
+        schema:
+          $ref: '#/definitions/models.ExecuteParam'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Metadata'
+        "404":
+          description: not found
+          schema:
+            type: string
+        "500":
+          description: internal error
+          schema:
+            type: string
+      summary: execute lin query language
+      tags:
+      - LinQL
+  /log/list:
+    get:
+      consumes:
+      - application/json
+      description: return all log files in log dir.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+        "404":
+          description: not found
+          schema:
+            type: string
+        "500":
+          description: internal error
+          schema:
+            type: string
+      summary: list log files
+      tags:
+      - State
+  /log/view:
+    get:
+      consumes:
+      - application/json
+      description: return last N lines in log file.
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "404":
+          description: not found
+          schema:
+            type: string
+        "500":
+          description: internal error
+          schema:
+            type: string
+      summary: tail log file
+      tags:
+      - State
+  /proxy:
+    get:
+      consumes:
+      - application/json
+      description: Forward request to target server by given target ip and path.
+      parameters:
+      - description: param data
+        in: body
+        name: param
+        schema:
+          $ref: '#/definitions/models.ProxyParam'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+        "404":
+          description: not found
+          schema:
+            type: string
+        "500":
+          description: internal error
+          schema:
+            type: string
+      summary: reverse proxy
+      tags:
+      - State
   /write:
+    post:
+      consumes:
+      - application/flatbuffer
+      - application/protobuf
+      - application/influx
+      description: |-
+        receive metric data, then parse the data based on content type(flat buffer/proto buffer/influx).
+        write data via database channel, support content-type as below:
+        1. application/flatbuffer
+        2. application/protobuf
+        3. application/influx
+      parameters:
+      - description: database name
+        in: query
+        name: db
+        required: true
+        type: string
+      - description: 'namespace, default value: default-ns'
+        in: query
+        name: ns
+        type: string
+      - description: metric data
+        in: body
+        name: string
+        schema:
+          type: string
+      produces:
+      - text/plain
+      responses:
+        "204":
+          description: No Content
+          schema:
+            type: string
+        "500":
+          description: internal error
+          schema:
+            type: string
+      summary: write metric data
+      tags:
+      - Write
     put:
       consumes:
       - application/flatbuffer
@@ -271,8 +423,7 @@ paths:
         in: body
         name: string
         schema:
-          $ref: '#/definitions/string'
-          type: object
+          type: string
       produces:
       - text/plain
       responses:

@@ -43,7 +43,7 @@ func newBrokerCmd() *cobra.Command {
 	runBrokerCmd.PersistentFlags().StringVar(&cfg, "config", "",
 		fmt.Sprintf("broker config file path, default is %s", defaultBrokerCfgFile))
 	runBrokerCmd.PersistentFlags().BoolVar(&doc, "doc", false,
-		"enable swagger api doc")
+		"enable swagger api doc(swagger ui:http://ip:port/swagger/index.html)")
 	runBrokerCmd.PersistentFlags().BoolVar(&pprof, "pprof", false,
 		"profiling Go programs with pprof")
 	brokerCmd.AddCommand(

@@ -23,6 +23,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/lindb/lindb/models"
 	httppkg "github.com/lindb/lindb/pkg/http"
 )
 
@@ -45,11 +46,20 @@ func (p *ReverseProxy) Register(route gin.IRoutes) {
 }
 
 // Proxy forwards to target server api by given target ip and path.
+//
+// @Summary reverse proxy
+// @Description Forward request to target server by given target ip and path.
+// @Tags State
+// @Accept json
+// @Param param body models.ProxyParam ture "param data"
+// @Produce json
+// @Success 200 {object} object
+// @Failure 404 {string} string "not found"
+// @Failure 500 {string} string "validate failure"
+// @Failure 500 {string} string "internal error"
+// @Router /proxy [get]
 func (p *ReverseProxy) Proxy(c *gin.Context) {
-	var param struct {
-		Target string `form:"target" binding:"required"`
-		Path   string `form:"path" binding:"required"`
-	}
+	var param models.ProxyParam
 	err := c.ShouldBindQuery(&param)
 	if err != nil {
 		httppkg.Error(c, err)

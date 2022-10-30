@@ -4,7 +4,7 @@
     ],
     "swagger": "2.0",
     "info": {
-        "description": "{{.Description}}",
+        "description": "LinDB Open API",
         "title": "LinDB Open API",
         "contact": {
             "name": "API Support",
@@ -14,14 +14,37 @@
             "name": "Apache 2.0",
             "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
         },
-        "version": "2.0"
+        "version": "1.0"
     },
-    "host": "{{.Host}}",
+    "host": "http://localhost:9000",
     "basePath": "/api/v1",
     "paths": {
+        "/config": {
+            "get": {
+                "description": "return current node's configuration.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "State"
+                ],
+                "summary": "current node's configuration",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                }
+            }
+        },
         "/exec": {
-            "put": {
-                "description": "execute lin query language with rate limit, based on execution statement returns different response.\n1. metric data/metadata query statement;\n2. cluster metadata/state query statement;\n3. database/storage management statement;",
+            "get": {
+                "description": "Execute lin query language with rate limit, then return different response based on execution statement.\n1. metric data/metadata query statement;\n2. cluster metadata/state query statement;\n3. database/storage management statement;",
                 "consumes": [
                     "application/json"
                 ],
@@ -38,7 +61,6 @@
                         "name": "param",
                         "in": "body",
                         "schema": {
-                            "type": "object",
                             "$ref": "#/definitions/models.ExecuteParam"
                         }
                     }
@@ -47,7 +69,92 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
+                            "$ref": "#/definitions/models.Metadata"
+                        }
+                    },
+                    "404": {
+                        "description": "not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "internal error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Execute lin query language with rate limit, then return different response based on execution statement.\n1. metric data/metadata query statement;\n2. cluster metadata/state query statement;\n3. database/storage management statement;",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "LinQL"
+                ],
+                "summary": "execute lin query language",
+                "parameters": [
+                    {
+                        "description": "param data",
+                        "name": "param",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/models.ExecuteParam"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Metadata"
+                        }
+                    },
+                    "404": {
+                        "description": "not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "internal error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Execute lin query language with rate limit, then return different response based on execution statement.\n1. metric data/metadata query statement;\n2. cluster metadata/state query statement;\n3. database/storage management statement;",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "LinQL"
+                ],
+                "summary": "execute lin query language",
+                "parameters": [
+                    {
+                        "description": "param data",
+                        "name": "param",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/models.ExecuteParam"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
                             "$ref": "#/definitions/models.Metadata"
                         }
                     },
@@ -66,9 +173,9 @@
                 }
             }
         },
-        "/state/machine/explore": {
+        "/log/list": {
             "get": {
-                "description": "explores the state from state machine of current node.\n1. Broker State Machine;\n2. Master State Machine;\n3. Storage State Machine;",
+                "description": "return all log files in log dir.",
                 "consumes": [
                     "application/json"
                 ],
@@ -76,17 +183,86 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Internal"
+                    "State"
                 ],
-                "summary": "explore the state from state machine.",
+                "summary": "list log files",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "404": {
+                        "description": "not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "internal error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/log/view": {
+            "get": {
+                "description": "return last N lines in log file.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "State"
+                ],
+                "summary": "tail log file",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "internal error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/proxy": {
+            "get": {
+                "description": "Forward request to target server by given target ip and path.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "State"
+                ],
+                "summary": "reverse proxy",
                 "parameters": [
                     {
                         "description": "param data",
                         "name": "param",
                         "in": "body",
                         "schema": {
-                            "type": "object",
-                            "$ref": "#/definitions/Param"
+                            "$ref": "#/definitions/models.ProxyParam"
                         }
                     }
                 ],
@@ -94,10 +270,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/models.StorageState"
-                            }
+                            "type": "object"
                         }
                     },
                     "404": {
@@ -149,8 +322,59 @@
                         "name": "string",
                         "in": "body",
                         "schema": {
-                            "type": "object",
-                            "$ref": "#/definitions/string"
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "internal error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "receive metric data, then parse the data based on content type(flat buffer/proto buffer/influx).\nwrite data via database channel, support content-type as below:\n1. application/flatbuffer\n2. application/protobuf\n3. application/influx",
+                "consumes": [
+                    "application/flatbuffer",
+                    "application/protobuf",
+                    "application/influx"
+                ],
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "Write"
+                ],
+                "summary": "write metric data",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "database name",
+                        "name": "db",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "namespace, default value: default-ns",
+                        "name": "ns",
+                        "in": "query"
+                    },
+                    {
+                        "description": "metric data",
+                        "name": "string",
+                        "in": "body",
+                        "schema": {
+                            "type": "string"
                         }
                     }
                 ],
@@ -172,39 +396,6 @@
         }
     },
     "definitions": {
-        "models.Database": {
-            "type": "object",
-            "required": [
-                "name",
-                "storage"
-            ],
-            "properties": {
-                "desc": {
-                    "type": "string"
-                },
-                "name": {
-                    "description": "database's name",
-                    "type": "string"
-                },
-                "numOfShard": {
-                    "description": "num. of shard",
-                    "type": "integer"
-                },
-                "option": {
-                    "description": "time series database option",
-                    "type": "object",
-                    "$ref": "#/definitions/option.DatabaseOption"
-                },
-                "replicaFactor": {
-                    "description": "replica refactor",
-                    "type": "integer"
-                },
-                "storage": {
-                    "description": "storage cluster's name",
-                    "type": "string"
-                }
-            }
-        },
         "models.ExecuteParam": {
             "type": "object",
             "required": [
@@ -219,14 +410,71 @@
                 }
             }
         },
+        "models.LeafNodeStats": {
+            "type": "object",
+            "properties": {
+                "end": {
+                    "type": "integer"
+                },
+                "netPayload": {
+                    "type": "integer"
+                },
+                "stages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.StageStats"
+                    }
+                },
+                "start": {
+                    "type": "integer"
+                },
+                "totalCost": {
+                    "type": "integer"
+                }
+            }
+        },
         "models.Metadata": {
             "type": "object",
             "properties": {
                 "type": {
                     "type": "string"
                 },
-                "values": {
-                    "type": "object"
+                "values": {}
+            }
+        },
+        "models.OperatorStats": {
+            "type": "object",
+            "properties": {
+                "cost": {
+                    "type": "integer"
+                },
+                "end": {
+                    "type": "integer"
+                },
+                "errMsg": {
+                    "type": "string"
+                },
+                "identifier": {
+                    "type": "string"
+                },
+                "start": {
+                    "type": "integer"
+                },
+                "stats": {}
+            }
+        },
+        "models.ProxyParam": {
+            "type": "object",
+            "required": [
+                "path",
+                "target"
+            ],
+            "properties": {
+                "path": {
+                    "type": "string"
+                },
+                "target": {
+                    "type": "string"
                 }
             }
         },
@@ -234,10 +482,28 @@
             "type": "object",
             "properties": {
                 "brokerNodes": {
-                    "type": "object"
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/models.QueryStats"
+                    }
+                },
+                "end": {
+                    "type": "integer"
                 },
                 "expressCost": {
                     "type": "integer"
+                },
+                "expressEnd": {
+                    "type": "integer"
+                },
+                "expressStart": {
+                    "type": "integer"
+                },
+                "leafNodes": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/models.LeafNodeStats"
+                    }
                 },
                 "netPayload": {
                     "type": "integer"
@@ -245,8 +511,17 @@
                 "planCost": {
                     "type": "integer"
                 },
-                "storageNodes": {
-                    "type": "object"
+                "planEnd": {
+                    "type": "integer"
+                },
+                "planStart": {
+                    "type": "integer"
+                },
+                "root": {
+                    "type": "string"
+                },
+                "start": {
+                    "type": "integer"
                 },
                 "totalCost": {
                     "description": "total query cost",
@@ -254,6 +529,12 @@
                 },
                 "waitCost": {
                     "description": "wait intermediate or leaf response duration",
+                    "type": "integer"
+                },
+                "waitEnd": {
+                    "type": "integer"
+                },
+                "waitStart": {
                     "type": "integer"
                 }
             }
@@ -292,7 +573,6 @@
                     "type": "integer"
                 },
                 "stats": {
-                    "type": "object",
                     "$ref": "#/definitions/models.QueryStats"
                 }
             }
@@ -301,107 +581,57 @@
             "type": "object",
             "properties": {
                 "fields": {
-                    "type": "object"
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "number"
+                        }
+                    }
                 },
                 "tags": {
-                    "type": "object"
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 }
             }
         },
-        "models.StorageState": {
+        "models.StageStats": {
             "type": "object",
             "properties": {
-                "liveNodes": {
-                    "type": "object"
-                },
-                "name": {
-                    "description": "ref Namespace",
-                    "type": "string"
-                },
-                "shardAssignments": {
-                    "description": "TODO remove??",
-                    "type": "object"
-                },
-                "shardStates": {
-                    "description": "database's name =\u003e shard state",
-                    "type": "object"
-                }
-            }
-        },
-        "option.DatabaseOption": {
-            "type": "object",
-            "properties": {
-                "ahead": {
-                    "type": "integer"
-                },
-                "autoCreateNS": {
-                    "description": "auto create namespace",
+                "async": {
                     "type": "boolean"
                 },
-                "behind": {
-                    "description": "allowed timestamp write behind",
+                "children": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.StageStats"
+                    }
+                },
+                "cost": {
+                    "type": "integer"
+                },
+                "end": {
+                    "type": "integer"
+                },
+                "errMsg": {
                     "type": "string"
                 },
-                "data": {
-                    "description": "data flusher data",
-                    "type": "object",
-                    "$ref": "#/definitions/option.FlusherOption"
+                "identifier": {
+                    "type": "string"
                 },
-                "index": {
-                    "description": "index flusher option",
-                    "type": "object",
-                    "$ref": "#/definitions/option.FlusherOption"
-                },
-                "intervals": {
-                    "description": "write interval(the number of second) =\u003e TTL\nrollup intervals(like seconds-\u003eminute-\u003ehour-\u003eday)",
-                    "type": "object",
-                    "$ref": "#/definitions/option.Intervals"
-                }
-            }
-        },
-        "option.FlusherOption": {
-            "type": "object",
-            "properties": {
-                "sizeThreshold": {
-                    "description": "size level flush threshold, unit(MB)",
-                    "type": "integer"
-                },
-                "timeThreshold": {
-                    "description": "time level flush threshold",
-                    "type": "integer"
-                }
-            }
-        },
-        "option.Interval": {
-            "type": "object",
-            "required": [
-                "interval",
-                "retention"
-            ],
-            "properties": {
-                "interval": {
-                    "type": "integer"
-                },
-                "retention": {
-                    "type": "integer"
-                }
-            }
-        },
-        "option.Intervals": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "required": [
-                    "interval",
-                    "retention"
-                ],
-                "properties": {
-                    "interval": {
-                        "type": "integer"
-                    },
-                    "retention": {
-                        "type": "integer"
+                "operators": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.OperatorStats"
                     }
+                },
+                "start": {
+                    "type": "integer"
+                },
+                "state": {
+                    "type": "string"
                 }
             }
         }

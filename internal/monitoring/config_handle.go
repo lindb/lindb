@@ -49,6 +49,14 @@ func (h *ConfigAPI) Register(route gin.IRoutes) {
 }
 
 // Configuration returns current node's configuration.
+
+// @Summary current node's configuration
+// @Description return current node's configuration.
+// @Tags State
+// @Accept json
+// @Produce json
+// @Success 200 {object} object
+// @Router /config [get]
 func (h *ConfigAPI) Configuration(c *gin.Context) {
 	http.OK(c, map[string]interface{}{"node": h.node, "config": h.cfg.TOML()})
 }

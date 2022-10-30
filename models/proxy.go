@@ -15,18 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package http
+package models
 
-// @title LinDB Open API
-// @version 1.0
-// @description LinDB Open API
-
-// @contact.name API Support
-// @contact.url https://lindb.io
-
-// @license.name Apache 2.0
-// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
-
-// @Host http://localhost:9000
-// @BasePath /api/v1
-// @schemes http
+// ProxyParam represents proxy request params.
+type ProxyParam struct {
+	Target string `form:"target" binding:"required"`
+	Path   string `form:"path" binding:"required"`
+}

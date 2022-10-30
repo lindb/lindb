@@ -99,6 +99,7 @@ func (w *Write) Register(route gin.IRoutes) {
 // @Success 204 {string} string ""
 // @Failure 500 {string} string "internal error"
 // @Router /write [put]
+// @Router /write [post]
 func (w *Write) Write(c *gin.Context) {
 	if err := w.deps.IngestLimiter.Do(func() error {
 		return w.write(c)
