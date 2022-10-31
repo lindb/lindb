@@ -45,6 +45,7 @@ type TaskClientFactory interface {
 	SetTaskReceiver(taskReceiver TaskReceiver)
 }
 
+// taskClient represents task service client state context.
 type taskClient struct {
 	cli      protoCommonV1.TaskService_HandleClient
 	targetID string
@@ -124,11 +125,13 @@ func (f *taskClientFactory) CloseTaskClient(targetNodeID string) (closed bool, e
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
-	if client, ok := f.taskStreams[targetNodeID]; ok && client.cli != nil {
+	if client, ok := f.taskStreams[targetNodeID]; ok {
 		client.running.Store(false)
-		err = client.cli.CloseSend()
+		if client.cli != nil {
+			err = client.cli.CloseSend()
+		}
 		delete(f.taskStreams, targetNodeID)
-		return closed, err
+		return true, err
 	}
 	return false, nil
 }

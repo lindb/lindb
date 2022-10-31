@@ -115,7 +115,7 @@ func ParseNode(indicator string) (Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	// TODO change base node info???
+	//TODO: change base node info???
 	return &StatelessNode{
 		HostIP:   indicator[:index],
 		GRPCPort: uint16(port),

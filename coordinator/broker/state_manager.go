@@ -248,7 +248,10 @@ func (m *stateManager) onNodeFailure(key string) {
 		logger.String("nodeID", nodeID),
 		logger.String("key", key))
 
-	m.connectionManager.CloseConnection(nodeID)
+	node, ok := m.nodes[nodeID]
+	if ok {
+		m.connectionManager.CloseConnection(&node)
+	}
 
 	delete(m.nodes, nodeID)
 }
@@ -282,7 +285,7 @@ func (m *stateManager) onStorageStateChange(key string, data []byte) error {
 		for _, node := range oldState.LiveNodes {
 			target := node.Indicator()
 			if _, exist := liveNodesSet[target]; !exist {
-				m.connectionManager.CloseConnection(target)
+				m.connectionManager.CloseConnection(&node)
 			}
 		}
 	} else {
@@ -313,7 +316,7 @@ func (m *stateManager) onStorageDelete(key string) {
 	if state, ok := m.storages[name]; ok {
 		// close all connection [current broker node=>storage live nodes]
 		for _, node := range state.LiveNodes {
-			m.connectionManager.CloseConnection(node.Indicator())
+			m.connectionManager.CloseConnection(&node)
 		}
 
 		delete(m.storages, name)
