@@ -108,20 +108,19 @@ func TestStateManager_Node(t *testing.T) {
 	mgr.EmitEvent(&discovery.Event{
 		Type:  discovery.NodeStartup,
 		Key:   "/lives/1.1.1.1:9000",
-		Value: []byte(`{"HostIp":"1.1.1.1"}`),
+		Value: []byte(`{"HostIp":"1.1.1.1","GRPCPort":9000}`),
 	})
 	time.Sleep(time.Second) // wait
 	nodes := mgr.GetLiveNodes()
-	assert.Equal(t, []models.StatelessNode{{HostIP: "1.1.1.1"}}, nodes)
+	assert.Equal(t, []models.StatelessNode{{HostIP: "1.1.1.1", GRPCPort: 9000}}, nodes)
 
 	// case 4: remove not exist node
-	cm.EXPECT().CloseConnection("2.2.2.2:9000")
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.NodeFailure,
 		Key:  "/lives/2.2.2.2:9000",
 	})
 	// case 5: remove node
-	cm.EXPECT().CloseConnection("1.1.1.1:9000")
+	cm.EXPECT().CloseConnection(&models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 9000})
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.NodeFailure,
 		Key:  "/lives/1.1.1.1:9000",
@@ -170,7 +169,9 @@ func TestStateManager_Storage(t *testing.T) {
 	})
 	// case 4: old storage state, new node online, old node offline
 	connectionMgr.EXPECT().CreateConnection(gomock.Any()).MaxTimes(2)
-	connectionMgr.EXPECT().CloseConnection("2.2.2.2:9000")
+	connectionMgr.EXPECT().CloseConnection(&models.StatefulNode{
+		StatelessNode: models.StatelessNode{HostIP: "2.2.2.2", GRPCPort: 9000},
+	})
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.StorageStateChanged,
 		Key:  "/lin/storage/test",
@@ -189,8 +190,12 @@ func TestStateManager_Storage(t *testing.T) {
 	assert.NotNil(t, state)
 	assert.Len(t, mgr.GetStorageList(), 1)
 	// case 5: remove storage
-	connectionMgr.EXPECT().CloseConnection("1.1.1.1:9000")
-	connectionMgr.EXPECT().CloseConnection("3.3.3.3:9000")
+	connectionMgr.EXPECT().CloseConnection(&models.StatefulNode{
+		StatelessNode: models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 9000},
+	})
+	connectionMgr.EXPECT().CloseConnection(&models.StatefulNode{
+		StatelessNode: models.StatelessNode{HostIP: "3.3.3.3", GRPCPort: 9000},
+	})
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.StorageStateDeletion,
 		Key:  "/lin/storage/test",

@@ -166,6 +166,9 @@ func (r *runtime) Run() error {
 		Version:    config.Version,
 	}
 
+	r.log.Info("starting broker", logger.String("host", hostName), logger.String("ip", ip),
+		logger.Uint16("http", r.node.HTTPPort), logger.Uint16("grpc", r.node.GRPCPort))
+
 	// start state repository
 	err = r.startStateRepo()
 	if err != nil {

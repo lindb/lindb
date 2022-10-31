@@ -27,13 +27,17 @@ import (
 
 //go:generate mockgen -source ./connection_manager.go -destination=./connection_manager_mock.go -package=rpc
 
+// ConnectionManager represents grpc connection manager.
 type ConnectionManager interface {
 	io.Closer
 
+	// CreateConnection creates a grpc connection.
 	CreateConnection(target models.Node)
-	CloseConnection(target string)
+	// CloseConnection closes a grpc connection.
+	CloseConnection(target models.Node)
 }
 
+// connectionManager implements ConnectionManager interface.
 type connectionManager struct {
 	connections   map[string]struct{}
 	taskClientFct TaskClientFactory
@@ -43,6 +47,7 @@ type connectionManager struct {
 	logger *logger.Logger
 }
 
+// NewConnectionManager creates a ConnectionManager instance.
 func NewConnectionManager(taskClientFct TaskClientFactory) ConnectionManager {
 	return &connectionManager{
 		taskClientFct: taskClientFct,
@@ -51,31 +56,41 @@ func NewConnectionManager(taskClientFct TaskClientFactory) ConnectionManager {
 	}
 }
 
+// CreateConnection creates a grpc connection, if success cache the connection.
 func (m *connectionManager) CreateConnection(target models.Node) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
+	nodeID := target.Indicator()
+	if _, ok := m.connections[nodeID]; ok {
+		// connection exist, return it
+		return
+	}
+
 	if err := m.taskClientFct.CreateTaskClient(target); err == nil {
 		m.logger.Info("established connection successfully",
-			logger.String("target", target.Indicator()),
+			logger.String("target", nodeID),
 		)
 		m.connections[target.Indicator()] = struct{}{}
 	} else {
 		m.logger.Error("failed to establish connection",
-			logger.String("target", target.Indicator()),
+			logger.String("target", nodeID),
 			logger.Error(err),
 		)
+		// if connection failure, remove target from cache
 		delete(m.connections, target.Indicator())
 	}
 }
 
-func (m *connectionManager) CloseConnection(target string) {
+// CloseConnection closes a grpc connection by given target server.
+func (m *connectionManager) CloseConnection(target models.Node) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	m.closeConnection(target)
+	m.closeConnection(target.Indicator())
 }
 
+// Close closes connection manager, clean all grpc connections.
 func (m *connectionManager) Close() error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
@@ -86,6 +101,7 @@ func (m *connectionManager) Close() error {
 	return nil
 }
 
+// closeConnection closes a grpc connection, then clear the cache for target server.
 func (m *connectionManager) closeConnection(target string) {
 	closed, err := m.taskClientFct.CloseTaskClient(target)
 	delete(m.connections, target)

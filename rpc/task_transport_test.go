@@ -111,7 +111,7 @@ func TestTaskClientFactory(t *testing.T) {
 
 	closed, err := fct.CloseTaskClient((&target).Indicator())
 	assert.NotNil(t, err)
-	assert.False(t, closed)
+	assert.True(t, closed)
 
 	closed, err = fct.CloseTaskClient((&models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 1000}).Indicator())
 	assert.Nil(t, err)

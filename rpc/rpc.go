@@ -37,6 +37,12 @@ import (
 
 //go:generate mockgen -source ./rpc.go -destination=./rpc_mock.go -package=rpc
 
+// just for testing
+var (
+	grpcDialFn             = grpc.Dial
+	newTaskServiceClientFn = protoCommonV1.NewTaskServiceClient
+)
+
 var (
 	brokerClientConnFct  ClientConnFactory
 	storageClientConnFct ClientConnFactory
@@ -100,7 +106,7 @@ func (fct *clientConnFactory) GetClientConn(target models.Node) (*grpc.ClientCon
 	if conn0, ok := fct.connMap[indicator]; ok {
 		return conn0, nil
 	}
-	conn, err := grpc.Dial(
+	conn, err := grpcDialFn(
 		target.Indicator(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStreamInterceptor(fct.clientTracker.StreamClientInterceptor()),
@@ -181,7 +187,7 @@ func (w *clientStreamFactory) CreateTaskClient(target models.Node) (protoCommonV
 	// https://pkg.go.dev/google.golang.org/grpc#ClientConn.NewStream
 	// context is the lifetime of stream
 	ctx := CreateOutgoingContextWithPairs(w.ctx, constants.RPCMetaKeyLogicNode, node.Indicator())
-	cli, err := protoCommonV1.NewTaskServiceClient(conn).Handle(ctx)
+	cli, err := newTaskServiceClientFn(conn).Handle(ctx)
 	return cli, err
 }
 
