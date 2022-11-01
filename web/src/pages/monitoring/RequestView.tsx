@@ -19,7 +19,7 @@ under the License.
 import React from "react";
 import { Route, SQL } from "@src/constants";
 import { ExecService } from "@src/services";
-import { Request } from "@src/models";
+import { Request, Unit } from "@src/models";
 import {
   Card,
   Table,
@@ -32,6 +32,7 @@ import { IconRefresh, IconPlay } from "@douyinfe/semi-icons";
 import moment from "moment";
 import { useQuery } from "@tanstack/react-query";
 import { StatusTip } from "@src/components";
+import { FormatKit } from "@src/utils";
 
 const RequestView: React.FC = () => {
   const {
@@ -56,7 +57,17 @@ const RequestView: React.FC = () => {
       },
     },
     {
-      title: "LQL",
+      title: "Duration",
+      dataIndex: "duration",
+      render: (_text: any, record: Request, _index: any) => {
+        return FormatKit.format(
+          new Date().getTime() - record.start / 1000000,
+          Unit.Milliseconds
+        );
+      },
+    },
+    {
+      title: "LinQL",
       dataIndex: "sql",
       key: "lql",
     },

@@ -307,7 +307,7 @@ const ReplicaView: React.FC<{
   };
 
   const renderChannel = (shard: any, shardIdx: any) => {
-    return (shard.channelList || []).map((channel: any, idx: any) => {
+    return (shard.channels || []).map((channel: any, idx: any) => {
       return (
         <div
           key={idx}
@@ -442,7 +442,7 @@ const ReplicaView: React.FC<{
                     >
                       <Button
                         style={{
-                          minWidth: 50,
+                          minWidth: 80,
                           margin: "0px 4px 4px 0px",
                           color: "var(--semi-color-text-0)",
                           backgroundColor: ColorKit.getShardColor(

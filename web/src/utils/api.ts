@@ -19,6 +19,8 @@ under the License.
 import axios from "axios";
 import qs from "qs";
 import * as _ from "lodash-es";
+import JSONbig from "json-bigint";
+
 // env control
 switch (import.meta.env.MODE) {
   case "development":
@@ -31,6 +33,19 @@ switch (import.meta.env.MODE) {
 }
 axios.defaults.timeout = 60000; // set timeout
 axios.defaults.headers.common["Content-Type"] = "application/json";
+axios.defaults.transformResponse = [
+  (data) => {
+    if (typeof data === "string") {
+      try {
+        data = JSONbig.parse(data);
+        return data;
+      } catch (e) {
+        /* Ignore */
+      } // Added this Ignore as it's the same in the Axios
+    }
+    return data;
+  },
+];
 
 async function GET<T>(
   url: string,

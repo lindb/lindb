@@ -76,7 +76,7 @@ const ExploreForm: React.FC = () => {
           onChange={(val) =>
             URLStore.changeURLParams({ params: { show: `${val}` } })
           }
-          checked={JSON.parse(_.get(URLStore.getParams(), "show", "false"))}
+          checked={_.get(URLStore.getParams(), "show", false)}
         />
         Show LQL
       </Space>
@@ -185,7 +185,8 @@ const SQLView: React.FC<{ showLQL: boolean; db: string; sql: string }> = (
     >
       <Space align="center" className="lin-small-space">
         <Icon icon="iconterminal" />
-        <Text style={{ marginLeft: 4 }}>
+        <span style={{ marginLeft: 6, marginRight: 6 }}>LinQL:</span>
+        <Text>
           <Link target={"_blank"} to={`${Route.Search}?db=${db}&sql=${sql}`}>
             {sql}
           </Link>
@@ -200,7 +201,7 @@ const DataExplore: React.FC = () => {
   const db = _.get(params, "db", "");
 
   const sql = URLStore.bindSQL({} as QueryStatement);
-  console.log("sql.......", sql);
+  console.log("sql.......", sql, params);
   const renderContent = () => {
     const metric = _.get(params, "metric");
     if (!metric) {
@@ -215,7 +216,7 @@ const DataExplore: React.FC = () => {
         >
           <MetricMetaForm />
         </Card>
-        <SQLView showLQL={_.get(params, "show") === "true"} db={db} sql={sql} />
+        <SQLView showLQL={_.get(params, "show", false)} db={db} sql={sql} />
         <Chart
           height={400}
           type={ChartType.Line}
