@@ -338,7 +338,7 @@ const Tooltip: React.FC<{
     } else {
       setDatasets(_.get(chart, "data.datasets", []));
     }
-  }, [search, chart]);
+  }, [search, chart, visible]);
 
   useEffect(() => {
     const {
