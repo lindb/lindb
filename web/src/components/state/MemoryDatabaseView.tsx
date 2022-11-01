@@ -233,7 +233,10 @@ const MemoryDatabaseView: React.FC<{
             dataIndex: "ack",
             width: 180,
             render: (_text, record, _index) => {
-              return FormatKit.format(_.get(ack, record.nodeId, 0), Unit.Short);
+              return FormatKit.format(
+                _.get(ack, `${record.nodeId}`) || 0,
+                Unit.Short
+              );
             },
           },
         ]}

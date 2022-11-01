@@ -16,14 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import {
-  Card,
-  Form,
-  Button,
-  RadioGroup,
-  Radio,
-  Space,
-} from "@douyinfe/semi-ui";
+import { Card, Form, Button, ButtonGroup } from "@douyinfe/semi-ui";
 import { IconRefresh } from "@douyinfe/semi-icons";
 import {
   DatabaseView,
@@ -115,6 +108,20 @@ const ReplicationStatus: React.FC = observer(() => {
 
 const ReplicationView: React.FC = () => {
   const { type } = useParams(["type"]);
+
+  const buttonType = (name: string, desc: string, icon: string) => {
+    return (
+      <Button
+        theme={(type || "wal") === name ? "solid" : "light"}
+        icon={<Icon icon={icon} style={{ fontSize: 14 }} />}
+        onClick={() => {
+          URLStore.changeURLParams({ params: { type: name } });
+        }}
+      >
+        {desc}
+      </Button>
+    );
+  };
   return (
     <>
       <Card style={{ marginBottom: 12 }} bodyStyle={{ padding: 12 }}>
@@ -138,28 +145,10 @@ const ReplicationView: React.FC = () => {
             }
             clearKeys={["shard", "family"]}
           />
-          <RadioGroup
-            style={{ marginRight: 16 }}
-            defaultValue={type || "wal"}
-            buttonSize="small"
-            type="button"
-            onChange={(e) =>
-              URLStore.changeURLParams({ params: { type: e.target.value } })
-            }
-          >
-            <Radio value="wal" style={{ marginTop: 4, padding: "2px 8px" }}>
-              <Space align="center">
-                <Icon icon="iconbx-git-repo-forked" style={{ fontSize: 14 }} />
-                <div>WAL</div>
-              </Space>
-            </Radio>
-            <Radio value="memory" style={{ marginTop: 4, padding: "2px 8px" }}>
-              <Space align="center">
-                <Icon icon="icondatabase" style={{ fontSize: 14 }} />
-                <div>Memory</div>
-              </Space>
-            </Radio>
-          </RadioGroup>
+          <ButtonGroup style={{ marginRight: 16 }} key="type-select">
+            {buttonType("wal", "WAL", "iconbx-git-repo-forked")}
+            {buttonType("memory", "Memory", "icondatabase")}
+          </ButtonGroup>
           <Button
             icon={<IconRefresh />}
             onClick={() => {

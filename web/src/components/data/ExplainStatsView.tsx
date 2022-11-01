@@ -202,19 +202,19 @@ const ExplainStatsView: React.FC<{ state: ExplainResult }> = (props) => {
 
   const buildIntermediateBrokers = (total: any, brokerNodes: any) => {
     let children: any = [];
-    let IntermediateNode = {
-      label: <Text strong>Intermediate Nodes</Text>,
-      key: "Intermediate-Nodes",
-      children: children,
-    };
+    let idx = 0;
     for (let key of Object.keys(brokerNodes)) {
       const brokerNodeStats = brokerNodes[key];
       const nodeStats = {
         label: (
           <div style={style}>
             <span>
-              <Text strong link>
-                {key}
+              <Text strong>
+                Intermediate[
+                <Text strong link>
+                  {key}
+                </Text>
+                ]
               </Text>
               : [ Waiting: {renderCost(brokerNodeStats.waitCost)}, Cost:{" "}
               {renderCost(brokerNodeStats.totalCost)}, Network Payload:{" "}
@@ -224,7 +224,11 @@ const ExplainStatsView: React.FC<{ state: ExplainResult }> = (props) => {
               </Text>{" "}
               ]
             </span>
-            {timeline}
+            {timeline({
+              start: brokerNodeStats.start,
+              end: brokerNodeStats.End,
+              cost: brokerNodeStats.totalCost,
+            })}
           </div>
         ),
         icon: <IconTemplateStroked />,
@@ -232,13 +236,14 @@ const ExplainStatsView: React.FC<{ state: ExplainResult }> = (props) => {
         children: [] as any,
       };
       children.push(nodeStats);
-      if (brokerNodeStats.storageNodes) {
+      if (brokerNodeStats.leafNodes) {
         nodeStats.children.push(
-          buildLeafNodes(key, total, brokerNodeStats.storageNodes)
+          ...buildLeafNodes(`${key}-${idx}`, total, brokerNodeStats.leafNodes)
         );
       }
+      idx++;
     }
-    return IntermediateNode;
+    return children;
   };
 
   const buildStatsData = () => {
@@ -332,7 +337,7 @@ const ExplainStatsView: React.FC<{ state: ExplainResult }> = (props) => {
     };
     if (state.brokerNodes) {
       root.children.push(
-        buildIntermediateBrokers(state.totalCost, state.brokerNodes)
+        ...buildIntermediateBrokers(state.totalCost, state.brokerNodes)
       );
     }
     if (state.leafNodes) {
