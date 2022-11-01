@@ -37,23 +37,25 @@ import {
   SimpleStatusTip,
   StatusTip,
 } from "@src/components";
-import { SQL } from "@src/constants";
+import { SQL, Theme } from "@src/constants";
 import { useMetric, useParams } from "@src/hooks";
 import { URLStore } from "@src/stores";
 import * as monaco from "monaco-editor";
-import React, { MutableRefObject, useEffect, useRef } from "react";
+import React, { MutableRefObject, useContext, useEffect, useRef } from "react";
 import * as _ from "lodash-es";
 import { ExecService } from "@src/services";
 import { ChartType, Metadata, ResultSet } from "@src/models";
 import { useQuery } from "@tanstack/react-query";
 import CanvasChart from "@src/components/chart/CanvasChart";
 import { ChartKit } from "@src/utils";
+import { UIContext } from "@src/context/UIContextProvider";
 const { Text } = Typography;
 
 const SearchForm: React.FC = () => {
   const sqlEditor = useRef() as MutableRefObject<any>;
   const sqlEditorRef = useRef() as MutableRefObject<HTMLDivElement | null>;
   const { sql } = useParams(["sql"]);
+  const { theme } = useContext(UIContext);
 
   useEffect(() => {
     if (sqlEditor.current) {
@@ -92,13 +94,14 @@ const SearchForm: React.FC = () => {
         // Undocumented see https://github.com/Microsoft/vscode/issues/30795#issuecomment-410998882
         lineDecorationsWidth: 4,
         lineNumbersMinChars: 0,
-        theme: "lindb",
+        theme: theme === Theme.dark ? "lindb-dark" : "lindb",
         fontSize: 14,
         minimap: { enabled: false },
         wordWrap: "on",
         wrappingIndent: "same",
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sql]);
 
   return (

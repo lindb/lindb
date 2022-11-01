@@ -16,7 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import React, { useEffect, useRef, MutableRefObject } from "react";
+import React, { useEffect, useRef, MutableRefObject, useContext } from "react";
 import { Card, Descriptions, Space, Typography } from "@douyinfe/semi-ui";
 import * as _ from "lodash-es";
 import { useParams } from "@src/hooks";
@@ -24,6 +24,8 @@ import { ProxyService } from "@src/services";
 import * as monaco from "monaco-editor";
 import { useQuery } from "@tanstack/react-query";
 import { StatusTip } from "@src/components";
+import { UIContext } from "@src/context/UIContextProvider";
+import { Theme } from "@src/constants";
 
 const { Text } = Typography;
 /**
@@ -32,6 +34,7 @@ const { Text } = Typography;
 const ConfigurationView: React.FC = () => {
   const editorRef = useRef() as MutableRefObject<HTMLDivElement>;
   const { target } = useParams(["target"]);
+  const { theme } = useContext(UIContext);
   const {
     isLoading,
     isInitialLoading,
@@ -58,13 +61,14 @@ const ConfigurationView: React.FC = () => {
     }
     monaco.editor.create(editorRef.current, {
       language: "ini",
+      theme: theme === Theme.dark ? "vs-dark" : "vs",
       // lineNumbers: "off",
       minimap: { enabled: false },
       // lineNumbersMinChars: 2,
       readOnly: true,
       value: _.get(config, "config", "no data"),
     });
-  }, [config, isLoading, isError, editorRef]);
+  }, [config, isLoading, isError, editorRef, theme]);
 
   if (isError || isLoading || isInitialLoading || isFetching) {
     return (

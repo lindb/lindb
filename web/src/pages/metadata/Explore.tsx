@@ -39,7 +39,8 @@ import {
   Empty,
 } from "@douyinfe/semi-ui";
 import { Icon, StatusTip, StorageStatusView } from "@src/components";
-import { StateRoleName } from "@src/constants";
+import { StateRoleName, Theme } from "@src/constants";
+import { UIContext } from "@src/context/UIContextProvider";
 import { Storage } from "@src/models";
 import { ExecService } from "@src/services";
 import { useQuery } from "@tanstack/react-query";
@@ -49,6 +50,7 @@ import React, {
   MutableRefObject,
   ReactNode,
   useCallback,
+  useContext,
   useEffect,
   useRef,
   useState,
@@ -64,6 +66,7 @@ const CompareView: React.FC<{
   const diffEditorRef = useRef() as MutableRefObject<HTMLDivElement>;
   const [filter, setFilter] = useState<string>("");
   const [current, setCurrent] = useState<string>("");
+  const { theme } = useContext(UIContext);
 
   const buildOriginal = useCallback(() => {
     return monaco.editor.createModel(_.get(source, "data", "no data"), "json");
@@ -75,6 +78,7 @@ const CompareView: React.FC<{
       diffEditor.current = monaco.editor.createDiffEditor(
         diffEditorRef.current,
         {
+          theme: theme === Theme.dark ? "vs-dark" : "vs",
           readOnly: true,
         }
       );
@@ -88,7 +92,7 @@ const CompareView: React.FC<{
       modified: modifiedModel,
     });
     setCurrent(_.get(nodes, "[0].node", "-"));
-  }, [source, nodes, buildOriginal]);
+  }, [source, nodes, buildOriginal, theme]);
 
   return (
     <>
@@ -159,6 +163,8 @@ const MetadataView: React.FC<{
   const [stateMachineMetadata, setStateMachineMetadata] = useState<any[]>([]);
   const [showCompareResult, setShowCompareResult] = useState<boolean>(false);
   const [metadata, setMetadata] = useState<any>(null);
+  const { theme } = useContext(UIContext);
+
   const { isLoading, isInitialLoading, isError, error, data } = useQuery(
     ["load_metadata", node],
     async () => {
@@ -184,6 +190,7 @@ const MetadataView: React.FC<{
     };
     if (editorRef.current) {
       monaco.editor.create(editorRef.current, {
+        theme: theme === Theme.dark ? "vs-dark" : "vs",
         language: "json",
         lineNumbers: "off",
         minimap: { enabled: false },
@@ -193,7 +200,7 @@ const MetadataView: React.FC<{
       });
     }
     setMetadata(metadata);
-  }, [data, node]);
+  }, [data, node, theme]);
 
   const exploreStateMachineData = async () => {
     try {

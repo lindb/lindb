@@ -109,3 +109,9 @@
 .lin-variate-form .semi-form-field {
 	padding-right:12px;
 }
+
+::selection {
+    color: #fff;
+    text-shadow: none;
+    background: var(--semi-color-primary);
+} 
