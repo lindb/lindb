@@ -72,7 +72,7 @@ func Test_TaskContext_metricTaskContext(t *testing.T) {
 		RootTask,
 		"",
 		"",
-		nil,
+		&stmt.Query{Interval: timeutil.Interval(10 * timeutil.OneSecond)},
 		2,
 		ch,
 	)
@@ -87,8 +87,25 @@ func Test_TaskContext_metricTaskContext(t *testing.T) {
 		<-ch
 	})
 	time.Sleep(time.Millisecond * 3)
+	storageNodeStat1 := &models.LeafNodeStats{}
+	storageNodeStat1.NetPayload = 30000
+	data1 := encoding.JSONMarshal(storageNodeStat1)
+	tsList := &protoCommonV1.TimeSeriesList{
+		FieldAggSpecs: []*protoCommonV1.AggregatorSpec{
+			{
+				FieldName:    "test",
+				FieldType:    uint32(field.Sum),
+				FuncTypeList: []uint32{uint32(field.Sum)},
+			},
+		},
+		TimeSeriesList: []*protoCommonV1.TimeSeries{{Fields: nil}},
+	}
+	payload, _ := tsList.Marshal()
 	taskCtx2.WriteResponse(
-		&protoCommonV1.TaskResponse{ErrMsg: "error"},
+		&protoCommonV1.TaskResponse{
+			Stats:   data1,
+			Payload: payload,
+		},
 		"1.1.1.1",
 	)
 	// closed
@@ -114,8 +131,6 @@ func Test_TaskContext_handleStats(t *testing.T) {
 	storageNodeStat1.NetPayload = 30000
 	data1 := encoding.JSONMarshal(storageNodeStat1)
 
-	storageNodeStat2 := &models.LeafNodeStats{}
-	storageNodeStat2.NetPayload = 40000
 	data2 := encoding.JSONMarshal(storageNodeStat1)
 	taskCtx3.handleStats(
 		&protoCommonV1.TaskResponse{
