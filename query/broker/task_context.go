@@ -191,6 +191,7 @@ type metricTaskContext struct {
 	// if all nodes return not-found errors, it will be treated as a error
 	// other error will be returned immediately
 	tolerantNotFounds int32
+	startTime         time.Time // task start time
 }
 
 // metricTaskContext creates the task context based on params
@@ -219,6 +220,7 @@ func newMetricTaskContext(
 		stmtQuery:         stmtQuery,
 		eventCh:           eventCh,
 		tolerantNotFounds: expectResults,
+		startTime:         time.Now(),
 	}
 }
 
@@ -277,6 +279,9 @@ func (c *metricTaskContext) WriteResponse(resp *protoCommonV1.TaskResponse, from
 	if c.groupAgg != nil {
 		seriesList = c.groupAgg.ResultSet()
 	}
+	if c.stats != nil {
+		c.stats.End = time.Now().UnixNano()
+	}
 	select {
 	case c.eventCh <- &series.TimeSeriesEvent{
 		AggregatorSpecs: c.aggregatorSpecs,
@@ -295,6 +300,7 @@ func (c *metricTaskContext) handleStats(resp *protoCommonV1.TaskResponse, fromNo
 	// if has query stats, need merge task query stats
 	if c.stats == nil {
 		c.stats = models.NewQueryStats()
+		c.stats.Start = c.startTime.UnixNano()
 	}
 	switch resp.Type {
 	// from intermediate node
