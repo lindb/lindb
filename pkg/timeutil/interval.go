@@ -51,15 +51,15 @@ type Interval int64
 func (i Interval) String() string {
 	val := i.Int64()
 	switch {
-	case val >= OneYear:
+	case val%OneYear == 0 && val/OneYear > 0:
 		return fmt.Sprintf("%dy", val/OneYear)
-	case val >= OneMonth:
+	case val%OneMonth == 0 && val/OneMonth > 0:
 		return fmt.Sprintf("%dM", val/OneMonth)
-	case val >= OneDay:
+	case val%OneDay == 0 && val/OneDay > 0:
 		return fmt.Sprintf("%dd", val/OneDay)
-	case val >= OneHour:
+	case val%OneHour == 0 && val/OneHour > 0:
 		return fmt.Sprintf("%dh", val/OneHour)
-	case val >= OneMinute:
+	case val%OneMinute == 0 && val/OneMinute > 0:
 		return fmt.Sprintf("%dm", val/OneMinute)
 	default:
 		return fmt.Sprintf("%ds", val/OneSecond)
@@ -68,7 +68,7 @@ func (i Interval) String() string {
 
 // ValueOf parses the interval str, return number of interval(millisecond),
 func (i *Interval) ValueOf(intervalStr string) error {
-	intervalBytes := []byte(strings.Replace(intervalStr, " ", "", -1))
+	intervalBytes := []byte(strings.ReplaceAll(intervalStr, " ", ""))
 	if len(intervalBytes) <= 1 {
 		return ErrUnknownInterval
 	}

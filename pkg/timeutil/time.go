@@ -38,7 +38,7 @@ const (
 	// OneWeek is the number of millisecond for a week
 	OneWeek = 7 * OneDay
 	// OneMonth is the number of millisecond for a month
-	OneMonth = 31 * OneDay
+	OneMonth = 30 * OneDay
 	// OneYear is the number of millisecond for a year
 	OneYear = 365 * OneDay
 
