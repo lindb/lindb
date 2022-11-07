@@ -108,7 +108,7 @@ func (e *DatabaseOption) Validate() error {
 	if len(e.Intervals) == 0 {
 		return errors.New("intervals cannot be empty")
 	}
-	// TODO need remove
+	// TODO: need remove
 	if err := validateInterval(e.Ahead, false); err != nil {
 		return err
 	}

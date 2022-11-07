@@ -185,9 +185,19 @@ func TestInterval_String(t *testing.T) {
 			assert: "10s",
 		},
 		{
+			name:   "70s",
+			in:     Interval(70 * 1000),
+			assert: "70s",
+		},
+		{
 			name:   "5min",
 			in:     Interval(5 * 60 * 1000),
 			assert: "5m",
+		},
+		{
+			name:   "65min",
+			in:     Interval(65 * 60 * 1000),
+			assert: "65m",
 		},
 		{
 			name:   "5hour",
@@ -195,19 +205,39 @@ func TestInterval_String(t *testing.T) {
 			assert: "5h",
 		},
 		{
+			name:   "25hour",
+			in:     Interval(25 * 60 * 60 * 1000),
+			assert: "25h",
+		},
+		{
 			name:   "5day",
 			in:     Interval(5 * 24 * 60 * 60 * 1000),
 			assert: "5d",
 		},
 		{
+			name:   "35day",
+			in:     Interval(35 * 24 * 60 * 60 * 1000),
+			assert: "35d",
+		},
+		{
 			name:   "5month",
-			in:     Interval(5 * 31 * 24 * 60 * 60 * 1000),
+			in:     Interval(5 * 30 * 24 * 60 * 60 * 1000),
 			assert: "5M",
+		},
+		{
+			name:   "15month",
+			in:     Interval(15 * 30 * 24 * 60 * 60 * 1000),
+			assert: "15M",
 		},
 		{
 			name:   "5year",
 			in:     Interval(5 * 365 * 24 * 60 * 60 * 1000),
 			assert: "5y",
+		},
+		{
+			name:   "455day",
+			in:     Interval(455 * 24 * 60 * 60 * 1000),
+			assert: "455d",
 		},
 	}
 
