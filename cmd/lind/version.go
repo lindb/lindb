@@ -32,8 +32,11 @@ var (
 	// cfg path
 	cfg = ""
 	// enable swagger api doc
-	doc  = false
+	doc = false
+	// storage myid
 	myID = 1
+	// if enable embed etcd
+	embedEtcd = true
 )
 
 func printVersion() {
