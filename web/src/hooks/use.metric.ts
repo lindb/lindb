@@ -24,7 +24,7 @@ import { reaction } from "mobx";
 import { useEffect } from "react";
 import * as _ from "lodash-es";
 import { ExecService } from "@src/services";
-import { URLKit } from "@src/utils";
+import { TemplateKit, URLKit } from "@src/utils";
 
 const buildSQL = (ql: string | null, cascade: string[]) => {
   if (!ql) {
@@ -88,6 +88,8 @@ export function useMetric(
       const requests: any[] = [];
       (queries || []).forEach((query: Query) => {
         const db = _.get(query, "db", "");
+        const params = URLStore.getParams();
+        const dbVal = db ? TemplateKit.template(db, params || {}) : "";
         const sql = _.get(query, "sql", "");
         let targetSQL = "";
         if (_.isString(sql)) {
@@ -96,14 +98,14 @@ export function useMetric(
           targetSQL = URLStore.bindSQL(sql as QueryStatement);
         }
         // console.log("loading........", queries, db, sql, targetSQL);
-        if (targetSQL === "" || db === "") {
+        if (targetSQL === "" || dbVal === "") {
           return;
         }
 
         // add query request into batch
         requests.push(
           ExecService.exec<ResultSet>({
-            db: db,
+            db: dbVal,
             sql: targetSQL,
           })
         );

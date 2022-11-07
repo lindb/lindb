@@ -183,7 +183,7 @@ export default function DatabaseConfig() {
               <>
                 {arrayFields.map((f: any, idx) => (
                   <Row key={f.key}>
-                    <Col offset={4}>
+                    <Col offset={4} className="lin-form-input-group">
                       <Form.InputGroup>
                         <Form.Input
                           field={`${f.field}[interval]`}
@@ -191,7 +191,7 @@ export default function DatabaseConfig() {
                           noLabel
                         />
                         <Form.Input
-                          style={{ width: 202 }}
+                          style={{ width: 202, marginRight: 4 }}
                           field={`${f.field}[retention]`}
                           noLabel
                         />
@@ -202,7 +202,6 @@ export default function DatabaseConfig() {
                           theme="borderless"
                           onClick={f.remove}
                           icon={<IconMinusCircle />}
-                          style={{ marginLeft: 12 }}
                         />
                       )}
                       {idx == arrayFields.length - 1 && (
@@ -228,7 +227,7 @@ export default function DatabaseConfig() {
                 Writeable Time Range
               </Form.Label>
             </Col>
-            <Col>
+            <Col className="lin-form-input-group">
               <Form.InputGroup>
                 <Form.Input
                   label="Behead"

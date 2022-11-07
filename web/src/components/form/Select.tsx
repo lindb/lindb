@@ -47,6 +47,7 @@ const LinSelect: React.FC<{
   visible?: () => boolean;
   loader?: (input?: string) => any;
   reloadKeys?: string[];
+  rules?: any[];
   clearKeys?: string[];
   onChange?: (value: string | number | any[] | Record<string, any>) => void;
 }> = (props) => {
@@ -65,6 +66,7 @@ const LinSelect: React.FC<{
     visible,
     loader,
     reloadKeys,
+    rules,
     clearKeys,
     onChange,
   } = props;
@@ -180,6 +182,7 @@ const LinSelect: React.FC<{
   return (
     <>
       <Form.Select
+        rules={rules}
         field={field}
         multiple={multiple}
         showClear={showClear}

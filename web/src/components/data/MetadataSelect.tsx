@@ -30,9 +30,11 @@ const MetadataSelect: React.FC<{
   type: "db" | "namespace" | "metric" | "field" | "tagKey" | "tagValue";
   variate: Variate;
   placeholder?: string;
+  rules?: any[];
   style?: React.CSSProperties;
 }> = (props) => {
-  const { variate, placeholder, labelPosition, multiple, type, style } = props;
+  const { variate, placeholder, labelPosition, multiple, type, rules, style } =
+    props;
 
   const findMetadata = async (prefix?: string) => {
     const params = URLStore.getParams();
@@ -105,6 +107,7 @@ const MetadataSelect: React.FC<{
         placeholder={placeholder}
         labelPosition={labelPosition}
         label={variate.label}
+        rules={rules}
         showClear
         filter
         remote

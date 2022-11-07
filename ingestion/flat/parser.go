@@ -82,7 +82,7 @@ func parseFlatMetric(
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("bad flat metrics binary")
-			flatLogger.Error("decode panic", logger.Stack())
+			flatLogger.Error("decode panic", logger.Any("error", r), logger.Stack())
 		}
 	}()
 	for decoder.HasNext() {

@@ -70,6 +70,7 @@ const ExploreForm: React.FC = () => {
         }}
         labelPosition="inset"
         type="metric"
+        rules={[{ required: true, message: "Metric name required" }]}
       />
       <Space>
         <Switch

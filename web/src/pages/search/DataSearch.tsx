@@ -54,6 +54,7 @@ const { Text } = Typography;
 const SearchForm: React.FC = () => {
   const sqlEditor = useRef() as MutableRefObject<any>;
   const sqlEditorRef = useRef() as MutableRefObject<HTMLDivElement | null>;
+  const formApi = useRef() as MutableRefObject<any>;
   const { sql } = useParams(["sql"]);
   const { theme } = useContext(UIContext);
 
@@ -105,8 +106,12 @@ const SearchForm: React.FC = () => {
   }, [sql]);
 
   return (
-    <Form style={{ paddingTop: 0, paddingBottom: 0 }}>
+    <Form
+      style={{ paddingTop: 0, paddingBottom: 0 }}
+      getFormApi={(api) => (formApi.current = api)}
+    >
       <MetadataSelect
+        rules={[{ required: true, message: "Database required" }]}
         type="db"
         variate={{
           tagKey: "db",
@@ -136,8 +141,18 @@ const SearchForm: React.FC = () => {
         style={{ marginRight: 12 }}
         icon={<IconPlay size="large" />}
         onClick={() => {
-          const sql = _.trim(sqlEditor.current?.getValue());
-          URLStore.changeURLParams({ params: { sql: sql }, forceChange: true });
+          if (formApi.current) {
+            formApi.current
+              .validate()
+              .then(() => {
+                const sql = _.trim(sqlEditor.current?.getValue());
+                URLStore.changeURLParams({
+                  params: { sql: sql },
+                  forceChange: true,
+                });
+              })
+              .catch((_errors: any) => {});
+          }
         }}
       >
         Search
@@ -191,11 +206,11 @@ const SearchMetadata: React.FC = () => {
 
 const SearchData: React.FC = () => {
   const type = ChartType.Line;
-  const { db, sql } = useParams(["db", "sql"]);
+  const { sql } = useParams(["sql"]);
 
   const { isLoading, isError, data, error } = useMetric([
     {
-      db: db,
+      db: "${db}",
       sql: sql,
     },
   ]);
