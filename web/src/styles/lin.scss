@@ -115,3 +115,13 @@
     text-shadow: none;
     background: var(--semi-color-primary);
 } 
+
+.lin-form-input-group {
+	.semi-col-4 {
+		width: 0;
+	}
+	.semi-col-12 {
+		width: 100%;
+		float: unset;
+	}
+}

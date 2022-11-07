@@ -171,7 +171,7 @@ func (itr *BrokerBatchShardIterator) HasRowsForNextShard() bool {
 	itr.groupStart = itr.groupEnd
 
 	for itr.groupEnd < itr.batch.Len() {
-		if !(itr.batch.rows[itr.groupEnd].shardIdx == itr.groupShardIdx) {
+		if itr.batch.rows[itr.groupEnd].shardIdx != itr.groupShardIdx {
 			break
 		}
 		itr.groupEnd++
