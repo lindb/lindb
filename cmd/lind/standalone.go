@@ -54,6 +54,8 @@ func newStandaloneCmd() *cobra.Command {
 		"enable swagger api doc")
 	runStandaloneCmd.PersistentFlags().BoolVar(&pprof, "pprof", false,
 		"profiling Go programs with pprof")
+	runStandaloneCmd.PersistentFlags().BoolVar(&embedEtcd, "embed-etcd", true,
+		"enable embed etcd server")
 
 	return standaloneCmd
 }
@@ -68,7 +70,7 @@ var runStandaloneCmd = &cobra.Command{
 var initializeStandaloneConfigCmd = &cobra.Command{
 	Use:   "init-config",
 	Short: "create a new default standalone-config",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(_ *cobra.Command, _ []string) error {
 		path := cfg
 		if path == "" {
 			path = defaultStandaloneCfgFile
@@ -98,7 +100,7 @@ func serveStandalone(_ *cobra.Command, _ []string) error {
 	}
 
 	// run cluster as standalone mode
-	runtime := standalone.NewStandaloneRuntime(config.Version, &standaloneCfg)
+	runtime := standalone.NewStandaloneRuntime(config.Version, &standaloneCfg, embedEtcd)
 	return run(ctx, runtime, func() error {
 		if !fileutil.Exist(cfg) && !fileutil.Exist(defaultStorageCfgFile) {
 			return nil

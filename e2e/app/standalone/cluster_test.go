@@ -57,7 +57,7 @@ func TestMain(m *testing.M) {
 
 	gin.SetMode(gin.ReleaseMode)
 	// run cluster as standalone mode
-	runtime := standalone.NewStandaloneRuntime(config.Version, &cfg)
+	runtime := standalone.NewStandaloneRuntime(config.Version, &cfg, true)
 	if err := runtime.Run(); err != nil {
 		panic(fmt.Errorf("run standalone cluster err: %s", err))
 	}

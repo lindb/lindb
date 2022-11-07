@@ -62,7 +62,7 @@ func TestRuntime_New(t *testing.T) {
 		assert.NoError(t, fileutil.RemoveDir("data"))
 	}()
 	cfg := newDefaultStandaloneConfig(t)
-	standalone := NewStandaloneRuntime("test-version", &cfg)
+	standalone := NewStandaloneRuntime("test-version", &cfg, true)
 	assert.NotNil(t, standalone)
 	assert.Equal(t, "standalone", standalone.Name())
 }
@@ -207,6 +207,7 @@ func TestRuntime_Run(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.TODO())
 			s.EXPECT().Stop().MaxTimes(2)
 			r := &runtime{
+				embedEtcd:   true,
 				ctx:         ctx,
 				cancel:      cancel,
 				cfg:         &cfg,

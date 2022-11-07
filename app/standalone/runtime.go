@@ -49,7 +49,9 @@ var log = logger.GetLogger("Standalone", "Runtime")
 
 // runtime represents the runtime dependency of standalone mode
 type runtime struct {
-	version     string
+	version   string
+	embedEtcd bool
+
 	state       server.State
 	repoFactory state.RepositoryFactory
 	cfg         *config.Standalone
@@ -66,10 +68,11 @@ type runtime struct {
 }
 
 // NewStandaloneRuntime creates the runtime
-func NewStandaloneRuntime(version string, cfg *config.Standalone) server.Service {
+func NewStandaloneRuntime(version string, cfg *config.Standalone, embedEtcd bool) server.Service {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &runtime{
 		version:     version,
+		embedEtcd:   embedEtcd,
 		state:       server.New,
 		delayInit:   5 * time.Second,
 		repoFactory: state.NewRepositoryFactory("standalone"),
@@ -106,10 +109,12 @@ func (r *runtime) Name() string {
 func (r *runtime) Run() error {
 	config.StandaloneMode = true
 
-	if err := r.startETCD(); err != nil {
-		log.Error("failed to start ETCD", logger.Error(err))
-		r.state = server.Failed
-		return err
+	if r.embedEtcd {
+		if err := r.startETCD(); err != nil {
+			log.Error("failed to start ETCD", logger.Error(err))
+			r.state = server.Failed
+			return err
+		}
 	}
 
 	// cleanup state for previous embed etcd server state
