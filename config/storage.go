@@ -220,7 +220,7 @@ func NewDefaultStorageBase() *StorageBase {
 		},
 		GRPC: GRPC{
 			Port:                 2891,
-			MaxConcurrentStreams: runtime.GOMAXPROCS(-1) * 40,
+			MaxConcurrentStreams: 1024,
 			ConnectTimeout:       ltoml.Duration(time.Second * 3),
 		},
 		WAL: WAL{

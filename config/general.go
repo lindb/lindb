@@ -20,7 +20,6 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"runtime"
 	"strings"
 	"time"
 
@@ -179,7 +178,7 @@ timeout = "%s"`,
 
 func NewDefaultQuery() *Query {
 	return &Query{
-		QueryConcurrency: runtime.GOMAXPROCS(-1) * 2,
+		QueryConcurrency: 1024,
 		IdleTimeout:      ltoml.Duration(5 * time.Second),
 		Timeout:          ltoml.Duration(5 * time.Second),
 	}
@@ -209,7 +208,7 @@ func checkGRPCCfg(grpcCfg *GRPC) error {
 		return fmt.Errorf("grpc endpoint cannot be empty")
 	}
 	if grpcCfg.MaxConcurrentStreams <= 0 {
-		grpcCfg.MaxConcurrentStreams = runtime.GOMAXPROCS(-1) * 2
+		grpcCfg.MaxConcurrentStreams = 1024
 	}
 	if grpcCfg.ConnectTimeout <= 0 {
 		grpcCfg.ConnectTimeout = ltoml.Duration(time.Second * 3)

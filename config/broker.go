@@ -19,7 +19,6 @@ package config
 
 import (
 	"fmt"
-	"runtime"
 	"time"
 
 	"github.com/lindb/lindb/pkg/ltoml"
@@ -163,7 +162,7 @@ func NewDefaultBrokerBase() *BrokerBase {
 			WriteTimeout: ltoml.Duration(time.Second * 5),
 		},
 		Ingestion: Ingestion{
-			MaxConcurrency: runtime.GOMAXPROCS(-1) * 2,
+			MaxConcurrency: 256,
 			IngestTimeout:  ltoml.Duration(time.Second * 5),
 		},
 		Write: Write{
@@ -173,7 +172,7 @@ func NewDefaultBrokerBase() *BrokerBase {
 		},
 		GRPC: GRPC{
 			Port:                 9001,
-			MaxConcurrentStreams: runtime.GOMAXPROCS(-1) * 20,
+			MaxConcurrentStreams: 1024,
 			ConnectTimeout:       ltoml.Duration(time.Second * 3),
 		},
 	}
