@@ -4,7 +4,6 @@ go 1.18
 
 require (
 	github.com/BurntSushi/toml v1.1.0
-	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
 	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20220911224424-aa1f1f12a846
 	github.com/c-bata/go-prompt v0.2.6
 	github.com/cespare/xxhash/v2 v2.1.2
@@ -30,7 +29,7 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/klauspost/compress v1.15.6
 	github.com/lindb/common v0.0.1
-	github.com/lindb/roaring v0.9.2
+	github.com/lindb/roaring v1.2.1
 	github.com/lithammer/go-jump-consistent-hash v1.0.2
 	github.com/mattn/go-isatty v0.0.14
 	github.com/pkg/errors v0.9.1
@@ -59,7 +58,7 @@ require (
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/bits-and-blooms/bitset v1.2.0 // indirect
+	github.com/bits-and-blooms/bitset v1.2.2 // indirect
 	github.com/cockroachdb/errors v1.8.1 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20190617123548-eb05cc24525f // indirect
 	github.com/cockroachdb/redact v1.0.8 // indirect
