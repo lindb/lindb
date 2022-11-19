@@ -16,38 +16,13 @@
 ## 简介
 
 LinDB 是一个高性能、高可用并且具备水平拓展性的开源分布式时序数据库。
-LinDB 目前在饿了么存储了全量的监控数据，每天增量写入 88TB，全量数据总计 2.7PB。
 
-+ __高性能__
-
-  LinDB 参考了其他时序数据库里的最佳实践，并且在此基础上做了些优化。
-  和 InfluxDB 中的 Continuous-Query 不一样，在创建数据库之后，LinDB支持根据指定的时间间隔自动对数据进行rollup。
-  不仅如此，LinDB 在并行查询和计算分布式时序数据方面速度相当快。
-
-+ __原生的多活支持__
-
-  LinDB 在设计阶段就是为了在饿了么的多活系统架构下工作的。LinDB的计算层（brokers）支持高效的跨机房聚合查询。
-
-+ __高可用__
-
-  LinDB 使用 ETCD 集群以保证元数据的高可用和存储安全（也支持单机模式启动）。
-  当出现故障时，多通道复制的WAL协议可以避免数据的不一致情况：
-
-  1). 任一复制通道只有一名成员负责数据的权威性，因此避免了数据冲突;
-
-  2). 数据可靠性保障：只要先前的leader数据并未丢失，当其重新上线时，这些数据便将被复制到其他的副本中；
-
-+ __水平拓展性__
-
-  LinDB 使用了基于 Series(Tags) 的 sharding 策略，可以真正解决热点问题（另外也考验了系统设计的能力），简单的增加新的 broker 和 storage 节点即可实现水平拓展。
-
-+ __Metric的治理能力__
-
-  为了保证系统的健壮性，LinDB 并不假设所有用户都已了解 metric 使用的最佳实践。因此，LinDB 提供了 metric 和 tag 粒度的限制能力，避免整体集群在部分用户错误的使用姿势下崩溃。
-
-#### JAVA 版 LinDB 相关文章
-- [数据分析之时序数据库](https://zhuanlan.zhihu.com/p/36804890)
-- [分布式时序数据库 - LinDB](https://zhuanlan.zhihu.com/p/35998778)
+- [主要特性](https://lindb.io/zh/guide/introduction.html#主要特性)
+- [用户指南](https://lindb.io/zh/guide/introduction.html)
+- [快速开始](https://lindb.io/zh/guide/get-started.html)
+- [设计](https://lindb.io/zh/design/architecture.html)
+- [架构](#架构)
+- [Admin UI](#admin-ui)
 
 ## 编译
 
@@ -57,7 +32,6 @@ LinDB 目前在饿了么存储了全量的监控数据，每天增量写入 88TB
 - [Go >=1.16](https://golang.org/doc/install)
 - [Make tool](https://www.gnu.org/software/make/)
 - [Yarn](https://classic.yarnpkg.com/en/docs/install)
-
 
 ### 获取代码
 
@@ -96,27 +70,37 @@ yarn start
 
 可以通过  [localhost port 3000](http://localhost:3000/) 来访问
 
-## 部署
-
-LinDB 有两种部署方式：单机模式与集群模式
-
-### 单机模式
-
-单机模式包含了内嵌的 broker, storage 和 etcd 模块
-
-```
-./bin/lind standalone init-config
-./bin/lind standalone run
-```
-在使用 `make build-all` 编译后，前端文件会被打包在 broker 模块中
-可以通过  [localhost port 9000](http://localhost:9000/) 来访问控制台
-
-### 集群模式 (todo)
-
-
 ## 架构
 
-![architecture](https://github.com/lindb/lindb/wiki/images/readme/lindb_architecture.jpg)
+![architecture](./docs/images/architecture.png)
+
+## Admin UI
+
+Some admin ui snapshots.
+
+### Overview
+
+![overview](./docs/images/overview.png)
+
+### Monitoring Dashboard
+
+![dashboard](./docs/images/dashboard.png)
+
+### Replication State
+
+![replication](./docs/images/replication_shards.png)
+
+### Data Explore
+
+![explore](./docs/images/data_explore.png)
+
+### Explain
+
+![explain](./docs/images/data_search_explain.png)
+
+## JAVA 版 LinDB 相关文章
+- [数据分析之时序数据库](https://zhuanlan.zhihu.com/p/36804890)
+- [分布式时序数据库 - LinDB](https://zhuanlan.zhihu.com/p/35998778)
 
 ## 贡献代码
 
