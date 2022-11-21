@@ -49,7 +49,7 @@ const columns = [
     title: "Status",
     dataIndex: "status",
     key: "status",
-    width: 100,
+    width: 120,
     render: (item: any) => {
       return <StorageStatusView text={item} showBadge={true} />;
     },
