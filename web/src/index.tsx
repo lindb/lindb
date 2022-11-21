@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 import * as React from "react";
-import * as ReactDOM from "react-dom";
+import { createRoot } from "react-dom/client";
 import App from "@src/App";
 import "@src/styles/index.scss";
 import en_US from "@douyinfe/semi-ui/lib/es/locale/source/en_US";
@@ -36,7 +36,10 @@ const queryClient = new QueryClient({
   },
 });
 
-ReactDOM.render(
+const container = document.getElementById("root");
+const root = createRoot(container as any);
+
+root.render(
   <LocaleProvider locale={en_US}>
     <QueryClientProvider client={queryClient}>
       <UIContextProvider>
@@ -47,6 +50,5 @@ ReactDOM.render(
         </Router>
       </UIContextProvider>
     </QueryClientProvider>
-  </LocaleProvider>,
-  document.getElementById("root") as HTMLElement
+  </LocaleProvider>
 );

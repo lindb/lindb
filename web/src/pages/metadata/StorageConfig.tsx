@@ -49,6 +49,7 @@ export default function StorageConfig() {
         await ExecService.exec({
           sql: `create storage ${JSON.stringify(values)}`,
         });
+        URLStore.changeURLParams({ path: Route.MetadataStorage });
       } catch (err) {
         setError(_.get(err, "response.data", "Unknown internal error"));
       } finally {
@@ -121,12 +122,9 @@ export default function StorageConfig() {
             rules={[{ required: true }]}
             label="Endpoints"
           />
-          <Form.InputNumber
-            field="config.timeout"
-            label={labelWithHelp("Timeout")}
-          />
-          <Form.InputNumber field="config.dialTimeout" label="DialTimeout" />
-          <Form.InputNumber field="config.leaseTTL" label="LeaseTTL" />
+          <Form.Input field="config.timeout" label={labelWithHelp("Timeout")} />
+          <Form.Input field="config.dialTimeout" label="DialTimeout" />
+          <Form.Input field="config.leaseTTL" label="LeaseTTL" />
           <Form.Input field="config.username" label="Username" />
           <Form.Input
             mode="password"
