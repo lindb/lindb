@@ -32,6 +32,9 @@ build-lind: ## build lindb binary
 	env GOOS=linux GOARCH=$(GOARCH) go build -o 'bin/lindcli-linux' $(LD_FLAGS) ./cmd/cli
 	env GOOS=windows GOARCH=$(GOARCH) go build -o 'bin/lindcli-windows.exe' $(LD_FLAGS) ./cmd/cli
 
+deploy: build-frontend ## deploy release packages
+	sh deploy.sh
+
 GOMOCK_VERSION = "v1.5.0"
 
 gomock: ## go generate mock file.
@@ -39,10 +42,10 @@ gomock: ## go generate mock file.
 	go list ./... |grep -v '/gomock' | xargs go generate -v
 
 header: ## check and add license header.
-	sh addlicense.sh
+	sh scripts/addlicense.sh
 
 import: ## opt go imports format.
-	sh imports.sh
+	sh scripts/imports.sh
 
 lint: ## run lint
 	go install "github.com/golangci/golangci-lint/cmd/golangci-lint@v1.48.0"
