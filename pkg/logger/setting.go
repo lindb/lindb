@@ -30,6 +30,8 @@ import (
 )
 
 var (
+	// IsCli represents if lin-cli command-line.
+	IsCli      = false
 	isTerminal = IsTerminal(os.Stdout)
 	// max length of all modules
 	maxModuleNameLen uint32
@@ -110,7 +112,7 @@ func initLogger(logFilename string, cfg config.Logging) error {
 		MaxAge:     int(cfg.MaxAge),
 	})
 	// check if it is terminal
-	if isTerminal {
+	if !IsCli && isTerminal {
 		w = os.Stdout
 	}
 	// parse logging level
