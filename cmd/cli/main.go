@@ -29,9 +29,11 @@ import (
 	prompt "github.com/c-bata/go-prompt"
 	"github.com/fatih/color"
 
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/sql"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
@@ -153,6 +155,10 @@ func executor(in string) {
 					result = &models.Databases{}
 				}
 			case *stmtpkg.MetricMetadata:
+				if strings.TrimSpace(inputC.db) == "" {
+					printErr(errors.New("please select database(use ...)"))
+					return
+				}
 				result = &models.Metadata{}
 			case *stmtpkg.Query:
 				result = &models.ResultSet{}
@@ -197,6 +203,8 @@ func main() {
 		printErr(err)
 		return
 	}
+	logger.IsCli = true
+	_ = logger.InitLogger(config.Logging{Level: "error", Dir: "."}, "lin-cli.log")
 
 	apiEndpoint := endpoint + constants.APIVersion1CliPath
 	cli = newExecuteCli(apiEndpoint)

@@ -160,6 +160,13 @@ func Test_executor(t *testing.T) {
 			},
 		},
 		{
+			name: "show metrics, but not use database",
+			in:   "show metrics;",
+			prepare: func() {
+				inputC.db = ""
+			},
+		},
+		{
 			name: "select query, but not use database",
 			in:   "select f from cpu;",
 			prepare: func() {
