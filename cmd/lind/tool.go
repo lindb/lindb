@@ -30,7 +30,7 @@ func printLogoWhenIsTty() {
 	if logger.IsTerminal(os.Stdout) {
 		fmt.Print(logger.Cyan.Add(linDBLogo))
 		fmt.Print(logger.Green.Add(" ::  LinDB  :: ") +
-			fmt.Sprintf("%22s", fmt.Sprintf("(v%s Release)", config.Version)))
+			fmt.Sprintf("%22s", fmt.Sprintf("(%s Release)", config.Version)))
 		fmt.Print("\n\n")
 	}
 }
