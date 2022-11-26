@@ -209,11 +209,9 @@ export const DefaultChartConfig = {
             }
             return null;
           },
-          //       // tickMarkLength: 0,
-          //       // maxTicksLimit: 6,
-          suggestedMin: 0,
         },
-        // suggestedMax: 10,
+        // suggestedMin: 10,
+        beginAtZero: true,
       },
     },
     plugins: {
