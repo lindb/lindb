@@ -30,11 +30,12 @@ import { useWatchURLChange } from "@src/hooks";
 import { URLStore } from "@src/stores";
 import * as _ from "lodash-es";
 import { UIContext } from "@src/context/UIContextProvider";
+import { Language } from "@src/constants";
 const { Header: HeaderUI } = Layout;
 
 const Header: React.FC<{ routes: Map<string, RouteItem> }> = (props) => {
   const { routes } = props;
-  const { toggleTheme, toggleLangauge, collapsed, isDark, locale } =
+  const { toggleTheme, toggleLangauge, collapsed, isDark, locale, language } =
     useContext(UIContext);
   const { LayoutHeader, SiderMenu } = locale;
   const [breadcrumbRoutes, setBreadcrumbRoutes] = useState<any[]>([]);
@@ -132,7 +133,14 @@ const Header: React.FC<{ routes: Map<string, RouteItem> }> = (props) => {
               style={{
                 color: "var(--semi-color-text-2)",
               }}
-              onClick={() => window.open("https://lindb.io")}
+              onClick={() => {
+                const helpLink = currentRouter.help;
+                let docLang = "";
+                if (language === Language.zh_CN) {
+                  docLang = "/zh";
+                }
+                window.open(`https://lindb.io${docLang}${helpLink}`);
+              }}
             />
           </>
         }
