@@ -289,7 +289,6 @@ func TestPartition_IsExpire(t *testing.T) {
 	shard := tsdb.NewMockShard(ctrl)
 	db := tsdb.NewMockDatabase(ctrl)
 	shard.EXPECT().Database().Return(db).AnyTimes()
-	db.EXPECT().GetOption().Return(&option.DatabaseOption{Ahead: "1h"}).AnyTimes()
 	family := tsdb.NewMockDataFamily(ctrl)
 
 	log := queue.NewMockFanOutQueue(ctrl)
@@ -311,16 +310,24 @@ func TestPartition_IsExpire(t *testing.T) {
 	log.EXPECT().GetOrCreateConsumerGroup(gomock.Any()).Return(cg, nil).AnyTimes()
 
 	t.Run("partition not expire", func(t *testing.T) {
+		db.EXPECT().GetOption().Return(&option.DatabaseOption{Ahead: "1h"})
+		family.EXPECT().TimeRange().Return(timeutil.TimeRange{End: timeutil.Now()})
+		assert.False(t, p.IsExpire())
+	})
+	t.Run("partition not expire, when ahead=0", func(t *testing.T) {
+		db.EXPECT().GetOption().Return(&option.DatabaseOption{})
 		family.EXPECT().TimeRange().Return(timeutil.TimeRange{End: timeutil.Now()})
 		assert.False(t, p.IsExpire())
 	})
 
 	t.Run("partition is expire, but has data need replica", func(t *testing.T) {
+		db.EXPECT().GetOption().Return(&option.DatabaseOption{Ahead: "1h"})
 		family.EXPECT().TimeRange().Return(timeutil.TimeRange{End: timeutil.Now() - timeutil.OneHour - 16*timeutil.OneMinute})
 		cg.EXPECT().IsEmpty().Return(false)
 		assert.False(t, p.IsExpire())
 	})
 	t.Run("partition is expire, no data replica, can stop replicator", func(t *testing.T) {
+		db.EXPECT().GetOption().Return(&option.DatabaseOption{Ahead: "1h"})
 		p.mutex.Lock()
 		assert.Len(t, p.peers, 1)
 		p.mutex.Unlock()

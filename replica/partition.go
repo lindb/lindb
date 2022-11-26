@@ -161,7 +161,7 @@ func (p *partition) IsExpire() bool {
 	timeRange := p.family.TimeRange()
 	now := timeutil.Now()
 	// add 15 minute buffer
-	if ahead > 0 && timeRange.End+ahead+15*timeutil.OneMinute > now {
+	if timeRange.End+ahead+15*timeutil.OneMinute > now {
 		return false
 	}
 	// partition is expired, check if all write ahead logs have been replicated
