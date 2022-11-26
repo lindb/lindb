@@ -16,7 +16,13 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import React, { MutableRefObject, useCallback, useEffect, useRef } from "react";
+import React, {
+  MutableRefObject,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+} from "react";
 import {
   Form,
   Notification,
@@ -28,6 +34,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useParams } from "@src/hooks";
 import { URLStore } from "@src/stores";
 import { ApiKit } from "@src/utils";
+import { UIContext } from "@src/context/UIContextProvider";
 
 /**
  * LinSelect implements url binding select component.
@@ -81,7 +88,8 @@ const LinSelect: React.FC<{
   const previousKeys = useRef({}) as MutableRefObject<any>;
   const urlTriggerValue = useRef() as MutableRefObject<boolean>; // mark url triger value modify
   const valueTriggerURL = useRef() as MutableRefObject<boolean>; // mark value trigger url modify
-
+  const { locale } = useContext(UIContext);
+  const { LinSelectView } = locale;
   const { data, isInitialLoading, isError, refetch } = useQuery(
     [field, loader],
     () => {
@@ -189,7 +197,7 @@ const LinSelect: React.FC<{
         filter={filter}
         remote={remote}
         prefix={prefix}
-        placeholder={placeholder || "Please select"}
+        placeholder={placeholder || LinSelectView.placeholder}
         optionList={data}
         labelPosition={labelPosition || "inset"}
         label={label || _.upperFirst(field)}

@@ -22,8 +22,9 @@ import { Master } from "@src/models";
 import { ExecService } from "@src/services";
 import { useQuery } from "@tanstack/react-query";
 import moment from "moment";
-import React from "react";
+import React, { useContext } from "react";
 import { StatusTip } from "@src/components";
+import { UIContext } from "@src/context/UIContextProvider";
 
 const { Text } = Typography;
 
@@ -36,6 +37,8 @@ const MasterView: React.FC = () => {
   } = useQuery(["show_master"], async () => {
     return ExecService.exec<Master>({ sql: "show master" });
   });
+  const { locale } = useContext(UIContext);
+  const { MasterView, NodeView } = locale;
 
   const renderMaster = () => {
     if (isLoading || isError) {
@@ -51,7 +54,7 @@ const MasterView: React.FC = () => {
         size="small"
         data={[
           {
-            key: "Elect Time",
+            key: MasterView.electTime,
             value: (
               <Text link>
                 {master?.electTime &&
@@ -59,17 +62,20 @@ const MasterView: React.FC = () => {
               </Text>
             ),
           },
-          { key: "Host IP", value: <Text link>{master?.node?.hostIp}</Text> },
           {
-            key: "Host Name",
+            key: NodeView.hostIp,
+            value: <Text link>{master?.node?.hostIp}</Text>,
+          },
+          {
+            key: NodeView.hostName,
             value: <Text link>{master?.node?.hostName}</Text>,
           },
           {
-            key: "GRPC Port",
+            key: NodeView.grpcPort,
             value: <Text link>{master?.node?.grpcPort}</Text>,
           },
           {
-            key: "HTTP Port",
+            key: NodeView.httpPort,
             value: <Text link>{master?.node?.httpPort}</Text>,
           },
         ]}
@@ -80,7 +86,7 @@ const MasterView: React.FC = () => {
   return (
     <>
       <Card
-        title="Master"
+        title={MasterView.master}
         headerStyle={{ padding: 12 }}
         bodyStyle={{ padding: 12 }}
       >

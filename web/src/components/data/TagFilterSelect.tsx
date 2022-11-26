@@ -16,13 +16,20 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import React, { useEffect, useState, useRef, MutableRefObject } from "react";
+import React, {
+  useEffect,
+  useState,
+  useRef,
+  MutableRefObject,
+  useContext,
+} from "react";
 import { Popover, Form, Button, SplitButtonGroup } from "@douyinfe/semi-ui";
 import { IconFilter } from "@douyinfe/semi-icons";
 import { TagValueSelect } from "@src/components";
 import { ExecService } from "@src/services";
 import { Metadata } from "@src/models";
 import { URLStore } from "@src/stores";
+import { UIContext } from "@src/context/UIContextProvider";
 
 export default function TagFilterSelect(props: {
   db: string;
@@ -33,6 +40,8 @@ export default function TagFilterSelect(props: {
   const { db, namespace, metric } = props;
   const [tagKeys, setTagKeys] = useState<string[]>([]);
   const [visible, setVisible] = useState(false);
+  const { locale } = useContext(UIContext);
+  const { Common } = locale;
 
   useEffect(() => {
     const fetchTagKeys = async () => {
@@ -54,7 +63,7 @@ export default function TagFilterSelect(props: {
       content={
         <>
           <Form
-            getFormApi={(api) => (formApi.current = api)}
+            getFormApi={(api: any) => (formApi.current = api)}
             className="lin-tag-filter"
           >
             {tagKeys.map((tagKey: string) => (
@@ -76,7 +85,7 @@ export default function TagFilterSelect(props: {
             style={{ marginTop: 4, width: "100%", textAlign: "right" }}
           >
             <Button type="tertiary" onClick={() => setVisible(false)}>
-              Cancel
+              {Common.cancel}
             </Button>
             <Button
               type="secondary"
@@ -87,7 +96,7 @@ export default function TagFilterSelect(props: {
                 setVisible(false);
               }}
             >
-              OK
+              {Common.ok}
             </Button>
           </SplitButtonGroup>
         </>

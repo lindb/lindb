@@ -18,7 +18,8 @@ under the License.
 */
 
 import { Badge, Space, Typography } from "@douyinfe/semi-ui";
-import React from "react";
+import { UIContext } from "@src/context/UIContextProvider";
+import React, { useContext } from "react";
 
 const { Text } = Typography;
 
@@ -27,6 +28,8 @@ export default function StorageStatusView(props: {
   showBadge?: boolean;
 }) {
   const { text, showBadge } = props;
+  const { locale } = useContext(UIContext);
+  const { MetadataStorageView } = locale;
   let color = "warning";
   switch (text) {
     case "Ready":
@@ -49,7 +52,9 @@ export default function StorageStatusView(props: {
           }}
         />
       )}
-      <Text style={{ color: `var(--semi-color-${color})` }}> {text}</Text>
+      <Text style={{ color: `var(--semi-color-${color})` }}>
+        {MetadataStorageView[text]}
+      </Text>
     </Space>
   );
 }

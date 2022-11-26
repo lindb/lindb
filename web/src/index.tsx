@@ -20,11 +20,13 @@ import * as React from "react";
 import { createRoot } from "react-dom/client";
 import App from "@src/App";
 import "@src/styles/index.scss";
-import en_US from "@douyinfe/semi-ui/lib/es/locale/source/en_US";
 import { LocaleProvider } from "@douyinfe/semi-ui";
 import { HashRouter as Router, Route, Switch } from "react-router-dom";
 import { UIContextProvider } from "@src/context";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
+import * as _ from "lodash-es";
+import { UIContext } from "./context/UIContextProvider";
+import { useContext } from "react";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -39,16 +41,23 @@ const queryClient = new QueryClient({
 const container = document.getElementById("root");
 const root = createRoot(container as any);
 
-root.render(
-  <LocaleProvider locale={en_US}>
-    <QueryClientProvider client={queryClient}>
-      <UIContextProvider>
+const AppPage: React.FC = () => {
+  const { locale } = useContext(UIContext);
+  return (
+    <LocaleProvider locale={locale}>
+      <QueryClientProvider client={queryClient}>
         <Router>
           <Switch>
             <Route path="/" component={App} />
           </Switch>
         </Router>
-      </UIContextProvider>
-    </QueryClientProvider>
-  </LocaleProvider>
+      </QueryClientProvider>
+    </LocaleProvider>
+  );
+};
+
+root.render(
+  <UIContextProvider>
+    <AppPage />
+  </UIContextProvider>
 );

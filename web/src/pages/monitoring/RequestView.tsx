@@ -16,7 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import React from "react";
+import React, { useContext } from "react";
 import { Route, SQL } from "@src/constants";
 import { ExecService } from "@src/services";
 import { Request, Unit } from "@src/models";
@@ -33,6 +33,7 @@ import moment from "moment";
 import { useQuery } from "@tanstack/react-query";
 import { StatusTip } from "@src/components";
 import { FormatKit } from "@src/utils";
+import { UIContext } from "@src/context/UIContextProvider";
 
 const RequestView: React.FC = () => {
   const {
@@ -46,10 +47,12 @@ const RequestView: React.FC = () => {
       sql: SQL.ShowRequests,
     });
   });
+  const { locale } = useContext(UIContext);
+  const { RequestView, Common } = locale;
 
   const columns: any[] = [
     {
-      title: "Timestamp",
+      title: RequestView.timestamp,
       dataIndex: "start",
       render: (start: number) => {
         const dateTime = moment(parseInt(`${start / 1000000}`));
@@ -57,7 +60,7 @@ const RequestView: React.FC = () => {
       },
     },
     {
-      title: "Duration",
+      title: RequestView.duration,
       dataIndex: "duration",
       render: (_text: any, record: Request, _index: any) => {
         return FormatKit.format(
@@ -67,24 +70,24 @@ const RequestView: React.FC = () => {
       },
     },
     {
-      title: "LinQL",
+      title: RequestView.linQL,
       dataIndex: "sql",
       key: "lql",
     },
     {
-      title: "Database",
+      title: RequestView.database,
       dataIndex: "db",
     },
     {
-      title: "Broker",
+      title: RequestView.broker,
       dataIndex: "broker",
     },
     {
-      title: "Actions",
+      title: Common.actions,
       key: "actions",
       render: (_text: any, record: Request, _index: any) => {
         return (
-          <Tooltip content="Run Lin Query Language">
+          <Tooltip content={RequestView.runLinQL}>
             <Button
               icon={<IconPlay />}
               style={{ color: "var(--semi-color-success)" }}

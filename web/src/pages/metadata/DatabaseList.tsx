@@ -32,12 +32,13 @@ import {
 } from "@douyinfe/semi-ui";
 import StatusTip from "@src/components/common/StatusTip";
 import { Route } from "@src/constants";
+import { UIContext } from "@src/context/UIContextProvider";
 import { Database } from "@src/models";
 import { ExecService } from "@src/services";
 import { URLStore } from "@src/stores";
 import { useQuery } from "@tanstack/react-query";
 import * as _ from "lodash-es";
-import React from "react";
+import React, { useContext } from "react";
 
 const { Text } = Typography;
 
@@ -48,6 +49,8 @@ export default function DatabaseList() {
       return ExecService.exec<Database[]>({ sql: "show schemas" });
     }
   );
+  const { locale } = useContext(UIContext);
+  const { MetadataDatabaseView, Common } = locale;
 
   const dropDatabase = async (name: string) => {
     try {
@@ -74,33 +77,33 @@ export default function DatabaseList() {
 
   const columns = [
     {
-      title: "Name",
+      title: MetadataDatabaseView.name,
       dataIndex: "name",
       key: "name",
     },
     {
-      title: "Storage",
+      title: MetadataDatabaseView.storage,
       dataIndex: "storage",
     },
     {
-      title: "Description",
+      title: MetadataDatabaseView.description,
       dataIndex: "desc",
     },
     {
-      title: "Actions",
+      title: Common.actions,
       key: "actions",
       width: 100,
       render: (_text: any, record: any, _index: any) => {
         return (
           <Popconfirm
-            title="Please confirm"
+            title={Common.pleaseConfirm}
             content={
               <>
-                Are you sure drop [
+                {MetadataDatabaseView.deleteConfirm1}
                 <Text strong type="danger">
                   {record.name}
                 </Text>
-                ] database?
+                {MetadataDatabaseView.deleteConfirm2}
               </>
             }
             onConfirm={() => {
@@ -130,7 +133,7 @@ export default function DatabaseList() {
   return (
     <Card>
       <SplitButtonGroup style={{ marginBottom: 20 }}>
-        <CreateBtn text="Create" />
+        <CreateBtn text={Common.create} />
         <Button
           icon={<IconRefresh />}
           style={{ marginLeft: 4 }}

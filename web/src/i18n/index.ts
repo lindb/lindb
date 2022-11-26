@@ -16,16 +16,5 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-export enum Theme {
-  light = "light",
-  dark = "dark",
-}
-
-export enum StorageType {
-  ui = "LINDB_UI",
-}
-
-export enum Language {
-  en_US = "en_US",
-  zh_CN = "zh_CN",
-}
+export { default as zh_CN } from "./zh_CN";
+export { default as en_US } from "./en_US";

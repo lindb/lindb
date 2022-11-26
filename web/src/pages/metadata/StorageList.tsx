@@ -36,58 +36,9 @@ import { ExecService } from "@src/services";
 import { URLStore } from "@src/stores";
 import * as _ from "lodash-es";
 import { useQuery } from "@tanstack/react-query";
-import React from "react";
+import React, { useContext } from "react";
+import { UIContext } from "@src/context/UIContextProvider";
 
-const columns = [
-  {
-    title: "Name(Namespace)",
-    dataIndex: "config.namespace",
-    width: 170,
-    key: "name",
-  },
-  {
-    title: "Status",
-    dataIndex: "status",
-    key: "status",
-    width: 120,
-    render: (item: any) => {
-      return <StorageStatusView text={item} showBadge={true} />;
-    },
-  },
-  {
-    title: "Configuration",
-    dataIndex: "config",
-    key: "config",
-    render: (item: any) => {
-      var configItems: any[] = [];
-      Object.keys(item).forEach(function (key) {
-        const val = item[key];
-        if (val) {
-          configItems.push({
-            key: `${key}:`,
-            value: Array.isArray(val) ? JSON.stringify(val) : val,
-          });
-        }
-      });
-      return <Descriptions data={configItems} size="small" />;
-    },
-  },
-  {
-    title: "Actions",
-    key: "actions",
-    width: 100,
-    render: () => {
-      return (
-        <Popconfirm
-          title="Please confirm"
-          content="Are you sure want to remove storage?"
-        >
-          <Button icon={<IconDeleteStroked />} type="danger" />
-        </Popconfirm>
-      );
-    },
-  },
-];
 export default function StorageList() {
   const {
     isLoading,
@@ -99,6 +50,8 @@ export default function StorageList() {
   } = useQuery(["show_storage"], async () => {
     return ExecService.exec<Storage[]>({ sql: "show storages" });
   });
+  const { locale } = useContext(UIContext);
+  const { MetadataStorageView } = locale;
 
   const RegisterBtn: React.FC<any> = ({ text }) => {
     return (
@@ -112,11 +65,61 @@ export default function StorageList() {
       </Button>
     );
   };
+  const columns = [
+    {
+      title: MetadataStorageView.name,
+      dataIndex: "config.namespace",
+      width: 170,
+      key: "name",
+    },
+    {
+      title: MetadataStorageView.status,
+      dataIndex: "status",
+      key: "status",
+      width: 120,
+      render: (item: any) => {
+        return <StorageStatusView text={item} showBadge={true} />;
+      },
+    },
+    {
+      title: MetadataStorageView.configuration,
+      dataIndex: "config",
+      key: "config",
+      render: (item: any) => {
+        var configItems: any[] = [];
+        Object.keys(item).forEach(function (key) {
+          const val = item[key];
+          if (val) {
+            configItems.push({
+              key: `${key}:`,
+              value: Array.isArray(val) ? JSON.stringify(val) : val,
+            });
+          }
+        });
+        return <Descriptions data={configItems} size="small" />;
+      },
+    },
+    // {
+    //   title: "Actions",
+    //   key: "actions",
+    //   width: 100,
+    //   render: () => {
+    //     return (
+    //       <Popconfirm
+    //         title="Please confirm"
+    //         content="Are you sure want to remove storage?"
+    //       >
+    //         <Button icon={<IconDeleteStroked />} type="danger" />
+    //       </Popconfirm>
+    //     );
+    //   },
+    // },
+  ];
 
   return (
     <Card>
       <SplitButtonGroup style={{ marginBottom: 20 }}>
-        <RegisterBtn text="Register" />
+        <RegisterBtn text={MetadataStorageView.register} />
         <Button
           icon={<IconRefresh />}
           style={{ marginLeft: 4 }}

@@ -19,6 +19,7 @@ under the License.
 import { Card, Empty, Form, Typography } from "@douyinfe/semi-ui";
 import { Icon, LinSelect, StatusTip } from "@src/components";
 import { StateRoleName, SQL } from "@src/constants";
+import { UIContext } from "@src/context/UIContextProvider";
 import { useParams } from "@src/hooks";
 import { Unit } from "@src/models";
 import { ExecService, ProxyService } from "@src/services";
@@ -26,7 +27,7 @@ import { URLStore } from "@src/stores";
 import { FormatKit } from "@src/utils";
 import { useQuery } from "@tanstack/react-query";
 import * as _ from "lodash-es";
-import React from "react";
+import React, { useContext } from "react";
 
 const { Text } = Typography;
 
@@ -49,6 +50,8 @@ const getLogColor = (text: string) => {
 
 const LogContent: React.FC = () => {
   const { node, file, size } = useParams(["node", "file", "size"]);
+  const { locale } = useContext(UIContext);
+  const { Common } = locale;
   const { isError, error, data, isInitialLoading } = useQuery(
     ["tail_log", node, file, size],
     async () => {
@@ -97,7 +100,7 @@ const LogContent: React.FC = () => {
     return (
       <Empty
         image={<Icon icon="iconempty" style={{ fontSize: 48 }} />}
-        description="No data"
+        description={Common.noData}
         style={{ marginTop: 100, marginBottom: 100 }}
       />
     );
@@ -110,12 +113,15 @@ const LogContent: React.FC = () => {
 };
 
 const LogView: React.FC = () => {
+  const { locale } = useContext(UIContext);
+  const { LogView } = locale;
   return (
     <>
       <Card style={{ marginBottom: 12 }} bodyStyle={{ padding: 12 }}>
         <Form layout="horizontal" style={{ paddingTop: 0, paddingBottom: 0 }}>
           <LinSelect
             field="role"
+            label={LogView.role}
             loader={() => [
               { value: StateRoleName.Broker, label: StateRoleName.Broker },
               {
@@ -129,6 +135,7 @@ const LogView: React.FC = () => {
 
           <LinSelect
             field="storage"
+            label={LogView.storage}
             style={{ width: 200 }}
             loader={() =>
               ExecService.exec<any[]>({ sql: SQL.ShowStorageAliveNodes }).then(
@@ -146,6 +153,7 @@ const LogView: React.FC = () => {
           />
           <LinSelect
             field="node"
+            label={LogView.node}
             style={{ width: 230 }}
             loader={async () => {
               const params = URLStore.getParams();
@@ -181,6 +189,7 @@ const LogView: React.FC = () => {
           />
           <LinSelect
             field="file"
+            label={LogView.file}
             loader={() => {
               const params = URLStore.getParams();
               const target = _.get(params, "node");
@@ -204,6 +213,7 @@ const LogView: React.FC = () => {
           />
           <LinSelect
             field="size"
+            label={LogView.size}
             loader={() => [
               { label: "256KB", value: `${256 * 1024}` },
               { label: "1MB", value: `${1024 * 1024}` },

@@ -18,10 +18,11 @@ under the License.
 */
 import { MasterView, NodeView, StatusTip, StorageView } from "@src/components";
 import { StateMetricName, SQL } from "@src/constants";
+import { UIContext } from "@src/context/UIContextProvider";
 import { useStorage } from "@src/hooks";
 import { ExecService } from "@src/services";
 import { useQuery } from "@tanstack/react-query";
-import React from "react";
+import React, { useContext } from "react";
 
 // must define outside function component, if define in component maybe endless loop.
 const brokerMetric = `show broker metric where metric in ('${StateMetricName.CPU}','${StateMetricName.Memory}')`;
@@ -41,12 +42,14 @@ const Overview: React.FC = () => {
   } = useQuery(["show_broker_alive_nodes"], async () => {
     return ExecService.exec<any[]>({ sql: SQL.ShowBrokerAliveNodes });
   });
+  const { locale } = useContext(UIContext);
+  const { Overview } = locale;
 
   return (
     <>
       <MasterView />
       <NodeView
-        title="Broke Live Nodes"
+        title={Overview.brokerLiveNodes}
         nodes={liveNodes || []}
         sql={brokerMetric}
         style={{ marginTop: 12, marginBottom: 12 }}

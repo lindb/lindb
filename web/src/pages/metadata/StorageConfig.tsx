@@ -29,17 +29,21 @@ import {
   Form,
   Row,
   Space,
+  Tooltip,
   useFormApi,
 } from "@douyinfe/semi-ui";
 import { Route } from "@src/constants";
+import { UIContext } from "@src/context/UIContextProvider";
 import { ExecService } from "@src/services";
 import { URLStore } from "@src/stores";
 import * as _ from "lodash-es";
-import React, { useState } from "react";
+import React, { useContext, useState } from "react";
 
 export default function StorageConfig() {
   const [submiting, setSubmiting] = useState(false);
   const [error, setError] = useState("");
+  const { locale } = useContext(UIContext);
+  const { MetadataStorageView, Common } = locale;
 
   const Buttons = () => {
     const formApi = useFormApi();
@@ -51,7 +55,7 @@ export default function StorageConfig() {
         });
         URLStore.changeURLParams({ path: Route.MetadataStorage });
       } catch (err) {
-        setError(_.get(err, "response.data", "Unknown internal error"));
+        setError(_.get(err, "response.data", Common.unknownInternalError));
       } finally {
         setSubmiting(false);
       }
@@ -68,7 +72,7 @@ export default function StorageConfig() {
               create(formApi.getValues());
             }}
           >
-            Submit
+            {Common.submit}
           </Button>
           <Button
             type="tertiary"
@@ -77,7 +81,7 @@ export default function StorageConfig() {
               URLStore.changeURLParams({ path: Route.MetadataStorage })
             }
           >
-            Cancel
+            {Common.cancel}
           </Button>
         </Col>
       </Row>
@@ -88,7 +92,9 @@ export default function StorageConfig() {
     return (
       <Space align="center">
         <span>{label}</span>
-        <IconHelpCircleStroked />
+        <Tooltip content={MetadataStorageView.timeoutTooltip}>
+          <IconHelpCircleStroked />
+        </Tooltip>
       </Space>
     );
   };
@@ -105,7 +111,6 @@ export default function StorageConfig() {
       )}
       <Card>
         <Form
-          // layout="horizontal"
           labelPosition="left"
           labelAlign="right"
           labelCol={{ span: 4 }}
@@ -120,16 +125,28 @@ export default function StorageConfig() {
           <Form.TagInput
             field="config.endpoints"
             rules={[{ required: true }]}
-            label="Endpoints"
+            label={MetadataStorageView.endpoints}
           />
-          <Form.Input field="config.timeout" label={labelWithHelp("Timeout")} />
-          <Form.Input field="config.dialTimeout" label="DialTimeout" />
-          <Form.Input field="config.leaseTTL" label="LeaseTTL" />
-          <Form.Input field="config.username" label="Username" />
+          <Form.Input
+            field="config.timeout"
+            label={labelWithHelp(MetadataStorageView.timeout)}
+          />
+          <Form.Input
+            field="config.dialTimeout"
+            label={MetadataStorageView.dialTimeout}
+          />
+          <Form.Input
+            field="config.leaseTTL"
+            label={MetadataStorageView.leaseTTL}
+          />
+          <Form.Input
+            field="config.username"
+            label={MetadataStorageView.username}
+          />
           <Form.Input
             mode="password"
             field="config.password"
-            label="Password"
+            label={MetadataStorageView.password}
           />
           <Buttons />
         </Form>

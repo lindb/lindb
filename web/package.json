@@ -20,7 +20,7 @@
     ]
   },
   "dependencies": {
-    "@douyinfe/semi-ui": "^2.22.2",
+    "@douyinfe/semi-ui": "^2.23.3",
     "@tanstack/react-query": "^4.10.1",
     "axios": "^0.24.0",
     "chart.js": "^3.9.1",

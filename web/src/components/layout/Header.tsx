@@ -16,11 +16,12 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useRef, MutableRefObject } from "react";
 import {
   IconGithubLogo,
   IconHelpCircleStroked,
   IconHomeStroked,
+  IconLanguage,
 } from "@douyinfe/semi-icons";
 import { Breadcrumb, Button, Layout, Nav, Space } from "@douyinfe/semi-ui";
 import { TimePicker, Icon } from "@src/components";
@@ -33,9 +34,12 @@ const { Header: HeaderUI } = Layout;
 
 const Header: React.FC<{ routes: Map<string, RouteItem> }> = (props) => {
   const { routes } = props;
-  const { toggleTheme, collapsed, isDark } = useContext(UIContext);
+  const { toggleTheme, toggleLangauge, collapsed, isDark, locale } =
+    useContext(UIContext);
+  const { LayoutHeader, SiderMenu } = locale;
   const [breadcrumbRoutes, setBreadcrumbRoutes] = useState<any[]>([]);
   const [currentRouter, setCurrentRouter] = useState<any>({});
+  const breadcrumbItemsRef = useRef() as MutableRefObject<any[] | null>;
 
   useWatchURLChange(() => {
     const pathname = URLStore.getPath();
@@ -49,12 +53,12 @@ const Header: React.FC<{ routes: Map<string, RouteItem> }> = (props) => {
         breadcrumbItems.push({
           href: item.content ? `#${item.path}` : null,
           name: item.text,
-          icon: !item.parent ? <IconHomeStroked /> : null,
         });
       };
 
       generate(currentRouter);
     }
+    breadcrumbItemsRef.current = breadcrumbItems;
     setCurrentRouter(currentRouter);
     setBreadcrumbRoutes(breadcrumbItems);
   });
@@ -74,10 +78,17 @@ const Header: React.FC<{ routes: Map<string, RouteItem> }> = (props) => {
         style={{ paddingRight: 12, paddingLeft: 16 }}
         header={
           <Space align="center">
-            <Breadcrumb
-              className="lin-header-breadcrumb"
-              routes={breadcrumbRoutes}
-            />
+            <Breadcrumb className="lin-header-breadcrumb">
+              {(breadcrumbRoutes || []).map((route: any, idx: any) => (
+                <Breadcrumb.Item
+                  key={idx}
+                  icon={idx === 0 ? <IconHomeStroked /> : null}
+                  href={route.href}
+                >
+                  {SiderMenu[route.name]}
+                </Breadcrumb.Item>
+              ))}
+            </Breadcrumb>
           </Space>
         }
         footer={
@@ -95,16 +106,24 @@ const Header: React.FC<{ routes: Map<string, RouteItem> }> = (props) => {
                 color: "var(--semi-color-text-2)",
                 marginLeft: 12,
               }}
-              onClick={() => {
-                toggleTheme();
-              }}
+              onClick={() => toggleTheme()}
             />
+            <Button
+              icon={<IconLanguage size="large" />}
+              style={{
+                color: "var(--semi-color-text-2)",
+                marginRight: 12,
+                marginLeft: 12,
+              }}
+              onClick={() => toggleLangauge()}
+            >
+              <div style={{ width: 28 }}>{LayoutHeader.language}</div>
+            </Button>
             <Button
               icon={<IconGithubLogo size="large" />}
               style={{
                 color: "var(--semi-color-text-2)",
                 marginRight: 12,
-                marginLeft: 12,
               }}
               onClick={() => window.open("https://github.com/lindb/lindb")}
             />

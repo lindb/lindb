@@ -23,24 +23,39 @@ import {
   StorageView,
 } from "@src/components";
 import { SQL, StateMetricName } from "@src/constants";
+import { UIContext } from "@src/context/UIContextProvider";
 import { useParams } from "@src/hooks";
 import { ExecService } from "@src/services";
 import { StateKit } from "@src/utils";
 import { useQuery } from "@tanstack/react-query";
 import * as _ from "lodash-es";
-import React from "react";
+import React, { useContext, useEffect } from "react";
 
 const StorageOverview: React.FC = () => {
   const { name } = useParams(["name"]);
-  const { isLoading, isInitialLoading, isFetching, isError, error, data } =
-    useQuery(
-      ["show_alive_storage", name],
-      async () => {
-        return ExecService.exec<any[]>({ sql: SQL.ShowStorageAliveNodes });
-      },
-      { enabled: !_.isEmpty(name) }
-    );
+  const {
+    isLoading,
+    isInitialLoading,
+    isFetching,
+    isError,
+    error,
+    data,
+    refetch,
+  } = useQuery(
+    ["show_alive_storage", name],
+    async () => {
+      return ExecService.exec<any[]>({ sql: SQL.ShowStorageAliveNodes });
+    },
+    { enabled: !_.isEmpty(name) }
+  );
   const storages = StateKit.getStorageState(data, name || "");
+  const { locale } = useContext(UIContext);
+  const { StorageView: StorageViewCmp } = locale;
+
+  // reload when change language
+  useEffect(() => {
+    refetch();
+  }, [locale, refetch]);
 
   if (isError || isLoading || isInitialLoading || isFetching) {
     return (
@@ -58,7 +73,7 @@ const StorageOverview: React.FC = () => {
       <StorageView name={name as string} storages={storages || []} />
       <NodeView
         showNodeId
-        title="Live Nodes"
+        title={StorageViewCmp.liveNodes}
         nodes={_.orderBy(
           _.values(_.get(storages, "[0].liveNodes", {})),
           ["id"],
@@ -68,7 +83,7 @@ const StorageOverview: React.FC = () => {
         style={{ marginTop: 12, marginBottom: 12 }}
       />
       <DatabaseView
-        title="Database List"
+        title={StorageViewCmp.databaseList}
         liveNodes={_.get(storages, "[0].liveNodes", {})}
         storage={_.get(storages, "[0]", {})}
       />

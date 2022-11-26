@@ -16,11 +16,12 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import React from "react";
+import React, { useContext } from "react";
 import { Card, Table, Descriptions, Typography } from "@douyinfe/semi-ui";
 import * as _ from "lodash-es";
 import { Route } from "@src/constants";
 import { URLStore } from "@src/stores";
+import { UIContext } from "@src/context/UIContextProvider";
 
 const { Text } = Typography;
 
@@ -33,9 +34,11 @@ interface DatabaseViewProps {
 }
 export default function DatabaseView(props: DatabaseViewProps) {
   const { loading, storage, liveNodes, title, databaseName } = props;
+  const { locale } = useContext(UIContext);
+  const { DatabaseView, StorageView } = locale;
   const columns = [
     {
-      title: "Name",
+      title: DatabaseView.name,
       dataIndex: "name",
       key: "name",
       render: (text: any) => {
@@ -44,7 +47,7 @@ export default function DatabaseView(props: DatabaseViewProps) {
             link
             className="lin-link"
             onClick={() => {
-              if (!name) {
+              if (!text) {
                 // only in storage list can click
                 URLStore.changeURLParams({
                   path: Route.MonitoringReplication,
@@ -59,17 +62,17 @@ export default function DatabaseView(props: DatabaseViewProps) {
       },
     },
     {
-      title: "Num. Of Shards",
+      title: DatabaseView.numOfShards,
       dataIndex: "stats.numOfShards",
     },
     {
-      title: "Replica Factor",
+      title: DatabaseView.replicaFactor,
       dataIndex: "stats.totalReplica",
     },
     {
-      title: "Replication Status",
+      title: StorageView.replicationStatus,
       width: "30%",
-      render: (text: any, record: any, index: any) => {
+      render: (_text: any, record: any, _index: any) => {
         return (
           <Descriptions
             className="lin-small-desc"
@@ -77,13 +80,13 @@ export default function DatabaseView(props: DatabaseViewProps) {
             size="small"
             data={[
               {
-                key: "Total",
+                key: StorageView.totalOfReplication,
                 value: (
                   <Text link>{_.get(record, "stats.totalReplica", 0)}</Text>
                 ),
               },
               {
-                key: "Under-replicated",
+                key: StorageView.underReplicated,
                 value: (
                   <Text type="success">
                     {_.get(record, "stats.availableReplica", 0)}
@@ -91,7 +94,7 @@ export default function DatabaseView(props: DatabaseViewProps) {
                 ),
               },
               {
-                key: "Unavailable",
+                key: StorageView.unavailableReplica,
                 value: (
                   <Text type="danger">
                     {_.get(record, "stats.unavailableReplica", 0)}

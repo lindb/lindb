@@ -30,9 +30,10 @@ import { StateMetricName, Route } from "@src/constants";
 import { useStateMetric } from "@src/hooks";
 import { Node, Unit } from "@src/models";
 import { StateKit, FormatKit } from "@src/utils";
-import React, { CSSProperties, ReactNode } from "react";
+import React, { CSSProperties, ReactNode, useContext } from "react";
 import { URLStore } from "@src/stores";
 import * as _ from "lodash-es";
+import { UIContext } from "@src/context/UIContextProvider";
 
 const { Text } = Typography;
 const { CPU, Memory } = StateMetricName;
@@ -48,16 +49,18 @@ interface NodeViewProps {
 export default function NodeView(props: NodeViewProps) {
   const { showNodeId, title, style, statusTip, nodes, sql } = props;
   const { stateMetric } = useStateMetric(sql);
+  const { locale } = useContext(UIContext);
+  const { NodeView } = locale;
 
   const nodeIdCol = {
-    title: "Node Id",
+    title: NodeView.nodeId,
     dataIndex: "id",
     key: "id",
   };
 
   const columns: any[] = [
     {
-      title: "Host Information",
+      title: NodeView.title,
       dataIndex: "hostIp",
       key: "hostIp",
       render: (_text: any, record: Node, _index: any) => {
@@ -69,19 +72,19 @@ export default function NodeView(props: NodeViewProps) {
               size="small"
               data={[
                 {
-                  key: "Host IP",
+                  key: NodeView.hostIp,
                   value: <Text link>{record.hostIp}</Text>,
                 },
                 {
-                  key: "Host Name",
+                  key: NodeView.hostName,
                   value: <Text link>{record.hostName}</Text>,
                 },
                 {
-                  key: "HTTP",
+                  key: NodeView.httpPort,
                   value: <Text link>{record.httpPort}</Text>,
                 },
                 {
-                  key: "GRPC",
+                  key: NodeView.grpcPort,
                   value: <Text link>{record.grpcPort}</Text>,
                 },
               ]}
@@ -91,7 +94,7 @@ export default function NodeView(props: NodeViewProps) {
       },
     },
     {
-      title: "Uptime",
+      title: NodeView.uptime,
       dataIndex: "onlineTime",
       key: "onlineTime",
       render: (text: any, _record: any, _index: any) => {
@@ -113,12 +116,12 @@ export default function NodeView(props: NodeViewProps) {
       },
     },
     {
-      title: "Version",
+      title: NodeView.version,
       dataIndex: "version",
       key: "version",
     },
     {
-      title: "CPU",
+      title: NodeView.cpu,
       key: "cpu",
       render: (_text: any, record: any, _index: any) => {
         return (
@@ -139,7 +142,7 @@ export default function NodeView(props: NodeViewProps) {
       },
     },
     {
-      title: "Memory",
+      title: NodeView.memory,
       key: "memory",
       render: (_text: any, record: any, _index: any) => {
         const node = `${record.hostIp}:${record.grpcPort}`;
