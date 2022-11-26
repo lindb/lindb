@@ -43,7 +43,7 @@ export default function DiskUsageView(props: DiskUsageViewProps) {
       used: 0,
       free: 0,
     };
-    _.forEach(stateMetric, (seriesList: any, key: string) => {
+    _.forEach(stateMetric, (seriesList: any, _key: string) => {
       _.forEach(seriesList, (series: any) => {
         const fields = _.get(series, "fields", []);
         stats.total += getValue(fields, "total");

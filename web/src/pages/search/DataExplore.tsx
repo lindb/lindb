@@ -19,16 +19,25 @@ under the License.
 import { Card, Form, Space, Switch, Typography } from "@douyinfe/semi-ui";
 import { Chart, Icon, MetadataSelect, TagFilterSelect } from "@src/components";
 import { Route, SQL } from "@src/constants";
+import { UIContext } from "@src/context/UIContextProvider";
 import { useParams } from "@src/hooks";
 import { ChartType, QueryStatement } from "@src/models";
 import { URLStore } from "@src/stores";
 import * as _ from "lodash-es";
-import React, { MutableRefObject, useEffect, useRef, useState } from "react";
+import React, {
+  MutableRefObject,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { Link } from "react-router-dom";
 
 const { Text } = Typography;
 
 const ExploreForm: React.FC = () => {
+  const { locale } = useContext(UIContext);
+  const { DataExploreView } = locale;
   return (
     <Form
       style={{ paddingBottom: 0, paddingTop: 0 }}
@@ -38,7 +47,7 @@ const ExploreForm: React.FC = () => {
       <MetadataSelect
         variate={{
           tagKey: "db",
-          label: "Database",
+          label: DataExploreView.database,
           sql: SQL.ShowDatabases,
           watch: { clear: ["namespace", "metric"] },
         }}
@@ -49,7 +58,7 @@ const ExploreForm: React.FC = () => {
         variate={{
           db: "${db}",
           tagKey: "namespace",
-          label: "Namespace",
+          label: DataExploreView.namespace,
           sql: "show namespaces",
           watch: { clear: ["metric"], cascade: ["db"] },
         }}
@@ -61,7 +70,7 @@ const ExploreForm: React.FC = () => {
           db: "${db}",
           namespace: "namespace",
           tagKey: "metric",
-          label: "Metrics",
+          label: DataExploreView.metric,
           sql: "show metrics",
           watch: {
             clear: ["field", "groupBy", "tags"],
@@ -70,7 +79,7 @@ const ExploreForm: React.FC = () => {
         }}
         labelPosition="inset"
         type="metric"
-        rules={[{ required: true, message: "Metric name required" }]}
+        rules={[{ required: true, message: DataExploreView.metricRequired }]}
       />
       <Space>
         <Switch
@@ -79,7 +88,7 @@ const ExploreForm: React.FC = () => {
           }
           checked={_.get(URLStore.getParams(), "show", false)}
         />
-        Show LQL
+        {DataExploreView.showLinQL}
       </Space>
     </Form>
   );
@@ -89,6 +98,9 @@ const MetricMetaForm: React.FC = () => {
   const { db, metric, tags } = useParams(["db", "metric", "tags"]);
   const formApi = useRef() as MutableRefObject<any>;
   const [tagFilter, setTagFilter] = useState<Object>();
+  const { locale } = useContext(UIContext);
+  const { DataExploreView } = locale;
+
   useEffect(() => {
     if (!formApi.current) {
       return;
@@ -113,7 +125,7 @@ const MetricMetaForm: React.FC = () => {
   }, [tags]);
   return (
     <Form
-      getFormApi={(api) => {
+      getFormApi={(api: any) => {
         formApi.current = api;
       }}
       className="lin-tag-filter"
@@ -124,7 +136,7 @@ const MetricMetaForm: React.FC = () => {
           db: "${db}",
           namespace: "namespace",
           tagKey: "field",
-          label: "Field",
+          label: DataExploreView.field,
           sql: `show fields from '${metric}'`,
           watch: {
             cascade: ["metric"],
@@ -136,7 +148,7 @@ const MetricMetaForm: React.FC = () => {
       />
       <Form.TagInput
         field="tag"
-        prefix="Filter By"
+        prefix={DataExploreView.filterBy}
         labelPosition="inset"
         style={{ minWidth: 0 }}
         onRemove={(removedValue: string, _idx: number) => {
@@ -160,7 +172,7 @@ const MetricMetaForm: React.FC = () => {
           db: "${db}",
           namespace: "namespace",
           tagKey: "groupBy",
-          label: "Group By",
+          label: DataExploreView.groupBy,
           sql: `show tag keys from '${metric}'`,
         }}
         labelPosition="inset"
@@ -202,7 +214,6 @@ const DataExplore: React.FC = () => {
   const db = _.get(params, "db", "");
 
   const sql = URLStore.bindSQL({} as QueryStatement);
-  console.log("sql.......", sql, params);
   const renderContent = () => {
     const metric = _.get(params, "metric");
     if (!metric) {

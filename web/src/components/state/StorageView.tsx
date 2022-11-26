@@ -21,8 +21,9 @@ import { DiskUsageView } from "@src/components";
 import { Route, StateMetricName } from "@src/constants";
 import { StorageState } from "@src/models";
 import * as _ from "lodash-es";
-import React from "react";
+import React, { useContext } from "react";
 import { URLStore } from "@src/stores";
+import { UIContext } from "@src/context/UIContextProvider";
 
 const { Text } = Typography;
 
@@ -35,10 +36,12 @@ interface StorageViewProps {
 
 export default function StorageView(props: StorageViewProps) {
   const { name, loading, storages, statusTip } = props;
+  const { locale } = useContext(UIContext);
+  const { StorageView } = locale;
 
   const columns = [
     {
-      title: "Name(Namespace)",
+      title: StorageView.name,
       dataIndex: "name",
       key: "name",
       render: (text: any) => {
@@ -62,7 +65,7 @@ export default function StorageView(props: StorageViewProps) {
       },
     },
     {
-      title: "Node Status",
+      title: StorageView.nodeStatus,
       render: (_text: any, record: StorageState, _index: any) => {
         return (
           <Descriptions
@@ -71,7 +74,7 @@ export default function StorageView(props: StorageViewProps) {
             size="small"
             data={[
               {
-                key: "Alive Nodes",
+                key: StorageView.aliveNodes,
                 value: (
                   <Text type="success">
                     {_.get(record, "stats.liveNodes", 0)}
@@ -79,7 +82,7 @@ export default function StorageView(props: StorageViewProps) {
                 ),
               },
               {
-                key: "Dead Nodes",
+                key: StorageView.deadNodes,
                 value: (
                   <Text type="danger">
                     {_.get(record, "stats.deadNodes.length", 0)}
@@ -92,14 +95,14 @@ export default function StorageView(props: StorageViewProps) {
       },
     },
     {
-      title: "Num. Of Database",
+      title: StorageView.numOfDatabase,
       key: "num_db",
       render: (_text: any, record: StorageState, _index: any) => {
         return _.keys(_.get(record, "shardStates", {})).length;
       },
     },
     {
-      title: "Replication Status",
+      title: StorageView.replicationStatus,
       width: "30%",
       render: (_text: any, record: StorageState, _index: any) => {
         return (
@@ -109,13 +112,13 @@ export default function StorageView(props: StorageViewProps) {
             size="small"
             data={[
               {
-                key: "Total",
+                key: StorageView.totalOfReplication,
                 value: (
                   <Text link>{_.get(record, "stats.totalReplica", 0)}</Text>
                 ),
               },
               {
-                key: "Under-replicated",
+                key: StorageView.underReplicated,
                 value: (
                   <Text type="success">
                     {_.get(record, "stats.availableReplica", 0)}
@@ -123,7 +126,7 @@ export default function StorageView(props: StorageViewProps) {
                 ),
               },
               {
-                key: "Unavailable",
+                key: StorageView.unavailableReplica,
                 value: (
                   <Text type="danger">
                     {_.get(record, "stats.unavailableReplica", 0)}
@@ -136,7 +139,7 @@ export default function StorageView(props: StorageViewProps) {
       },
     },
     {
-      title: "Disk Capacity Usage",
+      title: StorageView.diskCapacityUsage,
       render: (_text: any, record: any) => {
         return (
           <DiskUsageView
@@ -149,7 +152,7 @@ export default function StorageView(props: StorageViewProps) {
 
   return (
     <Card
-      title={name ? "" : "Storage Cluster List"}
+      title={name ? "" : StorageView.storageClusterList}
       headerStyle={{ padding: 12 }}
       bodyStyle={{ padding: 12 }}
     >

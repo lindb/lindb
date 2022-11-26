@@ -25,11 +25,11 @@ import { action, makeObservable, observable } from "mobx";
 class URLStore {
   public changed: boolean = false;
   public forceChanged: boolean = false;
+  public path: string = "";
 
   private params: URLSearchParams = new URLSearchParams();
   private paramObj = {};
   private defaultParams = {}; // default params just save in store, don't put them into url params.
-  private path: string = "";
   private history: History | undefined = undefined;
 
   constructor() {

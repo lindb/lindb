@@ -20,8 +20,9 @@ under the License.
 import { IconCrossCircleStroked } from "@douyinfe/semi-icons";
 import { Empty, Spin, Typography } from "@douyinfe/semi-ui";
 import { ApiKit } from "@src/utils";
-import React, { CSSProperties } from "react";
+import React, { CSSProperties, useContext } from "react";
 import { Icon } from "@src/components";
+import { UIContext } from "@src/context/UIContextProvider";
 
 const { Text } = Typography;
 
@@ -33,6 +34,8 @@ const StatusTip: React.FC<{
   style?: CSSProperties;
 }> = (props) => {
   const { isLoading, isError, isEmpty, error, style } = props;
+  const { locale } = useContext(UIContext);
+  const { Common } = locale;
   const render = () => {
     if (isLoading) {
       return <Spin size="large" tip="Loading" />;
@@ -42,7 +45,7 @@ const StatusTip: React.FC<{
         return (
           <Empty
             image={<Icon icon="iconempty" style={{ fontSize: 48 }} />}
-            description="No data"
+            description={Common.noData}
           />
         );
       }
@@ -59,7 +62,7 @@ const StatusTip: React.FC<{
       return (
         <Empty
           image={<Icon icon="iconempty" style={{ fontSize: 48 }} />}
-          description="No data"
+          description={Common.noData}
         />
       );
     }

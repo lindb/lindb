@@ -66,7 +66,8 @@ const CompareView: React.FC<{
   const diffEditorRef = useRef() as MutableRefObject<HTMLDivElement>;
   const [filter, setFilter] = useState<string>("");
   const [current, setCurrent] = useState<string>("");
-  const { theme } = useContext(UIContext);
+  const { locale, theme } = useContext(UIContext);
+  const { MetadataExploreView } = locale;
 
   const buildOriginal = useCallback(() => {
     return monaco.editor.createModel(_.get(source, "data", "no data"), "json");
@@ -103,7 +104,7 @@ const CompareView: React.FC<{
             header={
               <Input
                 onChange={setFilter}
-                placeholder="Filter nodes"
+                placeholder={MetadataExploreView.filterNode}
                 prefix={<IconSearch />}
               />
             }
@@ -163,7 +164,8 @@ const MetadataView: React.FC<{
   const [stateMachineMetadata, setStateMachineMetadata] = useState<any[]>([]);
   const [showCompareResult, setShowCompareResult] = useState<boolean>(false);
   const [metadata, setMetadata] = useState<any>(null);
-  const { theme } = useContext(UIContext);
+  const { theme, locale } = useContext(UIContext);
+  const { Common, MetadataExploreView } = locale;
 
   const { isLoading, isInitialLoading, isError, error, data } = useQuery(
     ["load_metadata", node],
@@ -233,7 +235,7 @@ const MetadataView: React.FC<{
       return (
         <Empty
           image={<Icon icon="iconempty" style={{ fontSize: 48 }} />}
-          description="No data"
+          description={Common.noData}
           style={{ paddingTop: 100 }}
         />
       );
@@ -264,26 +266,29 @@ const MetadataView: React.FC<{
               icon={<IconSourceControl />}
               onClick={exploreStateMachineData}
             >
-              Compare
+              {MetadataExploreView.compare}
             </Button>
-            <Tooltip content="Compare with state matchine's data in memory">
+            <Tooltip content={MetadataExploreView.compareTooltip}>
               <Button icon={<IconHelpCircleStroked />} />
             </Tooltip>
           </SplitButtonGroup>
           {comparing && (
             <>
               <Spin size="middle" />
-              <Text style={{ marginRight: 4 }}>Comparing</Text>
+              <Text style={{ marginRight: 4 }}>
+                {MetadataExploreView.comparing}
+              </Text>
             </>
           )}
           {!_.isEmpty(stateMachineMetadata) && (
             <Text strong link onClick={() => setShowCompareResult(true)}>
-              Found <Text type="success">{stateMachineMetadata.length}</Text>{" "}
-              nodes, diff{" "}
+              {MetadataExploreView.compareResult1}{" "}
+              <Text type="success">{stateMachineMetadata.length}</Text>{" "}
+              {MetadataExploreView.compareResult2}{" "}
               <Text type="danger">
                 {_.filter(stateMachineMetadata, (o) => o.isDiff).length}
               </Text>{" "}
-              nodes.
+              {MetadataExploreView.compareResult3}
             </Text>
           )}
         </div>
@@ -297,11 +302,9 @@ const MetadataView: React.FC<{
         title={
           <div>
             <Title strong heading={4}>
-              State Compare Result
+              {MetadataExploreView.compareResultTitle}
             </Title>
-            <Text>
-              The state(in storage) compare with in state machine(memory)
-            </Text>
+            <Text>{MetadataExploreView.compareResultDesc}</Text>
           </div>
         }
         closeOnEsc

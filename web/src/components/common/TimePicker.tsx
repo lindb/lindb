@@ -30,47 +30,54 @@ import {
 import { useParams } from "@src/hooks";
 import { URLStore } from "@src/stores";
 import * as _ from "lodash-es";
-import React, { useState, useRef, MutableRefObject, useEffect } from "react";
+import React, {
+  useState,
+  useRef,
+  MutableRefObject,
+  useEffect,
+  useContext,
+} from "react";
 import moment from "moment";
 import { DateTimeFormat } from "@src/constants";
 import { Icon } from "@src/components";
+import { UIContext } from "@src/context/UIContextProvider";
 
 const { Title } = Typography;
-const defaultQuickItem = { title: "Last 1 hour", value: "now()-1h" };
-const defaultAutoRefreshItem = { title: "off", value: "" };
-
 type QuickSelectItem = {
   title: string;
   value: string;
 };
-
+const defaultQuickItem = { title: "last1Hour", value: "now()-1h" };
+const defaultAutoRefreshItem = { title: "off", value: "" };
 const quickSelectList: QuickSelectItem[] = [
-  { title: "Last 15 min", value: "now()-15m" },
-  { title: "Last 30 min", value: "now()-30m" },
+  { title: "last15Min", value: "now()-15m" },
+  { title: "last30Min", value: "now()-30m" },
   defaultQuickItem,
-  { title: "Last 3 hours", value: "now()-3h" },
-  { title: "Last 6 hours", value: "now()-6h" },
-  { title: "Last 12 hours", value: "now()-12h" },
-  { title: "Last 1 day", value: "now()-1d" },
-  { title: "Last 2 days", value: "now()-2d" },
-  { title: "Last 3 days", value: "now()-3d" },
-  { title: "Last 7 days", value: "now()-7d" },
-  { title: "Last 15 days", value: "now()-15d" },
-  { title: "Last 30 days", value: "now()-30d" },
+  { title: "last3Hour", value: "now()-3h" },
+  { title: "last6Hour", value: "now()-6h" },
+  { title: "last12Hour", value: "now()-12h" },
+  { title: "last1Day", value: "now()-1d" },
+  { title: "last2Day", value: "now()-2d" },
+  { title: "last3Day", value: "now()-3d" },
+  { title: "last7Day", value: "now()-7d" },
+  { title: "last15Day", value: "now()-15d" },
+  { title: "klast30Day", value: "now()-30d" },
 ];
 const autoRefreshList: QuickSelectItem[] = [
   {
     value: "",
     title: "off",
   },
-  { value: "10", title: "10s" },
-  { value: "30", title: "30s" },
-  { value: "60", title: "1m" },
-  { value: "300", title: "5m" },
+  { value: "10", title: `10s` },
+  { value: "30", title: `30s` },
+  { value: "60", title: `1m` },
+  { value: "300", title: `5m` },
 ];
 
 export default function TimePicker() {
   const { from, to, refresh } = useParams(["from", "to", "refresh"]);
+  const { locale } = useContext(UIContext);
+  const { TimePicker } = locale;
   const formApi = useRef() as MutableRefObject<any>;
   const [quick, setQuick] = useState<QuickSelectItem | undefined>(
     defaultQuickItem
@@ -95,6 +102,7 @@ export default function TimePicker() {
       }, 1000 * interval);
     }
   };
+
   useEffect(() => {
     if (_.isEmpty(from)) {
       setQuick(defaultQuickItem);
@@ -105,7 +113,7 @@ export default function TimePicker() {
   }, [from]);
 
   useEffect(() => {
-    const refreshItem = _.find(autoRefreshList, { title: `${refresh}` });
+    const refreshItem = _.find(autoRefreshList, { value: `${refresh}` });
     if (refreshItem && refreshItem.value !== "") {
       buildCountDown(parseInt(refreshItem.value));
     } else {
@@ -133,7 +141,7 @@ export default function TimePicker() {
             color: quick?.value !== item.value ? "transparent" : "inherit",
           }}
         />
-        {item.title}
+        {TimePicker[item.title]}
       </Dropdown.Item>
     ));
     return <Dropdown.Menu>{SelectItems}</Dropdown.Menu>;
@@ -145,7 +153,7 @@ export default function TimePicker() {
   function renderSelectedTime() {
     return (
       <Button icon={<Icon icon="iconclock" />} onClick={() => setVisible(true)}>
-        {quick?.title}
+        {quick && TimePicker[quick.title]}
         {!quick && `${from} ~ ${to ? `${to}` : "now"}`}
       </Button>
     );
@@ -155,16 +163,16 @@ export default function TimePicker() {
     return (
       <Space style={{ width: 460, padding: 20 }} align="start">
         <div style={{ width: 230 }}>
-          <Title heading={5}>Absolute time range</Title>
+          <Title heading={5}>{TimePicker.absoluteTimeRange}</Title>
           <Form
             style={{ marginTop: 16 }}
             className="lin-form"
-            getFormApi={(api) => (formApi.current = api)}
+            getFormApi={(api: any) => (formApi.current = api)}
           >
             <Form.DatePicker
               field="from"
               type="dateTime"
-              label="From"
+              label={TimePicker.from}
               labelPosition="top"
               onOpenChange={(v) => (timeRangeVisible.current = v)}
               initValue={!quick ? from && new Date(`${from}`) : null}
@@ -173,7 +181,7 @@ export default function TimePicker() {
               field="to"
               type="dateTime"
               labelPosition="top"
-              label="To"
+              label={TimePicker.to}
               onOpenChange={(v) => (timeRangeVisible.current = v)}
               initValue={to && new Date(`${to}`)}
             />
@@ -193,7 +201,7 @@ export default function TimePicker() {
                 });
               }}
             >
-              Apply time range
+              {TimePicker.applyTimeRange}
             </Button>
           </Form>
         </div>
@@ -205,7 +213,7 @@ export default function TimePicker() {
         >
           <Title strong heading={6}>
             <Input
-              placeholder="Search quick ranges"
+              placeholder={TimePicker.searchQuickRange}
               onChange={(val: string) => {
                 const rs = _.filter(
                   quickSelectList,
@@ -251,21 +259,21 @@ export default function TimePicker() {
                   active={item.value === autoRefresh.value}
                   onClick={() => {
                     URLStore.changeURLParams({
-                      params: { refresh: item.title },
+                      params: { refresh: item.value },
                     });
                   }}
                 >
-                  {item.title}
+                  {TimePicker[item.title]}
                 </Dropdown.Item>
               ))}
             </Dropdown.Menu>
           }
         >
-          {autoRefresh.title === "off" ? (
+          {autoRefresh.value === "" ? (
             <Button icon={<IconChevronDown />} iconPosition="right" />
           ) : (
             <Button icon={<IconChevronDown />} iconPosition="right">
-              {autoRefresh.title}
+              {TimePicker[autoRefresh.title]}
             </Button>
           )}
         </Dropdown>
