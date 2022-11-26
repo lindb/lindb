@@ -27,4 +27,5 @@ export type RouteItem = {
   content?: React.ReactNode;
   items?: RouteItem[];
   keep?: string[]; //keep url params when change route
+  help?: string; // help doc
 };

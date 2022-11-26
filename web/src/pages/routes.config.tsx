@@ -58,6 +58,7 @@ export const routes = [
     path: Route.Overview,
     icon: <IconComponentPlaceholderStroked size="large" />,
     content: <Overview />,
+    help: "/guide/admin-ui/overview.html",
     items: [
       {
         inner: true,
@@ -65,6 +66,7 @@ export const routes = [
         text: "Storage",
         path: Route.StorageOverview,
         content: <StorageOverview />,
+        help: "/guide/admin-ui/overview.html#storage-cluster-status",
       },
       {
         inner: true,
@@ -72,6 +74,7 @@ export const routes = [
         text: "Configuration",
         path: Route.ConfigurationView,
         content: <ConfigurationView />,
+        help: "/guide/admin-ui/overview.html#node-configuration",
       },
     ],
   },
@@ -80,6 +83,7 @@ export const routes = [
     path: Route.Search,
     icon: <IconSearchStroked size="large" />,
     content: <DataSearch />,
+    help: "/guide/admin-ui/search.html",
   },
   {
     text: "Explore",
@@ -87,6 +91,7 @@ export const routes = [
     timePicker: true,
     icon: <Icon icon="iconExplore" style={{ fontSize: 20 }} />,
     content: <DataExplore />,
+    help: "/guide/admin-ui/explore.html",
   },
   {
     text: "Monitoring",
@@ -101,24 +106,28 @@ export const routes = [
           <DashboardView variates={CommonVariates} dashboards={Dashboards} />
         ),
         timePicker: true,
+        help: "/guide/admin-ui/monitoring.html#dashboard",
       },
       {
         text: "Replication",
         path: Route.MonitoringReplication,
         icon: <IconElementStroked size="large" />,
         content: <ReplicationView />,
+        help: "/guide/admin-ui/monitoring.html#replication",
       },
       {
         text: "Request",
         path: Route.MonitoringRequest,
         icon: <IconSendStroked size="large" />,
         content: <RequestView />,
+        help: "/guide/admin-ui/monitoring.html#request",
       },
       {
         text: "Log View",
         path: Route.MonitoringLogs,
         icon: <IconChecklistStroked size="large" />,
         content: <LogView />,
+        help: "/guide/admin-ui/monitoring.html#log-view",
       },
     ],
   },
@@ -132,6 +141,7 @@ export const routes = [
         path: Route.MetadataStorage,
         icon: <Icon icon="iconts-tubiao_APPCluster" style={{ fontSize: 20 }} />,
         content: <StorageList />,
+        help: "/guide/admin-ui/metadata.html#storage",
         items: [
           {
             inner: true,
@@ -139,6 +149,7 @@ export const routes = [
             text: "Configuration",
             path: Route.MetadataStorageConfig,
             content: <StorageConfig />,
+            help: "/guide/admin-ui/metadata.html#storage",
           },
         ],
       },
@@ -147,6 +158,7 @@ export const routes = [
         path: Route.MetadataDatabase,
         icon: <Icon icon="icondatabase" style={{ fontSize: 20 }} />,
         content: <DatabaseList />,
+        help: "/guide/admin-ui/metadata.html#database",
         items: [
           {
             inner: true,
@@ -154,6 +166,7 @@ export const routes = [
             text: "Configuration",
             path: Route.MetadataDatabaseConfig,
             content: <DatabaseConfig />,
+            help: "/guide/admin-ui/metadata.html#database",
           },
         ],
       },
@@ -162,6 +175,7 @@ export const routes = [
         path: Route.MetadataExplore,
         icon: <IconFixedStroked size="large" />,
         content: <MetadataExplore />,
+        help: "/guide/admin-ui/metadata.html#explore",
       },
       {
         text: "Multiple IDCs",
