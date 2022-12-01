@@ -35,7 +35,7 @@ type ReplicaAPI struct {
 	logger *logger.Logger
 }
 
-// NewReplicaAPI creates replica state api instance.
+// NewReplicaAPI creates a replica state api instance.
 func NewReplicaAPI(walMgr replica.WriteAheadLogManager) *ReplicaAPI {
 	return &ReplicaAPI{
 		walMgr: walMgr,

@@ -46,6 +46,8 @@ type Database interface {
 	Name() string
 	// NumOfShards returns number of families in time series database
 	NumOfShards() int
+	// GetConfig return the configuration of database.
+	GetConfig() *models.DatabaseConfig
 	// GetOption returns the database options
 	GetOption() *option.DatabaseOption
 	// CreateShards creates families for data partition
@@ -72,25 +74,19 @@ type Database interface {
 	EvictSegment()
 }
 
-// databaseConfig represents a database configuration about config and families
-type databaseConfig struct {
-	ShardIDs []models.ShardID       `toml:"shardIDs"`
-	Option   *option.DatabaseOption `toml:"option"`
-}
-
 // database implements Database for storing families,
 // each shard represents a time series storage
 type database struct {
 	name           string // database-name
 	dir            string
-	config         *databaseConfig // meta configuration
-	executorPool   *ExecutorPool   // executor pool for querying task
-	mutex          sync.Mutex      // mutex for creating families
-	shardSet       shardSet        // atomic value
-	metadata       metadb.Metadata // underlying metric metadata
-	metaStore      kv.Store        // underlying meta kv store
-	isFlushing     atomic.Bool     // restrict flusher concurrency
-	flushCondition *sync.Cond      // flush condition
+	config         *models.DatabaseConfig // meta configuration
+	executorPool   *ExecutorPool          // executor pool for querying task
+	mutex          sync.Mutex             // mutex for creating families
+	shardSet       shardSet               // atomic value
+	metadata       metadb.Metadata        // underlying metric metadata
+	metaStore      kv.Store               // underlying meta kv store
+	isFlushing     atomic.Bool            // restrict flusher concurrency
+	flushCondition *sync.Cond             // flush condition
 
 	statistics *metrics.DatabaseStatistics
 
@@ -100,7 +96,7 @@ type database struct {
 // newDatabase creates the database instance
 func newDatabase(
 	databaseName string,
-	cfg *databaseConfig,
+	cfg *models.DatabaseConfig,
 	flushChecker DataFlushChecker,
 ) (Database, error) {
 	if err := cfg.Option.Validate(); err != nil {
@@ -186,6 +182,11 @@ func (db *database) NumOfShards() int {
 	return db.shardSet.GetShardNum()
 }
 
+// GetConfig return the configuration of database.
+func (db *database) GetConfig() *models.DatabaseConfig {
+	return db.config
+}
+
 // GetOption returns the database options
 func (db *database) GetOption() *option.DatabaseOption {
 	return db.config.Option
@@ -227,7 +228,7 @@ func (db *database) createShard(shardID models.ShardID) error {
 		return fmt.Errorf("create shard[%d] for engine[%s] with error: %s", shardID, db.name, err)
 	}
 	// using new engine option
-	newCfg := &databaseConfig{Option: db.config.Option, ShardIDs: db.config.ShardIDs}
+	newCfg := &models.DatabaseConfig{Option: db.config.Option, ShardIDs: db.config.ShardIDs}
 	// add new shard id
 	newCfg.ShardIDs = append(newCfg.ShardIDs, shardID)
 	if err := db.dumpDatabaseConfig(newCfg); err != nil {
@@ -286,7 +287,7 @@ func (db *database) EvictSegment() {
 }
 
 // dumpDatabaseConfig persists option info to OPTIONS file
-func (db *database) dumpDatabaseConfig(newConfig *databaseConfig) error {
+func (db *database) dumpDatabaseConfig(newConfig *models.DatabaseConfig) error {
 	cfgPath := optionsPath(db.name)
 	// write store info using toml format
 	if err := encodeToml(cfgPath, newConfig); err != nil {

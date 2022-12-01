@@ -73,6 +73,12 @@ func ParseShardID(shard string) ShardID {
 	return ShardID(shardID)
 }
 
+// DatabaseConfig represents a database configuration about config and families
+type DatabaseConfig struct {
+	ShardIDs []ShardID              `toml:"shardIDs" json:"shardIDs"`
+	Option   *option.DatabaseOption `toml:"option" json:"option"`
+}
+
 // Database defines database config, database can include multi-cluster.
 type Database struct {
 	Name          string                 `json:"name" validate:"required"`      // database's name
@@ -115,6 +121,8 @@ func (r Replica) Contain(nodeID NodeID) bool {
 type ShardAssignment struct {
 	Name   string               `json:"name"` // database's name
 	Shards map[ShardID]*Replica `json:"shards"`
+
+	replicaFactor int // for storage recover
 }
 
 // NewShardAssignment returns empty shard assignment instance.
@@ -132,5 +140,16 @@ func (s *ShardAssignment) AddReplica(shardID ShardID, replicaID NodeID) {
 		replica = &Replica{}
 		s.Shards[shardID] = replica
 	}
-	replica.Replicas = append(replica.Replicas, replicaID)
+	if !replica.Contain(replicaID) {
+		replica.Replicas = append(replica.Replicas, replicaID)
+	}
+
+	if len(replica.Replicas) > s.replicaFactor {
+		s.replicaFactor = len(replica.Replicas)
+	}
+}
+
+// GetReplicaFactor returns the factor of replica.
+func (s *ShardAssignment) GetReplicaFactor() int {
+	return s.replicaFactor
 }

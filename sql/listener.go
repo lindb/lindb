@@ -125,6 +125,16 @@ func (l *listener) EnterShowMemoryDatabaseStmt(_ *grammar.ShowMemoryDatabaseStmt
 	l.stateStmt = newStateStmtParse(stmt.MemoryDatabase)
 }
 
+// EnterRecoverStorageStmt is called when entering the recoverStorageStmt production.
+func (l *listener) EnterRecoverStorageStmt(_ *grammar.RecoverStorageStmtContext) {
+	l.storageStmt = newStorageStmtParse(stmt.StorageOpRecover)
+}
+
+// EnterStorageName is called when entering the storageName production.
+func (l *listener) EnterStorageName(c *grammar.StorageNameContext) {
+	l.storageStmt.visitStorageName(c)
+}
+
 // EnterStorageFilter is called when production storageFilter is entered.
 func (l *listener) EnterStorageFilter(ctx *grammar.StorageFilterContext) {
 	switch {
@@ -156,7 +166,7 @@ func (l *listener) EnterJson(ctx *grammar.JsonContext) { //nolint:stylecheck
 }
 
 // EnterCreateStorageStmt is called when production createStorageStmt is entered.
-func (l *listener) EnterCreateStorageStmt(_ *grammar.CreateStorageStmtContext) {
+func (l *listener) EnterCreateStorageStmt(c *grammar.CreateStorageStmtContext) {
 	l.storageStmt = newStorageStmtParse(stmt.StorageOpCreate)
 }
 

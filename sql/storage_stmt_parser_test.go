@@ -41,3 +41,13 @@ func TestCreateStorage(t *testing.T) {
 		Value: `{"config":{"namespace":"test","timeout":10,"dialTimeout":10,"leaseTTL":10,"endpoints":["http://localhost:2379"]}}`,
 	}, q)
 }
+
+func TestRecoverStorage(t *testing.T) {
+	sql := `recover storage test`
+	q, err := Parse(sql)
+	assert.NoError(t, err)
+	assert.Equal(t, &stmt.Storage{
+		Type:  stmt.StorageOpRecover,
+		Value: "test",
+	}, q)
+}

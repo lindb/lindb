@@ -15,31 +15,33 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package stmt
+package state
 
-// StorageOpType represents storage related operation.
-type StorageOpType int
+import (
+	"net/http"
+	"testing"
 
-const (
-	// StorageOpUnknown represents unknown operation.
-	StorageOpUnknown StorageOpType = iota
-	// StorageOpCreate represents create storage.
-	StorageOpCreate
-	// StorageOpShow represent show storage.
-	StorageOpShow
-	// StorageOpDelete represents delete storage.
-	StorageOpDelete
-	// StorageOpRecover represents recover storage metadata.
-	StorageOpRecover
+	"github.com/gin-gonic/gin"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/internal/mock"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/tsdb"
 )
 
-// Storage represent storage statement.
-type Storage struct {
-	Type  StorageOpType
-	Value string
-}
+func TestMetadataAPI_GetLocalAllDatabaseCfg(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-// StatementType returns storage query type.
-func (q *Storage) StatementType() StatementType {
-	return StorageStatement
+	engine := tsdb.NewMockEngine(ctrl)
+	db := tsdb.NewMockDatabase(ctrl)
+	api := NewMetadataAPI(engine)
+	r := gin.New()
+	api.Register(r)
+
+	engine.EXPECT().GetAllDatabases().Return(map[string]tsdb.Database{"test": db})
+	db.EXPECT().GetConfig().Return(&models.DatabaseConfig{})
+	resp := mock.DoRequest(t, r, http.MethodGet, DatabaseCfgPath, "")
+	assert.Equal(t, http.StatusOK, resp.Code)
 }

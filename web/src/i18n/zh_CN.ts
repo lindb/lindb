@@ -177,6 +177,9 @@ const local = {
     timeout: "客户端处理超时时间",
     timeoutTooltip: "客户端处理请求的超时时间",
     leaseTTL: "租约(Time To Live)",
+    recoverConfirmMessage: "是否确认从存储集群的本地存储中恢复数据库配置？",
+    recoverErrorTitle: "恢复数据库配置失败",
+    recoverSuccessTitle: "恢复数据库配置成功",
   },
   LinSelectView: {
     placeholder: "请选择",

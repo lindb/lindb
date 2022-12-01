@@ -55,7 +55,7 @@ func TestDatabase_New(t *testing.T) {
 
 	cases := []struct {
 		name    string
-		cfg     *databaseConfig
+		cfg     *models.DatabaseConfig
 		prepare func()
 		wantErr bool
 	}{
@@ -108,7 +108,7 @@ func TestDatabase_New(t *testing.T) {
 		},
 		{
 			name:    "option validation fail",
-			cfg:     &databaseConfig{Option: opt},
+			cfg:     &models.DatabaseConfig{Option: opt},
 			wantErr: true,
 		},
 		{
@@ -177,7 +177,7 @@ func TestDatabase_New(t *testing.T) {
 				tt.prepare()
 			}
 			opt := &option.DatabaseOption{Intervals: option.Intervals{{Interval: 10}}}
-			cfg := &databaseConfig{
+			cfg := &models.DatabaseConfig{
 				ShardIDs: []models.ShardID{1, 2, 3},
 				Option:   opt,
 			}
@@ -196,6 +196,7 @@ func TestDatabase_New(t *testing.T) {
 				assert.Equal(t, "db", db.Name())
 				assert.True(t, db.NumOfShards() >= 0)
 				assert.Equal(t, &option.DatabaseOption{Intervals: option.Intervals{{Interval: 10}}}, db.GetOption())
+				assert.NotNil(t, db.GetConfig())
 			}
 		})
 	}
@@ -208,7 +209,7 @@ func TestDatabase_CreateShards(t *testing.T) {
 		ctrl.Finish()
 	}()
 	db := &database{
-		config:   &databaseConfig{},
+		config:   &models.DatabaseConfig{},
 		shardSet: *newShardSet(),
 	}
 	type args struct {
