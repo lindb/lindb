@@ -178,6 +178,10 @@ const local = {
     timeout: "Client Handle Timeout",
     timeoutTooltip: "Client handle request timeout",
     leaseTTL: "Lease TTL(Time To Live)",
+    recoverConfirmMessage:
+      "Are you sure want to recover database configuration from local storage?",
+    recoverErrorTitle: "Recover database configuration error",
+    recoverSuccessTitle: "Recover database configuration success",
   },
   LinSelectView: {
     placeholder: "Please select",

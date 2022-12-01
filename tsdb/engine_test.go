@@ -83,7 +83,7 @@ func TestEngine_New(t *testing.T) {
 				listDir = func(path string) (strings []string, e error) {
 					return []string{"db"}, nil
 				}
-				newDatabaseFunc = func(databaseName string, cfg *databaseConfig,
+				newDatabaseFunc = func(databaseName string, cfg *models.DatabaseConfig,
 					flushChecker DataFlushChecker) (Database, error) {
 					return nil, fmt.Errorf("err")
 				}
@@ -128,7 +128,7 @@ func TestEngine_createDatabase(t *testing.T) {
 			newDatabaseFunc = newDatabase
 		}()
 		mockDB := NewMockDatabase(ctrl)
-		newDatabaseFunc = func(databaseName string, cfg *databaseConfig, flushChecker DataFlushChecker) (Database, error) {
+		newDatabaseFunc = func(databaseName string, cfg *models.DatabaseConfig, flushChecker DataFlushChecker) (Database, error) {
 			return mockDB, nil
 		}
 		withTestPath(path.Join(tmpDir, "new"))
@@ -156,6 +156,8 @@ func TestEngine_createDatabase(t *testing.T) {
 		assert.True(t, ok)
 		assert.NotNil(t, shard)
 
+		assert.Equal(t, map[string]Database{"test_db": mockDB}, e.GetAllDatabases())
+
 		mockDB.EXPECT().Close()
 		e.Close()
 	})
@@ -166,7 +168,7 @@ func TestEngine_createDatabase(t *testing.T) {
 			listDir = fileutil.ListDir
 		}()
 		mockDB := NewMockDatabase(ctrl)
-		newDatabaseFunc = func(databaseName string, cfg *databaseConfig, flushChecker DataFlushChecker) (Database, error) {
+		newDatabaseFunc = func(databaseName string, cfg *models.DatabaseConfig, flushChecker DataFlushChecker) (Database, error) {
 			return mockDB, nil
 		}
 		withTestPath(path.Join(tmpDir, "re-open"))
@@ -351,7 +353,7 @@ func TestEngine_CreateShards(t *testing.T) {
 			db:       "test-2",
 			shardIDs: []models.ShardID{1},
 			prepare: func(e *engine) {
-				newDatabaseFunc = func(databaseName string, cfg *databaseConfig,
+				newDatabaseFunc = func(databaseName string, cfg *models.DatabaseConfig,
 					flushChecker DataFlushChecker) (Database, error) {
 					return nil, fmt.Errorf("err")
 				}
@@ -363,7 +365,7 @@ func TestEngine_CreateShards(t *testing.T) {
 			db:       "test-2",
 			shardIDs: []models.ShardID{1},
 			prepare: func(e *engine) {
-				newDatabaseFunc = func(databaseName string, cfg *databaseConfig,
+				newDatabaseFunc = func(databaseName string, cfg *models.DatabaseConfig,
 					flushChecker DataFlushChecker) (Database, error) {
 					return mockDatabase, nil
 				}

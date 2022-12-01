@@ -51,6 +51,8 @@ type Engine interface {
 	GetShard(databaseName string, shardID models.ShardID) (Shard, bool)
 	// GetDatabase returns the time series database by given name
 	GetDatabase(databaseName string) (Database, bool)
+	// GetAllDatabases returns all databases.
+	GetAllDatabases() map[string]Database
 	// FlushDatabase produces a signal to workers for flushing memory database by name
 	FlushDatabase(ctx context.Context, databaseName string) bool
 	// DropDatabases drops databases, keep active database.
@@ -99,7 +101,7 @@ func NewEngine() (Engine, error) {
 // return success when creating database's path successfully
 func (e *engine) createDatabase(databaseName string, dbOption *option.DatabaseOption) (Database, error) {
 	cfgPath := optionsPath(databaseName)
-	cfg := &databaseConfig{Option: dbOption}
+	cfg := &models.DatabaseConfig{Option: dbOption}
 	engineLogger.Info("load database option from local storage", logger.String("path", cfgPath))
 	if fileExist(cfgPath) {
 		if err := decodeToml(cfgPath, cfg); err != nil {
@@ -154,6 +156,11 @@ func (e *engine) CreateShards(
 // GetDatabase returns the time series database by given name
 func (e *engine) GetDatabase(databaseName string) (Database, bool) {
 	return e.dbSet.GetDatabase(databaseName)
+}
+
+// GetAllDatabases returns all databases.
+func (e *engine) GetAllDatabases() map[string]Database {
+	return e.dbSet.Entries()
 }
 
 // GetShard returns shard by given db and shard id

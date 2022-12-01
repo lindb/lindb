@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 import {
-  IconDeleteStroked,
+  IconRedoStroked,
   IconPlusCircle,
   IconRefresh,
 } from "@douyinfe/semi-icons";
@@ -28,6 +28,7 @@ import {
   Popconfirm,
   SplitButtonGroup,
   Table,
+  Notification,
 } from "@douyinfe/semi-ui";
 import { StatusTip, StorageStatusView } from "@src/components";
 import { Route } from "@src/constants";
@@ -51,7 +52,7 @@ export default function StorageList() {
     return ExecService.exec<Storage[]>({ sql: "show storages" });
   });
   const { locale } = useContext(UIContext);
-  const { MetadataStorageView } = locale;
+  const { MetadataStorageView, Common } = locale;
 
   const RegisterBtn: React.FC<any> = ({ text }) => {
     return (
@@ -64,6 +65,32 @@ export default function StorageList() {
         {text}
       </Button>
     );
+  };
+  const recover = (storageName: string) => {
+    return new Promise(async (resolve: any) => {
+      try {
+        const msg: any = await ExecService.exec({
+          sql: `recover storage '${storageName}'`,
+        });
+        Notification.success({
+          title: MetadataStorageView.recoverSuccessTitle,
+          content: _.join(msg || [], ","),
+          position: "top",
+          theme: "light",
+          duration: 5,
+        });
+        resolve();
+      } catch (err) {
+        Notification.error({
+          title: MetadataStorageView.recoverErrorTitle,
+          content: _.get(err, "response.data", Common.unknownInternalError),
+          position: "top",
+          theme: "light",
+          duration: 5,
+        });
+        resolve();
+      }
+    });
   };
   const columns = [
     {
@@ -99,21 +126,22 @@ export default function StorageList() {
         return <Descriptions data={configItems} size="small" />;
       },
     },
-    // {
-    //   title: "Actions",
-    //   key: "actions",
-    //   width: 100,
-    //   render: () => {
-    //     return (
-    //       <Popconfirm
-    //         title="Please confirm"
-    //         content="Are you sure want to remove storage?"
-    //       >
-    //         <Button icon={<IconDeleteStroked />} type="danger" />
-    //       </Popconfirm>
-    //     );
-    //   },
-    // },
+    {
+      title: Common.actions,
+      key: "actions",
+      width: 100,
+      render: (_text: any, r: any) => {
+        return (
+          <Popconfirm
+            title={Common.pleaseConfirm}
+            content={MetadataStorageView.recoverConfirmMessage}
+            onConfirm={() => recover(_.get(r, "config.namespace"))}
+          >
+            <Button icon={<IconRedoStroked />} type="primary" />
+          </Popconfirm>
+        );
+      },
+    },
   ];
 
   return (

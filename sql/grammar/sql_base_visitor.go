@@ -92,6 +92,10 @@ func (v *BaseSQLVisitor) VisitCreateStorageStmt(ctx *CreateStorageStmtContext) i
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseSQLVisitor) VisitRecoverStorageStmt(ctx *RecoverStorageStmtContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseSQLVisitor) VisitShowSchemasStmt(ctx *ShowSchemasStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -141,6 +145,10 @@ func (v *BaseSQLVisitor) VisitNamespace(ctx *NamespaceContext) interface{} {
 }
 
 func (v *BaseSQLVisitor) VisitDatabaseName(ctx *DatabaseNameContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLVisitor) VisitStorageName(ctx *StorageNameContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

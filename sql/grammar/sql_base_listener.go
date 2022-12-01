@@ -139,6 +139,12 @@ func (s *BaseSQLListener) EnterCreateStorageStmt(ctx *CreateStorageStmtContext) 
 // ExitCreateStorageStmt is called when production createStorageStmt is exited.
 func (s *BaseSQLListener) ExitCreateStorageStmt(ctx *CreateStorageStmtContext) {}
 
+// EnterRecoverStorageStmt is called when production recoverStorageStmt is entered.
+func (s *BaseSQLListener) EnterRecoverStorageStmt(ctx *RecoverStorageStmtContext) {}
+
+// ExitRecoverStorageStmt is called when production recoverStorageStmt is exited.
+func (s *BaseSQLListener) ExitRecoverStorageStmt(ctx *RecoverStorageStmtContext) {}
+
 // EnterShowSchemasStmt is called when production showSchemasStmt is entered.
 func (s *BaseSQLListener) EnterShowSchemasStmt(ctx *ShowSchemasStmtContext) {}
 
@@ -216,6 +222,12 @@ func (s *BaseSQLListener) EnterDatabaseName(ctx *DatabaseNameContext) {}
 
 // ExitDatabaseName is called when production databaseName is exited.
 func (s *BaseSQLListener) ExitDatabaseName(ctx *DatabaseNameContext) {}
+
+// EnterStorageName is called when production storageName is entered.
+func (s *BaseSQLListener) EnterStorageName(ctx *StorageNameContext) {}
+
+// ExitStorageName is called when production storageName is exited.
+func (s *BaseSQLListener) ExitStorageName(ctx *StorageNameContext) {}
 
 // EnterRequestID is called when production requestID is entered.
 func (s *BaseSQLListener) EnterRequestID(ctx *RequestIDContext) {}

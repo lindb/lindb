@@ -4,6 +4,7 @@ grammar SQL;
 
 statement               : showStmt
                         | createStorageStmt
+                        | recoverStorageStmt
                         | useStmt
                         | queryStmt
                         | createDatabaseStmt
@@ -49,6 +50,7 @@ showMemoryDatabaseStmt  : T_SHOW T_MEMORY T_DATASBAE T_WHERE (storageFilter|data
 showBrokerMetricStmt : T_SHOW T_BROKER T_METRIC T_WHERE metricListFilter ;
 showStorageMetricStmt: T_SHOW T_STORAGE T_METRIC T_WHERE (storageFilter|metricListFilter) T_AND (storageFilter|metricListFilter) ;
 createStorageStmt    : T_CREATE T_STORAGE json;
+recoverStorageStmt   : T_RECOVER T_STORAGE storageName;
 showSchemasStmt      : T_SHOW T_SCHEMAS ;
 createDatabaseStmt   : T_CREATE T_DATASBAE json;
 dropDatabaseStmt     : T_DROP T_DATASBAE databaseName;
@@ -62,6 +64,7 @@ prefix               : ident ;
 withTagKey           : ident ;
 namespace            : ident ;
 databaseName         : ident ;
+storageName          : ident ;
 requestID            : ident ;
 source               : (T_STATE_MACHINE|T_STATE_REPO) ;
 
@@ -348,6 +351,7 @@ T_FUTURE_TTL         : F U T U R E T T L                ;
 T_KILL               : K I L L                          ;
 T_ON                 : O N                              ;
 T_SHOW               : S H O W                          ;
+T_RECOVER            : R E C O V E R                    ;
 T_USE                : U S E                            ;
 T_STATE_REPO         : S T A T E T_UNDERLINE R E P O    ;
 T_STATE_MACHINE      : S T A T E T_UNDERLINE M A C H I N E;

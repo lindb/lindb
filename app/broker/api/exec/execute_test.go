@@ -96,6 +96,31 @@ func TestExecuteAPI_Execute(t *testing.T) {
 
 	var backend *httptest.Server
 
+	databaseCfgData := encoding.JSONMarshal(map[string]models.DatabaseConfig{
+		"test": {
+			ShardIDs: []models.ShardID{1, 2, 3},
+			Option:   &option.DatabaseOption{},
+		},
+	})
+	mockSrv := func(data []byte) {
+		server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, _ *http.Request) {
+			rw.Header().Add("content-type", "application/json")
+			_, _ = rw.Write(data)
+		}))
+		u, err := url.Parse(server.URL)
+		assert.NoError(t, err)
+		p, err := strconv.Atoi(u.Port())
+		assert.NoError(t, err)
+		stateMgr.EXPECT().GetStorage(gomock.Any()).Return(&models.StorageState{
+			LiveNodes: map[models.NodeID]models.StatefulNode{1: {
+				StatelessNode: models.StatelessNode{
+					HostIP:   u.Hostname(),
+					HTTPPort: uint16(p),
+				},
+				ID: 1,
+			}}}, true)
+	}
+
 	cases := []struct {
 		name    string
 		reqBody string
@@ -960,7 +985,8 @@ func TestExecuteAPI_Execute(t *testing.T) {
 				assert.Equal(t, http.StatusInternalServerError, resp.Code)
 			},
 		},
-		{name: "create database, persist failure",
+		{
+			name:    "create database, persist failure",
 			reqBody: `{"sql":"create database ` + databaseCfg + `"}`,
 			prepare: func() {
 				repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
@@ -969,7 +995,8 @@ func TestExecuteAPI_Execute(t *testing.T) {
 				assert.Equal(t, http.StatusInternalServerError, resp.Code)
 			},
 		},
-		{name: "create database, option validation failure",
+		{
+			name:    "create database, option validation failure",
 			reqBody: `{"sql":"create database ` + databaseCfg + `"}`,
 			prepare: func() {
 				sqlParseFn = func(sql string) (stmt stmtpkg.Statement, err error) {
@@ -992,7 +1019,8 @@ func TestExecuteAPI_Execute(t *testing.T) {
 				assert.Equal(t, http.StatusInternalServerError, resp.Code)
 			},
 		},
-		{name: "create database successfully",
+		{
+			name:    "create database successfully",
 			reqBody: `{"sql":"create database ` + databaseCfg + `"}`,
 			prepare: func() {
 				repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
@@ -1001,7 +1029,8 @@ func TestExecuteAPI_Execute(t *testing.T) {
 				assert.Equal(t, http.StatusOK, resp.Code)
 			},
 		},
-		{name: "drop database, but delete cfg failure",
+		{
+			name:    "drop database, but delete cfg failure",
 			reqBody: `{"sql":"drop database test"}`,
 			prepare: func() {
 				// delete database cfg failure
@@ -1011,7 +1040,8 @@ func TestExecuteAPI_Execute(t *testing.T) {
 				assert.Equal(t, http.StatusInternalServerError, resp.Code)
 			},
 		},
-		{name: "drop database, but delete shard assignment failure",
+		{
+			name:    "drop database, but delete shard assignment failure",
 			reqBody: `{"sql":"drop database test"}`,
 			prepare: func() {
 				// delete database cfg ok
@@ -1023,7 +1053,8 @@ func TestExecuteAPI_Execute(t *testing.T) {
 				assert.Equal(t, http.StatusInternalServerError, resp.Code)
 			},
 		},
-		{name: "drop database successfully",
+		{
+			name:    "drop database successfully",
 			reqBody: `{"sql":"drop database test"}`,
 			prepare: func() {
 				// delete database cfg ok
@@ -1035,7 +1066,8 @@ func TestExecuteAPI_Execute(t *testing.T) {
 				assert.Equal(t, http.StatusOK, resp.Code)
 			},
 		},
-		{name: "show all requests, but no alive broker",
+		{
+			name:    "show all requests, but no alive broker",
 			reqBody: `{"sql":"show requests"}`,
 			prepare: func() {
 				stateMgr.EXPECT().GetLiveNodes().Return(nil)
@@ -1044,7 +1076,8 @@ func TestExecuteAPI_Execute(t *testing.T) {
 				assert.Equal(t, http.StatusNotFound, resp.Code)
 			},
 		},
-		{name: "show all requests, but get err from broker",
+		{
+			name:    "show all requests, but get err from broker",
 			reqBody: `{"sql":"show requests"}`,
 			prepare: func() {
 				svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -1063,7 +1096,8 @@ func TestExecuteAPI_Execute(t *testing.T) {
 				assert.Equal(t, http.StatusNotFound, resp.Code)
 			},
 		},
-		{name: "show all requests successfully",
+		{
+			name:    "show all requests successfully",
 			reqBody: `{"sql":"show requests"}`,
 			prepare: func() {
 				svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -1078,6 +1112,61 @@ func TestExecuteAPI_Execute(t *testing.T) {
 					HostIP:   "127.0.0.1",
 					HTTPPort: uint16(p),
 				}})
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
+			name:    "recover storage, but storage not found",
+			reqBody: `{"sql":"recover storage test"}`,
+			prepare: func() {
+				stateMgr.EXPECT().GetStorage(gomock.Any()).Return(nil, false)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			name:    "recover storage, but get database config failure",
+			reqBody: `{"sql":"recover storage test"}`,
+			prepare: func() {
+				mockSrv([]byte("abc"))
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
+			name:    "recover storage, but recover shard assignment failure",
+			reqBody: `{"sql":"recover storage test"}`,
+			prepare: func() {
+				mockSrv(databaseCfgData)
+				repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			name:    "recover storage, but recover database schema failure",
+			reqBody: `{"sql":"recover storage test"}`,
+			prepare: func() {
+				mockSrv(databaseCfgData)
+				repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+				repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
+			name:    "recover storage successfully",
+			reqBody: `{"sql":"recover storage test"}`,
+			prepare: func() {
+				mockSrv(databaseCfgData)
+				repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+				repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			},
 			assert: func(resp *httptest.ResponseRecorder) {
 				assert.Equal(t, http.StatusOK, resp.Code)

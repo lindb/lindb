@@ -75,6 +75,9 @@ type SQLVisitor interface {
 	// Visit a parse tree produced by SQLParser#createStorageStmt.
 	VisitCreateStorageStmt(ctx *CreateStorageStmtContext) interface{}
 
+	// Visit a parse tree produced by SQLParser#recoverStorageStmt.
+	VisitRecoverStorageStmt(ctx *RecoverStorageStmtContext) interface{}
+
 	// Visit a parse tree produced by SQLParser#showSchemasStmt.
 	VisitShowSchemasStmt(ctx *ShowSchemasStmtContext) interface{}
 
@@ -113,6 +116,9 @@ type SQLVisitor interface {
 
 	// Visit a parse tree produced by SQLParser#databaseName.
 	VisitDatabaseName(ctx *DatabaseNameContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#storageName.
+	VisitStorageName(ctx *StorageNameContext) interface{}
 
 	// Visit a parse tree produced by SQLParser#requestID.
 	VisitRequestID(ctx *RequestIDContext) interface{}

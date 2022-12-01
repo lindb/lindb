@@ -75,6 +75,9 @@ type SQLListener interface {
 	// EnterCreateStorageStmt is called when entering the createStorageStmt production.
 	EnterCreateStorageStmt(c *CreateStorageStmtContext)
 
+	// EnterRecoverStorageStmt is called when entering the recoverStorageStmt production.
+	EnterRecoverStorageStmt(c *RecoverStorageStmtContext)
+
 	// EnterShowSchemasStmt is called when entering the showSchemasStmt production.
 	EnterShowSchemasStmt(c *ShowSchemasStmtContext)
 
@@ -113,6 +116,9 @@ type SQLListener interface {
 
 	// EnterDatabaseName is called when entering the databaseName production.
 	EnterDatabaseName(c *DatabaseNameContext)
+
+	// EnterStorageName is called when entering the storageName production.
+	EnterStorageName(c *StorageNameContext)
 
 	// EnterRequestID is called when entering the requestID production.
 	EnterRequestID(c *RequestIDContext)
@@ -336,6 +342,9 @@ type SQLListener interface {
 	// ExitCreateStorageStmt is called when exiting the createStorageStmt production.
 	ExitCreateStorageStmt(c *CreateStorageStmtContext)
 
+	// ExitRecoverStorageStmt is called when exiting the recoverStorageStmt production.
+	ExitRecoverStorageStmt(c *RecoverStorageStmtContext)
+
 	// ExitShowSchemasStmt is called when exiting the showSchemasStmt production.
 	ExitShowSchemasStmt(c *ShowSchemasStmtContext)
 
@@ -374,6 +383,9 @@ type SQLListener interface {
 
 	// ExitDatabaseName is called when exiting the databaseName production.
 	ExitDatabaseName(c *DatabaseNameContext)
+
+	// ExitStorageName is called when exiting the storageName production.
+	ExitStorageName(c *StorageNameContext)
 
 	// ExitRequestID is called when exiting the requestID production.
 	ExitRequestID(c *RequestIDContext)

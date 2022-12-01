@@ -453,7 +453,7 @@ func (m *stateManager) shardAssignment(databaseCfg *models.Database) {
 			return
 		}
 	default:
-		// TODO remove it ???
+		// TODO: remove it ???
 		m.logger.Info("no data changed, just trigger shard assignment data modify event",
 			logger.String("storage", databaseCfg.Storage),
 			logger.Any("database", databaseCfg.Name))
