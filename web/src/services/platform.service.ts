@@ -16,9 +16,13 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+import { ApiKit } from "@src/utils";
+import { ApiPath } from "@src/constants";
 
-export { default as MetadataService } from "@src/services/metadata.service";
-export { default as QueryService } from "@src/services/query.service";
-export { default as ProxyService } from "@src/services/proxy.service";
-export { default as ExecService } from "@src/services/exec.service";
-export { default as PlatformService } from "@src/services/platform.service";
+function fetchEnv() {
+  return ApiKit.GET<any>(ApiPath.Env);
+}
+
+export default {
+  fetchEnv,
+};

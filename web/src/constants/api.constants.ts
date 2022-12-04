@@ -28,6 +28,7 @@ export enum ApiPath {
   RepoExplore = "/metadata/explore/repo",
   Proxy = "/proxy",
   Exec = "/exec",
+  Env = "/env",
 }
 
 export const DateTimeFormat = "YYYY-MM-DD HH:mm:ss";

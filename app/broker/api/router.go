@@ -43,6 +43,7 @@ type API struct {
 	log                *monitoring.LoggerAPI
 	config             *monitoring.ConfigAPI
 	write              *ingest.Write
+	env                *EnvAPI
 	proxy              *ReverseProxy
 }
 
@@ -59,6 +60,7 @@ func NewAPI(deps *depspkg.HTTPDeps) *API {
 		log:                monitoring.NewLoggerAPI(deps.BrokerCfg.Logging.Dir),
 		config:             monitoring.NewConfigAPI(deps.Node, deps.BrokerCfg),
 		write:              ingest.NewWrite(deps),
+		env:                NewEnvAPI(deps),
 		proxy:              NewReverseProxy(),
 	}
 }
@@ -85,5 +87,6 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 	api.log.Register(v1)
 	api.config.Register(v1)
 
+	api.env.Register(v1)
 	api.proxy.Register(v1)
 }
