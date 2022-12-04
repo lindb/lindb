@@ -26,6 +26,9 @@ import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
 import en_US from "@douyinfe/semi-ui/lib/es/locale/source/en_US";
 import zh_CN from "@douyinfe/semi-ui/lib/es/locale/source/zh_CN";
 import { en_US as lin_en_US, zh_CN as lin_zh_CN } from "@src/i18n";
+import { useQuery } from "@tanstack/react-query";
+import { PlatformService } from "@src/services";
+import { Spin } from "@douyinfe/semi-ui";
 
 const localeMap = {
   zh_CN: _.merge(zh_CN, lin_zh_CN),
@@ -75,6 +78,7 @@ export const UIContext = React.createContext({
   theme: Theme.dark,
   collapsed: false,
   locale: {} as any,
+  env: {} as any,
   language: Language.en_US,
   toggleTheme: () => {},
   toggleCollapse: () => {},
@@ -96,7 +100,12 @@ const UIContextProvider: React.FC<{ children: React.ReactNode }> = (props) => {
   const [collapsed, setCollapsed] = useState(
     _.get(localUISetting, "sidebarCollapsed", false)
   );
-
+  const [env, setEnv] = useState<any>({});
+  const { isLoading } = useQuery(["load-env"], async () => {
+    return PlatformService.fetchEnv().then((data) => {
+      setEnv(data);
+    });
+  });
   const isDark = (): boolean => {
     return theme === Theme.dark;
   };
@@ -155,6 +164,17 @@ const UIContextProvider: React.FC<{ children: React.ReactNode }> = (props) => {
     setCollapsed(!collapsed);
   };
 
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div style={{ width: "100%", textAlign: "center", marginTop: 300 }}>
+          <Spin size="large" />
+        </div>
+      );
+    }
+    return children;
+  };
+
   return (
     <UIContext.Provider
       value={{
@@ -163,12 +183,13 @@ const UIContextProvider: React.FC<{ children: React.ReactNode }> = (props) => {
         isDark,
         locale,
         language,
+        env,
         toggleLangauge: handleToggleLanguage,
         toggleTheme: handleToggleTheme,
         toggleCollapse: handleToggleCollapsed,
       }}
     >
-      {children}
+      {renderContent()}
     </UIContext.Provider>
   );
 };

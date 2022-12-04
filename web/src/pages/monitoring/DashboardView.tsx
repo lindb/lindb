@@ -20,11 +20,12 @@ import { IconFixedStroked, IconGridStroked } from "@douyinfe/semi-icons";
 import { Card, Form, Col, Row } from "@douyinfe/semi-ui";
 import { Chart, LinSelect, MetadataSelect } from "@src/components";
 import { StateRoleName } from "@src/constants";
+import { UIContext } from "@src/context/UIContextProvider";
 import { useParams } from "@src/hooks";
 import { ChartType, Dashboard, DashboardItem } from "@src/models";
 import { URLStore } from "@src/stores";
 import * as _ from "lodash-es";
-import React, { useMemo } from "react";
+import React, { useContext, useMemo } from "react";
 
 const DashboardForm: React.FC<{
   dashboards?: DashboardItem[];
@@ -32,6 +33,8 @@ const DashboardForm: React.FC<{
 }> = (props) => {
   const { dashboards, variates } = props;
   const { role } = useParams(["role"]);
+  const { env } = useContext(UIContext);
+  const database = _.get(env, "monitor.database");
 
   const dashboardForRole = _.filter(
     dashboards,
@@ -76,14 +79,17 @@ const DashboardForm: React.FC<{
           variates,
           (o) => _.indexOf(o.scope, role || StateRoleName.Broker) >= 0
         ),
-        (v: any) => (
-          <MetadataSelect
-            key={v.tagKey}
-            variate={v}
-            multiple={v.multiple}
-            type="tagValue"
-          />
-        )
+        (v: any) => {
+          v.db = database || v.db;
+          return (
+            <MetadataSelect
+              key={v.tagKey}
+              variate={v}
+              multiple={v.multiple}
+              type="tagValue"
+            />
+          );
+        }
       )}
     </Form>
   );
@@ -94,6 +100,8 @@ const ViewDashboard: React.FC<{
 }> = (props) => {
   const { dashboards } = props;
   const { d, role } = useParams(["d", "role"]);
+  const { env } = useContext(UIContext);
+  const database = _.get(env, "monitor.database");
 
   const dashboard = useMemo(() => {
     const r = role || StateRoleName.Broker;
@@ -122,7 +130,10 @@ const ViewDashboard: React.FC<{
             <Col span={panel.span || 12} key={`${rowIdx}-${panelIdx}`}>
               <Chart
                 type={_.get(panel.chart, "config.type", ChartType.Line)}
-                queries={panel.chart.targets || []}
+                queries={(panel.chart.targets || []).map((o: any) => {
+                  o.db = database || o.db;
+                  return o;
+                })}
                 config={panel.chart}
               />
             </Col>

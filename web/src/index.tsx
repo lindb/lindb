@@ -45,19 +45,19 @@ const AppPage: React.FC = () => {
   const { locale } = useContext(UIContext);
   return (
     <LocaleProvider locale={locale}>
-      <QueryClientProvider client={queryClient}>
-        <Router>
-          <Switch>
-            <Route path="/" component={App} />
-          </Switch>
-        </Router>
-      </QueryClientProvider>
+      <Router>
+        <Switch>
+          <Route path="/" component={App} />
+        </Switch>
+      </Router>
     </LocaleProvider>
   );
 };
 
 root.render(
-  <UIContextProvider>
-    <AppPage />
-  </UIContextProvider>
+  <QueryClientProvider client={queryClient}>
+    <UIContextProvider>
+      <AppPage />
+    </UIContextProvider>
+  </QueryClientProvider>
 );
