@@ -80,6 +80,8 @@ func (r *replicatorPeer) ReplicatorState() (string, *state) {
 }
 
 type replicatorRunner struct {
+	ctx            context.Context
+	cannel         context.CancelFunc
 	running        *atomic.Bool
 	lastPending    *atomic.Int64
 	replicatorType string
@@ -87,7 +89,7 @@ type replicatorRunner struct {
 
 	closed          chan struct{}
 	sleep, maxSleep int
-	sleepFn         func(d time.Duration)
+	sleepFn         *time.Timer
 
 	statistics *metrics.StorageReplicatorRunnerStatistics
 	logger     *logger.Logger
@@ -98,16 +100,19 @@ func newReplicatorRunner(replicator Replicator) *replicatorRunner {
 	if _, ok := replicator.(*remoteReplicator); ok {
 		replicaType = "remote"
 	}
+	ctx, cancel := context.WithCancel(context.Background())
 	state := replicator.ReplicaState()
 	r := &replicatorRunner{
+		ctx:            ctx,
+		cannel:         cancel,
 		replicator:     replicator,
 		lastPending:    atomic.NewInt64(replicator.Pending()),
 		replicatorType: replicaType,
 		running:        atomic.NewBool(false),
 		closed:         make(chan struct{}),
 		sleep:          0,
-		sleepFn:        time.Sleep,
-		maxSleep:       2 * 10 * 1000, // 20 sec
+		sleepFn:        time.NewTimer(time.Second), // default sleep
+		maxSleep:       20 * 1000,                  // 20 sec
 		statistics:     metrics.NewStorageReplicatorRunnerStatistics(replicaType, state.Database, state.ShardID.String()),
 		logger:         logger.GetLogger("Replica", "ReplicatorRunner"),
 	}
@@ -129,6 +134,8 @@ func (r *replicatorRunner) replicaLoop(ctx context.Context) {
 
 func (r *replicatorRunner) shutdown() {
 	if r.running.CAS(true, false) {
+		r.cannel()
+		defer r.sleepFn.Stop()
 		// wait for stop replica loop
 		<-r.closed
 	}
@@ -192,8 +199,13 @@ func (r *replicatorRunner) replica(_ context.Context) {
 			r.sleep++
 		}
 		if sleep > r.maxSleep {
+			// reset sleep
 			sleep = r.maxSleep
 		}
-		r.sleepFn(time.Duration(sleep) * time.Millisecond)
+		r.sleepFn.Reset(time.Duration(sleep) * time.Millisecond)
+		select {
+		case <-r.ctx.Done():
+		case <-r.sleepFn.C:
+		}
 	}
 }
