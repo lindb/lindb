@@ -280,9 +280,17 @@ func (w *writeAheadLog) Stop() {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
-	for _, log := range w.familyLogs {
-		log.Stop()
+	var waiter sync.WaitGroup
+	waiter.Add(len(w.familyLogs))
+	for key := range w.familyLogs {
+		log := w.familyLogs[key]
+		go func() {
+			log.Stop()
+			w.logger.Info("stop write ahead log", logger.String("path", log.Path()))
+			waiter.Done()
+		}()
 	}
+	waiter.Wait()
 }
 
 // Drop drops write ahead log.

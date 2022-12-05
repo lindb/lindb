@@ -62,10 +62,14 @@ func TestReplicatorPeer(t *testing.T) {
 		},
 	}
 	remote.state.Store(&state{state: models.ReplicatorInitState})
+	ctx, cancel := context.WithCancel(context.TODO())
 	peer = &replicatorPeer{
 		runner: &replicatorRunner{
+			ctx:            ctx,
+			cannel:         cancel,
 			replicatorType: "remote",
 			replicator:     remote,
+			sleepFn:        time.NewTimer(time.Millisecond),
 			running:        atomic.NewBool(true),
 			closed:         ch,
 		},
@@ -176,9 +180,12 @@ func TestReplicatorPeer_replicaNoData(t *testing.T) {
 	defer ctrl.Finish()
 
 	replicator := NewMockReplicator(ctrl)
+	ctx, cancel := context.WithCancel(context.TODO())
 	r := &replicatorRunner{
+		ctx:        ctx,
+		cannel:     cancel,
 		replicator: replicator,
-		sleepFn:    func(d time.Duration) {},
+		sleepFn:    time.NewTimer(time.Millisecond),
 		logger:     logger.GetLogger("Replica", "Test"),
 	}
 	replicator.EXPECT().IsReady().Return(false).AnyTimes()
