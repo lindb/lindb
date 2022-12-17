@@ -28,6 +28,7 @@ const (
 	MetricMetadataStatement
 	QueryStatement
 	RequestStatement
+	BrokerStatement
 )
 
 // Statement represents LinDB query language statement

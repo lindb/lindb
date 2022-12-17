@@ -45,6 +45,9 @@ type SQLListener interface {
 	// EnterShowStoragesStmt is called when entering the showStoragesStmt production.
 	EnterShowStoragesStmt(c *ShowStoragesStmtContext)
 
+	// EnterShowBrokersStmt is called when entering the showBrokersStmt production.
+	EnterShowBrokersStmt(c *ShowBrokersStmtContext)
+
 	// EnterShowMetadataTypesStmt is called when entering the showMetadataTypesStmt production.
 	EnterShowMetadataTypesStmt(c *ShowMetadataTypesStmtContext)
 
@@ -74,6 +77,9 @@ type SQLListener interface {
 
 	// EnterCreateStorageStmt is called when entering the createStorageStmt production.
 	EnterCreateStorageStmt(c *CreateStorageStmtContext)
+
+	// EnterCreateBrokerStmt is called when entering the createBrokerStmt production.
+	EnterCreateBrokerStmt(c *CreateBrokerStmtContext)
 
 	// EnterRecoverStorageStmt is called when entering the recoverStorageStmt production.
 	EnterRecoverStorageStmt(c *RecoverStorageStmtContext)
@@ -312,6 +318,9 @@ type SQLListener interface {
 	// ExitShowStoragesStmt is called when exiting the showStoragesStmt production.
 	ExitShowStoragesStmt(c *ShowStoragesStmtContext)
 
+	// ExitShowBrokersStmt is called when exiting the showBrokersStmt production.
+	ExitShowBrokersStmt(c *ShowBrokersStmtContext)
+
 	// ExitShowMetadataTypesStmt is called when exiting the showMetadataTypesStmt production.
 	ExitShowMetadataTypesStmt(c *ShowMetadataTypesStmtContext)
 
@@ -341,6 +350,9 @@ type SQLListener interface {
 
 	// ExitCreateStorageStmt is called when exiting the createStorageStmt production.
 	ExitCreateStorageStmt(c *CreateStorageStmtContext)
+
+	// ExitCreateBrokerStmt is called when exiting the createBrokerStmt production.
+	ExitCreateBrokerStmt(c *CreateBrokerStmtContext)
 
 	// ExitRecoverStorageStmt is called when exiting the recoverStorageStmt production.
 	ExitRecoverStorageStmt(c *RecoverStorageStmtContext)

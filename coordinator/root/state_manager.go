@@ -46,6 +46,8 @@ type StateManager interface {
 	GetStateMachineFactory() *stateMachineFactory
 	// GetBrokerStates returns current broker state list.
 	GetBrokerStates() []models.BrokerState
+	// GetBrokerState returns current broker state by name.
+	GetBrokerState(name string) (models.BrokerState, bool)
 }
 
 // stateManager implements StateManager.
@@ -263,6 +265,18 @@ func (s *stateManager) GetBrokerStates() (rs []models.BrokerState) {
 		rs = append(rs, *broker.GetState())
 	}
 	return
+}
+
+// GetBrokerState returns current broker state by name.
+func (s *stateManager) GetBrokerState(name string) (models.BrokerState, bool) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	broker, ok := s.brokers[name]
+	if !ok {
+		return models.BrokerState{}, false
+	}
+	return *broker.GetState(), true
 }
 
 // SetStateMachineFactory sets state machine factory.

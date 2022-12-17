@@ -45,6 +45,9 @@ type SQLVisitor interface {
 	// Visit a parse tree produced by SQLParser#showStoragesStmt.
 	VisitShowStoragesStmt(ctx *ShowStoragesStmtContext) interface{}
 
+	// Visit a parse tree produced by SQLParser#showBrokersStmt.
+	VisitShowBrokersStmt(ctx *ShowBrokersStmtContext) interface{}
+
 	// Visit a parse tree produced by SQLParser#showMetadataTypesStmt.
 	VisitShowMetadataTypesStmt(ctx *ShowMetadataTypesStmtContext) interface{}
 
@@ -74,6 +77,9 @@ type SQLVisitor interface {
 
 	// Visit a parse tree produced by SQLParser#createStorageStmt.
 	VisitCreateStorageStmt(ctx *CreateStorageStmtContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#createBrokerStmt.
+	VisitCreateBrokerStmt(ctx *CreateBrokerStmtContext) interface{}
 
 	// Visit a parse tree produced by SQLParser#recoverStorageStmt.
 	VisitRecoverStorageStmt(ctx *RecoverStorageStmtContext) interface{}

@@ -66,6 +66,11 @@ const (
 	BrokerConfigPath = "/broker/config"
 )
 
+// GetBrokerClusterConfigPath returns path which storing config of broker cluster.
+func GetBrokerClusterConfigPath(name string) string {
+	return fmt.Sprintf("%s/%s", BrokerConfigPath, name)
+}
+
 // GetStorageClusterConfigPath returns path which storing config of storage cluster
 func GetStorageClusterConfigPath(name string) string {
 	return fmt.Sprintf("%s/%s", StorageConfigPath, name)

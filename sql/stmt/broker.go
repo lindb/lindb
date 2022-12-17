@@ -15,30 +15,29 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package api
+package stmt
 
-import (
-	"github.com/gin-gonic/gin"
+// BrokerOpType represents broker related operation.
+type BrokerOpType int
 
-	depspkg "github.com/lindb/lindb/app/root/deps"
-	"github.com/lindb/lindb/constants"
+const (
+	// BrokerOpUnknown represents unknown operation.
+	BrokerOpUnknown BrokerOpType = iota
+	// BrokerOpCreate represents create broker.
+	BrokerOpCreate
+	// BrokerOpShow represent show broker.
+	BrokerOpShow
+	// BrokerOpDelete represents delete broker.
+	BrokerOpDelete
 )
 
-// API represents root http api.
-type API struct {
-	execute *ExecuteAPI
+// Broker represent broker statement.
+type Broker struct {
+	Type  BrokerOpType
+	Value string
 }
 
-// NewAPI creates root http api.
-func NewAPI(deps *depspkg.HTTPDeps) *API {
-	return &API{
-		execute: NewExecuteAPI(deps),
-	}
-}
-
-// RegisterRouter registers http api router.
-func (api *API) RegisterRouter(router *gin.RouterGroup) {
-	v1 := router.Group(constants.APIVersion1)
-	// execute lin query language statement
-	api.execute.Register(v1)
+// StatementType returns broker query type.
+func (q *Broker) StatementType() StatementType {
+	return BrokerStatement
 }

@@ -49,46 +49,73 @@ const (
 	NodeOffline
 )
 
-// StorageStatus represents current storage config status.
-type StorageStatus int
+// ClusterStatus represents current cluster config status.
+type ClusterStatus int
 
 const (
-	StorageStatusUnknown StorageStatus = iota
-	StorageStatusInitialize
-	StorageStatusReady
+	ClusterStatusUnknown ClusterStatus = iota
+	ClusterStatusInitialize
+	ClusterStatusReady
 )
 
 // String returns the string value of StorageStatus.
-func (s StorageStatus) String() string {
+func (s ClusterStatus) String() string {
 	val := "Unknown"
 	switch s {
-	case StorageStatusInitialize:
+	case ClusterStatusInitialize:
 		val = "Initialize"
-	case StorageStatusReady:
+	case ClusterStatusReady:
 		val = "Ready"
 	}
 	return val
 }
 
 // MarshalJSON encodes storage status.
-func (s StorageStatus) MarshalJSON() ([]byte, error) {
+func (s ClusterStatus) MarshalJSON() ([]byte, error) {
 	val := s.String()
 	return json.Marshal(&val)
 }
 
 // UnmarshalJSON decodes storage status.
-func (s *StorageStatus) UnmarshalJSON(value []byte) error {
+func (s *ClusterStatus) UnmarshalJSON(value []byte) error {
 	switch string(value) {
 	case `"Initialize"`:
-		*s = StorageStatusInitialize
+		*s = ClusterStatusInitialize
 		return nil
 	case `"Ready"`:
-		*s = StorageStatusReady
+		*s = ClusterStatusReady
 		return nil
 	default:
-		*s = StorageStatusUnknown
+		*s = ClusterStatusUnknown
 		return nil
 	}
+}
+
+// Storage represents storage config and state.
+type Broker struct {
+	config.BrokerCluster
+	Status ClusterStatus `json:"status"`
+}
+
+// Brokers represents the broker list.
+type Brokers []Broker
+
+// ToTable returns broker list as table if it has value, else return empty string.
+func (s Brokers) ToTable() (rows int, tableStr string) {
+	if len(s) == 0 {
+		return 0, ""
+	}
+	writer := NewTableFormatter()
+	writer.AppendHeader(table.Row{"Namespace", "Status", "Configuration"})
+	for i := range s {
+		r := s[i]
+		writer.AppendRow(table.Row{
+			r.Config.Namespace,
+			r.Status.String(),
+			r.Config.String(),
+		})
+	}
+	return len(s), writer.Render()
 }
 
 // Storages represents the storage list.
@@ -115,7 +142,7 @@ func (s Storages) ToTable() (rows int, tableStr string) {
 // Storage represents storage config and state.
 type Storage struct {
 	config.StorageCluster
-	Status StorageStatus `json:"status"`
+	Status ClusterStatus `json:"status"`
 }
 
 // ReplicaState represents the relationship for a replica.

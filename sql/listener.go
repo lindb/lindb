@@ -33,6 +33,7 @@ type listener struct {
 	schemasStmt        *schemasStmtParser
 	storageStmt        *storageStmtParser
 	requestStmt        *requestStmtParser
+	brokerStmt         *brokerStmtParser
 }
 
 // EnterQueryStmt is called when production queryStmt is entered.
@@ -155,6 +156,11 @@ func (l *listener) EnterShowStoragesStmt(_ *grammar.ShowStoragesStmtContext) {
 	l.storageStmt = newStorageStmtParse(stmt.StorageOpShow)
 }
 
+// EnterShowBrokersStmt is called when production showBrokersStmt is entered.
+func (l *listener) EnterShowBrokersStmt(_ *grammar.ShowBrokersStmtContext) {
+	l.brokerStmt = newBrokerStmtParse(stmt.BrokerOpShow)
+}
+
 // EnterJson is called when production json is entered.
 func (l *listener) EnterJson(ctx *grammar.JsonContext) { //nolint:stylecheck
 	switch {
@@ -162,7 +168,14 @@ func (l *listener) EnterJson(ctx *grammar.JsonContext) { //nolint:stylecheck
 		l.storageStmt.visitCfg(ctx)
 	case l.schemasStmt != nil:
 		l.schemasStmt.visitCfg(ctx)
+	case l.brokerStmt != nil:
+		l.brokerStmt.visitCfg(ctx)
 	}
+}
+
+// EnterCreateBrokerStmt is called when production createBrokerStmt is entered.
+func (l *listener) EnterCreateBrokerStmt(c *grammar.CreateBrokerStmtContext) {
+	l.brokerStmt = newBrokerStmtParse(stmt.BrokerOpCreate)
 }
 
 // EnterCreateStorageStmt is called when production createStorageStmt is entered.
@@ -403,6 +416,8 @@ func (l *listener) statement() (stmt.Statement, error) {
 		return l.stateStmt.build()
 	case l.requestStmt != nil:
 		return l.requestStmt.build()
+	case l.brokerStmt != nil:
+		return l.brokerStmt.build()
 	default:
 		return nil, nil
 	}

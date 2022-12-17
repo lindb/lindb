@@ -23,11 +23,15 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/lindb/lindb/app/root/api"
+	"github.com/lindb/lindb/app/root/deps"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/root"
+	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/server"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/hostutil"
 	httppkg "github.com/lindb/lindb/pkg/http"
@@ -150,7 +154,21 @@ func (r *runtime) startHTTPServer() {
 	}
 
 	r.httpServer = httppkg.NewServer(r.config.HTTP, false, linmetric.RootRegistry)
-
+	// TODO: login api is not registered
+	httpAPI := api.NewAPI(&deps.HTTPDeps{
+		Ctx:         r.ctx,
+		Cfg:         r.config,
+		Repo:        r.repo,
+		RepoFactory: r.repoFactory,
+		StateMgr:    r.stateMgr,
+		QueryLimiter: concurrent.NewLimiter(
+			r.ctx,
+			r.config.Query.QueryConcurrency,
+			r.config.Query.Timeout.Duration(),
+			metrics.NewLimitStatistics("query", linmetric.RootRegistry),
+		),
+	})
+	httpAPI.RegisterRouter(r.httpServer.GetAPIRouter())
 	go func() {
 		if err := r.httpServer.Run(); err != http.ErrServerClosed {
 			panic(fmt.Sprintf("start http server with error: %s", err))

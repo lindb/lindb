@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package constants
+package stmt
 
 import (
 	"testing"
@@ -23,26 +23,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGetDatabaseAssignPath(t *testing.T) {
-	assert.Equal(t, ShardAssignmentPath+"/name", GetDatabaseAssignPath("name"))
-}
-
-func TestGetDatabaseConfigPath(t *testing.T) {
-	assert.Equal(t, DatabaseConfigPath+"/name", GetDatabaseConfigPath("name"))
-}
-
-func TestGetNodePath(t *testing.T) {
-	assert.Equal(t, LiveNodesPath+"/name", GetLiveNodePath("name"))
-}
-
-func TestGetStorageClusterConfigPath(t *testing.T) {
-	assert.Equal(t, StorageConfigPath+"/name", GetStorageClusterConfigPath("name"))
-}
-
-func TestGetStorageStatePath(t *testing.T) {
-	assert.Equal(t, StorageStatePath+"/name", GetStorageStatePath("name"))
-}
-
-func TestGetBrokerClusterConfigPath(t *testing.T) {
-	assert.Equal(t, BrokerConfigPath+"/name", GetBrokerClusterConfigPath("name"))
+func TestBroker_StatementType(t *testing.T) {
+	assert.Equal(t, BrokerStatement, (&Broker{}).StatementType())
 }
