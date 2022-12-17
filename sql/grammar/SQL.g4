@@ -4,6 +4,7 @@ grammar SQL;
 
 statement               : showStmt
                         | createStorageStmt
+                        | createBrokerStmt
                         | recoverStorageStmt
                         | useStmt
                         | queryStmt
@@ -20,6 +21,7 @@ showStmt                : showMasterStmt
                         | showMasterMetaStmt
                         | showStorageMetaStmt
                         | showStoragesStmt
+                        | showBrokersStmt
                         | showAliveStmt
                         | showBrokerMetricStmt
                         | showStorageMetricStmt
@@ -40,6 +42,7 @@ showMasterStmt       : T_SHOW T_MASTER ;
 showRequestsStmt     : T_SHOW T_REQUESTS ; 
 showRequestStmt      : T_SHOW T_REQUEST T_WHERE T_ID T_EQUAL requestID;
 showStoragesStmt     : T_SHOW T_STORAGES ;
+showBrokersStmt      : T_SHOW T_BROKERS ;
 showMetadataTypesStmt: T_SHOW T_METADATA T_TYPES;
 showBrokerMetaStmt   : T_SHOW T_BROKER T_METADATA T_FROM source T_WHERE typeFilter;
 showMasterMetaStmt   : T_SHOW T_MASTER T_METADATA T_FROM source T_WHERE typeFilter;
@@ -50,6 +53,7 @@ showMemoryDatabaseStmt  : T_SHOW T_MEMORY T_DATASBAE T_WHERE (storageFilter|data
 showBrokerMetricStmt : T_SHOW T_BROKER T_METRIC T_WHERE metricListFilter ;
 showStorageMetricStmt: T_SHOW T_STORAGE T_METRIC T_WHERE (storageFilter|metricListFilter) T_AND (storageFilter|metricListFilter) ;
 createStorageStmt    : T_CREATE T_STORAGE json;
+createBrokerStmt     : T_CREATE T_BROKER json;
 recoverStorageStmt   : T_RECOVER T_STORAGE storageName;
 showSchemasStmt      : T_SHOW T_SCHEMAS ;
 createDatabaseStmt   : T_CREATE T_DATASBAE json;
@@ -298,6 +302,7 @@ nonReservedWords      :
                         | T_STORAGE
                         | T_ALIVE
                         | T_BROKER
+                        | T_BROKERS
                         | T_SCHEMAS
                         | T_STATE_REPO
                         | T_STATE_MACHINE
@@ -362,6 +367,7 @@ T_TYPE               : T Y P E                          ;
 T_STORAGES           : S T O R A G E S                  ;
 T_STORAGE            : S T O R A G E                    ;
 T_BROKER             : B R O K E R                      ;
+T_BROKERS            : B R O K E R S                    ;
 T_ALIVE              : A L I V E                        ;
 T_SCHEMAS            : S C H E M A S                    ;
 T_DATASBAE           : D A T A B A S E                  ;

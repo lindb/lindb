@@ -52,6 +52,10 @@ func (v *BaseSQLVisitor) VisitShowStoragesStmt(ctx *ShowStoragesStmtContext) int
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseSQLVisitor) VisitShowBrokersStmt(ctx *ShowBrokersStmtContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseSQLVisitor) VisitShowMetadataTypesStmt(ctx *ShowMetadataTypesStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -89,6 +93,10 @@ func (v *BaseSQLVisitor) VisitShowStorageMetricStmt(ctx *ShowStorageMetricStmtCo
 }
 
 func (v *BaseSQLVisitor) VisitCreateStorageStmt(ctx *CreateStorageStmtContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLVisitor) VisitCreateBrokerStmt(ctx *CreateBrokerStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

@@ -27,19 +27,19 @@ import (
 )
 
 func TestStorageStatus_MarshalJSON(t *testing.T) {
-	assert.Equal(t, []byte(`"Ready"`), encoding.JSONMarshal(StorageStatusReady))
-	assert.Equal(t, []byte(`"Initialize"`), encoding.JSONMarshal(StorageStatusInitialize))
-	assert.Equal(t, []byte(`"Unknown"`), encoding.JSONMarshal(StorageStatusUnknown))
-	var status StorageStatus
+	assert.Equal(t, []byte(`"Ready"`), encoding.JSONMarshal(ClusterStatusReady))
+	assert.Equal(t, []byte(`"Initialize"`), encoding.JSONMarshal(ClusterStatusInitialize))
+	assert.Equal(t, []byte(`"Unknown"`), encoding.JSONMarshal(ClusterStatusUnknown))
+	var status ClusterStatus
 	err := encoding.JSONUnmarshal([]byte(`"Ready"`), &status)
 	assert.NoError(t, err)
-	assert.Equal(t, StorageStatusReady, status)
+	assert.Equal(t, ClusterStatusReady, status)
 	err = encoding.JSONUnmarshal([]byte(`"Initialize"`), &status)
 	assert.NoError(t, err)
-	assert.Equal(t, StorageStatusInitialize, status)
+	assert.Equal(t, ClusterStatusInitialize, status)
 	err = encoding.JSONUnmarshal([]byte(`"Ready1"`), &status)
 	assert.NoError(t, err)
-	assert.Equal(t, StorageStatusUnknown, status)
+	assert.Equal(t, ClusterStatusUnknown, status)
 }
 
 func TestBrokerState(t *testing.T) {
@@ -110,6 +110,23 @@ func TestStorages_ToTable(t *testing.T) {
 
 	s = Storages{{
 		StorageCluster: config.StorageCluster{
+			Config: &config.RepoState{Namespace: "ns"},
+		},
+		Status: 0,
+	}}
+	str, rows = s.ToTable()
+	assert.NotEmpty(t, str)
+	assert.NotZero(t, rows)
+}
+
+func TestBrokers_ToTable(t *testing.T) {
+	s := Brokers{}
+	str, rows := s.ToTable()
+	assert.Empty(t, str)
+	assert.Zero(t, rows)
+
+	s = Brokers{{
+		BrokerCluster: config.BrokerCluster{
 			Config: &config.RepoState{Namespace: "ns"},
 		},
 		Status: 0,

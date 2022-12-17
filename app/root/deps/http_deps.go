@@ -15,30 +15,33 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package api
+package deps
 
 import (
-	"github.com/gin-gonic/gin"
+	"context"
 
-	depspkg "github.com/lindb/lindb/app/root/deps"
-	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/coordinator/root"
+	"github.com/lindb/lindb/internal/concurrent"
+	"github.com/lindb/lindb/pkg/state"
 )
 
-// API represents root http api.
-type API struct {
-	execute *ExecuteAPI
+// HTTPDeps represents http server handler's dependency.
+type HTTPDeps struct {
+	Ctx          context.Context
+	Cfg          *config.Root
+	QueryLimiter *concurrent.Limiter
+	Repo         state.Repository
+	RepoFactory  state.RepositoryFactory
+	StateMgr     root.StateManager
 }
 
-// NewAPI creates root http api.
-func NewAPI(deps *depspkg.HTTPDeps) *API {
-	return &API{
-		execute: NewExecuteAPI(deps),
+func (deps *HTTPDeps) WithTimeout() (context.Context, context.CancelFunc) {
+	// choose the shorter duration
+	// TODO: need modify
+	timeout := deps.Cfg.Coordinator.Timeout.Duration()
+	if deps.Cfg.HTTP.ReadTimeout.Duration() < timeout {
+		timeout = deps.Cfg.HTTP.ReadTimeout.Duration()
 	}
-}
-
-// RegisterRouter registers http api router.
-func (api *API) RegisterRouter(router *gin.RouterGroup) {
-	v1 := router.Group(constants.APIVersion1)
-	// execute lin query language statement
-	api.execute.Register(v1)
+	return context.WithTimeout(deps.Ctx, timeout)
 }

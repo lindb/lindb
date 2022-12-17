@@ -79,6 +79,12 @@ func (s *BaseSQLListener) EnterShowStoragesStmt(ctx *ShowStoragesStmtContext) {}
 // ExitShowStoragesStmt is called when production showStoragesStmt is exited.
 func (s *BaseSQLListener) ExitShowStoragesStmt(ctx *ShowStoragesStmtContext) {}
 
+// EnterShowBrokersStmt is called when production showBrokersStmt is entered.
+func (s *BaseSQLListener) EnterShowBrokersStmt(ctx *ShowBrokersStmtContext) {}
+
+// ExitShowBrokersStmt is called when production showBrokersStmt is exited.
+func (s *BaseSQLListener) ExitShowBrokersStmt(ctx *ShowBrokersStmtContext) {}
+
 // EnterShowMetadataTypesStmt is called when production showMetadataTypesStmt is entered.
 func (s *BaseSQLListener) EnterShowMetadataTypesStmt(ctx *ShowMetadataTypesStmtContext) {}
 
@@ -138,6 +144,12 @@ func (s *BaseSQLListener) EnterCreateStorageStmt(ctx *CreateStorageStmtContext) 
 
 // ExitCreateStorageStmt is called when production createStorageStmt is exited.
 func (s *BaseSQLListener) ExitCreateStorageStmt(ctx *CreateStorageStmtContext) {}
+
+// EnterCreateBrokerStmt is called when production createBrokerStmt is entered.
+func (s *BaseSQLListener) EnterCreateBrokerStmt(ctx *CreateBrokerStmtContext) {}
+
+// ExitCreateBrokerStmt is called when production createBrokerStmt is exited.
+func (s *BaseSQLListener) ExitCreateBrokerStmt(ctx *CreateBrokerStmtContext) {}
 
 // EnterRecoverStorageStmt is called when production recoverStorageStmt is entered.
 func (s *BaseSQLListener) EnterRecoverStorageStmt(ctx *RecoverStorageStmtContext) {}

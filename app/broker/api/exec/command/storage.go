@@ -80,9 +80,9 @@ func listStorages(ctx context.Context, deps *depspkg.HTTPDeps, _ *stmtpkg.Storag
 				logger.String("data", string(val.Value)))
 		} else {
 			if _, ok := stateMgr.GetStorage(storage.Config.Namespace); ok {
-				storage.Status = models.StorageStatusReady
+				storage.Status = models.ClusterStatusReady
 			} else {
-				storage.Status = models.StorageStatusInitialize
+				storage.Status = models.ClusterStatusInitialize
 				// TODO: check storage un-health
 			}
 			storages = append(storages, storage)

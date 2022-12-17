@@ -15,30 +15,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package api
+package sql
 
 import (
-	"github.com/gin-gonic/gin"
-
-	depspkg "github.com/lindb/lindb/app/root/deps"
-	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/sql/grammar"
+	"github.com/lindb/lindb/sql/stmt"
 )
 
-// API represents root http api.
-type API struct {
-	execute *ExecuteAPI
+// brokerStmtParser represents broker statement parser.
+type brokerStmtParser struct {
+	broker *stmt.Broker
 }
 
-// NewAPI creates root http api.
-func NewAPI(deps *depspkg.HTTPDeps) *API {
-	return &API{
-		execute: NewExecuteAPI(deps),
+// newBrokerStmtParse creates a broker statement parser.
+func newBrokerStmtParse(opType stmt.BrokerOpType) *brokerStmtParser {
+	return &brokerStmtParser{
+		broker: &stmt.Broker{Type: opType},
 	}
 }
 
-// RegisterRouter registers http api router.
-func (api *API) RegisterRouter(router *gin.RouterGroup) {
-	v1 := router.Group(constants.APIVersion1)
-	// execute lin query language statement
-	api.execute.Register(v1)
+// visitName visits when production brker config expression is entered.
+func (s *brokerStmtParser) visitCfg(ctx *grammar.JsonContext) {
+	s.broker.Value = ctx.GetText()
+}
+
+// build returns the state statement.
+func (s *brokerStmtParser) build() (stmt.Statement, error) {
+	return s.broker, nil
 }

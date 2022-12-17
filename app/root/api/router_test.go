@@ -18,27 +18,15 @@
 package api
 
 import (
+	"testing"
+
 	"github.com/gin-gonic/gin"
 
-	depspkg "github.com/lindb/lindb/app/root/deps"
+	"github.com/lindb/lindb/app/root/deps"
 	"github.com/lindb/lindb/constants"
 )
 
-// API represents root http api.
-type API struct {
-	execute *ExecuteAPI
-}
-
-// NewAPI creates root http api.
-func NewAPI(deps *depspkg.HTTPDeps) *API {
-	return &API{
-		execute: NewExecuteAPI(deps),
-	}
-}
-
-// RegisterRouter registers http api router.
-func (api *API) RegisterRouter(router *gin.RouterGroup) {
-	v1 := router.Group(constants.APIVersion1)
-	// execute lin query language statement
-	api.execute.Register(v1)
+func TestNewRouter(t *testing.T) {
+	r := NewAPI(&deps.HTTPDeps{})
+	r.RegisterRouter(gin.New().Group(constants.APIRoot))
 }

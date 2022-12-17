@@ -15,30 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package api
+package deps
 
 import (
-	"github.com/gin-gonic/gin"
+	"context"
+	"testing"
 
-	depspkg "github.com/lindb/lindb/app/root/deps"
-	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/config"
 )
 
-// API represents root http api.
-type API struct {
-	execute *ExecuteAPI
-}
-
-// NewAPI creates root http api.
-func NewAPI(deps *depspkg.HTTPDeps) *API {
-	return &API{
-		execute: NewExecuteAPI(deps),
+func Test_WithTimeout(t *testing.T) {
+	deps := &HTTPDeps{
+		Ctx: context.TODO(),
+		Cfg: &config.Root{
+			HTTP:        config.HTTP{ReadTimeout: 1},
+			Coordinator: config.RepoState{Timeout: 2},
+		},
 	}
-}
-
-// RegisterRouter registers http api router.
-func (api *API) RegisterRouter(router *gin.RouterGroup) {
-	v1 := router.Group(constants.APIVersion1)
-	// execute lin query language statement
-	api.execute.Register(v1)
+	_, _ = deps.WithTimeout()
 }

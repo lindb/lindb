@@ -131,9 +131,13 @@ func TestStateManager_BrokerCfg(t *testing.T) {
 		Key:  "/broker/test2",
 	})
 	time.Sleep(100 * time.Millisecond)
-	broker1.EXPECT().GetState().Return(models.NewBrokerState("/broker/test"))
+	broker1.EXPECT().GetState().Return(models.NewBrokerState("/broker/test")).MaxTimes(2)
 	brokers := mgr.GetBrokerStates()
 	assert.Len(t, brokers, 1)
+	_, ok := mgr.GetBrokerState("test3")
+	assert.False(t, ok)
+	_, ok = mgr.GetBrokerState("/broker/test")
+	assert.True(t, ok)
 	// case 7: modify broker config
 	broker1.EXPECT().Start().Return(nil)
 	mgr.EmitEvent(&discovery.Event{
