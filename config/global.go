@@ -32,6 +32,7 @@ var (
 	// StandaloneMode represents LinDB run as standalone mode
 	StandaloneMode = false
 
+	globalRootCfg    atomic.Value
 	globalBrokerCfg  atomic.Value
 	globalStorageCfg atomic.Value
 
@@ -42,6 +43,7 @@ var (
 )
 
 func init() {
+	globalRootCfg.Store(NewDefaultRoot())
 	globalBrokerCfg.Store(NewDefaultBrokerBase())
 	globalStorageCfg.Store(NewDefaultStorageBase())
 }
@@ -64,6 +66,20 @@ func GlobalStorageConfig() *StorageBase {
 // SetGlobalStorageConfig sets global storage configuration.
 func SetGlobalStorageConfig(storageCfg *StorageBase) {
 	globalStorageCfg.Store(storageCfg)
+}
+
+// LoadAndSetRootConfig parses the root config file.
+// this config will be triggered to reload when receiving a SIGHUP signal
+func LoadAndSetRootConfig(cfgName, defaultPath string, rootCfg *Root) error {
+	if err := loadConfigFn(cfgName, defaultPath, &rootCfg); err != nil {
+		return fmt.Errorf("decode root config file error: %s", err)
+	}
+	checkQueryCfg(&rootCfg.Query)
+	if err := checkCoordinatorCfg(&rootCfg.Coordinator); err != nil {
+		return fmt.Errorf("failed check coordinator config: %s", err)
+	}
+	globalRootCfg.Store(rootCfg)
+	return nil
 }
 
 // LoadAndSetBrokerConfig parses the broker config file

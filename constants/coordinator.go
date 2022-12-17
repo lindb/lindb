@@ -27,6 +27,7 @@ const StatePathSeparator = "/"
 // defines the role type of node.
 const (
 	MasterRole  = "Master"
+	RootRole    = "Root"
 	BrokerRole  = "Broker"
 	StorageRole = "Storage"
 )
@@ -61,6 +62,8 @@ const (
 	StorageConfigPath = "/storage/config"
 	// StorageStatePath represents storage cluster's state.
 	StorageStatePath = "/storage/state"
+	// BrokerConfigPath represents broker cluster's config.
+	BrokerConfigPath = "/broker/config"
 )
 
 // GetStorageClusterConfigPath returns path which storing config of storage cluster

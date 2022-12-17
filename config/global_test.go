@@ -104,6 +104,63 @@ func TestLoadAndSetBrokerConfig(t *testing.T) {
 	}
 }
 
+func TestLoadAdnSetRootConfig(t *testing.T) {
+	cases := []struct {
+		name    string
+		prepare func(cfg *Root)
+		wantErr bool
+	}{
+		{
+			name: "load config failure",
+			prepare: func(_ *Root) {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+					return fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "valid coordinator failure",
+			prepare: func(cfg *Root) {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+					return nil
+				}
+				cfg.Coordinator.Namespace = ""
+			},
+			wantErr: true,
+		},
+		{
+			name: "load and set cfg success",
+			prepare: func(_ *Root) {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+					return nil
+				}
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				loadConfigFn = ltoml.LoadConfig
+			}()
+			cfg := &Root{
+				Coordinator: *NewDefaultCoordinator(),
+				Query:       *NewDefaultQuery(),
+			}
+			if tt.prepare != nil {
+				tt.prepare(cfg)
+			}
+			err := LoadAndSetRootConfig("test", "storage.toml", cfg)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("LoadAndSetRootConfig() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestLoadAndSetStorageConfig(t *testing.T) {
 	cases := []struct {
 		name    string

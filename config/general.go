@@ -144,7 +144,13 @@ connect-timeout = "%s"`,
 	)
 }
 
-// StorageCluster represents config of storage cluster
+// BrokerCluster represents config of broker cluster.
+type BrokerCluster struct {
+	Config  *RepoState          `json:"config"`
+	Routing map[string][]string `json:"routing"`
+}
+
+// StorageCluster represents config of storage cluster.
 type StorageCluster struct {
 	Config *RepoState `json:"config"`
 }

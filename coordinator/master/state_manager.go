@@ -138,7 +138,7 @@ func (m *stateManager) consumeEvent() {
 	}
 }
 
-// processEvent processes each event, if panic will ignore the event handle, maybe lost the state in storage/.
+// processEvent processes each event, if panic will ignore the event handle, maybe lost the state in storage.
 func (m *stateManager) processEvent(event *discovery.Event) {
 	eventType := event.Type.String()
 	defer func() {

@@ -18,37 +18,78 @@
 package main
 
 import (
-	"github.com/spf13/cobra"
-)
+	"fmt"
 
-const linDBLogo = `
-██╗     ██╗███╗   ██╗██████╗ ██████╗ 
-██║     ██║████╗  ██║██╔══██╗██╔══██╗
-██║     ██║██╔██╗ ██║██║  ██║██████╔╝
-██║     ██║██║╚██╗██║██║  ██║██╔══██╗
-███████╗██║██║ ╚████║██████╔╝██████╔╝
-╚══════╝╚═╝╚═╝  ╚═══╝╚═════╝ ╚═════╝ 
-`
+	"github.com/spf13/cobra"
+
+	"github.com/lindb/lindb/app/root"
+	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/ltoml"
+)
 
 const (
-	linDBText = `
-LinDB is a scalable, high performance, high availability, distributed time series database.
-Complete documentation is available at https://lindb.io
-`
+	rootCfgName        = "root.toml"
+	rootLogFileName    = "lind-root.log"
+	defaultRootCfgFile = "./" + rootCfgName
 )
 
-// RootCmd command of cobra
-var RootCmd = &cobra.Command{
-	Use:   "lind",
-	Short: "lind is the main command, used to control LinDB",
-	Long:  linDBLogo + linDBText,
+// newRootCmd returns a new root-cmd.
+func newRootCmd() *cobra.Command {
+	rootCmd := &cobra.Command{
+		Use:   "root",
+		Short: "Run as a root compute node with multi idc/regions mode enabled",
+	}
+	runRootCmd.PersistentFlags().StringVar(&cfg, "config", "",
+		fmt.Sprintf("root config file path, default is %s", defaultRootCfgFile))
+	runRootCmd.PersistentFlags().BoolVar(&pprof, "pprof", false,
+		"profiling Go programs with pprof")
+	rootCmd.AddCommand(
+		runRootCmd,
+		initializeRootConfigCmd,
+	)
+	return rootCmd
 }
 
-func init() {
-	RootCmd.AddCommand(
-		versionCmd,
-		newStorageCmd(),
-		newBrokerCmd(),
-		newStandaloneCmd(),
-	)
+var runRootCmd = &cobra.Command{
+	Use:   "run",
+	Short: "starts the root",
+	RunE:  serveRoot,
+}
+
+// initialize config for root
+var initializeRootConfigCmd = &cobra.Command{
+	Use:   "init-config",
+	Short: "create a new default root-config",
+	RunE: func(_ *cobra.Command, _ []string) error {
+		path := cfg
+		if path == "" {
+			path = defaultRootCfgFile
+		}
+		if err := checkExistenceOf(path); err != nil {
+			return err
+		}
+		return ltoml.WriteConfig(path, config.NewDefaultRootTOML())
+	},
+}
+
+// serveRoot runs the root.
+func serveRoot(_ *cobra.Command, _ []string) error {
+	ctx := newCtxWithSignals()
+
+	rootCfg := config.Root{}
+	if err := config.LoadAndSetRootConfig(cfg, defaultRootCfgFile, &rootCfg); err != nil {
+		return err
+	}
+
+	if err := logger.InitLogger(rootCfg.Logging, rootLogFileName); err != nil {
+		return fmt.Errorf("init logger error: %s", err)
+	}
+
+	// start root server
+	rootRuntime := root.NewRootRuntime(config.Version, &rootCfg)
+	return run(ctx, rootRuntime, func() error {
+		newRootCfg := config.Root{}
+		return config.LoadAndSetRootConfig(cfg, defaultRootCfgFile, &newRootCfg)
+	})
 }

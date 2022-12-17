@@ -153,8 +153,34 @@ type FamilyState struct {
 	FamilyTime int64      `json:"familyTime"`
 }
 
+// BrokerState represents broker cluster state.
+// NOTICE: it is not safe for concurrent use.
+type BrokerState struct {
+	Name string `json:"name"` // ref Namespace
+
+	LiveNodes map[string]StatelessNode `json:"liveNodes"`
+}
+
+func NewBrokerState(name string) *BrokerState {
+	return &BrokerState{
+		Name:      name,
+		LiveNodes: make(map[string]StatelessNode),
+	}
+}
+
+// NodeOnline adds a live node into node list.
+func (b *BrokerState) NodeOnline(nodeID string, node StatelessNode) {
+	b.LiveNodes[nodeID] = node
+}
+
+// NodeOffline removes a offline node from live node list.
+func (b *BrokerState) NodeOffline(nodeID string) {
+	delete(b.LiveNodes, nodeID)
+}
+
 // StorageState represents storage cluster state.
-// NOTICE: it is not safe for concurrent use. //TODO need concurrent safe????
+// NOTICE: it is not safe for concurrent use.
+// TODO: need concurrent safe????
 type StorageState struct {
 	Name string `json:"name"` // ref Namespace
 

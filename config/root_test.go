@@ -22,23 +22,12 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/lindb/lindb/pkg/ltoml"
 )
 
-func TestBroker_TOML(t *testing.T) {
-	defaultCfg := NewDefaultBrokerTOML()
-	brokerCfg := &Broker{}
-	_, err := toml.Decode(defaultCfg, brokerCfg)
+func TestRoot_TOML(t *testing.T) {
+	defaultCfg := NewDefaultRootTOML()
+	rootCfg := &Root{}
+	_, err := toml.Decode(defaultCfg, rootCfg)
 	assert.NoError(t, err)
-	assert.Equal(t, brokerCfg.TOML(), defaultCfg)
-
-	assert.NotEmpty(t, (&User{}).TOML())
-}
-
-func TestDumpExampleCfg(t *testing.T) {
-	assert.NoError(t, ltoml.WriteConfig("root.toml.example", NewDefaultRootTOML()))
-	assert.NoError(t, ltoml.WriteConfig("broker.toml.example", NewDefaultBrokerTOML()))
-	assert.NoError(t, ltoml.WriteConfig("storage.toml.example", NewDefaultStorageTOML()))
-	assert.NoError(t, ltoml.WriteConfig("standalone.toml.example", NewDefaultStandaloneTOML()))
+	assert.Equal(t, rootCfg.TOML(), defaultCfg)
 }
