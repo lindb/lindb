@@ -20,8 +20,42 @@ package main
 import (
 	"fmt"
 	"os"
+
+	"github.com/spf13/cobra"
 )
 
+const linDBLogo = `
+██╗     ██╗███╗   ██╗██████╗ ██████╗ 
+██║     ██║████╗  ██║██╔══██╗██╔══██╗
+██║     ██║██╔██╗ ██║██║  ██║██████╔╝
+██║     ██║██║╚██╗██║██║  ██║██╔══██╗
+███████╗██║██║ ╚████║██████╔╝██████╔╝
+╚══════╝╚═╝╚═╝  ╚═══╝╚═════╝ ╚═════╝ 
+`
+
+const (
+	linDBText = `
+LinDB is a scalable, high performance, high availability, distributed time series database.
+Complete documentation is available at https://lindb.io
+`
+)
+
+// RootCmd command of cobra
+var RootCmd = &cobra.Command{
+	Use:   "lind",
+	Short: "lind is the main command, used to control LinDB",
+	Long:  linDBLogo + linDBText,
+}
+
+func init() {
+	RootCmd.AddCommand(
+		versionCmd,
+		newRootCmd(),
+		newBrokerCmd(),
+		newStorageCmd(),
+		newStandaloneCmd(),
+	)
+}
 func main() {
 	if err := RootCmd.Execute(); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)

@@ -42,6 +42,21 @@ func TestStorageStatus_MarshalJSON(t *testing.T) {
 	assert.Equal(t, StorageStatusUnknown, status)
 }
 
+func TestBrokerState(t *testing.T) {
+	brokerState := NewBrokerState("test")
+	brokerState.NodeOnline("1", StatelessNode{
+		HostIP: "1.1.1.1", GRPCPort: 9000,
+	})
+	brokerState.NodeOnline("2", StatelessNode{
+		HostIP: "1.1.1.2", GRPCPort: 9000,
+	})
+	brokerState.NodeOnline("3", StatelessNode{
+		HostIP: "1.1.1.3", GRPCPort: 9000,
+	})
+	brokerState.NodeOffline("2")
+	assert.Len(t, brokerState.LiveNodes, 2)
+}
+
 func TestStorageState(t *testing.T) {
 	storageState := NewStorageState("test")
 	storageState.NodeOnline(StatefulNode{

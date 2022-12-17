@@ -34,6 +34,8 @@ func TestStateMachineType_String(t *testing.T) {
 	assert.Equal(t, StorageConfigStateMachine.String(), "StorageConfigStateMachine")
 	assert.Equal(t, StorageNodeStateMachine.String(), "StorageNodeStateMachine")
 	assert.Equal(t, (StateMachineType(0)).String(), "Unknown")
+	assert.Equal(t, BrokerConfigStateMachine.String(), "BrokerConfigStateMachine")
+	assert.Equal(t, BrokerNodeStateMachine.String(), "BrokerNodeStateMachine")
 }
 
 func TestNewMockStateMachine(t *testing.T) {

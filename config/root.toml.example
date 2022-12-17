@@ -1,0 +1,102 @@
+## Coordinator related configuration.
+[coordinator]
+## Coordinator coordinates reads/writes operations between different nodes
+## namespace organizes etcd keys into a isolated complete keyspaces for coordinator
+## Default: /lindb-cluster
+namespace = "/lindb-cluster"
+## Endpoints config list of ETCD cluster
+## Default: ["http://localhost:2379"]
+endpoints = ["http://localhost:2379"]
+## Lease-TTL is a number in seconds.
+## It controls how long a ephemeral node like zookeeper will be removed when heartbeat fails.
+## lease expiration will cause a re-elect.
+## Min: 5s
+## Default: 10s
+lease-ttl = "10s"
+## Timeout is the timeout for failing to executing a etcd command.
+## Default: 5s
+timeout = "5s"
+## DialTimeout is the timeout for failing to establish a etcd connection.
+## Default: 5s
+dial-timeout = "5s"
+## Username is a user name for etcd authentication.
+## Default: ""
+username = ""
+## Password is a password for etcd authentication.
+## Default: ""
+password = ""
+
+## Query related configuration.
+[query]
+## Number of queries allowed to execute concurrently
+## Default: 1024
+query-concurrency = 1024
+## Idle worker will be canceled in this duration
+## Default: 5s
+idle-timeout = "5s"
+## Maximum timeout threshold for query.
+## Default: 5s
+timeout = "5s"
+
+## Controls how HTTP Server are configured.
+[http]
+## port which the HTTP Server is listening on
+## Default: 3000
+port = 3000
+## maximum duration the server should keep established connections alive.
+## Default: 2m0s
+idle-timeout = "2m0s"
+## maximum duration before timing out for server writes of the response
+## Default: 5s
+write-timeout = "5s"
+## maximum duration for reading the entire request, including the body.
+## Default: 5s
+read-timeout = "5s"
+
+## Controls how GRPC Server are configured.
+[grpc]
+## port which the GRPC Server is listening on
+## Default: 3001
+port = 3001
+## max-concurrent-streams limits the number of concurrent streams to each ServerTransport
+## Default: 1024 
+max-concurrent-streams = 1024
+## connect-timeout sets the timeout for connection establishment.
+## Default: 3s
+connect-timeout = "3s"
+
+## Config for the Internal Monitor
+[monitor]
+## time period to process an HTTP metrics push call
+## Default: 3s
+push-timeout = "3s"
+## monitor won't start when interval is sets to 0
+## such as cpu, memory, and disk, process and go runtime
+## Default: 10s
+report-interval = "10s"
+## URL is the target of broker native ingestion url
+## Default: http://127.0.0.1:9000/api/v1/write?db=_internal
+url = "http://127.0.0.1:9000/api/v1/write?db=_internal"
+
+## logging related configuration.
+[logging]
+## Dir is the output directory for log-files
+## Default: data/log
+dir = "data/log"
+## Determine which level of logs will be emitted.
+## error, warn, info, and debug are available
+## Default: info
+level = "info"
+## MaxSize is the maximum size in megabytes of the log file before it gets rotated. 
+## Default: 100 MiB
+maxsize = "100 MiB"
+## MaxBackups is the maximum number of old log files to retain. The default
+## is to retain all old log files (though MaxAge may still cause them to get deleted.)
+## Default: 3
+maxbackups = 3
+## MaxAge is the maximum number of days to retain old log files based on the
+## timestamp encoded in their filename.  Note that a day is defined as 24 hours
+## and may not exactly correspond to calendar days due to daylight savings, leap seconds, etc.
+## The default is not to remove old log files based on age.
+## Default: 7
+maxage = 7
