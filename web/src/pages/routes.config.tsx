@@ -49,6 +49,8 @@ import {
   RequestView,
   BrokerList,
   BrokerConfig,
+  LogicDatabaseList,
+  LogicDatabaseConfig,
 } from "@src/pages";
 import * as _ from "lodash-es";
 import React from "react";
@@ -112,6 +114,7 @@ export const routes = [
       },
       {
         text: "Replication",
+        roles: ["Broker"],
         path: Route.MonitoringReplication,
         icon: <IconElementStroked size="large" />,
         content: <ReplicationView />,
@@ -178,6 +181,7 @@ export const routes = [
       {
         text: "Database",
         path: Route.MetadataDatabase,
+        roles: ["Broker"],
         icon: <Icon icon="icondatabase" style={{ fontSize: 20 }} />,
         content: <DatabaseList />,
         help: "/guide/admin-ui/metadata.html#database",
@@ -193,17 +197,30 @@ export const routes = [
         ],
       },
       {
+        text: "Logic Database",
+        roles: ["Root"],
+        path: Route.MetadataLogicDatabase,
+        icon: <Icon icon="icondatabase" style={{ fontSize: 20 }} />,
+        content: <LogicDatabaseList />,
+        help: "/guide/admin-ui/metadata.html#database",
+        items: [
+          {
+            inner: true,
+            roles: ["Root"],
+            itemKey: "Metadata/Logic/Database/Configuration",
+            text: "Configuration",
+            path: Route.MetadataLogicDatabaseConfig,
+            content: <LogicDatabaseConfig />,
+            help: "/guide/admin-ui/metadata.html#database",
+          },
+        ],
+      },
+      {
         text: "Explore",
         path: Route.MetadataExplore,
         icon: <IconFixedStroked size="large" />,
         content: <MetadataExplore />,
         help: "/guide/admin-ui/metadata.html#explore",
-      },
-      {
-        text: "Multiple IDCs",
-        path: Route.MetadataMultipleIDC,
-        icon: <IconShareStroked size="large" />,
-        content: <MultipleIDCList />,
       },
     ],
   },

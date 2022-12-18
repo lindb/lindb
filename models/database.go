@@ -81,8 +81,9 @@ type DatabaseConfig struct {
 
 // Router represents the router of database.
 type Router struct {
-	Routing map[string][]string `json:"routing" validate:"required"` // routing keys
-	Broker  string              `json:"broker" validate:"required"`  // target broker
+	Key    string   `json:"key" validate:"required"`    // routing key
+	Values []string `json:"values" validate:"required"` // routing values
+	Broker string   `json:"broker" validate:"required"` // target broker
 }
 
 // LogicDatabase defines database logic config, database can include multi-cluster.
