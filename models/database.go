@@ -79,7 +79,20 @@ type DatabaseConfig struct {
 	Option   *option.DatabaseOption `toml:"option" json:"option"`
 }
 
-// Database defines database config, database can include multi-cluster.
+// Router represents the router of database.
+type Router struct {
+	Routing map[string][]string `json:"routing" validate:"required"` // routing keys
+	Broker  string              `json:"broker" validate:"required"`  // target broker
+}
+
+// LogicDatabase defines database logic config, database can include multi-cluster.
+type LogicDatabase struct {
+	Name    string   `json:"name" validate:"required"`    // database's name
+	Routers []Router `json:"routers" validate:"required"` // database router
+	Desc    string   `json:"desc,omitempty"`
+}
+
+// Database defines database config.
 type Database struct {
 	Name          string                 `json:"name" validate:"required"`      // database's name
 	Storage       string                 `json:"storage" validate:"required"`   // storage cluster's name
