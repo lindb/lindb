@@ -49,5 +49,5 @@ export { default as DiskUsageView } from "@src/components/state/DiskUsageView";
 export { default as CapacityView } from "@src/components/state/CapacityView";
 export { default as DatabaseView } from "@src/components/state/DatabaseView";
 export { default as ReplicaView } from "@src/components/state/ReplicaView";
-export { default as StorageStatusView } from "@src/components/state/StorageStatusView";
+export { default as ClusterStatusView } from "@src/components/state/ClusterStatusView";
 export { default as MemoryDatabaseView } from "@src/components/state/MemoryDatabaseView";

@@ -17,12 +17,6 @@ specific language governing permissions and limitations
 under the License.
 */
 import {
-  IconClose,
-  IconMinusCircle,
-  IconPlusCircle,
-  IconSaveStroked,
-} from "@douyinfe/semi-icons";
-import {
   ArrayField,
   Banner,
   Button,
@@ -30,14 +24,16 @@ import {
   Col,
   Form,
   Row,
-  Typography,
 } from "@douyinfe/semi-ui";
-import { Route } from "@src/constants";
+import {
+  IconClose,
+  IconMinusCircle,
+  IconPlusCircle,
+  IconSaveStroked,
+} from "@douyinfe/semi-icons";
 import { UIContext } from "@src/context/UIContextProvider";
-import { Storage } from "@src/models";
+import { Broker } from "@src/models";
 import { ExecService } from "@src/services";
-import { URLStore } from "@src/stores";
-import * as _ from "lodash-es";
 import React, {
   MutableRefObject,
   useContext,
@@ -45,35 +41,36 @@ import React, {
   useRef,
   useState,
 } from "react";
+import * as _ from "lodash-es";
+import { URLStore } from "@src/stores";
+import { Route } from "@src/constants";
 
-const Text = Typography.Text;
-
-export default function DatabaseConfig() {
+export const LogicDatabaseConfig: React.FC = () => {
   const formApi = useRef() as MutableRefObject<any>;
-  const [storageList, setStorageList] = useState([] as any[]);
-  const [error, setError] = useState("");
-  const [submiting, setSubmiting] = useState(false);
   const { locale } = useContext(UIContext);
-  const { MetadataDatabaseView, Common } = locale;
+  const { MetadataLogicDatabaseView, Common } = locale;
+  const [submiting, setSubmiting] = useState(false);
+  const [brokerList, setBrokerList] = useState([] as any[]);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const getStorageList = async () => {
+    const getBrokerList = async () => {
       try {
-        const list = await ExecService.exec<Storage[]>({
-          sql: "show storages",
+        const list = await ExecService.exec<Broker[]>({
+          sql: "show brokers",
         });
         const selectList: any[] = [];
         _.forEach(list || [], (s) => {
           const ns = _.get(s, "config.namespace");
           selectList.push({ value: ns, label: ns });
         });
-        setStorageList(selectList);
+        setBrokerList(selectList);
       } catch (err: any) {
         setError(err?.message);
-        setStorageList([]);
+        setBrokerList([]);
       }
     };
-    getStorageList();
+    getBrokerList();
   }, []);
 
   const create = async () => {
@@ -86,7 +83,7 @@ export default function DatabaseConfig() {
         await ExecService.exec({
           sql: `create database ${JSON.stringify(values)}`,
         });
-        URLStore.changeURLParams({ path: Route.MetadataDatabase });
+        URLStore.changeURLParams({ path: Route.MetadataLogicDatabase });
       } catch (err) {
         setError(_.get(err, "response.data", Common.unknownInternalError));
       } finally {
@@ -100,7 +97,6 @@ export default function DatabaseConfig() {
       })
       .catch(() => {});
   };
-
   return (
     <>
       {error && (
@@ -113,73 +109,22 @@ export default function DatabaseConfig() {
       )}
       <Card>
         <Form
-          className="lin-db-form"
           getFormApi={(api: any) => (formApi.current = api)}
+          className="lin-db-form"
           labelPosition="left"
           labelAlign="right"
           labelCol={{ span: 4 }}
           wrapperCol={{ span: 12 }}
         >
           <Form.Input
-            label={MetadataDatabaseView.name}
+            label={MetadataLogicDatabaseView.name}
             field="name"
             rules={[
-              { required: true, message: MetadataDatabaseView.nameRequired },
-            ]}
-          />
-          <Form.Select
-            label={MetadataDatabaseView.storage}
-            field="storage"
-            rules={[
-              { required: true, message: MetadataDatabaseView.storageRequired },
-            ]}
-            optionList={storageList}
-            style={{ width: 200 }}
-          />
-          <Form.InputNumber
-            rules={[
               {
                 required: true,
-                message: MetadataDatabaseView.numOfShardsRequired,
+                message: MetadataLogicDatabaseView.nameRequired,
               },
             ]}
-            label={MetadataDatabaseView.numOfShards}
-            field="numOfShard"
-            min={1}
-          />
-          <Form.InputNumber
-            field="replicaFactor"
-            rules={[
-              {
-                required: true,
-                message: MetadataDatabaseView.replicaFactorRequired,
-              },
-            ]}
-            label={MetadataDatabaseView.replicaFactor}
-            min={1}
-          />
-          <div
-            style={{
-              borderBottom: "1px solid var(--semi-color-border)",
-              paddingTop: 12,
-              paddingBottom: 12,
-            }}
-          >
-            <Row>
-              <Col
-                span={4}
-                style={{ display: "flex", justifyContent: "flex-end" }}
-              >
-                <Text strong style={{ paddingRight: 16 }}>
-                  {MetadataDatabaseView.engineOptions}
-                </Text>
-              </Col>
-            </Row>
-          </div>
-          <Form.Switch
-            label={MetadataDatabaseView.autoCreateNS}
-            field="option.autoCreateNS"
-            initValue={true}
           />
           <Row>
             <Col
@@ -187,21 +132,24 @@ export default function DatabaseConfig() {
               style={{ display: "flex", justifyContent: "flex-end" }}
             >
               <Form.Label style={{ paddingRight: 16 }} required>
-                {MetadataDatabaseView.intervals}
+                {MetadataLogicDatabaseView.router}
               </Form.Label>
             </Col>
             <Col>
-              <Form.Label style={{ width: 220 }} required>
-                {MetadataDatabaseView.interval}
+              <Form.Label style={{ width: 180 }} required>
+                {MetadataLogicDatabaseView.tagKey}
+              </Form.Label>
+              <Form.Label style={{ width: 280 }} required>
+                {MetadataLogicDatabaseView.tagValues}
               </Form.Label>
               <Form.Label style={{ width: 200 }} required>
-                {MetadataDatabaseView.retention}
+                {MetadataLogicDatabaseView.brokers}
               </Form.Label>
             </Col>
           </Row>
           <ArrayField
-            field="option.intervals"
-            initValue={[{ interval: "10s", retention: "30d" }]}
+            field="routers"
+            initValue={[{ key: "", values: [], brokers: [] }]}
           >
             {({ add, arrayFields }) => (
               <>
@@ -210,13 +158,19 @@ export default function DatabaseConfig() {
                     <Col offset={4} className="lin-form-input-group">
                       <Form.InputGroup>
                         <Form.Input
-                          field={`${f.field}[interval]`}
-                          style={{ width: 202, marginRight: 16 }}
+                          field={`${f.field}[key]`}
+                          style={{ width: 162, marginRight: 16 }}
                           noLabel
                         />
-                        <Form.Input
+                        <Form.TagInput
+                          style={{ width: 262, marginRight: 16 }}
+                          field={`${f.field}[values]`}
+                          noLabel
+                        />
+                        <Form.Select
                           style={{ width: 202, marginRight: 4 }}
-                          field={`${f.field}[retention]`}
+                          field={`${f.field}[broker]`}
+                          optionList={brokerList}
                           noLabel
                         />
                       </Form.InputGroup>
@@ -242,37 +196,6 @@ export default function DatabaseConfig() {
               </>
             )}
           </ArrayField>
-          <Row style={{ paddingTop: 12 }}>
-            <Col
-              span={4}
-              style={{ display: "flex", justifyContent: "flex-end" }}
-            >
-              <Form.Label style={{ paddingRight: 16, paddingTop: 10 }}>
-                {MetadataDatabaseView.writeableTimeRange}
-              </Form.Label>
-            </Col>
-            <Col className="lin-form-input-group">
-              <Form.InputGroup>
-                <Form.Input
-                  label={MetadataDatabaseView.behead}
-                  labelPosition="inset"
-                  field="option.behead"
-                  style={{ width: 202, marginRight: 16 }}
-                  placeholder="30m/1h"
-                />
-                <Form.Input
-                  label={MetadataDatabaseView.ahead}
-                  labelPosition="inset"
-                  field="option.ahead"
-                  placeholder="30m/1h"
-                  style={{ width: 202, marginRight: 16 }}
-                />
-              </Form.InputGroup>
-              <Text size="small" type="tertiary">
-                {MetadataDatabaseView.example}
-              </Text>
-            </Col>
-          </Row>
           <Form.Slot style={{ padding: 0 }}></Form.Slot>
           <Row style={{ paddingTop: 12 }}>
             <Col offset={4}>
@@ -291,7 +214,9 @@ export default function DatabaseConfig() {
                 type="tertiary"
                 icon={<IconClose />}
                 onClick={() =>
-                  URLStore.changeURLParams({ path: Route.MetadataDatabase })
+                  URLStore.changeURLParams({
+                    path: Route.MetadataLogicDatabase,
+                  })
                 }
               >
                 {Common.cancel}
@@ -302,4 +227,6 @@ export default function DatabaseConfig() {
       </Card>
     </>
   );
-}
+};
+
+export default LogicDatabaseConfig;

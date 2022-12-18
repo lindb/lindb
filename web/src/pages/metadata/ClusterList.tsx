@@ -24,7 +24,7 @@ import {
   SplitButtonGroup,
   Table,
 } from "@douyinfe/semi-ui";
-import { StatusTip, StorageStatusView } from "@src/components";
+import { ClusterStatusView, StatusTip } from "@src/components";
 import { Storage } from "@src/models";
 import { ExecService } from "@src/services";
 import { URLStore } from "@src/stores";
@@ -73,7 +73,7 @@ export const ClusterList: React.FC<{
       key: "status",
       width: 120,
       render: (item: any) => {
-        return <StorageStatusView text={item} showBadge={true} />;
+        return <ClusterStatusView text={item} showBadge={true} />;
       },
     },
     {

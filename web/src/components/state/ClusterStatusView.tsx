@@ -23,13 +23,13 @@ import React, { useContext } from "react";
 
 const { Text } = Typography;
 
-export default function StorageStatusView(props: {
+export default function ClusterStatusView(props: {
   text: string;
   showBadge?: boolean;
 }) {
   const { text, showBadge } = props;
   const { locale } = useContext(UIContext);
-  const { MetadataStorageView } = locale;
+  const { MetadataClusterView } = locale;
   let color = "warning";
   switch (text) {
     case "Ready":
@@ -53,7 +53,7 @@ export default function StorageStatusView(props: {
         />
       )}
       <Text style={{ color: `var(--semi-color-${color})` }}>
-        {MetadataStorageView[text]}
+        {MetadataClusterView[text]}
       </Text>
     </Space>
   );

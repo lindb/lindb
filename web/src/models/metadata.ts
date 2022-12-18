@@ -26,6 +26,26 @@ export type Storage = {
   };
 };
 
+export type Broker = {
+  config: {
+    namespace: string;
+    endpoints: string[];
+    dialTimeout?: string;
+    leaseTTL?: string;
+    timeout?: string;
+  };
+};
+
+export interface LogicDatabase {
+  name?: string;
+  routers?: {
+    key?: string;
+    values?: string[];
+    brokers?: string[];
+  }[];
+  desc?: string;
+}
+
 export interface Database {
   name?: string;
   storage?: string;

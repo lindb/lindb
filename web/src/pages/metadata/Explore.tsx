@@ -38,7 +38,7 @@ import {
   Typography,
   Empty,
 } from "@douyinfe/semi-ui";
-import { Icon, StatusTip, StorageStatusView } from "@src/components";
+import { Icon, StatusTip, ClusterStatusView } from "@src/components";
 import { StateRoleName, Theme } from "@src/constants";
 import { UIContext } from "@src/context/UIContextProvider";
 import { Storage } from "@src/models";
@@ -399,7 +399,7 @@ const MetadataExplore: React.FC = () => {
           storageNodes.push({
             label: (
               <>
-                {namespace} (<StorageStatusView text={storage.status} />)
+                {namespace} (<ClusterStatusView text={storage.status} />)
               </>
             ),
             value: namespace,
