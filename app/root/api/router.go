@@ -22,17 +22,20 @@ import (
 
 	depspkg "github.com/lindb/lindb/app/root/deps"
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/internal/monitoring"
 )
 
 // API represents root http api.
 type API struct {
 	execute *ExecuteAPI
+	env     *monitoring.EnvAPI
 }
 
 // NewAPI creates root http api.
 func NewAPI(deps *depspkg.HTTPDeps) *API {
 	return &API{
 		execute: NewExecuteAPI(deps),
+		env:     monitoring.NewEnvAPI(deps.Cfg.Monitor, []string{constants.RootRole}),
 	}
 }
 
@@ -41,4 +44,6 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 	v1 := router.Group(constants.APIVersion1)
 	// execute lin query language statement
 	api.execute.Register(v1)
+
+	api.env.Register(v1)
 }

@@ -43,7 +43,7 @@ type API struct {
 	log                *monitoring.LoggerAPI
 	config             *monitoring.ConfigAPI
 	write              *ingest.Write
-	env                *EnvAPI
+	env                *monitoring.EnvAPI
 	proxy              *ReverseProxy
 }
 
@@ -60,7 +60,7 @@ func NewAPI(deps *depspkg.HTTPDeps) *API {
 		log:                monitoring.NewLoggerAPI(deps.BrokerCfg.Logging.Dir),
 		config:             monitoring.NewConfigAPI(deps.Node, deps.BrokerCfg),
 		write:              ingest.NewWrite(deps),
-		env:                NewEnvAPI(deps),
+		env:                monitoring.NewEnvAPI(deps.BrokerCfg.Monitor, []string{constants.BrokerRole}),
 		proxy:              NewReverseProxy(),
 	}
 }

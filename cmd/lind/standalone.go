@@ -87,8 +87,8 @@ func serveStandalone(_ *cobra.Command, _ []string) error {
 	ctx := newCtxWithSignals()
 
 	standaloneCfg := config.Standalone{}
-	if fileutil.Exist(cfg) || fileutil.Exist(defaultStorageCfgFile) {
-		if err := config.LoadAndSetStandAloneConfig(cfg, defaultStorageCfgFile, &standaloneCfg); err != nil {
+	if fileutil.Exist(cfg) || fileutil.Exist(defaultStandaloneCfgFile) {
+		if err := config.LoadAndSetStandAloneConfig(cfg, defaultStandaloneCfgFile, &standaloneCfg); err != nil {
 			return err
 		}
 	} else {

@@ -63,6 +63,7 @@ func NewDefaultRootTOML() string {
 	return NewDefaultRoot().TOML()
 }
 
+// NewDefaultRoot creates root default config.
 func NewDefaultRoot() *Root {
 	return &Root{
 		Coordinator: *NewDefaultCoordinator(),
