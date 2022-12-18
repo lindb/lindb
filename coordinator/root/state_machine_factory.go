@@ -59,6 +59,13 @@ func (f *stateMachineFactory) Start() error {
 		return err
 	}
 	f.stateMachines = append(f.stateMachines, sm)
+
+	f.logger.Debug("starting DatabaseConfigStateMachine")
+	sm, err = f.createDatabaseConfigStateMachine()
+	if err != nil {
+		return err
+	}
+	f.stateMachines = append(f.stateMachines, sm)
 	return nil
 }
 
@@ -94,6 +101,29 @@ func (f *stateMachineFactory) createBrokerConfigStateMachine() (discovery.StateM
 			})
 		},
 	)
+}
+
+// createDatabaseConfigStateMachine crates database config state machine.
+func (f *stateMachineFactory) createDatabaseConfigStateMachine() (discovery.StateMachine, error) {
+	return discovery.NewStateMachine(
+		f.ctx,
+		discovery.DatabaseConfigStateMachine,
+		f.discoveryFactory,
+		constants.DatabaseConfigPath,
+		true,
+		func(key string, data []byte) {
+			f.stateMgr.EmitEvent(&discovery.Event{
+				Type:  discovery.DatabaseConfigChanged,
+				Key:   key,
+				Value: data,
+			})
+		},
+		func(key string) {
+			f.stateMgr.EmitEvent(&discovery.Event{
+				Type: discovery.DatabaseConfigDeletion,
+				Key:  key,
+			})
+		})
 }
 
 // createBrokerNodeStateMachine creates broker node state machine.

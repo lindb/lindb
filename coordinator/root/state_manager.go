@@ -48,6 +48,8 @@ type StateManager interface {
 	GetBrokerStates() []models.BrokerState
 	// GetBrokerState returns current broker state by name.
 	GetBrokerState(name string) (models.BrokerState, bool)
+	// GetDatabase returns the logic database config by name.
+	GetDatabase(name string) (models.LogicDatabase, bool)
 }
 
 // stateManager implements StateManager.
@@ -57,6 +59,7 @@ type stateManager struct {
 	repoFactory     statepkg.RepositoryFactory
 	stateMachineFct *stateMachineFactory
 	brokers         map[string]BrokerCluster
+	databases       map[string]*models.LogicDatabase
 	events          chan *discovery.Event
 	running         *atomic.Bool
 
@@ -80,6 +83,7 @@ func NewStateManager(
 		cancel:             cancel,
 		repoFactory:        repoFactory,
 		brokers:            make(map[string]BrokerCluster),
+		databases:          make(map[string]*models.LogicDatabase),
 		events:             make(chan *discovery.Event, 10),
 		running:            atomic.NewBool(true),
 		statistics:         metrics.NewStateManagerStatistics(strings.ToLower(constants.RootRole)),
@@ -135,6 +139,10 @@ func (s *stateManager) processEvent(event *discovery.Event) {
 		err = s.onBrokerConfigChange(event.Key, event.Value)
 	case discovery.BrokerConfigDeletion:
 		s.onBrokerConfigDelete(event.Key)
+	case discovery.DatabaseConfigChanged:
+		err = s.onDatabaseCfgChange(event.Key, event.Value)
+	case discovery.DatabaseConfigDeletion:
+		s.onDatabaseCfgDelete(event.Key)
 	case discovery.NodeStartup:
 		err = s.onBrokerNodeStartup(event.Attributes[brokerNameKey], event.Key, event.Value)
 	case discovery.NodeFailure:
@@ -174,6 +182,30 @@ func (s *stateManager) onBrokerConfigChange(key string, data []byte) error {
 		return err
 	}
 	return nil
+}
+
+// onDatabaseCfgChange triggers when database create/modify.
+func (s *stateManager) onDatabaseCfgChange(key string, data []byte) error {
+	s.logger.Info("database config is changed",
+		logger.String("key", key),
+		logger.String("data", string(data)))
+
+	cfg := &models.LogicDatabase{}
+	if err := encoding.JSONUnmarshal(data, &cfg); err != nil {
+		s.logger.Error("database config is changed, but unmarshal error",
+			logger.Error(err))
+		return err
+	}
+	s.databases[cfg.Name] = cfg
+	return nil
+}
+
+// onDatabaseCfgDelete triggers when database config is deletion.
+func (s *stateManager) onDatabaseCfgDelete(key string) {
+	s.logger.Info("database config deleted",
+		logger.String("key", key))
+	name := strings.TrimPrefix(key, constants.GetDatabaseConfigPath(""))
+	delete(s.databases, name)
 }
 
 // onBrokerNodeStartup triggers when broker node online
@@ -277,6 +309,18 @@ func (s *stateManager) GetBrokerState(name string) (models.BrokerState, bool) {
 		return models.BrokerState{}, false
 	}
 	return *broker.GetState(), true
+}
+
+// GetDatabase returns the logic database config by name.
+func (s *stateManager) GetDatabase(name string) (models.LogicDatabase, bool) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	database, ok := s.databases[name]
+	if !ok {
+		return models.LogicDatabase{}, false
+	}
+	return *database, true
 }
 
 // SetStateMachineFactory sets state machine factory.

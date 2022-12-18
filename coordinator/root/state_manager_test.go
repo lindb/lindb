@@ -225,3 +225,41 @@ func TestStateManager_BrokerNodeFailure(t *testing.T) {
 	mgr1.mutex.Unlock()
 	mgr.Close()
 }
+
+func TestStateManager_DatabaseCfg(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mgr := NewStateManager(context.TODO(), nil)
+
+	// case 1: unmarshal cfg err
+	mgr.EmitEvent(&discovery.Event{
+		Type:  discovery.DatabaseConfigChanged,
+		Key:   "/database/config/test",
+		Value: []byte("value"),
+	})
+	// case 2: database cfg changed
+	mgr.EmitEvent(&discovery.Event{
+		Type:  discovery.DatabaseConfigChanged,
+		Key:   "/database/config/test",
+		Value: encoding.JSONMarshal(&models.LogicDatabase{Name: "test"}),
+	})
+
+	time.Sleep(300 * time.Millisecond)
+	db, ok := mgr.GetDatabase("test")
+	assert.True(t, ok)
+	assert.Equal(t, "test", db.Name)
+
+	// case 3: database delete
+	mgr.EmitEvent(&discovery.Event{
+		Type: discovery.DatabaseConfigDeletion,
+		Key:  "/database/config/test",
+	})
+	time.Sleep(100 * time.Millisecond)
+
+	db, ok = mgr.GetDatabase("test")
+	assert.False(t, ok)
+	assert.Empty(t, db.Name)
+
+	mgr.Close()
+}

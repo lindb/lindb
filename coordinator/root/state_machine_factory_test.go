@@ -43,6 +43,13 @@ func TestStateMachineFactory_Start(t *testing.T) {
 	err := fct.Start()
 	assert.Error(t, err)
 
+	// database config sm err
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
+	err = fct.Start()
+	assert.Error(t, err)
+
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
 	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
 	err = fct.Start()
 	assert.NoError(t, err)
