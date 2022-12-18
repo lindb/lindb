@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package api
+package monitoring
 
 import (
 	"fmt"
@@ -27,18 +27,15 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/mock"
 )
 
 func TestGetEnv(t *testing.T) {
 	r := gin.New()
-	api := NewEnvAPI(&deps.HTTPDeps{
-		BrokerCfg: &config.Broker{
-			Monitor: config.Monitor{URL: "http://localhost?db=_internal"},
-		},
-	})
+	api := NewEnvAPI(config.Monitor{URL: "http://localhost?db=_internal"},
+		[]string{"Broker"},
+	)
 	api.Register(r)
 
 	testCases := []struct {

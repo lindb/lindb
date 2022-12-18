@@ -15,14 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package api
+package monitoring
 
 import (
 	"net/url"
 
 	"github.com/gin-gonic/gin"
 
-	depspkg "github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/http"
 )
@@ -39,13 +39,15 @@ var (
 
 // EnvAPI represents LinDB's env api.
 type EnvAPI struct {
-	deps *depspkg.HTTPDeps
+	monitor config.Monitor
+	roles   []string
 }
 
 // NewEnvAPI creates a EnvAPI instance.
-func NewEnvAPI(deps *depspkg.HTTPDeps) *EnvAPI {
+func NewEnvAPI(monitor config.Monitor, roles []string) *EnvAPI {
 	return &EnvAPI{
-		deps: deps,
+		monitor: monitor,
+		roles:   roles,
 	}
 }
 
@@ -61,12 +63,12 @@ func (api *EnvAPI) GetEnv(c *gin.Context) {
 		http.Error(c, err)
 		return
 	}
-	http.OK(c, &models.Env{Monitor: *monitor})
+	http.OK(c, &models.Env{Monitor: *monitor, Roles: api.roles})
 }
 
 // getSelfMonitor retruns LinDB's self-monitor vars.
 func (api *EnvAPI) getSelfMonitor() (*models.Monitor, error) {
-	monitorURL := api.deps.BrokerCfg.Monitor.URL
+	monitorURL := api.monitor.URL
 
 	u, err := urlParseFn(monitorURL)
 	if err != nil {

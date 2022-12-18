@@ -153,7 +153,7 @@ func (r *runtime) startHTTPServer() {
 		return
 	}
 
-	r.httpServer = httppkg.NewServer(r.config.HTTP, false, linmetric.RootRegistry)
+	r.httpServer = httppkg.NewServer(r.config.HTTP, true, linmetric.RootRegistry)
 	// TODO: login api is not registered
 	httpAPI := api.NewAPI(&deps.HTTPDeps{
 		Ctx:         r.ctx,
