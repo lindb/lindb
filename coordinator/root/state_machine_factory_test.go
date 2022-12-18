@@ -133,3 +133,33 @@ func TestStateMachineFactory_BrokerNode(t *testing.T) {
 	})
 	sm.OnDelete("/test")
 }
+
+func TestStateMachineFactory_DatabaseCfg(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	stateMgr := NewMockStateManager(ctrl)
+	discoveryFct := discovery.NewMockFactory(ctrl)
+	discovery1 := discovery.NewMockDiscovery(ctrl)
+	discoveryFct.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
+	fct := NewStateMachineFactory(context.TODO(), discoveryFct, stateMgr)
+	fct1 := fct.(*stateMachineFactory)
+
+	sm, err := fct1.createDatabaseConfigStateMachine()
+	assert.NoError(t, err)
+	assert.NotNil(t, sm)
+
+	stateMgr.EXPECT().EmitEvent(&discovery.Event{
+		Type:  discovery.DatabaseConfigChanged,
+		Key:   "/test",
+		Value: []byte("value"),
+	})
+	sm.OnCreate("/test", []byte("value"))
+
+	stateMgr.EXPECT().EmitEvent(&discovery.Event{
+		Type: discovery.DatabaseConfigDeletion,
+		Key:  "/test",
+	})
+	sm.OnDelete("/test")
+}

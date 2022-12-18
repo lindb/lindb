@@ -30,6 +30,7 @@ const local = {
     "Log View": "日志",
     Database: "数据库",
     Storage: "存储集群",
+    Broker: "计算集群",
     "Multiple IDCs": "多机房",
   },
   LayoutHeader: {
@@ -163,7 +164,7 @@ const local = {
     ahead: "往后",
     example: "例如: [ now()-1h ~ now()+1h ]",
   },
-  MetadataStorageView: {
+  MetadataClusterView: {
     register: "注册",
     name: "集群名(Namespace)",
     status: "状态",
@@ -177,6 +178,8 @@ const local = {
     timeout: "客户端处理超时时间",
     timeoutTooltip: "客户端处理请求的超时时间",
     leaseTTL: "租约(Time To Live)",
+  },
+  MetadataStorageView: {
     recoverConfirmMessage: "是否确认从存储集群的本地存储中恢复数据库配置？",
     recoverErrorTitle: "恢复数据库配置失败",
     recoverSuccessTitle: "恢复数据库配置成功",

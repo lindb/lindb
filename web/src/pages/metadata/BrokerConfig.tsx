@@ -20,6 +20,6 @@ import { ClusterType } from "@src/constants";
 import React from "react";
 import { ClusterConfig } from "./ClusterConfig";
 
-export default function StorageConfig() {
-  return <ClusterConfig type={ClusterType.Storage} />;
+export default function BrokerConfig() {
+  return <ClusterConfig type={ClusterType.Broker} />;
 }

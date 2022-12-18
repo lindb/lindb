@@ -16,10 +16,12 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { ClusterType } from "@src/constants";
+import { Route } from "@src/constants";
 import React from "react";
-import { ClusterConfig } from "./ClusterConfig";
+import { ClusterList } from "./ClusterList";
 
-export default function StorageConfig() {
-  return <ClusterConfig type={ClusterType.Storage} />;
+export default function BrokerList() {
+  return (
+    <ClusterList sql="show brokers" registerPath={Route.MetadataBrokerConfig} />
+  );
 }

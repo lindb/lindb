@@ -40,14 +40,14 @@ var (
 // EnvAPI represents LinDB's env api.
 type EnvAPI struct {
 	monitor config.Monitor
-	roles   []string
+	role    string
 }
 
 // NewEnvAPI creates a EnvAPI instance.
-func NewEnvAPI(monitor config.Monitor, roles []string) *EnvAPI {
+func NewEnvAPI(monitor config.Monitor, role string) *EnvAPI {
 	return &EnvAPI{
 		monitor: monitor,
-		roles:   roles,
+		role:    role,
 	}
 }
 
@@ -63,7 +63,7 @@ func (api *EnvAPI) GetEnv(c *gin.Context) {
 		http.Error(c, err)
 		return
 	}
-	http.OK(c, &models.Env{Monitor: *monitor, Roles: api.roles})
+	http.OK(c, &models.Env{Monitor: *monitor, Role: api.role})
 }
 
 // getSelfMonitor retruns LinDB's self-monitor vars.

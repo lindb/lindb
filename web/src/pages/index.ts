@@ -28,6 +28,8 @@ export { default as LogView } from "@src/pages/monitoring/LogView";
 export { default as RequestView } from "@src/pages/monitoring/RequestView";
 export { default as StorageList } from "@src/pages/metadata/StorageList";
 export { default as StorageConfig } from "@src/pages/metadata/StorageConfig";
+export { default as BrokerList } from "@src/pages/metadata/BrokerList";
+export { default as BrokerConfig } from "@src/pages/metadata/BrokerConfig";
 export { default as DatabaseList } from "@src/pages/metadata/DatabaseList";
 export { default as DatabaseConfig } from "@src/pages/metadata/DatabaseConfig";
 export { default as MetadataExplore } from "@src/pages/metadata/Explore";
