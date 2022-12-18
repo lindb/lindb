@@ -24,6 +24,6 @@ type Monitor struct {
 
 // Env represents LinDB's env vars.
 type Env struct {
-	Monitor Monitor  `json:"monitor"`
-	Roles   []string `json:"roles"`
+	Monitor Monitor `json:"monitor"`
+	Role    string  `json:"role"`
 }

@@ -47,6 +47,8 @@ import {
   MetadataExplore,
   MultipleIDCList,
   RequestView,
+  BrokerList,
+  BrokerConfig,
 } from "@src/pages";
 import * as _ from "lodash-es";
 import React from "react";
@@ -139,6 +141,7 @@ export const routes = [
       {
         text: "Storage",
         path: Route.MetadataStorage,
+        roles: ["Broker"],
         icon: <Icon icon="iconts-tubiao_APPCluster" style={{ fontSize: 20 }} />,
         content: <StorageList />,
         help: "/guide/admin-ui/metadata.html#storage",
@@ -149,6 +152,25 @@ export const routes = [
             text: "Configuration",
             path: Route.MetadataStorageConfig,
             content: <StorageConfig />,
+            help: "/guide/admin-ui/metadata.html#storage",
+          },
+        ],
+      },
+      {
+        text: "Broker",
+        path: Route.MetadataBroker,
+        roles: ["Root"],
+        icon: <Icon icon="iconts-tubiao_APPCluster" style={{ fontSize: 20 }} />,
+        content: <BrokerList />,
+        help: "/guide/admin-ui/metadata.html#storage",
+        items: [
+          {
+            roles: ["Root"],
+            inner: true,
+            itemKey: "Metadata/Broker/Configuration",
+            text: "Configuration",
+            path: Route.MetadataBrokerConfig,
+            content: <BrokerConfig />,
             help: "/guide/admin-ui/metadata.html#storage",
           },
         ],

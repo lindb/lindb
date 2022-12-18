@@ -30,6 +30,7 @@ const local = {
     "Log View": "Log View",
     Database: "Database",
     Storage: "Storage",
+    Broker: "Broker",
     "Multiple IDCs": "Multiple IDCs",
   },
   LayoutHeader: {
@@ -164,7 +165,7 @@ const local = {
     ahead: "Ahead",
     example: "For Example: [ now()-1h ~ now()+1h ]",
   },
-  MetadataStorageView: {
+  MetadataClusterView: {
     register: "Register",
     name: "Name(Namespace)",
     status: "Status",
@@ -178,6 +179,8 @@ const local = {
     timeout: "Client Handle Timeout",
     timeoutTooltip: "Client handle request timeout",
     leaseTTL: "Lease TTL(Time To Live)",
+  },
+  MetadataStorageView: {
     recoverConfirmMessage:
       "Are you sure want to recover database configuration from local storage?",
     recoverErrorTitle: "Recover database configuration error",

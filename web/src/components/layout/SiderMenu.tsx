@@ -35,7 +35,8 @@ const SiderMenu: React.FC<{
 }> = (props) => {
   const { defaultOpenAll, routes, menus, openKeys } = props;
   const [selectedKeys, setSelectedKeys] = useState([] as string[]);
-  const { isDark, collapsed, toggleCollapse, locale } = useContext(UIContext);
+  const { isDark, collapsed, toggleCollapse, locale, env } =
+    useContext(UIContext);
   const { SiderMenu } = locale;
 
   useWatchURLChange(() => {
@@ -59,6 +60,10 @@ const SiderMenu: React.FC<{
 
   const renderMenus = (menus: any, level: number) => {
     return (menus || []).map((item: any) => {
+      // need match role
+      if (item.roles && item.roles.indexOf(env.role) < 0) {
+        return;
+      }
       const subItems = _.filter(item.items, (o) => !_.get(o, "inner", false));
       if (_.size(subItems) > 0) {
         return (

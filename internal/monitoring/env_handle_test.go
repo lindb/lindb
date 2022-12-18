@@ -33,8 +33,9 @@ import (
 
 func TestGetEnv(t *testing.T) {
 	r := gin.New()
-	api := NewEnvAPI(config.Monitor{URL: "http://localhost?db=_internal"},
-		[]string{"Broker"},
+	api := NewEnvAPI(
+		config.Monitor{URL: "http://localhost?db=_internal"},
+		"Broker",
 	)
 	api.Register(r)
 

@@ -60,7 +60,7 @@ func NewAPI(deps *depspkg.HTTPDeps) *API {
 		log:                monitoring.NewLoggerAPI(deps.BrokerCfg.Logging.Dir),
 		config:             monitoring.NewConfigAPI(deps.Node, deps.BrokerCfg),
 		write:              ingest.NewWrite(deps),
-		env:                monitoring.NewEnvAPI(deps.BrokerCfg.Monitor, []string{constants.BrokerRole}),
+		env:                monitoring.NewEnvAPI(deps.BrokerCfg.Monitor, constants.BrokerRole),
 		proxy:              NewReverseProxy(),
 	}
 }

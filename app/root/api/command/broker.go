@@ -59,7 +59,7 @@ func BrokerCommand(ctx context.Context, deps *depspkg.HTTPDeps, _ *models.Execut
 
 // List lists all broker clusters
 func listBrokers(ctx context.Context, deps *depspkg.HTTPDeps, _ *stmtpkg.Broker) (interface{}, error) {
-	data, err := deps.Repo.List(ctx, constants.StorageConfigPath)
+	data, err := deps.Repo.List(ctx, constants.BrokerConfigPath)
 	if err != nil {
 		return nil, err
 	}

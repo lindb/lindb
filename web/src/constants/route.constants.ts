@@ -27,9 +27,16 @@ export enum Route {
   MonitoringRequest = "/monitoring/request",
   MonitoringLogs = "/monitoring/logs",
   MetadataStorage = "/metadata/storage",
+  MetadataBroker = "/metadata/broker",
   MetadataStorageConfig = "/metadata/storage/configuration",
+  MetadataBrokerConfig = "/metadata/broker/configuration",
   MetadataDatabase = "/metadata/database",
   MetadataDatabaseConfig = "/metadata/database/configuration",
   MetadataExplore = "/metadata/explore",
   MetadataMultipleIDC = "/metadata/multiple-idcs",
+}
+
+export enum ClusterType {
+  Broker = "Broker",
+  Storage = "Storage",
 }

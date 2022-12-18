@@ -35,7 +35,7 @@ type API struct {
 func NewAPI(deps *depspkg.HTTPDeps) *API {
 	return &API{
 		execute: NewExecuteAPI(deps),
-		env:     monitoring.NewEnvAPI(deps.Cfg.Monitor, []string{constants.RootRole}),
+		env:     monitoring.NewEnvAPI(deps.Cfg.Monitor, constants.RootRole),
 	}
 }
 

@@ -104,6 +104,7 @@ const UIContextProvider: React.FC<{ children: React.ReactNode }> = (props) => {
   const { isLoading } = useQuery(["load-env"], async () => {
     return PlatformService.fetchEnv().then((data) => {
       setEnv(data);
+      return null;
     });
   });
   const isDark = (): boolean => {
