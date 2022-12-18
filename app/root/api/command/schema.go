@@ -36,6 +36,7 @@ type schemaCommandFn = func(ctx context.Context, deps *depspkg.HTTPDeps, stmt *s
 var schemaCommands = map[stmtpkg.SchemaType]schemaCommandFn{
 	stmtpkg.CreateDatabaseSchemaType: saveDatabase,
 	stmtpkg.DatabaseSchemaType:       listDatabases,
+	stmtpkg.DatabaseNameSchemaType:   listDatabaseNames,
 }
 
 // SchemaCommand executes lin query language for broker related.
@@ -45,6 +46,20 @@ func SchemaCommand(ctx context.Context, deps *depspkg.HTTPDeps, _ *models.Execut
 		return commandFn(ctx, deps, schemaStmt)
 	}
 	return nil, nil
+}
+
+// listDatabaseNames returns database name list in cluster.
+func listDatabaseNames(ctx context.Context, deps *depspkg.HTTPDeps, stmt *stmtpkg.Schema) (interface{}, error) {
+	dbs, err := listDatabases(ctx, deps, stmt)
+	if err != nil {
+		return nil, err
+	}
+	var databaseNames []interface{}
+	databases := dbs.([]*models.LogicDatabase)
+	for _, db := range databases {
+		databaseNames = append(databaseNames, db.Name)
+	}
+	return databaseNames, nil
 }
 
 // listDatabases returns database list in cluster.

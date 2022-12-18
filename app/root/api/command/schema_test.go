@@ -31,7 +31,7 @@ import (
 )
 
 func TestSchemaCommand_NotFound(t *testing.T) {
-	rs, err := SchemaCommand(context.TODO(), nil, nil, &stmt.Schema{Type: stmt.DatabaseNameSchemaType})
+	rs, err := SchemaCommand(context.TODO(), nil, nil, &stmt.Schema{Type: stmt.SchemaType(-1)})
 	assert.Nil(t, rs)
 	assert.Nil(t, err)
 }
@@ -56,6 +56,31 @@ func TestSchemaCommand_listDatabases(t *testing.T) {
 		repo.EXPECT().List(gomock.Any(), gomock.Any()).
 			Return([]state.KeyValue{{Value: []byte("1")}, {Value: []byte("{}")}}, nil)
 		rs, err := SchemaCommand(context.TODO(), deps, nil, &stmt.Schema{Type: stmt.DatabaseSchemaType})
+		assert.NoError(t, err)
+		assert.NotNil(t, rs)
+	})
+}
+
+func TestSchemaCommand_listDatabaseNames(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	repo := state.NewMockRepository(ctrl)
+	deps := &depspkg.HTTPDeps{
+		Repo: repo,
+	}
+
+	t.Run("list database failure", func(t *testing.T) {
+		repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+		rs, err := SchemaCommand(context.TODO(), deps, nil, &stmt.Schema{Type: stmt.DatabaseNameSchemaType})
+		assert.Error(t, err)
+		assert.Nil(t, rs)
+	})
+
+	t.Run("list database successfully", func(t *testing.T) {
+		repo.EXPECT().List(gomock.Any(), gomock.Any()).
+			Return([]state.KeyValue{{Value: []byte("1")}, {Value: []byte(`{"name":"test"}`)}}, nil)
+		rs, err := SchemaCommand(context.TODO(), deps, nil, &stmt.Schema{Type: stmt.DatabaseNameSchemaType})
 		assert.NoError(t, err)
 		assert.NotNil(t, rs)
 	})
