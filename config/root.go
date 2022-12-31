@@ -29,7 +29,6 @@ type Root struct {
 	Coordinator RepoState `toml:"coordinator"`
 	Query       Query     `toml:"query"`
 	HTTP        HTTP      `toml:"http"`
-	GRPC        GRPC      `toml:"grpc"`
 	Monitor     Monitor   `toml:"monitor"`
 	Logging     Logging   `toml:"logging"`
 }
@@ -45,14 +44,11 @@ func (r *Root) TOML() string {
 ## Controls how HTTP Server are configured.
 [http]%s
 
-## Controls how GRPC Server are configured.
-[grpc]%s
 %s
 %s`,
 		r.Coordinator.TOML(),
 		r.Query.TOML(),
 		r.HTTP.TOML(),
-		r.GRPC.TOML(),
 		r.Monitor.TOML(),
 		r.Logging.TOML(),
 	)
@@ -73,11 +69,6 @@ func NewDefaultRoot() *Root {
 			IdleTimeout:  ltoml.Duration(time.Minute * 2),
 			ReadTimeout:  ltoml.Duration(time.Second * 5),
 			WriteTimeout: ltoml.Duration(time.Second * 5),
-		},
-		GRPC: GRPC{
-			Port:                 3001,
-			MaxConcurrentStreams: 1024,
-			ConnectTimeout:       ltoml.Duration(time.Second * 3),
 		},
 		Monitor: *NewDefaultMonitor(),
 		Logging: *NewDefaultLogging(),

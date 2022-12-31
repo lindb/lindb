@@ -2,12 +2,6 @@ syntax = "proto3";
 
 package protoCommonV1;
 
-enum TaskType {
-    UNKNOWN = 0;
-    Intermediate = 1;
-    Leaf = 2;
-}
-
 enum RequestType {
     Data = 0;
     Metadata = 1;
@@ -15,16 +9,14 @@ enum RequestType {
 
 message TaskRequest {
 	string requestID = 1;
-    string parentTaskID = 2;
-    TaskType type = 3;
-    RequestType requestType = 4;
-    bytes physicalPlan = 5;
-    bytes payload = 6;
+    RequestType requestType = 3;
+    bytes physicalPlan = 4;
+    bytes payload = 5;
 }
 
 message TaskResponse {
-    string taskID = 1;
-    TaskType type = 2;
+    string requestID = 1;
+    RequestType requestType = 2;
     bool completed = 3;
     string errMsg = 4;
     int64 sendTime = 5;
@@ -33,8 +25,11 @@ message TaskResponse {
 }
 
 message TimeSeriesList {
-    repeated TimeSeries timeSeriesList = 1;
-    repeated AggregatorSpec fieldAggSpecs = 2;
+	int64 start = 1;
+	int64 end = 2;
+	int64 interval = 3;
+    repeated TimeSeries timeSeriesList = 4;
+    repeated AggregatorSpec fieldAggSpecs = 5;
 }
 
 message TimeSeries {

@@ -15,28 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package brokerquery
+package operator
 
 import (
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/query/context"
 )
 
-func TestGetRequestManager(t *testing.T) {
-	assert.NotNil(t, GetRequestManager())
-	assert.NotNil(t, GetRequestManager())
-}
+func TestPhysicalPlan(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-func TestRequestManager(t *testing.T) {
-	mgr := newRequestManager()
-	assert.Empty(t, mgr.GetAliveRequests())
-
-	req := mgr.NewRequest(&models.Request{})
-	assert.Len(t, mgr.GetAliveRequests(), 1)
-
-	mgr.CompleteRequest(req)
-	assert.Empty(t, mgr.GetAliveRequests())
+	taskCtx := context.NewMockTaskContext(ctrl)
+	taskCtx.EXPECT().MakePlan().Return(nil)
+	op := NewPhysicalPlan(taskCtx)
+	assert.NoError(t, op.Execute())
+	assert.Equal(t, "Physical Plan", op.Identifier())
 }

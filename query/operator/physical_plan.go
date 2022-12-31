@@ -15,44 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package brokerquery
+package operator
 
 import (
-	"context"
-
-	"github.com/lindb/lindb/coordinator/broker"
-	"github.com/lindb/lindb/models"
-	stmtpkg "github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/query/context"
 )
 
-type queryFactory struct {
-	stateMgr    broker.StateManager
-	taskManager TaskManager
+// physicalPlan represents physical plan operator.
+type physicalPlan struct {
+	ctx context.TaskContext
 }
 
-func NewQueryFactory(
-	stateMgr broker.StateManager,
-	taskManager TaskManager,
-) Factory {
-	return &queryFactory{
-		stateMgr:    stateMgr,
-		taskManager: taskManager,
-	}
+// NewPhysicalPlan creates a physicalPlan instance.
+func NewPhysicalPlan(ctx context.TaskContext) Operator {
+	return &physicalPlan{ctx: ctx}
 }
 
-func (qh *queryFactory) NewMetricQuery(
-	ctx context.Context,
-	root models.Node,
-	databaseName string,
-	sql *stmtpkg.Query,
-) MetricQuery {
-	return newMetricQuery(ctx, root, databaseName, sql, qh)
+// Execute returns physical plan by given task context.
+func (op *physicalPlan) Execute() error {
+	return op.ctx.MakePlan()
 }
 
-func (qh *queryFactory) NewMetadataQuery(
-	ctx context.Context,
-	database string,
-	stmt *stmtpkg.MetricMetadata,
-) MetaDataQuery {
-	return newMetadataQuery(ctx, database, stmt, qh)
+// Identifier returns identifier string value of physical plan operator.
+func (op *physicalPlan) Identifier() string {
+	return "Physical Plan"
 }

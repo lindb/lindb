@@ -23,17 +23,23 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/root"
 	"github.com/lindb/lindb/internal/concurrent"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/state"
+	"github.com/lindb/lindb/query"
+	"github.com/lindb/lindb/rpc"
 )
 
 // HTTPDeps represents http server handler's dependency.
 type HTTPDeps struct {
 	Ctx          context.Context
 	Cfg          *config.Root
+	Node         *models.StatelessNode
 	QueryLimiter *concurrent.Limiter
 	Repo         state.Repository
 	RepoFactory  state.RepositoryFactory
 	StateMgr     root.StateManager
+	TransportMgr rpc.TransportManager
+	TaskMgr      query.TaskManager
 }
 
 func (deps *HTTPDeps) WithTimeout() (context.Context, context.CancelFunc) {

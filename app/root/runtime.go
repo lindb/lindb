@@ -24,9 +24,10 @@ import (
 	"os"
 
 	"github.com/lindb/lindb/app/root/api"
-	"github.com/lindb/lindb/app/root/deps"
+	depspkg "github.com/lindb/lindb/app/root/deps"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/root"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
@@ -38,43 +39,61 @@ import (
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/query"
+	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/tag"
 )
 
 // just for testing
 var (
-	getHostIP = hostutil.GetHostIP
-	hostName  = os.Hostname
+	getHostIP              = hostutil.GetHostIP
+	hostName               = os.Hostname
+	newTaskClientFactory   = rpc.NewTaskClientFactory
+	newStateMachineFactory = root.NewStateMachineFactory
+	newTaskManager         = query.NewTaskManager
+	newRepositoryFactory   = state.NewRepositoryFactory
+	newHTTPServer          = httppkg.NewServer
 )
 
+// deps represents all dependencies for root.
+type deps struct {
+	taskClientFct   rpc.TaskClientFactory
+	connectionMgr   rpc.ConnectionManager
+	repoFct         state.RepositoryFactory
+	stateMachineFct discovery.StateMachineFactory
+	stateMgr        root.StateManager
+	taskMgr         query.TaskManager
+}
+
+// runtime represents root runtime dependency.
 type runtime struct {
-	version string
-	config  *config.Root
-	state   server.State
+	version         string
+	config          *config.Root
+	state           server.State
+	node            *models.StatelessNode
+	globalKeyValues tag.Tags
 
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	repoFactory     state.RepositoryFactory
-	repo            state.Repository
-	node            *models.StatelessNode
-	httpServer      httppkg.Server
-	globalKeyValues tag.Tags
-	stateMgr        root.StateManager
+	deps *deps
+
+	repo       state.Repository
+	httpServer httppkg.Server
 
 	logger *logger.Logger
 }
 
+// NewRootRuntime creates the root runtime.
 func NewRootRuntime(version string, cfg *config.Root) server.Service {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &runtime{
-		version:     version,
-		config:      cfg,
-		state:       server.New,
-		ctx:         ctx,
-		cancel:      cancel,
-		repoFactory: state.NewRepositoryFactory("root"),
-		logger:      logger.GetLogger("Root", "Runtime"),
+		version: version,
+		config:  cfg,
+		state:   server.New,
+		ctx:     ctx,
+		cancel:  cancel,
+		logger:  logger.GetLogger("Root", "Runtime"),
 	}
 }
 
@@ -97,7 +116,6 @@ func (r *runtime) Run() error {
 	}
 	r.node = &models.StatelessNode{
 		HostIP:     ip,
-		GRPCPort:   r.config.GRPC.Port,
 		HostName:   hostName,
 		HTTPPort:   r.config.HTTP.Port,
 		OnlineTime: timeutil.Now(),
@@ -108,7 +126,28 @@ func (r *runtime) Run() error {
 		{Key: []byte("role"), Value: []byte(constants.RootRole)},
 	}
 	r.logger.Info("starting root", logger.String("host", hostName), logger.String("ip", ip),
-		logger.Uint16("http", r.node.HTTPPort), logger.Uint16("grpc", r.node.GRPCPort))
+		logger.Uint16("http", r.node.HTTPPort))
+
+	// build dependencies
+	repoFct := newRepositoryFactory("root")
+	taskClientFct := newTaskClientFactory(r.ctx, r.node, rpc.GetBrokerClientConnFactory())
+	connectionMgr := rpc.NewConnectionManager(taskClientFct)
+	stateMgr := root.NewStateManager(r.ctx, repoFct, connectionMgr)
+	taskMgr := newTaskManager(
+		concurrent.NewPool(
+			"task-pool",
+			r.config.Query.QueryConcurrency,
+			r.config.Query.IdleTimeout.Duration(),
+			metrics.NewConcurrentStatistics("root-query", linmetric.RootRegistry)),
+		linmetric.RootRegistry)
+	taskClientFct.SetTaskReceiver(taskMgr)
+	r.deps = &deps{
+		taskClientFct: taskClientFct,
+		connectionMgr: connectionMgr,
+		repoFct:       repoFct,
+		stateMgr:      stateMgr,
+		taskMgr:       taskMgr,
+	}
 
 	// start state repository
 	if err = r.startStateRepo(); err != nil {
@@ -116,7 +155,14 @@ func (r *runtime) Run() error {
 		r.state = server.Failed
 		return err
 	}
-	r.stateMgr = root.NewStateManager(r.ctx, r.repoFactory)
+	discoveryFactory := discovery.NewFactory(r.repo)
+	stateMachineFct := newStateMachineFactory(r.ctx, discoveryFactory, stateMgr)
+
+	// finally, start all state machine
+	if err := stateMachineFct.Start(); err != nil {
+		return fmt.Errorf("start state machines error: %s", err)
+	}
+	r.deps.stateMachineFct = stateMachineFct
 	// start http server
 	r.startHTTPServer()
 
@@ -134,6 +180,11 @@ func (r *runtime) Stop() {
 	r.logger.Info("stopping root server...")
 	defer r.cancel()
 
+	if r.deps.stateMachineFct != nil {
+		r.logger.Info("stopping state machines...")
+		r.deps.stateMachineFct.Stop()
+		r.logger.Info("stopped state machines successfully")
+	}
 	if r.httpServer != nil {
 		r.logger.Info("stopping http server...")
 		if err := r.httpServer.Close(r.ctx); err != nil {
@@ -153,14 +204,17 @@ func (r *runtime) startHTTPServer() {
 		return
 	}
 
-	r.httpServer = httppkg.NewServer(r.config.HTTP, true, linmetric.RootRegistry)
+	r.httpServer = newHTTPServer(r.config.HTTP, true, linmetric.RootRegistry)
 	// TODO: login api is not registered
-	httpAPI := api.NewAPI(&deps.HTTPDeps{
-		Ctx:         r.ctx,
-		Cfg:         r.config,
-		Repo:        r.repo,
-		RepoFactory: r.repoFactory,
-		StateMgr:    r.stateMgr,
+	httpAPI := api.NewAPI(&depspkg.HTTPDeps{
+		Ctx:          r.ctx,
+		Cfg:          r.config,
+		Node:         r.node,
+		Repo:         r.repo,
+		RepoFactory:  r.deps.repoFct,
+		StateMgr:     r.deps.stateMgr,
+		TransportMgr: query.NewTransportManager(r.deps.taskClientFct, nil, linmetric.RootRegistry), // root node no grpc server
+		TaskMgr:      r.deps.taskMgr,
 		QueryLimiter: concurrent.NewLimiter(
 			r.ctx,
 			r.config.Query.QueryConcurrency,
@@ -170,17 +224,22 @@ func (r *runtime) startHTTPServer() {
 	})
 	httpAPI.RegisterRouter(r.httpServer.GetAPIRouter())
 	go func() {
-		if err := r.httpServer.Run(); err != http.ErrServerClosed {
-			panic(fmt.Sprintf("start http server with error: %s", err))
-		}
-		r.logger.Info("http server stopped successfully")
+		r.runHTTPServer()
 	}()
+}
+
+// runHTTPServer runs http server.
+func (r *runtime) runHTTPServer() {
+	if err := r.httpServer.Run(); err != nil && err != http.ErrServerClosed {
+		panic(fmt.Sprintf("start http server with error: %s", err))
+	}
+	r.logger.Info("http server stopped successfully")
 }
 
 // startStateRepo starts state repository.
 func (r *runtime) startStateRepo() error {
 	// set a sub namespace
-	repo, err := r.repoFactory.CreateRootRepo(&r.config.Coordinator)
+	repo, err := r.deps.repoFct.CreateRootRepo(&r.config.Coordinator)
 	if err != nil {
 		return fmt.Errorf("start root state repository error:%s", err)
 	}

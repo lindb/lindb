@@ -15,31 +15,44 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package brokerquery
+package context
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/sql/stmt"
+	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
+	"github.com/lindb/lindb/rpc"
 )
 
-func TestExecutorFactory_NewExecutor(t *testing.T) {
+func TestTaskContext(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	factory := NewQueryFactory(nil, nil)
-	assert.NotNil(t, factory.NewMetricQuery(
-		context.Background(),
-		&models.StatelessNode{},
-		"",
-		&stmt.Query{}))
-	assert.NotNil(t, factory.NewMetadataQuery(
-		context.Background(),
-		"",
-		&stmt.MetricMetadata{}))
+	transportMgr := rpc.NewMockTransportManager(ctrl)
+	transportMgr.EXPECT().SendRequest(gomock.Any(), gomock.Any()).Return(nil)
+	ctx := newBaseTaskContext(context.TODO(), transportMgr)
+	assert.NotNil(t, ctx.Context())
+
+	req := protoCommonV1.TaskRequest{}
+	assert.NoError(t, ctx.SendRequest("target", &req))
+
+	ctx.addRequests(&req, &models.PhysicalPlan{
+		Targets: []*models.Target{
+			{Indicator: "target-1"},
+			{Indicator: "target-2"},
+			{Indicator: "target-1"},
+		},
+	})
+	assert.Len(t, ctx.GetRequests(), 2)
+
+	ctx.Complete(fmt.Errorf("err"))
+	ctx.Complete(fmt.Errorf("err"))
+	ctx.handleTaskState(&protoCommonV1.TaskResponse{Completed: false}, "leaf")
+	ctx.handleTaskState(&protoCommonV1.TaskResponse{Completed: true}, "leaf")
 }

@@ -42,38 +42,43 @@ func TestLeafExecuteContext_SendResponse(t *testing.T) {
 	db := tsdb.NewMockDatabase(ctrl)
 	taskServerFct := rpc.NewMockTaskServerFactory(ctrl)
 	stream := protoCommonV1.NewMockTaskService_HandleServer(ctrl)
-	leaf := &models.Leaf{Receivers: []models.StatelessNode{{}}}
+	leaf := &models.Target{}
+
 	cases := []struct {
-		name    string
-		in      error
-		prepare func(ctx *LeafExecuteContext)
-		assert  func()
+		name      string
+		in        error
+		receivers []string
+		prepare   func(ctx *LeafExecuteContext)
+		assert    func()
 	}{
 		{
-			name: "send response with err",
-			in:   fmt.Errorf("err"),
+			name:      "send response with err",
+			in:        fmt.Errorf("err"),
+			receivers: nil,
 			prepare: func(_ *LeafExecuteContext) {
-				leaf.Receivers = nil
 			},
 		},
 		{
-			name: "not found send stream",
-			in:   fmt.Errorf("err"),
+			name:      "not found send stream",
+			in:        fmt.Errorf("err"),
+			receivers: []string{""},
 			prepare: func(_ *LeafExecuteContext) {
 				taskServerFct.EXPECT().GetStream(gomock.Any()).Return(nil)
 			},
 		},
 		{
-			name: "send response failure",
-			in:   fmt.Errorf("err"),
+			name:      "send response failure",
+			in:        fmt.Errorf("err"),
+			receivers: []string{""},
 			prepare: func(_ *LeafExecuteContext) {
 				taskServerFct.EXPECT().GetStream(gomock.Any()).Return(stream)
 				stream.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err"))
 			},
 		},
 		{
-			name: "send response with grouping",
-			in:   nil,
+			name:      "send response with grouping",
+			in:        nil,
+			receivers: []string{""},
 			prepare: func(ctx *LeafExecuteContext) {
 				ctx.StorageExecuteCtx.GroupingTagValueIDs = []*roaring.Bitmap{roaring.BitmapOf(1, 2)}
 				ctx.StorageExecuteCtx.Query.Explain = true
@@ -87,8 +92,9 @@ func TestLeafExecuteContext_SendResponse(t *testing.T) {
 			},
 		},
 		{
-			name: "time out",
-			in:   nil,
+			name:      "time out",
+			in:        nil,
+			receivers: []string{""},
 			prepare: func(ctx *LeafExecuteContext) {
 				ctx.StorageExecuteCtx.GroupingTagValueIDs = []*roaring.Bitmap{roaring.BitmapOf(1, 2)}
 				ctx.GroupingCtx.collectGroupingTagsCompleted = make(chan struct{})
@@ -105,9 +111,6 @@ func TestLeafExecuteContext_SendResponse(t *testing.T) {
 	for _, tt := range cases {
 		tt := tt
 		t.Run(tt.name, func(_ *testing.T) {
-			defer func() {
-				leaf.Receivers = []models.StatelessNode{{}}
-			}()
 			c, cancel := context.WithCancel(context.TODO())
 			taskCtx := &flow.TaskContext{
 				Ctx:    c,
@@ -115,7 +118,7 @@ func TestLeafExecuteContext_SendResponse(t *testing.T) {
 			}
 			ctx := NewLeafExecuteContext(taskCtx, tracker.NewStageTracker(taskCtx),
 				&stmtpkg.Query{},
-				&protoCommonV1.TaskRequest{}, taskServerFct, leaf, db)
+				&protoCommonV1.TaskRequest{}, taskServerFct, leaf, tt.receivers, db)
 
 			if tt.prepare != nil {
 				tt.prepare(ctx)

@@ -31,4 +31,6 @@ func TestType_String(t *testing.T) {
 	assert.Equal(t, "DataLoad", DataLoad.String())
 	assert.Equal(t, "MetadataSuggest", MetadataSuggest.String())
 	assert.Equal(t, "ShardLookup", ShardLookup.String())
+	assert.Equal(t, "PhysicalPlan", PhysicalPlan.String())
+	assert.Equal(t, "TaskSend", TaskSend.String())
 }

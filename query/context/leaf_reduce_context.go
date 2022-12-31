@@ -61,8 +61,10 @@ func (ctx *LeafReduceContext) Reduce(it series.GroupedIterator) {
 }
 
 // BuildResultSet returns the result set from reduce aggregator based on receivers.
-func (ctx *LeafReduceContext) BuildResultSet(leafNode *models.Leaf) [][]byte {
+func (ctx *LeafReduceContext) BuildResultSet(leafNode *models.Target, receivers []string) [][]byte {
 	aggSpecs := ctx.storageExecuteCtx.AggregatorSpecs
+	timeRange := ctx.storageExecuteCtx.Query.TimeRange
+	interval := ctx.storageExecuteCtx.Query.Interval.Int64()
 	aggregatorSpecs := make([]*protoCommonV1.AggregatorSpec, len(aggSpecs))
 	for idx, spec := range aggSpecs {
 		aggregatorSpecs[idx] = &protoCommonV1.AggregatorSpec{
@@ -73,7 +75,7 @@ func (ctx *LeafReduceContext) BuildResultSet(leafNode *models.Leaf) [][]byte {
 			aggregatorSpecs[idx].FuncTypeList = append(aggregatorSpecs[idx].FuncTypeList, uint32(funcType))
 		}
 	}
-	numOfReceivers := len(leafNode.Receivers)
+	numOfReceivers := len(receivers)
 	resultSet := make([][]byte, numOfReceivers)
 	timeSeriesList := ctx.makeTimeSeriesList()
 	// root -> leaf task, return the raw total series
@@ -81,6 +83,9 @@ func (ctx *LeafReduceContext) BuildResultSet(leafNode *models.Leaf) [][]byte {
 		leaf2RootSeries := protoCommonV1.TimeSeriesList{
 			TimeSeriesList: timeSeriesList,
 			FieldAggSpecs:  aggregatorSpecs,
+			Start:          timeRange.Start,
+			End:            timeRange.End,
+			Interval:       interval,
 		}
 		leaf2RootSeriesPayload, _ := leaf2RootSeries.Marshal()
 		resultSet[0] = leaf2RootSeriesPayload
@@ -98,6 +103,9 @@ func (ctx *LeafReduceContext) BuildResultSet(leafNode *models.Leaf) [][]byte {
 			leaf2IntermediateSeries := protoCommonV1.TimeSeriesList{
 				TimeSeriesList: timeSeriesHashGroup,
 				FieldAggSpecs:  aggregatorSpecs,
+				Start:          timeRange.Start,
+				End:            timeRange.End,
+				Interval:       interval,
 			}
 			leaf2IntermediatePayload, _ := leaf2IntermediateSeries.Marshal()
 			resultSet[idx] = leaf2IntermediatePayload

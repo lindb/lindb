@@ -195,6 +195,14 @@ func NewBrokerState(name string) *BrokerState {
 	}
 }
 
+// GetLiveNodes returns all live node list.
+func (b *BrokerState) GetLiveNodes() (rs []StatelessNode) {
+	for _, node := range b.LiveNodes {
+		rs = append(rs, node)
+	}
+	return
+}
+
 // NodeOnline adds a live node into node list.
 func (b *BrokerState) NodeOnline(nodeID string, node StatelessNode) {
 	b.LiveNodes[nodeID] = node

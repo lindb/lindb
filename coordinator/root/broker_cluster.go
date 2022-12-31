@@ -62,6 +62,7 @@ func newBrokerCluster(
 		return nil, err
 	}
 	cluster := &brokerCluster{
+		cfg:        cfg,
 		brokerRepo: brokerRepo,
 		stateMgr:   stateMgr,
 		state:      models.NewBrokerState(cfg.Config.Namespace),

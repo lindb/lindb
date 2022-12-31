@@ -81,7 +81,7 @@ func (n StatelessNodes) ToTable() (rows int, tableStr string) {
 type StatelessNode struct {
 	HostIP   string `json:"hostIp"`
 	HostName string `json:"hostName"`
-	GRPCPort uint16 `json:"grpcPort"`
+	GRPCPort uint16 `json:"grpcPort,omitempty"`
 	HTTPPort uint16 `json:"httpPort"`
 
 	Version    string `json:"version"`
@@ -90,7 +90,10 @@ type StatelessNode struct {
 
 // Indicator returns node indicator's string.
 func (n *StatelessNode) Indicator() string {
-	return fmt.Sprintf("%s:%d", n.HostIP, n.GRPCPort)
+	if n.GRPCPort > 0 {
+		return fmt.Sprintf("%s:%d", n.HostIP, n.GRPCPort)
+	}
+	return fmt.Sprintf("%s:%d", n.HostIP, n.HTTPPort)
 }
 
 func (n *StatelessNode) HTTPAddress() string {

@@ -25,6 +25,8 @@ import (
 	"github.com/lindb/lindb/sql/stmt"
 )
 
+//go:generate mockgen -source=./topn.go -destination=./topn_mock.go -package=aggregation
+
 // OrderByItem represents the order by expr item.
 type OrderByItem struct {
 	Expr     *stmt.OrderByExpr

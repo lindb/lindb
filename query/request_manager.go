@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package brokerquery
+package query
 
 import (
 	"sync"
@@ -67,14 +67,18 @@ func newRequestManager() RequestManager {
 
 // NewRequest creates a new request and returns request id.
 func (r *requestManager) NewRequest(req *models.Request) string {
-	requestID := uuid.New().String()
-	req.RequestID = requestID
+	// if request not set need create one
+	if req.RequestID == "" {
+		requestID := uuid.New().String()
+		req.RequestID = requestID
+	}
 
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	r.requests[requestID] = req
-	return requestID
+	// TODO: check if dup?
+	r.requests[req.RequestID] = req
+	return req.RequestID
 }
 
 // CompleteRequest completes a request by given request id.

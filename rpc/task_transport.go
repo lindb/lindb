@@ -33,6 +33,14 @@ import (
 
 //go:generate mockgen -source ./task_transport.go -destination=./task_transport_mock.go -package=rpc
 
+// TransportManager represents the request/response send manager.
+type TransportManager interface {
+	// SendRequest sends the task request to target node.
+	SendRequest(targetNodeID string, req *protoCommonV1.TaskRequest) error
+	// SendResponse sends the task response to target node.
+	SendResponse(targetNodeID string, resp *protoCommonV1.TaskResponse) error
+}
+
 // TaskClientFactory represents the task stream manage
 type TaskClientFactory interface {
 	// CreateTaskClient creates a task client stream if not exist
@@ -48,7 +56,7 @@ type TaskClientFactory interface {
 // taskClient represents task service client state context.
 type taskClient struct {
 	cli      protoCommonV1.TaskService_HandleClient
-	targetID string
+	targetID string // server node
 	target   models.Node
 	running  atomic.Bool
 	ready    atomic.Bool
@@ -201,15 +209,16 @@ func (f *taskClientFactory) handleTaskResponse(client *taskClient) {
 		resp, err := cli.Recv()
 		if err != nil {
 			client.ready.Store(false)
-			// todo: suppress errors before shard assignment
+			// TODO: suppress errors before shard assignment
 			f.logger.Error("receive task error from stream", logger.Error(err))
 			continue
 		}
 
 		if err = f.taskReceiver.Receive(resp, client.targetID); err != nil {
+			// FIXME: nned send response to upstream
 			f.logger.Error("receive task response",
-				logger.String("taskID", resp.TaskID),
-				logger.String("taskType", resp.Type.String()),
+				logger.String("requestID", resp.RequestID),
+				logger.String("requestType", resp.RequestType.String()),
 				logger.Error(err))
 		}
 	}

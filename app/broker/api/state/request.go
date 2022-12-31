@@ -21,7 +21,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/lindb/lindb/pkg/http"
-	brokerquery "github.com/lindb/lindb/query/broker"
+	"github.com/lindb/lindb/query"
 )
 
 var (
@@ -44,5 +44,5 @@ func (api *RequestAPI) Register(route gin.IRoutes) {
 
 // GetAllAliveRequests returns all alive request.
 func (api *RequestAPI) GetAllAliveRequests(c *gin.Context) {
-	http.OK(c, brokerquery.GetRequestManager().GetAliveRequests())
+	http.OK(c, query.GetRequestManager().GetAliveRequests())
 }

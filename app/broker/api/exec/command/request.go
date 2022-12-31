@@ -67,7 +67,7 @@ func RequestCommand(_ context.Context, deps *depspkg.HTTPDeps, _ *models.Execute
 	var rs []*models.Request
 	for k, v := range result {
 		for _, req := range v {
-			req.Broker = k
+			req.Entry = k
 			rs = append(rs, req)
 		}
 	}
