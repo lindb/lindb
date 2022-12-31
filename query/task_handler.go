@@ -25,6 +25,7 @@ import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/rpc"
 )
@@ -94,6 +95,32 @@ func (q *TaskHandler) process(ctx context.Context, stream protoCommonV1.TaskServ
 	taskCtx := flow.NewTaskContextWithTimeout(ctx, q.timeout)
 	q.taskPool.Submit(taskCtx.Ctx,
 		concurrent.NewTask(func() {
-			q.processor.Process(taskCtx, stream, req)
-		}, nil))
+			if err := q.processor.Process(taskCtx, stream, req); err != nil {
+				// if process fail, need send response with err
+				if sendError := stream.Send(&protoCommonV1.TaskResponse{
+					RequestID: req.RequestID,
+					Completed: true,
+					ErrMsg:    err.Error(),
+					SendTime:  timeutil.NowNano(),
+				}); sendError != nil {
+					q.logger.Error("failed to send error message to target stream",
+						logger.String("requestID", req.RequestID),
+						logger.Error(err),
+					)
+				}
+			}
+		}, func(err error) {
+			// if process panic, need send response with err
+			if sendError := stream.Send(&protoCommonV1.TaskResponse{
+				RequestID: req.RequestID,
+				Completed: true,
+				ErrMsg:    err.Error(),
+				SendTime:  timeutil.NowNano(),
+			}); sendError != nil {
+				q.logger.Error("failed to send error message to target stream",
+					logger.String("requestID", req.RequestID),
+					logger.Error(err),
+				)
+			}
+		}))
 }

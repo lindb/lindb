@@ -26,6 +26,7 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
@@ -37,6 +38,7 @@ import (
 
 // StateManager represents broker state manager, maintains broker node/database/storage states in memory.
 type StateManager interface {
+	flow.NodeChoose
 	discovery.StateMachineEventHandle
 
 	// GetCurrentNode returns the current node.
@@ -79,6 +81,7 @@ type stateManager struct {
 	)
 	// connection manager
 	connectionManager rpc.ConnectionManager
+	//FIXME: remove it???
 	taskClientFactory rpc.TaskClientFactory
 
 	events chan *discovery.Event
@@ -114,6 +117,36 @@ func NewStateManager(
 	go mgr.consumeEvent()
 
 	return mgr
+}
+
+// Choose chooses the compute nodes then builds physical plan.
+// if need node num > 1, need pick live broker nodes as compute node,
+// else pick storage replica node as leaf node.
+func (m *stateManager) Choose(database string, numOfNodes int) ([]*models.PhysicalPlan, error) {
+	// FIXME: need using storage's replica state ???
+	replicas, err := m.GetQueryableReplicas(database)
+	if err != nil {
+		return nil, err
+	}
+	nodesLen := len(replicas)
+	if nodesLen == 0 {
+		return nil, constants.ErrReplicaNotFound
+	}
+	if numOfNodes > 1 && nodesLen > 1 {
+		// build compute target nodes.
+		return []*models.PhysicalPlan{flow.BuildPhysicalPlan(database, m.GetLiveNodes(), numOfNodes)}, nil
+	}
+	// build leaf storage nodes.
+	physicalPlan := &models.PhysicalPlan{
+		Database: database,
+	}
+	for storageNode, shardIDs := range replicas {
+		physicalPlan.AddTarget(&models.Target{
+			Indicator: storageNode,
+			ShardIDs:  shardIDs,
+		})
+	}
+	return []*models.PhysicalPlan{physicalPlan}, nil
 }
 
 func (m *stateManager) WatchShardStateChangeEvent(fn func(databaseCfg models.Database,

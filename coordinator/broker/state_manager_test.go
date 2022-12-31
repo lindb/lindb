@@ -29,6 +29,7 @@ import (
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/rpc"
 )
 
@@ -325,4 +326,60 @@ func TestStateManager_GetStorageList(t *testing.T) {
 	s.storages["s1"] = &models.StorageState{Name: "s1"}
 	s.storages["s2"] = &models.StorageState{Name: "s2"}
 	assert.Equal(t, []*models.StorageState{{Name: "s1"}, {Name: "s2"}}, s.GetStorageList())
+}
+
+func TestStateManager_Choose(t *testing.T) {
+	mgr := &stateManager{
+		nodes: map[string]models.StatelessNode{"test": {}},
+		databases: map[string]models.Database{
+			"test_1": {Storage: "test_1"},
+			"test_2": {Storage: "test_2"},
+		},
+		storages: map[string]*models.StorageState{
+			"test_1": {
+				LiveNodes: map[models.NodeID]models.StatefulNode{
+					1: {StatelessNode: models.StatelessNode{HostIP: "1.1.1.1"}},
+					2: {StatelessNode: models.StatelessNode{HostIP: "1.1.1.2"}},
+				},
+				ShardStates: map[string]map[models.ShardID]models.ShardState{
+					"test_1": {
+						1: {
+							State:  models.OnlineShard,
+							Leader: models.NodeID(1),
+						},
+						2: {
+							State:  models.OnlineShard,
+							Leader: models.NodeID(2),
+						},
+					},
+				},
+			},
+			"test_2": {
+				LiveNodes: map[models.NodeID]models.StatefulNode{
+					1: {},
+				},
+				ShardStates: map[string]map[models.ShardID]models.ShardState{
+					"test_2": {
+						1: {
+							State: models.OfflineShard,
+						},
+					},
+				},
+			},
+		},
+		logger: logger.GetLogger("Test", "StateManager"),
+	}
+	plans, err := mgr.Choose("test", 2)
+	assert.Error(t, err)
+	assert.Nil(t, plans)
+
+	plans, err = mgr.Choose("test_2", 2)
+	assert.Error(t, err)
+	assert.Nil(t, plans)
+	plans, err = mgr.Choose("test_1", 2)
+	assert.NoError(t, err)
+	assert.Len(t, plans, 1)
+	plans, err = mgr.Choose("test_1", 1)
+	assert.NoError(t, err)
+	assert.Len(t, plans, 1)
 }

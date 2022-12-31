@@ -45,7 +45,7 @@ type planNode struct {
 	op       operator.Operator
 	children []PlanNode
 
-	ignore bool
+	ignore bool // ignore not found error
 }
 
 // NewEmptyPlanNode creates a PlanNode without operator.

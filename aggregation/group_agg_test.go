@@ -117,4 +117,10 @@ func TestGroupByAggregator_Aggregate(t *testing.T) {
 		AggregatorSpecs{})
 	rs := agg.ResultSet()
 	assert.Nil(t, rs)
+	assert.Equal(t, timeutil.Interval(timeutil.OneSecond), agg.Interval())
+	assert.Equal(t,
+		timeutil.TimeRange{
+			Start: now,
+			End:   now + 3*timeutil.OneHour,
+		}, agg.TimeRange())
 }

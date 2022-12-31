@@ -53,17 +53,6 @@ write-timeout = "5s"
 ## Default: 5s
 read-timeout = "5s"
 
-## Controls how GRPC Server are configured.
-[grpc]
-## port which the GRPC Server is listening on
-## Default: 3001
-port = 3001
-## max-concurrent-streams limits the number of concurrent streams to each ServerTransport
-## Default: 1024 
-max-concurrent-streams = 1024
-## connect-timeout sets the timeout for connection establishment.
-## Default: 3s
-connect-timeout = "3s"
 
 ## Config for the Internal Monitor
 [monitor]

@@ -17,51 +17,42 @@
 
 package models
 
+import "github.com/lindb/lindb/constants"
+
 // PhysicalPlan represents the distribution query's physical plan
 type PhysicalPlan struct {
-	Database      string         `json:"database"`      // database name
-	Root          Root           `json:"root"`          // root node
-	Intermediates []Intermediate `json:"intermediates"` // intermediate node if it needs
-	Leaves        []*Leaf        `json:"leafs"`         // leaf nodes(storage nodes of query database)
+	Database  string    `json:"database"` // database name
+	Targets   []*Target `json:"targets"`
+	Receivers []string  `json:"receivers"`
 }
 
-// NewPhysicalPlan creates the physical plan with root node
-func NewPhysicalPlan(root Root) *PhysicalPlan {
-	return &PhysicalPlan{Root: root}
+// AddReceiver adds a receiver.
+func (t *PhysicalPlan) AddReceiver(receiver string) {
+	t.Receivers = append(t.Receivers, receiver)
 }
 
-// AddIntermediate adds an intermediate node into the intermediate node list
-func (t *PhysicalPlan) AddIntermediate(intermediate Intermediate) {
-	t.Intermediates = append(t.Intermediates, intermediate)
+// AddTarget adds a target.
+func (t *PhysicalPlan) AddTarget(target *Target) {
+	t.Targets = append(t.Targets, target)
 }
 
-// AddLeaf adds a leaf node into the leaf node list
-func (t *PhysicalPlan) AddLeaf(leaf *Leaf) {
-	t.Leaves = append(t.Leaves, leaf)
-}
-
-// Root represents the root node info
-type Root struct {
-	Indicator string `json:"indicator"`
-	NumOfTask int32  `json:"numOfTask"`
-}
-
-type BaseNode struct {
-	Parent    string `json:"parent"`    // parent node's indicator
-	Indicator string `json:"indicator"` // current node's indicator
-}
-
-// Intermediate represents the intermediate node info
-type Intermediate struct {
-	BaseNode
-
-	NumOfTask int32 `json:"numOfTask"`
+// Validate checks the plan if valid.
+func (t *PhysicalPlan) Validate() error {
+	if t.Database == "" {
+		return constants.ErrDatabaseNameRequired
+	}
+	if len(t.Targets) == 0 {
+		return constants.ErrTargetNodesNotFound
+	}
+	if len(t.Receivers) == 0 {
+		return constants.ErrReceiveNodesNotFound
+	}
+	return nil
 }
 
 // Leaf represents the leaf node info
-type Leaf struct {
-	BaseNode
-
-	Receivers []StatelessNode `json:"receivers"`
-	ShardIDs  []ShardID       `json:"shardIDs"`
+type Target struct {
+	ReceiveOnly bool      `json:"receiverOnly"`
+	Indicator   string    `json:"indicator"` // current node's indicator
+	ShardIDs    []ShardID `json:"shardIDs"`
 }

@@ -30,11 +30,13 @@ import (
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
+	"github.com/lindb/lindb/rpc"
 )
 
 func TestStateManager_Close(t *testing.T) {
-	mgr := NewStateManager(context.TODO(), nil)
+	mgr := NewStateManager(context.TODO(), nil, nil)
 	fct := &stateMachineFactory{}
 	mgr.SetStateMachineFactory(fct)
 	assert.Equal(t, fct, mgr.GetStateMachineFactory())
@@ -43,7 +45,7 @@ func TestStateManager_Close(t *testing.T) {
 }
 
 func TestStateManager_Handle_Event_Panic(t *testing.T) {
-	mgr := NewStateManager(context.TODO(), nil)
+	mgr := NewStateManager(context.TODO(), nil, nil)
 	// case 1: panic
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.NodeFailure,
@@ -54,7 +56,7 @@ func TestStateManager_Handle_Event_Panic(t *testing.T) {
 }
 
 func TestStateManager_NotRunning(t *testing.T) {
-	mgr := NewStateManager(context.TODO(), nil)
+	mgr := NewStateManager(context.TODO(), nil, nil)
 	mgr1 := mgr.(*stateManager)
 	mgr1.running.Store(false)
 	// case 1: not running
@@ -71,7 +73,7 @@ func TestStateManager_BrokerCfg(t *testing.T) {
 	defer func() {
 		ctrl.Finish()
 	}()
-	mgr := NewStateManager(context.TODO(), nil)
+	mgr := NewStateManager(context.TODO(), nil, nil)
 	mgr1 := mgr.(*stateManager)
 	// case 1: unmarshal cfg err
 	mgr.EmitEvent(&discovery.Event{
@@ -165,12 +167,13 @@ func TestStateManager_BrokerCfg(t *testing.T) {
 
 func TestStateManager_BrokerNodeStartup(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer func() {
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
+
+	connectionMgr := rpc.NewMockConnectionManager(ctrl)
+	connectionMgr.EXPECT().CreateConnection(gomock.Any()).AnyTimes()
 	broker := NewMockBrokerCluster(ctrl)
 	broker.EXPECT().Close().AnyTimes()
-	mgr := NewStateManager(context.TODO(), nil)
+	mgr := NewStateManager(context.TODO(), nil, connectionMgr)
 	mgr1 := mgr.(*stateManager)
 	mgr1.mutex.Lock()
 	mgr1.brokers["test"] = broker
@@ -199,12 +202,13 @@ func TestStateManager_BrokerNodeStartup(t *testing.T) {
 
 func TestStateManager_BrokerNodeFailure(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer func() {
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
+
+	connectionMgr := rpc.NewMockConnectionManager(ctrl)
+	connectionMgr.EXPECT().CloseConnection(gomock.Any()).AnyTimes()
 	broker := NewMockBrokerCluster(ctrl)
 	broker.EXPECT().Close().AnyTimes()
-	mgr := NewStateManager(context.TODO(), nil)
+	mgr := NewStateManager(context.TODO(), nil, connectionMgr)
 	mgr1 := mgr.(*stateManager)
 	mgr1.mutex.Lock()
 	mgr1.brokers["test"] = broker
@@ -230,7 +234,7 @@ func TestStateManager_DatabaseCfg(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mgr := NewStateManager(context.TODO(), nil)
+	mgr := NewStateManager(context.TODO(), nil, nil)
 
 	// case 1: unmarshal cfg err
 	mgr.EmitEvent(&discovery.Event{
@@ -262,4 +266,36 @@ func TestStateManager_DatabaseCfg(t *testing.T) {
 	assert.Empty(t, db.Name)
 
 	mgr.Close()
+}
+
+func TestStateManager_Choose(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mgr := &stateManager{
+		logger:    logger.GetLogger("Test", "StateManager"),
+		databases: make(map[string]*models.LogicDatabase),
+		brokers:   make(map[string]BrokerCluster),
+	}
+
+	plan, err := mgr.Choose("test", 1)
+	assert.NoError(t, err)
+	assert.Nil(t, plan)
+
+	mgr.mutex.Lock()
+	mgr.databases["test"] = &models.LogicDatabase{
+		Routers: []models.Router{{Broker: "broker"}, {Broker: "broker", Database: "test"}},
+	}
+	mgr.mutex.Unlock()
+	plan, err = mgr.Choose("test", 1)
+	assert.NoError(t, err)
+	assert.Len(t, plan, 0)
+
+	mgr.mutex.Lock()
+	broker := NewMockBrokerCluster(ctrl)
+	mgr.brokers["broker"] = broker
+	mgr.mutex.Unlock()
+	broker.EXPECT().GetState().Return(&models.BrokerState{}).Times(2)
+	plan, err = mgr.Choose("test", 1)
+	assert.NoError(t, err)
+	assert.Len(t, plan, 2)
 }

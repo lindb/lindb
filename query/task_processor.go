@@ -27,5 +27,5 @@ import (
 // TaskProcessor represents the task processor, all task processors are async.
 type TaskProcessor interface {
 	// Process processes the task request.
-	Process(ctx *flow.TaskContext, stream protoCommonV1.TaskService_HandleServer, req *protoCommonV1.TaskRequest)
+	Process(ctx *flow.TaskContext, stream protoCommonV1.TaskService_HandleServer, req *protoCommonV1.TaskRequest) error
 }

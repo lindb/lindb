@@ -43,12 +43,14 @@ func NewStateMachineFactory(
 	discoveryFactory discovery.Factory,
 	stateMgr StateManager,
 ) discovery.StateMachineFactory {
-	return &stateMachineFactory{
+	fct := &stateMachineFactory{
 		ctx:              ctx,
 		discoveryFactory: discoveryFactory,
 		stateMgr:         stateMgr,
 		logger:           logger.GetLogger("Root", "StateMachineFactory"),
 	}
+	stateMgr.SetStateMachineFactory(fct)
+	return fct
 }
 
 // Start starts all root's related state machines.

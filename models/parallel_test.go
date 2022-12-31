@@ -24,41 +24,11 @@ import (
 )
 
 func TestPhysicalPlan(t *testing.T) {
-	physicalPlan := NewPhysicalPlan(Root{Indicator: "1.1.1.3:8000", NumOfTask: 1})
-	leaf := &Leaf{
-		BaseNode: BaseNode{
-			Parent:    "1.1.1.2:8000",
-			Indicator: "1.1.1.1:9000",
-		},
-		Receivers: []StatelessNode{{HostIP: "1.1.1.5", GRPCPort: 8000}},
-		ShardIDs:  []ShardID{1, 2, 4},
-	}
-	physicalPlan.AddLeaf(leaf)
-	physicalPlan.AddIntermediate(Intermediate{
-		BaseNode: BaseNode{
-			Parent:    "1.1.1.3:8000",
-			Indicator: "1.1.1.2:8000",
-		},
-		NumOfTask: 1,
-	})
-	physicalPlan.Database = "test_db"
-
-	assert.Equal(t, PhysicalPlan{
-		Database: "test_db",
-		Root:     Root{Indicator: "1.1.1.3:8000", NumOfTask: 1},
-		Intermediates: []Intermediate{{
-			BaseNode: BaseNode{
-				Parent:    "1.1.1.3:8000",
-				Indicator: "1.1.1.2:8000",
-			},
-			NumOfTask: 1}},
-		Leaves: []*Leaf{{
-			BaseNode: BaseNode{
-				Parent:    "1.1.1.2:8000",
-				Indicator: "1.1.1.1:9000",
-			},
-			Receivers: []StatelessNode{{HostIP: "1.1.1.5", GRPCPort: 8000}},
-			ShardIDs:  []ShardID{1, 2, 4},
-		}},
-	}, *physicalPlan)
+	physicalPlan := &PhysicalPlan{Database: "test"}
+	assert.Error(t, physicalPlan.Validate())
+	physicalPlan.AddTarget(&Target{})
+	assert.Error(t, physicalPlan.Validate())
+	physicalPlan.AddReceiver("test")
+	assert.NoError(t, physicalPlan.Validate())
+	assert.Error(t, (&PhysicalPlan{}).Validate())
 }

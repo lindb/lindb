@@ -21,9 +21,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/internal/linmetric"
 )
 
 func TestQueryStatistics(t *testing.T) {
-	assert.NotNil(t, NewBrokerQueryStatistics())
+	assert.NotNil(t, NewQueryStatistics(linmetric.RootRegistry))
+	assert.NotNil(t, NewTransportStatistics(linmetric.RootRegistry))
 	assert.NotNil(t, NewStorageQueryStatistics())
 }

@@ -24,14 +24,19 @@ import (
 
 //go:generate mockgen -source=./group_agg.go -destination=./group_agg_mock.go -package=aggregation
 
-// GroupingAggregator represents an aggregator which merges time series and does grouping if need
+// GroupingAggregator represents an aggregator which merges time series and does grouping if need.
 type GroupingAggregator interface {
 	// Aggregate aggregates the time series data
 	Aggregate(it series.GroupedIterator)
 	// ResultSet returns the result set of aggregator
 	ResultSet() series.GroupedIterators
+	// TimeRange return the time range of aggregator.
+	TimeRange() timeutil.TimeRange
+	// Interval return the time interval of aggregator.
+	Interval() timeutil.Interval
 }
 
+// groupingAggregator implements GroupingAggregator interface.
 type groupingAggregator struct {
 	aggSpecs      AggregatorSpecs
 	interval      timeutil.Interval
@@ -105,6 +110,16 @@ func (ga *groupingAggregator) ResultSet() series.GroupedIterators {
 		idx++
 	}
 	return seriesList
+}
+
+// TimeRange return the time range of aggregator.
+func (ga *groupingAggregator) TimeRange() timeutil.TimeRange {
+	return ga.timeRange
+}
+
+// Interval return the time interval of aggregator.
+func (ga *groupingAggregator) Interval() timeutil.Interval {
+	return ga.interval
 }
 
 // getAggregator returns the time series aggregator by the tag of time series.

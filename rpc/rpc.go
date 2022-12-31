@@ -44,11 +44,16 @@ var (
 )
 
 var (
+	rootClientConnFct    ClientConnFactory
 	brokerClientConnFct  ClientConnFactory
 	storageClientConnFct ClientConnFactory
 )
 
 func init() {
+	rootClientConnFct = &clientConnFactory{
+		connMap:       make(map[string]*grpc.ClientConn),
+		clientTracker: conntrack.NewGRPCClientTracker(linmetric.RootRegistry),
+	}
 	brokerClientConnFct = &clientConnFactory{
 		connMap:       make(map[string]*grpc.ClientConn),
 		clientTracker: conntrack.NewGRPCClientTracker(linmetric.BrokerRegistry),
@@ -76,6 +81,11 @@ type clientConnFactory struct {
 	// lock to protect connMap
 	mu            sync.RWMutex
 	clientTracker *conntrack.GRPCClientTracker
+}
+
+// GetRootClientConnFactory returns a singleton ClientConnFactory for root side.
+func GetRootClientConnFactory() ClientConnFactory {
+	return rootClientConnFct
 }
 
 // GetBrokerClientConnFactory returns a singleton ClientConnFactory for broker side.

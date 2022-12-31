@@ -19,6 +19,7 @@ package root
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -28,11 +29,13 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/logger"
 	statepkg "github.com/lindb/lindb/pkg/state"
+	"github.com/lindb/lindb/rpc"
 )
 
 //go:generate mockgen -source=./state_manager.go -destination=./state_manager_mock.go -package=root
@@ -40,6 +43,7 @@ import (
 // StateManager represents root state manager, state coordinator.
 type StateManager interface {
 	discovery.StateMachineEventHandle
+	flow.NodeChoose
 	// SetStateMachineFactory sets state machine factory.
 	SetStateMachineFactory(stateMachineFct *stateMachineFactory)
 	// GetStateMachineFactory returns state machine factory.
@@ -54,18 +58,20 @@ type StateManager interface {
 
 // stateManager implements StateManager.
 type stateManager struct {
-	ctx             context.Context
-	cancel          context.CancelFunc
-	repoFactory     statepkg.RepositoryFactory
-	stateMachineFct *stateMachineFactory
-	brokers         map[string]BrokerCluster
-	databases       map[string]*models.LogicDatabase
-	events          chan *discovery.Event
-	running         *atomic.Bool
-
+	ctx                context.Context
+	cancel             context.CancelFunc
+	repoFactory        statepkg.RepositoryFactory
+	stateMachineFct    *stateMachineFactory
+	brokers            map[string]BrokerCluster
+	databases          map[string]*models.LogicDatabase
+	events             chan *discovery.Event
+	running            *atomic.Bool
 	newBrokerClusterFn func(cfg *config.BrokerCluster,
 		stateMgr StateManager,
 		repoFactory statepkg.RepositoryFactory) (cluster BrokerCluster, err error)
+	// connection manager
+	connectionManager rpc.ConnectionManager
+
 	mutex sync.RWMutex
 
 	statistics *metrics.StateManagerStatistics
@@ -76,6 +82,7 @@ type stateManager struct {
 func NewStateManager(
 	ctx context.Context,
 	repoFactory statepkg.RepositoryFactory,
+	connectionManager rpc.ConnectionManager,
 ) StateManager {
 	c, cancel := context.WithCancel(ctx)
 	mgr := &stateManager{
@@ -86,6 +93,7 @@ func NewStateManager(
 		databases:          make(map[string]*models.LogicDatabase),
 		events:             make(chan *discovery.Event, 10),
 		running:            atomic.NewBool(true),
+		connectionManager:  connectionManager,
 		statistics:         metrics.NewStateManagerStatistics(strings.ToLower(constants.RootRole)),
 		newBrokerClusterFn: newBrokerCluster,
 		logger:             logger.GetLogger("Root", "StateManager"),
@@ -95,6 +103,37 @@ func NewStateManager(
 	go mgr.consumeEvent()
 
 	return mgr
+}
+
+// Choose chooses the compute nodes then builds physical plan.
+func (s *stateManager) Choose(database string, numOfNodes int) ([]*models.PhysicalPlan, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	databaseCfg, ok := s.databases[database]
+	if !ok {
+		return nil, nil
+	}
+
+	var rs []*models.PhysicalPlan
+
+	getDatabase := func(db, defalutValue string) string {
+		if db != "" {
+			return db
+		}
+		return defalutValue
+	}
+
+	routers := databaseCfg.Routers
+	for _, router := range routers {
+		broker, ok := s.brokers[router.Broker]
+		if !ok {
+			s.logger.Warn("broker cluster is offline, will ingore this cluster", logger.String("broker", router.Broker))
+			continue
+		}
+		rs = append(rs, flow.BuildPhysicalPlan(getDatabase(router.Database, database), broker.GetState().GetLiveNodes(), numOfNodes))
+	}
+	return rs, nil
 }
 
 // EmitEvent emits discovery event when state changed.
@@ -222,6 +261,8 @@ func (s *stateManager) onBrokerNodeStartup(brokerName, key string, data []byte) 
 	}
 	_, nodeID := filepath.Split(key)
 
+	s.connectionManager.CreateConnection(&node)
+
 	cluster := s.brokers[brokerName]
 	state := cluster.GetState()
 	state.NodeOnline(nodeID, node)
@@ -238,6 +279,11 @@ func (s *stateManager) onBrokerNodeFailure(brokerName, key string) {
 
 	cluster := s.brokers[brokerName]
 	state := cluster.GetState()
+
+	node, ok := state.LiveNodes[nodeID]
+	if ok {
+		s.connectionManager.CloseConnection(&node)
+	}
 	state.NodeOffline(nodeID)
 }
 
@@ -305,6 +351,8 @@ func (s *stateManager) GetBrokerState(name string) (models.BrokerState, bool) {
 	defer s.mutex.RUnlock()
 
 	broker, ok := s.brokers[name]
+	fmt.Println(name)
+	fmt.Println(ok)
 	if !ok {
 		return models.BrokerState{}, false
 	}

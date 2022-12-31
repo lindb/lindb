@@ -40,10 +40,10 @@ var (
 
 // LeafExecuteContext represents leaf node execution context.
 type LeafExecuteContext struct {
-	TaskCtx  *flow.TaskContext
-	Tracker  *trackerpkg.StageTracker
-	LeafNode *models.Leaf
-
+	TaskCtx           *flow.TaskContext
+	Tracker           *trackerpkg.StageTracker
+	LeafNode          *models.Target
+	Receivers         []string
 	StorageExecuteCtx *flow.StorageExecuteContext
 	Database          tsdb.Database
 
@@ -62,7 +62,8 @@ func NewLeafExecuteContext(taskCtx *flow.TaskContext,
 	queryStmt *stmt.Query,
 	req *protoCommonV1.TaskRequest,
 	serverFactory rpc.TaskServerFactory,
-	leafNode *models.Leaf,
+	leafNode *models.Target,
+	receivers []string,
 	database tsdb.Database,
 ) *LeafExecuteContext {
 	storageExecuteCtx := &flow.StorageExecuteContext{
@@ -74,6 +75,7 @@ func NewLeafExecuteContext(taskCtx *flow.TaskContext,
 		TaskCtx:           taskCtx,
 		Tracker:           tracker,
 		LeafNode:          leafNode,
+		Receivers:         receivers,
 		StorageExecuteCtx: storageExecuteCtx,
 		Database:          database,
 		ServerFactory:     serverFactory,
@@ -130,7 +132,7 @@ func (ctx *LeafExecuteContext) SendResponse(err error) {
 		}
 
 		// build result set
-		resultSet := ctx.ReduceCtx.BuildResultSet(ctx.LeafNode)
+		resultSet := ctx.ReduceCtx.BuildResultSet(ctx.LeafNode, ctx.Receivers)
 		// complete stats track
 		ctx.Tracker.Complete()
 
@@ -149,11 +151,11 @@ func (ctx *LeafExecuteContext) sendResponse(resultData [][]byte, err error) {
 		errMsg = err.Error()
 	}
 	// send result to upstream receivers
-	for idx, receiver := range ctx.LeafNode.Receivers {
-		stream := ctx.ServerFactory.GetStream(receiver.Indicator())
+	for idx, receiver := range ctx.Receivers {
+		stream := ctx.ServerFactory.GetStream(receiver)
 		if stream == nil {
 			leafExecuteCtxLogger.Error("unable to get stream for write response, ignore result",
-				logger.String("target", receiver.Indicator()))
+				logger.String("target", receiver))
 			break
 		}
 		var payload []byte
@@ -161,17 +163,17 @@ func (ctx *LeafExecuteContext) sendResponse(resultData [][]byte, err error) {
 			payload = resultData[idx]
 		}
 		resp := &protoCommonV1.TaskResponse{
-			TaskID:    ctx.Req.ParentTaskID,
-			Type:      protoCommonV1.TaskType_Leaf,
-			Completed: true,
-			SendTime:  timeutil.NowNano(),
-			Payload:   payload,
-			Stats:     stats,
-			ErrMsg:    errMsg,
+			RequestID:   ctx.Req.RequestID,
+			RequestType: ctx.Req.RequestType,
+			Completed:   true,
+			SendTime:    timeutil.NowNano(),
+			Payload:     payload,
+			Stats:       stats,
+			ErrMsg:      errMsg,
 		}
 		if err0 := stream.Send(resp); err0 != nil {
 			leafExecuteCtxLogger.Error("send storage query result, ignore result",
-				logger.String("target", receiver.Indicator()), logger.Error(err0))
+				logger.String("target", receiver), logger.Error(err0))
 		}
 	}
 }

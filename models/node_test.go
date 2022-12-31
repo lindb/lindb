@@ -26,7 +26,9 @@ import (
 )
 
 func TestNode_Indicator(t *testing.T) {
-	node := &StatelessNode{HostIP: "1.1.1.1", GRPCPort: 19000}
+	node := &StatelessNode{HostIP: "1.1.1.1", HTTPPort: 19000}
+	assert.Equal(t, "1.1.1.1:19000", node.Indicator())
+	node = &StatelessNode{HostIP: "1.1.1.1", GRPCPort: 19000}
 	indicator := node.Indicator()
 	assert.Equal(t, "1.1.1.1:19000", indicator)
 	assert.Equal(t, "http://1.1.1.1:8080", (&StatelessNode{HostIP: "1.1.1.1", HTTPPort: 8080}).HTTPAddress())

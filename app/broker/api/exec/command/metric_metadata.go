@@ -19,91 +19,32 @@ package command
 
 import (
 	"context"
-	"sort"
-	"strings"
 
 	depspkg "github.com/lindb/lindb/app/broker/deps"
-	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/lindb/query"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
+)
+
+// for testing
+var (
+	metricMetadataSearchWithResultFn = query.MetricMetadataSearchWithResult
 )
 
 // MetricMetadataCommand executes the metric metadata query.
 func MetricMetadataCommand(ctx context.Context, deps *depspkg.HTTPDeps,
 	param *models.ExecuteParam, stmt stmtpkg.Statement) (interface{}, error) {
-	metadataStmt := stmt.(*stmtpkg.MetricMetadata)
-	if strings.TrimSpace(param.Database) == "" {
-		return nil, constants.ErrDatabaseNameRequired
-	}
-	if metadataStmt.Limit == 0 || metadataStmt.Limit > constants.MaxSuggestions {
-		// if limit =0 or > max suggestion items, need reset limit
-		metadataStmt.Limit = constants.MaxSuggestions
-	}
-	return suggest(ctx, deps, param, metadataStmt)
-}
-
-// suggest executes metadata suggest query.
-func suggest(ctx context.Context, deps *depspkg.HTTPDeps,
-	param *models.ExecuteParam, request *stmtpkg.MetricMetadata) (interface{}, error) {
-	metaDataQuery := deps.QueryFactory.NewMetadataQuery(ctx, param.Database, request)
-	values, err := metaDataQuery.WaitResponse()
-	if err != nil {
-		return nil, err
-	}
-	switch request.Type {
-	case stmtpkg.Field:
-		// build field result model
-		result := make(map[field.Name]field.Meta)
-		fields := field.Metas{}
-		for _, value := range values {
-			err = encoding.JSONUnmarshal([]byte(value), &fields)
-			if err != nil {
-				return nil, err
-			}
-			for _, f := range fields {
-				result[f.Name] = f
-			}
-		}
-		// HistogramSum(sum), HistogramCount(sum), HistogramMin(min), HistogramMax(max) is visible
-		// __bucket_{id}(HistogramField) is not visible for api,
-		// underlying histogram data is only restricted access by user via quantile function
-		// furthermore, we suggest some quantile functions for user in field names, such as quantile(0.99)
-		var (
-			resultFields []models.Field
-			hasHistogram bool
-		)
-		for _, f := range result {
-			if f.Type != field.HistogramField {
-				resultFields = append(resultFields, models.Field{
-					Name: string(f.Name),
-					Type: f.Type.String(),
-				})
-			} else {
-				hasHistogram = true
-			}
-		}
-		//
-		if hasHistogram {
-			resultFields = append(resultFields,
-				models.Field{Name: "quantile(0.99)", Type: field.HistogramField.String()},
-				models.Field{Name: "quantile(0.95)", Type: field.HistogramField.String()},
-				models.Field{Name: "quantile(0.90)", Type: field.HistogramField.String()},
-			)
-		}
-		sort.Slice(resultFields, func(i, j int) bool {
-			return resultFields[i].Name < resultFields[j].Name
-		})
-		return &models.Metadata{
-			Type:   request.Type.String(),
-			Values: resultFields,
-		}, nil
-	default:
-		sort.Strings(values)
-		return &models.Metadata{
-			Type:   request.Type.String(),
-			Values: values,
-		}, nil
-	}
+	statement := stmt.(*stmtpkg.MetricMetadata)
+	return metricMetadataSearchWithResultFn(
+		ctx,
+		param,
+		statement,
+		&query.SearchMgr{
+			Timeout:      deps.BrokerCfg.Query.Timeout.Duration(),
+			CurNode:      *deps.Node,
+			Choose:       deps.StateMgr,
+			TaskMgr:      deps.TaskMgr,
+			TransportMgr: deps.TransportMgr,
+		},
+	)
 }

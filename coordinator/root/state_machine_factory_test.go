@@ -33,10 +33,12 @@ func TestStateMachineFactory_Start(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	stateMgr := NewMockStateManager(ctrl)
+	stateMgr.EXPECT().SetStateMachineFactory(gomock.Any()).AnyTimes()
 	discoveryFct := discovery.NewMockFactory(ctrl)
 	discovery1 := discovery.NewMockDiscovery(ctrl)
 	discoveryFct.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
-	fct := NewStateMachineFactory(context.TODO(), discoveryFct, nil)
+	fct := NewStateMachineFactory(context.TODO(), discoveryFct, stateMgr)
 
 	// storage broker config sm err
 	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
@@ -76,6 +78,7 @@ func TestStateMachineFactory_BrokerCfg(t *testing.T) {
 	defer ctrl.Finish()
 
 	stateMgr := NewMockStateManager(ctrl)
+	stateMgr.EXPECT().SetStateMachineFactory(gomock.Any())
 	discoveryFct := discovery.NewMockFactory(ctrl)
 	discovery1 := discovery.NewMockDiscovery(ctrl)
 	discoveryFct.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
@@ -107,6 +110,7 @@ func TestStateMachineFactory_BrokerNode(t *testing.T) {
 	defer ctrl.Finish()
 
 	stateMgr := NewMockStateManager(ctrl)
+	stateMgr.EXPECT().SetStateMachineFactory(gomock.Any())
 	discoveryFct := discovery.NewMockFactory(ctrl)
 	discovery1 := discovery.NewMockDiscovery(ctrl)
 	discoveryFct.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
@@ -139,6 +143,7 @@ func TestStateMachineFactory_DatabaseCfg(t *testing.T) {
 	defer ctrl.Finish()
 
 	stateMgr := NewMockStateManager(ctrl)
+	stateMgr.EXPECT().SetStateMachineFactory(gomock.Any())
 	discoveryFct := discovery.NewMockFactory(ctrl)
 	discovery1 := discovery.NewMockDiscovery(ctrl)
 	discoveryFct.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)

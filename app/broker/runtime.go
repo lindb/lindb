@@ -47,7 +47,6 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/query"
-	brokerQuery "github.com/lindb/lindb/query/broker"
 	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/tag"
@@ -64,16 +63,17 @@ var (
 	newTaskClientFactory   = rpc.NewTaskClientFactory
 	newStateManager        = broker.NewStateManager
 	newChannelManager      = replica.NewChannelManager
-	newTaskManager         = brokerQuery.NewTaskManager
 	newMasterController    = coordinator.NewMasterController
 	newNativeProtoPusher   = monitoring.NewNativeProtoPusher
+	newHTTPServer          = httppkg.NewServer
 	serveGRPCFn            = serveGRPC
 )
 
 // srv represents all services for broker
 type srv struct {
-	channelManager replica.ChannelManager
-	taskManager    brokerQuery.TaskManager
+	channelManager   replica.ChannelManager
+	taskManager      query.TaskManager
+	transportManager rpc.TransportManager
 }
 
 // factory represents all factories for broker
@@ -115,7 +115,7 @@ type runtime struct {
 	globalKeyValues     tag.Tags
 	enableSystemMonitor bool
 
-	log *logger.Logger
+	logger *logger.Logger
 }
 
 // NewBrokerRuntime creates broker runtime
@@ -135,7 +135,7 @@ func NewBrokerRuntime(version string, cfg *config.Broker, enableSystemMonitor bo
 			metrics.NewConcurrentStatistics("broker-query", linmetric.BrokerRegistry),
 		),
 		enableSystemMonitor: enableSystemMonitor,
-		log:                 logger.GetLogger("Broker", "Runtime"),
+		logger:              logger.GetLogger("Broker", "Runtime"),
 	}
 }
 
@@ -154,7 +154,7 @@ func (r *runtime) Run() error {
 
 	hostName, err := hostName()
 	if err != nil {
-		r.log.Error("get host name with error", logger.Error(err))
+		r.logger.Error("get host name with error", logger.Error(err))
 		hostName = "unknown"
 	}
 	r.node = &models.StatelessNode{
@@ -166,13 +166,13 @@ func (r *runtime) Run() error {
 		Version:    config.Version,
 	}
 
-	r.log.Info("starting broker", logger.String("host", hostName), logger.String("ip", ip),
+	r.logger.Info("starting broker", logger.String("host", hostName), logger.String("ip", ip),
 		logger.Uint16("http", r.node.HTTPPort), logger.Uint16("grpc", r.node.GRPCPort))
 
 	// start state repository
 	err = r.startStateRepo()
 	if err != nil {
-		r.log.Error("failed to startStateRepo", logger.Error(err))
+		r.logger.Error("failed to startStateRepo", logger.Error(err))
 		r.state = server.Failed
 		return err
 	}
@@ -244,7 +244,7 @@ func (r *runtime) Run() error {
 		return fmt.Errorf("start master controller error:%s", err)
 	}
 
-	r.log.Info("waiting broker state machine start")
+	r.logger.Info("waiting broker state machine start")
 	// waiting broker state machine started
 	wait.Wait()
 	// check if it has error when start state machine
@@ -252,7 +252,7 @@ func (r *runtime) Run() error {
 		r.state = server.Failed
 		return fmt.Errorf("start state machines error: %v", errVal)
 	}
-	r.log.Info("broker state machine started successfully")
+	r.logger.Info("broker state machine started successfully")
 
 	// start http server
 	r.startHTTPServer()
@@ -275,35 +275,36 @@ func (r *runtime) State() server.State {
 
 // Stop stops broker server,
 func (r *runtime) Stop() {
-	r.log.Info("stopping broker server...")
+	r.logger.Info("stopping broker server...")
 	defer r.cancel()
 
 	if r.pusher != nil {
 		r.pusher.Stop()
-		r.log.Info("stopped native metric pusher successfully")
+		r.logger.Info("stopped native metric pusher successfully")
 	}
 
 	if r.httpServer != nil {
-		r.log.Info("stopping http server...")
+		r.logger.Info("stopping http server...")
 		if err := r.httpServer.Close(r.ctx); err != nil {
-			r.log.Error("shutdown http server error", logger.Error(err))
+			r.logger.Error("shutdown http server error", logger.Error(err))
 		} else {
-			r.log.Info("stopped http server successfully")
+			r.logger.Info("stopped http server successfully")
 		}
 	}
 
 	// close registry, deregister broker node from active list
 	if r.registry != nil {
-		r.log.Info("closing discovery-registry...")
+		r.logger.Info("closing discovery-registry...")
+		// TODO: add unregistry
 		if err := r.registry.Close(); err != nil {
-			r.log.Error("unregister broker node error", logger.Error(err))
+			r.logger.Error("unregister broker node error", logger.Error(err))
 		} else {
-			r.log.Info("closed discovery-registry successfully")
+			r.logger.Info("closed discovery-registry successfully")
 		}
 	}
 
 	if r.master != nil {
-		r.log.Info("stopping master...")
+		r.logger.Info("stopping master...")
 		r.master.Stop()
 	}
 
@@ -312,56 +313,58 @@ func (r *runtime) Stop() {
 	}
 
 	if r.repo != nil {
-		r.log.Info("closing state repo...")
+		r.logger.Info("closing state repo...")
 		if err := r.repo.Close(); err != nil {
-			r.log.Error("close state repo error, when broker stop", logger.Error(err))
+			r.logger.Error("close state repo error, when broker stop", logger.Error(err))
 		} else {
-			r.log.Info("closed state repo successfully")
+			r.logger.Info("closed state repo successfully")
 		}
 	}
 	if r.stateMgr != nil {
 		r.stateMgr.Close()
 	}
 	if r.srv.channelManager != nil {
-		r.log.Info("closing write channel manager...")
+		r.logger.Info("closing write channel manager...")
 		r.srv.channelManager.Close()
-		r.log.Info("closed write channel successfully")
+		r.logger.Info("closed write channel successfully")
 	}
 
 	if r.factory.connectionMgr != nil {
 		if err := r.factory.connectionMgr.Close(); err != nil {
-			r.log.Error("close connection manager error, when broker stop", logger.Error(err))
+			r.logger.Error("close connection manager error, when broker stop", logger.Error(err))
 		} else {
-			r.log.Info("closed connection manager successfully")
+			r.logger.Info("closed connection manager successfully")
 		}
 	}
-	r.log.Info("close connections successfully")
+	r.logger.Info("close connections successfully")
 
 	// finally, shutdown rpc server
 	if r.grpcServer != nil {
-		r.log.Info("stopping grpc server...")
+		r.logger.Info("stopping grpc server...")
 		r.grpcServer.Stop()
-		r.log.Info("stopped grpc server successfully")
+		r.logger.Info("stopped grpc server successfully")
 	}
 
 	r.state = server.Terminated
-	r.log.Info("stopped broker server successfully")
+	r.logger.Info("stopped broker server successfully")
 }
 
 // startHTTPServer starts http server for api rpcHandler
 func (r *runtime) startHTTPServer() {
-	r.log.Info("starting HTTP server")
-	r.httpServer = httppkg.NewServer(r.config.BrokerBase.HTTP, true, linmetric.BrokerRegistry)
+	r.logger.Info("starting HTTP server")
+	r.httpServer = newHTTPServer(r.config.BrokerBase.HTTP, true, linmetric.BrokerRegistry)
 	// TODO login api is not registered
 	httpAPI := api.NewAPI(&deps.HTTPDeps{
-		Ctx:         r.ctx,
-		Node:        r.node,
-		BrokerCfg:   r.config,
-		Master:      r.master,
-		Repo:        r.repo,
-		RepoFactory: r.repoFactory,
-		StateMgr:    r.stateMgr,
-		CM:          r.srv.channelManager,
+		Ctx:          r.ctx,
+		Node:         r.node,
+		BrokerCfg:    r.config,
+		Master:       r.master,
+		Repo:         r.repo,
+		RepoFactory:  r.repoFactory,
+		StateMgr:     r.stateMgr,
+		TaskMgr:      r.srv.taskManager,
+		TransportMgr: r.srv.transportManager,
+		CM:           r.srv.channelManager,
 		IngestLimiter: concurrent.NewLimiter(
 			r.ctx,
 			r.config.BrokerBase.Ingestion.MaxConcurrency,
@@ -374,19 +377,18 @@ func (r *runtime) startHTTPServer() {
 			r.config.Query.Timeout.Duration(),
 			metrics.NewLimitStatistics("query", linmetric.BrokerRegistry),
 		),
-		QueryFactory: brokerQuery.NewQueryFactory(
-			r.stateMgr,
-			r.srv.taskManager,
-		),
 		GlobalKeyValues: r.globalKeyValues,
 	})
 	httpAPI.RegisterRouter(r.httpServer.GetAPIRouter())
-	go func() {
-		if err := r.httpServer.Run(); err != http.ErrServerClosed {
-			panic(fmt.Sprintf("start http server with error: %s", err))
-		}
-		r.log.Info("http server stopped successfully")
-	}()
+	go r.runHTTPServer()
+}
+
+// runHTTPServer runs http server.
+func (r *runtime) runHTTPServer() {
+	if err := r.httpServer.Run(); err != nil && err != http.ErrServerClosed {
+		panic(fmt.Sprintf("start http server with error: %s", err))
+	}
+	r.logger.Info("http server stopped successfully")
 }
 
 // startStateRepo starts state repository
@@ -397,7 +399,7 @@ func (r *runtime) startStateRepo() error {
 		return fmt.Errorf("start broker state repository error:%s", err)
 	}
 	r.repo = repo
-	r.log.Info("start broker state repository successfully")
+	r.logger.Info("start broker state repository successfully")
 	return nil
 }
 
@@ -406,42 +408,30 @@ func (r *runtime) buildServiceDependency() {
 	// create replica channel mgr.
 	cm := newChannelManager(r.ctx, rpc.NewClientStreamFactory(r.ctx, r.node, rpc.GetBrokerClientConnFactory()), r.stateMgr)
 
-	taskManager := newTaskManager(
-		r.ctx,
-		r.node,
-		r.factory.taskClient,
-		r.factory.taskServer,
-		r.queryPool,
-		r.config.Query.Timeout.Duration(),
-	)
-
+	taskMgr := query.NewTaskManager(r.queryPool, linmetric.BrokerRegistry)
 	// close connections in connection-manager
-	r.factory.taskClient.SetTaskReceiver(taskManager)
+	r.factory.taskClient.SetTaskReceiver(taskMgr)
 
 	s := srv{
-		channelManager: cm,
-		taskManager:    taskManager,
+		channelManager:   cm,
+		taskManager:      taskMgr,
+		transportManager: query.NewTransportManager(r.factory.taskClient, r.factory.taskServer, linmetric.BrokerRegistry),
 	}
 	r.srv = s
 }
 
 // startGRPCServer starts the GRPC server
 func (r *runtime) startGRPCServer() {
-	r.log.Info("starting GRPC server")
+	r.logger.Info("starting GRPC server")
 	r.grpcServer = newGRPCServer(r.config.BrokerBase.GRPC, linmetric.BrokerRegistry)
 
 	// bind grpc handlers
-	intermediateTaskProcessor := brokerQuery.NewIntermediateTaskProcessor(
-		r.node,
-		r.factory.taskClient,
-		r.factory.taskServer,
-		r.srv.taskManager,
-	)
 	r.rpcHandler = &rpcHandler{
 		handler: query.NewTaskHandler(
 			r.config.Query,
 			r.factory.taskServer,
-			intermediateTaskProcessor,
+			query.NewIntermediateTaskProcessor(*r.node, r.config.Query.Timeout.Duration(),
+				r.stateMgr, r.srv.taskManager, r.srv.transportManager),
 			r.queryPool,
 		),
 	}
@@ -460,10 +450,10 @@ func serveGRPC(grpc rpc.GRPCServer) {
 func (r *runtime) nativePusher() {
 	monitorEnabled := r.config.Monitor.ReportInterval > 0
 	if !monitorEnabled {
-		r.log.Info("pusher won't start because report-interval is 0")
+		r.logger.Info("pusher won't start because report-interval is 0")
 		return
 	}
-	r.log.Info("pusher is running",
+	r.logger.Info("pusher is running",
 		logger.String("interval", r.config.Monitor.ReportInterval.String()))
 
 	r.pusher = newNativeProtoPusher(
@@ -478,7 +468,7 @@ func (r *runtime) nativePusher() {
 }
 
 func (r *runtime) systemCollector() {
-	r.log.Info("system collector is running")
+	r.logger.Info("system collector is running")
 
 	go monitoring.NewSystemCollector(
 		r.ctx,

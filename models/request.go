@@ -17,11 +17,32 @@
 
 package models
 
+import "time"
+
+type TaskState int
+
+const (
+	Init TaskState = iota
+	Send
+	Receive
+	Complete
+)
+
 // Request represents lin query langage execute request.
 type Request struct {
-	Broker    string `json:"broker"`
+	Entry     string `json:"entry"`
 	RequestID string `json:"requestId"`
 	DB        string `json:"db"`
 	SQL       string `json:"sql"`
 	Start     int64  `json:"start"`
+}
+
+// NewRequest creates a request instance.
+func NewRequest(entry, db, sql string) *Request {
+	return &Request{
+		Entry: entry,
+		DB:    db,
+		SQL:   sql,
+		Start: time.Now().UnixNano(),
+	}
 }

@@ -55,6 +55,7 @@ func TestBrokerState(t *testing.T) {
 	})
 	brokerState.NodeOffline("2")
 	assert.Len(t, brokerState.LiveNodes, 2)
+	assert.Len(t, brokerState.GetLiveNodes(), 2)
 }
 
 func TestStorageState(t *testing.T) {
