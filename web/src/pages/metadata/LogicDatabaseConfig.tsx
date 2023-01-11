@@ -136,14 +136,17 @@ export const LogicDatabaseConfig: React.FC = () => {
               </Form.Label>
             </Col>
             <Col>
-              <Form.Label style={{ width: 180 }} required>
+              <Form.Label style={{ width: 166 }} required>
                 {MetadataLogicDatabaseView.tagKey}
               </Form.Label>
-              <Form.Label style={{ width: 280 }} required>
+              <Form.Label style={{ width: 266 }} required>
                 {MetadataLogicDatabaseView.tagValues}
               </Form.Label>
-              <Form.Label style={{ width: 200 }} required>
+              <Form.Label style={{ width: 204 }} required>
                 {MetadataLogicDatabaseView.brokers}
+              </Form.Label>
+              <Form.Label style={{ width: 167 }}>
+                {MetadataLogicDatabaseView.targetDatabase}
               </Form.Label>
             </Col>
           </Row>
@@ -159,11 +162,11 @@ export const LogicDatabaseConfig: React.FC = () => {
                       <Form.InputGroup>
                         <Form.Input
                           field={`${f.field}[key]`}
-                          style={{ width: 162, marginRight: 16 }}
+                          style={{ width: 162, marginRight: 4 }}
                           noLabel
                         />
                         <Form.TagInput
-                          style={{ width: 262, marginRight: 16 }}
+                          style={{ width: 262, marginRight: 4 }}
                           field={`${f.field}[values]`}
                           noLabel
                         />
@@ -171,6 +174,11 @@ export const LogicDatabaseConfig: React.FC = () => {
                           style={{ width: 202, marginRight: 4 }}
                           field={`${f.field}[broker]`}
                           optionList={brokerList}
+                          noLabel
+                        />
+                        <Form.Input
+                          field={`${f.field}[database]`}
+                          style={{ width: 162, marginRight: 4 }}
                           noLabel
                         />
                       </Form.InputGroup>

@@ -173,6 +173,7 @@ const local = {
     tagKey: "Route Key(Tag Key)",
     tagValues: "Route Values(Tag Values)",
     brokers: "Brokers",
+    targetDatabase: "Database",
     deleteConfirm1: "Are you sure drop [ ",
     deleteConfirm2: " ] database?",
   },

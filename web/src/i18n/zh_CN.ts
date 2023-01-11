@@ -172,6 +172,7 @@ const local = {
     tagKey: "路由键(Tag Key)",
     tagValues: "路由值(Tag Values)",
     brokers: "计算集群",
+    targetDatabase: "数据库名",
     deleteConfirm1: "您确认要删除数据库 [ ",
     deleteConfirm2: " ] ?",
   },
