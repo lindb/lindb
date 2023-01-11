@@ -95,6 +95,7 @@ export const LogicDatabaseList: React.FC = () => {
               <>
                 {JSON.stringify(o.values)} <Text type="success">=&gt;</Text>{" "}
                 {o.broker}
+                {o.database && `[${o.database}]`}
               </>
             ),
           });

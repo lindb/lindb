@@ -19,7 +19,6 @@ package root
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -351,8 +350,6 @@ func (s *stateManager) GetBrokerState(name string) (models.BrokerState, bool) {
 	defer s.mutex.RUnlock()
 
 	broker, ok := s.brokers[name]
-	fmt.Println(name)
-	fmt.Println(ok)
 	if !ok {
 		return models.BrokerState{}, false
 	}

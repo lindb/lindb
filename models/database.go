@@ -84,7 +84,7 @@ type Router struct {
 	Key      string   `json:"key" validate:"required"`    // routing key
 	Values   []string `json:"values" validate:"required"` // routing values
 	Broker   string   `json:"broker" validate:"required"` // target broker
-	Database string   `json:"database"`                   // target database
+	Database string   `json:"database,omitempty"`         // target database
 }
 
 // LogicDatabase defines database logic config, database can include multi-cluster.
