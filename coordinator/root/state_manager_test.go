@@ -205,9 +205,7 @@ func TestStateManager_BrokerNodeFailure(t *testing.T) {
 	defer ctrl.Finish()
 
 	connectionMgr := rpc.NewMockConnectionManager(ctrl)
-	connectionMgr.EXPECT().CloseConnection(gomock.Any()).AnyTimes()
 	broker := NewMockBrokerCluster(ctrl)
-	broker.EXPECT().Close().AnyTimes()
 	mgr := NewStateManager(context.TODO(), nil, connectionMgr)
 	mgr1 := mgr.(*stateManager)
 	mgr1.mutex.Lock()
@@ -217,10 +215,21 @@ func TestStateManager_BrokerNodeFailure(t *testing.T) {
 	broker.EXPECT().GetState().Return(&models.BrokerState{
 		Name:      "test",
 		LiveNodes: liveNodes,
-	})
+	}).AnyTimes()
+	connectionMgr.EXPECT().CloseConnection(gomock.Any())
+	broker.EXPECT().Close()
 	mgr.EmitEvent(&discovery.Event{
 		Type:       discovery.NodeFailure,
 		Key:        "/test/test_1",
+		Attributes: map[string]string{brokerNameKey: "test"},
+	})
+	connectionMgr.EXPECT().CloseConnection(gomock.Any()).
+		Do(func(node models.Node) {
+			panic("err")
+		})
+	mgr.EmitEvent(&discovery.Event{
+		Type:       discovery.NodeFailure,
+		Key:        "/test/test_2",
 		Attributes: map[string]string{brokerNameKey: "test"},
 	})
 	time.Sleep(300 * time.Millisecond)
@@ -231,9 +240,6 @@ func TestStateManager_BrokerNodeFailure(t *testing.T) {
 }
 
 func TestStateManager_DatabaseCfg(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
 	mgr := NewStateManager(context.TODO(), nil, nil)
 
 	// case 1: unmarshal cfg err
@@ -271,6 +277,7 @@ func TestStateManager_DatabaseCfg(t *testing.T) {
 func TestStateManager_Choose(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
 	mgr := &stateManager{
 		logger:    logger.GetLogger("Test", "StateManager"),
 		databases: make(map[string]*models.LogicDatabase),
@@ -298,4 +305,55 @@ func TestStateManager_Choose(t *testing.T) {
 	plan, err = mgr.Choose("test", 1)
 	assert.NoError(t, err)
 	assert.Len(t, plan, 2)
+}
+
+func TestStateManager_Node(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mgr := NewStateManager(context.TODO(), nil, nil)
+	// case 1: unmarshal node info err
+	mgr.EmitEvent(&discovery.Event{
+		Type:  discovery.NodeStartup,
+		Key:   "/lives/1.1.1.1:9000",
+		Value: []byte("221"),
+	})
+	// case 2: cache node
+	mgr.EmitEvent(&discovery.Event{
+		Type:  discovery.NodeStartup,
+		Key:   "/lives/1.1.1.1:9000",
+		Value: []byte(`{"HostIp":"1.1.1.1","GRPCPort":9000}`),
+	})
+	time.Sleep(time.Second) // wait
+	nodes := mgr.GetLiveNodes()
+	assert.Equal(t, []models.StatelessNode{{HostIP: "1.1.1.1", GRPCPort: 9000}}, nodes)
+
+	// case 4: remove not exist node
+	mgr.EmitEvent(&discovery.Event{
+		Type: discovery.NodeFailure,
+		Key:  "/lives/2.2.2.2:9000",
+	})
+	// case 5: remove node
+	mgr.EmitEvent(&discovery.Event{
+		Type: discovery.NodeFailure,
+		Key:  "/lives/1.1.1.1:9000",
+	})
+	time.Sleep(time.Second) // wait
+	nodes = mgr.GetLiveNodes()
+	assert.Empty(t, nodes)
+
+	mgr.Close()
+}
+
+func TestStateManager_GetLiveNodes(t *testing.T) {
+	s := &stateManager{
+		nodes: make(map[string]models.StatelessNode),
+	}
+	nodes := s.GetLiveNodes()
+	assert.Empty(t, nodes)
+
+	s.nodes["test1"] = models.StatelessNode{HostIP: "1.1.1.1"}
+	s.nodes["test2"] = models.StatelessNode{HostIP: "1.1.2.1"}
+	nodes = s.GetLiveNodes()
+	assert.Equal(t, []models.StatelessNode{{HostIP: "1.1.1.1"}, {HostIP: "1.1.2.1"}}, nodes)
 }

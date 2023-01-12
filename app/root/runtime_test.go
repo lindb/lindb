@@ -52,8 +52,16 @@ func TestRootRun(t *testing.T) {
 	defer func() {
 		newRepositoryFactory = state.NewRepositoryFactory
 		newStateMachineFactory = root.NewStateMachineFactory
+		newRegistry = discovery.NewRegistry
 		ctrl.Finish()
 	}()
+	registry := discovery.NewMockRegistry(ctrl)
+	newRegistry = func(_ state.Repository, _ string, _ time.Duration) discovery.Registry {
+		return registry
+	}
+	registry.EXPECT().Register(gomock.Any()).Return(nil)
+	registry.EXPECT().Deregister(gomock.Any()).Return(fmt.Errorf("err"))
+	registry.EXPECT().Close().Return(fmt.Errorf("err"))
 	repoFct := state.NewMockRepositoryFactory(ctrl)
 	newRepositoryFactory = func(_ string) state.RepositoryFactory {
 		return repoFct
@@ -90,8 +98,13 @@ func TestRootRun_Err(t *testing.T) {
 		hostName = os.Hostname
 		newRepositoryFactory = state.NewRepositoryFactory
 		newStateMachineFactory = root.NewStateMachineFactory
+		newRegistry = discovery.NewRegistry
 		ctrl.Finish()
 	}()
+	registry := discovery.NewMockRegistry(ctrl)
+	newRegistry = func(_ state.Repository, _ string, _ time.Duration) discovery.Registry {
+		return registry
+	}
 	cfg.HTTP.Port = 3991
 	t.Run("get host ip fail", func(t *testing.T) {
 		r := NewRootRuntime("test-version", &cfg)
@@ -112,22 +125,33 @@ func TestRootRun_Err(t *testing.T) {
 	newRepositoryFactory = func(owner string) state.RepositoryFactory {
 		return repoFct
 	}
+	stateMachineFct := discovery.NewMockStateMachineFactory(ctrl)
+	newStateMachineFactory = func(_ context.Context, _ discovery.Factory, _ root.StateManager) discovery.StateMachineFactory {
+		return stateMachineFct
+	}
 	t.Run("start repo fail", func(t *testing.T) {
 		repoFct.EXPECT().CreateRootRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
 		r := NewRootRuntime("test-version", &cfg)
 		err := r.Run()
 		assert.Error(t, err)
 	})
-	t.Run("start state machine fail", func(t *testing.T) {
+	t.Run("register node fail", func(t *testing.T) {
 		repoFct.EXPECT().CreateRootRepo(gomock.Any()).Return(nil, nil)
-		stateMachineFct := discovery.NewMockStateMachineFactory(ctrl)
-		stateMachineFct.EXPECT().Start().Return(fmt.Errorf("err"))
-		newStateMachineFactory = func(_ context.Context, _ discovery.Factory, _ root.StateManager) discovery.StateMachineFactory {
-			return stateMachineFct
-		}
+		registry.EXPECT().Register(gomock.Any()).Return(fmt.Errorf("err"))
 		r := NewRootRuntime("test-version", &cfg)
 		err := r.Run()
 		assert.Error(t, err)
+	})
+	t.Run("start state machine fail", func(t *testing.T) {
+		repoFct.EXPECT().CreateRootRepo(gomock.Any()).Return(nil, nil)
+		registry.EXPECT().Register(gomock.Any()).Return(nil)
+		stateMachineFct.EXPECT().Start().Return(fmt.Errorf("err"))
+		r := NewRootRuntime("test-version", &cfg)
+		err := r.Run()
+		assert.Error(t, err)
+		registry.EXPECT().Deregister(gomock.Any()).Return(nil)
+		registry.EXPECT().Close().Return(nil)
+		r.Stop()
 	})
 }
 

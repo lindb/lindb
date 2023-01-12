@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 import { MasterView, NodeView, StatusTip, StorageView } from "@src/components";
-import { StateMetricName, SQL } from "@src/constants";
+import { StateMetricName, SQL, StateRoleName } from "@src/constants";
 import { UIContext } from "@src/context/UIContextProvider";
 import { useStorage } from "@src/hooks";
 import { ExecService } from "@src/services";
@@ -27,7 +27,10 @@ import React, { useContext } from "react";
 // must define outside function component, if define in component maybe endless loop.
 const brokerMetric = `show broker metric where metric in ('${StateMetricName.CPU}','${StateMetricName.Memory}')`;
 
-const Overview: React.FC = () => {
+const Root: React.FC = () => {
+  return <>root</>;
+};
+const Broker: React.FC = () => {
   const {
     isLoading: storageLoading,
     isError: storageHasError,
@@ -73,6 +76,14 @@ const Overview: React.FC = () => {
       />
     </>
   );
+};
+
+const Overview: React.FC = () => {
+  const { env } = useContext(UIContext);
+  if (env.role === StateRoleName.Broker) {
+    return <Broker />;
+  }
+  return <Root />;
 };
 
 export default Overview;
