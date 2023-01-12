@@ -18,6 +18,7 @@ under the License.
 */
 export enum SQL {
   ShowDatabases = "show databases",
+  ShowRootAliveNodes = "show root alive",
   ShowBrokerAliveNodes = "show broker alive",
   ShowStorageAliveNodes = "show storage alive",
   ShowRequests = "show requests",

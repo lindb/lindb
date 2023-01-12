@@ -23,6 +23,8 @@ type StateType uint8
 const (
 	// Master represents show master statement.
 	Master StateType = iota + 1
+	// RootAlive represents show root alive(node)  statement.
+	RootAlive
 	// BrokerAlive represents show broker alive(node)  statement.
 	BrokerAlive
 	// StorageAlive represents show storage alive(node) statement.

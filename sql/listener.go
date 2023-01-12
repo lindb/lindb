@@ -94,6 +94,8 @@ func (l *listener) EnterShowMasterStmt(_ *grammar.ShowMasterStmtContext) {
 // EnterShowAliveStmt is called when production showAliveStmt is entered.
 func (l *listener) EnterShowAliveStmt(ctx *grammar.ShowAliveStmtContext) {
 	switch {
+	case ctx.T_ROOT() != nil:
+		l.stateStmt = newStateStmtParse(stmt.RootAlive)
 	case ctx.T_BROKER() != nil:
 		l.stateStmt = newStateStmtParse(stmt.BrokerAlive)
 	case ctx.T_STORAGE() != nil:

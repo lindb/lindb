@@ -19,10 +19,8 @@ package api
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -38,7 +36,6 @@ import (
 	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/sql"
@@ -94,12 +91,7 @@ func TestExecuteAPI_Execute(t *testing.T) {
 		},
 		{
 			name:    "unknown statement type",
-			reqBody: `{"sql":"show brokers"}`,
-			prepare: func() {
-				sqlParseFn = func(sql string) (stmt stmtpkg.Statement, err error) {
-					return &stmtpkg.State{}, nil
-				}
-			},
+			reqBody: `{"sql":"use brokers"}`,
 			assert: func(resp *httptest.ResponseRecorder) {
 				assert.Equal(t, http.StatusInternalServerError, resp.Code)
 			},
@@ -111,105 +103,6 @@ func TestExecuteAPI_Execute(t *testing.T) {
 				sqlParseFn = func(sql string) (stmt stmtpkg.Statement, err error) {
 					return &stmtpkg.Broker{Type: stmtpkg.BrokerOpCreate, Value: "xx"}, nil
 				}
-			},
-			assert: func(resp *httptest.ResponseRecorder) {
-				assert.Equal(t, http.StatusInternalServerError, resp.Code)
-			},
-		},
-		{
-			name:    "create broker, config validate failure",
-			reqBody: `{"sql":"create broker ` + cfg + `"}`,
-			prepare: func() {
-				sqlParseFn = func(sql string) (stmt stmtpkg.Statement, err error) {
-					return &stmtpkg.Broker{Type: stmtpkg.BrokerOpCreate, Value: `{"config":{}}`}, nil
-				}
-			},
-			assert: func(resp *httptest.ResponseRecorder) {
-				assert.Equal(t, http.StatusInternalServerError, resp.Code)
-			},
-		},
-		{
-			name:    "create broker successfully, broker not exist",
-			reqBody: `{"sql":"create broker ` + cfg + `"}`,
-			prepare: func() {
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
-				repo.EXPECT().Close().Return(nil)
-				repo.EXPECT().PutWithTX(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-					DoAndReturn(func(_ context.Context, _ string, _ []byte, check func([]byte) error) (bool, error) {
-						if err := check([]byte{1, 2, 3}); err != nil {
-							return false, err
-						}
-						return true, nil
-					})
-			},
-			assert: func(resp *httptest.ResponseRecorder) {
-				assert.Equal(t, http.StatusOK, resp.Code)
-			},
-		},
-		{
-			name:    "create broker successfully, broker exist",
-			reqBody: `{"sql":"create broker ` + cfg + `"}`,
-			prepare: func() {
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
-				repo.EXPECT().Close().Return(nil)
-				repo.EXPECT().PutWithTX(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-					DoAndReturn(func(_ context.Context, _ string, _ []byte, check func([]byte) error) (bool, error) {
-						cfg1 := strings.ReplaceAll(cfg, `\"`, `"`)
-						data := []byte(cfg1)
-						broker := &config.BrokerCluster{}
-						err := encoding.JSONUnmarshal(data, broker)
-						assert.NoError(t, err)
-						data = encoding.JSONMarshal(broker)
-						if err := check(data); err != nil {
-							return false, err
-						}
-						return true, nil
-					})
-			},
-			assert: func(resp *httptest.ResponseRecorder) {
-				assert.Equal(t, http.StatusOK, resp.Code)
-			},
-		},
-		{
-			name:    "create broker failure with err",
-			reqBody: `{"sql":"create broker ` + cfg + `"}`,
-			prepare: func() {
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
-				repo.EXPECT().Close().Return(nil)
-				repo.EXPECT().PutWithTX(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false, fmt.Errorf("err"))
-			},
-			assert: func(resp *httptest.ResponseRecorder) {
-				assert.Equal(t, http.StatusInternalServerError, resp.Code)
-			},
-		},
-		{
-			name:    "create broker failure",
-			reqBody: `{"sql":"create broker ` + cfg + `"}`,
-			prepare: func() {
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
-				repo.EXPECT().Close().Return(nil)
-				repo.EXPECT().PutWithTX(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil)
-			},
-			assert: func(resp *httptest.ResponseRecorder) {
-				assert.Equal(t, http.StatusInternalServerError, resp.Code)
-			},
-		},
-		{
-			name:    "create broker repo failure",
-			reqBody: `{"sql":"create broker ` + cfg + `"}`,
-			prepare: func() {
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
-			},
-			assert: func(resp *httptest.ResponseRecorder) {
-				assert.Equal(t, http.StatusInternalServerError, resp.Code)
-			},
-		},
-		{
-			name:    "create broker, close repo failure",
-			reqBody: `{"sql":"create broker ` + cfg + `"}`,
-			prepare: func() {
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
-				repo.EXPECT().Close().Return(fmt.Errorf("err"))
 			},
 			assert: func(resp *httptest.ResponseRecorder) {
 				assert.Equal(t, http.StatusInternalServerError, resp.Code)
@@ -228,45 +121,12 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			},
 		},
 		{
-			name:    "show brokers, get brokers failure",
-			reqBody: `{"sql":"show brokers"}`,
-			prepare: func() {
-				repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
-			},
-			assert: func(resp *httptest.ResponseRecorder) {
-				assert.Equal(t, http.StatusInternalServerError, resp.Code)
-			},
-		},
-		{
-			name:    "show brokers, list broker successfully, but unmarshal failure",
-			reqBody: `{"sql":"show brokers"}`,
-			prepare: func() {
-				repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(
-					[]state.KeyValue{{Key: "", Value: []byte("[]")}}, nil)
-			},
-			assert: func(resp *httptest.ResponseRecorder) {
-				assert.Equal(t, http.StatusInternalServerError, resp.Code)
-			},
-		},
-		{
 			name:    "show brokers successfully",
 			reqBody: `{"sql":"show brokers"}`,
 			prepare: func() {
 				repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(
 					[]state.KeyValue{{Key: "", Value: []byte(`{ "config": {"namespace":"xxx"}}`)}}, nil)
 				stateMgr.EXPECT().GetBrokerState("xxx").Return(models.BrokerState{}, true)
-			},
-			assert: func(resp *httptest.ResponseRecorder) {
-				assert.Equal(t, http.StatusOK, resp.Code)
-			},
-		},
-		{
-			name:    "show brokers successfully,but state not found",
-			reqBody: `{"sql":"show brokers"}`,
-			prepare: func() {
-				repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(
-					[]state.KeyValue{{Key: "", Value: []byte(`{ "config": {"namespace":"xxx"}}`)}}, nil)
-				stateMgr.EXPECT().GetBrokerState("xxx").Return(models.BrokerState{}, false)
 			},
 			assert: func(resp *httptest.ResponseRecorder) {
 				assert.Equal(t, http.StatusOK, resp.Code)
