@@ -37,6 +37,7 @@ func GetGzipReader(r io.Reader) (*gzip.Reader, error) {
 	if reader == nil {
 		return gzip.NewReader(r)
 	}
+
 	gzipReader := reader.(*gzip.Reader)
 	if err := resetReaderFn(gzipReader, r); err != nil {
 		// illegal reader, put it back

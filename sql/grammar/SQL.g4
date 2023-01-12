@@ -47,7 +47,7 @@ showMetadataTypesStmt: T_SHOW T_METADATA T_TYPES;
 showBrokerMetaStmt   : T_SHOW T_BROKER T_METADATA T_FROM source T_WHERE typeFilter;
 showMasterMetaStmt   : T_SHOW T_MASTER T_METADATA T_FROM source T_WHERE typeFilter;
 showStorageMetaStmt  : T_SHOW T_STORAGE T_METADATA T_FROM source T_WHERE (storageFilter|typeFilter) T_AND (storageFilter|typeFilter);
-showAliveStmt        : T_SHOW (T_BROKER | T_STORAGE) T_ALIVE;
+showAliveStmt        : T_SHOW (T_ROOT | T_BROKER | T_STORAGE) T_ALIVE;
 showReplicationStmt  : T_SHOW T_REPLICATION T_WHERE (storageFilter|databaseFilter) T_AND (storageFilter|databaseFilter);
 showMemoryDatabaseStmt  : T_SHOW T_MEMORY T_DATASBAE T_WHERE (storageFilter|databaseFilter) T_AND (storageFilter|databaseFilter);
 showBrokerMetricStmt : T_SHOW T_BROKER T_METRIC T_WHERE metricListFilter ;
@@ -302,6 +302,7 @@ nonReservedWords      :
                         | T_STORAGE
                         | T_ALIVE
                         | T_BROKER
+                        | T_ROOT
                         | T_BROKERS
                         | T_SCHEMAS
                         | T_STATE_REPO
@@ -367,6 +368,7 @@ T_TYPE               : T Y P E                          ;
 T_STORAGES           : S T O R A G E S                  ;
 T_STORAGE            : S T O R A G E                    ;
 T_BROKER             : B R O K E R                      ;
+T_ROOT               : R O O T                          ;
 T_BROKERS            : B R O K E R S                    ;
 T_ALIVE              : A L I V E                        ;
 T_SCHEMAS            : S C H E M A S                    ;

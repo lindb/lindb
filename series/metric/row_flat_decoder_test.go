@@ -20,6 +20,7 @@ package metric
 import (
 	"bytes"
 	"math"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -97,4 +98,29 @@ func Test_NewBrokerRowFlatDecoder(t *testing.T) {
 	assert.Equal(t, len(buf.Bytes()), decoder.ReadLen())
 	metric := row.Metric()
 	assert.Equal(t, now, metric.Timestamp())
+}
+
+func Test_NewBrokerRowFlatDecoder_pool(t *testing.T) {
+	defer func() {
+		brokerBatchRowsPool = sync.Pool{}
+	}()
+	brokerBatchRowsPool = sync.Pool{
+		New: func() any {
+			return nil
+		},
+	}
+	decoder, releaseFunc := NewBrokerRowFlatDecoder(nil, nil, nil)
+	assert.False(t, decoder.HasNext())
+	releaseFunc(decoder)
+	assert.Zero(t, decoder.ReadLen())
+
+	brokerBatchRowsPool = sync.Pool{
+		New: func() any {
+			return &BrokerRowFlatDecoder{}
+		},
+	}
+	decoder, releaseFunc = NewBrokerRowFlatDecoder(nil, nil, nil)
+	assert.False(t, decoder.HasNext())
+	releaseFunc(decoder)
+	assert.Zero(t, decoder.ReadLen())
 }

@@ -38,6 +38,7 @@ const local = {
     language: "中文",
   },
   Overview: {
+    rootLiveNodes: "计算节点(Root live nodes)",
     brokerLiveNodes: "计算节点(Broker live nodes)",
   },
   NodeView: {

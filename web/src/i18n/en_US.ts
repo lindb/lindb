@@ -38,6 +38,7 @@ const local = {
     language: "EN",
   },
   Overview: {
+    rootLiveNodes: "Root Live Nodes",
     brokerLiveNodes: "Broke Live Nodes",
   },
   NodeView: {

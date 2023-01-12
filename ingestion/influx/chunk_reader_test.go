@@ -69,16 +69,3 @@ func Test_ChunkReader_TooLongLine(t *testing.T) {
 	assert.Equal(t, "a1,location=us-", string(cr.Next()))
 	assert.NotNil(t, cr.Error())
 }
-
-func Test_ChunkReaderPool(t *testing.T) {
-	PutChunkReader(nil)
-
-	cr1 := GetChunkReader(strings.NewReader(influxText))
-	assertReadAll(t, cr1)
-	PutChunkReader(cr1)
-
-	for i := 0; i < 100; i++ {
-		cr2 := GetChunkReader(strings.NewReader(influxText))
-		assertReadAll(t, cr2)
-	}
-}

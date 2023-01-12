@@ -44,25 +44,49 @@ func (mr *mockReader) Read(p []byte) (n int, err error) {
 	}
 }
 
-func Test_GetGzipReader(t *testing.T) {
+func Test_GetAndPutGzipReader(t *testing.T) {
+	defer func() {
+		gzipReaderPool = sync.Pool{}
+	}()
 	gzipReaderPool = sync.Pool{}
 	PutGzipReader(nil)
 	for i := 0; i < 100; i++ {
-		mr := &mockReader{}
-		r, err := GetGzipReader(mr)
-		assert.Nil(t, err)
+		r, err := GetGzipReader(&mockReader{})
+		assert.NoError(t, err)
 		assert.NotNil(t, r)
 		PutGzipReader(r)
 	}
+}
+
+func Test_GetGzipReader(t *testing.T) {
+	defer func() {
+		gzipReaderPool = sync.Pool{}
+	}()
+	gzipReaderPool = sync.Pool{}
+	mr := &mockReader{}
+	r, err := GetGzipReader(mr)
+	assert.NoError(t, err)
+	assert.NotNil(t, r)
+
 	defer func() {
 		resetReaderFn = resetReader
 	}()
-
+	gzipReaderPool = sync.Pool{
+		New: func() any {
+			r, _ = gzip.NewReader(mr)
+			return r
+		},
+	}
 	resetReaderFn = func(_ *gzip.Reader, _ io.Reader) error {
 		return fmt.Errorf("err")
 	}
-	for i := 0; i < 100; i++ {
-		mr := &mockReader{}
-		_, _ = GetGzipReader(mr)
+	r, err = GetGzipReader(mr)
+	assert.Error(t, err)
+	assert.Nil(t, r)
+
+	resetReaderFn = func(_ *gzip.Reader, _ io.Reader) error {
+		return nil
 	}
+	_, err = GetGzipReader(mr)
+	assert.NoError(t, err)
 }

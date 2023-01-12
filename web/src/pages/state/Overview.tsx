@@ -28,7 +28,33 @@ import React, { useContext } from "react";
 const brokerMetric = `show broker metric where metric in ('${StateMetricName.CPU}','${StateMetricName.Memory}')`;
 
 const Root: React.FC = () => {
-  return <>root</>;
+  const {
+    isLoading: nodeLoading,
+    data: liveNodes,
+    isError: nodeHasError,
+    error: nodeError,
+  } = useQuery(["show_root_alive_nodes"], async () => {
+    return ExecService.exec<any[]>({ sql: SQL.ShowRootAliveNodes });
+  });
+  const { locale } = useContext(UIContext);
+  const { Overview } = locale;
+  return (
+    <>
+      <NodeView
+        title={Overview.rootLiveNodes}
+        nodes={liveNodes || []}
+        sql={brokerMetric}
+        style={{ marginTop: 12, marginBottom: 12 }}
+        statusTip={
+          <StatusTip
+            isLoading={nodeLoading}
+            isError={nodeHasError}
+            error={nodeError}
+          />
+        }
+      />
+    </>
+  );
 };
 const Broker: React.FC = () => {
   const {
