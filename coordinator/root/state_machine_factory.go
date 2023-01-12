@@ -55,8 +55,15 @@ func NewStateMachineFactory(
 
 // Start starts all root's related state machines.
 func (f *stateMachineFactory) Start() error {
+	f.logger.Debug("starting LiveNodeStateMachine")
+	sm, err := f.createRootLiveNodeStateMachine()
+	if err != nil {
+		return err
+	}
+	f.stateMachines = append(f.stateMachines, sm)
+
 	f.logger.Debug("starting BrokerConfigStateMachine")
-	sm, err := f.createBrokerConfigStateMachine()
+	sm, err = f.createBrokerConfigStateMachine()
 	if err != nil {
 		return err
 	}
@@ -69,6 +76,30 @@ func (f *stateMachineFactory) Start() error {
 	}
 	f.stateMachines = append(f.stateMachines, sm)
 	return nil
+}
+
+// createRootLiveNodeStateMachine creates root live node state machine.
+func (f *stateMachineFactory) createRootLiveNodeStateMachine() (discovery.StateMachine, error) {
+	return discovery.NewStateMachineFn(
+		f.ctx,
+		discovery.LiveNodeStateMachine,
+		f.discoveryFactory,
+		constants.LiveNodesPath,
+		true,
+		func(key string, data []byte) {
+			f.stateMgr.EmitEvent(&discovery.Event{
+				Type:  discovery.NodeStartup,
+				Key:   key,
+				Value: data,
+			})
+		},
+		func(key string) {
+			f.stateMgr.EmitEvent(&discovery.Event{
+				Type: discovery.NodeFailure,
+				Key:  key,
+			})
+		},
+	)
 }
 
 // Stop stops all root's related state machines.

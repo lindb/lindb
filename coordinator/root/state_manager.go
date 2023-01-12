@@ -20,6 +20,7 @@ package root
 import (
 	"context"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
@@ -53,6 +54,8 @@ type StateManager interface {
 	GetBrokerState(name string) (models.BrokerState, bool)
 	// GetDatabase returns the logic database config by name.
 	GetDatabase(name string) (models.LogicDatabase, bool)
+	// GetLiveNodes returns all live broker nodes.
+	GetLiveNodes() []models.StatelessNode
 }
 
 // stateManager implements StateManager.
@@ -63,6 +66,7 @@ type stateManager struct {
 	stateMachineFct    *stateMachineFactory
 	brokers            map[string]BrokerCluster
 	databases          map[string]*models.LogicDatabase
+	nodes              map[string]models.StatelessNode // live nodes of root cluster
 	events             chan *discovery.Event
 	running            *atomic.Bool
 	newBrokerClusterFn func(cfg *config.BrokerCluster,
@@ -91,6 +95,7 @@ func NewStateManager(
 		brokers:            make(map[string]BrokerCluster),
 		databases:          make(map[string]*models.LogicDatabase),
 		events:             make(chan *discovery.Event, 10),
+		nodes:              make(map[string]models.StatelessNode),
 		running:            atomic.NewBool(true),
 		connectionManager:  connectionManager,
 		statistics:         metrics.NewStateManagerStatistics(strings.ToLower(constants.RootRole)),
@@ -182,9 +187,17 @@ func (s *stateManager) processEvent(event *discovery.Event) {
 	case discovery.DatabaseConfigDeletion:
 		s.onDatabaseCfgDelete(event.Key)
 	case discovery.NodeStartup:
-		err = s.onBrokerNodeStartup(event.Attributes[brokerNameKey], event.Key, event.Value)
+		if event.Attributes == nil {
+			err = s.onNodeStartup(event.Key, event.Value)
+		} else {
+			err = s.onBrokerNodeStartup(event.Attributes[brokerNameKey], event.Key, event.Value)
+		}
 	case discovery.NodeFailure:
-		s.onBrokerNodeFailure(event.Attributes[brokerNameKey], event.Key)
+		if event.Attributes == nil {
+			s.onNodeFailure(event.Key)
+		} else {
+			s.onBrokerNodeFailure(event.Attributes[brokerNameKey], event.Key)
+		}
 	}
 	if err != nil {
 		s.statistics.HandleEventFailure.WithTagValues(eventType).Incr()
@@ -244,6 +257,38 @@ func (s *stateManager) onDatabaseCfgDelete(key string) {
 		logger.String("key", key))
 	name := strings.TrimPrefix(key, constants.GetDatabaseConfigPath(""))
 	delete(s.databases, name)
+}
+
+// onNodeStartup triggers when root node online.
+func (s *stateManager) onNodeStartup(key string, data []byte) error {
+	s.logger.Info("new root node online",
+		logger.String("key", key),
+		logger.String("data", string(data)))
+
+	node := &models.StatelessNode{}
+	if err := encoding.JSONUnmarshal(data, node); err != nil {
+		s.logger.Error("new root node online but unmarshal error", logger.Error(err))
+		return err
+	}
+
+	_, fileName := filepath.Split(key)
+	nodeID := fileName
+
+	s.nodes[nodeID] = *node
+
+	return nil
+}
+
+// onNodeFailure triggers when root node offline.
+func (s *stateManager) onNodeFailure(key string) {
+	_, fileName := filepath.Split(key)
+	nodeID := fileName
+
+	s.logger.Info("root node online => offline",
+		logger.String("nodeID", nodeID),
+		logger.String("key", key))
+
+	delete(s.nodes, nodeID)
 }
 
 // onBrokerNodeStartup triggers when broker node online
@@ -376,6 +421,22 @@ func (s *stateManager) SetStateMachineFactory(stateMachineFct *stateMachineFacto
 // GetStateMachineFactory returns state machine factory.
 func (s *stateManager) GetStateMachineFactory() *stateMachineFactory {
 	return s.stateMachineFct
+}
+
+// GetLiveNodes returns all live broker nodes.
+func (s *stateManager) GetLiveNodes() (rs []models.StatelessNode) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	for _, node := range s.nodes {
+		rs = append(rs, node)
+	}
+
+	// return nodes in order(by ip)
+	sort.Slice(rs, func(i, j int) bool {
+		return rs[i].HostIP < rs[j].HostIP
+	})
+	return
 }
 
 // Close implements StateManager

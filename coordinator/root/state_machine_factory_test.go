@@ -40,17 +40,25 @@ func TestStateMachineFactory_Start(t *testing.T) {
 	discoveryFct.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1).AnyTimes()
 	fct := NewStateMachineFactory(context.TODO(), discoveryFct, stateMgr)
 
-	// storage broker config sm err
+	// storage root live node sm err
 	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
 	err := fct.Start()
 	assert.Error(t, err)
 
-	// database config sm err
+	// storage broker config sm err
 	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
 	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
 	err = fct.Start()
 	assert.Error(t, err)
 
+	// database config sm err
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
+	err = fct.Start()
+	assert.Error(t, err)
+
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
 	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
 	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
 	err = fct.Start()
@@ -164,6 +172,38 @@ func TestStateMachineFactory_DatabaseCfg(t *testing.T) {
 
 	stateMgr.EXPECT().EmitEvent(&discovery.Event{
 		Type: discovery.DatabaseConfigDeletion,
+		Key:  "/test",
+	})
+	sm.OnDelete("/test")
+}
+
+func TestStateMachineFactory_LiveNodes(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	stateMgr := NewMockStateManager(ctrl)
+	stateMgr.EXPECT().SetStateMachineFactory(gomock.Any())
+	discoveryFct := discovery.NewMockFactory(ctrl)
+	discovery1 := discovery.NewMockDiscovery(ctrl)
+	discoveryFct.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
+	fct := NewStateMachineFactory(context.TODO(), discoveryFct, stateMgr)
+
+	fct1 := fct.(*stateMachineFactory)
+
+	sm, err := fct1.createRootLiveNodeStateMachine()
+
+	assert.NoError(t, err)
+	assert.NotNil(t, sm)
+	stateMgr.EXPECT().EmitEvent(&discovery.Event{
+		Type:  discovery.NodeStartup,
+		Key:   "/test",
+		Value: []byte("value"),
+	})
+	sm.OnCreate("/test", []byte("value"))
+
+	stateMgr.EXPECT().EmitEvent(&discovery.Event{
+		Type: discovery.NodeFailure,
 		Key:  "/test",
 	})
 	sm.OnDelete("/test")

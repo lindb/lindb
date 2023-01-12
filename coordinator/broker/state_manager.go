@@ -73,7 +73,7 @@ type stateManager struct {
 	currentNode models.StatelessNode
 	storages    map[string]*models.StorageState // storage state
 	databases   map[string]models.Database      // database config
-	nodes       map[string]models.StatelessNode // broker live nodes
+	nodes       map[string]models.StatelessNode // live nodes of broker cluster
 
 	callbacks []func(databaseCfg models.Database,
 		shards map[models.ShardID]models.ShardState,

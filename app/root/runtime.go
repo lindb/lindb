@@ -50,6 +50,7 @@ var (
 	hostName               = os.Hostname
 	newTaskClientFactory   = rpc.NewTaskClientFactory
 	newStateMachineFactory = root.NewStateMachineFactory
+	newRegistry            = discovery.NewRegistry
 	newTaskManager         = query.NewTaskManager
 	newRepositoryFactory   = state.NewRepositoryFactory
 	newHTTPServer          = httppkg.NewServer
@@ -78,6 +79,7 @@ type runtime struct {
 
 	deps *deps
 
+	registry   discovery.Registry
 	repo       state.Repository
 	httpServer httppkg.Server
 
@@ -155,6 +157,14 @@ func (r *runtime) Run() error {
 		r.state = server.Failed
 		return err
 	}
+	// register root node info
+	r.registry = newRegistry(r.repo, constants.LiveNodesPath, r.config.Coordinator.LeaseTTL.Duration())
+
+	if err = r.registry.Register(r.node); err != nil {
+		r.state = server.Failed
+		return fmt.Errorf("register root node error:%s", err)
+	}
+
 	discoveryFactory := discovery.NewFactory(r.repo)
 	stateMachineFct := newStateMachineFactory(r.ctx, discoveryFactory, stateMgr)
 
@@ -180,6 +190,18 @@ func (r *runtime) Stop() {
 	r.logger.Info("stopping root server...")
 	defer r.cancel()
 
+	// close registry, deregister root node from active list
+	if r.registry != nil {
+		r.logger.Info("closing discovery-registry...")
+		if err := r.registry.Deregister(r.node); err != nil {
+			r.logger.Error("unregister root node error", logger.Error(err))
+		}
+		if err := r.registry.Close(); err != nil {
+			r.logger.Error("closed discovery-registry failure", logger.Error(err))
+		} else {
+			r.logger.Info("closed discovery-registry successfully")
+		}
+	}
 	if r.deps.stateMachineFct != nil {
 		r.logger.Info("stopping state machines...")
 		r.deps.stateMachineFct.Stop()

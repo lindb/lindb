@@ -24,7 +24,6 @@ import {
   IconChecklistStroked,
   IconSearchStroked,
   IconSendStroked,
-  IconShareStroked,
   IconSettingStroked,
   IconMonitorStroked,
 } from "@douyinfe/semi-icons";
@@ -45,7 +44,6 @@ import {
   StorageList,
   StorageOverview,
   MetadataExplore,
-  MultipleIDCList,
   RequestView,
   BrokerList,
   BrokerConfig,
