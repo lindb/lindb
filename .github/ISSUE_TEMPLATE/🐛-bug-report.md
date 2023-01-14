@@ -1,7 +1,7 @@
 ---
 name: "\U0001F41B Bug report"
 about: I want to report a Bug.
-title: ''
+title: '[bug]'
 labels: bug
 assignees: ''
 
@@ -17,6 +17,7 @@ Steps to reproduce the behavior:
 A clear and concise description of what you expected to happen.
 
 **What's your LinDB version?** (Required)
+Insert output of `lind version` here.
 
 **Screenshots**
 If applicable, add screenshots to help explain your problem.

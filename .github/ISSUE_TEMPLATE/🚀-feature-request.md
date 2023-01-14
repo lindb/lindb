@@ -1,7 +1,7 @@
 ---
 name: "\U0001F680 Feature request"
-about: " I want to request a New Feature on the product."
-title: ''
+about: I want to request a New Feature on the product.
+title: '[feature]'
 labels: feature
 assignees: ''
 
