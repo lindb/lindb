@@ -123,6 +123,12 @@ func TestShowMemoryDatabase(t *testing.T) {
 	assert.Equal(t, &stmt.State{Type: stmt.MemoryDatabase, StorageName: "s", Database: "d"}, query)
 }
 
+func TestShowRootMetric(t *testing.T) {
+	query, err := Parse("show root metric where metric in (a,b)")
+	assert.NoError(t, err)
+	assert.Equal(t, &stmt.State{Type: stmt.RootMetric, MetricNames: []string{"a", "b"}}, query)
+}
+
 func TestShowBrokerMetric(t *testing.T) {
 	query, err := Parse("show broker metric where metric in (a,b)")
 	assert.NoError(t, err)

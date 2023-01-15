@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/lindb/lindb/app"
 	"github.com/lindb/lindb/app/root/api"
 	depspkg "github.com/lindb/lindb/app/root/deps"
 	"github.com/lindb/lindb/config"
@@ -68,11 +69,11 @@ type deps struct {
 
 // runtime represents root runtime dependency.
 type runtime struct {
-	version         string
-	config          *config.Root
-	state           server.State
-	node            *models.StatelessNode
-	globalKeyValues tag.Tags
+	app.BaseRuntime
+	version string
+	config  *config.Root
+	state   server.State
+	node    *models.StatelessNode
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -82,6 +83,8 @@ type runtime struct {
 	registry   discovery.Registry
 	repo       state.Repository
 	httpServer httppkg.Server
+
+	globalKeyValues tag.Tags
 
 	logger *logger.Logger
 }
@@ -127,6 +130,7 @@ func (r *runtime) Run() error {
 		{Key: []byte("node"), Value: []byte(r.node.Indicator())},
 		{Key: []byte("role"), Value: []byte(constants.RootRole)},
 	}
+	r.BaseRuntime = app.NewBaseRuntimeFn(r.ctx, r.config.Monitor, linmetric.RootRegistry, r.globalKeyValues)
 	r.logger.Info("starting root", logger.String("host", hostName), logger.String("ip", ip),
 		logger.Uint16("http", r.node.HTTPPort))
 
@@ -175,6 +179,10 @@ func (r *runtime) Run() error {
 	r.deps.stateMachineFct = stateMachineFct
 	// start http server
 	r.startHTTPServer()
+	// start system collector
+	r.SystemCollector()
+	// start stat monitoring
+	r.NativePusher()
 
 	r.state = server.Running
 	return nil
@@ -189,6 +197,8 @@ func (r *runtime) State() server.State {
 func (r *runtime) Stop() {
 	r.logger.Info("stopping root server...")
 	defer r.cancel()
+
+	r.Shutdown()
 
 	// close registry, deregister root node from active list
 	if r.registry != nil {
@@ -215,7 +225,6 @@ func (r *runtime) Stop() {
 			r.logger.Info("stopped http server successfully")
 		}
 	}
-
 	r.state = server.Terminated
 }
 
@@ -243,6 +252,7 @@ func (r *runtime) startHTTPServer() {
 			r.config.Query.Timeout.Duration(),
 			metrics.NewLimitStatistics("query", linmetric.RootRegistry),
 		),
+		GlobalKeyValues: r.globalKeyValues,
 	})
 	httpAPI.RegisterRouter(r.httpServer.GetAPIRouter())
 	go func() {

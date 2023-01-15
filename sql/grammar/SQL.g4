@@ -23,6 +23,7 @@ showStmt                : showMasterStmt
                         | showStoragesStmt
                         | showBrokersStmt
                         | showAliveStmt
+                        | showRootMetricStmt
                         | showBrokerMetricStmt
                         | showStorageMetricStmt
                         | showReplicationStmt
@@ -50,6 +51,7 @@ showStorageMetaStmt  : T_SHOW T_STORAGE T_METADATA T_FROM source T_WHERE (storag
 showAliveStmt        : T_SHOW (T_ROOT | T_BROKER | T_STORAGE) T_ALIVE;
 showReplicationStmt  : T_SHOW T_REPLICATION T_WHERE (storageFilter|databaseFilter) T_AND (storageFilter|databaseFilter);
 showMemoryDatabaseStmt  : T_SHOW T_MEMORY T_DATASBAE T_WHERE (storageFilter|databaseFilter) T_AND (storageFilter|databaseFilter);
+showRootMetricStmt   : T_SHOW T_ROOT T_METRIC T_WHERE metricListFilter ;
 showBrokerMetricStmt : T_SHOW T_BROKER T_METRIC T_WHERE metricListFilter ;
 showStorageMetricStmt: T_SHOW T_STORAGE T_METRIC T_WHERE (storageFilter|metricListFilter) T_AND (storageFilter|metricListFilter) ;
 createStorageStmt    : T_CREATE T_STORAGE json;

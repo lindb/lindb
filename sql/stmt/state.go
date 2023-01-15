@@ -31,6 +31,8 @@ const (
 	StorageAlive
 	// Replication represents show replication statement.
 	Replication
+	// RootMetric represents show current root's metric statement
+	RootMetric
 	// BrokerMetric represents show current broker's metric statement
 	BrokerMetric
 	// StorageMetric represents show current storage's metric statement

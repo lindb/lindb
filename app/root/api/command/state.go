@@ -21,8 +21,13 @@ import (
 	"context"
 
 	depspkg "github.com/lindb/lindb/app/root/deps"
+	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
+)
+
+var (
+	metricCli = client.NewMetricCli()
 )
 
 // StateCommand executes the state query.
@@ -32,6 +37,13 @@ func StateCommand(_ context.Context, deps *depspkg.HTTPDeps,
 	switch stateStmt.Type {
 	case stmtpkg.RootAlive:
 		return deps.StateMgr.GetLiveNodes(), nil
+	case stmtpkg.RootMetric:
+		liveNodes := deps.StateMgr.GetLiveNodes()
+		var nodes []models.Node
+		for idx := range liveNodes {
+			nodes = append(nodes, &liveNodes[idx])
+		}
+		return metricCli.FetchMetricData(nodes, stateStmt.MetricNames)
 	default:
 		return nil, nil
 	}

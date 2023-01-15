@@ -19,15 +19,19 @@ package command
 
 import (
 	"context"
-	"net/url"
 	"strings"
 	"sync"
 
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
+)
+
+var (
+	metricCli = client.NewMetricCli()
 )
 
 // StateCommand executes the state query.
@@ -57,7 +61,7 @@ func StateCommand(_ context.Context, deps *depspkg.HTTPDeps,
 		for idx := range liveNodes {
 			nodes = append(nodes, &liveNodes[idx])
 		}
-		return fetchMetricData(nodes, stateStmt.MetricNames)
+		return metricCli.FetchMetricData(nodes, stateStmt.MetricNames)
 	case stmtpkg.StorageMetric:
 		storageName := strings.TrimSpace(stateStmt.StorageName)
 		if storageName == "" {
@@ -70,7 +74,7 @@ func StateCommand(_ context.Context, deps *depspkg.HTTPDeps,
 				n := liveNodes[id]
 				nodes = append(nodes, &n)
 			}
-			return fetchMetricData(nodes, stateStmt.MetricNames)
+			return metricCli.FetchMetricData(nodes, stateStmt.MetricNames)
 		}
 		return nil, nil
 	default:
@@ -123,56 +127,6 @@ func fetchStateData(nodes []models.Node, stmt *stmtpkg.State, path string, newSt
 	rs := make(map[string]interface{})
 	for idx := range nodes {
 		rs[nodes[idx].Indicator()] = result[idx]
-	}
-	return rs, nil
-}
-
-// fetchMetricData fetches the state metric from each live nodes.
-func fetchMetricData(nodes []models.Node, names []string) (interface{}, error) {
-	size := len(nodes)
-	if size == 0 {
-		return nil, nil
-	}
-	result := make([]map[string][]*models.StateMetric, size)
-	params := make(url.Values)
-	for _, name := range names {
-		params.Add("names", name)
-	}
-
-	var wait sync.WaitGroup
-	wait.Add(size)
-	for idx := range nodes {
-		i := idx
-		go func() {
-			defer wait.Done()
-			node := nodes[i]
-			address := node.HTTPAddress()
-			metric := make(map[string][]*models.StateMetric)
-			_, err := NewRestyFn().R().SetQueryParamsFromValues(params).
-				SetHeader("Accept", "application/json").
-				SetResult(&metric).
-				Get(address + constants.APIVersion1CliPath + "/state/explore/current")
-			if err != nil {
-				log.Error("get current metric state from alive node", logger.String("url", address), logger.Error(err))
-				return
-			}
-			result[i] = metric
-		}()
-	}
-	wait.Wait()
-	rs := make(map[string][]*models.StateMetric)
-	for _, metricList := range result {
-		if metricList == nil {
-			continue
-		}
-		for name, list := range metricList {
-			if l, ok := rs[name]; ok {
-				l = append(l, list...)
-				rs[name] = l
-			} else {
-				rs[name] = list
-			}
-		}
 	}
 	return rs, nil
 }

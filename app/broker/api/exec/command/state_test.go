@@ -173,16 +173,6 @@ func TestState(t *testing.T) {
 			},
 		},
 		{
-			name:      "show broker metric, fetch metric failure",
-			statement: &stmt.State{Type: stmt.BrokerMetric, MetricNames: []string{"a", "b"}},
-			prepare: func() {
-				stateMgr.EXPECT().GetLiveNodes().Return([]models.StatelessNode{{
-					HostIP:   "127.0.0.1",
-					HTTPPort: 8080,
-				}})
-			},
-		},
-		{
 			name:      "show broker metric successfully",
 			statement: &stmt.State{Type: stmt.BrokerMetric, MetricNames: []string{"a", "b"}},
 			prepare: func() {

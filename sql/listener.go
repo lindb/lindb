@@ -108,6 +108,11 @@ func (l *listener) EnterShowBrokerMetricStmt(_ *grammar.ShowBrokerMetricStmtCont
 	l.stateStmt = newStateStmtParse(stmt.BrokerMetric)
 }
 
+// EnterShowRootMetricStmt is called when production showRootMetricStmt is entered.
+func (l *listener) EnterShowRootMetricStmt(_ *grammar.ShowRootMetricStmtContext) {
+	l.stateStmt = newStateStmtParse(stmt.RootMetric)
+}
+
 // EnterShowStorageMetricStmt is called when production showStorageMetricStmt is entered.
 func (l *listener) EnterShowStorageMetricStmt(_ *grammar.ShowStorageMetricStmtContext) {
 	l.stateStmt = newStateStmtParse(stmt.StorageMetric)

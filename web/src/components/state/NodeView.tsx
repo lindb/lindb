@@ -134,7 +134,9 @@ export default function NodeView(props: NodeViewProps) {
                   stateMetric,
                   CPU,
                   "idle",
-                  `${record.hostIp}:${record.grpcPort}`
+                  `${record.hostIp}:${
+                    record.grpcPort ? record.grpcPort : record.httpPort
+                  }`
                 ) *
                   100,
               Unit.Percent
@@ -147,7 +149,9 @@ export default function NodeView(props: NodeViewProps) {
       title: NodeView.memory,
       key: "memory",
       render: (_text: any, record: any, _index: any) => {
-        const node = `${record.hostIp}:${record.grpcPort}`;
+        const node = `${record.hostIp}:${
+          record.grpcPort ? record.grpcPort : record.httpPort
+        }`;
         const total = StateKit.getMetricField(
           stateMetric,
           Memory,
