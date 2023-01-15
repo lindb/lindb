@@ -19,9 +19,14 @@ package command
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strconv"
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 
 	depspkg "github.com/lindb/lindb/app/root/deps"
 	"github.com/lindb/lindb/coordinator/root"
@@ -55,6 +60,34 @@ func TestState(t *testing.T) {
 				stateMgr.EXPECT().GetLiveNodes().Return([]models.StatelessNode{{
 					HostIP:   "1.1.1.1",
 					HTTPPort: 8080,
+				}})
+			},
+		},
+		{
+			name:      "show root metric, no alive node",
+			statement: &stmt.State{Type: stmt.RootMetric, MetricNames: []string{"a", "b"}},
+			prepare: func() {
+				stateMgr.EXPECT().GetLiveNodes().Return(nil)
+			},
+		},
+		{
+			name:      "show root metric successfully",
+			statement: &stmt.State{Type: stmt.RootMetric, MetricNames: []string{"a", "b"}},
+			prepare: func() {
+				svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					w.Header().Add("content-type", "application/json")
+					_, _ = w.Write([]byte(`{"cpu":[{"fields":[{"value":1}]},{"fields":[{"value":1}]}]}`))
+				}))
+				u, err := url.Parse(svr.URL)
+				assert.NoError(t, err)
+				p, err := strconv.Atoi(u.Port())
+				assert.NoError(t, err)
+				stateMgr.EXPECT().GetLiveNodes().Return([]models.StatelessNode{{
+					HostIP:   u.Hostname(),
+					HTTPPort: uint16(p),
+				}, {
+					HostIP:   u.Hostname(),
+					HTTPPort: uint16(p),
 				}})
 			},
 		},

@@ -27,6 +27,7 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/lindb/app"
 	"github.com/lindb/lindb/app/broker/api"
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/config"
@@ -36,7 +37,6 @@ import (
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
-	"github.com/lindb/lindb/internal/monitoring"
 	"github.com/lindb/lindb/internal/server"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
@@ -64,7 +64,6 @@ var (
 	newStateManager        = broker.NewStateManager
 	newChannelManager      = replica.NewChannelManager
 	newMasterController    = coordinator.NewMasterController
-	newNativeProtoPusher   = monitoring.NewNativeProtoPusher
 	newHTTPServer          = httppkg.NewServer
 	serveGRPCFn            = serveGRPC
 )
@@ -89,6 +88,7 @@ type rpcHandler struct {
 
 // runtime represents broker runtime dependency
 type runtime struct {
+	app.BaseRuntime
 	version string
 	state   server.State
 	config  *config.Broker
@@ -108,10 +108,8 @@ type runtime struct {
 	rpcHandler *rpcHandler
 	queryPool  concurrent.Pool
 
-	ctx    context.Context
-	cancel context.CancelFunc
-
-	pusher              monitoring.NativePusher
+	ctx                 context.Context
+	cancel              context.CancelFunc
 	globalKeyValues     tag.Tags
 	enableSystemMonitor bool
 
@@ -180,6 +178,7 @@ func (r *runtime) Run() error {
 		{Key: []byte("node"), Value: []byte(r.node.Indicator())},
 		{Key: []byte("role"), Value: []byte(constants.BrokerRole)},
 	}
+	r.BaseRuntime = app.NewBaseRuntimeFn(r.ctx, r.config.Monitor, linmetric.BrokerRegistry, r.globalKeyValues)
 
 	tackClientFct := newTaskClientFactory(r.ctx, r.node, rpc.GetBrokerClientConnFactory())
 	r.factory = factory{
@@ -259,10 +258,10 @@ func (r *runtime) Run() error {
 
 	if r.enableSystemMonitor {
 		// start system collector
-		r.systemCollector()
+		r.SystemCollector()
 	}
 	// start stat monitoring
-	r.nativePusher()
+	r.NativePusher()
 
 	r.state = server.Running
 	return nil
@@ -278,10 +277,7 @@ func (r *runtime) Stop() {
 	r.logger.Info("stopping broker server...")
 	defer r.cancel()
 
-	if r.pusher != nil {
-		r.pusher.Stop()
-		r.logger.Info("stopped native metric pusher successfully")
-	}
+	r.Shutdown()
 
 	if r.httpServer != nil {
 		r.logger.Info("stopping http server...")
@@ -445,33 +441,4 @@ func serveGRPC(grpc rpc.GRPCServer) {
 	if err := grpc.Start(); err != nil {
 		panic(err)
 	}
-}
-
-func (r *runtime) nativePusher() {
-	monitorEnabled := r.config.Monitor.ReportInterval > 0
-	if !monitorEnabled {
-		r.logger.Info("pusher won't start because report-interval is 0")
-		return
-	}
-	r.logger.Info("pusher is running",
-		logger.String("interval", r.config.Monitor.ReportInterval.String()))
-
-	r.pusher = newNativeProtoPusher(
-		r.ctx,
-		r.config.Monitor.URL,
-		r.config.Monitor.ReportInterval.Duration(),
-		r.config.Monitor.PushTimeout.Duration(),
-		linmetric.BrokerRegistry,
-		r.globalKeyValues,
-	)
-	go r.pusher.Start()
-}
-
-func (r *runtime) systemCollector() {
-	r.logger.Info("system collector is running")
-
-	go monitoring.NewSystemCollector(
-		r.ctx,
-		"/",
-		metrics.NewSystemStatistics(linmetric.BrokerRegistry)).Run()
 }

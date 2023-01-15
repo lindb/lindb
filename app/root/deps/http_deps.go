@@ -27,6 +27,7 @@ import (
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/rpc"
+	"github.com/lindb/lindb/series/tag"
 )
 
 // HTTPDeps represents http server handler's dependency.
@@ -40,6 +41,8 @@ type HTTPDeps struct {
 	StateMgr     root.StateManager
 	TransportMgr rpc.TransportManager
 	TaskMgr      query.TaskManager
+
+	GlobalKeyValues tag.Tags
 }
 
 func (deps *HTTPDeps) WithTimeout() (context.Context, context.CancelFunc) {

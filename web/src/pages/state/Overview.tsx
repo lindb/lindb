@@ -26,6 +26,7 @@ import React, { useContext } from "react";
 
 // must define outside function component, if define in component maybe endless loop.
 const brokerMetric = `show broker metric where metric in ('${StateMetricName.CPU}','${StateMetricName.Memory}')`;
+const rootMetric = `show root metric where metric in ('${StateMetricName.CPU}','${StateMetricName.Memory}')`;
 
 const Root: React.FC = () => {
   const {
@@ -43,7 +44,7 @@ const Root: React.FC = () => {
       <NodeView
         title={Overview.rootLiveNodes}
         nodes={liveNodes || []}
-        sql={brokerMetric}
+        sql={rootMetric}
         style={{ marginTop: 12, marginBottom: 12 }}
         statusTip={
           <StatusTip

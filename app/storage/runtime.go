@@ -27,6 +27,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/lindb/lindb/app"
 	stateapi "github.com/lindb/lindb/app/storage/api/state"
 	rpchandler "github.com/lindb/lindb/app/storage/rpc"
 	"github.com/lindb/lindb/config"
@@ -88,6 +89,7 @@ var (
 
 // runtime represents storage runtime dependency
 type runtime struct {
+	app.BaseRuntime
 	myID    int // default myid value
 	state   server.State
 	version string
@@ -115,7 +117,6 @@ type runtime struct {
 	rpcHandler      *rpcHandler
 	httpServer      httppkg.Server
 	queryPool       concurrent.Pool
-	pusher          monitoring.NativePusher
 	globalKeyValues tag.Tags
 
 	log *logger.Logger
@@ -202,6 +203,7 @@ func (r *runtime) Run() error {
 		{Key: []byte("role"), Value: []byte(constants.StorageRole)},
 		{Key: []byte("namespace"), Value: []byte(r.config.Coordinator.Namespace)},
 	}
+	r.BaseRuntime = app.NewBaseRuntimeFn(r.ctx, r.config.Monitor, linmetric.StorageRegistry, r.globalKeyValues)
 
 	r.factory = factory{taskServer: rpc.NewTaskServerFactory()}
 	r.stateMgr = storage.NewStateManager(r.ctx, r.node, engine)
@@ -247,9 +249,9 @@ func (r *runtime) Run() error {
 	}
 
 	// start system collector
-	r.systemCollector()
+	r.SystemCollector()
 	// start stat monitoring
-	r.nativePusher()
+	r.NativePusher()
 
 	r.state = server.Running
 
@@ -341,10 +343,7 @@ func (r *runtime) Stop() {
 	r.log.Info("stopping storage server...")
 	defer r.cancel()
 
-	if r.pusher != nil {
-		r.pusher.Stop()
-		r.log.Info("stopped native linmetric pusher successfully")
-	}
+	r.Shutdown()
 
 	if r.jobScheduler != nil {
 		r.jobScheduler.Shutdown()
@@ -462,35 +461,6 @@ func (r *runtime) bindRPCHandlers() {
 	protoReplicaV1.RegisterReplicaServiceServer(r.server.GetServer(), r.rpcHandler.replica)
 	protoWriteV1.RegisterWriteServiceServer(r.server.GetServer(), r.rpcHandler.write)
 	protoCommonV1.RegisterTaskServiceServer(r.server.GetServer(), r.rpcHandler.task)
-}
-
-func (r *runtime) nativePusher() {
-	monitorEnabled := r.config.Monitor.ReportInterval > 0
-	if !monitorEnabled {
-		r.log.Info("pusher won't start because report-interval is 0")
-		return
-	}
-	r.log.Info("pusher is running",
-		logger.String("interval", r.config.Monitor.ReportInterval.String()))
-
-	r.pusher = monitoring.NewNativeProtoPusher(
-		r.ctx,
-		r.config.Monitor.URL,
-		r.config.Monitor.ReportInterval.Duration(),
-		r.config.Monitor.PushTimeout.Duration(),
-		linmetric.StorageRegistry,
-		r.globalKeyValues,
-	)
-	go r.pusher.Start()
-}
-
-func (r *runtime) systemCollector() {
-	r.log.Info("system collector is running")
-
-	go monitoring.NewSystemCollector(
-		r.ctx,
-		"/",
-		metrics.NewSystemStatistics(linmetric.StorageRegistry)).Run()
 }
 
 // initMyID initializes myid for storage server.
