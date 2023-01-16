@@ -150,7 +150,7 @@ func (api *BrokerStateMachineAPI) writeDatabaseState(c *gin.Context, dbs []model
 	http.OK(c, dbs)
 }
 
-// writeDatabaseState writes response with storage.
+// writeStorageState writes response with storage.
 func (api *BrokerStateMachineAPI) writeStorageState(c *gin.Context, storages []*models.StorageState) {
 	sort.Slice(storages, func(i, j int) bool {
 		return storages[i].Name < storages[j].Name

@@ -61,6 +61,11 @@ func (l *listener) EnterRequestID(ctx *grammar.RequestIDContext) {
 	l.requestStmt.visitRequestID(ctx)
 }
 
+// EnterShowRootMetaStmt is called when production showRootMetaStmt is entered.
+func (l *listener) EnterShowRootMetaStmt(_ *grammar.ShowRootMetaStmtContext) {
+	l.metadataStmt = newMetadataStmtParser(stmt.RootMetadata)
+}
+
 // EnterShowBrokerMetaStmt is called when production showBrokerMetaStmt is entered.
 func (l *listener) EnterShowBrokerMetaStmt(_ *grammar.ShowBrokerMetaStmtContext) {
 	l.metadataStmt = newMetadataStmtParser(stmt.BrokerMetadata)

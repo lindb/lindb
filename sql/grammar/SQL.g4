@@ -17,6 +17,7 @@ useStmt                 : T_USE ident ;
 
 showStmt                : showMasterStmt
                         | showMetadataTypesStmt
+                        | showRootMetaStmt
                         | showBrokerMetaStmt
                         | showMasterMetaStmt
                         | showStorageMetaStmt
@@ -45,6 +46,7 @@ showRequestStmt      : T_SHOW T_REQUEST T_WHERE T_ID T_EQUAL requestID;
 showStoragesStmt     : T_SHOW T_STORAGES ;
 showBrokersStmt      : T_SHOW T_BROKERS ;
 showMetadataTypesStmt: T_SHOW T_METADATA T_TYPES;
+showRootMetaStmt     : T_SHOW T_ROOT T_METADATA T_FROM source T_WHERE typeFilter;
 showBrokerMetaStmt   : T_SHOW T_BROKER T_METADATA T_FROM source T_WHERE typeFilter;
 showMasterMetaStmt   : T_SHOW T_MASTER T_METADATA T_FROM source T_WHERE typeFilter;
 showStorageMetaStmt  : T_SHOW T_STORAGE T_METADATA T_FROM source T_WHERE (storageFilter|typeFilter) T_AND (storageFilter|typeFilter);

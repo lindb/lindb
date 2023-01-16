@@ -25,6 +25,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-resty/resty/v2"
+
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
@@ -166,7 +168,7 @@ func recoverStorage(ctx context.Context, deps *depspkg.HTTPDeps, stmt *stmtpkg.S
 
 			address := node.HTTPAddress()
 			databases := make(map[string]models.DatabaseConfig)
-			_, err := NewRestyFn().R().
+			_, err := resty.New().R().
 				SetHeader("Accept", "application/json").
 				SetResult(&databases).
 				Get(address + constants.APIVersion1CliPath + "/state/metadata/local/database/config")

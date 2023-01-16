@@ -23,25 +23,22 @@ import (
 	"strconv"
 	"strings"
 
-	resty "github.com/go-resty/resty/v2"
+	"github.com/go-resty/resty/v2"
 
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/broker"
+	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/master"
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/state"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
 // for testing
 var (
 	// NewRestyFn represents new resty client.
-	NewRestyFn           = resty.New
 	NewStateMachineCliFn = client.NewStateMachineCli
 )
 
@@ -94,13 +91,13 @@ func exploreStateRepoData(ctx context.Context, deps *depspkg.HTTPDeps,
 			if storageCluster == nil {
 				return nil, nil
 			}
-			return exploreData(ctx, storageCluster.GetRepo(), stateMachineInfo)
+			return discovery.ExploreData(ctx, storageCluster.GetRepo(), stateMachineInfo)
 		}
 		// if current node is not master, reverse proxy to master
 		masterNode := deps.Master.GetMaster()
 		address := masterNode.Node.HTTPAddress()
 		var meta []interface{}
-		_, err := NewRestyFn().R().SetQueryParams(map[string]string{
+		_, err := resty.New().R().SetQueryParams(map[string]string{
 			"sql": fmt.Sprintf("show storage metedata where path='%s' and storage='%s'",
 				metadataStmt.Type, metadataStmt.StorageName)}).
 			SetHeader("Accept", "application/json").
@@ -114,27 +111,7 @@ func exploreStateRepoData(ctx context.Context, deps *depspkg.HTTPDeps,
 	if !ok {
 		return nil, nil
 	}
-	return exploreData(ctx, deps.Repo, stateMachineInfo)
-}
-
-// exploreData explores state repository data by given path.
-func exploreData(ctx context.Context, repo state.Repository, stateMachineInfo models.StateMachineInfo) (interface{}, error) {
-	var rs []interface{}
-	err := repo.WalkEntry(ctx, stateMachineInfo.Path, func(key, value []byte) {
-		r := stateMachineInfo.CreateState()
-		err0 := encoding.JSONUnmarshal(value, r)
-		if err0 != nil {
-			log.Warn("unmarshal metadata info err, ignore it",
-				logger.String("key", string(key)),
-				logger.String("data", string(value)))
-			return
-		}
-		rs = append(rs, r)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return rs, nil
+	return discovery.ExploreData(ctx, deps.Repo, stateMachineInfo)
 }
 
 // exploreStateMachineDate explores the state from state machine of broker/master/storage.

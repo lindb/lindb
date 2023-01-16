@@ -51,6 +51,9 @@ type SQLListener interface {
 	// EnterShowMetadataTypesStmt is called when entering the showMetadataTypesStmt production.
 	EnterShowMetadataTypesStmt(c *ShowMetadataTypesStmtContext)
 
+	// EnterShowRootMetaStmt is called when entering the showRootMetaStmt production.
+	EnterShowRootMetaStmt(c *ShowRootMetaStmtContext)
+
 	// EnterShowBrokerMetaStmt is called when entering the showBrokerMetaStmt production.
 	EnterShowBrokerMetaStmt(c *ShowBrokerMetaStmtContext)
 
@@ -326,6 +329,9 @@ type SQLListener interface {
 
 	// ExitShowMetadataTypesStmt is called when exiting the showMetadataTypesStmt production.
 	ExitShowMetadataTypesStmt(c *ShowMetadataTypesStmtContext)
+
+	// ExitShowRootMetaStmt is called when exiting the showRootMetaStmt production.
+	ExitShowRootMetaStmt(c *ShowRootMetaStmtContext)
 
 	// ExitShowBrokerMetaStmt is called when exiting the showBrokerMetaStmt production.
 	ExitShowBrokerMetaStmt(c *ShowBrokerMetaStmtContext)

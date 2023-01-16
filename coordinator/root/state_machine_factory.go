@@ -22,8 +22,27 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 )
+
+// StateMachinePaths represents the paths which root state machine need watch.
+var StateMachinePaths = make(map[string]models.StateMachineInfo)
+
+func init() {
+	StateMachinePaths[constants.LiveNode] = models.StateMachineInfo{
+		Path: constants.LiveNodesPath,
+		CreateState: func() interface{} {
+			return &models.StatelessNode{}
+		},
+	}
+	StateMachinePaths[constants.DatabaseConfig] = models.StateMachineInfo{
+		Path: constants.DatabaseConfigPath,
+		CreateState: func() interface{} {
+			return &models.LogicDatabase{}
+		},
+	}
+}
 
 const brokerNameKey = "brokerName"
 

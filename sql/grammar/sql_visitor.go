@@ -51,6 +51,9 @@ type SQLVisitor interface {
 	// Visit a parse tree produced by SQLParser#showMetadataTypesStmt.
 	VisitShowMetadataTypesStmt(ctx *ShowMetadataTypesStmtContext) interface{}
 
+	// Visit a parse tree produced by SQLParser#showRootMetaStmt.
+	VisitShowRootMetaStmt(ctx *ShowRootMetaStmtContext) interface{}
+
 	// Visit a parse tree produced by SQLParser#showBrokerMetaStmt.
 	VisitShowBrokerMetaStmt(ctx *ShowBrokerMetaStmtContext) interface{}
 

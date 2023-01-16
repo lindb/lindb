@@ -22,6 +22,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/go-resty/resty/v2"
+
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/client"
@@ -112,7 +114,7 @@ func fetchStateData(nodes []models.Node, stmt *stmtpkg.State, path string, newSt
 			node := nodes[i]
 			address := node.HTTPAddress()
 			state := newStateFn()
-			_, err := NewRestyFn().R().SetQueryParams(map[string]string{"db": stmt.Database}).
+			_, err := resty.New().R().SetQueryParams(map[string]string{"db": stmt.Database}).
 				SetHeader("Accept", "application/json").
 				SetResult(&state).
 				Get(address + constants.APIVersion1CliPath + path)
