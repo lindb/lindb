@@ -60,6 +60,10 @@ func (v *BaseSQLVisitor) VisitShowMetadataTypesStmt(ctx *ShowMetadataTypesStmtCo
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseSQLVisitor) VisitShowRootMetaStmt(ctx *ShowRootMetaStmtContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseSQLVisitor) VisitShowBrokerMetaStmt(ctx *ShowBrokerMetaStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }

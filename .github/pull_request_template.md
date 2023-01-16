@@ -1,6 +1,6 @@
 ### What problem does this PR solve?
 
-Issue Number: close #xxx
+Issue Number: #xxx
 
 Problem Summary:
 

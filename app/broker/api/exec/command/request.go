@@ -22,6 +22,8 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/go-resty/resty/v2"
+
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
@@ -50,7 +52,7 @@ func RequestCommand(_ context.Context, deps *depspkg.HTTPDeps, _ *models.Execute
 			node := nodes[i]
 			address := node.HTTPAddress()
 			var stats []*models.Request
-			_, err := NewRestyFn().R().
+			_, err := resty.New().R().
 				SetHeader("Accept", "application/json").
 				SetResult(&stats).
 				Get(address + constants.APIVersion1CliPath + "/state/requests")

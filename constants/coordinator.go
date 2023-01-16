@@ -36,6 +36,7 @@ const (
 const (
 	LiveNode        = "LiveNode"
 	DatabaseConfig  = "DatabaseConfig"
+	BrokerState     = "BrokerState"
 	StorageState    = "StorageState"
 	ShardAssignment = "ShardAssignment"
 	Master          = "Master"

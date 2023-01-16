@@ -54,6 +54,8 @@ type StateManager interface {
 	GetBrokerState(name string) (models.BrokerState, bool)
 	// GetDatabase returns the logic database config by name.
 	GetDatabase(name string) (models.LogicDatabase, bool)
+	// GetDatabases returns all logic databases' config.
+	GetDatabases() []models.LogicDatabase
 	// GetLiveNodes returns all live broker nodes.
 	GetLiveNodes() []models.StatelessNode
 }
@@ -411,6 +413,22 @@ func (s *stateManager) GetDatabase(name string) (models.LogicDatabase, bool) {
 		return models.LogicDatabase{}, false
 	}
 	return *database, true
+}
+
+// GetDatabases returns all logic databases' config.
+func (s *stateManager) GetDatabases() (rs []models.LogicDatabase) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	for _, db := range s.databases {
+		rs = append(rs, *db)
+	}
+
+	// return nodes in order(by ip)
+	sort.Slice(rs, func(i, j int) bool {
+		return rs[i].Name < rs[j].Name
+	})
+	return
 }
 
 // SetStateMachineFactory sets state machine factory.

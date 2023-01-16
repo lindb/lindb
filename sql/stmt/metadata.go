@@ -39,6 +39,8 @@ const (
 	MasterMetadata
 	// StorageMetadata represent storage metadata.
 	StorageMetadata
+	// RootMetadata represent root metadata.
+	RootMetadata
 )
 
 // Metadata represent show metadata lin query language.

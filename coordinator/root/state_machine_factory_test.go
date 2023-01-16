@@ -25,6 +25,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/pkg/logger"
 )
@@ -207,4 +208,9 @@ func TestStateMachineFactory_LiveNodes(t *testing.T) {
 		Key:  "/test",
 	})
 	sm.OnDelete("/test")
+}
+
+func TestStateMachineFactory_CreateState(t *testing.T) {
+	assert.NotNil(t, StateMachinePaths[constants.LiveNode].CreateState())
+	assert.NotNil(t, StateMachinePaths[constants.DatabaseConfig].CreateState())
 }

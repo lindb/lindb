@@ -357,3 +357,16 @@ func TestStateManager_GetLiveNodes(t *testing.T) {
 	nodes = s.GetLiveNodes()
 	assert.Equal(t, []models.StatelessNode{{HostIP: "1.1.1.1"}, {HostIP: "1.1.2.1"}}, nodes)
 }
+
+func TestStateManager_GetDatabases(t *testing.T) {
+	s := &stateManager{
+		databases: make(map[string]*models.LogicDatabase),
+	}
+	dbs := s.GetDatabases()
+	assert.Empty(t, dbs)
+
+	s.databases["test1"] = &models.LogicDatabase{Name: "test1"}
+	s.databases["test2"] = &models.LogicDatabase{Name: "test2"}
+	dbs = s.GetDatabases()
+	assert.Equal(t, []models.LogicDatabase{{Name: "test1"}, {Name: "test2"}}, dbs)
+}

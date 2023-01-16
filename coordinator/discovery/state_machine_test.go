@@ -24,6 +24,10 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/state"
 )
 
 func TestStateMachineType_String(t *testing.T) {
@@ -72,7 +76,7 @@ func TestStateMachine_OnCreate(t *testing.T) {
 	sm.OnCreate("/test", nil)
 	// case 2: test normal case
 	flag := false
-	sm1.onCreateFn = func(key string, resource []byte) {
+	sm1.onCreateFn = func(key string, _ []byte) {
 		flag = true
 		assert.Equal(t, "/test", key)
 	}
@@ -80,7 +84,7 @@ func TestStateMachine_OnCreate(t *testing.T) {
 	assert.True(t, flag)
 	// case 3: state machine is not running
 	sm1.running.Store(false)
-	sm1.onCreateFn = func(key string, resource []byte) {
+	sm1.onCreateFn = func(_ string, _ []byte) {
 		flag = false
 	}
 	sm.OnCreate("/test", nil)
@@ -105,7 +109,7 @@ func TestStateMachine_OnDelete(t *testing.T) {
 	assert.True(t, flag)
 	// case 3: state machine is not running
 	sm1.running.Store(false)
-	sm1.onDeleteFn = func(key string) {
+	sm1.onDeleteFn = func(_ string) {
 		flag = false
 	}
 	sm.OnDelete("/test")
@@ -127,6 +131,45 @@ func TestStateMachine_Close(t *testing.T) {
 	// state machine is not running, do nothing
 	err = sm.Close()
 	assert.NoError(t, err)
+}
+
+func TestStateMachine_ExploreData(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	repo := state.NewMockRepository(ctrl)
+	repo.EXPECT().WalkEntry(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, _ string, fn func(key, value []byte)) error {
+			fn([]byte("key"), encoding.JSONMarshal(&models.Master{ElectTime: 11}))
+			return nil
+		})
+	rs, err := ExploreData(context.TODO(), repo, models.StateMachineInfo{
+		Path: "/test/a",
+		CreateState: func() interface{} {
+			return &models.Master{}
+		},
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, rs)
+
+	repo.EXPECT().WalkEntry(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, _ string, fn func(key, value []byte)) error {
+			fn([]byte("key"), []byte("value"))
+			return nil
+		})
+	rs, err = ExploreData(context.TODO(), repo, models.StateMachineInfo{
+		Path: "/test/a",
+		CreateState: func() interface{} {
+			return &models.Master{}
+		},
+	})
+	assert.NoError(t, err)
+	assert.Empty(t, rs)
+
+	repo.EXPECT().WalkEntry(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	rs, err = ExploreData(context.TODO(), repo, models.StateMachineInfo{})
+	assert.Error(t, err)
+	assert.Nil(t, rs)
 }
 
 func newStataMachine(t *testing.T, ctrl *gomock.Controller) StateMachine {

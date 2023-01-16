@@ -91,6 +91,12 @@ func (s *BaseSQLListener) EnterShowMetadataTypesStmt(ctx *ShowMetadataTypesStmtC
 // ExitShowMetadataTypesStmt is called when production showMetadataTypesStmt is exited.
 func (s *BaseSQLListener) ExitShowMetadataTypesStmt(ctx *ShowMetadataTypesStmtContext) {}
 
+// EnterShowRootMetaStmt is called when production showRootMetaStmt is entered.
+func (s *BaseSQLListener) EnterShowRootMetaStmt(ctx *ShowRootMetaStmtContext) {}
+
+// ExitShowRootMetaStmt is called when production showRootMetaStmt is exited.
+func (s *BaseSQLListener) ExitShowRootMetaStmt(ctx *ShowRootMetaStmtContext) {}
+
 // EnterShowBrokerMetaStmt is called when production showBrokerMetaStmt is entered.
 func (s *BaseSQLListener) EnterShowBrokerMetaStmt(ctx *ShowBrokerMetaStmtContext) {}
 
