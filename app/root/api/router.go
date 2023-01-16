@@ -24,6 +24,7 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/monitoring"
+	httppkg "github.com/lindb/lindb/pkg/http"
 )
 
 // API represents root http api.
@@ -31,6 +32,8 @@ type API struct {
 	execute       *ExecuteAPI
 	metricExplore *monitoring.ExploreAPI
 	env           *monitoring.EnvAPI
+	config        *monitoring.ConfigAPI
+	proxy         *httppkg.ReverseProxy
 }
 
 // NewAPI creates root http api.
@@ -39,6 +42,8 @@ func NewAPI(deps *depspkg.HTTPDeps) *API {
 		execute:       NewExecuteAPI(deps),
 		metricExplore: monitoring.NewExploreAPI(deps.GlobalKeyValues, linmetric.RootRegistry),
 		env:           monitoring.NewEnvAPI(deps.Cfg.Monitor, constants.RootRole),
+		config:        monitoring.NewConfigAPI(deps.Node, deps.Cfg),
+		proxy:         httppkg.NewReverseProxy(),
 	}
 }
 
@@ -49,6 +54,8 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 	api.execute.Register(v1)
 	// monitoring
 	api.metricExplore.Register(v1)
+	api.config.Register(v1)
 
+	api.proxy.Register(v1)
 	api.env.Register(v1)
 }

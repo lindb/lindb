@@ -85,9 +85,7 @@ export default function NodeView(props: NodeViewProps) {
                 },
                 {
                   key: NodeView.grpcPort,
-                  value: (
-                    <Text link>{record.grpcPort ? record.grpcPort : "-"}</Text>
-                  ),
+                  value: <Text link>{_.get(record, "grpcPort", "-")}</Text>,
                 },
               ]}
             />

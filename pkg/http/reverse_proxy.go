@@ -15,21 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package api
+package http
 
 import (
 	"net/http"
 	"net/http/httputil"
 
 	"github.com/gin-gonic/gin"
-
-	"github.com/lindb/lindb/models"
-	httppkg "github.com/lindb/lindb/pkg/http"
 )
 
 var (
 	ProxyPath = "/proxy"
 )
+
+// ProxyParam represents proxy request params.
+type ProxyParam struct {
+	Target string `form:"target" binding:"required"`
+	Path   string `form:"path" binding:"required"`
+}
 
 // ReverseProxy represents the http reverse proxy to target's api.
 type ReverseProxy struct {
@@ -59,10 +62,10 @@ func (p *ReverseProxy) Register(route gin.IRoutes) {
 // @Failure 500 {string} string "internal error"
 // @Router /proxy [get]
 func (p *ReverseProxy) Proxy(c *gin.Context) {
-	var param models.ProxyParam
+	var param ProxyParam
 	err := c.ShouldBindQuery(&param)
 	if err != nil {
-		httppkg.Error(c, err)
+		Error(c, err)
 		return
 	}
 	director := func(req *http.Request) {

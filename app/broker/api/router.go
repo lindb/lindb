@@ -28,6 +28,7 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/monitoring"
+	httppkg "github.com/lindb/lindb/pkg/http"
 )
 
 // API represents broker http api.
@@ -44,7 +45,7 @@ type API struct {
 	config             *monitoring.ConfigAPI
 	write              *ingest.Write
 	env                *monitoring.EnvAPI
-	proxy              *ReverseProxy
+	proxy              *httppkg.ReverseProxy
 }
 
 // NewAPI creates broker http api.
@@ -61,7 +62,7 @@ func NewAPI(deps *depspkg.HTTPDeps) *API {
 		config:             monitoring.NewConfigAPI(deps.Node, deps.BrokerCfg),
 		write:              ingest.NewWrite(deps),
 		env:                monitoring.NewEnvAPI(deps.BrokerCfg.Monitor, constants.BrokerRole),
-		proxy:              NewReverseProxy(),
+		proxy:              httppkg.NewReverseProxy(),
 	}
 }
 
