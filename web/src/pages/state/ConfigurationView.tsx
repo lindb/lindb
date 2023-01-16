@@ -105,15 +105,11 @@ const ConfigurationView: React.FC = () => {
               },
               {
                 key: NodeView.httpPort,
-                value: (
-                  <Text link>{_.get(config, "node.httpPort", "unknown")}</Text>
-                ),
+                value: <Text link>{_.get(config, "node.httpPort", "-")}</Text>,
               },
               {
                 key: NodeView.grpcPort,
-                value: (
-                  <Text link>{_.get(config, "node.grpcPort", "unknown")}</Text>
-                ),
+                value: <Text link>{_.get(config, "node.grpcPort", "-")}</Text>,
               },
             ]}
           />
