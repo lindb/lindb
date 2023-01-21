@@ -63,6 +63,11 @@ const local = {
     used: "Used",
     free: "Free",
   },
+  BrokerView: {
+    brokerClusterList: "Broker Cluster List",
+    name: "Name(Namespace)",
+    nodeStatus: "Node Status",
+  },
   StorageView: {
     name: "Name(Namespace)",
     nodeStatus: "Node Status",

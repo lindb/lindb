@@ -46,6 +46,10 @@ export enum ShardStateType {
   OfflineShard = 3,
   NonExistentShard = 4,
 }
+export type BrokerState = {
+  name?: string;
+  liveNodes?: { [nodeId: string]: Node }; // node id=>node
+};
 
 export type StorageState = {
   name?: string;

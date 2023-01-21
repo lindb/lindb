@@ -44,6 +44,7 @@ export { default as ExplainStatsView } from "@src/components/data/ExplainStatsVi
 // state component
 export { default as MasterView } from "@src/components/state/MasterView";
 export { default as NodeView } from "@src/components/state/NodeView";
+export { default as BrokerView } from "@src/components/state/BrokerView";
 export { default as StorageView } from "@src/components/state/StorageView";
 export { default as DiskUsageView } from "@src/components/state/DiskUsageView";
 export { default as CapacityView } from "@src/components/state/CapacityView";

@@ -27,14 +27,12 @@ import { UIContext } from "@src/context/UIContextProvider";
 
 const { Text } = Typography;
 
-interface StorageViewProps {
+const StorageView: React.FC<{
   name?: string;
   storages: StorageState[];
   loading?: boolean;
   statusTip?: React.ReactNode;
-}
-
-export default function StorageView(props: StorageViewProps) {
+}> = (props) => {
   const { name, loading, storages, statusTip } = props;
   const { locale } = useContext(UIContext);
   const { StorageView } = locale;
@@ -167,4 +165,6 @@ export default function StorageView(props: StorageViewProps) {
       />
     </Card>
   );
-}
+};
+
+export default StorageView;
