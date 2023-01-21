@@ -358,6 +358,24 @@ func TestStateManager_GetLiveNodes(t *testing.T) {
 	assert.Equal(t, []models.StatelessNode{{HostIP: "1.1.1.1"}, {HostIP: "1.1.2.1"}}, nodes)
 }
 
+func TestStateManager_GetBrokerStates(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	s := &stateManager{
+		brokers: make(map[string]BrokerCluster),
+	}
+	nodes := s.GetBrokerStates()
+	assert.Empty(t, nodes)
+	broker := NewMockBrokerCluster(ctrl)
+	broker.EXPECT().GetState().Return(&models.BrokerState{Name: "test2"})
+	broker.EXPECT().GetState().Return(&models.BrokerState{Name: "test1"})
+	s.brokers["test1"] = broker
+	s.brokers["test2"] = broker
+	nodes = s.GetBrokerStates()
+	assert.Equal(t, []models.BrokerState{{Name: "test1"}, {Name: "test2"}}, nodes)
+}
+
 func TestStateManager_GetDatabases(t *testing.T) {
 	s := &stateManager{
 		databases: make(map[string]*models.LogicDatabase),

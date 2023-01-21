@@ -388,6 +388,10 @@ func (s *stateManager) GetBrokerStates() (rs []models.BrokerState) {
 	for _, broker := range s.brokers {
 		rs = append(rs, *broker.GetState())
 	}
+	// return nodes in order(by ip)
+	sort.Slice(rs, func(i, j int) bool {
+		return rs[i].Name < rs[j].Name
+	})
 	return
 }
 

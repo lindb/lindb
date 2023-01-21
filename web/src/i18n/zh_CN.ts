@@ -53,6 +53,11 @@ const local = {
     memory: "内存",
     nodeId: "节点 ID",
   },
+  BrokerView: {
+    name: "集群名(Namespace)",
+    nodeStatus: "节点状态",
+    brokerClusterList: "计算集群",
+  },
   StorageView: {
     name: "集群名(Namespace)",
     nodeStatus: "节点状态",

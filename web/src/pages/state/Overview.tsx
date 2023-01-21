@@ -16,7 +16,13 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import { MasterView, NodeView, StatusTip, StorageView } from "@src/components";
+import {
+  MasterView,
+  NodeView,
+  StatusTip,
+  StorageView,
+  BrokerView,
+} from "@src/components";
 import { StateMetricName, SQL, StateRoleName } from "@src/constants";
 import { UIContext } from "@src/context/UIContextProvider";
 import { useStorage } from "@src/hooks";
@@ -54,6 +60,7 @@ const Root: React.FC = () => {
           />
         }
       />
+      <BrokerView />
     </>
   );
 };

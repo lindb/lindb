@@ -54,12 +54,21 @@ func TestState(t *testing.T) {
 			statement: &stmt.State{},
 		},
 		{
-			name:      "show broker alive node",
+			name:      "show root alive node",
 			statement: &stmt.State{Type: stmt.RootAlive},
 			prepare: func() {
 				stateMgr.EXPECT().GetLiveNodes().Return([]models.StatelessNode{{
 					HostIP:   "1.1.1.1",
 					HTTPPort: 8080,
+				}})
+			},
+		},
+		{
+			name:      "show broker alive node",
+			statement: &stmt.State{Type: stmt.BrokerAlive},
+			prepare: func() {
+				stateMgr.EXPECT().GetBrokerStates().Return([]models.BrokerState{{
+					Name: "test",
 				}})
 			},
 		},

@@ -37,6 +37,8 @@ func StateCommand(_ context.Context, deps *depspkg.HTTPDeps,
 	switch stateStmt.Type {
 	case stmtpkg.RootAlive:
 		return deps.StateMgr.GetLiveNodes(), nil
+	case stmtpkg.BrokerAlive:
+		return deps.StateMgr.GetBrokerStates(), nil
 	case stmtpkg.RootMetric:
 		liveNodes := deps.StateMgr.GetLiveNodes()
 		var nodes []models.Node
