@@ -92,7 +92,7 @@ func TestRootStateMachineAPI(t *testing.T) {
 			},
 		},
 		{
-			name: "broker state",
+			name: "broker state list",
 			req:  `role=3&type=` + constants.BrokerState,
 			prepare: func() {
 				stateMgr.EXPECT().GetBrokerStates().Return([]models.BrokerState{
@@ -102,6 +102,26 @@ func TestRootStateMachineAPI(t *testing.T) {
 			},
 			assert: func(resp *httptest.ResponseRecorder) {
 				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
+			name: "broker state found",
+			req:  `role=3&brokerName=test&type=` + constants.BrokerState,
+			prepare: func() {
+				stateMgr.EXPECT().GetBrokerState(gomock.Any()).Return(models.BrokerState{}, true)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusOK, resp.Code)
+			},
+		},
+		{
+			name: "broker state not found",
+			req:  `role=3&brokerName=test&type=` + constants.BrokerState,
+			prepare: func() {
+				stateMgr.EXPECT().GetBrokerState(gomock.Any()).Return(models.BrokerState{}, false)
+			},
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusNotFound, resp.Code)
 			},
 		},
 	}

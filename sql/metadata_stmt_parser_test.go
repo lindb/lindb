@@ -45,5 +45,9 @@ func TestMetadataStatement(t *testing.T) {
 	q, err = Parse("show storage metadata from state_repo where type='/a/b' and storage='abc'")
 	assert.NoError(t, err)
 	assert.Equal(t, &stmt.Metadata{MetadataType: stmt.StorageMetadata,
-		Type: "/a/b", StorageName: "abc", Source: stmt.StateRepoSource}, q)
+		Type: "/a/b", ClusterName: "abc", Source: stmt.StateRepoSource}, q)
+
+	q, err = Parse("show broker metadata from state_machine where type='/a/b' and broker='test'")
+	assert.NoError(t, err)
+	assert.Equal(t, &stmt.Metadata{MetadataType: stmt.BrokerMetadata, ClusterName: "test", Type: "/a/b", Source: stmt.StateMachineSource}, q)
 }

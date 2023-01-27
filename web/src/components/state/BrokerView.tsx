@@ -57,7 +57,7 @@ const BrokerView: React.FC = () => {
               {
                 key: BrokerView.aliveNodes,
                 value: (
-                  <Text type="success">
+                  <Text link>
                     {_.keys(_.get(record, "liveNodes", {})).length}
                   </Text>
                 ),

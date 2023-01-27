@@ -159,6 +159,9 @@ type SQLListener interface {
 	// EnterStorageFilter is called when entering the storageFilter production.
 	EnterStorageFilter(c *StorageFilterContext)
 
+	// EnterBrokerFilter is called when entering the brokerFilter production.
+	EnterBrokerFilter(c *BrokerFilterContext)
+
 	// EnterDatabaseFilter is called when entering the databaseFilter production.
 	EnterDatabaseFilter(c *DatabaseFilterContext)
 
@@ -437,6 +440,9 @@ type SQLListener interface {
 
 	// ExitStorageFilter is called when exiting the storageFilter production.
 	ExitStorageFilter(c *StorageFilterContext)
+
+	// ExitBrokerFilter is called when exiting the brokerFilter production.
+	ExitBrokerFilter(c *BrokerFilterContext)
 
 	// ExitDatabaseFilter is called when exiting the databaseFilter production.
 	ExitDatabaseFilter(c *DatabaseFilterContext)

@@ -157,19 +157,19 @@ func TestMetadata(t *testing.T) {
 		},
 		{
 			name:      "show storage metadata, but storage name empty",
-			statement: &stmt.Metadata{MetadataType: stmt.StorageMetadata, Source: stmt.StateRepoSource, Type: "LiveNode", StorageName: ""},
+			statement: &stmt.Metadata{MetadataType: stmt.StorageMetadata, Source: stmt.StateRepoSource, Type: "LiveNode", ClusterName: ""},
 			wantErr:   true,
 		},
 		{
 			name:      "show storage metadata, but type not found",
-			statement: &stmt.Metadata{MetadataType: stmt.StorageMetadata, Source: stmt.StateRepoSource, Type: "LiveNode2", StorageName: "abc"},
+			statement: &stmt.Metadata{MetadataType: stmt.StorageMetadata, Source: stmt.StateRepoSource, Type: "LiveNode2", ClusterName: "abc"},
 			prepare: func() {
 				master.EXPECT().IsMaster().Return(true)
 			},
 		},
 		{
 			name:      "show storage metadata, but storage state not found",
-			statement: &stmt.Metadata{MetadataType: stmt.StorageMetadata, Source: stmt.StateRepoSource, Type: "LiveNode", StorageName: "test"},
+			statement: &stmt.Metadata{MetadataType: stmt.StorageMetadata, Source: stmt.StateRepoSource, Type: "LiveNode", ClusterName: "test"},
 			prepare: func() {
 				master.EXPECT().IsMaster().Return(true)
 				masterStateMgr.EXPECT().GetStorageCluster("test").Return(nil)
@@ -177,7 +177,7 @@ func TestMetadata(t *testing.T) {
 		},
 		{
 			name:      "show storage metadata, no data",
-			statement: &stmt.Metadata{MetadataType: stmt.StorageMetadata, Source: stmt.StateRepoSource, Type: "LiveNode", StorageName: "test"},
+			statement: &stmt.Metadata{MetadataType: stmt.StorageMetadata, Source: stmt.StateRepoSource, Type: "LiveNode", ClusterName: "test"},
 			prepare: func() {
 				master.EXPECT().IsMaster().Return(true)
 				storage := masterpkg.NewMockStorageCluster(ctrl)
@@ -188,7 +188,7 @@ func TestMetadata(t *testing.T) {
 		},
 		{
 			name:      "show storage metadata, forward request failure",
-			statement: &stmt.Metadata{MetadataType: stmt.StorageMetadata, Source: stmt.StateRepoSource, Type: "LiveNode", StorageName: "test"},
+			statement: &stmt.Metadata{MetadataType: stmt.StorageMetadata, Source: stmt.StateRepoSource, Type: "LiveNode", ClusterName: "test"},
 			prepare: func() {
 				master.EXPECT().IsMaster().Return(false)
 				master.EXPECT().GetMaster().Return(&models.Master{Node: &models.StatelessNode{HostIP: "127.0.0.1", HTTPPort: 8089}})
@@ -197,7 +197,7 @@ func TestMetadata(t *testing.T) {
 		},
 		{
 			name:      "show storage metadata, forward request successfully",
-			statement: &stmt.Metadata{MetadataType: stmt.StorageMetadata, Source: stmt.StateRepoSource, Type: "LiveNode", StorageName: "test"},
+			statement: &stmt.Metadata{MetadataType: stmt.StorageMetadata, Source: stmt.StateRepoSource, Type: "LiveNode", ClusterName: "test"},
 			prepare: func() {
 				port := uint16(8789)
 				master.EXPECT().IsMaster().Return(false)
