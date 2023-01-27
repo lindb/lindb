@@ -239,7 +239,7 @@ func TestRootMetricDataContext_makeResultSet(t *testing.T) {
 					GroupBy: []string{"ip"},
 				},
 			})
-			metricCtx.stats = &models.QueryStats{}
+			metricCtx.stats = &models.NodeStats{}
 			metricCtx.aggregatorSpecs = map[string]*protoCommonV1.AggregatorSpec{
 				"f": {
 					FieldType: uint32(field.Sum),

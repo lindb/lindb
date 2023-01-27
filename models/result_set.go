@@ -34,14 +34,14 @@ type SuggestResult struct {
 
 // ResultSet represents the query result set
 type ResultSet struct {
-	MetricName string      `json:"metricName,omitempty"`
-	GroupBy    []string    `json:"groupBy,omitempty"`
-	Fields     []string    `json:"fields,omitempty"`
-	StartTime  int64       `json:"startTime,omitempty"`
-	EndTime    int64       `json:"endTime,omitempty"`
-	Interval   int64       `json:"interval,omitempty"`
-	Series     []*Series   `json:"series,omitempty"`
-	Stats      *QueryStats `json:"stats,omitempty"`
+	MetricName string     `json:"metricName,omitempty"`
+	GroupBy    []string   `json:"groupBy,omitempty"`
+	Fields     []string   `json:"fields,omitempty"`
+	StartTime  int64      `json:"startTime,omitempty"`
+	EndTime    int64      `json:"endTime,omitempty"`
+	Interval   int64      `json:"interval,omitempty"`
+	Series     []*Series  `json:"series,omitempty"`
+	Stats      *NodeStats `json:"stats,omitempty"`
 }
 
 // NewResultSet creates a new result set

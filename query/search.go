@@ -136,6 +136,7 @@ func exec(ctx queryctx.TaskContext, req *models.Request, mgr *SearchMgr) (any, e
 	GetRequestManager().NewRequest(req)
 	// execute metadata query pipeline
 	tracker := trackerpkg.NewStageTracker(flow.NewTaskContextWithTimeout(ctx.Context(), mgr.Timeout))
+	ctx.SetTracker(tracker)
 	mgr.TaskMgr.AddTask(req.RequestID, ctx)
 
 	defer func() {

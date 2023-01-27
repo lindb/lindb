@@ -21,11 +21,16 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
+	"github.com/lindb/lindb/query/tracker"
 	"github.com/lindb/lindb/series/field"
 )
 
@@ -51,6 +56,7 @@ func TestMetricContext_HandleResponse(t *testing.T) {
 		},
 		TimeSeriesList: []*protoCommonV1.TimeSeries{{Fields: map[string][]byte{"test": nil}}},
 	}).Marshal()
+	stats := encoding.JSONMarshal(&models.NodeStats{})
 
 	cases := []struct {
 		name    string
@@ -85,7 +91,7 @@ func TestMetricContext_HandleResponse(t *testing.T) {
 		},
 		{
 			name: "handle task response with field data",
-			resp: &protoCommonV1.TaskResponse{Payload: payloadWithField},
+			resp: &protoCommonV1.TaskResponse{Payload: payloadWithField, Stats: stats},
 		},
 	}
 
@@ -93,6 +99,7 @@ func TestMetricContext_HandleResponse(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			metricCtx := newMetricContext(context.TODO(), nil)
+			metricCtx.SetTracker(tracker.NewStageTracker(flow.NewTaskContextWithTimeout(context.TODO(), time.Minute)))
 			if tt.prepare != nil {
 				tt.prepare(&metricCtx)
 			}

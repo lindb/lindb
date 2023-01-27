@@ -27,6 +27,7 @@ import (
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/rpc"
@@ -39,7 +40,7 @@ type MetricContext struct {
 	baseTaskContext
 
 	groupAgg aggregation.GroupingAggregator
-	stats    *models.QueryStats
+	stats    *models.NodeStats
 	// field name -> aggregator spec
 	// we will use it during intermediate tasks
 	aggregatorSpecs map[string]*protoCommonV1.AggregatorSpec
@@ -53,6 +54,7 @@ func newMetricContext(ctx context.Context, transportMgr rpc.TransportManager) Me
 	return MetricContext{
 		baseTaskContext: newBaseTaskContext(ctx, transportMgr),
 		aggregatorSpecs: make(map[string]*protoCommonV1.AggregatorSpec),
+		startTime:       time.Now(),
 	}
 }
 
@@ -83,8 +85,7 @@ func (ctx *MetricContext) handleResponse(resp *protoCommonV1.TaskResponse, fromN
 	ctx.handleTaskState(resp, fromNode)
 	ctx.expectResults--
 
-	// FIXME: handle state
-	// c.handleStats(resp, fromNode)
+	ctx.handleStats(resp, fromNode)
 
 	ignoreResponse, err := ctx.checkError(resp.ErrMsg)
 	if err != nil {
@@ -168,4 +169,25 @@ func (ctx *MetricContext) checkError(errMsg string) (ignoreResponse bool, err er
 	// fallthrough, all node returns not found errors
 ReturnError:
 	return true, errors.New(errMsg)
+}
+
+// handleStats handles the node stats of query task.
+func (ctx *MetricContext) handleStats(resp *protoCommonV1.TaskResponse, fromNode string) {
+	if len(resp.Stats) == 0 {
+		return
+	}
+	// if has query stats, need merge task query stats
+	if ctx.stats == nil {
+		ctx.stats = &models.NodeStats{}
+		ctx.stats.Stages = ctx.stageTracker.GetStages()
+		ctx.stats.Start = ctx.startTime.UnixNano()
+		ctx.stats.WaitEnd = time.Now().UnixNano()
+		ctx.stats.WaitStart = ctx.sendTime.UnixNano()
+		ctx.stats.WaitCost = ctx.stats.WaitEnd - ctx.stats.WaitStart
+	}
+	nodeStats := &models.NodeStats{}
+	_ = encoding.JSONUnmarshal(resp.Stats, nodeStats)
+	nodeStats.Node = fromNode
+	nodeStats.NetPayload = int64(len(resp.Stats) + len(resp.Payload))
+	ctx.stats.Children = append(ctx.stats.Children, nodeStats)
 }

@@ -141,7 +141,7 @@ func TestIntermediateMetricContext_makeTaskResponse(t *testing.T) {
 	metricCtx := NewIntermediateMetricContext(context.TODO(), nil, nil,
 		&protoCommonV1.TaskRequest{}, models.StatelessNode{}, &models.PhysicalPlan{},
 		&stmt.Query{}, []string{"root"})
-	metricCtx.stats = &models.QueryStats{}
+	metricCtx.stats = &models.NodeStats{}
 	metricCtx.aggregatorSpecs = map[string]*protoCommonV1.AggregatorSpec{"f": {}}
 	groupAgg := aggregation.NewMockGroupingAggregator(ctrl)
 	groupIt := series.NewMockGroupedIterator(ctrl)

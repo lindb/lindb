@@ -215,7 +215,7 @@ func (f *taskClientFactory) handleTaskResponse(client *taskClient) {
 		}
 
 		if err = f.taskReceiver.Receive(resp, client.targetID); err != nil {
-			// FIXME: nned send response to upstream
+			// FIXME: need send response to upstream
 			f.logger.Error("receive task response",
 				logger.String("requestID", resp.RequestID),
 				logger.String("requestType", resp.RequestType.String()),

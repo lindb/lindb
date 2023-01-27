@@ -57,13 +57,19 @@ type StageStats struct {
 	Children []*StageStats `json:"children"`
 }
 
-// LeafNodeStats represents query stats in storage side
-type LeafNodeStats struct {
-	NetPayload int64         `json:"netPayload"`
+// NodeStats represents query stats of node.
+type NodeStats struct {
+	Node       string        `json:"node"`
+	WaitCost   int64         `json:"waitCost,omitempty"` // wait intermediate or leaf response duration
+	WaitStart  int64         `json:"waitStart,omitempty"`
+	WaitEnd    int64         `json:"waitEnd,omitempty"`
+	NetPayload int64         `json:"netPayload,omitempty"`
 	TotalCost  int64         `json:"totalCost"`
 	Start      int64         `json:"start"`
 	End        int64         `json:"end"`
 	Stages     []*StageStats `json:"stages,omitempty"`
+
+	Children []*NodeStats `json:"children,omitempty"`
 }
 
 // Stats represents the time stats
@@ -75,46 +81,8 @@ type Stats struct {
 	Series    int   `json:"series,omitempty"`
 }
 
-// QueryStats represents the query stats when need explain query flow stat
-type QueryStats struct {
-	Root         string                    `json:"root"`
-	BrokerNodes  map[string]*QueryStats    `json:"brokerNodes,omitempty"`
-	LeafNodes    map[string]*LeafNodeStats `json:"leafNodes,omitempty"`
-	NetPayload   int64                     `json:"netPayload"`
-	PlanCost     int64                     `json:"planCost,omitempty"`
-	PlanStart    int64                     `json:"planStart,omitempty"`
-	PlanEnd      int64                     `json:"planEnd,omitempty"`
-	WaitCost     int64                     `json:"waitCost,omitempty"` // wait intermediate or leaf response duration
-	WaitStart    int64                     `json:"waitStart,omitempty"`
-	WaitEnd      int64                     `json:"waitEnd,omitempty"`
-	ExpressCost  int64                     `json:"expressCost,omitempty"`
-	ExpressStart int64                     `json:"expressStart,omitempty"`
-	ExpressEnd   int64                     `json:"expressEnd,omitempty"`
-	TotalCost    int64                     `json:"totalCost,omitempty"` // total query cost
-	Start        int64                     `json:"start"`
-	End          int64                     `json:"end"`
-}
-
-// NewQueryStats creates the query stats
-func NewQueryStats() *QueryStats {
-	return &QueryStats{
-		BrokerNodes: make(map[string]*QueryStats),
-		LeafNodes:   make(map[string]*LeafNodeStats),
-	}
-}
-
-// MergeBrokerTaskStats merges intermediate task execution stats
-func (s *QueryStats) MergeBrokerTaskStats(nodeID string, stats *QueryStats) {
-	s.BrokerNodes[nodeID] = stats
-}
-
-// MergeLeafTaskStats merges leaf task execution stats
-func (s *QueryStats) MergeLeafTaskStats(nodeID string, stats *LeafNodeStats) {
-	s.LeafNodes[nodeID] = stats
-}
-
 // ToTable returns the result of query as table if it has value, else return empty string.
-func (s *QueryStats) ToTable() (rows int, tableStr string) {
+func (s *NodeStats) ToTable() (rows int, tableStr string) {
 	// 1. set headers
 	headers := table.Row{}
 	headers = append(headers, "Query Plan")
@@ -125,22 +93,13 @@ func (s *QueryStats) ToTable() (rows int, tableStr string) {
 	treeprint.EdgeTypeMid = "^^"
 	treeprint.EdgeTypeEnd = "~~"
 	treeprint.IndentSize = 2
-	tree := treeprint.NewWithRoot(fmt.Sprintf("Root(%s): [Cost:%s, Plan:%s, Wait:%s, Express: %s], Net Payload:%s",
-		s.Root, time.Duration(s.TotalCost), time.Duration(s.PlanCost), time.Duration(s.WaitCost),
-		time.Duration(s.ExpressCost), ltoml.Size(s.NetPayload),
-	))
+	tree := treeprint.NewWithRoot(nodeTitle(s))
 
-	for node, leaf := range s.LeafNodes {
-		leafNode := tree.AddBranch(fmt.Sprintf("Leaf(%s): [Cost:%s], Net Payload:%s",
-			node, time.Duration(leaf.TotalCost), ltoml.Size(leaf.NetPayload)))
-		for _, stage := range leaf.Stages {
-			s.stageToTable(leafNode, stage)
-		}
-		leafNode = tree.AddBranch(fmt.Sprintf("Leaf(%s): [Cost:%s], Net Payload:%s",
-			node, time.Duration(leaf.TotalCost), ltoml.Size(leaf.NetPayload)))
-		for _, stage := range leaf.Stages {
-			s.stageToTable(leafNode, stage)
-		}
+	for _, stage := range s.Stages {
+		stageToTable(tree, stage)
+	}
+	for _, child := range s.Children {
+		nodeToTable(tree, child)
 	}
 	str := strings.TrimSuffix(tree.String(), "\n")
 	result.AppendRow(table.Row{str})
@@ -151,13 +110,38 @@ func (s *QueryStats) ToTable() (rows int, tableStr string) {
 	return 1, rs
 }
 
+// nodeToTable returns node info.
+func nodeToTable(tree treeprint.Tree, node *NodeStats) {
+	sub := tree.AddBranch(nodeTitle(node))
+	for _, stage := range node.Stages {
+		stageToTable(sub, stage)
+	}
+	for _, child := range node.Children {
+		nodeToTable(sub, child)
+	}
+}
+
+// nodeTitle returns the title of node.
+func nodeTitle(node *NodeStats) string {
+	costs := []string{fmt.Sprintf("Cost: %s", time.Duration(node.TotalCost))}
+	if node.WaitStart > 0 {
+		costs = append(costs, fmt.Sprintf("Wait: %s", time.Duration(node.WaitCost)))
+	}
+	if node.NetPayload > 0 {
+		costs = append(costs, fmt.Sprintf("Network: %s", ltoml.Size(node.NetPayload)))
+	}
+	return fmt.Sprintf("%s: [%s]",
+		node.Node, strings.Join(costs, ", "),
+	)
+}
+
 // stageToTable builds stage stats as table.
-func (s *QueryStats) stageToTable(tree treeprint.Tree, stage *StageStats) {
+func stageToTable(tree treeprint.Tree, stage *StageStats) {
 	stageNode := tree.AddBranch(fmt.Sprintf("Stage(%s), [Cost:%s]", stage.Identifier, time.Duration(stage.Cost)))
 	for _, op := range stage.Operators {
 		stageNode.AddNode(fmt.Sprintf("Operator(%s), [Cost:%s]", op.Identifier, time.Duration(op.Cost)))
 	}
 	for _, child := range stage.Children {
-		s.stageToTable(stageNode, child)
+		stageToTable(stageNode, child)
 	}
 }

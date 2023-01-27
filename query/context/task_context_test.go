@@ -21,12 +21,15 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/models"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
+	"github.com/lindb/lindb/query/tracker"
 	"github.com/lindb/lindb/rpc"
 )
 
@@ -37,6 +40,7 @@ func TestTaskContext(t *testing.T) {
 	transportMgr := rpc.NewMockTransportManager(ctrl)
 	transportMgr.EXPECT().SendRequest(gomock.Any(), gomock.Any()).Return(nil)
 	ctx := newBaseTaskContext(context.TODO(), transportMgr)
+	ctx.SetTracker(tracker.NewStageTracker(flow.NewTaskContextWithTimeout(context.TODO(), time.Minute)))
 	assert.NotNil(t, ctx.Context())
 
 	req := protoCommonV1.TaskRequest{}
