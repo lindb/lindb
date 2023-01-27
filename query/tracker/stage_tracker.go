@@ -65,7 +65,7 @@ type StageTracker struct {
 	stages               []*models.StageStats
 	groupingCollectStage *models.StageStats
 
-	stats *models.LeafNodeStats
+	stats *models.NodeStats
 }
 
 // NewStageTracker creates a StageTracker instance.
@@ -110,7 +110,7 @@ func (s *StageTracker) Complete() {
 	defer s.mutex.Unlock()
 
 	end := time.Now()
-	s.stats = &models.LeafNodeStats{
+	s.stats = &models.NodeStats{
 		Start:     s.taskCtx.Start.UnixNano(),
 		End:       end.UnixNano(),
 		TotalCost: end.Sub(s.taskCtx.Start).Nanoseconds(),
@@ -119,7 +119,7 @@ func (s *StageTracker) Complete() {
 }
 
 // GetStats returns the track stats result.
-func (s *StageTracker) GetStats() *models.LeafNodeStats {
+func (s *StageTracker) GetStats() *models.NodeStats {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 

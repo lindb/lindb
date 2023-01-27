@@ -19,6 +19,7 @@ package context
 
 import (
 	"context"
+	"time"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/broker"
@@ -111,6 +112,9 @@ func (ctx *IntermediateMetricContext) MakePlan() error {
 func (ctx *IntermediateMetricContext) makeTaskResponse() *protoCommonV1.TaskResponse {
 	var stats []byte
 	if ctx.stats != nil {
+		end := time.Now()
+		ctx.stats.End = end.UnixNano()
+		ctx.stats.TotalCost = end.Sub(ctx.startTime).Nanoseconds()
 		stats = encoding.JSONMarshal(ctx.stats)
 	}
 	var timeSeriesList []*protoCommonV1.TimeSeries

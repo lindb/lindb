@@ -128,6 +128,11 @@ func TestTagEntry_collectTagValues(t *testing.T) {
 	assert.Len(t, result, 2)
 	assert.Equal(t, "abc", result[2])
 	assert.Equal(t, "b", result[3])
+
+	// case 3: collect tag value ids empty
+	result = make(map[uint32]string)
+	tagIndex.collectTagValues(roaring.New(), result)
+	assert.Len(t, result, 0)
 }
 
 func prepareTagEntry() TagEntry {

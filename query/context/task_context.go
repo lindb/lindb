@@ -20,11 +20,13 @@ package context
 import (
 	"context"
 	"sync"
+	"time"
 
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/models"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
+	"github.com/lindb/lindb/query/tracker"
 	"github.com/lindb/lindb/rpc"
 )
 
@@ -48,6 +50,8 @@ type TaskContext interface {
 	Complete(err error)
 	// WaitResponse waits task complete and returns the response.
 	WaitResponse() (any, error)
+	// SetTracker sets stage tracker.
+	SetTracker(stageTracker *tracker.StageTracker)
 }
 
 // baseTaskContext implements TaskContext interface, implements some common logic.
@@ -55,7 +59,11 @@ type baseTaskContext struct {
 	ctx          context.Context
 	requests     map[string]*protoCommonV1.TaskRequest
 	state        map[string]models.TaskState
+	sendTime     time.Time
+	sent         int
 	transportMgr rpc.TransportManager
+
+	stageTracker *tracker.StageTracker
 
 	// handle response
 	doneCh        chan struct{}
@@ -88,6 +96,11 @@ func (ctx *baseTaskContext) Context() context.Context {
 // SendRequest sends the task request to target node.
 func (ctx *baseTaskContext) SendRequest(targetNodeID string, req *protoCommonV1.TaskRequest) error {
 	ctx.mutex.Lock()
+	if ctx.sent == 0 {
+		// track the start time for first request
+		ctx.sendTime = time.Now()
+		ctx.sent++
+	}
 	ctx.state[targetNodeID] = models.Send
 	ctx.mutex.Unlock()
 	return ctx.transportMgr.SendRequest(targetNodeID, req)
@@ -125,6 +138,11 @@ func (ctx *baseTaskContext) Complete(err error) {
 	ctx.tryClose()
 }
 
+// SetTracker sets stage tracker.
+func (ctx *baseTaskContext) SetTracker(stageTracker *tracker.StageTracker) {
+	ctx.stageTracker = stageTracker
+}
+
 // tryClose tries to complete the task.
 func (ctx *baseTaskContext) tryClose() {
 	ctx.mutex.Lock()
@@ -132,6 +150,7 @@ func (ctx *baseTaskContext) tryClose() {
 
 	if ctx.expectResults <= 0 || ctx.err != nil {
 		if ctx.completed.CAS(false, true) {
+			ctx.stageTracker.Complete()
 			close(ctx.doneCh)
 		}
 	}

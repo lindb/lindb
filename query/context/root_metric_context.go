@@ -33,6 +33,7 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
+	"github.com/lindb/lindb/query/tracker"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/tag"
@@ -74,7 +75,6 @@ func NewRootMetricContext(deps *RootMetricContextDeps) *RootMetricContext {
 // MakePlan makes the metric data physical plan.
 func (ctx *RootMetricContext) MakePlan() error {
 	database := ctx.Deps.Database
-	ctx.startTime = time.Now()
 	computeNodes := 1
 	if ctx.Deps.Statement.HasGroupBy() {
 		// max node num
@@ -209,17 +209,21 @@ func (ctx *RootMetricContext) makeResultSet() (resultSet *models.ResultSet, err 
 	resultSet.EndTime = timeRange.End
 	resultSet.Interval = interval
 
-	resultSet.Stats = ctx.stats
-	if resultSet.Stats != nil {
+	if ctx.stats != nil {
 		now := time.Now()
-		resultSet.Stats.PlanStart = ctx.startTime.UnixNano()
-		resultSet.Stats.WaitEnd = makeResultStartTime.UnixNano()
-		resultSet.Stats.ExpressCost = now.Sub(makeResultStartTime).Nanoseconds()
-		resultSet.Stats.ExpressStart = makeResultStartTime.UnixNano()
-		resultSet.Stats.ExpressEnd = now.UnixNano()
-		resultSet.Stats.TotalCost = now.Sub(ctx.startTime).Nanoseconds()
-		resultSet.Stats.Start = ctx.startTime.UnixNano()
-		resultSet.Stats.End = now.UnixNano()
+		ctx.stats.Node = ctx.Deps.CurrentNode.Indicator()
+		ctx.stats.End = now.UnixNano()
+		ctx.stats.TotalCost = now.Sub(ctx.startTime).Nanoseconds()
+
+		ctx.stats.Stages = append(ctx.stats.Stages, &models.StageStats{
+			Identifier: "Expression",
+			Start:      makeResultStartTime.UnixNano(),
+			End:        now.UnixNano(),
+			Cost:       now.Sub(makeResultStartTime).Nanoseconds(),
+			State:      tracker.CompleteState.String(),
+			Async:      false,
+		})
+		resultSet.Stats = ctx.stats
 	}
 	return resultSet, nil
 }

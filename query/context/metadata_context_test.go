@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -29,6 +30,7 @@ import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/models"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
+	"github.com/lindb/lindb/query/tracker"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
@@ -38,6 +40,7 @@ func TestMetadataContext_WaitResponse(t *testing.T) {
 			Ctx:       context.TODO(),
 			Statement: &stmt.MetricMetadata{},
 		})
+		ctx.SetTracker(tracker.NewStageTracker(flow.NewTaskContextWithTimeout(context.TODO(), time.Minute)))
 		go func() {
 			ctx.Complete(fmt.Errorf("err"))
 		}()
@@ -123,5 +126,6 @@ func TestMetadataContext_HandleResponse(t *testing.T) {
 	ctx := NewMetadataContext(&MetadataDeps{
 		Statement: &stmt.MetricMetadata{},
 	})
+	ctx.SetTracker(tracker.NewStageTracker(flow.NewTaskContextWithTimeout(context.TODO(), time.Minute)))
 	ctx.HandleResponse(&protoCommonV1.TaskResponse{}, "leaf")
 }

@@ -49,4 +49,5 @@ func TestStageTracker(t *testing.T) {
 	})
 	tracker.Complete()
 	assert.Len(t, tracker.GetStages(), 2)
+	assert.NotNil(t, tracker.GetStats())
 }
