@@ -307,6 +307,12 @@ func (s *BaseSQLListener) EnterStorageFilter(ctx *StorageFilterContext) {}
 // ExitStorageFilter is called when production storageFilter is exited.
 func (s *BaseSQLListener) ExitStorageFilter(ctx *StorageFilterContext) {}
 
+// EnterBrokerFilter is called when production brokerFilter is entered.
+func (s *BaseSQLListener) EnterBrokerFilter(ctx *BrokerFilterContext) {}
+
+// ExitBrokerFilter is called when production brokerFilter is exited.
+func (s *BaseSQLListener) ExitBrokerFilter(ctx *BrokerFilterContext) {}
+
 // EnterDatabaseFilter is called when production databaseFilter is entered.
 func (s *BaseSQLListener) EnterDatabaseFilter(ctx *DatabaseFilterContext) {}
 

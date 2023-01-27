@@ -456,7 +456,7 @@ func (s *stateManager) GetLiveNodes() (rs []models.StatelessNode) {
 
 	// return nodes in order(by ip)
 	sort.Slice(rs, func(i, j int) bool {
-		return rs[i].HostIP < rs[j].HostIP
+		return rs[i].Indicator() < rs[j].Indicator()
 	})
 	return
 }

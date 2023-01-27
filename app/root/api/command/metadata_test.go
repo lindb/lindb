@@ -23,8 +23,10 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 
 	depspkg "github.com/lindb/lindb/app/root/deps"
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/root"
 	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
@@ -99,4 +101,9 @@ func TestMetadataCommand(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBrokerRole(t *testing.T) {
+	broker := brokerRole[constants.BrokerState]
+	assert.NotNil(t, broker.CreateState())
 }

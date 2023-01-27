@@ -148,6 +148,11 @@ func (l *listener) EnterStorageName(c *grammar.StorageNameContext) {
 	l.storageStmt.visitStorageName(c)
 }
 
+// EnterBrokerFilter is called when production brokerFilter is entered.
+func (l *listener) EnterBrokerFilter(ctx *grammar.BrokerFilterContext) {
+	l.metadataStmt.visitBrokerFilter(ctx)
+}
+
 // EnterStorageFilter is called when production storageFilter is entered.
 func (l *listener) EnterStorageFilter(ctx *grammar.StorageFilterContext) {
 	switch {

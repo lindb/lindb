@@ -35,6 +35,15 @@ var (
 	NewStateMachineCliFn = client.NewStateMachineCli
 )
 
+var brokerRole = map[string]models.StateMachineInfo{
+	constants.BrokerState: {
+		Path: constants.BrokerState,
+		CreateState: func() interface{} {
+			return &models.BrokerState{}
+		},
+	},
+}
+
 // MetadataCommand executes the metadata query.
 func MetadataCommand(ctx context.Context, deps *depspkg.HTTPDeps,
 	_ *models.ExecuteParam, stmt stmtpkg.Statement) (interface{}, error) {
@@ -42,7 +51,8 @@ func MetadataCommand(ctx context.Context, deps *depspkg.HTTPDeps,
 	if metadataStmt.MetadataType == stmtpkg.MetadataTypes {
 		// returns metadata explore define info.
 		return map[string]interface{}{
-			constants.RootRole: root.StateMachinePaths,
+			constants.RootRole:   root.StateMachinePaths,
+			constants.BrokerRole: brokerRole,
 		}, nil
 	}
 
@@ -69,7 +79,8 @@ func exploreStateRepoData(ctx context.Context, deps *depspkg.HTTPDeps,
 // exploreStateMachineDate explores the state from state machine of broker/master/storage.
 func exploreStateMachineDate(metadataStmt *stmtpkg.Metadata, deps *depspkg.HTTPDeps) (interface{}, error) {
 	param := map[string]string{
-		"type": metadataStmt.Type,
+		"type":       metadataStmt.Type,
+		"brokerName": metadataStmt.ClusterName,
 	}
 	var nodes []models.Node
 	statelessNodes := deps.StateMgr.GetLiveNodes()

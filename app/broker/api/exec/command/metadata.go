@@ -76,7 +76,7 @@ func exploreStateRepoData(ctx context.Context, deps *depspkg.HTTPDeps,
 	case stmtpkg.MasterMetadata:
 		stateMachineInfo, ok = master.StateMachinePaths[metadataStmt.Type]
 	case stmtpkg.StorageMetadata:
-		storageName := strings.TrimSpace(metadataStmt.StorageName)
+		storageName := strings.TrimSpace(metadataStmt.ClusterName)
 		if storageName == "" {
 			return nil, constants.ErrStorageNameRequired
 		}
@@ -99,7 +99,7 @@ func exploreStateRepoData(ctx context.Context, deps *depspkg.HTTPDeps,
 		var meta []interface{}
 		_, err := resty.New().R().SetQueryParams(map[string]string{
 			"sql": fmt.Sprintf("show storage metedata where path='%s' and storage='%s'",
-				metadataStmt.Type, metadataStmt.StorageName)}).
+				metadataStmt.Type, metadataStmt.ClusterName)}).
 			SetHeader("Accept", "application/json").
 			SetResult(&meta).
 			Get(address + constants.APIVersion1CliPath + "/exec")
@@ -119,7 +119,7 @@ func exploreStateMachineDate(metadataStmt *stmtpkg.Metadata, deps *depspkg.HTTPD
 	param := map[string]string{
 		"type":        metadataStmt.Type,
 		"role":        strconv.Itoa(int(metadataStmt.MetadataType)),
-		"storageName": metadataStmt.StorageName,
+		"storageName": metadataStmt.ClusterName,
 	}
 	var nodes []models.Node
 	switch metadataStmt.MetadataType {

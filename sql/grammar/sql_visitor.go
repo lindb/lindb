@@ -159,6 +159,9 @@ type SQLVisitor interface {
 	// Visit a parse tree produced by SQLParser#storageFilter.
 	VisitStorageFilter(ctx *StorageFilterContext) interface{}
 
+	// Visit a parse tree produced by SQLParser#brokerFilter.
+	VisitBrokerFilter(ctx *BrokerFilterContext) interface{}
+
 	// Visit a parse tree produced by SQLParser#databaseFilter.
 	VisitDatabaseFilter(ctx *DatabaseFilterContext) interface{}
 

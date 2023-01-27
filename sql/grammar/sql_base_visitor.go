@@ -204,6 +204,10 @@ func (v *BaseSQLVisitor) VisitStorageFilter(ctx *StorageFilterContext) interface
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseSQLVisitor) VisitBrokerFilter(ctx *BrokerFilterContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseSQLVisitor) VisitDatabaseFilter(ctx *DatabaseFilterContext) interface{} {
 	return v.VisitChildren(ctx)
 }

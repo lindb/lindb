@@ -130,6 +130,15 @@ func TestTimerPool(t *testing.T) {
 		timer := acquireTimer(time.Minute)
 		assert.NotNil(t, timer)
 	})
+	t.Run("reuse timer", func(_ *testing.T) {
+		timerPool = sync.Pool{
+			New: func() any {
+				return time.NewTimer(time.Second)
+			},
+		}
+		timer := acquireTimer(time.Minute)
+		assert.NotNil(t, timer)
+	})
 }
 
 func Benchmark_TimerPool(b *testing.B) {
