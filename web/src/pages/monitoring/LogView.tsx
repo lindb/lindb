@@ -113,7 +113,7 @@ const LogContent: React.FC = () => {
 };
 
 const LogView: React.FC = () => {
-  const { locale } = useContext(UIContext);
+  const { locale, env } = useContext(UIContext);
   const { LogView } = locale;
   return (
     <>
@@ -122,13 +122,20 @@ const LogView: React.FC = () => {
           <LinSelect
             field="role"
             label={LogView.role}
-            loader={() => [
-              { value: StateRoleName.Broker, label: StateRoleName.Broker },
-              {
-                value: StateRoleName.Storage,
-                label: StateRoleName.Storage,
-              },
-            ]}
+            loader={() =>
+              env.role === StateRoleName.Broker
+                ? [
+                    {
+                      value: StateRoleName.Broker,
+                      label: StateRoleName.Broker,
+                    },
+                    {
+                      value: StateRoleName.Storage,
+                      label: StateRoleName.Storage,
+                    },
+                  ]
+                : [{ value: StateRoleName.Root, label: StateRoleName.Root }]
+            }
             style={{ width: 150 }}
             clearKeys={["storage", "node", "file"]}
           />
@@ -157,9 +164,16 @@ const LogView: React.FC = () => {
             style={{ width: 230 }}
             loader={async () => {
               const params = URLStore.getParams();
-              if (_.get(params, "role") == StateRoleName.Broker) {
+              const role = _.get(params, "role");
+              if (
+                role === StateRoleName.Broker ||
+                role === StateRoleName.Root
+              ) {
                 return ExecService.exec<any>({
-                  sql: SQL.ShowBrokerAliveNodes,
+                  sql:
+                    role === StateRoleName.Broker
+                      ? SQL.ShowBrokerAliveNodes
+                      : SQL.ShowRootAliveNodes,
                 }).then((data) =>
                   _.map(data || [], (n: any) => {
                     const target = `${n.hostIp}:${n.httpPort}`;
