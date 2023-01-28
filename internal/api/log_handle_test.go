@@ -19,6 +19,7 @@ package api
 
 import (
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -32,14 +33,30 @@ import (
 	"github.com/lindb/lindb/pkg/fileutil"
 )
 
-func TestLoggerAPI(t *testing.T) {
-	ctrl := gomock.NewController(t)
+type mockDirEntry struct{}
+
+func (*mockDirEntry) Info() (fs.FileInfo, error) {
+	return nil, fmt.Errorf("err")
+}
+
+func (*mockDirEntry) IsDir() bool {
+	panic("unimplemented")
+}
+
+func (*mockDirEntry) Name() string {
+	return "a.log"
+}
+
+func (*mockDirEntry) Type() fs.FileMode {
+	panic("unimplemented")
+}
+
+func TestLoggerAPI_List(t *testing.T) {
 	path := "."
 	logFile := filepath.Join(path, "1.log")
 	f, err := os.Create(logFile)
 	assert.NoError(t, err)
 	defer func() {
-		ctrl.Finish()
 		readDirFn = os.ReadDir
 		_ = f.Close()
 		_ = fileutil.RemoveFile(logFile)
@@ -57,9 +74,49 @@ func TestLoggerAPI(t *testing.T) {
 	resp = mock.DoRequest(t, r, http.MethodGet, LogListPath, "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
-	readDirFn = os.ReadDir
-	resp = mock.DoRequest(t, r, http.MethodGet, LogViewPath, "")
+	readDirFn = func(dirname string) ([]os.DirEntry, error) {
+		return []os.DirEntry{&mockDirEntry{}}, nil
+	}
+	resp = mock.DoRequest(t, r, http.MethodGet, LogListPath, "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+}
+
+func TestLoggerAPI_View(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	path := "."
+	logFile := filepath.Join(path, "1.log")
+	f, err := os.Create(logFile)
+	assert.NoError(t, err)
+	defer func() {
+		ctrl.Finish()
+		relFn = filepath.Rel
+		absFn = filepath.Abs
+		openFn = os.Open
+		_ = f.Close()
+		_ = fileutil.RemoveFile(logFile)
+	}()
+
+	api := NewLoggerAPI(path)
+	r := gin.New()
+	api.Register(r)
+
+	resp := mock.DoRequest(t, r, http.MethodGet, LogViewPath, "")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+
+	// rel fail
+	relFn = func(basepath, targpath string) (string, error) {
+		return "", fmt.Errorf("err")
+	}
+	resp = mock.DoRequest(t, r, http.MethodGet, LogViewPath+"?file=log_handler.go", "")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	relFn = filepath.Rel
+	// abs fail
+	absFn = func(path string) (string, error) {
+		return "", fmt.Errorf("err")
+	}
+	resp = mock.DoRequest(t, r, http.MethodGet, LogViewPath+"?file=log_handler.go", "")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	absFn = filepath.Abs
 
 	// file not exist
 	resp = mock.DoRequest(t, r, http.MethodGet, LogViewPath+"?file=log_handler.go", "")
@@ -67,4 +124,7 @@ func TestLoggerAPI(t *testing.T) {
 	// ok
 	resp = mock.DoRequest(t, r, http.MethodGet, LogViewPath+"?file=log_handle.go", "")
 	assert.Equal(t, http.StatusOK, resp.Code)
+	// cannot open file out of log dir
+	resp = mock.DoRequest(t, r, http.MethodGet, LogViewPath+"?file=../client/base.go", "")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 }
