@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"sync"
 
+	"go.uber.org/atomic"
+
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/metrics"
@@ -56,12 +58,19 @@ type taskManager struct {
 
 // NewTaskManager creates the task manager.
 func NewTaskManager(workerPool concurrent.Pool, registry *linmetric.Registry) TaskManager {
-	return &taskManager{
+	mgr := &taskManager{
 		workerPool: workerPool,
 		tasks:      make(map[string]context.TaskContext),
 		statistics: metrics.NewQueryStatistics(registry),
 		logger:     logger.GetLogger("Query", "TaskManager"),
 	}
+	mgr.statistics.AliveTask.SetGetValueFn(func(val *atomic.Float64) {
+		mgr.mutex.Lock()
+		defer mgr.mutex.Unlock()
+
+		val.Store(float64(len(mgr.tasks)))
+	})
+	return mgr
 }
 
 // AddTask adds task context by request id.
@@ -69,6 +78,7 @@ func (mgr *taskManager) AddTask(requestID string, taskCtx context.TaskContext) {
 	mgr.mutex.Lock()
 	defer mgr.mutex.Unlock()
 
+	mgr.statistics.CreatedTasks.Incr()
 	mgr.tasks[requestID] = taskCtx
 }
 
@@ -77,6 +87,7 @@ func (mgr *taskManager) RemoveTask(requestID string) {
 	mgr.mutex.Lock()
 	defer mgr.mutex.Unlock()
 
+	mgr.statistics.ExpireTasks.Incr()
 	delete(mgr.tasks, requestID)
 }
 
