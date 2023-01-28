@@ -19,9 +19,10 @@ package api
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -34,6 +35,9 @@ import (
 // for testing
 var (
 	readDirFn = os.ReadDir
+	relFn     = filepath.Rel
+	absFn     = filepath.Abs
+	openFn    = os.Open
 )
 
 // FileInfo represents file info include name/size.
@@ -123,9 +127,27 @@ func (d *LoggerAPI) View(c *gin.Context) {
 		httppkg.Error(c, err)
 		return
 	}
-	file, err := os.Open(path.Join(d.logDir, param.FileName))
+	// prepend slash for cleaning relative paths
+	requestedFile := filepath.Clean(filepath.Join(string(os.PathSeparator), param.FileName))
+	rel, err := relFn(string(os.PathSeparator), requestedFile)
 	if err != nil {
-		httppkg.Error(c, err)
+		// slash is prepended above therefore this is not expected to fail
+		httppkg.Error(c, fmt.Errorf("failed to get the relative path"))
+		d.logger.Error("failed to get the relative path", logger.Error(err))
+		return
+	}
+	absLogDir, err := absFn(d.logDir)
+	if err != nil {
+		httppkg.Error(c, fmt.Errorf("failed to get log absolute path"))
+		d.logger.Error("failed to get log absolute path", logger.Error(err))
+		return
+	}
+
+	logFilePath := filepath.Join(absLogDir, rel)
+	file, err := openFn(logFilePath)
+	if err != nil {
+		httppkg.Error(c, fmt.Errorf("failed to open log file: %s", param.FileName))
+		d.logger.Error("failed to open log file", logger.Error(err))
 		return
 	}
 	defer func() {
