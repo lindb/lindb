@@ -36,6 +36,7 @@ type API struct {
 	metricExplore    *apipkg.ExploreAPI
 	env              *apipkg.EnvAPI
 	config           *apipkg.ConfigAPI
+	log              *apipkg.LoggerAPI
 	proxy            *httppkg.ReverseProxy
 }
 
@@ -47,6 +48,7 @@ func NewAPI(deps *depspkg.HTTPDeps) *API {
 		request:          apipkg.NewRequestAPI(),
 		metricExplore:    apipkg.NewExploreAPI(deps.GlobalKeyValues, linmetric.RootRegistry),
 		env:              apipkg.NewEnvAPI(deps.Cfg.Monitor, constants.RootRole),
+		log:              apipkg.NewLoggerAPI(deps.Cfg.Logging.Dir),
 		config:           apipkg.NewConfigAPI(deps.Node, deps.Cfg),
 		proxy:            httppkg.NewReverseProxy(),
 	}
@@ -61,6 +63,7 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 	api.metricExplore.Register(v1)
 	api.rootStateMachine.Register(v1)
 	api.config.Register(v1)
+	api.log.Register(v1)
 	api.request.Register(v1)
 
 	api.proxy.Register(v1)
