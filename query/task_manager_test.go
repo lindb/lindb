@@ -40,7 +40,12 @@ func TestTaskManager_ManageTask(t *testing.T) {
 	mgr := NewTaskManager(nil, linmetric.BrokerRegistry)
 	taskCtx := queryctx.NewMockTaskContext(ctrl)
 	mgr.AddTask("1", taskCtx)
+	mgr1 := mgr.(*taskManager)
+	val := mgr1.statistics.AliveTask.Get()
+	assert.Equal(t, float64(1), val)
 	mgr.RemoveTask("1")
+	val = mgr1.statistics.AliveTask.Get()
+	assert.Equal(t, float64(0), val)
 }
 
 func TestTaskManager_Receive(t *testing.T) {
