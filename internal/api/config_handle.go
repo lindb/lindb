@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package monitoring
+package api
 
 import (
 	"github.com/gin-gonic/gin"

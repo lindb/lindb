@@ -135,7 +135,7 @@ const local = {
     duration: "执行耗时",
     linQL: "LinQL",
     database: "数据库",
-    broker: "执行计算节点",
+    entry: "执行计算节点",
     runLinQL: "执行 LinQL",
   },
   MetadataExploreView: {

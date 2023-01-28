@@ -24,8 +24,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	depspkg "github.com/lindb/lindb/app/broker/deps"
-	"github.com/lindb/lindb/coordinator/broker"
+	depspkg "github.com/lindb/lindb/app/root/deps"
+	"github.com/lindb/lindb/coordinator/root"
 	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/sql/stmt"
@@ -41,7 +41,7 @@ func TestRequst(t *testing.T) {
 	cli := client.NewMockRequestCli(ctrl)
 	requestCli = cli
 
-	stateMgr := broker.NewMockStateManager(ctrl)
+	stateMgr := root.NewMockStateManager(ctrl)
 	deps := &depspkg.HTTPDeps{
 		StateMgr: stateMgr,
 	}

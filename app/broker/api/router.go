@@ -26,8 +26,8 @@ import (
 	"github.com/lindb/lindb/app/broker/api/state"
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
+	apipkg "github.com/lindb/lindb/internal/api"
 	"github.com/lindb/lindb/internal/linmetric"
-	"github.com/lindb/lindb/internal/monitoring"
 	httppkg "github.com/lindb/lindb/pkg/http"
 )
 
@@ -39,12 +39,12 @@ type API struct {
 	flusher            *admin.DatabaseFlusherAPI
 	storage            *admin.StorageClusterAPI
 	brokerStateMachine *state.BrokerStateMachineAPI
-	request            *state.RequestAPI
-	metricExplore      *monitoring.ExploreAPI
-	log                *monitoring.LoggerAPI
-	config             *monitoring.ConfigAPI
+	request            *apipkg.RequestAPI
+	metricExplore      *apipkg.ExploreAPI
+	log                *apipkg.LoggerAPI
+	config             *apipkg.ConfigAPI
+	env                *apipkg.EnvAPI
 	write              *ingest.Write
-	env                *monitoring.EnvAPI
 	proxy              *httppkg.ReverseProxy
 }
 
@@ -56,12 +56,12 @@ func NewAPI(deps *depspkg.HTTPDeps) *API {
 		flusher:            admin.NewDatabaseFlusherAPI(deps),
 		storage:            admin.NewStorageClusterAPI(deps),
 		brokerStateMachine: state.NewBrokerStateMachineAPI(deps),
-		request:            state.NewRequestAPI(),
-		metricExplore:      monitoring.NewExploreAPI(deps.GlobalKeyValues, linmetric.BrokerRegistry),
-		log:                monitoring.NewLoggerAPI(deps.BrokerCfg.Logging.Dir),
-		config:             monitoring.NewConfigAPI(deps.Node, deps.BrokerCfg),
+		request:            apipkg.NewRequestAPI(),
+		metricExplore:      apipkg.NewExploreAPI(deps.GlobalKeyValues, linmetric.BrokerRegistry),
+		log:                apipkg.NewLoggerAPI(deps.BrokerCfg.Logging.Dir),
+		config:             apipkg.NewConfigAPI(deps.Node, deps.BrokerCfg),
+		env:                apipkg.NewEnvAPI(deps.BrokerCfg.Monitor, constants.BrokerRole),
 		write:              ingest.NewWrite(deps),
-		env:                monitoring.NewEnvAPI(deps.BrokerCfg.Monitor, constants.BrokerRole),
 		proxy:              httppkg.NewReverseProxy(),
 	}
 }

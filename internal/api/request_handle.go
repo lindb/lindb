@@ -15,28 +15,34 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package command
+package api
 
 import (
-	"context"
+	"github.com/gin-gonic/gin"
 
-	depspkg "github.com/lindb/lindb/app/broker/deps"
-	"github.com/lindb/lindb/internal/client"
-	"github.com/lindb/lindb/models"
-	stmtpkg "github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/pkg/http"
+	"github.com/lindb/lindb/query"
 )
 
 var (
-	requestCli = client.NewRequestCli()
+	RequestsPath = "/state/requests"
 )
 
-// RequestCommand executes requests/request related statement.
-func RequestCommand(_ context.Context, deps *depspkg.HTTPDeps, _ *models.ExecuteParam, _ stmtpkg.Statement) (interface{}, error) {
-	liveNodes := deps.StateMgr.GetLiveNodes()
-	var nodes []models.Node
-	for idx := range liveNodes {
-		nodes = append(nodes, &liveNodes[idx])
-	}
-	rs := requestCli.FetchRequestsByNodes(nodes)
-	return rs, nil
+// RequestAPI represents request state related api.
+type RequestAPI struct {
+}
+
+// NewRequestAPI creates a RequestAPI instance.
+func NewRequestAPI() *RequestAPI {
+	return &RequestAPI{}
+}
+
+// Register adds request state url route.
+func (api *RequestAPI) Register(route gin.IRoutes) {
+	route.GET(RequestsPath, api.GetAllAliveRequests)
+}
+
+// GetAllAliveRequests returns all alive request.
+func (api *RequestAPI) GetAllAliveRequests(c *gin.Context) {
+	http.OK(c, query.GetRequestManager().GetAliveRequests())
 }

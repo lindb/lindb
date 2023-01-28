@@ -79,8 +79,8 @@ const RequestView: React.FC = () => {
       dataIndex: "db",
     },
     {
-      title: RequestView.broker,
-      dataIndex: "broker",
+      title: RequestView.entry,
+      dataIndex: "entry",
     },
     {
       title: Common.actions,

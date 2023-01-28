@@ -34,10 +34,10 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/storage"
+	"github.com/lindb/lindb/internal/api"
 	"github.com/lindb/lindb/internal/bootstrap"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
-	"github.com/lindb/lindb/internal/monitoring"
 	"github.com/lindb/lindb/internal/server"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/metrics"
@@ -398,7 +398,7 @@ func (r *runtime) startHTTPServer() {
 	}
 
 	r.httpServer = httppkg.NewServer(r.config.StorageBase.HTTP, false, linmetric.StorageRegistry)
-	exploreAPI := monitoring.NewExploreAPI(r.globalKeyValues, linmetric.StorageRegistry)
+	exploreAPI := api.NewExploreAPI(r.globalKeyValues, linmetric.StorageRegistry)
 	v1 := r.httpServer.GetAPIRouter().Group(constants.APIVersion1)
 	exploreAPI.Register(v1)
 	replicaAPI := stateapi.NewReplicaAPI(r.walMgr)
@@ -407,9 +407,9 @@ func (r *runtime) startHTTPServer() {
 	tsdbStateAPI.Register(v1)
 	stateMachineAPI := stateapi.NewStorageStateMachineAPI(r.stateMgr)
 	stateMachineAPI.Register(v1)
-	logAPI := monitoring.NewLoggerAPI(r.config.Logging.Dir)
+	logAPI := api.NewLoggerAPI(r.config.Logging.Dir)
 	logAPI.Register(v1)
-	configAPI := monitoring.NewConfigAPI(r.node, r.config)
+	configAPI := api.NewConfigAPI(r.node, r.config)
 	configAPI.Register(v1)
 	requestAPI := stateapi.NewRequestAPI()
 	requestAPI.Register(v1)
