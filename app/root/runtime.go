@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/lindb/lindb/app"
 	"github.com/lindb/lindb/app/root/api"
@@ -55,6 +56,11 @@ var (
 	newTaskManager         = query.NewTaskManager
 	newRepositoryFactory   = state.NewRepositoryFactory
 	newHTTPServer          = httppkg.NewServer
+)
+
+var (
+	maxRetries    = 20
+	retryInterval = time.Second
 )
 
 // deps represents all dependencies for root.
@@ -164,7 +170,7 @@ func (r *runtime) Run() error {
 	// register root node info
 	r.registry = newRegistry(r.repo, constants.LiveNodesPath, r.config.Coordinator.LeaseTTL.Duration())
 
-	if err = r.registry.Register(r.node); err != nil {
+	if err = r.MustRegisterStatelessNode(); err != nil {
 		r.state = server.Failed
 		return fmt.Errorf("register root node error:%s", err)
 	}
@@ -186,6 +192,26 @@ func (r *runtime) Run() error {
 
 	r.state = server.Running
 	return nil
+}
+
+// MustRegisterStatelessNode make sure root node is registered to etcd.
+func (r *runtime) MustRegisterStatelessNode() error {
+	if err := r.registry.Register(r.node); err != nil {
+		return fmt.Errorf("register root node error:%s", err)
+	}
+	// sometimes lease isn't expired when storage restarts, retry registering is necessary
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		select {
+		case <-r.ctx.Done(): // no more retries when context is done
+			return nil
+		default:
+		}
+		if r.registry.IsSuccess() {
+			return nil
+		}
+		time.Sleep(retryInterval)
+	}
+	return fmt.Errorf("register root node failure")
 }
 
 // State returns current root server state.
