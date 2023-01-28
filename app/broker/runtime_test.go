@@ -250,6 +250,7 @@ func TestBrokerRuntime_Stop(t *testing.T) {
 	connectionMgr := rpc.NewMockConnectionManager(ctrl)
 	channelMgr := replica.NewMockChannelManager(ctrl)
 	grpcServer := rpc.NewMockGRPCServer(ctrl)
+	registry.EXPECT().Deregister(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
 
 	cases := []struct {
 		name    string
