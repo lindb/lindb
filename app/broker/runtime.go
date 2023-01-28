@@ -291,7 +291,9 @@ func (r *runtime) Stop() {
 	// close registry, deregister broker node from active list
 	if r.registry != nil {
 		r.logger.Info("closing discovery-registry...")
-		// TODO: add unregistry
+		if err := r.registry.Deregister(r.node); err != nil {
+			r.logger.Error("unregister broker node error", logger.Error(err))
+		}
 		if err := r.registry.Close(); err != nil {
 			r.logger.Error("unregister broker node error", logger.Error(err))
 		} else {
