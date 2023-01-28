@@ -31,8 +31,8 @@ export const StorageCoordinatorDashboard: Dashboard = {
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.storage.state_manager' where type='NodeStartup' group by node",
-                watch: ["namespace", "node"],
+                sql: "select 'handle_events' from 'lindb.coordinator.state_manager' where type='NodeStartup' and coordinator='Storage' group by node",
+                watch: ["namespace", "node", "role"],
               },
             ],
             unit: Unit.Short,
@@ -46,8 +46,8 @@ export const StorageCoordinatorDashboard: Dashboard = {
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.storage.state_manager' where type='NodeFailure' group by node",
-                watch: ["namespace", "node"],
+                sql: "select 'handle_events' from 'lindb.coordinator.state_manager' where type='NodeFailure' and coordinator='Storage' group by node",
+                watch: ["namespace", "node", "role"],
               },
             ],
             unit: Unit.Short,
@@ -65,8 +65,8 @@ export const StorageCoordinatorDashboard: Dashboard = {
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.storage.state_manager' where type='ShardAssignmentChanged' group by node",
-                watch: ["namespace", "node"],
+                sql: "select 'handle_events' from 'lindb.coordinator.state_manager' where type='ShardAssignmentChanged' and coordinator='Storage' group by node",
+                watch: ["namespace", "node", "role"],
               },
             ],
             unit: Unit.Short,
@@ -80,8 +80,8 @@ export const StorageCoordinatorDashboard: Dashboard = {
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_event_failures' from 'lindb.storage.state_manager' group by node",
-                watch: ["namespace", "node"],
+                sql: "select 'handle_event_failures' from 'lindb.coordinator.state_manager' where coordinator='Storage' group by node",
+                watch: ["namespace", "node", "role"],
               },
             ],
             unit: Unit.Short,
@@ -95,8 +95,8 @@ export const StorageCoordinatorDashboard: Dashboard = {
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'panics' from 'lindb.storage.state_manager' group by node",
-                watch: ["namespace", "node"],
+                sql: "select 'panics' from 'lindb.coordinator.state_manager' where coordinator='Storage' group by node",
+                watch: ["namespace", "node", "role"],
               },
             ],
             unit: Unit.Short,

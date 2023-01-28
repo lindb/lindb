@@ -30,6 +30,7 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
@@ -100,7 +101,7 @@ func NewStateManager(
 		nodes:              make(map[string]models.StatelessNode),
 		running:            atomic.NewBool(true),
 		connectionManager:  connectionManager,
-		statistics:         metrics.NewStateManagerStatistics(strings.ToLower(constants.RootRole)),
+		statistics:         metrics.NewStateManagerStatistics(linmetric.RootRegistry),
 		newBrokerClusterFn: newBrokerCluster,
 		logger:             logger.GetLogger("Root", "StateManager"),
 	}
@@ -165,7 +166,7 @@ func (s *stateManager) processEvent(event *discovery.Event) {
 	eventType := event.Type.String()
 	defer func() {
 		if err := recover(); err != nil {
-			s.statistics.Panics.WithTagValues(eventType).Incr()
+			s.statistics.Panics.WithTagValues(eventType, constants.RootRole).Incr()
 			s.logger.Error("panic when process discovery event, lost the state",
 				logger.Any("err", err), logger.Stack())
 		}
@@ -202,9 +203,9 @@ func (s *stateManager) processEvent(event *discovery.Event) {
 		}
 	}
 	if err != nil {
-		s.statistics.HandleEventFailure.WithTagValues(eventType).Incr()
+		s.statistics.HandleEventFailure.WithTagValues(eventType, constants.RootRole).Incr()
 	} else {
-		s.statistics.HandleEvents.WithTagValues(eventType).Incr()
+		s.statistics.HandleEvents.WithTagValues(eventType, constants.RootRole).Incr()
 	}
 }
 

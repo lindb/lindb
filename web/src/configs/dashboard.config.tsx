@@ -27,7 +27,7 @@ import {
   MasterCoordinatorDashboard,
   MasterControllerDashboard,
   StorageCoordinatorDashboard,
-  BrokerQueryDashboard,
+  QueryDashboard,
   StorageQueryDashboard,
   KVStoreReadDashboard,
   KVStoreWriteDashboard,
@@ -39,6 +39,7 @@ import {
   WALDashboard,
   LocalReplicationDashboard,
   RemoteReplicationDashboard,
+  RootCoordinatorDashboard,
 } from "@src/configs";
 import { MonitoringDB, StateRoleName } from "@src/constants";
 import { DashboardItem, Variate } from "@src/models";
@@ -55,11 +56,12 @@ export enum DashboardName {
   ConcurrentLimit = "Concurrent Limit",
   CoordinatorMaster = "Master Coordinator",
   MasterController = "Master Controller",
+  CoordinatorRoot = "Root Coordinator",
   CoordinatorBroker = "Broker Coordinator",
   CoordinatorStorage = "Storage Coordinator",
   Ingestion = "Ingestion",
   BrokerWrite = "Broker Write",
-  BrokerQuery = "Broker Query",
+  Query = "Query",
   StorageQuery = "Storage Query",
   NetworkTCP = "Network TCP",
   NetworkGRPC = "Network GRPC",
@@ -82,7 +84,7 @@ export const CommonVariates = [
     label: "Node",
     watch: { cascade: ["namespace", "role"] },
     db: MonitoringDB,
-    scope: [StateRoleName.Storage, StateRoleName.Broker],
+    scope: [StateRoleName.Storage, StateRoleName.Broker, StateRoleName.Root],
     multiple: true,
     sql: "show tag values from 'lindb.runtime.mem' with key=node",
   },
@@ -90,10 +92,10 @@ export const CommonVariates = [
 
 export const Dashboards = [
   {
-    value: "broker.query",
-    label: DashboardName.BrokerQuery,
-    scope: [StateRoleName.Broker],
-    dashboard: BrokerQueryDashboard,
+    value: "query",
+    label: DashboardName.Query,
+    scope: [StateRoleName.Broker, StateRoleName.Root],
+    dashboard: QueryDashboard,
   },
   {
     value: "ingestion",
@@ -118,6 +120,12 @@ export const Dashboards = [
     label: DashboardName.CoordinatorMaster,
     scope: [StateRoleName.Broker],
     dashboard: MasterCoordinatorDashboard,
+  },
+  {
+    value: "coordinator.root",
+    label: DashboardName.CoordinatorRoot,
+    scope: [StateRoleName.Root],
+    dashboard: RootCoordinatorDashboard,
   },
   {
     value: "coordinator.broker",
@@ -188,13 +196,13 @@ export const Dashboards = [
   {
     value: "concurrnet.pool",
     label: DashboardName.ConcurrentPool,
-    scope: [StateRoleName.Storage, StateRoleName.Broker],
+    scope: [StateRoleName.Storage, StateRoleName.Broker, StateRoleName.Root],
     dashboard: ConcurrentPoolDashboard,
   },
   {
     value: "concurrnet.limit",
     label: DashboardName.ConcurrentLimit,
-    scope: [StateRoleName.Broker],
+    scope: [StateRoleName.Broker, StateRoleName.Root],
     dashboard: ConcurrentLimitDashboard,
   },
   {
@@ -212,13 +220,13 @@ export const Dashboards = [
   {
     value: "runtime",
     label: DashboardName.Runtime,
-    scope: [StateRoleName.Storage, StateRoleName.Broker],
+    scope: [StateRoleName.Storage, StateRoleName.Broker, StateRoleName.Root],
     dashboard: RuntimeDashboard,
   },
   {
     value: "system",
     label: DashboardName.System,
-    scope: [StateRoleName.Storage, StateRoleName.Broker],
+    scope: [StateRoleName.Storage, StateRoleName.Broker, StateRoleName.Root],
     dashboard: SystemDashboard,
   },
 ] as DashboardItem[];

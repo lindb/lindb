@@ -21,12 +21,12 @@ import (
 	"context"
 	"path/filepath"
 	"sort"
-	"strings"
 	"sync"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
@@ -109,7 +109,7 @@ func NewStateManager(
 		databases:         make(map[string]models.Database),
 		nodes:             make(map[string]models.StatelessNode),
 		events:            make(chan *discovery.Event, 10),
-		statistics:        metrics.NewStateManagerStatistics(strings.ToLower(constants.BrokerRole)),
+		statistics:        metrics.NewStateManagerStatistics(linmetric.BrokerRegistry),
 		logger:            logger.GetLogger("Broker", "StateManager"),
 	}
 
@@ -188,7 +188,7 @@ func (m *stateManager) processEvent(event *discovery.Event) {
 	eventType := event.Type.String()
 	defer func() {
 		if err := recover(); err != nil {
-			m.statistics.Panics.WithTagValues(eventType).Incr()
+			m.statistics.Panics.WithTagValues(eventType, constants.BrokerRole).Incr()
 			m.logger.Error("panic when process discovery event, lost the state",
 				logger.Any("err", err), logger.Stack())
 		}
@@ -213,9 +213,9 @@ func (m *stateManager) processEvent(event *discovery.Event) {
 		m.onStorageDelete(event.Key)
 	}
 	if err != nil {
-		m.statistics.HandleEventFailure.WithTagValues(eventType).Incr()
+		m.statistics.HandleEventFailure.WithTagValues(eventType, constants.BrokerRole).Incr()
 	} else {
-		m.statistics.HandleEvents.WithTagValues(eventType).Incr()
+		m.statistics.HandleEvents.WithTagValues(eventType, constants.BrokerRole).Incr()
 	}
 }
 

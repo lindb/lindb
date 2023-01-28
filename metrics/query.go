@@ -27,10 +27,7 @@ type QueryStatistics struct {
 	ExpireTasks  *linmetric.BoundCounter // task expire, long-term no response
 	AliveTask    *linmetric.BoundGauge   // current executing task(alive)
 	EmitResponse *linmetric.BoundCounter // emit response to parent node
-	//FIXME: remove it??
-	OmitResponse        *linmetric.BoundCounter // omit response because task evicted
-	SentRequest         *linmetric.BoundCounter // send request success
-	SentRequestFailures *linmetric.BoundCounter // send request failure
+	OmitResponse *linmetric.BoundCounter // omit response because task evicted
 }
 
 // TransportStatistics represents request/response transport statistics.
@@ -70,7 +67,6 @@ func NewQueryStatistics(registry *linmetric.Registry) *QueryStatistics {
 		ExpireTasks:  scope.NewCounter("expire_tasks"),
 		EmitResponse: scope.NewCounter("emitted_responses"),
 		OmitResponse: scope.NewCounter("omitted_responses"),
-		SentRequest:  scope.NewCounter("sent_requests"),
 	}
 }
 

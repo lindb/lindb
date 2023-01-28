@@ -16,6 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+export * from "@src/configs/monitoring/root.coordinator";
 export * from "@src/configs/monitoring/broker.coordinator";
 export * from "@src/configs/monitoring/master.coordinator";
 export * from "@src/configs/monitoring/master.controller";
@@ -23,7 +24,7 @@ export * from "@src/configs/monitoring/storage.coordinator";
 export * from "@src/configs/monitoring/ingestion";
 export * from "@src/configs/monitoring/runtime";
 export * from "@src/configs/monitoring/system";
-export * from "@src/configs/monitoring/broker.query";
+export * from "@src/configs/monitoring/query";
 export * from "@src/configs/monitoring/storage.query";
 export * from "@src/configs/monitoring/concurrent.pool";
 export * from "@src/configs/monitoring/concurrent.limit";

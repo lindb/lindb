@@ -25,6 +25,7 @@ export enum StateMetricName {
 }
 
 export enum StateRoleName {
+  Root = "Root",
   Master = "Master",
   Broker = "Broker",
   Storage = "Storage",

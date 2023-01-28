@@ -35,10 +35,14 @@ const DashboardForm: React.FC<{
   const { role } = useParams(["role"]);
   const { env } = useContext(UIContext);
   const database = _.get(env, "monitor.database");
+  const defaultRole =
+    env.role === StateRoleName.Broker
+      ? StateRoleName.Broker
+      : StateRoleName.Root;
 
   const dashboardForRole = _.filter(
     dashboards,
-    (o) => _.indexOf(o.scope, role || StateRoleName.Broker) >= 0
+    (o) => _.indexOf(o.scope, role || defaultRole) >= 0
   );
   return (
     <Form
@@ -49,12 +53,16 @@ const DashboardForm: React.FC<{
       <LinSelect
         showClear
         field="role"
-        defaultValue={StateRoleName.Broker}
+        defaultValue={defaultRole}
         prefix={<IconFixedStroked />}
-        loader={() => [
-          { value: StateRoleName.Broker, label: StateRoleName.Broker },
-          { value: StateRoleName.Storage, label: StateRoleName.Storage },
-        ]}
+        loader={() =>
+          env.role === StateRoleName.Broker
+            ? [
+                { value: StateRoleName.Broker, label: StateRoleName.Broker },
+                { value: StateRoleName.Storage, label: StateRoleName.Storage },
+              ]
+            : [{ value: StateRoleName.Root, label: StateRoleName.Root }]
+        }
         clearKeys={["namespace", "node", "d"]}
         style={{ minWidth: 60 }}
       />
@@ -66,19 +74,14 @@ const DashboardForm: React.FC<{
           const params = URLStore.getParams();
           return _.filter(
             dashboards,
-            (o) =>
-              _.indexOf(o.scope, _.get(params, "role", StateRoleName.Broker)) >=
-              0
+            (o) => _.indexOf(o.scope, _.get(params, "role", defaultRole)) >= 0
           );
         }}
         style={{ minWidth: 60 }}
         reloadKeys={["role"]}
       />
       {_.map(
-        _.filter(
-          variates,
-          (o) => _.indexOf(o.scope, role || StateRoleName.Broker) >= 0
-        ),
+        _.filter(variates, (o) => _.indexOf(o.scope, role || defaultRole) >= 0),
         (v: any) => {
           v.db = database || v.db;
           return (
@@ -120,7 +123,7 @@ const ViewDashboard: React.FC<{
 
   return (
     <>
-      {(dashboard.rows || []).map((row: any, rowIdx: any) => (
+      {(dashboard?.rows || []).map((row: any, rowIdx: any) => (
         <Row
           style={{ marginTop: 12 }}
           key={rowIdx}

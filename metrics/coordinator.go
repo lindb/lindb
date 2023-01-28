@@ -18,10 +18,6 @@
 package metrics
 
 import (
-	"fmt"
-	"strings"
-
-	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/linmetric"
 )
 
@@ -47,17 +43,12 @@ type MasterStatistics struct {
 }
 
 // NewStateManagerStatistics creates a state manager statistics.
-func NewStateManagerStatistics(role string) *StateManagerStatistics {
-	var scope linmetric.Scope
-	if strings.EqualFold(role, constants.StorageRole) {
-		scope = linmetric.StorageRegistry.NewScope(fmt.Sprintf("lindb.%s.state_manager", role))
-	} else {
-		scope = linmetric.BrokerRegistry.NewScope(fmt.Sprintf("lindb.%s.state_manager", role))
-	}
+func NewStateManagerStatistics(registry *linmetric.Registry) *StateManagerStatistics {
+	scope := registry.NewScope("lindb.coordinator.state_manager")
 	return &StateManagerStatistics{
-		HandleEvents:       scope.NewCounterVec("handle_events", "type"),
-		HandleEventFailure: scope.NewCounterVec("handle_event_failures", "type"),
-		Panics:             scope.NewCounterVec("panics", "type"),
+		HandleEvents:       scope.NewCounterVec("handle_events", "type", "coordinator"),
+		HandleEventFailure: scope.NewCounterVec("handle_event_failures", "type", "coordinator"),
+		Panics:             scope.NewCounterVec("panics", "type", "coordinator"),
 	}
 }
 
