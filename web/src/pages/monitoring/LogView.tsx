@@ -139,25 +139,27 @@ const LogView: React.FC = () => {
             style={{ width: 150 }}
             clearKeys={["storage", "node", "file"]}
           />
-
-          <LinSelect
-            field="storage"
-            label={LogView.storage}
-            style={{ width: 200 }}
-            loader={() =>
-              ExecService.exec<any[]>({ sql: SQL.ShowStorageAliveNodes }).then(
-                (data) =>
+          {env.role === StateRoleName.Broker && (
+            <LinSelect
+              field="storage"
+              label={LogView.storage}
+              style={{ width: 200 }}
+              loader={() =>
+                ExecService.exec<any[]>({
+                  sql: SQL.ShowStorageAliveNodes,
+                }).then((data) =>
                   _.map(data || [], (s) => {
                     return { value: s.name, label: s.name };
                   })
-              )
-            }
-            visible={() =>
-              _.get(URLStore.getParams(), "role") === StateRoleName.Storage
-            }
-            reloadKeys={["role"]}
-            clearKeys={["node", "file"]}
-          />
+                )
+              }
+              visible={() =>
+                _.get(URLStore.getParams(), "role") === StateRoleName.Storage
+              }
+              reloadKeys={["role"]}
+              clearKeys={["node", "file"]}
+            />
+          )}
           <LinSelect
             field="node"
             label={LogView.node}
@@ -180,7 +182,7 @@ const LogView: React.FC = () => {
                     return { value: target, label: target };
                   })
                 );
-              } else {
+              } else if (role === StateRoleName.Storage) {
                 return ExecService.exec<any[]>({
                   sql: SQL.ShowStorageAliveNodes,
                 }).then((data) => {
@@ -197,6 +199,7 @@ const LogView: React.FC = () => {
                   });
                 });
               }
+              return [];
             }}
             clearKeys={["file"]}
             reloadKeys={["role", "storage"]}
