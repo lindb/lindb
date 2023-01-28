@@ -20,155 +20,19 @@ import { MonitoringDB } from "@src/constants";
 import { Dashboard, Unit } from "@src/models";
 import { chartOptions } from "./system";
 
-export const MasterCoordinatorDashboard: Dashboard = {
+export const QueryDashboard: Dashboard = {
   rows: [
     {
       panels: [
         {
           chart: {
-            title: "Storage Node Joins",
+            title: "Current Executing Task(Alive)",
             config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.coordinator.state_manager' where type='NodeStartup' and coordinator='Master' group by node",
-                watch: ["node", "role"],
-              },
-            ],
-            unit: Unit.Short,
-          },
-          span: 12,
-        },
-        {
-          chart: {
-            title: "Storage Node Leaves",
-            config: { type: "line", options: chartOptions },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.coordinator.state_manager' where type='NodeFailure' and coordinator='Master' group by node",
-                watch: ["node", "role"],
-              },
-            ],
-            unit: Unit.Short,
-          },
-          span: 12,
-        },
-      ],
-    },
-    {
-      panels: [
-        {
-          chart: {
-            title: "Database Config Changed",
-            config: { type: "line", options: chartOptions },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.coordinator.state_manager' where type='DatabaseConfigChanged' and coordinator='Master' group by node",
-                watch: ["node", "role"],
-              },
-            ],
-            unit: Unit.Short,
-          },
-          span: 12,
-        },
-        {
-          chart: {
-            title: "Database Config Deletion",
-            config: { type: "line", options: chartOptions },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.coordinator.state_manager' where type='DatabaseConfigDeletion' and coordinator='Master' group by node",
-                watch: ["node", "role"],
-              },
-            ],
-            unit: Unit.Short,
-          },
-          span: 12,
-        },
-      ],
-    },
-    {
-      panels: [
-        {
-          chart: {
-            title: "Storage Config Changed",
-            config: { type: "line", options: chartOptions },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.coordinator.state_manager' where type='StorageConfigChanged' and coordinator='Master' group by node",
-                watch: ["node", "role"],
-              },
-            ],
-            unit: Unit.Short,
-          },
-          span: 12,
-        },
-        {
-          chart: {
-            title: "Storage Config Deletion",
-            config: { type: "line", options: chartOptions },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.coordinator.state_manager' where type='StorageConfigDeletion' and coordinator='Master' group by node",
-                watch: ["node", "role"],
-              },
-            ],
-            unit: Unit.Short,
-          },
-          span: 12,
-        },
-      ],
-    },
-    {
-      panels: [
-        {
-          chart: {
-            title: "Shard Leader Election",
-            config: { type: "line", options: chartOptions },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'elections' from 'lindb.master.shard.leader' group by node",
-                watch: ["node"],
-              },
-            ],
-            unit: Unit.Short,
-          },
-          span: 12,
-        },
-        {
-          chart: {
-            title: "Shard Leader Election Failure",
-            config: { type: "line", options: chartOptions },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'elect_failures' from 'lindb.master.shard.leader' group by node",
-                watch: ["node"],
-              },
-            ],
-            unit: Unit.Short,
-          },
-          span: 12,
-        },
-      ],
-    },
-    {
-      panels: [
-        {
-          chart: {
-            title: "Shard Assigns",
-            config: { type: "line", options: chartOptions },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.coordinator.state_manager' where type='ShardAssignmentChanged' and coordinator='Master' group by node",
-                watch: ["node", "role"],
+                sql: "select alive_tasks from lindb.query group by node",
+                watch: ["namespace", "node", "role"],
               },
             ],
             unit: Unit.Short,
@@ -177,13 +41,13 @@ export const MasterCoordinatorDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Failure(Process Event)",
+            title: "Create Query Tasks",
             config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_event_failures' from 'lindb.coordinator.state_manager' where coordinator='Master' group by node,type",
-                watch: ["node", "role"],
+                sql: "select created_tasks from lindb.query group by node",
+                watch: ["namespace", "node", "role"],
               },
             ],
             unit: Unit.Short,
@@ -192,18 +56,121 @@ export const MasterCoordinatorDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Panic(Process Event)",
+            title: "Expired Tasks",
+            description: "long-term no response",
             config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'panics' from 'lindb.coordinator.state_manager' where coordinator='Master' group by node",
-                watch: ["node", "role"],
+                sql: "select expire_tasks from lindb.query group by node",
+                watch: ["namespace", "node", "role"],
               },
             ],
             unit: Unit.Short,
           },
           span: 8,
+        },
+      ],
+    },
+    {
+      panels: [
+        {
+          chart: {
+            title: "Emit Response To Parent Node",
+            config: { type: "line", options: chartOptions },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select emitted_responses from lindb.query group by node",
+                watch: ["namespace", "node", "role"],
+              },
+            ],
+            unit: Unit.Short,
+          },
+          span: 12,
+        },
+        {
+          chart: {
+            title: "Omit Response Because Task Evicted",
+            config: { type: "line", options: chartOptions },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select omitted_responses from lindb.query group by node",
+                watch: ["namespace", "node", "role"],
+              },
+            ],
+            unit: Unit.Short,
+          },
+          span: 12,
+        },
+      ],
+    },
+    {
+      panels: [
+        {
+          chart: {
+            title: "Sent Request",
+            config: { type: "line", options: chartOptions },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select sent_requests from lindb.task.transport group by node",
+                watch: ["namespace", "node", "role"],
+              },
+            ],
+            unit: Unit.Short,
+          },
+          span: 12,
+        },
+        {
+          chart: {
+            title: "Rend Requst Failure",
+            config: { type: "line", options: chartOptions },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select sent_requests_failures from lindb.task.transport group by node",
+                watch: ["namespace", "node", "role"],
+              },
+            ],
+            unit: Unit.Short,
+          },
+          span: 12,
+        },
+      ],
+    },
+    {
+      panels: [
+        {
+          chart: {
+            title: "Send Response",
+            config: { type: "line", options: chartOptions },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select sent_responses from lindb.task.transport group by node",
+                watch: ["namespace", "node", "role"],
+              },
+            ],
+            unit: Unit.Short,
+          },
+          span: 12,
+        },
+        {
+          chart: {
+            title: "Send Response Failure",
+            config: { type: "line", options: chartOptions },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select sent_responses_failures from lindb.task.transport group by node",
+                watch: ["namespace", "node", "role"],
+              },
+            ],
+            unit: Unit.Short,
+          },
+          span: 12,
         },
       ],
     },

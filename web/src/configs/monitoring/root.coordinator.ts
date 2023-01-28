@@ -20,69 +20,20 @@ import { MonitoringDB } from "@src/constants";
 import { Dashboard, Unit } from "@src/models";
 import { chartOptions } from "./system";
 
-export const BrokerQueryDashboard: Dashboard = {
+export const RootCoordinatorDashboard: Dashboard = {
   rows: [
     {
       panels: [
         {
           chart: {
-            title: "Current Executing Task(Alive)",
+            title: "Root/Broker Node Joins",
+            description: "trigger while broker node online",
             config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select alive_tasks from lindb.broker.query group by node",
-                watch: ["namespace", "node", "role"],
-              },
-            ],
-            unit: Unit.Short,
-          },
-          span: 8,
-        },
-        {
-          chart: {
-            title: "Create Query Tasks",
-            config: { type: "line", options: chartOptions },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select created_tasks from lindb.broker.query group by node",
-                watch: ["namespace", "node", "role"],
-              },
-            ],
-            unit: Unit.Short,
-          },
-          span: 8,
-        },
-        {
-          chart: {
-            title: "Expired Tasks",
-            description: "long-term no response",
-            config: { type: "line", options: chartOptions },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select expire_tasks from lindb.broker.query group by node",
-                watch: ["namespace", "node", "role"],
-              },
-            ],
-            unit: Unit.Short,
-          },
-          span: 8,
-        },
-      ],
-    },
-    {
-      panels: [
-        {
-          chart: {
-            title: "Emit Response To Parent Node",
-            config: { type: "line", options: chartOptions },
-            targets: [
-              {
-                db: MonitoringDB,
-                sql: "select emitted_responses from lindb.broker.query group by node",
-                watch: ["namespace", "node", "role"],
+                sql: "select 'handle_events' from 'lindb.coordinator.state_manager' where type='NodeStartup' and coordinator='Root' group by node",
+                watch: ["node", "role"],
               },
             ],
             unit: Unit.Short,
@@ -91,13 +42,14 @@ export const BrokerQueryDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Omit Response Because Task Evicted",
+            title: "Root/Broker Node Leaves",
+            description: "trigger while broker node offline",
             config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select omitted_responses from lindb.broker.query group by node",
-                watch: ["namespace", "node", "role"],
+                sql: "select 'handle_events' from 'lindb.coordinator.state_manager' where type='NodeFailure' and coordinator='Root' group by node",
+                watch: ["node", "role"],
               },
             ],
             unit: Unit.Short,
@@ -110,13 +62,13 @@ export const BrokerQueryDashboard: Dashboard = {
       panels: [
         {
           chart: {
-            title: "Sent Request",
+            title: "Broker Cluster Changed",
             config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select sent_requests from lindb.broker.query group by node",
-                watch: ["namespace", "node", "role"],
+                sql: "select 'handle_events' from 'lindb.coordinator.state_manager' where type='BrokerConfigChanged' and coordinator='Root' group by node",
+                watch: ["node", "role"],
               },
             ],
             unit: Unit.Short,
@@ -125,13 +77,13 @@ export const BrokerQueryDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Rend Requst Failure",
+            title: "Broker Cluster Deletion",
             config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select sent_requests_failures from lindb.broker.query group by node",
-                watch: ["namespace", "node", "role"],
+                sql: "select 'handle_events' from 'lindb.coordinator.state_manager' where type='BrokerConfigDeletion' and coordinator='Root' group by node",
+                watch: ["node", "role"],
               },
             ],
             unit: Unit.Short,
@@ -144,13 +96,13 @@ export const BrokerQueryDashboard: Dashboard = {
       panels: [
         {
           chart: {
-            title: "Send Response",
+            title: "Database Config Changed",
             config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select sent_responses from lindb.broker.query group by node",
-                watch: ["namespace", "node", "role"],
+                sql: "select 'handle_events' from 'lindb.coordinator.state_manager' where type='DatabaseConfigChanged' and coordinator='Root' group by node",
+                watch: ["node", "role"],
               },
             ],
             unit: Unit.Short,
@@ -159,13 +111,47 @@ export const BrokerQueryDashboard: Dashboard = {
         },
         {
           chart: {
-            title: "Send Response Failure",
+            title: "Database Config Deletion",
             config: { type: "line", options: chartOptions },
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select sent_responses_failures from lindb.broker.query group by node",
-                watch: ["namespace", "node", "role"],
+                sql: "select 'handle_events' from 'lindb.coordinator.state_manager' where type='DatabaseConfigDeletion' and coordinator='Root' group by node",
+                watch: ["node", "role"],
+              },
+            ],
+            unit: Unit.Short,
+          },
+          span: 12,
+        },
+      ],
+    },
+    {
+      panels: [
+        {
+          chart: {
+            title: "Failure(Process Event)",
+            config: { type: "line", options: chartOptions },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'handle_event_failures' from 'lindb.coordinator.state_manager' where coordinator='Root' group by node,type",
+                watch: ["node", "role"],
+              },
+            ],
+            unit: Unit.Short,
+          },
+          span: 12,
+        },
+        {
+          chart: {
+            title: "Panic(Process Event)",
+            config: { type: "line", options: chartOptions },
+            targets: [
+              {
+                db: MonitoringDB,
+                sql: "select 'panics' from 'lindb.coordinator.state_manager' where coordinator='Root' group by node,type",
+                watch: ["node", "role"],
               },
             ],
             unit: Unit.Short,

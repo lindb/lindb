@@ -31,6 +31,7 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
@@ -109,7 +110,7 @@ func NewStateManager(
 		events:                make(chan *discovery.Event, 10),
 		running:               atomic.NewBool(true),
 		newStorageClusterFn:   newStorageCluster,
-		statistics:            metrics.NewStateManagerStatistics(strings.ToLower(constants.MasterRole)),
+		statistics:            metrics.NewStateManagerStatistics(linmetric.BrokerRegistry),
 		shardLeaderStatistics: metrics.NewShardLeaderStatistics(),
 		logger:                logger.GetLogger("Master", "StateManager"),
 	}
@@ -143,7 +144,7 @@ func (m *stateManager) processEvent(event *discovery.Event) {
 	eventType := event.Type.String()
 	defer func() {
 		if err := recover(); err != nil {
-			m.statistics.Panics.WithTagValues(eventType).Incr()
+			m.statistics.Panics.WithTagValues(eventType, constants.MasterRole).Incr()
 			m.logger.Error("panic when process discovery event, lost the state",
 				logger.Any("err", err), logger.Stack())
 		}
@@ -174,9 +175,9 @@ func (m *stateManager) processEvent(event *discovery.Event) {
 		err = m.onStorageNodeFailure(event.Attributes[storageNameKey], event.Key)
 	}
 	if err != nil {
-		m.statistics.HandleEventFailure.WithTagValues(eventType).Incr()
+		m.statistics.HandleEventFailure.WithTagValues(eventType, constants.MasterRole).Incr()
 	} else {
-		m.statistics.HandleEvents.WithTagValues(eventType).Incr()
+		m.statistics.HandleEvents.WithTagValues(eventType, constants.MasterRole).Incr()
 	}
 }
 

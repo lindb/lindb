@@ -39,7 +39,18 @@ func TestStateManager_Close(t *testing.T) {
 }
 
 func TestStateManager_Handle_Event_Panic(t *testing.T) {
-	mgr := NewStateManager(context.TODO(), models.StatelessNode{}, nil, nil)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	connectionMgr := rpc.NewMockConnectionManager(ctrl)
+	mgr := NewStateManager(context.TODO(), models.StatelessNode{}, connectionMgr, nil)
+	mgr1 := mgr.(*stateManager)
+	mgr1.mutex.Lock()
+	mgr1.nodes["1.1.1.1:9000"] = models.StatelessNode{}
+	mgr1.mutex.Unlock()
+	connectionMgr.EXPECT().CloseConnection(gomock.Any()).Do(func(node models.Node) {
+		panic("err")
+	})
 	// case 1: panic
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.NodeFailure,
