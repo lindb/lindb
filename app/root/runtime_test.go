@@ -60,6 +60,7 @@ func TestRootRun(t *testing.T) {
 		return registry
 	}
 	registry.EXPECT().Register(gomock.Any()).Return(nil)
+	registry.EXPECT().IsSuccess().Return(true)
 	registry.EXPECT().Deregister(gomock.Any()).Return(fmt.Errorf("err"))
 	registry.EXPECT().Close().Return(fmt.Errorf("err"))
 	repoFct := state.NewMockRepositoryFactory(ctrl)
@@ -102,6 +103,7 @@ func TestRootRun_Err(t *testing.T) {
 		ctrl.Finish()
 	}()
 	registry := discovery.NewMockRegistry(ctrl)
+	registry.EXPECT().IsSuccess().Return(true)
 	newRegistry = func(_ state.Repository, _ string, _ time.Duration) discovery.Registry {
 		return registry
 	}
@@ -214,4 +216,41 @@ func TestHttpServer(t *testing.T) {
 		r.Stop()
 		time.Sleep(100 * time.Millisecond)
 	})
+}
+
+func TestRuntime_MustRegisterNode(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+		maxRetries = 20
+		retryInterval = time.Second
+	}()
+
+	maxRetries = 2
+	retryInterval = time.Millisecond
+
+	register := discovery.NewMockRegistry(ctrl)
+	ctx, cancel := context.WithCancel(context.TODO())
+	r := &runtime{
+		ctx:      ctx,
+		registry: register,
+	}
+	register.EXPECT().Register(gomock.Any()).Return(fmt.Errorf("err"))
+	err := r.MustRegisterStatelessNode()
+	assert.Error(t, err)
+
+	register.EXPECT().Register(gomock.Any()).Return(nil)
+	register.EXPECT().IsSuccess().Return(true)
+	err = r.MustRegisterStatelessNode()
+	assert.NoError(t, err)
+
+	register.EXPECT().Register(gomock.Any()).Return(nil)
+	register.EXPECT().IsSuccess().Return(false).MaxTimes(2)
+	err = r.MustRegisterStatelessNode()
+	assert.Error(t, err)
+
+	cancel()
+	register.EXPECT().Register(gomock.Any()).Return(nil)
+	err = r.MustRegisterStatelessNode()
+	assert.NoError(t, err)
 }
