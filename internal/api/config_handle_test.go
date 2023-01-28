@@ -15,23 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package state
+package api
 
 import (
 	"net/http"
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/mock"
+	"github.com/lindb/lindb/models"
 )
 
-func TestRequestAPI(t *testing.T) {
-	r := gin.New()
-	api := NewRequestAPI()
-	api.Register(r)
+func TestConfigHandler_Configuration(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	resp := mock.DoRequest(t, r, http.MethodGet, RequestsPath, "")
+	api := NewConfigAPI(&models.StatelessNode{}, &config.Broker{})
+	r := gin.New()
+	api.Register(r)
+	resp := mock.DoRequest(t, r, http.MethodGet, ConfigPath, "")
 	assert.Equal(t, http.StatusOK, resp.Code)
 }

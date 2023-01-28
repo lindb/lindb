@@ -23,18 +23,19 @@ import (
 	"github.com/lindb/lindb/app/root/api/state"
 	depspkg "github.com/lindb/lindb/app/root/deps"
 	"github.com/lindb/lindb/constants"
+	apipkg "github.com/lindb/lindb/internal/api"
 	"github.com/lindb/lindb/internal/linmetric"
-	"github.com/lindb/lindb/internal/monitoring"
 	httppkg "github.com/lindb/lindb/pkg/http"
 )
 
 // API represents root http api.
 type API struct {
 	execute          *ExecuteAPI
-	metricExplore    *monitoring.ExploreAPI
 	rootStateMachine *state.RootStateMachineAPI
-	env              *monitoring.EnvAPI
-	config           *monitoring.ConfigAPI
+	request          *apipkg.RequestAPI
+	metricExplore    *apipkg.ExploreAPI
+	env              *apipkg.EnvAPI
+	config           *apipkg.ConfigAPI
 	proxy            *httppkg.ReverseProxy
 }
 
@@ -42,10 +43,11 @@ type API struct {
 func NewAPI(deps *depspkg.HTTPDeps) *API {
 	return &API{
 		execute:          NewExecuteAPI(deps),
-		metricExplore:    monitoring.NewExploreAPI(deps.GlobalKeyValues, linmetric.RootRegistry),
 		rootStateMachine: state.NewRootStateMachineAPI(deps),
-		env:              monitoring.NewEnvAPI(deps.Cfg.Monitor, constants.RootRole),
-		config:           monitoring.NewConfigAPI(deps.Node, deps.Cfg),
+		request:          apipkg.NewRequestAPI(),
+		metricExplore:    apipkg.NewExploreAPI(deps.GlobalKeyValues, linmetric.RootRegistry),
+		env:              apipkg.NewEnvAPI(deps.Cfg.Monitor, constants.RootRole),
+		config:           apipkg.NewConfigAPI(deps.Node, deps.Cfg),
 		proxy:            httppkg.NewReverseProxy(),
 	}
 }
@@ -59,6 +61,7 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 	api.metricExplore.Register(v1)
 	api.rootStateMachine.Register(v1)
 	api.config.Register(v1)
+	api.request.Register(v1)
 
 	api.proxy.Register(v1)
 	api.env.Register(v1)

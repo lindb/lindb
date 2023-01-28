@@ -55,6 +55,7 @@ var (
 		stmtpkg.MetricMetadataStatement: command.MetricMetadataCommand,
 		stmtpkg.QueryStatement:          command.QueryCommand,
 		stmtpkg.StateStatement:          command.StateCommand,
+		stmtpkg.RequestStatement:        command.RequestCommand,
 	}
 )
 

@@ -15,34 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package state
+package api
 
 import (
+	"net/http"
+	"testing"
+
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/pkg/http"
-	"github.com/lindb/lindb/query"
+	"github.com/lindb/lindb/internal/mock"
 )
 
-var (
-	RequestsPath = "/state/requests"
-)
+func TestRequestAPI(t *testing.T) {
+	r := gin.New()
+	api := NewRequestAPI()
+	api.Register(r)
 
-// RequestAPI represents request state related api.
-type RequestAPI struct {
-}
-
-// NewRequestAPI creates a RequestAPI instance.
-func NewRequestAPI() *RequestAPI {
-	return &RequestAPI{}
-}
-
-// Register adds request state url route.
-func (api *RequestAPI) Register(route gin.IRoutes) {
-	route.GET(RequestsPath, api.GetAllAliveRequests)
-}
-
-// GetAllAliveRequests returns all alive request.
-func (api *RequestAPI) GetAllAliveRequests(c *gin.Context) {
-	http.OK(c, query.GetRequestManager().GetAliveRequests())
+	resp := mock.DoRequest(t, r, http.MethodGet, RequestsPath, "")
+	assert.Equal(t, http.StatusOK, resp.Code)
 }

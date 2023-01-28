@@ -135,7 +135,7 @@ const local = {
     duration: "Duration",
     linQL: "LinQL",
     database: "Database",
-    broker: "Broker",
+    entry: "Node",
     runLinQL: "Run Lin Query language",
   },
   MetadataExploreView: {

@@ -15,28 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package monitoring
+package command
 
 import (
-	"net/http"
-	"testing"
+	"context"
 
-	"github.com/gin-gonic/gin"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-
-	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/internal/mock"
+	depspkg "github.com/lindb/lindb/app/root/deps"
+	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
+	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
-func TestConfigHandler_Configuration(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+var (
+	requestCli = client.NewRequestCli()
+)
 
-	api := NewConfigAPI(&models.StatelessNode{}, &config.Broker{})
-	r := gin.New()
-	api.Register(r)
-	resp := mock.DoRequest(t, r, http.MethodGet, ConfigPath, "")
-	assert.Equal(t, http.StatusOK, resp.Code)
+// RequestCommand executes requests/request related statement.
+func RequestCommand(_ context.Context, deps *depspkg.HTTPDeps, _ *models.ExecuteParam, _ stmtpkg.Statement) (interface{}, error) {
+	liveNodes := deps.StateMgr.GetLiveNodes()
+	var nodes []models.Node
+	for idx := range liveNodes {
+		nodes = append(nodes, &liveNodes[idx])
+	}
+	rs := requestCli.FetchRequestsByNodes(nodes)
+	return rs, nil
 }
