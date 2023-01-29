@@ -9,7 +9,7 @@ PACKAGE_NAME="lindb"
 function build {
 	local target=${1}
 
-	LD_FLAGS=("-X github.com/lindb/lindb/config.Version=${PACKAGE_VERSION}")
+	LD_FLAGS=("-s -w -X github.com/lindb/lindb/config.Version=${PACKAGE_VERSION}")
 	LD_FLAGS+=("-X github.com/lindb/lindb/config.BuildTime=${BUILD_TIME}")
 
 

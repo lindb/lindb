@@ -6,7 +6,7 @@ BUILD_TIME=$(shell date "+%Y-%m-%dT%H:%M:%S%z")
 ifeq ($(GIT_TAG_NAME),)
 GIT_TAG_NAME := "unknown"
 endif
-LD_FLAGS=-ldflags="-X github.com/lindb/lindb/config.Version=$(GIT_TAG_NAME) -X github.com/lindb/lindb/config.BuildTime=$(BUILD_TIME)"
+LD_FLAGS=-ldflags="-s -w -X github.com/lindb/lindb/config.Version=$(GIT_TAG_NAME) -X github.com/lindb/lindb/config.BuildTime=$(BUILD_TIME)"
 
 # Ref: https://gist.github.com/prwhite/8168133
 help:  ## Display this help
