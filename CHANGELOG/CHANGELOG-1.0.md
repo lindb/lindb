@@ -1,5 +1,31 @@
 # Change logs
 
+## [0.2.0] - 2023-01-29
+
+See [code changes](https://github.com/lindb/lindb/compare/v0.1.1...v0.2.0).
+
+### Added features
+
+- cross multiple IDCs query;
+- configure logic database/broker cluster;
+- add root server for cross IDCs;
+- explore root's coordinate metadata;
+- root self-monitoring;
+- view root state;
+
+### Optimized
+
+- view admin UI based env vars;
+- de-register broker node when shutdown;
+- stop write ahead log too slow;
+- refactor query stats metric;
+- refactor explain query stats;
+
+### Fixed
+
+- fix directory traversal security issue;
+- fix alive/create/expire task metric no data;
+
 ## [0.1.1] - 2022-12-04
 
 See [code changes](https://github.com/lindb/lindb/compare/v0.1.0...v0.1.1).
