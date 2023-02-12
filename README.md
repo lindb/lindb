@@ -63,11 +63,12 @@ make test
 
 ### Access web interface(for developer)
 
-Start the node.js app to view LinDB web interface.
+Start the node.js app to view LinDB web interface in dev mode.
 
 ```
 cd web
-yarn start
+yarn install 
+yarn dev
 ```
 
 You can access the LinDB web interface on your [localhost port 3000](http://localhost:3000/)
