@@ -65,7 +65,8 @@ make test
 启动 LinDB 前端应用
 ```
 cd web
-yarn start
+yarn install
+yarn dev
 ```
 
 可以通过  [localhost port 3000](http://localhost:3000/) 来访问
