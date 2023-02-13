@@ -53,10 +53,6 @@ type HTTPDeps struct {
 }
 
 func (deps *HTTPDeps) WithTimeout() (context.Context, context.CancelFunc) {
-	// choose the shorter duration
-	timeout := deps.BrokerCfg.Coordinator.Timeout.Duration()
-	if deps.BrokerCfg.BrokerBase.HTTP.ReadTimeout.Duration() < timeout {
-		timeout = deps.BrokerCfg.BrokerBase.HTTP.ReadTimeout.Duration()
-	}
+	timeout := deps.BrokerCfg.BrokerBase.HTTP.ReadTimeout.Duration()
 	return context.WithTimeout(deps.Ctx, timeout)
 }
