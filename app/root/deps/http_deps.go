@@ -46,11 +46,6 @@ type HTTPDeps struct {
 }
 
 func (deps *HTTPDeps) WithTimeout() (context.Context, context.CancelFunc) {
-	// choose the shorter duration
-	// TODO: need modify
-	timeout := deps.Cfg.Coordinator.Timeout.Duration()
-	if deps.Cfg.HTTP.ReadTimeout.Duration() < timeout {
-		timeout = deps.Cfg.HTTP.ReadTimeout.Duration()
-	}
+	timeout := deps.Cfg.HTTP.ReadTimeout.Duration()
 	return context.WithTimeout(deps.Ctx, timeout)
 }

@@ -24,11 +24,13 @@ import (
 	"github.com/lindb/lindb/config"
 )
 
-func Test_WithTimeout(t *testing.T) {
+func TestDeps_WithTimeout(t *testing.T) {
 	deps := &HTTPDeps{
 		Ctx: context.TODO(),
-		Cfg: &config.Root{
-			HTTP: config.HTTP{ReadTimeout: 1},
+		BrokerCfg: &config.Broker{
+			BrokerBase: config.BrokerBase{
+				HTTP: config.HTTP{ReadTimeout: 1},
+			},
 		},
 	}
 	_, _ = deps.WithTimeout()
