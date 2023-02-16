@@ -15,25 +15,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package stmt
+package sql
 
-type StatementType int
-
-const (
-	UseStatement StatementType = iota + 1
-	MetadataStatement
-	SchemaStatement
-	StorageStatement
-	StateStatement
-	MetricMetadataStatement
-	QueryStatement
-	RequestStatement
-	BrokerStatement
-	LimitStatement
+import (
+	"github.com/lindb/lindb/pkg/strutil"
+	"github.com/lindb/lindb/sql/grammar"
+	"github.com/lindb/lindb/sql/stmt"
 )
 
-// Statement represents LinDB query language statement
-type Statement interface {
-	// StatementType returns statement type.
-	StatementType() StatementType
+// limitStmtParser represents limit statement parser.
+type limitStmtParser struct {
+	op    stmt.LimitOpType
+	limit string
+}
+
+// newLimitStmtParse creates a limit statement parser.
+func newLimitStmtParse(op stmt.LimitOpType) *limitStmtParser {
+	return &limitStmtParser{op: op}
+}
+
+// visitToml visits when production toml expression is entered.
+func (s *limitStmtParser) visitToml(ctx grammar.ITomlContext) {
+	s.limit = strutil.GetStringValue(ctx.GetText())
+}
+
+// build returns the state statement.
+func (s *limitStmtParser) build() (stmt.Statement, error) {
+	return &stmt.Limit{Limit: s.limit, Type: s.op}, nil
 }

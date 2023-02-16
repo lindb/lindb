@@ -30,6 +30,9 @@ type SQLListener interface {
 	// EnterUseStmt is called when entering the useStmt production.
 	EnterUseStmt(c *UseStmtContext)
 
+	// EnterSetLimitStmt is called when entering the setLimitStmt production.
+	EnterSetLimitStmt(c *SetLimitStmtContext)
+
 	// EnterShowStmt is called when entering the showStmt production.
 	EnterShowStmt(c *ShowStmtContext)
 
@@ -47,6 +50,9 @@ type SQLListener interface {
 
 	// EnterShowBrokersStmt is called when entering the showBrokersStmt production.
 	EnterShowBrokersStmt(c *ShowBrokersStmtContext)
+
+	// EnterShowLimitStmt is called when entering the showLimitStmt production.
+	EnterShowLimitStmt(c *ShowLimitStmtContext)
 
 	// EnterShowMetadataTypesStmt is called when entering the showMetadataTypesStmt production.
 	EnterShowMetadataTypesStmt(c *ShowMetadataTypesStmtContext)
@@ -270,6 +276,9 @@ type SQLListener interface {
 	// EnterJson is called when entering the json production.
 	EnterJson(c *JsonContext)
 
+	// EnterToml is called when entering the toml production.
+	EnterToml(c *TomlContext)
+
 	// EnterObj is called when entering the obj production.
 	EnterObj(c *ObjContext)
 
@@ -312,6 +321,9 @@ type SQLListener interface {
 	// ExitUseStmt is called when exiting the useStmt production.
 	ExitUseStmt(c *UseStmtContext)
 
+	// ExitSetLimitStmt is called when exiting the setLimitStmt production.
+	ExitSetLimitStmt(c *SetLimitStmtContext)
+
 	// ExitShowStmt is called when exiting the showStmt production.
 	ExitShowStmt(c *ShowStmtContext)
 
@@ -329,6 +341,9 @@ type SQLListener interface {
 
 	// ExitShowBrokersStmt is called when exiting the showBrokersStmt production.
 	ExitShowBrokersStmt(c *ShowBrokersStmtContext)
+
+	// ExitShowLimitStmt is called when exiting the showLimitStmt production.
+	ExitShowLimitStmt(c *ShowLimitStmtContext)
 
 	// ExitShowMetadataTypesStmt is called when exiting the showMetadataTypesStmt production.
 	ExitShowMetadataTypesStmt(c *ShowMetadataTypesStmtContext)
@@ -551,6 +566,9 @@ type SQLListener interface {
 
 	// ExitJson is called when exiting the json production.
 	ExitJson(c *JsonContext)
+
+	// ExitToml is called when exiting the toml production.
+	ExitToml(c *TomlContext)
 
 	// ExitObj is called when exiting the obj production.
 	ExitObj(c *ObjContext)

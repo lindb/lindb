@@ -65,6 +65,7 @@ func dropDatabase(ctx context.Context, deps *depspkg.HTTPDeps, stmt *stmtpkg.Sch
 	if err := deps.Repo.Delete(ctx, constants.GetDatabaseAssignPath(databaseName)); err != nil {
 		return nil, err
 	}
+	// TODO: remove limits
 	rs := fmt.Sprintf("Drop database[%s] ok", stmt.Value)
 	return &rs, nil
 }

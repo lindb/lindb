@@ -30,6 +30,9 @@ type SQLVisitor interface {
 	// Visit a parse tree produced by SQLParser#useStmt.
 	VisitUseStmt(ctx *UseStmtContext) interface{}
 
+	// Visit a parse tree produced by SQLParser#setLimitStmt.
+	VisitSetLimitStmt(ctx *SetLimitStmtContext) interface{}
+
 	// Visit a parse tree produced by SQLParser#showStmt.
 	VisitShowStmt(ctx *ShowStmtContext) interface{}
 
@@ -47,6 +50,9 @@ type SQLVisitor interface {
 
 	// Visit a parse tree produced by SQLParser#showBrokersStmt.
 	VisitShowBrokersStmt(ctx *ShowBrokersStmtContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#showLimitStmt.
+	VisitShowLimitStmt(ctx *ShowLimitStmtContext) interface{}
 
 	// Visit a parse tree produced by SQLParser#showMetadataTypesStmt.
 	VisitShowMetadataTypesStmt(ctx *ShowMetadataTypesStmtContext) interface{}
@@ -269,6 +275,9 @@ type SQLVisitor interface {
 
 	// Visit a parse tree produced by SQLParser#json.
 	VisitJson(ctx *JsonContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#toml.
+	VisitToml(ctx *TomlContext) interface{}
 
 	// Visit a parse tree produced by SQLParser#obj.
 	VisitObj(ctx *ObjContext) interface{}

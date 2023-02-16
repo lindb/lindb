@@ -34,6 +34,7 @@ type listener struct {
 	storageStmt        *storageStmtParser
 	requestStmt        *requestStmtParser
 	brokerStmt         *brokerStmtParser
+	limitStmt          *limitStmtParser
 }
 
 // EnterQueryStmt is called when production queryStmt is entered.
@@ -218,6 +219,17 @@ func (l *listener) EnterDropDatabaseStmt(_ *grammar.DropDatabaseStmtContext) {
 // EnterDatabaseName is called when production databaseName is entered.
 func (l *listener) EnterDatabaseName(ctx *grammar.DatabaseNameContext) {
 	l.schemasStmt.visitDatabaseName(ctx)
+}
+
+// EnterSetLimtStmt is called when production setLimitStmt is entered.
+func (l *listener) EnterSetLimitStmt(ctx *grammar.SetLimitStmtContext) {
+	l.limitStmt = newLimitStmtParse(stmt.SetLimit)
+	l.limitStmt.visitToml(ctx.Toml())
+}
+
+// EnterShowLimtStmt is called when production showLimitStmt is entered.
+func (l *listener) EnterShowLimitStmt(ctx *grammar.ShowLimitStmtContext) {
+	l.limitStmt = newLimitStmtParse(stmt.ShowLimit)
 }
 
 // EnterUseStmt is called when production useStmt is entered.
@@ -435,6 +447,8 @@ func (l *listener) statement() (stmt.Statement, error) {
 		return l.requestStmt.build()
 	case l.brokerStmt != nil:
 		return l.brokerStmt.build()
+	case l.limitStmt != nil:
+		return l.limitStmt.build()
 	default:
 		return nil, nil
 	}

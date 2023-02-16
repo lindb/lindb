@@ -32,6 +32,7 @@ export enum Route {
   MetadataBrokerConfig = "/metadata/broker/configuration",
   MetadataDatabase = "/metadata/database",
   MetadataDatabaseConfig = "/metadata/database/configuration",
+  MetadataDatabaseLimits = "/metadata/database/limits",
   MetadataLogicDatabase = "/metadata/logic/database",
   MetadataLogicDatabaseConfig = "/metadata/logic/database/configuration",
   MetadataExplore = "/metadata/explore",

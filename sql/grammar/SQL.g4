@@ -10,10 +10,12 @@ statement               : showStmt
                         | queryStmt
                         | createDatabaseStmt
                         | dropDatabaseStmt
+						| setLimitStmt
                         | ident // just for suggest filtering.
                         EOF ;
 
 useStmt                 : T_USE ident ;
+setLimitStmt            : T_SET T_LIMIT toml;
 
 showStmt                : showMasterStmt
                         | showMetadataTypesStmt
@@ -23,6 +25,7 @@ showStmt                : showMasterStmt
                         | showStorageMetaStmt
                         | showStoragesStmt
                         | showBrokersStmt
+						| showLimitStmt
                         | showAliveStmt
                         | showRootMetricStmt
                         | showBrokerMetricStmt
@@ -45,6 +48,7 @@ showRequestsStmt     : T_SHOW T_REQUESTS ;
 showRequestStmt      : T_SHOW T_REQUEST T_WHERE T_ID T_EQUAL requestID;
 showStoragesStmt     : T_SHOW T_STORAGES ;
 showBrokersStmt      : T_SHOW T_BROKERS ;
+showLimitStmt        : T_SHOW T_LIMIT ; 
 showMetadataTypesStmt: T_SHOW T_METADATA T_TYPES;
 showRootMetaStmt     : T_SHOW T_ROOT T_METADATA T_FROM source T_WHERE typeFilter;
 showBrokerMetaStmt   : T_SHOW T_BROKER T_METADATA T_FROM source T_WHERE typeFilter (T_AND brokerFilter)?;
@@ -180,6 +184,9 @@ exprAtom                :
 identFilter             : T_OPEN_SB tagFilterExpr T_CLOSE_SB ;
 json
    : value
+   ;
+toml
+   : ident 
    ;
 
 obj
