@@ -15,25 +15,27 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package stmt
+package sql
 
-type StatementType int
+import (
+	"testing"
 
-const (
-	UseStatement StatementType = iota + 1
-	MetadataStatement
-	SchemaStatement
-	StorageStatement
-	StateStatement
-	MetricMetadataStatement
-	QueryStatement
-	RequestStatement
-	BrokerStatement
-	LimitStatement
+	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/sql/stmt"
 )
 
-// Statement represents LinDB query language statement
-type Statement interface {
-	// StatementType returns statement type.
-	StatementType() StatementType
+func TestSetLimitStatement(t *testing.T) {
+	l := models.NewDefaultLimits().TOML()
+	q, err := Parse("set limit '" + l + "'")
+	assert.NoError(t, err)
+	assert.Equal(t, l, q.(*stmt.Limit).Limit)
+	assert.Equal(t, stmt.SetLimit, q.(*stmt.Limit).Type)
+}
+
+func TestShowLimitStatement(t *testing.T) {
+	q, err := Parse("show limit")
+	assert.NoError(t, err)
+	assert.Equal(t, stmt.ShowLimit, q.(*stmt.Limit).Type)
 }

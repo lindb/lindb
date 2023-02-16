@@ -17,23 +17,20 @@
 
 package stmt
 
-type StatementType int
+type LimitOpType int
 
 const (
-	UseStatement StatementType = iota + 1
-	MetadataStatement
-	SchemaStatement
-	StorageStatement
-	StateStatement
-	MetricMetadataStatement
-	QueryStatement
-	RequestStatement
-	BrokerStatement
-	LimitStatement
+	SetLimit LimitOpType = iota + 1
+	ShowLimit
 )
 
-// Statement represents LinDB query language statement
-type Statement interface {
-	// StatementType returns statement type.
-	StatementType() StatementType
+// Limit represents limit statement.
+type Limit struct {
+	Type  LimitOpType
+	Limit string
+}
+
+// StatementType returns limit type.
+func (q *Limit) StatementType() StatementType {
+	return LimitStatement
 }

@@ -32,6 +32,10 @@ func (v *BaseSQLVisitor) VisitUseStmt(ctx *UseStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseSQLVisitor) VisitSetLimitStmt(ctx *SetLimitStmtContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseSQLVisitor) VisitShowStmt(ctx *ShowStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -53,6 +57,10 @@ func (v *BaseSQLVisitor) VisitShowStoragesStmt(ctx *ShowStoragesStmtContext) int
 }
 
 func (v *BaseSQLVisitor) VisitShowBrokersStmt(ctx *ShowBrokersStmtContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLVisitor) VisitShowLimitStmt(ctx *ShowLimitStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -349,6 +357,10 @@ func (v *BaseSQLVisitor) VisitIdentFilter(ctx *IdentFilterContext) interface{} {
 }
 
 func (v *BaseSQLVisitor) VisitJson(ctx *JsonContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLVisitor) VisitToml(ctx *TomlContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

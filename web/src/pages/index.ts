@@ -32,6 +32,7 @@ export { default as BrokerList } from "@src/pages/metadata/BrokerList";
 export { default as BrokerConfig } from "@src/pages/metadata/BrokerConfig";
 export { default as DatabaseList } from "@src/pages/metadata/DatabaseList";
 export { default as DatabaseConfig } from "@src/pages/metadata/DatabaseConfig";
+export { default as DatabaseLimits } from "@src/pages/metadata/DatabaseLimit";
 export { default as LogicDatabaseList } from "@src/pages/metadata/LogicDatabaseList";
 export { default as LogicDatabaseConfig } from "@src/pages/metadata/LogicDatabaseConfig";
 export { default as MetadataExplore } from "@src/pages/metadata/Explore";

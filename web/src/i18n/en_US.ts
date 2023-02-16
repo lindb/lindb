@@ -20,6 +20,7 @@ const local = {
   SiderMenu: {
     Overview: "Overview",
     Configuration: "Configuration",
+    Limits: "Limits",
     Search: "Search",
     Explore: "Explore",
     Monitoring: "Monitoring",
@@ -236,6 +237,7 @@ const local = {
     ok: "OK",
     cancel: "Cancel",
     submit: "Submit",
+    save: "Save",
     actions: "Actions",
     create: "Create",
     pleaseConfirm: "Please confirm",

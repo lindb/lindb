@@ -20,6 +20,7 @@ import {
   IconDeleteStroked,
   IconPlusCircle,
   IconRefresh,
+  IconCommand,
 } from "@douyinfe/semi-icons";
 import {
   Button,
@@ -95,23 +96,36 @@ export default function DatabaseList() {
       width: 100,
       render: (_text: any, record: any, _index: any) => {
         return (
-          <Popconfirm
-            title={Common.pleaseConfirm}
-            content={
-              <>
-                {MetadataDatabaseView.deleteConfirm1}
-                <Text strong type="danger">
-                  {record.name}
-                </Text>
-                {MetadataDatabaseView.deleteConfirm2}
-              </>
-            }
-            onConfirm={() => {
-              dropDatabase(record.name);
-            }}
-          >
-            <Button icon={<IconDeleteStroked />} type="danger" />
-          </Popconfirm>
+          <>
+            <Button
+              onClick={() => {
+                URLStore.changeURLParams({
+                  path: Route.MetadataDatabaseLimits,
+                  params: { db: record.name },
+                });
+              }}
+              icon={<IconCommand />}
+              type="primary"
+              style={{ marginRight: 4 }}
+            />
+            <Popconfirm
+              title={Common.pleaseConfirm}
+              content={
+                <>
+                  {MetadataDatabaseView.deleteConfirm1}
+                  <Text strong type="danger">
+                    {record.name}
+                  </Text>
+                  {MetadataDatabaseView.deleteConfirm2}
+                </>
+              }
+              onConfirm={() => {
+                dropDatabase(record.name);
+              }}
+            >
+              <Button icon={<IconDeleteStroked />} type="danger" />
+            </Popconfirm>
+          </>
         );
       },
     },

@@ -15,25 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package stmt
+package models
 
-type StatementType int
+import (
+	"testing"
 
-const (
-	UseStatement StatementType = iota + 1
-	MetadataStatement
-	SchemaStatement
-	StorageStatement
-	StateStatement
-	MetricMetadataStatement
-	QueryStatement
-	RequestStatement
-	BrokerStatement
-	LimitStatement
+	"github.com/BurntSushi/toml"
+	"github.com/stretchr/testify/assert"
 )
 
-// Statement represents LinDB query language statement
-type Statement interface {
-	// StatementType returns statement type.
-	StatementType() StatementType
+func TestDefaultLimits(t *testing.T) {
+	l := NewDefaultLimits()
+	val := l.TOML()
+	cfg := &Limits{}
+	_, err := toml.Decode(val, cfg)
+	assert.NoError(t, err)
+	assert.Equal(t, cfg, l)
+
+	l.Metrics["system.cpu"] = 1000
+	assert.NotEqual(t, l.TOML(), NewDefaultLimits().TOML())
 }

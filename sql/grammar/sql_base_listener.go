@@ -49,6 +49,12 @@ func (s *BaseSQLListener) EnterUseStmt(ctx *UseStmtContext) {}
 // ExitUseStmt is called when production useStmt is exited.
 func (s *BaseSQLListener) ExitUseStmt(ctx *UseStmtContext) {}
 
+// EnterSetLimitStmt is called when production setLimitStmt is entered.
+func (s *BaseSQLListener) EnterSetLimitStmt(ctx *SetLimitStmtContext) {}
+
+// ExitSetLimitStmt is called when production setLimitStmt is exited.
+func (s *BaseSQLListener) ExitSetLimitStmt(ctx *SetLimitStmtContext) {}
+
 // EnterShowStmt is called when production showStmt is entered.
 func (s *BaseSQLListener) EnterShowStmt(ctx *ShowStmtContext) {}
 
@@ -84,6 +90,12 @@ func (s *BaseSQLListener) EnterShowBrokersStmt(ctx *ShowBrokersStmtContext) {}
 
 // ExitShowBrokersStmt is called when production showBrokersStmt is exited.
 func (s *BaseSQLListener) ExitShowBrokersStmt(ctx *ShowBrokersStmtContext) {}
+
+// EnterShowLimitStmt is called when production showLimitStmt is entered.
+func (s *BaseSQLListener) EnterShowLimitStmt(ctx *ShowLimitStmtContext) {}
+
+// ExitShowLimitStmt is called when production showLimitStmt is exited.
+func (s *BaseSQLListener) ExitShowLimitStmt(ctx *ShowLimitStmtContext) {}
 
 // EnterShowMetadataTypesStmt is called when production showMetadataTypesStmt is entered.
 func (s *BaseSQLListener) EnterShowMetadataTypesStmt(ctx *ShowMetadataTypesStmtContext) {}
@@ -528,6 +540,12 @@ func (s *BaseSQLListener) EnterJson(ctx *JsonContext) {}
 
 // ExitJson is called when production json is exited.
 func (s *BaseSQLListener) ExitJson(ctx *JsonContext) {}
+
+// EnterToml is called when production toml is entered.
+func (s *BaseSQLListener) EnterToml(ctx *TomlContext) {}
+
+// ExitToml is called when production toml is exited.
+func (s *BaseSQLListener) ExitToml(ctx *TomlContext) {}
 
 // EnterObj is called when production obj is entered.
 func (s *BaseSQLListener) EnterObj(ctx *ObjContext) {}

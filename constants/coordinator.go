@@ -57,6 +57,8 @@ const (
 	MasterElectedPath = "/master/elected"
 	// DatabaseConfigPath represents database config path.
 	DatabaseConfigPath = "/database/config"
+	// DatabaseLimitPath represents database limit path.
+	DatabaseLimitPath = "/database/limit"
 	// ShardAssignmentPath represents database shard assignment.
 	ShardAssignmentPath = "/database/assign"
 	// StorageConfigPath represents storage cluster's config.
@@ -84,6 +86,11 @@ func GetStorageStatePath(name string) string {
 // GetDatabaseConfigPath returns path which storing config of database
 func GetDatabaseConfigPath(name string) string {
 	return fmt.Sprintf("%s/%s", DatabaseConfigPath, name)
+}
+
+// GetDatabaseLimitPath returns path which storing limit of database
+func GetDatabaseLimitPath(name string) string {
+	return fmt.Sprintf("%s/%s", DatabaseLimitPath, name)
 }
 
 // GetDatabaseAssignPath returns path which storing shard assignment of database

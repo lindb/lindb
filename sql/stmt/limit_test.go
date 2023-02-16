@@ -17,23 +17,12 @@
 
 package stmt
 
-type StatementType int
+import (
+	"testing"
 
-const (
-	UseStatement StatementType = iota + 1
-	MetadataStatement
-	SchemaStatement
-	StorageStatement
-	StateStatement
-	MetricMetadataStatement
-	QueryStatement
-	RequestStatement
-	BrokerStatement
-	LimitStatement
+	"github.com/stretchr/testify/assert"
 )
 
-// Statement represents LinDB query language statement
-type Statement interface {
-	// StatementType returns statement type.
-	StatementType() StatementType
+func TestLimit_StatementType(t *testing.T) {
+	assert.Equal(t, LimitStatement, (&Limit{}).StatementType())
 }

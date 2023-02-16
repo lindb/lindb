@@ -232,7 +232,7 @@ func (s *shard) lookupRowMeta(row *metric.StorageRow) (err error) {
 	metricName := string(row.Name())
 
 	if len(row.NameSpace()) > 0 {
-		// TODO add auto create ns check
+		// TODO: add auto create ns check
 		namespace = string(row.NameSpace())
 	}
 

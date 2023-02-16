@@ -20,6 +20,7 @@ const local = {
   SiderMenu: {
     Overview: "概览",
     Configuration: "配置",
+    Limits: "限制",
     Search: "查询",
     Explore: "浏览",
     Monitoring: "自监控",
@@ -234,6 +235,7 @@ const local = {
     ok: "确定",
     cancel: "取消",
     submit: "提交",
+    save: "保存",
     actions: "操作",
     create: "新建",
     pleaseConfirm: "请确认",
