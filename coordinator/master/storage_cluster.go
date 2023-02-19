@@ -53,6 +53,8 @@ type StorageCluster interface {
 		shardAssign *models.ShardAssignment,
 		databaseOption *option.DatabaseOption,
 	) error
+	// SetDatabaseLimits sets the database's limits.
+	SetDatabaseLimits(database string, limits []byte) error
 	// DropDatabaseAssignment drops database assignment from storage state repo.
 	DropDatabaseAssignment(databaseName string) error
 	// GetRepo returns current storage cluster's state repo
@@ -149,12 +151,23 @@ func (c *storageCluster) FlushDatabase(_ string) error {
 	panic("need impl")
 }
 
+// SetDatabaseLimits sets the database's limits.
+func (c *storageCluster) SetDatabaseLimits(database string, limits []byte) error {
+	if err := c.storageRepo.Put(c.ctx, constants.GetDatabaseLimitPath(database), limits); err != nil {
+		return err
+	}
+	c.logger.Info("set database's limits successfully",
+		logger.String("storage", c.cfg.Config.Namespace),
+		logger.String("database", database))
+	return nil
+}
+
 // SaveDatabaseAssignment saves database assignment in storage state repo.
 func (c *storageCluster) SaveDatabaseAssignment(
 	shardAssign *models.ShardAssignment,
 	databaseOption *option.DatabaseOption,
 ) error {
-	// TODO timeout ctx
+	// TODO: timeout ctx
 	data := encoding.JSONMarshal(&models.DatabaseAssignment{
 		ShardAssignment: shardAssign,
 		Option:          databaseOption,

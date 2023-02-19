@@ -50,15 +50,17 @@ func TestStateMachineFactory_Start(t *testing.T) {
 	assert.Error(t, err)
 
 	// shard assignment sm err
-	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
-	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil).MaxTimes(2)
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
+	err = fct.Start()
+	assert.Error(t, err)
+	// database limits err
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil).MaxTimes(3)
 	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
 	err = fct.Start()
 	assert.Error(t, err)
 	// all state machines are ok
-	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
-	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
-	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil).MaxTimes(4)
 	err = fct.Start()
 	assert.NoError(t, err)
 }
@@ -191,6 +193,30 @@ func TestStateMachineFactory_StorageNode(t *testing.T) {
 		Key:        "/test",
 		Attributes: map[string]string{storageNameKey: "test"},
 	})
+	sm.OnDelete("/test")
+}
+
+func TestStateMachineFactory_DatabaseLimits(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	stateMgr := NewMockStateManager(ctrl)
+	discoveryFct := discovery.NewMockFactory(ctrl)
+	discovery1 := discovery.NewMockDiscovery(ctrl)
+	discoveryFct.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
+	fct := NewStateMachineFactory(context.TODO(), discoveryFct, stateMgr)
+
+	sm, err := fct.createDatabaseLimitsStateMachine()
+	assert.NoError(t, err)
+	assert.NotNil(t, sm)
+
+	stateMgr.EXPECT().EmitEvent(&discovery.Event{
+		Type:  discovery.DatabaseLimitsChanged,
+		Key:   "/test",
+		Value: []byte("value"),
+	})
+	sm.OnCreate("/test", []byte("value"))
 	sm.OnDelete("/test")
 }
 

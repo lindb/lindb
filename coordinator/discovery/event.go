@@ -33,6 +33,7 @@ const (
 	StorageConfigDeletion
 	BrokerConfigChanged
 	BrokerConfigDeletion
+	DatabaseLimitsChanged
 )
 
 // String returns string value of EventType.
@@ -62,6 +63,8 @@ func (e EventType) String() string {
 		return "BrokerConfigChanged"
 	case BrokerConfigDeletion:
 		return "BrokerConfigDeletion"
+	case DatabaseLimitsChanged:
+		return "DatabaseLimitsChanged"
 	default:
 		return "unknown"
 	}

@@ -69,7 +69,7 @@ func TestStateManager_Node(t *testing.T) {
 	mgr := NewStateManager(context.TODO(), &models.StatefulNode{ID: 1}, nil)
 	// test register nil event handler
 	mgr.WatchNodeStateChangeEvent(models.NodeID(1), nil)
-	mgr.WatchNodeStateChangeEvent(models.NodeID(1), func(state models.NodeStateType) {
+	mgr.WatchNodeStateChangeEvent(models.NodeID(1), func(_ models.NodeStateType) {
 		c++
 	})
 	// case 1: unmarshal node info err
@@ -183,4 +183,27 @@ func TestStateManager_OnShardAssignment(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	assert.Len(t, mgr.GetDatabaseAssignments(), 1)
 	mgr.Close()
+}
+
+func TestStateManager_onDatabaseLimits(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	engine := tsdb.NewMockEngine(ctrl)
+	mgr := NewStateManager(context.TODO(), nil, engine)
+
+	// case 1: decode limit failure
+	mgr.EmitEvent(&discovery.Event{
+		Type:  discovery.DatabaseLimitsChanged,
+		Key:   "/database/limit/db2",
+		Value: []byte("dd"),
+	})
+	engine.EXPECT().SetDatabaseLimits("db2", gomock.Any())
+	// case 1: set limits
+	mgr.EmitEvent(&discovery.Event{
+		Type:  discovery.DatabaseLimitsChanged,
+		Key:   "/database/limit/db2",
+		Value: []byte(models.NewDefaultLimits().TOML()),
+	})
+	time.Sleep(100 * time.Millisecond)
 }

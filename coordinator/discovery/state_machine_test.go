@@ -40,6 +40,7 @@ func TestStateMachineType_String(t *testing.T) {
 	assert.Equal(t, (StateMachineType(0)).String(), "Unknown")
 	assert.Equal(t, BrokerConfigStateMachine.String(), "BrokerConfigStateMachine")
 	assert.Equal(t, BrokerNodeStateMachine.String(), "BrokerNodeStateMachine")
+	assert.Equal(t, DatabaseLimitsStateMachine.String(), "DatabaseLimitsStateMachine")
 }
 
 func TestNewMockStateMachine(t *testing.T) {

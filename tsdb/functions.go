@@ -46,4 +46,5 @@ var (
 	newDataFamilyFunc      = newDataFamily
 	newMetricDataFlusher   = metricsdata.NewFlusher
 	closeFamilyFunc        = closeFamily
+	writeConfigFn          = ltoml.WriteConfig
 )

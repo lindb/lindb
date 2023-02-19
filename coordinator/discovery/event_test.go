@@ -38,4 +38,5 @@ func TestEventType_String(t *testing.T) {
 
 	assert.Equal(t, "BrokerConfigDeletion", BrokerConfigDeletion.String())
 	assert.Equal(t, "BrokerConfigChanged", BrokerConfigChanged.String())
+	assert.Equal(t, "DatabaseLimitsChanged", DatabaseLimitsChanged.String())
 }

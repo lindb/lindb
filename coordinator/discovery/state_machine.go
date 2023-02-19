@@ -48,6 +48,7 @@ const (
 	StorageNodeStateMachine
 	BrokerConfigStateMachine
 	BrokerNodeStateMachine
+	DatabaseLimitsStateMachine
 )
 
 // String returns state machine type desc.
@@ -69,6 +70,8 @@ func (st StateMachineType) String() string {
 		return "BrokerConfigStateMachine"
 	case BrokerNodeStateMachine:
 		return "BrokerNodeStateMachine"
+	case DatabaseLimitsStateMachine:
+		return "DatabaseLimitsStateMachine"
 	default:
 		return "Unknown"
 	}

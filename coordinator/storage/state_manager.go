@@ -22,7 +22,10 @@ import (
 	"fmt"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
+
+	"github.com/BurntSushi/toml"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
@@ -38,7 +41,9 @@ import (
 //go:generate mockgen -source=./state_manager.go -destination=./state_manager_mock.go -package=storage
 
 // for test
-var getConnFct = rpc.GetStorageClientConnFactory
+var (
+	getConnFct = rpc.GetStorageClientConnFactory
+)
 
 // StateManager represents storage state manager, maintains storage node in memory.
 type StateManager interface {
@@ -146,12 +151,32 @@ func (m *stateManager) processEvent(event *discovery.Event) {
 		err = m.onNodeFailure(event.Key)
 	case discovery.ShardAssignmentChanged:
 		err = m.onShardAssignmentChange(event.Key, event.Value)
+	case discovery.DatabaseLimitsChanged:
+		err = m.onDatabaseLimitsChange(event.Key, event.Value)
 	}
 	if err != nil {
 		m.statistics.HandleEventFailure.WithTagValues(eventType, constants.StorageRole).Incr()
 	} else {
 		m.statistics.HandleEvents.WithTagValues(eventType, constants.StorageRole).Incr()
 	}
+}
+
+// onDatabaseLimitsChange triggers when database limits modify.
+func (m *stateManager) onDatabaseLimitsChange(key string, data []byte) error {
+	m.logger.Info("set database limts, because database limits is changed",
+		logger.String("key", key))
+
+	name := strings.TrimPrefix(key, constants.GetDatabaseLimitPath(""))
+	limits := &models.Limits{}
+	_, err := toml.Decode(string(data), limits)
+	if err != nil {
+		m.logger.Error("set database limits failure",
+			logger.String("database", name),
+			logger.Error(err))
+		return err
+	}
+	m.engine.SetDatabaseLimits(name, limits)
+	return nil
 }
 
 // onShardAssignmentChange triggers when shard assignment changed after database config modified.

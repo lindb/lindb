@@ -72,6 +72,8 @@ type Database interface {
 	TTL()
 	// EvictSegment evicts segment which long term no read operation.
 	EvictSegment()
+	// SetLimits sets database's limits.
+	SetLimits(limits *models.Limits)
 }
 
 // database implements Database for storing families,
@@ -165,6 +167,11 @@ func newDatabase(
 	}
 
 	return db, nil
+}
+
+// SetLimits sets database's limits.
+func (db *database) SetLimits(limits *models.Limits) {
+	// TODO: need impl
 }
 
 // Metadata returns the metadata include metric/tag
