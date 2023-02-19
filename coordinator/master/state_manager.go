@@ -165,6 +165,8 @@ func (m *stateManager) processEvent(event *discovery.Event) {
 		m.onStorageConfigDelete(event.Key)
 	case discovery.DatabaseConfigChanged:
 		err = m.onDatabaseCfgChange(event.Key, event.Value)
+	case discovery.DatabaseLimitsChanged:
+		err = m.onDatabaseLimitsChange(event.Key, event.Value)
 	case discovery.DatabaseConfigDeletion:
 		err = m.onDatabaseCfgDelete(event.Key)
 	case discovery.ShardAssignmentChanged:
@@ -205,6 +207,30 @@ func (m *stateManager) onDatabaseCfgChange(key string, data []byte) error {
 	}
 
 	m.shardAssignment(cfg)
+	return nil
+}
+
+// onDatabaseLimitsChange triggers when database limits modify.
+func (m *stateManager) onDatabaseLimitsChange(key string, data []byte) error {
+	m.logger.Info("set database limts, because database limits is changed",
+		logger.String("key", key))
+
+	name := strings.TrimPrefix(key, constants.GetDatabaseLimitPath(""))
+	databaseCfg, ok := m.databases[name]
+	if !ok {
+		return constants.ErrDatabaseNotFound
+	}
+	storage, ok := m.storages[databaseCfg.Storage]
+	if !ok {
+		return nil
+	}
+	if err := storage.SetDatabaseLimits(name, data); err != nil {
+		m.logger.Error("set database limits failure",
+			logger.String("storage", databaseCfg.Storage),
+			logger.String("database", name),
+			logger.Error(err))
+		return err
+	}
 	return nil
 }
 

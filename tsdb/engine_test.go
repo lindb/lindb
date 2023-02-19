@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"strings"
 	"sync"
 	"testing"
 
@@ -131,6 +132,7 @@ func TestEngine_createDatabase(t *testing.T) {
 		newDatabaseFunc = func(databaseName string, cfg *models.DatabaseConfig, flushChecker DataFlushChecker) (Database, error) {
 			return mockDB, nil
 		}
+		mockDB.EXPECT().SetLimits(gomock.Any()).AnyTimes()
 		withTestPath(path.Join(tmpDir, "new"))
 		e, err := NewEngine()
 		assert.NoError(t, err)
@@ -171,6 +173,7 @@ func TestEngine_createDatabase(t *testing.T) {
 		newDatabaseFunc = func(databaseName string, cfg *models.DatabaseConfig, flushChecker DataFlushChecker) (Database, error) {
 			return mockDB, nil
 		}
+		mockDB.EXPECT().SetLimits(gomock.Any()).AnyTimes()
 		withTestPath(path.Join(tmpDir, "re-open"))
 		e, err := NewEngine()
 		assert.NoError(t, err)
@@ -208,6 +211,30 @@ func TestEngine_createDatabase(t *testing.T) {
 			return fmt.Errorf("err")
 		}
 		db, err := e.createDatabase("test_reopen_db", &option.DatabaseOption{})
+		assert.Error(t, err)
+		assert.Nil(t, db)
+	})
+	t.Run("limits file decode failure", func(t *testing.T) {
+		defer func() {
+			newDatabaseFunc = newDatabase
+			fileExist = fileutil.Exist
+			decodeToml = ltoml.DecodeToml
+		}()
+		mockDB := NewMockDatabase(ctrl)
+		newDatabaseFunc = func(databaseName string, cfg *models.DatabaseConfig, flushChecker DataFlushChecker) (Database, error) {
+			return mockDB, nil
+		}
+		e := &engine{}
+		fileExist = func(file string) bool {
+			return true
+		}
+		decodeToml = func(fileName string, _ interface{}) error {
+			if strings.Contains(fileName, optionsPath("test_reopen_db_limits")) {
+				return nil
+			}
+			return fmt.Errorf("err")
+		}
+		db, err := e.createDatabase("test_reopen_db_limits", &option.DatabaseOption{})
 		assert.Error(t, err)
 		assert.Nil(t, db)
 	})
@@ -318,6 +345,7 @@ func TestEngine_CreateShards(t *testing.T) {
 		return false
 	}
 	mockDatabase := NewMockDatabase(ctrl)
+	mockDatabase.EXPECT().SetLimits(gomock.Any()).AnyTimes()
 
 	cases := []struct {
 		name     string
@@ -334,7 +362,7 @@ func TestEngine_CreateShards(t *testing.T) {
 			name:     "create shard failure",
 			db:       "test",
 			shardIDs: []models.ShardID{1},
-			prepare: func(e *engine) {
+			prepare: func(_ *engine) {
 				mockDatabase.EXPECT().CreateShards(gomock.Any()).Return(fmt.Errorf("err"))
 			},
 			wantErr: true,
@@ -343,7 +371,7 @@ func TestEngine_CreateShards(t *testing.T) {
 			name:     "create shard successfully",
 			db:       "test",
 			shardIDs: []models.ShardID{1},
-			prepare: func(e *engine) {
+			prepare: func(_ *engine) {
 				mockDatabase.EXPECT().CreateShards(gomock.Any()).Return(nil)
 			},
 			wantErr: false,
@@ -352,7 +380,7 @@ func TestEngine_CreateShards(t *testing.T) {
 			name:     "create db failure",
 			db:       "test-2",
 			shardIDs: []models.ShardID{1},
-			prepare: func(e *engine) {
+			prepare: func(_ *engine) {
 				newDatabaseFunc = func(databaseName string, cfg *models.DatabaseConfig,
 					flushChecker DataFlushChecker) (Database, error) {
 					return nil, fmt.Errorf("err")
@@ -364,7 +392,7 @@ func TestEngine_CreateShards(t *testing.T) {
 			name:     "create db/shard successfully",
 			db:       "test-2",
 			shardIDs: []models.ShardID{1},
-			prepare: func(e *engine) {
+			prepare: func(_ *engine) {
 				newDatabaseFunc = func(databaseName string, cfg *models.DatabaseConfig,
 					flushChecker DataFlushChecker) (Database, error) {
 					return mockDatabase, nil
@@ -391,6 +419,27 @@ func TestEngine_CreateShards(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestEngine_SetDatabaseLimits(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+		writeConfigFn = ltoml.WriteConfig
+	}()
+
+	writeConfigFn = func(fileName, content string) error {
+		return fmt.Errorf("err")
+	}
+	db := NewMockDatabase(ctrl)
+	db.EXPECT().SetLimits(gomock.Any()).MaxTimes(2)
+	engine := &engine{
+		dbSet: *newDatabaseSet(),
+	}
+	engine.dbSet.PutDatabase("test", db)
+	engine.SetDatabaseLimits("test1", models.NewDefaultLimits())
+
+	engine.SetDatabaseLimits("test", models.NewDefaultLimits())
 }
 
 var testDatabaseNames = []string{

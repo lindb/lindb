@@ -195,6 +195,25 @@ func TestStorageCluster_close(t *testing.T) {
 	sc.Close()
 }
 
+func TestStorageCluster_SetLimits(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	repo := state.NewMockRepository(ctrl)
+	sc := &storageCluster{
+		cfg:         &config.StorageCluster{Config: &config.RepoState{Namespace: "test"}},
+		storageRepo: repo,
+		logger:      logger.GetLogger("Master", "Test"),
+	}
+	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	err := sc.SetDatabaseLimits("test", []byte{})
+	assert.Error(t, err)
+
+	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	err = sc.SetDatabaseLimits("test", []byte{})
+	assert.NoError(t, err)
+}
+
 func TestStorageCluster_SaveDatabaseAssignment(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {

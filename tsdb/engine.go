@@ -47,6 +47,8 @@ type Engine interface {
 		databaseOption *option.DatabaseOption,
 		shardIDs ...models.ShardID,
 	) error
+	// SetDatabaseLimits sets database's limits.
+	SetDatabaseLimits(database string, limits *models.Limits)
 	// GetShard returns shard by given db and shard id
 	GetShard(databaseName string, shardID models.ShardID) (Shard, bool)
 	// GetDatabase returns the time series database by given name
@@ -113,6 +115,15 @@ func (e *engine) createDatabase(databaseName string, dbOption *option.DatabaseOp
 	if err != nil {
 		return nil, err
 	}
+	limits := limitsPath(databaseName)
+	limitCfg := models.NewDefaultLimits()
+	if fileExist(limits) {
+		if err := decodeToml(limits, limitCfg); err != nil {
+			return nil, fmt.Errorf("load database[%s] limits config from file[%s] with error: %s",
+				databaseName, cfgPath, err)
+		}
+	}
+	db.SetLimits(limitCfg)
 	e.dbSet.PutDatabase(databaseName, db)
 	return db, nil
 }
@@ -151,6 +162,17 @@ func (e *engine) CreateShards(
 	}
 	engineLogger.Info("create shard successfully", logger.String("shardIDs", string(shardIDData)))
 	return nil
+}
+
+// SetDatabaseLimits sets database's limits.
+func (e *engine) SetDatabaseLimits(database string, limits *models.Limits) {
+	db, ok := e.dbSet.GetDatabase(database)
+	if ok {
+		if err := writeConfigFn(limitsPath(database), limits.TOML()); err != nil {
+			engineLogger.Warn("write limits config failure", logger.Error(err))
+		}
+		db.SetLimits(limits)
+	}
 }
 
 // GetDatabase returns the time series database by given name

@@ -111,6 +111,13 @@ func (f *StateMachineFactory) Start() (err error) {
 	}
 	f.stateMachines = append(f.stateMachines, sm)
 
+	f.logger.Debug("starting DatabaseLimitsStateMachine")
+	sm, err = f.createDatabaseLimitsStateMachine()
+	if err != nil {
+		return err
+	}
+	f.stateMachines = append(f.stateMachines, sm)
+
 	f.logger.Info("started MasterStateMachines")
 	return nil
 }
@@ -219,5 +226,24 @@ func (f *StateMachineFactory) createStorageNodeStateMachine(storageName string,
 				Attributes: map[string]string{storageNameKey: storageName},
 			})
 		},
+	)
+}
+
+// createDatabaseLimitsStateMachine creates database's limits state machine.
+func (f *StateMachineFactory) createDatabaseLimitsStateMachine() (discovery.StateMachine, error) {
+	return discovery.NewStateMachine(
+		f.ctx,
+		discovery.DatabaseLimitsStateMachine,
+		f.discoveryFactory,
+		constants.DatabaseLimitPath,
+		true,
+		func(key string, data []byte) {
+			f.stateMgr.EmitEvent(&discovery.Event{
+				Type:  discovery.DatabaseLimitsChanged,
+				Key:   key,
+				Value: data,
+			})
+		},
+		nil,
 	)
 }

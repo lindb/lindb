@@ -83,7 +83,7 @@ func TestMasterController_OnFailOver(t *testing.T) {
 		{
 			name: "register master done failure",
 			prepare: func() {
-				discovery1.EXPECT().Discovery(gomock.Any()).Return(nil).MaxTimes(3)
+				discovery1.EXPECT().Discovery(gomock.Any()).Return(nil).MaxTimes(4)
 				registry.EXPECT().Register(gomock.Any()).Return(fmt.Errorf("err"))
 			},
 			wantErr: true,
@@ -91,7 +91,7 @@ func TestMasterController_OnFailOver(t *testing.T) {
 		{
 			name: "elect master successfully",
 			prepare: func() {
-				discovery1.EXPECT().Discovery(gomock.Any()).Return(nil).MaxTimes(3)
+				discovery1.EXPECT().Discovery(gomock.Any()).Return(nil).MaxTimes(4)
 				registry.EXPECT().Register(gomock.Any()).Return(nil)
 			},
 			wantErr: false,
