@@ -70,4 +70,7 @@ var (
 
 	ErrDatabaseNotExist       = errors.New("database not exist")
 	ErrNoAvailableStorageNode = errors.New("no available storage node for server")
+
+	// ErrTooManySeries represents the series be limited.
+	ErrTooManySeries = errors.New("too manay series")
 )

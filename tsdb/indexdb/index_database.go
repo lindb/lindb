@@ -29,6 +29,7 @@ import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/metrics"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
@@ -92,7 +93,8 @@ func (db *indexDatabase) GetGroupingContext(ctx *flow.ShardExecuteContext) error
 // GetOrCreateSeriesID gets series by tags hash, if not exist generate new series id in memory,
 // if generate a new series id returns isCreate is true
 // if generate fail return err
-func (db *indexDatabase) GetOrCreateSeriesID(metricID metric.ID, tagsHash uint64,
+func (db *indexDatabase) GetOrCreateSeriesID(namespace, metricName string, metricID metric.ID,
+	tagsHash uint64, limits *models.Limits,
 ) (seriesID uint32, isCreated bool, err error) {
 	db.rwMutex.Lock()
 	defer db.rwMutex.Unlock()
@@ -128,14 +130,17 @@ func (db *indexDatabase) GetOrCreateSeriesID(metricID metric.ID, tagsHash uint64
 	seq := metricIDMapping.SeriesSequence()
 	if !seq.HasNext() {
 		nextBatchSeriesSeq := seq.Current() + config.GlobalStorageConfig().TSDB.SeriesSequenceCache
-		if err := db.backend.saveSeriesSequence(metricID, nextBatchSeriesSeq); err != nil {
-			return series.EmptySeriesID, false, err
+		if err0 := db.backend.saveSeriesSequence(metricID, nextBatchSeriesSeq); err0 != nil {
+			return series.EmptySeriesID, false, err0
 		}
 		seq.Limit(nextBatchSeriesSeq)
 	}
 
 	// generate new series id
-	seriesID = metricIDMapping.GenSeriesID(tagsHash)
+	seriesID, err = metricIDMapping.GenSeriesID(namespace, metricName, tagsHash, limits)
+	if err != nil {
+		return series.EmptySeriesID, false, err
+	}
 	// save series id into backend
 	if err := db.backend.genSeriesID(metricID, tagsHash, seriesID); err != nil {
 		return series.EmptySeriesID, false, err

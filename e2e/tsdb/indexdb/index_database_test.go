@@ -28,6 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb/indexdb"
@@ -66,7 +67,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestIndexDatabase_GetOrCreateSeriesID(t *testing.T) {
-	seriesID1, isCreate, err := indexDB.GetOrCreateSeriesID(metric.ID(10), uint64(1234))
+	seriesID1, isCreate, err := indexDB.GetOrCreateSeriesID("ns", "metric", metric.ID(10), uint64(1234), models.NewDefaultLimits())
 	assert.Equal(t, uint32(1), seriesID1)
 	assert.True(t, isCreate)
 	assert.NoError(t, err)
@@ -82,7 +83,7 @@ func TestIndexDatabase_GetOrCreateSeriesID(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, indexDB)
 
-	seriesID2, isCreate, err := indexDB.GetOrCreateSeriesID(metric.ID(10), uint64(5678))
+	seriesID2, isCreate, err := indexDB.GetOrCreateSeriesID("ns", "metric", metric.ID(10), uint64(5678), models.NewDefaultLimits())
 	assert.True(t, seriesID2 > seriesID1)
 	assert.True(t, isCreate)
 	assert.NoError(t, err)

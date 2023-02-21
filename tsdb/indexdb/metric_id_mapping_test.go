@@ -22,6 +22,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/metric"
 )
 
@@ -32,11 +34,13 @@ func TestMetricIDMapping_GetMetricID(t *testing.T) {
 }
 
 func TestMetricIDMapping_GetOrCreateSeriesID(t *testing.T) {
+	limits := models.NewDefaultLimits()
 	idMapping := newMetricIDMapping(10, 0)
 	seriesID, ok := idMapping.GetSeriesID(100)
 	assert.False(t, ok)
 	assert.Equal(t, uint32(0), seriesID)
-	seriesID = idMapping.GenSeriesID(100)
+	seriesID, err := idMapping.GenSeriesID("ns", "metric", 100, limits)
+	assert.NoError(t, err)
 	assert.Equal(t, uint32(1), seriesID)
 	// get exist series id
 	seriesID, ok = idMapping.GetSeriesID(100)
@@ -50,18 +54,15 @@ func TestMetricIDMapping_GetOrCreateSeriesID(t *testing.T) {
 	assert.True(t, ok)
 }
 
-func TestMetricIDMapping_SetMaxTagsLimit(t *testing.T) {
+func TestMetricIDMapping_SeriesLimit(t *testing.T) {
+	limits := models.NewDefaultLimits()
+	limits.MaxSeriesPerMetric = 1
 	idMapping := newMetricIDMapping(10, 0)
-	seriesID := idMapping.GenSeriesID(100)
+	seriesID, err := idMapping.GenSeriesID("ns", "metric", 100, limits)
+	assert.NoError(t, err)
 	assert.Equal(t, uint32(1), seriesID)
-	assert.NotZero(t, idMapping.GetMaxSeriesIDsLimit())
-	idMapping.SetMaxSeriesIDsLimit(2)
-	_ = idMapping.GenSeriesID(102)
-	// equals limit
-	seriesID = idMapping.GenSeriesID(1020)
-	assert.Equal(t, uint32(2), seriesID)
-	idMapping.SeriesSequence().Next()
 	// gt limit
-	seriesID = idMapping.GenSeriesID(1023)
-	assert.Equal(t, uint32(2), seriesID)
+	seriesID, err = idMapping.GenSeriesID("ns", "metric", 1023, limits)
+	assert.Error(t, err)
+	assert.Equal(t, series.EmptySeriesID, seriesID)
 }

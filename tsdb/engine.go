@@ -111,10 +111,6 @@ func (e *engine) createDatabase(databaseName string, dbOption *option.DatabaseOp
 				databaseName, cfgPath, err)
 		}
 	}
-	db, err := newDatabaseFunc(databaseName, cfg, e.dataFlushChecker)
-	if err != nil {
-		return nil, err
-	}
 	limits := limitsPath(databaseName)
 	limitCfg := models.NewDefaultLimits()
 	if fileExist(limits) {
@@ -123,7 +119,10 @@ func (e *engine) createDatabase(databaseName string, dbOption *option.DatabaseOp
 				databaseName, cfgPath, err)
 		}
 	}
-	db.SetLimits(limitCfg)
+	db, err := newDatabaseFunc(databaseName, cfg, limitCfg, e.dataFlushChecker)
+	if err != nil {
+		return nil, err
+	}
 	e.dbSet.PutDatabase(databaseName, db)
 	return db, nil
 }

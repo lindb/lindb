@@ -116,15 +116,6 @@ target-mem-usage-after-flush = 0.60
 ## Default: 6
 flush-concurrency = 6
 
-## Time Series limitation
-## 
-## Limit for time series of metric.
-## Default: 200000
-max-seriesIDs = 200000
-## Limit for tagKeys
-## Default: 32
-max-tagKeys = 32
-
 ## Config for the Internal Monitor
 [monitor]
 ## time period to process an HTTP metrics push call

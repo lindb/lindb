@@ -32,6 +32,7 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/unique"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/metric"
@@ -211,7 +212,7 @@ func TestIndexDatabase_GetOrCreateSeriesID(t *testing.T) {
 			tagsHash: 33,
 			prepare: func() {
 				mapping.EXPECT().GetSeriesID(gomock.Any()).Return(series.EmptySeriesID, false)
-				mapping.EXPECT().GenSeriesID(gomock.Any()).Return(uint32(33))
+				mapping.EXPECT().GenSeriesID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(33), nil)
 				mapping.EXPECT().SeriesSequence().Return(sequence)
 				sequence.EXPECT().HasNext().Return(true)
 				backend.EXPECT().getSeriesID(gomock.Any(), gomock.Any()).Return(series.EmptySeriesID, constants.ErrNotFound)
@@ -261,7 +262,7 @@ func TestIndexDatabase_GetOrCreateSeriesID(t *testing.T) {
 				sequence.EXPECT().Current().Return(uint32(20))
 				backend.EXPECT().saveSeriesSequence(metric.ID(2), 20+config.GlobalStorageConfig().TSDB.SeriesSequenceCache).Return(nil)
 				sequence.EXPECT().Limit(20 + config.GlobalStorageConfig().TSDB.SeriesSequenceCache)
-				mapping.EXPECT().GenSeriesID(gomock.Any())
+				mapping.EXPECT().GenSeriesID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
 				backend.EXPECT().genSeriesID(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 			},
 			out: struct {
@@ -281,7 +282,7 @@ func TestIndexDatabase_GetOrCreateSeriesID(t *testing.T) {
 			tagsHash: 333,
 			prepare: func() {
 				mapping.EXPECT().GetSeriesID(gomock.Any()).Return(series.EmptySeriesID, false)
-				mapping.EXPECT().GenSeriesID(gomock.Any()).Return(uint32(333))
+				mapping.EXPECT().GenSeriesID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(333), nil)
 				mapping.EXPECT().SeriesSequence().Return(sequence)
 				sequence.EXPECT().HasNext().Return(true)
 				backend.EXPECT().getSeriesID(gomock.Any(), gomock.Any()).Return(series.EmptySeriesID, constants.ErrNotFound)
@@ -295,6 +296,28 @@ func TestIndexDatabase_GetOrCreateSeriesID(t *testing.T) {
 				seriesID: uint32(333),
 				isCreate: true,
 				err:      nil,
+			},
+		},
+		{
+
+			name:     "series limited",
+			metricID: 2,
+			tagsHash: 333,
+			prepare: func() {
+				mapping.EXPECT().GetSeriesID(gomock.Any()).Return(series.EmptySeriesID, false)
+				mapping.EXPECT().GenSeriesID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(333), constants.ErrTooManySeries)
+				mapping.EXPECT().SeriesSequence().Return(sequence)
+				sequence.EXPECT().HasNext().Return(true)
+				backend.EXPECT().getSeriesID(gomock.Any(), gomock.Any()).Return(series.EmptySeriesID, constants.ErrNotFound)
+			},
+			out: struct {
+				seriesID uint32
+				isCreate bool
+				err      error
+			}{
+				seriesID: series.EmptySeriesID,
+				isCreate: false,
+				err:      constants.ErrTooManySeries,
 			},
 		},
 		{
@@ -341,7 +364,7 @@ func TestIndexDatabase_GetOrCreateSeriesID(t *testing.T) {
 				tt.prepare()
 			}
 
-			seriesID, isCreate, err := db.GetOrCreateSeriesID(tt.metricID, tt.tagsHash)
+			seriesID, isCreate, err := db.GetOrCreateSeriesID("ns", "metric", tt.metricID, tt.tagsHash, models.NewDefaultLimits())
 			assert.Equal(t, tt.out.seriesID, seriesID)
 			assert.Equal(t, tt.out.isCreate, isCreate)
 			assert.Equal(t, tt.out.err, err)

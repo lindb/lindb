@@ -17,24 +17,29 @@
 
 package models
 
-import "fmt"
+import (
+	"fmt"
+
+	commonconstants "github.com/lindb/common/constants"
+	commonseries "github.com/lindb/common/series"
+)
 
 // Limits represents all the limit for database level; can be used to describe global
 // default limits, or per-database limits vis toml config.
 type Limits struct {
 	// Write limits
-	MaxNamespaces       int `toml:"max-namespaces"`
-	MaxNamespaceLength  int `toml:"max-namespace-length"`
-	MaxMetrics          int `toml:"max-metrics"`
-	MaxMetricNameLength int `toml:"max-metric-name-length"`
-	MaxFieldNameLength  int `toml:"max-field-name-length"`
-	MaxFieldsPerMetric  int `toml:"max-fields-per-metric"`
-	MaxTagNameLength    int `toml:"max-tag-name-length"`
-	MaxTagValueLength   int `toml:"max-tag-value-length"`
-	MaxTagsPerMetric    int `toml:"max-tags-per-metric"`
-	MaxSeriesPerMetric  int `toml:"max-series-per-metric"`
+	MaxNamespaces       int    `toml:"max-namespaces"`
+	MaxNamespaceLength  int    `toml:"max-namespace-length"`
+	MaxMetrics          int    `toml:"max-metrics"`
+	MaxMetricNameLength int    `toml:"max-metric-name-length"`
+	MaxFieldNameLength  int    `toml:"max-field-name-length"`
+	MaxFieldsPerMetric  int    `toml:"max-fields-per-metric"`
+	MaxTagNameLength    int    `toml:"max-tag-name-length"`
+	MaxTagValueLength   int    `toml:"max-tag-value-length"`
+	MaxTagsPerMetric    int    `toml:"max-tags-per-metric"`
+	MaxSeriesPerMetric  uint32 `toml:"max-series-per-metric"`
 	// max series limit for metric
-	Metrics map[string]int `toml:"metrics"`
+	Metrics map[string]uint32 `toml:"metrics"`
 
 	// Read Limits
 	MaxSeriesPerQuery int `toml:"max-series-per-query"`
@@ -54,7 +59,7 @@ func NewDefaultLimits() *Limits {
 		MaxTagValueLength:   1024,
 		MaxTagsPerMetric:    32,
 		MaxSeriesPerMetric:  200000,
-		Metrics:             make(map[string]int),
+		Metrics:             make(map[string]uint32),
 		// Read limits
 		MaxSeriesPerQuery: 200000,
 	}
@@ -104,6 +109,7 @@ max-series-per-query = %d
 ## Maximum number of active series for special metric.
 ## Must be the last limit configure item.
 ## Example: "system.cpu" = 100000
+## Example: "namespace|system.cpu" = 100000
 [metrics]
 %s
 		`,
@@ -140,4 +146,20 @@ func (l *Limits) metricsTOML() string {
 		rs += fmt.Sprintf("%q = %d\n", k, v)
 	}
 	return rs
+}
+
+// GetSeriesLimit returns the limit by given namespace/metric name.
+func (l *Limits) GetSeriesLimit(namespace, metricName string) uint32 {
+	if len(l.Metrics) == 0 {
+		return l.MaxSeriesPerMetric
+	}
+	key := metricName
+	if namespace != commonconstants.DefaultNamespace {
+		key = commonseries.JoinNamespaceMetric(namespace, metricName)
+	}
+	limit, ok := l.Metrics[key]
+	if ok {
+		return limit
+	}
+	return l.MaxSeriesPerMetric
 }

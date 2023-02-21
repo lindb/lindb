@@ -35,3 +35,15 @@ func TestDefaultLimits(t *testing.T) {
 	l.Metrics["system.cpu"] = 1000
 	assert.NotEqual(t, l.TOML(), NewDefaultLimits().TOML())
 }
+
+func TestLimits_GetSeriesLimits(t *testing.T) {
+	l := NewDefaultLimits()
+	ns := "ns"
+	name := "name"
+	assert.Equal(t, l.MaxSeriesPerMetric, l.GetSeriesLimit(ns, name))
+	l.Metrics["ns|name"] = 10
+	l.Metrics["name"] = 100
+	assert.Equal(t, uint32(10), l.GetSeriesLimit(ns, name))
+	assert.Equal(t, uint32(100), l.GetSeriesLimit("default-ns", name))
+	assert.Equal(t, l.MaxSeriesPerMetric, l.GetSeriesLimit(ns, "test"))
+}

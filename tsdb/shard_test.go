@@ -32,6 +32,7 @@ import (
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/metrics"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
@@ -61,6 +62,7 @@ func TestShard_New(t *testing.T) {
 	db := NewMockDatabase(ctrl)
 	db.EXPECT().Name().Return("db").AnyTimes()
 	db.EXPECT().Metadata().Return(nil).AnyTimes()
+	db.EXPECT().GetLimits().Return(models.NewDefaultLimits()).AnyTimes()
 
 	cases := []struct {
 		name    string
@@ -191,6 +193,13 @@ func TestShard_New(t *testing.T) {
 			s, err := newShard(db, 1)
 			if ((err != nil) != tt.wantErr && s == nil) || (!tt.wantErr && s == nil) {
 				t.Errorf("newShard() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if s != nil {
+				assert.Equal(t, db, s.Database())
+				assert.Equal(t, models.ShardID(1), s.ShardID())
+				assert.NotEmpty(t, s.Indicator())
+				assert.NotNil(t, s.BufferManager())
+				assert.True(t, s.CurrentInterval().Int64() > 0)
 			}
 		})
 	}
@@ -360,6 +369,7 @@ func TestShard_Flush(t *testing.T) {
 		statistics:     metrics.NewShardStatistics("data", "1"),
 		logger:         logger.GetLogger("TSDB", "Test"),
 	}
+	assert.NotNil(t, s.IndexDatabase())
 	cases := []struct {
 		name    string
 		prepare func()
@@ -488,7 +498,8 @@ func TestShard_lookupRowMeta(t *testing.T) {
 			tags: tag.KeyValuesFromMap(map[string]string{"ip": "1.1.1.1"}),
 			prepare: func() {
 				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test").Return(metric.ID(10), nil).AnyTimes()
-				indexDB.EXPECT().GetOrCreateSeriesID(metric.ID(10), gomock.Any()).Return(uint32(0), false, fmt.Errorf("err"))
+				indexDB.EXPECT().GetOrCreateSeriesID(gomock.Any(), gomock.Any(),
+					metric.ID(10), gomock.Any(), gomock.Any()).Return(uint32(0), false, fmt.Errorf("err"))
 			},
 			wantErr: true,
 		},
@@ -498,8 +509,21 @@ func TestShard_lookupRowMeta(t *testing.T) {
 			prepare: func() {
 				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test").Return(metric.ID(10), nil).AnyTimes()
 				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(field.ID(1), nil)
-				indexDB.EXPECT().GetOrCreateSeriesID(metric.ID(10), gomock.Any()).Return(uint32(10), false, nil)
+				indexDB.EXPECT().GetOrCreateSeriesID(gomock.Any(), gomock.Any(),
+					metric.ID(10), gomock.Any(), gomock.Any()).Return(uint32(10), false, nil)
 			},
+		},
+		{
+			name: "get new limits",
+			tags: tag.KeyValuesFromMap(map[string]string{"ip": "1.1.1.1"}),
+			prepare: func() {
+				s.notifyLimitsChange()
+				db.EXPECT().GetLimits().Return(models.NewDefaultLimits())
+				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test").Return(metric.ID(10), nil).AnyTimes()
+				indexDB.EXPECT().GetOrCreateSeriesID(gomock.Any(), gomock.Any(),
+					metric.ID(10), gomock.Any(), gomock.Any()).Return(uint32(0), false, fmt.Errorf("err"))
+			},
+			wantErr: true,
 		},
 	}
 	for _, tt := range cases {

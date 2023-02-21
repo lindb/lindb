@@ -52,6 +52,8 @@ func TestDatabase_New(t *testing.T) {
 	store := kv.NewMockStore(ctrl)
 	kv.InitStoreManager(storeMgr)
 	opt := &option.DatabaseOption{}
+	shard := NewMockShard(ctrl)
+	shard.EXPECT().notifyLimitsChange().AnyTimes()
 
 	cases := []struct {
 		name    string
@@ -133,7 +135,7 @@ func TestDatabase_New(t *testing.T) {
 					return metadata, nil
 				}
 				newShardFunc = func(db Database, shardID models.ShardID) (s Shard, err error) {
-					return nil, nil
+					return shard, nil
 				}
 			},
 			wantErr: false,
@@ -184,7 +186,7 @@ func TestDatabase_New(t *testing.T) {
 			if tt.cfg != nil {
 				cfg = tt.cfg
 			}
-			db, err := newDatabase("db", cfg, nil)
+			db, err := newDatabase("db", cfg, models.NewDefaultLimits(), nil)
 			if ((err != nil) != tt.wantErr && db == nil) || (!tt.wantErr && db == nil) {
 				t.Errorf("newDatabase() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -197,6 +199,8 @@ func TestDatabase_New(t *testing.T) {
 				assert.True(t, db.NumOfShards() >= 0)
 				assert.Equal(t, &option.DatabaseOption{Intervals: option.Intervals{{Interval: 10}}}, db.GetOption())
 				assert.NotNil(t, db.GetConfig())
+				assert.NotNil(t, db.GetLimits())
+				db.SetLimits(models.NewDefaultLimits())
 			}
 		})
 	}

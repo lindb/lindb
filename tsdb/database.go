@@ -74,6 +74,8 @@ type Database interface {
 	EvictSegment()
 	// SetLimits sets database's limits.
 	SetLimits(limits *models.Limits)
+	// GetLimits returns database's limits.
+	GetLimits() *models.Limits
 }
 
 // database implements Database for storing families,
@@ -89,6 +91,7 @@ type database struct {
 	metaStore      kv.Store               // underlying meta kv store
 	isFlushing     atomic.Bool            // restrict flusher concurrency
 	flushCondition *sync.Cond             // flush condition
+	limits         atomic.Value           // store models.Limits
 
 	statistics *metrics.DatabaseStatistics
 
@@ -99,6 +102,7 @@ type database struct {
 func newDatabase(
 	databaseName string,
 	cfg *models.DatabaseConfig,
+	limits *models.Limits,
 	flushChecker DataFlushChecker,
 ) (Database, error) {
 	if err := cfg.Option.Validate(); err != nil {
@@ -153,6 +157,7 @@ func newDatabase(
 			}
 		}
 	}()
+	db.limits.Store(limits)
 	// load families if engine is existed
 	var shard Shard
 	if len(db.config.ShardIDs) > 0 {
@@ -165,13 +170,25 @@ func newDatabase(
 			db.shardSet.InsertShard(shardID, shard)
 		}
 	}
-
 	return db, nil
 }
 
 // SetLimits sets database's limits.
 func (db *database) SetLimits(limits *models.Limits) {
-	// TODO: need impl
+	db.limits.Store(limits)
+
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+
+	shards := db.shardSet.Entries()
+	for _, shard := range shards {
+		shard.shard.notifyLimitsChange()
+	}
+}
+
+// GetLimits returns database's limits.
+func (db *database) GetLimits() *models.Limits {
+	return db.limits.Load().(*models.Limits)
 }
 
 // Metadata returns the metadata include metric/tag
