@@ -36,10 +36,8 @@ type TSDB struct {
 	MaxMemUsageBeforeFlush   float64        `toml:"max-mem-usage-before-flush"`
 	TargetMemUsageAfterFlush float64        `toml:"target-mem-usage-after-flush"`
 	FlushConcurrency         int            `toml:"flush-concurrency"`
-	MaxSeriesIDsNumber       int            `toml:"max-seriesIDs"`
 	SeriesSequenceCache      uint32         `toml:"series-sequence-cache"`
 	MetaSequenceCache        uint32         `toml:"meta-sequence-cache"`
-	MaxTagKeysNumber         int            `toml:"max-tagKeys"`
 }
 
 func (t *TSDB) TOML() string {
@@ -69,16 +67,7 @@ max-mem-usage-before-flush = %.2f
 target-mem-usage-after-flush = %.2f
 ## concurrency of goroutines for flushing.
 ## Default: %d
-flush-concurrency = %d
-
-## Time Series limitation
-## 
-## Limit for time series of metric.
-## Default: %d
-max-seriesIDs = %d
-## Limit for tagKeys
-## Default: %d
-max-tagKeys = %d`,
+flush-concurrency = %d`,
 		strings.ReplaceAll(t.Dir, "\\", "\\\\"),
 		strings.ReplaceAll(t.Dir, "\\", "\\\\"),
 		t.MaxMemDBSize.String(),
@@ -91,10 +80,6 @@ max-tagKeys = %d`,
 		t.TargetMemUsageAfterFlush,
 		t.FlushConcurrency,
 		t.FlushConcurrency,
-		t.MaxSeriesIDsNumber,
-		t.MaxSeriesIDsNumber,
-		t.MaxTagKeysNumber,
-		t.MaxTagKeysNumber,
 	)
 }
 
@@ -235,10 +220,8 @@ func NewDefaultStorageBase() *StorageBase {
 			MaxMemUsageBeforeFlush:   0.75,
 			TargetMemUsageAfterFlush: 0.6,
 			FlushConcurrency:         int(math.Ceil(float64(runtime.GOMAXPROCS(-1)) / 2)),
-			MaxSeriesIDsNumber:       200000,
 			SeriesSequenceCache:      1000,
 			MetaSequenceCache:        100,
-			MaxTagKeysNumber:         32,
 		},
 	}
 }
@@ -281,17 +264,11 @@ func checkTSDBCfg(tsdbCfg *TSDB) error {
 	if tsdbCfg.FlushConcurrency <= 0 {
 		tsdbCfg.FlushConcurrency = defaultStorageCfg.TSDB.FlushConcurrency
 	}
-	if tsdbCfg.MaxSeriesIDsNumber <= 0 {
-		tsdbCfg.MaxSeriesIDsNumber = defaultStorageCfg.TSDB.MaxSeriesIDsNumber
-	}
 	if tsdbCfg.SeriesSequenceCache <= 0 {
 		tsdbCfg.SeriesSequenceCache = defaultStorageCfg.TSDB.SeriesSequenceCache
 	}
 	if tsdbCfg.MetaSequenceCache <= 0 {
 		tsdbCfg.MetaSequenceCache = defaultStorageCfg.TSDB.MetaSequenceCache
-	}
-	if tsdbCfg.MaxTagKeysNumber <= 0 {
-		tsdbCfg.MaxTagKeysNumber = defaultStorageCfg.TSDB.MaxTagKeysNumber
 	}
 	return nil
 }

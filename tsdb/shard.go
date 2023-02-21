@@ -76,6 +76,8 @@ type Shard interface {
 	TTL()
 	// EvictSegment evicts segment which long term no read operation.
 	EvictSegment()
+	// notifyLimitsChange notifies the limits changed.
+	notifyLimitsChange()
 	// Closer releases shard's resource, such as flush data, spawned goroutines etc.
 	io.Closer
 }
@@ -99,6 +101,8 @@ type shard struct {
 	isFlushing     atomic.Bool     // restrict flusher concurrency
 	flushCondition *sync.Cond      // flush condition
 
+	limits         *models.Limits // NOTE: limits only update in write goroutine
+	limitsChanged  atomic.Bool
 	indexStore     kv.Store  // kv stores
 	forwardFamily  kv.Family // forward store
 	invertedFamily kv.Family // inverted store
@@ -169,6 +173,8 @@ func newShard(
 	if err = createdShard.initIndexDatabase(); err != nil {
 		return nil, fmt.Errorf("create index database for shard[%d] error: %s", shardID, err)
 	}
+	// init datatbase limits
+	createdShard.limits = db.GetLimits()
 	return createdShard, nil
 }
 
@@ -180,6 +186,11 @@ func (s *shard) ShardID() models.ShardID { return s.id }
 
 // Indicator returns the unique shard info.
 func (s *shard) Indicator() string { return s.indicator }
+
+// notifyLimitsChange notifies the limits changed.
+func (s *shard) notifyLimitsChange() {
+	s.limitsChanged.Store(true)
+}
 
 // CurrentInterval returns current interval for metric  write.
 func (s *shard) CurrentInterval() timeutil.Interval { return s.interval }
@@ -228,6 +239,16 @@ func (s *shard) GetDataFamilies(intervalType timeutil.IntervalType, timeRange ti
 }
 
 func (s *shard) lookupRowMeta(row *metric.StorageRow) (err error) {
+	limits := s.limits
+
+	if s.limitsChanged.Load() {
+		// get new limits from database
+		// NOTE: modify limits in write goroutine
+		s.limits = s.db.GetLimits()
+		limits = s.limits
+		s.limitsChanged.Store(false)
+	}
+
 	namespace := commonconstants.DefaultNamespace
 	metricName := string(row.Name())
 
@@ -245,7 +266,7 @@ func (s *shard) lookupRowMeta(row *metric.StorageRow) (err error) {
 		// if metric without tags, uses default series id(0)
 		row.SeriesID = series.IDWithoutTags
 	} else {
-		row.SeriesID, isCreated, err = s.indexDB.GetOrCreateSeriesID(row.MetricID, row.TagsHash())
+		row.SeriesID, isCreated, err = s.indexDB.GetOrCreateSeriesID(namespace, metricName, row.MetricID, row.TagsHash(), limits)
 		if err != nil {
 			return err
 		}

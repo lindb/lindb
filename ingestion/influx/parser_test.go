@@ -30,7 +30,6 @@ import (
 	"github.com/lindb/common/pkg/fasttime"
 	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
 
-	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/series/metric"
 )
 
@@ -38,7 +37,7 @@ func Test_tooManyTags(t *testing.T) {
 	builder, releaseFunc := commonseries.NewRowBuilder()
 	defer releaseFunc(builder)
 	var tagPair []string
-	for i := 0; i <= config.GlobalStorageConfig().TSDB.MaxTagKeysNumber+1; i++ {
+	for i := 0; i <= 10; i++ {
 		v := strconv.FormatInt(int64(i), 10)
 		tagPair = append(tagPair, fmt.Sprintf("%s=%s", v, v))
 	}

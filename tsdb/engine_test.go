@@ -85,7 +85,7 @@ func TestEngine_New(t *testing.T) {
 					return []string{"db"}, nil
 				}
 				newDatabaseFunc = func(databaseName string, cfg *models.DatabaseConfig,
-					flushChecker DataFlushChecker) (Database, error) {
+					limits *models.Limits, flushChecker DataFlushChecker) (Database, error) {
 					return nil, fmt.Errorf("err")
 				}
 			},
@@ -129,7 +129,8 @@ func TestEngine_createDatabase(t *testing.T) {
 			newDatabaseFunc = newDatabase
 		}()
 		mockDB := NewMockDatabase(ctrl)
-		newDatabaseFunc = func(databaseName string, cfg *models.DatabaseConfig, flushChecker DataFlushChecker) (Database, error) {
+		newDatabaseFunc = func(databaseName string, cfg *models.DatabaseConfig,
+			limits *models.Limits, flushChecker DataFlushChecker) (Database, error) {
 			return mockDB, nil
 		}
 		mockDB.EXPECT().SetLimits(gomock.Any()).AnyTimes()
@@ -170,7 +171,8 @@ func TestEngine_createDatabase(t *testing.T) {
 			listDir = fileutil.ListDir
 		}()
 		mockDB := NewMockDatabase(ctrl)
-		newDatabaseFunc = func(databaseName string, cfg *models.DatabaseConfig, flushChecker DataFlushChecker) (Database, error) {
+		newDatabaseFunc = func(databaseName string, cfg *models.DatabaseConfig,
+			limits *models.Limits, flushChecker DataFlushChecker) (Database, error) {
 			return mockDB, nil
 		}
 		mockDB.EXPECT().SetLimits(gomock.Any()).AnyTimes()
@@ -221,7 +223,8 @@ func TestEngine_createDatabase(t *testing.T) {
 			decodeToml = ltoml.DecodeToml
 		}()
 		mockDB := NewMockDatabase(ctrl)
-		newDatabaseFunc = func(databaseName string, cfg *models.DatabaseConfig, flushChecker DataFlushChecker) (Database, error) {
+		newDatabaseFunc = func(databaseName string, cfg *models.DatabaseConfig,
+			limits *models.Limits, flushChecker DataFlushChecker) (Database, error) {
 			return mockDB, nil
 		}
 		e := &engine{}
@@ -382,7 +385,7 @@ func TestEngine_CreateShards(t *testing.T) {
 			shardIDs: []models.ShardID{1},
 			prepare: func(_ *engine) {
 				newDatabaseFunc = func(databaseName string, cfg *models.DatabaseConfig,
-					flushChecker DataFlushChecker) (Database, error) {
+					limits *models.Limits, flushChecker DataFlushChecker) (Database, error) {
 					return nil, fmt.Errorf("err")
 				}
 			},
@@ -394,7 +397,7 @@ func TestEngine_CreateShards(t *testing.T) {
 			shardIDs: []models.ShardID{1},
 			prepare: func(_ *engine) {
 				newDatabaseFunc = func(databaseName string, cfg *models.DatabaseConfig,
-					flushChecker DataFlushChecker) (Database, error) {
+					limits *models.Limits, flushChecker DataFlushChecker) (Database, error) {
 					return mockDatabase, nil
 				}
 				mockDatabase.EXPECT().CreateShards(gomock.Any()).Return(nil)

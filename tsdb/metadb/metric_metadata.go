@@ -20,7 +20,6 @@ package metadb
 import (
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
@@ -127,8 +126,8 @@ func (mm *metricMetadata) createTagKey(tagKey string, tagKeyID tag.KeyID) {
 
 func (mm *metricMetadata) checkTagKey(_ string) error {
 	// check tag keys count
-	// TODO add config
-	if len(mm.tagKeys) >= config.GlobalStorageConfig().TSDB.MaxTagKeysNumber {
+	// FIXME: add config
+	if len(mm.tagKeys) >= 100 {
 		return series.ErrTooManyTagKeys
 	}
 	return nil

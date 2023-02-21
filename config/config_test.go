@@ -144,8 +144,6 @@ func Test_checkStorageBaseCfg(t *testing.T) {
 	assert.NotZero(t, storageCfg4.TSDB.MaxMemUsageBeforeFlush)
 	assert.NotZero(t, storageCfg4.TSDB.TargetMemUsageAfterFlush)
 	assert.NotZero(t, storageCfg4.TSDB.FlushConcurrency)
-	assert.NotZero(t, storageCfg4.TSDB.MaxSeriesIDsNumber)
-	assert.NotZero(t, storageCfg4.TSDB.MaxTagKeysNumber)
 }
 
 func Test_checkCoordinatorCfg(t *testing.T) {
