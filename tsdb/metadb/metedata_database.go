@@ -26,6 +26,7 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/metrics"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
@@ -202,6 +203,7 @@ func (mdb *metadataDatabase) GenMetricID(namespace, metricName string) (metricID
 func (mdb *metadataDatabase) GenFieldID(
 	namespace, metricName string,
 	fieldName field.Name, fieldType field.Type,
+	limits *models.Limits,
 ) (fieldID field.ID, err error) {
 	if fieldType == field.Unknown {
 		return field.EmptyFieldID, series.ErrFieldTypeUnspecified
@@ -220,7 +222,7 @@ func (mdb *metadataDatabase) GenFieldID(
 			fieldType.String(), f.Type.String(), series.ErrWrongFieldType)
 	}
 	// assign new field id, then add field into metric metadata
-	fieldMeta, err := metricMetadata.createField(fieldName, fieldType)
+	fieldMeta, err := metricMetadata.createField(fieldName, fieldType, limits)
 	if err != nil {
 		mdb.statistics.GenFieldIDFailures.Incr()
 		return field.EmptyFieldID, err

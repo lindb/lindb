@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math"
 	"sync"
 	"testing"
 	"time"
@@ -481,10 +482,11 @@ func TestShard_lookupRowMeta(t *testing.T) {
 		logger:     logger.GetLogger("TSDB", "Test"),
 	}
 	cases := []struct {
-		name    string
-		tags    []*protoMetricsV1.KeyValue
-		prepare func()
-		wantErr bool
+		name      string
+		namespace string
+		tags      []*protoMetricsV1.KeyValue
+		prepare   func()
+		wantErr   bool
 	}{
 		{
 			name: "gen metric id err",
@@ -504,13 +506,23 @@ func TestShard_lookupRowMeta(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "get old series id",
-			tags: tag.KeyValuesFromMap(map[string]string{"ip": "1.1.1.1"}),
+			name:      "get old series id",
+			namespace: "ns",
+			tags:      tag.KeyValuesFromMap(map[string]string{"ip": "1.1.1.1"}),
 			prepare: func() {
-				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test").Return(metric.ID(10), nil).AnyTimes()
-				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(field.ID(1), nil)
+				metadataDB.EXPECT().GenMetricID("ns", "test").Return(metric.ID(10), nil).AnyTimes()
+				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any(), gomock.Any()).Return(field.ID(1), nil)
 				indexDB.EXPECT().GetOrCreateSeriesID(gomock.Any(), gomock.Any(),
 					metric.ID(10), gomock.Any(), gomock.Any()).Return(uint32(10), false, nil)
+			},
+		},
+		{
+			name: "empty tags",
+			prepare: func() {
+				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test").Return(metric.ID(10), nil).AnyTimes()
+				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any(), gomock.Any()).Return(field.ID(1), nil)
 			},
 		},
 		{
@@ -525,6 +537,19 @@ func TestShard_lookupRowMeta(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "build inverted index, but gen field failure",
+			tags: tag.KeyValuesFromMap(map[string]string{"ip": "1.1.1.1"}),
+			prepare: func() {
+				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test").Return(metric.ID(10), nil).AnyTimes()
+				indexDB.EXPECT().GetOrCreateSeriesID(gomock.Any(), gomock.Any(),
+					metric.ID(10), gomock.Any(), gomock.Any()).Return(uint32(1), true, nil)
+				indexDB.EXPECT().BuildInvertIndex(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
+				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any()).Return(field.ID(0), fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range cases {
 		tt := tt
@@ -534,6 +559,7 @@ func TestShard_lookupRowMeta(t *testing.T) {
 			}
 			err := s.lookupRowMeta(&(mockBatchRows(&protoMetricsV1.Metric{
 				Name:      "test",
+				Namespace: tt.namespace,
 				Timestamp: timeutil.Now(),
 				Tags:      tt.tags,
 				SimpleFields: []*protoMetricsV1.SimpleField{{
@@ -544,6 +570,110 @@ func TestShard_lookupRowMeta(t *testing.T) {
 			})[0]))
 			if (err != nil) != tt.wantErr {
 				t.Errorf("WriteRows() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestShard_lookup_histogram_fields(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	indexDB := indexdb.NewMockIndexDatabase(ctrl)
+	metadata := metadb.NewMockMetadata(ctrl)
+	metadataDB := metadb.NewMockMetadataDatabase(ctrl)
+	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
+	db := NewMockDatabase(ctrl)
+	db.EXPECT().Name().Return("tet").AnyTimes()
+	metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test").Return(metric.ID(10), nil).AnyTimes()
+	s := &shard{
+		indexDB:    indexDB,
+		db:         db,
+		metadata:   metadata,
+		statistics: metrics.NewShardStatistics("data", "1"),
+		logger:     logger.GetLogger("TSDB", "Test"),
+	}
+	cases := []struct {
+		name    string
+		prepare func()
+		wantErr bool
+	}{
+		{
+			name: "gen min field failure",
+			prepare: func() {
+				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any()).Return(field.ID(0), fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "gen max field failure",
+			prepare: func() {
+				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any()).Return(field.ID(1), nil)
+				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any()).Return(field.ID(0), fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "gen sum field failure",
+			prepare: func() {
+				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any()).Return(field.ID(1), nil).MaxTimes(2)
+				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any()).Return(field.ID(0), fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "gen count field failure",
+			prepare: func() {
+				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any()).Return(field.ID(1), nil).MaxTimes(3)
+				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any()).Return(field.ID(0), fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "gen bucket field failure",
+			prepare: func() {
+				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any()).Return(field.ID(1), nil).MaxTimes(4)
+				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any()).Return(field.ID(0), fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "gen all fields successfully",
+			prepare: func() {
+				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any()).Return(field.ID(1), nil).AnyTimes()
+			},
+		},
+	}
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+			err := s.lookupRowMeta(&(mockBatchRows(&protoMetricsV1.Metric{
+				Name:      "test",
+				Timestamp: timeutil.Now(),
+				CompoundField: &protoMetricsV1.CompoundField{
+					Min:            10,
+					Max:            10,
+					Sum:            10,
+					Count:          10,
+					ExplicitBounds: []float64{1, 1, 1, 1, 1, math.Inf(1) + 1},
+					Values:         []float64{1, 1, 1, 1, 1, 1},
+				},
+			})[0]))
+			if (err != nil) != tt.wantErr {
+				t.Errorf("lookupRowMeta() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

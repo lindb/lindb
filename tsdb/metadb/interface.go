@@ -20,6 +20,7 @@ package metadb
 import (
 	"io"
 
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
@@ -38,7 +39,7 @@ type IDGenerator interface {
 	// GenFieldID generates the field id in the memory
 	// error-case1: field type doesn't match to before
 	// error-case2: there are too many fields
-	GenFieldID(namespace, metricName string, fieldName field.Name, fieldType field.Type) (field.ID, error)
+	GenFieldID(namespace, metricName string, fieldName field.Name, fieldType field.Type, limits *models.Limits) (field.ID, error)
 	// GenTagKeyID generates the tag key id in the memory
 	GenTagKeyID(namespace, metricName, tagKey string) (tag.KeyID, error)
 }
