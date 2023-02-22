@@ -28,6 +28,7 @@ import (
 	commonseries "github.com/lindb/common/series"
 
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
@@ -645,7 +646,7 @@ func TestMetadataDatabase_GenFieldID(t *testing.T) {
 			f:          field.Meta{Name: "sum", Type: field.SumField},
 			prepare: func() {
 				meta.EXPECT().getField(field.Name("sum")).Return(field.Meta{}, false)
-				meta.EXPECT().createField(gomock.Any(), gomock.Any()).Return(field.Meta{}, fmt.Errorf("err"))
+				meta.EXPECT().createField(gomock.Any(), gomock.Any(), gomock.Any()).Return(field.Meta{}, fmt.Errorf("err"))
 			},
 			out: struct {
 				id  field.ID
@@ -658,7 +659,7 @@ func TestMetadataDatabase_GenFieldID(t *testing.T) {
 			f:          field.Meta{Name: "sum", Type: field.SumField},
 			prepare: func() {
 				meta.EXPECT().getField(field.Name("sum")).Return(field.Meta{}, false)
-				meta.EXPECT().createField(gomock.Any(), gomock.Any()).Return(field.Meta{}, nil)
+				meta.EXPECT().createField(gomock.Any(), gomock.Any(), gomock.Any()).Return(field.Meta{}, nil)
 				meta.EXPECT().getMetricID().Return(metric.ID(3))
 				mockBackend.EXPECT().saveField(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 			},
@@ -673,7 +674,7 @@ func TestMetadataDatabase_GenFieldID(t *testing.T) {
 			f:          field.Meta{Name: "sum", Type: field.SumField},
 			prepare: func() {
 				meta.EXPECT().getField(field.Name("sum")).Return(field.Meta{}, false)
-				meta.EXPECT().createField(gomock.Any(), gomock.Any()).Return(field.Meta{ID: 3}, nil)
+				meta.EXPECT().createField(gomock.Any(), gomock.Any(), gomock.Any()).Return(field.Meta{ID: 3}, nil)
 				meta.EXPECT().getMetricID().Return(metric.ID(3))
 				mockBackend.EXPECT().saveField(gomock.Any(), gomock.Any()).Return(nil)
 			},
@@ -691,7 +692,7 @@ func TestMetadataDatabase_GenFieldID(t *testing.T) {
 				tt.prepare()
 			}
 
-			id, err := db.GenFieldID("ns-1", tt.metricName, tt.f.Name, tt.f.Type)
+			id, err := db.GenFieldID("ns-1", tt.metricName, tt.f.Name, tt.f.Type, models.NewDefaultLimits())
 			assert.Equal(t, tt.out.id, id)
 			assert.Equal(t, tt.out.err, err)
 		})

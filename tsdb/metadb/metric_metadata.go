@@ -20,7 +20,7 @@ package metadb
 import (
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
@@ -34,17 +34,14 @@ import (
 type MetricMetadata interface {
 	// initialize the metric metadata with tags/fields
 	initialize(fields field.Metas, fieldMaxID int32, tagKeys tag.Metas)
-
 	// getMetricID gets the metric id
 	getMetricID() metric.ID
-
 	// createField creates the field meta, if success return field id, else return series.ErrTooManyFields
-	createField(fieldName field.Name, fieldType field.Type) (field.Meta, error)
+	createField(fieldName field.Name, fieldType field.Type, limits *models.Limits) (field.Meta, error)
 	// getField gets the field meta by field name, if not exist return false
 	getField(fieldName field.Name) (field.Meta, bool)
 	// getAllFields returns the all fields of the metric
 	getAllFields() (fields field.Metas)
-
 	// createTagKey creates the tag key
 	createTagKey(tagKey string, tagKeyID tag.KeyID)
 	checkTagKey(tagKey string) error
@@ -84,10 +81,9 @@ func (mm *metricMetadata) getMetricID() metric.ID {
 }
 
 // createField creates the field meta, if success return field id, else return series.ErrTooManyFields
-func (mm *metricMetadata) createField(fieldName field.Name, fieldType field.Type) (field.Meta, error) {
+func (mm *metricMetadata) createField(fieldName field.Name, fieldType field.Type, limits *models.Limits) (field.Meta, error) {
 	// check fields count
-	// TODO add config????
-	if mm.fieldIDSeq.Load() >= constants.DefaultMaxFieldsCount {
+	if mm.fieldIDSeq.Load() >= limits.MaxFieldsPerMetric {
 		return field.Meta{}, series.ErrTooManyFields
 	}
 	// create new field

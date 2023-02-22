@@ -22,7 +22,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
@@ -30,6 +30,7 @@ import (
 )
 
 func TestMetricMetadata_createField(t *testing.T) {
+	limits := models.NewDefaultLimits()
 	cases := []struct {
 		name    string
 		prepare func(m MetricMetadata)
@@ -56,7 +57,7 @@ func TestMetricMetadata_createField(t *testing.T) {
 
 			name: "too many fields",
 			prepare: func(m MetricMetadata) {
-				m.initialize(nil, constants.DefaultMaxFieldsCount, nil)
+				m.initialize(nil, limits.MaxFieldsPerMetric, nil)
 			},
 			out: struct {
 				f   field.Meta
@@ -78,7 +79,7 @@ func TestMetricMetadata_createField(t *testing.T) {
 			mid := m.getMetricID()
 			assert.Equal(t, metric.ID(2), mid)
 
-			f, err := m.createField("test", field.SumField)
+			f, err := m.createField("test", field.SumField, limits)
 			assert.Equal(t, tt.out.f, f)
 			assert.Equal(t, tt.out.err, err)
 			if err == nil {
@@ -92,6 +93,7 @@ func TestMetricMetadata_createField(t *testing.T) {
 
 func TestMetricMetadata_getField(t *testing.T) {
 	m := newMetricMetadata(metric.ID(2))
+	assert.Empty(t, m.getAllFields())
 	sum := field.Meta{
 		ID:   field.ID(1),
 		Type: field.SumField,
@@ -105,7 +107,7 @@ func TestMetricMetadata_getField(t *testing.T) {
 			Name: "histogram",
 		},
 	}, 0, nil)
-	_, _ = m.createField("max", field.MinField)
+	_, _ = m.createField("max", field.MinField, models.NewDefaultLimits())
 	f, ok := m.getField("sum")
 	assert.Equal(t, sum, f)
 	assert.True(t, ok)
@@ -118,6 +120,7 @@ func TestMetricMetadata_getField(t *testing.T) {
 
 func TestMetricMetadata_createTagKey(t *testing.T) {
 	m := newMetricMetadata(metric.ID(2))
+	assert.Empty(t, m.getAllTagKeys())
 	mid := m.getMetricID()
 	assert.Equal(t, metric.ID(2), mid)
 

@@ -33,7 +33,7 @@ type Limits struct {
 	MaxMetrics          int    `toml:"max-metrics"`
 	MaxMetricNameLength int    `toml:"max-metric-name-length"`
 	MaxFieldNameLength  int    `toml:"max-field-name-length"`
-	MaxFieldsPerMetric  int    `toml:"max-fields-per-metric"`
+	MaxFieldsPerMetric  int32  `toml:"max-fields-per-metric"`
 	MaxTagNameLength    int    `toml:"max-tag-name-length"`
 	MaxTagValueLength   int    `toml:"max-tag-value-length"`
 	MaxTagsPerMetric    int    `toml:"max-tags-per-metric"`

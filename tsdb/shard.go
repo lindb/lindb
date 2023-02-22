@@ -286,7 +286,8 @@ func (s *shard) lookupRowMeta(row *metric.StorageRow) (err error) {
 		if fieldID, err = s.metadata.MetadataDatabase().GenFieldID(
 			namespace, metricName,
 			simpleFieldItr.NextName(),
-			simpleFieldItr.NextType()); err != nil {
+			simpleFieldItr.NextType(), limits); err != nil {
+			// TODO: only ignore invalid field?
 			return err
 		}
 		row.FieldIDs = append(row.FieldIDs, fieldID)
@@ -299,7 +300,7 @@ func (s *shard) lookupRowMeta(row *metric.StorageRow) (err error) {
 	// min
 	if compoundFieldItr.Min() > 0 {
 		if fieldID, err = s.metadata.MetadataDatabase().GenFieldID(
-			namespace, metricName, compoundFieldItr.HistogramMinFieldName(), field.MinField); err != nil {
+			namespace, metricName, compoundFieldItr.HistogramMinFieldName(), field.MinField, limits); err != nil {
 			return err
 		}
 		row.FieldIDs = append(row.FieldIDs, fieldID)
@@ -307,20 +308,20 @@ func (s *shard) lookupRowMeta(row *metric.StorageRow) (err error) {
 	// max
 	if compoundFieldItr.Max() > 0 {
 		if fieldID, err = s.metadata.MetadataDatabase().GenFieldID(
-			namespace, metricName, compoundFieldItr.HistogramMaxFieldName(), field.MaxField); err != nil {
+			namespace, metricName, compoundFieldItr.HistogramMaxFieldName(), field.MaxField, limits); err != nil {
 			return err
 		}
 		row.FieldIDs = append(row.FieldIDs, fieldID)
 	}
 	// sum
 	if fieldID, err = s.metadata.MetadataDatabase().GenFieldID(
-		namespace, metricName, compoundFieldItr.HistogramSumFieldName(), field.SumField); err != nil {
+		namespace, metricName, compoundFieldItr.HistogramSumFieldName(), field.SumField, limits); err != nil {
 		return err
 	}
 	row.FieldIDs = append(row.FieldIDs, fieldID)
 	// count
 	if fieldID, err = s.metadata.MetadataDatabase().GenFieldID(
-		namespace, metricName, compoundFieldItr.HistogramCountFieldName(), field.SumField); err != nil {
+		namespace, metricName, compoundFieldItr.HistogramCountFieldName(), field.SumField, limits); err != nil {
 		return err
 	}
 	row.FieldIDs = append(row.FieldIDs, fieldID)
@@ -328,7 +329,7 @@ func (s *shard) lookupRowMeta(row *metric.StorageRow) (err error) {
 	for compoundFieldItr.HasNextBucket() {
 		if fieldID, err = s.metadata.MetadataDatabase().GenFieldID(
 			namespace, metricName,
-			compoundFieldItr.BucketName(), field.HistogramField); err != nil {
+			compoundFieldItr.BucketName(), field.HistogramField, limits); err != nil {
 			return err
 		}
 		row.FieldIDs = append(row.FieldIDs, fieldID)
