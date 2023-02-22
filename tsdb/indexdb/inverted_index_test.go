@@ -31,6 +31,7 @@ import (
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/tblstore/tagindex"
@@ -350,25 +351,26 @@ func prepareInvertedIndex(ctrl *gomock.Controller) InvertedIndex {
 	metadata.EXPECT().DatabaseName().Return("test").AnyTimes()
 	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
 	metadata.EXPECT().TagMetadata().Return(tagMetadata).AnyTimes()
-	metadataDB.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any(), "host").Return(tag.KeyID(1), nil).AnyTimes()
-	metadataDB.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any(), "zone").Return(tag.KeyID(2), nil).AnyTimes()
-	metadataDB.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any(), "zone_err").Return(tag.KeyID(0), fmt.Errorf("err")).AnyTimes()
+	metadataDB.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any(), "host", gomock.Any()).Return(tag.KeyID(1), nil).AnyTimes()
+	metadataDB.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any(), "zone", gomock.Any()).Return(tag.KeyID(2), nil).AnyTimes()
+	metadataDB.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any(), "zone_err", gomock.Any()).Return(tag.KeyID(0), fmt.Errorf("err")).AnyTimes()
 	tagMetadata.EXPECT().GenTagValueID(tag.KeyID(1), "1.1.1.1").Return(uint32(1), nil).Times(2)
 	tagMetadata.EXPECT().GenTagValueID(tag.KeyID(1), "1.1.1.5").Return(uint32(0), fmt.Errorf("err"))
 	tagMetadata.EXPECT().GenTagValueID(tag.KeyID(2), "sh").Return(uint32(1), nil)
 	tagMetadata.EXPECT().GenTagValueID(tag.KeyID(2), "bj").Return(uint32(2), nil)
 	index := newInvertedIndex(metadata, nil, nil)
+	limits := models.NewDefaultLimits()
 	index.buildInvertIndex("ns", "name", mockTagKeyValueIterator(map[string]string{
 		"host": "1.1.1.1",
 		"zone": "sh",
-	}), 1)
+	}), 1, limits)
 	index.buildInvertIndex("ns", "name", mockTagKeyValueIterator(map[string]string{
 		"host": "1.1.1.1",
 		"zone": "bj",
-	}), 2)
+	}), 2, limits)
 	index.buildInvertIndex("ns", "name", mockTagKeyValueIterator(map[string]string{
 		"host":     "1.1.1.5",
 		"zone_err": "bj",
-	}), 3)
+	}), 3, limits)
 	return index
 }

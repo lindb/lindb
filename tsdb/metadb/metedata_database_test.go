@@ -740,7 +740,7 @@ func TestMetadataDatabase_GenTagKeyID(t *testing.T) {
 			metricName: "cache",
 			prepare: func() {
 				meta.EXPECT().getTagKeyID(gomock.Any()).Return(tag.EmptyTagKeyID, false)
-				meta.EXPECT().checkTagKey(gomock.Any()).Return(fmt.Errorf("err"))
+				meta.EXPECT().checkTagKey(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 			},
 			out: struct {
 				id  tag.KeyID
@@ -752,7 +752,7 @@ func TestMetadataDatabase_GenTagKeyID(t *testing.T) {
 			metricName: "cache",
 			prepare: func() {
 				meta.EXPECT().getTagKeyID(gomock.Any()).Return(tag.EmptyTagKeyID, false)
-				meta.EXPECT().checkTagKey(gomock.Any()).Return(nil)
+				meta.EXPECT().checkTagKey(gomock.Any(), gomock.Any()).Return(nil)
 				meta.EXPECT().getMetricID().Return(metric.ID(3))
 				mockBackend.EXPECT().saveTagKey(gomock.Any(), gomock.Any()).Return(tag.EmptyTagKeyID, fmt.Errorf("err"))
 			},
@@ -766,7 +766,7 @@ func TestMetadataDatabase_GenTagKeyID(t *testing.T) {
 			metricName: "cache",
 			prepare: func() {
 				meta.EXPECT().getTagKeyID(gomock.Any()).Return(tag.EmptyTagKeyID, false)
-				meta.EXPECT().checkTagKey(gomock.Any()).Return(nil)
+				meta.EXPECT().checkTagKey(gomock.Any(), gomock.Any()).Return(nil)
 				meta.EXPECT().getMetricID().Return(metric.ID(3))
 				mockBackend.EXPECT().saveTagKey(gomock.Any(), gomock.Any()).Return(tag.KeyID(3), nil)
 				meta.EXPECT().createTagKey(gomock.Any(), gomock.Any())
@@ -785,7 +785,7 @@ func TestMetadataDatabase_GenTagKeyID(t *testing.T) {
 				tt.prepare()
 			}
 
-			id, err := db.GenTagKeyID("ns-1", tt.metricName, "key")
+			id, err := db.GenTagKeyID("ns-1", tt.metricName, "key", models.NewDefaultLimits())
 			assert.Equal(t, tt.out.id, id)
 			assert.Equal(t, tt.out.err, err)
 		})

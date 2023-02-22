@@ -277,7 +277,9 @@ func (s *shard) lookupRowMeta(row *metric.StorageRow) (err error) {
 			namespace,
 			metricName,
 			row.NewKeyValueIterator(),
-			row.SeriesID)
+			row.SeriesID,
+			limits,
+		)
 	}
 	// set field id
 	simpleFieldItr := row.NewSimpleFieldIterator()

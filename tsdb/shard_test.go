@@ -544,7 +544,7 @@ func TestShard_lookupRowMeta(t *testing.T) {
 				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test").Return(metric.ID(10), nil).AnyTimes()
 				indexDB.EXPECT().GetOrCreateSeriesID(gomock.Any(), gomock.Any(),
 					metric.ID(10), gomock.Any(), gomock.Any()).Return(uint32(1), true, nil)
-				indexDB.EXPECT().BuildInvertIndex(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
+				indexDB.EXPECT().BuildInvertIndex(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
 				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(),
 					gomock.Any(), gomock.Any()).Return(field.ID(0), fmt.Errorf("err"))
 			},

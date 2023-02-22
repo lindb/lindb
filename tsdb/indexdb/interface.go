@@ -54,7 +54,7 @@ type IndexDatabase interface {
 		limits *models.Limits) (seriesID uint32, isCreated bool, err error)
 	// BuildInvertIndex builds the inverted index for tag value => series ids,
 	// the tags is considered as an empty key-value pair while tags is nil.
-	BuildInvertIndex(namespace, metricName string, tagIterator *metric.KeyValueIterator, seriesID uint32)
+	BuildInvertIndex(namespace, metricName string, tagIterator *metric.KeyValueIterator, seriesID uint32, limits *models.Limits)
 	// Flush flushes index data to disk
 	Flush() error
 }
