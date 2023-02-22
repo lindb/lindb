@@ -41,7 +41,7 @@ type IDGenerator interface {
 	// error-case2: there are too many fields
 	GenFieldID(namespace, metricName string, fieldName field.Name, fieldType field.Type, limits *models.Limits) (field.ID, error)
 	// GenTagKeyID generates the tag key id in the memory
-	GenTagKeyID(namespace, metricName, tagKey string) (tag.KeyID, error)
+	GenTagKeyID(namespace, metricName, tagKey string, limits *models.Limits) (tag.KeyID, error)
 }
 
 // IDGetter represents the query ability for metric level, such as metric id, field meta etc.

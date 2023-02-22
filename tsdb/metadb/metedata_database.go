@@ -239,7 +239,7 @@ func (mdb *metadataDatabase) GenFieldID(
 
 // GenTagKeyID generates the tag key id in the memory
 // !!!!! NOTICE: metric metadata must be existed in memory, because gen metric has been saved
-func (mdb *metadataDatabase) GenTagKeyID(namespace, metricName, tagKey string) (tagKeyID tag.KeyID, err error) {
+func (mdb *metadataDatabase) GenTagKeyID(namespace, metricName, tagKey string, limits *models.Limits) (tagKeyID tag.KeyID, err error) {
 	metricMetadata, _ := mdb.getMetricMetadataFromCache(namespace, metricName)
 
 	mdb.rwMux.Lock()
@@ -249,7 +249,7 @@ func (mdb *metadataDatabase) GenTagKeyID(namespace, metricName, tagKey string) (
 		return tagKeyID0, nil
 	}
 
-	err = metricMetadata.checkTagKey(tagKey)
+	err = metricMetadata.checkTagKey(tagKey, limits)
 	if err != nil {
 		mdb.statistics.GenTagKeyIDFailures.Incr()
 		return tag.EmptyTagKeyID, err

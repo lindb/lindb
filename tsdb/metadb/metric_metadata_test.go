@@ -141,3 +141,13 @@ func TestMetricMetadata_getTag(t *testing.T) {
 	assert.False(t, ok)
 	assert.Equal(t, tag.KeyID(0), tag2)
 }
+
+func TestMetricMetadata_checkTagKey(t *testing.T) {
+	limits := models.NewDefaultLimits()
+	m := newMetricMetadata(metric.ID(2))
+	tag1 := tag.Meta{ID: 2, Key: "key2"}
+	m.initialize(nil, 0, tag.Metas{tag1})
+	assert.NoError(t, m.checkTagKey("", limits))
+	limits.MaxTagsPerMetric = 1
+	assert.Equal(t, series.ErrTooManyTagKeys, m.checkTagKey("", limits))
+}

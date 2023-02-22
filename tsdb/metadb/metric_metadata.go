@@ -44,7 +44,8 @@ type MetricMetadata interface {
 	getAllFields() (fields field.Metas)
 	// createTagKey creates the tag key
 	createTagKey(tagKey string, tagKeyID tag.KeyID)
-	checkTagKey(tagKey string) error
+	// checkTagKey checks if tags be limited.
+	checkTagKey(tagKey string, limits *models.Limits) error
 	// getTagKeyID gets the tag key id by tag key, if not exist return false
 	getTagKeyID(tagKey string) (tag.KeyID, bool)
 	// getAllTags returns the tag keys of the metric
@@ -120,10 +121,10 @@ func (mm *metricMetadata) createTagKey(tagKey string, tagKeyID tag.KeyID) {
 	mm.tagKeys = append(mm.tagKeys, tag.Meta{Key: tagKey, ID: tagKeyID})
 }
 
-func (mm *metricMetadata) checkTagKey(_ string) error {
+// checkTagKey checks if tags be limited.
+func (mm *metricMetadata) checkTagKey(_ string, limits *models.Limits) error {
 	// check tag keys count
-	// FIXME: add config
-	if len(mm.tagKeys) >= 100 {
+	if len(mm.tagKeys) >= limits.MaxTagsPerMetric {
 		return series.ErrTooManyTagKeys
 	}
 	return nil

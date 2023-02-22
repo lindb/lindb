@@ -185,8 +185,9 @@ func (db *indexDatabase) BuildInvertIndex(
 	namespace, metricName string,
 	tagIterator *metric.KeyValueIterator,
 	seriesID uint32,
+	limits *models.Limits,
 ) {
-	db.index.buildInvertIndex(namespace, metricName, tagIterator, seriesID)
+	db.index.buildInvertIndex(namespace, metricName, tagIterator, seriesID, limits)
 
 	db.statistics.BuildInvertedIndex.Incr()
 }
