@@ -30,6 +30,8 @@ import (
 	"github.com/lindb/common/pkg/fasttime"
 	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
 
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/series/metric"
 )
 
@@ -42,7 +44,7 @@ func Test_tooManyTags(t *testing.T) {
 		tagPair = append(tagPair, fmt.Sprintf("%s=%s", v, v))
 	}
 	line := fmt.Sprintf("mmm,%s x=1,y=2 1465839830100400200", strings.Join(tagPair, ","))
-	err := parseInfluxLine(builder, []byte(line), "ns", -1e6)
+	err := parseInfluxLine(builder, []byte(line), "ns", -1e6, models.NewDefaultLimits())
 	assert.NoError(t, err)
 	_, err = builder.Build()
 	assert.NoError(t, err)
@@ -52,7 +54,7 @@ func Test_noTags_noTimestamp(t *testing.T) {
 	builder, releaseFunc := commonseries.NewRowBuilder()
 	defer releaseFunc(builder)
 
-	err := parseInfluxLine(builder, []byte("cpu value=1"), "ns2", -1e6)
+	err := parseInfluxLine(builder, []byte("cpu value=1"), "ns2", -1e6, models.NewDefaultLimits())
 	assert.Nil(t, err)
 	var row metric.BrokerRow
 	data, err := builder.Build()
@@ -78,7 +80,7 @@ func Test_badTimestamp(t *testing.T) {
 	}
 	for _, line := range lines {
 		builder.Reset()
-		err := parseInfluxLine(builder, []byte(line), "ns3", 1)
+		err := parseInfluxLine(builder, []byte(line), "ns3", 1, models.NewDefaultLimits())
 		assert.Equal(t, ErrBadTimestamp, err)
 	}
 }
@@ -103,7 +105,7 @@ func Test_tags(t *testing.T) {
 	}
 	for _, example := range examples {
 		builder.Reset()
-		err := parseInfluxLine(builder, []byte(example.Line), "ns", 1e6)
+		err := parseInfluxLine(builder, []byte(example.Line), "ns", 1e6, models.NewDefaultLimits())
 		assert.Nil(t, err)
 		var br metric.BrokerRow
 		data, err := builder.Build()
@@ -134,7 +136,7 @@ func Test_InvalidLine(t *testing.T) {
 	}
 	for _, example := range examples {
 		builder.Reset()
-		err := parseInfluxLine(builder, []byte(example.Line), "ns", 1e6)
+		err := parseInfluxLine(builder, []byte(example.Line), "ns", 1e6, models.NewDefaultLimits())
 		if err == nil {
 			_, err = builder.Build()
 		}
@@ -160,7 +162,7 @@ func Test_metricName(t *testing.T) {
 	}
 	for _, example := range examples {
 		builder.Reset()
-		err := parseInfluxLine(builder, []byte(example.Line), "ns", 1e6)
+		err := parseInfluxLine(builder, []byte(example.Line), "ns", 1e6, models.NewDefaultLimits())
 		assert.NoError(t, err)
 		var row metric.BrokerRow
 		data, err := builder.Build()
@@ -191,7 +193,7 @@ func Test_missingTagValues(t *testing.T) {
 	}
 	for _, example := range examples {
 		builder.Reset()
-		err := parseInfluxLine(builder, []byte(example.Line), "ns", -1e6)
+		err := parseInfluxLine(builder, []byte(example.Line), "ns", -1e6, models.NewDefaultLimits())
 		assert.Equal(t, example.Err, err)
 	}
 }
@@ -212,7 +214,7 @@ func Test_missingFieldNames(t *testing.T) {
 	}
 	for _, example := range examples {
 		builder.Reset()
-		err := parseInfluxLine(builder, []byte(example.Line), "ns", 1e6)
+		err := parseInfluxLine(builder, []byte(example.Line), "ns", 1e6, models.NewDefaultLimits())
 		assert.Equal(t, example.Err, err)
 		if example.FieldCount == 0 {
 			assert.Error(t, err)
@@ -420,7 +422,7 @@ func Test_parseUnescapedMetric(t *testing.T) {
 
 	for _, example := range examples {
 		builder.Reset()
-		err := parseInfluxLine(builder, []byte(example.Line), "ns", -1e6)
+		err := parseInfluxLine(builder, []byte(example.Line), "ns", -1e6, models.NewDefaultLimits())
 		assert.Nil(t, err)
 		var row metric.BrokerRow
 		data, err := builder.Build()
@@ -469,7 +471,7 @@ func Test_parseBadFields(t *testing.T) {
 	defer releaseFunc(builder)
 	for _, line := range lines {
 		builder.Reset()
-		err := parseInfluxLine(builder, []byte(line), "ns", 1e6)
+		err := parseInfluxLine(builder, []byte(line), "ns", 1e6, models.NewDefaultLimits())
 		assert.Equal(t, ErrBadFields, err)
 	}
 }
@@ -482,4 +484,49 @@ func Test_parseTimestamp(t *testing.T) {
 	assert.Equal(t, timestamp, timestamp2MilliSeconds(timestamp*1000*1000))
 	assert.InDelta(t, timestamp, timestamp2MilliSeconds(timestamp/1000/60), float64(1000*60))
 	assert.InDelta(t, timestamp, timestamp2MilliSeconds(timestamp/1000/3600), float64(1000*3600))
+}
+
+func Test_parseField(t *testing.T) {
+	fields, err := parseField(nil, nil)
+	assert.Nil(t, fields)
+	assert.Equal(t, ErrBadFields, err)
+
+	fields, err = parseField([]byte("test"), nil)
+	assert.Nil(t, fields)
+	assert.Equal(t, ErrBadFields, err)
+}
+
+func Test_limits(t *testing.T) {
+	builder, releaseFunc := commonseries.NewRowBuilder()
+	defer releaseFunc(builder)
+
+	limits := models.NewDefaultLimits()
+	err := parseInfluxLine(builder, []byte("#"), "ns", 0, limits)
+	assert.NoError(t, err)
+
+	limits.MaxMetricNameLength = 5
+	line := `system,regions=east value=1.0 1465839830100400200`
+	// metric name limit
+	err = parseInfluxLine(builder, []byte(line), "ns", 0, limits)
+	assert.Equal(t, constants.ErrMetricNameTooLong, err)
+	limits.MaxMetricNameLength = 50
+	limits.MaxTagNameLength = 5
+	// tag key limit
+	err = parseInfluxLine(builder, []byte(line), "ns", 0, limits)
+	assert.Equal(t, constants.ErrTagKeyTooLong, err)
+	limits.MaxTagNameLength = 50
+	limits.MaxTagValueLength = 3
+	// tag value limit
+	err = parseInfluxLine(builder, []byte(line), "ns", 0, limits)
+	assert.Equal(t, constants.ErrTagValueTooLong, err)
+	limits.MaxTagValueLength = 50
+	limits.MaxFieldNameLength = 3
+	// field nae limit
+	err = parseInfluxLine(builder, []byte(line), "ns", 0, limits)
+	assert.Equal(t, constants.ErrFieldNameTooLong, err)
+	limits.MaxFieldNameLength = 50
+	limits.MaxFieldsPerMetric = 0
+	// tag value limit
+	err = parseInfluxLine(builder, []byte(line), "ns", 0, limits)
+	assert.Equal(t, constants.ErrTooManyFields, err)
 }

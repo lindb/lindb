@@ -35,10 +35,12 @@ import (
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/metrics"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/replica"
@@ -49,6 +51,8 @@ func TestWrite_Flat(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	stateMgr := broker.NewMockStateManager(ctrl)
+	stateMgr.EXPECT().GetDatabaseLimits(gomock.Any()).Return(models.NewDefaultLimits()).AnyTimes()
 	cm := replica.NewMockChannelManager(ctrl)
 	api := NewWrite(&deps.HTTPDeps{
 		BrokerCfg: &config.Broker{
@@ -58,7 +62,8 @@ func TestWrite_Flat(t *testing.T) {
 				},
 			},
 		},
-		CM: cm,
+		StateMgr: stateMgr,
+		CM:       cm,
 		IngestLimiter: concurrent.NewLimiter(
 			context.TODO(),
 			32,
@@ -79,7 +84,7 @@ func TestWrite_Flat(t *testing.T) {
 	resp = mock.DoRequest(t, r, http.MethodPut, WritePath+"?db=test&enrich_tag=a=b", "error")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
-	converter := metric.NewProtoConverter()
+	converter := metric.NewProtoConverter(models.NewDefaultLimits())
 	var brokerRow metric.BrokerRow
 	err := converter.ConvertTo(&protoMetricsV1.Metric{
 		Name:      "cpu",
@@ -112,6 +117,8 @@ func TestWrite_Influx(t *testing.T) {
 	defer ctrl.Finish()
 
 	cm := replica.NewMockChannelManager(ctrl)
+	stateMgr := broker.NewMockStateManager(ctrl)
+	stateMgr.EXPECT().GetDatabaseLimits(gomock.Any()).Return(models.NewDefaultLimits()).AnyTimes()
 	api := NewWrite(&deps.HTTPDeps{
 		BrokerCfg: &config.Broker{
 			BrokerBase: config.BrokerBase{
@@ -120,7 +127,8 @@ func TestWrite_Influx(t *testing.T) {
 				},
 			},
 		},
-		CM: cm,
+		CM:       cm,
+		StateMgr: stateMgr,
 		IngestLimiter: concurrent.NewLimiter(
 			context.TODO(),
 			32,
@@ -173,6 +181,12 @@ func TestWrite_Proto(t *testing.T) {
 	defer ctrl.Finish()
 
 	cm := replica.NewMockChannelManager(ctrl)
+	stateMgr := broker.NewMockStateManager(ctrl)
+	limits := models.NewDefaultLimits()
+	limits.MaxNamespaceLength = 5
+	limits.MaxTagNameLength = 5
+	limits.MaxTagValueLength = 5
+	stateMgr.EXPECT().GetDatabaseLimits(gomock.Any()).Return(limits).AnyTimes()
 	api := NewWrite(&deps.HTTPDeps{
 		BrokerCfg: &config.Broker{
 			BrokerBase: config.BrokerBase{
@@ -181,7 +195,8 @@ func TestWrite_Proto(t *testing.T) {
 				},
 			},
 		},
-		CM: cm,
+		CM:       cm,
+		StateMgr: stateMgr,
 		IngestLimiter: concurrent.NewLimiter(
 			context.TODO(),
 			32,
@@ -197,6 +212,18 @@ func TestWrite_Proto(t *testing.T) {
 
 	// enrich_tag bad format
 	resp = mock.DoRequest(t, r, http.MethodPut, WritePath+"?db=test&ns=ns2&enrich_tag=a", "")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+
+	// namespace too lang
+	resp = mock.DoRequest(t, r, http.MethodPut, WritePath+"?db=test&ns=namespace3&enrich_tag=a=b", "")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+
+	// tag key too lang
+	resp = mock.DoRequest(t, r, http.MethodPut, WritePath+"?db=test3&enrich_tag=system=b", "")
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+
+	// tag value too lang
+	resp = mock.DoRequest(t, r, http.MethodPut, WritePath+"?db=test3&enrich_tag=ip=127.0.0.1", "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	header := make(http.Header)

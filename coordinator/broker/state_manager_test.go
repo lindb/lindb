@@ -394,3 +394,28 @@ func TestStateManager_Choose(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, plans, 1)
 }
+
+func TestStateManager_onDatabaseLimits(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mgr := NewStateManager(context.TODO(), models.StatelessNode{}, nil, nil)
+
+	// case 1: decode limit failure
+	mgr.EmitEvent(&discovery.Event{
+		Type:  discovery.DatabaseLimitsChanged,
+		Key:   "/database/limit/db2",
+		Value: []byte("dd"),
+	})
+	// case 1: set limits
+	limit2 := models.NewDefaultLimits()
+	limit2.MaxFieldsPerMetric = 10000
+	mgr.EmitEvent(&discovery.Event{
+		Type:  discovery.DatabaseLimitsChanged,
+		Key:   "/database/limit/db2",
+		Value: []byte(limit2.TOML()),
+	})
+	time.Sleep(100 * time.Millisecond)
+	assert.Equal(t, limit2, mgr.GetDatabaseLimits("db2"))
+	assert.Equal(t, defaultDatabaseLimits, mgr.GetDatabaseLimits("test"))
+}

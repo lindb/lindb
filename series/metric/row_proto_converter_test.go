@@ -22,12 +22,15 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"sync"
 	"testing"
 
 	"github.com/lindb/common/pkg/fasttime"
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/series/tag"
 )
@@ -89,7 +92,7 @@ func Test_MarshalProtoMetricsV1List(t *testing.T) {
 		ml.Metrics = append(ml.Metrics, makeProtoMetricV1(fasttime.UnixMilliseconds()))
 	}
 
-	converter := NewProtoConverter()
+	converter := NewProtoConverter(models.NewDefaultLimits())
 
 	var buf bytes.Buffer
 	for i := 0; i < 10; i++ {
@@ -127,7 +130,7 @@ func Test_BrokerRowProtoConverter_ValidateMetric(t *testing.T) {
 	converter, releaseFunc := NewBrokerRowProtoConverter(
 		[]byte("lindb-ns"), tag.Tags{
 			tag.NewTag([]byte("a"), []byte("b")),
-		})
+		}, models.NewDefaultLimits())
 	defer releaseFunc(converter)
 
 	// nil pb
@@ -254,7 +257,7 @@ func Test_BrokerRowProtoConverter_MarshalProtoMetricV1(t *testing.T) {
 	converter, releaseFunc := NewBrokerRowProtoConverter(
 		[]byte("lindb-ns"), tag.Tags{
 			tag.NewTag([]byte("a"), []byte("b")),
-		})
+		}, models.NewDefaultLimits())
 	defer releaseFunc(converter)
 
 	data, err := converter.MarshalProtoMetricV1(nil)
@@ -295,7 +298,7 @@ func Test_BrokerRowProtoConverter_MarshalProtoMetricV1(t *testing.T) {
 
 func Test_BrokerRowProtoConverter_deDupTags(t *testing.T) {
 	converter, releaseFunc := NewBrokerRowProtoConverter(
-		nil, nil)
+		nil, nil, models.NewDefaultLimits())
 	defer releaseFunc(converter)
 
 	m := &protoMetricsV1.Metric{
@@ -325,13 +328,98 @@ func Test_BrokerRowProtoConverter_deDupTags(t *testing.T) {
 }
 
 func TestNewProtoCoverter(t *testing.T) {
-	t.Run("Test Coverter From Pool", func(_ *testing.T) {
-		for i := 0; i < 100; i++ {
+	defer func() {
+		rowConverterPool = sync.Pool{}
+	}()
+	rowConverterPool = sync.Pool{
+		New: func() any {
+			return nil
+		},
+	}
+	converter, releaseFunc := NewBrokerRowProtoConverter(
+		nil, nil, models.NewDefaultLimits())
+	releaseFunc(converter)
+	rowConverterPool = sync.Pool{
+		New: func() any {
+			return NewProtoConverter(models.NewDefaultLimits())
+		},
+	}
+	converter, releaseFunc = NewBrokerRowProtoConverter(
+		nil, nil, models.NewDefaultLimits())
+	releaseFunc(converter)
+}
+
+func TestProtoCoverter_Limits(t *testing.T) {
+	cases := []struct {
+		name    string
+		prepare func(limits *models.Limits)
+		err     error
+	}{
+		{
+			name: "metric name too long",
+			prepare: func(limits *models.Limits) {
+				limits.MaxMetricNameLength = 0
+			},
+			err: constants.ErrMetricNameTooLong,
+		},
+		{
+			name: "too many tags",
+			prepare: func(limits *models.Limits) {
+				limits.MaxTagsPerMetric = 0
+			},
+			err: constants.ErrTooManyTagKeys,
+		},
+		{
+			name: "too many fields",
+			prepare: func(limits *models.Limits) {
+				limits.MaxFieldsPerMetric = 0
+			},
+			err: constants.ErrTooManyFields,
+		},
+		{
+			name: "field name too long",
+			prepare: func(limits *models.Limits) {
+				limits.MaxFieldNameLength = 0
+			},
+			err: constants.ErrFieldNameTooLong,
+		},
+		{
+			name: "tag name too long",
+			prepare: func(limits *models.Limits) {
+				limits.MaxTagNameLength = 0
+			},
+			err: constants.ErrTagKeyTooLong,
+		},
+		{
+			name: "tag value too long",
+			prepare: func(limits *models.Limits) {
+				limits.MaxTagValueLength = 0
+			},
+			err: constants.ErrTagValueTooLong,
+		},
+	}
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			limits := models.NewDefaultLimits()
+			// marshal ok
+			m := &protoMetricsV1.Metric{
+				Name: "test-metric",
+				Tags: []*protoMetricsV1.KeyValue{
+					{Key: "host", Value: "host_name"},
+				},
+				SimpleFields: []*protoMetricsV1.SimpleField{
+					{
+						Name:  "__bucket_1",
+						Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
+						Value: 1,
+					}},
+			}
+			tt.prepare(limits)
 			converter, releaseFunc := NewBrokerRowProtoConverter(
-				nil, nil)
-			releaseFunc(converter)
-		}
-		_, _ = NewBrokerRowProtoConverter(
-			nil, nil)
-	})
+				nil, nil, limits)
+			defer releaseFunc(converter)
+			assert.Equal(t, tt.err, converter.validateMetric(m))
+		})
+	}
 }

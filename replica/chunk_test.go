@@ -26,13 +26,14 @@ import (
 
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/metric"
 )
 
 func makeTestBrokerRows() metric.BrokerRow {
-	converter := metric.NewProtoConverter()
+	converter := metric.NewProtoConverter(models.NewDefaultLimits())
 	var brokerRow metric.BrokerRow
 	_ = converter.ConvertTo(&protoMetricsV1.Metric{
 		Name:      "cpu",
@@ -87,7 +88,7 @@ func testMarshal(chunk Chunk, count int, t *testing.T) {
 	assert.Nil(t, compressed)
 	assert.Nil(t, err)
 
-	var converter = metric.NewProtoConverter()
+	var converter = metric.NewProtoConverter(models.NewDefaultLimits())
 	for i := 0; i < count; i++ {
 		var row metric.BrokerRow
 		_ = converter.ConvertTo(&protoMetricsV1.Metric{

@@ -33,6 +33,7 @@ import (
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/metric"
 )
@@ -46,7 +47,7 @@ func TestWriteSumMetric(b *testing.T) {
 		for j := 0; j < 20; j++ {
 			for k := 0; k < 4; k++ {
 				var brokerRow metric.BrokerRow
-				converter := metric.NewProtoConverter()
+				converter := metric.NewProtoConverter(models.NewDefaultLimits())
 				err := converter.ConvertTo(&protoMetricsV1.Metric{
 					Name:      "host_disk_700",
 					Timestamp: timestamp,
@@ -88,7 +89,7 @@ func TestWriteSumMetric_OneDay(b *testing.T) {
 			for j := 0; j < 1; j++ {
 				for k := 0; k < 1; k++ {
 					var brokerRow metric.BrokerRow
-					converter := metric.NewProtoConverter()
+					converter := metric.NewProtoConverter(models.NewDefaultLimits())
 					err := converter.ConvertTo(&protoMetricsV1.Metric{
 						Name:      "host_disk_3400",
 						Timestamp: timestamp + n*2000,
@@ -127,7 +128,7 @@ func TestWriteSumMetric_7Days(b *testing.T) {
 		for n := int64(0); n < 60; n++ {
 			for i := 0; i < 1; i++ {
 				var brokerRow metric.BrokerRow
-				converter := metric.NewProtoConverter()
+				converter := metric.NewProtoConverter(models.NewDefaultLimits())
 				fmt.Println(timeutil.FormatTimestamp(timestamp+n*timeutil.OneMinute+d*timeutil.OneHour, timeutil.DataTimeFormat2))
 				err := converter.ConvertTo(&protoMetricsV1.Metric{
 					Name:      "host_disk_170",

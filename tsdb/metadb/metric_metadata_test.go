@@ -22,8 +22,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
@@ -64,7 +64,7 @@ func TestMetricMetadata_createField(t *testing.T) {
 				err error
 			}{
 				f:   field.Meta{},
-				err: series.ErrTooManyFields,
+				err: constants.ErrTooManyFields,
 			},
 		},
 	}
@@ -149,5 +149,5 @@ func TestMetricMetadata_checkTagKey(t *testing.T) {
 	m.initialize(nil, 0, tag.Metas{tag1})
 	assert.NoError(t, m.checkTagKey("", limits))
 	limits.MaxTagsPerMetric = 1
-	assert.Equal(t, series.ErrTooManyTagKeys, m.checkTagKey("", limits))
+	assert.Equal(t, constants.ErrTooManyTagKeys, m.checkTagKey("", limits))
 }

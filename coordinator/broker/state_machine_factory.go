@@ -97,6 +97,11 @@ func (f *stateMachineFactory) Start() (err error) {
 		return err
 	}
 	f.stateMachines = append(f.stateMachines, sm)
+	sm, err = f.createDatabaseLimitsStateMachine()
+	if err != nil {
+		return err
+	}
+	f.stateMachines = append(f.stateMachines, sm)
 
 	f.logger.Info("started BrokerStateMachines")
 	return nil
@@ -148,6 +153,25 @@ func (f *stateMachineFactory) createStorageStatusStateMachine() (discovery.State
 		true,
 		f.onStorageStateChange,
 		f.onStorageDeletion,
+	)
+}
+
+// createDatabaseLimitsStateMachine creates database's limits state machine.
+func (f *stateMachineFactory) createDatabaseLimitsStateMachine() (discovery.StateMachine, error) {
+	return discovery.NewStateMachine(
+		f.ctx,
+		discovery.DatabaseLimitsStateMachine,
+		f.discoveryFactory,
+		constants.DatabaseLimitPath,
+		true,
+		func(key string, data []byte) {
+			f.stateMgr.EmitEvent(&discovery.Event{
+				Type:  discovery.DatabaseLimitsChanged,
+				Key:   key,
+				Value: data,
+			})
+		},
+		nil,
 	)
 }
 

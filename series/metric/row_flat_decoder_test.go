@@ -27,13 +27,15 @@ import (
 
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/tag"
 )
 
 func Test_NewBrokerRowFlatDecoder(t *testing.T) {
-	converter1 := NewProtoConverter()
-	converter2 := NewProtoConverter()
+	converter1 := NewProtoConverter(models.NewDefaultLimits())
+	converter2 := NewProtoConverter(models.NewDefaultLimits())
 	var buf bytes.Buffer
 
 	now := timeutil.Now()
@@ -50,8 +52,7 @@ func Test_NewBrokerRowFlatDecoder(t *testing.T) {
 	assert.NoError(t, err)
 	_, _ = buf.Write(data1)
 
-	data2, err := converter2.MarshalProtoMetricV1(&protoMetricsV1.Metric{
-		Name:      "test",
+	data2, err := converter2.MarshalProtoMetricV1(&protoMetricsV1.Metric{Name: "test",
 		Namespace: "ns",
 		Timestamp: now,
 		Tags: []*protoMetricsV1.KeyValue{
@@ -72,7 +73,7 @@ func Test_NewBrokerRowFlatDecoder(t *testing.T) {
 	assert.NoError(t, err)
 	_, _ = buf.Write(data2)
 
-	decoder, releaseFunc := NewBrokerRowFlatDecoder(nil, nil, nil)
+	decoder, releaseFunc := NewBrokerRowFlatDecoder(nil, nil, nil, models.NewDefaultLimits())
 	assert.False(t, decoder.HasNext())
 	releaseFunc(decoder)
 	assert.Zero(t, decoder.ReadLen())
@@ -83,7 +84,7 @@ func Test_NewBrokerRowFlatDecoder(t *testing.T) {
 		[]byte("lindb-ns"),
 		tag.Tags{
 			tag.NewTag([]byte("a"), []byte("b")),
-		})
+		}, models.NewDefaultLimits())
 	defer releaseFunc(decoder)
 
 	var row BrokerRow
@@ -102,25 +103,137 @@ func Test_NewBrokerRowFlatDecoder(t *testing.T) {
 
 func Test_NewBrokerRowFlatDecoder_pool(t *testing.T) {
 	defer func() {
-		brokerBatchRowsPool = sync.Pool{}
+		brokerRowFlatDecoderPool = sync.Pool{}
 	}()
-	brokerBatchRowsPool = sync.Pool{
+	brokerRowFlatDecoderPool = sync.Pool{
 		New: func() any {
 			return nil
 		},
 	}
-	decoder, releaseFunc := NewBrokerRowFlatDecoder(nil, nil, nil)
+	decoder, releaseFunc := NewBrokerRowFlatDecoder(nil, nil, nil, models.NewDefaultLimits())
 	assert.False(t, decoder.HasNext())
 	releaseFunc(decoder)
 	assert.Zero(t, decoder.ReadLen())
 
-	brokerBatchRowsPool = sync.Pool{
+	brokerRowFlatDecoderPool = sync.Pool{
 		New: func() any {
 			return &BrokerRowFlatDecoder{}
 		},
 	}
-	decoder, releaseFunc = NewBrokerRowFlatDecoder(nil, nil, nil)
+	decoder, releaseFunc = NewBrokerRowFlatDecoder(nil, nil, nil, models.NewDefaultLimits())
 	assert.False(t, decoder.HasNext())
 	releaseFunc(decoder)
 	assert.Zero(t, decoder.ReadLen())
+}
+
+func Test_BrokerRowFlatDecoder_Decode_Fail(t *testing.T) {
+	decoder, _ := NewBrokerRowFlatDecoder(nil, nil,
+		tag.Tags{
+			tag.NewTag([]byte("a"), []byte("b")),
+		}, models.NewDefaultLimits())
+	var row BrokerRow
+	assert.Error(t, decoder.DecodeTo(&row))
+
+	cases := []struct {
+		name    string
+		prepare func(limits *models.Limits)
+		err     error
+	}{
+		{
+			name: "too many tags",
+			prepare: func(limits *models.Limits) {
+				limits.MaxTagsPerMetric = 0
+			},
+			err: constants.ErrTooManyTagKeys,
+		},
+		{
+			name: "too many fields",
+			prepare: func(limits *models.Limits) {
+				limits.MaxFieldsPerMetric = 0
+			},
+			err: constants.ErrTooManyFields,
+		},
+		{
+			name: "tag name too long",
+			prepare: func(limits *models.Limits) {
+				limits.MaxTagNameLength = 0
+			},
+			err: constants.ErrTagKeyTooLong,
+		},
+		{
+			name: "tag value too long",
+			prepare: func(limits *models.Limits) {
+				limits.MaxTagValueLength = 0
+			},
+			err: constants.ErrTagValueTooLong,
+		},
+		{
+			name: "field name too long",
+			prepare: func(limits *models.Limits) {
+				limits.MaxFieldNameLength = 0
+			},
+			err: constants.ErrFieldNameTooLong,
+		},
+		{
+			name: "metric name too long",
+			prepare: func(limits *models.Limits) {
+				limits.MaxMetricNameLength = 0
+			},
+			err: constants.ErrMetricNameTooLong,
+		},
+		{
+			name: "namespace too long",
+			prepare: func(limits *models.Limits) {
+				limits.MaxNamespaceLength = 0
+			},
+			err: constants.ErrNamespaceTooLong,
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			limits := models.NewDefaultLimits()
+			tt.prepare(limits)
+			decoder = mockDecoder(limits)
+			assert.True(t, decoder.HasNext())
+			assert.Equal(t, tt.err, decoder.DecodeTo(&row))
+		})
+	}
+}
+
+func mockDecoder(limits *models.Limits) *BrokerRowFlatDecoder {
+	converter2 := NewProtoConverter(models.NewDefaultLimits())
+	data2, err := converter2.MarshalProtoMetricV1(&protoMetricsV1.Metric{
+		Name:      "test",
+		Namespace: "ns",
+		Tags: []*protoMetricsV1.KeyValue{
+			{Key: "key", Value: "value"},
+		},
+		SimpleFields: []*protoMetricsV1.SimpleField{
+			{Name: "F1", Type: protoMetricsV1.SimpleFieldType_Min, Value: 1},
+		},
+		CompoundField: &protoMetricsV1.CompoundField{
+			Min:            1,
+			Max:            1,
+			Sum:            1,
+			Count:          1,
+			ExplicitBounds: []float64{1, 2, 3, 4, 5, math.Inf(1)},
+			Values:         []float64{0, 0, 0, 0, 0, 0},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	var buf bytes.Buffer
+	_, _ = buf.Write(data2)
+
+	reader := bytes.NewReader(buf.Bytes())
+	decoder, _ := NewBrokerRowFlatDecoder(
+		reader,
+		nil,
+		tag.Tags{
+			tag.NewTag([]byte("a"), []byte("b")),
+		}, limits)
+	return decoder
 }
