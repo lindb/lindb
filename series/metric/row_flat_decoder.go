@@ -26,6 +26,8 @@ import (
 
 	commonseries "github.com/lindb/common/series"
 
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/series/tag"
 )
 
@@ -47,6 +49,8 @@ type BrokerRowFlatDecoder struct {
 
 	namespace    []byte
 	enrichedTags tag.Tags
+
+	limits *models.Limits
 }
 
 var brokerRowFlatDecoderPool sync.Pool
@@ -55,6 +59,7 @@ func NewBrokerRowFlatDecoder(
 	reader io.Reader,
 	namespace []byte,
 	enrichedTags tag.Tags,
+	limits *models.Limits,
 ) (
 	decoder *BrokerRowFlatDecoder,
 	releaseFunc func(decoder *BrokerRowFlatDecoder),
@@ -73,6 +78,7 @@ func NewBrokerRowFlatDecoder(
 	decoder.namespace = namespace
 	decoder.reader = reader
 	decoder.enrichedTags = enrichedTags
+	decoder.limits = limits
 	return decoder, releaseFunc
 }
 
@@ -132,9 +138,20 @@ func (itr *BrokerRowFlatDecoder) DecodeTo(row *BrokerRow) error {
 }
 
 func (itr *BrokerRowFlatDecoder) rebuild() error {
+	if itr.originRow.TagsLen()+len(itr.enrichedTags) > itr.limits.MaxTagsPerMetric {
+		return constants.ErrTooManyTagKeys
+	}
 	kvItr := itr.originRow.NewKeyValueIterator()
 	for kvItr.HasNext() {
-		if err := itr.rowBuilder.AddTag(kvItr.NextKey(), kvItr.NextValue()); err != nil {
+		tagKey := kvItr.NextKey()
+		if len(tagKey) > itr.limits.MaxTagNameLength {
+			return constants.ErrTagKeyTooLong
+		}
+		tagValue := kvItr.NextValue()
+		if len(tagValue) > itr.limits.MaxTagValueLength {
+			return constants.ErrTagValueTooLong
+		}
+		if err := itr.rowBuilder.AddTag(tagKey, tagValue); err != nil {
 			return err
 		}
 	}
@@ -146,8 +163,15 @@ func (itr *BrokerRowFlatDecoder) rebuild() error {
 		}
 	}
 
+	if itr.originRow.SimpleFieldsLen() > int(itr.limits.MaxFieldsPerMetric) {
+		return constants.ErrTooManyFields
+	}
 	simpleFieldItr := itr.originRow.NewSimpleFieldIterator()
 	for simpleFieldItr.HasNext() {
+		fieldName := simpleFieldItr.NextRawName()
+		if len(fieldName) > itr.limits.MaxFieldNameLength {
+			return constants.ErrFieldNameTooLong
+		}
 		if err := itr.rowBuilder.AddSimpleField(
 			simpleFieldItr.NextRawName(),
 			simpleFieldItr.NextRawType(),
@@ -177,12 +201,21 @@ func (itr *BrokerRowFlatDecoder) rebuild() error {
 	}
 
 End:
-	itr.rowBuilder.AddMetricName(itr.originRow.Name())
+	metricName := itr.originRow.Name()
+	if len(metricName) > itr.limits.MaxMetricNameLength {
+		return constants.ErrMetricNameTooLong
+	}
+
+	itr.rowBuilder.AddMetricName(metricName)
 	itr.rowBuilder.AddTimestamp(itr.originRow.Timestamp())
 	if len(itr.namespace) > 0 {
 		itr.rowBuilder.AddNameSpace(itr.namespace)
 	} else {
-		itr.rowBuilder.AddNameSpace(itr.originRow.NameSpace())
+		ns := itr.originRow.NameSpace()
+		if len(ns) > itr.limits.MaxNamespaceLength {
+			return constants.ErrNamespaceTooLong
+		}
+		itr.rowBuilder.AddNameSpace(ns)
 	}
 	return nil
 }

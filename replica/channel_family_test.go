@@ -63,7 +63,7 @@ func TestFamilyChannel_Write(t *testing.T) {
 		ctrl.Finish()
 	}()
 	chunk := NewMockChunk(ctrl)
-	converter := metric.NewProtoConverter()
+	converter := metric.NewProtoConverter(models.NewDefaultLimits())
 	var brokerRow metric.BrokerRow
 	assert.NoError(t, converter.ConvertTo(&protoMetricsV1.Metric{
 		Name:      "cpu",

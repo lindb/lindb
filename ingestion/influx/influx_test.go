@@ -27,6 +27,7 @@ import (
 	"github.com/klauspost/compress/gzip"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/series/tag"
 )
 
@@ -60,7 +61,7 @@ func Test_Parse(t *testing.T) {
 		tag.NewTag([]byte("ip"), []byte("1.1.1.1")),
 		tag.NewTag([]byte("region"), []byte("sh")),
 	}
-	batch, err := Parse(req, enrichedTags, "ns")
+	batch, err := Parse(req, enrichedTags, "ns", models.NewDefaultLimits())
 	assert.Nil(t, err)
 	assert.NotNil(t, batch)
 	assert.Len(t, batch.Rows(), 6)
@@ -71,7 +72,7 @@ func Test_getGzipError(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, req)
 	req.Header.Set("Content-Encoding", "gzip")
-	_, err = Parse(req, nil, "ns")
+	_, err = Parse(req, nil, "ns", models.NewDefaultLimits())
 	assert.NotNil(t, err)
 }
 
@@ -88,7 +89,7 @@ measurement value=12 1439587925
 	assert.NotNil(t, req)
 	req.Header.Set("Content-Encoding", "gzip")
 
-	_, err = Parse(req, nil, "ns")
+	_, err = Parse(req, nil, "ns", models.NewDefaultLimits())
 	assert.Nil(t, err)
 }
 

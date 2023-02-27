@@ -190,7 +190,7 @@ func TestChannelManager_gcWriteFamilies(t *testing.T) {
 }
 
 func mockBrokerRows(t *testing.T) *metric.BrokerBatchRows {
-	converter := metric.NewProtoConverter()
+	converter := metric.NewProtoConverter(models.NewDefaultLimits())
 	var brokerRow metric.BrokerRow
 	assert.NoError(t, converter.ConvertTo(&protoMetricsV1.Metric{
 		Name:      "cpu",

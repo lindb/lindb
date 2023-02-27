@@ -144,7 +144,7 @@ func mockMetricData() {
 	var buf bytes.Buffer
 	for i := 0; i < 50; i++ {
 		var brokerRow metric.BrokerRow
-		converter := metric.NewProtoConverter()
+		converter := metric.NewProtoConverter(models.NewDefaultLimits())
 		err := converter.ConvertTo(&protoMetricsV1.Metric{
 			Name:      "cpu_data",
 			Timestamp: timestamp,

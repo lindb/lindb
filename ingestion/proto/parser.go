@@ -27,6 +27,7 @@ import (
 
 	ingestCommon "github.com/lindb/lindb/ingestion/common"
 	"github.com/lindb/lindb/metrics"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
@@ -36,7 +37,7 @@ var (
 	protoIngestionStatistics = metrics.NewNativeIngestionStatistics()
 )
 
-func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*metric.BrokerBatchRows, error) {
+func Parse(req *http.Request, enrichedTags tag.Tags, namespace string, limits *models.Limits) (*metric.BrokerBatchRows, error) {
 	var reader = req.Body
 	if strings.EqualFold(req.Header.Get("Content-Encoding"), "gzip") {
 		gzipReader, err := ingestCommon.GetGzipReader(req.Body)
@@ -54,7 +55,7 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*metric.
 	}
 
 	protoIngestionStatistics.ReadBytes.Add(float64(len(data)))
-	batch, err := parseProtoMetric(data, enrichedTags, namespace)
+	batch, err := parseProtoMetric(data, enrichedTags, namespace, limits)
 	if err != nil {
 		protoIngestionStatistics.CorruptedData.Incr()
 		return nil, err
@@ -70,12 +71,13 @@ func parseProtoMetric(
 	data []byte,
 	enrichedTags tag.Tags,
 	namespace string,
+	limits *models.Limits,
 ) (
 	batch *metric.BrokerBatchRows, err error,
 ) {
 	batch = metric.NewBrokerBatchRows()
 
-	converter, releaseFunc := metric.NewBrokerRowProtoConverter(strutil.String2ByteSlice(namespace), enrichedTags)
+	converter, releaseFunc := metric.NewBrokerRowProtoConverter(strutil.String2ByteSlice(namespace), enrichedTags, limits)
 	defer releaseFunc(converter)
 
 	var ms protoMetricsV1.MetricList

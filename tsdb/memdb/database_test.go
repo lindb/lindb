@@ -31,6 +31,7 @@ import (
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
@@ -101,7 +102,7 @@ func protoToStorageRow(m *protoMetricsV1.Metric) *metric.StorageRow {
 	var ml protoMetricsV1.MetricList
 	ml.Metrics = append(ml.Metrics, m)
 	var buf bytes.Buffer
-	converter := metric.NewProtoConverter()
+	converter := metric.NewProtoConverter(models.NewDefaultLimits())
 	_, _ = converter.MarshalProtoMetricListV1To(ml, &buf)
 
 	var br metric.StorageBatchRows

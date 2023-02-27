@@ -30,6 +30,8 @@ import (
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 	commonseries "github.com/lindb/common/series"
 
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/series/tag"
 )
@@ -46,6 +48,8 @@ type BrokerRowProtoConverter struct {
 	// ingestion meta info
 	namespace    []byte
 	enrichedTags tag.Tags
+
+	limits *models.Limits
 }
 
 // Reset resets all data-structures
@@ -71,6 +75,9 @@ func (rc *BrokerRowProtoConverter) validateMetric(m *protoMetricsV1.Metric) erro
 	if m.Name == "" {
 		return ErrMetricPBEmptyMetricName
 	}
+	if len(m.Name) > rc.limits.MaxMetricNameLength {
+		return constants.ErrMetricNameTooLong
+	}
 	m.Name = commonseries.SanitizeMetricName(m.Name)
 	// empty field
 	if len(m.SimpleFields) == 0 && m.CompoundField == nil {
@@ -92,6 +99,11 @@ func (rc *BrokerRowProtoConverter) validateMetric(m *protoMetricsV1.Metric) erro
 	}
 	m.Namespace = commonseries.SanitizeNamespace(m.Namespace)
 
+	tags := len(m.Tags)
+	if tags > rc.limits.MaxTagsPerMetric {
+		return constants.ErrTooManyTagKeys
+	}
+
 	// validate empty tags
 	if len(m.Tags) > 0 {
 		for idx := range m.Tags {
@@ -103,7 +115,17 @@ func (rc *BrokerRowProtoConverter) validateMetric(m *protoMetricsV1.Metric) erro
 			if m.Tags[idx].Key == "" || m.Tags[idx].Value == "" {
 				return ErrMetricEmptyTagKeyValue
 			}
+			if len(m.Tags[idx].Key) > rc.limits.MaxTagNameLength {
+				return constants.ErrTagKeyTooLong
+			}
+			if len(m.Tags[idx].Value) > rc.limits.MaxTagValueLength {
+				return constants.ErrTagValueTooLong
+			}
 		}
+	}
+
+	if len(m.SimpleFields) > int(rc.limits.MaxFieldsPerMetric) {
+		return constants.ErrTooManyFields
 	}
 
 	// check simple fields
@@ -115,6 +137,9 @@ func (rc *BrokerRowProtoConverter) validateMetric(m *protoMetricsV1.Metric) erro
 		// field-name empty
 		if m.SimpleFields[idx].Name == "" {
 			return ErrMetricEmptyFieldName
+		}
+		if len(m.SimpleFields[idx].Name) > rc.limits.MaxFieldNameLength {
+			return constants.ErrFieldNameTooLong
 		}
 		// check sanitize
 		fieldName := strutil.String2ByteSlice(m.SimpleFields[idx].Name)
@@ -336,7 +361,7 @@ func (rc *BrokerRowProtoConverter) MarshalProtoMetricListV1To(ml protoMetricsV1.
 var rowConverterPool sync.Pool
 
 // NewProtoConverter returns a converter for converting proto metrics into flat metric
-func NewProtoConverter() *BrokerRowProtoConverter {
+func NewProtoConverter(limits *models.Limits) *BrokerRowProtoConverter {
 	return &BrokerRowProtoConverter{
 		flatBuilder: flatbuffers.NewBuilder(1024 + 512),
 		keys:        make([]flatbuffers.UOffsetT, 0, 32),
@@ -344,6 +369,7 @@ func NewProtoConverter() *BrokerRowProtoConverter {
 		fieldNames:  make([]flatbuffers.UOffsetT, 0, 32),
 		kvs:         make([]flatbuffers.UOffsetT, 0, 32),
 		fields:      make([]flatbuffers.UOffsetT, 0, 32),
+		limits:      limits,
 	}
 }
 
@@ -352,6 +378,7 @@ func NewProtoConverter() *BrokerRowProtoConverter {
 func NewBrokerRowProtoConverter(
 	namespace []byte,
 	enrichedTags tag.Tags,
+	limits *models.Limits,
 ) (
 	cvt *BrokerRowProtoConverter,
 	releaseFunc func(cvt *BrokerRowProtoConverter),
@@ -359,12 +386,13 @@ func NewBrokerRowProtoConverter(
 	releaseFunc = func(cvt *BrokerRowProtoConverter) { rowConverterPool.Put(cvt) }
 	item := rowConverterPool.Get()
 	if item == nil {
-		cvt = NewProtoConverter()
+		cvt = NewProtoConverter(limits)
 	} else {
 		cvt = item.(*BrokerRowProtoConverter)
 	}
 	cvt.Reset()
 	cvt.namespace = namespace
 	cvt.enrichedTags = enrichedTags
+	cvt.limits = limits
 	return cvt, releaseFunc
 }

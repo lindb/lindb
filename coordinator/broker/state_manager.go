@@ -21,7 +21,10 @@ import (
 	"context"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
+
+	"github.com/BurntSushi/toml"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
@@ -35,6 +38,8 @@ import (
 )
 
 //go:generate mockgen -source=./state_manager.go -destination=./state_manager_mock.go -package=broker
+
+var defaultDatabaseLimits = models.NewDefaultLimits()
 
 // StateManager represents broker state manager, maintains broker node/database/storage states in memory.
 type StateManager interface {
@@ -57,6 +62,8 @@ type StateManager interface {
 	GetStorage(name string) (*models.StorageState, bool)
 	// GetStorageList returns all storage state list.
 	GetStorageList() (rs []*models.StorageState)
+	// GetDatabaseLimits returns the database's limits.
+	GetDatabaseLimits(name string) *models.Limits
 
 	WatchShardStateChangeEvent(fn func(databaseCfg models.Database,
 		shards map[models.ShardID]models.ShardState,
@@ -83,6 +90,7 @@ type stateManager struct {
 	connectionManager rpc.ConnectionManager
 	//FIXME: remove it???
 	taskClientFactory rpc.TaskClientFactory
+	databaseLimits    sync.Map
 
 	events chan *discovery.Event
 	mutex  sync.RWMutex
@@ -211,12 +219,32 @@ func (m *stateManager) processEvent(event *discovery.Event) {
 		err = m.onStorageStateChange(event.Key, event.Value)
 	case discovery.StorageStateDeletion:
 		m.onStorageDelete(event.Key)
+	case discovery.DatabaseLimitsChanged:
+		err = m.onDatabaseLimitsChange(event.Key, event.Value)
 	}
 	if err != nil {
 		m.statistics.HandleEventFailure.WithTagValues(eventType, constants.BrokerRole).Incr()
 	} else {
 		m.statistics.HandleEvents.WithTagValues(eventType, constants.BrokerRole).Incr()
 	}
+}
+
+// onDatabaseLimitsChange triggers when database limits modify.
+func (m *stateManager) onDatabaseLimitsChange(key string, data []byte) error {
+	m.logger.Info("set database limts, because database limits is changed",
+		logger.String("key", key))
+
+	name := strings.TrimPrefix(key, constants.GetDatabaseLimitPath(""))
+	limits := &models.Limits{}
+	_, err := toml.Decode(string(data), limits)
+	if err != nil {
+		m.logger.Error("set database limits failure",
+			logger.String("database", name),
+			logger.Error(err))
+		return err
+	}
+	m.databaseLimits.Store(name, limits)
+	return nil
 }
 
 // onDatabaseCfgChange triggers when database create/modify.
@@ -419,6 +447,15 @@ func (m *stateManager) GetStorageList() (rs []*models.StorageState) {
 		return rs[i].Name < rs[j].Name
 	})
 	return
+}
+
+// GetDatabaseLimits returns the database's limits.
+func (m *stateManager) GetDatabaseLimits(name string) *models.Limits {
+	val, ok := m.databaseLimits.Load(name)
+	if !ok {
+		return defaultDatabaseLimits
+	}
+	return val.(*models.Limits)
 }
 
 // GetQueryableReplicas returns the queryable replicas, else return detail error msg.::x

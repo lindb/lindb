@@ -20,8 +20,8 @@ package metadb
 import (
 	"go.uber.org/atomic"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
@@ -85,7 +85,7 @@ func (mm *metricMetadata) getMetricID() metric.ID {
 func (mm *metricMetadata) createField(fieldName field.Name, fieldType field.Type, limits *models.Limits) (field.Meta, error) {
 	// check fields count
 	if mm.fieldIDSeq.Load() >= limits.MaxFieldsPerMetric {
-		return field.Meta{}, series.ErrTooManyFields
+		return field.Meta{}, constants.ErrTooManyFields
 	}
 	// create new field
 	fieldID := field.ID(mm.fieldIDSeq.Inc())
@@ -125,7 +125,7 @@ func (mm *metricMetadata) createTagKey(tagKey string, tagKeyID tag.KeyID) {
 func (mm *metricMetadata) checkTagKey(_ string, limits *models.Limits) error {
 	// check tag keys count
 	if len(mm.tagKeys) >= limits.MaxTagsPerMetric {
-		return series.ErrTooManyTagKeys
+		return constants.ErrTooManyTagKeys
 	}
 	return nil
 }

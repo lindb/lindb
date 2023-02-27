@@ -758,7 +758,7 @@ func TestShard_EvictSegment(t *testing.T) {
 func mockBatchRows(m *protoMetricsV1.Metric) []metric.StorageRow {
 	var ml = protoMetricsV1.MetricList{Metrics: []*protoMetricsV1.Metric{m}}
 	var buf bytes.Buffer
-	converter := metric.NewProtoConverter()
+	converter := metric.NewProtoConverter(models.NewDefaultLimits())
 	_, _ = converter.MarshalProtoMetricListV1To(ml, &buf)
 
 	var br metric.StorageBatchRows

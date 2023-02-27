@@ -72,5 +72,17 @@ var (
 	ErrNoAvailableStorageNode = errors.New("no available storage node for server")
 
 	// ErrTooManySeries represents the series be limited.
-	ErrTooManySeries = errors.New("too manay series")
+	ErrTooManySeries     = errors.New("too manay series")
+	ErrNamespaceTooLong  = errors.New("namespace is too long")
+	ErrMetricNameTooLong = errors.New("metric name is too long")
+	ErrFieldNameTooLong  = errors.New("field name is too long")
+	ErrTagKeyTooLong     = errors.New("tag key is too long")
+	ErrTagValueTooLong   = errors.New("tag value is too long")
+	// ErrTooManyTagKeys is the error returned by tsdb when
+	// writes exceed the max limit of tag keys.
+	ErrTooManyTagKeys = errors.New("too many tag keys")
+
+	// ErrTooManyFields is the error returned by tsdb when
+	// writes exceed the max limit of fields.
+	ErrTooManyFields = errors.New("too many fields")
 )
