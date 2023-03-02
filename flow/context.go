@@ -240,8 +240,9 @@ func NewShardExecuteContext(storageExecuteCtx *StorageExecuteContext) *ShardExec
 	}
 }
 
+// IsSeriesIDsEmpty returns if series not found.
 func (ctx *ShardExecuteContext) IsSeriesIDsEmpty() bool {
-	// maybe some series ids not write data in query time range,
+	// NOTE: maybe some series ids not write data in query time range,
 	// so need reset series ids using ids which after data filtering.
 	ctx.SeriesIDsAfterFiltering = ctx.TimeSegmentContext.SeriesIDs
 	return ctx.SeriesIDsAfterFiltering.IsEmpty()

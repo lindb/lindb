@@ -18,33 +18,39 @@
 package operator
 
 import (
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/tsdb"
 )
 
-// groupingContextBuild represents grouping context build operator.
-type groupingContextBuild struct {
+// seriesLimit represents series limit operator.
+type seriesLimit struct {
 	executeCtx *flow.ShardExecuteContext
 	shard      tsdb.Shard
 }
 
-// NewGroupingContextBuild creates a groupingContextBuild instance.
-func NewGroupingContextBuild(executeCtx *flow.ShardExecuteContext, shard tsdb.Shard) Operator {
-	return &groupingContextBuild{
+// NewSeriesLimit creates a seriesLimit instance.
+func NewSeriesLimit(executeCtx *flow.ShardExecuteContext, shard tsdb.Shard) Operator {
+	return &seriesLimit{
 		executeCtx: executeCtx,
 		shard:      shard,
 	}
 }
 
-// Execute executes grouping context build based on series ids after tag filtering.
-func (op *groupingContextBuild) Execute() error {
-	if op.executeCtx.IsSeriesIDsEmpty() {
+// Execute executes series limit.
+func (op *seriesLimit) Execute() error {
+	numOfSeries := op.executeCtx.SeriesIDsAfterFiltering.GetCardinality()
+	if numOfSeries == 0 {
 		return nil
 	}
-	return op.shard.IndexDatabase().GetGroupingContext(op.executeCtx)
+	limit := op.shard.Database().GetLimits()
+	if numOfSeries > uint64(limit.MaxSeriesPerQuery) {
+		return constants.ErrTooManySeriesFound
+	}
+	return nil
 }
 
-// Identifier returns identifier string value of grouping context build operator.
-func (op *groupingContextBuild) Identifier() string {
-	return "Grouping Context Build"
+// Identifier returns identifier value of series limit operator.
+func (op *seriesLimit) Identifier() string {
+	return "Series Limit"
 }

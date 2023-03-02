@@ -85,4 +85,6 @@ var (
 	// ErrTooManyFields is the error returned by tsdb when
 	// writes exceed the max limit of fields.
 	ErrTooManyFields = errors.New("too many fields")
+	// ErrTooManySeriesFound is the error returned max series limit of data query.
+	ErrTooManySeriesFound = errors.New("found too many series")
 )
