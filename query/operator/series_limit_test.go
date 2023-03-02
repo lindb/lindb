@@ -23,30 +23,33 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/indexdb"
 )
 
-func TestGroupingContextBuild_Execute(t *testing.T) {
+func TestSeriesLimit_Execute(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	shard := tsdb.NewMockShard(ctrl)
-	indexDB := indexdb.NewMockIndexDatabase(ctrl)
-	shard.EXPECT().IndexDatabase().Return(indexDB)
-	indexDB.EXPECT().GetGroupingContext(gomock.Any()).Return(nil)
+	db := tsdb.NewMockDatabase(ctrl)
+	shard.EXPECT().Database().Return(db).MaxTimes(2)
 	ctx := flow.NewShardExecuteContext(nil)
-	ctx.TimeSegmentContext.SeriesIDs.Add(1)
-	op := NewGroupingContextBuild(ctx, shard)
+	op := NewSeriesLimit(ctx, shard)
 	assert.NoError(t, op.Execute())
 
-	// no series found
-	ctx.TimeSegmentContext.SeriesIDs.Clear()
-	op = NewGroupingContextBuild(ctx, shard)
+	ctx.SeriesIDsAfterFiltering.Add(1)
+	ctx.SeriesIDsAfterFiltering.Add(2)
+	limit := models.NewDefaultLimits()
+	db.EXPECT().GetLimits().Return(limit).MaxTimes(2)
 	assert.NoError(t, op.Execute())
+
+	limit.MaxSeriesPerQuery = 1
+	assert.Equal(t, constants.ErrTooManySeriesFound, op.Execute())
 }
 
-func TestGroupingContextBuild_Identifier(t *testing.T) {
-	assert.Equal(t, "Grouping Context Build", NewGroupingContextBuild(nil, nil).Identifier())
+func TestSeriesLimit_Identifier(t *testing.T) {
+	assert.Equal(t, "Series Limit", NewSeriesLimit(nil, nil).Identifier())
 }
