@@ -138,17 +138,17 @@ func (itr *BrokerRowFlatDecoder) DecodeTo(row *BrokerRow) error {
 }
 
 func (itr *BrokerRowFlatDecoder) rebuild() error {
-	if itr.originRow.TagsLen()+len(itr.enrichedTags) > itr.limits.MaxTagsPerMetric {
+	if itr.limits.EnableTagsCheck() && itr.originRow.TagsLen()+len(itr.enrichedTags) > itr.limits.MaxTagsPerMetric {
 		return constants.ErrTooManyTagKeys
 	}
 	kvItr := itr.originRow.NewKeyValueIterator()
 	for kvItr.HasNext() {
 		tagKey := kvItr.NextKey()
-		if len(tagKey) > itr.limits.MaxTagNameLength {
+		if itr.limits.EnableTagNameLengthCheck() && len(tagKey) > itr.limits.MaxTagNameLength {
 			return constants.ErrTagKeyTooLong
 		}
 		tagValue := kvItr.NextValue()
-		if len(tagValue) > itr.limits.MaxTagValueLength {
+		if itr.limits.EnableTagValueLengthCheck() && len(tagValue) > itr.limits.MaxTagValueLength {
 			return constants.ErrTagValueTooLong
 		}
 		if err := itr.rowBuilder.AddTag(tagKey, tagValue); err != nil {
@@ -163,13 +163,13 @@ func (itr *BrokerRowFlatDecoder) rebuild() error {
 		}
 	}
 
-	if itr.originRow.SimpleFieldsLen() > int(itr.limits.MaxFieldsPerMetric) {
+	if itr.limits.EnableFieldsCheck() && itr.originRow.SimpleFieldsLen() > int(itr.limits.MaxFieldsPerMetric) {
 		return constants.ErrTooManyFields
 	}
 	simpleFieldItr := itr.originRow.NewSimpleFieldIterator()
 	for simpleFieldItr.HasNext() {
 		fieldName := simpleFieldItr.NextRawName()
-		if len(fieldName) > itr.limits.MaxFieldNameLength {
+		if itr.limits.EnableFieldNameLengthCheck() && len(fieldName) > itr.limits.MaxFieldNameLength {
 			return constants.ErrFieldNameTooLong
 		}
 		if err := itr.rowBuilder.AddSimpleField(
@@ -202,7 +202,7 @@ func (itr *BrokerRowFlatDecoder) rebuild() error {
 
 End:
 	metricName := itr.originRow.Name()
-	if len(metricName) > itr.limits.MaxMetricNameLength {
+	if itr.limits.EnableMetricNameLengthCheck() && len(metricName) > itr.limits.MaxMetricNameLength {
 		return constants.ErrMetricNameTooLong
 	}
 
@@ -212,7 +212,7 @@ End:
 		itr.rowBuilder.AddNameSpace(itr.namespace)
 	} else {
 		ns := itr.originRow.NameSpace()
-		if len(ns) > itr.limits.MaxNamespaceLength {
+		if itr.limits.EnableNamespaceLengthCheck() && len(ns) > itr.limits.MaxNamespaceLength {
 			return constants.ErrNamespaceTooLong
 		}
 		itr.rowBuilder.AddNameSpace(ns)

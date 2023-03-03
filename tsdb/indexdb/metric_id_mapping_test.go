@@ -65,4 +65,9 @@ func TestMetricIDMapping_SeriesLimit(t *testing.T) {
 	seriesID, err = idMapping.GenSeriesID("ns", "metric", 1023, limits)
 	assert.Error(t, err)
 	assert.Equal(t, series.EmptySeriesID, seriesID)
+	// disable limit
+	limits.MaxSeriesPerMetric = 0
+	seriesID, err = idMapping.GenSeriesID("ns", "metric", 1023, limits)
+	assert.NoError(t, err)
+	assert.True(t, seriesID > 0)
 }

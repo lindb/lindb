@@ -35,7 +35,7 @@ func TestSeriesLimit_Execute(t *testing.T) {
 
 	shard := tsdb.NewMockShard(ctrl)
 	db := tsdb.NewMockDatabase(ctrl)
-	shard.EXPECT().Database().Return(db).MaxTimes(2)
+	shard.EXPECT().Database().Return(db).MaxTimes(3)
 	ctx := flow.NewShardExecuteContext(nil)
 	op := NewSeriesLimit(ctx, shard)
 	assert.NoError(t, op.Execute())
@@ -43,11 +43,13 @@ func TestSeriesLimit_Execute(t *testing.T) {
 	ctx.SeriesIDsAfterFiltering.Add(1)
 	ctx.SeriesIDsAfterFiltering.Add(2)
 	limit := models.NewDefaultLimits()
-	db.EXPECT().GetLimits().Return(limit).MaxTimes(2)
+	db.EXPECT().GetLimits().Return(limit).MaxTimes(3)
 	assert.NoError(t, op.Execute())
 
 	limit.MaxSeriesPerQuery = 1
 	assert.Equal(t, constants.ErrTooManySeriesFound, op.Execute())
+	limit.MaxSeriesPerQuery = 0
+	assert.NoError(t, op.Execute())
 }
 
 func TestSeriesLimit_Identifier(t *testing.T) {

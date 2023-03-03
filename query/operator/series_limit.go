@@ -44,7 +44,7 @@ func (op *seriesLimit) Execute() error {
 		return nil
 	}
 	limit := op.shard.Database().GetLimits()
-	if numOfSeries > uint64(limit.MaxSeriesPerQuery) {
+	if limit.EnableSeriesCheckForQuery() && numOfSeries > uint64(limit.MaxSeriesPerQuery) {
 		return constants.ErrTooManySeriesFound
 	}
 	return nil

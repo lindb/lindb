@@ -134,14 +134,14 @@ func (w *Write) write(c *gin.Context) (err error) {
 
 	limits := w.deps.StateMgr.GetDatabaseLimits(param.Database)
 	for _, tag := range enrichedTags {
-		if len(tag.Key) > limits.MaxTagNameLength {
+		if limits.EnableTagNameLengthCheck() && len(tag.Key) > limits.MaxTagNameLength {
 			return constants.ErrTagKeyTooLong
 		}
-		if len(tag.Value) > limits.MaxTagValueLength {
+		if limits.EnableTagValueLengthCheck() && len(tag.Value) > limits.MaxTagValueLength {
 			return constants.ErrTagValueTooLong
 		}
 	}
-	if len(param.Namespace) > limits.MaxNamespaceLength {
+	if limits.EnableNamespaceLengthCheck() && len(param.Namespace) > limits.MaxNamespaceLength {
 		return constants.ErrNamespaceTooLong
 	}
 	contentType := strings.ToLower(strings.Trim(c.Request.Header.Get(headers.ContentType), " "))
