@@ -546,7 +546,7 @@ func TestMetadataDatabase_GenMetricID(t *testing.T) {
 			name:       "get metric metadata failure",
 			metricName: "name",
 			prepare: func() {
-				mockBackend.EXPECT().getOrCreateMetricMetadata("ns-1", "name").Return(nil, fmt.Errorf("err"))
+				mockBackend.EXPECT().getOrCreateMetricMetadata("ns-1", "name", gomock.Any()).Return(nil, fmt.Errorf("err"))
 			},
 			out: struct {
 				id  metric.ID
@@ -559,7 +559,7 @@ func TestMetadataDatabase_GenMetricID(t *testing.T) {
 			prepare: func() {
 				metadata := NewMockMetricMetadata(ctrl)
 				metadata.EXPECT().getMetricID().Return(metric.ID(3))
-				mockBackend.EXPECT().getOrCreateMetricMetadata("ns-1", "name").Return(metadata, nil)
+				mockBackend.EXPECT().getOrCreateMetricMetadata("ns-1", "name", gomock.Any()).Return(metadata, nil)
 			},
 			out: struct {
 				id  metric.ID
@@ -574,7 +574,7 @@ func TestMetadataDatabase_GenMetricID(t *testing.T) {
 			if tt.prepare != nil {
 				tt.prepare()
 			}
-			id, err := db.GenMetricID("ns-1", tt.metricName)
+			id, err := db.GenMetricID("ns-1", tt.metricName, models.NewDefaultLimits())
 			assert.Equal(t, tt.out.id, id)
 			assert.Equal(t, tt.out.err, err)
 		})

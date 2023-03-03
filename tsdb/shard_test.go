@@ -437,7 +437,7 @@ func TestShard_Write(t *testing.T) {
 		{
 			name: "gen metric id err",
 			prepare: func() {
-				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test").
+				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test", gomock.Any()).
 					Return(metric.ID(0), fmt.Errorf("err"))
 			},
 		},
@@ -491,7 +491,8 @@ func TestShard_lookupRowMeta(t *testing.T) {
 		{
 			name: "gen metric id err",
 			prepare: func() {
-				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test").Return(metric.ID(0), fmt.Errorf("err"))
+				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test", gomock.Any()).
+					Return(metric.ID(0), fmt.Errorf("err"))
 			},
 			wantErr: true,
 		},
@@ -499,7 +500,8 @@ func TestShard_lookupRowMeta(t *testing.T) {
 			name: "gen series id err",
 			tags: tag.KeyValuesFromMap(map[string]string{"ip": "1.1.1.1"}),
 			prepare: func() {
-				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test").Return(metric.ID(10), nil).AnyTimes()
+				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test", gomock.Any()).
+					Return(metric.ID(10), nil).AnyTimes()
 				indexDB.EXPECT().GetOrCreateSeriesID(gomock.Any(), gomock.Any(),
 					metric.ID(10), gomock.Any(), gomock.Any()).Return(uint32(0), false, fmt.Errorf("err"))
 			},
@@ -510,7 +512,7 @@ func TestShard_lookupRowMeta(t *testing.T) {
 			namespace: "ns",
 			tags:      tag.KeyValuesFromMap(map[string]string{"ip": "1.1.1.1"}),
 			prepare: func() {
-				metadataDB.EXPECT().GenMetricID("ns", "test").Return(metric.ID(10), nil).AnyTimes()
+				metadataDB.EXPECT().GenMetricID("ns", "test", gomock.Any()).Return(metric.ID(10), nil).AnyTimes()
 				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(),
 					gomock.Any(), gomock.Any(), gomock.Any()).Return(field.ID(1), nil)
 				indexDB.EXPECT().GetOrCreateSeriesID(gomock.Any(), gomock.Any(),
@@ -520,7 +522,8 @@ func TestShard_lookupRowMeta(t *testing.T) {
 		{
 			name: "empty tags",
 			prepare: func() {
-				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test").Return(metric.ID(10), nil).AnyTimes()
+				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test", gomock.Any()).
+					Return(metric.ID(10), nil).AnyTimes()
 				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(),
 					gomock.Any(), gomock.Any(), gomock.Any()).Return(field.ID(1), nil)
 			},
@@ -531,7 +534,8 @@ func TestShard_lookupRowMeta(t *testing.T) {
 			prepare: func() {
 				s.notifyLimitsChange()
 				db.EXPECT().GetLimits().Return(models.NewDefaultLimits())
-				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test").Return(metric.ID(10), nil).AnyTimes()
+				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test", gomock.Any()).
+					Return(metric.ID(10), nil).AnyTimes()
 				indexDB.EXPECT().GetOrCreateSeriesID(gomock.Any(), gomock.Any(),
 					metric.ID(10), gomock.Any(), gomock.Any()).Return(uint32(0), false, fmt.Errorf("err"))
 			},
@@ -541,7 +545,8 @@ func TestShard_lookupRowMeta(t *testing.T) {
 			name: "build inverted index, but gen field failure",
 			tags: tag.KeyValuesFromMap(map[string]string{"ip": "1.1.1.1"}),
 			prepare: func() {
-				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test").Return(metric.ID(10), nil).AnyTimes()
+				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test", gomock.Any()).
+					Return(metric.ID(10), nil).AnyTimes()
 				indexDB.EXPECT().GetOrCreateSeriesID(gomock.Any(), gomock.Any(),
 					metric.ID(10), gomock.Any(), gomock.Any()).Return(uint32(1), true, nil)
 				indexDB.EXPECT().BuildInvertIndex(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
@@ -585,7 +590,8 @@ func TestShard_lookup_histogram_fields(t *testing.T) {
 	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
 	db := NewMockDatabase(ctrl)
 	db.EXPECT().Name().Return("tet").AnyTimes()
-	metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test").Return(metric.ID(10), nil).AnyTimes()
+	metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test", gomock.Any()).
+		Return(metric.ID(10), nil).AnyTimes()
 	s := &shard{
 		indexDB:    indexDB,
 		db:         db,

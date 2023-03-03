@@ -28,6 +28,7 @@ import (
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/unique"
@@ -89,7 +90,7 @@ type MetadataBackend interface {
 	getAllFields(metricID metric.ID) (fields field.Metas, max field.ID, err error)
 
 	// getOrCreateMetricMetadata creates metric metadata if not exist, else load metric metadata from backend storage.
-	getOrCreateMetricMetadata(namespace, metricName string) (MetricMetadata, error)
+	getOrCreateMetricMetadata(namespace, metricName string, limits *models.Limits) (MetricMetadata, error)
 	// getMetricMetadata gets the metric metadata include all fields/tags by metric id,
 	// if not exist constants.ErrMetricBucketNotFound
 	getMetricMetadata(metricID metric.ID) (metadata MetricMetadata, err error)
@@ -290,7 +291,7 @@ func (mb *metadataBackend) getMetricID(namespace, metricName string) (metricID m
 
 // saveTagKey saves the tag meta for given metric id.
 func (mb *metadataBackend) saveTagKey(metricID metric.ID, tagKey string) (tag.KeyID, error) {
-	tagKeyID, err := nextSequence(mb.tagKeyIDSequence, mb.tagKey, tagKeyIDSequenceKey)
+	tagKeyID, err := nextSequence(mb.tagKeyIDSequence, mb.tagKey, tagKeyIDSequenceKey, false, 0)
 	if err != nil {
 		return tag.EmptyTagKeyID, err
 	}
@@ -354,7 +355,7 @@ func (mb *metadataBackend) getAllFields(metricID metric.ID) (fields field.Metas,
 }
 
 // getOrCreateMetricMetadata creates metric metadata if not exist, else load metric metadata from backend storage.
-func (mb *metadataBackend) getOrCreateMetricMetadata(namespace, metricName string) (MetricMetadata, error) {
+func (mb *metadataBackend) getOrCreateMetricMetadata(namespace, metricName string, limits *models.Limits) (MetricMetadata, error) {
 	nsKey := []byte(namespace)
 	nsIDVal, exist, err := mb.namespace.Get(nsKey)
 	if err != nil {
@@ -363,7 +364,8 @@ func (mb *metadataBackend) getOrCreateMetricMetadata(namespace, metricName strin
 	if !exist {
 		// gen namespace id
 		var nsID uint32
-		nsID, err = nextSequence(mb.namespaceIDSequence, mb.namespace, namespaceIDSequenceKey)
+		nsID, err = nextSequence(mb.namespaceIDSequence, mb.namespace, namespaceIDSequenceKey,
+			limits.EnableNamespacesCheck(), limits.MaxNamespaces)
 		if err != nil {
 			return nil, err
 		}
@@ -386,7 +388,8 @@ func (mb *metadataBackend) getOrCreateMetricMetadata(namespace, metricName strin
 	if !exist {
 		// gen metric id
 		var metricID uint32
-		metricID, err = nextSequence(mb.metricIDSequence, mb.metric, metricIDSequenceKey)
+		metricID, err = nextSequence(mb.metricIDSequence, mb.metric, metricIDSequenceKey,
+			limits.EnableMetricsCheck(), limits.MaxMetrics)
 		if err != nil {
 			return nil, err
 		}
@@ -467,9 +470,13 @@ func (mb *metadataBackend) saveSequences() error {
 
 // nextSequence returns next value from sequence,
 // if no data in cache, need to cache next back from storage.
-func nextSequence(seq unique.Sequence, store unique.IDStore, key []byte) (uint32, error) {
+func nextSequence(seq unique.Sequence, store unique.IDStore, key []byte, enable bool, limit uint32) (uint32, error) {
 	if !seq.HasNext() {
-		nextBatchSeriesSeq := seq.Current() + config.GlobalStorageConfig().TSDB.SeriesSequenceCache
+		cur := seq.Current()
+		if enable && cur > limit {
+			return 0, constants.ErrTooManyMetadata
+		}
+		nextBatchSeriesSeq := cur + config.GlobalStorageConfig().TSDB.SeriesSequenceCache
 		if err := unique.SaveSequence(store, key, nextBatchSeriesSeq); err != nil {
 			return 0, err
 		}

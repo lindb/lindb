@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/unique"
 	"github.com/lindb/lindb/series/field"
@@ -244,7 +245,7 @@ func TestMetadataBackend_suggestMetricName(t *testing.T) {
 	}{
 		{
 			name: "get ns id failure",
-			prepare: func(ns, metric *unique.MockIDStore) {
+			prepare: func(ns, _ *unique.MockIDStore) {
 				ns.EXPECT().Get(gomock.Any()).Return(nil, false, fmt.Errorf("err"))
 			},
 			out: struct {
@@ -257,7 +258,7 @@ func TestMetadataBackend_suggestMetricName(t *testing.T) {
 		},
 		{
 			name: "ns id not found",
-			prepare: func(ns, metric *unique.MockIDStore) {
+			prepare: func(ns, _ *unique.MockIDStore) {
 				ns.EXPECT().Get(gomock.Any()).Return(nil, false, nil)
 			},
 			out: struct {
@@ -333,7 +334,7 @@ func TestMetadataBackend_getMetricID(t *testing.T) {
 	}{
 		{
 			name: "get ns id failure",
-			prepare: func(ns, metric *unique.MockIDStore) {
+			prepare: func(ns, _ *unique.MockIDStore) {
 				ns.EXPECT().Get(gomock.Any()).Return(nil, false, fmt.Errorf("err"))
 			},
 			out: struct {
@@ -346,7 +347,7 @@ func TestMetadataBackend_getMetricID(t *testing.T) {
 		},
 		{
 			name: "ns id not found",
-			prepare: func(ns, metric *unique.MockIDStore) {
+			prepare: func(ns, _ *unique.MockIDStore) {
 				ns.EXPECT().Get(gomock.Any()).Return(nil, false, nil)
 			},
 			out: struct {
@@ -815,19 +816,19 @@ func TestMetadataBackend_getOrCreateMetricMetadata(t *testing.T) {
 
 	cases := []struct {
 		name    string
-		prepare func()
+		prepare func(limits *models.Limits)
 		wantErr bool
 	}{
 		{
 			name: "get ns failure",
-			prepare: func() {
+			prepare: func(_ *models.Limits) {
 				nsStore.EXPECT().Get(gomock.Any()).Return(nil, false, fmt.Errorf("err"))
 			},
 			wantErr: true,
 		},
 		{
 			name: "gen ns sequence failure",
-			prepare: func() {
+			prepare: func(_ *models.Limits) {
 				nsStore.EXPECT().Get(gomock.Any()).Return(nil, false, nil)
 				nsSequence.EXPECT().HasNext().Return(false)
 				nsSequence.EXPECT().Current().Return(uint32(10))
@@ -836,8 +837,18 @@ func TestMetadataBackend_getOrCreateMetricMetadata(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "gen ns sequence failure,limited",
+			prepare: func(limits *models.Limits) {
+				nsStore.EXPECT().Get(gomock.Any()).Return(nil, false, nil)
+				nsSequence.EXPECT().HasNext().Return(false)
+				limits.MaxNamespaces = 2
+				nsSequence.EXPECT().Current().Return(uint32(10))
+			},
+			wantErr: true,
+		},
+		{
 			name: "store ns meta failure",
-			prepare: func() {
+			prepare: func(_ *models.Limits) {
 				nsStore.EXPECT().Get(gomock.Any()).Return(nil, false, nil)
 				nsSequence.EXPECT().HasNext().Return(true)
 				nsSequence.EXPECT().Next().Return(uint32(10))
@@ -847,7 +858,7 @@ func TestMetadataBackend_getOrCreateMetricMetadata(t *testing.T) {
 		},
 		{
 			name: "store ns meta successfully, but get metric failure",
-			prepare: func() {
+			prepare: func(_ *models.Limits) {
 				nsStore.EXPECT().Get(gomock.Any()).Return(nil, false, nil)
 				nsSequence.EXPECT().HasNext().Return(true)
 				nsSequence.EXPECT().Next().Return(uint32(10))
@@ -859,7 +870,7 @@ func TestMetadataBackend_getOrCreateMetricMetadata(t *testing.T) {
 		{
 
 			name: "get metric failure",
-			prepare: func() {
+			prepare: func(_ *models.Limits) {
 				nsStore.EXPECT().Get(gomock.Any()).Return([]byte{1, 0, 0, 0}, true, nil)
 				metricStore.EXPECT().Get(gomock.Any()).Return(nil, false, fmt.Errorf("err"))
 			},
@@ -868,7 +879,7 @@ func TestMetadataBackend_getOrCreateMetricMetadata(t *testing.T) {
 		{
 
 			name: "get metric sequence failure",
-			prepare: func() {
+			prepare: func(_ *models.Limits) {
 				nsStore.EXPECT().Get(gomock.Any()).Return([]byte{1, 0, 0, 0}, true, nil)
 				metricStore.EXPECT().Get(gomock.Any()).Return(nil, false, nil)
 				metricSequence.EXPECT().HasNext().Return(false)
@@ -878,8 +889,20 @@ func TestMetadataBackend_getOrCreateMetricMetadata(t *testing.T) {
 			wantErr: true,
 		},
 		{
+
+			name: "get metric sequence failure,limited",
+			prepare: func(limits *models.Limits) {
+				limits.MaxMetrics = 1
+				nsStore.EXPECT().Get(gomock.Any()).Return([]byte{1, 0, 0, 0}, true, nil)
+				metricStore.EXPECT().Get(gomock.Any()).Return(nil, false, nil)
+				metricSequence.EXPECT().HasNext().Return(false)
+				metricSequence.EXPECT().Current().Return(uint32(10))
+			},
+			wantErr: true,
+		},
+		{
 			name: "save metric meta failure",
-			prepare: func() {
+			prepare: func(_ *models.Limits) {
 				nsStore.EXPECT().Get(gomock.Any()).Return([]byte{1, 0, 0, 0}, true, nil)
 				metricStore.EXPECT().Get(gomock.Any()).Return(nil, false, nil)
 				metricSequence.EXPECT().HasNext().Return(true)
@@ -893,7 +916,7 @@ func TestMetadataBackend_getOrCreateMetricMetadata(t *testing.T) {
 		},
 		{
 			name: "save metric meta successfully",
-			prepare: func() {
+			prepare: func(_ *models.Limits) {
 				nsStore.EXPECT().Get(gomock.Any()).Return([]byte{1, 0, 0, 0}, true, nil)
 				metricStore.EXPECT().Get(gomock.Any()).Return(nil, false, nil)
 				metricSequence.EXPECT().HasNext().Return(true)
@@ -907,7 +930,7 @@ func TestMetadataBackend_getOrCreateMetricMetadata(t *testing.T) {
 		},
 		{
 			name: "load metric meta successfully",
-			prepare: func() {
+			prepare: func(_ *models.Limits) {
 				nsStore.EXPECT().Get([]byte("ns")).Return([]byte{1, 0, 0, 0}, true, nil)
 				var key []byte
 				key = append(key, []byte{1, 0, 0, 0}...)
@@ -932,11 +955,12 @@ func TestMetadataBackend_getOrCreateMetricMetadata(t *testing.T) {
 				field:               fieldStore,
 				tagKey:              tagStore,
 			}
+			limits := models.NewDefaultLimits()
 			if tt.prepare != nil {
-				tt.prepare()
+				tt.prepare(limits)
 			}
 
-			meta, err := backend.getOrCreateMetricMetadata("ns", "metric")
+			meta, err := backend.getOrCreateMetricMetadata("ns", "metric", limits)
 			if ((err != nil) != tt.wantErr && meta == nil) || (!tt.wantErr && meta == nil) {
 				t.Errorf("getOrCreateMetricMetadata() error = %v, wantErr %v", err, tt.wantErr)
 			}
