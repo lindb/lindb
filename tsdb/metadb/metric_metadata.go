@@ -84,7 +84,7 @@ func (mm *metricMetadata) getMetricID() metric.ID {
 // createField creates the field meta, if success return field id, else return series.ErrTooManyFields
 func (mm *metricMetadata) createField(fieldName field.Name, fieldType field.Type, limits *models.Limits) (field.Meta, error) {
 	// check fields count
-	if mm.fieldIDSeq.Load() >= limits.MaxFieldsPerMetric {
+	if limits.EnableFieldsCheck() && mm.fieldIDSeq.Load() >= limits.MaxFieldsPerMetric {
 		return field.Meta{}, constants.ErrTooManyFields
 	}
 	// create new field
@@ -124,7 +124,7 @@ func (mm *metricMetadata) createTagKey(tagKey string, tagKeyID tag.KeyID) {
 // checkTagKey checks if tags be limited.
 func (mm *metricMetadata) checkTagKey(_ string, limits *models.Limits) error {
 	// check tag keys count
-	if len(mm.tagKeys) >= limits.MaxTagsPerMetric {
+	if limits.EnableTagsCheck() && len(mm.tagKeys) >= limits.MaxTagsPerMetric {
 		return constants.ErrTooManyTagKeys
 	}
 	return nil

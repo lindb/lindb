@@ -68,7 +68,7 @@ func parseInfluxLine(
 		return nil
 	}
 	metricName := unescapeMetricName(content[:metricEndAt])
-	if len(metricName) > limits.MaxMetricNameLength {
+	if limits.EnableMetricNameLengthCheck() && len(metricName) > limits.MaxMetricNameLength {
 		return constants.ErrMetricNameTooLong
 	}
 	builder.AddMetricName(metricName)
@@ -85,11 +85,11 @@ func parseInfluxLine(
 
 	for k, v := range tags {
 		tagKey := strutil.String2ByteSlice(k)
-		if len(tagKey) > limits.MaxTagNameLength {
+		if limits.EnableTagNameLengthCheck() && len(tagKey) > limits.MaxTagNameLength {
 			return constants.ErrTagKeyTooLong
 		}
 		tagValue := strutil.String2ByteSlice(v)
-		if len(tagValue) > limits.MaxTagValueLength {
+		if limits.EnableTagValueLengthCheck() && len(tagValue) > limits.MaxTagValueLength {
 			return constants.ErrTagValueTooLong
 		}
 		err = builder.AddTag(tagKey, tagValue)
@@ -108,12 +108,12 @@ func parseInfluxLine(
 	if err != nil && len(fields) == 0 {
 		return err
 	}
-	if len(fields) > int(limits.MaxFieldsPerMetric) {
+	if limits.EnableFieldsCheck() && len(fields) > int(limits.MaxFieldsPerMetric) {
 		return constants.ErrTooManyFields
 	}
 	for idx := range fields {
 		fieldName := fields[idx].Name
-		if len(fieldName) > limits.MaxFieldNameLength {
+		if limits.EnableFieldNameLengthCheck() && len(fieldName) > limits.MaxFieldNameLength {
 			return constants.ErrFieldNameTooLong
 		}
 		err = builder.AddSimpleField(fieldName, fields[idx].Type, fields[idx].Value)

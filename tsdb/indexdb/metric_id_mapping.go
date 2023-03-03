@@ -80,8 +80,9 @@ func (mim *metricIDMapping) AddSeriesID(tagsHash uint64, seriesID uint32) {
 // GenSeriesID generates series id by tags hash, then cache new series id.
 func (mim *metricIDMapping) GenSeriesID(namespace, metricName string,
 	tagsHash uint64, limits *models.Limits) (seriesID uint32, err error) {
+	seriesLimit := limits.GetSeriesLimit(namespace, metricName)
 	// generate new series id
-	if mim.idSequence.Current() >= limits.GetSeriesLimit(namespace, metricName) {
+	if seriesLimit != 0 && mim.idSequence.Current() >= seriesLimit {
 		return series.EmptySeriesID, constants.ErrTooManySeries
 	} else {
 		seriesID = mim.idSequence.Next()

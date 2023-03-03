@@ -47,3 +47,38 @@ func TestLimits_GetSeriesLimits(t *testing.T) {
 	assert.Equal(t, uint32(100), l.GetSeriesLimit("default-ns", name))
 	assert.Equal(t, l.MaxSeriesPerMetric, l.GetSeriesLimit(ns, "test"))
 }
+
+func TestLimits_Disable(t *testing.T) {
+	l := NewDefaultLimits()
+	assert.True(t, l.EnableNamespaceLengthCheck())
+	l.MaxNamespaceLength = 0
+	assert.False(t, l.EnableNamespaceLengthCheck())
+	assert.False(t, l.EnableNamespacesCheck())
+	l.MaxNamespaces = 10
+	assert.True(t, l.EnableNamespacesCheck())
+	assert.True(t, l.EnableMetricNameLengthCheck())
+	l.MaxMetricNameLength = 0
+	assert.False(t, l.EnableMetricNameLengthCheck())
+	assert.False(t, l.EnableMetricsCheck())
+	l.MaxMetrics = 10
+	assert.True(t, l.EnableMetricsCheck())
+	assert.True(t, l.EnableFieldNameLengthCheck())
+	l.MaxFieldNameLength = 0
+	assert.False(t, l.EnableFieldNameLengthCheck())
+	assert.True(t, l.EnableTagNameLengthCheck())
+	l.MaxTagNameLength = 0
+	assert.False(t, l.EnableTagNameLengthCheck())
+	assert.True(t, l.EnableTagValueLengthCheck())
+	l.MaxTagValueLength = 0
+	assert.False(t, l.EnableTagValueLengthCheck())
+	assert.True(t, l.EnableFieldsCheck())
+	l.MaxFieldsPerMetric = 0
+	assert.False(t, l.EnableFieldsCheck())
+	assert.True(t, l.EnableTagsCheck())
+	l.MaxTagsPerMetric = 0
+	assert.False(t, l.EnableTagsCheck())
+
+	assert.True(t, l.EnableSeriesCheckForQuery())
+	l.MaxSeriesPerQuery = 0
+	assert.False(t, l.EnableSeriesCheckForQuery())
+}

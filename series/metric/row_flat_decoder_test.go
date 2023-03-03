@@ -137,56 +137,106 @@ func Test_BrokerRowFlatDecoder_Decode_Fail(t *testing.T) {
 	cases := []struct {
 		name    string
 		prepare func(limits *models.Limits)
+		wantErr bool
 		err     error
 	}{
 		{
 			name: "too many tags",
 			prepare: func(limits *models.Limits) {
+				limits.MaxTagsPerMetric = 1
+			},
+			wantErr: true,
+			err:     constants.ErrTooManyTagKeys,
+		},
+		{
+			name: "disable too many tags",
+			prepare: func(limits *models.Limits) {
 				limits.MaxTagsPerMetric = 0
 			},
-			err: constants.ErrTooManyTagKeys,
 		},
 		{
 			name: "too many fields",
 			prepare: func(limits *models.Limits) {
+				limits.MaxFieldsPerMetric = 1
+			},
+			wantErr: true,
+			err:     constants.ErrTooManyFields,
+		},
+		{
+			name: "disable too many fields",
+			prepare: func(limits *models.Limits) {
 				limits.MaxFieldsPerMetric = 0
 			},
-			err: constants.ErrTooManyFields,
 		},
 		{
 			name: "tag name too long",
 			prepare: func(limits *models.Limits) {
+				limits.MaxTagNameLength = 1
+			},
+			wantErr: true,
+			err:     constants.ErrTagKeyTooLong,
+		},
+		{
+			name: "disable tag name too long",
+			prepare: func(limits *models.Limits) {
 				limits.MaxTagNameLength = 0
 			},
-			err: constants.ErrTagKeyTooLong,
 		},
 		{
 			name: "tag value too long",
 			prepare: func(limits *models.Limits) {
+				limits.MaxTagValueLength = 1
+			},
+			wantErr: true,
+			err:     constants.ErrTagValueTooLong,
+		},
+		{
+			name: "disable tag value too long",
+			prepare: func(limits *models.Limits) {
 				limits.MaxTagValueLength = 0
 			},
-			err: constants.ErrTagValueTooLong,
 		},
 		{
 			name: "field name too long",
 			prepare: func(limits *models.Limits) {
+				limits.MaxFieldNameLength = 1
+			},
+			wantErr: true,
+			err:     constants.ErrFieldNameTooLong,
+		},
+		{
+			name: "disable field name too long",
+			prepare: func(limits *models.Limits) {
 				limits.MaxFieldNameLength = 0
 			},
-			err: constants.ErrFieldNameTooLong,
 		},
 		{
 			name: "metric name too long",
 			prepare: func(limits *models.Limits) {
+				limits.MaxMetricNameLength = 1
+			},
+			wantErr: true,
+			err:     constants.ErrMetricNameTooLong,
+		},
+		{
+			name: "disable metric name too long",
+			prepare: func(limits *models.Limits) {
 				limits.MaxMetricNameLength = 0
 			},
-			err: constants.ErrMetricNameTooLong,
 		},
 		{
 			name: "namespace too long",
 			prepare: func(limits *models.Limits) {
+				limits.MaxNamespaceLength = 1
+			},
+			wantErr: true,
+			err:     constants.ErrNamespaceTooLong,
+		},
+		{
+			name: "disable namespace too long",
+			prepare: func(limits *models.Limits) {
 				limits.MaxNamespaceLength = 0
 			},
-			err: constants.ErrNamespaceTooLong,
 		},
 	}
 
@@ -197,7 +247,10 @@ func Test_BrokerRowFlatDecoder_Decode_Fail(t *testing.T) {
 			tt.prepare(limits)
 			decoder = mockDecoder(limits)
 			assert.True(t, decoder.HasNext())
-			assert.Equal(t, tt.err, decoder.DecodeTo(&row))
+			err := decoder.DecodeTo(&row)
+			if tt.wantErr && err != nil {
+				assert.Equal(t, tt.err, err)
+			}
 		})
 	}
 }
@@ -212,6 +265,7 @@ func mockDecoder(limits *models.Limits) *BrokerRowFlatDecoder {
 		},
 		SimpleFields: []*protoMetricsV1.SimpleField{
 			{Name: "F1", Type: protoMetricsV1.SimpleFieldType_Min, Value: 1},
+			{Name: "F2", Type: protoMetricsV1.SimpleFieldType_Min, Value: 1},
 		},
 		CompoundField: &protoMetricsV1.CompoundField{
 			Min:            1,

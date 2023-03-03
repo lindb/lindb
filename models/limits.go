@@ -65,6 +65,56 @@ func NewDefaultLimits() *Limits {
 	}
 }
 
+// EnableNamespaceLengthCheck returns if need check namespace's length.
+func (l *Limits) EnableNamespaceLengthCheck() bool {
+	return l.MaxNamespaceLength != 0
+}
+
+// EnableNamespacesCheck returns if need limit num. of namepsaces.
+func (l *Limits) EnableNamespacesCheck() bool {
+	return l.MaxNamespaces != 0
+}
+
+// EnableMetricNameLengthCheck returns if need check metric name's length.
+func (l *Limits) EnableMetricNameLengthCheck() bool {
+	return l.MaxMetricNameLength != 0
+}
+
+// EnableMetricsCheck returns if need limit num. of metrics.
+func (l *Limits) EnableMetricsCheck() bool {
+	return l.MaxMetrics != 0
+}
+
+// EnableFieldNameLengthCheck returns if need check field name's length.
+func (l *Limits) EnableFieldNameLengthCheck() bool {
+	return l.MaxFieldNameLength != 0
+}
+
+// EnableFieldsCheck returns if need limit num. of fields for metric.
+func (l *Limits) EnableFieldsCheck() bool {
+	return l.MaxFieldsPerMetric != 0
+}
+
+// EnableTagNameLengthCheck returns if need check tag name's length.
+func (l *Limits) EnableTagNameLengthCheck() bool {
+	return l.MaxTagNameLength != 0
+}
+
+// EnableTagValueLengthCheck returns if need check tag value's length.
+func (l *Limits) EnableTagValueLengthCheck() bool {
+	return l.MaxTagValueLength != 0
+}
+
+// EnableTagsCheck returns if need limit num. of tags for metric.
+func (l *Limits) EnableTagsCheck() bool {
+	return l.MaxTagsPerMetric != 0
+}
+
+// EnableSereisCheckForQuery returns if need check num. of series for query
+func (l *Limits) EnableSeriesCheckForQuery() bool {
+	return l.MaxSeriesPerQuery != 0
+}
+
 // TOML returns limits' configuration string as toml format.
 func (l *Limits) TOML() string {
 	return fmt.Sprintf(`

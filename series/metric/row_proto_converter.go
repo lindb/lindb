@@ -75,7 +75,7 @@ func (rc *BrokerRowProtoConverter) validateMetric(m *protoMetricsV1.Metric) erro
 	if m.Name == "" {
 		return ErrMetricPBEmptyMetricName
 	}
-	if len(m.Name) > rc.limits.MaxMetricNameLength {
+	if rc.limits.EnableMetricNameLengthCheck() && len(m.Name) > rc.limits.MaxMetricNameLength {
 		return constants.ErrMetricNameTooLong
 	}
 	m.Name = commonseries.SanitizeMetricName(m.Name)
@@ -100,7 +100,7 @@ func (rc *BrokerRowProtoConverter) validateMetric(m *protoMetricsV1.Metric) erro
 	m.Namespace = commonseries.SanitizeNamespace(m.Namespace)
 
 	tags := len(m.Tags)
-	if tags > rc.limits.MaxTagsPerMetric {
+	if rc.limits.EnableTagsCheck() && tags > rc.limits.MaxTagsPerMetric {
 		return constants.ErrTooManyTagKeys
 	}
 
@@ -115,16 +115,16 @@ func (rc *BrokerRowProtoConverter) validateMetric(m *protoMetricsV1.Metric) erro
 			if m.Tags[idx].Key == "" || m.Tags[idx].Value == "" {
 				return ErrMetricEmptyTagKeyValue
 			}
-			if len(m.Tags[idx].Key) > rc.limits.MaxTagNameLength {
+			if rc.limits.EnableTagNameLengthCheck() && len(m.Tags[idx].Key) > rc.limits.MaxTagNameLength {
 				return constants.ErrTagKeyTooLong
 			}
-			if len(m.Tags[idx].Value) > rc.limits.MaxTagValueLength {
+			if rc.limits.EnableTagValueLengthCheck() && len(m.Tags[idx].Value) > rc.limits.MaxTagValueLength {
 				return constants.ErrTagValueTooLong
 			}
 		}
 	}
 
-	if len(m.SimpleFields) > int(rc.limits.MaxFieldsPerMetric) {
+	if rc.limits.EnableFieldsCheck() && len(m.SimpleFields) > int(rc.limits.MaxFieldsPerMetric) {
 		return constants.ErrTooManyFields
 	}
 
@@ -138,7 +138,7 @@ func (rc *BrokerRowProtoConverter) validateMetric(m *protoMetricsV1.Metric) erro
 		if m.SimpleFields[idx].Name == "" {
 			return ErrMetricEmptyFieldName
 		}
-		if len(m.SimpleFields[idx].Name) > rc.limits.MaxFieldNameLength {
+		if rc.limits.EnableFieldNameLengthCheck() && len(m.SimpleFields[idx].Name) > rc.limits.MaxFieldNameLength {
 			return constants.ErrFieldNameTooLong
 		}
 		// check sanitize

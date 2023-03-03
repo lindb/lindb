@@ -509,24 +509,28 @@ func Test_limits(t *testing.T) {
 	// metric name limit
 	err = parseInfluxLine(builder, []byte(line), "ns", 0, limits)
 	assert.Equal(t, constants.ErrMetricNameTooLong, err)
-	limits.MaxMetricNameLength = 50
+	limits.MaxMetricNameLength = 0
 	limits.MaxTagNameLength = 5
 	// tag key limit
 	err = parseInfluxLine(builder, []byte(line), "ns", 0, limits)
 	assert.Equal(t, constants.ErrTagKeyTooLong, err)
-	limits.MaxTagNameLength = 50
+	limits.MaxTagNameLength = 0
 	limits.MaxTagValueLength = 3
 	// tag value limit
 	err = parseInfluxLine(builder, []byte(line), "ns", 0, limits)
 	assert.Equal(t, constants.ErrTagValueTooLong, err)
-	limits.MaxTagValueLength = 50
+	limits.MaxTagValueLength = 0
 	limits.MaxFieldNameLength = 3
 	// field nae limit
 	err = parseInfluxLine(builder, []byte(line), "ns", 0, limits)
 	assert.Equal(t, constants.ErrFieldNameTooLong, err)
-	limits.MaxFieldNameLength = 50
-	limits.MaxFieldsPerMetric = 0
+	limits.MaxFieldNameLength = 0
+	limits.MaxFieldsPerMetric = -1
 	// tag value limit
 	err = parseInfluxLine(builder, []byte(line), "ns", 0, limits)
 	assert.Equal(t, constants.ErrTooManyFields, err)
+	limits.MaxFieldsPerMetric = 0
+	// tag value limit
+	err = parseInfluxLine(builder, []byte(line), "ns", 0, limits)
+	assert.NoError(t, err)
 }

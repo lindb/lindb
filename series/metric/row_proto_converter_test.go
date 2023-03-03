@@ -353,49 +353,92 @@ func TestProtoCoverter_Limits(t *testing.T) {
 	cases := []struct {
 		name    string
 		prepare func(limits *models.Limits)
+		wantErr bool
 		err     error
 	}{
 		{
 			name: "metric name too long",
 			prepare: func(limits *models.Limits) {
-				limits.MaxMetricNameLength = 0
+				limits.MaxMetricNameLength = 1
 			},
-			err: constants.ErrMetricNameTooLong,
+			wantErr: true,
+			err:     constants.ErrMetricNameTooLong,
 		},
 		{
 			name: "too many tags",
 			prepare: func(limits *models.Limits) {
-				limits.MaxTagsPerMetric = 0
+				limits.MaxTagsPerMetric = 1
 			},
-			err: constants.ErrTooManyTagKeys,
+			wantErr: true,
+			err:     constants.ErrTooManyTagKeys,
 		},
 		{
 			name: "too many fields",
 			prepare: func(limits *models.Limits) {
-				limits.MaxFieldsPerMetric = 0
+				limits.MaxFieldsPerMetric = 1
 			},
-			err: constants.ErrTooManyFields,
+			wantErr: true,
+			err:     constants.ErrTooManyFields,
 		},
 		{
 			name: "field name too long",
 			prepare: func(limits *models.Limits) {
-				limits.MaxFieldNameLength = 0
+				limits.MaxFieldNameLength = 1
 			},
-			err: constants.ErrFieldNameTooLong,
+			wantErr: true,
+			err:     constants.ErrFieldNameTooLong,
 		},
 		{
 			name: "tag name too long",
 			prepare: func(limits *models.Limits) {
-				limits.MaxTagNameLength = 0
+				limits.MaxTagNameLength = 1
 			},
-			err: constants.ErrTagKeyTooLong,
+			wantErr: true,
+			err:     constants.ErrTagKeyTooLong,
 		},
 		{
 			name: "tag value too long",
 			prepare: func(limits *models.Limits) {
+				limits.MaxTagValueLength = 1
+			},
+			wantErr: true,
+			err:     constants.ErrTagValueTooLong,
+		},
+		{
+			name: "disable metric name too long",
+			prepare: func(limits *models.Limits) {
+				limits.MaxMetricNameLength = 0
+			},
+		},
+		{
+			name: "disable too many tags",
+			prepare: func(limits *models.Limits) {
+				limits.MaxTagsPerMetric = 0
+			},
+		},
+		{
+			name: "disable too many fields",
+			prepare: func(limits *models.Limits) {
+				limits.MaxFieldsPerMetric = 0
+			},
+		},
+		{
+			name: "disable field name too long",
+			prepare: func(limits *models.Limits) {
+				limits.MaxFieldNameLength = 0
+			},
+		},
+		{
+			name: "disable tag name too long",
+			prepare: func(limits *models.Limits) {
+				limits.MaxTagNameLength = 0
+			},
+		},
+		{
+			name: "disable tag value too long",
+			prepare: func(limits *models.Limits) {
 				limits.MaxTagValueLength = 0
 			},
-			err: constants.ErrTagValueTooLong,
 		},
 	}
 	for _, tt := range cases {
@@ -407,19 +450,30 @@ func TestProtoCoverter_Limits(t *testing.T) {
 				Name: "test-metric",
 				Tags: []*protoMetricsV1.KeyValue{
 					{Key: "host", Value: "host_name"},
+					{Key: "host1", Value: "host_name"},
 				},
 				SimpleFields: []*protoMetricsV1.SimpleField{
 					{
 						Name:  "__bucket_1",
 						Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
 						Value: 1,
-					}},
+					},
+					{
+						Name:  "__bucket_2",
+						Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
+						Value: 1,
+					},
+				},
 			}
 			tt.prepare(limits)
 			converter, releaseFunc := NewBrokerRowProtoConverter(
 				nil, nil, limits)
 			defer releaseFunc(converter)
-			assert.Equal(t, tt.err, converter.validateMetric(m))
+			if tt.wantErr {
+				assert.Equal(t, tt.err, converter.validateMetric(m))
+			} else {
+				assert.NoError(t, converter.validateMetric(m))
+			}
 		})
 	}
 }

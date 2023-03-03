@@ -67,6 +67,25 @@ func TestMetricMetadata_createField(t *testing.T) {
 				err: constants.ErrTooManyFields,
 			},
 		},
+		{
+
+			name: "disable too many fields",
+			prepare: func(m MetricMetadata) {
+				limits.MaxFieldsPerMetric = 0
+				m.initialize(nil, limits.MaxFieldsPerMetric, nil)
+			},
+			out: struct {
+				f   field.Meta
+				err error
+			}{
+				f: field.Meta{
+					ID:   1,
+					Type: field.SumField,
+					Name: "test",
+				},
+				err: nil,
+			},
+		},
 	}
 
 	for _, tt := range cases {
@@ -150,4 +169,6 @@ func TestMetricMetadata_checkTagKey(t *testing.T) {
 	assert.NoError(t, m.checkTagKey("", limits))
 	limits.MaxTagsPerMetric = 1
 	assert.Equal(t, constants.ErrTooManyTagKeys, m.checkTagKey("", limits))
+	limits.MaxTagsPerMetric = 0
+	assert.NoError(t, m.checkTagKey("", limits))
 }
