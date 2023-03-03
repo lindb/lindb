@@ -73,6 +73,7 @@ var (
 
 	// ErrTooManySeries represents the series be limited.
 	ErrTooManySeries     = errors.New("too manay series")
+	ErrTooManyMetadata   = errors.New("too manay namespace or metric")
 	ErrNamespaceTooLong  = errors.New("namespace is too long")
 	ErrMetricNameTooLong = errors.New("metric name is too long")
 	ErrFieldNameTooLong  = errors.New("field name is too long")

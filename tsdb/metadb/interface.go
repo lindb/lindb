@@ -35,7 +35,7 @@ var metaLogger = logger.GetLogger("TSDB", "MetaDB")
 // IDGenerator generates unique ID numbers for metric, tag and field.
 type IDGenerator interface {
 	// GenMetricID generates the metric id in the memory
-	GenMetricID(namespace, metricName string) (metricID metric.ID, err error)
+	GenMetricID(namespace, metricName string, limits *models.Limits) (metricID metric.ID, err error)
 	// GenFieldID generates the field id in the memory
 	// error-case1: field type doesn't match to before
 	// error-case2: there are too many fields

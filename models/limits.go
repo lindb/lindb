@@ -28,9 +28,9 @@ import (
 // default limits, or per-database limits vis toml config.
 type Limits struct {
 	// Write limits
-	MaxNamespaces       int    `toml:"max-namespaces"`
+	MaxNamespaces       uint32 `toml:"max-namespaces"`
 	MaxNamespaceLength  int    `toml:"max-namespace-length"`
-	MaxMetrics          int    `toml:"max-metrics"`
+	MaxMetrics          uint32 `toml:"max-metrics"`
 	MaxMetricNameLength int    `toml:"max-metric-name-length"`
 	MaxFieldNameLength  int    `toml:"max-field-name-length"`
 	MaxFieldsPerMetric  int32  `toml:"max-fields-per-metric"`

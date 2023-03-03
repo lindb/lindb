@@ -174,7 +174,7 @@ func (mdb *metadataDatabase) GetField(namespace, metricName string, fieldName fi
 // GenMetricID generates the metric id in the memory.
 // 1) get metric id from memory if existed, if not exist goto 2
 // 2) get metric metadata from backend storage, if not exist need create new metric metadata
-func (mdb *metadataDatabase) GenMetricID(namespace, metricName string) (metricID metric.ID, err error) {
+func (mdb *metadataDatabase) GenMetricID(namespace, metricName string, limits *models.Limits) (metricID metric.ID, err error) {
 	// get metric id from memory
 	if metricMetadata, ok := mdb.getMetricMetadataFromCache(namespace, metricName); ok {
 		return metricMetadata.getMetricID(), nil
@@ -187,7 +187,7 @@ func (mdb *metadataDatabase) GenMetricID(namespace, metricName string) (metricID
 	if metricMetadata, ok := mdb.metrics[key]; ok {
 		return metricMetadata.getMetricID(), nil
 	}
-	metricMetadata, err := mdb.backend.getOrCreateMetricMetadata(namespace, metricName)
+	metricMetadata, err := mdb.backend.getOrCreateMetricMetadata(namespace, metricName, limits)
 	if err != nil {
 		mdb.statistics.GenMetricIDFailures.Incr()
 		return

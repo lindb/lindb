@@ -257,7 +257,7 @@ func (s *shard) lookupRowMeta(row *metric.StorageRow) (err error) {
 		namespace = string(row.NameSpace())
 	}
 
-	row.MetricID, err = s.metadata.MetadataDatabase().GenMetricID(namespace, metricName)
+	row.MetricID, err = s.metadata.MetadataDatabase().GenMetricID(namespace, metricName, limits)
 	if err != nil {
 		return err
 	}
