@@ -26,6 +26,7 @@ import (
 
 	"github.com/lindb/lindb/app/broker/api/exec/command"
 	depspkg "github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	httppkg "github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/logger"
@@ -124,6 +125,7 @@ func (e *ExecuteAPI) execute(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
+	c.Set(constants.CurrentSQL, &param)
 	stmt, err := sqlParseFn(param.SQL)
 	if err != nil {
 		return err

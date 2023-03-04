@@ -85,6 +85,9 @@ func serveRoot(_ *cobra.Command, _ []string) error {
 	if err := logger.InitLogger(rootCfg.Logging, rootLogFileName); err != nil {
 		return fmt.Errorf("init logger error: %s", err)
 	}
+	if err := logger.InitLogger(rootCfg.Logging, logger.AccessLogFileName); err != nil {
+		return fmt.Errorf("init http access logger error: %s", err)
+	}
 
 	// start root server
 	rootRuntime := root.NewRootRuntime(config.Version, &rootCfg)

@@ -33,8 +33,9 @@ import (
 
 // API represents broker http api.
 type API struct {
-	execute *exec.ExecuteAPI
+	deps *depspkg.HTTPDeps
 
+	execute            *exec.ExecuteAPI
 	database           *admin.DatabaseAPI
 	flusher            *admin.DatabaseFlusherAPI
 	storage            *admin.StorageClusterAPI
@@ -51,6 +52,7 @@ type API struct {
 // NewAPI creates broker http api.
 func NewAPI(deps *depspkg.HTTPDeps) *API {
 	return &API{
+		deps:               deps,
 		execute:            exec.NewExecuteAPI(deps),
 		database:           admin.NewDatabaseAPI(deps),
 		flusher:            admin.NewDatabaseFlusherAPI(deps),
@@ -68,6 +70,7 @@ func NewAPI(deps *depspkg.HTTPDeps) *API {
 
 // RegisterRouter registers http api router.
 func (api *API) RegisterRouter(router *gin.RouterGroup) {
+	router.Use(SlowSQLLog(api.deps))
 	v1 := router.Group(constants.APIVersion1)
 	// execute lin query language statement
 	api.execute.Register(v1)

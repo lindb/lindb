@@ -37,6 +37,7 @@ var (
 	maxModuleNameLen uint32
 	lindLogger       atomic.Value
 	accessLogger     atomic.Value
+	slowSQLLogger    atomic.Value
 	// uninitialized logger for default usage
 	defaultLogger = newDefaultLogger()
 	// RunningAtomicLevel supports changing level on the fly
@@ -46,6 +47,10 @@ var (
 func init() {
 	// get log level from evn
 	level := os.Getenv("LOG_LEVEL")
+	initLogLevel(level)
+}
+
+func initLogLevel(level string) {
 	if level != "" {
 		var zapLevel zapcore.Level
 		if err := zapLevel.Set(level); err == nil {
@@ -55,7 +60,8 @@ func init() {
 }
 
 const (
-	accessLogFileName = "access.log"
+	AccessLogFileName  = "access.log"
+	SlowSQLLogFileName = "show_sql.log"
 )
 
 func IsDebug() bool {
@@ -97,9 +103,6 @@ func InitLogger(cfg config.Logging, fileName string) error {
 	if err := initLogger(fileName, cfg); err != nil {
 		return err
 	}
-	if err := initLogger(accessLogFileName, cfg); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -122,7 +125,7 @@ func initLogger(logFilename string, cfg config.Logging) error {
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = SimpleTimeEncoder
 	switch logFilename {
-	case accessLogFileName:
+	case AccessLogFileName:
 		encoderConfig.EncodeLevel = SimpleAccessLevelEncoder
 	default:
 		encoderConfig.EncodeLevel = SimpleLevelEncoder
@@ -133,7 +136,15 @@ func initLogger(logFilename string, cfg config.Logging) error {
 		w,
 		RunningAtomicLevel)
 	switch logFilename {
-	case accessLogFileName:
+	case SlowSQLLogFileName:
+		encoderConfig.LevelKey = ""
+		encoderConfig.TimeKey = ""
+		core = zapcore.NewCore(
+			zapcore.NewConsoleEncoder(encoderConfig),
+			w,
+			RunningAtomicLevel)
+		slowSQLLogger.Store(zap.New(core))
+	case AccessLogFileName:
 		accessLogger.Store(zap.New(core))
 	default:
 		lindLogger.Store(zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1)))

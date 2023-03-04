@@ -15,15 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package constants
+package logger
 
-// ContextKey represents key type for context.
-type ContextKey string
+import "testing"
 
-const (
-	// ContextKeySQL represents sql key.
-	ContextKeySQL = ContextKey("lin_ql")
-
-	// CurrentSQL represents the key of current sql context.
-	CurrentSQL = "LinDB_SQL"
-)
+func TestSetting_initLevel(t *testing.T) {
+	initLogLevel("")
+	initLogLevel("NO")
+	initLogLevel("info")
+}

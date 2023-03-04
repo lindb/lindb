@@ -91,9 +91,9 @@ func NewServer(cfg config.HTTP, staticResource bool, r *linmetric.Registry) Serv
 // init initializes http server default router/handle/middleware.
 func (s *server) init() {
 	// Using middlewares on group.
+	s.gin.Use(middleware.Recovery())
 	// use AccessLog to log panic error with zap
 	s.gin.Use(middleware.AccessLog())
-	s.gin.Use(middleware.Recovery())
 	s.gin.Use(cors.Default())
 
 	if config.Profile {

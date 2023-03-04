@@ -123,10 +123,11 @@ gc-task-interval = "%s"`,
 
 // BrokerBase represents a broker configuration
 type BrokerBase struct {
-	HTTP      HTTP      `toml:"http"`
-	Ingestion Ingestion `toml:"ingestion"`
-	Write     Write     `toml:"write"`
-	GRPC      GRPC      `toml:"grpc"`
+	SlowSQL   ltoml.Duration `toml:"slow-sql"`
+	HTTP      HTTP           `toml:"http"`
+	Ingestion Ingestion      `toml:"ingestion"`
+	Write     Write          `toml:"write"`
+	GRPC      GRPC           `toml:"grpc"`
 }
 
 // TOML returns broker's base configuration string as toml format.
@@ -134,6 +135,10 @@ func (bb *BrokerBase) TOML() string {
 	return fmt.Sprintf(`
 ## Broker related configuration.
 [broker]
+
+## Throttle duration for slow sql.
+## Default: %s
+slow-sql = "%s"
 
 ## Controls how HTTP Server are configured.
 [broker.http]%s
@@ -146,6 +151,8 @@ func (bb *BrokerBase) TOML() string {
 
 ## Controls how GRPC Server are configured.
 [broker.grpc]%s`,
+		bb.SlowSQL.String(),
+		bb.SlowSQL.String(),
 		bb.HTTP.TOML(),
 		bb.Ingestion.TOML(),
 		bb.Write.TOML(),
@@ -155,6 +162,7 @@ func (bb *BrokerBase) TOML() string {
 
 func NewDefaultBrokerBase() *BrokerBase {
 	return &BrokerBase{
+		SlowSQL: ltoml.Duration(time.Second * 30),
 		HTTP: HTTP{
 			Port:         9000,
 			IdleTimeout:  ltoml.Duration(time.Minute * 2),

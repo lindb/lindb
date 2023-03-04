@@ -29,9 +29,17 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-const HTTPModule = "http"
+const (
+	HTTPModule    = "http_access"
+	SlowSQLModule = "slow_sql"
+)
 
-var AccessLog = GetLogger(HTTPModule, "Access")
+var (
+	AccessLog  = GetLogger(HTTPModule, "Access")
+	SlowSQLLog = GetLogger(SlowSQLModule, "SQL")
+
+	isWindowsFn = isWindows
+)
 
 // SimpleTimeEncoder serializes a time.Time to a simplified format without timezone
 func SimpleTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
@@ -72,11 +80,15 @@ func LevelString(l zapcore.Level) string {
 
 // IsTerminal checks if the stdOut is a terminal or not
 func IsTerminal(f *os.File) bool {
-	if runtime.GOOS == "windows" {
+	if isWindowsFn() {
 		return false
 	}
 	fd := f.Fd()
 	return isatty.IsTerminal(fd) || isatty.IsCygwinTerminal(fd)
+}
+
+func isWindows() bool {
+	return runtime.GOOS == "windows"
 }
 
 // Logger is wrapper for zap logger with module, it is singleton.
@@ -96,7 +108,9 @@ func (l *Logger) getInitializedOrDefaultLogger() *zap.Logger {
 	var item interface{}
 	switch l.module {
 	case HTTPModule:
-		accessLogger.Load()
+		item = accessLogger.Load()
+	case SlowSQLModule:
+		item = slowSQLLogger.Load()
 	default:
 		item = lindLogger.Load()
 	}
@@ -132,7 +146,7 @@ func (l *Logger) Error(msg string, fields ...zap.Field) {
 
 // formatMsg formats msg using module name
 func (l *Logger) formatMsg(msg string) string {
-	if !isTerminal && l.module == HTTPModule {
+	if !isTerminal && (l.module == HTTPModule || l.module == SlowSQLModule) {
 		return msg
 	}
 	moduleName := fmt.Sprintf("[%*s]", atomic.LoadUint32(&maxModuleNameLen), l.module)
