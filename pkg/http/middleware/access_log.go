@@ -52,7 +52,6 @@ func AccessLog() gin.HandlerFunc {
 			requestInfo := realIP(r) + " " + time.Since(start).String() +
 				" \"" + r.Method + " " + unescapedPath + " " + r.Proto + "\" " +
 				strconv.Itoa(status) + " " + strconv.Itoa(c.Writer.Size())
-			// TODO: add show requst log
 			if status >= 400 {
 				logger.AccessLog.Error(requestInfo)
 			} else {

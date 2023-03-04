@@ -45,8 +45,20 @@ func Test_Logger(t *testing.T) {
 	logger3.Error("error test")
 }
 
+func Test_SlowSQL_logger(t *testing.T) {
+	assert.Nil(t, InitLogger(config.Logging{Level: "debug"}, SlowSQLLogFileName))
+	logger1 := GetLogger(SlowSQLModule, "SQL")
+	logger1.Info("slow show log")
+	isTerminal = true
+	defer func() {
+		isTerminal = false
+	}()
+	logger1.Info("slow log", Int("duration", 1))
+	assert.NotNil(t, logger1.GetLogger())
+}
+
 func Test_Access_logger(t *testing.T) {
-	assert.Nil(t, InitLogger(config.Logging{Level: "debug"}, "access.log"))
+	assert.Nil(t, InitLogger(config.Logging{Level: "debug"}, AccessLogFileName))
 	logger1 := GetLogger(HTTPModule, "Access")
 	logger1.Info("access log")
 	isTerminal = true
@@ -84,7 +96,15 @@ func Test_Logger_Stack(t *testing.T) {
 }
 
 func Test_IsTerminal(t *testing.T) {
+	defer func() {
+		isWindowsFn = isWindows
+	}()
 	assert.False(t, IsTerminal(os.Stdout))
+	isWindowsFn = func() bool {
+		return true
+	}
+	assert.False(t, IsTerminal(os.Stdout))
+	fmt.Println(isWindows())
 }
 
 func Test_IsDebug(t *testing.T) {

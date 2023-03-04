@@ -41,6 +41,10 @@ timeout = "5s"
 ## Broker related configuration.
 [broker]
 
+## Throttle duration for slow sql.
+## Default: 30s
+slow-sql = "30s"
+
 ## Controls how HTTP Server are configured.
 [broker.http]
 ## port which the HTTP Server is listening on
