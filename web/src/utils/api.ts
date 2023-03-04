@@ -78,7 +78,14 @@ async function POST<T>(
 }
 
 const getErrorMsg = (err: any) => {
-  return _.get(err, "response.data", "Unknown internal error");
+  if (_.has(err, "response.data")) {
+    return _.get(err, "response.data");
+  }
+  if (_.has(err, "reason.response.data")) {
+    return _.get(err, "reason.response.data");
+  }
+  const msg = _.get(err, "reason", "Unknown internal error");
+  return `${msg}`;
 };
 
 const getErrorCode = (err: any) => {

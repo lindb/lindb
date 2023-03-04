@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 
-import { IconCrossCircleStroked } from "@douyinfe/semi-icons";
+import { IconAlertTriangle } from "@douyinfe/semi-icons";
 import { Empty, Spin, Typography } from "@douyinfe/semi-ui";
 import { ApiKit } from "@src/utils";
 import React, { CSSProperties, useContext } from "react";
@@ -52,7 +52,7 @@ const StatusTip: React.FC<{
       return (
         <Text type="danger">
           <div>
-            <IconCrossCircleStroked style={{ fontSize: 48 }} />
+            <IconAlertTriangle style={{ fontSize: 48 }} />
           </div>
           <div>{ApiKit.getErrorMsg(error)}</div>
         </Text>

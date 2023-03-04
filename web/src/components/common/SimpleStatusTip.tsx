@@ -17,13 +17,32 @@ specific language governing permissions and limitations
 under the License.
 */
 
-import { IconCrossCircleStroked } from "@douyinfe/semi-icons";
-import { Empty, Spin, Tooltip, Typography } from "@douyinfe/semi-ui";
+import { IconAlertTriangle } from "@douyinfe/semi-icons";
+import { Empty, Spin, List, Tooltip, Typography } from "@douyinfe/semi-ui";
 import { ApiKit } from "@src/utils";
 import React, { CSSProperties } from "react";
 import { Icon } from "@src/components";
+import * as _ from "lodash-es";
 
 const { Text } = Typography;
+
+const getErrMsg = (error: any) => {
+  if (_.isArray(error)) {
+    return (
+      <List
+        size="small"
+        bordered
+        dataSource={error}
+        renderItem={(item) => (
+          <List.Item style={{ padding: 0 }}>
+            {ApiKit.getErrorMsg(item)}
+          </List.Item>
+        )}
+      />
+    );
+  }
+  return ApiKit.getErrorMsg(error);
+};
 
 const SimpleStatusTip: React.FC<{
   isLoading: boolean;
@@ -43,8 +62,8 @@ const SimpleStatusTip: React.FC<{
     }
     return (
       <Text type="danger">
-        <Tooltip content={ApiKit.getErrorMsg(error)}>
-          <IconCrossCircleStroked />
+        <Tooltip content={getErrMsg(error)}>
+          <IconAlertTriangle size="large" />
         </Tooltip>
       </Text>
     );
