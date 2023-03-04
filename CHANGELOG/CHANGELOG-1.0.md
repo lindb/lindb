@@ -1,5 +1,21 @@
 # Change logs
 
+## [0.2.1] - 2023-03-04
+
+See [code changes](https://github.com/lindb/lindb/compare/v0.2.0...v0.2.1).
+
+### Added features
+
+- database level read/write limit configure
+- slow sql
+
+### Optimized
+
+- metric chart show error message if query fail
+
+### Fixed
+- fix nil point when parse wrong sql
+
 ## [0.2.0] - 2023-01-29
 
 See [code changes](https://github.com/lindb/lindb/compare/v0.1.1...v0.2.0).
