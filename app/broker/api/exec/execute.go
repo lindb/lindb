@@ -131,6 +131,10 @@ func (e *ExecuteAPI) execute(c *gin.Context) error {
 		return err
 	}
 
+	if stmt == nil {
+		return errors.New("can't parse lin query language")
+	}
+
 	if commandFn, ok := commands[stmt.StatementType()]; ok {
 		result, err := commandFn(ctx, e.deps, &param, stmt)
 		if err != nil {

@@ -95,6 +95,13 @@ func TestExecuteAPI_Execute(t *testing.T) {
 			},
 		},
 		{
+			name:    "parse sql failure",
+			reqBody: `{"sql":"abcs"}`,
+			assert: func(resp *httptest.ResponseRecorder) {
+				assert.Equal(t, http.StatusInternalServerError, resp.Code)
+			},
+		},
+		{
 			name:    "unknown metadata statement type",
 			reqBody: `{"sql":"show master"}`,
 			prepare: func() {
