@@ -21,7 +21,7 @@ import { QueryStatement, ResultSet, Query } from "@src/models";
 import { URLStore } from "@src/stores";
 import { useQuery } from "@tanstack/react-query";
 import { reaction } from "mobx";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import * as _ from "lodash-es";
 import { ExecService } from "@src/services";
 import { TemplateKit, URLKit } from "@src/utils";
@@ -74,52 +74,57 @@ export function useMetric(
   queries: Query[],
   options?: { disableBind?: boolean }
 ) {
-  const {
-    isInitialLoading,
-    isLoading,
-    isFetching,
-    isError,
-    data,
-    error,
-    refetch,
-  } = useQuery(
-    ["search_metric_data", queries],
-    async () => {
-      const requests: any[] = [];
-      (queries || []).forEach((query: Query) => {
-        const db = _.get(query, "db", "");
-        const params = URLStore.getParams();
-        const dbVal = db ? TemplateKit.template(db, params || {}) : "";
-        const sql = _.get(query, "sql", "");
-        let targetSQL = "";
-        if (_.isString(sql)) {
-          targetSQL = buildSQL(sql, _.get(query, "watch", []));
-        } else {
-          targetSQL = URLStore.bindSQL(sql as QueryStatement);
-        }
-        // console.log("loading........", queries, db, sql, targetSQL);
-        if (targetSQL === "" || dbVal === "") {
-          return;
-        }
+  const [error, setError] = useState<any>(null);
+  const { isInitialLoading, isLoading, isFetching, isError, data, refetch } =
+    useQuery(
+      ["search_metric_data", queries],
+      async () => {
+        setError(null);
+        const requests: any[] = [];
+        (queries || []).forEach((query: Query) => {
+          const db = _.get(query, "db", "");
+          const params = URLStore.getParams();
+          const dbVal = db ? TemplateKit.template(db, params || {}) : "";
+          const sql = _.get(query, "sql", "");
+          let targetSQL = "";
+          if (_.isString(sql)) {
+            targetSQL = buildSQL(sql, _.get(query, "watch", []));
+          } else {
+            targetSQL = URLStore.bindSQL(sql as QueryStatement);
+          }
+          // console.log("loading........", queries, db, sql, targetSQL);
+          if (targetSQL === "" || dbVal === "") {
+            return;
+          }
 
-        // add query request into batch
-        requests.push(
-          ExecService.exec<ResultSet>({
-            db: dbVal,
-            sql: targetSQL,
-          })
-        );
-      });
-      return Promise.allSettled(requests).then((res) => {
-        return res
-          .map((item) => (item.status === "fulfilled" ? item.value : []))
-          .flat();
-      });
-    },
-    {
-      // enabled:
-    }
-  );
+          // add query request into batch
+          requests.push(
+            ExecService.exec<ResultSet>({
+              db: dbVal,
+              sql: targetSQL,
+            })
+          );
+        });
+        return Promise.allSettled(requests).then((res) => {
+          const errors: any[] = [];
+          const rs = res
+            .map((item) => {
+              if (item.status === "rejected") {
+                errors.push(item);
+              }
+              return item.status === "fulfilled" ? item.value : [];
+            })
+            .flat();
+          if (!_.isEmpty(errors)) {
+            setError(errors);
+          }
+          return rs;
+        });
+      },
+      {
+        // enabled:
+      }
+    );
 
   const doQuery = _.debounce(refetch, 200);
 
@@ -143,7 +148,7 @@ export function useMetric(
 
   return {
     isLoading: isInitialLoading || isLoading || isFetching,
-    isError,
+    isError: !_.isEmpty(error),
     data,
     error,
   };
