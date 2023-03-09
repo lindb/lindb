@@ -35,6 +35,14 @@ build-lind: ## build lindb binary
 deploy: build-frontend ## deploy release packages
 	sh deploy.sh
 
+.PHONY: docker-build
+docker-build: ## build docker image
+	docker build -t wangguohao/lindb:$(GIT_TAG_NAME) --build-arg LD_FLAGS=${LD_FLAGS} .
+
+.PHONY: docker-push
+docker-push: ## push docker image
+	docker push wangguohao/lindb:$(GIT_TAG_NAME)
+
 GOMOCK_VERSION = "v1.5.0"
 
 gomock: ## go generate mock file.
