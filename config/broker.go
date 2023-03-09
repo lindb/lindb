@@ -26,25 +26,37 @@ import (
 
 // HTTP represents an HTTP level configuration of broker.
 type HTTP struct {
-	Port         uint16         `toml:"port"`
-	IdleTimeout  ltoml.Duration `toml:"idle-timeout"`
-	WriteTimeout ltoml.Duration `toml:"write-timeout"`
-	ReadTimeout  ltoml.Duration `toml:"read-timeout"`
+	Port         uint16         `env:"PORT" toml:"port"`
+	IdleTimeout  ltoml.Duration `env:"IDLE_TIMEOUT" toml:"idle-timeout"`
+	WriteTimeout ltoml.Duration `env:"WRITE_TIMEOUT" toml:"write-timeout"`
+	ReadTimeout  ltoml.Duration `env:"READ_TIMEOUT" toml:"read-timeout"`
 }
 
 func (h *HTTP) TOML() string {
 	return fmt.Sprintf(`
 ## port which the HTTP Server is listening on
 ## Default: %d
+## Env: BROKER_HTTP_PORT
+## Env: STORAGE_HTTP_PORT
+## Env: ROOT_HTTP_PORT
 port = %d
 ## maximum duration the server should keep established connections alive.
 ## Default: %s
+## Env: BROKER_HTTP_IDLE_TIMEOUT
+## Env: STORAGE_HTTP_IDLE_TIMEOUT
+## Env: ROOT_HTTP_IDLE_TIMEOUT
 idle-timeout = "%s"
 ## maximum duration before timing out for server writes of the response
 ## Default: %s
+## Env: BROKER_HTTP_WRITE_TIMEOUT
+## Env: STORAGE_HTTP_WRITE_TIMEOUT
+## Env: ROOT_HTTP_WRITE_TIMEOUT
 write-timeout = "%s"
 ## maximum duration for reading the entire request, including the body.
 ## Default: %s
+## Env: BROKER_HTTP_READ_TIMEOUT
+## Env: STORAGE_HTTP_READ_TIMEOUT
+## Env: ROOT_HTTP_READ_TIMEOUT
 read-timeout = "%s"`,
 		h.Port,
 		h.Port,
@@ -58,8 +70,8 @@ read-timeout = "%s"`,
 }
 
 type Ingestion struct {
-	MaxConcurrency int            `toml:"max-concurrency"`
-	IngestTimeout  ltoml.Duration `toml:"ingest-timeout"`
+	MaxConcurrency int            `env:"CONCURRENCY" toml:"max-concurrency"`
+	IngestTimeout  ltoml.Duration `env:"TIMEOUT" toml:"ingest-timeout"`
 }
 
 func (i *Ingestion) TOML() string {
@@ -68,9 +80,11 @@ func (i *Ingestion) TOML() string {
 ## If writes requests exceeds the concurrency,
 ## ingestion HTTP API will be throttled.
 ## Default: %d
+## Env: BROKER_INGESTION_CONCURRENCY
 max-concurrency = %d
 ## maximum duration before timeout for server ingesting metrics
 ## Default: %s
+## Env: BROKER_INGESTION_TIMEOUT
 ingest-timeout = "%s"`,
 		i.MaxConcurrency,
 		i.MaxConcurrency,
@@ -95,9 +109,9 @@ password = "%s"`,
 
 // Write represents config for write replication in broker.
 type Write struct {
-	BatchTimeout   ltoml.Duration `toml:"batch-timeout"`
-	BatchBlockSize ltoml.Size     `toml:"batch-block-size"`
-	GCTaskInterval ltoml.Duration `toml:"gc-task-interval"`
+	BatchTimeout   ltoml.Duration `env:"BATCH_TIMEOUT" toml:"batch-timeout"`
+	BatchBlockSize ltoml.Size     `env:"BLOCK_SIZE" toml:"batch-block-size"`
+	GCTaskInterval ltoml.Duration `env:"GC_INTERVAL" toml:"gc-task-interval"`
 }
 
 func (rc *Write) TOML() string {
@@ -105,12 +119,15 @@ func (rc *Write) TOML() string {
 ## Broker will write at least this often,
 ## even if the configured batch-size if not reached.
 ## Default: %s
+## Env: BROKER_WRITE_BATCH_TIMEOUT
 batch-timeout = "%s"
 ## Broker will sending block to storage node in this size
 ## Default: %s
+## Env: BROKER_WRITE_BLOCK_SIZE
 batch-block-size = "%s"
 ## interval for how often expired write write family garbage collect task execute
 ## Default: %s
+## Env: BROKER_WRITE_GC_INTERVAL
 gc-task-interval = "%s"`,
 		rc.BatchTimeout.String(),
 		rc.BatchTimeout.String(),
@@ -123,11 +140,11 @@ gc-task-interval = "%s"`,
 
 // BrokerBase represents a broker configuration
 type BrokerBase struct {
-	SlowSQL   ltoml.Duration `toml:"slow-sql"`
-	HTTP      HTTP           `toml:"http"`
-	Ingestion Ingestion      `toml:"ingestion"`
-	Write     Write          `toml:"write"`
-	GRPC      GRPC           `toml:"grpc"`
+	SlowSQL   ltoml.Duration `env:"SLOW_SQL" toml:"slow-sql"`
+	HTTP      HTTP           `envPrefix:"HTTP_" toml:"http"`
+	Ingestion Ingestion      `envPrefix:"INGESTION_" toml:"ingestion"`
+	Write     Write          `envPrefix:"WRITE_" toml:"write"`
+	GRPC      GRPC           `envPrefix:"GRPC_" toml:"grpc"`
 }
 
 // TOML returns broker's base configuration string as toml format.
@@ -138,6 +155,7 @@ func (bb *BrokerBase) TOML() string {
 
 ## Throttle duration for slow sql.
 ## Default: %s
+## Env: BROKER_SLOW_SQL
 slow-sql = "%s"
 
 ## Controls how HTTP Server are configured.
@@ -188,11 +206,11 @@ func NewDefaultBrokerBase() *BrokerBase {
 
 // Broker represents a broker configuration with common settings
 type Broker struct {
-	Coordinator RepoState  `toml:"coordinator"`
-	Query       Query      `toml:"query"`
-	BrokerBase  BrokerBase `toml:"broker"`
-	Monitor     Monitor    `toml:"monitor"`
-	Logging     Logging    `toml:"logging"`
+	Coordinator RepoState  `envPrefix:"COORDINATOR_" toml:"coordinator"`
+	Query       Query      `envPrefix:"QUERY_" toml:"query"`
+	BrokerBase  BrokerBase `envPrefix:"BROKER_" toml:"broker"`
+	Monitor     Monitor    `envPrefix:"MONITOR_" toml:"monitor"`
+	Logging     Logging    `envPrefix:"LOGGING_" toml:"logging"`
 }
 
 // TOML returns broker's configuration string as toml format.

@@ -32,9 +32,9 @@ var (
 
 // Monitor represents a configuration for the internal monitor
 type Monitor struct {
-	PushTimeout    ltoml.Duration `toml:"push-timeout"`
-	ReportInterval ltoml.Duration `toml:"report-interval"`
-	URL            string         `toml:"url"`
+	PushTimeout    ltoml.Duration `env:"PUSH_TIMEOUT" toml:"push-timeout"`
+	ReportInterval ltoml.Duration `env:"REPORT_INTERVAL" toml:"report-interval"`
+	URL            string         `env:"URL" toml:"url"`
 }
 
 // TOML returns Monitor's toml config
@@ -44,13 +44,16 @@ func (m *Monitor) TOML() string {
 [monitor]
 ## time period to process an HTTP metrics push call
 ## Default: %s
+## Env: MONITOR_PUSH_TIMEOUT
 push-timeout = "%s"
 ## monitor won't start when interval is sets to 0
 ## such as cpu, memory, and disk, process and go runtime
 ## Default: %s
+## Env: MONITOR_REPORT_INTERVAL
 report-interval = "%s"
 ## URL is the target of broker native ingestion url
 ## Default: %s
+## Env: MONITOR_URL
 url = "%s"`,
 		m.PushTimeout.String(),
 		m.PushTimeout.String(),
