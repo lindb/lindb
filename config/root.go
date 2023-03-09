@@ -26,11 +26,11 @@ import (
 
 // Root represents a root configuration with common settings.
 type Root struct {
-	Coordinator RepoState `toml:"coordinator"`
-	Query       Query     `toml:"query"`
-	HTTP        HTTP      `toml:"http"`
-	Monitor     Monitor   `toml:"monitor"`
-	Logging     Logging   `toml:"logging"`
+	Coordinator RepoState `envPrefix:"COORDINATOR_" toml:"coordinator"`
+	Query       Query     `envPrefix:"QUERY_" toml:"query"`
+	HTTP        HTTP      `envPrefix:"ROOT_HTTP_" toml:"http"`
+	Monitor     Monitor   `envPrefix:"MONITOR_" toml:"monitor"`
+	Logging     Logging   `envPrefix:"LOGGING_" toml:"logging"`
 }
 
 // TOML returns root's configuration string as toml format.

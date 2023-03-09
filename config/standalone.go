@@ -25,19 +25,19 @@ import (
 
 // Standalone represents the configuration of standalone mode
 type Standalone struct {
-	ETCD        ETCD        `toml:"etcd"`
-	Coordinator RepoState   `toml:"coordinator"`
-	Query       Query       `toml:"query"`
-	BrokerBase  BrokerBase  `toml:"broker"`
-	StorageBase StorageBase `toml:"storage"`
-	Logging     Logging     `toml:"logging"`
-	Monitor     Monitor     `toml:"monitor"`
+	ETCD        ETCD        `envPrefix:"ETCD_" toml:"etcd"`
+	Coordinator RepoState   `envPrefix:"COORDINATOR_" toml:"coordinator"`
+	Query       Query       `envPrefix:"QUERY_" toml:"query"`
+	BrokerBase  BrokerBase  `envPrefix:"BROKER_" toml:"broker"`
+	StorageBase StorageBase `envPrefix:"STORAGE_" toml:"storage"`
+	Logging     Logging     `envPrefix:"LOGGING_" toml:"logging"`
+	Monitor     Monitor     `envPrefix:"MONITOR_" toml:"monitor"`
 }
 
 // ETCD represents embed etcd's configuration
 type ETCD struct {
-	Dir string `toml:"dir"`
-	URL string `toml:"url"`
+	Dir string `env:"DIR" toml:"dir"`
+	URL string `env:"URL" toml:"url"`
 }
 
 // TOML returns ETCD's toml config string
@@ -45,6 +45,7 @@ func (etcd *ETCD) TOML() string {
 	return fmt.Sprintf(`[etcd]
 ## Where the ETCD data is stored
 ## Default: %s
+## Env: ETCD_DIR
 dir = "%s"
 ## URL to listen on for client traffic 
 ## If 0.0.0.0 if specified as the IP, 
@@ -52,6 +53,7 @@ dir = "%s"
 ## If an IP address is given as well as a port, 
 ## etcd will listen on the given port and interface.
 ## Default: %s
+## Env: ETCD_URL
 url = "%s"`,
 		strings.ReplaceAll(etcd.Dir, "\\", "\\\\"),
 		strings.ReplaceAll(etcd.Dir, "\\", "\\\\"),
