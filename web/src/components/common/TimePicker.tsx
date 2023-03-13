@@ -61,7 +61,7 @@ const quickSelectList: QuickSelectItem[] = [
   { title: "last3Day", value: "now()-3d" },
   { title: "last7Day", value: "now()-7d" },
   { title: "last15Day", value: "now()-15d" },
-  { title: "klast30Day", value: "now()-30d" },
+  { title: "last30Day", value: "now()-30d" },
 ];
 const autoRefreshList: QuickSelectItem[] = [
   {
