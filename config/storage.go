@@ -44,7 +44,7 @@ func (t *TSDB) TOML() string {
 	return fmt.Sprintf(`
 ## The TSDB directory where the time series data and meta file stores.
 ## Default: %s
-## Env: STORAGE_TSDB_DIR
+## Env: LINDB_STORAGE_TSDB_DIR
 dir = "%s"
 
 ## Flush configuration
@@ -53,26 +53,26 @@ dir = "%s"
 ## before it is queueing to the immutable list for flushing.
 ## larger memdb may improve query performance.
 ## Default: %s
-## Env: STORAGE_TSDB_MAX_MEMDB_SIZE
+## Env: LINDB_STORAGE_TSDB_MAX_MEMDB_SIZE
 max-memdb-size = "%s"
 ## Mutable memdb will switch to immutable this often,
 ## event if the configured memdb-size is not reached.
 ## Default: %s
-## Env: STORAGE_TSDB_MUTABLE_MEMDB_TTL
+## Env: LINDB_STORAGE_TSDB_MUTABLE_MEMDB_TTL
 mutable-memdb-ttl = "%s"
 ## Global flush operation will be triggered
 ## when system memory usage is higher than this ratio.
 ## Default: %.2f
-## Env: STORAGE_TSDB_MAX_MEM_USAGE_BEFORE_FLUSH
+## Env: LINDB_STORAGE_TSDB_MAX_MEM_USAGE_BEFORE_FLUSH
 max-mem-usage-before-flush = %.2f
 ## Global flush operation will be stopped 
 ## when system memory usage is lower than this ration.
 ## Default: %.2f
-## Env: STORAGE_TSDB_TARGET_MEM_USAGE_AFTER_FLUSH
+## Env: LINDB_STORAGE_TSDB_TARGET_MEM_USAGE_AFTER_FLUSH
 target-mem-usage-after-flush = %.2f
 ## concurrency of goroutines for flushing.
 ## Default: %d
-## Env: STORAGE_TSDB_FLUSH_CONCURRENCY 
+## Env: LINDB_STORAGE_TSDB_FLUSH_CONCURRENCY 
 flush-concurrency = %d`,
 		strings.ReplaceAll(t.Dir, "\\", "\\\\"),
 		strings.ReplaceAll(t.Dir, "\\", "\\\\"),
@@ -107,9 +107,11 @@ func (s *StorageBase) TOML() string {
 [storage]
 ## interval for how often do ttl job
 ## Default: %s
+## Env: LINDB_TTL_TASK_INTERVAL 
 ttl-task-interval = "%s"
 ## Broker http endpoint which storage self register address
 ## Default: %s
+## Env: LINDB_BROKER_ENDPOINT
 broker-endpoint = "%s"
 
 ## Storage HTTP related configuration.
@@ -155,16 +157,16 @@ func (rc *WAL) TOML() string {
 	return fmt.Sprintf(`
 ## WAL mmaped log directory
 ## Default: %s
-## Env: STORAGE_WAL_DIR
+## Env: LIND_STORAGE_WAL_DIR
 dir = "%s"
 ## data-size-limit is the maximum size in megabytes of the page file before a new
 ## file is created. It defaults to 512 megabytes, available size is in [1MB, 1GB]
 ## Default: %s
-## Env: STORAGE_WAL_DATA_SIZE_LIMIT
+## Env: LIND_STORAGE_WAL_DATA_SIZE_LIMIT
 data-size-limit = "%s"
 ## interval for how often remove expired write ahead log
 ## Default: %s
-## Env: STORAGE_WAL_REMOVE_TASK_INTERVAL
+## Env: LIND_STORAGE_WAL_REMOVE_TASK_INTERVAL
 remove-task-interval = "%s"`,
 		strings.ReplaceAll(rc.Dir, "\\", "\\\\"),
 		strings.ReplaceAll(rc.Dir, "\\", "\\\\"),
@@ -177,11 +179,11 @@ remove-task-interval = "%s"`,
 
 // Storage represents a storage configuration with common settings
 type Storage struct {
-	Coordinator RepoState   `envPrefix:"COORDINATOR_" toml:"coordinator"`
-	Query       Query       `envPrefix:"QUERY_" toml:"query"`
-	StorageBase StorageBase `envPrefix:"STORAGE_" toml:"storage"`
-	Monitor     Monitor     `envPrefix:"MONITOR_" toml:"monitor"`
-	Logging     Logging     `envPrefix:"LOGGING_" toml:"logging"`
+	Coordinator RepoState   `envPrefix:"LINDB_COORDINATOR_" toml:"coordinator"`
+	Query       Query       `envPrefix:"LINDB_QUERY_" toml:"query"`
+	StorageBase StorageBase `envPrefix:"LINDB_STORAGE_" toml:"storage"`
+	Monitor     Monitor     `envPrefix:"LINDB_MONITOR_" toml:"monitor"`
+	Logging     Logging     `envPrefix:"LINDB_LOGGING_" toml:"logging"`
 }
 
 // TOML returns storage's configuration string as toml format.

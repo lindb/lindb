@@ -39,28 +39,28 @@ func TestRoot_TOML(t *testing.T) {
 func TestRoot_Env(t *testing.T) {
 	cfg := Root{}
 	opts := env.Options{Environment: map[string]string{
-		"COORDINATOR_NAMESPACE":    "ns",
-		"COORDINATOR_ENDPOINTS":    "endpoint1,endpoint2",
-		"COORDINATOR_LEASE_TTL":    "60s",
-		"COORDINATOR_TIMEOUT":      "60s",
-		"COORDINATOR_DIAL_TIMEOUT": "60s",
-		"COORDINATOR_USERNAME":     "LinDB",
-		"COORDINATOR_PASSWORD":     "pwd",
-		"QUERY_CONCURRENCY":        "100",
-		"QUERY_IDLE_TIMEOUT":       "100s",
-		"QUERY_TIMEOUT":            "120s",
-		"ROOT_HTTP_PORT":           "3000",
-		"ROOT_HTTP_IDLE_TIMEOUT":   "120s",
-		"ROOT_HTTP_WRITE_TIMEOUT":  "120s",
-		"ROOT_HTTP_READ_TIMEOUT":   "2m",
-		"MONITOR_PUSH_TIMEOUT":     "2m",
-		"MONITOR_REPORT_INTERVAL":  "2m",
-		"MONITOR_URL":              "monitor_url",
-		"LOGGING_DIR":              "log_dir",
-		"LOGGING_LEVEL":            "fatal",
-		"LOGGING_MAX_SIZE":         "1Mib",
-		"LOGGING_MAX_BACKUPS":      "10",
-		"LOGGING_MAX_AGE":          "20",
+		"LINDB_COORDINATOR_NAMESPACE":    "ns",
+		"LINDB_COORDINATOR_ENDPOINTS":    "endpoint1,endpoint2",
+		"LINDB_COORDINATOR_LEASE_TTL":    "60s",
+		"LINDB_COORDINATOR_TIMEOUT":      "60s",
+		"LINDB_COORDINATOR_DIAL_TIMEOUT": "60s",
+		"LINDB_COORDINATOR_USERNAME":     "LinDB",
+		"LINDB_COORDINATOR_PASSWORD":     "pwd",
+		"LINDB_QUERY_CONCURRENCY":        "100",
+		"LINDB_QUERY_IDLE_TIMEOUT":       "100s",
+		"LINDB_QUERY_TIMEOUT":            "120s",
+		"LINDB_ROOT_HTTP_PORT":           "3000",
+		"LINDB_ROOT_HTTP_IDLE_TIMEOUT":   "120s",
+		"LINDB_ROOT_HTTP_WRITE_TIMEOUT":  "120s",
+		"LINDB_ROOT_HTTP_READ_TIMEOUT":   "2m",
+		"LINDB_MONITOR_PUSH_TIMEOUT":     "2m",
+		"LINDB_MONITOR_REPORT_INTERVAL":  "2m",
+		"LINDB_MONITOR_URL":              "monitor_url",
+		"LINDB_LOGGING_DIR":              "log_dir",
+		"LINDB_LOGGING_LEVEL":            "fatal",
+		"LINDB_LOGGING_MAX_SIZE":         "1Mib",
+		"LINDB_LOGGING_MAX_BACKUPS":      "10",
+		"LINDB_LOGGING_MAX_AGE":          "20",
 	}}
 	err := env.Parse(&cfg, opts)
 	assert.NoError(t, err)
@@ -94,7 +94,7 @@ func TestRoot_Env(t *testing.T) {
 func TestRoot_Env_Default(t *testing.T) {
 	cfg := NewDefaultRoot()
 	opts := env.Options{Environment: map[string]string{
-		"COORDINATOR_NAMESPACE": "ns",
+		"LINDB_COORDINATOR_NAMESPACE": "ns",
 	}}
 	err := env.Parse(cfg, opts)
 	assert.NoError(t, err)

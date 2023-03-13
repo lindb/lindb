@@ -44,16 +44,16 @@ func (m *Monitor) TOML() string {
 [monitor]
 ## time period to process an HTTP metrics push call
 ## Default: %s
-## Env: MONITOR_PUSH_TIMEOUT
+## Env: LINDB_MONITOR_PUSH_TIMEOUT
 push-timeout = "%s"
 ## monitor won't start when interval is sets to 0
 ## such as cpu, memory, and disk, process and go runtime
 ## Default: %s
-## Env: MONITOR_REPORT_INTERVAL
+## Env: LINDB_MONITOR_REPORT_INTERVAL
 report-interval = "%s"
 ## URL is the target of broker native ingestion url
 ## Default: %s
-## Env: MONITOR_URL
+## Env: LINDB_MONITOR_URL
 url = "%s"`,
 		m.PushTimeout.String(),
 		m.PushTimeout.String(),
