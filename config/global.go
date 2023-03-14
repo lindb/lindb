@@ -31,6 +31,7 @@ var (
 	loadConfigFn = ltoml.LoadConfig
 	envParseFn   = env.Parse
 )
+
 var (
 	// StandaloneMode represents LinDB run as standalone mode
 	StandaloneMode = false
@@ -149,9 +150,6 @@ func LoadAndSetStandAloneConfig(cfgName, defaultPath string, standaloneCfg *Stan
 	if err := checkStorageBaseCfg(&standaloneCfg.StorageBase); err != nil {
 		return fmt.Errorf("failed checking storage config: %s", err)
 	}
-	fmt.Println("xxxxxxx")
-	fmt.Println(standaloneCfg.BrokerBase.HTTP.Port)
-	fmt.Println("xxxxxxx")
 	globalBrokerCfg.Store(&standaloneCfg.BrokerBase)
 	globalStorageCfg.Store(&standaloneCfg.StorageBase)
 	return nil

@@ -214,6 +214,11 @@ func (r *runtime) MustRegisterStatelessNode() error {
 	return fmt.Errorf("register root node failure")
 }
 
+// Config returns the configure of root.
+func (r *runtime) Config() any {
+	return r.config
+}
+
 // State returns current root server state.
 func (r *runtime) State() server.State {
 	return r.state

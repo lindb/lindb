@@ -267,6 +267,11 @@ func (r *runtime) Run() error {
 	return nil
 }
 
+// Config returns the configure of broker.
+func (r *runtime) Config() any {
+	return r.config
+}
+
 // State returns current broker server state
 func (r *runtime) State() server.State {
 	return r.state

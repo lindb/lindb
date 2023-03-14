@@ -87,6 +87,7 @@ func TestStorageRun(t *testing.T) {
 	storage := NewStorageRuntime("test-version", 1, &cfg)
 	err := storage.Run()
 	assert.NoError(t, err)
+	assert.NotNil(t, storage.Config())
 	assert.Equal(t, server.Running, storage.State())
 	// wait register success
 	time.Sleep(500 * time.Millisecond)

@@ -52,11 +52,11 @@ timeout = "5s"
 [storage]
 ## interval for how often do ttl job
 ## Default: 24h0m0s
-## Env: LINDB_TTL_TASK_INTERVAL 
+## Env: LINDB_STORAGE_TTL_TASK_INTERVAL 
 ttl-task-interval = "24h0m0s"
 ## Broker http endpoint which storage self register address
 ## Default: http://localhost:9000
-## Env: LINDB_BROKER_ENDPOINT
+## Env: LINDB_STORAGE_BROKER_ENDPOINT
 broker-endpoint = "http://localhost:9000"
 
 ## Storage HTTP related configuration.
@@ -108,16 +108,16 @@ connect-timeout = "3s"
 [storage.wal]
 ## WAL mmaped log directory
 ## Default: data/storage/wal
-## Env: LIND_STORAGE_WAL_DIR
+## Env: LINDB_STORAGE_WAL_DIR
 dir = "data/storage/wal"
 ## data-size-limit is the maximum size in megabytes of the page file before a new
 ## file is created. It defaults to 512 megabytes, available size is in [1MB, 1GB]
 ## Default: 128 MiB
-## Env: LIND_STORAGE_WAL_DATA_SIZE_LIMIT
+## Env: LINDB_STORAGE_WAL_DATA_SIZE_LIMIT
 data-size-limit = "128 MiB"
 ## interval for how often remove expired write ahead log
 ## Default: 1m0s
-## Env: LIND_STORAGE_WAL_REMOVE_TASK_INTERVAL
+## Env: LINDB_STORAGE_WAL_REMOVE_TASK_INTERVAL
 remove-task-interval = "1m0s"
 
 ## TSDB related configuration.

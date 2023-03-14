@@ -107,11 +107,11 @@ func (s *StorageBase) TOML() string {
 [storage]
 ## interval for how often do ttl job
 ## Default: %s
-## Env: LINDB_TTL_TASK_INTERVAL 
+## Env: LINDB_STORAGE_TTL_TASK_INTERVAL 
 ttl-task-interval = "%s"
 ## Broker http endpoint which storage self register address
 ## Default: %s
-## Env: LINDB_BROKER_ENDPOINT
+## Env: LINDB_STORAGE_BROKER_ENDPOINT
 broker-endpoint = "%s"
 
 ## Storage HTTP related configuration.
@@ -157,16 +157,16 @@ func (rc *WAL) TOML() string {
 	return fmt.Sprintf(`
 ## WAL mmaped log directory
 ## Default: %s
-## Env: LIND_STORAGE_WAL_DIR
+## Env: LINDB_STORAGE_WAL_DIR
 dir = "%s"
 ## data-size-limit is the maximum size in megabytes of the page file before a new
 ## file is created. It defaults to 512 megabytes, available size is in [1MB, 1GB]
 ## Default: %s
-## Env: LIND_STORAGE_WAL_DATA_SIZE_LIMIT
+## Env: LINDB_STORAGE_WAL_DATA_SIZE_LIMIT
 data-size-limit = "%s"
 ## interval for how often remove expired write ahead log
 ## Default: %s
-## Env: LIND_STORAGE_WAL_REMOVE_TASK_INTERVAL
+## Env: LINDB_STORAGE_WAL_REMOVE_TASK_INTERVAL
 remove-task-interval = "%s"`,
 		strings.ReplaceAll(rc.Dir, "\\", "\\\\"),
 		strings.ReplaceAll(rc.Dir, "\\", "\\\\"),

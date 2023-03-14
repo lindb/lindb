@@ -81,6 +81,7 @@ func TestRootRun(t *testing.T) {
 	cfg.HTTP.Port = 3990
 	r := NewRootRuntime("test-version", &cfg)
 	err := r.Run()
+	assert.NotNil(t, r.Config())
 	assert.NoError(t, err)
 	assert.Equal(t, server.Running, r.State())
 

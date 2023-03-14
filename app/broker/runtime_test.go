@@ -73,6 +73,7 @@ func TestBrokerRuntime_New(t *testing.T) {
 	r := NewBrokerRuntime("version", &cfg, false)
 	assert.NotNil(t, r)
 	assert.Equal(t, "broker", r.Name())
+	assert.NotNil(t, r.Config())
 }
 
 func TestBrokerRuntime_Run(t *testing.T) {

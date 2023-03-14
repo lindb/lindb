@@ -100,6 +100,11 @@ func NewStandaloneRuntime(version string, cfg *config.Standalone, embedEtcd bool
 	}
 }
 
+// Config returns the configure of standalone.
+func (r *runtime) Config() any {
+	return r.cfg
+}
+
 // Name returns the cluster mode
 func (r *runtime) Name() string {
 	return "standalone"
