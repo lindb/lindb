@@ -18,6 +18,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -48,10 +49,15 @@ func AccessLog() gin.HandlerFunc {
 				unescapedPath = path
 			}
 			status := c.Writer.Status()
+			errors := c.Errors
 			// http://httpd.apache.org/docs/1.3/logs.html?PHPSESSID=026558d61a93eafd6da3438bb9605d4d#common
 			requestInfo := realIP(r) + " " + time.Since(start).String() +
 				" \"" + r.Method + " " + unescapedPath + " " + r.Proto + "\" " +
 				strconv.Itoa(status) + " " + strconv.Itoa(c.Writer.Size())
+			if len(errors) > 0 {
+				errMsg := fmt.Sprintf(" %v", errors)
+				requestInfo += strings.TrimRight(errMsg, "\n")
+			}
 			if status >= 400 {
 				logger.AccessLog.Error(requestInfo)
 			} else {

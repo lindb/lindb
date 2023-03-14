@@ -39,6 +39,7 @@ func TestAccessLogMiddleware(t *testing.T) {
 	r := gin.New()
 	r.Use(AccessLog())
 	r.GET("/home", func(c *gin.Context) {
+		_ = c.Error(fmt.Errorf("err"))
 		c.JSON(http.StatusOK, "ok")
 	})
 
