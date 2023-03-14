@@ -26,11 +26,11 @@ import (
 
 // Root represents a root configuration with common settings.
 type Root struct {
-	Coordinator RepoState `envPrefix:"COORDINATOR_" toml:"coordinator"`
-	Query       Query     `envPrefix:"QUERY_" toml:"query"`
-	HTTP        HTTP      `envPrefix:"ROOT_HTTP_" toml:"http"`
-	Monitor     Monitor   `envPrefix:"MONITOR_" toml:"monitor"`
-	Logging     Logging   `envPrefix:"LOGGING_" toml:"logging"`
+	Coordinator RepoState `envPrefix:"LINDB_COORDINATOR_" toml:"coordinator"`
+	Query       Query     `envPrefix:"LINDB_QUERY_" toml:"query"`
+	HTTP        HTTP      `envPrefix:"LINDB_ROOT_HTTP_" toml:"http"`
+	Monitor     Monitor   `envPrefix:"LINDB_MONITOR_" toml:"monitor"`
+	Logging     Logging   `envPrefix:"LINDB_LOGGING_" toml:"logging"`
 }
 
 // TOML returns root's configuration string as toml format.

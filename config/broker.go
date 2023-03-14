@@ -36,27 +36,27 @@ func (h *HTTP) TOML() string {
 	return fmt.Sprintf(`
 ## port which the HTTP Server is listening on
 ## Default: %d
-## Env: BROKER_HTTP_PORT
-## Env: STORAGE_HTTP_PORT
-## Env: ROOT_HTTP_PORT
+## Env: LINDB_BROKER_HTTP_PORT
+## Env: LINDB_STORAGE_HTTP_PORT
+## Env: LINDB_ROOT_HTTP_PORT
 port = %d
 ## maximum duration the server should keep established connections alive.
 ## Default: %s
-## Env: BROKER_HTTP_IDLE_TIMEOUT
-## Env: STORAGE_HTTP_IDLE_TIMEOUT
-## Env: ROOT_HTTP_IDLE_TIMEOUT
+## Env: LINDB_BROKER_HTTP_IDLE_TIMEOUT
+## Env: LINDB_STORAGE_HTTP_IDLE_TIMEOUT
+## Env: LINDB_ROOT_HTTP_IDLE_TIMEOUT
 idle-timeout = "%s"
 ## maximum duration before timing out for server writes of the response
 ## Default: %s
-## Env: BROKER_HTTP_WRITE_TIMEOUT
-## Env: STORAGE_HTTP_WRITE_TIMEOUT
-## Env: ROOT_HTTP_WRITE_TIMEOUT
+## Env: LINDB_BROKER_HTTP_WRITE_TIMEOUT
+## Env: LINDB_STORAGE_HTTP_WRITE_TIMEOUT
+## Env: LINDB_ROOT_HTTP_WRITE_TIMEOUT
 write-timeout = "%s"
 ## maximum duration for reading the entire request, including the body.
 ## Default: %s
-## Env: BROKER_HTTP_READ_TIMEOUT
-## Env: STORAGE_HTTP_READ_TIMEOUT
-## Env: ROOT_HTTP_READ_TIMEOUT
+## Env: LINDB_BROKER_HTTP_READ_TIMEOUT
+## Env: LINDB_STORAGE_HTTP_READ_TIMEOUT
+## Env: LINDB_ROOT_HTTP_READ_TIMEOUT
 read-timeout = "%s"`,
 		h.Port,
 		h.Port,
@@ -80,11 +80,11 @@ func (i *Ingestion) TOML() string {
 ## If writes requests exceeds the concurrency,
 ## ingestion HTTP API will be throttled.
 ## Default: %d
-## Env: BROKER_INGESTION_CONCURRENCY
+## Env: LINDB_BROKER_INGESTION_CONCURRENCY
 max-concurrency = %d
 ## maximum duration before timeout for server ingesting metrics
 ## Default: %s
-## Env: BROKER_INGESTION_TIMEOUT
+## Env: LINDB_BROKER_INGESTION_TIMEOUT
 ingest-timeout = "%s"`,
 		i.MaxConcurrency,
 		i.MaxConcurrency,
@@ -119,15 +119,15 @@ func (rc *Write) TOML() string {
 ## Broker will write at least this often,
 ## even if the configured batch-size if not reached.
 ## Default: %s
-## Env: BROKER_WRITE_BATCH_TIMEOUT
+## Env: LINDB_BROKER_WRITE_BATCH_TIMEOUT
 batch-timeout = "%s"
 ## Broker will sending block to storage node in this size
 ## Default: %s
-## Env: BROKER_WRITE_BLOCK_SIZE
+## Env: LINDB_BROKER_WRITE_BLOCK_SIZE
 batch-block-size = "%s"
 ## interval for how often expired write write family garbage collect task execute
 ## Default: %s
-## Env: BROKER_WRITE_GC_INTERVAL
+## Env: LINDB_BROKER_WRITE_GC_INTERVAL
 gc-task-interval = "%s"`,
 		rc.BatchTimeout.String(),
 		rc.BatchTimeout.String(),
@@ -155,7 +155,7 @@ func (bb *BrokerBase) TOML() string {
 
 ## Throttle duration for slow sql.
 ## Default: %s
-## Env: BROKER_SLOW_SQL
+## Env: LINDB_BROKER_SLOW_SQL
 slow-sql = "%s"
 
 ## Controls how HTTP Server are configured.
@@ -206,11 +206,11 @@ func NewDefaultBrokerBase() *BrokerBase {
 
 // Broker represents a broker configuration with common settings
 type Broker struct {
-	Coordinator RepoState  `envPrefix:"COORDINATOR_" toml:"coordinator"`
-	Query       Query      `envPrefix:"QUERY_" toml:"query"`
-	BrokerBase  BrokerBase `envPrefix:"BROKER_" toml:"broker"`
-	Monitor     Monitor    `envPrefix:"MONITOR_" toml:"monitor"`
-	Logging     Logging    `envPrefix:"LOGGING_" toml:"logging"`
+	Coordinator RepoState  `envPrefix:"LINDB_COORDINATOR_" toml:"coordinator"`
+	Query       Query      `envPrefix:"LINDB_QUERY_" toml:"query"`
+	BrokerBase  BrokerBase `envPrefix:"LINDB_BROKER_" toml:"broker"`
+	Monitor     Monitor    `envPrefix:"LINDB_MONITOR_" toml:"monitor"`
+	Logging     Logging    `envPrefix:"LINDB_LOGGING_" toml:"logging"`
 }
 
 // TOML returns broker's configuration string as toml format.

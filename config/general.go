@@ -68,34 +68,34 @@ func (rs *RepoState) TOML() string {
 ## Coordinator coordinates reads/writes operations between different nodes
 ## namespace organizes etcd keys into a isolated complete keyspaces for coordinator
 ## Default: %s
-## Env: COORDINATOR_NAMESPACE
+## Env: LINDB_COORDINATOR_NAMESPACE
 namespace = "%s"
 ## Endpoints config list of ETCD cluster
 ## Default: %s
-## Env: COORDINATOR_NAMESPACE  Env Separator: ,
+## Env: LINDB_COORDINATOR_ENDPOINTS  Env Separator: ,
 endpoints = %s
 ## Lease-TTL is a number in seconds.
 ## It controls how long a ephemeral node like zookeeper will be removed when heartbeat fails.
 ## lease expiration will cause a re-elect.
 ## Min: 5s
 ## Default: %s
-## Env: COORDINATOR_LEASE_TTL
+## Env: LINDB_COORDINATOR_LEASE_TTL
 lease-ttl = "%s"
 ## Timeout is the timeout for failing to executing a etcd command.
 ## Default: %s
-## Env: COORDINATOR_LEASE_TTL
+## Env: LINDB_COORDINATOR_TIMEOUT
 timeout = "%s"
 ## DialTimeout is the timeout for failing to establish a etcd connection.
 ## Default: %s
-## Env: COORDINATOR_DIAL_TIMEOUT
+## Env: LINDB_COORDINATOR_DIAL_TIMEOUT
 dial-timeout = "%s"
 ## Username is a user name for etcd authentication.
 ## Default: "%s"
-## Env: COORDINATOR_USERNAME
+## Env: LINDB_COORDINATOR_USERNAME
 username = "%s"
 ## Password is a password for etcd authentication.
 ## Default: "%s"
-## Env: COORDINATOR_PASSWORD
+## Env: LINDB_COORDINATOR_PASSWORD
 password = "%s"`,
 		rs.Namespace,
 		rs.Namespace,
@@ -135,18 +135,18 @@ func (g *GRPC) TOML() string {
 	return fmt.Sprintf(`
 ## port which the GRPC Server is listening on
 ## Default: %d
-## Env: BROKER_GRPC_PORT
-## Env: STORAGE_GRPC_PORT
+## Env: LINDB_BROKER_GRPC_PORT
+## Env: LINDB_STORAGE_GRPC_PORT
 port = %d
 ## max-concurrent-streams limits the number of concurrent streams to each ServerTransport
 ## Default: %d 
-## Env: BROKER_GRPC_MAX_CONCURRENT_STREAMS
-## Env: STORAGE_GRPC_MAX_CONCURRENT_STREAMS
+## Env: LINDB_BROKER_GRPC_MAX_CONCURRENT_STREAMS
+## Env: LINDB_STORAGE_GRPC_MAX_CONCURRENT_STREAMS
 max-concurrent-streams = %d
 ## connect-timeout sets the timeout for connection establishment.
 ## Default: %s
-## Env: BROKER_GRPC_CONNECT_TIMEOUT
-## Env: STORAGE_GRPC_CONNECT_TIMEOUT
+## Env: LINDB_BROKER_GRPC_CONNECT_TIMEOUT
+## Env: LINDB_STORAGE_GRPC_CONNECT_TIMEOUT
 connect-timeout = "%s"`,
 		g.Port,
 		g.Port,
@@ -178,15 +178,15 @@ func (q *Query) TOML() string {
 	return fmt.Sprintf(`[query]
 ## Number of queries allowed to execute concurrently
 ## Default: %d
-## Env: QUERY_CONCURRENCY
+## Env: LINDB_QUERY_CONCURRENCY
 query-concurrency = %d
 ## Idle worker will be canceled in this duration
 ## Default: %s
-## Env: QUERY_IDLE_TIMEOUT
+## Env: LINDB_QUERY_IDLE_TIMEOUT
 idle-timeout = "%s"
 ## Maximum timeout threshold for query.
 ## Default: %s
-## Env: QUERY_TIMEOUT
+## Env: LINDB_QUERY_TIMEOUT
 timeout = "%s"`,
 		q.QueryConcurrency,
 		q.QueryConcurrency,
