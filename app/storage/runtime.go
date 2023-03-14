@@ -144,6 +144,11 @@ func NewStorageRuntime(version string, myID int, cfg *config.Storage) server.Ser
 	}
 }
 
+// Config returns the configure of storage.
+func (r *runtime) Config() any {
+	return r.config
+}
+
 // Name returns the storage service's name.
 func (r *runtime) Name() string {
 	return "storage"

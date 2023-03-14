@@ -18,6 +18,7 @@
 package config
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -95,8 +96,12 @@ func TestRoot_Env_Default(t *testing.T) {
 	cfg := NewDefaultRoot()
 	opts := env.Options{Environment: map[string]string{
 		"LINDB_COORDINATOR_NAMESPACE": "ns",
-	}}
-	err := env.Parse(cfg, opts)
+	},
+		OnSet: func(tag string, value interface{}, isDefault bool) {
+			fmt.Printf("Set %s to %v (default? %v)\n", tag, value, isDefault)
+		},
+	}
+	err := envParseFn(cfg, opts)
 	assert.NoError(t, err)
 
 	assert.Equal(t, "ns", cfg.Coordinator.Namespace)

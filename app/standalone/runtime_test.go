@@ -64,6 +64,7 @@ func TestRuntime_New(t *testing.T) {
 	cfg := newDefaultStandaloneConfig(t)
 	standalone := NewStandaloneRuntime("test-version", &cfg, true)
 	assert.NotNil(t, standalone)
+	assert.NotNil(t, standalone.Config())
 	assert.Equal(t, "standalone", standalone.Name())
 }
 
