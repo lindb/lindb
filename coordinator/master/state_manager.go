@@ -443,6 +443,12 @@ func (m *stateManager) shardAssignment(databaseCfg *models.Database) {
 		return
 	}
 
+	cluster, ok := m.storages[databaseCfg.Storage]
+	if !ok {
+		m.logger.Warn("storage cluster not found", logger.String("storage", databaseCfg.Storage))
+		return
+	}
+
 	m.databases[databaseCfg.Name] = databaseCfg
 
 	// get shard assignment from repo, maybe mem state is not sync.
@@ -451,9 +457,6 @@ func (m *stateManager) shardAssignment(databaseCfg *models.Database) {
 		m.logger.Error("get shard assign error", logger.Error(err))
 		return
 	}
-
-	cluster := m.storages[databaseCfg.Storage]
-
 	switch {
 	case shardAssign == nil:
 		// build shard assignment for creation database, generate related coordinator task
