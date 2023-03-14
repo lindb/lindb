@@ -62,9 +62,26 @@ func TestSchema(t *testing.T) {
 			wantErr:   true,
 		},
 		{
+			name:      "create database, storage not found",
+			statement: &stmt.Schema{Type: stmt.CreateDatabaseSchemaType, Value: databaseCfg},
+			prepare: func() {
+				repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, state.ErrNotExist)
+			},
+			wantErr: true,
+		},
+		{
+			name:      "create database, get storage failure",
+			statement: &stmt.Schema{Type: stmt.CreateDatabaseSchemaType, Value: databaseCfg},
+			prepare: func() {
+				repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
 			name:      "create database, persist failure",
 			statement: &stmt.Schema{Type: stmt.CreateDatabaseSchemaType, Value: databaseCfg},
 			prepare: func() {
+				repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, nil)
 				repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 			},
 			wantErr: true,
@@ -90,6 +107,7 @@ func TestSchema(t *testing.T) {
 			name:      "create database successfully",
 			statement: &stmt.Schema{Type: stmt.CreateDatabaseSchemaType, Value: databaseCfg},
 			prepare: func() {
+				repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, nil)
 				repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			},
 		},

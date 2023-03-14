@@ -246,13 +246,22 @@ func TestStateManager_DatabaseCfg(t *testing.T) {
 		Key:   "/database/test",
 		Value: encoding.JSONMarshal(&models.Database{}),
 	})
-	data := encoding.JSONMarshal(&models.Database{
+	db := &models.Database{
 		Name:          "test",
-		Storage:       "/storage/test",
+		Storage:       "/storage/test2",
 		NumOfShard:    3,
 		ReplicaFactor: 2,
 		Option:        &option.DatabaseOption{},
+	}
+	data := encoding.JSONMarshal(db)
+	// case 3: storage not found
+	mgr.EmitEvent(&discovery.Event{
+		Type:  discovery.DatabaseConfigChanged,
+		Key:   "/database/test",
+		Value: data,
 	})
+	db.Storage = "/storage/test"
+	data = encoding.JSONMarshal(db)
 	// case 3: get shard assign err
 	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
 	mgr.EmitEvent(&discovery.Event{
