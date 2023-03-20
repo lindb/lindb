@@ -50,12 +50,17 @@ COPY docs/ docs/
 # the docker BUILDPLATFORM arg will be linux/arm64 when for Apple x86 it will be linux/amd64. Therefore,
 # by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
 RUN	CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} \
-    go build "${LD_FLAGS}" -o lind ./cmd/lind
+    go build "${LD_FLAGS}" -o lind ./cmd/lind \
+    && go build "${LD_FLAGS}" -o lindctl ./cmd/cli
 
 
 FROM centos:latest
 WORKDIR /
 COPY --from=builder /workspace/lind /usr/bin/lind
-RUN mkdir /lindb
+COPY --from=builder /workspace/lindctl /usr/bin/lindctl
+RUN ln -s /usr/bin/lind /usr/local/bin/lind
+RUN ln -s /usr/bin/lindctl /usr/local/bin/lindctl
+RUN mkdir /etc/lindb
+RUN mkdir /data
 
 USER 0:0
