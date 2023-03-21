@@ -18,6 +18,8 @@
 package aggregation
 
 import (
+	"sync"
+
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
@@ -41,7 +43,7 @@ func (agg FieldAggregates) Reset() {
 }
 
 // NewFieldAggregates creates the field aggregates based on aggregator specs and query time range.
-// NOTICE: if it does down sampling aggregator, aggregator specs must be in order by field id.
+// NOTE: if it does down sampling aggregator, aggregator specs must be in order by field id.
 func NewFieldAggregates(
 	queryInterval timeutil.Interval,
 	intervalRatio int,
@@ -85,6 +87,8 @@ type seriesAggregator struct {
 	calc       timeutil.IntervalCalculator
 
 	startTime int64
+
+	mutex sync.Mutex
 }
 
 // NewSeriesAggregator creates a series aggregator.
@@ -95,24 +99,17 @@ func NewSeriesAggregator(
 	aggSpec AggregatorSpec,
 ) SeriesAggregator {
 	calc := queryInterval.Calculator()
-	startTime := calc.CalcFamilyTime(queryTimeRange.Start)
 
-	length := calc.CalcTimeWindows(queryTimeRange.Start, queryTimeRange.End)
-
-	agg := &seriesAggregator{
+	return &seriesAggregator{
 		fieldName:      aggSpec.FieldName(),
 		fieldType:      aggSpec.GetFieldType(),
-		startTime:      startTime,
+		startTime:      calc.CalcFamilyTime(queryTimeRange.Start),
 		calc:           calc,
 		intervalRatio:  intervalRatio,
 		queryInterval:  queryInterval,
 		queryTimeRange: queryTimeRange,
 		aggSpec:        aggSpec,
 	}
-	if length > 0 {
-		agg.aggregates = make([]FieldAggregator, length)
-	}
-	return agg
 }
 
 // FieldName returns field name.
@@ -149,17 +146,13 @@ func (a *seriesAggregator) GetAggregator(segmentStartTime int64) (agg FieldAggre
 	if segmentStartTime < a.startTime {
 		return
 	}
-	idx := a.calc.CalcTimeWindows(a.startTime, segmentStartTime) - 1
-	if idx < 0 || idx >= len(a.aggregates) {
-		return
-	}
-	agg = a.aggregates[idx]
-	if agg == nil {
-		familyTimeForQuery := a.calc.CalcFamilyTime(segmentStartTime)
-		slotRange := a.queryInterval.CalcSlotRange(familyTimeForQuery, a.queryTimeRange)
-		agg = NewFieldAggregator(a.aggSpec, familyTimeForQuery, int(slotRange.Start), int(slotRange.End))
-		a.aggregates[idx] = agg
-	}
+	familyTimeForQuery := a.calc.CalcFamilyTime(segmentStartTime)
+	slotRange := a.queryInterval.CalcSlotRange(familyTimeForQuery, a.queryTimeRange)
+	agg = NewFieldAggregator(a.aggSpec, familyTimeForQuery, int(slotRange.Start), int(slotRange.End))
+
+	a.mutex.Lock()
+	a.aggregates = append(a.aggregates, agg)
+	a.mutex.Unlock()
 	ok = true
 	return
 }

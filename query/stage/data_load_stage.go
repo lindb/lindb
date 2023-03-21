@@ -65,8 +65,8 @@ func (stage *dataLoadStage) Plan() PlanNode {
 	for idx := range stage.segmentRS.FilterRS {
 		execPlan.AddChild(NewPlanNode(
 			operator.NewDataLoad(stage.executeCtx, stage.segmentRS, stage.segmentRS.FilterRS[idx])))
-		execPlan.AddChild(NewPlanNode(operator.NewLeafReduce(stage.leafExecuteCtx, stage.executeCtx)))
 	}
+	execPlan.AddChild(NewPlanNode(operator.NewLeafReduce(stage.leafExecuteCtx, stage.executeCtx)))
 	return execPlan
 }
 
