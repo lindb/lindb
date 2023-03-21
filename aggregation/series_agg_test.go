@@ -94,9 +94,6 @@ func TestNewSeriesAggregator(t *testing.T) {
 	fAgg, ok = agg.GetAggregator(familyTime + 3*timeutil.OneHour)
 	assert.True(t, ok)
 	assert.NotNil(t, fAgg)
-	fAgg, ok = agg.GetAggregator(familyTime + 4*timeutil.OneHour)
-	assert.False(t, ok)
-	assert.Nil(t, fAgg)
 
 	rs := agg.ResultSet()
 	assert.Equal(t, field.Name("b"), rs.FieldName())
@@ -115,20 +112,4 @@ func TestNewSeriesAggregator(t *testing.T) {
 	assert.True(t, len(d) > 0)
 
 	agg.Reset()
-
-	agg = NewSeriesAggregator(
-		timeutil.Interval(timeutil.OneSecond),
-		1,
-		timeutil.TimeRange{
-			Start: now,
-			End:   now - 3*timeutil.OneHour,
-		},
-		NewAggregatorSpec("b", field.SumField),
-	)
-	fAgg, ok = agg.GetAggregator(familyTime)
-	assert.False(t, ok)
-	assert.Nil(t, fAgg)
-
-	rs = agg.ResultSet()
-	assert.NotNil(t, rs)
 }

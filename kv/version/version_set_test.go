@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -303,6 +304,36 @@ func TestStoreVersionSet_Destroy(t *testing.T) {
 	manifest.EXPECT().Close().Return(fmt.Errorf("err"))
 	err := vs.Destroy()
 	assert.Error(t, err)
+}
+
+func TestStoreVersionSet(t *testing.T) {
+	path := t.TempDir()
+	cache := table.NewCache(path, time.Minute)
+	vs := NewStoreVersionSet(path, cache, 2)
+	err := vs.Recover()
+	assert.NoError(t, err)
+	defer func() {
+		assert.NoError(t, vs.Destroy())
+	}()
+	familyID := FamilyID(10)
+	familyName := "10"
+	fv := vs.CreateFamilyVersion(familyName, familyID)
+	editLog := NewEditLog(familyID)
+	editLog.Add(CreateNewRollupFile(table.FileNumber(10), timeutil.Interval(10000)))
+	editLog.Add(CreateNewRollupFile(table.FileNumber(10), timeutil.Interval(30000)))
+	err = fv.GetVersionSet().CommitFamilyEditLog(familyName, editLog)
+	assert.NoError(t, err)
+
+	editLog = NewEditLog(familyID)
+	editLog.Add(CreateNewFile(0, &FileMeta{
+		fileNumber: 1,
+		minKey:     0,
+		maxKey:     10,
+		fileSize:   512,
+	}))
+	err = fv.GetVersionSet().CommitFamilyEditLog(familyName, editLog)
+	assert.NoError(t, err)
+	assert.Len(t, fv.GetLiveRollupFiles(), 1)
 }
 
 func initVersionSetTestData() {
