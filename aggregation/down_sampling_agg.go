@@ -126,27 +126,27 @@ func DownSamplingMultiSeriesInto(
 // DownSampling merges field data from source time range => target time range,
 // for example: source range[5,182]=>target range[0,6], ratio:30, source interval:10s, target interval:5min.
 func DownSampling(
-	source, target timeutil.SlotRange, ratio uint16, baseSlot uint16, getter encoding.TSDValueGetter,
+	source, target timeutil.SlotRange, ratio uint16, baseSlot int, getter encoding.TSDValueGetter,
 	emitValue func(targetPos int, value float64),
 ) {
-	start := int(target.Start)
-	end := int(target.End)
-	bs := int(baseSlot)
+	start := target.Start
+	end := target.End
+	intervalRatio := int(ratio)
 	for movingSourceSlot := source.Start; movingSourceSlot <= source.End; movingSourceSlot++ {
 		value, ok := getter.GetValue(movingSourceSlot)
 		if !ok {
 			// no data, goto next loop
 			continue
 		}
-		targetSlot := bs + int(movingSourceSlot/ratio) // base slot + source slot(down sampling)
-		if targetSlot < start {
+		if movingSourceSlot < start {
 			// target slot < query start slot, goto next loop
 			continue
 		}
-		if targetSlot > end {
+		if movingSourceSlot > end {
 			// exhausted when target slot > query end slot
 			break
 		}
+		targetSlot := (baseSlot + int(movingSourceSlot)) / intervalRatio // (base slot + source slot(down sampling))/ratio => target
 		emitValue(targetSlot, value)
 	}
 }

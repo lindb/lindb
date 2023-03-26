@@ -405,6 +405,12 @@ func TestInterval(t *testing.T) {
 	query = q.(*stmt.Query)
 	assert.NoError(t, err)
 	assert.Equal(t, timeutil.Interval(timeutil.OneYear), query.Interval)
+	assert.False(t, query.AutoGroupByTime)
+
+	sql = "select f from cpu group by time()"
+	q, _ = Parse(sql)
+	query = q.(*stmt.Query)
+	assert.True(t, query.AutoGroupByTime)
 }
 
 func TestGroupBy(t *testing.T) {

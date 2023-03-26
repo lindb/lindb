@@ -73,9 +73,8 @@ func TestDataLoader_Execute(t *testing.T) {
 		loader := flow.NewMockDataLoader(ctrl)
 		rs.EXPECT().SeriesIDs().Return(roaring.BitmapOf(1, 2))
 		rs.EXPECT().Load(gomock.Any()).Return(loader)
-		agg.EXPECT().GetAggregator(gomock.Any()).Return(nil, false)
 		fAgg := aggregation.NewMockFieldAggregator(ctrl)
-		agg.EXPECT().GetAggregator(gomock.Any()).Return(fAgg, true)
+		agg.EXPECT().GetAggregator(gomock.Any()).Return(fAgg).MaxTimes(2)
 		getter := encoding.NewMockTSDValueGetter(ctrl)
 		getter.EXPECT().GetValue(gomock.Any()).Return(5.0, true).AnyTimes()
 		loader.EXPECT().Load(gomock.Any()).Do(func(ctx *flow.DataLoadContext) {

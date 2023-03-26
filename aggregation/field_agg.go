@@ -43,7 +43,7 @@ type FieldAggregator interface {
 type fieldAggregator struct {
 	aggTypes         []field.AggType
 	segmentStartTime int64
-	start, end       int
+	start, end       int // slot range based on query interval and time range
 
 	fieldSeriesList []*collections.FloatArray
 }
@@ -53,7 +53,7 @@ type fieldAggregator struct {
 // e.g. segment start time = 20190905 10:00:00, start = 10, end = 50, interval = 10 seconds,
 // real query time range {20190905 10:01:40 ~ 20190905 10:08:20}
 func NewFieldAggregator(aggSpec AggregatorSpec, segmentStartTime int64, start, end int) FieldAggregator {
-	// TODO maybe agg type has duplicate?
+	// TODO: maybe agg type has duplicate?
 	var aggTypes []field.AggType
 	for f := range aggSpec.Functions() {
 		aggTypes = append(aggTypes, aggSpec.GetFieldType().GetFuncFieldParams(f)...)

@@ -162,7 +162,6 @@ func TestPrefixIterator(t *testing.T) {
 }
 
 func TestBitVector_String(t *testing.T) {
-	_ = hasBMI2
 	var bv bitVector
 	bv.Init([][]uint64{{1, 2}, {3}}, []uint32{2, 2})
 	assert.Equal(t, "1011", bv.String())

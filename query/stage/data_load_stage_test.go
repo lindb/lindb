@@ -49,8 +49,9 @@ func TestDataLoadStage_Plan(t *testing.T) {
 			ShardExecuteCtx: &flow.ShardExecuteContext{
 				StorageExecuteCtx: &flow.StorageExecuteContext{
 					Query: &stmt.Query{
-						Interval:      1,
-						IntervalRatio: 1.0,
+						Interval:        1,
+						IntervalRatio:   1.0,
+						StorageInterval: 1,
 					},
 				},
 			},

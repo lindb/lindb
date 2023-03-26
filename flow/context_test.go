@@ -77,11 +77,6 @@ func TestStorageExecuteContext_CalcSlotRange(t *testing.T) {
 		Start: 0,
 		End:   59,
 	}, slotRange)
-	slotRange = ctx.CalcTargetSlotRange(t1)
-	assert.Equal(t, timeutil.SlotRange{
-		Start: 0,
-		End:   59,
-	}, slotRange)
 }
 
 func TestStorageExecuteContext_HasGroupingTagValueIDs(t *testing.T) {

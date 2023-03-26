@@ -122,11 +122,6 @@ func (ctx *StorageExecuteContext) CalcSourceSlotRange(familyTime int64) timeutil
 	return ctx.Query.StorageInterval.CalcSlotRange(familyTime, ctx.Query.TimeRange)
 }
 
-// CalcTargetSlotRange returns slot range for aggregator by family time and query time range.
-func (ctx *StorageExecuteContext) CalcTargetSlotRange(familyTime int64) timeutil.SlotRange {
-	return ctx.Query.Interval.CalcSlotRange(familyTime, ctx.Query.TimeRange)
-}
-
 // HasGroupingTagValueIDs returns if it needs collect grouping tag value.
 func (ctx *StorageExecuteContext) HasGroupingTagValueIDs() bool {
 	ctx.mutex.Lock()
@@ -450,11 +445,13 @@ func (f TimeSegmentContexts) Swap(i, j int) { f[i], f[j] = f[j], f[i] }
 // TimeSegmentResultSet represents the time segment in query time range.
 type TimeSegmentResultSet struct {
 	FamilyTime int64
-	Source     timeutil.SlotRange
-	Interval   timeutil.Interval
 
-	TargetRange   timeutil.SlotRange
-	BaseTime      uint16
+	Source timeutil.SlotRange
+	Target timeutil.SlotRange
+
+	BaseSlot int
+
+	Interval      timeutil.Interval
 	IntervalRatio uint16
 
 	FilterRS []FilterResultSet

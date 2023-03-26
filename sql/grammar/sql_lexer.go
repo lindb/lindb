@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Code generated from java-escape by ANTLR 4.11.1. DO NOT EDIT.
+// Code generated from ./sql/grammar/SQL.g4 by ANTLR 4.12.0. DO NOT EDIT.
 
 package grammar
 
