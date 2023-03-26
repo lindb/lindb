@@ -248,9 +248,9 @@ max-mem-usage-before-flush = 0.75
 ## Env: LINDB_STORAGE_TSDB_TARGET_MEM_USAGE_AFTER_FLUSH
 target-mem-usage-after-flush = 0.60
 ## concurrency of goroutines for flushing.
-## Default: 6
+## Default: 5
 ## Env: LINDB_STORAGE_TSDB_FLUSH_CONCURRENCY 
-flush-concurrency = 6
+flush-concurrency = 5
 
 ## logging related configuration.
 [logging]

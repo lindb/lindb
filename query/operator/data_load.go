@@ -67,21 +67,16 @@ func (op *dataLoad) Execute() error {
 	}
 
 	familyTime := op.segmentRS.FamilyTime
-	targetSlotRange := op.segmentRS.TargetRange
+	targetSlotRange := op.segmentRS.Target
 	queryIntervalRatio := op.segmentRS.IntervalRatio
-	baseSlot := op.segmentRS.BaseTime
+	baseSlot := op.segmentRS.BaseSlot
 
 	// load field series data by series ids
 	op.executeCtx.Decoder = encoding.GetTSDDecoder()
 	op.executeCtx.DownSampling = func(slotRange timeutil.SlotRange, lowSeriesIdx uint16, fieldIdx int, getter encoding.TSDValueGetter) {
-		var agg aggregation.FieldAggregator
 		seriesAggregator := op.executeCtx.GetSeriesAggregator(lowSeriesIdx, fieldIdx)
 
-		var ok bool
-		agg, ok = seriesAggregator.GetAggregator(familyTime)
-		if !ok {
-			return
-		}
+		agg := seriesAggregator.GetAggregator(familyTime)
 		op.foundSeries++
 		aggregation.DownSampling(
 			slotRange, targetSlotRange, queryIntervalRatio, baseSlot,

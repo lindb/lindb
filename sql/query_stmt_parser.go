@@ -43,9 +43,10 @@ type queryStmtParser struct {
 	startTime int64
 	endTime   int64
 
-	groupBy  []string
-	interval int64
-	orderBy  []stmt.Expr
+	groupBy         []string
+	interval        int64
+	autoGroupByTime bool
+	orderBy         []stmt.Expr
 
 	curOrderByExpr *stmt.OrderByExpr
 	hasOrderBy     bool
@@ -90,6 +91,7 @@ func (q *queryStmtParser) build() (stmt.Statement, error) {
 	}
 
 	query.Interval = timeutil.Interval(q.interval)
+	query.AutoGroupByTime = q.autoGroupByTime
 	query.GroupBy = q.groupBy
 	query.OrderByItems = q.orderBy
 	query.Limit = q.limit
@@ -110,19 +112,25 @@ func (q *queryStmtParser) validation() error {
 	return nil
 }
 
-// resetExprStack resets expr stack for next parse fragment
+// resetExprStack resets expr stack for next parse fragment.
 func (q *queryStmtParser) resetExprStack() {
 	q.exprStack = collections.NewStack()
 }
 
-// visitGroupByKey visits when production groupBy key expression is entered
+// visitGroupByKey visits when production groupBy key expression is entered,
 func (q *queryStmtParser) visitGroupByKey(ctx *grammar.GroupByKeyContext) {
 	switch {
 	case ctx.Ident() != nil:
 		tagKey := strutil.GetStringValue(ctx.Ident().GetText())
 		q.groupBy = append(q.groupBy, tagKey)
 	case ctx.DurationLit() != nil:
+		// set group by time interval
 		q.interval = q.parseDuration(ctx.DurationLit())
+	default:
+		if ctx.T_TIME() != nil {
+			// set auto fill group by time interval flag
+			q.autoGroupByTime = true
+		}
 	}
 }
 

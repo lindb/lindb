@@ -56,7 +56,12 @@ import: ## opt go imports format.
 	sh scripts/imports.sh
 
 lint: ## run lint
-	go install "github.com/golangci/golangci-lint/cmd/golangci-lint@v1.48.0"
+ifeq (, $(shell which golangci-lint))
+	# binary will be $(go env GOPATH)/bin/golangci-lint
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.51.2
+else
+	echo "Found golangci-lint"
+endif
 	golangci-lint run ./...
 
 api-doc: ## generate api document

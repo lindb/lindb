@@ -45,4 +45,9 @@ func Test_calcTimeRangeAndInterval(t *testing.T) {
 	statement.TimeRange = timeutil.TimeRange{Start: timeutil.Now(), End: timeutil.Now() + 6*timeutil.OneHour}
 	calcTimeRangeAndInterval(statement, cfg)
 	assert.Equal(t, timeutil.Interval(timeutil.OneHour), statement.Interval)
+
+	statement = &stmt.Query{AutoGroupByTime: true}
+	statement.TimeRange = timeutil.TimeRange{Start: timeutil.Now(), End: timeutil.Now() + 6*timeutil.OneHour}
+	calcTimeRangeAndInterval(statement, cfg)
+	assert.Equal(t, timeutil.Interval(6*timeutil.OneHour)+statement.StorageInterval, statement.Interval)
 }

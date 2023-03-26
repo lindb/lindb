@@ -169,10 +169,10 @@ func (i Interval) CalcSlotRange(familyTime int64, timeRange TimeRange) SlotRange
 		End:   calc.CalcFamilyEndTime(familyTime),
 	}
 	rs := timeRange.Intersect(storageTimeRange)
-	queryIntervalVal := i.Int64()
+	intervalVal := i.Int64()
 	return SlotRange{
-		Start: uint16(calc.CalcSlot(rs.Start, familyTime, queryIntervalVal)),
-		End:   uint16(calc.CalcSlot(rs.End, familyTime, queryIntervalVal)),
+		Start: uint16(calc.CalcSlot(rs.Start, familyTime, intervalVal)),
+		End:   uint16(calc.CalcSlot(rs.End, familyTime, intervalVal)),
 	}
 }
 

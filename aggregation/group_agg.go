@@ -85,14 +85,8 @@ func (ga *groupingAggregator) Aggregate(it series.GroupedIterator) {
 			if fieldIt == nil {
 				continue
 			}
-			var (
-				aggregator FieldAggregator
-				ok         bool
-			)
-			aggregator, ok = sAgg.GetAggregator(startTime)
-			if ok {
-				aggregator.Aggregate(fieldIt)
-			}
+			aggregator := sAgg.getAggregator(startTime)
+			aggregator.Aggregate(fieldIt)
 		}
 	}
 }

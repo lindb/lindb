@@ -34,9 +34,10 @@ type Query struct {
 
 	// broker plan maybe reset
 	TimeRange       timeutil.TimeRange // query time range
-	Interval        timeutil.Interval  // down sampling interval
-	IntervalRatio   int                // down sampling interval ratio
+	Interval        timeutil.Interval  // down sampling storage interval
 	StorageInterval timeutil.Interval  // down sampling storage interval, data find
+	IntervalRatio   int                // down sampling interval ratio(query interval/storage Interval)
+	AutoGroupByTime bool               // auto fix group by interval based on query time range
 
 	GroupBy      []string // group by tag keys
 	OrderByItems []Expr   // order by field expr list
@@ -63,8 +64,9 @@ type innerQuery struct {
 
 	TimeRange       timeutil.TimeRange `json:"timeRange,omitempty"`
 	Interval        timeutil.Interval  `json:"interval,omitempty"`
-	IntervalRatio   int                `json:"intervalRatio,omitempty"`
 	StorageInterval timeutil.Interval  `json:"storageInterval,omitempty"`
+	IntervalRatio   int                `json:"intervalRatio,omitempty"`
+	AutoGroupByTime bool               `json:"autoGroupByTime,omitempty"`
 
 	GroupBy      []string          `json:"groupBy,omitempty"`
 	OrderByItems []json.RawMessage `json:"orderByItems,omitempty"`
@@ -81,6 +83,7 @@ func (q *Query) MarshalJSON() ([]byte, error) {
 		TimeRange:       q.TimeRange,
 		Interval:        q.Interval,
 		IntervalRatio:   q.IntervalRatio,
+		AutoGroupByTime: q.AutoGroupByTime,
 		StorageInterval: q.StorageInterval,
 		GroupBy:         q.GroupBy,
 		Limit:           q.Limit,
@@ -133,6 +136,7 @@ func (q *Query) UnmarshalJSON(value []byte) error {
 	q.TimeRange = inner.TimeRange
 	q.Interval = inner.Interval
 	q.IntervalRatio = inner.IntervalRatio
+	q.AutoGroupByTime = inner.AutoGroupByTime
 	q.StorageInterval = inner.StorageInterval
 	q.GroupBy = inner.GroupBy
 	q.OrderByItems = orderByItems

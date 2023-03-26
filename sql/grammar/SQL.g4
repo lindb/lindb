@@ -121,7 +121,7 @@ nowFunc                 : T_NOW T_OPEN_P exprFuncParams? T_CLOSE_P ;
 //group by
 groupByClause          : T_GROUP T_BY groupByKeys (T_FILL T_OPEN_P fillOption T_CLOSE_P)? havingClause? ;
 groupByKeys            : groupByKey (T_COMMA groupByKey)* ;
-groupByKey             : ident | T_TIME T_OPEN_P durationLit T_CLOSE_P ;
+groupByKey             : ident | T_TIME T_OPEN_P durationLit T_CLOSE_P | T_TIME T_OPEN_P T_CLOSE_P;
 fillOption             : T_NULL | T_PREVIOUS | L_INT | L_DEC ;
 
 orderByClause          : T_ORDER T_BY sortFields ;

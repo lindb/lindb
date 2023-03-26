@@ -248,9 +248,7 @@ func (m *masterController) OnCreate(_ string, resource []byte) {
 	}
 	var callbackFns []func(master *models.Master)
 	m.mutex.Lock()
-	for i := range m.fns {
-		callbackFns = append(callbackFns, m.fns[i])
-	}
+	callbackFns = append(callbackFns, m.fns...)
 	m.mutex.Unlock()
 
 	for _, fn := range callbackFns {
