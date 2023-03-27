@@ -323,7 +323,7 @@ func (db *database) dumpDatabaseConfig(newConfig *models.DatabaseConfig) error {
 
 // initMetadata initializes metadata backend storage
 func (db *database) initMetadata() error {
-	// FIXME close kv store if err??
+	// FIXME: close kv store if err??
 	metaStore, err := kv.GetStoreManager().CreateStore(tagMetaIndicator(db.name), kv.DefaultStoreOption())
 	if err != nil {
 		return err
