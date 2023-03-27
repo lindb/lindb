@@ -220,8 +220,16 @@ func (f *dataFamily) NeedFlush() bool {
 		// no data
 		return false
 	}
-
+	intervals := f.shard.Database().GetOption().Intervals
 	ttl := config.GlobalStorageConfig().TSDB.MutableMemDBTTL.Duration()
+	if len(intervals) > 1 {
+		// if set rollup interval, need check if ttl > smallest rollup interval.
+		// using small interval check flush ttl.
+		smallestRollupInterval := time.Duration(intervals[1].Interval.Int64() * int64(time.Millisecond))
+		if smallestRollupInterval < ttl {
+			ttl = smallestRollupInterval
+		}
+	}
 	maxMemDBSize := config.GlobalStorageConfig().TSDB.MaxMemDBSize
 
 	f.logger.Info("check memory database if need flush",

@@ -224,6 +224,9 @@ func TestDataFamily_Filter(t *testing.T) {
 func TestDataFamily_NeedFlush(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	db := NewMockDatabase(ctrl)
+	shard := NewMockShard(ctrl)
+	shard.EXPECT().Database().Return(db).AnyTimes()
 
 	cases := []struct {
 		name      string
@@ -262,12 +265,15 @@ func TestDataFamily_NeedFlush(t *testing.T) {
 			prepare: func(f *dataFamily) {
 				cfg := config.NewDefaultStorageBase()
 				cfg.TSDB.MutableMemDBTTL = ltoml.Duration(time.Second)
+				db.EXPECT().GetOption().Return(&option.DatabaseOption{
+					Intervals: option.Intervals{{Interval: timeutil.Interval(timeutil.OneSecond)}},
+				})
 				config.SetGlobalStorageConfig(cfg)
 				memDB := memdb.NewMockMemoryDatabase(ctrl)
 				f.mutableMemDB = memDB
 				memDB.EXPECT().MemSize().Return(int64(10))
 				memDB.EXPECT().NumOfMetrics().Return(10)
-				memDB.EXPECT().Uptime().Return(time.Duration(timeutil.Now() - timeutil.OneMinute)).MaxTimes(2)
+				memDB.EXPECT().Uptime().Return(time.Minute).MaxTimes(2)
 			},
 			needFlush: true,
 		},
@@ -276,12 +282,18 @@ func TestDataFamily_NeedFlush(t *testing.T) {
 			prepare: func(f *dataFamily) {
 				cfg := config.NewDefaultStorageBase()
 				cfg.TSDB.MutableMemDBTTL = ltoml.Duration(time.Hour)
+				db.EXPECT().GetOption().Return(&option.DatabaseOption{
+					Intervals: option.Intervals{
+						{Interval: timeutil.Interval(timeutil.OneSecond)},
+						{Interval: timeutil.Interval(timeutil.OneMinute * 5)},
+					},
+				})
 				cfg.TSDB.MaxMemDBSize = 10
 				config.SetGlobalStorageConfig(cfg)
 				memDB := memdb.NewMockMemoryDatabase(ctrl)
 				f.mutableMemDB = memDB
 				memDB.EXPECT().NumOfMetrics().Return(10)
-				memDB.EXPECT().Uptime().Return(time.Duration(timeutil.Now() - timeutil.OneMinute)).MaxTimes(2)
+				memDB.EXPECT().Uptime().Return(time.Minute).MaxTimes(2)
 				memDB.EXPECT().MemSize().Return(int64(1000)).MaxTimes(2)
 			},
 			needFlush: true,
@@ -292,11 +304,17 @@ func TestDataFamily_NeedFlush(t *testing.T) {
 				cfg := config.NewDefaultStorageBase()
 				cfg.TSDB.MutableMemDBTTL = ltoml.Duration(time.Hour)
 				cfg.TSDB.MaxMemDBSize = 10000
+				db.EXPECT().GetOption().Return(&option.DatabaseOption{
+					Intervals: option.Intervals{
+						{Interval: timeutil.Interval(timeutil.OneSecond)},
+						{Interval: timeutil.Interval(timeutil.OneMinute * 5)},
+					},
+				})
 				config.SetGlobalStorageConfig(cfg)
 				memDB := memdb.NewMockMemoryDatabase(ctrl)
 				f.mutableMemDB = memDB
 				memDB.EXPECT().NumOfMetrics().Return(10)
-				memDB.EXPECT().Uptime().Return(time.Duration(timeutil.Now() - timeutil.OneMinute)).MaxTimes(2)
+				memDB.EXPECT().Uptime().Return(time.Minute).MaxTimes(2)
 				memDB.EXPECT().MemSize().Return(int64(10)).MaxTimes(2)
 			},
 			needFlush: false,
@@ -310,6 +328,7 @@ func TestDataFamily_NeedFlush(t *testing.T) {
 				config.SetGlobalStorageConfig(config.NewDefaultStorageBase())
 			}()
 			f := &dataFamily{
+				shard:  shard,
 				logger: logger.GetLogger("TSDB", "Test"),
 			}
 			if tt.prepare != nil {
