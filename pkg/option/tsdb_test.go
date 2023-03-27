@@ -55,6 +55,14 @@ func TestDatabaseOption_Validate(t *testing.T) {
 		},
 		{
 			"validation pass",
+			DatabaseOption{Intervals: Intervals{
+				{timeutil.Interval(timeutil.OneSecond), timeutil.Interval(timeutil.OneMonth)},
+				{timeutil.Interval(timeutil.OneMinute), timeutil.Interval(timeutil.OneMonth)},
+			}, Behind: "1h", Ahead: "1h"},
+			true,
+		},
+		{
+			"validation pass",
 			DatabaseOption{Intervals: Intervals{{}}, Behind: "1h", Ahead: "1h"},
 			false,
 		},
@@ -145,6 +153,21 @@ func TestIntervals_Sort(t *testing.T) {
 	}, intervals)
 
 	assert.Equal(t, "[1s->1M,1m->1M,1h->1M]", intervals.String())
+}
+
+func TestIntervals_IsValid(t *testing.T) {
+	intervals := Intervals{
+		{timeutil.Interval(timeutil.OneSecond), timeutil.Interval(timeutil.OneMonth)},
+		{timeutil.Interval(timeutil.OneMinute), timeutil.Interval(timeutil.OneMonth)},
+		{timeutil.Interval(timeutil.OneHour), timeutil.Interval(timeutil.OneMonth)},
+	}
+	assert.Error(t, intervals.IsValid())
+	intervals = Intervals{
+		{timeutil.Interval(timeutil.OneSecond), timeutil.Interval(timeutil.OneMonth)},
+		{timeutil.Interval(timeutil.OneMinute * 5), timeutil.Interval(timeutil.OneMonth)},
+		{timeutil.Interval(timeutil.OneHour), timeutil.Interval(timeutil.OneMonth)},
+	}
+	assert.NoError(t, intervals.IsValid())
 }
 
 func TestDatabaseOption_FindMatchSmallestInterval(t *testing.T) {
