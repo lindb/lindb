@@ -146,7 +146,7 @@ func (c *compactJob) doMerge() error {
 			needMerge = append(needMerge, value)
 			start = false
 		case key != previousKey:
-			// FIXME stone1100 merge data maybe is one block
+			// FIXME: stone1100 merge data maybe is one block
 
 			// 1. if new key != previous key do merge logic based on user define
 			if err := merger.Merge(previousKey, needMerge); err != nil {
@@ -217,7 +217,7 @@ func (c *compactJob) makeInputIterator() (table.Iterator, error) {
 
 // openCompactionOutputFile opens a new compaction store build, and adds the file number into pending output
 func (c *compactJob) openCompactionOutputFile() error {
-	// TODO add lock
+	// TODO: add lock?
 	builder, err := c.family.newTableBuilder()
 	if err != nil {
 		return err

@@ -126,6 +126,10 @@ func (vs *storeVersionSet) Destroy() error {
 
 // NextFileNumber generates next file number
 func (vs *storeVersionSet) NextFileNumber() table.FileNumber {
+	// need add lock, because CommitFamilyEditLog will reset nextFileNumber
+	vs.mutex.Lock()
+	defer vs.mutex.Unlock()
+
 	nextNumber := vs.nextFileNumber.Inc()
 	return table.FileNumber(nextNumber - 1)
 }

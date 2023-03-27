@@ -111,8 +111,10 @@ func (s *intervalSegment) GetDataFamilies(timeRange timeutil.TimeRange) []DataFa
 
 		segment, err := s.getOrLoadSegment(segmentName)
 		if err != nil {
-			// TODO add metric
+			// TODO: add metric
 			// ignore err
+			s.logger.Info("get or load segment failure",
+				logger.String("path", s.dir), logger.String("segment", segmentName), logger.Error(err))
 			return
 		}
 

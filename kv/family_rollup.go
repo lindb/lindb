@@ -19,7 +19,6 @@ package kv
 
 import (
 	"math/rand"
-	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -80,6 +79,7 @@ func (r *rollup) BaseSlot() uint16 {
 func (f *family) needRollup() bool {
 	if f.rolluping.Load() {
 		// has background rollup job running
+		kvLogger.Info("rollup job is running", logger.String("family", f.familyInfo()))
 		return false
 	}
 	rollupTargetStores := f.store.Option().Rollup
@@ -97,9 +97,9 @@ func (f *family) needRollup() bool {
 	if threshold <= 0 {
 		threshold = defaultRollupThreshold
 	}
+	kvLogger.Info("check file threshold if need to rollup level0 files", logger.String("family", f.familyInfo()),
+		logger.Any("numOfFiles", rollupFilesLen), logger.Any("threshold", threshold))
 	if rollupFilesLen >= threshold {
-		kvLogger.Info("need to rollup level0 files, trigger file threshold", logger.String("family", f.familyInfo()),
-			logger.Any("numOfFiles", rollupFilesLen), logger.Any("threshold", f.option.RollupThreshold))
 		return true
 	}
 	var targetIntervals []timeutil.Interval
@@ -113,14 +113,12 @@ func (f *family) needRollup() bool {
 	now := timeutil.Now()
 	diff := now - f.lastRollupTime.Load()
 	timeThreshold := int64(targetInterval) + rand.Int63n(180000)
-	if diff > timeThreshold {
-		kvLogger.Info("need to rollup level0 files, trigger time threshold",
-			logger.String("now", timeutil.FormatTimestamp(now, timeutil.DataTimeFormat2)),
-			logger.String("lastRollupTime", timeutil.FormatTimestamp(f.lastRollupTime.Load(), timeutil.DataTimeFormat2)),
-			logger.Int64("diff", diff/timeutil.OneMinute))
-		return true
-	}
-	return false
+	kvLogger.Info("check time threshold if need to rollup level0 files",
+		logger.String("family", f.familyInfo()),
+		logger.String("now", timeutil.FormatTimestamp(now, timeutil.DataTimeFormat2)),
+		logger.String("lastRollupTime", timeutil.FormatTimestamp(f.lastRollupTime.Load(), timeutil.DataTimeFormat2)),
+		logger.Int64("diff", diff), logger.Int64("threshold", timeThreshold))
+	return diff > timeThreshold
 }
 
 // rollup does rollup in source family, need trigger target family does rollup compact job
@@ -169,14 +167,14 @@ func (f *family) rollup() {
 				return
 			}
 			familyStartTime := calc.CalcFamilyStartTime(segmentTime, fTime)
-			baseDir := strings.Replace(storeName, path.Join(sourceInterval.Type().String(), segmentName), "", 1)
+			baseDir := strings.Replace(storeName, filepath.Join(sourceInterval.Type().String(), segmentName), "", 1)
 			for targetInterval, files := range rollupMap {
 				segmentName := targetInterval.Calculator().GetSegment(familyStartTime)
-				targetStoreName := path.Join(baseDir, targetInterval.Type().String(), segmentName)
+				targetStoreName := filepath.Join(baseDir, targetInterval.Type().String(), segmentName)
 				targetStore, ok := GetStoreManager().GetStoreByName(targetStoreName)
 				// do rollup job in target family
 				if !ok {
-					// TODO add metric
+					// TODO: add metric
 					kvLogger.Warn("skip rollup because cannot get target store",
 						logger.String("family", f.familyInfo()),
 						logger.String("target", targetStoreName),

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -334,6 +335,49 @@ func TestStoreVersionSet(t *testing.T) {
 	err = fv.GetVersionSet().CommitFamilyEditLog(familyName, editLog)
 	assert.NoError(t, err)
 	assert.Len(t, fv.GetLiveRollupFiles(), 1)
+}
+
+func TestStoreVersionSet_NextFileNumber(t *testing.T) {
+	path := t.TempDir()
+	cache := table.NewCache(path, time.Minute)
+	vs := NewStoreVersionSet(path, cache, 2)
+	err := vs.Recover()
+	assert.NoError(t, err)
+	defer func() {
+		assert.NoError(t, vs.Destroy())
+	}()
+	familyID := FamilyID(10)
+	familyName := "10"
+	fv := vs.CreateFamilyVersion(familyName, familyID)
+	assert.NotNil(t, fv)
+	var wait sync.WaitGroup
+	var rs sync.Map
+	total := 24
+	wait.Add(total)
+	for i := 0; i < total; i++ {
+		go func() {
+			defer wait.Done()
+			fn := vs.NextFileNumber()
+			editLog := NewEditLog(familyID)
+			editLog.Add(CreateNewFile(0, &FileMeta{
+				fileNumber: fn,
+				minKey:     0,
+				maxKey:     10,
+				fileSize:   10,
+			}))
+			time.Sleep(time.Millisecond)
+			err := vs.CommitFamilyEditLog(familyName, editLog)
+			assert.NoError(t, err)
+			rs.Store(fn.Int64(), fn.Int64())
+		}()
+	}
+	wait.Wait()
+	c := 0
+	rs.Range(func(_, _ any) bool {
+		c++
+		return true
+	})
+	assert.Equal(t, total, c)
 }
 
 func initVersionSetTestData() {
