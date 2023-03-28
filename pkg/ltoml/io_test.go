@@ -19,7 +19,6 @@ package ltoml
 
 import (
 	"os"
-	"path"
 	"path/filepath"
 	"testing"
 
@@ -35,7 +34,7 @@ type User struct {
 func Test_Encode(t *testing.T) {
 	testPath := t.TempDir()
 	user := User{Name: "LinDB"}
-	file := path.Join(testPath, "toml")
+	file := filepath.Join(testPath, "toml")
 	err := EncodeToml(file, &user)
 	if err != nil {
 		t.Fatal(err)
@@ -55,5 +54,5 @@ func Test_Encode(t *testing.T) {
 
 func Test_WriteConfig(t *testing.T) {
 	testPath := t.TempDir()
-	assert.Nil(t, WriteConfig(path.Join(testPath, "toml"), ""))
+	assert.Nil(t, WriteConfig(filepath.Join(testPath, "toml"), ""))
 }

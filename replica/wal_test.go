@@ -20,7 +20,7 @@ package replica
 import (
 	"context"
 	"fmt"
-	"path"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -52,7 +52,7 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 	}{
 		{
 			name: "shard not exist",
-			prepare: func(l *writeAheadLog) {
+			prepare: func(_ *writeAheadLog) {
 				engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(nil, false)
 			},
 			wantErr: true,
@@ -68,7 +68,7 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 		},
 		{
 			name: "get data family failure",
-			prepare: func(l *writeAheadLog) {
+			prepare: func(_ *writeAheadLog) {
 				engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(shard, true)
 				shard.EXPECT().GetOrCrateDataFamily(gomock.Any()).Return(nil, fmt.Errorf("err"))
 			},
@@ -76,7 +76,7 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 		},
 		{
 			name: "new log queue failure",
-			prepare: func(l *writeAheadLog) {
+			prepare: func(_ *writeAheadLog) {
 				engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(shard, true)
 				shard.EXPECT().GetOrCrateDataFamily(gomock.Any()).Return(nil, nil)
 				newFanOutQueue = func(dirPath string, dataSizeLimit int64) (q queue.FanOutQueue, err error) {
@@ -87,7 +87,7 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 		},
 		{
 			name: "create partition successfully",
-			prepare: func(l *writeAheadLog) {
+			prepare: func(_ *writeAheadLog) {
 				engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(shard, true)
 				shard.EXPECT().GetOrCrateDataFamily(gomock.Any()).Return(nil, nil)
 				newFanOutQueue = func(dirPath string, dataSizeLimit int64) (q queue.FanOutQueue, err error) {
@@ -161,7 +161,7 @@ func TestWriteAheadLog_recovery(t *testing.T) {
 	}{
 		{
 			name: "list partition path failure",
-			prepare: func(wal *writeAheadLog) {
+			prepare: func(_ *writeAheadLog) {
 				listDirFn = func(path string) ([]string, error) {
 					return nil, fmt.Errorf("err")
 				}
@@ -187,7 +187,7 @@ func TestWriteAheadLog_recovery(t *testing.T) {
 					if p == wal.dir {
 						return []string{"1"}, nil
 					}
-					if p == path.Join(wal.dir, "1") {
+					if p == filepath.Join(wal.dir, "1") {
 						return []string{"1"}, nil
 					}
 					return nil, fmt.Errorf("err")
@@ -202,7 +202,7 @@ func TestWriteAheadLog_recovery(t *testing.T) {
 					if p == wal.dir {
 						return []string{"1"}, nil
 					}
-					if p == path.Join(wal.dir, "1") {
+					if p == filepath.Join(wal.dir, "1") {
 						return []string{"2"}, nil
 					}
 					return []string{timeutil.FormatTimestamp(now, timeutil.DataTimeFormat4)}, nil
@@ -218,7 +218,7 @@ func TestWriteAheadLog_recovery(t *testing.T) {
 					if p == wal.dir {
 						return []string{"1"}, nil
 					}
-					if p == path.Join(wal.dir, "1") {
+					if p == filepath.Join(wal.dir, "1") {
 						return []string{timeutil.FormatTimestamp(now, timeutil.DataTimeFormat4)}, nil
 					}
 					return []string{"1"}, nil
@@ -234,7 +234,7 @@ func TestWriteAheadLog_recovery(t *testing.T) {
 					if p == wal.dir {
 						return []string{"1"}, nil
 					}
-					if p == path.Join(wal.dir, "1") {
+					if p == filepath.Join(wal.dir, "1") {
 						return []string{timeutil.FormatTimestamp(now, timeutil.DataTimeFormat4)}, nil
 					}
 					return []string{"1"}, nil
@@ -250,7 +250,7 @@ func TestWriteAheadLog_recovery(t *testing.T) {
 					if p == wal.dir {
 						return []string{"1"}, nil
 					}
-					if p == path.Join(wal.dir, "1") {
+					if p == filepath.Join(wal.dir, "1") {
 						return []string{timeutil.FormatTimestamp(now, timeutil.DataTimeFormat4)}, nil
 					}
 					return nil, nil

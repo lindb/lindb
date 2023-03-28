@@ -20,7 +20,7 @@ package replica
 import (
 	"context"
 	"os"
-	"path"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -41,7 +41,7 @@ import (
 
 func TestChannelManager_GetChannel(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	dirPath := path.Join(os.TempDir(), "test_channel_manager")
+	dirPath := filepath.Join(os.TempDir(), "test_channel_manager")
 	defer func() {
 		if err := os.RemoveAll(dirPath); err != nil {
 			t.Error(err)
@@ -74,7 +74,7 @@ func TestChannelManager_GetChannel(t *testing.T) {
 
 func TestChannelManager_Write(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	dirPath := path.Join(os.TempDir(), "test_channel_manager")
+	dirPath := filepath.Join(os.TempDir(), "test_channel_manager")
 	defer func() {
 		if err := os.RemoveAll(dirPath); err != nil {
 			t.Error(err)
@@ -154,7 +154,7 @@ func TestChannelManager_handleShardStateChangeEvent(t *testing.T) {
 
 	for _, tt := range cases {
 		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			if tt.prepare != nil {
 				tt.prepare()
 			}

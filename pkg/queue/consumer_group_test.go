@@ -19,7 +19,6 @@ package queue
 
 import (
 	"fmt"
-	"path"
 	"path/filepath"
 	"testing"
 
@@ -32,7 +31,7 @@ import (
 
 func TestNewConsumerGroup(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	dir := path.Join(t.TempDir(), t.Name())
+	dir := filepath.Join(t.TempDir(), t.Name())
 
 	defer func() {
 		newPageFactoryFunc = page.NewFactory
@@ -77,7 +76,7 @@ func TestNewConsumerGroup(t *testing.T) {
 }
 
 func TestConsumerGroup_IsEmpty(t *testing.T) {
-	dir := path.Join(t.TempDir(), t.Name())
+	dir := filepath.Join(t.TempDir(), t.Name())
 
 	fq, err := NewFanOutQueue(dir, 1024)
 	assert.NoError(t, err)
@@ -119,7 +118,7 @@ func TestConsumerGroup_IsEmpty(t *testing.T) {
 }
 
 func TestConsumerGroup_one_consumer(t *testing.T) {
-	dir := path.Join(t.TempDir(), t.Name())
+	dir := filepath.Join(t.TempDir(), t.Name())
 
 	fq, err := NewFanOutQueue(dir, 1024)
 	assert.NoError(t, err)
@@ -209,7 +208,7 @@ func TestConsumerGroup_one_consumer(t *testing.T) {
 }
 
 func TestConsumerGroup_SetConsumedSeq(t *testing.T) {
-	dir := path.Join(t.TempDir(), t.Name())
+	dir := filepath.Join(t.TempDir(), t.Name())
 
 	fq, err := NewFanOutQueue(dir, 1024)
 	assert.NoError(t, err)

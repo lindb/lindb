@@ -22,7 +22,7 @@ package indexdb
 
 import (
 	"context"
-	"path"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -77,7 +77,7 @@ func TestIndexDatabase_GetOrCreateSeriesID(t *testing.T) {
 
 	indexDB, err = indexdb.NewIndexDatabase(
 		context.TODO(),
-		path.Join(dataPath, "meta_db"),
+		filepath.Join(dataPath, "meta_db"),
 		metadata, forwardFamily,
 		invertedFamily)
 	assert.NoError(t, err)
@@ -124,13 +124,13 @@ func newIndexDatabase() (err error) {
 	if err != nil {
 		return err
 	}
-	metadata, err = metadb.NewMetadata(context.TODO(), "test_db", path.Join(dataPath, "metadata"), tagMetaFamily)
+	metadata, err = metadb.NewMetadata(context.TODO(), "test_db", filepath.Join(dataPath, "metadata"), tagMetaFamily)
 	if err != nil {
 		return err
 	}
 	indexDB, err = indexdb.NewIndexDatabase(
 		context.TODO(),
-		path.Join(dataPath, "meta_db"),
+		filepath.Join(dataPath, "meta_db"),
 		metadata, forwardFamily,
 		invertedFamily)
 	if err != nil {
