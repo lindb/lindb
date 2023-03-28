@@ -285,6 +285,7 @@ func checkTSDBCfg(tsdbCfg *TSDB) error {
 	return nil
 }
 
+// checkStorageBaseCfg checks storage config.
 func checkStorageBaseCfg(storageBaseCfg *StorageBase) error {
 	if err := checkGRPCCfg(&storageBaseCfg.GRPC); err != nil {
 		return err

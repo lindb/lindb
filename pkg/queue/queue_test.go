@@ -20,7 +20,6 @@ package queue
 import (
 	"errors"
 	"fmt"
-	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -35,7 +34,7 @@ import (
 )
 
 func TestQueue_Put(t *testing.T) {
-	dir := path.Join(t.TempDir(), t.Name())
+	dir := filepath.Join(t.TempDir(), t.Name())
 
 	q, err := NewQueue(dir, 1024)
 	assert.NoError(t, err)
@@ -97,7 +96,7 @@ func TestQueue_Put(t *testing.T) {
 }
 
 func TestQueue_Ack(t *testing.T) {
-	dir := path.Join(t.TempDir(), t.Name())
+	dir := filepath.Join(t.TempDir(), t.Name())
 
 	q, err := NewQueue(dir, 1024)
 	assert.NoError(t, err)
@@ -132,7 +131,7 @@ func TestQueue_SetAppendSeq(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	dir := path.Join(t.TempDir(), t.Name())
+	dir := filepath.Join(t.TempDir(), t.Name())
 	q, err := NewQueue(dir, 1024)
 	assert.NoError(t, err)
 	assert.NotNil(t, q)
@@ -174,7 +173,7 @@ func TestQueue_SetAppendSeq(t *testing.T) {
 
 func TestQueue_new_err(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	dir := path.Join(t.TempDir(), t.Name())
+	dir := filepath.Join(t.TempDir(), t.Name())
 
 	defer func() {
 		mkDirFunc = fileutil.MkDirIfNotExist
@@ -193,7 +192,7 @@ func TestQueue_new_err(t *testing.T) {
 
 	mkDirFunc = fileutil.MkDirIfNotExist
 	// case 2: create data page factory err
-	newPageFactoryFunc = func(path string, pageSize int) (page.Factory, error) {
+	newPageFactoryFunc = func(_ string, _ int) (page.Factory, error) {
 		return nil, fmt.Errorf("err")
 	}
 	q, err = NewQueue(dir, 1024)
@@ -201,7 +200,7 @@ func TestQueue_new_err(t *testing.T) {
 	assert.Nil(t, q)
 	// case 3: create index page factory err
 	fct := page.NewMockFactory(ctrl)
-	newPageFactoryFunc = func(path string, pageSize int) (page.Factory, error) {
+	newPageFactoryFunc = func(path string, _ int) (page.Factory, error) {
 		if strings.HasSuffix(path, dataPath) {
 			return fct, nil
 		}
@@ -215,7 +214,7 @@ func TestQueue_new_err(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, q)
 	// case 4: create meta page factory err
-	newPageFactoryFunc = func(path string, pageSize int) (page.Factory, error) {
+	newPageFactoryFunc = func(path string, _ int) (page.Factory, error) {
 		if strings.HasSuffix(path, dataPath) {
 			return fct, nil
 		} else if strings.HasSuffix(path, indexPath) {
@@ -231,7 +230,7 @@ func TestQueue_new_err(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, q)
 	// case 5: acquire meta page err
-	newPageFactoryFunc = func(path string, pageSize int) (page.Factory, error) {
+	newPageFactoryFunc = func(_ string, _ int) (page.Factory, error) {
 		return fct, nil
 	}
 
@@ -310,7 +309,7 @@ func TestQueue_Close(t *testing.T) {
 
 func TestQueue_reopen_err(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	dir := path.Join(t.TempDir(), t.Name())
+	dir := filepath.Join(t.TempDir(), t.Name())
 
 	defer func() {
 		newPageFactoryFunc = page.NewFactory
@@ -361,7 +360,7 @@ func TestQueue_reopen_err(t *testing.T) {
 
 func TestQueue_Put_err(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	dir := path.Join(t.TempDir(), t.Name())
+	dir := filepath.Join(t.TempDir(), t.Name())
 
 	defer ctrl.Finish()
 
@@ -412,7 +411,7 @@ func TestQueue_Put_err(t *testing.T) {
 
 func TestQueue_Get_err(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	dir := path.Join(t.TempDir(), t.Name())
+	dir := filepath.Join(t.TempDir(), t.Name())
 
 	defer ctrl.Finish()
 
@@ -450,7 +449,7 @@ func TestQueue_Get_err(t *testing.T) {
 
 func TestQueue_Ack_err(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	dir := path.Join(t.TempDir(), t.Name())
+	dir := filepath.Join(t.TempDir(), t.Name())
 
 	defer func() {
 		newPageFactoryFunc = page.NewFactory
@@ -479,7 +478,7 @@ func TestQueue_Ack_err(t *testing.T) {
 }
 
 func TestQueue_data_limit(t *testing.T) {
-	dir := path.Join(t.TempDir(), t.Name())
+	dir := filepath.Join(t.TempDir(), t.Name())
 
 	q, err := NewQueue(dir, 128*1024*1024)
 	assert.NoError(t, err)
@@ -502,7 +501,7 @@ func TestQueue_data_limit(t *testing.T) {
 }
 
 func TestQueue_concurrently(t *testing.T) {
-	dir := path.Join(t.TempDir(), t.Name())
+	dir := filepath.Join(t.TempDir(), t.Name())
 
 	q, err := NewQueue(dir, 128*1024*1024)
 	assert.NoError(t, err)
@@ -552,7 +551,7 @@ func TestQueue_concurrently(t *testing.T) {
 }
 
 func TestQueue_GC(t *testing.T) {
-	dir := path.Join(t.TempDir(), t.Name())
+	dir := filepath.Join(t.TempDir(), t.Name())
 	ctrl := gomock.NewController(t)
 
 	defer ctrl.Finish()
@@ -584,7 +583,7 @@ func TestQueue_GC(t *testing.T) {
 }
 
 func TestQueue_big_loop(t *testing.T) {
-	dir := path.Join(t.TempDir(), t.Name())
+	dir := filepath.Join(t.TempDir(), t.Name())
 
 	q, err := NewQueue(dir, dataPageSize*8)
 	assert.NoError(t, err)

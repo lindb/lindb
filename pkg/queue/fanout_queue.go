@@ -18,7 +18,7 @@
 package queue
 
 import (
-	"path"
+	"path/filepath"
 	"sync"
 
 	"go.uber.org/atomic"
@@ -73,7 +73,7 @@ type fanOutQueue struct {
 func NewFanOutQueue(dirPath string, dataSizeLimit int64) (q FanOutQueue, err error) {
 	fq := &fanOutQueue{
 		dirPath:          dirPath,
-		consumerGroupDir: path.Join(dirPath, consumerGroupDirName),
+		consumerGroupDir: filepath.Join(dirPath, consumerGroupDirName),
 		consumerGroups:   make(map[string]ConsumerGroup),
 	}
 

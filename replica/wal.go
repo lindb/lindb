@@ -21,7 +21,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"path"
+	"path/filepath"
 	"strconv"
 	"sync"
 
@@ -89,7 +89,7 @@ func NewWriteAheadLog(
 		ctx:           ctx,
 		currentNodeID: currentNodeID,
 		database:      database,
-		dir:           path.Join(cfg.Dir, database),
+		dir:           filepath.Join(cfg.Dir, database),
 		cfg:           cfg,
 		engine:        engine,
 		cliFct:        cliFct,
@@ -132,11 +132,11 @@ func (w *writeAheadLog) GetOrCreatePartition(
 		return nil, err
 	}
 	// wal path: base dir + database + shard + family time + leader
-	dir := path.Join(
+	dir := filepath.Join(
 		strconv.Itoa(int(shardID)),
 		timeutil.FormatTimestamp(familyTime, timeutil.DataTimeFormat4),
 		strconv.Itoa(int(leader)))
-	dirPath := path.Join(w.dir, dir)
+	dirPath := filepath.Join(w.dir, dir)
 
 	q, err := newFanOutQueue(dirPath, w.cfg.GetDataSizeLimit())
 	if err != nil {
@@ -168,14 +168,14 @@ func (w *writeAheadLog) recovery() error {
 		return err
 	}
 	for _, shard := range shards {
-		families, err := listDirFn(path.Join(w.dir, shard))
+		families, err := listDirFn(filepath.Join(w.dir, shard))
 		if err != nil {
 			return err
 		}
 
 		shardID := models.ParseShardID(shard)
 		for _, family := range families {
-			familyDir := path.Join(w.dir, shard, family)
+			familyDir := filepath.Join(w.dir, shard, family)
 			leaders, err := listDirFn(familyDir)
 			if err != nil {
 				return err
@@ -236,7 +236,7 @@ func (w *writeAheadLog) destroy() {
 		if err := removeDirFn(log.Path()); err != nil {
 			w.logger.Warn("remove write ahead log dir", logger.String("path", log.Path()), logger.Error(err))
 		}
-		familyDir := path.Join(
+		familyDir := filepath.Join(
 			w.dir,
 			strconv.Itoa(int(key.shardID)),
 			timeutil.FormatTimestamp(key.familyTime, timeutil.DataTimeFormat4))

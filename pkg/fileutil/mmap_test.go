@@ -20,14 +20,14 @@ package fileutil
 import (
 	"bytes"
 	"os"
-	"path"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRead(t *testing.T) {
-	filename := path.Join(t.TempDir(), "testdata")
+	filename := filepath.Join(t.TempDir(), "testdata")
 	file, err := os.Create(filename)
 	assert.NoError(t, err)
 	content := "abc123"
@@ -46,7 +46,7 @@ func TestRead(t *testing.T) {
 func TestRWMap(t *testing.T) {
 	var content = []byte("12345")
 	var size = 1024
-	filename := path.Join(t.TempDir(), "testdata")
+	filename := filepath.Join(t.TempDir(), "testdata")
 	f, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR, 0644)
 	assert.NoError(t, err)
 	assert.NotNil(t, f)
