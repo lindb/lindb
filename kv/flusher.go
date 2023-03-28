@@ -76,9 +76,7 @@ func (sf *storeFlusher) checkBuilder() error {
 		if err != nil {
 			return fmt.Errorf("create table build error:%s", err)
 		}
-		fileNumber := builder.FileNumber()
-		sf.outputs = append(sf.outputs, fileNumber)
-		sf.family.addPendingOutput(fileNumber)
+		sf.outputs = append(sf.outputs, builder.FileNumber())
 		sf.builder = builder
 	}
 	return nil

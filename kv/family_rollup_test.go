@@ -199,8 +199,7 @@ func TestFamily_rollup(t *testing.T) {
 		{
 			name: "target store not found",
 			prepare: func() {
-				f.name =
-					name
+				f.name = name
 				gomock.InOrder(
 					fv.EXPECT().GetLiveRollupFiles().
 						Return(map[table.FileNumber][]timeutil.Interval{10: {5 * 60 * 1000}, 11: {5 * 60 * 1000}}),
@@ -216,8 +215,7 @@ func TestFamily_rollup(t *testing.T) {
 		{
 			name: "create target family failure",
 			prepare: func() {
-				f.name =
-					name
+				f.name = name
 				gomock.InOrder(
 					fv.EXPECT().GetLiveRollupFiles().Return(map[table.FileNumber][]timeutil.Interval{
 						10: {5 * 60 * 1000}, 11: {5 * 60 * 1000},
@@ -236,8 +234,7 @@ func TestFamily_rollup(t *testing.T) {
 		{
 			name: "do rollup job err",
 			prepare: func() {
-				f.name =
-					name
+				f.name = name
 				gomock.InOrder(
 					fv.EXPECT().GetLiveRollupFiles().Return(map[table.FileNumber][]timeutil.Interval{
 						10: {5 * 60 * 1000}, 11: {5 * 60 * 1000},
@@ -257,8 +254,7 @@ func TestFamily_rollup(t *testing.T) {
 		{
 			name: "do rollup job successfully",
 			prepare: func() {
-				f.name =
-					name
+				f.name = name
 				gomock.InOrder(
 					fv.EXPECT().GetLiveRollupFiles().Return(map[table.FileNumber][]timeutil.Interval{
 						10: {5 * 60 * 1000}, 11: {5 * 60 * 1000},
@@ -270,6 +266,7 @@ func TestFamily_rollup(t *testing.T) {
 					targetStore.EXPECT().CreateFamily("3", gomock.Any()).Return(targetFamily, nil),
 					targetFamily.EXPECT().doRollupWork(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 					store.EXPECT().commitFamilyEditLog(gomock.Any(), gomock.Any()).Return(nil),
+					targetFamily.EXPECT().cleanReferenceFiles(gomock.Any(), gomock.Any()),
 					fv.EXPECT().GetAllActiveFiles().Return(nil),
 					fv.EXPECT().GetLiveRollupFiles().Return(nil),
 				)
@@ -278,8 +275,7 @@ func TestFamily_rollup(t *testing.T) {
 		{
 			name: "do rollup job ok, but some targets failure",
 			prepare: func() {
-				f.name =
-					name
+				f.name = name
 				fv.EXPECT().GetLiveRollupFiles().Return(map[table.FileNumber][]timeutil.Interval{
 					10: {5 * 60 * 1000}, 11: {5 * 60 * 60 * 1000}, // year target not found
 				})
@@ -294,6 +290,7 @@ func TestFamily_rollup(t *testing.T) {
 				store.EXPECT().commitFamilyEditLog(gomock.Any(), gomock.Any()).Return(nil)
 				fv.EXPECT().GetAllActiveFiles().Return(nil)
 				fv.EXPECT().GetLiveRollupFiles().Return(nil)
+				targetFamily.EXPECT().cleanReferenceFiles(gomock.Any(), gomock.Any())
 			},
 		},
 	}
@@ -318,6 +315,9 @@ func TestFamily_doRollupWork(t *testing.T) {
 	}()
 	f, _ := mockFamily(t, ctrl)
 	sourceFamily := NewMockFamily(ctrl)
+	sourceStore := NewMockStore(ctrl)
+	sourceFamily.EXPECT().getStore().Return(sourceStore).AnyTimes()
+
 	fv := f.familyVersion.(*version.MockFamilyVersion)
 	rollup := NewMockRollup(ctrl)
 	cases := []struct {
@@ -337,8 +337,9 @@ func TestFamily_doRollupWork(t *testing.T) {
 			files: []table.FileNumber{10, 20, 30},
 			prepare: func() {
 				gomock.InOrder(
+					sourceStore.EXPECT().Name().Return(filepath.Join("dir", "20230202")),
 					sourceFamily.EXPECT().ID().Return(version.FamilyID(10)),
-					fv.EXPECT().GetLiveReferenceFiles().
+					fv.EXPECT().GetLiveReferenceFiles("20230202").
 						Return(map[version.FamilyID][]table.FileNumber{10: {10, 20, 30}}),
 					sourceFamily.EXPECT().familyInfo().Return("familyInfo").MaxTimes(3),
 				)
@@ -356,8 +357,9 @@ func TestFamily_doRollupWork(t *testing.T) {
 					return compactJob
 				}
 				gomock.InOrder(
+					sourceStore.EXPECT().Name().Return(filepath.Join("dir", "20230202")),
 					sourceFamily.EXPECT().ID().Return(version.FamilyID(10)),
-					fv.EXPECT().GetLiveReferenceFiles().Return(map[version.FamilyID][]table.FileNumber{10: {10, 30}}),
+					fv.EXPECT().GetLiveReferenceFiles("20230202").Return(map[version.FamilyID][]table.FileNumber{10: {10, 30}}),
 					sourceFamily.EXPECT().familyInfo().Return("familyInfo").MaxTimes(2),
 					sourceFamily.EXPECT().GetSnapshot().Return(snapshot),
 					snapshot.EXPECT().GetCurrent().Return(v),
@@ -379,8 +381,9 @@ func TestFamily_doRollupWork(t *testing.T) {
 					return compactJob
 				}
 				gomock.InOrder(
+					sourceStore.EXPECT().Name().Return(filepath.Join("dir", "20230202")),
 					sourceFamily.EXPECT().ID().Return(version.FamilyID(10)),
-					fv.EXPECT().GetLiveReferenceFiles().Return(map[version.FamilyID][]table.FileNumber{10: {10, 30}}),
+					fv.EXPECT().GetLiveReferenceFiles("20230202").Return(map[version.FamilyID][]table.FileNumber{10: {10, 30}}),
 					sourceFamily.EXPECT().familyInfo().Return("familyInfo").MaxTimes(2),
 					sourceFamily.EXPECT().GetSnapshot().Return(snapshot),
 					snapshot.EXPECT().GetCurrent().Return(v),
@@ -407,6 +410,19 @@ func TestFamily_doRollupWork(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFamily_cleanReferenceFiles(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	f, store := mockFamily(t, ctrl)
+	sourceFamily := NewMockFamily(ctrl)
+	sourceStore := NewMockStore(ctrl)
+	sourceFamily.EXPECT().getStore().Return(sourceStore)
+	sourceStore.EXPECT().Name().Return(filepath.Join("dir", "20230202"))
+	sourceFamily.EXPECT().ID().Return(version.FamilyID(10))
+	store.EXPECT().commitFamilyEditLog(gomock.Any(), gomock.Any())
+	f.cleanReferenceFiles(sourceFamily, []table.FileNumber{10})
 }
 
 func mockFamily(t *testing.T, ctrl *gomock.Controller) (*family, *MockStore) {

@@ -168,6 +168,8 @@ func (f *family) rollup() {
 			}
 			familyStartTime := calc.CalcFamilyStartTime(segmentTime, fTime)
 			baseDir := strings.Replace(storeName, filepath.Join(sourceInterval.Type().String(), segmentName), "", 1)
+			targetFamiles := make(map[Family][]table.FileNumber)
+
 			for targetInterval, files := range rollupMap {
 				segmentName := targetInterval.Calculator().GetSegment(familyStartTime)
 				targetStoreName := filepath.Join(baseDir, targetInterval.Type().String(), segmentName)
@@ -204,6 +206,7 @@ func (f *family) rollup() {
 						logger.Any("files", files))
 					continue
 				}
+				targetFamiles[targetFamily] = files
 
 				// after rollup job successfully, need add delete rollup file edit log
 				for _, file := range files {
@@ -213,8 +216,24 @@ func (f *family) rollup() {
 
 			// finally, need commit edit log
 			f.commitEditLog(editLog)
+
+			// clean reference files from target file
+			for targetFamily, files := range targetFamiles {
+				targetFamily.cleanReferenceFiles(f, files)
+			}
 		}()
 	}
+}
+
+// cleanReferenceFiles cleans target family's reference files after delete source family's rollup files.
+func (f *family) cleanReferenceFiles(sourceFamily Family, sourceFiles []table.FileNumber) {
+	editLog := version.NewEditLog(f.ID())
+	_, sourceStore := filepath.Split(sourceFamily.getStore().Name())
+	sourceFamilyID := sourceFamily.ID()
+	for _, file := range sourceFiles {
+		editLog.Add(version.CreateDeleteReferenceFile(sourceStore, sourceFamilyID, file))
+	}
+	f.commitEditLog(editLog)
 }
 
 // doRollupWork does rollup work in target family,
@@ -229,8 +248,9 @@ func (f *family) doRollupWork(sourceFamily Family, rollup Rollup, sourceFiles []
 	for _, file := range sourceFiles {
 		targetFiles[file] = struct{}{}
 	}
+	_, sourceStore := filepath.Split(sourceFamily.getStore().Name())
 	sourceFamilyID := sourceFamily.ID()
-	referenceFiles := f.familyVersion.GetLiveReferenceFiles()
+	referenceFiles := f.familyVersion.GetLiveReferenceFiles(sourceStore)
 	if files, ok := referenceFiles[sourceFamilyID]; ok {
 		// check if file already rollup
 		for _, file := range files {
@@ -260,7 +280,7 @@ func (f *family) doRollupWork(sourceFamily Family, rollup Rollup, sourceFiles []
 	for fileNumber := range targetFiles {
 		if fm, ok := v.GetFile(0, fileNumber); ok {
 			inputFiles = append(inputFiles, fm)
-			logs = append(logs, version.CreateNewReferenceFile(sourceFamilyID, fileNumber))
+			logs = append(logs, version.CreateNewReferenceFile(sourceStore, sourceFamilyID, fileNumber))
 		}
 	}
 	compaction := version.NewCompaction(f.ID(), 0, inputFiles, nil)

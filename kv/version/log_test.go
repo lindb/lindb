@@ -139,7 +139,7 @@ func TestDeleteRollupFile(t *testing.T) {
 func TestNewReferenceFile(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	referenceFile := CreateNewReferenceFile(FamilyID(10), 12)
+	referenceFile := CreateNewReferenceFile("20230202", FamilyID(10), 12)
 	bytes, err := referenceFile.Encode()
 	assert.NoError(t, err)
 
@@ -150,15 +150,16 @@ func TestNewReferenceFile(t *testing.T) {
 	err = referenceFile2.Decode(bytes)
 	assert.NoError(t, err)
 	assert.Equal(t, referenceFile, referenceFile2)
+	assert.Equal(t, "20230202", referenceFile2.store)
 	version := NewMockVersion(ctrl)
-	version.EXPECT().AddReferenceFile(FamilyID(10), table.FileNumber(12))
+	version.EXPECT().AddReferenceFile("20230202", FamilyID(10), table.FileNumber(12))
 	referenceFile2.apply(version)
 }
 
 func TestDeleteReferenceFile(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	referenceFile := CreateDeleteReferenceFile(FamilyID(10), 12)
+	referenceFile := CreateDeleteReferenceFile("20230202", FamilyID(10), 12)
 	bytes, err := referenceFile.Encode()
 	assert.NoError(t, err)
 
@@ -169,8 +170,9 @@ func TestDeleteReferenceFile(t *testing.T) {
 	err = referenceFile2.Decode(bytes)
 	assert.NoError(t, err)
 	assert.Equal(t, referenceFile, referenceFile2)
+	assert.Equal(t, "20230202", referenceFile2.store)
 	version := NewMockVersion(ctrl)
-	version.EXPECT().DeleteReferenceFile(FamilyID(10), table.FileNumber(12))
+	version.EXPECT().DeleteReferenceFile("20230202", FamilyID(10), table.FileNumber(12))
 	referenceFile2.apply(version)
 }
 
