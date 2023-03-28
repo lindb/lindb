@@ -380,7 +380,7 @@ func (vs *storeVersionSet) createSnapshot() (editLogs []EditLog) {
 }
 
 // createFamilySnapshot creates snapshot of edit log for family level.
-// NOTICE: IMPORTANT!!!!!, need write edit logs for all data of version.
+// NOTE: IMPORTANT!!!!!, need write edit logs for all data of version.
 func (vs *storeVersionSet) createFamilySnapshot(familyID FamilyID, familyVersion FamilyVersion) EditLog {
 	editLog := NewEditLog(familyID)
 	// save current version all active files
@@ -406,10 +406,12 @@ func (vs *storeVersionSet) createFamilySnapshot(familyID FamilyID, familyVersion
 	}
 
 	// write log if family has reference files
-	refFiles := current.GetReferenceFiles()
-	for familyID, files := range refFiles {
-		for _, file := range files {
-			editLog.Add(CreateNewReferenceFile(familyID, file))
+	refFiles := current.GetAllReferenceFiles()
+	for store, families := range refFiles {
+		for familyID, files := range families {
+			for _, file := range files {
+				editLog.Add(CreateNewReferenceFile(store, familyID, file))
+			}
 		}
 	}
 

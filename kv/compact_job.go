@@ -87,7 +87,8 @@ func (c *compactJob) Run() error {
 func (c *compactJob) moveCompaction() {
 	startTime := time.Now()
 	compaction := c.state.compaction
-	kvLogger.Info("starting compaction job, just move file to next level", logger.String("family", c.family.familyInfo()))
+	kvLogger.Info("starting compaction job, just move file to next level",
+		logger.String("family", c.family.familyInfo()), logger.String("type", c.compactType))
 	// move file to next level
 	fileMeta := compaction.GetLevelFiles()[0]
 	level := compaction.GetLevel()
@@ -98,17 +99,26 @@ func (c *compactJob) moveCompaction() {
 	elapsed := time.Since(startTime)
 	kvLogger.Info("finish move file compaction",
 		logger.String("family", c.family.familyInfo()),
+		logger.String("type", c.compactType),
 		logger.String("cost", elapsed.String()),
 	)
 }
 
 // mergeCompaction merges input files to up level
 func (c *compactJob) mergeCompaction() (err error) {
+	startTime := time.Now()
 	kvLogger.Info("starting compaction job, do merge compaction",
-		logger.String("family", c.family.familyInfo()))
+		logger.String("family", c.family.familyInfo()), logger.String("type", c.compactType))
 	defer func() {
 		// cleanup compaction context, include temp pending output files
 		c.cleanupCompaction()
+
+		elapsed := time.Since(startTime)
+		kvLogger.Info("finish merge file compaction",
+			logger.String("family", c.family.familyInfo()),
+			logger.String("type", c.compactType),
+			logger.String("cost", elapsed.String()),
+		)
 	}()
 
 	// do merge logic
@@ -122,11 +132,11 @@ func (c *compactJob) mergeCompaction() (err error) {
 
 // doMerge merges the input files based on merger interface which need use implements
 func (c *compactJob) doMerge() error {
-	it, err := c.makeInputIterator()
+	merger, err := c.newMerger(c.newCompactFlusher())
 	if err != nil {
 		return err
 	}
-	merger, err := c.newMerger(c.newCompactFlusher())
+	it, err := c.makeInputIterator()
 	if err != nil {
 		return err
 	}
@@ -217,14 +227,10 @@ func (c *compactJob) makeInputIterator() (table.Iterator, error) {
 
 // openCompactionOutputFile opens a new compaction store build, and adds the file number into pending output
 func (c *compactJob) openCompactionOutputFile() error {
-	// TODO: add lock?
 	builder, err := c.family.newTableBuilder()
 	if err != nil {
 		return err
 	}
-	fileNumber := builder.FileNumber()
-	c.family.addPendingOutput(fileNumber)
-	c.state.currentFileNumber = fileNumber
 	c.state.builder = builder
 	return nil
 }
@@ -256,12 +262,13 @@ func (c *compactJob) finishCompactionOutputFile() (err error) {
 // cleanupCompaction cleanups the compaction context, such as remove pending output files etc.
 func (c *compactJob) cleanupCompaction() {
 	if c.state.builder != nil {
+		currentFileNumber := c.state.builder.FileNumber()
 		if err := c.state.builder.Abandon(); err != nil {
 			kvLogger.Warn("abandon store build error when do compact job",
-				logger.String("family", c.family.familyInfo()),
-				logger.Int64("file", c.state.currentFileNumber.Int64()))
+				logger.String("family", c.family.familyInfo()), logger.String("type", c.compactType),
+				logger.Int64("file", currentFileNumber.Int64()))
 		}
-		c.family.removePendingOutput(c.state.currentFileNumber)
+		c.family.removePendingOutput(currentFileNumber)
 	}
 	for _, output := range c.state.outputs {
 		c.family.removePendingOutput(output.GetFileNumber())

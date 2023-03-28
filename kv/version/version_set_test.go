@@ -212,7 +212,7 @@ func TestCommitFamilyEditLog(t *testing.T) {
 	editLog.Add(NewDeleteFile(1, 123))
 	editLog.Add(CreateSequence(1, 10))
 	editLog.Add(CreateNewRollupFile(1, 10000))
-	editLog.Add(CreateNewReferenceFile(1, 10))
+	editLog.Add(CreateNewReferenceFile("20230202", 1, 10))
 	err = vs.CommitFamilyEditLog("f", editLog)
 	assert.Nil(t, err, "commit family edit log error")
 
@@ -232,7 +232,7 @@ func TestCommitFamilyEditLog(t *testing.T) {
 		assert.Equal(t, nf.file, current.GetAllFiles()[0], "cannot recover family version data")
 		assert.Equal(t, int64(3+i), vs1.nextFileNumber.Load(), "recover file number error")
 		assert.Equal(t, map[int32]int64{1: 10}, current.GetSequences())
-		assert.Equal(t, map[FamilyID][]table.FileNumber{1: {10}}, current.GetReferenceFiles())
+		assert.Equal(t, map[FamilyID][]table.FileNumber{1: {10}}, current.GetReferenceFiles("20230202"))
 		assert.Equal(t, map[table.FileNumber][]timeutil.Interval{1: {10000}}, current.GetRollupFiles())
 
 		snapshot.Close()

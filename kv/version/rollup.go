@@ -30,14 +30,14 @@ type rollup struct {
 
 	// family id -> file number for source family,
 	// reference to raw family file number, add reference files after rollup successfully
-	referenceFiles map[FamilyID][]table.FileNumber // target family
+	referenceFiles map[string]map[FamilyID][]table.FileNumber // target family(store=>family=>file number)
 }
 
 // newRollup creates the rollup job metadata
 func newRollup() *rollup {
 	return &rollup{
 		rollupFiles:    make(map[table.FileNumber][]timeutil.Interval),
-		referenceFiles: make(map[FamilyID][]table.FileNumber),
+		referenceFiles: make(map[string]map[FamilyID][]table.FileNumber),
 	}
 }
 
@@ -79,10 +79,15 @@ func (r *rollup) getRollupFiles() map[table.FileNumber][]timeutil.Interval {
 }
 
 // addReferenceFile adds rollup reference file under target family
-func (r *rollup) addReferenceFile(familyID FamilyID, fileNumber table.FileNumber) {
-	files, ok := r.referenceFiles[familyID]
+func (r *rollup) addReferenceFile(store string, familyID FamilyID, fileNumber table.FileNumber) {
+	families, ok := r.referenceFiles[store]
 	if !ok {
-		r.referenceFiles[familyID] = []table.FileNumber{fileNumber}
+		r.referenceFiles[store] = map[FamilyID][]table.FileNumber{familyID: {fileNumber}}
+		return
+	}
+	files, ok := families[familyID]
+	if !ok {
+		families[familyID] = []table.FileNumber{fileNumber}
 		return
 	}
 	for _, file := range files {
@@ -91,12 +96,16 @@ func (r *rollup) addReferenceFile(familyID FamilyID, fileNumber table.FileNumber
 		}
 	}
 	files = append(files, fileNumber)
-	r.referenceFiles[familyID] = files
+	families[familyID] = files
 }
 
 // removeReferenceFile removes rollup reference file under target family
-func (r *rollup) removeReferenceFile(familyID FamilyID, fileNumber table.FileNumber) {
-	files, ok := r.referenceFiles[familyID]
+func (r *rollup) removeReferenceFile(store string, familyID FamilyID, fileNumber table.FileNumber) {
+	families, ok := r.referenceFiles[store]
+	if !ok {
+		return
+	}
+	files, ok := families[familyID]
 	if !ok {
 		return
 	}
@@ -108,19 +117,43 @@ func (r *rollup) removeReferenceFile(familyID FamilyID, fileNumber table.FileNum
 	}
 	if len(newFiles) == 0 {
 		// if source files is empty, remove family reference
-		delete(r.referenceFiles, familyID)
+		delete(families, familyID)
+
+		// if family is empty, remove store reference
+		if len(families) == 0 {
+			delete(r.referenceFiles, store)
+		}
 		return
 	}
-	r.referenceFiles[familyID] = newFiles
+	families[familyID] = newFiles
 }
 
-// getReferenceFiles returns the reference files under target family
-func (r *rollup) getReferenceFiles() map[FamilyID][]table.FileNumber {
+// getReferenceFiles returns the reference files under target store.
+func (r *rollup) getReferenceFiles(store string) map[FamilyID][]table.FileNumber {
 	result := make(map[FamilyID][]table.FileNumber)
-	for k, v := range r.referenceFiles {
+	families, ok := r.referenceFiles[store]
+	if !ok {
+		return result
+	}
+	for k, v := range families {
 		d := make([]table.FileNumber, len(v))
 		copy(d, v)
 		result[k] = d
+	}
+	return result
+}
+
+// getAllReferenceFiles returns all reference files.
+func (r *rollup) getAllReferenceFiles() map[string]map[FamilyID][]table.FileNumber {
+	result := make(map[string]map[FamilyID][]table.FileNumber)
+	for store, families := range r.referenceFiles {
+		storeResult := make(map[FamilyID][]table.FileNumber)
+		for k, v := range families {
+			d := make([]table.FileNumber, len(v))
+			copy(d, v)
+			storeResult[k] = d
+		}
+		result[store] = storeResult
 	}
 	return result
 }
