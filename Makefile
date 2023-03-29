@@ -37,11 +37,11 @@ deploy: build-frontend ## deploy release packages
 
 .PHONY: docker-build
 docker-build: ## build docker image
-	docker build -t wangguohao/lindb:$(GIT_TAG_NAME) --build-arg LD_FLAGS=${LD_FLAGS} .
+	docker build -t lindata/lindb:$(GIT_TAG_NAME) --build-arg LD_FLAGS=${LD_FLAGS} .
 
 .PHONY: docker-push
 docker-push: ## push docker image
-	docker push wangguohao/lindb:$(GIT_TAG_NAME)
+	docker push lindata/lindb:$(GIT_TAG_NAME)
 
 GOMOCK_VERSION = "v1.5.0"
 
@@ -119,5 +119,6 @@ clean-tmp: ## clean up tmp and test out files
 	find . -type f -name '*.prof' -exec rm -f {} +
 	find . -type s -name 'localhost:*' -exec rm -f {} +
 	find . -type s -name '127.0.0.1:*' -exec rm -f {} +
+	rm -rf data
 
 clean: clean-mock clean-tmp clean-build clean-frontend-build ## Clean up useless files.

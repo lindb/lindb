@@ -7,6 +7,8 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/lindb/lindb)](https://goreportcard.com/report/github.com/lindb/lindb)
 [![Github Actions Status](https://github.com/lindb/lindb/workflows/LinDB%20CI/badge.svg)](https://github.com/lindb/lindb/actions?query=workflow%3A%22LinDB+CI%22)
 [![Github Actions Status](https://github.com/lindb/lindb/workflows/Forntend%20CI/badge.svg)](https://github.com/lindb/lindb/actions?query=workflow%3A%22Forntend+CI%22)
+[![Github Actions Status](https://github.com/lindb/lindb/workflows/Docker%20Latest/badge.svg)](https://github.com/lindb/lindb/actions?query=workflow%3A%22Docker+Latest%22)
+[![Github Actions Status](https://github.com/lindb/lindb/workflows/Docker%20Release/badge.svg)](https://github.com/lindb/lindb/actions?query=workflow%3A%22Docker+Release%22)
 [![codecov](https://codecov.io/gh/lindb/lindb/branch/main/graph/badge.svg)](https://codecov.io/gh/lindb/lindb)
 [![GoDoc](https://img.shields.io/badge/Godoc-reference-blue.svg)](https://godoc.org/github.com/lindb/lindb)
 [![contribution](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](CONTRIBUTING.md)

@@ -39,7 +39,7 @@ jobs:
       - name: Test
         run: make test-without-lint
       - name: Upload
-        run: bash <(curl -s https://codecov.io/bash) -t 571f35bb-4929-4ac5-88cd-8d2c21302b40
+        run: bash <(curl -s https://codecov.io/bash) -t ${{ secrets.CODECOV_TOKEN }}
 
   darwin-test:
     name: Unit Test(MacOS)

@@ -1,11 +1,18 @@
+# Build web
+FROM node:18.12.1 as web_builder
+
+WORKDIR /web_workspace
+COPY web/ web/
+COPY Makefile Makefile
+RUN make build-frontend
+
 # Build the manager binary
-FROM golang:1.19 as builder
+FROM golang:1.19 as go_builder
 ARG TARGETOS
 ARG TARGETARCH
 ARG LD_FLAGS
 
-
-WORKDIR /workspace
+WORKDIR /go_workspace
 # Copy the Go Modules manifests
 COPY go.mod go.mod
 COPY go.sum go.sum
@@ -13,36 +20,11 @@ COPY go.sum go.sum
 # and so that source changes don't invalidate our downloaded layer
 RUN go mod download
 
-# Copy the go source
-COPY embed.go embed.go
-COPY aggregation/ aggregation/
-COPY app/ app/
-COPY bin/  bin/
-COPY cmd/ cmd/
-COPY config/ config/
-COPY constants/ constants/
-COPY coordinator/ coordinator/
-COPY data/ data/
-COPY docker/ docker/
-COPY flow/ flow/
-COPY e2e/ e2e/
-COPY ingestion/ ingestion/
-COPY internal/ internal/
-COPY kv/ kv/
-COPY metrics/ metrics/
-COPY models/ models/
-COPY pkg/ pkg/
-COPY proto/ proto/
-COPY query/ query/
-COPY release/ release/
-COPY replica/ replica/
-COPY rpc/ rpc/
-COPY scripts/ scripts/
-COPY series/ series/
-COPY sql/ sql/
-COPY tsdb/ tsdb/
-COPY web/ web/
-COPY docs/ docs/
+# Copy src code
+COPY . .
+
+# Copy web static resource
+COPY --from=web_builder /web_workspace/web/static/ web/static
 
 # Build
 # the GOARCH has not a default value to allow the binary be built according to the host where the command
@@ -53,11 +35,10 @@ RUN	CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} \
     go build "${LD_FLAGS}" -o lind ./cmd/lind \
     && go build "${LD_FLAGS}" -o lindctl ./cmd/cli
 
-
 FROM centos:latest
 WORKDIR /
-COPY --from=builder /workspace/lind /usr/bin/lind
-COPY --from=builder /workspace/lindctl /usr/bin/lindctl
+COPY --from=go_builder /go_workspace/lind /usr/bin/lind
+COPY --from=go_builder /go_workspace/lindctl /usr/bin/lindctl
 RUN ln -s /usr/bin/lind /usr/local/bin/lind
 RUN ln -s /usr/bin/lindctl /usr/local/bin/lindctl
 RUN mkdir /etc/lindb
