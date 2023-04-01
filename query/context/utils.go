@@ -31,6 +31,8 @@ func calcTimeRangeAndInterval(statement *stmt.Query, cfg models.Database) {
 		// if query interval not set, first set it using the smallest interval in storage option.
 		interval = option.Intervals[0].Interval
 	}
+	// re-calc query interval based on query time range
+	interval = timeutil.CalcQueryInterval(statement.TimeRange, interval)
 	storageInterval := option.FindMatchSmallestInterval(interval)
 	intervalVal := storageInterval.Int64()
 	statement.TimeRange.Start = timeutil.Truncate(statement.TimeRange.Start, intervalVal)
@@ -39,8 +41,6 @@ func calcTimeRangeAndInterval(statement *stmt.Query, cfg models.Database) {
 		// fill group by interval if not set
 		statement.Interval = timeutil.Interval(statement.TimeRange.End-statement.TimeRange.Start) + storageInterval
 	}
-	// re-calc query interval based on query time range
-	interval = timeutil.CalcQueryInterval(statement.TimeRange, interval)
 	// if auto calc interval < user input, need to use use input
 	if interval < statement.Interval {
 		interval = statement.Interval
