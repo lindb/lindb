@@ -1,5 +1,21 @@
 # Change logs
 
+## [0.2.3] - 2023-04-03
+
+See [code changes](https://github.com/lindb/lindb/compare/v0.2.2...v0.2.3).
+
+### Added features
+
+- docker hub sync github actions
+
+### Optimized
+
+- join file paths
+
+### Fixed
+
+- fix get diff agg result using diff group by interval
+
 ## [0.2.2] - 2023-03-28
 
 See [code changes](https://github.com/lindb/lindb/compare/v0.2.1...v0.2.2).
