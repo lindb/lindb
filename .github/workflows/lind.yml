@@ -10,15 +10,17 @@ jobs:
         with:
           fetch-depth: 1
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
           go-version: 1.19
           cache: true
         id: go
       - name: Make Mock files
         run: make gomock
-      - name: Lint
-        run: make lint
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.51.2
 
   linux-test-with-coverage:
     name: Uint Test With Coverage(Linux)
