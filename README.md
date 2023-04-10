@@ -12,6 +12,7 @@
 [![codecov](https://codecov.io/gh/lindb/lindb/branch/main/graph/badge.svg)](https://codecov.io/gh/lindb/lindb)
 [![GoDoc](https://img.shields.io/badge/Godoc-reference-blue.svg)](https://godoc.org/github.com/lindb/lindb)
 [![contribution](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](CONTRIBUTING.md)
+[![Twitter Follow](https://img.shields.io/twitter/follow/lindb_io?style=social)](https://twitter.com/intent/follow?screen_name=lindb_io)
 
 English | [简体中文](./README-zh_CN.md)
 
@@ -32,7 +33,7 @@ LinDB is an open-source Time Series Database which provides high performance, hi
 
 To build LinDB from source you require the following on your system.
 
-- [Go >=1.16](https://golang.org/doc/install)
+- [Go >=1.19](https://golang.org/doc/install)
 - [Make tool](https://www.gnu.org/software/make/)
 - [Yarn](https://classic.yarnpkg.com/en/docs/install)
 
