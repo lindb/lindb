@@ -12,6 +12,7 @@
 [![codecov](https://codecov.io/gh/lindb/lindb/branch/main/graph/badge.svg)](https://codecov.io/gh/lindb/lindb)
 [![GoDoc](https://img.shields.io/badge/Godoc-reference-blue.svg)](https://godoc.org/github.com/lindb/lindb)
 [![contribution](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](CONTRIBUTING.md)
+[![Twitter Follow](https://img.shields.io/twitter/follow/lindb_io?style=social)](https://twitter.com/intent/follow?screen_name=lindb_io)
 
 [English](./README.md) | 简体中文
 
@@ -31,7 +32,7 @@ LinDB 是一个高性能、高可用并且具备水平拓展性的开源分布�
 ### 依赖
 
 在本地编译 LinDB 需要以下工具：
-- [Go >=1.16](https://golang.org/doc/install)
+- [Go >=1.19](https://golang.org/doc/install)
 - [Make tool](https://www.gnu.org/software/make/)
 - [Yarn](https://classic.yarnpkg.com/en/docs/install)
 
