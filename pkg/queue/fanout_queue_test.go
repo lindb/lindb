@@ -73,6 +73,7 @@ func TestFanOutQueue_New(t *testing.T) {
 	// case 2: create consumerGroup path err
 	queue := NewMockQueue(ctrl)
 	queue.EXPECT().Close().AnyTimes()
+	queue.EXPECT().Signal().AnyTimes()
 
 	newQueueFunc = func(dirPath string, dataSizeLimit int64) (Queue, error) {
 		return queue, nil

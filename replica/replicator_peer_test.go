@@ -40,6 +40,7 @@ func TestReplicatorPeer(t *testing.T) {
 	}()
 
 	mockReplicator := NewMockReplicator(ctrl)
+	mockReplicator.EXPECT().Pause().AnyTimes()
 	mockReplicator.EXPECT().Close().AnyTimes()
 	mockReplicator.EXPECT().Pending().Return(int64(10)).AnyTimes()
 	mockReplicator.EXPECT().IsReady().Return(false).AnyTimes()
@@ -53,11 +54,14 @@ func TestReplicatorPeer(t *testing.T) {
 	peer.Shutdown()
 	time.Sleep(10 * time.Millisecond)
 
+	cg := queue.NewMockConsumerGroup(ctrl)
+	cg.EXPECT().Pause().AnyTimes()
 	ch := make(chan struct{})
 	remote := &remoteReplicator{
 		replicator: replicator{
 			channel: &ReplicatorChannel{
-				State: &models.ReplicaState{},
+				State:         &models.ReplicaState{},
+				ConsumerGroup: cg,
 			},
 		},
 	}
@@ -69,7 +73,6 @@ func TestReplicatorPeer(t *testing.T) {
 			cannel:         cancel,
 			replicatorType: "remote",
 			replicator:     remote,
-			sleepFn:        time.NewTimer(time.Millisecond),
 			running:        atomic.NewBool(true),
 			closed:         ch,
 		},
@@ -82,6 +85,7 @@ func TestReplicatorPeer(t *testing.T) {
 	go func() {
 		ch <- struct{}{}
 	}()
+
 	peer.Shutdown()
 	time.Sleep(10 * time.Millisecond)
 }
@@ -98,6 +102,7 @@ func TestNewReplicator_runner(t *testing.T) {
 	replicator.EXPECT().Pending().Return(int64(19)).AnyTimes()
 	replicator.EXPECT().Close().AnyTimes()
 	replicator.EXPECT().IgnoreMessage(gomock.Any()).AnyTimes()
+	replicator.EXPECT().Pause().AnyTimes()
 	peer := NewReplicatorPeer(replicator)
 	var wait sync.WaitGroup
 
@@ -185,7 +190,6 @@ func TestReplicatorPeer_replicaNoData(t *testing.T) {
 		ctx:        ctx,
 		cannel:     cancel,
 		replicator: replicator,
-		sleepFn:    time.NewTimer(time.Millisecond),
 		logger:     logger.GetLogger("Replica", "Test"),
 	}
 	replicator.EXPECT().IsReady().Return(false).AnyTimes()

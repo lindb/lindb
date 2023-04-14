@@ -50,6 +50,8 @@ type ConsumerGroup interface {
 	AcknowledgedSeq() int64
 	// Queue returns underlying queue.
 	Queue() FanOutQueue
+	// Pause pauses consume data.
+	Pause()
 	// SetSeq sets consumed/acknowledged sequence.
 	SetSeq(seq int64)
 	// Pending returns the offset between ConsumerGroup consumed sequence and FanOutQueue appended sequence.
@@ -58,6 +60,8 @@ type ConsumerGroup interface {
 	IsEmpty() bool
 	// Close persists  headSeq, tailSeq.
 	Close()
+	// consume returns the seq for the next data to consume.
+	consume() int64
 }
 
 // consumerGroup implements ConsumerGroup.
@@ -70,7 +74,8 @@ type consumerGroup struct {
 	metaPageFct     page.Factory
 	metaPage        page.MappedPage // persists meta
 
-	closed       atomic.Bool  // false -> running, true -> closed
+	closed       atomic.Bool // false -> running, true -> closed
+	paused       atomic.Bool
 	lock4headSeq sync.RWMutex // lock to protect headSeq
 }
 
@@ -129,9 +134,32 @@ func (f *consumerGroup) Name() string {
 	return f.name
 }
 
+// Pause pauses consume data.
+func (f *consumerGroup) Pause() {
+	f.paused.Store(true)
+	f.Queue().Queue().Signal()
+}
+
+// isPause returns if consumer group is paused.
+func (f *consumerGroup) isPause() bool {
+	return f.closed.Load() || f.paused.Load()
+}
+
 // Consume returns the seq for the next data to consume.
 // If no new data is available, SeqNoNewMessageAvailable is returned.
 func (f *consumerGroup) Consume() int64 {
+	headSeq := f.consumedSeq.Load() + 1
+
+	// check queue if empty using current consume head without lock,
+	// if queue is empty will waiting new data write or closed/paused.
+	if !f.Queue().Queue().NotEmpty(headSeq, f.isPause) {
+		return SeqNoNewMessageAvailable
+	}
+	return f.consume()
+}
+
+// consume returns the seq for the next data to consume.
+func (f *consumerGroup) consume() int64 {
 	f.lock4headSeq.Lock()
 	defer f.lock4headSeq.Unlock()
 
@@ -232,6 +260,8 @@ func (f *consumerGroup) IsEmpty() bool {
 // Close persists headSeq, tailSeq.
 func (f *consumerGroup) Close() {
 	if f.closed.CAS(false, true) {
+		f.Queue().Queue().Signal()
+
 		if err := f.metaPageFct.Close(); err != nil {
 			queueLogger.Error("close consumerGroup meta error", logger.String("consumerGroup", f.name), logger.Error(err))
 		}

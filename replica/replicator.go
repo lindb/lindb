@@ -39,6 +39,8 @@ type Replicator interface {
 	ReplicaState() *models.ReplicaState
 	// State returns the state of replicator.
 	State() *state
+	// Pause paused replica data.
+	Pause()
 	// Consume returns the index of message replica.
 	Consume() int64
 	// GetMessage returns message by replica index.
@@ -87,6 +89,11 @@ func (r *replicator) Replica(_ int64, _ []byte) {
 // IsReady returns if replicator is ready.
 func (r *replicator) IsReady() bool {
 	return true
+}
+
+// Pause paused replica data.
+func (r *replicator) Pause() {
+	r.channel.ConsumerGroup.Pause()
 }
 
 // Connect connects follower for sending replica message.
