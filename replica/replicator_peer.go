@@ -20,7 +20,6 @@ package replica
 import (
 	"context"
 	"runtime/pprof"
-	"time"
 
 	"go.uber.org/atomic"
 
@@ -87,9 +86,7 @@ type replicatorRunner struct {
 	replicatorType string
 	replicator     Replicator
 
-	closed          chan struct{}
-	sleep, maxSleep int
-	sleepFn         *time.Timer
+	closed chan struct{}
 
 	statistics *metrics.StorageReplicatorRunnerStatistics
 	logger     *logger.Logger
@@ -110,9 +107,6 @@ func newReplicatorRunner(replicator Replicator) *replicatorRunner {
 		replicatorType: replicaType,
 		running:        atomic.NewBool(false),
 		closed:         make(chan struct{}),
-		sleep:          0,
-		sleepFn:        time.NewTimer(time.Second), // default sleep
-		maxSleep:       20 * 1000,                  // 20 sec
 		statistics:     metrics.NewStorageReplicatorRunnerStatistics(replicaType, state.Database, state.ShardID.String()),
 		logger:         logger.GetLogger("Replica", "ReplicatorRunner"),
 	}
@@ -134,8 +128,8 @@ func (r *replicatorRunner) replicaLoop(ctx context.Context) {
 
 func (r *replicatorRunner) shutdown() {
 	if r.running.CAS(true, false) {
+		r.replicator.Pause()
 		r.cannel()
-		defer r.sleepFn.Stop()
 		// wait for stop replica loop
 		<-r.closed
 	}
@@ -165,8 +159,6 @@ func (r *replicatorRunner) replica(_ context.Context) {
 		}
 	}()
 
-	hasData := false
-
 	if r.replicator.IsReady() && r.replicator.Connect() {
 		seq := r.replicator.Consume()
 		if seq >= 0 {
@@ -174,8 +166,6 @@ func (r *replicatorRunner) replica(_ context.Context) {
 				logger.String("type", r.replicatorType),
 				logger.String("replicator", r.replicator.String()),
 				logger.Int64("index", seq))
-			hasData = true
-			r.sleep = 0
 			data, err := r.replicator.GetMessage(seq)
 			if err != nil {
 				r.replicator.IgnoreMessage(seq)
@@ -192,20 +182,5 @@ func (r *replicatorRunner) replica(_ context.Context) {
 		}
 	} else {
 		r.logger.Warn("replica is not ready", logger.String("replicator", r.replicator.String()))
-	}
-	if !hasData {
-		sleep := 2 << r.sleep
-		if sleep < r.maxSleep {
-			r.sleep++
-		}
-		if sleep > r.maxSleep {
-			// reset sleep
-			sleep = r.maxSleep
-		}
-		r.sleepFn.Reset(time.Duration(sleep) * time.Millisecond)
-		select {
-		case <-r.ctx.Done():
-		case <-r.sleepFn.C:
-		}
 	}
 }

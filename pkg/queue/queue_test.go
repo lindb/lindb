@@ -303,7 +303,9 @@ func TestQueue_Close(t *testing.T) {
 		dataPageFct:  pageFct,
 		indexPageFct: pageFct,
 		metaPageFct:  pageFct,
+		rwMutex:      &sync.RWMutex{},
 	}
+	q.notEmpty = sync.NewCond(q.rwMutex)
 	q.Close()
 }
 

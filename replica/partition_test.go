@@ -395,6 +395,8 @@ func TestPartition_Stop(t *testing.T) {
 	peer1 := NewMockReplicatorPeer(ctrl)
 	peer2 := NewMockReplicatorPeer(ctrl)
 	ctx, cancel := context.WithCancel(context.TODO())
+	log := queue.NewMockFanOutQueue(ctrl)
+	log.EXPECT().StopConsumerGroup(gomock.Any()).AnyTimes()
 	p := &partition{
 		ctx:    ctx,
 		cancel: cancel,
@@ -402,6 +404,7 @@ func TestPartition_Stop(t *testing.T) {
 			1: peer1,
 			2: peer2,
 		},
+		log: log,
 	}
 	peer1.EXPECT().Shutdown()
 	peer2.EXPECT().Shutdown()
