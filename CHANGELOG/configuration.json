@@ -1,0 +1,29 @@
+{
+   "categories":[
+      {
+         "title":"### 🚀 New features",
+         "labels":[
+            "feature",
+            "enhancement"
+         ]
+      },
+      {
+         "title":"### 🐛 Bug fixes",
+         "labels":[
+            "bug"
+         ]
+      },
+      {
+         "title":"### 💬 Others",
+         "labels":[
+            "*"
+         ],
+         "exclude_labels":[
+            "feature",
+            "enhancement",
+            "bug"
+         ]
+      }
+   ],
+   "pr_template":"- {{TITLE}} by @{{AUTHOR}} in #{{NUMBER}}"
+}

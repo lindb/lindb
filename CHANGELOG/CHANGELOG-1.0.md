@@ -1,5 +1,3 @@
-# Change logs
-
 ## [0.2.3] - 2023-04-03
 
 See [code changes](https://github.com/lindb/lindb/compare/v0.2.2...v0.2.3).
@@ -117,4 +115,3 @@ See [code changes](https://github.com/lindb/lindb/compare/v0.1.0...v0.1.1).
 - Distributed query engine, SQL supported;
 - Data supports distributed storage;
 - Supports write ahead log;
-
