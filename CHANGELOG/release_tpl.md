@@ -1,0 +1,2 @@
+- Please check out [CHANGELOG](https://github.com/lindb/lindb/blob/main/CHANGELOG/CHANGELOG-1.0.md) for a full list of changes.
+- For installation guides, please check out [Quick start](https://lindb.io/guide/get-started.html) .

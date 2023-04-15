@@ -6,8 +6,8 @@ BIN_DIR="bin"
 RELEASE_DIR="release"
 PACKAGE_NAME="lindb"
 
-function build {
-	local target=${1}
+build() {
+	target=$1
 
 	LD_FLAGS=("-s -w -X github.com/lindb/lindb/config.Version=${PACKAGE_VERSION}")
 	LD_FLAGS+=("-X github.com/lindb/lindb/config.BuildTime=${BUILD_TIME}")
@@ -27,12 +27,12 @@ function build {
 	fi
 }
 
-function clean {
+clean() {
 	rm -rf "${BIN_DIR}"
 	rm -rf "${RELEASE_DIR}"
 }
 
-function main {
+function main() {
 	# get version
 	if [[ -z "${VERSION}" ]]; then 
 		# if env not set, get git tag as version
