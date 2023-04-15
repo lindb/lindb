@@ -1,8 +1,9 @@
 name: Docker Release
 on:
   workflow_dispatch:
-  release:
-    types: [published]
+  push:
+    tags:
+      - "v*.*.*"
 env:
   # <repo>
   IMAGE_NAME: ${{ github.event.repository.name }}
@@ -11,18 +12,11 @@ jobs:
     name: Push Docker image to Docker Hub
     runs-on: ubuntu-latest
     steps:
-      - name: get latest release with tag
-        id: latestrelease
-        run: |
-          echo "::set-output name=releasetag::$(curl -s https://api.github.com/repos/lindb/lindb/releases/latest | jq '.tag_name' | sed 's/\"//g')"
-      - name: confirm release tag
-        run: |
-          echo ${{ steps.latestrelease.outputs.releasetag }}
       - name: Check out code
         uses: actions/checkout@v3
         with:
           fetch-depth: 1
-          ref: ${{ steps.latestrelease.outputs.releasetag }}
+          ref: ${{ github.ref }}
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v4
@@ -30,7 +24,7 @@ jobs:
           images: ${{ secrets.DOCKER_HUB_USER }}/${{ env.IMAGE_NAME }}
           tags: |
             # set latest tag for latest tag 
-            type=raw,value=${{ steps.latestrelease.outputs.releasetag }}
+            type=raw,value=${{ github.ref_name }}
 
       - name: Login to Docker Hub 
         uses: docker/login-action@v2
@@ -47,4 +41,4 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            LD_FLAGS=-ldflags=-s -w -X github.com/lindb/lindb/config.Version=${{ steps.latestrelease.outputs.releasetag }} -X github.com/lindb/lindb/config.BuildTime=${{ steps.date.outputs.date }}
+            LD_FLAGS=-ldflags=-s -w -X github.com/lindb/lindb/config.Version=${{ github.ref_name }} -X github.com/lindb/lindb/config.BuildTime=${{ steps.date.outputs.date }}
