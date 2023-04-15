@@ -1,3 +1,17 @@
+## [refs/heads/main](https://github.com/lindb/lindb/releases/tag/refs/heads/main) - 2023-04-15
+
+See [code changes](https://github.com/lindb/lindb/compare/v0.2.2...v0.2.3).
+
+### 🚀 New features
+
+- [opt]: join file paths by @stone1100 in #951
+
+### 🐛 Bug fixes
+
+- [bug]: fix get diff agg result using diff group by interval by @stone1100 in #954
+
+
+
 ## [v0.2.3](https://github.com/lindb/lindb/releases/tag/v0.2.3) - 2023-04-03
 
 See [code changes](https://github.com/lindb/lindb/compare/v0.2.2...v0.2.3).
