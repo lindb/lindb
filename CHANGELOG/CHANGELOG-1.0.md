@@ -1,6 +1,4 @@
-# Change logs
-
-## [0.2.3] - 2023-04-03
+## [v0.2.3](https://github.com/lindb/lindb/releases/tag/v0.2.3) - 2023-04-03
 
 See [code changes](https://github.com/lindb/lindb/compare/v0.2.2...v0.2.3).
 
@@ -16,7 +14,7 @@ See [code changes](https://github.com/lindb/lindb/compare/v0.2.2...v0.2.3).
 
 - fix get diff agg result using diff group by interval
 
-## [0.2.2] - 2023-03-28
+## [v0.2.2](https://github.com/lindb/lindb/releases/tag/v0.2.2) - 2023-03-28
 
 See [code changes](https://github.com/lindb/lindb/compare/v0.2.1...v0.2.2).
 
@@ -46,7 +44,7 @@ See [code changes](https://github.com/lindb/lindb/compare/v0.2.1...v0.2.2).
 
 - @Sn0rt made their first contribution in https://github.com/lindb/lindb/pull/927
 
-## [0.2.1] - 2023-03-04
+## [v0.2.1](https://github.com/lindb/lindb/releases/tag/v0.2.1) - 2023-03-04
 
 See [code changes](https://github.com/lindb/lindb/compare/v0.2.0...v0.2.1).
 
@@ -63,7 +61,7 @@ See [code changes](https://github.com/lindb/lindb/compare/v0.2.0...v0.2.1).
 
 - fix nil point when parse wrong sql
 
-## [0.2.0] - 2023-01-29
+## [v0.2.0]https://github.com/lindb/lindb/releases/tag/v0.2.0) - 2023-01-29
 
 See [code changes](https://github.com/lindb/lindb/compare/v0.1.1...v0.2.0).
 
@@ -89,7 +87,7 @@ See [code changes](https://github.com/lindb/lindb/compare/v0.1.1...v0.2.0).
 - fix directory traversal security issue;
 - fix alive/create/expire task metric no data;
 
-## [0.1.1] - 2022-12-04
+## [v0.1.1](https://github.com/lindb/lindb/releases/tag/v0.1.1) - 2022-12-04
 
 See [code changes](https://github.com/lindb/lindb/compare/v0.1.0...v0.1.1).
 
@@ -109,7 +107,7 @@ See [code changes](https://github.com/lindb/lindb/compare/v0.1.0...v0.1.1).
 
 - fix delete active wal when not set write ahead time;
 
-## [0.1.0] - 2022-11-22
+## [v0.1.0]https://github.com/lindb/lindb/releases/tag/v0.1.0) - 2022-11-22
 
 ### Added features
 
@@ -117,4 +115,3 @@ See [code changes](https://github.com/lindb/lindb/compare/v0.1.0...v0.1.1).
 - Distributed query engine, SQL supported;
 - Data supports distributed storage;
 - Supports write ahead log;
-
