@@ -1,3 +1,17 @@
+## [v0.2.4](https://github.com/lindb/lindb/releases/tag/v0.2.4) - 2023-04-16
+
+See [code changes](https://github.com/lindb/lindb/compare/v0.2.3...v0.2.4).
+
+### 🚀 New features
+
+- [enhance]: consume group wait strategy when WAL is empty by @stone1100 in #960
+
+### 💬 Others
+
+- [chore]: use golangci/golangci-lint-action by @damnever in #956
+- [chore]: add twitter badge to readme by @stone1100 in #958
+
+
 ## [v0.2.3](https://github.com/lindb/lindb/releases/tag/v0.2.3) - 2023-04-03
 
 See [code changes](https://github.com/lindb/lindb/compare/v0.2.2...v0.2.3).
