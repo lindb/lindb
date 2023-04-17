@@ -1,3 +1,14 @@
+## [v0.2.5](https://github.com/lindb/lindb/releases/tag/v0.2.5) - 2023-04-17
+
+See [code changes](https://github.com/lindb/lindb/compare/v0.2.4...v0.2.5).
+
+### 🐛 Bug fixes
+
+- [bug]: darwin package no cpu stats data by @stone1100 in #968
+- [bug]: lost web console when build package via github action by @stone1100 in #969
+- [bug]: fix build darwin package fail by @stone1100 in #971
+
+
 ## [v0.2.4](https://github.com/lindb/lindb/releases/tag/v0.2.4) - 2023-04-16
 
 See [code changes](https://github.com/lindb/lindb/compare/v0.2.3...v0.2.4).
