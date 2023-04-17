@@ -14,6 +14,11 @@ build() {
 
 
 	GO_BUILD_ENV=("GOOS=${GOOS}" "GOARCH=${GOARCH}")
+	if [ "${GOOS}" == "darwin" ]; then
+		# macOS need enable cgo
+		# https://github.com/shirou/gopsutil/issues/592
+		GO_BUILD_ENV+=("CGO_ENABLED=1")
+	fi
 	target_file="${BIN_DIR}/${target}/${PACKAGE_NAME}"
 
 	# build go package
