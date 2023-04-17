@@ -28,7 +28,9 @@ jobs:
           go-version: 1.19
           cache: true
       - name: Build cross platform binaries
-        run: bash deploy.sh
+        run: |
+          make build-frontend
+          bash deploy.sh
       - name: Publish cross platform binaries
         uses: softprops/action-gh-release@v1
         if: github.event_name != 'workflow_dispatch'
@@ -72,4 +74,4 @@ jobs:
         uses: peter-evans/enable-pull-request-automerge@v3
         with:
           pull-request-number: ${{ steps.cpr.outputs.pull-request-number }}
-          merge-method: rebase
+          merge-method: squash
