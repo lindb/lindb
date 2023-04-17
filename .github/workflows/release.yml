@@ -9,7 +9,7 @@ on:
 jobs:
   release_package:
     name: Release package
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - name: Checkout source code
         uses: actions/checkout@v3
