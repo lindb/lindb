@@ -249,6 +249,9 @@ type SQLVisitor interface {
 	// Visit a parse tree produced by SQLParser#fieldExpr.
 	VisitFieldExpr(ctx *FieldExprContext) interface{}
 
+	// Visit a parse tree produced by SQLParser#star.
+	VisitStar(ctx *StarContext) interface{}
+
 	// Visit a parse tree produced by SQLParser#durationLit.
 	VisitDurationLit(ctx *DurationLitContext) interface{}
 

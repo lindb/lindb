@@ -249,6 +249,9 @@ type SQLListener interface {
 	// EnterFieldExpr is called when entering the fieldExpr production.
 	EnterFieldExpr(c *FieldExprContext)
 
+	// EnterStar is called when entering the star production.
+	EnterStar(c *StarContext)
+
 	// EnterDurationLit is called when entering the durationLit production.
 	EnterDurationLit(c *DurationLitContext)
 
@@ -539,6 +542,9 @@ type SQLListener interface {
 
 	// ExitFieldExpr is called when exiting the fieldExpr production.
 	ExitFieldExpr(c *FieldExprContext)
+
+	// ExitStar is called when exiting the star production.
+	ExitStar(c *StarContext)
 
 	// ExitDurationLit is called when exiting the durationLit production.
 	ExitDurationLit(c *DurationLitContext)

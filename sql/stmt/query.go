@@ -30,6 +30,7 @@ type Query struct {
 	Namespace   string // namespace
 	MetricName  string // like table name
 	SelectItems []Expr // select list, such as field, function call, math expression etc.
+	AllFields   bool   // select all fields under metric
 	Condition   Expr   // tag filter condition expression
 
 	// broker plan maybe reset
@@ -56,10 +57,11 @@ func (q *Query) HasGroupBy() bool {
 
 // innerQuery represents a wrapper of query for json encoding
 type innerQuery struct {
-	Explain     bool              `json:"Explain,omitempty"`
+	Explain     bool              `json:"explain,omitempty"`
 	Namespace   string            `json:"namespace,omitempty"`
 	MetricName  string            `json:"metricName,omitempty"`
 	SelectItems []json.RawMessage `json:"selectItems,omitempty"`
+	AllFields   bool              `json:"allFields,omitempty"`
 	Condition   json.RawMessage   `json:"condition,omitempty"`
 
 	TimeRange       timeutil.TimeRange `json:"timeRange,omitempty"`
@@ -78,6 +80,7 @@ func (q *Query) MarshalJSON() ([]byte, error) {
 	inner := innerQuery{
 		Explain:         q.Explain,
 		MetricName:      q.MetricName,
+		AllFields:       q.AllFields,
 		Namespace:       q.Namespace,
 		Condition:       Marshal(q.Condition),
 		TimeRange:       q.TimeRange,
@@ -133,6 +136,7 @@ func (q *Query) UnmarshalJSON(value []byte) error {
 	q.MetricName = inner.MetricName
 	q.Namespace = inner.Namespace
 	q.SelectItems = selectItems
+	q.AllFields = inner.AllFields
 	q.TimeRange = inner.TimeRange
 	q.Interval = inner.Interval
 	q.IntervalRatio = inner.IntervalRatio

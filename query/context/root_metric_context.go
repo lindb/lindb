@@ -22,6 +22,7 @@ import (
 	"errors"
 	"math"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/lindb/lindb/aggregation"
@@ -143,12 +144,13 @@ func (ctx *RootMetricContext) makeResultSet() (resultSet *models.ResultSet, err 
 	interval := ctx.interval
 	if ctx.groupAgg != nil {
 		groupIts := ctx.groupAgg.ResultSet()
+		selectItems := ctx.getSelectItems()
 		for _, it := range groupIts {
 			// TODO: reuse expression??
 			expression := newExpressionFn(
 				timeRange,
 				interval,
-				statement.SelectItems,
+				selectItems,
 			)
 			// do expression eval
 			expression.Eval(it)
@@ -265,4 +267,38 @@ func (ctx *RootMetricContext) buildOrderBy() (aggregation.OrderBy, error) {
 		})
 	}
 	return aggregation.NewTopNOrderBy(orderByItems, statement.Limit), nil
+}
+
+// getSelectItems returns select field items.
+func (ctx *RootMetricContext) getSelectItems() []stmt.Expr {
+	statement := ctx.Deps.Statement
+	selectItems := statement.SelectItems
+	if statement.AllFields {
+		// if select all fields, read field names from aggregator
+		allAggFields := ctx.groupAgg.Fields()
+		selectItems = []stmt.Expr{}
+		isHistogram := false
+		for _, fieldName := range allAggFields {
+			if strings.HasPrefix(string(fieldName), "__bucket_") {
+				// filter histogram raw field
+				isHistogram = true
+				continue
+			}
+			selectItems = append(selectItems, &stmt.SelectItem{Expr: &stmt.FieldExpr{Name: fieldName.String()}})
+		}
+		if isHistogram {
+			// add histogram functions
+			addQuantileFn := func(as string, num float64) {
+				selectItems = append(selectItems, &stmt.SelectItem{
+					Expr:  &stmt.CallExpr{FuncType: function.Quantile, Params: []stmt.Expr{&stmt.NumberLiteral{Val: num}}},
+					Alias: as,
+				})
+			}
+			addQuantileFn("p99", 0.99)
+			addQuantileFn("p95", 0.95)
+			addQuantileFn("p90", 0.90)
+			addQuantileFn("mean", 0.50)
+		}
+	}
+	return selectItems
 }

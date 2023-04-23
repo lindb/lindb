@@ -487,6 +487,12 @@ func (s *BaseSQLListener) EnterFieldExpr(ctx *FieldExprContext) {}
 // ExitFieldExpr is called when production fieldExpr is exited.
 func (s *BaseSQLListener) ExitFieldExpr(ctx *FieldExprContext) {}
 
+// EnterStar is called when production star is entered.
+func (s *BaseSQLListener) EnterStar(ctx *StarContext) {}
+
+// ExitStar is called when production star is exited.
+func (s *BaseSQLListener) ExitStar(ctx *StarContext) {}
+
 // EnterDurationLit is called when production durationLit is entered.
 func (s *BaseSQLListener) EnterDurationLit(ctx *DurationLitContext) {}
 

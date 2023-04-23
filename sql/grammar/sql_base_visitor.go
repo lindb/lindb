@@ -324,6 +324,10 @@ func (v *BaseSQLVisitor) VisitFieldExpr(ctx *FieldExprContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseSQLVisitor) VisitStar(ctx *StarContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseSQLVisitor) VisitDurationLit(ctx *DurationLitContext) interface{} {
 	return v.VisitChildren(ctx)
 }
