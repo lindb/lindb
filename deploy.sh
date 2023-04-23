@@ -67,7 +67,7 @@ function main() {
 		TARGET_ARCHS=("amd64")
 	
 		# if linux os build arm
-		if [ ${GOOS} == "linux" ]; then
+		if [ ${GOOS} == "linux" ] || [ ${GOOS} == "darwin" ]; then
 			TARGET_ARCHS+=("arm64")
 		fi
 	
