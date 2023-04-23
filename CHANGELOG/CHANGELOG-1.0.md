@@ -1,3 +1,13 @@
+## [v0.2.6](https://github.com/lindb/lindb/releases/tag/v0.2.6) - 2023-04-23
+
+See [code changes](https://github.com/lindb/lindb/compare/v0.2.5...v0.2.6).
+
+### 🚀 New features
+
+- [feat]: support select *(query all fields) by @stone1100 in #974
+- [chore]: build darwin arm64 package by @stone1100 in #975
+
+
 ## [v0.2.5](https://github.com/lindb/lindb/releases/tag/v0.2.5) - 2023-04-17
 
 See [code changes](https://github.com/lindb/lindb/compare/v0.2.4...v0.2.5).
