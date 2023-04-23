@@ -157,7 +157,9 @@ fieldExpr                :
                          | exprFunc
                          | exprAtom
                          | durationLit
+						 | star
                          ;
+star 					: T_MUL;
 
 durationLit             : intNumber intervalItem ;
 intervalItem            :

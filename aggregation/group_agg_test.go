@@ -104,6 +104,7 @@ func TestGroupByAggregator_Aggregate(t *testing.T) {
 			agg.Aggregate(gIt)
 			rs := agg.ResultSet()
 			assert.NotNil(t, rs)
+			assert.NotNil(t, agg.Fields())
 		})
 	}
 
@@ -118,6 +119,7 @@ func TestGroupByAggregator_Aggregate(t *testing.T) {
 	rs := agg.ResultSet()
 	assert.Nil(t, rs)
 	assert.Equal(t, timeutil.Interval(timeutil.OneSecond), agg.Interval())
+	assert.Empty(t, agg.Fields())
 	assert.Equal(t,
 		timeutil.TimeRange{
 			Start: now,

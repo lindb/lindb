@@ -67,7 +67,7 @@ func TestRootMetricContext_WaitResponse(t *testing.T) {
 	})
 }
 
-func TestRootMetricDataContext_MakPlan(t *testing.T) {
+func TestRootMetricDataContext_MakePlan(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -220,6 +220,60 @@ func TestRootMetricDataContext_makeResultSet(t *testing.T) {
 				values.SetValue(0, 1.1)
 				values.SetValue(5, math.NaN())
 				row.EXPECT().ResultSet().Return("a", map[string]*collections.FloatArray{"f": values})
+				orderBy.EXPECT().ResultSet().Return([]aggregation.Row{row, row, row})
+			},
+			assert: func(rs *models.ResultSet, err error) {
+				assert.NotNil(t, rs)
+				assert.NoError(t, err)
+			},
+		},
+		{
+			name: "build all fields result set",
+			prepare: func(ctx *RootMetricContext) {
+				ctx.Deps.Statement.GroupBy = []string{"a"}
+				ctx.Deps.Statement.AllFields = true
+				ctx.groupAgg = groupAgg
+				groupIt := series.NewMockGroupedIterator(ctrl)
+				groupAgg.EXPECT().Fields().Return([]field.Name{"f"})
+				groupAgg.EXPECT().ResultSet().Return(series.GroupedIterators{groupIt})
+				expr.EXPECT().Eval(gomock.Any())
+				groupIt.EXPECT().Tags().Return("tags")
+				expr.EXPECT().ResultSet().Return(map[string]*collections.FloatArray{"f": collections.NewFloatArray(10)})
+				orderBy.EXPECT().Push(gomock.Any())
+				row := aggregation.NewMockRow(ctrl)
+				row.EXPECT().ResultSet().Return("a,c", nil)                                        // group by not match
+				row.EXPECT().ResultSet().Return("a", map[string]*collections.FloatArray{"f": nil}) // field no value
+				values := collections.NewFloatArray(10)
+				values.SetValue(0, 1.1)
+				values.SetValue(5, math.NaN())
+				row.EXPECT().ResultSet().Return("a", map[string]*collections.FloatArray{"f": values})
+				orderBy.EXPECT().ResultSet().Return([]aggregation.Row{row, row, row})
+			},
+			assert: func(rs *models.ResultSet, err error) {
+				assert.NotNil(t, rs)
+				assert.NoError(t, err)
+			},
+		},
+		{
+			name: "build all fields(histogram) result set",
+			prepare: func(ctx *RootMetricContext) {
+				ctx.Deps.Statement.GroupBy = []string{"a"}
+				ctx.Deps.Statement.AllFields = true
+				ctx.groupAgg = groupAgg
+				groupIt := series.NewMockGroupedIterator(ctrl)
+				groupAgg.EXPECT().Fields().Return([]field.Name{"__bucket_1"})
+				groupAgg.EXPECT().ResultSet().Return(series.GroupedIterators{groupIt})
+				expr.EXPECT().Eval(gomock.Any())
+				groupIt.EXPECT().Tags().Return("tags")
+				expr.EXPECT().ResultSet().Return(map[string]*collections.FloatArray{"__bucket_1": collections.NewFloatArray(10)})
+				orderBy.EXPECT().Push(gomock.Any())
+				row := aggregation.NewMockRow(ctrl)
+				row.EXPECT().ResultSet().Return("a,c", nil)                                                 // group by not match
+				row.EXPECT().ResultSet().Return("a", map[string]*collections.FloatArray{"__bucket_1": nil}) // field no value
+				values := collections.NewFloatArray(10)
+				values.SetValue(0, 1.1)
+				values.SetValue(5, math.NaN())
+				row.EXPECT().ResultSet().Return("a", map[string]*collections.FloatArray{"__bucket_1": values})
 				orderBy.EXPECT().ResultSet().Return([]aggregation.Row{row, row, row})
 			},
 			assert: func(rs *models.ResultSet, err error) {

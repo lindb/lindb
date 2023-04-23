@@ -39,6 +39,7 @@ type queryStmtParser struct {
 
 	selectItems []stmt.Expr
 	fieldNames  map[string]struct{} // cache field name include alias
+	allFields   bool
 
 	startTime int64
 	endTime   int64
@@ -92,6 +93,7 @@ func (q *queryStmtParser) build() (stmt.Statement, error) {
 
 	query.Interval = timeutil.Interval(q.interval)
 	query.AutoGroupByTime = q.autoGroupByTime
+	query.AllFields = q.allFields
 	query.GroupBy = q.groupBy
 	query.OrderByItems = q.orderBy
 	query.Limit = q.limit
@@ -106,7 +108,7 @@ func (q *queryStmtParser) validation() error {
 	if q.metricName == "" {
 		return fmt.Errorf("metric name cannot be empty")
 	}
-	if len(q.selectItems) == 0 {
+	if !q.allFields && len(q.selectItems) == 0 {
 		return fmt.Errorf("select fields cannbe be empty")
 	}
 	return nil
@@ -261,6 +263,8 @@ func (q *queryStmtParser) parseDuration(ctx grammar.IDurationLitContext) int64 {
 // visitFieldExpr visits when production field expression is entered
 func (q *queryStmtParser) visitFieldExpr(ctx *grammar.FieldExprContext) {
 	switch {
+	case ctx.Star() != nil:
+		q.allFields = true
 	case ctx.ExprFunc() != nil:
 		q.exprStack.Push(&stmt.CallExpr{})
 	case ctx.T_OPEN_P() != nil:
