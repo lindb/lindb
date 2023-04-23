@@ -9,7 +9,6 @@
 [![Frontend CI](https://github.com/lindb/lindb/actions/workflows/frontend.yml/badge.svg)](https://github.com/lindb/lindb/actions/workflows/frontend.yml)
 [![Docker Latest](https://github.com/lindb/lindb/actions/workflows/docker-latest.yml/badge.svg)](https://github.com/lindb/lindb/actions/workflows/docker-latest.yml)
 [![Docker Release](https://github.com/lindb/lindb/actions/workflows/docker-release.yml/badge.svg)](https://github.com/lindb/lindb/actions/workflows/docker-release.yml)
-[![Release](https://github.com/lindb/lindb/actions/workflows/release.yml/badge.svg)](https://github.com/lindb/lindb/actions/workflows/release.yml)
 [![codecov](https://codecov.io/gh/lindb/lindb/branch/main/graph/badge.svg)](https://codecov.io/gh/lindb/lindb)
 [![GoDoc](https://img.shields.io/badge/Godoc-reference-blue.svg)](https://godoc.org/github.com/lindb/lindb)
 [![contribution](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](CONTRIBUTING.md)
