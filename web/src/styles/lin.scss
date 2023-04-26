@@ -1,167 +1,192 @@
+/*
+Licensed to LinDB under one or more contributor
+license agreements. See the NOTICE file distributed with
+this work for additional information regarding copyright
+ownership. LinDB licenses this file to you under
+the Apache License, Version 2.0 (the "License"); you may
+not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+ 
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
 
 .lin-table {
-    .semi-descriptions-item-th {
-        padding-right: 8px;
-    }
+  .semi-descriptions-item-th {
+    padding-right: 8px;
+  }
 }
 
 .lin-small-desc {
-    .semi-descriptions-key {
-        font-size: 12px;
-    }
+  .semi-descriptions-key {
+    font-size: 12px;
+  }
 
-    .semi-descriptions-item {
-        padding-bottom: 6px;
-        padding-right: 12px;
-    }
-	.semi-typography a{
-		cursor: default;
-	}
+  .semi-descriptions-item {
+    padding-bottom: 6px;
+    padding-right: 12px;
+  }
+
+  .semi-typography a {
+    cursor: default;
+  }
 }
 
-.lin-description{
-	.semi-typography a{
-		cursor: default;
-	}
+.lin-description {
+  .semi-typography a {
+    cursor: default;
+  }
 }
 
 .lin-stats {
-    .semi-progress-line-text {
-        min-width: 60px;
-    }
+  .semi-progress-line-text {
+    min-width: 60px;
+  }
 }
 
 .lin-tag-filter {
-    .semi-form-field {
-        padding-top: 0;
-        padding-bottom: 0;
-    }
+  .semi-form-field {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
 
-    .semi-tagInput-wrapper .semi-tagInput-wrapper-input {
-        width: 0;
-        min-width: 0;
-    }
+  .semi-tagInput-wrapper .semi-tagInput-wrapper-input {
+    width: 0;
+    min-width: 0;
+  }
 }
 
 .lin-form {
-    .semi-form-field {
-        padding-top: 4px;
-        padding-bottom: 4px;
-    }
+  .semi-form-field {
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
 }
 
 .identifier {
-    color: var(--semi-color-text-0);
+  color: var(--semi-color-text-0);
 }
 
 .lin-db-form {
-    .semi-form-field-group {
-        display: inline-block;
-    }
+  .semi-form-field-group {
+    display: inline-block;
+  }
 
-    .semi-form-field-group {
-        padding-top: 6px;
-        padding-bottom: 6px;
-    }
+  .semi-form-field-group {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
 }
 
 .lin-link {
-    cursor: pointer;
+  cursor: pointer;
 }
 
 .lin-explain-timeline {
-    height: 14px;
-    width: 100px;
-    border: 1px solid var(--semi-color-fill-2);
-	.inner {
-		height: 12px;
-		min-width: 1px;
-	}
+  height: 14px;
+  width: 100px;
+  border: 1px solid var(--semi-color-fill-2);
+
+  .inner {
+    height: 12px;
+    min-width: 1px;
+  }
 }
 
 .lin-nav .semi-navigation-header-list-outer {
-	overflow: hidden;
-    display: flex;
-    flex-direction: column;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .lin-nav .semi-navigation-list {
-	overflow: auto;
+  overflow: auto;
 }
 
-.lin-tree{
+.lin-tree {
   width: 100%;
+
   .semi-tree-option-list {
-	  padding:0;
+    padding: 0;
   }
 }
 
 .lin-spin {
-	svg {
-		margin-left: 10px;
-	}
+  svg {
+    margin-left: 10px;
+  }
 }
 
 .lin-small-space {
-	column-gap:2px !important;
+  column-gap: 2px !important;
 }
+
 .lin-variate-form .semi-form-field {
-	padding-right:12px;
+  padding-right: 12px;
 }
 
 ::selection {
-    color: #fff;
-    text-shadow: none;
-    background: var(--semi-color-primary);
-} 
+  color: #fff;
+  text-shadow: none;
+  background: var(--semi-color-primary);
+}
 
 .lin-form-input-group {
-	.semi-col-4 {
-		width: 0;
-	}
-	.semi-col-12 {
-		width: 100%;
-		float: unset;
-	}
+  .semi-col-4 {
+    width: 0;
+  }
+
+  .semi-col-12 {
+    width: 100%;
+    float: unset;
+  }
 }
 
 .lin-loader-section {
-	min-width: 200px;
-    width: 33.33%;
-    height: 200px;
-    padding: 10px;
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #ccc;
-    cursor: pointer;
-    transition: 0.3s linear;
+  min-width: 200px;
+  width: 33.33%;
+  height: 200px;
+  padding: 10px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ccc;
+  cursor: pointer;
+  transition: 0.3s linear;
 }
 
 .lin-loader {
+  width: 8px;
+  height: 40px;
+  border-radius: 4px;
+  display: inline-block;
+  position: relative;
+  background: currentcolor;
+  color: #fff;
+  animation: animloader61 0.3s 0.3s linear infinite alternate;
+
+  &::after,
+  &::before {
+    content: "";
     width: 8px;
     height: 40px;
     border-radius: 4px;
-    display: inline-block;
-    position: relative;
-    background: currentColor;
-    color: #FFF;
-    animation: animloader61 0.3s 0.3s linear infinite alternate;
-    &::after , &::before {
-         content: "";
-    width: 8px;
-    height: 40px;
-    border-radius: 4px;
-    background: currentColor;
+    background: currentcolor;
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
     left: 20px;
-     animation: animloader61 0.3s 0.45s linear infinite alternate;
-    }
-    &::before {
-        left: -20px;
-        animation-delay: 0s;
-    }
+    animation: animloader61 0.3s 0.45s linear infinite alternate;
+  }
+
+  &::before {
+    left: -20px;
+    animation-delay: 0s;
+  }
 }
