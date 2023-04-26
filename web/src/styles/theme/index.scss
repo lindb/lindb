@@ -1,113 +1,133 @@
+/*
+Licensed to LinDB under one or more contributor
+license agreements. See the NOTICE file distributed with
+this work for additional information regarding copyright
+ownership. LinDB licenses this file to you under
+the Apache License, Version 2.0 (the "License"); you may
+not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+ 
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
+
 @font-face {
-    font-family: 'Inter';
-    src: url("https://sf6-cdn-tos.douyinstatic.com/obj/eden-cn/slepweh7nupqpognuhbo/Inter-Regular.ttf") format("ttf");
+  font-family: Inter;
+  src: url("https://sf6-cdn-tos.douyinstatic.com/obj/eden-cn/slepweh7nupqpognuhbo/Inter-Regular.ttf")
+    format("ttf");
 }
 
 @font-face {
-    font-family: 'Inter-Bold';
-    src: url("https://sf6-cdn-tos.douyinstatic.com/obj/eden-cn/slepweh7nupqpognuhbo/Inter-Bold.ttf") format("ttf");
+  font-family: Inter-Bold;
+  src: url("https://sf6-cdn-tos.douyinstatic.com/obj/eden-cn/slepweh7nupqpognuhbo/Inter-Bold.ttf")
+    format("ttf");
 }
 
 html,
 body {
-    line-height: 20px;
-    color: var(--semi-color-text-0);
-    font-size: 14px;
-    padding: 0;
-    margin: 0;
-    background: var(--semi-color-bg-0);
+  line-height: 20px;
+  color: var(--semi-color-text-0);
+  font-size: 14px;
+  padding: 0;
+  margin: 0;
+  background: var(--semi-color-bg-0);
 
-    &::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-    }
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
 
-    &::-webkit-scrollbar-track {
-        background: rgba(0, 0, 0, 0);
-    }
+  &::-webkit-scrollbar-track {
+    background: rgb(0 0 0 / 0%);
+  }
 
-    &::-webkit-scrollbar-corner {
-        background-color: rgba(0, 0, 0, 0);
-    }
+  &::-webkit-scrollbar-corner {
+    background-color: rgb(0 0 0 / 0%);
+  }
 
-    &::-webkit-scrollbar-thumb {
-        border-radius: 6px;
-        background: var(--semi-color-fill-2);
-    }
+  &::-webkit-scrollbar-thumb {
+    border-radius: 6px;
+    background: var(--semi-color-fill-2);
+  }
 
-    &::-webkit-scrollbar-thumb:hover {
-        background: var(--semi-color-fill-1);
-    }
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--semi-color-fill-1);
+  }
 }
 
-body[theme-mode='dark'] {
-    .home-page .ecology {
-
-        &-react,
-        &-theme-editor,
-        &-animation-editor {
-            background-color: var(--semi-color-fill-0);
-        }
+body[theme-mode="dark"] {
+  .home-page .ecology {
+    &-react,
+    &-theme-editor,
+    &-animation-editor {
+      background-color: var(--semi-color-fill-0);
     }
+  }
 
-    .live-container {
-        border-color: transparent;
+  .live-container {
+    border-color: transparent;
 
-        .editor-outer .editor-container {
-            background: rgba(255, 255, 255, 0.04);
-        }
+    .editor-outer .editor-container {
+      background: rgb(255 255 255 / 4%);
     }
+  }
 
-    .markdown pre {
-        background-color: var(--semi-color-bg-1);
-        border-color: transparent;
-    }
+  .markdown pre {
+    background-color: var(--semi-color-bg-1);
+    border-color: transparent;
+  }
 }
 
-/* ++++ Left side Nav start ++++ */
 .semi-navigation-vertical {
-    .menu-item {
-        &>.semi-navigation-item {
-            margin-bottom: 8px !important;
-        }
+  .menu-item {
+    & > .semi-navigation-item {
+      margin-bottom: 8px !important;
     }
+  }
 }
 
 .lin-header-breadcrumb {
-    line-height: 20px;
+  line-height: 20px;
 
-    .semi-breadcrumb-item-icon {
-        font-size: 20px;
+  .semi-breadcrumb-item-icon {
+    font-size: 20px;
+  }
+
+  .semi-breadcrumb-separator {
+    margin-top: 4px;
+  }
+
+  .semi-breadcrumb-item-title {
+    margin-top: 4px;
+
+    .semi-typography-small {
+      font-size: 14px;
     }
-
-    .semi-breadcrumb-separator {
-        margin-top: 4px;
-    }
-
-    .semi-breadcrumb-item-title {
-        margin-top: 4px;
-
-        .semi-typography-small {
-            font-size: 14px;
-        }
-    }
+  }
 }
 
 /* ---- Left side Nav start ---- */
 
 .semi-card {
-    background-color: var(--semi-color-bg-1);
-    border-radius: 0;
+  background-color: var(--semi-color-bg-1);
+  border-radius: 0;
 }
 
 .semi-progress-horizontal .semi-progress-track-inner {
-    transition: width 0s;
+  transition: width 0s;
 }
 
 .semi-navigation-collapsed {
-    transition: padding-left 0s ease-out,width 0s cubic-bezier(.62,.05,.36,.95);
+  transition: padding-left 0s ease-out,
+    width 0s cubic-bezier(0.62, 0.05, 0.36, 0.95);
 }
 
 .semi-navigation {
-    transition: padding-left 0s ease-out,width 0s cubic-bezier(.62,.05,.36,.95); 
+  transition: padding-left 0s ease-out,
+    width 0s cubic-bezier(0.62, 0.05, 0.36, 0.95);
 }

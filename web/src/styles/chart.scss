@@ -1,23 +1,41 @@
+/*
+Licensed to LinDB under one or more contributor
+license agreements. See the NOTICE file distributed with
+this work for additional information regarding copyright
+ownership. LinDB licenses this file to you under
+the Apache License, Version 2.0 (the "License"); you may
+not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+ 
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
+
 .chart-metric-container {
   height: 100%;
   display: flex;
-  flex-wrap: wrap;
-  flex-direction: column;
-  .crosshair {
-        border-left: 1px dashed var(--semi-color-danger);
-        position: absolute;
-        pointer-events: none;
-        top: 0;
-        left: 0;
-    }
+  flex-flow: column wrap;
 
-    .zoom {
-        background: var(--semi-color-primary-light-default);
-        position: absolute;
-        pointer-events: none;
-        top: 0;
-        left: 0;
-    }
+  .crosshair {
+    border-left: 1px dashed var(--semi-color-danger);
+    position: absolute;
+    pointer-events: none;
+    top: 0;
+    left: 0;
+  }
+
+  .zoom {
+    background: var(--semi-color-primary-light-default);
+    position: absolute;
+    pointer-events: none;
+    top: 0;
+    left: 0;
+  }
 
   &.legend-to-right {
     flex-direction: row;
@@ -33,14 +51,11 @@
     flex: 1 0;
     position: relative;
     max-width: 100%;
-    //height: 100%;
+
     canvas {
       cursor: default;
       position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
+      inset: 0;
     }
   }
 }
@@ -97,9 +112,11 @@
 
   .chart-legend-split-layout {
     display: flex;
+
     .chart-legend__split-left {
       text-align: left;
     }
+
     .chart-legend__split-right {
       text-align: right;
       margin-left: 30px;
@@ -121,7 +138,6 @@
     text-align: right;
     font-size: 12px;
     font-weight: bold;
-    //padding: 3px 6px;
     color: rgb(0 100 250);
     cursor: pointer;
     white-space: nowrap;
@@ -200,30 +216,25 @@
 
   &:hover {
     opacity: 1 !important;
+
     .legend-series-icon {
       transform: scale(1.2);
     }
   }
 }
 
-
 .chart-metric-tooltip {
-  box-shadow: 0 3px 6px -4px rgba(0, 0, 0, .12), 0 6px 16px 0 rgba(0, 0, 0, .08), 0 9px 28px 8px rgba(0, 0, 0, .05);
+  box-shadow: 0 3px 6px -4px rgb(0 0 0 / 12%), 0 6px 16px 0 rgb(0 0 0 / 8%),
+    0 9px 28px 8px rgb(0 0 0 / 5%);
   border: 1px solid var(--semi-color-border);
-  // box-shadow: red;
-  // border: 1px solid red;
-  // 0 3px 6px -4px red, 0 6px 16px 0 red, 0 9px 28px 8px red;
-  //border: 1px solid #c0c2c8;
   color: var(--semi-color-text-0);
   background: var(--semi-color-bg-3);
   border-radius: 2px;
   line-height: 1em;
   font-size: 12px;
   min-height: 50px;
-  // transition: opacity .2s ease-in;
   position: absolute;
   z-index: 9999;
-  //max-width: 100%;
   display: none;
   flex-direction: column;
   max-height: 400px;
@@ -233,7 +244,7 @@
   }
 
   &.show {
-  	display: flex;
+    display: flex;
   }
 
   &.in-chart {
@@ -242,8 +253,10 @@
 
   .tooltip-top-kick {
     background: var(--semi-color-bg-3);
-    box-shadow: 0 3px 6px -4px rgba(0,0,0,.12), 0 6px 16px 0 rgba(0,0,0,.08), 0 9px 28px 8px rgba(0,0,0,.05);
-    border: 1px solid 0 3px 6px -4px rgba(0,0,0,.12), 0 6px 16px 0 rgba(0,0,0,.08), 0 9px 28px 8px rgba(0,0,0,.05);
+    box-shadow: 0 3px 6px -4px rgb(0 0 0 / 12%), 0 6px 16px 0 rgb(0 0 0 / 8%),
+      0 9px 28px 8px rgb(0 0 0 / 5%);
+    border: 1px solid 0 3px 6px -4px rgb(0 0 0 / 12%),
+      0 6px 16px 0 rgb(0 0 0 / 8%), 0 9px 28px 8px rgb(0 0 0 / 5%);
     left: 18px;
     position: fixed;
     transform: rotate(45deg) skew(10deg, 10deg) translate(-70%, 16%);
@@ -253,18 +266,19 @@
   }
 
   .tooltip-title {
-    border-bottom: 1px solid 0 3px 6px -4px rgba(0,0,0,.12), 0 6px 16px 0 rgba(0,0,0,.08), 0 9px 28px 8px rgba(0,0,0,.05);
+    border-bottom: 1px solid 0 3px 6px -4px rgb(0 0 0 / 12%),
+      0 6px 16px 0 rgb(0 0 0 / 8%), 0 9px 28px 8px rgb(0 0 0 / 5%);
     border-bottom: 1px solid var(--semi-color-border);
     position: relative;
     z-index: 2;
     white-space: nowrap;
     background: var(--semi-color-bg-3);
     display: flex;
-    /*justify-content: space-between;*/
+
+    /* justify-content: space-between; */
     align-items: center;
     flex-shrink: 0;
-	width:100%;
-    //overflow: hidden;
+    width: 100%;
 
     time {
       flex: 1 0 auto;
@@ -276,29 +290,30 @@
 .tooltip-toolbar {
   width: 100%;
   padding: 0.6em;
+
   .toolbar-header {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
 
     .tooltip-curr-time {
-	  flex:0;
-      //vertical-align: middle;
+      flex: 0;
     }
+
     .tooltip-btn-group {
-	  flex:1;
-      //float: right;
-      //margin-left: auto;
-	  button{
-		  float:right;
-	  }
+      flex: 1;
+
+      button {
+        float: right;
+      }
     }
   }
+
   .tooltip-toolbar-btn {
-	  margin-left:0;
-	  margin-right:0;
+    margin-left: 0;
+    margin-right: 0;
   }
-  //width: 100%;
+
   .tooltip-toolbar-btn > .anticon {
     vertical-align: text-top;
   }
@@ -307,17 +322,17 @@
     margin-top: 0.5em;
     display: block;
     max-width: 100%;
-	input{
-	 font-size:12px;	
-	 padding: 0 0 0 6px;
-	}
+
+    input {
+      font-size: 12px;
+      padding: 0 0 0 6px;
+    }
   }
 }
 
 .tooltip-content-list {
   overflow-x: hidden;
   overflow-y: auto;
-  // padding: 0.6em;
   position: relative;
   z-index: 2;
   background: var(--semi-color-bg-3);
