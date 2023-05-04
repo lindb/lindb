@@ -6,7 +6,6 @@ ownership. LinDB licenses this file to you under
 the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
  
 Unless required by applicable law or agreed to in writing,
@@ -97,11 +96,7 @@ const Header: React.FC<{ routes: Map<string, RouteItem> }> = (props) => {
             {_.get(currentRouter, "timePicker", false) && <TimePicker />}
             <Button
               icon={
-                isDark() ? (
-                  <Icon icon="iconmoon-line" />
-                ) : (
-                  <Icon icon="iconSun" />
-                )
+                isDark() ? <Icon icon="iconmoon" /> : <Icon icon="iconsun" />
               }
               style={{
                 color: "var(--semi-color-text-2)",

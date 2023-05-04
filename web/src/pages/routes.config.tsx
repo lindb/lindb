@@ -6,7 +6,6 @@ ownership. LinDB licenses this file to you under
 the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
  
 Unless required by applicable law or agreed to in writing,
@@ -92,7 +91,7 @@ export const routes = [
     text: "Explore",
     path: Route.Explore,
     timePicker: true,
-    icon: <Icon icon="iconExplore" style={{ fontSize: 20 }} />,
+    icon: <Icon icon="iconexplore" style={{ fontSize: 20 }} />,
     content: <DataExplore />,
     help: "/guide/admin-ui/explore.html",
   },
@@ -144,7 +143,7 @@ export const routes = [
         text: "Storage",
         path: Route.MetadataStorage,
         roles: ["Broker"],
-        icon: <Icon icon="iconts-tubiao_APPCluster" style={{ fontSize: 20 }} />,
+        icon: <Icon icon="iconcluster" style={{ fontSize: 20 }} />,
         content: <StorageList />,
         help: "/guide/admin-ui/metadata.html#storage",
         items: [
@@ -162,7 +161,7 @@ export const routes = [
         text: "Broker",
         path: Route.MetadataBroker,
         roles: ["Root"],
-        icon: <Icon icon="iconts-tubiao_APPCluster" style={{ fontSize: 20 }} />,
+        icon: <Icon icon="iconcluster" style={{ fontSize: 20 }} />,
         content: <BrokerList />,
         help: "/guide/admin-ui/metadata.html#storage",
         items: [
