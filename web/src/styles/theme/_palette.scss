@@ -15,26 +15,28 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
+// dark theme primary color
 body[theme-mode="dark"] {
-  --semi-color-primary: rgb(var(--semi-orange-5) 1);
-  --semi-color-primary-hover: rgb(var(--semi-orange-6) 1);
-  --semi-color-primary-active: rgb(var(--semi-orange-7) 1);
-  --semi-color-primary-disabled: rgb(var(--semi-orange-2) 1);
-  --semi-color-primary-light-default: rgb(var(--semi-orange-5) 0.2);
-  --semi-color-primary-light-hover: rgb(var(--semi-orange-5) 0.3);
-  --semi-color-primary-light-active: rgb(var(--semi-orange-5) 0.4);
-  --semi-color-focus-border: rgb(var(--semi-orange-5) 1);
+  --semi-color-primary: rgba(var(--semi-orange-5), 1);
+  --semi-color-primary-hover: rgba(var(--semi-orange-6), 1);
+  --semi-color-primary-active: rgba(var(--semi-orange-7), 1);
+  --semi-color-primary-disabled: rgba(var(--semi-orange-2), 1);
+  --semi-color-primary-light-default: rgba(var(--semi-orange-5), 0.2);
+  --semi-color-primary-light-hover: rgba(var(--semi-orange-5), 0.3);
+  --semi-color-primary-light-active: rgba(var(--semi-orange-5), 0.4);
+  --semi-color-focus-border: rgba(var(--semi-orange-5), 1);
 }
 
 // light theme primary color
 body {
-  --semi-color-primary: rgb(var(--semi-orange-5) 1);
-  --semi-color-primary-hover: rgb(var(--semi-orange-6) 1);
-  --semi-color-primary-active: rgb(var(--semi-orange-7) 1);
-  --semi-color-primary-disabled: rgb(var(--semi-orange-2) 1);
-  --semi-color-primary-light-default: rgb(var(--semi-orange-5) 0.2);
-  --semi-color-primary-light-hover: rgb(var(--semi-orange-5) 0.3);
-  --semi-color-primary-light-active: rgb(var(--semi-orange-5) 0.4);
-  --semi-color-focus-border: rgb(var(--semi-orange-5) 1);
-  --semi-color-bg-0: rgb(244 245 245 / 100%);
+  --semi-color-primary: rgba(var(--semi-orange-5), 1);
+  --semi-color-primary-hover: rgba(var(--semi-orange-6), 1);
+  --semi-color-primary-active: rgba(var(--semi-orange-7), 1);
+  --semi-color-primary-disabled: rgba(var(--semi-orange-2), 1);
+  --semi-color-primary-light-default: rgba(var(--semi-orange-5), 0.2);
+  --semi-color-primary-light-hover: rgba(var(--semi-orange-5), 0.3);
+  --semi-color-primary-light-active: rgba(var(--semi-orange-5), 0.4);
+  --semi-color-focus-border: rgba(var(--semi-orange-5), 1);
+  --semi-color-bg-0: rgba(244, 245, 245, 100%);
 }
