@@ -1,0 +1,10 @@
+{
+  "extends": ["stylelint-config-standard-scss","stylelint-prettier/recommended","stylelint-config-prettier"],
+  "plugins": [
+    "stylelint-plugin-license-header"
+  ],
+  "rules": {
+    "plugin/license-header": [true, { "license": "./header.js" }],
+	"color-function-notation":"legacy"
+  }
+}
