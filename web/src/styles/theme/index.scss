@@ -43,10 +43,12 @@ body {
   }
 
   &::-webkit-scrollbar-track {
+    /* stylelint-disable-next-line color-function-notation */
     background: rgb(0 0 0 / 0%);
   }
 
   &::-webkit-scrollbar-corner {
+    /* stylelint-disable-next-line color-function-notation */
     background-color: rgb(0 0 0 / 0%);
   }
 
@@ -73,6 +75,7 @@ body[theme-mode="dark"] {
     border-color: transparent;
 
     .editor-outer .editor-container {
+      /* stylelint-disable-next-line color-function-notation */
       background: rgb(255 255 255 / 4%);
     }
   }
