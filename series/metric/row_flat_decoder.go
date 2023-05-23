@@ -208,14 +208,14 @@ End:
 
 	itr.rowBuilder.AddMetricName(metricName)
 	itr.rowBuilder.AddTimestamp(itr.originRow.Timestamp())
-	if len(itr.namespace) > 0 {
-		itr.rowBuilder.AddNameSpace(itr.namespace)
-	} else {
-		ns := itr.originRow.NameSpace()
-		if itr.limits.EnableNamespaceLengthCheck() && len(ns) > itr.limits.MaxNamespaceLength {
-			return constants.ErrNamespaceTooLong
-		}
-		itr.rowBuilder.AddNameSpace(ns)
+	ns := itr.originRow.NameSpace()
+	if len(ns) == 0 {
+		// if row namespace is empty, use request's namespace
+		ns = itr.namespace
 	}
+	if itr.limits.EnableNamespaceLengthCheck() && len(ns) > itr.limits.MaxNamespaceLength {
+		return constants.ErrNamespaceTooLong
+	}
+	itr.rowBuilder.AddNameSpace(ns)
 	return nil
 }
