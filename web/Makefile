@@ -1,7 +1,7 @@
 .PHONY: help build test deps generate clean
 
 web_build: web_clean
-	yarn install
+	yarn install --network-timeout 1000000
 	yarn build
 	mkdir -p static && cp -r build/* static
 
