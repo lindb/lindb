@@ -94,7 +94,12 @@ const ExploreForm: React.FC = () => {
 };
 
 const MetricMetaForm: React.FC = () => {
-  const { db, metric, tags } = useParams(["db", "metric", "tags"]);
+  const { db, metric, namespace, tags } = useParams([
+    "db",
+    "metric",
+    "namespace",
+    "tags",
+  ]);
   const formApi = useRef() as MutableRefObject<any>;
   const [tagFilter, setTagFilter] = useState<Object>();
   const { locale } = useContext(UIContext);
@@ -164,7 +169,13 @@ const MetricMetaForm: React.FC = () => {
             });
           }
         }}
-        suffix={<TagFilterSelect db={db || ""} metric={metric || ""} />}
+        suffix={
+          <TagFilterSelect
+            db={db || ""}
+            metric={metric || ""}
+            namespace={namespace}
+          />
+        }
       />
       <MetadataSelect
         variate={{

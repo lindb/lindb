@@ -11,15 +11,29 @@ jobs:
   push_to_registry:
     name: Push Docker image to Docker Hub
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18.x]
     steps:
       - name: Check out code
         uses: actions/checkout@v3
         with:
           fetch-depth: 1
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Build Web
+        id: web
+        run: |
+          make build-frontend
+          echo "web=$PWD" >> $GITHUB_OUTPUT
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
+        with:
+          driver-opts: network=host
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v4
@@ -44,5 +58,7 @@ jobs:
           platforms: ${{ env.PLATFORMS }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          context: ${{ steps.web.outputs.web }}
+          file: Dockerfile-gh
           build-args: |
             LD_FLAGS=-ldflags=-s -w -X github.com/lindb/lindb/config.Version=latest -X github.com/lindb/lindb/config.BuildTime=${{ steps.date.outputs.date }}

@@ -46,13 +46,15 @@ export default function TagFilterSelect(props: {
     const fetchTagKeys = async () => {
       const metadata = await ExecService.exec<Metadata>({
         db: db,
-        sql: `show tag keys from '${metric}'`,
+        sql: `show tag keys from '${metric}'${
+          namespace ? ` on '${namespace}'` : ""
+        }`,
       });
       const tagKeys = (metadata as Metadata).values || [];
       setTagKeys(tagKeys as string[]);
     };
     fetchTagKeys();
-  }, [db, metric]);
+  }, [db, metric, namespace]);
 
   return (
     <Popover
@@ -73,7 +75,9 @@ export default function TagFilterSelect(props: {
                     db: db,
                     tagKey: tagKey,
                     label: tagKey,
-                    sql: `show tag values from '${metric}' with key='${tagKey}'`,
+                    sql: `show tag values from '${metric}' ${
+                      namespace ? ` on '${namespace}'` : ""
+                    } with key='${tagKey}'`,
                   }}
                   labelPosition="inset"
                 />
