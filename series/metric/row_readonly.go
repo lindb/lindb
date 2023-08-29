@@ -110,7 +110,7 @@ type SimpleFieldIterator struct {
 
 func (itr *SimpleFieldIterator) HasNext() bool {
 	itr.idx++
-	if !(itr.idx < itr.num) {
+	if itr.idx >= itr.num {
 		return false
 	}
 	return itr.m.SimpleFields(&itr.f, itr.idx)
