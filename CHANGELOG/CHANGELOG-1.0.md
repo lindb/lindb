@@ -1,3 +1,21 @@
+## [v0.3.0](https://github.com/lindb/lindb/releases/tag/v0.3.0) - 2023-08-29
+
+See [code changes](https://github.com/lindb/lindb/compare/v0.2.6...v0.3.0).
+
+### 🚀 New features
+
+- [chore]: add style lint by @stone1100 in #977
+- [enhance]: add iconfont by @stone1100 in #979
+- [feat]: CI support arm64 images by @dongjiang1989 in #981
+
+### 🐛 Bug fixes
+
+- [bug]: fix theme color palette setting by @stone1100 in #978
+- [bug]: use metric level namespace if set by @stone1100 in #980
+- [bug]: fix data explore not support namespace by @stone1100 in #982
+- [bug]: fix diff namespace conflict by @stone1100 in #983
+
+
 ## [v0.2.6](https://github.com/lindb/lindb/releases/tag/v0.2.6) - 2023-04-23
 
 See [code changes](https://github.com/lindb/lindb/compare/v0.2.5...v0.2.6).
