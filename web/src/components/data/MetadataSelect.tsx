@@ -68,6 +68,12 @@ const MetadataSelect: React.FC<{
         whereClause.push(...tags);
       }
     }
+    // set namespace
+    const namespace = _.get(params, "namespace");
+    if (!_.isEmpty(namespace)) {
+      targetSQL += ` on '${namespace}'`;
+    }
+
     if (!_.isEmpty(whereClause)) {
       targetSQL += ` where ${whereClause.join(" and ")}`;
     }
