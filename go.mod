@@ -9,7 +9,6 @@ require (
 	github.com/cespare/xxhash/v2 v2.2.0
 	github.com/cockroachdb/pebble v0.0.0-20220616214320-059c072fd94a
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
-	github.com/dustin/go-humanize v1.0.1
 	github.com/fatih/color v1.13.0
 	github.com/felixge/fgprof v0.9.2
 	github.com/gin-contrib/cors v1.4.0
@@ -28,10 +27,9 @@ require (
 	github.com/jedib0t/go-pretty/v6 v6.4.6
 	github.com/json-iterator/go v1.1.12
 	github.com/klauspost/compress v1.16.3
-	github.com/lindb/common v0.0.3
+	github.com/lindb/common v0.0.4
 	github.com/lindb/roaring v1.2.1
 	github.com/lithammer/go-jump-consistent-hash v1.0.2
-	github.com/mattn/go-isatty v0.0.17
 	github.com/pkg/errors v0.9.1
 	github.com/shirou/gopsutil/v3 v3.22.5
 	github.com/spf13/cobra v1.4.0
@@ -39,7 +37,6 @@ require (
 	github.com/swaggo/files v0.0.0-20220610200504-28940afbdbfe
 	github.com/swaggo/gin-swagger v1.5.2
 	github.com/swaggo/swag v1.8.3
-	github.com/xlab/treeprint v1.2.0
 	go.etcd.io/etcd/api/v3 v3.5.4
 	go.etcd.io/etcd/client/v3 v3.5.4
 	go.etcd.io/etcd/server/v3 v3.5.4
@@ -48,15 +45,18 @@ require (
 	go.uber.org/zap v1.21.0
 	golang.org/x/sys v0.5.0
 	google.golang.org/grpc v1.48.0
-	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
 require (
 	github.com/bytedance/sonic v1.8.0 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
+	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
+	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
+	github.com/xlab/treeprint v1.2.0 // indirect
 	golang.org/x/arch v0.0.0-20210923205945-b76863e36670 // indirect
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 )
 
 require (

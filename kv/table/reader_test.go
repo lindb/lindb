@@ -28,6 +28,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	commonfileutil "github.com/lindb/common/pkg/fileutil"
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/pkg/encoding"
@@ -77,7 +78,7 @@ func TestReader_Fail(t *testing.T) {
 }
 
 func TestStoreMMapReader_readBytes_Err(t *testing.T) {
-	_ = fileutil.MkDirIfNotExist(testKVPath)
+	_ = commonfileutil.MkDirIfNotExist(testKVPath)
 	defer func() {
 		uint64Func = binary.LittleEndian.Uint64
 		intsAreSortedFunc = sort.IntsAreSorted
@@ -142,7 +143,7 @@ func TestStoreMMapReader_readBytes_Err(t *testing.T) {
 	assert.Nil(t, r)
 
 	// case 5: offset's size != key's size
-	encoding.BitmapUnmarshal = func(bitmap *roaring.Bitmap, data []byte) error {
+	encoding.BitmapUnmarshal = func(bitmap *roaring.Bitmap, _ []byte) error {
 		bitmap.AddRange(1, 1000)
 		return nil
 	}
@@ -152,7 +153,7 @@ func TestStoreMMapReader_readBytes_Err(t *testing.T) {
 }
 
 func TestReader(t *testing.T) {
-	_ = fileutil.MkDirIfNotExist(testKVPath)
+	_ = commonfileutil.MkDirIfNotExist(testKVPath)
 	defer func() {
 		_ = os.RemoveAll(testKVPath)
 	}()
@@ -196,7 +197,7 @@ func TestReader(t *testing.T) {
 }
 
 func TestStoreIterator(t *testing.T) {
-	_ = fileutil.MkDirIfNotExist(testKVPath)
+	_ = commonfileutil.MkDirIfNotExist(testKVPath)
 	defer func() {
 		_ = os.RemoveAll(testKVPath)
 	}()

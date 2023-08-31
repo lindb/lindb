@@ -26,13 +26,14 @@ import (
 	"sync"
 	"time"
 
-	commonconstants "github.com/lindb/common/constants"
 	"go.uber.org/atomic"
+
+	commonconstants "github.com/lindb/common/constants"
+	"github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
@@ -106,7 +107,7 @@ type shard struct {
 	indexStore     kv.Store  // kv stores
 	forwardFamily  kv.Family // forward store
 	invertedFamily kv.Family // inverted store
-	logger         *logger.Logger
+	logger         logger.Logger
 
 	statistics *metrics.ShardStatistics
 }

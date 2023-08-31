@@ -21,8 +21,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/lindb/common/pkg/ltoml"
+
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/pkg/ltoml"
 )
 
 var (

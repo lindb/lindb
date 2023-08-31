@@ -25,8 +25,10 @@ import (
 
 	"go.uber.org/atomic"
 
+	commonfileutil "github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 //go:generate mockgen -source ./data_point_buffer.go -destination=./data_point_buffer_mock.go -package memdb
@@ -34,10 +36,10 @@ import (
 // for testing
 var (
 	closeFileFunc = closeFile
-	mkdirFunc     = fileutil.MkDirIfNotExist
+	mkdirFunc     = commonfileutil.MkDirIfNotExist
 	mapFunc       = fileutil.RWMap
 	unmapFunc     = fileutil.Unmap
-	removeFunc    = fileutil.RemoveDir
+	removeFunc    = commonfileutil.RemoveDir
 	openFileFunc  = os.OpenFile
 )
 

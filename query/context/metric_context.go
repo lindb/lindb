@@ -23,11 +23,12 @@ import (
 	"strings"
 	"time"
 
+	commonmodels "github.com/lindb/common/models"
+	"github.com/lindb/common/pkg/encoding"
+
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/rpc"
@@ -40,7 +41,7 @@ type MetricContext struct {
 	baseTaskContext
 
 	groupAgg aggregation.GroupingAggregator
-	stats    *models.NodeStats
+	stats    *commonmodels.NodeStats
 	// field name -> aggregator spec
 	// we will use it during intermediate tasks
 	aggregatorSpecs map[string]*protoCommonV1.AggregatorSpec
@@ -178,14 +179,14 @@ func (ctx *MetricContext) handleStats(resp *protoCommonV1.TaskResponse, fromNode
 	}
 	// if has query stats, need merge task query stats
 	if ctx.stats == nil {
-		ctx.stats = &models.NodeStats{}
+		ctx.stats = &commonmodels.NodeStats{}
 		ctx.stats.Stages = ctx.stageTracker.GetStages()
 		ctx.stats.Start = ctx.startTime.UnixNano()
 		ctx.stats.WaitEnd = time.Now().UnixNano()
 		ctx.stats.WaitStart = ctx.sendTime.UnixNano()
 		ctx.stats.WaitCost = ctx.stats.WaitEnd - ctx.stats.WaitStart
 	}
-	nodeStats := &models.NodeStats{}
+	nodeStats := &commonmodels.NodeStats{}
 	_ = encoding.JSONUnmarshal(resp.Stats, nodeStats)
 	nodeStats.Node = fromNode
 	nodeStats.NetPayload = int64(len(resp.Stats) + len(resp.Payload))

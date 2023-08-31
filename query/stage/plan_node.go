@@ -20,7 +20,8 @@ package stage
 import (
 	"time"
 
-	"github.com/lindb/lindb/models"
+	"github.com/lindb/common/models"
+
 	"github.com/lindb/lindb/query/operator"
 )
 

@@ -27,6 +27,11 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/app"
 	stateapi "github.com/lindb/lindb/app/storage/api/state"
 	rpchandler "github.com/lindb/lindb/app/storage/rpc"
@@ -42,13 +47,9 @@ import (
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/hostutil"
 	httppkg "github.com/lindb/lindb/pkg/http"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
 	protoWriteV1 "github.com/lindb/lindb/proto/gen/v1/write"
@@ -119,7 +120,7 @@ type runtime struct {
 	queryPool       concurrent.Pool
 	globalKeyValues tag.Tags
 
-	log *logger.Logger
+	log logger.Logger
 }
 
 // NewStorageRuntime creates storage runtime

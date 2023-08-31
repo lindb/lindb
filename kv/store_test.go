@@ -27,11 +27,12 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/ltoml"
+
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/lockers"
-	"github.com/lindb/lindb/pkg/ltoml"
 )
 
 var mergerStr = "mockMergerAppend"

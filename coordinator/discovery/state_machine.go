@@ -24,9 +24,10 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
 )
 
@@ -122,7 +123,7 @@ type stateMachine struct {
 
 	running *atomic.Bool
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewStateMachine creates a state machine instance.

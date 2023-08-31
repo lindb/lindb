@@ -20,6 +20,7 @@ package indexdb
 import (
 	"sync"
 
+	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/constants"
@@ -27,7 +28,6 @@ import (
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb/metadb"

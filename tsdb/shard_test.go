@@ -27,15 +27,17 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	commonconstants "github.com/lindb/common/constants"
-	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 	"github.com/stretchr/testify/assert"
+
+	commonconstants "github.com/lindb/common/constants"
+	"github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/logger"
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
+	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
@@ -450,7 +452,7 @@ func TestShard_Write(t *testing.T) {
 			}
 			err := s.LookupRowMetricMeta(mockBatchRows(&protoMetricsV1.Metric{
 				Name:      "test",
-				Timestamp: timeutil.Now(),
+				Timestamp: commontimeutil.Now(),
 				SimpleFields: []*protoMetricsV1.SimpleField{{
 					Name:  "f1",
 					Value: 1.0,
@@ -565,7 +567,7 @@ func TestShard_lookupRowMeta(t *testing.T) {
 			err := s.lookupRowMeta(&(mockBatchRows(&protoMetricsV1.Metric{
 				Name:      "test",
 				Namespace: tt.namespace,
-				Timestamp: timeutil.Now(),
+				Timestamp: commontimeutil.Now(),
 				Tags:      tt.tags,
 				SimpleFields: []*protoMetricsV1.SimpleField{{
 					Name:  "f1",
@@ -668,7 +670,7 @@ func TestShard_lookup_histogram_fields(t *testing.T) {
 			}
 			err := s.lookupRowMeta(&(mockBatchRows(&protoMetricsV1.Metric{
 				Name:      "test",
-				Timestamp: timeutil.Now(),
+				Timestamp: commontimeutil.Now(),
 				CompoundField: &protoMetricsV1.CompoundField{
 					Min:            10,
 					Max:            10,
@@ -688,7 +690,7 @@ func TestShard_lookup_histogram_fields(t *testing.T) {
 func TestShard_WaitFlushIndexCompleted(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	now := timeutil.Now()
+	now := commontimeutil.Now()
 
 	index := indexdb.NewMockIndexDatabase(ctrl)
 	db := NewMockDatabase(ctrl)
@@ -724,7 +726,7 @@ func TestShard_WaitFlushIndexCompleted(t *testing.T) {
 		wait.Done()
 	}()
 	wait.Wait()
-	assert.True(t, timeutil.Now()-now >= 90*time.Millisecond.Milliseconds())
+	assert.True(t, commontimeutil.Now()-now >= 90*time.Millisecond.Milliseconds())
 }
 
 func TestShard_TTL(t *testing.T) {

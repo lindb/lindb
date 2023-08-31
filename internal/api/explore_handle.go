@@ -20,9 +20,10 @@ package api
 import (
 	"github.com/gin-gonic/gin"
 
+	httppkg "github.com/lindb/common/pkg/http"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/internal/linmetric"
-	httppkg "github.com/lindb/lindb/pkg/http"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series/tag"
 )
 
@@ -34,7 +35,7 @@ var (
 type ExploreAPI struct {
 	globalKeyValues tag.Tags
 	r               *linmetric.Registry
-	logger          *logger.Logger
+	logger          logger.Logger
 }
 
 // NewExploreAPI creates explore api instance.

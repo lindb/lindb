@@ -26,11 +26,12 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
+	"github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/unique"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"

@@ -23,12 +23,13 @@ import (
 	"io"
 	"sync"
 
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/queue"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/tsdb"
 )
@@ -89,7 +90,7 @@ type partition struct {
 
 	statistics *metrics.StorageWriteAheadLogStatistics
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewPartition creates a writeTask ahead log partition(db+shard+family time+leader).

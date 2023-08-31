@@ -23,11 +23,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/tsdb"
@@ -83,7 +84,7 @@ type writeAheadLogManager struct {
 	databaseLogs map[string]WriteAheadLog
 
 	mutex  sync.Mutex
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewWriteAheadLogManager creates a WriteAheadLogManager instance.

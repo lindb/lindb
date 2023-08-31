@@ -21,8 +21,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lindb/common/models"
+
 	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/models"
 )
 
 // State represents the state of stage.

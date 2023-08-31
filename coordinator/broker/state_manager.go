@@ -26,14 +26,15 @@ import (
 
 	"github.com/BurntSushi/toml"
 
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/rpc"
 )
 
@@ -96,7 +97,7 @@ type stateManager struct {
 	mutex  sync.RWMutex
 
 	statistics *metrics.StateManagerStatistics
-	logger     *logger.Logger
+	logger     logger.Logger
 }
 
 // NewStateManager creates a broker state manager instance.

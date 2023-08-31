@@ -24,9 +24,11 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 
+	"github.com/lindb/common/models"
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 type ShardStateType int
@@ -105,7 +107,7 @@ func (s Brokers) ToTable() (rows int, tableStr string) {
 	if len(s) == 0 {
 		return 0, ""
 	}
-	writer := NewTableFormatter()
+	writer := models.NewTableFormatter()
 	writer.AppendHeader(table.Row{"Namespace", "Status", "Configuration"})
 	for i := range s {
 		r := s[i]
@@ -126,7 +128,7 @@ func (s Storages) ToTable() (rows int, tableStr string) {
 	if len(s) == 0 {
 		return 0, ""
 	}
-	writer := NewTableFormatter()
+	writer := models.NewTableFormatter()
 	writer.AppendHeader(table.Row{"Namespace", "Status", "Configuration"})
 	for i := range s {
 		r := s[i]

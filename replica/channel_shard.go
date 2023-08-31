@@ -21,10 +21,11 @@ import (
 	"context"
 	"sync"
 
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/rpc"
 )
 
@@ -64,7 +65,7 @@ type shardChannel struct {
 
 	mutex sync.Mutex
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // newShardChannel returns a new shardChannel with specific attribution.

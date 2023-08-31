@@ -22,10 +22,11 @@ import (
 
 	"github.com/cespare/xxhash/v2"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/series"
 )

@@ -26,6 +26,9 @@ import (
 	"go.etcd.io/etcd/server/v3/embed"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/lindb/common/pkg/logger"
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/app/broker"
 	"github.com/lindb/lindb/app/storage"
 	"github.com/lindb/lindb/config"
@@ -34,7 +37,6 @@ import (
 	"github.com/lindb/lindb/internal/monitoring"
 	"github.com/lindb/lindb/internal/server"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -142,8 +144,8 @@ func (r *runtime) Run() error {
 			Option: &option.DatabaseOption{
 				Intervals: option.Intervals{
 					{
-						Interval:  timeutil.Interval(10 * timeutil.OneSecond),
-						Retention: timeutil.Interval(timeutil.OneMonth),
+						Interval:  timeutil.Interval(10 * commontimeutil.OneSecond),
+						Retention: timeutil.Interval(commontimeutil.OneMonth),
 					},
 				},
 			},

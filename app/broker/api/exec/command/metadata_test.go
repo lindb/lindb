@@ -28,13 +28,14 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/pkg/encoding"
+
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/coordinator"
 	"github.com/lindb/lindb/coordinator/broker"
 	masterpkg "github.com/lindb/lindb/coordinator/master"
 	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/sql/stmt"
 )

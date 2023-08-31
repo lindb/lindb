@@ -20,9 +20,10 @@ package query
 import (
 	"fmt"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/metrics"
-	"github.com/lindb/lindb/pkg/logger"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/rpc"
 )
@@ -34,7 +35,7 @@ type transportManager struct {
 
 	statistics *metrics.TransportStatistics
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewTransportManager creates a rpc transport manager instance.

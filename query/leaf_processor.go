@@ -21,13 +21,14 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/query/context"
 	"github.com/lindb/lindb/query/stage"
@@ -52,7 +53,7 @@ type leafTaskProcessor struct {
 	taskServerFactory rpc.TaskServerFactory
 
 	statistics *metrics.StorageQueryStatistics
-	logger     *logger.Logger
+	logger     logger.Logger
 }
 
 // NewLeafTaskProcessor creates the leaf task

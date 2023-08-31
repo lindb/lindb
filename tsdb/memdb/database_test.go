@@ -28,6 +28,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 
 	"github.com/lindb/lindb/flow"
@@ -411,7 +412,7 @@ func TestMemoryDatabase_Filter(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	bufferMgr := NewMockBufferManager(ctrl)
-	now := timeutil.Now()
+	now := commontimeutil.Now()
 	cfg := MemoryDatabaseCfg{
 		BufferMgr:  bufferMgr,
 		FamilyTime: now,
@@ -429,7 +430,7 @@ func TestMemoryDatabase_Filter(t *testing.T) {
 		StorageExecuteCtx: &flow.StorageExecuteContext{
 			MetricID: metric.ID(3333),
 			Query: &stmtpkg.Query{
-				StorageInterval: timeutil.Interval(timeutil.OneMinute),
+				StorageInterval: timeutil.Interval(commontimeutil.OneMinute),
 				TimeRange:       timeutil.TimeRange{},
 			},
 			Fields: field.Metas{{ID: 1}},
@@ -442,7 +443,7 @@ func TestMemoryDatabase_Filter(t *testing.T) {
 		StorageExecuteCtx: &flow.StorageExecuteContext{
 			MetricID: metric.ID(3333),
 			Query: &stmtpkg.Query{
-				StorageInterval: timeutil.Interval(timeutil.OneMinute),
+				StorageInterval: timeutil.Interval(commontimeutil.OneMinute),
 				TimeRange:       timeutil.TimeRange{Start: now - 10, End: now + 20},
 			},
 			Fields: field.Metas{{ID: 1}},

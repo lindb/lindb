@@ -24,7 +24,8 @@ import (
 
 	antlr "github.com/antlr/antlr4/runtime/Go/antlr/v4"
 
-	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/sql/grammar"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )

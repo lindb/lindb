@@ -20,8 +20,9 @@ package state
 import (
 	"github.com/gin-gonic/gin"
 
-	httppkg "github.com/lindb/lindb/pkg/http"
-	"github.com/lindb/lindb/pkg/logger"
+	httppkg "github.com/lindb/common/pkg/http"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/replica"
 )
 
@@ -32,7 +33,7 @@ var (
 // ReplicaAPI represents internal replica state rest api.
 type ReplicaAPI struct {
 	walMgr replica.WriteAheadLogManager
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewReplicaAPI creates a replica state api instance.

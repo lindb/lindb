@@ -29,10 +29,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/atomic"
 
+	"github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/ltoml"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/option"
 )
 

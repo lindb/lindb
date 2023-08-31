@@ -27,14 +27,15 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/common/pkg/fasttime"
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/ltoml"
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb/memdb"
@@ -122,7 +123,7 @@ type dataFamily struct {
 	mutex        sync.Mutex
 
 	statistics *metrics.FamilyStatistics
-	logger     *logger.Logger
+	logger     logger.Logger
 }
 
 // newDataFamily creates a data family storage unit
@@ -144,7 +145,7 @@ func newDataFamily(
 		timeRange:     timeRange,
 		familyTime:    familyTime,
 		family:        family,
-		lastFlushTime: timeutil.Now(),
+		lastFlushTime: commontimeutil.Now(),
 		seq:           make(map[int32]atomic.Int64),
 		persistSeq:    make(map[int32]atomic.Int64),
 		callbacks:     make(map[int32][]func(seq int64)),
@@ -165,7 +166,7 @@ func newDataFamily(
 	}
 
 	f.indicator = fmt.Sprintf("%s/%s/%s", dbName, shardIDStr,
-		timeutil.FormatTimestamp(familyTime, timeutil.DataTimeFormat4))
+		commontimeutil.FormatTimestamp(familyTime, commontimeutil.DataTimeFormat4))
 
 	// add data family into global family manager
 	GetFamilyManager().AddFamily(f)
@@ -325,7 +326,7 @@ func (f *dataFamily) Compact() {
 		return
 	}
 
-	diff := fasttime.UnixMilliseconds() - f.lastFlushTime - 2*timeutil.OneHour
+	diff := fasttime.UnixMilliseconds() - f.lastFlushTime - 2*commontimeutil.OneHour
 	if diff >= 0 {
 		// long term no data write, does full compact
 		f.family.Compact()
@@ -357,17 +358,17 @@ func (f *dataFamily) Evict() {
 	}
 	f.mutex.Unlock()
 
-	now := timeutil.Now()
+	now := commontimeutil.Now()
 	ahead, _ := f.shard.Database().GetOption().GetAcceptWritableRange()
-	diff := now - f.familyTime - 6*timeutil.OneHour
+	diff := now - f.familyTime - 6*commontimeutil.OneHour
 	f.logger.Info("check family if expire",
-		logger.String("baseTime", timeutil.FormatTimestamp(f.familyTime, timeutil.DataTimeFormat2)),
-		logger.String("lastRead", timeutil.FormatTimestamp(f.lastReadTime.Load(), timeutil.DataTimeFormat2)),
+		logger.String("baseTime", commontimeutil.FormatTimestamp(f.familyTime, commontimeutil.DataTimeFormat2)),
+		logger.String("lastRead", commontimeutil.FormatTimestamp(f.lastReadTime.Load(), commontimeutil.DataTimeFormat2)),
 		logger.Any("ahead", time.Duration(ahead).String()), logger.String("diff", time.Duration(diff).String()))
 	if diff <= ahead {
 		return
 	}
-	diff = now - f.lastReadTime.Load() - 2*timeutil.OneHour
+	diff = now - f.lastReadTime.Load() - 2*commontimeutil.OneHour
 	if diff > ahead {
 		if err := closeFamilyFunc(f); err != nil {
 			f.logger.Error("close family err when evict", logger.String("family", f.Indicator()))
@@ -446,7 +447,7 @@ func (f *dataFamily) GetState() models.DataFamilyState {
 
 	state := models.DataFamilyState{
 		ShardID:          f.shard.ShardID(),
-		FamilyTime:       timeutil.FormatTimestamp(f.familyTime, timeutil.DataTimeFormat2),
+		FamilyTime:       commontimeutil.FormatTimestamp(f.familyTime, commontimeutil.DataTimeFormat2),
 		AckSequences:     ackSequences,
 		ReplicaSequences: replicaSequences,
 		MemoryDatabases:  memoryDatabaseState,

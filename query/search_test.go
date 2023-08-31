@@ -24,8 +24,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/pkg/encoding"
+
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
 	trackerpkg "github.com/lindb/lindb/query/tracker"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/sql/stmt"

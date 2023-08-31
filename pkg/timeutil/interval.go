@@ -24,6 +24,11 @@ import (
 	"strings"
 
 	jsoniter "github.com/json-iterator/go"
+	"github.com/lindb/common/pkg/timeutil"
+)
+
+var (
+	unmarshalFn = jsoniter.Unmarshal
 )
 
 // IntervalType defines interval type
@@ -51,18 +56,18 @@ type Interval int64
 func (i Interval) String() string {
 	val := i.Int64()
 	switch {
-	case val%OneYear == 0 && val/OneYear > 0:
-		return fmt.Sprintf("%dy", val/OneYear)
-	case val%OneMonth == 0 && val/OneMonth > 0:
-		return fmt.Sprintf("%dM", val/OneMonth)
-	case val%OneDay == 0 && val/OneDay > 0:
-		return fmt.Sprintf("%dd", val/OneDay)
-	case val%OneHour == 0 && val/OneHour > 0:
-		return fmt.Sprintf("%dh", val/OneHour)
-	case val%OneMinute == 0 && val/OneMinute > 0:
-		return fmt.Sprintf("%dm", val/OneMinute)
+	case val%timeutil.OneYear == 0 && val/timeutil.OneYear > 0:
+		return fmt.Sprintf("%dy", val/timeutil.OneYear)
+	case val%timeutil.OneMonth == 0 && val/timeutil.OneMonth > 0:
+		return fmt.Sprintf("%dM", val/timeutil.OneMonth)
+	case val%timeutil.OneDay == 0 && val/timeutil.OneDay > 0:
+		return fmt.Sprintf("%dd", val/timeutil.OneDay)
+	case val%timeutil.OneHour == 0 && val/timeutil.OneHour > 0:
+		return fmt.Sprintf("%dh", val/timeutil.OneHour)
+	case val%timeutil.OneMinute == 0 && val/timeutil.OneMinute > 0:
+		return fmt.Sprintf("%dm", val/timeutil.OneMinute)
 	default:
-		return fmt.Sprintf("%ds", val/OneSecond)
+		return fmt.Sprintf("%ds", val/timeutil.OneSecond)
 	}
 }
 
@@ -78,17 +83,17 @@ func (i *Interval) ValueOf(intervalStr string) error {
 	var unit int64
 	switch unixSuffix {
 	case "s", "S":
-		unit = OneSecond
+		unit = timeutil.OneSecond
 	case "m":
-		unit = OneMinute
+		unit = timeutil.OneMinute
 	case "h", "H":
-		unit = OneHour
+		unit = timeutil.OneHour
 	case "d", "D":
-		unit = OneDay
+		unit = timeutil.OneDay
 	case "M":
-		unit = OneMonth
+		unit = timeutil.OneMonth
 	case "y", "Y":
-		unit = OneYear
+		unit = timeutil.OneYear
 	default:
 		return ErrUnknownInterval
 	}
@@ -118,7 +123,7 @@ func (i Interval) MarshalText() (text []byte, err error) {
 // UnmarshalJSON parses a JSON value into an interval value.
 func (i *Interval) UnmarshalJSON(data []byte) (err error) {
 	var v interface{}
-	if err := jsoniter.Unmarshal(data, &v); err != nil {
+	if err := unmarshalFn(data, &v); err != nil {
 		return err
 	}
 	switch value := v.(type) {
@@ -140,9 +145,9 @@ func (i Interval) Int64() int64 {
 
 func (i Interval) Type() IntervalType {
 	switch {
-	case i.Int64() >= OneHour:
+	case i.Int64() >= timeutil.OneHour:
 		return Year
-	case i.Int64() >= 5*OneMinute:
+	case i.Int64() >= 5*timeutil.OneMinute:
 		return Month
 	default:
 		return Day
@@ -180,27 +185,27 @@ func (i Interval) CalcSlotRange(familyTime int64, timeRange TimeRange) SlotRange
 func CalcQueryInterval(queryTimeRange TimeRange, queryInterval Interval) Interval {
 	diff := queryTimeRange.End - queryTimeRange.Start
 	switch {
-	case diff < OneHour:
+	case diff < timeutil.OneHour:
 		return queryInterval
-	case diff < 3*OneHour:
-		return Interval(10 * OneSecond)
-	case diff < 6*OneHour:
-		return Interval(30 * OneSecond)
-	case diff < 12*OneHour:
-		return Interval(OneMinute)
-	case diff < OneDay:
-		return Interval(2 * OneMinute)
-	case diff < 2*OneDay:
-		return Interval(5 * OneMinute)
-	case diff < 7*OneDay:
-		return Interval(10 * OneMinute)
-	case diff < OneMonth:
-		return Interval(OneHour)
-	case diff < 2*OneMonth:
-		return Interval(4 * OneHour)
-	case diff < 3*OneMonth:
-		return Interval(12 * OneHour)
+	case diff < 3*timeutil.OneHour:
+		return Interval(10 * timeutil.OneSecond)
+	case diff < 6*timeutil.OneHour:
+		return Interval(30 * timeutil.OneSecond)
+	case diff < 12*timeutil.OneHour:
+		return Interval(timeutil.OneMinute)
+	case diff < timeutil.OneDay:
+		return Interval(2 * timeutil.OneMinute)
+	case diff < 2*timeutil.OneDay:
+		return Interval(5 * timeutil.OneMinute)
+	case diff < 7*timeutil.OneDay:
+		return Interval(10 * timeutil.OneMinute)
+	case diff < timeutil.OneMonth:
+		return Interval(timeutil.OneHour)
+	case diff < 2*timeutil.OneMonth:
+		return Interval(4 * timeutil.OneHour)
+	case diff < 3*timeutil.OneMonth:
+		return Interval(12 * timeutil.OneHour)
 	default:
-		return Interval(OneDay)
+		return Interval(timeutil.OneDay)
 	}
 }

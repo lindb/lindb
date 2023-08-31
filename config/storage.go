@@ -25,7 +25,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lindb/lindb/pkg/ltoml"
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/ltoml"
 )
 
 // TSDB represents the tsdb configuration.
@@ -179,11 +180,11 @@ remove-task-interval = "%s"`,
 
 // Storage represents a storage configuration with common settings
 type Storage struct {
-	Coordinator RepoState   `envPrefix:"LINDB_COORDINATOR_" toml:"coordinator"`
-	Query       Query       `envPrefix:"LINDB_QUERY_" toml:"query"`
-	StorageBase StorageBase `envPrefix:"LINDB_STORAGE_" toml:"storage"`
-	Monitor     Monitor     `envPrefix:"LINDB_MONITOR_" toml:"monitor"`
-	Logging     Logging     `envPrefix:"LINDB_LOGGING_" toml:"logging"`
+	Coordinator RepoState      `envPrefix:"LINDB_COORDINATOR_" toml:"coordinator"`
+	Query       Query          `envPrefix:"LINDB_QUERY_" toml:"query"`
+	StorageBase StorageBase    `envPrefix:"LINDB_STORAGE_" toml:"storage"`
+	Monitor     Monitor        `envPrefix:"LINDB_MONITOR_" toml:"monitor"`
+	Logging     logger.Setting `envPrefix:"LINDB_LOGGING_" toml:"logging"`
 }
 
 // TOML returns storage's configuration string as toml format.
@@ -200,7 +201,7 @@ func (s *Storage) TOML() string {
 		s.Query.TOML(),
 		s.StorageBase.TOML(),
 		s.Monitor.TOML(),
-		s.Logging.TOML(),
+		s.Logging.TOML("LINDB"),
 	)
 }
 
@@ -252,7 +253,7 @@ func NewDefaultStorageTOML() string {
 		NewDefaultQuery().TOML(),
 		NewDefaultStorageBase().TOML(),
 		NewDefaultMonitor().TOML(),
-		NewDefaultLogging().TOML(),
+		logger.NewDefaultSetting().TOML("LINDB"),
 	)
 }
 

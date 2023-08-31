@@ -20,8 +20,9 @@ package stage
 import (
 	"fmt"
 
+	"github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/query/context"
 	"github.com/lindb/lindb/query/operator"
 )

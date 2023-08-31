@@ -23,14 +23,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/elect"
 	masterpkg "github.com/lindb/lindb/coordinator/master"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
 )
 

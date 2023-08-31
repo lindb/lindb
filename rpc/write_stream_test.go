@@ -27,8 +27,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/atomic"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 	protoWriteV1 "github.com/lindb/lindb/proto/gen/v1/write"
 )
 

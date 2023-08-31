@@ -27,6 +27,8 @@ import (
 
 	commonconstants "github.com/lindb/common/constants"
 
+	"github.com/lindb/common/pkg/http"
+
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 	ingestCommon "github.com/lindb/lindb/ingestion/common"
@@ -35,7 +37,6 @@ import (
 	"github.com/lindb/lindb/ingestion/proto"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/metrics"
-	"github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/series/metric"
 )
 

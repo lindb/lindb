@@ -26,6 +26,9 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
@@ -33,8 +36,6 @@ import (
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
 	statepkg "github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/rpc"
 )
@@ -81,7 +82,7 @@ type stateManager struct {
 	mutex sync.RWMutex
 
 	statistics *metrics.StateManagerStatistics
-	logger     *logger.Logger
+	logger     logger.Logger
 }
 
 // NewStateManager creates a StateManager instance.

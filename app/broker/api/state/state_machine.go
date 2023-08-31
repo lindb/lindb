@@ -22,12 +22,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/lindb/common/pkg/http"
+	"github.com/lindb/common/pkg/logger"
+
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/http"
-	"github.com/lindb/lindb/pkg/logger"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
@@ -45,7 +46,7 @@ type Param struct {
 type BrokerStateMachineAPI struct {
 	deps   *depspkg.HTTPDeps
 	cli    client.StateMachineCli
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewBrokerStateMachineAPI creates broker state machine api instance.

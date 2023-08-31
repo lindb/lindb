@@ -28,6 +28,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator"
 	brokerpkg "github.com/lindb/lindb/coordinator/broker"
@@ -37,7 +39,6 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/hostutil"
 	httppkg "github.com/lindb/lindb/pkg/http"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/rpc"

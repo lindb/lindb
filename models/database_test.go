@@ -22,6 +22,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
@@ -46,8 +48,8 @@ func TestDatabase_String(t *testing.T) {
 		ReplicaFactor: 1,
 		Option: &option.DatabaseOption{
 			Intervals: option.Intervals{
-				{Interval: timeutil.Interval(10 * timeutil.OneSecond), Retention: timeutil.Interval(timeutil.OneMonth)},
-				{Interval: timeutil.Interval(10 * timeutil.OneMinute), Retention: timeutil.Interval(timeutil.OneMonth)},
+				{Interval: timeutil.Interval(10 * commontimeutil.OneSecond), Retention: timeutil.Interval(commontimeutil.OneMonth)},
+				{Interval: timeutil.Interval(10 * commontimeutil.OneMinute), Retention: timeutil.Interval(commontimeutil.OneMonth)},
 			}},
 	}
 	assert.Equal(t, "create database test with shard 10, replica 1, intervals [10s->1M,10m->1M]", database.String())
@@ -72,4 +74,16 @@ func TestReplica_Contain(t *testing.T) {
 	replica := Replica{Replicas: []NodeID{1, 2}}
 	assert.True(t, replica.Contain(2))
 	assert.False(t, replica.Contain(4))
+}
+
+func TestDatabase_ToTable(t *testing.T) {
+	rows, rs := (&DatabaseNames{}).ToTable()
+	assert.Empty(t, rs)
+	assert.Equal(t, rows, 0)
+
+	rows, rs = (&DatabaseNames{
+		"test",
+	}).ToTable()
+	assert.NotEmpty(t, rs)
+	assert.Equal(t, rows, 1)
 }

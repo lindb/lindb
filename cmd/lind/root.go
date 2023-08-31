@@ -22,10 +22,11 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/lindb/common/pkg/ltoml"
+
 	"github.com/lindb/lindb/app/root"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/ltoml"
 )
 
 const (
@@ -85,7 +86,7 @@ func serveRoot(_ *cobra.Command, _ []string) error {
 	if err := logger.InitLogger(rootCfg.Logging, rootLogFileName); err != nil {
 		return fmt.Errorf("init logger error: %s", err)
 	}
-	if err := logger.InitLogger(rootCfg.Logging, logger.AccessLogFileName); err != nil {
+	if err := logger.InitAccessLogger(rootCfg.Logging, logger.AccessLogFileName); err != nil {
 		return fmt.Errorf("init http access logger error: %s", err)
 	}
 

@@ -28,13 +28,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/atomic"
 
+	"github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/ltoml"
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/option"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/tsdb/metadb"
 )
 
@@ -470,7 +471,7 @@ func TestDatabase_WaitFlushMetaCompleted(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	now := timeutil.Now()
+	now := commontimeutil.Now()
 	metadata := metadb.NewMockMetadata(ctrl)
 	db := &database{
 		metadata:       metadata,
@@ -502,7 +503,7 @@ func TestDatabase_WaitFlushMetaCompleted(t *testing.T) {
 		wait.Done()
 	}()
 	wait.Wait()
-	assert.True(t, timeutil.Now()-now >= 100*time.Millisecond.Milliseconds())
+	assert.True(t, commontimeutil.Now()-now >= 100*time.Millisecond.Milliseconds())
 }
 
 func TestDatabase_Drop(t *testing.T) {

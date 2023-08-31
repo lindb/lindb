@@ -24,7 +24,8 @@ import (
 	"github.com/antlr/antlr4/runtime/Go/antlr/v4"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/common/pkg/encoding"
+
 	"github.com/lindb/lindb/sql/grammar"
 	"github.com/lindb/lindb/sql/stmt"
 )

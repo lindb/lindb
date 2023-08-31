@@ -23,9 +23,10 @@ import (
 
 	resty "github.com/go-resty/resty/v2"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 //go:generate mockgen -source=./request.go -destination=./request_mock.go -package=client
@@ -38,7 +39,7 @@ type RequestCli interface {
 
 // requestCli implements RequestCli interface.
 type requestCli struct {
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewReqeustCli creates a request fetch client instance.

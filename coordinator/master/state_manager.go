@@ -28,15 +28,16 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/ltoml"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/ltoml"
 	statepkg "github.com/lindb/lindb/pkg/state"
 )
 
@@ -88,7 +89,7 @@ type stateManager struct {
 
 	statistics            *metrics.StateManagerStatistics
 	shardLeaderStatistics *metrics.ShardLeaderStatistics
-	logger                *logger.Logger
+	logger                logger.Logger
 }
 
 // NewStateManager creates a StateManager instance.

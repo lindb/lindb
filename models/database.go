@@ -23,6 +23,8 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 
+	"github.com/lindb/common/models"
+
 	"github.com/lindb/lindb/pkg/option"
 )
 
@@ -34,7 +36,7 @@ func (dbs DatabaseNames) ToTable() (rows int, tableStr string) {
 	if len(dbs) == 0 {
 		return 0, ""
 	}
-	writer := NewTableFormatter()
+	writer := models.NewTableFormatter()
 	writer.AppendHeader(table.Row{"Database"})
 	for i := range dbs {
 		r := dbs[i]
@@ -51,7 +53,7 @@ func (dbs Databases) ToTable() (rows int, tableStr string) {
 	if len(dbs) == 0 {
 		return 0, ""
 	}
-	writer := NewTableFormatter()
+	writer := models.NewTableFormatter()
 	writer.AppendHeader(table.Row{"Name", "Storage", "Desc"})
 	for i := range dbs {
 		r := dbs[i]

@@ -20,7 +20,7 @@ package table
 import (
 	"errors"
 
-	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/common/pkg/logger"
 )
 
 var (

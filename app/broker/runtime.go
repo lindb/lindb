@@ -27,6 +27,9 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/app"
 	"github.com/lindb/lindb/app/broker/api"
 	"github.com/lindb/lindb/app/broker/deps"
@@ -42,9 +45,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/hostutil"
 	httppkg "github.com/lindb/lindb/pkg/http"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/replica"
@@ -113,7 +114,7 @@ type runtime struct {
 	globalKeyValues     tag.Tags
 	enableSystemMonitor bool
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewBrokerRuntime creates broker runtime

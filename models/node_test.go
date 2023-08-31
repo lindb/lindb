@@ -22,7 +22,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/common/pkg/timeutil"
 )
 
 func TestNode_Indicator(t *testing.T) {

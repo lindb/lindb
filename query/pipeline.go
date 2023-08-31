@@ -20,9 +20,10 @@ package query
 import (
 	"github.com/google/uuid"
 
-	"github.com/lindb/lindb/models"
+	"github.com/lindb/common/models"
+	"github.com/lindb/common/pkg/logger"
+
 	errorpkg "github.com/lindb/lindb/pkg/error"
-	"github.com/lindb/lindb/pkg/logger"
 	stagepkg "github.com/lindb/lindb/query/stage"
 	trackerpkg "github.com/lindb/lindb/query/tracker"
 )
@@ -41,7 +42,7 @@ type Pipeline interface {
 type pipeline struct {
 	sm *pipelineStateMachine
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewExecutePipeline creates a Pipeline instance for executing query stage.

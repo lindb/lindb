@@ -23,10 +23,11 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
 	protoWriteV1 "github.com/lindb/lindb/proto/gen/v1/write"
 )
 
@@ -54,7 +55,7 @@ type writeStream struct {
 	cli    protoWriteV1.WriteService_WriteClient
 	closed *atomic.Bool
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewWriteStream creates a WriteStream instance, initialize grpc connection(stream) and receive response task.

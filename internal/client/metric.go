@@ -23,9 +23,10 @@ import (
 
 	resty "github.com/go-resty/resty/v2"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 //go:generate mockgen -source=./metric.go -destination=./metric_mock.go -package=client
@@ -38,7 +39,7 @@ type MetricCli interface {
 
 // metricCli implements MetricCli interface.
 type metricCli struct {
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewMetricCli creates a MetricCli instance.

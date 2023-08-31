@@ -22,6 +22,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -32,22 +34,22 @@ func Test_calcTimeRangeAndInterval(t *testing.T) {
 	cfg := models.Database{
 		Option: &option.DatabaseOption{
 			Intervals: option.Intervals{
-				{Interval: timeutil.Interval(timeutil.OneSecond)},
-				{Interval: timeutil.Interval(timeutil.OneMinute)},
+				{Interval: timeutil.Interval(commontimeutil.OneSecond)},
+				{Interval: timeutil.Interval(commontimeutil.OneMinute)},
 			},
 		},
 	}
 	statement := &stmt.Query{}
 	calcTimeRangeAndInterval(statement, cfg)
-	assert.Equal(t, timeutil.Interval(timeutil.OneSecond), statement.Interval)
+	assert.Equal(t, timeutil.Interval(commontimeutil.OneSecond), statement.Interval)
 
-	statement.Interval = timeutil.Interval(timeutil.OneHour)
-	statement.TimeRange = timeutil.TimeRange{Start: timeutil.Now(), End: timeutil.Now() + 6*timeutil.OneHour}
+	statement.Interval = timeutil.Interval(commontimeutil.OneHour)
+	statement.TimeRange = timeutil.TimeRange{Start: commontimeutil.Now(), End: commontimeutil.Now() + 6*commontimeutil.OneHour}
 	calcTimeRangeAndInterval(statement, cfg)
-	assert.Equal(t, timeutil.Interval(timeutil.OneHour), statement.Interval)
+	assert.Equal(t, timeutil.Interval(commontimeutil.OneHour), statement.Interval)
 
 	statement = &stmt.Query{AutoGroupByTime: true}
-	statement.TimeRange = timeutil.TimeRange{Start: timeutil.Now(), End: timeutil.Now() + 6*timeutil.OneHour}
+	statement.TimeRange = timeutil.TimeRange{Start: commontimeutil.Now(), End: commontimeutil.Now() + 6*commontimeutil.OneHour}
 	calcTimeRangeAndInterval(statement, cfg)
-	assert.Equal(t, timeutil.Interval(6*timeutil.OneHour)+statement.StorageInterval, statement.Interval)
+	assert.Equal(t, timeutil.Interval(6*commontimeutil.OneHour)+statement.StorageInterval, statement.Interval)
 }

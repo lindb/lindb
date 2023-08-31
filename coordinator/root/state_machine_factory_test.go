@@ -25,9 +25,10 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 func TestStateMachineFactory_Start(t *testing.T) {

@@ -23,6 +23,7 @@ import (
 	"strconv"
 
 	commonconstants "github.com/lindb/common/constants"
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
 
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/pkg/collections"
@@ -79,10 +80,10 @@ func (q *queryStmtParser) build() (stmt.Statement, error) {
 	query.SelectItems = q.selectItems
 	query.Condition = q.condition
 
-	now := timeutil.Now()
+	now := commontimeutil.Now()
 	query.TimeRange = timeutil.TimeRange{Start: q.startTime, End: q.endTime}
 	if query.TimeRange.Start <= 0 {
-		query.TimeRange.Start = now - timeutil.OneHour
+		query.TimeRange.Start = now - commontimeutil.OneHour
 	}
 	if query.TimeRange.End <= 0 {
 		query.TimeRange.End = now
@@ -189,9 +190,9 @@ func (q *queryStmtParser) visitTimeRangeExpr(ctx *grammar.TimeRangeExprContext) 
 		var err error
 		switch {
 		case timeExprCtx.Ident() != nil:
-			timestamp, err = timeutil.ParseTimestamp(strutil.GetStringValue(timeExprCtx.Ident().GetText()))
+			timestamp, err = commontimeutil.ParseTimestamp(strutil.GetStringValue(timeExprCtx.Ident().GetText()))
 		case timeExprCtx.NowExpr() != nil:
-			timestamp = timeutil.Now()
+			timestamp = commontimeutil.Now()
 			durationExpr, durationExist := timeExprCtx.NowExpr().(*grammar.NowExprContext)
 			if durationExist {
 				timestamp += q.parseDuration(durationExpr.DurationLit())
@@ -243,19 +244,19 @@ func (q *queryStmtParser) parseDuration(ctx grammar.IDurationLitContext) int64 {
 	}
 	switch {
 	case unit.T_SECOND() != nil:
-		result = duration * timeutil.OneSecond
+		result = duration * commontimeutil.OneSecond
 	case unit.T_MINUTE() != nil:
-		result = duration * timeutil.OneMinute
+		result = duration * commontimeutil.OneMinute
 	case unit.T_HOUR() != nil:
-		result = duration * timeutil.OneHour
+		result = duration * commontimeutil.OneHour
 	case unit.T_DAY() != nil:
-		result = duration * timeutil.OneDay
+		result = duration * commontimeutil.OneDay
 	case unit.T_WEEK() != nil:
-		result = duration * timeutil.OneWeek
+		result = duration * commontimeutil.OneWeek
 	case unit.T_MONTH() != nil:
-		result = duration * timeutil.OneMonth
+		result = duration * commontimeutil.OneMonth
 	case unit.T_YEAR() != nil:
-		result = duration * timeutil.OneYear
+		result = duration * commontimeutil.OneYear
 	}
 	return result
 }

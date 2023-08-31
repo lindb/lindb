@@ -18,8 +18,9 @@
 package tsdb
 
 import (
-	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/ltoml"
+	"github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/ltoml"
+
 	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/memdb"
 	"github.com/lindb/lindb/tsdb/metadb"

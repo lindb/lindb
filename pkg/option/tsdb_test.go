@@ -23,6 +23,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
@@ -56,8 +58,8 @@ func TestDatabaseOption_Validate(t *testing.T) {
 		{
 			"validation pass",
 			DatabaseOption{Intervals: Intervals{
-				{timeutil.Interval(timeutil.OneSecond), timeutil.Interval(timeutil.OneMonth)},
-				{timeutil.Interval(timeutil.OneMinute), timeutil.Interval(timeutil.OneMonth)},
+				{timeutil.Interval(commontimeutil.OneSecond), timeutil.Interval(commontimeutil.OneMonth)},
+				{timeutil.Interval(commontimeutil.OneMinute), timeutil.Interval(commontimeutil.OneMonth)},
 			}, Behind: "1h", Ahead: "1h"},
 			true,
 		},
@@ -133,23 +135,23 @@ func TestDatabaseOption_GetAcceptWritableRange(t *testing.T) {
 func TestInterval_String(t *testing.T) {
 	assert.Equal(t, "10s->1M",
 		Interval{
-			Interval:  timeutil.Interval(10 * timeutil.OneSecond),
-			Retention: timeutil.Interval(timeutil.OneMonth),
+			Interval:  timeutil.Interval(10 * commontimeutil.OneSecond),
+			Retention: timeutil.Interval(commontimeutil.OneMonth),
 		}.String(),
 	)
 }
 
 func TestIntervals_Sort(t *testing.T) {
 	intervals := Intervals{
-		{timeutil.Interval(timeutil.OneMinute), timeutil.Interval(timeutil.OneMonth)},
-		{timeutil.Interval(timeutil.OneHour), timeutil.Interval(timeutil.OneMonth)},
-		{timeutil.Interval(timeutil.OneSecond), timeutil.Interval(timeutil.OneMonth)},
+		{timeutil.Interval(commontimeutil.OneMinute), timeutil.Interval(commontimeutil.OneMonth)},
+		{timeutil.Interval(commontimeutil.OneHour), timeutil.Interval(commontimeutil.OneMonth)},
+		{timeutil.Interval(commontimeutil.OneSecond), timeutil.Interval(commontimeutil.OneMonth)},
 	}
 	sort.Sort(intervals)
 	assert.Equal(t, Intervals{
-		{timeutil.Interval(timeutil.OneSecond), timeutil.Interval(timeutil.OneMonth)},
-		{timeutil.Interval(timeutil.OneMinute), timeutil.Interval(timeutil.OneMonth)},
-		{timeutil.Interval(timeutil.OneHour), timeutil.Interval(timeutil.OneMonth)},
+		{timeutil.Interval(commontimeutil.OneSecond), timeutil.Interval(commontimeutil.OneMonth)},
+		{timeutil.Interval(commontimeutil.OneMinute), timeutil.Interval(commontimeutil.OneMonth)},
+		{timeutil.Interval(commontimeutil.OneHour), timeutil.Interval(commontimeutil.OneMonth)},
 	}, intervals)
 
 	assert.Equal(t, "[1s->1M,1m->1M,1h->1M]", intervals.String())
@@ -157,25 +159,25 @@ func TestIntervals_Sort(t *testing.T) {
 
 func TestIntervals_IsValid(t *testing.T) {
 	intervals := Intervals{
-		{timeutil.Interval(timeutil.OneSecond), timeutil.Interval(timeutil.OneMonth)},
-		{timeutil.Interval(timeutil.OneMinute), timeutil.Interval(timeutil.OneMonth)},
-		{timeutil.Interval(timeutil.OneHour), timeutil.Interval(timeutil.OneMonth)},
+		{timeutil.Interval(commontimeutil.OneSecond), timeutil.Interval(commontimeutil.OneMonth)},
+		{timeutil.Interval(commontimeutil.OneMinute), timeutil.Interval(commontimeutil.OneMonth)},
+		{timeutil.Interval(commontimeutil.OneHour), timeutil.Interval(commontimeutil.OneMonth)},
 	}
 	assert.Error(t, intervals.IsValid())
 	intervals = Intervals{
-		{timeutil.Interval(timeutil.OneSecond), timeutil.Interval(timeutil.OneMonth)},
-		{timeutil.Interval(timeutil.OneMinute * 5), timeutil.Interval(timeutil.OneMonth)},
-		{timeutil.Interval(timeutil.OneHour), timeutil.Interval(timeutil.OneMonth)},
+		{timeutil.Interval(commontimeutil.OneSecond), timeutil.Interval(commontimeutil.OneMonth)},
+		{timeutil.Interval(commontimeutil.OneMinute * 5), timeutil.Interval(commontimeutil.OneMonth)},
+		{timeutil.Interval(commontimeutil.OneHour), timeutil.Interval(commontimeutil.OneMonth)},
 	}
 	assert.NoError(t, intervals.IsValid())
 }
 
 func TestDatabaseOption_FindMatchSmallestInterval(t *testing.T) {
 	opt := DatabaseOption{Intervals: Intervals{
-		{timeutil.Interval(timeutil.OneSecond), timeutil.Interval(timeutil.OneMonth)},
-		{timeutil.Interval(timeutil.OneMinute), timeutil.Interval(timeutil.OneMonth)},
-		{timeutil.Interval(timeutil.OneHour), timeutil.Interval(timeutil.OneMonth)},
+		{timeutil.Interval(commontimeutil.OneSecond), timeutil.Interval(commontimeutil.OneMonth)},
+		{timeutil.Interval(commontimeutil.OneMinute), timeutil.Interval(commontimeutil.OneMonth)},
+		{timeutil.Interval(commontimeutil.OneHour), timeutil.Interval(commontimeutil.OneMonth)},
 	}}
-	interval := opt.FindMatchSmallestInterval(timeutil.Interval(timeutil.OneMinute * 3))
-	assert.Equal(t, timeutil.Interval(timeutil.OneMinute), interval)
+	interval := opt.FindMatchSmallestInterval(timeutil.Interval(commontimeutil.OneMinute * 3))
+	assert.Equal(t, timeutil.Interval(commontimeutil.OneMinute), interval)
 }

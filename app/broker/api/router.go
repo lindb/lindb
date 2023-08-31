@@ -20,6 +20,8 @@ package api
 import (
 	"github.com/gin-gonic/gin"
 
+	commonlogger "github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/app/broker/api/admin"
 	"github.com/lindb/lindb/app/broker/api/exec"
 	"github.com/lindb/lindb/app/broker/api/ingest"
@@ -29,6 +31,7 @@ import (
 	apipkg "github.com/lindb/lindb/internal/api"
 	"github.com/lindb/lindb/internal/linmetric"
 	httppkg "github.com/lindb/lindb/pkg/http"
+	"github.com/lindb/lindb/pkg/logger"
 )
 
 // API represents broker http api.
@@ -70,7 +73,7 @@ func NewAPI(deps *depspkg.HTTPDeps) *API {
 
 // RegisterRouter registers http api router.
 func (api *API) RegisterRouter(router *gin.RouterGroup) {
-	router.Use(SlowSQLLog(api.deps))
+	router.Use(SlowSQLLog(api.deps, commonlogger.GetLogger(logger.SlowSQLModule, "SQL")))
 	v1 := router.Group(constants.APIVersion1)
 	// execute lin query language statement
 	api.execute.Register(v1)

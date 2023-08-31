@@ -24,23 +24,29 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	commonlogger "github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/ltoml"
+
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/ltoml"
+	"github.com/lindb/lindb/pkg/logger"
 )
 
 func TestSlowLogMiddleware(t *testing.T) {
 	r := gin.New()
-	r.Use(SlowSQLLog(&deps.HTTPDeps{
-		BrokerCfg: &config.Broker{
-			BrokerBase: config.BrokerBase{
-				SlowSQL: ltoml.Duration(time.Millisecond),
+	r.Use(SlowSQLLog(
+		&deps.HTTPDeps{
+			BrokerCfg: &config.Broker{
+				BrokerBase: config.BrokerBase{
+					SlowSQL: ltoml.Duration(time.Millisecond),
+				},
 			},
 		},
-	}))
+		commonlogger.GetLogger(logger.SlowSQLModule, "SQL"),
+	))
 	r.GET("/home", func(c *gin.Context) {
 		c.Set(constants.CurrentSQL, &models.ExecuteParam{
 			SQL: "show databases",

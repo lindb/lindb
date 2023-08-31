@@ -25,11 +25,12 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/tsdb"
 )
@@ -72,7 +73,7 @@ type writeAheadLog struct {
 	// family log = shard + family + leader
 	familyLogs map[partitionKey]Partition
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewWriteAheadLog creates a WriteAheadLog instance.

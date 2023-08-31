@@ -20,8 +20,9 @@ package metadb
 import (
 	"io"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"

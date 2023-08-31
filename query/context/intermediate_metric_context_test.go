@@ -25,6 +25,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	commonmodels "github.com/lindb/common/models"
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/broker"
@@ -69,8 +72,8 @@ func TestIntermediateMetricContext_MakePlan(t *testing.T) {
 	cfg := models.Database{
 		Option: &option.DatabaseOption{
 			Intervals: option.Intervals{
-				{Interval: timeutil.Interval(timeutil.OneSecond)},
-				{Interval: timeutil.Interval(timeutil.OneMinute)},
+				{Interval: timeutil.Interval(commontimeutil.OneSecond)},
+				{Interval: timeutil.Interval(commontimeutil.OneMinute)},
 			},
 		},
 	}
@@ -141,7 +144,7 @@ func TestIntermediateMetricContext_makeTaskResponse(t *testing.T) {
 	metricCtx := NewIntermediateMetricContext(context.TODO(), nil, nil,
 		&protoCommonV1.TaskRequest{}, models.StatelessNode{}, &models.PhysicalPlan{},
 		&stmt.Query{}, []string{"root"})
-	metricCtx.stats = &models.NodeStats{}
+	metricCtx.stats = &commonmodels.NodeStats{}
 	metricCtx.aggregatorSpecs = map[string]*protoCommonV1.AggregatorSpec{"f": {}}
 	groupAgg := aggregation.NewMockGroupingAggregator(ctrl)
 	groupIt := series.NewMockGroupedIterator(ctrl)

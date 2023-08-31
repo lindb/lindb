@@ -20,11 +20,12 @@ package master
 import (
 	"context"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 const storageNameKey = "storageName"
@@ -73,7 +74,7 @@ type StateMachineFactory struct {
 
 	stateMachines []discovery.StateMachine
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewStateMachineFactory creates a StateMachineFactory instance.

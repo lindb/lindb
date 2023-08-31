@@ -23,7 +23,7 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/common/pkg/fileutil"
 )
 
 //go:generate mockgen -source ./fanout_queue.go -destination ./fanout_queue_mock.go -package queue
