@@ -23,7 +23,7 @@ import (
 
 	"github.com/cockroachdb/pebble"
 
-	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/common/pkg/logger"
 )
 
 //go:generate mockgen -source ./id_store.go -destination=./id_store_mock.go -package=unique
@@ -55,7 +55,7 @@ type IDStore interface {
 type idStore struct {
 	db     *pebble.DB
 	path   string
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewIDStore creates an IDStore instance.

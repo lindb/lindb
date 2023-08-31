@@ -27,9 +27,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/pkg/fileutil"
+
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/metadb"

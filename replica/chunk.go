@@ -23,7 +23,7 @@ import (
 
 	"github.com/golang/snappy"
 
-	"github.com/lindb/lindb/pkg/ltoml"
+	"github.com/lindb/common/pkg/ltoml"
 )
 
 //go:generate mockgen -source=./chunk.go -destination=./chunk_mock.go -package=replica

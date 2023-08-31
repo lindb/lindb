@@ -21,9 +21,10 @@ import (
 	"context"
 	"errors"
 
+	"github.com/lindb/common/models"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/concurrent"
-	"github.com/lindb/lindb/models"
 )
 
 // baseStage represents common implements for Stage interface.

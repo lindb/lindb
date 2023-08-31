@@ -21,11 +21,12 @@ import (
 	"context"
 	"time"
 
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/internal/concurrent"
-	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/rpc"
 )
@@ -39,7 +40,7 @@ type TaskHandler struct {
 
 	taskPool concurrent.Pool
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewTaskHandler creates the task rpc handler

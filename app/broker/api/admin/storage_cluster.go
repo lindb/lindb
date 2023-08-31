@@ -20,12 +20,13 @@ package admin
 import (
 	"github.com/gin-gonic/gin"
 
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/http"
+	"github.com/lindb/common/pkg/logger"
+
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/http"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 var (
@@ -39,7 +40,7 @@ type storageClusterParam struct {
 // StorageClusterAPI represents storage cluster admin rest api
 type StorageClusterAPI struct {
 	deps   *depspkg.HTTPDeps
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewStorageClusterAPI create storage cluster api

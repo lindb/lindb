@@ -37,8 +37,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/lindb/common/pkg/encoding"
+
 	"github.com/lindb/lindb/aggregation/function"
-	"github.com/lindb/lindb/pkg/encoding"
 )
 
 //go:generate mockgen -source ./expr.go -destination=./expr_mock.go -package=stmt

@@ -23,9 +23,10 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
@@ -60,7 +61,7 @@ type segment struct {
 
 	mutex sync.RWMutex
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // newSegment returns segment, segment is wrapper of kv store.

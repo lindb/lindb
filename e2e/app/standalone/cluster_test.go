@@ -33,6 +33,9 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/assert"
 
+	commonmodels "github.com/lindb/common/models"
+	"github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 
 	"github.com/lindb/lindb/app/standalone"
@@ -40,9 +43,7 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/metric"
 )
 
@@ -81,7 +82,7 @@ func TestQuery_Group_by(t *testing.T) {
 	rs, err := cli.ExecuteAsResult(models.ExecuteParam{
 		Database: "_internal",
 		SQL:      "select f1 from cpu_data where host='host1' and time>now()-1h group by host,app",
-	}, &models.ResultSet{})
+	}, &commonmodels.ResultSet{})
 	assert.NoError(t, err)
 	fmt.Println(rs)
 
@@ -89,7 +90,7 @@ func TestQuery_Group_by(t *testing.T) {
 	rs, err = cli.ExecuteAsResult(models.ExecuteParam{
 		Database: "_internal",
 		SQL:      "select f1 from cpu_data where host='host3434' and time>now()-1h group by host,app",
-	}, &models.ResultSet{})
+	}, &commonmodels.ResultSet{})
 	assert.NoError(t, err)
 	fmt.Println(rs)
 
@@ -97,7 +98,7 @@ func TestQuery_Group_by(t *testing.T) {
 	rs, err = cli.ExecuteAsResult(models.ExecuteParam{
 		Database: "_internal",
 		SQL:      "select f1 from cpu_data where time>now()+5m and time<now()+10m group by host,app",
-	}, &models.ResultSet{})
+	}, &commonmodels.ResultSet{})
 	assert.NoError(t, err)
 	fmt.Println(rs)
 }
@@ -107,7 +108,7 @@ func TestTagValueNotFound(t *testing.T) {
 	rs, err := cli.ExecuteAsResult(models.ExecuteParam{
 		Database: "_internal",
 		SQL:      "select f1 from cpu_data where host='host' and time>now()-1h group by host,app",
-	}, &models.ResultSet{})
+	}, &commonmodels.ResultSet{})
 	assert.NoError(t, err)
 	fmt.Println(rs)
 }
@@ -117,24 +118,24 @@ func TestMetaNotFound(t *testing.T) {
 	err := cli.Execute(models.ExecuteParam{
 		Database: "_internal",
 		SQL:      "select f4 from cpu_data where host='host' and time>now()-1h group by host,app",
-	}, &models.ResultSet{})
+	}, &commonmodels.ResultSet{})
 	assert.Equal(t, err, errors.New(`"field not found, field: f4"`))
 
 	err = cli.Execute(models.ExecuteParam{
 		Database: "_internal",
 		SQL:      "select f1 from cpu_data2 where host='host' and time>now()-1h group by host,app",
-	}, &models.ResultSet{})
+	}, &commonmodels.ResultSet{})
 	assert.Equal(t, err, errors.New(`"metric not found, metric: cpu_data2"`))
 
 	err = cli.Execute(models.ExecuteParam{
 		Database: "_internal",
 		SQL:      "select f1 from cpu_data where host2='host' and time>now()-1h group by host,app",
-	}, &models.ResultSet{})
+	}, &commonmodels.ResultSet{})
 	assert.Equal(t, err, errors.New(`"tag key not found, tag key: host2"`))
 	err = cli.Execute(models.ExecuteParam{
 		Database: "_internal",
 		SQL:      "select f1 from cpu_data where host='host' and time>now()-1h group by host,app2",
-	}, &models.ResultSet{})
+	}, &commonmodels.ResultSet{})
 	assert.Equal(t, err, errors.New(`"tag key not found, tag key: app2"`))
 }
 

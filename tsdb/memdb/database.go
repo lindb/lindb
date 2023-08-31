@@ -25,10 +25,10 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/common/pkg/fasttime"
+	"github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/metrics"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"

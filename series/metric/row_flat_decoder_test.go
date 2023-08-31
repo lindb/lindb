@@ -25,11 +25,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/tag"
 )
 
@@ -38,7 +38,7 @@ func Test_NewBrokerRowFlatDecoder(t *testing.T) {
 	converter2 := NewProtoConverter(models.NewDefaultLimits())
 	var buf bytes.Buffer
 
-	now := timeutil.Now()
+	now := commontimeutil.Now()
 	data1, err := converter1.MarshalProtoMetricV1(&protoMetricsV1.Metric{
 		Name:      "test",
 		Timestamp: now,

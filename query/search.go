@@ -23,10 +23,12 @@ import (
 	"strings"
 	"time"
 
+	commonmodels "github.com/lindb/common/models"
+	"github.com/lindb/common/pkg/encoding"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/strutil"
 	queryctx "github.com/lindb/lindb/query/context"
 	"github.com/lindb/lindb/query/stage"
@@ -157,7 +159,7 @@ func exec(ctx queryctx.TaskContext, req *models.Request, mgr *SearchMgr) (any, e
 }
 
 // buildMetadataResultSet builds metric metadata result set.
-func buildMetadataResultSet(statement *stmtpkg.MetricMetadata, result []string) (*models.Metadata, error) {
+func buildMetadataResultSet(statement *stmtpkg.MetricMetadata, result []string) (*commonmodels.Metadata, error) {
 	values := strutil.DeDupStringSlice(result)
 	sort.Strings(values)
 	switch statement.Type {
@@ -179,12 +181,12 @@ func buildMetadataResultSet(statement *stmtpkg.MetricMetadata, result []string) 
 		// underlying histogram data is only restricted access by user via quantile function
 		// furthermore, we suggest some quantile functions for user in field names, such as quantile(0.99)
 		var (
-			resultFields []models.Field
+			resultFields []commonmodels.Field
 			hasHistogram bool
 		)
 		for _, f := range result {
 			if f.Type != field.HistogramField {
-				resultFields = append(resultFields, models.Field{
+				resultFields = append(resultFields, commonmodels.Field{
 					Name: string(f.Name),
 					Type: f.Type.String(),
 				})
@@ -195,20 +197,20 @@ func buildMetadataResultSet(statement *stmtpkg.MetricMetadata, result []string) 
 		//
 		if hasHistogram {
 			resultFields = append(resultFields,
-				models.Field{Name: "quantile(0.99)", Type: field.HistogramField.String()},
-				models.Field{Name: "quantile(0.95)", Type: field.HistogramField.String()},
-				models.Field{Name: "quantile(0.90)", Type: field.HistogramField.String()},
+				commonmodels.Field{Name: "quantile(0.99)", Type: field.HistogramField.String()},
+				commonmodels.Field{Name: "quantile(0.95)", Type: field.HistogramField.String()},
+				commonmodels.Field{Name: "quantile(0.90)", Type: field.HistogramField.String()},
 			)
 		}
 		sort.Slice(resultFields, func(i, j int) bool {
 			return resultFields[i].Name < resultFields[j].Name
 		})
-		return &models.Metadata{
+		return &commonmodels.Metadata{
 			Type:   statement.Type.String(),
 			Values: resultFields,
 		}, nil
 	default:
-		return &models.Metadata{
+		return &commonmodels.Metadata{
 			Type:   statement.Type.String(),
 			Values: values,
 		}, nil

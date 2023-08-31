@@ -23,8 +23,9 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/metrics"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 //go:generate mockgen -source=./replicator_peer.go -destination=./replicator_peer_mock.go -package=replica
@@ -89,7 +90,7 @@ type replicatorRunner struct {
 	closed chan struct{}
 
 	statistics *metrics.StorageReplicatorRunnerStatistics
-	logger     *logger.Logger
+	logger     logger.Logger
 }
 
 func newReplicatorRunner(replicator Replicator) *replicatorRunner {

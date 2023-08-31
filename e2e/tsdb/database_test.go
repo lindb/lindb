@@ -27,6 +27,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 
 	"github.com/lindb/lindb/config"
@@ -69,7 +70,7 @@ func TestDatabase_Write_And_Rollup(t *testing.T) {
 	assert.True(t, ok)
 	assert.NotNil(t, shard)
 
-	now, _ := timeutil.ParseTimestamp("20190702 19:10:00", "20060102 15:04:05")
+	now, _ := commontimeutil.ParseTimestamp("20190702 19:10:00", "20060102 15:04:05")
 	familyTime := interval.Calculator().CalcFamilyTime(now)
 	f, err := shard.GetOrCrateDataFamily(familyTime)
 	assert.NoError(t, err)

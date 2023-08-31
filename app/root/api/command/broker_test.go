@@ -25,11 +25,12 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/pkg/encoding"
+
 	depspkg "github.com/lindb/lindb/app/root/deps"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/root"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/sql/stmt"
 )

@@ -17,6 +17,6 @@
 
 package version
 
-import "github.com/lindb/lindb/pkg/logger"
+import "github.com/lindb/common/pkg/logger"
 
 var versionLogger = logger.GetLogger("KV", "Version")

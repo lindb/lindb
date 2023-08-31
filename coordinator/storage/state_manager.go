@@ -27,13 +27,14 @@ import (
 
 	"github.com/BurntSushi/toml"
 
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/tsdb"
 )
@@ -74,7 +75,7 @@ type stateManager struct {
 
 	mutex sync.RWMutex
 
-	logger *logger.Logger
+	logger logger.Logger
 
 	statistics *metrics.StateManagerStatistics
 }

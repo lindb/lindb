@@ -22,8 +22,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/pkg/encoding"
+
 	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/pkg/encoding"
 )
 
 func TestStorageStatus_MarshalJSON(t *testing.T) {

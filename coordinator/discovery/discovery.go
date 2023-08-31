@@ -21,7 +21,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/pkg/state"
 )
 
@@ -84,7 +85,7 @@ type discovery struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // Discovery starts discovery resources change, includes create/delete/clean.

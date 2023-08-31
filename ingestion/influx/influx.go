@@ -24,11 +24,11 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/lindb/common/pkg/logger"
 	commonseries "github.com/lindb/common/series"
 
 	ingestCommon "github.com/lindb/lindb/ingestion/common"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 )

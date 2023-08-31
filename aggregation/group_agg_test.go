@@ -23,6 +23,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
@@ -37,8 +39,8 @@ func TestGroupByAggregator_Aggregate(t *testing.T) {
 	sIt := series.NewMockIterator(ctrl)
 	fIt := series.NewMockFieldIterator(ctrl)
 
-	now, _ := timeutil.ParseTimestamp("20190702 19:10:00", "20060102 15:04:05")
-	familyTime, _ := timeutil.ParseTimestamp("20190702 19:00:00", "20060102 15:04:05")
+	now, _ := commontimeutil.ParseTimestamp("20190702 19:10:00", "20060102 15:04:05")
+	familyTime, _ := commontimeutil.ParseTimestamp("20190702 19:00:00", "20060102 15:04:05")
 
 	cases := []struct {
 		name    string
@@ -87,11 +89,11 @@ func TestGroupByAggregator_Aggregate(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			agg := NewGroupingAggregator(
-				timeutil.Interval(timeutil.OneSecond),
+				timeutil.Interval(commontimeutil.OneSecond),
 				1,
 				timeutil.TimeRange{
 					Start: now,
-					End:   now + 3*timeutil.OneHour,
+					End:   now + 3*commontimeutil.OneHour,
 				},
 				AggregatorSpecs{
 					NewAggregatorSpec("b", field.SumField),
@@ -109,20 +111,20 @@ func TestGroupByAggregator_Aggregate(t *testing.T) {
 	}
 
 	agg := NewGroupingAggregator(
-		timeutil.Interval(timeutil.OneSecond),
+		timeutil.Interval(commontimeutil.OneSecond),
 		1,
 		timeutil.TimeRange{
 			Start: now,
-			End:   now + 3*timeutil.OneHour,
+			End:   now + 3*commontimeutil.OneHour,
 		},
 		AggregatorSpecs{})
 	rs := agg.ResultSet()
 	assert.Nil(t, rs)
-	assert.Equal(t, timeutil.Interval(timeutil.OneSecond), agg.Interval())
+	assert.Equal(t, timeutil.Interval(commontimeutil.OneSecond), agg.Interval())
 	assert.Empty(t, agg.Fields())
 	assert.Equal(t,
 		timeutil.TimeRange{
 			Start: now,
-			End:   now + 3*timeutil.OneHour,
+			End:   now + 3*commontimeutil.OneHour,
 		}, agg.TimeRange())
 }

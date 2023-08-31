@@ -22,6 +22,8 @@ import (
 	"net/http/httputil"
 
 	"github.com/gin-gonic/gin"
+
+	httppkg "github.com/lindb/common/pkg/http"
 )
 
 var (
@@ -65,7 +67,7 @@ func (p *ReverseProxy) Proxy(c *gin.Context) {
 	var param ProxyParam
 	err := c.ShouldBindQuery(&param)
 	if err != nil {
-		Error(c, err)
+		httppkg.Error(c, err)
 		return
 	}
 	director := func(req *http.Request) {

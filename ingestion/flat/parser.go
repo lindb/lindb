@@ -23,10 +23,11 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/lindb/common/pkg/logger"
+
 	ingestCommon "github.com/lindb/lindb/ingestion/common"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"

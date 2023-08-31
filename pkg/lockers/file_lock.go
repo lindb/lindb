@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/common/pkg/logger"
 )
 
 //go:generate mockgen -source ./file_lock.go -destination=./file_lock_mock.go -package lockers
@@ -43,7 +43,7 @@ type fileLock struct {
 	fileName string
 	file     *os.File
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewFileLock create new file lock instance

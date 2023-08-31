@@ -20,11 +20,12 @@ package app
 import (
 	"context"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/monitoring"
 	"github.com/lindb/lindb/metrics"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series/tag"
 )
 
@@ -41,7 +42,7 @@ type BaseRuntime struct {
 	pusher          monitoring.NativePusher
 	globalKeyValues tag.Tags
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewBaseRuntime creates a base runtime instance.

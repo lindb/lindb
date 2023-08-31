@@ -23,15 +23,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/timeutil"
+
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 // SlowSQLLog returns show sql log middleware.
-func SlowSQLLog(deps *depspkg.HTTPDeps) gin.HandlerFunc {
+func SlowSQLLog(deps *depspkg.HTTPDeps, log logger.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 		defer func() {
@@ -48,7 +49,7 @@ func SlowSQLLog(deps *depspkg.HTTPDeps) gin.HandlerFunc {
 						duration.String(),
 						sqlParam.SQL,
 					)
-					logger.SlowSQLLog.Error(sqlInfo)
+					log.Error(sqlInfo)
 				}
 			}
 		}()

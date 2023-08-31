@@ -23,9 +23,10 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/queue"
-	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 func TestReplicator_String(t *testing.T) {

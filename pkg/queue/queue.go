@@ -25,8 +25,9 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/pkg/queue/page"
 )
 

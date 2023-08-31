@@ -18,45 +18,19 @@
 package timeutil
 
 import (
-	"fmt"
-	"strconv"
 	"testing"
-	"time"
 
+	"github.com/lindb/common/pkg/timeutil"
 	"github.com/stretchr/testify/assert"
 )
 
 const date = "20191212 10:11:10"
 
-func Test_ParseTimestamp(t *testing.T) {
-	defer func() {
-		parseTimeFunc = time.ParseInLocation
-	}()
-	_, err := ParseTimestamp(date)
-	assert.Nil(t, err)
-
-	_, err = ParseTimestamp(date)
-	assert.Nil(t, err)
-
-	_, err = ParseTimestamp(date)
-	assert.Nil(t, err)
-	_, err = ParseTimestamp("2019-12-12 10:11:10")
-	assert.Nil(t, err)
-	_, err = ParseTimestamp("2019/12/12 10:11:10")
-	assert.Nil(t, err)
-
-	parseTimeFunc = func(layout, value string, loc *time.Location) (t time.Time, err error) {
-		return time.Now(), fmt.Errorf("err")
-	}
-	_, err = ParseTimestamp(date)
-	assert.Error(t, err)
-}
-
 func TestCalPointCount(t *testing.T) {
-	time1, _ := ParseTimestamp(date)
-	assert.Equal(t, 1, CalPointCount(time1, time1, 10*OneSecond))
-	assert.Equal(t, 10, CalPointCount(time1, time1+47*OneSecond, 5*OneSecond))
-	assert.Equal(t, 100, CalPointCount(time1, time1+1000*OneSecond, 10*OneSecond))
+	time1, _ := timeutil.ParseTimestamp(date)
+	assert.Equal(t, 1, CalPointCount(time1, time1, 10*timeutil.OneSecond))
+	assert.Equal(t, 10, CalPointCount(time1, time1+47*timeutil.OneSecond, 5*timeutil.OneSecond))
+	assert.Equal(t, 100, CalPointCount(time1, time1+1000*timeutil.OneSecond, 10*timeutil.OneSecond))
 }
 
 func TestCalIntervalRatio(t *testing.T) {
@@ -66,19 +40,10 @@ func TestCalIntervalRatio(t *testing.T) {
 	assert.Equal(t, 10, CalIntervalRatio(1000, 100))
 }
 
-func Test_Now(t *testing.T) {
-	assert.Len(t, strconv.FormatUint(uint64(Now()), 10), 13)
-	assert.Len(t, strconv.FormatUint(uint64(NowNano()), 10), 19)
-}
-
-func Test_FormatTimestamp(t *testing.T) {
-	fmt.Println(FormatTimestamp(Now()*1000, DataTimeFormat2))
-}
-
 func TestTruncate(t *testing.T) {
-	now, _ := ParseTimestamp("20190702 19:10:48", "20060102 15:04:05")
-	t1, _ := ParseTimestamp("20190702 19:10:40", "20060102 15:04:05")
-	assert.Equal(t, t1, Truncate(now, 10*OneSecond))
-	t1, _ = ParseTimestamp("20190702 19:10:00", "20060102 15:04:05")
-	assert.Equal(t, t1, Truncate(now, 10*OneMinute))
+	now, _ := timeutil.ParseTimestamp("20190702 19:10:48", "20060102 15:04:05")
+	t1, _ := timeutil.ParseTimestamp("20190702 19:10:40", "20060102 15:04:05")
+	assert.Equal(t, t1, Truncate(now, 10*timeutil.OneSecond))
+	t1, _ = timeutil.ParseTimestamp("20190702 19:10:00", "20060102 15:04:05")
+	assert.Equal(t, t1, Truncate(now, 10*timeutil.OneMinute))
 }

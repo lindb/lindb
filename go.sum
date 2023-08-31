@@ -388,8 +388,8 @@ github.com/labstack/gommon v0.3.0/go.mod h1:MULnywXg0yavhxWKc+lOruYdAhDwPK9wf0OL
 github.com/leodido/go-urn v1.2.0/go.mod h1:+8+nEpDfqqsY+g338gtMEUOtuK+4dEMhiQEgxpxOKII=
 github.com/leodido/go-urn v1.2.1 h1:BqpAaACuzVSgi/VLzGZIobT2z4v53pjosyNd9Yv6n/w=
 github.com/leodido/go-urn v1.2.1/go.mod h1:zt4jvISO2HfUBqxjfIshjdMTYS56ZS/qv49ictyFfxY=
-github.com/lindb/common v0.0.3 h1:9ITgKIJ7YGnwnc9Bq/0vA8+o501F60hnc5VK5KttByU=
-github.com/lindb/common v0.0.3/go.mod h1:LdGzS89fh2gFpsYsfLNvr2mccm8eOb8A4oNjNvorTyw=
+github.com/lindb/common v0.0.4 h1:Avv0CYSDmK3j3s/yBezlia4sT+jHEo+8GTnnY0/k/Bo=
+github.com/lindb/common v0.0.4/go.mod h1:LdGzS89fh2gFpsYsfLNvr2mccm8eOb8A4oNjNvorTyw=
 github.com/lindb/roaring v1.2.1 h1:Ik1hEg3i55CwNOYefdKWWYfm5CUy4SWp84zMSDxZSEo=
 github.com/lindb/roaring v1.2.1/go.mod h1:MDk6EPsveXlV1nOxVGw5XgoWekxVdiaVALgrrzMjg6E=
 github.com/lithammer/go-jump-consistent-hash v1.0.2 h1:w74N9XiMa4dWZdoVnfLbnDhfpGOMCxlrudzt2e7wtyk=

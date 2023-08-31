@@ -30,6 +30,9 @@ import (
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 
+	"github.com/lindb/common/pkg/http/middleware"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
@@ -37,11 +40,13 @@ import (
 	"github.com/lindb/lindb/internal/conntrack"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/pkg/hostutil"
-	"github.com/lindb/lindb/pkg/http/middleware"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 //go:generate mockgen -source ./http_server.go -destination=./http_server_mock.go -package=http
+
+func init() {
+	gin.SetMode(gin.ReleaseMode)
+}
 
 // Server represents http server with gin framework.
 type Server interface {
@@ -62,7 +67,7 @@ type server struct {
 	cfg            config.HTTP
 
 	r      *linmetric.Registry
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewServer creates http server.
@@ -93,7 +98,7 @@ func (s *server) init() {
 	// Using middlewares on group.
 	s.gin.Use(middleware.Recovery())
 	// use AccessLog to log panic error with zap
-	s.gin.Use(middleware.AccessLog())
+	s.gin.Use(middleware.AccessLog(logger.GetLogger(logger.AccessLogModule, "HTTP")))
 	s.gin.Use(cors.Default())
 
 	if config.Profile {

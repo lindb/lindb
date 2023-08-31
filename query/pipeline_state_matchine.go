@@ -23,7 +23,8 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/models"
+	"github.com/lindb/common/models"
+
 	stagepkg "github.com/lindb/lindb/query/stage"
 	trackerpkg "github.com/lindb/lindb/query/tracker"
 )

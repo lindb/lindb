@@ -23,7 +23,7 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/common/pkg/logger"
 )
 
 // JobScheduler represents a background compaction job scheduler.
@@ -44,7 +44,7 @@ type jobScheduler struct {
 	option  StoreOptions
 	running *atomic.Bool
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewJobScheduler creates a JobScheduler instance.

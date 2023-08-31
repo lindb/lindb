@@ -24,9 +24,10 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/metrics"
 	errorpkg "github.com/lindb/lindb/pkg/error"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 //go:generate mockgen -source=./pool.go -destination=./pool_mock.go -package=concurrent
@@ -95,7 +96,7 @@ type workerPool struct {
 
 	statistics *metrics.ConcurrentStatistics
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewPool returns a new worker pool,

@@ -17,10 +17,61 @@
 
 package logger
 
-import "testing"
+import (
+	"fmt"
+	"testing"
 
-func TestSetting_initLevel(t *testing.T) {
-	initLogLevel("")
-	initLogLevel("NO")
-	initLogLevel("info")
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+
+	"github.com/lindb/common/pkg/logger"
+)
+
+func TestLogger_InitAccessLogger(t *testing.T) {
+	defer func() {
+		initLoggerFn = logger.InitLogger
+	}()
+
+	t.Run("init ok", func(t *testing.T) {
+		assert.NoError(t, InitAccessLogger(logger.Setting{}, AccessLogFileName))
+	})
+	t.Run("init fail", func(t *testing.T) {
+		initLoggerFn = func(_ string, _ logger.Setting, _ *zapcore.EncoderConfig, _ ...zap.Option) (*zap.Logger, error) {
+			return nil, fmt.Errorf("err")
+		}
+		assert.Error(t, InitAccessLogger(logger.Setting{}, AccessLogFileName))
+	})
+}
+
+func TestLogger_InitSlowSQLLogger(t *testing.T) {
+	defer func() {
+		initLoggerFn = logger.InitLogger
+	}()
+
+	t.Run("init ok", func(t *testing.T) {
+		assert.NoError(t, InitSlowSQLLogger(logger.Setting{}, SlowSQLLogFileName))
+	})
+	t.Run("init fail", func(t *testing.T) {
+		initLoggerFn = func(_ string, _ logger.Setting, _ *zapcore.EncoderConfig, _ ...zap.Option) (*zap.Logger, error) {
+			return nil, fmt.Errorf("err")
+		}
+		assert.Error(t, InitSlowSQLLogger(logger.Setting{}, SlowSQLLogFileName))
+	})
+}
+
+func TestLogger_InitLogger(t *testing.T) {
+	defer func() {
+		initLoggerFn = logger.InitLogger
+	}()
+
+	t.Run("init ok", func(t *testing.T) {
+		assert.NoError(t, InitLogger(logger.Setting{}, SlowSQLLogFileName))
+	})
+	t.Run("init fail", func(t *testing.T) {
+		initLoggerFn = func(_ string, _ logger.Setting, _ *zapcore.EncoderConfig, _ ...zap.Option) (*zap.Logger, error) {
+			return nil, fmt.Errorf("err")
+		}
+		assert.Error(t, InitLogger(logger.Setting{}, SlowSQLLogFileName))
+	})
 }

@@ -18,7 +18,8 @@
 package operator
 
 import (
-	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/common/pkg/encoding"
+
 	"github.com/lindb/lindb/query/context"
 )
 

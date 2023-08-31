@@ -21,7 +21,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lindb/lindb/pkg/ltoml"
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/ltoml"
 )
 
 // HTTP represents an HTTP level configuration of broker.
@@ -206,11 +207,11 @@ func NewDefaultBrokerBase() *BrokerBase {
 
 // Broker represents a broker configuration with common settings
 type Broker struct {
-	Coordinator RepoState  `envPrefix:"LINDB_COORDINATOR_" toml:"coordinator"`
-	Query       Query      `envPrefix:"LINDB_QUERY_" toml:"query"`
-	BrokerBase  BrokerBase `envPrefix:"LINDB_BROKER_" toml:"broker"`
-	Monitor     Monitor    `envPrefix:"LINDB_MONITOR_" toml:"monitor"`
-	Logging     Logging    `envPrefix:"LINDB_LOGGING_" toml:"logging"`
+	Coordinator RepoState      `envPrefix:"LINDB_COORDINATOR_" toml:"coordinator"`
+	Query       Query          `envPrefix:"LINDB_QUERY_" toml:"query"`
+	BrokerBase  BrokerBase     `envPrefix:"LINDB_BROKER_" toml:"broker"`
+	Monitor     Monitor        `envPrefix:"LINDB_MONITOR_" toml:"monitor"`
+	Logging     logger.Setting `envPrefix:"LINDB_LOGGING_" toml:"logging"`
 }
 
 // TOML returns broker's configuration string as toml format.
@@ -227,7 +228,7 @@ func (b *Broker) TOML() string {
 		b.Query.TOML(),
 		b.BrokerBase.TOML(),
 		b.Monitor.TOML(),
-		b.Logging.TOML(),
+		b.Logging.TOML("LINDB"),
 	)
 }
 
@@ -245,7 +246,7 @@ func NewDefaultBrokerTOML() string {
 		NewDefaultQuery().TOML(),
 		NewDefaultBrokerBase().TOML(),
 		NewDefaultMonitor().TOML(),
-		NewDefaultLogging().TOML(),
+		logger.NewDefaultSetting().TOML("LINDB"),
 	)
 }
 

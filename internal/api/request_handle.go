@@ -20,7 +20,8 @@ package api
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/lindb/lindb/pkg/http"
+	"github.com/lindb/common/pkg/http"
+
 	"github.com/lindb/lindb/query"
 )
 

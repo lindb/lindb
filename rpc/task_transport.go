@@ -25,9 +25,10 @@ import (
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 )
 
@@ -73,7 +74,7 @@ type taskClientFactory struct {
 
 	newTaskServiceClientFunc func(cc *grpc.ClientConn) protoCommonV1.TaskServiceClient
 	connFct                  ClientConnFactory
-	logger                   *logger.Logger
+	logger                   logger.Logger
 }
 
 // NewTaskClientFactory creates a task client factory
@@ -246,7 +247,7 @@ type taskServerFactory struct {
 	nodeMap map[string]*taskService
 	epoch   atomic.Int64
 	lock    sync.RWMutex
-	logger  *logger.Logger
+	logger  logger.Logger
 }
 
 // NewTaskServerFactory returns the singleton server stream factory

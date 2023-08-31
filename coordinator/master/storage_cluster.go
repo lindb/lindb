@@ -21,12 +21,13 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/state"
 )
@@ -73,7 +74,7 @@ type storageCluster struct {
 	state *models.StorageState
 	sm    discovery.StateMachine
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // newStorageCluster creates storage cluster controller, init active node list if exist node, must return a storage cluster instance.

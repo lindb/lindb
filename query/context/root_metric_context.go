@@ -25,13 +25,15 @@ import (
 	"strings"
 	"time"
 
+	commonmodels "github.com/lindb/common/models"
+	"github.com/lindb/common/pkg/encoding"
+
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/query/tracker"
@@ -127,7 +129,7 @@ func (ctx *RootMetricContext) WaitResponse() (any, error) {
 
 // makeResultSet makes final result set from time series event(GroupedIterators).
 // TODO: can opt use stream, leaf node need return grouping if completed.
-func (ctx *RootMetricContext) makeResultSet() (resultSet *models.ResultSet, err error) {
+func (ctx *RootMetricContext) makeResultSet() (resultSet *commonmodels.ResultSet, err error) {
 	makeResultStartTime := time.Now()
 	orderBy, err := ctx.buildOrderBy()
 	if err != nil {
@@ -135,7 +137,7 @@ func (ctx *RootMetricContext) makeResultSet() (resultSet *models.ResultSet, err 
 	}
 
 	statement := ctx.Deps.Statement
-	resultSet = new(models.ResultSet)
+	resultSet = new(commonmodels.ResultSet)
 	// TODO: merge stats for cross idc query?
 	groupByKeys := statement.GroupBy
 	groupByKeysLength := len(groupByKeys)
@@ -175,14 +177,14 @@ func (ctx *RootMetricContext) makeResultSet() (resultSet *models.ResultSet, err 
 					tags[tagKey] = tagValues[idx]
 				}
 			}
-			timeSeries := models.NewSeries(tags, tagValues)
+			timeSeries := commonmodels.NewSeries(tags, tagValues)
 			resultSet.AddSeries(timeSeries)
 			for fieldName, values := range fields {
 				if values == nil {
 					continue
 				}
 
-				points := models.NewPoints()
+				points := commonmodels.NewPoints()
 				it := values.NewIterator()
 				for it.HasNext() {
 					slot, val := it.Next()
@@ -217,7 +219,7 @@ func (ctx *RootMetricContext) makeResultSet() (resultSet *models.ResultSet, err 
 		ctx.stats.End = now.UnixNano()
 		ctx.stats.TotalCost = now.Sub(ctx.startTime).Nanoseconds()
 
-		ctx.stats.Stages = append(ctx.stats.Stages, &models.StageStats{
+		ctx.stats.Stages = append(ctx.stats.Stages, &commonmodels.StageStats{
 			Identifier: "Expression",
 			Start:      makeResultStartTime.UnixNano(),
 			End:        now.UnixNano(),

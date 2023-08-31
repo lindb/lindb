@@ -23,12 +23,13 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 //go:generate mockgen -source=./election.go -destination=./election_mock.go -package=elect
@@ -71,7 +72,7 @@ type election struct {
 
 	retryCh chan int
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewElection returns a new election

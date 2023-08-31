@@ -20,7 +20,7 @@ package stmt
 import (
 	"encoding/json"
 
-	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/common/pkg/encoding"
 )
 
 // MetricMetadataType represents metric metadata suggest type

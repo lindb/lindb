@@ -24,11 +24,12 @@ import (
 
 	"github.com/go-resty/resty/v2"
 
+	"github.com/lindb/common/pkg/logger"
+
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 

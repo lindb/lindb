@@ -18,8 +18,9 @@
 package function
 
 import (
+	"github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/pkg/collections"
-	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 // RateCall represents rate function call.

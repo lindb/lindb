@@ -20,8 +20,9 @@ package replica
 import (
 	"fmt"
 
+	"github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 //go:generate mockgen -source=./replicator.go -destination=./replicator_mock.go -package=replica

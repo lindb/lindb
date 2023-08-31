@@ -23,7 +23,7 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/common/pkg/logger"
 )
 
 //go:generate mockgen -source ./store_manager.go -destination=./store_manager_mock.go -package kv

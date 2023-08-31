@@ -20,10 +20,11 @@ package root
 import (
 	"context"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 // StateMachinePaths represents the paths which root state machine need watch.
@@ -53,7 +54,7 @@ type stateMachineFactory struct {
 	stateMgr         StateManager
 	stateMachines    []discovery.StateMachine
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewStateMachineFactory creates a StateMachineFactory instance.

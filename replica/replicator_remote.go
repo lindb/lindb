@@ -23,12 +23,13 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
 	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
 	"github.com/lindb/lindb/rpc"
 )
@@ -51,7 +52,7 @@ type remoteReplicator struct {
 	rwMutex sync.RWMutex
 
 	statistics *metrics.StorageRemoteReplicatorStatistics
-	logger     *logger.Logger
+	logger     logger.Logger
 }
 
 // NewRemoteReplicator creates remote replicator.

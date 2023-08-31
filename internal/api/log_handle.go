@@ -27,9 +27,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	httppkg "github.com/lindb/common/pkg/http"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/constants"
-	httppkg "github.com/lindb/lindb/pkg/http"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 // for testing
@@ -54,7 +55,7 @@ var (
 // LoggerAPI represents view log file rest api.
 type LoggerAPI struct {
 	logDir string
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewLoggerAPI creates log view api instance.

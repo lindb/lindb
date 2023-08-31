@@ -29,7 +29,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/common/pkg/fileutil"
+
 	"github.com/lindb/lindb/pkg/queue/page"
 )
 

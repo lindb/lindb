@@ -22,10 +22,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/metrics"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 //go:generate mockgen -source ./compact_job.go -destination=./compact_job_mock.go -package kv

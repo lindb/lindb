@@ -28,12 +28,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.etcd.io/etcd/server/v3/embed"
 
+	"github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/ltoml"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/bootstrap"
 	"github.com/lindb/lindb/internal/monitoring"
 	"github.com/lindb/lindb/internal/server"
-	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/state"
 )
 
@@ -43,7 +45,7 @@ func newDefaultStandaloneConfig(_ *testing.T) config.Standalone {
 		Coordinator: *config.NewDefaultCoordinator(),
 		StorageBase: *config.NewDefaultStorageBase(),
 		BrokerBase:  *config.NewDefaultBrokerBase(),
-		Logging:     *config.NewDefaultLogging(),
+		Logging:     *logger.NewDefaultSetting(),
 		ETCD:        *config.NewDefaultETCD(),
 		Monitor:     *config.NewDefaultMonitor(),
 	}

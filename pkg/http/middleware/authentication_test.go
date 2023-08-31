@@ -48,7 +48,7 @@ func TestUserAuthentication_Validate(t *testing.T) {
 	user := config.User{UserName: "admin", Password: "admin123"}
 	auth := NewAuthentication(user)
 
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(w, "ok")
