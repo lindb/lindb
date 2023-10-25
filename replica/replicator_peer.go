@@ -20,12 +20,12 @@ package replica
 import (
 	"context"
 	"runtime/pprof"
-	"time"
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/metrics"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 //go:generate mockgen -source=./replicator_peer.go -destination=./replicator_peer_mock.go -package=replica
@@ -80,17 +80,17 @@ func (r *replicatorPeer) ReplicatorState() (string, *state) {
 }
 
 type replicatorRunner struct {
+	ctx            context.Context
+	cannel         context.CancelFunc
 	running        *atomic.Bool
 	lastPending    *atomic.Int64
 	replicatorType string
 	replicator     Replicator
 
-	closed          chan struct{}
-	sleep, maxSleep int
-	sleepFn         func(d time.Duration)
+	closed chan struct{}
 
 	statistics *metrics.StorageReplicatorRunnerStatistics
-	logger     *logger.Logger
+	logger     logger.Logger
 }
 
 func newReplicatorRunner(replicator Replicator) *replicatorRunner {
@@ -98,16 +98,16 @@ func newReplicatorRunner(replicator Replicator) *replicatorRunner {
 	if _, ok := replicator.(*remoteReplicator); ok {
 		replicaType = "remote"
 	}
+	ctx, cancel := context.WithCancel(context.Background())
 	state := replicator.ReplicaState()
 	r := &replicatorRunner{
+		ctx:            ctx,
+		cannel:         cancel,
 		replicator:     replicator,
 		lastPending:    atomic.NewInt64(replicator.Pending()),
 		replicatorType: replicaType,
 		running:        atomic.NewBool(false),
 		closed:         make(chan struct{}),
-		sleep:          0,
-		sleepFn:        time.Sleep,
-		maxSleep:       2 * 10 * 1000, // 20 sec
 		statistics:     metrics.NewStorageReplicatorRunnerStatistics(replicaType, state.Database, state.ShardID.String()),
 		logger:         logger.GetLogger("Replica", "ReplicatorRunner"),
 	}
@@ -129,6 +129,8 @@ func (r *replicatorRunner) replicaLoop(ctx context.Context) {
 
 func (r *replicatorRunner) shutdown() {
 	if r.running.CAS(true, false) {
+		r.replicator.Pause()
+		r.cannel()
 		// wait for stop replica loop
 		<-r.closed
 	}
@@ -158,8 +160,6 @@ func (r *replicatorRunner) replica(_ context.Context) {
 		}
 	}()
 
-	hasData := false
-
 	if r.replicator.IsReady() && r.replicator.Connect() {
 		seq := r.replicator.Consume()
 		if seq >= 0 {
@@ -167,8 +167,6 @@ func (r *replicatorRunner) replica(_ context.Context) {
 				logger.String("type", r.replicatorType),
 				logger.String("replicator", r.replicator.String()),
 				logger.Int64("index", seq))
-			hasData = true
-			r.sleep = 0
 			data, err := r.replicator.GetMessage(seq)
 			if err != nil {
 				r.replicator.IgnoreMessage(seq)
@@ -185,15 +183,5 @@ func (r *replicatorRunner) replica(_ context.Context) {
 		}
 	} else {
 		r.logger.Warn("replica is not ready", logger.String("replicator", r.replicator.String()))
-	}
-	if !hasData {
-		sleep := 2 << r.sleep
-		if sleep < r.maxSleep {
-			r.sleep++
-		}
-		if sleep > r.maxSleep {
-			sleep = r.maxSleep
-		}
-		r.sleepFn(time.Duration(sleep) * time.Millisecond)
 	}
 }

@@ -6,7 +6,6 @@ ownership. LinDB licenses this file to you under
 the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
  
 Unless required by applicable law or agreed to in writing,
@@ -78,7 +77,14 @@ async function POST<T>(
 }
 
 const getErrorMsg = (err: any) => {
-  return _.get(err, "response.data", "Unknown internal error");
+  if (_.has(err, "response.data")) {
+    return _.get(err, "response.data");
+  }
+  if (_.has(err, "reason.response.data")) {
+    return _.get(err, "reason.response.data");
+  }
+  const msg = _.get(err, "reason", "Unknown internal error");
+  return `${msg}`;
 };
 
 const getErrorCode = (err: any) => {

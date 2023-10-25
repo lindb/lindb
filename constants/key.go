@@ -23,4 +23,7 @@ type ContextKey string
 const (
 	// ContextKeySQL represents sql key.
 	ContextKeySQL = ContextKey("lin_ql")
+
+	// CurrentSQL represents the key of current sql context.
+	CurrentSQL = "LinDB_SQL"
 )

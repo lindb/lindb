@@ -24,12 +24,12 @@ import (
 	"hash/crc32"
 	"io"
 
+	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/bufioutil"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 //go:generate mockgen -source ./builder.go -destination=./builder_mock.go -package table

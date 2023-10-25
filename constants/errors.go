@@ -23,22 +23,27 @@ import (
 )
 
 var (
-	// ErrNotFound represents the data not found
+	// ErrNotFound represents the data not found.
 	ErrNotFound = errors.New("not found")
+	// ErrTimeout represents exceed timeout.
+	ErrTimeout = errors.New("exceed timeout")
 
 	ErrTagValueFilterResultNotFound = fmt.Errorf("tag value fitler result %w", ErrNotFound)
 
-	ErrDatabaseNotFound    = fmt.Errorf("database %w", ErrNotFound)
-	ErrShardNotFound       = fmt.Errorf("shard %w", ErrNotFound)
-	ErrReplicaNotFound     = fmt.Errorf("replica %w", ErrNotFound)
-	ErrMetricIDNotFound    = fmt.Errorf("metric %w", ErrNotFound)
-	ErrTagKeyIDNotFound    = fmt.Errorf("tag key %w", ErrNotFound)
-	ErrTagKeyMetaNotFound  = fmt.Errorf("tag key %w", ErrNotFound)
-	ErrTagValueSeqNotFound = fmt.Errorf("tagValueSeq %w", ErrNotFound)
-	ErrTagValueIDNotFound  = fmt.Errorf("tag value %w", ErrNotFound)
-	ErrFieldNotFound       = fmt.Errorf("field %w", ErrNotFound)
-	ErrSeriesIDNotFound    = fmt.Errorf("seriesID %w", ErrNotFound)
-	ErrDataFamilyNotFound  = fmt.Errorf("data family %w", ErrNotFound)
+	ErrDatabaseNotFound     = fmt.Errorf("database %w", ErrNotFound)
+	ErrShardNotFound        = fmt.Errorf("shard %w", ErrNotFound)
+	ErrReplicaNotFound      = fmt.Errorf("replica %w", ErrNotFound)
+	ErrTargetNodesNotFound  = fmt.Errorf("target nodes %w", ErrNotFound)
+	ErrReceiveNodesNotFound = fmt.Errorf("receive nodes %w", ErrNotFound)
+	ErrMetricIDNotFound     = fmt.Errorf("metric %w", ErrNotFound)
+	ErrTagKeyIDNotFound     = fmt.Errorf("tag key %w", ErrNotFound)
+	ErrTagKeyMetaNotFound   = fmt.Errorf("tag key %w", ErrNotFound)
+	ErrTagValueSeqNotFound  = fmt.Errorf("tagValueSeq %w", ErrNotFound)
+	ErrTagValueIDNotFound   = fmt.Errorf("tag value %w", ErrNotFound)
+	ErrFieldNotFound        = fmt.Errorf("field %w", ErrNotFound)
+	ErrSeriesIDNotFound     = fmt.Errorf("seriesID %w", ErrNotFound)
+	ErrDataFamilyNotFound   = fmt.Errorf("data family %w", ErrNotFound)
+	ErrUnknownNodeChoose    = errors.New("unknown node choose")
 
 	// ErrDataFileCorruption represents data in tsdb's file is corrupted
 	ErrDataFileCorruption = errors.New("data corruption")
@@ -60,7 +65,27 @@ var (
 	ErrDatabaseNameRequired = errors.New("database name cannot be empty")
 	// ErrStorageNameRequired represents storage name not input.
 	ErrStorageNameRequired = errors.New("storage name cannot be empty")
-
 	// ErrEmptySelectList represents empty select list.
 	ErrEmptySelectList = errors.New("select item list is empty")
+
+	ErrDatabaseNotExist       = errors.New("database not exist")
+	ErrNoAvailableStorageNode = errors.New("no available storage node for server")
+
+	// ErrTooManySeries represents the series be limited.
+	ErrTooManySeries     = errors.New("too manay series")
+	ErrTooManyMetadata   = errors.New("too manay namespace or metric")
+	ErrNamespaceTooLong  = errors.New("namespace is too long")
+	ErrMetricNameTooLong = errors.New("metric name is too long")
+	ErrFieldNameTooLong  = errors.New("field name is too long")
+	ErrTagKeyTooLong     = errors.New("tag key is too long")
+	ErrTagValueTooLong   = errors.New("tag value is too long")
+	// ErrTooManyTagKeys is the error returned by tsdb when
+	// writes exceed the max limit of tag keys.
+	ErrTooManyTagKeys = errors.New("too many tag keys")
+
+	// ErrTooManyFields is the error returned by tsdb when
+	// writes exceed the max limit of fields.
+	ErrTooManyFields = errors.New("too many fields")
+	// ErrTooManySeriesFound is the error returned max series limit of data query.
+	ErrTooManySeriesFound = errors.New("found too many series")
 )

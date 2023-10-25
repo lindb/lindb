@@ -136,7 +136,18 @@ func (op *metadataLookup) buildField() {
 
 // selectList plans the select list from down sampling aggregation specification
 func (op *metadataLookup) selectList() error {
-	selectItems := op.executeCtx.Query.SelectItems
+	queryStmt := op.executeCtx.Query
+	if queryStmt.AllFields {
+		fields, err := op.metadata.GetAllFields(queryStmt.Namespace, queryStmt.MetricName)
+		if err != nil {
+			return err
+		}
+		for _, fieldMeta := range fields {
+			op.planField(nil, fieldMeta)
+		}
+		return nil
+	}
+	selectItems := queryStmt.SelectItems
 	if len(selectItems) == 0 {
 		return constants.ErrEmptySelectList
 	}
@@ -179,38 +190,42 @@ func (op *metadataLookup) field(parentFunc *stmt.CallExpr, expr stmt.Expr) {
 			return
 		}
 
-		fieldType := fieldMeta.Type
-		fieldID := fieldMeta.ID
-		aggregator, exist := op.fields[fieldID]
-		if !exist {
-			aggregator = &aggregation.Aggregator{}
-			aggregator.DownSampling = aggregation.NewAggregatorSpec(field.Name(e.Name), fieldType)
-			aggregator.Aggregator = aggregation.NewAggregatorSpec(field.Name(e.Name), fieldType)
-			op.fields[fieldID] = aggregator
-		}
-
-		var funcType function.FuncType
-		// tests if it has func with field
-		if parentFunc == nil {
-			// if not using field default down sampling func
-			funcType = fieldType.DownSamplingFunc()
-			if funcType == function.Unknown {
-				op.err = fmt.Errorf("cannot get default down sampling func for filed type[%s]", fieldType)
-				return
-			}
-			aggregator.Aggregator.AddFunctionType(funcType)
-		} else {
-			// using input, and check func is supported
-			if !fieldType.IsFuncSupported(parentFunc.FuncType) {
-				op.err = fmt.Errorf("field type[%s] not support function[%s]", fieldType, parentFunc.FuncType)
-				return
-			}
-			funcType = parentFunc.FuncType
-			// TODO: ignore down sampling func?
-			aggregator.Aggregator.AddFunctionType(parentFunc.FuncType)
-		}
-		aggregator.DownSampling.AddFunctionType(funcType)
+		op.planField(parentFunc, fieldMeta)
 	}
+}
+
+func (op *metadataLookup) planField(parentFunc *stmt.CallExpr, fieldMeta field.Meta) {
+	fieldType := fieldMeta.Type
+	fieldID := fieldMeta.ID
+	aggregator, exist := op.fields[fieldID]
+	if !exist {
+		aggregator = &aggregation.Aggregator{}
+		aggregator.DownSampling = aggregation.NewAggregatorSpec(fieldMeta.Name, fieldType)
+		aggregator.Aggregator = aggregation.NewAggregatorSpec(fieldMeta.Name, fieldType)
+		op.fields[fieldID] = aggregator
+	}
+
+	var funcType function.FuncType
+	// tests if it has func with field
+	if parentFunc == nil {
+		// if not using field default down sampling func
+		funcType = fieldType.DownSamplingFunc()
+		if funcType == function.Unknown {
+			op.err = fmt.Errorf("cannot get default down sampling func for filed type[%s]", fieldType)
+			return
+		}
+		aggregator.Aggregator.AddFunctionType(funcType)
+	} else {
+		// using input, and check func is supported
+		if !fieldType.IsFuncSupported(parentFunc.FuncType) {
+			op.err = fmt.Errorf("field type[%s] not support function[%s]", fieldType, parentFunc.FuncType)
+			return
+		}
+		funcType = parentFunc.FuncType
+		// TODO: ignore down sampling func?
+		aggregator.Aggregator.AddFunctionType(parentFunc.FuncType)
+	}
+	aggregator.DownSampling.AddFunctionType(funcType)
 }
 
 func (op *metadataLookup) planHistogramFields(e *stmt.CallExpr) {

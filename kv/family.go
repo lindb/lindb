@@ -24,11 +24,12 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
-	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 //go:generate mockgen -source ./family.go -destination=./family_mock.go -package kv
@@ -76,6 +77,8 @@ type Family interface {
 	needRollup() bool
 	// rollup does rollup job.
 	rollup()
+	// cleanReferenceFiles cleans target family's reference files after delete source family's rollup files.
+	cleanReferenceFiles(sourceFamily Family, sourceFiles []table.FileNumber)
 	// doRollupWork does rollup job, merge source family data to target family.
 	doRollupWork(sourceFamily Family, rollup Rollup, sourceFiles []table.FileNumber) (err error)
 	// deleteObsoleteFiles deletes obsolete files.
@@ -175,6 +178,8 @@ func (f *family) familyInfo() string {
 // newTableBuilder creates table builder instance for storing kv data.
 func (f *family) newTableBuilder() (table.Builder, error) {
 	fileNumber := f.store.nextFileNumber()
+	// NOTE: need add pending output before create write
+	f.addPendingOutput(fileNumber)
 	fileName := filepath.Join(f.familyPath, version.Table(fileNumber))
 	return table.NewStoreBuilder(fileNumber, fileName)
 }

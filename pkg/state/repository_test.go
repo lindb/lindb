@@ -40,6 +40,9 @@ func TestNewRepo(t *testing.T) {
 	repo, err = factory.CreateStorageRepo(&cfg)
 	assert.Nil(t, err)
 	assert.NotNil(t, repo)
+	repo, err = factory.CreateRootRepo(&cfg)
+	assert.Nil(t, err)
+	assert.NotNil(t, repo)
 }
 
 func TestEventType_String(t *testing.T) {

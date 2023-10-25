@@ -86,6 +86,24 @@ func TestMetadataLookup_Execute(t *testing.T) {
 		}, nil)
 		assert.NoError(t, op.Execute())
 	})
+	t.Run("get all fields failure", func(t *testing.T) {
+		ctx.Query.AllFields = true
+		op := NewMetadataLookup(ctx, db)
+		metaDB.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(metric.ID(10), nil)
+		metaDB.EXPECT().GetAllFields(gomock.Any(), gomock.Any()).Return(field.Metas{}, fmt.Errorf("err"))
+		assert.Error(t, op.Execute())
+	})
+	t.Run("get all fields successfully", func(t *testing.T) {
+		ctx.Query.AllFields = true
+		op := NewMetadataLookup(ctx, db)
+		metaDB.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(metric.ID(10), nil)
+		metaDB.EXPECT().GetAllFields(gomock.Any(), gomock.Any()).Return(field.Metas{{
+			ID:   1,
+			Type: field.SumField,
+			Name: "f",
+		}}, nil)
+		assert.NoError(t, op.Execute())
+	})
 }
 
 func TestMetadataLookup_groupBy(t *testing.T) {

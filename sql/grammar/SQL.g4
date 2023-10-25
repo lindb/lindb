@@ -4,22 +4,30 @@ grammar SQL;
 
 statement               : showStmt
                         | createStorageStmt
+                        | createBrokerStmt
+                        | recoverStorageStmt
                         | useStmt
                         | queryStmt
                         | createDatabaseStmt
                         | dropDatabaseStmt
+						| setLimitStmt
                         | ident // just for suggest filtering.
                         EOF ;
 
 useStmt                 : T_USE ident ;
+setLimitStmt            : T_SET T_LIMIT toml;
 
 showStmt                : showMasterStmt
                         | showMetadataTypesStmt
+                        | showRootMetaStmt
                         | showBrokerMetaStmt
                         | showMasterMetaStmt
                         | showStorageMetaStmt
                         | showStoragesStmt
+                        | showBrokersStmt
+						| showLimitStmt
                         | showAliveStmt
+                        | showRootMetricStmt
                         | showBrokerMetricStmt
                         | showStorageMetricStmt
                         | showReplicationStmt
@@ -39,16 +47,22 @@ showMasterStmt       : T_SHOW T_MASTER ;
 showRequestsStmt     : T_SHOW T_REQUESTS ; 
 showRequestStmt      : T_SHOW T_REQUEST T_WHERE T_ID T_EQUAL requestID;
 showStoragesStmt     : T_SHOW T_STORAGES ;
+showBrokersStmt      : T_SHOW T_BROKERS ;
+showLimitStmt        : T_SHOW T_LIMIT ; 
 showMetadataTypesStmt: T_SHOW T_METADATA T_TYPES;
-showBrokerMetaStmt   : T_SHOW T_BROKER T_METADATA T_FROM source T_WHERE typeFilter;
+showRootMetaStmt     : T_SHOW T_ROOT T_METADATA T_FROM source T_WHERE typeFilter;
+showBrokerMetaStmt   : T_SHOW T_BROKER T_METADATA T_FROM source T_WHERE typeFilter (T_AND brokerFilter)?;
 showMasterMetaStmt   : T_SHOW T_MASTER T_METADATA T_FROM source T_WHERE typeFilter;
 showStorageMetaStmt  : T_SHOW T_STORAGE T_METADATA T_FROM source T_WHERE (storageFilter|typeFilter) T_AND (storageFilter|typeFilter);
-showAliveStmt        : T_SHOW (T_BROKER | T_STORAGE) T_ALIVE;
+showAliveStmt        : T_SHOW (T_ROOT | T_BROKER | T_STORAGE) T_ALIVE;
 showReplicationStmt  : T_SHOW T_REPLICATION T_WHERE (storageFilter|databaseFilter) T_AND (storageFilter|databaseFilter);
 showMemoryDatabaseStmt  : T_SHOW T_MEMORY T_DATASBAE T_WHERE (storageFilter|databaseFilter) T_AND (storageFilter|databaseFilter);
+showRootMetricStmt   : T_SHOW T_ROOT T_METRIC T_WHERE metricListFilter ;
 showBrokerMetricStmt : T_SHOW T_BROKER T_METRIC T_WHERE metricListFilter ;
 showStorageMetricStmt: T_SHOW T_STORAGE T_METRIC T_WHERE (storageFilter|metricListFilter) T_AND (storageFilter|metricListFilter) ;
 createStorageStmt    : T_CREATE T_STORAGE json;
+createBrokerStmt     : T_CREATE T_BROKER json;
+recoverStorageStmt   : T_RECOVER T_STORAGE storageName;
 showSchemasStmt      : T_SHOW T_SCHEMAS ;
 createDatabaseStmt   : T_CREATE T_DATASBAE json;
 dropDatabaseStmt     : T_DROP T_DATASBAE databaseName;
@@ -62,6 +76,7 @@ prefix               : ident ;
 withTagKey           : ident ;
 namespace            : ident ;
 databaseName         : ident ;
+storageName          : ident ;
 requestID            : ident ;
 source               : (T_STATE_MACHINE|T_STATE_REPO) ;
 
@@ -74,6 +89,7 @@ fields                  : field ( T_COMMA field )* ;
 field                   : fieldExpr alias? ;
 alias                   : T_AS ident ;
 storageFilter           : T_STORAGE T_EQUAL ident  ;
+brokerFilter            : T_BROKER T_EQUAL ident  ;
 databaseFilter          : T_DATASBAE T_EQUAL ident  ;
 typeFilter              : T_TYPE T_EQUAL ident  ;
 
@@ -105,7 +121,7 @@ nowFunc                 : T_NOW T_OPEN_P exprFuncParams? T_CLOSE_P ;
 //group by
 groupByClause          : T_GROUP T_BY groupByKeys (T_FILL T_OPEN_P fillOption T_CLOSE_P)? havingClause? ;
 groupByKeys            : groupByKey (T_COMMA groupByKey)* ;
-groupByKey             : ident | T_TIME T_OPEN_P durationLit T_CLOSE_P ;
+groupByKey             : ident | T_TIME T_OPEN_P durationLit T_CLOSE_P | T_TIME T_OPEN_P T_CLOSE_P;
 fillOption             : T_NULL | T_PREVIOUS | L_INT | L_DEC ;
 
 orderByClause          : T_ORDER T_BY sortFields ;
@@ -141,7 +157,9 @@ fieldExpr                :
                          | exprFunc
                          | exprAtom
                          | durationLit
+						 | star
                          ;
+star 					: T_MUL;
 
 durationLit             : intNumber intervalItem ;
 intervalItem            :
@@ -168,6 +186,9 @@ exprAtom                :
 identFilter             : T_OPEN_SB tagFilterExpr T_CLOSE_SB ;
 json
    : value
+   ;
+toml
+   : ident 
    ;
 
 obj
@@ -295,6 +316,8 @@ nonReservedWords      :
                         | T_STORAGE
                         | T_ALIVE
                         | T_BROKER
+                        | T_ROOT
+                        | T_BROKERS
                         | T_SCHEMAS
                         | T_STATE_REPO
                         | T_STATE_MACHINE
@@ -348,6 +371,7 @@ T_FUTURE_TTL         : F U T U R E T T L                ;
 T_KILL               : K I L L                          ;
 T_ON                 : O N                              ;
 T_SHOW               : S H O W                          ;
+T_RECOVER            : R E C O V E R                    ;
 T_USE                : U S E                            ;
 T_STATE_REPO         : S T A T E T_UNDERLINE R E P O    ;
 T_STATE_MACHINE      : S T A T E T_UNDERLINE M A C H I N E;
@@ -358,6 +382,8 @@ T_TYPE               : T Y P E                          ;
 T_STORAGES           : S T O R A G E S                  ;
 T_STORAGE            : S T O R A G E                    ;
 T_BROKER             : B R O K E R                      ;
+T_ROOT               : R O O T                          ;
+T_BROKERS            : B R O K E R S                    ;
 T_ALIVE              : A L I V E                        ;
 T_SCHEMAS            : S C H E M A S                    ;
 T_DATASBAE           : D A T A B A S E                  ;

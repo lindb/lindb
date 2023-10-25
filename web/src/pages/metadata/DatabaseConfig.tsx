@@ -6,7 +6,6 @@ ownership. LinDB licenses this file to you under
 the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
  
 Unless required by applicable law or agreed to in writing,
@@ -33,11 +32,18 @@ import {
   Typography,
 } from "@douyinfe/semi-ui";
 import { Route } from "@src/constants";
+import { UIContext } from "@src/context/UIContextProvider";
 import { Storage } from "@src/models";
 import { ExecService } from "@src/services";
 import { URLStore } from "@src/stores";
 import * as _ from "lodash-es";
-import React, { MutableRefObject, useEffect, useRef, useState } from "react";
+import React, {
+  MutableRefObject,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 const Text = Typography.Text;
 
@@ -46,6 +52,8 @@ export default function DatabaseConfig() {
   const [storageList, setStorageList] = useState([] as any[]);
   const [error, setError] = useState("");
   const [submiting, setSubmiting] = useState(false);
+  const { locale } = useContext(UIContext);
+  const { MetadataDatabaseView, Common } = locale;
 
   useEffect(() => {
     const getStorageList = async () => {
@@ -59,7 +67,7 @@ export default function DatabaseConfig() {
           selectList.push({ value: ns, label: ns });
         });
         setStorageList(selectList);
-      } catch (err) {
+      } catch (err: any) {
         setError(err?.message);
         setStorageList([]);
       }
@@ -69,6 +77,7 @@ export default function DatabaseConfig() {
 
   const create = async () => {
     if (!formApi.current) {
+      return;
     }
     const createDatabase = async (values: any) => {
       try {
@@ -78,7 +87,7 @@ export default function DatabaseConfig() {
         });
         URLStore.changeURLParams({ path: Route.MetadataDatabase });
       } catch (err) {
-        setError(_.get(err, "response.data", "Unknown internal error"));
+        setError(_.get(err, "response.data", Common.unknownInternalError));
       } finally {
         setSubmiting(false);
       }
@@ -104,34 +113,48 @@ export default function DatabaseConfig() {
       <Card>
         <Form
           className="lin-db-form"
-          getFormApi={(api) => (formApi.current = api)}
+          getFormApi={(api: any) => (formApi.current = api)}
           labelPosition="left"
           labelAlign="right"
           labelCol={{ span: 4 }}
           wrapperCol={{ span: 12 }}
         >
           <Form.Input
-            label="Name"
+            label={MetadataDatabaseView.name}
             field="name"
-            rules={[{ required: true, message: "Name is required" }]}
+            rules={[
+              { required: true, message: MetadataDatabaseView.nameRequired },
+            ]}
           />
           <Form.Select
-            label="Storage"
+            label={MetadataDatabaseView.storage}
             field="storage"
-            rules={[{ required: true, message: "Storage is required" }]}
+            rules={[
+              { required: true, message: MetadataDatabaseView.storageRequired },
+            ]}
             optionList={storageList}
             style={{ width: 200 }}
           />
           <Form.InputNumber
-            rules={[{ required: true, message: "Num. of Shard is required" }]}
-            label="Num. Of Shard"
+            rules={[
+              {
+                required: true,
+                message: MetadataDatabaseView.numOfShardsRequired,
+              },
+            ]}
+            label={MetadataDatabaseView.numOfShards}
             field="numOfShard"
             min={1}
           />
           <Form.InputNumber
             field="replicaFactor"
-            rules={[{ required: true, message: "Replica Factor is require" }]}
-            label="Replica Factor"
+            rules={[
+              {
+                required: true,
+                message: MetadataDatabaseView.replicaFactorRequired,
+              },
+            ]}
+            label={MetadataDatabaseView.replicaFactor}
             min={1}
           />
           <div
@@ -147,13 +170,13 @@ export default function DatabaseConfig() {
                 style={{ display: "flex", justifyContent: "flex-end" }}
               >
                 <Text strong style={{ paddingRight: 16 }}>
-                  Storage Engine Options
+                  {MetadataDatabaseView.engineOptions}
                 </Text>
               </Col>
             </Row>
           </div>
           <Form.Switch
-            label="Auto Create Namespace"
+            label={MetadataDatabaseView.autoCreateNS}
             field="option.autoCreateNS"
             initValue={true}
           />
@@ -163,15 +186,15 @@ export default function DatabaseConfig() {
               style={{ display: "flex", justifyContent: "flex-end" }}
             >
               <Form.Label style={{ paddingRight: 16 }} required>
-                Intervals
+                {MetadataDatabaseView.intervals}
               </Form.Label>
             </Col>
             <Col>
               <Form.Label style={{ width: 220 }} required>
-                Interval(Seconds)
+                {MetadataDatabaseView.interval}
               </Form.Label>
               <Form.Label style={{ width: 200 }} required>
-                Retention(Days)
+                {MetadataDatabaseView.retention}
               </Form.Label>
             </Col>
           </Row>
@@ -224,20 +247,20 @@ export default function DatabaseConfig() {
               style={{ display: "flex", justifyContent: "flex-end" }}
             >
               <Form.Label style={{ paddingRight: 16, paddingTop: 10 }}>
-                Writeable Time Range
+                {MetadataDatabaseView.writeableTimeRange}
               </Form.Label>
             </Col>
             <Col className="lin-form-input-group">
               <Form.InputGroup>
                 <Form.Input
-                  label="Behead"
+                  label={MetadataDatabaseView.behead}
                   labelPosition="inset"
                   field="option.behead"
                   style={{ width: 202, marginRight: 16 }}
                   placeholder="30m/1h"
                 />
                 <Form.Input
-                  label="Ahead"
+                  label={MetadataDatabaseView.ahead}
                   labelPosition="inset"
                   field="option.ahead"
                   placeholder="30m/1h"
@@ -245,7 +268,7 @@ export default function DatabaseConfig() {
                 />
               </Form.InputGroup>
               <Text size="small" type="tertiary">
-                For Example: [ now()-1h ~ now()+1h ]
+                {MetadataDatabaseView.example}
               </Text>
             </Col>
           </Row>
@@ -261,7 +284,7 @@ export default function DatabaseConfig() {
                   create();
                 }}
               >
-                Submit
+                {Common.submit}
               </Button>
               <Button
                 type="tertiary"
@@ -270,7 +293,7 @@ export default function DatabaseConfig() {
                   URLStore.changeURLParams({ path: Route.MetadataDatabase })
                 }
               >
-                Cancel
+                {Common.cancel}
               </Button>
             </Col>
           </Row>

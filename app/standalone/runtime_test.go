@@ -20,7 +20,7 @@ package standalone
 import (
 	"context"
 	"fmt"
-	"path"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -28,12 +28,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.etcd.io/etcd/server/v3/embed"
 
+	"github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/ltoml"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/bootstrap"
 	"github.com/lindb/lindb/internal/monitoring"
 	"github.com/lindb/lindb/internal/server"
-	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/state"
 )
 
@@ -43,13 +45,13 @@ func newDefaultStandaloneConfig(_ *testing.T) config.Standalone {
 		Coordinator: *config.NewDefaultCoordinator(),
 		StorageBase: *config.NewDefaultStorageBase(),
 		BrokerBase:  *config.NewDefaultBrokerBase(),
-		Logging:     *config.NewDefaultLogging(),
+		Logging:     *logger.NewDefaultSetting(),
 		ETCD:        *config.NewDefaultETCD(),
 		Monitor:     *config.NewDefaultMonitor(),
 	}
 	dir := "."
-	saCfg.StorageBase.TSDB.Dir = path.Join(dir, "data")
-	saCfg.StorageBase.WAL.Dir = path.Join(dir, "wal")
+	saCfg.StorageBase.TSDB.Dir = filepath.Join(dir, "data")
+	saCfg.StorageBase.WAL.Dir = filepath.Join(dir, "wal")
 	saCfg.StorageBase.GRPC.Port = 3901
 	saCfg.StorageBase.HTTP.Port = 3902
 	saCfg.StorageBase.WAL.RemoveTaskInterval = ltoml.Duration(10 * time.Minute)
@@ -64,6 +66,7 @@ func TestRuntime_New(t *testing.T) {
 	cfg := newDefaultStandaloneConfig(t)
 	standalone := NewStandaloneRuntime("test-version", &cfg, true)
 	assert.NotNil(t, standalone)
+	assert.NotNil(t, standalone.Config())
 	assert.Equal(t, "standalone", standalone.Name())
 }
 

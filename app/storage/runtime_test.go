@@ -29,16 +29,17 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/ltoml"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	storagepkg "github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/internal/server"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/hostutil"
-	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/rpc"
@@ -87,6 +88,7 @@ func TestStorageRun(t *testing.T) {
 	storage := NewStorageRuntime("test-version", 1, &cfg)
 	err := storage.Run()
 	assert.NoError(t, err)
+	assert.NotNil(t, storage.Config())
 	assert.Equal(t, server.Running, storage.State())
 	// wait register success
 	time.Sleep(500 * time.Millisecond)

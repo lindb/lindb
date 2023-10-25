@@ -6,7 +6,6 @@ ownership. LinDB licenses this file to you under
 the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
  
 Unless required by applicable law or agreed to in writing,
@@ -31,8 +30,8 @@ export const StorageCoordinatorDashboard: Dashboard = {
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.storage.state_manager' where type='NodeStartup' group by node",
-                watch: ["namespace", "node"],
+                sql: "select 'handle_events' from 'lindb.coordinator.state_manager' where type='NodeStartup' and coordinator='Storage' group by node",
+                watch: ["namespace", "node", "role"],
               },
             ],
             unit: Unit.Short,
@@ -46,8 +45,8 @@ export const StorageCoordinatorDashboard: Dashboard = {
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.storage.state_manager' where type='NodeFailure' group by node",
-                watch: ["namespace", "node"],
+                sql: "select 'handle_events' from 'lindb.coordinator.state_manager' where type='NodeFailure' and coordinator='Storage' group by node",
+                watch: ["namespace", "node", "role"],
               },
             ],
             unit: Unit.Short,
@@ -65,8 +64,8 @@ export const StorageCoordinatorDashboard: Dashboard = {
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.storage.state_manager' where type='ShardAssignmentChanged' group by node",
-                watch: ["namespace", "node"],
+                sql: "select 'handle_events' from 'lindb.coordinator.state_manager' where type='ShardAssignmentChanged' and coordinator='Storage' group by node",
+                watch: ["namespace", "node", "role"],
               },
             ],
             unit: Unit.Short,
@@ -80,8 +79,8 @@ export const StorageCoordinatorDashboard: Dashboard = {
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_event_failures' from 'lindb.storage.state_manager' group by node",
-                watch: ["namespace", "node"],
+                sql: "select 'handle_event_failures' from 'lindb.coordinator.state_manager' where coordinator='Storage' group by node",
+                watch: ["namespace", "node", "role"],
               },
             ],
             unit: Unit.Short,
@@ -95,8 +94,8 @@ export const StorageCoordinatorDashboard: Dashboard = {
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'panics' from 'lindb.storage.state_manager' group by node",
-                watch: ["namespace", "node"],
+                sql: "select 'panics' from 'lindb.coordinator.state_manager' where coordinator='Storage' group by node",
+                watch: ["namespace", "node", "role"],
               },
             ],
             unit: Unit.Short,

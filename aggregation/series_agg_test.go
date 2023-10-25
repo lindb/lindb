@@ -20,6 +20,7 @@ package aggregation
 import (
 	"testing"
 
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -28,7 +29,7 @@ import (
 
 func TestNewFieldAggregates(t *testing.T) {
 	agg := NewFieldAggregates(
-		timeutil.Interval(timeutil.OneSecond),
+		timeutil.Interval(commontimeutil.OneSecond),
 		1,
 		timeutil.TimeRange{
 			Start: 10,
@@ -44,7 +45,7 @@ func TestNewFieldAggregates(t *testing.T) {
 	assert.Equal(t, field.SumField, agg[1].GetFieldType())
 
 	agg = NewFieldAggregates(
-		timeutil.Interval(timeutil.OneSecond),
+		timeutil.Interval(commontimeutil.OneSecond),
 		1,
 		timeutil.TimeRange{
 			Start: 10,
@@ -72,41 +73,33 @@ func TestNewFieldAggregates(t *testing.T) {
 }
 
 func TestNewSeriesAggregator(t *testing.T) {
-	now, _ := timeutil.ParseTimestamp("20190702 19:10:00", "20060102 15:04:05")
-	familyTime, _ := timeutil.ParseTimestamp("20190702 19:00:00", "20060102 15:04:05")
+	now, _ := commontimeutil.ParseTimestamp("20190702 19:10:00", "20060102 15:04:05")
+	familyTime, _ := commontimeutil.ParseTimestamp("20190702 19:00:00", "20060102 15:04:05")
 	agg := NewSeriesAggregator(
-		timeutil.Interval(timeutil.OneSecond),
+		timeutil.Interval(commontimeutil.OneSecond),
 		1,
 		timeutil.TimeRange{
 			Start: now,
-			End:   now + 3*timeutil.OneHour,
+			End:   now + 3*commontimeutil.OneHour,
 		},
 		NewAggregatorSpec("b", field.SumField),
 	)
 
-	fAgg, ok := agg.GetAggregator(familyTime)
-	assert.True(t, ok)
+	fAgg := agg.GetAggregator(familyTime)
 	assert.NotNil(t, fAgg)
 
-	fAgg, ok = agg.GetAggregator(familyTime - timeutil.OneHour)
-	assert.False(t, ok)
-	assert.Nil(t, fAgg)
-	fAgg, ok = agg.GetAggregator(familyTime + 3*timeutil.OneHour)
-	assert.True(t, ok)
+	fAgg = agg.GetAggregator(familyTime + 3*commontimeutil.OneHour)
 	assert.NotNil(t, fAgg)
-	fAgg, ok = agg.GetAggregator(familyTime + 4*timeutil.OneHour)
-	assert.False(t, ok)
-	assert.Nil(t, fAgg)
 
 	rs := agg.ResultSet()
 	assert.Equal(t, field.Name("b"), rs.FieldName())
 	assert.True(t, rs.HasNext())
 	startTime, fIt := rs.Next()
-	assert.Equal(t, familyTime, startTime)
+	assert.Equal(t, now, startTime)
 	assert.NotNil(t, fIt)
 	assert.True(t, rs.HasNext())
 	startTime, fIt = rs.Next()
-	assert.Equal(t, familyTime+3*timeutil.OneHour, startTime)
+	assert.Equal(t, now, startTime)
 	assert.NotNil(t, fIt)
 	assert.False(t, rs.HasNext())
 	rs = agg.ResultSet()
@@ -115,20 +108,29 @@ func TestNewSeriesAggregator(t *testing.T) {
 	assert.True(t, len(d) > 0)
 
 	agg.Reset()
+}
 
-	agg = NewSeriesAggregator(
-		timeutil.Interval(timeutil.OneSecond),
+func TestNewMergeSeriesAggregator(t *testing.T) {
+	now, _ := commontimeutil.ParseTimestamp("20190702 19:10:00", "20060102 15:04:05")
+	familyTime, _ := commontimeutil.ParseTimestamp("20190702 19:00:00", "20060102 15:04:05")
+	agg := NewMergeSeriesAggregator(
+		timeutil.Interval(commontimeutil.OneSecond),
 		1,
 		timeutil.TimeRange{
 			Start: now,
-			End:   now - 3*timeutil.OneHour,
+			End:   now + 3*commontimeutil.OneHour,
 		},
 		NewAggregatorSpec("b", field.SumField),
 	)
-	fAgg, ok = agg.GetAggregator(familyTime)
-	assert.False(t, ok)
-	assert.Nil(t, fAgg)
 
-	rs = agg.ResultSet()
-	assert.NotNil(t, rs)
+	fAgg := agg.getAggregator(familyTime)
+	assert.NotNil(t, fAgg)
+
+	rs := agg.ResultSet()
+	assert.Equal(t, field.Name("b"), rs.FieldName())
+	assert.True(t, rs.HasNext())
+	startTime, fIt := rs.Next()
+	assert.Equal(t, now, startTime)
+	assert.NotNil(t, fIt)
+	assert.False(t, rs.HasNext())
 }

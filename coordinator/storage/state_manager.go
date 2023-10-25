@@ -25,12 +25,16 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/BurntSushi/toml"
+
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/tsdb"
 )
@@ -38,7 +42,9 @@ import (
 //go:generate mockgen -source=./state_manager.go -destination=./state_manager_mock.go -package=storage
 
 // for test
-var getConnFct = rpc.GetStorageClientConnFactory
+var (
+	getConnFct = rpc.GetStorageClientConnFactory
+)
 
 // StateManager represents storage state manager, maintains storage node in memory.
 type StateManager interface {
@@ -69,7 +75,7 @@ type stateManager struct {
 
 	mutex sync.RWMutex
 
-	logger *logger.Logger
+	logger logger.Logger
 
 	statistics *metrics.StateManagerStatistics
 }
@@ -90,7 +96,7 @@ func NewStateManager(
 		databaseAssignments: make(map[string]*models.DatabaseAssignment),
 		events:              make(chan *discovery.Event, 10),
 		watches:             make(map[models.NodeID][]func(state models.NodeStateType)),
-		statistics:          metrics.NewStateManagerStatistics(strings.ToLower(constants.StorageRole)),
+		statistics:          metrics.NewStateManagerStatistics(linmetric.StorageRegistry),
 		logger:              logger.GetLogger("Storage", "StateManager"),
 	}
 
@@ -128,7 +134,7 @@ func (m *stateManager) processEvent(event *discovery.Event) {
 	eventType := event.Type.String()
 	defer func() {
 		if err := recover(); err != nil {
-			m.statistics.Panics.WithTagValues(eventType).Incr()
+			m.statistics.Panics.WithTagValues(eventType, constants.StorageRole).Incr()
 			m.logger.Error("panic when process discovery event, lost the state",
 				logger.Any("err", err), logger.Stack())
 		}
@@ -146,12 +152,32 @@ func (m *stateManager) processEvent(event *discovery.Event) {
 		err = m.onNodeFailure(event.Key)
 	case discovery.ShardAssignmentChanged:
 		err = m.onShardAssignmentChange(event.Key, event.Value)
+	case discovery.DatabaseLimitsChanged:
+		err = m.onDatabaseLimitsChange(event.Key, event.Value)
 	}
 	if err != nil {
-		m.statistics.HandleEventFailure.WithTagValues(eventType).Incr()
+		m.statistics.HandleEventFailure.WithTagValues(eventType, constants.StorageRole).Incr()
 	} else {
-		m.statistics.HandleEvents.WithTagValues(eventType).Incr()
+		m.statistics.HandleEvents.WithTagValues(eventType, constants.StorageRole).Incr()
 	}
+}
+
+// onDatabaseLimitsChange triggers when database limits modify.
+func (m *stateManager) onDatabaseLimitsChange(key string, data []byte) error {
+	m.logger.Info("set database limts, because database limits is changed",
+		logger.String("key", key))
+
+	name := strings.TrimPrefix(key, constants.GetDatabaseLimitPath(""))
+	limits := &models.Limits{}
+	_, err := toml.Decode(string(data), limits)
+	if err != nil {
+		m.logger.Error("set database limits failure",
+			logger.String("database", name),
+			logger.Error(err))
+		return err
+	}
+	m.engine.SetDatabaseLimits(name, limits)
+	return nil
 }
 
 // onShardAssignmentChange triggers when shard assignment changed after database config modified.

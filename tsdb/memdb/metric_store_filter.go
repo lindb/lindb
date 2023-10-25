@@ -20,6 +20,7 @@ package memdb
 import (
 	"fmt"
 
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/constants"
@@ -78,7 +79,7 @@ func (rs *memFilterResultSet) Identifier() string {
 		dbStatus = "readonly"
 	}
 	return fmt.Sprintf("%s/memory/%s",
-		timeutil.FormatTimestamp(rs.familyTime, timeutil.DataTimeFormat2), dbStatus)
+		commontimeutil.FormatTimestamp(rs.familyTime, commontimeutil.DataTimeFormat2), dbStatus)
 }
 
 // FamilyTime returns the family time of storage.

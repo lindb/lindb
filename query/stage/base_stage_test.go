@@ -25,9 +25,10 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/models"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/concurrent"
-	"github.com/lindb/lindb/models"
 )
 
 type mockPool struct {

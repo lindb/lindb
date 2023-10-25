@@ -19,6 +19,7 @@ package aggregation
 
 import (
 	"math"
+	"sync"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -36,12 +37,29 @@ func Test_fillInfBlock(t *testing.T) {
 }
 
 func Test_getFloat64Slice(t *testing.T) {
-	for i := 0; i < 100; i++ {
-		assert.Len(t, getFloat64Slice(10), 10)
+	defer func() {
+		float64Pool = sync.Pool{}
+	}()
+	float64Pool = sync.Pool{
+		New: func() any {
+			return nil
+		},
 	}
-	for i := 0; i < 100; i++ {
-		assert.Len(t, getFloat64Slice(5), 5)
+	assert.Len(t, getFloat64Slice(10), 10)
+	float64Pool = sync.Pool{
+		New: func() any {
+			f := make([]float64, 1)
+			return &f
+		},
 	}
+	assert.Len(t, getFloat64Slice(5), 5)
+	float64Pool = sync.Pool{
+		New: func() any {
+			f := make([]float64, 10)
+			return &f
+		},
+	}
+	assert.Len(t, getFloat64Slice(5), 5)
 }
 
 func assertBlockInf(t *testing.T, size int) {

@@ -21,13 +21,14 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/query/context"
 	"github.com/lindb/lindb/query/stage"
@@ -52,7 +53,7 @@ type leafTaskProcessor struct {
 	taskServerFactory rpc.TaskServerFactory
 
 	statistics *metrics.StorageQueryStatistics
-	logger     *logger.Logger
+	logger     logger.Logger
 }
 
 // NewLeafTaskProcessor creates the leaf task
@@ -67,37 +68,14 @@ func NewLeafTaskProcessor(
 		engine:            engine,
 		taskServerFactory: taskServerFactory,
 		statistics:        metrics.NewStorageQueryStatistics(),
-		logger:            logger.GetLogger("Query", "LeafTaskDispatcher"),
-	}
-}
-
-// Process dispatches the request to storage engine query processor
-func (p *leafTaskProcessor) Process(
-	ctx *flow.TaskContext,
-	stream protoCommonV1.TaskService_HandleServer,
-	req *protoCommonV1.TaskRequest,
-) {
-	err := p.process(ctx, req)
-	if err != nil {
-		// if process fail, need send response with err
-		if sendError := stream.Send(&protoCommonV1.TaskResponse{
-			TaskID:    req.ParentTaskID,
-			Type:      protoCommonV1.TaskType_Leaf,
-			Completed: true,
-			ErrMsg:    err.Error(),
-			SendTime:  timeutil.NowNano(),
-		}); sendError != nil {
-			p.logger.Error("failed to send error message to target stream",
-				logger.String("taskID", req.ParentTaskID),
-				logger.Error(err),
-			)
-		}
+		logger:            logger.GetLogger("Query", "leafTaskProcessor"),
 	}
 }
 
 // Process processes the task request, searches the data of metric from time series engine
-func (p *leafTaskProcessor) process(
+func (p *leafTaskProcessor) Process(
 	ctx *flow.TaskContext,
+	stream protoCommonV1.TaskService_HandleServer,
 	req *protoCommonV1.TaskRequest,
 ) error {
 	physicalPlan := models.PhysicalPlan{}
@@ -106,8 +84,8 @@ func (p *leafTaskProcessor) process(
 	}
 
 	foundTask := false
-	var curLeaf *models.Leaf
-	for _, leaf := range physicalPlan.Leaves {
+	var curLeaf *models.Target
+	for _, leaf := range physicalPlan.Targets {
 		if leaf.Indicator == p.currentNodeID {
 			foundTask = true
 			curLeaf = leaf
@@ -123,15 +101,10 @@ func (p *leafTaskProcessor) process(
 		p.statistics.OmitRequest.Incr()
 		return fmt.Errorf("%w: %s", ErrNoDatabase, physicalPlan.Database)
 	}
-	stream := p.taskServerFactory.GetStream(curLeaf.Parent)
-	if stream == nil {
-		p.statistics.OmitRequest.Incr()
-		return fmt.Errorf("%w: %s", ErrNoSendStream, curLeaf.Parent)
-	}
 
 	switch req.RequestType {
 	case protoCommonV1.RequestType_Data:
-		if err := p.processDataSearch(ctx, db, req, curLeaf); err != nil {
+		if err := p.processDataSearch(ctx, db, req, curLeaf, physicalPlan.Receivers); err != nil {
 			p.statistics.MetricQueryFailures.Incr()
 			return err
 		}
@@ -173,15 +146,15 @@ func (p *leafTaskProcessor) processMetadataSuggest(
 		}
 		// send result to upstream
 		if err := stream.Send(&protoCommonV1.TaskResponse{
-			Type:      protoCommonV1.TaskType_Leaf,
-			TaskID:    req.ParentTaskID,
-			Completed: true,
-			ErrMsg:    errMsg,
-			SendTime:  timeutil.NowNano(),
-			Payload:   payload,
+			RequestType: req.RequestType,
+			RequestID:   req.RequestID,
+			Completed:   true,
+			ErrMsg:      errMsg,
+			SendTime:    timeutil.NowNano(),
+			Payload:     payload,
 		}); err != nil {
 			p.logger.Error("failed to send error message to target stream",
-				logger.String("taskID", req.ParentTaskID),
+				logger.String("requestID", req.RequestID),
 				logger.Error(err),
 			)
 		}
@@ -195,7 +168,8 @@ func (p *leafTaskProcessor) processDataSearch(
 	ctx *flow.TaskContext,
 	db tsdb.Database,
 	req *protoCommonV1.TaskRequest,
-	leafNode *models.Leaf,
+	leafNode *models.Target,
+	receivers []string,
 ) error {
 	stmtQuery := stmt.Query{}
 	if err := stmtQuery.UnmarshalJSON(req.Payload); err != nil {
@@ -204,7 +178,7 @@ func (p *leafTaskProcessor) processDataSearch(
 
 	// execute leaf pipeline
 	tracker := trackerpkg.NewStageTracker(ctx)
-	leafExecuteCtx := context.NewLeafExecuteContext(ctx, tracker, &stmtQuery, req, p.taskServerFactory, leafNode, db)
+	leafExecuteCtx := context.NewLeafExecuteContext(ctx, tracker, &stmtQuery, req, p.taskServerFactory, leafNode, receivers, db)
 
 	pipeline := newExecutePipelineFn(tracker, func(err error) {
 		// remove pipeline from cache after execute completed

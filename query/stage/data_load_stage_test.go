@@ -24,8 +24,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/query/context"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
@@ -49,8 +50,9 @@ func TestDataLoadStage_Plan(t *testing.T) {
 			ShardExecuteCtx: &flow.ShardExecuteContext{
 				StorageExecuteCtx: &flow.StorageExecuteContext{
 					Query: &stmt.Query{
-						Interval:      1,
-						IntervalRatio: 1.0,
+						Interval:        1,
+						IntervalRatio:   1.0,
+						StorageInterval: 1,
 					},
 				},
 			},

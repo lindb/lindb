@@ -24,8 +24,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/timeutil"
 )
 
 func TestBufferManager_AllocBuffer(t *testing.T) {

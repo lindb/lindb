@@ -6,7 +6,6 @@ ownership. LinDB licenses this file to you under
 the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
  
 Unless required by applicable law or agreed to in writing,
@@ -35,12 +34,13 @@ import {
   Tooltip,
   Typography,
 } from "@douyinfe/semi-ui";
+import { UIContext } from "@src/context/UIContextProvider";
 import { useParams } from "@src/hooks";
 import { ReplicaState } from "@src/models";
 import { URLStore } from "@src/stores";
 import { ColorKit } from "@src/utils";
 import * as _ from "lodash-es";
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 
 const { Text } = Typography;
 
@@ -53,13 +53,15 @@ const ReplicaFilterForm: React.FC<{ replicaState: any }> = (props) => {
     "shard",
     "family",
   ]);
+  const { locale } = useContext(UIContext);
+  const { ReplicationView } = locale;
 
   return (
     <>
       {showTable ? (
         <>
           <Select
-            insetLabel="Shard"
+            insetLabel={ReplicationView.shard}
             style={{ marginRight: 8 }}
             showClear
             value={shard}
@@ -97,7 +99,7 @@ const ReplicaFilterForm: React.FC<{ replicaState: any }> = (props) => {
         </>
       ) : (
         <>
-          <Text style={{ margin: 4 }}>Shard</Text>
+          <Text style={{ margin: 4 }}>{ReplicationView.shard}</Text>
           <Switch
             checked={showShard}
             onChange={(v) =>
@@ -105,7 +107,7 @@ const ReplicaFilterForm: React.FC<{ replicaState: any }> = (props) => {
             }
             size="small"
           />
-          <Text style={{ margin: 4 }}>Lag</Text>
+          <Text style={{ margin: 4 }}>{ReplicationView.lag}</Text>
           <Switch
             checked={showLag}
             onChange={(v) => {
@@ -145,6 +147,8 @@ const ReplicaView: React.FC<{
     "shard",
     "family",
   ]);
+  const { locale } = useContext(UIContext);
+  const { ReplicationView } = locale;
 
   useEffect(() => {
     URLStore.changeDefaultParams({
@@ -335,7 +339,7 @@ const ReplicaView: React.FC<{
             showHeader={idx == 0 && shardIdx == 0}
             columns={[
               {
-                title: "Type",
+                title: ReplicationView.type,
                 dataIndex: "replicatorType",
                 width: 100,
                 render: (text, record, _index) => {
@@ -348,7 +352,7 @@ const ReplicaView: React.FC<{
                 },
               },
               {
-                title: "Peer",
+                title: ReplicationView.peer,
                 dataIndex: "replicator",
                 render: (_text, record, _index) => {
                   return (
@@ -397,22 +401,22 @@ const ReplicaView: React.FC<{
                 },
               },
               {
-                title: "Append",
+                title: ReplicationView.append,
                 dataIndex: "append",
                 width: 100,
               },
               {
-                title: "Consume",
+                title: ReplicationView.consume,
                 dataIndex: "consume",
                 width: 100,
               },
               {
-                title: "Ack",
+                title: ReplicationView.ack,
                 dataIndex: "ack",
                 width: 100,
               },
               {
-                title: "Lag",
+                title: ReplicationView.lag,
                 dataIndex: "pending",
                 width: 100,
               },
@@ -530,7 +534,7 @@ const ReplicaView: React.FC<{
 
   return (
     <Card
-      title="Replication Status"
+      title={ReplicationView.replicationStatus}
       headerExtraContent={
         <>
           <div style={{ display: "flex", alignItems: "center" }}>

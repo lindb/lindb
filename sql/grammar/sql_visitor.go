@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Code generated from java-escape by ANTLR 4.11.1. DO NOT EDIT.
+// Code generated from ./sql/grammar/SQL.g4 by ANTLR 4.12.0. DO NOT EDIT.
 
 package grammar // SQL
 import "github.com/antlr/antlr4/runtime/Go/antlr/v4"
@@ -29,6 +29,9 @@ type SQLVisitor interface {
 
 	// Visit a parse tree produced by SQLParser#useStmt.
 	VisitUseStmt(ctx *UseStmtContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#setLimitStmt.
+	VisitSetLimitStmt(ctx *SetLimitStmtContext) interface{}
 
 	// Visit a parse tree produced by SQLParser#showStmt.
 	VisitShowStmt(ctx *ShowStmtContext) interface{}
@@ -45,8 +48,17 @@ type SQLVisitor interface {
 	// Visit a parse tree produced by SQLParser#showStoragesStmt.
 	VisitShowStoragesStmt(ctx *ShowStoragesStmtContext) interface{}
 
+	// Visit a parse tree produced by SQLParser#showBrokersStmt.
+	VisitShowBrokersStmt(ctx *ShowBrokersStmtContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#showLimitStmt.
+	VisitShowLimitStmt(ctx *ShowLimitStmtContext) interface{}
+
 	// Visit a parse tree produced by SQLParser#showMetadataTypesStmt.
 	VisitShowMetadataTypesStmt(ctx *ShowMetadataTypesStmtContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#showRootMetaStmt.
+	VisitShowRootMetaStmt(ctx *ShowRootMetaStmtContext) interface{}
 
 	// Visit a parse tree produced by SQLParser#showBrokerMetaStmt.
 	VisitShowBrokerMetaStmt(ctx *ShowBrokerMetaStmtContext) interface{}
@@ -66,6 +78,9 @@ type SQLVisitor interface {
 	// Visit a parse tree produced by SQLParser#showMemoryDatabaseStmt.
 	VisitShowMemoryDatabaseStmt(ctx *ShowMemoryDatabaseStmtContext) interface{}
 
+	// Visit a parse tree produced by SQLParser#showRootMetricStmt.
+	VisitShowRootMetricStmt(ctx *ShowRootMetricStmtContext) interface{}
+
 	// Visit a parse tree produced by SQLParser#showBrokerMetricStmt.
 	VisitShowBrokerMetricStmt(ctx *ShowBrokerMetricStmtContext) interface{}
 
@@ -74,6 +89,12 @@ type SQLVisitor interface {
 
 	// Visit a parse tree produced by SQLParser#createStorageStmt.
 	VisitCreateStorageStmt(ctx *CreateStorageStmtContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#createBrokerStmt.
+	VisitCreateBrokerStmt(ctx *CreateBrokerStmtContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#recoverStorageStmt.
+	VisitRecoverStorageStmt(ctx *RecoverStorageStmtContext) interface{}
 
 	// Visit a parse tree produced by SQLParser#showSchemasStmt.
 	VisitShowSchemasStmt(ctx *ShowSchemasStmtContext) interface{}
@@ -114,6 +135,9 @@ type SQLVisitor interface {
 	// Visit a parse tree produced by SQLParser#databaseName.
 	VisitDatabaseName(ctx *DatabaseNameContext) interface{}
 
+	// Visit a parse tree produced by SQLParser#storageName.
+	VisitStorageName(ctx *StorageNameContext) interface{}
+
 	// Visit a parse tree produced by SQLParser#requestID.
 	VisitRequestID(ctx *RequestIDContext) interface{}
 
@@ -140,6 +164,9 @@ type SQLVisitor interface {
 
 	// Visit a parse tree produced by SQLParser#storageFilter.
 	VisitStorageFilter(ctx *StorageFilterContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#brokerFilter.
+	VisitBrokerFilter(ctx *BrokerFilterContext) interface{}
 
 	// Visit a parse tree produced by SQLParser#databaseFilter.
 	VisitDatabaseFilter(ctx *DatabaseFilterContext) interface{}
@@ -222,6 +249,9 @@ type SQLVisitor interface {
 	// Visit a parse tree produced by SQLParser#fieldExpr.
 	VisitFieldExpr(ctx *FieldExprContext) interface{}
 
+	// Visit a parse tree produced by SQLParser#star.
+	VisitStar(ctx *StarContext) interface{}
+
 	// Visit a parse tree produced by SQLParser#durationLit.
 	VisitDurationLit(ctx *DurationLitContext) interface{}
 
@@ -248,6 +278,9 @@ type SQLVisitor interface {
 
 	// Visit a parse tree produced by SQLParser#json.
 	VisitJson(ctx *JsonContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#toml.
+	VisitToml(ctx *TomlContext) interface{}
 
 	// Visit a parse tree produced by SQLParser#obj.
 	VisitObj(ctx *ObjContext) interface{}

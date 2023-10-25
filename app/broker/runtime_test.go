@@ -28,23 +28,20 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator"
 	brokerpkg "github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/discovery"
-	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
-	"github.com/lindb/lindb/internal/monitoring"
 	"github.com/lindb/lindb/internal/server"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/hostutil"
-	"github.com/lindb/lindb/pkg/http"
-	"github.com/lindb/lindb/pkg/logger"
+	httppkg "github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/state"
-	brokerQuery "github.com/lindb/lindb/query/broker"
 	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/series/tag"
 )
 
 var cfg = config.Broker{
@@ -77,6 +74,7 @@ func TestBrokerRuntime_New(t *testing.T) {
 	r := NewBrokerRuntime("version", &cfg, false)
 	assert.NotNil(t, r)
 	assert.Equal(t, "broker", r.Name())
+	assert.NotNil(t, r.Config())
 }
 
 func TestBrokerRuntime_Run(t *testing.T) {
@@ -188,6 +186,12 @@ func TestBrokerRuntime_Run(t *testing.T) {
 					stateMgr brokerpkg.StateManager) discovery.StateMachineFactory {
 					return smFct
 				}
+				httpSrv := httppkg.NewMockServer(ctrl)
+				httpSrv.EXPECT().GetAPIRouter().Return(gin.New().Group("/api"))
+				newHTTPServer = func(_ config.HTTP, _ bool, _ *linmetric.Registry) httppkg.Server {
+					return httpSrv
+				}
+				httpSrv.EXPECT().Run().Return(nil)
 			},
 			wantErr: false,
 		},
@@ -203,12 +207,10 @@ func TestBrokerRuntime_Run(t *testing.T) {
 				newTaskClientFactory = rpc.NewTaskClientFactory
 				newStateManager = brokerpkg.NewStateManager
 				newChannelManager = replica.NewChannelManager
-				newTaskManager = brokerQuery.NewTaskManager
 				newMasterController = coordinator.NewMasterController
 				newRegistry = discovery.NewRegistry
 				serveGRPCFn = serveGRPC
-
-				newNativeProtoPusher = monitoring.NewNativeProtoPusher
+				newHTTPServer = httppkg.NewServer
 				newStateMachineFactory = brokerpkg.NewStateMachineFactory
 			}()
 
@@ -217,13 +219,14 @@ func TestBrokerRuntime_Run(t *testing.T) {
 				enableSystemMonitor: true,
 				config:              &cfg,
 				repoFactory:         repoFct,
-				log:                 logger.GetLogger("Runtime", "Test"),
+				logger:              logger.GetLogger("Runtime", "Test"),
 			}
 			resetNewDepsMock()
 			if tt.prepare != nil {
 				tt.prepare()
 			}
 			err := r.Run()
+			time.Sleep(50 * time.Millisecond)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Run() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -240,8 +243,7 @@ func TestBrokerRuntime_Stop(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	pusher := monitoring.NewMockNativePusher(ctrl)
-	httpServer := http.NewMockServer(ctrl)
+	httpServer := httppkg.NewMockServer(ctrl)
 	registry := discovery.NewMockRegistry(ctrl)
 	mc := coordinator.NewMockMasterController(ctrl)
 	smFct := discovery.NewMockStateMachineFactory(ctrl)
@@ -250,6 +252,7 @@ func TestBrokerRuntime_Stop(t *testing.T) {
 	connectionMgr := rpc.NewMockConnectionManager(ctrl)
 	channelMgr := replica.NewMockChannelManager(ctrl)
 	grpcServer := rpc.NewMockGRPCServer(ctrl)
+	registry.EXPECT().Deregister(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
 
 	cases := []struct {
 		name    string
@@ -258,7 +261,6 @@ func TestBrokerRuntime_Stop(t *testing.T) {
 		{
 			name: "stop failure",
 			prepare: func() {
-				pusher.EXPECT().Stop()
 				httpServer.EXPECT().Close(gomock.Any()).Return(fmt.Errorf("err"))
 				registry.EXPECT().Close().Return(fmt.Errorf("err"))
 				mc.EXPECT().Stop()
@@ -273,7 +275,6 @@ func TestBrokerRuntime_Stop(t *testing.T) {
 		{
 			name: "stop successfully",
 			prepare: func() {
-				pusher.EXPECT().Stop()
 				httpServer.EXPECT().Close(gomock.Any()).Return(nil)
 				registry.EXPECT().Close().Return(nil)
 				mc.EXPECT().Stop()
@@ -294,7 +295,6 @@ func TestBrokerRuntime_Stop(t *testing.T) {
 			r := &runtime{
 				ctx:                 ctx,
 				cancel:              cancel,
-				pusher:              pusher,
 				httpServer:          httpServer,
 				registry:            registry,
 				master:              mc,
@@ -308,7 +308,7 @@ func TestBrokerRuntime_Stop(t *testing.T) {
 					connectionMgr: connectionMgr,
 				},
 				grpcServer: grpcServer,
-				log:        logger.GetLogger("Runtime", "Test"),
+				logger:     logger.GetLogger("Runtime", "Test"),
 			}
 			if tt.prepare != nil {
 				tt.prepare()
@@ -329,29 +329,25 @@ func TestBrokerRuntime_startGrpcServer(t *testing.T) {
 		serveGRPC(grpcServer)
 	})
 }
-
-func TestBrokerRuntime_push_metric(t *testing.T) {
+func TestBrokerRuntime_RunHTTPServer(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer func() {
-		newNativeProtoPusher = monitoring.NewNativeProtoPusher
-		ctrl.Finish()
-	}()
-
-	pusher := monitoring.NewMockNativePusher(ctrl)
-	newNativeProtoPusher = func(ctx context.Context, endpoint string,
-		interval time.Duration, pushTimeout time.Duration,
-		r *linmetric.Registry, globalKeyValues tag.Tags) monitoring.NativePusher {
-		return pusher
-	}
+	defer ctrl.Finish()
+	s := httppkg.NewMockServer(ctrl)
+	s.EXPECT().Run().Return(fmt.Errorf("err"))
 	r := &runtime{
-		log: logger.GetLogger("Runtime", "Test"),
-		config: &config.Broker{Monitor: config.Monitor{
-			ReportInterval: 10,
-		}},
+		config: &config.Broker{
+			BrokerBase: config.BrokerBase{
+				HTTP: config.HTTP{
+					Port: 8000,
+				},
+			},
+		},
+		httpServer: s,
+		logger:     logger.GetLogger("Test", "Broker"),
 	}
-	pusher.EXPECT().Start().AnyTimes()
-	r.nativePusher()
-	time.Sleep(500 * time.Millisecond)
+	assert.Panics(t, func() {
+		r.runHTTPServer()
+	})
 }
 
 func resetNewDepsMock() {
@@ -364,11 +360,6 @@ func resetNewDepsMock() {
 		stateMgr brokerpkg.StateManager) replica.ChannelManager {
 		return nil
 	}
-	newTaskManager = func(ctx context.Context, currentNode models.Node,
-		taskClientFactory rpc.TaskClientFactory, taskServerFactory rpc.TaskServerFactory,
-		taskPool concurrent.Pool, ttl time.Duration) brokerQuery.TaskManager {
-		return nil
-	}
 	newMasterController = func(cfg *coordinator.MasterCfg) coordinator.MasterController {
 		return nil
 	}
@@ -379,10 +370,6 @@ func resetNewDepsMock() {
 	}
 	newStateMachineFactory = func(ctx context.Context, discoveryFactory discovery.Factory,
 		stateMgr brokerpkg.StateManager) discovery.StateMachineFactory {
-		return nil
-	}
-	newNativeProtoPusher = func(ctx context.Context, endpoint string, interval time.Duration,
-		pushTimeout time.Duration, r *linmetric.Registry, globalKeyValues tag.Tags) monitoring.NativePusher {
 		return nil
 	}
 }

@@ -22,11 +22,12 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/ltoml"
+
 	"github.com/lindb/lindb/app/standalone"
 	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/ltoml"
 )
 
 const (
@@ -87,8 +88,8 @@ func serveStandalone(_ *cobra.Command, _ []string) error {
 	ctx := newCtxWithSignals()
 
 	standaloneCfg := config.Standalone{}
-	if fileutil.Exist(cfg) || fileutil.Exist(defaultStorageCfgFile) {
-		if err := config.LoadAndSetStandAloneConfig(cfg, defaultStorageCfgFile, &standaloneCfg); err != nil {
+	if fileutil.Exist(cfg) || fileutil.Exist(defaultStandaloneCfgFile) {
+		if err := config.LoadAndSetStandAloneConfig(cfg, defaultStandaloneCfgFile, &standaloneCfg); err != nil {
 			return err
 		}
 	} else {
@@ -96,6 +97,12 @@ func serveStandalone(_ *cobra.Command, _ []string) error {
 	}
 
 	if err := logger.InitLogger(standaloneCfg.Logging, standaloneLogFileName); err != nil {
+		return fmt.Errorf("init logger error: %s", err)
+	}
+	if err := logger.InitAccessLogger(standaloneCfg.Logging, logger.AccessLogFileName); err != nil {
+		return fmt.Errorf("init http access logger error: %s", err)
+	}
+	if err := logger.InitSlowSQLLogger(standaloneCfg.Logging, logger.SlowSQLLogFileName); err != nil {
 		return fmt.Errorf("init logger error: %s", err)
 	}
 

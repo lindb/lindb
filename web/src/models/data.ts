@@ -6,7 +6,6 @@ ownership. LinDB licenses this file to you under
 the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
  
 Unless required by applicable law or agreed to in writing,
@@ -27,42 +26,23 @@ export type ResultSet = {
   endTime: number;
   interval: number;
   series: Series[];
-  stats?: ExplainResult;
+  stats?: NodeStats;
 };
 export type Series = {
   tags?: { [propName: string]: string };
   fields?: { [propName: string]: { [timestamp: number]: number } };
 };
 
-export type ExplainResult = {
-  root: string;
-  totalCost: number;
+export type NodeStats = {
+  node: string;
   netPayload: number;
-  planCost: number;
-  planStart: number;
-  planEnd: number;
-  expressCost: number;
-  expressStart: number;
-  expressEnd: number;
+  totalCost: number;
+  start: number;
+  end: number;
   waitCost: number;
   waitStart: number;
   waitEnd: number;
-  start: number;
-  end: number;
-  leafNodes: { [propName: string]: LeafNodeStats };
-  brokerNodes: { [propName: string]: BrokerNodeExecStats };
-};
-
-export type BrokerNodeExecStats = {
-  waitCost: number;
-  storageNodes: { [propName: string]: LeafNodeStats };
-};
-
-export type LeafNodeStats = {
-  netPayload: number;
-  totalCost: number;
-  start: number;
-  end: number;
+  children: NodeStats[];
   stages: StageStats[];
 };
 

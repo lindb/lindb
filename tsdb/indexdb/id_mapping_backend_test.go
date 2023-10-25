@@ -24,8 +24,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/pkg/fileutil"
+
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/unique"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/metric"

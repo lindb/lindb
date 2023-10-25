@@ -1,0 +1,26 @@
+name: Update Docker Hub Description
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - README.md
+      - .github/workflows/dockerhub-description.yml
+env:
+  # <repo>
+  IMAGE_NAME: ${{ github.event.repository.name }}
+jobs:
+  dockerHubDescription:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Docker Hub Description
+      uses: peter-evans/dockerhub-description@v3
+      with:
+        username: ${{ secrets.DOCKER_HUB_USER }}
+        password: ${{ secrets.DOCKER_HUB_TOKEN }} 
+        repository: ${{ secrets.DOCKER_HUB_USER }}/${{ env.IMAGE_NAME }}
+        short-description: ${{ github.event.repository.description }}
+        enable-url-completion: true

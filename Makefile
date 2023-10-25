@@ -6,7 +6,7 @@ BUILD_TIME=$(shell date "+%Y-%m-%dT%H:%M:%S%z")
 ifeq ($(GIT_TAG_NAME),)
 GIT_TAG_NAME := "unknown"
 endif
-LD_FLAGS=-ldflags="-X github.com/lindb/lindb/config.Version=$(GIT_TAG_NAME) -X github.com/lindb/lindb/config.BuildTime=$(BUILD_TIME)"
+LD_FLAGS=-ldflags="-s -w -X github.com/lindb/lindb/config.Version=$(GIT_TAG_NAME) -X github.com/lindb/lindb/config.BuildTime=$(BUILD_TIME)"
 
 # Ref: https://gist.github.com/prwhite/8168133
 help:  ## Display this help
@@ -32,6 +32,17 @@ build-lind: ## build lindb binary
 	env GOOS=linux GOARCH=$(GOARCH) go build -o 'bin/lindcli-linux' $(LD_FLAGS) ./cmd/cli
 	env GOOS=windows GOARCH=$(GOARCH) go build -o 'bin/lindcli-windows.exe' $(LD_FLAGS) ./cmd/cli
 
+deploy: build-frontend ## deploy release packages
+	sh deploy.sh
+
+.PHONY: docker-build
+docker-build: ## build docker image
+	docker build -t lindata/lindb:$(GIT_TAG_NAME) --build-arg LD_FLAGS=${LD_FLAGS} .
+
+.PHONY: docker-push
+docker-push: ## push docker image
+	docker push lindata/lindb:$(GIT_TAG_NAME)
+
 GOMOCK_VERSION = "v1.5.0"
 
 gomock: ## go generate mock file.
@@ -39,13 +50,18 @@ gomock: ## go generate mock file.
 	go list ./... |grep -v '/gomock' | xargs go generate -v
 
 header: ## check and add license header.
-	sh addlicense.sh
+	sh scripts/addlicense.sh
 
 import: ## opt go imports format.
-	sh imports.sh
+	sh scripts/imports.sh
 
 lint: ## run lint
-	go install "github.com/golangci/golangci-lint/cmd/golangci-lint@v1.48.0"
+ifeq (, $(shell which golangci-lint))
+	# binary will be $(go env GOPATH)/bin/golangci-lint
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.51.2
+else
+	echo "Found golangci-lint"
+endif
 	golangci-lint run ./...
 
 api-doc: ## generate api document
@@ -91,7 +107,7 @@ clean-mock: ## remove all mock files
 	find ./ -name "*_mock.go" | xargs rm
 
 clean-build:
-	rm -f bin/lin*
+	rm -rf bin/*
 
 clean-frontend-build:
 	cd web/ && make web_clean
@@ -103,5 +119,6 @@ clean-tmp: ## clean up tmp and test out files
 	find . -type f -name '*.prof' -exec rm -f {} +
 	find . -type s -name 'localhost:*' -exec rm -f {} +
 	find . -type s -name '127.0.0.1:*' -exec rm -f {} +
+	rm -rf data
 
 clean: clean-mock clean-tmp clean-build clean-frontend-build ## Clean up useless files.

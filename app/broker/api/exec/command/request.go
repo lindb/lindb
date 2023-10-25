@@ -19,14 +19,15 @@ package command
 
 import (
 	"context"
-	"sort"
-	"sync"
 
 	depspkg "github.com/lindb/lindb/app/broker/deps"
-	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
+)
+
+var (
+	requestCli = client.NewRequestCli()
 )
 
 // RequestCommand executes requests/request related statement.
@@ -36,44 +37,6 @@ func RequestCommand(_ context.Context, deps *depspkg.HTTPDeps, _ *models.Execute
 	for idx := range liveNodes {
 		nodes = append(nodes, &liveNodes[idx])
 	}
-	size := len(nodes)
-	if size == 0 {
-		return nil, nil
-	}
-	result := make(map[string][]*models.Request)
-	var wait sync.WaitGroup
-	wait.Add(size)
-	for idx := range nodes {
-		i := idx
-		go func() {
-			defer wait.Done()
-			node := nodes[i]
-			address := node.HTTPAddress()
-			var stats []*models.Request
-			_, err := NewRestyFn().R().
-				SetHeader("Accept", "application/json").
-				SetResult(&stats).
-				Get(address + constants.APIVersion1CliPath + "/state/requests")
-			if err != nil {
-				log.Error("get current alive reuqests from alive node", logger.String("url", address), logger.Error(err))
-				return
-			}
-			result[node.Indicator()] = stats
-		}()
-	}
-	wait.Wait()
-
-	// build result set sort by request start time
-	var rs []*models.Request
-	for k, v := range result {
-		for _, req := range v {
-			req.Broker = k
-			rs = append(rs, req)
-		}
-	}
-
-	sort.Slice(rs, func(i, j int) bool {
-		return rs[i].Start < rs[j].Start
-	})
+	rs := requestCli.FetchRequestsByNodes(nodes)
 	return rs, nil
 }

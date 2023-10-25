@@ -6,7 +6,6 @@ ownership. LinDB licenses this file to you under
 the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
  
 Unless required by applicable law or agreed to in writing,
@@ -20,11 +19,12 @@ import { IconFixedStroked, IconGridStroked } from "@douyinfe/semi-icons";
 import { Card, Form, Col, Row } from "@douyinfe/semi-ui";
 import { Chart, LinSelect, MetadataSelect } from "@src/components";
 import { StateRoleName } from "@src/constants";
+import { UIContext } from "@src/context/UIContextProvider";
 import { useParams } from "@src/hooks";
 import { ChartType, Dashboard, DashboardItem } from "@src/models";
 import { URLStore } from "@src/stores";
 import * as _ from "lodash-es";
-import React, { useMemo } from "react";
+import React, { useContext, useMemo } from "react";
 
 const DashboardForm: React.FC<{
   dashboards?: DashboardItem[];
@@ -32,10 +32,16 @@ const DashboardForm: React.FC<{
 }> = (props) => {
   const { dashboards, variates } = props;
   const { role } = useParams(["role"]);
+  const { env } = useContext(UIContext);
+  const database = _.get(env, "monitor.database");
+  const defaultRole =
+    env.role === StateRoleName.Broker
+      ? StateRoleName.Broker
+      : StateRoleName.Root;
 
   const dashboardForRole = _.filter(
     dashboards,
-    (o) => _.indexOf(o.scope, role || StateRoleName.Broker) >= 0
+    (o) => _.indexOf(o.scope, role || defaultRole) >= 0
   );
   return (
     <Form
@@ -46,12 +52,16 @@ const DashboardForm: React.FC<{
       <LinSelect
         showClear
         field="role"
-        defaultValue={StateRoleName.Broker}
+        defaultValue={defaultRole}
         prefix={<IconFixedStroked />}
-        loader={() => [
-          { value: StateRoleName.Broker, label: StateRoleName.Broker },
-          { value: StateRoleName.Storage, label: StateRoleName.Storage },
-        ]}
+        loader={() =>
+          env.role === StateRoleName.Broker
+            ? [
+                { value: StateRoleName.Broker, label: StateRoleName.Broker },
+                { value: StateRoleName.Storage, label: StateRoleName.Storage },
+              ]
+            : [{ value: StateRoleName.Root, label: StateRoleName.Root }]
+        }
         clearKeys={["namespace", "node", "d"]}
         style={{ minWidth: 60 }}
       />
@@ -63,27 +73,25 @@ const DashboardForm: React.FC<{
           const params = URLStore.getParams();
           return _.filter(
             dashboards,
-            (o) =>
-              _.indexOf(o.scope, _.get(params, "role", StateRoleName.Broker)) >=
-              0
+            (o) => _.indexOf(o.scope, _.get(params, "role", defaultRole)) >= 0
           );
         }}
         style={{ minWidth: 60 }}
         reloadKeys={["role"]}
       />
       {_.map(
-        _.filter(
-          variates,
-          (o) => _.indexOf(o.scope, role || StateRoleName.Broker) >= 0
-        ),
-        (v: any) => (
-          <MetadataSelect
-            key={v.tagKey}
-            variate={v}
-            multiple={v.multiple}
-            type="tagValue"
-          />
-        )
+        _.filter(variates, (o) => _.indexOf(o.scope, role || defaultRole) >= 0),
+        (v: any) => {
+          v.db = database || v.db;
+          return (
+            <MetadataSelect
+              key={v.tagKey}
+              variate={v}
+              multiple={v.multiple}
+              type="tagValue"
+            />
+          );
+        }
       )}
     </Form>
   );
@@ -94,6 +102,8 @@ const ViewDashboard: React.FC<{
 }> = (props) => {
   const { dashboards } = props;
   const { d, role } = useParams(["d", "role"]);
+  const { env } = useContext(UIContext);
+  const database = _.get(env, "monitor.database");
 
   const dashboard = useMemo(() => {
     const r = role || StateRoleName.Broker;
@@ -112,7 +122,7 @@ const ViewDashboard: React.FC<{
 
   return (
     <>
-      {(dashboard.rows || []).map((row: any, rowIdx: any) => (
+      {(dashboard?.rows || []).map((row: any, rowIdx: any) => (
         <Row
           style={{ marginTop: 12 }}
           key={rowIdx}
@@ -122,7 +132,10 @@ const ViewDashboard: React.FC<{
             <Col span={panel.span || 12} key={`${rowIdx}-${panelIdx}`}>
               <Chart
                 type={_.get(panel.chart, "config.type", ChartType.Line)}
-                queries={panel.chart.targets || []}
+                queries={(panel.chart.targets || []).map((o: any) => {
+                  o.db = database || o.db;
+                  return o;
+                })}
                 config={panel.chart}
               />
             </Col>

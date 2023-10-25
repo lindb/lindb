@@ -25,13 +25,22 @@ import (
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 )
 
 //go:generate mockgen -source ./task_transport.go -destination=./task_transport_mock.go -package=rpc
+
+// TransportManager represents the request/response send manager.
+type TransportManager interface {
+	// SendRequest sends the task request to target node.
+	SendRequest(targetNodeID string, req *protoCommonV1.TaskRequest) error
+	// SendResponse sends the task response to target node.
+	SendResponse(targetNodeID string, resp *protoCommonV1.TaskResponse) error
+}
 
 // TaskClientFactory represents the task stream manage
 type TaskClientFactory interface {
@@ -48,7 +57,7 @@ type TaskClientFactory interface {
 // taskClient represents task service client state context.
 type taskClient struct {
 	cli      protoCommonV1.TaskService_HandleClient
-	targetID string
+	targetID string // server node
 	target   models.Node
 	running  atomic.Bool
 	ready    atomic.Bool
@@ -65,7 +74,7 @@ type taskClientFactory struct {
 
 	newTaskServiceClientFunc func(cc *grpc.ClientConn) protoCommonV1.TaskServiceClient
 	connFct                  ClientConnFactory
-	logger                   *logger.Logger
+	logger                   logger.Logger
 }
 
 // NewTaskClientFactory creates a task client factory
@@ -201,15 +210,16 @@ func (f *taskClientFactory) handleTaskResponse(client *taskClient) {
 		resp, err := cli.Recv()
 		if err != nil {
 			client.ready.Store(false)
-			// todo: suppress errors before shard assignment
+			// TODO: suppress errors before shard assignment
 			f.logger.Error("receive task error from stream", logger.Error(err))
 			continue
 		}
 
 		if err = f.taskReceiver.Receive(resp, client.targetID); err != nil {
+			// FIXME: need send response to upstream
 			f.logger.Error("receive task response",
-				logger.String("taskID", resp.TaskID),
-				logger.String("taskType", resp.Type.String()),
+				logger.String("requestID", resp.RequestID),
+				logger.String("requestType", resp.RequestType.String()),
 				logger.Error(err))
 		}
 	}
@@ -237,7 +247,7 @@ type taskServerFactory struct {
 	nodeMap map[string]*taskService
 	epoch   atomic.Int64
 	lock    sync.RWMutex
-	logger  *logger.Logger
+	logger  logger.Logger
 }
 
 // NewTaskServerFactory returns the singleton server stream factory

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Code generated from java-escape by ANTLR 4.11.1. DO NOT EDIT.
+// Code generated from ./sql/grammar/SQL.g4 by ANTLR 4.12.0. DO NOT EDIT.
 
 package grammar // SQL
 import "github.com/antlr/antlr4/runtime/Go/antlr/v4"
@@ -29,6 +29,10 @@ func (v *BaseSQLVisitor) VisitStatement(ctx *StatementContext) interface{} {
 }
 
 func (v *BaseSQLVisitor) VisitUseStmt(ctx *UseStmtContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLVisitor) VisitSetLimitStmt(ctx *SetLimitStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -52,7 +56,19 @@ func (v *BaseSQLVisitor) VisitShowStoragesStmt(ctx *ShowStoragesStmtContext) int
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseSQLVisitor) VisitShowBrokersStmt(ctx *ShowBrokersStmtContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLVisitor) VisitShowLimitStmt(ctx *ShowLimitStmtContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseSQLVisitor) VisitShowMetadataTypesStmt(ctx *ShowMetadataTypesStmtContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLVisitor) VisitShowRootMetaStmt(ctx *ShowRootMetaStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -80,6 +96,10 @@ func (v *BaseSQLVisitor) VisitShowMemoryDatabaseStmt(ctx *ShowMemoryDatabaseStmt
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseSQLVisitor) VisitShowRootMetricStmt(ctx *ShowRootMetricStmtContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseSQLVisitor) VisitShowBrokerMetricStmt(ctx *ShowBrokerMetricStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -89,6 +109,14 @@ func (v *BaseSQLVisitor) VisitShowStorageMetricStmt(ctx *ShowStorageMetricStmtCo
 }
 
 func (v *BaseSQLVisitor) VisitCreateStorageStmt(ctx *CreateStorageStmtContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLVisitor) VisitCreateBrokerStmt(ctx *CreateBrokerStmtContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLVisitor) VisitRecoverStorageStmt(ctx *RecoverStorageStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -144,6 +172,10 @@ func (v *BaseSQLVisitor) VisitDatabaseName(ctx *DatabaseNameContext) interface{}
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseSQLVisitor) VisitStorageName(ctx *StorageNameContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseSQLVisitor) VisitRequestID(ctx *RequestIDContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -177,6 +209,10 @@ func (v *BaseSQLVisitor) VisitAlias(ctx *AliasContext) interface{} {
 }
 
 func (v *BaseSQLVisitor) VisitStorageFilter(ctx *StorageFilterContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLVisitor) VisitBrokerFilter(ctx *BrokerFilterContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -288,6 +324,10 @@ func (v *BaseSQLVisitor) VisitFieldExpr(ctx *FieldExprContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseSQLVisitor) VisitStar(ctx *StarContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseSQLVisitor) VisitDurationLit(ctx *DurationLitContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -321,6 +361,10 @@ func (v *BaseSQLVisitor) VisitIdentFilter(ctx *IdentFilterContext) interface{} {
 }
 
 func (v *BaseSQLVisitor) VisitJson(ctx *JsonContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLVisitor) VisitToml(ctx *TomlContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

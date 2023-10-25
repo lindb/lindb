@@ -25,6 +25,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/constants"
@@ -39,7 +40,7 @@ func TestMetricStore_Filter(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	now := timeutil.Now()
+	now := commontimeutil.Now()
 	db := NewMockMemoryDatabase(ctrl)
 	db.EXPECT().FamilyTime().Return(now).AnyTimes()
 
@@ -81,7 +82,7 @@ func TestMetricStore_Filter(t *testing.T) {
 				Type: field.SumField,
 			}}, mrs.fields)
 	assert.Equal(t,
-		fmt.Sprintf("%s/memory/readonly", timeutil.FormatTimestamp(now, timeutil.DataTimeFormat2)),
+		fmt.Sprintf("%s/memory/readonly", commontimeutil.FormatTimestamp(now, commontimeutil.DataTimeFormat2)),
 		rs[0].Identifier())
 	assert.Equal(t, now, rs[0].FamilyTime())
 	assert.Equal(t, timeutil.SlotRange{Start: 10, End: 20}, rs[0].SlotRange())

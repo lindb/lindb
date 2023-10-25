@@ -23,13 +23,14 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 )
 
 func TestMetricMetadata_createField(t *testing.T) {
+	limits := models.NewDefaultLimits()
 	cases := []struct {
 		name    string
 		prepare func(m MetricMetadata)
@@ -56,14 +57,33 @@ func TestMetricMetadata_createField(t *testing.T) {
 
 			name: "too many fields",
 			prepare: func(m MetricMetadata) {
-				m.initialize(nil, constants.DefaultMaxFieldsCount, nil)
+				m.initialize(nil, limits.MaxFieldsPerMetric, nil)
 			},
 			out: struct {
 				f   field.Meta
 				err error
 			}{
 				f:   field.Meta{},
-				err: series.ErrTooManyFields,
+				err: constants.ErrTooManyFields,
+			},
+		},
+		{
+
+			name: "disable too many fields",
+			prepare: func(m MetricMetadata) {
+				limits.MaxFieldsPerMetric = 0
+				m.initialize(nil, limits.MaxFieldsPerMetric, nil)
+			},
+			out: struct {
+				f   field.Meta
+				err error
+			}{
+				f: field.Meta{
+					ID:   1,
+					Type: field.SumField,
+					Name: "test",
+				},
+				err: nil,
 			},
 		},
 	}
@@ -78,7 +98,7 @@ func TestMetricMetadata_createField(t *testing.T) {
 			mid := m.getMetricID()
 			assert.Equal(t, metric.ID(2), mid)
 
-			f, err := m.createField("test", field.SumField)
+			f, err := m.createField("test", field.SumField, limits)
 			assert.Equal(t, tt.out.f, f)
 			assert.Equal(t, tt.out.err, err)
 			if err == nil {
@@ -92,6 +112,7 @@ func TestMetricMetadata_createField(t *testing.T) {
 
 func TestMetricMetadata_getField(t *testing.T) {
 	m := newMetricMetadata(metric.ID(2))
+	assert.Empty(t, m.getAllFields())
 	sum := field.Meta{
 		ID:   field.ID(1),
 		Type: field.SumField,
@@ -105,7 +126,7 @@ func TestMetricMetadata_getField(t *testing.T) {
 			Name: "histogram",
 		},
 	}, 0, nil)
-	_, _ = m.createField("max", field.MinField)
+	_, _ = m.createField("max", field.MinField, models.NewDefaultLimits())
 	f, ok := m.getField("sum")
 	assert.Equal(t, sum, f)
 	assert.True(t, ok)
@@ -118,6 +139,7 @@ func TestMetricMetadata_getField(t *testing.T) {
 
 func TestMetricMetadata_createTagKey(t *testing.T) {
 	m := newMetricMetadata(metric.ID(2))
+	assert.Empty(t, m.getAllTagKeys())
 	mid := m.getMetricID()
 	assert.Equal(t, metric.ID(2), mid)
 
@@ -137,4 +159,16 @@ func TestMetricMetadata_getTag(t *testing.T) {
 	tag2, ok := m.getTagKeyID("key1")
 	assert.False(t, ok)
 	assert.Equal(t, tag.KeyID(0), tag2)
+}
+
+func TestMetricMetadata_checkTagKey(t *testing.T) {
+	limits := models.NewDefaultLimits()
+	m := newMetricMetadata(metric.ID(2))
+	tag1 := tag.Meta{ID: 2, Key: "key2"}
+	m.initialize(nil, 0, tag.Metas{tag1})
+	assert.NoError(t, m.checkTagKey("", limits))
+	limits.MaxTagsPerMetric = 1
+	assert.Equal(t, constants.ErrTooManyTagKeys, m.checkTagKey("", limits))
+	limits.MaxTagsPerMetric = 0
+	assert.NoError(t, m.checkTagKey("", limits))
 }

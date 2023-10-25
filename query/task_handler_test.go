@@ -27,6 +27,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/metadata"
 
+	"github.com/lindb/common/pkg/ltoml"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
@@ -34,17 +36,9 @@ import (
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/ltoml"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/rpc"
 )
-
-type mockTaskProcessor struct {
-}
-
-func (d *mockTaskProcessor) Process(_ *flow.TaskContext, _ protoCommonV1.TaskService_HandleServer, _ *protoCommonV1.TaskRequest) {
-	panic("err")
-}
 
 var cfg = config.Query{
 	QueryConcurrency: 10,
@@ -81,10 +75,23 @@ func TestTaskHandler_Handle(t *testing.T) {
 }
 
 func TestTaskHandler_dispatch(t *testing.T) {
-	handler := NewTaskHandler(cfg, nil, &mockTaskProcessor{},
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	processor := NewMockTaskProcessor(ctrl)
+	stream := protoCommonV1.NewMockTaskService_HandleServer(ctrl)
+	stream.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
+	req := &protoCommonV1.TaskRequest{}
+	handler := NewTaskHandler(cfg, nil, processor,
 		concurrent.NewPool("", 10, time.Second,
 			metrics.NewConcurrentStatistics("test", linmetric.BrokerRegistry)))
 	// test process panic
-	handler.process(context.Background(), nil, nil)
+	processor.EXPECT().Process(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx *flow.TaskContext, stream protoCommonV1.TaskService_HandleServer, req *protoCommonV1.TaskRequest) error {
+			panic("err")
+		})
+	handler.process(context.Background(), stream, req)
+	processor.EXPECT().Process(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	handler.process(context.Background(), stream, req)
 	time.Sleep(300 * time.Millisecond)
 }

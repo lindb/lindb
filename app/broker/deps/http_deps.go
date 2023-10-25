@@ -26,15 +26,16 @@ import (
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/state"
-	brokerQuery "github.com/lindb/lindb/query/broker"
+	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/replica"
+	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/tag"
 )
 
 // HTTPDeps represents http server handler's dependency.
 type HTTPDeps struct {
 	Ctx       context.Context
-	Node      models.Node
+	Node      *models.StatelessNode
 	BrokerCfg *config.Broker
 	Master    coordinator.MasterController
 
@@ -42,20 +43,16 @@ type HTTPDeps struct {
 	RepoFactory state.RepositoryFactory
 	StateMgr    broker.StateManager
 
+	TransportMgr  rpc.TransportManager
+	TaskMgr       query.TaskManager
 	CM            replica.ChannelManager
 	IngestLimiter *concurrent.Limiter
 	QueryLimiter  *concurrent.Limiter
-
-	QueryFactory brokerQuery.Factory
 
 	GlobalKeyValues tag.Tags
 }
 
 func (deps *HTTPDeps) WithTimeout() (context.Context, context.CancelFunc) {
-	// choose the shorter duration
-	timeout := deps.BrokerCfg.Coordinator.Timeout.Duration()
-	if deps.BrokerCfg.BrokerBase.HTTP.ReadTimeout.Duration() < timeout {
-		timeout = deps.BrokerCfg.BrokerBase.HTTP.ReadTimeout.Duration()
-	}
+	timeout := deps.BrokerCfg.BrokerBase.HTTP.ReadTimeout.Duration()
 	return context.WithTimeout(deps.Ctx, timeout)
 }

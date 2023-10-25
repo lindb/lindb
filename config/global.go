@@ -21,17 +21,22 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/lindb/lindb/pkg/ltoml"
+	"github.com/caarlos0/env/v7"
+
+	"github.com/lindb/common/pkg/ltoml"
 )
 
 // for testing
 var (
 	loadConfigFn = ltoml.LoadConfig
+	envParseFn   = env.Parse
 )
+
 var (
 	// StandaloneMode represents LinDB run as standalone mode
 	StandaloneMode = false
 
+	globalRootCfg    atomic.Value
 	globalBrokerCfg  atomic.Value
 	globalStorageCfg atomic.Value
 
@@ -42,6 +47,7 @@ var (
 )
 
 func init() {
+	globalRootCfg.Store(NewDefaultRoot())
 	globalBrokerCfg.Store(NewDefaultBrokerBase())
 	globalStorageCfg.Store(NewDefaultStorageBase())
 }
@@ -66,11 +72,32 @@ func SetGlobalStorageConfig(storageCfg *StorageBase) {
 	globalStorageCfg.Store(storageCfg)
 }
 
+// LoadAndSetRootConfig parses the root config file.
+// this config will be triggered to reload when receiving a SIGHUP signal
+func LoadAndSetRootConfig(cfgName, defaultPath string, rootCfg *Root) error {
+	if err := loadConfigFn(cfgName, defaultPath, &rootCfg); err != nil {
+		return fmt.Errorf("decode root config file error: %s", err)
+	}
+
+	if err := envParseFn(rootCfg); err != nil {
+		return fmt.Errorf("read broker env error: %s", err)
+	}
+	checkQueryCfg(&rootCfg.Query)
+	if err := checkCoordinatorCfg(&rootCfg.Coordinator); err != nil {
+		return fmt.Errorf("failed check coordinator config: %s", err)
+	}
+	globalRootCfg.Store(rootCfg)
+	return nil
+}
+
 // LoadAndSetBrokerConfig parses the broker config file
 // this config will be triggered to reload when receiving a SIGHUP signal
-func LoadAndSetBrokerConfig(cfgName, defaultPath string, brokerCfg *Broker) error {
+func LoadAndSetBrokerConfig(cfgName, defaultPath string, brokerCfg *Broker) error { //nolint:dupl
 	if err := loadConfigFn(cfgName, defaultPath, &brokerCfg); err != nil {
 		return fmt.Errorf("decode broker config file error: %s", err)
+	}
+	if err := envParseFn(brokerCfg); err != nil {
+		return fmt.Errorf("read broker env error: %s", err)
 	}
 	checkQueryCfg(&brokerCfg.Query)
 	if err := checkCoordinatorCfg(&brokerCfg.Coordinator); err != nil {
@@ -85,9 +112,12 @@ func LoadAndSetBrokerConfig(cfgName, defaultPath string, brokerCfg *Broker) erro
 
 // LoadAndSetStorageConfig parses the storage config file
 // this config will be triggered to reload when receiving a SIGHUP signal
-func LoadAndSetStorageConfig(cfgName, defaultPath string, storageCfg *Storage) error {
+func LoadAndSetStorageConfig(cfgName, defaultPath string, storageCfg *Storage) error { //nolint:dupl
 	if err := loadConfigFn(cfgName, defaultPath, &storageCfg); err != nil {
 		return fmt.Errorf("decode storage config file error: %s", err)
+	}
+	if err := envParseFn(storageCfg); err != nil {
+		return fmt.Errorf("read storage env error: %s", err)
 	}
 	checkQueryCfg(&storageCfg.Query)
 	if err := checkCoordinatorCfg(&storageCfg.Coordinator); err != nil {
@@ -106,6 +136,9 @@ func LoadAndSetStorageConfig(cfgName, defaultPath string, storageCfg *Storage) e
 func LoadAndSetStandAloneConfig(cfgName, defaultPath string, standaloneCfg *Standalone) error {
 	if err := loadConfigFn(cfgName, defaultPath, &standaloneCfg); err != nil {
 		return fmt.Errorf("decode standalone config file error: %s", err)
+	}
+	if err := envParseFn(standaloneCfg); err != nil {
+		return fmt.Errorf("read standalone env error: %s", err)
 	}
 	checkQueryCfg(&standaloneCfg.Query)
 	if err := checkCoordinatorCfg(&standaloneCfg.Coordinator); err != nil {

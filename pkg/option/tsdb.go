@@ -45,6 +45,21 @@ func (m Intervals) String() string {
 	return fmt.Sprintf("[%s]", strings.Join(rs, ","))
 }
 
+// IsValid checks if intervals is valid, if invalid return error.
+func (m Intervals) IsValid() error {
+	intervalMap := make(map[timeutil.IntervalType]Interval)
+	for _, i := range m {
+		intervalType := i.Interval.Type()
+		exist, ok := intervalMap[intervalType]
+		if ok {
+			return fmt.Errorf("duplicate interval type,[%s(%s),%s(%s)]",
+				exist.String(), intervalType.String(), i.String(), intervalType.String())
+		}
+		intervalMap[intervalType] = i
+	}
+	return nil
+}
+
 // Interval represents the database's interval option, include interval and data retention.
 type Interval struct {
 	Interval  timeutil.Interval `toml:"interval" json:"interval,omitempty" validate:"required"`
@@ -107,6 +122,9 @@ func (e *DatabaseOption) FindMatchSmallestInterval(interval timeutil.Interval) t
 func (e *DatabaseOption) Validate() error {
 	if len(e.Intervals) == 0 {
 		return errors.New("intervals cannot be empty")
+	}
+	if err := e.Intervals.IsValid(); err != nil {
+		return err
 	}
 	// TODO: need remove
 	if err := validateInterval(e.Ahead, false); err != nil {

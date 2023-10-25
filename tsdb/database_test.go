@@ -28,13 +28,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/atomic"
 
+	"github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/ltoml"
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/option"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/tsdb/metadb"
 )
 
@@ -52,10 +53,12 @@ func TestDatabase_New(t *testing.T) {
 	store := kv.NewMockStore(ctrl)
 	kv.InitStoreManager(storeMgr)
 	opt := &option.DatabaseOption{}
+	shard := NewMockShard(ctrl)
+	shard.EXPECT().notifyLimitsChange().AnyTimes()
 
 	cases := []struct {
 		name    string
-		cfg     *databaseConfig
+		cfg     *models.DatabaseConfig
 		prepare func()
 		wantErr bool
 	}{
@@ -108,7 +111,7 @@ func TestDatabase_New(t *testing.T) {
 		},
 		{
 			name:    "option validation fail",
-			cfg:     &databaseConfig{Option: opt},
+			cfg:     &models.DatabaseConfig{Option: opt},
 			wantErr: true,
 		},
 		{
@@ -133,7 +136,7 @@ func TestDatabase_New(t *testing.T) {
 					return metadata, nil
 				}
 				newShardFunc = func(db Database, shardID models.ShardID) (s Shard, err error) {
-					return nil, nil
+					return shard, nil
 				}
 			},
 			wantErr: false,
@@ -177,14 +180,14 @@ func TestDatabase_New(t *testing.T) {
 				tt.prepare()
 			}
 			opt := &option.DatabaseOption{Intervals: option.Intervals{{Interval: 10}}}
-			cfg := &databaseConfig{
+			cfg := &models.DatabaseConfig{
 				ShardIDs: []models.ShardID{1, 2, 3},
 				Option:   opt,
 			}
 			if tt.cfg != nil {
 				cfg = tt.cfg
 			}
-			db, err := newDatabase("db", cfg, nil)
+			db, err := newDatabase("db", cfg, models.NewDefaultLimits(), nil)
 			if ((err != nil) != tt.wantErr && db == nil) || (!tt.wantErr && db == nil) {
 				t.Errorf("newDatabase() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -196,6 +199,9 @@ func TestDatabase_New(t *testing.T) {
 				assert.Equal(t, "db", db.Name())
 				assert.True(t, db.NumOfShards() >= 0)
 				assert.Equal(t, &option.DatabaseOption{Intervals: option.Intervals{{Interval: 10}}}, db.GetOption())
+				assert.NotNil(t, db.GetConfig())
+				assert.NotNil(t, db.GetLimits())
+				db.SetLimits(models.NewDefaultLimits())
 			}
 		})
 	}
@@ -208,7 +214,7 @@ func TestDatabase_CreateShards(t *testing.T) {
 		ctrl.Finish()
 	}()
 	db := &database{
-		config:   &databaseConfig{},
+		config:   &models.DatabaseConfig{},
 		shardSet: *newShardSet(),
 	}
 	type args struct {
@@ -465,7 +471,7 @@ func TestDatabase_WaitFlushMetaCompleted(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	now := timeutil.Now()
+	now := commontimeutil.Now()
 	metadata := metadb.NewMockMetadata(ctrl)
 	db := &database{
 		metadata:       metadata,
@@ -497,7 +503,7 @@ func TestDatabase_WaitFlushMetaCompleted(t *testing.T) {
 		wait.Done()
 	}()
 	wait.Wait()
-	assert.True(t, timeutil.Now()-now >= 100*time.Millisecond.Milliseconds())
+	assert.True(t, commontimeutil.Now()-now >= 100*time.Millisecond.Milliseconds())
 }
 
 func TestDatabase_Drop(t *testing.T) {

@@ -6,7 +6,6 @@ ownership. LinDB licenses this file to you under
 the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
  
 Unless required by applicable law or agreed to in writing,
@@ -56,7 +55,8 @@ const SearchForm: React.FC = () => {
   const sqlEditorRef = useRef() as MutableRefObject<HTMLDivElement | null>;
   const formApi = useRef() as MutableRefObject<any>;
   const { sql } = useParams(["sql"]);
-  const { theme } = useContext(UIContext);
+  const { theme, locale } = useContext(UIContext);
+  const { SearchView } = locale;
 
   useEffect(() => {
     if (sqlEditor.current) {
@@ -108,14 +108,14 @@ const SearchForm: React.FC = () => {
   return (
     <Form
       style={{ paddingTop: 0, paddingBottom: 0 }}
-      getFormApi={(api) => (formApi.current = api)}
+      getFormApi={(api: any) => (formApi.current = api)}
     >
       <MetadataSelect
-        rules={[{ required: true, message: "Database required" }]}
+        rules={[{ required: true, message: SearchView.databaseRequired }]}
         type="db"
         variate={{
           tagKey: "db",
-          label: "Database",
+          label: SearchView.database,
           sql: SQL.ShowDatabases,
         }}
         labelPosition="left"
@@ -155,7 +155,7 @@ const SearchForm: React.FC = () => {
           }
         }}
       >
-        Search
+        {SearchView.search}
       </Button>
     </Form>
   );

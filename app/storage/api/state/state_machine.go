@@ -22,10 +22,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/lindb/common/pkg/http"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/storage"
-	"github.com/lindb/lindb/pkg/http"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 var (
@@ -38,7 +39,7 @@ type param struct {
 
 type StorageStateMachineAPI struct {
 	stateMgr storage.StateManager
-	logger   *logger.Logger
+	logger   logger.Logger
 }
 
 // NewStorageStateMachineAPI creates storage state machine api instance.

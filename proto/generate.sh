@@ -26,6 +26,7 @@ function gen() {
     protoc -I. --gofast_out=plugins=grpc,$GO_OUT_M:../gen/$dir_name/$base_name $2
 }
 
+# brew install protobuf
 go install github.com/gogo/protobuf/protoc-gen-gofast@latest
 
 # for dir in v1

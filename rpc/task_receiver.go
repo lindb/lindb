@@ -24,5 +24,5 @@ import protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 // TaskReceiver represents the task result receiver
 type TaskReceiver interface {
 	// Receive receives the task result
-	Receive(req *protoCommonV1.TaskResponse, targetID string) error
+	Receive(resp *protoCommonV1.TaskResponse, fromNode string) error
 }

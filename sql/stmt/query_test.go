@@ -22,8 +22,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/pkg/encoding"
+
 	"github.com/lindb/lindb/aggregation/function"
-	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
 
@@ -31,6 +32,7 @@ func TestQuery_Marshal(t *testing.T) {
 	query := Query{
 		Namespace:  "ns",
 		MetricName: "test",
+		AllFields:  true,
 		SelectItems: []Expr{
 			&SelectItem{Expr: &FieldExpr{Name: "a"}},
 			&SelectItem{Expr: &FieldExpr{Name: "b"}},
@@ -81,6 +83,7 @@ func TestQuery_Marshal(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, query, query1)
 	assert.True(t, query.HasGroupBy())
+	assert.True(t, query.AllFields)
 }
 
 func TestQuery_Marshal_Fail(t *testing.T) {

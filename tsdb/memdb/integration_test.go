@@ -26,9 +26,9 @@ import (
 	"sync"
 	"testing"
 
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 )
 
@@ -41,7 +41,7 @@ func BenchmarkMemoryDatabase_write(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	now := timeutil.Now()
+	now := commontimeutil.Now()
 
 	go func() {
 		_ = http.ListenAndServe("0.0.0.0:6060", nil)
@@ -67,8 +67,8 @@ func BenchmarkMemoryDatabase_write(b *testing.B) {
 	release()
 
 	runtime.GC()
-	fmt.Printf("cost:=%d\n", timeutil.Now()-now)
-	now = timeutil.Now()
+	fmt.Printf("cost:=%d\n", commontimeutil.Now()-now)
+	now = commontimeutil.Now()
 
 	row = protoToStorageRow(&protoMetricsV1.Metric{
 		Name:      "test",
@@ -88,7 +88,7 @@ func BenchmarkMemoryDatabase_write(b *testing.B) {
 		release()
 	}
 	runtime.GC()
-	fmt.Printf("cost:=%d\n", timeutil.Now()-now)
+	fmt.Printf("cost:=%d\n", commontimeutil.Now()-now)
 	select {}
 }
 
@@ -102,7 +102,7 @@ func BenchmarkMemoryDatabase_write_sum(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		now := timeutil.Now()
+		now := commontimeutil.Now()
 
 		row := protoToStorageRow(&protoMetricsV1.Metric{
 			Name:      "test",
@@ -119,9 +119,9 @@ func BenchmarkMemoryDatabase_write_sum(b *testing.B) {
 
 			_ = db.WriteRow(row)
 		}
-		fmt.Printf("n:=%d, cost:=%d\n", n, timeutil.Now()-now)
+		fmt.Printf("n:=%d, cost:=%d\n", n, commontimeutil.Now()-now)
 	}
-	now := timeutil.Now()
+	now := commontimeutil.Now()
 	var wait sync.WaitGroup
 	n := 4
 	wait.Add(n)
@@ -142,6 +142,6 @@ func BenchmarkMemoryDatabase_write_sum(b *testing.B) {
 		wait.Done()
 	}()
 	wait.Wait()
-	fmt.Println(timeutil.Now() - now)
+	fmt.Println(commontimeutil.Now() - now)
 	run(0)
 }

@@ -23,6 +23,7 @@ import (
 	"strconv"
 
 	commonconstants "github.com/lindb/common/constants"
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
 
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/pkg/collections"
@@ -39,13 +40,15 @@ type queryStmtParser struct {
 
 	selectItems []stmt.Expr
 	fieldNames  map[string]struct{} // cache field name include alias
+	allFields   bool
 
 	startTime int64
 	endTime   int64
 
-	groupBy  []string
-	interval int64
-	orderBy  []stmt.Expr
+	groupBy         []string
+	interval        int64
+	autoGroupByTime bool
+	orderBy         []stmt.Expr
 
 	curOrderByExpr *stmt.OrderByExpr
 	hasOrderBy     bool
@@ -77,10 +80,10 @@ func (q *queryStmtParser) build() (stmt.Statement, error) {
 	query.SelectItems = q.selectItems
 	query.Condition = q.condition
 
-	now := timeutil.Now()
+	now := commontimeutil.Now()
 	query.TimeRange = timeutil.TimeRange{Start: q.startTime, End: q.endTime}
 	if query.TimeRange.Start <= 0 {
-		query.TimeRange.Start = now - timeutil.OneHour
+		query.TimeRange.Start = now - commontimeutil.OneHour
 	}
 	if query.TimeRange.End <= 0 {
 		query.TimeRange.End = now
@@ -90,6 +93,8 @@ func (q *queryStmtParser) build() (stmt.Statement, error) {
 	}
 
 	query.Interval = timeutil.Interval(q.interval)
+	query.AutoGroupByTime = q.autoGroupByTime
+	query.AllFields = q.allFields
 	query.GroupBy = q.groupBy
 	query.OrderByItems = q.orderBy
 	query.Limit = q.limit
@@ -104,25 +109,31 @@ func (q *queryStmtParser) validation() error {
 	if q.metricName == "" {
 		return fmt.Errorf("metric name cannot be empty")
 	}
-	if len(q.selectItems) == 0 {
+	if !q.allFields && len(q.selectItems) == 0 {
 		return fmt.Errorf("select fields cannbe be empty")
 	}
 	return nil
 }
 
-// resetExprStack resets expr stack for next parse fragment
+// resetExprStack resets expr stack for next parse fragment.
 func (q *queryStmtParser) resetExprStack() {
 	q.exprStack = collections.NewStack()
 }
 
-// visitGroupByKey visits when production groupBy key expression is entered
+// visitGroupByKey visits when production groupBy key expression is entered,
 func (q *queryStmtParser) visitGroupByKey(ctx *grammar.GroupByKeyContext) {
 	switch {
 	case ctx.Ident() != nil:
 		tagKey := strutil.GetStringValue(ctx.Ident().GetText())
 		q.groupBy = append(q.groupBy, tagKey)
 	case ctx.DurationLit() != nil:
+		// set group by time interval
 		q.interval = q.parseDuration(ctx.DurationLit())
+	default:
+		if ctx.T_TIME() != nil {
+			// set auto fill group by time interval flag
+			q.autoGroupByTime = true
+		}
 	}
 }
 
@@ -179,9 +190,9 @@ func (q *queryStmtParser) visitTimeRangeExpr(ctx *grammar.TimeRangeExprContext) 
 		var err error
 		switch {
 		case timeExprCtx.Ident() != nil:
-			timestamp, err = timeutil.ParseTimestamp(strutil.GetStringValue(timeExprCtx.Ident().GetText()))
+			timestamp, err = commontimeutil.ParseTimestamp(strutil.GetStringValue(timeExprCtx.Ident().GetText()))
 		case timeExprCtx.NowExpr() != nil:
-			timestamp = timeutil.Now()
+			timestamp = commontimeutil.Now()
 			durationExpr, durationExist := timeExprCtx.NowExpr().(*grammar.NowExprContext)
 			if durationExist {
 				timestamp += q.parseDuration(durationExpr.DurationLit())
@@ -233,19 +244,19 @@ func (q *queryStmtParser) parseDuration(ctx grammar.IDurationLitContext) int64 {
 	}
 	switch {
 	case unit.T_SECOND() != nil:
-		result = duration * timeutil.OneSecond
+		result = duration * commontimeutil.OneSecond
 	case unit.T_MINUTE() != nil:
-		result = duration * timeutil.OneMinute
+		result = duration * commontimeutil.OneMinute
 	case unit.T_HOUR() != nil:
-		result = duration * timeutil.OneHour
+		result = duration * commontimeutil.OneHour
 	case unit.T_DAY() != nil:
-		result = duration * timeutil.OneDay
+		result = duration * commontimeutil.OneDay
 	case unit.T_WEEK() != nil:
-		result = duration * timeutil.OneWeek
+		result = duration * commontimeutil.OneWeek
 	case unit.T_MONTH() != nil:
-		result = duration * timeutil.OneMonth
+		result = duration * commontimeutil.OneMonth
 	case unit.T_YEAR() != nil:
-		result = duration * timeutil.OneYear
+		result = duration * commontimeutil.OneYear
 	}
 	return result
 }
@@ -253,6 +264,8 @@ func (q *queryStmtParser) parseDuration(ctx grammar.IDurationLitContext) int64 {
 // visitFieldExpr visits when production field expression is entered
 func (q *queryStmtParser) visitFieldExpr(ctx *grammar.FieldExprContext) {
 	switch {
+	case ctx.Star() != nil:
+		q.allFields = true
 	case ctx.ExprFunc() != nil:
 		q.exprStack.Push(&stmt.CallExpr{})
 	case ctx.T_OPEN_P() != nil:

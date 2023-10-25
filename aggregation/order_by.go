@@ -24,6 +24,8 @@ import (
 	"github.com/lindb/lindb/pkg/collections"
 )
 
+//go:generate mockgen -source=./order_by.go -destination=./order_by_mock.go -package=aggregation
+
 // aggResult represents the result of order by aggregate.
 type aggResult struct {
 	count                                   int

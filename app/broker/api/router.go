@@ -20,51 +20,60 @@ package api
 import (
 	"github.com/gin-gonic/gin"
 
+	commonlogger "github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/app/broker/api/admin"
 	"github.com/lindb/lindb/app/broker/api/exec"
 	"github.com/lindb/lindb/app/broker/api/ingest"
 	"github.com/lindb/lindb/app/broker/api/state"
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
+	apipkg "github.com/lindb/lindb/internal/api"
 	"github.com/lindb/lindb/internal/linmetric"
-	"github.com/lindb/lindb/internal/monitoring"
+	httppkg "github.com/lindb/lindb/pkg/http"
+	"github.com/lindb/lindb/pkg/logger"
 )
 
 // API represents broker http api.
 type API struct {
-	execute *exec.ExecuteAPI
+	deps *depspkg.HTTPDeps
 
+	execute            *exec.ExecuteAPI
 	database           *admin.DatabaseAPI
 	flusher            *admin.DatabaseFlusherAPI
 	storage            *admin.StorageClusterAPI
 	brokerStateMachine *state.BrokerStateMachineAPI
-	request            *state.RequestAPI
-	metricExplore      *monitoring.ExploreAPI
-	log                *monitoring.LoggerAPI
-	config             *monitoring.ConfigAPI
+	request            *apipkg.RequestAPI
+	metricExplore      *apipkg.ExploreAPI
+	log                *apipkg.LoggerAPI
+	config             *apipkg.ConfigAPI
+	env                *apipkg.EnvAPI
 	write              *ingest.Write
-	proxy              *ReverseProxy
+	proxy              *httppkg.ReverseProxy
 }
 
 // NewAPI creates broker http api.
 func NewAPI(deps *depspkg.HTTPDeps) *API {
 	return &API{
+		deps:               deps,
 		execute:            exec.NewExecuteAPI(deps),
 		database:           admin.NewDatabaseAPI(deps),
 		flusher:            admin.NewDatabaseFlusherAPI(deps),
 		storage:            admin.NewStorageClusterAPI(deps),
 		brokerStateMachine: state.NewBrokerStateMachineAPI(deps),
-		request:            state.NewRequestAPI(),
-		metricExplore:      monitoring.NewExploreAPI(deps.GlobalKeyValues, linmetric.BrokerRegistry),
-		log:                monitoring.NewLoggerAPI(deps.BrokerCfg.Logging.Dir),
-		config:             monitoring.NewConfigAPI(deps.Node, deps.BrokerCfg),
+		request:            apipkg.NewRequestAPI(),
+		metricExplore:      apipkg.NewExploreAPI(deps.GlobalKeyValues, linmetric.BrokerRegistry),
+		log:                apipkg.NewLoggerAPI(deps.BrokerCfg.Logging.Dir),
+		config:             apipkg.NewConfigAPI(deps.Node, deps.BrokerCfg),
+		env:                apipkg.NewEnvAPI(deps.BrokerCfg.Monitor, constants.BrokerRole),
 		write:              ingest.NewWrite(deps),
-		proxy:              NewReverseProxy(),
+		proxy:              httppkg.NewReverseProxy(),
 	}
 }
 
 // RegisterRouter registers http api router.
 func (api *API) RegisterRouter(router *gin.RouterGroup) {
+	router.Use(SlowSQLLog(api.deps, commonlogger.GetLogger(logger.SlowSQLModule, "SQL")))
 	v1 := router.Group(constants.APIVersion1)
 	// execute lin query language statement
 	api.execute.Register(v1)
@@ -85,5 +94,6 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 	api.log.Register(v1)
 	api.config.Register(v1)
 
+	api.env.Register(v1)
 	api.proxy.Register(v1)
 }

@@ -335,13 +335,15 @@ func (d *deleteRollupFile) apply(version Version) {
 
 // newReferenceFile represent version edit log for new reference file for rollup job
 type newReferenceFile struct {
+	store      string           // source store name
 	familyID   FamilyID         // source family id
 	fileNumber table.FileNumber // source file number
 }
 
 // CreateNewReferenceFile creates a new reference file
-func CreateNewReferenceFile(familyID FamilyID, fileNumber table.FileNumber) Log {
+func CreateNewReferenceFile(store string, familyID FamilyID, fileNumber table.FileNumber) Log {
 	return &newReferenceFile{
+		store:      store,
 		fileNumber: fileNumber,
 		familyID:   familyID,
 	}
@@ -352,6 +354,9 @@ func (n *newReferenceFile) Encode() ([]byte, error) {
 	writer := stream.NewBufferWriter(nil)
 	writer.PutVarint64(n.fileNumber.Int64())
 	writer.PutVarint32(n.familyID.Int32())
+	store := []byte(n.store)
+	writer.PutVarint32(int32(len(store)))
+	writer.PutBytes(store)
 	return writer.Bytes()
 }
 
@@ -360,28 +365,33 @@ func (n *newReferenceFile) Decode(v []byte) error {
 	reader := stream.NewReader(v)
 	n.fileNumber = table.FileNumber(reader.ReadVarint64())
 	n.familyID = FamilyID(reader.ReadVarint32())
+	length := int(reader.ReadVarint32())
+	store := reader.ReadBytes(length)
+	n.store = string(store)
 	return reader.Error()
 }
 
 // String returns string value of add reference file log
 func (n *newReferenceFile) String() string {
-	return fmt.Sprintf("addRefFile:{familyID:%d,fileNumber:%d}", n.familyID, n.fileNumber)
+	return fmt.Sprintf("addRefFile:{store:%s,familyID:%d,fileNumber:%d}", n.store, n.familyID, n.fileNumber)
 }
 
 // apply applies new reference file edit log to version
 func (n *newReferenceFile) apply(version Version) {
-	version.AddReferenceFile(n.familyID, n.fileNumber)
+	version.AddReferenceFile(n.store, n.familyID, n.fileNumber)
 }
 
 // deleteReferenceFile represent version edit log for remove reference file for rollup job
 type deleteReferenceFile struct {
+	store      string           // source store
 	familyID   FamilyID         // source family id
 	fileNumber table.FileNumber // source file number
 }
 
 // CreateDeleteReferenceFile creates a delete reference file
-func CreateDeleteReferenceFile(familyID FamilyID, fileNumber table.FileNumber) Log {
+func CreateDeleteReferenceFile(store string, familyID FamilyID, fileNumber table.FileNumber) Log {
 	return &deleteReferenceFile{
+		store:      store,
 		fileNumber: fileNumber,
 		familyID:   familyID,
 	}
@@ -392,6 +402,9 @@ func (n *deleteReferenceFile) Encode() ([]byte, error) {
 	writer := stream.NewBufferWriter(nil)
 	writer.PutVarint64(n.fileNumber.Int64())
 	writer.PutVarint32(n.familyID.Int32())
+	store := []byte(n.store)
+	writer.PutVarint32(int32(len(store)))
+	writer.PutBytes(store)
 	return writer.Bytes()
 }
 
@@ -400,17 +413,20 @@ func (n *deleteReferenceFile) Decode(v []byte) error {
 	reader := stream.NewReader(v)
 	n.fileNumber = table.FileNumber(reader.ReadVarint64())
 	n.familyID = FamilyID(reader.ReadVarint32())
+	length := int(reader.ReadVarint32())
+	store := reader.ReadBytes(length)
+	n.store = string(store)
 	return reader.Error()
 }
 
 // String returns string value of delete reference file log
 func (n *deleteReferenceFile) String() string {
-	return fmt.Sprintf("deleteRefFile:{familyID:%d,fileNumber:%d}", n.familyID, n.fileNumber)
+	return fmt.Sprintf("deleteRefFile:{store:%s,familyID:%d,fileNumber:%d}", n.store, n.familyID, n.fileNumber)
 }
 
 // apply applies remove reference file edit log to version
 func (n *deleteReferenceFile) apply(version Version) {
-	version.DeleteReferenceFile(n.familyID, n.fileNumber)
+	version.DeleteReferenceFile(n.store, n.familyID, n.fileNumber)
 }
 
 // sequence represents write sequence number.

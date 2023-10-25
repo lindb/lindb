@@ -20,7 +20,9 @@ package metadb
 import (
 	"io"
 
-	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/common/pkg/logger"
+
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
@@ -34,13 +36,13 @@ var metaLogger = logger.GetLogger("TSDB", "MetaDB")
 // IDGenerator generates unique ID numbers for metric, tag and field.
 type IDGenerator interface {
 	// GenMetricID generates the metric id in the memory
-	GenMetricID(namespace, metricName string) (metricID metric.ID, err error)
+	GenMetricID(namespace, metricName string, limits *models.Limits) (metricID metric.ID, err error)
 	// GenFieldID generates the field id in the memory
 	// error-case1: field type doesn't match to before
 	// error-case2: there are too many fields
-	GenFieldID(namespace, metricName string, fieldName field.Name, fieldType field.Type) (field.ID, error)
+	GenFieldID(namespace, metricName string, fieldName field.Name, fieldType field.Type, limits *models.Limits) (field.ID, error)
 	// GenTagKeyID generates the tag key id in the memory
-	GenTagKeyID(namespace, metricName, tagKey string) (tag.KeyID, error)
+	GenTagKeyID(namespace, metricName, tagKey string, limits *models.Limits) (tag.KeyID, error)
 }
 
 // IDGetter represents the query ability for metric level, such as metric id, field meta etc.

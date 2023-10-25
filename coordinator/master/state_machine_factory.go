@@ -20,11 +20,12 @@ package master
 import (
 	"context"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 const storageNameKey = "storageName"
@@ -73,7 +74,7 @@ type StateMachineFactory struct {
 
 	stateMachines []discovery.StateMachine
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewStateMachineFactory creates a StateMachineFactory instance.
@@ -106,6 +107,13 @@ func (f *StateMachineFactory) Start() (err error) {
 	f.stateMachines = append(f.stateMachines, sm)
 	f.logger.Debug("starting ShardAssignmentStateMachine")
 	sm, err = f.createShardAssignmentStateMachine()
+	if err != nil {
+		return err
+	}
+	f.stateMachines = append(f.stateMachines, sm)
+
+	f.logger.Debug("starting DatabaseLimitsStateMachine")
+	sm, err = f.createDatabaseLimitsStateMachine()
 	if err != nil {
 		return err
 	}
@@ -219,5 +227,24 @@ func (f *StateMachineFactory) createStorageNodeStateMachine(storageName string,
 				Attributes: map[string]string{storageNameKey: storageName},
 			})
 		},
+	)
+}
+
+// createDatabaseLimitsStateMachine creates database's limits state machine.
+func (f *StateMachineFactory) createDatabaseLimitsStateMachine() (discovery.StateMachine, error) {
+	return discovery.NewStateMachine(
+		f.ctx,
+		discovery.DatabaseLimitsStateMachine,
+		f.discoveryFactory,
+		constants.DatabaseLimitPath,
+		true,
+		func(key string, data []byte) {
+			f.stateMgr.EmitEvent(&discovery.Event{
+				Type:  discovery.DatabaseLimitsChanged,
+				Key:   key,
+				Value: data,
+			})
+		},
+		nil,
 	)
 }

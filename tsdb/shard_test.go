@@ -21,19 +21,23 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/golang/mock/gomock"
-	commonconstants "github.com/lindb/common/constants"
-	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 	"github.com/stretchr/testify/assert"
+
+	commonconstants "github.com/lindb/common/constants"
+	"github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/logger"
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
+	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/metrics"
-	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
@@ -61,6 +65,7 @@ func TestShard_New(t *testing.T) {
 	db := NewMockDatabase(ctrl)
 	db.EXPECT().Name().Return("db").AnyTimes()
 	db.EXPECT().Metadata().Return(nil).AnyTimes()
+	db.EXPECT().GetLimits().Return(models.NewDefaultLimits()).AnyTimes()
 
 	cases := []struct {
 		name    string
@@ -191,6 +196,13 @@ func TestShard_New(t *testing.T) {
 			s, err := newShard(db, 1)
 			if ((err != nil) != tt.wantErr && s == nil) || (!tt.wantErr && s == nil) {
 				t.Errorf("newShard() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if s != nil {
+				assert.Equal(t, db, s.Database())
+				assert.Equal(t, models.ShardID(1), s.ShardID())
+				assert.NotEmpty(t, s.Indicator())
+				assert.NotNil(t, s.BufferManager())
+				assert.True(t, s.CurrentInterval().Int64() > 0)
 			}
 		})
 	}
@@ -360,6 +372,7 @@ func TestShard_Flush(t *testing.T) {
 		statistics:     metrics.NewShardStatistics("data", "1"),
 		logger:         logger.GetLogger("TSDB", "Test"),
 	}
+	assert.NotNil(t, s.IndexDatabase())
 	cases := []struct {
 		name    string
 		prepare func()
@@ -426,7 +439,7 @@ func TestShard_Write(t *testing.T) {
 		{
 			name: "gen metric id err",
 			prepare: func() {
-				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test").
+				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test", gomock.Any()).
 					Return(metric.ID(0), fmt.Errorf("err"))
 			},
 		},
@@ -439,7 +452,7 @@ func TestShard_Write(t *testing.T) {
 			}
 			err := s.LookupRowMetricMeta(mockBatchRows(&protoMetricsV1.Metric{
 				Name:      "test",
-				Timestamp: timeutil.Now(),
+				Timestamp: commontimeutil.Now(),
 				SimpleFields: []*protoMetricsV1.SimpleField{{
 					Name:  "f1",
 					Value: 1.0,
@@ -471,15 +484,17 @@ func TestShard_lookupRowMeta(t *testing.T) {
 		logger:     logger.GetLogger("TSDB", "Test"),
 	}
 	cases := []struct {
-		name    string
-		tags    []*protoMetricsV1.KeyValue
-		prepare func()
-		wantErr bool
+		name      string
+		namespace string
+		tags      []*protoMetricsV1.KeyValue
+		prepare   func()
+		wantErr   bool
 	}{
 		{
 			name: "gen metric id err",
 			prepare: func() {
-				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test").Return(metric.ID(0), fmt.Errorf("err"))
+				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test", gomock.Any()).
+					Return(metric.ID(0), fmt.Errorf("err"))
 			},
 			wantErr: true,
 		},
@@ -487,19 +502,60 @@ func TestShard_lookupRowMeta(t *testing.T) {
 			name: "gen series id err",
 			tags: tag.KeyValuesFromMap(map[string]string{"ip": "1.1.1.1"}),
 			prepare: func() {
-				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test").Return(metric.ID(10), nil).AnyTimes()
-				indexDB.EXPECT().GetOrCreateSeriesID(metric.ID(10), gomock.Any()).Return(uint32(0), false, fmt.Errorf("err"))
+				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test", gomock.Any()).
+					Return(metric.ID(10), nil).AnyTimes()
+				indexDB.EXPECT().GetOrCreateSeriesID(gomock.Any(), gomock.Any(),
+					metric.ID(10), gomock.Any(), gomock.Any()).Return(uint32(0), false, fmt.Errorf("err"))
 			},
 			wantErr: true,
 		},
 		{
-			name: "get old series id",
+			name:      "get old series id",
+			namespace: "ns",
+			tags:      tag.KeyValuesFromMap(map[string]string{"ip": "1.1.1.1"}),
+			prepare: func() {
+				metadataDB.EXPECT().GenMetricID("ns", "test", gomock.Any()).Return(metric.ID(10), nil).AnyTimes()
+				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any(), gomock.Any()).Return(field.ID(1), nil)
+				indexDB.EXPECT().GetOrCreateSeriesID(gomock.Any(), gomock.Any(),
+					metric.ID(10), gomock.Any(), gomock.Any()).Return(uint32(10), false, nil)
+			},
+		},
+		{
+			name: "empty tags",
+			prepare: func() {
+				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test", gomock.Any()).
+					Return(metric.ID(10), nil).AnyTimes()
+				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any(), gomock.Any()).Return(field.ID(1), nil)
+			},
+		},
+		{
+			name: "get new limits",
 			tags: tag.KeyValuesFromMap(map[string]string{"ip": "1.1.1.1"}),
 			prepare: func() {
-				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test").Return(metric.ID(10), nil).AnyTimes()
-				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(field.ID(1), nil)
-				indexDB.EXPECT().GetOrCreateSeriesID(metric.ID(10), gomock.Any()).Return(uint32(10), false, nil)
+				s.notifyLimitsChange()
+				db.EXPECT().GetLimits().Return(models.NewDefaultLimits())
+				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test", gomock.Any()).
+					Return(metric.ID(10), nil).AnyTimes()
+				indexDB.EXPECT().GetOrCreateSeriesID(gomock.Any(), gomock.Any(),
+					metric.ID(10), gomock.Any(), gomock.Any()).Return(uint32(0), false, fmt.Errorf("err"))
 			},
+			wantErr: true,
+		},
+		{
+			name: "build inverted index, but gen field failure",
+			tags: tag.KeyValuesFromMap(map[string]string{"ip": "1.1.1.1"}),
+			prepare: func() {
+				metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test", gomock.Any()).
+					Return(metric.ID(10), nil).AnyTimes()
+				indexDB.EXPECT().GetOrCreateSeriesID(gomock.Any(), gomock.Any(),
+					metric.ID(10), gomock.Any(), gomock.Any()).Return(uint32(1), true, nil)
+				indexDB.EXPECT().BuildInvertIndex(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
+				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any()).Return(field.ID(0), fmt.Errorf("err"))
+			},
+			wantErr: true,
 		},
 	}
 	for _, tt := range cases {
@@ -510,7 +566,8 @@ func TestShard_lookupRowMeta(t *testing.T) {
 			}
 			err := s.lookupRowMeta(&(mockBatchRows(&protoMetricsV1.Metric{
 				Name:      "test",
-				Timestamp: timeutil.Now(),
+				Namespace: tt.namespace,
+				Timestamp: commontimeutil.Now(),
 				Tags:      tt.tags,
 				SimpleFields: []*protoMetricsV1.SimpleField{{
 					Name:  "f1",
@@ -525,10 +582,115 @@ func TestShard_lookupRowMeta(t *testing.T) {
 	}
 }
 
+func TestShard_lookup_histogram_fields(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	indexDB := indexdb.NewMockIndexDatabase(ctrl)
+	metadata := metadb.NewMockMetadata(ctrl)
+	metadataDB := metadb.NewMockMetadataDatabase(ctrl)
+	metadata.EXPECT().MetadataDatabase().Return(metadataDB).AnyTimes()
+	db := NewMockDatabase(ctrl)
+	db.EXPECT().Name().Return("tet").AnyTimes()
+	metadataDB.EXPECT().GenMetricID(commonconstants.DefaultNamespace, "test", gomock.Any()).
+		Return(metric.ID(10), nil).AnyTimes()
+	s := &shard{
+		indexDB:    indexDB,
+		db:         db,
+		metadata:   metadata,
+		statistics: metrics.NewShardStatistics("data", "1"),
+		logger:     logger.GetLogger("TSDB", "Test"),
+	}
+	cases := []struct {
+		name    string
+		prepare func()
+		wantErr bool
+	}{
+		{
+			name: "gen min field failure",
+			prepare: func() {
+				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any()).Return(field.ID(0), fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "gen max field failure",
+			prepare: func() {
+				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any()).Return(field.ID(1), nil)
+				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any()).Return(field.ID(0), fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "gen sum field failure",
+			prepare: func() {
+				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any()).Return(field.ID(1), nil).MaxTimes(2)
+				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any()).Return(field.ID(0), fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "gen count field failure",
+			prepare: func() {
+				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any()).Return(field.ID(1), nil).MaxTimes(3)
+				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any()).Return(field.ID(0), fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "gen bucket field failure",
+			prepare: func() {
+				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any()).Return(field.ID(1), nil).MaxTimes(4)
+				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any()).Return(field.ID(0), fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "gen all fields successfully",
+			prepare: func() {
+				metadataDB.EXPECT().GenFieldID(gomock.Any(), gomock.Any(), gomock.Any(),
+					gomock.Any(), gomock.Any()).Return(field.ID(1), nil).AnyTimes()
+			},
+		},
+	}
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.prepare != nil {
+				tt.prepare()
+			}
+			err := s.lookupRowMeta(&(mockBatchRows(&protoMetricsV1.Metric{
+				Name:      "test",
+				Timestamp: commontimeutil.Now(),
+				CompoundField: &protoMetricsV1.CompoundField{
+					Min:            10,
+					Max:            10,
+					Sum:            10,
+					Count:          10,
+					ExplicitBounds: []float64{1, 1, 1, 1, 1, math.Inf(1) + 1},
+					Values:         []float64{1, 1, 1, 1, 1, 1},
+				},
+			})[0]))
+			if (err != nil) != tt.wantErr {
+				t.Errorf("lookupRowMeta() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestShard_WaitFlushIndexCompleted(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	now := timeutil.Now()
+	now := commontimeutil.Now()
 
 	index := indexdb.NewMockIndexDatabase(ctrl)
 	db := NewMockDatabase(ctrl)
@@ -564,7 +726,7 @@ func TestShard_WaitFlushIndexCompleted(t *testing.T) {
 		wait.Done()
 	}()
 	wait.Wait()
-	assert.True(t, timeutil.Now()-now >= 90*time.Millisecond.Milliseconds())
+	assert.True(t, commontimeutil.Now()-now >= 90*time.Millisecond.Milliseconds())
 }
 
 func TestShard_TTL(t *testing.T) {
@@ -604,7 +766,7 @@ func TestShard_EvictSegment(t *testing.T) {
 func mockBatchRows(m *protoMetricsV1.Metric) []metric.StorageRow {
 	var ml = protoMetricsV1.MetricList{Metrics: []*protoMetricsV1.Metric{m}}
 	var buf bytes.Buffer
-	converter := metric.NewProtoConverter()
+	converter := metric.NewProtoConverter(models.NewDefaultLimits())
 	_, _ = converter.MarshalProtoMetricListV1To(ml, &buf)
 
 	var br metric.StorageBatchRows

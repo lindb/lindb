@@ -21,11 +21,12 @@ import (
 	"net/url"
 	"path"
 
+	"github.com/lindb/common/pkg/encoding"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
 )
 
 //go:generate mockgen -source=./cluster_initializer.go -destination=./cluster_initializer_mock.go -package=bootstrap

@@ -25,10 +25,12 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/rpc"
 )
 
@@ -38,7 +40,18 @@ func TestStateManager_Close(t *testing.T) {
 }
 
 func TestStateManager_Handle_Event_Panic(t *testing.T) {
-	mgr := NewStateManager(context.TODO(), models.StatelessNode{}, nil, nil)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	connectionMgr := rpc.NewMockConnectionManager(ctrl)
+	mgr := NewStateManager(context.TODO(), models.StatelessNode{}, connectionMgr, nil)
+	mgr1 := mgr.(*stateManager)
+	mgr1.mutex.Lock()
+	mgr1.nodes["1.1.1.1:9000"] = models.StatelessNode{}
+	mgr1.mutex.Unlock()
+	connectionMgr.EXPECT().CloseConnection(gomock.Any()).Do(func(node models.Node) {
+		panic("err")
+	})
 	// case 1: panic
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.NodeFailure,
@@ -325,4 +338,85 @@ func TestStateManager_GetStorageList(t *testing.T) {
 	s.storages["s1"] = &models.StorageState{Name: "s1"}
 	s.storages["s2"] = &models.StorageState{Name: "s2"}
 	assert.Equal(t, []*models.StorageState{{Name: "s1"}, {Name: "s2"}}, s.GetStorageList())
+}
+
+func TestStateManager_Choose(t *testing.T) {
+	mgr := &stateManager{
+		nodes: map[string]models.StatelessNode{"test": {}},
+		databases: map[string]models.Database{
+			"test_1": {Storage: "test_1"},
+			"test_2": {Storage: "test_2"},
+		},
+		storages: map[string]*models.StorageState{
+			"test_1": {
+				LiveNodes: map[models.NodeID]models.StatefulNode{
+					1: {StatelessNode: models.StatelessNode{HostIP: "1.1.1.1"}},
+					2: {StatelessNode: models.StatelessNode{HostIP: "1.1.1.2"}},
+				},
+				ShardStates: map[string]map[models.ShardID]models.ShardState{
+					"test_1": {
+						1: {
+							State:  models.OnlineShard,
+							Leader: models.NodeID(1),
+						},
+						2: {
+							State:  models.OnlineShard,
+							Leader: models.NodeID(2),
+						},
+					},
+				},
+			},
+			"test_2": {
+				LiveNodes: map[models.NodeID]models.StatefulNode{
+					1: {},
+				},
+				ShardStates: map[string]map[models.ShardID]models.ShardState{
+					"test_2": {
+						1: {
+							State: models.OfflineShard,
+						},
+					},
+				},
+			},
+		},
+		logger: logger.GetLogger("Test", "StateManager"),
+	}
+	plans, err := mgr.Choose("test", 2)
+	assert.Error(t, err)
+	assert.Nil(t, plans)
+
+	plans, err = mgr.Choose("test_2", 2)
+	assert.Error(t, err)
+	assert.Nil(t, plans)
+	plans, err = mgr.Choose("test_1", 2)
+	assert.NoError(t, err)
+	assert.Len(t, plans, 1)
+	plans, err = mgr.Choose("test_1", 1)
+	assert.NoError(t, err)
+	assert.Len(t, plans, 1)
+}
+
+func TestStateManager_onDatabaseLimits(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mgr := NewStateManager(context.TODO(), models.StatelessNode{}, nil, nil)
+
+	// case 1: decode limit failure
+	mgr.EmitEvent(&discovery.Event{
+		Type:  discovery.DatabaseLimitsChanged,
+		Key:   "/database/limit/db2",
+		Value: []byte("dd"),
+	})
+	// case 1: set limits
+	limit2 := models.NewDefaultLimits()
+	limit2.MaxFieldsPerMetric = 10000
+	mgr.EmitEvent(&discovery.Event{
+		Type:  discovery.DatabaseLimitsChanged,
+		Key:   "/database/limit/db2",
+		Value: []byte(limit2.TOML()),
+	})
+	time.Sleep(100 * time.Millisecond)
+	assert.Equal(t, limit2, mgr.GetDatabaseLimits("db2"))
+	assert.Equal(t, defaultDatabaseLimits, mgr.GetDatabaseLimits("test"))
 }

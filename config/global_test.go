@@ -21,9 +21,10 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/caarlos0/env/v7"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/pkg/ltoml"
+	"github.com/lindb/common/pkg/ltoml"
 )
 
 func TestSetGlobalConfig(t *testing.T) {
@@ -46,6 +47,18 @@ func TestLoadAndSetBrokerConfig(t *testing.T) {
 			name: "load config failure",
 			prepare: func(_ *Broker) {
 				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+					return fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "load env failure",
+			prepare: func(_ *Broker) {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+					return nil
+				}
+				envParseFn = func(v interface{}, opts ...env.Options) error {
 					return fmt.Errorf("err")
 				}
 			},
@@ -87,6 +100,7 @@ func TestLoadAndSetBrokerConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				loadConfigFn = ltoml.LoadConfig
+				envParseFn = env.Parse
 			}()
 			cfg := &Broker{
 				Coordinator: *NewDefaultCoordinator(),
@@ -104,6 +118,76 @@ func TestLoadAndSetBrokerConfig(t *testing.T) {
 	}
 }
 
+func TestLoadAdnSetRootConfig(t *testing.T) {
+	cases := []struct {
+		name    string
+		prepare func(cfg *Root)
+		wantErr bool
+	}{
+		{
+			name: "load config failure",
+			prepare: func(_ *Root) {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+					return fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "load env failure",
+			prepare: func(_ *Root) {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+					return nil
+				}
+				envParseFn = func(v interface{}, opts ...env.Options) error {
+					return fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "valid coordinator failure",
+			prepare: func(cfg *Root) {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+					return nil
+				}
+				cfg.Coordinator.Namespace = ""
+			},
+			wantErr: true,
+		},
+		{
+			name: "load and set cfg success",
+			prepare: func(_ *Root) {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+					return nil
+				}
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				loadConfigFn = ltoml.LoadConfig
+				envParseFn = env.Parse
+			}()
+			cfg := &Root{
+				Coordinator: *NewDefaultCoordinator(),
+				Query:       *NewDefaultQuery(),
+			}
+			if tt.prepare != nil {
+				tt.prepare(cfg)
+			}
+			err := LoadAndSetRootConfig("test", "storage.toml", cfg)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("LoadAndSetRootConfig() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestLoadAndSetStorageConfig(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -114,6 +198,18 @@ func TestLoadAndSetStorageConfig(t *testing.T) {
 			name: "load config failure",
 			prepare: func(_ *Storage) {
 				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+					return fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "load env failure",
+			prepare: func(_ *Storage) {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+					return nil
+				}
+				envParseFn = func(v interface{}, opts ...env.Options) error {
 					return fmt.Errorf("err")
 				}
 			},
@@ -155,6 +251,7 @@ func TestLoadAndSetStorageConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				loadConfigFn = ltoml.LoadConfig
+				envParseFn = env.Parse
 			}()
 			cfg := &Storage{
 				Coordinator: *NewDefaultCoordinator(),
@@ -188,6 +285,18 @@ func TestLoadAndSetStandaloneConfig(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "load env failure",
+			prepare: func(_ *Standalone) {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+					return nil
+				}
+				envParseFn = func(v interface{}, opts ...env.Options) error {
+					return fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
 			name: "valid coordinator failure",
 			prepare: func(cfg *Standalone) {
 				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
@@ -233,6 +342,7 @@ func TestLoadAndSetStandaloneConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				loadConfigFn = ltoml.LoadConfig
+				envParseFn = env.Parse
 			}()
 			cfg := &Standalone{
 				Coordinator: *NewDefaultCoordinator(),

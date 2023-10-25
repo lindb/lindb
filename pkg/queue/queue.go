@@ -25,8 +25,9 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/pkg/queue/page"
 )
 
@@ -69,6 +70,10 @@ type Queue interface {
 	AcknowledgedSeq() int64
 	// SetAcknowledgedSeq sets acknowledged sequence.
 	SetAcknowledgedSeq(seq int64)
+	// NotEmpty checks queue if empty, waiting until new data written.
+	NotEmpty(consumeHead int64, checkClosed func() bool) bool
+	// Signal signals waiting consumers.
+	Signal()
 	// GC removes all message which sequence <= acknowledged sequence.
 	GC()
 	// Close closes the queue.
@@ -98,7 +103,9 @@ type queue struct {
 	messageOffset int
 
 	closed  atomic.Bool
-	rwMutex sync.RWMutex
+	rwMutex *sync.RWMutex
+
+	notEmpty *sync.Cond // not empty condition
 }
 
 // NewQueue returns Queue based on dirPath, dataSizeLimit is used to limit the total data/index size,
@@ -106,9 +113,12 @@ func NewQueue(dirPath string, dataSizeLimit int64) (Queue, error) {
 	if err := mkDirFunc(dirPath); err != nil {
 		return nil, err
 	}
+	lock := &sync.RWMutex{}
 	q := &queue{
 		dirPath:       dirPath,
 		dataSizeLimit: dataSizeLimit,
+		rwMutex:       lock,
+		notEmpty:      sync.NewCond(lock),
 	}
 
 	// if data size limit < default limit, need reset
@@ -282,11 +292,29 @@ func (q *queue) SetAcknowledgedSeq(seq int64) {
 	}
 }
 
+// NotEmpty checks queue if empty, waiting until new data written.
+func (q *queue) NotEmpty(consumeHead int64, checkClosed func() bool) bool {
+	q.notEmpty.L.Lock()
+	for consumeHead > q.appendedSeq.Load() && !q.closed.Load() && !checkClosed() {
+		q.notEmpty.Wait()
+	}
+	q.notEmpty.L.Unlock()
+
+	return !q.closed.Load() && !checkClosed()
+}
+
+// Signal signals waiting consumers.
+func (q *queue) Signal() {
+	q.notEmpty.Broadcast()
+}
+
 // Close closes the queue.
 func (q *queue) Close() {
 	if q.closed.CAS(false, true) {
 		q.rwMutex.RLock()
 		defer q.rwMutex.RUnlock()
+
+		q.notEmpty.Broadcast()
 
 		if q.dataPageFct != nil {
 			if err := q.dataPageFct.Close(); err != nil {
@@ -399,6 +427,9 @@ func (q *queue) persistMetaOfMessage(dataPageIndex int64, dataLen, messageOffset
 	// save metadata
 	q.metaPage.PutUint64(uint64(seq), queueAppendedSeqOffset)
 	q.appendedSeq.Store(seq)
+
+	// new data written, notify all waiting consumer groups can consume data
+	q.notEmpty.Broadcast()
 	return nil
 }
 

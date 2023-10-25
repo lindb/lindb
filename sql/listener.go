@@ -33,6 +33,8 @@ type listener struct {
 	schemasStmt        *schemasStmtParser
 	storageStmt        *storageStmtParser
 	requestStmt        *requestStmtParser
+	brokerStmt         *brokerStmtParser
+	limitStmt          *limitStmtParser
 }
 
 // EnterQueryStmt is called when production queryStmt is entered.
@@ -58,6 +60,11 @@ func (l *listener) EnterShowRequestStmt(_ *grammar.ShowRequestStmtContext) {
 // EnterRequestID is called when production requestID is entered.
 func (l *listener) EnterRequestID(ctx *grammar.RequestIDContext) {
 	l.requestStmt.visitRequestID(ctx)
+}
+
+// EnterShowRootMetaStmt is called when production showRootMetaStmt is entered.
+func (l *listener) EnterShowRootMetaStmt(_ *grammar.ShowRootMetaStmtContext) {
+	l.metadataStmt = newMetadataStmtParser(stmt.RootMetadata)
 }
 
 // EnterShowBrokerMetaStmt is called when production showBrokerMetaStmt is entered.
@@ -93,6 +100,8 @@ func (l *listener) EnterShowMasterStmt(_ *grammar.ShowMasterStmtContext) {
 // EnterShowAliveStmt is called when production showAliveStmt is entered.
 func (l *listener) EnterShowAliveStmt(ctx *grammar.ShowAliveStmtContext) {
 	switch {
+	case ctx.T_ROOT() != nil:
+		l.stateStmt = newStateStmtParse(stmt.RootAlive)
 	case ctx.T_BROKER() != nil:
 		l.stateStmt = newStateStmtParse(stmt.BrokerAlive)
 	case ctx.T_STORAGE() != nil:
@@ -103,6 +112,11 @@ func (l *listener) EnterShowAliveStmt(ctx *grammar.ShowAliveStmtContext) {
 // EnterShowBrokerMetricStmt is called when production showBrokerMetricStmt is entered.
 func (l *listener) EnterShowBrokerMetricStmt(_ *grammar.ShowBrokerMetricStmtContext) {
 	l.stateStmt = newStateStmtParse(stmt.BrokerMetric)
+}
+
+// EnterShowRootMetricStmt is called when production showRootMetricStmt is entered.
+func (l *listener) EnterShowRootMetricStmt(_ *grammar.ShowRootMetricStmtContext) {
+	l.stateStmt = newStateStmtParse(stmt.RootMetric)
 }
 
 // EnterShowStorageMetricStmt is called when production showStorageMetricStmt is entered.
@@ -125,6 +139,21 @@ func (l *listener) EnterShowMemoryDatabaseStmt(_ *grammar.ShowMemoryDatabaseStmt
 	l.stateStmt = newStateStmtParse(stmt.MemoryDatabase)
 }
 
+// EnterRecoverStorageStmt is called when entering the recoverStorageStmt production.
+func (l *listener) EnterRecoverStorageStmt(_ *grammar.RecoverStorageStmtContext) {
+	l.storageStmt = newStorageStmtParse(stmt.StorageOpRecover)
+}
+
+// EnterStorageName is called when entering the storageName production.
+func (l *listener) EnterStorageName(c *grammar.StorageNameContext) {
+	l.storageStmt.visitStorageName(c)
+}
+
+// EnterBrokerFilter is called when production brokerFilter is entered.
+func (l *listener) EnterBrokerFilter(ctx *grammar.BrokerFilterContext) {
+	l.metadataStmt.visitBrokerFilter(ctx)
+}
+
 // EnterStorageFilter is called when production storageFilter is entered.
 func (l *listener) EnterStorageFilter(ctx *grammar.StorageFilterContext) {
 	switch {
@@ -145,6 +174,11 @@ func (l *listener) EnterShowStoragesStmt(_ *grammar.ShowStoragesStmtContext) {
 	l.storageStmt = newStorageStmtParse(stmt.StorageOpShow)
 }
 
+// EnterShowBrokersStmt is called when production showBrokersStmt is entered.
+func (l *listener) EnterShowBrokersStmt(_ *grammar.ShowBrokersStmtContext) {
+	l.brokerStmt = newBrokerStmtParse(stmt.BrokerOpShow)
+}
+
 // EnterJson is called when production json is entered.
 func (l *listener) EnterJson(ctx *grammar.JsonContext) { //nolint:stylecheck
 	switch {
@@ -152,11 +186,18 @@ func (l *listener) EnterJson(ctx *grammar.JsonContext) { //nolint:stylecheck
 		l.storageStmt.visitCfg(ctx)
 	case l.schemasStmt != nil:
 		l.schemasStmt.visitCfg(ctx)
+	case l.brokerStmt != nil:
+		l.brokerStmt.visitCfg(ctx)
 	}
 }
 
+// EnterCreateBrokerStmt is called when production createBrokerStmt is entered.
+func (l *listener) EnterCreateBrokerStmt(c *grammar.CreateBrokerStmtContext) {
+	l.brokerStmt = newBrokerStmtParse(stmt.BrokerOpCreate)
+}
+
 // EnterCreateStorageStmt is called when production createStorageStmt is entered.
-func (l *listener) EnterCreateStorageStmt(_ *grammar.CreateStorageStmtContext) {
+func (l *listener) EnterCreateStorageStmt(c *grammar.CreateStorageStmtContext) {
 	l.storageStmt = newStorageStmtParse(stmt.StorageOpCreate)
 }
 
@@ -178,6 +219,17 @@ func (l *listener) EnterDropDatabaseStmt(_ *grammar.DropDatabaseStmtContext) {
 // EnterDatabaseName is called when production databaseName is entered.
 func (l *listener) EnterDatabaseName(ctx *grammar.DatabaseNameContext) {
 	l.schemasStmt.visitDatabaseName(ctx)
+}
+
+// EnterSetLimtStmt is called when production setLimitStmt is entered.
+func (l *listener) EnterSetLimitStmt(ctx *grammar.SetLimitStmtContext) {
+	l.limitStmt = newLimitStmtParse(stmt.SetLimit)
+	l.limitStmt.visitToml(ctx.Toml())
+}
+
+// EnterShowLimtStmt is called when production showLimitStmt is entered.
+func (l *listener) EnterShowLimitStmt(ctx *grammar.ShowLimitStmtContext) {
+	l.limitStmt = newLimitStmtParse(stmt.ShowLimit)
 }
 
 // EnterUseStmt is called when production useStmt is entered.
@@ -393,6 +445,10 @@ func (l *listener) statement() (stmt.Statement, error) {
 		return l.stateStmt.build()
 	case l.requestStmt != nil:
 		return l.requestStmt.build()
+	case l.brokerStmt != nil:
+		return l.brokerStmt.build()
+	case l.limitStmt != nil:
+		return l.limitStmt.build()
 	default:
 		return nil, nil
 	}

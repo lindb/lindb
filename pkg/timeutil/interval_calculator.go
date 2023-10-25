@@ -19,6 +19,8 @@ package timeutil
 
 import (
 	"time"
+
+	"github.com/lindb/common/pkg/timeutil"
 )
 
 var (
@@ -54,17 +56,17 @@ type day struct{}
 
 // CalcSlot calculates field store slot index based on given timestamp and base time for day interval type
 func (d *day) CalcSlot(timestamp, baseTime, interval int64) int {
-	return int(((timestamp - baseTime) % OneHour) / interval)
+	return int(((timestamp - baseTime) % timeutil.OneHour) / interval)
 }
 
 // GetSegment returns segment name by given timestamp for day interval type
 func (d *day) GetSegment(timestamp int64) string {
-	return FormatTimestamp(timestamp, "20060102")
+	return timeutil.FormatTimestamp(timestamp, "20060102")
 }
 
 // ParseSegmentTime parses segment base time based on given segment name for day interval type
 func (d *day) ParseSegmentTime(segmentName string) (int64, error) {
-	return ParseTimestamp(segmentName, "20060102")
+	return timeutil.ParseTimestamp(segmentName, "20060102")
 }
 
 // CalcSegmentTime calculates segment base time based on given segment name for day interval type
@@ -76,7 +78,7 @@ func (d *day) CalcSegmentTime(timestamp int64) int64 {
 
 // CalcFamily calculates family base time based on given timestamp for day interval type
 func (d *day) CalcFamily(timestamp, segmentTime int64) int {
-	return int((timestamp - segmentTime) / OneHour)
+	return int((timestamp - segmentTime) / timeutil.OneHour)
 }
 
 // CalcFamilyTime calculates family base time based on given timestamp
@@ -88,19 +90,19 @@ func (d *day) CalcFamilyTime(timestamp int64) int64 {
 
 // CalcFamilyStartTime calculates family start time based on segment time and family time for day interval type
 func (d *day) CalcFamilyStartTime(segmentTime int64, familyTime int) int64 {
-	return segmentTime + int64(familyTime)*OneHour
+	return segmentTime + int64(familyTime)*timeutil.OneHour
 }
 
 // CalcFamilyEndTime calculates family end time based on family start time for day interval type
 func (d *day) CalcFamilyEndTime(familyStartTime int64) int64 {
-	return familyStartTime + OneHour - 1
+	return familyStartTime + timeutil.OneHour - 1
 }
 
 // CalcTimeWindows calculates the number of time window between start and end time for day interval type
 func (d *day) CalcTimeWindows(start, end int64) int {
-	t1 := start / OneHour * OneHour
-	t2 := end / OneHour * OneHour
-	return int((t2-t1)/OneHour) + 1
+	t1 := start / timeutil.OneHour * timeutil.OneHour
+	t2 := end / timeutil.OneHour * timeutil.OneHour
+	return int((t2-t1)/timeutil.OneHour) + 1
 }
 
 // month implements Calculator interface for month interval type
@@ -108,17 +110,17 @@ type month struct{}
 
 // CalcSlot calculates field store slot index based on given timestamp and base time for month interval type
 func (m *month) CalcSlot(timestamp, baseTime, interval int64) int {
-	return int(((timestamp - baseTime) % OneDay) / interval)
+	return int(((timestamp - baseTime) % timeutil.OneDay) / interval)
 }
 
 // GetSegment returns segment name by given timestamp for month interval type
 func (m *month) GetSegment(timestamp int64) string {
-	return FormatTimestamp(timestamp, "200601")
+	return timeutil.FormatTimestamp(timestamp, "200601")
 }
 
 // ParseSegmentTime parses segment base time based on given segment name for month interval type
 func (m *month) ParseSegmentTime(segmentName string) (int64, error) {
-	return ParseTimestamp(segmentName, "200601")
+	return timeutil.ParseTimestamp(segmentName, "200601")
 }
 
 // CalcSegmentTime calculates segment base time based on given segment name for month interval type
@@ -174,12 +176,12 @@ func (y *year) CalcSlot(timestamp, baseTime, interval int64) int {
 
 // GetSegment returns segment name by given timestamp for day interval type
 func (y *year) GetSegment(timestamp int64) string {
-	return FormatTimestamp(timestamp, "2006")
+	return timeutil.FormatTimestamp(timestamp, "2006")
 }
 
 // ParseSegmentTime parses segment base time based on given segment name for year interval type
 func (y *year) ParseSegmentTime(segmentName string) (int64, error) {
-	return ParseTimestamp(segmentName, "2006")
+	return timeutil.ParseTimestamp(segmentName, "2006")
 }
 
 // CalcSegmentTime calculates segment base time based on given segment name for year interval type

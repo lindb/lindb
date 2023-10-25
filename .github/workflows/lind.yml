@@ -1,5 +1,10 @@
 name: LinDB CI
-on: [push, pull_request]
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
 jobs:
   golangci:
     name: Golangci-Lint
@@ -10,15 +15,17 @@ jobs:
         with:
           fetch-depth: 1
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
           go-version: 1.19
           cache: true
         id: go
       - name: Make Mock files
         run: make gomock
-      - name: Lint
-        run: make lint
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.51.2
 
   linux-test-with-coverage:
     name: Uint Test With Coverage(Linux)
@@ -39,7 +46,7 @@ jobs:
       - name: Test
         run: make test-without-lint
       - name: Upload
-        run: bash <(curl -s https://codecov.io/bash) -t 571f35bb-4929-4ac5-88cd-8d2c21302b40
+        run: bash <(curl -s https://codecov.io/bash) -t ${{ secrets.CODECOV_TOKEN }}
 
   darwin-test:
     name: Unit Test(MacOS)

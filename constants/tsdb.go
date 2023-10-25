@@ -17,13 +17,7 @@
 
 package constants
 
-import (
-	"math"
-)
-
 const (
-	// DefaultMaxFieldsCount represents field count limit, uses this limit of max fields of a metric
-	DefaultMaxFieldsCount = math.MaxUint8
 	// MaxSuggestions represents the max number of suggestions count
 	MaxSuggestions = 100
 

@@ -20,11 +20,11 @@ package operator
 import (
 	"fmt"
 
+	"github.com/lindb/common/models"
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"

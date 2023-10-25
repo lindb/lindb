@@ -24,12 +24,11 @@ import (
 
 // compactionState represents the state of compaction job
 type compactionState struct {
-	outputs           []*version.FileMeta
-	builder           table.Builder
-	compaction        *version.Compaction
-	snapshot          version.Snapshot
-	currentFileNumber table.FileNumber
-	maxFileSize       uint32
+	outputs     []*version.FileMeta
+	builder     table.Builder
+	compaction  *version.Compaction
+	snapshot    version.Snapshot
+	maxFileSize uint32
 }
 
 // newCompactionState creates a compaction state

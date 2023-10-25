@@ -24,19 +24,27 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/BurntSushi/toml"
+
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
+	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/rpc"
 )
 
 //go:generate mockgen -source=./state_manager.go -destination=./state_manager_mock.go -package=broker
 
+var defaultDatabaseLimits = models.NewDefaultLimits()
+
 // StateManager represents broker state manager, maintains broker node/database/storage states in memory.
 type StateManager interface {
+	flow.NodeChoose
 	discovery.StateMachineEventHandle
 
 	// GetCurrentNode returns the current node.
@@ -55,6 +63,8 @@ type StateManager interface {
 	GetStorage(name string) (*models.StorageState, bool)
 	// GetStorageList returns all storage state list.
 	GetStorageList() (rs []*models.StorageState)
+	// GetDatabaseLimits returns the database's limits.
+	GetDatabaseLimits(name string) *models.Limits
 
 	WatchShardStateChangeEvent(fn func(databaseCfg models.Database,
 		shards map[models.ShardID]models.ShardState,
@@ -71,7 +81,7 @@ type stateManager struct {
 	currentNode models.StatelessNode
 	storages    map[string]*models.StorageState // storage state
 	databases   map[string]models.Database      // database config
-	nodes       map[string]models.StatelessNode // broker live nodes
+	nodes       map[string]models.StatelessNode // live nodes of broker cluster
 
 	callbacks []func(databaseCfg models.Database,
 		shards map[models.ShardID]models.ShardState,
@@ -79,13 +89,15 @@ type stateManager struct {
 	)
 	// connection manager
 	connectionManager rpc.ConnectionManager
+	//FIXME: remove it???
 	taskClientFactory rpc.TaskClientFactory
+	databaseLimits    sync.Map
 
 	events chan *discovery.Event
 	mutex  sync.RWMutex
 
 	statistics *metrics.StateManagerStatistics
-	logger     *logger.Logger
+	logger     logger.Logger
 }
 
 // NewStateManager creates a broker state manager instance.
@@ -106,7 +118,7 @@ func NewStateManager(
 		databases:         make(map[string]models.Database),
 		nodes:             make(map[string]models.StatelessNode),
 		events:            make(chan *discovery.Event, 10),
-		statistics:        metrics.NewStateManagerStatistics(strings.ToLower(constants.BrokerRole)),
+		statistics:        metrics.NewStateManagerStatistics(linmetric.BrokerRegistry),
 		logger:            logger.GetLogger("Broker", "StateManager"),
 	}
 
@@ -114,6 +126,36 @@ func NewStateManager(
 	go mgr.consumeEvent()
 
 	return mgr
+}
+
+// Choose chooses the compute nodes then builds physical plan.
+// if need node num > 1, need pick live broker nodes as compute node,
+// else pick storage replica node as leaf node.
+func (m *stateManager) Choose(database string, numOfNodes int) ([]*models.PhysicalPlan, error) {
+	// FIXME: need using storage's replica state ???
+	replicas, err := m.GetQueryableReplicas(database)
+	if err != nil {
+		return nil, err
+	}
+	nodesLen := len(replicas)
+	if nodesLen == 0 {
+		return nil, constants.ErrReplicaNotFound
+	}
+	if numOfNodes > 1 && nodesLen > 1 {
+		// build compute target nodes.
+		return []*models.PhysicalPlan{flow.BuildPhysicalPlan(database, m.GetLiveNodes(), numOfNodes)}, nil
+	}
+	// build leaf storage nodes.
+	physicalPlan := &models.PhysicalPlan{
+		Database: database,
+	}
+	for storageNode, shardIDs := range replicas {
+		physicalPlan.AddTarget(&models.Target{
+			Indicator: storageNode,
+			ShardIDs:  shardIDs,
+		})
+	}
+	return []*models.PhysicalPlan{physicalPlan}, nil
 }
 
 func (m *stateManager) WatchShardStateChangeEvent(fn func(databaseCfg models.Database,
@@ -155,7 +197,7 @@ func (m *stateManager) processEvent(event *discovery.Event) {
 	eventType := event.Type.String()
 	defer func() {
 		if err := recover(); err != nil {
-			m.statistics.Panics.WithTagValues(eventType).Incr()
+			m.statistics.Panics.WithTagValues(eventType, constants.BrokerRole).Incr()
 			m.logger.Error("panic when process discovery event, lost the state",
 				logger.Any("err", err), logger.Stack())
 		}
@@ -178,12 +220,32 @@ func (m *stateManager) processEvent(event *discovery.Event) {
 		err = m.onStorageStateChange(event.Key, event.Value)
 	case discovery.StorageStateDeletion:
 		m.onStorageDelete(event.Key)
+	case discovery.DatabaseLimitsChanged:
+		err = m.onDatabaseLimitsChange(event.Key, event.Value)
 	}
 	if err != nil {
-		m.statistics.HandleEventFailure.WithTagValues(eventType).Incr()
+		m.statistics.HandleEventFailure.WithTagValues(eventType, constants.BrokerRole).Incr()
 	} else {
-		m.statistics.HandleEvents.WithTagValues(eventType).Incr()
+		m.statistics.HandleEvents.WithTagValues(eventType, constants.BrokerRole).Incr()
 	}
+}
+
+// onDatabaseLimitsChange triggers when database limits modify.
+func (m *stateManager) onDatabaseLimitsChange(key string, data []byte) error {
+	m.logger.Info("set database limts, because database limits is changed",
+		logger.String("key", key))
+
+	name := strings.TrimPrefix(key, constants.GetDatabaseLimitPath(""))
+	limits := &models.Limits{}
+	_, err := toml.Decode(string(data), limits)
+	if err != nil {
+		m.logger.Error("set database limits failure",
+			logger.String("database", name),
+			logger.Error(err))
+		return err
+	}
+	m.databaseLimits.Store(name, limits)
+	return nil
 }
 
 // onDatabaseCfgChange triggers when database create/modify.
@@ -386,6 +448,15 @@ func (m *stateManager) GetStorageList() (rs []*models.StorageState) {
 		return rs[i].Name < rs[j].Name
 	})
 	return
+}
+
+// GetDatabaseLimits returns the database's limits.
+func (m *stateManager) GetDatabaseLimits(name string) *models.Limits {
+	val, ok := m.databaseLimits.Load(name)
+	if !ok {
+		return defaultDatabaseLimits
+	}
+	return val.(*models.Limits)
 }
 
 // GetQueryableReplicas returns the queryable replicas, else return detail error msg.::x

@@ -26,6 +26,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/aggregation"
@@ -60,12 +61,12 @@ func TestStorageExecuteContext(t *testing.T) {
 }
 
 func TestStorageExecuteContext_CalcSlotRange(t *testing.T) {
-	t1, _ := timeutil.ParseTimestamp("20190101 00:00:00", "20060102 15:04:05")
-	t2, _ := timeutil.ParseTimestamp("20190101 03:10:00", "20060102 15:04:05")
+	t1, _ := commontimeutil.ParseTimestamp("20190101 00:00:00", "20060102 15:04:05")
+	t2, _ := commontimeutil.ParseTimestamp("20190101 03:10:00", "20060102 15:04:05")
 	ctx := &StorageExecuteContext{
 		Query: &stmt.Query{
-			Interval:        timeutil.Interval(timeutil.OneMinute),
-			StorageInterval: timeutil.Interval(timeutil.OneMinute),
+			Interval:        timeutil.Interval(commontimeutil.OneMinute),
+			StorageInterval: timeutil.Interval(commontimeutil.OneMinute),
 			TimeRange: timeutil.TimeRange{
 				Start: t1,
 				End:   t2,
@@ -73,11 +74,6 @@ func TestStorageExecuteContext_CalcSlotRange(t *testing.T) {
 		},
 	}
 	slotRange := ctx.CalcSourceSlotRange(t1)
-	assert.Equal(t, timeutil.SlotRange{
-		Start: 0,
-		End:   59,
-	}, slotRange)
-	slotRange = ctx.CalcTargetSlotRange(t1)
 	assert.Equal(t, timeutil.SlotRange{
 		Start: 0,
 		End:   59,

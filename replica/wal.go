@@ -21,15 +21,16 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"path"
+	"path/filepath"
 	"strconv"
 	"sync"
+
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/timeutil"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/tsdb"
 )
@@ -72,7 +73,7 @@ type writeAheadLog struct {
 	// family log = shard + family + leader
 	familyLogs map[partitionKey]Partition
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewWriteAheadLog creates a WriteAheadLog instance.
@@ -89,7 +90,7 @@ func NewWriteAheadLog(
 		ctx:           ctx,
 		currentNodeID: currentNodeID,
 		database:      database,
-		dir:           path.Join(cfg.Dir, database),
+		dir:           filepath.Join(cfg.Dir, database),
 		cfg:           cfg,
 		engine:        engine,
 		cliFct:        cliFct,
@@ -132,11 +133,11 @@ func (w *writeAheadLog) GetOrCreatePartition(
 		return nil, err
 	}
 	// wal path: base dir + database + shard + family time + leader
-	dir := path.Join(
+	dir := filepath.Join(
 		strconv.Itoa(int(shardID)),
 		timeutil.FormatTimestamp(familyTime, timeutil.DataTimeFormat4),
 		strconv.Itoa(int(leader)))
-	dirPath := path.Join(w.dir, dir)
+	dirPath := filepath.Join(w.dir, dir)
 
 	q, err := newFanOutQueue(dirPath, w.cfg.GetDataSizeLimit())
 	if err != nil {
@@ -168,14 +169,14 @@ func (w *writeAheadLog) recovery() error {
 		return err
 	}
 	for _, shard := range shards {
-		families, err := listDirFn(path.Join(w.dir, shard))
+		families, err := listDirFn(filepath.Join(w.dir, shard))
 		if err != nil {
 			return err
 		}
 
 		shardID := models.ParseShardID(shard)
 		for _, family := range families {
-			familyDir := path.Join(w.dir, shard, family)
+			familyDir := filepath.Join(w.dir, shard, family)
 			leaders, err := listDirFn(familyDir)
 			if err != nil {
 				return err
@@ -236,7 +237,7 @@ func (w *writeAheadLog) destroy() {
 		if err := removeDirFn(log.Path()); err != nil {
 			w.logger.Warn("remove write ahead log dir", logger.String("path", log.Path()), logger.Error(err))
 		}
-		familyDir := path.Join(
+		familyDir := filepath.Join(
 			w.dir,
 			strconv.Itoa(int(key.shardID)),
 			timeutil.FormatTimestamp(key.familyTime, timeutil.DataTimeFormat4))
@@ -280,9 +281,17 @@ func (w *writeAheadLog) Stop() {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
-	for _, log := range w.familyLogs {
-		log.Stop()
+	var waiter sync.WaitGroup
+	waiter.Add(len(w.familyLogs))
+	for key := range w.familyLogs {
+		log := w.familyLogs[key]
+		go func() {
+			log.Stop()
+			w.logger.Info("stop write ahead log", logger.String("path", log.Path()))
+			waiter.Done()
+		}()
 	}
+	waiter.Wait()
 }
 
 // Drop drops write ahead log.

@@ -44,7 +44,7 @@ type FieldAggregator interface {
 type fieldAggregator struct {
 	aggTypes         []field.AggType
 	segmentStartTime int64
-	start, end       int
+	start, end       int // slot range based on query interval and time range
 
 	fieldSeriesList []*collections.FloatArray
 }

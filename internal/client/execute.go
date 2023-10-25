@@ -25,9 +25,11 @@ import (
 
 	resty "github.com/go-resty/resty/v2"
 
+	commonmodels "github.com/lindb/common/models"
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/ltoml"
+
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/ltoml"
 )
 
 //go:generate mockgen -source=./execute.go -destination=./execute_mock.go -package=client
@@ -88,7 +90,7 @@ func (cli *executeCli) ExecuteAsResult(param models.ExecuteParam, rs interface{}
 	}
 	result := ""
 	rows := 0
-	if formatter, ok := rs.(models.TableFormatter); ok {
+	if formatter, ok := rs.(commonmodels.TableFormatter); ok {
 		rows, result = formatter.ToTable()
 	}
 	if rows == 0 {

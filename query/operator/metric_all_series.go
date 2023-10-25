@@ -18,8 +18,9 @@
 package operator
 
 import (
+	"github.com/lindb/common/models"
+
 	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/tsdb"
 	"github.com/lindb/lindb/tsdb/indexdb"

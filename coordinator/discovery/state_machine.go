@@ -24,13 +24,18 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
+
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/state"
 )
 
 //go:generate mockgen -source=./state_machine.go -destination=./state_machine_mock.go -package=discovery
 
 // NewStateMachineFn represents new state machine function.
 var NewStateMachineFn = NewStateMachine
+var log = logger.GetLogger("Discovery", "StateMachine")
 
 // StateMachineType represents state machine type.
 type StateMachineType int
@@ -42,6 +47,9 @@ const (
 	StorageStatusStateMachine
 	StorageConfigStateMachine
 	StorageNodeStateMachine
+	BrokerConfigStateMachine
+	BrokerNodeStateMachine
+	DatabaseLimitsStateMachine
 )
 
 // String returns state machine type desc.
@@ -59,6 +67,12 @@ func (st StateMachineType) String() string {
 		return "StorageConfigStateMachine"
 	case StorageNodeStateMachine:
 		return "StorageNodeStateMachine"
+	case BrokerConfigStateMachine:
+		return "BrokerConfigStateMachine"
+	case BrokerNodeStateMachine:
+		return "BrokerNodeStateMachine"
+	case DatabaseLimitsStateMachine:
+		return "DatabaseLimitsStateMachine"
 	default:
 		return "Unknown"
 	}
@@ -109,7 +123,7 @@ type stateMachine struct {
 
 	running *atomic.Bool
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewStateMachine creates a state machine instance.
@@ -187,4 +201,24 @@ func (sm *stateMachine) Close() error {
 			logger.String("type", sm.stateMachineType.String()))
 	}
 	return nil
+}
+
+// ExploreData explores state repository data by given path.
+func ExploreData(ctx context.Context, repo state.Repository, stateMachineInfo models.StateMachineInfo) (interface{}, error) {
+	var rs []interface{}
+	err := repo.WalkEntry(ctx, stateMachineInfo.Path, func(key, value []byte) {
+		r := stateMachineInfo.CreateState()
+		err0 := encoding.JSONUnmarshal(value, r)
+		if err0 != nil {
+			log.Warn("unmarshal metadata info err, ignore it",
+				logger.String("key", string(key)),
+				logger.String("data", string(value)))
+			return
+		}
+		rs = append(rs, r)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return rs, nil
 }

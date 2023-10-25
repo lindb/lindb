@@ -20,7 +20,8 @@ package kv
 import (
 	"time"
 
-	"github.com/lindb/lindb/pkg/ltoml"
+	"github.com/lindb/common/pkg/ltoml"
+
 	"github.com/lindb/lindb/pkg/timeutil"
 )
 

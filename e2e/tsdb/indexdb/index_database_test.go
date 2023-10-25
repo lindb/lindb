@@ -22,13 +22,15 @@ package indexdb
 
 import (
 	"context"
-	"path"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/pkg/fileutil"
+
 	"github.com/lindb/lindb/kv"
-	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/metadb"
@@ -66,7 +68,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestIndexDatabase_GetOrCreateSeriesID(t *testing.T) {
-	seriesID1, isCreate, err := indexDB.GetOrCreateSeriesID(metric.ID(10), uint64(1234))
+	seriesID1, isCreate, err := indexDB.GetOrCreateSeriesID("ns", "metric", metric.ID(10), uint64(1234), models.NewDefaultLimits())
 	assert.Equal(t, uint32(1), seriesID1)
 	assert.True(t, isCreate)
 	assert.NoError(t, err)
@@ -76,13 +78,13 @@ func TestIndexDatabase_GetOrCreateSeriesID(t *testing.T) {
 
 	indexDB, err = indexdb.NewIndexDatabase(
 		context.TODO(),
-		path.Join(dataPath, "meta_db"),
+		filepath.Join(dataPath, "meta_db"),
 		metadata, forwardFamily,
 		invertedFamily)
 	assert.NoError(t, err)
 	assert.NotNil(t, indexDB)
 
-	seriesID2, isCreate, err := indexDB.GetOrCreateSeriesID(metric.ID(10), uint64(5678))
+	seriesID2, isCreate, err := indexDB.GetOrCreateSeriesID("ns", "metric", metric.ID(10), uint64(5678), models.NewDefaultLimits())
 	assert.True(t, seriesID2 > seriesID1)
 	assert.True(t, isCreate)
 	assert.NoError(t, err)
@@ -123,13 +125,13 @@ func newIndexDatabase() (err error) {
 	if err != nil {
 		return err
 	}
-	metadata, err = metadb.NewMetadata(context.TODO(), "test_db", path.Join(dataPath, "metadata"), tagMetaFamily)
+	metadata, err = metadb.NewMetadata(context.TODO(), "test_db", filepath.Join(dataPath, "metadata"), tagMetaFamily)
 	if err != nil {
 		return err
 	}
 	indexDB, err = indexdb.NewIndexDatabase(
 		context.TODO(),
-		path.Join(dataPath, "meta_db"),
+		filepath.Join(dataPath, "meta_db"),
 		metadata, forwardFamily,
 		invertedFamily)
 	if err != nil {

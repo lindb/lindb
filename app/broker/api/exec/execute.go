@@ -24,11 +24,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	httppkg "github.com/lindb/common/pkg/http"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/app/broker/api/exec/command"
 	depspkg "github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
-	httppkg "github.com/lindb/lindb/pkg/http"
-	"github.com/lindb/lindb/pkg/logger"
 	sqlpkg "github.com/lindb/lindb/sql"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
@@ -57,13 +59,14 @@ var (
 		stmtpkg.MetricMetadataStatement: command.MetricMetadataCommand,
 		stmtpkg.QueryStatement:          command.QueryCommand,
 		stmtpkg.RequestStatement:        command.RequestCommand,
+		stmtpkg.LimitStatement:          command.LimitCommand,
 	}
 )
 
 type ExecuteAPI struct {
 	deps *depspkg.HTTPDeps
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewExecuteAPI creates a lin query language execution api.
@@ -123,9 +126,14 @@ func (e *ExecuteAPI) execute(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
+	c.Set(constants.CurrentSQL, &param)
 	stmt, err := sqlParseFn(param.SQL)
 	if err != nil {
 		return err
+	}
+
+	if stmt == nil {
+		return errors.New("can't parse lin query language")
 	}
 
 	if commandFn, ok := commands[stmt.StatementType()]; ok {

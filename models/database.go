@@ -23,6 +23,8 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 
+	"github.com/lindb/common/models"
+
 	"github.com/lindb/lindb/pkg/option"
 )
 
@@ -34,7 +36,7 @@ func (dbs DatabaseNames) ToTable() (rows int, tableStr string) {
 	if len(dbs) == 0 {
 		return 0, ""
 	}
-	writer := NewTableFormatter()
+	writer := models.NewTableFormatter()
 	writer.AppendHeader(table.Row{"Database"})
 	for i := range dbs {
 		r := dbs[i]
@@ -51,7 +53,7 @@ func (dbs Databases) ToTable() (rows int, tableStr string) {
 	if len(dbs) == 0 {
 		return 0, ""
 	}
-	writer := NewTableFormatter()
+	writer := models.NewTableFormatter()
 	writer.AppendHeader(table.Row{"Name", "Storage", "Desc"})
 	for i := range dbs {
 		r := dbs[i]
@@ -73,7 +75,28 @@ func ParseShardID(shard string) ShardID {
 	return ShardID(shardID)
 }
 
-// Database defines database config, database can include multi-cluster.
+// DatabaseConfig represents a database configuration about config and families
+type DatabaseConfig struct {
+	ShardIDs []ShardID              `toml:"shardIDs" json:"shardIDs"`
+	Option   *option.DatabaseOption `toml:"option" json:"option"`
+}
+
+// Router represents the router of database.
+type Router struct {
+	Key      string   `json:"key" validate:"required"`    // routing key
+	Values   []string `json:"values" validate:"required"` // routing values
+	Broker   string   `json:"broker" validate:"required"` // target broker
+	Database string   `json:"database,omitempty"`         // target database
+}
+
+// LogicDatabase defines database logic config, database can include multi-cluster.
+type LogicDatabase struct {
+	Name    string   `json:"name" validate:"required"`    // database's name
+	Routers []Router `json:"routers" validate:"required"` // database router
+	Desc    string   `json:"desc,omitempty"`
+}
+
+// Database defines database config.
 type Database struct {
 	Name          string                 `json:"name" validate:"required"`      // database's name
 	Storage       string                 `json:"storage" validate:"required"`   // storage cluster's name
@@ -115,6 +138,8 @@ func (r Replica) Contain(nodeID NodeID) bool {
 type ShardAssignment struct {
 	Name   string               `json:"name"` // database's name
 	Shards map[ShardID]*Replica `json:"shards"`
+
+	replicaFactor int // for storage recover
 }
 
 // NewShardAssignment returns empty shard assignment instance.
@@ -132,5 +157,16 @@ func (s *ShardAssignment) AddReplica(shardID ShardID, replicaID NodeID) {
 		replica = &Replica{}
 		s.Shards[shardID] = replica
 	}
-	replica.Replicas = append(replica.Replicas, replicaID)
+	if !replica.Contain(replicaID) {
+		replica.Replicas = append(replica.Replicas, replicaID)
+	}
+
+	if len(replica.Replicas) > s.replicaFactor {
+		s.replicaFactor = len(replica.Replicas)
+	}
+}
+
+// GetReplicaFactor returns the factor of replica.
+func (s *ShardAssignment) GetReplicaFactor() int {
+	return s.replicaFactor
 }

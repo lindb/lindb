@@ -39,14 +39,16 @@ const (
 	MasterMetadata
 	// StorageMetadata represent storage metadata.
 	StorageMetadata
+	// RootMetadata represent root metadata.
+	RootMetadata
 )
 
 // Metadata represent show metadata lin query language.
 type Metadata struct {
 	MetadataType MetadataType
-	Type         string     // broker/master/storage will be used.
+	Type         string     // root/broker/master/storage will be used.
 	Source       SourceType // source(from state repo or state manager).
-	StorageName  string     // storage will be used.
+	ClusterName  string     // storage/broker will be used.
 }
 
 // StatementType returns metadata lin query language statement type.

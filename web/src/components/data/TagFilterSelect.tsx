@@ -6,7 +6,6 @@ ownership. LinDB licenses this file to you under
 the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
  
 Unless required by applicable law or agreed to in writing,
@@ -16,13 +15,20 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import React, { useEffect, useState, useRef, MutableRefObject } from "react";
+import React, {
+  useEffect,
+  useState,
+  useRef,
+  MutableRefObject,
+  useContext,
+} from "react";
 import { Popover, Form, Button, SplitButtonGroup } from "@douyinfe/semi-ui";
 import { IconFilter } from "@douyinfe/semi-icons";
 import { TagValueSelect } from "@src/components";
 import { ExecService } from "@src/services";
 import { Metadata } from "@src/models";
 import { URLStore } from "@src/stores";
+import { UIContext } from "@src/context/UIContextProvider";
 
 export default function TagFilterSelect(props: {
   db: string;
@@ -33,18 +39,22 @@ export default function TagFilterSelect(props: {
   const { db, namespace, metric } = props;
   const [tagKeys, setTagKeys] = useState<string[]>([]);
   const [visible, setVisible] = useState(false);
+  const { locale } = useContext(UIContext);
+  const { Common } = locale;
 
   useEffect(() => {
     const fetchTagKeys = async () => {
       const metadata = await ExecService.exec<Metadata>({
         db: db,
-        sql: `show tag keys from '${metric}'`,
+        sql: `show tag keys from '${metric}'${
+          namespace ? ` on '${namespace}'` : ""
+        }`,
       });
       const tagKeys = (metadata as Metadata).values || [];
       setTagKeys(tagKeys as string[]);
     };
     fetchTagKeys();
-  }, [db, metric]);
+  }, [db, metric, namespace]);
 
   return (
     <Popover
@@ -54,7 +64,7 @@ export default function TagFilterSelect(props: {
       content={
         <>
           <Form
-            getFormApi={(api) => (formApi.current = api)}
+            getFormApi={(api: any) => (formApi.current = api)}
             className="lin-tag-filter"
           >
             {tagKeys.map((tagKey: string) => (
@@ -65,7 +75,9 @@ export default function TagFilterSelect(props: {
                     db: db,
                     tagKey: tagKey,
                     label: tagKey,
-                    sql: `show tag values from '${metric}' with key='${tagKey}'`,
+                    sql: `show tag values from '${metric}' ${
+                      namespace ? ` on '${namespace}'` : ""
+                    } with key='${tagKey}'`,
                   }}
                   labelPosition="inset"
                 />
@@ -76,7 +88,7 @@ export default function TagFilterSelect(props: {
             style={{ marginTop: 4, width: "100%", textAlign: "right" }}
           >
             <Button type="tertiary" onClick={() => setVisible(false)}>
-              Cancel
+              {Common.cancel}
             </Button>
             <Button
               type="secondary"
@@ -87,7 +99,7 @@ export default function TagFilterSelect(props: {
                 setVisible(false);
               }}
             >
-              OK
+              {Common.ok}
             </Button>
           </SplitButtonGroup>
         </>

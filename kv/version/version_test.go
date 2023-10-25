@@ -204,10 +204,10 @@ func TestVersion_RollupJob(t *testing.T) {
 	v.AddRollupFile(10, 3)
 	v.DeleteRollupFile(10, 3)
 	assert.Empty(t, v.GetRollupFiles())
-	v.AddReferenceFile(10, 100)
-	v.AddReferenceFile(10, 10)
-	v.DeleteReferenceFile(10, 10)
-	assert.Equal(t, map[FamilyID][]table.FileNumber{10: {100}}, v.GetReferenceFiles())
+	v.AddReferenceFile("20230202", 10, 100)
+	v.AddReferenceFile("20230202", 10, 10)
+	v.DeleteReferenceFile("20230202", 10, 10)
+	assert.Equal(t, map[FamilyID][]table.FileNumber{10: {100}}, v.GetReferenceFiles("20230202"))
 }
 
 func TestVersion_Sequence(t *testing.T) {
@@ -240,7 +240,7 @@ func TestVersion_Clone(t *testing.T) {
 	v.AddFile(0, fileMeta)
 	v.Sequence(10, 100)
 	v.AddRollupFile(1, timeutil.Interval(10))
-	v.AddReferenceFile(10, 10)
+	v.AddReferenceFile("20230202", 10, 10)
 
 	newV := v.Clone()
 	v1 := v.(*version)

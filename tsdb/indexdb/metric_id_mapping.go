@@ -18,10 +18,11 @@
 package indexdb
 
 import (
-	"go.uber.org/atomic"
-
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/unique"
+	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/metric"
 )
 
@@ -35,15 +36,11 @@ type MetricIDMapping interface {
 	// GetSeriesID gets series id by tags hash, if exist return true.
 	GetSeriesID(tagsHash uint64) (seriesID uint32, ok bool)
 	// GenSeriesID generates series id by tags hash, then cache new series id.
-	GenSeriesID(tagsHash uint64) (seriesID uint32)
+	GenSeriesID(namespace, metricName string, tagsHash uint64, limit *models.Limits) (seriesID uint32, err error)
 	// AddSeriesID adds the series id init cache.
 	AddSeriesID(tagsHash uint64, seriesID uint32)
 	// SeriesSequence returns series sequence.
 	SeriesSequence() unique.Sequence
-	// SetMaxSeriesIDsLimit sets the max series ids limit.
-	SetMaxSeriesIDsLimit(limit uint32)
-	// GetMaxSeriesIDsLimit returns the max series ids limit.
-	GetMaxSeriesIDsLimit() uint32
 }
 
 // metricIDMapping implements MetricIDMapping interface.
@@ -53,17 +50,14 @@ type metricIDMapping struct {
 	// purpose of this index is used for fast writing
 	hash2SeriesID map[uint64]uint32
 	idSequence    unique.Sequence // first value is 1
-	// TODO need remove
-	maxSeriesIDsLimit atomic.Uint32 // maximum number of combinations of series ids
 }
 
 // newMetricIDMapping returns a new metric id mapping.
 func newMetricIDMapping(metricID metric.ID, sequence uint32) MetricIDMapping {
 	return &metricIDMapping{
-		metricID:          metricID,
-		hash2SeriesID:     make(map[uint64]uint32),
-		idSequence:        unique.NewSequence(sequence, config.GlobalStorageConfig().TSDB.SeriesSequenceCache),
-		maxSeriesIDsLimit: *atomic.NewUint32(uint32(config.GlobalStorageConfig().TSDB.MaxSeriesIDsNumber)),
+		metricID:      metricID,
+		hash2SeriesID: make(map[uint64]uint32),
+		idSequence:    unique.NewSequence(sequence, config.GlobalStorageConfig().TSDB.SeriesSequenceCache),
 	}
 }
 
@@ -84,30 +78,21 @@ func (mim *metricIDMapping) AddSeriesID(tagsHash uint64, seriesID uint32) {
 }
 
 // GenSeriesID generates series id by tags hash, then cache new series id.
-func (mim *metricIDMapping) GenSeriesID(tagsHash uint64) (seriesID uint32) {
+func (mim *metricIDMapping) GenSeriesID(namespace, metricName string,
+	tagsHash uint64, limits *models.Limits) (seriesID uint32, err error) {
+	seriesLimit := limits.GetSeriesLimit(namespace, metricName)
 	// generate new series id
-	if mim.idSequence.Current() >= mim.maxSeriesIDsLimit.Load() {
-		// FIXME too many series id, use max limit????
-		seriesID = mim.maxSeriesIDsLimit.Load()
+	if seriesLimit != 0 && mim.idSequence.Current() >= seriesLimit {
+		return series.EmptySeriesID, constants.ErrTooManySeries
 	} else {
 		seriesID = mim.idSequence.Next()
 	}
 	// cache it
 	mim.hash2SeriesID[tagsHash] = seriesID
-	return seriesID
+	return seriesID, nil
 }
 
 // SeriesSequence returns series sequence.
 func (mim *metricIDMapping) SeriesSequence() unique.Sequence {
 	return mim.idSequence
-}
-
-// SetMaxSeriesIDsLimit sets the max series ids limit.
-func (mim *metricIDMapping) SetMaxSeriesIDsLimit(limit uint32) {
-	mim.maxSeriesIDsLimit.Store(limit)
-}
-
-// GetMaxSeriesIDsLimit return the max series ids limit without race condition.
-func (mim *metricIDMapping) GetMaxSeriesIDsLimit() uint32 {
-	return mim.maxSeriesIDsLimit.Load()
 }

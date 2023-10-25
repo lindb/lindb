@@ -26,10 +26,11 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/metric"
 )
@@ -64,7 +65,7 @@ type (
 
 		databaseChannels databaseChannels
 
-		logger *logger.Logger
+		logger logger.Logger
 	}
 )
 

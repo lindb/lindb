@@ -20,7 +20,7 @@ package queue
 import (
 	"fmt"
 	"math/rand"
-	"path"
+	"path/filepath"
 	"strconv"
 	"sync"
 	"testing"
@@ -29,7 +29,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/common/pkg/fileutil"
+
 	"github.com/lindb/lindb/pkg/queue/page"
 )
 
@@ -50,7 +51,7 @@ func randomString(length int) string {
 
 func TestFanOutQueue_New(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	dir := path.Join(t.TempDir(), t.Name())
+	dir := filepath.Join(t.TempDir(), t.Name())
 
 	defer func() {
 		newQueueFunc = NewQueue
@@ -73,6 +74,7 @@ func TestFanOutQueue_New(t *testing.T) {
 	// case 2: create consumerGroup path err
 	queue := NewMockQueue(ctrl)
 	queue.EXPECT().Close().AnyTimes()
+	queue.EXPECT().Signal().AnyTimes()
 
 	newQueueFunc = func(dirPath string, dataSizeLimit int64) (Queue, error) {
 		return queue, nil
@@ -122,7 +124,7 @@ func TestFanOutQueue_New(t *testing.T) {
 }
 
 func TestFanOutQueue_GetOrCreateConsumerGroup(t *testing.T) {
-	dir := path.Join(t.TempDir(), t.Name())
+	dir := filepath.Join(t.TempDir(), t.Name())
 
 	defer func() {
 		newConsumerGroupFunc = NewConsumerGroup
@@ -156,7 +158,7 @@ func TestFanOutQueue_GetOrCreateConsumerGroup(t *testing.T) {
 }
 
 func TestFanoutQueue_StopConsumerGroup(t *testing.T) {
-	dir := path.Join(t.TempDir(), t.Name())
+	dir := filepath.Join(t.TempDir(), t.Name())
 	fq, err := NewFanOutQueue(dir, 1024)
 	assert.NoError(t, err)
 	assert.NotNil(t, fq)
@@ -196,7 +198,7 @@ func TestFanoutQueue_StopConsumerGroup(t *testing.T) {
 
 func TestFanOutQueue_Sync(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	dir := path.Join(t.TempDir(), t.Name())
+	dir := filepath.Join(t.TempDir(), t.Name())
 
 	defer ctrl.Finish()
 
@@ -243,7 +245,7 @@ func TestFanOutQueue_Sync(t *testing.T) {
 
 func TestFanOutQueue_Close(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	dir := path.Join(t.TempDir(), t.Name())
+	dir := filepath.Join(t.TempDir(), t.Name())
 
 	defer ctrl.Finish()
 
@@ -266,7 +268,7 @@ func TestFanOutQueue_Close(t *testing.T) {
 }
 
 func TestFanOutQueue_multiple_consumer(t *testing.T) {
-	dir := path.Join(t.TempDir(), t.Name())
+	dir := filepath.Join(t.TempDir(), t.Name())
 
 	fq, err := NewFanOutQueue(dir, 1024)
 	assert.NoError(t, err)
@@ -286,7 +288,7 @@ func TestFanOutQueue_multiple_consumer(t *testing.T) {
 }
 
 func TestFanOutQueue_SetAppendedSeq(t *testing.T) {
-	dir := path.Join(t.TempDir(), t.Name())
+	dir := filepath.Join(t.TempDir(), t.Name())
 
 	fq, err := NewFanOutQueue(dir, 1024)
 	assert.NoError(t, err)
@@ -325,7 +327,7 @@ func TestFanOutQueue_SetAppendedSeq(t *testing.T) {
 }
 
 func TestFanOutQueue_concurrent_read(t *testing.T) {
-	dir := path.Join(t.TempDir(), t.Name())
+	dir := filepath.Join(t.TempDir(), t.Name())
 
 	msgSize := 1024
 	dataFileSize := int64(512)

@@ -21,14 +21,17 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/pkg/fileutil"
+
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/bufioutil"
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
 
@@ -210,7 +213,7 @@ func TestCommitFamilyEditLog(t *testing.T) {
 	editLog.Add(NewDeleteFile(1, 123))
 	editLog.Add(CreateSequence(1, 10))
 	editLog.Add(CreateNewRollupFile(1, 10000))
-	editLog.Add(CreateNewReferenceFile(1, 10))
+	editLog.Add(CreateNewReferenceFile("20230202", 1, 10))
 	err = vs.CommitFamilyEditLog("f", editLog)
 	assert.Nil(t, err, "commit family edit log error")
 
@@ -230,7 +233,7 @@ func TestCommitFamilyEditLog(t *testing.T) {
 		assert.Equal(t, nf.file, current.GetAllFiles()[0], "cannot recover family version data")
 		assert.Equal(t, int64(3+i), vs1.nextFileNumber.Load(), "recover file number error")
 		assert.Equal(t, map[int32]int64{1: 10}, current.GetSequences())
-		assert.Equal(t, map[FamilyID][]table.FileNumber{1: {10}}, current.GetReferenceFiles())
+		assert.Equal(t, map[FamilyID][]table.FileNumber{1: {10}}, current.GetReferenceFiles("20230202"))
 		assert.Equal(t, map[table.FileNumber][]timeutil.Interval{1: {10000}}, current.GetRollupFiles())
 
 		snapshot.Close()
@@ -303,6 +306,79 @@ func TestStoreVersionSet_Destroy(t *testing.T) {
 	manifest.EXPECT().Close().Return(fmt.Errorf("err"))
 	err := vs.Destroy()
 	assert.Error(t, err)
+}
+
+func TestStoreVersionSet(t *testing.T) {
+	path := t.TempDir()
+	cache := table.NewCache(path, time.Minute)
+	vs := NewStoreVersionSet(path, cache, 2)
+	err := vs.Recover()
+	assert.NoError(t, err)
+	defer func() {
+		assert.NoError(t, vs.Destroy())
+	}()
+	familyID := FamilyID(10)
+	familyName := "10"
+	fv := vs.CreateFamilyVersion(familyName, familyID)
+	editLog := NewEditLog(familyID)
+	editLog.Add(CreateNewRollupFile(table.FileNumber(10), timeutil.Interval(10000)))
+	editLog.Add(CreateNewRollupFile(table.FileNumber(10), timeutil.Interval(30000)))
+	err = fv.GetVersionSet().CommitFamilyEditLog(familyName, editLog)
+	assert.NoError(t, err)
+
+	editLog = NewEditLog(familyID)
+	editLog.Add(CreateNewFile(0, &FileMeta{
+		fileNumber: 1,
+		minKey:     0,
+		maxKey:     10,
+		fileSize:   512,
+	}))
+	err = fv.GetVersionSet().CommitFamilyEditLog(familyName, editLog)
+	assert.NoError(t, err)
+	assert.Len(t, fv.GetLiveRollupFiles(), 1)
+}
+
+func TestStoreVersionSet_NextFileNumber(t *testing.T) {
+	path := t.TempDir()
+	cache := table.NewCache(path, time.Minute)
+	vs := NewStoreVersionSet(path, cache, 2)
+	err := vs.Recover()
+	assert.NoError(t, err)
+	defer func() {
+		assert.NoError(t, vs.Destroy())
+	}()
+	familyID := FamilyID(10)
+	familyName := "10"
+	fv := vs.CreateFamilyVersion(familyName, familyID)
+	assert.NotNil(t, fv)
+	var wait sync.WaitGroup
+	var rs sync.Map
+	total := 24
+	wait.Add(total)
+	for i := 0; i < total; i++ {
+		go func() {
+			defer wait.Done()
+			fn := vs.NextFileNumber()
+			editLog := NewEditLog(familyID)
+			editLog.Add(CreateNewFile(0, &FileMeta{
+				fileNumber: fn,
+				minKey:     0,
+				maxKey:     10,
+				fileSize:   10,
+			}))
+			time.Sleep(time.Millisecond)
+			err := vs.CommitFamilyEditLog(familyName, editLog)
+			assert.NoError(t, err)
+			rs.Store(fn.Int64(), fn.Int64())
+		}()
+	}
+	wait.Wait()
+	c := 0
+	rs.Range(func(_, _ any) bool {
+		c++
+		return true
+	})
+	assert.Equal(t, total, c)
 }
 
 func initVersionSetTestData() {

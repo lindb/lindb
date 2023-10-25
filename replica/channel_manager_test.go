@@ -20,28 +20,28 @@ package replica
 import (
 	"context"
 	"os"
-	"path"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/ltoml"
+	"github.com/lindb/common/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/option"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/metric"
 )
 
 func TestChannelManager_GetChannel(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	dirPath := path.Join(os.TempDir(), "test_channel_manager")
+	dirPath := filepath.Join(os.TempDir(), "test_channel_manager")
 	defer func() {
 		if err := os.RemoveAll(dirPath); err != nil {
 			t.Error(err)
@@ -74,7 +74,7 @@ func TestChannelManager_GetChannel(t *testing.T) {
 
 func TestChannelManager_Write(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	dirPath := path.Join(os.TempDir(), "test_channel_manager")
+	dirPath := filepath.Join(os.TempDir(), "test_channel_manager")
 	defer func() {
 		if err := os.RemoveAll(dirPath); err != nil {
 			t.Error(err)
@@ -154,7 +154,7 @@ func TestChannelManager_handleShardStateChangeEvent(t *testing.T) {
 
 	for _, tt := range cases {
 		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			if tt.prepare != nil {
 				tt.prepare()
 			}
@@ -190,7 +190,7 @@ func TestChannelManager_gcWriteFamilies(t *testing.T) {
 }
 
 func mockBrokerRows(t *testing.T) *metric.BrokerBatchRows {
-	converter := metric.NewProtoConverter()
+	converter := metric.NewProtoConverter(models.NewDefaultLimits())
 	var brokerRow metric.BrokerRow
 	assert.NoError(t, converter.ConvertTo(&protoMetricsV1.Metric{
 		Name:      "cpu",

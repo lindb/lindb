@@ -25,7 +25,8 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 
-	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/common/models"
+	"github.com/lindb/common/pkg/timeutil"
 )
 
 // NodeID represents node identifier.
@@ -66,7 +67,7 @@ func (n StatelessNodes) ToTable() (rows int, tableStr string) {
 	if len(n) == 0 {
 		return 0, ""
 	}
-	writer := NewTableFormatter()
+	writer := models.NewTableFormatter()
 	writer.AppendHeader(table.Row{"Online time", "Host IP", "Host Name", "Port(HTTP/GRPC)", "Version"})
 	for i := range n {
 		r := n[i]
@@ -81,7 +82,7 @@ func (n StatelessNodes) ToTable() (rows int, tableStr string) {
 type StatelessNode struct {
 	HostIP   string `json:"hostIp"`
 	HostName string `json:"hostName"`
-	GRPCPort uint16 `json:"grpcPort"`
+	GRPCPort uint16 `json:"grpcPort,omitempty"`
 	HTTPPort uint16 `json:"httpPort"`
 
 	Version    string `json:"version"`
@@ -90,7 +91,10 @@ type StatelessNode struct {
 
 // Indicator returns node indicator's string.
 func (n *StatelessNode) Indicator() string {
-	return fmt.Sprintf("%s:%d", n.HostIP, n.GRPCPort)
+	if n.GRPCPort > 0 {
+		return fmt.Sprintf("%s:%d", n.HostIP, n.GRPCPort)
+	}
+	return fmt.Sprintf("%s:%d", n.HostIP, n.HTTPPort)
 }
 
 func (n *StatelessNode) HTTPAddress() string {
@@ -130,7 +134,7 @@ type Master struct {
 
 // ToTable returns master info as table.
 func (m *Master) ToTable() (rows int, tableStr string) {
-	writer := NewTableFormatter()
+	writer := models.NewTableFormatter()
 	writer.AppendHeader(table.Row{"Desc", "Value"})
 	writer.AppendRow(table.Row{"Elect Time", timeutil.FormatTimestamp(m.ElectTime, timeutil.DataTimeFormat2)})
 	writer.AppendRow(table.Row{"Online Time", timeutil.FormatTimestamp(m.Node.OnlineTime, timeutil.DataTimeFormat2)})

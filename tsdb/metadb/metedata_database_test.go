@@ -28,6 +28,7 @@ import (
 	commonseries "github.com/lindb/common/series"
 
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
@@ -545,7 +546,7 @@ func TestMetadataDatabase_GenMetricID(t *testing.T) {
 			name:       "get metric metadata failure",
 			metricName: "name",
 			prepare: func() {
-				mockBackend.EXPECT().getOrCreateMetricMetadata("ns-1", "name").Return(nil, fmt.Errorf("err"))
+				mockBackend.EXPECT().getOrCreateMetricMetadata("ns-1", "name", gomock.Any()).Return(nil, fmt.Errorf("err"))
 			},
 			out: struct {
 				id  metric.ID
@@ -558,7 +559,7 @@ func TestMetadataDatabase_GenMetricID(t *testing.T) {
 			prepare: func() {
 				metadata := NewMockMetricMetadata(ctrl)
 				metadata.EXPECT().getMetricID().Return(metric.ID(3))
-				mockBackend.EXPECT().getOrCreateMetricMetadata("ns-1", "name").Return(metadata, nil)
+				mockBackend.EXPECT().getOrCreateMetricMetadata("ns-1", "name", gomock.Any()).Return(metadata, nil)
 			},
 			out: struct {
 				id  metric.ID
@@ -573,7 +574,7 @@ func TestMetadataDatabase_GenMetricID(t *testing.T) {
 			if tt.prepare != nil {
 				tt.prepare()
 			}
-			id, err := db.GenMetricID("ns-1", tt.metricName)
+			id, err := db.GenMetricID("ns-1", tt.metricName, models.NewDefaultLimits())
 			assert.Equal(t, tt.out.id, id)
 			assert.Equal(t, tt.out.err, err)
 		})
@@ -645,7 +646,7 @@ func TestMetadataDatabase_GenFieldID(t *testing.T) {
 			f:          field.Meta{Name: "sum", Type: field.SumField},
 			prepare: func() {
 				meta.EXPECT().getField(field.Name("sum")).Return(field.Meta{}, false)
-				meta.EXPECT().createField(gomock.Any(), gomock.Any()).Return(field.Meta{}, fmt.Errorf("err"))
+				meta.EXPECT().createField(gomock.Any(), gomock.Any(), gomock.Any()).Return(field.Meta{}, fmt.Errorf("err"))
 			},
 			out: struct {
 				id  field.ID
@@ -658,7 +659,7 @@ func TestMetadataDatabase_GenFieldID(t *testing.T) {
 			f:          field.Meta{Name: "sum", Type: field.SumField},
 			prepare: func() {
 				meta.EXPECT().getField(field.Name("sum")).Return(field.Meta{}, false)
-				meta.EXPECT().createField(gomock.Any(), gomock.Any()).Return(field.Meta{}, nil)
+				meta.EXPECT().createField(gomock.Any(), gomock.Any(), gomock.Any()).Return(field.Meta{}, nil)
 				meta.EXPECT().getMetricID().Return(metric.ID(3))
 				mockBackend.EXPECT().saveField(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 			},
@@ -673,7 +674,7 @@ func TestMetadataDatabase_GenFieldID(t *testing.T) {
 			f:          field.Meta{Name: "sum", Type: field.SumField},
 			prepare: func() {
 				meta.EXPECT().getField(field.Name("sum")).Return(field.Meta{}, false)
-				meta.EXPECT().createField(gomock.Any(), gomock.Any()).Return(field.Meta{ID: 3}, nil)
+				meta.EXPECT().createField(gomock.Any(), gomock.Any(), gomock.Any()).Return(field.Meta{ID: 3}, nil)
 				meta.EXPECT().getMetricID().Return(metric.ID(3))
 				mockBackend.EXPECT().saveField(gomock.Any(), gomock.Any()).Return(nil)
 			},
@@ -691,7 +692,7 @@ func TestMetadataDatabase_GenFieldID(t *testing.T) {
 				tt.prepare()
 			}
 
-			id, err := db.GenFieldID("ns-1", tt.metricName, tt.f.Name, tt.f.Type)
+			id, err := db.GenFieldID("ns-1", tt.metricName, tt.f.Name, tt.f.Type, models.NewDefaultLimits())
 			assert.Equal(t, tt.out.id, id)
 			assert.Equal(t, tt.out.err, err)
 		})
@@ -739,7 +740,7 @@ func TestMetadataDatabase_GenTagKeyID(t *testing.T) {
 			metricName: "cache",
 			prepare: func() {
 				meta.EXPECT().getTagKeyID(gomock.Any()).Return(tag.EmptyTagKeyID, false)
-				meta.EXPECT().checkTagKey(gomock.Any()).Return(fmt.Errorf("err"))
+				meta.EXPECT().checkTagKey(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 			},
 			out: struct {
 				id  tag.KeyID
@@ -751,7 +752,7 @@ func TestMetadataDatabase_GenTagKeyID(t *testing.T) {
 			metricName: "cache",
 			prepare: func() {
 				meta.EXPECT().getTagKeyID(gomock.Any()).Return(tag.EmptyTagKeyID, false)
-				meta.EXPECT().checkTagKey(gomock.Any()).Return(nil)
+				meta.EXPECT().checkTagKey(gomock.Any(), gomock.Any()).Return(nil)
 				meta.EXPECT().getMetricID().Return(metric.ID(3))
 				mockBackend.EXPECT().saveTagKey(gomock.Any(), gomock.Any()).Return(tag.EmptyTagKeyID, fmt.Errorf("err"))
 			},
@@ -765,7 +766,7 @@ func TestMetadataDatabase_GenTagKeyID(t *testing.T) {
 			metricName: "cache",
 			prepare: func() {
 				meta.EXPECT().getTagKeyID(gomock.Any()).Return(tag.EmptyTagKeyID, false)
-				meta.EXPECT().checkTagKey(gomock.Any()).Return(nil)
+				meta.EXPECT().checkTagKey(gomock.Any(), gomock.Any()).Return(nil)
 				meta.EXPECT().getMetricID().Return(metric.ID(3))
 				mockBackend.EXPECT().saveTagKey(gomock.Any(), gomock.Any()).Return(tag.KeyID(3), nil)
 				meta.EXPECT().createTagKey(gomock.Any(), gomock.Any())
@@ -784,7 +785,7 @@ func TestMetadataDatabase_GenTagKeyID(t *testing.T) {
 				tt.prepare()
 			}
 
-			id, err := db.GenTagKeyID("ns-1", tt.metricName, "key")
+			id, err := db.GenTagKeyID("ns-1", tt.metricName, "key", models.NewDefaultLimits())
 			assert.Equal(t, tt.out.id, id)
 			assert.Equal(t, tt.out.err, err)
 		})

@@ -87,6 +87,7 @@ func (stage *shardScanStage) Plan() PlanNode {
 		// group context find task maybe change shardExecuteContext.SeriesIDsAfterFiltering value.
 		execPlan.AddChild(NewPlanNodeWithIgnore(operator.NewGroupingContextBuild(shardExecuteCtx, shard)))
 	}
+	execPlan.AddChild(NewPlanNodeWithIgnore(operator.NewSeriesLimit(shardExecuteCtx, shard)))
 	return execPlan
 }
 

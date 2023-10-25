@@ -6,7 +6,6 @@ ownership. LinDB licenses this file to you under
 the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
  
 Unless required by applicable law or agreed to in writing,
@@ -24,7 +23,6 @@ import {
   IconChecklistStroked,
   IconSearchStroked,
   IconSendStroked,
-  IconShareStroked,
   IconSettingStroked,
   IconMonitorStroked,
 } from "@douyinfe/semi-icons";
@@ -40,13 +38,17 @@ import {
   DashboardView,
   LogView,
   DatabaseConfig,
+  DatabaseLimits,
   DatabaseList,
   StorageConfig,
   StorageList,
   StorageOverview,
   MetadataExplore,
-  MultipleIDCList,
   RequestView,
+  BrokerList,
+  BrokerConfig,
+  LogicDatabaseList,
+  LogicDatabaseConfig,
 } from "@src/pages";
 import * as _ from "lodash-es";
 import React from "react";
@@ -58,6 +60,7 @@ export const routes = [
     path: Route.Overview,
     icon: <IconComponentPlaceholderStroked size="large" />,
     content: <Overview />,
+    help: "/guide/admin-ui/overview.html",
     items: [
       {
         inner: true,
@@ -65,6 +68,7 @@ export const routes = [
         text: "Storage",
         path: Route.StorageOverview,
         content: <StorageOverview />,
+        help: "/guide/admin-ui/overview.html#storage-cluster-status",
       },
       {
         inner: true,
@@ -72,6 +76,7 @@ export const routes = [
         text: "Configuration",
         path: Route.ConfigurationView,
         content: <ConfigurationView />,
+        help: "/guide/admin-ui/overview.html#node-configuration",
       },
     ],
   },
@@ -80,13 +85,15 @@ export const routes = [
     path: Route.Search,
     icon: <IconSearchStroked size="large" />,
     content: <DataSearch />,
+    help: "/guide/admin-ui/search.html",
   },
   {
     text: "Explore",
     path: Route.Explore,
     timePicker: true,
-    icon: <Icon icon="iconExplore" style={{ fontSize: 20 }} />,
+    icon: <Icon icon="iconexplore" style={{ fontSize: 20 }} />,
     content: <DataExplore />,
+    help: "/guide/admin-ui/explore.html",
   },
   {
     text: "Monitoring",
@@ -101,24 +108,29 @@ export const routes = [
           <DashboardView variates={CommonVariates} dashboards={Dashboards} />
         ),
         timePicker: true,
+        help: "/guide/admin-ui/monitoring.html#dashboard",
       },
       {
         text: "Replication",
+        roles: ["Broker"],
         path: Route.MonitoringReplication,
         icon: <IconElementStroked size="large" />,
         content: <ReplicationView />,
+        help: "/guide/admin-ui/monitoring.html#replication",
       },
       {
         text: "Request",
         path: Route.MonitoringRequest,
         icon: <IconSendStroked size="large" />,
         content: <RequestView />,
+        help: "/guide/admin-ui/monitoring.html#request",
       },
       {
         text: "Log View",
         path: Route.MonitoringLogs,
         icon: <IconChecklistStroked size="large" />,
         content: <LogView />,
+        help: "/guide/admin-ui/monitoring.html#log-view",
       },
     ],
   },
@@ -130,8 +142,10 @@ export const routes = [
       {
         text: "Storage",
         path: Route.MetadataStorage,
-        icon: <Icon icon="iconts-tubiao_APPCluster" style={{ fontSize: 20 }} />,
+        roles: ["Broker"],
+        icon: <Icon icon="iconcluster" style={{ fontSize: 20 }} />,
         content: <StorageList />,
+        help: "/guide/admin-ui/metadata.html#storage",
         items: [
           {
             inner: true,
@@ -139,14 +153,36 @@ export const routes = [
             text: "Configuration",
             path: Route.MetadataStorageConfig,
             content: <StorageConfig />,
+            help: "/guide/admin-ui/metadata.html#storage",
+          },
+        ],
+      },
+      {
+        text: "Broker",
+        path: Route.MetadataBroker,
+        roles: ["Root"],
+        icon: <Icon icon="iconcluster" style={{ fontSize: 20 }} />,
+        content: <BrokerList />,
+        help: "/guide/admin-ui/metadata.html#storage",
+        items: [
+          {
+            roles: ["Root"],
+            inner: true,
+            itemKey: "Metadata/Broker/Configuration",
+            text: "Configuration",
+            path: Route.MetadataBrokerConfig,
+            content: <BrokerConfig />,
+            help: "/guide/admin-ui/metadata.html#storage",
           },
         ],
       },
       {
         text: "Database",
         path: Route.MetadataDatabase,
+        roles: ["Broker"],
         icon: <Icon icon="icondatabase" style={{ fontSize: 20 }} />,
         content: <DatabaseList />,
+        help: "/guide/admin-ui/metadata.html#database",
         items: [
           {
             inner: true,
@@ -154,6 +190,34 @@ export const routes = [
             text: "Configuration",
             path: Route.MetadataDatabaseConfig,
             content: <DatabaseConfig />,
+            help: "/guide/admin-ui/metadata.html#database",
+          },
+          {
+            inner: true,
+            itemKey: "Metadata/Database/Limits",
+            text: "Limits",
+            path: Route.MetadataDatabaseLimits,
+            content: <DatabaseLimits />,
+            help: "/guide/admin-ui/metadata.html#limits",
+          },
+        ],
+      },
+      {
+        text: "Logic Database",
+        roles: ["Root"],
+        path: Route.MetadataLogicDatabase,
+        icon: <Icon icon="icondatabase" style={{ fontSize: 20 }} />,
+        content: <LogicDatabaseList />,
+        help: "/guide/admin-ui/metadata.html#database",
+        items: [
+          {
+            inner: true,
+            roles: ["Root"],
+            itemKey: "Metadata/Logic/Database/Configuration",
+            text: "Configuration",
+            path: Route.MetadataLogicDatabaseConfig,
+            content: <LogicDatabaseConfig />,
+            help: "/guide/admin-ui/metadata.html#database",
           },
         ],
       },
@@ -162,12 +226,7 @@ export const routes = [
         path: Route.MetadataExplore,
         icon: <IconFixedStroked size="large" />,
         content: <MetadataExplore />,
-      },
-      {
-        text: "Multiple IDCs",
-        path: Route.MetadataMultipleIDC,
-        icon: <IconShareStroked size="large" />,
-        content: <MultipleIDCList />,
+        help: "/guide/admin-ui/metadata.html#explore",
       },
     ],
   },

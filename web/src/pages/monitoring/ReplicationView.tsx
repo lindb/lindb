@@ -6,7 +6,6 @@ ownership. LinDB licenses this file to you under
 the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
  
 Unless required by applicable law or agreed to in writing,
@@ -31,11 +30,12 @@ import { ReplicaState, MemoryDatabaseState, StorageState } from "@src/models";
 import { ExecService } from "@src/services";
 import { StateKit } from "@src/utils";
 import * as _ from "lodash-es";
-import React from "react";
+import React, { useContext } from "react";
 import { URLStore } from "@src/stores";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "@src/hooks";
 import { observer } from "mobx-react-lite";
+import { UIContext } from "@src/context/UIContextProvider";
 
 enum StateType {
   WAL = "wal",
@@ -108,6 +108,8 @@ const ReplicationStatus: React.FC = observer(() => {
 
 const ReplicationView: React.FC = () => {
   const { type } = useParams(["type"]);
+  const { locale } = useContext(UIContext);
+  const { ReplicationView } = locale;
 
   const buttonType = (name: string, desc: string, icon: string) => {
     return (
@@ -132,7 +134,7 @@ const ReplicationView: React.FC = () => {
         >
           <LinSelect
             field="db"
-            label="Database"
+            label={ReplicationView.database}
             loader={() =>
               ExecService.exec<StorageState[]>({
                 sql: SQL.ShowStorageAliveNodes,
@@ -147,7 +149,11 @@ const ReplicationView: React.FC = () => {
           />
           <ButtonGroup style={{ marginRight: 16 }} key="type-select">
             {buttonType("wal", "WAL", "iconbx-git-repo-forked")}
-            {buttonType("memory", "Memory", "icondatabase")}
+            {buttonType(
+              "memory",
+              ReplicationView.memoryDatabase,
+              "icondatabase"
+            )}
           </ButtonGroup>
           <Button
             icon={<IconRefresh />}

@@ -18,12 +18,12 @@
 package queue
 
 import (
-	"path"
+	"path/filepath"
 	"sync"
 
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/common/pkg/fileutil"
 )
 
 //go:generate mockgen -source ./fanout_queue.go -destination ./fanout_queue_mock.go -package queue
@@ -73,7 +73,7 @@ type fanOutQueue struct {
 func NewFanOutQueue(dirPath string, dataSizeLimit int64) (q FanOutQueue, err error) {
 	fq := &fanOutQueue{
 		dirPath:          dirPath,
-		consumerGroupDir: path.Join(dirPath, consumerGroupDirName),
+		consumerGroupDir: filepath.Join(dirPath, consumerGroupDirName),
 		consumerGroups:   make(map[string]ConsumerGroup),
 	}
 

@@ -23,9 +23,10 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/queue"
-	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 func TestReplicator_String(t *testing.T) {
@@ -92,6 +93,9 @@ func TestReplicator_Base(t *testing.T) {
 	r.ResetReplicaIndex(int64(10))
 	cg.EXPECT().Pending().Return(int64(10))
 	assert.Equal(t, int64(10), r.Pending())
+
+	cg.EXPECT().Pause()
+	r.Pause()
 
 	r.Close()
 }

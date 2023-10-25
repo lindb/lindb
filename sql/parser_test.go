@@ -24,7 +24,8 @@ import (
 	"github.com/antlr/antlr4/runtime/Go/antlr/v4"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/common/pkg/encoding"
+
 	"github.com/lindb/lindb/sql/grammar"
 	"github.com/lindb/lindb/sql/stmt"
 )
@@ -47,6 +48,7 @@ func Test_Sql_examples(t *testing.T) {
 		sql string
 	}{
 		{true, "select x from y where name = 'sss'"},
+		{true, "select * from y where name = 'sss'"},
 		{true, "select x from y where update = 'sss'"},
 		{true, "select x from y where metric = 'sss' and drop='xxx'"},
 		{true, "select used_percent,free as f,total as t,a+1 from mem where time>now()-1h group by node,role"},
@@ -60,6 +62,13 @@ func Test_Sql_examples(t *testing.T) {
 			assert.Error(t, err)
 		}
 	}
+}
+
+func TestSelectAllFields(t *testing.T) {
+	query, err := Parse("select * from cpu")
+	queryStmt := query.(*stmt.Query)
+	assert.NoError(t, err)
+	assert.True(t, queryStmt.AllFields)
 }
 
 func TestShowDatabase(t *testing.T) {
@@ -98,6 +107,10 @@ func TestShowState(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, &stmt.State{Type: stmt.Master}, query)
 
+	query, err = Parse("show root alive")
+	assert.NoError(t, err)
+	assert.Equal(t, &stmt.State{Type: stmt.RootAlive}, query)
+
 	query, err = Parse("show broker alive")
 	assert.NoError(t, err)
 	assert.Equal(t, &stmt.State{Type: stmt.BrokerAlive}, query)
@@ -117,6 +130,12 @@ func TestShowMemoryDatabase(t *testing.T) {
 	query, err := Parse("show memory database where storage=s and database=d")
 	assert.NoError(t, err)
 	assert.Equal(t, &stmt.State{Type: stmt.MemoryDatabase, StorageName: "s", Database: "d"}, query)
+}
+
+func TestShowRootMetric(t *testing.T) {
+	query, err := Parse("show root metric where metric in (a,b)")
+	assert.NoError(t, err)
+	assert.Equal(t, &stmt.State{Type: stmt.RootMetric, MetricNames: []string{"a", "b"}}, query)
 }
 
 func TestShowBrokerMetric(t *testing.T) {

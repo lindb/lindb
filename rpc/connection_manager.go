@@ -21,8 +21,9 @@ import (
 	"io"
 	"sync"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 //go:generate mockgen -source ./connection_manager.go -destination=./connection_manager_mock.go -package=rpc
@@ -44,7 +45,7 @@ type connectionManager struct {
 
 	mutex sync.Mutex
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewConnectionManager creates a ConnectionManager instance.

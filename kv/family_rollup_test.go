@@ -26,6 +26,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -33,8 +35,8 @@ import (
 
 func TestRollup(t *testing.T) {
 	t.Run("10s->5min", func(t *testing.T) {
-		sf, _ := timeutil.ParseTimestamp("2019-12-12 10:00:00")
-		tf, _ := timeutil.ParseTimestamp("2019-12-12 00:00:00")
+		sf, _ := commontimeutil.ParseTimestamp("2019-12-12 10:00:00")
+		tf, _ := commontimeutil.ParseTimestamp("2019-12-12 00:00:00")
 		in := newRollup(timeutil.Interval(10*1000), timeutil.Interval(5*60*1000), sf, tf)
 		assert.Equal(t, uint16(30), in.IntervalRatio())
 		timestamp := in.GetTimestamp(20)
@@ -43,8 +45,8 @@ func TestRollup(t *testing.T) {
 		assert.Equal(t, uint16(10*60/5), in.BaseSlot())
 	})
 	t.Run("10s->1hour", func(t *testing.T) {
-		sf, _ := timeutil.ParseTimestamp("2019-12-12 10:00:00")
-		tf, _ := timeutil.ParseTimestamp("2019-12-12 00:00:00")
+		sf, _ := commontimeutil.ParseTimestamp("2019-12-12 10:00:00")
+		tf, _ := commontimeutil.ParseTimestamp("2019-12-12 00:00:00")
 		in := newRollup(timeutil.Interval(10*1000), timeutil.Interval(60*60*1000), sf, tf)
 		assert.Equal(t, uint16(360), in.IntervalRatio())
 		timestamp := in.GetTimestamp(20)
@@ -110,7 +112,7 @@ func TestFamily_needRollup(t *testing.T) {
 		{
 			name: "need rollup",
 			prepare: func() {
-				f.lastRollupTime.Store(timeutil.Now() - timeutil.OneHour)
+				f.lastRollupTime.Store(commontimeutil.Now() - commontimeutil.OneHour)
 				store.EXPECT().Option().Return(StoreOption{Rollup: []timeutil.Interval{10}})
 				fv.EXPECT().GetLiveRollupFiles().Return(
 					map[table.FileNumber][]timeutil.Interval{
@@ -199,14 +201,14 @@ func TestFamily_rollup(t *testing.T) {
 		{
 			name: "target store not found",
 			prepare: func() {
-				f.name =
-					name
+				f.name = name
 				gomock.InOrder(
 					fv.EXPECT().GetLiveRollupFiles().
 						Return(map[table.FileNumber][]timeutil.Interval{10: {5 * 60 * 1000}, 11: {5 * 60 * 1000}}),
 					store.EXPECT().Option().Return(StoreOption{Source: timeutil.Interval(10000)}),
-					store.EXPECT().Name().Return("db/shard/1/segment/day/20190703"),
-					storeMgr.EXPECT().GetStoreByName("db/shard/1/segment/month/201907").Return(nil, false),
+					store.EXPECT().Name().Return(filepath.Join("db", "shard", "1", "segment", "day", "20190703")),
+					storeMgr.EXPECT().GetStoreByName(filepath.Join("db", "shard", "1", "segment", "month", "201907")).
+						Return(nil, false),
 					fv.EXPECT().GetAllActiveFiles().Return(nil),
 					fv.EXPECT().GetLiveRollupFiles().Return(nil),
 				)
@@ -215,15 +217,15 @@ func TestFamily_rollup(t *testing.T) {
 		{
 			name: "create target family failure",
 			prepare: func() {
-				f.name =
-					name
+				f.name = name
 				gomock.InOrder(
 					fv.EXPECT().GetLiveRollupFiles().Return(map[table.FileNumber][]timeutil.Interval{
 						10: {5 * 60 * 1000}, 11: {5 * 60 * 1000},
 					}),
 					store.EXPECT().Option().Return(StoreOption{Source: timeutil.Interval(10000)}),
-					store.EXPECT().Name().Return("db/shard/1/segment/day/20190703"),
-					storeMgr.EXPECT().GetStoreByName("db/shard/1/segment/month/201907").Return(targetStore, true),
+					store.EXPECT().Name().Return(filepath.Join("db", "shard", "1", "segment", "day", "20190703")),
+					storeMgr.EXPECT().GetStoreByName(filepath.Join("db", "shard", "1", "segment", "month", "201907")).
+						Return(targetStore, true),
 					targetStore.EXPECT().CreateFamily("3", gomock.Any()).
 						Return(nil, fmt.Errorf("err")),
 					fv.EXPECT().GetAllActiveFiles().Return(nil),
@@ -234,15 +236,15 @@ func TestFamily_rollup(t *testing.T) {
 		{
 			name: "do rollup job err",
 			prepare: func() {
-				f.name =
-					name
+				f.name = name
 				gomock.InOrder(
 					fv.EXPECT().GetLiveRollupFiles().Return(map[table.FileNumber][]timeutil.Interval{
 						10: {5 * 60 * 1000}, 11: {5 * 60 * 1000},
 					}),
 					store.EXPECT().Option().Return(StoreOption{Source: timeutil.Interval(10000)}),
-					store.EXPECT().Name().Return("db/shard/1/segment/day/20190703"),
-					storeMgr.EXPECT().GetStoreByName("db/shard/1/segment/month/201907").Return(targetStore, true),
+					store.EXPECT().Name().Return(filepath.Join("db", "shard", "1", "segment", "day", "20190703")),
+					storeMgr.EXPECT().GetStoreByName(filepath.Join("db", "shard", "1", "segment", "month", "201907")).
+						Return(targetStore, true),
 					targetStore.EXPECT().CreateFamily("3", gomock.Any()).Return(targetFamily, nil),
 					targetFamily.EXPECT().doRollupWork(gomock.Any(), gomock.Any(), gomock.Any()).
 						Return(fmt.Errorf("err")),
@@ -254,18 +256,19 @@ func TestFamily_rollup(t *testing.T) {
 		{
 			name: "do rollup job successfully",
 			prepare: func() {
-				f.name =
-					name
+				f.name = name
 				gomock.InOrder(
 					fv.EXPECT().GetLiveRollupFiles().Return(map[table.FileNumber][]timeutil.Interval{
 						10: {5 * 60 * 1000}, 11: {5 * 60 * 1000},
 					}),
 					store.EXPECT().Option().Return(StoreOption{Source: timeutil.Interval(10000)}),
-					store.EXPECT().Name().Return("db/shard/1/segment/day/20190703"),
-					storeMgr.EXPECT().GetStoreByName("db/shard/1/segment/month/201907").Return(targetStore, true),
+					store.EXPECT().Name().Return(filepath.Join("db", "shard", "1", "segment", "day", "20190703")),
+					storeMgr.EXPECT().GetStoreByName(filepath.Join("db", "shard", "1", "segment", "month", "201907")).
+						Return(targetStore, true),
 					targetStore.EXPECT().CreateFamily("3", gomock.Any()).Return(targetFamily, nil),
 					targetFamily.EXPECT().doRollupWork(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 					store.EXPECT().commitFamilyEditLog(gomock.Any(), gomock.Any()).Return(nil),
+					targetFamily.EXPECT().cleanReferenceFiles(gomock.Any(), gomock.Any()),
 					fv.EXPECT().GetAllActiveFiles().Return(nil),
 					fv.EXPECT().GetLiveRollupFiles().Return(nil),
 				)
@@ -274,27 +277,29 @@ func TestFamily_rollup(t *testing.T) {
 		{
 			name: "do rollup job ok, but some targets failure",
 			prepare: func() {
-				f.name =
-					name
+				f.name = name
 				fv.EXPECT().GetLiveRollupFiles().Return(map[table.FileNumber][]timeutil.Interval{
 					10: {5 * 60 * 1000}, 11: {5 * 60 * 60 * 1000}, // year target not found
 				})
 				store.EXPECT().Option().Return(StoreOption{Source: timeutil.Interval(10000)})
-				store.EXPECT().Name().Return("db/shard/1/segment/day/20190703")
-				storeMgr.EXPECT().GetStoreByName("db/shard/1/segment/month/201907").Return(targetStore, true)
+				store.EXPECT().Name().Return(filepath.Join("db", "shard", "1", "segment", "day", "20190703"))
+				storeMgr.EXPECT().GetStoreByName(filepath.Join("db", "shard", "1", "segment", "month", "201907")).
+					Return(targetStore, true)
 				targetStore.EXPECT().CreateFamily("3", gomock.Any()).Return(targetFamily, nil)
 				targetFamily.EXPECT().doRollupWork(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-				storeMgr.EXPECT().GetStoreByName("db/shard/1/segment/year/2019").Return(nil, false) // year store not found
+				storeMgr.EXPECT().GetStoreByName(filepath.Join("db", "shard", "1", "segment", "year", "2019")).
+					Return(nil, false) // year store not found
 				store.EXPECT().commitFamilyEditLog(gomock.Any(), gomock.Any()).Return(nil)
 				fv.EXPECT().GetAllActiveFiles().Return(nil)
 				fv.EXPECT().GetLiveRollupFiles().Return(nil)
+				targetFamily.EXPECT().cleanReferenceFiles(gomock.Any(), gomock.Any())
 			},
 		},
 	}
 
 	for _, tt := range cases {
 		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			defer f.rolluping.Store(false)
 			if tt.prepare != nil {
 				tt.prepare()
@@ -312,6 +317,9 @@ func TestFamily_doRollupWork(t *testing.T) {
 	}()
 	f, _ := mockFamily(t, ctrl)
 	sourceFamily := NewMockFamily(ctrl)
+	sourceStore := NewMockStore(ctrl)
+	sourceFamily.EXPECT().getStore().Return(sourceStore).AnyTimes()
+
 	fv := f.familyVersion.(*version.MockFamilyVersion)
 	rollup := NewMockRollup(ctrl)
 	cases := []struct {
@@ -331,8 +339,9 @@ func TestFamily_doRollupWork(t *testing.T) {
 			files: []table.FileNumber{10, 20, 30},
 			prepare: func() {
 				gomock.InOrder(
+					sourceStore.EXPECT().Name().Return(filepath.Join("dir", "20230202")),
 					sourceFamily.EXPECT().ID().Return(version.FamilyID(10)),
-					fv.EXPECT().GetLiveReferenceFiles().
+					fv.EXPECT().GetLiveReferenceFiles("20230202").
 						Return(map[version.FamilyID][]table.FileNumber{10: {10, 20, 30}}),
 					sourceFamily.EXPECT().familyInfo().Return("familyInfo").MaxTimes(3),
 				)
@@ -350,8 +359,9 @@ func TestFamily_doRollupWork(t *testing.T) {
 					return compactJob
 				}
 				gomock.InOrder(
+					sourceStore.EXPECT().Name().Return(filepath.Join("dir", "20230202")),
 					sourceFamily.EXPECT().ID().Return(version.FamilyID(10)),
-					fv.EXPECT().GetLiveReferenceFiles().Return(map[version.FamilyID][]table.FileNumber{10: {10, 30}}),
+					fv.EXPECT().GetLiveReferenceFiles("20230202").Return(map[version.FamilyID][]table.FileNumber{10: {10, 30}}),
 					sourceFamily.EXPECT().familyInfo().Return("familyInfo").MaxTimes(2),
 					sourceFamily.EXPECT().GetSnapshot().Return(snapshot),
 					snapshot.EXPECT().GetCurrent().Return(v),
@@ -373,8 +383,9 @@ func TestFamily_doRollupWork(t *testing.T) {
 					return compactJob
 				}
 				gomock.InOrder(
+					sourceStore.EXPECT().Name().Return(filepath.Join("dir", "20230202")),
 					sourceFamily.EXPECT().ID().Return(version.FamilyID(10)),
-					fv.EXPECT().GetLiveReferenceFiles().Return(map[version.FamilyID][]table.FileNumber{10: {10, 30}}),
+					fv.EXPECT().GetLiveReferenceFiles("20230202").Return(map[version.FamilyID][]table.FileNumber{10: {10, 30}}),
 					sourceFamily.EXPECT().familyInfo().Return("familyInfo").MaxTimes(2),
 					sourceFamily.EXPECT().GetSnapshot().Return(snapshot),
 					snapshot.EXPECT().GetCurrent().Return(v),
@@ -401,6 +412,19 @@ func TestFamily_doRollupWork(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFamily_cleanReferenceFiles(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	f, store := mockFamily(t, ctrl)
+	sourceFamily := NewMockFamily(ctrl)
+	sourceStore := NewMockStore(ctrl)
+	sourceFamily.EXPECT().getStore().Return(sourceStore)
+	sourceStore.EXPECT().Name().Return(filepath.Join("dir", "20230202"))
+	sourceFamily.EXPECT().ID().Return(version.FamilyID(10))
+	store.EXPECT().commitFamilyEditLog(gomock.Any(), gomock.Any())
+	f.cleanReferenceFiles(sourceFamily, []table.FileNumber{10})
 }
 
 func mockFamily(t *testing.T, ctrl *gomock.Controller) (*family, *MockStore) {
