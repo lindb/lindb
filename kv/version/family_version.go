@@ -51,7 +51,7 @@ type FamilyVersion interface {
 	// GetLiveRollupFiles returns all need rollup files
 	GetLiveRollupFiles() map[table.FileNumber][]timeutil.Interval
 	// GetLiveReferenceFiles returns all rollup reference files
-	GetLiveReferenceFiles() map[FamilyID][]table.FileNumber
+	GetLiveReferenceFiles(store string) map[FamilyID][]table.FileNumber
 	// removeVersion removes version from active versions
 	removeVersion(v Version)
 	// appendVersion swaps family's current version, then releases previous version
@@ -131,10 +131,10 @@ func (fv *familyVersion) GetLiveRollupFiles() map[table.FileNumber][]timeutil.In
 }
 
 // GetLiveReferenceFiles returns all rollup reference files
-func (fv *familyVersion) GetLiveReferenceFiles() map[FamilyID][]table.FileNumber {
+func (fv *familyVersion) GetLiveReferenceFiles(store string) map[FamilyID][]table.FileNumber {
 	fv.mutex.RLock()
 	defer fv.mutex.RUnlock()
-	return fv.current.GetReferenceFiles()
+	return fv.current.GetReferenceFiles(store)
 }
 
 // removeVersion removes version from active versions,

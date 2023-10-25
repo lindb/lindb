@@ -28,14 +28,16 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/ltoml"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
+	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/ltoml"
 	statepkg "github.com/lindb/lindb/pkg/state"
 )
 
@@ -87,7 +89,7 @@ type stateManager struct {
 
 	statistics            *metrics.StateManagerStatistics
 	shardLeaderStatistics *metrics.ShardLeaderStatistics
-	logger                *logger.Logger
+	logger                logger.Logger
 }
 
 // NewStateManager creates a StateManager instance.
@@ -109,7 +111,7 @@ func NewStateManager(
 		events:                make(chan *discovery.Event, 10),
 		running:               atomic.NewBool(true),
 		newStorageClusterFn:   newStorageCluster,
-		statistics:            metrics.NewStateManagerStatistics(strings.ToLower(constants.MasterRole)),
+		statistics:            metrics.NewStateManagerStatistics(linmetric.BrokerRegistry),
 		shardLeaderStatistics: metrics.NewShardLeaderStatistics(),
 		logger:                logger.GetLogger("Master", "StateManager"),
 	}
@@ -138,12 +140,12 @@ func (m *stateManager) consumeEvent() {
 	}
 }
 
-// processEvent processes each event, if panic will ignore the event handle, maybe lost the state in storage/.
+// processEvent processes each event, if panic will ignore the event handle, maybe lost the state in storage.
 func (m *stateManager) processEvent(event *discovery.Event) {
 	eventType := event.Type.String()
 	defer func() {
 		if err := recover(); err != nil {
-			m.statistics.Panics.WithTagValues(eventType).Incr()
+			m.statistics.Panics.WithTagValues(eventType, constants.MasterRole).Incr()
 			m.logger.Error("panic when process discovery event, lost the state",
 				logger.Any("err", err), logger.Stack())
 		}
@@ -164,6 +166,8 @@ func (m *stateManager) processEvent(event *discovery.Event) {
 		m.onStorageConfigDelete(event.Key)
 	case discovery.DatabaseConfigChanged:
 		err = m.onDatabaseCfgChange(event.Key, event.Value)
+	case discovery.DatabaseLimitsChanged:
+		err = m.onDatabaseLimitsChange(event.Key, event.Value)
 	case discovery.DatabaseConfigDeletion:
 		err = m.onDatabaseCfgDelete(event.Key)
 	case discovery.ShardAssignmentChanged:
@@ -174,9 +178,9 @@ func (m *stateManager) processEvent(event *discovery.Event) {
 		err = m.onStorageNodeFailure(event.Attributes[storageNameKey], event.Key)
 	}
 	if err != nil {
-		m.statistics.HandleEventFailure.WithTagValues(eventType).Incr()
+		m.statistics.HandleEventFailure.WithTagValues(eventType, constants.MasterRole).Incr()
 	} else {
-		m.statistics.HandleEvents.WithTagValues(eventType).Incr()
+		m.statistics.HandleEvents.WithTagValues(eventType, constants.MasterRole).Incr()
 	}
 }
 
@@ -204,6 +208,30 @@ func (m *stateManager) onDatabaseCfgChange(key string, data []byte) error {
 	}
 
 	m.shardAssignment(cfg)
+	return nil
+}
+
+// onDatabaseLimitsChange triggers when database limits modify.
+func (m *stateManager) onDatabaseLimitsChange(key string, data []byte) error {
+	m.logger.Info("set database limts, because database limits is changed",
+		logger.String("key", key))
+
+	name := strings.TrimPrefix(key, constants.GetDatabaseLimitPath(""))
+	databaseCfg, ok := m.databases[name]
+	if !ok {
+		return constants.ErrDatabaseNotFound
+	}
+	storage, ok := m.storages[databaseCfg.Storage]
+	if !ok {
+		return nil
+	}
+	if err := storage.SetDatabaseLimits(name, data); err != nil {
+		m.logger.Error("set database limits failure",
+			logger.String("storage", databaseCfg.Storage),
+			logger.String("database", name),
+			logger.Error(err))
+		return err
+	}
 	return nil
 }
 
@@ -416,6 +444,12 @@ func (m *stateManager) shardAssignment(databaseCfg *models.Database) {
 		return
 	}
 
+	cluster, ok := m.storages[databaseCfg.Storage]
+	if !ok {
+		m.logger.Warn("storage cluster not found", logger.String("storage", databaseCfg.Storage))
+		return
+	}
+
 	m.databases[databaseCfg.Name] = databaseCfg
 
 	// get shard assignment from repo, maybe mem state is not sync.
@@ -424,9 +458,6 @@ func (m *stateManager) shardAssignment(databaseCfg *models.Database) {
 		m.logger.Error("get shard assign error", logger.Error(err))
 		return
 	}
-
-	cluster := m.storages[databaseCfg.Storage]
-
 	switch {
 	case shardAssign == nil:
 		// build shard assignment for creation database, generate related coordinator task
@@ -453,7 +484,7 @@ func (m *stateManager) shardAssignment(databaseCfg *models.Database) {
 			return
 		}
 	default:
-		// TODO remove it ???
+		// TODO: remove it ???
 		m.logger.Info("no data changed, just trigger shard assignment data modify event",
 			logger.String("storage", databaseCfg.Storage),
 			logger.Any("database", databaseCfg.Name))

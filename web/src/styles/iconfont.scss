@@ -1,0 +1,193 @@
+/*
+Licensed to LinDB under one or more contributor
+license agreements. See the NOTICE file distributed with
+this work for additional information regarding copyright
+ownership. LinDB licenses this file to you under
+the Apache License, Version 2.0 (the "License"); you may
+not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+ 
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
+
+@font-face {
+  font-family: lin; /* Project id 1331329 */
+  src: url("./fonts/iconfont.woff2?t=1683212056326") format("woff2"),
+    url("./fonts/iconfont.woff?t=1683212056326") format("woff"),
+    url("./fonts/iconfont.ttf?t=1683212056326") format("truetype");
+}
+
+.lin {
+  /* stylelint-disable-next-line font-family-no-missing-generic-family-keyword */
+  font-family: lin !important;
+  font-size: 16px;
+  font-style: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.iconmac::before {
+  content: "\e667";
+}
+
+.iconwindows::before {
+  content: "\e710";
+}
+
+.iconlinux::before {
+  content: "\e900";
+}
+
+.icondocker::before {
+  content: "\ebf8";
+}
+
+.iconwindows-copy::before {
+  content: "\efa9";
+}
+
+.iconmac-copy::before {
+  content: "\efaa";
+}
+
+.iconemail1::before {
+  content: "\e724";
+}
+
+.iconweixin::before {
+  content: "\e8bb";
+}
+
+.icontwitter-fill::before {
+  content: "\e63d";
+}
+
+.iconstackoverflow::before {
+  content: "\ea05";
+}
+
+.iconbx-git-repo-forked::before {
+  content: "\e649";
+}
+
+.iconchart-pie::before {
+  content: "\e668";
+}
+
+.iconchartline::before {
+  content: "\e613";
+}
+
+.iconsort-alphabetical::before {
+  content: "\e8b4";
+}
+
+.iconsort-numeric::before {
+  content: "\e8b5";
+}
+
+.iconsort-alpha-down::before {
+  content: "\eb9b";
+}
+
+.iconsort-alpha-up::before {
+  content: "\eb9c";
+}
+
+.iconsort-numeric-down::before {
+  content: "\eb9e";
+}
+
+.iconsort-numeric-up-alt::before {
+  content: "\eb9f";
+}
+
+.iconsun::before {
+  content: "\e660";
+}
+
+.iconmoon::before {
+  content: "\efa8";
+}
+
+.iconclock::before {
+  content: "\e6d2";
+}
+
+.iconterminal::before {
+  content: "\e864";
+}
+
+.iconcluster::before {
+  content: "\e718";
+}
+
+.icondatabase::before {
+  content: "\e7b6";
+}
+
+.iconexplore::before {
+  content: "\e618";
+}
+
+.iconempty1::before {
+  content: "\e621";
+}
+
+.iconempty::before {
+  content: "\e6a6";
+}
+
+.icongo::before {
+  content: "\e62d";
+}
+
+.icongo-copy::before {
+  content: "\ec6e";
+}
+
+.iconxitongkeyongxing::before {
+  content: "\e764";
+}
+
+.iconextend::before {
+  content: "\e820";
+}
+
+.iconshujuzhongxin::before {
+  content: "\e61e";
+}
+
+.icongaoxingneng::before {
+  content: "\e91b";
+}
+
+.icongithub-fill::before {
+  content: "\e885";
+}
+
+.iconwangguan::before {
+  content: "\ec5d";
+}
+
+.iconshenjing::before {
+  content: "\ec5e";
+}
+
+.iconchucun::before {
+  content: "\ec5f";
+}
+
+.iconwuguan::before {
+  content: "\ec60";
+}
+
+.iconmysql::before {
+  content: "\ec6d";
+}

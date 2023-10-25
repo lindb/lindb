@@ -22,11 +22,13 @@ import (
 	"path"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/common/pkg/fileutil"
+
 	"github.com/lindb/lindb/pkg/queue/page"
 )
 
@@ -132,8 +134,8 @@ func TestConsumerGroup_one_consumer(t *testing.T) {
 	assert.Equal(t, filepath.Join(dir, consumerGroupDirName, "f1"), f1.Name())
 	assert.Equal(t, int64(-1), f1.Queue().Queue().AppendedSeq())
 	assert.Equal(t, int64(-1), f1.Queue().Queue().AcknowledgedSeq())
-	assert.Equal(t, SeqNoNewMessageAvailable, f1.Consume())
 	assert.Equal(t, int64(0), f1.Pending())
+	assert.Equal(t, SeqNoNewMessageAvailable, f1.consume())
 
 	// msg 0
 	msg := []byte("123")
@@ -150,7 +152,6 @@ func TestConsumerGroup_one_consumer(t *testing.T) {
 	fmsg, err := f1.Queue().Queue().Get(0)
 	assert.NoError(t, err)
 	assert.Equal(t, msg, fmsg)
-	assert.Equal(t, SeqNoNewMessageAvailable, f1.Consume())
 
 	// msg 1
 	msg1 := []byte("456")
@@ -226,12 +227,9 @@ func TestConsumerGroup_SetConsumedSeq(t *testing.T) {
 	err = fq.Queue().Put([]byte("456"))
 	assert.NoError(t, err)
 
-	seq := f1.Consume()
-	assert.Equal(t, SeqNoNewMessageAvailable, seq)
-
 	// reset head consume sequence
 	f1.SetConsumedSeq(-1)
-	seq = f1.Consume()
+	seq := f1.Consume()
 	assert.Equal(t, int64(0), seq)
 
 	seq = f1.Consume()
@@ -241,5 +239,105 @@ func TestConsumerGroup_SetConsumedSeq(t *testing.T) {
 
 	f1.SetConsumedSeq(0)
 	assert.Equal(t, int64(0), f1.ConsumedSeq())
+	fq.Close()
+}
+
+func TestConsumerGroup_Consume(t *testing.T) {
+	dir := path.Join(t.TempDir(), t.Name())
+
+	fq, err := NewFanOutQueue(dir, 1024)
+	assert.NoError(t, err)
+	f1, err := fq.GetOrCreateConsumerGroup("f1")
+	assert.NoError(t, err)
+
+	consumed := make(chan struct{})
+
+	go func() {
+		seq := f1.Consume()
+		assert.Equal(t, int64(0), seq)
+		consumed <- struct{}{}
+	}()
+
+	go func() {
+		time.Sleep(100 * time.Microsecond)
+		assert.NoError(t, fq.Queue().Put([]byte("456")))
+	}()
+
+	<-consumed
+	fq.Close()
+}
+
+func TestConsumerGroup_StopConsumer(t *testing.T) {
+	dir := path.Join(t.TempDir(), t.Name())
+
+	fq, err := NewFanOutQueue(dir, 1024)
+	assert.NoError(t, err)
+	f1, err := fq.GetOrCreateConsumerGroup("f1")
+	assert.NoError(t, err)
+
+	consumed := make(chan struct{})
+
+	go func() {
+		seq := f1.Consume()
+		assert.Equal(t, SeqNoNewMessageAvailable, seq)
+		consumed <- struct{}{}
+	}()
+
+	go func() {
+		time.Sleep(100 * time.Microsecond)
+		f1.Close()
+	}()
+
+	<-consumed
+	fq.Close()
+}
+
+func TestConsumerGroup_PauseConsumer(t *testing.T) {
+	dir := path.Join(t.TempDir(), t.Name())
+
+	fq, err := NewFanOutQueue(dir, 1024)
+	assert.NoError(t, err)
+	f1, err := fq.GetOrCreateConsumerGroup("f1")
+	assert.NoError(t, err)
+
+	consumed := make(chan struct{})
+
+	go func() {
+		seq := f1.Consume()
+		assert.Equal(t, SeqNoNewMessageAvailable, seq)
+		consumed <- struct{}{}
+	}()
+
+	go func() {
+		time.Sleep(100 * time.Microsecond)
+		f1.Pause()
+	}()
+
+	<-consumed
+	fq.Close()
+}
+
+func TestConsumerGroup_Consume_CloseQueue(t *testing.T) {
+	dir := path.Join(t.TempDir(), t.Name())
+
+	fq, err := NewFanOutQueue(dir, 1024)
+	assert.NoError(t, err)
+	f1, err := fq.GetOrCreateConsumerGroup("f1")
+	assert.NoError(t, err)
+
+	consumed := make(chan struct{})
+
+	go func() {
+		seq := f1.Consume()
+		assert.Equal(t, SeqNoNewMessageAvailable, seq)
+		consumed <- struct{}{}
+	}()
+
+	go func() {
+		time.Sleep(100 * time.Microsecond)
+		fq.Close()
+	}()
+
+	<-consumed
 	fq.Close()
 }

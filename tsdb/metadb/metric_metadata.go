@@ -20,9 +20,8 @@ package metadb
 import (
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
@@ -35,20 +34,18 @@ import (
 type MetricMetadata interface {
 	// initialize the metric metadata with tags/fields
 	initialize(fields field.Metas, fieldMaxID int32, tagKeys tag.Metas)
-
 	// getMetricID gets the metric id
 	getMetricID() metric.ID
-
 	// createField creates the field meta, if success return field id, else return series.ErrTooManyFields
-	createField(fieldName field.Name, fieldType field.Type) (field.Meta, error)
+	createField(fieldName field.Name, fieldType field.Type, limits *models.Limits) (field.Meta, error)
 	// getField gets the field meta by field name, if not exist return false
 	getField(fieldName field.Name) (field.Meta, bool)
 	// getAllFields returns the all fields of the metric
 	getAllFields() (fields field.Metas)
-
 	// createTagKey creates the tag key
 	createTagKey(tagKey string, tagKeyID tag.KeyID)
-	checkTagKey(tagKey string) error
+	// checkTagKey checks if tags be limited.
+	checkTagKey(tagKey string, limits *models.Limits) error
 	// getTagKeyID gets the tag key id by tag key, if not exist return false
 	getTagKeyID(tagKey string) (tag.KeyID, bool)
 	// getAllTags returns the tag keys of the metric
@@ -85,11 +82,10 @@ func (mm *metricMetadata) getMetricID() metric.ID {
 }
 
 // createField creates the field meta, if success return field id, else return series.ErrTooManyFields
-func (mm *metricMetadata) createField(fieldName field.Name, fieldType field.Type) (field.Meta, error) {
+func (mm *metricMetadata) createField(fieldName field.Name, fieldType field.Type, limits *models.Limits) (field.Meta, error) {
 	// check fields count
-	// TODO add config????
-	if mm.fieldIDSeq.Load() >= constants.DefaultMaxFieldsCount {
-		return field.Meta{}, series.ErrTooManyFields
+	if limits.EnableFieldsCheck() && mm.fieldIDSeq.Load() >= limits.MaxFieldsPerMetric {
+		return field.Meta{}, constants.ErrTooManyFields
 	}
 	// create new field
 	fieldID := field.ID(mm.fieldIDSeq.Inc())
@@ -125,11 +121,11 @@ func (mm *metricMetadata) createTagKey(tagKey string, tagKeyID tag.KeyID) {
 	mm.tagKeys = append(mm.tagKeys, tag.Meta{Key: tagKey, ID: tagKeyID})
 }
 
-func (mm *metricMetadata) checkTagKey(_ string) error {
+// checkTagKey checks if tags be limited.
+func (mm *metricMetadata) checkTagKey(_ string, limits *models.Limits) error {
 	// check tag keys count
-	// TODO add config
-	if len(mm.tagKeys) >= config.GlobalStorageConfig().TSDB.MaxTagKeysNumber {
-		return series.ErrTooManyTagKeys
+	if limits.EnableTagsCheck() && len(mm.tagKeys) >= limits.MaxTagsPerMetric {
+		return constants.ErrTooManyTagKeys
 	}
 	return nil
 }

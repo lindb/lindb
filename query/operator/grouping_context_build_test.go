@@ -23,6 +23,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/tsdb"
 	"github.com/lindb/lindb/tsdb/indexdb"
 )
@@ -35,7 +36,14 @@ func TestGroupingContextBuild_Execute(t *testing.T) {
 	indexDB := indexdb.NewMockIndexDatabase(ctrl)
 	shard.EXPECT().IndexDatabase().Return(indexDB)
 	indexDB.EXPECT().GetGroupingContext(gomock.Any()).Return(nil)
-	op := NewGroupingContextBuild(nil, shard)
+	ctx := flow.NewShardExecuteContext(nil)
+	ctx.TimeSegmentContext.SeriesIDs.Add(1)
+	op := NewGroupingContextBuild(ctx, shard)
+	assert.NoError(t, op.Execute())
+
+	// no series found
+	ctx.TimeSegmentContext.SeriesIDs.Clear()
+	op = NewGroupingContextBuild(ctx, shard)
 	assert.NoError(t, op.Execute())
 }
 

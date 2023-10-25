@@ -29,6 +29,8 @@ const (
 	StorageOpShow
 	// StorageOpDelete represents delete storage.
 	StorageOpDelete
+	// StorageOpRecover represents recover storage metadata.
+	StorageOpRecover
 )
 
 // Storage represent storage statement.

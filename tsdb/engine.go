@@ -22,10 +22,11 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
 )
 
@@ -47,10 +48,14 @@ type Engine interface {
 		databaseOption *option.DatabaseOption,
 		shardIDs ...models.ShardID,
 	) error
+	// SetDatabaseLimits sets database's limits.
+	SetDatabaseLimits(database string, limits *models.Limits)
 	// GetShard returns shard by given db and shard id
 	GetShard(databaseName string, shardID models.ShardID) (Shard, bool)
 	// GetDatabase returns the time series database by given name
 	GetDatabase(databaseName string) (Database, bool)
+	// GetAllDatabases returns all databases.
+	GetAllDatabases() map[string]Database
 	// FlushDatabase produces a signal to workers for flushing memory database by name
 	FlushDatabase(ctx context.Context, databaseName string) bool
 	// DropDatabases drops databases, keep active database.
@@ -99,7 +104,7 @@ func NewEngine() (Engine, error) {
 // return success when creating database's path successfully
 func (e *engine) createDatabase(databaseName string, dbOption *option.DatabaseOption) (Database, error) {
 	cfgPath := optionsPath(databaseName)
-	cfg := &databaseConfig{Option: dbOption}
+	cfg := &models.DatabaseConfig{Option: dbOption}
 	engineLogger.Info("load database option from local storage", logger.String("path", cfgPath))
 	if fileExist(cfgPath) {
 		if err := decodeToml(cfgPath, cfg); err != nil {
@@ -107,7 +112,15 @@ func (e *engine) createDatabase(databaseName string, dbOption *option.DatabaseOp
 				databaseName, cfgPath, err)
 		}
 	}
-	db, err := newDatabaseFunc(databaseName, cfg, e.dataFlushChecker)
+	limits := limitsPath(databaseName)
+	limitCfg := models.NewDefaultLimits()
+	if fileExist(limits) {
+		if err := decodeToml(limits, limitCfg); err != nil {
+			return nil, fmt.Errorf("load database[%s] limits config from file[%s] with error: %s",
+				databaseName, cfgPath, err)
+		}
+	}
+	db, err := newDatabaseFunc(databaseName, cfg, limitCfg, e.dataFlushChecker)
 	if err != nil {
 		return nil, err
 	}
@@ -151,9 +164,25 @@ func (e *engine) CreateShards(
 	return nil
 }
 
+// SetDatabaseLimits sets database's limits.
+func (e *engine) SetDatabaseLimits(database string, limits *models.Limits) {
+	db, ok := e.dbSet.GetDatabase(database)
+	if ok {
+		if err := writeConfigFn(limitsPath(database), limits.TOML()); err != nil {
+			engineLogger.Warn("write limits config failure", logger.Error(err))
+		}
+		db.SetLimits(limits)
+	}
+}
+
 // GetDatabase returns the time series database by given name
 func (e *engine) GetDatabase(databaseName string) (Database, bool) {
 	return e.dbSet.GetDatabase(databaseName)
+}
+
+// GetAllDatabases returns all databases.
+func (e *engine) GetAllDatabases() map[string]Database {
+	return e.dbSet.Entries()
 }
 
 // GetShard returns shard by given db and shard id

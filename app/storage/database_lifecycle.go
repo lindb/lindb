@@ -22,9 +22,10 @@ import (
 	"path"
 	"time"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/tsdb"
@@ -49,7 +50,7 @@ type databaseLifecycle struct {
 	engine tsdb.Engine
 	repo   state.Repository
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewDatabaseLifecycle creates a DatabaseLifecycle instance.

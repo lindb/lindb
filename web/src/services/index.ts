@@ -6,7 +6,6 @@ ownership. LinDB licenses this file to you under
 the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
  
 Unless required by applicable law or agreed to in writing,
@@ -21,3 +20,4 @@ export { default as MetadataService } from "@src/services/metadata.service";
 export { default as QueryService } from "@src/services/query.service";
 export { default as ProxyService } from "@src/services/proxy.service";
 export { default as ExecService } from "@src/services/exec.service";
+export { default as PlatformService } from "@src/services/platform.service";

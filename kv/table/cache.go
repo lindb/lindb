@@ -25,9 +25,10 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/metrics"
-	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 //go:generate mockgen -source ./cache.go -destination=./cache_mock.go -package table

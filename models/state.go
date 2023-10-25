@@ -24,9 +24,11 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 
+	"github.com/lindb/common/models"
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 type ShardStateType int
@@ -49,46 +51,73 @@ const (
 	NodeOffline
 )
 
-// StorageStatus represents current storage config status.
-type StorageStatus int
+// ClusterStatus represents current cluster config status.
+type ClusterStatus int
 
 const (
-	StorageStatusUnknown StorageStatus = iota
-	StorageStatusInitialize
-	StorageStatusReady
+	ClusterStatusUnknown ClusterStatus = iota
+	ClusterStatusInitialize
+	ClusterStatusReady
 )
 
 // String returns the string value of StorageStatus.
-func (s StorageStatus) String() string {
+func (s ClusterStatus) String() string {
 	val := "Unknown"
 	switch s {
-	case StorageStatusInitialize:
+	case ClusterStatusInitialize:
 		val = "Initialize"
-	case StorageStatusReady:
+	case ClusterStatusReady:
 		val = "Ready"
 	}
 	return val
 }
 
 // MarshalJSON encodes storage status.
-func (s StorageStatus) MarshalJSON() ([]byte, error) {
+func (s ClusterStatus) MarshalJSON() ([]byte, error) {
 	val := s.String()
 	return json.Marshal(&val)
 }
 
 // UnmarshalJSON decodes storage status.
-func (s *StorageStatus) UnmarshalJSON(value []byte) error {
+func (s *ClusterStatus) UnmarshalJSON(value []byte) error {
 	switch string(value) {
 	case `"Initialize"`:
-		*s = StorageStatusInitialize
+		*s = ClusterStatusInitialize
 		return nil
 	case `"Ready"`:
-		*s = StorageStatusReady
+		*s = ClusterStatusReady
 		return nil
 	default:
-		*s = StorageStatusUnknown
+		*s = ClusterStatusUnknown
 		return nil
 	}
+}
+
+// Storage represents storage config and state.
+type Broker struct {
+	config.BrokerCluster
+	Status ClusterStatus `json:"status"`
+}
+
+// Brokers represents the broker list.
+type Brokers []Broker
+
+// ToTable returns broker list as table if it has value, else return empty string.
+func (s Brokers) ToTable() (rows int, tableStr string) {
+	if len(s) == 0 {
+		return 0, ""
+	}
+	writer := models.NewTableFormatter()
+	writer.AppendHeader(table.Row{"Namespace", "Status", "Configuration"})
+	for i := range s {
+		r := s[i]
+		writer.AppendRow(table.Row{
+			r.Config.Namespace,
+			r.Status.String(),
+			r.Config.String(),
+		})
+	}
+	return len(s), writer.Render()
 }
 
 // Storages represents the storage list.
@@ -99,7 +128,7 @@ func (s Storages) ToTable() (rows int, tableStr string) {
 	if len(s) == 0 {
 		return 0, ""
 	}
-	writer := NewTableFormatter()
+	writer := models.NewTableFormatter()
 	writer.AppendHeader(table.Row{"Namespace", "Status", "Configuration"})
 	for i := range s {
 		r := s[i]
@@ -115,7 +144,7 @@ func (s Storages) ToTable() (rows int, tableStr string) {
 // Storage represents storage config and state.
 type Storage struct {
 	config.StorageCluster
-	Status StorageStatus `json:"status"`
+	Status ClusterStatus `json:"status"`
 }
 
 // ReplicaState represents the relationship for a replica.
@@ -153,8 +182,42 @@ type FamilyState struct {
 	FamilyTime int64      `json:"familyTime"`
 }
 
+// BrokerState represents broker cluster state.
+// NOTICE: it is not safe for concurrent use.
+type BrokerState struct {
+	Name string `json:"name"` // ref Namespace
+
+	LiveNodes map[string]StatelessNode `json:"liveNodes"`
+}
+
+func NewBrokerState(name string) *BrokerState {
+	return &BrokerState{
+		Name:      name,
+		LiveNodes: make(map[string]StatelessNode),
+	}
+}
+
+// GetLiveNodes returns all live node list.
+func (b *BrokerState) GetLiveNodes() (rs []StatelessNode) {
+	for _, node := range b.LiveNodes {
+		rs = append(rs, node)
+	}
+	return
+}
+
+// NodeOnline adds a live node into node list.
+func (b *BrokerState) NodeOnline(nodeID string, node StatelessNode) {
+	b.LiveNodes[nodeID] = node
+}
+
+// NodeOffline removes a offline node from live node list.
+func (b *BrokerState) NodeOffline(nodeID string) {
+	delete(b.LiveNodes, nodeID)
+}
+
 // StorageState represents storage cluster state.
-// NOTICE: it is not safe for concurrent use. //TODO need concurrent safe????
+// NOTICE: it is not safe for concurrent use.
+// TODO: need concurrent safe????
 type StorageState struct {
 	Name string `json:"name"` // ref Namespace
 

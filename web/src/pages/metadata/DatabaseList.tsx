@@ -6,7 +6,6 @@ ownership. LinDB licenses this file to you under
 the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
  
 Unless required by applicable law or agreed to in writing,
@@ -20,6 +19,7 @@ import {
   IconDeleteStroked,
   IconPlusCircle,
   IconRefresh,
+  IconCommand,
 } from "@douyinfe/semi-icons";
 import {
   Button,
@@ -32,12 +32,13 @@ import {
 } from "@douyinfe/semi-ui";
 import StatusTip from "@src/components/common/StatusTip";
 import { Route } from "@src/constants";
+import { UIContext } from "@src/context/UIContextProvider";
 import { Database } from "@src/models";
 import { ExecService } from "@src/services";
 import { URLStore } from "@src/stores";
 import { useQuery } from "@tanstack/react-query";
 import * as _ from "lodash-es";
-import React from "react";
+import React, { useContext } from "react";
 
 const { Text } = Typography;
 
@@ -48,6 +49,8 @@ export default function DatabaseList() {
       return ExecService.exec<Database[]>({ sql: "show schemas" });
     }
   );
+  const { locale } = useContext(UIContext);
+  const { MetadataDatabaseView, Common } = locale;
 
   const dropDatabase = async (name: string) => {
     try {
@@ -74,41 +77,54 @@ export default function DatabaseList() {
 
   const columns = [
     {
-      title: "Name",
+      title: MetadataDatabaseView.name,
       dataIndex: "name",
       key: "name",
     },
     {
-      title: "Storage",
+      title: MetadataDatabaseView.storage,
       dataIndex: "storage",
     },
     {
-      title: "Description",
+      title: MetadataDatabaseView.description,
       dataIndex: "desc",
     },
     {
-      title: "Actions",
+      title: Common.actions,
       key: "actions",
       width: 100,
       render: (_text: any, record: any, _index: any) => {
         return (
-          <Popconfirm
-            title="Please confirm"
-            content={
-              <>
-                Are you sure drop [
-                <Text strong type="danger">
-                  {record.name}
-                </Text>
-                ] database?
-              </>
-            }
-            onConfirm={() => {
-              dropDatabase(record.name);
-            }}
-          >
-            <Button icon={<IconDeleteStroked />} type="danger" />
-          </Popconfirm>
+          <>
+            <Button
+              onClick={() => {
+                URLStore.changeURLParams({
+                  path: Route.MetadataDatabaseLimits,
+                  params: { db: record.name },
+                });
+              }}
+              icon={<IconCommand />}
+              type="primary"
+              style={{ marginRight: 4 }}
+            />
+            <Popconfirm
+              title={Common.pleaseConfirm}
+              content={
+                <>
+                  {MetadataDatabaseView.deleteConfirm1}
+                  <Text strong type="danger">
+                    {record.name}
+                  </Text>
+                  {MetadataDatabaseView.deleteConfirm2}
+                </>
+              }
+              onConfirm={() => {
+                dropDatabase(record.name);
+              }}
+            >
+              <Button icon={<IconDeleteStroked />} type="danger" />
+            </Popconfirm>
+          </>
         );
       },
     },
@@ -130,7 +146,7 @@ export default function DatabaseList() {
   return (
     <Card>
       <SplitButtonGroup style={{ marginBottom: 20 }}>
-        <CreateBtn text="Create" />
+        <CreateBtn text={Common.create} />
         <Button
           icon={<IconRefresh />}
           style={{ marginLeft: 4 }}

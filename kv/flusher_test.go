@@ -48,7 +48,6 @@ func TestFlusher_Add(t *testing.T) {
 		family.EXPECT().ID().Return(version.FamilyID(10)),
 		family.EXPECT().newTableBuilder().Return(builder, nil),
 		builder.EXPECT().FileNumber().Return(table.FileNumber(100)),
-		family.EXPECT().addPendingOutput(table.FileNumber(100)),
 		builder.EXPECT().Add(uint32(10), []byte("value10")).Return(fmt.Errorf("err")),
 	)
 	flusher = newStoreFlusher(family, func() {})
@@ -61,7 +60,6 @@ func TestFlusher_Add(t *testing.T) {
 		family.EXPECT().ID().Return(version.FamilyID(10)),
 		family.EXPECT().newTableBuilder().Return(builder, nil),
 		builder.EXPECT().FileNumber().Return(table.FileNumber(100)),
-		family.EXPECT().addPendingOutput(table.FileNumber(100)),
 		builder.EXPECT().Add(uint32(10), []byte("value10")).Return(nil),
 	)
 	flusher = newStoreFlusher(family, func() {})
@@ -181,7 +179,6 @@ func TestStoreFlusher_StreamWriter(t *testing.T) {
 				builder.EXPECT().FileNumber().Return(table.FileNumber(10))
 				builder.EXPECT().StreamWriter().Return(&nopStreamWriter{})
 				family.EXPECT().newTableBuilder().Return(builder, nil)
-				family.EXPECT().addPendingOutput(gomock.Any())
 			},
 			wantErr: false,
 		},

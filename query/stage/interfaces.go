@@ -17,7 +17,7 @@
 
 package stage
 
-import "github.com/lindb/lindb/models"
+import "github.com/lindb/common/models"
 
 //go:generate mockgen -source=./interfaces.go -destination=./interfaces_mock.go -package=stage
 
@@ -39,6 +39,10 @@ const (
 	MetadataSuggest
 	// ShardLookup represents shard lookup stage.
 	ShardLookup
+	// PhysicalPlan represents physical plan stage.
+	PhysicalPlan
+	// TaskSend represents task send stage.
+	TaskSend
 )
 
 // String returns string value of stage type.
@@ -56,6 +60,10 @@ func (t Type) String() string {
 		return "MetadataSuggest"
 	case ShardLookup:
 		return "ShardLookup"
+	case PhysicalPlan:
+		return "PhysicalPlan"
+	case TaskSend:
+		return "TaskSend"
 	default:
 		return "Unknown"
 	}

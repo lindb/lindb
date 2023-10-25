@@ -3,57 +3,84 @@
 ## Coordinator coordinates reads/writes operations between different nodes
 ## namespace organizes etcd keys into a isolated complete keyspaces for coordinator
 ## Default: /lindb-cluster
+## Env: LINDB_COORDINATOR_NAMESPACE
 namespace = "/lindb-cluster"
 ## Endpoints config list of ETCD cluster
 ## Default: ["http://localhost:2379"]
+## Env: LINDB_COORDINATOR_ENDPOINTS  Env Separator: ,
 endpoints = ["http://localhost:2379"]
 ## Lease-TTL is a number in seconds.
 ## It controls how long a ephemeral node like zookeeper will be removed when heartbeat fails.
 ## lease expiration will cause a re-elect.
 ## Min: 5s
 ## Default: 10s
+## Env: LINDB_COORDINATOR_LEASE_TTL
 lease-ttl = "10s"
 ## Timeout is the timeout for failing to executing a etcd command.
 ## Default: 5s
+## Env: LINDB_COORDINATOR_TIMEOUT
 timeout = "5s"
 ## DialTimeout is the timeout for failing to establish a etcd connection.
 ## Default: 5s
+## Env: LINDB_COORDINATOR_DIAL_TIMEOUT
 dial-timeout = "5s"
 ## Username is a user name for etcd authentication.
 ## Default: ""
+## Env: LINDB_COORDINATOR_USERNAME
 username = ""
 ## Password is a password for etcd authentication.
 ## Default: ""
+## Env: LINDB_COORDINATOR_PASSWORD
 password = ""
 
 ## Query related configuration.
 [query]
 ## Number of queries allowed to execute concurrently
-## Default: 24
-query-concurrency = 24
+## Default: 1024
+## Env: LINDB_QUERY_CONCURRENCY
+query-concurrency = 1024
 ## Idle worker will be canceled in this duration
 ## Default: 5s
+## Env: LINDB_QUERY_IDLE_TIMEOUT
 idle-timeout = "5s"
 ## Maximum timeout threshold for query.
 ## Default: 5s
+## Env: LINDB_QUERY_TIMEOUT
 timeout = "5s"
 
 ## Broker related configuration.
 [broker]
 
+## Throttle duration for slow sql.
+## Default: 30s
+## Env: LINDB_BROKER_SLOW_SQL
+slow-sql = "30s"
+
 ## Controls how HTTP Server are configured.
 [broker.http]
 ## port which the HTTP Server is listening on
 ## Default: 9000
+## Env: LINDB_BROKER_HTTP_PORT
+## Env: LINDB_STORAGE_HTTP_PORT
+## Env: LINDB_ROOT_HTTP_PORT
 port = 9000
 ## maximum duration the server should keep established connections alive.
 ## Default: 2m0s
+## Env: LINDB_BROKER_HTTP_IDLE_TIMEOUT
+## Env: LINDB_STORAGE_HTTP_IDLE_TIMEOUT
+## Env: LINDB_ROOT_HTTP_IDLE_TIMEOUT
 idle-timeout = "2m0s"
 ## maximum duration before timing out for server writes of the response
 ## Default: 5s
+## Env: LINDB_BROKER_HTTP_WRITE_TIMEOUT
+## Env: LINDB_STORAGE_HTTP_WRITE_TIMEOUT
+## Env: LINDB_ROOT_HTTP_WRITE_TIMEOUT
 write-timeout = "5s"
 ## maximum duration for reading the entire request, including the body.
 ## Default: 5s
+## Env: LINDB_BROKER_HTTP_READ_TIMEOUT
+## Env: LINDB_STORAGE_HTTP_READ_TIMEOUT
+## Env: LINDB_ROOT_HTTP_READ_TIMEOUT
 read-timeout = "5s"
 
 ## Ingestion configuration for broker handle ingest request.
@@ -61,10 +88,12 @@ read-timeout = "5s"
 ## How many goroutines can write metrics at the same time.
 ## If writes requests exceeds the concurrency,
 ## ingestion HTTP API will be throttled.
-## Default: 24
-max-concurrency = 24
+## Default: 256
+## Env: LINDB_BROKER_INGESTION_CONCURRENCY
+max-concurrency = 256
 ## maximum duration before timeout for server ingesting metrics
 ## Default: 5s
+## Env: LINDB_BROKER_INGESTION_TIMEOUT
 ingest-timeout = "5s"
 
 ## Write configuration for writing replication block.
@@ -72,58 +101,75 @@ ingest-timeout = "5s"
 ## Broker will write at least this often,
 ## even if the configured batch-size if not reached.
 ## Default: 2s
+## Env: LINDB_BROKER_WRITE_BATCH_TIMEOUT
 batch-timeout = "2s"
 ## Broker will sending block to storage node in this size
 ## Default: 256 KiB
+## Env: LINDB_BROKER_WRITE_BLOCK_SIZE
 batch-block-size = "256 KiB"
 ## interval for how often expired write write family garbage collect task execute
 ## Default: 1m0s
+## Env: LINDB_BROKER_WRITE_GC_INTERVAL
 gc-task-interval = "1m0s"
 
 ## Controls how GRPC Server are configured.
 [broker.grpc]
 ## port which the GRPC Server is listening on
 ## Default: 9001
+## Env: LINDB_BROKER_GRPC_PORT
+## Env: LINDB_STORAGE_GRPC_PORT
 port = 9001
 ## max-concurrent-streams limits the number of concurrent streams to each ServerTransport
-## Default: 240 
-max-concurrent-streams = 240
+## Default: 1024 
+## Env: LINDB_BROKER_GRPC_MAX_CONCURRENT_STREAMS
+## Env: LINDB_STORAGE_GRPC_MAX_CONCURRENT_STREAMS
+max-concurrent-streams = 1024
 ## connect-timeout sets the timeout for connection establishment.
 ## Default: 3s
+## Env: LINDB_BROKER_GRPC_CONNECT_TIMEOUT
+## Env: LINDB_STORAGE_GRPC_CONNECT_TIMEOUT
 connect-timeout = "3s"
 
 ## Config for the Internal Monitor
 [monitor]
 ## time period to process an HTTP metrics push call
 ## Default: 3s
+## Env: LINDB_MONITOR_PUSH_TIMEOUT
 push-timeout = "3s"
 ## monitor won't start when interval is sets to 0
 ## such as cpu, memory, and disk, process and go runtime
 ## Default: 10s
+## Env: LINDB_MONITOR_REPORT_INTERVAL
 report-interval = "10s"
 ## URL is the target of broker native ingestion url
 ## Default: http://127.0.0.1:9000/api/v1/write?db=_internal
+## Env: LINDB_MONITOR_URL
 url = "http://127.0.0.1:9000/api/v1/write?db=_internal"
 
 ## logging related configuration.
 [logging]
 ## Dir is the output directory for log-files
 ## Default: data/log
+## Env: LINDB_LOGGING_DIR
 dir = "data/log"
 ## Determine which level of logs will be emitted.
 ## error, warn, info, and debug are available
 ## Default: info
+## Env: LINDB_LOGGING_LEVEL
 level = "info"
 ## MaxSize is the maximum size in megabytes of the log file before it gets rotated. 
 ## Default: 100 MiB
+## Env: LINDB_LOGGING_MAX_SIZE
 maxsize = "100 MiB"
 ## MaxBackups is the maximum number of old log files to retain. The default
 ## is to retain all old log files (though MaxAge may still cause them to get deleted.)
 ## Default: 3
+## Env: LINDB_LOGGING_MAX_BACKUPS
 maxbackups = 3
 ## MaxAge is the maximum number of days to retain old log files based on the
 ## timestamp encoded in their filename.  Note that a day is defined as 24 hours
 ## and may not exactly correspond to calendar days due to daylight savings, leap seconds, etc.
 ## The default is not to remove old log files based on age.
 ## Default: 7
+## Env: LINDB_LOGGING_MAX_AGE
 maxage = 7

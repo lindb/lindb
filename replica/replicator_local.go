@@ -20,9 +20,10 @@ package replica
 import (
 	"github.com/golang/snappy"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb"
 )
@@ -34,7 +35,7 @@ type localReplicator struct {
 	leader    int32
 	shard     tsdb.Shard
 	family    tsdb.DataFamily
-	logger    *logger.Logger
+	logger    logger.Logger
 	batchRows *metric.StorageBatchRows
 
 	block []byte

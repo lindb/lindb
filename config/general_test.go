@@ -25,7 +25,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/pkg/ltoml"
+	"github.com/lindb/common/pkg/ltoml"
 )
 
 func TestGeneral_string(t *testing.T) {

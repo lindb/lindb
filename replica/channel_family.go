@@ -26,11 +26,12 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/metric"
 )
@@ -91,7 +92,7 @@ type familyChannel struct {
 	lock4meta  sync.Mutex
 
 	statistics *metrics.BrokerFamilyWriteStatistics
-	logger     *logger.Logger
+	logger     logger.Logger
 }
 
 func newFamilyChannel(

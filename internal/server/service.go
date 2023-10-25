@@ -21,12 +21,14 @@ package server
 
 // Service represents an operational state of server, lifecycle methods to transition between states.
 type Service interface {
-	// Name returns the service's name
+	// Name returns the service's name.
 	Name() string
-	// Run runs server
+	// Run runs server.
 	Run() error
-	// State returns current service state
+	// State returns current service state.
 	State() State
-	// Stop shutdowns server, do some cleanup logic
+	// Config returns the configure of server.
+	Config() any
+	// Stop shutdowns server, do some cleanup logic.
 	Stop()
 }

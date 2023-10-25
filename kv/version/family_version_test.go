@@ -120,8 +120,8 @@ func TestFamilyVersion_Rollup(t *testing.T) {
 	version.EXPECT().ID().Return(int64(10))
 	version.EXPECT().GetFamilyVersion().Return(fv)
 	fv.appendVersion(version)
-	version.EXPECT().GetReferenceFiles().Return(nil)
-	assert.Nil(t, fv.GetLiveReferenceFiles())
+	version.EXPECT().GetReferenceFiles("20230202").Return(nil)
+	assert.Nil(t, fv.GetLiveReferenceFiles("20230202"))
 	version.EXPECT().GetRollupFiles()
 	assert.Nil(t, fv.GetLiveRollupFiles())
 }

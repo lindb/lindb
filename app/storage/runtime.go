@@ -27,27 +27,29 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/timeutil"
+
+	"github.com/lindb/lindb/app"
 	stateapi "github.com/lindb/lindb/app/storage/api/state"
 	rpchandler "github.com/lindb/lindb/app/storage/rpc"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/storage"
+	"github.com/lindb/lindb/internal/api"
 	"github.com/lindb/lindb/internal/bootstrap"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
-	"github.com/lindb/lindb/internal/monitoring"
 	"github.com/lindb/lindb/internal/server"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/pkg/hostutil"
 	httppkg "github.com/lindb/lindb/pkg/http"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
 	protoWriteV1 "github.com/lindb/lindb/proto/gen/v1/write"
@@ -88,6 +90,7 @@ var (
 
 // runtime represents storage runtime dependency
 type runtime struct {
+	app.BaseRuntime
 	myID    int // default myid value
 	state   server.State
 	version string
@@ -115,10 +118,9 @@ type runtime struct {
 	rpcHandler      *rpcHandler
 	httpServer      httppkg.Server
 	queryPool       concurrent.Pool
-	pusher          monitoring.NativePusher
 	globalKeyValues tag.Tags
 
-	log *logger.Logger
+	log logger.Logger
 }
 
 // NewStorageRuntime creates storage runtime
@@ -141,6 +143,11 @@ func NewStorageRuntime(version string, myID int, cfg *config.Storage) server.Ser
 		initializer: bootstrap.NewClusterInitializer(cfg.StorageBase.BrokerEndpoint),
 		log:         logger.GetLogger("Storage", "Runtime"),
 	}
+}
+
+// Config returns the configure of storage.
+func (r *runtime) Config() any {
+	return r.config
 }
 
 // Name returns the storage service's name.
@@ -202,6 +209,7 @@ func (r *runtime) Run() error {
 		{Key: []byte("role"), Value: []byte(constants.StorageRole)},
 		{Key: []byte("namespace"), Value: []byte(r.config.Coordinator.Namespace)},
 	}
+	r.BaseRuntime = app.NewBaseRuntimeFn(r.ctx, r.config.Monitor, linmetric.StorageRegistry, r.globalKeyValues)
 
 	r.factory = factory{taskServer: rpc.NewTaskServerFactory()}
 	r.stateMgr = storage.NewStateManager(r.ctx, r.node, engine)
@@ -247,9 +255,9 @@ func (r *runtime) Run() error {
 	}
 
 	// start system collector
-	r.systemCollector()
+	r.SystemCollector()
 	// start stat monitoring
-	r.nativePusher()
+	r.NativePusher()
 
 	r.state = server.Running
 
@@ -341,10 +349,7 @@ func (r *runtime) Stop() {
 	r.log.Info("stopping storage server...")
 	defer r.cancel()
 
-	if r.pusher != nil {
-		r.pusher.Stop()
-		r.log.Info("stopped native linmetric pusher successfully")
-	}
+	r.Shutdown()
 
 	if r.jobScheduler != nil {
 		r.jobScheduler.Shutdown()
@@ -399,7 +404,7 @@ func (r *runtime) startHTTPServer() {
 	}
 
 	r.httpServer = httppkg.NewServer(r.config.StorageBase.HTTP, false, linmetric.StorageRegistry)
-	exploreAPI := monitoring.NewExploreAPI(r.globalKeyValues, linmetric.StorageRegistry)
+	exploreAPI := api.NewExploreAPI(r.globalKeyValues, linmetric.StorageRegistry)
 	v1 := r.httpServer.GetAPIRouter().Group(constants.APIVersion1)
 	exploreAPI.Register(v1)
 	replicaAPI := stateapi.NewReplicaAPI(r.walMgr)
@@ -408,12 +413,14 @@ func (r *runtime) startHTTPServer() {
 	tsdbStateAPI.Register(v1)
 	stateMachineAPI := stateapi.NewStorageStateMachineAPI(r.stateMgr)
 	stateMachineAPI.Register(v1)
-	logAPI := monitoring.NewLoggerAPI(r.config.Logging.Dir)
+	logAPI := api.NewLoggerAPI(r.config.Logging.Dir)
 	logAPI.Register(v1)
-	configAPI := monitoring.NewConfigAPI(r.node, r.config)
+	configAPI := api.NewConfigAPI(r.node, r.config)
 	configAPI.Register(v1)
 	requestAPI := stateapi.NewRequestAPI()
 	requestAPI.Register(v1)
+	metadataAPI := stateapi.NewMetadataAPI(r.engine)
+	metadataAPI.Register(v1)
 
 	go func() {
 		if err := r.httpServer.Run(); err != http.ErrServerClosed {
@@ -460,35 +467,6 @@ func (r *runtime) bindRPCHandlers() {
 	protoReplicaV1.RegisterReplicaServiceServer(r.server.GetServer(), r.rpcHandler.replica)
 	protoWriteV1.RegisterWriteServiceServer(r.server.GetServer(), r.rpcHandler.write)
 	protoCommonV1.RegisterTaskServiceServer(r.server.GetServer(), r.rpcHandler.task)
-}
-
-func (r *runtime) nativePusher() {
-	monitorEnabled := r.config.Monitor.ReportInterval > 0
-	if !monitorEnabled {
-		r.log.Info("pusher won't start because report-interval is 0")
-		return
-	}
-	r.log.Info("pusher is running",
-		logger.String("interval", r.config.Monitor.ReportInterval.String()))
-
-	r.pusher = monitoring.NewNativeProtoPusher(
-		r.ctx,
-		r.config.Monitor.URL,
-		r.config.Monitor.ReportInterval.Duration(),
-		r.config.Monitor.PushTimeout.Duration(),
-		linmetric.StorageRegistry,
-		r.globalKeyValues,
-	)
-	go r.pusher.Start()
-}
-
-func (r *runtime) systemCollector() {
-	r.log.Info("system collector is running")
-
-	go monitoring.NewSystemCollector(
-		r.ctx,
-		"/",
-		metrics.NewSystemStatistics(linmetric.StorageRegistry)).Run()
 }
 
 // initMyID initializes myid for storage server.

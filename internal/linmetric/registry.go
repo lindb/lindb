@@ -27,6 +27,10 @@ import (
 )
 
 var (
+	// RootRegistry represents root level metric Registry.
+	RootRegistry = &Registry{
+		series: make(map[uint64]*taggedSeries),
+	}
 	// BrokerRegistry represents broker level metric Registry.
 	BrokerRegistry = &Registry{
 		series: make(map[uint64]*taggedSeries),

@@ -27,6 +27,9 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/common/pkg/fasttime"
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/ltoml"
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 
 	"github.com/lindb/lindb/config"
@@ -36,8 +39,6 @@ import (
 	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/metric"
@@ -66,7 +67,7 @@ func TestDataFamily_BaseTime(t *testing.T) {
 	shard := NewMockShard(ctrl)
 	shard.EXPECT().Database().Return(database)
 	shard.EXPECT().ShardID().Return(models.ShardID(1))
-	dataFamily := newDataFamily(shard, nil, timeutil.Interval(timeutil.OneSecond*10), timeRange, 10, family)
+	dataFamily := newDataFamily(shard, nil, timeutil.Interval(commontimeutil.OneSecond*10), timeRange, 10, family)
 	assert.Equal(t, timeRange, dataFamily.TimeRange())
 	assert.Equal(t, timeutil.Interval(10000), dataFamily.Interval())
 	assert.NotNil(t, dataFamily.Family())
@@ -87,7 +88,7 @@ func TestDataFamily_Filter(t *testing.T) {
 	family.EXPECT().GetSnapshot().Return(snapshot).AnyTimes()
 	reader := table.NewMockReader(ctrl)
 	reader.EXPECT().Path().Return("test").AnyTimes()
-	now := timeutil.Now()
+	now := commontimeutil.Now()
 	cases := []struct {
 		name    string
 		prepare func(f *dataFamily)
@@ -205,7 +206,7 @@ func TestDataFamily_Filter(t *testing.T) {
 				StorageExecuteCtx: &flow.StorageExecuteContext{
 					MetricID: 1,
 					Query: &stmtpkg.Query{
-						StorageInterval: timeutil.Interval(timeutil.OneMinute),
+						StorageInterval: timeutil.Interval(commontimeutil.OneMinute),
 						TimeRange:       timeutil.TimeRange{Start: now, End: now + 60000},
 					},
 				},
@@ -224,6 +225,9 @@ func TestDataFamily_Filter(t *testing.T) {
 func TestDataFamily_NeedFlush(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	db := NewMockDatabase(ctrl)
+	shard := NewMockShard(ctrl)
+	shard.EXPECT().Database().Return(db).AnyTimes()
 
 	cases := []struct {
 		name      string
@@ -262,12 +266,15 @@ func TestDataFamily_NeedFlush(t *testing.T) {
 			prepare: func(f *dataFamily) {
 				cfg := config.NewDefaultStorageBase()
 				cfg.TSDB.MutableMemDBTTL = ltoml.Duration(time.Second)
+				db.EXPECT().GetOption().Return(&option.DatabaseOption{
+					Intervals: option.Intervals{{Interval: timeutil.Interval(commontimeutil.OneSecond)}},
+				})
 				config.SetGlobalStorageConfig(cfg)
 				memDB := memdb.NewMockMemoryDatabase(ctrl)
 				f.mutableMemDB = memDB
 				memDB.EXPECT().MemSize().Return(int64(10))
 				memDB.EXPECT().NumOfMetrics().Return(10)
-				memDB.EXPECT().Uptime().Return(time.Duration(timeutil.Now() - timeutil.OneMinute)).MaxTimes(2)
+				memDB.EXPECT().Uptime().Return(time.Minute).MaxTimes(2)
 			},
 			needFlush: true,
 		},
@@ -276,12 +283,18 @@ func TestDataFamily_NeedFlush(t *testing.T) {
 			prepare: func(f *dataFamily) {
 				cfg := config.NewDefaultStorageBase()
 				cfg.TSDB.MutableMemDBTTL = ltoml.Duration(time.Hour)
+				db.EXPECT().GetOption().Return(&option.DatabaseOption{
+					Intervals: option.Intervals{
+						{Interval: timeutil.Interval(commontimeutil.OneSecond)},
+						{Interval: timeutil.Interval(commontimeutil.OneMinute * 5)},
+					},
+				})
 				cfg.TSDB.MaxMemDBSize = 10
 				config.SetGlobalStorageConfig(cfg)
 				memDB := memdb.NewMockMemoryDatabase(ctrl)
 				f.mutableMemDB = memDB
 				memDB.EXPECT().NumOfMetrics().Return(10)
-				memDB.EXPECT().Uptime().Return(time.Duration(timeutil.Now() - timeutil.OneMinute)).MaxTimes(2)
+				memDB.EXPECT().Uptime().Return(time.Minute).MaxTimes(2)
 				memDB.EXPECT().MemSize().Return(int64(1000)).MaxTimes(2)
 			},
 			needFlush: true,
@@ -292,11 +305,17 @@ func TestDataFamily_NeedFlush(t *testing.T) {
 				cfg := config.NewDefaultStorageBase()
 				cfg.TSDB.MutableMemDBTTL = ltoml.Duration(time.Hour)
 				cfg.TSDB.MaxMemDBSize = 10000
+				db.EXPECT().GetOption().Return(&option.DatabaseOption{
+					Intervals: option.Intervals{
+						{Interval: timeutil.Interval(commontimeutil.OneSecond)},
+						{Interval: timeutil.Interval(commontimeutil.OneMinute * 5)},
+					},
+				})
 				config.SetGlobalStorageConfig(cfg)
 				memDB := memdb.NewMockMemoryDatabase(ctrl)
 				f.mutableMemDB = memDB
 				memDB.EXPECT().NumOfMetrics().Return(10)
-				memDB.EXPECT().Uptime().Return(time.Duration(timeutil.Now() - timeutil.OneMinute)).MaxTimes(2)
+				memDB.EXPECT().Uptime().Return(time.Minute).MaxTimes(2)
 				memDB.EXPECT().MemSize().Return(int64(10)).MaxTimes(2)
 			},
 			needFlush: false,
@@ -310,6 +329,7 @@ func TestDataFamily_NeedFlush(t *testing.T) {
 				config.SetGlobalStorageConfig(config.NewDefaultStorageBase())
 			}()
 			f := &dataFamily{
+				shard:  shard,
 				logger: logger.GetLogger("TSDB", "Test"),
 			}
 			if tt.prepare != nil {
@@ -618,7 +638,7 @@ func TestDataFamily_WriteRows(t *testing.T) {
 				}
 				return mockBatchRows(&protoMetricsV1.Metric{
 					Name:      "test",
-					Timestamp: timeutil.Now(),
+					Timestamp: commontimeutil.Now(),
 					SimpleFields: []*protoMetricsV1.SimpleField{{
 						Name:  "f1",
 						Value: 1.0,
@@ -633,7 +653,7 @@ func TestDataFamily_WriteRows(t *testing.T) {
 			prepare: func() []metric.StorageRow {
 				return mockBatchRows(&protoMetricsV1.Metric{
 					Name:      "test",
-					Timestamp: timeutil.Now(),
+					Timestamp: commontimeutil.Now(),
 					SimpleFields: []*protoMetricsV1.SimpleField{{
 						Name:  "f1",
 						Value: 1.0,
@@ -649,7 +669,7 @@ func TestDataFamily_WriteRows(t *testing.T) {
 				memDB.EXPECT().WriteRow(gomock.Any()).Return(fmt.Errorf("err"))
 				rows := mockBatchRows(&protoMetricsV1.Metric{
 					Name:      "test",
-					Timestamp: timeutil.Now(),
+					Timestamp: commontimeutil.Now(),
 					SimpleFields: []*protoMetricsV1.SimpleField{{
 						Name:  "f1",
 						Value: 1.0,
@@ -667,7 +687,7 @@ func TestDataFamily_WriteRows(t *testing.T) {
 				memDB.EXPECT().WriteRow(gomock.Any()).Return(nil)
 				rows := mockBatchRows(&protoMetricsV1.Metric{
 					Name:      "test",
-					Timestamp: timeutil.Now(),
+					Timestamp: commontimeutil.Now(),
 					SimpleFields: []*protoMetricsV1.SimpleField{{
 						Name:  "f1",
 						Value: 1.0,
@@ -689,7 +709,7 @@ func TestDataFamily_WriteRows(t *testing.T) {
 			}()
 			f := &dataFamily{
 				shard:      shard,
-				interval:   timeutil.Interval(10 * timeutil.OneSecond),
+				interval:   timeutil.Interval(10 * commontimeutil.OneSecond),
 				statistics: metrics.NewFamilyStatistics("data", "1"),
 				logger:     logger.GetLogger("TSDB", "Test"),
 			}
@@ -717,7 +737,7 @@ func TestDataFamily_GetState(t *testing.T) {
 	db.EXPECT().NumOfSeries().Return(100).MaxTimes(2)
 	db.EXPECT().MemSize().Return(int64(10)).MaxTimes(2)
 	db.EXPECT().Uptime().Return(time.Duration(10)).MaxTimes(2)
-	now := timeutil.Now()
+	now := commontimeutil.Now()
 	f := &dataFamily{
 		shard:          shard,
 		familyTime:     now,
@@ -730,7 +750,7 @@ func TestDataFamily_GetState(t *testing.T) {
 	state := f.GetState()
 	assert.Equal(t, models.DataFamilyState{
 		ShardID:          models.ShardID(1),
-		FamilyTime:       timeutil.FormatTimestamp(now, timeutil.DataTimeFormat2),
+		FamilyTime:       commontimeutil.FormatTimestamp(now, commontimeutil.DataTimeFormat2),
 		AckSequences:     map[int32]int64{10: 10},
 		ReplicaSequences: map[int32]int64{10: 10},
 		MemoryDatabases: []models.MemoryDatabaseState{
@@ -761,7 +781,7 @@ func TestDataFamily_Compact(t *testing.T) {
 	f.Compact()
 
 	f.mutableMemDB = nil
-	f.lastFlushTime = fasttime.UnixMilliseconds() - 2*timeutil.OneHour - 5*timeutil.OneMinute
+	f.lastFlushTime = fasttime.UnixMilliseconds() - 2*commontimeutil.OneHour - 5*commontimeutil.OneMinute
 	kvFamily := kv.NewMockFamily(ctrl)
 	f.family = kvFamily
 	kvFamily.EXPECT().Compact()
@@ -800,24 +820,24 @@ func TestDataFamily_Evict(t *testing.T) {
 		{
 			name: "family time in write time range",
 			prepare: func(f *dataFamily) {
-				f.familyTime = timeutil.Now()
-				f.familyTime = f.familyTime - 6*timeutil.OneHour - timeutil.OneMinute
+				f.familyTime = commontimeutil.Now()
+				f.familyTime = f.familyTime - 6*commontimeutil.OneHour - commontimeutil.OneMinute
 			},
 		},
 		{
 			name: "family time expire",
 			prepare: func(f *dataFamily) {
-				f.familyTime = timeutil.Now()
-				f.familyTime = f.familyTime - 7*timeutil.OneHour - timeutil.OneMinute
-				f.lastReadTime.Store(timeutil.Now() - 3*timeutil.OneHour - timeutil.OneMinute)
+				f.familyTime = commontimeutil.Now()
+				f.familyTime = f.familyTime - 7*commontimeutil.OneHour - commontimeutil.OneMinute
+				f.lastReadTime.Store(commontimeutil.Now() - 3*commontimeutil.OneHour - commontimeutil.OneMinute)
 			},
 		},
 		{
 			name: "family time expire, but close family failure",
 			prepare: func(f *dataFamily) {
-				f.familyTime = timeutil.Now()
-				f.familyTime = f.familyTime - 7*timeutil.OneHour - timeutil.OneMinute
-				f.lastReadTime.Store(timeutil.Now() - 3*timeutil.OneHour - timeutil.OneMinute)
+				f.familyTime = commontimeutil.Now()
+				f.familyTime = f.familyTime - 7*commontimeutil.OneHour - commontimeutil.OneMinute
+				f.lastReadTime.Store(commontimeutil.Now() - 3*commontimeutil.OneHour - commontimeutil.OneMinute)
 				closeFamilyFunc = func(_ *dataFamily) error {
 					return fmt.Errorf("err")
 				}

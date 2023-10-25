@@ -6,7 +6,6 @@ ownership. LinDB licenses this file to you under
 the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
  
 Unless required by applicable law or agreed to in writing,
@@ -69,6 +68,12 @@ const MetadataSelect: React.FC<{
         whereClause.push(...tags);
       }
     }
+    // set namespace
+    const namespace = _.get(params, "namespace");
+    if (!_.isEmpty(namespace)) {
+      targetSQL += ` on '${namespace}'`;
+    }
+
     if (!_.isEmpty(whereClause)) {
       targetSQL += ` where ${whereClause.join(" and ")}`;
     }

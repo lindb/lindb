@@ -6,7 +6,6 @@ ownership. LinDB licenses this file to you under
 the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
  
 Unless required by applicable law or agreed to in writing,
@@ -20,16 +19,9 @@ import {
   IconFixedStroked,
   IconShareStroked,
   IconServerStroked,
-  IconTemplateStroked,
 } from "@douyinfe/semi-icons";
 import { Tree, Typography } from "@douyinfe/semi-ui";
-import {
-  ExplainResult,
-  LeafNodeStats,
-  OperatorStats,
-  StageStats,
-  Unit,
-} from "@src/models";
+import { NodeStats, OperatorStats, StageStats, Unit } from "@src/models";
 import { FormatKit } from "@src/utils";
 import React, { useRef, MutableRefObject } from "react";
 import * as _ from "lodash-es";
@@ -47,9 +39,15 @@ type stats = {
   cost: number;
 };
 
-const ExplainStatsView: React.FC<{ state: ExplainResult }> = (props) => {
+const ExplainStatsView: React.FC<{ state: NodeStats }> = (props) => {
   const { state } = props;
   const totalStats = useRef() as MutableRefObject<totalStats>;
+  const nodeID = useRef(0);
+
+  const getNodeID = (): string => {
+    nodeID.current++;
+    return `node-${nodeID.current}`;
+  };
 
   const getColor = (percent: number) => {
     let type: any = "success";
@@ -93,13 +91,9 @@ const ExplainStatsView: React.FC<{ state: ExplainResult }> = (props) => {
     return <Text type={type}>{FormatKit.format(cost, Unit.Nanoseconds)}</Text>;
   };
 
-  const buildOperatorStats = (
-    parent: string,
-    operators: OperatorStats[]
-  ): any[] => {
+  const buildOperatorStats = (operators: OperatorStats[]): any[] => {
     const children: any[] = [];
-    _.forEach(operators, (item: OperatorStats, idx: number) => {
-      const key = `${`${parent}-Leaf-Stage-Operator-${item.identifier}-${idx}`}`;
+    _.forEach(operators, (item: OperatorStats) => {
       const operatorNode = {
         label: (
           <div style={style}>
@@ -114,7 +108,7 @@ const ExplainStatsView: React.FC<{ state: ExplainResult }> = (props) => {
             })}
           </div>
         ),
-        key: key,
+        key: getNodeID(),
         icon: <IconFixedStroked />,
       };
       children.push(operatorNode);
@@ -122,17 +116,12 @@ const ExplainStatsView: React.FC<{ state: ExplainResult }> = (props) => {
     return children;
   };
 
-  const buildStageStats = (
-    parent: string,
-    total: number,
-    stages: StageStats[]
-  ): any[] => {
+  const buildStageStats = (stages: StageStats[]): any[] => {
     if (_.isEmpty(stages)) {
       return [];
     }
     let children: any = [];
-    _.forEach(stages, (item: StageStats, idx: number) => {
-      const key = `${`${parent}-Leaf-Stage-${item.identifier}-${idx}`}`;
+    _.forEach(stages, (item: StageStats) => {
       const stageNode = {
         label: (
           <div style={style}>
@@ -144,106 +133,85 @@ const ExplainStatsView: React.FC<{ state: ExplainResult }> = (props) => {
             {timeline({ start: item.start, end: item.end, cost: item.cost })}
           </div>
         ),
-        key: key,
+        key: getNodeID(),
         icon: <IconShareStroked />,
         children: [] as any[],
       };
       children.push(stageNode);
       if (!_.isEmpty(item.operators)) {
-        stageNode.children.push(...buildOperatorStats(key, item.operators));
+        stageNode.children.push(...buildOperatorStats(item.operators));
       }
 
       if (!_.isEmpty(item.children)) {
-        stageNode.children.push(...buildStageStats(key, total, item.children));
+        stageNode.children.push(...buildStageStats(item.children));
       }
     });
     return children;
   };
 
-  const buildLeafNodes = (parent: string, total: number, leafNodes: any) => {
-    let children: any = [];
-    for (let key of Object.keys(leafNodes)) {
-      const leafNodeStats = leafNodes[key] as LeafNodeStats;
-      const nKey = `${parent}-Leaf-Nodes-${key}`;
-
-      let nodeStats = {
-        label: (
-          <div style={style}>
-            <span>
-              <Text strong>
-                Leaf[
-                <Text strong link>
-                  {key}
-                </Text>
-                ]
-              </Text>
-              : [ Cost: {renderCost(leafNodeStats.totalCost)}, Network Payload:{" "}
-              <Text link>
-                {" "}
-                {FormatKit.format(leafNodeStats.netPayload, Unit.Bytes)}
-              </Text>{" "}
-              ]
-            </span>
-            {timeline({
-              start: leafNodeStats.start,
-              end: leafNodeStats.end,
-              cost: leafNodeStats.totalCost,
-            })}
-          </div>
-        ),
-        key: nKey,
-        icon: <IconServerStroked />,
-        children: buildStageStats(nKey, total, leafNodeStats.stages),
-      };
-      children.push(nodeStats);
+  const buildNodeStats = (nodeStats: NodeStats): any => {
+    const costs = [
+      <span key="cost">
+        <span style={{ marginRight: 2 }}>Cost:</span>
+        <Text link>
+          {FormatKit.format(nodeStats.totalCost, Unit.Nanoseconds)}
+        </Text>
+      </span>,
+    ];
+    if (nodeStats.waitStart > 0) {
+      costs.push(
+        <span key="wait">
+          <span style={{ marginRight: 2 }}>, Wait:</span>
+          <Text link>
+            {FormatKit.format(nodeStats.waitCost, Unit.Nanoseconds)}
+          </Text>
+        </span>
+      );
     }
-    return children;
-  };
-
-  const buildIntermediateBrokers = (total: any, brokerNodes: any) => {
-    let children: any = [];
-    let idx = 0;
-    for (let key of Object.keys(brokerNodes)) {
-      const brokerNodeStats = brokerNodes[key];
-      const nodeStats = {
-        label: (
-          <div style={style}>
-            <span>
-              <Text strong>
-                Intermediate[
-                <Text strong link>
-                  {key}
-                </Text>
-                ]
-              </Text>
-              : [ Waiting: {renderCost(brokerNodeStats.waitCost)}, Cost:{" "}
-              {renderCost(brokerNodeStats.totalCost)}, Network Payload:{" "}
-              <Text link>
-                {" "}
-                {FormatKit.format(brokerNodeStats.netPayload, Unit.Bytes)})
-              </Text>{" "}
-              ]
-            </span>
-            {timeline({
-              start: brokerNodeStats.start,
-              end: brokerNodeStats.End,
-              cost: brokerNodeStats.totalCost,
-            })}
-          </div>
-        ),
-        icon: <IconTemplateStroked />,
-        key: `Intermediate-${key}`,
-        children: [] as any,
-      };
-      children.push(nodeStats);
-      if (brokerNodeStats.leafNodes) {
-        nodeStats.children.push(
-          ...buildLeafNodes(`${key}-${idx}`, total, brokerNodeStats.leafNodes)
-        );
-      }
-      idx++;
+    if (nodeStats.netPayload > 0) {
+      costs.push(
+        <span key="payload">
+          <span style={{ marginRight: 2 }}>, Network:</span>
+          <Text link>{FormatKit.format(nodeStats.netPayload, Unit.Bytes)}</Text>
+        </span>
+      );
     }
-    return children;
+    let node = {
+      label: (
+        <div style={style}>
+          <span>
+            <Text strong>
+              <Text strong link>
+                {nodeStats.node}
+              </Text>
+            </Text>
+            : [ {costs} ]
+          </span>
+          {timeline(
+            {
+              start: nodeStats.start,
+              end: nodeStats.end,
+              cost: nodeStats.totalCost,
+            },
+            nodeStats === state ? "success" : ""
+          )}
+        </div>
+      ),
+      key: getNodeID(),
+      icon: <IconServerStroked />,
+      children: [] as any[],
+    };
+
+    if (nodeStats.stages) {
+      node.children.push(...buildStageStats(nodeStats.stages));
+    }
+
+    if (nodeStats.children) {
+      nodeStats.children.forEach((child: NodeStats) => {
+        node.children.push(buildNodeStats(child));
+      });
+    }
+    return node;
   };
 
   const buildStatsData = () => {
@@ -255,97 +223,7 @@ const ExplainStatsView: React.FC<{ state: ExplainResult }> = (props) => {
       start: state.start,
       end: state.end,
     };
-    let root = {
-      label: (
-        <div style={style}>
-          <span>
-            <Text strong>
-              Root[
-              <Text strong link>
-                {state.root}
-              </Text>
-              ]
-            </Text>
-            : [ Cost:{" "}
-            <Text link>
-              {FormatKit.format(state.totalCost, Unit.Nanoseconds)}
-            </Text>
-            , Network Payload:{" "}
-            <Text link>{FormatKit.format(state.netPayload, Unit.Bytes)}</Text> ]
-          </span>
-          {timeline(
-            {
-              start: state.start,
-              end: state.end,
-              cost: state.totalCost,
-            },
-            "success"
-          )}
-        </div>
-      ),
-      key: "Root",
-      icon: <IconServerStroked />,
-      children: [
-        {
-          label: (
-            <div style={style}>
-              <span>
-                <Text strong>Execute Plan</Text> : {renderCost(state.planCost)}
-              </span>
-              {timeline({
-                start: state.planStart,
-                end: state.planEnd,
-                cost: state.planCost,
-              })}
-            </div>
-          ),
-          key: "Execute Plan",
-        },
-        {
-          label: (
-            <div style={style}>
-              <span>
-                <Text strong>Waiting Response</Text>:{" "}
-                {renderCost(state.waitCost)}
-              </span>
-              {timeline({
-                start: state.waitStart,
-                end: state.waitEnd,
-                cost: state.waitCost,
-              })}
-            </div>
-          ),
-          key: "Waiting Intermediate Response",
-        },
-        {
-          label: (
-            <div style={style}>
-              <span>
-                <Text strong>Expression Eval</Text>:{" "}
-                {renderCost(state.expressCost)}
-              </span>
-              {timeline({
-                start: state.expressStart,
-                end: state.expressEnd,
-                cost: state.expressCost,
-              })}
-            </div>
-          ),
-          key: "Expression Eval",
-        },
-      ],
-    };
-    if (state.brokerNodes) {
-      root.children.push(
-        ...buildIntermediateBrokers(state.totalCost, state.brokerNodes)
-      );
-    }
-    if (state.leafNodes) {
-      root.children.push(
-        ...buildLeafNodes("root", state.totalCost, state.leafNodes)
-      );
-    }
-    return [root];
+    return [buildNodeStats(state)];
   };
 
   return (

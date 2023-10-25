@@ -1,0 +1,26 @@
+{
+   "LABEL":{
+      "name":"PR title needs formatting",
+      "color":"B60205"
+   },
+   "CHECKS":{
+      "prefixes":[
+         "[bug]:",
+         "[feat]:",
+         "[refactor]:",
+         "[chore]:",
+         "[docs]:",
+         "[enhance]:",
+         "[ci]:",
+         "[opt]:"
+      ],
+      "ignoreLabels":[
+         "ignore-title"
+      ]
+   },
+   "MESSAGES":{
+      "success":"All OK",
+      "failure":"Failing CI test",
+      "notice":""
+   }
+}

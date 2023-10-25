@@ -31,17 +31,18 @@ import (
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 // etcdRepository is repository based on etcd storage
 type etcdRepository struct {
 	namespace string
 	client    *etcdcliv3.Client
-	logger    *logger.Logger
+	logger    logger.Logger
 	timeout   time.Duration
 }
 

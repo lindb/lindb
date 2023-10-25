@@ -28,8 +28,9 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/shirou/gopsutil/v3/net"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 var collectorLogger = logger.GetLogger("Monitoring", "SystemCollector")

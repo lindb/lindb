@@ -6,7 +6,6 @@ ownership. LinDB licenses this file to you under
 the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
  
 Unless required by applicable law or agreed to in writing,
@@ -27,9 +26,19 @@ export enum Route {
   MonitoringRequest = "/monitoring/request",
   MonitoringLogs = "/monitoring/logs",
   MetadataStorage = "/metadata/storage",
+  MetadataBroker = "/metadata/broker",
   MetadataStorageConfig = "/metadata/storage/configuration",
+  MetadataBrokerConfig = "/metadata/broker/configuration",
   MetadataDatabase = "/metadata/database",
   MetadataDatabaseConfig = "/metadata/database/configuration",
+  MetadataDatabaseLimits = "/metadata/database/limits",
+  MetadataLogicDatabase = "/metadata/logic/database",
+  MetadataLogicDatabaseConfig = "/metadata/logic/database/configuration",
   MetadataExplore = "/metadata/explore",
   MetadataMultipleIDC = "/metadata/multiple-idcs",
+}
+
+export enum ClusterType {
+  Broker = "Broker",
+  Storage = "Storage",
 }

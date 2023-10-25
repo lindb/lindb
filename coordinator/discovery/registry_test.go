@@ -50,6 +50,7 @@ func TestRegistry(t *testing.T) {
 	err := registry1.Register(&node)
 	assert.NoError(t, err)
 	time.Sleep(600 * time.Millisecond)
+	assert.True(t, registry1.IsSuccess())
 
 	// maybe retry do heartbeat after close chan
 	repo.EXPECT().Heartbeat(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()

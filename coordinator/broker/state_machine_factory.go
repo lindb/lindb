@@ -20,10 +20,11 @@ package broker
 import (
 	"context"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 // StateMachinePaths represents the paths which broker state machine need watch.
@@ -58,7 +59,7 @@ type stateMachineFactory struct {
 
 	stateMachines []discovery.StateMachine
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewStateMachineFactory creates a state machine factory instance.
@@ -93,6 +94,11 @@ func (f *stateMachineFactory) Start() (err error) {
 
 	f.logger.Debug("starting StorageStatusStateMachine")
 	sm, err = f.createStorageStatusStateMachine()
+	if err != nil {
+		return err
+	}
+	f.stateMachines = append(f.stateMachines, sm)
+	sm, err = f.createDatabaseLimitsStateMachine()
 	if err != nil {
 		return err
 	}
@@ -148,6 +154,25 @@ func (f *stateMachineFactory) createStorageStatusStateMachine() (discovery.State
 		true,
 		f.onStorageStateChange,
 		f.onStorageDeletion,
+	)
+}
+
+// createDatabaseLimitsStateMachine creates database's limits state machine.
+func (f *stateMachineFactory) createDatabaseLimitsStateMachine() (discovery.StateMachine, error) {
+	return discovery.NewStateMachine(
+		f.ctx,
+		discovery.DatabaseLimitsStateMachine,
+		f.discoveryFactory,
+		constants.DatabaseLimitPath,
+		true,
+		func(key string, data []byte) {
+			f.stateMgr.EmitEvent(&discovery.Event{
+				Type:  discovery.DatabaseLimitsChanged,
+				Key:   key,
+				Value: data,
+			})
+		},
+		nil,
 	)
 }
 

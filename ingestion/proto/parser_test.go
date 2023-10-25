@@ -29,6 +29,7 @@ import (
 
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/series/tag"
 )
 
@@ -63,7 +64,7 @@ func Test_Parse(t *testing.T) {
 		tag.NewTag([]byte("ip"), []byte("1.1.1.1")),
 		tag.NewTag([]byte("region"), []byte("nj")),
 	}
-	batch, err := Parse(req, enrichedTags, "ns")
+	batch, err := Parse(req, enrichedTags, "ns", models.NewDefaultLimits())
 	assert.Nil(t, err)
 	assert.NotNil(t, batch)
 	m := batch.Rows()[0].Metric()
@@ -76,13 +77,13 @@ func Test_Parse_badGzipData(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, req)
 	req.Header.Set("Content-Encoding", "gzip")
-	_, err = Parse(req, nil, "ns")
+	_, err = Parse(req, nil, "ns", models.NewDefaultLimits())
 	assert.NotNil(t, err)
 }
 
 func Test_Parse_error(t *testing.T) {
 	req, _ := http.NewRequestWithContext(context.TODO(), http.MethodPut, "", strings.NewReader("bad-data"))
-	_, err := Parse(req, nil, "ns")
+	_, err := Parse(req, nil, "ns", models.NewDefaultLimits())
 	assert.NotNil(t, err)
 }
 
@@ -90,13 +91,13 @@ func Test_Parser_empty(t *testing.T) {
 	var m = &protoMetricsV1.MetricList{}
 	data, _ := m.Marshal()
 	req, _ := http.NewRequestWithContext(context.TODO(), http.MethodPut, "", bytes.NewReader(data))
-	_, err := Parse(req, nil, "ns")
+	_, err := Parse(req, nil, "ns", models.NewDefaultLimits())
 	assert.NotNil(t, err)
 }
 
 func Test_parseProtoMetric(t *testing.T) {
 	data, _ := testMetricList.Marshal()
-	batch, err := parseProtoMetric(data, nil, "ns")
+	batch, err := parseProtoMetric(data, nil, "ns", models.NewDefaultLimits())
 	assert.Nil(t, err)
 	m := batch.Rows()[0].Metric()
 	assert.Equal(t, "ns", string(m.Namespace()))

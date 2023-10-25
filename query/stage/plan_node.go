@@ -20,7 +20,8 @@ package stage
 import (
 	"time"
 
-	"github.com/lindb/lindb/models"
+	"github.com/lindb/common/models"
+
 	"github.com/lindb/lindb/query/operator"
 )
 
@@ -45,7 +46,7 @@ type planNode struct {
 	op       operator.Operator
 	children []PlanNode
 
-	ignore bool
+	ignore bool // ignore not found error
 }
 
 // NewEmptyPlanNode creates a PlanNode without operator.

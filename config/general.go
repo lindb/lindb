@@ -20,12 +20,12 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"runtime"
 	"strings"
 	"time"
 
+	"github.com/lindb/common/pkg/ltoml"
+
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/pkg/ltoml"
 )
 
 // Configuration represents node's configuration.
@@ -36,13 +36,13 @@ type Configuration interface {
 
 // RepoState represents state repository config
 type RepoState struct {
-	Namespace   string         `toml:"namespace" json:"namespace" validate:"required"`
-	Endpoints   []string       `toml:"endpoints" json:"endpoints" validate:"required,gt=0"`
-	LeaseTTL    ltoml.Duration `toml:"lease-ttl" json:"leaseTTL"`
-	Timeout     ltoml.Duration `toml:"timeout" json:"timeout"`
-	DialTimeout ltoml.Duration `toml:"dial-timeout" json:"dialTimeout"`
-	Username    string         `toml:"username" json:"username"`
-	Password    string         `toml:"password" json:"password"`
+	Namespace   string         `env:"NAMESPACE" toml:"namespace" json:"namespace" validate:"required"`
+	Endpoints   []string       `env:"ENDPOINTS" envSeparator:"," toml:"endpoints" json:"endpoints" validate:"required,gt=0"`
+	LeaseTTL    ltoml.Duration `env:"LEASE_TTL" toml:"lease-ttl" json:"leaseTTL"`
+	Timeout     ltoml.Duration `env:"TIMEOUT" toml:"timeout" json:"timeout"`
+	DialTimeout ltoml.Duration `env:"DIAL_TIMEOUT" toml:"dial-timeout" json:"dialTimeout"`
+	Username    string         `env:"USERNAME" toml:"username" json:"username"`
+	Password    string         `env:"PASSWORD" toml:"password" json:"password"`
 }
 
 // String returns string value of RepoState.
@@ -69,27 +69,34 @@ func (rs *RepoState) TOML() string {
 ## Coordinator coordinates reads/writes operations between different nodes
 ## namespace organizes etcd keys into a isolated complete keyspaces for coordinator
 ## Default: %s
+## Env: LINDB_COORDINATOR_NAMESPACE
 namespace = "%s"
 ## Endpoints config list of ETCD cluster
 ## Default: %s
+## Env: LINDB_COORDINATOR_ENDPOINTS  Env Separator: ,
 endpoints = %s
 ## Lease-TTL is a number in seconds.
 ## It controls how long a ephemeral node like zookeeper will be removed when heartbeat fails.
 ## lease expiration will cause a re-elect.
 ## Min: 5s
 ## Default: %s
+## Env: LINDB_COORDINATOR_LEASE_TTL
 lease-ttl = "%s"
 ## Timeout is the timeout for failing to executing a etcd command.
 ## Default: %s
+## Env: LINDB_COORDINATOR_TIMEOUT
 timeout = "%s"
 ## DialTimeout is the timeout for failing to establish a etcd connection.
 ## Default: %s
+## Env: LINDB_COORDINATOR_DIAL_TIMEOUT
 dial-timeout = "%s"
 ## Username is a user name for etcd authentication.
 ## Default: "%s"
+## Env: LINDB_COORDINATOR_USERNAME
 username = "%s"
 ## Password is a password for etcd authentication.
 ## Default: "%s"
+## Env: LINDB_COORDINATOR_PASSWORD
 password = "%s"`,
 		rs.Namespace,
 		rs.Namespace,
@@ -120,21 +127,27 @@ func NewDefaultCoordinator() *RepoState {
 
 // GRPC represents grpc server config
 type GRPC struct {
-	Port                 uint16         `toml:"port"`
-	MaxConcurrentStreams int            `toml:"max-concurrent-streams"`
-	ConnectTimeout       ltoml.Duration `toml:"connect-timeout"`
+	Port                 uint16         `env:"PORT" toml:"port"`
+	MaxConcurrentStreams int            `env:"MAX_CONCURRENT_STREAMS" toml:"max-concurrent-streams"`
+	ConnectTimeout       ltoml.Duration `env:"CONNECT_TIMEOUT" toml:"connect-timeout"`
 }
 
 func (g *GRPC) TOML() string {
 	return fmt.Sprintf(`
 ## port which the GRPC Server is listening on
 ## Default: %d
+## Env: LINDB_BROKER_GRPC_PORT
+## Env: LINDB_STORAGE_GRPC_PORT
 port = %d
 ## max-concurrent-streams limits the number of concurrent streams to each ServerTransport
 ## Default: %d 
+## Env: LINDB_BROKER_GRPC_MAX_CONCURRENT_STREAMS
+## Env: LINDB_STORAGE_GRPC_MAX_CONCURRENT_STREAMS
 max-concurrent-streams = %d
 ## connect-timeout sets the timeout for connection establishment.
 ## Default: %s
+## Env: LINDB_BROKER_GRPC_CONNECT_TIMEOUT
+## Env: LINDB_STORAGE_GRPC_CONNECT_TIMEOUT
 connect-timeout = "%s"`,
 		g.Port,
 		g.Port,
@@ -145,28 +158,36 @@ connect-timeout = "%s"`,
 	)
 }
 
-// StorageCluster represents config of storage cluster
+// BrokerCluster represents config of broker cluster.
+type BrokerCluster struct {
+	Config *RepoState `json:"config"`
+}
+
+// StorageCluster represents config of storage cluster.
 type StorageCluster struct {
 	Config *RepoState `json:"config"`
 }
 
 // Query represents query rpc config
 type Query struct {
-	QueryConcurrency int            `toml:"query-concurrency"`
-	IdleTimeout      ltoml.Duration `toml:"idle-timeout"`
-	Timeout          ltoml.Duration `toml:"timeout"`
+	QueryConcurrency int            `env:"CONCURRENCY" toml:"query-concurrency"`
+	IdleTimeout      ltoml.Duration `env:"IDLE_TIMEOUT" toml:"idle-timeout"`
+	Timeout          ltoml.Duration `env:"TIMEOUT" toml:"timeout"`
 }
 
 func (q *Query) TOML() string {
 	return fmt.Sprintf(`[query]
 ## Number of queries allowed to execute concurrently
 ## Default: %d
+## Env: LINDB_QUERY_CONCURRENCY
 query-concurrency = %d
 ## Idle worker will be canceled in this duration
 ## Default: %s
+## Env: LINDB_QUERY_IDLE_TIMEOUT
 idle-timeout = "%s"
 ## Maximum timeout threshold for query.
 ## Default: %s
+## Env: LINDB_QUERY_TIMEOUT
 timeout = "%s"`,
 		q.QueryConcurrency,
 		q.QueryConcurrency,
@@ -179,7 +200,7 @@ timeout = "%s"`,
 
 func NewDefaultQuery() *Query {
 	return &Query{
-		QueryConcurrency: runtime.GOMAXPROCS(-1) * 2,
+		QueryConcurrency: 1024,
 		IdleTimeout:      ltoml.Duration(5 * time.Second),
 		Timeout:          ltoml.Duration(5 * time.Second),
 	}
@@ -209,7 +230,7 @@ func checkGRPCCfg(grpcCfg *GRPC) error {
 		return fmt.Errorf("grpc endpoint cannot be empty")
 	}
 	if grpcCfg.MaxConcurrentStreams <= 0 {
-		grpcCfg.MaxConcurrentStreams = runtime.GOMAXPROCS(-1) * 2
+		grpcCfg.MaxConcurrentStreams = 1024
 	}
 	if grpcCfg.ConnectTimeout <= 0 {
 		grpcCfg.ConnectTimeout = ltoml.Duration(time.Second * 3)

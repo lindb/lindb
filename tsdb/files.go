@@ -53,6 +53,7 @@ const (
 	forwardIndexDir  = "forward"
 	invertedIndexDir = "inverted"
 	bufferDir        = "buffer"
+	limits           = "limits.toml"
 )
 
 // createDatabasePath creates database's root path if existed.
@@ -62,6 +63,11 @@ func createDatabasePath(database string) (string, error) {
 		return "", fmt.Errorf("create database[%s]'s path with error: %s", database, err)
 	}
 	return dbPath, nil
+}
+
+// limitsPath returns database's limits file path.
+func limitsPath(database string) string {
+	return filepath.Join(config.GlobalStorageConfig().TSDB.Dir, database, limits)
 }
 
 // optionsPath returns database's options file path.

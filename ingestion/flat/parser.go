@@ -23,9 +23,11 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/lindb/common/pkg/logger"
+
 	ingestCommon "github.com/lindb/lindb/ingestion/common"
 	"github.com/lindb/lindb/metrics"
-	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
@@ -37,7 +39,7 @@ var (
 
 var flatLogger = logger.GetLogger("Ingestion", "Flat")
 
-func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*metric.BrokerBatchRows, error) {
+func Parse(req *http.Request, enrichedTags tag.Tags, namespace string, limits *models.Limits) (*metric.BrokerBatchRows, error) {
 	var reader = req.Body
 	if strings.EqualFold(req.Header.Get("Content-Encoding"), "gzip") {
 		gzipReader, err := ingestCommon.GetGzipReader(req.Body)
@@ -51,7 +53,7 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string) (*metric.
 	bufioReader, releaseBufioReaderFunc := ingestCommon.NewBufioReader(reader)
 	defer releaseBufioReaderFunc(bufioReader)
 
-	batch, err := parseFlatMetric(reader, enrichedTags, namespace)
+	batch, err := parseFlatMetric(reader, enrichedTags, namespace, limits)
 	if err != nil {
 		flatIngestionStatistics.CorruptedData.Incr()
 		return nil, err
@@ -67,6 +69,7 @@ func parseFlatMetric(
 	reader io.Reader,
 	enrichedTags tag.Tags,
 	namespace string,
+	limits *models.Limits,
 ) (
 	batch *metric.BrokerBatchRows, err error,
 ) {
@@ -76,6 +79,7 @@ func parseFlatMetric(
 		reader,
 		strutil.String2ByteSlice(namespace),
 		enrichedTags,
+		limits,
 	)
 	defer releaseFunc(decoder)
 

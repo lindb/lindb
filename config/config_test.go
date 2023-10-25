@@ -23,7 +23,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/pkg/ltoml"
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/ltoml"
 )
 
 func Test_NewConfig(t *testing.T) {
@@ -43,7 +44,7 @@ func Test_NewConfig(t *testing.T) {
 	assert.Nil(t, LoadAndSetBrokerConfig(brokerCfgPath, "broker.toml", &brokerCfg))
 	assert.Nil(t, ltoml.DecodeToml(brokerCfgPath, &brokerCfg))
 	assert.Equal(t, brokerCfg.BrokerBase, *NewDefaultBrokerBase())
-	assert.Equal(t, brokerCfg.Logging, *NewDefaultLogging())
+	assert.Equal(t, brokerCfg.Logging, *logger.NewDefaultSetting())
 	assert.Equal(t, brokerCfg.Monitor, *NewDefaultMonitor())
 
 	// validate storage config
@@ -60,7 +61,7 @@ func Test_NewConfig(t *testing.T) {
 	assert.Nil(t, LoadAndSetStorageConfig(storageCfgPath, "storage.toml", &storageCfg))
 	assert.Nil(t, ltoml.DecodeToml(storageCfgPath, &storageCfg))
 	assert.Equal(t, storageCfg.StorageBase, *NewDefaultStorageBase())
-	assert.Equal(t, storageCfg.Logging, *NewDefaultLogging())
+	assert.Equal(t, storageCfg.Logging, *logger.NewDefaultSetting())
 	assert.Equal(t, storageCfg.Monitor, *NewDefaultMonitor())
 
 	// validate standalone config
@@ -78,7 +79,7 @@ func Test_NewConfig(t *testing.T) {
 	assert.Nil(t, ltoml.DecodeToml(standaloneCfgPath, &standaloneCfg))
 	assert.Equal(t, standaloneCfg.BrokerBase, *NewDefaultBrokerBase())
 	assert.Equal(t, standaloneCfg.StorageBase, *NewDefaultStorageBase())
-	assert.Equal(t, standaloneCfg.Logging, *NewDefaultLogging())
+	assert.Equal(t, standaloneCfg.Logging, *logger.NewDefaultSetting())
 	assert.Equal(t, standaloneCfg.Monitor, *NewDefaultMonitor())
 }
 
@@ -144,8 +145,6 @@ func Test_checkStorageBaseCfg(t *testing.T) {
 	assert.NotZero(t, storageCfg4.TSDB.MaxMemUsageBeforeFlush)
 	assert.NotZero(t, storageCfg4.TSDB.TargetMemUsageAfterFlush)
 	assert.NotZero(t, storageCfg4.TSDB.FlushConcurrency)
-	assert.NotZero(t, storageCfg4.TSDB.MaxSeriesIDsNumber)
-	assert.NotZero(t, storageCfg4.TSDB.MaxTagKeysNumber)
 }
 
 func Test_checkCoordinatorCfg(t *testing.T) {

@@ -25,11 +25,11 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/metric"
 )
 
@@ -45,7 +45,7 @@ func TestDatabaseChannel_Write(t *testing.T) {
 		}, 1, nil)
 	assert.NotNil(t, ch)
 
-	converter := metric.NewProtoConverter()
+	converter := metric.NewProtoConverter(models.NewDefaultLimits())
 	batch := metric.NewBrokerBatchRows()
 	_ = batch.TryAppend(func(row *metric.BrokerRow) error {
 		return converter.ConvertTo(&protoMetricsV1.Metric{

@@ -6,7 +6,6 @@ ownership. LinDB licenses this file to you under
 the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
  
 Unless required by applicable law or agreed to in writing,
@@ -35,7 +34,9 @@ const SiderMenu: React.FC<{
 }> = (props) => {
   const { defaultOpenAll, routes, menus, openKeys } = props;
   const [selectedKeys, setSelectedKeys] = useState([] as string[]);
-  const { isDark, collapsed, toggleCollapse } = useContext(UIContext);
+  const { isDark, collapsed, toggleCollapse, locale, env } =
+    useContext(UIContext);
+  const { SiderMenu } = locale;
 
   useWatchURLChange(() => {
     const path = URLStore.path;
@@ -56,14 +57,51 @@ const SiderMenu: React.FC<{
     setSelectedKeys([key]);
   });
 
+  const renderMenus = (menus: any, level: number) => {
+    return (menus || []).map((item: any) => {
+      // need match role
+      if (item.roles && item.roles.indexOf(env.role) < 0) {
+        return;
+      }
+      const subItems = _.filter(item.items, (o) => !_.get(o, "inner", false));
+      if (_.size(subItems) > 0) {
+        return (
+          <Nav.Sub
+            isOpen
+            key={item.itemKey}
+            itemKey={item.itemKey}
+            icon={item.icon}
+            text={SiderMenu[item.text]}
+          >
+            {renderMenus(subItems, level + 1)}
+          </Nav.Sub>
+        );
+      }
+      return (
+        <Nav.Item
+          level={level}
+          key={item.itemKey}
+          itemKey={item.itemKey}
+          icon={item.icon}
+          text={SiderMenu[item.text]}
+          onClick={() => {
+            const routeItem = routes.get(`${item.itemKey}`);
+            const needClearKeys = _.pullAll(
+              URLStore.getParamKeys(),
+              _.get(item, "keep", [])
+            );
+            URLStore.changeURLParams({
+              path: routeItem?.path,
+              needDelete: needClearKeys,
+            });
+          }}
+        />
+      );
+    });
+  };
+
   return (
-    <Sider
-    // conflict local setting
-    // breakpoint={["lg"]}
-    // onBreakpoint={(_screen, bool) => {
-    //   UIStore.setSidebarCollapse(!bool);
-    // }}
-    >
+    <Sider>
       <Nav
         className="lin-nav"
         defaultOpenKeys={defaultOpenAll ? openKeys : []}
@@ -75,19 +113,7 @@ const SiderMenu: React.FC<{
           maxWidth: 220,
           height: "100%",
         }}
-        items={menus as any[]}
         selectedKeys={selectedKeys}
-        onClick={(data) => {
-          const item = routes.get(`${data.itemKey}`);
-          const needClearKeys = _.pullAll(
-            URLStore.getParamKeys(),
-            _.get(item, "keep", [])
-          );
-          URLStore.changeURLParams({
-            path: item?.path,
-            needDelete: needClearKeys,
-          });
-        }}
         header={{
           logo: (
             <img
@@ -115,7 +141,9 @@ const SiderMenu: React.FC<{
         footer={{
           collapseButton: true,
         }}
-      />
+      >
+        {renderMenus(menus, 0)}
+      </Nav>
     </Sider>
   );
 };

@@ -24,8 +24,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/models"
+
 	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/models"
 )
 
 func TestState_String(t *testing.T) {
@@ -49,4 +50,5 @@ func TestStageTracker(t *testing.T) {
 	})
 	tracker.Complete()
 	assert.Len(t, tracker.GetStages(), 2)
+	assert.NotNil(t, tracker.GetStats())
 }

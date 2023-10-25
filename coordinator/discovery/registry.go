@@ -24,11 +24,14 @@ import (
 	"runtime/pprof"
 	"time"
 
+	"go.uber.org/atomic"
+
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 //go:generate mockgen -source=./registry.go -destination=./registry_mock.go -package=discovery
@@ -40,30 +43,34 @@ type Registry interface {
 	Register(node models.Node) error
 	// Deregister deregister node info, remove it from active list.
 	Deregister(node models.Node) error
+	// IsSuccess returns if registry successfully.
+	IsSuccess() bool
 }
 
 // registry implements registry interface for server node register with prefix.
 type registry struct {
-	ttl        time.Duration
-	prefixPath string
-	repo       state.Repository
+	ttl             time.Duration
+	prefixPath      string
+	repo            state.Repository
+	registrySuccess atomic.Bool
 
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	log *logger.Logger
+	log logger.Logger
 }
 
 // NewRegistry returns a new registry with prefix and ttl.
 func NewRegistry(repo state.Repository, prefixPath string, ttl time.Duration) Registry {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &registry{
-		prefixPath: prefixPath,
-		ttl:        ttl,
-		repo:       repo,
-		ctx:        ctx,
-		cancel:     cancel,
-		log:        logger.GetLogger("Coordinator", "Registry"),
+		prefixPath:      prefixPath,
+		ttl:             ttl,
+		repo:            repo,
+		ctx:             ctx,
+		cancel:          cancel,
+		registrySuccess: *atomic.NewBool(false),
+		log:             logger.GetLogger("Coordinator", "Registry"),
 	}
 }
 
@@ -76,7 +83,7 @@ func (r *registry) Register(node models.Node) error {
 	go func() {
 		registerLabels := pprof.Labels("path", path,
 			"timestamp", timeutil.FormatTimestamp(timeutil.Now(), timeutil.DataTimeFormat2))
-		pprof.Do(r.ctx, registerLabels, func(ctx context.Context) {
+		pprof.Do(r.ctx, registerLabels, func(_ context.Context) {
 			r.register(path, node)
 		})
 	}()
@@ -86,6 +93,11 @@ func (r *registry) Register(node models.Node) error {
 // Deregister deregisters node info, remove it from active list.
 func (r *registry) Deregister(node models.Node) error {
 	return r.repo.Delete(r.ctx, fmt.Sprintf("%s/%s", r.prefixPath, node.Indicator()))
+}
+
+// IsSuccess returns if registry successfully.
+func (r *registry) IsSuccess() bool {
+	return r.registrySuccess.Load()
 }
 
 // Close closes registry, releases resources.
@@ -101,6 +113,7 @@ func (r *registry) register(path string, node models.Node) {
 		if r.ctx.Err() != nil {
 			return
 		}
+		r.registrySuccess.Store(false)
 		nodeBytes := encoding.JSONMarshal(node)
 
 		closed, err := r.repo.Heartbeat(r.ctx, path, nodeBytes, int64(r.ttl.Seconds()))
@@ -110,6 +123,7 @@ func (r *registry) register(path string, node models.Node) {
 			continue
 		}
 
+		r.registrySuccess.Store(true)
 		r.log.Info("register node successfully", logger.String("path", path), logger.Any("node", node))
 
 		select {

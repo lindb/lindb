@@ -25,27 +25,27 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lindb/lindb/pkg/ltoml"
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/ltoml"
 )
 
 // TSDB represents the tsdb configuration.
 type TSDB struct {
-	Dir                      string         `toml:"dir"`
-	MaxMemDBSize             ltoml.Size     `toml:"max-memdb-size"`
-	MutableMemDBTTL          ltoml.Duration `toml:"mutable-memdb-ttl"`
-	MaxMemUsageBeforeFlush   float64        `toml:"max-mem-usage-before-flush"`
-	TargetMemUsageAfterFlush float64        `toml:"target-mem-usage-after-flush"`
-	FlushConcurrency         int            `toml:"flush-concurrency"`
-	MaxSeriesIDsNumber       int            `toml:"max-seriesIDs"`
-	SeriesSequenceCache      uint32         `toml:"series-sequence-cache"`
-	MetaSequenceCache        uint32         `toml:"meta-sequence-cache"`
-	MaxTagKeysNumber         int            `toml:"max-tagKeys"`
+	Dir                      string         `env:"DIR" toml:"dir"`
+	MaxMemDBSize             ltoml.Size     `env:"MAX_MEMDB_SIZE" toml:"max-memdb-size"`
+	MutableMemDBTTL          ltoml.Duration `env:"MUTABLE_MEMDB_TTL" toml:"mutable-memdb-ttl"`
+	MaxMemUsageBeforeFlush   float64        `env:"MAX_MEM_USAGE_BEFORE_FLUSH" toml:"max-mem-usage-before-flush"`
+	TargetMemUsageAfterFlush float64        `env:"TARGET_MEM_USAGE_AFTER_FLUSH" toml:"target-mem-usage-after-flush"`
+	FlushConcurrency         int            `env:"FLUSH_CONCURRENCY" toml:"flush-concurrency"`
+	SeriesSequenceCache      uint32         `env:"SERIES_SEQ_CACHE" toml:"series-sequence-cache"`
+	MetaSequenceCache        uint32         `env:"META_SEQ_CACHE" toml:"meta-sequence-cache"`
 }
 
 func (t *TSDB) TOML() string {
 	return fmt.Sprintf(`
 ## The TSDB directory where the time series data and meta file stores.
 ## Default: %s
+## Env: LINDB_STORAGE_TSDB_DIR
 dir = "%s"
 
 ## Flush configuration
@@ -54,31 +54,27 @@ dir = "%s"
 ## before it is queueing to the immutable list for flushing.
 ## larger memdb may improve query performance.
 ## Default: %s
+## Env: LINDB_STORAGE_TSDB_MAX_MEMDB_SIZE
 max-memdb-size = "%s"
 ## Mutable memdb will switch to immutable this often,
 ## event if the configured memdb-size is not reached.
 ## Default: %s
+## Env: LINDB_STORAGE_TSDB_MUTABLE_MEMDB_TTL
 mutable-memdb-ttl = "%s"
 ## Global flush operation will be triggered
 ## when system memory usage is higher than this ratio.
 ## Default: %.2f
+## Env: LINDB_STORAGE_TSDB_MAX_MEM_USAGE_BEFORE_FLUSH
 max-mem-usage-before-flush = %.2f
 ## Global flush operation will be stopped 
 ## when system memory usage is lower than this ration.
 ## Default: %.2f
+## Env: LINDB_STORAGE_TSDB_TARGET_MEM_USAGE_AFTER_FLUSH
 target-mem-usage-after-flush = %.2f
 ## concurrency of goroutines for flushing.
 ## Default: %d
-flush-concurrency = %d
-
-## Time Series limitation
-## 
-## Limit for time series of metric.
-## Default: %d
-max-seriesIDs = %d
-## Limit for tagKeys
-## Default: %d
-max-tagKeys = %d`,
+## Env: LINDB_STORAGE_TSDB_FLUSH_CONCURRENCY 
+flush-concurrency = %d`,
 		strings.ReplaceAll(t.Dir, "\\", "\\\\"),
 		strings.ReplaceAll(t.Dir, "\\", "\\\\"),
 		t.MaxMemDBSize.String(),
@@ -91,21 +87,18 @@ max-tagKeys = %d`,
 		t.TargetMemUsageAfterFlush,
 		t.FlushConcurrency,
 		t.FlushConcurrency,
-		t.MaxSeriesIDsNumber,
-		t.MaxSeriesIDsNumber,
-		t.MaxTagKeysNumber,
-		t.MaxTagKeysNumber,
 	)
 }
 
 // StorageBase represents a storage configuration
 type StorageBase struct {
-	BrokerEndpoint  string         `toml:"broker-endpoint"` // Broker http endpoint, auto register current storage cluster.
-	TTLTaskInterval ltoml.Duration `toml:"ttl-task-interval"`
-	HTTP            HTTP           `toml:"http"`
-	GRPC            GRPC           `toml:"grpc"`
-	TSDB            TSDB           `toml:"tsdb"`
-	WAL             WAL            `toml:"wal"`
+	// Broker http endpoint, auto register current storage cluster.
+	BrokerEndpoint  string         `env:"BROKER_ENDPOINT" toml:"broker-endpoint"`
+	TTLTaskInterval ltoml.Duration `env:"TTL_TASK_INTERVAL" toml:"ttl-task-interval"`
+	HTTP            HTTP           `envPrefix:"HTTP_" toml:"http"`
+	GRPC            GRPC           `envPrefix:"GRPC_" toml:"grpc"`
+	TSDB            TSDB           `envPrefix:"TSDB_" toml:"tsdb"`
+	WAL             WAL            `envPrefix:"WAL_" toml:"wal"`
 }
 
 // TOML returns StorageBase's toml config string
@@ -115,9 +108,11 @@ func (s *StorageBase) TOML() string {
 [storage]
 ## interval for how often do ttl job
 ## Default: %s
+## Env: LINDB_STORAGE_TTL_TASK_INTERVAL 
 ttl-task-interval = "%s"
 ## Broker http endpoint which storage self register address
 ## Default: %s
+## Env: LINDB_STORAGE_BROKER_ENDPOINT
 broker-endpoint = "%s"
 
 ## Storage HTTP related configuration.
@@ -144,9 +139,9 @@ broker-endpoint = "%s"
 
 // WAL represents config for write ahead log in storage.
 type WAL struct {
-	Dir                string         `toml:"dir"`
-	DataSizeLimit      ltoml.Size     `toml:"data-size-limit"`
-	RemoveTaskInterval ltoml.Duration `toml:"remove-task-interval"`
+	Dir                string         `env:"DIR" toml:"dir"`
+	DataSizeLimit      ltoml.Size     `env:"DATA_SIZE_LIMIT" toml:"data-size-limit"`
+	RemoveTaskInterval ltoml.Duration `env:"REMOVE_TASK_INTERVAL" toml:"remove-task-interval"`
 }
 
 func (rc *WAL) GetDataSizeLimit() int64 {
@@ -163,13 +158,16 @@ func (rc *WAL) TOML() string {
 	return fmt.Sprintf(`
 ## WAL mmaped log directory
 ## Default: %s
+## Env: LINDB_STORAGE_WAL_DIR
 dir = "%s"
 ## data-size-limit is the maximum size in megabytes of the page file before a new
 ## file is created. It defaults to 512 megabytes, available size is in [1MB, 1GB]
 ## Default: %s
+## Env: LINDB_STORAGE_WAL_DATA_SIZE_LIMIT
 data-size-limit = "%s"
 ## interval for how often remove expired write ahead log
 ## Default: %s
+## Env: LINDB_STORAGE_WAL_REMOVE_TASK_INTERVAL
 remove-task-interval = "%s"`,
 		strings.ReplaceAll(rc.Dir, "\\", "\\\\"),
 		strings.ReplaceAll(rc.Dir, "\\", "\\\\"),
@@ -182,11 +180,11 @@ remove-task-interval = "%s"`,
 
 // Storage represents a storage configuration with common settings
 type Storage struct {
-	Coordinator RepoState   `toml:"coordinator"`
-	Query       Query       `toml:"query"`
-	StorageBase StorageBase `toml:"storage"`
-	Monitor     Monitor     `toml:"monitor"`
-	Logging     Logging     `toml:"logging"`
+	Coordinator RepoState      `envPrefix:"LINDB_COORDINATOR_" toml:"coordinator"`
+	Query       Query          `envPrefix:"LINDB_QUERY_" toml:"query"`
+	StorageBase StorageBase    `envPrefix:"LINDB_STORAGE_" toml:"storage"`
+	Monitor     Monitor        `envPrefix:"LINDB_MONITOR_" toml:"monitor"`
+	Logging     logger.Setting `envPrefix:"LINDB_LOGGING_" toml:"logging"`
 }
 
 // TOML returns storage's configuration string as toml format.
@@ -203,7 +201,7 @@ func (s *Storage) TOML() string {
 		s.Query.TOML(),
 		s.StorageBase.TOML(),
 		s.Monitor.TOML(),
-		s.Logging.TOML(),
+		s.Logging.TOML("LINDB"),
 	)
 }
 
@@ -220,7 +218,7 @@ func NewDefaultStorageBase() *StorageBase {
 		},
 		GRPC: GRPC{
 			Port:                 2891,
-			MaxConcurrentStreams: runtime.GOMAXPROCS(-1) * 40,
+			MaxConcurrentStreams: 1024,
 			ConnectTimeout:       ltoml.Duration(time.Second * 3),
 		},
 		WAL: WAL{
@@ -235,10 +233,8 @@ func NewDefaultStorageBase() *StorageBase {
 			MaxMemUsageBeforeFlush:   0.75,
 			TargetMemUsageAfterFlush: 0.6,
 			FlushConcurrency:         int(math.Ceil(float64(runtime.GOMAXPROCS(-1)) / 2)),
-			MaxSeriesIDsNumber:       200000,
 			SeriesSequenceCache:      1000,
 			MetaSequenceCache:        100,
-			MaxTagKeysNumber:         32,
 		},
 	}
 }
@@ -257,7 +253,7 @@ func NewDefaultStorageTOML() string {
 		NewDefaultQuery().TOML(),
 		NewDefaultStorageBase().TOML(),
 		NewDefaultMonitor().TOML(),
-		NewDefaultLogging().TOML(),
+		logger.NewDefaultSetting().TOML("LINDB"),
 	)
 }
 
@@ -281,21 +277,16 @@ func checkTSDBCfg(tsdbCfg *TSDB) error {
 	if tsdbCfg.FlushConcurrency <= 0 {
 		tsdbCfg.FlushConcurrency = defaultStorageCfg.TSDB.FlushConcurrency
 	}
-	if tsdbCfg.MaxSeriesIDsNumber <= 0 {
-		tsdbCfg.MaxSeriesIDsNumber = defaultStorageCfg.TSDB.MaxSeriesIDsNumber
-	}
 	if tsdbCfg.SeriesSequenceCache <= 0 {
 		tsdbCfg.SeriesSequenceCache = defaultStorageCfg.TSDB.SeriesSequenceCache
 	}
 	if tsdbCfg.MetaSequenceCache <= 0 {
 		tsdbCfg.MetaSequenceCache = defaultStorageCfg.TSDB.MetaSequenceCache
 	}
-	if tsdbCfg.MaxTagKeysNumber <= 0 {
-		tsdbCfg.MaxTagKeysNumber = defaultStorageCfg.TSDB.MaxTagKeysNumber
-	}
 	return nil
 }
 
+// checkStorageBaseCfg checks storage config.
 func checkStorageBaseCfg(storageBaseCfg *StorageBase) error {
 	if err := checkGRPCCfg(&storageBaseCfg.GRPC); err != nil {
 		return err

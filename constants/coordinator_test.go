@@ -31,6 +31,10 @@ func TestGetDatabaseConfigPath(t *testing.T) {
 	assert.Equal(t, DatabaseConfigPath+"/name", GetDatabaseConfigPath("name"))
 }
 
+func TestGetDatabaseLimitPath(t *testing.T) {
+	assert.Equal(t, DatabaseLimitPath+"/name", GetDatabaseLimitPath("name"))
+}
+
 func TestGetNodePath(t *testing.T) {
 	assert.Equal(t, LiveNodesPath+"/name", GetLiveNodePath("name"))
 }
@@ -41,4 +45,8 @@ func TestGetStorageClusterConfigPath(t *testing.T) {
 
 func TestGetStorageStatePath(t *testing.T) {
 	assert.Equal(t, StorageStatePath+"/name", GetStorageStatePath("name"))
+}
+
+func TestGetBrokerClusterConfigPath(t *testing.T) {
+	assert.Equal(t, BrokerConfigPath+"/name", GetBrokerClusterConfigPath("name"))
 }

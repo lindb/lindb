@@ -20,24 +20,33 @@ package aggregation
 import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series"
+	"github.com/lindb/lindb/series/field"
 )
 
 //go:generate mockgen -source=./group_agg.go -destination=./group_agg_mock.go -package=aggregation
 
-// GroupingAggregator represents an aggregator which merges time series and does grouping if need
+// GroupingAggregator represents an aggregator which merges time series and does grouping if need.
 type GroupingAggregator interface {
 	// Aggregate aggregates the time series data
 	Aggregate(it series.GroupedIterator)
 	// ResultSet returns the result set of aggregator
 	ResultSet() series.GroupedIterators
+	// TimeRange returns the time range of aggregator.
+	TimeRange() timeutil.TimeRange
+	// Interval returns the time interval of aggregator.
+	Interval() timeutil.Interval
+	// Fields returns all fields.
+	Fields() []field.Name
 }
 
+// groupingAggregator implements GroupingAggregator interface.
 type groupingAggregator struct {
 	aggSpecs      AggregatorSpecs
 	interval      timeutil.Interval
 	intervalRatio int
 	timeRange     timeutil.TimeRange
 	aggregates    map[string]FieldAggregates // tag values => field aggregates
+	fields        map[field.Name]field.Name
 }
 
 // NewGroupingAggregator creates a grouping aggregator
@@ -53,6 +62,7 @@ func NewGroupingAggregator(
 		intervalRatio: intervalRatio,
 		timeRange:     timeRange,
 		aggregates:    make(map[string]FieldAggregates),
+		fields:        make(map[field.Name]field.Name),
 	}
 }
 
@@ -63,6 +73,7 @@ func (ga *groupingAggregator) Aggregate(it series.GroupedIterator) {
 	for it.HasNext() {
 		seriesIt := it.Next()
 		fieldName := seriesIt.FieldName()
+		ga.fields[fieldName] = fieldName
 		// 1. find field aggregator
 		sAgg = nil
 		for _, aggregator := range seriesAgg {
@@ -80,14 +91,8 @@ func (ga *groupingAggregator) Aggregate(it series.GroupedIterator) {
 			if fieldIt == nil {
 				continue
 			}
-			var (
-				aggregator FieldAggregator
-				ok         bool
-			)
-			aggregator, ok = sAgg.GetAggregator(startTime)
-			if ok {
-				aggregator.Aggregate(fieldIt)
-			}
+			aggregator := sAgg.getAggregator(startTime)
+			aggregator.Aggregate(fieldIt)
 		}
 	}
 }
@@ -105,6 +110,31 @@ func (ga *groupingAggregator) ResultSet() series.GroupedIterators {
 		idx++
 	}
 	return seriesList
+}
+
+// TimeRange return the time range of aggregator.
+func (ga *groupingAggregator) TimeRange() timeutil.TimeRange {
+	return ga.timeRange
+}
+
+// Interval return the time interval of aggregator.
+func (ga *groupingAggregator) Interval() timeutil.Interval {
+	return ga.interval
+}
+
+// Fields returns all fields.
+func (ga *groupingAggregator) Fields() []field.Name {
+	length := len(ga.fields)
+	if length == 0 {
+		return nil
+	}
+	rs := make([]field.Name, length)
+	idx := 0
+	for fieldName := range ga.fields {
+		rs[idx] = fieldName
+		idx++
+	}
+	return rs
 }
 
 // getAggregator returns the time series aggregator by the tag of time series.

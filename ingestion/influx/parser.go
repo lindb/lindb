@@ -23,13 +23,14 @@ import (
 	"strconv"
 
 	"github.com/lindb/common/pkg/fasttime"
+	"github.com/lindb/common/pkg/timeutil"
 	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
 	commonseries "github.com/lindb/common/series"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/metrics"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/strutil"
-	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 var (
@@ -52,6 +53,7 @@ func parseInfluxLine(
 	content []byte,
 	namespace string,
 	multiplier int64,
+	limits *models.Limits,
 ) error {
 	// skip comment line
 	if bytes.HasPrefix(content, []byte{'#'}) {
@@ -65,7 +67,11 @@ func parseInfluxLine(
 	if err != nil {
 		return nil
 	}
-	builder.AddMetricName(unescapeMetricName(content[:metricEndAt]))
+	metricName := unescapeMetricName(content[:metricEndAt])
+	if limits.EnableMetricNameLengthCheck() && len(metricName) > limits.MaxMetricNameLength {
+		return constants.ErrMetricNameTooLong
+	}
+	builder.AddMetricName(metricName)
 
 	// parse tags
 	tagsEndAt, err := scanTagLine(content, metricEndAt+1, escaped)
@@ -76,8 +82,17 @@ func parseInfluxLine(
 	if err != nil {
 		return err
 	}
+
 	for k, v := range tags {
-		err = builder.AddTag(strutil.String2ByteSlice(k), strutil.String2ByteSlice(v))
+		tagKey := strutil.String2ByteSlice(k)
+		if limits.EnableTagNameLengthCheck() && len(tagKey) > limits.MaxTagNameLength {
+			return constants.ErrTagKeyTooLong
+		}
+		tagValue := strutil.String2ByteSlice(v)
+		if limits.EnableTagValueLengthCheck() && len(tagValue) > limits.MaxTagValueLength {
+			return constants.ErrTagValueTooLong
+		}
+		err = builder.AddTag(tagKey, tagValue)
 		if err != nil {
 			return err
 		}
@@ -93,8 +108,15 @@ func parseInfluxLine(
 	if err != nil && len(fields) == 0 {
 		return err
 	}
+	if limits.EnableFieldsCheck() && len(fields) > int(limits.MaxFieldsPerMetric) {
+		return constants.ErrTooManyFields
+	}
 	for idx := range fields {
-		err = builder.AddSimpleField(fields[idx].Name, fields[idx].Type, fields[idx].Value)
+		fieldName := fields[idx].Name
+		if limits.EnableFieldNameLengthCheck() && len(fieldName) > limits.MaxFieldNameLength {
+			return constants.ErrFieldNameTooLong
+		}
+		err = builder.AddSimpleField(fieldName, fields[idx].Type, fields[idx].Value)
 		if err != nil {
 			return err
 		}
@@ -456,7 +478,7 @@ func unescapeMetricName(in []byte) []byte {
 	for i := range metricNameEscapeCodes {
 		c := &metricNameEscapeCodes[i]
 		if bytes.IndexByte(in, c.k[0]) != -1 {
-			in = bytes.Replace(in, c.esc[:], c.k[:], -1)
+			in = bytes.ReplaceAll(in, c.esc[:], c.k[:])
 		}
 	}
 	return in
@@ -470,7 +492,7 @@ func unescapeTag(in []byte) []byte {
 	for i := range tagEscapeCodes {
 		c := &tagEscapeCodes[i]
 		if bytes.IndexByte(in, c.k[0]) != -1 {
-			in = bytes.Replace(in, c.esc[:], c.k[:], -1)
+			in = bytes.ReplaceAll(in, c.esc[:], c.k[:])
 		}
 	}
 	return in

@@ -24,12 +24,12 @@ import (
 	"os"
 	"sort"
 
+	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 //go:generate mockgen -source ./reader.go -destination=./reader_mock.go -package table

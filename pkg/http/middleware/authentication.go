@@ -23,8 +23,9 @@ import (
 
 	jwt "github.com/dgrijalva/jwt-go"
 
+	"github.com/lindb/common/pkg/encoding"
+
 	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/pkg/encoding"
 )
 
 //go:generate mockgen -source=./authentication.go -destination=./authentication_mock.go -package=middleware

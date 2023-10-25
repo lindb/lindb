@@ -27,12 +27,13 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/tblstore/tagkeymeta"
@@ -46,6 +47,8 @@ type Database interface {
 	Name() string
 	// NumOfShards returns number of families in time series database
 	NumOfShards() int
+	// GetConfig return the configuration of database.
+	GetConfig() *models.DatabaseConfig
 	// GetOption returns the database options
 	GetOption() *option.DatabaseOption
 	// CreateShards creates families for data partition
@@ -70,12 +73,10 @@ type Database interface {
 	TTL()
 	// EvictSegment evicts segment which long term no read operation.
 	EvictSegment()
-}
-
-// databaseConfig represents a database configuration about config and families
-type databaseConfig struct {
-	ShardIDs []models.ShardID       `toml:"shardIDs"`
-	Option   *option.DatabaseOption `toml:"option"`
+	// SetLimits sets database's limits.
+	SetLimits(limits *models.Limits)
+	// GetLimits returns database's limits.
+	GetLimits() *models.Limits
 }
 
 // database implements Database for storing families,
@@ -83,14 +84,15 @@ type databaseConfig struct {
 type database struct {
 	name           string // database-name
 	dir            string
-	config         *databaseConfig // meta configuration
-	executorPool   *ExecutorPool   // executor pool for querying task
-	mutex          sync.Mutex      // mutex for creating families
-	shardSet       shardSet        // atomic value
-	metadata       metadb.Metadata // underlying metric metadata
-	metaStore      kv.Store        // underlying meta kv store
-	isFlushing     atomic.Bool     // restrict flusher concurrency
-	flushCondition *sync.Cond      // flush condition
+	config         *models.DatabaseConfig // meta configuration
+	executorPool   *ExecutorPool          // executor pool for querying task
+	mutex          sync.Mutex             // mutex for creating families
+	shardSet       shardSet               // atomic value
+	metadata       metadb.Metadata        // underlying metric metadata
+	metaStore      kv.Store               // underlying meta kv store
+	isFlushing     atomic.Bool            // restrict flusher concurrency
+	flushCondition *sync.Cond             // flush condition
+	limits         atomic.Value           // store models.Limits
 
 	statistics *metrics.DatabaseStatistics
 
@@ -100,7 +102,8 @@ type database struct {
 // newDatabase creates the database instance
 func newDatabase(
 	databaseName string,
-	cfg *databaseConfig,
+	cfg *models.DatabaseConfig,
+	limits *models.Limits,
 	flushChecker DataFlushChecker,
 ) (Database, error) {
 	if err := cfg.Option.Validate(); err != nil {
@@ -155,6 +158,7 @@ func newDatabase(
 			}
 		}
 	}()
+	db.limits.Store(limits)
 	// load families if engine is existed
 	var shard Shard
 	if len(db.config.ShardIDs) > 0 {
@@ -167,8 +171,25 @@ func newDatabase(
 			db.shardSet.InsertShard(shardID, shard)
 		}
 	}
-
 	return db, nil
+}
+
+// SetLimits sets database's limits.
+func (db *database) SetLimits(limits *models.Limits) {
+	db.limits.Store(limits)
+
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+
+	shards := db.shardSet.Entries()
+	for _, shard := range shards {
+		shard.shard.notifyLimitsChange()
+	}
+}
+
+// GetLimits returns database's limits.
+func (db *database) GetLimits() *models.Limits {
+	return db.limits.Load().(*models.Limits)
 }
 
 // Metadata returns the metadata include metric/tag
@@ -184,6 +205,11 @@ func (db *database) Name() string {
 // NumOfShards returns number of families in time series database
 func (db *database) NumOfShards() int {
 	return db.shardSet.GetShardNum()
+}
+
+// GetConfig return the configuration of database.
+func (db *database) GetConfig() *models.DatabaseConfig {
+	return db.config
 }
 
 // GetOption returns the database options
@@ -227,7 +253,7 @@ func (db *database) createShard(shardID models.ShardID) error {
 		return fmt.Errorf("create shard[%d] for engine[%s] with error: %s", shardID, db.name, err)
 	}
 	// using new engine option
-	newCfg := &databaseConfig{Option: db.config.Option, ShardIDs: db.config.ShardIDs}
+	newCfg := &models.DatabaseConfig{Option: db.config.Option, ShardIDs: db.config.ShardIDs}
 	// add new shard id
 	newCfg.ShardIDs = append(newCfg.ShardIDs, shardID)
 	if err := db.dumpDatabaseConfig(newCfg); err != nil {
@@ -286,7 +312,7 @@ func (db *database) EvictSegment() {
 }
 
 // dumpDatabaseConfig persists option info to OPTIONS file
-func (db *database) dumpDatabaseConfig(newConfig *databaseConfig) error {
+func (db *database) dumpDatabaseConfig(newConfig *models.DatabaseConfig) error {
 	cfgPath := optionsPath(db.name)
 	// write store info using toml format
 	if err := encodeToml(cfgPath, newConfig); err != nil {
@@ -298,7 +324,7 @@ func (db *database) dumpDatabaseConfig(newConfig *databaseConfig) error {
 
 // initMetadata initializes metadata backend storage
 func (db *database) initMetadata() error {
-	// FIXME close kv store if err??
+	// FIXME: close kv store if err??
 	metaStore, err := kv.GetStoreManager().CreateStore(tagMetaIndicator(db.name), kv.DefaultStoreOption())
 	if err != nil {
 		return err

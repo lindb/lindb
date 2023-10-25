@@ -20,20 +20,10 @@ package series
 import (
 	enc "encoding"
 
-	"github.com/lindb/lindb/models"
-	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/series/field"
 )
 
 //go:generate mockgen -source ./iterator.go -destination=./iterator_mock.go -package=series
-
-// TimeSeriesEvent represents time series event for query.
-type TimeSeriesEvent struct {
-	SeriesList      GroupedIterators
-	AggregatorSpecs map[string]*protoCommonV1.AggregatorSpec
-	Stats           *models.QueryStats
-	Err             error
-}
 
 type GroupedIterators []GroupedIterator
 

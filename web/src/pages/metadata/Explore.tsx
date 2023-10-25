@@ -6,7 +6,6 @@ ownership. LinDB licenses this file to you under
 the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
  
 Unless required by applicable law or agreed to in writing,
@@ -38,10 +37,10 @@ import {
   Typography,
   Empty,
 } from "@douyinfe/semi-ui";
-import { Icon, StatusTip, StorageStatusView } from "@src/components";
+import { Icon, StatusTip, ClusterStatusView } from "@src/components";
 import { StateRoleName, Theme } from "@src/constants";
 import { UIContext } from "@src/context/UIContextProvider";
-import { Storage } from "@src/models";
+import { Broker, Storage } from "@src/models";
 import { ExecService } from "@src/services";
 import { useQuery } from "@tanstack/react-query";
 import * as _ from "lodash-es";
@@ -66,7 +65,8 @@ const CompareView: React.FC<{
   const diffEditorRef = useRef() as MutableRefObject<HTMLDivElement>;
   const [filter, setFilter] = useState<string>("");
   const [current, setCurrent] = useState<string>("");
-  const { theme } = useContext(UIContext);
+  const { locale, theme } = useContext(UIContext);
+  const { MetadataExploreView } = locale;
 
   const buildOriginal = useCallback(() => {
     return monaco.editor.createModel(_.get(source, "data", "no data"), "json");
@@ -103,7 +103,7 @@ const CompareView: React.FC<{
             header={
               <Input
                 onChange={setFilter}
-                placeholder="Filter nodes"
+                placeholder={MetadataExploreView.filterNode}
                 prefix={<IconSearch />}
               />
             }
@@ -163,15 +163,22 @@ const MetadataView: React.FC<{
   const [stateMachineMetadata, setStateMachineMetadata] = useState<any[]>([]);
   const [showCompareResult, setShowCompareResult] = useState<boolean>(false);
   const [metadata, setMetadata] = useState<any>(null);
-  const { theme } = useContext(UIContext);
+  const { theme, locale } = useContext(UIContext);
+  const { Common, MetadataExploreView } = locale;
 
   const { isLoading, isInitialLoading, isError, error, data } = useQuery(
     ["load_metadata", node],
     async () => {
       setStateMachineMetadata([]);
       let storageClause = "";
-      if (node.storage) {
-        storageClause = ` and storage='${node.storage}'`;
+      if (node.cluster) {
+        if (node.role === StateRoleName.Broker) {
+          return ExecService.exec<any>({
+            sql: `show ${node.role} metadata from state_machine where type='${node.type}' and broker='${node.cluster}'`,
+          });
+        } else {
+          storageClause = ` and storage='${node.cluster}'`;
+        }
       }
       return ExecService.exec<any>({
         sql: `show ${node.role} metadata from state_repo where type='${node.type}'${storageClause}`,
@@ -207,8 +214,8 @@ const MetadataView: React.FC<{
       setComparing(true);
       setStateMachineMetadata([]);
       let storageClause = "";
-      if (node.storage) {
-        storageClause = ` and storage='${node.storage}'`;
+      if (node.cluster) {
+        storageClause = ` and storage='${node.cluster}'`;
       }
       const metadataFromSM = await ExecService.exec<any>({
         sql: `show ${node.role} metadata from state_machine where type='${node.type}'${storageClause}`,
@@ -233,7 +240,7 @@ const MetadataView: React.FC<{
       return (
         <Empty
           image={<Icon icon="iconempty" style={{ fontSize: 48 }} />}
-          description="No data"
+          description={Common.noData}
           style={{ paddingTop: 100 }}
         />
       );
@@ -257,37 +264,42 @@ const MetadataView: React.FC<{
 
   return (
     <>
-      {node && (
-        <div>
-          <SplitButtonGroup style={{ marginBottom: 8, marginRight: 12 }}>
-            <Button
-              icon={<IconSourceControl />}
-              onClick={exploreStateMachineData}
-            >
-              Compare
-            </Button>
-            <Tooltip content="Compare with state matchine's data in memory">
-              <Button icon={<IconHelpCircleStroked />} />
-            </Tooltip>
-          </SplitButtonGroup>
-          {comparing && (
-            <>
-              <Spin size="middle" />
-              <Text style={{ marginRight: 4 }}>Comparing</Text>
-            </>
-          )}
-          {!_.isEmpty(stateMachineMetadata) && (
-            <Text strong link onClick={() => setShowCompareResult(true)}>
-              Found <Text type="success">{stateMachineMetadata.length}</Text>{" "}
-              nodes, diff{" "}
-              <Text type="danger">
-                {_.filter(stateMachineMetadata, (o) => o.isDiff).length}
-              </Text>{" "}
-              nodes.
-            </Text>
-          )}
-        </div>
-      )}
+      {node &&
+        (!node.cluster ||
+          (node.cluster && node.role !== StateRoleName.Broker)) && (
+          <div>
+            <SplitButtonGroup style={{ marginBottom: 8, marginRight: 12 }}>
+              <Button
+                icon={<IconSourceControl />}
+                onClick={exploreStateMachineData}
+              >
+                {MetadataExploreView.compare}
+              </Button>
+              <Tooltip content={MetadataExploreView.compareTooltip}>
+                <Button icon={<IconHelpCircleStroked />} />
+              </Tooltip>
+            </SplitButtonGroup>
+            {comparing && (
+              <>
+                <Spin size="middle" />
+                <Text style={{ marginRight: 4 }}>
+                  {MetadataExploreView.comparing}
+                </Text>
+              </>
+            )}
+            {!_.isEmpty(stateMachineMetadata) && (
+              <Text strong link onClick={() => setShowCompareResult(true)}>
+                {MetadataExploreView.compareResult1}{" "}
+                <Text type="success">{stateMachineMetadata.length}</Text>{" "}
+                {MetadataExploreView.compareResult2}{" "}
+                <Text type="danger">
+                  {_.filter(stateMachineMetadata, (o) => o.isDiff).length}
+                </Text>{" "}
+                {MetadataExploreView.compareResult3}
+              </Text>
+            )}
+          </div>
+        )}
 
       <Card>
         <div style={{ height: "80vh" }}>{renderData()}</div>
@@ -297,11 +309,9 @@ const MetadataView: React.FC<{
         title={
           <div>
             <Title strong heading={4}>
-              State Compare Result
+              {MetadataExploreView.compareResultTitle}
             </Title>
-            <Text>
-              The state(in storage) compare with in state machine(memory)
-            </Text>
+            <Text>{MetadataExploreView.compareResultDesc}</Text>
           </div>
         }
         closeOnEsc
@@ -321,7 +331,7 @@ const MetadataView: React.FC<{
 type Node = {
   role: string;
   type: string;
-  storage?: string;
+  cluster?: string;
 };
 
 type TreeNode = {
@@ -336,6 +346,7 @@ const MetadataExplore: React.FC = () => {
   const [root, setRoot] = useState<any[]>([]);
   const [loadedKeys, setLoadedKeys] = useState<any[]>([]);
   const [currentNode, setCurrentNode] = useState<any>(null);
+  const { env } = useContext(UIContext);
 
   const { isLoading, isError, error, data } = useQuery(
     ["show_metadata"],
@@ -344,8 +355,11 @@ const MetadataExplore: React.FC = () => {
         ExecService.exec<any>({
           sql: "show metadata types",
         }),
-        ExecService.exec<Storage[]>({
-          sql: "show storages",
+        ExecService.exec<Storage[] | Broker[]>({
+          sql:
+            env.role === StateRoleName.Broker
+              ? "show storages"
+              : "show brokers",
         }),
       ]).then((res) => {
         return res.map((item) =>
@@ -359,14 +373,14 @@ const MetadataExplore: React.FC = () => {
     parent: string,
     role: string,
     obj: any,
-    storage?: string
+    cluster?: string
   ) => {
     const keys = _.keys(obj);
     const rs: any[] = [];
     _.forEach(keys, (k) =>
       rs.push({
         label: k,
-        value: { role: role, type: k, storage: storage },
+        value: { role: role, type: k, cluster: cluster },
         key: `${parent}-${k}`,
         parent: parent,
       })
@@ -375,11 +389,11 @@ const MetadataExplore: React.FC = () => {
   };
 
   useEffect(() => {
-    if ((data || []).length != 2) {
+    if (!data) {
       return;
     }
-    const metadata = data![0];
-    const storages = data![1];
+    const metadata = _.get(data, "[0]", []);
+    const clusters = _.get(data, "[1]", []);
     const keys = _.keys(metadata);
     _.sortBy(keys);
     const root: any[] = [];
@@ -387,29 +401,29 @@ const MetadataExplore: React.FC = () => {
     _.forEach(keys, (key) => {
       const data = _.get(metadata, key, {});
       loadedKeys.push(key);
-      if (key === StateRoleName.Storage) {
-        const storageNodes: TreeNode[] = [];
-        _.forEach(storages || [], (storage: any) => {
-          const namespace = storage.config.namespace;
-          const storageKey = `${key}-${namespace}`;
-          const storageTypes = getItems(storageKey, key, data, namespace);
-          storageNodes.push({
+      if (key === StateRoleName.Storage || key === StateRoleName.Broker) {
+        const clusterNodes: TreeNode[] = [];
+        _.forEach(clusters || [], (cluster: any) => {
+          const namespace = cluster.config.namespace;
+          const clusterKey = `${key}-${namespace}`;
+          const clusterTypes = getItems(clusterKey, key, data, namespace);
+          clusterNodes.push({
             label: (
               <>
-                {namespace} (<StorageStatusView text={storage.status} />)
+                {namespace} (<ClusterStatusView text={cluster.status} />)
               </>
             ),
             value: namespace,
-            key: storageKey,
+            key: clusterKey,
             parent: key,
-            children: storageTypes,
+            children: clusterTypes,
           });
         });
         root.push({
           label: key,
           value: key,
           key: key,
-          children: storageNodes,
+          children: clusterNodes,
         });
       } else {
         root.push({

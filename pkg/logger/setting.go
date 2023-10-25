@@ -18,123 +18,62 @@
 package logger
 
 import (
-	"os"
-	"path/filepath"
-	"sync/atomic"
-
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
-	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 
-	"github.com/lindb/lindb/config"
+	"github.com/lindb/common/pkg/logger"
 )
 
 var (
-	isTerminal = IsTerminal(os.Stdout)
-	// max length of all modules
-	maxModuleNameLen uint32
-	lindLogger       atomic.Value
-	accessLogger     atomic.Value
-	// uninitialized logger for default usage
-	defaultLogger = newDefaultLogger()
-	// RunningAtomicLevel supports changing level on the fly
-	RunningAtomicLevel = zap.NewAtomicLevelAt(zapcore.InfoLevel)
+	initLoggerFn = logger.InitLogger
 )
-
-func init() {
-	// get log level from evn
-	level := os.Getenv("LOG_LEVEL")
-	if level != "" {
-		var zapLevel zapcore.Level
-		if err := zapLevel.Set(level); err == nil {
-			RunningAtomicLevel.SetLevel(zapLevel)
-		}
-	}
-}
 
 const (
-	accessLogFileName = "access.log"
+	AccessLogFileName  = "access.log"
+	SlowSQLLogFileName = "show_sql.log"
+
+	SlowSQLModule = "SlowSQL"
 )
 
-func IsDebug() bool {
-	return RunningAtomicLevel.Level() == zapcore.DebugLevel
-}
-
-// GetLogger return logger with module name
-func GetLogger(module, role string) *Logger {
-	length := len(module)
-	for {
-		currentMaxModuleLen := atomic.LoadUint32(&maxModuleNameLen)
-		if uint32(length) <= currentMaxModuleLen {
-			break
-		}
-		if atomic.CompareAndSwapUint32(&maxModuleNameLen, currentMaxModuleLen, uint32(length)) {
-			break
-		}
-	}
-	return &Logger{
-		module: module,
-		role:   role,
-	}
-}
-
-// newDefaultLogger creates a default logger for uninitialized usage
-func newDefaultLogger() *zap.Logger {
+// InitAccessLogger initializes a zap logger for access log.
+func InitAccessLogger(cfg logger.Setting, fileName string) error {
 	encoderConfig := zap.NewProductionEncoderConfig()
-	encoderConfig.EncodeTime = SimpleTimeEncoder
-	encoderConfig.EncodeLevel = SimpleLevelEncoder
-	core := zapcore.NewCore(
-		zapcore.NewConsoleEncoder(encoderConfig),
-		os.Stdout,
-		RunningAtomicLevel)
-	return zap.New(core, zap.AddCaller(), zap.AddCallerSkip(2))
-}
+	encoderConfig.EncodeTime = logger.SimpleTimeEncoder
+	encoderConfig.EncodeLevel = logger.SimpleAccessLevelEncoder
 
-// InitLogger initializes a zap logger from user config
-func InitLogger(cfg config.Logging, fileName string) error {
-	if err := initLogger(fileName, cfg); err != nil {
+	log, err := initLoggerFn(fileName, cfg, &encoderConfig)
+	if err != nil {
 		return err
 	}
-	if err := initLogger(accessLogFileName, cfg); err != nil {
-		return err
-	}
+	logger.RegisterLogger(logger.AccessLogModule, log, true)
 	return nil
 }
 
-// initLogger initializes a zap logger for different module
-func initLogger(logFilename string, cfg config.Logging) error {
-	w := zapcore.AddSync(&lumberjack.Logger{
-		Filename:   filepath.Join(cfg.Dir, logFilename),
-		MaxSize:    int(cfg.MaxSize / 1024 / 1024), // because in lumberjack will * megabyte
-		MaxBackups: int(cfg.MaxBackups),
-		MaxAge:     int(cfg.MaxAge),
-	})
-	// check if it is terminal
-	if isTerminal {
-		w = os.Stdout
-	}
-	// parse logging level
-	if err := RunningAtomicLevel.UnmarshalText([]byte(cfg.Level)); err != nil {
+// InitSlowSQLLogger initializes a zap logger for slow sql log.
+func InitSlowSQLLogger(cfg logger.Setting, fileName string) error {
+	encoderConfig := zap.NewProductionEncoderConfig()
+	encoderConfig.EncodeTime = logger.SimpleTimeEncoder
+	encoderConfig.EncodeLevel = logger.SimpleLevelEncoder
+	encoderConfig.LevelKey = ""
+	encoderConfig.TimeKey = ""
+
+	log, err := initLoggerFn(fileName, cfg, &encoderConfig)
+	if err != nil {
 		return err
 	}
+	logger.RegisterLogger(SlowSQLModule, log, true)
+	return nil
+}
+
+// InitLogger initializes a zap logger for default log.
+func InitLogger(cfg logger.Setting, fileName string) error {
 	encoderConfig := zap.NewProductionEncoderConfig()
-	encoderConfig.EncodeTime = SimpleTimeEncoder
-	switch logFilename {
-	case accessLogFileName:
-		encoderConfig.EncodeLevel = SimpleAccessLevelEncoder
-	default:
-		encoderConfig.EncodeLevel = SimpleLevelEncoder
+	encoderConfig.EncodeTime = logger.SimpleTimeEncoder
+	encoderConfig.EncodeLevel = logger.SimpleLevelEncoder
+
+	log, err := initLoggerFn(fileName, cfg, &encoderConfig, zap.AddCaller(), zap.AddCallerSkip(1))
+	if err != nil {
+		return err
 	}
-	// check format
-	core := zapcore.NewCore(
-		zapcore.NewConsoleEncoder(encoderConfig),
-		w,
-		RunningAtomicLevel)
-	switch logFilename {
-	case accessLogFileName:
-		accessLogger.Store(zap.New(core))
-	default:
-		lindLogger.Store(zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1)))
-	}
+	logger.DefaultLogger.Store(log)
 	return nil
 }

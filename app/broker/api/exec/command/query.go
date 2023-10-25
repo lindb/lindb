@@ -19,33 +19,30 @@ package command
 
 import (
 	"context"
-	"strings"
-	"time"
 
 	depspkg "github.com/lindb/lindb/app/broker/deps"
-	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
-	brokerquery "github.com/lindb/lindb/query/broker"
+	"github.com/lindb/lindb/query"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
+)
+
+// for testing
+var (
+	metricDataSearchFn = query.MetricDataSearch
 )
 
 // QueryCommand executes metric query.
 func QueryCommand(ctx context.Context, deps *depspkg.HTTPDeps,
 	param *models.ExecuteParam, stmt stmtpkg.Statement) (interface{}, error) {
-	if strings.TrimSpace(param.Database) == "" {
-		return nil, constants.ErrDatabaseNameRequired
-	}
-	req := &models.Request{
-		DB:    param.Database,
-		SQL:   param.SQL,
-		Start: time.Now().UnixNano(),
-	}
-
-	// track request
-	reqID := brokerquery.GetRequestManager().NewRequest(req)
-	defer brokerquery.GetRequestManager().CompleteRequest(reqID)
-
-	metricQuery := deps.QueryFactory.NewMetricQuery(context.WithValue(ctx, constants.ContextKeySQL, req),
-		deps.Node, param.Database, stmt.(*stmtpkg.Query))
-	return metricQuery.WaitResponse()
+	return metricDataSearchFn(
+		ctx,
+		param,
+		stmt.(*stmtpkg.Query),
+		&query.SearchMgr{
+			Timeout:      deps.BrokerCfg.Query.Timeout.Duration(),
+			CurNode:      *deps.Node,
+			Choose:       deps.StateMgr,
+			TaskMgr:      deps.TaskMgr,
+			TransportMgr: deps.TransportMgr,
+		})
 }

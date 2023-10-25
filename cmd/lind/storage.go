@@ -22,10 +22,11 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/lindb/common/pkg/ltoml"
+
 	"github.com/lindb/lindb/app/storage"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/ltoml"
 )
 
 const (

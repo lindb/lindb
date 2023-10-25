@@ -28,31 +28,16 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/pkg/encoding"
+
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	trackerpkg "github.com/lindb/lindb/query/tracker"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
 )
-
-func TestLeafTaskProcessor_Process_sendStreamFailure(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	server := protoCommonV1.NewMockTaskService_HandleServer(ctrl)
-	server.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err"))
-	leafTaskProcessor := NewLeafTaskProcessor(
-		&models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 9000},
-		nil,
-		nil)
-	leafTaskProcessor.Process(
-		flow.NewTaskContextWithTimeout(context.Background(), time.Second),
-		server,
-		&protoCommonV1.TaskRequest{PhysicalPlan: []byte{1, 1, 1}})
-}
 
 func TestLeafTask_Process_Fail(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -83,7 +68,7 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 		{
 			name: "wrong request",
 			req: &protoCommonV1.TaskRequest{PhysicalPlan: encoding.JSONMarshal(&models.PhysicalPlan{
-				Leaves: []*models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.4:8000"}}},
+				Targets: []*models.Target{{Indicator: "1.1.1.4:8000"}},
 			})},
 			assert: func(err error) {
 				assert.True(t, errors.Is(err, ErrBadPhysicalPlan))
@@ -93,7 +78,7 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 			name: "db not exist",
 			req: &protoCommonV1.TaskRequest{PhysicalPlan: encoding.JSONMarshal(&models.PhysicalPlan{
 				Database: "test_db",
-				Leaves:   []*models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.3:8000"}}},
+				Targets:  []*models.Target{{Indicator: "1.1.1.3:8000"}},
 			}), Payload: encoding.JSONMarshal(&stmt.Query{MetricName: "cpu"})},
 			prepare: func() {
 				engine.EXPECT().GetDatabase(gomock.Any()).Return(nil, false)
@@ -103,28 +88,13 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 			},
 		},
 		{
-			name: "get upstream err",
-			req: &protoCommonV1.TaskRequest{PhysicalPlan: encoding.JSONMarshal(&models.PhysicalPlan{
-				Database: "test_db",
-				Leaves:   []*models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.3:8000"}}},
-			}), Payload: encoding.JSONMarshal(&stmt.Query{MetricName: "cpu"})},
-			prepare: func() {
-				engine.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true)
-				taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(nil)
-			},
-			assert: func(err error) {
-				assert.True(t, errors.Is(err, ErrNoSendStream))
-			},
-		},
-		{
 			name: "unmarshal query err",
 			req: &protoCommonV1.TaskRequest{PhysicalPlan: encoding.JSONMarshal(&models.PhysicalPlan{
 				Database: "test_db",
-				Leaves:   []*models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.3:8000"}}},
+				Targets:  []*models.Target{{Indicator: "1.1.1.3:8000"}},
 			}), Payload: []byte{1, 2, 3}},
 			prepare: func() {
 				engine.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true)
-				taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(serverStream)
 			},
 			assert: func(err error) {
 				assert.True(t, errors.Is(err, ErrUnmarshalQuery))
@@ -134,7 +104,7 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 			name: "test executor fail",
 			req: &protoCommonV1.TaskRequest{PhysicalPlan: encoding.JSONMarshal(&models.PhysicalPlan{
 				Database: "test_db",
-				Leaves:   []*models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.3:8000"}}},
+				Targets:  []*models.Target{{Indicator: "1.1.1.3:8000"}},
 			}), Payload: encoding.JSONMarshal(&stmt.Query{MetricName: "cpu"})},
 			prepare: func() {
 				pipeline := NewMockPipeline(ctrl)
@@ -143,7 +113,6 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 					return pipeline
 				}
 				pipeline.EXPECT().Execute(gomock.Any())
-				taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(serverStream)
 				engine.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true)
 			},
 			assert: func(err error) {
@@ -155,10 +124,9 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 			req: &protoCommonV1.TaskRequest{RequestType: protoCommonV1.RequestType(10),
 				PhysicalPlan: encoding.JSONMarshal(&models.PhysicalPlan{
 					Database: "test_db",
-					Leaves:   []*models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.3:8000"}}},
+					Targets:  []*models.Target{{Indicator: "1.1.1.3:8000"}},
 				}), Payload: encoding.JSONMarshal(&stmt.Query{MetricName: "cpu"})},
 			prepare: func() {
-				taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(serverStream)
 				engine.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true)
 			},
 			assert: func(err error) {
@@ -176,8 +144,8 @@ func TestLeafTask_Process_Fail(t *testing.T) {
 			if tt.prepare != nil {
 				tt.prepare()
 			}
-			err := processor.process(
-				flow.NewTaskContextWithTimeout(context.Background(), time.Second), tt.req)
+			err := processor.Process(
+				flow.NewTaskContextWithTimeout(context.Background(), time.Second), serverStream, tt.req)
 			tt.assert(err)
 		})
 	}
@@ -199,7 +167,7 @@ func TestLeafProcessor_Process(t *testing.T) {
 	mockDatabase := tsdb.NewMockDatabase(ctrl)
 	plan := encoding.JSONMarshal(&models.PhysicalPlan{
 		Database: "test_db",
-		Leaves:   []*models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.3:8000"}}},
+		Targets:  []*models.Target{{Indicator: "1.1.1.3:8000"}},
 	})
 	qry := stmt.Query{MetricName: "cpu", Explain: true}
 	data := encoding.JSONMarshal(&qry)
@@ -214,8 +182,8 @@ func TestLeafProcessor_Process(t *testing.T) {
 	pipeline.EXPECT().Execute(gomock.Any())
 
 	serverStream := protoCommonV1.NewMockTaskService_HandleServer(ctrl)
-	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(serverStream)
-	err := processor.process(flow.NewTaskContextWithTimeout(context.Background(), time.Second),
+	err := processor.Process(flow.NewTaskContextWithTimeout(context.Background(), time.Second),
+		serverStream,
 		&protoCommonV1.TaskRequest{PhysicalPlan: plan, Payload: data})
 	assert.NoError(t, err)
 }
@@ -233,11 +201,10 @@ func TestLeafTask_Suggest_Process(t *testing.T) {
 	mockDatabase := tsdb.NewMockDatabase(ctrl)
 	plan := encoding.JSONMarshal(&models.PhysicalPlan{
 		Database: "test_db",
-		Leaves:   []*models.Leaf{{BaseNode: models.BaseNode{Indicator: "1.1.1.3:8000"}}},
+		Targets:  []*models.Target{{Indicator: "1.1.1.3:8000"}},
 	})
 	engine.EXPECT().GetDatabase(gomock.Any()).Return(mockDatabase, true).AnyTimes()
 	serverStream := protoCommonV1.NewMockTaskService_HandleServer(ctrl)
-	taskServerFactory.EXPECT().GetStream(gomock.Any()).Return(serverStream).AnyTimes()
 
 	cases := []struct {
 		name    string
@@ -300,7 +267,7 @@ func TestLeafTask_Suggest_Process(t *testing.T) {
 			if tt.prepare != nil {
 				tt.prepare()
 			}
-			err := processor.process(flow.NewTaskContextWithTimeout(context.Background(), time.Second),
+			err := processor.Process(flow.NewTaskContextWithTimeout(context.Background(), time.Second), serverStream,
 				&protoCommonV1.TaskRequest{
 					PhysicalPlan: plan,
 					RequestType:  protoCommonV1.RequestType_Metadata,

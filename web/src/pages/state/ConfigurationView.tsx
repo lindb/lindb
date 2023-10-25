@@ -6,7 +6,6 @@ ownership. LinDB licenses this file to you under
 the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
  
 Unless required by applicable law or agreed to in writing,
@@ -34,7 +33,7 @@ const { Text } = Typography;
 const ConfigurationView: React.FC = () => {
   const editorRef = useRef() as MutableRefObject<HTMLDivElement>;
   const { target } = useParams(["target"]);
-  const { theme } = useContext(UIContext);
+  const { theme, locale } = useContext(UIContext);
   const {
     isLoading,
     isInitialLoading,
@@ -54,6 +53,7 @@ const ConfigurationView: React.FC = () => {
       enabled: !_.isEmpty(target),
     }
   );
+  const { NodeView } = locale;
 
   useEffect(() => {
     if (isLoading || isError || !editorRef.current) {
@@ -91,28 +91,24 @@ const ConfigurationView: React.FC = () => {
             className="lin-description"
             data={[
               {
-                key: "Host IP",
+                key: NodeView.hostIp,
                 value: (
                   <Text link>{_.get(config, "node.hostIp", "unknown")}</Text>
                 ),
               },
               {
-                key: "Host Name",
+                key: NodeView.hostName,
                 value: (
                   <Text link>{_.get(config, "node.hostName", "unknown")}</Text>
                 ),
               },
               {
-                key: "HTTP",
-                value: (
-                  <Text link>{_.get(config, "node.httpPort", "unknown")}</Text>
-                ),
+                key: NodeView.httpPort,
+                value: <Text link>{_.get(config, "node.httpPort", "-")}</Text>,
               },
               {
-                key: "GRPC",
-                value: (
-                  <Text link>{_.get(config, "node.grpcPort", "unknown")}</Text>
-                ),
+                key: NodeView.grpcPort,
+                value: <Text link>{_.get(config, "node.grpcPort", "-")}</Text>,
               },
             ]}
           />

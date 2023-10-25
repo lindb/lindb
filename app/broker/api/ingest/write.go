@@ -27,6 +27,8 @@ import (
 
 	commonconstants "github.com/lindb/common/constants"
 
+	"github.com/lindb/common/pkg/http"
+
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 	ingestCommon "github.com/lindb/lindb/ingestion/common"
@@ -35,7 +37,6 @@ import (
 	"github.com/lindb/lindb/ingestion/proto"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/metrics"
-	"github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/series/metric"
 )
 
@@ -131,15 +132,28 @@ func (w *Write) write(c *gin.Context) (err error) {
 	if err != nil {
 		return err
 	}
+
+	limits := w.deps.StateMgr.GetDatabaseLimits(param.Database)
+	for _, tag := range enrichedTags {
+		if limits.EnableTagNameLengthCheck() && len(tag.Key) > limits.MaxTagNameLength {
+			return constants.ErrTagKeyTooLong
+		}
+		if limits.EnableTagValueLengthCheck() && len(tag.Value) > limits.MaxTagValueLength {
+			return constants.ErrTagValueTooLong
+		}
+	}
+	if limits.EnableNamespaceLengthCheck() && len(param.Namespace) > limits.MaxNamespaceLength {
+		return constants.ErrNamespaceTooLong
+	}
 	contentType := strings.ToLower(strings.Trim(c.Request.Header.Get(headers.ContentType), " "))
 	var rows *metric.BrokerBatchRows
 	switch {
 	case strings.HasPrefix(contentType, constants.ContentTypeFlat):
-		rows, err = flat.Parse(c.Request, enrichedTags, param.Namespace)
+		rows, err = flat.Parse(c.Request, enrichedTags, param.Namespace, limits)
 	case strings.HasPrefix(contentType, constants.ContentTypeInflux):
-		rows, err = influx.Parse(c.Request, enrichedTags, param.Namespace)
+		rows, err = influx.Parse(c.Request, enrichedTags, param.Namespace, limits)
 	case strings.HasPrefix(contentType, constants.ContentTypeProto):
-		rows, err = proto.Parse(c.Request, enrichedTags, param.Namespace)
+		rows, err = proto.Parse(c.Request, enrichedTags, param.Namespace, limits)
 	default:
 		err = fmt.Errorf("not support content type: %s, only support %s/%s/%s", contentType,
 			constants.ContentTypeFlat, constants.ContentTypeProto, constants.ContentTypeInflux)

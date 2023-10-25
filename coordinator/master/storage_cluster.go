@@ -21,20 +21,21 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/state"
 )
 
 //go:generate mockgen -source=./storage_cluster.go -destination=./storage_cluster_mock.go -package=master
 
-// StorageCluster represents storage storageCluster controller,
-// 1) discovery active node list in storageCluster
+// StorageCluster represents storage cluster controller,
+// 1) discovery active node list in storage cluster
 // 2) save shard assignment
 // 3) generate coordinator task
 type StorageCluster interface {
@@ -53,15 +54,17 @@ type StorageCluster interface {
 		shardAssign *models.ShardAssignment,
 		databaseOption *option.DatabaseOption,
 	) error
+	// SetDatabaseLimits sets the database's limits.
+	SetDatabaseLimits(database string, limits []byte) error
 	// DropDatabaseAssignment drops database assignment from storage state repo.
 	DropDatabaseAssignment(databaseName string) error
-	// GetRepo returns current storage storageCluster's state repo
+	// GetRepo returns current storage cluster's state repo
 	GetRepo() state.Repository
-	// Close closes storageCluster controller
+	// Close closes storage cluster controller
 	Close()
 }
 
-// storageCluster implements StorageCluster controller, master will maintain multi storage storageCluster
+// storageCluster implements StorageCluster controller, master will maintain multi storage cluster.
 type storageCluster struct {
 	ctx         context.Context
 	cfg         *config.StorageCluster
@@ -71,10 +74,10 @@ type storageCluster struct {
 	state *models.StorageState
 	sm    discovery.StateMachine
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
-// newStorageCluster creates storageCluster controller, init active node list if exist node, must return storageCluster
+// newStorageCluster creates storage cluster controller, init active node list if exist node, must return a storage cluster instance.
 func newStorageCluster(ctx context.Context,
 	cfg *config.StorageCluster,
 	stateMgr StateManager,
@@ -124,7 +127,7 @@ func (c *storageCluster) GetState() *models.StorageState {
 
 // GetLiveNodes returns the current live nodes of storage cluster.
 func (c *storageCluster) GetLiveNodes() (rs []models.StatefulNode, err error) {
-	// TODO add timeout ctx
+	// TODO: add timeout ctx
 	kvs, err := c.storageRepo.List(c.ctx, constants.LiveNodesPath)
 	if err != nil {
 		return nil, err
@@ -139,7 +142,7 @@ func (c *storageCluster) GetLiveNodes() (rs []models.StatefulNode, err error) {
 	return rs, nil
 }
 
-// GetRepo returns current storage storageCluster's state repo
+// GetRepo returns current storage cluster's state repo
 func (c *storageCluster) GetRepo() state.Repository {
 	return c.storageRepo
 }
@@ -149,12 +152,23 @@ func (c *storageCluster) FlushDatabase(_ string) error {
 	panic("need impl")
 }
 
+// SetDatabaseLimits sets the database's limits.
+func (c *storageCluster) SetDatabaseLimits(database string, limits []byte) error {
+	if err := c.storageRepo.Put(c.ctx, constants.GetDatabaseLimitPath(database), limits); err != nil {
+		return err
+	}
+	c.logger.Info("set database's limits successfully",
+		logger.String("storage", c.cfg.Config.Namespace),
+		logger.String("database", database))
+	return nil
+}
+
 // SaveDatabaseAssignment saves database assignment in storage state repo.
 func (c *storageCluster) SaveDatabaseAssignment(
 	shardAssign *models.ShardAssignment,
 	databaseOption *option.DatabaseOption,
 ) error {
-	// TODO timeout ctx
+	// TODO: timeout ctx
 	data := encoding.JSONMarshal(&models.DatabaseAssignment{
 		ShardAssignment: shardAssign,
 		Option:          databaseOption,

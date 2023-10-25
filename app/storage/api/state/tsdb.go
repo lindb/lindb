@@ -20,9 +20,10 @@ package state
 import (
 	"github.com/gin-gonic/gin"
 
+	httppkg "github.com/lindb/common/pkg/http"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/models"
-	httppkg "github.com/lindb/lindb/pkg/http"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/tsdb"
 )
 
@@ -32,7 +33,7 @@ var (
 
 // TSDBAPI represents tsdb internal state rest api.
 type TSDBAPI struct {
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewTSDBAPI creates a tsdb state api instance.

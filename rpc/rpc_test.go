@@ -40,6 +40,7 @@ var (
 )
 
 func TestClientConnFactory(t *testing.T) {
+	assert.NotNil(t, GetRootClientConnFactory())
 	fct := GetBrokerClientConnFactory()
 
 	conn1, err := fct.GetClientConn(&models.StatelessNode{

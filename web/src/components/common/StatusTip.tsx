@@ -6,7 +6,6 @@ ownership. LinDB licenses this file to you under
 the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
  
 Unless required by applicable law or agreed to in writing,
@@ -17,11 +16,12 @@ specific language governing permissions and limitations
 under the License.
 */
 
-import { IconCrossCircleStroked } from "@douyinfe/semi-icons";
+import { IconAlertTriangle } from "@douyinfe/semi-icons";
 import { Empty, Spin, Typography } from "@douyinfe/semi-ui";
 import { ApiKit } from "@src/utils";
-import React, { CSSProperties } from "react";
+import React, { CSSProperties, useContext } from "react";
 import { Icon } from "@src/components";
+import { UIContext } from "@src/context/UIContextProvider";
 
 const { Text } = Typography;
 
@@ -33,6 +33,8 @@ const StatusTip: React.FC<{
   style?: CSSProperties;
 }> = (props) => {
   const { isLoading, isError, isEmpty, error, style } = props;
+  const { locale } = useContext(UIContext);
+  const { Common } = locale;
   const render = () => {
     if (isLoading) {
       return <Spin size="large" tip="Loading" />;
@@ -42,14 +44,14 @@ const StatusTip: React.FC<{
         return (
           <Empty
             image={<Icon icon="iconempty" style={{ fontSize: 48 }} />}
-            description="No data"
+            description={Common.noData}
           />
         );
       }
       return (
         <Text type="danger">
           <div>
-            <IconCrossCircleStroked style={{ fontSize: 48 }} />
+            <IconAlertTriangle style={{ fontSize: 48 }} />
           </div>
           <div>{ApiKit.getErrorMsg(error)}</div>
         </Text>
@@ -59,7 +61,7 @@ const StatusTip: React.FC<{
       return (
         <Empty
           image={<Icon icon="iconempty" style={{ fontSize: 48 }} />}
-          description="No data"
+          description={Common.noData}
         />
       );
     }

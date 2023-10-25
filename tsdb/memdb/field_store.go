@@ -22,11 +22,11 @@ import (
 	"math"
 
 	commonencoding "github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/bit"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"

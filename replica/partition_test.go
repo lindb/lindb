@@ -25,6 +25,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
@@ -43,7 +45,7 @@ func TestPartition_BuildReplicaRelation(t *testing.T) {
 	}()
 	database := tsdb.NewMockDatabase(ctrl)
 	family := tsdb.NewMockDataFamily(ctrl)
-	family.EXPECT().FamilyTime().Return(timeutil.Now()).AnyTimes()
+	family.EXPECT().FamilyTime().Return(commontimeutil.Now()).AnyTimes()
 	database.EXPECT().Name().Return("test").AnyTimes()
 	r := NewMockReplicator(ctrl)
 	shard := tsdb.NewMockShard(ctrl)
@@ -109,7 +111,7 @@ func TestPartition_BuildReplicaForFollower(t *testing.T) {
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 	shard.EXPECT().Database().Return(database).AnyTimes()
 	family := tsdb.NewMockDataFamily(ctrl)
-	family.EXPECT().FamilyTime().Return(timeutil.Now()).AnyTimes()
+	family.EXPECT().FamilyTime().Return(commontimeutil.Now()).AnyTimes()
 	r.EXPECT().String().Return("TestPartition_BuildReplicaForFollower").AnyTimes()
 	r.EXPECT().ReplicaState().Return(&models.ReplicaState{}).AnyTimes()
 	r.EXPECT().Pending().Return(int64(10)).AnyTimes()
@@ -156,7 +158,7 @@ func TestPartition_Close(t *testing.T) {
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 	shard.EXPECT().Database().Return(database).AnyTimes()
 	family := tsdb.NewMockDataFamily(ctrl)
-	family.EXPECT().FamilyTime().Return(timeutil.Now()).AnyTimes()
+	family.EXPECT().FamilyTime().Return(commontimeutil.Now()).AnyTimes()
 	l := queue.NewMockFanOutQueue(ctrl)
 	l.EXPECT().GetOrCreateConsumerGroup(gomock.Any()).Return(nil, nil).AnyTimes()
 	r.EXPECT().String().Return("TestPartition_Close").AnyTimes()
@@ -197,7 +199,7 @@ func TestPartition_WriteLog(t *testing.T) {
 	shard.EXPECT().Database().Return(db).AnyTimes()
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 	family := tsdb.NewMockDataFamily(ctrl)
-	family.EXPECT().FamilyTime().Return(timeutil.Now()).AnyTimes()
+	family.EXPECT().FamilyTime().Return(commontimeutil.Now()).AnyTimes()
 	p := NewPartition(context.TODO(), shard, family, 1, l, nil, nil)
 	q.EXPECT().Put(gomock.Any()).Return(fmt.Errorf("err"))
 	err := p.WriteLog([]byte{1})
@@ -224,7 +226,7 @@ func TestPartition_ReplicaLog(t *testing.T) {
 	shard.EXPECT().Database().Return(db).AnyTimes()
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 	family := tsdb.NewMockDataFamily(ctrl)
-	family.EXPECT().FamilyTime().Return(timeutil.Now()).AnyTimes()
+	family.EXPECT().FamilyTime().Return(commontimeutil.Now()).AnyTimes()
 	p := NewPartition(context.TODO(), shard, family, 1, l, nil, nil)
 	// case 1: replica idx err
 	q.EXPECT().AppendedSeq().Return(int64(8))
@@ -258,7 +260,7 @@ func TestPartition_getReplicaState(t *testing.T) {
 	db := tsdb.NewMockDatabase(ctrl)
 	db.EXPECT().Name().Return("test").AnyTimes()
 	family := tsdb.NewMockDataFamily(ctrl)
-	family.EXPECT().FamilyTime().Return(timeutil.Now()).AnyTimes()
+	family.EXPECT().FamilyTime().Return(commontimeutil.Now()).AnyTimes()
 	shard := tsdb.NewMockShard(ctrl)
 	shard.EXPECT().Database().Return(db).AnyTimes()
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
@@ -289,7 +291,6 @@ func TestPartition_IsExpire(t *testing.T) {
 	shard := tsdb.NewMockShard(ctrl)
 	db := tsdb.NewMockDatabase(ctrl)
 	shard.EXPECT().Database().Return(db).AnyTimes()
-	db.EXPECT().GetOption().Return(&option.DatabaseOption{Ahead: "1h"}).AnyTimes()
 	family := tsdb.NewMockDataFamily(ctrl)
 
 	log := queue.NewMockFanOutQueue(ctrl)
@@ -311,20 +312,28 @@ func TestPartition_IsExpire(t *testing.T) {
 	log.EXPECT().GetOrCreateConsumerGroup(gomock.Any()).Return(cg, nil).AnyTimes()
 
 	t.Run("partition not expire", func(t *testing.T) {
-		family.EXPECT().TimeRange().Return(timeutil.TimeRange{End: timeutil.Now()})
+		db.EXPECT().GetOption().Return(&option.DatabaseOption{Ahead: "1h"})
+		family.EXPECT().TimeRange().Return(timeutil.TimeRange{End: commontimeutil.Now()})
+		assert.False(t, p.IsExpire())
+	})
+	t.Run("partition not expire, when ahead=0", func(t *testing.T) {
+		db.EXPECT().GetOption().Return(&option.DatabaseOption{})
+		family.EXPECT().TimeRange().Return(timeutil.TimeRange{End: commontimeutil.Now()})
 		assert.False(t, p.IsExpire())
 	})
 
 	t.Run("partition is expire, but has data need replica", func(t *testing.T) {
-		family.EXPECT().TimeRange().Return(timeutil.TimeRange{End: timeutil.Now() - timeutil.OneHour - 16*timeutil.OneMinute})
+		db.EXPECT().GetOption().Return(&option.DatabaseOption{Ahead: "1h"})
+		family.EXPECT().TimeRange().Return(timeutil.TimeRange{End: commontimeutil.Now() - commontimeutil.OneHour - 16*commontimeutil.OneMinute})
 		cg.EXPECT().IsEmpty().Return(false)
 		assert.False(t, p.IsExpire())
 	})
 	t.Run("partition is expire, no data replica, can stop replicator", func(t *testing.T) {
+		db.EXPECT().GetOption().Return(&option.DatabaseOption{Ahead: "1h"})
 		p.mutex.Lock()
 		assert.Len(t, p.peers, 1)
 		p.mutex.Unlock()
-		family.EXPECT().TimeRange().Return(timeutil.TimeRange{End: timeutil.Now() - timeutil.OneHour - 16*timeutil.OneMinute})
+		family.EXPECT().TimeRange().Return(timeutil.TimeRange{End: commontimeutil.Now() - commontimeutil.OneHour - 16*commontimeutil.OneMinute})
 		cg.EXPECT().IsEmpty().Return(true)
 		log.EXPECT().StopConsumerGroup(gomock.Any())
 		peer.EXPECT().Shutdown()
@@ -367,7 +376,7 @@ func TestPartition_recovery(t *testing.T) {
 	t.Run("recovery successfully", func(t *testing.T) {
 		q := queue.NewMockConsumerGroup(ctrl)
 		log.EXPECT().GetOrCreateConsumerGroup(gomock.Any()).Return(q, nil)
-		family.EXPECT().TimeRange().Return(timeutil.TimeRange{Start: timeutil.Now()})
+		family.EXPECT().TimeRange().Return(timeutil.TimeRange{Start: commontimeutil.Now()})
 		newLocalReplicatorFn = func(channel *ReplicatorChannel, shard tsdb.Shard, family tsdb.DataFamily) Replicator {
 			return nil
 		}
@@ -388,6 +397,8 @@ func TestPartition_Stop(t *testing.T) {
 	peer1 := NewMockReplicatorPeer(ctrl)
 	peer2 := NewMockReplicatorPeer(ctrl)
 	ctx, cancel := context.WithCancel(context.TODO())
+	log := queue.NewMockFanOutQueue(ctrl)
+	log.EXPECT().StopConsumerGroup(gomock.Any()).AnyTimes()
 	p := &partition{
 		ctx:    ctx,
 		cancel: cancel,
@@ -395,6 +406,7 @@ func TestPartition_Stop(t *testing.T) {
 			1: peer1,
 			2: peer2,
 		},
+		log: log,
 	}
 	peer1.EXPECT().Shutdown()
 	peer2.EXPECT().Shutdown()

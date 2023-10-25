@@ -22,7 +22,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/common/pkg/encoding"
 )
 
 func TestMetadataType_String(t *testing.T) {

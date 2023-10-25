@@ -17,15 +17,21 @@
 
 package metrics
 
-import "github.com/lindb/lindb/internal/linmetric"
+import (
+	"github.com/lindb/lindb/internal/linmetric"
+)
 
-// BrokerQueryStatistics represents broker query statistics.
-type BrokerQueryStatistics struct {
-	CreatedTasks         *linmetric.BoundCounter // create query task
-	ExpireTasks          *linmetric.BoundCounter // task expire, long-term no response
-	AliveTask            *linmetric.BoundGauge   // current executing task(alive)
-	EmitResponse         *linmetric.BoundCounter // emit response to parent node
-	OmitResponse         *linmetric.BoundCounter // omit response because task evicted
+// QueryStatistics represents query statistics.
+type QueryStatistics struct {
+	CreatedTasks *linmetric.BoundCounter // create query task
+	ExpireTasks  *linmetric.BoundCounter // task expire, long-term no response
+	AliveTask    *linmetric.BoundGauge   // current executing task(alive)
+	EmitResponse *linmetric.BoundCounter // emit response to parent node
+	OmitResponse *linmetric.BoundCounter // omit response because task evicted
+}
+
+// TransportStatistics represents request/response transport statistics.
+type TransportStatistics struct {
 	SentRequest          *linmetric.BoundCounter // send request success
 	SentRequestFailures  *linmetric.BoundCounter // send request failure
 	SentResponses        *linmetric.BoundCounter // send response to parent success
@@ -41,19 +47,26 @@ type StorageQueryStatistics struct {
 	OmitRequest         *linmetric.BoundCounter // omit request(task no belong to current node, wrong stream etc.)
 }
 
-// NewBrokerQueryStatistics creates broker query statistics.
-func NewBrokerQueryStatistics() *BrokerQueryStatistics {
-	scope := linmetric.BrokerRegistry.NewScope("lindb.broker.query")
-	return &BrokerQueryStatistics{
-		CreatedTasks:         scope.NewCounter("created_tasks"),
-		AliveTask:            scope.NewGauge("alive_tasks"),
-		ExpireTasks:          scope.NewCounter("expire_tasks"),
-		EmitResponse:         scope.NewCounter("emitted_responses"),
-		OmitResponse:         scope.NewCounter("omitted_responses"),
+// NewTransportStatistics creates a transport statistics.
+func NewTransportStatistics(registry *linmetric.Registry) *TransportStatistics {
+	scope := registry.NewScope("lindb.task.transport")
+	return &TransportStatistics{
 		SentRequest:          scope.NewCounter("sent_requests"),
 		SentResponses:        scope.NewCounter("sent_responses"),
 		SentResponseFailures: scope.NewCounter("sent_responses_failures"),
 		SentRequestFailures:  scope.NewCounter("sent_requests_failures"),
+	}
+}
+
+// NewQueryStatistics creates a query statistics.
+func NewQueryStatistics(registry *linmetric.Registry) *QueryStatistics {
+	scope := registry.NewScope("lindb.query")
+	return &QueryStatistics{
+		CreatedTasks: scope.NewCounter("created_tasks"),
+		AliveTask:    scope.NewGauge("alive_tasks"),
+		ExpireTasks:  scope.NewCounter("expire_tasks"),
+		EmitResponse: scope.NewCounter("emitted_responses"),
+		OmitResponse: scope.NewCounter("omitted_responses"),
 	}
 }
 

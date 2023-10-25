@@ -25,11 +25,12 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/state"
 )
@@ -193,6 +194,25 @@ func TestStorageCluster_close(t *testing.T) {
 	sm.EXPECT().Close().Return(fmt.Errorf("err"))
 	repo.EXPECT().Close().Return(fmt.Errorf("err"))
 	sc.Close()
+}
+
+func TestStorageCluster_SetLimits(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	repo := state.NewMockRepository(ctrl)
+	sc := &storageCluster{
+		cfg:         &config.StorageCluster{Config: &config.RepoState{Namespace: "test"}},
+		storageRepo: repo,
+		logger:      logger.GetLogger("Master", "Test"),
+	}
+	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	err := sc.SetDatabaseLimits("test", []byte{})
+	assert.Error(t, err)
+
+	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	err = sc.SetDatabaseLimits("test", []byte{})
+	assert.NoError(t, err)
 }
 
 func TestStorageCluster_SaveDatabaseAssignment(t *testing.T) {

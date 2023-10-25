@@ -57,6 +57,6 @@ func TestCompaction_AddReferenceFiles(t *testing.T) {
 		nil,
 	)
 	assert.True(t, compaction.GetEditLog().IsEmpty())
-	compaction.AddReferenceFiles([]Log{CreateNewReferenceFile(FamilyID(10), table.FileNumber(10))})
+	compaction.AddReferenceFiles([]Log{CreateNewReferenceFile("20230202", FamilyID(10), table.FileNumber(10))})
 	assert.False(t, compaction.GetEditLog().IsEmpty())
 }

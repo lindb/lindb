@@ -60,7 +60,7 @@ func TestLeafGroupingContext(t *testing.T) {
 		Tracker:           tracker.NewStageTracker(flow.NewTaskContextWithTimeout(context.TODO(), time.Minute)),
 		StorageExecuteCtx: storageCtx,
 		Database:          db,
-		LeafNode:          &models.Leaf{},
+		LeafNode:          &models.Target{},
 	})
 
 	cases := []struct {

@@ -5,11 +5,14 @@
 [![LICENSE](https://img.shields.io/github/license/lindb/lindb)](https://github.com/lindb/lindb/blob/main/LICENSE)
 [![Language](https://img.shields.io/badge/Language-Go-blue.svg)](https://golang.org/)
 [![Go Report Card](https://goreportcard.com/badge/github.com/lindb/lindb)](https://goreportcard.com/report/github.com/lindb/lindb)
-[![Github Actions Status](https://github.com/lindb/lindb/workflows/LinDB%20CI/badge.svg)](https://github.com/lindb/lindb/actions?query=workflow%3A%22LinDB+CI%22)
-[![Github Actions Status](https://github.com/lindb/lindb/workflows/Forntend%20CI/badge.svg)](https://github.com/lindb/lindb/actions?query=workflow%3A%22Forntend+CI%22)
+[![LinDB CI](https://github.com/lindb/lindb/actions/workflows/lind.yml/badge.svg)](https://github.com/lindb/lindb/actions/workflows/lind.yml)
+[![Frontend CI](https://github.com/lindb/lindb/actions/workflows/frontend.yml/badge.svg)](https://github.com/lindb/lindb/actions/workflows/frontend.yml)
+[![Docker Latest](https://github.com/lindb/lindb/actions/workflows/docker-latest.yml/badge.svg)](https://github.com/lindb/lindb/actions/workflows/docker-latest.yml)
+[![Docker Release](https://github.com/lindb/lindb/actions/workflows/docker-release.yml/badge.svg)](https://github.com/lindb/lindb/actions/workflows/docker-release.yml)
 [![codecov](https://codecov.io/gh/lindb/lindb/branch/main/graph/badge.svg)](https://codecov.io/gh/lindb/lindb)
 [![GoDoc](https://img.shields.io/badge/Godoc-reference-blue.svg)](https://godoc.org/github.com/lindb/lindb)
 [![contribution](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](CONTRIBUTING.md)
+[![Twitter Follow](https://img.shields.io/twitter/follow/lindb_io?style=social)](https://twitter.com/intent/follow?screen_name=lindb_io)
 
 English | [简体中文](./README-zh_CN.md)
 
@@ -17,34 +20,12 @@ English | [简体中文](./README-zh_CN.md)
 
 LinDB is an open-source Time Series Database which provides high performance, high availability and horizontal scalability. 
 
-LinDB stores all monitoring data of ELEME Inc, there is 88TB incremental writes per day and 2.7PB total raw data.
-
-+ __High performance__
-
-  LinDB takes a lot of best practice of TSDB and implements some optimizations based on the characteristics of time series data. 
-  Unlike writing a lot of Continuous-Query for InfluxDB, LinDB supports rollup in specific interval automatically after creating the database. 
-  Moreover, LinDB is extremely fast for parallel querying and computing of distributed time series data.
-
-+ __Multi-Active IDCs native__
-
-  LinDB is designed to work under a Multi-Active IDCs cloud architecture. The compute layer of LinDB, called brokers, supports efficient Multi-IDCs aggregation query.
-
-+ __High availability__
-
-  LinDB uses the ETCD cluster to ensure the meta-data is highly available and safely stored. 
-  In the event of failure, the Multi-channel replication protocol of WAL will avoid the problem of data inconsistency:  
-
-  1). Only one person in each replication channel is responsible for the authority of the data, so the conflicts will not happen;  
-
-  2). Data reliability is guaranteed: as long as the data that has not been copied in the old leader is not lost, it will be copied to other replication while the old leader is online again; 
-
-+ __Horizontal scalability__
-
-  Series(Tags) based sharding strategy in LinDB solves the hotspots problem, and is truly horizontally expanded available by simply adding new broker and storage nodes.
-  
-+ __Governance capability of metrics__
-
-  To ensure the robustness of the system, LinDB do not assume that users has understood the best practices of using metrics, therefore, LinDB provides the ability of restricting unfriendly user based on metric granularity and tags granularity.
+- [Key features](https://lindb.io/guide/introduction.html#key-features)
+- [Guide](https://lindb.io/guide/introduction.html)
+- [Quick start](https://lindb.io/guide/get-started.html)
+- [Design](https://lindb.io/design/architecture.html)
+- [Architecture](#architecture)
+- [Admin UI](#admin-ui)
 
 ## Build
 
@@ -52,7 +33,7 @@ LinDB stores all monitoring data of ELEME Inc, there is 88TB incremental writes 
 
 To build LinDB from source you require the following on your system.
 
-- [Go >=1.16](https://golang.org/doc/install)
+- [Go >=1.19](https://golang.org/doc/install)
 - [Make tool](https://www.gnu.org/software/make/)
 - [Yarn](https://classic.yarnpkg.com/en/docs/install)
 
@@ -85,36 +66,43 @@ make test
 
 ### Access web interface(for developer)
 
-Start the node.js app to view LinDB web interface.
+Start the node.js app to view LinDB web interface in dev mode.
 
 ```
 cd web
-yarn start
+yarn install 
+yarn dev
 ```
 
 You can access the LinDB web interface on your [localhost port 3000](http://localhost:3000/)
 
-## Deploy
-
-LinDB can be deployed in both cluster mode and standalone mode.
-
-### Standalone mode
-
-You can try out fully functional LinDB on your local system via the standalone mode. In standalone mode LinDB will be deployed with embedded broker, storage and etcd.
-
-```
-./bin/lind standalone init-config
-./bin/lind standalone run
-```
-
-Make sure that the binary file is built from `make build-all`
-You can access the LinDB web console on your [localhost port 9000](http://localhost:9000/)
-
-### Cluster mode (todo)
-
 ## Architecture
 
-![architecture](https://github.com/lindb/lindb/wiki/images/readme/lindb_architecture.jpg)
+![architecture](./docs/images/architecture.png)
+
+## Admin UI
+
+Some admin ui snapshots.
+
+### Overview
+
+![overview](./docs/images/overview.png)
+
+### Monitoring Dashboard
+
+![dashboard](./docs/images/dashboard.png)
+
+### Replication State
+
+![replication](./docs/images/replication_shards.png)
+
+### Data Explore
+
+![explore](./docs/images/data_explore.png)
+
+### Explain
+
+![explain](./docs/images/data_search_explain.png)
 
 ## Contributing
 

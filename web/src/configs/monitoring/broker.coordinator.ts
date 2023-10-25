@@ -6,7 +6,6 @@ ownership. LinDB licenses this file to you under
 the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
  
 Unless required by applicable law or agreed to in writing,
@@ -32,8 +31,8 @@ export const BrokerCoordinatorDashboard: Dashboard = {
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.broker.state_manager' where type='NodeStartup' group by node",
-                watch: ["node"],
+                sql: "select 'handle_events' from 'lindb.coordinator.state_manager' where type='NodeStartup' and coordinator='Broker' group by node",
+                watch: ["node", "role"],
               },
             ],
             unit: Unit.Short,
@@ -48,8 +47,8 @@ export const BrokerCoordinatorDashboard: Dashboard = {
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.broker.state_manager' where type='NodeFailure' group by node",
-                watch: ["node"],
+                sql: "select 'handle_events' from 'lindb.coordinator.state_manager' where type='NodeFailure' and coordinator='Broker' group by node",
+                watch: ["node", "role"],
               },
             ],
             unit: Unit.Short,
@@ -67,8 +66,8 @@ export const BrokerCoordinatorDashboard: Dashboard = {
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.broker.state_manager' where type='StorageStateChanged' group by node",
-                watch: ["node"],
+                sql: "select 'handle_events' from 'lindb.coordinator.state_manager' where type='StorageStateChanged' and coordinator='Broker' group by node",
+                watch: ["node", "role"],
               },
             ],
             unit: Unit.Short,
@@ -82,8 +81,8 @@ export const BrokerCoordinatorDashboard: Dashboard = {
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.broker.state_manager' where type='StorageStateDeletion' group by node",
-                watch: ["node"],
+                sql: "select 'handle_events' from 'lindb.coordinator.state_manager' where type='StorageStateDeletion' and coordinator='Broker' group by node",
+                watch: ["node", "role"],
               },
             ],
             unit: Unit.Short,
@@ -101,8 +100,8 @@ export const BrokerCoordinatorDashboard: Dashboard = {
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.broker.state_manager' where type='DatabaseConfigChanged' group by node",
-                watch: ["node"],
+                sql: "select 'handle_events' from 'lindb.coordinator.state_manager' where type='DatabaseConfigChanged' and coordinator='Broker' group by node",
+                watch: ["node", "role"],
               },
             ],
             unit: Unit.Short,
@@ -116,8 +115,8 @@ export const BrokerCoordinatorDashboard: Dashboard = {
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_events' from 'lindb.broker.state_manager' where type='DatabaseConfigDeletion' group by node",
-                watch: ["node"],
+                sql: "select 'handle_events' from 'lindb.coordinator.state_manager' where type='DatabaseConfigDeletion' and coordinator='Broker' group by node",
+                watch: ["node", "role"],
               },
             ],
             unit: Unit.Short,
@@ -135,8 +134,8 @@ export const BrokerCoordinatorDashboard: Dashboard = {
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'handle_event_failures' from 'lindb.broker.state_manager' group by node,type",
-                watch: ["node"],
+                sql: "select 'handle_event_failures' from 'lindb.coordinator.state_manager' where coordinator='Broker' group by node,type",
+                watch: ["node", "role"],
               },
             ],
             unit: Unit.Short,
@@ -150,8 +149,8 @@ export const BrokerCoordinatorDashboard: Dashboard = {
             targets: [
               {
                 db: MonitoringDB,
-                sql: "select 'panics' from 'lindb.broker.state_manager' group by node,type",
-                watch: ["node"],
+                sql: "select 'panics' from 'lindb.coordinator.state_manager' where coordinator='Broker' group by node,type",
+                watch: ["node", "role"],
               },
             ],
             unit: Unit.Short,

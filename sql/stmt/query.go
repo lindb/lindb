@@ -20,7 +20,8 @@ package stmt
 import (
 	"encoding/json"
 
-	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/common/pkg/encoding"
+
 	"github.com/lindb/lindb/pkg/timeutil"
 )
 
@@ -30,13 +31,15 @@ type Query struct {
 	Namespace   string // namespace
 	MetricName  string // like table name
 	SelectItems []Expr // select list, such as field, function call, math expression etc.
+	AllFields   bool   // select all fields under metric
 	Condition   Expr   // tag filter condition expression
 
 	// broker plan maybe reset
 	TimeRange       timeutil.TimeRange // query time range
-	Interval        timeutil.Interval  // down sampling interval
-	IntervalRatio   int                // down sampling interval ratio
+	Interval        timeutil.Interval  // down sampling storage interval
 	StorageInterval timeutil.Interval  // down sampling storage interval, data find
+	IntervalRatio   int                // down sampling interval ratio(query interval/storage Interval)
+	AutoGroupByTime bool               // auto fix group by interval based on query time range
 
 	GroupBy      []string // group by tag keys
 	OrderByItems []Expr   // order by field expr list
@@ -55,16 +58,18 @@ func (q *Query) HasGroupBy() bool {
 
 // innerQuery represents a wrapper of query for json encoding
 type innerQuery struct {
-	Explain     bool              `json:"Explain,omitempty"`
+	Explain     bool              `json:"explain,omitempty"`
 	Namespace   string            `json:"namespace,omitempty"`
 	MetricName  string            `json:"metricName,omitempty"`
 	SelectItems []json.RawMessage `json:"selectItems,omitempty"`
+	AllFields   bool              `json:"allFields,omitempty"`
 	Condition   json.RawMessage   `json:"condition,omitempty"`
 
 	TimeRange       timeutil.TimeRange `json:"timeRange,omitempty"`
 	Interval        timeutil.Interval  `json:"interval,omitempty"`
-	IntervalRatio   int                `json:"intervalRatio,omitempty"`
 	StorageInterval timeutil.Interval  `json:"storageInterval,omitempty"`
+	IntervalRatio   int                `json:"intervalRatio,omitempty"`
+	AutoGroupByTime bool               `json:"autoGroupByTime,omitempty"`
 
 	GroupBy      []string          `json:"groupBy,omitempty"`
 	OrderByItems []json.RawMessage `json:"orderByItems,omitempty"`
@@ -76,11 +81,13 @@ func (q *Query) MarshalJSON() ([]byte, error) {
 	inner := innerQuery{
 		Explain:         q.Explain,
 		MetricName:      q.MetricName,
+		AllFields:       q.AllFields,
 		Namespace:       q.Namespace,
 		Condition:       Marshal(q.Condition),
 		TimeRange:       q.TimeRange,
 		Interval:        q.Interval,
 		IntervalRatio:   q.IntervalRatio,
+		AutoGroupByTime: q.AutoGroupByTime,
 		StorageInterval: q.StorageInterval,
 		GroupBy:         q.GroupBy,
 		Limit:           q.Limit,
@@ -130,9 +137,11 @@ func (q *Query) UnmarshalJSON(value []byte) error {
 	q.MetricName = inner.MetricName
 	q.Namespace = inner.Namespace
 	q.SelectItems = selectItems
+	q.AllFields = inner.AllFields
 	q.TimeRange = inner.TimeRange
 	q.Interval = inner.Interval
 	q.IntervalRatio = inner.IntervalRatio
+	q.AutoGroupByTime = inner.AutoGroupByTime
 	q.StorageInterval = inner.StorageInterval
 	q.GroupBy = inner.GroupBy
 	q.OrderByItems = orderByItems

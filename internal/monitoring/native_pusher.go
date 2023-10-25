@@ -26,9 +26,10 @@ import (
 
 	"github.com/klauspost/compress/gzip"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/linmetric"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/series/tag"
 )
 

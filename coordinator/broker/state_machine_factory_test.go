@@ -43,21 +43,23 @@ func TestStateMachineFactory_Start(t *testing.T) {
 	err := fct.Start()
 	assert.Error(t, err)
 
-	// database config  sm err
+	// database config sm err
 	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
 	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
 	err = fct.Start()
 	assert.Error(t, err)
-	// storage state  sm err
-	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
-	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
+	// storage state sm err
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil).MaxTimes(2)
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
+	err = fct.Start()
+	assert.Error(t, err)
+	// database limit sm err
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil).MaxTimes(3)
 	discovery1.EXPECT().Discovery(gomock.Any()).Return(fmt.Errorf("err"))
 	err = fct.Start()
 	assert.Error(t, err)
 	// all state machines are ok
-	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
-	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
-	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil).MaxTimes(4)
 	err = fct.Start()
 	assert.NoError(t, err)
 }
@@ -141,4 +143,29 @@ func TestStateMachineFactory_CreateState(t *testing.T) {
 	assert.NotNil(t, StateMachinePaths[constants.LiveNode].CreateState())
 	assert.NotNil(t, StateMachinePaths[constants.DatabaseConfig].CreateState())
 	assert.NotNil(t, StateMachinePaths[constants.StorageState].CreateState())
+}
+
+func TestStateMachineFactory_DatabaseLimits(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	stateMgr := NewMockStateManager(ctrl)
+	discoveryFct := discovery.NewMockFactory(ctrl)
+	discovery1 := discovery.NewMockDiscovery(ctrl)
+	discoveryFct.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
+	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
+	fct := NewStateMachineFactory(context.TODO(), discoveryFct, stateMgr)
+	fct1 := fct.(*stateMachineFactory)
+
+	sm, err := fct1.createDatabaseLimitsStateMachine()
+	assert.NoError(t, err)
+	assert.NotNil(t, sm)
+
+	stateMgr.EXPECT().EmitEvent(&discovery.Event{
+		Type:  discovery.DatabaseLimitsChanged,
+		Key:   "/test",
+		Value: []byte("value"),
+	})
+	sm.OnCreate("/test", []byte("value"))
+	sm.OnDelete("/test")
 }

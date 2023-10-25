@@ -18,6 +18,7 @@
 package sql
 
 import (
+	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/sql/grammar"
 	"github.com/lindb/lindb/sql/stmt"
 )
@@ -32,6 +33,11 @@ func newStorageStmtParse(opType stmt.StorageOpType) *storageStmtParser {
 	return &storageStmtParser{
 		storage: &stmt.Storage{Type: opType},
 	}
+}
+
+// visitName visits when production storage config expression is entered.
+func (s *storageStmtParser) visitStorageName(ctx *grammar.StorageNameContext) {
+	s.storage.Value = strutil.GetStringValue(ctx.GetText())
 }
 
 // visitName visits when production storage config expression is entered.

@@ -25,14 +25,17 @@ import (
 
 	"go.uber.org/automaxprocs/maxprocs"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/server"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 // serveStandalone runs the cluster as standalone mode
 func run(ctx context.Context, service server.Service, reloadConfigFunc func() error) error {
 	printLogoWhenIsTty()
+
+	config.PrintEnvFormat(service.Config())
 
 	var mainLogger = logger.GetLogger("CMD", "Main")
 

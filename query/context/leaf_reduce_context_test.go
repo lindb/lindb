@@ -65,24 +65,20 @@ func TestLeafReduceContext_BuildResultSet(t *testing.T) {
 	})
 	cases := []struct {
 		name    string
-		in      *models.Leaf
+		in      []string
 		prepare func()
 		assert  func(rs [][]byte)
 	}{
 		{
 			name: "send to root",
-			in: &models.Leaf{
-				Receivers: []models.StatelessNode{{}},
-			},
+			in:   []string{""},
 			assert: func(rs [][]byte) {
 				assert.Len(t, rs, 1)
 			},
 		},
 		{
 			name: "marshal series data failure",
-			in: &models.Leaf{
-				Receivers: []models.StatelessNode{{}},
-			},
+			in:   []string{""},
 			prepare: func() {
 				agg := aggregation.NewMockGroupingAggregator(ctrl)
 				ctx.reduceAgg = agg
@@ -100,9 +96,7 @@ func TestLeafReduceContext_BuildResultSet(t *testing.T) {
 		},
 		{
 			name: "need hash rs",
-			in: &models.Leaf{
-				Receivers: []models.StatelessNode{{}, {}},
-			},
+			in:   []string{"", ""},
 			prepare: func() {
 				agg := aggregation.NewMockGroupingAggregator(ctrl)
 				ctx.reduceAgg = agg
@@ -131,7 +125,7 @@ func TestLeafReduceContext_BuildResultSet(t *testing.T) {
 			if tt.prepare != nil {
 				tt.prepare()
 			}
-			tt.assert(ctx.BuildResultSet(tt.in))
+			tt.assert(ctx.BuildResultSet(&models.Target{}, tt.in))
 		})
 	}
 }

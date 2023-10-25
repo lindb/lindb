@@ -6,7 +6,6 @@ ownership. LinDB licenses this file to you under
 the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
  
 Unless required by applicable law or agreed to in writing,
@@ -16,7 +15,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import {
   Select,
   Avatar,
@@ -33,16 +32,19 @@ import * as _ from "lodash-es";
 import { useParams } from "@src/hooks";
 import { ColorKit, FormatKit } from "@src/utils";
 import { URLStore } from "@src/stores";
+import { UIContext } from "@src/context/UIContextProvider";
 
 const MemoryFilterForm: React.FC<{ state: any }> = (props) => {
   const { state } = props;
   const { shard, family, show } = useParams(["shard", "family", "show"]);
+  const { locale } = useContext(UIContext);
+  const { ReplicationView } = locale;
 
   return (
     <>
       <>
         <Select
-          insetLabel="Shard"
+          insetLabel={ReplicationView.shard}
           style={{ marginRight: 8 }}
           showClear
           value={shard}
@@ -107,6 +109,8 @@ const MemoryDatabaseView: React.FC<{
     shards: [],
     families: [],
   });
+  const { locale } = useContext(UIContext);
+  const { ReplicationView } = locale;
 
   useEffect(() => {
     const rs: any[] = [];
@@ -196,7 +200,7 @@ const MemoryDatabaseView: React.FC<{
         showHeader={idx === 0 && shardIdx === 0}
         columns={[
           {
-            title: "Node",
+            title: ReplicationView.node,
             dataIndex: "nodeId",
             render: (text, _record, _index) => {
               return (
@@ -221,7 +225,7 @@ const MemoryDatabaseView: React.FC<{
             },
           },
           {
-            title: "Replica",
+            title: ReplicationView.replica,
             dataIndex: "replicaSeq",
             width: 180,
             render: (text, _record, _index) => {
@@ -229,7 +233,7 @@ const MemoryDatabaseView: React.FC<{
             },
           },
           {
-            title: "Ack",
+            title: ReplicationView.ack,
             dataIndex: "ack",
             width: 180,
             render: (_text, record, _index) => {
@@ -256,10 +260,10 @@ const MemoryDatabaseView: React.FC<{
         pagination={false}
         dataSource={databases || []}
         showHeader={idx === 0 && shardIdx === 0}
-        empty="No memory database"
+        empty={ReplicationView.noMemoryDatabase}
         columns={[
           {
-            title: "Node",
+            title: ReplicationView.node,
             dataIndex: "node",
             width: 160,
             render: (_text, _record, _index) => {
@@ -267,14 +271,14 @@ const MemoryDatabaseView: React.FC<{
             },
           },
           {
-            title: "State",
+            title: ReplicationView.state,
             dataIndex: "state",
             render: (text, _record, _index) => {
               return _.upperFirst(text);
             },
           },
           {
-            title: "Uptime",
+            title: ReplicationView.uptime,
             dataIndex: "uptime",
             width: 100,
             render: (text, _record, _index) => {
@@ -282,7 +286,7 @@ const MemoryDatabaseView: React.FC<{
             },
           },
           {
-            title: "Mem Size",
+            title: ReplicationView.memSize,
             dataIndex: "memSize",
             width: 130,
             render: (text, _record, _index) => {
@@ -290,7 +294,7 @@ const MemoryDatabaseView: React.FC<{
             },
           },
           {
-            title: "Num. Of Metrics",
+            title: ReplicationView.numOfMetrics,
             dataIndex: "numOfMetrics",
             width: 150,
             render: (text, _record, _index) => {
@@ -298,7 +302,7 @@ const MemoryDatabaseView: React.FC<{
             },
           },
           {
-            title: "Num. Of Series",
+            title: ReplicationView.numOfSeries,
             dataIndex: "numOfSeries",
             width: 150,
             render: (text, _record, _index) => {
@@ -425,7 +429,7 @@ const MemoryDatabaseView: React.FC<{
 
   return (
     <Card
-      title="Memory Database Status"
+      title={ReplicationView.memoryDatabaseStatus}
       headerStyle={{ padding: 12 }}
       bodyStyle={{ padding: 0 }}
       headerExtraContent={

@@ -22,15 +22,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
+
+	"github.com/go-resty/resty/v2"
+
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/ltoml"
 
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/pkg/validate"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
@@ -38,13 +42,20 @@ import (
 
 var log = logger.GetLogger("Exec", "Command")
 
+// databaseConfig represents the configuration of all databases by storage node.
+type databaseConfig struct {
+	nodeID    models.NodeID
+	databases map[string]models.DatabaseConfig
+}
+
 // storageCommandFn represents storage command function define.
 type storageCommandFn = func(ctx context.Context, deps *depspkg.HTTPDeps, stmt *stmtpkg.Storage) (interface{}, error)
 
 // storageCommands registers all storage related commands.
 var storageCommands = map[stmtpkg.StorageOpType]storageCommandFn{
-	stmtpkg.StorageOpShow:   listStorages,
-	stmtpkg.StorageOpCreate: createStorage,
+	stmtpkg.StorageOpShow:    listStorages,
+	stmtpkg.StorageOpCreate:  createStorage,
+	stmtpkg.StorageOpRecover: recoverStorage,
 }
 
 // StorageCommand executes lin query language for storage related.
@@ -72,10 +83,10 @@ func listStorages(ctx context.Context, deps *depspkg.HTTPDeps, _ *stmtpkg.Storag
 				logger.String("data", string(val.Value)))
 		} else {
 			if _, ok := stateMgr.GetStorage(storage.Config.Namespace); ok {
-				storage.Status = models.StorageStatusReady
+				storage.Status = models.ClusterStatusReady
 			} else {
-				storage.Status = models.StorageStatusInitialize
-				// TODO check storage un-health
+				storage.Status = models.ClusterStatusInitialize
+				// TODO: check storage un-health
 			}
 			storages = append(storages, storage)
 		}
@@ -135,4 +146,84 @@ func createStorage(ctx context.Context, deps *depspkg.HTTPDeps, stmt *stmtpkg.St
 	}
 	rs := "Create storage ok"
 	return &rs, nil
+}
+
+// recoverStorage recovers all database config/shard assignment by given storage.
+func recoverStorage(ctx context.Context, deps *depspkg.HTTPDeps, stmt *stmtpkg.Storage) (interface{}, error) {
+	storage, ok := deps.StateMgr.GetStorage(stmt.Value)
+	if !ok {
+		return nil, fmt.Errorf("storage not found")
+	}
+	nodes := storage.LiveNodes
+	size := len(nodes)
+	result := make([]databaseConfig, size)
+	var wait sync.WaitGroup
+	wait.Add(size)
+	idx := 0
+	for nodeID := range nodes {
+		i := idx
+		node := nodes[nodeID]
+		idx++
+		go func() {
+			defer wait.Done()
+
+			address := node.HTTPAddress()
+			databases := make(map[string]models.DatabaseConfig)
+			_, err := resty.New().R().
+				SetHeader("Accept", "application/json").
+				SetResult(&databases).
+				Get(address + constants.APIVersion1CliPath + "/state/metadata/local/database/config")
+			if err != nil {
+				log.Error("get database config from alive node", logger.String("url", address), logger.Error(err))
+				return
+			}
+			result[i] = databaseConfig{
+				nodeID:    node.ID,
+				databases: databases,
+			}
+		}()
+	}
+	wait.Wait()
+
+	storageName := storage.Name
+
+	databases := make(map[string]*models.ShardAssignment)
+	databaseSchema := make(map[string]*models.Database)
+	for _, cfg := range result {
+		for databaseName, databaseCfg := range cfg.databases {
+			shardAssignment, ok := databases[databaseName]
+			if !ok {
+				shardAssignment = models.NewShardAssignment(databaseName)
+				databases[databaseName] = shardAssignment
+				databaseSchema[databaseName] = &models.Database{
+					Name:    databaseName,
+					Storage: storageName,
+					Option:  databaseCfg.Option,
+				}
+			}
+			for _, shardID := range databaseCfg.ShardIDs {
+				shardAssignment.AddReplica(shardID, cfg.nodeID)
+			}
+		}
+	}
+
+	var databaseNames []string
+	for databaseName, shardAssignment := range databases {
+		log.Info("recover shard assign",
+			logger.String("database", databaseName),
+			logger.Any("shardAssign", shardAssignment))
+		if err := deps.Repo.Put(ctx, constants.GetDatabaseAssignPath(databaseName), encoding.JSONMarshal(shardAssignment)); err != nil {
+			return nil, err
+		}
+		log.Info("recover database schema", logger.String("config", stmt.Value))
+		schema := databaseSchema[databaseName]
+		schema.NumOfShard = len(shardAssignment.Shards)
+		schema.ReplicaFactor = shardAssignment.GetReplicaFactor()
+		if err := deps.Repo.Put(ctx, constants.GetDatabaseConfigPath(databaseName), encoding.JSONMarshal(schema)); err != nil {
+			return nil, err
+		}
+		databaseNames = append(databaseNames, databaseName)
+	}
+
+	return &databaseNames, nil
 }

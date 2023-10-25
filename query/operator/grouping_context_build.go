@@ -38,6 +38,9 @@ func NewGroupingContextBuild(executeCtx *flow.ShardExecuteContext, shard tsdb.Sh
 
 // Execute executes grouping context build based on series ids after tag filtering.
 func (op *groupingContextBuild) Execute() error {
+	if op.executeCtx.IsSeriesIDsEmpty() {
+		return nil
+	}
 	return op.shard.IndexDatabase().GetGroupingContext(op.executeCtx)
 }
 

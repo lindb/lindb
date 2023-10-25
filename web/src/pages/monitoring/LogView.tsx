@@ -6,7 +6,6 @@ ownership. LinDB licenses this file to you under
 the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
  
 Unless required by applicable law or agreed to in writing,
@@ -19,6 +18,7 @@ under the License.
 import { Card, Empty, Form, Typography } from "@douyinfe/semi-ui";
 import { Icon, LinSelect, StatusTip } from "@src/components";
 import { StateRoleName, SQL } from "@src/constants";
+import { UIContext } from "@src/context/UIContextProvider";
 import { useParams } from "@src/hooks";
 import { Unit } from "@src/models";
 import { ExecService, ProxyService } from "@src/services";
@@ -26,7 +26,7 @@ import { URLStore } from "@src/stores";
 import { FormatKit } from "@src/utils";
 import { useQuery } from "@tanstack/react-query";
 import * as _ from "lodash-es";
-import React from "react";
+import React, { useContext } from "react";
 
 const { Text } = Typography;
 
@@ -49,6 +49,8 @@ const getLogColor = (text: string) => {
 
 const LogContent: React.FC = () => {
   const { node, file, size } = useParams(["node", "file", "size"]);
+  const { locale } = useContext(UIContext);
+  const { Common } = locale;
   const { isError, error, data, isInitialLoading } = useQuery(
     ["tail_log", node, file, size],
     async () => {
@@ -97,7 +99,7 @@ const LogContent: React.FC = () => {
     return (
       <Empty
         image={<Icon icon="iconempty" style={{ fontSize: 48 }} />}
-        description="No data"
+        description={Common.noData}
         style={{ marginTop: 100, marginBottom: 100 }}
       />
     );
@@ -110,55 +112,76 @@ const LogContent: React.FC = () => {
 };
 
 const LogView: React.FC = () => {
+  const { locale, env } = useContext(UIContext);
+  const { LogView } = locale;
   return (
     <>
       <Card style={{ marginBottom: 12 }} bodyStyle={{ padding: 12 }}>
         <Form layout="horizontal" style={{ paddingTop: 0, paddingBottom: 0 }}>
           <LinSelect
             field="role"
-            loader={() => [
-              { value: StateRoleName.Broker, label: StateRoleName.Broker },
-              {
-                value: StateRoleName.Storage,
-                label: StateRoleName.Storage,
-              },
-            ]}
+            label={LogView.role}
+            loader={() =>
+              env.role === StateRoleName.Broker
+                ? [
+                    {
+                      value: StateRoleName.Broker,
+                      label: StateRoleName.Broker,
+                    },
+                    {
+                      value: StateRoleName.Storage,
+                      label: StateRoleName.Storage,
+                    },
+                  ]
+                : [{ value: StateRoleName.Root, label: StateRoleName.Root }]
+            }
             style={{ width: 150 }}
             clearKeys={["storage", "node", "file"]}
           />
-
-          <LinSelect
-            field="storage"
-            style={{ width: 200 }}
-            loader={() =>
-              ExecService.exec<any[]>({ sql: SQL.ShowStorageAliveNodes }).then(
-                (data) =>
+          {env.role === StateRoleName.Broker && (
+            <LinSelect
+              field="storage"
+              label={LogView.storage}
+              style={{ width: 200 }}
+              loader={() =>
+                ExecService.exec<any[]>({
+                  sql: SQL.ShowStorageAliveNodes,
+                }).then((data) =>
                   _.map(data || [], (s) => {
                     return { value: s.name, label: s.name };
                   })
-              )
-            }
-            visible={() =>
-              _.get(URLStore.getParams(), "role") === StateRoleName.Storage
-            }
-            reloadKeys={["role"]}
-            clearKeys={["node", "file"]}
-          />
+                )
+              }
+              visible={() =>
+                _.get(URLStore.getParams(), "role") === StateRoleName.Storage
+              }
+              reloadKeys={["role"]}
+              clearKeys={["node", "file"]}
+            />
+          )}
           <LinSelect
             field="node"
+            label={LogView.node}
             style={{ width: 230 }}
             loader={async () => {
               const params = URLStore.getParams();
-              if (_.get(params, "role") == StateRoleName.Broker) {
+              const role = _.get(params, "role");
+              if (
+                role === StateRoleName.Broker ||
+                role === StateRoleName.Root
+              ) {
                 return ExecService.exec<any>({
-                  sql: SQL.ShowBrokerAliveNodes,
+                  sql:
+                    role === StateRoleName.Broker
+                      ? SQL.ShowBrokerAliveNodes
+                      : SQL.ShowRootAliveNodes,
                 }).then((data) =>
                   _.map(data || [], (n: any) => {
                     const target = `${n.hostIp}:${n.httpPort}`;
                     return { value: target, label: target };
                   })
                 );
-              } else {
+              } else if (role === StateRoleName.Storage) {
                 return ExecService.exec<any[]>({
                   sql: SQL.ShowStorageAliveNodes,
                 }).then((data) => {
@@ -175,12 +198,14 @@ const LogView: React.FC = () => {
                   });
                 });
               }
+              return [];
             }}
             clearKeys={["file"]}
             reloadKeys={["role", "storage"]}
           />
           <LinSelect
             field="file"
+            label={LogView.file}
             loader={() => {
               const params = URLStore.getParams();
               const target = _.get(params, "node");
@@ -204,6 +229,7 @@ const LogView: React.FC = () => {
           />
           <LinSelect
             field="size"
+            label={LogView.size}
             loader={() => [
               { label: "256KB", value: `${256 * 1024}` },
               { label: "1MB", value: `${1024 * 1024}` },

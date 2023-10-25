@@ -20,13 +20,14 @@ package indexdb
 import (
 	"sync"
 
+	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/version"
-	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb/metadb"
@@ -55,7 +56,7 @@ type InvertedIndex interface {
 	GetGroupingContext(ctx *flow.ShardExecuteContext) error
 	// buildInvertIndex builds the inverted index for tag value => series ids,
 	// the tags is considered as an empty key-value pair while tags is nil.
-	buildInvertIndex(namespace, metricName string, tagIterator *metric.KeyValueIterator, seriesID uint32)
+	buildInvertIndex(namespace, metricName string, tagIterator *metric.KeyValueIterator, seriesID uint32, limits *models.Limits)
 	// Flush flushes the inverted-index of tag value id=>series ids under tag key
 	Flush() error
 }
@@ -238,7 +239,8 @@ func (index *invertedIndex) getGroupingScanners(
 
 // buildInvertIndex builds the inverted index for tag value => series ids,
 // the tags is considered as an empty key-value pair while tags is nil.
-func (index *invertedIndex) buildInvertIndex(namespace, metricName string, tagIterator *metric.KeyValueIterator, seriesID uint32) {
+func (index *invertedIndex) buildInvertIndex(namespace, metricName string,
+	tagIterator *metric.KeyValueIterator, seriesID uint32, limits *models.Limits) {
 	index.rwMutex.Lock()
 	defer index.rwMutex.Unlock()
 
@@ -249,7 +251,7 @@ func (index *invertedIndex) buildInvertIndex(namespace, metricName string, tagIt
 		tagKey := string(tagIterator.NextKey())
 		tagValue := string(tagIterator.NextValue())
 
-		tagKeyID, err := metadataDB.GenTagKeyID(namespace, metricName, tagKey)
+		tagKeyID, err := metadataDB.GenTagKeyID(namespace, metricName, tagKey, limits)
 		if err != nil {
 			indexLogger.Error("gen tag key id fail, ignore index build for this tag key",
 				logger.String("namespace", namespace), logger.String("metric", metricName),

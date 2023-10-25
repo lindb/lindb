@@ -119,9 +119,9 @@ func TestCompactJob_merge_compact_merge_fail(t *testing.T) {
 	f4 := version.NewFileMeta(4, 30, 100, 100)
 	compaction := version.NewCompaction(1, 0, []*version.FileMeta{f1}, []*version.FileMeta{f4})
 	state := newCompactionState(1000, snapshot, compaction)
-	compactJob := newCompactJob(family, state, nil)
-	err := compactJob.Run()
-	assert.NotNil(t, err)
+	compactJob1 := newCompactJob(family, state, nil)
+	err := compactJob1.Run()
+	assert.Error(t, err)
 
 	gomock.InOrder(
 		reader.EXPECT().Iterator().Return(generateIterator(ctrl, map[uint32][]byte{
@@ -131,9 +131,18 @@ func TestCompactJob_merge_compact_merge_fail(t *testing.T) {
 	)
 	snapshot.EXPECT().GetReader(gomock.Any()).Return(reader, nil).MaxTimes(2)
 	merge.EXPECT().Merge(uint32(1), gomock.Any()).Return(fmt.Errorf("err"))
-	compactJob = newCompactJob(family, state, nil)
-	err = compactJob.Run()
-	assert.NotNil(t, err)
+	compactJob1 = newCompactJob(family, state, nil)
+	err = compactJob1.Run()
+	assert.Error(t, err)
+
+	// create merger failure
+	compactJob1 = newCompactJob(family, state, nil)
+	compactJob2 := compactJob1.(*compactJob)
+	compactJob2.newMerger = func(flusher Flusher) (Merger, error) {
+		return nil, fmt.Errorf("err")
+	}
+	err = compactJob2.Run()
+	assert.Error(t, err)
 }
 
 func TestCompactJob_merge_doMerge_fail(t *testing.T) {
@@ -201,19 +210,18 @@ func TestCompactJob_output_fail(t *testing.T) {
 	builder := table.NewMockBuilder(ctrl)
 	gomock.InOrder(
 		family.EXPECT().newTableBuilder().Return(builder, nil),
-		builder.EXPECT().FileNumber().Return(table.FileNumber(10)),
-		family.EXPECT().addPendingOutput(table.FileNumber(10)),
 		builder.EXPECT().Add(uint32(1), []byte{1, 2, 3}).Return(nil),
 		builder.EXPECT().Size().Return(uint32(100)),
 		// no output
 		builder.EXPECT().Count().Return(uint64(0)),
+		builder.EXPECT().FileNumber().Return(table.FileNumber(10)),
 	)
 	f1 := version.NewFileMeta(1, 1, 10, 100)
 	f4 := version.NewFileMeta(4, 30, 100, 100)
 	compaction := version.NewCompaction(1, 0, []*version.FileMeta{f1}, []*version.FileMeta{f4})
 	state := newCompactionState(1000, snapshot, compaction)
 	compact := newCompactJob(family, state, nil)
-	merge.EXPECT().Merge(uint32(1), gomock.Any()).DoAndReturn(func(key uint32, value [][]byte) error {
+	merge.EXPECT().Merge(uint32(1), gomock.Any()).DoAndReturn(func(key uint32, _ [][]byte) error {
 		_ = compact.(*compactJob).newCompactFlusher().Add(key, []byte{1, 2, 3})
 		return nil
 	})
@@ -235,8 +243,6 @@ func TestCompactJob_output_fail(t *testing.T) {
 	snapshot.EXPECT().GetReader(table.FileNumber(4)).Return(reader2, nil)
 	gomock.InOrder(
 		family.EXPECT().newTableBuilder().Return(builder, nil),
-		builder.EXPECT().FileNumber().Return(table.FileNumber(10)),
-		family.EXPECT().addPendingOutput(table.FileNumber(10)),
 		builder.EXPECT().Add(uint32(1), []byte{1, 2, 3}).Return(nil),
 		builder.EXPECT().Size().Return(uint32(100)),
 		builder.EXPECT().Count().Return(uint64(10)),
@@ -246,7 +252,7 @@ func TestCompactJob_output_fail(t *testing.T) {
 	)
 	state = newCompactionState(1000, snapshot, compaction)
 	compact = newCompactJob(family, state, nil)
-	merge.EXPECT().Merge(uint32(1), gomock.Any()).DoAndReturn(func(key uint32, value [][]byte) error {
+	merge.EXPECT().Merge(uint32(1), gomock.Any()).DoAndReturn(func(key uint32, _ [][]byte) error {
 		_ = compact.(*compactJob).newCompactFlusher().Add(key, []byte{1, 2, 3})
 		return nil
 	})
@@ -274,6 +280,18 @@ func TestCompactJob_finish_output_fail(t *testing.T) {
 	compact2 := compact.(*compactJob)
 	err := compact2.finishCompactionOutputFile()
 	assert.NotNil(t, err)
+}
+
+func TestCompactJob_openCompactOutputFile(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	family := NewMockFamily(ctrl)
+	compactJob1 := &compactJob{
+		family: family,
+	}
+	family.EXPECT().newTableBuilder().Return(nil, fmt.Errorf("err"))
+	assert.Error(t, compactJob1.openCompactionOutputFile())
 }
 
 func TestCompactJob_merge_rollup(t *testing.T) {
@@ -320,8 +338,6 @@ func TestCompactJob_merge_rollup(t *testing.T) {
 	builder := table.NewMockBuilder(ctrl)
 	gomock.InOrder(
 		family.EXPECT().newTableBuilder().Return(builder, nil),
-		builder.EXPECT().FileNumber().Return(table.FileNumber(5)),
-		family.EXPECT().addPendingOutput(table.FileNumber(5)),
 		builder.EXPECT().Add(uint32(1), []byte("value1value1")).Return(nil),
 		builder.EXPECT().Size().Return(uint32(10)),
 		builder.EXPECT().Add(uint32(3), []byte("value3")).Return(nil),
@@ -360,6 +376,99 @@ func generateMockFamily(ctrl *gomock.Controller, merger NewMerger) *MockFamily {
 	family.EXPECT().Name().Return("test-family").AnyTimes()
 	family.EXPECT().commitEditLog(gomock.Any()).Return(true).AnyTimes()
 	return family
+}
+
+func TestCompactFlusherStreamWriter(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	wt := table.NewMockStreamWriter(ctrl)
+
+	builder := table.NewMockBuilder(ctrl)
+	builder.EXPECT().Size().Return(uint32(100)).AnyTimes()
+	builder.EXPECT().MinKey().Return(uint32(100)).AnyTimes()
+	builder.EXPECT().MaxKey().Return(uint32(100)).AnyTimes()
+	builder.EXPECT().Count().Return(uint64(20)).AnyTimes()
+	builder.EXPECT().FileNumber().Return(table.FileNumber(10))
+	builder.EXPECT().Close().Return(fmt.Errorf("err"))
+	state := newCompactionState(10, nil, nil)
+	state.builder = builder
+	cf := &compactFlusher{
+		compactJob: &compactJob{
+			state: state,
+		},
+	}
+	writer := &compactFlusherStreamWriter{
+		compactFlusher: cf,
+		StreamWriter:   wt,
+	}
+	wt.EXPECT().Commit().Return(nil).AnyTimes()
+	assert.Error(t, writer.Commit())
+	builder.EXPECT().Close().Return(nil)
+	assert.NoError(t, writer.Commit())
+}
+
+func TestCompactFlusher(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	family := NewMockFamily(ctrl)
+	wt := table.NewMockStreamWriter(ctrl)
+	state := newCompactionState(10, nil, nil)
+	builder := table.NewMockBuilder(ctrl)
+	builder.EXPECT().Size().Return(uint32(100)).AnyTimes()
+	builder.EXPECT().MinKey().Return(uint32(100)).AnyTimes()
+	builder.EXPECT().MaxKey().Return(uint32(100)).AnyTimes()
+	builder.EXPECT().Count().Return(uint64(20)).AnyTimes()
+	builder.EXPECT().FileNumber().Return(table.FileNumber(10)).AnyTimes()
+	state.builder = builder
+	cf := &compactFlusher{
+		compactJob: &compactJob{
+			family: family,
+			state:  state,
+		},
+		streamWriter: wt,
+	}
+	assert.Panics(t, func() {
+		_ = cf.Commit()
+	})
+	assert.Panics(t, func() {
+		cf.Release()
+	})
+	cf.Sequence(1, 1)
+	wt1, err := cf.StreamWriter()
+	assert.NoError(t, err)
+	assert.Equal(t, wt, wt1)
+
+	cf.streamWriter = nil
+	state.builder = nil
+	family.EXPECT().newTableBuilder().Return(nil, fmt.Errorf("err"))
+	wt1, err = cf.StreamWriter()
+	assert.Error(t, err)
+	assert.Nil(t, wt1)
+
+	family.EXPECT().newTableBuilder().Return(builder, nil)
+	builder.EXPECT().StreamWriter().Return(wt).AnyTimes()
+	wt1, err = cf.StreamWriter()
+	assert.NoError(t, err)
+	assert.NotNil(t, wt1)
+
+	assert.NoError(t, cf.Add(1, nil))
+
+	cf.streamWriter = nil
+	state.builder = nil
+	family.EXPECT().newTableBuilder().Return(nil, fmt.Errorf("err"))
+	assert.Error(t, cf.Add(1, []byte{1}))
+
+	family.EXPECT().newTableBuilder().Return(builder, nil)
+	builder.EXPECT().Add(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	assert.Error(t, cf.Add(1, []byte{1}))
+
+	builder.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	builder.EXPECT().Close().Return(fmt.Errorf("err"))
+	assert.Error(t, cf.Add(1, []byte{1}))
+
+	builder.EXPECT().Close().Return(nil)
+	assert.NoError(t, cf.Add(1, []byte{1}))
 }
 
 func generateIterator(ctrl *gomock.Controller, values map[uint32][]byte) table.Iterator {

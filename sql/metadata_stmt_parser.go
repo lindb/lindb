@@ -37,7 +37,12 @@ func newMetadataStmtParser(metadataType stmt.MetadataType) *metadataStmtParser {
 
 // visitStorageFilter visits storage filter.
 func (m *metadataStmtParser) visitStorageFilter(ctx *grammar.StorageFilterContext) {
-	m.metadata.StorageName = strutil.GetStringValue(ctx.Ident().GetText())
+	m.metadata.ClusterName = strutil.GetStringValue(ctx.Ident().GetText())
+}
+
+// visitBrokerFilter visits broker filter.
+func (m *metadataStmtParser) visitBrokerFilter(ctx *grammar.BrokerFilterContext) {
+	m.metadata.ClusterName = strutil.GetStringValue(ctx.Ident().GetText())
 }
 
 // visitTypeFilter visits the type filter.

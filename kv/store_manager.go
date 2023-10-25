@@ -22,6 +22,8 @@ import (
 	"sync"
 
 	"go.uber.org/atomic"
+
+	"github.com/lindb/common/pkg/logger"
 )
 
 //go:generate mockgen -source ./store_manager.go -destination=./store_manager_mock.go -package kv
@@ -61,7 +63,7 @@ func GetStoreManager() StoreManager {
 // StoreManager represents a global store manager.
 type StoreManager interface {
 	// CreateStore creates the store by name/option.
-	// NOTICE: name need include relatively path based on root path.
+	// NOTE: name need include relatively path based on root path.
 	CreateStore(name string, option StoreOption) (Store, error)
 	// GetStoreByName returns Store by given name.
 	GetStoreByName(name string) (Store, bool)
@@ -88,11 +90,12 @@ func newStoreManager(options StoreOptions) StoreManager {
 }
 
 // CreateStore creates the store by name/option.
-// NOTICE: name need include relatively path based on root path.
+// NOTE: name need include relatively path based on root path.
 func (s *storeManager) CreateStore(name string, option StoreOption) (Store, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	kvLogger.Info("create new kv store", logger.String("kv", name))
 	if store, ok := s.stores[name]; ok {
 		return store, nil
 	}
@@ -131,6 +134,8 @@ func (s *storeManager) CloseStore(name string) error {
 	if !ok {
 		return nil
 	}
+	kvLogger.Info("close kv store", logger.String("kv", name))
+
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	// remove store from cache

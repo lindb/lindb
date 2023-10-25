@@ -103,7 +103,7 @@ func TestLocalReplicator_Replica(t *testing.T) {
 	replicator.Replica(1, []byte{1, 2, 3})
 	// data ok
 	buf := &bytes.Buffer{}
-	converter := metric.NewProtoConverter()
+	converter := metric.NewProtoConverter(models.NewDefaultLimits())
 	var row metric.BrokerRow
 	_ = converter.ConvertTo(&protoMetricsV1.Metric{
 		Namespace: "test",

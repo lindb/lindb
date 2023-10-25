@@ -26,10 +26,11 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/pkg/encoding"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/state"
 )
@@ -246,13 +247,22 @@ func TestStateManager_DatabaseCfg(t *testing.T) {
 		Key:   "/database/test",
 		Value: encoding.JSONMarshal(&models.Database{}),
 	})
-	data := encoding.JSONMarshal(&models.Database{
+	db := &models.Database{
 		Name:          "test",
-		Storage:       "/storage/test",
+		Storage:       "/storage/test2",
 		NumOfShard:    3,
 		ReplicaFactor: 2,
 		Option:        &option.DatabaseOption{},
+	}
+	data := encoding.JSONMarshal(db)
+	// case 3: storage not found
+	mgr.EmitEvent(&discovery.Event{
+		Type:  discovery.DatabaseConfigChanged,
+		Key:   "/database/test",
+		Value: data,
 	})
+	db.Storage = "/storage/test"
+	data = encoding.JSONMarshal(db)
 	// case 3: get shard assign err
 	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
 	mgr.EmitEvent(&discovery.Event{
@@ -294,7 +304,6 @@ func TestStateManager_DatabaseCfg(t *testing.T) {
 	})
 
 	time.Sleep(100 * time.Millisecond)
-	fmt.Println(mgr.GetDatabases())
 	assert.Len(t, mgr.GetDatabases(), 1)
 	storage1.EXPECT().Close()
 	mgr.Close()
@@ -590,4 +599,46 @@ func TestStateManager_StorageNodeFailure(t *testing.T) {
 	assert.Equal(t, liveNodes[models.NodeID(2)].ID, models.NodeID(2))
 	mgr1.mutex.Unlock()
 	mgr.Close()
+}
+
+func TestStateManager_onDatabaseLimits(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	repo := state.NewMockRepository(ctrl)
+	storage := NewMockStorageCluster(ctrl)
+	mgr := NewStateManager(context.TODO(), repo, nil)
+	mgr1 := mgr.(*stateManager)
+	mgr1.mutex.Lock()
+	mgr1.storages["test"] = storage
+	mgr1.databases["db"] = &models.Database{Storage: "test"}
+	mgr1.databases["db1"] = &models.Database{Storage: "test1"}
+	mgr1.mutex.Unlock()
+
+	// case 1: database not exist
+	mgr.EmitEvent(&discovery.Event{
+		Type:  discovery.DatabaseLimitsChanged,
+		Key:   "/database/limit/db2",
+		Value: []byte("dd"),
+	})
+	// case 2: storage not exist
+	mgr.EmitEvent(&discovery.Event{
+		Type:  discovery.DatabaseLimitsChanged,
+		Key:   "/database/limit/db1",
+		Value: []byte("dd"),
+	})
+	// case 3: set limits failure
+	storage.EXPECT().SetDatabaseLimits(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+	mgr.EmitEvent(&discovery.Event{
+		Type:  discovery.DatabaseLimitsChanged,
+		Key:   "/database/limit/db",
+		Value: []byte("dd"),
+	})
+	// case 4: set limits successfully
+	storage.EXPECT().SetDatabaseLimits(gomock.Any(), gomock.Any()).Return(nil)
+	mgr.EmitEvent(&discovery.Event{
+		Type:  discovery.DatabaseLimitsChanged,
+		Key:   "/database/limit/db",
+		Value: []byte("dd"),
+	})
+	time.Sleep(100 * time.Millisecond)
 }

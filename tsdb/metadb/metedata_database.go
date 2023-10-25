@@ -26,6 +26,7 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/metrics"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
@@ -173,7 +174,7 @@ func (mdb *metadataDatabase) GetField(namespace, metricName string, fieldName fi
 // GenMetricID generates the metric id in the memory.
 // 1) get metric id from memory if existed, if not exist goto 2
 // 2) get metric metadata from backend storage, if not exist need create new metric metadata
-func (mdb *metadataDatabase) GenMetricID(namespace, metricName string) (metricID metric.ID, err error) {
+func (mdb *metadataDatabase) GenMetricID(namespace, metricName string, limits *models.Limits) (metricID metric.ID, err error) {
 	// get metric id from memory
 	if metricMetadata, ok := mdb.getMetricMetadataFromCache(namespace, metricName); ok {
 		return metricMetadata.getMetricID(), nil
@@ -186,7 +187,7 @@ func (mdb *metadataDatabase) GenMetricID(namespace, metricName string) (metricID
 	if metricMetadata, ok := mdb.metrics[key]; ok {
 		return metricMetadata.getMetricID(), nil
 	}
-	metricMetadata, err := mdb.backend.getOrCreateMetricMetadata(namespace, metricName)
+	metricMetadata, err := mdb.backend.getOrCreateMetricMetadata(namespace, metricName, limits)
 	if err != nil {
 		mdb.statistics.GenMetricIDFailures.Incr()
 		return
@@ -202,6 +203,7 @@ func (mdb *metadataDatabase) GenMetricID(namespace, metricName string) (metricID
 func (mdb *metadataDatabase) GenFieldID(
 	namespace, metricName string,
 	fieldName field.Name, fieldType field.Type,
+	limits *models.Limits,
 ) (fieldID field.ID, err error) {
 	if fieldType == field.Unknown {
 		return field.EmptyFieldID, series.ErrFieldTypeUnspecified
@@ -220,7 +222,7 @@ func (mdb *metadataDatabase) GenFieldID(
 			fieldType.String(), f.Type.String(), series.ErrWrongFieldType)
 	}
 	// assign new field id, then add field into metric metadata
-	fieldMeta, err := metricMetadata.createField(fieldName, fieldType)
+	fieldMeta, err := metricMetadata.createField(fieldName, fieldType, limits)
 	if err != nil {
 		mdb.statistics.GenFieldIDFailures.Incr()
 		return field.EmptyFieldID, err
@@ -237,7 +239,7 @@ func (mdb *metadataDatabase) GenFieldID(
 
 // GenTagKeyID generates the tag key id in the memory
 // !!!!! NOTICE: metric metadata must be existed in memory, because gen metric has been saved
-func (mdb *metadataDatabase) GenTagKeyID(namespace, metricName, tagKey string) (tagKeyID tag.KeyID, err error) {
+func (mdb *metadataDatabase) GenTagKeyID(namespace, metricName, tagKey string, limits *models.Limits) (tagKeyID tag.KeyID, err error) {
 	metricMetadata, _ := mdb.getMetricMetadataFromCache(namespace, metricName)
 
 	mdb.rwMux.Lock()
@@ -247,7 +249,7 @@ func (mdb *metadataDatabase) GenTagKeyID(namespace, metricName, tagKey string) (
 		return tagKeyID0, nil
 	}
 
-	err = metricMetadata.checkTagKey(tagKey)
+	err = metricMetadata.checkTagKey(tagKey, limits)
 	if err != nil {
 		mdb.statistics.GenTagKeyIDFailures.Incr()
 		return tag.EmptyTagKeyID, err

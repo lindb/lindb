@@ -25,12 +25,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	commonfileutil "github.com/lindb/common/pkg/fileutil"
+
 	"github.com/lindb/lindb/pkg/fileutil"
 )
 
 func TestDataPointBuffer_New_err(t *testing.T) {
 	defer func() {
-		mkdirFunc = fileutil.MkDirIfNotExist
+		mkdirFunc = commonfileutil.MkDirIfNotExist
 	}()
 	mkdirFunc = func(path string) error {
 		return fmt.Errorf("err")
@@ -43,7 +45,7 @@ func TestDataPointBuffer_New_err(t *testing.T) {
 func TestDataPointBuffer_AllocPage(t *testing.T) {
 	path := "buf_alloc_test"
 	defer func() {
-		assert.NoError(t, fileutil.RemoveDir(path))
+		assert.NoError(t, commonfileutil.RemoveDir(path))
 	}()
 	buf, err := newDataPointBuffer(path)
 	assert.NoError(t, err)
@@ -62,7 +64,7 @@ func TestDataPointBuffer_AllocPage(t *testing.T) {
 
 func TestDataPointBuffer_AllocPage_err(t *testing.T) {
 	defer func() {
-		mkdirFunc = fileutil.MkDirIfNotExist
+		mkdirFunc = commonfileutil.MkDirIfNotExist
 		mapFunc = fileutil.RWMap
 		openFileFunc = os.OpenFile
 	}()
@@ -75,7 +77,7 @@ func TestDataPointBuffer_AllocPage_err(t *testing.T) {
 	b, err := buf.AllocPage()
 	assert.Error(t, err)
 	assert.Nil(t, b)
-	mkdirFunc = fileutil.MkDirIfNotExist
+	mkdirFunc = commonfileutil.MkDirIfNotExist
 
 	// case 1: open file err
 	buf, err = newDataPointBuffer(t.TempDir())
@@ -114,9 +116,9 @@ func TestDataPointBuffer_Close_err(t *testing.T) {
 	path := "buf_close_err_test"
 	defer func() {
 		closeFileFunc = closeFile
-		removeFunc = fileutil.RemoveDir
+		removeFunc = commonfileutil.RemoveDir
 		unmapFunc = fileutil.Unmap
-		_ = fileutil.RemoveDir(path)
+		_ = commonfileutil.RemoveDir(path)
 	}()
 
 	// case 1: remove dir err
@@ -127,7 +129,7 @@ func TestDataPointBuffer_Close_err(t *testing.T) {
 	assert.NotNil(t, b)
 	buf.Release()
 	removeFunc = func(path string) error {
-		_ = fileutil.RemoveDir(path)
+		_ = commonfileutil.RemoveDir(path)
 		return fmt.Errorf("err")
 	}
 	assert.NoError(t, buf.Close())

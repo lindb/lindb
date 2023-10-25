@@ -21,12 +21,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/internal/linmetric"
 )
 
 func TestNewStateManagerStatistics(t *testing.T) {
-	assert.NotNil(t, NewStateManagerStatistics("master"))
-	assert.NotNil(t, NewStateManagerStatistics("storage"))
-	assert.NotNil(t, NewStateManagerStatistics("broker"))
+	assert.NotNil(t, NewStateManagerStatistics(linmetric.BrokerRegistry))
 }
 
 func TestNewShardLeaderStatistics(t *testing.T) {

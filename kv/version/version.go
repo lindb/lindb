@@ -67,13 +67,15 @@ type Version interface {
 	// DeleteRollupFile removes rollup file after rollup job complete successfully
 	DeleteRollupFile(fileNumber table.FileNumber, interval timeutil.Interval)
 	// AddReferenceFile adds rollup reference file under target family
-	AddReferenceFile(familyID FamilyID, fileNumber table.FileNumber)
+	AddReferenceFile(store string, familyID FamilyID, fileNumber table.FileNumber)
 	// DeleteReferenceFile removes rollup reference file under target family
-	DeleteReferenceFile(familyID FamilyID, fileNumber table.FileNumber)
+	DeleteReferenceFile(store string, familyID FamilyID, fileNumber table.FileNumber)
 	// GetRollupFiles returns all need rollup files
 	GetRollupFiles() map[table.FileNumber][]timeutil.Interval
-	// GetReferenceFiles returns the reference files under target family
-	GetReferenceFiles() map[FamilyID][]table.FileNumber
+	// GetReferenceFiles returns the reference files under target store
+	GetReferenceFiles(store string) map[FamilyID][]table.FileNumber
+	// GetAllReferenceFiles returns all reference files
+	GetAllReferenceFiles() map[string]map[FamilyID][]table.FileNumber
 	// Sequence set sequence number.
 	Sequence(leader int32, seq int64)
 	// GetSequences returns all sequence number.
@@ -285,13 +287,13 @@ func (v *version) DeleteRollupFile(fileNumber table.FileNumber, interval timeuti
 }
 
 // AddReferenceFile adds rollup reference file under target family
-func (v *version) AddReferenceFile(familyID FamilyID, fileNumber table.FileNumber) {
-	v.rollup.addReferenceFile(familyID, fileNumber)
+func (v *version) AddReferenceFile(store string, familyID FamilyID, fileNumber table.FileNumber) {
+	v.rollup.addReferenceFile(store, familyID, fileNumber)
 }
 
 // DeleteReferenceFile removes rollup reference file under target family
-func (v *version) DeleteReferenceFile(familyID FamilyID, fileNumber table.FileNumber) {
-	v.rollup.removeReferenceFile(familyID, fileNumber)
+func (v *version) DeleteReferenceFile(store string, familyID FamilyID, fileNumber table.FileNumber) {
+	v.rollup.removeReferenceFile(store, familyID, fileNumber)
 }
 
 // GetRollupFiles returns all need rollup files
@@ -299,9 +301,14 @@ func (v *version) GetRollupFiles() map[table.FileNumber][]timeutil.Interval {
 	return v.rollup.getRollupFiles()
 }
 
-// GetReferenceFiles returns the reference files under target family
-func (v *version) GetReferenceFiles() map[FamilyID][]table.FileNumber {
-	return v.rollup.getReferenceFiles()
+// GetReferenceFiles returns the reference files under target store
+func (v *version) GetReferenceFiles(store string) map[FamilyID][]table.FileNumber {
+	return v.rollup.getReferenceFiles(store)
+}
+
+// GetAllReferenceFiles returns all reference files
+func (v *version) GetAllReferenceFiles() map[string]map[FamilyID][]table.FileNumber {
+	return v.rollup.getAllReferenceFiles()
 }
 
 // Sequence set sequence number.
