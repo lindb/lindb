@@ -24,7 +24,10 @@ import (
 	"unsafe"
 )
 
-const wordSize = 64
+const (
+	wordSize     = 64
+	log2WordSize = 6
+)
 
 var endian = binary.LittleEndian
 

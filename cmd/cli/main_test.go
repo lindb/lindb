@@ -24,8 +24,8 @@ import (
 	"testing"
 
 	prompt "github.com/c-bata/go-prompt"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"

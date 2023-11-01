@@ -12,6 +12,7 @@ release/
 cpu_profile
 *gomock*
 *.db
+*.pprof
 
 # config files
 root.toml

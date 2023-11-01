@@ -26,7 +26,6 @@ import (
 	"sync"
 
 	"github.com/BurntSushi/toml"
-
 	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
 

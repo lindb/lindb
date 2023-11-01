@@ -19,7 +19,6 @@ package tagkeymeta
 
 import (
 	"github.com/lindb/lindb/kv"
-	"github.com/lindb/lindb/pkg/encoding"
 )
 
 var MergerName kv.MergerType = "TagKeyMetaMerger"
@@ -80,7 +79,7 @@ func (tm *merger) Merge(tagKeyID uint32, dataBlocks [][]byte) error {
 			return err
 		}
 		for itr.Valid() {
-			tm.metaFlusher.FlushTagValue(cloneSlice(itr.Key()), encoding.ByteSlice2Uint32(itr.Value()))
+			tm.metaFlusher.FlushTagValue(cloneSlice(itr.Key()), itr.Value())
 			itr.Next()
 		}
 	}

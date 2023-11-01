@@ -22,9 +22,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/klauspost/compress/snappy"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/common/pkg/fasttime"
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"

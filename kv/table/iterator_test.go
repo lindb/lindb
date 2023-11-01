@@ -21,8 +21,8 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
 func TestMergedIterator(t *testing.T) {
@@ -162,7 +162,7 @@ func generateIterator(ctrl *gomock.Controller, values map[uint32][]byte) *MockIt
 	sort.Slice(keys, func(i, j int) bool {
 		return keys[i] < keys[j]
 	})
-	var calls []*gomock.Call
+	var calls []any
 	for _, key := range keys {
 		calls = append(calls,
 			it1.EXPECT().HasNext().Return(true),

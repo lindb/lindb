@@ -23,11 +23,10 @@ import (
 	"sync"
 
 	flatbuffers "github.com/google/flatbuffers/go"
-	jump "github.com/lithammer/go-jump-consistent-hash"
-
 	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/fasttime"
 	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
+	jump "github.com/lithammer/go-jump-consistent-hash"
 
 	"github.com/lindb/lindb/pkg/timeutil"
 )

@@ -28,7 +28,6 @@ import (
 
 	prompt "github.com/c-bata/go-prompt"
 	"github.com/fatih/color"
-
 	commonmodels "github.com/lindb/common/models"
 	commonlogger "github.com/lindb/common/pkg/logger"
 

@@ -23,10 +23,9 @@ import (
 	"path/filepath"
 	"sync"
 
-	"go.uber.org/atomic"
-
 	"github.com/lindb/common/pkg/fileutil"
 	"github.com/lindb/common/pkg/logger"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/bufioutil"

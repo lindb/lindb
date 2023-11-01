@@ -23,9 +23,8 @@ import (
 	_ "net/http/pprof"
 	"os"
 
-	"go.uber.org/automaxprocs/maxprocs"
-
 	"github.com/lindb/common/pkg/logger"
+	"go.uber.org/automaxprocs/maxprocs"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/server"

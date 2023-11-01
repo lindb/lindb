@@ -21,8 +21,8 @@ import (
 	"math"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/series"

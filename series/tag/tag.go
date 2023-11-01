@@ -23,7 +23,6 @@ import (
 	"sync"
 
 	xxhash "github.com/cespare/xxhash/v2"
-
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 
 	"github.com/lindb/lindb/pkg/strutil"

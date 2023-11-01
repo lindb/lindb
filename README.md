@@ -33,7 +33,7 @@ LinDB is an open-source Time Series Database which provides high performance, hi
 
 To build LinDB from source you require the following on your system.
 
-- [Go >=1.19](https://golang.org/doc/install)
+- [Go >=1.21](https://golang.org/doc/install)
 - [Make tool](https://www.gnu.org/software/make/)
 - [Yarn](https://classic.yarnpkg.com/en/docs/install)
 

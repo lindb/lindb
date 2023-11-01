@@ -17,7 +17,9 @@
 
 package lindb
 
-import "embed"
+import (
+	"embed"
+)
 
 // StaticContent represents static resource path.
 //

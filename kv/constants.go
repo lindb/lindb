@@ -17,7 +17,9 @@
 
 package kv
 
-import "github.com/lindb/common/pkg/logger"
+import (
+	"github.com/lindb/common/pkg/logger"
+)
 
 const (
 	dummy                   = ""

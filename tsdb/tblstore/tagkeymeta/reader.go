@@ -24,7 +24,6 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv/table"
-	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
@@ -226,7 +225,7 @@ func (r *tagReader) WalkTagValues(
 			continue
 		}
 		for itr.Valid() {
-			tagValue, tagValueID := itr.Key(), encoding.ByteSlice2Uint32(itr.Value())
+			tagValue, tagValueID := itr.Key(), itr.Value()
 			if fn != nil && !fn(tagValue, tagValueID) {
 				return nil
 			}

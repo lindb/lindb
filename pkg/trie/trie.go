@@ -18,12 +18,12 @@
 package trie
 
 import (
-	"bytes"
 	"io"
 )
 
 type trie struct {
-	height uint32
+	totalKeys uint32
+	height    uint32
 
 	labelVec    labelVector
 	hasChildVec rankVectorSparse
@@ -39,26 +39,19 @@ func NewTrie() SuccinctTrie {
 }
 
 func (tree *trie) Init(builder *builder) *trie {
-	tree.height = uint32(len(builder.lsLabels))
+	tree.height = uint32(builder.height)
+	tree.totalKeys = uint32(builder.totalCount)
 
-	tree.labelVec.Init(builder.lsLabels, tree.sparseLevels())
-
-	numItemsPerLevel := make([]uint32, tree.sparseLevels())
-	for level := range numItemsPerLevel {
-		numItemsPerLevel[level] = uint32(len(builder.lsLabels[level]))
-	}
-	tree.hasChildVec.Init(builder.lsHasChild, numItemsPerLevel)
-	tree.loudsVec.Init(builder.lsLoudsBits, numItemsPerLevel)
-
-	tree.values.Init(builder.values, builder.valueWidth)
-
-	tree.prefixVec.Init(builder.hasPrefix, builder.nodeCounts, builder.prefixes)
-	tree.suffixVec.Init(builder.hasSuffix, numItemsPerLevel, builder.suffixes)
-
+	tree.labelVec.Init(builder.levels, tree.sparseLevels())
+	tree.hasChildVec.Init(builder.levels, HasChild)
+	tree.loudsVec.Init(builder.levels, Louds)
+	tree.prefixVec.Init(builder.levels, HasPrefix)
+	tree.suffixVec.Init(builder.levels, HasSuffix)
+	tree.values.Init(builder.levels)
 	return tree
 }
 
-func (tree *trie) Get(key []byte) (value []byte, ok bool) {
+func (tree *trie) Get(key []byte) (value uint32, ok bool) {
 	var (
 		nodeID    uint32
 		pos       = tree.firstLabelPos(nodeID)
@@ -69,7 +62,7 @@ func (tree *trie) Get(key []byte) (value []byte, ok bool) {
 	for depth = 0; depth < uint32(len(key)); depth++ {
 		prefixLen, ok = tree.prefixVec.CheckPrefix(key, depth, tree.prefixID(nodeID))
 		if !ok {
-			return nil, false
+			return 0, false
 		}
 		depth += prefixLen
 
@@ -79,7 +72,7 @@ func (tree *trie) Get(key []byte) (value []byte, ok bool) {
 		}
 
 		if pos, ok = tree.labelVec.Search(key[depth], pos, tree.nodeSize(pos)); !ok {
-			return nil, false
+			return 0, false
 		}
 		if !tree.hasChildVec.IsSet(pos) {
 			valPos := tree.suffixPos(pos)
@@ -97,7 +90,7 @@ func (tree *trie) Get(key []byte) (value []byte, ok bool) {
 	if !exhausted {
 		_, ok = tree.prefixVec.CheckPrefix(key, depth, tree.prefixID(nodeID))
 		if !ok {
-			return nil, false
+			return 0, false
 		}
 	}
 
@@ -109,7 +102,7 @@ func (tree *trie) Get(key []byte) (value []byte, ok bool) {
 		return value, ok
 	}
 
-	return nil, false
+	return 0, false
 }
 
 func (tree *trie) MarshalSize() int64 {
@@ -117,55 +110,17 @@ func (tree *trie) MarshalSize() int64 {
 }
 
 func (tree *trie) rawMarshalSize() int64 {
-	return 4 + tree.labelVec.MarshalSize() + tree.hasChildVec.MarshalSize() + tree.loudsVec.MarshalSize() +
+	return 4 + 4 + tree.labelVec.MarshalSize() + tree.hasChildVec.MarshalSize() + tree.loudsVec.MarshalSize() +
 		tree.suffixVec.MarshalSize() + tree.prefixVec.MarshalSize()
 }
 
-func (tree *trie) MarshalBinary() ([]byte, error) {
-	w := bytes.NewBuffer(make([]byte, 0, tree.MarshalSize()))
-	_ = tree.Write(w)
-	return w.Bytes(), nil
-}
-
-func (tree *trie) Write(w io.Writer) error {
-	var (
-		bs [4]byte
-	)
-	endian.PutUint32(bs[:], tree.height)
-	if _, err := w.Write(bs[:]); err != nil {
-		return err
-	}
-	if err := tree.labelVec.Write(w); err != nil {
-		return err
-	}
-	if err := tree.hasChildVec.Write(w); err != nil {
-		return err
-	}
-	if err := tree.loudsVec.Write(w); err != nil {
-		return err
-	}
-	if err := tree.prefixVec.Write(w); err != nil {
-		return err
-	}
-	if err := tree.suffixVec.Write(w); err != nil {
-		return err
-	}
-	rawMarshalSize := tree.rawMarshalSize()
-	// align
-	padding := align(rawMarshalSize) - tree.rawMarshalSize()
-	var zeros [8]byte
-	if _, err := w.Write(zeros[:padding]); err != nil {
-		return err
-	}
-	// write values
-	return tree.values.Write(w)
-}
-
 func (tree *trie) UnmarshalBinary(buf []byte) (err error) {
-	if len(buf) <= 4 {
+	if len(buf) <= 8 {
 		return io.EOF
 	}
 	buf1 := buf
+	tree.totalKeys = endian.Uint32(buf1)
+	buf1 = buf1[4:]
 	tree.height = endian.Uint32(buf1)
 	buf1 = buf1[4:]
 
@@ -184,13 +139,7 @@ func (tree *trie) UnmarshalBinary(buf []byte) (err error) {
 	if buf1, err = tree.suffixVec.Unmarshal(buf1); err != nil {
 		return err
 	}
-
-	sz := align(int64(len(buf) - len(buf1)))
-	if sz > int64(len(buf)) {
-		return io.EOF
-	}
-	buf1 = buf[sz:]
-	if _, err = tree.values.Unmarshal(buf1); err != nil {
+	if _, err = tree.values.Unmarshal(int(tree.totalKeys), buf1); err != nil {
 		return err
 	}
 	return nil

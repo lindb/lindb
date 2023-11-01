@@ -24,14 +24,18 @@ import (
 
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567899"
 
+var (
+	random *rand.Rand
+)
+
 func init() {
-	rand.Seed(time.Now().UnixNano())
+	random = rand.New(rand.NewSource(time.Now().UnixNano()))
 }
 
 func RandStringBytes(n int) []byte {
 	b := make([]byte, n)
 	for i := range b {
-		b[i] = letterBytes[rand.Intn(len(letterBytes))]
+		b[i] = letterBytes[random.Intn(len(letterBytes))]
 	}
 	return b
 }

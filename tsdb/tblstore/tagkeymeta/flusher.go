@@ -103,7 +103,6 @@ type flusher struct {
 	// └──────────┴──────────┴──────────┴──────────┘
 	Level2 struct {
 		trieBuilder       trie.Builder
-		maxTagValueID     uint32
 		tagValueMapping   tagValueMapping              // cached kv paris for building succinct trie
 		tagValueIDsBitmap *roaring.Bitmap              // storing all tag-value ids
 		rankOffsets       *encoding.FixedOffsetEncoder // storing all ranks of tag-ids on trie tree
@@ -114,7 +113,7 @@ type flusher struct {
 // tagValueMapping sorts the ids based on the order in keys
 type tagValueMapping struct {
 	keys [][]byte // tag-values
-	ids  [][]byte // tag-value ids([]byte)
+	ids  []uint32 // tag-value ids
 	idRanks
 }
 
@@ -166,7 +165,7 @@ func (m *tagValueMapping) reset() {
 func (m *tagValueMapping) ensureSize(size int) {
 	if cap(m.keys) < size {
 		m.keys = make([][]byte, 0, size)
-		m.ids = make([][]byte, 0, size)
+		m.ids = make([]uint32, 0, size)
 		m.rawIDs = make([]uint32, 0, size)
 		m.ranks = make([]int, 0, size)
 	}
@@ -175,14 +174,9 @@ func (m *tagValueMapping) ensureSize(size int) {
 func (tf *flusher) EnsureSize(size int) { tf.Level2.tagValueMapping.ensureSize(size) }
 
 func (tf *flusher) FlushTagValue(tagValue []byte, tagValueID uint32) {
-	var buf = make([]byte, 4)
-	binary.LittleEndian.PutUint32(buf, tagValueID)
 	tf.Level2.tagValueMapping.keys = append(tf.Level2.tagValueMapping.keys, tagValue)
-	tf.Level2.tagValueMapping.ids = append(tf.Level2.tagValueMapping.ids, buf)
+	tf.Level2.tagValueMapping.ids = append(tf.Level2.tagValueMapping.ids, tagValueID)
 
-	if tagValueID > tf.Level2.maxTagValueID {
-		tf.Level2.maxTagValueID = tagValueID
-	}
 	tf.Level2.tagValueMapping.rawIDs = append(tf.Level2.tagValueMapping.rawIDs, tagValueID)
 }
 
@@ -198,12 +192,12 @@ func (tf *flusher) FlushTagKeyID(tagKeyID, tagValueSeq uint32) error {
 	// pre-sort for building trie
 	tf.Level2.tagValueMapping.SortByKeys()
 	// build trie
-	tree := tf.Level2.trieBuilder.Build(
+	tf.Level2.trieBuilder.Build(
 		tf.Level2.tagValueMapping.keys,
 		tf.Level2.tagValueMapping.ids,
-		uint32(encoding.Uint32MinWidth(tf.Level2.maxTagValueID)))
+	)
 
-	if err := tree.Write(tf.kvWriter); err != nil {
+	if err := tf.Level2.trieBuilder.Write(tf.kvWriter); err != nil {
 		return err
 	}
 
@@ -251,7 +245,6 @@ func (tf *flusher) Close() error {
 // reset resets the underlying data structures
 func (tf *flusher) resetLevel2() {
 	tf.Level2.trieBuilder.Reset()
-	tf.Level2.maxTagValueID = 0
 	tf.Level2.tagValueMapping.reset()
 	tf.Level2.tagValueIDsBitmap.Clear()
 	tf.Level2.rankOffsets.Reset()

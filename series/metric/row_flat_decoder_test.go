@@ -23,10 +23,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	commontimeutil "github.com/lindb/common/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"

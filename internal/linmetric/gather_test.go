@@ -20,7 +20,7 @@ package linmetric
 import (
 	"testing"
 
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/series/tag"
 )

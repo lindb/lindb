@@ -17,34 +17,26 @@
 
 package trie
 
+import (
+	"io"
+)
+
 // builder builds Succinct Trie.
 type builder struct {
-	valueWidth uint32
 	totalCount int
-
+	height     int
 	// LOUDS-Sparse bitvecs, pooling
-	lsLabels    [][]byte
-	lsHasChild  [][]uint64
-	lsLoudsBits [][]uint64
-
-	// value
-	values      [][]byte
-	valueCounts []uint32
-
-	// prefix
-	hasPrefix [][]uint64
-	prefixes  [][][]byte
-
-	// suffix
-	hasSuffix [][]uint64
-	suffixes  [][][]byte
-
-	nodeCounts           []uint32
-	isLastItemTerminator []bool
+	levels []*Level
 
 	// pooling data-structures
-	cachedLabel   [][]byte
-	cachedUint64s [][]uint64
+	cachedLevels []*Level
+
+	// write context(reuse)
+	labelVec    labelVector
+	hasChildVec rankVectorSparse
+	loudsVec    selectVector
+	prefixVec   prefixVector
+	suffixVec   suffixVector
 }
 
 // NewBuilder returns a new Trie builder.
@@ -52,203 +44,195 @@ func NewBuilder() Builder {
 	return &builder{}
 }
 
-func (b *builder) Build(keys, vals [][]byte, valueWidth uint32) SuccinctTrie {
-	b.valueWidth = valueWidth
+func (b *builder) Build(keys [][]byte, vals []uint32) {
 	b.totalCount = len(keys)
 
 	b.buildNodes(keys, vals, 0, 0, 0)
+}
 
+func (b *builder) Trie() SuccinctTrie {
 	tree := new(trie)
 	tree.Init(b)
 	return tree
 }
 
 // buildNodes is recursive algorithm to bulk building Trie nodes.
-// We divide keys into groups by the `key[depth]`, so keys in each group shares the same prefix
-// If depth larger than the length if the first key in group, the key is prefix of others in group
-// So we should append `labelTerminator` to labels and update `b.isLastItemTerminator`, then remove it from group.
-// Scan over keys in current group when meets different label, use the new sub group call buildNodes with level+1 recursively
-// If all keys in current group have the same label, this node can be compressed, use this group call buildNodes with level recursively.
-// If current group contains only one key constract suffix of this key and return.
-func (b *builder) buildNodes(keys, vals [][]byte, prefixDepth, depth, level int) {
+//  1. We divide keys into groups by the `key[depth]`, so keys in each group shares the same prefix
+//  2. If depth larger than the length if the first key in group, the key is prefix of others in group
+//     So we should append `labelTerminator` to labels and update `b.isLastItemTerminator`, then remove it from group.
+//  3. Scan over keys in current group when meets different label, use the new sub group call buildNodes with level+1 recursively
+//  4. If all keys in current group have the same label, this node can be compressed, use this group call buildNodes with level recursively.
+//  5. If current group contains only one key constract suffix of this key and return.
+func (b *builder) buildNodes(keys [][]byte, vals []uint32, prefixDepth, depth, level int) {
 	b.ensureLevel(level)
-	nodeStartPos := b.numItems(level)
+	levelObj := b.levels[level]
+	nodeStartPos := len(levelObj.lsLabels) // first label pos
+	keysLen := len(keys)
 
 	groupStart := 0
 	if depth >= len(keys[groupStart]) {
-		b.lsLabels[level] = append(b.lsLabels[level], labelTerminator)
-		b.isLastItemTerminator[level] = true
-		b.ensureLevel(level)
-		b.insertValue(vals[groupStart], level)
-		b.moveToNextItemSlot(level)
-		groupStart++
+		// first key is completed, append terminator label
+		levelObj.lsLabels = append(levelObj.lsLabels, labelTerminator)
+		b.moveToNextItemSlot(levelObj)
+		levelObj.values = append(levelObj.values, vals[groupStart])
+		groupStart++ // move to next key
 	}
 
-	for groupEnd := groupStart; groupEnd <= len(keys); groupEnd++ {
-		if groupEnd < len(keys) && keys[groupStart][depth] == keys[groupEnd][depth] {
-			continue
+	currentKey := keys[groupStart][depth]
+	for groupEnd := groupStart; groupEnd <= keysLen; groupEnd++ {
+		// if groupEnd < keysLen && currentKey == keys[groupEnd][depth] {
+		if groupEnd < keysLen {
+			// try skip more same labels
+			skipEnd := groupEnd + 4
+			if skipEnd < keysLen && currentKey == keys[skipEnd][depth] {
+				groupEnd = skipEnd
+				continue
+			}
+			if currentKey == keys[groupEnd][depth] {
+				// skip same lable
+				continue
+			}
 		}
-
-		if groupEnd == len(keys) && groupStart == 0 && groupEnd-groupStart != 1 {
+		width := groupEnd - groupStart
+		nextDepth := depth + 1
+		if groupEnd == keysLen && groupStart == 0 && width != 1 {
 			// node at this level is one-way node, compress it to next node
-			b.buildNodes(keys, vals, prefixDepth, depth+1, level)
+			b.buildNodes(keys, vals, prefixDepth, nextDepth, level)
 			return
 		}
 
-		b.lsLabels[level] = append(b.lsLabels[level], keys[groupStart][depth])
-		b.moveToNextItemSlot(level)
-		if groupEnd-groupStart == 1 {
-			if depth+1 < len(keys[groupStart]) {
-				b.ensureLevel(level)
-				setBit(b.hasSuffix[level], b.numItems(level)-1)
-				b.suffixes[level] = append(b.suffixes[level], keys[groupStart][depth+1:])
+		levelObj.lsLabels = append(levelObj.lsLabels, currentKey)
+		b.moveToNextItemSlot(levelObj)
+		if width == 1 {
+			// parent only have two sub tries, complete left child trie
+			if nextDepth < len(keys[groupStart]) {
+				// if has suffix, store suffix
+				setBit(levelObj.hasSuffix, uint32(len(levelObj.lsLabels)-1))
+				levelObj.suffixes = append(levelObj.suffixes, keys[groupStart][nextDepth:])
 			}
-			b.insertValue(vals[groupStart], level)
+			levelObj.values = append(levelObj.values, vals[groupStart])
 		} else {
-			setBit(b.lsHasChild[level], b.numItems(level)-1)
-			b.buildNodes(keys[groupStart:groupEnd], vals[groupStart:groupEnd], depth+1, depth+1, level+1)
+			// goto next level
+			setBit(levelObj.lsHasChild, uint32(len(levelObj.lsLabels)-1))
+			b.buildNodes(keys[groupStart:groupEnd], vals[groupStart:groupEnd], nextDepth, nextDepth, level+1)
 		}
 
-		groupStart = groupEnd
+		groupStart = groupEnd // process right sub trie
+		if groupStart < keysLen {
+			// get new  current key
+			currentKey = keys[groupStart][depth]
+		}
 	}
 
 	// check if current node contains compressed path.
-	if depth-prefixDepth > 0 {
-		prefix := keys[0][prefixDepth:depth]
-		b.insertPrefix(prefix, level)
+	if depth > prefixDepth {
+		setBit(levelObj.hasPrefix, uint32(levelObj.nodeCount))
+		levelObj.prefixes = append(levelObj.prefixes, keys[0][prefixDepth:depth])
 	}
 
-	setBit(b.lsLoudsBits[level], nodeStartPos)
+	// store start node pos in louds
+	setBit(levelObj.lsLouds, uint32(nodeStartPos))
 
-	b.nodeCounts[level]++
-	if b.nodeCounts[level]%wordSize == 0 {
-		b.hasPrefix[level] = append(b.hasPrefix[level], 0)
-		b.hasSuffix[level] = append(b.hasSuffix[level], 0)
-	}
+	levelObj.nodeCount++
 }
 
 func (b *builder) ensureLevel(level int) {
-	if level >= b.treeHeight() {
+	if level >= b.height {
 		b.addLevel()
 	}
 }
 
-func (b *builder) treeHeight() int {
-	return len(b.nodeCounts)
-}
-
-func (b *builder) numItems(level int) uint32 {
-	return uint32(len(b.lsLabels[level]))
-}
-
 func (b *builder) addLevel() {
-	// cached
-	b.lsLabels = append(b.lsLabels, b.pickLabels())
-	b.lsHasChild = append(b.lsHasChild, b.pickUint64Slice())
-	b.lsLoudsBits = append(b.lsLoudsBits, b.pickUint64Slice())
-	b.hasPrefix = append(b.hasPrefix, b.pickUint64Slice())
-	b.hasSuffix = append(b.hasSuffix, b.pickUint64Slice())
+	b.height++
+	levelObj := b.pickLevels()
+	b.levels = append(b.levels, levelObj)
 
-	b.values = append(b.values, []byte{})
-	b.valueCounts = append(b.valueCounts, 0)
-	b.prefixes = append(b.prefixes, [][]byte{})
-	b.suffixes = append(b.suffixes, [][]byte{})
-
-	b.nodeCounts = append(b.nodeCounts, 0)
-	b.isLastItemTerminator = append(b.isLastItemTerminator, false)
-
-	level := b.treeHeight() - 1
-	b.lsHasChild[level] = append(b.lsHasChild[level], 0)
-	b.lsLoudsBits[level] = append(b.lsLoudsBits[level], 0)
-	b.hasPrefix[level] = append(b.hasPrefix[level], 0)
-	b.hasSuffix[level] = append(b.hasSuffix[level], 0)
+	levelObj.lsHasChild = append(levelObj.lsHasChild, 0)
+	levelObj.lsLouds = append(levelObj.lsLouds, 0)
+	levelObj.hasPrefix = append(levelObj.hasPrefix, 0)
+	levelObj.hasSuffix = append(levelObj.hasSuffix, 0)
 }
 
-func (b *builder) moveToNextItemSlot(level int) {
-	if b.numItems(level)%wordSize == 0 {
-		b.hasSuffix[level] = append(b.hasSuffix[level], 0)
-		b.lsHasChild[level] = append(b.lsHasChild[level], 0)
-		b.lsLoudsBits[level] = append(b.lsLoudsBits[level], 0)
+func (b *builder) moveToNextItemSlot(level *Level) {
+	if len(level.lsLabels)%wordSize == 0 {
+		level.lsHasChild = append(level.lsHasChild, 0)
+		level.lsLouds = append(level.lsLouds, 0)
+		level.hasPrefix = append(level.hasPrefix, 0)
+		level.hasSuffix = append(level.hasSuffix, 0)
 	}
-}
-
-func (b *builder) insertValue(value []byte, level int) {
-	b.values[level] = append(b.values[level], value[:b.valueWidth]...)
-	b.valueCounts[level]++
-}
-
-func (b *builder) insertPrefix(prefix []byte, level int) {
-	setBit(b.hasPrefix[level], b.nodeCounts[level])
-	b.prefixes[level] = append(b.prefixes[level], prefix)
 }
 
 func (b *builder) Reset() {
-	b.valueWidth = 0
 	b.totalCount = 0
+	b.height = 0
 
-	// cache lsLabels
-	for idx := range b.lsLabels {
-		b.cachedLabel = append(b.cachedLabel, b.lsLabels[idx][:0])
+	// cache level
+	for idx := range b.levels {
+		level := b.levels[idx]
+		level.Reset()
+		b.cachedLevels = append(b.cachedLevels, level)
 	}
-	b.lsLabels = b.lsLabels[:0]
-
-	// cache lsHasChild
-	for idx := range b.lsHasChild {
-		b.cachedUint64s = append(b.cachedUint64s, b.lsHasChild[idx][:0])
-	}
-	b.lsHasChild = b.lsHasChild[:0]
-
-	// cache lsLoudsBits
-	for idx := range b.lsLoudsBits {
-		b.cachedUint64s = append(b.cachedUint64s, b.lsLoudsBits[idx][:0])
-	}
-	b.lsLoudsBits = b.lsLoudsBits[:0]
-
-	// reset values
-	b.values = b.values[:0]
-	b.valueCounts = b.valueCounts[:0]
-
-	// cache has prefix
-	for idx := range b.hasPrefix {
-		b.hasPrefix = append(b.hasPrefix, b.hasPrefix[idx][:0])
-	}
-	b.hasPrefix = b.hasPrefix[:0]
-
-	// cache has suffix
-	for idx := range b.hasSuffix {
-		b.hasSuffix = append(b.hasSuffix, b.hasSuffix[idx][:0])
-	}
-	b.hasSuffix = b.hasSuffix[:0]
-
-	// reset prefixes
-	b.hasPrefix = b.hasPrefix[:0]
-	b.prefixes = b.prefixes[:0]
-
-	// reset suffixes
-	b.hasSuffix = b.hasSuffix[:0]
-	b.suffixes = b.suffixes[:0]
-
-	// reset nodeCounts
-	b.nodeCounts = b.nodeCounts[:0]
-	b.isLastItemTerminator = b.isLastItemTerminator[:0]
+	b.levels = b.levels[:0]
 }
 
-func (b *builder) pickLabels() []byte {
-	if len(b.cachedLabel) == 0 {
-		return []byte{}
+func (b *builder) pickLevels() *Level {
+	if len(b.cachedLevels) == 0 {
+		return NewLevel()
 	}
-	tailIndex := len(b.cachedLabel) - 1
-	ptr := b.cachedLabel[tailIndex]
-	b.cachedLabel = b.cachedLabel[:tailIndex]
+	tailIndex := len(b.cachedLevels) - 1
+	ptr := b.cachedLevels[tailIndex]
+	b.cachedLevels = b.cachedLevels[:tailIndex]
 	return ptr
 }
 
-func (b *builder) pickUint64Slice() []uint64 {
-	if len(b.cachedUint64s) == 0 {
-		return []uint64{}
+func (b *builder) Write(w io.Writer) error {
+	var (
+		bs [4]byte
+	)
+	// write total keys
+	endian.PutUint32(bs[:], uint32(b.totalCount))
+	if _, err := w.Write(bs[:]); err != nil {
+		return err
 	}
-	tailIndex := len(b.cachedUint64s) - 1
-	ptr := b.cachedUint64s[tailIndex]
-	b.cachedUint64s = b.cachedUint64s[:tailIndex]
-	return ptr
+	// write height
+	endian.PutUint32(bs[:], uint32(b.height))
+	if _, err := w.Write(bs[:]); err != nil {
+		return err
+	}
+	// write labels
+	if err := b.labelVec.Write(w, b.levels); err != nil {
+		return err
+	}
+	// write has child
+	b.hasChildVec.init(rankSparseBlockSize, b.levels, HasChild)
+	if err := b.hasChildVec.Write(w); err != nil {
+		return err
+	}
+	// write louds
+	b.loudsVec.Init(b.levels, Louds)
+	if err := b.loudsVec.Write(w); err != nil {
+		return err
+	}
+	// write prefix
+	b.prefixVec.Init(b.levels, HasPrefix)
+	if err := b.prefixVec.Write(w); err != nil {
+		return err
+	}
+	// write suffix
+	b.suffixVec.Init(b.levels, HasSuffix)
+	if err := b.suffixVec.Write(w); err != nil {
+		return err
+	}
+
+	// write values
+	for level := range b.levels {
+		values := b.levels[level].values
+		if len(values) > 0 {
+			if _, err := w.Write(u32SliceToBytes(values)); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }

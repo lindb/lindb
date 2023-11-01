@@ -331,7 +331,7 @@ func (w *flusher) FlushSeries(seriesID uint32) error {
 
 func (w *flusher) flushLevel2SeriesBucket() error {
 	posOfLowKeyOffsets := int(w.kvWriter.Size()) - w.Level3.startAt
-	if !(posOfLowKeyOffsets > 0) {
+	if posOfLowKeyOffsets <= 0 {
 		return nil
 	}
 	// data in this series bucket has been flushed.
