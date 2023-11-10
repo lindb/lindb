@@ -22,10 +22,9 @@ import (
 	"fmt"
 	"io"
 
-	"go.uber.org/atomic"
-
 	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/state"
@@ -35,6 +34,7 @@ import (
 
 // NewStateMachineFn represents new state machine function.
 var NewStateMachineFn = NewStateMachine
+
 var log = logger.GetLogger("Discovery", "StateMachine")
 
 // StateMachineType represents state machine type.

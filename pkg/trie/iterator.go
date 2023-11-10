@@ -212,7 +212,7 @@ func (it *Iterator) Key() []byte {
 	return it.fullKeyBuf
 }
 
-func (it *Iterator) Value() []byte {
+func (it *Iterator) Value() uint32 {
 	valPos := it.tree.suffixPos(it.posInTrie[it.level])
 	return it.tree.values.Get(valPos)
 }
@@ -239,12 +239,12 @@ func (it *Iterator) moveToMostKey(left bool) {
 
 	if len(it.keyBuf) == 0 {
 		pos := labelPosFunc(0)
-		label := it.tree.labelVec.GetLabel(pos)
+		label := it.tree.labelVec.labels[pos]
 		it.append(label, pos, 0)
 	}
 
 	pos := it.posInTrie[it.level]
-	label := it.tree.labelVec.GetLabel(pos)
+	label := it.tree.labelVec.labels[pos]
 
 	if !it.tree.hasChildVec.IsSet(pos) {
 		if label == labelTerminator && !it.tree.isEndOfNode(pos) {
@@ -258,7 +258,7 @@ func (it *Iterator) moveToMostKey(left bool) {
 		it.level++
 		nodeID := it.tree.childNodeID(pos)
 		pos = labelPosFunc(nodeID)
-		label = it.tree.labelVec.GetLabel(pos)
+		label = it.tree.labelVec.labels[pos]
 
 		if !it.tree.hasChildVec.IsSet(pos) {
 			it.append(label, pos, nodeID)
@@ -273,12 +273,12 @@ func (it *Iterator) moveToMostKey(left bool) {
 }
 
 func (it *Iterator) setToFirstInRoot() {
-	it.append(it.tree.labelVec.GetLabel(0), 0, 0)
+	it.append(it.tree.labelVec.labels[0], 0, 0)
 }
 
 func (it *Iterator) setToLastInRoot() {
 	pos := it.tree.lastLabelPos(0)
-	it.append(it.tree.labelVec.GetLabel(pos), pos, 0)
+	it.append(it.tree.labelVec.labels[pos], pos, 0)
 }
 
 func (it *Iterator) append(label byte, pos, nodeID uint32) {
@@ -294,7 +294,7 @@ func (it *Iterator) append(label byte, pos, nodeID uint32) {
 }
 
 func (it *Iterator) setAt(level, pos uint32) {
-	it.keyBuf = append(it.keyBuf[:it.prefixLen[level]-1], it.tree.labelVec.GetLabel(pos))
+	it.keyBuf = append(it.keyBuf[:it.prefixLen[level]-1], it.tree.labelVec.labels[pos])
 	it.posInTrie[it.level] = pos
 }
 
@@ -338,6 +338,6 @@ func (itr *PrefixIterator) Key() []byte {
 	return itr.key
 }
 
-func (itr *PrefixIterator) Value() []byte {
+func (itr *PrefixIterator) Value() uint32 {
 	return itr.it.Value()
 }

@@ -1,3 +1,4 @@
+SHELL := /bin/bash
 .PHONY: help build test deps generate clean
 
 # use the latest git tag as release-version
@@ -43,11 +44,12 @@ docker-build: ## build docker image
 docker-push: ## push docker image
 	docker push lindata/lindb:$(GIT_TAG_NAME)
 
-GOMOCK_VERSION = "v1.5.0"
-
 gomock: ## go generate mock file.
-	go install "github.com/golang/mock/mockgen@$(GOMOCK_VERSION)"
-	go list ./... |grep -v '/gomock' | xargs go generate -v
+	if [[ ! -x $$(command -v mockgen) ]]; then \
+		go install go.uber.org/mock/mockgen@latest; \
+	fi;
+	find . -type f -name '*_mock.go' -exec rm -f {} +
+	go generate -x ./...
 
 header: ## check and add license header.
 	sh scripts/addlicense.sh
@@ -55,10 +57,13 @@ header: ## check and add license header.
 import: ## opt go imports format.
 	sh scripts/imports.sh
 
+format: ## go format 
+	go fmt ./...
+
 lint: ## run lint
 ifeq (, $(shell which golangci-lint))
 	# binary will be $(go env GOPATH)/bin/golangci-lint
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.51.2
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.55.2
 else
 	echo "Found golangci-lint"
 endif
@@ -122,3 +127,5 @@ clean-tmp: ## clean up tmp and test out files
 	rm -rf data
 
 clean: clean-mock clean-tmp clean-build clean-frontend-build ## Clean up useless files.
+
+

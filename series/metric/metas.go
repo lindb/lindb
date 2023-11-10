@@ -17,7 +17,9 @@
 
 package metric
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+)
 
 // ID represents metric id.
 type ID uint32

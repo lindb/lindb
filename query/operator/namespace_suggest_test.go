@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/query/context"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"

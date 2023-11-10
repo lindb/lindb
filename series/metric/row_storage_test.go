@@ -25,10 +25,9 @@ import (
 
 	xxhash "github.com/cespare/xxhash/v2"
 	flatbuffers "github.com/google/flatbuffers/go"
-	"github.com/stretchr/testify/assert"
-
 	"github.com/lindb/common/pkg/fasttime"
 	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/series/field"
 )

@@ -24,9 +24,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"go.etcd.io/etcd/server/v3/embed"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/common/pkg/fileutil"
 	"github.com/lindb/common/pkg/logger"

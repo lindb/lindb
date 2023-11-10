@@ -23,7 +23,6 @@ import (
 	"sync"
 
 	flatbuffers "github.com/google/flatbuffers/go"
-
 	commonseries "github.com/lindb/common/series"
 
 	"github.com/lindb/lindb/constants"

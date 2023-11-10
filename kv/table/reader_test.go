@@ -84,7 +84,7 @@ func TestStoreMMapReader_readBytes_Err(t *testing.T) {
 		intsAreSortedFunc = sort.IntsAreSorted
 		encoding.BitmapUnmarshal = bitmapUnmarshal
 		unmarshalFixedOffsetFunc = unmarshalFixedOffset
-		assert.NoError(t, os.RemoveAll(testKVPath))
+		_ = os.RemoveAll(testKVPath)
 	}()
 	builder, err := NewStoreBuilder(10, filepath.Join(testKVPath, "000010.sst"))
 	assert.NoError(t, err)

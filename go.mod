@@ -1,6 +1,6 @@
 module github.com/lindb/lindb
 
-go 1.18
+go 1.21
 
 require (
 	github.com/BurntSushi/toml v1.2.1
@@ -17,7 +17,6 @@ require (
 	github.com/go-http-utils/headers v0.0.0-20181008091004-fed159eddc2a
 	github.com/go-playground/validator/v10 v10.11.2
 	github.com/go-resty/resty/v2 v2.7.0
-	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.3
 	github.com/golang/snappy v0.0.4
 	github.com/google/flatbuffers v23.3.3+incompatible
@@ -42,6 +41,7 @@ require (
 	go.etcd.io/etcd/server/v3 v3.5.4
 	go.uber.org/atomic v1.9.0
 	go.uber.org/automaxprocs v1.5.1
+	go.uber.org/mock v0.3.0
 	go.uber.org/zap v1.21.0
 	golang.org/x/sys v0.5.0
 	google.golang.org/grpc v1.48.0
@@ -95,6 +95,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jonboulle/clockwork v0.2.2 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
+	github.com/klauspost/cpuid v1.3.1
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
@@ -147,7 +148,7 @@ require (
 	golang.org/x/net v0.7.0 // indirect
 	golang.org/x/text v0.7.0 // indirect
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
-	golang.org/x/tools v0.1.12 // indirect
+	golang.org/x/tools v0.2.0 // indirect
 	google.golang.org/genproto v0.0.0-20210602131652-f16073e35f0c // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

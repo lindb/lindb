@@ -23,12 +23,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
-	commonseries "github.com/lindb/common/series"
-
 	"github.com/lindb/common/pkg/fasttime"
 	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
+	commonseries "github.com/lindb/common/series"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"

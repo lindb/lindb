@@ -20,8 +20,8 @@ package version
 import (
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/timeutil"

@@ -23,8 +23,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 	"github.com/lindb/roaring"

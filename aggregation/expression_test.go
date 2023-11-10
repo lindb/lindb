@@ -20,10 +20,9 @@ package aggregation
 import (
 	"testing"
 
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-
 	commontimeutil "github.com/lindb/common/pkg/timeutil"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/pkg/timeutil"

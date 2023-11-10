@@ -23,12 +23,11 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/lindb/common/pkg/fasttime"
 	commontimeutil "github.com/lindb/common/pkg/timeutil"
 	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
 	commonseries "github.com/lindb/common/series"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/pkg/timeutil"
 )

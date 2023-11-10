@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	depspkg "github.com/lindb/lindb/app/root/deps"
 	"github.com/lindb/lindb/constants"

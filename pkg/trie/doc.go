@@ -19,6 +19,7 @@ package trie
 
 // This package is heavily reference to the golang implementation of SuRF
 // https://github.com/bobotu/myk/tree/master/surf
+// https://github.com/dgraph-io/badger/tree/828f39b09b6d33afd28e457f0f66280b8f1eb690/surf
 //
 // Only the sparse layer is supported in this package,
 // Because what we need is just the full key succinct trie without FPR

@@ -40,8 +40,8 @@ func BuildPhysicalPlan(database string, liveNodes []models.StatelessNode, numOfN
 	numOfLiveNodes := len(liveNodes)
 	if numOfLiveNodes > 0 {
 		// shuffle broker nodes
-		rand.Seed(time.Now().Unix())
-		rand.Shuffle(numOfLiveNodes, func(i, j int) {
+		random := rand.New(rand.NewSource(time.Now().UnixNano()))
+		random.Shuffle(numOfLiveNodes, func(i, j int) {
 			liveNodes[i], liveNodes[j] = liveNodes[j], liveNodes[i]
 		})
 		for i, node := range liveNodes {

@@ -24,10 +24,9 @@ import (
 	"strings"
 	"sync"
 
-	"go.uber.org/atomic"
-
 	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"

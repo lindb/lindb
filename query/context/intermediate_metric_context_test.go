@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	commonmodels "github.com/lindb/common/models"
 	commontimeutil "github.com/lindb/common/pkg/timeutil"

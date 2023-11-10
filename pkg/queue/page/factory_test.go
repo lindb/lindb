@@ -22,8 +22,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	commonfileutil "github.com/lindb/common/pkg/fileutil"
 	"github.com/lindb/common/pkg/logger"

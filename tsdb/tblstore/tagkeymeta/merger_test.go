@@ -21,13 +21,12 @@ import (
 	"io"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/kv"
-	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/strutil"
 )
 
@@ -55,7 +54,7 @@ func TestMerger_Merge_Success(t *testing.T) {
 	var ids []uint32
 	for itr.Valid() {
 		ips = append(ips, string(itr.Key()))
-		ids = append(ids, encoding.ByteSlice2Uint32(itr.Value()))
+		ids = append(ids, itr.Value())
 		itr.Next()
 	}
 	assert.Equal(t, []uint32{1, 2, 3, 4, 6, 7, 8, 9}, ids)

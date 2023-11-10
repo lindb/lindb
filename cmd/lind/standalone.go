@@ -20,10 +20,9 @@ package main
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
-
 	"github.com/lindb/common/pkg/fileutil"
 	"github.com/lindb/common/pkg/ltoml"
+	"github.com/spf13/cobra"
 
 	"github.com/lindb/lindb/app/standalone"
 	"github.com/lindb/lindb/config"

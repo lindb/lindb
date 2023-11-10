@@ -24,7 +24,6 @@ import (
 	"sync"
 
 	flatbuffers "github.com/google/flatbuffers/go"
-
 	"github.com/lindb/common/pkg/fasttime"
 	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"

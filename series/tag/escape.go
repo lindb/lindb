@@ -17,7 +17,9 @@
 
 package tag
 
-import "bytes"
+import (
+	"bytes"
+)
 
 type escapeSet struct {
 	k   [1]byte

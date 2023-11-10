@@ -26,11 +26,10 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/atomic"
-
 	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/ltoml"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"

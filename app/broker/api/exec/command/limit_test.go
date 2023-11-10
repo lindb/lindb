@@ -23,7 +23,7 @@ import (
 	"testing"
 
 	"github.com/BurntSushi/toml"
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/models"

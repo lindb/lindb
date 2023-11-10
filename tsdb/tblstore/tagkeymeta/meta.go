@@ -265,7 +265,7 @@ func (meta *tagKeyMeta) FindTagValueID(tagValue string) (tagValueIDs []uint32) {
 	}
 
 	if slice, ok := tree.Get(strutil.String2ByteSlice(tagValue)); ok {
-		return []uint32{encoding.ByteSlice2Uint32(slice)}
+		return []uint32{slice}
 	}
 	return nil
 }
@@ -299,7 +299,7 @@ func (meta *tagKeyMeta) FindTagValueIDsByLike(tagValue string) (tagValueIDs []ui
 			return nil
 		}
 		for itr.Valid() {
-			tagValueIDs = append(tagValueIDs, encoding.ByteSlice2Uint32(itr.Value()))
+			tagValueIDs = append(tagValueIDs, itr.Value())
 			itr.Next()
 		}
 	// only starts with *
@@ -311,7 +311,7 @@ func (meta *tagKeyMeta) FindTagValueIDsByLike(tagValue string) (tagValueIDs []ui
 		}
 		for itr.Valid() {
 			if bytes.HasSuffix(itr.Key(), suffix) {
-				tagValueIDs = append(tagValueIDs, encoding.ByteSlice2Uint32(itr.Value()))
+				tagValueIDs = append(tagValueIDs, itr.Value())
 			}
 			itr.Next()
 		}
@@ -324,7 +324,7 @@ func (meta *tagKeyMeta) FindTagValueIDsByLike(tagValue string) (tagValueIDs []ui
 		}
 		for itr.Valid() {
 			if bytes.Contains(itr.Key(), middle) {
-				tagValueIDs = append(tagValueIDs, encoding.ByteSlice2Uint32(itr.Value()))
+				tagValueIDs = append(tagValueIDs, itr.Value())
 			}
 			itr.Next()
 		}
@@ -347,7 +347,7 @@ func (meta *tagKeyMeta) FindTagValueIDsByRegex(tagValuePattern string) (tagValue
 	}
 	for itr.Valid() {
 		if rp.Match(itr.Key()) {
-			tagValueIDs = append(tagValueIDs, encoding.ByteSlice2Uint32(itr.Value()))
+			tagValueIDs = append(tagValueIDs, itr.Value())
 		}
 		itr.Next()
 	}
