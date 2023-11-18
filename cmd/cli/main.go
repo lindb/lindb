@@ -240,7 +240,7 @@ func main() {
 		prompt.OptionTitle("LinDB Client"),
 
 		prompt.OptionPrefixTextColor(prompt.DarkGreen),
-		prompt.OptionInputTextColor(prompt.DarkBlue),
+		prompt.OptionInputTextColor(prompt.White),
 
 		prompt.OptionSuggestionBGColor(prompt.LightGray),
 		prompt.OptionSuggestionTextColor(prompt.Black),
