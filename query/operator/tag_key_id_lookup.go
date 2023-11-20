@@ -17,7 +17,12 @@
 
 package operator
 
-import "github.com/lindb/lindb/query/context"
+import (
+	"fmt"
+
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/query/context"
+)
 
 // tagKeyIDLookup represents tag key id lookup operator.
 type tagKeyIDLookup struct {
@@ -34,11 +39,23 @@ func NewTagKeyIDLookup(ctx *context.LeafMetadataContext) Operator {
 // Execute finds tag key id by given namespace/metric/tag key.
 func (op *tagKeyIDLookup) Execute() error {
 	req := op.ctx.Request
-	tagKeyID, err := op.ctx.Database.Metadata().MetadataDatabase().GetTagKeyID(req.Namespace, req.MetricName, req.TagKey)
+	metricID, err := op.ctx.Database.MetaDB().GetMetricID(req.Namespace, req.MetricName)
 	if err != nil {
 		return err
 	}
-	op.ctx.TagKeyID = tagKeyID
+	schema, err := op.ctx.Database.MetaDB().GetSchema(metricID)
+	if err != nil {
+		return err
+	}
+	if schema == nil {
+		return fmt.Errorf("%w, metric: %s", constants.ErrMetricIDNotFound, req.MetricName)
+	}
+	op.ctx.StorageExecuteCtx.Schema = schema
+	tagMeta, ok := schema.TagKeys.Find(req.TagKey)
+	if !ok {
+		return fmt.Errorf("%w, tag key: %s", constants.ErrTagKeyIDNotFound, req.TagKey)
+	}
+	op.ctx.TagKeyID = tagMeta.ID
 	return nil
 }
 

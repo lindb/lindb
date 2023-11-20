@@ -18,7 +18,6 @@
 package tsdb
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"sort"
@@ -28,21 +27,14 @@ import (
 
 	"go.uber.org/atomic"
 
-	commonconstants "github.com/lindb/common/constants"
 	"github.com/lindb/common/pkg/logger"
 
-	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/series"
-	"github.com/lindb/lindb/series/field"
-	"github.com/lindb/lindb/series/metric"
-	"github.com/lindb/lindb/tsdb/indexdb"
 	"github.com/lindb/lindb/tsdb/memdb"
-	"github.com/lindb/lindb/tsdb/metadb"
-	"github.com/lindb/lindb/tsdb/tblstore/tagindex"
 )
 
 //go:generate mockgen -source=./shard.go -destination=./shard_mock.go -package=tsdb
@@ -61,12 +53,10 @@ type Shard interface {
 	GetOrCrateDataFamily(familyTime int64) (DataFamily, error)
 	// GetDataFamilies returns data family list by interval type and time range, return nil if not match
 	GetDataFamilies(intervalType timeutil.IntervalType, timeRange timeutil.TimeRange) []DataFamily
-	// IndexDatabase returns the index-database
-	IndexDatabase() indexdb.IndexDatabase
+	// IndexDB returns the metric index database, include inverted/forward index.
+	IndexDB() index.MetricIndexDatabase
 	// BufferManager returns write temp memory manager.
 	BufferManager() memdb.BufferManager
-	// LookupRowMetricMeta lookups the metadata of metric data for each row with same family in batch.
-	LookupRowMetricMeta(rows []metric.StorageRow) error
 	// FlushIndex flushes index data to disk.
 	FlushIndex() error
 	// WaitFlushIndexCompleted waits flush index job completed.
@@ -91,8 +81,6 @@ type shard struct {
 	option    *option.DatabaseOption
 
 	bufferMgr memdb.BufferManager
-	indexDB   indexdb.IndexDatabase
-	metadata  metadb.Metadata
 	// write accept time range
 	interval timeutil.Interval
 	// segments keeps all rollup target interval segments,
@@ -102,14 +90,13 @@ type shard struct {
 	isFlushing     atomic.Bool     // restrict flusher concurrency
 	flushCondition *sync.Cond      // flush condition
 
-	limits         *models.Limits // NOTE: limits only update in write goroutine
-	limitsChanged  atomic.Bool
-	indexStore     kv.Store  // kv stores
-	forwardFamily  kv.Family // forward store
-	invertedFamily kv.Family // inverted store
-	logger         logger.Logger
+	limits        *models.Limits // NOTE: limits only update in write goroutine
+	limitsChanged atomic.Bool
+	logger        logger.Logger
 
 	statistics *metrics.ShardStatistics
+
+	indexDB index.MetricIndexDatabase
 }
 
 // newShard creates shard instance, if shard path exist then load shard data for init.
@@ -129,7 +116,6 @@ func newShard(
 		indicator:      shardIndicator(db.Name(), shardID),
 		id:             shardID,
 		option:         dbOption,
-		metadata:       db.Metadata(),
 		bufferMgr:      memdb.NewBufferManager(shardTempBufferPath(db.Name(), shardID)),
 		rollupTargets:  make(map[timeutil.Interval]IntervalSegment),
 		isFlushing:     *atomic.NewBool(false),
@@ -171,6 +157,7 @@ func newShard(
 				logger.Any("shardID", createdShard.id), logger.Error(err0))
 		}
 	}()
+
 	if err = createdShard.initIndexDatabase(); err != nil {
 		return nil, fmt.Errorf("create index database for shard[%d] error: %s", shardID, err)
 	}
@@ -196,11 +183,14 @@ func (s *shard) notifyLimitsChange() {
 // CurrentInterval returns current interval for metric  write.
 func (s *shard) CurrentInterval() timeutil.Interval { return s.interval }
 
-func (s *shard) IndexDatabase() indexdb.IndexDatabase { return s.indexDB }
-
 // BufferManager returns write temp memory manager.
 func (s *shard) BufferManager() memdb.BufferManager {
 	return s.bufferMgr
+}
+
+// IndexDB returns the metric index database, include inverted/forward index.
+func (s *shard) IndexDB() index.MetricIndexDatabase {
+	return s.indexDB
 }
 
 func (s *shard) GetOrCrateDataFamily(familyTime int64) (DataFamily, error) {
@@ -239,124 +229,6 @@ func (s *shard) GetDataFamilies(intervalType timeutil.IntervalType, timeRange ti
 	return nil
 }
 
-func (s *shard) lookupRowMeta(row *metric.StorageRow) (err error) {
-	limits := s.limits
-
-	if s.limitsChanged.Load() {
-		// get new limits from database
-		// NOTE: modify limits in write goroutine
-		s.limits = s.db.GetLimits()
-		limits = s.limits
-		s.limitsChanged.Store(false)
-	}
-
-	namespace := commonconstants.DefaultNamespace
-	metricName := string(row.Name())
-
-	if len(row.NameSpace()) > 0 {
-		// TODO: add auto create ns check
-		namespace = string(row.NameSpace())
-	}
-
-	row.MetricID, err = s.metadata.MetadataDatabase().GenMetricID(namespace, metricName, limits)
-	if err != nil {
-		return err
-	}
-	var isCreated bool
-	if row.TagsLen() == 0 {
-		// if metric without tags, uses default series id(0)
-		row.SeriesID = series.IDWithoutTags
-	} else {
-		row.SeriesID, isCreated, err = s.indexDB.GetOrCreateSeriesID(namespace, metricName, row.MetricID, row.TagsHash(), limits)
-		if err != nil {
-			return err
-		}
-	}
-	if isCreated {
-		// if series id is new, need build inverted index
-		s.indexDB.BuildInvertIndex(
-			namespace,
-			metricName,
-			row.NewKeyValueIterator(),
-			row.SeriesID,
-			limits,
-		)
-	}
-	// set field id
-	simpleFieldItr := row.NewSimpleFieldIterator()
-	var fieldID field.ID
-	for simpleFieldItr.HasNext() {
-		if fieldID, err = s.metadata.MetadataDatabase().GenFieldID(
-			namespace, metricName,
-			simpleFieldItr.NextName(),
-			simpleFieldItr.NextType(), limits); err != nil {
-			// TODO: only ignore invalid field?
-			return err
-		}
-		row.FieldIDs = append(row.FieldIDs, fieldID)
-	}
-
-	compoundFieldItr, ok := row.NewCompoundFieldIterator()
-	if !ok {
-		goto Done
-	}
-	// min
-	if compoundFieldItr.Min() > 0 {
-		if fieldID, err = s.metadata.MetadataDatabase().GenFieldID(
-			namespace, metricName, compoundFieldItr.HistogramMinFieldName(), field.MinField, limits); err != nil {
-			return err
-		}
-		row.FieldIDs = append(row.FieldIDs, fieldID)
-	}
-	// max
-	if compoundFieldItr.Max() > 0 {
-		if fieldID, err = s.metadata.MetadataDatabase().GenFieldID(
-			namespace, metricName, compoundFieldItr.HistogramMaxFieldName(), field.MaxField, limits); err != nil {
-			return err
-		}
-		row.FieldIDs = append(row.FieldIDs, fieldID)
-	}
-	// sum
-	if fieldID, err = s.metadata.MetadataDatabase().GenFieldID(
-		namespace, metricName, compoundFieldItr.HistogramSumFieldName(), field.SumField, limits); err != nil {
-		return err
-	}
-	row.FieldIDs = append(row.FieldIDs, fieldID)
-	// count
-	if fieldID, err = s.metadata.MetadataDatabase().GenFieldID(
-		namespace, metricName, compoundFieldItr.HistogramCountFieldName(), field.SumField, limits); err != nil {
-		return err
-	}
-	row.FieldIDs = append(row.FieldIDs, fieldID)
-	// explicit bounds
-	for compoundFieldItr.HasNextBucket() {
-		if fieldID, err = s.metadata.MetadataDatabase().GenFieldID(
-			namespace, metricName,
-			compoundFieldItr.BucketName(), field.HistogramField, limits); err != nil {
-			return err
-		}
-		row.FieldIDs = append(row.FieldIDs, fieldID)
-	}
-
-Done:
-	row.Writable = true
-	return nil
-}
-
-// LookupRowMetricMeta lookups the metadata of metric data for each row with same family in batch.
-func (s *shard) LookupRowMetricMeta(rows []metric.StorageRow) error {
-	for idx := range rows {
-		if err := s.lookupRowMeta(&rows[idx]); err != nil {
-			s.statistics.LookupMetricMetaFailures.Incr()
-			s.logger.Error("failed to lookup meta of row",
-				logger.String("database", s.db.Name()),
-				logger.Any("shardID", s.id), logger.Error(err))
-			continue
-		}
-	}
-	return nil
-}
-
 func (s *shard) Close() error {
 	// finally, cleanup temp buffer.
 	defer s.bufferMgr.Cleanup()
@@ -364,15 +236,16 @@ func (s *shard) Close() error {
 	s.WaitFlushIndexCompleted()
 
 	if s.indexDB != nil {
+		// need flush index data
+		if err := s.flushIndex(); err != nil {
+			return err
+		}
+		// flush index db in database level
 		if err := s.indexDB.Close(); err != nil {
 			return err
 		}
 	}
-	if s.indexStore != nil {
-		if err := kv.GetStoreManager().CloseStore(s.indexStore.Name()); err != nil {
-			return err
-		}
-	}
+
 	// close segment/flush family data
 	s.segment.Close()
 	for _, rollupSegment := range s.rollupTargets {
@@ -398,7 +271,7 @@ func (s *shard) FlushIndex() (err error) {
 		s.statistics.IndexDBFlushDuration.UpdateSince(startTime)
 	}()
 	// index flush
-	if err = s.indexDB.Flush(); err != nil {
+	if err = s.flushIndex(); err != nil {
 		s.statistics.IndexDBFlushFailures.Incr()
 		s.logger.Error("failed to flush indexDB ",
 			logger.String("database", s.db.Name()),
@@ -411,6 +284,18 @@ func (s *shard) FlushIndex() (err error) {
 		logger.Any("shardID", s.id),
 	)
 
+	return nil
+}
+func (s *shard) flushIndex() error {
+	ch := make(chan error, 1)
+	s.indexDB.Notify(&index.FlushNotifier{
+		Callback: func(err error) {
+			ch <- err
+		},
+	})
+	if err := <-ch; err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -447,31 +332,7 @@ func (s *shard) EvictSegment() {
 // initIndexDatabase initializes the index database
 func (s *shard) initIndexDatabase() error {
 	var err error
-	s.indexStore, err = kv.GetStoreManager().CreateStore(shardIndexIndicator(s.db.Name(), s.id), kv.DefaultStoreOption())
-	if err != nil {
-		return err
-	}
-	s.forwardFamily, err = s.indexStore.CreateFamily(
-		forwardIndexDir,
-		kv.FamilyOption{
-			CompactThreshold: 0,
-			Merger:           string(tagindex.SeriesForwardMerger)})
-	if err != nil {
-		return err
-	}
-	s.invertedFamily, err = s.indexStore.CreateFamily(
-		invertedIndexDir,
-		kv.FamilyOption{
-			CompactThreshold: 0,
-			Merger:           string(tagindex.SeriesInvertedMerger)})
-	if err != nil {
-		return err
-	}
-	s.indexDB, err = newIndexDBFunc(
-		context.TODO(),
-		shardMetaPath(s.db.Name(), s.id),
-		s.metadata, s.forwardFamily,
-		s.invertedFamily)
+	s.indexDB, err = newIndexDBFunc(shardIndexPath(s.db.Name(), s.ShardID()), s.db.MetaDB())
 	if err != nil {
 		return err
 	}

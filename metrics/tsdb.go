@@ -95,8 +95,8 @@ func NewFamilyStatistics(database, shard string) *FamilyStatistics {
 			WithTagValues(database, shard),
 		WriteMetrics: shardScope.NewCounterVec("write_metrics", "db", "shard").
 			WithTagValues(database, shard),
-		WriteFields: shardScope.NewCounterVec("write_fields", "db", "shard").
-			WithTagValues(database, shard),
+		WriteFields: shardScope.NewCounterVec("write_fields", "db").
+			WithTagValues(database),
 		WriteMetricFailures: shardScope.NewCounterVec("write_metrics_failures", "db", "shard").
 			WithTagValues(database, shard),
 		MemDBTotalSize: shardScope.NewGaugeVec("memdb_total_size", "db", "shard").

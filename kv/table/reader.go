@@ -140,7 +140,7 @@ func (r *storeMMapReader) initialize() error {
 		return fmt.Errorf("unmarshal fixed-offsets decoder with error: %s", err)
 	}
 	// decode keys
-	if err := encoding.BitmapUnmarshal(r.keys, r.fullBlock[posOfKeys:]); err != nil {
+	if _, err := encoding.BitmapUnmarshal(r.keys, r.fullBlock[posOfKeys:]); err != nil {
 		return fmt.Errorf("unmarshal keys data from file[%s] error:%s", r.path, err)
 	}
 	// validate keys and offsets

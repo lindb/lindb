@@ -35,7 +35,7 @@ func NewMetricSuggest(ctx *context.LeafMetadataContext) Operator {
 func (op *metricSuggest) Execute() error {
 	req := op.ctx.Request
 	limit := op.ctx.Limit
-	rs, err := op.ctx.Database.Metadata().MetadataDatabase().SuggestMetrics(req.Namespace, req.Prefix, limit)
+	rs, err := op.ctx.Database.MetaDB().SuggestMetrics(req.Namespace, req.Prefix, limit)
 	if err != nil {
 		return err
 	}

@@ -29,10 +29,10 @@ import (
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/indexdb"
 )
 
 func TestMetricAllSeries_Execute(t *testing.T) {
@@ -40,8 +40,8 @@ func TestMetricAllSeries_Execute(t *testing.T) {
 	defer ctrl.Finish()
 
 	shard := tsdb.NewMockShard(ctrl)
-	indexDB := indexdb.NewMockIndexDatabase(ctrl)
-	shard.EXPECT().IndexDatabase().Return(indexDB).AnyTimes()
+	indexDB := index.NewMockMetricIndexDatabase(ctrl)
+	shard.EXPECT().IndexDB().Return(indexDB).AnyTimes()
 
 	ctx := &flow.ShardExecuteContext{
 		StorageExecuteCtx: &flow.StorageExecuteContext{
@@ -54,20 +54,20 @@ func TestMetricAllSeries_Execute(t *testing.T) {
 	}
 	t.Run("get series ids failure", func(t *testing.T) {
 		op := NewMetricAllSeries(ctx, shard)
-		indexDB.EXPECT().GetSeriesIDsForMetric(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+		indexDB.EXPECT().GetSeriesIDsForMetric(gomock.Any()).Return(nil, fmt.Errorf("err"))
 		assert.Error(t, op.Execute())
 	})
 	t.Run("series ids not found", func(t *testing.T) {
 		ctx.SeriesIDsAfterFiltering = roaring.New()
 		op := NewMetricAllSeries(ctx, shard)
-		indexDB.EXPECT().GetSeriesIDsForMetric(gomock.Any(), gomock.Any()).Return(nil, constants.ErrNotFound)
+		indexDB.EXPECT().GetSeriesIDsForMetric(gomock.Any()).Return(nil, constants.ErrNotFound)
 		assert.Error(t, op.Execute())
 		assert.Equal(t, roaring.New(), ctx.SeriesIDsAfterFiltering)
 	})
 	t.Run("found series ids", func(t *testing.T) {
 		ctx.SeriesIDsAfterFiltering = roaring.New()
 		op := NewMetricAllSeries(ctx, shard)
-		indexDB.EXPECT().GetSeriesIDsForMetric(gomock.Any(), gomock.Any()).Return(roaring.BitmapOf(3, 5), nil)
+		indexDB.EXPECT().GetSeriesIDsForMetric(gomock.Any()).Return(roaring.BitmapOf(3, 5), nil)
 		assert.NoError(t, op.Execute())
 		assert.Equal(t, roaring.BitmapOf(0, 3, 5), ctx.SeriesIDsAfterFiltering)
 	})
@@ -78,8 +78,8 @@ func TestMetricAllSeries_Stats(t *testing.T) {
 	defer ctrl.Finish()
 
 	shard := tsdb.NewMockShard(ctrl)
-	indexDB := indexdb.NewMockIndexDatabase(ctrl)
-	shard.EXPECT().IndexDatabase().Return(indexDB).AnyTimes()
+	indexDB := index.NewMockMetricIndexDatabase(ctrl)
+	shard.EXPECT().IndexDB().Return(indexDB).AnyTimes()
 
 	ctx := &flow.ShardExecuteContext{
 		StorageExecuteCtx: &flow.StorageExecuteContext{

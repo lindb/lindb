@@ -19,7 +19,26 @@ package trie
 
 import (
 	"io"
+	"sync"
 )
+
+var (
+	triePool = sync.Pool{
+		New: func() any {
+			return NewTrie()
+		},
+	}
+)
+
+func GetTrie() SuccinctTrie {
+	return triePool.Get().(SuccinctTrie)
+}
+
+func PutTrie(trie SuccinctTrie) {
+	if trie != nil {
+		triePool.Put(trie)
+	}
+}
 
 type trie struct {
 	totalKeys uint32
@@ -75,8 +94,8 @@ func (tree *trie) Get(key []byte) (value uint32, ok bool) {
 			return 0, false
 		}
 		if !tree.hasChildVec.IsSet(pos) {
-			valPos := tree.suffixPos(pos)
 			if ok = tree.suffixVec.CheckSuffix(key, depth, pos); ok {
+				valPos := tree.valuePos(pos)
 				value = tree.values.Get(valPos)
 				ok = true
 			}
@@ -96,7 +115,7 @@ func (tree *trie) Get(key []byte) (value uint32, ok bool) {
 
 	if tree.labelVec.GetLabel(pos) == labelTerminator && !tree.hasChildVec.IsSet(pos) {
 		if ok = tree.suffixVec.CheckSuffix(key, depth, pos); ok {
-			valPos := tree.suffixPos(pos)
+			valPos := tree.valuePos(pos)
 			value = tree.values.Get(valPos)
 		}
 		return value, ok
@@ -105,13 +124,12 @@ func (tree *trie) Get(key []byte) (value uint32, ok bool) {
 	return 0, false
 }
 
-func (tree *trie) MarshalSize() int64 {
-	return align(tree.rawMarshalSize()) + tree.values.MarshalSize()
+func (tree *trie) Size() int {
+	return int(tree.totalKeys)
 }
 
-func (tree *trie) rawMarshalSize() int64 {
-	return 4 + 4 + tree.labelVec.MarshalSize() + tree.hasChildVec.MarshalSize() + tree.loudsVec.MarshalSize() +
-		tree.suffixVec.MarshalSize() + tree.prefixVec.MarshalSize()
+func (tree *trie) Values() []uint32 {
+	return tree.values.values
 }
 
 func (tree *trie) UnmarshalBinary(buf []byte) (err error) {
@@ -157,7 +175,7 @@ func (tree *trie) NewPrefixIterator(prefix []byte) *PrefixIterator {
 	return &PrefixIterator{prefix: prefix, it: rawItr}
 }
 
-func (tree *trie) suffixPos(pos uint32) uint32 {
+func (tree *trie) valuePos(pos uint32) uint32 {
 	return pos - tree.hasChildVec.Rank(pos)
 }
 

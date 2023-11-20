@@ -71,14 +71,12 @@ type StorageExecuteContext struct {
 
 	// set value in plan stage when lookup table.
 	MetricID metric.ID
+	Schema   *metric.Schema // FIXME: need check empty
 
 	// set value in plan stage when lookup select fields.
 	Fields            field.Metas
 	DownSamplingSpecs aggregation.AggregatorSpecs
 	AggregatorSpecs   aggregation.AggregatorSpecs
-
-	// TagKeys cache all tag keys metadata for current query session
-	TagKeys map[string]tag.KeyID // for cache tag key
 
 	// result which after tag condition metadata filter
 	// set value in tag search, the where clause condition that user input

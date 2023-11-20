@@ -27,17 +27,17 @@ import (
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/metadb"
 )
 
 // metadataLookup represents metadata lookup operator.
 type metadataLookup struct {
 	database   tsdb.Database
-	metadata   metadb.MetadataDatabase
+	metaDB     index.MetricMetaDatabase
 	executeCtx *flow.StorageExecuteContext
 
 	fields map[field.ID]*aggregation.Aggregator
@@ -49,7 +49,7 @@ type metadataLookup struct {
 func NewMetadataLookup(executeCtx *flow.StorageExecuteContext, database tsdb.Database) Operator {
 	return &metadataLookup{
 		database:   database,
-		metadata:   database.Metadata().MetadataDatabase(),
+		metaDB:     database.MetaDB(),
 		executeCtx: executeCtx,
 		fields:     make(map[field.ID]*aggregation.Aggregator),
 	}
@@ -59,13 +59,22 @@ func NewMetadataLookup(executeCtx *flow.StorageExecuteContext, database tsdb.Dat
 func (op *metadataLookup) Execute() error {
 	// metric name => id, like table name
 	query := op.executeCtx.Query
-	metricID, err := op.metadata.GetMetricID(query.Namespace, query.MetricName)
+	metricID, err := op.metaDB.GetMetricID(query.Namespace, query.MetricName)
 	if err != nil {
 		return err
 	}
-
+	schema, err := op.metaDB.GetSchema(metricID)
+	if err != nil {
+		return err
+	}
+	if schema == nil {
+		return fmt.Errorf("%w, metric: %s", constants.ErrMetricIDNotFound, query.MetricName)
+	}
+	if len(schema.Fields) == 0 {
+		return constants.ErrFieldNotFound
+	}
+	op.executeCtx.Schema = schema
 	op.executeCtx.MetricID = metricID
-	op.executeCtx.TagKeys = make(map[string]tag.KeyID)
 
 	if err := op.groupBy(); err != nil {
 		return err
@@ -88,17 +97,13 @@ func (op *metadataLookup) groupBy() error {
 	op.executeCtx.GroupByTags = make(tag.Metas, lengthOfGroupByTagKeys)
 	op.executeCtx.GroupByTagKeyIDs = make([]tag.KeyID, lengthOfGroupByTagKeys)
 
-	queryStmt := op.executeCtx.Query
-	metadata := op.metadata
 	for idx, tagKey := range groupBy {
-		tagKeyID, err := metadata.GetTagKeyID(queryStmt.Namespace, queryStmt.MetricName, tagKey)
-		if err != nil {
-			return err
+		tagMeta, ok := op.executeCtx.Schema.TagKeys.Find(tagKey)
+		if !ok {
+			return fmt.Errorf("%w, tag key: %s", constants.ErrTagKeyIDNotFound, tagKey)
 		}
-		op.executeCtx.GroupByTags[idx] = tag.Meta{Key: tagKey, ID: tagKeyID}
-		op.executeCtx.GroupByTagKeyIDs[idx] = tagKeyID
-		// cache tag keys in context
-		op.executeCtx.TagKeys[tagKey] = tagKeyID
+		op.executeCtx.GroupByTags[idx] = tagMeta
+		op.executeCtx.GroupByTagKeyIDs[idx] = tagMeta.ID
 	}
 
 	// init grouping tag value collection, need cache found grouping tag value id
@@ -138,10 +143,7 @@ func (op *metadataLookup) buildField() {
 func (op *metadataLookup) selectList() error {
 	queryStmt := op.executeCtx.Query
 	if queryStmt.AllFields {
-		fields, err := op.metadata.GetAllFields(queryStmt.Namespace, queryStmt.MetricName)
-		if err != nil {
-			return err
-		}
+		fields := op.executeCtx.Schema.Fields
 		for _, fieldMeta := range fields {
 			op.planField(nil, fieldMeta)
 		}
@@ -183,10 +185,9 @@ func (op *metadataLookup) field(parentFunc *stmt.CallExpr, expr stmt.Expr) {
 		op.field(nil, e.Left)
 		op.field(nil, e.Right)
 	case *stmt.FieldExpr:
-		queryStmt := op.executeCtx.Query
-		fieldMeta, err := op.metadata.GetField(queryStmt.Namespace, queryStmt.MetricName, field.Name(e.Name))
-		if err != nil {
-			op.err = err
+		fieldMeta, ok := op.executeCtx.Schema.Fields.Find(field.Name(e.Name))
+		if !ok {
+			op.err = fmt.Errorf("%w, field: %s", constants.ErrFieldNotFound, e.Name)
 			return
 		}
 
@@ -240,12 +241,7 @@ func (op *metadataLookup) planHistogramFields(e *stmt.CallExpr) {
 		op.err = fmt.Errorf("quantile param: %f is illegal", v)
 		return
 	}
-	queryStmt := op.executeCtx.Query
-	fieldMetas, err := op.metadata.GetAllHistogramFields(queryStmt.Namespace, queryStmt.MetricName)
-	if err != nil {
-		op.err = err
-		return
-	}
+	fieldMetas := op.executeCtx.Schema.GetAllHistogramFields()
 	for _, fieldMeta := range fieldMetas {
 		aggregator, exist := op.fields[fieldMeta.ID]
 		if !exist {

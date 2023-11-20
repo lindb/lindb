@@ -20,33 +20,14 @@ package memdb
 import (
 	"sort"
 
-	"go.uber.org/atomic"
-
-	"github.com/lindb/roaring"
-
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/pkg/imap"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
 //go:generate mockgen -source ./metric_store.go -destination=./metric_store_mock.go -package memdb
-
-// for testing
-var (
-	flushFunc = flush
-)
-
-const (
-	emptyMStoreSize = 4 + // metricStore put-count
-		8 + // metric store roaring pointer
-		4 + // capacity size
-		12 // slot range pointer and struct
-	fieldMetaSize = 2 + // field id
-		1 + // field Type
-		8 + // field name, string internal pointer
-		4 // field name, string internal len size
-)
 
 // mStoreINTF abstracts a metricStore
 type mStoreINTF interface {
@@ -55,24 +36,33 @@ type mStoreINTF interface {
 	Capacity() int
 	// Filter filters the data based on fields/seriesIDs/family time,
 	// if data founded then returns the flow.FilterResultSet, else returns constants.ErrNotFound
-	Filter(shardExecuteContext *flow.ShardExecuteContext, db MemoryDatabase) ([]flow.FilterResultSet, error)
+	Filter(shardExecuteContext *flow.ShardExecuteContext, db *memoryDatabase) ([]flow.FilterResultSet, error)
 	// SetSlot sets the current write slot
 	SetSlot(slot uint16)
 	// GetSlotRange returns slot range.
 	GetSlotRange() *timeutil.SlotRange
-	// AddField adds field meta into metric level
-	AddField(fieldID field.ID, fieldType field.Type)
-	// GetOrCreateTStore constructs the index and return a tStore
-	GetOrCreateTStore(seriesID uint32) (tStore tStoreINTF, created bool)
+	// GenField generates field meta under memory database.
+	GenField(fieldName field.Name, fieldType field.Type) (f field.Meta, created bool)
+	// UpdateFieldMeta updates field meta after metric meta updated.
+	UpdateFieldMeta(fieldID field.ID, fm field.Meta)
+	// FindFields returns fields from store based on current written fields.
+	FindFields(fields field.Metas) (found field.Metas)
+	// GenTStore generates memory level time series id under memory database.
+	GenTStore(tagHash uint64, create func() uint32) uint32
+	// IndexTStore adds memorty store series id -> global series id mapping.
+	IndexTStore(seriesID, seriesIdx uint32)
 	// FlushMetricsDataTo flushes metric-block of mStore to the Writer.
-	FlushMetricsDataTo(tableFlusher metricsdata.Flusher, flushCtx *flushContext) (err error)
+	FlushMetricsDataTo(
+		tableFlusher metricsdata.Flusher,
+		flushCtx *flushContext,
+		flushFields func(memSeriesID uint32, fields field.Metas) error,
+	) (err error)
 }
 
 // metricStore represents metric level storage, stores all series data, and fields/family times metadata
 type metricStore struct {
-	capacity atomic.Int32 // memory usage
-
-	MetricStore
+	hashes map[uint64]uint32 // tag hash -> memory time series id
+	ids    *imap.IntMap[uint32]
 
 	slotRange *timeutil.SlotRange
 	fields    field.Metas // field metadata
@@ -81,13 +71,13 @@ type metricStore struct {
 // newMetricStore returns a new mStoreINTF.
 func newMetricStore() mStoreINTF {
 	var ms metricStore
-	ms.keys = roaring.New() // init keys
-	ms.capacity.Store(int32(emptyMStoreSize + cap(ms.fields)*fieldMetaSize))
+	ms.hashes = make(map[uint64]uint32)
+	ms.ids = imap.NewIntMap[uint32]()
 	return &ms
 }
 
 func (ms *metricStore) Capacity() int {
-	return int(ms.capacity.Load())
+	return 0
 }
 
 // SetSlot sets the current write timestamp
@@ -105,69 +95,89 @@ func (ms *metricStore) GetSlotRange() *timeutil.SlotRange {
 	return ms.slotRange
 }
 
-// AddField adds field meta into metric level
-func (ms *metricStore) AddField(fieldID field.ID, fieldType field.Type) {
-	if _, ok := ms.fields.GetFromID(fieldID); !ok {
-		fieldsCap := cap(ms.fields)
-		ms.fields = ms.fields.Insert(field.Meta{
-			ID:   fieldID,
-			Type: fieldType,
-		})
-		ms.capacity.Add(int32((cap(ms.fields) - fieldsCap) * fieldMetaSize))
-		if len(ms.fields) <= 1 {
-			return
-		}
-		// sort by field id
-		sort.Slice(ms.fields, func(i, j int) bool { return ms.fields[i].ID < ms.fields[j].ID })
-	}
-}
-
-func (ms *metricStore) mStoreSize() int {
-	var size int
-	size += cap(ms.MetricStore.values)*24 + 24
-	for idx := range ms.MetricStore.values {
-		size += cap(ms.MetricStore.values[idx])*8 + 24
-	}
-	return size
-}
-
-// GetOrCreateTStore constructs the index and return a tStore
-func (ms *metricStore) GetOrCreateTStore(seriesID uint32) (tStore tStoreINTF, created bool) {
-	tStore, ok := ms.Get(seriesID)
+// GenField generates field meta under memory database.
+func (ms *metricStore) GenField(name field.Name, fType field.Type) (f field.Meta, created bool) {
+	fm, ok := ms.fields.GetFromName(name)
 	if !ok {
-		tStore = newTimeSeriesStore()
-		beforeMStoreSize := ms.mStoreSize()
-		ms.Put(seriesID, tStore)
-		ms.capacity.Add(int32(ms.mStoreSize() - beforeMStoreSize))
-		created = true
+		index := uint8(len(ms.fields))
+		fm = field.Meta{
+			Type:  fType,
+			Name:  name,
+			Index: index,
+		}
+		ms.fields = append(ms.fields, fm)
+		// sort by field name
+		sort.Slice(ms.fields, func(i, j int) bool { return ms.fields[i].Name < ms.fields[j].Name })
+		return fm, true
 	}
-	return tStore, created
+	return fm, false
+}
+
+// UpdateFieldMeta updates field meta after metric meta updated.
+func (ms *metricStore) UpdateFieldMeta(fieldID field.ID, fm field.Meta) {
+	idx, ok := ms.fields.FindIndexByName(fm.Name)
+	if ok {
+		ms.fields[idx].ID = fieldID
+		ms.fields[idx].Persisted = true
+	}
+}
+
+// GenTStore generates memory level time series id under memory database.
+func (ms *metricStore) GenTStore(tagHash uint64, create func() uint32) uint32 {
+	ts, ok := ms.hashes[tagHash]
+	if !ok {
+		ts = create()
+		ms.hashes[tagHash] = ts
+	}
+	return ts
+}
+
+// FindFields returns fields from store based on current written fields.
+func (ms *metricStore) FindFields(fields field.Metas) (found field.Metas) {
+	for _, f := range fields {
+		fm, ok := ms.fields.Find(f.Name)
+		if ok {
+			found = append(found, fm)
+		}
+	}
+	return
+}
+
+// IndexTStore adds memorty store series id -> global series id mapping.
+func (ms *metricStore) IndexTStore(seriesID, seriesIdx uint32) {
+	ms.ids.Put(seriesID, seriesIdx)
 }
 
 // FlushMetricsDataTo Writes metric-data to the table.
-func (ms *metricStore) FlushMetricsDataTo(flusher metricsdata.Flusher, flushCtx *flushContext) (err error) {
+func (ms *metricStore) FlushMetricsDataTo(
+	flusher metricsdata.Flusher,
+	flushCtx *flushContext,
+	flushFields func(memSeriesID uint32, fields field.Metas) error,
+) (err error) {
 	slotRange := ms.slotRange
+	var fields field.Metas
+	for idx := range ms.fields {
+		f := ms.fields[idx]
+		if f.Persisted {
+			fields = append(fields, f)
+		}
+	}
 	// field not exist, return
-	fieldLen := len(ms.fields)
+	fieldLen := len(fields)
 	if fieldLen == 0 {
 		return
 	}
 	// prepare for flushing metric
-	flusher.PrepareMetric(flushCtx.metricID, ms.fields)
+	flusher.PrepareMetric(flushCtx.metricID, fields)
 	// set current family's slot range
 	flushCtx.Start, flushCtx.End = slotRange.GetRange()
-	if err := ms.WalkEntry(func(key uint32, value tStoreINTF) error {
-		return flushFunc(flusher, flushCtx, key, value)
+	if err := ms.ids.WalkEntry(func(seriesID, memSeriesID uint32) error {
+		if err := flushFields(memSeriesID, fields); err != nil {
+			return err
+		}
+		return flusher.FlushSeries(seriesID)
 	}); err != nil {
 		return err
 	}
 	return flusher.CommitMetric(flushCtx.SlotRange)
-}
-
-// flush series data
-func flush(flusher metricsdata.Flusher, flushCtx *flushContext, key uint32, tStore tStoreINTF) error {
-	if err := tStore.FlushFieldsTo(flusher, flushCtx); err != nil {
-		return err
-	}
-	return flusher.FlushSeries(key)
 }

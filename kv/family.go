@@ -119,7 +119,7 @@ func newFamily(store Store, option FamilyOption) (Family, error) {
 	}
 	merger, ok := mergers[MergerType(option.Merger)]
 	if !ok {
-		return nil, fmt.Errorf("merger of option not impelement Merger interface, merger is [%s]", option.Merger)
+		return nil, fmt.Errorf("merger of option not impelement Merger interface, merger is [%s], family [%s]", option.Merger, familyPath)
 	}
 	maxFileSize := defaultMaxFileSize
 	if option.MaxFileSize > 0 {

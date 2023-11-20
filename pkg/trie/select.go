@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"io"
 	"math/bits"
+
+	"github.com/lindb/lindb/pkg/encoding"
 )
 
 const selectSampleInterval = 64
@@ -92,12 +94,8 @@ func (v *selectVector) Select(rank uint32) uint32 {
 	return wordOff*wordSize + uint32(select64(w, int64(rankLeft)))
 }
 
-func (v *selectVector) MarshalSize() int64 {
-	return align(v.rawMarshalSize())
-}
-
-func (v *selectVector) rawMarshalSize() int64 {
-	return 4 + 4 + int64(v.bitsSize()) + int64(v.lutSize())
+func (v *selectVector) MarshalSize() int {
+	return 4 + 4 + int(v.bitsSize()+v.lutSize())
 }
 
 func (v *selectVector) Write(w io.Writer) error {
@@ -111,7 +109,7 @@ func (v *selectVector) Write(w io.Writer) error {
 		return err
 	}
 	lutBlk := v.numOnes/selectSampleInterval + 1
-	_, err = w.Write(u32SliceToBytes(v.selectLut[:lutBlk]))
+	_, err = w.Write(encoding.U32SliceToBytes(v.selectLut[:lutBlk]))
 	if err != nil {
 		return err
 	}
@@ -133,7 +131,7 @@ func (v *selectVector) Unmarshal(buf []byte) ([]byte, error) { //nolint:dupl
 	if len(buf) < lutSize {
 		return nil, fmt.Errorf("cannot read lut: %d from selectVector:%d", lutSize, len(buf))
 	}
-	v.selectLut = bytesToU32Slice(buf[:lutSize])
+	v.selectLut = encoding.BytesToU32Slice(buf[:lutSize])
 	buf = buf[lutSize:]
 	return buf, nil
 }

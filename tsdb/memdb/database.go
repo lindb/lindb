@@ -18,7 +18,9 @@
 package memdb
 
 import (
+	"bytes"
 	"io"
+	"math"
 	"sync"
 	"time"
 
@@ -28,10 +30,13 @@ import (
 	"github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/metrics"
+	"github.com/lindb/lindb/pkg/imap"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
@@ -75,9 +80,11 @@ type MemoryDatabase interface {
 
 // MemoryDatabaseCfg represents the memory database config
 type MemoryDatabaseCfg struct {
-	FamilyTime int64
-	Name       string
-	BufferMgr  BufferManager
+	FamilyTime    int64
+	Name          string
+	BufferMgr     BufferManager
+	MetaNotifier  func(notifier index.Notifier)
+	IndexNotifier func(notifier index.Notifier)
 }
 
 // flushContext holds the context for flushing
@@ -90,39 +97,51 @@ type flushContext struct {
 
 // memoryDatabase implements MemoryDatabase.
 type memoryDatabase struct {
+	cfg         *MemoryDatabaseCfg
 	allocSize   atomic.Int64 // allocated size
 	numOfSeries atomic.Int32 // num of series
 
 	familyTime int64
 	name       string
 
-	mStores *MetricBucketStore // metric id => mStoreINTF
-	buf     DataPointBuffer
+	metricStore      map[uint64]int    // ns+metirc name hash -> metric store index
+	metricIndexStore *imap.IntMap[int] // metric id => metric store index
+	stores           []mStoreINTF      // all metric stores
+
+	timeSeriesStores []tStoreINTF   // time series id(memory unique) => field store
+	sequence         *atomic.Uint32 // time series id generate sequence
+
+	buf DataPointBuffer
 
 	writeCondition sync.WaitGroup
-	rwMutex        sync.RWMutex // lock of create metric store
+	lock           sync.RWMutex // lock of create metric store
 
-	readonly atomic.Bool
-
+	readonly    atomic.Bool
 	createdTime int64
-
-	statistics *metrics.MemDBStatistics
+	statistics  *metrics.MemDBStatistics
 }
 
 // NewMemoryDatabase returns a new MemoryDatabase.
-func NewMemoryDatabase(cfg MemoryDatabaseCfg) (MemoryDatabase, error) {
+func NewMemoryDatabase(cfg *MemoryDatabaseCfg) (MemoryDatabase, error) {
 	buf, err := cfg.BufferMgr.AllocBuffer(cfg.FamilyTime)
 	if err != nil {
 		return nil, err
 	}
 	db := &memoryDatabase{
-		familyTime:  cfg.FamilyTime,
-		name:        cfg.Name,
-		buf:         buf,
-		mStores:     NewMetricBucketStore(),
-		allocSize:   *atomic.NewInt64(0),
-		createdTime: fasttime.UnixNano(),
-		statistics:  metrics.NewMemDBStatistics(cfg.Name),
+		cfg:              cfg,
+		familyTime:       cfg.FamilyTime,
+		name:             cfg.Name,
+		buf:              buf,
+		metricStore:      make(map[uint64]int),
+		metricIndexStore: imap.NewIntMap[int](),
+		timeSeriesStores: make([]tStoreINTF, math.MaxUint8), // pre-alloc all field's bucket
+		sequence:         atomic.NewUint32(0),
+		allocSize:        *atomic.NewInt64(0),
+		createdTime:      fasttime.UnixNano(),
+		statistics:       metrics.NewMemDBStatistics(cfg.Name),
+	}
+	for i := 0; i < math.MaxUint8; i++ {
+		db.timeSeriesStores[i] = newTimeSeriesStore()
 	}
 	return db, nil
 }
@@ -139,31 +158,22 @@ func (md *memoryDatabase) IsReadOnly() bool {
 
 func (md *memoryDatabase) FamilyTime() int64 { return md.familyTime }
 
-func (md *memoryDatabase) metricBucketSize() int {
-	var size int
-	size += cap(md.mStores.values)*24 + 24
-	for idx := range md.mStores.values {
-		size += cap(md.mStores.values[idx])*8 + 24
+// getOrCreateMetricStore returns metric store, if not exist creates a new store.
+func (md *memoryDatabase) getOrCreateMetricStore(row *metric.StorageRow) (mStore mStoreINTF, metricIdx int, created bool) {
+	md.lock.Lock()
+	defer md.lock.Unlock()
+	hash := row.NameHash()
+	metricIdx, ok := md.metricStore[hash]
+	if ok {
+		mStore = md.stores[metricIdx]
+		return mStore, metricIdx, false
 	}
-	return size
-}
-
-// getOrCreateMStore returns the mStore by metricHash.
-func (md *memoryDatabase) getOrCreateMStore(metricID metric.ID) (mStore mStoreINTF) {
-	metricKey := uint32(metricID)
-
-	if mStore0, ok := md.mStores.Get(metricKey); ok {
-		// found metric store in current memory database
-		return mStore0
-	}
+	created = true
+	metricIdx = len(md.stores)
 	// not found need create new metric store
-	beforeMetricBucketSize := md.metricBucketSize()
 	mStore = newMetricStore()
-	// add metric-store size
-	md.allocSize.Add(int64(mStore.Capacity()))
-	// add metric-bucket increased
-	md.mStores.Put(metricKey, mStore)
-	md.allocSize.Add(int64(md.metricBucketSize() - beforeMetricBucketSize))
+	md.metricStore[hash] = metricIdx
+	md.stores = append(md.stores, mStore)
 	return
 }
 
@@ -178,25 +188,74 @@ func (md *memoryDatabase) CompleteWrite() {
 }
 
 func (md *memoryDatabase) WithLock() (release func()) {
-	md.rwMutex.Lock()
-	return md.rwMutex.Unlock
+	md.lock.Lock()
+	return md.lock.Unlock
 }
 
 func (md *memoryDatabase) WriteRow(row *metric.StorageRow) error {
-	mStore := md.getOrCreateMStore(row.MetricID)
-	var size int
-	defer md.allocSize.Add(int64(size))
-
-	beforeMStoreCapacity := mStore.Capacity()
-	tStore, created := mStore.GetOrCreateTStore(row.SeriesID)
+	mStore, metricIdx, created := md.getOrCreateMetricStore(row)
 	if created {
-		size += tStore.Capacity()
-		size += mStore.Capacity() - beforeMStoreCapacity
+		// notify metric metadata update, without lock
+		notifier := index.GetMetaNotifier()
+		notifier.Namespace = row.NamespaceStr()
+		notifier.MetricName = string(row.Name())
+		notifier.Callback = func(metricID uint32, err error) {
+			if err != nil {
+				memDBLogger.Error("generate metric id failure", logger.String("metric", string(row.Name())), logger.Error(err))
+				return
+			}
+			// build index goroutine callback, with lock
+			md.lock.Lock()
+			md.metricIndexStore.Put(metricID, metricIdx)
+			md.lock.Unlock()
+		}
+		md.cfg.MetaNotifier(notifier)
 	}
+
+	var size int
+	defer func() {
+		md.allocSize.Add(int64(size))
+	}()
+
+	var timeSeriesID uint32 // unique id under memory database
+	var newSeries bool
+
+	md.lock.Lock()
+	timeSeriesID = mStore.GenTStore(row.TagsHash(), func() uint32 {
+		newSeries = true
+		seriesIdx := md.sequence.Inc()
+		return seriesIdx
+	})
+	md.lock.Unlock()
+
+	if newSeries {
+		// notify time series update
+		notifier := index.GetMetaNotifier()
+		notifier.Namespace = row.NamespaceStr()
+		notifier.MetricName = string(row.Name())
+		notifier.TagHash = row.TagsHash()
+		if row.TagsLen() > 0 {
+			it := row.NewKeyValueIterator()
+			for it.HasNext() {
+				notifier.Tags = append(notifier.Tags, tag.NewTag(bytes.Clone(it.NextKey()), bytes.Clone(it.NextValue())))
+			}
+		}
+		// FIXME: size
+		notifier.Callback = func(seriesID uint32, err error) {
+			if err != nil {
+				memDBLogger.Error("generate time series id failure", logger.String("metric", string(row.Name())), logger.Error(err))
+				return
+			}
+			md.lock.Lock()
+			mStore.IndexTStore(seriesID, timeSeriesID)
+			md.lock.Unlock()
+		}
+		md.cfg.IndexNotifier(notifier)
+	}
+
 	written := false
-	var fieldIDIdx = 0
 	afterWrite := func(writtenLinFieldSize int) {
-		fieldIDIdx++
+		row.Fields++
 		size += writtenLinFieldSize
 		written = true
 	}
@@ -204,11 +263,11 @@ func (md *memoryDatabase) WriteRow(row *metric.StorageRow) error {
 	simpleFieldItr := row.NewSimpleFieldIterator()
 	for simpleFieldItr.HasNext() {
 		writtenLinFieldSize, err := md.writeLinField(
-			row.SlotIndex,
-			row.FieldIDs[fieldIDIdx],
+			row,
+			simpleFieldItr.NextName(),
 			simpleFieldItr.NextType(),
 			simpleFieldItr.NextValue(),
-			mStore, tStore,
+			mStore, timeSeriesID,
 		)
 		if err != nil {
 			return err
@@ -228,9 +287,9 @@ func (md *memoryDatabase) WriteRow(row *metric.StorageRow) error {
 	// write histogram_min
 	if compoundFieldItr.Min() > 0 {
 		writtenLinFieldSize, err = md.writeLinField(
-			row.SlotIndex, row.FieldIDs[fieldIDIdx],
+			row, compoundFieldItr.HistogramMinFieldName(),
 			field.MinField, compoundFieldItr.Min(),
-			mStore, tStore)
+			mStore, timeSeriesID)
 		if err != nil {
 			return err
 		}
@@ -239,9 +298,9 @@ func (md *memoryDatabase) WriteRow(row *metric.StorageRow) error {
 	// write histogram_max
 	if compoundFieldItr.Max() > 0 {
 		writtenLinFieldSize, err = md.writeLinField(
-			row.SlotIndex, row.FieldIDs[fieldIDIdx],
+			row, compoundFieldItr.HistogramMaxFieldName(),
 			field.MaxField, compoundFieldItr.Max(),
-			mStore, tStore)
+			mStore, timeSeriesID)
 		if err != nil {
 			return err
 		}
@@ -249,19 +308,18 @@ func (md *memoryDatabase) WriteRow(row *metric.StorageRow) error {
 	}
 	// write histogram_sum
 	writtenLinFieldSize, err = md.writeLinField(
-		row.SlotIndex, row.FieldIDs[fieldIDIdx],
+		row, compoundFieldItr.HistogramSumFieldName(),
 		field.SumField, compoundFieldItr.Sum(),
-		mStore, tStore)
+		mStore, timeSeriesID)
 	if err != nil {
 		return err
 	}
 	afterWrite(writtenLinFieldSize)
-
 	// write histogram_count
 	writtenLinFieldSize, err = md.writeLinField(
-		row.SlotIndex, row.FieldIDs[fieldIDIdx],
+		row, compoundFieldItr.HistogramCountFieldName(),
 		field.SumField, compoundFieldItr.Count(),
-		mStore, tStore)
+		mStore, timeSeriesID)
 	if err != nil {
 		return err
 	}
@@ -272,9 +330,9 @@ func (md *memoryDatabase) WriteRow(row *metric.StorageRow) error {
 	// data must be valid before write
 	for compoundFieldItr.HasNextBucket() {
 		writtenLinFieldSize, err = md.writeLinField(
-			row.SlotIndex, row.FieldIDs[fieldIDIdx],
+			row, compoundFieldItr.BucketName(),
 			field.HistogramField, compoundFieldItr.NextValue(),
-			mStore, tStore)
+			mStore, timeSeriesID)
 		if err != nil {
 			return err
 		}
@@ -289,31 +347,53 @@ End:
 }
 
 func (md *memoryDatabase) writeLinField(
-	slotIndex uint16,
-	fieldID field.ID, fieldType field.Type, fieldValue float64,
-	mStore mStoreINTF, tStore tStoreINTF,
+	row *metric.StorageRow,
+	fName field.Name, fType field.Type, fValue float64,
+	mStore mStoreINTF, ts uint32,
 ) (writtenSize int, err error) {
-	fStore, ok := tStore.GetFStore(fieldID)
-	if !ok {
-		buf, err := md.buf.AllocPage()
-		if err != nil {
+	var fm field.Meta
+	var created bool
+
+	md.lock.Lock()
+	fm, created = mStore.GenField(fName, fType)
+	md.lock.Unlock()
+
+	if created {
+		fieldNotifier := index.GetFieldNotifier()
+		fieldNotifier.Field = fm
+		fieldNotifier.Namespace = row.NamespaceStr()
+		fieldNotifier.MetricName = string(row.Name())
+		fieldNotifier.Callback = func(fieldID field.ID, err error) {
+			if err != nil {
+				memDBLogger.Error("generate field id failure", logger.String("metric", string(row.Name())),
+					logger.String("field", fm.Name.String()), logger.Error(err))
+				return
+			}
+			md.lock.Lock()
+			defer md.lock.Unlock()
+
+			mStore.UpdateFieldMeta(fieldID, fm)
+		}
+		md.cfg.MetaNotifier(fieldNotifier)
+	}
+
+	tsStore := md.timeSeriesStores[fm.Index]
+	err = tsStore.Write(ts, fType, row.SlotIndex, fValue, func() (fStoreINTF, error) {
+		buf, err0 := md.buf.AllocPage()
+		if err0 != nil {
 			md.statistics.AllocatePageFailures.Incr()
-			return 0, err
+			return nil, err0
 		}
 		md.statistics.AllocatedPages.Incr()
-		fStore = newFieldStore(buf, fieldID)
+		fStore := newFieldStore(buf)
 		writtenSize += fStore.Capacity()
-		beforeTStoreSize := tStore.Capacity()
-		tStore.InsertFStore(fStore)
-		writtenSize += tStore.Capacity() - beforeTStoreSize
-		// if write data success, add field into metric level for cache
-		mStore.AddField(fieldID, fieldType)
-
 		md.numOfSeries.Inc()
+		return fStore, nil
+	})
+	if err != nil {
+		return writtenSize, err
 	}
-	beforeFStoreCapacity := fStore.Capacity()
-	fStore.Write(fieldType, slotIndex, fieldValue)
-	return writtenSize + fStore.Capacity() - beforeFStoreCapacity, nil
+	return writtenSize, nil
 }
 
 // FlushFamilyTo flushes all data related to the family from metric-stores to builder.
@@ -321,11 +401,25 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher) error {
 	// waiting current writing complete
 	md.writeCondition.Wait()
 
-	var flushCtx flushContext
-	if err := md.mStores.WalkEntry(func(metricID uint32, value mStoreINTF) error {
+	flushCtx := &flushContext{}
+	if err := md.metricIndexStore.WalkEntry(func(metricID uint32, storeIndex int) error {
 		flushCtx.metricID = metricID
-		if err := value.FlushMetricsDataTo(flusher, &flushContext{
-			metricID: metricID,
+		mStore := md.stores[storeIndex]
+		if err := mStore.FlushMetricsDataTo(flusher, flushCtx, func(memSeriesID uint32, fields field.Metas) error {
+			for _, fm := range fields {
+				tsStores := md.timeSeriesStores[fm.Index]
+				fStore, ok := tsStores.Get(memSeriesID)
+				if ok {
+					if err := fStore.FlushFieldTo(flusher, fm, flushCtx); err != nil {
+						return err
+					}
+				} else {
+					// must flush nil data for metric has multi-field.
+					// because each series need fill all field data in order.
+					_ = flusher.FlushField(nil)
+				}
+			}
+			return nil
 		}); err != nil {
 			return err
 		}
@@ -338,19 +432,22 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher) error {
 
 // Filter filters the data based on metric/seriesIDs,
 // if it finds data then returns the flow.FilterResultSet, else returns nil
-func (md *memoryDatabase) Filter(shardExecuteContext *flow.ShardExecuteContext) ([]flow.FilterResultSet, error) {
-	md.rwMutex.RLock()
-	defer md.rwMutex.RUnlock()
+func (md *memoryDatabase) Filter(shardExecuteContext *flow.ShardExecuteContext) (rs []flow.FilterResultSet, err error) {
+	md.lock.RLock()
+	defer md.lock.RUnlock()
 
-	if mStore, ok := md.mStores.Get(uint32(shardExecuteContext.StorageExecuteCtx.MetricID)); ok {
-		querySlotRange := shardExecuteContext.StorageExecuteCtx.CalcSourceSlotRange(md.familyTime)
-		storageSlotRange := mStore.GetSlotRange()
-		if !storageSlotRange.Overlap(querySlotRange) {
-			return nil, nil
-		}
-		return mStore.Filter(shardExecuteContext, md)
+	mStoreIdx, ok := md.metricIndexStore.Get(uint32(shardExecuteContext.StorageExecuteCtx.MetricID))
+	if !ok {
+		return
 	}
-	return nil, nil
+	mStore := md.stores[mStoreIdx]
+	querySlotRange := shardExecuteContext.StorageExecuteCtx.CalcSourceSlotRange(md.familyTime)
+
+	storageSlotRange := mStore.GetSlotRange()
+	if !storageSlotRange.Overlap(querySlotRange) {
+		return
+	}
+	return mStore.Filter(shardExecuteContext, md)
 }
 
 // MemSize returns the time series database memory size
@@ -370,10 +467,10 @@ func (md *memoryDatabase) Uptime() time.Duration {
 
 // NumOfMetrics returns the number of metrics.
 func (md *memoryDatabase) NumOfMetrics() int {
-	md.rwMutex.RLock()
-	defer md.rwMutex.RUnlock()
+	md.lock.RLock()
+	defer md.lock.RUnlock()
 
-	return md.mStores.Size()
+	return len(md.metricStore)
 }
 
 // NumOfSeries returns the number of series.

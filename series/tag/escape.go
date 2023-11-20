@@ -38,7 +38,7 @@ func EscapeTag(in []byte) []byte {
 	for i := range tagEscapeCodes {
 		c := &tagEscapeCodes[i]
 		if bytes.IndexByte(in, c.k[0]) != -1 {
-			in = bytes.Replace(in, c.k[:], c.esc[:], -1)
+			in = bytes.ReplaceAll(in, c.k[:], c.esc[:])
 		}
 	}
 	return in
@@ -52,7 +52,7 @@ func UnescapeTag(in []byte) []byte {
 	for i := range tagEscapeCodes {
 		c := &tagEscapeCodes[i]
 		if bytes.IndexByte(in, c.k[0]) != -1 {
-			in = bytes.Replace(in, c.esc[:], c.k[:], -1)
+			in = bytes.ReplaceAll(in, c.esc[:], c.k[:])
 		}
 	}
 	return in

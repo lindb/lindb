@@ -175,13 +175,6 @@ func Test_popcountBlock(t *testing.T) {
 	assert.Zero(t, popcountBlock([]uint64{0xfff, 0xffff}, 10, 0))
 }
 
-func Test_ByteSlice_IntSlice_Convert(t *testing.T) {
-	assert.Nil(t, u64SliceToBytes(nil))
-	assert.Nil(t, bytesToU64Slice(nil))
-	assert.Nil(t, u32SliceToBytes(nil))
-	assert.Nil(t, bytesToU32Slice(nil))
-}
-
 // type mockWriter struct {
 // 	round      int
 // 	errorRound int

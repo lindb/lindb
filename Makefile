@@ -77,7 +77,8 @@ test-without-lint: ## Run test without lint
 	go install "github.com/rakyll/gotest@v0.0.6"
 	GIN_MODE=release
 	LOG_LEVEL=fatal ## disable log for test
-	gotest -v -race -coverprofile=coverage.out -covermode=atomic ./...
+	gotest -v -race -coverprofile=coverage_tmp.out -covermode=atomic ./...
+	cat coverage_tmp.out |grep -v "_mock.go" > coverage.out
 
 test: header lint test-without-lint ## Run test cases.
 
@@ -85,7 +86,7 @@ e2e-test:
 	go install "github.com/rakyll/gotest@v0.0.6"
 	GIN_MODE=release
 	LOG_LEVEL=fatal ## disable log for test
-	gotest -v --tags=integration -race -coverprofile=coverage.out -covermode=atomic ./e2e/...
+	gotest -v --tags=integration -covermode=atomic ./e2e/...
 
 e2e: header e2e-test
 
@@ -93,12 +94,9 @@ deps:  ## Update vendor.
 	go mod verify
 	go mod tidy -v
 
-generate:  ## generate pb/tmpl file.
-	# go get github.com/benbjohnson/tmpl
-	go install github.com/benbjohnson/tmpl@latest
+generate:  ## generate pb file.
     # brew install flatbuffers
 	sh ./proto/generate.sh
-	cd tsdb/template && sh generate_tmpl.sh
 
 gen-sql-grammar: ## generate lin query language gen-sql-grammar
 	# need install antrl4-tools

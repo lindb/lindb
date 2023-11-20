@@ -213,7 +213,7 @@ func (it *Iterator) Key() []byte {
 }
 
 func (it *Iterator) Value() uint32 {
-	valPos := it.tree.suffixPos(it.posInTrie[it.level])
+	valPos := it.tree.valuePos(it.posInTrie[it.level])
 	return it.tree.values.Get(valPos)
 }
 

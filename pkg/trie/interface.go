@@ -33,6 +33,8 @@ type Builder interface {
 	Write(w io.Writer) error
 	// Trie returns a succinct trie
 	Trie() SuccinctTrie
+	// MarshalSize is the size after padding
+	MarshalSize() int
 	// Reset resets the underlying data-structure for next use
 	Reset()
 }
@@ -41,8 +43,10 @@ type Builder interface {
 type SuccinctTrie interface {
 	// Get gets the value from trie
 	Get(key []byte) (uint32, bool)
-	// MarshalSize is the size after padding
-	MarshalSize() int64
+	// Size returns the size of keys
+	Size() int
+	// Values returns all values
+	Values() []uint32
 	encoding.BinaryUnmarshaler
 	// NewIterator returns a iterator for arbitrarily iterating the trie
 	NewIterator() *Iterator

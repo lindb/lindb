@@ -20,6 +20,8 @@ package trie
 import (
 	"fmt"
 	"io"
+
+	"github.com/lindb/lindb/pkg/encoding"
 )
 
 const (
@@ -54,12 +56,8 @@ func (v *rankVector) lutSize() uint32 {
 	return (v.numBits/v.blockSize + 1) * 4
 }
 
-func (v *rankVector) MarshalSize() int64 {
-	return align(v.rawMarshalSize())
-}
-
-func (v *rankVector) rawMarshalSize() int64 {
-	return 4 + 4 + int64(v.bitsSize()) + int64(v.lutSize())
+func (v *rankVector) MarshalSize() int {
+	return 4 + 4 + int(v.bitsSize()+v.lutSize())
 }
 
 func (v *rankVector) Write(w io.Writer) error {
@@ -72,7 +70,7 @@ func (v *rankVector) Write(w io.Writer) error {
 		return err
 	}
 	nblks := v.numBits/v.blockSize + 1
-	if _, err := w.Write(u32SliceToBytes(v.rankLut[:nblks])); err != nil {
+	if _, err := w.Write(encoding.U32SliceToBytes(v.rankLut[:nblks])); err != nil {
 		return err
 	}
 	return nil
@@ -93,7 +91,7 @@ func (v *rankVector) Unmarshal(buf []byte) ([]byte, error) { //nolint:dupl
 	if len(buf) < lutSize {
 		return nil, fmt.Errorf("cannot read lut: %d from rankVector: %d", lutSize, len(buf))
 	}
-	v.rankLut = bytesToU32Slice(buf[:lutSize])
+	v.rankLut = encoding.BytesToU32Slice(buf[:lutSize])
 	buf = buf[lutSize:]
 	return buf, nil
 }

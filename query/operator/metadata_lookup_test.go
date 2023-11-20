@@ -27,12 +27,12 @@ import (
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/metadb"
 )
 
 func TestMetadataLookup_Execute(t *testing.T) {
@@ -40,10 +40,8 @@ func TestMetadataLookup_Execute(t *testing.T) {
 	defer ctrl.Finish()
 
 	db := tsdb.NewMockDatabase(ctrl)
-	meta := metadb.NewMockMetadata(ctrl)
-	metaDB := metadb.NewMockMetadataDatabase(ctrl)
-	db.EXPECT().Metadata().Return(meta).AnyTimes()
-	meta.EXPECT().MetadataDatabase().Return(metaDB).AnyTimes()
+	metaDB := index.NewMockMetricMetaDatabase(ctrl)
+	db.EXPECT().MetaDB().Return(metaDB).AnyTimes()
 
 	ctx := &flow.StorageExecuteContext{
 		Query: &stmtpkg.Query{},
@@ -60,29 +58,45 @@ func TestMetadataLookup_Execute(t *testing.T) {
 		ctx.Query.GroupBy = []string{"a"}
 		op := NewMetadataLookup(ctx, db)
 		metaDB.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(metric.ID(10), nil)
-		metaDB.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).Return(tag.EmptyTagKeyID, fmt.Errorf("err"))
+		metaDB.EXPECT().GetSchema(gomock.Any()).Return(nil, fmt.Errorf("err"))
+		assert.Error(t, op.Execute())
+	})
+	t.Run("schema field empty", func(t *testing.T) {
+		op := NewMetadataLookup(ctx, db)
+		metaDB.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(metric.ID(10), nil)
+		metaDB.EXPECT().GetSchema(gomock.Any()).Return(&metric.Schema{}, nil)
 		assert.Error(t, op.Execute())
 	})
 	t.Run("select item empty", func(t *testing.T) {
 		op := NewMetadataLookup(ctx, db)
 		metaDB.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(metric.ID(10), nil)
+		metaDB.EXPECT().GetSchema(gomock.Any()).Return(&metric.Schema{Fields: field.Metas{{}}}, nil)
+		assert.Error(t, op.Execute())
+	})
+	t.Run("select item field not exist", func(t *testing.T) {
+		ctx.Query.SelectItems = []stmtpkg.Expr{&stmtpkg.FieldExpr{Name: "f"}}
+		op := NewMetadataLookup(ctx, db)
+		metaDB.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(metric.ID(10), nil)
+		metaDB.EXPECT().GetSchema(gomock.Any()).Return(&metric.Schema{Fields: field.Metas{{}}}, nil)
 		assert.Error(t, op.Execute())
 	})
 	t.Run("get field failure", func(t *testing.T) {
 		ctx.Query.SelectItems = []stmtpkg.Expr{&stmtpkg.FieldExpr{Name: "f"}}
 		op := NewMetadataLookup(ctx, db)
 		metaDB.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(metric.ID(10), nil)
-		metaDB.EXPECT().GetField(gomock.Any(), gomock.Any(), gomock.Any()).Return(field.Meta{}, fmt.Errorf("err"))
+		metaDB.EXPECT().GetSchema(gomock.Any()).Return(nil, fmt.Errorf("err"))
 		assert.Error(t, op.Execute())
 	})
 	t.Run("execute successfully", func(t *testing.T) {
 		ctx.Query.SelectItems = []stmtpkg.Expr{&stmtpkg.FieldExpr{Name: "f"}}
 		op := NewMetadataLookup(ctx, db)
 		metaDB.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(metric.ID(10), nil)
-		metaDB.EXPECT().GetField(gomock.Any(), gomock.Any(), gomock.Any()).Return(field.Meta{
-			ID:   10,
-			Type: field.SumField,
-			Name: "f",
+		metaDB.EXPECT().GetSchema(gomock.Any()).Return(&metric.Schema{
+			Fields: field.Metas{{
+				ID:   10,
+				Type: field.SumField,
+				Name: "f",
+			}},
 		}, nil)
 		assert.NoError(t, op.Execute())
 	})
@@ -90,19 +104,37 @@ func TestMetadataLookup_Execute(t *testing.T) {
 		ctx.Query.AllFields = true
 		op := NewMetadataLookup(ctx, db)
 		metaDB.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(metric.ID(10), nil)
-		metaDB.EXPECT().GetAllFields(gomock.Any(), gomock.Any()).Return(field.Metas{}, fmt.Errorf("err"))
+		metaDB.EXPECT().GetSchema(gomock.Any()).Return(nil, fmt.Errorf("err"))
 		assert.Error(t, op.Execute())
 	})
 	t.Run("get all fields successfully", func(t *testing.T) {
 		ctx.Query.AllFields = true
 		op := NewMetadataLookup(ctx, db)
 		metaDB.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(metric.ID(10), nil)
-		metaDB.EXPECT().GetAllFields(gomock.Any(), gomock.Any()).Return(field.Metas{{
-			ID:   1,
-			Type: field.SumField,
-			Name: "f",
-		}}, nil)
+		metaDB.EXPECT().GetSchema(gomock.Any()).Return(&metric.Schema{
+			Fields: field.Metas{{
+				ID:   1,
+				Type: field.SumField,
+				Name: "f",
+			}},
+		}, nil)
 		assert.NoError(t, op.Execute())
+	})
+	t.Run("metric schema not exist", func(t *testing.T) {
+		op := NewMetadataLookup(ctx, db)
+		metaDB.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(metric.ID(0), nil)
+		metaDB.EXPECT().GetSchema(gomock.Any()).Return(nil, nil)
+		assert.Error(t, op.Execute())
+	})
+	t.Run("group by key not exist", func(t *testing.T) {
+		defer func() {
+			ctx.Query.GroupBy = nil
+		}()
+		ctx.Query.GroupBy = []string{"a"}
+		op := NewMetadataLookup(ctx, db)
+		metaDB.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(metric.ID(10), nil)
+		metaDB.EXPECT().GetSchema(gomock.Any()).Return(&metric.Schema{Fields: field.Metas{{}}}, nil)
+		assert.Error(t, op.Execute())
 	})
 }
 
@@ -110,21 +142,22 @@ func TestMetadataLookup_groupBy(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	metaDB := metadb.NewMockMetadataDatabase(ctrl)
+	metaDB := index.NewMockMetricMetaDatabase(ctrl)
 
 	ctx := &flow.StorageExecuteContext{
 		Query: &stmtpkg.Query{
 			GroupBy: []string{"k"},
 		},
-		TagKeys: make(map[string]tag.KeyID),
+		Schema: &metric.Schema{
+			TagKeys: tag.Metas{{ID: tag.KeyID(10), Key: "k"}},
+		},
 	}
 
 	op := &metadataLookup{
 		executeCtx: ctx,
-		metadata:   metaDB,
+		metaDB:     metaDB,
 	}
 
-	metaDB.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), "k").Return(tag.KeyID(10), nil)
 	assert.NoError(t, op.groupBy())
 }
 
@@ -132,16 +165,33 @@ func TestMetadataLookup_field(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	metaDB := metadb.NewMockMetadataDatabase(ctrl)
+	metaDB := index.NewMockMetricMetaDatabase(ctrl)
 	ctx := &flow.StorageExecuteContext{
-		Query:   &stmtpkg.Query{},
-		TagKeys: make(map[string]tag.KeyID),
+		Query: &stmtpkg.Query{},
+		Schema: &metric.Schema{
+			Fields: field.Metas{
+				{
+					ID:   10,
+					Type: field.SumField,
+					Name: "f1",
+				},
+				{
+					ID:   12,
+					Type: field.SumField,
+					Name: "f2",
+				},
+				{
+					Name: "f_not_func",
+					ID:   field.ID(10),
+					Type: field.MinField,
+				},
+				{
+					Type: field.Unknown,
+					Name: "f_not",
+				},
+			},
+		},
 	}
-	metaDB.EXPECT().GetField(gomock.Any(), gomock.Any(), gomock.Any()).Return(field.Meta{
-		ID:   10,
-		Type: field.SumField,
-		Name: "f",
-	}, nil).AnyTimes()
 
 	t.Run("has err", func(_ *testing.T) {
 		op := &metadataLookup{err: fmt.Errorf("err")}
@@ -149,37 +199,26 @@ func TestMetadataLookup_field(t *testing.T) {
 	})
 
 	t.Run("not support field", func(t *testing.T) {
-		metaDB2 := metadb.NewMockMetadataDatabase(ctrl)
-		metaDB2.EXPECT().GetField(gomock.Any(), gomock.Any(), gomock.Any()).Return(field.Meta{
-			Type: field.Unknown,
-			Name: "f",
-		}, nil)
+		metaDB2 := index.NewMockMetricMetaDatabase(ctrl)
 		op := &metadataLookup{
 			executeCtx: ctx,
-			metadata:   metaDB2,
+			metaDB:     metaDB2,
 			fields:     make(map[field.ID]*aggregation.Aggregator),
 		}
 		op.field(nil, &stmtpkg.SelectItem{
-			Expr:  &stmtpkg.FieldExpr{Name: "f"},
+			Expr:  &stmtpkg.FieldExpr{Name: "f_not"},
 			Alias: "a",
 		})
 		assert.Error(t, op.err)
 	})
 	t.Run("function not support", func(t *testing.T) {
-		metaDB2 := metadb.NewMockMetadataDatabase(ctrl)
-		metaDB2.EXPECT().GetField(gomock.Any(), gomock.Any(), gomock.Any()).Return(field.Meta{
-			ID:   field.ID(10),
-			Type: field.MinField,
-			Name: "f",
-		}, nil)
 		op := &metadataLookup{
 			executeCtx: ctx,
-			metadata:   metaDB2,
 			fields:     make(map[field.ID]*aggregation.Aggregator),
 		}
 		op.field(nil, &stmtpkg.CallExpr{
 			FuncType: function.Sum,
-			Params:   []stmtpkg.Expr{&stmtpkg.FieldExpr{Name: "f1"}},
+			Params:   []stmtpkg.Expr{&stmtpkg.FieldExpr{Name: "f_not_func"}},
 		})
 		assert.Error(t, op.err)
 	})
@@ -190,9 +229,17 @@ func TestMetadataLookup_field(t *testing.T) {
 		wantErr bool
 	}{
 		{
+			name: "field not exist",
+			in: &stmtpkg.SelectItem{
+				Expr:  &stmtpkg.FieldExpr{Name: "f1_xx"},
+				Alias: "a",
+			},
+			wantErr: true,
+		},
+		{
 			name: "handle select expr",
 			in: &stmtpkg.SelectItem{
-				Expr:  &stmtpkg.FieldExpr{Name: "f"},
+				Expr:  &stmtpkg.FieldExpr{Name: "f1"},
 				Alias: "a",
 			},
 		},
@@ -222,9 +269,9 @@ func TestMetadataLookup_field(t *testing.T) {
 			name: "handle paren",
 			in: &stmtpkg.ParenExpr{
 				Expr: &stmtpkg.BinaryExpr{
-					Left:     &stmtpkg.CallExpr{FuncType: function.Sum, Params: []stmtpkg.Expr{&stmtpkg.FieldExpr{Name: "f"}}},
+					Left:     &stmtpkg.CallExpr{FuncType: function.Sum, Params: []stmtpkg.Expr{&stmtpkg.FieldExpr{Name: "f1"}}},
 					Operator: stmtpkg.ADD,
-					Right:    &stmtpkg.FieldExpr{Name: "a"},
+					Right:    &stmtpkg.FieldExpr{Name: "f2"},
 				}},
 		},
 	}
@@ -234,7 +281,7 @@ func TestMetadataLookup_field(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			op := &metadataLookup{
 				executeCtx: ctx,
-				metadata:   metaDB,
+				metaDB:     metaDB,
 				fields:     make(map[field.ID]*aggregation.Aggregator),
 			}
 			op.field(nil, tt.in)
@@ -246,10 +293,6 @@ func TestMetadataLookup_field(t *testing.T) {
 }
 
 func TestMetadataLookup_planHistogramFields(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	metaDB := metadb.NewMockMetadataDatabase(ctrl)
 	cases := []struct {
 		name    string
 		in      *stmtpkg.CallExpr
@@ -278,28 +321,10 @@ func TestMetadataLookup_planHistogramFields(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "find filed failure",
+			name: "successfully",
 			in: &stmtpkg.CallExpr{
-				Params: []stmtpkg.Expr{&stmtpkg.FieldExpr{Name: "0.95"}},
+				Params: []stmtpkg.Expr{&stmtpkg.FieldExpr{Name: "0.99"}},
 			},
-			prepare: func() {
-				metaDB.EXPECT().GetAllHistogramFields(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
-			},
-			wantErr: true,
-		},
-		{
-			name: "find filed successfully",
-			in: &stmtpkg.CallExpr{
-				Params: []stmtpkg.Expr{&stmtpkg.FieldExpr{Name: "0.95"}},
-			},
-			prepare: func() {
-				metaDB.EXPECT().GetAllHistogramFields(gomock.Any(), gomock.Any()).
-					Return(field.Metas{{
-						Type: field.SumField,
-						Name: "11",
-					}}, nil)
-			},
-			wantErr: false,
 		},
 	}
 
@@ -309,9 +334,14 @@ func TestMetadataLookup_planHistogramFields(t *testing.T) {
 			op := &metadataLookup{
 				executeCtx: &flow.StorageExecuteContext{
 					Query: &stmtpkg.Query{},
+					Schema: &metric.Schema{
+						Fields: field.Metas{{
+							Type: field.HistogramField,
+							Name: "11",
+						}},
+					},
 				},
-				metadata: metaDB,
-				fields:   make(map[field.ID]*aggregation.Aggregator),
+				fields: make(map[field.ID]*aggregation.Aggregator),
 			}
 			if tt.prepare != nil {
 				tt.prepare()
@@ -329,9 +359,7 @@ func TestMetadataLookup_Identifier(t *testing.T) {
 	defer ctrl.Finish()
 
 	db := tsdb.NewMockDatabase(ctrl)
-	meta := metadb.NewMockMetadata(ctrl)
-	metaDB := metadb.NewMockMetadataDatabase(ctrl)
-	db.EXPECT().Metadata().Return(meta).AnyTimes()
-	meta.EXPECT().MetadataDatabase().Return(metaDB).AnyTimes()
+	metaDB := index.NewMockMetricMetaDatabase(ctrl)
+	db.EXPECT().MetaDB().Return(metaDB).AnyTimes()
 	assert.Equal(t, "Metadata Lookup", NewMetadataLookup(nil, db).Identifier())
 }

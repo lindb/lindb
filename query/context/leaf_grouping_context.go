@@ -101,12 +101,11 @@ func (ctx *LeafGroupingContext) collectGroupByTagValues() {
 	})
 
 	// all shard pending query tasks and grouping task completed, start collect tag values
-	metadata := ctx.leafExecuteCtx.Database.Metadata()
-	tagMetadata := metadata.TagMetadata()
+	metaDB := ctx.leafExecuteCtx.Database.MetaDB()
 
 	storageExecuteCtx.CollectTagValues(func() {
-		for idx, tagKeyID := range storageExecuteCtx.GroupByTags {
-			tagKey := tagKeyID
+		for idx := range storageExecuteCtx.GroupByTags {
+			tagKey := storageExecuteCtx.GroupByTags[idx]
 			tagValueIDs := storageExecuteCtx.GroupingTagValueIDs[idx]
 			tagIndex := idx
 			if tagValueIDs == nil || tagValueIDs.IsEmpty() {
@@ -115,7 +114,7 @@ func (ctx *LeafGroupingContext) collectGroupByTagValues() {
 			}
 
 			tagValues := make(map[uint32]string) // tag value id => tag value
-			err := tagMetadata.CollectTagValues(tagKey.ID, tagValueIDs, tagValues)
+			err := metaDB.CollectTagValues(tagKey.ID, tagValueIDs, tagValues)
 			if err != nil {
 				ctx.leafExecuteCtx.Tracker.SetGroupingCollectStageValues(func(stage *commonmodels.StageStats) {
 					stage.End = time.Now().UnixNano()

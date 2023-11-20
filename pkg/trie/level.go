@@ -49,7 +49,6 @@ type Level struct {
 	// value
 	values []uint32
 	// level node count
-	// item      uint32
 	nodeCount int
 }
 
@@ -89,6 +88,5 @@ func (l *Level) Reset() {
 	l.hasSuffix = l.hasSuffix[:0]
 	l.suffixes = l.suffixes[:0]
 	l.values = l.values[:0]
-	// l.item = 0
 	l.nodeCount = 0
 }

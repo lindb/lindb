@@ -38,8 +38,7 @@ import (
 //	xx/meta/tagvalue => metrics' tag value metadata
 //	xx/shard/1/(path)
 //	xx/shard/1/buffer/123213123131 // time of ns
-//	xx/shard/1/meta/
-//	xx/shard/1/index/inverted/
+//	xx/shard/1/index
 //	xx/shard/1/segment/day/20191012/
 //	xx/shard/1/segment/month/201910/
 const (
@@ -80,11 +79,6 @@ func metricsMetaPath(database string) string {
 	return filepath.Join(config.GlobalStorageConfig().TSDB.Dir, database, metaDir)
 }
 
-// tagMetaIndicator returns database's tag metadata indicator information.
-func tagMetaIndicator(database string) string {
-	return filepath.Join(database, metaDir, tagValueMetaDir)
-}
-
 // shardIndicator returns shard indicator information.
 func shardIndicator(database string, shardID models.ShardID) string {
 	return filepath.Join(database, shardDir, strconv.Itoa(int(shardID)))
@@ -100,22 +94,17 @@ func shardTempBufferPath(database string, shardID models.ShardID) string {
 	return filepath.Join(shardPath(database, shardID), bufferDir)
 }
 
-// shardIndexIndicator returns shard level index indicator information.
-func shardIndexIndicator(database string, shardID models.ShardID) string {
-	return filepath.Join(shardIndicator(database, shardID), indexParentDir)
+// shardIndexPath returns shard level index index path.
+func shardIndexPath(database string, shardID models.ShardID) string {
+	return filepath.Join(shardPath(database, shardID), indexParentDir)
 }
 
-// shardMetaPath returns shard level metadata path.
-func shardMetaPath(database string, shardID models.ShardID) string {
-	return filepath.Join(shardPath(database, shardID), metaDir)
-}
-
-// ShardSegmentIndicator returns the segment name indicator information.
-func ShardSegmentIndicator(database string, shardID models.ShardID, interval timeutil.Interval, name string) string {
-	return filepath.Join(shardIndicator(database, shardID), segmentDir, interval.Type().String(), name)
+// FIXME: new
+func ShardIntervalSegmentPath(database string, shardID models.ShardID, interval timeutil.Interval) string {
+	return filepath.Join(shardPath(database, shardID), segmentDir, interval.Type().String())
 }
 
 // ShardSegmentPath returns segment path in shard dir.
-func ShardSegmentPath(database string, shardID models.ShardID, interval timeutil.Interval) string {
-	return filepath.Join(shardPath(database, shardID), segmentDir, interval.Type().String())
+func ShardSegmentPath(database string, shardID models.ShardID, interval timeutil.Interval, name string) string {
+	return filepath.Join(shardPath(database, shardID), segmentDir, interval.Type().String(), name)
 }

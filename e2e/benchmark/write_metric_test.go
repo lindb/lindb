@@ -38,14 +38,14 @@ import (
 	"github.com/lindb/lindb/series/metric"
 )
 
-func TestWriteSumMetric(b *testing.T) {
+func TestWrite_SumMetric(b *testing.T) {
 	timestamp := timeutil.Now()
 	cli := resty.New()
 	count := 0
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 4000; i++ {
 		var buf bytes.Buffer
 		for j := 0; j < 20; j++ {
-			for k := 0; k < 4; k++ {
+			for k := 0; k < 40; k++ {
 				var brokerRow metric.BrokerRow
 				converter := metric.NewProtoConverter(models.NewDefaultLimits())
 				err := converter.ConvertTo(&protoMetricsV1.Metric{
@@ -53,15 +53,16 @@ func TestWriteSumMetric(b *testing.T) {
 					Timestamp: timestamp,
 					Tags: []*protoMetricsV1.KeyValue{
 						{Key: "host", Value: "host" + strconv.Itoa(i)},
-						{Key: "disk", Value: "disk" + strconv.Itoa(i)},
-						{Key: "partition", Value: "partition" + strconv.Itoa(i)},
+						{Key: "disk", Value: "disk" + strconv.Itoa(j)},
+						{Key: "partition", Value: "partition" + strconv.Itoa(k)},
 					},
 					SimpleFields: []*protoMetricsV1.SimpleField{
-						{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: float64(k)},
-						{Name: "f2", Type: protoMetricsV1.SimpleFieldType_LAST, Value: float64(k)},
-						{Name: "f3", Type: protoMetricsV1.SimpleFieldType_FIRST, Value: float64(k)},
+						{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: float64(1)},
+						{Name: "f2", Type: protoMetricsV1.SimpleFieldType_LAST, Value: float64(2)},
+						{Name: "f3", Type: protoMetricsV1.SimpleFieldType_FIRST, Value: float64(3)},
 					},
 				}, &brokerRow)
+				count++
 				_, _ = brokerRow.WriteTo(&buf)
 				if err != nil {
 					panic(err)

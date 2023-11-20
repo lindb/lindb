@@ -19,19 +19,21 @@ package operator
 
 import (
 	"fmt"
+
 	"github.com/lindb/roaring"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/metadb"
 )
 
 // tagValuesLookup represents tag values lookup operator.
 type tagValuesLookup struct {
 	executeCtx *flow.StorageExecuteContext
-	metadata   metadb.Metadata
+	metaDB     index.MetricMetaDatabase
 
 	err error
 }
@@ -40,7 +42,7 @@ type tagValuesLookup struct {
 func NewTagValuesLookup(executeCtx *flow.StorageExecuteContext, database tsdb.Database) Operator {
 	return &tagValuesLookup{
 		executeCtx: executeCtx,
-		metadata:   database.Metadata(),
+		metaDB:     database.MetaDB(),
 	}
 }
 
@@ -66,7 +68,7 @@ func (op *tagValuesLookup) findTagValueIDsByExpr(expr stmt.Expr) {
 			op.err = err
 			return
 		}
-		tagValueIDs, err := op.metadata.TagMetadata().FindTagValueDsByExpr(tagKeyID, expr)
+		tagValueIDs, err := op.metaDB.FindTagValueDsByExpr(tagKeyID, expr)
 		if err != nil {
 			op.err = err
 			return
@@ -96,17 +98,11 @@ func (op *tagValuesLookup) findTagValueIDsByExpr(expr stmt.Expr) {
 
 // getTagKeyID returns the tag key id by tag key
 func (op *tagValuesLookup) getTagKeyID(tagKey string) (tag.KeyID, error) {
-	// try to get tag key from context
-	if tagKeyID, ok := op.executeCtx.TagKeys[tagKey]; ok {
-		return tagKeyID, nil
+	tagMeta, ok := op.executeCtx.Schema.TagKeys.Find(tagKey)
+	if !ok {
+		return 0, fmt.Errorf("%w, tag key: %s", constants.ErrTagKeyIDNotFound, tagKey)
 	}
-	queryStmt := op.executeCtx.Query
-	tagKeyID, err := op.metadata.MetadataDatabase().GetTagKeyID(queryStmt.Namespace, queryStmt.MetricName, tagKey)
-	if err != nil {
-		return 0, err
-	}
-	op.executeCtx.TagKeys[tagKey] = tagKeyID
-	return tagKeyID, nil
+	return tagMeta.ID, nil
 }
 
 // Identifier returns identifier value of tag value lookup operator.

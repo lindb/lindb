@@ -173,11 +173,7 @@ func (r *runtime) Run() error {
 		return fmt.Errorf("failed to get server ip address, error: %s", err)
 	}
 
-	opt := kv.StoreOptions{
-		Dir: config.GlobalStorageConfig().TSDB.Dir,
-	}
-	kv.Options.Store(&opt)
-	r.jobScheduler = kv.NewJobScheduler(r.ctx, opt)
+	r.jobScheduler = kv.NewJobScheduler(r.ctx, kv.DefaultCompactCheckInterval)
 	r.jobScheduler.Startup() // startup kv compact job scheduler
 
 	// start TSDB engine for storage server

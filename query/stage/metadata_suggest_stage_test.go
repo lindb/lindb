@@ -24,11 +24,11 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/query/context"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/metadb"
 )
 
 func TestMetadataSuggestStage_Plan(t *testing.T) {
@@ -36,8 +36,8 @@ func TestMetadataSuggestStage_Plan(t *testing.T) {
 	defer ctrl.Finish()
 
 	db := tsdb.NewMockDatabase(ctrl)
-	meta := metadb.NewMockMetadata(ctrl)
-	db.EXPECT().Metadata().Return(meta)
+	metaDB := index.NewMockMetricMetaDatabase(ctrl)
+	db.EXPECT().MetaDB().Return(metaDB)
 
 	ctx := context.NewLeafMetadataContext(&stmtpkg.MetricMetadata{}, db, nil)
 

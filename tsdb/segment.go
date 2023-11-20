@@ -66,7 +66,7 @@ type segment struct {
 
 // newSegment returns segment, segment is wrapper of kv store.
 func newSegment(shard Shard, segmentName string, interval timeutil.Interval) (Segment, error) {
-	indicator := ShardSegmentIndicator(shard.Database().Name(), shard.ShardID(), interval, segmentName)
+	indicator := ShardSegmentPath(shard.Database().Name(), shard.ShardID(), interval, segmentName)
 	// parse base time from segment name
 	calc := interval.Calculator()
 	baseTime, err := calc.ParseSegmentTime(segmentName)

@@ -19,6 +19,8 @@ package field
 
 import (
 	"bytes"
+	"encoding/binary"
+	"io"
 	"sort"
 	"strings"
 
@@ -27,11 +29,14 @@ import (
 
 // Meta is the meta-data for field, which contains field-name, fieldID and field-type
 type Meta struct {
-	ID   ID   `json:"id"`   // query not use id, don't get id in query phase
-	Type Type `json:"type"` // query not use type
-	Name Name `json:"name"`
+	ID        ID    `json:"id"`   // query not use id, don't get id in query phase
+	Type      Type  `json:"type"` // query not use type
+	Name      Name  `json:"name"`
+	Index     uint8 // field index under memory database
+	Persisted bool
 }
 
+// MarshalBinary marshals meta as binary.
 func (m *Meta) MarshalBinary() (data []byte, err error) {
 	var buf bytes.Buffer
 	writer := stream.NewBufferWriter(&buf)
@@ -40,6 +45,32 @@ func (m *Meta) MarshalBinary() (data []byte, err error) {
 	writer.PutInt16(int16(len(m.Name)))
 	writer.PutBytes([]byte(m.Name))
 	return buf.Bytes(), writer.Error()
+}
+
+// Write writes write field meta.
+func (m *Meta) Write(w io.Writer) error {
+	if _, err := w.Write([]byte{byte(m.ID), byte(m.Type)}); err != nil {
+		return err
+	}
+	var scratch [2]byte
+	binary.LittleEndian.PutUint16(scratch[:], uint16(len(m.Name)))
+	if _, err := w.Write(scratch[:]); err != nil {
+		return err
+	}
+	if _, err := w.Write([]byte(m.Name)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Unmarshal unmarshals meta from binary.
+func (m *Meta) Unmarshal(buf []byte) []byte {
+	m.ID = ID(buf[0])
+	m.Type = Type(buf[1])
+	size := binary.LittleEndian.Uint16(buf[2:])
+	end := 4 + size
+	m.Name = Name(buf[4:end])
+	return buf[end:]
 }
 
 // Metas implements sort.Interface, it's sorted by name
@@ -88,6 +119,14 @@ func (fms Metas) GetFromName(fieldName Name) (Meta, bool) {
 	return fms[idx], true
 }
 
+func (fms Metas) FindIndexByName(fieldName Name) (int, bool) {
+	idx := sort.Search(len(fms), func(i int) bool { return fms[i].Name >= fieldName })
+	if idx >= len(fms) || fms[idx].Name != fieldName {
+		return -1, false
+	}
+	return idx, true
+}
+
 // GetFromID searches the meta by fieldID, returns false when not exist
 func (fms Metas) GetFromID(fieldID ID) (Meta, bool) {
 	for _, fm := range fms {
@@ -103,11 +142,6 @@ func (fms Metas) Clone() (x2 Metas) {
 	x2 = make([]Meta, fms.Len())
 	copy(x2, fms)
 	return x2
-}
-
-// Insert appends a new Meta to the list and sort it.
-func (fms Metas) Insert(m Meta) Metas {
-	return append(fms, m)
 }
 
 // Intersects checks whether each fieldID is in the list,

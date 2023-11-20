@@ -27,10 +27,11 @@ import (
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/index"
+	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/metadb"
 )
 
 func TestTagValuesLookup_Execute(t *testing.T) {
@@ -38,16 +39,14 @@ func TestTagValuesLookup_Execute(t *testing.T) {
 	defer ctrl.Finish()
 
 	db := tsdb.NewMockDatabase(ctrl)
-	meta := metadb.NewMockMetadata(ctrl)
-	metaDB := metadb.NewMockMetadataDatabase(ctrl)
-	tagMeta := metadb.NewMockTagMetadata(ctrl)
-	meta.EXPECT().TagMetadata().Return(tagMeta).AnyTimes()
-	meta.EXPECT().MetadataDatabase().Return(metaDB).AnyTimes()
-	db.EXPECT().Metadata().Return(meta).AnyTimes()
+	metaDB := index.NewMockMetricMetaDatabase(ctrl)
+	db.EXPECT().MetaDB().Return(metaDB).AnyTimes()
 	ctx := &flow.StorageExecuteContext{
 		Query: &stmtpkg.Query{},
-		TagKeys: map[string]tag.KeyID{
-			"key-10": tag.KeyID(10),
+		Schema: &metric.Schema{
+			TagKeys: tag.Metas{
+				{Key: "key1"},
+			},
 		},
 	}
 	cases := []struct {
@@ -61,36 +60,42 @@ func TestTagValuesLookup_Execute(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "get tag key failure",
+			name: "get tag key not found",
 			in: &stmtpkg.EqualsExpr{
-				Key:   "key",
+				Key:   "key_not",
 				Value: "value",
-			},
-			prepare: func() {
-				metaDB.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).Return(tag.EmptyTagKeyID, fmt.Errorf("err"))
 			},
 			wantErr: true,
 		},
 		{
 			name: "get tag values failure",
 			in: &stmtpkg.EqualsExpr{
-				Key:   "key-10",
+				Key:   "key1",
 				Value: "value",
 			},
 			prepare: func() {
-				tagMeta.EXPECT().FindTagValueDsByExpr(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+				metaDB.EXPECT().FindTagValueDsByExpr(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
 			},
 			wantErr: true,
 		},
 		{
-			name: "get tag values successfully",
+			name: "get tag values nil",
 			in: &stmtpkg.EqualsExpr{
-				Key:   "key-1",
+				Key:   "key1",
 				Value: "value",
 			},
 			prepare: func() {
-				metaDB.EXPECT().GetTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).Return(tag.EmptyTagKeyID, nil)
-				tagMeta.EXPECT().FindTagValueDsByExpr(gomock.Any(), gomock.Any()).Return(roaring.BitmapOf(1, 2, 3), nil)
+				metaDB.EXPECT().FindTagValueDsByExpr(gomock.Any(), gomock.Any()).Return(nil, nil)
+			},
+		},
+		{
+			name: "get tag values successfully",
+			in: &stmtpkg.EqualsExpr{
+				Key:   "key1",
+				Value: "value",
+			},
+			prepare: func() {
+				metaDB.EXPECT().FindTagValueDsByExpr(gomock.Any(), gomock.Any()).Return(roaring.BitmapOf(1, 2, 3), nil)
 			},
 			wantErr: false,
 		},
@@ -105,17 +110,17 @@ func TestTagValuesLookup_Execute(t *testing.T) {
 			name: "binary expr successfully",
 			in: &stmtpkg.BinaryExpr{
 				Left: &stmtpkg.EqualsExpr{
-					Key:   "key-10",
+					Key:   "key1",
 					Value: "value",
 				},
 				Operator: stmtpkg.AND,
 				Right: &stmtpkg.EqualsExpr{
-					Key:   "key-10",
+					Key:   "key1",
 					Value: "value",
 				},
 			},
 			prepare: func() {
-				tagMeta.EXPECT().FindTagValueDsByExpr(gomock.Any(), gomock.Any()).
+				metaDB.EXPECT().FindTagValueDsByExpr(gomock.Any(), gomock.Any()).
 					Return(roaring.BitmapOf(1, 2, 3), nil).MaxTimes(2)
 			},
 			wantErr: false,
@@ -124,17 +129,17 @@ func TestTagValuesLookup_Execute(t *testing.T) {
 			name: "binary expr failure",
 			in: &stmtpkg.BinaryExpr{
 				Left: &stmtpkg.EqualsExpr{
-					Key:   "key-10",
+					Key:   "key1",
 					Value: "value",
 				},
 				Operator: stmtpkg.AND,
 				Right: &stmtpkg.EqualsExpr{
-					Key:   "key-10",
+					Key:   "key1",
 					Value: "value",
 				},
 			},
 			prepare: func() {
-				tagMeta.EXPECT().FindTagValueDsByExpr(gomock.Any(), gomock.Any()).
+				metaDB.EXPECT().FindTagValueDsByExpr(gomock.Any(), gomock.Any()).
 					Return(nil, fmt.Errorf("err"))
 			},
 			wantErr: true,
@@ -143,12 +148,12 @@ func TestTagValuesLookup_Execute(t *testing.T) {
 			name: "not expr successfully",
 			in: &stmtpkg.NotExpr{
 				Expr: &stmtpkg.EqualsExpr{
-					Key:   "key-10",
+					Key:   "key1",
 					Value: "value",
 				},
 			},
 			prepare: func() {
-				tagMeta.EXPECT().FindTagValueDsByExpr(gomock.Any(), gomock.Any()).
+				metaDB.EXPECT().FindTagValueDsByExpr(gomock.Any(), gomock.Any()).
 					Return(roaring.BitmapOf(1, 2, 3), nil)
 			},
 			wantErr: false,
@@ -157,12 +162,12 @@ func TestTagValuesLookup_Execute(t *testing.T) {
 			name: "paren expr successfully",
 			in: &stmtpkg.ParenExpr{
 				Expr: &stmtpkg.EqualsExpr{
-					Key:   "key-10",
+					Key:   "key1",
 					Value: "value",
 				},
 			},
 			prepare: func() {
-				tagMeta.EXPECT().FindTagValueDsByExpr(gomock.Any(), gomock.Any()).
+				metaDB.EXPECT().FindTagValueDsByExpr(gomock.Any(), gomock.Any()).
 					Return(roaring.BitmapOf(1, 2, 3), nil)
 			},
 			wantErr: false,
@@ -190,6 +195,6 @@ func TestTagValuesLookup_Identifier(t *testing.T) {
 	defer ctrl.Finish()
 
 	db := tsdb.NewMockDatabase(ctrl)
-	db.EXPECT().Metadata().Return(nil)
+	db.EXPECT().MetaDB().Return(nil)
 	assert.Equal(t, "Tag Value Lookup", NewTagValuesLookup(nil, db).Identifier())
 }

@@ -34,6 +34,7 @@ import (
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
@@ -551,22 +552,26 @@ func TestDataFamily_GetOrCreateMemoryDatabase(t *testing.T) {
 	}()
 	shard := NewMockShard(ctrl)
 	db := NewMockDatabase(ctrl)
+	indexDB := index.NewMockMetricIndexDatabase(ctrl)
+	shard.EXPECT().IndexDB().Return(indexDB).AnyTimes()
 	shard.EXPECT().Database().Return(db).AnyTimes()
 	db.EXPECT().Name().Return("db").AnyTimes()
+	metaDB := index.NewMockMetricMetaDatabase(ctrl)
+	db.EXPECT().MetaDB().Return(metaDB).AnyTimes()
 	shard.EXPECT().BufferManager().Return(memdb.NewMockBufferManager(ctrl)).AnyTimes()
 
 	f := &dataFamily{
 		shard:      shard,
 		statistics: metrics.NewFamilyStatistics("data", "1"),
 	}
-	newMemoryDBFunc = func(cfg memdb.MemoryDatabaseCfg) (memdb.MemoryDatabase, error) {
+	newMemoryDBFunc = func(cfg *memdb.MemoryDatabaseCfg) (memdb.MemoryDatabase, error) {
 		return nil, fmt.Errorf("err")
 	}
 	memDB, err := f.GetOrCreateMemoryDatabase(1)
 	assert.Error(t, err)
 	assert.Nil(t, memDB)
 	memDB2 := memdb.NewMockMemoryDatabase(ctrl)
-	newMemoryDBFunc = func(cfg memdb.MemoryDatabaseCfg) (memdb.MemoryDatabase, error) {
+	newMemoryDBFunc = func(cfg *memdb.MemoryDatabaseCfg) (memdb.MemoryDatabase, error) {
 		return memDB2, nil
 	}
 
@@ -608,13 +613,16 @@ func TestDataFamily_WriteRows(t *testing.T) {
 	defer ctrl.Finish()
 
 	memDB := memdb.NewMockMemoryDatabase(ctrl)
-	memDB.EXPECT().WithLock().Return(func() {}).AnyTimes()
 	memDB.EXPECT().CompleteWrite().AnyTimes()
 	memDB.EXPECT().AcquireWrite().AnyTimes()
 	memDB.EXPECT().MemSize().Return(int64(10)).AnyTimes()
 	shard := NewMockShard(ctrl)
 	db := NewMockDatabase(ctrl)
 	shard.EXPECT().Database().Return(db).AnyTimes()
+	indexDB := index.NewMockMetricIndexDatabase(ctrl)
+	shard.EXPECT().IndexDB().Return(indexDB).AnyTimes()
+	metaDB := index.NewMockMetricMetaDatabase(ctrl)
+	db.EXPECT().MetaDB().Return(metaDB).AnyTimes()
 	db.EXPECT().Name().Return("db").AnyTimes()
 	shard.EXPECT().BufferManager().Return(memdb.NewMockBufferManager(ctrl)).AnyTimes()
 
@@ -633,7 +641,7 @@ func TestDataFamily_WriteRows(t *testing.T) {
 		{
 			name: "get memory database failure",
 			prepare: func() []metric.StorageRow {
-				newMemoryDBFunc = func(cfg memdb.MemoryDatabaseCfg) (memdb.MemoryDatabase, error) {
+				newMemoryDBFunc = func(cfg *memdb.MemoryDatabaseCfg) (memdb.MemoryDatabase, error) {
 					return nil, fmt.Errorf("err")
 				}
 				return mockBatchRows(&protoMetricsV1.Metric{
@@ -649,21 +657,6 @@ func TestDataFamily_WriteRows(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "metric is not writable",
-			prepare: func() []metric.StorageRow {
-				return mockBatchRows(&protoMetricsV1.Metric{
-					Name:      "test",
-					Timestamp: commontimeutil.Now(),
-					SimpleFields: []*protoMetricsV1.SimpleField{{
-						Name:  "f1",
-						Value: 1.0,
-						Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
-					}},
-				})
-			},
-			wantErr: false,
-		},
-		{
 			name: "write metric failure",
 			prepare: func() []metric.StorageRow {
 				memDB.EXPECT().WriteRow(gomock.Any()).Return(fmt.Errorf("err"))
@@ -676,7 +669,6 @@ func TestDataFamily_WriteRows(t *testing.T) {
 						Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
 					}},
 				})
-				rows[0].Writable = true
 				return rows
 			},
 			wantErr: false,
@@ -694,7 +686,6 @@ func TestDataFamily_WriteRows(t *testing.T) {
 						Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
 					}},
 				})
-				rows[0].Writable = true
 				return rows
 			},
 			wantErr: false,
@@ -714,7 +705,7 @@ func TestDataFamily_WriteRows(t *testing.T) {
 				logger:     logger.GetLogger("TSDB", "Test"),
 			}
 			f.intervalCalc = f.interval.Calculator()
-			newMemoryDBFunc = func(cfg memdb.MemoryDatabaseCfg) (memdb.MemoryDatabase, error) {
+			newMemoryDBFunc = func(cfg *memdb.MemoryDatabaseCfg) (memdb.MemoryDatabase, error) {
 				return memDB, nil
 			}
 			rows := tt.prepare()
