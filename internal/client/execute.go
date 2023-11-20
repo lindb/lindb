@@ -81,12 +81,18 @@ func (cli *executeCli) Execute(param models.ExecuteParam, rs interface{}) error 
 }
 
 // ExecuteAsResult executes lin query language, then returns terminal result.
-func (cli *executeCli) ExecuteAsResult(param models.ExecuteParam, rs interface{}) (string, error) {
+func (cli *executeCli) ExecuteAsResult(param models.ExecuteParam, rs interface{}) (queryResult string, err error) {
+	defer func() {
+		if err0 := recover(); err0 != nil {
+			err = fmt.Errorf("query error: %v", err0)
+		}
+	}()
+
 	n := time.Now()
-	err := cli.Execute(param, rs)
+	err = cli.Execute(param, rs)
 	cost := time.Since(n)
 	if err != nil {
-		return "", err
+		return
 	}
 	result := ""
 	rows := 0

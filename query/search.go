@@ -181,7 +181,7 @@ func buildMetadataResultSet(statement *stmtpkg.MetricMetadata, result []string) 
 		// underlying histogram data is only restricted access by user via quantile function
 		// furthermore, we suggest some quantile functions for user in field names, such as quantile(0.99)
 		var (
-			resultFields []commonmodels.Field
+			resultFields = make([]commonmodels.Field, 0)
 			hasHistogram bool
 		)
 		for _, f := range result {
@@ -210,6 +210,9 @@ func buildMetadataResultSet(statement *stmtpkg.MetricMetadata, result []string) 
 			Values: resultFields,
 		}, nil
 	default:
+		if values == nil {
+			values = make([]string, 0)
+		}
 		return &commonmodels.Metadata{
 			Type:   statement.Type.String(),
 			Values: values,
