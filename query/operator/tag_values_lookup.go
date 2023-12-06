@@ -19,6 +19,7 @@ package operator
 
 import (
 	"fmt"
+	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/series/tag"
@@ -70,12 +71,13 @@ func (op *tagValuesLookup) findTagValueIDsByExpr(expr stmt.Expr) {
 			op.err = err
 			return
 		}
-		if tagValueIDs != nil && !tagValueIDs.IsEmpty() {
-			// save atomic tag filter result
-			op.executeCtx.TagFilterResult[expr.Rewrite()] = &flow.TagFilterResult{
-				TagKeyID:    tagKeyID,
-				TagValueIDs: tagValueIDs,
-			}
+		if tagValueIDs == nil {
+			tagValueIDs = roaring.New()
+		}
+		// save atomic tag filter result
+		op.executeCtx.TagFilterResult[expr.Rewrite()] = &flow.TagFilterResult{
+			TagKeyID:    tagKeyID,
+			TagValueIDs: tagValueIDs,
 		}
 	case *stmt.ParenExpr:
 		op.findTagValueIDsByExpr(expr.Expr)
