@@ -7,7 +7,7 @@ COPY Makefile Makefile
 RUN make build-frontend
 
 # Build the manager binary
-FROM golang:1.19 as go_builder
+FROM golang:1.21 as go_builder
 ARG TARGETOS
 ARG TARGETARCH
 ARG LD_FLAGS
