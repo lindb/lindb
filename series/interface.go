@@ -20,6 +20,7 @@ package series
 import (
 	"github.com/lindb/roaring"
 
+	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 )
 
@@ -28,6 +29,8 @@ import (
 // MetricMetaSuggester represents to suggest ability for metricNames and tagKeys.
 // default max limit of suggestions is set in constants
 type MetricMetaSuggester interface {
+	// SuggestNamespace suggests the namespace by namespace's prefix
+	SuggestNamespace(prefix string, limit int) (namespaces []string, err error)
 	// SuggestMetrics returns suggestions from a given prefix of metricName
 	SuggestMetrics(namespace, metricPrefix string, limit int) ([]string, error)
 }
@@ -36,7 +39,7 @@ type MetricMetaSuggester interface {
 // default max limit of suggestions is set in constants
 type TagValueSuggester interface {
 	// SuggestTagValues returns suggestions from given tag key id and prefix of tagValue
-	SuggestTagValues(tagKeyID tag.KeyID, tagValuePrefix string, limit int) []string
+	SuggestTagValues(tagKeyID tag.KeyID, tagValuePrefix string, limit int) ([]string, error)
 }
 
 // Filter represents the query ability for filtering seriesIDs by expr from an index of tags.
@@ -46,5 +49,5 @@ type Filter interface {
 	// GetSeriesIDsForTag gets series ids for spec tag key of metric
 	GetSeriesIDsForTag(tagKeyID tag.KeyID) (*roaring.Bitmap, error)
 	// GetSeriesIDsForMetric gets series ids for spec metric name
-	GetSeriesIDsForMetric(namespace, metricName string) (*roaring.Bitmap, error)
+	GetSeriesIDsForMetric(metricID metric.ID) (*roaring.Bitmap, error)
 }

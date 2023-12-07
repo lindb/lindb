@@ -29,12 +29,12 @@ import (
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/query/tracker"
 	"github.com/lindb/lindb/series/tag"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/metadb"
 )
 
 func TestLeafGroupingContext(t *testing.T) {
@@ -42,10 +42,8 @@ func TestLeafGroupingContext(t *testing.T) {
 	defer ctrl.Finish()
 
 	db := tsdb.NewMockDatabase(ctrl)
-	meta := metadb.NewMockMetadata(ctrl)
-	tagMeta := metadb.NewMockTagMetadata(ctrl)
-	db.EXPECT().Metadata().Return(meta).AnyTimes()
-	meta.EXPECT().TagMetadata().Return(tagMeta).AnyTimes()
+	metaDB := index.NewMockMetricMetaDatabase(ctrl)
+	db.EXPECT().MetaDB().Return(metaDB).AnyTimes()
 	c, cancel := context.WithCancel(context.TODO())
 	storageCtx := &flow.StorageExecuteContext{
 		Query: &stmtpkg.Query{
@@ -95,7 +93,7 @@ func TestLeafGroupingContext(t *testing.T) {
 				}}
 				storageCtx.GroupingTagValueIDs = []*roaring.Bitmap{roaring.BitmapOf(1, 2, 3)}
 				storageCtx.Query.GroupBy = []string{"key"}
-				tagMeta.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+				metaDB.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 			},
 		},
 		{
@@ -107,7 +105,7 @@ func TestLeafGroupingContext(t *testing.T) {
 				}}
 				storageCtx.GroupingTagValueIDs = []*roaring.Bitmap{roaring.BitmapOf(1, 2, 3)}
 				storageCtx.Query.GroupBy = []string{"key"}
-				tagMeta.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+				metaDB.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			},
 		},
 	}

@@ -531,21 +531,15 @@ func (f *dataFamily) WriteRows(rows []metric.StorageRow) error {
 		return err
 	}
 	db.AcquireWrite()
-	releaseFunc := db.WithLock()
 	memSizeBefore := db.MemSize()
 	defer func() {
 		f.statistics.WriteBatches.Incr()
 		f.statistics.MemDBTotalSize.Add(float64(db.MemSize() - memSizeBefore))
 		db.CompleteWrite()
-		releaseFunc()
 	}()
 
 	for idx := range rows {
 		row := rows[idx]
-		if !row.Writable {
-			f.statistics.WriteMetricFailures.Incr()
-			continue
-		}
 		row.SlotIndex = uint16(f.intervalCalc.CalcSlot(
 			row.Timestamp(),
 			f.familyTime,
@@ -554,7 +548,7 @@ func (f *dataFamily) WriteRows(rows []metric.StorageRow) error {
 		err := db.WriteRow(&row)
 		if err == nil {
 			f.statistics.WriteMetrics.Incr()
-			f.statistics.WriteFields.Add(float64(len(row.FieldIDs)))
+			f.statistics.WriteFields.Add(float64(row.Fields))
 		} else {
 			f.statistics.WriteMetricFailures.Incr()
 			f.logger.Error("failed writing row", logger.String("family", f.indicator), logger.Error(err))
@@ -608,10 +602,12 @@ func (f *dataFamily) GetOrCreateMemoryDatabase(familyTime int64) (memdb.MemoryDa
 	defer f.mutex.Unlock()
 
 	if f.mutableMemDB == nil {
-		newDB, err := newMemoryDBFunc(memdb.MemoryDatabaseCfg{
-			FamilyTime: familyTime,
-			Name:       f.shard.Database().Name(),
-			BufferMgr:  f.shard.BufferManager(),
+		newDB, err := newMemoryDBFunc(&memdb.MemoryDatabaseCfg{
+			FamilyTime:    familyTime,
+			Name:          f.shard.Database().Name(),
+			BufferMgr:     f.shard.BufferManager(),
+			MetaNotifier:  f.shard.Database().MetaDB().Notify,
+			IndexNotifier: f.shard.IndexDB().Notify,
 		})
 		if err != nil {
 			return nil, err

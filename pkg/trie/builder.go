@@ -19,6 +19,8 @@ package trie
 
 import (
 	"io"
+
+	"github.com/lindb/lindb/pkg/encoding"
 )
 
 // builder builds Succinct Trie.
@@ -32,6 +34,7 @@ type builder struct {
 	cachedLevels []*Level
 
 	// write context(reuse)
+	initiated   bool
 	labelVec    labelVector
 	hasChildVec rankVectorSparse
 	loudsVec    selectVector
@@ -163,6 +166,7 @@ func (b *builder) moveToNextItemSlot(level *Level) {
 }
 
 func (b *builder) Reset() {
+	b.initiated = false
 	b.totalCount = 0
 	b.height = 0
 
@@ -203,23 +207,20 @@ func (b *builder) Write(w io.Writer) error {
 	if err := b.labelVec.Write(w, b.levels); err != nil {
 		return err
 	}
+	b.initWriteContext()
 	// write has child
-	b.hasChildVec.init(rankSparseBlockSize, b.levels, HasChild)
 	if err := b.hasChildVec.Write(w); err != nil {
 		return err
 	}
 	// write louds
-	b.loudsVec.Init(b.levels, Louds)
 	if err := b.loudsVec.Write(w); err != nil {
 		return err
 	}
 	// write prefix
-	b.prefixVec.Init(b.levels, HasPrefix)
 	if err := b.prefixVec.Write(w); err != nil {
 		return err
 	}
 	// write suffix
-	b.suffixVec.Init(b.levels, HasSuffix)
 	if err := b.suffixVec.Write(w); err != nil {
 		return err
 	}
@@ -228,11 +229,32 @@ func (b *builder) Write(w io.Writer) error {
 	for level := range b.levels {
 		values := b.levels[level].values
 		if len(values) > 0 {
-			if _, err := w.Write(u32SliceToBytes(values)); err != nil {
+			if _, err := w.Write(encoding.U32SliceToBytes(values)); err != nil {
 				return err
 			}
 		}
 	}
 
 	return nil
+}
+
+// MarshalSize is the size after padding
+func (b *builder) MarshalSize() int {
+	b.initWriteContext()
+	return 4 + 4 + // keys + height
+		b.labelVec.MarshalSize(b.levels) + // labels
+		b.hasChildVec.MarshalSize() + // has child
+		b.loudsVec.MarshalSize() + // louds
+		b.prefixVec.MarshalSize() + // prefixes
+		b.suffixVec.MarshalSize() + // suffixes
+		b.totalCount*4 // values
+}
+
+func (b *builder) initWriteContext() {
+	if !b.initiated {
+		b.hasChildVec.init(rankSparseBlockSize, b.levels, HasChild)
+		b.loudsVec.Init(b.levels, Louds)
+		b.prefixVec.Init(b.levels, HasPrefix)
+		b.suffixVec.Init(b.levels, HasSuffix)
+	}
 }

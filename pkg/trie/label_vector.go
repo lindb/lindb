@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"io"
 	"sort"
+
+	"github.com/lindb/lindb/pkg/encoding"
 )
 
 const labelTerminator = 0xff
@@ -85,12 +87,12 @@ func (v *labelVector) SearchGreaterThan(label byte, pos, size uint32) (uint32, b
 	return pos + uint32(result), true
 }
 
-func (v *labelVector) MarshalSize() int64 {
-	return v.rawMarshalSize()
-}
-
-func (v *labelVector) rawMarshalSize() int64 {
-	return 4 + int64(len(v.labels))
+func (v *labelVector) MarshalSize(levels []*Level) int {
+	size := 4
+	for _, level := range levels {
+		size += len(level.lsLabels)
+	}
+	return size
 }
 
 func (v *labelVector) Write(w io.Writer, levels []*Level) error {
@@ -143,26 +145,10 @@ func (v *valueVector) Get(pos uint32) uint32 {
 	return v.values[pos]
 }
 
-func (v *valueVector) MarshalSize() int64 {
-	return v.rawMarshalSize()
-}
-
-func (v *valueVector) rawMarshalSize() int64 {
-	return int64(len(v.values) * 4)
-}
-
-func (v *valueVector) Write(w io.Writer) error {
-	if _, err := w.Write(u32SliceToBytes(v.values)); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (v *valueVector) Unmarshal(totalKeys int, buf []byte) ([]byte, error) {
 	dataLen := totalKeys * 4
 	end := dataLen
-	v.values = bytesToU32Slice(buf[:end])
+	v.values = encoding.BytesToU32Slice(buf[:end])
 	return buf[end:], nil
 }
 
@@ -194,12 +180,8 @@ func (pv *compressPathVector) Init(levels []*Level, bitmapType BitmapType) {
 	}
 }
 
-func (pv *compressPathVector) rawMarshalSize() int64 {
-	return pv.hasPathVector.MarshalSize() + 8 + int64(len(pv.offsets)*4+len(pv.data))
-}
-
-func (pv *compressPathVector) MarshalSize() int64 {
-	return align(pv.rawMarshalSize())
+func (pv *compressPathVector) MarshalSize() int {
+	return pv.hasPathVector.MarshalSize() + 8 + len(pv.offsets)*4 + len(pv.data)
 }
 
 func (pv *compressPathVector) GetPath(nodeID uint32) []byte {
@@ -227,7 +209,7 @@ func (pv *compressPathVector) Write(w io.Writer) error {
 	if _, err := w.Write(length[:]); err != nil {
 		return err
 	}
-	if _, err := w.Write(u32SliceToBytes(pv.offsets)); err != nil {
+	if _, err := w.Write(encoding.U32SliceToBytes(pv.offsets)); err != nil {
 		return err
 	}
 	if _, err := w.Write(pv.data); err != nil {
@@ -251,7 +233,7 @@ func (pv *compressPathVector) Unmarshal(b []byte) ([]byte, error) {
 	if uint32(len(buf1)) < offsetsLen+dataLen {
 		return nil, fmt.Errorf("offsets+data: %d is longer than remaining buf: %d of compressPathVector", offsetsLen+dataLen, len(buf1))
 	}
-	pv.offsets = bytesToU32Slice(buf1[:offsetsLen])
+	pv.offsets = encoding.BytesToU32Slice(buf1[:offsetsLen])
 	buf1 = buf1[offsetsLen:]
 	// read data
 	pv.data = buf1[:dataLen]

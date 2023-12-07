@@ -21,22 +21,22 @@ import (
 	"github.com/lindb/common/models"
 
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/indexdb"
 )
 
 // metricAllSeries represents load all series ids operator.
 type metricAllSeries struct {
 	executeCtx *flow.ShardExecuteContext
-	indexDB    indexdb.IndexDatabase
+	indexDB    index.MetricIndexDatabase
 }
 
 // NewMetricAllSeries creates a metricAllSeries instance.
 func NewMetricAllSeries(executeCtx *flow.ShardExecuteContext, shard tsdb.Shard) Operator {
 	return &metricAllSeries{
 		executeCtx: executeCtx,
-		indexDB:    shard.IndexDatabase(),
+		indexDB:    shard.IndexDB(),
 	}
 }
 
@@ -44,7 +44,7 @@ func NewMetricAllSeries(executeCtx *flow.ShardExecuteContext, shard tsdb.Shard) 
 func (op *metricAllSeries) Execute() error {
 	queryStmt := op.executeCtx.StorageExecuteCtx.Query
 	// get series ids for metric level
-	seriesIDs, err := op.indexDB.GetSeriesIDsForMetric(queryStmt.Namespace, queryStmt.MetricName)
+	seriesIDs, err := op.indexDB.GetSeriesIDsForMetric(op.executeCtx.StorageExecuteCtx.MetricID)
 	if err != nil {
 		return err
 	}

@@ -128,20 +128,8 @@ func (r *localReplicator) Replica(sequence int64, msg []byte) {
 	if rowsLen == 0 {
 		return
 	}
-	rows := r.batchRows.Rows()
-
-	// lookup metric metadata
-	if err := r.shard.LookupRowMetricMeta(rows); err != nil {
-		r.statistics.ReplicaFailures.Incr()
-		r.logger.Error("failed lookup row metric meta",
-			logger.Int64("sequence", sequence),
-			logger.Int("rows", r.batchRows.Len()),
-			logger.String("replicator", r.String()),
-			logger.Error(err))
-		return
-	}
 	// write metric data
-	if err := r.family.WriteRows(rows); err != nil {
+	if err := r.family.WriteRows(r.batchRows.Rows()); err != nil {
 		r.statistics.ReplicaFailures.Incr()
 		r.logger.Error("failed writing family rows",
 			logger.Int64("sequence", sequence),

@@ -19,6 +19,7 @@ package trie
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"math"
@@ -27,6 +28,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/klauspost/compress/gzip"
 	"github.com/stretchr/testify/assert"
@@ -70,28 +72,43 @@ func newTestIPs(batchSize int) (ips [][]byte, ranks []uint32) {
 	return
 }
 
+func TestTriePool(t *testing.T) {
+	trie := GetTrie()
+	assert.NotNil(t, trie)
+	PutTrie(trie)
+	PutTrie(nil)
+}
+
 func TestBuilder_Reset(t *testing.T) {
-	ips, ranks := newTestIPs(2)
 	builder := NewBuilder()
-	assert.True(t, sort.IsSorted(&kvPair{keys: ips, values: ranks}))
+	r := rand.New(rand.NewSource(time.Now().Unix()))
 
-	for i := 0; i < 3; i++ {
-		builder.Build(ips, ranks)
-		tree := builder.Trie()
-		itr := tree.NewIterator()
-		itr.SeekToFirst()
-		var count int
-		for itr.Valid() {
-			assert.Equal(t, ips[count], itr.Key())
-			assert.Equal(t, ranks[count], itr.Value())
-
-			itr.Next()
-			count++
+	for i := 0; i < 5; i++ {
+		var keys [][]byte
+		var values []uint32
+		count := uint32(r.Uint64() % 10000)
+		for i := uint32(0); i < count; i++ {
+			var scratch [8]byte
+			binary.LittleEndian.PutUint64(scratch[:], r.Uint64())
+			keys = append(keys, scratch[:])
+			values = append(values, i)
 		}
-		assert.Equal(t, len(ips), count)
-
-		itr.Next()
-		assert.False(t, itr.Valid())
+		kvPair{keys: keys, values: values}.Sort()
+		builder.Build(keys, values)
+		w := bytes.NewBuffer([]byte{})
+		err := builder.Write(w)
+		assert.NoError(t, err)
+		data := w.Bytes()
+		tree := NewTrie()
+		assert.NoError(t, tree.UnmarshalBinary(data))
+		c := 0
+		for idx, key := range keys {
+			val, ok := tree.Get(key)
+			assert.True(t, ok)
+			assert.Equal(t, values[idx], val)
+			c++
+		}
+		assert.Equal(t, len(keys), c)
 		builder.Reset()
 	}
 }
@@ -142,6 +159,7 @@ func TestTrie_UnmarshalBinary(t *testing.T) {
 	err := builder.Write(w)
 	data := w.Bytes()
 	assert.NoError(t, err)
+	assert.Equal(t, len(data), builder.MarshalSize())
 
 	// unmarshal
 	tree2 := NewTrie()

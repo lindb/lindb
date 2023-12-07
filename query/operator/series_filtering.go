@@ -25,16 +25,16 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/indexdb"
 )
 
 // seriesFiltering represents series filtering operator.
 type seriesFiltering struct {
 	executeCtx *flow.ShardExecuteContext
-	indexDB    indexdb.IndexDatabase
+	indexDB    index.MetricIndexDatabase
 
 	err error
 }
@@ -43,7 +43,7 @@ type seriesFiltering struct {
 func NewSeriesFiltering(executeCtx *flow.ShardExecuteContext, shard tsdb.Shard) Operator {
 	return &seriesFiltering{
 		executeCtx: executeCtx,
-		indexDB:    shard.IndexDatabase(),
+		indexDB:    shard.IndexDB(),
 	}
 }
 

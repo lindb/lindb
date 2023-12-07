@@ -31,10 +31,10 @@ import (
 
 // Filter filters the data based on fields/seriesIDs/family time,
 // if it finds data then returns the FilterResultSet, else returns constants.ErrFieldNotFound
-func (ms *metricStore) Filter(shardExecuteContext *flow.ShardExecuteContext, db MemoryDatabase) ([]flow.FilterResultSet, error) {
+func (ms *metricStore) Filter(shardExecuteContext *flow.ShardExecuteContext, db *memoryDatabase) ([]flow.FilterResultSet, error) {
 	fields := shardExecuteContext.StorageExecuteCtx.Fields
 	// first need check query's fields is match store's fields, if not return.
-	foundFields, _ := ms.fields.Intersects(fields)
+	foundFields := ms.FindFields(fields)
 	if len(foundFields) == 0 {
 		// field not found
 		return nil, fmt.Errorf("%w, fields: %s", constants.ErrFieldNotFound, fields.String())
@@ -43,7 +43,7 @@ func (ms *metricStore) Filter(shardExecuteContext *flow.ShardExecuteContext, db 
 	seriesIDs := shardExecuteContext.SeriesIDsAfterFiltering
 	familyTime := db.FamilyTime()
 	// after and operator, query bitmap is sub of store bitmap
-	matchSeriesIDs := roaring.FastAnd(seriesIDs, ms.keys)
+	matchSeriesIDs := roaring.FastAnd(seriesIDs, ms.ids.Keys())
 	if matchSeriesIDs.IsEmpty() {
 		// series id not found
 		return nil, fmt.Errorf("%w when Filter, familyTime: %d, fields: %s",
@@ -56,7 +56,7 @@ func (ms *metricStore) Filter(shardExecuteContext *flow.ShardExecuteContext, db 
 			db:         db,
 			familyTime: familyTime,
 			store:      ms,
-			fields:     fields,
+			fields:     foundFields,
 			seriesIDs:  matchSeriesIDs,
 		},
 	}, nil
@@ -64,7 +64,7 @@ func (ms *metricStore) Filter(shardExecuteContext *flow.ShardExecuteContext, db 
 
 // memFilterResultSet represents memory filter result set for loading data in query flow
 type memFilterResultSet struct {
-	db         MemoryDatabase
+	db         *memoryDatabase
 	familyTime int64
 	store      *metricStore
 	fields     field.Metas // sort by field id
@@ -99,21 +99,23 @@ func (rs *memFilterResultSet) SeriesIDs() *roaring.Bitmap {
 
 // Load loads the data from storage, then returns the memory storage metric scanner.
 func (rs *memFilterResultSet) Load(ctx *flow.DataLoadContext) flow.DataLoader {
+	keys := rs.store.ids.Keys()
 	// 1. get high container index by the high key of series ID
-	highContainerIdx := rs.store.keys.GetContainerIndex(ctx.SeriesIDHighKey)
+	highContainerIdx := keys.GetContainerIndex(ctx.SeriesIDHighKey)
 	if highContainerIdx < 0 {
 		// if high container index < 0(series ID not exist) return it
 		return nil
 	}
 	// 2. get low container include all low keys by the high container index, delete op will clean empty low container
-	lowContainer := rs.store.keys.GetContainerAtIndex(highContainerIdx)
+	lowContainer := keys.GetContainerAtIndex(highContainerIdx)
 	foundSeriesIDs := lowContainer.And(ctx.LowSeriesIDsContainer)
 	if foundSeriesIDs.GetCardinality() == 0 {
 		return nil
 	}
 
+	values := rs.store.ids.Values()
 	// must use lowContainer from store, because get series index based on container
-	return newMetricStoreLoader(rs.db, lowContainer, rs.store.values[highContainerIdx], *rs.store.slotRange, rs.fields)
+	return NewTimeSeriesLoader(rs.db, lowContainer, values[highContainerIdx], rs.fields, *rs.store.slotRange)
 }
 
 // Close release the resource during doing query operation.

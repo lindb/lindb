@@ -18,6 +18,8 @@
 package kv
 
 import (
+	"time"
+
 	"github.com/lindb/common/pkg/logger"
 )
 
@@ -30,6 +32,6 @@ const (
 )
 
 var (
-	defaultCompactCheckInterval = 60
+	DefaultCompactCheckInterval = time.Minute
 	kvLogger                    = logger.GetLogger("KV", "Store")
 )

@@ -1,8 +1,0 @@
-[
-    {
-        "package":"indexdb",
-        "type":"Inverted",
-        "value":"roaring.New()",
-        "valueType":"*roaring.Bitmap"
-    }
-]

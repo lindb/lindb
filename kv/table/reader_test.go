@@ -135,17 +135,17 @@ func TestStoreMMapReader_readBytes_Err(t *testing.T) {
 
 	// case 4: unmarshal keys err
 	uint64Func = binary.LittleEndian.Uint64
-	encoding.BitmapUnmarshal = func(bitmap *roaring.Bitmap, data []byte) error {
-		return fmt.Errorf("err")
+	encoding.BitmapUnmarshal = func(bitmap *roaring.Bitmap, data []byte) (int64, error) {
+		return 0, fmt.Errorf("err")
 	}
 	r, err = newMMapStoreReader(filepath.Join(testKVPath, "000010.sst"), "000010.sst")
 	assert.Error(t, err)
 	assert.Nil(t, r)
 
 	// case 5: offset's size != key's size
-	encoding.BitmapUnmarshal = func(bitmap *roaring.Bitmap, _ []byte) error {
+	encoding.BitmapUnmarshal = func(bitmap *roaring.Bitmap, _ []byte) (int64, error) {
 		bitmap.AddRange(1, 1000)
-		return nil
+		return 0, nil
 	}
 	r, err = newMMapStoreReader(filepath.Join(testKVPath, "000010.sst"), "000010.sst")
 	assert.Error(t, err)

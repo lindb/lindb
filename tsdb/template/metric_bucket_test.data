@@ -1,8 +1,0 @@
-[
-    {
-        "package":"memdb",
-        "type":"MetricBucket",
-        "value":"newMetricStore()",
-        "valueType":"mStoreINTF"
-    }
-]

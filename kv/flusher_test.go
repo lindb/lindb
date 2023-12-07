@@ -72,6 +72,7 @@ func TestStoreFlusher_Commit(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	builder := table.NewMockBuilder(ctrl)
 	// empty but commit edit log fail
 	family := NewMockFamily(ctrl)
 	gomock.InOrder(
@@ -96,9 +97,9 @@ func TestStoreFlusher_Commit(t *testing.T) {
 	err = flusher.Commit()
 	assert.NoError(t, err)
 
-	builder := table.NewMockBuilder(ctrl)
 	gomock.InOrder(
 		family.EXPECT().ID().Return(version.FamilyID(10)),
+		builder.EXPECT().Size().Return(uint32(10)),
 		builder.EXPECT().Close().Return(fmt.Errorf("err")),
 		builder.EXPECT().FileNumber().Return(table.FileNumber(10)),
 		family.EXPECT().removePendingOutput(table.FileNumber(10)),
@@ -112,6 +113,7 @@ func TestStoreFlusher_Commit(t *testing.T) {
 
 	gomock.InOrder(
 		family.EXPECT().ID().Return(version.FamilyID(10)),
+		builder.EXPECT().Size().Return(uint32(10)),
 		builder.EXPECT().Close().Return(nil),
 		builder.EXPECT().FileNumber().Return(table.FileNumber(10)),
 		builder.EXPECT().MinKey().Return(uint32(1)),
@@ -130,6 +132,7 @@ func TestStoreFlusher_Commit(t *testing.T) {
 
 	gomock.InOrder(
 		family.EXPECT().ID().Return(version.FamilyID(10)),
+		builder.EXPECT().Size().Return(uint32(10)),
 		builder.EXPECT().Close().Return(nil),
 		builder.EXPECT().FileNumber().Return(table.FileNumber(10)),
 		builder.EXPECT().MinKey().Return(uint32(1)),
@@ -151,6 +154,18 @@ func TestStoreFlusher_Commit(t *testing.T) {
 	f.builder = builder
 	err = flusher.Commit()
 	assert.NoError(t, err)
+
+	// empty kvs
+	builder.EXPECT().FileNumber().Return(table.FileNumber(10)).AnyTimes()
+	family.EXPECT().removePendingOutput(gomock.Any()).AnyTimes()
+	flusher1.outputs = []table.FileNumber{}
+	family.EXPECT().commitEditLog(gomock.Any()).Return(true).AnyTimes()
+	f.builder = builder
+	builder.EXPECT().Size().Return(uint32(0)).MaxTimes(2)
+	builder.EXPECT().Abandon().Return(nil)
+	assert.NoError(t, flusher.Commit())
+	builder.EXPECT().Abandon().Return(fmt.Errorf("err"))
+	assert.Error(t, flusher.Commit())
 }
 
 func TestStoreFlusher_StreamWriter(t *testing.T) {

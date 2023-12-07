@@ -35,7 +35,7 @@ func NewNamespaceSuggest(ctx *context.LeafMetadataContext) Operator {
 func (op *namespaceSuggest) Execute() error {
 	req := op.ctx.Request
 	limit := op.ctx.Limit
-	rs, err := op.ctx.Database.Metadata().MetadataDatabase().SuggestNamespace(req.Prefix, limit)
+	rs, err := op.ctx.Database.MetaDB().SuggestNamespace(req.Prefix, limit)
 	if err != nil {
 		return err
 	}

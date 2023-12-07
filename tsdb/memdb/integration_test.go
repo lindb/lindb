@@ -19,8 +19,6 @@ package memdb
 
 import (
 	"fmt"
-	"net/http"
-	_ "net/http/pprof"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -37,15 +35,12 @@ func BenchmarkMemoryDatabase_write(b *testing.B) {
 	cfg := MemoryDatabaseCfg{
 		BufferMgr: bufferMgr,
 	}
-	db, err := NewMemoryDatabase(cfg)
+	db, err := NewMemoryDatabase(&cfg)
 	if err != nil {
 		b.Fatal(err)
 	}
 	now := commontimeutil.Now()
 
-	go func() {
-		_ = http.ListenAndServe("0.0.0.0:6060", nil)
-	}()
 	// batch write
 	release := db.WithLock()
 
@@ -98,7 +93,7 @@ func BenchmarkMemoryDatabase_write_sum(b *testing.B) {
 		var cfg = MemoryDatabaseCfg{
 			BufferMgr: bufferMgr,
 		}
-		db, err := NewMemoryDatabase(cfg)
+		db, err := NewMemoryDatabase(&cfg)
 		if err != nil {
 			b.Fatal(err)
 		}

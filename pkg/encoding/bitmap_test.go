@@ -41,13 +41,13 @@ func TestBitmapMarshal(t *testing.T) {
 	assert.Error(t, err)
 
 	bitmap := roaring.New()
-	err = BitmapUnmarshal(bitmap, data)
+	_, err = BitmapUnmarshal(bitmap, data)
 	assert.NoError(t, err)
 	assert.EqualValues(t, roaring.BitmapOf(1).ToArray(), bitmap.ToArray())
 
-	BitmapUnmarshal = func(bitmap *roaring.Bitmap, data []byte) error {
-		return fmt.Errorf("err")
+	BitmapUnmarshal = func(bitmap *roaring.Bitmap, data []byte) (int64, error) {
+		return 0, fmt.Errorf("err")
 	}
-	err = BitmapUnmarshal(bitmap, data)
+	_, err = BitmapUnmarshal(bitmap, data)
 	assert.Error(t, err)
 }

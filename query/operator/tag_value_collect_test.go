@@ -27,13 +27,12 @@ import (
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/query/context"
 	"github.com/lindb/lindb/series/tag"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/indexdb"
-	"github.com/lindb/lindb/tsdb/metadb"
 )
 
 func TestTagValueCollect_Execute(t *testing.T) {
@@ -44,12 +43,10 @@ func TestTagValueCollect_Execute(t *testing.T) {
 	db.EXPECT().Name().Return("db").AnyTimes()
 	shard := tsdb.NewMockShard(ctrl)
 	shard.EXPECT().ShardID().Return(models.ShardID(10)).AnyTimes()
-	indexDB := indexdb.NewMockIndexDatabase(ctrl)
-	shard.EXPECT().IndexDatabase().Return(indexDB).AnyTimes()
-	meta := metadb.NewMockMetadata(ctrl)
-	db.EXPECT().Metadata().Return(meta).AnyTimes()
-	tagMeta := metadb.NewMockTagMetadata(ctrl)
-	meta.EXPECT().TagMetadata().Return(tagMeta).AnyTimes()
+	indexDB := index.NewMockMetricIndexDatabase(ctrl)
+	shard.EXPECT().IndexDB().Return(indexDB).AnyTimes()
+	metaDB := index.NewMockMetricMetaDatabase(ctrl)
+	db.EXPECT().MetaDB().Return(metaDB).AnyTimes()
 
 	ctx := &context.LeafMetadataContext{
 		Database:          db,
@@ -75,14 +72,14 @@ func TestTagValueCollect_Execute(t *testing.T) {
 			name: "collect tag value failure",
 			prepare: func() {
 				indexDB.EXPECT().GetGroupingContext(gomock.Any()).Return(nil)
-				tagMeta.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+				metaDB.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 			},
 		},
 		{
 			name: "collect tag value successfully",
 			prepare: func() {
 				indexDB.EXPECT().GetGroupingContext(gomock.Any()).Return(nil)
-				tagMeta.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ tag.KeyID,
+				metaDB.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ tag.KeyID,
 					_ *roaring.Bitmap,
 					tagValues map[uint32]string) error {
 					tagValues[10] = "value10"

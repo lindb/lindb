@@ -242,7 +242,7 @@ func (r *metricReader) initReader() error {
 	}
 	// read series ids
 	seriesIDs := roaring.New()
-	if err := encoding.BitmapUnmarshal(seriesIDs, r.metricBlock[seriesIDsStartPos:]); err != nil {
+	if _, err := encoding.BitmapUnmarshal(seriesIDs, r.metricBlock[seriesIDsStartPos:]); err != nil {
 		return err
 	}
 	r.seriesBucket = r.metricBlock[:fieldMetaStartPos]

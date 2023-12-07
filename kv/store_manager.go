@@ -18,25 +18,16 @@
 package kv
 
 import (
-	"path/filepath"
 	"sync"
-
-	"go.uber.org/atomic"
 
 	"github.com/lindb/common/pkg/logger"
 )
 
 //go:generate mockgen -source ./store_manager.go -destination=./store_manager_mock.go -package kv
 
-type StoreOptions struct {
-	Dir                  string // store root path
-	CompactCheckInterval int    // compact/rollup job check interval(number of seconds)
-}
-
 var (
 	sManager          StoreManager
 	once4StoreManager sync.Once
-	Options           atomic.Value
 )
 
 // InitStoreManager initializes StoreManager.
@@ -50,12 +41,7 @@ func GetStoreManager() StoreManager {
 		return sManager
 	}
 	once4StoreManager.Do(func() {
-		optionsVal := Options.Load()
-		options, ok := optionsVal.(*StoreOptions)
-		if !ok || options.Dir == "" {
-			panic("cannot load store options, please check.")
-		}
-		sManager = newStoreManager(*options)
+		sManager = newStoreManager()
 	})
 	return sManager
 }
@@ -75,17 +61,15 @@ type StoreManager interface {
 
 // storeManager implements StoreManager interface.
 type storeManager struct {
-	stores  map[string]Store
-	options StoreOptions
+	stores map[string]Store
 
 	mutex sync.Mutex
 }
 
 // newStoreManager creates a StoreManager instance.
-func newStoreManager(options StoreOptions) StoreManager {
+func newStoreManager() StoreManager {
 	return &storeManager{
-		stores:  make(map[string]Store),
-		options: options,
+		stores: make(map[string]Store),
 	}
 }
 
@@ -100,7 +84,8 @@ func (s *storeManager) CreateStore(name string, option StoreOption) (Store, erro
 		return store, nil
 	}
 
-	store, err := newStoreFunc(name, filepath.Join(s.options.Dir, name), option)
+	// FIXME: remove one name
+	store, err := newStoreFunc(name, name, option)
 	if err != nil {
 		return nil, err
 	}

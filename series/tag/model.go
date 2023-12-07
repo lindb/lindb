@@ -19,6 +19,8 @@ package tag
 
 import (
 	"bytes"
+	"encoding/binary"
+	"io"
 
 	"github.com/lindb/lindb/pkg/stream"
 )
@@ -64,6 +66,8 @@ func (fms Metas) Find(tagKey string) (Meta, bool) {
 type Meta struct {
 	Key string
 	ID  KeyID
+
+	Persisted bool
 }
 
 func (m *Meta) MarshalBinary() (data []byte, err error) {
@@ -73,6 +77,30 @@ func (m *Meta) MarshalBinary() (data []byte, err error) {
 	writer.PutInt16(int16(len(m.Key)))
 	writer.PutBytes([]byte(m.Key))
 	return buf.Bytes(), writer.Error()
+}
+
+func (m *Meta) Write(w io.Writer) error {
+	var scratch [4]byte
+	binary.LittleEndian.PutUint32(scratch[:], uint32(m.ID))
+	if _, err := w.Write(scratch[:]); err != nil {
+		return err
+	}
+	binary.LittleEndian.PutUint16(scratch[:], uint16(len(m.Key)))
+	if _, err := w.Write(scratch[:2]); err != nil {
+		return err
+	}
+	if _, err := w.Write([]byte(m.Key)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *Meta) Unmarshal(buf []byte) []byte {
+	m.ID = KeyID(binary.LittleEndian.Uint32(buf[0:]))
+	size := binary.LittleEndian.Uint16(buf[4:])
+	end := 6 + size
+	m.Key = string(buf[6:end])
+	return buf[end:]
 }
 
 // Tag represents a kv tag pair.

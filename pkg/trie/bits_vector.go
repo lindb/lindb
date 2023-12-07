@@ -22,6 +22,8 @@ import (
 	"io"
 	"math/bits"
 	"strings"
+
+	"github.com/lindb/lindb/pkg/encoding"
 )
 
 type bitVector struct {
@@ -67,6 +69,11 @@ func (v *bitVector) Init(levels []*Level, bitmapType BitmapType) {
 	v.words = v.numWords()
 	if uint32(len(v.bits)) < v.words {
 		v.bits = make([]uint64, v.words)
+	} else {
+		// NOTE: must reset bit, bits is different length when trie buildre reset.
+		for idx := range v.bits {
+			v.bits[idx] = 0
+		}
 	}
 
 	var wordID, bitShift, n uint32
@@ -154,7 +161,7 @@ func (v *bitVector) write(w io.Writer) error {
 	if _, err := w.Write(buf[:]); err != nil {
 		return err
 	}
-	if _, err := w.Write(u64SliceToBytes(v.bits[:v.words])); err != nil {
+	if _, err := w.Write(encoding.U64SliceToBytes(v.bits[:v.words])); err != nil {
 		return err
 	}
 	return nil
@@ -169,7 +176,7 @@ func (v *bitVector) unmarshal(buf []byte) ([]byte, error) {
 	if len(buf) < bitsSize {
 		return nil, fmt.Errorf("cannot read bits: %d from rankVector: %d", bitsSize, len(buf))
 	}
-	v.bits = bytesToU64Slice(buf[:bitsSize])
+	v.bits = encoding.BytesToU64Slice(buf[:bitsSize])
 	buf = buf[bitsSize:]
 	return buf, nil
 }

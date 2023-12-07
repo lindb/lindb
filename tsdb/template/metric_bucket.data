@@ -1,8 +1,0 @@
-[
-    {
-        "package":"memdb",
-        "type":"MetricBucket",
-        "nil":"nil",
-        "value":"mStoreINTF"
-    }
-]

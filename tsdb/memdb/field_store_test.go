@@ -39,13 +39,11 @@ var encodeFunc = encoding.NewTSDEncoder
 func TestFieldStore_New(t *testing.T) {
 	buf := make([]byte, pageSize)
 
-	store := newFieldStore(buf, field.ID(1))
+	store := newFieldStore(buf)
 	assert.NotNil(t, store)
-	assert.Equal(t, field.ID(1), store.GetFieldID())
 	s := store.(*fieldStore)
 	assert.Equal(t, uint16(0), s.getStart())
 	assert.Equal(t, uint16(15), s.timeWindow())
-	assert.Equal(t, field.ID(1), s.GetFieldID())
 }
 
 func TestFieldStore_Write(t *testing.T) {
@@ -53,7 +51,7 @@ func TestFieldStore_Write(t *testing.T) {
 	defer ctrl.Finish()
 
 	buf := make([]byte, pageSize)
-	store := newFieldStore(buf, field.ID(1))
+	store := newFieldStore(buf)
 	assert.NotNil(t, store)
 	s := store.(*fieldStore)
 
@@ -136,7 +134,7 @@ func TestFieldStore_Write(t *testing.T) {
 
 func TestFieldStore_Write2(t *testing.T) {
 	buf := make([]byte, pageSize)
-	store := newFieldStore(buf, field.ID(1))
+	store := newFieldStore(buf)
 	s := store.(*fieldStore)
 	store.Write(field.SumField, 10, 178)
 	capacity := s.Capacity()
@@ -163,7 +161,7 @@ func TestFieldStore_Write_Compact_err(t *testing.T) {
 	}()
 
 	buf := make([]byte, pageSize)
-	store := newFieldStore(buf, field.ID(1))
+	store := newFieldStore(buf)
 	assert.NotNil(t, store)
 	s := store.(*fieldStore)
 
@@ -195,7 +193,7 @@ func TestFieldStore_FlushFieldTo(t *testing.T) {
 	slotRange := timeutil.SlotRange{Start: 5, End: 5}
 	for idx, f := range fields {
 		buf := make([]byte, pageSize)
-		store := newFieldStore(buf, f.ID)
+		store := newFieldStore(buf)
 		store.Write(field.SumField, 5, float64(f.ID))
 		assert.NoError(t, store.FlushFieldTo(flusher,
 			field.Meta{Type: field.SumField},
@@ -225,7 +223,7 @@ func TestFieldStore_FlushFieldTo(t *testing.T) {
 					Query:  &stmt.Query{},
 				},
 			},
-			DownSampling: func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, getter encoding.TSDValueGetter) {
+			DownSampling: func(slotRange timeutil.SlotRange, _ uint16, fieldIdx int, getter encoding.TSDValueGetter) {
 				assert.Equal(t, timeutil.SlotRange{Start: 5, End: 5}, slotRange)
 				for movingSourceSlot := slotRange.Start; movingSourceSlot <= slotRange.End; movingSourceSlot++ {
 					value, ok := getter.GetValue(movingSourceSlot)
@@ -249,11 +247,11 @@ func TestFieldStore_FlushFieldTo(t *testing.T) {
 func TestFieldStore_Load(t *testing.T) {
 	buf := make([]byte, pageSize)
 	f := field.Meta{ID: 1}
-	store := newFieldStore(buf, f.ID)
+	store := newFieldStore(buf)
 	store.Write(field.SumField, 5, float64(f.ID))
 
 	ctx := &flow.DataLoadContext{
-		DownSampling: func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, getter encoding.TSDValueGetter) {
+		DownSampling: func(slotRange timeutil.SlotRange, _ uint16, _ int, getter encoding.TSDValueGetter) {
 			for movingSourceSlot := slotRange.Start; movingSourceSlot <= slotRange.End; movingSourceSlot++ {
 				value, ok := getter.GetValue(movingSourceSlot)
 				if !ok {

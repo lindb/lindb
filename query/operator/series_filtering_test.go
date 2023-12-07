@@ -27,10 +27,10 @@ import (
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/series/tag"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/indexdb"
 )
 
 func TestSeriesFiltering_Execute(t *testing.T) {
@@ -38,8 +38,8 @@ func TestSeriesFiltering_Execute(t *testing.T) {
 	defer ctrl.Finish()
 
 	shard := tsdb.NewMockShard(ctrl)
-	indexDB := indexdb.NewMockIndexDatabase(ctrl)
-	shard.EXPECT().IndexDatabase().Return(indexDB).AnyTimes()
+	indexDB := index.NewMockMetricIndexDatabase(ctrl)
+	shard.EXPECT().IndexDB().Return(indexDB).AnyTimes()
 	storageCtx := &flow.StorageExecuteContext{
 		Query: &stmtpkg.Query{},
 		TagFilterResult: map[string]*flow.TagFilterResult{
@@ -209,8 +209,8 @@ func TestSeriesFiltering_Stats(t *testing.T) {
 	defer ctrl.Finish()
 
 	shard := tsdb.NewMockShard(ctrl)
-	indexDB := indexdb.NewMockIndexDatabase(ctrl)
-	shard.EXPECT().IndexDatabase().Return(indexDB).AnyTimes()
+	indexDB := index.NewMockMetricIndexDatabase(ctrl)
+	shard.EXPECT().IndexDB().Return(indexDB).AnyTimes()
 	shardCtx := &flow.ShardExecuteContext{
 		SeriesIDsAfterFiltering: roaring.BitmapOf(1, 2),
 	}

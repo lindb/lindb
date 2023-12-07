@@ -18,6 +18,8 @@
 package version
 
 import (
+	"errors"
+
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/kv/table"
@@ -32,6 +34,8 @@ type Snapshot interface {
 	GetCurrent() Version
 	// FindReaders finds all files include key
 	FindReaders(key uint32) ([]table.Reader, error)
+	// Load loads value by key, if exist invoke loader function.
+	Load(key uint32, loader func(value []byte) error) error
 	// GetReader returns file reader
 	GetReader(fileNumber table.FileNumber) (table.Reader, error)
 	// Close releases related resources
@@ -81,6 +85,31 @@ func (s *snapshot) FindReaders(key uint32) ([]table.Reader, error) {
 		}
 	}
 	return readers, nil
+}
+
+// Load loads value by key, if exist invoke loader function.
+func (s *snapshot) Load(key uint32, loader func(value []byte) error) error {
+	files := s.version.FindFiles(key)
+	for _, fileMeta := range files {
+		reader, err := s.cache.GetReader(s.familyName, Table(fileMeta.GetFileNumber()))
+		if err != nil {
+			return err
+		}
+		if reader != nil {
+			value, err := reader.Get(key)
+			if errors.Is(err, table.ErrKeyNotExist) {
+				// not exist
+				continue
+			}
+			if err != nil {
+				return err
+			}
+			if err := loader(value); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // GetReader returns the file reader

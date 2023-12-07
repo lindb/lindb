@@ -44,9 +44,6 @@ func TestDatabase_Write_And_Rollup(t *testing.T) {
 	config.SetGlobalStorageConfig(&config.StorageBase{
 		TSDB: config.TSDB{Dir: dir},
 	})
-	kv.Options.Store(&kv.StoreOptions{
-		Dir: config.GlobalStorageConfig().TSDB.Dir,
-	})
 
 	engine, err := tsdb.NewEngine()
 	assert.NoError(t, err)
@@ -87,9 +84,6 @@ func TestDatabase_Write_And_Rollup(t *testing.T) {
 			}},
 		})
 
-		err = shard.LookupRowMetricMeta(rows)
-		assert.NoError(t, err)
-
 		err = f.WriteRows(rows)
 		assert.NoError(t, err)
 
@@ -97,11 +91,11 @@ func TestDatabase_Write_And_Rollup(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	storeName := tsdb.ShardSegmentIndicator("write-db", models.ShardID(1), interval, "20190702")
+	storeName := tsdb.ShardSegmentPath("write-db", models.ShardID(1), interval, "20190702")
 	store, ok := kv.GetStoreManager().GetStoreByName(storeName)
 	assert.True(t, ok)
 	assert.NotNil(t, store)
-	storeName = tsdb.ShardSegmentIndicator("write-db", models.ShardID(1), rollupInterval, "201907")
+	storeName = tsdb.ShardSegmentPath("write-db", models.ShardID(1), rollupInterval, "201907")
 	rollupTargetStore, ok := kv.GetStoreManager().GetStoreByName(storeName)
 	assert.True(t, ok)
 	assert.NotNil(t, rollupTargetStore)

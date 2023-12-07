@@ -20,6 +20,7 @@ package trie
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -92,6 +93,7 @@ func TestBitVector(t *testing.T) {
 			numBitsPerLevel[l] = numBits
 		}
 		vec.Init(bitsPerLevel, HasChild)
+		assert.NotEmpty(t, vec.String())
 
 		off := uint32(0)
 		for l, p := range c {

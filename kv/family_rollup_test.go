@@ -138,11 +138,9 @@ func TestFamily_needRollup(t *testing.T) {
 func TestFamily_rollup(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		Options.Store(&StoreOptions{})
 		InitStoreManager(nil)
 	}()
 
-	Options.Store(&StoreOptions{Dir: t.TempDir()})
 	targetStore := NewMockStore(ctrl)
 	targetFamily := NewMockFamily(ctrl)
 	storeMgr := NewMockStoreManager(ctrl)

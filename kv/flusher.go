@@ -42,7 +42,7 @@ type Flusher interface {
 	// Commit flushes data and commits metadata.
 	Commit() error
 	// Release releases the resource of flusher.
-	// NOTICE: MUST invoke Release() after new fluster instance.
+	// NOTE: MUST invoke Release() after new fluster instance.
 	Release()
 }
 
@@ -120,13 +120,21 @@ func (sf *storeFlusher) Commit() (err error) {
 		}
 	}()
 	if builder != nil {
-		err = builder.Close()
-		if err != nil {
-			return fmt.Errorf("close table builder error when flush commit, error:%s", err)
-		}
+		if builder.Size() > 0 {
+			err = builder.Close()
+			if err != nil {
+				return fmt.Errorf("close table builder error when flush commit, error:%s", err)
+			}
 
-		fileMeta := version.NewFileMeta(builder.FileNumber(), builder.MinKey(), builder.MaxKey(), builder.Size())
-		sf.editLog.Add(version.CreateNewFile(0, fileMeta))
+			fileMeta := version.NewFileMeta(builder.FileNumber(), builder.MinKey(), builder.MaxKey(), builder.Size())
+			sf.editLog.Add(version.CreateNewFile(0, fileMeta))
+		} else {
+			// if no keys, abandon kv builder
+			err = builder.Abandon()
+			if err != nil {
+				return fmt.Errorf("abandon table builder error when flush commit, error:%s", err)
+			}
+		}
 	}
 	for leader, seq := range sf.sequences {
 		// add sequence for each leader
