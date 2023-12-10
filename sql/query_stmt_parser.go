@@ -52,6 +52,9 @@ type queryStmtParser struct {
 
 	curOrderByExpr *stmt.OrderByExpr
 	hasOrderBy     bool
+
+	having bool
+	havingStmt stmt.Expr
 }
 
 // newQueryStmtParse create a query statement parser
@@ -96,6 +99,7 @@ func (q *queryStmtParser) build() (stmt.Statement, error) {
 	query.AutoGroupByTime = q.autoGroupByTime
 	query.AllFields = q.allFields
 	query.GroupBy = q.groupBy
+	query.Having = q.havingStmt
 	query.OrderByItems = q.orderBy
 	query.Limit = q.limit
 	return query, nil
@@ -337,7 +341,7 @@ func (q *queryStmtParser) completeFuncExpr() {
 		if q.exprStack.Empty() {
 			if q.hasOrderBy {
 				q.curOrderByExpr.Expr = expr
-			} else {
+			} else if !q.having{
 				q.selectItems = append(q.selectItems, &stmt.SelectItem{Expr: expr})
 
 				// select field(func rewrite name)
@@ -381,12 +385,14 @@ func (q *queryStmtParser) parseFieldName(fieldName string) {
 			q.setExprParam(fieldExpr)
 		}
 	default: // handle select item
-		if q.exprStack.Empty() {
+		if q.exprStack.Empty() && !q.having{
 			q.selectItems = append(q.selectItems, &stmt.SelectItem{Expr: fieldExpr})
 		} else {
 			q.setExprParam(fieldExpr)
 		}
-		q.fieldNames[fieldName] = struct{}{}
+		if !q.having {
+			q.fieldNames[fieldName] = struct{}{}
+		}
 	}
 }
 
@@ -411,8 +417,78 @@ func (q *queryStmtParser) completeFieldExpr(ctx *grammar.FieldExprContext) {
 		if ok {
 			q.setExprParam(expr)
 		}
-		if q.exprStack.Empty() {
+		if q.exprStack.Empty() && !q.having {
 			q.selectItems = append(q.selectItems, &stmt.SelectItem{Expr: expr})
 		}
 	}
+}
+
+// visitHaving visits when production having expression is entered
+func (q *queryStmtParser) visitHaving(_ *grammar.HavingClauseContext) {
+	q.having = true
+}
+
+// visitBoolExpr visits when production bool expression is entered
+func (q *queryStmtParser) visitBoolExpr(ctx *grammar.BoolExprContext) {
+	switch {
+	case ctx.T_OPEN_P() != nil:
+		q.exprStack.Push(&stmt.ParenExpr{})
+	case ctx.BoolExprLogicalOp() != nil:
+		q.visitBoolExprLogicalOp(ctx.BoolExprLogicalOp().(*grammar.BoolExprLogicalOpContext))
+	}
+}
+
+// completeHaving complete a having expr
+func (q *queryStmtParser) completeHaving(_ *grammar.HavingClauseContext) {
+	q.having = false
+	if !q.exprStack.Empty() {
+		q.havingStmt = q.exprStack.Pop().(stmt.Expr)
+	}
+}
+
+// completeBoolExpr complete a bool expr
+func (q *queryStmtParser) completeBoolExpr(_ *grammar.BoolExprContext) {
+	cur := q.exprStack.Pop()
+	if cur != nil {
+		expr, ok := cur.(stmt.Expr)
+		if ok {
+			if q.exprStack.Empty() {
+				q.exprStack.Push(cur)
+			} else {
+				q.setExprParam(expr)
+			}
+		}
+	}
+}
+
+// visitBoolExprLogicalOp visits when production bool logic operator expression is entered
+func (q *queryStmtParser) visitBoolExprLogicalOp(ctx *grammar.BoolExprLogicalOpContext) {
+	op := stmt.AND
+	if ctx.T_OR() != nil {
+		op = stmt.OR
+	}
+	q.exprStack.Push(&stmt.BinaryExpr{Operator: op})
+}
+
+// visitBoolExprAtom visits when production bool atom expr expression is entered
+func (q *queryStmtParser) visitBoolExprAtom(ctx *grammar.BoolExprAtomContext)  {
+	b := ctx.BinaryExpr().BinaryOperator()
+	var op stmt.BinaryOP
+	switch {
+	case b.T_EQUAL() != nil:
+		op = stmt.EQUAL
+	case b.T_NOTEQUAL() != nil || b.T_NOTEQUAL2() != nil:
+		op = stmt.NOTEQUAL
+	case b.T_LESS() != nil:
+		op = stmt.LESS
+	case b.T_LESSEQUAL() != nil:
+		op = stmt.LESSEQUAL
+	case b.T_GREATER() != nil:
+		op = stmt.GREATER
+	case b.T_GREATEREQUAL() != nil:
+		op = stmt.GREATEREQUAL
+	case b.T_LIKE() != nil || b.T_REGEXP() != nil:
+		op = stmt.LIKE
+	}
+	q.exprStack.Push(&stmt.BinaryExpr{Operator: op})
 }

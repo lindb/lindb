@@ -32,5 +32,13 @@ func TestBinaryOPString(t *testing.T) {
 	assert.Equal(t, "*", BinaryOPString(MUL))
 	assert.Equal(t, "/", BinaryOPString(DIV))
 
+	assert.Equal(t, "=", BinaryOPString(EQUAL))
+	assert.Equal(t, "!=", BinaryOPString(NOTEQUAL))
+	assert.Equal(t, ">", BinaryOPString(GREATER))
+	assert.Equal(t, ">=", BinaryOPString(GREATEREQUAL))
+	assert.Equal(t, "<", BinaryOPString(LESS))
+	assert.Equal(t, "<=", BinaryOPString(LESSEQUAL))
+	assert.Equal(t, "like", BinaryOPString(LIKE))
+
 	assert.Equal(t, "unknown", BinaryOPString(UNKNOWN))
 }

@@ -426,6 +426,41 @@ func (l *listener) ExitSortField(ctx *grammar.SortFieldContext) {
 	}
 }
 
+// EnterHavingClause is called when production havingClause is entered.
+func (l *listener) EnterHavingClause(ctx *grammar.HavingClauseContext) {
+	if l.queryStmt != nil {
+		l.queryStmt.visitHaving(ctx)
+	}
+}
+
+// ExitHavingClause is called when production havingClause is exited.
+func (l *listener) ExitHavingClause(ctx *grammar.HavingClauseContext) {
+	if l.queryStmt != nil {
+		l.queryStmt.completeHaving(ctx)
+	}
+}
+
+// EnterBoolExprAtom is called when production boolExprAtom is entered.
+func (l *listener) EnterBoolExprAtom(ctx *grammar.BoolExprAtomContext) {
+	if l.queryStmt != nil {
+		l.queryStmt.visitBoolExprAtom(ctx)
+	}
+}
+
+// EnterBoolExpr is called when production boolExpr is entered.
+func (l *listener) EnterBoolExpr(ctx *grammar.BoolExprContext) {
+	if l.queryStmt != nil {
+		l.queryStmt.visitBoolExpr(ctx)
+	}
+}
+
+// ExitBoolExpr is called when production boolExpr is exited.
+func (l *listener) ExitBoolExpr(ctx *grammar.BoolExprContext) {
+	if l.queryStmt != nil {
+		l.queryStmt.completeBoolExpr(ctx)
+	}
+}
+
 // statement returns query statement, if failure return error
 func (l *listener) statement() (stmt.Statement, error) {
 	switch {

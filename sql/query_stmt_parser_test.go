@@ -674,3 +674,37 @@ func TestOrderBy(t *testing.T) {
 		})
 	}
 }
+
+func TestHaving(t *testing.T) {
+	sql := "select f from cpu where host='1.1.1.1' group by host,ip having x*2 > 3.5 and m*(n*4.1) < 5"
+	q, err := Parse(sql)
+	query := q.(*stmt.Query)
+	assert.Nil(t, err)
+
+	calc := NewCalc(query.Having)
+	result, err := calc.CalcExpr(map[string]float64{
+		"x": 2,
+		"m": 2,
+		"n": 1.1,
+	})
+	assert.Nil(t, err)
+	assert.IsType(t, true, result)
+	assert.False(t, result.(bool))
+
+	sql = "select f from cpu where host='1.1.1.1' group by host,ip having (x*2 > 3.5 or m*(n*4.1) < 5) and a*b > 99.7"
+	q, err = Parse(sql)
+	query = q.(*stmt.Query)
+	assert.Nil(t, err)
+
+	calc = NewCalc(query.Having)
+	result, err = calc.CalcExpr(map[string]float64{
+		"x": 2,
+		"m": 2,
+		"n": 1.1,
+		"a": 9.99,
+		"b": 9.99,
+	})
+	assert.Nil(t, err)
+	assert.IsType(t, true, result)
+	assert.True(t, result.(bool))
+}
