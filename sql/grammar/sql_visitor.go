@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Code generated from ./sql/grammar/SQL.g4 by ANTLR 4.12.0. DO NOT EDIT.
+// Code generated from ./sql/grammar/SQL.g4 by ANTLR 4.13.1. DO NOT EDIT.
 
 package grammar // SQL
-import "github.com/antlr/antlr4/runtime/Go/antlr/v4"
+import "github.com/antlr4-go/antlr/v4"
 
 // A complete Visitor for a parse tree produced by SQLParser.
 type SQLVisitor interface {
@@ -143,6 +143,24 @@ type SQLVisitor interface {
 
 	// Visit a parse tree produced by SQLParser#source.
 	VisitSource(ctx *SourceContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#optionClause.
+	VisitOptionClause(ctx *OptionClauseContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#optionPairs.
+	VisitOptionPairs(ctx *OptionPairsContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#closedOptionPairs.
+	VisitClosedOptionPairs(ctx *ClosedOptionPairsContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#optionPair.
+	VisitOptionPair(ctx *OptionPairContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#optionKey.
+	VisitOptionKey(ctx *OptionKeyContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#optionValue.
+	VisitOptionValue(ctx *OptionValueContext) interface{}
 
 	// Visit a parse tree produced by SQLParser#queryStmt.
 	VisitQueryStmt(ctx *QueryStmtContext) interface{}

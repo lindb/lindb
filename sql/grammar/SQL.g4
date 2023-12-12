@@ -64,7 +64,7 @@ createStorageStmt    : T_CREATE T_STORAGE json;
 createBrokerStmt     : T_CREATE T_BROKER json;
 recoverStorageStmt   : T_RECOVER T_STORAGE storageName;
 showSchemasStmt      : T_SHOW T_SCHEMAS ;
-createDatabaseStmt   : T_CREATE T_DATASBAE json;
+createDatabaseStmt   : T_CREATE T_DATASBAE (json|optionClause);
 dropDatabaseStmt     : T_DROP T_DATASBAE databaseName;
 showDatabaseStmt     : T_SHOW T_DATASBAES ;
 showNameSpacesStmt   : T_SHOW T_NAMESPACES (T_WHERE T_NAMESPACE T_EQUAL prefix)? limitClause?;
@@ -79,6 +79,27 @@ databaseName         : ident ;
 storageName          : ident ;
 requestID            : ident ;
 source               : (T_STATE_MACHINE|T_STATE_REPO) ;
+// create table option
+optionClause         : databaseName T_WITH T_OPEN_P optionPairs T_CLOSE_P T_ROLLUP T_OPEN_P closedOptionPairs (T_COMMA closedOptionPairs)* T_CLOSE_P;
+optionPairs          : optionPair (T_COMMA optionPair)*;
+closedOptionPairs    : T_OPEN_P optionPairs T_CLOSE_P;
+optionPair           : optionKey T_COLON optionValue;
+optionKey            :
+                      T_STORAGE
+                     | T_NUM_OF_SHARD
+                     | T_REPLICA_FACTOR
+                     | T_AUTO_CREATE_NS
+                     | T_BEHEAD
+                     | T_AHEAD
+                     | T_INTERVAL
+                     | T_RETENTION
+                     ;
+optionValue          : STRING
+                     | 'true'
+                     | 'false'
+                     | durationLit
+                     | intNumber
+                     ;
 
 //data query plan
 queryStmt               : T_EXPLAIN? sourceAndSelect whereClause? groupByClause? orderByClause? limitClause? T_WITH_VALUE?;
@@ -324,6 +345,7 @@ nonReservedWords      :
                         | T_REQUESTS
                         | T_REQUEST
                         | T_ID
+                        | T_ROLLUP
                         ;
 
 STRING
@@ -431,6 +453,7 @@ T_STATS              : S T A T S                        ;
 T_TIME               : T I M E                          ;
 T_NOW                : N O W                            ;
 T_IN                 : I N                              ;
+T_ROLLUP             : R O L L U P                      ;
 
 T_LOG                : L O G                            ;
 T_PROFILE            : P R O F I L E                    ;
@@ -448,6 +471,14 @@ T_AVG                : A V G                            ;
 T_STDDEV             : S T D D E V                      ;
 T_QUANTILE           : Q U A N T I L E                  ;
 T_RATE               : R A T E                          ;
+
+// create table option key
+T_NUM_OF_SHARD   : N U M O F S H A R D;
+T_REPLICA_FACTOR : R E P L I C A F A C T O R;
+T_AUTO_CREATE_NS : A U T O C R E A T E N S;
+T_BEHEAD         : B E H E A D;
+T_AHEAD          : A H E A D;
+T_RETENTION      : R E T E N T I O N;
 
 //time unit
 T_SECOND             : S                                ;
