@@ -19,15 +19,17 @@ package sql
 
 import (
 	"errors"
+	"sort"
+	"strconv"
+
 	"github.com/lindb/common/pkg/encoding"
+
 	"github.com/lindb/lindb/models"
 	optionpkg "github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/sql/grammar"
 	"github.com/lindb/lindb/sql/stmt"
-	"sort"
-	"strconv"
 )
 
 var errIntervalRetentionRequired = errors.New("both interval and retention are required")
@@ -59,7 +61,7 @@ func (s *schemasStmtParser) visitWithCfg(ctx *grammar.OptionClauseContext) {
 			Name:   ctx.DatabaseName().GetText(),
 			Option: &optionpkg.DatabaseOption{},
 		}
-		pairs = ctx.OptionPairs().AllOptionPair()
+		pairs     = ctx.OptionPairs().AllOptionPair()
 		intervals optionpkg.Intervals
 	)
 
@@ -113,7 +115,7 @@ func (s *schemasStmtParser) visitWithCfg(ctx *grammar.OptionClauseContext) {
 func (s *schemasStmtParser) parseOptionValue(ctx grammar.IOptionValueContext) string {
 	text := ctx.GetText()
 	if ctx.STRING() != nil {
-		text = text[1:len(text)-1]
+		text = text[1 : len(text)-1]
 	}
 	return text
 }

@@ -33,6 +33,7 @@ import (
 	"github.com/lindb/lindb/index/model"
 	v1 "github.com/lindb/lindb/index/v1"
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/pkg/imap"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/sql/stmt"
@@ -46,7 +47,8 @@ var (
 
 // indexKVStore implements IndexKVStore interface.
 type indexKVStore struct {
-	family kv.Family
+	family   kv.Family
+	snapshot version.Snapshot
 
 	// memory store
 	mutable   *imap.IntMap[map[string]uint32]
@@ -60,8 +62,9 @@ type indexKVStore struct {
 // NewIndexKVStore creates an IndexKVStore instance.
 func NewIndexKVStore(family kv.Family, cacheSize int, cacheTTL time.Duration) IndexKVStore {
 	return &indexKVStore{
-		family:  family,
-		mutable: imap.NewIntMap[map[string]uint32](),
+		family:   family,
+		snapshot: family.GetSnapshot(),
+		mutable:  imap.NewIntMap[map[string]uint32](),
 		bucketCache: expirable.NewLRU(cacheSize, func(_ uint32, value *model.TrieBucket) {
 			value.Release()
 		}, cacheTTL),
@@ -81,8 +84,7 @@ func (s *indexKVStore) GetValue(bucketID uint32, key []byte) (id uint32, ok bool
 
 // GetValues returns all values for bucket.
 func (s *indexKVStore) GetValues(bucketID uint32) (ids []uint32, err error) {
-	snapshot := s.family.GetSnapshot()
-	defer snapshot.Close()
+	snapshot := s.getSnapshot()
 
 	reader := v1.NewIndexKVReader(snapshot)
 	bucket, err := reader.GetBucket(bucketID)
@@ -154,8 +156,7 @@ func (s *indexKVStore) CollectKVs(bucketID uint32, values *roaring.Bitmap, resul
 		}
 	}
 
-	snapshot := s.family.GetSnapshot()
-	defer snapshot.Close()
+	snapshot := s.getSnapshot()
 
 	reader := v1.NewIndexKVReader(snapshot)
 	bucket, err := reader.GetBucket(bucketID)
@@ -205,8 +206,7 @@ func (s *indexKVStore) Suggest(bucketID uint32, prefix string, limit int) ([]str
 		return sortResult(result)
 	}
 
-	snapshot := s.family.GetSnapshot()
-	defer snapshot.Close()
+	snapshot := s.getSnapshot()
 
 	reader := v1.NewIndexKVReader(snapshot)
 	bucket, err := reader.GetBucket(bucketID)
@@ -274,10 +274,23 @@ func (s *indexKVStore) Flush() (err error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
+	// close old snapshot
+	snapshot := s.snapshot
+	snapshot.Close()
+
+	s.snapshot = s.family.GetSnapshot()
 	s.immutable = nil
 	// purge bucket cache, because new kv write
 	s.bucketCache.Purge()
 	return nil
+}
+
+// getSnapshot returns family snapshot.
+func (s *indexKVStore) getSnapshot() version.Snapshot {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
+	return s.snapshot
 }
 
 func (s *indexKVStore) getOrCreateValue(bucketID uint32, key []byte, createFn func() uint32) (id uint32, ok bool, err error) {
@@ -290,9 +303,7 @@ func (s *indexKVStore) getOrCreateValue(bucketID uint32, key []byte, createFn fu
 	bucket, ok := s.bucketCache.Get(bucketID)
 	if !ok {
 		// get from kv store(persist)
-		snapshot := s.family.GetSnapshot()
-		defer snapshot.Close()
-
+		snapshot := s.getSnapshot()
 		reader := v1.NewIndexKVReader(snapshot)
 		bucket, err = reader.GetBucket(bucketID)
 		if err != nil {
@@ -348,8 +359,7 @@ func (s *indexKVStore) GetValueFromMem(bucketID uint32, key []byte) (uint32, boo
 
 // FindValuesByRegexp returns values by regexp expr.
 func (s *indexKVStore) FindValuesByRegexp(bucketID uint32, rp *regexp.Regexp, ids []uint32) ([]uint32, error) {
-	snapshot := s.family.GetSnapshot()
-	defer snapshot.Close()
+	snapshot := s.getSnapshot()
 
 	reader := v1.NewIndexKVReader(snapshot)
 	bucket, err := reader.GetBucket(bucketID)
@@ -415,9 +425,7 @@ func (s *indexKVStore) findValuesByLike(bucketID uint32,
 	prefix, subKey []byte,
 	check func(a, b []byte) bool, ids []uint32,
 ) ([]uint32, error) {
-	snapshot := s.family.GetSnapshot()
-	defer snapshot.Close()
-
+	snapshot := s.getSnapshot()
 	reader := v1.NewIndexKVReader(snapshot)
 	bucket, err := reader.GetBucket(bucketID)
 	if err != nil {

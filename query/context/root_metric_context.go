@@ -21,7 +21,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/lindb/lindb/sql"
 	"math"
 	"reflect"
 	"sort"
@@ -43,6 +42,7 @@ import (
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/tag"
+	"github.com/lindb/lindb/sql"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
