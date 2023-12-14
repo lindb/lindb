@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Code generated from ./sql/grammar/SQL.g4 by ANTLR 4.12.0. DO NOT EDIT.
+// Code generated from ./sql/grammar/SQL.g4 by ANTLR 4.13.1. DO NOT EDIT.
 
 package grammar // SQL
-import "github.com/antlr/antlr4/runtime/Go/antlr/v4"
+import "github.com/antlr4-go/antlr/v4"
 
 // BaseSQLListener is a complete listener for a parse tree produced by SQLParser.
 type BaseSQLListener struct{}
@@ -276,6 +276,42 @@ func (s *BaseSQLListener) EnterSource(ctx *SourceContext) {}
 
 // ExitSource is called when production source is exited.
 func (s *BaseSQLListener) ExitSource(ctx *SourceContext) {}
+
+// EnterOptionClause is called when production optionClause is entered.
+func (s *BaseSQLListener) EnterOptionClause(ctx *OptionClauseContext) {}
+
+// ExitOptionClause is called when production optionClause is exited.
+func (s *BaseSQLListener) ExitOptionClause(ctx *OptionClauseContext) {}
+
+// EnterOptionPairs is called when production optionPairs is entered.
+func (s *BaseSQLListener) EnterOptionPairs(ctx *OptionPairsContext) {}
+
+// ExitOptionPairs is called when production optionPairs is exited.
+func (s *BaseSQLListener) ExitOptionPairs(ctx *OptionPairsContext) {}
+
+// EnterClosedOptionPairs is called when production closedOptionPairs is entered.
+func (s *BaseSQLListener) EnterClosedOptionPairs(ctx *ClosedOptionPairsContext) {}
+
+// ExitClosedOptionPairs is called when production closedOptionPairs is exited.
+func (s *BaseSQLListener) ExitClosedOptionPairs(ctx *ClosedOptionPairsContext) {}
+
+// EnterOptionPair is called when production optionPair is entered.
+func (s *BaseSQLListener) EnterOptionPair(ctx *OptionPairContext) {}
+
+// ExitOptionPair is called when production optionPair is exited.
+func (s *BaseSQLListener) ExitOptionPair(ctx *OptionPairContext) {}
+
+// EnterOptionKey is called when production optionKey is entered.
+func (s *BaseSQLListener) EnterOptionKey(ctx *OptionKeyContext) {}
+
+// ExitOptionKey is called when production optionKey is exited.
+func (s *BaseSQLListener) ExitOptionKey(ctx *OptionKeyContext) {}
+
+// EnterOptionValue is called when production optionValue is entered.
+func (s *BaseSQLListener) EnterOptionValue(ctx *OptionValueContext) {}
+
+// ExitOptionValue is called when production optionValue is exited.
+func (s *BaseSQLListener) ExitOptionValue(ctx *OptionValueContext) {}
 
 // EnterQueryStmt is called when production queryStmt is entered.
 func (s *BaseSQLListener) EnterQueryStmt(ctx *QueryStmtContext) {}

@@ -191,6 +191,13 @@ func (l *listener) EnterJson(ctx *grammar.JsonContext) { //nolint:stylecheck
 	}
 }
 
+// EnterOptionClause is called when production optionClause is entered.
+func (l *listener) EnterOptionClause(ctx *grammar.OptionClauseContext) {
+	if l.schemasStmt != nil {
+		l.schemasStmt.visitWithCfg(ctx)
+	}
+}
+
 // EnterCreateBrokerStmt is called when production createBrokerStmt is entered.
 func (l *listener) EnterCreateBrokerStmt(c *grammar.CreateBrokerStmtContext) {
 	l.brokerStmt = newBrokerStmtParse(stmt.BrokerOpCreate)

@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Code generated from ./sql/grammar/SQL.g4 by ANTLR 4.12.0. DO NOT EDIT.
+// Code generated from ./sql/grammar/SQL.g4 by ANTLR 4.13.1. DO NOT EDIT.
 
 package grammar // SQL
-import "github.com/antlr/antlr4/runtime/Go/antlr/v4"
+import "github.com/antlr4-go/antlr/v4"
 
 // SQLListener is a complete listener for a parse tree produced by SQLParser.
 type SQLListener interface {
@@ -143,6 +143,24 @@ type SQLListener interface {
 
 	// EnterSource is called when entering the source production.
 	EnterSource(c *SourceContext)
+
+	// EnterOptionClause is called when entering the optionClause production.
+	EnterOptionClause(c *OptionClauseContext)
+
+	// EnterOptionPairs is called when entering the optionPairs production.
+	EnterOptionPairs(c *OptionPairsContext)
+
+	// EnterClosedOptionPairs is called when entering the closedOptionPairs production.
+	EnterClosedOptionPairs(c *ClosedOptionPairsContext)
+
+	// EnterOptionPair is called when entering the optionPair production.
+	EnterOptionPair(c *OptionPairContext)
+
+	// EnterOptionKey is called when entering the optionKey production.
+	EnterOptionKey(c *OptionKeyContext)
+
+	// EnterOptionValue is called when entering the optionValue production.
+	EnterOptionValue(c *OptionValueContext)
 
 	// EnterQueryStmt is called when entering the queryStmt production.
 	EnterQueryStmt(c *QueryStmtContext)
@@ -437,6 +455,24 @@ type SQLListener interface {
 
 	// ExitSource is called when exiting the source production.
 	ExitSource(c *SourceContext)
+
+	// ExitOptionClause is called when exiting the optionClause production.
+	ExitOptionClause(c *OptionClauseContext)
+
+	// ExitOptionPairs is called when exiting the optionPairs production.
+	ExitOptionPairs(c *OptionPairsContext)
+
+	// ExitClosedOptionPairs is called when exiting the closedOptionPairs production.
+	ExitClosedOptionPairs(c *ClosedOptionPairsContext)
+
+	// ExitOptionPair is called when exiting the optionPair production.
+	ExitOptionPair(c *OptionPairContext)
+
+	// ExitOptionKey is called when exiting the optionKey production.
+	ExitOptionKey(c *OptionKeyContext)
+
+	// ExitOptionValue is called when exiting the optionValue production.
+	ExitOptionValue(c *OptionValueContext)
 
 	// ExitQueryStmt is called when exiting the queryStmt production.
 	ExitQueryStmt(c *QueryStmtContext)

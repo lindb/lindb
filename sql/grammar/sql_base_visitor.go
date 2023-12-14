@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Code generated from ./sql/grammar/SQL.g4 by ANTLR 4.12.0. DO NOT EDIT.
+// Code generated from ./sql/grammar/SQL.g4 by ANTLR 4.13.1. DO NOT EDIT.
 
 package grammar // SQL
-import "github.com/antlr/antlr4/runtime/Go/antlr/v4"
+import "github.com/antlr4-go/antlr/v4"
 
 type BaseSQLVisitor struct {
 	*antlr.BaseParseTreeVisitor
@@ -181,6 +181,30 @@ func (v *BaseSQLVisitor) VisitRequestID(ctx *RequestIDContext) interface{} {
 }
 
 func (v *BaseSQLVisitor) VisitSource(ctx *SourceContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLVisitor) VisitOptionClause(ctx *OptionClauseContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLVisitor) VisitOptionPairs(ctx *OptionPairsContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLVisitor) VisitClosedOptionPairs(ctx *ClosedOptionPairsContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLVisitor) VisitOptionPair(ctx *OptionPairContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLVisitor) VisitOptionKey(ctx *OptionKeyContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLVisitor) VisitOptionValue(ctx *OptionValueContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/antlr/antlr4/runtime/Go/antlr/v4"
+	"github.com/antlr4-go/antlr/v4"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/common/pkg/encoding"
