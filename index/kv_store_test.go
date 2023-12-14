@@ -105,6 +105,47 @@ func TestIndexKVStore(t *testing.T) {
 	test()
 }
 
+func TestIndexKVStore_Compact(t *testing.T) {
+	name := "./index_compact"
+	defer func() {
+		_ = os.RemoveAll(name)
+	}()
+	store, err := kv.GetStoreManager().CreateStore(name, kv.StoreOption{Levels: 2})
+	assert.NoError(t, err)
+	assert.NotNil(t, store)
+	family, err := store.CreateFamily("index", familyOption)
+
+	indexStore := NewIndexKVStore(family, 10, time.Minute)
+	assert.NoError(t, err)
+
+	write := func(i int) {
+		id, err0 := indexStore.GetOrCreateValue(1, []byte(fmt.Sprintf("key-%d", i)), func() uint32 {
+			return uint32(i)
+		})
+		assert.NoError(t, err0)
+		assert.Equal(t, uint32(i), id)
+		indexStore.PrepareFlush()
+		assert.NoError(t, indexStore.Flush())
+	}
+	for i := 0; i < 5; i++ {
+		write(i)
+	}
+	id, ok, err := indexStore.GetValue(1, []byte("key-1"))
+	assert.NoError(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, uint32(1), id)
+
+	family.Compact()
+	time.Sleep(200 * time.Millisecond)
+
+	id, ok, err = indexStore.GetValue(1, []byte("key-1"))
+	assert.NoError(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, uint32(1), id)
+
+	assert.NoError(t, kv.GetStoreManager().CloseStore(name))
+}
+
 func TestIndexKVStore_Find(t *testing.T) {
 	name := "./index_find"
 	defer func() {
@@ -226,10 +267,10 @@ func TestIndexKVStore_Read_Error(t *testing.T) {
 		regexpCompile = regexp.Compile
 	}()
 	kvFamily := kv.NewMockFamily(ctrl)
-	store := NewIndexKVStore(kvFamily, 10, time.Second)
 	snapshot := version.NewMockSnapshot(ctrl)
 	kvFamily.EXPECT().GetSnapshot().Return(snapshot).AnyTimes()
 	snapshot.EXPECT().Close().AnyTimes()
+	store := NewIndexKVStore(kvFamily, 10, time.Second)
 
 	t.Run("load error when get values", func(t *testing.T) {
 		snapshot.EXPECT().Load(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
@@ -285,7 +326,10 @@ func TestIndexKVStore_Flush_Error(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	snapshot := version.NewMockSnapshot(ctrl)
+	snapshot.EXPECT().Close().AnyTimes()
 	kvFamily := kv.NewMockFamily(ctrl)
+	kvFamily.EXPECT().GetSnapshot().Return(snapshot).AnyTimes()
 	kvFlusher := kv.NewMockFlusher(ctrl)
 	kvFamily.EXPECT().NewFlusher().Return(kvFlusher).AnyTimes()
 	kvFlusher.EXPECT().Release().AnyTimes()

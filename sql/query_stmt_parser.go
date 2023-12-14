@@ -53,7 +53,7 @@ type queryStmtParser struct {
 	curOrderByExpr *stmt.OrderByExpr
 	hasOrderBy     bool
 
-	having bool
+	having     bool
 	havingStmt stmt.Expr
 }
 
@@ -341,7 +341,7 @@ func (q *queryStmtParser) completeFuncExpr() {
 		if q.exprStack.Empty() {
 			if q.hasOrderBy {
 				q.curOrderByExpr.Expr = expr
-			} else if !q.having{
+			} else if !q.having {
 				q.selectItems = append(q.selectItems, &stmt.SelectItem{Expr: expr})
 
 				// select field(func rewrite name)
@@ -385,7 +385,7 @@ func (q *queryStmtParser) parseFieldName(fieldName string) {
 			q.setExprParam(fieldExpr)
 		}
 	default: // handle select item
-		if q.exprStack.Empty() && !q.having{
+		if q.exprStack.Empty() && !q.having {
 			q.selectItems = append(q.selectItems, &stmt.SelectItem{Expr: fieldExpr})
 		} else {
 			q.setExprParam(fieldExpr)
@@ -471,7 +471,7 @@ func (q *queryStmtParser) visitBoolExprLogicalOp(ctx *grammar.BoolExprLogicalOpC
 }
 
 // visitBoolExprAtom visits when production bool atom expr expression is entered
-func (q *queryStmtParser) visitBoolExprAtom(ctx *grammar.BoolExprAtomContext)  {
+func (q *queryStmtParser) visitBoolExprAtom(ctx *grammar.BoolExprAtomContext) {
 	b := ctx.BinaryExpr().BinaryOperator()
 	var op stmt.BinaryOP
 	switch {
