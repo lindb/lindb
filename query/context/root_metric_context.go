@@ -20,7 +20,10 @@ package context
 import (
 	"context"
 	"errors"
+	"fmt"
+	"github.com/lindb/lindb/sql"
 	"math"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -179,6 +182,46 @@ func (ctx *RootMetricContext) makeResultSet() (resultSet *commonmodels.ResultSet
 			}
 			timeSeries := commonmodels.NewSeries(tags, tagValues)
 			resultSet.AddSeries(timeSeries)
+
+			having := ctx.Deps.Statement.Having
+			notHavingSlots := make(map[int]struct{})
+			slotValues := make(map[int]map[string]float64)
+
+			if having != nil {
+				for fieldName, values := range fields {
+					if values == nil {
+						continue
+					}
+					it := values.NewIterator()
+					for it.HasNext() {
+						slot, val := it.Next()
+						if math.IsNaN(val) {
+							continue
+						}
+						if v, ok := slotValues[slot]; ok {
+							v[fieldName] = val
+						} else {
+							slotValues[slot] = map[string]float64{fieldName: val}
+						}
+					}
+				}
+				// calc and fill
+				if len(slotValues) > 0 {
+					calc := sql.NewCalc(having)
+					for slot, fieldValue := range slotValues {
+						result, err := calc.CalcExpr(fieldValue)
+						if err != nil {
+							return resultSet, err
+						}
+						if r, ok := result.(bool); !ok {
+							return resultSet, fmt.Errorf("expected CalcExpr bool result got %v", reflect.TypeOf(result))
+						} else if !r {
+							notHavingSlots[slot] = struct{}{}
+						}
+					}
+				}
+			}
+
 			for fieldName, values := range fields {
 				if values == nil {
 					continue
@@ -190,6 +233,9 @@ func (ctx *RootMetricContext) makeResultSet() (resultSet *commonmodels.ResultSet
 					slot, val := it.Next()
 					if math.IsNaN(val) {
 						// TODO: need check
+						continue
+					}
+					if _, ok := notHavingSlots[slot]; ok {
 						continue
 					}
 					points.AddPoint(timeutil.CalcTimestamp(timeRange.Start, slot, timeutil.Interval(interval)), val)

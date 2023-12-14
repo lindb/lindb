@@ -29,6 +29,14 @@ const (
 	MUL
 	DIV
 
+	EQUAL
+	NOTEQUAL
+	GREATER
+	GREATEREQUAL
+	LESS
+	LESSEQUAL
+	LIKE
+
 	UNKNOWN
 )
 
@@ -47,6 +55,20 @@ func BinaryOPString(op BinaryOP) string {
 		return "*"
 	case DIV:
 		return "/"
+	case EQUAL:
+		return "="
+	case NOTEQUAL:
+		return "!="
+	case GREATER:
+		return ">"
+	case GREATEREQUAL:
+		return ">="
+	case LESS:
+		return "<"
+	case LESSEQUAL:
+		return "<="
+	case LIKE:
+		return "like"
 	default:
 		return "unknown"
 	}

@@ -42,6 +42,7 @@ type Query struct {
 	AutoGroupByTime bool               // auto fix group by interval based on query time range
 
 	GroupBy      []string // group by tag keys
+	Having       Expr     // having clause
 	OrderByItems []Expr   // order by field expr list
 	Limit        int      // num. of time series list for result
 }
@@ -72,6 +73,7 @@ type innerQuery struct {
 	AutoGroupByTime bool               `json:"autoGroupByTime,omitempty"`
 
 	GroupBy      []string          `json:"groupBy,omitempty"`
+	Having       json.RawMessage   `json:"having,omitempty"`
 	OrderByItems []json.RawMessage `json:"orderByItems,omitempty"`
 	Limit        int               `json:"limit,omitempty"`
 }
@@ -90,6 +92,7 @@ func (q *Query) MarshalJSON() ([]byte, error) {
 		AutoGroupByTime: q.AutoGroupByTime,
 		StorageInterval: q.StorageInterval,
 		GroupBy:         q.GroupBy,
+		Having:          Marshal(q.Having),
 		Limit:           q.Limit,
 	}
 	for _, item := range q.SelectItems {
@@ -107,6 +110,7 @@ func (q *Query) UnmarshalJSON(value []byte) error {
 	if err := encoding.JSONUnmarshal(value, &inner); err != nil {
 		return err
 	}
+
 	if inner.Condition != nil {
 		condition, err := Unmarshal(inner.Condition)
 		if err != nil {
@@ -114,6 +118,15 @@ func (q *Query) UnmarshalJSON(value []byte) error {
 		}
 		q.Condition = condition
 	}
+
+	if inner.Having != nil {
+		having, err := Unmarshal(inner.Having)
+		if err != nil {
+			return err
+		}
+		q.Having = having
+	}
+
 	// select list
 	var selectItems []Expr
 	for _, item := range inner.SelectItems {
