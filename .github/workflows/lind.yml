@@ -26,6 +26,7 @@ jobs:
         uses: golangci/golangci-lint-action@v3
         with:
           version: v1.51.2
+          skip-cache: true
 
   linux-test-with-coverage:
     name: Uint Test With Coverage(Linux)
