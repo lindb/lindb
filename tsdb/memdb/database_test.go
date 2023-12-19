@@ -371,8 +371,9 @@ func TestMemoryDatabase_Flush_Error(t *testing.T) {
 	metricIndex.Put(0, 0)
 	timeSeries := newTimeSeriesStore()
 	fStore := NewMockfStoreINTF(ctrl)
+	fStore.EXPECT().Capacity().Return(10).MaxTimes(2)
 	fStore.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any())
-	_ = timeSeries.Write(0, field.SumField, 0, 0, func() (fStoreINTF, error) {
+	_, _ = timeSeries.Write(0, field.SumField, 0, 0, func() (fStoreINTF, error) {
 		return fStore, nil
 	})
 	db := &memoryDatabase{

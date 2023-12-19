@@ -166,7 +166,7 @@ func TestFieldStore_Write_Compact_err(t *testing.T) {
 	s := store.(*fieldStore)
 
 	store.Write(field.SumField, 10, 10.1)
-	assert.NotZero(t, store.Capacity())
+	assert.Zero(t, store.Capacity())
 	capacity := store.Capacity()
 	store.Write(field.SumField, 100, 100.1)
 	assert.Equal(t, 13, store.Capacity()-capacity)

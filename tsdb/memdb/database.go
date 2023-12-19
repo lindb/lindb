@@ -23,11 +23,13 @@ import (
 	"math"
 	"sync"
 	"time"
+	"unsafe"
 
 	"go.uber.org/atomic"
 
 	"github.com/lindb/common/pkg/fasttime"
 	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/index"
@@ -43,6 +45,25 @@ import (
 //go:generate mockgen -source ./database.go -destination=./database_mock.go -package memdb
 
 var memDBLogger = logger.GetLogger("TSDB", "MemDB")
+
+type nilPointer struct{}
+
+var nilPointerSize *nilPointer
+
+const (
+	MetricStoreEntry = 8 + 4 + // ns+name hash(uint64) + metric store index(int)
+		int64(unsafe.Sizeof(metricStore{})) + // metric store struct size
+		2 + 2 + // metric slot range
+		int64(unsafe.Sizeof(roaring.Bitmap{})) + // series ids
+		int64(unsafe.Sizeof([][]uint32{})) // series ids
+	HashSeriesMappingEntry  = 8 + 4              // tags hash + memory series id
+	SeriesMappingEntry      = 4 * math.MaxUint16 // global series + memory series
+	FieldMetaEntry          = int64(unsafe.Sizeof(field.Meta{}))
+	FieldStoreEntry         = int64(unsafe.Sizeof(fieldStore{}))
+	IntMapValuesEntry       = int64(unsafe.Sizeof([]uint16{})) + 2*math.MaxUint16
+	NilPointerEntry         = int64(unsafe.Sizeof(nilPointerSize))
+	IntMapStructValuesEntry = IntMapValuesEntry + math.MaxUint16*NilPointerEntry
+)
 
 // MemoryDatabase is a database-like concept of Shard as memTable in cassandra.
 type MemoryDatabase interface {
@@ -111,14 +132,14 @@ type memoryDatabase struct {
 	timeSeriesStores []tStoreINTF   // time series id(memory unique) => field store
 	sequence         *atomic.Uint32 // time series id generate sequence
 
-	buf DataPointBuffer
+	buf         DataPointBuffer
+	createdTime int64
+	statistics  *metrics.MemDBStatistics
 
 	writeCondition sync.WaitGroup
 	lock           sync.RWMutex // lock of create metric store
 
-	readonly    atomic.Bool
-	createdTime int64
-	statistics  *metrics.MemDBStatistics
+	readonly atomic.Bool
 }
 
 // NewMemoryDatabase returns a new MemoryDatabase.
@@ -174,6 +195,8 @@ func (md *memoryDatabase) getOrCreateMetricStore(row *metric.StorageRow) (mStore
 	mStore = newMetricStore()
 	md.metricStore[hash] = metricIdx
 	md.stores = append(md.stores, mStore)
+
+	md.allocSize.Add(MetricStoreEntry)
 	return
 }
 
@@ -206,7 +229,13 @@ func (md *memoryDatabase) WriteRow(row *metric.StorageRow) error {
 			}
 			// build index goroutine callback, with lock
 			md.lock.Lock()
+			size := len(md.metricIndexStore.Values())
 			md.metricIndexStore.Put(metricID, metricIdx)
+
+			if len(md.metricIndexStore.Values())-size > 0 {
+				md.allocSize.Add(IntMapValuesEntry)
+				md.allocSize.Add(SeriesMappingEntry)
+			}
 			md.lock.Unlock()
 		}
 		md.cfg.MetaNotifier(notifier)
@@ -224,6 +253,9 @@ func (md *memoryDatabase) WriteRow(row *metric.StorageRow) error {
 	timeSeriesID = mStore.GenTStore(row.TagsHash(), func() uint32 {
 		newSeries = true
 		seriesIdx := md.sequence.Inc()
+
+		// heap size
+		md.allocSize.Add(HashSeriesMappingEntry)
 		return seriesIdx
 	})
 	md.lock.Unlock()
@@ -240,17 +272,21 @@ func (md *memoryDatabase) WriteRow(row *metric.StorageRow) error {
 				notifier.Tags = append(notifier.Tags, tag.NewTag(bytes.Clone(it.NextKey()), bytes.Clone(it.NextValue())))
 			}
 		}
-		// FIXME: size
 		notifier.Callback = func(seriesID uint32, err error) {
 			if err != nil {
 				memDBLogger.Error("generate time series id failure", logger.String("metric", string(row.Name())), logger.Error(err))
 				return
 			}
 			md.lock.Lock()
-			mStore.IndexTStore(seriesID, timeSeriesID)
+			newValueBucket := mStore.IndexTStore(seriesID, timeSeriesID)
+			if newValueBucket {
+				md.allocSize.Add(IntMapValuesEntry)
+				md.allocSize.Add(SeriesMappingEntry)
+			}
 			md.lock.Unlock()
 		}
 		md.cfg.IndexNotifier(notifier)
+		md.numOfSeries.Inc()
 	}
 
 	written := false
@@ -375,10 +411,13 @@ func (md *memoryDatabase) writeLinField(
 			mStore.UpdateFieldMeta(fieldID, fm)
 		}
 		md.cfg.MetaNotifier(fieldNotifier)
+
+		md.allocSize.Add(FieldMetaEntry)
+		md.allocSize.Add(int64(len(fName)))
 	}
 
 	tsStore := md.timeSeriesStores[fm.Index]
-	err = tsStore.Write(ts, fType, row.SlotIndex, fValue, func() (fStoreINTF, error) {
+	writtenSize, err = tsStore.Write(ts, fType, row.SlotIndex, fValue, func() (fStoreINTF, error) {
 		buf, err0 := md.buf.AllocPage()
 		if err0 != nil {
 			md.statistics.AllocatePageFailures.Incr()
@@ -386,8 +425,8 @@ func (md *memoryDatabase) writeLinField(
 		}
 		md.statistics.AllocatedPages.Incr()
 		fStore := newFieldStore(buf)
-		writtenSize += fStore.Capacity()
-		md.numOfSeries.Inc()
+
+		md.allocSize.Add(FieldStoreEntry) // field store size
 		return fStore, nil
 	})
 	if err != nil {

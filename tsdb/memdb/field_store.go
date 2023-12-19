@@ -50,9 +50,6 @@ const (
 	headLen       = 8
 	valueSize     = 8
 	markContainer = 8
-
-	emptyFieldStoreSize = 24 + // empty buf slice cost
-		24 // empty compress slice cost
 )
 
 // fStoreINTF represents field-store,
@@ -163,7 +160,7 @@ func (fs *fieldStore) resetBuf() {
 
 func (fs *fieldStore) Capacity() int {
 	// NOTE: do not use cap as it's a allocated page
-	return cap(fs.compress) + len(fs.buf) + emptyFieldStoreSize
+	return cap(fs.compress)
 }
 
 // compact the current write buffer,

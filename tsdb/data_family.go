@@ -232,21 +232,25 @@ func (f *dataFamily) NeedFlush() bool {
 		}
 	}
 	maxMemDBSize := config.GlobalStorageConfig().TSDB.MaxMemDBSize
+	memDBUptime := f.mutableMemDB.Uptime()
+	memDBHeapSize := f.mutableMemDB.MemSize()
 
 	f.logger.Info("check memory database if need flush",
 		logger.String("family", f.indicator),
-		logger.String("uptime", f.mutableMemDB.Uptime().String()),
+		logger.Any("check-ttl", memDBUptime >= ttl),
+		logger.Any("check-memdb-heap-size", memDBHeapSize >= int64(maxMemDBSize)),
+		logger.String("uptime", memDBUptime.String()),
 		logger.String("mutable-memdb-ttl", ttl.String()),
-		logger.String("memdb-size", ltoml.Size(f.mutableMemDB.MemSize()).String()),
+		logger.String("memdb-size", ltoml.Size(memDBHeapSize).String()),
 		logger.String("max-memdb-size", maxMemDBSize.String()),
 	)
 
 	// check memory database's uptime
-	if f.mutableMemDB.Uptime() >= ttl {
+	if memDBUptime >= ttl {
 		return true
 	}
 	// check memory database's heap size
-	if f.mutableMemDB.MemSize() >= int64(maxMemDBSize) {
+	if memDBHeapSize >= int64(maxMemDBSize) {
 		return true
 	}
 	return false
