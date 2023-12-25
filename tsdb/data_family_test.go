@@ -273,9 +273,9 @@ func TestDataFamily_NeedFlush(t *testing.T) {
 				config.SetGlobalStorageConfig(cfg)
 				memDB := memdb.NewMockMemoryDatabase(ctrl)
 				f.mutableMemDB = memDB
-				memDB.EXPECT().MemSize().Return(int64(10))
 				memDB.EXPECT().NumOfMetrics().Return(10)
-				memDB.EXPECT().Uptime().Return(time.Minute).MaxTimes(2)
+				memDB.EXPECT().Uptime().Return(time.Minute)
+				memDB.EXPECT().MemSize().Return(int64(10))
 			},
 			needFlush: true,
 		},
@@ -295,8 +295,8 @@ func TestDataFamily_NeedFlush(t *testing.T) {
 				memDB := memdb.NewMockMemoryDatabase(ctrl)
 				f.mutableMemDB = memDB
 				memDB.EXPECT().NumOfMetrics().Return(10)
-				memDB.EXPECT().Uptime().Return(time.Minute).MaxTimes(2)
-				memDB.EXPECT().MemSize().Return(int64(1000)).MaxTimes(2)
+				memDB.EXPECT().Uptime().Return(time.Minute)
+				memDB.EXPECT().MemSize().Return(int64(1000))
 			},
 			needFlush: true,
 		},
@@ -316,8 +316,8 @@ func TestDataFamily_NeedFlush(t *testing.T) {
 				memDB := memdb.NewMockMemoryDatabase(ctrl)
 				f.mutableMemDB = memDB
 				memDB.EXPECT().NumOfMetrics().Return(10)
-				memDB.EXPECT().Uptime().Return(time.Minute).MaxTimes(2)
-				memDB.EXPECT().MemSize().Return(int64(10)).MaxTimes(2)
+				memDB.EXPECT().Uptime().Return(time.Minute)
+				memDB.EXPECT().MemSize().Return(int64(10))
 			},
 			needFlush: false,
 		},

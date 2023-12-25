@@ -17,16 +17,20 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: 1.21
+          go-version: 1.21.1
           cache: false 
         id: go
       - name: Make Mock files
         run: make gomock
+      - name: Make Deps
+        run: make deps 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
           version: v1.51.2
           skip-cache: true
+          skip-pkg-cache: true
+          skip-build-cache: true 
 
   linux-test-with-coverage:
     name: Uint Test With Coverage(Linux)

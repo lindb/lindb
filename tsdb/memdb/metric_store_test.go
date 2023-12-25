@@ -32,7 +32,6 @@ import (
 
 func TestMetricStore_SetTimestamp(t *testing.T) {
 	mStoreInterface := newMetricStore()
-	assert.Zero(t, mStoreInterface.Capacity())
 	mStoreInterface.SetSlot(10)
 	slotRange := mStoreInterface.GetSlotRange()
 	assert.Equal(t, uint16(10), slotRange.Start)

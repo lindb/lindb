@@ -31,9 +31,6 @@ import (
 
 // mStoreINTF abstracts a metricStore
 type mStoreINTF interface {
-	// Capacity returns the memory usage of metric-store,
-	// without tStores and FieldStores
-	Capacity() int
 	// Filter filters the data based on fields/seriesIDs/family time,
 	// if data founded then returns the flow.FilterResultSet, else returns constants.ErrNotFound
 	Filter(shardExecuteContext *flow.ShardExecuteContext, db *memoryDatabase) ([]flow.FilterResultSet, error)
@@ -50,7 +47,7 @@ type mStoreINTF interface {
 	// GenTStore generates memory level time series id under memory database.
 	GenTStore(tagHash uint64, create func() uint32) uint32
 	// IndexTStore adds memorty store series id -> global series id mapping.
-	IndexTStore(seriesID, seriesIdx uint32)
+	IndexTStore(seriesID, seriesIdx uint32) bool
 	// FlushMetricsDataTo flushes metric-block of mStore to the Writer.
 	FlushMetricsDataTo(
 		tableFlusher metricsdata.Flusher,
@@ -61,8 +58,8 @@ type mStoreINTF interface {
 
 // metricStore represents metric level storage, stores all series data, and fields/family times metadata
 type metricStore struct {
-	hashes map[uint64]uint32 // tag hash -> memory time series id
-	ids    *imap.IntMap[uint32]
+	hashes map[uint64]uint32    // tag hash -> memory time series id
+	ids    *imap.IntMap[uint32] // global series id -> memory time series id
 
 	slotRange *timeutil.SlotRange
 	fields    field.Metas // field metadata
@@ -74,10 +71,6 @@ func newMetricStore() mStoreINTF {
 	ms.hashes = make(map[uint64]uint32)
 	ms.ids = imap.NewIntMap[uint32]()
 	return &ms
-}
-
-func (ms *metricStore) Capacity() int {
-	return 0
 }
 
 // SetSlot sets the current write timestamp
@@ -144,8 +137,10 @@ func (ms *metricStore) FindFields(fields field.Metas) (found field.Metas) {
 }
 
 // IndexTStore adds memorty store series id -> global series id mapping.
-func (ms *metricStore) IndexTStore(seriesID, seriesIdx uint32) {
+func (ms *metricStore) IndexTStore(seriesID, seriesIdx uint32) bool {
+	size := len(ms.ids.Values())
 	ms.ids.Put(seriesID, seriesIdx)
+	return len(ms.ids.Values()) > size
 }
 
 // FlushMetricsDataTo Writes metric-data to the table.

@@ -23,9 +23,9 @@ import (
 
 // IntMap represents int map using roaring bitmap
 type IntMap[V any] struct {
-	putCount int             // insert count
 	keys     *roaring.Bitmap // store all keys
 	values   [][]V           // store all values by high/low key
+	putCount int             // insert count
 }
 
 // NewIntMap creates a int map
