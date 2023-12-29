@@ -112,10 +112,8 @@ func (rs *memFilterResultSet) Load(ctx *flow.DataLoadContext) flow.DataLoader {
 	if foundSeriesIDs.GetCardinality() == 0 {
 		return nil
 	}
-
-	values := rs.store.ids.Values()
 	// must use lowContainer from store, because get series index based on container
-	return NewTimeSeriesLoader(rs.db, lowContainer, values[highContainerIdx], rs.fields, *rs.store.slotRange)
+	return NewTimeSeriesLoader(rs.db, rs.store, ctx.SeriesIDHighKey, rs.fields, *rs.store.slotRange)
 }
 
 // Close release the resource during doing query operation.
