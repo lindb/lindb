@@ -18,8 +18,6 @@
 package memdb
 
 import (
-	"github.com/lindb/roaring"
-
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
@@ -27,27 +25,27 @@ import (
 
 // timeSeriesLoader represents time series store loader.
 type timeSeriesLoader struct {
-	db           *memoryDatabase
-	lowContainer roaring.Container
-	fStores      []uint32 //FIXME: add lock??
-	fields       field.Metas
-	slotRange    timeutil.SlotRange // slot range of metric store
+	db              *memoryDatabase
+	mStore          *metricStore
+	seriesIDHighKey uint16
+	fields          field.Metas        // metric store field meta
+	slotRange       timeutil.SlotRange // slot range of metric store
 }
 
 // NewTimeSeriesLoader creates a time series store loader.
 func NewTimeSeriesLoader(
 	db *memoryDatabase,
-	lowContainer roaring.Container,
-	fStores []uint32,
+	mStore *metricStore,
+	seriesIDHighKey uint16,
 	fields field.Metas,
 	slotRange timeutil.SlotRange,
 ) flow.DataLoader {
 	return &timeSeriesLoader{
-		db:           db,
-		lowContainer: lowContainer,
-		fStores:      fStores,
-		fields:       fields,
-		slotRange:    slotRange,
+		db:              db,
+		mStore:          mStore,
+		seriesIDHighKey: seriesIDHighKey,
+		fields:          fields,
+		slotRange:       slotRange,
 	}
 }
 
@@ -56,10 +54,16 @@ func (tsl *timeSeriesLoader) Load(ctx *flow.DataLoadContext) {
 	release := tsl.db.WithLock()
 	defer release()
 
-	ctx.IterateLowSeriesIDs(tsl.lowContainer, func(seriesIdxFromQuery uint16, seriesIdxFromStorage int) {
-		tsKey := tsl.fStores[seriesIdxFromStorage]
+	keys := tsl.mStore.ids.Keys()
+	highContainerIdx := keys.GetContainerIndex(tsl.seriesIDHighKey)
+	lowContainer := keys.GetContainerAtIndex(highContainerIdx)
+	fStores := tsl.mStore.ids.Values()[highContainerIdx]
+
+	ctx.IterateLowSeriesIDs(lowContainer, func(seriesIdxFromQuery uint16, seriesIdxFromStorage int) {
+		tsKey := fStores[seriesIdxFromStorage]
 		for idx := range tsl.fields {
 			fm := tsl.fields[idx]
+
 			tsStores := tsl.db.timeSeriesStores[fm.Index]
 			fStore, ok := tsStores.Get(tsKey)
 			if ok {
