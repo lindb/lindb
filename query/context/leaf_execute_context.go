@@ -32,7 +32,7 @@ import (
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	trackerpkg "github.com/lindb/lindb/query/tracker"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/sql/tree"
 	"github.com/lindb/lindb/tsdb"
 )
 
@@ -61,7 +61,7 @@ type LeafExecuteContext struct {
 // NewLeafExecuteContext creates a LeafExecuteContext instance.
 func NewLeafExecuteContext(taskCtx *flow.TaskContext,
 	tracker *trackerpkg.StageTracker,
-	queryStmt *stmt.Query,
+	queryStmt *tree.Query1,
 	req *protoCommonV1.TaskRequest,
 	serverFactory rpc.TaskServerFactory,
 	leafNode *models.Target,

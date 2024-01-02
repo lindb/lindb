@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/lindb/common/pkg/logger"
-	commontimeutil "github.com/lindb/common/pkg/timeutil"
 	"go.etcd.io/etcd/server/v3/embed"
 	"go.uber.org/zap/zapcore"
 
@@ -35,10 +34,7 @@ import (
 	"github.com/lindb/lindb/internal/bootstrap"
 	"github.com/lindb/lindb/internal/monitoring"
 	"github.com/lindb/lindb/internal/server"
-	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 // for testing
@@ -136,19 +132,7 @@ func (r *runtime) Run() error {
 	r.state = server.Running
 
 	time.AfterFunc(r.delayInit, func() {
-		if err := r.initializer.InitInternalDatabase(models.Database{
-			Name:          "_internal",
-			NumOfShard:    1,
-			ReplicaFactor: 1,
-			Option: &option.DatabaseOption{
-				Intervals: option.Intervals{
-					{
-						Interval:  timeutil.Interval(10 * commontimeutil.OneSecond),
-						Retention: timeutil.Interval(commontimeutil.OneMonth),
-					},
-				},
-			},
-		}); err != nil {
+		if err := r.initializer.InitInternalDatabase("create database _internal"); err != nil {
 			log.Error("init _internal database with error", logger.Error(err))
 		} else {
 			log.Info("initialized _internal database successfully")

@@ -38,7 +38,7 @@ import (
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
-	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/sql/tree"
 )
 
 // for testing
@@ -263,7 +263,7 @@ func (mm *metricMetaDatabase) GetMetricID(namespace, metricName string) (metric.
 
 // FindTagValueDsByExpr finds tag value ids by tag filter expr for spec tag key,
 // if not exist, return nil, constants.ErrNotFound, else returns tag value ids
-func (mm *metricMetaDatabase) FindTagValueDsByExpr(tagKeyID tag.KeyID, expr stmt.TagFilter) (*roaring.Bitmap, error) {
+func (mm *metricMetaDatabase) FindTagValueDsByExpr(tagKeyID tag.KeyID, expr tree.Expr) (*roaring.Bitmap, error) {
 	ids, err := mm.tagValue.FindValuesByExpr(uint32(tagKeyID), expr)
 	if err != nil {
 		return nil, err

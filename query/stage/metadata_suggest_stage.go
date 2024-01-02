@@ -21,7 +21,7 @@ import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/query/context"
 	"github.com/lindb/lindb/query/operator"
-	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/sql/tree"
 )
 
 // metadataSuggestStage represents metadata suggest stage.
@@ -44,19 +44,19 @@ func NewMetadataSuggestStage(ctx *context.LeafMetadataContext) Stage {
 func (stage *metadataSuggestStage) Plan() PlanNode {
 	req := stage.ctx.Request
 	switch req.Type {
-	case stmt.Namespace:
+	case tree.Namespace:
 		return NewPlanNode(operator.NewNamespaceSuggest(stage.ctx))
-	case stmt.Metric:
+	case tree.Metric:
 		return NewPlanNode(operator.NewMetricSuggest(stage.ctx))
-	case stmt.TagKey:
+	case tree.TagKey:
 		return NewPlanNode(operator.NewTagKeySuggest(stage.ctx))
-	case stmt.Field:
+	case tree.Field:
 		return NewPlanNode(operator.NewFieldSuggest(stage.ctx))
-	case stmt.TagValue:
+	case tree.TagValue:
 		execPlan := NewEmptyPlanNode()
 		execPlan.AddChild(NewPlanNode(operator.NewTagKeyIDLookup(stage.ctx)))
 		stage.ctx.StorageExecuteCtx = &flow.StorageExecuteContext{
-			Query: &stmt.Query{
+			Query: &tree.Query1{
 				Namespace:  req.Namespace,
 				MetricName: req.MetricName,
 				Condition:  req.Condition,
@@ -77,7 +77,7 @@ func (stage *metadataSuggestStage) Plan() PlanNode {
 // NextStages returns the next stages.
 func (stage *metadataSuggestStage) NextStages() (stages []Stage) {
 	req := stage.ctx.Request
-	if req.Type != stmt.TagValue {
+	if req.Type != tree.TagValue {
 		return
 	}
 	if len(stage.ctx.StorageExecuteCtx.TagFilterResult) == 0 {

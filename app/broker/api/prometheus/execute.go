@@ -78,7 +78,7 @@ func NewExecuteAPI(deps *depspkg.HTTPDeps, prometheusWriter prometheusIngest.Wri
 		logger:           logger.GetLogger("broker", "prometheus.ExecuteAPI"),
 		codecs:           []Codec{&JSONCodec{}},
 		engine:           prometheus.NewEngine(),
-		queryable:        NewQueryable(deps),
+		// queryable:        NewQueryable(deps),
 	}
 	go e.waitPrometheusWriteErr()
 	return e
@@ -398,32 +398,32 @@ func (e *ExecuteAPI) queryRangeResult(c *gin.Context) (result apiFuncResult) {
 		defer cancel()
 	}
 
-	opts, err := extractQueryOpts(r)
+	_, err = extractQueryOpts(r)
 	if err != nil {
 		return apiFuncResult{nil, &apiError{errorBadData, err}, nil, nil}
 	}
 
-	queryable := NewQueryable(e.deps)
-
-	qry, err := e.engine.NewRangeQuery(ctx, queryable, opts, r.FormValue("query"), start, end, step)
-	if err != nil {
-		return invalidParamError(err, "query")
-	}
-
-	param := models.ExecuteParam{SQL: r.FormValue("query")}
-	c.Set(constants.CurrentSQL, &param)
-
-	ctx = httputil.ContextFromRequest(ctx, r)
-
-	res := qry.Exec(ctx)
-	if res.Err != nil {
-		return apiFuncResult{nil, returnAPIError(res.Err), res.Warnings, qry.Close}
-	}
-
+	// queryable := NewQueryable(e.deps)
+	//
+	// qry, err := e.engine.NewRangeQuery(ctx, queryable, opts, r.FormValue("query"), start, end, step)
+	// if err != nil {
+	// 	return invalidParamError(err, "query")
+	// }
+	//
+	// param := models.ExecuteParam{SQL: r.FormValue("query")}
+	// c.Set(constants.CurrentSQL, &param)
+	//
+	// ctx = httputil.ContextFromRequest(ctx, r)
+	//
+	// res := qry.Exec(ctx)
+	// if res.Err != nil {
+	// 	return apiFuncResult{nil, returnAPIError(res.Err), res.Warnings, qry.Close}
+	// }
+	//
 	return apiFuncResult{&v1.QueryData{
-		ResultType: res.Value.Type(),
-		Result:     res.Value,
-	}, nil, res.Warnings, qry.Close}
+		// 	ResultType: res.Value.Type(),
+		// 	Result:     res.Value,
+	}, nil, nil, nil}
 }
 
 // formatQuery formats the query statement.

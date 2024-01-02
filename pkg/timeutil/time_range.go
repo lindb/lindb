@@ -103,3 +103,8 @@ func (r *TimeRange) Intersect(o TimeRange) TimeRange {
 	}
 	return result
 }
+
+// NumOfPoints returns num. of points by interval.
+func (r *TimeRange) NumOfPoints(interval Interval) int {
+	return int((r.End - r.Start) / int64(interval))
+}

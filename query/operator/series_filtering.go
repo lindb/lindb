@@ -27,7 +27,7 @@ import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/series/tag"
-	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/sql/tree"
 	"github.com/lindb/lindb/tsdb"
 )
 
@@ -60,7 +60,7 @@ func (op *seriesFiltering) Execute() error {
 }
 
 // findSeriesIDsByExpr finds series ids by expr, recursion filter for expr
-func (op *seriesFiltering) findSeriesIDsByExpr(condition stmt.Expr) (tag.KeyID, *roaring.Bitmap) {
+func (op *seriesFiltering) findSeriesIDsByExpr(condition tree.Expr) (tag.KeyID, *roaring.Bitmap) {
 	if condition == nil {
 		return 0, roaring.New() // create an empty series ids for parent expr
 	}
@@ -68,16 +68,16 @@ func (op *seriesFiltering) findSeriesIDsByExpr(condition stmt.Expr) (tag.KeyID, 
 		return 0, roaring.New() // create an empty series ids for parent expr
 	}
 	switch expr := condition.(type) {
-	case stmt.TagFilter:
+	case *tree.EqualsExpr, *tree.LikeExpr, *tree.RegexExpr, *tree.InExpr:
 		tagKey, seriesIDs, err := op.getSeriesIDsByExpr(expr)
 		if err != nil {
 			op.err = err
 			return tagKey, roaring.New() // create an empty series ids for parent expr
 		}
 		return tagKey, seriesIDs
-	case *stmt.ParenExpr:
+	case *tree.ParenExpr:
 		return op.findSeriesIDsByExpr(expr.Expr)
-	case *stmt.NotExpr:
+	case *tree.NotExpr:
 		// get filter series ids
 		tagKey, matchResult := op.findSeriesIDsByExpr(expr.Expr)
 		// get all series ids for tag key
@@ -89,10 +89,10 @@ func (op *seriesFiltering) findSeriesIDsByExpr(condition stmt.Expr) (tag.KeyID, 
 		// do and not got series ids not in 'a' list
 		all.AndNot(matchResult)
 		return 0, all
-	case *stmt.BinaryExpr:
+	case *tree.BinaryExpr:
 		_, left := op.findSeriesIDsByExpr(expr.Left)
 		_, right := op.findSeriesIDsByExpr(expr.Right)
-		if expr.Operator == stmt.AND {
+		if expr.Operator == tree.AND {
 			left.And(right)
 		} else {
 			left.Or(right)
@@ -103,7 +103,7 @@ func (op *seriesFiltering) findSeriesIDsByExpr(condition stmt.Expr) (tag.KeyID, 
 }
 
 // getTagKeyID returns the tag key id by tag key
-func (op *seriesFiltering) getSeriesIDsByExpr(expr stmt.Expr) (tag.KeyID, *roaring.Bitmap, error) {
+func (op *seriesFiltering) getSeriesIDsByExpr(expr tree.Expr) (tag.KeyID, *roaring.Bitmap, error) {
 	tagValues, ok := op.executeCtx.StorageExecuteCtx.TagFilterResult[expr.Rewrite()]
 	if !ok {
 		return 0, nil, fmt.Errorf("%w, expr: %s", constants.ErrTagValueFilterResultNotFound, expr.Rewrite())

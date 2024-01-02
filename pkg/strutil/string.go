@@ -18,20 +18,23 @@
 package strutil
 
 import (
+	"strconv"
 	"strings"
 	"unsafe"
 )
 
 // GetStringValue aggregation format function name
-func GetStringValue(rawString string) string {
-	if rawString != "" {
-		if (strings.HasPrefix(rawString, "'") && strings.HasSuffix(rawString, "'")) ||
-			(strings.HasPrefix(rawString, "\"") && strings.HasSuffix(rawString, "\"")) {
-			return rawString[1 : len(rawString)-1]
+func GetStringValue(rawString string) (string, error) {
+	if len(rawString) > 0 {
+		if strings.HasPrefix(rawString, "'") && strings.HasSuffix(rawString, "'") {
+			rawString = `"` + rawString[1:len(rawString)-1] + `"`
 		}
-		return rawString
+		if strings.HasPrefix(rawString, "\"") && strings.HasSuffix(rawString, "\"") {
+			return strconv.Unquote(rawString)
+		}
+		return rawString, nil
 	}
-	return ""
+	return "", nil
 }
 
 func ByteSlice2String(bytes []byte) string {

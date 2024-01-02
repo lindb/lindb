@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package metaCommandV1;
+
+message TableSchemaRequest {
+	string database = 1;
+	string namespace = 2;
+	string table = 3;
+}
+
+message TableSchemaResponse {
+	bytes payload = 1;
+}
+
+service MetaService {
+	rpc TableSchema(TableSchemaRequest) returns (TableSchemaResponse) {}
+}

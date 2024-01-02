@@ -20,11 +20,11 @@ package context
 import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/sql/tree"
 )
 
 // calcTimeRangeAndInterval calculates the query time range and interval based on input params and database config.
-func calcTimeRangeAndInterval(statement *stmt.Query, cfg models.Database) {
+func calcTimeRangeAndInterval(statement *tree.Query1, cfg models.Database) {
 	option := cfg.Option
 	interval := statement.Interval
 	if interval <= 0 {

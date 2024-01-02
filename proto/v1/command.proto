@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package protoCommandV1;
+
+message Error {
+	string msg = 1;
+}
+
+enum Command {
+	SubmitTask = 0;
+}
+
+message CommandRequest {
+	Command cmd = 1;
+    bytes payload = 2;
+	Error err = 3;
+}
+
+message CommandResponse {
+	Command cmd = 1;
+    bytes payload = 2;
+	Error err = 3;
+}
+
+message ResultSetRequest {
+    bytes payload = 2;
+	Error err = 3;
+}
+
+message ResultSetResponse {
+	Error err = 3;
+}
+
+service CommandService {
+    rpc Command (CommandRequest) returns (CommandResponse) {}
+}
+
+service ResultSetService {
+	rpc ResultSet(ResultSetRequest) returns (ResultSetResponse) {}
+}

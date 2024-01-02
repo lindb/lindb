@@ -42,6 +42,7 @@ import (
 // StateManager represents broker state manager, maintains broker node/database/storage states in memory.
 type StateManager interface {
 	flow.NodeChoose
+	flow.NodeSelector
 	discovery.StateMachineEventHandle
 
 	// GetCurrentNode returns the current node.
@@ -115,6 +116,42 @@ func NewStateManager(
 	go mgr.consumeEvent()
 
 	return mgr
+}
+
+func (m *stateManager) GetPartitions(database string) (partitions map[models.InternalNode][]int, err error) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	// 1. check database if exist
+	_, ok := m.databases[database]
+	if !ok {
+		return nil, constants.ErrDatabaseNotFound
+	}
+
+	// check if it has live nodes
+	liveNodes := m.storageState.LiveNodes
+	if len(liveNodes) == 0 {
+		return nil, constants.ErrNoLiveNode
+	}
+	shards := m.storageState.ShardStates[database]
+	if len(shards) == 0 {
+		return nil, constants.ErrShardNotFound
+	}
+
+	partitions = make(map[models.InternalNode][]int)
+	for shardID, shardState := range shards {
+		if shardState.State == models.OnlineShard {
+			node := liveNodes[shardState.Leader]
+			internalNode := models.InternalNode{
+				IP:   node.HostIP,
+				Port: node.GRPCPort,
+			}
+			partitions[internalNode] = append(partitions[internalNode], int(shardID))
+		} else {
+			return nil, constants.ErrPartitionOffline
+		}
+	}
+	return
 }
 
 // Choose chooses the compute nodes then builds physical plan.

@@ -18,6 +18,7 @@
 package context
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/cespare/xxhash/v2"
@@ -138,6 +139,7 @@ func (ctx *LeafReduceContext) makeTimeSeriesList() []*protoCommonV1.TimeSeries {
 				}
 				continue
 			}
+			fmt.Printf("field data=%v\n", data)
 			fields[string(seriesItr.FieldName())] = data
 		}
 

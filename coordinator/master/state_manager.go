@@ -341,11 +341,11 @@ func (m *stateManager) shardAssignment(databaseCfg *models.Database) {
 				logger.Error(err))
 			return
 		}
-	case len(shardAssign.Shards) != databaseCfg.NumOfShard:
+	case len(shardAssign.Shards) != databaseCfg.Option.NumOfShard:
 		m.logger.Info("modify shard assignment starting....",
 			logger.Any("database", databaseCfg.Name),
 			logger.Int("assignShards", len(shardAssign.Shards)),
-			logger.Int("numOfShard", databaseCfg.NumOfShard),
+			logger.Int("numOfShard", databaseCfg.Option.NumOfShard),
 		)
 		if err := m.modifyShardAssignment(cluster, databaseCfg, shardAssign); err != nil {
 			m.logger.Error("modify shard assignment error",
@@ -487,10 +487,10 @@ func (m *stateManager) modifyShardAssignment(
 	shardAssign *models.ShardAssignment,
 ) error {
 	nodes := make(map[models.NodeID]*models.StatefulNode)
-	if len(shardAssign.Shards) > cfg.NumOfShard { // reduce shardAssign's shards
+	if len(shardAssign.Shards) > cfg.Option.NumOfShard { // reduce shardAssign's shards
 		// TODO implement the reduce shards, is needed?
 		panic("not implemented")
-	} else if len(shardAssign.Shards) < cfg.NumOfShard { // add shardAssign's shards
+	} else if len(shardAssign.Shards) < cfg.Option.NumOfShard { // add shardAssign's shards
 		liveNodes, err := storage.GetLiveNodes()
 		if err != nil {
 			return err

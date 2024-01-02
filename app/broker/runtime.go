@@ -38,19 +38,25 @@ import (
 	"github.com/lindb/lindb/coordinator"
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/discovery"
+	"github.com/lindb/lindb/execution"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
+	internalrpc "github.com/lindb/lindb/internal/rpc"
 	"github.com/lindb/lindb/internal/server"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/hostutil"
 	httppkg "github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/state"
+	protoCommandV1 "github.com/lindb/lindb/proto/gen/v1/command"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/tag"
+	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/sql/analyzer"
+	"github.com/lindb/lindb/sql/rewrite"
 )
 
 // just for testing
@@ -258,6 +264,18 @@ func (r *runtime) Run() error {
 	}
 	r.logger.Info("broker state machine started successfully")
 
+	execDeps := &execution.Deps{
+		StatementRewrite: rewrite.NewStatementRewrite(nil),
+		AnalyzerFct:      analyzer.NewAnalyzerFactory(spi.NewMetadataManager(r.stateMgr)),
+		Repo:             r.repo,
+		CurrentNode: &models.InternalNode{
+			IP:   r.node.HostIP,
+			Port: r.node.GRPCPort,
+		},
+	}
+	execution.RegisterExecutionFactory(models.DataDefinition, execution.NewDataDefinitionExecutionFactory(execDeps))
+	execution.RegisterExecutionFactory(models.Select, execution.NewQueryExecutionFactory(execDeps))
+
 	// start http server
 	r.startHTTPServer()
 
@@ -391,6 +409,8 @@ func (r *runtime) startHTTPServer() {
 			metrics.NewLimitStatistics("query", linmetric.BrokerRegistry),
 		),
 		GlobalKeyValues: r.globalKeyValues,
+		RequestMgr:      execution.NewRequestManager(),
+		RequestIDGen:    execution.NewRequestIDGenerator(r.node.Indicator()),
 	}
 	// prometheus writer
 	schema := prometheusIngest.DatabaseConfig{
@@ -462,6 +482,7 @@ func (r *runtime) startGRPCServer() {
 	}
 
 	protoCommonV1.RegisterTaskServiceServer(r.grpcServer.GetServer(), r.rpcHandler.handler)
+	protoCommandV1.RegisterResultSetServiceServer(r.grpcServer.GetServer(), internalrpc.NewResultSetService())
 
 	go serveGRPCFn(r.grpcServer)
 }

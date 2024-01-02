@@ -35,7 +35,7 @@ import (
 	trackerpkg "github.com/lindb/lindb/query/tracker"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/field"
-	stmtpkg "github.com/lindb/lindb/sql/stmt"
+	stmtpkg "github.com/lindb/lindb/sql/tree"
 )
 
 // SearchMgr represents the dependencies for searching.
@@ -109,7 +109,7 @@ func MetricMetadataSearch(ctx context.Context,
 //     maybe some expectant results are lost in data in offline shard, WHY can query not completely data,
 //     because of for the system availability.
 func MetricDataSearch(ctx context.Context,
-	param *models.ExecuteParam, statement *stmtpkg.Query,
+	param *models.ExecuteParam, statement *stmtpkg.Query1,
 	mgr *SearchMgr,
 ) (any, error) {
 	req := models.NewRequest(mgr.CurNode.Indicator(), param.Database, param.SQL)

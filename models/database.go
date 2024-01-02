@@ -25,6 +25,7 @@ import (
 	"github.com/lindb/common/models"
 
 	"github.com/lindb/lindb/pkg/option"
+	"github.com/lindb/lindb/pkg/validate"
 )
 
 // DatabaseNames represents the database name list.
@@ -98,17 +99,35 @@ type LogicDatabase struct {
 
 // Database defines database config.
 type Database struct {
-	Option        *option.DatabaseOption `json:"option"`                   // time series database option
-	Name          string                 `json:"name" validate:"required"` // database's name
-	Desc          string                 `json:"desc,omitempty"`
-	NumOfShard    int                    `json:"numOfShard" validate:"gt=0"`    // num. of shard
-	ReplicaFactor int                    `json:"replicaFactor" validate:"gt=0"` // replica refactor
+	Option *option.DatabaseOption `json:"option"`                   // time series database option
+	Name   string                 `json:"name" validate:"required"` // database's name
+	Desc   string                 `json:"desc,omitempty"`
+}
+
+func (db *Database) Default() {
+	if db.Option == nil {
+		db.Option = &option.DatabaseOption{}
+	}
+	db.Option.Default()
+}
+
+func (db *Database) Validate() error {
+	err := validate.Validator.Struct(db)
+	if err != nil {
+		return err
+	}
+	// validate time series engine option
+	err = db.Option.Validate()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // String returns the database's description.
 func (db *Database) String() string {
-	result := "create database " + db.Name + " with "
-	result += "shard " + fmt.Sprintf("%d", db.NumOfShard) + ", replica " + fmt.Sprintf("%d", db.ReplicaFactor)
+	result := "create database " + db.Name + " with ("
+	result += "numOfShard=" + fmt.Sprintf("%d", db.Option.NumOfShard) + ", replicaRactor=" + fmt.Sprintf("%d", db.Option.ReplicaFactor)
 	result += ", intervals " + db.Option.Intervals.String()
 	return result
 }

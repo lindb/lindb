@@ -19,7 +19,6 @@ package flow
 
 import (
 	"context"
-	"encoding/binary"
 	"sort"
 	"sync"
 	"time"
@@ -35,7 +34,7 @@ import (
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
-	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/sql/tree"
 )
 
 // TaskContext represents task execute context.
@@ -64,7 +63,7 @@ func (ctx *TaskContext) Release() {
 // StorageExecuteContext represents storage level query execute context.
 type StorageExecuteContext struct {
 	TaskCtx       *TaskContext
-	Query         *stmt.Query
+	Query         *tree.Query1
 	ShardIDs      []models.ShardID
 	ShardContexts []*ShardExecuteContext
 
@@ -270,6 +269,11 @@ func (agg *GroupingSeriesAgg) reduce(reduceFn func(it series.GroupedIterator)) {
 // DataLoadContext represents data load level query execute context.
 type DataLoadContext struct {
 	ShardExecuteCtx *ShardExecuteContext
+	Fields          field.Metas
+	Interval        timeutil.Interval
+	IntervalRatio   int
+	TimeRange       timeutil.TimeRange
+
 	// range of min/max low series id
 	// if no grouping value is low series ids
 	// if grouping value is index of GroupingSeriesAgg
@@ -289,6 +293,9 @@ type DataLoadContext struct {
 	DownSampling func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, getter encoding.TSDValueGetter)
 
 	PendingDataLoadTasks *atomic.Int32
+
+	DownSamplingSpecs aggregation.AggregatorSpecs
+	AggregatorSpecs   aggregation.AggregatorSpecs
 }
 
 // PrepareAggregatorWithoutGrouping prepares context for without grouping query.
@@ -307,37 +314,37 @@ func (ctx *DataLoadContext) PrepareAggregatorWithoutGrouping() {
 // returns index of grouping aggregator.
 func (ctx *DataLoadContext) NewSeriesAggregator(groupingKey string) uint16 {
 	rs := ctx.groupingSeriesAggRefIdx
-	groupingSeriesAgg := &GroupingSeriesAgg{
-		Key: groupingKey,
-	}
-	tagsData := []byte(groupingKey)
-	var tagValueIDs []uint32
-	for idx := range ctx.ShardExecuteCtx.StorageExecuteCtx.GroupByTagKeyIDs {
-		offset := idx * 4
-		tagValueID := binary.LittleEndian.Uint32(tagsData[offset:])
-		tagValueIDs = append(tagValueIDs, tagValueID)
-	}
-	ctx.ShardExecuteCtx.StorageExecuteCtx.collectGroupingTagValueIDs(tagValueIDs)
-
-	if ctx.IsMultiField {
-		groupingSeriesAgg.Aggregators = ctx.newSeriesAggregators()
-	} else {
-		groupingSeriesAgg.Aggregator = ctx.newSeriesAggregator(0)
-	}
-	ctx.GroupingSeriesAgg = append(ctx.GroupingSeriesAgg, groupingSeriesAgg)
-	ctx.groupingSeriesAggRefIdx++
+	// groupingSeriesAgg := &GroupingSeriesAgg{
+	// 	Key: groupingKey,
+	// }
+	// tagsData := []byte(groupingKey)
+	// var tagValueIDs []uint32
+	// for idx := range ctx.ShardExecuteCtx.StorageExecuteCtx.GroupByTagKeyIDs {
+	// 	offset := idx * 4
+	// 	tagValueID := binary.LittleEndian.Uint32(tagsData[offset:])
+	// 	tagValueIDs = append(tagValueIDs, tagValueID)
+	// }
+	// ctx.ShardExecuteCtx.StorageExecuteCtx.collectGroupingTagValueIDs(tagValueIDs)
+	//
+	// if ctx.IsMultiField {
+	// 	groupingSeriesAgg.Aggregators = ctx.newSeriesAggregators()
+	// } else {
+	// 	groupingSeriesAgg.Aggregator = ctx.newSeriesAggregator(0)
+	// }
+	// ctx.GroupingSeriesAgg = append(ctx.GroupingSeriesAgg, groupingSeriesAgg)
+	// ctx.groupingSeriesAggRefIdx++
 	return rs
 }
 
 // newSeriesAggregators creates the series aggregators for multi field.
 func (ctx *DataLoadContext) newSeriesAggregators() []aggregation.SeriesAggregator {
-	rs := make([]aggregation.SeriesAggregator, len(ctx.ShardExecuteCtx.StorageExecuteCtx.Fields))
-	for fieldIdx := range ctx.ShardExecuteCtx.StorageExecuteCtx.Fields {
+	rs := make([]aggregation.SeriesAggregator, len(ctx.Fields))
+	for fieldIdx := range ctx.Fields {
 		rs[fieldIdx] = aggregation.NewSeriesAggregator(
-			ctx.ShardExecuteCtx.StorageExecuteCtx.Query.Interval,
-			ctx.ShardExecuteCtx.StorageExecuteCtx.Query.IntervalRatio,
-			ctx.ShardExecuteCtx.StorageExecuteCtx.Query.TimeRange,
-			ctx.ShardExecuteCtx.StorageExecuteCtx.DownSamplingSpecs[fieldIdx])
+			ctx.Interval,
+			ctx.IntervalRatio,
+			ctx.TimeRange,
+			ctx.DownSamplingSpecs[fieldIdx])
 	}
 	return rs
 }
@@ -345,10 +352,10 @@ func (ctx *DataLoadContext) newSeriesAggregators() []aggregation.SeriesAggregato
 // newSeriesAggregator creates a series aggregator with field index.
 func (ctx *DataLoadContext) newSeriesAggregator(fieldIdx int) aggregation.SeriesAggregator {
 	return aggregation.NewSeriesAggregator(
-		ctx.ShardExecuteCtx.StorageExecuteCtx.Query.Interval,
-		ctx.ShardExecuteCtx.StorageExecuteCtx.Query.IntervalRatio,
-		ctx.ShardExecuteCtx.StorageExecuteCtx.Query.TimeRange,
-		ctx.ShardExecuteCtx.StorageExecuteCtx.DownSamplingSpecs[fieldIdx])
+		ctx.Interval,
+		ctx.IntervalRatio,
+		ctx.TimeRange,
+		ctx.DownSamplingSpecs[fieldIdx])
 }
 
 // HasGroupingData returns if it is grouping data.
@@ -403,6 +410,7 @@ func (ctx *DataLoadContext) IterateLowSeriesIDs(lowSeriesIDsFromStorage roaring.
 	seriesIdxFromStorage := 0
 	for it.HasNext() {
 		seriesID := it.Next()
+		// TODO: refact it
 		if seriesID > max {
 			break
 		}
@@ -459,4 +467,19 @@ func (ctx *TimeSegmentResultSet) Release() {
 	for idx := range ctx.FilterRS {
 		ctx.FilterRS[idx].Close()
 	}
+}
+
+type MetricScanContext struct {
+	MetricID                metric.ID
+	SeriesIDs               *roaring.Bitmap
+	SeriesIDsAfterFiltering *roaring.Bitmap
+	Fields                  field.Metas
+	TimeRange               timeutil.TimeRange
+
+	StorageInterval timeutil.Interval
+}
+
+// CalcSourceSlotRange returns slot range for filtering by family time and query time range.
+func (ctx *MetricScanContext) CalcSourceSlotRange(familyTime int64) timeutil.SlotRange {
+	return ctx.StorageInterval.CalcSlotRange(familyTime, ctx.TimeRange)
 }

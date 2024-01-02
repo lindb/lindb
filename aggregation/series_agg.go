@@ -182,14 +182,14 @@ func (a *seriesAggregator) getAggregator(segmentStartTime int64) FieldAggregator
 // segment start time = family time.
 func (a *seriesAggregator) GetAggregator(segmentStartTime int64) FieldAggregator {
 	// calc storage interval
-	storageInterval := timeutil.Interval(a.queryInterval.Int64() / int64(a.intervalRatio))
-	sourceRange := storageInterval.CalcSlotRange(segmentStartTime, a.queryTimeRange)
+	// storageInterval := timeutil.Interval(a.queryInterval.Int64() / int64(a.intervalRatio))
+	// sourceRange := storageInterval.CalcSlotRange(segmentStartTime, a.queryTimeRange)
 	// calc base slot based on start time of query
-	baseSlot := int((segmentStartTime - a.queryTimeRange.Start) / storageInterval.Int64())
-	targetStart := (baseSlot + int(sourceRange.Start)) / a.intervalRatio
-	targetEnd := (baseSlot + int(sourceRange.End)) / a.intervalRatio
+	// baseSlot := int((segmentStartTime - a.queryTimeRange.Start) / storageInterval.Int64())
+	// targetStart := (baseSlot + int(sourceRange.Start)) / a.intervalRatio
+	// targetEnd := (baseSlot + int(sourceRange.End)) / a.intervalRatio
 	// create field aggregator based on start time of query and query slot range(based on family range)
-	agg := NewFieldAggregator(a.aggSpec, a.queryTimeRange.Start, targetStart, targetEnd)
+	agg := NewFieldAggregator(a.aggSpec, segmentStartTime, 0, 360)
 
 	a.mutex.Lock()
 	a.aggregates = append(a.aggregates, agg)

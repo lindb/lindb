@@ -29,7 +29,7 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
-	stmtpkg "github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/sql/tree"
 )
 
 var (
@@ -37,9 +37,9 @@ var (
 )
 
 type Param struct {
-	Type        string               `form:"type" binding:"required"`
-	Role        stmtpkg.MetadataType `form:"role" binding:"required"`
-	StorageName string               `form:"storageName"`
+	Type        string            `form:"type" binding:"required"`
+	Role        tree.MetadataType `form:"role" binding:"required"`
+	StorageName string            `form:"storageName"`
 }
 
 // BrokerStateMachineAPI represents state machine explore api.
@@ -72,11 +72,11 @@ func (api *BrokerStateMachineAPI) Explore(c *gin.Context) {
 		return
 	}
 	switch param.Role {
-	case stmtpkg.BrokerMetadata:
+	case tree.BrokerMetadata:
 		api.exploreBroker(c, param)
-	case stmtpkg.MasterMetadata:
+	case tree.MasterMetadata:
 		api.exploreMaster(c, param)
-	case stmtpkg.StorageMetadata:
+	case tree.StorageMetadata:
 		stateMgr := api.deps.Master.GetStateManager()
 		storageCluster := stateMgr.GetStorageCluster()
 		if storageCluster == nil {

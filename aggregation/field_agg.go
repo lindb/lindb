@@ -60,6 +60,7 @@ func NewFieldAggregator(aggSpec AggregatorSpec, segmentStartTime int64, start, e
 	}
 
 	aggTypes = uniqueAggTypes(aggTypes)
+	// fmt.Printf("new agg=%v %v, start=%v, end=%v ........\n", aggTypes, aggSpec, start, end)
 
 	agg := &fieldAggregator{
 		aggTypes:         aggTypes,
@@ -79,6 +80,7 @@ func (a *fieldAggregator) ResultSet() (startTime int64, it series.FieldIterator)
 // Aggregate aggregates the field series into current aggregator
 func (a *fieldAggregator) Aggregate(it series.FieldIterator) {
 	for it.HasNext() {
+		// fmt.Println("agg next....")
 		pIt := it.Next()
 		for pIt.HasNext() {
 			slot, value := pIt.Next()
@@ -94,6 +96,7 @@ func (a *fieldAggregator) AggregateBySlot(slot int, value float64) {
 		return
 	}
 	pos := slot - a.start
+	// fmt.Printf("pos=%v,slot=%v,agg=%v,agg types=%v\n", pos, slot, value, a.aggTypes)
 	for idx, aggType := range a.aggTypes {
 		values := a.fieldSeriesList[idx]
 		if values == nil {

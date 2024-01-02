@@ -27,9 +27,9 @@ import (
 
 // DataFilter represents the filter ability over memory database and files under data family.
 type DataFilter interface {
-	// Filter filters the data based on metricIDs/fields/seriesIDs/timeRange,
+	// Filter filters the data based on metricID/fields/seriesIDs/timeRange,
 	// if finds data then returns filter result set, else returns nil.
-	Filter(shardExecuteContext *ShardExecuteContext) ([]FilterResultSet, error)
+	Filter(ctx *MetricScanContext) ([]FilterResultSet, error)
 }
 
 // FilterResultSet represents the filter result set, loads data based on this interface.

@@ -28,7 +28,7 @@ import (
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
-	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/sql/tree"
 )
 
 //go:generate mockgen -source ./interface.go -destination=./interface_mock.go -package=index
@@ -52,7 +52,7 @@ type IndexKVStore interface {
 	// GetValues returns all values for bucket.
 	GetValues(bucketID uint32) (ids []uint32, err error)
 	// FindValuesByExpr returns values based on filter expr.
-	FindValuesByExpr(bucketID uint32, expr stmt.TagFilter) (ids []uint32, err error)
+	FindValuesByExpr(bucketID uint32, expr tree.Expr) (ids []uint32, err error)
 	// CollectKVs collects all keys based on bucket and values.
 	CollectKVs(bucketID uint32, values *roaring.Bitmap, result map[uint32]string) error
 	// Suggest suggests the kv pairs by prefix.
@@ -95,7 +95,7 @@ type MetricMetaDatabase interface {
 	GetMetricID(namespace, metricName string) (metric.ID, error)
 	// FindTagValueDsByExpr finds tag value ids by tag filter expr for spec tag key,
 	// if not exist, return nil, constants.ErrNotFound, else returns tag value ids
-	FindTagValueDsByExpr(tagKeyID tag.KeyID, expr stmt.TagFilter) (*roaring.Bitmap, error)
+	FindTagValueDsByExpr(tagKeyID tag.KeyID, expr tree.Expr) (*roaring.Bitmap, error)
 	// FindTagValueIDsForTag get tag value ids for spec tag key of metric,
 	// if not exist, return nil, constants.ErrNotFound, else returns tag value ids
 	FindTagValueIDsForTag(tagKeyID tag.KeyID) (tagValueIDs *roaring.Bitmap, err error)

@@ -18,6 +18,8 @@
 package aggregation
 
 import (
+	"fmt"
+	"reflect"
 	"strconv"
 
 	"github.com/lindb/common/pkg/logger"
@@ -29,7 +31,7 @@ import (
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
-	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/sql/tree"
 )
 
 //go:generate mockgen -source=./expression.go -destination=./expression_mock.go -package=aggregation
@@ -51,16 +53,17 @@ type Expression interface {
 
 // expression implements Expression interface.
 type expression struct {
-	fieldStore  map[field.Name]fields.Field
-	resultSet   map[string]*collections.FloatArray
-	selectItems []stmt.Expr
 	timeRange   timeutil.TimeRange
 	pointCount  int
 	interval    int64
+	selectItems []tree.Expr
+
+	fieldStore map[field.Name]fields.Field
+	resultSet  map[string]*collections.FloatArray // field => series
 }
 
 // NewExpression creates an Expression instance.
-func NewExpression(timeRange timeutil.TimeRange, interval int64, selectItems []stmt.Expr) Expression {
+func NewExpression(timeRange timeutil.TimeRange, interval int64, selectItems []tree.Expr) Expression {
 	return &expression{
 		pointCount:  timeutil.CalPointCount(timeRange.Start, timeRange.End, interval) + 1,
 		interval:    interval,
@@ -85,8 +88,9 @@ func (e *expression) Eval(timeSeries series.GroupedIterator) {
 
 	for _, selectItem := range e.selectItems {
 		values := e.eval(nil, selectItem)
+		fmt.Printf("ddd.........==%v\n", values)
 		if len(values) != 0 {
-			if item, ok := selectItem.(*stmt.SelectItem); ok && item.Alias != "" {
+			if item, ok := selectItem.(*tree.SelectItem2); ok && len(item.Alias) > 0 {
 				e.resultSet[item.Alias] = values[0]
 			} else {
 				e.resultSet[item.Rewrite()] = values[0]
@@ -105,41 +109,45 @@ func (e *expression) prepare(timeSeries series.GroupedIterator) {
 	if timeSeries == nil {
 		return
 	}
+	fmt.Printf("timeseries=%v\n", timeSeries)
 	for timeSeries.HasNext() {
 		fieldSeries := timeSeries.Next()
 		fieldName := fieldSeries.FieldName()
 		fieldType := fieldSeries.FieldType()
 		f := fields.NewDynamicField(fieldType, e.timeRange.Start, e.interval, e.pointCount)
 		e.fieldStore[fieldName] = f
+		fmt.Printf("fiiiii==%s\n", fieldName)
 		f.SetValue(fieldSeries)
 	}
 }
 
 // eval evaluates the Expression.
-func (e *expression) eval(parentFunc *stmt.CallExpr, expr stmt.Expr) []*collections.FloatArray {
+func (e *expression) eval(parentFunc *tree.CallExpr, expr tree.Expr) []*collections.FloatArray {
+	fmt.Printf("eval=%s\n", reflect.TypeOf(expr))
 	switch ex := expr.(type) {
-	case *stmt.SelectItem:
+	case *tree.SelectItem2:
 		return e.eval(nil, ex.Expr)
-	case *stmt.CallExpr:
+	case *tree.CallExpr:
 		switch ex.FuncType {
 		case function.Quantile:
 			return e.quantile(ex)
 		default:
 			return e.funcCall(ex)
 		}
-	case *stmt.ParenExpr:
+	case *tree.ParenExpr:
 		return e.eval(nil, ex.Expr)
-	case *stmt.BinaryExpr:
+	case *tree.BinaryExpr:
 		return e.binaryEval(ex)
-	case *stmt.NumberLiteral:
+	case *tree.NumberLiteral:
 		values := collections.NewFloatArray(e.pointCount)
 		for i := 0; i < e.pointCount; i++ {
 			values.SetValue(i, ex.Val)
 		}
 		values.SetSingle(true)
 		return []*collections.FloatArray{values}
-	case *stmt.FieldExpr:
+	case *tree.FieldExpr:
 		fieldName := ex.Name
+		fmt.Println(fieldName)
 		if fieldValues, ok := e.fieldStore[field.Name(fieldName)]; ok {
 			// tests if it has func with field
 			if parentFunc == nil {
@@ -154,7 +162,7 @@ func (e *expression) eval(parentFunc *stmt.CallExpr, expr stmt.Expr) []*collecti
 	}
 }
 
-func (e *expression) quantile(expr *stmt.CallExpr) []*collections.FloatArray {
+func (e *expression) quantile(expr *tree.CallExpr) []*collections.FloatArray {
 	histogramFields := make(map[float64][]*collections.FloatArray)
 	if len(expr.Params) != 1 {
 		return nil
@@ -185,7 +193,7 @@ func (e *expression) quantile(expr *stmt.CallExpr) []*collections.FloatArray {
 }
 
 // funcCall calls the function
-func (e *expression) funcCall(expr *stmt.CallExpr) []*collections.FloatArray {
+func (e *expression) funcCall(expr *tree.CallExpr) []*collections.FloatArray {
 	var params []*collections.FloatArray
 	for _, param := range expr.Params {
 		paramValues := e.eval(expr, param)
@@ -210,9 +218,9 @@ func (e *expression) funcCall(expr *stmt.CallExpr) []*collections.FloatArray {
 }
 
 // binaryEval evaluates binary operator
-func (e *expression) binaryEval(expr *stmt.BinaryExpr) []*collections.FloatArray {
+func (e *expression) binaryEval(expr *tree.BinaryExpr) []*collections.FloatArray {
 	binaryOP := expr.Operator
-	if binaryOP == stmt.ADD || binaryOP == stmt.SUB || binaryOP == stmt.DIV || binaryOP == stmt.MUL {
+	if binaryOP == tree.ADD || binaryOP == tree.SUB || binaryOP == tree.DIV || binaryOP == tree.MUL {
 		left := e.eval(nil, expr.Left)
 		if len(left) != 1 {
 			return nil

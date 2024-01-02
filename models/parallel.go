@@ -17,7 +17,11 @@
 
 package models
 
-import "github.com/lindb/lindb/constants"
+import (
+	"fmt"
+
+	"github.com/lindb/lindb/constants"
+)
 
 // PhysicalPlan represents the distribution query's physical plan
 type PhysicalPlan struct {
@@ -55,4 +59,19 @@ type Target struct {
 	ReceiveOnly bool      `json:"receiverOnly"`
 	Indicator   string    `json:"indicator"` // current node's indicator
 	ShardIDs    []ShardID `json:"shardIDs"`
+}
+
+// Partition represents data partition info.
+type Partition struct {
+	ID   ShardID      `json:"id"`
+	Node InternalNode `json:"node"`
+}
+
+type InternalNode struct {
+	IP   string `json:"ip"`
+	Port uint16 `json:"port"`
+}
+
+func (n InternalNode) Address() string {
+	return fmt.Sprintf("%s:%d", n.IP, n.Port)
 }

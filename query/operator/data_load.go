@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/lindb/roaring"
-
 	"github.com/lindb/common/models"
 
 	"github.com/lindb/lindb/aggregation"
@@ -55,12 +53,12 @@ func NewDataLoad(executeCtx *flow.DataLoadContext,
 func (op *dataLoad) Execute() error {
 	defer op.executeCtx.PendingDataLoadTasks.Dec()
 
-	seriesIDs := op.executeCtx.ShardExecuteCtx.SeriesIDsAfterFiltering // after group result
+	// seriesIDs := op.executeCtx.ShardExecuteCtx.SeriesIDsAfterFiltering // after group result
 	// double filtering, maybe some series ids be filtered out when do grouping.
 	// filter logic: forward_reader.go -> GetGroupingScanner
-	if roaring.FastAnd(seriesIDs, op.rs.SeriesIDs()).IsEmpty() {
-		return nil
-	}
+	// if roaring.FastAnd(seriesIDs, op.rs.SeriesIDs()).IsEmpty() {
+	// 	return nil
+	// }
 	loader := op.rs.Load(op.executeCtx)
 	if loader == nil {
 		// maybe return nil loader

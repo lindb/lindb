@@ -18,6 +18,8 @@
 package fields
 
 import (
+	"fmt"
+
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/series"
@@ -68,6 +70,7 @@ func (f *dynamicField) Type() field.Type {
 
 // SetValue sets the field's value by time slot
 func (f *dynamicField) SetValue(fieldSeries series.Iterator) {
+	fmt.Printf("field series=%v\n", fieldSeries)
 	if fieldSeries == nil {
 		return
 	}
@@ -75,6 +78,7 @@ func (f *dynamicField) SetValue(fieldSeries series.Iterator) {
 	ok := false
 	for fieldSeries.HasNext() {
 		startTime, it := fieldSeries.Next()
+		fmt.Printf("set v1=%v\n", it)
 		if it == nil {
 			continue
 		}
@@ -89,6 +93,7 @@ func (f *dynamicField) SetValue(fieldSeries series.Iterator) {
 			for pIt.HasNext() {
 				slot, val := pIt.Next()
 				idx := ((int64(slot)*f.interval + startTime) - f.startTime) / f.interval
+				fmt.Printf("value 2=%v\n", val)
 				fieldValues.SetValue(int(idx), val)
 			}
 		}

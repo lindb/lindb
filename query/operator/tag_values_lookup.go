@@ -26,7 +26,7 @@ import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/series/tag"
-	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/sql/tree"
 	"github.com/lindb/lindb/tsdb"
 )
 
@@ -54,7 +54,7 @@ func (op *tagValuesLookup) Execute() error {
 }
 
 // findTagValueIDsByExpr finds tag value ids by expr, recursion filter for expr
-func (op *tagValuesLookup) findTagValueIDsByExpr(expr stmt.Expr) {
+func (op *tagValuesLookup) findTagValueIDsByExpr(expr tree.Expr) {
 	if expr == nil {
 		return
 	}
@@ -62,8 +62,19 @@ func (op *tagValuesLookup) findTagValueIDsByExpr(expr stmt.Expr) {
 		return
 	}
 	switch expr := expr.(type) {
-	case stmt.TagFilter:
-		tagKeyID, err := op.getTagKeyID(expr.TagKey())
+	case *tree.EqualsExpr, *tree.LikeExpr, *tree.RegexExpr, *tree.InExpr:
+		var tagKey string
+		switch boolExpr := expr.(type) {
+		case *tree.EqualsExpr:
+			tagKey = boolExpr.Name
+		case *tree.LikeExpr:
+			tagKey = boolExpr.Name
+		case *tree.RegexExpr:
+			tagKey = boolExpr.Name
+		case *tree.InExpr:
+			tagKey = boolExpr.Name
+		}
+		tagKeyID, err := op.getTagKeyID(tagKey)
 		if err != nil {
 			op.err = err
 			return
@@ -81,14 +92,14 @@ func (op *tagValuesLookup) findTagValueIDsByExpr(expr stmt.Expr) {
 			TagKeyID:    tagKeyID,
 			TagValueIDs: tagValueIDs,
 		}
-	case *stmt.ParenExpr:
+	case *tree.ParenExpr:
 		op.findTagValueIDsByExpr(expr.Expr)
-	case *stmt.NotExpr:
+	case *tree.NotExpr:
 		// find tag value id by expr => (not tag filter) => tag filter
 		op.findTagValueIDsByExpr(expr.Expr)
-	case *stmt.BinaryExpr:
-		if expr.Operator != stmt.AND && expr.Operator != stmt.OR {
-			op.err = fmt.Errorf("wrong binary operator in tag filter: %s", stmt.BinaryOPString(expr.Operator))
+	case *tree.BinaryExpr:
+		if expr.Operator != tree.AND && expr.Operator != tree.OR {
+			op.err = fmt.Errorf("wrong binary operator in tag filter: %s", tree.BinaryOPString(expr.Operator))
 			return
 		}
 		op.findTagValueIDsByExpr(expr.Left)

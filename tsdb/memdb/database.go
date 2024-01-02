@@ -131,7 +131,7 @@ type memoryDatabase struct {
 
 // NewMemoryDatabase returns a new MemoryDatabase.
 func NewMemoryDatabase(cfg *MemoryDatabaseCfg) (MemoryDatabase, error) {
-	db := &memoryDatabase{
+	return &memoryDatabase{
 		cfg:           cfg,
 		indexDB:       cfg.IndexDatabase,
 		familyTime:    cfg.FamilyTime,
@@ -139,8 +139,7 @@ func NewMemoryDatabase(cfg *MemoryDatabaseCfg) (MemoryDatabase, error) {
 		timeSeriesIDs: roaring.New(),
 		createdTime:   fasttime.UnixNano(),
 		statistics:    metrics.NewMemDBStatistics(cfg.Name),
-	}
-	return db, nil
+	}, nil
 }
 
 // MarkReadOnly marks memory database cannot writable.
@@ -429,8 +428,8 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher) error {
 
 // Filter filters the data based on metric/seriesIDs,
 // if it finds data then returns the flow.FilterResultSet, else returns nil
-func (md *memoryDatabase) Filter(shardExecuteContext *flow.ShardExecuteContext) (rs []flow.FilterResultSet, err error) {
-	memMetricID, ok := md.indexDB.GetMetadataDatabase().GetMemMetricID(uint32(shardExecuteContext.StorageExecuteCtx.MetricID))
+func (md *memoryDatabase) Filter(metricScanCtx *flow.MetricScanContext) (rs []flow.FilterResultSet, err error) {
+	memMetricID, ok := md.indexDB.GetMetadataDatabase().GetMemMetricID(uint32(metricScanCtx.MetricID))
 	if !ok {
 		// metric not found
 		return
@@ -445,12 +444,12 @@ func (md *memoryDatabase) Filter(shardExecuteContext *flow.ShardExecuteContext) 
 		// no data(time range not exist)
 		return
 	}
-	querySlotRange := shardExecuteContext.StorageExecuteCtx.CalcSourceSlotRange(md.familyTime)
+	querySlotRange := metricScanCtx.CalcSourceSlotRange(md.familyTime)
 	if !storageSlotRange.Overlap(querySlotRange) {
 		// time range not match
 		return
 	}
-	return md.filter(shardExecuteContext, memMetricID, storageSlotRange, timeSeriesIndex)
+	return md.filter(metricScanCtx, memMetricID, storageSlotRange, timeSeriesIndex)
 }
 
 // MemSize returns the time series database memory size.

@@ -43,7 +43,7 @@ import (
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql"
-	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/sql/tree"
 )
 
 var (
@@ -58,7 +58,7 @@ type RootMetricContextDeps struct {
 	Request      *models.Request
 	Database     string
 	CurrentNode  models.StatelessNode
-	Statement    *stmt.Query
+	Statement    *tree.Query1
 	Choose       flow.NodeChoose
 	TransportMgr rpc.TransportManager
 }
@@ -98,7 +98,7 @@ func (ctx *RootMetricContext) MakePlan() error {
 	if ok {
 		databaseCfg, ok := stateMgr.GetDatabaseCfg(database)
 		if !ok {
-			return constants.ErrDatabaseNotExist
+			return constants.ErrDatabaseNotFound
 		}
 		calcTimeRangeAndInterval(ctx.Deps.Statement, databaseCfg)
 	}
@@ -290,17 +290,17 @@ func (ctx *RootMetricContext) buildOrderBy() (aggregation.OrderBy, error) {
 	var orderByItems []*aggregation.OrderByItem
 	fields := ctx.aggregatorSpecs
 	for _, orderBy := range orderByExprs {
-		expr := orderBy.(*stmt.OrderByExpr)
+		expr := orderBy.(*tree.OrderByExpr)
 		funcType := function.Unknown
 		var fieldName string
 		switch e := expr.Expr.(type) {
-		case *stmt.FieldExpr:
+		case *tree.FieldExpr:
 			aggSpec, ok := fields[e.Name]
 			if ok {
 				funcType = field.Type(aggSpec.FieldType).GetOrderByFunc()
 				fieldName = e.Name
 			}
-		case *stmt.CallExpr:
+		case *tree.CallExpr:
 			funcType = e.FuncType
 			fieldName = e.Params[0].Rewrite()
 		}
@@ -318,13 +318,13 @@ func (ctx *RootMetricContext) buildOrderBy() (aggregation.OrderBy, error) {
 }
 
 // getSelectItems returns select field items.
-func (ctx *RootMetricContext) getSelectItems() []stmt.Expr {
+func (ctx *RootMetricContext) getSelectItems() []tree.Expr {
 	statement := ctx.Deps.Statement
 	selectItems := statement.SelectItems
 	if statement.AllFields {
 		// if select all fields, read field names from aggregator
 		allAggFields := ctx.groupAgg.Fields()
-		selectItems = []stmt.Expr{}
+		selectItems = []tree.Expr{}
 		isHistogram := false
 		for _, fieldName := range allAggFields {
 			if strings.HasPrefix(string(fieldName), "__bucket_") {
@@ -332,13 +332,13 @@ func (ctx *RootMetricContext) getSelectItems() []stmt.Expr {
 				isHistogram = true
 				continue
 			}
-			selectItems = append(selectItems, &stmt.SelectItem{Expr: &stmt.FieldExpr{Name: fieldName.String()}})
+			selectItems = append(selectItems, &tree.SelectItem2{Expr: &tree.FieldExpr{Name: fieldName.String()}})
 		}
 		if isHistogram {
 			// add histogram functions
 			addQuantileFn := func(as string, num float64) {
-				selectItems = append(selectItems, &stmt.SelectItem{
-					Expr:  &stmt.CallExpr{FuncType: function.Quantile, Params: []stmt.Expr{&stmt.NumberLiteral{Val: num}}},
+				selectItems = append(selectItems, &tree.SelectItem2{
+					Expr:  &tree.CallExpr{FuncType: function.Quantile, Params: []tree.Expr{&tree.NumberLiteral{Val: num}}},
 					Alias: as,
 				})
 			}

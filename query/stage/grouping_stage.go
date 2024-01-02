@@ -62,15 +62,15 @@ func (stage *groupingStage) NextStages() (stages []Stage) {
 		return
 	}
 	// time segments sorted by family time
-	timeSegments := stage.executeCtx.ShardExecuteCtx.TimeSegmentContext.GetTimeSegments()
-	dlCtx := stage.executeCtx
-	for segmentIdx := range timeSegments {
-		dataLoadCtx := *dlCtx // copy data load context, because data load context not thread safe
-		// add data load stage based on time segment, one by one
-		stages = append(stages, NewDataLoadStage(stage.leafExecuteCtx, &dataLoadCtx, timeSegments[segmentIdx]))
-		// track if all data load tasks completed
-		stage.executeCtx.PendingDataLoadTasks.Add(int32(len(timeSegments[segmentIdx].FilterRS)))
-	}
+	// timeSegments := stage.executeCtx.ShardExecuteCtx.TimeSegmentContext.GetTimeSegments()
+	// dlCtx := stage.executeCtx
+	// for segmentIdx := range timeSegments {
+	// 	dataLoadCtx := *dlCtx // copy data load context, because data load context not thread safe
+	// 	// add data load stage based on time segment, one by one
+	// 	stages = append(stages, NewDataLoadStage(stage.leafExecuteCtx, &dataLoadCtx, timeSegments[segmentIdx]))
+	// 	// track if all data load tasks completed
+	// 	stage.executeCtx.PendingDataLoadTasks.Add(int32(len(timeSegments[segmentIdx].FilterRS)))
+	// }
 	return
 }
 

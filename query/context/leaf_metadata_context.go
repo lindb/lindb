@@ -22,13 +22,13 @@ import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/series/tag"
-	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/sql/tree"
 	"github.com/lindb/lindb/tsdb"
 )
 
 // LeafMetadataContext represents leaf node execution metadata query context.
 type LeafMetadataContext struct {
-	Request  *stmt.MetricMetadata
+	Request  *tree.MetricMetadata
 	Database tsdb.Database
 	ShardIDs []models.ShardID
 
@@ -41,7 +41,7 @@ type LeafMetadataContext struct {
 }
 
 // NewLeafMetadataContext creates a LeafMetadataContext instance.
-func NewLeafMetadataContext(request *stmt.MetricMetadata, database tsdb.Database, shardIDs []models.ShardID) *LeafMetadataContext {
+func NewLeafMetadataContext(request *tree.MetricMetadata, database tsdb.Database, shardIDs []models.ShardID) *LeafMetadataContext {
 	ctx := &LeafMetadataContext{
 		Request:  request,
 		Database: database,

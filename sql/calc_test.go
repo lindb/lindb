@@ -22,29 +22,29 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/sql/tree"
 )
 
 func TestCalc_CalcExpr(t *testing.T) {
-	add := &stmt.BinaryExpr{
-		Left:     &stmt.FieldExpr{Name: "x"},
-		Right:    &stmt.FieldExpr{Name: "y"},
-		Operator: stmt.ADD,
+	add := &tree.BinaryExpr{
+		Left:     &tree.FieldExpr{Name: "x"},
+		Right:    &tree.FieldExpr{Name: "y"},
+		Operator: tree.ADD,
 	}
-	sub := &stmt.BinaryExpr{
-		Left:     &stmt.FieldExpr{Name: "x"},
-		Right:    &stmt.FieldExpr{Name: "y"},
-		Operator: stmt.SUB,
+	sub := &tree.BinaryExpr{
+		Left:     &tree.FieldExpr{Name: "x"},
+		Right:    &tree.FieldExpr{Name: "y"},
+		Operator: tree.SUB,
 	}
-	mul := &stmt.BinaryExpr{
-		Left:     &stmt.FieldExpr{Name: "x"},
-		Right:    &stmt.FieldExpr{Name: "y"},
-		Operator: stmt.MUL,
+	mul := &tree.BinaryExpr{
+		Left:     &tree.FieldExpr{Name: "x"},
+		Right:    &tree.FieldExpr{Name: "y"},
+		Operator: tree.MUL,
 	}
-	div := &stmt.BinaryExpr{
-		Left:     &stmt.FieldExpr{Name: "x"},
-		Right:    &stmt.FieldExpr{Name: "y"},
-		Operator: stmt.DIV,
+	div := &tree.BinaryExpr{
+		Left:     &tree.FieldExpr{Name: "x"},
+		Right:    &tree.FieldExpr{Name: "y"},
+		Operator: tree.DIV,
 	}
 
 	x, y := 11.1, 22.2
@@ -52,17 +52,17 @@ func TestCalc_CalcExpr(t *testing.T) {
 		"x": x,
 		"y": y,
 	}
-	for _, expr := range []*stmt.BinaryExpr{add, sub, mul, div} {
+	for _, expr := range []*tree.BinaryExpr{add, sub, mul, div} {
 		left, right := x, y
 		var expected float64
 		switch expr.Operator {
-		case stmt.ADD:
+		case tree.ADD:
 			expected = left + right
-		case stmt.SUB:
+		case tree.SUB:
 			expected = left - right
-		case stmt.MUL:
+		case tree.MUL:
 			expected = left * right
-		case stmt.DIV:
+		case tree.DIV:
 			expected = left / right
 		}
 		calc := NewCalc(expr)
@@ -72,20 +72,20 @@ func TestCalc_CalcExpr(t *testing.T) {
 		assert.Equal(t, expected, result.(float64))
 	}
 
-	errDiv := &stmt.BinaryExpr{
-		Left:     &stmt.FieldExpr{Name: "x"},
-		Right:    &stmt.FieldExpr{Name: "y"},
-		Operator: stmt.DIV,
+	errDiv := &tree.BinaryExpr{
+		Left:     &tree.FieldExpr{Name: "x"},
+		Right:    &tree.FieldExpr{Name: "y"},
+		Operator: tree.DIV,
 	}
 	calc := NewCalc(errDiv)
 	result, err := calc.CalcExpr(map[string]float64{"x": 11.1, "y": 0})
 	assert.NotNil(t, err)
 	assert.Nil(t, result)
 
-	errAdd := &stmt.BinaryExpr{
-		Left:     &stmt.FieldExpr{Name: "x"},
-		Right:    &stmt.FieldExpr{Name: "y"},
-		Operator: stmt.ADD,
+	errAdd := &tree.BinaryExpr{
+		Left:     &tree.FieldExpr{Name: "x"},
+		Right:    &tree.FieldExpr{Name: "y"},
+		Operator: tree.ADD,
 	}
 	calc = NewCalc(errAdd)
 	result, err = calc.CalcExpr(map[string]float64{"y": 1})
@@ -94,70 +94,70 @@ func TestCalc_CalcExpr(t *testing.T) {
 }
 
 func TestCalc_calcBinary(t *testing.T) {
-	less := &stmt.BinaryExpr{
-		Left:     &stmt.NumberLiteral{Val: 1},
-		Right:    &stmt.NumberLiteral{Val: 2},
-		Operator: stmt.LESS,
+	less := &tree.BinaryExpr{
+		Left:     &tree.NumberLiteral{Val: 1},
+		Right:    &tree.NumberLiteral{Val: 2},
+		Operator: tree.LESS,
 	}
-	greater := &stmt.BinaryExpr{
-		Left:     &stmt.NumberLiteral{Val: 2},
-		Right:    &stmt.NumberLiteral{Val: 1},
-		Operator: stmt.GREATER,
+	greater := &tree.BinaryExpr{
+		Left:     &tree.NumberLiteral{Val: 2},
+		Right:    &tree.NumberLiteral{Val: 1},
+		Operator: tree.GREATER,
 	}
-	lessEqual := &stmt.BinaryExpr{
-		Left:     &stmt.NumberLiteral{Val: 1},
-		Right:    &stmt.NumberLiteral{Val: 2},
-		Operator: stmt.LESSEQUAL,
+	lessEqual := &tree.BinaryExpr{
+		Left:     &tree.NumberLiteral{Val: 1},
+		Right:    &tree.NumberLiteral{Val: 2},
+		Operator: tree.LESSEQUAL,
 	}
-	greaterEqual := &stmt.BinaryExpr{
-		Left:     &stmt.NumberLiteral{Val: 2},
-		Right:    &stmt.NumberLiteral{Val: 1},
-		Operator: stmt.GREATEREQUAL,
+	greaterEqual := &tree.BinaryExpr{
+		Left:     &tree.NumberLiteral{Val: 2},
+		Right:    &tree.NumberLiteral{Val: 1},
+		Operator: tree.GREATEREQUAL,
 	}
-	equal := &stmt.BinaryExpr{
-		Left:     &stmt.NumberLiteral{Val: 2},
-		Right:    &stmt.NumberLiteral{Val: 1},
-		Operator: stmt.EQUAL,
+	equal := &tree.BinaryExpr{
+		Left:     &tree.NumberLiteral{Val: 2},
+		Right:    &tree.NumberLiteral{Val: 1},
+		Operator: tree.EQUAL,
 	}
-	notEqual := &stmt.BinaryExpr{
-		Left:     &stmt.NumberLiteral{Val: 2},
-		Right:    &stmt.NumberLiteral{Val: 1},
-		Operator: stmt.NOTEQUAL,
-	}
-
-	notLess := &stmt.BinaryExpr{
-		Left:     &stmt.NumberLiteral{Val: 10},
-		Right:    &stmt.NumberLiteral{Val: 2},
-		Operator: stmt.LESS,
-	}
-	notGreater := &stmt.BinaryExpr{
-		Left:     &stmt.NumberLiteral{Val: 2},
-		Right:    &stmt.NumberLiteral{Val: 10},
-		Operator: stmt.GREATER,
+	notEqual := &tree.BinaryExpr{
+		Left:     &tree.NumberLiteral{Val: 2},
+		Right:    &tree.NumberLiteral{Val: 1},
+		Operator: tree.NOTEQUAL,
 	}
 
-	and := &stmt.BinaryExpr{
+	notLess := &tree.BinaryExpr{
+		Left:     &tree.NumberLiteral{Val: 10},
+		Right:    &tree.NumberLiteral{Val: 2},
+		Operator: tree.LESS,
+	}
+	notGreater := &tree.BinaryExpr{
+		Left:     &tree.NumberLiteral{Val: 2},
+		Right:    &tree.NumberLiteral{Val: 10},
+		Operator: tree.GREATER,
+	}
+
+	and := &tree.BinaryExpr{
 		Left:     less,
 		Right:    greater,
-		Operator: stmt.AND,
+		Operator: tree.AND,
 	}
-	and2 := &stmt.BinaryExpr{
+	and2 := &tree.BinaryExpr{
 		Left:     lessEqual,
 		Right:    greaterEqual,
-		Operator: stmt.AND,
+		Operator: tree.AND,
 	}
-	or := &stmt.BinaryExpr{
+	or := &tree.BinaryExpr{
 		Left:     equal,
 		Right:    notEqual,
-		Operator: stmt.OR,
+		Operator: tree.OR,
 	}
-	notOr := &stmt.BinaryExpr{
+	notOr := &tree.BinaryExpr{
 		Left:     notLess,
 		Right:    notGreater,
-		Operator: stmt.OR,
+		Operator: tree.OR,
 	}
 
-	for _, expr := range []*stmt.BinaryExpr{and, and2, or} {
+	for _, expr := range []*tree.BinaryExpr{and, and2, or} {
 		calc := NewCalc(nil)
 		r, err := calc.calcBinary(expr, nil)
 		assert.Nil(t, err)
@@ -165,7 +165,7 @@ func TestCalc_calcBinary(t *testing.T) {
 		assert.True(t, r.(bool))
 	}
 
-	for _, expr := range []*stmt.BinaryExpr{notOr} {
+	for _, expr := range []*tree.BinaryExpr{notOr} {
 		calc := NewCalc(nil)
 		r, err := calc.calcBinary(expr, nil)
 		assert.Nil(t, err)
@@ -173,23 +173,23 @@ func TestCalc_calcBinary(t *testing.T) {
 		assert.False(t, r.(bool))
 	}
 
-	ands := &stmt.BinaryExpr{
+	ands := &tree.BinaryExpr{
 		Left:     and,
 		Right:    or,
-		Operator: stmt.AND,
+		Operator: tree.AND,
 	}
-	ors := &stmt.BinaryExpr{
+	ors := &tree.BinaryExpr{
 		Left:     and,
 		Right:    notOr,
-		Operator: stmt.OR,
+		Operator: tree.OR,
 	}
-	p := &stmt.BinaryExpr{
-		Left:     &stmt.ParenExpr{Expr: or},
+	p := &tree.BinaryExpr{
+		Left:     &tree.ParenExpr{Expr: or},
 		Right:    and,
-		Operator: stmt.AND,
+		Operator: tree.AND,
 	}
 
-	for _, expr := range []*stmt.BinaryExpr{ands, ors, p} {
+	for _, expr := range []*tree.BinaryExpr{ands, ors, p} {
 		calc := NewCalc(nil)
 		r, err := calc.calcBinary(expr, nil)
 		assert.Nil(t, err)
@@ -197,12 +197,12 @@ func TestCalc_calcBinary(t *testing.T) {
 		assert.True(t, r.(bool))
 	}
 
-	notAnds := &stmt.BinaryExpr{
+	notAnds := &tree.BinaryExpr{
 		Left:     and,
 		Right:    notOr,
-		Operator: stmt.AND,
+		Operator: tree.AND,
 	}
-	for _, expr := range []*stmt.BinaryExpr{notAnds} {
+	for _, expr := range []*tree.BinaryExpr{notAnds} {
 		calc := NewCalc(nil)
 		r, err := calc.calcBinary(expr, nil)
 		assert.Nil(t, err)
@@ -212,37 +212,37 @@ func TestCalc_calcBinary(t *testing.T) {
 }
 
 func TestCalc_calcEquation(t *testing.T) {
-	add := &stmt.BinaryExpr{
-		Left:     &stmt.NumberLiteral{Val: 11.1},
-		Right:    &stmt.NumberLiteral{Val: 22.2},
-		Operator: stmt.ADD,
+	add := &tree.BinaryExpr{
+		Left:     &tree.NumberLiteral{Val: 11.1},
+		Right:    &tree.NumberLiteral{Val: 22.2},
+		Operator: tree.ADD,
 	}
-	sub := &stmt.BinaryExpr{
-		Left:     &stmt.NumberLiteral{Val: 11.1},
-		Right:    &stmt.NumberLiteral{Val: 22.2},
-		Operator: stmt.SUB,
+	sub := &tree.BinaryExpr{
+		Left:     &tree.NumberLiteral{Val: 11.1},
+		Right:    &tree.NumberLiteral{Val: 22.2},
+		Operator: tree.SUB,
 	}
-	mul := &stmt.BinaryExpr{
-		Left:     &stmt.NumberLiteral{Val: 11.1},
-		Right:    &stmt.NumberLiteral{Val: 22.2},
-		Operator: stmt.MUL,
+	mul := &tree.BinaryExpr{
+		Left:     &tree.NumberLiteral{Val: 11.1},
+		Right:    &tree.NumberLiteral{Val: 22.2},
+		Operator: tree.MUL,
 	}
-	div := &stmt.BinaryExpr{
-		Left:     &stmt.NumberLiteral{Val: 11.1},
-		Right:    &stmt.NumberLiteral{Val: 22.2},
-		Operator: stmt.DIV,
+	div := &tree.BinaryExpr{
+		Left:     &tree.NumberLiteral{Val: 11.1},
+		Right:    &tree.NumberLiteral{Val: 22.2},
+		Operator: tree.DIV,
 	}
-	for _, expr := range []*stmt.BinaryExpr{add, sub, mul, div} {
-		left, right := expr.Left.(*stmt.NumberLiteral).Val, expr.Right.(*stmt.NumberLiteral).Val
+	for _, expr := range []*tree.BinaryExpr{add, sub, mul, div} {
+		left, right := expr.Left.(*tree.NumberLiteral).Val, expr.Right.(*tree.NumberLiteral).Val
 		var expected float64
 		switch expr.Operator {
-		case stmt.ADD:
+		case tree.ADD:
 			expected = left + right
-		case stmt.SUB:
+		case tree.SUB:
 			expected = left - right
-		case stmt.MUL:
+		case tree.MUL:
 			expected = left * right
-		case stmt.DIV:
+		case tree.DIV:
 			expected = left / right
 		}
 		calc := NewCalc(expr)

@@ -19,14 +19,14 @@ package aggregation
 
 import (
 	"github.com/lindb/lindb/pkg/collections"
-	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/sql/tree"
 )
 
 // binaryEval evaluates two float array and returns float array
 // 1. capacity not equals, return nil
 // 2. merge two array based on binary operator, return other float array
 // NOTE: make sure both left and right array are not nil and same capacity
-func binaryEval(binaryOp stmt.BinaryOP, left, right *collections.FloatArray) *collections.FloatArray {
+func binaryEval(binaryOp tree.BinaryOP, left, right *collections.FloatArray) *collections.FloatArray {
 	if left == nil || right == nil {
 		return nil
 	}
@@ -52,15 +52,15 @@ func binaryEval(binaryOp stmt.BinaryOP, left, right *collections.FloatArray) *co
 }
 
 // eval evaluates two values and returns another value
-func eval(binaryOp stmt.BinaryOP, left, right float64) float64 {
+func eval(binaryOp tree.BinaryOP, left, right float64) float64 {
 	switch binaryOp {
-	case stmt.ADD:
+	case tree.ADD:
 		return left + right
-	case stmt.SUB:
+	case tree.SUB:
 		return left - right
-	case stmt.MUL:
+	case tree.MUL:
 		return left * right
-	case stmt.DIV:
+	case tree.DIV:
 		if right == 0 {
 			return 0
 		}
