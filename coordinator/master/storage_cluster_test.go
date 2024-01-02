@@ -27,8 +27,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 
-	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/state"
@@ -39,84 +37,8 @@ func TestNewStorageCluster(t *testing.T) {
 	defer func() {
 		ctrl.Finish()
 	}()
-	stateMgr := NewMockStateManager(ctrl)
-	repoFct := state.NewMockRepositoryFactory(ctrl)
 	repo := state.NewMockRepository(ctrl)
-	cfg := &config.StorageCluster{
-		Config: &config.RepoState{Namespace: "test"},
-	}
-
-	cases := []struct {
-		name    string
-		prepare func()
-		wantErr bool
-	}{
-		{
-			name: "create repo failure",
-			prepare: func() {
-				repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
-			},
-			wantErr: true,
-		},
-		{
-			name: "create storage cluster successfully",
-			prepare: func() {
-				repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(repo, nil)
-			},
-			wantErr: false,
-		},
-	}
-
-	for _, tt := range cases {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.prepare != nil {
-				tt.prepare()
-			}
-
-			sc, err := newStorageCluster(context.TODO(), cfg, stateMgr, repoFct)
-			if ((err != nil) != tt.wantErr && sc == nil) || (!tt.wantErr && sc == nil) {
-				t.Errorf("newStorageCluster() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if err == nil {
-				assert.Equal(t, cfg, sc.GetConfig())
-				assert.NotNil(t, sc.GetState())
-				assert.NotNil(t, sc.GetRepo())
-			}
-		})
-	}
-}
-
-func TestStorageCluster_Start(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer func() {
-		ctrl.Finish()
-	}()
-	cfg := &config.StorageCluster{
-		Config: &config.RepoState{Namespace: "test"},
-	}
-	repo := state.NewMockRepository(ctrl)
-	stateMgr := NewMockStateManager(ctrl)
-	fct := &StateMachineFactory{
-		ctx: context.TODO(),
-	}
-	stateMgr.EXPECT().GetStateMachineFactory().Return(fct).AnyTimes()
-	sc := &storageCluster{
-		ctx:         context.TODO(),
-		stateMgr:    stateMgr,
-		cfg:         cfg,
-		storageRepo: repo,
-		logger:      logger.GetLogger("Master", "Test"),
-	}
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
-	err := sc.Start()
-	assert.Error(t, err)
-
-	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, nil)
-	ch := make(<-chan *state.Event)
-	repo.EXPECT().WatchPrefix(gomock.Any(), gomock.Any(), gomock.Any()).Return(ch)
-	err = sc.Start()
-	assert.NoError(t, err)
+	assert.NotNil(t, newStorageCluster(context.TODO(), repo))
 }
 
 func TestStorageCluster_listLiveNodes(t *testing.T) {
@@ -164,7 +86,7 @@ func TestStorageCluster_listLiveNodes(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			sc := &storageCluster{
-				storageRepo: repo,
+				repo: repo,
 			}
 			if tt.prepare != nil {
 				tt.prepare()
@@ -176,34 +98,14 @@ func TestStorageCluster_listLiveNodes(t *testing.T) {
 	}
 }
 
-func TestStorageCluster_close(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer func() {
-		ctrl.Finish()
-	}()
-
-	sm := discovery.NewMockStateMachine(ctrl)
-	repo := state.NewMockRepository(ctrl)
-	sc := &storageCluster{
-		cfg:         &config.StorageCluster{Config: &config.RepoState{Namespace: "test"}},
-		sm:          sm,
-		storageRepo: repo,
-		logger:      logger.GetLogger("Master", "Test"),
-	}
-	sm.EXPECT().Close().Return(fmt.Errorf("err"))
-	repo.EXPECT().Close().Return(fmt.Errorf("err"))
-	sc.Close()
-}
-
 func TestStorageCluster_SetLimits(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	repo := state.NewMockRepository(ctrl)
 	sc := &storageCluster{
-		cfg:         &config.StorageCluster{Config: &config.RepoState{Namespace: "test"}},
-		storageRepo: repo,
-		logger:      logger.GetLogger("Master", "Test"),
+		repo:   repo,
+		logger: logger.GetLogger("Master", "Test"),
 	}
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	err := sc.SetDatabaseLimits("test", []byte{})
@@ -222,9 +124,8 @@ func TestStorageCluster_SaveDatabaseAssignment(t *testing.T) {
 
 	repo := state.NewMockRepository(ctrl)
 	sc := &storageCluster{
-		cfg:         &config.StorageCluster{Config: &config.RepoState{Namespace: "test"}},
-		storageRepo: repo,
-		logger:      logger.GetLogger("Master", "Test"),
+		repo:   repo,
+		logger: logger.GetLogger("Master", "Test"),
 	}
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	err := sc.SaveDatabaseAssignment(models.NewShardAssignment("test"), &option.DatabaseOption{})
@@ -250,9 +151,8 @@ func TestStorageCluster_DropDatabaseAssignment(t *testing.T) {
 
 	repo := state.NewMockRepository(ctrl)
 	sc := &storageCluster{
-		cfg:         &config.StorageCluster{Config: &config.RepoState{Namespace: "test"}},
-		storageRepo: repo,
-		logger:      logger.GetLogger("Master", "Test"),
+		repo:   repo,
+		logger: logger.GetLogger("Master", "Test"),
 	}
 	repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	err := sc.DropDatabaseAssignment("test")

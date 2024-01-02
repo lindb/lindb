@@ -40,10 +40,19 @@ import {
 import { Icon, StatusTip, ClusterStatusView } from "@src/components";
 import { StateRoleName, Theme } from "@src/constants";
 import { UIContext } from "@src/context/UIContextProvider";
-import { Broker, Storage } from "@src/models";
+import { Broker } from "@src/models";
 import { ExecService } from "@src/services";
 import { useQuery } from "@tanstack/react-query";
-import * as _ from "lodash-es";
+import {
+  get,
+  filter,
+  mapKeys,
+  isEqual,
+  isEmpty,
+  keys,
+  forEach,
+  sortBy,
+} from "lodash-es";
 import * as monaco from "monaco-editor";
 import React, {
   MutableRefObject,
@@ -63,13 +72,13 @@ const CompareView: React.FC<{
   const { source, nodes } = props;
   const diffEditor = useRef() as MutableRefObject<any>;
   const diffEditorRef = useRef() as MutableRefObject<HTMLDivElement>;
-  const [filter, setFilter] = useState<string>("");
+  const [filterStr, setFilterStr] = useState<string>("");
   const [current, setCurrent] = useState<string>("");
   const { locale, theme } = useContext(UIContext);
   const { MetadataExploreView } = locale;
 
   const buildOriginal = useCallback(() => {
-    return monaco.editor.createModel(_.get(source, "data", "no data"), "json");
+    return monaco.editor.createModel(get(source, "data", "no data"), "json");
   }, [source]);
 
   useEffect(() => {
@@ -84,14 +93,14 @@ const CompareView: React.FC<{
       );
     }
     var modifiedModel = monaco.editor.createModel(
-      _.get(nodes, "[0].data", "no data"),
+      get(nodes, "[0].data", "no data"),
       "json"
     );
     diffEditor.current.setModel({
       original: buildOriginal(),
       modified: modifiedModel,
     });
-    setCurrent(_.get(nodes, "[0].node", "-"));
+    setCurrent(get(nodes, "[0].node", "-"));
   }, [source, nodes, buildOriginal, theme]);
 
   return (
@@ -102,14 +111,14 @@ const CompareView: React.FC<{
             bordered
             header={
               <Input
-                onChange={setFilter}
+                onChange={setFilterStr}
                 placeholder={MetadataExploreView.filterNode}
                 prefix={<IconSearch />}
               />
             }
             size="small"
-            dataSource={_.filter(nodes, function (o) {
-              return o.node.indexOf(filter) >= 0;
+            dataSource={filter(nodes, function (o) {
+              return o.node.indexOf(filterStr) >= 0;
             })}
             renderItem={(item) => (
               <List.Item
@@ -203,7 +212,7 @@ const MetadataView: React.FC<{
         minimap: { enabled: false },
         lineNumbersMinChars: 2,
         readOnly: true,
-        value: _.get(metadata, "data", "no data"),
+        value: get(metadata, "data", "no data"),
       });
     }
     setMetadata(metadata);
@@ -221,12 +230,12 @@ const MetadataView: React.FC<{
         sql: `show ${node.role} metadata from state_machine where type='${node.type}'${storageClause}`,
       });
       const nodes: any[] = [];
-      _.mapKeys(metadataFromSM, function (val, key) {
+      mapKeys(metadataFromSM, function (val, key) {
         const dataFromSM = JSON.stringify(val, null, "\t");
         nodes.push({
           node: key,
           data: dataFromSM,
-          isDiff: !_.isEqual(dataFromSM, metadata.data),
+          isDiff: !isEqual(dataFromSM, metadata.data),
         });
       });
       setStateMachineMetadata(nodes);
@@ -287,13 +296,13 @@ const MetadataView: React.FC<{
                 </Text>
               </>
             )}
-            {!_.isEmpty(stateMachineMetadata) && (
+            {!isEmpty(stateMachineMetadata) && (
               <Text strong link onClick={() => setShowCompareResult(true)}>
                 {MetadataExploreView.compareResult1}{" "}
                 <Text type="success">{stateMachineMetadata.length}</Text>{" "}
                 {MetadataExploreView.compareResult2}{" "}
                 <Text type="danger">
-                  {_.filter(stateMachineMetadata, (o) => o.isDiff).length}
+                  {filter(stateMachineMetadata, (o) => o.isDiff).length}
                 </Text>{" "}
                 {MetadataExploreView.compareResult3}
               </Text>
@@ -351,17 +360,19 @@ const MetadataExplore: React.FC = () => {
   const { isLoading, isError, error, data } = useQuery(
     ["show_metadata"],
     async () => {
-      return Promise.allSettled([
+      const requests = [
         ExecService.exec<any>({
           sql: "show metadata types",
         }),
-        ExecService.exec<Storage[] | Broker[]>({
-          sql:
-            env.role === StateRoleName.Broker
-              ? "show storages"
-              : "show brokers",
-        }),
-      ]).then((res) => {
+      ];
+      if (env.role === StateRoleName.Root) {
+        requests.push(
+          ExecService.exec<Broker[]>({
+            sql: "show brokers",
+          })
+        );
+      }
+      return Promise.allSettled(requests).then((res) => {
         return res.map((item) =>
           item.status === "fulfilled" ? item.value : []
         );
@@ -375,9 +386,9 @@ const MetadataExplore: React.FC = () => {
     obj: any,
     cluster?: string
   ) => {
-    const keys = _.keys(obj);
+    const objKeys = keys(obj);
     const rs: any[] = [];
-    _.forEach(keys, (k) =>
+    forEach(objKeys, (k: any) =>
       rs.push({
         label: k,
         value: { role: role, type: k, cluster: cluster },
@@ -392,48 +403,66 @@ const MetadataExplore: React.FC = () => {
     if (!data) {
       return;
     }
-    const metadata = _.get(data, "[0]", []);
-    const clusters = _.get(data, "[1]", []);
-    const keys = _.keys(metadata);
-    _.sortBy(keys);
     const root: any[] = [];
     const loadedKeys: any[] = [];
-    _.forEach(keys, (key) => {
-      const data = _.get(metadata, key, {});
-      loadedKeys.push(key);
-      if (key === StateRoleName.Storage || key === StateRoleName.Broker) {
-        const clusterNodes: TreeNode[] = [];
-        _.forEach(clusters || [], (cluster: any) => {
-          const namespace = cluster.config.namespace;
-          const clusterKey = `${key}-${namespace}`;
-          const clusterTypes = getItems(clusterKey, key, data, namespace);
-          clusterNodes.push({
-            label: (
-              <>
-                {namespace} (<ClusterStatusView text={cluster.status} />)
-              </>
-            ),
-            value: namespace,
-            key: clusterKey,
-            parent: key,
-            children: clusterTypes,
+    if (data.length > 1) {
+      console.log(data, "kkkk");
+      const metadata = get(data, "[0]", []);
+      const clusters = get(data, "[1]", []);
+      const metadataKeys = keys(metadata);
+      sortBy(metadataKeys);
+      forEach(metadataKeys, (key) => {
+        const data = get(metadata, key, {});
+        loadedKeys.push(key);
+        if (key === StateRoleName.Broker) {
+          const clusterNodes: TreeNode[] = [];
+          forEach(clusters || [], (cluster: any) => {
+            const namespace = cluster.config.namespace;
+            const clusterKey = `${key}-${namespace}`;
+            const clusterTypes = getItems(clusterKey, key, data, namespace);
+            clusterNodes.push({
+              label: (
+                <>
+                  {namespace} (<ClusterStatusView text={cluster.status} />)
+                </>
+              ),
+              value: namespace,
+              key: clusterKey,
+              parent: key,
+              children: clusterTypes,
+            });
           });
-        });
-        root.push({
-          label: key,
-          value: key,
-          key: key,
-          children: clusterNodes,
-        });
-      } else {
+          root.push({
+            label: key,
+            value: key,
+            key: key,
+            children: clusterNodes,
+          });
+        } else {
+          root.push({
+            label: key,
+            value: key,
+            key: key,
+            children: getItems(key, key, data),
+          });
+        }
+      });
+    } else {
+      const metadata = get(data, "[0]", []);
+      const metadataKeys = keys(metadata);
+      sortBy(metadataKeys);
+      forEach(metadataKeys, (key) => {
+        const data = get(metadata, key, {});
+        loadedKeys.push(key);
+        console.log(key, getItems(key, key, data));
         root.push({
           label: key,
           value: key,
           key: key,
           children: getItems(key, key, data),
         });
-      }
-    });
+      });
+    }
     setLoadedKeys(loadedKeys);
     setRoot(root);
   }, [data]);

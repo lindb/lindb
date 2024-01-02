@@ -22,13 +22,10 @@ import (
 
 	"github.com/lindb/common/pkg/logger"
 
-	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
 )
-
-const storageNameKey = "storageName"
 
 // StateMachinePaths represents the paths which master state machine need watch.
 var StateMachinePaths = make(map[string]models.StateMachineInfo)
@@ -44,12 +41,6 @@ func init() {
 		Path: constants.DatabaseConfigPath,
 		CreateState: func() interface{} {
 			return &models.Database{}
-		},
-	}
-	StateMachinePaths[constants.StorageConfig] = models.StateMachineInfo{
-		Path: constants.StorageConfigPath,
-		CreateState: func() interface{} {
-			return &config.StorageCluster{}
 		},
 	}
 	StateMachinePaths[constants.ShardAssignment] = models.StateMachineInfo{
@@ -92,8 +83,8 @@ func NewStateMachineFactory(ctx context.Context,
 
 // Start starts all master related state machines.
 func (f *StateMachineFactory) Start() (err error) {
-	f.logger.Debug("starting StorageConfigStateMachine")
-	sm, err := f.createStorageConfigStateMachine()
+	f.logger.Debug("starting StorageNodeStateMachine")
+	sm, err := f.createStorageNodeStateMachine()
 	if err != nil {
 		return err
 	}
@@ -130,30 +121,6 @@ func (f *StateMachineFactory) Stop() {
 			f.logger.Error("close state machine error", logger.Error(err))
 		}
 	}
-}
-
-// createStorageConfigStateMachine creates storage config state machine.
-func (f *StateMachineFactory) createStorageConfigStateMachine() (discovery.StateMachine, error) {
-	return discovery.NewStateMachine(
-		f.ctx,
-		discovery.StorageConfigStateMachine,
-		f.discoveryFactory,
-		constants.StorageConfigPath,
-		true,
-		func(key string, data []byte) {
-			f.stateMgr.EmitEvent(&discovery.Event{
-				Type:  discovery.StorageConfigChanged,
-				Key:   key,
-				Value: data,
-			})
-		},
-		func(key string) {
-			f.stateMgr.EmitEvent(&discovery.Event{
-				Type: discovery.StorageConfigDeletion,
-				Key:  key,
-			})
-		},
-	)
 }
 
 // createDatabaseConfigStateMachine crates database config state machine.
@@ -203,28 +170,24 @@ func (f *StateMachineFactory) createShardAssignmentStateMachine() (discovery.Sta
 }
 
 // createStorageNodeStateMachine creates storage node state machine.
-func (f *StateMachineFactory) createStorageNodeStateMachine(storageName string,
-	discoveryFactory discovery.Factory,
-) (discovery.StateMachine, error) {
+func (f *StateMachineFactory) createStorageNodeStateMachine() (discovery.StateMachine, error) {
 	return discovery.NewStateMachine(
 		f.ctx,
 		discovery.StorageNodeStateMachine,
-		discoveryFactory,
-		constants.LiveNodesPath,
+		f.discoveryFactory,
+		constants.StorageLiveNodesPath,
 		true,
 		func(key string, data []byte) {
 			f.stateMgr.EmitEvent(&discovery.Event{
-				Type:       discovery.NodeStartup,
-				Key:        key,
-				Value:      data,
-				Attributes: map[string]string{storageNameKey: storageName},
+				Type:  discovery.NodeStartup,
+				Key:   key,
+				Value: data,
 			})
 		},
 		func(key string) {
 			f.stateMgr.EmitEvent(&discovery.Event{
-				Type:       discovery.NodeFailure,
-				Key:        key,
-				Attributes: map[string]string{storageNameKey: storageName},
+				Type: discovery.NodeFailure,
+				Key:  key,
 			})
 		},
 	)

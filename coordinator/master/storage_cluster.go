@@ -24,9 +24,7 @@ import (
 	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
 
-	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/state"
@@ -39,10 +37,6 @@ import (
 // 2) save shard assignment
 // 3) generate coordinator task
 type StorageCluster interface {
-	// GetConfig returns storage configuration.
-	GetConfig() *config.StorageCluster
-	// Start starts the state machine for storage state change.
-	Start() error
 	// GetState returns the current state of storage cluster.
 	GetState() *models.StorageState
 	// GetLiveNodes returns the current live nodes of storage cluster.
@@ -58,66 +52,31 @@ type StorageCluster interface {
 	SetDatabaseLimits(database string, limits []byte) error
 	// DropDatabaseAssignment drops database assignment from storage state repo.
 	DropDatabaseAssignment(databaseName string) error
-	// GetRepo returns current storage cluster's state repo
-	GetRepo() state.Repository
-	// Close closes storage cluster controller
-	Close()
 }
 
 // storageCluster implements StorageCluster controller, master will maintain multi storage cluster.
 type storageCluster struct {
-	ctx         context.Context
-	cfg         *config.StorageCluster
-	storageRepo state.Repository
-	stateMgr    StateManager
+	ctx  context.Context
+	repo state.Repository
 
 	state *models.StorageState
-	sm    discovery.StateMachine
 
 	logger logger.Logger
 }
 
 // newStorageCluster creates storage cluster controller, init active node list if exist node, must return a storage cluster instance.
 func newStorageCluster(ctx context.Context,
-	cfg *config.StorageCluster,
-	stateMgr StateManager,
-	repoFactory state.RepositoryFactory) (cluster StorageCluster, err error) {
-	var storageRepo state.Repository
-	storageRepo, err = repoFactory.CreateStorageRepo(cfg.Config)
-	if err != nil {
-		return nil, err
-	}
-
+	repo state.Repository) StorageCluster {
 	log := logger.GetLogger("Master", "Storage")
-	cluster = &storageCluster{
-		ctx:         ctx,
-		cfg:         cfg,
-		storageRepo: storageRepo,
-		stateMgr:    stateMgr,
-		state:       models.NewStorageState(cfg.Config.Namespace),
-		logger:      log,
+	cluster := &storageCluster{
+		ctx:    ctx,
+		repo:   repo,
+		state:  models.NewStorageState(),
+		logger: log,
 	}
 
-	log.Info("init storage cluster success", logger.String("storage", cfg.Config.Namespace))
-	return cluster, nil
-}
-
-// GetConfig returns storage configuration.
-func (c *storageCluster) GetConfig() *config.StorageCluster {
-	return c.cfg
-}
-
-// Start starts the state machine for storage state change.
-func (c *storageCluster) Start() error {
-	sm, err := c.stateMgr.GetStateMachineFactory().
-		createStorageNodeStateMachine(c.cfg.Config.Namespace, discovery.NewFactory(c.storageRepo))
-	if err != nil {
-		return err
-	}
-	c.sm = sm
-
-	c.logger.Info("start storage cluster successfully", logger.String("storage", c.cfg.Config.Namespace))
-	return nil
+	log.Info("init storage cluster success")
+	return cluster
 }
 
 // GetState returns the current state of storage cluster.
@@ -128,7 +87,7 @@ func (c *storageCluster) GetState() *models.StorageState {
 // GetLiveNodes returns the current live nodes of storage cluster.
 func (c *storageCluster) GetLiveNodes() (rs []models.StatefulNode, err error) {
 	// TODO: add timeout ctx
-	kvs, err := c.storageRepo.List(c.ctx, constants.LiveNodesPath)
+	kvs, err := c.repo.List(c.ctx, constants.StorageLiveNodesPath)
 	if err != nil {
 		return nil, err
 	}
@@ -142,23 +101,18 @@ func (c *storageCluster) GetLiveNodes() (rs []models.StatefulNode, err error) {
 	return rs, nil
 }
 
-// GetRepo returns current storage cluster's state repo
-func (c *storageCluster) GetRepo() state.Repository {
-	return c.storageRepo
-}
-
 // FlushDatabase submits the coordinator task for flushing memory database by name
 func (c *storageCluster) FlushDatabase(_ string) error {
+	// FIXME: need impl
 	panic("need impl")
 }
 
 // SetDatabaseLimits sets the database's limits.
 func (c *storageCluster) SetDatabaseLimits(database string, limits []byte) error {
-	if err := c.storageRepo.Put(c.ctx, constants.GetDatabaseLimitPath(database), limits); err != nil {
+	if err := c.repo.Put(c.ctx, constants.GetDatabaseLimitPath(database), limits); err != nil {
 		return err
 	}
 	c.logger.Info("set database's limits successfully",
-		logger.String("storage", c.cfg.Config.Namespace),
 		logger.String("database", database))
 	return nil
 }
@@ -169,41 +123,21 @@ func (c *storageCluster) SaveDatabaseAssignment(
 	databaseOption *option.DatabaseOption,
 ) error {
 	// TODO: timeout ctx
-	data := encoding.JSONMarshal(&models.DatabaseAssignment{
-		ShardAssignment: shardAssign,
-		Option:          databaseOption,
-	})
-	if err := c.storageRepo.Put(c.ctx, constants.GetDatabaseAssignPath(shardAssign.Name), data); err != nil {
+	data := encoding.JSONMarshal(shardAssign)
+	if err := c.repo.Put(c.ctx, constants.GetShardAssignPath(shardAssign.Name), data); err != nil {
 		return err
 	}
 	c.logger.Info("save database assignment successfully",
-		logger.String("storage", c.cfg.Config.Namespace),
 		logger.String("database", shardAssign.Name))
 	return nil
 }
 
 // DropDatabaseAssignment drops database assignment from storage state repo.
 func (c *storageCluster) DropDatabaseAssignment(databaseName string) error {
-	if err := c.storageRepo.Delete(c.ctx, constants.GetDatabaseAssignPath(databaseName)); err != nil {
+	if err := c.repo.Delete(c.ctx, constants.GetShardAssignPath(databaseName)); err != nil {
 		return err
 	}
 	c.logger.Info("drop database assignment successfully",
-		logger.String("storage", c.cfg.Config.Namespace),
 		logger.String("database", databaseName))
 	return nil
-}
-
-// Close stops watch, and cleanups storageCluster's metadata
-func (c *storageCluster) Close() {
-	c.logger.Info("close storage cluster state machine", logger.String("storage", c.cfg.Config.Namespace))
-	if c.sm != nil {
-		if err := c.sm.Close(); err != nil {
-			c.logger.Error("close storage node state machine of storage cluster",
-				logger.String("storage", c.cfg.Config.Namespace), logger.Error(err), logger.Stack())
-		}
-	}
-	if err := c.storageRepo.Close(); err != nil {
-		c.logger.Error("close state repo of storage cluster",
-			logger.String("storage", c.cfg.Config.Namespace), logger.Error(err), logger.Stack())
-	}
 }

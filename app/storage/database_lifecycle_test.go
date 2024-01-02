@@ -138,7 +138,7 @@ func TestDatabaseLifecycle_dropDatabases(t *testing.T) {
 			prepare: func() {
 				repo.EXPECT().WalkEntry(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(_ context.Context, _ string, fn func([]byte, []byte)) error {
-						fn([]byte(constants.GetDatabaseAssignPath("test")), []byte{})
+						fn([]byte(constants.GetShardAssignPath("test")), []byte{})
 						return nil
 					})
 				activeDatabases := map[string]struct{}{"test": {}}

@@ -121,15 +121,15 @@ func TestShowState(t *testing.T) {
 }
 
 func TestShowReplication(t *testing.T) {
-	query, err := Parse("show replication where storage=s and database=d")
+	query, err := Parse("show replication where database=d")
 	assert.NoError(t, err)
-	assert.Equal(t, &stmt.State{Type: stmt.Replication, StorageName: "s", Database: "d"}, query)
+	assert.Equal(t, &stmt.State{Type: stmt.Replication, Database: "d"}, query)
 }
 
 func TestShowMemoryDatabase(t *testing.T) {
-	query, err := Parse("show memory database where storage=s and database=d")
+	query, err := Parse("show memory database where database=d")
 	assert.NoError(t, err)
-	assert.Equal(t, &stmt.State{Type: stmt.MemoryDatabase, StorageName: "s", Database: "d"}, query)
+	assert.Equal(t, &stmt.State{Type: stmt.MemoryDatabase, Database: "d"}, query)
 }
 
 func TestShowRootMetric(t *testing.T) {
@@ -145,7 +145,7 @@ func TestShowBrokerMetric(t *testing.T) {
 }
 
 func TestShowStorageMetric(t *testing.T) {
-	query, err := Parse("show storage metric where storage=s and metric in (a,b)")
+	query, err := Parse("show storage metric where metric in (a,b)")
 	assert.NoError(t, err)
-	assert.Equal(t, &stmt.State{Type: stmt.StorageMetric, StorageName: "s", MetricNames: []string{"a", "b"}}, query)
+	assert.Equal(t, &stmt.State{Type: stmt.StorageMetric, MetricNames: []string{"a", "b"}}, query)
 }

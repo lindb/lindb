@@ -60,7 +60,7 @@ func Test_main(t *testing.T) {
 					return cli
 				}
 				cli.EXPECT().Execute(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(param models.ExecuteParam, rs interface{}) error {
+					DoAndReturn(func(_ models.ExecuteParam, rs interface{}) error {
 						m := rs.(*models.Master)
 						m.Node = &models.StatelessNode{}
 						return nil
@@ -78,7 +78,7 @@ func Test_main(t *testing.T) {
 
 	for _, tt := range cases {
 		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			defer func() {
 				urlParse = url.Parse
 				newExecuteCli = client.NewExecuteCli
@@ -120,13 +120,6 @@ func Test_executor(t *testing.T) {
 		{
 			name: "show master",
 			in:   "show master;",
-			prepare: func() {
-				mockCli.EXPECT().ExecuteAsResult(gomock.Any(), gomock.Any())
-			},
-		},
-		{
-			name: "show storages",
-			in:   "show storages;",
 			prepare: func() {
 				mockCli.EXPECT().ExecuteAsResult(gomock.Any(), gomock.Any())
 			},

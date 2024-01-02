@@ -222,7 +222,7 @@ func (m *masterController) FlushDatabase(cluster, databaseName string) error {
 		m.mutex.Lock()
 		defer m.mutex.Unlock()
 
-		storage := m.stateMgr.GetStorageCluster(cluster)
+		storage := m.stateMgr.GetStorageCluster()
 		if storage == nil {
 			return constants.ErrNoStorageCluster
 		}

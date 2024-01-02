@@ -23,12 +23,6 @@ type StorageOpType int
 const (
 	// StorageOpUnknown represents unknown operation.
 	StorageOpUnknown StorageOpType = iota
-	// StorageOpCreate represents create storage.
-	StorageOpCreate
-	// StorageOpShow represent show storage.
-	StorageOpShow
-	// StorageOpDelete represents delete storage.
-	StorageOpDelete
 	// StorageOpRecover represents recover storage metadata.
 	StorageOpRecover
 )

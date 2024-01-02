@@ -43,9 +43,8 @@ const (
 
 // State represents show state statement.
 type State struct {
-	Type        StateType
-	StorageName string
-	Database    string
+	Type     StateType
+	Database string
 
 	MetricNames []string
 }

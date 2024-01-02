@@ -3,7 +3,6 @@
 grammar SQL;
 
 statement               : showStmt
-                        | createStorageStmt
                         | createBrokerStmt
                         | recoverStorageStmt
                         | useStmt
@@ -23,7 +22,6 @@ showStmt                : showMasterStmt
                         | showBrokerMetaStmt
                         | showMasterMetaStmt
                         | showStorageMetaStmt
-                        | showStoragesStmt
                         | showBrokersStmt
 						| showLimitStmt
                         | showAliveStmt
@@ -46,20 +44,19 @@ showStmt                : showMasterStmt
 showMasterStmt       : T_SHOW T_MASTER ;
 showRequestsStmt     : T_SHOW T_REQUESTS ; 
 showRequestStmt      : T_SHOW T_REQUEST T_WHERE T_ID T_EQUAL requestID;
-showStoragesStmt     : T_SHOW T_STORAGES ;
 showBrokersStmt      : T_SHOW T_BROKERS ;
 showLimitStmt        : T_SHOW T_LIMIT ; 
 showMetadataTypesStmt: T_SHOW T_METADATA T_TYPES;
 showRootMetaStmt     : T_SHOW T_ROOT T_METADATA T_FROM source T_WHERE typeFilter;
 showBrokerMetaStmt   : T_SHOW T_BROKER T_METADATA T_FROM source T_WHERE typeFilter (T_AND brokerFilter)?;
 showMasterMetaStmt   : T_SHOW T_MASTER T_METADATA T_FROM source T_WHERE typeFilter;
-showStorageMetaStmt  : T_SHOW T_STORAGE T_METADATA T_FROM source T_WHERE (storageFilter|typeFilter) T_AND (storageFilter|typeFilter);
+showStorageMetaStmt  : T_SHOW T_STORAGE T_METADATA T_FROM source T_WHERE typeFilter;
 showAliveStmt        : T_SHOW (T_ROOT | T_BROKER | T_STORAGE) T_ALIVE;
-showReplicationStmt  : T_SHOW T_REPLICATION T_WHERE (storageFilter|databaseFilter) T_AND (storageFilter|databaseFilter);
-showMemoryDatabaseStmt  : T_SHOW T_MEMORY T_DATASBAE T_WHERE (storageFilter|databaseFilter) T_AND (storageFilter|databaseFilter);
+showReplicationStmt  : T_SHOW T_REPLICATION T_WHERE databaseFilter;
+showMemoryDatabaseStmt  : T_SHOW T_MEMORY T_DATASBAE T_WHERE databaseFilter;
 showRootMetricStmt   : T_SHOW T_ROOT T_METRIC T_WHERE metricListFilter ;
 showBrokerMetricStmt : T_SHOW T_BROKER T_METRIC T_WHERE metricListFilter ;
-showStorageMetricStmt: T_SHOW T_STORAGE T_METRIC T_WHERE (storageFilter|metricListFilter) T_AND (storageFilter|metricListFilter) ;
+showStorageMetricStmt: T_SHOW T_STORAGE T_METRIC T_WHERE metricListFilter ;
 createStorageStmt    : T_CREATE T_STORAGE json;
 createBrokerStmt     : T_CREATE T_BROKER json;
 recoverStorageStmt   : T_RECOVER T_STORAGE storageName;
@@ -109,7 +106,6 @@ selectExpr              : T_SELECT fields;
 fields                  : field ( T_COMMA field )* ;
 field                   : fieldExpr alias? ;
 alias                   : T_AS ident ;
-storageFilter           : T_STORAGE T_EQUAL ident  ;
 brokerFilter            : T_BROKER T_EQUAL ident  ;
 databaseFilter          : T_DATASBAE T_EQUAL ident  ;
 typeFilter              : T_TYPE T_EQUAL ident  ;

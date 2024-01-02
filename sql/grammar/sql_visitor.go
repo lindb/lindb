@@ -45,9 +45,6 @@ type SQLVisitor interface {
 	// Visit a parse tree produced by SQLParser#showRequestStmt.
 	VisitShowRequestStmt(ctx *ShowRequestStmtContext) interface{}
 
-	// Visit a parse tree produced by SQLParser#showStoragesStmt.
-	VisitShowStoragesStmt(ctx *ShowStoragesStmtContext) interface{}
-
 	// Visit a parse tree produced by SQLParser#showBrokersStmt.
 	VisitShowBrokersStmt(ctx *ShowBrokersStmtContext) interface{}
 
@@ -179,9 +176,6 @@ type SQLVisitor interface {
 
 	// Visit a parse tree produced by SQLParser#alias.
 	VisitAlias(ctx *AliasContext) interface{}
-
-	// Visit a parse tree produced by SQLParser#storageFilter.
-	VisitStorageFilter(ctx *StorageFilterContext) interface{}
 
 	// Visit a parse tree produced by SQLParser#brokerFilter.
 	VisitBrokerFilter(ctx *BrokerFilterContext) interface{}

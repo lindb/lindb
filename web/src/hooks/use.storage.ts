@@ -23,7 +23,7 @@ import * as _ from "lodash-es";
 
 const aliveStorage = SQL.ShowStorageAliveNodes;
 
-export function useStorage(name?: string) {
+export function useStorage() {
   const { isLoading, isError, error, data } = useQuery(
     ["show_alive_storage"],
     async () => {
@@ -35,6 +35,6 @@ export function useStorage(name?: string) {
     isLoading,
     isError,
     error,
-    storages: StateKit.getStorageState(data, name),
+    storage: StateKit.getStorageState(data),
   };
 }

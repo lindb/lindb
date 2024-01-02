@@ -153,7 +153,7 @@ func (f *stateMachineFactory) createStorageStatusStateMachine() (discovery.State
 		constants.StorageStatePath,
 		true,
 		f.onStorageStateChange,
-		f.onStorageDeletion,
+		nil,
 	)
 }
 
@@ -216,13 +216,5 @@ func (f *stateMachineFactory) onStorageStateChange(key string, data []byte) {
 		Type:  discovery.StorageStateChanged,
 		Key:   key,
 		Value: data,
-	})
-}
-
-// onStorageDeletion triggers when storage is deletion.
-func (f *stateMachineFactory) onStorageDeletion(key string) {
-	f.stateMgr.EmitEvent(&discovery.Event{
-		Type: discovery.StorageStateDeletion,
-		Key:  key,
 	})
 }

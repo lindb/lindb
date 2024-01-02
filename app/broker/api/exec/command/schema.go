@@ -19,7 +19,6 @@ package command
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/lindb/common/pkg/encoding"
@@ -28,7 +27,6 @@ import (
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/pkg/validate"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
@@ -117,15 +115,6 @@ func saveDataBase(ctx context.Context, deps *depspkg.HTTPDeps, stmt *stmtpkg.Sch
 	// set default value
 	opt.Default()
 	database.Option = opt // reset option after set default value
-
-	// check storage cluster if exist
-	_, err = deps.Repo.Get(ctx, constants.GetStorageClusterConfigPath(database.Storage))
-	if errors.Is(err, state.ErrNotExist) {
-		return nil, fmt.Errorf("storage not exist")
-	}
-	if err != nil {
-		return nil, err
-	}
 
 	log.Info("Saving Database", logger.String("config", stmt.Value))
 	if err := deps.Repo.Put(ctx, constants.GetDatabaseConfigPath(database.Name), data); err != nil {

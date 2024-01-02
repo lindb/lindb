@@ -136,10 +136,6 @@ func executor(in string) {
 				inputC.db = s.Name
 				fmt.Printf("Database changed(current:%s)\n", inputC.db)
 				return
-			case *stmtpkg.Storage:
-				if s.Type == stmtpkg.StorageOpShow {
-					result = &models.Storages{}
-				}
 			case *stmtpkg.State:
 				// execute state query
 				switch s.Type {

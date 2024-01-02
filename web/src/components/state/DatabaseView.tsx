@@ -17,7 +17,7 @@ under the License.
 */
 import React, { useContext } from "react";
 import { Card, Table, Descriptions, Typography } from "@douyinfe/semi-ui";
-import * as _ from "lodash-es";
+import { get, has, keys, mapValues, orderBy } from "lodash-es";
 import { Route } from "@src/constants";
 import { URLStore } from "@src/stores";
 import { UIContext } from "@src/context/UIContextProvider";
@@ -80,15 +80,13 @@ export default function DatabaseView(props: DatabaseViewProps) {
             data={[
               {
                 key: StorageView.totalOfReplication,
-                value: (
-                  <Text link>{_.get(record, "stats.totalReplica", 0)}</Text>
-                ),
+                value: <Text link>{get(record, "stats.totalReplica", 0)}</Text>,
               },
               {
                 key: StorageView.underReplicated,
                 value: (
                   <Text type="success">
-                    {_.get(record, "stats.availableReplica", 0)}
+                    {get(record, "stats.availableReplica", 0)}
                   </Text>
                 ),
               },
@@ -96,7 +94,7 @@ export default function DatabaseView(props: DatabaseViewProps) {
                 key: StorageView.unavailableReplica,
                 value: (
                   <Text type="danger">
-                    {_.get(record, "stats.unavailableReplica", 0)}
+                    {get(record, "stats.unavailableReplica", 0)}
                   </Text>
                 ),
               },
@@ -108,8 +106,8 @@ export default function DatabaseView(props: DatabaseViewProps) {
   ];
   const getDatabaseList = (): any[] => {
     const rs: any[] = [];
-    const databaseMap = _.get(storage, "shardStates", {});
-    const databaseNames = _.keys(databaseMap);
+    const databaseMap = get(storage, "shardStates", {});
+    const databaseNames = keys(databaseMap);
     databaseNames.map((name: string) => {
       if (databaseName && databaseName !== name) {
         // if database selected, only show selected database's state
@@ -122,12 +120,12 @@ export default function DatabaseView(props: DatabaseViewProps) {
         unavailableReplica: 0,
         numOfShards: 0,
       };
-      _.mapValues(db, function (shard: any) {
-        const replicas = _.get(shard, "replica.replicas", []);
+      mapValues(db, function (shard: any) {
+        const replicas = get(shard, "replica.replicas", []);
         stats.numOfShards++;
         stats.totalReplica += replicas.length;
         replicas.map((nodeId: number) => {
-          if (_.has(liveNodes, nodeId)) {
+          if (has(liveNodes, nodeId)) {
             stats.availableReplica++;
           } else {
             stats.unavailableReplica++;
@@ -140,21 +138,14 @@ export default function DatabaseView(props: DatabaseViewProps) {
   };
   return (
     <>
-      <Card
-        title={title}
-        headerStyle={{ padding: 12 }}
-        bodyStyle={{ padding: 12 }}
+      <Table
+        size="small"
+        bordered
+        columns={columns}
+        dataSource={orderBy(getDatabaseList(), ["name"], ["asc"])}
         loading={loading}
-      >
-        <Table
-          size="small"
-          bordered={false}
-          columns={columns}
-          dataSource={_.orderBy(getDatabaseList(), ["name"], ["asc"])}
-          loading={loading}
-          pagination={false}
-        />
-      </Card>
+        pagination={false}
+      />
     </>
   );
 }

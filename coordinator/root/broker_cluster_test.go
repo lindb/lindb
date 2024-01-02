@@ -51,13 +51,13 @@ func TestNewBrokerCluster(t *testing.T) {
 		{
 			name: "create repo failure",
 			prepare: func() {
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
+				repoFct.EXPECT().CreateNormalRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
 			}, wantErr: true,
 		},
 		{
 			name: "create broker cluster successfully",
 			prepare: func() {
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
+				repoFct.EXPECT().CreateNormalRepo(gomock.Any()).Return(repo, nil)
 			},
 			wantErr: false,
 		},

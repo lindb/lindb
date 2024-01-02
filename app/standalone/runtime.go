@@ -138,7 +138,6 @@ func (r *runtime) Run() error {
 	time.AfterFunc(r.delayInit, func() {
 		if err := r.initializer.InitInternalDatabase(models.Database{
 			Name:          "_internal",
-			Storage:       r.cfg.Coordinator.Namespace,
 			NumOfShard:    1,
 			ReplicaFactor: 1,
 			Option: &option.DatabaseOption{
@@ -160,13 +159,11 @@ func (r *runtime) Run() error {
 }
 
 func (r *runtime) runServer() error {
-	// need first start broker server, because storage need register information to broker.
-	if err := r.broker.Run(); err != nil {
+	if err := r.storage.Run(); err != nil {
 		r.state = server.Failed
 		return err
 	}
-	// start storage server
-	if err := r.storage.Run(); err != nil {
+	if err := r.broker.Run(); err != nil {
 		r.state = server.Failed
 		return err
 	}
@@ -228,37 +225,27 @@ func (r *runtime) startETCD() error {
 // 1. master node in etcd, because etcd will trigger master node expire event
 // 2. stateful node in etcd
 func (r *runtime) cleanupState() error {
-	brokerRepo, err := r.repoFactory.CreateBrokerRepo(&r.cfg.Coordinator)
+	repo, err := r.repoFactory.CreateNormalRepo(&r.cfg.Coordinator)
 	if err != nil {
 		return fmt.Errorf("start broker state repo error:%s", err)
 	}
 	defer func() {
-		err = brokerRepo.Close()
+		err = repo.Close()
 		if err != nil {
 			log.Error("close broker state repo when do cleanup", logger.Error(err))
 		}
 	}()
-	err = brokerRepo.Delete(context.TODO(), constants.MasterPath)
+	err = repo.Delete(context.TODO(), constants.MasterPath)
 	if err != nil {
 		return fmt.Errorf("delete old master error")
 	}
 
-	storageRepo, err := r.repoFactory.CreateStorageRepo(&r.cfg.Coordinator)
-	if err != nil {
-		return fmt.Errorf("start storage state repo error:%s", err)
-	}
-	defer func() {
-		err = storageRepo.Close()
-		if err != nil {
-			log.Error("close storage state repo when do cleanup", logger.Error(err))
-		}
-	}()
-	kvs, err := storageRepo.List(context.TODO(), constants.LiveNodesPath)
+	kvs, err := repo.List(context.TODO(), constants.StorageLiveNodesPath)
 	if err != nil {
 		return err
 	}
 	for _, kv := range kvs {
-		if err := storageRepo.Delete(context.TODO(), kv.Key); err != nil {
+		if err := repo.Delete(context.TODO(), kv.Key); err != nil {
 			return fmt.Errorf("delete stateful node info error")
 		}
 	}

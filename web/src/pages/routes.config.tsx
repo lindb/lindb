@@ -40,9 +40,6 @@ import {
   DatabaseConfig,
   DatabaseLimits,
   DatabaseList,
-  StorageConfig,
-  StorageList,
-  StorageOverview,
   MetadataExplore,
   RequestView,
   BrokerList,
@@ -62,14 +59,6 @@ export const routes = [
     content: <Overview />,
     help: "/guide/admin-ui/overview.html",
     items: [
-      {
-        inner: true,
-        itemKey: "Overview/Storage",
-        text: "Storage",
-        path: Route.StorageOverview,
-        content: <StorageOverview />,
-        help: "/guide/admin-ui/overview.html#storage-cluster-status",
-      },
       {
         inner: true,
         itemKey: "Overview/Configuration",
@@ -139,24 +128,6 @@ export const routes = [
     itemKey: "Metadata",
     icon: <IconSettingStroked size="large" />,
     items: [
-      {
-        text: "Storage",
-        path: Route.MetadataStorage,
-        roles: ["Broker"],
-        icon: <Icon icon="iconcluster" style={{ fontSize: 20 }} />,
-        content: <StorageList />,
-        help: "/guide/admin-ui/metadata.html#storage",
-        items: [
-          {
-            inner: true,
-            itemKey: "Metadata/Storage/Configuration",
-            text: "Configuration",
-            path: Route.MetadataStorageConfig,
-            content: <StorageConfig />,
-            help: "/guide/admin-ui/metadata.html#storage",
-          },
-        ],
-      },
       {
         text: "Broker",
         path: Route.MetadataBroker,

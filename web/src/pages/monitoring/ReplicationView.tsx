@@ -47,22 +47,22 @@ const ReplicationStatus: React.FC = observer(() => {
   const { isInitialLoading, isFetching, isError, error, data } = useQuery(
     ["show_replication", db, type, URLStore.forceChanged],
     async () => {
-      const storages = await ExecService.exec<StorageState[]>({
+      const storage = await ExecService.exec<StorageState>({
         sql: SQL.ShowStorageAliveNodes,
       });
-      const databases = StateKit.getDatabaseList(storages);
+      const databases = StateKit.getDatabaseList(storage);
       const database = _.find(databases, { name: db });
       if (!database) {
         return null;
       }
       if (type === StateType.Memory) {
         const memoryDatabase = await ExecService.exec<MemoryDatabaseState>({
-          sql: `show memory database where storage='${database.storage.name}' and database='${db}'`,
+          sql: `show memory database where database='${db}'`,
         });
         return { database: database, memoryDatabaseState: memoryDatabase };
       } else {
         const replicaState = await ExecService.exec<ReplicaState>({
-          sql: `show replication where storage='${database.storage.name}' and database='${db}'`,
+          sql: `show replication where database='${db}'`,
         });
         return { database: database, replicaState: replicaState };
       }
@@ -136,10 +136,10 @@ const ReplicationView: React.FC = () => {
             field="db"
             label={ReplicationView.database}
             loader={() =>
-              ExecService.exec<StorageState[]>({
+              ExecService.exec<StorageState>({
                 sql: SQL.ShowStorageAliveNodes,
-              }).then((storages) => {
-                const databases = StateKit.getDatabaseList(storages);
+              }).then((storage) => {
+                const databases = StateKit.getDatabaseList(storage);
                 return _.map(databases, (db: any) => {
                   return { label: db.name, value: db.name };
                 });

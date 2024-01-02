@@ -45,9 +45,6 @@ type SQLListener interface {
 	// EnterShowRequestStmt is called when entering the showRequestStmt production.
 	EnterShowRequestStmt(c *ShowRequestStmtContext)
 
-	// EnterShowStoragesStmt is called when entering the showStoragesStmt production.
-	EnterShowStoragesStmt(c *ShowStoragesStmtContext)
-
 	// EnterShowBrokersStmt is called when entering the showBrokersStmt production.
 	EnterShowBrokersStmt(c *ShowBrokersStmtContext)
 
@@ -179,9 +176,6 @@ type SQLListener interface {
 
 	// EnterAlias is called when entering the alias production.
 	EnterAlias(c *AliasContext)
-
-	// EnterStorageFilter is called when entering the storageFilter production.
-	EnterStorageFilter(c *StorageFilterContext)
 
 	// EnterBrokerFilter is called when entering the brokerFilter production.
 	EnterBrokerFilter(c *BrokerFilterContext)
@@ -357,9 +351,6 @@ type SQLListener interface {
 	// ExitShowRequestStmt is called when exiting the showRequestStmt production.
 	ExitShowRequestStmt(c *ShowRequestStmtContext)
 
-	// ExitShowStoragesStmt is called when exiting the showStoragesStmt production.
-	ExitShowStoragesStmt(c *ShowStoragesStmtContext)
-
 	// ExitShowBrokersStmt is called when exiting the showBrokersStmt production.
 	ExitShowBrokersStmt(c *ShowBrokersStmtContext)
 
@@ -491,9 +482,6 @@ type SQLListener interface {
 
 	// ExitAlias is called when exiting the alias production.
 	ExitAlias(c *AliasContext)
-
-	// ExitStorageFilter is called when exiting the storageFilter production.
-	ExitStorageFilter(c *StorageFilterContext)
 
 	// ExitBrokerFilter is called when exiting the brokerFilter production.
 	ExitBrokerFilter(c *BrokerFilterContext)

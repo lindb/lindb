@@ -30,12 +30,8 @@ func TestEventType_String(t *testing.T) {
 	assert.Equal(t, "NodeStartup", NodeStartup.String())
 	assert.Equal(t, "NodeFailure", NodeFailure.String())
 	assert.Equal(t, "StorageStateChanged", StorageStateChanged.String())
-	assert.Equal(t, "StorageStateDeletion", StorageStateDeletion.String())
 	assert.Equal(t, "ShardAssignmentDeletion", ShardAssignmentDeletion.String())
 	assert.Equal(t, "ShardAssignmentChanged", ShardAssignmentChanged.String())
-	assert.Equal(t, "StorageConfigDeletion", StorageConfigDeletion.String())
-	assert.Equal(t, "StorageConfigChanged", StorageConfigChanged.String())
-
 	assert.Equal(t, "BrokerConfigDeletion", BrokerConfigDeletion.String())
 	assert.Equal(t, "BrokerConfigChanged", BrokerConfigChanged.String())
 	assert.Equal(t, "DatabaseLimitsChanged", DatabaseLimitsChanged.String())

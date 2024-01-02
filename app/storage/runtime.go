@@ -40,7 +40,6 @@ import (
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/internal/api"
-	"github.com/lindb/lindb/internal/bootstrap"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/server"
@@ -96,9 +95,6 @@ type runtime struct {
 	version string
 	config  *config.Storage
 
-	delayInit   time.Duration
-	initializer bootstrap.ClusterInitializer
-
 	ctx    context.Context
 	cancel context.CancelFunc
 
@@ -139,9 +135,7 @@ func NewStorageRuntime(version string, myID int, cfg *config.Storage) server.Ser
 			cfg.Query.QueryConcurrency,
 			cfg.Query.IdleTimeout.Duration(),
 			metrics.NewConcurrentStatistics("storage-query", linmetric.StorageRegistry)),
-		delayInit:   time.Second,
-		initializer: bootstrap.NewClusterInitializer(cfg.StorageBase.BrokerEndpoint),
-		log:         logger.GetLogger("Storage", "Runtime"),
+		log: logger.GetLogger("Storage", "Runtime"),
 	}
 }
 
@@ -207,9 +201,6 @@ func (r *runtime) Run() error {
 	}
 	r.BaseRuntime = app.NewBaseRuntimeFn(r.ctx, r.config.Monitor, linmetric.StorageRegistry, r.globalKeyValues)
 
-	r.factory = factory{taskServer: rpc.NewTaskServerFactory()}
-	r.stateMgr = storage.NewStateManager(r.ctx, r.node, engine)
-
 	walMgr := newWriteAheadLogManagerFn(
 		r.ctx,
 		r.config.StorageBase.WAL,
@@ -223,11 +214,6 @@ func (r *runtime) Run() error {
 	}
 	r.walMgr = walMgr
 
-	// start tcp server
-	r.startTCPServer()
-	// start http server
-	r.startHTTPServer()
-
 	// start state repo
 	if err := r.startStateRepo(); err != nil {
 		r.log.Error("start state repo failure", logger.Error(err))
@@ -235,11 +221,19 @@ func (r *runtime) Run() error {
 		return err
 	}
 
+	r.factory = factory{taskServer: rpc.NewTaskServerFactory()}
+	r.stateMgr = storage.NewStateManager(r.ctx, r.repo, r.node, engine)
+
+	// start tcp server
+	r.startTCPServer()
+	// start http server
+	r.startHTTPServer()
+
 	r.dbLifecycle = newDatabaseLifecycleFn(r.ctx, r.repo, r.walMgr, r.engine)
 	r.dbLifecycle.Startup()
 
 	// Use Leader election mechanism to ensure the uniqueness of stateful node id
-	if err := r.MustRegisterStateFulNode(); err != nil {
+	if err := r.MustRegisterStatefulNode(); err != nil {
 		return err
 	}
 	discoveryFactory := discovery.NewFactory(r.repo)
@@ -257,19 +251,11 @@ func (r *runtime) Run() error {
 
 	r.state = server.Running
 
-	time.AfterFunc(r.delayInit, func() {
-		r.log.Info("starting register storage cluster in broker")
-		if err := r.initializer.InitStorageCluster(config.StorageCluster{Config: &r.config.Coordinator}); err != nil {
-			r.log.Error("register storage cluster with error", logger.Error(err))
-		} else {
-			r.log.Info("register storage cluster successfully")
-		}
-	})
 	return nil
 }
 
-// MustRegisterStateFulNode make sure that state node is registered to etcd
-func (r *runtime) MustRegisterStateFulNode() error {
+// MustRegisterStatefulNode make sure that state node is registered to etcd
+func (r *runtime) MustRegisterStatefulNode() error {
 	r.log.Info("registering stateful storage node...",
 		logger.Int("indicator", int(r.node.ID)),
 		logger.String("lease-ttl", r.config.Coordinator.LeaseTTL.String()),
@@ -287,9 +273,10 @@ func (r *runtime) MustRegisterStateFulNode() error {
 			return nil
 		default:
 		}
+		fmt.Println(constants.GetStorageLiveNodePath(strconv.Itoa(int(r.node.ID))))
 		ok, _, err = r.repo.Elect(
 			r.ctx,
-			constants.GetLiveNodePath(strconv.Itoa(int(r.node.ID))),
+			constants.GetStorageLiveNodePath(strconv.Itoa(int(r.node.ID))),
 			encoding.JSONMarshal(r.node),
 			int64(r.config.Coordinator.LeaseTTL.Duration().Seconds()))
 		if ok {
@@ -331,7 +318,7 @@ func (r *runtime) State() server.State {
 
 // startStateRepo starts state repository
 func (r *runtime) startStateRepo() error {
-	repo, err := r.repoFactory.CreateStorageRepo(&r.config.Coordinator)
+	repo, err := r.repoFactory.CreateNormalRepo(&r.config.Coordinator)
 	if err != nil {
 		return fmt.Errorf("start storage state repository error:%s", err)
 	}
@@ -354,7 +341,7 @@ func (r *runtime) Stop() {
 	// close state repo if exist
 	if r.repo != nil {
 		r.log.Info("closing state repo...")
-		if err := r.repo.Delete(r.ctx, constants.GetLiveNodePath(strconv.Itoa(int(r.node.ID)))); err != nil {
+		if err := r.repo.Delete(r.ctx, constants.GetStorageLiveNodePath(strconv.Itoa(int(r.node.ID)))); err != nil {
 			r.log.Warn("delete storage node register info")
 		}
 		if err := r.repo.Close(); err != nil {

@@ -219,19 +219,16 @@ func (b *BrokerState) NodeOffline(nodeID string) {
 // NOTICE: it is not safe for concurrent use.
 // TODO: need concurrent safe????
 type StorageState struct {
-	Name string `json:"name"` // ref Namespace
-
 	LiveNodes map[NodeID]StatefulNode `json:"liveNodes"`
 
-	// TODO remove??
+	// TODO: remove??
 	ShardAssignments map[string]*ShardAssignment       `json:"shardAssignments"` // database's name => shard assignment
 	ShardStates      map[string]map[ShardID]ShardState `json:"shardStates"`      // database's name => shard state
 }
 
 // NewStorageState creates storage cluster state
-func NewStorageState(name string) *StorageState {
+func NewStorageState() *StorageState {
 	return &StorageState{
-		Name:             name,
 		LiveNodes:        make(map[NodeID]StatefulNode),
 		ShardAssignments: make(map[string]*ShardAssignment),
 		ShardStates:      make(map[string]map[ShardID]ShardState),
