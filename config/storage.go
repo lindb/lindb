@@ -92,8 +92,6 @@ flush-concurrency = %d`,
 
 // StorageBase represents a storage configuration
 type StorageBase struct {
-	// Broker http endpoint, auto register current storage cluster.
-	BrokerEndpoint  string         `env:"BROKER_ENDPOINT" toml:"broker-endpoint"`
 	TTLTaskInterval ltoml.Duration `env:"TTL_TASK_INTERVAL" toml:"ttl-task-interval"`
 	HTTP            HTTP           `envPrefix:"HTTP_" toml:"http"`
 	GRPC            GRPC           `envPrefix:"GRPC_" toml:"grpc"`
@@ -110,10 +108,6 @@ func (s *StorageBase) TOML() string {
 ## Default: %s
 ## Env: LINDB_STORAGE_TTL_TASK_INTERVAL 
 ttl-task-interval = "%s"
-## Broker http endpoint which storage self register address
-## Default: %s
-## Env: LINDB_STORAGE_BROKER_ENDPOINT
-broker-endpoint = "%s"
 
 ## Storage HTTP related configuration.
 [storage.http]%s
@@ -128,8 +122,6 @@ broker-endpoint = "%s"
 [storage.tsdb]%s`,
 		s.TTLTaskInterval,
 		s.TTLTaskInterval,
-		s.BrokerEndpoint,
-		s.BrokerEndpoint,
 		s.HTTP.TOML(),
 		s.GRPC.TOML(),
 		s.WAL.TOML(),
@@ -209,7 +201,6 @@ func (s *Storage) TOML() string {
 func NewDefaultStorageBase() *StorageBase {
 	return &StorageBase{
 		TTLTaskInterval: ltoml.Duration(time.Hour * 24),
-		BrokerEndpoint:  "http://localhost:9000",
 		HTTP: HTTP{
 			Port:         2892,
 			IdleTimeout:  ltoml.Duration(time.Minute * 2),

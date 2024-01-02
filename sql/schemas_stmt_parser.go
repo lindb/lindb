@@ -143,8 +143,6 @@ func (s *schemasStmtParser) fillDatabase(database *models.Database, pairs []gram
 	for _, pair := range pairs {
 		key, val := pair.OptionKey(), s.parseOptionValue(pair.OptionValue())
 		switch {
-		case key.T_STORAGE() != nil:
-			database.Storage = val
 		case key.T_NUM_OF_SHARD() != nil:
 			database.NumOfShard = s.parseNumber(val)
 		case key.T_REPLICA_FACTOR() != nil:

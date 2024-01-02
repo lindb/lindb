@@ -27,7 +27,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 
-	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
@@ -56,10 +55,10 @@ func TestStateManager_DropDatabase(t *testing.T) {
 	mgr1.shardAssignments["test-db"] = shardAssignment
 	mgr1.shardAssignments["test-db2"] = shardAssignment
 	mgr1.shardAssignments["test-db3"] = shardAssignment
-	mgr1.databases["test-db"] = &models.Database{Storage: "/storage/test"}
-	mgr1.databases["test-db2"] = &models.Database{Storage: "/storage/test"}
-	mgr1.databases["test-db3"] = &models.Database{Storage: "/storage/test"}
-	mgr1.storages["/storage/test"] = sc
+	mgr1.databases["test-db"] = &models.Database{}
+	mgr1.databases["test-db2"] = &models.Database{}
+	mgr1.databases["test-db3"] = &models.Database{}
+	mgr1.storage = sc
 	mgr1.masterRepo = repo
 	mgr1.mutex.Unlock()
 
@@ -69,7 +68,7 @@ func TestStateManager_DropDatabase(t *testing.T) {
 		Key:  "/database/config/test",
 	})
 	// case 2: drop database config
-	sc.EXPECT().GetState().Return(models.NewStorageState("/storage/test")).MaxTimes(2)
+	sc.EXPECT().GetState().Return(models.NewStorageState()).MaxTimes(2)
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	sc.EXPECT().DropDatabaseAssignment(gomock.Any()).Return(fmt.Errorf("err"))
 	mgr.EmitEvent(&discovery.Event{
@@ -78,7 +77,7 @@ func TestStateManager_DropDatabase(t *testing.T) {
 	})
 
 	// case 3: sync state failure
-	sc.EXPECT().GetState().Return(models.NewStorageState("/storage/test")).MaxTimes(2)
+	sc.EXPECT().GetState().Return(models.NewStorageState()).MaxTimes(2)
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("errj"))
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.DatabaseConfigDeletion,
@@ -86,7 +85,7 @@ func TestStateManager_DropDatabase(t *testing.T) {
 	})
 
 	// case 4: successfully
-	sc.EXPECT().GetState().Return(models.NewStorageState("/storage/test")).MaxTimes(2)
+	sc.EXPECT().GetState().Return(models.NewStorageState()).MaxTimes(2)
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	sc.EXPECT().DropDatabaseAssignment(gomock.Any()).Return(nil)
 	mgr.EmitEvent(&discovery.Event{
@@ -95,7 +94,6 @@ func TestStateManager_DropDatabase(t *testing.T) {
 	})
 
 	time.Sleep(100 * time.Millisecond)
-	sc.EXPECT().Close()
 	mgr.Close()
 }
 
@@ -112,103 +110,6 @@ func TestStateManager_NotRunning(t *testing.T) {
 	mgr.Close()
 }
 
-func TestStateManager_StorageCfg(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer func() {
-		ctrl.Finish()
-	}()
-	mgr := NewStateManager(context.TODO(), nil, nil)
-	mgr1 := mgr.(*stateManager)
-	mgr1.mutex.Lock()
-	shardAssignment := models.NewShardAssignment("test-db")
-	mgr1.shardAssignments["test-db"] = shardAssignment
-	mgr1.databases["test-db"] = &models.Database{Storage: "/storage/test"}
-	mgr1.mutex.Unlock()
-	// case 1: unmarshal cfg err
-	mgr.EmitEvent(&discovery.Event{
-		Type:  discovery.StorageConfigChanged,
-		Key:   "/storage/test",
-		Value: []byte("value"),
-	})
-	// case 2: storage name is empty
-	mgr.EmitEvent(&discovery.Event{
-		Type:  discovery.StorageConfigChanged,
-		Key:   "/storage/test",
-		Value: encoding.JSONMarshal(&config.StorageCluster{}),
-	})
-	// case 3: new storage cluster err
-	mgr1.mutex.Lock()
-	mgr1.newStorageClusterFn = func(ctx context.Context, cfg *config.StorageCluster,
-		stateMgr StateManager, repoFactory state.RepositoryFactory,
-	) (cluster StorageCluster, err error) {
-		return nil, fmt.Errorf("err")
-	}
-	mgr1.mutex.Unlock()
-	mgr.EmitEvent(&discovery.Event{
-		Type:  discovery.StorageConfigChanged,
-		Key:   "/storage/test",
-		Value: encoding.JSONMarshal(&config.StorageCluster{Config: &config.RepoState{Namespace: "/storage/test"}}),
-	})
-	time.Sleep(100 * time.Millisecond)
-	// case 4: start storage err
-	storage1 := NewMockStorageCluster(ctrl)
-	mgr1.mutex.Lock()
-	mgr1.newStorageClusterFn = func(ctx context.Context, cfg *config.StorageCluster,
-		stateMgr StateManager, repoFactory state.RepositoryFactory,
-	) (cluster StorageCluster, err error) {
-		return storage1, nil
-	}
-	mgr1.mutex.Unlock()
-	storage1.EXPECT().Start().Return(fmt.Errorf("err"))
-	storage1.EXPECT().Close().AnyTimes()
-	mgr.EmitEvent(&discovery.Event{
-		Type:  discovery.StorageConfigChanged,
-		Key:   "/storage/test",
-		Value: encoding.JSONMarshal(&config.StorageCluster{Config: &config.RepoState{Namespace: "/storage/test"}}),
-	})
-	time.Sleep(100 * time.Millisecond)
-
-	// case 5: start storage ok
-	storage1.EXPECT().Start().Return(nil)
-	mgr.EmitEvent(&discovery.Event{
-		Type:  discovery.StorageConfigChanged,
-		Key:   "/storage/test",
-		Value: encoding.JSONMarshal(&config.StorageCluster{Config: &config.RepoState{Namespace: "/storage/test"}}),
-	})
-	// case 6: remove not exist storage
-	mgr.EmitEvent(&discovery.Event{
-		Type: discovery.StorageConfigDeletion,
-		Key:  "/storage/test2",
-	})
-	time.Sleep(100 * time.Millisecond)
-	storage := mgr.GetStorageCluster("/storage/test")
-	assert.NotNil(t, storage)
-	// case 7: modify storage config
-	storage1.EXPECT().Start().Return(nil)
-	storage1.EXPECT().GetState().Return(models.NewStorageState("/storage/test"))
-	mgr.EmitEvent(&discovery.Event{
-		Type:  discovery.StorageConfigChanged,
-		Key:   "/storage/test",
-		Value: encoding.JSONMarshal(&config.StorageCluster{Config: &config.RepoState{Namespace: "/storage/test"}}),
-	})
-	// case 8: remove storage
-	mgr.EmitEvent(&discovery.Event{
-		Type: discovery.StorageConfigDeletion,
-		Key:  "/storage/test",
-	})
-	// case 9: namespace is empty
-	mgr.EmitEvent(&discovery.Event{
-		Type:  discovery.StorageConfigChanged,
-		Key:   "/storage/test2",
-		Value: encoding.JSONMarshal(&config.StorageCluster{Config: &config.RepoState{}}),
-	})
-	time.Sleep(100 * time.Millisecond)
-	storage = mgr.GetStorageCluster("/storage/test")
-	assert.Nil(t, storage)
-
-	mgr.Close()
-}
-
 func TestStateManager_DatabaseCfg(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
@@ -219,20 +120,8 @@ func TestStateManager_DatabaseCfg(t *testing.T) {
 	mgr1 := mgr.(*stateManager)
 	storage1 := NewMockStorageCluster(ctrl)
 	mgr1.mutex.Lock()
-	mgr1.newStorageClusterFn = func(ctx context.Context, cfg *config.StorageCluster,
-		stateMgr StateManager, repoFactory state.RepositoryFactory,
-	) (cluster StorageCluster, err error) {
-		return storage1, nil
-	}
+	mgr1.storage = storage1
 	mgr1.mutex.Unlock()
-
-	storage1.EXPECT().Start().Return(nil)
-	mgr.EmitEvent(&discovery.Event{
-		Type:  discovery.StorageConfigChanged,
-		Key:   "/storage/test",
-		Value: encoding.JSONMarshal(&config.StorageCluster{Config: &config.RepoState{Namespace: "/storage/test"}}),
-	})
-	time.Sleep(100 * time.Millisecond)
 
 	// case 1: unmarshal cfg err
 	mgr.EmitEvent(&discovery.Event{
@@ -248,20 +137,11 @@ func TestStateManager_DatabaseCfg(t *testing.T) {
 	})
 	db := &models.Database{
 		Name:          "test",
-		Storage:       "/storage/test2",
 		NumOfShard:    3,
 		ReplicaFactor: 2,
 		Option:        &option.DatabaseOption{},
 	}
 	data := encoding.JSONMarshal(db)
-	// case 3: storage not found
-	mgr.EmitEvent(&discovery.Event{
-		Type:  discovery.DatabaseConfigChanged,
-		Key:   "/database/test",
-		Value: data,
-	})
-	db.Storage = "/storage/test"
-	data = encoding.JSONMarshal(db)
 	// case 3: get shard assign err
 	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
 	mgr.EmitEvent(&discovery.Event{
@@ -276,21 +156,18 @@ func TestStateManager_DatabaseCfg(t *testing.T) {
 		Key:   "/database/test",
 		Value: data,
 	})
+	// case 4: live node error
+	mgr1.mutex.Lock()
 	storage1.EXPECT().GetLiveNodes().Return(nil, fmt.Errorf("err"))
-	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(encoding.JSONMarshal(&models.ShardAssignment{}), nil)
-	mgr.EmitEvent(&discovery.Event{
-		Type:  discovery.DatabaseConfigChanged,
-		Key:   "/database/test",
-		Value: data,
-	})
+	mgr1.mutex.Unlock()
+	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return([]byte("{}"), nil)
+	assert.NoError(t, mgr1.onDatabaseCfgChange("/database/test", data))
 	// case 5: create shard assign err
-	storage1.EXPECT().GetLiveNodes().Return(nil, fmt.Errorf("err"))
+	mgr1.mutex.Lock()
+	storage1.EXPECT().GetLiveNodes().Return(nil, nil)
+	mgr1.mutex.Unlock()
 	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, state.ErrNotExist)
-	mgr.EmitEvent(&discovery.Event{
-		Type:  discovery.DatabaseConfigChanged,
-		Key:   "/database/test",
-		Value: data,
-	})
+	assert.NoError(t, mgr1.onDatabaseCfgChange("/database/test", data))
 	// case 6: trigger modify event
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(encoding.JSONMarshal(&models.ShardAssignment{
@@ -304,7 +181,6 @@ func TestStateManager_DatabaseCfg(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 	assert.Len(t, mgr.GetDatabases(), 1)
-	storage1.EXPECT().Close()
 	mgr.Close()
 }
 
@@ -315,14 +191,13 @@ func TestStateManager_ShardAssignment(t *testing.T) {
 	}()
 	repo := state.NewMockRepository(ctrl)
 	storage := NewMockStorageCluster(ctrl)
-	storage.EXPECT().Close().AnyTimes()
 	mgr := NewStateManager(context.TODO(), repo, nil)
 	mgr1 := mgr.(*stateManager)
 	elector := NewMockReplicaLeaderElector(ctrl)
 	mgr1.mutex.Lock()
 	mgr1.elector = elector
-	mgr1.databases["test"] = &models.Database{Storage: "test"}
-	mgr1.storages["test"] = storage
+	mgr1.databases["test"] = &models.Database{}
+	mgr1.storage = storage
 	mgr1.mutex.Unlock()
 	// case 1: unmarshal err
 	mgr.EmitEvent(&discovery.Event{
@@ -335,7 +210,7 @@ func TestStateManager_ShardAssignment(t *testing.T) {
 		Name:   "test",
 		Shards: map[models.ShardID]*models.Replica{1: {Replicas: []models.NodeID{2, 3}}, 2: {Replicas: []models.NodeID{2, 3}}},
 	})
-	storage.EXPECT().GetState().Return(models.NewStorageState("test")).AnyTimes()
+	storage.EXPECT().GetState().Return(models.NewStorageState()).AnyTimes()
 	elector.EXPECT().ElectLeader(gomock.Any(), gomock.Any(), gomock.Any()).Return(models.NodeID(2), nil)
 	elector.EXPECT().ElectLeader(gomock.Any(), gomock.Any(), gomock.Any()).Return(models.NodeID(0), fmt.Errorf("err"))
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
@@ -365,7 +240,6 @@ func TestStateManager_createShardAssign(t *testing.T) {
 	}()
 	repo := state.NewMockRepository(ctrl)
 	storage := NewMockStorageCluster(ctrl)
-	storage.EXPECT().Close().AnyTimes()
 	mgr := NewStateManager(context.TODO(), repo, nil)
 	mgr1 := mgr.(*stateManager)
 	// case 1: get live nodes err
@@ -414,7 +288,6 @@ func TestStateManager_modifyShardAssign(t *testing.T) {
 	}()
 	repo := state.NewMockRepository(ctrl)
 	storage := NewMockStorageCluster(ctrl)
-	storage.EXPECT().Close().AnyTimes()
 	mgr := NewStateManager(context.TODO(), repo, nil)
 	mgr1 := mgr.(*stateManager)
 	// case 1: no impl
@@ -469,46 +342,40 @@ func TestStateManager_StorageNodeStartup(t *testing.T) {
 	}()
 	repo := state.NewMockRepository(ctrl)
 	storage := NewMockStorageCluster(ctrl)
-	storage.EXPECT().Close().AnyTimes()
 	mgr := NewStateManager(context.TODO(), repo, nil)
 	mgr1 := mgr.(*stateManager)
 	mgr1.mutex.Lock()
-	mgr1.storages["test"] = storage
+	mgr1.storage = storage
 	mgr1.mutex.Unlock()
 	// case 1: unmarshal err
 	mgr.EmitEvent(&discovery.Event{
-		Type:       discovery.NodeStartup,
-		Key:        "/test/1",
-		Value:      []byte("dd"),
-		Attributes: map[string]string{storageNameKey: "test"},
+		Type:  discovery.NodeStartup,
+		Key:   "/test/1",
+		Value: []byte("dd"),
 	})
 	// case 2: sync err
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	storage.EXPECT().GetState().Return(models.NewStorageState("test"))
+	storage.EXPECT().GetState().Return(models.NewStorageState())
 	mgr.EmitEvent(&discovery.Event{
-		Type:       discovery.NodeStartup,
-		Key:        "/test/1",
-		Value:      []byte(`{"id":1}`),
-		Attributes: map[string]string{storageNameKey: "test"},
+		Type:  discovery.NodeStartup,
+		Key:   "/test/1",
+		Value: []byte(`{"id":1}`),
 	})
 	// case 3: change shard state,but shard state not found
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	storage.EXPECT().GetState().Return(&models.StorageState{
-		Name:      "test",
 		LiveNodes: map[models.NodeID]models.StatefulNode{},
 		ShardAssignments: map[string]*models.ShardAssignment{"test": {
 			Shards: map[models.ShardID]*models.Replica{1: {Replicas: []models.NodeID{1, 2, 3, 4}}},
 		}},
 	})
 	mgr.EmitEvent(&discovery.Event{
-		Type:       discovery.NodeStartup,
-		Key:        "/test/1",
-		Value:      []byte(`{"id":1}`),
-		Attributes: map[string]string{storageNameKey: "test"},
+		Type:  discovery.NodeStartup,
+		Key:   "/test/1",
+		Value: []byte(`{"id":1}`),
 	})
 	// case 4: change shard state ok
 	storage.EXPECT().GetState().Return(&models.StorageState{
-		Name:        "test",
 		LiveNodes:   map[models.NodeID]models.StatefulNode{},
 		ShardStates: map[string]map[models.ShardID]models.ShardState{"test": {1: {}}},
 		ShardAssignments: map[string]*models.ShardAssignment{"test": {
@@ -516,17 +383,14 @@ func TestStateManager_StorageNodeStartup(t *testing.T) {
 		}},
 	})
 	mgr.EmitEvent(&discovery.Event{
-		Type:       discovery.NodeStartup,
-		Key:        "/test/1",
-		Value:      []byte(`{"id":1}`),
-		Attributes: map[string]string{storageNameKey: "test"},
+		Type:  discovery.NodeStartup,
+		Key:   "/test/1",
+		Value: []byte(`{"id":1}`),
 	})
 	time.Sleep(100 * time.Millisecond)
 
 	storage.EXPECT().GetState().Return(&models.StorageState{})
-	assert.Len(t, mgr.GetStorageStates(), 1)
-	storage.EXPECT().GetConfig().Return(&config.StorageCluster{})
-	assert.Len(t, mgr.GetStorages(), 1)
+	assert.NotNil(t, mgr.GetStorageState())
 	mgr.Close()
 }
 
@@ -537,30 +401,26 @@ func TestStateManager_StorageNodeFailure(t *testing.T) {
 	}()
 	repo := state.NewMockRepository(ctrl)
 	storage := NewMockStorageCluster(ctrl)
-	storage.EXPECT().Close().AnyTimes()
 	mgr := NewStateManager(context.TODO(), repo, nil)
 	mgr1 := mgr.(*stateManager)
 	mgr1.mutex.Lock()
-	mgr1.storages["test"] = storage
+	mgr1.storage = storage
 	mgr1.mutex.Unlock()
 	// case 1: unmarshal node id err
 	mgr.EmitEvent(&discovery.Event{
-		Type:       discovery.NodeFailure,
-		Key:        "/test/test_1",
-		Attributes: map[string]string{storageNameKey: "test"},
+		Type: discovery.NodeFailure,
+		Key:  "/test/test_1",
 	})
 	// case 2: sync err
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	storage.EXPECT().GetState().Return(models.NewStorageState("test"))
+	storage.EXPECT().GetState().Return(models.NewStorageState())
 	mgr.EmitEvent(&discovery.Event{
-		Type:       discovery.NodeFailure,
-		Key:        "/test/1",
-		Attributes: map[string]string{storageNameKey: "test"},
+		Type: discovery.NodeFailure,
+		Key:  "/test/1",
 	})
 	// case 3: change shard state,but elect leader err
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	storage.EXPECT().GetState().Return(&models.StorageState{
-		Name:        "test",
 		LiveNodes:   map[models.NodeID]models.StatefulNode{},
 		ShardStates: map[string]map[models.ShardID]models.ShardState{"test": {1: {Leader: 1}}},
 		ShardAssignments: map[string]*models.ShardAssignment{"test": {
@@ -568,16 +428,14 @@ func TestStateManager_StorageNodeFailure(t *testing.T) {
 		}},
 	})
 	mgr.EmitEvent(&discovery.Event{
-		Type:       discovery.NodeFailure,
-		Key:        "/test/1",
-		Attributes: map[string]string{storageNameKey: "test"},
+		Type: discovery.NodeFailure,
+		Key:  "/test/1",
 	})
 	// case 4: change shard state ok, leader elect success
 	shardStates := map[string]map[models.ShardID]models.ShardState{"test": {1: {Leader: 1}}}
 	liveNodes := map[models.NodeID]models.StatefulNode{1: {ID: 1}, 2: {ID: 2}}
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	storage.EXPECT().GetState().Return(&models.StorageState{
-		Name:        "test",
 		LiveNodes:   liveNodes,
 		ShardStates: shardStates,
 		ShardAssignments: map[string]*models.ShardAssignment{"test": {
@@ -587,7 +445,7 @@ func TestStateManager_StorageNodeFailure(t *testing.T) {
 	mgr.EmitEvent(&discovery.Event{
 		Type:       discovery.NodeFailure,
 		Key:        "/test/1",
-		Attributes: map[string]string{storageNameKey: "test"},
+		Attributes: map[string]string{},
 	})
 
 	time.Sleep(300 * time.Millisecond)
@@ -608,9 +466,9 @@ func TestStateManager_onDatabaseLimits(t *testing.T) {
 	mgr := NewStateManager(context.TODO(), repo, nil)
 	mgr1 := mgr.(*stateManager)
 	mgr1.mutex.Lock()
-	mgr1.storages["test"] = storage
-	mgr1.databases["db"] = &models.Database{Storage: "test"}
-	mgr1.databases["db1"] = &models.Database{Storage: "test1"}
+	mgr1.storage = storage
+	mgr1.databases["db"] = &models.Database{}
+	mgr1.databases["db1"] = &models.Database{}
 	mgr1.mutex.Unlock()
 
 	// case 1: database not exist
@@ -619,25 +477,15 @@ func TestStateManager_onDatabaseLimits(t *testing.T) {
 		Key:   "/database/limit/db2",
 		Value: []byte("dd"),
 	})
-	// case 2: storage not exist
-	mgr.EmitEvent(&discovery.Event{
-		Type:  discovery.DatabaseLimitsChanged,
-		Key:   "/database/limit/db1",
-		Value: []byte("dd"),
-	})
 	// case 3: set limits failure
+	mgr1.mutex.Lock()
 	storage.EXPECT().SetDatabaseLimits(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	mgr.EmitEvent(&discovery.Event{
-		Type:  discovery.DatabaseLimitsChanged,
-		Key:   "/database/limit/db",
-		Value: []byte("dd"),
-	})
+	mgr1.mutex.Unlock()
+	assert.Error(t, mgr1.onDatabaseLimitsChange("/database/limit/db", []byte("dd")))
 	// case 4: set limits successfully
+	mgr1.mutex.Lock()
 	storage.EXPECT().SetDatabaseLimits(gomock.Any(), gomock.Any()).Return(nil)
-	mgr.EmitEvent(&discovery.Event{
-		Type:  discovery.DatabaseLimitsChanged,
-		Key:   "/database/limit/db",
-		Value: []byte("dd"),
-	})
+	mgr1.mutex.Unlock()
+	assert.NoError(t, mgr1.onDatabaseLimitsChange("/database/limit/db", []byte("dd")))
 	time.Sleep(100 * time.Millisecond)
 }

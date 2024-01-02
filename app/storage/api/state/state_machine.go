@@ -65,11 +65,11 @@ func (api *StorageStateMachineAPI) Explore(c *gin.Context) {
 	}
 	switch param.Type {
 	case constants.ShardAssignment:
-		databases := api.stateMgr.GetDatabaseAssignments()
-		sort.Slice(databases, func(i, j int) bool {
-			return databases[i].ShardAssignment.Name < databases[j].ShardAssignment.Name
+		shardAssignments := api.stateMgr.GetShardAssignments()
+		sort.Slice(shardAssignments, func(i, j int) bool {
+			return shardAssignments[i].Name < shardAssignments[j].Name
 		})
-		http.OK(c, databases)
+		http.OK(c, shardAssignments)
 	case constants.LiveNode:
 		nodes := api.stateMgr.GetLiveNodes()
 		sort.Slice(nodes, func(i, j int) bool {

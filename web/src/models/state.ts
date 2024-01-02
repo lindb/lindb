@@ -51,7 +51,6 @@ export type BrokerState = {
 };
 
 export type StorageState = {
-  name?: string;
   liveNodes?: { [nodeId: string]: Node }; // node id=>node
   shardStates?: {
     [database: string]: {

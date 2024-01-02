@@ -31,14 +31,14 @@ import { Node, Unit } from "@src/models";
 import { StateKit, FormatKit } from "@src/utils";
 import React, { CSSProperties, ReactNode, useContext } from "react";
 import { URLStore } from "@src/stores";
-import * as _ from "lodash-es";
+import { isEmpty, get, concat } from "lodash-es";
 import { UIContext } from "@src/context/UIContextProvider";
 
 const { Text } = Typography;
 const { CPU, Memory } = StateMetricName;
 
 interface NodeViewProps {
-  title: string;
+  title?: string;
   style?: CSSProperties;
   nodes: Node[];
   sql: string;
@@ -84,7 +84,7 @@ export default function NodeView(props: NodeViewProps) {
                 },
                 {
                   key: NodeView.grpcPort,
-                  value: <Text link>{_.get(record, "grpcPort", "-")}</Text>,
+                  value: <Text link>{get(record, "grpcPort", "-")}</Text>,
                 },
               ]}
             />
@@ -189,6 +189,18 @@ export default function NodeView(props: NodeViewProps) {
     },
   ];
 
+  if (isEmpty(title)) {
+    return (
+      <Table
+        size="small"
+        bordered
+        columns={showNodeId ? concat([nodeIdCol], columns) : columns}
+        dataSource={nodes}
+        pagination={false}
+        empty={statusTip}
+      />
+    );
+  }
   return (
     <Card
       style={{ ...style }}
@@ -199,7 +211,7 @@ export default function NodeView(props: NodeViewProps) {
       <Table
         size="small"
         bordered={false}
-        columns={showNodeId ? _.concat([nodeIdCol], columns) : columns}
+        columns={showNodeId ? concat([nodeIdCol], columns) : columns}
         dataSource={nodes}
         pagination={false}
         empty={statusTip}

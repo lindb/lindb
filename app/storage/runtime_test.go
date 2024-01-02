@@ -94,7 +94,7 @@ func TestStorageRun(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	runtime, _ := storage.(*runtime)
-	nodePath := constants.GetLiveNodePath(strconv.Itoa(int(runtime.node.ID)))
+	nodePath := constants.GetStorageLiveNodePath(strconv.Itoa(int(runtime.node.ID)))
 	nodeBytes, err := runtime.repo.Get(context.TODO(), nodePath)
 	assert.NoError(t, err)
 
@@ -175,7 +175,7 @@ func TestStorageRun_Err(t *testing.T) {
 	s := storage.(*runtime)
 	repoFactory := state.NewMockRepositoryFactory(ctrl)
 	s.repoFactory = repoFactory
-	repoFactory.EXPECT().CreateStorageRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
+	repoFactory.EXPECT().CreateNormalRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
 	err = s.Run()
 	assert.Error(t, err)
 	// wait grpc server start and register success

@@ -58,7 +58,7 @@ func newBrokerCluster(
 	repoFactory statepkg.RepositoryFactory,
 ) (BrokerCluster, error) {
 	var brokerRepo statepkg.Repository
-	brokerRepo, err := repoFactory.CreateBrokerRepo(cfg.Config)
+	brokerRepo, err := repoFactory.CreateNormalRepo(cfg.Config)
 	if err != nil {
 		return nil, err
 	}

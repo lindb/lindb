@@ -34,6 +34,7 @@ import (
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/tsdb"
 )
@@ -55,8 +56,8 @@ type StateManager interface {
 	WatchNodeStateChangeEvent(nodeID models.NodeID, fn func(state models.NodeStateType))
 	// GetLiveNodes returns the current live nodes.
 	GetLiveNodes() []models.StatefulNode
-	// GetDatabaseAssignments returns the current database assignments.
-	GetDatabaseAssignments() []*models.DatabaseAssignment
+	// GetShardAssignments returns the current database's shard assignments.
+	GetShardAssignments() []*models.ShardAssignment
 }
 
 // stateManager implements StateManager.
@@ -64,11 +65,12 @@ type stateManager struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	engine              tsdb.Engine
-	current             *models.StatefulNode
-	nodes               map[models.NodeID]models.StatefulNode // storage live nodes
-	watches             map[models.NodeID][]func(state models.NodeStateType)
-	databaseAssignments map[string]*models.DatabaseAssignment
+	repo             state.Repository
+	engine           tsdb.Engine
+	current          *models.StatefulNode
+	nodes            map[models.NodeID]models.StatefulNode // storage live nodes
+	watches          map[models.NodeID][]func(state models.NodeStateType)
+	shardAssignments map[string]*models.ShardAssignment
 
 	events chan *discovery.Event
 
@@ -82,21 +84,23 @@ type stateManager struct {
 // NewStateManager creates a StateManager instance.
 func NewStateManager(
 	ctx context.Context,
+	repo state.Repository,
 	current *models.StatefulNode,
 	engine tsdb.Engine,
 ) StateManager {
 	c, cancel := context.WithCancel(ctx)
 	mgr := &stateManager{
-		ctx:                 c,
-		cancel:              cancel,
-		current:             current,
-		engine:              engine,
-		nodes:               make(map[models.NodeID]models.StatefulNode),
-		databaseAssignments: make(map[string]*models.DatabaseAssignment),
-		events:              make(chan *discovery.Event, 10),
-		watches:             make(map[models.NodeID][]func(state models.NodeStateType)),
-		statistics:          metrics.NewStateManagerStatistics(linmetric.StorageRegistry),
-		logger:              logger.GetLogger("Storage", "StateManager"),
+		ctx:              c,
+		cancel:           cancel,
+		repo:             repo,
+		current:          current,
+		engine:           engine,
+		nodes:            make(map[models.NodeID]models.StatefulNode),
+		shardAssignments: make(map[string]*models.ShardAssignment),
+		events:           make(chan *discovery.Event, 10),
+		watches:          make(map[models.NodeID][]func(state models.NodeStateType)),
+		statistics:       metrics.NewStateManagerStatistics(linmetric.StorageRegistry),
+		logger:           logger.GetLogger("Storage", "StateManager"),
 	}
 
 	// start consume discovery event task
@@ -184,18 +188,18 @@ func (m *stateManager) onShardAssignmentChange(key string, data []byte) error {
 	m.logger.Info("shard assignment is changed",
 		logger.String("key", key),
 		logger.String("data", string(data)))
-	param := models.DatabaseAssignment{}
+	param := models.ShardAssignment{}
 	if err := encoding.JSONUnmarshal(data, &param); err != nil {
 		return err
 	}
-	if param.ShardAssignment == nil {
-		return constants.ErrShardNotFound
+	if param.Name == "" {
+		return constants.ErrDatabaseNameRequired
 	}
 
-	m.databaseAssignments[param.ShardAssignment.Name] = &param
+	m.shardAssignments[param.Name] = &param
 
 	var shardIDs []models.ShardID
-	for shardID, replica := range param.ShardAssignment.Shards {
+	for shardID, replica := range param.Shards {
 		if replica.Contain(m.current.ID) {
 			shardIDs = append(shardIDs, shardID)
 		}
@@ -203,13 +207,22 @@ func (m *stateManager) onShardAssignmentChange(key string, data []byte) error {
 	if len(shardIDs) == 0 {
 		return constants.ErrShardNotFound
 	}
+	cfgData, err := m.repo.Get(m.ctx, constants.GetDatabaseConfigPath(param.Name))
+	if err != nil {
+		return err
+	}
+	cfg := &models.DatabaseConfig{}
+	if err := encoding.JSONUnmarshal(cfgData, &cfg); err != nil {
+		return err
+	}
+
 	if err := m.engine.CreateShards(
-		param.ShardAssignment.Name,
-		param.Option,
+		param.Name,
+		cfg.Option,
 		shardIDs...,
 	); err != nil {
 		m.logger.Error("create shard storage engine err",
-			logger.String("db", param.ShardAssignment.Name),
+			logger.String("db", param.Name),
 			logger.Any("shards", shardIDs),
 			logger.Error(err))
 		return err
@@ -308,13 +321,13 @@ func (m *stateManager) GetLiveNodes() (rs []models.StatefulNode) {
 	return
 }
 
-// GetDatabaseAssignments returns the current database assignments.
-func (m *stateManager) GetDatabaseAssignments() (rs []*models.DatabaseAssignment) {
+// GetShardAssignments returns the current database's shard assignments.
+func (m *stateManager) GetShardAssignments() (rs []*models.ShardAssignment) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
-	for _, databaseAssignment := range m.databaseAssignments {
-		rs = append(rs, databaseAssignment)
+	for _, shardAssignment := range m.shardAssignments {
+		rs = append(rs, shardAssignment)
 	}
 	return
 }

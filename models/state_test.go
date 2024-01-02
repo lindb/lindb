@@ -60,7 +60,7 @@ func TestBrokerState(t *testing.T) {
 }
 
 func TestStorageState(t *testing.T) {
-	storageState := NewStorageState("test")
+	storageState := NewStorageState()
 	storageState.NodeOnline(StatefulNode{
 		StatelessNode: StatelessNode{HostIP: "1.1.1.1", GRPCPort: 9000},
 		ID:            1,

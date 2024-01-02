@@ -52,10 +52,6 @@ func (v *BaseSQLVisitor) VisitShowRequestStmt(ctx *ShowRequestStmtContext) inter
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLVisitor) VisitShowStoragesStmt(ctx *ShowStoragesStmtContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
 func (v *BaseSQLVisitor) VisitShowBrokersStmt(ctx *ShowBrokersStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -229,10 +225,6 @@ func (v *BaseSQLVisitor) VisitField(ctx *FieldContext) interface{} {
 }
 
 func (v *BaseSQLVisitor) VisitAlias(ctx *AliasContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseSQLVisitor) VisitStorageFilter(ctx *StorageFilterContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

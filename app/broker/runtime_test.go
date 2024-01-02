@@ -103,14 +103,14 @@ func TestBrokerRuntime_Run(t *testing.T) {
 				hostName = func() (name string, err error) {
 					return "", fmt.Errorf("err")
 				}
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
+				repoFct.EXPECT().CreateNormalRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
 			},
 			wantErr: true,
 		},
 		{
 			name: "registry alive node failure",
 			prepare: func() {
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
+				repoFct.EXPECT().CreateNormalRepo(gomock.Any()).Return(repo, nil)
 				registry := discovery.NewMockRegistry(ctrl)
 				registry.EXPECT().Register(gomock.Any()).Return(fmt.Errorf("err"))
 				newRegistry = func(repo state.Repository, prefixPath string, ttl time.Duration) discovery.Registry {
@@ -122,7 +122,7 @@ func TestBrokerRuntime_Run(t *testing.T) {
 		{
 			name: "start master controller failure",
 			prepare: func() {
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
+				repoFct.EXPECT().CreateNormalRepo(gomock.Any()).Return(repo, nil)
 				registry := discovery.NewMockRegistry(ctrl)
 				registry.EXPECT().Register(gomock.Any()).Return(nil)
 				newRegistry = func(repo state.Repository, prefixPath string, ttl time.Duration) discovery.Registry {
@@ -140,7 +140,7 @@ func TestBrokerRuntime_Run(t *testing.T) {
 		{
 			name: "broker state machine start failure, after master election",
 			prepare: func() {
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
+				repoFct.EXPECT().CreateNormalRepo(gomock.Any()).Return(repo, nil)
 				registry := discovery.NewMockRegistry(ctrl)
 				registry.EXPECT().Register(gomock.Any()).Return(nil)
 				newRegistry = func(repo state.Repository, prefixPath string, ttl time.Duration) discovery.Registry {
@@ -166,7 +166,7 @@ func TestBrokerRuntime_Run(t *testing.T) {
 		{
 			name: "broker successfully",
 			prepare: func() {
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
+				repoFct.EXPECT().CreateNormalRepo(gomock.Any()).Return(repo, nil)
 				registry := discovery.NewMockRegistry(ctrl)
 				registry.EXPECT().Register(gomock.Any()).Return(nil)
 				newRegistry = func(repo state.Repository, prefixPath string, ttl time.Duration) discovery.Registry {

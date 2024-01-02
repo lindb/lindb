@@ -48,7 +48,7 @@ type Metadata struct {
 	MetadataType MetadataType
 	Type         string     // root/broker/master/storage will be used.
 	Source       SourceType // source(from state repo or state manager).
-	ClusterName  string     // storage/broker will be used.
+	ClusterName  string     // broker will be used.
 }
 
 // StatementType returns metadata lin query language statement type.

@@ -151,10 +151,6 @@ connect-timeout = "3s"
 ## Default: 24h0m0s
 ## Env: LINDB_STORAGE_TTL_TASK_INTERVAL 
 ttl-task-interval = "24h0m0s"
-## Broker http endpoint which storage self register address
-## Default: http://localhost:9000
-## Env: LINDB_STORAGE_BROKER_ENDPOINT
-broker-endpoint = "http://localhost:9000"
 
 ## Storage HTTP related configuration.
 [storage.http]

@@ -107,7 +107,7 @@ func createBroker(ctx context.Context, deps *depspkg.HTTPDeps, stmt *stmtpkg.Bro
 	cfg.Timeout = ltoml.Duration(time.Second)
 	cfg.DialTimeout = ltoml.Duration(time.Second)
 	// check broker repo config if valid
-	repo, err := deps.RepoFactory.CreateBrokerRepo(cfg)
+	repo, err := deps.RepoFactory.CreateNormalRepo(cfg)
 	if err != nil {
 		return nil, err
 	}

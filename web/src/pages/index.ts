@@ -17,7 +17,6 @@ under the License.
 */
 
 export { default as Overview } from "@src/pages/state/Overview";
-export { default as StorageOverview } from "@src/pages/state/StorageOverview";
 export { default as ConfigurationView } from "@src/pages/state/ConfigurationView";
 export { default as DataSearch } from "@src/pages/search/DataSearch";
 export { default as DataExplore } from "@src/pages/search/DataExplore";
@@ -25,8 +24,6 @@ export { default as DashboardView } from "@src/pages/monitoring/DashboardView";
 export { default as ReplicationView } from "@src/pages/monitoring/ReplicationView";
 export { default as LogView } from "@src/pages/monitoring/LogView";
 export { default as RequestView } from "@src/pages/monitoring/RequestView";
-export { default as StorageList } from "@src/pages/metadata/StorageList";
-export { default as StorageConfig } from "@src/pages/metadata/StorageConfig";
 export { default as BrokerList } from "@src/pages/metadata/BrokerList";
 export { default as BrokerConfig } from "@src/pages/metadata/BrokerConfig";
 export { default as DatabaseList } from "@src/pages/metadata/DatabaseList";

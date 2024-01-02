@@ -35,11 +35,6 @@ func newStateStmtParse(stateType stmt.StateType) *stateStmtParser {
 	}
 }
 
-// visitStorageFilter visits storage filter.
-func (s *stateStmtParser) visitStorageFilter(ctx *grammar.StorageFilterContext) {
-	s.state.StorageName = strutil.GetStringValue(ctx.Ident().GetText())
-}
-
 // visitDatabaseFilter visits database filter.
 func (s *stateStmtParser) visitDatabaseFilter(ctx *grammar.DatabaseFilterContext) {
 	s.state.Database = strutil.GetStringValue(ctx.Ident().GetText())

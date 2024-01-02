@@ -154,24 +154,9 @@ func (l *listener) EnterBrokerFilter(ctx *grammar.BrokerFilterContext) {
 	l.metadataStmt.visitBrokerFilter(ctx)
 }
 
-// EnterStorageFilter is called when production storageFilter is entered.
-func (l *listener) EnterStorageFilter(ctx *grammar.StorageFilterContext) {
-	switch {
-	case l.stateStmt != nil:
-		l.stateStmt.visitStorageFilter(ctx)
-	case l.metadataStmt != nil:
-		l.metadataStmt.visitStorageFilter(ctx)
-	}
-}
-
 // EnterDatabaseFilter is called when production databaseFilter is entered.
 func (l *listener) EnterDatabaseFilter(ctx *grammar.DatabaseFilterContext) {
 	l.stateStmt.visitDatabaseFilter(ctx)
-}
-
-// EnterShowStoragesStmt is called when production showStoragesStmt is entered.
-func (l *listener) EnterShowStoragesStmt(_ *grammar.ShowStoragesStmtContext) {
-	l.storageStmt = newStorageStmtParse(stmt.StorageOpShow)
 }
 
 // EnterShowBrokersStmt is called when production showBrokersStmt is entered.
@@ -201,11 +186,6 @@ func (l *listener) EnterOptionClause(ctx *grammar.OptionClauseContext) {
 // EnterCreateBrokerStmt is called when production createBrokerStmt is entered.
 func (l *listener) EnterCreateBrokerStmt(c *grammar.CreateBrokerStmtContext) {
 	l.brokerStmt = newBrokerStmtParse(stmt.BrokerOpCreate)
-}
-
-// EnterCreateStorageStmt is called when production createStorageStmt is entered.
-func (l *listener) EnterCreateStorageStmt(c *grammar.CreateStorageStmtContext) {
-	l.storageStmt = newStorageStmtParse(stmt.StorageOpCreate)
 }
 
 // EnterCreateDatabaseStmt is called when entering the createDatabaseStmt production.

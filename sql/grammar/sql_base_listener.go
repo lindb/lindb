@@ -79,12 +79,6 @@ func (s *BaseSQLListener) EnterShowRequestStmt(ctx *ShowRequestStmtContext) {}
 // ExitShowRequestStmt is called when production showRequestStmt is exited.
 func (s *BaseSQLListener) ExitShowRequestStmt(ctx *ShowRequestStmtContext) {}
 
-// EnterShowStoragesStmt is called when production showStoragesStmt is entered.
-func (s *BaseSQLListener) EnterShowStoragesStmt(ctx *ShowStoragesStmtContext) {}
-
-// ExitShowStoragesStmt is called when production showStoragesStmt is exited.
-func (s *BaseSQLListener) ExitShowStoragesStmt(ctx *ShowStoragesStmtContext) {}
-
 // EnterShowBrokersStmt is called when production showBrokersStmt is entered.
 func (s *BaseSQLListener) EnterShowBrokersStmt(ctx *ShowBrokersStmtContext) {}
 
@@ -348,12 +342,6 @@ func (s *BaseSQLListener) EnterAlias(ctx *AliasContext) {}
 
 // ExitAlias is called when production alias is exited.
 func (s *BaseSQLListener) ExitAlias(ctx *AliasContext) {}
-
-// EnterStorageFilter is called when production storageFilter is entered.
-func (s *BaseSQLListener) EnterStorageFilter(ctx *StorageFilterContext) {}
-
-// ExitStorageFilter is called when production storageFilter is exited.
-func (s *BaseSQLListener) ExitStorageFilter(ctx *StorageFilterContext) {}
 
 // EnterBrokerFilter is called when production brokerFilter is entered.
 func (s *BaseSQLListener) EnterBrokerFilter(ctx *BrokerFilterContext) {}

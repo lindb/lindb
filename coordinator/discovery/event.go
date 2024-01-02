@@ -28,9 +28,6 @@ const (
 	NodeStartup
 	NodeFailure
 	StorageStateChanged
-	StorageStateDeletion
-	StorageConfigChanged
-	StorageConfigDeletion
 	BrokerConfigChanged
 	BrokerConfigDeletion
 	DatabaseLimitsChanged
@@ -53,12 +50,6 @@ func (e EventType) String() string {
 		return "NodeFailure"
 	case StorageStateChanged:
 		return "StorageStateChanged"
-	case StorageStateDeletion:
-		return "StorageStateDeletion"
-	case StorageConfigChanged:
-		return "StorageConfigChanged"
-	case StorageConfigDeletion:
-		return "StorageConfigDeletion"
 	case BrokerConfigChanged:
 		return "BrokerConfigChanged"
 	case BrokerConfigDeletion:

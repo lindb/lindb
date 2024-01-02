@@ -84,19 +84,12 @@ func TestState(t *testing.T) {
 			name:      "show storage alive node",
 			statement: &stmt.State{Type: stmt.StorageAlive},
 			prepare: func() {
-				stateMgr.EXPECT().GetStorageList().Return([]*models.StorageState{})
-			},
-		},
-		{
-			name:      "show memory database state, but storage not found",
-			statement: &stmt.State{Type: stmt.MemoryDatabase, StorageName: "a", Database: "b"},
-			prepare: func() {
-				stateMgr.EXPECT().GetStorage(gomock.Any()).Return(nil, false)
+				stateMgr.EXPECT().GetStorage().Return(&models.StorageState{})
 			},
 		},
 		{
 			name:      "show memory database state",
-			statement: &stmt.State{Type: stmt.MemoryDatabase, StorageName: "a", Database: "b"},
+			statement: &stmt.State{Type: stmt.MemoryDatabase, Database: "b"},
 			prepare: func() {
 				svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 					_, _ = w.Write([]byte("[]"))
@@ -105,48 +98,41 @@ func TestState(t *testing.T) {
 				assert.NoError(t, err)
 				p, err := strconv.Atoi(u.Port())
 				assert.NoError(t, err)
-				stateMgr.EXPECT().GetStorage(gomock.Any()).Return(&models.StorageState{
+				stateMgr.EXPECT().GetStorage().Return(&models.StorageState{
 					LiveNodes: map[models.NodeID]models.StatefulNode{1: {
 						StatelessNode: models.StatelessNode{
 							HostIP:   u.Hostname(),
 							HTTPPort: uint16(p),
 						},
 						ID: 1,
-					}}}, true)
-			},
-		},
-		{
-			name:      "show replication state, but storage not found",
-			statement: &stmt.State{Type: stmt.Replication, StorageName: "a", Database: "b"},
-			prepare: func() {
-				stateMgr.EXPECT().GetStorage(gomock.Any()).Return(nil, false)
+					}}})
 			},
 		},
 		{
 			name:      "show replication state, alive node empty",
-			statement: &stmt.State{Type: stmt.Replication, StorageName: "a", Database: "b"},
+			statement: &stmt.State{Type: stmt.Replication, Database: "b"},
 			prepare: func() {
-				stateMgr.EXPECT().GetStorage(gomock.Any()).Return(&models.StorageState{
-					LiveNodes: nil}, true)
+				stateMgr.EXPECT().GetStorage().Return(&models.StorageState{
+					LiveNodes: nil})
 			},
 		},
 		{
 			name:      "show replication state, but fetch state failure",
-			statement: &stmt.State{Type: stmt.Replication, StorageName: "a", Database: "b"},
+			statement: &stmt.State{Type: stmt.Replication, Database: "b"},
 			prepare: func() {
-				stateMgr.EXPECT().GetStorage(gomock.Any()).Return(&models.StorageState{
+				stateMgr.EXPECT().GetStorage().Return(&models.StorageState{
 					LiveNodes: map[models.NodeID]models.StatefulNode{1: {
 						StatelessNode: models.StatelessNode{
 							HostIP:   "127.0.01", // mock host err
 							HTTPPort: 8080,
 						},
 						ID: 1,
-					}}}, true)
+					}}})
 			},
 		},
 		{
 			name:      "show replication state, but fetch state failure",
-			statement: &stmt.State{Type: stmt.Replication, StorageName: "a", Database: "b"},
+			statement: &stmt.State{Type: stmt.Replication, Database: "b"},
 			prepare: func() {
 				svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 					_, _ = w.Write([]byte("[]"))
@@ -155,14 +141,14 @@ func TestState(t *testing.T) {
 				assert.NoError(t, err)
 				p, err := strconv.Atoi(u.Port())
 				assert.NoError(t, err)
-				stateMgr.EXPECT().GetStorage(gomock.Any()).Return(&models.StorageState{
+				stateMgr.EXPECT().GetStorage().Return(&models.StorageState{
 					LiveNodes: map[models.NodeID]models.StatefulNode{1: {
 						StatelessNode: models.StatelessNode{
 							HostIP:   u.Hostname(),
 							HTTPPort: uint16(p),
 						},
 						ID: 1,
-					}}}, true)
+					}}})
 			},
 		},
 		{
@@ -194,30 +180,18 @@ func TestState(t *testing.T) {
 			},
 		},
 		{
-			name:      "show storage metric, storage name empty",
-			statement: &stmt.State{Type: stmt.StorageMetric, StorageName: "", MetricNames: []string{"a", "b"}},
-			wantErr:   true,
-		},
-		{
-			name:      "show storage metric, storage not found",
-			statement: &stmt.State{Type: stmt.StorageMetric, StorageName: "a", MetricNames: []string{"a", "b"}},
-			prepare: func() {
-				stateMgr.EXPECT().GetStorage(gomock.Any()).Return(nil, false)
-			},
-		},
-		{
 			name:      "show storage metric, storage no alive node",
-			statement: &stmt.State{Type: stmt.StorageMetric, StorageName: "a", MetricNames: []string{"a", "b"}},
+			statement: &stmt.State{Type: stmt.StorageMetric, MetricNames: []string{"a", "b"}},
 			prepare: func() {
-				stateMgr.EXPECT().GetStorage(gomock.Any()).Return(&models.StorageState{}, true)
+				stateMgr.EXPECT().GetStorage().Return(&models.StorageState{})
 			},
 		},
 		{
 			name:      "show storage metric successfully",
-			statement: &stmt.State{Type: stmt.StorageMetric, StorageName: "a", MetricNames: []string{"a", "b"}},
+			statement: &stmt.State{Type: stmt.StorageMetric, MetricNames: []string{"a", "b"}},
 			prepare: func() {
-				stateMgr.EXPECT().GetStorage(gomock.Any()).
-					Return(&models.StorageState{LiveNodes: map[models.NodeID]models.StatefulNode{1: {}, 2: {}}}, true)
+				stateMgr.EXPECT().GetStorage().
+					Return(&models.StorageState{LiveNodes: map[models.NodeID]models.StatefulNode{1: {}, 2: {}}})
 			},
 		},
 	}

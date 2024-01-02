@@ -85,7 +85,7 @@ func TestBrokerCommand(t *testing.T) {
 				Value: cfg,
 			},
 			prepare: func() {
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
+				repoFct.EXPECT().CreateNormalRepo(gomock.Any()).Return(repo, nil)
 				repo.EXPECT().Close().Return(nil)
 				repo.EXPECT().PutWithTX(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(_ context.Context, _ string, _ []byte, check func([]byte) error) (bool, error) {
@@ -103,7 +103,7 @@ func TestBrokerCommand(t *testing.T) {
 				Value: cfg,
 			},
 			prepare: func() {
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
+				repoFct.EXPECT().CreateNormalRepo(gomock.Any()).Return(repo, nil)
 				repo.EXPECT().Close().Return(nil)
 				repo.EXPECT().PutWithTX(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(_ context.Context, _ string, _ []byte, check func([]byte) error) (bool, error) {
@@ -126,7 +126,7 @@ func TestBrokerCommand(t *testing.T) {
 				Value: cfg,
 			},
 			prepare: func() {
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
+				repoFct.EXPECT().CreateNormalRepo(gomock.Any()).Return(repo, nil)
 				repo.EXPECT().Close().Return(nil)
 				repo.EXPECT().PutWithTX(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false, fmt.Errorf("err"))
 			},
@@ -139,7 +139,7 @@ func TestBrokerCommand(t *testing.T) {
 				Value: cfg,
 			},
 			prepare: func() {
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
+				repoFct.EXPECT().CreateNormalRepo(gomock.Any()).Return(repo, nil)
 				repo.EXPECT().Close().Return(nil)
 				repo.EXPECT().PutWithTX(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil)
 			},
@@ -152,7 +152,7 @@ func TestBrokerCommand(t *testing.T) {
 				Value: cfg,
 			},
 			prepare: func() {
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
+				repoFct.EXPECT().CreateNormalRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
 			},
 			wantErr: true,
 		},
@@ -163,7 +163,7 @@ func TestBrokerCommand(t *testing.T) {
 				Value: cfg,
 			},
 			prepare: func() {
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
+				repoFct.EXPECT().CreateNormalRepo(gomock.Any()).Return(repo, nil)
 				repo.EXPECT().Close().Return(fmt.Errorf("err"))
 			},
 			wantErr: true,

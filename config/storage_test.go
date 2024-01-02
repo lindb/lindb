@@ -109,7 +109,6 @@ func TestStorage_Env(t *testing.T) {
 	assert.Equal(t, 10000, cfg.StorageBase.GRPC.MaxConcurrentStreams)
 	assert.Equal(t, ltoml.Duration(time.Second*120), cfg.StorageBase.GRPC.ConnectTimeout)
 
-	assert.Equal(t, "broker_url", cfg.StorageBase.BrokerEndpoint)
 	assert.Equal(t, ltoml.Duration(time.Second*120), cfg.StorageBase.TTLTaskInterval)
 	assert.Equal(t, ltoml.Duration(time.Second*120), cfg.StorageBase.WAL.RemoveTaskInterval)
 	assert.Equal(t, "wal_dir", cfg.StorageBase.WAL.Dir)

@@ -398,7 +398,7 @@ func (r *runtime) runHTTPServer() {
 // startStateRepo starts state repository
 func (r *runtime) startStateRepo() error {
 	// set a sub namespace
-	repo, err := r.repoFactory.CreateBrokerRepo(&r.config.Coordinator)
+	repo, err := r.repoFactory.CreateNormalRepo(&r.config.Coordinator)
 	if err != nil {
 		return fmt.Errorf("start broker state repository error:%s", err)
 	}

@@ -68,7 +68,7 @@ const Broker: React.FC = () => {
     isLoading: storageLoading,
     isError: storageHasError,
     error: storageError,
-    storages,
+    storage,
   } = useStorage();
   const {
     isLoading: nodeLoading,
@@ -98,7 +98,7 @@ const Broker: React.FC = () => {
         }
       />
       <StorageView
-        storages={storages || []}
+        storage={storage || []}
         statusTip={
           <StatusTip
             isLoading={storageLoading}

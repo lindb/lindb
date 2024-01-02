@@ -62,7 +62,7 @@ const (
 	// ShardAssignmentPath represents database shard assignment.
 	ShardAssignmentPath = "/database/assign"
 	// StorageConfigPath represents storage cluster's config.
-	StorageConfigPath = "/storage/config"
+	StorageLiveNodesPath = "/storage/live/nodes"
 	// StorageStatePath represents storage cluster's state.
 	StorageStatePath = "/storage/state"
 	// BrokerConfigPath represents broker cluster's config.
@@ -72,15 +72,6 @@ const (
 // GetBrokerClusterConfigPath returns path which storing config of broker cluster.
 func GetBrokerClusterConfigPath(name string) string {
 	return fmt.Sprintf("%s/%s", BrokerConfigPath, name)
-}
-
-// GetStorageClusterConfigPath returns path which storing config of storage cluster
-func GetStorageClusterConfigPath(name string) string {
-	return fmt.Sprintf("%s/%s", StorageConfigPath, name)
-}
-
-func GetStorageStatePath(name string) string {
-	return fmt.Sprintf("%s/%s", StorageStatePath, name)
 }
 
 // GetDatabaseConfigPath returns path which storing config of database
@@ -98,7 +89,12 @@ func GetDatabaseAssignPath(name string) string {
 	return fmt.Sprintf("%s/%s", ShardAssignmentPath, name)
 }
 
-// GetLiveNodePath returns live node register path.
-func GetLiveNodePath(node string) string {
-	return fmt.Sprintf("%s/%s", LiveNodesPath, node)
+// GetShardAssignPath returns path which storing shard assignment of database.
+func GetShardAssignPath(name string) string {
+	return fmt.Sprintf("%s/%s", ShardAssignmentPath, name)
+}
+
+// GetStorageLiveNodePath returns live node register path for storage.
+func GetStorageLiveNodePath(node string) string {
+	return fmt.Sprintf("%s/%s", StorageLiveNodesPath, node)
 }
