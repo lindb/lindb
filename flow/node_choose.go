@@ -32,6 +32,10 @@ type NodeChoose interface {
 	Choose(database string, numOfNodes int) ([]*models.PhysicalPlan, error)
 }
 
+type NodeSelector interface {
+	GetPartitions(database string) (partitions map[models.InternalNode][]int, err error)
+}
+
 // BuildPhysicalPlan returns physical plan based on live nodes and node number, need shuffle live node.
 func BuildPhysicalPlan(database string, liveNodes []models.StatelessNode, numOfNodes int) *models.PhysicalPlan {
 	physicalPlan := &models.PhysicalPlan{

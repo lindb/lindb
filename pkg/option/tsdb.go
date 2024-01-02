@@ -23,6 +23,8 @@ import (
 	"sort"
 	"strings"
 
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
@@ -62,8 +64,8 @@ func (m Intervals) IsValid() error {
 
 // Interval represents the database's interval option, include interval and data retention.
 type Interval struct {
-	Interval  timeutil.Interval `toml:"interval" json:"interval,omitempty" validate:"required"`
-	Retention timeutil.Interval `toml:"retention" json:"retention,omitempty" validate:"required"`
+	Interval  timeutil.Interval `toml:"interval" json:"interval,omitempty" mapstructure:"interval" validate:"required"`
+	Retention timeutil.Interval `toml:"retention" json:"retention,omitempty" mapstructure:"retention" validate:"required"`
 }
 
 // String returns the string representation of the Interval.
@@ -81,13 +83,16 @@ type FlusherOption struct {
 type DatabaseOption struct {
 	Behind string `toml:"behind" json:"behind,omitempty"`
 	Ahead  string `toml:"ahead" json:"ahead,omitempty"`
-
+	// write interval(the number of second) => TTL
+	// rollup intervals(like seconds->minute->hour->day)
 	Intervals Intervals     `toml:"intervals" json:"intervals,omitempty"  validate:"required"`
 	Index     FlusherOption `toml:"index" json:"index,omitempty"`
 	Data      FlusherOption `toml:"data" json:"data,omitempty"`
 
-	ahead  int64
-	behind int64
+	ahead         int64
+	behind        int64
+	NumOfShard    int `json:"numOfShard" mapstructure:"numOfShard"`       // num. of shard
+	ReplicaFactor int `json:"replicaFactor" mapstructure:"replicaFactor"` // replica refactor
 
 	AutoCreateNS bool `toml:"autoCreateNS" json:"autoCreateNS,omitempty"`
 }
@@ -153,6 +158,18 @@ func (e *DatabaseOption) getIntervalVal(interval string) int64 {
 
 // Default sets default value if some configuration item not set.
 func (e *DatabaseOption) Default() {
+	if e.NumOfShard <= 0 {
+		e.NumOfShard = 1
+	}
+	if e.ReplicaFactor <= 0 {
+		e.ReplicaFactor = 1
+	}
+	if len(e.Intervals) == 0 {
+		e.Intervals = append(e.Intervals, Interval{
+			Interval:  timeutil.Interval(10 * commontimeutil.OneSecond),
+			Retention: timeutil.Interval(commontimeutil.OneMonth),
+		})
+	}
 	if e.Ahead == "" {
 		e.Ahead = constants.MetricMaxAheadDurationStr
 	}

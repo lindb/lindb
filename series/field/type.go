@@ -21,6 +21,7 @@ import (
 	"math"
 
 	"github.com/lindb/lindb/aggregation/function"
+	"github.com/lindb/lindb/spi/value"
 )
 
 // EmptyFieldID represents empty value for field id.
@@ -80,6 +81,25 @@ const (
 	HistogramField // alias for sumField, only visible for tsdb
 	FirstField
 )
+
+func (t Type) AggregateType() value.AggregateType {
+	switch t {
+	case SumField:
+		return value.ATSum
+	case MinField:
+		return value.ATMin
+	case MaxField:
+		return value.ATMax
+	case LastField:
+		return value.ATLast
+	case HistogramField:
+		return value.ATHistogram
+	case FirstField:
+		return value.ATFirst
+	default:
+		panic("unknown aggregate type")
+	}
+}
 
 // String returns the field type's string value
 func (t Type) String() string {

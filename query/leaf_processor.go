@@ -34,7 +34,7 @@ import (
 	"github.com/lindb/lindb/query/stage"
 	trackerpkg "github.com/lindb/lindb/query/tracker"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/sql/tree"
 	"github.com/lindb/lindb/tsdb"
 )
 
@@ -130,7 +130,7 @@ func (p *leafTaskProcessor) processMetadataSuggest(
 	stream protoCommonV1.TaskService_HandleServer,
 ) error {
 	defer ctx.Release()
-	var stmtQuery = &stmt.MetricMetadata{}
+	var stmtQuery = &tree.MetricMetadata{}
 	if err := stmtQuery.UnmarshalJSON(req.Payload); err != nil {
 		return ErrUnmarshalSuggest
 	}
@@ -171,7 +171,7 @@ func (p *leafTaskProcessor) processDataSearch(
 	leafNode *models.Target,
 	receivers []string,
 ) error {
-	stmtQuery := stmt.Query{}
+	stmtQuery := tree.Query1{}
 	if err := stmtQuery.UnmarshalJSON(req.Payload); err != nil {
 		return ErrUnmarshalQuery
 	}

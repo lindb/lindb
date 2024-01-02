@@ -28,9 +28,17 @@ var (
 	// ErrTimeout represents exceed timeout.
 	ErrTimeout = errors.New("exceed timeout")
 
+	ErrNotSupportOperation = errors.New("unsupported operation")
+	ErrNotSupportSplit     = errors.New("unsupported split")
+	ErrPartitionOffline    = errors.New("partition offline")
+
 	ErrTagValueFilterResultNotFound = fmt.Errorf("tag value fitler result %w", ErrNotFound)
 
-	ErrDatabaseNotFound     = fmt.Errorf("database %w", ErrNotFound)
+	ErrDatabaseNotFound    = fmt.Errorf("database %w", ErrNotFound)
+	ErrPartitionNotFound   = fmt.Errorf("partition %w", ErrNotFound)
+	ErrColumnNotFound      = fmt.Errorf("column %w", ErrNotFound)
+	ErrColumnValueNotFound = fmt.Errorf("column value %w", ErrNotFound)
+
 	ErrShardNotFound        = fmt.Errorf("shard %w", ErrNotFound)
 	ErrReplicaNotFound      = fmt.Errorf("replica %w", ErrNotFound)
 	ErrTargetNodesNotFound  = fmt.Errorf("target nodes %w", ErrNotFound)
@@ -69,8 +77,7 @@ var (
 	ErrEmptySelectList = errors.New("select item list is empty")
 
 	// ErrPartitionClosed represents paritition is already closed.
-	ErrPartitionClosed = errors.New("partition is closed")
-
+	ErrPartitionClosed        = errors.New("partition is closed")
 	ErrDatabaseNotExist       = errors.New("database not exist")
 	ErrNoAvailableStorageNode = errors.New("no available storage node for server")
 

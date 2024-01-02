@@ -38,9 +38,11 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/storage"
+	"github.com/lindb/lindb/execution"
 	"github.com/lindb/lindb/internal/api"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
+	internalrpc "github.com/lindb/lindb/internal/rpc"
 	"github.com/lindb/lindb/internal/server"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/metrics"
@@ -48,13 +50,17 @@ import (
 	"github.com/lindb/lindb/pkg/hostutil"
 	httppkg "github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/state"
+	protoCommandV1 "github.com/lindb/lindb/proto/gen/v1/command"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
+	protoMetaV1 "github.com/lindb/lindb/proto/gen/v1/meta"
 	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
 	protoWriteV1 "github.com/lindb/lindb/proto/gen/v1/write"
 	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/tag"
+	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/spi/table/metric"
 	"github.com/lindb/lindb/tsdb"
 )
 
@@ -178,6 +184,9 @@ func (r *runtime) Run() error {
 		return err
 	}
 	r.engine = engine
+
+	spi.RegisterSplitSourceProvider(&metric.MetricTableHandle{}, metric.NewMetricSplitSourceProvider(engine))
+	spi.RegisterPageSourceProvider(&metric.MetricTableHandle{}, metric.NewMetricPageSourceProvider())
 
 	hostName, err := hostName()
 	if err != nil {
@@ -454,6 +463,9 @@ func (r *runtime) bindRPCHandlers() {
 	protoReplicaV1.RegisterReplicaServiceServer(r.server.GetServer(), r.rpcHandler.replica)
 	protoWriteV1.RegisterWriteServiceServer(r.server.GetServer(), r.rpcHandler.write)
 	protoCommonV1.RegisterTaskServiceServer(r.server.GetServer(), r.rpcHandler.task)
+
+	protoMetaV1.RegisterMetaServiceServer(r.server.GetServer(), rpchandler.NewMetaService(r.engine))
+	protoCommandV1.RegisterCommandServiceServer(r.server.GetServer(), internalrpc.NewCommandService(execution.NewTaskManager()))
 }
 
 // initMyID initializes myid for storage server.

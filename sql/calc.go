@@ -22,22 +22,22 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/sql/tree"
 )
 
 // Calc represents Expr calculator
 type Calc struct {
-	expr stmt.Expr
+	expr tree.Expr
 }
 
-func NewCalc(expr stmt.Expr) *Calc {
+func NewCalc(expr tree.Expr) *Calc {
 	return &Calc{expr: expr}
 }
 
 // calcBinary calculate a binary expr
-func (q *Calc) calcBinary(expr *stmt.BinaryExpr, variables map[string]float64) (result any, err error) {
+func (q *Calc) calcBinary(expr *tree.BinaryExpr, variables map[string]float64) (result any, err error) {
 	switch expr.Operator {
-	case stmt.AND, stmt.OR:
+	case tree.AND, tree.OR:
 		left, err0 := q.calcExpr(expr.Left, variables)
 		if err0 != nil {
 			return result, err0
@@ -57,12 +57,12 @@ func (q *Calc) calcBinary(expr *stmt.BinaryExpr, variables map[string]float64) (
 		}
 
 		switch expr.Operator {
-		case stmt.AND:
+		case tree.AND:
 			return l && r, nil
-		case stmt.OR:
+		case tree.OR:
 			return l || r, nil
 		}
-	case stmt.ADD, stmt.SUB, stmt.MUL, stmt.DIV:
+	case tree.ADD, tree.SUB, tree.MUL, tree.DIV:
 		left, err0 := q.calcEquation(expr.Left, variables)
 		if err0 != nil {
 			return result, err0
@@ -74,20 +74,20 @@ func (q *Calc) calcBinary(expr *stmt.BinaryExpr, variables map[string]float64) (
 
 		var r float64
 		switch expr.Operator {
-		case stmt.ADD:
+		case tree.ADD:
 			r = left + right
-		case stmt.SUB:
+		case tree.SUB:
 			r = left - right
-		case stmt.MUL:
+		case tree.MUL:
 			r = left * right
-		case stmt.DIV:
+		case tree.DIV:
 			if right == 0 {
 				return result, errors.New("divisor cannot be zero")
 			}
 			r = left / right
 		}
 		return r, nil
-	case stmt.EQUAL, stmt.NOTEQUAL, stmt.GREATER, stmt.GREATEREQUAL, stmt.LESS, stmt.LESSEQUAL, stmt.LIKE:
+	case tree.EQUAL, tree.NOTEQUAL, tree.GREATER, tree.GREATEREQUAL, tree.LESS, tree.LESSEQUAL, tree.LIKE:
 		left, err0 := q.calcEquation(expr.Left, variables)
 		if err0 != nil {
 			return result, err0
@@ -99,17 +99,17 @@ func (q *Calc) calcBinary(expr *stmt.BinaryExpr, variables map[string]float64) (
 
 		var r bool
 		switch expr.Operator {
-		case stmt.EQUAL, stmt.LIKE:
+		case tree.EQUAL, tree.LIKE:
 			r = left == right
-		case stmt.NOTEQUAL:
+		case tree.NOTEQUAL:
 			r = left != right
-		case stmt.GREATER:
+		case tree.GREATER:
 			r = left > right
-		case stmt.GREATEREQUAL:
+		case tree.GREATEREQUAL:
 			r = left >= right
-		case stmt.LESS:
+		case tree.LESS:
 			r = left < right
-		case stmt.LESSEQUAL:
+		case tree.LESSEQUAL:
 			r = left <= right
 		}
 		return r, nil
@@ -119,17 +119,17 @@ func (q *Calc) calcBinary(expr *stmt.BinaryExpr, variables map[string]float64) (
 }
 
 // calcEquation calculate an equation that may contain variables
-func (q *Calc) calcEquation(expr stmt.Expr, variables map[string]float64) (result float64, err error) {
+func (q *Calc) calcEquation(expr tree.Expr, variables map[string]float64) (result float64, err error) {
 	switch v := expr.(type) {
-	case *stmt.FieldExpr:
+	case *tree.FieldExpr:
 		if val, ok := variables[v.Name]; !ok {
 			return result, fmt.Errorf("variable %s does not exist", v.Name)
 		} else {
 			return val, nil
 		}
-	case *stmt.NumberLiteral:
+	case *tree.NumberLiteral:
 		return v.Val, nil
-	case *stmt.ParenExpr:
+	case *tree.ParenExpr:
 		r, err0 := q.calcExpr(v.Expr, variables)
 		if err0 != nil {
 			return result, err0
@@ -139,7 +139,7 @@ func (q *Calc) calcEquation(expr stmt.Expr, variables map[string]float64) (resul
 		} else {
 			return v, nil
 		}
-	case *stmt.BinaryExpr:
+	case *tree.BinaryExpr:
 		r, err0 := q.calcBinary(v, variables)
 		if err0 != nil {
 			return result, err0
@@ -155,11 +155,11 @@ func (q *Calc) calcEquation(expr stmt.Expr, variables map[string]float64) (resul
 }
 
 // calcExpr calculate an expr that may be of type BinaryExpr or ParenExpr
-func (q *Calc) calcExpr(expr stmt.Expr, variables map[string]float64) (result any, err error) {
+func (q *Calc) calcExpr(expr tree.Expr, variables map[string]float64) (result any, err error) {
 	switch v := expr.(type) {
-	case *stmt.BinaryExpr:
+	case *tree.BinaryExpr:
 		return q.calcBinary(v, variables)
-	case *stmt.ParenExpr:
+	case *tree.ParenExpr:
 		return q.calcExpr(v.Expr, variables)
 	default:
 		return result, fmt.Errorf("unexpected type %v", reflect.TypeOf(expr))

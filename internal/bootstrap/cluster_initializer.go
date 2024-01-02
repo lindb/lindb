@@ -21,8 +21,6 @@ import (
 	"net/url"
 	"path"
 
-	"github.com/lindb/common/pkg/encoding"
-
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
@@ -33,7 +31,7 @@ import (
 // ClusterInitializer initializes cluster(storage/internal database)
 type ClusterInitializer interface {
 	// InitInternalDatabase initializes internal database
-	InitInternalDatabase(database models.Database) error
+	InitInternalDatabase(sql string) error
 }
 
 // clusterInitializer implements ClusterInitializer interface.
@@ -49,10 +47,10 @@ func NewClusterInitializer(endpoint string) ClusterInitializer {
 }
 
 // InitInternalDatabase initializes internal database
-func (i *clusterInitializer) InitInternalDatabase(database models.Database) error {
+func (i *clusterInitializer) InitInternalDatabase(sql string) error {
 	cli := client.NewExecuteCli(i.endpoint)
 	if err := cli.Execute(models.ExecuteParam{
-		SQL: "create database " + string(encoding.JSONMarshal(&database)),
+		SQL: sql,
 	}, nil); err != nil {
 		return err
 	}

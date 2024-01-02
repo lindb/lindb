@@ -20,48 +20,28 @@ package exec
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 
 	"github.com/gin-gonic/gin"
-
 	httppkg "github.com/lindb/common/pkg/http"
 	"github.com/lindb/common/pkg/logger"
 
-	"github.com/lindb/lindb/app/broker/api/exec/command"
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/execution"
 	"github.com/lindb/lindb/models"
-	sqlpkg "github.com/lindb/lindb/sql"
-	stmtpkg "github.com/lindb/lindb/sql/stmt"
-)
-
-// for testing
-var (
-	sqlParseFn = sqlpkg.Parse
+	"github.com/lindb/lindb/sql/tree"
 )
 
 // statementExecFn represents statement execution funcation define.
 type statementExecFn func(ctx context.Context,
 	deps *depspkg.HTTPDeps,
 	param *models.ExecuteParam,
-	stmt stmtpkg.Statement) (interface{}, error)
+	stmt tree.Statement) (interface{}, error)
 
-var (
-	// ExecutePath represents lin language executor's path.
-	ExecutePath = "/exec"
-
-	// register all commands for the statement of lin query language.
-	commands = map[stmtpkg.StatementType]statementExecFn{
-		stmtpkg.MetadataStatement:       command.MetadataCommand,
-		stmtpkg.SchemaStatement:         command.SchemaCommand,
-		stmtpkg.StorageStatement:        command.StorageCommand,
-		stmtpkg.StateStatement:          command.StateCommand,
-		stmtpkg.MetricMetadataStatement: command.MetricMetadataCommand,
-		stmtpkg.QueryStatement:          command.QueryCommand,
-		stmtpkg.RequestStatement:        command.RequestCommand,
-		stmtpkg.LimitStatement:          command.LimitCommand,
-	}
-)
+// ExecutePath represents lin language executor's path.
+var ExecutePath = "/exec"
 
 type ExecuteAPI struct {
 	deps *depspkg.HTTPDeps
@@ -121,13 +101,32 @@ func (e *ExecuteAPI) execute(c *gin.Context) error {
 	ctx, cancel := e.deps.WithTimeout()
 	defer cancel()
 
+	reqSession := &models.Session{}
+	if err := c.BindHeader(reqSession); err != nil {
+		return err
+	}
+
 	param := models.ExecuteParam{}
 	err := c.ShouldBind(&param)
 	if err != nil {
 		return err
 	}
+	if reqSession.Databases == "" {
+		reqSession.Databases = param.Database
+	}
+
+	requestID := e.deps.RequestIDGen.GenerateRequestID()
+
+	defer func() {
+		e.deps.RequestMgr.CompleteRequet(requestID, nil)
+	}()
+
+	fmt.Println(param)
+
+	// FIXME: session?
 	c.Set(constants.CurrentSQL, &param)
-	stmt, err := sqlParseFn(param.SQL)
+	idAllocator := tree.NewNodeIDAllocator()
+	stmt, err := tree.GetParser().CreateStatement(param.SQL, idAllocator)
 	if err != nil {
 		return err
 	}
@@ -136,17 +135,43 @@ func (e *ExecuteAPI) execute(c *gin.Context) error {
 		return errors.New("can't parse lin query language")
 	}
 
-	if commandFn, ok := commands[stmt.StatementType()]; ok {
-		result, err := commandFn(ctx, e.deps, &param, stmt)
-		if err != nil {
-			return err
-		}
-		if result == nil || reflect.ValueOf(result).IsNil() {
-			httppkg.NotFound(c)
-		} else {
-			httppkg.OK(c, result)
-		}
-		return nil
+	// set query session context
+	preparedStmt := &tree.PreparedStatement{
+		Statement:  stmt,
+		PrepareSQL: param.SQL,
 	}
-	return errors.New("can't parse lin query language")
+	session := &execution.Session{
+		Context:         ctx,
+		RequestID:       requestID,
+		NodeIDAllocator: idAllocator,
+		Database:        reqSession.Databases,
+		Statement:       preparedStmt,
+	}
+
+	statementType := execution.GetStatementType(stmt)
+	factory := execution.GetExecutionFactory(statementType)
+	exec := factory.CreateExecution(session, preparedStmt)
+	result := exec.Start()
+	if result == nil || reflect.ValueOf(result).IsNil() {
+		httppkg.NotFound(c)
+	} else {
+		httppkg.OK(c, result)
+	}
+
+	// TODO: resource group
+
+	// if commandFn, ok := commands[stmt.StatementType()]; ok {
+	// 	result, err := commandFn(ctx, e.deps, &param, stmt)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	if result == nil || reflect.ValueOf(result).IsNil() {
+	// 		httppkg.NotFound(c)
+	// 	} else {
+	// 		httppkg.OK(c, result)
+	// 	}
+	// 	return nil
+	// }
+	// return errors.New("can't parse lin query language")
+	return nil
 }

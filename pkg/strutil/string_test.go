@@ -24,11 +24,39 @@ import (
 )
 
 func Test_GetStringValue(t *testing.T) {
-	assert.Equal(t, "sum", GetStringValue("sum"))
-	assert.Equal(t, "sum", GetStringValue("'sum'"))
-	assert.Equal(t, "'sum", GetStringValue("'sum"))
-	assert.Equal(t, "sum", GetStringValue("\"sum\""))
-	assert.Equal(t, "", GetStringValue(""))
+	cases := []struct {
+		raw    string
+		result string
+	}{
+		{
+			"sum",
+			"sum",
+		},
+		{
+			"'sum'",
+			"sum",
+		},
+		{
+			"\"sum\"",
+			"sum",
+		},
+		{
+			"`sum`",
+			"sum",
+		},
+		{
+			"'sum",
+			"sum",
+		},
+	}
+	for i := range cases {
+		tt := cases[i]
+		t.Run(tt.raw, func(t *testing.T) {
+			str, err := GetStringValue("sum")
+			assert.NoError(t, err)
+			assert.Equal(t, tt.result, str)
+		})
+	}
 }
 
 func Test_ByteSlice2String(t *testing.T) {

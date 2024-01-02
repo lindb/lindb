@@ -35,7 +35,7 @@ import (
 	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/pkg/imap"
 	"github.com/lindb/lindb/pkg/strutil"
-	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/sql/tree"
 )
 
 // for testing
@@ -109,12 +109,12 @@ func (s *indexKVStore) GetValues(bucketID uint32) (ids []uint32, err error) {
 }
 
 // FindValuesByExpr returns values based on filter expr.
-func (s *indexKVStore) FindValuesByExpr(bucketID uint32, expr stmt.TagFilter) (ids []uint32, err error) {
+func (s *indexKVStore) FindValuesByExpr(bucketID uint32, expr tree.Expr) (ids []uint32, err error) {
 	switch expression := expr.(type) {
-	case *stmt.EqualsExpr:
+	case *tree.EqualsExpr:
 		key := strutil.String2ByteSlice(expression.Value)
 		return s.findValue(bucketID, key, ids)
-	case *stmt.InExpr:
+	case *tree.InExpr:
 		values := expression.Values
 		for _, value := range values {
 			key := strutil.String2ByteSlice(value)
@@ -123,9 +123,9 @@ func (s *indexKVStore) FindValuesByExpr(bucketID uint32, expr stmt.TagFilter) (i
 				return nil, err
 			}
 		}
-	case *stmt.LikeExpr:
+	case *tree.LikeExpr:
 		return s.FindValuesByLike(bucketID, expression.Value, ids)
-	case *stmt.RegexExpr:
+	case *tree.RegexExpr:
 		rp, err := regexpCompile(expression.Regexp)
 		if err != nil {
 			return nil, err

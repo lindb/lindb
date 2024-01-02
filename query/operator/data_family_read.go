@@ -38,14 +38,14 @@ func NewDataFamilyRead(executeCtx *flow.ShardExecuteContext, family tsdb.DataFam
 
 // Execute executes data family(file/memory) based on series ids, then add result set into time segment context.
 func (op *dataFamilyRead) Execute() error {
-	family := op.family
-	resultSet, err := family.Filter(op.executeCtx)
-	if err != nil {
-		return err
-	}
-	for _, rs := range resultSet {
-		op.executeCtx.TimeSegmentContext.AddFilterResultSet(family.Interval(), rs)
-	}
+	// family := op.family
+	// resultSet, err := family.Filter(op.executeCtx)
+	// if err != nil {
+	// 	return err
+	// }
+	// for _, rs := range resultSet {
+	// 	op.executeCtx.TimeSegmentContext.AddFilterResultSet(family.Interval(), rs)
+	// }
 	return nil
 }
 

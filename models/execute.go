@@ -22,3 +22,29 @@ type ExecuteParam struct {
 	Database string `form:"db" json:"db"`
 	SQL      string `form:"sql" json:"sql" binding:"required"`
 }
+
+type Session struct {
+	Databases string `header:"X-LinDB-Database"`
+}
+
+type StatementType int
+
+const (
+	Unknown StatementType = iota
+	DataDefinition
+	Describe
+	Select
+)
+
+func (stmt StatementType) String() string {
+	switch stmt {
+	case DataDefinition:
+		return "DataDefinition"
+	case Describe:
+		return "Describe"
+	case Select:
+		return "Select"
+	default:
+		return "Unknown"
+	}
+}

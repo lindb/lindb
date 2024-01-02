@@ -19,10 +19,8 @@ package api
 
 import (
 	"github.com/gin-gonic/gin"
-
 	commonlogger "github.com/lindb/common/pkg/logger"
 
-	"github.com/lindb/lindb/app/broker/api/admin"
 	"github.com/lindb/lindb/app/broker/api/exec"
 	"github.com/lindb/lindb/app/broker/api/ingest"
 	"github.com/lindb/lindb/app/broker/api/prometheus"
@@ -42,8 +40,6 @@ type API struct {
 	prometheusWriter prometheusIngest.Writer
 
 	execute            *exec.ExecuteAPI
-	database           *admin.DatabaseAPI
-	flusher            *admin.DatabaseFlusherAPI
 	brokerStateMachine *state.BrokerStateMachineAPI
 	request            *apipkg.RequestAPI
 	metricExplore      *apipkg.ExploreAPI
@@ -61,8 +57,6 @@ func NewAPI(deps *depspkg.HTTPDeps, prometheusWriter prometheusIngest.Writer) *A
 		deps:               deps,
 		prometheusWriter:   prometheusWriter,
 		execute:            exec.NewExecuteAPI(deps),
-		database:           admin.NewDatabaseAPI(deps),
-		flusher:            admin.NewDatabaseFlusherAPI(deps),
 		brokerStateMachine: state.NewBrokerStateMachineAPI(deps),
 		request:            apipkg.NewRequestAPI(),
 		metricExplore:      apipkg.NewExploreAPI(deps.GlobalKeyValues, linmetric.BrokerRegistry),
@@ -81,9 +75,6 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 	v1 := router.Group(constants.APIVersion1)
 	// execute lin query language statement
 	api.execute.Register(v1)
-
-	api.database.Register(v1)
-	api.flusher.Register(v1)
 
 	// state
 	api.brokerStateMachine.Register(v1)

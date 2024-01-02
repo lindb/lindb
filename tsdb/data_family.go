@@ -18,6 +18,7 @@
 package tsdb
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -31,6 +32,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/metrics"
@@ -390,14 +392,17 @@ func (f *dataFamily) MemDBSize() int64 {
 
 // Filter filters the data based on metric/version/seriesIDs,
 // if it finds data then returns the FilterResultSet, else returns nil
-func (f *dataFamily) Filter(executeCtx *flow.ShardExecuteContext) (resultSet []flow.FilterResultSet, err error) {
+func (f *dataFamily) Filter(ctx *flow.MetricScanContext) (resultSet []flow.FilterResultSet, err error) {
 	f.lastReadTime.Store(fasttime.UnixMilliseconds())
-	memRS, err := f.memoryFilter(executeCtx)
-	if err != nil {
+	memRS, err := f.memoryFilter(ctx)
+	if !errors.Is(err, constants.ErrNotFound) && err != nil {
+		fmt.Printf("mem filter=%v\n", err)
+		// FIXME: ignore not found??
 		return nil, err
 	}
-	fileRS, err := f.fileFilter(executeCtx)
-	if err != nil {
+	fileRS, err := f.fileFilter(ctx)
+	if !errors.Is(err, constants.ErrNotFound) && err != nil {
+		fmt.Printf("file filter=%v\n", err)
 		return nil, err
 	}
 	resultSet = append(resultSet, memRS...)
@@ -451,9 +456,9 @@ func (f *dataFamily) GetState() models.DataFamilyState {
 	return state
 }
 
-func (f *dataFamily) memoryFilter(shardExecuteContext *flow.ShardExecuteContext) (resultSet []flow.FilterResultSet, err error) {
+func (f *dataFamily) memoryFilter(ctx *flow.MetricScanContext) (resultSet []flow.FilterResultSet, err error) {
 	memFilter := func(memDB memdb.MemoryDatabase) error {
-		rs, err := memDB.Filter(shardExecuteContext)
+		rs, err := memDB.Filter(ctx)
 		if err != nil {
 			return err
 		}
@@ -475,7 +480,7 @@ func (f *dataFamily) memoryFilter(shardExecuteContext *flow.ShardExecuteContext)
 	return
 }
 
-func (f *dataFamily) fileFilter(shardExecuteContext *flow.ShardExecuteContext) (resultSet []flow.FilterResultSet, err error) {
+func (f *dataFamily) fileFilter(ctx *flow.MetricScanContext) (resultSet []flow.FilterResultSet, err error) {
 	snapShot := f.family.GetSnapshot()
 	defer func() {
 		if err != nil || len(resultSet) == 0 {
@@ -483,13 +488,12 @@ func (f *dataFamily) fileFilter(shardExecuteContext *flow.ShardExecuteContext) (
 			snapShot.Close()
 		}
 	}()
-	metricKey := uint32(shardExecuteContext.StorageExecuteCtx.MetricID)
+	metricKey := uint32(ctx.MetricID)
 	readers, err := snapShot.FindReaders(metricKey)
 	if err != nil {
 		engineLogger.Error("filter data family error", logger.Error(err))
 		return nil, err
 	}
-	querySlotRange := shardExecuteContext.StorageExecuteCtx.CalcSourceSlotRange(f.familyTime)
 	var metricReaders []metricsdata.MetricReader
 	for _, reader := range readers {
 		value, err0 := reader.Get(metricKey)
@@ -499,18 +503,25 @@ func (f *dataFamily) fileFilter(shardExecuteContext *flow.ShardExecuteContext) (
 		}
 		r, err := newReaderFunc(reader.Path(), value)
 		if err != nil {
+			fmt.Printf("new reader file=%v\n", err)
 			return nil, err
 		}
-		storageSlotRange := r.GetTimeRange()
-		if storageSlotRange.Overlap(querySlotRange) {
+		slotRange := r.GetTimeRange()
+		storageTimeRange := timeutil.TimeRange{
+			Start: timeutil.CalcTimestamp(f.familyTime, int(slotRange.Start), f.interval),
+			End:   timeutil.CalcTimestamp(f.familyTime, int(slotRange.End), f.interval),
+		}
+		if storageTimeRange.Overlap(ctx.TimeRange) {
 			metricReaders = append(metricReaders, r)
+		} else {
+			fmt.Println("out...")
 		}
 	}
 	if len(metricReaders) == 0 {
 		return nil, nil
 	}
 	filter := newFilterFunc(f.timeRange.Start, snapShot, metricReaders)
-	return filter.Filter(shardExecuteContext.SeriesIDsAfterFiltering, shardExecuteContext.StorageExecuteCtx.Fields)
+	return filter.Filter(ctx.SeriesIDs, ctx.Fields)
 }
 
 // WriteRows writes metric rows with same family in batch.

@@ -27,7 +27,7 @@ import (
 	"github.com/lindb/lindb/models"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/sql/tree"
 )
 
 // MetadataDeps represents metric metadata search dependency.
@@ -36,7 +36,7 @@ type MetadataDeps struct {
 	Request *models.Request
 
 	Database     string
-	Statement    *stmt.MetricMetadata
+	Statement    *tree.MetricMetadata
 	CurrentNode  models.StatelessNode
 	Choose       flow.NodeChoose
 	TransportMgr rpc.TransportManager

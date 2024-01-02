@@ -31,7 +31,7 @@ import (
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/query/context"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/sql/tree"
 )
 
 // for testing
@@ -111,7 +111,7 @@ func (p *intermediateTaskProcessor) processDataSearch(
 	req *protoCommonV1.TaskRequest,
 	physicalPlan *models.PhysicalPlan,
 ) error {
-	var stmtQuery = &stmt.Query{}
+	var stmtQuery = &tree.Query1{}
 	if err := stmtQuery.UnmarshalJSON(req.Payload); err != nil {
 		return ErrUnmarshalQuery
 	}
@@ -149,7 +149,7 @@ func (p *intermediateTaskProcessor) processMetadataSearch(
 	req *protoCommonV1.TaskRequest,
 	physicalPlan *models.PhysicalPlan,
 ) error {
-	var stmtQuery = &stmt.MetricMetadata{}
+	var stmtQuery = &tree.MetricMetadata{}
 	if err := stmtQuery.UnmarshalJSON(req.Payload); err != nil {
 		return ErrUnmarshalSuggest
 	}

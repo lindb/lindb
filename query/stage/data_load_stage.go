@@ -24,7 +24,6 @@ import (
 
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/query/context"
-	"github.com/lindb/lindb/query/operator"
 )
 
 // dataLoadStage represents data load stage.
@@ -54,19 +53,19 @@ func NewDataLoadStage(leafExecuteCtx *context.LeafExecuteContext,
 // Plan returns sub execution plan tree for data load.
 func (stage *dataLoadStage) Plan() PlanNode {
 	execPlan := NewEmptyPlanNode()
-	shardExecuteCtx := stage.executeCtx.ShardExecuteCtx
-	stage.segmentRS.IntervalRatio = uint16(shardExecuteCtx.StorageExecuteCtx.Query.IntervalRatio)
-	storageInterval := shardExecuteCtx.StorageExecuteCtx.Query.StorageInterval
-	startTimeOfQuery := shardExecuteCtx.StorageExecuteCtx.Query.TimeRange.Start
-	// calc base slot based on start time of query and storage's interval
-	stage.segmentRS.BaseSlot = int((stage.segmentRS.FamilyTime - startTimeOfQuery) / storageInterval.Int64())
-	stage.segmentRS.Target = shardExecuteCtx.StorageExecuteCtx.CalcSourceSlotRange(stage.segmentRS.FamilyTime)
-	for idx := range stage.segmentRS.FilterRS {
-		execPlan.AddChild(NewPlanNode(
-			operator.NewDataLoad(stage.executeCtx, stage.segmentRS, stage.segmentRS.FilterRS[idx])))
-	}
-	execPlan.AddChild(NewPlanNode(operator.NewLeafReduce(stage.leafExecuteCtx, stage.executeCtx)))
-
+	// shardExecuteCtx := stage.executeCtx.ShardExecuteCtx
+	// stage.segmentRS.IntervalRatio = uint16(shardExecuteCtx.StorageExecuteCtx.Query.IntervalRatio)
+	// storageInterval := shardExecuteCtx.StorageExecuteCtx.Query.StorageInterval
+	// startTimeOfQuery := shardExecuteCtx.StorageExecuteCtx.Query.TimeRange.Start
+	// // calc base slot based on start time of query and storage's interval
+	// stage.segmentRS.BaseSlot = int((stage.segmentRS.FamilyTime - startTimeOfQuery) / storageInterval.Int64())
+	// stage.segmentRS.Target = shardExecuteCtx.StorageExecuteCtx.CalcSourceSlotRange(stage.segmentRS.FamilyTime)
+	// for idx := range stage.segmentRS.FilterRS {
+	// 	execPlan.AddChild(NewPlanNode(
+	// 		operator.NewDataLoad(stage.executeCtx, stage.segmentRS, stage.segmentRS.FilterRS[idx])))
+	// }
+	// execPlan.AddChild(NewPlanNode(operator.NewLeafReduce(stage.leafExecuteCtx, stage.executeCtx)))
+	//
 	return execPlan
 }
 

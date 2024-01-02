@@ -30,8 +30,6 @@ import (
 	"github.com/prometheus/prometheus/prompb"
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/promql/parser"
-
-	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
 func parseTimeParam(r *http.Request, paramName string, defaultValue time.Time) (time.Time, error) {
@@ -135,65 +133,65 @@ OUTER:
 }
 
 // walkMatcher iterates matchers and make binary tree.
-func walkMatcher(root *stmtpkg.BinaryExpr, matchers []*labels.Matcher) {
-	if root == nil || len(matchers) == 0 {
-		return
-	}
-	if root.Left == nil {
-		root.Left = &stmtpkg.EqualsExpr{
-			Key:   matchers[0].Name,
-			Value: matchers[0].Value,
-		}
-	} else if root.Right == nil {
-		if len(matchers) > 1 {
-			expr := &stmtpkg.BinaryExpr{
-				Left: &stmtpkg.EqualsExpr{
-					Key:   matchers[0].Name,
-					Value: matchers[0].Value,
-				},
-				Operator: stmtpkg.ADD,
-			}
-			root.Right = expr
-			root = expr
-		} else {
-			root.Right = &stmtpkg.EqualsExpr{
-				Key:   matchers[0].Name,
-				Value: matchers[0].Value,
-			}
-		}
-	}
-
-	matchers = matchers[1:]
-	walkMatcher(root, matchers)
-}
+// func walkMatcher(root *stmtpkg.BinaryExpr, matchers []*labels.Matcher) {
+// 	if root == nil || len(matchers) == 0 {
+// 		return
+// 	}
+// 	if root.Left == nil {
+// 		root.Left = &stmtpkg.EqualsExpr{
+// 			Key:   matchers[0].Name,
+// 			Value: matchers[0].Value,
+// 		}
+// 	} else if root.Right == nil {
+// 		if len(matchers) > 1 {
+// 			expr := &stmtpkg.BinaryExpr{
+// 				Left: &stmtpkg.EqualsExpr{
+// 					Key:   matchers[0].Name,
+// 					Value: matchers[0].Value,
+// 				},
+// 				Operator: stmtpkg.ADD,
+// 			}
+// 			root.Right = expr
+// 			root = expr
+// 		} else {
+// 			root.Right = &stmtpkg.EqualsExpr{
+// 				Key:   matchers[0].Name,
+// 				Value: matchers[0].Value,
+// 			}
+// 		}
+// 	}
+//
+// 	matchers = matchers[1:]
+// 	walkMatcher(root, matchers)
+// }
 
 // makeCondition extracts metric name and condition from matchers.
-func makeCondition(matchers ...*labels.Matcher) (metricName string, expr stmtpkg.Expr) {
-	pureMatchers := make([]*labels.Matcher, 0, len(matchers)-1)
-	for index := range matchers {
-		matcher := matchers[index]
-		if matcher.Name == metricLabelName {
-			metricName = matcher.Value
-		} else {
-			pureMatchers = append(pureMatchers, matcher)
-		}
-	}
-
-	switch len(pureMatchers) {
-	case 0:
-		return metricName, nil
-	case 1:
-		return metricName, &stmtpkg.EqualsExpr{
-			Key:   pureMatchers[0].Name,
-			Value: pureMatchers[0].Value,
-		}
-	default:
-		e := &stmtpkg.BinaryExpr{Operator: stmtpkg.ADD}
-		walkMatcher(e, pureMatchers)
-		return metricName, e
-	}
-}
-
+//
+//	func makeCondition(matchers ...*labels.Matcher) (metricName string, expr stmtpkg.Expr) {
+//		pureMatchers := make([]*labels.Matcher, 0, len(matchers)-1)
+//		for index := range matchers {
+//			matcher := matchers[index]
+//			if matcher.Name == metricLabelName {
+//				metricName = matcher.Value
+//			} else {
+//				pureMatchers = append(pureMatchers, matcher)
+//			}
+//		}
+//
+//		switch len(pureMatchers) {
+//		case 0:
+//			return metricName, nil
+//		case 1:
+//			return metricName, &stmtpkg.EqualsExpr{
+//				Key:   pureMatchers[0].Name,
+//				Value: pureMatchers[0].Value,
+//			}
+//		default:
+//			e := &stmtpkg.BinaryExpr{Operator: stmtpkg.ADD}
+//			walkMatcher(e, pureMatchers)
+//			return metricName, e
+//		}
+//	}
 func labelProtosToLabels(labelPairs []prompb.Label) labels.Labels {
 	b := labels.ScratchBuilder{}
 	for _, l := range labelPairs {

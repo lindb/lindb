@@ -23,6 +23,7 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator"
 	"github.com/lindb/lindb/coordinator/broker"
+	"github.com/lindb/lindb/execution"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/state"
@@ -50,6 +51,9 @@ type HTTPDeps struct {
 	QueryLimiter  *concurrent.Limiter
 
 	GlobalKeyValues tag.Tags
+
+	RequestMgr   execution.RequestManager
+	RequestIDGen *execution.RequestIDGenerator
 }
 
 func (deps *HTTPDeps) WithTimeout() (context.Context, context.CancelFunc) {

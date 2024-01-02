@@ -55,6 +55,11 @@ func (s *Stack) Peek() interface{} {
 	return s.elements[s.len-1]
 }
 
+// FIXME:
+func (s *Stack) Get(idx int) interface{} {
+	return s.elements[idx]
+}
+
 // Size returns the number of elements in the stack
 func (s *Stack) Size() int {
 	return s.len

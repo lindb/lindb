@@ -30,7 +30,7 @@ import (
 	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/tag"
-	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/sql/tree"
 	"github.com/lindb/lindb/tsdb"
 )
 
@@ -165,14 +165,14 @@ func (op *metadataLookup) selectList() error {
 }
 
 // field plans the field expr from select list
-func (op *metadataLookup) field(parentFunc *stmt.CallExpr, expr stmt.Expr) {
+func (op *metadataLookup) field(parentFunc *tree.CallExpr, expr tree.Expr) {
 	if op.err != nil {
 		return
 	}
 	switch e := expr.(type) {
-	case *stmt.SelectItem:
+	case *tree.SelectItem2:
 		op.field(nil, e.Expr)
-	case *stmt.CallExpr:
+	case *tree.CallExpr:
 		if e.FuncType == function.Quantile {
 			op.planHistogramFields(e)
 			return
@@ -180,12 +180,12 @@ func (op *metadataLookup) field(parentFunc *stmt.CallExpr, expr stmt.Expr) {
 		for _, param := range e.Params {
 			op.field(e, param)
 		}
-	case *stmt.ParenExpr:
+	case *tree.ParenExpr:
 		op.field(nil, e.Expr)
-	case *stmt.BinaryExpr:
+	case *tree.BinaryExpr:
 		op.field(nil, e.Left)
 		op.field(nil, e.Right)
-	case *stmt.FieldExpr:
+	case *tree.FieldExpr:
 		fieldMeta, ok := op.executeCtx.Schema.Fields.Find(field.Name(e.Name))
 		if !ok {
 			op.err = fmt.Errorf("%w, field: %s", constants.ErrFieldNotFound, e.Name)
@@ -196,7 +196,7 @@ func (op *metadataLookup) field(parentFunc *stmt.CallExpr, expr stmt.Expr) {
 	}
 }
 
-func (op *metadataLookup) planField(parentFunc *stmt.CallExpr, fieldMeta field.Meta) {
+func (op *metadataLookup) planField(parentFunc *tree.CallExpr, fieldMeta field.Meta) {
 	fieldType := fieldMeta.Type
 	fieldID := fieldMeta.ID
 	aggregator, exist := op.fields[fieldID]
@@ -230,7 +230,7 @@ func (op *metadataLookup) planField(parentFunc *stmt.CallExpr, fieldMeta field.M
 	aggregator.DownSampling.AddFunctionType(funcType)
 }
 
-func (op *metadataLookup) planHistogramFields(e *stmt.CallExpr) {
+func (op *metadataLookup) planHistogramFields(e *tree.CallExpr) {
 	if len(e.Params) != 1 {
 		op.err = fmt.Errorf("qunantile params more than one")
 		return

@@ -71,7 +71,7 @@ func (fe *fieldEntry) getPage(memTimeSeriesID uint32) ([]byte, bool) {
 
 // Filter filters the data based on fields/seriesIDs/family time,
 // if it finds data then returns the FilterResultSet, else returns constants.ErrFieldNotFound
-func (md *memoryDatabase) filter(shardExecuteContext *flow.ShardExecuteContext,
+func (md *memoryDatabase) filter(metricScanCtx *flow.MetricScanContext,
 	memMetricID uint64, slotRange *timeutil.SlotRange,
 	timeSeriesIndex TimeSeriesIndex,
 ) ([]flow.FilterResultSet, error) {
@@ -80,7 +80,7 @@ func (md *memoryDatabase) filter(shardExecuteContext *flow.ShardExecuteContext,
 		// metric meta not found
 		return nil, nil
 	}
-	fields := shardExecuteContext.StorageExecuteCtx.Fields.Clone()
+	fields := metricScanCtx.Fields.Clone()
 	// NOTE: must re-stort by field name, if not cannot find field from query fields
 	sort.Sort(fields)
 	// first need check query's fields is match store's fields, if not return.
@@ -115,7 +115,7 @@ func (md *memoryDatabase) filter(shardExecuteContext *flow.ShardExecuteContext,
 		return nil, fmt.Errorf("%w, fields: %s", constants.ErrFieldNotFound, fields.String())
 	}
 
-	seriesIDs := shardExecuteContext.SeriesIDsAfterFiltering
+	seriesIDs := metricScanCtx.SeriesIDsAfterFiltering
 	familyTime := md.FamilyTime()
 	// after and operator, query bitmap is sub of store bitmap
 	matchSeriesIDs := roaring.FastAnd(seriesIDs, timeSeriesIndex.TimeSeriesIDs())

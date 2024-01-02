@@ -29,7 +29,7 @@ import (
 	"github.com/lindb/lindb/models"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/sql/tree"
 )
 
 // IntermediateMetricContext represents intermediate metric data search context.
@@ -38,7 +38,7 @@ type IntermediateMetricContext struct {
 	req             *protoCommonV1.TaskRequest
 	stateMgr        broker.StateManager
 	rawPhysicalPlan *models.PhysicalPlan
-	statement       *stmt.Query
+	statement       *tree.Query1
 	currentNode     models.StatelessNode
 	receivers       []string
 
@@ -49,7 +49,7 @@ type IntermediateMetricContext struct {
 func NewIntermediateMetricContext(ctx context.Context,
 	transportMgr rpc.TransportManager, stateMgr broker.StateManager,
 	req *protoCommonV1.TaskRequest, curNode models.StatelessNode,
-	physicalPlan *models.PhysicalPlan, statement *stmt.Query, receivers []string,
+	physicalPlan *models.PhysicalPlan, statement *tree.Query1, receivers []string,
 ) *IntermediateMetricContext {
 	return &IntermediateMetricContext{
 		MetricContext:   newMetricContext(ctx, transportMgr),
@@ -85,7 +85,7 @@ func (ctx *IntermediateMetricContext) MakePlan() error {
 	}
 	databaseCfg, ok := ctx.stateMgr.GetDatabaseCfg(database)
 	if !ok {
-		return constants.ErrDatabaseNotExist
+		return constants.ErrDatabaseNotFound
 	}
 
 	calcTimeRangeAndInterval(ctx.statement, databaseCfg)

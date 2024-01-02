@@ -47,8 +47,8 @@ import (
 // s7		s8		s9		s5		s6		(3st replica)
 func ShardAssignment(storageNodeIDs []models.NodeID, cfg *models.Database,
 	fixedStartIndex int, startShardID models.ShardID) (*models.ShardAssignment, error) {
-	numOfShard := cfg.NumOfShard
-	replicaFactor := cfg.ReplicaFactor
+	numOfShard := cfg.Option.NumOfShard
+	replicaFactor := cfg.Option.ReplicaFactor
 	if numOfShard <= 0 {
 		return nil, fmt.Errorf("shard assign error for databaes[%s], because num. of shard <=0", cfg.Name)
 	}
@@ -69,8 +69,8 @@ func ShardAssignment(storageNodeIDs []models.NodeID, cfg *models.Database,
 
 func ModifyShardAssignment(storageNodeIDs []models.NodeID, cfg *models.Database, shardAssignment *models.ShardAssignment,
 	fixedStartIndex int, startShardID models.ShardID) error {
-	numOfShard := cfg.NumOfShard - len(shardAssignment.Shards)
-	replicaFactor := cfg.ReplicaFactor
+	numOfShard := cfg.Option.NumOfShard - len(shardAssignment.Shards)
+	replicaFactor := cfg.Option.ReplicaFactor
 	if numOfShard <= 0 {
 		return fmt.Errorf("shard assign error for databaes[%s], because add num. of shard <=0", cfg.Name)
 	}

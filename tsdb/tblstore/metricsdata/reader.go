@@ -157,7 +157,7 @@ func (r *metricReader) Load(ctx *flow.DataLoadContext) flow.DataLoader {
 		return nil
 	}
 
-	if !r.prepare(ctx.ShardExecuteCtx.StorageExecuteCtx.Fields) {
+	if !r.prepare(ctx.Fields) {
 		// field not found
 		return nil
 	}
@@ -181,14 +181,17 @@ func (r *metricReader) readSeriesData(ctx *flow.DataLoadContext, seriesIdx uint1
 	fieldOffsetsBlockLen, uVariantEncodingLen := stream.UvarintLittleEndian(seriesEntryBlock)
 	fieldOffsetsAt := len(seriesEntryBlock) - int(fieldOffsetsBlockLen) - uVariantEncodingLen
 	if uVariantEncodingLen <= 0 || fieldOffsetsAt <= 0 || fieldOffsetsAt >= len(seriesEntryBlock) {
+		fmt.Println("nnnn........")
 		return
 	}
 	// read data for multi-fields
 	fieldOffsetsDecoder := encoding.GetFixedOffsetDecoder()
 	_, _ = fieldOffsetsDecoder.Unmarshal(seriesEntryBlock[fieldOffsetsAt:])
 
+	fmt.Printf("field index = %v\n", r.readFieldIndexes)
 	for queryIdx, readIdx := range r.readFieldIndexes {
 		if readIdx == fieldNotFound {
+			fmt.Println("not found11........")
 			continue
 		}
 		fieldBlock, err := fieldOffsetsDecoder.GetBlock(readIdx, seriesEntryBlock[:fieldOffsetsAt])

@@ -82,6 +82,7 @@ func (ga *groupingAggregator) Aggregate(it series.GroupedIterator) {
 				break
 			}
 		}
+		// fmt.Printf("sagg=%v,seriesIt=%v\n", sAgg, seriesIt)
 		if sAgg == nil {
 			continue
 		}
@@ -93,6 +94,7 @@ func (ga *groupingAggregator) Aggregate(it series.GroupedIterator) {
 			}
 			aggregator := sAgg.getAggregator(startTime)
 			aggregator.Aggregate(fieldIt)
+			// fmt.Println("merge....")
 		}
 	}
 }

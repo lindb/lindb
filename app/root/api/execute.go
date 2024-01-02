@@ -20,44 +20,25 @@ package api
 import (
 	"context"
 	"errors"
-	"reflect"
 
 	"github.com/gin-gonic/gin"
 
 	httppkg "github.com/lindb/common/pkg/http"
 
-	"github.com/lindb/lindb/app/root/api/command"
 	depspkg "github.com/lindb/lindb/app/root/deps"
 	"github.com/lindb/lindb/models"
-	sqlpkg "github.com/lindb/lindb/sql"
-	stmtpkg "github.com/lindb/lindb/sql/stmt"
-)
-
-// for testing
-var (
-	sqlParseFn = sqlpkg.Parse
+	"github.com/lindb/lindb/sql/tree"
 )
 
 // statementExecFn represents statement execution funcation define.
 type statementExecFn func(ctx context.Context,
 	deps *depspkg.HTTPDeps,
 	param *models.ExecuteParam,
-	stmt stmtpkg.Statement) (interface{}, error)
+	stmt tree.Statement) (interface{}, error)
 
 var (
 	// ExecutePath represents lin language executor's path.
 	ExecutePath = "/exec"
-
-	// register all commands for the statement of lin query language.
-	commands = map[stmtpkg.StatementType]statementExecFn{
-		stmtpkg.MetadataStatement:       command.MetadataCommand,
-		stmtpkg.BrokerStatement:         command.BrokerCommand,
-		stmtpkg.SchemaStatement:         command.SchemaCommand,
-		stmtpkg.MetricMetadataStatement: command.MetricMetadataCommand,
-		stmtpkg.QueryStatement:          command.QueryCommand,
-		stmtpkg.StateStatement:          command.StateCommand,
-		stmtpkg.RequestStatement:        command.RequestCommand,
-	}
 )
 
 type ExecuteAPI struct {
@@ -110,7 +91,7 @@ func (e *ExecuteAPI) Execute(c *gin.Context) {
 
 // execute lin query language.
 func (e *ExecuteAPI) execute(c *gin.Context) error {
-	ctx, cancel := e.deps.WithTimeout()
+	_, cancel := e.deps.WithTimeout()
 	defer cancel()
 
 	param := models.ExecuteParam{}
@@ -118,22 +99,22 @@ func (e *ExecuteAPI) execute(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
-	stmt, err := sqlParseFn(param.SQL)
-	if err != nil {
-		return err
-	}
+	// _, err = sqlParseFn(param.SQL)
+	// if err != nil {
+	// 	return err
+	// }
 
-	if commandFn, ok := commands[stmt.StatementType()]; ok {
-		result, err := commandFn(ctx, e.deps, &param, stmt)
-		if err != nil {
-			return err
-		}
-		if result == nil || reflect.ValueOf(result).IsNil() {
-			httppkg.NotFound(c)
-		} else {
-			httppkg.OK(c, result)
-		}
-		return nil
-	}
+	// if commandFn, ok := commands[stmt.StatementType()]; ok {
+	// 	result, err := commandFn(ctx, e.deps, &param, stmt)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	if result == nil || reflect.ValueOf(result).IsNil() {
+	// 		httppkg.NotFound(c)
+	// 	} else {
+	// 		httppkg.OK(c, result)
+	// 	}
+	// 	return nil
+	// }
 	return errors.New("can't parse lin query language")
 }

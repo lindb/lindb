@@ -18,6 +18,8 @@
 package metricsdata
 
 import (
+	"fmt"
+
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/constants"
@@ -59,13 +61,17 @@ func (f *metricsDataFilter) Filter(
 	for _, reader := range f.readers {
 		fieldMetas, _ := reader.GetFields().Intersects(fields)
 		if len(fieldMetas) == 0 {
+			fmt.Printf("field not found,fields=%v\n", fields)
 			// field not found
 			continue
 		}
 		// after and operator, query bitmap is sub of store bitmap
 		matchSeriesIDs := roaring.FastAnd(seriesIDs, reader.GetSeriesIDs())
+		fmt.Println(seriesIDs)
+		fmt.Println(reader.GetSeriesIDs())
 		if matchSeriesIDs.IsEmpty() {
 			// series ids not found
+			fmt.Println("series not found")
 			continue
 		}
 		rs = append(rs, newFileFilterResultSet(f.familyTime, matchSeriesIDs, reader, f.snapshot))
