@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -274,3 +275,77 @@ func createTriesData(t *testing.T, blockSize int) (keys [][]byte, values []uint3
 	data = w.Bytes()
 	return
 }
+
+func createTriesDataBulk(t *testing.T, blockSize int) (keys [][]byte, values []uint32, data []byte, keysString []string) {
+	keysString = []string{
+		"go_memstats_alloc_bytes_total",
+		"process_virtual_memory_bytes",
+		"request_count",
+		"err_request_count",
+		"go_info",
+		"go_memstats_heap_idle_bytes",
+		"go_memstats_mcache_inuse_bytes",
+		"go_memstats_mallocs_total",
+		"go_memstats_mspan_inuse_bytes",
+		"go_memstats_mspan_sys_bytes",
+		"go_gc_duration_seconds_sum",
+		"go_gc_duration_seconds_count",
+		"go_memstats_frees_total",
+		"go_memstats_heap_alloc_bytes",
+		"go_memstats_heap_objects",
+		"request_duration_seconds_count",
+		"go_memstats_heap_inuse_bytes",
+		"process_max_fds",
+		"process_start_time_seconds",
+		"promhttp_metric_handler_requests_total",
+		"request_duration_seconds_sum",
+		"go_memstats_heap_released_bytes",
+		"go_memstats_next_gc_bytes",
+		"go_memstats_stack_sys_bytes",
+		"go_threads",
+		"process_open_fds",
+		"go_memstats_gc_sys_bytes",
+		"process_resident_memory_bytes",
+		"go_memstats_buck_hash_sys_bytes",
+		"go_memstats_last_gc_time_seconds",
+		"go_memstats_lookups_total",
+		"go_memstats_sys_bytes",
+		"promhttp_metric_handler_requests_in_flight",
+		"go_memstats_other_sys_bytes",
+		"go_memstats_stack_inuse_bytes",
+		"process_cpu_seconds_total",
+		"go_gc_duration_seconds",
+		"go_goroutines",
+		"go_memstats_alloc_bytes",
+		"go_memstats_heap_sys_bytes",
+		"go_memstats_mcache_sys_bytes",
+		"process_virtual_memory_max_bytes",
+		"request_duration_seconds_bucket",
+	}
+	for idx, key := range keysString {
+		keys = append(keys, []byte(key))
+		values = append(values, uint32(idx))
+	}
+	w := bytes.NewBuffer([]byte{})
+	b := NewTrieBucketBuilder(blockSize, w)
+	assert.NoError(t, b.Write(keys, values))
+	data = w.Bytes()
+	return
+}
+
+func TestTrieBucket_Unmarlshal(t *testing.T) {
+	tries := NewTrieBucket()
+	_, _, data, keys := createTriesDataBulk(t, 4)
+	err := tries.Unmarshal(data)
+	assert.Nil(t, err)
+	for _, key := range keys {
+		id, ok := tries.GetValue([]byte(key))
+		assert.Equal(t, ok, true)
+		assert.GreaterOrEqual(t, id, uint32(0))
+	}
+	rs := tries.Suggest("", len(keys))
+	sort.Strings(keys)
+	sort.Strings(rs)
+	assert.Equal(t, keys, rs)
+}
+
