@@ -39,6 +39,7 @@ type Standalone struct {
 	StorageBase StorageBase    `envPrefix:"LINDB_STORAGE_" toml:"storage"`
 	Logging     logger.Setting `envPrefix:"LINDB_LOGGING_" toml:"logging"`
 	Monitor     Monitor        `envPrefix:"LINDB_MONITOR_" toml:"monitor"`
+	Prometheus  Prometheus     `envPrefix:"LINDB_PROMETHEUS_" toml:"prometheus"`
 }
 
 // ETCD represents embed etcd's configuration
@@ -90,6 +91,7 @@ func NewDefaultStandaloneTOML() string {
 %s
 %s
 %s
+%s
 %s`,
 
 		NewDefaultETCD().TOML(),
@@ -99,6 +101,7 @@ func NewDefaultStandaloneTOML() string {
 		NewDefaultStorageBase().TOML(),
 		logger.NewDefaultSetting().TOML("LINDB"),
 		NewDefaultMonitor().TOML(),
+		NewDefaultPrometheus().TOML(),
 	)
 }
 
@@ -112,5 +115,6 @@ func NewDefaultStandalone() Standalone {
 		StorageBase: *NewDefaultStorageBase(),
 		Logging:     *logger.NewDefaultSetting(),
 		Monitor:     *NewDefaultMonitor(),
+		Prometheus:  *NewDefaultPrometheus(),
 	}
 }

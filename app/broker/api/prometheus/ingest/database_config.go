@@ -15,23 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package constants
+package ingest
 
-const (
-	// APIRoot represents api root path.
-	APIRoot = "/api"
-	// APIVersion1 represents api version 1 path.
-	APIVersion1 = "/v1"
-	// APIVersion1CliPath represents api version 1 path for client.
-	APIVersion1CliPath = "/api/v1"
-	// APIPrometheus represents prometheus api version 1 path
-	APIPrometheus = "/prometheus"
-	// APIPrometheusPrefix represent prometheus api prefix
-	APIPrometheusPrefix = "/prometheus/api/v1"
-	// ContentTypeFlat represents flat buffer content type.
-	ContentTypeFlat = "application/flatbuffer"
-	// ContentTypeProto represents proto buffer content type.
-	ContentTypeProto = "application/protobuf"
-	// ContentTypeInflux represents influx content type.
-	ContentTypeInflux = "application/influx"
-)
+type DatabaseConfig struct {
+	Namespace string
+	Database  string
+	Field     string
+}

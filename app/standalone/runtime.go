@@ -85,6 +85,7 @@ func NewStandaloneRuntime(version string, cfg *config.Standalone, embedEtcd bool
 				BrokerBase:  cfg.BrokerBase,
 				Monitor:     cfg.Monitor,
 				Logging:     cfg.Logging,
+				Prometheus:  cfg.Prometheus,
 			}, true),
 		storage: storage.NewStorageRuntime(version,
 			1, // default: 1

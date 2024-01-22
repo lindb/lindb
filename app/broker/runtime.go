@@ -20,6 +20,7 @@ package broker
 import (
 	"context"
 	"fmt"
+	prometheusIngest "github.com/lindb/lindb/app/broker/api/prometheus/ingest"
 	"net/http"
 	"os"
 	"sync"
@@ -104,6 +105,10 @@ type runtime struct {
 	registry            discovery.Registry
 	stateMachineFactory discovery.StateMachineFactory
 	stateMgr            broker.StateManager
+
+	httpDeps *deps.HTTPDeps
+	// prometheusWriter writes data received from Prometheus to LinDB.
+	prometheusWriter prometheusIngest.Writer
 
 	grpcServer rpc.GRPCServer
 	rpcHandler *rpcHandler
@@ -294,6 +299,11 @@ func (r *runtime) Stop() {
 		}
 	}
 
+	// close prometheus writer
+	if r.prometheusWriter != nil {
+		r.prometheusWriter.Close()
+	}
+
 	// close registry, deregister broker node from active list
 	if r.registry != nil {
 		r.logger.Info("closing discovery-registry...")
@@ -358,7 +368,7 @@ func (r *runtime) startHTTPServer() {
 	r.logger.Info("starting HTTP server")
 	r.httpServer = newHTTPServer(r.config.BrokerBase.HTTP, true, linmetric.BrokerRegistry)
 	// TODO login api is not registered
-	httpAPI := api.NewAPI(&deps.HTTPDeps{
+	r.httpDeps = &deps.HTTPDeps{
 		Ctx:          r.ctx,
 		Node:         r.node,
 		BrokerCfg:    r.config,
@@ -382,8 +392,20 @@ func (r *runtime) startHTTPServer() {
 			metrics.NewLimitStatistics("query", linmetric.BrokerRegistry),
 		),
 		GlobalKeyValues: r.globalKeyValues,
-	})
+	}
+	// prometheus writer
+	schema := prometheusIngest.DatabaseConfig{
+		Namespace: r.config.Prometheus.Namespace,
+		Database:  r.config.Prometheus.Database,
+		Field:     r.config.Prometheus.Field,
+	}
+	r.prometheusWriter = prometheusIngest.NewWriter(r.httpDeps, prometheusIngest.DefaultWriteOptions(schema))
+
+	httpAPI := api.NewAPI(r.httpDeps, r.prometheusWriter)
+	// api
 	httpAPI.RegisterRouter(r.httpServer.GetAPIRouter())
+	// prometheus
+	httpAPI.RegisterPrometheusRouter(r.httpServer.GetPrometheusAPIRouter())
 	go r.runHTTPServer()
 }
 

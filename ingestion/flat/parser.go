@@ -65,6 +65,22 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string, limits *m
 	return batch, nil
 }
 
+func ParseReader(reader io.Reader, enrichedTags tag.Tags, namespace string, limits *models.Limits) (*metric.BrokerBatchRows, error) {
+	bufioReader, releaseBufioReaderFunc := ingestCommon.NewBufioReader(reader)
+	defer releaseBufioReaderFunc(bufioReader)
+
+	batch, err := parseFlatMetric(reader, enrichedTags, namespace, limits)
+	if err != nil {
+		flatIngestionStatistics.CorruptedData.Incr()
+		return nil, err
+	}
+	if batch.Len() == 0 {
+		return nil, fmt.Errorf("empty metrics")
+	}
+	flatIngestionStatistics.IngestedMetrics.Add(float64(batch.Len()))
+	return batch, nil
+}
+
 func parseFlatMetric(
 	reader io.Reader,
 	enrichedTags tag.Tags,

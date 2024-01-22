@@ -32,6 +32,7 @@ type Root struct {
 	HTTP        HTTP           `envPrefix:"LINDB_ROOT_HTTP_" toml:"http"`
 	Monitor     Monitor        `envPrefix:"LINDB_MONITOR_" toml:"monitor"`
 	Logging     logger.Setting `envPrefix:"LINDB_LOGGING_" toml:"logging"`
+	Prometheus  Prometheus     `envPrefix:"LINDB_PROMETHEUS_" toml:"prometheus"`
 }
 
 // TOML returns root's configuration string as toml format.
@@ -46,12 +47,14 @@ func (r *Root) TOML() string {
 [http]%s
 
 %s
+%s
 %s`,
 		r.Coordinator.TOML(),
 		r.Query.TOML(),
 		r.HTTP.TOML(),
 		r.Monitor.TOML(),
 		r.Logging.TOML("LINDB"),
+		r.Prometheus.TOML(),
 	)
 }
 
@@ -71,7 +74,8 @@ func NewDefaultRoot() *Root {
 			ReadTimeout:  ltoml.Duration(time.Second * 5),
 			WriteTimeout: ltoml.Duration(time.Second * 5),
 		},
-		Monitor: *NewDefaultMonitor(),
-		Logging: *logger.NewDefaultSetting(),
+		Monitor:    *NewDefaultMonitor(),
+		Logging:    *logger.NewDefaultSetting(),
+		Prometheus: *NewDefaultPrometheus(),
 	}
 }
