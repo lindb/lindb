@@ -278,7 +278,8 @@ func (m *mergedIterator) HasNext() bool {
 		// pop item and get value
 		val := heap.Pop(&m.pq)
 		item := val.(*item)
-		m.curKey = item.key
+		// use getKey() instead of item.key to prevent key from being overwritten.
+		m.curKey = item.getKey()
 
 		// if it has value, push back queue and adjust priority
 		it := item.it
@@ -305,6 +306,16 @@ type item struct {
 	key []byte
 
 	index int
+}
+
+// getKey clones the key and returns it.
+func (i *item) getKey() []byte {
+	if len(i.key) == 0 {
+		return nil
+	}
+	key := make([]byte, len(i.key))
+	copy(key, i.key)
+	return key
 }
 
 // priorityQueue implements heap.Interface and holds Items.
