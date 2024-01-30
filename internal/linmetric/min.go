@@ -45,7 +45,7 @@ func (m *BoundMin) Update(newValue float64) {
 		if newValue > v {
 			return
 		}
-		if m.value.CAS(v, newValue) {
+		if m.value.CompareAndSwap(v, newValue) {
 			return
 		}
 	}

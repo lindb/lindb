@@ -103,11 +103,12 @@ func BenchmarkBufioReader_Read(b *testing.B) {
 }
 
 func TestBufioReader_Count_Reset_Close(t *testing.T) {
+	const filename = "new"
 	defer func() {
 		_ = os.Remove(_testFile)
-		_ = os.Remove("new" + _testFile)
+		_ = os.Remove(filename + _testFile)
 	}()
-	f, _ := os.Create("new" + _testFile)
+	f, _ := os.Create(filename + _testFile)
 	defer func() {
 		_ = f.Close()
 	}()
@@ -124,7 +125,7 @@ func TestBufioReader_Count_Reset_Close(t *testing.T) {
 	}
 	assert.Equal(t, (len(_testContent)+1)*100000, int(br.Count()))
 
-	err := br.Reset("new" + _testFile)
+	err := br.Reset(filename + _testFile)
 	assert.Nil(t, err)
 	assert.Equal(t, 0, int(br.Count()))
 

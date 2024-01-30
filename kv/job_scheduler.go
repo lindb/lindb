@@ -61,14 +61,14 @@ func NewJobScheduler(ctx context.Context, interval time.Duration) JobScheduler {
 
 // Startup starts the job scheduler.
 func (js *jobScheduler) Startup() {
-	if js.running.CAS(false, true) {
+	if js.running.CompareAndSwap(false, true) {
 		js.schedule()
 	}
 }
 
 // Shutdown stops the job scheduler.
 func (js *jobScheduler) Shutdown() {
-	if js.running.CAS(true, false) {
+	if js.running.CompareAndSwap(true, false) {
 		js.cancel()
 	}
 }

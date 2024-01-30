@@ -19,17 +19,19 @@ package prometheus
 
 import (
 	"fmt"
+	"math"
+	"net/http"
+	"strconv"
+	"time"
+
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
+
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/prompb"
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/promql/parser"
-	"math"
-	"net/http"
-	"strconv"
-	"time"
 )
 
 func parseTimeParam(r *http.Request, paramName string, defaultValue time.Time) (time.Time, error) {
@@ -145,7 +147,7 @@ func walkMatcher(root *stmtpkg.BinaryExpr, matchers []*labels.Matcher) {
 	} else if root.Right == nil {
 		if len(matchers) > 1 {
 			expr := &stmtpkg.BinaryExpr{
-				Left:     &stmtpkg.EqualsExpr{
+				Left: &stmtpkg.EqualsExpr{
 					Key:   matchers[0].Name,
 					Value: matchers[0].Value,
 				},
@@ -200,4 +202,3 @@ func labelProtosToLabels(labelPairs []prompb.Label) labels.Labels {
 	b.Sort()
 	return b.Labels()
 }
-

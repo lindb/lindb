@@ -29,9 +29,10 @@ import (
 )
 
 const (
+	currentDir           = "./"
 	brokerCfgName        = "broker.toml"
 	brokerLogFileName    = "lind-broker.log"
-	defaultBrokerCfgFile = "./" + brokerCfgName
+	defaultBrokerCfgFile = currentDir + brokerCfgName
 )
 
 // newBrokerCmd returns a new broker-cmd

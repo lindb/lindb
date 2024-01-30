@@ -19,12 +19,13 @@ package prometheus
 
 import (
 	"fmt"
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/lindb/common/pkg/logger"
 	"github.com/munnerz/goautoneg"
 	"github.com/prometheus/prometheus/util/annotations"
-	"net/http"
 )
 
 // respondError returns error to client.

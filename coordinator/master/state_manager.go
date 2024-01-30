@@ -307,7 +307,7 @@ func (m *stateManager) Close() {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	if m.running.CAS(true, false) {
+	if m.running.CompareAndSwap(true, false) {
 		m.logger.Info("starting close state manager")
 		m.cancel()
 	}

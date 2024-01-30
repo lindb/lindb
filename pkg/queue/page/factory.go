@@ -168,7 +168,7 @@ func (f *factory) Size() int64 {
 
 // Close closes all acquire mapped pages
 func (f *factory) Close() error {
-	if f.closed.CAS(false, true) {
+	if f.closed.CompareAndSwap(false, true) {
 		f.mutex.Lock()
 		defer f.mutex.Unlock()
 

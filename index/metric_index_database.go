@@ -194,7 +194,7 @@ func (index *metricIndexDatabase) handle(n Notifier) {
 		}
 		notifier.Callback(seriesID, err)
 	case *FlushNotifier:
-		if index.flushing.CAS(false, true) {
+		if index.flushing.CompareAndSwap(false, true) {
 			index.PrepareFlush()
 			go func() {
 				notifier.Callback(index.Flush())

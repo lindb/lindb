@@ -17,7 +17,6 @@
 
 package ingest
 
-
 // WriteOptions represents writer configuration.
 type WriteOptions struct {
 	// database config

@@ -18,12 +18,13 @@
 package prometheus
 
 import (
+	"testing"
+
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
-func TestParseMatchersParam(t *testing.T)  {
+func TestParseMatchersParam(t *testing.T) {
 	result, err := parseMatchersParam([]string{`http_requests_total{idc="sh"}`, `cpu_load{ip="1.1.1.1"}`})
 	assert.Nil(t, err)
 	expected := []*labels.Matcher{
@@ -51,9 +52,7 @@ func TestParseMatchersParam(t *testing.T)  {
 
 	got := make([]*labels.Matcher, 0)
 	for _, slice := range result {
-		for _, matcher := range slice {
-			got = append(got, matcher)
-		}
+		got = append(got, slice...)
 	}
 
 	assert.Equal(t, expected, got)

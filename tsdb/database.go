@@ -338,7 +338,7 @@ func (db *database) initMetadata() error {
 // FlushMeta flushes meta to disk.
 func (db *database) FlushMeta() (err error) {
 	// another flush process is running
-	if !db.isFlushing.CAS(false, true) {
+	if !db.isFlushing.CompareAndSwap(false, true) {
 		return nil
 	}
 	start := time.Now()

@@ -129,14 +129,14 @@ func newDataFlushChecker(ctx context.Context) DataFlushChecker {
 
 // Start starts the checker goroutine in background
 func (fc *dataFlushChecker) Start() {
-	if fc.running.CAS(false, true) {
+	if fc.running.CompareAndSwap(false, true) {
 		go fc.startCheckDataFlush()
 	}
 }
 
 // Stop stops the background check goroutine
 func (fc *dataFlushChecker) Stop() {
-	if fc.running.CAS(true, false) {
+	if fc.running.CompareAndSwap(true, false) {
 		fc.cancel()
 	}
 }

@@ -238,7 +238,7 @@ func (f *family) needCompact() bool {
 
 // compact does compact job if it hasn't compact job running.
 func (f *family) compact() {
-	if f.compacting.CAS(false, true) {
+	if f.compacting.CompareAndSwap(false, true) {
 		f.condition.Add(1)
 		go func() {
 			defer func() {

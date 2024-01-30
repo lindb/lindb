@@ -164,7 +164,7 @@ func (mm *metricMetaDatabase) handle(n Notifier) {
 		}
 		PutTagNotifier(notifier)
 	case *FlushNotifier:
-		if mm.flushing.CAS(false, true) {
+		if mm.flushing.CompareAndSwap(false, true) {
 			mm.PrepareFlush() // do under worker goroutine
 			// start flush goroutine, do io block background
 			go func() {

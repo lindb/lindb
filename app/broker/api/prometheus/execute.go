@@ -19,13 +19,10 @@ package prometheus
 
 import (
 	"context"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/lindb/common/pkg/logger"
-	prometheusIngest "github.com/lindb/lindb/app/broker/api/prometheus/ingest"
-	depspkg "github.com/lindb/lindb/app/broker/deps"
-	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/prometheus"
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/version"
 	"github.com/prometheus/prometheus/model/labels"
@@ -37,7 +34,12 @@ import (
 	"github.com/prometheus/prometheus/util/httputil"
 	"github.com/prometheus/prometheus/web"
 	v1 "github.com/prometheus/prometheus/web/api/v1"
-	"time"
+
+	prometheusIngest "github.com/lindb/lindb/app/broker/api/prometheus/ingest"
+	depspkg "github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/prometheus"
 )
 
 const (
@@ -120,12 +122,10 @@ func (e *ExecuteAPI) Register(route gin.IRoutes) {
 func (e *ExecuteAPI) waitPrometheusWriteErr() {
 	errCh := e.prometheusWriter.Errors()
 	for {
-		select {
-		case err, ok := <-errCh:
-			if !ok {
-				return
-			}
-			e.logger.Error("prometheus remote write", logger.Error(err))
+		err, ok := <-errCh
+		e.logger.Error("prometheus remote write", logger.Error(err))
+		if !ok {
+			break
 		}
 	}
 }
@@ -314,9 +314,9 @@ func (e *ExecuteAPI) queryResult(c *gin.Context) (result apiFuncResult) {
 	ctx := r.Context()
 	if to := r.FormValue("timeout"); to != "" {
 		var cancel context.CancelFunc
-		timeout, err := parseDuration(to)
-		if err != nil {
-			return invalidParamError(err, "timeout")
+		timeout, err0 := parseDuration(to)
+		if err0 != nil {
+			return invalidParamError(err0, "timeout")
 		}
 
 		ctx, cancel = context.WithDeadline(ctx, time.Now().Add(timeout))
@@ -381,16 +381,16 @@ func (e *ExecuteAPI) queryRangeResult(c *gin.Context) (result apiFuncResult) {
 	// For safety, limit the number of returned points per timeseries.
 	// This is sufficient for 60s resolution for a week or 1h resolution for a year.
 	if end.Sub(start)/step > 11000 {
-		err := errors.New("exceeded maximum resolution of 11,000 points per timeseries. Try decreasing the query resolution (?step=XX)")
-		return apiFuncResult{nil, &apiError{errorBadData, err}, nil, nil}
+		err0 := errors.New("exceeded maximum resolution of 11,000 points per timeseries. Try decreasing the query resolution (?step=XX)")
+		return apiFuncResult{nil, &apiError{errorBadData, err0}, nil, nil}
 	}
 
 	ctx := r.Context()
 	if to := r.FormValue("timeout"); to != "" {
 		var cancel context.CancelFunc
-		timeout, err := parseDuration(to)
-		if err != nil {
-			return invalidParamError(err, "timeout")
+		timeout, err0 := parseDuration(to)
+		if err0 != nil {
+			return invalidParamError(err0, "timeout")
 		}
 
 		ctx, cancel = context.WithTimeout(ctx, timeout)

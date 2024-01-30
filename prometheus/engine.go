@@ -19,10 +19,11 @@ package prometheus
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/lindb/common/pkg/logger"
 	"github.com/prometheus/prometheus/promql"
 	"go.uber.org/zap"
-	"time"
 )
 
 type QueryOpts struct {
@@ -56,7 +57,7 @@ func (l *Logger) Log(keyvals ...interface{}) error {
 func NewEngine() *promql.Engine {
 	opt := promql.EngineOpts{
 		Logger:               &Logger{logger: logger.GetLogger("prometheus", "engine")},
-		MaxSamples:           1E5,
+		MaxSamples:           1e5,
 		Timeout:              time.Minute,
 		LookbackDelta:        time.Minute * 5,
 		EnableAtModifier:     true,

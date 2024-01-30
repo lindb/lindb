@@ -32,6 +32,10 @@ import (
 	"github.com/lindb/lindb/series/field"
 )
 
+const (
+	testCounter = "counter"
+)
+
 func buildFlatMetric(builder *flatbuffers.Builder, ns bool) {
 	builder.Reset()
 
@@ -45,7 +49,7 @@ func buildFlatMetric(builder *flatbuffers.Builder, ns bool) {
 	for i := 0; i < 10; i++ {
 		keys[i] = builder.CreateString("key" + strconv.Itoa(i))
 		values[i] = builder.CreateString("value" + strconv.Itoa(i))
-		fieldNames[i] = builder.CreateString("counter" + strconv.Itoa(i))
+		fieldNames[i] = builder.CreateString(testCounter + strconv.Itoa(i))
 	}
 	for i := 9; i >= 0; i-- {
 		flatMetricsV1.KeyValueStart(builder)
@@ -164,8 +168,8 @@ func Test_MetricRow_WithSimpleFields(t *testing.T) {
 		sfItr.Reset()
 		var count int
 		for sfItr.HasNext() {
-			assert.Equal(t, "counter"+strconv.Itoa(count), string(sfItr.NextName()))
-			assert.Equal(t, "counter"+strconv.Itoa(count), string(sfItr.NextRawName()))
+			assert.Equal(t, testCounter+strconv.Itoa(count), string(sfItr.NextName()))
+			assert.Equal(t, testCounter+strconv.Itoa(count), string(sfItr.NextRawName()))
 			switch count {
 			case 0:
 				assert.Equal(t, field.LastField, sfItr.NextType())

@@ -162,7 +162,7 @@ func (mp *mappedPage) Sync() error {
 
 // Close releases underlying bytes.
 func (mp *mappedPage) Close() error {
-	if mp.closed.CAS(false, true) {
+	if mp.closed.CompareAndSwap(false, true) {
 		// close file after unmap file.
 		defer func() {
 			_ = mp.f.Close()

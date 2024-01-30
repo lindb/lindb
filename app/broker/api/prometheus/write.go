@@ -19,14 +19,15 @@ package prometheus
 
 import (
 	"context"
-	"github.com/gin-gonic/gin"
-	"github.com/lindb/common/pkg/logger"
-	"github.com/lindb/lindb/app/broker/api/prometheus/ingest"
-	"github.com/prometheus/prometheus/prompb"
-	"github.com/prometheus/prometheus/storage"
-	"github.com/prometheus/prometheus/storage/remote"
 	"net/http"
 	"time"
+
+	"github.com/lindb/lindb/app/broker/api/prometheus/ingest"
+
+	"github.com/gin-gonic/gin"
+	"github.com/lindb/common/pkg/logger"
+	"github.com/prometheus/prometheus/prompb"
+	"github.com/prometheus/prometheus/storage/remote"
 )
 
 // remoteWrite implements a remote write interface similar to Prometheus.
@@ -38,23 +39,13 @@ func (e *ExecuteAPI) remoteWrite(c *gin.Context) {
 		return
 	}
 
-	err = e.write(r.Context(), req)
-	switch err {
-	case nil:
-	case storage.ErrOutOfOrderSample, storage.ErrOutOfBounds, storage.ErrDuplicateSampleForTimestamp:
-		// Indicated an out of order sample is a bad request to prevent retries.
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	default:
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	e.write(r.Context(), req)
 
 	w.WriteHeader(http.StatusNoContent)
 }
 
 // write asynchronously writes data to LinDB.
-func (e *ExecuteAPI) write(ctx context.Context, req *prompb.WriteRequest) (err error) {
+func (e *ExecuteAPI) write(ctx context.Context, req *prompb.WriteRequest) {
 	for _, ts := range req.Timeseries {
 		lbs := labelProtosToLabels(ts.Labels)
 		if !lbs.IsValid() {
@@ -82,6 +73,4 @@ func (e *ExecuteAPI) write(ctx context.Context, req *prompb.WriteRequest) (err e
 			e.prometheusWriter.AddPoint(ctx, point)
 		}
 	}
-	return nil
 }
-

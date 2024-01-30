@@ -47,6 +47,10 @@ import (
 	"github.com/lindb/lindb/series/metric"
 )
 
+const (
+	testLocalhost9000 = "http://localhost:9000"
+)
+
 func TestMain(m *testing.M) {
 	defer func() {
 		_ = fileutil.RemoveDir("data")
@@ -78,7 +82,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestQuery_Group_by(t *testing.T) {
-	cli := client.NewExecuteCli("http://localhost:9000" + constants.APIVersion1CliPath)
+	cli := client.NewExecuteCli(testLocalhost9000 + constants.APIVersion1CliPath)
 	rs, err := cli.ExecuteAsResult(models.ExecuteParam{
 		Database: "_internal",
 		SQL:      "select f1 from cpu_data where host='host1' and time>now()-1h group by host,app",
@@ -104,7 +108,7 @@ func TestQuery_Group_by(t *testing.T) {
 }
 
 func TestTagValueNotFound(t *testing.T) {
-	cli := client.NewExecuteCli("http://localhost:9000" + constants.APIVersion1CliPath)
+	cli := client.NewExecuteCli(testLocalhost9000 + constants.APIVersion1CliPath)
 	rs, err := cli.ExecuteAsResult(models.ExecuteParam{
 		Database: "_internal",
 		SQL:      "select f1 from cpu_data where host='host' and time>now()-1h group by host,app",
@@ -114,7 +118,7 @@ func TestTagValueNotFound(t *testing.T) {
 }
 
 func TestMetaNotFound(t *testing.T) {
-	cli := client.NewExecuteCli("http://localhost:9000" + constants.APIVersion1CliPath)
+	cli := client.NewExecuteCli(testLocalhost9000 + constants.APIVersion1CliPath)
 	err := cli.Execute(models.ExecuteParam{
 		Database: "_internal",
 		SQL:      "select f4 from cpu_data where host='host' and time>now()-1h group by host,app",

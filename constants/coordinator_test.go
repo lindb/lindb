@@ -23,22 +23,27 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	pathName      = "name"
+	slashPathName = "/name"
+)
+
 func TestGetDatabaseAssignPath(t *testing.T) {
-	assert.Equal(t, ShardAssignmentPath+"/name", GetDatabaseAssignPath("name"))
+	assert.Equal(t, ShardAssignmentPath+slashPathName, GetDatabaseAssignPath(pathName))
 }
 
 func TestGetDatabaseConfigPath(t *testing.T) {
-	assert.Equal(t, DatabaseConfigPath+"/name", GetDatabaseConfigPath("name"))
+	assert.Equal(t, DatabaseConfigPath+slashPathName, GetDatabaseConfigPath(pathName))
 }
 
 func TestGetDatabaseLimitPath(t *testing.T) {
-	assert.Equal(t, DatabaseLimitPath+"/name", GetDatabaseLimitPath("name"))
+	assert.Equal(t, DatabaseLimitPath+slashPathName, GetDatabaseLimitPath(pathName))
 }
 
 func TestGetNodePath(t *testing.T) {
-	assert.Equal(t, StorageLiveNodesPath+"/name", GetStorageLiveNodePath("name"))
+	assert.Equal(t, StorageLiveNodesPath+slashPathName, GetStorageLiveNodePath(pathName))
 }
 
 func TestGetBrokerClusterConfigPath(t *testing.T) {
-	assert.Equal(t, BrokerConfigPath+"/name", GetBrokerClusterConfigPath("name"))
+	assert.Equal(t, BrokerConfigPath+slashPathName, GetBrokerClusterConfigPath(pathName))
 }

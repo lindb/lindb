@@ -19,13 +19,13 @@ package api
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/lindb/lindb/app/broker/api/prometheus"
 
 	commonlogger "github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/app/broker/api/admin"
 	"github.com/lindb/lindb/app/broker/api/exec"
 	"github.com/lindb/lindb/app/broker/api/ingest"
+	"github.com/lindb/lindb/app/broker/api/prometheus"
 	prometheusIngest "github.com/lindb/lindb/app/broker/api/prometheus/ingest"
 	"github.com/lindb/lindb/app/broker/api/state"
 	depspkg "github.com/lindb/lindb/app/broker/deps"

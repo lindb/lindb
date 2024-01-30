@@ -21,18 +21,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	commonmodels "github.com/lindb/common/models"
+	"reflect"
+	"sort"
+
 	"github.com/lindb/lindb/app/broker/api/exec/command"
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
+
+	commonmodels "github.com/lindb/common/models"
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/storage"
 	"github.com/prometheus/prometheus/util/annotations"
-	"reflect"
-	"sort"
 )
 
 // Queryable is implementation of storage.Queryable of Prometheus.
@@ -131,7 +133,7 @@ func (q *Querier) Close() error {
 // query time series data using the method in LinDB.
 func (q *Querier) query(ctx context.Context, hints *storage.SelectHints, matchers ...*labels.Matcher) (result any, err error) {
 	metric, condition := makeCondition(matchers...)
-	if len(metric) == 0 {
+	if metric == "" {
 		return nil, errors.New("metric name does not exist")
 	}
 
@@ -157,12 +159,10 @@ func (q *Querier) query(ctx context.Context, hints *storage.SelectHints, matcher
 		// there are some issues with this approach.
 		// Prometheus, on the other hand, aims to query results even if not all labels exist simultaneously
 		GroupBy: tagKeys,
-		Limit:   1E5,
+		Limit:   1e5,
 	}
 
-	result, err = command.QueryCommand(ctx, q.queryable.deps, param, stmt)
-
-	return
+	return command.QueryCommand(ctx, q.queryable.deps, param, stmt)
 }
 
 // Select calls the query method to retrieve data and transforms the results into the SeriesSet.

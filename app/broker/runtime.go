@@ -20,19 +20,18 @@ package broker
 import (
 	"context"
 	"fmt"
-	prometheusIngest "github.com/lindb/lindb/app/broker/api/prometheus/ingest"
 	"net/http"
 	"os"
 	"sync"
 	"time"
 
-	"go.uber.org/atomic"
-
 	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/timeutil"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/app"
 	"github.com/lindb/lindb/app/broker/api"
+	prometheusIngest "github.com/lindb/lindb/app/broker/api/prometheus/ingest"
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
@@ -230,7 +229,7 @@ func (r *runtime) Run() error {
 	var stateMachineStarted atomic.Bool
 
 	r.master.WatchMasterElected(func(_ *models.Master) {
-		if stateMachineStarted.CAS(false, true) {
+		if stateMachineStarted.CompareAndSwap(false, true) {
 			// if state machine is not started, after 5 second when master elected, wait master state sync.
 			time.AfterFunc(5*time.Second, func() {
 				defer wait.Done()

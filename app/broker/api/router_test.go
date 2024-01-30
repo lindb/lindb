@@ -22,12 +22,21 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	prometheusIngest "github.com/lindb/lindb/app/broker/api/prometheus/ingest"
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 )
 
 func TestNewRouter(t *testing.T) {
-	r := NewAPI(&deps.HTTPDeps{BrokerCfg: &config.Broker{}})
+	brokerCfg := &config.Broker{}
+	httpDeps := &deps.HTTPDeps{BrokerCfg: brokerCfg}
+	schema := prometheusIngest.DatabaseConfig{
+		Namespace: brokerCfg.Prometheus.Namespace,
+		Database:  brokerCfg.Prometheus.Database,
+		Field:     brokerCfg.Prometheus.Field,
+	}
+	prometheusWriter := prometheusIngest.NewWriter(httpDeps, prometheusIngest.DefaultWriteOptions(schema))
+	r := NewAPI(httpDeps, prometheusWriter)
 	r.RegisterRouter(gin.New().Group(constants.APIRoot))
 }

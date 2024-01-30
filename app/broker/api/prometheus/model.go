@@ -20,6 +20,9 @@ package prometheus
 import (
 	"context"
 	"fmt"
+	"math"
+	"time"
+
 	jsoniter "github.com/json-iterator/go"
 	"github.com/munnerz/goautoneg"
 	"github.com/pkg/errors"
@@ -27,8 +30,6 @@ import (
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/storage"
 	"github.com/prometheus/prometheus/util/annotations"
-	"math"
-	"time"
 )
 
 var (

@@ -18,7 +18,6 @@
 package strutil
 
 import (
-	"reflect"
 	"strings"
 	"unsafe"
 )
@@ -36,24 +35,11 @@ func GetStringValue(rawString string) string {
 }
 
 func ByteSlice2String(bytes []byte) string {
-	p := unsafe.Pointer((*reflect.SliceHeader)(unsafe.Pointer(&bytes)).Data)
-
-	var s string
-	hdr := (*reflect.StringHeader)(unsafe.Pointer(&s))
-	hdr.Data = uintptr(p)
-	hdr.Len = len(bytes)
-	return s
+	return unsafe.String(&bytes[0], len(bytes))
 }
 
 func String2ByteSlice(str string) []byte {
-	p := unsafe.Pointer((*reflect.StringHeader)(unsafe.Pointer(&str)).Data)
-
-	var b []byte
-	hdr := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-	hdr.Data = uintptr(p)
-	hdr.Cap = len(str)
-	hdr.Len = len(str)
-	return b
+	return unsafe.Slice(unsafe.StringData(str), len(str))
 }
 
 // DeDupStringSlice removes the duplicated string in a list

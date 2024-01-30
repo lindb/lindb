@@ -18,10 +18,12 @@
 package prometheus
 
 import (
+	"testing"
+
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
+
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestIterateMatcher(t *testing.T) {

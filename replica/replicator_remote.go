@@ -90,7 +90,7 @@ func (r *remoteReplicator) State() *state {
 
 func (r *remoteReplicator) handleNodeStateChangeEvent(state models.NodeStateType) {
 	if state == models.NodeOnline {
-		if r.isSuspend.CAS(true, false) {
+		if r.isSuspend.CompareAndSwap(true, false) {
 			r.logger.Info("notify replicator follower node is online", logger.String("replicator", r.String()))
 			r.suspend <- struct{}{} // notify follower node online
 		}
@@ -147,7 +147,7 @@ func (r *remoteReplicator) IsReady() bool {
 		r.logger.Warn("follower node is offline, need suspend replicator", logger.String("replicator", r.String()))
 
 		r.rwMutex.Unlock() // unlock
-		if r.isSuspend.CAS(false, true) {
+		if r.isSuspend.CompareAndSwap(false, true) {
 			r.statistics.FollowerOffline.Incr()
 			r.state.Store(&state{state: models.ReplicatorFailureState, errMsg: "follower node is offline"})
 			<-r.suspend // wait follower node online

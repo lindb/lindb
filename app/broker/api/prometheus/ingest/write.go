@@ -20,14 +20,16 @@ package ingest
 import (
 	"bytes"
 	"context"
-	"github.com/lindb/common/series"
+	"io"
+	"sync"
+	"time"
+
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/ingestion/flat"
 	"github.com/lindb/lindb/pkg/strutil"
-	"io"
-	"sync"
-	"time"
+
+	"github.com/lindb/common/series"
 )
 
 // Writer represents writer for writing time series data asynchronously.
@@ -44,8 +46,6 @@ type Writer interface {
 type writer struct {
 	deps *depspkg.HTTPDeps
 
-	namespace    string
-	database     string
 	writeOptions *WriteOptions
 
 	bufferCh    chan *Point

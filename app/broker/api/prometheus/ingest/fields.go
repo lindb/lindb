@@ -20,6 +20,7 @@ package ingest
 import (
 	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
 	"github.com/lindb/common/series"
+
 	"github.com/lindb/lindb/pkg/strutil"
 )
 
@@ -146,4 +147,3 @@ func (h *Histogram) write(builder *series.RowBuilder) error {
 	}
 	return builder.AddCompoundFieldData(h.values, h.bounds)
 }
-
