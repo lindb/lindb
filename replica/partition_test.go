@@ -20,12 +20,13 @@ package replica
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/mock/gomock"
+	"time"
 
 	commontimeutil "github.com/lindb/common/pkg/timeutil"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
@@ -68,20 +69,22 @@ func TestPartition_BuildReplicaRelation(t *testing.T) {
 	log.EXPECT().GetOrCreateConsumerGroup(gomock.Any()).Return(nil, nil).MaxTimes(3)
 	family.EXPECT().TimeRange().Return(timeutil.TimeRange{}).AnyTimes()
 	p := NewPartition(context.TODO(), shard, family, 1, log, nil, nil)
+	p1 := p.(*partition)
 	err := p.BuildReplicaForLeader(2, []models.NodeID{1, 2, 3})
 	assert.Error(t, err)
+	assert.Len(t, p1.replicators, 0)
 
 	r.EXPECT().IsReady().Return(true).AnyTimes()
 	r.EXPECT().Connect().Return(true).AnyTimes()
 	r.EXPECT().Consume().Return(int64(-1)).AnyTimes()
 	err = p.BuildReplicaForLeader(1, []models.NodeID{1, 2, 3})
 	assert.NoError(t, err)
+	assert.Len(t, p1.replicators, 3)
+
 	// ignore re-build
 	err = p.BuildReplicaForLeader(1, []models.NodeID{1, 2, 3})
 	assert.NoError(t, err)
-
-	p1 := p.(*partition)
-	assert.Len(t, p1.peers, 3)
+	assert.Len(t, p1.replicators, 3)
 
 	q.EXPECT().AppendedSeq().Return(int64(10))
 	assert.Equal(t, int64(10), p.ReplicaAckIndex())
@@ -266,12 +269,21 @@ func TestPartition_getReplicaState(t *testing.T) {
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 	p := NewPartition(context.TODO(), shard, family, 1, l, nil, nil)
 	p1 := p.(*partition)
-	peer := NewMockReplicatorPeer(ctrl)
-	peer.EXPECT().ReplicatorState().Return("remote", &state{state: models.ReplicatorReadyState}).AnyTimes()
+
+	r := NewMockReplicator(ctrl)
+	r.EXPECT().IsReady().Return(true).MinTimes(1)
+	r.EXPECT().Connect().Return(true).MinTimes(1)
+	r.EXPECT().Consume().Return(int64(-1)).MinTimes(1)
+	r.EXPECT().State().Return(&state{state: models.ReplicatorReadyState}).AnyTimes()
+
 	p1.mutex.Lock()
-	p1.peers[models.NodeID(1)] = peer
-	p1.peers[models.NodeID(2)] = peer
+	p1.replicators[models.NodeID(1)] = r
+	p1.replicators[models.NodeID(2)] = r
 	p1.mutex.Unlock()
+
+	p.StartReplica()
+	time.Sleep(1500 * time.Millisecond)
+
 	l.EXPECT().ConsumerGroupNames().Return([]string{"1", "2"})
 	fan := queue.NewMockConsumerGroup(ctrl)
 	l.EXPECT().GetOrCreateConsumerGroup(gomock.Any()).Return(nil, fmt.Errorf("err"))
@@ -299,13 +311,13 @@ func TestPartition_IsExpire(t *testing.T) {
 	log.EXPECT().Sync().AnyTimes()
 	log.EXPECT().Queue().Return(q).AnyTimes()
 	log.EXPECT().ConsumerGroupNames().Return([]string{"1"}).AnyTimes()
-	peer := NewMockReplicatorPeer(ctrl)
+	r := NewMockReplicator(ctrl)
 	p := &partition{
 		shard:  shard,
 		family: family,
 		log:    log,
-		peers: map[models.NodeID]ReplicatorPeer{
-			models.NodeID(1): peer,
+		replicators: map[models.NodeID]Replicator{
+			models.NodeID(1): r,
 		},
 	}
 	cg := queue.NewMockConsumerGroup(ctrl)
@@ -331,15 +343,15 @@ func TestPartition_IsExpire(t *testing.T) {
 	t.Run("partition is expire, no data replica, can stop replicator", func(t *testing.T) {
 		db.EXPECT().GetOption().Return(&option.DatabaseOption{Ahead: "1h"})
 		p.mutex.Lock()
-		assert.Len(t, p.peers, 1)
+		assert.Len(t, p.replicators, 1)
 		p.mutex.Unlock()
 		family.EXPECT().TimeRange().Return(timeutil.TimeRange{End: commontimeutil.Now() - commontimeutil.OneHour - 16*commontimeutil.OneMinute})
 		cg.EXPECT().IsEmpty().Return(true)
 		log.EXPECT().StopConsumerGroup(gomock.Any())
-		peer.EXPECT().Shutdown()
+		r.EXPECT().Close()
 		assert.True(t, p.IsExpire())
 		p.mutex.Lock()
-		assert.Empty(t, p.peers)
+		assert.Empty(t, p.replicators)
 		p.mutex.Unlock()
 	})
 }
@@ -348,7 +360,6 @@ func TestPartition_recovery(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
 		newLocalReplicatorFn = NewLocalReplicator
-		newReplicatorPeerFn = NewReplicatorPeer
 		ctrl.Finish()
 	}()
 
@@ -357,14 +368,14 @@ func TestPartition_recovery(t *testing.T) {
 	shard.EXPECT().Database().Return(db).AnyTimes()
 	db.EXPECT().Name().Return("test").AnyTimes()
 	family := tsdb.NewMockDataFamily(ctrl)
-
 	log := queue.NewMockFanOutQueue(ctrl)
 	log.EXPECT().ConsumerGroupNames().Return([]string{"1"}).AnyTimes()
+
 	p := &partition{
 		shard:         shard,
 		family:        family,
 		currentNodeID: 1,
-		peers:         make(map[models.NodeID]ReplicatorPeer),
+		replicators:   make(map[models.NodeID]Replicator),
 		log:           log,
 	}
 
@@ -377,38 +388,71 @@ func TestPartition_recovery(t *testing.T) {
 		q := queue.NewMockConsumerGroup(ctrl)
 		log.EXPECT().GetOrCreateConsumerGroup(gomock.Any()).Return(q, nil)
 		family.EXPECT().TimeRange().Return(timeutil.TimeRange{Start: commontimeutil.Now()})
+		r := NewMockReplicator(ctrl)
+		r.EXPECT().ReplicaState().Return(&models.ReplicaState{}).AnyTimes()
 		newLocalReplicatorFn = func(channel *ReplicatorChannel, shard tsdb.Shard, family tsdb.DataFamily) Replicator {
-			return nil
-		}
-		peer := NewMockReplicatorPeer(ctrl)
-		peer.EXPECT().Startup()
-		newReplicatorPeerFn = func(replicator Replicator) ReplicatorPeer {
-			return peer
+			return r
 		}
 		err := p.recovery(1)
 		assert.NoError(t, err)
 	})
 }
 
+func TestPartition_replica(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	log := queue.NewMockFanOutQueue(ctrl)
+	log.EXPECT().StopConsumerGroup(gomock.Any()).AnyTimes()
+	r1 := NewMockReplicator(ctrl)
+	r2 := NewMockReplicator(ctrl)
+	p := &partition{
+		ctx:    ctx,
+		cancel: cancel,
+		replicators: map[models.NodeID]Replicator{
+			1: r1,
+			2: r2,
+		},
+		running: &atomic.Bool{},
+		log:     log,
+	}
+	for _, r := range []*MockReplicator{r1, r2} {
+		r.EXPECT().IsReady().Return(true).MinTimes(1)
+		r.EXPECT().Connect().Return(true).MinTimes(1)
+		r.EXPECT().Consume().Return(int64(-1)).MinTimes(1)
+		r.EXPECT().Close()
+	}
+	p.StartReplica()
+	time.Sleep(1500 * time.Millisecond)
+	p.Stop()
+	assert.False(t, p.running.Load())
+}
+
 func TestPartition_Stop(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	peer1 := NewMockReplicatorPeer(ctrl)
-	peer2 := NewMockReplicatorPeer(ctrl)
 	ctx, cancel := context.WithCancel(context.TODO())
 	log := queue.NewMockFanOutQueue(ctrl)
 	log.EXPECT().StopConsumerGroup(gomock.Any()).AnyTimes()
+	r1 := NewMockReplicator(ctrl)
+	r2 := NewMockReplicator(ctrl)
 	p := &partition{
 		ctx:    ctx,
 		cancel: cancel,
-		peers: map[models.NodeID]ReplicatorPeer{
-			1: peer1,
-			2: peer2,
+		replicators: map[models.NodeID]Replicator{
+			1: r1,
+			2: r2,
 		},
-		log: log,
+		running: &atomic.Bool{},
+		log:     log,
 	}
-	peer1.EXPECT().Shutdown()
-	peer2.EXPECT().Shutdown()
+
+	r1.EXPECT().Close()
+	r2.EXPECT().Close()
+
 	p.Stop()
+
+	assert.False(t, p.running.Load())
 }

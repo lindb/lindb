@@ -144,6 +144,7 @@ func (w *writeAheadLog) GetOrCreatePartition(
 		return nil, err
 	}
 	p := NewPartitionFn(w.ctx, shard, family, w.currentNodeID, q, w.cliFct, w.stateMgr)
+	p.StartReplica()
 
 	w.familyLogs[key] = p
 	return p, nil
