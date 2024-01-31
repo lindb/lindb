@@ -257,7 +257,7 @@ func (s *shard) Close() error {
 // FlushIndex flushes index data to disk
 func (s *shard) FlushIndex() (err error) {
 	// another flush process is running
-	if !s.isFlushing.CAS(false, true) {
+	if !s.isFlushing.CompareAndSwap(false, true) {
 		return nil
 	}
 	// 1. mark flush job doing

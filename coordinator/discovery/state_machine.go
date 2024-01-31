@@ -190,7 +190,7 @@ func (sm *stateMachine) OnDelete(key string) {
 
 // Close closes state machine, stops watch change event.
 func (sm *stateMachine) Close() error {
-	if sm.running.CAS(true, false) {
+	if sm.running.CompareAndSwap(true, false) {
 		defer func() {
 			sm.cancel()
 		}()

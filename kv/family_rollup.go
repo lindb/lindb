@@ -127,7 +127,7 @@ func (f *family) needRollup() bool {
 func (f *family) rollup() {
 	// check if it has background rollup job running already,
 	// has rollup job, return it, else do rollup job.
-	if f.rolluping.CAS(false, true) {
+	if f.rolluping.CompareAndSwap(false, true) {
 		f.condition.Add(1)
 		go func() {
 			defer func() {

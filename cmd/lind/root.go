@@ -31,7 +31,7 @@ import (
 const (
 	rootCfgName        = "root.toml"
 	rootLogFileName    = "lind-root.log"
-	defaultRootCfgFile = "./" + rootCfgName
+	defaultRootCfgFile = currentDir + rootCfgName
 )
 
 // newRootCmd returns a new root-cmd.

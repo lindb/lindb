@@ -108,19 +108,20 @@ func TestLoggerAPI_View(t *testing.T) {
 	relFn = func(basepath, targpath string) (string, error) {
 		return "", fmt.Errorf("err")
 	}
-	resp = mock.DoRequest(t, r, http.MethodGet, LogViewPath+"?file=log_handler.go", "")
+	const logHandler = "?file=log_handler.go"
+	resp = mock.DoRequest(t, r, http.MethodGet, LogViewPath+logHandler, "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 	relFn = filepath.Rel
 	// abs fail
 	absFn = func(path string) (string, error) {
 		return "", fmt.Errorf("err")
 	}
-	resp = mock.DoRequest(t, r, http.MethodGet, LogViewPath+"?file=log_handler.go", "")
+	resp = mock.DoRequest(t, r, http.MethodGet, LogViewPath+logHandler, "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 	absFn = filepath.Abs
 
 	// file not exist
-	resp = mock.DoRequest(t, r, http.MethodGet, LogViewPath+"?file=log_handler.go", "")
+	resp = mock.DoRequest(t, r, http.MethodGet, LogViewPath+logHandler, "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 	// ok
 	resp = mock.DoRequest(t, r, http.MethodGet, LogViewPath+"?file=log_handle.go", "")

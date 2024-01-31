@@ -33,7 +33,7 @@ const (
 	standaloneCfgName     = "standalone.toml"
 	standaloneLogFileName = "lind-standalone.log"
 	// DefaultStandaloneCfgFile defines default config file path for standalone mode
-	defaultStandaloneCfgFile = "./" + standaloneCfgName
+	defaultStandaloneCfgFile = currentDir + standaloneCfgName
 )
 
 // newStandaloneCmd returns a new standalone-cmd

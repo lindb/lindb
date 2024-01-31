@@ -38,6 +38,14 @@ import (
 	"github.com/lindb/lindb/series/metric"
 )
 
+const (
+	host          = "host"
+	disk          = "disk"
+	partition     = "partition"
+	internalDBURL = "http://127.0.0.1:9000/api/v1/write?db=_internal"
+	testDBURL     = "http://127.0.0.1:9000/api/v1/write?db=test"
+)
+
 func TestWrite_SumMetric(b *testing.T) {
 	timestamp := timeutil.Now()
 	cli := resty.New()
@@ -52,9 +60,9 @@ func TestWrite_SumMetric(b *testing.T) {
 					Name:      "host_disk_700",
 					Timestamp: timestamp,
 					Tags: []*protoMetricsV1.KeyValue{
-						{Key: "host", Value: "host" + strconv.Itoa(i)},
-						{Key: "disk", Value: "disk" + strconv.Itoa(j)},
-						{Key: "partition", Value: "partition" + strconv.Itoa(k)},
+						{Key: host, Value: host + strconv.Itoa(i)},
+						{Key: disk, Value: disk + strconv.Itoa(j)},
+						{Key: partition, Value: partition + strconv.Itoa(k)},
 					},
 					SimpleFields: []*protoMetricsV1.SimpleField{
 						{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: float64(1)},
@@ -72,7 +80,7 @@ func TestWrite_SumMetric(b *testing.T) {
 		body := buf.Bytes()
 		r := cli.R()
 		r.Header.Set(headers.ContentType, constants.ContentTypeFlat)
-		_, err := r.SetBody(body).Put("http://127.0.0.1:9000/api/v1/write?db=_internal")
+		_, err := r.SetBody(body).Put(internalDBURL)
 		if err != nil {
 			panic(err)
 		}
@@ -95,9 +103,9 @@ func TestWriteSumMetric_OneDay(b *testing.T) {
 						Name:      "host_disk_3400",
 						Timestamp: timestamp + n*2000,
 						Tags: []*protoMetricsV1.KeyValue{
-							{Key: "host", Value: "host" + strconv.Itoa(i)},
-							{Key: "disk", Value: "disk" + strconv.Itoa(k)},
-							{Key: "partition", Value: "partition" + strconv.Itoa(j)},
+							{Key: host, Value: host + strconv.Itoa(i)},
+							{Key: disk, Value: disk + strconv.Itoa(k)},
+							{Key: partition, Value: partition + strconv.Itoa(j)},
 						},
 						SimpleFields: []*protoMetricsV1.SimpleField{
 							{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
@@ -113,7 +121,7 @@ func TestWriteSumMetric_OneDay(b *testing.T) {
 		body := buf.Bytes()
 		r := cli.R()
 		r.Header.Set(headers.ContentType, constants.ContentTypeFlat)
-		_, err := r.SetBody(body).Put("http://127.0.0.1:9000/api/v1/write?db=_internal")
+		_, err := r.SetBody(body).Put(internalDBURL)
 		if err != nil {
 			panic(err)
 		}
@@ -135,9 +143,9 @@ func TestWriteSumMetric_7Days(b *testing.T) {
 					Name:      "host_disk_170",
 					Timestamp: timestamp + n*timeutil.OneMinute + d*timeutil.OneHour,
 					Tags: []*protoMetricsV1.KeyValue{
-						{Key: "host", Value: "host" + strconv.Itoa(i)},
-						{Key: "disk", Value: "disk" + strconv.Itoa(i)},
-						{Key: "partition", Value: "partition" + strconv.Itoa(i)},
+						{Key: host, Value: host + strconv.Itoa(i)},
+						{Key: disk, Value: disk + strconv.Itoa(i)},
+						{Key: partition, Value: partition + strconv.Itoa(i)},
 					},
 					SimpleFields: []*protoMetricsV1.SimpleField{
 						{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
@@ -152,7 +160,7 @@ func TestWriteSumMetric_7Days(b *testing.T) {
 		body := buf.Bytes()
 		r := cli.R()
 		r.Header.Set(headers.ContentType, constants.ContentTypeFlat)
-		_, err := r.SetBody(body).Put("http://127.0.0.1:9000/api/v1/write?db=test")
+		_, err := r.SetBody(body).Put(testDBURL)
 		if err != nil {
 			panic(err)
 		}

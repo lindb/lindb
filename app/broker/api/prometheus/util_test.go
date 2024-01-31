@@ -15,35 +15,45 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package constants
+package prometheus
 
 import (
 	"testing"
 
+	"github.com/prometheus/prometheus/model/labels"
 	"github.com/stretchr/testify/assert"
 )
 
-const (
-	pathName      = "name"
-	slashPathName = "/name"
-)
+func TestParseMatchersParam(t *testing.T) {
+	result, err := parseMatchersParam([]string{`http_requests_total{idc="sh"}`, `cpu_load{ip="1.1.1.1"}`})
+	assert.Nil(t, err)
+	expected := []*labels.Matcher{
+		{
+			Type:  labels.MatchEqual,
+			Name:  "idc",
+			Value: "sh",
+		},
+		{
+			Type:  labels.MatchEqual,
+			Name:  "__name__",
+			Value: "http_requests_total",
+		},
+		{
+			Type:  labels.MatchEqual,
+			Name:  "ip",
+			Value: "1.1.1.1",
+		},
+		{
+			Type:  labels.MatchEqual,
+			Name:  "__name__",
+			Value: "cpu_load",
+		},
+	}
 
-func TestGetDatabaseAssignPath(t *testing.T) {
-	assert.Equal(t, ShardAssignmentPath+slashPathName, GetDatabaseAssignPath(pathName))
-}
+	got := make([]*labels.Matcher, 0)
+	for _, slice := range result {
+		got = append(got, slice...)
+	}
 
-func TestGetDatabaseConfigPath(t *testing.T) {
-	assert.Equal(t, DatabaseConfigPath+slashPathName, GetDatabaseConfigPath(pathName))
-}
-
-func TestGetDatabaseLimitPath(t *testing.T) {
-	assert.Equal(t, DatabaseLimitPath+slashPathName, GetDatabaseLimitPath(pathName))
-}
-
-func TestGetNodePath(t *testing.T) {
-	assert.Equal(t, StorageLiveNodesPath+slashPathName, GetStorageLiveNodePath(pathName))
-}
-
-func TestGetBrokerClusterConfigPath(t *testing.T) {
-	assert.Equal(t, BrokerConfigPath+slashPathName, GetBrokerClusterConfigPath(pathName))
+	assert.Equal(t, expected, got)
 }

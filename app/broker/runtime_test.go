@@ -188,6 +188,7 @@ func TestBrokerRuntime_Run(t *testing.T) {
 				}
 				httpSrv := httppkg.NewMockServer(ctrl)
 				httpSrv.EXPECT().GetAPIRouter().Return(gin.New().Group("/api"))
+				httpSrv.EXPECT().GetPrometheusAPIRouter().Return(gin.New().Group("/prometheus"))
 				newHTTPServer = func(_ config.HTTP, _ bool, _ *linmetric.Registry) httppkg.Server {
 					return httpSrv
 				}

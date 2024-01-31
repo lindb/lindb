@@ -260,7 +260,7 @@ func (f *consumerGroup) IsEmpty() bool {
 
 // Close persists headSeq, tailSeq.
 func (f *consumerGroup) Close() {
-	if f.closed.CAS(false, true) {
+	if f.closed.CompareAndSwap(false, true) {
 		f.Queue().Queue().Signal()
 
 		if err := f.metaPageFct.Close(); err != nil {

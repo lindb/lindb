@@ -263,7 +263,7 @@ func (f *dataFamily) IsFlushing() bool {
 
 // Flush flushes memory database.
 func (f *dataFamily) Flush() error {
-	if f.isFlushing.CAS(false, true) {
+	if f.isFlushing.CompareAndSwap(false, true) {
 		defer func() {
 			// mark flush job complete, notify
 			f.flushCondition.Done()

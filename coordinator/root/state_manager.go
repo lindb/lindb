@@ -467,7 +467,7 @@ func (s *stateManager) Close() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if s.running.CAS(true, false) {
+	if s.running.CompareAndSwap(true, false) {
 		s.logger.Info("starting close state manager")
 		for name := range s.brokers {
 			s.unRegister(name)

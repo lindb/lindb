@@ -149,7 +149,7 @@ func (ctx *baseTaskContext) tryClose() {
 	defer ctx.mutex.Unlock()
 
 	if ctx.expectResults <= 0 || ctx.err != nil {
-		if ctx.completed.CAS(false, true) {
+		if ctx.completed.CompareAndSwap(false, true) {
 			ctx.stageTracker.Complete()
 			close(ctx.doneCh)
 		}

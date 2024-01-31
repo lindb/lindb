@@ -124,7 +124,7 @@ func (s *snapshot) GetReader(fileNumber table.FileNumber) (table.Reader, error) 
 // Close releases related resources
 func (s *snapshot) Close() {
 	// atomic set closed status, make sure only release once
-	if s.closed.CAS(false, true) {
+	if s.closed.CompareAndSwap(false, true) {
 		s.version.Release()
 		s.cache.ReleaseReaders(s.readers)
 	}

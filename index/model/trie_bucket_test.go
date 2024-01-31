@@ -330,7 +330,7 @@ func createTriesDataBulk(t *testing.T, blockSize int) (keys [][]byte, values []u
 	b := NewTrieBucketBuilder(blockSize, w)
 	assert.NoError(t, b.Write(keys, values))
 	data = w.Bytes()
-	return
+	return keys, values, data, keysString
 }
 
 func TestTrieBucket_Unmarlshal(t *testing.T) {
@@ -348,4 +348,3 @@ func TestTrieBucket_Unmarlshal(t *testing.T) {
 	sort.Strings(rs)
 	assert.Equal(t, keys, rs)
 }
-

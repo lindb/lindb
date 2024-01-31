@@ -52,6 +52,8 @@ func init() {
 type Server interface {
 	// GetAPIRouter returns api router.
 	GetAPIRouter() *gin.RouterGroup
+	// GetPrometheusAPIRouter returns prometheus api router
+	GetPrometheusAPIRouter() *gin.RouterGroup
 	// Run runs the HTTP server.
 	Run() error
 	// Close closes the server.
@@ -135,6 +137,11 @@ func (s *server) init() {
 // GetAPIRouter returns api router.
 func (s *server) GetAPIRouter() *gin.RouterGroup {
 	return s.gin.Group(constants.APIRoot)
+}
+
+// GetPrometheusAPIRouter returns prometheus api router
+func (s *server) GetPrometheusAPIRouter() *gin.RouterGroup {
+	return s.gin.Group(constants.APIPrometheus)
 }
 
 // Run runs the HTTP server.

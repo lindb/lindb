@@ -58,7 +58,7 @@ func NewReplicatorPeer(replicator Replicator) ReplicatorPeer {
 
 // Startup starts wal replicator channel,
 func (r *replicatorPeer) Startup() {
-	if r.running.CAS(false, true) {
+	if r.running.CompareAndSwap(false, true) {
 		go func() {
 			replicatorLabels := pprof.Labels("type", r.runner.replicatorType,
 				"replicator", r.runner.replicator.String())
@@ -69,7 +69,7 @@ func (r *replicatorPeer) Startup() {
 
 // Shutdown shutdowns gracefully.
 func (r *replicatorPeer) Shutdown() {
-	if r.running.CAS(true, false) {
+	if r.running.CompareAndSwap(true, false) {
 		r.runner.shutdown()
 	}
 }
@@ -121,14 +121,14 @@ func newReplicatorRunner(replicator Replicator) *replicatorRunner {
 }
 
 func (r *replicatorRunner) replicaLoop(ctx context.Context) {
-	if r.running.CAS(false, true) {
+	if r.running.CompareAndSwap(false, true) {
 		r.statistics.ActiveReplicators.Incr()
 		r.loop(ctx)
 	}
 }
 
 func (r *replicatorRunner) shutdown() {
-	if r.running.CAS(true, false) {
+	if r.running.CompareAndSwap(true, false) {
 		r.replicator.Pause()
 		r.cannel()
 		// wait for stop replica loop

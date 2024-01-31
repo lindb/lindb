@@ -31,7 +31,7 @@ import (
 const (
 	storageCfgName        = "storage.toml"
 	storageLogFileName    = "lind-storage.log"
-	defaultStorageCfgFile = "./" + storageCfgName
+	defaultStorageCfgFile = currentDir + storageCfgName
 )
 
 var runStorageCmd = &cobra.Command{

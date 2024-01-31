@@ -212,6 +212,7 @@ type Broker struct {
 	BrokerBase  BrokerBase     `envPrefix:"LINDB_BROKER_" toml:"broker"`
 	Monitor     Monitor        `envPrefix:"LINDB_MONITOR_" toml:"monitor"`
 	Logging     logger.Setting `envPrefix:"LINDB_LOGGING_" toml:"logging"`
+	Prometheus  Prometheus     `envPrefix:"LINDB_PROMETHEUS_" toml:"prometheus"`
 }
 
 // TOML returns broker's configuration string as toml format.
@@ -223,12 +224,14 @@ func (b *Broker) TOML() string {
 %s
 %s
 %s
+%s
 %s`,
 		b.Coordinator.TOML(),
 		b.Query.TOML(),
 		b.BrokerBase.TOML(),
 		b.Monitor.TOML(),
 		b.Logging.TOML("LINDB"),
+		b.Prometheus.TOML(),
 	)
 }
 
@@ -241,12 +244,14 @@ func NewDefaultBrokerTOML() string {
 %s
 %s
 %s
+%s
 %s`,
 		NewDefaultCoordinator().TOML(),
 		NewDefaultQuery().TOML(),
 		NewDefaultBrokerBase().TOML(),
 		NewDefaultMonitor().TOML(),
 		logger.NewDefaultSetting().TOML("LINDB"),
+		NewDefaultPrometheus().TOML(),
 	)
 }
 

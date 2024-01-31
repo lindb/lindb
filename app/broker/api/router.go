@@ -25,6 +25,8 @@ import (
 	"github.com/lindb/lindb/app/broker/api/admin"
 	"github.com/lindb/lindb/app/broker/api/exec"
 	"github.com/lindb/lindb/app/broker/api/ingest"
+	"github.com/lindb/lindb/app/broker/api/prometheus"
+	prometheusIngest "github.com/lindb/lindb/app/broker/api/prometheus/ingest"
 	"github.com/lindb/lindb/app/broker/api/state"
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
@@ -36,7 +38,8 @@ import (
 
 // API represents broker http api.
 type API struct {
-	deps *depspkg.HTTPDeps
+	deps             *depspkg.HTTPDeps
+	prometheusWriter prometheusIngest.Writer
 
 	execute            *exec.ExecuteAPI
 	database           *admin.DatabaseAPI
@@ -49,12 +52,14 @@ type API struct {
 	env                *apipkg.EnvAPI
 	write              *ingest.Write
 	proxy              *httppkg.ReverseProxy
+	prometheusExecute  *prometheus.ExecuteAPI
 }
 
 // NewAPI creates broker http api.
-func NewAPI(deps *depspkg.HTTPDeps) *API {
+func NewAPI(deps *depspkg.HTTPDeps, prometheusWriter prometheusIngest.Writer) *API {
 	return &API{
 		deps:               deps,
+		prometheusWriter:   prometheusWriter,
 		execute:            exec.NewExecuteAPI(deps),
 		database:           admin.NewDatabaseAPI(deps),
 		flusher:            admin.NewDatabaseFlusherAPI(deps),
@@ -66,6 +71,7 @@ func NewAPI(deps *depspkg.HTTPDeps) *API {
 		env:                apipkg.NewEnvAPI(deps.BrokerCfg.Monitor, constants.BrokerRole),
 		write:              ingest.NewWrite(deps),
 		proxy:              httppkg.NewReverseProxy(),
+		prometheusExecute:  prometheus.NewExecuteAPI(deps, prometheusWriter),
 	}
 }
 
@@ -93,4 +99,11 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 
 	api.env.Register(v1)
 	api.proxy.Register(v1)
+}
+
+// RegisterPrometheusRouter registers prometheus http api router.
+func (api *API) RegisterPrometheusRouter(router *gin.RouterGroup) {
+	router.Use(SlowSQLLog(api.deps, commonlogger.GetLogger(logger.SlowSQLModule, "SQL")))
+	// execute promql statement
+	api.prometheusExecute.Register(router.Group(constants.APIVersion1CliPath))
 }

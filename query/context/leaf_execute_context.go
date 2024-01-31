@@ -119,7 +119,7 @@ func (ctx *LeafExecuteContext) waitCollectGroupingTagsCompleted() (err error) {
 
 // SendResponse sends lead node execute response, if with err sends error msg, else sends result set.
 func (ctx *LeafExecuteContext) SendResponse(err error) {
-	if ctx.completed.CAS(false, true) {
+	if ctx.completed.CompareAndSwap(false, true) {
 		defer ctx.StorageExecuteCtx.Release()
 
 		if err != nil {
