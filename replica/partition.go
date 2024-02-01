@@ -209,6 +209,7 @@ func (p *partition) stopReplicator(node string) {
 	replicator, ok := p.replicators[nodeID]
 	if ok {
 		replicator.Close()
+		// copy on write
 		replicators := make(map[models.NodeID]Replicator, len(p.replicators)-1)
 		for id := range p.replicators {
 			if id != nodeID {
@@ -459,8 +460,8 @@ func (p *partition) buildReplica(leader, replica models.NodeID) error {
 
 	// copy on write
 	replicatorStatistics[replica] = metrics.NewStorageReplicatorRunnerStatistics(replicaType, state.Database, state.ShardID.String())
-	//	the order is to first use p.replicators and then p.replicatorStatistics,
-	//	so p.replicatorStatistics must be assigned first in concurrent scenarios,
+	//	the order is to first use replicators and then replicatorStatistics,
+	//	so replicatorStatistics must be assigned first in concurrent scenarios,
 	//	perhaps in the future, this should be refactored to encapsulate two variables into a single structure.
 	p.replicatorStatistics = replicatorStatistics
 	replicators[replica] = replicator
