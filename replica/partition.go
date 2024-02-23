@@ -312,8 +312,6 @@ func (p *partition) replica(nodeID models.NodeID, replicator Replicator) {
 				replicatorType = replicatorTypeLocal
 			case *remoteReplicator:
 				replicatorType = replicatorTypeRemote
-			default:
-				panic("unknown replicator type")
 			}
 			p.logger.Debug("replica write ahead log",
 				logger.String("type", replicatorType),
