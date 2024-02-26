@@ -329,8 +329,7 @@ func createTriesDataBulk(t *testing.T, blockSize int) (keys [][]byte, values []u
 	w := bytes.NewBuffer([]byte{})
 	b := NewTrieBucketBuilder(blockSize, w)
 	assert.NoError(t, b.Write(keys, values))
-	data = w.Bytes()
-	return keys, values, data, keysString
+	return keys, values, w.Bytes(), keysString
 }
 
 func TestTrieBucket_Unmarlshal(t *testing.T) {

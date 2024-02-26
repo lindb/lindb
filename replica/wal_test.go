@@ -97,7 +97,9 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 				NewPartitionFn = func(ctx context.Context, shard tsdb.Shard, family tsdb.DataFamily,
 					currentNodeID models.NodeID, log queue.FanOutQueue,
 					cliFct rpc.ClientStreamFactory, stateMgr storage.StateManager) Partition {
-					return NewMockPartition(ctrl)
+					p := NewMockPartition(ctrl)
+					p.EXPECT().StartReplica().Times(1)
+					return p
 				}
 			},
 			wantErr: false,
