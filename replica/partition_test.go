@@ -25,7 +25,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/storage"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/queue"
@@ -56,7 +58,8 @@ func TestPartition_BuildReplicaRelation(t *testing.T) {
 		return r
 	}
 	newRemoteReplicatorFn = func(_ context.Context, _ *ReplicatorChannel,
-		_ storage.StateManager, _ rpc.ClientStreamFactory) Replicator {
+		_ storage.StateManager, _ rpc.ClientStreamFactory,
+	) Replicator {
 		return r
 	}
 
@@ -117,7 +120,8 @@ func TestPartition_BuildReplicaForFollower(t *testing.T) {
 		return r
 	}
 	newRemoteReplicatorFn = func(_ context.Context, _ *ReplicatorChannel,
-		_ storage.StateManager, _ rpc.ClientStreamFactory) Replicator {
+		_ storage.StateManager, _ rpc.ClientStreamFactory,
+	) Replicator {
 		return r
 	}
 
@@ -165,7 +169,8 @@ func TestPartition_Close(t *testing.T) {
 		return r
 	}
 	newRemoteReplicatorFn = func(_ context.Context, _ *ReplicatorChannel,
-		_ storage.StateManager, _ rpc.ClientStreamFactory) Replicator {
+		_ storage.StateManager, _ rpc.ClientStreamFactory,
+	) Replicator {
 		return r
 	}
 
@@ -409,4 +414,22 @@ func TestPartition_Stop(t *testing.T) {
 	peer1.EXPECT().Shutdown()
 	peer2.EXPECT().Shutdown()
 	p.Stop()
+}
+
+func TestPartition_WriteLog_After_Close(t *testing.T) {
+	dirPath := t.TempDir()
+	log, err := queue.NewFanOutQueue(dirPath, 1024*1014)
+	ctx, cancel := context.WithCancel(context.TODO())
+	assert.NoError(t, err)
+	p := &partition{
+		ctx:        ctx,
+		cancel:     cancel,
+		statistics: metrics.NewStorageWriteAheadLogStatistics("test", "0"),
+		log:        log,
+	}
+	err = p.WriteLog([]byte("test"))
+	assert.NoError(t, err)
+	p.Close()
+	err = p.WriteLog([]byte("test"))
+	assert.Equal(t, constants.ErrPartitionClosed, err)
 }

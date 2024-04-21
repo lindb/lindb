@@ -23,6 +23,9 @@ import (
 	"io"
 	"sync"
 
+	"go.uber.org/atomic"
+
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
@@ -80,6 +83,7 @@ type partition struct {
 	shardID       models.ShardID
 	shard         tsdb.Shard
 	family        tsdb.DataFamily
+	closed        atomic.Bool
 
 	peers    map[models.NodeID]ReplicatorPeer
 	cliFct   rpc.ClientStreamFactory
@@ -123,6 +127,9 @@ func NewPartition(
 // ReplicaLog writes msg that leader sends replica msg.
 // return appended index, if success.
 func (p *partition) ReplicaLog(replicaIdx int64, msg []byte) (int64, error) {
+	if p.closed.Load() {
+		return 0, constants.ErrPartitionClosed
+	}
 	appendIdx := p.log.Queue().AppendedSeq() + 1
 	if replicaIdx != appendIdx {
 		return appendIdx, nil
@@ -198,6 +205,9 @@ func (p *partition) stopReplicator(node string) {
 
 // WriteLog writes msg that leader sends replica msg.
 func (p *partition) WriteLog(msg []byte) error {
+	if p.closed.Load() {
+		return constants.ErrPartitionClosed
+	}
 	if len(msg) == 0 {
 		return nil
 	}
@@ -251,8 +261,10 @@ func (p *partition) BuildReplicaForFollower(leader, replica models.NodeID) error
 
 // Close shutdowns all replica workers.
 func (p *partition) Close() error {
-	// close log
-	p.log.Close()
+	if p.closed.CAS(false, true) {
+		// close log
+		p.log.Close()
+	}
 	return nil
 }
 
