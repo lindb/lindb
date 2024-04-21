@@ -68,6 +68,9 @@ var (
 	// ErrEmptySelectList represents empty select list.
 	ErrEmptySelectList = errors.New("select item list is empty")
 
+	// ErrPartitionClosed represents paritition is already closed.
+	ErrPartitionClosed = errors.New("partition is closed")
+
 	ErrDatabaseNotExist       = errors.New("database not exist")
 	ErrNoAvailableStorageNode = errors.New("no available storage node for server")
 

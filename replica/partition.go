@@ -22,11 +22,12 @@ import (
 	"fmt"
 	"io"
 	"sync"
-	"sync/atomic"
 
 	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/timeutil"
+	"go.uber.org/atomic"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
@@ -93,6 +94,7 @@ type partition struct {
 	shard         tsdb.Shard
 	family        tsdb.DataFamily
 	running       *atomic.Bool
+	closed        *atomic.Bool
 
 	replicators map[models.NodeID]Replicator
 	cliFct      rpc.ClientStreamFactory
@@ -125,7 +127,8 @@ func NewPartition(
 		shardID:              shard.ShardID(),
 		shard:                shard,
 		family:               family,
-		running:              &atomic.Bool{},
+		running:              atomic.NewBool(false),
+		closed:               atomic.NewBool(false),
 		currentNodeID:        currentNodeID,
 		cliFct:               cliFct,
 		stateMgr:             stateMgr,
@@ -140,6 +143,9 @@ func NewPartition(
 // ReplicaLog writes msg that leader sends replica msg.
 // return appended index, if success.
 func (p *partition) ReplicaLog(replicaIdx int64, msg []byte) (int64, error) {
+	if p.closed.Load() {
+		return 0, constants.ErrPartitionClosed
+	}
 	appendIdx := p.log.Queue().AppendedSeq() + 1
 	if replicaIdx != appendIdx {
 		return appendIdx, nil
@@ -222,6 +228,9 @@ func (p *partition) stopReplicator(node string) {
 
 // WriteLog writes msg that leader sends replica msg.
 func (p *partition) WriteLog(msg []byte) error {
+	if p.closed.Load() {
+		return constants.ErrPartitionClosed
+	}
 	if len(msg) == 0 {
 		return nil
 	}
@@ -291,7 +300,7 @@ func (p *partition) replicaLoop() {
 
 // replica tries to consume message
 func (p *partition) replica(nodeID models.NodeID, replicator Replicator) {
-	var replicatorStatistics = p.replicatorStatistics[nodeID]
+	replicatorStatistics := p.replicatorStatistics[nodeID]
 
 	defer func() {
 		if recovered := recover(); recovered != nil {
@@ -337,8 +346,10 @@ func (p *partition) replica(nodeID models.NodeID, replicator Replicator) {
 
 // Close shutdowns all replica workers.
 func (p *partition) Close() error {
-	// close log
-	p.log.Close()
+	if p.closed.CompareAndSwap(false, true) {
+		// close log
+		p.log.Close()
+	}
 	return nil
 }
 

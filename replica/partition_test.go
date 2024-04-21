@@ -24,6 +24,12 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/lindb/common/pkg/logger"
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
+
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
@@ -33,11 +39,6 @@ import (
 	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/tsdb"
-
-	"github.com/lindb/common/pkg/logger"
-	commontimeutil "github.com/lindb/common/pkg/timeutil"
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/mock/gomock"
 )
 
 func TestPartition_BuildReplicaRelation(t *testing.T) {
@@ -62,7 +63,8 @@ func TestPartition_BuildReplicaRelation(t *testing.T) {
 		return r
 	}
 	newRemoteReplicatorFn = func(_ context.Context, _ *ReplicatorChannel,
-		_ storage.StateManager, _ rpc.ClientStreamFactory) Replicator {
+		_ storage.StateManager, _ rpc.ClientStreamFactory,
+	) Replicator {
 		return r
 	}
 
@@ -125,7 +127,8 @@ func TestPartition_BuildReplicaForFollower(t *testing.T) {
 		return r
 	}
 	newRemoteReplicatorFn = func(_ context.Context, _ *ReplicatorChannel,
-		_ storage.StateManager, _ rpc.ClientStreamFactory) Replicator {
+		_ storage.StateManager, _ rpc.ClientStreamFactory,
+	) Replicator {
 		return r
 	}
 
@@ -173,7 +176,8 @@ func TestPartition_Close(t *testing.T) {
 		return r
 	}
 	newRemoteReplicatorFn = func(_ context.Context, _ *ReplicatorChannel,
-		_ storage.StateManager, _ rpc.ClientStreamFactory) Replicator {
+		_ storage.StateManager, _ rpc.ClientStreamFactory,
+	) Replicator {
 		return r
 	}
 
@@ -713,4 +717,22 @@ func TestPartition_local_replica(t *testing.T) {
 	err = partition.WriteLog([]byte("test msg"))
 	assert.NoError(t, err)
 	partition.replica(1, partition.replicators[1])
+}
+
+func TestPartition_WriteLog_After_Close(t *testing.T) {
+	dirPath := t.TempDir()
+	log, err := queue.NewFanOutQueue(dirPath, 1024*1014)
+	ctx, cancel := context.WithCancel(context.TODO())
+	assert.NoError(t, err)
+	p := &partition{
+		ctx:        ctx,
+		cancel:     cancel,
+		statistics: metrics.NewStorageWriteAheadLogStatistics("test", "0"),
+		log:        log,
+	}
+	err = p.WriteLog([]byte("test"))
+	assert.NoError(t, err)
+	p.Close()
+	err = p.WriteLog([]byte("test"))
+	assert.Equal(t, constants.ErrPartitionClosed, err)
 }

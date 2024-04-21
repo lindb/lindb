@@ -216,8 +216,10 @@ func (r *remoteReplicator) IsReady() bool {
 			r.logger.Warn("do reset replica append index err",
 				logger.String("replicator", r.String()),
 				logger.Error(err))
-			r.state.Store(&state{state: models.ReplicatorFailureState,
-				errMsg: "reset replica append index failure, root cause: " + err.Error()})
+			r.state.Store(&state{
+				state:  models.ReplicatorFailureState,
+				errMsg: "reset replica append index failure, root cause: " + err.Error(),
+			})
 			return false
 		}
 		r.statistics.ResetFollowerAppendIdx.Incr()
@@ -285,6 +287,7 @@ func (r *remoteReplicator) Replica(idx int64, msg []byte) {
 		logger.String("replicator", r.String()),
 		logger.Int64("replicaIdx", resp.ReplicaIndex),
 		logger.Int64("ackIdx", resp.AckIndex))
+	// FIXME: need check resp err
 	if resp.AckIndex == resp.ReplicaIndex {
 		// if ack index = replica, need ack wal
 		r.SetAckIndex(resp.AckIndex)
