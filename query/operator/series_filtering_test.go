@@ -39,7 +39,8 @@ func TestSeriesFiltering_Execute(t *testing.T) {
 
 	shard := tsdb.NewMockShard(ctrl)
 	indexDB := index.NewMockMetricIndexDatabase(ctrl)
-	shard.EXPECT().IndexDB().Return(indexDB).AnyTimes()
+	indexSegment := index.NewMockMetricIndexSegment(ctrl)
+	shard.EXPECT().IndexSegment().Return(indexSegment).AnyTimes()
 	storageCtx := &flow.StorageExecuteContext{
 		Query: &stmtpkg.Query{},
 		TagFilterResult: map[string]*flow.TagFilterResult{
@@ -74,7 +75,8 @@ func TestSeriesFiltering_Execute(t *testing.T) {
 				Value: "value1",
 			},
 			prepare: func() {
-				indexDB.EXPECT().GetSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+				indexDB.EXPECT().GetSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err")).AnyTimes()
+				indexSegment.EXPECT().GetSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
 			},
 			wantErr: true,
 		},
@@ -85,7 +87,8 @@ func TestSeriesFiltering_Execute(t *testing.T) {
 				Value: "value1",
 			},
 			prepare: func() {
-				indexDB.EXPECT().GetSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any()).Return(roaring.BitmapOf(1, 2), nil)
+				indexDB.EXPECT().GetSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any()).Return(roaring.BitmapOf(1, 2), nil).AnyTimes()
+				indexSegment.EXPECT().GetSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any(), gomock.Any()).Return(roaring.BitmapOf(1, 2), nil).AnyTimes()
 			},
 		},
 		{
@@ -97,7 +100,8 @@ func TestSeriesFiltering_Execute(t *testing.T) {
 				},
 			},
 			prepare: func() {
-				indexDB.EXPECT().GetSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any()).Return(roaring.BitmapOf(1, 2), nil)
+				indexDB.EXPECT().GetSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any()).Return(roaring.BitmapOf(1, 2), nil).AnyTimes()
+				indexSegment.EXPECT().GetSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any(), gomock.Any()).Return(roaring.BitmapOf(1, 2), nil).AnyTimes()
 			},
 		},
 		{
@@ -109,8 +113,10 @@ func TestSeriesFiltering_Execute(t *testing.T) {
 				},
 			},
 			prepare: func() {
-				indexDB.EXPECT().GetSeriesIDsForTag(gomock.Any()).Return(roaring.BitmapOf(1, 2, 3), nil)
-				indexDB.EXPECT().GetSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any()).Return(roaring.BitmapOf(1, 2), nil)
+				indexDB.EXPECT().GetSeriesIDsForTag(gomock.Any()).Return(roaring.BitmapOf(1, 2, 3), nil).AnyTimes()
+				indexDB.EXPECT().GetSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any()).Return(roaring.BitmapOf(1, 2), nil).AnyTimes()
+				indexSegment.EXPECT().GetSeriesIDsForTag(gomock.Any(), gomock.Any()).Return(roaring.BitmapOf(1, 2, 3), nil).AnyTimes()
+				indexSegment.EXPECT().GetSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any(), gomock.Any()).Return(roaring.BitmapOf(1, 2), nil).AnyTimes()
 			},
 		},
 		{
@@ -122,10 +128,12 @@ func TestSeriesFiltering_Execute(t *testing.T) {
 				},
 			},
 			prepare: func() {
-				indexDB.EXPECT().GetSeriesIDsForTag(gomock.Any()).Return(nil, fmt.Errorf("err"))
-				indexDB.EXPECT().GetSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any()).Return(roaring.BitmapOf(1, 2), nil)
+				indexDB.EXPECT().GetSeriesIDsForTag(gomock.Any()).Return(nil, fmt.Errorf("err")).AnyTimes()
+				indexDB.EXPECT().GetSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any()).Return(roaring.BitmapOf(1, 2), nil).AnyTimes()
+				indexSegment.EXPECT().GetSeriesIDsForTag(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err")).AnyTimes()
+				indexSegment.EXPECT().GetSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any(), gomock.Any()).Return(roaring.BitmapOf(1, 2), nil).AnyTimes()
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name: "binary expr failure",
@@ -140,9 +148,10 @@ func TestSeriesFiltering_Execute(t *testing.T) {
 				},
 			},
 			prepare: func() {
-				indexDB.EXPECT().GetSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+				indexDB.EXPECT().GetSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err")).AnyTimes()
+				indexSegment.EXPECT().GetSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err")).AnyTimes()
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name: "binary expr(OR) successfully",
@@ -159,7 +168,9 @@ func TestSeriesFiltering_Execute(t *testing.T) {
 			},
 			prepare: func() {
 				indexDB.EXPECT().GetSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any()).
-					Return(roaring.BitmapOf(1, 2), nil).MaxTimes(2)
+					Return(roaring.BitmapOf(1, 2), nil).AnyTimes()
+				indexSegment.EXPECT().GetSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(roaring.BitmapOf(1, 2), nil).AnyTimes()
 			},
 		},
 		{
@@ -177,13 +188,21 @@ func TestSeriesFiltering_Execute(t *testing.T) {
 			},
 			prepare: func() {
 				indexDB.EXPECT().GetSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any()).
-					Return(roaring.BitmapOf(1, 2), nil).MaxTimes(2)
+					Return(roaring.BitmapOf(1, 2), nil).AnyTimes()
+				indexSegment.EXPECT().GetSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(roaring.BitmapOf(1, 2), nil).AnyTimes()
 			},
 		},
 		{
 			name: "unknown condition expr",
 			in: &stmtpkg.FieldExpr{
 				Name: "f",
+			},
+			prepare: func() {
+				indexDB.EXPECT().GetSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any()).
+					Return(nil, nil).AnyTimes()
+				indexSegment.EXPECT().GetSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(nil, nil).AnyTimes()
 			},
 		},
 	}
@@ -209,8 +228,8 @@ func TestSeriesFiltering_Stats(t *testing.T) {
 	defer ctrl.Finish()
 
 	shard := tsdb.NewMockShard(ctrl)
-	indexDB := index.NewMockMetricIndexDatabase(ctrl)
-	shard.EXPECT().IndexDB().Return(indexDB).AnyTimes()
+	indexSegment := index.NewMockMetricIndexSegment(ctrl)
+	shard.EXPECT().IndexSegment().Return(indexSegment).AnyTimes()
 	shardCtx := &flow.ShardExecuteContext{
 		SeriesIDsAfterFiltering: roaring.BitmapOf(1, 2),
 	}

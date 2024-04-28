@@ -15,30 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package stage
+package tsdb
 
-import (
-	"testing"
+import "github.com/lindb/lindb/index"
 
-	"github.com/lindb/lindb/index"
-
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/mock/gomock"
-
-	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/tsdb"
-)
-
-func TestShardLookupStage(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	shard := tsdb.NewMockShard(ctrl)
-	shard.EXPECT().IndexSegment().Return(index.NewMockMetricIndexSegment(ctrl))
-
-	s := NewShardLookupStage(nil, nil, shard)
-	assert.NotNil(t, s.Plan())
-
-	shard.EXPECT().ShardID().Return(models.ShardID(19))
-	assert.Equal(t, "Shard Lookup[Shard(19)]", s.Identifier())
-}
+var newIndexDBFunc = index.NewMetricIndexDatabase

@@ -18,7 +18,9 @@
 package timeutil
 
 import (
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/lindb/common/pkg/timeutil"
 	"github.com/stretchr/testify/assert"
@@ -46,4 +48,13 @@ func TestTruncate(t *testing.T) {
 	assert.Equal(t, t1, Truncate(now, 10*timeutil.OneSecond))
 	t1, _ = timeutil.ParseTimestamp("20190702 19:10:00", "20060102 15:04:05")
 	assert.Equal(t, t1, Truncate(now, 10*timeutil.OneMinute))
+}
+
+func TestGetSegment2(t *testing.T) {
+	now := time.Now()
+	segment := GetSegment(now.UnixMilli())
+	s := now.Format("200601")
+	expected, err := strconv.Atoi(s)
+	assert.NoError(t, err)
+	assert.Equal(t, expected, segment)
 }

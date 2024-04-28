@@ -41,7 +41,7 @@ func (op *groupingContextBuild) Execute() error {
 	if op.executeCtx.IsSeriesIDsEmpty() {
 		return nil
 	}
-	return op.shard.IndexDB().GetGroupingContext(op.executeCtx)
+	return op.shard.IndexSegment().GetGroupingContext(op.executeCtx)
 }
 
 // Identifier returns identifier string value of grouping context build operator.

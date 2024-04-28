@@ -20,6 +20,7 @@ package series
 import (
 	"github.com/lindb/roaring"
 
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 )
@@ -50,4 +51,13 @@ type Filter interface {
 	GetSeriesIDsForTag(tagKeyID tag.KeyID) (*roaring.Bitmap, error)
 	// GetSeriesIDsForMetric gets series ids for spec metric name
 	GetSeriesIDsForMetric(metricID metric.ID) (*roaring.Bitmap, error)
+}
+
+type FilterTimeRange interface {
+	// GetSeriesIDsByTagValueIDs gets series ids by tag value ids for spec tag key of metric
+	GetSeriesIDsByTagValueIDs(tagKeyID tag.KeyID, tagValueIDs *roaring.Bitmap, timeRange timeutil.TimeRange) (*roaring.Bitmap, error)
+	// GetSeriesIDsForTag gets series ids for spec tag key of metric
+	GetSeriesIDsForTag(tagKeyID tag.KeyID, timeRange timeutil.TimeRange) (*roaring.Bitmap, error)
+	// GetSeriesIDsForMetric gets series ids for spec metric name
+	GetSeriesIDsForMetric(metricID metric.ID, timeRange timeutil.TimeRange) (*roaring.Bitmap, error)
 }

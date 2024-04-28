@@ -33,8 +33,8 @@ import (
 
 // seriesFiltering represents series filtering operator.
 type seriesFiltering struct {
-	executeCtx *flow.ShardExecuteContext
-	indexDB    index.MetricIndexDatabase
+	executeCtx   *flow.ShardExecuteContext
+	indexSegment index.MetricIndexSegment
 
 	err error
 }
@@ -42,8 +42,8 @@ type seriesFiltering struct {
 // NewSeriesFiltering creates a seriesFiltering instance.
 func NewSeriesFiltering(executeCtx *flow.ShardExecuteContext, shard tsdb.Shard) Operator {
 	return &seriesFiltering{
-		executeCtx: executeCtx,
-		indexDB:    shard.IndexDB(),
+		executeCtx:   executeCtx,
+		indexSegment: shard.IndexSegment(),
 	}
 }
 
@@ -81,7 +81,7 @@ func (op *seriesFiltering) findSeriesIDsByExpr(condition stmt.Expr) (tag.KeyID, 
 		// get filter series ids
 		tagKey, matchResult := op.findSeriesIDsByExpr(expr.Expr)
 		// get all series ids for tag key
-		all, err := op.indexDB.GetSeriesIDsForTag(tagKey)
+		all, err := op.indexSegment.GetSeriesIDsForTag(tagKey, op.executeCtx.StorageExecuteCtx.Query.TimeRange)
 		if err != nil {
 			op.err = err
 			return tagKey, roaring.New() // create an empty series ids for parent expr
@@ -108,7 +108,8 @@ func (op *seriesFiltering) getSeriesIDsByExpr(expr stmt.Expr) (tag.KeyID, *roari
 	if !ok {
 		return 0, nil, fmt.Errorf("%w, expr: %s", constants.ErrTagValueFilterResultNotFound, expr.Rewrite())
 	}
-	seriesIDs, err := op.indexDB.GetSeriesIDsByTagValueIDs(tagValues.TagKeyID, tagValues.TagValueIDs)
+	seriesIDs, err := op.indexSegment.GetSeriesIDsByTagValueIDs(tagValues.TagKeyID,
+		tagValues.TagValueIDs, op.executeCtx.StorageExecuteCtx.Query.TimeRange)
 	if err != nil {
 		return 0, nil, err
 	}

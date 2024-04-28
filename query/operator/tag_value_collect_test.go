@@ -44,9 +44,12 @@ func TestTagValueCollect_Execute(t *testing.T) {
 	shard := tsdb.NewMockShard(ctrl)
 	shard.EXPECT().ShardID().Return(models.ShardID(10)).AnyTimes()
 	indexDB := index.NewMockMetricIndexDatabase(ctrl)
-	shard.EXPECT().IndexDB().Return(indexDB).AnyTimes()
 	metaDB := index.NewMockMetricMetaDatabase(ctrl)
 	db.EXPECT().MetaDB().Return(metaDB).AnyTimes()
+	indexSegment := index.NewMockMetricIndexSegment(ctrl)
+	shard.EXPECT().IndexSegment().Return(indexSegment).AnyTimes()
+	indexSegment.EXPECT().GetGroupingContext(gomock.Any()).Return(nil).AnyTimes()
+	metaDB.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 	ctx := &context.LeafMetadataContext{
 		Database:          db,
@@ -65,26 +68,26 @@ func TestTagValueCollect_Execute(t *testing.T) {
 		{
 			name: "get grouping context failure",
 			prepare: func() {
-				indexDB.EXPECT().GetGroupingContext(gomock.Any()).Return(fmt.Errorf("err"))
+				indexDB.EXPECT().GetGroupingContext(gomock.Any()).Return(nil, fmt.Errorf("err")).AnyTimes()
 			},
 		},
 		{
 			name: "collect tag value failure",
 			prepare: func() {
-				indexDB.EXPECT().GetGroupingContext(gomock.Any()).Return(nil)
-				metaDB.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
+				indexDB.EXPECT().GetGroupingContext(gomock.Any()).Return(nil, nil).AnyTimes()
+				metaDB.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
 			},
 		},
 		{
 			name: "collect tag value successfully",
 			prepare: func() {
-				indexDB.EXPECT().GetGroupingContext(gomock.Any()).Return(nil)
+				indexDB.EXPECT().GetGroupingContext(gomock.Any()).Return(nil, nil).AnyTimes()
 				metaDB.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ tag.KeyID,
 					_ *roaring.Bitmap,
 					tagValues map[uint32]string) error {
 					tagValues[10] = "value10"
 					return nil
-				})
+				}).AnyTimes()
 			},
 		},
 	}

@@ -117,3 +117,15 @@ type MetricIndexDatabase interface {
 	series.Filter
 	flow.GroupingBuilder
 }
+
+// MetricIndexSegment represents metric index segment, which manages multiple index database stores.
+type MetricIndexSegment interface {
+	io.Closer
+	FlushLifeCycle
+	series.FilterTimeRange
+
+	// GetOrCreateIndex returns the corresponding index database based on familyTime
+	GetOrCreateIndex(familyTime int64) (MetricIndexDatabase, error)
+	// GetGroupingContext returns the context of group by
+	GetGroupingContext(ctx *flow.ShardExecuteContext) error
+}

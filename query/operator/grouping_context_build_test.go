@@ -33,9 +33,9 @@ func TestGroupingContextBuild_Execute(t *testing.T) {
 	defer ctrl.Finish()
 
 	shard := tsdb.NewMockShard(ctrl)
-	indexDB := index.NewMockMetricIndexDatabase(ctrl)
-	shard.EXPECT().IndexDB().Return(indexDB)
-	indexDB.EXPECT().GetGroupingContext(gomock.Any()).Return(nil)
+	indexSegment := index.NewMockMetricIndexSegment(ctrl)
+	shard.EXPECT().IndexSegment().Return(indexSegment)
+	indexSegment.EXPECT().GetGroupingContext(gomock.Any()).Return(nil)
 	ctx := flow.NewShardExecuteContext(nil)
 	ctx.TimeSegmentContext.SeriesIDs.Add(1)
 	op := NewGroupingContextBuild(ctx, shard)

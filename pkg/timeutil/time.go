@@ -17,6 +17,8 @@
 
 package timeutil
 
+import "time"
+
 // Truncate truncates timestamp based on interval
 func Truncate(timestamp, interval int64) int64 {
 	return timestamp / interval * interval
@@ -42,4 +44,10 @@ func CalIntervalRatio(queryInterval, storageInterval int64) int {
 		return 1
 	}
 	return int(queryInterval / storageInterval)
+}
+
+// GetSegment returns month segment by given timestamp
+func GetSegment(timestamp int64) int {
+	t := time.Unix(timestamp/1000, 0)
+	return t.Year()*100 + int(t.Month())
 }

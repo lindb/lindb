@@ -55,7 +55,7 @@ type Grouping interface {
 // GroupingBuilder represents grouping tag builder.
 type GroupingBuilder interface {
 	// GetGroupingContext returns the context of group by
-	GetGroupingContext(ctx *ShardExecuteContext) error
+	GetGroupingContext(ctx *ShardExecuteContext) (map[tag.KeyID][]GroupingScanner, error)
 }
 
 // groupingContext represents the context of group by query for tag keys

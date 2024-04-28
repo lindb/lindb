@@ -53,16 +53,16 @@ type Shard interface {
 	GetOrCrateDataFamily(familyTime int64) (DataFamily, error)
 	// GetDataFamilies returns data family list by interval type and time range, return nil if not match
 	GetDataFamilies(intervalType timeutil.IntervalType, timeRange timeutil.TimeRange) []DataFamily
-	// IndexDB returns the metric index database, include inverted/forward index.
-	IndexDB() index.MetricIndexDatabase
+	// IndexSegment returns the metric index segment database, which include inverted/forward index.
+	IndexSegment() index.MetricIndexSegment
 	// BufferManager returns write temp memory manager.
 	BufferManager() memdb.BufferManager
 	// FlushIndex flushes index data to disk.
 	FlushIndex() error
 	// WaitFlushIndexCompleted waits flush index job completed.
 	WaitFlushIndexCompleted()
-	// initIndexDatabase initializes index database
-	initIndexDatabase() error
+	// initIndexSegment initializes index database
+	initIndexSegment() error
 	// TTL expires the data of each segment base on time to live.
 	TTL()
 	// EvictSegment evicts segment which long term no read operation.
@@ -96,7 +96,7 @@ type shard struct {
 
 	statistics *metrics.ShardStatistics
 
-	indexDB index.MetricIndexDatabase
+	indexSegment index.MetricIndexSegment
 }
 
 // newShard creates shard instance, if shard path exist then load shard data for init.
@@ -158,7 +158,7 @@ func newShard(
 		}
 	}()
 
-	if err = createdShard.initIndexDatabase(); err != nil {
+	if err = createdShard.initIndexSegment(); err != nil {
 		return nil, fmt.Errorf("create index database for shard[%d] error: %s", shardID, err)
 	}
 	// init datatbase limits
@@ -188,9 +188,8 @@ func (s *shard) BufferManager() memdb.BufferManager {
 	return s.bufferMgr
 }
 
-// IndexDB returns the metric index database, include inverted/forward index.
-func (s *shard) IndexDB() index.MetricIndexDatabase {
-	return s.indexDB
+func (s *shard) IndexSegment() index.MetricIndexSegment {
+	return s.indexSegment
 }
 
 func (s *shard) GetOrCrateDataFamily(familyTime int64) (DataFamily, error) {
@@ -235,13 +234,13 @@ func (s *shard) Close() error {
 	// wait previous flush job completed
 	s.WaitFlushIndexCompleted()
 
-	if s.indexDB != nil {
+	if s.indexSegment != nil {
 		// need flush index data
 		if err := s.flushIndex(); err != nil {
 			return err
 		}
 		// flush index db in database level
-		if err := s.indexDB.Close(); err != nil {
+		if err := s.indexSegment.Close(); err != nil {
 			return err
 		}
 	}
@@ -287,16 +286,7 @@ func (s *shard) FlushIndex() (err error) {
 	return nil
 }
 func (s *shard) flushIndex() error {
-	ch := make(chan error, 1)
-	s.indexDB.Notify(&index.FlushNotifier{
-		Callback: func(err error) {
-			ch <- err
-		},
-	})
-	if err := <-ch; err != nil {
-		return err
-	}
-	return nil
+	return s.indexSegment.Flush()
 }
 
 // WaitFlushIndexCompleted waits flush index job completed.
@@ -329,10 +319,9 @@ func (s *shard) EvictSegment() {
 	}
 }
 
-// initIndexDatabase initializes the index database
-func (s *shard) initIndexDatabase() error {
+func (s *shard) initIndexSegment() error {
 	var err error
-	s.indexDB, err = newIndexDBFunc(shardIndexPath(s.db.Name(), s.ShardID()), s.db.MetaDB())
+	s.indexSegment, err = newIndexSegmentFunc(shardIndexPath(s.db.Name(), s.ShardID()), s.db.MetaDB())
 	if err != nil {
 		return err
 	}

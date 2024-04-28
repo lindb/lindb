@@ -60,8 +60,7 @@ func TestShardScanStage(t *testing.T) {
 	shard := tsdb.NewMockShard(ctrl)
 	shardExecuteCtx := flow.NewShardExecuteContext(storageCtx)
 	db.EXPECT().ExecutorPool().Return(&tsdb.ExecutorPool{}).AnyTimes()
-	indexDB := index.NewMockMetricIndexDatabase(ctrl)
-	shard.EXPECT().IndexDB().Return(indexDB).AnyTimes()
+	shard.EXPECT().IndexSegment().Return(index.NewMockMetricIndexSegment(ctrl)).AnyTimes()
 	s := NewShardScanStage(ctx, shardExecuteCtx, shard)
 
 	t.Run("no family", func(t *testing.T) {

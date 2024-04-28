@@ -552,13 +552,15 @@ func TestDataFamily_GetOrCreateMemoryDatabase(t *testing.T) {
 	}()
 	shard := NewMockShard(ctrl)
 	db := NewMockDatabase(ctrl)
-	indexDB := index.NewMockMetricIndexDatabase(ctrl)
-	shard.EXPECT().IndexDB().Return(indexDB).AnyTimes()
+	indexSegment := index.NewMockMetricIndexSegment(ctrl)
+	shard.EXPECT().IndexSegment().Return(indexSegment).AnyTimes()
 	shard.EXPECT().Database().Return(db).AnyTimes()
 	db.EXPECT().Name().Return("db").AnyTimes()
 	metaDB := index.NewMockMetricMetaDatabase(ctrl)
 	db.EXPECT().MetaDB().Return(metaDB).AnyTimes()
 	shard.EXPECT().BufferManager().Return(memdb.NewMockBufferManager(ctrl)).AnyTimes()
+	indexDB := index.NewMockMetricIndexDatabase(ctrl)
+	indexSegment.EXPECT().GetOrCreateIndex(gomock.Any()).Return(indexDB, nil).AnyTimes()
 
 	f := &dataFamily{
 		shard:      shard,
@@ -619,12 +621,14 @@ func TestDataFamily_WriteRows(t *testing.T) {
 	shard := NewMockShard(ctrl)
 	db := NewMockDatabase(ctrl)
 	shard.EXPECT().Database().Return(db).AnyTimes()
-	indexDB := index.NewMockMetricIndexDatabase(ctrl)
-	shard.EXPECT().IndexDB().Return(indexDB).AnyTimes()
+	indexSegment := index.NewMockMetricIndexSegment(ctrl)
+	shard.EXPECT().IndexSegment().Return(indexSegment).AnyTimes()
 	metaDB := index.NewMockMetricMetaDatabase(ctrl)
 	db.EXPECT().MetaDB().Return(metaDB).AnyTimes()
 	db.EXPECT().Name().Return("db").AnyTimes()
 	shard.EXPECT().BufferManager().Return(memdb.NewMockBufferManager(ctrl)).AnyTimes()
+	indexDB := index.NewMockMetricIndexDatabase(ctrl)
+	indexSegment.EXPECT().GetOrCreateIndex(gomock.Any()).Return(indexDB, nil).AnyTimes()
 
 	cases := []struct {
 		name    string

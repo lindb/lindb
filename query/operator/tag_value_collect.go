@@ -62,7 +62,7 @@ func (op *tagValueCollect) execute() error {
 	tagKeyID := op.executeCtx.TagKeyID
 	op.executeCtx.StorageExecuteCtx.GroupByTagKeyIDs = []tag.KeyID{tagKeyID}
 	// get grouping based on tag keys and series ids
-	if err := op.shard.IndexDB().GetGroupingContext(op.shardExecuteCtx); err != nil {
+	if err := op.shard.IndexSegment().GetGroupingContext(op.shardExecuteCtx); err != nil {
 		return err
 	}
 	seriesIDs := op.shardExecuteCtx.SeriesIDsAfterFiltering

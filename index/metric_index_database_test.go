@@ -116,18 +116,20 @@ func TestMetricIndexDatabase(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Empty(t, seriesIDs.ToArray())
 
-		assert.NoError(t, db.GetGroupingContext(&flow.ShardExecuteContext{
+		_, err = db.GetGroupingContext(&flow.ShardExecuteContext{
 			StorageExecuteCtx: &flow.StorageExecuteContext{
 				GroupByTagKeyIDs: []tag.KeyID{0},
 			},
 			SeriesIDsAfterFiltering: roaring.BitmapOf(0, 1, 2),
-		}))
-		assert.Equal(t, constants.ErrNotFound, db.GetGroupingContext(&flow.ShardExecuteContext{
+		})
+		assert.NoError(t, err)
+		_, err = db.GetGroupingContext(&flow.ShardExecuteContext{
 			StorageExecuteCtx: &flow.StorageExecuteContext{
 				GroupByTagKeyIDs: []tag.KeyID{0},
 			},
 			SeriesIDsAfterFiltering: roaring.BitmapOf(100, 200), // series ids not found
-		}))
+		})
+		assert.Equal(t, constants.ErrNotFound, err)
 	}
 
 	<-ch
@@ -598,12 +600,13 @@ func TestMetricIndexDatabase_ForwardIndex_Read_Error(t *testing.T) {
 
 	t.Run("find kv reader error when grouping", func(t *testing.T) {
 		snapshot.EXPECT().FindReaders(gomock.Any()).Return(nil, fmt.Errorf("err"))
-		assert.Error(t, index.GetGroupingContext(&flow.ShardExecuteContext{
+		_, err := index.GetGroupingContext(&flow.ShardExecuteContext{
 			StorageExecuteCtx: &flow.StorageExecuteContext{
 				GroupByTagKeyIDs: []tag.KeyID{0},
 			},
 			SeriesIDsAfterFiltering: roaring.BitmapOf(0, 1, 2),
-		}))
+		})
+		assert.Error(t, err)
 	})
 	t.Run("read group scaner error when grouping", func(t *testing.T) {
 		snapshot.EXPECT().FindReaders(gomock.Any()).Return([]table.Reader{nil}, nil)
@@ -611,11 +614,12 @@ func TestMetricIndexDatabase_ForwardIndex_Read_Error(t *testing.T) {
 			return reader
 		}
 		reader.EXPECT().GetGroupingScanner(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
-		assert.Error(t, index.GetGroupingContext(&flow.ShardExecuteContext{
+		_, err := index.GetGroupingContext(&flow.ShardExecuteContext{
 			StorageExecuteCtx: &flow.StorageExecuteContext{
 				GroupByTagKeyIDs: []tag.KeyID{0},
 			},
 			SeriesIDsAfterFiltering: roaring.BitmapOf(0, 1, 2),
-		}))
+		})
+		assert.Error(t, err)
 	})
 }

@@ -48,7 +48,7 @@ func TestShard_New(t *testing.T) {
 		newIndexDBFunc = index.NewMetricIndexDatabase
 		newMemoryDBFunc = memdb.NewMemoryDatabase
 		newIntervalSegmentFunc = newIntervalSegment
-
+		newIndexSegmentFunc = index.NewMetricIndexSegment
 		ctrl.Finish()
 	}()
 
@@ -84,14 +84,10 @@ func TestShard_New(t *testing.T) {
 		{
 			name: "create index db err",
 			prepare: func() {
-				indexDB := index.NewMockMetricIndexDatabase(ctrl)
-				newIndexDBFunc = func(_ string, _ index.MetricMetaDatabase) (index.MetricIndexDatabase, error) {
-					return indexDB, fmt.Errorf("err")
+				indexSegment := index.NewMockMetricIndexSegment(ctrl)
+				newIndexSegmentFunc = func(dir string, metaDB index.MetricMetaDatabase) (segment index.MetricIndexSegment, err error) {
+					return indexSegment, nil
 				}
-				indexDB.EXPECT().Notify(gomock.Any()).DoAndReturn(func(notifier index.Notifier) {
-					mn := notifier.(*index.FlushNotifier)
-					mn.Callback(fmt.Errorf("err"))
-				})
 				gomock.InOrder(
 					db.EXPECT().GetOption().Return(&option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}),
 				)
@@ -227,19 +223,19 @@ func TestShard_Close(t *testing.T) {
 	defer func() {
 		ctrl.Finish()
 	}()
-	indexDB := index.NewMockMetricIndexDatabase(ctrl)
 	segment := NewMockIntervalSegment(ctrl)
+	indexSegment := index.NewMockMetricIndexSegment(ctrl)
 	rollupSeg := NewMockIntervalSegment(ctrl)
 	bufferMgr := memdb.NewMockBufferManager(ctrl)
 	bufferMgr.EXPECT().Cleanup().AnyTimes()
 	s := &shard{
-		indexDB: indexDB,
 		segment: segment,
 		rollupTargets: map[timeutil.Interval]IntervalSegment{
 			timeutil.Interval(10 * 60 * 1000): rollupSeg, // 10min
 		},
 		flushCondition: sync.NewCond(&sync.Mutex{}),
 		bufferMgr:      bufferMgr,
+		indexSegment:   indexSegment,
 	}
 	cases := []struct {
 		name    string
@@ -249,21 +245,15 @@ func TestShard_Close(t *testing.T) {
 		{
 			name: "flush index db err",
 			prepare: func() {
-				indexDB.EXPECT().Notify(gomock.Any()).DoAndReturn(func(notifier index.Notifier) {
-					mn := notifier.(*index.FlushNotifier)
-					mn.Callback(fmt.Errorf("err"))
-				})
+				indexSegment.EXPECT().Flush().Return(fmt.Errorf("err"))
 			},
 			wantErr: true,
 		},
 		{
 			name: "close index db err",
 			prepare: func() {
-				indexDB.EXPECT().Notify(gomock.Any()).DoAndReturn(func(notifier index.Notifier) {
-					mn := notifier.(*index.FlushNotifier)
-					mn.Callback(nil)
-				})
-				indexDB.EXPECT().Close().Return(fmt.Errorf("err"))
+				indexSegment.EXPECT().Flush().Return(nil)
+				indexSegment.EXPECT().Close().Return(fmt.Errorf("err"))
 			},
 			wantErr: true,
 		},
@@ -271,11 +261,8 @@ func TestShard_Close(t *testing.T) {
 			name: "close segments",
 			prepare: func() {
 				gomock.InOrder(
-					indexDB.EXPECT().Notify(gomock.Any()).DoAndReturn(func(notifier index.Notifier) {
-						mn := notifier.(*index.FlushNotifier)
-						mn.Callback(nil)
-					}),
-					indexDB.EXPECT().Close().Return(nil),
+					indexSegment.EXPECT().Flush().Return(nil),
+					indexSegment.EXPECT().Close().Return(nil),
 					segment.EXPECT().Close(),
 					rollupSeg.EXPECT().Close(),
 				)
@@ -301,17 +288,16 @@ func TestShard_Flush(t *testing.T) {
 	defer func() {
 		ctrl.Finish()
 	}()
-	indexDB := index.NewMockMetricIndexDatabase(ctrl)
 	db := NewMockDatabase(ctrl)
 	db.EXPECT().Name().Return("test").AnyTimes()
+	indexSegment := index.NewMockMetricIndexSegment(ctrl)
 	s := &shard{
-		indexDB:        indexDB,
 		db:             db,
 		flushCondition: sync.NewCond(&sync.Mutex{}),
 		statistics:     metrics.NewShardStatistics("data", "1"),
+		indexSegment:   indexSegment,
 		logger:         logger.GetLogger("TSDB", "Test"),
 	}
-	assert.NotNil(t, s.IndexDB())
 	cases := []struct {
 		name    string
 		prepare func()
@@ -326,20 +312,14 @@ func TestShard_Flush(t *testing.T) {
 		{
 			name: "flush index db err",
 			prepare: func() {
-				indexDB.EXPECT().Notify(gomock.Any()).DoAndReturn(func(notifier index.Notifier) {
-					mn := notifier.(*index.FlushNotifier)
-					mn.Callback(fmt.Errorf("err"))
-				})
+				indexSegment.EXPECT().Flush().Return(fmt.Errorf("err"))
 			},
 			wantErr: true,
 		},
 		{
 			name: "flush successfully",
 			prepare: func() {
-				indexDB.EXPECT().Notify(gomock.Any()).DoAndReturn(func(notifier index.Notifier) {
-					mn := notifier.(*index.FlushNotifier)
-					mn.Callback(nil)
-				})
+				indexSegment.EXPECT().Flush()
 			},
 		},
 	}
@@ -364,22 +344,20 @@ func TestShard_WaitFlushIndexCompleted(t *testing.T) {
 	defer ctrl.Finish()
 	now := commontimeutil.Now()
 
-	indexDB := index.NewMockMetricIndexDatabase(ctrl)
 	db := NewMockDatabase(ctrl)
 	db.EXPECT().Name().Return("test").AnyTimes()
+	indexSegment := index.NewMockMetricIndexSegment(ctrl)
+	indexSegment.EXPECT().Flush().Do(func() {
+		time.Sleep(100 * time.Millisecond)
+	})
 	s := &shard{
-		indexDB:        indexDB,
 		db:             db,
 		flushCondition: sync.NewCond(&sync.Mutex{}),
+		indexSegment:   indexSegment,
 		statistics:     metrics.NewShardStatistics("data", "1"),
 		logger:         logger.GetLogger("TSDB", "Test"),
 	}
 	s.isFlushing.Store(false)
-	indexDB.EXPECT().Notify(gomock.Any()).DoAndReturn(func(notifier index.Notifier) {
-		time.Sleep(100 * time.Millisecond)
-		mn := notifier.(*index.FlushNotifier)
-		mn.Callback(nil)
-	})
 	var wait sync.WaitGroup
 	wait.Add(2)
 	ch := make(chan struct{})

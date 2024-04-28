@@ -46,6 +46,6 @@ var (
 	closeFamilyFunc        = closeFamily
 	writeConfigFn          = ltoml.WriteConfig
 
-	newMetaDBFunc  = index.NewMetricMetaDatabase
-	newIndexDBFunc = index.NewMetricIndexDatabase
+	newMetaDBFunc       = index.NewMetricMetaDatabase
+	newIndexSegmentFunc = index.NewMetricIndexSegment
 )

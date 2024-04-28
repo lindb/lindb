@@ -606,12 +606,16 @@ func (f *dataFamily) GetOrCreateMemoryDatabase(familyTime int64) (memdb.MemoryDa
 	defer f.mutex.Unlock()
 
 	if f.mutableMemDB == nil {
+		indexDB, err := f.shard.IndexSegment().GetOrCreateIndex(familyTime)
+		if err != nil {
+			return nil, err
+		}
 		newDB, err := newMemoryDBFunc(&memdb.MemoryDatabaseCfg{
 			FamilyTime:    familyTime,
 			Name:          f.shard.Database().Name(),
 			BufferMgr:     f.shard.BufferManager(),
 			MetaNotifier:  f.shard.Database().MetaDB().Notify,
-			IndexNotifier: f.shard.IndexDB().Notify,
+			IndexNotifier: indexDB.Notify,
 		})
 		if err != nil {
 			return nil, err

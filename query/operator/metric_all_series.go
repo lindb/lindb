@@ -28,15 +28,15 @@ import (
 
 // metricAllSeries represents load all series ids operator.
 type metricAllSeries struct {
-	executeCtx *flow.ShardExecuteContext
-	indexDB    index.MetricIndexDatabase
+	executeCtx   *flow.ShardExecuteContext
+	indexSegment index.MetricIndexSegment
 }
 
 // NewMetricAllSeries creates a metricAllSeries instance.
 func NewMetricAllSeries(executeCtx *flow.ShardExecuteContext, shard tsdb.Shard) Operator {
 	return &metricAllSeries{
-		executeCtx: executeCtx,
-		indexDB:    shard.IndexDB(),
+		executeCtx:   executeCtx,
+		indexSegment: shard.IndexSegment(),
 	}
 }
 
@@ -44,7 +44,8 @@ func NewMetricAllSeries(executeCtx *flow.ShardExecuteContext, shard tsdb.Shard) 
 func (op *metricAllSeries) Execute() error {
 	queryStmt := op.executeCtx.StorageExecuteCtx.Query
 	// get series ids for metric level
-	seriesIDs, err := op.indexDB.GetSeriesIDsForMetric(op.executeCtx.StorageExecuteCtx.MetricID)
+	seriesIDs, err := op.indexSegment.GetSeriesIDsForMetric(op.executeCtx.StorageExecuteCtx.MetricID,
+		op.executeCtx.StorageExecuteCtx.Query.TimeRange)
 	if err != nil {
 		return err
 	}
