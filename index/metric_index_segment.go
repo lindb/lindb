@@ -221,6 +221,7 @@ func (m *metricIndexSegment) GetGroupingContext(ctx *flow.ShardExecuteContext) e
 	return nil
 }
 
+// GetOrCreateIndex returns MetricIndexDatabase as familyTime
 func (m *metricIndexSegment) GetOrCreateIndex(familyTime int64) (MetricIndexDatabase, error) {
 	segment := timeutil.GetSegment(familyTime)
 	index, ok := m.indices[segment]
