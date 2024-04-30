@@ -161,7 +161,7 @@ func newShard(
 	if err = createdShard.initIndexSegment(); err != nil {
 		return nil, fmt.Errorf("create index database for shard[%d] error: %s", shardID, err)
 	}
-	// init datatbase limits
+	// init database limits
 	createdShard.limits = db.GetLimits()
 	return createdShard, nil
 }

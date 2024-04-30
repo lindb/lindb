@@ -42,7 +42,7 @@ type metricIndexSegment struct {
 	dir     string
 	metaDB  MetricMetaDatabase
 	indices map[int]MetricIndexDatabase
-	lock    sync.Mutex
+	lock    sync.RWMutex
 }
 
 // NewMetricIndexSegment creates a metric index segment store.
@@ -61,7 +61,7 @@ func NewMetricIndexSegment(dir string, metaDB MetricMetaDatabase) (segment Metri
 			continue
 		}
 		segment := t.Year()*100 + int(t.Month())
-		database, err0 := NewMetricIndexDatabase(path.Join(dir, d), metaDB)
+		database, err0 := newIndexDBFunc(path.Join(dir, d), metaDB)
 		if err0 != nil {
 			return nil, err0
 		}
@@ -224,18 +224,20 @@ func (m *metricIndexSegment) GetGroupingContext(ctx *flow.ShardExecuteContext) e
 // GetOrCreateIndex returns MetricIndexDatabase as familyTime
 func (m *metricIndexSegment) GetOrCreateIndex(familyTime int64) (MetricIndexDatabase, error) {
 	segment := timeutil.GetSegment(familyTime)
+	m.lock.RLock()
 	index, ok := m.indices[segment]
+	m.lock.RUnlock()
 	if ok {
 		return index, nil
 	}
+
 	m.lock.Lock()
-	index, ok = m.indices[segment]
-	if ok {
-		m.lock.Unlock()
-		return index, nil
-	}
 	defer m.lock.Unlock()
 
+	index, ok = m.indices[segment]
+	if ok {
+		return index, nil
+	}
 	index, err := newIndexDBFunc(path.Join(m.dir, strconv.Itoa(segment)), m.metaDB)
 	if err != nil {
 		return nil, err

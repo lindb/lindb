@@ -560,7 +560,6 @@ func TestDataFamily_GetOrCreateMemoryDatabase(t *testing.T) {
 	db.EXPECT().MetaDB().Return(metaDB).AnyTimes()
 	shard.EXPECT().BufferManager().Return(memdb.NewMockBufferManager(ctrl)).AnyTimes()
 	indexDB := index.NewMockMetricIndexDatabase(ctrl)
-	indexSegment.EXPECT().GetOrCreateIndex(gomock.Any()).Return(indexDB, nil).AnyTimes()
 
 	f := &dataFamily{
 		shard:      shard,
@@ -569,6 +568,7 @@ func TestDataFamily_GetOrCreateMemoryDatabase(t *testing.T) {
 	newMemoryDBFunc = func(cfg *memdb.MemoryDatabaseCfg) (memdb.MemoryDatabase, error) {
 		return nil, fmt.Errorf("err")
 	}
+	indexSegment.EXPECT().GetOrCreateIndex(gomock.Any()).Return(indexDB, nil).Times(2)
 	memDB, err := f.GetOrCreateMemoryDatabase(1)
 	assert.Error(t, err)
 	assert.Nil(t, memDB)
@@ -585,6 +585,12 @@ func TestDataFamily_GetOrCreateMemoryDatabase(t *testing.T) {
 	memDB, err = f.GetOrCreateMemoryDatabase(1)
 	assert.NoError(t, err)
 	assert.Equal(t, memDB2, memDB)
+
+	f.mutableMemDB = nil
+	indexSegment.EXPECT().GetOrCreateIndex(gomock.Any()).Return(nil, fmt.Errorf("err"))
+	memDB, err = f.GetOrCreateMemoryDatabase(1)
+	assert.Error(t, err)
+	assert.Nil(t, memDB)
 }
 
 func TestDataFamily_Sequence(t *testing.T) {

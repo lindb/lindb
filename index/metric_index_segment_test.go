@@ -18,9 +18,10 @@
 package index
 
 import (
-	"fmt"
-
+	"github.com/lindb/common/pkg/fileutil"
 	"github.com/lindb/roaring"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -28,12 +29,11 @@ import (
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
 
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/mock/gomock"
-
+	"fmt"
 	"os"
 	"path"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 )
@@ -281,6 +281,7 @@ func TestMetricIndexSegment_Flush_err(t *testing.T) {
 	})
 	_, err = indexSegment.GetOrCreateIndex(time.Now().UnixMilli())
 	assert.NoError(t, err)
+	indexSegment.PrepareFlush()
 	assert.Error(t, indexSegment.Flush())
 }
 
@@ -300,6 +301,7 @@ func TestMetricIndexSegment_Flush(t *testing.T) {
 	metaDB := NewMockMetricMetaDatabase(ctrl)
 	indexSegment, err := NewMetricIndexSegment(name, metaDB)
 	assert.NoError(t, err)
+	assert.NoError(t, indexSegment.Flush())
 	indexDB.EXPECT().Notify(gomock.Any()).Do(func(n Notifier) {
 		mn := n.(*FlushNotifier)
 		mn.Callback(nil)
@@ -325,6 +327,7 @@ func TestMetricIndexSegment_Close_err(t *testing.T) {
 	metaDB := NewMockMetricMetaDatabase(ctrl)
 	indexSegment, err := NewMetricIndexSegment(name, metaDB)
 	assert.NoError(t, err)
+	assert.NoError(t, indexSegment.Close())
 	indexDB.EXPECT().Close().Return(fmt.Errorf("err"))
 	_, err = indexSegment.GetOrCreateIndex(time.Now().UnixMilli())
 	assert.NoError(t, err)
@@ -369,4 +372,202 @@ func TestMetricIndexSegment_getSegment(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, start, gotStart)
 	assert.Equal(t, end, gotEnd)
+}
+
+func TestMetricIndexSegment_NewMetricIndexSegment(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		mkDirFunc = fileutil.MkDirIfNotExist
+		getDirectoryListFunc = fileutil.GetDirectoryList
+		newIndexDBFunc = NewMetricIndexDatabase
+		ctrl.Finish()
+	}()
+
+	cases := []struct {
+		name    string
+		prepare func()
+		wantErr bool
+	}{
+		{
+			name: "mkDirFunc error",
+			prepare: func() {
+				mkDirFunc = func(path string) error {
+					return fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "getDirectoryListFunc error",
+			prepare: func() {
+				getDirectoryListFunc = func(path string) ([]string, error) {
+					return nil, fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "newIndexDBFunc error",
+			prepare: func() {
+				mkDirFunc = func(path string) error {
+					return nil
+				}
+				getDirectoryListFunc = func(path string) ([]string, error) {
+					return []string{"test", "202401"}, nil
+				}
+				newIndexDBFunc = func(dir string, metaDB MetricMetaDatabase) (MetricIndexDatabase, error) {
+					return nil, fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+	}
+
+	for i := range cases {
+		c := cases[i]
+		t.Run(c.name, func(t *testing.T) {
+			c.prepare()
+			_, err := NewMetricIndexSegment("test", nil)
+			if (err != nil) != c.wantErr {
+				t.Fatal(c.name)
+			}
+		})
+	}
+}
+
+func TestMetricIndexSegment_GetSeriesIDsByTagValueIDs_err(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+	}()
+
+	indexDB := NewMockMetricIndexDatabase(ctrl)
+	segment := 202401
+	indexSegment := &metricIndexSegment{
+		indices: map[int]MetricIndexDatabase{segment: indexDB},
+	}
+	tm, err := time.Parse("200601", strconv.Itoa(segment))
+	assert.NoError(t, err)
+	timeRange := timeutil.TimeRange{Start: tm.UnixMilli(), End: tm.UnixMilli()}
+	doAndReturn := func(tagKeyID tag.KeyID, tagValueIDs *roaring.Bitmap) (*roaring.Bitmap, error) {
+		return nil, fmt.Errorf("err")
+	}
+	indexDB.EXPECT().GetSeriesIDsByTagValueIDs(gomock.Any(), gomock.Any()).DoAndReturn(doAndReturn)
+	_, err = indexSegment.GetSeriesIDsByTagValueIDs(0, nil, timeRange)
+	assert.Error(t, err)
+}
+
+func TestMetricIndexSegment_GetSeriesIDsForTag_err(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+	}()
+
+	indexDB := NewMockMetricIndexDatabase(ctrl)
+	segment := 202401
+	indexSegment := &metricIndexSegment{
+		indices: map[int]MetricIndexDatabase{segment: indexDB},
+	}
+	tm, err := time.Parse("200601", strconv.Itoa(segment))
+	assert.NoError(t, err)
+	timeRange := timeutil.TimeRange{Start: tm.UnixMilli(), End: tm.UnixMilli()}
+	doAndReturn := func(tagKeyID tag.KeyID) (*roaring.Bitmap, error) {
+		return nil, fmt.Errorf("err")
+	}
+	indexDB.EXPECT().GetSeriesIDsForTag(gomock.Any()).DoAndReturn(doAndReturn)
+	_, err = indexSegment.GetSeriesIDsForTag(0, timeRange)
+	assert.Error(t, err)
+}
+
+func TestMetricIndexSegment_GetSeriesIDsForMetric_err(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+	}()
+
+	indexDB := NewMockMetricIndexDatabase(ctrl)
+	segment := 202401
+	indexSegment := &metricIndexSegment{
+		indices: map[int]MetricIndexDatabase{segment: indexDB},
+	}
+	tm, err := time.Parse("200601", strconv.Itoa(segment))
+	assert.NoError(t, err)
+	timeRange := timeutil.TimeRange{Start: tm.UnixMilli(), End: tm.UnixMilli()}
+	doAndReturn := func(_ metric.ID) (*roaring.Bitmap, error) {
+		return nil, fmt.Errorf("err")
+	}
+	indexDB.EXPECT().GetSeriesIDsForMetric(gomock.Any()).DoAndReturn(doAndReturn)
+	_, err = indexSegment.GetSeriesIDsForMetric(0, timeRange)
+	assert.Error(t, err)
+}
+
+func TestMetricIndexSegment_GetGroupingContext_err(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+	}()
+
+	indexDB := NewMockMetricIndexDatabase(ctrl)
+	segment := 202401
+	indexSegment := &metricIndexSegment{
+		indices: map[int]MetricIndexDatabase{segment: indexDB},
+	}
+	tm, err := time.Parse("200601", strconv.Itoa(segment))
+	assert.NoError(t, err)
+	timeRange := timeutil.TimeRange{Start: tm.UnixMilli(), End: tm.UnixMilli()}
+	ctx := &flow.ShardExecuteContext{
+		StorageExecuteCtx: &flow.StorageExecuteContext{
+			Query: &stmt.Query{
+				TimeRange: timeRange,
+			},
+		},
+	}
+	doAndReturn := func(_ *flow.ShardExecuteContext) (*roaring.Bitmap, error) {
+		return nil, fmt.Errorf("err")
+	}
+	indexDB.EXPECT().GetGroupingContext(gomock.Any()).DoAndReturn(doAndReturn)
+	err = indexSegment.GetGroupingContext(ctx)
+	assert.NoError(t, err)
+}
+
+func TestMetricIndexSegment_GetOrCreateIndex_err(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		newIndexDBFunc = NewMetricIndexDatabase
+		ctrl.Finish()
+	}()
+
+	indexDB := NewMockMetricIndexDatabase(ctrl)
+	var segment = 202401
+	tm, err := time.Parse("200601", strconv.Itoa(segment))
+	assert.NoError(t, err)
+	familyTime := tm.UnixMilli()
+
+	indexSegment := &metricIndexSegment{
+		indices: map[int]MetricIndexDatabase{},
+	}
+
+	newIndexDBFunc = func(dir string, metaDB MetricMetaDatabase) (MetricIndexDatabase, error) {
+		return indexDB, nil
+	}
+	n := 10
+	g := sync.WaitGroup{}
+	g.Add(n)
+	for i := 0; i < n; i++ {
+		go func() {
+			defer g.Done()
+			db, err0 := indexSegment.GetOrCreateIndex(familyTime)
+			assert.NoError(t, err0)
+			assert.Equal(t, db, indexDB)
+		}()
+	}
+	g.Wait()
+
+	newIndexDBFunc = func(dir string, metaDB MetricMetaDatabase) (MetricIndexDatabase, error) {
+		return nil, fmt.Errorf("err")
+	}
+	clear(indexSegment.indices)
+	db, err := indexSegment.GetOrCreateIndex(familyTime)
+	assert.Error(t, err)
+	assert.Nil(t, db)
 }

@@ -43,13 +43,10 @@ func TestTagValueCollect_Execute(t *testing.T) {
 	db.EXPECT().Name().Return("db").AnyTimes()
 	shard := tsdb.NewMockShard(ctrl)
 	shard.EXPECT().ShardID().Return(models.ShardID(10)).AnyTimes()
-	indexDB := index.NewMockMetricIndexDatabase(ctrl)
 	metaDB := index.NewMockMetricMetaDatabase(ctrl)
 	db.EXPECT().MetaDB().Return(metaDB).AnyTimes()
 	indexSegment := index.NewMockMetricIndexSegment(ctrl)
 	shard.EXPECT().IndexSegment().Return(indexSegment).AnyTimes()
-	indexSegment.EXPECT().GetGroupingContext(gomock.Any()).Return(nil).AnyTimes()
-	metaDB.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 	ctx := &context.LeafMetadataContext{
 		Database:          db,
@@ -60,6 +57,8 @@ func TestTagValueCollect_Execute(t *testing.T) {
 	shardCtx := flow.NewShardExecuteContext(ctx.StorageExecuteCtx)
 	shardCtx.SeriesIDsAfterFiltering = roaring.BitmapOf(1, 2, 3)
 	shardCtx.GroupingContext = flow.NewGroupContext([]tag.KeyID{10}, map[tag.KeyID][]flow.GroupingScanner{})
+	shardCtx.SeriesIDsAfterFiltering = roaring.New()
+	shardCtx.SeriesIDsAfterFiltering.Add(1)
 
 	cases := []struct {
 		name    string
@@ -68,26 +67,26 @@ func TestTagValueCollect_Execute(t *testing.T) {
 		{
 			name: "get grouping context failure",
 			prepare: func() {
-				indexDB.EXPECT().GetGroupingContext(gomock.Any()).Return(nil, fmt.Errorf("err")).AnyTimes()
+				indexSegment.EXPECT().GetGroupingContext(gomock.Any()).Return(fmt.Errorf("err"))
 			},
 		},
 		{
 			name: "collect tag value failure",
 			prepare: func() {
-				indexDB.EXPECT().GetGroupingContext(gomock.Any()).Return(nil, nil).AnyTimes()
-				metaDB.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
+				indexSegment.EXPECT().GetGroupingContext(gomock.Any()).Return(nil)
+				metaDB.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 			},
 		},
 		{
 			name: "collect tag value successfully",
 			prepare: func() {
-				indexDB.EXPECT().GetGroupingContext(gomock.Any()).Return(nil, nil).AnyTimes()
+				indexSegment.EXPECT().GetGroupingContext(gomock.Any()).Return(nil)
 				metaDB.EXPECT().CollectTagValues(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ tag.KeyID,
 					_ *roaring.Bitmap,
 					tagValues map[uint32]string) error {
 					tagValues[10] = "value10"
 					return nil
-				}).AnyTimes()
+				})
 			},
 		},
 	}

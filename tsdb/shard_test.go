@@ -476,6 +476,73 @@ func TestShard_GetOrCreateDataFamily(t *testing.T) {
 	}
 }
 
+func TestShard_initIndexSegment_err(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		newIndexSegmentFunc = index.NewMetricIndexSegment
+		newIntervalSegmentFunc = newIntervalSegment
+		ctrl.Finish()
+	}()
+
+	newIntervalSegmentFunc = func(shard Shard, interval option.Interval) (segment IntervalSegment, err error) {
+		return nil, nil
+	}
+
+	database := NewMockDatabase(ctrl)
+	opt := &option.DatabaseOption{
+		Intervals: option.Intervals{option.Interval{
+			Interval: 0,
+		}},
+	}
+	database.EXPECT().GetOption().Return(opt)
+	database.EXPECT().Name().Return("test").AnyTimes()
+	database.EXPECT().MetaDB().Return(nil)
+
+	indexSegment := index.NewMockMetricIndexSegment(ctrl)
+	indexSegment.EXPECT().Flush().Return(fmt.Errorf("err"))
+	newIndexSegmentFunc = func(dir string, metaDB index.MetricMetaDatabase) (segment index.MetricIndexSegment, err error) {
+		return indexSegment, fmt.Errorf("err")
+	}
+
+	shard, err := newShard(database, 1)
+	assert.Error(t, err)
+	assert.Nil(t, shard)
+}
+
+func TestShard_initIndexSegment(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		newIndexSegmentFunc = index.NewMetricIndexSegment
+		newIntervalSegmentFunc = newIntervalSegment
+		ctrl.Finish()
+	}()
+
+	newIntervalSegmentFunc = func(shard Shard, interval option.Interval) (segment IntervalSegment, err error) {
+		return nil, nil
+	}
+
+	database := NewMockDatabase(ctrl)
+	opt := &option.DatabaseOption{
+		Intervals: option.Intervals{option.Interval{
+			Interval: 0,
+		}},
+	}
+	database.EXPECT().GetOption().Return(opt)
+	database.EXPECT().Name().Return("test").AnyTimes()
+	database.EXPECT().MetaDB().Return(nil)
+	database.EXPECT().GetLimits().Return(nil)
+
+	indexSegment := index.NewMockMetricIndexSegment(ctrl)
+	newIndexSegmentFunc = func(dir string, metaDB index.MetricMetaDatabase) (segment index.MetricIndexSegment, err error) {
+		return indexSegment, nil
+	}
+
+	shard, err := newShard(database, 1)
+	assert.NoError(t, err)
+	assert.NotNil(t, shard)
+	assert.Equal(t, indexSegment, shard.IndexSegment())
+}
+
 func mockBatchRows(m *protoMetricsV1.Metric) []metric.StorageRow {
 	var ml = protoMetricsV1.MetricList{Metrics: []*protoMetricsV1.Metric{m}}
 	var buf bytes.Buffer
