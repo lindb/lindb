@@ -25,9 +25,9 @@ jobs:
       - name: Make Deps
         run: make deps 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v5
         with:
-          version: v1.51.2
+          version: v1.57.2
           skip-cache: true
           skip-pkg-cache: true
           skip-build-cache: true 

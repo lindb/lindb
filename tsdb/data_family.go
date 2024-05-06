@@ -24,12 +24,11 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/atomic"
-
 	"github.com/lindb/common/pkg/fasttime"
 	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/ltoml"
 	commontimeutil "github.com/lindb/common/pkg/timeutil"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/flow"
@@ -95,35 +94,28 @@ type DataFamily interface {
 
 // dataFamily represents a wrapper of kv store's family with basic info
 type dataFamily struct {
-	indicator     string // database + shard + family time
-	shard         Shard
-	segment       Segment
-	interval      timeutil.Interval
-	intervalCalc  timeutil.IntervalCalculator
-	familyTime    int64
-	timeRange     timeutil.TimeRange
-	family        kv.Family
-	lastFlushTime int64
-
-	mutableMemDB   memdb.MemoryDatabase
+	family         kv.Family
+	shard          Shard
+	segment        Segment
+	logger         logger.Logger
+	intervalCalc   timeutil.IntervalCalculator
 	immutableMemDB memdb.MemoryDatabase
-
-	// leader => seq
-	seq          map[int32]atomic.Int64
-	immutableSeq map[int32]int64
-	persistSeq   map[int32]atomic.Int64
-
-	callbacks map[int32][]func(seq int64) // leader => callback
-
-	isFlushing     atomic.Bool    // restrict flusher concurrency
-	flushCondition sync.WaitGroup // flush condition
-
-	ref          atomic.Int32 // ref count for writing
-	lastReadTime *atomic.Int64
-	mutex        sync.Mutex
-
-	statistics *metrics.FamilyStatistics
-	logger     logger.Logger
+	mutableMemDB   memdb.MemoryDatabase
+	statistics     *metrics.FamilyStatistics
+	seq            map[int32]atomic.Int64
+	immutableSeq   map[int32]int64
+	persistSeq     map[int32]atomic.Int64
+	callbacks      map[int32][]func(seq int64)
+	lastReadTime   *atomic.Int64
+	indicator      string
+	flushCondition sync.WaitGroup
+	timeRange      timeutil.TimeRange
+	familyTime     int64
+	ref            atomic.Int32
+	isFlushing     atomic.Bool
+	lastFlushTime  int64
+	interval       timeutil.Interval
+	mutex          sync.Mutex
 }
 
 // newDataFamily creates a data family storage unit
@@ -496,7 +488,7 @@ func (f *dataFamily) fileFilter(shardExecuteContext *flow.ShardExecuteContext) (
 	readers, err := snapShot.FindReaders(metricKey)
 	if err != nil {
 		engineLogger.Error("filter data family error", logger.Error(err))
-		return
+		return nil, err
 	}
 	querySlotRange := shardExecuteContext.StorageExecuteCtx.CalcSourceSlotRange(f.familyTime)
 	var metricReaders []metricsdata.MetricReader
@@ -516,7 +508,7 @@ func (f *dataFamily) fileFilter(shardExecuteContext *flow.ShardExecuteContext) (
 		}
 	}
 	if len(metricReaders) == 0 {
-		return
+		return nil, nil
 	}
 	filter := newFilterFunc(f.timeRange.Start, snapShot, metricReaders)
 	return filter.Filter(shardExecuteContext.SeriesIDsAfterFiltering, shardExecuteContext.StorageExecuteCtx.Fields)

@@ -19,11 +19,12 @@ package prometheus
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lindb/common/pkg/logger"
-	"github.com/pkg/errors"
 	"github.com/prometheus/common/version"
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/model/textparse"
@@ -61,12 +62,12 @@ const (
 
 // ExecuteAPI wraps all Prometheus APIs.
 type ExecuteAPI struct {
-	deps             *depspkg.HTTPDeps
 	prometheusWriter prometheusIngest.Writer
-	codecs           []Codec
-	engine           *promql.Engine
 	queryable        storage.Queryable
 	logger           logger.Logger
+	deps             *depspkg.HTTPDeps
+	engine           *promql.Engine
+	codecs           []Codec
 }
 
 // NewExecuteAPI creates a promql execution api.
@@ -155,7 +156,7 @@ func (e *ExecuteAPI) querySeries(c *gin.Context) apiFuncResult {
 	r, ctx := c.Request, c.Request.Context()
 
 	if err := r.ParseForm(); err != nil {
-		return apiFuncResult{nil, &apiError{errorBadData, errors.Wrapf(err, "error parsing form values")}, nil, nil}
+		return apiFuncResult{nil, &apiError{errorBadData, fmt.Errorf("error parsing form values: %w", err)}, nil, nil}
 	}
 	if len(r.Form["match[]"]) == 0 {
 		return apiFuncResult{nil, &apiError{errorBadData, errors.New("no match[] parameter provided")}, nil, nil}
@@ -306,7 +307,7 @@ func (e *ExecuteAPI) query(c *gin.Context) {
 
 // queryResult is the implementation of query.
 func (e *ExecuteAPI) queryResult(c *gin.Context) (result apiFuncResult) {
-	var r = c.Request
+	r := c.Request
 	ts, err := parseTimeParam(r, "time", time.Now())
 	if err != nil {
 		return invalidParamError(err, "time")

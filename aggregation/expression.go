@@ -47,13 +47,12 @@ type Expression interface {
 
 // expression implements Expression interface.
 type expression struct {
+	fieldStore  map[field.Name]fields.Field
+	resultSet   map[string]*collections.FloatArray
+	selectItems []stmt.Expr
+	timeRange   timeutil.TimeRange
 	pointCount  int
 	interval    int64
-	timeRange   timeutil.TimeRange
-	selectItems []stmt.Expr
-
-	fieldStore map[field.Name]fields.Field
-	resultSet  map[string]*collections.FloatArray // field => series
 }
 
 // NewExpression creates an Expression instance.
@@ -83,7 +82,7 @@ func (e *expression) Eval(timeSeries series.GroupedIterator) {
 	for _, selectItem := range e.selectItems {
 		values := e.eval(nil, selectItem)
 		if len(values) != 0 {
-			if item, ok := selectItem.(*stmt.SelectItem); ok && len(item.Alias) > 0 {
+			if item, ok := selectItem.(*stmt.SelectItem); ok && item.Alias != "" {
 				e.resultSet[item.Alias] = values[0]
 			} else {
 				e.resultSet[item.Rewrite()] = values[0]
@@ -152,9 +151,7 @@ func (e *expression) eval(parentFunc *stmt.CallExpr, expr stmt.Expr) []*collecti
 }
 
 func (e *expression) quantile(expr *stmt.CallExpr) []*collections.FloatArray {
-	var (
-		histogramFields = make(map[float64][]*collections.FloatArray)
-	)
+	histogramFields := make(map[float64][]*collections.FloatArray)
 	if len(expr.Params) != 1 {
 		return nil
 	}

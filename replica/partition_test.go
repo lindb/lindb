@@ -21,12 +21,12 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"testing"
 
 	"github.com/lindb/common/pkg/logger"
 	commontimeutil "github.com/lindb/common/pkg/timeutil"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/atomic"
 	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/constants"
@@ -512,7 +512,7 @@ func TestPartition_replicaLoop(t *testing.T) {
 			1: r1,
 			2: r2,
 		},
-		running: &atomic.Bool{},
+		running: atomic.NewBool(false),
 		log:     log,
 		logger:  logger.GetLogger("Replica", "Partition"),
 	}
@@ -728,6 +728,7 @@ func TestPartition_WriteLog_After_Close(t *testing.T) {
 		ctx:        ctx,
 		cancel:     cancel,
 		statistics: metrics.NewStorageWriteAheadLogStatistics("test", "0"),
+		closed:     atomic.NewBool(false),
 		log:        log,
 	}
 	err = p.WriteLog([]byte("test"))

@@ -24,7 +24,7 @@ import (
 
 // GetStringValue aggregation format function name
 func GetStringValue(rawString string) string {
-	if len(rawString) > 0 {
+	if rawString != "" {
 		if (strings.HasPrefix(rawString, "'") && strings.HasSuffix(rawString, "'")) ||
 			(strings.HasPrefix(rawString, "\"") && strings.HasSuffix(rawString, "\"")) {
 			return rawString[1 : len(rawString)-1]
@@ -47,11 +47,11 @@ func DeDupStringSlice(items []string) []string {
 	if len(items) == 0 {
 		return nil
 	}
-	var m = make(map[string]struct{})
+	m := make(map[string]struct{})
 	for _, item := range items {
 		m[item] = struct{}{}
 	}
-	var dst = make([]string, len(m))
+	dst := make([]string, len(m))
 	idx := 0
 	for k := range m {
 		dst[idx] = k

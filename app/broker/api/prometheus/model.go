@@ -19,13 +19,13 @@ package prometheus
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"time"
 
 	jsoniter "github.com/json-iterator/go"
 	"github.com/munnerz/goautoneg"
-	"github.com/pkg/errors"
 	"github.com/prometheus/prometheus/model/textparse"
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/storage"
@@ -158,7 +158,8 @@ func (s *seriesSet) At() storage.Series {
 	return s.series[s.index]
 }
 
-func (s *seriesSet) Err() error                        { return s.err }
+func (s *seriesSet) Err() error { return s.err }
+
 func (s *seriesSet) Warnings() annotations.Annotations { return nil }
 
 func (s *seriesSet) setErr(err error) {

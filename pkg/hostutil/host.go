@@ -30,8 +30,8 @@ var (
 
 // hostInfo defines host basic info, if cannot get host info returns error
 type hostInfo struct {
-	hostIP string
 	err    error
+	hostIP string
 }
 
 // just for testing
@@ -49,7 +49,7 @@ func getHostInfo() (host hostInfo) {
 	ifaces, err := netInterfaces()
 	if err != nil {
 		host.err = err
-		return
+		return host
 	}
 	for _, iface := range ifaces {
 		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
@@ -59,7 +59,7 @@ func getHostInfo() (host hostInfo) {
 		addrs, err := iface.Addrs()
 		if err != nil {
 			host.err = err
-			return
+			return hostInfo{}
 		}
 		for _, addr := range addrs {
 			var ip net.IP
@@ -78,7 +78,7 @@ func getHostInfo() (host hostInfo) {
 				continue
 			}
 			host.hostIP = ip.String()
-			return
+			return host
 		}
 	}
 	host.err = errors.New("cannot extract host info")
