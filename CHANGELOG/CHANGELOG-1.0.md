@@ -1,3 +1,11 @@
+## [v0.3.1](https://github.com/lindb/lindb/releases/tag/v0.3.1) - 2024-04-21
+
+See [code changes](https://github.com/lindb/lindb/compare/v0.3.0...v0.3.1).
+
+### 🐛 Bug fixes
+
+- [bug]: fix storage panic when write old data point by @stone1100 in #1020
+
 ## [v0.3.0](https://github.com/lindb/lindb/releases/tag/v0.3.0) - 2023-08-29
 
 See [code changes](https://github.com/lindb/lindb/compare/v0.2.6...v0.3.0).

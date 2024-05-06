@@ -244,7 +244,7 @@ func (f *family) cleanReferenceFiles(sourceFamily Family, sourceFiles []table.Fi
 // 3. finally, builds new sst files in target family
 func (f *family) doRollupWork(sourceFamily Family, rollup Rollup, sourceFiles []table.FileNumber) (err error) {
 	if len(sourceFiles) == 0 {
-		return
+		return nil
 	}
 	targetFiles := make(map[table.FileNumber]struct{})
 	for _, file := range sourceFiles {
@@ -268,7 +268,7 @@ func (f *family) doRollupWork(sourceFamily Family, rollup Rollup, sourceFiles []
 	}
 	if len(targetFiles) == 0 {
 		// if no target files, return it
-		return
+		return nil
 	}
 
 	snapshot := sourceFamily.GetSnapshot()

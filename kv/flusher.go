@@ -48,14 +48,13 @@ type Flusher interface {
 
 // storeFlusher is family level store flusher.
 type storeFlusher struct {
+	start     time.Time
 	family    Family
-	sequences map[int32]int64
 	builder   table.Builder
 	editLog   version.EditLog
-	outputs   []table.FileNumber
-	start     time.Time
-
+	sequences map[int32]int64
 	releaseFn func()
+	outputs   []table.FileNumber
 }
 
 // newStoreFlusher create family store flusher.
@@ -205,9 +204,9 @@ func (nf *NopFlusher) Commit() error {
 func (nf *NopFlusher) Release() {}
 
 type nopStreamWriter struct {
-	size   uint32
-	buffer *bytes.Buffer
 	crc32  hash.Hash32
+	buffer *bytes.Buffer
+	size   uint32
 }
 
 func (nw *nopStreamWriter) Prepare(_ uint32) {

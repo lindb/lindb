@@ -27,22 +27,21 @@ import (
 
 // FamilyOption defines config items for family level
 type FamilyOption struct {
-	ID               int    `toml:"id"`
 	Name             string `toml:"name"`
-	CompactThreshold int    `toml:"compactThreshold"` // level 0 compact threshold
-	RollupThreshold  int    `toml:"rollupThreshold"`  // level 0 rollup threshold
-	Merger           string `toml:"merger"`           // merger which need implement Merger interface
-	MaxFileSize      uint32 `toml:"maxFileSize"`      // max file size
+	Merger           string `toml:"merger"`
+	ID               int    `toml:"id"`
+	CompactThreshold int    `toml:"compactThreshold"`
+	RollupThreshold  int    `toml:"rollupThreshold"`
+	MaxFileSize      uint32 `toml:"maxFileSize"`
 }
 
 // StoreOption defines config item for store level
 type StoreOption struct {
-	Levels          int            `toml:"levels"`          // num. of levels
-	TTL             ltoml.Duration `toml:"ttl"`             // cache ttl
-	CompactInterval ltoml.Duration `toml:"compactInterval"` // compact/rollup job check interval
-
-	Source timeutil.Interval   `toml:"source"` // optional(source interval)
-	Rollup []timeutil.Interval `toml:"rollup"` // optional(target interval)
+	Rollup          []timeutil.Interval `toml:"rollup"`
+	Levels          int                 `toml:"levels"`
+	TTL             ltoml.Duration      `toml:"ttl"`
+	CompactInterval ltoml.Duration      `toml:"compactInterval"`
+	Source          timeutil.Interval   `toml:"source"`
 }
 
 // DefaultStoreOption builds default store option
@@ -55,8 +54,8 @@ func DefaultStoreOption() StoreOption {
 
 // storeInfo represents store config option, include all family's option in this kv store
 type storeInfo struct {
-	StoreOption StoreOption             `toml:"store"`
 	Families    map[string]FamilyOption `toml:"families"`
+	StoreOption StoreOption             `toml:"store"`
 }
 
 // newStoreInfo creates store info instance for saving configs

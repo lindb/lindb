@@ -20,7 +20,6 @@ package state
 import (
 	"fmt"
 
-	"github.com/pkg/errors"
 	etcdcliv3 "go.etcd.io/etcd/client/v3"
 )
 
@@ -38,7 +37,7 @@ var (
 // TxnErr converts txn response and error into one error.
 func TxnErr(resp *etcdcliv3.TxnResponse, err error) error {
 	if err != nil {
-		return errors.WithStack(err)
+		return err
 	}
 	if !resp.Succeeded {
 		return ErrTxnFailed

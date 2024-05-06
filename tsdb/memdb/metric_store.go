@@ -160,7 +160,7 @@ func (ms *metricStore) FlushMetricsDataTo(
 	// field not exist, return
 	fieldLen := len(fields)
 	if fieldLen == 0 {
-		return
+		return nil
 	}
 	// prepare for flushing metric
 	flusher.PrepareMetric(flushCtx.metricID, fields)

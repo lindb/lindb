@@ -27,9 +27,8 @@ import (
 
 func TestGetHostIP(t *testing.T) {
 	ip, err := GetHostIP()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.NotEmpty(t, ip)
-	fmt.Println("ip:" + ip)
 }
 
 func Test_getHostInfo(t *testing.T) {

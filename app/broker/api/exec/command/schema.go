@@ -117,6 +117,8 @@ func saveDataBase(ctx context.Context, deps *depspkg.HTTPDeps, stmt *stmtpkg.Sch
 	database.Option = opt // reset option after set default value
 
 	log.Info("Saving Database", logger.String("config", stmt.Value))
+	// reset database after check and set default value
+	data = encoding.JSONMarshal(database)
 	if err := deps.Repo.Put(ctx, constants.GetDatabaseConfigPath(database.Name), data); err != nil {
 		return nil, err
 	}

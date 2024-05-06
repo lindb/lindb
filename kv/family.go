@@ -88,22 +88,19 @@ type Family interface {
 
 // family implements Family interface
 type family struct {
-	store         Store
-	name          string
-	familyPath    string
-	option        FamilyOption
-	merger        NewMerger
-	familyVersion version.FamilyVersion
-	maxFileSize   uint32
-
-	pendingOutputs    sync.Map // keep all pending output files, includes flush/compact/rollup.
+	familyVersion     version.FamilyVersion
+	store             Store
+	lastRollupTime    *atomic.Int64
+	merger            NewMerger
 	newCompactJobFunc func(family Family, state *compactionState, rollup Rollup) CompactJob
-
-	rolluping      atomic.Bool
-	lastRollupTime *atomic.Int64
-	compacting     atomic.Bool
-
-	condition sync.WaitGroup // compact/rollup job if it's doing
+	pendingOutputs    sync.Map
+	name              string
+	familyPath        string
+	option            FamilyOption
+	condition         sync.WaitGroup
+	rolluping         atomic.Bool
+	compacting        atomic.Bool
+	maxFileSize       uint32
 }
 
 // newFamily creates new family or open existed family.

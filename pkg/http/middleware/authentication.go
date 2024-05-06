@@ -22,7 +22,6 @@ import (
 	"net/http"
 
 	jwt "github.com/dgrijalva/jwt-go"
-
 	"github.com/lindb/common/pkg/encoding"
 
 	"github.com/lindb/lindb/config"
@@ -53,7 +52,7 @@ func NewAuthentication(user config.User) Authentication {
 func (u *userAuthentication) Validate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token := r.Header.Get("Authorization")
-		if len(token) > 0 {
+		if token != "" {
 			claims := parseToken(token, u.user)
 			if claims.UserName == u.user.UserName && claims.Password == u.user.Password {
 				next.ServeHTTP(w, r)

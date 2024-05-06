@@ -18,20 +18,20 @@
 package prometheus
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
 	"strconv"
 	"time"
 
-	stmtpkg "github.com/lindb/lindb/sql/stmt"
-
-	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/prompb"
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/promql/parser"
+
+	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
 func parseTimeParam(r *http.Request, paramName string, defaultValue time.Time) (time.Time, error) {
@@ -41,7 +41,7 @@ func parseTimeParam(r *http.Request, paramName string, defaultValue time.Time) (
 	}
 	result, err := parseTime(val)
 	if err != nil {
-		return time.Time{}, errors.Wrapf(err, "Invalid time value for '%s'", paramName)
+		return time.Time{}, fmt.Errorf("invalid time value for '%s', err:%w", paramName, err)
 	}
 	return result, nil
 }
@@ -66,26 +66,26 @@ func parseTime(s string) (time.Time, error) {
 	case maxTimeFormatted:
 		return MaxTime, nil
 	}
-	return time.Time{}, errors.Errorf("cannot parse %q to a valid timestamp", s)
+	return time.Time{}, fmt.Errorf("cannot parse %q to a valid timestamp", s)
 }
 
 func parseDuration(s string) (time.Duration, error) {
 	if d, err := strconv.ParseFloat(s, 64); err == nil {
 		ts := d * float64(time.Second)
 		if ts > float64(math.MaxInt64) || ts < float64(math.MinInt64) {
-			return 0, errors.Errorf("cannot parse %q to a valid duration. It overflows int64", s)
+			return 0, fmt.Errorf("cannot parse %q to a valid duration. It overflows int64", s)
 		}
 		return time.Duration(ts), nil
 	}
 	if d, err := model.ParseDuration(s); err == nil {
 		return time.Duration(d), nil
 	}
-	return 0, errors.Errorf("cannot parse %q to a valid duration", s)
+	return 0, fmt.Errorf("cannot parse %q to a valid duration", s)
 }
 
 func invalidParamError(err error, parameter string) apiFuncResult {
 	return apiFuncResult{nil, &apiError{
-		errorBadData, errors.Wrapf(err, "invalid parameter %q", parameter),
+		errorBadData, fmt.Errorf("invalid parameter %q, err: %w", parameter, err),
 	}, nil, nil}
 }
 
@@ -188,7 +188,7 @@ func makeCondition(matchers ...*labels.Matcher) (metricName string, expr stmtpkg
 			Value: pureMatchers[0].Value,
 		}
 	default:
-		var e = &stmtpkg.BinaryExpr{Operator: stmtpkg.ADD}
+		e := &stmtpkg.BinaryExpr{Operator: stmtpkg.ADD}
 		walkMatcher(e, pureMatchers)
 		return metricName, e
 	}

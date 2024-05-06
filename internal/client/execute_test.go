@@ -24,21 +24,20 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/timeutil"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/models"
 )
 
 func TestExecuteCli_Execute(t *testing.T) {
 	cases := []struct {
-		name    string
-		param   models.ExecuteParam
-		url     string
 		rs      interface{}
 		prepare func(rw http.ResponseWriter)
+		param   models.ExecuteParam
+		name    string
+		url     string
 		wantErr bool
 	}{
 		{
@@ -80,7 +79,7 @@ func TestExecuteCli_Execute(t *testing.T) {
 			defer server.Close()
 
 			cli := NewExecuteCli(server.URL)
-			if len(tt.url) > 0 {
+			if tt.url != "" {
 				cli = NewExecuteCli(tt.url)
 			}
 			err := cli.Execute(tt.param, &tt.rs)

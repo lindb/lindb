@@ -62,13 +62,13 @@ type Reader interface {
 
 // storeMMapReader represents mmap store file reader.
 type storeMMapReader struct {
-	path         string // path of sst-file
 	f            *os.File
+	keys         *roaring.Bitmap
+	offsets      *encoding.FixedOffsetDecoder
+	path         string
 	fileName     string
-	fullBlock    []byte                       // mmaped file content
-	entriesBlock []byte                       // mmaped file content without footer
-	keys         *roaring.Bitmap              // bitmap of keys
-	offsets      *encoding.FixedOffsetDecoder // offset of values
+	fullBlock    []byte
+	entriesBlock []byte
 }
 
 // newMMapStoreReader creates mmap store file reader.
@@ -95,13 +95,13 @@ func newMMapStoreReader(path, fileName string) (r Reader, err error) {
 	}()
 	if err != nil {
 		metrics.TableReadStatistics.MMapFailures.Incr()
-		return
+		return nil, err
 	}
 	metrics.TableReadStatistics.MMaps.Incr()
 
 	if len(data) < sstFileFooterSize {
 		err = fmt.Errorf("length of sstfile:%s length is too short", path)
-		return
+		return nil, err
 	}
 	reader := &storeMMapReader{
 		path:      path,
@@ -129,7 +129,8 @@ func (r *storeMMapReader) initialize() error {
 	posOfOffset := int(binary.LittleEndian.Uint32(r.fullBlock[footerStart : footerStart+4]))
 	posOfKeys := int(binary.LittleEndian.Uint32(r.fullBlock[footerStart+4 : footerStart+8]))
 	if !intsAreSortedFunc([]int{
-		0, posOfOffset, posOfKeys, footerStart}) {
+		0, posOfOffset, posOfKeys, footerStart,
+	}) {
 		return fmt.Errorf("bad footer data, posOfOffsets: %d posOfKeys: %d,"+
 			" footerStart: %d", posOfOffset, posOfKeys, footerStart)
 	}

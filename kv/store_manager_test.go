@@ -59,9 +59,9 @@ func TestStoreManager_CreateStore(t *testing.T) {
 	}()
 	storeMgr := newStoreManager()
 	cases := []struct {
+		prepare   func()
 		name      string
 		storeName string
-		prepare   func()
 		wantErr   bool
 	}{
 		{
@@ -128,9 +128,9 @@ func TestMockStoreManager_CloseStore(t *testing.T) {
 		return store, nil
 	}
 	cases := []struct {
+		prepare   func()
 		name      string
 		storeName string
-		prepare   func()
 		wantErr   bool
 	}{
 		{

@@ -21,9 +21,8 @@ import (
 	"context"
 	"time"
 
-	"go.uber.org/atomic"
-
 	"github.com/lindb/common/pkg/logger"
+	"go.uber.org/atomic"
 )
 
 // JobScheduler represents a background compaction job scheduler.
@@ -38,13 +37,11 @@ type JobScheduler interface {
 
 // jobScheduler implements JobScheduler interface.
 type jobScheduler struct {
-	interval time.Duration
 	ctx      context.Context
+	logger   logger.Logger
 	cancel   context.CancelFunc
-
-	running *atomic.Bool
-
-	logger logger.Logger
+	running  *atomic.Bool
+	interval time.Duration
 }
 
 // NewJobScheduler creates a JobScheduler instance.
