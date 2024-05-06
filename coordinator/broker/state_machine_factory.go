@@ -20,10 +20,11 @@ package broker
 import (
 	"context"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 // StateMachinePaths represents the paths which broker state machine need watch.
@@ -58,7 +59,7 @@ type stateMachineFactory struct {
 
 	stateMachines []discovery.StateMachine
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewStateMachineFactory creates a state machine factory instance.
@@ -152,7 +153,7 @@ func (f *stateMachineFactory) createStorageStatusStateMachine() (discovery.State
 		constants.StorageStatePath,
 		true,
 		f.onStorageStateChange,
-		f.onStorageDeletion,
+		nil,
 	)
 }
 
@@ -215,13 +216,5 @@ func (f *stateMachineFactory) onStorageStateChange(key string, data []byte) {
 		Type:  discovery.StorageStateChanged,
 		Key:   key,
 		Value: data,
-	})
-}
-
-// onStorageDeletion triggers when storage is deletion.
-func (f *stateMachineFactory) onStorageDeletion(key string) {
-	f.stateMgr.EmitEvent(&discovery.Event{
-		Type: discovery.StorageStateDeletion,
-		Key:  key,
 	})
 }

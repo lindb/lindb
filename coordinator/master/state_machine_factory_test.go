@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
@@ -77,34 +77,6 @@ func TestStateMachineFactory_Stop(t *testing.T) {
 	sm.EXPECT().Close().Return(nil)
 
 	fct.Stop()
-}
-
-func TestStateMachineFactory_StorageCfg(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	stateMgr := NewMockStateManager(ctrl)
-	discoveryFct := discovery.NewMockFactory(ctrl)
-	discovery1 := discovery.NewMockDiscovery(ctrl)
-	discoveryFct.EXPECT().CreateDiscovery(gomock.Any(), gomock.Any()).Return(discovery1)
-	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
-	fct := NewStateMachineFactory(context.TODO(), discoveryFct, stateMgr)
-
-	sm, err := fct.createStorageConfigStateMachine()
-	assert.NoError(t, err)
-	assert.NotNil(t, sm)
-	stateMgr.EXPECT().EmitEvent(&discovery.Event{
-		Type:  discovery.StorageConfigChanged,
-		Key:   "/test",
-		Value: []byte("value"),
-	})
-	sm.OnCreate("/test", []byte("value"))
-
-	stateMgr.EXPECT().EmitEvent(&discovery.Event{
-		Type: discovery.StorageConfigDeletion,
-		Key:  "/test",
-	})
-	sm.OnDelete("/test")
 }
 
 func TestStateMachineFactory_DatabaseCfg(t *testing.T) {
@@ -176,22 +148,20 @@ func TestStateMachineFactory_StorageNode(t *testing.T) {
 	discovery1.EXPECT().Discovery(gomock.Any()).Return(nil)
 	fct := NewStateMachineFactory(context.TODO(), discoveryFct, stateMgr)
 
-	sm, err := fct.createStorageNodeStateMachine("test", discoveryFct)
+	sm, err := fct.createStorageNodeStateMachine()
 	assert.NoError(t, err)
 	assert.NotNil(t, sm)
 
 	stateMgr.EXPECT().EmitEvent(&discovery.Event{
-		Type:       discovery.NodeStartup,
-		Key:        "/test",
-		Value:      []byte("value"),
-		Attributes: map[string]string{storageNameKey: "test"},
+		Type:  discovery.NodeStartup,
+		Key:   "/test",
+		Value: []byte("value"),
 	})
 	sm.OnCreate("/test", []byte("value"))
 
 	stateMgr.EXPECT().EmitEvent(&discovery.Event{
-		Type:       discovery.NodeFailure,
-		Key:        "/test",
-		Attributes: map[string]string{storageNameKey: "test"},
+		Type: discovery.NodeFailure,
+		Key:  "/test",
 	})
 	sm.OnDelete("/test")
 }
@@ -223,7 +193,6 @@ func TestStateMachineFactory_DatabaseLimits(t *testing.T) {
 func TestStateMachineFactory_CreateState(t *testing.T) {
 	assert.NotNil(t, StateMachinePaths[constants.Master].CreateState())
 	assert.NotNil(t, StateMachinePaths[constants.DatabaseConfig].CreateState())
-	assert.NotNil(t, StateMachinePaths[constants.StorageConfig].CreateState())
 	assert.NotNil(t, StateMachinePaths[constants.ShardAssignment].CreateState())
 	assert.NotNil(t, StateMachinePaths[constants.StorageState].CreateState())
 }

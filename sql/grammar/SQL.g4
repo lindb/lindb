@@ -3,7 +3,6 @@
 grammar SQL;
 
 statement               : showStmt
-                        | createStorageStmt
                         | createBrokerStmt
                         | recoverStorageStmt
                         | useStmt
@@ -23,7 +22,6 @@ showStmt                : showMasterStmt
                         | showBrokerMetaStmt
                         | showMasterMetaStmt
                         | showStorageMetaStmt
-                        | showStoragesStmt
                         | showBrokersStmt
 						| showLimitStmt
                         | showAliveStmt
@@ -46,25 +44,24 @@ showStmt                : showMasterStmt
 showMasterStmt       : T_SHOW T_MASTER ;
 showRequestsStmt     : T_SHOW T_REQUESTS ; 
 showRequestStmt      : T_SHOW T_REQUEST T_WHERE T_ID T_EQUAL requestID;
-showStoragesStmt     : T_SHOW T_STORAGES ;
 showBrokersStmt      : T_SHOW T_BROKERS ;
 showLimitStmt        : T_SHOW T_LIMIT ; 
 showMetadataTypesStmt: T_SHOW T_METADATA T_TYPES;
 showRootMetaStmt     : T_SHOW T_ROOT T_METADATA T_FROM source T_WHERE typeFilter;
 showBrokerMetaStmt   : T_SHOW T_BROKER T_METADATA T_FROM source T_WHERE typeFilter (T_AND brokerFilter)?;
 showMasterMetaStmt   : T_SHOW T_MASTER T_METADATA T_FROM source T_WHERE typeFilter;
-showStorageMetaStmt  : T_SHOW T_STORAGE T_METADATA T_FROM source T_WHERE (storageFilter|typeFilter) T_AND (storageFilter|typeFilter);
+showStorageMetaStmt  : T_SHOW T_STORAGE T_METADATA T_FROM source T_WHERE typeFilter;
 showAliveStmt        : T_SHOW (T_ROOT | T_BROKER | T_STORAGE) T_ALIVE;
-showReplicationStmt  : T_SHOW T_REPLICATION T_WHERE (storageFilter|databaseFilter) T_AND (storageFilter|databaseFilter);
-showMemoryDatabaseStmt  : T_SHOW T_MEMORY T_DATASBAE T_WHERE (storageFilter|databaseFilter) T_AND (storageFilter|databaseFilter);
+showReplicationStmt  : T_SHOW T_REPLICATION T_WHERE databaseFilter;
+showMemoryDatabaseStmt  : T_SHOW T_MEMORY T_DATASBAE T_WHERE databaseFilter;
 showRootMetricStmt   : T_SHOW T_ROOT T_METRIC T_WHERE metricListFilter ;
 showBrokerMetricStmt : T_SHOW T_BROKER T_METRIC T_WHERE metricListFilter ;
-showStorageMetricStmt: T_SHOW T_STORAGE T_METRIC T_WHERE (storageFilter|metricListFilter) T_AND (storageFilter|metricListFilter) ;
+showStorageMetricStmt: T_SHOW T_STORAGE T_METRIC T_WHERE metricListFilter ;
 createStorageStmt    : T_CREATE T_STORAGE json;
 createBrokerStmt     : T_CREATE T_BROKER json;
 recoverStorageStmt   : T_RECOVER T_STORAGE storageName;
 showSchemasStmt      : T_SHOW T_SCHEMAS ;
-createDatabaseStmt   : T_CREATE T_DATASBAE json;
+createDatabaseStmt   : T_CREATE T_DATASBAE (json|optionClause);
 dropDatabaseStmt     : T_DROP T_DATASBAE databaseName;
 showDatabaseStmt     : T_SHOW T_DATASBAES ;
 showNameSpacesStmt   : T_SHOW T_NAMESPACES (T_WHERE T_NAMESPACE T_EQUAL prefix)? limitClause?;
@@ -79,6 +76,27 @@ databaseName         : ident ;
 storageName          : ident ;
 requestID            : ident ;
 source               : (T_STATE_MACHINE|T_STATE_REPO) ;
+// create table option
+optionClause         : databaseName T_WITH T_OPEN_P optionPairs T_CLOSE_P T_ROLLUP T_OPEN_P closedOptionPairs (T_COMMA closedOptionPairs)* T_CLOSE_P;
+optionPairs          : optionPair (T_COMMA optionPair)*;
+closedOptionPairs    : T_OPEN_P optionPairs T_CLOSE_P;
+optionPair           : optionKey T_COLON optionValue;
+optionKey            :
+                      T_STORAGE
+                     | T_NUM_OF_SHARD
+                     | T_REPLICA_FACTOR
+                     | T_AUTO_CREATE_NS
+                     | T_BEHEAD
+                     | T_AHEAD
+                     | T_INTERVAL
+                     | T_RETENTION
+                     ;
+optionValue          : STRING
+                     | 'true'
+                     | 'false'
+                     | durationLit
+                     | intNumber
+                     ;
 
 //data query plan
 queryStmt               : T_EXPLAIN? sourceAndSelect whereClause? groupByClause? orderByClause? limitClause? T_WITH_VALUE?;
@@ -88,7 +106,6 @@ selectExpr              : T_SELECT fields;
 fields                  : field ( T_COMMA field )* ;
 field                   : fieldExpr alias? ;
 alias                   : T_AS ident ;
-storageFilter           : T_STORAGE T_EQUAL ident  ;
 brokerFilter            : T_BROKER T_EQUAL ident  ;
 databaseFilter          : T_DATASBAE T_EQUAL ident  ;
 typeFilter              : T_TYPE T_EQUAL ident  ;
@@ -324,6 +341,7 @@ nonReservedWords      :
                         | T_REQUESTS
                         | T_REQUEST
                         | T_ID
+                        | T_ROLLUP
                         ;
 
 STRING
@@ -431,6 +449,7 @@ T_STATS              : S T A T S                        ;
 T_TIME               : T I M E                          ;
 T_NOW                : N O W                            ;
 T_IN                 : I N                              ;
+T_ROLLUP             : R O L L U P                      ;
 
 T_LOG                : L O G                            ;
 T_PROFILE            : P R O F I L E                    ;
@@ -448,6 +467,14 @@ T_AVG                : A V G                            ;
 T_STDDEV             : S T D D E V                      ;
 T_QUANTILE           : Q U A N T I L E                  ;
 T_RATE               : R A T E                          ;
+
+// create table option key
+T_NUM_OF_SHARD   : N U M O F S H A R D;
+T_REPLICA_FACTOR : R E P L I C A F A C T O R;
+T_AUTO_CREATE_NS : A U T O C R E A T E N S;
+T_BEHEAD         : B E H E A D;
+T_AHEAD          : A H E A D;
+T_RETENTION      : R E T E N T I O N;
 
 //time unit
 T_SECOND             : S                                ;

@@ -27,6 +27,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 
 	"github.com/lindb/lindb/config"
@@ -42,9 +43,6 @@ func TestDatabase_Write_And_Rollup(t *testing.T) {
 	dir := t.TempDir()
 	config.SetGlobalStorageConfig(&config.StorageBase{
 		TSDB: config.TSDB{Dir: dir},
-	})
-	kv.Options.Store(&kv.StoreOptions{
-		Dir: config.GlobalStorageConfig().TSDB.Dir,
 	})
 
 	engine, err := tsdb.NewEngine()
@@ -69,7 +67,7 @@ func TestDatabase_Write_And_Rollup(t *testing.T) {
 	assert.True(t, ok)
 	assert.NotNil(t, shard)
 
-	now, _ := timeutil.ParseTimestamp("20190702 19:10:00", "20060102 15:04:05")
+	now, _ := commontimeutil.ParseTimestamp("20190702 19:10:00", "20060102 15:04:05")
 	familyTime := interval.Calculator().CalcFamilyTime(now)
 	f, err := shard.GetOrCrateDataFamily(familyTime)
 	assert.NoError(t, err)
@@ -86,9 +84,6 @@ func TestDatabase_Write_And_Rollup(t *testing.T) {
 			}},
 		})
 
-		err = shard.LookupRowMetricMeta(rows)
-		assert.NoError(t, err)
-
 		err = f.WriteRows(rows)
 		assert.NoError(t, err)
 
@@ -96,11 +91,11 @@ func TestDatabase_Write_And_Rollup(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	storeName := tsdb.ShardSegmentIndicator("write-db", models.ShardID(1), interval, "20190702")
+	storeName := tsdb.ShardSegmentPath("write-db", models.ShardID(1), interval, "20190702")
 	store, ok := kv.GetStoreManager().GetStoreByName(storeName)
 	assert.True(t, ok)
 	assert.NotNil(t, store)
-	storeName = tsdb.ShardSegmentIndicator("write-db", models.ShardID(1), rollupInterval, "201907")
+	storeName = tsdb.ShardSegmentPath("write-db", models.ShardID(1), rollupInterval, "201907")
 	rollupTargetStore, ok := kv.GetStoreManager().GetStoreByName(storeName)
 	assert.True(t, ok)
 	assert.NotNil(t, rollupTargetStore)

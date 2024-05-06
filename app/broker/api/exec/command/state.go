@@ -19,16 +19,16 @@ package command
 
 import (
 	"context"
-	"strings"
 	"sync"
 
 	"github.com/go-resty/resty/v2"
+
+	"github.com/lindb/common/pkg/logger"
 
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
@@ -46,7 +46,7 @@ func StateCommand(_ context.Context, deps *depspkg.HTTPDeps,
 	case stmtpkg.BrokerAlive:
 		return deps.StateMgr.GetLiveNodes(), nil
 	case stmtpkg.StorageAlive:
-		return deps.StateMgr.GetStorageList(), nil
+		return deps.StateMgr.GetStorage(), nil
 	case stmtpkg.Replication:
 		return getStateFromStorage(deps, stateStmt, "/state/replica", func() interface{} {
 			var state []models.FamilyLogReplicaState
@@ -65,20 +65,14 @@ func StateCommand(_ context.Context, deps *depspkg.HTTPDeps,
 		}
 		return metricCli.FetchMetricData(nodes, stateStmt.MetricNames)
 	case stmtpkg.StorageMetric:
-		storageName := strings.TrimSpace(stateStmt.StorageName)
-		if storageName == "" {
-			return nil, constants.ErrStorageNameRequired
+		storage := deps.StateMgr.GetStorage()
+		liveNodes := storage.LiveNodes
+		var nodes []models.Node
+		for id := range liveNodes {
+			n := liveNodes[id]
+			nodes = append(nodes, &n)
 		}
-		if storage, ok := deps.StateMgr.GetStorage(storageName); ok {
-			liveNodes := storage.LiveNodes
-			var nodes []models.Node
-			for id := range liveNodes {
-				n := liveNodes[id]
-				nodes = append(nodes, &n)
-			}
-			return metricCli.FetchMetricData(nodes, stateStmt.MetricNames)
-		}
-		return nil, nil
+		return metricCli.FetchMetricData(nodes, stateStmt.MetricNames)
 	default:
 		return nil, nil
 	}
@@ -86,16 +80,14 @@ func StateCommand(_ context.Context, deps *depspkg.HTTPDeps,
 
 // getStateFromStorage returns the state from storage cluster.
 func getStateFromStorage(deps *depspkg.HTTPDeps, stmt *stmtpkg.State, path string, newStateFn func() interface{}) (interface{}, error) {
-	if storage, ok := deps.StateMgr.GetStorage(stmt.StorageName); ok {
-		liveNodes := storage.LiveNodes
-		var nodes []models.Node
-		for id := range liveNodes {
-			n := liveNodes[id]
-			nodes = append(nodes, &n)
-		}
-		return fetchStateData(nodes, stmt, path, newStateFn)
+	storage := deps.StateMgr.GetStorage()
+	liveNodes := storage.LiveNodes
+	var nodes []models.Node
+	for id := range liveNodes {
+		n := liveNodes[id]
+		nodes = append(nodes, &n)
 	}
-	return nil, nil
+	return fetchStateData(nodes, stmt, path, newStateFn)
 }
 
 // fetchStateData fetches the state metric from each live node.

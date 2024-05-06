@@ -23,7 +23,7 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/pkg/fileutil"
+	"github.com/lindb/common/pkg/fileutil"
 )
 
 //go:generate mockgen -source ./fanout_queue.go -destination ./fanout_queue_mock.go -package queue
@@ -191,7 +191,7 @@ func (fq *fanOutQueue) Sync() {
 
 // Close persists Seq meta, ConsumerGroup seq meta, release resources.
 func (fq *fanOutQueue) Close() {
-	if fq.closed.CAS(false, true) {
+	if fq.closed.CompareAndSwap(false, true) {
 		fq.lock4map.RLock()
 		defer fq.lock4map.RUnlock()
 

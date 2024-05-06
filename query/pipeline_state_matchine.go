@@ -23,7 +23,8 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/models"
+	"github.com/lindb/common/models"
+
 	stagepkg "github.com/lindb/lindb/query/stage"
 	trackerpkg "github.com/lindb/lindb/query/tracker"
 )
@@ -121,7 +122,7 @@ func (sm *pipelineStateMachine) completeStage(stageID string, err error) {
 
 // complete executes pipeline completed, invokes completed callback.
 func (sm *pipelineStateMachine) complete(err error) {
-	if sm.completed.CAS(false, true) && sm.completedCallbackFn != nil {
+	if sm.completed.CompareAndSwap(false, true) && sm.completedCallbackFn != nil {
 		// check if all stages execute completed
 		sm.completedCallbackFn(err)
 	}

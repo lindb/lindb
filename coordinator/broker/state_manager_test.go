@@ -22,14 +22,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/rpc"
 )
 
@@ -156,22 +156,21 @@ func TestStateManager_Storage(t *testing.T) {
 	// case 1: unmarshal storage state err
 	mgr.EmitEvent(&discovery.Event{
 		Type:  discovery.StorageStateChanged,
-		Key:   "/lin/storage",
+		Key:   constants.StorageStatePath,
 		Value: []byte("221"),
 	})
 	// case 2: storage name is empty
 	mgr.EmitEvent(&discovery.Event{
 		Type:  discovery.StorageStateChanged,
-		Key:   "/lin/storage",
+		Key:   constants.StorageStatePath,
 		Value: []byte("{}"),
 	})
 	// case 3: new storage state
 	connectionMgr.EXPECT().CreateConnection(gomock.Any()).MaxTimes(2)
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.StorageStateChanged,
-		Key:  "/lin/storage/test",
+		Key:  constants.StorageStatePath,
 		Value: encoding.JSONMarshal(&models.StorageState{
-			Name: "test",
 			LiveNodes: map[models.NodeID]models.StatefulNode{1: {
 				StatelessNode: models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 9000},
 			}, 2: {
@@ -186,9 +185,8 @@ func TestStateManager_Storage(t *testing.T) {
 	})
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.StorageStateChanged,
-		Key:  "/lin/storage/test",
+		Key:  constants.StorageStatePath,
 		Value: encoding.JSONMarshal(&models.StorageState{
-			Name: "test",
 			LiveNodes: map[models.NodeID]models.StatefulNode{1: {
 				StatelessNode: models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 9000},
 			}, 3: {
@@ -196,31 +194,9 @@ func TestStateManager_Storage(t *testing.T) {
 			}},
 		}),
 	})
-	time.Sleep(100 * time.Millisecond)
-	state, ok := mgr.GetStorage("test")
-	assert.True(t, ok)
-	assert.NotNil(t, state)
-	assert.Len(t, mgr.GetStorageList(), 1)
-	// case 5: remove storage
-	connectionMgr.EXPECT().CloseConnection(&models.StatefulNode{
-		StatelessNode: models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 9000},
-	})
-	connectionMgr.EXPECT().CloseConnection(&models.StatefulNode{
-		StatelessNode: models.StatelessNode{HostIP: "3.3.3.3", GRPCPort: 9000},
-	})
-	mgr.EmitEvent(&discovery.Event{
-		Type: discovery.StorageStateDeletion,
-		Key:  "/lin/storage/test",
-	})
-	// case 6: remove not exist storage
-	mgr.EmitEvent(&discovery.Event{
-		Type: discovery.StorageStateDeletion,
-		Key:  "/lin/storage/test",
-	})
 	time.Sleep(time.Second)
-	state, ok = mgr.GetStorage("test")
-	assert.False(t, ok)
-	assert.Nil(t, state)
+	state := mgr.GetStorage()
+	assert.NotNil(t, state)
 }
 
 func TestStateManager_ShardState(t *testing.T) {
@@ -239,9 +215,8 @@ func TestStateManager_ShardState(t *testing.T) {
 
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.StorageStateChanged,
-		Key:  "/lin/storage/test",
+		Key:  constants.StorageStatePath,
 		Value: encoding.JSONMarshal(&models.StorageState{
-			Name: "test",
 			ShardStates: map[string]map[models.ShardID]models.ShardState{
 				"db": {1: models.ShardState{ID: 1, State: models.OnlineShard}, 2: models.ShardState{ID: 2}},
 			},
@@ -252,56 +227,22 @@ func TestStateManager_ShardState(t *testing.T) {
 			}},
 		}),
 	})
-	mgr.EmitEvent(&discovery.Event{
-		Type: discovery.StorageStateChanged,
-		Key:  "/lin/storage/test_1",
-		Value: encoding.JSONMarshal(&models.StorageState{
-			Name: "test_1",
-			ShardStates: map[string]map[models.ShardID]models.ShardState{
-				"test_1": {1: models.ShardState{ID: 1, State: models.OnlineShard}, 2: models.ShardState{ID: 2}},
-			},
-		}),
-	})
-	connectionMgr.EXPECT().CreateConnection(gomock.Any()).MaxTimes(2)
-	mgr.EmitEvent(&discovery.Event{
-		Type: discovery.StorageStateChanged,
-		Key:  "/lin/storage/test_2",
-		Value: encoding.JSONMarshal(&models.StorageState{
-			Name: "test_2",
-			ShardStates: map[string]map[models.ShardID]models.ShardState{
-				"test_2": {},
-			},
-			LiveNodes: map[models.NodeID]models.StatefulNode{1: {
-				StatelessNode: models.StatelessNode{HostIP: "3.1.1.1", GRPCPort: 9000},
-			}, 2: {
-				StatelessNode: models.StatelessNode{HostIP: "3.2.2.2", GRPCPort: 9000},
-			}},
-		}),
-	})
-	time.Sleep(time.Second)
-
 	mgr1 := mgr.(*stateManager)
 	mgr1.mutex.Lock()
 	mgr1.databases = map[string]models.Database{
-		"test_1": {Storage: "test_1"},
-		"test_2": {Storage: "test_2"},
-		"test":   {Storage: "test_not_exist"},
-		"db":     {Storage: "test"}}
+		"test_1": {},
+		"test_2": {},
+		"test":   {},
+		"db":     {},
+	}
 	mgr1.mutex.Unlock()
+	time.Sleep(200 * time.Millisecond)
 
 	// db not exist
 	replicas, err := mgr.GetQueryableReplicas("test_db")
 	assert.Equal(t, err, constants.ErrDatabaseNotFound)
 	assert.Empty(t, replicas)
 
-	// storage not exist
-	replicas, err = mgr.GetQueryableReplicas("test")
-	assert.Equal(t, err, constants.ErrNoStorageCluster)
-	assert.Empty(t, replicas)
-	// no live nodes
-	replicas, err = mgr.GetQueryableReplicas("test_1")
-	assert.Equal(t, err, constants.ErrNoLiveNode)
-	assert.Empty(t, replicas)
 	// no shard
 	replicas, err = mgr.GetQueryableReplicas("test_2")
 	assert.Equal(t, err, constants.ErrShardNotFound)
@@ -310,8 +251,24 @@ func TestStateManager_ShardState(t *testing.T) {
 	replicas, err = mgr.GetQueryableReplicas("db")
 	assert.NoError(t, err)
 	assert.Len(t, replicas, 1)
-
 	assert.True(t, c > 0)
+
+	connectionMgr.EXPECT().CloseConnection(gomock.Any()).MaxTimes(2)
+	mgr.EmitEvent(&discovery.Event{
+		Type: discovery.StorageStateChanged,
+		Key:  constants.StorageStatePath,
+		Value: encoding.JSONMarshal(&models.StorageState{
+			ShardStates: map[string]map[models.ShardID]models.ShardState{
+				"test_1": {1: models.ShardState{ID: 1, State: models.OnlineShard}, 2: models.ShardState{ID: 2}},
+			},
+		}),
+	})
+	time.Sleep(time.Second)
+
+	// no live node
+	replicas, err = mgr.GetQueryableReplicas("test_1")
+	assert.Equal(t, err, constants.ErrNoLiveNode)
+	assert.Empty(t, replicas)
 }
 
 func TestStateManager_GetLiveNodes(t *testing.T) {
@@ -327,53 +284,26 @@ func TestStateManager_GetLiveNodes(t *testing.T) {
 	assert.Equal(t, []models.StatelessNode{{HostIP: "1.1.1.1"}, {HostIP: "1.1.2.1"}}, nodes)
 }
 
-func TestStateManager_GetStorageList(t *testing.T) {
-	s := &stateManager{
-		storages: make(map[string]*models.StorageState),
-	}
-	storageList := s.GetStorageList()
-	assert.Empty(t, storageList)
-
-	s.storages["s1"] = &models.StorageState{Name: "s1"}
-	s.storages["s2"] = &models.StorageState{Name: "s2"}
-	assert.Equal(t, []*models.StorageState{{Name: "s1"}, {Name: "s2"}}, s.GetStorageList())
-}
-
 func TestStateManager_Choose(t *testing.T) {
 	mgr := &stateManager{
 		nodes: map[string]models.StatelessNode{"test": {}},
 		databases: map[string]models.Database{
-			"test_1": {Storage: "test_1"},
-			"test_2": {Storage: "test_2"},
+			"test_1": {},
 		},
-		storages: map[string]*models.StorageState{
-			"test_1": {
-				LiveNodes: map[models.NodeID]models.StatefulNode{
-					1: {StatelessNode: models.StatelessNode{HostIP: "1.1.1.1"}},
-					2: {StatelessNode: models.StatelessNode{HostIP: "1.1.1.2"}},
-				},
-				ShardStates: map[string]map[models.ShardID]models.ShardState{
-					"test_1": {
-						1: {
-							State:  models.OnlineShard,
-							Leader: models.NodeID(1),
-						},
-						2: {
-							State:  models.OnlineShard,
-							Leader: models.NodeID(2),
-						},
-					},
-				},
+		storageState: &models.StorageState{
+			LiveNodes: map[models.NodeID]models.StatefulNode{
+				1: {StatelessNode: models.StatelessNode{HostIP: "1.1.1.1"}},
+				2: {StatelessNode: models.StatelessNode{HostIP: "1.1.1.2"}},
 			},
-			"test_2": {
-				LiveNodes: map[models.NodeID]models.StatefulNode{
-					1: {},
-				},
-				ShardStates: map[string]map[models.ShardID]models.ShardState{
-					"test_2": {
-						1: {
-							State: models.OfflineShard,
-						},
+			ShardStates: map[string]map[models.ShardID]models.ShardState{
+				"test_1": {
+					1: {
+						State:  models.OnlineShard,
+						Leader: models.NodeID(1),
+					},
+					2: {
+						State:  models.OnlineShard,
+						Leader: models.NodeID(2),
 					},
 				},
 			},

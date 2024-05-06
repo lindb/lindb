@@ -22,7 +22,9 @@ import (
 	"path"
 	"sync"
 
-	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/common/pkg/logger"
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
@@ -52,12 +54,12 @@ type intervalSegment struct {
 
 	mutex sync.Mutex
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // newIntervalSegment create interval segment based on interval/type/path etc.
 func newIntervalSegment(shard Shard, interval option.Interval) (segment IntervalSegment, err error) {
-	dir := ShardSegmentPath(shard.Database().Name(), shard.ShardID(), interval.Interval)
+	dir := ShardIntervalSegmentPath(shard.Database().Name(), shard.ShardID(), interval.Interval)
 	err = mkDirIfNotExist(dir)
 	if err != nil {
 		return nil, err
@@ -90,7 +92,7 @@ func (s *intervalSegment) GetOrCreateSegment(segmentName string) (Segment, error
 // GetDataFamilies returns data family list by time range, return nil if not match
 func (s *intervalSegment) GetDataFamilies(timeRange timeutil.TimeRange) []DataFamily {
 	var result []DataFamily
-	now := timeutil.Now()
+	now := commontimeutil.Now()
 	intervalCalc := s.interval.Interval.Calculator()
 	segmentQueryTimeRange := &timeutil.TimeRange{
 		// need truncate start timestamp, e.g. 20190902 19:05:48 => 20190902 00:00:00
@@ -164,12 +166,12 @@ func (s *intervalSegment) Close() {
 
 // TTL expires segment base on time to live.
 func (s *intervalSegment) TTL() error {
-	now := timeutil.Now()
+	now := commontimeutil.Now()
 	expireInterval := s.interval.Retention.Int64()
 
 	return s.walkSegment(func(segmentName string, segmentTime int64) {
 		// add 2 hours buffer, for some cases stop write.
-		if now-segmentTime > expireInterval+2*timeutil.OneHour {
+		if now-segmentTime > expireInterval+2*commontimeutil.OneHour {
 			s.dropSegment(segmentName)
 		}
 	})
@@ -195,6 +197,7 @@ func (s *intervalSegment) EvictSegment() {
 
 // walkSegment lists all segment under current interval segment dir.
 func (s *intervalSegment) walkSegment(fn func(segmentName string, segmentTime int64)) error {
+	fmt.Println(s.dir)
 	segmentNames, err := listDir(s.dir)
 	if err != nil {
 		return err

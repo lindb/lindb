@@ -24,17 +24,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
+
+	"github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/ltoml"
+	"github.com/lindb/common/pkg/timeutil"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/queue"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/tsdb"
 )
@@ -96,7 +97,9 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 				NewPartitionFn = func(ctx context.Context, shard tsdb.Shard, family tsdb.DataFamily,
 					currentNodeID models.NodeID, log queue.FanOutQueue,
 					cliFct rpc.ClientStreamFactory, stateMgr storage.StateManager) Partition {
-					return NewMockPartition(ctrl)
+					p := NewMockPartition(ctrl)
+					p.EXPECT().StartReplica().Times(1)
+					return p
 				}
 			},
 			wantErr: false,

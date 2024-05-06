@@ -26,7 +26,7 @@ import (
 	"github.com/caarlos0/env/v7"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/pkg/ltoml"
+	"github.com/lindb/common/pkg/ltoml"
 )
 
 func TestRoot_TOML(t *testing.T) {

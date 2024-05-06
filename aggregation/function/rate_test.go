@@ -20,10 +20,10 @@ package function
 import (
 	"testing"
 
+	"github.com/lindb/common/pkg/timeutil"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/pkg/collections"
-	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 func TestRateCall(t *testing.T) {

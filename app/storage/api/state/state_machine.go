@@ -22,10 +22,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/lindb/common/pkg/http"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/storage"
-	"github.com/lindb/lindb/pkg/http"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 var (
@@ -38,7 +39,7 @@ type param struct {
 
 type StorageStateMachineAPI struct {
 	stateMgr storage.StateManager
-	logger   *logger.Logger
+	logger   logger.Logger
 }
 
 // NewStorageStateMachineAPI creates storage state machine api instance.
@@ -64,11 +65,11 @@ func (api *StorageStateMachineAPI) Explore(c *gin.Context) {
 	}
 	switch param.Type {
 	case constants.ShardAssignment:
-		databases := api.stateMgr.GetDatabaseAssignments()
-		sort.Slice(databases, func(i, j int) bool {
-			return databases[i].ShardAssignment.Name < databases[j].ShardAssignment.Name
+		shardAssignments := api.stateMgr.GetShardAssignments()
+		sort.Slice(shardAssignments, func(i, j int) bool {
+			return shardAssignments[i].Name < shardAssignments[j].Name
 		})
-		http.OK(c, databases)
+		http.OK(c, shardAssignments)
 	case constants.LiveNode:
 		nodes := api.stateMgr.GetLiveNodes()
 		sort.Slice(nodes, func(i, j int) bool {

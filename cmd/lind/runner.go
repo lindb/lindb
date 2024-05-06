@@ -23,11 +23,11 @@ import (
 	_ "net/http/pprof"
 	"os"
 
+	"github.com/lindb/common/pkg/logger"
 	"go.uber.org/automaxprocs/maxprocs"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/server"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 // serveStandalone runs the cluster as standalone mode

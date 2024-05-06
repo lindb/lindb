@@ -25,9 +25,8 @@ import (
 	"testing"
 
 	"github.com/klauspost/compress/gzip"
-	"github.com/stretchr/testify/assert"
-
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/series/tag"

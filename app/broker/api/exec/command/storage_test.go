@@ -24,17 +24,16 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strconv"
-	"strings"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
+
+	"github.com/lindb/common/pkg/encoding"
 
 	depspkg "github.com/lindb/lindb/app/broker/deps"
-	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/sql/stmt"
@@ -52,8 +51,6 @@ func TestStorage(t *testing.T) {
 		Repo:        repo,
 		RepoFactory: repoFct,
 	}
-	cfg := `{"config":{"namespace":"test","timeout":10,"dialTimeout":10,`
-	cfg += `"leaseTTL":10,"endpoints":["http://localhost:2379"]}}`
 
 	mockSrv := func(data []byte) {
 		server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, _ *http.Request) {
@@ -64,14 +61,14 @@ func TestStorage(t *testing.T) {
 		assert.NoError(t, err)
 		p, err := strconv.Atoi(u.Port())
 		assert.NoError(t, err)
-		stateMgr.EXPECT().GetStorage(gomock.Any()).Return(&models.StorageState{
+		stateMgr.EXPECT().GetStorage().Return(&models.StorageState{
 			LiveNodes: map[models.NodeID]models.StatefulNode{1: {
 				StatelessNode: models.StatelessNode{
 					HostIP:   u.Hostname(),
 					HTTPPort: uint16(p),
 				},
 				ID: 1,
-			}}}, true)
+			}}})
 	}
 	databaseCfgData := encoding.JSONMarshal(map[string]models.DatabaseConfig{
 		"test": {
@@ -88,132 +85,6 @@ func TestStorage(t *testing.T) {
 		{
 			name:      "unknown storage op type",
 			statement: &stmt.Storage{Type: stmt.StorageOpUnknown},
-		},
-		{
-			name:      "show storages, get storages failure",
-			statement: &stmt.Storage{Type: stmt.StorageOpShow},
-			prepare: func() {
-				repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
-			},
-			wantErr: true,
-		},
-		{
-			name:      "show storages, list storage successfully, but unmarshal failure",
-			statement: &stmt.Storage{Type: stmt.StorageOpShow},
-			prepare: func() {
-				repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(
-					[]state.KeyValue{{Key: "", Value: []byte("[]")}}, nil)
-			},
-			wantErr: true,
-		},
-		{
-			name:      "show storages successfully",
-			statement: &stmt.Storage{Type: stmt.StorageOpShow},
-			prepare: func() {
-				repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(
-					[]state.KeyValue{{Key: "", Value: []byte(`{ "config": {"namespace":"xxx"}}`)}}, nil)
-				stateMgr.EXPECT().GetStorage("xxx").Return(nil, true)
-			},
-		},
-		{
-			name:      "show storages successfully,but state not found",
-			statement: &stmt.Storage{Type: stmt.StorageOpShow},
-			prepare: func() {
-				repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(
-					[]state.KeyValue{{Key: "", Value: []byte(`{ "config": {"namespace":"xxx"}}`)}}, nil)
-				stateMgr.EXPECT().GetStorage("xxx").Return(nil, false)
-			},
-		},
-		{
-			name:      "create storage json err",
-			statement: &stmt.Storage{Type: stmt.StorageOpCreate, Value: `xx`},
-			wantErr:   true,
-		},
-		{
-			name:      "create storage, config validate failure",
-			statement: &stmt.Storage{Type: stmt.StorageOpCreate, Value: `{"config":{}}`},
-			wantErr:   true,
-		},
-		{
-			name:      "create storage successfully, storage not exist",
-			statement: &stmt.Storage{Type: stmt.StorageOpCreate, Value: cfg},
-			prepare: func() {
-				repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(repo, nil)
-				repo.EXPECT().Close().Return(nil)
-				repo.EXPECT().PutWithTX(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-					DoAndReturn(func(_ context.Context, _ string, _ []byte, check func([]byte) error) (bool, error) {
-						if err := check([]byte{1, 2, 3}); err != nil {
-							return false, err
-						}
-						return true, nil
-					})
-			},
-		},
-		{
-			name:      "create storage successfully, storage exist",
-			statement: &stmt.Storage{Type: stmt.StorageOpCreate, Value: cfg},
-			prepare: func() {
-				repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(repo, nil)
-				repo.EXPECT().Close().Return(nil)
-				repo.EXPECT().PutWithTX(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-					DoAndReturn(func(_ context.Context, _ string, _ []byte, check func([]byte) error) (bool, error) {
-						cfg1 := strings.ReplaceAll(cfg, `\"`, `"`)
-						data := []byte(cfg1)
-						storage := &config.StorageCluster{}
-						err := encoding.JSONUnmarshal(data, storage)
-						assert.NoError(t, err)
-						data = encoding.JSONMarshal(storage)
-						if err := check(data); err != nil {
-							return false, err
-						}
-						return true, nil
-					})
-			},
-		},
-		{
-			name:      "create storage failure with err",
-			statement: &stmt.Storage{Type: stmt.StorageOpCreate, Value: cfg},
-			prepare: func() {
-				repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(repo, nil)
-				repo.EXPECT().Close().Return(nil)
-				repo.EXPECT().PutWithTX(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false, fmt.Errorf("err"))
-			},
-			wantErr: true,
-		},
-		{
-			name:      "create storage failure",
-			statement: &stmt.Storage{Type: stmt.StorageOpCreate, Value: cfg},
-			prepare: func() {
-				repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(repo, nil)
-				repo.EXPECT().Close().Return(nil)
-				repo.EXPECT().PutWithTX(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(false, nil)
-			},
-			wantErr: true,
-		},
-		{
-			name:      "create storage repo failure",
-			statement: &stmt.Storage{Type: stmt.StorageOpCreate, Value: cfg},
-			prepare: func() {
-				repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
-			},
-			wantErr: true,
-		},
-		{
-			name:      "create storage, close repo failure",
-			statement: &stmt.Storage{Type: stmt.StorageOpCreate, Value: cfg},
-			prepare: func() {
-				repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(repo, nil)
-				repo.EXPECT().Close().Return(fmt.Errorf("err"))
-			},
-			wantErr: true,
-		},
-		{
-			name:      "recover storage, but storage not found",
-			statement: &stmt.Storage{Type: stmt.StorageOpRecover, Value: "test"},
-			prepare: func() {
-				stateMgr.EXPECT().GetStorage(gomock.Any()).Return(nil, false)
-			},
-			wantErr: true,
 		},
 		{
 			name:      "recover storage, but get database config failure",

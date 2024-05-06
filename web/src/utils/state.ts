@@ -15,7 +15,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-import * as _ from "lodash-es";
+import { get, findIndex, keys, mapValues, has, set, uniq } from "lodash-es";
 import { StorageState } from "@src/models";
 
 /**
@@ -32,15 +32,15 @@ function getMetricField(
   fieldName: string,
   node: string
 ): number {
-  const nodesState = _.get(stateMetric, metricName, []);
-  const idx = _.findIndex(nodesState, {
+  const nodesState = get(stateMetric, metricName, []);
+  const idx = findIndex(nodesState, {
     tags: { node: node },
   });
   if (idx < 0) {
     return 0;
   }
-  const fields = _.get(nodesState[idx], "fields", []);
-  const idleIdx = _.findIndex(fields, {
+  const fields = get(nodesState[idx], "fields", []);
+  const idleIdx = findIndex(fields, {
     name: fieldName,
   });
   if (idleIdx < 0) {
@@ -51,79 +51,70 @@ function getMetricField(
 
 /**
  * get database state list
- * @param storage storage state list
+ * @param storage storage state
  */
-function getDatabaseList(storages: StorageState[]): any[] {
+function getDatabaseList(storage: StorageState): any[] {
   const rs: any[] = [];
-  _.forEach(storages, (storage: StorageState) => {
-    const databaseMap: any = _.get(storage, "shardStates", {});
-    const databaseNames = _.keys(databaseMap);
-    const liveNodes = _.get(storage, "liveNodes", []);
-    databaseNames.map((name: string) => {
-      const db = databaseMap[name];
-      const stats = {
-        totalReplica: 0,
-        availableReplica: 0,
-        unavailableReplica: 0,
-        numOfShards: 0,
-      };
-      _.mapValues(db, function (shard: any) {
-        const replicas = _.get(shard, "replica.replicas", []);
-        stats.numOfShards++;
-        stats.totalReplica += replicas.length;
-        replicas.map((nodeId: number) => {
-          if (_.has(liveNodes, nodeId)) {
-            stats.availableReplica++;
-          } else {
-            stats.unavailableReplica++;
-          }
-        });
+  const databaseMap: any = get(storage, "shardStates", {});
+  const databaseNames = keys(databaseMap);
+  const liveNodes = get(storage, "liveNodes", []);
+  databaseNames.map((name: string) => {
+    const db = databaseMap[name];
+    const stats = {
+      totalReplica: 0,
+      availableReplica: 0,
+      unavailableReplica: 0,
+      numOfShards: 0,
+    };
+    mapValues(db, function (shard: any) {
+      const replicas = get(shard, "replica.replicas", []);
+      stats.numOfShards++;
+      stats.totalReplica += replicas.length;
+      replicas.map((nodeId: number) => {
+        if (has(liveNodes, nodeId)) {
+          stats.availableReplica++;
+        } else {
+          stats.unavailableReplica++;
+        }
       });
-      rs.push({ name: name, stats: stats, storage: storage });
     });
+    rs.push({ name: name, stats: stats, storage: storage });
   });
   return rs;
 }
 
-function getStorageState(storageData: any, name?: string) {
+function getStorageState(storageData: any) {
   if (!storageData) {
     return null;
   }
-  let storages = storageData;
-  if (name) {
-    const idx = _.findIndex(storages, { name: name });
-    storages = idx >= 0 ? _.pullAt(storages, [idx]) : [];
-  }
-  (storages || []).map((storage: StorageState) => {
-    const liveNodes = _.get(storage, "liveNodes", {});
-    const databases = _.get(storage, "shardStates", {});
-    const stats = {
-      numOfDatabase: 0,
-      totalReplica: 0,
-      availableReplica: 0,
-      unavailableReplica: 0,
-      liveNodes: _.keys(liveNodes).length,
-      deadNodes: [] as number[],
-    };
-    _.set(storage, "stats", stats);
-    _.mapValues(databases, function (db: any) {
-      stats.numOfDatabase++;
-      _.mapValues(db, function (shard: any) {
-        const replicas = _.get(shard, "replica.replicas", []);
-        stats.totalReplica += replicas.length;
-        replicas.map((nodeId: number) => {
-          if (_.has(liveNodes, nodeId)) {
-            stats.availableReplica++;
-          } else {
-            stats.unavailableReplica++;
-            stats.deadNodes.push(nodeId);
-          }
-        });
+  const liveNodes = get(storageData, "liveNodes", {});
+  const databases = get(storageData, "shardStates", {});
+  const stats = {
+    numOfDatabase: 0,
+    totalReplica: 0,
+    availableReplica: 0,
+    unavailableReplica: 0,
+    liveNodes: keys(liveNodes).length,
+    deadNodes: [] as number[],
+  };
+  set(storageData, "stats", stats);
+  mapValues(databases, function (db: any) {
+    stats.numOfDatabase++;
+    mapValues(db, function (shard: any) {
+      const replicas = get(shard, "replica.replicas", []);
+      stats.totalReplica += replicas.length;
+      replicas.map((nodeId: number) => {
+        if (has(liveNodes, nodeId)) {
+          stats.availableReplica++;
+        } else {
+          stats.unavailableReplica++;
+          stats.deadNodes.push(nodeId);
+        }
       });
     });
-    stats.deadNodes = _.uniq(stats.deadNodes);
   });
-  return storages;
+  stats.deadNodes = uniq(stats.deadNodes);
+  return storageData;
 }
 
 export default {

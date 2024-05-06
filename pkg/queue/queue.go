@@ -25,8 +25,9 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/pkg/queue/page"
 )
 
@@ -309,7 +310,7 @@ func (q *queue) Signal() {
 
 // Close closes the queue.
 func (q *queue) Close() {
-	if q.closed.CAS(false, true) {
+	if q.closed.CompareAndSwap(false, true) {
 		q.rwMutex.RLock()
 		defer q.rwMutex.RUnlock()
 

@@ -22,12 +22,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/lindb/common/pkg/http"
+	"github.com/lindb/common/pkg/logger"
+
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/http"
-	"github.com/lindb/lindb/pkg/logger"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
@@ -45,7 +46,7 @@ type Param struct {
 type BrokerStateMachineAPI struct {
 	deps   *depspkg.HTTPDeps
 	cli    client.StateMachineCli
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewBrokerStateMachineAPI creates broker state machine api instance.
@@ -77,7 +78,7 @@ func (api *BrokerStateMachineAPI) Explore(c *gin.Context) {
 		api.exploreMaster(c, param)
 	case stmtpkg.StorageMetadata:
 		stateMgr := api.deps.Master.GetStateManager()
-		storageCluster := stateMgr.GetStorageCluster(param.StorageName)
+		storageCluster := stateMgr.GetStorageCluster()
 		if storageCluster == nil {
 			http.NotFound(c)
 			return
@@ -101,13 +102,7 @@ func (api *BrokerStateMachineAPI) Explore(c *gin.Context) {
 func (api *BrokerStateMachineAPI) exploreMaster(c *gin.Context, param *Param) {
 	switch param.Type {
 	case constants.StorageState:
-		api.writeStorageState(c, api.deps.Master.GetStateManager().GetStorageStates())
-	case constants.StorageConfig:
-		nodes := api.deps.Master.GetStateManager().GetStorages()
-		sort.Slice(nodes, func(i, j int) bool {
-			return nodes[i].Config.Namespace < nodes[j].Config.Namespace
-		})
-		http.OK(c, nodes)
+		http.OK(c, []*models.StorageState{api.deps.Master.GetStateManager().GetStorageState()})
 	case constants.DatabaseConfig:
 		api.writeDatabaseState(c, api.deps.Master.GetStateManager().GetDatabases())
 	case constants.ShardAssignment:
@@ -128,7 +123,7 @@ func (api *BrokerStateMachineAPI) exploreMaster(c *gin.Context, param *Param) {
 func (api *BrokerStateMachineAPI) exploreBroker(c *gin.Context, param *Param) {
 	switch param.Type {
 	case constants.StorageState:
-		api.writeStorageState(c, api.deps.StateMgr.GetStorageList())
+		http.OK(c, []*models.StorageState{api.deps.StateMgr.GetStorage()})
 	case constants.LiveNode:
 		nodes := api.deps.StateMgr.GetLiveNodes()
 		sort.Slice(nodes, func(i, j int) bool {
@@ -148,12 +143,4 @@ func (api *BrokerStateMachineAPI) writeDatabaseState(c *gin.Context, dbs []model
 		return dbs[i].Name < dbs[j].Name
 	})
 	http.OK(c, dbs)
-}
-
-// writeStorageState writes response with storage.
-func (api *BrokerStateMachineAPI) writeStorageState(c *gin.Context, storages []*models.StorageState) {
-	sort.Slice(storages, func(i, j int) bool {
-		return storages[i].Name < storages[j].Name
-	})
-	http.OK(c, storages)
 }

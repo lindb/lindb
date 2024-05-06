@@ -22,8 +22,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
 func TestJobScheduler(t *testing.T) {
@@ -38,10 +38,9 @@ func TestJobScheduler(t *testing.T) {
 	store := NewMockStore(ctrl)
 	store.EXPECT().compact().AnyTimes()
 	storeMgr.EXPECT().GetStores().Return([]Store{store}).AnyTimes()
-	opt := StoreOptions{CompactCheckInterval: 1}
 
 	t.Run("startup job", func(t *testing.T) {
-		js := NewJobScheduler(context.TODO(), opt)
+		js := NewJobScheduler(context.TODO(), 100*time.Millisecond)
 		assert.False(t, js.IsRunning())
 		js.Startup()
 		assert.True(t, js.IsRunning())
@@ -51,7 +50,7 @@ func TestJobScheduler(t *testing.T) {
 	})
 
 	t.Run("shutdown job", func(t *testing.T) {
-		js := NewJobScheduler(context.TODO(), opt)
+		js := NewJobScheduler(context.TODO(), time.Second)
 		assert.False(t, js.IsRunning())
 		js.Startup()
 		assert.True(t, js.IsRunning())

@@ -20,25 +20,30 @@ package api
 import (
 	"github.com/gin-gonic/gin"
 
+	commonlogger "github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/app/broker/api/admin"
 	"github.com/lindb/lindb/app/broker/api/exec"
 	"github.com/lindb/lindb/app/broker/api/ingest"
+	"github.com/lindb/lindb/app/broker/api/prometheus"
+	prometheusIngest "github.com/lindb/lindb/app/broker/api/prometheus/ingest"
 	"github.com/lindb/lindb/app/broker/api/state"
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 	apipkg "github.com/lindb/lindb/internal/api"
 	"github.com/lindb/lindb/internal/linmetric"
 	httppkg "github.com/lindb/lindb/pkg/http"
+	"github.com/lindb/lindb/pkg/logger"
 )
 
 // API represents broker http api.
 type API struct {
-	deps *depspkg.HTTPDeps
+	deps             *depspkg.HTTPDeps
+	prometheusWriter prometheusIngest.Writer
 
 	execute            *exec.ExecuteAPI
 	database           *admin.DatabaseAPI
 	flusher            *admin.DatabaseFlusherAPI
-	storage            *admin.StorageClusterAPI
 	brokerStateMachine *state.BrokerStateMachineAPI
 	request            *apipkg.RequestAPI
 	metricExplore      *apipkg.ExploreAPI
@@ -47,16 +52,17 @@ type API struct {
 	env                *apipkg.EnvAPI
 	write              *ingest.Write
 	proxy              *httppkg.ReverseProxy
+	prometheusExecute  *prometheus.ExecuteAPI
 }
 
 // NewAPI creates broker http api.
-func NewAPI(deps *depspkg.HTTPDeps) *API {
+func NewAPI(deps *depspkg.HTTPDeps, prometheusWriter prometheusIngest.Writer) *API {
 	return &API{
 		deps:               deps,
+		prometheusWriter:   prometheusWriter,
 		execute:            exec.NewExecuteAPI(deps),
 		database:           admin.NewDatabaseAPI(deps),
 		flusher:            admin.NewDatabaseFlusherAPI(deps),
-		storage:            admin.NewStorageClusterAPI(deps),
 		brokerStateMachine: state.NewBrokerStateMachineAPI(deps),
 		request:            apipkg.NewRequestAPI(),
 		metricExplore:      apipkg.NewExploreAPI(deps.GlobalKeyValues, linmetric.BrokerRegistry),
@@ -65,19 +71,19 @@ func NewAPI(deps *depspkg.HTTPDeps) *API {
 		env:                apipkg.NewEnvAPI(deps.BrokerCfg.Monitor, constants.BrokerRole),
 		write:              ingest.NewWrite(deps),
 		proxy:              httppkg.NewReverseProxy(),
+		prometheusExecute:  prometheus.NewExecuteAPI(deps, prometheusWriter),
 	}
 }
 
 // RegisterRouter registers http api router.
 func (api *API) RegisterRouter(router *gin.RouterGroup) {
-	router.Use(SlowSQLLog(api.deps))
+	router.Use(SlowSQLLog(api.deps, commonlogger.GetLogger(logger.SlowSQLModule, "SQL")))
 	v1 := router.Group(constants.APIVersion1)
 	// execute lin query language statement
 	api.execute.Register(v1)
 
 	api.database.Register(v1)
 	api.flusher.Register(v1)
-	api.storage.Register(v1)
 
 	// state
 	api.brokerStateMachine.Register(v1)
@@ -93,4 +99,11 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 
 	api.env.Register(v1)
 	api.proxy.Register(v1)
+}
+
+// RegisterPrometheusRouter registers prometheus http api router.
+func (api *API) RegisterPrometheusRouter(router *gin.RouterGroup) {
+	router.Use(SlowSQLLog(api.deps, commonlogger.GetLogger(logger.SlowSQLModule, "SQL")))
+	// execute promql statement
+	api.prometheusExecute.Register(router.Group(constants.APIVersion1CliPath))
 }

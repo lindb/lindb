@@ -22,9 +22,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/klauspost/compress/snappy"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/common/pkg/fasttime"
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
@@ -117,15 +117,11 @@ func TestLocalReplicator_Replica(t *testing.T) {
 	_, _ = row.WriteTo(buf)
 	var dst []byte
 	dst = snappy.Encode(dst, buf.Bytes())
-	shard.EXPECT().LookupRowMetricMeta(gomock.Any()).Return(fmt.Errorf("err"))
-	replicator.Replica(1, dst)
 
 	// write failure
-	shard.EXPECT().LookupRowMetricMeta(gomock.Any()).Return(nil)
 	family.EXPECT().WriteRows(gomock.Any()).Return(fmt.Errorf("err"))
 	replicator.Replica(1, dst)
 	// write success
-	shard.EXPECT().LookupRowMetricMeta(gomock.Any()).Return(nil)
 	family.EXPECT().WriteRows(gomock.Any()).Return(nil)
 	replicator.Replica(1, dst)
 	// bad data

@@ -18,24 +18,17 @@
 package command
 
 import (
-	"bytes"
 	"context"
-	"errors"
-	"fmt"
 	"sync"
-	"time"
 
 	"github.com/go-resty/resty/v2"
 
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
+
 	depspkg "github.com/lindb/lindb/app/broker/deps"
-	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/ltoml"
-	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/pkg/validate"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
 
@@ -52,8 +45,6 @@ type storageCommandFn = func(ctx context.Context, deps *depspkg.HTTPDeps, stmt *
 
 // storageCommands registers all storage related commands.
 var storageCommands = map[stmtpkg.StorageOpType]storageCommandFn{
-	stmtpkg.StorageOpShow:    listStorages,
-	stmtpkg.StorageOpCreate:  createStorage,
 	stmtpkg.StorageOpRecover: recoverStorage,
 }
 
@@ -66,93 +57,9 @@ func StorageCommand(ctx context.Context, deps *depspkg.HTTPDeps, _ *models.Execu
 	return nil, nil
 }
 
-// List lists all storage clusters
-func listStorages(ctx context.Context, deps *depspkg.HTTPDeps, _ *stmtpkg.Storage) (interface{}, error) {
-	data, err := deps.Repo.List(ctx, constants.StorageConfigPath)
-	if err != nil {
-		return nil, err
-	}
-	stateMgr := deps.StateMgr
-	var storages models.Storages
-	for _, val := range data {
-		storage := models.Storage{}
-		err = encoding.JSONUnmarshal(val.Value, &storage)
-		if err != nil {
-			log.Warn("unmarshal data error",
-				logger.String("data", string(val.Value)))
-		} else {
-			if _, ok := stateMgr.GetStorage(storage.Config.Namespace); ok {
-				storage.Status = models.ClusterStatusReady
-			} else {
-				storage.Status = models.ClusterStatusInitialize
-				// TODO: check storage un-health
-			}
-			storages = append(storages, storage)
-		}
-	}
-
-	if err != nil {
-		return nil, err
-	}
-	return storages, nil
-}
-
-// createStorage creates config of storage cluster.
-func createStorage(ctx context.Context, deps *depspkg.HTTPDeps, stmt *stmtpkg.Storage) (interface{}, error) {
-	data := []byte(stmt.Value)
-	storage := &config.StorageCluster{}
-	err := encoding.JSONUnmarshal(data, storage)
-	if err != nil {
-		return nil, err
-	}
-	err = validate.Validator.Struct(storage)
-	if err != nil {
-		return nil, err
-	}
-	// copy config for testing
-	cfg := &config.RepoState{}
-	_ = encoding.JSONUnmarshal(encoding.JSONMarshal(storage.Config), cfg)
-	cfg.Timeout = ltoml.Duration(time.Second)
-	cfg.DialTimeout = ltoml.Duration(time.Second)
-	// check storage repo config if valid
-	repo, err := deps.RepoFactory.CreateStorageRepo(cfg)
-	if err != nil {
-		return nil, err
-	}
-	err = repo.Close()
-	if err != nil {
-		return nil, err
-	}
-	// re-marshal storage config, keep same structure with repo.
-	data = encoding.JSONMarshal(storage)
-	log.Info("Creating storage cluster", logger.String("config", stmt.Value))
-	ok, err := deps.Repo.PutWithTX(ctx, constants.GetStorageClusterConfigPath(storage.Config.Namespace), data, func(oldVal []byte) error {
-		if bytes.Equal(data, oldVal) {
-			log.Info("storage cluster exist", logger.String("config", string(oldVal)))
-			return state.ErrNotExist
-		}
-		return nil
-	})
-	if errors.Is(state.ErrNotExist, err) {
-		rs := "Storage is exist"
-		return &rs, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	if !ok {
-		return nil, fmt.Errorf("create storage failure")
-	}
-	rs := "Create storage ok"
-	return &rs, nil
-}
-
 // recoverStorage recovers all database config/shard assignment by given storage.
 func recoverStorage(ctx context.Context, deps *depspkg.HTTPDeps, stmt *stmtpkg.Storage) (interface{}, error) {
-	storage, ok := deps.StateMgr.GetStorage(stmt.Value)
-	if !ok {
-		return nil, fmt.Errorf("storage not found")
-	}
+	storage := deps.StateMgr.GetStorage()
 	nodes := storage.LiveNodes
 	size := len(nodes)
 	result := make([]databaseConfig, size)
@@ -184,8 +91,6 @@ func recoverStorage(ctx context.Context, deps *depspkg.HTTPDeps, stmt *stmtpkg.S
 	}
 	wait.Wait()
 
-	storageName := storage.Name
-
 	databases := make(map[string]*models.ShardAssignment)
 	databaseSchema := make(map[string]*models.Database)
 	for _, cfg := range result {
@@ -195,9 +100,8 @@ func recoverStorage(ctx context.Context, deps *depspkg.HTTPDeps, stmt *stmtpkg.S
 				shardAssignment = models.NewShardAssignment(databaseName)
 				databases[databaseName] = shardAssignment
 				databaseSchema[databaseName] = &models.Database{
-					Name:    databaseName,
-					Storage: storageName,
-					Option:  databaseCfg.Option,
+					Name:   databaseName,
+					Option: databaseCfg.Option,
 				}
 			}
 			for _, shardID := range databaseCfg.ShardIDs {
@@ -211,7 +115,7 @@ func recoverStorage(ctx context.Context, deps *depspkg.HTTPDeps, stmt *stmtpkg.S
 		log.Info("recover shard assign",
 			logger.String("database", databaseName),
 			logger.Any("shardAssign", shardAssignment))
-		if err := deps.Repo.Put(ctx, constants.GetDatabaseAssignPath(databaseName), encoding.JSONMarshal(shardAssignment)); err != nil {
+		if err := deps.Repo.Put(ctx, constants.GetShardAssignPath(databaseName), encoding.JSONMarshal(shardAssignment)); err != nil {
 			return nil, err
 		}
 		log.Info("recover database schema", logger.String("config", stmt.Value))

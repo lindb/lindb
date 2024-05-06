@@ -15,51 +15,50 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package trie_test
+package trie
 
 import (
 	"bytes"
 	"testing"
-
-	"github.com/lindb/lindb/pkg/trie"
 )
+
+var ips, ranks = newTestIPs(1 << 8)
 
 // after:  2982368 size 42.2ms (650k ip)
 // before: 5488152 size 62.1ms (650k ip)
-func BenchmarkTrie_MarshalBinary(b *testing.B) {
+func BenchmarkTrie_Marshal(b *testing.B) {
 	b.StopTimer()
-	ips, ranks := newTestIPs(1 << 8)
-	builder := trie.NewBuilder()
-
+	builder := NewBuilder()
 	b.StartTimer()
 	var buf = &bytes.Buffer{}
 	for i := 0; i < b.N; i++ {
-		tree := builder.Build(ips, ranks, 3)
-		_ = tree.Write(buf)
+		builder.Build(ips, ranks)
+		_ = builder.Write(buf)
 		buf.Reset()
 		builder.Reset()
 	}
 }
 
-func BenchmarkTrie_UnMarshalBinary(b *testing.B) {
-	ips, ranks := newTestIPs(1 << 8)
-	builder := trie.NewBuilder()
+func BenchmarkTrie_Unmarshal(b *testing.B) {
+	builder := NewBuilder()
 
-	tree := builder.Build(ips, ranks, 3)
-	data, _ := tree.MarshalBinary()
+	var buf = &bytes.Buffer{}
+	builder.Build(ips, ranks)
+	_ = builder.Write(buf)
+	data := buf.Bytes()
 
+	tree2 := NewTrie()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		tree2 := trie.NewTrie()
 		_ = tree2.UnmarshalBinary(data)
 	}
 }
 
 // 13.5ms
 func BenchmarkTrie_Iterator_NoRead(b *testing.B) {
-	ips, ranks := newTestIPs(1 << 8)
-	builder := trie.NewBuilder()
-	tree := builder.Build(ips, ranks, 3)
+	builder := NewBuilder()
+	builder.Build(ips, ranks)
+	tree := builder.Trie()
 	itr := tree.NewIterator()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -72,9 +71,9 @@ func BenchmarkTrie_Iterator_NoRead(b *testing.B) {
 
 // 32.7ms
 func BenchmarkTrie_Iterator_Read(b *testing.B) {
-	ips, ranks := newTestIPs(1 << 8)
-	builder := trie.NewBuilder()
-	tree := builder.Build(ips, ranks, 3)
+	builder := NewBuilder()
+	builder.Build(ips, ranks)
+	tree := builder.Trie()
 	itr := tree.NewIterator()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -88,9 +87,9 @@ func BenchmarkTrie_Iterator_Read(b *testing.B) {
 
 // 320ns
 func BenchmarkTrie_Get(b *testing.B) {
-	ips, ranks := newTestIPs(1 << 8)
-	builder := trie.NewBuilder()
-	tree := builder.Build(ips, ranks, 3)
+	builder := NewBuilder()
+	builder.Build(ips, ranks)
+	tree := builder.Trie()
 	key := ips[len(ips)-1]
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

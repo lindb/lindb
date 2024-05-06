@@ -22,9 +22,10 @@ import (
 	"strings"
 	"sync"
 
-	antlr "github.com/antlr/antlr4/runtime/Go/antlr/v4"
+	"github.com/antlr4-go/antlr/v4"
 
-	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/sql/grammar"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )
@@ -64,10 +65,7 @@ func Parse(sql string) (stmt stmtpkg.Statement, err error) {
 	defer putSQLLexer(lexer)
 
 	tokens := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
-
 	parser := getSQLParserFunc(tokens)
-	defer putSQLParser(parser)
-
 	ctx := parser.Statement()
 
 	// create sql listener
@@ -76,6 +74,9 @@ func Parse(sql string) (stmt stmtpkg.Statement, err error) {
 	walker.Walk(&sqlListener, ctx)
 
 	stmt, err = sqlListener.statement()
+	if err == nil {
+		putSQLParser(parser)
+	}
 	return stmt, err
 }
 

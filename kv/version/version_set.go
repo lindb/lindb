@@ -23,12 +23,12 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/logger"
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/pkg/bufioutil"
-	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 //go:generate mockgen -source=./version_set.go -destination=./version_set_mock.go -package=version

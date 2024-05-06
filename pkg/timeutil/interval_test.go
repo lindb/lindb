@@ -18,11 +18,13 @@
 package timeutil
 
 import (
+	"fmt"
 	"testing"
 
+	jsoniter "github.com/json-iterator/go"
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/timeutil"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/lindb/lindb/pkg/encoding"
 )
 
 type retention struct {
@@ -123,7 +125,7 @@ func TestInterval_UnmarshalJSON(t *testing.T) {
 			retention{Retention: Interval(5 * 24 * 60 * 60 * 1000)},
 		},
 		{
-			"unmarshal_err",
+			"invalid interval",
 			[]byte(`{"retention":12}`),
 			true,
 			retention{Retention: Interval(0)},
@@ -139,6 +141,17 @@ func TestInterval_UnmarshalJSON(t *testing.T) {
 			assert.Equal(t, tt.assert, rs)
 		})
 	}
+
+	defer func() {
+		unmarshalFn = jsoniter.Unmarshal
+	}()
+
+	unmarshalFn = func(data []byte, v interface{}) error {
+		return fmt.Errorf("err")
+	}
+	interval := Interval(10)
+	err := (&interval).UnmarshalJSON([]byte("test"))
+	assert.Error(t, err)
 }
 
 func TestInterval_JSONMarshal(t *testing.T) {
@@ -264,34 +277,34 @@ func Test_Interval_ValueOf(t *testing.T) {
 	assert.NotNil(t, i.ValueOf("as"))
 
 	assert.Nil(t, i.ValueOf(" 10 s"))
-	assert.Equal(t, 10*OneSecond, i.Int64())
+	assert.Equal(t, 10*timeutil.OneSecond, i.Int64())
 
 	assert.Nil(t, i.ValueOf(" 10 S"))
-	assert.Equal(t, 10*OneSecond, i.Int64())
+	assert.Equal(t, 10*timeutil.OneSecond, i.Int64())
 
 	assert.Nil(t, i.ValueOf(" 10 m"))
-	assert.Equal(t, 10*OneMinute, i.Int64())
+	assert.Equal(t, 10*timeutil.OneMinute, i.Int64())
 
 	assert.Nil(t, i.ValueOf(" 10 h"))
-	assert.Equal(t, 10*OneHour, i.Int64())
+	assert.Equal(t, 10*timeutil.OneHour, i.Int64())
 
 	assert.Nil(t, i.ValueOf(" 10 H"))
-	assert.Equal(t, 10*OneHour, i.Int64())
+	assert.Equal(t, 10*timeutil.OneHour, i.Int64())
 
 	assert.Nil(t, i.ValueOf(" 10d"))
-	assert.Equal(t, 10*OneDay, i.Int64())
+	assert.Equal(t, 10*timeutil.OneDay, i.Int64())
 
 	assert.Nil(t, i.ValueOf(" 10D"))
-	assert.Equal(t, 10*OneDay, i.Int64())
+	assert.Equal(t, 10*timeutil.OneDay, i.Int64())
 
 	assert.Nil(t, i.ValueOf(" 10M"))
-	assert.Equal(t, 10*OneMonth, i.Int64())
+	assert.Equal(t, 10*timeutil.OneMonth, i.Int64())
 
 	assert.Nil(t, i.ValueOf(" 10y"))
-	assert.Equal(t, 10*OneYear, i.Int64())
+	assert.Equal(t, 10*timeutil.OneYear, i.Int64())
 
 	assert.Nil(t, i.ValueOf(" 10Y"))
-	assert.Equal(t, 10*OneYear, i.Int64())
+	assert.Equal(t, 10*timeutil.OneYear, i.Int64())
 }
 
 func Test_IntervalCalculator(t *testing.T) {
@@ -308,7 +321,7 @@ func Test_IntervalCalculator(t *testing.T) {
 }
 
 func Test_CalcQueryInterval(t *testing.T) {
-	now := Now()
+	now := timeutil.Now()
 	cases := []struct {
 		name           string
 		timeRange      TimeRange
@@ -318,68 +331,68 @@ func Test_CalcQueryInterval(t *testing.T) {
 		{
 			name:           "use input interval",
 			timeRange:      TimeRange{},
-			queryInterval:  Interval(OneSecond),
-			targetInterval: Interval(OneSecond),
+			queryInterval:  Interval(timeutil.OneSecond),
+			targetInterval: Interval(timeutil.OneSecond),
 		},
 		{
 			name:           "<3hour",
-			timeRange:      TimeRange{Start: Now(), End: now + 2*OneHour},
-			queryInterval:  Interval(OneSecond),
-			targetInterval: Interval(10 * OneSecond),
+			timeRange:      TimeRange{Start: timeutil.Now(), End: now + 2*timeutil.OneHour},
+			queryInterval:  Interval(timeutil.OneSecond),
+			targetInterval: Interval(10 * timeutil.OneSecond),
 		},
 		{
 			name:           "<6hour",
-			timeRange:      TimeRange{Start: Now(), End: now + 4*OneHour},
-			queryInterval:  Interval(OneSecond),
-			targetInterval: Interval(30 * OneSecond),
+			timeRange:      TimeRange{Start: timeutil.Now(), End: now + 4*timeutil.OneHour},
+			queryInterval:  Interval(timeutil.OneSecond),
+			targetInterval: Interval(30 * timeutil.OneSecond),
 		},
 		{
 			name:           "<12hour",
-			timeRange:      TimeRange{Start: Now(), End: now + 11*OneHour},
-			queryInterval:  Interval(OneSecond),
-			targetInterval: Interval(OneMinute),
+			timeRange:      TimeRange{Start: timeutil.Now(), End: now + 11*timeutil.OneHour},
+			queryInterval:  Interval(timeutil.OneSecond),
+			targetInterval: Interval(timeutil.OneMinute),
 		},
 		{
 			name:           "<1day",
-			timeRange:      TimeRange{Start: Now(), End: now + 23*OneHour},
-			queryInterval:  Interval(OneSecond),
-			targetInterval: Interval(2 * OneMinute),
+			timeRange:      TimeRange{Start: timeutil.Now(), End: now + 23*timeutil.OneHour},
+			queryInterval:  Interval(timeutil.OneSecond),
+			targetInterval: Interval(2 * timeutil.OneMinute),
 		},
 		{
 			name:           "<2day",
-			timeRange:      TimeRange{Start: Now(), End: now + 47*OneHour},
-			queryInterval:  Interval(OneSecond),
-			targetInterval: Interval(5 * OneMinute),
+			timeRange:      TimeRange{Start: timeutil.Now(), End: now + 47*timeutil.OneHour},
+			queryInterval:  Interval(timeutil.OneSecond),
+			targetInterval: Interval(5 * timeutil.OneMinute),
 		},
 		{
 			name:           "<7day",
-			timeRange:      TimeRange{Start: Now(), End: now + 7*OneDay - 1},
-			queryInterval:  Interval(OneSecond),
-			targetInterval: Interval(10 * OneMinute),
+			timeRange:      TimeRange{Start: timeutil.Now(), End: now + 7*timeutil.OneDay - 1},
+			queryInterval:  Interval(timeutil.OneSecond),
+			targetInterval: Interval(10 * timeutil.OneMinute),
 		},
 		{
 			name:           "<1month",
-			timeRange:      TimeRange{Start: Now(), End: now + OneMonth - 1},
-			queryInterval:  Interval(OneSecond),
-			targetInterval: Interval(OneHour),
+			timeRange:      TimeRange{Start: timeutil.Now(), End: now + timeutil.OneMonth - 1},
+			queryInterval:  Interval(timeutil.OneSecond),
+			targetInterval: Interval(timeutil.OneHour),
 		},
 		{
 			name:           "<2month",
-			timeRange:      TimeRange{Start: Now(), End: now + 2*OneMonth - 1},
-			queryInterval:  Interval(OneSecond),
-			targetInterval: Interval(4 * OneHour),
+			timeRange:      TimeRange{Start: timeutil.Now(), End: now + 2*timeutil.OneMonth - 1},
+			queryInterval:  Interval(timeutil.OneSecond),
+			targetInterval: Interval(4 * timeutil.OneHour),
 		},
 		{
 			name:           "<3month",
-			timeRange:      TimeRange{Start: Now(), End: now + 3*OneMonth - 1},
-			queryInterval:  Interval(OneSecond),
-			targetInterval: Interval(12 * OneHour),
+			timeRange:      TimeRange{Start: timeutil.Now(), End: now + 3*timeutil.OneMonth - 1},
+			queryInterval:  Interval(timeutil.OneSecond),
+			targetInterval: Interval(12 * timeutil.OneHour),
 		},
 		{
 			name:           ">3month",
-			timeRange:      TimeRange{Start: Now(), End: now + OneYear},
-			queryInterval:  Interval(OneSecond),
-			targetInterval: Interval(OneDay),
+			timeRange:      TimeRange{Start: timeutil.Now(), End: now + timeutil.OneYear},
+			queryInterval:  Interval(timeutil.OneSecond),
+			targetInterval: Interval(timeutil.OneDay),
 		},
 	}
 
@@ -393,9 +406,9 @@ func Test_CalcQueryInterval(t *testing.T) {
 }
 
 func TestInterval_CalcQuerySlotRange(t *testing.T) {
-	t1, _ := ParseTimestamp("20190101 00:00:00", "20060102 15:04:05")
-	t2, _ := ParseTimestamp("20190101 03:10:00", "20060102 15:04:05")
-	slotRange := Interval(OneMinute).CalcSlotRange(t1, TimeRange{
+	t1, _ := timeutil.ParseTimestamp("20190101 00:00:00", "20060102 15:04:05")
+	t2, _ := timeutil.ParseTimestamp("20190101 03:10:00", "20060102 15:04:05")
+	slotRange := Interval(timeutil.OneMinute).CalcSlotRange(t1, TimeRange{
 		Start: t1,
 		End:   t2,
 	})

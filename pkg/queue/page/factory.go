@@ -28,17 +28,17 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/logger"
+	commonfileutil "github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/logger"
 )
 
 //go:generate mockgen -source ./factory.go -destination ./factory_mock.go -package page
 
 // for testing
 var (
-	mkDirFunc      = fileutil.MkDirIfNotExist
-	removeFileFunc = fileutil.RemoveFile
-	listDirFunc    = fileutil.ListDir
+	mkDirFunc      = commonfileutil.MkDirIfNotExist
+	removeFileFunc = commonfileutil.RemoveFile
+	listDirFunc    = commonfileutil.ListDir
 )
 
 var pageLogger = logger.GetLogger("Queue", "PageFactory")
@@ -71,7 +71,7 @@ type factory struct {
 	size   atomic.Int64 // current total queue data size
 
 	mutex  sync.RWMutex
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewFactory creates page factory based on page size
@@ -168,7 +168,7 @@ func (f *factory) Size() int64 {
 
 // Close closes all acquire mapped pages
 func (f *factory) Close() error {
-	if f.closed.CAS(false, true) {
+	if f.closed.CompareAndSwap(false, true) {
 		f.mutex.Lock()
 		defer f.mutex.Unlock()
 

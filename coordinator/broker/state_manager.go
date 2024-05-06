@@ -25,6 +25,8 @@ import (
 	"sync"
 
 	"github.com/BurntSushi/toml"
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
@@ -32,8 +34,6 @@ import (
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/rpc"
 )
 
@@ -58,10 +58,8 @@ type StateManager interface {
 	// and chooses the leader replica if the shard has multi-replica.
 	// returns storage node => shard id list
 	GetQueryableReplicas(databaseName string) (map[string][]models.ShardID, error)
-	// GetStorage returns storage state by name.
-	GetStorage(name string) (*models.StorageState, bool)
-	// GetStorageList returns all storage state list.
-	GetStorageList() (rs []*models.StorageState)
+	// GetStorage returns storage state.
+	GetStorage() *models.StorageState
 	// GetDatabaseLimits returns the database's limits.
 	GetDatabaseLimits(name string) *models.Limits
 
@@ -77,10 +75,10 @@ type stateManager struct {
 	cancel context.CancelFunc
 
 	// state cache
-	currentNode models.StatelessNode
-	storages    map[string]*models.StorageState // storage state
-	databases   map[string]models.Database      // database config
-	nodes       map[string]models.StatelessNode // live nodes of broker cluster
+	currentNode  models.StatelessNode
+	storageState *models.StorageState            // storage state
+	databases    map[string]models.Database      // database config
+	nodes        map[string]models.StatelessNode // live nodes of broker cluster
 
 	callbacks []func(databaseCfg models.Database,
 		shards map[models.ShardID]models.ShardState,
@@ -96,7 +94,7 @@ type stateManager struct {
 	mutex  sync.RWMutex
 
 	statistics *metrics.StateManagerStatistics
-	logger     *logger.Logger
+	logger     logger.Logger
 }
 
 // NewStateManager creates a broker state manager instance.
@@ -113,7 +111,7 @@ func NewStateManager(
 		currentNode:       currentNode,
 		connectionManager: connectionManager,
 		taskClientFactory: taskClientFactory,
-		storages:          make(map[string]*models.StorageState),
+		storageState:      models.NewStorageState(),
 		databases:         make(map[string]models.Database),
 		nodes:             make(map[string]models.StatelessNode),
 		events:            make(chan *discovery.Event, 10),
@@ -217,8 +215,6 @@ func (m *stateManager) processEvent(event *discovery.Event) {
 		m.onNodeFailure(event.Key)
 	case discovery.StorageStateChanged:
 		err = m.onStorageStateChange(event.Key, event.Value)
-	case discovery.StorageStateDeletion:
-		m.onStorageDelete(event.Key)
 	case discovery.DatabaseLimitsChanged:
 		err = m.onDatabaseLimitsChange(event.Key, event.Value)
 	}
@@ -328,60 +324,30 @@ func (m *stateManager) onStorageStateChange(key string, data []byte) error {
 		m.logger.Error("storage state is changed but unmarshal error", logger.Error(err))
 		return err
 	}
-	if newState.Name == "" {
-		m.logger.Error("storage name is empty")
-		return constants.ErrNameEmpty
+	oldState := m.storageState
+	liveNodesSet := make(map[string]struct{})
+	for idx := range newState.LiveNodes {
+		node := newState.LiveNodes[idx]
+		liveNodesSet[node.Indicator()] = struct{}{}
+		// try to create connection for live node
+		m.connectionManager.CreateConnection(&node)
 	}
 
-	if oldState, ok := m.storages[newState.Name]; ok {
-		liveNodesSet := make(map[string]struct{})
-		for idx := range newState.LiveNodes {
-			node := newState.LiveNodes[idx]
-			liveNodesSet[node.Indicator()] = struct{}{}
-			// try to create connection for live node
-			m.connectionManager.CreateConnection(&node)
-		}
-
-		// close old deal node connection
-		for _, node := range oldState.LiveNodes {
-			target := node.Indicator()
-			if _, exist := liveNodesSet[target]; !exist {
-				m.connectionManager.CloseConnection(&node)
-			}
-		}
-	} else {
-		// create connection current broker node connect to storage live node
-		for idx := range newState.LiveNodes {
-			node := newState.LiveNodes[idx]
-			m.connectionManager.CreateConnection(&node)
+	// close old deal node connection
+	for _, node := range oldState.LiveNodes {
+		target := node.Indicator()
+		if _, exist := liveNodesSet[target]; !exist {
+			m.connectionManager.CloseConnection(&node)
 		}
 	}
+
 	// set state into cache
-	m.storages[newState.Name] = newState
+	m.storageState = newState
 
-	m.logger.Info("storage state is changed successful, start notify shard state change",
-		logger.String("storage", newState.Name))
+	m.logger.Info("storage state is changed successful, start notify shard state change")
 
 	m.notifyShardStateChange(newState)
 	return nil
-}
-
-// onStorageDelete triggers when storage cluster is deletion.
-func (m *stateManager) onStorageDelete(key string) {
-	_, name := filepath.Split(key)
-
-	m.logger.Info("storage is deleted",
-		logger.String("storage", name),
-		logger.String("key", key))
-
-	if state, ok := m.storages[name]; ok {
-		// close all connection [current broker node=>storage live nodes]
-		for _, node := range state.LiveNodes {
-			m.connectionManager.CloseConnection(&node)
-		}
-
-		delete(m.storages, name)
-	}
 }
 
 // GetCurrentNode returns the current broker node.
@@ -425,28 +391,12 @@ func (m *stateManager) GetDatabases() (rs []models.Database) {
 	return
 }
 
-// GetStorage returns storage state by name.
-func (m *stateManager) GetStorage(name string) (*models.StorageState, bool) {
+// GetStorage returns storage state.
+func (m *stateManager) GetStorage() *models.StorageState {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
-	storage, ok := m.storages[name]
-	return storage, ok
-}
-
-// GetStorageList returns all storage state list.
-func (m *stateManager) GetStorageList() (rs []*models.StorageState) {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-
-	for _, s := range m.storages {
-		rs = append(rs, s)
-	}
-	// return storage in order(by node)
-	sort.Slice(rs, func(i, j int) bool {
-		return rs[i].Name < rs[j].Name
-	})
-	return
+	return m.storageState
 }
 
 // GetDatabaseLimits returns the database's limits.
@@ -465,31 +415,21 @@ func (m *stateManager) GetQueryableReplicas(databaseName string) (map[string][]m
 	defer m.mutex.RUnlock()
 
 	// 1. check database if exist
-	database, ok := m.databases[databaseName]
+	_, ok := m.databases[databaseName]
 	if !ok {
 		return nil, constants.ErrDatabaseNotFound
 	}
 
-	// 2. check shards if exist
-	storageState, ok := m.storages[database.Storage]
-	if !ok {
-		m.logger.Warn("database not run on any storage",
-			logger.String("storage", database.Storage),
-			logger.String("database", databaseName))
-		return nil, constants.ErrNoStorageCluster
-	}
 	// check if it has live nodes
-	liveNodes := storageState.LiveNodes
+	liveNodes := m.storageState.LiveNodes
 	if len(liveNodes) == 0 {
 		m.logger.Warn("there is no live node for this storage",
-			logger.String("storage", database.Storage),
 			logger.String("database", databaseName))
 		return nil, constants.ErrNoLiveNode
 	}
-	shards := storageState.ShardStates[databaseName]
+	shards := m.storageState.ShardStates[databaseName]
 	if len(shards) == 0 {
 		m.logger.Warn("there is no shard for this database",
-			logger.String("storage", database.Storage),
 			logger.String("database", databaseName))
 		return nil, constants.ErrShardNotFound
 	}
@@ -502,7 +442,6 @@ func (m *stateManager) GetQueryableReplicas(databaseName string) (map[string][]m
 			result[nodeID] = append(result[nodeID], shardID)
 		} else {
 			m.logger.Warn("shard is not online ignore it, maybe query data will be lost",
-				logger.String("storage", database.Storage),
 				logger.String("database", databaseName),
 				logger.Any("shard", shardState.ID))
 		}

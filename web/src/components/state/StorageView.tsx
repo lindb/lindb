@@ -16,51 +16,25 @@ specific language governing permissions and limitations
 under the License.
 */
 import { Card, Descriptions, Table, Typography } from "@douyinfe/semi-ui";
-import { DiskUsageView } from "@src/components";
-import { Route, StateMetricName } from "@src/constants";
+import { DatabaseView, DiskUsageView, NodeView } from "@src/components";
+import { StateMetricName } from "@src/constants";
 import { StorageState } from "@src/models";
-import * as _ from "lodash-es";
+import { get, keys, orderBy, values } from "lodash-es";
 import React, { useContext } from "react";
-import { URLStore } from "@src/stores";
 import { UIContext } from "@src/context/UIContextProvider";
 
 const { Text } = Typography;
 
 const StorageView: React.FC<{
-  name?: string;
-  storages: StorageState[];
+  storage: StorageState;
   loading?: boolean;
   statusTip?: React.ReactNode;
 }> = (props) => {
-  const { name, loading, storages, statusTip } = props;
+  const { loading, storage, statusTip } = props;
   const { locale } = useContext(UIContext);
   const { StorageView } = locale;
 
   const columns = [
-    {
-      title: StorageView.name,
-      dataIndex: "name",
-      key: "name",
-      render: (text: any) => {
-        return (
-          <Text
-            link
-            className="lin-link"
-            onClick={() => {
-              if (!name) {
-                // only in storage list can click
-                URLStore.changeURLParams({
-                  path: Route.StorageOverview,
-                  params: { name: text },
-                });
-              }
-            }}
-          >
-            {text}
-          </Text>
-        );
-      },
-    },
     {
       title: StorageView.nodeStatus,
       render: (_text: any, record: StorageState, _index: any) => {
@@ -74,7 +48,7 @@ const StorageView: React.FC<{
                 key: StorageView.aliveNodes,
                 value: (
                   <Text type="success">
-                    {_.get(record, "stats.liveNodes", 0)}
+                    {get(record, "stats.liveNodes", 0)}
                   </Text>
                 ),
               },
@@ -82,7 +56,7 @@ const StorageView: React.FC<{
                 key: StorageView.deadNodes,
                 value: (
                   <Text type="danger">
-                    {_.get(record, "stats.deadNodes.length", 0)}
+                    {get(record, "stats.deadNodes.length", 0)}
                   </Text>
                 ),
               },
@@ -95,7 +69,7 @@ const StorageView: React.FC<{
       title: StorageView.numOfDatabase,
       key: "num_db",
       render: (_text: any, record: StorageState, _index: any) => {
-        return _.keys(_.get(record, "shardStates", {})).length;
+        return keys(get(record, "shardStates", {})).length;
       },
     },
     {
@@ -110,15 +84,13 @@ const StorageView: React.FC<{
             data={[
               {
                 key: StorageView.totalOfReplication,
-                value: (
-                  <Text link>{_.get(record, "stats.totalReplica", 0)}</Text>
-                ),
+                value: <Text link>{get(record, "stats.totalReplica", 0)}</Text>,
               },
               {
                 key: StorageView.underReplicated,
                 value: (
                   <Text type="success">
-                    {_.get(record, "stats.availableReplica", 0)}
+                    {get(record, "stats.availableReplica", 0)}
                   </Text>
                 ),
               },
@@ -126,7 +98,7 @@ const StorageView: React.FC<{
                 key: StorageView.unavailableReplica,
                 value: (
                   <Text type="danger">
-                    {_.get(record, "stats.unavailableReplica", 0)}
+                    {get(record, "stats.unavailableReplica", 0)}
                   </Text>
                 ),
               },
@@ -137,10 +109,10 @@ const StorageView: React.FC<{
     },
     {
       title: StorageView.diskCapacityUsage,
-      render: (_text: any, record: any) => {
+      render: (_text: any, _: any) => {
         return (
           <DiskUsageView
-            sql={`show storage metric where storage='${record.name}' and metric in ('${StateMetricName.Disk}')`}
+            sql={`show storage metric where metric in ('${StateMetricName.Disk}')`}
           />
         );
       },
@@ -149,18 +121,34 @@ const StorageView: React.FC<{
 
   return (
     <Card
-      title={name ? "" : StorageView.storageClusterList}
+      title={StorageView.storageCluster}
       headerStyle={{ padding: 12 }}
-      bodyStyle={{ padding: 12 }}
+      bodyStyle={{
+        padding: 12,
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+      }}
     >
       <Table
         size="small"
-        bordered={false}
+        bordered
         columns={columns}
-        dataSource={storages}
+        dataSource={[storage]}
         loading={loading}
         pagination={false}
         empty={statusTip}
+      />
+      <NodeView
+        showNodeId
+        nodes={orderBy(values(get(storage, "liveNodes", {})), ["id"], ["asc"])}
+        sql={`show storage metric where metric in ('${StateMetricName.CPU}','${StateMetricName.Memory}')`}
+        style={{ marginTop: 12, marginBottom: 12 }}
+      />
+      <DatabaseView
+        title={StorageView.databaseList}
+        liveNodes={get(storage, "liveNodes", {})}
+        storage={storage}
       />
     </Card>
   );

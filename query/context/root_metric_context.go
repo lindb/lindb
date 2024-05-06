@@ -20,10 +20,15 @@ package context
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
+
+	commonmodels "github.com/lindb/common/models"
+	"github.com/lindb/common/pkg/encoding"
 
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/aggregation/function"
@@ -31,13 +36,13 @@ import (
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/query/tracker"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/tag"
+	"github.com/lindb/lindb/sql"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
@@ -127,7 +132,7 @@ func (ctx *RootMetricContext) WaitResponse() (any, error) {
 
 // makeResultSet makes final result set from time series event(GroupedIterators).
 // TODO: can opt use stream, leaf node need return grouping if completed.
-func (ctx *RootMetricContext) makeResultSet() (resultSet *models.ResultSet, err error) {
+func (ctx *RootMetricContext) makeResultSet() (resultSet *commonmodels.ResultSet, err error) {
 	makeResultStartTime := time.Now()
 	orderBy, err := ctx.buildOrderBy()
 	if err != nil {
@@ -135,7 +140,7 @@ func (ctx *RootMetricContext) makeResultSet() (resultSet *models.ResultSet, err 
 	}
 
 	statement := ctx.Deps.Statement
-	resultSet = new(models.ResultSet)
+	resultSet = new(commonmodels.ResultSet)
 	// TODO: merge stats for cross idc query?
 	groupByKeys := statement.GroupBy
 	groupByKeysLength := len(groupByKeys)
@@ -175,19 +180,62 @@ func (ctx *RootMetricContext) makeResultSet() (resultSet *models.ResultSet, err 
 					tags[tagKey] = tagValues[idx]
 				}
 			}
-			timeSeries := models.NewSeries(tags, tagValues)
+			timeSeries := commonmodels.NewSeries(tags, tagValues)
 			resultSet.AddSeries(timeSeries)
+
+			having := ctx.Deps.Statement.Having
+			notHavingSlots := make(map[int]struct{})
+			slotValues := make(map[int]map[string]float64)
+
+			if having != nil {
+				for fieldName, values := range fields {
+					if values == nil {
+						continue
+					}
+					it := values.NewIterator()
+					for it.HasNext() {
+						slot, val := it.Next()
+						if math.IsNaN(val) {
+							continue
+						}
+						if v, ok := slotValues[slot]; ok {
+							v[fieldName] = val
+						} else {
+							slotValues[slot] = map[string]float64{fieldName: val}
+						}
+					}
+				}
+				// calc and fill
+				if len(slotValues) > 0 {
+					calc := sql.NewCalc(having)
+					for slot, fieldValue := range slotValues {
+						result, err := calc.CalcExpr(fieldValue)
+						if err != nil {
+							return resultSet, err
+						}
+						if r, ok := result.(bool); !ok {
+							return resultSet, fmt.Errorf("expected CalcExpr bool result got %v", reflect.TypeOf(result))
+						} else if !r {
+							notHavingSlots[slot] = struct{}{}
+						}
+					}
+				}
+			}
+
 			for fieldName, values := range fields {
 				if values == nil {
 					continue
 				}
 
-				points := models.NewPoints()
+				points := commonmodels.NewPoints()
 				it := values.NewIterator()
 				for it.HasNext() {
 					slot, val := it.Next()
 					if math.IsNaN(val) {
 						// TODO: need check
+						continue
+					}
+					if _, ok := notHavingSlots[slot]; ok {
 						continue
 					}
 					points.AddPoint(timeutil.CalcTimestamp(timeRange.Start, slot, timeutil.Interval(interval)), val)
@@ -217,7 +265,7 @@ func (ctx *RootMetricContext) makeResultSet() (resultSet *models.ResultSet, err 
 		ctx.stats.End = now.UnixNano()
 		ctx.stats.TotalCost = now.Sub(ctx.startTime).Nanoseconds()
 
-		ctx.stats.Stages = append(ctx.stats.Stages, &models.StageStats{
+		ctx.stats.Stages = append(ctx.stats.Stages, &commonmodels.StageStats{
 			Identifier: "Expression",
 			Start:      makeResultStartTime.UnixNano(),
 			End:        now.UnixNano(),

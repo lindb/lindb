@@ -24,9 +24,10 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/metric"
@@ -70,7 +71,7 @@ type (
 		interval      timeutil.Interval
 
 		statistics *metrics.BrokerDatabaseWriteStatistics
-		logger     *logger.Logger
+		logger     logger.Logger
 	}
 )
 

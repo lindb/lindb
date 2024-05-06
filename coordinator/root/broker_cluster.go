@@ -18,10 +18,11 @@
 package root
 
 import (
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 	statepkg "github.com/lindb/lindb/pkg/state"
 )
 
@@ -47,7 +48,7 @@ type brokerCluster struct {
 
 	sm discovery.StateMachine
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // newBrokerCluster creates broker cluster controller, init active node list if exist node, must return a broker cluster instance.
@@ -57,7 +58,7 @@ func newBrokerCluster(
 	repoFactory statepkg.RepositoryFactory,
 ) (BrokerCluster, error) {
 	var brokerRepo statepkg.Repository
-	brokerRepo, err := repoFactory.CreateBrokerRepo(cfg.Config)
+	brokerRepo, err := repoFactory.CreateNormalRepo(cfg.Config)
 	if err != nil {
 		return nil, err
 	}

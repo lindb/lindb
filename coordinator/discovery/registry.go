@@ -24,13 +24,13 @@ import (
 	"runtime/pprof"
 	"time"
 
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/timeutil"
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 //go:generate mockgen -source=./registry.go -destination=./registry_mock.go -package=discovery
@@ -56,7 +56,7 @@ type registry struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	log *logger.Logger
+	log logger.Logger
 }
 
 // NewRegistry returns a new registry with prefix and ttl.

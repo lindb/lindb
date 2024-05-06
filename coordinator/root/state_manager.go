@@ -24,6 +24,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/config"
@@ -33,8 +35,6 @@ import (
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
 	statepkg "github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/rpc"
 )
@@ -81,7 +81,7 @@ type stateManager struct {
 	mutex sync.RWMutex
 
 	statistics *metrics.StateManagerStatistics
-	logger     *logger.Logger
+	logger     logger.Logger
 }
 
 // NewStateManager creates a StateManager instance.
@@ -467,7 +467,7 @@ func (s *stateManager) Close() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if s.running.CAS(true, false) {
+	if s.running.CompareAndSwap(true, false) {
 		s.logger.Info("starting close state manager")
 		for name := range s.brokers {
 			s.unRegister(name)

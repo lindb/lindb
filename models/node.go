@@ -25,7 +25,8 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 
-	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/common/models"
+	"github.com/lindb/common/pkg/timeutil"
 )
 
 // NodeID represents node identifier.
@@ -66,7 +67,7 @@ func (n StatelessNodes) ToTable() (rows int, tableStr string) {
 	if len(n) == 0 {
 		return 0, ""
 	}
-	writer := NewTableFormatter()
+	writer := models.NewTableFormatter()
 	writer.AppendHeader(table.Row{"Online time", "Host IP", "Host Name", "Port(HTTP/GRPC)", "Version"})
 	for i := range n {
 		r := n[i]
@@ -133,7 +134,7 @@ type Master struct {
 
 // ToTable returns master info as table.
 func (m *Master) ToTable() (rows int, tableStr string) {
-	writer := NewTableFormatter()
+	writer := models.NewTableFormatter()
 	writer.AppendHeader(table.Row{"Desc", "Value"})
 	writer.AppendRow(table.Row{"Elect Time", timeutil.FormatTimestamp(m.ElectTime, timeutil.DataTimeFormat2)})
 	writer.AppendRow(table.Row{"Online Time", timeutil.FormatTimestamp(m.Node.OnlineTime, timeutil.DataTimeFormat2)})

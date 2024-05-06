@@ -21,37 +21,14 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	gomock "go.uber.org/mock/gomock"
 
+	"github.com/lindb/lindb/pkg/imap"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
-
-func TestMetricStore_GetOrCreateTStore(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mStoreInterface := newMetricStore()
-	mStore := mStoreInterface.(*metricStore)
-	tStore, created := mStore.GetOrCreateTStore(uint32(10))
-	assert.NotNil(t, tStore)
-	assert.True(t, created)
-	tStore2, size := mStore.GetOrCreateTStore(uint32(10))
-	assert.Zero(t, size)
-	assert.Equal(t, tStore, tStore2)
-}
-
-func TestMetricStore_AddField(t *testing.T) {
-	mStoreInterface := newMetricStore()
-	mStore := mStoreInterface.(*metricStore)
-	mStoreInterface.AddField(1, field.SumField)
-	mStoreInterface.AddField(1, field.SumField)
-	mStoreInterface.AddField(2, field.MinField)
-	assert.Len(t, mStore.fields, 2)
-	assert.Equal(t, field.Meta{ID: 1, Type: field.SumField}, mStore.fields[0])
-	assert.Equal(t, field.Meta{ID: 2, Type: field.MinField}, mStore.fields[1])
-}
 
 func TestMetricStore_SetTimestamp(t *testing.T) {
 	mStoreInterface := newMetricStore()
@@ -69,99 +46,49 @@ func TestMetricStore_SetTimestamp(t *testing.T) {
 	assert.Equal(t, uint16(50), slotRange.End)
 }
 
-func TestMetricStore_FlushMetricsDataTo(t *testing.T) {
+func TestMetricStore_Flush_Error(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer func() {
-		ctrl.Finish()
-		flushFunc = flush
-	}()
-
+	defer ctrl.Finish()
 	flusher := metricsdata.NewMockFlusher(ctrl)
-
-	mStoreInterface := newMetricStore()
-	mStore := mStoreInterface.(*metricStore)
-	tStore := NewMocktStoreINTF(ctrl)
-	mStore.Put(10, tStore)
-
-	// case 1: family time not exist
-	err := mStoreInterface.FlushMetricsDataTo(flusher, &flushContext{})
-	assert.NoError(t, err)
-	// case 2: field not exist
-	mStoreInterface.SetSlot(10)
-	err = mStoreInterface.FlushMetricsDataTo(flusher, &flushContext{})
-	assert.NoError(t, err)
-	// case 3: flush success
-	mStoreInterface.AddField(1, field.SumField)
-	mStoreInterface.AddField(2, field.MinField)
-	gomock.InOrder(
-		flusher.EXPECT().PrepareMetric(gomock.Any(), gomock.Any()),
-		tStore.EXPECT().FlushFieldsTo(gomock.Any(), gomock.Any()).Return(nil),
-		flusher.EXPECT().FlushSeries(uint32(10)).Return(nil),
-		flusher.EXPECT().CommitMetric(gomock.Any()).Return(nil),
-	)
-	err = mStoreInterface.FlushMetricsDataTo(flusher, &flushContext{})
-	assert.NoError(t, err)
-	// case 4: flush field err
-	flusher.EXPECT().PrepareMetric(gomock.Any(), gomock.Any())
-	tStore.EXPECT().FlushFieldsTo(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-	err = mStoreInterface.FlushMetricsDataTo(flusher, &flushContext{})
-	assert.Error(t, err)
-	// case 5: flush err
-	flushFunc = func(flusher metricsdata.Flusher, flushCtx *flushContext, key uint32, value tStoreINTF) error {
-		return fmt.Errorf("err")
+	flusher.EXPECT().PrepareMetric(gomock.Any(), gomock.Any()).AnyTimes()
+	ids := imap.NewIntMap[uint32]()
+	ids.Put(1, 1)
+	ms := &metricStore{
+		slotRange: &timeutil.SlotRange{Start: 0},
+		ids:       ids,
 	}
-	gomock.InOrder(
-		flusher.EXPECT().PrepareMetric(gomock.Any(), gomock.Any()),
-	)
-	err = mStoreInterface.FlushMetricsDataTo(flusher, &flushContext{})
-	assert.Error(t, err)
-}
-
-func Benchmark_MetricBucketStore_get(b *testing.B) {
-	noOptimization := func(count int) func(b *testing.B) {
-		m := NewMetricBucketStore()
-		for i := 0; i < count; i += 2 {
-			m.Put(uint32(i), nil)
-		}
-
-		return func(b *testing.B) {
-			b.StartTimer()
-			for i := 0; i < b.N; i++ {
-				m.Get(uint32(b.N % count))
+	cases := []struct {
+		name    string
+		prepare func()
+		wantErr bool
+	}{
+		{
+			name: "no field",
+			prepare: func() {
+				ms.fields = nil
+			},
+		},
+		{
+			name: "flush field error",
+			prepare: func() {
+				ms.fields = append(ms.fields, field.Meta{ID: 1, Persisted: true})
+			},
+			wantErr: true,
+		},
+	}
+	for i := range cases {
+		tt := cases[i]
+		t.Run(tt.name, func(t *testing.T) {
+			tt.prepare()
+			err := ms.FlushMetricsDataTo(flusher,
+				&flushContext{},
+				func(memSeriesID uint32, fields field.Metas) error {
+					return fmt.Errorf("err")
+				},
+			)
+			if (err != nil) != tt.wantErr {
+				t.Fatal(tt.name)
 			}
-			b.StopTimer()
-		}
+		})
 	}
-
-	withOptimization := func(count int) func(b *testing.B) {
-		m := NewMetricBucketStore()
-		for i := 0; i < count; i++ {
-			m.Put(uint32(i), nil)
-		}
-		m.keys.RunOptimize()
-
-		return func(b *testing.B) {
-			b.StartTimer()
-			for i := 0; i < b.N; i++ {
-				m.Get(uint32(b.N % count))
-			}
-			b.StopTimer()
-		}
-	}
-
-	b.Run("10_without_optimize", noOptimization(10))
-	b.Run("100_without_optimize", noOptimization(100))
-	b.Run("500_without_optimize", noOptimization(500))
-	b.Run("1000_without_optimize", noOptimization(1000))
-	b.Run("5000_without_optimize", noOptimization(5000))
-	b.Run("10000_without_optimize", noOptimization(10000))
-	b.Run("50000_without_optimize", noOptimization(50000))
-	b.Run("100000_without_optimize", noOptimization(100000))
-
-	b.Run("100_with_optimize", withOptimization(100))
-	b.Run("1000_with_optimize", withOptimization(1000))
-	b.Run("5000_with_optimize", withOptimization(5000))
-	b.Run("10000_with_optimize", withOptimization(10000))
-	b.Run("50000_with_optimize", withOptimization(50000))
-	b.Run("100000_with_optimize", withOptimization(100000))
 }

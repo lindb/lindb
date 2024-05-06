@@ -22,11 +22,13 @@ import (
 
 	"go.uber.org/atomic"
 
+	commonmodels "github.com/lindb/common/models"
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	trackerpkg "github.com/lindb/lindb/query/tracker"
 	"github.com/lindb/lindb/rpc"
@@ -90,7 +92,7 @@ func NewLeafExecuteContext(taskCtx *flow.TaskContext,
 func (ctx *LeafExecuteContext) waitCollectGroupingTagsCompleted() (err error) {
 	if ctx.StorageExecuteCtx.Query.HasGroupBy() {
 		defer func() {
-			ctx.Tracker.SetGroupingCollectStageValues(func(stageStats *models.StageStats) {
+			ctx.Tracker.SetGroupingCollectStageValues(func(stageStats *commonmodels.StageStats) {
 				stageStats.End = time.Now().UnixNano()
 				stageStats.Cost = stageStats.End - stageStats.Start
 				if err != nil {
@@ -117,7 +119,7 @@ func (ctx *LeafExecuteContext) waitCollectGroupingTagsCompleted() (err error) {
 
 // SendResponse sends lead node execute response, if with err sends error msg, else sends result set.
 func (ctx *LeafExecuteContext) SendResponse(err error) {
-	if ctx.completed.CAS(false, true) {
+	if ctx.completed.CompareAndSwap(false, true) {
 		defer ctx.StorageExecuteCtx.Release()
 
 		if err != nil {
@@ -166,7 +168,7 @@ func (ctx *LeafExecuteContext) sendResponse(resultData [][]byte, err error) {
 			RequestID:   ctx.Req.RequestID,
 			RequestType: ctx.Req.RequestType,
 			Completed:   true,
-			SendTime:    timeutil.NowNano(),
+			SendTime:    commontimeutil.NowNano(),
 			Payload:     payload,
 			Stats:       stats,
 			ErrMsg:      errMsg,

@@ -18,7 +18,6 @@
 package tsdb
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"runtime"
@@ -27,15 +26,14 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/common/pkg/logger"
+
+	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
-	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/option"
-	"github.com/lindb/lindb/tsdb/metadb"
-	"github.com/lindb/lindb/tsdb/tblstore/tagkeymeta"
 )
 
 //go:generate mockgen -source=./database.go -destination=./database_mock.go -package=tsdb
@@ -58,8 +56,8 @@ type Database interface {
 	ExecutorPool() *ExecutorPool
 	// Closer closes database's underlying resource
 	io.Closer
-	// Metadata returns the metadata include metric/tag
-	Metadata() metadb.Metadata
+	// MetaDB returns the metric metadata database include metric/tag/schema etc.
+	MetaDB() index.MetricMetaDatabase
 	// FlushMeta flushes meta to disk
 	FlushMeta() error
 	// WaitFlushMetaCompleted waits flush metadata job completed.
@@ -83,12 +81,11 @@ type Database interface {
 type database struct {
 	name           string // database-name
 	dir            string
+	metaDB         index.MetricMetaDatabase
 	config         *models.DatabaseConfig // meta configuration
 	executorPool   *ExecutorPool          // executor pool for querying task
 	mutex          sync.Mutex             // mutex for creating families
 	shardSet       shardSet               // atomic value
-	metadata       metadb.Metadata        // underlying metric metadata
-	metaStore      kv.Store               // underlying meta kv store
 	isFlushing     atomic.Bool            // restrict flusher concurrency
 	flushCondition *sync.Cond             // flush condition
 	limits         atomic.Value           // store models.Limits
@@ -150,9 +147,9 @@ func newDatabase(
 	}
 	var err error
 	defer func() {
-		if err != nil && db.metadata != nil {
-			if e := db.metadata.Close(); e != nil {
-				engineLogger.Error("close metadata err will create database",
+		if err != nil && db.metaDB != nil {
+			if e := db.metaDB.Close(); e != nil {
+				engineLogger.Error("close metric metadata database err will create database",
 					logger.Error(e), logger.String("db", databaseName))
 			}
 		}
@@ -191,9 +188,9 @@ func (db *database) GetLimits() *models.Limits {
 	return db.limits.Load().(*models.Limits)
 }
 
-// Metadata returns the metadata include metric/tag
-func (db *database) Metadata() metadb.Metadata {
-	return db.metadata
+// MetaDB returns the metric metadata database include metric/tag/schema etc.
+func (db *database) MetaDB() index.MetricMetaDatabase {
+	return db.metaDB
 }
 
 // Name returns time series database's name
@@ -278,10 +275,17 @@ func (db *database) Close() error {
 	// wait previous flush job completed
 	db.WaitFlushMetaCompleted()
 
-	if err := db.metadata.Close(); err != nil {
+	if err := db.flushMeta(); err != nil {
 		return err
 	}
-	if err := kv.GetStoreManager().CloseStore(db.metaStore.Name()); err != nil {
+	for _, shardEntry := range db.shardSet.Entries() {
+		thisShard := shardEntry.shard
+		if err := thisShard.FlushIndex(); err != nil {
+			engineLogger.Error(fmt.Sprintf(
+				"close shard[%d] of database[%s]", shardEntry.shardID, db.name), logger.Error(err))
+		}
+	}
+	if err := db.metaDB.Close(); err != nil {
 		return err
 	}
 	for _, shardEntry := range db.shardSet.Entries() {
@@ -323,32 +327,18 @@ func (db *database) dumpDatabaseConfig(newConfig *models.DatabaseConfig) error {
 
 // initMetadata initializes metadata backend storage
 func (db *database) initMetadata() error {
-	// FIXME: close kv store if err??
-	metaStore, err := kv.GetStoreManager().CreateStore(tagMetaIndicator(db.name), kv.DefaultStoreOption())
+	metaDB, err := newMetaDBFunc(metricsMetaPath(db.name))
 	if err != nil {
 		return err
 	}
-	tagMetaFamily, err := metaStore.CreateFamily(
-		tagValueDir,
-		kv.FamilyOption{
-			CompactThreshold: 0,
-			Merger:           string(tagkeymeta.MergerName)})
-	if err != nil {
-		return err
-	}
-	db.metaStore = metaStore
-	metadata, err := newMetadataFunc(context.TODO(), db.name, metricsMetaPath(db.name), tagMetaFamily)
-	if err != nil {
-		return err
-	}
-	db.metadata = metadata
+	db.metaDB = metaDB
 	return nil
 }
 
 // FlushMeta flushes meta to disk.
 func (db *database) FlushMeta() (err error) {
 	// another flush process is running
-	if !db.isFlushing.CAS(false, true) {
+	if !db.isFlushing.CompareAndSwap(false, true) {
 		return nil
 	}
 	start := time.Now()
@@ -359,8 +349,7 @@ func (db *database) FlushMeta() (err error) {
 		db.flushCondition.Broadcast()
 		db.statistics.MetaDBFlushDuration.UpdateSince(start)
 	}()
-	if err := db.metadata.Flush(); err != nil {
-		db.statistics.MetaDBFlushFailures.Incr()
+	if err := db.flushMeta(); err != nil {
 		return err
 	}
 	return nil
@@ -389,6 +378,20 @@ func (db *database) Flush() error {
 			},
 			global: false,
 		})
+	}
+	return nil
+}
+
+func (db *database) flushMeta() error {
+	ch := make(chan error, 1)
+	db.metaDB.Notify(&index.FlushNotifier{
+		Callback: func(err error) {
+			ch <- err
+		},
+	})
+	if err := <-ch; err != nil {
+		db.statistics.MetaDBFlushFailures.Incr()
+		return err
 	}
 	return nil
 }

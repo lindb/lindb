@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/go-resty/resty/v2"
 
@@ -76,30 +75,20 @@ func exploreStateRepoData(ctx context.Context, deps *depspkg.HTTPDeps,
 	case stmtpkg.MasterMetadata:
 		stateMachineInfo, ok = master.StateMachinePaths[metadataStmt.Type]
 	case stmtpkg.StorageMetadata:
-		storageName := strings.TrimSpace(metadataStmt.ClusterName)
-		if storageName == "" {
-			return nil, constants.ErrStorageNameRequired
-		}
 		if deps.Master.IsMaster() {
 			// if current node is master, explore storage data.
 			stateMachineInfo, ok = storage.StateMachinePaths[metadataStmt.Type]
 			if !ok {
 				return nil, nil
 			}
-			stateMgr := deps.Master.GetStateManager()
-			storageCluster := stateMgr.GetStorageCluster(storageName)
-			if storageCluster == nil {
-				return nil, nil
-			}
-			return discovery.ExploreData(ctx, storageCluster.GetRepo(), stateMachineInfo)
+			return discovery.ExploreData(ctx, deps.Repo, stateMachineInfo)
 		}
 		// if current node is not master, reverse proxy to master
 		masterNode := deps.Master.GetMaster()
 		address := masterNode.Node.HTTPAddress()
 		var meta []interface{}
 		_, err := resty.New().R().SetQueryParams(map[string]string{
-			"sql": fmt.Sprintf("show storage metedata where path='%s' and storage='%s'",
-				metadataStmt.Type, metadataStmt.ClusterName)}).
+			"sql": fmt.Sprintf("show storage metedata where path='%s'", metadataStmt.Type)}).
 			SetHeader("Accept", "application/json").
 			SetResult(&meta).
 			Get(address + constants.APIVersion1CliPath + "/exec")
@@ -117,9 +106,8 @@ func exploreStateRepoData(ctx context.Context, deps *depspkg.HTTPDeps,
 // exploreStateMachineDate explores the state from state machine of broker/master/storage.
 func exploreStateMachineDate(metadataStmt *stmtpkg.Metadata, deps *depspkg.HTTPDeps) (interface{}, error) {
 	param := map[string]string{
-		"type":        metadataStmt.Type,
-		"role":        strconv.Itoa(int(metadataStmt.MetadataType)),
-		"storageName": metadataStmt.ClusterName,
+		"type": metadataStmt.Type,
+		"role": strconv.Itoa(int(metadataStmt.MetadataType)),
 	}
 	var nodes []models.Node
 	switch metadataStmt.MetadataType {

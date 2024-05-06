@@ -22,12 +22,13 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
+
+	"github.com/lindb/common/models"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/concurrent"
-	"github.com/lindb/lindb/models"
 )
 
 type mockPool struct {

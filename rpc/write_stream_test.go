@@ -23,12 +23,13 @@ import (
 	"io"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/atomic"
+	"go.uber.org/mock/gomock"
+
+	"github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 	protoWriteV1 "github.com/lindb/lindb/proto/gen/v1/write"
 )
 

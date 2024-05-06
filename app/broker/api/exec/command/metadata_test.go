@@ -25,8 +25,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
+
+	"github.com/lindb/common/pkg/encoding"
 
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/coordinator"
@@ -34,7 +36,6 @@ import (
 	masterpkg "github.com/lindb/lindb/coordinator/master"
 	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/sql/stmt"
 )
@@ -156,33 +157,10 @@ func TestMetadata(t *testing.T) {
 			},
 		},
 		{
-			name:      "show storage metadata, but storage name empty",
-			statement: &stmt.Metadata{MetadataType: stmt.StorageMetadata, Source: stmt.StateRepoSource, Type: "LiveNode", ClusterName: ""},
-			wantErr:   true,
-		},
-		{
-			name:      "show storage metadata, but type not found",
-			statement: &stmt.Metadata{MetadataType: stmt.StorageMetadata, Source: stmt.StateRepoSource, Type: "LiveNode2", ClusterName: "abc"},
-			prepare: func() {
-				master.EXPECT().IsMaster().Return(true)
-			},
-		},
-		{
-			name:      "show storage metadata, but storage state not found",
-			statement: &stmt.Metadata{MetadataType: stmt.StorageMetadata, Source: stmt.StateRepoSource, Type: "LiveNode", ClusterName: "test"},
-			prepare: func() {
-				master.EXPECT().IsMaster().Return(true)
-				masterStateMgr.EXPECT().GetStorageCluster("test").Return(nil)
-			},
-		},
-		{
 			name:      "show storage metadata, no data",
 			statement: &stmt.Metadata{MetadataType: stmt.StorageMetadata, Source: stmt.StateRepoSource, Type: "LiveNode", ClusterName: "test"},
 			prepare: func() {
 				master.EXPECT().IsMaster().Return(true)
-				storage := masterpkg.NewMockStorageCluster(ctrl)
-				masterStateMgr.EXPECT().GetStorageCluster("test").Return(storage)
-				storage.EXPECT().GetRepo().Return(repo)
 				repo.EXPECT().WalkEntry(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			},
 		},

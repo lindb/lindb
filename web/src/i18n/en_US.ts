@@ -54,7 +54,7 @@ const local = {
     nodeId: "Node ID",
   },
   DatabaseView: {
-    name: "Name",
+    name: "Database name",
     numOfShards: "Num. Of Shard",
     replicaFactor: "Replica Factor",
   },
@@ -74,7 +74,7 @@ const local = {
     numOfDatabase: "Num. Of Database",
     replicationStatus: "Replication Status",
     diskCapacityUsage: "Disk Capacity Usage",
-    storageClusterList: "Storage Cluster List",
+    storageCluster: "Storage Cluster",
     totalOfReplication: "Total",
     underReplicated: "Under-replicated",
     unavailableReplica: "Unavailable",

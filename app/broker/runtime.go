@@ -25,10 +25,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/timeutil"
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/app"
 	"github.com/lindb/lindb/app/broker/api"
+	prometheusIngest "github.com/lindb/lindb/app/broker/api/prometheus/ingest"
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
@@ -42,9 +45,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/hostutil"
 	httppkg "github.com/lindb/lindb/pkg/http"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/replica"
@@ -104,6 +105,10 @@ type runtime struct {
 	stateMachineFactory discovery.StateMachineFactory
 	stateMgr            broker.StateManager
 
+	httpDeps *deps.HTTPDeps
+	// prometheusWriter writes data received from Prometheus to LinDB.
+	prometheusWriter prometheusIngest.Writer
+
 	grpcServer rpc.GRPCServer
 	rpcHandler *rpcHandler
 	queryPool  concurrent.Pool
@@ -113,7 +118,7 @@ type runtime struct {
 	globalKeyValues     tag.Tags
 	enableSystemMonitor bool
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewBrokerRuntime creates broker runtime
@@ -224,7 +229,7 @@ func (r *runtime) Run() error {
 	var stateMachineStarted atomic.Bool
 
 	r.master.WatchMasterElected(func(_ *models.Master) {
-		if stateMachineStarted.CAS(false, true) {
+		if stateMachineStarted.CompareAndSwap(false, true) {
 			// if state machine is not started, after 5 second when master elected, wait master state sync.
 			time.AfterFunc(5*time.Second, func() {
 				defer wait.Done()
@@ -293,6 +298,11 @@ func (r *runtime) Stop() {
 		}
 	}
 
+	// close prometheus writer
+	if r.prometheusWriter != nil {
+		r.prometheusWriter.Close()
+	}
+
 	// close registry, deregister broker node from active list
 	if r.registry != nil {
 		r.logger.Info("closing discovery-registry...")
@@ -357,7 +367,7 @@ func (r *runtime) startHTTPServer() {
 	r.logger.Info("starting HTTP server")
 	r.httpServer = newHTTPServer(r.config.BrokerBase.HTTP, true, linmetric.BrokerRegistry)
 	// TODO login api is not registered
-	httpAPI := api.NewAPI(&deps.HTTPDeps{
+	r.httpDeps = &deps.HTTPDeps{
 		Ctx:          r.ctx,
 		Node:         r.node,
 		BrokerCfg:    r.config,
@@ -381,8 +391,20 @@ func (r *runtime) startHTTPServer() {
 			metrics.NewLimitStatistics("query", linmetric.BrokerRegistry),
 		),
 		GlobalKeyValues: r.globalKeyValues,
-	})
+	}
+	// prometheus writer
+	schema := prometheusIngest.DatabaseConfig{
+		Namespace: r.config.Prometheus.Namespace,
+		Database:  r.config.Prometheus.Database,
+		Field:     r.config.Prometheus.Field,
+	}
+	r.prometheusWriter = prometheusIngest.NewWriter(r.httpDeps, prometheusIngest.DefaultWriteOptions(schema))
+
+	httpAPI := api.NewAPI(r.httpDeps, r.prometheusWriter)
+	// api
 	httpAPI.RegisterRouter(r.httpServer.GetAPIRouter())
+	// prometheus
+	httpAPI.RegisterPrometheusRouter(r.httpServer.GetPrometheusAPIRouter())
 	go r.runHTTPServer()
 }
 
@@ -397,7 +419,7 @@ func (r *runtime) runHTTPServer() {
 // startStateRepo starts state repository
 func (r *runtime) startStateRepo() error {
 	// set a sub namespace
-	repo, err := r.repoFactory.CreateBrokerRepo(&r.config.Coordinator)
+	repo, err := r.repoFactory.CreateNormalRepo(&r.config.Coordinator)
 	if err != nil {
 		return fmt.Errorf("start broker state repository error:%s", err)
 	}

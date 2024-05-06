@@ -24,10 +24,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	httppkg "github.com/lindb/common/pkg/http"
+
 	"github.com/lindb/lindb/app/root/api/command"
 	depspkg "github.com/lindb/lindb/app/root/deps"
 	"github.com/lindb/lindb/models"
-	httppkg "github.com/lindb/lindb/pkg/http"
 	sqlpkg "github.com/lindb/lindb/sql"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 )

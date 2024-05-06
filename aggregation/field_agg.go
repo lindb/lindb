@@ -19,6 +19,7 @@ package aggregation
 
 import (
 	"math"
+	"sort"
 
 	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/series"
@@ -53,11 +54,12 @@ type fieldAggregator struct {
 // e.g. segment start time = 20190905 10:00:00, start = 10, end = 50, interval = 10 seconds,
 // real query time range {20190905 10:01:40 ~ 20190905 10:08:20}
 func NewFieldAggregator(aggSpec AggregatorSpec, segmentStartTime int64, start, end int) FieldAggregator {
-	// TODO: maybe agg type has duplicate?
 	var aggTypes []field.AggType
 	for f := range aggSpec.Functions() {
 		aggTypes = append(aggTypes, aggSpec.GetFieldType().GetFuncFieldParams(f)...)
 	}
+
+	aggTypes = uniqueAggTypes(aggTypes)
 
 	agg := &fieldAggregator{
 		aggTypes:         aggTypes,
@@ -117,4 +119,25 @@ func (a *fieldAggregator) reset() {
 		}
 		a.fieldSeriesList[idx].Reset()
 	}
+}
+
+// uniqueAggTypes removes duplicate elements from types
+func uniqueAggTypes(types []field.AggType) []field.AggType {
+	if len(types) <= 1 {
+		return types
+	}
+
+	sort.Slice(types, func(i, j int) bool {
+		return types[i] < types[j]
+	})
+
+	var index = 0
+	for i := 1; i < len(types); i++ {
+		if types[i] != types[index] {
+			index++
+			types[index] = types[i]
+		}
+	}
+
+	return types[:index+1]
 }

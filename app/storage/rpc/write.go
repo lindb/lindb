@@ -24,10 +24,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
 	protoWriteV1 "github.com/lindb/lindb/proto/gen/v1/write"
 	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/rpc"
@@ -37,7 +38,7 @@ import (
 type WriteHandler struct {
 	walMgr replica.WriteAheadLogManager
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewWriteHandler creates a write handler.

@@ -154,24 +154,9 @@ func (l *listener) EnterBrokerFilter(ctx *grammar.BrokerFilterContext) {
 	l.metadataStmt.visitBrokerFilter(ctx)
 }
 
-// EnterStorageFilter is called when production storageFilter is entered.
-func (l *listener) EnterStorageFilter(ctx *grammar.StorageFilterContext) {
-	switch {
-	case l.stateStmt != nil:
-		l.stateStmt.visitStorageFilter(ctx)
-	case l.metadataStmt != nil:
-		l.metadataStmt.visitStorageFilter(ctx)
-	}
-}
-
 // EnterDatabaseFilter is called when production databaseFilter is entered.
 func (l *listener) EnterDatabaseFilter(ctx *grammar.DatabaseFilterContext) {
 	l.stateStmt.visitDatabaseFilter(ctx)
-}
-
-// EnterShowStoragesStmt is called when production showStoragesStmt is entered.
-func (l *listener) EnterShowStoragesStmt(_ *grammar.ShowStoragesStmtContext) {
-	l.storageStmt = newStorageStmtParse(stmt.StorageOpShow)
 }
 
 // EnterShowBrokersStmt is called when production showBrokersStmt is entered.
@@ -191,14 +176,16 @@ func (l *listener) EnterJson(ctx *grammar.JsonContext) { //nolint:stylecheck
 	}
 }
 
+// EnterOptionClause is called when production optionClause is entered.
+func (l *listener) EnterOptionClause(ctx *grammar.OptionClauseContext) {
+	if l.schemasStmt != nil {
+		l.schemasStmt.visitWithCfg(ctx)
+	}
+}
+
 // EnterCreateBrokerStmt is called when production createBrokerStmt is entered.
 func (l *listener) EnterCreateBrokerStmt(c *grammar.CreateBrokerStmtContext) {
 	l.brokerStmt = newBrokerStmtParse(stmt.BrokerOpCreate)
-}
-
-// EnterCreateStorageStmt is called when production createStorageStmt is entered.
-func (l *listener) EnterCreateStorageStmt(c *grammar.CreateStorageStmtContext) {
-	l.storageStmt = newStorageStmtParse(stmt.StorageOpCreate)
 }
 
 // EnterCreateDatabaseStmt is called when entering the createDatabaseStmt production.
@@ -423,6 +410,41 @@ func (l *listener) EnterSortField(ctx *grammar.SortFieldContext) {
 func (l *listener) ExitSortField(ctx *grammar.SortFieldContext) {
 	if l.queryStmt != nil {
 		l.queryStmt.completeSortField(ctx)
+	}
+}
+
+// EnterHavingClause is called when production havingClause is entered.
+func (l *listener) EnterHavingClause(ctx *grammar.HavingClauseContext) {
+	if l.queryStmt != nil {
+		l.queryStmt.visitHaving(ctx)
+	}
+}
+
+// ExitHavingClause is called when production havingClause is exited.
+func (l *listener) ExitHavingClause(ctx *grammar.HavingClauseContext) {
+	if l.queryStmt != nil {
+		l.queryStmt.completeHaving(ctx)
+	}
+}
+
+// EnterBoolExprAtom is called when production boolExprAtom is entered.
+func (l *listener) EnterBoolExprAtom(ctx *grammar.BoolExprAtomContext) {
+	if l.queryStmt != nil {
+		l.queryStmt.visitBoolExprAtom(ctx)
+	}
+}
+
+// EnterBoolExpr is called when production boolExpr is entered.
+func (l *listener) EnterBoolExpr(ctx *grammar.BoolExprContext) {
+	if l.queryStmt != nil {
+		l.queryStmt.visitBoolExpr(ctx)
+	}
+}
+
+// ExitBoolExpr is called when production boolExpr is exited.
+func (l *listener) ExitBoolExpr(ctx *grammar.BoolExprContext) {
+	if l.queryStmt != nil {
+		l.queryStmt.completeBoolExpr(ctx)
 	}
 }
 

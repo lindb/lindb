@@ -24,9 +24,11 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 
+	"github.com/lindb/common/models"
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 type ShardStateType int
@@ -105,7 +107,7 @@ func (s Brokers) ToTable() (rows int, tableStr string) {
 	if len(s) == 0 {
 		return 0, ""
 	}
-	writer := NewTableFormatter()
+	writer := models.NewTableFormatter()
 	writer.AppendHeader(table.Row{"Namespace", "Status", "Configuration"})
 	for i := range s {
 		r := s[i]
@@ -126,7 +128,7 @@ func (s Storages) ToTable() (rows int, tableStr string) {
 	if len(s) == 0 {
 		return 0, ""
 	}
-	writer := NewTableFormatter()
+	writer := models.NewTableFormatter()
 	writer.AppendHeader(table.Row{"Namespace", "Status", "Configuration"})
 	for i := range s {
 		r := s[i]
@@ -217,19 +219,16 @@ func (b *BrokerState) NodeOffline(nodeID string) {
 // NOTICE: it is not safe for concurrent use.
 // TODO: need concurrent safe????
 type StorageState struct {
-	Name string `json:"name"` // ref Namespace
-
 	LiveNodes map[NodeID]StatefulNode `json:"liveNodes"`
 
-	// TODO remove??
+	// TODO: remove??
 	ShardAssignments map[string]*ShardAssignment       `json:"shardAssignments"` // database's name => shard assignment
 	ShardStates      map[string]map[ShardID]ShardState `json:"shardStates"`      // database's name => shard state
 }
 
 // NewStorageState creates storage cluster state
-func NewStorageState(name string) *StorageState {
+func NewStorageState() *StorageState {
 	return &StorageState{
-		Name:             name,
 		LiveNodes:        make(map[NodeID]StatefulNode),
 		ShardAssignments: make(map[string]*ShardAssignment),
 		ShardStates:      make(map[string]map[ShardID]ShardState),

@@ -56,6 +56,7 @@ func init() {
 		newStandaloneCmd(),
 	)
 }
+
 func main() {
 	if err := RootCmd.Execute(); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)

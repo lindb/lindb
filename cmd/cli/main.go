@@ -28,8 +28,9 @@ import (
 
 	prompt "github.com/c-bata/go-prompt"
 	"github.com/fatih/color"
+	commonmodels "github.com/lindb/common/models"
+	commonlogger "github.com/lindb/common/pkg/logger"
 
-	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
@@ -135,10 +136,6 @@ func executor(in string) {
 				inputC.db = s.Name
 				fmt.Printf("Database changed(current:%s)\n", inputC.db)
 				return
-			case *stmtpkg.Storage:
-				if s.Type == stmtpkg.StorageOpShow {
-					result = &models.Storages{}
-				}
 			case *stmtpkg.State:
 				// execute state query
 				switch s.Type {
@@ -159,9 +156,9 @@ func executor(in string) {
 					printErr(errors.New("please select database(use ...)"))
 					return
 				}
-				result = &models.Metadata{}
+				result = &commonmodels.Metadata{}
 			case *stmtpkg.Query:
-				result = &models.ResultSet{}
+				result = &commonmodels.ResultSet{}
 				if strings.TrimSpace(inputC.db) == "" {
 					printErr(errors.New("please select database(use ...)"))
 					return
@@ -203,8 +200,8 @@ func main() {
 		printErr(err)
 		return
 	}
-	logger.IsCli = true
-	_ = logger.InitLogger(config.Logging{Level: "error", Dir: "."}, "lin-cli.log")
+	commonlogger.IsCli = true
+	_ = logger.InitLogger(commonlogger.Setting{Level: "error", Dir: "."}, "lin-cli.log")
 
 	apiEndpoint := endpoint + constants.APIVersion1CliPath
 	cli = newExecuteCli(apiEndpoint)
@@ -239,7 +236,7 @@ func main() {
 		prompt.OptionTitle("LinDB Client"),
 
 		prompt.OptionPrefixTextColor(prompt.DarkGreen),
-		prompt.OptionInputTextColor(prompt.DarkBlue),
+		prompt.OptionInputTextColor(prompt.White),
 
 		prompt.OptionSuggestionBGColor(prompt.LightGray),
 		prompt.OptionSuggestionTextColor(prompt.Black),

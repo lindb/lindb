@@ -23,10 +23,11 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/lindb/common/pkg/logger"
+
 	ingestCommon "github.com/lindb/lindb/ingestion/common"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
@@ -49,6 +50,22 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string, limits *m
 		defer ingestCommon.PutGzipReader(gzipReader)
 		reader = gzipReader
 	}
+	bufioReader, releaseBufioReaderFunc := ingestCommon.NewBufioReader(reader)
+	defer releaseBufioReaderFunc(bufioReader)
+
+	batch, err := parseFlatMetric(reader, enrichedTags, namespace, limits)
+	if err != nil {
+		flatIngestionStatistics.CorruptedData.Incr()
+		return nil, err
+	}
+	if batch.Len() == 0 {
+		return nil, fmt.Errorf("empty metrics")
+	}
+	flatIngestionStatistics.IngestedMetrics.Add(float64(batch.Len()))
+	return batch, nil
+}
+
+func ParseReader(reader io.Reader, enrichedTags tag.Tags, namespace string, limits *models.Limits) (*metric.BrokerBatchRows, error) {
 	bufioReader, releaseBufioReaderFunc := ingestCommon.NewBufioReader(reader)
 	defer releaseBufioReaderFunc(bufioReader)
 

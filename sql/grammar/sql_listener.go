@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Code generated from ./sql/grammar/SQL.g4 by ANTLR 4.12.0. DO NOT EDIT.
+// Code generated from ./sql/grammar/SQL.g4 by ANTLR 4.13.1. DO NOT EDIT.
 
 package grammar // SQL
-import "github.com/antlr/antlr4/runtime/Go/antlr/v4"
+import "github.com/antlr4-go/antlr/v4"
 
 // SQLListener is a complete listener for a parse tree produced by SQLParser.
 type SQLListener interface {
@@ -44,9 +44,6 @@ type SQLListener interface {
 
 	// EnterShowRequestStmt is called when entering the showRequestStmt production.
 	EnterShowRequestStmt(c *ShowRequestStmtContext)
-
-	// EnterShowStoragesStmt is called when entering the showStoragesStmt production.
-	EnterShowStoragesStmt(c *ShowStoragesStmtContext)
 
 	// EnterShowBrokersStmt is called when entering the showBrokersStmt production.
 	EnterShowBrokersStmt(c *ShowBrokersStmtContext)
@@ -144,6 +141,24 @@ type SQLListener interface {
 	// EnterSource is called when entering the source production.
 	EnterSource(c *SourceContext)
 
+	// EnterOptionClause is called when entering the optionClause production.
+	EnterOptionClause(c *OptionClauseContext)
+
+	// EnterOptionPairs is called when entering the optionPairs production.
+	EnterOptionPairs(c *OptionPairsContext)
+
+	// EnterClosedOptionPairs is called when entering the closedOptionPairs production.
+	EnterClosedOptionPairs(c *ClosedOptionPairsContext)
+
+	// EnterOptionPair is called when entering the optionPair production.
+	EnterOptionPair(c *OptionPairContext)
+
+	// EnterOptionKey is called when entering the optionKey production.
+	EnterOptionKey(c *OptionKeyContext)
+
+	// EnterOptionValue is called when entering the optionValue production.
+	EnterOptionValue(c *OptionValueContext)
+
 	// EnterQueryStmt is called when entering the queryStmt production.
 	EnterQueryStmt(c *QueryStmtContext)
 
@@ -161,9 +176,6 @@ type SQLListener interface {
 
 	// EnterAlias is called when entering the alias production.
 	EnterAlias(c *AliasContext)
-
-	// EnterStorageFilter is called when entering the storageFilter production.
-	EnterStorageFilter(c *StorageFilterContext)
 
 	// EnterBrokerFilter is called when entering the brokerFilter production.
 	EnterBrokerFilter(c *BrokerFilterContext)
@@ -339,9 +351,6 @@ type SQLListener interface {
 	// ExitShowRequestStmt is called when exiting the showRequestStmt production.
 	ExitShowRequestStmt(c *ShowRequestStmtContext)
 
-	// ExitShowStoragesStmt is called when exiting the showStoragesStmt production.
-	ExitShowStoragesStmt(c *ShowStoragesStmtContext)
-
 	// ExitShowBrokersStmt is called when exiting the showBrokersStmt production.
 	ExitShowBrokersStmt(c *ShowBrokersStmtContext)
 
@@ -438,6 +447,24 @@ type SQLListener interface {
 	// ExitSource is called when exiting the source production.
 	ExitSource(c *SourceContext)
 
+	// ExitOptionClause is called when exiting the optionClause production.
+	ExitOptionClause(c *OptionClauseContext)
+
+	// ExitOptionPairs is called when exiting the optionPairs production.
+	ExitOptionPairs(c *OptionPairsContext)
+
+	// ExitClosedOptionPairs is called when exiting the closedOptionPairs production.
+	ExitClosedOptionPairs(c *ClosedOptionPairsContext)
+
+	// ExitOptionPair is called when exiting the optionPair production.
+	ExitOptionPair(c *OptionPairContext)
+
+	// ExitOptionKey is called when exiting the optionKey production.
+	ExitOptionKey(c *OptionKeyContext)
+
+	// ExitOptionValue is called when exiting the optionValue production.
+	ExitOptionValue(c *OptionValueContext)
+
 	// ExitQueryStmt is called when exiting the queryStmt production.
 	ExitQueryStmt(c *QueryStmtContext)
 
@@ -455,9 +482,6 @@ type SQLListener interface {
 
 	// ExitAlias is called when exiting the alias production.
 	ExitAlias(c *AliasContext)
-
-	// ExitStorageFilter is called when exiting the storageFilter production.
-	ExitStorageFilter(c *StorageFilterContext)
 
 	// ExitBrokerFilter is called when exiting the brokerFilter production.
 	ExitBrokerFilter(c *BrokerFilterContext)

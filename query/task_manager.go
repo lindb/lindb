@@ -23,10 +23,11 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/metrics"
-	"github.com/lindb/lindb/pkg/logger"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/query/context"
 	"github.com/lindb/lindb/rpc"
@@ -53,7 +54,7 @@ type taskManager struct {
 	statistics *metrics.QueryStatistics
 	mutex      sync.RWMutex
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewTaskManager creates the task manager.

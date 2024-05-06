@@ -32,7 +32,7 @@ LinDB 是一个高性能、高可用并且具备水平拓展性的开源分布�
 ### 依赖
 
 在本地编译 LinDB 需要以下工具：
-- [Go >=1.19](https://golang.org/doc/install)
+- [Go >=1.21](https://golang.org/doc/install)
 - [Make tool](https://www.gnu.org/software/make/)
 - [Yarn](https://classic.yarnpkg.com/en/docs/install)
 

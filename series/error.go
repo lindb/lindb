@@ -17,7 +17,9 @@
 
 package series
 
-import "errors"
+import (
+	"errors"
+)
 
 // ErrWrongFieldType is the error returned by tsdb when
 // field-type of new point is different from the type before.

@@ -23,8 +23,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
@@ -33,8 +34,8 @@ import (
 
 func TestRollup(t *testing.T) {
 	t.Run("10s->5min", func(t *testing.T) {
-		sf, _ := timeutil.ParseTimestamp("2019-12-12 10:00:00")
-		tf, _ := timeutil.ParseTimestamp("2019-12-12 00:00:00")
+		sf, _ := commontimeutil.ParseTimestamp("2019-12-12 10:00:00")
+		tf, _ := commontimeutil.ParseTimestamp("2019-12-12 00:00:00")
 		in := newRollup(timeutil.Interval(10*1000), timeutil.Interval(5*60*1000), sf, tf)
 		assert.Equal(t, uint16(30), in.IntervalRatio())
 		timestamp := in.GetTimestamp(20)
@@ -43,8 +44,8 @@ func TestRollup(t *testing.T) {
 		assert.Equal(t, uint16(10*60/5), in.BaseSlot())
 	})
 	t.Run("10s->1hour", func(t *testing.T) {
-		sf, _ := timeutil.ParseTimestamp("2019-12-12 10:00:00")
-		tf, _ := timeutil.ParseTimestamp("2019-12-12 00:00:00")
+		sf, _ := commontimeutil.ParseTimestamp("2019-12-12 10:00:00")
+		tf, _ := commontimeutil.ParseTimestamp("2019-12-12 00:00:00")
 		in := newRollup(timeutil.Interval(10*1000), timeutil.Interval(60*60*1000), sf, tf)
 		assert.Equal(t, uint16(360), in.IntervalRatio())
 		timestamp := in.GetTimestamp(20)
@@ -110,7 +111,7 @@ func TestFamily_needRollup(t *testing.T) {
 		{
 			name: "need rollup",
 			prepare: func() {
-				f.lastRollupTime.Store(timeutil.Now() - timeutil.OneHour)
+				f.lastRollupTime.Store(commontimeutil.Now() - commontimeutil.OneHour)
 				store.EXPECT().Option().Return(StoreOption{Rollup: []timeutil.Interval{10}})
 				fv.EXPECT().GetLiveRollupFiles().Return(
 					map[table.FileNumber][]timeutil.Interval{
@@ -137,11 +138,9 @@ func TestFamily_needRollup(t *testing.T) {
 func TestFamily_rollup(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		Options.Store(&StoreOptions{})
 		InitStoreManager(nil)
 	}()
 
-	Options.Store(&StoreOptions{Dir: t.TempDir()})
 	targetStore := NewMockStore(ctrl)
 	targetFamily := NewMockFamily(ctrl)
 	storeMgr := NewMockStoreManager(ctrl)

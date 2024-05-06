@@ -18,15 +18,16 @@
 package operator
 
 import (
+	"fmt"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
+	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/query/context"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/metadb"
 )
 
 func TestTagValueSuggest_Execute(t *testing.T) {
@@ -34,18 +35,18 @@ func TestTagValueSuggest_Execute(t *testing.T) {
 	defer ctrl.Finish()
 
 	db := tsdb.NewMockDatabase(ctrl)
-	meta := metadb.NewMockMetadata(ctrl)
-	tagMeta := metadb.NewMockTagMetadata(ctrl)
-	meta.EXPECT().TagMetadata().Return(tagMeta).AnyTimes()
-	db.EXPECT().Metadata().Return(meta).AnyTimes()
+	metaDB := index.NewMockMetricMetaDatabase(ctrl)
+	db.EXPECT().MetaDB().Return(metaDB).AnyTimes()
 
 	ctx := &context.LeafMetadataContext{
 		Database: db,
 		Request:  &stmtpkg.MetricMetadata{},
 	}
 	op := NewTagValueSuggest(ctx)
-	tagMeta.EXPECT().SuggestTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{"name"})
+	metaDB.EXPECT().SuggestTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{"name"}, nil)
 	assert.NoError(t, op.Execute())
+	metaDB.EXPECT().SuggestTagValues(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+	assert.Error(t, op.Execute())
 }
 
 func TestTagValueSuggest_Identifier(t *testing.T) {

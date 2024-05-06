@@ -18,7 +18,9 @@
 package metric
 
 import (
+	"github.com/cespare/xxhash/v2"
 	flatbuffers "github.com/google/flatbuffers/go"
+	commonconstants "github.com/lindb/common/constants"
 
 	"github.com/lindb/lindb/series/field"
 )
@@ -30,7 +32,8 @@ type StorageRow struct {
 	SlotIndex uint16
 	FieldIDs  []field.ID
 
-	Writable bool // Writable symbols if all meta information is set
+	Fields int
+
 	readOnlyRow
 }
 
@@ -41,7 +44,22 @@ func (mr *StorageRow) Unmarshal(data []byte) {
 	mr.SeriesID = 0
 	mr.SlotIndex = 0
 	mr.FieldIDs = mr.FieldIDs[:0]
-	mr.Writable = false
+}
+
+// NamespaceStr returns namespace string value.
+func (mr *StorageRow) NamespaceStr() string {
+	namespace := commonconstants.DefaultNamespace
+	if len(mr.NameSpace()) > 0 {
+		namespace = string(mr.NameSpace())
+	}
+	return namespace
+}
+
+// NameHash returns the hash code of namespace + metric name.
+func (mr *StorageRow) NameHash() uint64 {
+	namespace := mr.NamespaceStr()
+	metricName := string(mr.Name())
+	return xxhash.Sum64String(namespace + metricName)
 }
 
 // StorageBatchRows holds multi rows for inserting into memdb

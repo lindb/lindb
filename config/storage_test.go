@@ -25,7 +25,7 @@ import (
 	"github.com/caarlos0/env/v7"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/pkg/ltoml"
+	"github.com/lindb/common/pkg/ltoml"
 )
 
 func TestStorage_TOML(t *testing.T) {
@@ -109,7 +109,6 @@ func TestStorage_Env(t *testing.T) {
 	assert.Equal(t, 10000, cfg.StorageBase.GRPC.MaxConcurrentStreams)
 	assert.Equal(t, ltoml.Duration(time.Second*120), cfg.StorageBase.GRPC.ConnectTimeout)
 
-	assert.Equal(t, "broker_url", cfg.StorageBase.BrokerEndpoint)
 	assert.Equal(t, ltoml.Duration(time.Second*120), cfg.StorageBase.TTLTaskInterval)
 	assert.Equal(t, ltoml.Duration(time.Second*120), cfg.StorageBase.WAL.RemoveTaskInterval)
 	assert.Equal(t, "wal_dir", cfg.StorageBase.WAL.Dir)

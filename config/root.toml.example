@@ -119,3 +119,18 @@ maxbackups = 3
 ## Default: 7
 ## Env: LINDB_LOGGING_MAX_AGE
 maxage = 7
+
+## Config for the Prometheus
+[prometheus]
+## namespace
+## Default: default-ns
+## Env: LINDB_PROMETHEUS_NAMESPACE
+namespace = "default-ns"
+# database
+## Default: prometheus
+## Env: LINDB_PROMETHEUS_DATABASE
+database = "prometheus"
+# field
+## Default: x
+## Env: LINDB_PROMETHEUS_FIELD
+field = "x"

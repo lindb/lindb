@@ -22,8 +22,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
 func TestInitStoreManager(t *testing.T) {
@@ -40,22 +40,10 @@ func TestInitStoreManager(t *testing.T) {
 		InitStoreManager(storeMgr)
 		assert.Equal(t, storeMgr, GetStoreManager())
 	})
-	t.Run("panic if option invalid", func(t *testing.T) {
-		defer func() {
-			once4StoreManager = sync.Once{}
-		}()
-		assert.Panics(t, func() {
-			GetStoreManager()
-		})
-	})
 	t.Run("get singleton store manager", func(t *testing.T) {
 		defer func() {
 			once4StoreManager = sync.Once{}
-			Options.Store(&StoreOptions{})
 		}()
-		Options.Store(&StoreOptions{
-			Dir: t.TempDir(),
-		})
 		storeMgr1 := GetStoreManager()
 		assert.NotNil(t, storeMgr1)
 		storeMgr2 := GetStoreManager()
@@ -69,7 +57,7 @@ func TestStoreManager_CreateStore(t *testing.T) {
 		newStoreFunc = newStore
 		ctrl.Finish()
 	}()
-	storeMgr := newStoreManager(StoreOptions{})
+	storeMgr := newStoreManager()
 	cases := []struct {
 		name      string
 		storeName string
@@ -134,7 +122,7 @@ func TestMockStoreManager_CloseStore(t *testing.T) {
 		newStoreFunc = newStore
 		ctrl.Finish()
 	}()
-	storeMgr := newStoreManager(StoreOptions{})
+	storeMgr := newStoreManager()
 	store := NewMockStore(ctrl)
 	newStoreFunc = func(name, path string, option StoreOption) (s Store, err error) {
 		return store, nil
@@ -194,7 +182,7 @@ func TestStoreManager_Get(t *testing.T) {
 		newStoreFunc = newStore
 		ctrl.Finish()
 	}()
-	storeMgr := newStoreManager(StoreOptions{})
+	storeMgr := newStoreManager()
 	store := NewMockStore(ctrl)
 	newStoreFunc = func(name, path string, option StoreOption) (s Store, err error) {
 		return store, nil

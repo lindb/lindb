@@ -28,6 +28,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	commonfileutil "github.com/lindb/common/pkg/fileutil"
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/pkg/encoding"
@@ -77,13 +78,13 @@ func TestReader_Fail(t *testing.T) {
 }
 
 func TestStoreMMapReader_readBytes_Err(t *testing.T) {
-	_ = fileutil.MkDirIfNotExist(testKVPath)
+	_ = commonfileutil.MkDirIfNotExist(testKVPath)
 	defer func() {
 		uint64Func = binary.LittleEndian.Uint64
 		intsAreSortedFunc = sort.IntsAreSorted
 		encoding.BitmapUnmarshal = bitmapUnmarshal
 		unmarshalFixedOffsetFunc = unmarshalFixedOffset
-		assert.NoError(t, os.RemoveAll(testKVPath))
+		_ = os.RemoveAll(testKVPath)
 	}()
 	builder, err := NewStoreBuilder(10, filepath.Join(testKVPath, "000010.sst"))
 	assert.NoError(t, err)
@@ -134,17 +135,17 @@ func TestStoreMMapReader_readBytes_Err(t *testing.T) {
 
 	// case 4: unmarshal keys err
 	uint64Func = binary.LittleEndian.Uint64
-	encoding.BitmapUnmarshal = func(bitmap *roaring.Bitmap, data []byte) error {
-		return fmt.Errorf("err")
+	encoding.BitmapUnmarshal = func(bitmap *roaring.Bitmap, data []byte) (int64, error) {
+		return 0, fmt.Errorf("err")
 	}
 	r, err = newMMapStoreReader(filepath.Join(testKVPath, "000010.sst"), "000010.sst")
 	assert.Error(t, err)
 	assert.Nil(t, r)
 
 	// case 5: offset's size != key's size
-	encoding.BitmapUnmarshal = func(bitmap *roaring.Bitmap, data []byte) error {
+	encoding.BitmapUnmarshal = func(bitmap *roaring.Bitmap, _ []byte) (int64, error) {
 		bitmap.AddRange(1, 1000)
-		return nil
+		return 0, nil
 	}
 	r, err = newMMapStoreReader(filepath.Join(testKVPath, "000010.sst"), "000010.sst")
 	assert.Error(t, err)
@@ -152,7 +153,7 @@ func TestStoreMMapReader_readBytes_Err(t *testing.T) {
 }
 
 func TestReader(t *testing.T) {
-	_ = fileutil.MkDirIfNotExist(testKVPath)
+	_ = commonfileutil.MkDirIfNotExist(testKVPath)
 	defer func() {
 		_ = os.RemoveAll(testKVPath)
 	}()
@@ -196,7 +197,7 @@ func TestReader(t *testing.T) {
 }
 
 func TestStoreIterator(t *testing.T) {
-	_ = fileutil.MkDirIfNotExist(testKVPath)
+	_ = commonfileutil.MkDirIfNotExist(testKVPath)
 	defer func() {
 		_ = os.RemoveAll(testKVPath)
 	}()

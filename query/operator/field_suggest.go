@@ -18,7 +18,8 @@
 package operator
 
 import (
-	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/common/pkg/encoding"
+
 	"github.com/lindb/lindb/query/context"
 )
 
@@ -37,13 +38,19 @@ func NewFieldSuggest(ctx *context.LeafMetadataContext) Operator {
 // Execute returns all fields by given metric.
 func (op *fieldSuggest) Execute() error {
 	req := op.ctx.Request
-	fields, err := op.ctx.Database.Metadata().MetadataDatabase().GetAllFields(req.Namespace, req.MetricName)
+	metricID, err := op.ctx.Database.MetaDB().GetMetricID(req.Namespace, req.MetricName)
 	if err != nil {
 		return err
 	}
-	var result []string
-	result = append(result, string(encoding.JSONMarshal(fields)))
-	op.ctx.ResultSet = result
+	schema, err := op.ctx.Database.MetaDB().GetSchema(metricID)
+	if err != nil {
+		return err
+	}
+	if schema != nil {
+		var result []string
+		result = append(result, string(encoding.JSONMarshal(schema.Fields)))
+		op.ctx.ResultSet = result
+	}
 	return nil
 }
 

@@ -21,16 +21,18 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lindb/lindb/pkg/ltoml"
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/ltoml"
 )
 
 // Root represents a root configuration with common settings.
 type Root struct {
-	Coordinator RepoState `envPrefix:"LINDB_COORDINATOR_" toml:"coordinator"`
-	Query       Query     `envPrefix:"LINDB_QUERY_" toml:"query"`
-	HTTP        HTTP      `envPrefix:"LINDB_ROOT_HTTP_" toml:"http"`
-	Monitor     Monitor   `envPrefix:"LINDB_MONITOR_" toml:"monitor"`
-	Logging     Logging   `envPrefix:"LINDB_LOGGING_" toml:"logging"`
+	Coordinator RepoState      `envPrefix:"LINDB_COORDINATOR_" toml:"coordinator"`
+	Query       Query          `envPrefix:"LINDB_QUERY_" toml:"query"`
+	HTTP        HTTP           `envPrefix:"LINDB_ROOT_HTTP_" toml:"http"`
+	Monitor     Monitor        `envPrefix:"LINDB_MONITOR_" toml:"monitor"`
+	Logging     logger.Setting `envPrefix:"LINDB_LOGGING_" toml:"logging"`
+	Prometheus  Prometheus     `envPrefix:"LINDB_PROMETHEUS_" toml:"prometheus"`
 }
 
 // TOML returns root's configuration string as toml format.
@@ -45,12 +47,14 @@ func (r *Root) TOML() string {
 [http]%s
 
 %s
+%s
 %s`,
 		r.Coordinator.TOML(),
 		r.Query.TOML(),
 		r.HTTP.TOML(),
 		r.Monitor.TOML(),
-		r.Logging.TOML(),
+		r.Logging.TOML("LINDB"),
+		r.Prometheus.TOML(),
 	)
 }
 
@@ -70,7 +74,8 @@ func NewDefaultRoot() *Root {
 			ReadTimeout:  ltoml.Duration(time.Second * 5),
 			WriteTimeout: ltoml.Duration(time.Second * 5),
 		},
-		Monitor: *NewDefaultMonitor(),
-		Logging: *NewDefaultLogging(),
+		Monitor:    *NewDefaultMonitor(),
+		Logging:    *logger.NewDefaultSetting(),
+		Prometheus: *NewDefaultPrometheus(),
 	}
 }

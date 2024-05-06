@@ -25,9 +25,11 @@ import (
 
 	resty "github.com/go-resty/resty/v2"
 
+	commonmodels "github.com/lindb/common/models"
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/ltoml"
+
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/ltoml"
 )
 
 //go:generate mockgen -source=./execute.go -destination=./execute_mock.go -package=client
@@ -79,16 +81,22 @@ func (cli *executeCli) Execute(param models.ExecuteParam, rs interface{}) error 
 }
 
 // ExecuteAsResult executes lin query language, then returns terminal result.
-func (cli *executeCli) ExecuteAsResult(param models.ExecuteParam, rs interface{}) (string, error) {
+func (cli *executeCli) ExecuteAsResult(param models.ExecuteParam, rs interface{}) (queryResult string, err error) {
+	defer func() {
+		if err0 := recover(); err0 != nil {
+			err = fmt.Errorf("query error: %v", err0)
+		}
+	}()
+
 	n := time.Now()
-	err := cli.Execute(param, rs)
+	err = cli.Execute(param, rs)
 	cost := time.Since(n)
 	if err != nil {
-		return "", err
+		return
 	}
 	result := ""
 	rows := 0
-	if formatter, ok := rs.(models.TableFormatter); ok {
+	if formatter, ok := rs.(commonmodels.TableFormatter); ok {
 		rows, result = formatter.ToTable()
 	}
 	if rows == 0 {

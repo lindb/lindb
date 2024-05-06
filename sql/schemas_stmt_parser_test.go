@@ -47,3 +47,11 @@ func TestCreateDatabase(t *testing.T) {
 		Value: `{"name":"test"}`,
 	}, q)
 }
+
+func TestCreateDatabaseWith(t *testing.T) {
+	sql := `create database cpu with (storage: "/lind-cluster", numofshard:2, replicafactor:11, 
+       behead: 3h, ahead: 4h, autocreatens: true) 
+       rollup ((interval: 5s, retention: 2M), (interval: 10m, retention: 2y))`
+	_, err := Parse(sql)
+	assert.NoError(t, err)
+}

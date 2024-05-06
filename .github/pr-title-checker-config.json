@@ -1,0 +1,17 @@
+{
+	"LABEL": {
+		"name": "PR title needs formatting",
+		"color": "B60205"
+	},
+	"CHECKS": {
+		"regexp": "^\\[(feat|bug|opt|enhance|fix|test|refactor|chore|style|docs|perf|build|ci|revert)(:#\\d+)?\\]\\!?:.*",
+		"ignoreLabels": [
+			"ignore-title"
+		]
+	},
+	"MESSAGES": {
+		"success": "All OK",
+		"failure": "Failing CI test",
+		"notice": ""
+	}
+}

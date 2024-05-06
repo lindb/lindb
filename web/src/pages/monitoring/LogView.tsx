@@ -25,7 +25,7 @@ import { ExecService, ProxyService } from "@src/services";
 import { URLStore } from "@src/stores";
 import { FormatKit } from "@src/utils";
 import { useQuery } from "@tanstack/react-query";
-import * as _ from "lodash-es";
+import { isEmpty, map, get, find } from "lodash-es";
 import React, { useContext } from "react";
 
 const { Text } = Typography;
@@ -81,7 +81,7 @@ const LogContent: React.FC = () => {
       }).then((data) => renderLogs(data));
     },
     {
-      enabled: !_.isEmpty(node) && !_.isEmpty(file),
+      enabled: !isEmpty(node) && !isEmpty(file),
     }
   );
 
@@ -147,13 +147,13 @@ const LogView: React.FC = () => {
                 ExecService.exec<any[]>({
                   sql: SQL.ShowStorageAliveNodes,
                 }).then((data) =>
-                  _.map(data || [], (s) => {
+                  map(data || [], (s) => {
                     return { value: s.name, label: s.name };
                   })
                 )
               }
               visible={() =>
-                _.get(URLStore.getParams(), "role") === StateRoleName.Storage
+                get(URLStore.getParams(), "role") === StateRoleName.Storage
               }
               reloadKeys={["role"]}
               clearKeys={["node", "file"]}
@@ -165,7 +165,7 @@ const LogView: React.FC = () => {
             style={{ width: 230 }}
             loader={async () => {
               const params = URLStore.getParams();
-              const role = _.get(params, "role");
+              const role = get(params, "role");
               if (
                 role === StateRoleName.Broker ||
                 role === StateRoleName.Root
@@ -176,7 +176,7 @@ const LogView: React.FC = () => {
                       ? SQL.ShowBrokerAliveNodes
                       : SQL.ShowRootAliveNodes,
                 }).then((data) =>
-                  _.map(data || [], (n: any) => {
+                  map(data || [], (n: any) => {
                     const target = `${n.hostIp}:${n.httpPort}`;
                     return { value: target, label: target };
                   })
@@ -185,14 +185,14 @@ const LogView: React.FC = () => {
                 return ExecService.exec<any[]>({
                   sql: SQL.ShowStorageAliveNodes,
                 }).then((data) => {
-                  const nodes = _.get(
-                    _.find(data, {
-                      name: _.get(params, "storage"),
+                  const nodes = get(
+                    find(data, {
+                      name: get(params, "storage"),
                     }),
                     "liveNodes",
                     []
                   );
-                  return _.map(nodes, (n: any) => {
+                  return map(nodes, (n: any) => {
                     const target = `${n.hostIp}:${n.httpPort}`;
                     return { value: target, label: target };
                   });
@@ -208,7 +208,7 @@ const LogView: React.FC = () => {
             label={LogView.file}
             loader={() => {
               const params = URLStore.getParams();
-              const target = _.get(params, "node");
+              const target = get(params, "node");
               if (!target) {
                 return null;
               }
@@ -216,7 +216,7 @@ const LogView: React.FC = () => {
                 target: target,
                 path: "/api/v1/log/list",
               }).then((files) =>
-                _.map(files || [], (f: any) => {
+                map(files || [], (f: any) => {
                   return {
                     value: f.name,
                     label: `${f.name}(${FormatKit.format(f.size, Unit.Bytes)})`,

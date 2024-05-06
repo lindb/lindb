@@ -25,8 +25,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
+
+	"github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator"
@@ -37,7 +39,6 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/hostutil"
 	httppkg "github.com/lindb/lindb/pkg/http"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/rpc"
@@ -102,14 +103,14 @@ func TestBrokerRuntime_Run(t *testing.T) {
 				hostName = func() (name string, err error) {
 					return "", fmt.Errorf("err")
 				}
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
+				repoFct.EXPECT().CreateNormalRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
 			},
 			wantErr: true,
 		},
 		{
 			name: "registry alive node failure",
 			prepare: func() {
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
+				repoFct.EXPECT().CreateNormalRepo(gomock.Any()).Return(repo, nil)
 				registry := discovery.NewMockRegistry(ctrl)
 				registry.EXPECT().Register(gomock.Any()).Return(fmt.Errorf("err"))
 				newRegistry = func(repo state.Repository, prefixPath string, ttl time.Duration) discovery.Registry {
@@ -121,7 +122,7 @@ func TestBrokerRuntime_Run(t *testing.T) {
 		{
 			name: "start master controller failure",
 			prepare: func() {
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
+				repoFct.EXPECT().CreateNormalRepo(gomock.Any()).Return(repo, nil)
 				registry := discovery.NewMockRegistry(ctrl)
 				registry.EXPECT().Register(gomock.Any()).Return(nil)
 				newRegistry = func(repo state.Repository, prefixPath string, ttl time.Duration) discovery.Registry {
@@ -139,7 +140,7 @@ func TestBrokerRuntime_Run(t *testing.T) {
 		{
 			name: "broker state machine start failure, after master election",
 			prepare: func() {
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
+				repoFct.EXPECT().CreateNormalRepo(gomock.Any()).Return(repo, nil)
 				registry := discovery.NewMockRegistry(ctrl)
 				registry.EXPECT().Register(gomock.Any()).Return(nil)
 				newRegistry = func(repo state.Repository, prefixPath string, ttl time.Duration) discovery.Registry {
@@ -165,7 +166,7 @@ func TestBrokerRuntime_Run(t *testing.T) {
 		{
 			name: "broker successfully",
 			prepare: func() {
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
+				repoFct.EXPECT().CreateNormalRepo(gomock.Any()).Return(repo, nil)
 				registry := discovery.NewMockRegistry(ctrl)
 				registry.EXPECT().Register(gomock.Any()).Return(nil)
 				newRegistry = func(repo state.Repository, prefixPath string, ttl time.Duration) discovery.Registry {
@@ -187,6 +188,7 @@ func TestBrokerRuntime_Run(t *testing.T) {
 				}
 				httpSrv := httppkg.NewMockServer(ctrl)
 				httpSrv.EXPECT().GetAPIRouter().Return(gin.New().Group("/api"))
+				httpSrv.EXPECT().GetPrometheusAPIRouter().Return(gin.New().Group("/prometheus"))
 				newHTTPServer = func(_ config.HTTP, _ bool, _ *linmetric.Registry) httppkg.Server {
 					return httpSrv
 				}

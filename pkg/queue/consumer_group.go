@@ -24,7 +24,8 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/pkg/queue/page"
 )
 
@@ -259,7 +260,7 @@ func (f *consumerGroup) IsEmpty() bool {
 
 // Close persists headSeq, tailSeq.
 func (f *consumerGroup) Close() {
-	if f.closed.CAS(false, true) {
+	if f.closed.CompareAndSwap(false, true) {
 		f.Queue().Queue().Signal()
 
 		if err := f.metaPageFct.Close(); err != nil {

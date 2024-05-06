@@ -64,7 +64,7 @@ const local = {
     numOfDatabase: "数据库个数",
     replicationStatus: "副本状态",
     diskCapacityUsage: "磁盘使用",
-    storageClusterList: "存储集群",
+    storageCluster: "存储集群",
     totalOfReplication: "总副本",
     underReplicated: "在线",
     unavailableReplica: "离线",
@@ -74,7 +74,7 @@ const local = {
     databaseList: "数据库列表",
   },
   DatabaseView: {
-    name: "名称",
+    name: "数据库名称",
     numOfShards: "分片数(Num. Of Shard)",
     replicaFactor: "副本因子(Replica Factor)",
   },

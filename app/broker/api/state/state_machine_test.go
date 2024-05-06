@@ -24,11 +24,10 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	depspkg "github.com/lindb/lindb/app/broker/deps"
-	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator"
 	"github.com/lindb/lindb/coordinator/broker"
@@ -101,10 +100,7 @@ func TestBrokerStateMachineAPI_Explore(t *testing.T) {
 			name: "broker state, storage state",
 			req:  `role=2&type=` + constants.StorageState,
 			prepare: func() {
-				stateMgr.EXPECT().GetStorageList().Return([]*models.StorageState{
-					{Name: "test1"},
-					{Name: "test2"},
-				})
+				stateMgr.EXPECT().GetStorage().Return(&models.StorageState{})
 			},
 			assert: func(resp *httptest.ResponseRecorder) {
 				assert.Equal(t, http.StatusOK, resp.Code)
@@ -147,23 +143,7 @@ func TestBrokerStateMachineAPI_Explore(t *testing.T) {
 			name: "master state, storage state",
 			req:  `role=3&type=` + constants.StorageState,
 			prepare: func() {
-				masterStateMgr.EXPECT().GetStorageStates().Return([]*models.StorageState{
-					{Name: "test1"},
-					{Name: "test2"},
-				})
-			},
-			assert: func(resp *httptest.ResponseRecorder) {
-				assert.Equal(t, http.StatusOK, resp.Code)
-			},
-		},
-		{
-			name: "master state, storage config",
-			req:  `role=3&type=` + constants.StorageConfig,
-			prepare: func() {
-				masterStateMgr.EXPECT().GetStorages().Return([]config.StorageCluster{
-					{Config: &config.RepoState{Namespace: "test2"}},
-					{Config: &config.RepoState{Namespace: "test1"}},
-				})
+				masterStateMgr.EXPECT().GetStorageState().Return(&models.StorageState{})
 			},
 			assert: func(resp *httptest.ResponseRecorder) {
 				assert.Equal(t, http.StatusOK, resp.Code)
@@ -196,7 +176,7 @@ func TestBrokerStateMachineAPI_Explore(t *testing.T) {
 			name: "storage state, storage not found",
 			req:  `role=4&type=` + constants.ShardAssignment,
 			prepare: func() {
-				masterStateMgr.EXPECT().GetStorageCluster(gomock.Any()).Return(nil)
+				masterStateMgr.EXPECT().GetStorageCluster().Return(nil)
 			},
 			assert: func(resp *httptest.ResponseRecorder) {
 				assert.Equal(t, http.StatusNotFound, resp.Code)
@@ -207,7 +187,7 @@ func TestBrokerStateMachineAPI_Explore(t *testing.T) {
 			req:  `role=4&type=` + constants.ShardAssignment,
 			prepare: func() {
 				cluster := masterpkg.NewMockStorageCluster(ctrl)
-				masterStateMgr.EXPECT().GetStorageCluster(gomock.Any()).Return(cluster)
+				masterStateMgr.EXPECT().GetStorageCluster().Return(cluster)
 				cluster.EXPECT().GetLiveNodes().Return(nil, fmt.Errorf("err"))
 			},
 			assert: func(resp *httptest.ResponseRecorder) {
@@ -219,7 +199,7 @@ func TestBrokerStateMachineAPI_Explore(t *testing.T) {
 			req:  `role=4&type=` + constants.ShardAssignment,
 			prepare: func() {
 				cluster := masterpkg.NewMockStorageCluster(ctrl)
-				masterStateMgr.EXPECT().GetStorageCluster(gomock.Any()).Return(cluster)
+				masterStateMgr.EXPECT().GetStorageCluster().Return(cluster)
 				cluster.EXPECT().GetLiveNodes().Return([]models.StatefulNode{
 					{StatelessNode: models.StatelessNode{HostIP: "1.1.1.2", HTTPPort: 8080}},
 					{StatelessNode: models.StatelessNode{HostIP: "1.1.1.1", HTTPPort: 8080}},

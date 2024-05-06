@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Code generated from ./sql/grammar/SQL.g4 by ANTLR 4.12.0. DO NOT EDIT.
+// Code generated from ./sql/grammar/SQL.g4 by ANTLR 4.13.1. DO NOT EDIT.
 
 package grammar // SQL
-import "github.com/antlr/antlr4/runtime/Go/antlr/v4"
+import "github.com/antlr4-go/antlr/v4"
 
 type BaseSQLVisitor struct {
 	*antlr.BaseParseTreeVisitor
@@ -49,10 +49,6 @@ func (v *BaseSQLVisitor) VisitShowRequestsStmt(ctx *ShowRequestsStmtContext) int
 }
 
 func (v *BaseSQLVisitor) VisitShowRequestStmt(ctx *ShowRequestStmtContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseSQLVisitor) VisitShowStoragesStmt(ctx *ShowStoragesStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -184,6 +180,30 @@ func (v *BaseSQLVisitor) VisitSource(ctx *SourceContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseSQLVisitor) VisitOptionClause(ctx *OptionClauseContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLVisitor) VisitOptionPairs(ctx *OptionPairsContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLVisitor) VisitClosedOptionPairs(ctx *ClosedOptionPairsContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLVisitor) VisitOptionPair(ctx *OptionPairContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLVisitor) VisitOptionKey(ctx *OptionKeyContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLVisitor) VisitOptionValue(ctx *OptionValueContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseSQLVisitor) VisitQueryStmt(ctx *QueryStmtContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -205,10 +225,6 @@ func (v *BaseSQLVisitor) VisitField(ctx *FieldContext) interface{} {
 }
 
 func (v *BaseSQLVisitor) VisitAlias(ctx *AliasContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseSQLVisitor) VisitStorageFilter(ctx *StorageFilterContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

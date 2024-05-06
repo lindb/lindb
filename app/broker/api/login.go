@@ -20,10 +20,11 @@ package api
 import (
 	"github.com/gin-gonic/gin"
 
+	"github.com/lindb/common/pkg/http"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/http/middleware"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 var (
@@ -35,7 +36,7 @@ var (
 type LoginAPI struct {
 	user config.User
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewLoginAPI creates login api instance

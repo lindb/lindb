@@ -27,9 +27,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-http-utils/headers"
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
+	"github.com/lindb/common/pkg/ltoml"
+	"github.com/lindb/common/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 
 	"github.com/lindb/lindb/app/broker/deps"
@@ -41,8 +43,6 @@ import (
 	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/ltoml"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/series/metric"
 )

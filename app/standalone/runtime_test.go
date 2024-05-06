@@ -24,16 +24,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"go.etcd.io/etcd/server/v3/embed"
+	"go.uber.org/mock/gomock"
+
+	"github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/ltoml"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/bootstrap"
 	"github.com/lindb/lindb/internal/monitoring"
 	"github.com/lindb/lindb/internal/server"
-	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/state"
 )
 
@@ -43,7 +45,7 @@ func newDefaultStandaloneConfig(_ *testing.T) config.Standalone {
 		Coordinator: *config.NewDefaultCoordinator(),
 		StorageBase: *config.NewDefaultStorageBase(),
 		BrokerBase:  *config.NewDefaultBrokerBase(),
-		Logging:     *config.NewDefaultLogging(),
+		Logging:     *logger.NewDefaultSetting(),
 		ETCD:        *config.NewDefaultETCD(),
 		Monitor:     *config.NewDefaultMonitor(),
 	}
@@ -95,9 +97,9 @@ func TestRuntime_Run(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "create broker state failure",
+			name: "create storage state failure",
 			prepare: func(_ *config.Standalone) {
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
+				repoFct.EXPECT().CreateNormalRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
 			},
 			wantErr: true,
 		},
@@ -107,20 +109,21 @@ func TestRuntime_Run(t *testing.T) {
 			prepare: func(_ *config.Standalone) {
 				repo := state.NewMockRepository(ctrl)
 				repo.EXPECT().Close().Return(fmt.Errorf("err"))
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
+				repoFct.EXPECT().CreateNormalRepo(gomock.Any()).Return(repo, nil)
 				repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 			},
 			wantErr: true,
 		},
 		{
 
-			name: "create storage state failure",
+			name: "create broker state failure",
 			prepare: func(_ *config.Standalone) {
 				repo := state.NewMockRepository(ctrl)
 				repo.EXPECT().Close().Return(nil)
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
-				repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
-				repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(nil, fmt.Errorf("err"))
+				repoFct.EXPECT().CreateNormalRepo(gomock.Any()).Return(repo, nil)
+				repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
+				repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{{Key: "/a/b"}}, nil)
+				s.EXPECT().Run().Return(fmt.Errorf("err"))
 			},
 			wantErr: true,
 		},
@@ -129,9 +132,8 @@ func TestRuntime_Run(t *testing.T) {
 			prepare: func(_ *config.Standalone) {
 				repo := state.NewMockRepository(ctrl)
 				repo.EXPECT().Close().Return(nil).MaxTimes(2)
-				repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
+				repoFct.EXPECT().CreateNormalRepo(gomock.Any()).Return(repo, nil)
 				repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
-				repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(repo, nil)
 				repo.EXPECT().List(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
 			},
 			wantErr: true,
@@ -141,13 +143,11 @@ func TestRuntime_Run(t *testing.T) {
 			prepare: func(_ *config.Standalone) {
 				repo := state.NewMockRepository(ctrl)
 				gomock.InOrder(
-					repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil),
+					repoFct.EXPECT().CreateNormalRepo(gomock.Any()).Return(repo, nil),
 					repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil),
-					repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(repo, nil),
 					repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{{Key: "/a/b"}}, nil),
 					repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err")),
 					repo.EXPECT().Close().Return(fmt.Errorf("err")),
-					repo.EXPECT().Close().Return(nil),
 				)
 			},
 			wantErr: true,
@@ -240,10 +240,9 @@ func TestRuntime_Run(t *testing.T) {
 
 func mockCleanState(ctrl *gomock.Controller, repoFct *state.MockRepositoryFactory) {
 	repo := state.NewMockRepository(ctrl)
-	repo.EXPECT().Close().Return(nil).MaxTimes(2)
-	repoFct.EXPECT().CreateBrokerRepo(gomock.Any()).Return(repo, nil)
+	repo.EXPECT().Close().Return(nil)
 	repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
-	repoFct.EXPECT().CreateStorageRepo(gomock.Any()).Return(repo, nil)
+	repoFct.EXPECT().CreateNormalRepo(gomock.Any()).Return(repo, nil)
 	repo.EXPECT().List(gomock.Any(), gomock.Any()).Return([]state.KeyValue{{Key: "/a/b"}}, nil)
 	repo.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
 }

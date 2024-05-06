@@ -21,7 +21,6 @@ import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/query/context"
 	"github.com/lindb/lindb/query/operator"
-	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/stmt"
 )
 
@@ -62,7 +61,6 @@ func (stage *metadataSuggestStage) Plan() PlanNode {
 				MetricName: req.MetricName,
 				Condition:  req.Condition,
 			},
-			TagKeys: make(map[string]tag.KeyID),
 		}
 		if req.Condition == nil {
 			// if not tag filter condition, just get tag value by tag key

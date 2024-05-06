@@ -22,8 +22,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/pkg/encoding"
+
 	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/pkg/encoding"
 )
 
 func TestStorageStatus_MarshalJSON(t *testing.T) {
@@ -59,7 +60,7 @@ func TestBrokerState(t *testing.T) {
 }
 
 func TestStorageState(t *testing.T) {
-	storageState := NewStorageState("test")
+	storageState := NewStorageState()
 	storageState.NodeOnline(StatefulNode{
 		StatelessNode: StatelessNode{HostIP: "1.1.1.1", GRPCPort: 9000},
 		ID:            1,

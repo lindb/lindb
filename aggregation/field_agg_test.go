@@ -21,8 +21,8 @@ import (
 	"math"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/series"
@@ -57,4 +57,24 @@ func TestFieldAggregator_Aggregate(t *testing.T) {
 	agg.AggregateBySlot(11, 1.0)
 
 	agg.reset()
+}
+
+func TestFieldAggregator_uniqueAggTypes(t *testing.T) {
+	testCases := []struct {
+		input    []field.AggType
+		expected []field.AggType
+	}{
+		{[]field.AggType{field.Sum, field.Min, field.Min, field.Max, field.Count,
+			field.Count, field.First, field.Last, field.Last},
+			[]field.AggType{field.Sum, field.Count, field.Min, field.Max, field.Last, field.First}},
+		{[]field.AggType{field.Sum, field.Sum, field.Sum, field.Sum, field.Sum}, []field.AggType{field.Sum}},
+		{[]field.AggType{field.Min, field.Count, field.Sum, field.Count, field.Min},
+			[]field.AggType{field.Sum, field.Count, field.Min}},
+		{[]field.AggType{}, []field.AggType{}},
+	}
+
+	for _, e := range testCases {
+		got := uniqueAggTypes(e.input)
+		assert.ElementsMatch(t, got, e.expected)
+	}
 }

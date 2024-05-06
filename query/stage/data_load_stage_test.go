@@ -21,11 +21,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
+
+	"github.com/lindb/common/pkg/timeutil"
 
 	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/query/context"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"

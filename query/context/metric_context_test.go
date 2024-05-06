@@ -25,10 +25,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/models"
+	"github.com/lindb/common/pkg/encoding"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/query/tracker"
 	"github.com/lindb/lindb/series/field"

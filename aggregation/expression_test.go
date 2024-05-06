@@ -20,8 +20,9 @@ package aggregation
 import (
 	"testing"
 
-	"github.com/golang/mock/gomock"
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -31,16 +32,16 @@ import (
 	"github.com/lindb/lindb/sql/stmt"
 )
 
-var now, _ = timeutil.ParseTimestamp("20190702 19:10:00", "20060102 15:04:05")
+var now, _ = commontimeutil.ParseTimestamp("20190702 19:10:00", "20060102 15:04:05")
 
-var familyTime, _ = timeutil.ParseTimestamp("20190702 19:00:00", "20060102 15:04:05")
+var familyTime, _ = commontimeutil.ParseTimestamp("20190702 19:00:00", "20060102 15:04:05")
 
 func TestExpression_prepare(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	sumSeries := mockTimeSeries(ctrl, familyTime, "f1", field.SumField, field.Sum)
-	maxSeries := mockTimeSeries(ctrl, familyTime+timeutil.OneHour, "f2", field.MinField, field.Min)
+	maxSeries := mockTimeSeries(ctrl, familyTime+commontimeutil.OneHour, "f2", field.MinField, field.Min)
 	timeSeries := series.NewMockGroupedIterator(ctrl)
 
 	// case 1: text express
@@ -48,8 +49,8 @@ func TestExpression_prepare(t *testing.T) {
 	query := q.(*stmt.Query)
 	expression := NewExpression(timeutil.TimeRange{
 		Start: now,
-		End:   now + timeutil.OneHour*2,
-	}, timeutil.OneMinute, query.SelectItems)
+		End:   now + commontimeutil.OneHour*2,
+	}, commontimeutil.OneMinute, query.SelectItems)
 	gomock.InOrder(
 		timeSeries.EXPECT().HasNext().Return(true),
 		timeSeries.EXPECT().Next().Return(sumSeries),
@@ -78,8 +79,8 @@ func TestExpression_prepare(t *testing.T) {
 	// case 3: test new expression for nil eval
 	expression = NewExpression(timeutil.TimeRange{
 		Start: now,
-		End:   now + timeutil.OneHour*2,
-	}, timeutil.OneMinute, query.SelectItems)
+		End:   now + commontimeutil.OneHour*2,
+	}, commontimeutil.OneMinute, query.SelectItems)
 	expression.Eval(nil)
 	resultSet = expression.ResultSet()
 	assert.Equal(t, 0, len(resultSet))
@@ -98,7 +99,7 @@ func TestExpression_prepare(t *testing.T) {
 
 	// case 5: test no match field
 	sumSeries = mockTimeSeries(ctrl, familyTime, "f3", field.SumField, field.Sum)
-	maxSeries = mockTimeSeries(ctrl, familyTime+timeutil.OneHour, "f4", field.MinField, field.Min)
+	maxSeries = mockTimeSeries(ctrl, familyTime+commontimeutil.OneHour, "f4", field.MinField, field.Min)
 	gomock.InOrder(
 		timeSeries.EXPECT().HasNext().Return(true),
 		timeSeries.EXPECT().Next().Return(sumSeries),
@@ -110,8 +111,8 @@ func TestExpression_prepare(t *testing.T) {
 	query = q.(*stmt.Query)
 	expression = NewExpression(timeutil.TimeRange{
 		Start: now,
-		End:   now + timeutil.OneHour*2,
-	}, timeutil.OneMinute, query.SelectItems)
+		End:   now + commontimeutil.OneHour*2,
+	}, commontimeutil.OneMinute, query.SelectItems)
 	expression.Eval(timeSeries)
 	resultSet = expression.ResultSet()
 	assert.Equal(t, 0, len(resultSet))
@@ -130,8 +131,8 @@ func TestExpression_Paren(t *testing.T) {
 	query := q.(*stmt.Query)
 	expression := NewExpression(timeutil.TimeRange{
 		Start: now,
-		End:   now + timeutil.OneHour*2,
-	}, timeutil.OneMinute, query.SelectItems)
+		End:   now + commontimeutil.OneHour*2,
+	}, commontimeutil.OneMinute, query.SelectItems)
 	gomock.InOrder(
 		timeSeries.EXPECT().HasNext().Return(true),
 		timeSeries.EXPECT().Next().Return(series1),
@@ -162,8 +163,8 @@ func TestExpression_BinaryEval(t *testing.T) {
 	query := q.(*stmt.Query)
 	expression := NewExpression(timeutil.TimeRange{
 		Start: now,
-		End:   now + timeutil.OneHour*2,
-	}, timeutil.OneMinute, query.SelectItems)
+		End:   now + commontimeutil.OneHour*2,
+	}, commontimeutil.OneMinute, query.SelectItems)
 	gomock.InOrder(
 		timeSeries.EXPECT().HasNext().Return(true),
 		timeSeries.EXPECT().Next().Return(series1),
@@ -184,8 +185,8 @@ func TestExpression_BinaryEval(t *testing.T) {
 	query = q.(*stmt.Query)
 	expression = NewExpression(timeutil.TimeRange{
 		Start: now,
-		End:   now + timeutil.OneHour*2,
-	}, timeutil.OneMinute, query.SelectItems)
+		End:   now + commontimeutil.OneHour*2,
+	}, commontimeutil.OneMinute, query.SelectItems)
 	gomock.InOrder(
 		timeSeries.EXPECT().HasNext().Return(true),
 		timeSeries.EXPECT().Next().Return(series1),
@@ -206,8 +207,8 @@ func TestExpression_BinaryEval(t *testing.T) {
 	series1 = mockTimeSeries(ctrl, familyTime, "f1", field.SumField, field.Sum)
 	expression = NewExpression(timeutil.TimeRange{
 		Start: now,
-		End:   now + timeutil.OneHour*2,
-	}, timeutil.OneMinute, query.SelectItems)
+		End:   now + commontimeutil.OneHour*2,
+	}, commontimeutil.OneMinute, query.SelectItems)
 	gomock.InOrder(
 		timeSeries.EXPECT().HasNext().Return(true),
 		timeSeries.EXPECT().Next().Return(series1),
@@ -221,8 +222,8 @@ func TestExpression_BinaryEval(t *testing.T) {
 	series2 = mockTimeSeries(ctrl, familyTime, "f2", field.MinField, field.Min)
 	expression = NewExpression(timeutil.TimeRange{
 		Start: now,
-		End:   now + timeutil.OneHour*2,
-	}, timeutil.OneMinute, query.SelectItems)
+		End:   now + commontimeutil.OneHour*2,
+	}, commontimeutil.OneMinute, query.SelectItems)
 	gomock.InOrder(
 		timeSeries.EXPECT().HasNext().Return(true),
 		timeSeries.EXPECT().Next().Return(series2),
@@ -237,8 +238,8 @@ func TestExpression_BinaryEval(t *testing.T) {
 	series2 = mockTimeSeries(ctrl, familyTime, "f2", field.MinField, field.Min)
 	expression = NewExpression(timeutil.TimeRange{
 		Start: now,
-		End:   now + timeutil.OneHour*2,
-	}, timeutil.OneMinute, []stmt.Expr{&stmt.SelectItem{Expr: &stmt.BinaryExpr{
+		End:   now + commontimeutil.OneHour*2,
+	}, commontimeutil.OneMinute, []stmt.Expr{&stmt.SelectItem{Expr: &stmt.BinaryExpr{
 		Left:     &stmt.FieldExpr{Name: "f1"},
 		Operator: stmt.AND,
 		Right:    &stmt.FieldExpr{Name: "f2"},
@@ -266,8 +267,8 @@ func TestExpression_FuncCall_Sum(t *testing.T) {
 	query := q.(*stmt.Query)
 	expression := NewExpression(timeutil.TimeRange{
 		Start: now,
-		End:   now + timeutil.OneHour*2,
-	}, timeutil.OneMinute, query.SelectItems)
+		End:   now + commontimeutil.OneHour*2,
+	}, commontimeutil.OneMinute, query.SelectItems)
 	gomock.InOrder(
 		timeSeries.EXPECT().HasNext().Return(true),
 		timeSeries.EXPECT().Next().Return(series1),
@@ -285,8 +286,8 @@ func TestExpression_FuncCall_Sum(t *testing.T) {
 	series1 = mockTimeSeries(ctrl, familyTime, "f2", field.SumField, field.Sum)
 	expression = NewExpression(timeutil.TimeRange{
 		Start: now,
-		End:   now + timeutil.OneHour*2,
-	}, timeutil.OneMinute, query.SelectItems)
+		End:   now + commontimeutil.OneHour*2,
+	}, commontimeutil.OneMinute, query.SelectItems)
 	gomock.InOrder(
 		timeSeries.EXPECT().HasNext().Return(true),
 		timeSeries.EXPECT().Next().Return(series1),
@@ -299,8 +300,8 @@ func TestExpression_FuncCall_Sum(t *testing.T) {
 	series1 = mockTimeSeries(ctrl, familyTime, "f2", field.SumField, field.Sum)
 	expression = NewExpression(timeutil.TimeRange{
 		Start: now,
-		End:   now + timeutil.OneHour*2,
-	}, timeutil.OneMinute, []stmt.Expr{&stmt.SelectItem{Expr: &stmt.CallExpr{
+		End:   now + commontimeutil.OneHour*2,
+	}, commontimeutil.OneMinute, []stmt.Expr{&stmt.SelectItem{Expr: &stmt.CallExpr{
 		FuncType: function.Sum,
 	}}})
 	gomock.InOrder(
@@ -324,8 +325,8 @@ func TestExpression_FuncCall_Rate(t *testing.T) {
 	query := q.(*stmt.Query)
 	expression := NewExpression(timeutil.TimeRange{
 		Start: now,
-		End:   now + timeutil.OneHour*2,
-	}, timeutil.OneMinute, query.SelectItems)
+		End:   now + commontimeutil.OneHour*2,
+	}, commontimeutil.OneMinute, query.SelectItems)
 	gomock.InOrder(
 		timeSeries.EXPECT().HasNext().Return(true),
 		timeSeries.EXPECT().Next().Return(series1),
@@ -345,8 +346,8 @@ func TestExpression_NotSupport_Expr(t *testing.T) {
 	defer ctrl.Finish()
 	expression := NewExpression(timeutil.TimeRange{
 		Start: now,
-		End:   now + timeutil.OneHour*2,
-	}, timeutil.OneMinute, []stmt.Expr{})
+		End:   now + commontimeutil.OneHour*2,
+	}, commontimeutil.OneMinute, []stmt.Expr{})
 	expression.Eval(nil)
 	resultSet := expression.ResultSet()
 	assert.Equal(t, 0, len(resultSet))
@@ -355,8 +356,8 @@ func TestExpression_NotSupport_Expr(t *testing.T) {
 	series1 := mockTimeSeries(ctrl, familyTime, "f1", field.SumField, field.Sum)
 	expression = NewExpression(timeutil.TimeRange{
 		Start: now,
-		End:   now + timeutil.OneHour*2,
-	}, timeutil.OneMinute, []stmt.Expr{&stmt.EqualsExpr{}})
+		End:   now + commontimeutil.OneHour*2,
+	}, commontimeutil.OneMinute, []stmt.Expr{&stmt.EqualsExpr{}})
 	gomock.InOrder(
 		timeSeries.EXPECT().HasNext().Return(true),
 		timeSeries.EXPECT().Next().Return(series1),

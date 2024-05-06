@@ -20,19 +20,21 @@ package tsdb
 import (
 	"context"
 	"fmt"
+	"os"
 	"path"
 	"strings"
 	"sync"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/atomic"
+	"go.uber.org/mock/gomock"
+
+	"github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/ltoml"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/option"
 )
 
@@ -40,12 +42,16 @@ var writeConfigTestLock sync.Mutex
 
 func withTestPath(dir string) {
 	cfg := config.GlobalStorageConfig()
-	cfg.TSDB.Dir = dir
+	cfg.TSDB.Dir = path.Join("test", dir)
 }
 
 func TestEngine_New(t *testing.T) {
+	withTestPath("new_engine")
 	writeConfigTestLock.Lock()
-	defer writeConfigTestLock.Unlock()
+	defer func() {
+		writeConfigTestLock.Unlock()
+		_ = os.RemoveAll("./test")
+	}()
 
 	cases := []struct {
 		name    string
@@ -116,12 +122,12 @@ func TestEngine_createDatabase(t *testing.T) {
 	writeConfigTestLock.Lock()
 	defer writeConfigTestLock.Unlock()
 	ctrl := gomock.NewController(t)
-	tmpDir := t.TempDir()
 	defer func() {
 		mkDirIfNotExist = fileutil.MkDirIfNotExist
 		fileExist = fileutil.Exist
 		decodeToml = ltoml.DecodeToml
 		ctrl.Finish()
+		_ = os.RemoveAll("./test")
 	}()
 
 	t.Run("create database successfully", func(t *testing.T) {
@@ -134,7 +140,7 @@ func TestEngine_createDatabase(t *testing.T) {
 			return mockDB, nil
 		}
 		mockDB.EXPECT().SetLimits(gomock.Any()).AnyTimes()
-		withTestPath(path.Join(tmpDir, "new"))
+		withTestPath("new")
 		e, err := NewEngine()
 		assert.NoError(t, err)
 		assert.NotNil(t, e)
@@ -176,7 +182,7 @@ func TestEngine_createDatabase(t *testing.T) {
 			return mockDB, nil
 		}
 		mockDB.EXPECT().SetLimits(gomock.Any()).AnyTimes()
-		withTestPath(path.Join(tmpDir, "re-open"))
+		withTestPath("re-open")
 		e, err := NewEngine()
 		assert.NoError(t, err)
 		assert.NotNil(t, e)
@@ -245,14 +251,14 @@ func TestEngine_createDatabase(t *testing.T) {
 
 func Test_Engine_Close(t *testing.T) {
 	writeConfigTestLock.Lock()
-	defer writeConfigTestLock.Unlock()
-
-	tmpDir := t.TempDir()
-
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	defer func() {
+		writeConfigTestLock.Unlock()
+		_ = os.RemoveAll("./test")
+		ctrl.Finish()
+	}()
 
-	withTestPath(tmpDir)
+	withTestPath("close")
 
 	e, _ := NewEngine()
 	engineImpl := e.(*engine)
@@ -268,12 +274,14 @@ func Test_Engine_Close(t *testing.T) {
 
 func Test_Engine_Flush_Database(t *testing.T) {
 	writeConfigTestLock.Lock()
-	defer writeConfigTestLock.Unlock()
-
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	defer func() {
+		writeConfigTestLock.Unlock()
+		ctrl.Finish()
+		_ = os.RemoveAll("./test")
+	}()
 
-	withTestPath(t.TempDir())
+	withTestPath("flush")
 
 	e, _ := NewEngine()
 	engineImpl := e.(*engine)
@@ -295,7 +303,10 @@ func Test_Engine_Flush_Database(t *testing.T) {
 
 func TestEngine_DropDatabases(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	defer func() {
+		ctrl.Finish()
+		_ = os.RemoveAll("./test")
+	}()
 
 	e, _ := NewEngine()
 	engineImpl := e.(*engine)
@@ -316,7 +327,10 @@ func TestEngine_DropDatabases(t *testing.T) {
 
 func TestEngine_TTL(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	defer func() {
+		ctrl.Finish()
+		_ = os.RemoveAll("./test")
+	}()
 
 	e, _ := NewEngine()
 	engineImpl := e.(*engine)
@@ -328,7 +342,10 @@ func TestEngine_TTL(t *testing.T) {
 
 func TestEngine_EvictSegment(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	defer func() {
+		ctrl.Finish()
+		_ = os.RemoveAll("./test")
+	}()
 
 	e, _ := NewEngine()
 	engineImpl := e.(*engine)
@@ -343,6 +360,7 @@ func TestEngine_CreateShards(t *testing.T) {
 	defer func() {
 		fileExist = fileutil.Exist
 		ctrl.Finish()
+		_ = os.RemoveAll("./test")
 	}()
 	fileExist = func(file string) bool {
 		return false
@@ -429,6 +447,7 @@ func TestEngine_SetDatabaseLimits(t *testing.T) {
 	defer func() {
 		ctrl.Finish()
 		writeConfigFn = ltoml.WriteConfig
+		_ = os.RemoveAll("./test")
 	}()
 
 	writeConfigFn = func(fileName, content string) error {

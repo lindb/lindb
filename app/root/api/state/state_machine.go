@@ -20,10 +20,11 @@ package state
 import (
 	"github.com/gin-gonic/gin"
 
+	"github.com/lindb/common/pkg/http"
+	"github.com/lindb/common/pkg/logger"
+
 	depspkg "github.com/lindb/lindb/app/root/deps"
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/pkg/http"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 var (
@@ -38,7 +39,7 @@ type Param struct {
 // RootStateMachineAPI represents state machine explore api.
 type RootStateMachineAPI struct {
 	deps   *depspkg.HTTPDeps
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewRootStateMachineAPI creates root state machine api instance.

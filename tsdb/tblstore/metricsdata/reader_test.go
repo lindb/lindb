@@ -22,8 +22,8 @@ import (
 	"math"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/roaring"
 
@@ -71,8 +71,8 @@ func TestNewReader(t *testing.T) {
 	seriesIDs.Add(65536 + 10)
 	assert.EqualValues(t, seriesIDs.ToArray(), r.GetSeriesIDs().ToArray())
 	// case 4: unmarshal series ids err
-	encoding.BitmapUnmarshal = func(bitmap *roaring.Bitmap, data []byte) error {
-		return fmt.Errorf("err")
+	encoding.BitmapUnmarshal = func(bitmap *roaring.Bitmap, data []byte) (int64, error) {
+		return 0, fmt.Errorf("err")
 	}
 	r, err = NewReader("1.sst", mockMetricBlock())
 	assert.Error(t, err)
@@ -135,7 +135,7 @@ func TestReader_Load(t *testing.T) {
 				Query:  &stmt.Query{},
 			},
 		},
-		DownSampling: func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, getter encoding.TSDValueGetter) {
+		DownSampling: func(slotRange timeutil.SlotRange, _ uint16, _ int, getter encoding.TSDValueGetter) {
 			assert.Equal(t, timeutil.SlotRange{Start: 5, End: 5}, slotRange)
 			for movingSourceSlot := slotRange.Start; movingSourceSlot <= slotRange.End; movingSourceSlot++ {
 				if _, ok := getter.GetValue(movingSourceSlot); !ok {
@@ -150,6 +150,7 @@ func TestReader_Load(t *testing.T) {
 	scanner = r.Load(ctx)
 	// case 5: load data success, metric has one field
 	r, err = NewReader("1.sst", mockMetricBlockForOneField())
+	assert.NotNil(t, r)
 	assert.NoError(t, err)
 	ctx.ShardExecuteCtx.StorageExecuteCtx.Fields = field.Metas{{ID: 2}}
 	ctx.Grouping()

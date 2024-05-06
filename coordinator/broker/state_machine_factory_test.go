@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
@@ -117,26 +117,6 @@ func TestStateMachineFactory_OnNode(t *testing.T) {
 		Value: []byte("value"),
 	})
 	fct1.onNodeStartup("/key", []byte("value"))
-}
-
-func TestStateMachineFactory_OnStorage(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	stateMgr := NewMockStateManager(ctrl)
-	fct := NewStateMachineFactory(context.TODO(), nil, stateMgr)
-	fct1 := fct.(*stateMachineFactory)
-	stateMgr.EXPECT().EmitEvent(&discovery.Event{
-		Type: discovery.StorageStateDeletion,
-		Key:  "/key",
-	})
-	fct1.onStorageDeletion("/key")
-	stateMgr.EXPECT().EmitEvent(&discovery.Event{
-		Type:  discovery.StorageStateChanged,
-		Key:   "/key",
-		Value: []byte("value"),
-	})
-	fct1.onStorageStateChange("/key", []byte("value"))
 }
 
 func TestStateMachineFactory_CreateState(t *testing.T) {

@@ -23,6 +23,7 @@ import (
 	"strconv"
 
 	"github.com/lindb/common/pkg/fasttime"
+	"github.com/lindb/common/pkg/timeutil"
 	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
 	commonseries "github.com/lindb/common/series"
 
@@ -30,7 +31,6 @@ import (
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/strutil"
-	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 var (

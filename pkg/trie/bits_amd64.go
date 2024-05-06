@@ -19,15 +19,9 @@
 
 package trie
 
-import (
-	"golang.org/x/sys/cpu"
-)
+import "github.com/klauspost/cpuid"
 
-var (
-	hasBMI2 = cpu.X86.HasBMI2
-)
-
-var _ = hasBMI2
+var hasBMI2 = cpuid.CPU.BMI2() //nolint:unused
 
 // go:noescape
 func select64(x uint64, k int64) int64

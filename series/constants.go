@@ -17,7 +17,9 @@
 
 package series
 
-import "math"
+import (
+	"math"
+)
 
 const (
 	// EmptySeriesID represents empty value of series.

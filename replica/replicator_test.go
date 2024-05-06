@@ -20,12 +20,13 @@ package replica
 import (
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
+
+	"github.com/lindb/common/pkg/timeutil"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/queue"
-	"github.com/lindb/lindb/pkg/timeutil"
 )
 
 func TestReplicator_String(t *testing.T) {

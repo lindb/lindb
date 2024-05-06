@@ -20,12 +20,12 @@ package stage
 import (
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
+	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/indexdb"
 )
 
 func TestShardLookupStage(t *testing.T) {
@@ -33,8 +33,8 @@ func TestShardLookupStage(t *testing.T) {
 	defer ctrl.Finish()
 
 	shard := tsdb.NewMockShard(ctrl)
-	indexDB := indexdb.NewMockIndexDatabase(ctrl)
-	shard.EXPECT().IndexDatabase().Return(indexDB)
+	indexDB := index.NewMockMetricIndexDatabase(ctrl)
+	shard.EXPECT().IndexDB().Return(indexDB)
 
 	s := NewShardLookupStage(nil, nil, shard)
 	assert.NotNil(t, s.Plan())

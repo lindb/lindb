@@ -152,8 +152,9 @@ func (m *merger) prepare(metricBlocks [][]byte) (*mergerContext, error) {
 		}
 		// merge target fields under metric level
 		for _, f := range reader.GetFields() {
+			// FIXME: sort it????
 			if _, ok := ctx.targetFields.GetFromID(f.ID); !ok {
-				ctx.targetFields = ctx.targetFields.Insert(f)
+				ctx.targetFields = append(ctx.targetFields, f)
 			}
 		}
 		// create data scanner

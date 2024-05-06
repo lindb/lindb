@@ -22,11 +22,11 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
 )
 
@@ -34,6 +34,7 @@ import (
 
 // NewStateMachineFn represents new state machine function.
 var NewStateMachineFn = NewStateMachine
+
 var log = logger.GetLogger("Discovery", "StateMachine")
 
 // StateMachineType represents state machine type.
@@ -122,7 +123,7 @@ type stateMachine struct {
 
 	running *atomic.Bool
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewStateMachine creates a state machine instance.
@@ -189,7 +190,7 @@ func (sm *stateMachine) OnDelete(key string) {
 
 // Close closes state machine, stops watch change event.
 func (sm *stateMachine) Close() error {
-	if sm.running.CAS(true, false) {
+	if sm.running.CompareAndSwap(true, false) {
 		defer func() {
 			sm.cancel()
 		}()
@@ -204,8 +205,10 @@ func (sm *stateMachine) Close() error {
 
 // ExploreData explores state repository data by given path.
 func ExploreData(ctx context.Context, repo state.Repository, stateMachineInfo models.StateMachineInfo) (interface{}, error) {
+	fmt.Println(stateMachineInfo.Path)
 	var rs []interface{}
 	err := repo.WalkEntry(ctx, stateMachineInfo.Path, func(key, value []byte) {
+		fmt.Println("get data....")
 		r := stateMachineInfo.CreateState()
 		err0 := encoding.JSONUnmarshal(value, r)
 		if err0 != nil {

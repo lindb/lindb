@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	commonconstants "github.com/lindb/common/constants"
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
 
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -358,9 +359,9 @@ func TestTimeRange(t *testing.T) {
 	query := q.(*stmt.Query)
 	assert.NoError(t, err)
 	assert.Equal(t, "cpu", query.MetricName)
-	startTime, _ := timeutil.ParseTimestamp("20190410 00:00:00")
+	startTime, _ := commontimeutil.ParseTimestamp("20190410 00:00:00")
 	assert.Equal(t, startTime, query.TimeRange.Start)
-	endTime, _ := timeutil.ParseTimestamp("20190410 10:00:00")
+	endTime, _ := commontimeutil.ParseTimestamp("20190410 10:00:00")
 	assert.Equal(t, endTime, query.TimeRange.End)
 
 	// error for start > end
@@ -379,32 +380,32 @@ func TestInterval(t *testing.T) {
 	q, _ = Parse(sql)
 	query = q.(*stmt.Query)
 	assert.NoError(t, err)
-	assert.Equal(t, timeutil.Interval(100*timeutil.OneSecond), query.Interval)
+	assert.Equal(t, timeutil.Interval(100*commontimeutil.OneSecond), query.Interval)
 	sql = "select f from cpu group by time(1m)"
 	q, _ = Parse(sql)
 	query = q.(*stmt.Query)
 	assert.NoError(t, err)
-	assert.Equal(t, timeutil.Interval(timeutil.OneMinute), query.Interval)
+	assert.Equal(t, timeutil.Interval(commontimeutil.OneMinute), query.Interval)
 	sql = "select f from cpu group by time(1d)"
 	q, _ = Parse(sql)
 	query = q.(*stmt.Query)
 	assert.NoError(t, err)
-	assert.Equal(t, timeutil.Interval(timeutil.OneDay), query.Interval)
+	assert.Equal(t, timeutil.Interval(commontimeutil.OneDay), query.Interval)
 	sql = "select f from cpu group by time(1w)"
 	q, _ = Parse(sql)
 	query = q.(*stmt.Query)
 	assert.NoError(t, err)
-	assert.Equal(t, timeutil.Interval(timeutil.OneWeek), query.Interval)
+	assert.Equal(t, timeutil.Interval(commontimeutil.OneWeek), query.Interval)
 	sql = "select f from cpu group by time(1M)"
 	q, _ = Parse(sql)
 	query = q.(*stmt.Query)
 	assert.NoError(t, err)
-	assert.Equal(t, timeutil.Interval(timeutil.OneMonth), query.Interval)
+	assert.Equal(t, timeutil.Interval(commontimeutil.OneMonth), query.Interval)
 	sql = "select f from cpu group by time(1y)"
 	q, _ = Parse(sql)
 	query = q.(*stmt.Query)
 	assert.NoError(t, err)
-	assert.Equal(t, timeutil.Interval(timeutil.OneYear), query.Interval)
+	assert.Equal(t, timeutil.Interval(commontimeutil.OneYear), query.Interval)
 	assert.False(t, query.AutoGroupByTime)
 
 	sql = "select f from cpu group by time()"
@@ -672,4 +673,38 @@ func TestOrderBy(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestHaving(t *testing.T) {
+	sql := "select f from cpu where host='1.1.1.1' group by host,ip having x*2 > 3.5 and m*(n*4.1) < 5"
+	q, err := Parse(sql)
+	query := q.(*stmt.Query)
+	assert.Nil(t, err)
+
+	calc := NewCalc(query.Having)
+	result, err := calc.CalcExpr(map[string]float64{
+		"x": 2,
+		"m": 2,
+		"n": 1.1,
+	})
+	assert.Nil(t, err)
+	assert.IsType(t, true, result)
+	assert.False(t, result.(bool))
+
+	sql = "select f from cpu where host='1.1.1.1' group by host,ip having (x*2 > 3.5 or m*(n*4.1) < 5) and a*b > 99.7"
+	q, err = Parse(sql)
+	query = q.(*stmt.Query)
+	assert.Nil(t, err)
+
+	calc = NewCalc(query.Having)
+	result, err = calc.CalcExpr(map[string]float64{
+		"x": 2,
+		"m": 2,
+		"n": 1.1,
+		"a": 9.99,
+		"b": 9.99,
+	})
+	assert.Nil(t, err)
+	assert.IsType(t, true, result)
+	assert.True(t, result.(bool))
 }

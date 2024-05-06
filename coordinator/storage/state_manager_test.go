@@ -23,31 +23,32 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
+	"github.com/lindb/common/pkg/encoding"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/tsdb"
 )
 
 func TestStateManager_Close(t *testing.T) {
-	mgr := NewStateManager(context.TODO(), &models.StatefulNode{}, nil)
+	mgr := NewStateManager(context.TODO(), nil, &models.StatefulNode{}, nil)
 	mgr.Close()
 }
 
 func TestStateManager_Handle_Event_Panic(t *testing.T) {
-	mgr := NewStateManager(context.TODO(), &models.StatefulNode{ID: 1}, nil)
+	mgr := NewStateManager(context.TODO(), nil, &models.StatefulNode{ID: 1}, nil)
 	// case 1: panic
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.ShardAssignmentChanged,
 		Key:  "/shard/assign/test",
-		Value: encoding.JSONMarshal(&models.DatabaseAssignment{ShardAssignment: &models.ShardAssignment{
+		Value: encoding.JSONMarshal(&models.ShardAssignment{
 			Name:   "test",
 			Shards: map[models.ShardID]*models.Replica{1: {Replicas: []models.NodeID{1, 2, 3}}},
-		}}),
+		}),
 	})
 	time.Sleep(100 * time.Millisecond)
 	mgr.Close()
@@ -66,7 +67,7 @@ func TestStateManager_Node(t *testing.T) {
 	}
 
 	c := 0
-	mgr := NewStateManager(context.TODO(), &models.StatefulNode{ID: 1}, nil)
+	mgr := NewStateManager(context.TODO(), nil, &models.StatefulNode{ID: 1}, nil)
 	// test register nil event handler
 	mgr.WatchNodeStateChangeEvent(models.NodeID(1), nil)
 	mgr.WatchNodeStateChangeEvent(models.NodeID(1), func(_ models.NodeStateType) {
@@ -137,27 +138,49 @@ func TestStateManager_OnShardAssignment(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	repo := state.NewMockRepository(ctrl)
 	engine := tsdb.NewMockEngine(ctrl)
-	mgr := NewStateManager(context.TODO(), &models.StatefulNode{ID: 1}, engine)
+	mgr := NewStateManager(context.TODO(), repo, &models.StatefulNode{ID: 1}, engine)
 	// case 1: create shard storage engine err
+	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return([]byte("{}"), nil)
 	engine.EXPECT().CreateShards(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.ShardAssignmentChanged,
 		Key:  "/shard/assign/test",
-		Value: encoding.JSONMarshal(&models.DatabaseAssignment{ShardAssignment: &models.ShardAssignment{
+		Value: encoding.JSONMarshal(&models.ShardAssignment{
 			Name:   "test",
 			Shards: map[models.ShardID]*models.Replica{1: {Replicas: []models.NodeID{1, 2, 3}}},
-		}}),
+		}),
+	})
+	// case 2: get db config err
+	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+	mgr.EmitEvent(&discovery.Event{
+		Type: discovery.ShardAssignmentChanged,
+		Key:  "/shard/assign/test",
+		Value: encoding.JSONMarshal(&models.ShardAssignment{
+			Name:   "test",
+			Shards: map[models.ShardID]*models.Replica{1: {Replicas: []models.NodeID{1, 2, 3}}},
+		}),
+	})
+	// case 2: unmarshal db config err
+	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return([]byte("abc"), nil)
+	mgr.EmitEvent(&discovery.Event{
+		Type: discovery.ShardAssignmentChanged,
+		Key:  "/shard/assign/test",
+		Value: encoding.JSONMarshal(&models.ShardAssignment{
+			Name:   "test",
+			Shards: map[models.ShardID]*models.Replica{1: {Replicas: []models.NodeID{1, 2, 3}}},
+		}),
 	})
 	// case 1: create shard storage engine successfully
+	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return([]byte("{}"), nil)
 	engine.EXPECT().CreateShards(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.ShardAssignmentChanged,
 		Key:  "/shard/assign/test",
-		Value: encoding.JSONMarshal(&models.DatabaseAssignment{ShardAssignment: &models.ShardAssignment{
-			Name:   "test",
+		Value: encoding.JSONMarshal(&models.ShardAssignment{Name: "test",
 			Shards: map[models.ShardID]*models.Replica{1: {Replicas: []models.NodeID{1, 2, 3}}},
-		}}),
+		}),
 	})
 	// case 1: unmarshal shard assign err
 	mgr.EmitEvent(&discovery.Event{
@@ -169,19 +192,19 @@ func TestStateManager_OnShardAssignment(t *testing.T) {
 	mgr.EmitEvent(&discovery.Event{
 		Type:  discovery.ShardAssignmentChanged,
 		Key:   "/shard/assign/test",
-		Value: encoding.JSONMarshal(&models.DatabaseAssignment{}),
+		Value: encoding.JSONMarshal(&models.ShardAssignment{}),
 	})
 	// case 3: other replica
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.ShardAssignmentChanged,
 		Key:  "/shard/assign/test",
-		Value: encoding.JSONMarshal(&models.DatabaseAssignment{ShardAssignment: &models.ShardAssignment{
+		Value: encoding.JSONMarshal(&models.ShardAssignment{
 			Name:   "test",
 			Shards: map[models.ShardID]*models.Replica{1: {Replicas: []models.NodeID{2, 3}}},
-		}}),
+		}),
 	})
 	time.Sleep(100 * time.Millisecond)
-	assert.Len(t, mgr.GetDatabaseAssignments(), 1)
+	assert.Len(t, mgr.GetShardAssignments(), 1)
 	mgr.Close()
 }
 
@@ -190,7 +213,7 @@ func TestStateManager_onDatabaseLimits(t *testing.T) {
 	defer ctrl.Finish()
 
 	engine := tsdb.NewMockEngine(ctrl)
-	mgr := NewStateManager(context.TODO(), nil, engine)
+	mgr := NewStateManager(context.TODO(), nil, nil, engine)
 
 	// case 1: decode limit failure
 	mgr.EmitEvent(&discovery.Event{

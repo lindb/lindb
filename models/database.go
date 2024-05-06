@@ -23,6 +23,8 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 
+	"github.com/lindb/common/models"
+
 	"github.com/lindb/lindb/pkg/option"
 )
 
@@ -34,7 +36,7 @@ func (dbs DatabaseNames) ToTable() (rows int, tableStr string) {
 	if len(dbs) == 0 {
 		return 0, ""
 	}
-	writer := NewTableFormatter()
+	writer := models.NewTableFormatter()
 	writer.AppendHeader(table.Row{"Database"})
 	for i := range dbs {
 		r := dbs[i]
@@ -51,11 +53,11 @@ func (dbs Databases) ToTable() (rows int, tableStr string) {
 	if len(dbs) == 0 {
 		return 0, ""
 	}
-	writer := NewTableFormatter()
-	writer.AppendHeader(table.Row{"Name", "Storage", "Desc"})
+	writer := models.NewTableFormatter()
+	writer.AppendHeader(table.Row{"Name", "Desc"})
 	for i := range dbs {
 		r := dbs[i]
-		writer.AppendRow(table.Row{r.Name, r.Storage, r.Desc})
+		writer.AppendRow(table.Row{r.Name, r.Desc})
 	}
 	return len(dbs), writer.Render()
 }
@@ -97,7 +99,6 @@ type LogicDatabase struct {
 // Database defines database config.
 type Database struct {
 	Name          string                 `json:"name" validate:"required"`      // database's name
-	Storage       string                 `json:"storage" validate:"required"`   // storage cluster's name
 	NumOfShard    int                    `json:"numOfShard" validate:"gt=0"`    // num. of shard
 	ReplicaFactor int                    `json:"replicaFactor" validate:"gt=0"` // replica refactor
 	Option        *option.DatabaseOption `json:"option"`                        // time series database option
@@ -110,11 +111,6 @@ func (db *Database) String() string {
 	result += "shard " + fmt.Sprintf("%d", db.NumOfShard) + ", replica " + fmt.Sprintf("%d", db.ReplicaFactor)
 	result += ", intervals " + db.Option.Intervals.String()
 	return result
-}
-
-type DatabaseAssignment struct {
-	ShardAssignment *ShardAssignment       `json:"shardAssignment"`
-	Option          *option.DatabaseOption `json:"option"`
 }
 
 // Replica defines replica list for spec shard of database.

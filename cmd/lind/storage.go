@@ -20,18 +20,18 @@ package main
 import (
 	"fmt"
 
+	"github.com/lindb/common/pkg/ltoml"
 	"github.com/spf13/cobra"
 
 	"github.com/lindb/lindb/app/storage"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/ltoml"
 )
 
 const (
 	storageCfgName        = "storage.toml"
 	storageLogFileName    = "lind-storage.log"
-	defaultStorageCfgFile = "./" + storageCfgName
+	defaultStorageCfgFile = currentDir + storageCfgName
 )
 
 var runStorageCmd = &cobra.Command{

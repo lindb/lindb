@@ -24,12 +24,12 @@ import (
 	"os"
 	"sort"
 
+	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 //go:generate mockgen -source ./reader.go -destination=./reader_mock.go -package table
@@ -140,7 +140,7 @@ func (r *storeMMapReader) initialize() error {
 		return fmt.Errorf("unmarshal fixed-offsets decoder with error: %s", err)
 	}
 	// decode keys
-	if err := encoding.BitmapUnmarshal(r.keys, r.fullBlock[posOfKeys:]); err != nil {
+	if _, err := encoding.BitmapUnmarshal(r.keys, r.fullBlock[posOfKeys:]); err != nil {
 		return fmt.Errorf("unmarshal keys data from file[%s] error:%s", r.path, err)
 	}
 	// validate keys and offsets

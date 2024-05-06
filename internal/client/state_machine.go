@@ -23,9 +23,10 @@ import (
 
 	resty "github.com/go-resty/resty/v2"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 //go:generate mockgen -source=./state_machine.go -destination=./state_machine_mock.go -package=client
@@ -40,7 +41,7 @@ type StateMachineCli interface {
 
 // stateMachineCli implements StateMachineCli interface.
 type stateMachineCli struct {
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewStateMachineCli creates a state machine explore client instance.

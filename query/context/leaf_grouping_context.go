@@ -24,7 +24,8 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/models"
+	commonmodels "github.com/lindb/common/models"
+
 	"github.com/lindb/lindb/query/tracker"
 	"github.com/lindb/lindb/series/tag"
 )
@@ -68,7 +69,7 @@ func NewLeafGroupingContext(leafExecuteCtx *LeafExecuteContext) *LeafGroupingCon
 // ForkGroupingTask forks a grouping task.
 func (ctx *LeafGroupingContext) ForkGroupingTask() {
 	if ctx.groupingRelatedTasks.Load() == 0 && ctx.leafExecuteCtx.StorageExecuteCtx.Query.HasGroupBy() {
-		ctx.leafExecuteCtx.Tracker.SetGroupingCollectStageValues(func(stage *models.StageStats) {
+		ctx.leafExecuteCtx.Tracker.SetGroupingCollectStageValues(func(stage *commonmodels.StageStats) {
 			stage.Identifier = "Grouping Collect"
 			stage.Start = time.Now().UnixNano()
 			stage.State = tracker.InitState.String()
@@ -93,19 +94,18 @@ func (ctx *LeafGroupingContext) collectGroupByTagValues() {
 		return
 	}
 	// start execute collect grouping tag values
-	ctx.leafExecuteCtx.Tracker.SetGroupingCollectStageValues(func(stage *models.StageStats) {
+	ctx.leafExecuteCtx.Tracker.SetGroupingCollectStageValues(func(stage *commonmodels.StageStats) {
 		if stage.State == tracker.InitState.String() {
 			stage.State = tracker.ExecutingState.String()
 		}
 	})
 
 	// all shard pending query tasks and grouping task completed, start collect tag values
-	metadata := ctx.leafExecuteCtx.Database.Metadata()
-	tagMetadata := metadata.TagMetadata()
+	metaDB := ctx.leafExecuteCtx.Database.MetaDB()
 
 	storageExecuteCtx.CollectTagValues(func() {
-		for idx, tagKeyID := range storageExecuteCtx.GroupByTags {
-			tagKey := tagKeyID
+		for idx := range storageExecuteCtx.GroupByTags {
+			tagKey := storageExecuteCtx.GroupByTags[idx]
 			tagValueIDs := storageExecuteCtx.GroupingTagValueIDs[idx]
 			tagIndex := idx
 			if tagValueIDs == nil || tagValueIDs.IsEmpty() {
@@ -114,9 +114,9 @@ func (ctx *LeafGroupingContext) collectGroupByTagValues() {
 			}
 
 			tagValues := make(map[uint32]string) // tag value id => tag value
-			err := tagMetadata.CollectTagValues(tagKey.ID, tagValueIDs, tagValues)
+			err := metaDB.CollectTagValues(tagKey.ID, tagValueIDs, tagValues)
 			if err != nil {
-				ctx.leafExecuteCtx.Tracker.SetGroupingCollectStageValues(func(stage *models.StageStats) {
+				ctx.leafExecuteCtx.Tracker.SetGroupingCollectStageValues(func(stage *commonmodels.StageStats) {
 					stage.End = time.Now().UnixNano()
 					stage.Cost = stage.End - stage.Start
 					stage.ErrMsg = err.Error()

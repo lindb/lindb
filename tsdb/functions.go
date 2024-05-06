@@ -18,11 +18,11 @@
 package tsdb
 
 import (
-	"github.com/lindb/lindb/pkg/fileutil"
-	"github.com/lindb/lindb/pkg/ltoml"
-	"github.com/lindb/lindb/tsdb/indexdb"
+	"github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/ltoml"
+
+	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/tsdb/memdb"
-	"github.com/lindb/lindb/tsdb/metadb"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
@@ -35,16 +35,17 @@ var (
 	decodeToml             = ltoml.DecodeToml
 	newDatabaseFunc        = newDatabase
 	newSegmentFunc         = newSegment
-	newMetadataFunc        = metadb.NewMetadata
 	newShardFunc           = newShard
 	encodeToml             = ltoml.EncodeToml
 	newReaderFunc          = metricsdata.NewReader
 	newFilterFunc          = metricsdata.NewFilter
 	newIntervalSegmentFunc = newIntervalSegment
-	newIndexDBFunc         = indexdb.NewIndexDatabase
 	newMemoryDBFunc        = memdb.NewMemoryDatabase
 	newDataFamilyFunc      = newDataFamily
 	newMetricDataFlusher   = metricsdata.NewFlusher
 	closeFamilyFunc        = closeFamily
 	writeConfigFn          = ltoml.WriteConfig
+
+	newMetaDBFunc  = index.NewMetricMetaDatabase
+	newIndexDBFunc = index.NewMetricIndexDatabase
 )

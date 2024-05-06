@@ -18,8 +18,9 @@
 package operator
 
 import (
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/query/context"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/tsdb"
@@ -31,7 +32,7 @@ type tagValueCollect struct {
 	shardExecuteCtx *flow.ShardExecuteContext
 	shard           tsdb.Shard
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewTagValueCollect create a tagValueCollect instance.
@@ -61,7 +62,7 @@ func (op *tagValueCollect) execute() error {
 	tagKeyID := op.executeCtx.TagKeyID
 	op.executeCtx.StorageExecuteCtx.GroupByTagKeyIDs = []tag.KeyID{tagKeyID}
 	// get grouping based on tag keys and series ids
-	if err := op.shard.IndexDatabase().GetGroupingContext(op.shardExecuteCtx); err != nil {
+	if err := op.shard.IndexDB().GetGroupingContext(op.shardExecuteCtx); err != nil {
 		return err
 	}
 	seriesIDs := op.shardExecuteCtx.SeriesIDsAfterFiltering
@@ -71,7 +72,7 @@ func (op *tagValueCollect) execute() error {
 		tagValueIDs := op.shardExecuteCtx.GroupingContext.ScanTagValueIDs(highKey, seriesIDs.GetContainerAtIndex(i))
 		tagValues := make(map[uint32]string)
 		// get tag value
-		err := op.executeCtx.Database.Metadata().TagMetadata().CollectTagValues(tagKeyID, tagValueIDs[0], tagValues)
+		err := op.executeCtx.Database.MetaDB().CollectTagValues(tagKeyID, tagValueIDs[0], tagValues)
 		if err != nil {
 			return err
 		}

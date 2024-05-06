@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/kv/table"
 )
@@ -72,4 +72,94 @@ func TestSnapshot_FindReaders(t *testing.T) {
 	v.EXPECT().Release()
 	snapshot.Close()
 	snapshot.Close() // test version release only once
+}
+
+func TestSnapshot_Load(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	fv := NewMockFamilyVersion(ctrl)
+	vs := NewMockStoreVersionSet(ctrl)
+	fv.EXPECT().GetVersionSet().Return(vs).AnyTimes()
+	vs.EXPECT().numberOfLevels().Return(2).AnyTimes()
+	v := NewMockVersion(ctrl)
+	v.EXPECT().Retain().AnyTimes()
+	cache := table.NewMockCache(ctrl)
+	cache.EXPECT().ReleaseReaders(gomock.Any()).AnyTimes()
+	snapshot := newSnapshot("test", v, cache)
+	reader := table.NewMockReader(ctrl)
+
+	cases := []struct {
+		name    string
+		prepare func()
+		loader  func(value []byte) error
+		wantErr bool
+	}{
+		{
+			name: "no reader",
+			prepare: func() {
+				v.EXPECT().FindFiles(gomock.Any()).Return(nil)
+			},
+		},
+		{
+			name: "get reader error",
+			prepare: func() {
+				v.EXPECT().FindFiles(gomock.Any()).Return([]*FileMeta{{}})
+				cache.EXPECT().GetReader(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "get nil reader",
+			prepare: func() {
+				v.EXPECT().FindFiles(gomock.Any()).Return([]*FileMeta{{}})
+				cache.EXPECT().GetReader(gomock.Any(), gomock.Any()).Return(nil, nil)
+			},
+		},
+		{
+			name: "key not exist",
+			prepare: func() {
+				v.EXPECT().FindFiles(gomock.Any()).Return([]*FileMeta{{}})
+				cache.EXPECT().GetReader(gomock.Any(), gomock.Any()).Return(reader, nil)
+				reader.EXPECT().Get(gomock.Any()).Return(nil, table.ErrKeyNotExist)
+			},
+		},
+		{
+			name: "reader key error",
+			prepare: func() {
+				v.EXPECT().FindFiles(gomock.Any()).Return([]*FileMeta{{}})
+				cache.EXPECT().GetReader(gomock.Any(), gomock.Any()).Return(reader, nil)
+				reader.EXPECT().Get(gomock.Any()).Return(nil, fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "do loader error",
+			prepare: func() {
+				v.EXPECT().FindFiles(gomock.Any()).Return([]*FileMeta{{}})
+				cache.EXPECT().GetReader(gomock.Any(), gomock.Any()).Return(reader, nil)
+				reader.EXPECT().Get(gomock.Any()).Return(nil, nil)
+			},
+			loader:  func(value []byte) error { return fmt.Errorf("err") },
+			wantErr: true,
+		},
+		{
+			name: "do loader successfully",
+			prepare: func() {
+				v.EXPECT().FindFiles(gomock.Any()).Return([]*FileMeta{{}})
+				cache.EXPECT().GetReader(gomock.Any(), gomock.Any()).Return(reader, nil)
+				reader.EXPECT().Get(gomock.Any()).Return(nil, nil)
+			},
+			loader: func(value []byte) error { return nil },
+		},
+	}
+	for i := range cases {
+		tt := cases[i]
+		t.Run(tt.name, func(t *testing.T) {
+			tt.prepare()
+			err := snapshot.Load(11, tt.loader)
+			if (err != nil) != tt.wantErr {
+				t.Fatal(tt.name)
+			}
+		})
+	}
 }

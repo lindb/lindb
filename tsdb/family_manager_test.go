@@ -20,8 +20,8 @@ package tsdb
 import (
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
 func TestFamilyManager_AddFamily(t *testing.T) {
@@ -53,7 +53,7 @@ func TestFamilyManager_AddFamily(t *testing.T) {
 	assert.Equal(t, 2, c)
 
 	c = 0
-	GetFamilyManager().WalkEntry(func(family DataFamily) {
+	GetFamilyManager().WalkEntry(func(_ DataFamily) {
 		c++
 	})
 	assert.Equal(t, 0, c)

@@ -22,15 +22,15 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/golang/mock/gomock"
+	"github.com/lindb/common/pkg/encoding"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/elect"
 	masterpkg "github.com/lindb/lindb/coordinator/master"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/state"
 )
 
@@ -230,7 +230,7 @@ func TestMasterController_FlushDatabase(t *testing.T) {
 			name: "storage not found",
 			prepare: func() {
 				masterElect.EXPECT().IsMaster().Return(true)
-				stateMgr.EXPECT().GetStorageCluster("test").Return(nil)
+				stateMgr.EXPECT().GetStorageCluster().Return(nil)
 			},
 			wantErr: true,
 		},
@@ -239,7 +239,7 @@ func TestMasterController_FlushDatabase(t *testing.T) {
 			prepare: func() {
 				masterElect.EXPECT().IsMaster().Return(true)
 				storage := masterpkg.NewMockStorageCluster(ctrl)
-				stateMgr.EXPECT().GetStorageCluster("test").Return(storage)
+				stateMgr.EXPECT().GetStorageCluster().Return(storage)
 				storage.EXPECT().FlushDatabase("db").Return(nil)
 			},
 			wantErr: false,

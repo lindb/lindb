@@ -24,7 +24,7 @@ import (
 
 	etcd "go.etcd.io/etcd/client/v3"
 
-	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/common/pkg/logger"
 )
 
 const defaultTTL = 10 // default ttl => 10 seconds
@@ -42,7 +42,7 @@ type heartbeat struct {
 	isElect     bool
 
 	ttl    int64
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // newHeartbeat creates heartbeat instance
@@ -61,7 +61,7 @@ func newHeartbeat(client *etcd.Client, key string, value []byte, ttl int64, isEl
 }
 
 // withLogger sets a new logger
-func (h *heartbeat) withLogger(log *logger.Logger) {
+func (h *heartbeat) withLogger(log logger.Logger) {
 	h.logger = log
 }
 

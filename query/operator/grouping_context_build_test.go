@@ -20,12 +20,12 @@ package operator
 import (
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/indexdb"
 )
 
 func TestGroupingContextBuild_Execute(t *testing.T) {
@@ -33,8 +33,8 @@ func TestGroupingContextBuild_Execute(t *testing.T) {
 	defer ctrl.Finish()
 
 	shard := tsdb.NewMockShard(ctrl)
-	indexDB := indexdb.NewMockIndexDatabase(ctrl)
-	shard.EXPECT().IndexDatabase().Return(indexDB)
+	indexDB := index.NewMockMetricIndexDatabase(ctrl)
+	shard.EXPECT().IndexDB().Return(indexDB)
 	indexDB.EXPECT().GetGroupingContext(gomock.Any()).Return(nil)
 	ctx := flow.NewShardExecuteContext(nil)
 	ctx.TimeSegmentContext.SeriesIDs.Add(1)

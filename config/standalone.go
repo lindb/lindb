@@ -21,17 +21,25 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+
+	"github.com/lindb/common/pkg/logger"
+)
+
+var (
+	// defaultParentDir is the default directory of lindb
+	defaultParentDir = filepath.Join(".", "data")
 )
 
 // Standalone represents the configuration of standalone mode
 type Standalone struct {
-	ETCD        ETCD        `envPrefix:"LINDB_ETCD_" toml:"etcd"`
-	Coordinator RepoState   `envPrefix:"LINDB_COORDINATOR_" toml:"coordinator"`
-	Query       Query       `envPrefix:"LINDB_QUERY_" toml:"query"`
-	BrokerBase  BrokerBase  `envPrefix:"LINDB_BROKER_" toml:"broker"`
-	StorageBase StorageBase `envPrefix:"LINDB_STORAGE_" toml:"storage"`
-	Logging     Logging     `envPrefix:"LINDB_LOGGING_" toml:"logging"`
-	Monitor     Monitor     `envPrefix:"LINDB_MONITOR_" toml:"monitor"`
+	ETCD        ETCD           `envPrefix:"LINDB_ETCD_" toml:"etcd"`
+	Coordinator RepoState      `envPrefix:"LINDB_COORDINATOR_" toml:"coordinator"`
+	Query       Query          `envPrefix:"LINDB_QUERY_" toml:"query"`
+	BrokerBase  BrokerBase     `envPrefix:"LINDB_BROKER_" toml:"broker"`
+	StorageBase StorageBase    `envPrefix:"LINDB_STORAGE_" toml:"storage"`
+	Logging     logger.Setting `envPrefix:"LINDB_LOGGING_" toml:"logging"`
+	Monitor     Monitor        `envPrefix:"LINDB_MONITOR_" toml:"monitor"`
+	Prometheus  Prometheus     `envPrefix:"LINDB_PROMETHEUS_" toml:"prometheus"`
 }
 
 // ETCD represents embed etcd's configuration
@@ -83,6 +91,7 @@ func NewDefaultStandaloneTOML() string {
 %s
 %s
 %s
+%s
 %s`,
 
 		NewDefaultETCD().TOML(),
@@ -90,8 +99,9 @@ func NewDefaultStandaloneTOML() string {
 		NewDefaultQuery().TOML(),
 		NewDefaultBrokerBase().TOML(),
 		NewDefaultStorageBase().TOML(),
-		NewDefaultLogging().TOML(),
+		logger.NewDefaultSetting().TOML("LINDB"),
 		NewDefaultMonitor().TOML(),
+		NewDefaultPrometheus().TOML(),
 	)
 }
 
@@ -103,7 +113,8 @@ func NewDefaultStandalone() Standalone {
 		Query:       *NewDefaultQuery(),
 		BrokerBase:  *NewDefaultBrokerBase(),
 		StorageBase: *NewDefaultStorageBase(),
-		Logging:     *NewDefaultLogging(),
+		Logging:     *logger.NewDefaultSetting(),
 		Monitor:     *NewDefaultMonitor(),
+		Prometheus:  *NewDefaultPrometheus(),
 	}
 }

@@ -23,9 +23,10 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
@@ -60,12 +61,12 @@ type segment struct {
 
 	mutex sync.RWMutex
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // newSegment returns segment, segment is wrapper of kv store.
 func newSegment(shard Shard, segmentName string, interval timeutil.Interval) (Segment, error) {
-	indicator := ShardSegmentIndicator(shard.Database().Name(), shard.ShardID(), interval, segmentName)
+	indicator := ShardSegmentPath(shard.Database().Name(), shard.ShardID(), interval, segmentName)
 	// parse base time from segment name
 	calc := interval.Calculator()
 	baseTime, err := calc.ParseSegmentTime(segmentName)

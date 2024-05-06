@@ -24,13 +24,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
+
+	"github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/queue"
 	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
 	"github.com/lindb/lindb/rpc"
@@ -75,14 +76,14 @@ func TestRemoteReplicator_IsReady(t *testing.T) {
 		},
 		{
 			name: "create replica cli failure",
-			prepare: func(r *remoteReplicator) {
+			prepare: func(_ *remoteReplicator) {
 				cliFct.EXPECT().CreateReplicaServiceClient(gomock.Any()).Return(nil, fmt.Errorf("err"))
 			},
 			ready: false,
 		},
 		{
 			name: "get replica stream ack err",
-			prepare: func(r *remoteReplicator) {
+			prepare: func(_ *remoteReplicator) {
 				cliFct.EXPECT().CreateReplicaServiceClient(gomock.Any()).Return(replicaCli, nil)
 				replicaCli.EXPECT().GetReplicaAckIndex(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
 			},
@@ -90,7 +91,7 @@ func TestRemoteReplicator_IsReady(t *testing.T) {
 		},
 		{
 			name: "replica idx == current node",
-			prepare: func(r *remoteReplicator) {
+			prepare: func(_ *remoteReplicator) {
 				cliFct.EXPECT().CreateReplicaServiceClient(gomock.Any()).Return(replicaCli, nil)
 				cg.EXPECT().ConsumedSeq().Return(int64(10))
 				replicaCli.EXPECT().GetReplicaAckIndex(gomock.Any(), gomock.Any()).Return(&protoReplicaV1.GetReplicaAckIndexResponse{
@@ -101,7 +102,7 @@ func TestRemoteReplicator_IsReady(t *testing.T) {
 		},
 		{
 			name: "remote replica ack index < current smallest ack, but reset remote replica index err",
-			prepare: func(r *remoteReplicator) {
+			prepare: func(_ *remoteReplicator) {
 				cliFct.EXPECT().CreateReplicaServiceClient(gomock.Any()).Return(replicaCli, nil)
 				q.EXPECT().AppendedSeq().Return(int64(10))
 				cg.EXPECT().ConsumedSeq().Return(int64(12))
@@ -115,7 +116,7 @@ func TestRemoteReplicator_IsReady(t *testing.T) {
 		},
 		{
 			name: " remote replica ack index < current smallest ack, reset success",
-			prepare: func(r *remoteReplicator) {
+			prepare: func(_ *remoteReplicator) {
 				cliFct.EXPECT().CreateReplicaServiceClient(gomock.Any()).Return(replicaCli, nil)
 				q.EXPECT().AppendedSeq().Return(int64(10))
 				cg.EXPECT().ConsumedSeq().Return(int64(7))
@@ -130,7 +131,7 @@ func TestRemoteReplicator_IsReady(t *testing.T) {
 		},
 		{
 			name: "remote replica ack index > current append index, maybe leader lost data",
-			prepare: func(r *remoteReplicator) {
+			prepare: func(_ *remoteReplicator) {
 				cliFct.EXPECT().CreateReplicaServiceClient(gomock.Any()).Return(replicaCli, nil)
 				q.EXPECT().AppendedSeq().Return(int64(5))
 				cg.EXPECT().ConsumedSeq().Return(int64(12))
@@ -147,7 +148,7 @@ func TestRemoteReplicator_IsReady(t *testing.T) {
 		},
 		{
 			name: "remote replica ack index > current append index, maybe leader lost data, reset replica index failure",
-			prepare: func(r *remoteReplicator) {
+			prepare: func(_ *remoteReplicator) {
 				cliFct.EXPECT().CreateReplicaServiceClient(gomock.Any()).Return(replicaCli, nil)
 				q.EXPECT().AppendedSeq().Return(int64(5))
 				cg.EXPECT().ConsumedSeq().Return(int64(12))

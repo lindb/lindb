@@ -21,11 +21,12 @@ import (
 	"context"
 	"time"
 
+	"github.com/lindb/common/pkg/encoding"
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/timeutil"
 	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/sql/stmt"
@@ -156,7 +157,7 @@ func (ctx *IntermediateMetricContext) makeTaskResponse() *protoCommonV1.TaskResp
 		RequestID:   ctx.req.RequestID,
 		RequestType: ctx.req.RequestType,
 		Completed:   true,
-		SendTime:    timeutil.NowNano(),
+		SendTime:    commontimeutil.NowNano(),
 		Stats:       stats,
 		Payload:     data,
 	}

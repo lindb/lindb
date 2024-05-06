@@ -24,11 +24,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
+
+	"github.com/lindb/common/pkg/ltoml"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/tsdb"
@@ -137,7 +138,7 @@ func TestDatabaseLifecycle_dropDatabases(t *testing.T) {
 			prepare: func() {
 				repo.EXPECT().WalkEntry(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(_ context.Context, _ string, fn func([]byte, []byte)) error {
-						fn([]byte(constants.GetDatabaseAssignPath("test")), []byte{})
+						fn([]byte(constants.GetShardAssignPath("test")), []byte{})
 						return nil
 					})
 				activeDatabases := map[string]struct{}{"test": {}}

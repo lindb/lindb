@@ -20,7 +20,8 @@ package state
 import (
 	"github.com/gin-gonic/gin"
 
-	httppkg "github.com/lindb/lindb/pkg/http"
+	httppkg "github.com/lindb/common/pkg/http"
+
 	"github.com/lindb/lindb/query"
 )
 

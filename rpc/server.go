@@ -27,11 +27,12 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/conntrack"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/metrics"
-	"github.com/lindb/lindb/pkg/logger"
 )
 
 //go:generate mockgen -source ./server.go -destination=./server_mock.go -package=rpc
@@ -49,7 +50,7 @@ type grpcServer struct {
 	bindAddress string
 	gs          *grpc.Server
 	statistics  *metrics.GRPCServerStatistics
-	logger      *logger.Logger
+	logger      logger.Logger
 }
 
 func NewGRPCServer(cfg config.GRPC, r *linmetric.Registry) GRPCServer {

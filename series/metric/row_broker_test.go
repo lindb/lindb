@@ -23,11 +23,11 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/lindb/common/pkg/fasttime"
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
 	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
 	commonseries "github.com/lindb/common/series"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/pkg/timeutil"
 )
@@ -144,14 +144,14 @@ func Test_BrokerBatchRows_FamilyRowsForNextShard_SingleShard(t *testing.T) {
 
 	for i := 30; i < 50; i++ {
 		_ = brokerRows.TryAppend(func(row *BrokerRow) error {
-			buildRow(row, now-timeutil.OneHour)
+			buildRow(row, now-commontimeutil.OneHour)
 			return nil
 		})
 	}
 
 	for i := 50; i < 100; i++ {
 		_ = brokerRows.TryAppend(func(row *BrokerRow) error {
-			buildRow(row, now+timeutil.OneHour)
+			buildRow(row, now+commontimeutil.OneHour)
 			return nil
 		})
 	}

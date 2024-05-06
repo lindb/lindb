@@ -1,8 +1,0 @@
-[
-    {
-        "package":"memdb",
-        "type":"Metric",
-        "value":"newTimeSeriesStore()",
-        "valueType":"tStoreINTF"
-    }
-]

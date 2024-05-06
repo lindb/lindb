@@ -24,9 +24,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/lindb/common/pkg/logger"
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
 
@@ -110,13 +112,13 @@ func (f *family) needRollup() bool {
 		return targetIntervals[i] < targetIntervals[j]
 	})
 	targetInterval := targetIntervals[0]
-	now := timeutil.Now()
+	now := commontimeutil.Now()
 	diff := now - f.lastRollupTime.Load()
 	timeThreshold := int64(targetInterval) + rand.Int63n(180000)
 	kvLogger.Info("check time threshold if need to rollup level0 files",
 		logger.String("family", f.familyInfo()),
-		logger.String("now", timeutil.FormatTimestamp(now, timeutil.DataTimeFormat2)),
-		logger.String("lastRollupTime", timeutil.FormatTimestamp(f.lastRollupTime.Load(), timeutil.DataTimeFormat2)),
+		logger.String("now", commontimeutil.FormatTimestamp(now, commontimeutil.DataTimeFormat2)),
+		logger.String("lastRollupTime", commontimeutil.FormatTimestamp(f.lastRollupTime.Load(), commontimeutil.DataTimeFormat2)),
 		logger.Int64("diff", diff), logger.Int64("threshold", timeThreshold))
 	return diff > timeThreshold
 }
@@ -125,7 +127,7 @@ func (f *family) needRollup() bool {
 func (f *family) rollup() {
 	// check if it has background rollup job running already,
 	// has rollup job, return it, else do rollup job.
-	if f.rolluping.CAS(false, true) {
+	if f.rolluping.CompareAndSwap(false, true) {
 		f.condition.Add(1)
 		go func() {
 			defer func() {
@@ -133,7 +135,7 @@ func (f *family) rollup() {
 				f.deleteObsoleteFiles()
 				f.condition.Done()
 				f.rolluping.Store(false)
-				f.lastRollupTime.Store(timeutil.Now())
+				f.lastRollupTime.Store(commontimeutil.Now())
 			}()
 
 			rollupFiles := f.familyVersion.GetLiveRollupFiles()

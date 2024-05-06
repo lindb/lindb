@@ -21,19 +21,17 @@ import (
 	"net/url"
 	"path"
 
-	"github.com/lindb/lindb/config"
+	"github.com/lindb/common/pkg/encoding"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
 )
 
 //go:generate mockgen -source=./cluster_initializer.go -destination=./cluster_initializer_mock.go -package=bootstrap
 
 // ClusterInitializer initializes cluster(storage/internal database)
 type ClusterInitializer interface {
-	// InitStorageCluster initializes the storage cluster
-	InitStorageCluster(storageCfg config.StorageCluster) error
 	// InitInternalDatabase initializes internal database
 	InitInternalDatabase(database models.Database) error
 }
@@ -48,17 +46,6 @@ func NewClusterInitializer(endpoint string) ClusterInitializer {
 	u, _ := url.Parse(endpoint)
 	u.Path = path.Join(u.Path, constants.APIVersion1CliPath)
 	return &clusterInitializer{endpoint: u.String()}
-}
-
-// InitStorageCluster initializes the storage cluster
-func (i *clusterInitializer) InitStorageCluster(storageCfg config.StorageCluster) error {
-	cli := client.NewExecuteCli(i.endpoint)
-	if err := cli.Execute(models.ExecuteParam{
-		SQL: "create storage " + string(encoding.JSONMarshal(&storageCfg)),
-	}, nil); err != nil {
-		return err
-	}
-	return nil
 }
 
 // InitInternalDatabase initializes internal database

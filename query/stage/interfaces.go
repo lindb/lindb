@@ -17,7 +17,7 @@
 
 package stage
 
-import "github.com/lindb/lindb/models"
+import "github.com/lindb/common/models"
 
 //go:generate mockgen -source=./interfaces.go -destination=./interfaces_mock.go -package=stage
 

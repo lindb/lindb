@@ -35,7 +35,11 @@ func NewTagValueSuggest(ctx *context.LeafMetadataContext) Operator {
 func (op *tagValueSuggest) Execute() error {
 	req := op.ctx.Request
 	limit := op.ctx.Limit
-	op.ctx.ResultSet = op.ctx.Database.Metadata().TagMetadata().SuggestTagValues(op.ctx.TagKeyID, req.Prefix, limit)
+	rs, err := op.ctx.Database.MetaDB().SuggestTagValues(op.ctx.TagKeyID, req.Prefix, limit)
+	if err != nil {
+		return err
+	}
+	op.ctx.ResultSet = rs
 	return nil
 }
 

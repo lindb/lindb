@@ -23,8 +23,11 @@ import (
 	"math"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
+
+	commonmodels "github.com/lindb/common/models"
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
 
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/aggregation/function"
@@ -74,8 +77,8 @@ func TestRootMetricDataContext_MakePlan(t *testing.T) {
 	cfg := models.Database{
 		Option: &option.DatabaseOption{
 			Intervals: option.Intervals{
-				{Interval: timeutil.Interval(timeutil.OneSecond)},
-				{Interval: timeutil.Interval(timeutil.OneMinute)},
+				{Interval: timeutil.Interval(commontimeutil.OneSecond)},
+				{Interval: timeutil.Interval(commontimeutil.OneMinute)},
 			},
 		},
 	}
@@ -167,7 +170,7 @@ func TestRootMetricDataContext_makeResultSet(t *testing.T) {
 	cases := []struct {
 		name    string
 		prepare func(ctx *RootMetricContext)
-		assert  func(rs *models.ResultSet, err error)
+		assert  func(rs *commonmodels.ResultSet, err error)
 	}{
 		{
 			name: "order by unknown field type",
@@ -181,7 +184,7 @@ func TestRootMetricDataContext_makeResultSet(t *testing.T) {
 					},
 				}
 			},
-			assert: func(rs *models.ResultSet, err error) {
+			assert: func(rs *commonmodels.ResultSet, err error) {
 				assert.Nil(t, rs)
 				assert.Error(t, err)
 			},
@@ -197,7 +200,7 @@ func TestRootMetricDataContext_makeResultSet(t *testing.T) {
 					},
 				}
 			},
-			assert: func(rs *models.ResultSet, err error) {
+			assert: func(rs *commonmodels.ResultSet, err error) {
 				assert.NotNil(t, rs)
 				assert.NoError(t, err)
 			},
@@ -222,7 +225,7 @@ func TestRootMetricDataContext_makeResultSet(t *testing.T) {
 				row.EXPECT().ResultSet().Return("a", map[string]*collections.FloatArray{"f": values})
 				orderBy.EXPECT().ResultSet().Return([]aggregation.Row{row, row, row})
 			},
-			assert: func(rs *models.ResultSet, err error) {
+			assert: func(rs *commonmodels.ResultSet, err error) {
 				assert.NotNil(t, rs)
 				assert.NoError(t, err)
 			},
@@ -249,7 +252,7 @@ func TestRootMetricDataContext_makeResultSet(t *testing.T) {
 				row.EXPECT().ResultSet().Return("a", map[string]*collections.FloatArray{"f": values})
 				orderBy.EXPECT().ResultSet().Return([]aggregation.Row{row, row, row})
 			},
-			assert: func(rs *models.ResultSet, err error) {
+			assert: func(rs *commonmodels.ResultSet, err error) {
 				assert.NotNil(t, rs)
 				assert.NoError(t, err)
 			},
@@ -276,7 +279,7 @@ func TestRootMetricDataContext_makeResultSet(t *testing.T) {
 				row.EXPECT().ResultSet().Return("a", map[string]*collections.FloatArray{"__bucket_1": values})
 				orderBy.EXPECT().ResultSet().Return([]aggregation.Row{row, row, row})
 			},
-			assert: func(rs *models.ResultSet, err error) {
+			assert: func(rs *commonmodels.ResultSet, err error) {
 				assert.NotNil(t, rs)
 				assert.NoError(t, err)
 			},
@@ -293,7 +296,7 @@ func TestRootMetricDataContext_makeResultSet(t *testing.T) {
 					GroupBy: []string{"ip"},
 				},
 			})
-			metricCtx.stats = &models.NodeStats{}
+			metricCtx.stats = &commonmodels.NodeStats{}
 			metricCtx.aggregatorSpecs = map[string]*protoCommonV1.AggregatorSpec{
 				"f": {
 					FieldType: uint32(field.Sum),

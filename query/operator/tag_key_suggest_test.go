@@ -21,14 +21,15 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
+	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/query/context"
+	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 	stmtpkg "github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/metadb"
 )
 
 func TestTagKeySuggest_Execute(t *testing.T) {
@@ -36,10 +37,8 @@ func TestTagKeySuggest_Execute(t *testing.T) {
 	defer ctrl.Finish()
 
 	db := tsdb.NewMockDatabase(ctrl)
-	meta := metadb.NewMockMetadata(ctrl)
-	metaDB := metadb.NewMockMetadataDatabase(ctrl)
-	meta.EXPECT().MetadataDatabase().Return(metaDB).AnyTimes()
-	db.EXPECT().Metadata().Return(meta).AnyTimes()
+	metaDB := index.NewMockMetricMetaDatabase(ctrl)
+	db.EXPECT().MetaDB().Return(metaDB).AnyTimes()
 
 	ctx := &context.LeafMetadataContext{
 		Database: db,
@@ -51,18 +50,33 @@ func TestTagKeySuggest_Execute(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "tag key suggest failure",
+			name: "get metric id failure",
 			prepare: func() {
-				metaDB.EXPECT().GetAllTagKeys(gomock.Any(), gomock.Any()).
-					Return(nil, fmt.Errorf("err"))
+				metaDB.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(metric.ID(0), fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "tag schema failure",
+			prepare: func() {
+				metaDB.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(metric.ID(0), nil)
+				metaDB.EXPECT().GetSchema(gomock.Any()).Return(nil, fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "schema empty",
+			prepare: func() {
+				metaDB.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(metric.ID(0), nil)
+				metaDB.EXPECT().GetSchema(gomock.Any()).Return(nil, nil)
 			},
 			wantErr: true,
 		},
 		{
 			name: "tag key suggest successfully",
 			prepare: func() {
-				metaDB.EXPECT().GetAllTagKeys(gomock.Any(), gomock.Any()).
-					Return(tag.Metas{{}}, nil)
+				metaDB.EXPECT().GetMetricID(gomock.Any(), gomock.Any()).Return(metric.ID(0), nil)
+				metaDB.EXPECT().GetSchema(gomock.Any()).Return(&metric.Schema{TagKeys: tag.Metas{{Key: "key"}}}, nil)
 			},
 		},
 	}

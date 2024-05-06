@@ -24,6 +24,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/app"
 	"github.com/lindb/lindb/app/root/api"
 	depspkg "github.com/lindb/lindb/app/root/deps"
@@ -38,9 +41,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/hostutil"
 	httppkg "github.com/lindb/lindb/pkg/http"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/tag"
@@ -92,7 +93,7 @@ type runtime struct {
 
 	globalKeyValues tag.Tags
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewRootRuntime creates the root runtime.

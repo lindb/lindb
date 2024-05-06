@@ -23,6 +23,7 @@ import (
 	"strconv"
 
 	commonconstants "github.com/lindb/common/constants"
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
 
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/pkg/collections"
@@ -51,6 +52,9 @@ type queryStmtParser struct {
 
 	curOrderByExpr *stmt.OrderByExpr
 	hasOrderBy     bool
+
+	having     bool
+	havingStmt stmt.Expr
 }
 
 // newQueryStmtParse create a query statement parser
@@ -79,10 +83,10 @@ func (q *queryStmtParser) build() (stmt.Statement, error) {
 	query.SelectItems = q.selectItems
 	query.Condition = q.condition
 
-	now := timeutil.Now()
+	now := commontimeutil.Now()
 	query.TimeRange = timeutil.TimeRange{Start: q.startTime, End: q.endTime}
 	if query.TimeRange.Start <= 0 {
-		query.TimeRange.Start = now - timeutil.OneHour
+		query.TimeRange.Start = now - commontimeutil.OneHour
 	}
 	if query.TimeRange.End <= 0 {
 		query.TimeRange.End = now
@@ -95,6 +99,7 @@ func (q *queryStmtParser) build() (stmt.Statement, error) {
 	query.AutoGroupByTime = q.autoGroupByTime
 	query.AllFields = q.allFields
 	query.GroupBy = q.groupBy
+	query.Having = q.havingStmt
 	query.OrderByItems = q.orderBy
 	query.Limit = q.limit
 	return query, nil
@@ -189,9 +194,9 @@ func (q *queryStmtParser) visitTimeRangeExpr(ctx *grammar.TimeRangeExprContext) 
 		var err error
 		switch {
 		case timeExprCtx.Ident() != nil:
-			timestamp, err = timeutil.ParseTimestamp(strutil.GetStringValue(timeExprCtx.Ident().GetText()))
+			timestamp, err = commontimeutil.ParseTimestamp(strutil.GetStringValue(timeExprCtx.Ident().GetText()))
 		case timeExprCtx.NowExpr() != nil:
-			timestamp = timeutil.Now()
+			timestamp = commontimeutil.Now()
 			durationExpr, durationExist := timeExprCtx.NowExpr().(*grammar.NowExprContext)
 			if durationExist {
 				timestamp += q.parseDuration(durationExpr.DurationLit())
@@ -243,19 +248,19 @@ func (q *queryStmtParser) parseDuration(ctx grammar.IDurationLitContext) int64 {
 	}
 	switch {
 	case unit.T_SECOND() != nil:
-		result = duration * timeutil.OneSecond
+		result = duration * commontimeutil.OneSecond
 	case unit.T_MINUTE() != nil:
-		result = duration * timeutil.OneMinute
+		result = duration * commontimeutil.OneMinute
 	case unit.T_HOUR() != nil:
-		result = duration * timeutil.OneHour
+		result = duration * commontimeutil.OneHour
 	case unit.T_DAY() != nil:
-		result = duration * timeutil.OneDay
+		result = duration * commontimeutil.OneDay
 	case unit.T_WEEK() != nil:
-		result = duration * timeutil.OneWeek
+		result = duration * commontimeutil.OneWeek
 	case unit.T_MONTH() != nil:
-		result = duration * timeutil.OneMonth
+		result = duration * commontimeutil.OneMonth
 	case unit.T_YEAR() != nil:
-		result = duration * timeutil.OneYear
+		result = duration * commontimeutil.OneYear
 	}
 	return result
 }
@@ -336,7 +341,7 @@ func (q *queryStmtParser) completeFuncExpr() {
 		if q.exprStack.Empty() {
 			if q.hasOrderBy {
 				q.curOrderByExpr.Expr = expr
-			} else {
+			} else if !q.having {
 				q.selectItems = append(q.selectItems, &stmt.SelectItem{Expr: expr})
 
 				// select field(func rewrite name)
@@ -380,12 +385,14 @@ func (q *queryStmtParser) parseFieldName(fieldName string) {
 			q.setExprParam(fieldExpr)
 		}
 	default: // handle select item
-		if q.exprStack.Empty() {
+		if q.exprStack.Empty() && !q.having {
 			q.selectItems = append(q.selectItems, &stmt.SelectItem{Expr: fieldExpr})
 		} else {
 			q.setExprParam(fieldExpr)
 		}
-		q.fieldNames[fieldName] = struct{}{}
+		if !q.having {
+			q.fieldNames[fieldName] = struct{}{}
+		}
 	}
 }
 
@@ -410,8 +417,78 @@ func (q *queryStmtParser) completeFieldExpr(ctx *grammar.FieldExprContext) {
 		if ok {
 			q.setExprParam(expr)
 		}
-		if q.exprStack.Empty() {
+		if q.exprStack.Empty() && !q.having {
 			q.selectItems = append(q.selectItems, &stmt.SelectItem{Expr: expr})
 		}
 	}
+}
+
+// visitHaving visits when production having expression is entered
+func (q *queryStmtParser) visitHaving(_ *grammar.HavingClauseContext) {
+	q.having = true
+}
+
+// visitBoolExpr visits when production bool expression is entered
+func (q *queryStmtParser) visitBoolExpr(ctx *grammar.BoolExprContext) {
+	switch {
+	case ctx.T_OPEN_P() != nil:
+		q.exprStack.Push(&stmt.ParenExpr{})
+	case ctx.BoolExprLogicalOp() != nil:
+		q.visitBoolExprLogicalOp(ctx.BoolExprLogicalOp().(*grammar.BoolExprLogicalOpContext))
+	}
+}
+
+// completeHaving complete a having expr
+func (q *queryStmtParser) completeHaving(_ *grammar.HavingClauseContext) {
+	q.having = false
+	if !q.exprStack.Empty() {
+		q.havingStmt = q.exprStack.Pop().(stmt.Expr)
+	}
+}
+
+// completeBoolExpr complete a bool expr
+func (q *queryStmtParser) completeBoolExpr(_ *grammar.BoolExprContext) {
+	cur := q.exprStack.Pop()
+	if cur != nil {
+		expr, ok := cur.(stmt.Expr)
+		if ok {
+			if q.exprStack.Empty() {
+				q.exprStack.Push(cur)
+			} else {
+				q.setExprParam(expr)
+			}
+		}
+	}
+}
+
+// visitBoolExprLogicalOp visits when production bool logic operator expression is entered
+func (q *queryStmtParser) visitBoolExprLogicalOp(ctx *grammar.BoolExprLogicalOpContext) {
+	op := stmt.AND
+	if ctx.T_OR() != nil {
+		op = stmt.OR
+	}
+	q.exprStack.Push(&stmt.BinaryExpr{Operator: op})
+}
+
+// visitBoolExprAtom visits when production bool atom expr expression is entered
+func (q *queryStmtParser) visitBoolExprAtom(ctx *grammar.BoolExprAtomContext) {
+	b := ctx.BinaryExpr().BinaryOperator()
+	var op stmt.BinaryOP
+	switch {
+	case b.T_EQUAL() != nil:
+		op = stmt.EQUAL
+	case b.T_NOTEQUAL() != nil || b.T_NOTEQUAL2() != nil:
+		op = stmt.NOTEQUAL
+	case b.T_LESS() != nil:
+		op = stmt.LESS
+	case b.T_LESSEQUAL() != nil:
+		op = stmt.LESSEQUAL
+	case b.T_GREATER() != nil:
+		op = stmt.GREATER
+	case b.T_GREATEREQUAL() != nil:
+		op = stmt.GREATEREQUAL
+	case b.T_LIKE() != nil || b.T_REGEXP() != nil:
+		op = stmt.LIKE
+	}
+	q.exprStack.Push(&stmt.BinaryExpr{Operator: op})
 }

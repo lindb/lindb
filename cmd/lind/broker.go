@@ -20,18 +20,19 @@ package main
 import (
 	"fmt"
 
+	"github.com/lindb/common/pkg/ltoml"
 	"github.com/spf13/cobra"
 
 	"github.com/lindb/lindb/app/broker"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/ltoml"
 )
 
 const (
+	currentDir           = "./"
 	brokerCfgName        = "broker.toml"
 	brokerLogFileName    = "lind-broker.log"
-	defaultBrokerCfgFile = "./" + brokerCfgName
+	defaultBrokerCfgFile = currentDir + brokerCfgName
 )
 
 // newBrokerCmd returns a new broker-cmd
@@ -87,10 +88,10 @@ func serveBroker(_ *cobra.Command, _ []string) error {
 	if err := logger.InitLogger(brokerCfg.Logging, brokerLogFileName); err != nil {
 		return fmt.Errorf("init broker logger error: %s", err)
 	}
-	if err := logger.InitLogger(brokerCfg.Logging, logger.AccessLogFileName); err != nil {
+	if err := logger.InitAccessLogger(brokerCfg.Logging, logger.AccessLogFileName); err != nil {
 		return fmt.Errorf("init http access logger error: %s", err)
 	}
-	if err := logger.InitLogger(brokerCfg.Logging, logger.SlowSQLLogFileName); err != nil {
+	if err := logger.InitSlowSQLLogger(brokerCfg.Logging, logger.SlowSQLLogFileName); err != nil {
 		return fmt.Errorf("init slow sql logger error: %s", err)
 	}
 

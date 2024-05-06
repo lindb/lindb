@@ -27,7 +27,7 @@ import (
 	"github.com/lindb/lindb/metrics"
 )
 
-//go:generate mockgen  -destination=./client_stream_mock.go -package=conntrack google.golang.org/grpc ClientStream
+//go:generate mockgen -destination=./client_stream_mock.go -package=conntrack google.golang.org/grpc ClientStream
 
 // GRPCClientTracker represents a collection of lin-metrics to be collected
 // for a gRPC client conn.

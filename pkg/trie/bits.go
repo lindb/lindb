@@ -20,11 +20,12 @@ package trie
 import (
 	"encoding/binary"
 	"math/bits"
-	"reflect"
-	"unsafe"
 )
 
-const wordSize = 64
+const (
+	wordSize     = 64
+	log2WordSize = 6
+)
 
 var endian = binary.LittleEndian
 
@@ -117,56 +118,4 @@ func setBit(bs []uint64, pos uint32) {
 	wordOff := pos / wordSize
 	bitsOff := pos % wordSize
 	bs[wordOff] |= uint64(1) << bitsOff
-}
-
-func align(off int64) int64 {
-	return (off + 7) & ^int64(7)
-}
-
-func u64SliceToBytes(u []uint64) []byte {
-	if len(u) == 0 {
-		return nil
-	}
-	var b []byte
-	hdr := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-	hdr.Len = len(u) * 8
-	hdr.Cap = hdr.Len
-	hdr.Data = uintptr(unsafe.Pointer(&u[0]))
-	return b
-}
-
-func bytesToU64Slice(b []byte) []uint64 {
-	if len(b) == 0 {
-		return nil
-	}
-	var u32s []uint64
-	hdr := (*reflect.SliceHeader)(unsafe.Pointer(&u32s))
-	hdr.Len = len(b) / 8
-	hdr.Cap = hdr.Len
-	hdr.Data = uintptr(unsafe.Pointer(&b[0]))
-	return u32s
-}
-
-func u32SliceToBytes(u []uint32) []byte {
-	if len(u) == 0 {
-		return nil
-	}
-	var b []byte
-	hdr := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-	hdr.Len = len(u) * 4
-	hdr.Cap = hdr.Len
-	hdr.Data = uintptr(unsafe.Pointer(&u[0]))
-	return b
-}
-
-func bytesToU32Slice(b []byte) []uint32 {
-	if len(b) == 0 {
-		return nil
-	}
-	var u32s []uint32
-	hdr := (*reflect.SliceHeader)(unsafe.Pointer(&u32s))
-	hdr.Len = len(b) / 4
-	hdr.Cap = hdr.Len
-	hdr.Data = uintptr(unsafe.Pointer(&b[0]))
-	return u32s
 }

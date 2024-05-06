@@ -24,11 +24,11 @@ import (
 	"github.com/klauspost/compress/snappy"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/pkg/ltoml"
+	"github.com/lindb/common/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/ltoml"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/metric"
 )
 

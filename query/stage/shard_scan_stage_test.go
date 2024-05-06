@@ -22,19 +22,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/models"
 	contextpkg "github.com/lindb/lindb/query/context"
 	trackerpkg "github.com/lindb/lindb/query/tracker"
 	"github.com/lindb/lindb/sql/stmt"
 	"github.com/lindb/lindb/tsdb"
-	"github.com/lindb/lindb/tsdb/indexdb"
-	"github.com/lindb/lindb/tsdb/metadb"
 )
 
 func TestShardScanStage(t *testing.T) {
@@ -42,8 +41,8 @@ func TestShardScanStage(t *testing.T) {
 	defer ctrl.Finish()
 
 	db := tsdb.NewMockDatabase(ctrl)
-	meta := metadb.NewMockMetadata(ctrl)
-	db.EXPECT().Metadata().Return(meta).AnyTimes()
+	metaDB := index.NewMockMetricMetaDatabase(ctrl)
+	db.EXPECT().MetaDB().Return(metaDB).AnyTimes()
 	storageCtx := &flow.StorageExecuteContext{
 		Query: &stmt.Query{
 			Condition: &stmt.EqualsExpr{},
@@ -61,8 +60,8 @@ func TestShardScanStage(t *testing.T) {
 	shard := tsdb.NewMockShard(ctrl)
 	shardExecuteCtx := flow.NewShardExecuteContext(storageCtx)
 	db.EXPECT().ExecutorPool().Return(&tsdb.ExecutorPool{}).AnyTimes()
-	indexDB := indexdb.NewMockIndexDatabase(ctrl)
-	shard.EXPECT().IndexDatabase().Return(indexDB).AnyTimes()
+	indexDB := index.NewMockMetricIndexDatabase(ctrl)
+	shard.EXPECT().IndexDB().Return(indexDB).AnyTimes()
 	s := NewShardScanStage(ctx, shardExecuteCtx, shard)
 
 	t.Run("no family", func(t *testing.T) {

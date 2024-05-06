@@ -22,11 +22,11 @@ import (
 	"math"
 
 	commonencoding "github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/bit"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/logger"
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
@@ -50,9 +50,6 @@ const (
 	headLen       = 8
 	valueSize     = 8
 	markContainer = 8
-
-	emptyFieldStoreSize = 24 + // empty buf slice cost
-		24 // empty compress slice cost
 )
 
 // fStoreINTF represents field-store,
@@ -60,8 +57,6 @@ const (
 type fStoreINTF interface {
 	// Capacity returns the size usage
 	Capacity() int
-	// GetFieldID returns the field id of metric level
-	GetFieldID() field.ID
 	// Write writes the field data into current buffer
 	// if time slot out of current time window, need compress time window then resets the current buffer
 	// if it has same time slot in current buffer, need do rollup operation by field type
@@ -82,16 +77,10 @@ type fieldStore struct {
 }
 
 // newFieldStore creates a new field store
-func newFieldStore(buf []byte, fieldID field.ID) fStoreINTF {
-	stream.PutUint16(buf, fieldOffset, uint16(fieldID))
+func newFieldStore(buf []byte) fStoreINTF {
 	return &fieldStore{
 		buf: buf,
 	}
-}
-
-// GetFieldID returns the field id of metric level
-func (fs *fieldStore) GetFieldID() field.ID {
-	return field.ID(stream.ReadUint16(fs.buf, fieldOffset))
 }
 
 func (fs *fieldStore) Write(fieldType field.Type, slotIndex uint16, value float64) {
@@ -138,7 +127,7 @@ func (fs *fieldStore) FlushFieldTo(tableFlusher metricsdata.Flusher, fieldMeta f
 	}
 
 	encoder := tableFlusher.GetEncoder(flushCtx.fieldIdx)
-	encoder.RestWithStartTime(flushCtx.SlotRange.Start)
+	encoder.RestWithStartTime(flushCtx.Start)
 
 	data, err := fs.merge(fieldMeta.Type, encoder, decoder, fs.getStart(), flushCtx.SlotRange, false)
 	if err != nil {
@@ -170,8 +159,8 @@ func (fs *fieldStore) resetBuf() {
 }
 
 func (fs *fieldStore) Capacity() int {
-	// notice: do not use cap as it's a allocated page
-	return cap(fs.compress) + len(fs.buf) + emptyFieldStoreSize
+	// NOTE: do not use cap as it's a allocated page
+	return cap(fs.compress)
 }
 
 // compact the current write buffer,
@@ -196,7 +185,7 @@ func (fs *fieldStore) compact(fieldType field.Type, startTime uint16) {
 	}
 
 	fs.compress = commonencoding.MustCopy(fs.compress, data)
-	// !!!!! IMPORTANT: need reset current write buffer
+	// NOTE: !!!!! IMPORTANT: need reset current write buffer
 	fs.resetBuf()
 }
 

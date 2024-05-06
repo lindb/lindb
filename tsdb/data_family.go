@@ -27,14 +27,15 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/common/pkg/fasttime"
+	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/ltoml"
+	commontimeutil "github.com/lindb/common/pkg/timeutil"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/logger"
-	"github.com/lindb/lindb/pkg/ltoml"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb/memdb"
@@ -122,7 +123,7 @@ type dataFamily struct {
 	mutex        sync.Mutex
 
 	statistics *metrics.FamilyStatistics
-	logger     *logger.Logger
+	logger     logger.Logger
 }
 
 // newDataFamily creates a data family storage unit
@@ -144,7 +145,7 @@ func newDataFamily(
 		timeRange:     timeRange,
 		familyTime:    familyTime,
 		family:        family,
-		lastFlushTime: timeutil.Now(),
+		lastFlushTime: commontimeutil.Now(),
 		seq:           make(map[int32]atomic.Int64),
 		persistSeq:    make(map[int32]atomic.Int64),
 		callbacks:     make(map[int32][]func(seq int64)),
@@ -165,7 +166,7 @@ func newDataFamily(
 	}
 
 	f.indicator = fmt.Sprintf("%s/%s/%s", dbName, shardIDStr,
-		timeutil.FormatTimestamp(familyTime, timeutil.DataTimeFormat4))
+		commontimeutil.FormatTimestamp(familyTime, commontimeutil.DataTimeFormat4))
 
 	// add data family into global family manager
 	GetFamilyManager().AddFamily(f)
@@ -231,21 +232,25 @@ func (f *dataFamily) NeedFlush() bool {
 		}
 	}
 	maxMemDBSize := config.GlobalStorageConfig().TSDB.MaxMemDBSize
+	memDBUptime := f.mutableMemDB.Uptime()
+	memDBHeapSize := f.mutableMemDB.MemSize()
 
 	f.logger.Info("check memory database if need flush",
 		logger.String("family", f.indicator),
-		logger.String("uptime", f.mutableMemDB.Uptime().String()),
+		logger.Any("check-ttl", memDBUptime >= ttl),
+		logger.Any("check-memdb-heap-size", memDBHeapSize >= int64(maxMemDBSize)),
+		logger.String("uptime", memDBUptime.String()),
 		logger.String("mutable-memdb-ttl", ttl.String()),
-		logger.String("memdb-size", ltoml.Size(f.mutableMemDB.MemSize()).String()),
+		logger.String("memdb-size", ltoml.Size(memDBHeapSize).String()),
 		logger.String("max-memdb-size", maxMemDBSize.String()),
 	)
 
 	// check memory database's uptime
-	if f.mutableMemDB.Uptime() >= ttl {
+	if memDBUptime >= ttl {
 		return true
 	}
 	// check memory database's heap size
-	if f.mutableMemDB.MemSize() >= int64(maxMemDBSize) {
+	if memDBHeapSize >= int64(maxMemDBSize) {
 		return true
 	}
 	return false
@@ -258,7 +263,7 @@ func (f *dataFamily) IsFlushing() bool {
 
 // Flush flushes memory database.
 func (f *dataFamily) Flush() error {
-	if f.isFlushing.CAS(false, true) {
+	if f.isFlushing.CompareAndSwap(false, true) {
 		defer func() {
 			// mark flush job complete, notify
 			f.flushCondition.Done()
@@ -325,7 +330,7 @@ func (f *dataFamily) Compact() {
 		return
 	}
 
-	diff := fasttime.UnixMilliseconds() - f.lastFlushTime - 2*timeutil.OneHour
+	diff := fasttime.UnixMilliseconds() - f.lastFlushTime - 2*commontimeutil.OneHour
 	if diff >= 0 {
 		// long term no data write, does full compact
 		f.family.Compact()
@@ -357,17 +362,17 @@ func (f *dataFamily) Evict() {
 	}
 	f.mutex.Unlock()
 
-	now := timeutil.Now()
+	now := commontimeutil.Now()
 	ahead, _ := f.shard.Database().GetOption().GetAcceptWritableRange()
-	diff := now - f.familyTime - 6*timeutil.OneHour
+	diff := now - f.familyTime - 6*commontimeutil.OneHour
 	f.logger.Info("check family if expire",
-		logger.String("baseTime", timeutil.FormatTimestamp(f.familyTime, timeutil.DataTimeFormat2)),
-		logger.String("lastRead", timeutil.FormatTimestamp(f.lastReadTime.Load(), timeutil.DataTimeFormat2)),
+		logger.String("baseTime", commontimeutil.FormatTimestamp(f.familyTime, commontimeutil.DataTimeFormat2)),
+		logger.String("lastRead", commontimeutil.FormatTimestamp(f.lastReadTime.Load(), commontimeutil.DataTimeFormat2)),
 		logger.Any("ahead", time.Duration(ahead).String()), logger.String("diff", time.Duration(diff).String()))
 	if diff <= ahead {
 		return
 	}
-	diff = now - f.lastReadTime.Load() - 2*timeutil.OneHour
+	diff = now - f.lastReadTime.Load() - 2*commontimeutil.OneHour
 	if diff > ahead {
 		if err := closeFamilyFunc(f); err != nil {
 			f.logger.Error("close family err when evict", logger.String("family", f.Indicator()))
@@ -446,7 +451,7 @@ func (f *dataFamily) GetState() models.DataFamilyState {
 
 	state := models.DataFamilyState{
 		ShardID:          f.shard.ShardID(),
-		FamilyTime:       timeutil.FormatTimestamp(f.familyTime, timeutil.DataTimeFormat2),
+		FamilyTime:       commontimeutil.FormatTimestamp(f.familyTime, commontimeutil.DataTimeFormat2),
 		AckSequences:     ackSequences,
 		ReplicaSequences: replicaSequences,
 		MemoryDatabases:  memoryDatabaseState,
@@ -530,21 +535,15 @@ func (f *dataFamily) WriteRows(rows []metric.StorageRow) error {
 		return err
 	}
 	db.AcquireWrite()
-	releaseFunc := db.WithLock()
 	memSizeBefore := db.MemSize()
 	defer func() {
 		f.statistics.WriteBatches.Incr()
 		f.statistics.MemDBTotalSize.Add(float64(db.MemSize() - memSizeBefore))
 		db.CompleteWrite()
-		releaseFunc()
 	}()
 
 	for idx := range rows {
 		row := rows[idx]
-		if !row.Writable {
-			f.statistics.WriteMetricFailures.Incr()
-			continue
-		}
 		row.SlotIndex = uint16(f.intervalCalc.CalcSlot(
 			row.Timestamp(),
 			f.familyTime,
@@ -553,7 +552,7 @@ func (f *dataFamily) WriteRows(rows []metric.StorageRow) error {
 		err := db.WriteRow(&row)
 		if err == nil {
 			f.statistics.WriteMetrics.Incr()
-			f.statistics.WriteFields.Add(float64(len(row.FieldIDs)))
+			f.statistics.WriteFields.Add(float64(row.Fields))
 		} else {
 			f.statistics.WriteMetricFailures.Incr()
 			f.logger.Error("failed writing row", logger.String("family", f.indicator), logger.Error(err))
@@ -607,10 +606,12 @@ func (f *dataFamily) GetOrCreateMemoryDatabase(familyTime int64) (memdb.MemoryDa
 	defer f.mutex.Unlock()
 
 	if f.mutableMemDB == nil {
-		newDB, err := newMemoryDBFunc(memdb.MemoryDatabaseCfg{
-			FamilyTime: familyTime,
-			Name:       f.shard.Database().Name(),
-			BufferMgr:  f.shard.BufferManager(),
+		newDB, err := newMemoryDBFunc(&memdb.MemoryDatabaseCfg{
+			FamilyTime:    familyTime,
+			Name:          f.shard.Database().Name(),
+			BufferMgr:     f.shard.BufferManager(),
+			MetaNotifier:  f.shard.Database().MetaDB().Notify,
+			IndexNotifier: f.shard.IndexDB().Notify,
 		})
 		if err != nil {
 			return nil, err
