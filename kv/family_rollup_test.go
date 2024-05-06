@@ -63,8 +63,8 @@ func TestFamily_needRollup(t *testing.T) {
 	fv := f.familyVersion.(*version.MockFamilyVersion)
 
 	cases := []struct {
-		name    string
 		prepare func()
+		name    string
 		need    bool
 	}{
 		{
@@ -149,8 +149,8 @@ func TestFamily_rollup(t *testing.T) {
 	fv := f.familyVersion.(*version.MockFamilyVersion)
 	name := "13"
 	cases := []struct {
-		name    string
 		prepare func()
+		name    string
 	}{
 		{
 			name: "rollup job doing",
@@ -320,9 +320,9 @@ func TestFamily_doRollupWork(t *testing.T) {
 	fv := f.familyVersion.(*version.MockFamilyVersion)
 	rollup := NewMockRollup(ctrl)
 	cases := []struct {
+		prepare func()
 		name    string
 		files   []table.FileNumber
-		prepare func()
 		wantErr bool
 	}{
 		{

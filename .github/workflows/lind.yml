@@ -11,11 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 1
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: 1.21.1
           cache: false 
@@ -29,19 +29,18 @@ jobs:
         with:
           version: v1.57.2
           skip-cache: true
-          skip-pkg-cache: true
-          skip-build-cache: true 
+          skip-save-cache: true
 
   linux-test-with-coverage:
     name: Uint Test With Coverage(Linux)
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 1
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
           go-version: 1.21
           cache: true
@@ -58,11 +57,11 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 1
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
           go-version: 1.21
           cache: true
@@ -77,11 +76,11 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 1
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
           go-version: 1.21
           cache: true
@@ -100,11 +99,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 1
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
           go-version: 1.21
           cache: true
@@ -116,11 +115,11 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 1
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
           go-version: 1.21
           cache: true
@@ -132,11 +131,11 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 1
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
           go-version: 1.21
           cache: true
@@ -152,11 +151,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 1
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
           go-version: 1.21
           cache: true

@@ -22,12 +22,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/lindb/lindb/app/broker/api/prometheus/ingest"
-
 	"github.com/gin-gonic/gin"
 	"github.com/lindb/common/pkg/logger"
 	"github.com/prometheus/prometheus/prompb"
 	"github.com/prometheus/prometheus/storage/remote"
+
+	"github.com/lindb/lindb/app/broker/api/prometheus/ingest"
 )
 
 // remoteWrite implements a remote write interface similar to Prometheus.
@@ -46,7 +46,7 @@ func (e *ExecuteAPI) remoteWrite(c *gin.Context) {
 
 // write asynchronously writes data to LinDB.
 func (e *ExecuteAPI) write(ctx context.Context, req *prompb.WriteRequest) {
-	for _, ts := range req.Timeseries {
+	for _, ts := range req.Timeseries { //nolint:gocritic
 		lbs := labelProtosToLabels(ts.Labels)
 		if !lbs.IsValid() {
 			e.logger.Warn("Invalid metric names or labels", logger.String("labels", lbs.String()))

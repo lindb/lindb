@@ -28,10 +28,15 @@ import (
 var (
 	sManager          StoreManager
 	once4StoreManager sync.Once
+
+	lock sync.Mutex // just for test
 )
 
 // InitStoreManager initializes StoreManager.
 func InitStoreManager(storeMgr StoreManager) {
+	lock.Lock()
+	defer lock.Unlock()
+
 	sManager = storeMgr
 }
 

@@ -176,8 +176,8 @@ func TestStoreFlusher_StreamWriter(t *testing.T) {
 	family.EXPECT().ID().Return(version.FamilyID(10)).AnyTimes()
 	flusher := newStoreFlusher(family, func() {})
 	cases := []struct {
-		name    string
 		prepare func()
+		name    string
 		wantErr bool
 	}{
 		{

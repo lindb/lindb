@@ -159,15 +159,15 @@ func TestStateManager_DatabaseCfg(t *testing.T) {
 	// case 4: live node error
 	mgr1.mutex.Lock()
 	storage1.EXPECT().GetLiveNodes().Return(nil, fmt.Errorf("err"))
-	mgr1.mutex.Unlock()
 	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return([]byte("{}"), nil)
 	assert.NoError(t, mgr1.onDatabaseCfgChange("/database/test", data))
+	mgr1.mutex.Unlock()
 	// case 5: create shard assign err
 	mgr1.mutex.Lock()
 	storage1.EXPECT().GetLiveNodes().Return(nil, nil)
-	mgr1.mutex.Unlock()
 	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, state.ErrNotExist)
 	assert.NoError(t, mgr1.onDatabaseCfgChange("/database/test", data))
+	mgr1.mutex.Unlock()
 	// case 6: trigger modify event
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return(encoding.JSONMarshal(&models.ShardAssignment{
