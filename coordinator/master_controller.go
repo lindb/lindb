@@ -49,15 +49,12 @@ var log = logger.GetLogger("Master", "MasterController")
 
 // MasterCfg represents the config for masterController creating
 type MasterCfg struct {
-	// basic
-	Ctx  context.Context
-	TTL  int64 // masterController elect keepalive ttl
-	Node models.Node
-	Repo state.Repository
-
-	// factory
+	Ctx              context.Context
+	Node             models.Node
+	Repo             state.Repository
 	DiscoveryFactory discovery.Factory
 	RepoFactory      state.RepositoryFactory
+	TTL              int64
 }
 
 // MasterController represents all metadata/state controller, only has one active master in broker cluster.
@@ -82,22 +79,16 @@ type MasterController interface {
 
 // masterController implements MasterController interface
 type masterController struct {
-	ctx    context.Context
-	cancel context.CancelFunc
-
-	cfg      *MasterCfg
-	stateMgr masterpkg.StateManager
-
-	// create by runtime
-	stateMachineFct *masterpkg.StateMachineFactory
+	ctx             context.Context
+	stateMgr        masterpkg.StateManager
 	elect           elect.Election
 	registry        discovery.Registry
-
-	fns []func(master *models.Master)
-
-	mutex sync.Mutex
-
-	statistics *metrics.MasterStatistics
+	cancel          context.CancelFunc
+	cfg             *MasterCfg
+	stateMachineFct *masterpkg.StateMachineFactory
+	statistics      *metrics.MasterStatistics
+	fns             []func(master *models.Master)
+	mutex           sync.Mutex
 }
 
 // NewMasterController create MasterController for current node
@@ -111,7 +102,8 @@ func NewMasterController(cfg *MasterCfg) MasterController {
 	}
 	// create master election
 	m.elect = newElectionFn(ctx, cfg.Repo, cfg.Node, cfg.TTL, m)
-	m.registry = newRegistryFn(cfg.Repo, constants.MasterElectedPath, time.Duration(cfg.TTL))
+	m.registry = newRegistryFn(cfg.Repo, fmt.Sprintf("%s/%s", constants.MasterElectedPath, m.cfg.Node.Indicator()),
+		m.cfg.Node, time.Duration(cfg.TTL))
 	return m
 }
 
@@ -144,7 +136,7 @@ func (m *masterController) OnFailOver() error {
 		return fmt.Errorf("start master state machine error:%s", err)
 	}
 	// register master node info after election, tell other nodes finish master election.
-	if err = m.registry.Register(m.cfg.Node); err != nil {
+	if err = m.registry.Register(); err != nil {
 		m.statistics.FailOverFailures.Incr()
 		return fmt.Errorf("register elected master node error:%s", err)
 	}
@@ -166,7 +158,7 @@ func (m *masterController) OnResignation() {
 	if m.stateMgr != nil {
 		m.stateMgr.Close()
 	}
-	if err := m.registry.Deregister(m.cfg.Node); err != nil {
+	if err := m.registry.Deregister(); err != nil {
 		log.Warn("unregister elected master node error", logger.Error(err))
 		m.statistics.ReassignFailures.Incr()
 	} else {

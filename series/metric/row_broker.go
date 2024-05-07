@@ -32,12 +32,10 @@ import (
 )
 
 type BrokerRow struct {
-	m      flatMetricsV1.Metric
 	buffer []byte
 
-	shardIdx int
-	// IsOutOfTimeRange marks if this row is out-of time-range
-	// data is not accessible when its set to true
+	m                flatMetricsV1.Metric
+	shardIdx         int
 	IsOutOfTimeRange bool
 }
 

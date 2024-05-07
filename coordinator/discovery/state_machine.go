@@ -112,18 +112,14 @@ type StateMachine interface {
 
 // stateMachine implements StateMachine interface.
 type stateMachine struct {
-	ctx    context.Context
-	cancel context.CancelFunc
-
-	stateMachineType StateMachineType
+	ctx              context.Context
 	discovery        Discovery
-
-	onCreateFn func(key string, resource []byte)
-	onDeleteFn func(key string)
-
-	running *atomic.Bool
-
-	logger logger.Logger
+	logger           logger.Logger
+	cancel           context.CancelFunc
+	onCreateFn       func(key string, resource []byte)
+	onDeleteFn       func(key string)
+	running          *atomic.Bool
+	stateMachineType StateMachineType
 }
 
 // NewStateMachine creates a state machine instance.
@@ -205,10 +201,8 @@ func (sm *stateMachine) Close() error {
 
 // ExploreData explores state repository data by given path.
 func ExploreData(ctx context.Context, repo state.Repository, stateMachineInfo models.StateMachineInfo) (interface{}, error) {
-	fmt.Println(stateMachineInfo.Path)
 	var rs []interface{}
 	err := repo.WalkEntry(ctx, stateMachineInfo.Path, func(key, value []byte) {
-		fmt.Println("get data....")
 		r := stateMachineInfo.CreateState()
 		err0 := encoding.JSONUnmarshal(value, r)
 		if err0 != nil {

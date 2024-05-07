@@ -216,8 +216,8 @@ func (r *runtime) Run() error {
 	r.master = newMasterController(masterCfg)
 
 	// register broker node info
-	r.registry = newRegistry(r.repo, constants.LiveNodesPath, r.config.Coordinator.LeaseTTL.Duration())
-	err = r.registry.Register(r.node)
+	r.registry = newRegistry(r.repo, constants.GetLiveNodePath(r.node.Indicator()), r.node, r.config.Coordinator.LeaseTTL.Duration())
+	err = r.registry.Register()
 	if err != nil {
 		r.state = server.Failed
 		return fmt.Errorf("register broker node error:%s", err)
@@ -306,7 +306,7 @@ func (r *runtime) Stop() {
 	// close registry, deregister broker node from active list
 	if r.registry != nil {
 		r.logger.Info("closing discovery-registry...")
-		if err := r.registry.Deregister(r.node); err != nil {
+		if err := r.registry.Deregister(); err != nil {
 			r.logger.Error("unregister broker node error", logger.Error(err))
 		}
 		if err := r.registry.Close(); err != nil {

@@ -22,9 +22,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"go.uber.org/atomic"
-
 	"github.com/lindb/common/pkg/logger"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/pkg/queue/page"
 )
@@ -67,17 +66,15 @@ type ConsumerGroup interface {
 
 // consumerGroup implements ConsumerGroup.
 type consumerGroup struct {
-	name string      // unique name
-	q    FanOutQueue // underlying queue for retrieving data
-
-	consumedSeq     *atomic.Int64 // consumed sequence
-	acknowledgedSeq *atomic.Int64 // acknowledged sequence
+	q               FanOutQueue // underlying query for retreving data
 	metaPageFct     page.Factory
 	metaPage        page.MappedPage // persists meta
-
-	closed       atomic.Bool // false -> running, true -> closed
-	paused       atomic.Bool
-	lock4headSeq sync.RWMutex // lock to protect headSeq
+	consumedSeq     *atomic.Int64   // consumed sequence
+	acknowledgedSeq *atomic.Int64   // acknowledged sequence
+	name            string          // unique name
+	closed          atomic.Bool     // false -> running, true -> closed
+	paused          atomic.Bool
+	lock4headSeq    sync.RWMutex // lock to protect head seq
 }
 
 // NewConsumerGroup builds a ConsumerGroup from metaPath.

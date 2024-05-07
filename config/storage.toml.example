@@ -106,11 +106,11 @@ connect-timeout = "3s"
 ## Default: data/storage/wal
 ## Env: LINDB_STORAGE_WAL_DIR
 dir = "data/storage/wal"
-## data-size-limit is the maximum size in megabytes of the page file before a new
-## file is created. It defaults to 512 megabytes, available size is in [1MB, 1GB]
+## page-size is the maximum page size in megabytes of the page file before a new
+## file is created, available size is in [128MB, 1GB]
 ## Default: 128 MiB
-## Env: LINDB_STORAGE_WAL_DATA_SIZE_LIMIT
-data-size-limit = "128 MiB"
+## Env: LINDB_STORAGE_WAL_PAGE_SIZE
+page-size = "128 MiB"
 ## interval for how often remove expired write ahead log
 ## Default: 1m0s
 ## Env: LINDB_STORAGE_WAL_REMOVE_TASK_INTERVAL

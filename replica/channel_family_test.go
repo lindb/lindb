@@ -25,13 +25,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/atomic"
-	"go.uber.org/mock/gomock"
-
 	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/atomic"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/metrics"
@@ -69,13 +68,14 @@ func TestFamilyChannel_Write(t *testing.T) {
 		Name:      "cpu",
 		Timestamp: timeutil.Now(),
 		SimpleFields: []*protoMetricsV1.SimpleField{
-			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
+			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
+		},
 	}, &brokerRow))
 
 	cases := []struct {
+		prepare func()
 		name    string
 		rows    []metric.BrokerRow
-		prepare func()
 		wantErr bool
 	}{
 		{
@@ -137,6 +137,7 @@ func TestFamilyChannel_leaderChanged(t *testing.T) {
 	shard := models.ShardState{ID: 1}
 	liveNodes := make(map[models.NodeID]models.StatefulNode)
 	fc := &familyChannel{
+		notifyLeaderChange:  atomic.NewBool(false),
 		leaderChangedSignal: make(chan struct{}, 1),
 		statistics:          metrics.NewBrokerFamilyWriteStatistics("db"),
 	}
@@ -267,8 +268,8 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 	}()
 
 	cases := []struct {
-		name    string
 		prepare func(f *familyChannel)
+		name    string
 	}{
 		{
 			name: "stop family, no data need flush",
@@ -326,7 +327,8 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 				chunk.EXPECT().Compress().Return(&compressedChunk{1, 2, 3}, nil)
 				f.newWriteStreamFn = func(ctx context.Context, target models.Node,
 					database string, shardState *models.ShardState, familyTime int64,
-					fct rpc.ClientStreamFactory) (rpc.WriteStream, error) {
+					fct rpc.ClientStreamFactory,
+				) (rpc.WriteStream, error) {
 					return nil, fmt.Errorf("err")
 				}
 				go func() {
@@ -344,7 +346,8 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 				stream := rpc.NewMockWriteStream(ctrl)
 				f.newWriteStreamFn = func(ctx context.Context, target models.Node,
 					database string, shardState *models.ShardState, familyTime int64,
-					fct rpc.ClientStreamFactory) (rpc.WriteStream, error) {
+					fct rpc.ClientStreamFactory,
+				) (rpc.WriteStream, error) {
 					return stream, nil
 				}
 				stream.EXPECT().Close()
@@ -364,7 +367,8 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 				stream := rpc.NewMockWriteStream(ctrl)
 				f.newWriteStreamFn = func(ctx context.Context, target models.Node,
 					database string, shardState *models.ShardState, familyTime int64,
-					fct rpc.ClientStreamFactory) (rpc.WriteStream, error) {
+					fct rpc.ClientStreamFactory,
+				) (rpc.WriteStream, error) {
 					return stream, nil
 				}
 				stream.EXPECT().Close().Return(nil)
@@ -384,7 +388,8 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 				stream := rpc.NewMockWriteStream(ctrl)
 				f.newWriteStreamFn = func(ctx context.Context, target models.Node,
 					database string, shardState *models.ShardState, familyTime int64,
-					fct rpc.ClientStreamFactory) (rpc.WriteStream, error) {
+					fct rpc.ClientStreamFactory,
+				) (rpc.WriteStream, error) {
 					return stream, nil
 				}
 				stream.EXPECT().Close().Return(fmt.Errorf("err"))
@@ -404,7 +409,8 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 				stream := rpc.NewMockWriteStream(ctrl)
 				f.newWriteStreamFn = func(ctx context.Context, target models.Node,
 					database string, shardState *models.ShardState, familyTime int64,
-					fct rpc.ClientStreamFactory) (rpc.WriteStream, error) {
+					fct rpc.ClientStreamFactory,
+				) (rpc.WriteStream, error) {
 					return stream, nil
 				}
 				stream.EXPECT().Close().Return(fmt.Errorf("err"))
@@ -423,7 +429,8 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 				lastCh := make(chan struct{})
 				f.newWriteStreamFn = func(_ context.Context, _ models.Node,
 					_ string, _ *models.ShardState, _ int64,
-					_ rpc.ClientStreamFactory) (rpc.WriteStream, error) {
+					_ rpc.ClientStreamFactory,
+				) (rpc.WriteStream, error) {
 					time.Sleep(100 * time.Millisecond)
 					return nil, fmt.Errorf("err")
 				}
@@ -449,7 +456,8 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 				stream := rpc.NewMockWriteStream(ctrl)
 				f.newWriteStreamFn = func(ctx context.Context, target models.Node,
 					database string, shardState *models.ShardState, familyTime int64,
-					fct rpc.ClientStreamFactory) (rpc.WriteStream, error) {
+					fct rpc.ClientStreamFactory,
+				) (rpc.WriteStream, error) {
 					return stream, nil
 				}
 				stream.EXPECT().Send(gomock.Any()).Return(nil)
@@ -474,7 +482,8 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 				stream := rpc.NewMockWriteStream(ctrl)
 				f.newWriteStreamFn = func(ctx context.Context, target models.Node,
 					database string, shardState *models.ShardState, familyTime int64,
-					fct rpc.ClientStreamFactory) (rpc.WriteStream, error) {
+					fct rpc.ClientStreamFactory,
+				) (rpc.WriteStream, error) {
 					return stream, nil
 				}
 				stream.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
@@ -498,7 +507,8 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 				stream := rpc.NewMockWriteStream(ctrl)
 				f.newWriteStreamFn = func(ctx context.Context, target models.Node,
 					database string, shardState *models.ShardState, familyTime int64,
-					fct rpc.ClientStreamFactory) (rpc.WriteStream, error) {
+					fct rpc.ClientStreamFactory,
+				) (rpc.WriteStream, error) {
 					return stream, nil
 				}
 				stream.EXPECT().Send(gomock.Any()).Return(fmt.Errorf("err"))
@@ -524,6 +534,7 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 				cancel:              cancel,
 				ctx:                 ctx,
 				ch:                  make(chan *compressedChunk, 2),
+				notifyLeaderChange:  atomic.NewBool(false),
 				maxRetryBuf:         1,
 				checkFlushInterval:  time.Millisecond * 100,
 				lastFlushTime:       atomic.NewInt64(timeutil.Now()),

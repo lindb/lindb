@@ -23,9 +23,8 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/caarlos0/env/v7"
-	"github.com/stretchr/testify/assert"
-
 	"github.com/lindb/common/pkg/ltoml"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestStorage_TOML(t *testing.T) {
@@ -36,13 +35,13 @@ func TestStorage_TOML(t *testing.T) {
 	assert.Equal(t, storageCfg.TOML(), defaultCfg)
 }
 
-func TestWAL_GetDataSizeLimit(t *testing.T) {
+func TestWAL_GetPageSize(t *testing.T) {
 	wal := &WAL{}
-	assert.Equal(t, int64(1024*1024), wal.GetDataSizeLimit())
-	wal = &WAL{DataSizeLimit: 2 * 1024 * 1024 * 1024}
-	assert.Equal(t, int64(1024*1024*1024), wal.GetDataSizeLimit())
-	wal = &WAL{DataSizeLimit: 128 * 1024 * 1024}
-	assert.Equal(t, int64(128*1024*1024), wal.GetDataSizeLimit())
+	assert.Equal(t, int64(128*1024*1024), wal.GetPageSize())
+	wal = &WAL{PageSize: 2 * 1024 * 1024 * 1024}
+	assert.Equal(t, int64(1024*1024*1024), wal.GetPageSize())
+	wal = &WAL{PageSize: 128 * 1024 * 1024}
+	assert.Equal(t, int64(128*1024*1024), wal.GetPageSize())
 }
 
 func TestStorage_Env(t *testing.T) {
@@ -69,7 +68,7 @@ func TestStorage_Env(t *testing.T) {
 		"LINDB_STORAGE_GRPC_CONNECT_TIMEOUT":              "2m",
 		"LINDB_STORAGE_WAL_REMOVE_TASK_INTERVAL":          "2m",
 		"LINDB_STORAGE_WAL_DIR":                           "wal_dir",
-		"LINDB_STORAGE_WAL_DATA_SIZE_LIMIT":               "1Mib",
+		"LINDB_STORAGE_WAL_PAGE_SIZE":                     "1Mib",
 		"LINDB_STORAGE_TSDB_DIR":                          "tsdb_dir",
 		"LINDB_STORAGE_TSDB_MAX_MEMDB_SIZE":               "1Mib",
 		"LINDB_STORAGE_TSDB_MUTABLE_MEMDB_TTL":            "2m",
@@ -112,7 +111,7 @@ func TestStorage_Env(t *testing.T) {
 	assert.Equal(t, ltoml.Duration(time.Second*120), cfg.StorageBase.TTLTaskInterval)
 	assert.Equal(t, ltoml.Duration(time.Second*120), cfg.StorageBase.WAL.RemoveTaskInterval)
 	assert.Equal(t, "wal_dir", cfg.StorageBase.WAL.Dir)
-	assert.Equal(t, ltoml.Size(1024*1024), cfg.StorageBase.WAL.DataSizeLimit)
+	assert.Equal(t, ltoml.Size(1024*1024), cfg.StorageBase.WAL.PageSize)
 	assert.Equal(t, "tsdb_dir", cfg.StorageBase.TSDB.Dir)
 	assert.Equal(t, ltoml.Size(1024*1024), cfg.StorageBase.TSDB.MaxMemDBSize)
 	assert.Equal(t, ltoml.Duration(time.Second*120), cfg.StorageBase.TSDB.MutableMemDBTTL)

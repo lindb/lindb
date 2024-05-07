@@ -23,10 +23,9 @@ import (
 	"path/filepath"
 	"sync"
 
-	"go.uber.org/atomic"
-
 	"github.com/lindb/common/pkg/fileutil"
 	"github.com/lindb/common/pkg/logger"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/pkg/queue/page"
 )
@@ -82,48 +81,40 @@ type Queue interface {
 
 // queue implements queue.
 type queue struct {
-	dirPath       string // dirPath for queue file
-	dataSizeLimit int64  // the max size limit in bytes for data file
-
-	indexPageFct page.Factory // index page factory
-	dataPageFct  page.Factory // data page factory
-	metaPageFct  page.Factory // meta page factory
-
-	// queue meta with headSeq and tailSeq
+	indexPage       page.MappedPage // index buffer
+	dataPage        page.MappedPage // data buffer
+	indexPageFct    page.Factory    // index page factory
+	dataPageFct     page.Factory    // data page factory
 	metaPage        page.MappedPage // meta buffer
-	appendedSeq     atomic.Int64    // current written sequence
-	acknowledgedSeq atomic.Int64    // acknowledged sequence
-
-	indexPage      page.MappedPage // index buffer
-	indexPageIndex int64
-
-	// message data write context
-	dataPageIndex int64
-	dataPage      page.MappedPage
-	messageOffset int
-
-	closed  atomic.Bool
-	rwMutex *sync.RWMutex
-
-	notEmpty *sync.Cond // not empty condition
+	metaPageFct     page.Factory    // meta page factory
+	notEmpty        *sync.Cond      // not empty condition
+	rwMutex         *sync.RWMutex
+	dirPath         string       // path for queue file
+	appendedSeq     atomic.Int64 // current written sequence
+	dataPageIndex   int64
+	indexPageIndex  int64
+	messageOffset   int
+	closed          atomic.Bool
+	acknowledgedSeq atomic.Int64 // acknowledged sequence
+	pageSize        int64        // data page size
 }
 
-// NewQueue returns Queue based on dirPath, dataSizeLimit is used to limit the total data/index size,
-func NewQueue(dirPath string, dataSizeLimit int64) (Queue, error) {
+// NewQueue returns Queue based on dirPath, pageSize is used to limit the data page size,
+func NewQueue(dirPath string, pageSize int64) (Queue, error) {
 	if err := mkDirFunc(dirPath); err != nil {
 		return nil, err
 	}
 	lock := &sync.RWMutex{}
 	q := &queue{
-		dirPath:       dirPath,
-		dataSizeLimit: dataSizeLimit,
-		rwMutex:       lock,
-		notEmpty:      sync.NewCond(lock),
+		dirPath:  dirPath,
+		pageSize: pageSize,
+		rwMutex:  lock,
+		notEmpty: sync.NewCond(lock),
 	}
 
 	// if data size limit < default limit, need reset
-	if q.dataSizeLimit < defaultDataSizeLimit {
-		q.dataSizeLimit = defaultDataSizeLimit
+	if q.pageSize < dataPageSize {
+		q.pageSize = dataPageSize
 	}
 
 	var err error
@@ -137,7 +128,7 @@ func NewQueue(dirPath string, dataSizeLimit int64) (Queue, error) {
 
 	// init data page factory
 	var dataPageFct page.Factory
-	dataPageFct, err = newPageFactoryFunc(filepath.Join(dirPath, dataPath), dataPageSize)
+	dataPageFct, err = newPageFactoryFunc(filepath.Join(dirPath, dataPath), int(q.pageSize))
 	if err != nil {
 		return nil, err
 	}
@@ -366,10 +357,6 @@ func (q *queue) alloc(dataLen int) (dataPageIndex int64, dataPage page.MappedPag
 
 	// prepare the data pointer
 	if q.messageOffset+dataLen > dataPageSize {
-		// check size limit before data page acquire
-		if err := q.checkDataSize(); err != nil {
-			return 0, nil, 0, err
-		}
 		// sync previous data page
 		if err := q.dataPage.Sync(); err != nil {
 			queueLogger.Error("sync data page err when alloc",
@@ -400,10 +387,6 @@ func (q *queue) persistMetaOfMessage(dataPageIndex int64, dataLen, messageOffset
 	seq := q.appendedSeq.Load() + 1 // append sequence
 	indexPageIndex := seq / indexItemsPerPage
 	if indexPageIndex != q.indexPageIndex {
-		// check size limit before index page acquire
-		if err := q.checkDataSize(); err != nil {
-			return err
-		}
 		// sync previous data page
 		if err := q.indexPage.Sync(); err != nil {
 			queueLogger.Error("sync index page err when alloc",
@@ -489,13 +472,5 @@ func (q *queue) validateSequence(sequence int64) error {
 			sequence, q.appendedSeq.Load(), q.acknowledgedSeq.Load())
 	}
 
-	return nil
-}
-
-// checkDataSize checks the data size if exceeds the size limit
-func (q *queue) checkDataSize() error {
-	if q.dataPageFct.Size()+q.indexPageFct.Size() > q.dataSizeLimit {
-		return ErrExceedingTotalSizeLimit
-	}
 	return nil
 }

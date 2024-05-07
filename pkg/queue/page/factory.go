@@ -26,10 +26,9 @@ import (
 	"strings"
 	"sync"
 
-	"go.uber.org/atomic"
-
 	commonfileutil "github.com/lindb/common/pkg/fileutil"
 	"github.com/lindb/common/pkg/logger"
+	"go.uber.org/atomic"
 )
 
 //go:generate mockgen -source ./factory.go -destination ./factory_mock.go -package page
@@ -63,15 +62,13 @@ type Factory interface {
 
 // factory implements Factory interface
 type factory struct {
+	logger   logger.Logger
+	pages    map[int64]MappedPage
 	path     string
 	pageSize int
-
-	pages  map[int64]MappedPage // store all acquire pages
-	closed atomic.Bool
-	size   atomic.Int64 // current total queue data size
-
-	mutex  sync.RWMutex
-	logger logger.Logger
+	closed   atomic.Bool
+	size     atomic.Int64
+	mutex    sync.RWMutex
 }
 
 // NewFactory creates page factory based on page size

@@ -197,7 +197,6 @@ func (s *intervalSegment) EvictSegment() {
 
 // walkSegment lists all segment under current interval segment dir.
 func (s *intervalSegment) walkSegment(fn func(segmentName string, segmentTime int64)) error {
-	fmt.Println(s.dir)
 	segmentNames, err := listDir(s.dir)
 	if err != nil {
 		return err

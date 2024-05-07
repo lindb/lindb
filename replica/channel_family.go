@@ -24,10 +24,9 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/atomic"
-
 	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/timeutil"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/metrics"
@@ -57,42 +56,31 @@ type FamilyChannel interface {
 
 // familyChannel implements FamilyChannel interface.
 type familyChannel struct {
-	// context to close shardChannel
-	ctx        context.Context
-	cancel     context.CancelFunc
-	database   string
-	shardID    models.ShardID
-	familyTime int64
-
-	newWriteStreamFn func(
-		ctx context.Context,
-		target models.Node,
-		database string, shardState *models.ShardState, familyTime int64,
-		fct rpc.ClientStreamFactory,
-	) (rpc.WriteStream, error)
-
-	fct           rpc.ClientStreamFactory
-	shardState    models.ShardState
-	liveNodes     map[models.NodeID]models.StatefulNode
-	currentTarget models.Node
-
-	// shardChannel to convert multiple goroutine writeTask to single goroutine writeTask to FanOutQueue
+	fct                 rpc.ClientStreamFactory
+	logger              logger.Logger
+	chunk               Chunk
+	ctx                 context.Context
+	currentTarget       models.Node
+	stoppedSignal       chan struct{}
+	notifyLeaderChange  *atomic.Bool
+	cancel              context.CancelFunc
+	liveNodes           map[models.NodeID]models.StatefulNode
+	statistics          *metrics.BrokerFamilyWriteStatistics
 	ch                  chan *compressedChunk
 	leaderChangedSignal chan struct{}
-	stoppedSignal       chan struct{}
+	lastFlushTime       *atomic.Int64
 	stoppingSignal      chan struct{}
-	chunk               Chunk // buffer current writeTask metric for compress
-
-	lastFlushTime      *atomic.Int64 // last flush time
-	checkFlushInterval time.Duration // interval for check flush
-	batchTimeout       time.Duration // interval for flush
+	newWriteStreamFn    func(ctx context.Context, target models.Node, database string,
+		shardState *models.ShardState, familyTime int64, fct rpc.ClientStreamFactory) (rpc.WriteStream, error)
+	database           string
+	shardState         models.ShardState
+	shardID            models.ShardID
+	checkFlushInterval time.Duration
+	batchTimeout       time.Duration
 	maxRetryBuf        int
-
-	lock4write sync.Mutex
-	lock4meta  sync.Mutex
-
-	statistics *metrics.BrokerFamilyWriteStatistics
-	logger     logger.Logger
+	familyTime         int64
+	lock4write         sync.Mutex
+	lock4meta          sync.Mutex
 }
 
 func newFamilyChannel(
@@ -117,6 +105,7 @@ func newFamilyChannel(
 		liveNodes:           liveNodes,
 		newWriteStreamFn:    rpc.NewWriteStream,
 		ch:                  make(chan *compressedChunk, 2),
+		notifyLeaderChange:  atomic.NewBool(false),
 		leaderChangedSignal: make(chan struct{}, 1),
 		stoppedSignal:       make(chan struct{}, 1),
 		stoppingSignal:      make(chan struct{}, 1),
@@ -180,8 +169,12 @@ func (fc *familyChannel) leaderChanged(
 	fc.liveNodes = liveNodes
 	fc.lock4meta.Unlock()
 
-	fc.leaderChangedSignal <- struct{}{}
-	fc.statistics.LeaderChanged.Incr()
+	if fc.notifyLeaderChange.CompareAndSwap(false, true) {
+		// NOTE: sometime work goroutine will be blocked, send change event via goroutine
+		go func() {
+			fc.leaderChangedSignal <- struct{}{}
+		}()
+	}
 }
 
 func (fc *familyChannel) flushChunkOnFull(ctx context.Context) error {
@@ -194,13 +187,13 @@ func (fc *familyChannel) flushChunkOnFull(ctx context.Context) error {
 	}
 
 	select {
+	case fc.ch <- compressed:
+		fc.lastFlushTime.Store(timeutil.Now())
+		return nil
 	case <-ctx.Done(): // timeout of http ingestion api
 		return ErrIngestTimeout
 	case <-fc.ctx.Done():
 		return ErrFamilyChannelCanceled
-	case fc.ch <- compressed:
-		fc.lastFlushTime.Store(timeutil.Now())
-		return nil
 	}
 }
 
@@ -312,9 +305,6 @@ func (fc *familyChannel) writeTask(_ context.Context) {
 		case <-fc.stoppingSignal:
 			sendBeforeStop()
 			return
-		case <-fc.ctx.Done():
-			sendBeforeStop()
-			return
 		case <-fc.leaderChangedSignal:
 			if stream != nil {
 				fc.logger.Info("shard leader changed, need switch send stream",
@@ -325,6 +315,9 @@ func (fc *familyChannel) writeTask(_ context.Context) {
 					fc.logger.Error("close write stream err when leader changed", logger.Error(err))
 				}
 				stream = nil
+
+				fc.statistics.LeaderChanged.Incr()
+				fc.notifyLeaderChange.Store(false)
 			}
 		case compressed := <-fc.ch:
 			if send(compressed) {
@@ -344,6 +337,9 @@ func (fc *familyChannel) writeTask(_ context.Context) {
 		case <-ticker.C:
 			// check
 			fc.checkFlush()
+		case <-fc.ctx.Done():
+			sendBeforeStop()
+			return
 		}
 	}
 }

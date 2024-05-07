@@ -33,47 +33,19 @@ import {
 } from "@douyinfe/semi-ui";
 import { Route } from "@src/constants";
 import { UIContext } from "@src/context/UIContextProvider";
-import { Storage } from "@src/models";
 import { ExecService } from "@src/services";
 import { URLStore } from "@src/stores";
 import * as _ from "lodash-es";
-import React, {
-  MutableRefObject,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import React, { MutableRefObject, useContext, useRef, useState } from "react";
 
 const Text = Typography.Text;
 
 export default function DatabaseConfig() {
   const formApi = useRef() as MutableRefObject<any>;
-  const [storageList, setStorageList] = useState([] as any[]);
   const [error, setError] = useState("");
   const [submiting, setSubmiting] = useState(false);
   const { locale } = useContext(UIContext);
   const { MetadataDatabaseView, Common } = locale;
-
-  useEffect(() => {
-    const getStorageList = async () => {
-      try {
-        const list = await ExecService.exec<Storage[]>({
-          sql: "show storages",
-        });
-        const selectList: any[] = [];
-        _.forEach(list || [], (s) => {
-          const ns = _.get(s, "config.namespace");
-          selectList.push({ value: ns, label: ns });
-        });
-        setStorageList(selectList);
-      } catch (err: any) {
-        setError(err?.message);
-        setStorageList([]);
-      }
-    };
-    getStorageList();
-  }, []);
 
   const create = async () => {
     if (!formApi.current) {
@@ -125,15 +97,6 @@ export default function DatabaseConfig() {
             rules={[
               { required: true, message: MetadataDatabaseView.nameRequired },
             ]}
-          />
-          <Form.Select
-            label={MetadataDatabaseView.storage}
-            field="storage"
-            rules={[
-              { required: true, message: MetadataDatabaseView.storageRequired },
-            ]}
-            optionList={storageList}
-            style={{ width: 200 }}
           />
           <Form.InputNumber
             rules={[
@@ -255,7 +218,7 @@ export default function DatabaseConfig() {
                 <Form.Input
                   label={MetadataDatabaseView.behead}
                   labelPosition="inset"
-                  field="option.behead"
+                  field="option.behind"
                   style={{ width: 202, marginRight: 16 }}
                   placeholder="30m/1h"
                 />

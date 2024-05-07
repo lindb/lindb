@@ -26,10 +26,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lindb/common/pkg/fileutil"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
-
-	"github.com/lindb/common/pkg/fileutil"
 
 	"github.com/lindb/lindb/pkg/queue/page"
 )
@@ -477,29 +476,6 @@ func TestQueue_Ack_err(t *testing.T) {
 
 	q1.metaPage = metaPage
 
-	q.Close()
-}
-
-func TestQueue_data_limit(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), t.Name())
-
-	q, err := NewQueue(dir, 128*1024*1024)
-	assert.NoError(t, err)
-	q1 := q.(*queue)
-	q1.dataSizeLimit = dataPageSize - 10
-	data := make([]byte, dataPageSize-10)
-	// put data
-	err = q.Put(data)
-	assert.NoError(t, err)
-	// need acquire data page, but size limit
-	err = q.Put(data)
-	assert.Equal(t, ErrExceedingTotalSizeLimit, err)
-
-	q1.dataSizeLimit = 2 * dataPageSize
-	q1.appendedSeq.Store(indexItemsPerPage)
-	// need acquire index page, but size limit
-	err = q.Put(data)
-	assert.Equal(t, ErrExceedingTotalSizeLimit, err)
 	q.Close()
 }
 
