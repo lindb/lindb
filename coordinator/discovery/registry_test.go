@@ -35,50 +35,50 @@ func TestRegistry(t *testing.T) {
 	defer ctrl.Finish()
 
 	repo := state.NewMockRepository(ctrl)
+	node := &models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 2080}
 
-	registry1 := NewRegistry(repo, constants.LiveNodesPath, 100)
+	registry1 := NewRegistry(repo, constants.GetLiveNodePath(node.Indicator()), node, 100)
 
 	closedCh := make(chan state.Closed)
 
-	node := models.StatelessNode{HostIP: "127.0.0.1", GRPCPort: 2080}
 	gomock.InOrder(
 		repo.EXPECT().Heartbeat(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil, fmt.Errorf("err")),
 		repo.EXPECT().Heartbeat(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(closedCh, nil),
 	)
-	err := registry1.Register(&node)
+	err := registry1.Register()
 	assert.NoError(t, err)
 	time.Sleep(600 * time.Millisecond)
 	assert.True(t, registry1.IsSuccess())
 
-	// maybe retry do heartbeat after close chan
+	// retry do heartbeat after close chan
 	repo.EXPECT().Heartbeat(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 
 	close(closedCh)
 	time.Sleep(600 * time.Millisecond)
 
-	nodePath := fmt.Sprintf("%s/%s", constants.LiveNodesPath, node.Indicator())
+	nodePath := constants.GetLiveNodePath(node.Indicator())
 	repo.EXPECT().Delete(gomock.Any(), nodePath).Return(nil)
-	err = registry1.Deregister(&node)
+	err = registry1.Deregister()
 	assert.Nil(t, err)
 
 	err = registry1.Close()
 	assert.NoError(t, err)
 
-	registry1 = NewRegistry(repo, constants.LiveNodesPath, 100)
+	registry1 = NewRegistry(repo, constants.GetLiveNodePath(node.Indicator()), node, 100)
 	err = registry1.Close()
 	assert.NoError(t, err)
 
 	r := registry1.(*registry)
-	r.register("/data/pant", &node)
+	r.register()
 
-	registry1 = NewRegistry(repo, constants.LiveNodesPath, 100)
+	registry1 = NewRegistry(repo, constants.GetLiveNodePath(node.Indicator()), node, 100)
 	r = registry1.(*registry)
 
 	// cancel ctx in timer
 	time.AfterFunc(100*time.Millisecond, func() {
 		r.cancel()
 	})
-	r.register("/data/pant", &node)
+	r.register()
 }

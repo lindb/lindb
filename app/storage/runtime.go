@@ -27,7 +27,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/fileutil"
 	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/timeutil"
@@ -75,6 +74,7 @@ type rpcHandler struct {
 var (
 	getHostIP                 = hostutil.GetHostIP
 	hostName                  = os.Hostname
+	newRegistry               = discovery.NewRegistry
 	newStateMachineFactory    = storage.NewStateMachineFactory
 	newDatabaseLifecycleFn    = NewDatabaseLifecycle
 	newEngineFn               = tsdb.NewEngine
@@ -89,34 +89,30 @@ var (
 
 // runtime represents storage runtime dependency
 type runtime struct {
-	app.BaseRuntime
-	myID    int // default myid value
-	state   server.State
-	version string
-	config  *config.Storage
-
-	ctx    context.Context
-	cancel context.CancelFunc
-
-	jobScheduler kv.JobScheduler
-
+	factory             factory
 	stateMachineFactory discovery.StateMachineFactory
+	queryPool           concurrent.Pool
+	httpServer          httppkg.Server
+	engine              tsdb.Engine
+	ctx                 context.Context
+	log                 logger.Logger
+	jobScheduler        kv.JobScheduler
+	repoFactory         state.RepositoryFactory
 	stateMgr            storage.StateManager
 	walMgr              replica.WriteAheadLogManager
 	dbLifecycle         DatabaseLifecycle
-
-	node            *models.StatefulNode
-	server          rpc.GRPCServer
-	repoFactory     state.RepositoryFactory
-	repo            state.Repository
-	factory         factory
-	engine          tsdb.Engine
-	rpcHandler      *rpcHandler
-	httpServer      httppkg.Server
-	queryPool       concurrent.Pool
+	repo                state.Repository
+	server              rpc.GRPCServer
+	registry            discovery.Registry
+	cancel              context.CancelFunc
+	node                *models.StatefulNode
+	config              *config.Storage
+	rpcHandler          *rpcHandler
+	version             string
+	app.BaseRuntime
 	globalKeyValues tag.Tags
-
-	log logger.Logger
+	state           server.State
+	myID            int
 }
 
 // NewStorageRuntime creates storage runtime
@@ -261,7 +257,6 @@ func (r *runtime) MustRegisterStatefulNode() error {
 		logger.String("lease-ttl", r.config.Coordinator.LeaseTTL.String()),
 	)
 	var (
-		ok            bool
 		err           error
 		maxRetries    = 20
 		retryInterval = time.Second
@@ -273,33 +268,24 @@ func (r *runtime) MustRegisterStatefulNode() error {
 			return nil
 		default:
 		}
-		fmt.Println(constants.GetStorageLiveNodePath(strconv.Itoa(int(r.node.ID))))
-		ok, _, err = r.repo.Elect(
-			r.ctx,
-			constants.GetStorageLiveNodePath(strconv.Itoa(int(r.node.ID))),
-			encoding.JSONMarshal(r.node),
-			int64(r.config.Coordinator.LeaseTTL.Duration().Seconds()))
-		if ok {
-			r.log.Info("registered state node successfully",
-				logger.Int("indicator", int(r.node.ID)),
-				logger.String("lease-ttl", r.config.Coordinator.LeaseTTL.String()),
-			)
-			return nil
-		}
+		// register storage node info
+		r.registry = newRegistry(r.repo, constants.GetStorageLiveNodePath(strconv.Itoa(int(r.node.ID))),
+			r.node, r.config.Coordinator.LeaseTTL.Duration())
+		err = r.registry.Register()
 		if err != nil {
 			r.log.Error("failed to register state node",
 				logger.Int("indicator", int(r.node.ID)),
 				logger.Int("attempt", attempt),
 				logger.Error(err),
 			)
+			time.Sleep(retryInterval)
+			continue
 		}
-		if !ok {
-			r.log.Error("stateful node is already registered",
-				logger.Int("indicator", int(r.node.ID)),
-				logger.Int("attempt", attempt),
-			)
-		}
-		time.Sleep(retryInterval)
+		r.log.Info("registered state node successfully",
+			logger.Int("indicator", int(r.node.ID)),
+			logger.String("lease-ttl", r.config.Coordinator.LeaseTTL.String()),
+		)
+		return nil
 	}
 	r.state = server.Failed
 	if err != nil {
@@ -336,6 +322,19 @@ func (r *runtime) Stop() {
 
 	if r.jobScheduler != nil {
 		r.jobScheduler.Shutdown()
+	}
+
+	// close registry, deregister broker node from active list
+	if r.registry != nil {
+		r.log.Info("closing discovery-registry...")
+		if err := r.registry.Deregister(); err != nil {
+			r.log.Error("unregister storage node error", logger.Error(err))
+		}
+		if err := r.registry.Close(); err != nil {
+			r.log.Error("unregister storage node error", logger.Error(err))
+		} else {
+			r.log.Info("closed discovery-registry successfully")
+		}
 	}
 
 	// close state repo if exist
@@ -429,7 +428,7 @@ func (r *runtime) startTCPServer() {
 
 // bindRPCHandlers binds rpc handlers, registers task into grpc server
 func (r *runtime) bindRPCHandlers() {
-	//FIXME: (stone1100) need close
+	// FIXME: (stone1100) need close
 	leafTaskProcessor := query.NewLeafTaskProcessor(
 		r.node,
 		r.engine,

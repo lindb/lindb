@@ -98,3 +98,8 @@ func GetShardAssignPath(name string) string {
 func GetStorageLiveNodePath(node string) string {
 	return fmt.Sprintf("%s/%s", StorageLiveNodesPath, node)
 }
+
+// GetLiveNodePath returns live node register path for broker/root.
+func GetLiveNodePath(node string) string {
+	return fmt.Sprintf("%s/%s", LiveNodesPath, node)
+}

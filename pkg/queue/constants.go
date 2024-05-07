@@ -35,8 +35,6 @@ const (
 	messageOffsetOffset        = 8
 	messageLengthOffset        = 8 + 4
 
-	defaultDataSizeLimit = 4 * dataPageSize
-
 	consumerGroupDirName               = "cg"
 	consumerGroupMetaSize              = 8 + 8 // consume Seq(int64), ack Seq(int64)
 	consumerGroupConsumedSeqOffset     = 0

@@ -26,12 +26,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/mock/gomock"
-
 	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/fileutil"
 	"github.com/lindb/common/pkg/ltoml"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
@@ -75,7 +74,8 @@ func TestStorageRun(t *testing.T) {
 	dbLifecycle.EXPECT().Startup()
 	dbLifecycle.EXPECT().Shutdown()
 	newDatabaseLifecycleFn = func(ctx context.Context, repo state.Repository,
-		walMgr replica.WriteAheadLogManager, engine tsdb.Engine) DatabaseLifecycle {
+		walMgr replica.WriteAheadLogManager, engine tsdb.Engine,
+	) DatabaseLifecycle {
 		return dbLifecycle
 	}
 
@@ -124,7 +124,8 @@ func TestStorageRun_GetHost_Err(t *testing.T) {
 	dbLifecycle.EXPECT().Startup()
 	dbLifecycle.EXPECT().Shutdown()
 	newDatabaseLifecycleFn = func(ctx context.Context, repo state.Repository,
-		walMgr replica.WriteAheadLogManager, engine tsdb.Engine) DatabaseLifecycle {
+		walMgr replica.WriteAheadLogManager, engine tsdb.Engine,
+	) DatabaseLifecycle {
 		return dbLifecycle
 	}
 	cfg.Coordinator.Endpoints = cluster.Endpoints
@@ -207,7 +208,8 @@ func TestStorageRun_Err(t *testing.T) {
 	walMgr := replica.NewMockWriteAheadLogManager(ctrl)
 	newWriteAheadLogManagerFn = func(_ context.Context, _ config.WAL,
 		_ models.NodeID, _ tsdb.Engine, _ rpc.ClientStreamFactory,
-		_ storagepkg.StateManager) replica.WriteAheadLogManager {
+		_ storagepkg.StateManager,
+	) replica.WriteAheadLogManager {
 		return walMgr
 	}
 	walMgr.EXPECT().Recovery().Return(fmt.Errorf("err"))
@@ -232,10 +234,10 @@ func TestStorage_MyID(t *testing.T) {
 	err0 := fmt.Errorf("err")
 	_, err1 := strconv.Atoi("abc")
 	testCases := []struct {
-		desc    string
 		err     error
-		id      int
 		prepare func()
+		desc    string
+		id      int
 	}{
 		{
 			desc: "mk parent path failure",

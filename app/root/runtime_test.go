@@ -25,17 +25,17 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/mock/gomock"
-
 	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/ltoml"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/root"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/server"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/hostutil"
 	httppkg "github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/state"
@@ -57,12 +57,12 @@ func TestRootRun(t *testing.T) {
 		ctrl.Finish()
 	}()
 	registry := discovery.NewMockRegistry(ctrl)
-	newRegistry = func(_ state.Repository, _ string, _ time.Duration) discovery.Registry {
+	newRegistry = func(_ state.Repository, _ string, _ models.Node, _ time.Duration) discovery.Registry {
 		return registry
 	}
-	registry.EXPECT().Register(gomock.Any()).Return(nil)
+	registry.EXPECT().Register().Return(nil)
 	registry.EXPECT().IsSuccess().Return(true)
-	registry.EXPECT().Deregister(gomock.Any()).Return(fmt.Errorf("err"))
+	registry.EXPECT().Deregister().Return(fmt.Errorf("err"))
 	registry.EXPECT().Close().Return(fmt.Errorf("err"))
 	repoFct := state.NewMockRepositoryFactory(ctrl)
 	newRepositoryFactory = func(_ string) state.RepositoryFactory {
@@ -106,7 +106,7 @@ func TestRootRun_Err(t *testing.T) {
 	}()
 	registry := discovery.NewMockRegistry(ctrl)
 	registry.EXPECT().IsSuccess().Return(true)
-	newRegistry = func(_ state.Repository, _ string, _ time.Duration) discovery.Registry {
+	newRegistry = func(_ state.Repository, _ string, _ models.Node, _ time.Duration) discovery.Registry {
 		return registry
 	}
 	cfg.HTTP.Port = 3991
@@ -141,19 +141,19 @@ func TestRootRun_Err(t *testing.T) {
 	})
 	t.Run("register node fail", func(t *testing.T) {
 		repoFct.EXPECT().CreateRootRepo(gomock.Any()).Return(nil, nil)
-		registry.EXPECT().Register(gomock.Any()).Return(fmt.Errorf("err"))
+		registry.EXPECT().Register().Return(fmt.Errorf("err"))
 		r := NewRootRuntime("test-version", &cfg)
 		err := r.Run()
 		assert.Error(t, err)
 	})
 	t.Run("start state machine fail", func(t *testing.T) {
 		repoFct.EXPECT().CreateRootRepo(gomock.Any()).Return(nil, nil)
-		registry.EXPECT().Register(gomock.Any()).Return(nil)
+		registry.EXPECT().Register().Return(nil)
 		stateMachineFct.EXPECT().Start().Return(fmt.Errorf("err"))
 		r := NewRootRuntime("test-version", &cfg)
 		err := r.Run()
 		assert.Error(t, err)
-		registry.EXPECT().Deregister(gomock.Any()).Return(nil)
+		registry.EXPECT().Deregister().Return(nil)
 		registry.EXPECT().Close().Return(nil)
 		r.Stop()
 	})
@@ -237,22 +237,22 @@ func TestRuntime_MustRegisterNode(t *testing.T) {
 		ctx:      ctx,
 		registry: register,
 	}
-	register.EXPECT().Register(gomock.Any()).Return(fmt.Errorf("err"))
+	register.EXPECT().Register().Return(fmt.Errorf("err"))
 	err := r.MustRegisterStatelessNode()
 	assert.Error(t, err)
 
-	register.EXPECT().Register(gomock.Any()).Return(nil)
+	register.EXPECT().Register().Return(nil)
 	register.EXPECT().IsSuccess().Return(true)
 	err = r.MustRegisterStatelessNode()
 	assert.NoError(t, err)
 
-	register.EXPECT().Register(gomock.Any()).Return(nil)
+	register.EXPECT().Register().Return(nil)
 	register.EXPECT().IsSuccess().Return(false).MaxTimes(2)
 	err = r.MustRegisterStatelessNode()
 	assert.Error(t, err)
 
 	cancel()
-	register.EXPECT().Register(gomock.Any()).Return(nil)
+	register.EXPECT().Register().Return(nil)
 	err = r.MustRegisterStatelessNode()
 	assert.NoError(t, err)
 }

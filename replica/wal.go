@@ -139,7 +139,7 @@ func (w *writeAheadLog) GetOrCreatePartition(
 		strconv.Itoa(int(leader)))
 	dirPath := filepath.Join(w.dir, dir)
 
-	q, err := newFanOutQueue(dirPath, w.cfg.GetDataSizeLimit())
+	q, err := newFanOutQueue(dirPath, w.cfg.GetPageSize())
 	if err != nil {
 		return nil, err
 	}

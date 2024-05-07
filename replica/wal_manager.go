@@ -75,16 +75,14 @@ type WriteAheadLogManager interface {
 // writeAheadLogManager implements WriteAheadLogManager.
 type writeAheadLogManager struct {
 	ctx           context.Context
-	cfg           config.WAL
-	currentNodeID models.NodeID
 	engine        tsdb.Engine
 	cliFct        rpc.ClientStreamFactory
 	stateMgr      storage.StateManager
-
-	databaseLogs map[string]WriteAheadLog
-
-	mutex  sync.Mutex
-	logger logger.Logger
+	logger        logger.Logger
+	databaseLogs  map[string]WriteAheadLog
+	cfg           config.WAL
+	currentNodeID models.NodeID
+	mutex         sync.Mutex
 }
 
 // NewWriteAheadLogManager creates a WriteAheadLogManager instance.

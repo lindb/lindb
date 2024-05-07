@@ -169,7 +169,7 @@ func (r *runtime) Run() error {
 		return err
 	}
 	// register root node info
-	r.registry = newRegistry(r.repo, constants.LiveNodesPath, r.config.Coordinator.LeaseTTL.Duration())
+	r.registry = newRegistry(r.repo, constants.GetLiveNodePath(r.node.Indicator()), r.node, r.config.Coordinator.LeaseTTL.Duration())
 
 	if err = r.MustRegisterStatelessNode(); err != nil {
 		r.state = server.Failed
@@ -197,7 +197,7 @@ func (r *runtime) Run() error {
 
 // MustRegisterStatelessNode make sure root node is registered to etcd.
 func (r *runtime) MustRegisterStatelessNode() error {
-	if err := r.registry.Register(r.node); err != nil {
+	if err := r.registry.Register(); err != nil {
 		return fmt.Errorf("register root node error:%s", err)
 	}
 	// sometimes lease isn't expired when storage restarts, retry registering is necessary
@@ -235,7 +235,7 @@ func (r *runtime) Stop() {
 	// close registry, deregister root node from active list
 	if r.registry != nil {
 		r.logger.Info("closing discovery-registry...")
-		if err := r.registry.Deregister(r.node); err != nil {
+		if err := r.registry.Deregister(); err != nil {
 			r.logger.Error("unregister root node error", logger.Error(err))
 		}
 		if err := r.registry.Close(); err != nil {

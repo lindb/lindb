@@ -21,9 +21,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"go.uber.org/atomic"
-
 	"github.com/lindb/common/pkg/fileutil"
+	"go.uber.org/atomic"
 )
 
 //go:generate mockgen -source ./fanout_queue.go -destination ./fanout_queue_mock.go -package queue
@@ -60,17 +59,16 @@ type FanOutQueue interface {
 
 // fanOutQueue implements FanOutQueue.
 type fanOutQueue struct {
-	dirPath          string                   // dir path for persistence file
-	consumerGroupDir string                   // dir path for storing ConsumerGroup
 	queue            Queue                    // underlying queue
-	consumerGroups   map[string]ConsumerGroup // name -> ConsumerGroup
-
-	lock4map sync.RWMutex // lock for fanOutMap
-	closed   atomic.Bool  // false -> running, true -> closed
+	consumerGroups   map[string]ConsumerGroup // name -> consumer group
+	dirPath          string                   // path for persistence file
+	consumerGroupDir string                   // path for storing consumer group
+	closed           atomic.Bool              // false -> running, true -> closed
+	lock4map         sync.RWMutex             // lockfor fan out map
 }
 
 // NewFanOutQueue returns a FanOutQueue persisted in dirPath.
-func NewFanOutQueue(dirPath string, dataSizeLimit int64) (q FanOutQueue, err error) {
+func NewFanOutQueue(dirPath string, pageSize int64) (q FanOutQueue, err error) {
 	fq := &fanOutQueue{
 		dirPath:          dirPath,
 		consumerGroupDir: filepath.Join(dirPath, consumerGroupDirName),
@@ -85,7 +83,7 @@ func NewFanOutQueue(dirPath string, dataSizeLimit int64) (q FanOutQueue, err err
 	}()
 
 	// create underlying queue
-	fq.queue, err = newQueueFunc(dirPath, dataSizeLimit)
+	fq.queue, err = newQueueFunc(dirPath, pageSize)
 	if err != nil {
 		return nil, err
 	}

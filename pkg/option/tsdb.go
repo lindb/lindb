@@ -79,20 +79,17 @@ type FlusherOption struct {
 
 // DatabaseOption represents a database option include shard ids and shard's option
 type DatabaseOption struct {
-	// write interval(the number of second) => TTL
-	// rollup intervals(like seconds->minute->hour->day)
-	Intervals Intervals `toml:"intervals" json:"intervals,omitempty"  validate:"required"`
+	Behind string `toml:"behind" json:"behind,omitempty"`
+	Ahead  string `toml:"ahead" json:"ahead,omitempty"`
 
-	// auto create namespace
+	Intervals Intervals     `toml:"intervals" json:"intervals,omitempty"  validate:"required"`
+	Index     FlusherOption `toml:"index" json:"index,omitempty"`
+	Data      FlusherOption `toml:"data" json:"data,omitempty"`
+
+	ahead  int64
+	behind int64
+
 	AutoCreateNS bool `toml:"autoCreateNS" json:"autoCreateNS,omitempty"`
-
-	Behind string `toml:"behind" json:"behind,omitempty"` // allowed timestamp write behind
-	Ahead  string `toml:"ahead" json:"ahead,omitempty"`   // allowed timestamp write ahead
-
-	Index FlusherOption `toml:"index" json:"index,omitempty"` // index flusher option
-	Data  FlusherOption `toml:"data" json:"data,omitempty"`   // data flusher data
-
-	ahead, behind int64
 }
 
 // FindMatchSmallestInterval returns the smallest interval which match query interval.

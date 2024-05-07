@@ -27,22 +27,19 @@ import (
 // Limits represents all the limit for database level; can be used to describe global
 // default limits, or per-database limits vis toml config.
 type Limits struct {
-	// Write limits
-	MaxNamespaces       uint32 `toml:"max-namespaces"`
+	Metrics map[string]uint32 `toml:"metrics"`
+
 	MaxNamespaceLength  int    `toml:"max-namespace-length"`
-	MaxMetrics          uint32 `toml:"max-metrics"`
 	MaxMetricNameLength int    `toml:"max-metric-name-length"`
 	MaxFieldNameLength  int    `toml:"max-field-name-length"`
-	MaxFieldsPerMetric  int32  `toml:"max-fields-per-metric"`
 	MaxTagNameLength    int    `toml:"max-tag-name-length"`
 	MaxTagValueLength   int    `toml:"max-tag-value-length"`
 	MaxTagsPerMetric    int    `toml:"max-tags-per-metric"`
+	MaxSeriesPerQuery   int    `toml:"max-series-per-query"`
+	MaxNamespaces       uint32 `toml:"max-namespaces"`
+	MaxMetrics          uint32 `toml:"max-metrics"`
+	MaxFieldsPerMetric  int32  `toml:"max-fields-per-metric"`
 	MaxSeriesPerMetric  uint32 `toml:"max-series-per-metric"`
-	// max series limit for metric
-	Metrics map[string]uint32 `toml:"metrics"`
-
-	// Read Limits
-	MaxSeriesPerQuery int `toml:"max-series-per-query"`
 }
 
 // NewDefaultLimits creates a default limits.
@@ -58,7 +55,7 @@ func NewDefaultLimits() *Limits {
 		MaxTagNameLength:    128,
 		MaxTagValueLength:   1024,
 		MaxTagsPerMetric:    32,
-		MaxSeriesPerMetric:  200000,
+		MaxSeriesPerMetric:  200000000,
 		Metrics:             make(map[string]uint32),
 		// Read limits
 		MaxSeriesPerQuery: 200000,

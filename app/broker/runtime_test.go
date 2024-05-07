@@ -25,10 +25,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lindb/common/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
-
-	"github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator"
@@ -58,7 +57,8 @@ var cfg = config.Broker{
 		GRPC: config.GRPC{
 			Port: 2881,
 		},
-	}}
+	},
+}
 
 func init() {
 	gin.SetMode(gin.ReleaseMode)
@@ -112,8 +112,8 @@ func TestBrokerRuntime_Run(t *testing.T) {
 			prepare: func() {
 				repoFct.EXPECT().CreateNormalRepo(gomock.Any()).Return(repo, nil)
 				registry := discovery.NewMockRegistry(ctrl)
-				registry.EXPECT().Register(gomock.Any()).Return(fmt.Errorf("err"))
-				newRegistry = func(repo state.Repository, prefixPath string, ttl time.Duration) discovery.Registry {
+				registry.EXPECT().Register().Return(fmt.Errorf("err"))
+				newRegistry = func(repo state.Repository, path string, node models.Node, ttl time.Duration) discovery.Registry {
 					return registry
 				}
 			},
@@ -124,8 +124,8 @@ func TestBrokerRuntime_Run(t *testing.T) {
 			prepare: func() {
 				repoFct.EXPECT().CreateNormalRepo(gomock.Any()).Return(repo, nil)
 				registry := discovery.NewMockRegistry(ctrl)
-				registry.EXPECT().Register(gomock.Any()).Return(nil)
-				newRegistry = func(repo state.Repository, prefixPath string, ttl time.Duration) discovery.Registry {
+				registry.EXPECT().Register().Return(nil)
+				newRegistry = func(repo state.Repository, path string, node models.Node, ttl time.Duration) discovery.Registry {
 					return registry
 				}
 				mc := coordinator.NewMockMasterController(ctrl)
@@ -142,8 +142,8 @@ func TestBrokerRuntime_Run(t *testing.T) {
 			prepare: func() {
 				repoFct.EXPECT().CreateNormalRepo(gomock.Any()).Return(repo, nil)
 				registry := discovery.NewMockRegistry(ctrl)
-				registry.EXPECT().Register(gomock.Any()).Return(nil)
-				newRegistry = func(repo state.Repository, prefixPath string, ttl time.Duration) discovery.Registry {
+				registry.EXPECT().Register().Return(nil)
+				newRegistry = func(repo state.Repository, path string, node models.Node, ttl time.Duration) discovery.Registry {
 					return registry
 				}
 				mc := coordinator.NewMockMasterController(ctrl)
@@ -157,7 +157,8 @@ func TestBrokerRuntime_Run(t *testing.T) {
 				smFct := discovery.NewMockStateMachineFactory(ctrl)
 				smFct.EXPECT().Start().Return(fmt.Errorf("err"))
 				newStateMachineFactory = func(ctx context.Context, discoveryFactory discovery.Factory,
-					stateMgr brokerpkg.StateManager) discovery.StateMachineFactory {
+					stateMgr brokerpkg.StateManager,
+				) discovery.StateMachineFactory {
 					return smFct
 				}
 			},
@@ -168,8 +169,8 @@ func TestBrokerRuntime_Run(t *testing.T) {
 			prepare: func() {
 				repoFct.EXPECT().CreateNormalRepo(gomock.Any()).Return(repo, nil)
 				registry := discovery.NewMockRegistry(ctrl)
-				registry.EXPECT().Register(gomock.Any()).Return(nil)
-				newRegistry = func(repo state.Repository, prefixPath string, ttl time.Duration) discovery.Registry {
+				registry.EXPECT().Register().Return(nil)
+				newRegistry = func(repo state.Repository, path string, node models.Node, ttl time.Duration) discovery.Registry {
 					return registry
 				}
 				mc := coordinator.NewMockMasterController(ctrl)
@@ -183,7 +184,8 @@ func TestBrokerRuntime_Run(t *testing.T) {
 				smFct := discovery.NewMockStateMachineFactory(ctrl)
 				smFct.EXPECT().Start().Return(nil)
 				newStateMachineFactory = func(ctx context.Context, discoveryFactory discovery.Factory,
-					stateMgr brokerpkg.StateManager) discovery.StateMachineFactory {
+					stateMgr brokerpkg.StateManager,
+				) discovery.StateMachineFactory {
 					return smFct
 				}
 				httpSrv := httppkg.NewMockServer(ctrl)
@@ -253,7 +255,7 @@ func TestBrokerRuntime_Stop(t *testing.T) {
 	connectionMgr := rpc.NewMockConnectionManager(ctrl)
 	channelMgr := replica.NewMockChannelManager(ctrl)
 	grpcServer := rpc.NewMockGRPCServer(ctrl)
-	registry.EXPECT().Deregister(gomock.Any()).Return(fmt.Errorf("err")).AnyTimes()
+	registry.EXPECT().Deregister().Return(fmt.Errorf("err")).AnyTimes()
 
 	cases := []struct {
 		name    string
@@ -330,6 +332,7 @@ func TestBrokerRuntime_startGrpcServer(t *testing.T) {
 		serveGRPC(grpcServer)
 	})
 }
+
 func TestBrokerRuntime_RunHTTPServer(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -354,23 +357,26 @@ func TestBrokerRuntime_RunHTTPServer(t *testing.T) {
 func resetNewDepsMock() {
 	newStateManager = func(ctx context.Context, currentNode models.StatelessNode,
 		connectionManager rpc.ConnectionManager,
-		taskClientFactory rpc.TaskClientFactory) brokerpkg.StateManager {
+		taskClientFactory rpc.TaskClientFactory,
+	) brokerpkg.StateManager {
 		return nil
 	}
 	newChannelManager = func(ctx context.Context, fct rpc.ClientStreamFactory,
-		stateMgr brokerpkg.StateManager) replica.ChannelManager {
+		stateMgr brokerpkg.StateManager,
+	) replica.ChannelManager {
 		return nil
 	}
 	newMasterController = func(cfg *coordinator.MasterCfg) coordinator.MasterController {
 		return nil
 	}
-	newRegistry = func(repo state.Repository, prefixPath string, ttl time.Duration) discovery.Registry {
+	newRegistry = func(repo state.Repository, path string, node models.Node, ttl time.Duration) discovery.Registry {
 		return nil
 	}
 	serveGRPCFn = func(grpc rpc.GRPCServer) {
 	}
 	newStateMachineFactory = func(ctx context.Context, discoveryFactory discovery.Factory,
-		stateMgr brokerpkg.StateManager) discovery.StateMachineFactory {
+		stateMgr brokerpkg.StateManager,
+	) discovery.StateMachineFactory {
 		return nil
 	}
 }

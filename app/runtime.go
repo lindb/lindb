@@ -37,12 +37,11 @@ var (
 // BaseRuntime represents the common logic of runtime.
 type BaseRuntime struct {
 	ctx             context.Context
-	monitor         config.Monitor
-	registry        *linmetric.Registry
 	pusher          monitoring.NativePusher
+	logger          logger.Logger
+	registry        *linmetric.Registry
+	monitor         config.Monitor
 	globalKeyValues tag.Tags
-
-	logger logger.Logger
 }
 
 // NewBaseRuntime creates a base runtime instance.
