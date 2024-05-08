@@ -24,9 +24,8 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/atomic"
-
 	"github.com/lindb/common/pkg/logger"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/broker"
@@ -55,17 +54,12 @@ type (
 	}
 
 	channelManager struct {
-		// context passed to all ShardChannel
-		ctx context.Context
-		// cancelFun to cancel context
-		cancel context.CancelFunc
-		// factory to get rpc  writeTask client
-		fct      rpc.ClientStreamFactory
-		stateMgr broker.StateManager
-
+		ctx              context.Context         // context passed to all ShardChannel
+		fct              rpc.ClientStreamFactory // factory to get rpc  writeTask client
+		stateMgr         broker.StateManager
+		logger           logger.Logger
+		cancel           context.CancelFunc // cancelFun to cancel context
 		databaseChannels databaseChannels
-
-		logger logger.Logger
 	}
 )
 
@@ -98,6 +92,9 @@ func (cm *channelManager) Write(ctx context.Context, database string, brokerBatc
 	if brokerBatchRows == nil || brokerBatchRows.Len() == 0 {
 		return nil
 	}
+	// release broker batch
+	defer brokerBatchRows.Release()
+
 	if databaseChannel, ok := cm.getDatabaseChannel(database); ok {
 		return databaseChannel.Write(ctx, brokerBatchRows)
 	}

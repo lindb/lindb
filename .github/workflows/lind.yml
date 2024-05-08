@@ -49,8 +49,10 @@ jobs:
         run: make gomock
       - name: Test
         run: make test-without-lint
-      - name: Upload
-        run: bash <(curl -s https://codecov.io/bash) -t ${{ secrets.CODECOV_TOKEN }}
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4.2.0
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   darwin-test:
     name: Unit Test(MacOS)

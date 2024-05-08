@@ -18,17 +18,15 @@
 package replica
 
 import (
-	"bytes"
 	"testing"
-
-	"github.com/klauspost/compress/snappy"
-	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/common/pkg/ltoml"
 	"github.com/lindb/common/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/compress"
 	"github.com/lindb/lindb/series/metric"
 )
 
@@ -40,7 +38,8 @@ func makeTestBrokerRows() metric.BrokerRow {
 		Tags:      []*protoMetricsV1.KeyValue{{Key: "host", Value: "1.1.1.1"}},
 		Timestamp: timeutil.Now(),
 		SimpleFields: []*protoMetricsV1.SimpleField{
-			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
+			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
+		},
 	}, &brokerRow)
 	return brokerRow
 }
@@ -88,14 +87,15 @@ func testMarshal(chunk Chunk, count int, t *testing.T) {
 	assert.Nil(t, compressed)
 	assert.Nil(t, err)
 
-	var converter = metric.NewProtoConverter(models.NewDefaultLimits())
+	converter := metric.NewProtoConverter(models.NewDefaultLimits())
 	for i := 0; i < count; i++ {
 		var row metric.BrokerRow
 		_ = converter.ConvertTo(&protoMetricsV1.Metric{
 			Name:      "cpu",
 			Timestamp: timeutil.Now(),
 			SimpleFields: []*protoMetricsV1.SimpleField{
-				{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
+				{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
+			},
 			Tags: []*protoMetricsV1.KeyValue{{Key: "host", Value: "1.1.1.1"}},
 		}, &row)
 		_, _ = row.WriteTo(chunk)
@@ -103,35 +103,12 @@ func testMarshal(chunk Chunk, count int, t *testing.T) {
 	compressed, err = chunk.Compress()
 	assert.NoError(t, err)
 	assert.NotNil(t, compressed)
-	var dst []byte
-	dst, err = snappy.Decode(dst, *compressed)
+
+	reader := compress.NewSnappyReader()
+	dst, err := reader.Uncompress(compressed)
 	assert.NoError(t, err)
 	var batch metric.StorageBatchRows
 	assert.NotPanics(t, func() {
 		batch.UnmarshalRows(dst)
 	})
-}
-
-func Test_Snappy(t *testing.T) {
-	var buf bytes.Buffer
-	buf.WriteString("hello")
-	var block []byte
-	block = snappy.Encode(block, buf.Bytes())
-
-	var (
-		dst = make([]byte, 100)
-		err error
-	)
-	dst, err = snappy.Decode(dst, block)
-	assert.NoError(t, err)
-	assert.Len(t, dst, 5)
-}
-
-func TestCompressChunk(t *testing.T) {
-	for i := 0; i < 1000; i++ {
-		cc := newCompressedChunk(10)
-		assert.NotNil(t, cc)
-	}
-	cc := newCompressedChunk(10)
-	cc.Release()
 }

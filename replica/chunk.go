@@ -18,12 +18,9 @@
 package replica
 
 import (
-	"bytes"
-	"sync"
-
-	"github.com/golang/snappy"
-
 	"github.com/lindb/common/pkg/ltoml"
+
+	"github.com/lindb/lindb/pkg/compress"
 )
 
 //go:generate mockgen -source=./chunk.go -destination=./chunk_mock.go -package=replica
@@ -31,7 +28,7 @@ import (
 // Chunk represents the writeTask buffer chunk for compressing the metric list
 type Chunk interface {
 	// Compress marshals and compresses the data, then resets the context,
-	Compress() (*compressedChunk, error)
+	Compress() ([]byte, error)
 	// IsFull checks the chunk if is full
 	IsFull() bool
 	// IsEmpty checks the chunk if is empty
@@ -44,14 +41,16 @@ type Chunk interface {
 
 // chunk represents the buffer with snappy compress
 type chunk struct {
-	buffer   bytes.Buffer
-	capacity ltoml.Size // use bytes capacity instead of lines-num
-	size     ltoml.Size // chunk size and append index
+	writer   compress.Writer
+	capacity ltoml.Size
+	size     ltoml.Size
 }
 
 // newChunk creates a new chunk
 func newChunk(capacity ltoml.Size) Chunk {
-	return &chunk{capacity: capacity}
+	c := &chunk{capacity: capacity}
+	c.writer = compress.NewSnappyWriter()
+	return c
 }
 
 // IsEmpty checks the chunk if is empty
@@ -71,55 +70,25 @@ func (c *chunk) Size() ltoml.Size {
 
 // Append appends the metric into buffer
 func (c *chunk) Write(row []byte) (n int, err error) {
-	n, err = c.buffer.Write(row)
+	n, err = c.writer.Write(row)
 	c.size += ltoml.Size(n)
 	return n, err
 }
 
 // Compress marshals the data, then resets the context,
-func (c *chunk) Compress() (*compressedChunk, error) {
+func (c *chunk) Compress() ([]byte, error) {
+	defer func() {
+		// if error, will ignore buffer data
+		c.size = 0
+	}()
+
 	// if chunk is empty, return nil,nil
 	if c.size == 0 {
 		return nil, nil
 	}
 
-	defer func() {
-		// if error, will ignore buffer data
-		c.size = 0
-		// reset for re-use
-		c.buffer.Reset()
-	}()
-
-	// we use snappy block format here
-	ck := newCompressedChunk(len(c.buffer.Bytes()))
-	ck.Encode(c.buffer.Bytes())
-	return ck, nil
-}
-
-var (
-	compressedChunkPool sync.Pool
-)
-
-type compressedChunk []byte
-
-// Release put the compressed chunk into sync pool
-func (cc *compressedChunk) Release() {
-	*cc = (*cc)[:0]
-	compressedChunkPool.Put(cc)
-}
-
-// Encode compresses source block
-func (cc *compressedChunk) Encode(block []byte) {
-	*cc = snappy.Encode(*cc, block)
-}
-
-// newCompressedChunk picks a fixed sized buffer from pool
-// expected compress ratio for snappy is 0.6 under of test
-func newCompressedChunk(originalSize int) *compressedChunk {
-	item := compressedChunkPool.Get()
-	if item == nil {
-		ck := make(compressedChunk, int(float64(originalSize)*0.6))
-		return &ck
+	if err := c.writer.Close(); err != nil {
+		return nil, err
 	}
-	return item.(*compressedChunk)
+	return c.writer.Bytes(), nil
 }

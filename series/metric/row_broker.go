@@ -69,10 +69,9 @@ var brokerBatchRowsPool sync.Pool
 // BrokerBatchRows holds rows from ingestion
 // row will be putted into buffer after validation and re-building
 type BrokerBatchRows struct {
-	rows     []BrokerRow
-	rowCount int
-
+	rows               []BrokerRow
 	shardGroupIterator BrokerBatchShardIterator
+	rowCount           int
 }
 
 func newBrokerBatchRows() *BrokerBatchRows {
@@ -143,13 +142,12 @@ func (br *BrokerBatchRows) NewShardGroupIterator(numOfShards int32) *BrokerBatch
 // BrokerBatchShardIterator grouping broker rows with shard-id,
 // rows will be batched inserted into shard-channel for replication
 type BrokerBatchShardIterator struct {
+	batch          *BrokerBatchRows
+	familyIterator BrokerBatchShardFamilyIterator
+
 	groupEnd      int // group end index
 	groupStart    int // group start index
 	groupShardIdx int // group shard index in shards list
-
-	batch *BrokerBatchRows
-
-	familyIterator BrokerBatchShardFamilyIterator
 }
 
 // Reset re-sorts batch rows for batching inserting

@@ -66,7 +66,7 @@ type familyChannel struct {
 	cancel              context.CancelFunc
 	liveNodes           map[models.NodeID]models.StatefulNode
 	statistics          *metrics.BrokerFamilyWriteStatistics
-	ch                  chan *compressedChunk
+	ch                  chan []byte
 	leaderChangedSignal chan struct{}
 	lastFlushTime       *atomic.Int64
 	stoppingSignal      chan struct{}
@@ -104,7 +104,7 @@ func newFamilyChannel(
 		shardState:          shardState,
 		liveNodes:           liveNodes,
 		newWriteStreamFn:    rpc.NewWriteStream,
-		ch:                  make(chan *compressedChunk, 2),
+		ch:                  make(chan []byte, 2),
 		notifyLeaderChange:  atomic.NewBool(false),
 		leaderChangedSignal: make(chan struct{}, 1),
 		stoppedSignal:       make(chan struct{}, 1),
@@ -203,8 +203,8 @@ func (fc *familyChannel) writeTask(_ context.Context) {
 	ticker := time.NewTicker(fc.checkFlushInterval)
 	defer ticker.Stop()
 
-	retryBuffers := make([]*compressedChunk, 0)
-	retry := func(compressed *compressedChunk) {
+	retryBuffers := make([][]byte, 0)
+	retry := func(compressed []byte) {
 		if len(retryBuffers) > fc.maxRetryBuf {
 			fc.logger.Error("too many retry messages, drop current message")
 			fc.statistics.RetryDrop.Incr()
@@ -214,12 +214,8 @@ func (fc *familyChannel) writeTask(_ context.Context) {
 		}
 	}
 	var stream rpc.WriteStream
-	send := func(compressed *compressedChunk) bool {
-		if compressed == nil {
-			return true
-		}
-		if len(*compressed) == 0 {
-			compressed.Release()
+	send := func(compressed []byte) bool {
+		if len(compressed) == 0 {
 			return true
 		}
 		if stream == nil {
@@ -237,7 +233,7 @@ func (fc *familyChannel) writeTask(_ context.Context) {
 			fc.statistics.CreateStream.Incr()
 			stream = s
 		}
-		if err := stream.Send(*compressed); err != nil {
+		if err := stream.Send(compressed); err != nil {
 			fc.statistics.SendFailure.Incr()
 			fc.logger.Error(
 				"failed writing compressed chunk to storage",
@@ -260,9 +256,8 @@ func (fc *familyChannel) writeTask(_ context.Context) {
 			return false
 		}
 		fc.statistics.SendSuccess.Incr()
-		fc.statistics.SendSize.Add(float64(len(*compressed)))
+		fc.statistics.SendSize.Add(float64(len(compressed)))
 		fc.statistics.PendingSend.Decr()
-		compressed.Release()
 		return true
 	}
 
@@ -282,7 +277,7 @@ func (fc *familyChannel) writeTask(_ context.Context) {
 		defer func() {
 			fc.stoppedSignal <- struct{}{}
 		}()
-		sendLastMsg := func(compressed *compressedChunk) {
+		sendLastMsg := func(compressed []byte) {
 			if !send(compressed) {
 				fc.logger.Error("send message failure before close channel, message lost")
 			}
@@ -324,7 +319,7 @@ func (fc *familyChannel) writeTask(_ context.Context) {
 				// if send ok, retry pending message
 				if len(retryBuffers) > 0 {
 					messages := retryBuffers
-					retryBuffers = make([]*compressedChunk, 0)
+					retryBuffers = make([][]byte, 0)
 					for _, msg := range messages {
 						if !send(msg) {
 							retry(msg)
@@ -335,7 +330,6 @@ func (fc *familyChannel) writeTask(_ context.Context) {
 				stream = nil
 			}
 		case <-ticker.C:
-			// check
 			fc.checkFlush()
 		case <-fc.ctx.Done():
 			sendBeforeStop()
@@ -345,7 +339,7 @@ func (fc *familyChannel) writeTask(_ context.Context) {
 }
 
 // sendPendingMessage sends pending message before close this channel.
-func (fc *familyChannel) sendPendingMessage(sendLastMsg func(compressed *compressedChunk)) {
+func (fc *familyChannel) sendPendingMessage(sendLastMsg func(compressed []byte)) {
 	// try to write pending data
 	for compressed := range fc.ch {
 		sendLastMsg(compressed)
@@ -388,7 +382,7 @@ func (fc *familyChannel) flushChunk() {
 		fc.logger.Error("compress chunk err", logger.Error(err))
 		return
 	}
-	if compressed == nil || len(*compressed) == 0 {
+	if len(compressed) == 0 {
 		return
 	}
 	select {
