@@ -85,27 +85,23 @@ type Partition interface {
 
 // partition implements Partition interface.
 type partition struct {
-	ctx           context.Context
-	cancel        context.CancelFunc
-	currentNodeID models.NodeID
-	db            string
-	log           queue.FanOutQueue
-	shardID       models.ShardID
-	shard         tsdb.Shard
-	family        tsdb.DataFamily
-	running       *atomic.Bool
-	closed        *atomic.Bool
-
-	replicators map[models.NodeID]Replicator
-	cliFct      rpc.ClientStreamFactory
-	stateMgr    storage.StateManager
-
-	mutex sync.Mutex
-
+	stateMgr             storage.StateManager
+	logger               logger.Logger
+	ctx                  context.Context
+	cliFct               rpc.ClientStreamFactory
+	family               tsdb.DataFamily
+	log                  queue.FanOutQueue
+	shard                tsdb.Shard
+	closed               *atomic.Bool
+	replicators          map[models.NodeID]Replicator
+	cancel               context.CancelFunc
 	statistics           *metrics.StorageWriteAheadLogStatistics
+	running              *atomic.Bool
 	replicatorStatistics map[models.NodeID]*metrics.StorageReplicatorRunnerStatistics
-
-	logger logger.Logger
+	db                   string
+	shardID              models.ShardID
+	currentNodeID        models.NodeID
+	mutex                sync.Mutex
 }
 
 // NewPartition creates a writeTask ahead log partition(db+shard+family time+leader).
@@ -315,17 +311,6 @@ func (p *partition) replica(nodeID models.NodeID, replicator Replicator) {
 	if replicator.IsReady() && replicator.Connect() {
 		seq := replicator.Consume()
 		if seq >= 0 {
-			var replicatorType string
-			switch replicator.(type) {
-			case *localReplicator:
-				replicatorType = replicatorTypeLocal
-			case *remoteReplicator:
-				replicatorType = replicatorTypeRemote
-			}
-			p.logger.Debug("replica write ahead log",
-				logger.String("type", replicatorType),
-				logger.String("replicator", replicator.String()),
-				logger.Int64("index", seq))
 			data, err := replicator.GetMessage(seq)
 			if err != nil {
 				replicator.IgnoreMessage(seq)

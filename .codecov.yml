@@ -5,6 +5,13 @@ coverage:
   # (default is 70..100)
   round: down       # up, down, or nearest
   precision: 2      # Number of decimal places, between 0 and 5
+  status:
+    project:
+      default:
+        informational: true
+    patch:
+      default:
+        informational: true
 
 # Ignoring Paths
 # --------------

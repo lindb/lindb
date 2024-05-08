@@ -30,26 +30,20 @@ import (
 	"github.com/lindb/lindb/series/tag"
 )
 
-var (
-	maxRowLength = 10 * 1024
-)
+var maxRowLength = 10 * 1024
 
 type BrokerRowFlatDecoder struct {
-	reader  io.Reader
-	size    int // head length
-	buf     []byte
-	readLen int
-
-	rowBuilder commonseries.RowBuilder
-	originRow  readOnlyRow // used for unmarshal
-
+	reader         io.Reader
+	limits         *models.Limits
+	rowBuilder     commonseries.RowBuilder
+	buf            []byte
 	compoundValues []float64
 	compoundBounds []float64
-
-	namespace    []byte
-	enrichedTags tag.Tags
-
-	limits *models.Limits
+	namespace      []byte
+	enrichedTags   tag.Tags
+	originRow      readOnlyRow // used for unmarshal
+	size           int         // head length
+	readLen        int
 }
 
 var brokerRowFlatDecoderPool sync.Pool

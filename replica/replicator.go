@@ -29,8 +29,8 @@ import (
 
 // state represents the state of replicator.
 type state struct {
-	state  models.ReplicatorState
 	errMsg string
+	state  models.ReplicatorState
 }
 
 // Replicator represents write ahead log replicator.

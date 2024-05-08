@@ -18,29 +18,25 @@
 package replica
 
 import (
-	"github.com/golang/snappy"
-
 	"github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/compress"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb"
 )
 
 // localReplicator represents local replicator which writes data into local tsdb storage.
 type localReplicator struct {
+	shard  tsdb.Shard
+	family tsdb.DataFamily
+	logger logger.Logger
 	replicator
-
-	leader    int32
-	shard     tsdb.Shard
-	family    tsdb.DataFamily
-	logger    logger.Logger
-	batchRows *metric.StorageBatchRows
-
-	block []byte
-
+	batchRows  *metric.StorageBatchRows
+	reader     compress.Reader
 	statistics *metrics.StorageLocalReplicatorStatistics
+	leader     int32
 }
 
 func NewLocalReplicator(channel *ReplicatorChannel, shard tsdb.Shard, family tsdb.DataFamily) Replicator {
@@ -51,10 +47,10 @@ func NewLocalReplicator(channel *ReplicatorChannel, shard tsdb.Shard, family tsd
 		},
 		shard:      shard,
 		family:     family,
+		reader:     compress.NewSnappyReader(),
 		batchRows:  metric.NewStorageBatchRows(),
 		statistics: metrics.NewStorageLocalReplicatorStatistics(channel.State.Database, channel.State.ShardID.String()),
 		logger:     logger.GetLogger("Replica", "LocalReplicator"),
-		block:      make([]byte, 256*1024),
 	}
 
 	// add ack sequence callback
@@ -84,11 +80,11 @@ func (r *localReplicator) State() *state {
 // Replica replicas local data,
 // 1. check replica replica if valid
 // 2. un-compress/unmarshal msg
-// 3. lookup metadata
-// 4. write metric data
-// 5. commit sequence in data family
+// 3. write metric data
+// 4. commit sequence in data family
 func (r *localReplicator) Replica(sequence int64, msg []byte) {
 	var err error
+	var block []byte
 
 	if !r.family.ValidateSequence(r.leader, sequence) {
 		r.statistics.InvalidSequence.Incr()
@@ -105,14 +101,12 @@ func (r *localReplicator) Replica(sequence int64, msg []byte) {
 				logger.String("replicator", r.String()),
 				logger.Error(err))
 		}
-		r.block = r.block[:0]
 
 		// after write need commit sequence, drop write failure data.
 		r.family.CommitSequence(r.leader, sequence)
 	}()
 
-	// TODO: add util
-	r.block, err = snappy.Decode(r.block, msg)
+	block, err = r.reader.Uncompress(msg)
 	if err != nil {
 		r.statistics.DecompressFailures.Incr()
 		r.logger.Error("decompress replica data error",
@@ -123,8 +117,9 @@ func (r *localReplicator) Replica(sequence int64, msg []byte) {
 		return
 	}
 
-	r.batchRows.UnmarshalRows(r.block)
+	r.batchRows.UnmarshalRows(block)
 	rowsLen := r.batchRows.Len()
+
 	if rowsLen == 0 {
 		return
 	}
