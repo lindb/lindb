@@ -71,7 +71,7 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 			name: "get data family failure",
 			prepare: func(_ *writeAheadLog) {
 				engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(shard, true)
-				shard.EXPECT().GetOrCrateDataFamily(gomock.Any()).Return(nil, fmt.Errorf("err"))
+				shard.EXPECT().GetOrCreateDataFamily(gomock.Any()).Return(nil, fmt.Errorf("err"))
 			},
 			wantErr: true,
 		},
@@ -79,7 +79,7 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 			name: "new log queue failure",
 			prepare: func(_ *writeAheadLog) {
 				engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(shard, true)
-				shard.EXPECT().GetOrCrateDataFamily(gomock.Any()).Return(nil, nil)
+				shard.EXPECT().GetOrCreateDataFamily(gomock.Any()).Return(nil, nil)
 				newFanOutQueue = func(dirPath string, dataSizeLimit int64) (q queue.FanOutQueue, err error) {
 					return nil, fmt.Errorf("err")
 				}
@@ -90,7 +90,7 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 			name: "create partition successfully",
 			prepare: func(_ *writeAheadLog) {
 				engine.EXPECT().GetShard(gomock.Any(), gomock.Any()).Return(shard, true)
-				shard.EXPECT().GetOrCrateDataFamily(gomock.Any()).Return(nil, nil)
+				shard.EXPECT().GetOrCreateDataFamily(gomock.Any()).Return(nil, nil)
 				newFanOutQueue = func(dirPath string, dataSizeLimit int64) (q queue.FanOutQueue, err error) {
 					return nil, nil
 				}

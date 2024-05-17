@@ -216,7 +216,7 @@ func TestShard_GetOrCreateDataFamily(t *testing.T) {
 	assert.Nil(t, dataFamily)
 
 	sp.EXPECT().GetOrCreateSegment(gomock.Any()).Return(segment, nil)
-	segment.EXPECT().GetOrCrateDataFamily(gomock.Any()).Return(mockDataFamily, nil)
+	segment.EXPECT().GetOrCreateDataFamily(gomock.Any()).Return(mockDataFamily, nil)
 	dataFamily, err = s.GetOrCreateDataFamily(1)
 	assert.NoError(t, err)
 	assert.Equal(t, mockDataFamily, dataFamily)
