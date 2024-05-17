@@ -52,5 +52,5 @@ func CalIntervalRatio(queryInterval, storageInterval int64) int {
 func GetMonthTimestamp(familyTime int64) int64 {
 	tm := time.Unix(familyTime/1000, 0)
 	ts := time.Date(tm.Year(), tm.Month(), 1, 0, 0, 0, 0, time.Local)
-	return ts.Unix() * 1000
+	return ts.UnixNano() / 1000000
 }

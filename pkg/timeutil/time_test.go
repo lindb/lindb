@@ -18,10 +18,11 @@
 package timeutil
 
 import (
-	"testing"
-
 	"github.com/lindb/common/pkg/timeutil"
+
 	"github.com/stretchr/testify/assert"
+
+	"testing"
 )
 
 const date = "20191212 10:11:10"
@@ -49,6 +50,7 @@ func TestTruncate(t *testing.T) {
 }
 
 func TestGetMonthTimestamp(t *testing.T) {
-	got := GetMonthTimestamp(1715787380378)
-	assert.Equal(t, int64(1714492800000), got)
+	now, _ := timeutil.ParseTimestamp("20190711 12:30:30", "20060102 15:04:05")
+	t1, _ := timeutil.ParseTimestamp("20190701 00:00:00", "20060102 15:04:05")
+	assert.Equal(t, t1, GetMonthTimestamp(now))
 }
