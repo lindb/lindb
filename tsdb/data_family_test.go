@@ -553,7 +553,7 @@ func TestDataFamily_GetOrCreateMemoryDatabase(t *testing.T) {
 	shard := NewMockShard(ctrl)
 	db := NewMockDatabase(ctrl)
 	indexDB := index.NewMockMetricIndexDatabase(ctrl)
-	shard.EXPECT().IndexDB().Return(indexDB).AnyTimes()
+	shard.EXPECT().GetIndexDB(gomock.Any()).Return(indexDB).AnyTimes()
 	shard.EXPECT().Database().Return(db).AnyTimes()
 	db.EXPECT().Name().Return("db").AnyTimes()
 	metaDB := index.NewMockMetricMetaDatabase(ctrl)
@@ -620,7 +620,7 @@ func TestDataFamily_WriteRows(t *testing.T) {
 	db := NewMockDatabase(ctrl)
 	shard.EXPECT().Database().Return(db).AnyTimes()
 	indexDB := index.NewMockMetricIndexDatabase(ctrl)
-	shard.EXPECT().IndexDB().Return(indexDB).AnyTimes()
+	shard.EXPECT().GetIndexDB(gomock.Any()).Return(indexDB).AnyTimes()
 	metaDB := index.NewMockMetricMetaDatabase(ctrl)
 	db.EXPECT().MetaDB().Return(metaDB).AnyTimes()
 	db.EXPECT().Name().Return("db").AnyTimes()
@@ -787,7 +787,7 @@ func TestDataFamily_Evict(t *testing.T) {
 	shard.EXPECT().Database().Return(db).AnyTimes()
 	opt := &option.DatabaseOption{Ahead: "1h", Behind: "1h"}
 	db.EXPECT().GetOption().Return(opt).AnyTimes()
-	segment := NewMockSegment(ctrl)
+	segment := NewMockDataSegment(ctrl)
 	segment.EXPECT().EvictFamily(gomock.Any()).AnyTimes()
 
 	cases := []struct {

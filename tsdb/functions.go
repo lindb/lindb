@@ -20,31 +20,39 @@ package tsdb
 import (
 	"github.com/lindb/common/pkg/fileutil"
 	"github.com/lindb/common/pkg/ltoml"
+	commonTimeutil "github.com/lindb/common/pkg/timeutil"
 
 	"github.com/lindb/lindb/index"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/tsdb/memdb"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
 // for testing
 var (
-	mkDirIfNotExist        = fileutil.MkDirIfNotExist
-	listDir                = fileutil.GetDirectoryList
-	removeDir              = fileutil.RemoveDir
-	fileExist              = fileutil.Exist
-	decodeToml             = ltoml.DecodeToml
-	newDatabaseFunc        = newDatabase
-	newSegmentFunc         = newSegment
-	newShardFunc           = newShard
-	encodeToml             = ltoml.EncodeToml
-	newReaderFunc          = metricsdata.NewReader
-	newFilterFunc          = metricsdata.NewFilter
-	newIntervalSegmentFunc = newIntervalSegment
-	newMemoryDBFunc        = memdb.NewMemoryDatabase
-	newDataFamilyFunc      = newDataFamily
-	newMetricDataFlusher   = metricsdata.NewFlusher
-	closeFamilyFunc        = closeFamily
-	writeConfigFn          = ltoml.WriteConfig
+	mkDirIfNotExist            = fileutil.MkDirIfNotExist
+	listDir                    = fileutil.GetDirectoryList
+	listDirName                = fileutil.ListDir
+	removeDir                  = fileutil.RemoveDir
+	fileExist                  = fileutil.Exist
+	getMonthTimestampFunc      = timeutil.GetMonthTimestamp
+	parseTimestamp             = commonTimeutil.ParseTimestamp
+	formatTimestamp            = commonTimeutil.FormatTimestamp
+	decodeToml                 = ltoml.DecodeToml
+	newDatabaseFunc            = newDatabase
+	newDataSegmentFunc         = newDataSegment
+	newShardFunc               = newShard
+	encodeToml                 = ltoml.EncodeToml
+	newReaderFunc              = metricsdata.NewReader
+	newFilterFunc              = metricsdata.NewFilter
+	newIntervalDataSegmentFunc = newIntervalDataSegment
+	newSegmentFunc             = newSegment
+	newSegmentPartitionFunc    = newSegmentPartition
+	newMemoryDBFunc            = memdb.NewMemoryDatabase
+	newDataFamilyFunc          = newDataFamily
+	newMetricDataFlusher       = metricsdata.NewFlusher
+	closeFamilyFunc            = closeFamily
+	writeConfigFn              = ltoml.WriteConfig
 
 	newMetaDBFunc  = index.NewMetricMetaDatabase
 	newIndexDBFunc = index.NewMetricIndexDatabase

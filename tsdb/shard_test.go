@@ -20,23 +20,22 @@ package tsdb
 import (
 	"bytes"
 	"fmt"
-	"sync"
 	"testing"
-	"time"
+
+	"github.com/lindb/lindb/pkg/timeutil"
 
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/atomic"
 	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/common/pkg/fileutil"
 	"github.com/lindb/common/pkg/logger"
-	commontimeutil "github.com/lindb/common/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 
 	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/tsdb/memdb"
 )
@@ -47,7 +46,7 @@ func TestShard_New(t *testing.T) {
 		mkDirIfNotExist = fileutil.MkDirIfNotExist
 		newIndexDBFunc = index.NewMetricIndexDatabase
 		newMemoryDBFunc = memdb.NewMemoryDatabase
-		newIntervalSegmentFunc = newIntervalSegment
+		newIntervalDataSegmentFunc = newIntervalDataSegment
 
 		ctrl.Finish()
 	}()
@@ -72,12 +71,12 @@ func TestShard_New(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "create interval segment err",
+			name: "create interval dataSegment err",
 			prepare: func() {
-				newIntervalSegmentFunc = func(shard Shard, interval option.Interval) (segment IntervalSegment, err error) {
+				newIntervalDataSegmentFunc = func(shard Shard, interval option.Interval) (segment IntervalDataSegment, err error) {
 					return nil, fmt.Errorf("err")
 				}
-				db.EXPECT().GetOption().Return(&option.DatabaseOption{Intervals: option.Intervals{{}}})
+				db.EXPECT().GetOption().Return(&option.DatabaseOption{Intervals: option.Intervals{{Interval: 1}}})
 			},
 			wantErr: true,
 		},
@@ -88,10 +87,6 @@ func TestShard_New(t *testing.T) {
 				newIndexDBFunc = func(_ string, _ index.MetricMetaDatabase) (index.MetricIndexDatabase, error) {
 					return indexDB, fmt.Errorf("err")
 				}
-				indexDB.EXPECT().Notify(gomock.Any()).DoAndReturn(func(notifier index.Notifier) {
-					mn := notifier.(*index.FlushNotifier)
-					mn.Callback(fmt.Errorf("err"))
-				})
 				gomock.InOrder(
 					db.EXPECT().GetOption().Return(&option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}),
 				)
@@ -120,12 +115,12 @@ func TestShard_New(t *testing.T) {
 					return nil
 				}
 				newIndexDBFunc = index.NewMetricIndexDatabase
-				seq := NewMockIntervalSegment(ctrl)
+				seq := NewMockIntervalDataSegment(ctrl)
 				seq.EXPECT().Close().AnyTimes()
 
-				newIntervalSegmentFunc = func(shard Shard,
+				newIntervalDataSegmentFunc = func(shard Shard,
 					interval option.Interval,
-				) (IntervalSegment, error) {
+				) (IntervalDataSegment, error) {
 					return seq, nil
 				}
 			}()
@@ -148,78 +143,100 @@ func TestShard_New(t *testing.T) {
 	}
 }
 
+func TestShard_Database(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	db := NewMockDatabase(ctrl)
+	s := &shard{db: db}
+	assert.Equal(t, db, s.Database())
+}
+
+func TestShard_ShardID(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	s := &shard{id: models.ShardID(1)}
+	assert.Equal(t, models.ShardID(1), s.ShardID())
+}
+
+func TestShard_CurrentInterval(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	opt := &option.DatabaseOption{Intervals: option.Intervals{option.Interval{
+		Interval: 1,
+	}}}
+	s := &shard{
+		option: opt,
+	}
+	assert.Equal(t, opt.Intervals[0].Interval, s.CurrentInterval())
+}
+
+func TestShard_BufferManager(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	bufferMgr := memdb.NewMockBufferManager(ctrl)
+	s := &shard{
+		bufferMgr: bufferMgr,
+	}
+	assert.Equal(t, bufferMgr, s.BufferManager())
+}
+
+func TestShard_GetIndexDB(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	indexDB := index.NewMockMetricIndexDatabase(ctrl)
+
+	seg := NewMockSegment(ctrl)
+	seg.EXPECT().IndexDB().Return(indexDB)
+
+	sp := NewMockSegmentPartition(ctrl)
+
+	s := &shard{
+		segmentPartition: sp,
+	}
+
+	sp.EXPECT().GetOrCreateSegment(gomock.Any()).Return(seg, nil)
+	assert.Equal(t, indexDB, s.GetIndexDB(1))
+}
+
+func TestShard_GetOrCreateDataFamily(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	sp := NewMockSegmentPartition(ctrl)
+	mockDataFamily := NewMockDataFamily(ctrl)
+	segment := NewMockSegment(ctrl)
+	s := &shard{
+		segmentPartition: sp,
+	}
+
+	sp.EXPECT().GetOrCreateSegment(gomock.Any()).Return(nil, fmt.Errorf("err"))
+	dataFamily, err := s.GetOrCreateDataFamily(1)
+	assert.Error(t, err)
+	assert.Nil(t, dataFamily)
+
+	sp.EXPECT().GetOrCreateSegment(gomock.Any()).Return(segment, nil)
+	segment.EXPECT().GetOrCrateDataFamily(gomock.Any()).Return(mockDataFamily, nil)
+	dataFamily, err = s.GetOrCreateDataFamily(1)
+	assert.NoError(t, err)
+	assert.Equal(t, mockDataFamily, dataFamily)
+}
+
 func TestShard_GetDataFamilies(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	segment := NewMockIntervalSegment(ctrl)
-	rollupSeg := NewMockIntervalSegment(ctrl)
+	sp := NewMockSegmentPartition(ctrl)
+	mockDataFamily := NewMockDataFamily(ctrl)
+	segment := NewMockSegment(ctrl)
 	s := &shard{
-		interval: timeutil.Interval(10 * 1000), // 10s
-		segment:  segment,
-		rollupTargets: map[timeutil.Interval]IntervalSegment{
-			timeutil.Interval(10 * 1000):      rollupSeg, // 10s
-			timeutil.Interval(10 * 60 * 1000): rollupSeg, // 10min
-		},
-	}
-	cases := []struct {
-		name         string
-		intervalType timeutil.IntervalType
-		prepare      func()
-		assert       func(families []DataFamily)
-	}{
-		{
-			name:         "match writable segment",
-			intervalType: timeutil.Day,
-			prepare: func() {
-				segment.EXPECT().GetDataFamilies(gomock.Any()).Return([]DataFamily{nil})
-			},
-			assert: func(families []DataFamily) {
-				assert.Len(t, families, 1)
-			},
-		},
-		{
-			name:         "match rollup segment",
-			intervalType: timeutil.Month,
-			prepare: func() {
-				rollupSeg.EXPECT().GetDataFamilies(gomock.Any()).Return([]DataFamily{nil})
-			},
-			assert: func(families []DataFamily) {
-				assert.Len(t, families, 1)
-			},
-		},
-		{
-			name:         "not match segment",
-			intervalType: timeutil.Year,
-			assert: func(families []DataFamily) {
-				assert.Len(t, families, 0)
-			},
-		},
+		segmentPartition: sp,
 	}
 
-	for _, tt := range cases {
-		tt := tt
-		t.Run(tt.name, func(_ *testing.T) {
-			if tt.prepare != nil {
-				tt.prepare()
-			}
-			families := s.GetDataFamilies(tt.intervalType, timeutil.TimeRange{})
-			if tt.assert != nil {
-				tt.assert(families)
-			}
-		})
-	}
-	// test no rollup
-	s = &shard{
-		interval: timeutil.Interval(10 * 1000), // 10s
-		segment:  segment,
-		rollupTargets: map[timeutil.Interval]IntervalSegment{
-			timeutil.Interval(10 * 1000): rollupSeg, // 10s
-		},
-	}
-	segment.EXPECT().GetDataFamilies(gomock.Any()).Return([]DataFamily{nil})
-	families := s.GetDataFamilies(timeutil.Year, timeutil.TimeRange{})
-	assert.Len(t, families, 1)
+	sp.EXPECT().GetSegments().Return([]Segment{segment})
+	segment.EXPECT().GetDataFamilies(gomock.Any(), gomock.Any()).Return([]DataFamily{mockDataFamily})
+	dataFamilies := s.GetDataFamilies(timeutil.Day, timeutil.TimeRange{})
+	assert.Len(t, dataFamilies, 1)
 }
 
 func TestShard_Close(t *testing.T) {
@@ -227,58 +244,50 @@ func TestShard_Close(t *testing.T) {
 	defer func() {
 		ctrl.Finish()
 	}()
-	indexDB := index.NewMockMetricIndexDatabase(ctrl)
-	segment := NewMockIntervalSegment(ctrl)
-	rollupSeg := NewMockIntervalSegment(ctrl)
+
+	statistics := metrics.NewShardStatistics("test", "1")
 	bufferMgr := memdb.NewMockBufferManager(ctrl)
+	sp := NewMockSegmentPartition(ctrl)
+
 	bufferMgr.EXPECT().Cleanup().AnyTimes()
+	sp.EXPECT().WaitFlushIndexCompleted().AnyTimes()
+
+	db := NewMockDatabase(ctrl)
+	db.EXPECT().Name().Return("test").AnyTimes()
+
 	s := &shard{
-		indexDB: indexDB,
-		segment: segment,
-		rollupTargets: map[timeutil.Interval]IntervalSegment{
-			timeutil.Interval(10 * 60 * 1000): rollupSeg, // 10min
-		},
-		flushCondition: sync.NewCond(&sync.Mutex{}),
-		bufferMgr:      bufferMgr,
+		id:               models.ShardID(1),
+		db:               db,
+		statistics:       statistics,
+		bufferMgr:        bufferMgr,
+		segmentPartition: sp,
+		logger:           logger.GetLogger("TSDB", "Shard"),
 	}
+
 	cases := []struct {
 		name    string
 		prepare func()
 		wantErr bool
 	}{
 		{
-			name: "flush index db err",
+			name: "flush index error",
 			prepare: func() {
-				indexDB.EXPECT().Notify(gomock.Any()).DoAndReturn(func(notifier index.Notifier) {
-					mn := notifier.(*index.FlushNotifier)
-					mn.Callback(fmt.Errorf("err"))
-				})
+				sp.EXPECT().FlushIndex().Return(fmt.Errorf("err"))
+				sp.EXPECT().Close().Return(fmt.Errorf("err"))
 			},
-			wantErr: true,
 		},
 		{
-			name: "close index db err",
+			name: "close index error",
 			prepare: func() {
-				indexDB.EXPECT().Notify(gomock.Any()).DoAndReturn(func(notifier index.Notifier) {
-					mn := notifier.(*index.FlushNotifier)
-					mn.Callback(nil)
-				})
-				indexDB.EXPECT().Close().Return(fmt.Errorf("err"))
+				sp.EXPECT().FlushIndex().Return(nil)
+				sp.EXPECT().Close().Return(fmt.Errorf("err"))
 			},
-			wantErr: true,
 		},
 		{
-			name: "close segments",
+			name: "successfully",
 			prepare: func() {
-				gomock.InOrder(
-					indexDB.EXPECT().Notify(gomock.Any()).DoAndReturn(func(notifier index.Notifier) {
-						mn := notifier.(*index.FlushNotifier)
-						mn.Callback(nil)
-					}),
-					indexDB.EXPECT().Close().Return(nil),
-					segment.EXPECT().Close(),
-					rollupSeg.EXPECT().Close(),
-				)
+				sp.EXPECT().FlushIndex().Return(nil)
+				sp.EXPECT().Close().Return(nil)
 			},
 		},
 	}
@@ -296,59 +305,53 @@ func TestShard_Close(t *testing.T) {
 	}
 }
 
-func TestShard_Flush(t *testing.T) {
+func TestShard_FlushIndex(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
 		ctrl.Finish()
 	}()
-	indexDB := index.NewMockMetricIndexDatabase(ctrl)
+
+	statistics := metrics.NewShardStatistics("test", "1")
+	bufferMgr := memdb.NewMockBufferManager(ctrl)
+	sp := NewMockSegmentPartition(ctrl)
+
+	bufferMgr.EXPECT().Cleanup().AnyTimes()
+	sp.EXPECT().WaitFlushIndexCompleted().AnyTimes()
+
 	db := NewMockDatabase(ctrl)
 	db.EXPECT().Name().Return("test").AnyTimes()
+
 	s := &shard{
-		indexDB:        indexDB,
-		db:             db,
-		flushCondition: sync.NewCond(&sync.Mutex{}),
-		statistics:     metrics.NewShardStatistics("data", "1"),
-		logger:         logger.GetLogger("TSDB", "Test"),
+		id:               models.ShardID(1),
+		statistics:       statistics,
+		db:               db,
+		bufferMgr:        bufferMgr,
+		segmentPartition: sp,
+		logger:           logger.GetLogger("TSDB", "Shard"),
 	}
-	assert.NotNil(t, s.IndexDB())
+
 	cases := []struct {
 		name    string
 		prepare func()
 		wantErr bool
 	}{
 		{
-			name: "flush is doing",
+			name: "flush index error",
 			prepare: func() {
-				s.isFlushing.Store(true)
+				sp.EXPECT().FlushIndex().Return(fmt.Errorf("err"))
 			},
 		},
 		{
-			name: "flush index db err",
+			name: "successfully",
 			prepare: func() {
-				indexDB.EXPECT().Notify(gomock.Any()).DoAndReturn(func(notifier index.Notifier) {
-					mn := notifier.(*index.FlushNotifier)
-					mn.Callback(fmt.Errorf("err"))
-				})
-			},
-			wantErr: true,
-		},
-		{
-			name: "flush successfully",
-			prepare: func() {
-				indexDB.EXPECT().Notify(gomock.Any()).DoAndReturn(func(notifier index.Notifier) {
-					mn := notifier.(*index.FlushNotifier)
-					mn.Callback(nil)
-				})
+				sp.EXPECT().FlushIndex().Return(nil)
 			},
 		},
 	}
+
 	for _, tt := range cases {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			defer func() {
-				s.isFlushing.Store(false)
-			}()
 			if tt.prepare != nil {
 				tt.prepare()
 			}
@@ -362,140 +365,57 @@ func TestShard_Flush(t *testing.T) {
 func TestShard_WaitFlushIndexCompleted(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	now := commontimeutil.Now()
 
-	indexDB := index.NewMockMetricIndexDatabase(ctrl)
-	db := NewMockDatabase(ctrl)
-	db.EXPECT().Name().Return("test").AnyTimes()
-	s := &shard{
-		indexDB:        indexDB,
-		db:             db,
-		flushCondition: sync.NewCond(&sync.Mutex{}),
-		statistics:     metrics.NewShardStatistics("data", "1"),
-		logger:         logger.GetLogger("TSDB", "Test"),
+	sp := NewMockSegmentPartition(ctrl)
+	sp.EXPECT().WaitFlushIndexCompleted()
+	s := shard{
+		segmentPartition: sp,
 	}
-	s.isFlushing.Store(false)
-	indexDB.EXPECT().Notify(gomock.Any()).DoAndReturn(func(notifier index.Notifier) {
-		time.Sleep(100 * time.Millisecond)
-		mn := notifier.(*index.FlushNotifier)
-		mn.Callback(nil)
-	})
-	var wait sync.WaitGroup
-	wait.Add(2)
-	ch := make(chan struct{})
-	go func() {
-		ch <- struct{}{}
-		err := s.FlushIndex()
-		assert.NoError(t, err)
-	}()
-	<-ch
-	time.Sleep(10 * time.Millisecond)
-	go func() {
-		s.WaitFlushIndexCompleted()
-		wait.Done()
-	}()
-	go func() {
-		s.WaitFlushIndexCompleted()
-		wait.Done()
-	}()
-	wait.Wait()
-	assert.True(t, commontimeutil.Now()-now >= 90*time.Millisecond.Milliseconds())
+	s.WaitFlushIndexCompleted()
 }
 
 func TestShard_TTL(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
 	db := NewMockDatabase(ctrl)
 	db.EXPECT().Name().Return("test").AnyTimes()
-	segment := NewMockIntervalSegment(ctrl)
+
+	segmentPartition := NewMockSegmentPartition(ctrl)
 	s := &shard{
-		rollupTargets: map[timeutil.Interval]IntervalSegment{
-			10: segment,
-		},
-		db:     db,
-		logger: logger.GetLogger("TSDB", "Test"),
+		id:               models.ShardID(1),
+		db:               db,
+		segmentPartition: segmentPartition,
+		logger:           logger.GetLogger("TSDB", "Test"),
 	}
-	segment.EXPECT().TTL().Return(fmt.Errorf("err"))
+
+	segmentPartition.EXPECT().TTL().Return(fmt.Errorf("err"))
+	s.TTL()
+
+	segmentPartition.EXPECT().TTL().Return(nil)
 	s.TTL()
 }
 
 func TestShard_EvictSegment(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	db := NewMockDatabase(ctrl)
-	db.EXPECT().Name().Return("test").AnyTimes()
-	segment := NewMockIntervalSegment(ctrl)
+	segmentPartition := NewMockSegmentPartition(ctrl)
 	s := &shard{
-		rollupTargets: map[timeutil.Interval]IntervalSegment{
-			10: segment,
-		},
-		db:     db,
-		logger: logger.GetLogger("TSDB", "Test"),
+		segmentPartition: segmentPartition,
 	}
-	segment.EXPECT().EvictSegment()
+	segmentPartition.EXPECT().EvictSegment()
 	s.EvictSegment()
 }
 
-func TestShard_GetOrCreateDataFamily(t *testing.T) {
+func TestShard_notifyLimitsChange(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	intervalSegment := NewMockIntervalSegment(ctrl)
-	segment := NewMockSegment(ctrl)
+
 	s := &shard{
-		segment: intervalSegment,
+		limitsChanged: atomic.Bool{},
 	}
-	cases := []struct {
-		name    string
-		prepare func()
-		wantErr bool
-	}{
-		{
-			name: "get or create segment error",
-			prepare: func() {
-				intervalSegment.EXPECT().GetOrCreateSegment(gomock.Any()).Return(nil, fmt.Errorf("err"))
-			},
-			wantErr: true,
-		},
-		{
-			name: "get or create data family error",
-			prepare: func() {
-				intervalSegment.EXPECT().GetOrCreateSegment(gomock.Any()).Return(segment, nil)
-				segment.EXPECT().GetOrCreateDataFamily(gomock.Any()).Return(nil, fmt.Errorf("err"))
-			},
-			wantErr: true,
-		},
-		{
-			name: "create rollup target segment error",
-			prepare: func() {
-				s.rollupTargets = map[timeutil.Interval]IntervalSegment{
-					10: intervalSegment,
-				}
-				intervalSegment.EXPECT().GetOrCreateSegment(gomock.Any()).Return(segment, nil)
-				intervalSegment.EXPECT().GetOrCreateSegment(gomock.Any()).Return(nil, fmt.Errorf("err"))
-			},
-			wantErr: true,
-		},
-		{
-			name: "successfully",
-			prepare: func() {
-				intervalSegment.EXPECT().GetOrCreateSegment(gomock.Any()).Return(segment, nil)
-				segment.EXPECT().GetOrCreateDataFamily(gomock.Any()).Return(nil, nil)
-			},
-		},
-	}
-	for i := range cases {
-		tt := cases[i]
-		t.Run(tt.name, func(t *testing.T) {
-			defer func() {
-				s.rollupTargets = nil
-			}()
-			tt.prepare()
-			_, err := s.GetOrCrateDataFamily(time.Now().UnixMilli())
-			if (err != nil) != tt.wantErr {
-				t.Fatal(tt.name)
-			}
-		})
-	}
+	s.notifyLimitsChange()
+	assert.Equal(t, true, s.limitsChanged.Load())
 }
 
 func mockBatchRows(m *protoMetricsV1.Metric) []metric.StorageRow {

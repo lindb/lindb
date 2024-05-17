@@ -18,213 +18,181 @@
 package tsdb
 
 import (
-	"fmt"
-	"sort"
-	"strconv"
-	"sync"
-
 	"github.com/lindb/common/pkg/logger"
 
-	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/index"
+	"github.com/lindb/lindb/metrics"
+	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
+
+	"io"
+	"path"
+	"strconv"
+	"time"
 )
 
 //go:generate mockgen -source=./segment.go -destination=./segment_mock.go -package=tsdb
 
-// Segment represents a time based segment, there are some segments in a interval segment.
-// A segment use k/v store for storing time series data.
 type Segment interface {
-	// BaseTime returns segment base time.
-	BaseTime() int64
-	// GetOrCreateDataFamily returns the data family based on timestamp.
-	GetOrCreateDataFamily(timestamp int64) (DataFamily, error)
-	// GetDataFamilies returns data family list by time range, return nil if not match.
-	GetDataFamilies(timeRange timeutil.TimeRange) []DataFamily
-	// NeedEvict checks segment if it can evict, long term no read operation.
-	NeedEvict() bool
-	// EvictFamily evicts data family.
-	EvictFamily(familyTime int64)
-	// Close closes segment, include kv store.
-	Close()
+	// GetName returns segment name like "202401".
+	GetName() string
+	// IndexDB returns metric index database.
+	IndexDB() index.MetricIndexDatabase
+	// GetOrCreateDataFamily returns data family, if not exist create a new data family.
+	GetOrCreateDataFamily(familyTime int64) (DataFamily, error)
+	// GetDataFamilies returns data family list by interval type and time range, return nil if not match
+	GetDataFamilies(intervalType timeutil.IntervalType, timeRange timeutil.TimeRange) []DataFamily
+	// GetTimestamp returns the start of the month as a timestamp.
+	GetTimestamp() int64
+	// FlushIndex flush index data to disk
+	FlushIndex() error
+	// TTL expires the data of each dataSegment base on time to live.
+	TTL() error
+	// EvictSegment evicts dataSegment which long term no read operation.
+	EvictSegment()
+	// Closer releases segment's resource, such as flush data, spawned goroutines etc.
+	io.Closer
 }
 
-// segment implements Segment interface.
 type segment struct {
-	indicator string
-	shard     Shard
-	baseTime  int64
-	kvStore   kv.Store
-	interval  timeutil.Interval
-	families  map[int]DataFamily
-
-	mutex sync.RWMutex
-
-	logger logger.Logger
+	name                string
+	shard               Shard
+	indexDB             index.MetricIndexDatabase
+	writableDataSegment IntervalDataSegment
+	rollupTargets       map[timeutil.Interval]IntervalDataSegment
+	interval            timeutil.Interval
+	timestamp           int64
+	statistics          *metrics.SegmentStatistics
+	logger              logger.Logger
 }
 
-// newSegment returns segment, segment is wrapper of kv store.
-func newSegment(shard Shard, segmentName string, interval timeutil.Interval) (Segment, error) {
-	indicator := ShardSegmentPath(shard.Database().Name(), shard.ShardID(), interval, segmentName)
-	// parse base time from segment name
-	calc := interval.Calculator()
-	baseTime, err := calc.ParseSegmentTime(segmentName)
+func newSegment(shard Shard, timestamp int64, intervals option.Intervals) (Segment, error) {
+	segmentName := formatTimestamp(timestamp, "200601")
+	dir := path.Join(shardIndexPath(shard.Database().Name(), shard.ShardID()), segmentName)
+	indexDB, err := newIndexDBFunc(dir, shard.Database().MetaDB())
 	if err != nil {
-		return nil, fmt.Errorf("parse segment[%s] base time error", indicator)
+		return nil, err
 	}
 
-	storeOption := kv.DefaultStoreOption()
-	intervals := shard.Database().GetOption().Intervals
-	if shard.CurrentInterval() == interval && len(intervals) > 1 {
-		// if interval == writeable interval and database set auto rollup intervals
-		sort.Sort(intervals) // need sort interval
-		var rollup []timeutil.Interval
-		for _, rollupInterval := range intervals {
-			rollup = append(rollup, rollupInterval.Interval)
-		}
-		storeOption.Rollup = rollup[1:]
-		storeOption.Source = interval
+	segment := &segment{
+		name:          segmentName,
+		shard:         shard,
+		indexDB:       indexDB,
+		rollupTargets: make(map[timeutil.Interval]IntervalDataSegment),
+		timestamp:     timestamp,
+		statistics:    metrics.NewSegmentStatistics(shard.Database().Name(), strconv.Itoa(int(shard.ShardID())), segmentName),
+		logger:        logger.GetLogger("TSDB", "Segment"),
 	}
-	kvStore, err := kv.GetStoreManager().CreateStore(indicator, storeOption)
+
+	for idx, targetInterval := range intervals {
+		// new dataSegment for rollup
+		intervalDataSegment, err := newIntervalDataSegmentFunc(shard, targetInterval)
+		if err != nil {
+			return nil, err
+		}
+		if idx == 0 {
+			segment.interval = targetInterval.Interval
+			// the smallest interval for writing
+			segment.writableDataSegment = intervalDataSegment
+		}
+		// set rollup target dataSegment
+		segment.rollupTargets[targetInterval.Interval] = intervalDataSegment
+	}
+
+	return segment, nil
+}
+
+func (s *segment) GetName() string {
+	return s.name
+}
+
+func (s *segment) GetOrCreateDataFamily(familyTime int64) (DataFamily, error) {
+	segmentName := s.interval.Calculator().GetSegment(familyTime)
+	// source dataSegment
+	dataSegment, err := s.writableDataSegment.GetOrCreateSegment(segmentName)
 	if err != nil {
-		return nil, fmt.Errorf("create kv store for segment error:%s", err)
+		return nil, err
 	}
-	return &segment{
-		shard:     shard,
-		indicator: indicator,
-		baseTime:  baseTime,
-		kvStore:   kvStore,
-		interval:  interval,
-		families:  make(map[int]DataFamily),
-		logger:    logger.GetLogger("TSDB", "Segment"),
-	}, nil
-}
-
-// BaseTime returns segment base time
-func (s *segment) BaseTime() int64 {
-	return s.baseTime
-}
-
-// GetDataFamilies returns data family list by time range, return nil if not match
-func (s *segment) GetDataFamilies(timeRange timeutil.TimeRange) []DataFamily {
-	var result []DataFamily
-	calc := s.interval.Calculator()
-
-	familyQueryTimeRange := timeutil.TimeRange{
-		Start: calc.CalcFamilyStartTime(s.baseTime, calc.CalcFamily(timeRange.Start, s.baseTime)),
-		End:   calc.CalcFamilyStartTime(s.baseTime, calc.CalcFamily(timeRange.End, s.baseTime)),
-	}
-	familyNames := s.kvStore.ListFamilyNames()
-
-	for _, familyName := range familyNames {
-		familyTime, err := strconv.Atoi(familyName)
+	// build rollup target dataSegment if set auto rollup interval
+	for interval, rollupSegment := range s.rollupTargets {
+		_, err = rollupSegment.GetOrCreateSegment(interval.Calculator().GetSegment(familyTime))
 		if err != nil {
-			// TODO: add metric
-			continue
-		}
-		family := s.getOrLoadFamily(familyName, familyTime)
-		timeRange := family.TimeRange()
-		if familyQueryTimeRange.Overlap(timeRange) {
-			result = append(result, family)
+			return nil, err
 		}
 	}
-	return result
+	family, err := dataSegment.GetOrCreateDataFamily(familyTime)
+	if err != nil {
+		return nil, err
+	}
+	return family, nil
 }
 
-// NeedEvict checks segment if it can evict, long term no read operation.
-func (s *segment) NeedEvict() bool {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	return len(s.families) == 0
-}
-
-// EvictFamily evicts data family.
-func (s *segment) EvictFamily(familyTime int64) {
-	calc := s.interval.Calculator()
-	family := calc.CalcFamily(familyTime, s.baseTime)
-
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	delete(s.families, family)
-}
-
-// GetOrCreateDataFamily returns the data family based on timestamp.
-func (s *segment) GetOrCreateDataFamily(timestamp int64) (DataFamily, error) {
-	calc := s.interval.Calculator()
-
-	segmentTime := calc.CalcSegmentTime(timestamp)
-	if segmentTime != s.baseTime {
-		return nil, fmt.Errorf("%w, segment base time not match, segmentTime: %d, baseTime: %d",
-			constants.ErrDataFamilyNotFound, timestamp, s.baseTime)
+func (s *segment) GetDataFamilies(intervalType timeutil.IntervalType, timeRange timeutil.TimeRange) []DataFamily {
+	// first check query interval is writable interval.
+	if s.interval.Type() == intervalType || len(s.rollupTargets) == 1 {
+		// if no rollup, need to use current writable interval.
+		return s.writableDataSegment.GetDataFamilies(timeRange)
 	}
-
-	familyTime := calc.CalcFamily(timestamp, s.baseTime)
-
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if family, ok := s.families[familyTime]; ok {
-		return family, nil
-	}
-	familyOption := kv.FamilyOption{
-		CompactThreshold: 0,
-		Merger:           string(metricsdata.MetricDataMerger),
-	}
-	familyName := strconv.Itoa(familyTime)
-	family := s.kvStore.GetFamily(familyName)
-	if family == nil {
-		// create kv family
-		var err error
-		family, err = s.kvStore.CreateFamily(fmt.Sprintf("%d", familyTime), familyOption)
-		if err != nil {
-			return nil, fmt.Errorf("%w ,failed to create data family: %s",
-				constants.ErrDataFamilyNotFound, err)
+	// then find family from rollup targets
+	for interval, rollupSegment := range s.rollupTargets {
+		if interval.Type() == intervalType {
+			return rollupSegment.GetDataFamilies(timeRange)
 		}
 	}
-	dataFamily := s.initDataFamily(familyTime, family)
-	return dataFamily, nil
+	return nil
 }
 
-// Close closes segment, include kv store.
-func (s *segment) Close() {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+func (s *segment) Close() error {
+	for _, rollupSegment := range s.rollupTargets {
+		rollupSegment.Close()
+	}
+	return nil
+}
 
-	for _, family := range s.families {
-		if err := family.Close(); err != nil {
-			s.logger.Error("close family err", logger.String("family", family.Indicator()))
+func (s *segment) IndexDB() index.MetricIndexDatabase {
+	return s.indexDB
+}
+
+func (s *segment) GetTimestamp() int64 {
+	return s.timestamp
+}
+
+func (s *segment) FlushIndex() error {
+	startTime := time.Now()
+	defer func() {
+		s.statistics.IndexDBFlushDuration.UpdateSince(startTime)
+	}()
+
+	ch := make(chan error, 1)
+	s.indexDB.Notify(&index.FlushNotifier{
+		Callback: func(err error) {
+			ch <- err
+		},
+	})
+	err := <-ch
+	if err != nil {
+		s.statistics.IndexDBFlushFailures.Incr()
+	}
+
+	return err
+}
+
+func (s *segment) TTL() error {
+	for _, rollupSegment := range s.rollupTargets {
+		if err := rollupSegment.TTL(); err != nil {
+			s.logger.Warn("do segment ttl failure",
+				logger.String("database", s.shard.Database().Name()),
+				logger.Any("shardID", s.shard.ShardID()),
+				logger.String("segmentName", s.name),
+				logger.Error(err),
+			)
 		}
 	}
-	if err := kv.GetStoreManager().CloseStore(s.kvStore.Name()); err != nil {
-		s.logger.Error("close kv store error", logger.Error(err))
-	}
-	// clear family cache
-	s.families = make(map[int]DataFamily)
+	return nil
 }
 
-// getOrLoadFamily returns data family if it's exist in memory or storage.
-func (s *segment) getOrLoadFamily(familyName string, familyTime int) DataFamily {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if family, ok := s.families[familyTime]; ok {
-		return family
+func (s *segment) EvictSegment() {
+	for _, rollupSegment := range s.rollupTargets {
+		rollupSegment.EvictSegment()
 	}
-	return s.initDataFamily(familyTime, s.kvStore.GetFamily(familyName))
-}
-
-// initDataFamily initializes data family from storage.
-func (s *segment) initDataFamily(familyTime int, family kv.Family) DataFamily {
-	calc := s.interval.Calculator()
-	// create data family
-	familyStartTime := calc.CalcFamilyStartTime(s.baseTime, familyTime)
-	dataFamily := newDataFamilyFunc(s.shard, s, s.interval, timeutil.TimeRange{
-		Start: familyStartTime,
-		End:   calc.CalcFamilyEndTime(familyStartTime),
-	}, familyStartTime, family)
-	s.families[familyTime] = dataFamily
-	return dataFamily
 }

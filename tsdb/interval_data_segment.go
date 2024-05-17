@@ -29,59 +29,59 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 )
 
-//go:generate mockgen -source=./interval_segment.go -destination=./interval_segment_mock.go -package=tsdb
+//go:generate mockgen -source=./interval_data_segment.go -destination=./interval_data_segment_mock.go -package=tsdb
 
-// IntervalSegment represents a interval segment, there are some segments in a shard.
-type IntervalSegment interface {
-	// GetOrCreateSegment creates new segment if not exist, if exist return it
-	GetOrCreateSegment(segmentName string) (Segment, error)
+// IntervalDataSegment represents a interval dataSegment, there are some segments in a shard.
+type IntervalDataSegment interface {
+	// GetOrCreateSegment creates new dataSegment if not exist, if exist return it
+	GetOrCreateSegment(segmentName string) (DataSegment, error)
 	// GetDataFamilies returns data family list by time range, return nil if not match
 	GetDataFamilies(timeRange timeutil.TimeRange) []DataFamily
-	// Close closes interval segment, release resource
+	// Close closes interval dataSegment, release resource
 	Close()
-	// TTL expires segment base on time to live.
+	// TTL expires dataSegment base on time to live.
 	TTL() error
-	// EvictSegment evicts segment which long term no read operation.
+	// EvictSegment evicts dataSegment which long term no read operation.
 	EvictSegment()
 }
 
-// intervalSegment implements IntervalSegment interface
-type intervalSegment struct {
+// intervalDataSegment implements IntervalDataSegment interface
+type intervalDataSegment struct {
 	dir      string
 	shard    Shard
 	interval option.Interval
-	segments map[string]Segment
+	segments map[string]DataSegment
 
 	mutex sync.Mutex
 
 	logger logger.Logger
 }
 
-// newIntervalSegment create interval segment based on interval/type/path etc.
-func newIntervalSegment(shard Shard, interval option.Interval) (segment IntervalSegment, err error) {
+// newIntervalDataSegment create interval dataSegment based on interval/type/path etc.
+func newIntervalDataSegment(shard Shard, interval option.Interval) (segment IntervalDataSegment, err error) {
 	dir := ShardIntervalSegmentPath(shard.Database().Name(), shard.ShardID(), interval.Interval)
 	err = mkDirIfNotExist(dir)
 	if err != nil {
 		return nil, err
 	}
-	return &intervalSegment{
+	return &intervalDataSegment{
 		dir:      dir,
 		shard:    shard,
 		interval: interval,
-		segments: make(map[string]Segment),
-		logger:   logger.GetLogger("TSDB", "IntervalSegment"),
+		segments: make(map[string]DataSegment),
+		logger:   logger.GetLogger("TSDB", "IntervalDataSegment"),
 	}, nil
 }
 
-// GetOrCreateSegment creates new segment if not exist, if exist return it
-func (s *intervalSegment) GetOrCreateSegment(segmentName string) (Segment, error) {
+// GetOrCreateSegment creates new dataSegment if not exist, if exist return it
+func (s *intervalDataSegment) GetOrCreateSegment(segmentName string) (DataSegment, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
 	if segment, ok := s.segments[segmentName]; ok {
 		return segment, nil
 	}
-	seg, err := newSegmentFunc(s.shard, segmentName, s.interval.Interval)
+	seg, err := newDataSegmentFunc(s.shard, segmentName, s.interval.Interval)
 	if err != nil {
 		return nil, fmt.Errorf("create segmenet error: %s", err)
 	}
@@ -90,7 +90,7 @@ func (s *intervalSegment) GetOrCreateSegment(segmentName string) (Segment, error
 }
 
 // GetDataFamilies returns data family list by time range, return nil if not match
-func (s *intervalSegment) GetDataFamilies(timeRange timeutil.TimeRange) []DataFamily {
+func (s *intervalDataSegment) GetDataFamilies(timeRange timeutil.TimeRange) []DataFamily {
 	var result []DataFamily
 	now := commontimeutil.Now()
 	intervalCalc := s.interval.Interval.Calculator()
@@ -103,11 +103,11 @@ func (s *intervalSegment) GetDataFamilies(timeRange timeutil.TimeRange) []DataFa
 	expireInterval := s.interval.Retention.Int64()
 	if err := s.walkSegment(func(segmentName string, segmentTime int64) {
 		if now-segmentTime >= expireInterval {
-			// segment is expired, need to ignore
+			// dataSegment is expired, need to ignore
 			return
 		}
 		if !segmentQueryTimeRange.Contains(segmentTime) {
-			// segment time not in time range of query
+			// dataSegment time not in time range of query
 			return
 		}
 
@@ -115,29 +115,29 @@ func (s *intervalSegment) GetDataFamilies(timeRange timeutil.TimeRange) []DataFa
 		if err != nil {
 			// TODO: add metric
 			// ignore err
-			s.logger.Info("get or load segment failure",
-				logger.String("path", s.dir), logger.String("segment", segmentName), logger.Error(err))
+			s.logger.Info("get or load dataSegment failure",
+				logger.String("path", s.dir), logger.String("dataSegment", segmentName), logger.Error(err))
 			return
 		}
 
 		familyQueryTimeRange := segmentQueryTimeRange.Intersect(timeRange)
-		// read lock in segment
+		// read lock in dataSegment
 		families := segment.GetDataFamilies(familyQueryTimeRange)
 		if len(families) > 0 {
 			result = append(result, families...)
 		}
 	}); err != nil {
-		s.logger.Warn("list segment failure when get data families",
+		s.logger.Warn("list dataSegment failure when get data families",
 			logger.String("path", s.dir), logger.Error(err))
 		return nil
 	}
 	return result
 }
 
-// getOrLoadSegment returns segment for current interval.
-// 1. return segment if it's exist in memory cache;
-// 2. return segment if it's exist in storage.
-func (s *intervalSegment) getOrLoadSegment(segmentName string) (Segment, error) {
+// getOrLoadSegment returns dataSegment for current interval.
+// 1. return dataSegment if it's exist in memory cache;
+// 2. return dataSegment if it's exist in storage.
+func (s *intervalDataSegment) getOrLoadSegment(segmentName string) (DataSegment, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -145,7 +145,7 @@ func (s *intervalSegment) getOrLoadSegment(segmentName string) (Segment, error) 
 		return segment, nil
 	}
 	var err error
-	segment, err := newSegmentFunc(s.shard, segmentName, s.interval.Interval)
+	segment, err := newDataSegmentFunc(s.shard, segmentName, s.interval.Interval)
 	if err != nil {
 		return nil, err
 	}
@@ -153,8 +153,8 @@ func (s *intervalSegment) getOrLoadSegment(segmentName string) (Segment, error) 
 	return segment, nil
 }
 
-// Close closes interval segment, release resource
-func (s *intervalSegment) Close() {
+// Close closes interval dataSegment, release resource
+func (s *intervalDataSegment) Close() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -164,8 +164,8 @@ func (s *intervalSegment) Close() {
 	}
 }
 
-// TTL expires segment base on time to live.
-func (s *intervalSegment) TTL() error {
+// TTL expires dataSegment base on time to live.
+func (s *intervalDataSegment) TTL() error {
 	now := commontimeutil.Now()
 	expireInterval := s.interval.Retention.Int64()
 
@@ -177,8 +177,8 @@ func (s *intervalSegment) TTL() error {
 	})
 }
 
-// EvictSegment evicts segment which long term no read operation.
-func (s *intervalSegment) EvictSegment() {
+// EvictSegment evicts dataSegment which long term no read operation.
+func (s *intervalDataSegment) EvictSegment() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -189,14 +189,14 @@ func (s *intervalSegment) EvictSegment() {
 			segment.Close()
 			delete(s.segments, segmentName)
 
-			s.logger.Info("evict segment complete",
-				logger.String("path", s.dir), logger.String("segment", segmentName))
+			s.logger.Info("evict dataSegment complete",
+				logger.String("path", s.dir), logger.String("dataSegment", segmentName))
 		}
 	}
 }
 
-// walkSegment lists all segment under current interval segment dir.
-func (s *intervalSegment) walkSegment(fn func(segmentName string, segmentTime int64)) error {
+// walkSegment lists all dataSegment under current interval dataSegment dir.
+func (s *intervalDataSegment) walkSegment(fn func(segmentName string, segmentTime int64)) error {
 	fmt.Println(s.dir)
 	segmentNames, err := listDir(s.dir)
 	if err != nil {
@@ -206,8 +206,8 @@ func (s *intervalSegment) walkSegment(fn func(segmentName string, segmentTime in
 		calc := s.interval.Interval.Calculator()
 		baseTime, err := calc.ParseSegmentTime(segmentName)
 		if err != nil {
-			s.logger.Warn("parse segment time from path failure",
-				logger.String("path", s.dir), logger.String("segment", segmentName),
+			s.logger.Warn("parse dataSegment time from path failure",
+				logger.String("path", s.dir), logger.String("dataSegment", segmentName),
 				logger.Error(err))
 			continue
 		}
@@ -216,8 +216,8 @@ func (s *intervalSegment) walkSegment(fn func(segmentName string, segmentTime in
 	return nil
 }
 
-// dropSegment drops segment's data.
-func (s *intervalSegment) dropSegment(segmentName string) {
+// dropSegment drops dataSegment's data.
+func (s *intervalDataSegment) dropSegment(segmentName string) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -227,11 +227,11 @@ func (s *intervalSegment) dropSegment(segmentName string) {
 	delete(s.segments, segmentName)
 
 	if err := removeDir(path.Join(s.dir, segmentName)); err != nil {
-		s.logger.Warn("remove segment dir failure",
-			logger.String("path", s.dir), logger.String("segment", segmentName),
+		s.logger.Warn("remove dataSegment dir failure",
+			logger.String("path", s.dir), logger.String("dataSegment", segmentName),
 			logger.Error(err))
 		return
 	}
-	s.logger.Info("do segment ttl successfully",
-		logger.String("path", s.dir), logger.String("segment", segmentName))
+	s.logger.Info("do dataSegment ttl successfully",
+		logger.String("path", s.dir), logger.String("dataSegment", segmentName))
 }

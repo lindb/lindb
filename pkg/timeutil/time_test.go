@@ -47,3 +47,8 @@ func TestTruncate(t *testing.T) {
 	t1, _ = timeutil.ParseTimestamp("20190702 19:10:00", "20060102 15:04:05")
 	assert.Equal(t, t1, Truncate(now, 10*timeutil.OneMinute))
 }
+
+func TestGetMonthTimestamp(t *testing.T) {
+	got := GetMonthTimestamp(1715787380378)
+	assert.Equal(t, int64(1714492800000), got)
+}

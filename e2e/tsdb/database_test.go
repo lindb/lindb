@@ -69,7 +69,7 @@ func TestDatabase_Write_And_Rollup(t *testing.T) {
 
 	now, _ := commontimeutil.ParseTimestamp("20190702 19:10:00", "20060102 15:04:05")
 	familyTime := interval.Calculator().CalcFamilyTime(now)
-	f, err := shard.GetOrCrateDataFamily(familyTime)
+	f, err := shard.GetOrCreateDataFamily(familyTime)
 	assert.NoError(t, err)
 	assert.NotNil(t, f)
 
