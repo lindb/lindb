@@ -128,7 +128,7 @@ func (w *writeAheadLog) GetOrCreatePartition(
 	if !ok {
 		return nil, fmt.Errorf("shard: %d not exist", shardID.Int())
 	}
-	family, err := shard.GetOrCrateDataFamily(familyTime)
+	family, err := shard.GetOrCreateDataFamily(familyTime)
 	if err != nil {
 		return nil, err
 	}

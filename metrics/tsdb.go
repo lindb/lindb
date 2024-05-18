@@ -73,6 +73,12 @@ type ShardStatistics struct {
 	IndexDBFlushFailures     *linmetric.BoundCounter   // flush index database failure
 }
 
+// SegmentStatistics represents segment statistics.
+type SegmentStatistics struct {
+	IndexDBFlushDuration *linmetric.BoundHistogram // flush index database duration(include count)
+	IndexDBFlushFailures *linmetric.BoundCounter   // flush index database failure
+}
+
 // FamilyStatistics represents family statistics.
 type FamilyStatistics struct {
 	ActiveFamilies      *linmetric.BoundGauge     // number of current active families
@@ -119,6 +125,16 @@ func NewShardStatistics(database, shard string) *ShardStatistics {
 			WithTagValues(database, shard),
 		IndexDBFlushDuration: shardScope.Scope("indexdb_flush_duration").NewHistogramVec("db", "shard").
 			WithTagValues(database, shard),
+	}
+}
+
+// NewSegmentStatistics creates a segment statistics.
+func NewSegmentStatistics(database, shard, segmentName string) *SegmentStatistics {
+	return &SegmentStatistics{
+		IndexDBFlushFailures: shardScope.NewCounterVec("indexdb_segment_flush_failures", "db", "shard", "segment").
+			WithTagValues(database, shard, segmentName),
+		IndexDBFlushDuration: shardScope.Scope("indexdb_segment_flush_duration").NewHistogramVec("db", "shard", "segment").
+			WithTagValues(database, shard, segmentName),
 	}
 }
 

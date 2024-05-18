@@ -57,7 +57,7 @@ header: ## check and add license header.
 import: ## opt go imports format.
 	sh scripts/imports.sh
 
-format: ## go format 
+format: ## go format
 	go fmt ./...
 
 lint: ## run lint
@@ -79,6 +79,7 @@ test-without-lint: ## Run test without lint
 	LOG_LEVEL=fatal ## disable log for test
 	gotest -v -race -coverprofile=coverage_tmp.out -covermode=atomic ./...
 	cat coverage_tmp.out |grep -v "_mock.go" > coverage.out
+	go tool cover -html=coverage.out -o coverage.html
 
 test: header lint test-without-lint ## Run test cases.
 
@@ -104,7 +105,7 @@ gen-sql-grammar: ## generate lin query language gen-sql-grammar
 	antlr4 -Dlanguage=Go -listener -visitor -package grammar ./sql/grammar/SQL.g4
 
 key-words: ## print all key words for lin query language
-	go run github.com/lindb/lindb/cmd/tools keywords 
+	go run github.com/lindb/lindb/cmd/tools keywords
 
 clean-mock: ## remove all mock files
 	find ./ -name "*_mock.go" | xargs rm

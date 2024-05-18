@@ -68,7 +68,7 @@ type Database interface {
 	Drop() error
 	// TTL expires the data of each shard base on time to live.
 	TTL()
-	// EvictSegment evicts segment which long term no read operation.
+	// EvictSegment evicts dataSegment which long term no read operation.
 	EvictSegment()
 	// SetLimits sets database's limits.
 	SetLimits(limits *models.Limits)
@@ -306,7 +306,7 @@ func (db *database) TTL() {
 	}
 }
 
-// EvictSegment evicts segment which long term no read operation.
+// EvictSegment evicts dataSegment which long term no read operation.
 func (db *database) EvictSegment() {
 	for _, shardEntry := range db.shardSet.Entries() {
 		thisShard := shardEntry.shard

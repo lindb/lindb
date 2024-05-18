@@ -20,14 +20,16 @@ package tsdb
 import (
 	"fmt"
 	"testing"
+	"time"
 
+	"github.com/lindb/common/pkg/logger"
+
+	commonTimeutil "github.com/lindb/common/pkg/timeutil"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 
-	"github.com/lindb/common/pkg/logger"
-	commontimeutil "github.com/lindb/common/pkg/timeutil"
-
-	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/index"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -36,172 +38,193 @@ import (
 func TestSegment_New(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		kv.InitStoreManager(nil)
+		formatTimestamp = commonTimeutil.FormatTimestamp
+		newIndexDBFunc = index.NewMetricIndexDatabase
+		newIntervalDataSegmentFunc = newIntervalDataSegment
 		ctrl.Finish()
 	}()
 
-	storeMgr := kv.NewMockStoreManager(ctrl)
-	kv.InitStoreManager(storeMgr)
-	store := kv.NewMockStore(ctrl)
+	formatTimestamp = func(timestamp int64, layout string) string {
+		return "test"
+	}
 
-	database := NewMockDatabase(ctrl)
-	database.EXPECT().Name().Return("test").AnyTimes()
-	shard := NewMockShard(ctrl)
-	interval := timeutil.Interval(commontimeutil.OneSecond * 10)
-	shard.EXPECT().Database().Return(database).AnyTimes()
-	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
-	shard.EXPECT().CurrentInterval().Return(interval).AnyTimes()
-	segmentName := "20190904"
 	cases := []struct {
-		name        string
-		segmentName string
-		prepare     func()
-		wantErr     bool
+		name       string
+		prepare    func()
+		assertFunc func(*segment)
+		wantErr    bool
 	}{
 		{
-			name:        "create segment successfully",
-			segmentName: segmentName,
+			name: "new index db error",
 			prepare: func() {
-				database.EXPECT().GetOption().Return(&option.DatabaseOption{Intervals: option.Intervals{{Interval: interval}}})
-				storeMgr.EXPECT().CreateStore(gomock.Any(), gomock.Any()).Return(store, nil)
-			},
-		},
-		{
-			name:        "create segment successfully and set rollup",
-			segmentName: segmentName,
-			prepare: func() {
-				database.EXPECT().GetOption().Return(&option.DatabaseOption{
-					Intervals: option.Intervals{
-						{Interval: interval},
-						{Interval: timeutil.Interval(5 * commontimeutil.OneMinute)},
-					},
-				})
-				storeMgr.EXPECT().CreateStore(gomock.Any(), gomock.Any()).Return(store, nil)
-			},
-		},
-		{
-			name:        "parse segment name err",
-			segmentName: "xx",
-			wantErr:     true,
-		},
-		{
-			name:        "create store err",
-			segmentName: segmentName,
-			prepare: func() {
-				database.EXPECT().GetOption().Return(&option.DatabaseOption{Intervals: option.Intervals{{Interval: interval}}})
-				storeMgr.EXPECT().CreateStore(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+				newIndexDBFunc = func(dir string, metaDB index.MetricMetaDatabase) (index.MetricIndexDatabase, error) {
+					return nil, fmt.Errorf("err")
+				}
 			},
 			wantErr: true,
 		},
+		{
+			name: "new interval data segment error",
+			prepare: func() {
+				newIndexDBFunc = func(dir string, metaDB index.MetricMetaDatabase) (index.MetricIndexDatabase, error) {
+					return nil, nil
+				}
+				newIntervalDataSegmentFunc = func(shard Shard, interval option.Interval) (segment IntervalDataSegment, err error) {
+					return nil, fmt.Errorf("err")
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "successfully",
+			prepare: func() {
+				newIntervalDataSegmentFunc = func(shard Shard, interval option.Interval) (segment IntervalDataSegment, err error) {
+					return NewMockIntervalDataSegment(ctrl), nil
+				}
+			},
+			assertFunc: func(segment *segment) {
+				assert.NotNil(t, segment)
+				assert.NotNil(t, segment.writableDataSegment)
+				assert.Equal(t, 3, len(segment.rollupTargets))
+			},
+		},
 	}
 
-	for _, tt := range cases {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			defer func() {
-				newDataFamilyFunc = newDataFamily
-			}()
-			if tt.prepare != nil {
-				tt.prepare()
-			}
-			s, err := newSegment(shard, tt.segmentName, interval)
-			if ((err != nil) != tt.wantErr && s == nil) || (!tt.wantErr && s == nil) {
-				t.Errorf("newSegment() error = %v, wantErr %v", err, tt.wantErr)
-			}
+	database := NewMockDatabase(ctrl)
+	database.EXPECT().Name().Return("test").AnyTimes()
+	database.EXPECT().MetaDB().Return(nil).AnyTimes()
 
-			if s != nil {
-				// check base time
-				now, _ := commontimeutil.ParseTimestamp("20190904 00:00:00", "20060102 15:04:05")
-				assert.Equal(t, now, s.BaseTime())
+	shard := NewMockShard(ctrl)
+	shard.EXPECT().Database().Return(database).AnyTimes()
+	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
+
+	a := timeutil.Interval(commonTimeutil.OneSecond)
+	b := timeutil.Interval(5 * commonTimeutil.OneMinute)
+	c := timeutil.Interval(commonTimeutil.OneHour)
+
+	intervals := option.Intervals{
+		option.Interval{
+			Interval: a,
+		},
+		option.Interval{
+			Interval: b,
+		},
+		option.Interval{
+			Interval: c,
+		},
+	}
+
+	for i := range cases {
+		tt := cases[i]
+		t.Run(tt.name, func(t *testing.T) {
+			tt.prepare()
+			seg, err := newSegment(shard, 1, intervals)
+			if (err != nil) != tt.wantErr {
+				t.Fatal(tt.name)
+			}
+			if tt.assertFunc != nil {
+				tt.assertFunc(seg.(*segment))
 			}
 		})
 	}
+}
+
+func TestSegment_GetName(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	s := &segment{
+		name: "test",
+	}
+	assert.Equal(t, s.name, s.GetName())
+}
+
+func TestSegment_IndexDB(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	indexDB := index.NewMockMetricIndexDatabase(ctrl)
+	s := &segment{
+		indexDB: indexDB,
+	}
+	assert.Equal(t, indexDB, s.IndexDB())
 }
 
 func TestSegment_GetOrCreateDataFamily(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	store := kv.NewMockStore(ctrl)
-	interval := timeutil.Interval(10 * 1000)
-	baseTime, _ := commontimeutil.ParseTimestamp("20190904 00:00:00", "20060102 15:04:05")
+	a := timeutil.Interval(commonTimeutil.OneSecond)
+	b := timeutil.Interval(5 * commonTimeutil.OneMinute)
+	c := timeutil.Interval(commonTimeutil.OneHour)
+
+	intervals := option.Intervals{
+		option.Interval{
+			Interval: a,
+		},
+		option.Interval{
+			Interval: b,
+		},
+		option.Interval{
+			Interval: c,
+		},
+	}
+
+	dataSegment := NewMockDataSegment(ctrl)
+	intervalDataSegment := NewMockIntervalDataSegment(ctrl)
+	writableDataSegment := NewMockIntervalDataSegment(ctrl)
+
+	s := &segment{
+		interval:            intervals[0].Interval,
+		writableDataSegment: writableDataSegment,
+		rollupTargets: map[timeutil.Interval]IntervalDataSegment{
+			b: intervalDataSegment,
+		},
+	}
+
 	cases := []struct {
-		name      string
-		timestamp string
-		prepare   func(seg *segment)
-		wantErr   bool
+		name    string
+		prepare func()
+		wantErr bool
 	}{
 		{
-			name:      "segment time != base time",
-			timestamp: "20190905 19:10:48",
-			wantErr:   true,
-		},
-		{
-			name:      "create new family",
-			timestamp: "20190904 19:10:48",
-			prepare: func(_ *segment) {
-				newDataFamilyFunc = func(shard Shard, _ Segment,
-					interval timeutil.Interval, timeRange timeutil.TimeRange,
-					familyTime int64, family kv.Family) DataFamily {
-					return NewMockDataFamily(ctrl)
-				}
-				store.EXPECT().GetFamily(gomock.Any()).Return(nil)
-				store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, nil)
-			},
-		},
-		{
-			name:      "family exist in kv store",
-			timestamp: "20190904 19:10:48",
-			prepare: func(_ *segment) {
-				newDataFamilyFunc = func(shard Shard, _ Segment,
-					interval timeutil.Interval, timeRange timeutil.TimeRange,
-					familyTime int64, family kv.Family) DataFamily {
-					return NewMockDataFamily(ctrl)
-				}
-				store.EXPECT().GetFamily(gomock.Any()).Return(kv.NewMockFamily(ctrl))
-			},
-		},
-		{
-			name:      "create new family err",
-			timestamp: "20190904 20:10:48",
-			prepare: func(_ *segment) {
-				store.EXPECT().GetFamily(gomock.Any()).Return(nil)
-				store.EXPECT().CreateFamily(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("err"))
+			name: "get or create dataSegment error",
+			prepare: func() {
+				writableDataSegment.EXPECT().GetOrCreateSegment(gomock.Any()).Return(nil, fmt.Errorf("err"))
 			},
 			wantErr: true,
 		},
 		{
-			name:      "get exist family",
-			timestamp: "20190904 22:10:48",
-			prepare: func(seg *segment) {
-				now, _ := commontimeutil.ParseTimestamp("20190904 22:10:48", "20060102 15:04:05")
-				familyTime := interval.Calculator().CalcFamily(now, seg.baseTime)
-				seg.mutex.Lock()
-				seg.families[familyTime] = NewMockDataFamily(ctrl)
-				seg.mutex.Unlock()
+			name: "rollup segment get or create data family error",
+			prepare: func() {
+				writableDataSegment.EXPECT().GetOrCreateSegment(gomock.Any()).Return(nil, nil)
+				intervalDataSegment.EXPECT().GetOrCreateSegment(gomock.Any()).Return(nil, fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "get or create data family error",
+			prepare: func() {
+				writableDataSegment.EXPECT().GetOrCreateSegment(gomock.Any()).Return(dataSegment, nil)
+				intervalDataSegment.EXPECT().GetOrCreateSegment(gomock.Any()).Return(dataSegment, nil)
+				dataSegment.EXPECT().GetOrCreateDataFamily(gomock.Any()).Return(nil, fmt.Errorf("err"))
+			},
+			wantErr: true,
+		},
+		{
+			name: "successfully",
+			prepare: func() {
+				writableDataSegment.EXPECT().GetOrCreateSegment(gomock.Any()).Return(dataSegment, nil)
+				intervalDataSegment.EXPECT().GetOrCreateSegment(gomock.Any()).Return(dataSegment, nil)
+				dataSegment.EXPECT().GetOrCreateDataFamily(gomock.Any()).Return(nil, nil)
 			},
 		},
 	}
-
-	for _, tt := range cases {
-		tt := tt
+	for i := range cases {
+		tt := cases[i]
 		t.Run(tt.name, func(t *testing.T) {
-			defer func() {
-				newDataFamilyFunc = newDataFamily
-			}()
-			seg := &segment{
-				baseTime: baseTime,
-				kvStore:  store,
-				interval: interval,
-				families: make(map[int]DataFamily),
-			}
-			if tt.prepare != nil {
-				tt.prepare(seg)
-			}
-			now, _ := commontimeutil.ParseTimestamp(tt.timestamp, "20060102 15:04:05")
-			dataFamily, err := seg.GetOrCreateDataFamily(now)
-			if ((err != nil) != tt.wantErr && dataFamily == nil) || (!tt.wantErr && dataFamily == nil) {
-				t.Errorf("GetOrCreateDataFamily() error = %v, wantErr %v", err, tt.wantErr)
+			tt.prepare()
+			_, err := s.GetOrCreateDataFamily(time.Now().UnixMilli())
+			if (err != nil) != tt.wantErr {
+				t.Fatal(tt.name)
 			}
 		})
 	}
@@ -211,133 +234,47 @@ func TestSegment_GetDataFamilies(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	store := kv.NewMockStore(ctrl)
-	now, _ := commontimeutil.ParseTimestamp("20220326 10:30:00", "20060102 15:04:05")
-	timeRange := timeutil.TimeRange{
-		Start: now - commontimeutil.OneHour,
-		End:   now,
+	writableIntervalDataSegment := NewMockIntervalDataSegment(ctrl)
+	rollupSeg := NewMockIntervalDataSegment(ctrl)
+	s := &segment{
+		writableDataSegment: writableIntervalDataSegment,
+		interval:            timeutil.Interval(10 * 1000), // 10s
+		rollupTargets: map[timeutil.Interval]IntervalDataSegment{
+			timeutil.Interval(10 * 1000):      rollupSeg, // 10s
+			timeutil.Interval(10 * 60 * 1000): rollupSeg, // 10min
+		},
 	}
 	cases := []struct {
-		name      string
-		timeRange timeutil.TimeRange
-		prepare   func(seg *segment)
-		len       int
+		name         string
+		intervalType timeutil.IntervalType
+		prepare      func()
+		assert       func(families []DataFamily)
 	}{
 		{
-			name: "family empty",
-			prepare: func(_ *segment) {
-				store.EXPECT().ListFamilyNames().Return(nil)
-			},
-			len: 0,
-		},
-		{
-			name: "parse family name failure",
-			prepare: func(_ *segment) {
-				store.EXPECT().ListFamilyNames().Return([]string{"a"})
-			},
-			len: 0,
-		},
-		{
-			name:      "get family from memory",
-			timeRange: timeRange,
-			prepare: func(seq *segment) {
-				family := NewMockDataFamily(ctrl)
-				seq.families[10] = family
-				store.EXPECT().ListFamilyNames().Return([]string{"10"})
-				family.EXPECT().TimeRange().Return(timeRange)
-			},
-			len: 1,
-		},
-		{
-			name:      "get family from storage",
-			timeRange: timeRange,
-			prepare: func(_ *segment) {
-				dataFamily := NewMockDataFamily(ctrl)
-				family := kv.NewMockFamily(ctrl)
-				store.EXPECT().GetFamily(gomock.Any()).Return(family)
-				newDataFamilyFunc = func(shard Shard, _ Segment, interval timeutil.Interval,
-					timeRange timeutil.TimeRange, familyTime int64, family kv.Family) DataFamily {
-					return dataFamily
-				}
-				store.EXPECT().ListFamilyNames().Return([]string{"10"})
-				dataFamily.EXPECT().TimeRange().Return(timeRange)
-			},
-			len: 1,
-		},
-	}
-
-	for _, tt := range cases {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			s := &segment{
-				kvStore:  store,
-				interval: timeutil.Interval(10 * 1000),
-				families: make(map[int]DataFamily),
-			}
-			if tt.prepare != nil {
-				tt.prepare(s)
-			}
-			families := s.GetDataFamilies(tt.timeRange)
-			assert.Len(t, families, tt.len)
-		})
-	}
-}
-
-func TestSegment_Close(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer func() {
-		kv.InitStoreManager(nil)
-		ctrl.Finish()
-	}()
-	storeMgr := kv.NewMockStoreManager(ctrl)
-	kv.InitStoreManager(storeMgr)
-	store := kv.NewMockStore(ctrl)
-	seg := &segment{
-		kvStore:  store,
-		families: make(map[int]DataFamily),
-		logger:   logger.GetLogger("TSDB", "Test"),
-	}
-	assertFamilyEmpty := func() {
-		seg.mutex.Lock()
-		assert.Empty(t, seg.families)
-		seg.mutex.Unlock()
-	}
-	cases := []struct {
-		name    string
-		prepare func()
-	}{
-		{
-			name: "no family",
+			name:         "match writable dataSegment",
+			intervalType: timeutil.Day,
 			prepare: func() {
-				gomock.InOrder(
-					store.EXPECT().Name().Return("test"),
-					storeMgr.EXPECT().CloseStore(gomock.Any()).Return(nil),
-				)
+				writableIntervalDataSegment.EXPECT().GetDataFamilies(gomock.Any()).Return([]DataFamily{nil})
+			},
+			assert: func(families []DataFamily) {
+				assert.Len(t, families, 1)
 			},
 		},
 		{
-			name: "close kv store err",
+			name:         "match rollup dataSegment",
+			intervalType: timeutil.Month,
 			prepare: func() {
-				gomock.InOrder(
-					store.EXPECT().Name().Return("test"),
-					storeMgr.EXPECT().CloseStore(gomock.Any()).Return(fmt.Errorf("err")),
-				)
+				rollupSeg.EXPECT().GetDataFamilies(gomock.Any()).Return([]DataFamily{nil})
+			},
+			assert: func(families []DataFamily) {
+				assert.Len(t, families, 1)
 			},
 		},
 		{
-			name: "close family err",
-			prepare: func() {
-				family := NewMockDataFamily(ctrl)
-				seg.mutex.Lock()
-				seg.families[1] = family
-				assert.Len(t, seg.families, 1)
-				seg.mutex.Unlock()
-				gomock.InOrder(
-					family.EXPECT().Close().Return(fmt.Errorf("err")),
-					family.EXPECT().Indicator().Return("family"),
-					store.EXPECT().Name().Return("test"),
-					storeMgr.EXPECT().CloseStore(gomock.Any()).Return(fmt.Errorf("err")),
-				)
+			name:         "not match dataSegment",
+			intervalType: timeutil.Year,
+			assert: func(families []DataFamily) {
+				assert.Len(t, families, 0)
 			},
 		},
 	}
@@ -348,15 +285,122 @@ func TestSegment_Close(t *testing.T) {
 			if tt.prepare != nil {
 				tt.prepare()
 			}
-			seg.Close()
-			assertFamilyEmpty()
+			families := s.GetDataFamilies(tt.intervalType, timeutil.TimeRange{})
+			if tt.assert != nil {
+				tt.assert(families)
+			}
 		})
 	}
+	// test no rollup
+	s = &segment{
+		writableDataSegment: writableIntervalDataSegment,
+		rollupTargets: map[timeutil.Interval]IntervalDataSegment{
+			timeutil.Interval(10 * 1000): rollupSeg, // 10s
+		},
+	}
+	writableIntervalDataSegment.EXPECT().GetDataFamilies(gomock.Any()).Return([]DataFamily{nil})
+	families := s.GetDataFamilies(timeutil.Year, timeutil.TimeRange{})
+	assert.Len(t, families, 1)
 }
 
-func TestSegment_NeedEvict(t *testing.T) {
-	interval := timeutil.Interval(10 * 1000)
-	s := &segment{interval: interval}
-	assert.True(t, s.NeedEvict())
-	s.EvictFamily(commontimeutil.Now())
+func TestSegment_GetTimestamp(t *testing.T) {
+	s := &segment{timestamp: 1}
+	assert.Equal(t, int64(1), s.GetTimestamp())
+}
+
+func TestSegment_FlushIndex(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+	}()
+
+	indexDB := index.NewMockMetricIndexDatabase(ctrl)
+
+	s := &segment{
+		indexDB:    indexDB,
+		statistics: metrics.NewSegmentStatistics("database name", "1", "segment name"),
+	}
+
+	indexDB.EXPECT().Notify(gomock.Any()).Do(func(notifier index.Notifier) {
+		mn := notifier.(*index.FlushNotifier)
+		mn.Callback(fmt.Errorf("err"))
+	})
+
+	indexDB.EXPECT().Notify(gomock.Any()).Do(func(notifier index.Notifier) {
+		mn := notifier.(*index.FlushNotifier)
+		mn.Callback(nil)
+	})
+
+	err := s.FlushIndex()
+	assert.Error(t, err)
+	err = s.FlushIndex()
+	assert.NoError(t, err)
+}
+
+func TestSegment_Close(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+	}()
+
+	a := NewMockIntervalDataSegment(ctrl)
+	b := NewMockIntervalDataSegment(ctrl)
+	c := NewMockIntervalDataSegment(ctrl)
+
+	a.EXPECT().Close()
+	b.EXPECT().Close()
+	c.EXPECT().Close()
+
+	s := &segment{
+		rollupTargets: map[timeutil.Interval]IntervalDataSegment{
+			timeutil.Interval(commonTimeutil.OneSecond):     a,
+			timeutil.Interval(5 * commonTimeutil.OneMinute): b,
+			timeutil.Interval(commonTimeutil.OneHour):       c,
+		},
+	}
+
+	err := s.Close()
+	assert.NoError(t, err)
+}
+
+func TestSegment_TTL(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	database := NewMockDatabase(ctrl)
+	database.EXPECT().Name().Return("test")
+
+	shard := NewMockShard(ctrl)
+	shard.EXPECT().ShardID().Return(models.ShardID(1))
+	shard.EXPECT().Database().Return(database)
+
+	intervalDataSegment := NewMockIntervalDataSegment(ctrl)
+
+	s := &segment{
+		shard: shard,
+		name:  "test",
+		rollupTargets: map[timeutil.Interval]IntervalDataSegment{
+			timeutil.Interval(commonTimeutil.OneSecond): intervalDataSegment,
+		},
+		logger: logger.GetLogger("TSDB", "Segment"),
+	}
+
+	intervalDataSegment.EXPECT().TTL().Return(fmt.Errorf("err"))
+	assert.NoError(t, s.TTL())
+
+	intervalDataSegment.EXPECT().TTL().Return(nil)
+	assert.NoError(t, s.TTL())
+}
+
+func TestSegment_EvictSegment(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	intervalDataSegment := NewMockIntervalDataSegment(ctrl)
+	s := &segment{
+		rollupTargets: map[timeutil.Interval]IntervalDataSegment{
+			timeutil.Interval(commonTimeutil.OneSecond): intervalDataSegment,
+		},
+	}
+	intervalDataSegment.EXPECT().EvictSegment()
+	s.EvictSegment()
 }

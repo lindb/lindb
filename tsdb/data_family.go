@@ -97,7 +97,7 @@ type DataFamily interface {
 type dataFamily struct {
 	indicator     string // database + shard + family time
 	shard         Shard
-	segment       Segment
+	segment       DataSegment
 	interval      timeutil.Interval
 	intervalCalc  timeutil.IntervalCalculator
 	familyTime    int64
@@ -129,7 +129,7 @@ type dataFamily struct {
 // newDataFamily creates a data family storage unit
 func newDataFamily(
 	shard Shard,
-	segment Segment,
+	segment DataSegment,
 	interval timeutil.Interval,
 	timeRange timeutil.TimeRange,
 	familyTime int64,
@@ -611,7 +611,7 @@ func (f *dataFamily) GetOrCreateMemoryDatabase(familyTime int64) (memdb.MemoryDa
 			Name:          f.shard.Database().Name(),
 			BufferMgr:     f.shard.BufferManager(),
 			MetaNotifier:  f.shard.Database().MetaDB().Notify,
-			IndexNotifier: f.shard.IndexDB().Notify,
+			IndexNotifier: f.shard.GetIndexDB(familyTime).Notify,
 		})
 		if err != nil {
 			return nil, err

@@ -17,6 +17,10 @@
 
 package timeutil
 
+import (
+	"time"
+)
+
 // Truncate truncates timestamp based on interval
 func Truncate(timestamp, interval int64) int64 {
 	return timestamp / interval * interval
@@ -42,4 +46,11 @@ func CalIntervalRatio(queryInterval, storageInterval int64) int {
 		return 1
 	}
 	return int(queryInterval / storageInterval)
+}
+
+// GetMonthTimestamp returns the start of the month for a given timestamp.
+func GetMonthTimestamp(familyTime int64) int64 {
+	tm := time.Unix(familyTime/1000, 0)
+	ts := time.Date(tm.Year(), tm.Month(), 1, 0, 0, 0, 0, time.Local)
+	return ts.UnixNano() / 1000000
 }

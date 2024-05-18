@@ -62,7 +62,7 @@ type Engine interface {
 	DropDatabases(activeDatabases map[string]struct{})
 	// TTL expires the data of each database base on time to live.
 	TTL()
-	// EvictSegment evicts segment which long term no read operation.
+	// EvictSegment evicts dataSegment which long term no read operation.
 	EvictSegment()
 	// Close closes the cached time series databases
 	Close()
@@ -241,7 +241,7 @@ func (e *engine) TTL() {
 	}
 }
 
-// EvictSegment evicts segment which long term no read operation.
+// EvictSegment evicts dataSegment which long term no read operation.
 func (e *engine) EvictSegment() {
 	for _, db := range e.dbSet.Entries() {
 		db.EvictSegment()
