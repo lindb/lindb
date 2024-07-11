@@ -17,78 +17,65 @@
 
 package memdb
 
-import (
-	"fmt"
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-	gomock "go.uber.org/mock/gomock"
-
-	"github.com/lindb/lindb/pkg/imap"
-	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/series/field"
-	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
-)
-
-func TestMetricStore_SetTimestamp(t *testing.T) {
-	mStoreInterface := newMetricStore()
-	mStoreInterface.SetSlot(10)
-	slotRange := mStoreInterface.GetSlotRange()
-	assert.Equal(t, uint16(10), slotRange.Start)
-	assert.Equal(t, uint16(10), slotRange.End)
-	mStoreInterface.SetSlot(5)
-	slotRange = mStoreInterface.GetSlotRange()
-	assert.Equal(t, uint16(5), slotRange.Start)
-	assert.Equal(t, uint16(10), slotRange.End)
-	mStoreInterface.SetSlot(50)
-	slotRange = mStoreInterface.GetSlotRange()
-	assert.Equal(t, uint16(5), slotRange.Start)
-	assert.Equal(t, uint16(50), slotRange.End)
-}
-
-func TestMetricStore_Flush_Error(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	flusher := metricsdata.NewMockFlusher(ctrl)
-	flusher.EXPECT().PrepareMetric(gomock.Any(), gomock.Any()).AnyTimes()
-	ids := imap.NewIntMap[uint32]()
-	ids.Put(1, 1)
-	ms := &metricStore{
-		slotRange: &timeutil.SlotRange{Start: 0},
-		ids:       ids,
-	}
-	cases := []struct {
-		name    string
-		prepare func()
-		wantErr bool
-	}{
-		{
-			name: "no field",
-			prepare: func() {
-				ms.fields = nil
-			},
-		},
-		{
-			name: "flush field error",
-			prepare: func() {
-				ms.fields = append(ms.fields, field.Meta{ID: 1, Persisted: true})
-			},
-			wantErr: true,
-		},
-	}
-	for i := range cases {
-		tt := cases[i]
-		t.Run(tt.name, func(t *testing.T) {
-			tt.prepare()
-			err := ms.FlushMetricsDataTo(flusher,
-				&flushContext{},
-				func(memSeriesID uint32, fields field.Metas) error {
-					return fmt.Errorf("err")
-				},
-			)
-			if (err != nil) != tt.wantErr {
-				t.Fatal(tt.name)
-			}
-		})
-	}
-}
+// func TestMetricStore_SetTimestamp(t *testing.T) {
+// 	mStoreInterface := newMetricStore()
+// 	mStoreInterface.SetSlot(10)
+// 	slotRange := mStoreInterface.GetSlotRange()
+// 	assert.Equal(t, uint16(10), slotRange.Start)
+// 	assert.Equal(t, uint16(10), slotRange.End)
+// 	mStoreInterface.SetSlot(5)
+// 	slotRange = mStoreInterface.GetSlotRange()
+// 	assert.Equal(t, uint16(5), slotRange.Start)
+// 	assert.Equal(t, uint16(10), slotRange.End)
+// 	mStoreInterface.SetSlot(50)
+// 	slotRange = mStoreInterface.GetSlotRange()
+// 	assert.Equal(t, uint16(5), slotRange.Start)
+// 	assert.Equal(t, uint16(50), slotRange.End)
+// }
+//
+// func TestMetricStore_Flush_Error(t *testing.T) {
+// 	ctrl := gomock.NewController(t)
+// 	defer ctrl.Finish()
+// 	flusher := metricsdata.NewMockFlusher(ctrl)
+// 	flusher.EXPECT().PrepareMetric(gomock.Any(), gomock.Any()).AnyTimes()
+// 	ids := imap.NewIntMap[uint32]()
+// 	ids.Put(1, 1)
+// 	ms := &metricStore{
+// 		slotRange: &timeutil.SlotRange{Start: 0},
+// 		ids:       ids,
+// 	}
+// 	cases := []struct {
+// 		name    string
+// 		prepare func()
+// 		wantErr bool
+// 	}{
+// 		{
+// 			name: "no field",
+// 			prepare: func() {
+// 				ms.fields = nil
+// 			},
+// 		},
+// 		{
+// 			name: "flush field error",
+// 			prepare: func() {
+// 				ms.fields = append(ms.fields, field.Meta{ID: 1, Persisted: true})
+// 			},
+// 			wantErr: true,
+// 		},
+// 	}
+// 	for i := range cases {
+// 		tt := cases[i]
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			tt.prepare()
+// 			err := ms.FlushMetricsDataTo(flusher,
+// 				&flushContext{},
+// 				func(memSeriesID uint32, fields field.Metas) error {
+// 					return fmt.Errorf("err")
+// 				},
+// 			)
+// 			if (err != nil) != tt.wantErr {
+// 				t.Fatal(tt.name)
+// 			}
+// 		})
+// 	}
+// }

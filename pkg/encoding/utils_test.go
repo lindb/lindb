@@ -18,6 +18,8 @@
 package encoding
 
 import (
+	"fmt"
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -33,4 +35,9 @@ func Test_ByteSlice_IntSlice_Convert(t *testing.T) {
 	assert.NotEmpty(t, BytesToU64Slice([]byte{1, 1, 1, 1, 1, 1, 1, 1}))
 	assert.NotEmpty(t, U32SliceToBytes([]uint32{1}))
 	assert.NotEmpty(t, BytesToU32Slice([]byte{1, 1, 1, 1}))
+}
+
+func Test_Float64_Convert(t *testing.T) {
+	fmt.Println(BytesToFloat64(Float64ToBytes(1000.0033)))
+	fmt.Println(BytesToFloat64(Float64ToBytes(math.NaN())))
 }

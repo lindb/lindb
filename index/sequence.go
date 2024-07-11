@@ -44,13 +44,14 @@ const (
 
 // Sequence represents the sequence allocate of metadata.
 type Sequence struct {
-	buf []byte // mmap buf
-	f   *os.File
+	f *os.File
 
 	ns       *atomic.Uint32
 	metric   *atomic.Uint32
 	tagKey   *atomic.Uint32
 	tagValue *atomic.Uint32
+
+	buf []byte // mmap buf
 }
 
 // NewSequence creates a Sequence.

@@ -48,3 +48,11 @@ func BytesToU64Slice(b []byte) []uint64 {
 	}
 	return unsafe.Slice((*uint64)(unsafe.Pointer(unsafe.SliceData(b))), len(b)/8)
 }
+
+func Float64ToBytes(f64 float64) []byte {
+	return unsafe.Slice((*byte)(unsafe.Pointer(&f64)), 8)
+}
+
+func BytesToFloat64(b []byte) float64 {
+	return unsafe.Slice((*float64)(unsafe.Pointer(unsafe.SliceData(b))), 1)[0]
+}

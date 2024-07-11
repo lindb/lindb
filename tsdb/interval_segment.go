@@ -47,14 +47,12 @@ type IntervalSegment interface {
 
 // intervalSegment implements IntervalSegment interface
 type intervalSegment struct {
-	dir      string
 	shard    Shard
-	interval option.Interval
+	logger   logger.Logger
 	segments map[string]Segment
-
-	mutex sync.Mutex
-
-	logger logger.Logger
+	dir      string
+	interval option.Interval
+	mutex    sync.Mutex
 }
 
 // newIntervalSegment create interval segment based on interval/type/path etc.

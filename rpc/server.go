@@ -23,11 +23,10 @@ import (
 
 	grpcmiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpcrecovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
+	"github.com/lindb/common/pkg/logger"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/conntrack"
@@ -47,10 +46,10 @@ type GRPCServer interface {
 }
 
 type grpcServer struct {
-	bindAddress string
+	logger      logger.Logger
 	gs          *grpc.Server
 	statistics  *metrics.GRPCServerStatistics
-	logger      logger.Logger
+	bindAddress string
 }
 
 func NewGRPCServer(cfg config.GRPC, r *linmetric.Registry) GRPCServer {

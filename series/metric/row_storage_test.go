@@ -123,7 +123,8 @@ func buildFlatMetric(builder *flatbuffers.Builder, ns bool) {
 	flatMetricsV1.MetricAddName(builder, metricName)
 	flatMetricsV1.MetricAddTimestamp(builder, time.Now().UnixNano())
 	flatMetricsV1.MetricAddKeyValues(builder, kvsAt)
-	flatMetricsV1.MetricAddHash(builder, xxhash.Sum64String("hello"))
+	flatMetricsV1.MetricAddKvsHash(builder, xxhash.Sum64String("hello"))
+	flatMetricsV1.MetricAddNameHash(builder, xxhash.Sum64String("hello"))
 	flatMetricsV1.MetricAddSimpleFields(builder, fieldsAt)
 	flatMetricsV1.MetricAddCompoundField(builder, compoundField)
 
@@ -132,7 +133,7 @@ func buildFlatMetric(builder *flatbuffers.Builder, ns bool) {
 }
 
 func Test_MetricRow_WithSimpleFields(t *testing.T) {
-	var builder = flatbuffers.NewBuilder(1024)
+	builder := flatbuffers.NewBuilder(1024)
 	buildFlatMetric(builder, true)
 
 	var mr StorageRow
@@ -141,7 +142,6 @@ func Test_MetricRow_WithSimpleFields(t *testing.T) {
 	assert.Equal(t, "hello", string(mr.Name()))
 
 	assert.Equal(t, "default-ns", string(mr.NameSpace()))
-	assert.Equal(t, "default-ns", mr.NamespaceStr())
 	assert.NotZero(t, mr.NameHash())
 	assert.NotZero(t, mr.TagsHash())
 	assert.Equal(t, 10, mr.TagsLen())
@@ -198,13 +198,13 @@ func Test_MetricRow_WithSimpleFields(t *testing.T) {
 }
 
 func Test_MetricRow_WithCompoundField(t *testing.T) {
-	var builder = flatbuffers.NewBuilder(1024)
+	builder := flatbuffers.NewBuilder(1024)
 	buildFlatMetric(builder, false)
 
 	var mr StorageRow
 	mr.Unmarshal(builder.FinishedBytes())
 
-	assert.Equal(t, "default-ns", mr.NamespaceStr())
+	assert.Equal(t, "default-ns", string(mr.NameSpace()))
 	itr, ok := mr.NewCompoundFieldIterator()
 	assert.True(t, ok)
 	assert.NotNil(t, itr)
@@ -256,7 +256,7 @@ func Test_HistogramConverter(t *testing.T) {
 }
 
 func TestStorageBatchRows_Sorts(t *testing.T) {
-	var builder = flatbuffers.NewBuilder(1024)
+	builder := flatbuffers.NewBuilder(1024)
 	buildFlatMetric(builder, true)
 
 	var mr1 StorageRow
@@ -266,6 +266,6 @@ func TestStorageBatchRows_Sorts(t *testing.T) {
 	mr2.Unmarshal(builder.FinishedBytes())
 	rows := NewStorageBatchRows()
 	rows.appendIndex = 4
-	rows.rows = []StorageRow{mr1, mr2, mr1, mr1, mr2}
+	rows.rows = []*StorageRow{&mr1, &mr2, &mr1, &mr1, &mr2}
 	sort.Sort(rows)
 }

@@ -61,14 +61,14 @@
     "eslint-plugin-prettier": "^4.0.0",
     "eslint-plugin-react": "^7.26.1",
     "eslint-plugin-react-hooks": "^4.2.0",
-	"stylelint": "^15.6.0",
+    "prettier": "^2.4.1",
+    "sass": "^1.43.4",
+    "stylelint": "^15.6.0",
     "stylelint-config-prettier": "^9.0.5",
     "stylelint-config-standard-scss": "^8.0.0",
     "stylelint-formatter-pretty": "^3.2.0",
     "stylelint-plugin-license-header": "^1.0.3",
     "stylelint-prettier": "^3.0.0",
-    "prettier": "^2.4.1",
-    "sass": "^1.43.4",
     "typescript": "^4.3.2",
     "vite": "^2.6.4"
   }

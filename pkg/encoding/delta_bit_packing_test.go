@@ -77,7 +77,7 @@ func Test_DeltaBitPackingEncoder_Decoder(t *testing.T) {
 		b := p.Bytes()
 
 		d.Reset(b)
-		var count = 0
+		count := 0
 		for d.HasNext() {
 			value := d.Next()
 			assert.Equal(t, list[count], value)
@@ -90,9 +90,9 @@ func Test_DeltaBitPackingEncoder_Decoder(t *testing.T) {
 func getRandomList() []int32 {
 	var list []int32
 
-	rand.Seed(time.Now().UnixNano())
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	for i := 0; i < math.MaxUint16; i++ {
-		list = append(list, rand.Int31n(math.MaxInt32))
+		list = append(list, r.Int31n(math.MaxInt32))
 	}
 	return list
 }

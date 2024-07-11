@@ -45,7 +45,7 @@ type IndexKVStore interface {
 	FlushLifeCycle
 
 	// GetOrCreateValue returns unique id for key, if key not exist, creates a new unique id.
-	GetOrCreateValue(bucketID uint32, key []byte, createFn func() uint32) (uint32, error)
+	GetOrCreateValue(bucketID uint32, key []byte, createFn func() uint32) (id uint32, isNew bool, err error)
 	// GetValue returns value based on bucket and key.
 	GetValue(bucketID uint32, key []byte) (uint32, bool, error)
 	// GetValues returns all values for bucket.
@@ -70,26 +70,21 @@ type MetricSchemaStore interface {
 	genTagKeyID(id metric.ID, tagKey []byte, createFn func() uint32) (tag.KeyID, error)
 }
 
-type Notifier interface{}
-
-type Notify interface {
-	Notify(notifier Notifier)
-}
-
 // MetricMetaDatabase represents metric metadata store.
 type MetricMetaDatabase interface {
 	io.Closer
 	FlushLifeCycle
-	Notify
 	series.MetricMetaSuggester
 	series.TagValueSuggester
 
-	// genMetricID generates metric id if not exist, else return it.
-	genMetricID(ns, metricName []byte) (metric.ID, error)
-	// genTagKeyID generates tag key id if not exist, else returns it.
-	genTagKeyID(metricID metric.ID, tagKey []byte) (tag.KeyID, error)
-	// genTagValueID generates tag value id if not exist, else returns it.
-	genTagValueID(tagKeyID tag.KeyID, tagValue []byte) (uint32, error)
+	// GenMetricID generates metric id if not exist, else return it.
+	GenMetricID(ns, metricName []byte) (metric.ID, error)
+	// GenTagKeyID generates tag key id if not exist, else returns it.
+	GenTagKeyID(metricID metric.ID, tagKey []byte) (tag.KeyID, error)
+	// GenTagValueID generates tag value id if not exist, else returns it.
+	GenTagValueID(tagKeyID tag.KeyID, tagValue []byte) (uint32, error)
+	// GenFieldID generates field id for metric.
+	GenFieldID(metricID metric.ID, f field.Meta) (field.ID, error)
 
 	// GetSchema returns metric schame by metric id.
 	GetSchema(metricID metric.ID) (*metric.Schema, error)
@@ -113,7 +108,9 @@ type MetricMetaDatabase interface {
 type MetricIndexDatabase interface {
 	io.Closer
 	FlushLifeCycle
-	Notify
 	series.Filter
 	flow.GroupingBuilder
+
+	// GenSeriesID generates time series id based on tags hash.
+	GenSeriesID(metricID metric.ID, row *metric.StorageRow) (seriesID uint32)
 }

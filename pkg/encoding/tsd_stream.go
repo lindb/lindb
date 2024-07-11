@@ -73,10 +73,10 @@ func (sw *tsdStreamWriter) Bytes() ([]byte, error) {
 
 // tsdStreamReader implements the TSDStreamReader interface
 type tsdStreamReader struct {
-	startTime, endTime uint16
-	reader             *stream.Reader
-
+	reader    *stream.Reader
 	fieldData *TSDDecoder
+	startTime uint16
+	endTime   uint16
 }
 
 // NewTSDStreamReader creates the tsd stream reader

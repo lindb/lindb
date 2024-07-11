@@ -21,11 +21,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/mock/gomock"
-
 	"github.com/lindb/common/pkg/logger"
 	commontimeutil "github.com/lindb/common/pkg/timeutil"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/models"
@@ -53,9 +52,9 @@ func TestSegment_New(t *testing.T) {
 	shard.EXPECT().CurrentInterval().Return(interval).AnyTimes()
 	segmentName := "20190904"
 	cases := []struct {
+		prepare     func()
 		name        string
 		segmentName string
-		prepare     func()
 		wantErr     bool
 	}{
 		{
@@ -126,9 +125,9 @@ func TestSegment_GetOrCreateDataFamily(t *testing.T) {
 	interval := timeutil.Interval(10 * 1000)
 	baseTime, _ := commontimeutil.ParseTimestamp("20190904 00:00:00", "20060102 15:04:05")
 	cases := []struct {
+		prepare   func(seg *segment)
 		name      string
 		timestamp string
-		prepare   func(seg *segment)
 		wantErr   bool
 	}{
 		{
@@ -142,7 +141,8 @@ func TestSegment_GetOrCreateDataFamily(t *testing.T) {
 			prepare: func(_ *segment) {
 				newDataFamilyFunc = func(shard Shard, _ Segment,
 					interval timeutil.Interval, timeRange timeutil.TimeRange,
-					familyTime int64, family kv.Family) DataFamily {
+					familyTime int64, family kv.Family,
+				) DataFamily {
 					return NewMockDataFamily(ctrl)
 				}
 				store.EXPECT().GetFamily(gomock.Any()).Return(nil)
@@ -155,7 +155,8 @@ func TestSegment_GetOrCreateDataFamily(t *testing.T) {
 			prepare: func(_ *segment) {
 				newDataFamilyFunc = func(shard Shard, _ Segment,
 					interval timeutil.Interval, timeRange timeutil.TimeRange,
-					familyTime int64, family kv.Family) DataFamily {
+					familyTime int64, family kv.Family,
+				) DataFamily {
 					return NewMockDataFamily(ctrl)
 				}
 				store.EXPECT().GetFamily(gomock.Any()).Return(kv.NewMockFamily(ctrl))
@@ -218,9 +219,9 @@ func TestSegment_GetDataFamilies(t *testing.T) {
 		End:   now,
 	}
 	cases := []struct {
+		prepare   func(seg *segment)
 		name      string
 		timeRange timeutil.TimeRange
-		prepare   func(seg *segment)
 		len       int
 	}{
 		{
@@ -256,7 +257,8 @@ func TestSegment_GetDataFamilies(t *testing.T) {
 				family := kv.NewMockFamily(ctrl)
 				store.EXPECT().GetFamily(gomock.Any()).Return(family)
 				newDataFamilyFunc = func(shard Shard, _ Segment, interval timeutil.Interval,
-					timeRange timeutil.TimeRange, familyTime int64, family kv.Family) DataFamily {
+					timeRange timeutil.TimeRange, familyTime int64, family kv.Family,
+				) DataFamily {
 					return dataFamily
 				}
 				store.EXPECT().ListFamilyNames().Return([]string{"10"})
@@ -303,8 +305,8 @@ func TestSegment_Close(t *testing.T) {
 		seg.mutex.Unlock()
 	}
 	cases := []struct {
-		name    string
 		prepare func()
+		name    string
 	}{
 		{
 			name: "no family",

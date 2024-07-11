@@ -34,13 +34,13 @@ import (
 
 // DeltaBitPackingEncoder represents a delta encoding for int32
 type DeltaBitPackingEncoder struct {
-	first    int32
-	previous int32
-	minDelta int32
-	deltas   []int32
 	buffer   *bytes.Buffer
 	sw       *stream.BufferWriter
 	bw       *bit.Writer
+	deltas   []int32
+	first    int32
+	previous int32
+	minDelta int32
 	hasFirst bool
 }
 
@@ -50,7 +50,8 @@ func NewDeltaBitPackingEncoder() *DeltaBitPackingEncoder {
 	return &DeltaBitPackingEncoder{
 		buffer: &buffer,
 		sw:     stream.NewBufferWriter(&buffer),
-		bw:     bit.NewWriter(&buffer)}
+		bw:     bit.NewWriter(&buffer),
+	}
 }
 
 // Reset clears the underlying data structure to prepare for next use

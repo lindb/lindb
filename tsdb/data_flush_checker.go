@@ -38,11 +38,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shirou/gopsutil/v3/mem"
-	"go.uber.org/atomic"
-
 	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/ltoml"
+	"github.com/shirou/gopsutil/v3/mem"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/monitoring"
@@ -104,14 +103,15 @@ type dataFlushChecker struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	dbInFlushing         sync.Map           // database name => flush request
-	flushRequestCh       chan *flushRequest // family to flush
-	flushInFlight        atomic.Int32       // current pending in flushing
-	isWatermarkFlushing  atomic.Bool        // this flag symbols if it has goroutine in high water-mark flushing
-	running              *atomic.Bool
+	flushRequestCh       chan *flushRequest          // family to flush
 	memoryStatGetterFunc monitoring.MemoryStatGetter // used for mocking
 
 	logger logger.Logger
+
+	running             *atomic.Bool
+	dbInFlushing        sync.Map     // database name => flush request
+	flushInFlight       atomic.Int32 // current pending in flushing
+	isWatermarkFlushing atomic.Bool  // this flag symbols if it has goroutine in high water-mark flushing
 }
 
 // newDataFlushChecker creates the data flush checker

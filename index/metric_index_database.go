@@ -60,16 +60,15 @@ type metricIndexDatabase struct {
 	cancel  context.CancelFunc
 	kvStore kv.Store
 	metaDB  MetricMetaDatabase
-	series  IndexKVStore // tags -> time series ids
+	series  IndexKVStore // tags => time series ids
 
-	metricInverted *invertedIndex // metric id -> time series ids
-	inverted       *invertedIndex // tag value id -> time series ids
-	forward        *forwardIndex  // tag key id -> [time seried ids, tag value ids]
+	metricInverted *invertedIndex // metric id => time series ids
+	inverted       *invertedIndex // tag value id => time series ids
+	forward        *forwardIndex  // tag key id => [time seried ids, tag value ids]
 
 	sequenceCache *expirable.LRU[metric.ID, uint32]
 
 	lock     sync.RWMutex
-	worker   *NotifyWorker
 	flushing atomic.Bool
 }
 
@@ -115,94 +114,51 @@ func NewMetricIndexDatabase(dir string, metaDB MetricMetaDatabase) (MetricIndexD
 		forward:        newForwardIndex(forwadFamily),
 		sequenceCache:  expirable.NewLRU[metric.ID, uint32](100000, nil, time.Hour),
 	}
-	index.worker = NewWorker(ctx, dir, 100*time.Millisecond, index.handle)
 	return index, nil
 }
 
-func (index *metricIndexDatabase) Notify(n Notifier) {
-	if n == nil {
-		return
+func (index *metricIndexDatabase) createSeriesID(metricID metric.ID) (seriesID uint32) {
+	sequence, ok := index.sequenceCache.Get(metricID)
+	if ok {
+		return sequence + 1
 	}
-	switch notifier := n.(type) {
-	case *MetaNotifier:
-		// notify need generate metric id
-		metaNotify := GetMetaNotifier()
-		metaNotify.Namespace = notifier.Namespace
-		metaNotify.MetricName = notifier.MetricName
-		metaNotify.Callback = func(mid uint32, err error) {
-			if err != nil {
-				notifier.Callback(0, err)
-				return
-			}
-			notifier.MetricID = metric.ID(mid)
-			// after get metric id, notify generate series id/index
-			index.worker.Notify(notifier)
+	seriesIDs, newSeriesErr := index.metricInverted.getSeriesIDs(uint32(metricID))
+	if newSeriesErr == nil {
+		if seriesIDs.IsEmpty() {
+			return 0
 		}
-
-		index.metaDB.Notify(metaNotify)
-	default:
-		index.worker.Notify(notifier)
+		return seriesIDs.Maximum() + 1
 	}
+	return 0
 }
 
-func (index *metricIndexDatabase) handle(n Notifier) {
-	switch notifier := n.(type) {
-	case *MetaNotifier:
-		metricID := notifier.MetricID
+// GenSeriesID generates time series id based on tags hash.
+func (index *metricIndexDatabase) GenSeriesID(metricID metric.ID, row *metric.StorageRow) (seriesID uint32) {
+	var isNewSeries bool
+	var err error
+	var scratch [8]byte
+	tagsHash := row.TagsHash()
+	binary.LittleEndian.PutUint64(scratch[:], tagsHash)
+	seriesID, isNewSeries, err = index.series.GetOrCreateValue(uint32(metricID), scratch[:], func() uint32 {
+		return index.createSeriesID(metricID)
+	})
+	if err == nil && isNewSeries {
+		// if new series do inverted index build
+		index.sequenceCache.Add(metricID, seriesID)
+		// TODO: add limit
 
-		var isNewSeries bool
-		var scratch [8]byte
-		var seriesIDs *roaring.Bitmap
-		var err error
-		var newSeriesErr error
-		var seriesID uint32
-		binary.LittleEndian.PutUint64(scratch[:], notifier.TagHash)
-		seriesID, err = index.series.GetOrCreateValue(uint32(metricID), scratch[:], func() uint32 {
-			isNewSeries = true
-			sequence, ok := index.sequenceCache.Get(metricID)
-			if ok {
-				return sequence + 1
-			}
-			seriesIDs, newSeriesErr = index.metricInverted.getSeriesIDs(uint32(metricID))
-			if newSeriesErr == nil {
-				if seriesIDs.IsEmpty() {
-					return 0
-				}
-				return seriesIDs.Maximum() + 1
-			}
-			isNewSeries = false
-			return 0
-		})
-		if err == nil {
-			// if err is nil, try set err using new series error
-			err = newSeriesErr
-		}
-		if err == nil && isNewSeries {
-			// if new series do inverted index build
-			index.sequenceCache.Add(metricID, seriesID)
-			// TODO: add limit
+		// write metric inverted index
+		index.lock.Lock()
+		index.metricInverted.put(uint32(metricID), seriesID)
+		index.lock.Unlock()
 
-			// write metric inverted index
-			index.lock.Lock()
-			index.metricInverted.put(uint32(metricID), seriesID)
-			index.lock.Unlock()
-
-			if len(notifier.Tags) > 0 {
-				// write tag related index
-				index.buildInvertIndex(metricID, notifier.Tags, seriesID, models.NewDefaultLimits()) // FIXME: add limit
-			}
-		}
-		notifier.Callback(seriesID, err)
-	case *FlushNotifier:
-		if index.flushing.CompareAndSwap(false, true) {
-			index.PrepareFlush()
-			go func() {
-				notifier.Callback(index.Flush())
-			}()
-		} else {
-			notifier.Callback(nil)
+		if row.TagsLen() > 0 {
+			// write tag related index
+			index.buildInvertIndex(metricID, row.NewKeyValueIterator(), seriesID, models.NewDefaultLimits()) // FIXME: add limit
 		}
 	}
+	// TODO: hee
+	return
 }
 
 func (index *metricIndexDatabase) GetSeriesIDsForMetric(metricID metric.ID) (*roaring.Bitmap, error) {
@@ -230,46 +186,55 @@ func (index *metricIndexDatabase) PrepareFlush() {
 }
 
 func (index *metricIndexDatabase) Flush() error {
-	defer func() {
-		index.flushing.Store(false)
-	}()
-	if err := index.metricInverted.flush(); err != nil {
-		return err
+	if (&index.flushing).CompareAndSwap(false, true) {
+		defer func() {
+			index.flushing.Store(false)
+		}()
+		if err := index.metricInverted.flush(); err != nil {
+			return err
+		}
+		if err := index.forward.flush(); err != nil {
+			return err
+		}
+		if err := index.inverted.flush(); err != nil {
+			return err
+		}
+		if err := index.series.Flush(); err != nil {
+			return err
+		}
 	}
-	if err := index.forward.flush(); err != nil {
-		return err
-	}
-	if err := index.inverted.flush(); err != nil {
-		return err
-	}
-	if err := index.series.Flush(); err != nil {
-		return err
-	}
+	// TODO: add wait?
 	return nil
 }
 
 func (index *metricIndexDatabase) Close() error {
 	index.cancel()
-	index.worker.Shutdown()
 	return kv.GetStoreManager().CloseStore(index.kvStore.Name())
 }
 
 func (index *metricIndexDatabase) buildInvertIndex(metricID metric.ID,
-	tags tag.Tags, seriesID uint32, _ *models.Limits) {
-	tagNotifier := GetTagNotifier()
-	tagNotifier.tags = tags
-	tagNotifier.metricID = metricID
-	// callback function after generate tag meta(meta tag goroutine under metric meta database)
-	tagNotifier.buildIndex = func(tagKeyID, tagValueID uint32) {
+	tags *metric.KeyValueIterator, seriesID uint32, _ *models.Limits,
+) {
+	for tags.HasNext() {
+		key := tags.NextKey()
+		tagKeyID, err := index.metaDB.GenTagKeyID(metricID, key)
+		if err != nil {
+			// FIXME: add log/metric
+			continue
+		}
+		value := tags.NextValue()
+		tagValueID, err := index.metaDB.GenTagValueID(tagKeyID, value)
+		if err != nil {
+			// FIXME: add log/metric
+			continue
+		}
 		index.lock.Lock()
 		// write tag value inverted index
 		index.inverted.put(tagValueID, seriesID)
 		// write tag key forward index
-		index.forward.put(tagKeyID, tagValueID, seriesID)
+		index.forward.put(uint32(tagKeyID), tagValueID, seriesID)
 		index.lock.Unlock()
 	}
-	// notify meta db to generate tag meta
-	index.metaDB.Notify(tagNotifier)
 }
 
 type invertedIndex struct {
@@ -371,7 +336,18 @@ func (ii *invertedIndex) prepareFlush() {
 	}
 }
 
+func (ii *invertedIndex) needFlush() bool {
+	ii.lock.RLock()
+	defer ii.lock.RUnlock()
+
+	return ii.immutable != nil && !ii.immutable.IsEmpty()
+}
+
 func (ii *invertedIndex) flush() (err error) {
+	if !ii.needFlush() {
+		return nil
+	}
+
 	kvFlusher := ii.family.NewFlusher()
 	defer kvFlusher.Release()
 	flusher, err := newInvertedIndexFlusher(kvFlusher)
@@ -573,7 +549,17 @@ func (fi *forwardIndex) prepareFlush() {
 	}
 }
 
+func (fi *forwardIndex) needFlush() bool {
+	fi.lock.RLock()
+	defer fi.lock.RUnlock()
+
+	return fi.immutable != nil && !fi.immutable.IsEmpty()
+}
+
 func (fi *forwardIndex) flush() (err error) {
+	if !fi.needFlush() {
+		return nil
+	}
 	kvFlusher := fi.family.NewFlusher()
 	defer kvFlusher.Release()
 

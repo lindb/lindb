@@ -38,8 +38,8 @@ func StartEtcdCluster(t *testing.T, endpoint string) *EtcdCluster {
 	lcurl, _ := url.Parse(endpoint)
 	acurl, _ := url.Parse(fmt.Sprintf("http://localhost:1%s", lcurl.Port()))
 	cfg.Dir = t.TempDir()
-	cfg.LCUrls = []url.URL{*lcurl}
-	cfg.LPUrls = []url.URL{*acurl}
+	cfg.ListenClientUrls = []url.URL{*lcurl}
+	cfg.ListenPeerUrls = []url.URL{*acurl}
 	cfg.LogLevel = zapcore.ErrorLevel.String()
 	e, err := embed.StartEtcd(cfg)
 	if err != nil {

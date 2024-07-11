@@ -26,8 +26,8 @@ import (
 )
 
 type shardEntry struct {
-	shardID models.ShardID
 	shard   Shard
+	shardID models.ShardID
 }
 
 type shardEntries []shardEntry

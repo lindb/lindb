@@ -31,14 +31,12 @@ const firstValueLen = 64
 
 // XOREncoder encodes uint64 value using xor compress
 type XOREncoder struct {
-	bw *bit.Writer
-
+	err         error
+	bw          *bit.Writer
 	previousVal uint64
 	leading     int
 	trailing    int
-
-	first bool
-	err   error
+	first       bool
 }
 
 // NewXOREncoder creates xor encoder for compressing uint64 data
@@ -121,15 +119,12 @@ func (e *XOREncoder) Write(val uint64) error {
 
 // XORDecoder decodes buffer to uint64 values using xor compress
 type XORDecoder struct {
-	val uint64
-
-	br *bit.Reader
-
+	err      error
+	br       *bit.Reader
+	val      uint64
 	leading  uint64
 	trailing uint64
-
-	first bool
-	err   error
+	first    bool
 }
 
 // NewXORDecoder create decoder uncompress buffer using xor

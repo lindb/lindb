@@ -17,126 +17,113 @@
 
 package memdb
 
-import (
-	"fmt"
-	"path/filepath"
-	"runtime"
-	"sync"
-	"testing"
-
-	commontimeutil "github.com/lindb/common/pkg/timeutil"
-	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
-
-	"github.com/lindb/lindb/series/field"
-)
-
-func BenchmarkMemoryDatabase_write(b *testing.B) {
-	bufferMgr := NewBufferManager(filepath.Join(b.TempDir(), "data_temp"))
-	cfg := MemoryDatabaseCfg{
-		BufferMgr: bufferMgr,
-	}
-	db, err := NewMemoryDatabase(&cfg)
-	if err != nil {
-		b.Fatal(err)
-	}
-	now := commontimeutil.Now()
-
-	// batch write
-	release := db.WithLock()
-
-	row := protoToStorageRow(&protoMetricsV1.Metric{
-		Name:      "test",
-		Namespace: "ns",
-		SimpleFields: []*protoMetricsV1.SimpleField{
-			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 10},
-		},
-	})
-	row.MetricID = 1
-
-	for i := 0; i < 3200000; i++ {
-		row.MetricID = 1
-		row.SeriesID = uint32(i)
-		row.FieldIDs = []field.ID{1}
-		_ = db.WriteRow(row)
-	}
-	release()
-
-	runtime.GC()
-	fmt.Printf("cost:=%d\n", commontimeutil.Now()-now)
-	now = commontimeutil.Now()
-
-	row = protoToStorageRow(&protoMetricsV1.Metric{
-		Name:      "test",
-		Namespace: "ns",
-		SimpleFields: []*protoMetricsV1.SimpleField{
-			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 10},
-		},
-	})
-
-	for i := 0; i < 3200000; i++ {
-		row.MetricID = 1
-		row.SeriesID = uint32(i)
-		row.SlotIndex = uint16(i % 1024)
-		row.FieldIDs = []field.ID{1}
-		release := db.WithLock()
-		_ = db.WriteRow(row)
-		release()
-	}
-	runtime.GC()
-	fmt.Printf("cost:=%d\n", commontimeutil.Now()-now)
-	select {}
-}
-
-func BenchmarkMemoryDatabase_write_sum(b *testing.B) {
-	run := func(n int) {
-		bufferMgr := NewBufferManager(filepath.Join(b.TempDir(), "data_temp", fmt.Sprintf("%d", n)))
-		var cfg = MemoryDatabaseCfg{
-			BufferMgr: bufferMgr,
-		}
-		db, err := NewMemoryDatabase(&cfg)
-		if err != nil {
-			b.Fatal(err)
-		}
-		now := commontimeutil.Now()
-
-		row := protoToStorageRow(&protoMetricsV1.Metric{
-			Name:      "test",
-			Namespace: "ns",
-			SimpleFields: []*protoMetricsV1.SimpleField{
-				{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 10},
-			},
-		})
-		for i := 0; i < 3200000; i++ {
-			row.MetricID = 1
-			row.SeriesID = uint32(i)
-			row.SlotIndex = uint16(i % 1024)
-			row.FieldIDs = []field.ID{1}
-
-			_ = db.WriteRow(row)
-		}
-		fmt.Printf("n:=%d, cost:=%d\n", n, commontimeutil.Now()-now)
-	}
-	now := commontimeutil.Now()
-	var wait sync.WaitGroup
-	n := 4
-	wait.Add(n)
-	go func() {
-		run(0)
-		wait.Done()
-	}()
-	go func() {
-		run(1)
-		wait.Done()
-	}()
-	go func() {
-		run(2)
-		wait.Done()
-	}()
-	go func() {
-		run(3)
-		wait.Done()
-	}()
-	wait.Wait()
-	fmt.Println(commontimeutil.Now() - now)
-	run(0)
-}
+// func BenchmarkMemoryDatabase_write(b *testing.B) {
+// 	bufferMgr := NewBufferManager(filepath.Join(b.TempDir(), "data_temp"))
+// 	cfg := MemoryDatabaseCfg{
+// 		BufferMgr: bufferMgr,
+// 	}
+// 	db, err := NewMemoryDatabase(&cfg)
+// 	if err != nil {
+// 		b.Fatal(err)
+// 	}
+// 	now := commontimeutil.Now()
+//
+// 	// batch write
+// 	release := db.WithLock()
+//
+// 	row := protoToStorageRow(&protoMetricsV1.Metric{
+// 		Name:      "test",
+// 		Namespace: "ns",
+// 		SimpleFields: []*protoMetricsV1.SimpleField{
+// 			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 10},
+// 		},
+// 	})
+// 	row.MetricID = 1
+//
+// 	for i := 0; i < 3200000; i++ {
+// 		row.MetricID = 1
+// 		row.SeriesID = uint32(i)
+// 		row.FieldIDs = []field.ID{1}
+// 		_ = db.WriteRow(row)
+// 	}
+// 	release()
+//
+// 	runtime.GC()
+// 	fmt.Printf("cost:=%d\n", commontimeutil.Now()-now)
+// 	now = commontimeutil.Now()
+//
+// 	row = protoToStorageRow(&protoMetricsV1.Metric{
+// 		Name:      "test",
+// 		Namespace: "ns",
+// 		SimpleFields: []*protoMetricsV1.SimpleField{
+// 			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 10},
+// 		},
+// 	})
+//
+// 	for i := 0; i < 3200000; i++ {
+// 		row.MetricID = 1
+// 		row.SeriesID = uint32(i)
+// 		row.SlotIndex = uint16(i % 1024)
+// 		row.FieldIDs = []field.ID{1}
+// 		release := db.WithLock()
+// 		_ = db.WriteRow(row)
+// 		release()
+// 	}
+// 	runtime.GC()
+// 	fmt.Printf("cost:=%d\n", commontimeutil.Now()-now)
+// 	select {}
+// }
+//
+// func BenchmarkMemoryDatabase_write_sum(b *testing.B) {
+// 	run := func(n int) {
+// 		bufferMgr := NewBufferManager(filepath.Join(b.TempDir(), "data_temp", fmt.Sprintf("%d", n)))
+// 		var cfg = MemoryDatabaseCfg{
+// 			BufferMgr: bufferMgr,
+// 		}
+// 		db, err := NewMemoryDatabase(&cfg)
+// 		if err != nil {
+// 			b.Fatal(err)
+// 		}
+// 		now := commontimeutil.Now()
+//
+// 		row := protoToStorageRow(&protoMetricsV1.Metric{
+// 			Name:      "test",
+// 			Namespace: "ns",
+// 			SimpleFields: []*protoMetricsV1.SimpleField{
+// 				{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 10},
+// 			},
+// 		})
+// 		for i := 0; i < 3200000; i++ {
+// 			row.MetricID = 1
+// 			row.SeriesID = uint32(i)
+// 			row.SlotIndex = uint16(i % 1024)
+// 			row.FieldIDs = []field.ID{1}
+//
+// 			_ = db.WriteRow(row)
+// 		}
+// 		fmt.Printf("n:=%d, cost:=%d\n", n, commontimeutil.Now()-now)
+// 	}
+// 	now := commontimeutil.Now()
+// 	var wait sync.WaitGroup
+// 	n := 4
+// 	wait.Add(n)
+// 	go func() {
+// 		run(0)
+// 		wait.Done()
+// 	}()
+// 	go func() {
+// 		run(1)
+// 		wait.Done()
+// 	}()
+// 	go func() {
+// 		run(2)
+// 		wait.Done()
+// 	}()
+// 	go func() {
+// 		run(3)
+// 		wait.Done()
+// 	}()
+// 	wait.Wait()
+// 	fmt.Println(commontimeutil.Now() - now)
+// 	run(0)
+// }

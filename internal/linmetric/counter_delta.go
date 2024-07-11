@@ -18,17 +18,16 @@
 package linmetric
 
 import (
-	"go.uber.org/atomic"
-
 	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
+	"go.uber.org/atomic"
 )
 
 // BoundCounter is a counter which has been Bound to a certain metric
 // with field-name and metrics, it does not support update method.
 // Get will resets the underlying delta value
 type BoundCounter struct {
-	delta     atomic.Float64
 	fieldName string
+	delta     atomic.Float64
 }
 
 func newCounter(fieldName string) *BoundCounter {

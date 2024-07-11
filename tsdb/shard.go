@@ -25,9 +25,8 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/atomic"
-
 	"github.com/lindb/common/pkg/logger"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/metrics"
@@ -55,6 +54,8 @@ type Shard interface {
 	GetDataFamilies(intervalType timeutil.IntervalType, timeRange timeutil.TimeRange) []DataFamily
 	// IndexDB returns the metric index database, include inverted/forward index.
 	IndexDB() index.MetricIndexDatabase
+	// MemIndexDB returns memory index database.
+	MemIndexDB() memdb.IndexDatabase
 	// BufferManager returns write temp memory manager.
 	BufferManager() memdb.BufferManager
 	// FlushIndex flushes index data to disk.
@@ -75,28 +76,31 @@ type Shard interface {
 
 // shard implements Shard interface
 type shard struct {
-	db        Database
-	indicator string // => db/shard
-	id        models.ShardID
-	option    *option.DatabaseOption
+	db     Database
+	option *option.DatabaseOption
 
 	bufferMgr memdb.BufferManager
-	// write accept time range
-	interval timeutil.Interval
 	// segments keeps all rollup target interval segments,
 	// includes one smallest interval segment for writing data, and rollup interval segments
 	rollupTargets  map[timeutil.Interval]IntervalSegment
 	segment        IntervalSegment // smallest interval for writing data
-	isFlushing     atomic.Bool     // restrict flusher concurrency
 	flushCondition *sync.Cond      // flush condition
 
-	limits        *models.Limits // NOTE: limits only update in write goroutine
-	limitsChanged atomic.Bool
-	logger        logger.Logger
+	limits *models.Limits // NOTE: limits only update in write goroutine
+	logger logger.Logger
 
 	statistics *metrics.ShardStatistics
 
-	indexDB index.MetricIndexDatabase
+	indexDB    index.MetricIndexDatabase
+	memIndexDB memdb.IndexDatabase
+
+	indicator string // => db/shard
+	// write accept time range
+	interval timeutil.Interval
+	id       models.ShardID
+
+	isFlushing    atomic.Bool // restrict flusher concurrency
+	limitsChanged atomic.Bool
 }
 
 // newShard creates shard instance, if shard path exist then load shard data for init.
@@ -135,7 +139,6 @@ func newShard(
 		// new segment for rollup
 		var segment IntervalSegment
 		segment, err = newIntervalSegmentFunc(createdShard, targetInterval)
-
 		if err != nil {
 			return nil, err
 		}
@@ -163,6 +166,9 @@ func newShard(
 	}
 	// init datatbase limits
 	createdShard.limits = db.GetLimits()
+
+	createdShard.memIndexDB = memdb.NewIndexDatabase(db.MemMetaDB(), createdShard.indexDB)
+
 	return createdShard, nil
 }
 
@@ -191,6 +197,11 @@ func (s *shard) BufferManager() memdb.BufferManager {
 // IndexDB returns the metric index database, include inverted/forward index.
 func (s *shard) IndexDB() index.MetricIndexDatabase {
 	return s.indexDB
+}
+
+// MemIndexDB returns memory index database.
+func (s *shard) MemIndexDB() memdb.IndexDatabase {
+	return s.memIndexDB
 }
 
 func (s *shard) GetOrCrateDataFamily(familyTime int64) (DataFamily, error) {
@@ -235,17 +246,19 @@ func (s *shard) Close() error {
 	// wait previous flush job completed
 	s.WaitFlushIndexCompleted()
 
-	if s.indexDB != nil {
+	if s.memIndexDB != nil {
 		// need flush index data
 		if err := s.flushIndex(); err != nil {
 			return err
 		}
+		s.memIndexDB.Close()
+	}
+	if s.indexDB != nil {
 		// flush index db in database level
 		if err := s.indexDB.Close(); err != nil {
 			return err
 		}
 	}
-
 	// close segment/flush family data
 	s.segment.Close()
 	for _, rollupSegment := range s.rollupTargets {
@@ -286,9 +299,10 @@ func (s *shard) FlushIndex() (err error) {
 
 	return nil
 }
+
 func (s *shard) flushIndex() error {
 	ch := make(chan error, 1)
-	s.indexDB.Notify(&index.FlushNotifier{
+	s.memIndexDB.Notify(&memdb.FlushEvent{
 		Callback: func(err error) {
 			ch <- err
 		},

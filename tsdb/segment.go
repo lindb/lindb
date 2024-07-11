@@ -52,16 +52,14 @@ type Segment interface {
 
 // segment implements Segment interface.
 type segment struct {
-	indicator string
 	shard     Shard
-	baseTime  int64
 	kvStore   kv.Store
-	interval  timeutil.Interval
+	logger    logger.Logger
 	families  map[int]DataFamily
-
-	mutex sync.RWMutex
-
-	logger logger.Logger
+	indicator string
+	baseTime  int64
+	interval  timeutil.Interval
+	mutex     sync.RWMutex
 }
 
 // newSegment returns segment, segment is wrapper of kv store.

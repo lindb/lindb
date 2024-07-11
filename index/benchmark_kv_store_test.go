@@ -47,7 +47,7 @@ func BenchmarkIndexKVStore(b *testing.B) {
 		buckets.Put(bucketID, kvs)
 		for i := 0; i < 1000; i++ {
 			binary.LittleEndian.PutUint64(scratch[:], r.Uint64())
-			id, _ := indexStore.GetOrCreateValue(bucketID, scratch[:], func() uint32 {
+			id, _, _ := indexStore.GetOrCreateValue(bucketID, scratch[:], func() uint32 {
 				seq++
 				return seq
 			})
@@ -61,7 +61,7 @@ func BenchmarkIndexKVStore(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_ = buckets.WalkEntry(func(key uint32, value map[string]uint32) error {
 			for k := range value {
-				_, _ = indexStore.GetOrCreateValue(key, strutil.String2ByteSlice(k), func() uint32 {
+				_, _, _ = indexStore.GetOrCreateValue(key, strutil.String2ByteSlice(k), func() uint32 {
 					panic("err")
 				})
 			}

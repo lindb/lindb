@@ -18,11 +18,13 @@
 package metric
 
 import (
+	"bytes"
 	"io"
 	"math"
 	"sort"
 	"sync"
 
+	"github.com/cespare/xxhash/v2"
 	flatbuffers "github.com/google/flatbuffers/go"
 	"github.com/lindb/common/pkg/fasttime"
 	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
@@ -47,6 +49,7 @@ type BrokerRowProtoConverter struct {
 	// ingestion meta info
 	namespace    []byte
 	enrichedTags tag.Tags
+	hashBuf      bytes.Buffer
 
 	limits *models.Limits
 }
@@ -65,6 +68,15 @@ func (rc *BrokerRowProtoConverter) resetForNextConverter() {
 	rc.fieldNames = rc.fieldNames[:0]
 	rc.kvs = rc.kvs[:0]
 	rc.fields = rc.fields[:0]
+}
+
+func (rc *BrokerRowProtoConverter) hashOfName(m *protoMetricsV1.Metric) uint64 {
+	rc.hashBuf.Reset()
+	if m.Namespace != "" {
+		_, _ = rc.hashBuf.WriteString(m.Namespace)
+	}
+	_, _ = rc.hashBuf.WriteString(m.Name)
+	return xxhash.Sum64(rc.hashBuf.Bytes())
 }
 
 func (rc *BrokerRowProtoConverter) validateMetric(m *protoMetricsV1.Metric) error {
@@ -200,7 +212,7 @@ func (rc *BrokerRowProtoConverter) deDupTags(m *protoMetricsV1.Metric) {
 	// tags with same key will keep order as they are appended after sorting
 	// high index key has higher priority
 	// use 2-pointer algorithm
-	var slow = 0
+	slow := 0
 	for high := 1; high < len(m.Tags); high++ {
 		if m.Tags[slow].Key != m.Tags[high].Key {
 			slow++
@@ -312,10 +324,11 @@ Serialize:
 	flatMetricsV1.MetricStart(rc.flatBuilder)
 	flatMetricsV1.MetricAddNamespace(rc.flatBuilder, namespace)
 	flatMetricsV1.MetricAddName(rc.flatBuilder, metricName)
+	flatMetricsV1.MetricAddNameHash(rc.flatBuilder, rc.hashOfName(m))
 	flatMetricsV1.MetricAddTimestamp(rc.flatBuilder, m.Timestamp)
 	flatMetricsV1.MetricAddKeyValues(rc.flatBuilder, kvs)
 	// sort and computing tags hash
-	flatMetricsV1.MetricAddHash(rc.flatBuilder, tag.XXHashOfKeyValues(m.Tags))
+	flatMetricsV1.MetricAddKvsHash(rc.flatBuilder, tag.XXHashOfKeyValues(m.Tags))
 	flatMetricsV1.MetricAddSimpleFields(rc.flatBuilder, fields)
 	if compoundField != 0 {
 		flatMetricsV1.MetricAddCompoundField(rc.flatBuilder, compoundField)

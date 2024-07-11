@@ -58,7 +58,7 @@ type DataFamily interface {
 	// Family returns the raw kv family
 	Family() kv.Family
 	// WriteRows writes metric rows with same family in batch.
-	WriteRows(rows []metric.StorageRow) error
+	WriteRows(rows []*metric.StorageRow) error
 	// ValidateSequence validates replica sequence if valid.
 	ValidateSequence(leader int32, seq int64) bool
 	// CommitSequence commits written sequence after write data.
@@ -209,7 +209,7 @@ func (f *dataFamily) NeedFlush() bool {
 		// check immutable memory database, make sure it is nil
 		return false
 	}
-	if f.mutableMemDB == nil || f.mutableMemDB.NumOfMetrics() <= 0 {
+	if f.mutableMemDB == nil || f.mutableMemDB.NumOfSeries() <= 0 {
 		// no data
 		return false
 	}
@@ -269,7 +269,7 @@ func (f *dataFamily) Flush() error {
 
 		// add lock when switch memory database
 		f.mutex.Lock()
-		if f.immutableMemDB != nil || f.mutableMemDB == nil || f.mutableMemDB.NumOfMetrics() == 0 {
+		if f.immutableMemDB != nil || f.mutableMemDB == nil || f.mutableMemDB.NumOfSeries() == 0 {
 			// if immutable memory database not nil or no data need flush, return it
 			f.mutex.Unlock()
 			return nil
@@ -425,11 +425,10 @@ func (f *dataFamily) GetState() models.DataFamilyState {
 
 	memoryDBState := func(state string, memoryDatabase memdb.MemoryDatabase) {
 		memoryDatabaseState = append(memoryDatabaseState, models.MemoryDatabaseState{
-			State:        state,
-			Uptime:       memoryDatabase.Uptime(),
-			MemSize:      memoryDatabase.MemSize(),
-			NumOfMetrics: memoryDatabase.NumOfMetrics(),
-			NumOfSeries:  memoryDatabase.NumOfSeries(),
+			State:       state,
+			Uptime:      memoryDatabase.Uptime(),
+			MemSize:     memoryDatabase.MemSize(),
+			NumOfSeries: memoryDatabase.NumOfSeries(),
 		})
 	}
 
@@ -515,7 +514,7 @@ func (f *dataFamily) fileFilter(shardExecuteContext *flow.ShardExecuteContext) (
 }
 
 // WriteRows writes metric rows with same family in batch.
-func (f *dataFamily) WriteRows(rows []metric.StorageRow) error {
+func (f *dataFamily) WriteRows(rows []*metric.StorageRow) error {
 	if len(rows) == 0 {
 		return nil
 	}
@@ -536,19 +535,18 @@ func (f *dataFamily) WriteRows(rows []metric.StorageRow) error {
 
 	for idx := range rows {
 		row := rows[idx]
-		row.SlotIndex = uint16(f.intervalCalc.CalcSlot(
-			row.Timestamp(),
-			f.familyTime,
-			f.interval.Int64()),
-		)
-		err := db.WriteRow(&row)
+		err := db.WriteRow(row)
 		if err == nil {
 			f.statistics.WriteMetrics.Incr()
-			f.statistics.WriteFields.Add(float64(row.Fields))
+			f.statistics.WriteFields.Add(row.WrittenFields)
 		} else {
 			f.statistics.WriteMetricFailures.Incr()
 			f.logger.Error("failed writing row", logger.String("family", f.indicator), logger.Error(err))
 		}
+
+		// waiting all operators done(write data/build meta and index)
+		// TODO: add timeout??
+		row.Wait()
 	}
 
 	return nil
@@ -600,10 +598,11 @@ func (f *dataFamily) GetOrCreateMemoryDatabase(familyTime int64) (memdb.MemoryDa
 	if f.mutableMemDB == nil {
 		newDB, err := newMemoryDBFunc(&memdb.MemoryDatabaseCfg{
 			FamilyTime:    familyTime,
+			IntervalCalc:  f.intervalCalc,
+			Interval:      f.interval,
 			Name:          f.shard.Database().Name(),
+			IndexDatabase: f.shard.MemIndexDB(),
 			BufferMgr:     f.shard.BufferManager(),
-			MetaNotifier:  f.shard.Database().MetaDB().Notify,
-			IndexNotifier: f.shard.IndexDB().Notify,
 		})
 		if err != nil {
 			return nil, err
@@ -691,5 +690,6 @@ func (f *dataFamily) flushMemoryDatabase(sequences map[int32]int64, memDB memdb.
 			logger.Int64("memDBSize", memDB.MemSize()))
 		return nil
 	}
+
 	return nil
 }

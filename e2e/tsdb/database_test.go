@@ -25,10 +25,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
 	commontimeutil "github.com/lindb/common/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/kv"
@@ -104,8 +103,8 @@ func TestDatabase_Write_And_Rollup(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 }
 
-func mockBatchRows(m *protoMetricsV1.Metric) []metric.StorageRow {
-	var ml = protoMetricsV1.MetricList{Metrics: []*protoMetricsV1.Metric{m}}
+func mockBatchRows(m *protoMetricsV1.Metric) []*metric.StorageRow {
+	ml := protoMetricsV1.MetricList{Metrics: []*protoMetricsV1.Metric{m}}
 	var buf bytes.Buffer
 	converter := metric.NewProtoConverter(models.NewDefaultLimits())
 	_, _ = converter.MarshalProtoMetricListV1To(ml, &buf)

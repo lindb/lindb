@@ -83,9 +83,9 @@ func TestDataFamilyCheck_check(t *testing.T) {
 	family2.EXPECT().Shard().Return(shard).AnyTimes()
 
 	cases := []struct {
-		name    string
 		prepare func(c *dataFlushChecker)
 		assert  func(c *dataFlushChecker)
+		name    string
 	}{
 		{
 			name: "no family",
@@ -221,9 +221,9 @@ func TestDataFlushChecker_requestFlush(t *testing.T) {
 	db := NewMockDatabase(ctrl)
 	db.EXPECT().Name().Return("db").AnyTimes()
 	cases := []struct {
-		name    string
 		prepare func(c *dataFlushChecker)
 		assert  func(c *dataFlushChecker)
+		name    string
 	}{
 		{
 			name: "not running",
@@ -334,8 +334,8 @@ func TestDataFlushChecker_doFlush(t *testing.T) {
 	bufMgr.EXPECT().GarbageCollect().AnyTimes()
 
 	cases := []struct {
-		name    string
 		prepare func(c *dataFlushChecker)
+		name    string
 	}{
 		{
 			name: "flush meta db failure",

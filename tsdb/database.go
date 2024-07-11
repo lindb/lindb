@@ -24,9 +24,8 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/atomic"
-
 	"github.com/lindb/common/pkg/logger"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/internal/concurrent"
@@ -34,6 +33,7 @@ import (
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
+	"github.com/lindb/lindb/tsdb/memdb"
 )
 
 //go:generate mockgen -source=./database.go -destination=./database_mock.go -package=tsdb
@@ -58,6 +58,8 @@ type Database interface {
 	io.Closer
 	// MetaDB returns the metric metadata database include metric/tag/schema etc.
 	MetaDB() index.MetricMetaDatabase
+	// MemMetaDB returns memory metadata database.
+	MemMetaDB() memdb.MetadataDatabase
 	// FlushMeta flushes meta to disk
 	FlushMeta() error
 	// WaitFlushMetaCompleted waits flush metadata job completed.
@@ -79,20 +81,23 @@ type Database interface {
 // database implements Database for storing families,
 // each shard represents a time series storage
 type database struct {
-	name           string // database-name
-	dir            string
+	limits         atomic.Value // store models.Limits
 	metaDB         index.MetricMetaDatabase
 	config         *models.DatabaseConfig // meta configuration
 	executorPool   *ExecutorPool          // executor pool for querying task
-	mutex          sync.Mutex             // mutex for creating families
 	shardSet       shardSet               // atomic value
-	isFlushing     atomic.Bool            // restrict flusher concurrency
 	flushCondition *sync.Cond             // flush condition
-	limits         atomic.Value           // store models.Limits
 
-	statistics *metrics.DatabaseStatistics
+	memMetaDB memdb.MetadataDatabase
 
+	statistics   *metrics.DatabaseStatistics
 	flushChecker DataFlushChecker
+
+	name string // database-name
+	dir  string
+
+	mutex      sync.Mutex  // mutex for creating families
+	isFlushing atomic.Bool // restrict flusher concurrency
 }
 
 // newDatabase creates the database instance
@@ -155,6 +160,8 @@ func newDatabase(
 		}
 	}()
 	db.limits.Store(limits)
+
+	db.memMetaDB = memdb.NewMetadataDatabase(db.metaDB)
 	// load families if engine is existed
 	var shard Shard
 	if len(db.config.ShardIDs) > 0 {
@@ -191,6 +198,11 @@ func (db *database) GetLimits() *models.Limits {
 // MetaDB returns the metric metadata database include metric/tag/schema etc.
 func (db *database) MetaDB() index.MetricMetaDatabase {
 	return db.metaDB
+}
+
+// MemMetaDB returns memory metadata database.
+func (db *database) MemMetaDB() memdb.MetadataDatabase {
+	return db.memMetaDB
 }
 
 // Name returns time series database's name
@@ -278,6 +290,8 @@ func (db *database) Close() error {
 	if err := db.flushMeta(); err != nil {
 		return err
 	}
+
+	db.memMetaDB.Close()
 	for _, shardEntry := range db.shardSet.Entries() {
 		thisShard := shardEntry.shard
 		if err := thisShard.FlushIndex(); err != nil {
@@ -384,7 +398,7 @@ func (db *database) Flush() error {
 
 func (db *database) flushMeta() error {
 	ch := make(chan error, 1)
-	db.metaDB.Notify(&index.FlushNotifier{
+	db.memMetaDB.Notify(&memdb.FlushEvent{
 		Callback: func(err error) {
 			ch <- err
 		},

@@ -21,10 +21,9 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"go.uber.org/atomic"
-
 	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/timeutil"
+	"go.uber.org/atomic"
 )
 
 //go:generate mockgen -source ./buffer_manager.go -destination=./buffer_manager_mock.go -package memdb
@@ -41,11 +40,10 @@ type BufferManager interface {
 
 // bufferManager implements BufferManager.
 type bufferManager struct {
-	path string
-
-	value atomic.Value // []DataPointBuffer
-
+	value  atomic.Value // []DataPointBuffer
 	logger logger.Logger
+
+	path string
 }
 
 // NewBufferManager creates a BufferManager instance.

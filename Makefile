@@ -63,7 +63,7 @@ format: ## go format
 lint: ## run lint
 ifeq (, $(shell which golangci-lint))
 	# binary will be $(go env GOPATH)/bin/golangci-lint
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.55.2
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.57.2
 else
 	echo "Found golangci-lint"
 endif
@@ -79,6 +79,7 @@ test-without-lint: ## Run test without lint
 	LOG_LEVEL=fatal ## disable log for test
 	gotest -v -race -coverprofile=coverage_tmp.out -covermode=atomic ./...
 	cat coverage_tmp.out |grep -v "_mock.go" > coverage.out
+	go tool cover -html=coverage.out -o coverage.html
 
 test: header lint test-without-lint ## Run test cases.
 

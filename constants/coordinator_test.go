@@ -47,3 +47,11 @@ func TestGetNodePath(t *testing.T) {
 func TestGetBrokerClusterConfigPath(t *testing.T) {
 	assert.Equal(t, BrokerConfigPath+slashPathName, GetBrokerClusterConfigPath(pathName))
 }
+
+func TestGetLiveNodePath(t *testing.T) {
+	assert.Equal(t, LiveNodesPath+slashPathName, GetLiveNodePath(pathName))
+}
+
+func TestShardAssignPath(t *testing.T) {
+	assert.Equal(t, ShardAssignmentPath+slashPathName, GetShardAssignPath(pathName))
+}

@@ -55,7 +55,7 @@ func NewDefaultLimits() *Limits {
 		MaxTagNameLength:    128,
 		MaxTagValueLength:   1024,
 		MaxTagsPerMetric:    32,
-		MaxSeriesPerMetric:  200000000,
+		MaxSeriesPerMetric:  200000000, // TODO: modify default value
 		Metrics:             make(map[string]uint32),
 		// Read limits
 		MaxSeriesPerQuery: 200000,

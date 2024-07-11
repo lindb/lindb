@@ -24,9 +24,8 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/atomic"
-
 	"github.com/lindb/roaring"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/models"
@@ -270,10 +269,7 @@ func (agg *GroupingSeriesAgg) reduce(reduceFn func(it series.GroupedIterator)) {
 
 // DataLoadContext represents data load level query execute context.
 type DataLoadContext struct {
-	ShardExecuteCtx          *ShardExecuteContext
-	IsMultiField, IsGrouping bool
-
-	MinSeriesID, MaxSeriesID uint16
+	ShardExecuteCtx *ShardExecuteContext
 	// range of min/max low series id
 	// if no grouping value is low series ids
 	// if grouping value is index of GroupingSeriesAgg
@@ -285,6 +281,9 @@ type DataLoadContext struct {
 	WithoutGroupingSeriesAgg *GroupingSeriesAgg
 	GroupingSeriesAgg        []*GroupingSeriesAgg
 	groupingSeriesAggRefIdx  uint16
+
+	IsMultiField, IsGrouping bool
+	MinSeriesID, MaxSeriesID uint16
 
 	Decoder      *encoding.TSDDecoder
 	DownSampling func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, getter encoding.TSDValueGetter)

@@ -21,12 +21,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/mock/gomock"
-
 	"github.com/lindb/common/pkg/fileutil"
 	"github.com/lindb/common/pkg/logger"
 	commontimeutil "github.com/lindb/common/pkg/timeutil"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
@@ -44,8 +43,8 @@ func TestIntervalSegment_New(t *testing.T) {
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 
 	cases := []struct {
-		name    string
 		prepare func()
+		name    string
 		wantErr bool
 	}{
 		{
@@ -95,9 +94,9 @@ func TestIntervalSegment_GetOrCreateSegment(t *testing.T) {
 	segment := NewMockSegment(ctrl)
 
 	cases := []struct {
+		prepare     func()
 		name        string
 		segmentName string
-		prepare     func()
 		wantErr     bool
 	}{
 		{
@@ -174,9 +173,9 @@ func TestIntervalSegment_GetDataFamilies(t *testing.T) {
 	segment := NewMockSegment(ctrl)
 
 	cases := []struct {
+		prepare   func(s *intervalSegment)
 		name      string
 		timeRange timeutil.TimeRange
-		prepare   func(s *intervalSegment)
 		len       int
 	}{
 		{
@@ -310,8 +309,8 @@ func TestIntervalSegment_TTL(t *testing.T) {
 
 	segment := NewMockSegment(ctrl)
 	cases := []struct {
-		name    string
 		prepare func()
+		name    string
 		wantErr bool
 	}{
 		{

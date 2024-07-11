@@ -152,6 +152,7 @@ func (sf *storeFlusher) Commit() (err error) {
 		}
 	}
 
+	// TODO: check if edit log is empty?
 	if flag := sf.family.commitEditLog(sf.editLog); !flag {
 		err = fmt.Errorf("commit edit log failure")
 		return err

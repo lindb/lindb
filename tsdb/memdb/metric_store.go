@@ -19,160 +19,98 @@ package memdb
 
 import (
 	"sort"
+	"sync"
 
-	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/pkg/imap"
-	"github.com/lindb/lindb/pkg/timeutil"
+	"go.uber.org/atomic"
+
 	"github.com/lindb/lindb/series/field"
-	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
 
 //go:generate mockgen -source ./metric_store.go -destination=./metric_store_mock.go -package memdb
 
 // mStoreINTF abstracts a metricStore
 type mStoreINTF interface {
-	// Filter filters the data based on fields/seriesIDs/family time,
-	// if data founded then returns the flow.FilterResultSet, else returns constants.ErrNotFound
-	Filter(shardExecuteContext *flow.ShardExecuteContext, db *memoryDatabase) ([]flow.FilterResultSet, error)
-	// SetSlot sets the current write slot
-	SetSlot(slot uint16)
-	// GetSlotRange returns slot range.
-	GetSlotRange() *timeutil.SlotRange
 	// GenField generates field meta under memory database.
 	GenField(fieldName field.Name, fieldType field.Type) (f field.Meta, created bool)
+	GetFields() field.Metas
 	// UpdateFieldMeta updates field meta after metric meta updated.
 	UpdateFieldMeta(fieldID field.ID, fm field.Meta)
 	// FindFields returns fields from store based on current written fields.
 	FindFields(fields field.Metas) (found field.Metas)
-	// GenTStore generates memory level time series id under memory database.
-	GenTStore(tagHash uint64, create func() uint32) uint32
-	// IndexTStore adds memorty store series id -> global series id mapping.
-	IndexTStore(seriesID, seriesIdx uint32) bool
-	// FlushMetricsDataTo flushes metric-block of mStore to the Writer.
-	FlushMetricsDataTo(
-		tableFlusher metricsdata.Flusher,
-		flushCtx *flushContext,
-		flushFields func(memSeriesID uint32, fields field.Metas) error,
-	) (err error)
 }
 
 // metricStore represents metric level storage, stores all series data, and fields/family times metadata
 type metricStore struct {
-	hashes map[uint64]uint32    // tag hash -> memory time series id
-	ids    *imap.IntMap[uint32] // global series id -> memory time series id
+	fields atomic.Value // field metadata(field.Metas)
 
-	slotRange *timeutil.SlotRange
-	fields    field.Metas // field metadata
+	lock sync.RWMutex
 }
 
 // newMetricStore returns a new mStoreINTF.
 func newMetricStore() mStoreINTF {
 	var ms metricStore
-	ms.hashes = make(map[uint64]uint32)
-	ms.ids = imap.NewIntMap[uint32]()
+	// init field metas
+	ms.fields.Store(field.Metas{})
 	return &ms
 }
 
-// SetSlot sets the current write timestamp
-func (ms *metricStore) SetSlot(slot uint16) {
-	if ms.slotRange == nil {
-		slotRange := timeutil.NewSlotRange(slot, slot)
-		ms.slotRange = &slotRange
-	} else {
-		ms.slotRange.SetSlot(slot)
-	}
-}
+func (ms *metricStore) GetFields() field.Metas {
+	ms.lock.RLock()
+	defer ms.lock.RUnlock()
 
-// GetSlotRange returns slot range.
-func (ms *metricStore) GetSlotRange() *timeutil.SlotRange {
-	return ms.slotRange
+	mFields := ms.fields.Load().(field.Metas)
+	return mFields.Clone()
 }
 
 // GenField generates field meta under memory database.
 func (ms *metricStore) GenField(name field.Name, fType field.Type) (f field.Meta, created bool) {
-	fm, ok := ms.fields.GetFromName(name)
-	if !ok {
-		index := uint8(len(ms.fields))
-		fm = field.Meta{
-			Type:  fType,
-			Name:  name,
-			Index: index,
-		}
-		ms.fields = append(ms.fields, fm)
-		// sort by field name
-		sort.Slice(ms.fields, func(i, j int) bool { return ms.fields[i].Name < ms.fields[j].Name })
-		return fm, true
+	ms.lock.Lock()
+	defer ms.lock.Unlock()
+
+	// TODO: use sync.Map?
+	fields := ms.fields.Load().(field.Metas)
+	fm, ok := fields.GetFromName(name)
+	if ok {
+		return fm, false
 	}
-	return fm, false
+
+	index := uint8(len(fields))
+	fm = field.Meta{
+		Type:  fType,
+		Name:  name, // TODO: check name
+		Index: index,
+	}
+	fields = append(fields, fm)
+	// sort by field name
+	sort.Slice(fields, func(i, j int) bool { return fields[i].Name < fields[j].Name })
+	ms.fields.Store(fields)
+	return fm, true
 }
 
 // UpdateFieldMeta updates field meta after metric meta updated.
 func (ms *metricStore) UpdateFieldMeta(fieldID field.ID, fm field.Meta) {
-	idx, ok := ms.fields.FindIndexByName(fm.Name)
-	if ok {
-		ms.fields[idx].ID = fieldID
-		ms.fields[idx].Persisted = true
-	}
-}
+	ms.lock.Lock()
+	defer ms.lock.Unlock()
 
-// GenTStore generates memory level time series id under memory database.
-func (ms *metricStore) GenTStore(tagHash uint64, create func() uint32) uint32 {
-	ts, ok := ms.hashes[tagHash]
-	if !ok {
-		ts = create()
-		ms.hashes[tagHash] = ts
+	fields := ms.fields.Load().(field.Metas)
+
+	idx, ok := fields.FindIndexByName(fm.Name)
+	if ok {
+		fields[idx].ID = fieldID
+		fields[idx].Persisted = true
 	}
-	return ts
+
+	ms.fields.Store(fields)
 }
 
 // FindFields returns fields from store based on current written fields.
 func (ms *metricStore) FindFields(fields field.Metas) (found field.Metas) {
+	mFields := ms.fields.Load().(field.Metas)
 	for _, f := range fields {
-		fm, ok := ms.fields.Find(f.Name)
+		fm, ok := mFields.Find(f.Name)
 		if ok {
 			found = append(found, fm)
 		}
 	}
 	return
-}
-
-// IndexTStore adds memorty store series id -> global series id mapping.
-func (ms *metricStore) IndexTStore(seriesID, seriesIdx uint32) bool {
-	size := len(ms.ids.Values())
-	ms.ids.Put(seriesID, seriesIdx)
-	return len(ms.ids.Values()) > size
-}
-
-// FlushMetricsDataTo Writes metric-data to the table.
-func (ms *metricStore) FlushMetricsDataTo(
-	flusher metricsdata.Flusher,
-	flushCtx *flushContext,
-	flushFields func(memSeriesID uint32, fields field.Metas) error,
-) (err error) {
-	slotRange := ms.slotRange
-	var fields field.Metas
-	for idx := range ms.fields {
-		f := ms.fields[idx]
-		if f.Persisted {
-			fields = append(fields, f)
-		}
-	}
-	// field not exist, return
-	fieldLen := len(fields)
-	if fieldLen == 0 {
-		return nil
-	}
-	// prepare for flushing metric
-	flusher.PrepareMetric(flushCtx.metricID, fields)
-	// set current family's slot range
-	flushCtx.Start, flushCtx.End = slotRange.GetRange()
-	if err := ms.ids.WalkEntry(func(seriesID, memSeriesID uint32) error {
-		if err := flushFields(memSeriesID, fields); err != nil {
-			return err
-		}
-		return flusher.FlushSeries(seriesID)
-	}); err != nil {
-		return err
-	}
-	return flusher.CommitMetric(flushCtx.SlotRange)
 }

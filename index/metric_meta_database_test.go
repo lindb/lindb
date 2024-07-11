@@ -22,12 +22,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	gomock "go.uber.org/mock/gomock"
-
 	commonfileutil "github.com/lindb/common/pkg/fileutil"
 	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/roaring"
+	"github.com/stretchr/testify/assert"
+	gomock "go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/fileutil"
@@ -47,31 +46,18 @@ func TestMetricMetaDatabase(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
-	db.Notify(&MetaNotifier{
-		Namespace:  "system",
-		MetricName: "cpu",
-		Callback:   func(id uint32, err error) {},
-	})
-	db.Notify(&FieldNotifier{
-		Namespace:  "system",
-		MetricName: "cpu",
-		Field:      field.Meta{Name: "f1", Type: field.SumField},
-		Callback:   func(fieldID field.ID, err error) {},
-	})
-	ch := make(chan struct{})
-	db.Notify(&TagNotifier{
-		metricID: 0,
-		tags: tag.Tags{
-			{Key: []byte("key1"), Value: []byte("value1")},
-			{Key: []byte("key2"), Value: []byte("value2")},
-		},
-		buildIndex: func(_, _ uint32) {
-			ch <- struct{}{}
-		},
-	})
-	// two tags
-	<-ch
-	<-ch
+	mID, err := db.GenMetricID([]byte("system"), []byte("cpu"))
+	assert.NoError(t, err)
+	_, err = db.GenFieldID(mID, field.Meta{Name: "f1", Type: field.SumField})
+	assert.NoError(t, err)
+	k1, err := db.GenTagKeyID(mID, []byte("key1"))
+	assert.NoError(t, err)
+	k2, err := db.GenTagKeyID(mID, []byte("key2"))
+	assert.NoError(t, err)
+	_, err = db.GenTagValueID(k1, []byte("value1"))
+	assert.NoError(t, err)
+	_, err = db.GenTagValueID(k2, []byte("value2"))
+	assert.NoError(t, err)
 
 	test := func() {
 		mid, err := db.GetMetricID("system", "cpu")
@@ -126,15 +112,8 @@ func TestMetricMetaDatabase(t *testing.T) {
 
 	// from memory
 	test()
-
-	db.Notify(&FlushNotifier{
-		Callback: func(err error) {
-			assert.NoError(t, err)
-			ch <- struct{}{}
-		},
-	})
-
-	<-ch
+	db.PrepareFlush()
+	assert.NoError(t, db.Flush())
 
 	// from kv store
 	test()
@@ -142,14 +121,7 @@ func TestMetricMetaDatabase(t *testing.T) {
 	// flushing
 	db1 := db.(*metricMetaDatabase)
 	db1.flushing.Store(true)
-	db.Notify(&FlushNotifier{
-		Callback: func(err error) {
-			assert.NoError(t, err)
-			ch <- struct{}{}
-		},
-	})
-
-	<-ch
+	assert.NoError(t, db.Flush())
 	assert.NoError(t, db.Close())
 }
 
@@ -222,8 +194,8 @@ func TestMetricMetaDatabase_New_Error(t *testing.T) {
 	kv.InitStoreManager(storeMgr)
 
 	cases := []struct {
-		name    string
 		prepare func()
+		name    string
 	}{
 		{
 			name: "mkdir error",
@@ -343,13 +315,15 @@ func TestMetricMetaDatabase_Read_Error(t *testing.T) {
 	})
 
 	t.Run("gen metric id error", func(t *testing.T) {
-		indexStore.EXPECT().GetOrCreateValue(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(0), fmt.Errorf("err"))
-		_, err := db.genMetricID([]byte("system"), []byte("cpu"))
+		indexStore.EXPECT().GetOrCreateValue(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(uint32(0), false, fmt.Errorf("err"))
+		_, err := db.GenMetricID([]byte("system"), []byte("cpu"))
 		assert.Error(t, err)
 
-		indexStore.EXPECT().GetOrCreateValue(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(0), nil)
-		indexStore.EXPECT().GetOrCreateValue(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(0), fmt.Errorf("err"))
-		_, err = db.genMetricID([]byte("system"), []byte("cpu"))
+		indexStore.EXPECT().GetOrCreateValue(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(0), true, nil)
+		indexStore.EXPECT().GetOrCreateValue(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(uint32(0), false, fmt.Errorf("err"))
+		_, err = db.GenMetricID([]byte("system"), []byte("cpu"))
 		assert.Error(t, err)
 	})
 	t.Run("suggest metric name error", func(t *testing.T) {
@@ -380,19 +354,10 @@ func TestMetricMetaDatabase_GenTag_Error(t *testing.T) {
 
 	// gen tag key error
 	schemaStore.EXPECT().genTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).Return(tag.KeyID(0), fmt.Errorf("Err"))
-	db.handle(&TagNotifier{
-		metricID: 1,
-		tags: tag.Tags{
-			{Key: []byte("key1"), Value: []byte("value1")},
-		},
-	})
+	_, err := db.GenTagKeyID(1, []byte("key1"))
+	assert.Error(t, err)
 	// gen tag value error
-	schemaStore.EXPECT().genTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).Return(tag.KeyID(0), nil)
-	indexStore.EXPECT().GetOrCreateValue(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(0), fmt.Errorf("err"))
-	db.handle(&TagNotifier{
-		metricID: 1,
-		tags: tag.Tags{
-			{Key: []byte("key1"), Value: []byte("value1")},
-		},
-	})
+	indexStore.EXPECT().GetOrCreateValue(gomock.Any(), gomock.Any(), gomock.Any()).Return(uint32(0), false, fmt.Errorf("err"))
+	_, err = db.GenTagValueID(1, []byte("value1"))
+	assert.Error(t, err)
 }

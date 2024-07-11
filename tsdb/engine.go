@@ -70,11 +70,11 @@ type Engine interface {
 
 // engine implements Engine
 type engine struct {
-	mutex            sync.Mutex         // mutex for creating database
 	dbSet            databaseSet        // atomic value, holding databaseName -> Database
 	ctx              context.Context    // context
 	cancel           context.CancelFunc // cancel function of flusher
 	dataFlushChecker DataFlushChecker
+	mutex            sync.Mutex // mutex for creating database
 }
 
 // NewEngine creates an engine for manipulating the databases
