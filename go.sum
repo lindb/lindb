@@ -476,8 +476,8 @@ github.com/kylelemons/godebug v1.1.0/go.mod h1:9/0rRGxNHcop5bhtWyNeEfOS8JIWk580+
 github.com/leodido/go-urn v1.2.0/go.mod h1:+8+nEpDfqqsY+g338gtMEUOtuK+4dEMhiQEgxpxOKII=
 github.com/leodido/go-urn v1.2.1 h1:BqpAaACuzVSgi/VLzGZIobT2z4v53pjosyNd9Yv6n/w=
 github.com/leodido/go-urn v1.2.1/go.mod h1:zt4jvISO2HfUBqxjfIshjdMTYS56ZS/qv49ictyFfxY=
-github.com/lindb/common v0.0.5 h1:sXgWXQRApCREvd3z79Ya3vNjcAw/n3EMLl7Ka6i9ilo=
-github.com/lindb/common v0.0.5/go.mod h1:ZSkV9Ds0TlY7N4xSOznTw9OSsbzMW0SqXGOWldvqDd8=
+github.com/lindb/common v0.0.6 h1:Wq8+hMPXJ64Y4oVqwRovaJwHx9RleOfOi6TbwH006oc=
+github.com/lindb/common v0.0.6/go.mod h1:ZSkV9Ds0TlY7N4xSOznTw9OSsbzMW0SqXGOWldvqDd8=
 github.com/lindb/roaring v1.2.1 h1:Ik1hEg3i55CwNOYefdKWWYfm5CUy4SWp84zMSDxZSEo=
 github.com/lindb/roaring v1.2.1/go.mod h1:MDk6EPsveXlV1nOxVGw5XgoWekxVdiaVALgrrzMjg6E=
 github.com/linode/linodego v1.23.0 h1:s0ReCZtuN9Z1IoUN9w1RLeYO1dMZUGPwOQ/IBFsBHtU=

@@ -44,12 +44,15 @@ type Logger struct {
 }
 
 func (l *Logger) Log(keyvals ...interface{}) error {
-	fields := make([]zap.Field, len(keyvals)/2)
-	for i := 1; i < len(keyvals); i++ {
-		key := fmt.Sprintf("%v", keyvals[i-1])
-		fields = append(fields, logger.Any(key, keyvals[i]))
+	if l.logger.Enabled(logger.DebugLevel) {
+		// heavy op, need check log level if enabled
+		fields := make([]zap.Field, 0, len(keyvals)/2)
+		for i := 1; i < len(keyvals); i++ {
+			key := fmt.Sprintf("%v", keyvals[i-1])
+			fields = append(fields, logger.Any(key, keyvals[i]))
+		}
+		l.logger.Debug("prometheus", fields...)
 	}
-	l.logger.Debug("prometheus", fields...)
 	return nil
 }
 
