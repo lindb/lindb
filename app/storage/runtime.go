@@ -70,6 +70,11 @@ type rpcHandler struct {
 	task    *query.TaskHandler
 }
 
+var (
+	maxRetries    = 20
+	retryInterval = time.Second
+)
+
 // just for testing
 var (
 	getHostIP                 = hostutil.GetHostIP
@@ -225,28 +230,33 @@ func (r *runtime) Run() error {
 	// start http server
 	r.startHTTPServer()
 
+	discoveryFactory := discovery.NewFactory(r.repo)
+	r.stateMachineFactory = newStateMachineFactory(r.ctx, discoveryFactory, r.stateMgr)
 	r.dbLifecycle = newDatabaseLifecycleFn(r.ctx, r.repo, r.walMgr, r.engine)
 	r.dbLifecycle.Startup()
 
-	// Use Leader election mechanism to ensure the uniqueness of stateful node id
-	if err := r.MustRegisterStatefulNode(); err != nil {
+	if err := r.startStorageState(); err != nil {
+		r.state = server.Failed
 		return err
 	}
-	discoveryFactory := discovery.NewFactory(r.repo)
-	// finally, start all state machine
-	r.stateMachineFactory = newStateMachineFactory(r.ctx, discoveryFactory, r.stateMgr)
-
-	if err := r.stateMachineFactory.Start(); err != nil {
-		return fmt.Errorf("start state machines error: %s", err)
-	}
-
 	// start system collector
 	r.SystemCollector()
 	// start stat monitoring
 	r.NativePusher()
 
 	r.state = server.Running
+	return nil
+}
 
+func (r *runtime) startStorageState() error {
+	// Use Leader election mechanism to ensure the uniqueness of stateful node id
+	if err := r.MustRegisterStatefulNode(); err != nil {
+		return err
+	}
+	// finally, start all state machine
+	if err := r.stateMachineFactory.Start(); err != nil {
+		return fmt.Errorf("start state machines error: %s", err)
+	}
 	return nil
 }
 
@@ -256,16 +266,12 @@ func (r *runtime) MustRegisterStatefulNode() error {
 		logger.Int("indicator", int(r.node.ID)),
 		logger.String("lease-ttl", r.config.Coordinator.LeaseTTL.String()),
 	)
-	var (
-		err           error
-		maxRetries    = 20
-		retryInterval = time.Second
-	)
+	var err error
 	// sometimes lease isn't expired when storage restarts, retry registering is necessary
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		select {
 		case <-r.ctx.Done(): // no more retries when context is done
-			return nil
+			return r.ctx.Err()
 		default:
 		}
 		// register storage node info
@@ -288,13 +294,8 @@ func (r *runtime) MustRegisterStatefulNode() error {
 		return nil
 	}
 	r.state = server.Failed
-	if err != nil {
-		// stateful node register err
-		return err
-	}
-	// stateful node already exist
-	r.state = server.Failed
-	return constants.ErrStatefulNodeExist
+	// stateful node register err
+	return err
 }
 
 // State returns current storage server state
@@ -404,12 +405,14 @@ func (r *runtime) startHTTPServer() {
 	metadataAPI := stateapi.NewMetadataAPI(r.engine)
 	metadataAPI.Register(v1)
 
-	go func() {
-		if err := r.httpServer.Run(); err != http.ErrServerClosed {
-			panic(fmt.Sprintf("start http server with error: %s", err))
-		}
-		r.log.Info("http server stopped successfully")
-	}()
+	go r.runHTTPServer()
+}
+
+func (r *runtime) runHTTPServer() {
+	if err := r.httpServer.Run(); err != http.ErrServerClosed {
+		panic(fmt.Sprintf("start http server with error: %s", err))
+	}
+	r.log.Info("http server stopped successfully")
 }
 
 // startTCPServer starts tcp server
@@ -419,11 +422,13 @@ func (r *runtime) startTCPServer() {
 	// bind rpc handlers
 	r.bindRPCHandlers()
 
-	go func() {
-		if err := r.server.Start(); err != nil {
-			panic(err)
-		}
-	}()
+	go r.startRPCServer()
+}
+
+func (r *runtime) startRPCServer() {
+	if err := r.server.Start(); err != nil {
+		panic(err)
+	}
 }
 
 // bindRPCHandlers binds rpc handlers, registers task into grpc server

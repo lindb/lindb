@@ -35,13 +35,13 @@ import (
 var _testSyncMap = sync.Map{}
 
 type rwLockedMap struct {
-	mu sync.RWMutex
 	m  map[int]int
+	mu sync.RWMutex
 }
 
 type spinLockedMap struct {
-	sl lockers.SpinLock
 	m  map[int]int
+	sl lockers.SpinLock
 }
 
 func (slm *spinLockedMap) Get(key int) (int, bool) {

@@ -23,9 +23,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	commonfileutil "github.com/lindb/common/pkg/fileutil"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/pkg/fileutil"
 )
@@ -51,7 +50,7 @@ func TestDataPointBuffer_AllocPage(t *testing.T) {
 	assert.NoError(t, err)
 	for i := 0; i < 10000; i++ {
 		var b []byte
-		b, err = buf.AllocPage()
+		b, err = buf.GetOrCreatePage(uint32(i))
 		assert.NoError(t, err)
 		assert.NotNil(t, b)
 	}
@@ -73,43 +72,59 @@ func TestDataPointBuffer_AllocPage_err(t *testing.T) {
 	mkdirFunc = func(path string) error {
 		return fmt.Errorf("err")
 	}
-	// case 1: make file path err
-	b, err := buf.AllocPage()
-	assert.Error(t, err)
-	assert.Nil(t, b)
-	mkdirFunc = commonfileutil.MkDirIfNotExist
+	t.Run("make file path err", func(t *testing.T) {
+		b, err := buf.GetOrCreatePage(1)
+		assert.Error(t, err)
+		assert.Nil(t, b)
+		mkdirFunc = commonfileutil.MkDirIfNotExist
+	})
 
-	// case 1: open file err
-	buf, err = newDataPointBuffer(t.TempDir())
+	t.Run("open file err", func(t *testing.T) {
+		buf, err := newDataPointBuffer(t.TempDir())
+		assert.NoError(t, err)
+		openFileFunc = func(name string, flag int, perm os.FileMode) (*os.File, error) {
+			return nil, fmt.Errorf("err")
+		}
+		b, err := buf.GetOrCreatePage(1)
+		assert.Error(t, err)
+		assert.Nil(t, b)
+	})
+	t.Run("map file err", func(t *testing.T) {
+		openFileFunc = os.OpenFile
+		mapFunc = func(file *os.File, size int) (bytes []byte, err error) {
+			return nil, fmt.Errorf("err")
+		}
+		buf, err := newDataPointBuffer(t.TempDir())
+		assert.NoError(t, err)
+		b, err := buf.GetOrCreatePage(1)
+		assert.Error(t, err)
+		assert.Nil(t, b)
+		buf.Release()
+		err = buf.Close()
+		assert.NoError(t, err)
+	})
+}
+
+func TestDataPointBuffer_GetPage(t *testing.T) {
+	path := "get_page"
+	defer func() {
+		assert.NoError(t, commonfileutil.RemoveDir(path))
+	}()
+	buf, err := newDataPointBuffer(path)
 	assert.NoError(t, err)
-	openFileFunc = func(name string, flag int, perm os.FileMode) (*os.File, error) {
-		return nil, fmt.Errorf("err")
-	}
-	b, err = buf.AllocPage()
-	assert.Error(t, err)
-	assert.Nil(t, b)
-	openFileFunc = os.OpenFile
+	b, err := buf.GetOrCreatePage(1)
+	assert.NoError(t, err)
+	assert.NotNil(t, b)
 
-	// case 2: wrong region
-	b, err = buf.AllocPage()
-	assert.Error(t, err)
+	b, ok := buf.GetPage(1)
+	assert.NotNil(t, b)
+	assert.True(t, ok)
+	b, ok = buf.GetPage(2)
 	assert.Nil(t, b)
+	assert.False(t, ok)
+
 	buf.Release()
-	err = buf.Close()
-	assert.NoError(t, err)
-
-	mapFunc = func(file *os.File, size int) (bytes []byte, err error) {
-		return nil, fmt.Errorf("err")
-	}
-	// case 3: map file err
-	buf, err = newDataPointBuffer(t.TempDir())
-	assert.NoError(t, err)
-	b, err = buf.AllocPage()
-	assert.Error(t, err)
-	assert.Nil(t, b)
-	buf.Release()
-	err = buf.Close()
-	assert.NoError(t, err)
+	assert.NoError(t, buf.Close())
 }
 
 func TestDataPointBuffer_Close_err(t *testing.T) {
@@ -124,7 +139,7 @@ func TestDataPointBuffer_Close_err(t *testing.T) {
 	// case 1: remove dir err
 	buf, err := newDataPointBuffer(filepath.Join(path, "case1"))
 	assert.NoError(t, err)
-	b, err := buf.AllocPage()
+	b, err := buf.GetOrCreatePage(0)
 	assert.NoError(t, err)
 	assert.NotNil(t, b)
 	buf.Release()
@@ -137,7 +152,7 @@ func TestDataPointBuffer_Close_err(t *testing.T) {
 	// case 2: unmap err
 	buf, err = newDataPointBuffer(filepath.Join(path, "case2"))
 	assert.NoError(t, err)
-	b, err = buf.AllocPage()
+	b, err = buf.GetOrCreatePage(0)
 	assert.NoError(t, err)
 	assert.NotNil(t, b)
 	buf.Release()

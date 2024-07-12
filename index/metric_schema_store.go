@@ -193,7 +193,17 @@ func (s *metricSchemaStore) PrepareFlush() {
 	}
 }
 
+func (s *metricSchemaStore) needFlush() bool {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
+	return s.immutable != nil && !s.immutable.IsEmpty()
+}
+
 func (s *metricSchemaStore) Flush() error {
+	if !s.needFlush() {
+		return nil
+	}
 	kvFlusher := s.family.NewFlusher()
 	defer kvFlusher.Release()
 

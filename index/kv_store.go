@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/golang-lru/v2/expirable"
-
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/index/model"
@@ -72,14 +71,18 @@ func NewIndexKVStore(family kv.Family, cacheSize int, cacheTTL time.Duration) In
 }
 
 // GetOrCreateValue returns unique id for key, if key not exist, creates a new unique id.
-func (s *indexKVStore) GetOrCreateValue(bucketID uint32, key []byte, createFn func() uint32) (uint32, error) {
-	val, _, err := s.getOrCreateValue(bucketID, key, createFn)
-	return val, err
+func (s *indexKVStore) GetOrCreateValue(bucketID uint32,
+	key []byte,
+	createFn func() uint32,
+) (id uint32, isNew bool, err error) {
+	id, _, isNew, err = s.getOrCreateValue(bucketID, key, createFn)
+	return
 }
 
 // GetValue returns value based on bucket and key.
 func (s *indexKVStore) GetValue(bucketID uint32, key []byte) (id uint32, ok bool, err error) {
-	return s.getOrCreateValue(bucketID, key, nil)
+	id, ok, _, err = s.getOrCreateValue(bucketID, key, nil)
+	return
 }
 
 // GetValues returns all values for bucket.
@@ -239,7 +242,18 @@ func (s *indexKVStore) PrepareFlush() {
 	}
 }
 
+// needFlusf returns if memory data need flush.
+func (s *indexKVStore) needFlush() bool {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
+	return s.immutable != nil && !s.immutable.IsEmpty()
+}
+
 func (s *indexKVStore) Flush() (err error) {
+	if !s.needFlush() {
+		return nil
+	}
 	kvFlusher := s.family.NewFlusher()
 	defer kvFlusher.Release()
 	// flush buckets
@@ -293,11 +307,11 @@ func (s *indexKVStore) getSnapshot() version.Snapshot {
 	return s.snapshot
 }
 
-func (s *indexKVStore) getOrCreateValue(bucketID uint32, key []byte, createFn func() uint32) (id uint32, ok bool, err error) {
+func (s *indexKVStore) getOrCreateValue(bucketID uint32, key []byte, createFn func() uint32) (id uint32, ok, isNew bool, err error) {
 	// get from memory store
 	id, ok = s.GetValueFromMem(bucketID, key)
 	if ok {
-		return id, true, nil
+		return id, true, false, nil
 	}
 
 	bucket, ok := s.bucketCache.Get(bucketID)
@@ -307,7 +321,7 @@ func (s *indexKVStore) getOrCreateValue(bucketID uint32, key []byte, createFn fu
 		reader := v1.NewIndexKVReader(snapshot)
 		bucket, err = reader.GetBucket(bucketID)
 		if err != nil {
-			return 0, false, err
+			return 0, false, false, err
 		}
 		if bucket != nil {
 			s.bucketCache.Add(bucketID, bucket)
@@ -317,16 +331,16 @@ func (s *indexKVStore) getOrCreateValue(bucketID uint32, key []byte, createFn fu
 		// check bucket not nil, maybe not exist under kv store
 		id, ok = bucket.GetValue(key)
 		if ok {
-			return id, true, nil
+			return id, true, false, nil
 		}
 	}
 
 	// create new value
 	if createFn == nil {
-		return 0, false, nil
+		return 0, false, false, nil
 	}
 	id = s.createValue(bucketID, key, createFn)
-	return id, true, nil
+	return id, true, true, nil
 }
 
 // createValue creates new value.

@@ -27,7 +27,7 @@ import (
 	"github.com/lindb/lindb/pkg/bit"
 )
 
-var f = flushFunc
+var f = FlushFunc
 
 func TestCodec(t *testing.T) {
 	encoder := GetTSDEncoder(10)
@@ -101,7 +101,7 @@ func TestCodec(t *testing.T) {
 
 func TestTsdEncoder_Err(t *testing.T) {
 	defer func() {
-		flushFunc = f
+		FlushFunc = f
 	}()
 	encoder := NewTSDEncoder(10)
 	// case 1: encode with err
@@ -118,7 +118,7 @@ func TestTsdEncoder_Err(t *testing.T) {
 	encoder = NewTSDEncoder(10)
 	encoder.AppendTime(bit.One)
 	encoder.AppendValue(uint64(10))
-	flushFunc = func(writer *bit.Writer) error {
+	FlushFunc = func(writer *bit.Writer) error {
 		return fmt.Errorf("err")
 	}
 	data, err = encoder.Bytes()

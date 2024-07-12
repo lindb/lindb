@@ -28,17 +28,20 @@ import (
 
 	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/ltoml"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/coordinator/discovery"
 	storagepkg "github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/internal/server"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/hostutil"
+	"github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/rpc"
@@ -222,6 +225,42 @@ func TestStorageRun_Err(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestStorage_StartStorageState_Error(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer func() {
+		ctrl.Finish()
+		newRegistry = discovery.NewRegistry
+	}()
+	maxRetries = 2
+	retryInterval = time.Millisecond * 10
+	registry := discovery.NewMockRegistry(ctrl)
+	newRegistry = func(repo state.Repository, path string, node models.Node, ttl time.Duration) discovery.Registry {
+		return registry
+	}
+	smFactory := discovery.NewMockStateMachineFactory(ctrl)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	r := &runtime{
+		ctx:                 ctx,
+		log:                 logger.GetLogger("Storage", "Register"),
+		node:                &models.StatefulNode{},
+		stateMachineFactory: smFactory,
+		config: &config.Storage{
+			Coordinator: config.RepoState{
+				LeaseTTL: ltoml.Duration(time.Minute),
+			},
+		},
+	}
+	registry.EXPECT().Register().Return(fmt.Errorf("err")).MaxTimes(2)
+	assert.Error(t, r.startStorageState())
+	smFactory.EXPECT().Start().Return(fmt.Errorf("err"))
+	registry.EXPECT().Register().Return(nil)
+	assert.Error(t, r.startStorageState())
+
+	cancel()
+	assert.Error(t, r.startStorageState())
+}
+
 func TestStorage_MyID(t *testing.T) {
 	defer func() {
 		existFn = fileutil.Exist
@@ -356,4 +395,54 @@ func TestStorage_Run_With_Wrong_MyID(t *testing.T) {
 	err := r.Run()
 	assert.Error(t, err)
 	assert.Equal(t, server.Failed, r.State())
+}
+
+func TestStorage_StartServer_Fail(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	rpcServer := rpc.NewMockGRPCServer(ctrl)
+	httpServer := http.NewMockServer(ctrl)
+	r := &runtime{
+		server:     rpcServer,
+		httpServer: httpServer,
+		log:        logger.GetLogger("storage", "test"),
+	}
+	rpcServer.EXPECT().Start().Return(fmt.Errorf("err"))
+	assert.Panics(t, func() {
+		r.startRPCServer()
+	})
+	httpServer.EXPECT().Run().Return(fmt.Errorf("err"))
+	assert.Panics(t, func() {
+		r.runHTTPServer()
+	})
+
+	// port <=0
+	r.config = &config.Storage{
+		StorageBase: config.StorageBase{
+			HTTP: config.HTTP{
+				Port: 0,
+			},
+		},
+	}
+	r.startHTTPServer()
+}
+
+func TestStorage_Stop_Error(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	registry := discovery.NewMockRegistry(ctrl)
+	ctx, cancel := context.WithCancel(context.TODO())
+	httpServer := http.NewMockServer(ctrl)
+	r := &runtime{
+		ctx:        ctx,
+		cancel:     cancel,
+		log:        logger.GetLogger("Storage", "test"),
+		registry:   registry,
+		httpServer: httpServer,
+	}
+	registry.EXPECT().Deregister().Return(fmt.Errorf("err"))
+	registry.EXPECT().Close().Return(fmt.Errorf("err"))
+	httpServer.EXPECT().Close(gomock.Any()).Return(fmt.Errorf("err"))
+	r.Stop()
 }

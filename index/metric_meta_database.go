@@ -56,20 +56,17 @@ const (
 
 // metricMetaDatabase implements MetricMetaDatabase interface.
 type metricMetaDatabase struct {
-	ctx      context.Context
-	cancel   context.CancelFunc
-	kvStore  kv.Store
-	ns       IndexKVStore // namespace -> namespace id
-	metric   IndexKVStore // metric name -> metric id
-	tagValue IndexKVStore // tag key id -> tag values
+	ctx         context.Context
+	cancel      context.CancelFunc
+	kvStore     kv.Store
+	ns          IndexKVStore // namespace => namespace id
+	metric      IndexKVStore // metric name => metric id
+	tagValue    IndexKVStore // tag key id => tag values
+	schemaStore MetricSchemaStore
+	sequence    *Sequence
+	logger      logger.Logger
 
-	schemaStore MetricSchemaStore // metric id -> metric metadata like table schema(tag keys/fields/shard sequences etc.)
-
-	sequence *Sequence // sequence(namespace/name/tag key)
-	worker   *NotifyWorker
 	flushing atomic.Bool
-
-	logger logger.Logger
 }
 
 // NewMetricMetaDatabase creates a metric meta store.
@@ -123,81 +120,34 @@ func NewMetricMetaDatabase(dir string) (MetricMetaDatabase, error) {
 		logger:      logger.GetLogger("Index", "MetricMetaDatabase"),
 	}
 
-	mm.worker = NewWorker(ctx, dir, 100*time.Millisecond, mm.handle)
 	return mm, nil
 }
 
-func (mm *metricMetaDatabase) Notify(n Notifier) {
-	mm.worker.Notify(n)
-}
-
-func (mm *metricMetaDatabase) handle(n Notifier) {
-	switch notifier := n.(type) {
-	case *MetaNotifier:
-		metricID, err := mm.genMetricID(strutil.String2ByteSlice(notifier.Namespace), strutil.String2ByteSlice(notifier.MetricName))
-		notifier.Callback(uint32(metricID), err)
-		PutMetaNotifier(notifier)
-	case *FieldNotifier:
-		metricID, err := mm.genMetricID(strutil.String2ByteSlice(notifier.Namespace), strutil.String2ByteSlice(notifier.MetricName))
-		var fieldID field.ID
-		if err == nil {
-			fieldID, err = mm.genFieldID(metricID, notifier.Field)
-		}
-		notifier.Callback(fieldID, err)
-		PutFieldNotifier(notifier)
-	case *TagNotifier:
-		metricID := notifier.metricID
-		for _, tag := range notifier.tags {
-			tagKeyID, err := mm.genTagKeyID(metricID, tag.Key)
-			if err != nil {
-				mm.logger.Warn("gen tag key id failure, ignore build this tag index",
-					logger.String("key", string(tag.Key)), logger.String("value", string(tag.Value)), logger.Error(err))
-				continue
-			}
-			tagValueID, err := mm.genTagValueID(tagKeyID, tag.Value)
-			if err != nil {
-				mm.logger.Warn("gen tag value id failure, ignore build this tag index",
-					logger.String("key", string(tag.Key)), logger.String("value", string(tag.Value)), logger.Error(err))
-				continue
-			}
-			notifier.buildIndex(uint32(tagKeyID), tagValueID)
-		}
-		PutTagNotifier(notifier)
-	case *FlushNotifier:
-		if mm.flushing.CompareAndSwap(false, true) {
-			mm.PrepareFlush() // do under worker goroutine
-			// start flush goroutine, do io block background
-			go func() {
-				notifier.Callback(mm.Flush())
-			}()
-		} else {
-			notifier.Callback(nil)
-		}
-	}
-}
-
-func (mm *metricMetaDatabase) genMetricID(namespace, metricName []byte) (metric.ID, error) {
-	nsID, err := mm.ns.GetOrCreateValue(uint32(namespace[0]), namespace, mm.sequence.GetNamespaceSeq)
+// GenMetricID generates metric id if not exist, else return it.
+func (mm *metricMetaDatabase) GenMetricID(namespace, metricName []byte) (metric.ID, error) {
+	nsID, _, err := mm.ns.GetOrCreateValue(uint32(namespace[0]), namespace, mm.sequence.GetNamespaceSeq)
 	if err != nil {
 		return 0, err
 	}
-	metricID, err := mm.metric.GetOrCreateValue(nsID, metricName, mm.sequence.GetMetricNameSeq)
+	metricID, _, err := mm.metric.GetOrCreateValue(nsID, metricName, mm.sequence.GetMetricNameSeq)
 	if err != nil {
 		return 0, err
 	}
 	return metric.ID(metricID), nil
 }
 
-func (mm *metricMetaDatabase) genFieldID(metricID metric.ID, f field.Meta) (field.ID, error) {
+// GenFieldID generates field id for metric.
+func (mm *metricMetaDatabase) GenFieldID(metricID metric.ID, f field.Meta) (field.ID, error) {
 	return mm.schemaStore.genFieldID(metricID, f)
 }
 
-func (mm *metricMetaDatabase) genTagKeyID(metricID metric.ID, tagKey []byte) (tag.KeyID, error) {
+func (mm *metricMetaDatabase) GenTagKeyID(metricID metric.ID, tagKey []byte) (tag.KeyID, error) {
 	return mm.schemaStore.genTagKeyID(metricID, tagKey, mm.sequence.GetTagKeySeq)
 }
 
-func (mm *metricMetaDatabase) genTagValueID(tagKeyID tag.KeyID, tagValue []byte) (uint32, error) {
-	return mm.tagValue.GetOrCreateValue(uint32(tagKeyID), tagValue, mm.sequence.GetTagValueSeq)
+func (mm *metricMetaDatabase) GenTagValueID(tagKeyID tag.KeyID, tagValue []byte) (uint32, error) {
+	tagValueID, _, err := mm.tagValue.GetOrCreateValue(uint32(tagKeyID), tagValue, mm.sequence.GetTagValueSeq)
+	return tagValueID, err
 }
 
 func (mm *metricMetaDatabase) GetSchema(metricID metric.ID) (*metric.Schema, error) {
@@ -319,7 +269,6 @@ func (mm *metricMetaDatabase) Flush() error {
 // Close closes metric meta database.
 func (mm *metricMetaDatabase) Close() error {
 	mm.cancel()
-	mm.worker.Shutdown()
 	if err := mm.sequence.Close(); err != nil {
 		return err
 	}

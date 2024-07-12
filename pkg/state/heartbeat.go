@@ -22,9 +22,8 @@ import (
 	"errors"
 	"time"
 
-	etcd "go.etcd.io/etcd/client/v3"
-
 	"github.com/lindb/common/pkg/logger"
+	etcd "go.etcd.io/etcd/client/v3"
 )
 
 const defaultTTL = 10 // default ttl => 10 seconds
@@ -34,15 +33,13 @@ var errKeepaliveStopped = errors.New("heartbeat keepalive stopped")
 
 // heartbeat represents a heartbeat with etcd, it will start a goroutine does keepalive in background
 type heartbeat struct {
-	client *etcd.Client
-	key    string
-	value  []byte
-
+	logger      logger.Logger
+	client      *etcd.Client
 	keepaliveCh <-chan *etcd.LeaseKeepAliveResponse
+	key         string
+	value       []byte
+	ttl         int64
 	isElect     bool
-
-	ttl    int64
-	logger logger.Logger
 }
 
 // newHeartbeat creates heartbeat instance
@@ -112,6 +109,7 @@ func (h *heartbeat) keepAlive(ctx context.Context) {
 			}
 			// if ctx happen err, return stop keepalive
 			if ctx.Err() != nil {
+				h.logger.Error("context cancal, stop keepalive", logger.Error(ctx.Err()))
 				return
 			}
 		} else {
@@ -129,9 +127,11 @@ func (h *heartbeat) handleAliveResp(ctx context.Context) error {
 	select {
 	case aliveResp := <-h.keepaliveCh:
 		if aliveResp == nil {
+			h.logger.Error("alive response nil, stop keepalive")
 			return errKeepaliveStopped
 		}
 	case <-ctx.Done():
+		h.logger.Error("context stop, stop keepalive", logger.Error(ctx.Err()))
 		return errKeepaliveStopped
 	}
 	return nil

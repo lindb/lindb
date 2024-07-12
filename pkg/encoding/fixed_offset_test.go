@@ -18,7 +18,6 @@
 package encoding
 
 import (
-	"fmt"
 	"io"
 	"math/rand"
 	"sort"
@@ -78,7 +77,6 @@ func TestFixedOffsetDecoder_Get(t *testing.T) {
 	encoder.Add(30)
 
 	data = encoder.MarshalBinary()
-	fmt.Println(data)
 	decoder = NewFixedOffsetDecoder()
 	_, err = decoder.Unmarshal(data)
 	assert.NoError(t, err)
@@ -156,15 +154,15 @@ func TestFixedOffsetEncoder_WriteTo(t *testing.T) {
 
 func TestFixedOffsetEncoder_Reset(t *testing.T) {
 	encoder := NewFixedOffsetEncoder(true)
-	encoder.Add(0) //0
-	encoder.Add(1) //1
+	encoder.Add(0) // 0
+	encoder.Add(1) // 1
 	data := encoder.MarshalBinary()
 	assert.True(t, len(data) > 1)
 	// reset
 	encoder.Reset()
 
-	encoder.Add(1 << 24)       //0
-	encoder.Add((1 << 24) + 1) //1
+	encoder.Add(1 << 24)       // 0
+	encoder.Add((1 << 24) + 1) // 1
 	data = encoder.MarshalBinary()
 	assert.True(t, len(data) > 1)
 
@@ -208,10 +206,10 @@ func TestByteSlice2Uint32(t *testing.T) {
 }
 
 func Test_GetAdd_Consistency(t *testing.T) {
-	rand.Seed(time.Now().UnixNano())
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	var expects []int
 	for i := 0; i < 100000; i++ {
-		expects = append(expects, rand.Intn(100000000))
+		expects = append(expects, r.Intn(100000000))
 	}
 	sort.Ints(expects)
 
@@ -249,10 +247,10 @@ func TestGetFixedOffsetDecoder(t *testing.T) {
 
 func BenchmarkFixedOffsetDecoder_Get(b *testing.B) {
 	encoder := NewFixedOffsetEncoder(true)
-	var expects = make([]int, 100000)
+	expects := make([]int, 100000)
 	for i := 0; i < 100000; i++ {
-		rand.Seed(time.Now().UnixNano())
-		expects[i] = rand.Intn(10000000)
+		r := rand.New(rand.NewSource(time.Now().UnixNano()))
+		expects[i] = r.Intn(10000000)
 	}
 	sort.Ints(expects)
 	encoder.FromValues(expects)
@@ -270,7 +268,7 @@ func BenchmarkFixedOffsetDecoder_Get(b *testing.B) {
 }
 
 func Benchmark_ByteSlice2Uint32(b *testing.B) {
-	var slice = []byte{1, 2, 3, 4}
+	slice := []byte{1, 2, 3, 4}
 	for i := 0; i < b.N; i++ {
 		ByteSlice2Uint32(slice)
 	}

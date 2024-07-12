@@ -117,6 +117,11 @@ func (m *IntMap[V]) Size() int {
 	return int(m.keys.GetCardinality())
 }
 
+// IsEmpty returns if map is empty.
+func (m *IntMap[V]) IsEmpty() bool {
+	return m.keys.IsEmpty()
+}
+
 // WalkEntry walks each kv entry via fn.
 func (m *IntMap[V]) WalkEntry(fn func(key uint32, value V) error) error {
 	values := m.values

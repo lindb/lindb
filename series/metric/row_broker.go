@@ -132,7 +132,7 @@ func (br *BrokerBatchRows) TryAppend(appendFunc func(row *BrokerRow) error) erro
 
 func (br *BrokerBatchRows) NewShardGroupIterator(numOfShards int32) *BrokerBatchShardIterator {
 	for i := 0; i < br.Len(); i++ {
-		br.rows[i].shardIdx = int(jump.Hash(br.rows[i].m.Hash(), numOfShards))
+		br.rows[i].shardIdx = int(jump.Hash(br.rows[i].m.KvsHash(), numOfShards))
 	}
 	br.shardGroupIterator.batch = br
 	br.shardGroupIterator.Reset()

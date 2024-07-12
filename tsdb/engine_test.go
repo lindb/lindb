@@ -26,12 +26,11 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/lindb/common/pkg/fileutil"
+	"github.com/lindb/common/pkg/ltoml"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/atomic"
 	"go.uber.org/mock/gomock"
-
-	"github.com/lindb/common/pkg/fileutil"
-	"github.com/lindb/common/pkg/ltoml"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
@@ -54,8 +53,8 @@ func TestEngine_New(t *testing.T) {
 	}()
 
 	cases := []struct {
-		name    string
 		prepare func()
+		name    string
 		wantErr bool
 	}{
 		{
@@ -91,7 +90,8 @@ func TestEngine_New(t *testing.T) {
 					return []string{"db"}, nil
 				}
 				newDatabaseFunc = func(databaseName string, cfg *models.DatabaseConfig,
-					limits *models.Limits, flushChecker DataFlushChecker) (Database, error) {
+					limits *models.Limits, flushChecker DataFlushChecker,
+				) (Database, error) {
 					return nil, fmt.Errorf("err")
 				}
 			},
@@ -136,7 +136,8 @@ func TestEngine_createDatabase(t *testing.T) {
 		}()
 		mockDB := NewMockDatabase(ctrl)
 		newDatabaseFunc = func(databaseName string, cfg *models.DatabaseConfig,
-			limits *models.Limits, flushChecker DataFlushChecker) (Database, error) {
+			limits *models.Limits, flushChecker DataFlushChecker,
+		) (Database, error) {
 			return mockDB, nil
 		}
 		mockDB.EXPECT().SetLimits(gomock.Any()).AnyTimes()
@@ -178,7 +179,8 @@ func TestEngine_createDatabase(t *testing.T) {
 		}()
 		mockDB := NewMockDatabase(ctrl)
 		newDatabaseFunc = func(databaseName string, cfg *models.DatabaseConfig,
-			limits *models.Limits, flushChecker DataFlushChecker) (Database, error) {
+			limits *models.Limits, flushChecker DataFlushChecker,
+		) (Database, error) {
 			return mockDB, nil
 		}
 		mockDB.EXPECT().SetLimits(gomock.Any()).AnyTimes()
@@ -230,7 +232,8 @@ func TestEngine_createDatabase(t *testing.T) {
 		}()
 		mockDB := NewMockDatabase(ctrl)
 		newDatabaseFunc = func(databaseName string, cfg *models.DatabaseConfig,
-			limits *models.Limits, flushChecker DataFlushChecker) (Database, error) {
+			limits *models.Limits, flushChecker DataFlushChecker,
+		) (Database, error) {
 			return mockDB, nil
 		}
 		e := &engine{}
@@ -369,10 +372,10 @@ func TestEngine_CreateShards(t *testing.T) {
 	mockDatabase.EXPECT().SetLimits(gomock.Any()).AnyTimes()
 
 	cases := []struct {
+		prepare  func(e *engine)
 		name     string
 		db       string
 		shardIDs []models.ShardID
-		prepare  func(e *engine)
 		wantErr  bool
 	}{
 		{
@@ -403,7 +406,8 @@ func TestEngine_CreateShards(t *testing.T) {
 			shardIDs: []models.ShardID{1},
 			prepare: func(_ *engine) {
 				newDatabaseFunc = func(databaseName string, cfg *models.DatabaseConfig,
-					limits *models.Limits, flushChecker DataFlushChecker) (Database, error) {
+					limits *models.Limits, flushChecker DataFlushChecker,
+				) (Database, error) {
 					return nil, fmt.Errorf("err")
 				}
 			},
@@ -415,7 +419,8 @@ func TestEngine_CreateShards(t *testing.T) {
 			shardIDs: []models.ShardID{1},
 			prepare: func(_ *engine) {
 				newDatabaseFunc = func(databaseName string, cfg *models.DatabaseConfig,
-					limits *models.Limits, flushChecker DataFlushChecker) (Database, error) {
+					limits *models.Limits, flushChecker DataFlushChecker,
+				) (Database, error) {
 					return mockDatabase, nil
 				}
 				mockDatabase.EXPECT().CreateShards(gomock.Any()).Return(nil)
@@ -487,7 +492,7 @@ func BenchmarkEngine_DatabaseWithSyncMap(b *testing.B) {
 
 func BenchmarkEngine_DatabaseWithLockFreeMap(b *testing.B) {
 	var v atomic.Value
-	var lm = make(map[string]*database)
+	lm := make(map[string]*database)
 	for _, dn := range testDatabaseNames {
 		lm[dn] = &database{}
 	}
@@ -503,8 +508,8 @@ func BenchmarkEngine_DatabaseWithLockFreeMap(b *testing.B) {
 
 func BenchmarkEngine_DatabaseWithLockFreeSlice(b *testing.B) {
 	type entry struct {
-		name string
 		db   *database
+		name string
 	}
 	var v atomic.Value
 	var entries []entry

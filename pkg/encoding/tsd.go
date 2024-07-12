@@ -34,7 +34,7 @@ import (
 // for testing
 var (
 	TSDEncodeFunc = GetTSDEncoder
-	flushFunc     = flush
+	FlushFunc     = flush
 )
 
 // TSDValueGetter represents value getter from tsd.
@@ -81,13 +81,13 @@ func ReleaseTSDEncoder(encoder *TSDEncoder) {
 
 // TSDEncoder encodes time series data point
 type TSDEncoder struct {
-	startTime  uint16
-	bitBuffer  bytes.Buffer
+	err        error
 	bitWriter  *bit.Writer
 	values     *XOREncoder
+	bitBuffer  bytes.Buffer
+	timeBitBuf bytes.Buffer
+	startTime  uint16
 	count      uint16
-	err        error
-	timeBitBuf bytes.Buffer // time + bitBuffer
 }
 
 // NewTSDEncoder creates tsd encoder instance
@@ -148,7 +148,7 @@ func (e *TSDEncoder) Bytes() ([]byte, error) {
 	if e.err != nil {
 		return nil, e.err
 	}
-	if err := flushFunc(e.bitWriter); err != nil {
+	if err := FlushFunc(e.bitWriter); err != nil {
 		return nil, err
 	}
 	if e.count == 0 {
@@ -171,7 +171,7 @@ func (e *TSDEncoder) BytesWithoutTime() ([]byte, error) {
 	if e.err != nil {
 		return nil, e.err
 	}
-	if err := flushFunc(e.bitWriter); err != nil {
+	if err := FlushFunc(e.bitWriter); err != nil {
 		return nil, err
 	}
 	return e.bitBuffer.Bytes(), nil
@@ -183,15 +183,13 @@ func flush(writer *bit.Writer) error {
 
 // TSDDecoder decodes time series compress data
 type TSDDecoder struct {
-	startTime, endTime uint16
-
-	reader *bit.Reader
-	values *XORDecoder
-	buf    *bufioutil.Buffer
-
-	idx uint16
-
-	err error
+	err       error
+	reader    *bit.Reader
+	values    *XORDecoder
+	buf       *bufioutil.Buffer
+	startTime uint16
+	endTime   uint16
+	idx       uint16
 }
 
 // NewTSDDecoder create tsd decoder instance

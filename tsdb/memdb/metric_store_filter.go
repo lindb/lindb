@@ -29,47 +29,122 @@ import (
 	"github.com/lindb/lindb/series/field"
 )
 
+// fieldEntry represents field context for searching.
+type fieldEntry struct {
+	pageBuf     DataPointBuffer
+	compressBuf CompressStore // time series compress buffer
+	field       field.Meta
+
+	buf []byte // time series current write buffer
+}
+
+// Reset resets time series current write buffer.
+func (fe *fieldEntry) Reset(buf []byte) {
+	fe.buf = buf
+}
+
+// GetValue returns value by time slot, if it hasn't, return false.
+func (fe *fieldEntry) GetValue(slot uint16) (float64, bool) {
+	if len(fe.buf) == 0 {
+		return 0, false
+	}
+	startTime := getStart(fe.buf)
+	return getCurrentValue(fe.buf, startTime, slot)
+}
+
+// getCompressBuf returns time series compress buffer by memory time series id.
+func (fe *fieldEntry) getCompressBuf(memSeriesID uint32) []byte {
+	if fe.compressBuf == nil {
+		return nil
+	}
+	return fe.compressBuf.GetCompressBuffer(memSeriesID)
+}
+
+// getPage returns current time series write buffer by memory time series id.
+func (fe *fieldEntry) getPage(memTimeSeriesID uint32) ([]byte, bool) {
+	if fe.pageBuf == nil {
+		return nil, false
+	}
+	return fe.pageBuf.GetPage(memTimeSeriesID)
+}
+
 // Filter filters the data based on fields/seriesIDs/family time,
 // if it finds data then returns the FilterResultSet, else returns constants.ErrFieldNotFound
-func (ms *metricStore) Filter(shardExecuteContext *flow.ShardExecuteContext, db *memoryDatabase) ([]flow.FilterResultSet, error) {
+func (md *memoryDatabase) filter(shardExecuteContext *flow.ShardExecuteContext,
+	memMetricID uint64, slotRange *timeutil.SlotRange,
+	timeSeriesIndex TimeSeriesIndex,
+) ([]flow.FilterResultSet, error) {
+	mStore, ok := md.indexDB.GetMetadataDatabase().GetMetricMeta(memMetricID)
+	if !ok {
+		// metric meta not found
+		return nil, nil
+	}
 	fields := shardExecuteContext.StorageExecuteCtx.Fields
 	// first need check query's fields is match store's fields, if not return.
-	foundFields := ms.FindFields(fields)
+	foundFields := mStore.FindFields(fields)
 	if len(foundFields) == 0 {
 		// field not found
 		return nil, fmt.Errorf("%w, fields: %s", constants.ErrFieldNotFound, fields.String())
 	}
 
+	var fieldEntries []*fieldEntry
+	for _, fm := range foundFields {
+		fStore, ok := md.fieldWriteStores.Load(fm.Index)
+		fcStore, fcOK := md.fieldCompressStore.Load(fm.Index)
+
+		if ok || fcOK {
+			queryField, _ := fields.GetFromName(fm.Name)
+			fieldEntry := &fieldEntry{
+				pageBuf: fStore.(DataPointBuffer), // TEST: add test case
+				field:   queryField,
+			}
+			fieldEntries = append(fieldEntries, fieldEntry)
+			if ok {
+				fieldEntry.pageBuf = fStore.(DataPointBuffer)
+			}
+			if fcOK {
+				fieldEntry.compressBuf = fcStore.(CompressStore)
+			}
+		}
+	}
+
+	if len(fieldEntries) == 0 {
+		// field temp store buffer not found
+		return nil, fmt.Errorf("%w, fields: %s", constants.ErrFieldNotFound, fields.String())
+	}
+
 	seriesIDs := shardExecuteContext.SeriesIDsAfterFiltering
-	familyTime := db.FamilyTime()
+	familyTime := md.FamilyTime()
 	// after and operator, query bitmap is sub of store bitmap
-	matchSeriesIDs := roaring.FastAnd(seriesIDs, ms.ids.Keys())
+	matchSeriesIDs := roaring.FastAnd(seriesIDs, timeSeriesIndex.TimeSeriesIDs())
 	if matchSeriesIDs.IsEmpty() {
 		// series id not found
 		return nil, fmt.Errorf("%w when Filter, familyTime: %d, fields: %s",
 			constants.ErrSeriesIDNotFound, familyTime, fields.String())
 	}
-
 	// returns the filter result set
 	return []flow.FilterResultSet{
 		&memFilterResultSet{
-			db:         db,
-			familyTime: familyTime,
-			store:      ms,
-			fields:     foundFields,
-			seriesIDs:  matchSeriesIDs,
+			db:              md,
+			timeSeriesIndex: timeSeriesIndex,
+			familyTime:      familyTime,
+			fields:          fieldEntries,
+			slotRange:       slotRange,
+			storeSeriesIDs:  seriesIDs,
+			seriesIDs:       matchSeriesIDs,
 		},
 	}, nil
 }
 
 // memFilterResultSet represents memory filter result set for loading data in query flow
 type memFilterResultSet struct {
-	db         *memoryDatabase
-	familyTime int64
-	store      *metricStore
-	fields     field.Metas // sort by field id
-
-	seriesIDs *roaring.Bitmap
+	timeSeriesIndex TimeSeriesIndex
+	db              *memoryDatabase
+	slotRange       *timeutil.SlotRange
+	storeSeriesIDs  *roaring.Bitmap
+	seriesIDs       *roaring.Bitmap
+	fields          []*fieldEntry
+	familyTime      int64
 }
 
 // Identifier identifies the source of result set from memory storage
@@ -89,7 +164,7 @@ func (rs *memFilterResultSet) FamilyTime() int64 {
 
 // SlotRange returns the slot range of storage.
 func (rs *memFilterResultSet) SlotRange() timeutil.SlotRange {
-	return *rs.store.slotRange
+	return *rs.slotRange
 }
 
 // SeriesIDs returns the series ids which matches with query series ids
@@ -99,21 +174,20 @@ func (rs *memFilterResultSet) SeriesIDs() *roaring.Bitmap {
 
 // Load loads the data from storage, then returns the memory storage metric scanner.
 func (rs *memFilterResultSet) Load(ctx *flow.DataLoadContext) flow.DataLoader {
-	keys := rs.store.ids.Keys()
 	// 1. get high container index by the high key of series ID
-	highContainerIdx := keys.GetContainerIndex(ctx.SeriesIDHighKey)
+	highContainerIdx := rs.storeSeriesIDs.GetContainerIndex(ctx.SeriesIDHighKey)
 	if highContainerIdx < 0 {
 		// if high container index < 0(series ID not exist) return it
 		return nil
 	}
 	// 2. get low container include all low keys by the high container index, delete op will clean empty low container
-	lowContainer := keys.GetContainerAtIndex(highContainerIdx)
+	lowContainer := rs.storeSeriesIDs.GetContainerAtIndex(highContainerIdx)
 	foundSeriesIDs := lowContainer.And(ctx.LowSeriesIDsContainer)
 	if foundSeriesIDs.GetCardinality() == 0 {
 		return nil
 	}
 	// must use lowContainer from store, because get series index based on container
-	return NewTimeSeriesLoader(rs.db, rs.store, ctx.SeriesIDHighKey, rs.fields, *rs.store.slotRange)
+	return NewTimeSeriesLoader(rs.db, rs.timeSeriesIndex, ctx.SeriesIDHighKey, *rs.slotRange, rs.fields)
 }
 
 // Close release the resource during doing query operation.

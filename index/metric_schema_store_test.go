@@ -173,8 +173,8 @@ func TestMetricSchemaStore_Flush_Error(t *testing.T) {
 	sm1 := sm.(*metricSchemaStore)
 
 	cases := []struct {
-		name    string
 		prepare func()
+		name    string
 		wantErr bool
 	}{
 		{
@@ -192,7 +192,8 @@ func TestMetricSchemaStore_Flush_Error(t *testing.T) {
 				newMetricSchemaFlusher = func(_ kv.Flusher) (v1.MetricSchemaFlusher, error) {
 					return flusher, nil
 				}
-				sm1.immutable = imap.NewIntMap[*metric.Schema]()
+				flusher.EXPECT().Write(gomock.Any()).Return(nil)
+				flusher.EXPECT().Commit().Return(nil)
 				flusher.EXPECT().Close().Return(fmt.Errorf("err"))
 			},
 			wantErr: true,
@@ -203,10 +204,6 @@ func TestMetricSchemaStore_Flush_Error(t *testing.T) {
 				newMetricSchemaFlusher = func(_ kv.Flusher) (v1.MetricSchemaFlusher, error) {
 					return flusher, nil
 				}
-				sm1.immutable = imap.NewIntMap[*metric.Schema]()
-				sm1.immutable.Put(10, &metric.Schema{
-					TagKeys: tag.Metas{{Key: "key"}},
-				})
 				flusher.EXPECT().Write(gomock.Any()).Return(fmt.Errorf("err"))
 			},
 			wantErr: true,
@@ -217,10 +214,6 @@ func TestMetricSchemaStore_Flush_Error(t *testing.T) {
 				newMetricSchemaFlusher = func(_ kv.Flusher) (v1.MetricSchemaFlusher, error) {
 					return flusher, nil
 				}
-				sm1.immutable = imap.NewIntMap[*metric.Schema]()
-				sm1.immutable.Put(10, &metric.Schema{
-					TagKeys: tag.Metas{{Key: "key"}},
-				})
 				flusher.EXPECT().Write(gomock.Any()).Return(nil)
 				flusher.EXPECT().Commit().Return(fmt.Errorf("err"))
 			},
@@ -241,12 +234,15 @@ func TestMetricSchemaStore_Flush_Error(t *testing.T) {
 			wantErr: false,
 		},
 	}
-	for i := range cases {
-		tt := cases[i]
+	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				newMetricSchemaFlusher = v1.NewMetricSchemaFlusher
 			}()
+			sm1.immutable = imap.NewIntMap[*metric.Schema]()
+			sm1.immutable.Put(10, &metric.Schema{
+				TagKeys: tag.Metas{{Key: "key"}},
+			})
 			tt.prepare()
 			err := sm.Flush()
 			if (err != nil) != tt.wantErr {

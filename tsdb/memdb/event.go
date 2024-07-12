@@ -17,27 +17,7 @@
 
 package memdb
 
-import (
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/mock/gomock"
-
-	"github.com/lindb/lindb/pkg/timeutil"
-)
-
-func TestTimeSeriesLoader(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	loader := NewTimeSeriesLoader(nil, nil, 0, timeutil.SlotRange{}, nil)
-	assert.NotNil(t, loader)
-
-	tsIndex := NewMockTimeSeriesIndex(ctrl)
-	tsLoader := &timeSeriesLoader{
-		timeSeriesIndex: tsIndex,
-	}
-
-	tsIndex.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
-	tsLoader.Load(nil)
+// FluindexshEvent represents flush metadata/index event.
+type FlushEvent struct {
+	Callback func(err error)
 }

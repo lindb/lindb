@@ -77,7 +77,7 @@ func (r *localReplicator) State() *state {
 	return &state{state: models.ReplicatorReadyState}
 }
 
-// Replica replicas local data,
+// Replica replicas local data into local storage,
 // 1. check replica replica if valid
 // 2. un-compress/unmarshal msg
 // 3. write metric data

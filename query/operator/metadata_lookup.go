@@ -121,6 +121,7 @@ func (op *metadataLookup) buildField() {
 	for fieldID := range op.fields {
 		f := op.fields[fieldID]
 		op.executeCtx.Fields[idx] = field.Meta{
+			// FIXME: need set field index
 			ID:   fieldID,
 			Type: f.DownSampling.GetFieldType(),
 			Name: f.DownSampling.FieldName(),

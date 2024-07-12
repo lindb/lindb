@@ -29,11 +29,13 @@ import (
 
 // Meta is the meta-data for field, which contains field-name, fieldID and field-type
 type Meta struct {
-	ID        ID    `json:"id"`   // query not use id, don't get id in query phase
-	Type      Type  `json:"type"` // query not use type
-	Name      Name  `json:"name"`
-	Index     uint8 // field index under memory database
-	Persisted bool
+	Name Name `json:"name"`
+	Type Type `json:"type"` // query not use type
+	ID   ID   `json:"id"`   // query not use id, don't get id in query phase
+	// write: field index under memory database
+	// read: field index of query fields
+	Index     uint8
+	Persisted bool // FIXME: can remove
 }
 
 // MarshalBinary marshals meta as binary.

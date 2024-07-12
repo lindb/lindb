@@ -23,10 +23,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/lindb/common/constants"
 	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
 
 	"github.com/lindb/lindb/series/field"
 )
+
+var defaultNS = []byte(constants.DefaultNamespace)
 
 // readOnlyRow is an embedded struct used by StorageRow and BrokerRow
 type readOnlyRow struct {
@@ -42,9 +45,17 @@ func (mr *readOnlyRow) Timestamp() int64 { return mr.m.Timestamp() }
 
 func (mr *readOnlyRow) Name() []byte { return mr.m.Name() }
 
-func (mr *readOnlyRow) NameSpace() []byte { return mr.m.Namespace() }
+func (mr *readOnlyRow) NameSpace() []byte {
+	ns := mr.m.Namespace()
+	if len(ns) == 0 {
+		return defaultNS
+	}
+	return ns
+}
 
-func (mr *readOnlyRow) TagsHash() uint64 { return mr.m.Hash() }
+func (mr *readOnlyRow) NameHash() uint64 { return mr.m.NameHash() }
+
+func (mr *readOnlyRow) TagsHash() uint64 { return mr.m.KvsHash() }
 
 func (mr *readOnlyRow) TagsLen() int { return mr.m.KeyValuesLength() }
 
@@ -77,6 +88,8 @@ func (mr *readOnlyRow) NewCompoundFieldIterator() (*CompoundFieldIterator, bool)
 	}
 	return &mr.compoundFieldIterator, true
 }
+
+type TimeSeriesIterator struct{}
 
 type KeyValueIterator struct {
 	m   *flatMetricsV1.Metric
@@ -121,7 +134,9 @@ func (itr *SimpleFieldIterator) Reset() { itr.idx = -1 }
 
 func (itr *SimpleFieldIterator) Len() int { return itr.num }
 
-func (itr *SimpleFieldIterator) NextName() field.Name { return field.Name(itr.f.Name()) }
+func (itr *SimpleFieldIterator) NextName() field.Name {
+	return field.Name(itr.f.Name())
+}
 
 func (itr *SimpleFieldIterator) NextRawName() []byte { return itr.f.Name() }
 

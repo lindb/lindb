@@ -23,19 +23,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/atomic"
-	"go.uber.org/mock/gomock"
-
 	"github.com/lindb/common/pkg/fileutil"
 	"github.com/lindb/common/pkg/ltoml"
 	commontimeutil "github.com/lindb/common/pkg/timeutil"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/atomic"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
+	"github.com/lindb/lindb/tsdb/memdb"
 )
 
 func TestDatabase_New(t *testing.T) {
@@ -52,9 +52,9 @@ func TestDatabase_New(t *testing.T) {
 	shard.EXPECT().notifyLimitsChange().AnyTimes()
 
 	cases := []struct {
-		name    string
 		cfg     *models.DatabaseConfig
 		prepare func()
+		name    string
 		wantErr bool
 	}{
 		{
@@ -167,6 +167,7 @@ func TestDatabase_New(t *testing.T) {
 				assert.Equal(t, &option.DatabaseOption{Intervals: option.Intervals{{Interval: 10}}}, db.GetOption())
 				assert.NotNil(t, db.GetConfig())
 				assert.NotNil(t, db.GetLimits())
+				assert.NotNil(t, db.MemMetaDB())
 				db.SetLimits(models.NewDefaultLimits())
 			}
 		})
@@ -184,13 +185,13 @@ func TestDatabase_CreateShards(t *testing.T) {
 		shardSet: *newShardSet(),
 	}
 	type args struct {
-		option   option.DatabaseOption
 		shardIDs []models.ShardID
+		option   option.DatabaseOption
 	}
 	cases := []struct {
+		prepare func()
 		name    string
 		args    args
-		prepare func()
 		wantErr bool
 	}{
 		{
@@ -200,7 +201,7 @@ func TestDatabase_CreateShards(t *testing.T) {
 		},
 		{
 			name: "create shard err",
-			args: args{option.DatabaseOption{}, []models.ShardID{4, 5, 6}},
+			args: args{option: option.DatabaseOption{}, shardIDs: []models.ShardID{4, 5, 6}},
 			prepare: func() {
 				newShardFunc = func(db Database, shardID models.ShardID) (s Shard, err error) {
 					return nil, fmt.Errorf("err")
@@ -210,7 +211,7 @@ func TestDatabase_CreateShards(t *testing.T) {
 		},
 		{
 			name: "create exist shard",
-			args: args{option.DatabaseOption{}, []models.ShardID{4}},
+			args: args{option: option.DatabaseOption{}, shardIDs: []models.ShardID{4}},
 			prepare: func() {
 				db.shardSet.InsertShard(models.ShardID(4), nil)
 			},
@@ -218,7 +219,7 @@ func TestDatabase_CreateShards(t *testing.T) {
 		},
 		{
 			name: "create shard successfully",
-			args: args{option.DatabaseOption{}, []models.ShardID{5}},
+			args: args{option: option.DatabaseOption{}, shardIDs: []models.ShardID{5}},
 			prepare: func() {
 				newShardFunc = func(db Database, shardID models.ShardID) (s Shard, err error) {
 					return nil, nil
@@ -228,7 +229,7 @@ func TestDatabase_CreateShards(t *testing.T) {
 		},
 		{
 			name: "dump option err",
-			args: args{option.DatabaseOption{}, []models.ShardID{6}},
+			args: args{option: option.DatabaseOption{}, shardIDs: []models.ShardID{6}},
 			prepare: func() {
 				newShardFunc = func(db Database, shardID models.ShardID) (s Shard, err error) {
 					return nil, nil
@@ -272,27 +273,29 @@ func TestDatabase_Close(t *testing.T) {
 		ctrl.Finish()
 	}()
 
+	memMetaDB := memdb.NewMockMetadataDatabase(ctrl)
 	metaDB := index.NewMockMetricMetaDatabase(ctrl)
-	metaDB.EXPECT().Flush().Return(nil).AnyTimes()
-	metaDB.EXPECT().Notify(gomock.Any()).DoAndReturn(func(notifier index.Notifier) {
-		mn := notifier.(*index.FlushNotifier)
+	memMetaDB.EXPECT().Notify(gomock.Any()).DoAndReturn(func(event any) {
+		mn := event.(*memdb.FlushEvent)
 		mn.Callback(nil)
 	}).AnyTimes()
 	store := kv.NewMockStore(ctrl)
 	store.EXPECT().Name().Return("metaStore").AnyTimes()
 	db := &database{
 		metaDB:         metaDB,
+		memMetaDB:      memMetaDB,
 		shardSet:       *newShardSet(),
 		flushCondition: sync.NewCond(&sync.Mutex{}),
 	}
 	cases := []struct {
-		name    string
 		prepare func()
+		name    string
 		wantErr bool
 	}{
 		{
-			name: "close metadata err",
+			name: "close metadata database err",
 			prepare: func() {
+				memMetaDB.EXPECT().Close()
 				metaDB.EXPECT().Close().Return(fmt.Errorf("err"))
 			},
 			wantErr: true,
@@ -304,6 +307,7 @@ func TestDatabase_Close(t *testing.T) {
 				mockShard.EXPECT().FlushIndex().Return(fmt.Errorf("err"))
 				db.shardSet.InsertShard(models.ShardID(1), mockShard)
 				gomock.InOrder(
+					memMetaDB.EXPECT().Close(),
 					metaDB.EXPECT().Close().Return(nil),
 					mockShard.EXPECT().Close().Return(fmt.Errorf("err")),
 				)
@@ -328,16 +332,16 @@ func TestDatabase_FlushMeta(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	metaDB := index.NewMockMetricMetaDatabase(ctrl)
+	metaDB := memdb.NewMockMetadataDatabase(ctrl)
 	db := &database{
-		metaDB:         metaDB,
+		memMetaDB:      metaDB,
 		flushCondition: sync.NewCond(&sync.Mutex{}),
 		isFlushing:     *atomic.NewBool(false),
 		statistics:     metrics.NewDatabaseStatistics("test"),
 	}
 	cases := []struct {
-		name    string
 		prepare func()
+		name    string
 		wantErr bool
 	}{
 		{
@@ -351,8 +355,8 @@ func TestDatabase_FlushMeta(t *testing.T) {
 			name: "flush meta failure",
 			prepare: func() {
 				db.isFlushing.Store(false)
-				metaDB.EXPECT().Notify(gomock.Any()).DoAndReturn(func(notifier index.Notifier) {
-					mn := notifier.(*index.FlushNotifier)
+				metaDB.EXPECT().Notify(gomock.Any()).DoAndReturn(func(event any) {
+					mn := event.(*memdb.FlushEvent)
 					mn.Callback(fmt.Errorf("err"))
 				})
 			},
@@ -362,8 +366,8 @@ func TestDatabase_FlushMeta(t *testing.T) {
 			name: "flush meta successfully",
 			prepare: func() {
 				db.isFlushing.Store(false)
-				metaDB.EXPECT().Notify(gomock.Any()).DoAndReturn(func(notifier index.Notifier) {
-					mn := notifier.(*index.FlushNotifier)
+				metaDB.EXPECT().Notify(gomock.Any()).DoAndReturn(func(event any) {
+					mn := event.(*memdb.FlushEvent)
 					mn.Callback(nil)
 				})
 			},
@@ -434,17 +438,17 @@ func TestDatabase_WaitFlushMetaCompleted(t *testing.T) {
 	defer ctrl.Finish()
 
 	now := commontimeutil.Now()
-	metaDB := index.NewMockMetricMetaDatabase(ctrl)
+	metaDB := memdb.NewMockMetadataDatabase(ctrl)
 	db := &database{
-		metaDB:         metaDB,
+		memMetaDB:      metaDB,
 		isFlushing:     *atomic.NewBool(false),
 		flushCondition: sync.NewCond(&sync.Mutex{}),
 		statistics:     metrics.NewDatabaseStatistics("test"),
 	}
 
-	metaDB.EXPECT().Notify(gomock.Any()).DoAndReturn(func(notifier index.Notifier) {
+	metaDB.EXPECT().Notify(gomock.Any()).DoAndReturn(func(event any) {
 		time.Sleep(100 * time.Millisecond)
-		mn := notifier.(*index.FlushNotifier)
+		mn := event.(*memdb.FlushEvent)
 		mn.Callback(nil)
 	})
 	var wait sync.WaitGroup
@@ -475,33 +479,35 @@ func TestDatabase_Drop(t *testing.T) {
 		removeDir = fileutil.RemoveDir
 		ctrl.Finish()
 	}()
-	metaDB := index.NewMockMetricMetaDatabase(ctrl)
+	metaDB := memdb.NewMockMetadataDatabase(ctrl)
+	mDB := index.NewMockMetricMetaDatabase(ctrl)
 	db := &database{
-		metaDB:         metaDB,
+		memMetaDB:      metaDB,
+		metaDB:         mDB,
 		shardSet:       *newShardSet(),
 		isFlushing:     *atomic.NewBool(false),
 		flushCondition: sync.NewCond(&sync.Mutex{}),
 		statistics:     metrics.NewDatabaseStatistics("test-drop"),
 	}
 	// flush error
-	metaDB.EXPECT().Notify(gomock.Any()).DoAndReturn(func(notifier index.Notifier) {
-		mn := notifier.(*index.FlushNotifier)
+	metaDB.EXPECT().Notify(gomock.Any()).DoAndReturn(func(event any) {
+		mn := event.(*memdb.FlushEvent)
 		mn.Callback(fmt.Errorf("err"))
 	})
 	assert.Error(t, db.Drop())
 	removeDir = func(path string) error {
 		return fmt.Errorf("err")
 	}
-	metaDB.EXPECT().Notify(gomock.Any()).DoAndReturn(func(notifier index.Notifier) {
-		mn := notifier.(*index.FlushNotifier)
+	metaDB.EXPECT().Notify(gomock.Any()).DoAndReturn(func(event any) {
+		mn := event.(*memdb.FlushEvent)
 		mn.Callback(nil)
-	}).AnyTimes()
-	metaDB.EXPECT().Close().Return(nil)
+	}).MaxTimes(2)
+	mDB.EXPECT().Close().Return(nil).MaxTimes(2)
+	metaDB.EXPECT().Close().MaxTimes(2)
 	assert.Error(t, db.Drop())
 	removeDir = func(path string) error {
 		return nil
 	}
-	metaDB.EXPECT().Close().Return(nil)
 	assert.NoError(t, db.Drop())
 }
 
@@ -600,9 +606,7 @@ func Benchmark_MapWithoutLock(b *testing.B) {
 	})
 }
 
-var (
-	boundaryShardSetLen = 20
-)
+var boundaryShardSetLen = 20
 
 func Benchmark_ShardSet_iterating(b *testing.B) {
 	set := newShardSet()

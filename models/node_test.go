@@ -20,13 +20,13 @@ package models
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/lindb/common/pkg/timeutil"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNode_Indicator(t *testing.T) {
 	node := &StatelessNode{HostIP: "1.1.1.1", HTTPPort: 19000}
+	node.Online()
 	assert.Equal(t, "1.1.1.1:19000", node.Indicator())
 	node = &StatelessNode{HostIP: "1.1.1.1", GRPCPort: 19000}
 	indicator := node.Indicator()

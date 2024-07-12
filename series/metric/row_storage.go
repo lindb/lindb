@@ -18,55 +18,51 @@
 package metric
 
 import (
-	"github.com/cespare/xxhash/v2"
+	"sync"
+
 	flatbuffers "github.com/google/flatbuffers/go"
-	commonconstants "github.com/lindb/common/constants"
 
 	"github.com/lindb/lindb/series/field"
 )
 
 // StorageRow represents a metric row with meta information and fields.
 type StorageRow struct {
-	MetricID  ID
-	SeriesID  uint32
-	SlotIndex uint16
-	FieldIDs  []field.ID
-
-	Fields int
-
+	Fields field.Metas
 	readOnlyRow
+	ref           sync.WaitGroup
+	WrittenFields float64
+	MemSeriesID   uint32
 }
 
 // Unmarshal unmarshalls bytes slice into a metric-row without metric context
 func (mr *StorageRow) Unmarshal(data []byte) {
 	mr.m.Init(data, flatbuffers.GetUOffsetT(data))
-	mr.MetricID = 0
-	mr.SeriesID = 0
-	mr.SlotIndex = 0
-	mr.FieldIDs = mr.FieldIDs[:0]
+	mr.MemSeriesID = 0
+	mr.WrittenFields = 0
+	mr.Fields = mr.Fields[:0] // reset fields
+
+	// 1. metric meta(ns/name/fields), 2. time series inverted index
+	mr.ref.Add(2)
 }
 
-// NamespaceStr returns namespace string value.
-func (mr *StorageRow) NamespaceStr() string {
-	namespace := commonconstants.DefaultNamespace
-	if len(mr.NameSpace()) > 0 {
-		namespace = string(mr.NameSpace())
-	}
-	return namespace
+// Add adds ref count(just for testing).
+func (mr *StorageRow) Add(i int) {
+	mr.ref.Add(i)
 }
 
-// NameHash returns the hash code of namespace + metric name.
-func (mr *StorageRow) NameHash() uint64 {
-	namespace := mr.NamespaceStr()
-	metricName := string(mr.Name())
-	return xxhash.Sum64String(namespace + metricName)
+func (mr *StorageRow) Done() {
+	mr.ref.Done()
+}
+
+func (mr *StorageRow) Wait() {
+	mr.ref.Wait()
 }
 
 // StorageBatchRows holds multi rows for inserting into memdb
 // It is reused in sync.Pool
 type StorageBatchRows struct {
+	rows        []*StorageRow
 	appendIndex int
-	rows        []StorageRow
 }
 
 // NewStorageBatchRows returns write-context for batch writing.
@@ -92,7 +88,7 @@ func (br *StorageBatchRows) append(data []byte) {
 		br.rows[br.appendIndex].Unmarshal(data)
 		return
 	}
-	var sr StorageRow
+	sr := &StorageRow{}
 	sr.Unmarshal(data)
 	br.rows = append(br.rows, sr)
 }
@@ -105,4 +101,4 @@ func (br *StorageBatchRows) Less(i, j int) bool {
 
 func (br *StorageBatchRows) Swap(i, j int) { br.rows[i], br.rows[j] = br.rows[j], br.rows[i] }
 
-func (br *StorageBatchRows) Rows() []StorageRow { return br.rows[:br.Len()] }
+func (br *StorageBatchRows) Rows() []*StorageRow { return br.rows[:br.Len()] }

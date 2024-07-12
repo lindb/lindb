@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/jedib0t/go-pretty/v6/table"
-
 	"github.com/lindb/common/models"
 	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/timeutil"
@@ -169,10 +168,10 @@ func (r ReplicaState) String() string {
 
 // ShardState represents current state of shard.
 type ShardState struct {
+	Replica Replica        `json:"replica"`
 	ID      ShardID        `json:"id"`
 	State   ShardStateType `json:"state"`
 	Leader  NodeID         `json:"leader"`
-	Replica Replica        `json:"replica"`
 }
 
 // FamilyState represents current state of shard's family.
@@ -185,9 +184,8 @@ type FamilyState struct {
 // BrokerState represents broker cluster state.
 // NOTICE: it is not safe for concurrent use.
 type BrokerState struct {
-	Name string `json:"name"` // ref Namespace
-
 	LiveNodes map[string]StatelessNode `json:"liveNodes"`
+	Name      string                   `json:"name"`
 }
 
 func NewBrokerState(name string) *BrokerState {
@@ -285,8 +283,8 @@ func (s *StorageState) String() string {
 
 // StateMachineInfo represents state machine register info.
 type StateMachineInfo struct {
-	Path        string             `json:"path"`
 	CreateState func() interface{} `json:"-"`
+	Path        string             `json:"path"`
 }
 
 // StateMetric represents internal state metric.
@@ -304,18 +302,17 @@ type StateField struct {
 
 // DataFamilyState represents the state of data family.
 type DataFamilyState struct {
-	ShardID          ShardID               `json:"shardId"`
-	FamilyTime       string                `json:"familyTime"`
 	AckSequences     map[int32]int64       `json:"ackSequences"`
 	ReplicaSequences map[int32]int64       `json:"replicaSequences"`
+	FamilyTime       string                `json:"familyTime"`
 	MemoryDatabases  []MemoryDatabaseState `json:"memoryDatabases"`
+	ShardID          ShardID               `json:"shardId"`
 }
 
 // MemoryDatabaseState represents the state of memory database.
 type MemoryDatabaseState struct {
-	State        string        `json:"state"`
-	Uptime       time.Duration `json:"uptime"`
-	MemSize      int64         `json:"memSize"`
-	NumOfMetrics int           `json:"numOfMetrics"`
-	NumOfSeries  int           `json:"numOfSeries"`
+	State       string        `json:"state"`
+	Uptime      time.Duration `json:"uptime"`
+	MemSize     int64         `json:"memSize"`
+	NumOfSeries int           `json:"numOfSeries"`
 }

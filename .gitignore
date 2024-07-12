@@ -40,9 +40,10 @@ docker/storage*/
 default.etcd
 web/node_modules/
 web/build/*
-web/static/*
-web/yarn-error.log
+web/static/* web/yarn-error.log
 web/package-lock.json
+web/.yarn
+web/.yarnrc.yml
 
 # Test binary, built with `go test -c`
 *.test
@@ -51,6 +52,8 @@ web/package-lock.json
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 *.cov
+*.tmp
+coverage.html
 
 /data
 

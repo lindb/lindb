@@ -153,7 +153,7 @@ func TestWriteSumMetric_7Days(b *testing.T) {
 func write(timestamp int64, cli *resty.Client) {
 	for i := 0; i < 40; i++ {
 		var buf bytes.Buffer
-		for j := 0; j < 20; j++ {
+		for j := 0; j < 200; j++ {
 			for k := 0; k < 400; k++ {
 				var brokerRow metric.BrokerRow
 				converter := metric.NewProtoConverter(models.NewDefaultLimits())
