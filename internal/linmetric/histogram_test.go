@@ -18,6 +18,7 @@
 package linmetric
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -51,7 +52,12 @@ func Test_Histogram(t *testing.T) {
 			dh.UpdateSince(time.Now().Add(time.Second))      // drop
 			dh.UpdateSince(time.Now().Add(-1 * time.Second)) // bucket0
 		})
-	assert.InDeltaSlice(t, []float64{100, 100, 300, 200, 300}, dh.bkts.values, 0.01)
+	fmt.Println(dh.bkts.values)
+	var values []int
+	for _, v := range dh.bkts.values {
+		values = append(values, int(v))
+	}
+	assert.Equal(t, []int{100, 100, 300, 200, 300}, values)
 }
 
 func concurrentDo(f func()) {
