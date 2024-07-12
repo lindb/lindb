@@ -18,5 +18,6 @@ coverage:
 # which folders/files to ignore
 ignore:
   - "web"         # ignore web folders
+  - "proto"         # ignore web folders
   - "mock"        # ignore mock folders
   - "sql/grammar" # ignore sql grammar generate files
