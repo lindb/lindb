@@ -31,11 +31,11 @@ import (
 // however, you can also specify your own buckets.
 // Prometheus Histogram's buckets are cumulative where values in each buckets is cumulative,
 type BoundHistogram struct {
-	mu             sync.Mutex
 	bkts           *histogramBuckets
 	lastValues     []float64
 	lastTotalCount float64
 	lastTotalSum   float64
+	mu             sync.Mutex
 }
 
 func NewHistogram() *BoundHistogram {
