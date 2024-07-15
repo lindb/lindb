@@ -22,14 +22,12 @@ const blockSize = 8
 // FloatArray encapsulates methods for using the float array
 // support mark pos if it has value
 type FloatArray struct {
+	it       *FloatArrayIterator
 	marks    []uint8
 	values   []float64
-	isSingle bool
-
 	capacity int
 	size     int
-
-	it *FloatArrayIterator
+	isSingle bool
 }
 
 // NewFloatArray creates a float array with a certain capacity
@@ -141,12 +139,11 @@ func (f *FloatArray) IsSingle() bool {
 
 // FloatArrayIterator represents a float array iterator
 type FloatArrayIterator struct {
-	fa  *FloatArray
-	idx int
-
+	fa       *FloatArray
+	marks    []uint8
+	idx      int
 	count    int
 	hasValue bool
-	marks    []uint8
 	mark     uint8
 }
 

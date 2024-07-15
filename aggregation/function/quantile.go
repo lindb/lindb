@@ -19,16 +19,15 @@ package function
 
 import (
 	"fmt"
-	"math"
 	"sort"
 
 	"github.com/lindb/lindb/pkg/collections"
 )
 
 type bucket struct {
+	value      *collections.FloatArray
 	upperBound float64
 	count      float64
-	itr        *collections.FloatArrayIterator
 }
 
 type buckets []bucket
@@ -60,46 +59,38 @@ func QuantileCall(q float64, histogramFields map[float64][]*collections.FloatArr
 	if q < 0 || q > 1 {
 		return nil, fmt.Errorf("QuantileCall with illegal value: %f", q)
 	}
-	var histogramBuckets = make(buckets, len(histogramFields))
-
-	var idx = 0
+	var histogramBuckets buckets
 	for upperBound, arrays := range histogramFields {
-		if len(arrays) != 1 {
-			return nil, fmt.Errorf("QuantileCall buckets's floatArray count: %d not equals 1", len(arrays))
+		if len(arrays) >= 1 {
+			histogramBuckets = append(histogramBuckets, bucket{upperBound: upperBound, value: arrays[0]})
 		}
-		histogramBuckets[idx] = bucket{upperBound: upperBound, itr: arrays[0].NewIterator()}
-		idx++
 	}
 	sort.Sort(histogramBuckets)
 
-	if len(histogramBuckets) < 2 {
-		return nil, fmt.Errorf("QuantileCall with buckets count: %d less than 2", len(histogramBuckets))
-	}
-	if !math.IsInf(histogramBuckets[len(histogramBuckets)-1].upperBound, +1) {
-		return nil, fmt.Errorf("QuantileCall's largest upper bound is not +Inf")
-	}
 	capacity := histogramFields[histogramBuckets[0].upperBound][0].Capacity()
 	targetFloatArray := collections.NewFloatArray(capacity)
-
-	itr := histogramBuckets[0].itr
-	for itr.HasNext() {
-		pos, v := itr.Next()
-		histogramBuckets[0].count = v
-
-		for bucketIdx := 1; bucketIdx < len(histogramBuckets); bucketIdx++ {
-			if !histogramBuckets[bucketIdx].itr.HasNext() {
-				return nil, fmt.Errorf("QuantileCall floatArray length")
+	for pos := 0; pos < capacity; pos++ {
+		for bucketIdx := 0; bucketIdx < len(histogramBuckets); bucketIdx++ {
+			if histogramBuckets[bucketIdx].value.HasValue(pos) {
+				v := histogramBuckets[bucketIdx].value.GetValue(pos)
+				histogramBuckets[bucketIdx].count = v
+			} else {
+				histogramBuckets[bucketIdx].count = 0
 			}
-			_, v := histogramBuckets[bucketIdx].itr.Next()
-			histogramBuckets[bucketIdx].count = v
 		}
 		histogramBuckets.EnsureCountFieldCumulative()
 
-		observations := histogramBuckets[len(histogramFields)-1].count
+		// last bucket count = total
+		observations := histogramBuckets[len(histogramBuckets)-1].count
 		if observations == 0 {
 			targetFloatArray.SetValue(pos, 0)
 			continue
 		}
+		if len(histogramBuckets) == 1 {
+			targetFloatArray.SetValue(pos, histogramBuckets[0].upperBound)
+			continue
+		}
+
 		rank := q * observations
 		b := sort.Search(len(histogramBuckets)-1, func(i int) bool { return histogramBuckets[i].count >= rank })
 		if b == len(histogramBuckets)-1 {

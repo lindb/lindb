@@ -18,7 +18,6 @@
 package memdb
 
 import (
-	"fmt"
 	"io"
 	"math"
 	"sync"
@@ -169,7 +168,6 @@ func (md *memoryDatabase) WithLock() (release func()) {
 
 func (md *memoryDatabase) WriteRow(row *metric.StorageRow) error {
 	var (
-		err         error
 		isNewSeries bool
 		memSeriesID uint32 // unique id under memory database
 	)
@@ -207,53 +205,57 @@ func (md *memoryDatabase) WriteRow(row *metric.StorageRow) error {
 
 	simpleFieldItr := row.NewSimpleFieldIterator()
 	for simpleFieldItr.HasNext() {
-		err = md.writeLinField(
+		if err := md.writeLinField(
 			mStore, memSeriesID, row,
 			slotIndex,
 			simpleFieldItr.NextName(),
 			simpleFieldItr.NextType(),
 			simpleFieldItr.NextValue(),
-		)
-		if err != nil {
+		); err != nil {
 			return err
 		}
 	}
+
+	// write compound fields
+	if err := md.writeCompoundField(row, mStore, memSeriesID, slotIndex); err != nil {
+		return err
+	}
+
+	timeSeriesIndex.StoreTimeRange(md.createdTime, slotIndex)
+	md.timeSeriesIDs.Add(memSeriesID)
+	return nil
+}
+
+func (md *memoryDatabase) writeCompoundField(row *metric.StorageRow,
+	mStore mStoreINTF, memSeriesID uint32, slotIndex uint16,
+) error {
 	compoundFieldItr, ok := row.NewCompoundFieldIterator()
-
 	if !ok {
-		goto End
+		return nil
 	}
-
 	// write histogram_min
-	if compoundFieldItr.Min() > 0 {
-		err = md.writeLinField(
-			mStore, memSeriesID, row, slotIndex, compoundFieldItr.HistogramMinFieldName(),
-			field.MinField, compoundFieldItr.Min())
-		if err != nil {
-			return err
-		}
+	if err := md.writeLinField(
+		mStore, memSeriesID, row, slotIndex, compoundFieldItr.HistogramMinFieldName(),
+		field.MinField, compoundFieldItr.Min()); err != nil {
+		return err
 	}
 	// write histogram_max
-	if compoundFieldItr.Max() > 0 {
-		err = md.writeLinField(
-			mStore, memSeriesID, row, slotIndex, compoundFieldItr.HistogramMaxFieldName(),
-			field.MaxField, compoundFieldItr.Max())
-		if err != nil {
-			return err
-		}
+	if err := md.writeLinField(
+		mStore, memSeriesID, row, slotIndex, compoundFieldItr.HistogramMaxFieldName(),
+		field.MaxField, compoundFieldItr.Max()); err != nil {
+		return err
 	}
+	sum := compoundFieldItr.Sum()
 	// write histogram_sum
-	err = md.writeLinField(
+	if err := md.writeLinField(
 		mStore, memSeriesID, row, slotIndex, compoundFieldItr.HistogramSumFieldName(),
-		field.SumField, compoundFieldItr.Sum())
-	if err != nil {
+		field.SumField, sum); err != nil {
 		return err
 	}
 	// write histogram_count
-	err = md.writeLinField(
+	if err := md.writeLinField(
 		mStore, memSeriesID, row, slotIndex, compoundFieldItr.HistogramCountFieldName(),
-		field.SumField, compoundFieldItr.Count())
-	if err != nil {
+		field.SumField, compoundFieldItr.Count()); err != nil {
 		return err
 	}
 
@@ -261,17 +263,15 @@ func (md *memoryDatabase) WriteRow(row *metric.StorageRow) error {
 	// assume that length of ExplicitBounds equals to Values
 	// data must be valid before write
 	for compoundFieldItr.HasNextBucket() {
-		err = md.writeLinField(
-			mStore, memSeriesID, row, slotIndex, compoundFieldItr.BucketName(),
-			field.HistogramField, compoundFieldItr.NextValue())
-		if err != nil {
-			return err
+		bucketValue := compoundFieldItr.NextValue()
+		if bucketValue > 0 {
+			if err := md.writeLinField(
+				mStore, memSeriesID, row, slotIndex, compoundFieldItr.BucketName(),
+				field.HistogramField, bucketValue); err != nil {
+				return err
+			}
 		}
 	}
-
-End:
-	timeSeriesIndex.StoreTimeRange(md.createdTime, slotIndex)
-	md.timeSeriesIDs.Add(memSeriesID)
 	return nil
 }
 
@@ -378,7 +378,6 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher) error {
 		for idx := range allFields {
 			f := allFields[idx]
 			buf, ok := md.fieldWriteStores.Load(f.Index)
-			fmt.Println(ok)
 			if ok {
 				buffer := buf.(DataPointBuffer)
 				buffers = append(buffers, buffer)

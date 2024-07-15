@@ -355,19 +355,19 @@ func TestMemoryDatabase_Write_Error(t *testing.T) {
 	// write histogram min error
 	buf.EXPECT().GetOrCreatePage(gomock.Any()).Return(nil, fmt.Errorf("err"))
 	assert.Error(t, db.WriteRow(protoToStorageRow(m)))
-	m.CompoundField.Min = 0
 	// write histogram max error
-	buf.EXPECT().GetOrCreatePage(gomock.Any()).Return(nil, fmt.Errorf("err"))
-	assert.Error(t, db.WriteRow(protoToStorageRow(m)))
-	m.CompoundField.Max = 0
-	// write histogram sum error
-	buf.EXPECT().GetOrCreatePage(gomock.Any()).Return(nil, fmt.Errorf("err"))
-	assert.Error(t, db.WriteRow(protoToStorageRow(m)))
-	// write histogram count error
 	buf.EXPECT().GetOrCreatePage(gomock.Any()).Return(make([]byte, 128), nil)
 	buf.EXPECT().GetOrCreatePage(gomock.Any()).Return(nil, fmt.Errorf("err"))
 	assert.Error(t, db.WriteRow(protoToStorageRow(m)))
+	// write histogram sum error
 	buf.EXPECT().GetOrCreatePage(gomock.Any()).Return(make([]byte, 128), nil).MaxTimes(2)
+	buf.EXPECT().GetOrCreatePage(gomock.Any()).Return(nil, fmt.Errorf("err"))
+	assert.Error(t, db.WriteRow(protoToStorageRow(m)))
+	// write histogram count error
+	buf.EXPECT().GetOrCreatePage(gomock.Any()).Return(make([]byte, 128), nil).MaxTimes(3)
+	buf.EXPECT().GetOrCreatePage(gomock.Any()).Return(nil, fmt.Errorf("err"))
+	assert.Error(t, db.WriteRow(protoToStorageRow(m)))
+	buf.EXPECT().GetOrCreatePage(gomock.Any()).Return(make([]byte, 128), nil).MaxTimes(4)
 	buf.EXPECT().GetOrCreatePage(gomock.Any()).Return(nil, fmt.Errorf("err"))
 	assert.Error(t, db.WriteRow(protoToStorageRow(m)))
 }
