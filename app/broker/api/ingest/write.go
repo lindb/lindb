@@ -21,12 +21,11 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-http-utils/headers"
-
 	commonconstants "github.com/lindb/common/constants"
-
 	"github.com/lindb/common/pkg/http"
 
 	depspkg "github.com/lindb/lindb/app/broker/deps"
@@ -40,10 +39,8 @@ import (
 	"github.com/lindb/lindb/series/metric"
 )
 
-var (
-	// WritePath represents write http api router path.
-	WritePath = "/write"
-)
+// WritePath represents write http api router path.
+var WritePath = "/write"
 
 // Write represents write api that processes flat/proto/influx protocol data.
 type Write struct {
@@ -133,6 +130,7 @@ func (w *Write) write(c *gin.Context) (err error) {
 		return err
 	}
 
+	now := time.Now()
 	limits := w.deps.StateMgr.GetDatabaseLimits(param.Database)
 	for _, tag := range enrichedTags {
 		if limits.EnableTagNameLengthCheck() && len(tag.Key) > limits.MaxTagNameLength {
@@ -147,12 +145,16 @@ func (w *Write) write(c *gin.Context) (err error) {
 	}
 	contentType := strings.ToLower(strings.Trim(c.Request.Header.Get(headers.ContentType), " "))
 	var rows *metric.BrokerBatchRows
+	var writeType string
 	switch {
 	case strings.HasPrefix(contentType, constants.ContentTypeFlat):
 		rows, err = flat.Parse(c.Request, enrichedTags, param.Namespace, limits)
+		writeType = "flat"
 	case strings.HasPrefix(contentType, constants.ContentTypeInflux):
 		rows, err = influx.Parse(c.Request, enrichedTags, param.Namespace, limits)
+		writeType = "influx"
 	case strings.HasPrefix(contentType, constants.ContentTypeProto):
+		writeType = "proto"
 		rows, err = proto.Parse(c.Request, enrichedTags, param.Namespace, limits)
 	default:
 		err = fmt.Errorf("not support content type: %s, only support %s/%s/%s", contentType,
@@ -161,6 +163,16 @@ func (w *Write) write(c *gin.Context) (err error) {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		switch writeType {
+		case "flat":
+			w.statistics.flat.UpdateSince(now)
+		case "influx":
+			w.statistics.influx.UpdateSince(now)
+		case "proto":
+			w.statistics.proto.UpdateSince(now)
+		}
+	}()
 	if err := w.deps.CM.Write(ctx, param.Database, rows); err != nil {
 		return err
 	}

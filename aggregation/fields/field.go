@@ -42,12 +42,12 @@ type Field interface {
 
 // dynamicField represents the dynamic field for storing multi-agg types.
 type dynamicField struct {
+	fields map[field.AggType]*collections.FloatArray
+
 	fieldType field.Type
 	startTime int64
 	interval  int64
 	capacity  int
-
-	fields map[field.AggType]*collections.FloatArray
 }
 
 // NewDynamicField creates a dynamic field series.

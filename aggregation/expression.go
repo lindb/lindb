@@ -20,6 +20,8 @@ package aggregation
 import (
 	"strconv"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/aggregation/fields"
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/pkg/collections"
@@ -31,6 +33,8 @@ import (
 )
 
 //go:generate mockgen -source=./expression.go -destination=./expression_mock.go -package=aggregation
+
+var log = logger.GetLogger("Aggregation", "Expression")
 
 // Expression represents Expression eval like math calc, function call etc.
 // 1. prepare field store based on time series iterator
@@ -174,6 +178,7 @@ func (e *expression) quantile(expr *stmt.CallExpr) []*collections.FloatArray {
 	}
 	array, err := function.QuantileCall(quantileValue, histogramFields)
 	if err != nil {
+		log.Warn("histogram quantile call error", logger.Error(err))
 		return nil
 	}
 	return []*collections.FloatArray{array}
