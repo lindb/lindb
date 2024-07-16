@@ -121,7 +121,6 @@ func (op *metadataLookup) buildField() {
 	for fieldID := range op.fields {
 		f := op.fields[fieldID]
 		op.executeCtx.Fields[idx] = field.Meta{
-			// FIXME: need set field index
 			ID:   fieldID,
 			Type: f.DownSampling.GetFieldType(),
 			Name: f.DownSampling.FieldName(),
@@ -135,6 +134,7 @@ func (op *metadataLookup) buildField() {
 	op.executeCtx.AggregatorSpecs = make(aggregation.AggregatorSpecs, lengthOfFields)
 	for fieldIdx, fieldMeta := range op.executeCtx.Fields {
 		f := op.fields[fieldMeta.ID]
+		op.executeCtx.Fields[fieldIdx].Index = uint8(fieldIdx) // NOTE: read field index for memory data read
 		op.executeCtx.DownSamplingSpecs[fieldIdx] = f.DownSampling
 		op.executeCtx.AggregatorSpecs[fieldIdx] = f.Aggregator
 	}

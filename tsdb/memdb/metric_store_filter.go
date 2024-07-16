@@ -19,6 +19,7 @@ package memdb
 
 import (
 	"fmt"
+	"sort"
 
 	commontimeutil "github.com/lindb/common/pkg/timeutil"
 	"github.com/lindb/roaring"
@@ -79,7 +80,9 @@ func (md *memoryDatabase) filter(shardExecuteContext *flow.ShardExecuteContext,
 		// metric meta not found
 		return nil, nil
 	}
-	fields := shardExecuteContext.StorageExecuteCtx.Fields
+	fields := shardExecuteContext.StorageExecuteCtx.Fields.Clone()
+	// NOTE: must re-stort by field name, if not cannot find field from query fields
+	sort.Sort(fields)
 	// first need check query's fields is match store's fields, if not return.
 	foundFields := mStore.FindFields(fields)
 	if len(foundFields) == 0 {
@@ -91,7 +94,6 @@ func (md *memoryDatabase) filter(shardExecuteContext *flow.ShardExecuteContext,
 	for _, fm := range foundFields {
 		fStore, ok := md.fieldWriteStores.Load(fm.Index)
 		fcStore, fcOK := md.fieldCompressStore.Load(fm.Index)
-
 		if ok || fcOK {
 			queryField, _ := fields.GetFromName(fm.Name)
 			fieldEntry := &fieldEntry{

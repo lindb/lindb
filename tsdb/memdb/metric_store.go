@@ -32,6 +32,7 @@ import (
 type mStoreINTF interface {
 	// GenField generates field meta under memory database.
 	GenField(fieldName field.Name, fieldType field.Type) (f field.Meta, created bool)
+	// GetFields returns all field metas.
 	GetFields() field.Metas
 	// UpdateFieldMeta updates field meta after metric meta updated.
 	UpdateFieldMeta(fieldID field.ID, fm field.Meta)
@@ -54,6 +55,7 @@ func newMetricStore() mStoreINTF {
 	return &ms
 }
 
+// GetFields returns all field metas.
 func (ms *metricStore) GetFields() field.Metas {
 	ms.lock.RLock()
 	defer ms.lock.RUnlock()
@@ -82,7 +84,7 @@ func (ms *metricStore) GenField(name field.Name, fType field.Type) (f field.Meta
 	}
 	fields = append(fields, fm)
 	// sort by field name
-	sort.Slice(fields, func(i, j int) bool { return fields[i].Name < fields[j].Name })
+	sort.Sort(fields)
 	ms.fields.Store(fields)
 	return fm, true
 }
