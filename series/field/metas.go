@@ -112,7 +112,8 @@ func (fms Metas) Find(fieldName Name) (Meta, bool) {
 	return Meta{}, false
 }
 
-// GetFromName searches the meta by fieldName, return false when not exist
+// GetFromName searches the meta by fieldName, return false when not exist.
+// NOTE: Metas must be sorted.
 func (fms Metas) GetFromName(fieldName Name) (Meta, bool) {
 	idx := sort.Search(len(fms), func(i int) bool { return fms[i].Name >= fieldName })
 	if idx >= len(fms) || fms[idx].Name != fieldName {

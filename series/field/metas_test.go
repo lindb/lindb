@@ -19,6 +19,7 @@ package field
 
 import (
 	"bytes"
+	"fmt"
 	"sort"
 	"strconv"
 	"testing"
@@ -29,7 +30,7 @@ import (
 )
 
 func Test_Metas(t *testing.T) {
-	var metas = Metas{}
+	metas := Metas{}
 	ids := make(map[uint16]struct{})
 	for i := uint16(0); i < 230; i++ {
 		ids[i] = struct{}{}
@@ -116,4 +117,18 @@ func TestMeta_Write_Error(t *testing.T) {
 	assert.Error(t, m.Write(mock.NewWriter(1)))
 	assert.Error(t, m.Write(mock.NewWriter(2)))
 	assert.Error(t, m.Write(mock.NewWriter(3)))
+}
+
+func TestMetas_Find(t *testing.T) {
+	fields := Metas{
+		{Name: "HistogramSum"},
+		{Name: "HistogramMin"},
+		{Name: "HistogramMax"},
+		{Name: "HistogramCount"},
+	}
+	sort.Sort(fields)
+	fmt.Println(fields)
+	f, ok := fields.Find("HistogramMax")
+	assert.True(t, ok)
+	assert.Equal(t, Name("HistogramMax"), f.Name)
 }
