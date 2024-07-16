@@ -377,6 +377,10 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher) error {
 		allFields := mStore.GetFields()
 		for idx := range allFields {
 			f := allFields[idx]
+			if !f.Persisted {
+				// ignore if field meta not persist
+				continue
+			}
 			buf, ok := md.fieldWriteStores.Load(f.Index)
 			if ok {
 				buffer := buf.(DataPointBuffer)

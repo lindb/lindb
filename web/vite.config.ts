@@ -17,7 +17,7 @@ under the License.
 */
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-const path = require("path");
+import path from "path";
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -41,5 +41,8 @@ export default defineConfig({
   },
   build: {
     outDir: "build",
+    rollupOptions: {
+      external: ["#minpath", "#minproc", "#minurl"],
+    },
   },
 });

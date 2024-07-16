@@ -18,10 +18,7 @@
 package memdb
 
 import (
-	"sort"
 	"sync"
-
-	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/series/field"
 )
@@ -42,76 +39,77 @@ type mStoreINTF interface {
 
 // metricStore represents metric level storage, stores all series data, and fields/family times metadata
 type metricStore struct {
-	fields atomic.Value // field metadata(field.Metas)
+	fields sync.Map // field metadata(field.Metas)
 
-	lock sync.RWMutex
+	fieldCount int
+	lock       sync.RWMutex
 }
 
 // newMetricStore returns a new mStoreINTF.
 func newMetricStore() mStoreINTF {
 	var ms metricStore
-	// init field metas
-	ms.fields.Store(field.Metas{})
 	return &ms
 }
 
 // GetFields returns all field metas.
-func (ms *metricStore) GetFields() field.Metas {
-	ms.lock.RLock()
-	defer ms.lock.RUnlock()
-
-	mFields := ms.fields.Load().(field.Metas)
-	return mFields.Clone()
+func (ms *metricStore) GetFields() (fields field.Metas) {
+	ms.fields.Range(func(key, value any) bool {
+		fields = append(fields, value.(field.Meta))
+		return true
+	})
+	return fields
 }
 
 // GenField generates field meta under memory database.
 func (ms *metricStore) GenField(name field.Name, fType field.Type) (f field.Meta, created bool) {
+	fm, ok := ms.fields.Load(name)
+	if ok {
+		return fm.(field.Meta), false
+	}
+
 	ms.lock.Lock()
 	defer ms.lock.Unlock()
 
-	// TODO: use sync.Map?
-	fields := ms.fields.Load().(field.Metas)
-	fm, ok := fields.GetFromName(name)
+	return ms.genField(name, fType)
+}
+
+func (ms *metricStore) genField(name field.Name, fType field.Type) (f field.Meta, created bool) {
+	fm, ok := ms.fields.Load(name)
 	if ok {
-		return fm, false
+		return fm.(field.Meta), false
 	}
 
-	index := uint8(len(fields))
-	fm = field.Meta{
+	index := uint8(ms.fieldCount)
+	f = field.Meta{
 		Type:  fType,
 		Name:  name, // TODO: check name
 		Index: index,
 	}
-	fields = append(fields, fm)
-	// sort by field name
-	sort.Sort(fields)
-	ms.fields.Store(fields)
-	return fm, true
+	ms.fieldCount++
+	ms.fields.Store(name, f)
+	return f, true
 }
 
 // UpdateFieldMeta updates field meta after metric meta updated.
 func (ms *metricStore) UpdateFieldMeta(fieldID field.ID, fm field.Meta) {
-	ms.lock.Lock()
-	defer ms.lock.Unlock()
-
-	fields := ms.fields.Load().(field.Metas)
-
-	idx, ok := fields.FindIndexByName(fm.Name)
+	f, ok := ms.fields.Load(fm.Name)
 	if ok {
-		fields[idx].ID = fieldID
-		fields[idx].Persisted = true
-	}
+		ms.lock.Lock()
+		defer ms.lock.Unlock()
 
-	ms.fields.Store(fields)
+		fm := f.(field.Meta)
+		fm.ID = fieldID
+		fm.Persisted = true
+		ms.fields.Store(fm.Name, fm)
+	}
 }
 
 // FindFields returns fields from store based on current written fields.
 func (ms *metricStore) FindFields(fields field.Metas) (found field.Metas) {
-	mFields := ms.fields.Load().(field.Metas)
 	for _, f := range fields {
-		fm, ok := mFields.Find(f.Name)
+		fm, ok := ms.fields.Load(f.Name)
 		if ok {
-			found = append(found, fm)
+			found = append(found, fm.(field.Meta))
 		}
 	}
 	return
