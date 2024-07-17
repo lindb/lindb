@@ -69,7 +69,7 @@ type timeSeriesIndex struct {
 	hashes sync.Map             // tag hash => memory time series id(map[uint64]uint32)
 	ids    *imap.IntMap[uint32] // global series id => memory time series id
 
-	families sync.Map // family create timestamp(ns) => metric write time range(map[uint64]*timeutil.SlotRange)
+	families sync.Map // family create timestamp(ns) => metric level time range(map[uint64]*timeutil.SlotRange)
 
 	lock sync.RWMutex
 }

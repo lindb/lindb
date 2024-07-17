@@ -78,7 +78,7 @@ type MemoryDatabase interface {
 	// FlushFamilyTo flushes the corresponded family data to builder.
 	// Close is not in the flushing process.
 	FlushFamilyTo(flusher metricsdata.Flusher) error
-	// MemSize returns the memory-size of this metric-store
+	// MemSize returns the memory-size of memory database.
 	MemSize() int64
 	// DataFilter filters the data based on condition
 	flow.DataFilter
@@ -447,10 +447,17 @@ func (md *memoryDatabase) Filter(shardExecuteContext *flow.ShardExecuteContext) 
 	return md.filter(shardExecuteContext, memMetricID, storageSlotRange, timeSeriesIndex)
 }
 
-// MemSize returns the time series database memory size
-func (md *memoryDatabase) MemSize() int64 {
-	// FIXME: page buffer size
-	return 0
+// MemSize returns the time series database memory size.
+func (md *memoryDatabase) MemSize() (memSize int64) {
+	md.fieldWriteStores.Range(func(key, value any) bool {
+		memSize += (value.(DataPointBuffer)).BufferSize()
+		return true
+	})
+	md.fieldCompressStore.Range(func(key, value any) bool {
+		memSize += (value.(CompressStore)).MemSize()
+		return true
+	})
+	return memSize
 }
 
 // Close releases resources for current memory database.

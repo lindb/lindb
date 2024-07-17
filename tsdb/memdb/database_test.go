@@ -144,6 +144,7 @@ func TestDatabase_Write(t *testing.T) {
 		},
 	})
 	assert.NoError(t, db.WriteRow(row))
+	assert.NotZero(t, db.MemSize())
 
 	// wait meta/index update
 	time.Sleep(500 * time.Millisecond)

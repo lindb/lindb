@@ -62,6 +62,8 @@ type DataPointBuffer interface {
 	Release()
 	// IsDirty returns data point buffer if dirty, dirty buffer can be collect.
 	IsDirty() bool
+	// BufferSize returns data point buffer size.
+	BufferSize() int64
 }
 
 // dataPointBuffer implements DataPointBuffer interface
@@ -161,6 +163,11 @@ func (d *dataPointBuffer) Release() {
 // IsDirty returns data point buffer if dirty, dirty buffer can be collect.
 func (d *dataPointBuffer) IsDirty() bool {
 	return d.dirty.Load()
+}
+
+// BufferSize returns data point buffer size.
+func (d *dataPointBuffer) BufferSize() int64 {
+	return int64(d.pageIDSeq) * pageSize
 }
 
 // Close closes data point buffer, unmap memory map file
