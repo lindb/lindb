@@ -35,7 +35,7 @@ type Meta struct {
 	// write: field index under memory database
 	// read: field index of query fields
 	Index     uint8
-	Persisted bool // FIXME: can remove
+	Persisted bool
 }
 
 // MarshalBinary marshals meta as binary.

@@ -5752,9 +5752,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"vite@npm:^2.6.4":
-  version: 2.9.15
-  resolution: "vite@npm:2.9.15"
+"vite@npm:^2.9.18":
+  version: 2.9.18
+  resolution: "vite@npm:2.9.18"
   dependencies:
     esbuild: "npm:^0.14.27"
     fsevents: "npm:~2.3.2"
@@ -5777,7 +5777,7 @@ __metadata:
       optional: true
   bin:
     vite: bin/vite.js
-  checksum: 10c0/3bc83ea78396215a4d1dbf8b7c8c81869e9c3a877593a87978b964baa6ea675b6063b275e01f6c818d18bee78b32a9f94adc6f76b8023eecb12f9cd8f6dde727
+  checksum: 10c0/2325b272e473981d7c589f4b28485a60d641bad2a42bae387002ea92c6f8d9664f76b2d35aaf52c81feac5c642399db62598668f40db4198fce138a5df9a3e06
   languageName: node
   linkType: hard
 
@@ -5833,7 +5833,7 @@ __metadata:
     stylelint-prettier: "npm:^3.0.0"
     typescript: "npm:^4.3.2"
     uuid: "npm:^8.3.2"
-    vite: "npm:^2.6.4"
+    vite: "npm:^2.9.18"
   languageName: unknown
   linkType: soft
 

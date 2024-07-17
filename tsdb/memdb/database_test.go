@@ -465,7 +465,7 @@ func TestMemoryDatabase_Flush_Error(t *testing.T) {
 			},
 		},
 		{
-			name: "flush field data err",
+			name: "flush field not persist",
 			prepare: func() {
 				metaDB.EXPECT().GetMetricIDs().Return(roaring.BitmapOf(1))
 				metaDB.EXPECT().GetMemMetricID(gomock.Any()).Return(uint64(0), true)
@@ -474,6 +474,19 @@ func TestMemoryDatabase_Flush_Error(t *testing.T) {
 				timeSeriesIndex.EXPECT().GetTimeRange(gomock.Any()).Return(&timeutil.SlotRange{}, true)
 				timeSeriesIndex.EXPECT().MemTimeSeriesIDs().Return(roaring.BitmapOf(1))
 				mStore.EXPECT().GetFields().Return(field.Metas{{Name: "test", Index: 1}})
+				flusher.EXPECT().Close().Return(nil)
+			},
+		},
+		{
+			name: "flush field data err",
+			prepare: func() {
+				metaDB.EXPECT().GetMetricIDs().Return(roaring.BitmapOf(1))
+				metaDB.EXPECT().GetMemMetricID(gomock.Any()).Return(uint64(0), true)
+				metaDB.EXPECT().GetMetricMeta(gomock.Any()).Return(mStore, true)
+				indexDB.EXPECT().GetTimeSeriesIndex(gomock.Any()).Return(timeSeriesIndex, true)
+				timeSeriesIndex.EXPECT().GetTimeRange(gomock.Any()).Return(&timeutil.SlotRange{}, true)
+				timeSeriesIndex.EXPECT().MemTimeSeriesIDs().Return(roaring.BitmapOf(1))
+				mStore.EXPECT().GetFields().Return(field.Metas{{Name: "test", Persisted: true, Index: 1}})
 				flusher.EXPECT().PrepareMetric(gomock.Any(), gomock.Any())
 				timeSeriesIndex.EXPECT().FlushMetricsDataTo(gomock.Any(), gomock.Any()).
 					DoAndReturn(func(
@@ -497,7 +510,7 @@ func TestMemoryDatabase_Flush_Error(t *testing.T) {
 				indexDB.EXPECT().GetTimeSeriesIndex(gomock.Any()).Return(timeSeriesIndex, true)
 				timeSeriesIndex.EXPECT().GetTimeRange(gomock.Any()).Return(&timeutil.SlotRange{}, true)
 				timeSeriesIndex.EXPECT().MemTimeSeriesIDs().Return(roaring.BitmapOf(1))
-				mStore.EXPECT().GetFields().Return(field.Metas{{Name: "test", Index: 1}})
+				mStore.EXPECT().GetFields().Return(field.Metas{{Name: "test", Persisted: true, Index: 1}})
 				flusher.EXPECT().PrepareMetric(gomock.Any(), gomock.Any())
 				timeSeriesIndex.EXPECT().FlushMetricsDataTo(gomock.Any(), gomock.Any()).Return(nil)
 				flusher.EXPECT().CommitMetric(gomock.Any()).Return(fmt.Errorf("err"))
