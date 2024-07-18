@@ -62,6 +62,13 @@ type TimeSeriesIndex interface {
 		tableFlusher metricsdata.Flusher,
 		flushFields func(memSeriesID uint32) error,
 	) (err error)
+
+	// NumOfSeries returns number of active time series.
+	NumOfSeries() int
+	// ExpireTimeSeriesIDs expires memory time series ids.
+	ExpireTimeSeriesIDs(memTimeSeriesIDs *roaring.Bitmap, expiredTimestamp int64)
+	// GC clears expired time series ids.
+	GC(gcTimestamp int64)
 }
 
 // timeSeriesIndex implements TimeSeriesIndex interface.
@@ -69,7 +76,8 @@ type timeSeriesIndex struct {
 	hashes sync.Map             // tag hash => memory time series id(map[uint64]uint32)
 	ids    *imap.IntMap[uint32] // global series id => memory time series id
 
-	families sync.Map // family create timestamp(ns) => metric level time range(map[uint64]*timeutil.SlotRange)
+	families   sync.Map // family create timestamp(ns) => metric level time range(map[uint64]*timeutil.SlotRange)
+	expiredIDs sync.Map // memory time series id => expired timestamp
 
 	lock sync.RWMutex
 }
@@ -87,18 +95,26 @@ func (idx *timeSeriesIndex) IndexTimeSeries(seriesID, memSeriesID uint32) {
 	defer idx.lock.Unlock()
 
 	idx.ids.PutIfNotExist(seriesID, memSeriesID)
+	idx.expiredIDs.Delete(memSeriesID)
 }
 
 // GenMemTimeSeriesID generates memory time series id based on tags hash.
 func (idx *timeSeriesIndex) GenMemTimeSeriesID(tags uint64, newID func() uint32) (memSeriesID uint32, isNew bool) {
+	// clear expired time series id
+	defer func() {
+		idx.expiredIDs.Delete(memSeriesID)
+	}()
+
 	memTimeSeriesID, ok := idx.hashes.Load(tags)
 	if ok {
-		return memTimeSeriesID.(uint32), false
+		memSeriesID = memTimeSeriesID.(uint32)
+		return memSeriesID, false
 	}
 	idx.lock.Lock()
 	defer idx.lock.Unlock()
 
-	return idx.genMemTimeSeriesID(tags, newID)
+	memSeriesID, isNew = idx.genMemTimeSeriesID(tags, newID)
+	return
 }
 
 func (idx *timeSeriesIndex) genMemTimeSeriesID(tags uint64, newID func() uint32) (memSeriesID uint32, isNew bool) {
@@ -141,6 +157,68 @@ func (idx *timeSeriesIndex) StoreTimeRange(familyCreateTime int64, slot uint16) 
 	} else {
 		(slotRange.(*timeutil.SlotRange)).SetSlot(slot)
 	}
+}
+
+// ExpireTimeSeriesIDs expires memory time series ids.
+func (idx *timeSeriesIndex) ExpireTimeSeriesIDs(memTimeSeriesIDs *roaring.Bitmap, expiredTimestamp int64) {
+	currentTimeSeriesIDs := roaring.New()
+
+	idx.lock.RLock()
+	currentTimeSeries := idx.ids.Values()
+	for _, ids := range currentTimeSeries {
+		currentTimeSeriesIDs.AddMany(ids)
+	}
+	idx.lock.RUnlock()
+
+	needExpiredIDs := roaring.FastAnd(memTimeSeriesIDs, currentTimeSeriesIDs)
+	it := needExpiredIDs.Iterator()
+	for it.HasNext() {
+		idx.expiredIDs.Store(it.Next(), expiredTimestamp)
+	}
+}
+
+// GC clears expired time series ids.
+func (idx *timeSeriesIndex) GC(gcTimestamp int64) {
+	activeIDs := roaring.New()
+	// gc memory time series index
+	idx.hashes.Range(func(key, value any) bool {
+		memTimeSeriesID := value.(uint32)
+		expiredTimestamp, ok := idx.expiredIDs.Load(memTimeSeriesID)
+		if ok && expiredTimestamp.(int64) < gcTimestamp {
+			idx.hashes.Delete(key)                 // delete memory index
+			idx.expiredIDs.Delete(memTimeSeriesID) // delete expired id
+		} else {
+			activeIDs.Add(memTimeSeriesID)
+		}
+		return true
+	})
+
+	active := activeIDs.GetCardinality()
+
+	idx.lock.Lock()
+	defer idx.lock.Unlock()
+	// gc time series index
+	if active == 0 && !idx.ids.IsEmpty() {
+		idx.ids = imap.NewIntMap[uint32]()
+	} else if float64(active) <= 0.5*float64(idx.ids.Size()) {
+		// TODO: add config?
+		newIds := imap.NewIntMap[uint32]()
+		_ = idx.ids.WalkEntry(func(key, value uint32) error {
+			if activeIDs.Contains(value) {
+				newIds.PutIfNotExist(key, value)
+			}
+			return nil
+		})
+		idx.ids = newIds
+	}
+}
+
+// NumOfSeries returns number of active time series.
+func (idx *timeSeriesIndex) NumOfSeries() int {
+	idx.lock.RLock()
+	defer idx.lock.RUnlock()
+
+	return idx.ids.Size()
 }
 
 // ClearTimeRange clears family level time slot range.

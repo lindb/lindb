@@ -20,6 +20,8 @@ package memdb
 import (
 	"sync"
 
+	"github.com/lindb/common/pkg/fasttime"
+
 	"github.com/lindb/lindb/series/field"
 )
 
@@ -35,6 +37,8 @@ type mStoreINTF interface {
 	UpdateFieldMeta(fieldID field.ID, fm field.Meta)
 	// FindFields returns fields from store based on current written fields.
 	FindFields(fields field.Metas) (found field.Metas)
+	// IsActive returns if metric store active.
+	IsActive(timestamp int64) bool
 }
 
 // metricStore represents metric level storage, stores all series data, and fields/family times metadata
@@ -42,6 +46,7 @@ type metricStore struct {
 	fields sync.Map // field metadata(field.Metas)
 
 	fieldCount int
+	accessTime int64
 	lock       sync.RWMutex
 }
 
@@ -62,6 +67,7 @@ func (ms *metricStore) GetFields() (fields field.Metas) {
 
 // GenField generates field meta under memory database.
 func (ms *metricStore) GenField(name field.Name, fType field.Type) (f field.Meta, created bool) {
+	ms.accessTime = fasttime.UnixMilliseconds()
 	fm, ok := ms.fields.Load(name)
 	if ok {
 		return fm.(field.Meta), false
@@ -113,4 +119,9 @@ func (ms *metricStore) FindFields(fields field.Metas) (found field.Metas) {
 		}
 	}
 	return
+}
+
+// IsActive returns if metric store active.
+func (ms *metricStore) IsActive(timestamp int64) bool {
+	return ms.accessTime >= timestamp
 }
