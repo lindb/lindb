@@ -29,10 +29,10 @@ import (
 
 // localReplicator represents local replicator which writes data into local tsdb storage.
 type localReplicator struct {
-	shard  tsdb.Shard
-	family tsdb.DataFamily
-	logger logger.Logger
 	replicator
+	shard      tsdb.Shard
+	family     tsdb.DataFamily
+	logger     logger.Logger
 	batchRows  *metric.StorageBatchRows
 	reader     compress.Reader
 	statistics *metrics.StorageLocalReplicatorStatistics

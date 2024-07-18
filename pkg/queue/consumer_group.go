@@ -194,7 +194,7 @@ func (f *consumerGroup) Ack(ackSeq int64) {
 	hs := f.ConsumedSeq()
 	// In the initial condition, ts == 0, if the first acknowledgedSeq == 0, it would be ignored.
 	// Since ack is always in batch mode and the following ack will ack the previous data, it's not big problem.
-	if ackSeq > ts && ackSeq <= hs {
+	if ackSeq >= ts && ackSeq <= hs {
 		f.acknowledgedSeq.Store(ackSeq)
 
 		f.metaPage.PutUint64(uint64(f.ConsumedSeq()), consumerGroupConsumedSeqOffset)

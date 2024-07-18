@@ -21,10 +21,9 @@ import (
 	"context"
 	"sync"
 
-	"go.uber.org/atomic"
-
 	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/storage"
@@ -37,7 +36,6 @@ import (
 // remoteReplicator implements Replicator interface, do remote wal replica.
 type remoteReplicator struct {
 	replicator
-
 	ctx   context.Context
 	state atomic.Value // ref: state
 
@@ -45,14 +43,11 @@ type remoteReplicator struct {
 	replicaCli    protoReplicaV1.ReplicaServiceClient
 	replicaStream protoReplicaV1.ReplicaService_ReplicaClient
 	stateMgr      storage.StateManager
-
-	isSuspend *atomic.Bool
-	suspend   chan struct{}
-
-	rwMutex sync.RWMutex
-
-	statistics *metrics.StorageRemoteReplicatorStatistics
-	logger     logger.Logger
+	logger        logger.Logger
+	isSuspend     *atomic.Bool
+	suspend       chan struct{}
+	statistics    *metrics.StorageRemoteReplicatorStatistics
+	rwMutex       sync.RWMutex
 }
 
 // NewRemoteReplicator creates remote replicator.
