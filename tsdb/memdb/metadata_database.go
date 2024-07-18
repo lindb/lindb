@@ -21,6 +21,8 @@ import (
 	"context"
 	"sync"
 
+	"github.com/lindb/common/pkg/fasttime"
+	"github.com/lindb/common/pkg/timeutil"
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/index"
@@ -29,6 +31,8 @@ import (
 )
 
 //go:generate mockgen -source ./metadata_database.go -destination=./metadata_database_mock.go -package=memdb
+
+var empty = struct{}{}
 
 // MetadataDatabase represents memory metadata database for storing metric meta(name,field etc./database level)
 type MetadataDatabase interface {
@@ -55,8 +59,7 @@ type metadataDatabase struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	ch chan any
-	// TODO: clean metric metadata if not used long time
+	ch               chan any
 	metricIndexStore *imap.IntMap[uint64] // metric id => hash(ns + metric name)
 	metricMetadatas  sync.Map             // hash(ns + metirc name) => metric store index(map[uint64]mStoreINTF)
 
@@ -166,6 +169,8 @@ func (mdb *metadataDatabase) handle() {
 func (mdb *metadataDatabase) handleFlush(event *FlushEvent) {
 	err := mdb.metaDB.Flush()
 	event.Callback(err)
+
+	mdb.gc(fasttime.UnixMicroseconds() - timeutil.OneDay)
 }
 
 // handleRow lookups metric metedata and indexes.
@@ -196,5 +201,41 @@ func (mdb *metadataDatabase) handleRow(row *metric.StorageRow) {
 			continue
 		}
 		mStore.UpdateFieldMeta(fieldID, fm)
+	}
+}
+
+// gc clears expired metric meta store.
+func (mdb *metadataDatabase) gc(gcTimestamp int64) {
+	activeMetricIDs := make(map[uint64]struct{})
+
+	// gc metric store
+	mdb.metricMetadatas.Range(func(key, value any) bool {
+		mStore := value.(mStoreINTF)
+		if mStore.IsActive(gcTimestamp) {
+			activeMetricIDs[key.(uint64)] = empty
+		} else {
+			mdb.metricMetadatas.Delete(key) // delete inactive metric store
+		}
+		return true
+	})
+
+	active := len(activeMetricIDs)
+
+	mdb.lock.Lock()
+	defer mdb.lock.Unlock()
+	// gc metric store index
+	if active == 0 && !mdb.metricIndexStore.IsEmpty() {
+		mdb.metricIndexStore = imap.NewIntMap[uint64]()
+	} else if float64(active) <= 0.5*float64(mdb.metricIndexStore.Size()) {
+		// TODO: add config?
+		newIds := imap.NewIntMap[uint64]()
+		_ = mdb.metricIndexStore.WalkEntry(func(key uint32, value uint64) error {
+			_, ok := activeMetricIDs[value]
+			if ok {
+				newIds.Put(key, value)
+			}
+			return nil
+		})
+		mdb.metricIndexStore = newIds
 	}
 }

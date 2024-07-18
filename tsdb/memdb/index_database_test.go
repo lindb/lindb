@@ -21,7 +21,9 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/lindb/common/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
+	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 	gomock "go.uber.org/mock/gomock"
 
@@ -30,6 +32,9 @@ import (
 )
 
 func TestIndexDatabase_GetOrCreateTimeSeriesIndex(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	idx := NewIndexDatabase(nil, nil)
 
 	m := &protoMetricsV1.Metric{
@@ -43,6 +48,7 @@ func TestIndexDatabase_GetOrCreateTimeSeriesIndex(t *testing.T) {
 
 	row := protoToStorageRow(m)
 	tsIndex := idx.GetOrCreateTimeSeriesIndex(row)
+	tsIndex.GenMemTimeSeriesID(row.TagsHash(), idx.GenMemSeriesID)
 	assert.NotNil(t, tsIndex)
 
 	tsIndex1 := idx.(*indexDatabase).getOrCreateTimeSeriesIndex(row.NameHash())
@@ -54,8 +60,20 @@ func TestIndexDatabase_GetOrCreateTimeSeriesIndex(t *testing.T) {
 	assert.Nil(t, tsIndex)
 	assert.False(t, ok)
 
-	// clear time range
-	idx.ClearTimeRange(100)
+	db := NewMockMemoryDatabase(ctrl)
+	db.EXPECT().CreatedTime().Return(timeutil.Now())
+	db.EXPECT().MemTimeSeriesIDs().Return(roaring.BitmapOf(1, 2, 3))
+	tsIndex1.IndexTimeSeries(100, 1)
+	assert.NotZero(t, tsIndex1.NumOfSeries())
+	idx.Cleanup(db)
+	assert.NotZero(t, tsIndex1.NumOfSeries())
+
+	db.EXPECT().CreatedTime().Return(timeutil.Now())
+	db.EXPECT().MemTimeSeriesIDs().Return(roaring.BitmapOf(3))
+	tsIndex1.ExpireTimeSeriesIDs(roaring.BitmapOf(1, 0), timeutil.Now()-4*timeutil.OneHour)
+	assert.NotZero(t, tsIndex1.NumOfSeries())
+	idx.Cleanup(db)
+	assert.Zero(t, tsIndex1.NumOfSeries())
 
 	idx.Close()
 }

@@ -86,10 +86,14 @@ type MemoryDatabase interface {
 	io.Closer
 	// FamilyTime returns the family time of this memdb
 	FamilyTime() int64
+	// CreatedTime returns created timestamp of family's memory database.
+	CreatedTime() int64
 	// Uptime returns duration since created
 	Uptime() time.Duration
 	// NumOfSeries returns the number of series.
 	NumOfSeries() int
+	// MemTimeSeriesIDs returns all memory time series ids under current database.
+	MemTimeSeriesIDs() *roaring.Bitmap
 }
 
 // MemoryDatabaseCfg represents the memory database config
@@ -175,15 +179,6 @@ func (md *memoryDatabase) WriteRow(row *metric.StorageRow) error {
 	timeSeriesIndex := md.indexDB.GetOrCreateTimeSeriesIndex(row)
 	mStore, newMetric := md.indexDB.GetMetadataDatabase().GetOrCreateMetricMeta(row)
 
-	defer func() {
-		if newMetric || len(row.Fields) > 0 {
-			// notify meta worker does build metadata
-			md.indexDB.GetMetadataDatabase().Notify(row)
-		} else {
-			row.Done()
-		}
-	}()
-
 	tagsHash := row.TagsHash()
 
 	// generate memory level unique time series id
@@ -196,12 +191,23 @@ func (md *memoryDatabase) WriteRow(row *metric.StorageRow) error {
 	} else {
 		row.Done()
 	}
-
 	slotIndex := uint16(md.cfg.IntervalCalc.CalcSlot(
 		row.Timestamp(),
 		md.familyTime,
 		md.cfg.Interval.Int64()),
 	)
+
+	defer func() {
+		if newMetric || len(row.Fields) > 0 {
+			// notify meta worker does build metadata
+			md.indexDB.GetMetadataDatabase().Notify(row)
+		} else {
+			row.Done()
+		}
+
+		timeSeriesIndex.StoreTimeRange(md.createdTime, slotIndex)
+		md.timeSeriesIDs.Add(memSeriesID)
+	}()
 
 	simpleFieldItr := row.NewSimpleFieldIterator()
 	for simpleFieldItr.HasNext() {
@@ -221,8 +227,6 @@ func (md *memoryDatabase) WriteRow(row *metric.StorageRow) error {
 		return err
 	}
 
-	timeSeriesIndex.StoreTimeRange(md.createdTime, slotIndex)
-	md.timeSeriesIDs.Add(memSeriesID)
 	return nil
 }
 
@@ -460,18 +464,29 @@ func (md *memoryDatabase) MemSize() (memSize int64) {
 	return memSize
 }
 
+// CreatedTime returns created timestamp of family's memory database.
+func (md *memoryDatabase) CreatedTime() int64 {
+	return md.createdTime
+}
+
 // Close releases resources for current memory database.
 func (md *memoryDatabase) Close() error {
 	md.fieldWriteStores.Range(func(key, value any) bool {
 		(value.(DataPointBuffer)).Release()
 		return true
 	})
-	md.indexDB.ClearTimeRange(md.createdTime)
+	md.indexDB.Cleanup(md)
 	return nil
 }
 
 func (md *memoryDatabase) Uptime() time.Duration {
 	return time.Duration(fasttime.UnixNano() - md.createdTime)
+}
+
+// MemTimeSeriesIDs returns all memory time series ids under current database.
+// NOTE: after database flush invoke.
+func (md *memoryDatabase) MemTimeSeriesIDs() *roaring.Bitmap {
+	return md.timeSeriesIDs
 }
 
 // NumOfSeries returns the number of series.

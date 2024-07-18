@@ -21,6 +21,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/lindb/common/pkg/timeutil"
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/index"
@@ -39,8 +40,8 @@ type IndexDatabase interface {
 	GetMetadataDatabase() MetadataDatabase
 	// GetTimeSeriesIndex returns memory time series index by memory metric id.
 	GetTimeSeriesIndex(memMetricID uint64) (TimeSeriesIndex, bool)
-	// ClearTimeRange clears time range by family create time.
-	ClearTimeRange(familyCreate int64)
+	// Cleanup cleanups index data for inactive memory database.
+	Cleanup(db MemoryDatabase)
 	// Notify notifies update or flush metric index.
 	Notify(event any)
 	// Close closed index database.
@@ -55,8 +56,7 @@ type indexDatabase struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	ch chan any
-	// TODO: clean time series index if not used long time
+	ch                chan any
 	timeSeriesIndexes sync.Map // hash(ns + metirc name) => metric index store(map[uint64]TimeSeriesIndex)
 
 	timeSeriesSeq atomic.Uint32 // like db primary key sequence(memory level)
@@ -127,10 +127,22 @@ func (idb *indexDatabase) GetTimeSeriesIndex(memMetricID uint64) (TimeSeriesInde
 	return nil, false
 }
 
-// ClearTimeRange clears time range by family create time.
-func (idb *indexDatabase) ClearTimeRange(familyCreateTime int64) {
+// Cleanup cleanups index data for inactive memory database.
+func (idb *indexDatabase) Cleanup(db MemoryDatabase) {
+	familyCreateTime := db.CreatedTime()
+	expiredTimestamp := timeutil.Now()
+	memTimeSeriesIDs := db.MemTimeSeriesIDs()
+	gcTimestamp := timeutil.Now() - 3*timeutil.OneHour // TODO: add config?
 	idb.timeSeriesIndexes.Range(func(key, value any) bool {
-		(value.(TimeSeriesIndex)).ClearTimeRange(familyCreateTime)
+		timeSeriesIndex := (value.(TimeSeriesIndex))
+		timeSeriesIndex.ClearTimeRange(familyCreateTime)
+		timeSeriesIndex.ExpireTimeSeriesIDs(memTimeSeriesIDs, expiredTimestamp)
+		timeSeriesIndex.GC(gcTimestamp)
+
+		// if no time series undex index, remove it from metric index store
+		if timeSeriesIndex.NumOfSeries() == 0 {
+			idb.timeSeriesIndexes.Delete(key)
+		}
 		return true
 	})
 }

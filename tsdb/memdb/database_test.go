@@ -71,7 +71,7 @@ func TestMemoryDatabase_New(t *testing.T) {
 	mdINTF.MarkReadOnly()
 	assert.True(t, mdINTF.IsReadOnly())
 	md := mdINTF.(*memoryDatabase)
-	indexDB.EXPECT().ClearTimeRange(md.createdTime)
+	indexDB.EXPECT().Cleanup(md)
 	err = mdINTF.Close()
 	assert.NoError(t, err)
 	time.Sleep(time.Millisecond * 100)
@@ -145,6 +145,7 @@ func TestDatabase_Write(t *testing.T) {
 	})
 	assert.NoError(t, db.WriteRow(row))
 	assert.NotZero(t, db.MemSize())
+	assert.False(t, db.MemTimeSeriesIDs().IsEmpty())
 
 	// wait meta/index update
 	time.Sleep(500 * time.Millisecond)

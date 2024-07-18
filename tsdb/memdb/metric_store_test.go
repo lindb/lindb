@@ -20,6 +20,8 @@ package memdb
 import (
 	"testing"
 
+	"github.com/lindb/common/pkg/fasttime"
+	"github.com/lindb/common/pkg/timeutil"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/series/field"
@@ -34,4 +36,12 @@ func TestMetricStore_genField(t *testing.T) {
 	f, isNew = ms.genField("test", field.SumField)
 	assert.False(t, isNew)
 	assert.Equal(t, field.Meta{Name: "test", Type: field.SumField, Index: 0}, f)
+}
+
+func TestMetricStore_IsAction(t *testing.T) {
+	ms := newMetricStore()
+	_, isNew := ms.GenField("test", field.SumField)
+	assert.True(t, isNew)
+	assert.True(t, ms.IsActive(fasttime.UnixMilliseconds()))
+	assert.False(t, ms.IsActive(fasttime.UnixMilliseconds()+timeutil.OneDay))
 }

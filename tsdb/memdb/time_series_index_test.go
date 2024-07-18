@@ -134,3 +134,41 @@ func TestTimeSeriesIndex_Load(t *testing.T) {
 		})
 	})
 }
+
+func TestTimeSeriesIndex_GC(t *testing.T) {
+	index := NewTimeSeriesIndex()
+	id := uint32(0)
+	newID := func() uint32 {
+		id++
+		return id
+	}
+	index.GenMemTimeSeriesID(10, newID)
+	index.GenMemTimeSeriesID(20, newID)
+	index.GenMemTimeSeriesID(30, newID)
+	index.GenMemTimeSeriesID(40, newID)
+
+	index.IndexTimeSeries(100, 1)
+	index.IndexTimeSeries(200, 2)
+	index.IndexTimeSeries(300, 3)
+	index.IndexTimeSeries(400, 4)
+
+	index1 := index.(*timeSeriesIndex)
+	index1.ExpireTimeSeriesIDs(roaring.BitmapOf(1, 2), 1000)
+	index1.ExpireTimeSeriesIDs(roaring.BitmapOf(4), 100)
+
+	index1.GC(500) // gc 4
+	assert.Equal(t, roaring.BitmapOf(100, 200, 300, 400), index1.ids.Keys())
+	assert.Equal(t, 4, index1.NumOfSeries())
+	index1.GC(5000) // gc 1,2
+	assert.Equal(t, 1, index1.NumOfSeries())
+	assert.Equal(t, roaring.BitmapOf(300), index1.ids.Keys())
+	index1.ExpireTimeSeriesIDs(roaring.BitmapOf(3), 1000)
+	index.GenMemTimeSeriesID(30, newID)
+	index1.GC(5000) // ignore gc 3
+	assert.Equal(t, 1, index1.NumOfSeries())
+
+	index1.ExpireTimeSeriesIDs(roaring.BitmapOf(3), 1000)
+	index1.GC(5000) // gc 3
+	assert.Equal(t, 0, index1.NumOfSeries())
+	assert.True(t, index1.ids.Keys().IsEmpty())
+}
