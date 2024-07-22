@@ -14,7 +14,7 @@
 [![contribution](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](CONTRIBUTING.md)
 [![Twitter Follow](https://img.shields.io/twitter/follow/lindb_io?style=social)](https://twitter.com/intent/follow?screen_name=lindb_io)
 
-English | [简体中文](./README-zh_CN.md)
+English | [简体中文](./README-zh_CN.md) | [日本語](./README-ja.md)
 
 ## What is LinDB?
 

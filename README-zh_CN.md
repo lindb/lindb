@@ -14,7 +14,7 @@
 [![contribution](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](CONTRIBUTING.md)
 [![Twitter Follow](https://img.shields.io/twitter/follow/lindb_io?style=social)](https://twitter.com/intent/follow?screen_name=lindb_io)
 
-[English](./README.md) | 简体中文
+[English](./README.md) | 简体中文 | [日本語](./README-ja.md)
 
 ## 简介
 
