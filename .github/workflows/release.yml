@@ -36,7 +36,7 @@ jobs:
         if: github.event_name != 'workflow_dispatch'
         with:
           release_name: ${{ github.ref_name }}
-          body: "For installation guides, please check out [Quick start](https://lindb.io/guide/get-started.html).\n${{ steps.generate_changelog.outputs.changelog }}"
+          body: "${{ steps.generate_changelog.outputs.changelog }}"
           files: |
             release/lindb-*
       - name: Get current date
