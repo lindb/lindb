@@ -37,6 +37,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/imap"
+	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 )
@@ -139,19 +140,23 @@ func (index *metricIndexDatabase) createSeriesID(metricID metric.ID) (seriesID u
 }
 
 // GenSeriesID generates time series id based on tags hash.
-func (index *metricIndexDatabase) GenSeriesID(metricID metric.ID, row *metric.StorageRow) (seriesID uint32) {
+func (index *metricIndexDatabase) GenSeriesID(metricID metric.ID, row *metric.StorageRow) (seriesID uint32, err error) {
 	var isNewSeries bool
-	var err error
 	var scratch [8]byte
 	tagsHash := row.TagsHash()
 	binary.LittleEndian.PutUint64(scratch[:], tagsHash)
-	seriesID, isNewSeries, err = index.series.GetOrCreateValue(uint32(metricID), scratch[:], func() uint32 {
-		return index.createSeriesID(metricID)
+
+	seriesID, isNewSeries, err = index.series.GetOrCreateValue(uint32(metricID), scratch[:], func() (uint32, error) {
+		return index.createSeriesID(metricID), nil
 	})
 	if err == nil && isNewSeries {
+		limits := models.GetDatabaseLimits(index.metaDB.Name())
+		seriesLimit := limits.GetSeriesLimit(strutil.ByteSlice2String(row.NameSpace()), strutil.ByteSlice2String(row.Name()))
+		if seriesLimit > 0 && seriesLimit < seriesID {
+			return 0, constants.ErrTooManySeries
+		}
 		// if new series do inverted index build
 		index.sequenceCache.Add(metricID, seriesID)
-		// TODO: add limit
 
 		// write metric inverted index
 		index.lock.Lock()
@@ -160,8 +165,7 @@ func (index *metricIndexDatabase) GenSeriesID(metricID metric.ID, row *metric.St
 
 		if row.TagsLen() > 0 {
 			// write tag related index
-			index.buildInvertIndex(metricID, row.NewKeyValueIterator(), seriesID, models.NewDefaultLimits())
-			// FIXME: add limit
+			index.buildInvertIndex(metricID, row.NewKeyValueIterator(), seriesID)
 			index.statistics.BuildInvertedIndex.Incr()
 		}
 	}
@@ -220,7 +224,7 @@ func (index *metricIndexDatabase) Close() error {
 }
 
 func (index *metricIndexDatabase) buildInvertIndex(metricID metric.ID,
-	tags *metric.KeyValueIterator, seriesID uint32, _ *models.Limits,
+	tags *metric.KeyValueIterator, seriesID uint32,
 ) {
 	for tags.HasNext() {
 		key := tags.NextKey()

@@ -73,7 +73,7 @@ func NewIndexKVStore(family kv.Family, cacheSize int, cacheTTL time.Duration) In
 // GetOrCreateValue returns unique id for key, if key not exist, creates a new unique id.
 func (s *indexKVStore) GetOrCreateValue(bucketID uint32,
 	key []byte,
-	createFn func() uint32,
+	createFn func() (uint32, error),
 ) (id uint32, isNew bool, err error) {
 	id, _, isNew, err = s.getOrCreateValue(bucketID, key, createFn)
 	return
@@ -307,7 +307,9 @@ func (s *indexKVStore) getSnapshot() version.Snapshot {
 	return s.snapshot
 }
 
-func (s *indexKVStore) getOrCreateValue(bucketID uint32, key []byte, createFn func() uint32) (id uint32, ok, isNew bool, err error) {
+func (s *indexKVStore) getOrCreateValue(bucketID uint32, key []byte,
+	createFn func() (uint32, error),
+) (id uint32, ok, isNew bool, err error) {
 	// get from memory store
 	id, ok = s.GetValueFromMem(bucketID, key)
 	if ok {
@@ -339,12 +341,15 @@ func (s *indexKVStore) getOrCreateValue(bucketID uint32, key []byte, createFn fu
 	if createFn == nil {
 		return 0, false, false, nil
 	}
-	id = s.createValue(bucketID, key, createFn)
+	id, err = s.createValue(bucketID, key, createFn)
+	if err != nil {
+		return 0, false, false, err
+	}
 	return id, true, true, nil
 }
 
 // createValue creates new value.
-func (s *indexKVStore) createValue(bucketID uint32, key []byte, createFn func() uint32) uint32 {
+func (s *indexKVStore) createValue(bucketID uint32, key []byte, createFn func() (uint32, error)) (uint32, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -354,9 +359,12 @@ func (s *indexKVStore) createValue(bucketID uint32, key []byte, createFn func() 
 		s.mutable.Put(bucketID, kvs)
 	}
 	// generate and store value
-	id := createFn()
+	id, err := createFn()
+	if err != nil {
+		return 0, err
+	}
 	kvs[string(key)] = id
-	return id
+	return id, nil
 }
 
 // GetValueFromMem returns value from mem store.

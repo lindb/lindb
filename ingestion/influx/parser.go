@@ -41,9 +41,7 @@ var (
 	ErrBadTimestamp      = errors.New("bad_timestamp")
 )
 
-var (
-	influxIngestionStatistics = metrics.NewInfluxIngestionStatistics()
-)
+var influxIngestionStatistics = metrics.NewInfluxIngestionStatistics()
 
 // Test cases in
 // https://github.com/influxdata/influxdb/blob/master/models/points_test.go
@@ -108,7 +106,7 @@ func parseInfluxLine(
 	if err != nil && len(fields) == 0 {
 		return err
 	}
-	if limits.EnableFieldsCheck() && len(fields) > int(limits.MaxFieldsPerMetric) {
+	if limits.EnableFieldsCheck() && len(fields) > limits.MaxFieldsPerMetric {
 		return constants.ErrTooManyFields
 	}
 	for idx := range fields {

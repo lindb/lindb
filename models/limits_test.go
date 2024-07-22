@@ -24,6 +24,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestDatabaseLimits(t *testing.T) {
+	assert.Equal(t, defaultLimits, GetDatabaseLimits("test"))
+	limits := NewDefaultLimits()
+	limits.MaxMetrics = 10
+	SetDatabaseLimits("test", limits)
+	assert.Equal(t, limits, GetDatabaseLimits("test"))
+}
+
 func TestDefaultLimits(t *testing.T) {
 	l := NewDefaultLimits()
 	val := l.TOML()

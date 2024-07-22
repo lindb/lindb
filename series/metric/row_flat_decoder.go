@@ -156,7 +156,7 @@ func (itr *BrokerRowFlatDecoder) rebuild() error {
 		}
 	}
 
-	if itr.limits.EnableFieldsCheck() && itr.originRow.SimpleFieldsLen() > int(itr.limits.MaxFieldsPerMetric) {
+	if itr.limits.EnableFieldsCheck() && itr.originRow.SimpleFieldsLen() > itr.limits.MaxFieldsPerMetric {
 		return constants.ErrTooManyFields
 	}
 	simpleFieldItr := itr.originRow.NewSimpleFieldIterator()

@@ -39,8 +39,6 @@ import (
 
 //go:generate mockgen -source=./state_manager.go -destination=./state_manager_mock.go -package=broker
 
-var defaultDatabaseLimits = models.NewDefaultLimits()
-
 // StateManager represents broker state manager, maintains broker node/database/storage states in memory.
 type StateManager interface {
 	flow.NodeChoose
@@ -60,8 +58,6 @@ type StateManager interface {
 	GetQueryableReplicas(databaseName string) (map[string][]models.ShardID, error)
 	// GetStorage returns storage state.
 	GetStorage() *models.StorageState
-	// GetDatabaseLimits returns the database's limits.
-	GetDatabaseLimits(name string) *models.Limits
 
 	WatchShardStateChangeEvent(fn func(databaseCfg models.Database,
 		shards map[models.ShardID]models.ShardState,
@@ -86,15 +82,12 @@ type stateManager struct {
 	)
 	// connection manager
 	connectionManager rpc.ConnectionManager
-	//FIXME: remove it???
-	taskClientFactory rpc.TaskClientFactory
-	databaseLimits    sync.Map
-
-	events chan *discovery.Event
-	mutex  sync.RWMutex
 
 	statistics *metrics.StateManagerStatistics
 	logger     logger.Logger
+
+	events chan *discovery.Event
+	mutex  sync.RWMutex
 }
 
 // NewStateManager creates a broker state manager instance.
@@ -110,7 +103,6 @@ func NewStateManager(
 		cancel:            cancel,
 		currentNode:       currentNode,
 		connectionManager: connectionManager,
-		taskClientFactory: taskClientFactory,
 		storageState:      models.NewStorageState(),
 		databases:         make(map[string]models.Database),
 		nodes:             make(map[string]models.StatelessNode),
@@ -158,7 +150,8 @@ func (m *stateManager) Choose(database string, numOfNodes int) ([]*models.Physic
 func (m *stateManager) WatchShardStateChangeEvent(fn func(databaseCfg models.Database,
 	shards map[models.ShardID]models.ShardState,
 	liveNodes map[models.NodeID]models.StatefulNode,
-)) {
+),
+) {
 	if fn != nil {
 		m.mutex.Lock()
 		m.callbacks = append(m.callbacks, fn)
@@ -239,7 +232,7 @@ func (m *stateManager) onDatabaseLimitsChange(key string, data []byte) error {
 			logger.Error(err))
 		return err
 	}
-	m.databaseLimits.Store(name, limits)
+	models.SetDatabaseLimits(name, limits)
 	return nil
 }
 
@@ -397,15 +390,6 @@ func (m *stateManager) GetStorage() *models.StorageState {
 	defer m.mutex.RUnlock()
 
 	return m.storageState
-}
-
-// GetDatabaseLimits returns the database's limits.
-func (m *stateManager) GetDatabaseLimits(name string) *models.Limits {
-	val, ok := m.databaseLimits.Load(name)
-	if !ok {
-		return defaultDatabaseLimits
-	}
-	return val.(*models.Limits)
 }
 
 // GetQueryableReplicas returns the queryable replicas, else return detail error msg.::x

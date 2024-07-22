@@ -69,11 +69,22 @@ func TestMetricIndexDatabase(t *testing.T) {
 		},
 	}
 	row1 := protoToStorageRow(m)
-	db.GenSeriesID(0, row1)
-	db.GenSeriesID(0, row1)
+	_, err = db.GenSeriesID(0, row1)
+	assert.NoError(t, err)
+	_, err = db.GenSeriesID(0, row1)
+	assert.NoError(t, err)
 	m.Tags = []*protoMetricsV1.KeyValue{{Key: "key2", Value: "value1"}}
 	row2 := protoToStorageRow(m)
-	db.GenSeriesID(0, row2)
+	_, err = db.GenSeriesID(0, row2)
+	assert.NoError(t, err)
+	m.Tags = []*protoMetricsV1.KeyValue{{Key: "key2", Value: "value0000"}}
+	row2 = protoToStorageRow(m)
+	limits := models.NewDefaultLimits()
+	limits.MaxSeriesPerMetric = 1
+	models.SetDatabaseLimits("test", limits)
+	_, err = db.GenSeriesID(0, row2)
+	assert.Equal(t, constants.ErrTooManySeries, err)
+	models.SetDatabaseLimits("test", models.NewDefaultLimits())
 	test := func() {
 		// get series ids by metric
 		seriesIDs, err0 := db.GetSeriesIDsForMetric(0)
@@ -124,7 +135,8 @@ func TestMetricIndexDatabase(t *testing.T) {
 	test()
 	m.Tags = []*protoMetricsV1.KeyValue{{Key: "key3", Value: "value1"}}
 	row3 := protoToStorageRow(m)
-	db.GenSeriesID(0, row3)
+	_, err = db.GenSeriesID(0, row3)
+	assert.NoError(t, err)
 	time.Sleep(100 * time.Millisecond)
 	// get series ids by metric
 	seriesIDs, err := db.GetSeriesIDsForMetric(0)
@@ -552,10 +564,10 @@ func TestMetricIndexDatabase_buildInvertIndex(t *testing.T) {
 		logger:     logger.GetLogger("test", "test"),
 	}
 	metaDB.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any()).Return(tag.KeyID(0), fmt.Errorf("err"))
-	idx.buildInvertIndex(1, row1.NewKeyValueIterator(), 1, nil)
+	idx.buildInvertIndex(1, row1.NewKeyValueIterator(), 1)
 	metaDB.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any()).Return(tag.KeyID(0), nil)
 	metaDB.EXPECT().GenTagValueID(gomock.Any(), gomock.Any()).Return(uint32(0), fmt.Errorf("err"))
-	idx.buildInvertIndex(1, row1.NewKeyValueIterator(), 1, nil)
+	idx.buildInvertIndex(1, row1.NewKeyValueIterator(), 1)
 }
 
 func protoToStorageRow(m *protoMetricsV1.Metric) *metric.StorageRow {

@@ -22,7 +22,6 @@ import (
 	"sync/atomic"
 
 	"github.com/caarlos0/env/v7"
-
 	"github.com/lindb/common/pkg/ltoml"
 )
 

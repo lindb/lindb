@@ -24,12 +24,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lindb/common/series"
+
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/ingestion/flat"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/strutil"
-
-	"github.com/lindb/common/series"
 )
 
 // Writer represents writer for writing time series data asynchronously.
@@ -262,7 +263,7 @@ func (w *writer) write(data io.Reader) error {
 		w.deps.BrokerCfg.BrokerBase.Ingestion.IngestTimeout.Duration())
 	defer cancel()
 
-	limits := w.deps.StateMgr.GetDatabaseLimits(database)
+	limits := models.GetDatabaseLimits(database)
 	if limits.EnableNamespaceLengthCheck() && len(namespace) > limits.MaxNamespaceLength {
 		return constants.ErrNamespaceTooLong
 	}

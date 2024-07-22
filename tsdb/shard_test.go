@@ -140,7 +140,6 @@ func TestShard_New(t *testing.T) {
 				assert.NotNil(t, s.BufferManager())
 				assert.True(t, s.CurrentInterval().Int64() > 0)
 				assert.NotNil(t, s.MemIndexDB())
-				s.notifyLimitsChange()
 			}
 		})
 	}

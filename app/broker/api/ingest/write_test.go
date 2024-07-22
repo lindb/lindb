@@ -27,17 +27,15 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-http-utils/headers"
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/mock/gomock"
-
 	"github.com/lindb/common/pkg/ltoml"
 	"github.com/lindb/common/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/mock"
@@ -51,8 +49,6 @@ func TestWrite_Flat(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	stateMgr := broker.NewMockStateManager(ctrl)
-	stateMgr.EXPECT().GetDatabaseLimits(gomock.Any()).Return(models.NewDefaultLimits()).AnyTimes()
 	cm := replica.NewMockChannelManager(ctrl)
 	api := NewWrite(&deps.HTTPDeps{
 		BrokerCfg: &config.Broker{
@@ -62,8 +58,7 @@ func TestWrite_Flat(t *testing.T) {
 				},
 			},
 		},
-		StateMgr: stateMgr,
-		CM:       cm,
+		CM: cm,
 		IngestLimiter: concurrent.NewLimiter(
 			context.TODO(),
 			32,
@@ -90,7 +85,8 @@ func TestWrite_Flat(t *testing.T) {
 		Name:      "cpu",
 		Timestamp: timeutil.Now(),
 		SimpleFields: []*protoMetricsV1.SimpleField{
-			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
+			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
+		},
 	}, &brokerRow)
 	assert.NoError(t, err)
 	var buf bytes.Buffer
@@ -117,8 +113,6 @@ func TestWrite_Influx(t *testing.T) {
 	defer ctrl.Finish()
 
 	cm := replica.NewMockChannelManager(ctrl)
-	stateMgr := broker.NewMockStateManager(ctrl)
-	stateMgr.EXPECT().GetDatabaseLimits(gomock.Any()).Return(models.NewDefaultLimits()).AnyTimes()
 	api := NewWrite(&deps.HTTPDeps{
 		BrokerCfg: &config.Broker{
 			BrokerBase: config.BrokerBase{
@@ -127,8 +121,7 @@ func TestWrite_Influx(t *testing.T) {
 				},
 			},
 		},
-		CM:       cm,
-		StateMgr: stateMgr,
+		CM: cm,
 		IngestLimiter: concurrent.NewLimiter(
 			context.TODO(),
 			32,
@@ -181,12 +174,12 @@ func TestWrite_Proto(t *testing.T) {
 	defer ctrl.Finish()
 
 	cm := replica.NewMockChannelManager(ctrl)
-	stateMgr := broker.NewMockStateManager(ctrl)
 	limits := models.NewDefaultLimits()
 	limits.MaxNamespaceLength = 5
 	limits.MaxTagNameLength = 5
 	limits.MaxTagValueLength = 5
-	stateMgr.EXPECT().GetDatabaseLimits(gomock.Any()).Return(limits).AnyTimes()
+	models.SetDatabaseLimits("test", limits)
+	models.SetDatabaseLimits("test3", limits)
 	api := NewWrite(&deps.HTTPDeps{
 		BrokerCfg: &config.Broker{
 			BrokerBase: config.BrokerBase{
@@ -195,8 +188,7 @@ func TestWrite_Proto(t *testing.T) {
 				},
 			},
 		},
-		CM:       cm,
-		StateMgr: stateMgr,
+		CM: cm,
 		IngestLimiter: concurrent.NewLimiter(
 			context.TODO(),
 			32,
@@ -239,7 +231,7 @@ func TestWrite_Proto(t *testing.T) {
 
 	// no content
 	cm.EXPECT().Write(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-	var metricList = protoMetricsV1.MetricList{Metrics: []*protoMetricsV1.Metric{
+	metricList := protoMetricsV1.MetricList{Metrics: []*protoMetricsV1.Metric{
 		{Name: "1", Namespace: "ns", SimpleFields: []*protoMetricsV1.SimpleField{
 			{Name: "counter", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 23},
 		}},

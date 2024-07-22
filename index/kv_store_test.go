@@ -56,9 +56,9 @@ func TestIndexKVStore(t *testing.T) {
 		buckets.Put(bucketID, kvs)
 		for i := 0; i < 1000; i++ {
 			binary.LittleEndian.PutUint64(scratch[:], r.Uint64())
-			id, isNew, err0 := indexStore.GetOrCreateValue(bucketID, scratch[:], func() uint32 {
+			id, isNew, err0 := indexStore.GetOrCreateValue(bucketID, scratch[:], func() (uint32, error) {
 				seq++
-				return seq
+				return seq, nil
 			})
 			assert.True(t, isNew)
 			assert.NoError(t, err0)
@@ -69,7 +69,7 @@ func TestIndexKVStore(t *testing.T) {
 	test := func() {
 		_ = buckets.WalkEntry(func(key uint32, value map[string]uint32) error {
 			for k, v := range value {
-				id, isNew, err0 := indexStore.GetOrCreateValue(key, strutil.String2ByteSlice(k), func() uint32 {
+				id, isNew, err0 := indexStore.GetOrCreateValue(key, strutil.String2ByteSlice(k), func() (uint32, error) {
 					panic("err")
 				})
 				assert.False(t, isNew)
@@ -120,8 +120,8 @@ func TestIndexKVStore_Compact(t *testing.T) {
 	assert.NoError(t, err)
 
 	write := func(i int) {
-		id, isNew, err0 := indexStore.GetOrCreateValue(1, []byte(fmt.Sprintf("key-%d", i)), func() uint32 {
-			return uint32(i)
+		id, isNew, err0 := indexStore.GetOrCreateValue(1, []byte(fmt.Sprintf("key-%d", i)), func() (uint32, error) {
+			return uint32(i), nil
 		})
 		assert.True(t, isNew)
 		assert.NoError(t, err0)
@@ -158,7 +158,7 @@ func TestIndexKVStore_Find(t *testing.T) {
 		"a", "ab", "b", "abc", "abcdefgh", "abcdefghijklmnopqrstuvwxyz", "abcdefghijkl", "zzzzzz", "ice",
 	}
 	for idx, key := range keysString {
-		v, isNew, err := indexStore.GetOrCreateValue(100, []byte(key), func() uint32 { return uint32(idx) })
+		v, isNew, err := indexStore.GetOrCreateValue(100, []byte(key), func() (uint32, error) { return uint32(idx), nil })
 		assert.NoError(t, err)
 		assert.True(t, isNew)
 		assert.Equal(t, uint32(idx), v)

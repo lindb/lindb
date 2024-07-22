@@ -19,10 +19,30 @@ package models
 
 import (
 	"fmt"
+	"sync"
 
 	commonconstants "github.com/lindb/common/constants"
 	commonseries "github.com/lindb/common/series"
 )
+
+var (
+	globalLimits  sync.Map
+	defaultLimits = NewDefaultLimits()
+)
+
+// GetDatabaseLimits returns database limits by given database name.
+func GetDatabaseLimits(database string) *Limits {
+	limits, ok := globalLimits.Load(database)
+	if ok {
+		return limits.(*Limits)
+	}
+	return defaultLimits
+}
+
+// SetDatabaseLimits sets database limits based on database name and limits.
+func SetDatabaseLimits(database string, limits *Limits) {
+	globalLimits.Store(database, limits)
+}
 
 // Limits represents all the limit for database level; can be used to describe global
 // default limits, or per-database limits vis toml config.
@@ -38,7 +58,7 @@ type Limits struct {
 	MaxSeriesPerQuery   int    `toml:"max-series-per-query"`
 	MaxNamespaces       uint32 `toml:"max-namespaces"`
 	MaxMetrics          uint32 `toml:"max-metrics"`
-	MaxFieldsPerMetric  int32  `toml:"max-fields-per-metric"`
+	MaxFieldsPerMetric  int    `toml:"max-fields-per-metric"`
 	MaxSeriesPerMetric  uint32 `toml:"max-series-per-metric"`
 }
 
@@ -55,7 +75,7 @@ func NewDefaultLimits() *Limits {
 		MaxTagNameLength:    128,
 		MaxTagValueLength:   1024,
 		MaxTagsPerMetric:    32,
-		MaxSeriesPerMetric:  200000000, // TODO: modify default value
+		MaxSeriesPerMetric:  20_0000,
 		Metrics:             make(map[string]uint32),
 		// Read limits
 		MaxSeriesPerQuery: 200000,
@@ -64,52 +84,52 @@ func NewDefaultLimits() *Limits {
 
 // EnableNamespaceLengthCheck returns if need check namespace's length.
 func (l *Limits) EnableNamespaceLengthCheck() bool {
-	return l.MaxNamespaceLength != 0
+	return l.MaxNamespaceLength > 0
 }
 
 // EnableNamespacesCheck returns if need limit num. of namepsaces.
 func (l *Limits) EnableNamespacesCheck() bool {
-	return l.MaxNamespaces != 0
+	return l.MaxNamespaces > 0
 }
 
 // EnableMetricNameLengthCheck returns if need check metric name's length.
 func (l *Limits) EnableMetricNameLengthCheck() bool {
-	return l.MaxMetricNameLength != 0
+	return l.MaxMetricNameLength > 0
 }
 
 // EnableMetricsCheck returns if need limit num. of metrics.
 func (l *Limits) EnableMetricsCheck() bool {
-	return l.MaxMetrics != 0
+	return l.MaxMetrics > 0
 }
 
 // EnableFieldNameLengthCheck returns if need check field name's length.
 func (l *Limits) EnableFieldNameLengthCheck() bool {
-	return l.MaxFieldNameLength != 0
+	return l.MaxFieldNameLength > 0
 }
 
 // EnableFieldsCheck returns if need limit num. of fields for metric.
 func (l *Limits) EnableFieldsCheck() bool {
-	return l.MaxFieldsPerMetric != 0
+	return l.MaxFieldsPerMetric > 0
 }
 
 // EnableTagNameLengthCheck returns if need check tag name's length.
 func (l *Limits) EnableTagNameLengthCheck() bool {
-	return l.MaxTagNameLength != 0
+	return l.MaxTagNameLength > 0
 }
 
 // EnableTagValueLengthCheck returns if need check tag value's length.
 func (l *Limits) EnableTagValueLengthCheck() bool {
-	return l.MaxTagValueLength != 0
+	return l.MaxTagValueLength > 0
 }
 
 // EnableTagsCheck returns if need limit num. of tags for metric.
 func (l *Limits) EnableTagsCheck() bool {
-	return l.MaxTagsPerMetric != 0
+	return l.MaxTagsPerMetric > 0
 }
 
 // EnableSereisCheckForQuery returns if need check num. of series for query
 func (l *Limits) EnableSeriesCheckForQuery() bool {
-	return l.MaxSeriesPerQuery != 0
+	return l.MaxSeriesPerQuery > 0
 }
 
 // TOML returns limits' configuration string as toml format.

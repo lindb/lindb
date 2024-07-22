@@ -135,7 +135,7 @@ func (rc *BrokerRowProtoConverter) validateMetric(m *protoMetricsV1.Metric) erro
 		}
 	}
 
-	if rc.limits.EnableFieldsCheck() && len(m.SimpleFields) > int(rc.limits.MaxFieldsPerMetric) {
+	if rc.limits.EnableFieldsCheck() && len(m.SimpleFields) > rc.limits.MaxFieldsPerMetric {
 		return constants.ErrTooManyFields
 	}
 

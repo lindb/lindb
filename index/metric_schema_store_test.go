@@ -31,6 +31,7 @@ import (
 	v1 "github.com/lindb/lindb/index/v1"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/version"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/imap"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
@@ -47,7 +48,7 @@ func TestMetricSchemaStore_GenFieldID(t *testing.T) {
 	family, err := kvStore.CreateFamily("field", kv.FamilyOption{Merger: string(v1.MetricSchemaMerger)})
 	assert.NoError(t, err)
 	s := NewMetricSchemaStore(family)
-	fID, err := s.genFieldID(10, field.Meta{Name: "test", Type: field.SumField})
+	fID, err := s.genFieldID(10, field.Meta{Name: "test", Type: field.SumField}, models.NewDefaultLimits())
 	assert.NoError(t, err)
 	assert.Equal(t, field.ID(0), fID)
 	schema, err := s.GetSchema(10)
@@ -57,7 +58,7 @@ func TestMetricSchemaStore_GenFieldID(t *testing.T) {
 	assert.Equal(t, field.ID(0), fm.ID)
 
 	// just get field
-	fID, err = s.genFieldID(10, field.Meta{Name: "test", Type: field.SumField})
+	fID, err = s.genFieldID(10, field.Meta{Name: "test", Type: field.SumField}, models.NewDefaultLimits())
 	assert.NoError(t, err)
 	assert.Equal(t, field.ID(0), fID)
 }
@@ -72,7 +73,7 @@ func TestMetricSchemaStore_GenTagKeyID(t *testing.T) {
 	family, err := kvStore.CreateFamily("tag_key", kv.FamilyOption{Merger: string(v1.MetricSchemaMerger)})
 	assert.NoError(t, err)
 	s := NewMetricSchemaStore(family)
-	tagKeyID, err := s.genTagKeyID(10, []byte("key1"), func() uint32 { return 10 })
+	tagKeyID, err := s.genTagKeyID(10, []byte("key1"), models.NewDefaultLimits(), func() uint32 { return 10 })
 	assert.NoError(t, err)
 	assert.Equal(t, tag.KeyID(10), tagKeyID)
 	schema, err := s.GetSchema(10)
@@ -82,7 +83,7 @@ func TestMetricSchemaStore_GenTagKeyID(t *testing.T) {
 	assert.Equal(t, tag.KeyID(10), tagKey.ID)
 	s.PrepareFlush()
 	assert.NoError(t, s.Flush())
-	tagKeyID, err = s.genTagKeyID(10, []byte("key2"), func() uint32 { return 11 })
+	tagKeyID, err = s.genTagKeyID(10, []byte("key2"), models.NewDefaultLimits(), func() uint32 { return 11 })
 	assert.NoError(t, err)
 	assert.Equal(t, tag.KeyID(11), tagKeyID)
 	s.PrepareFlush()
@@ -104,7 +105,7 @@ func TestMetricSchemaStore_GenTagKeyID(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, schema)
 	// just get
-	tagKeyID, err = s.genTagKeyID(10, []byte("key2"), func() uint32 { return 133 })
+	tagKeyID, err = s.genTagKeyID(10, []byte("key2"), models.NewDefaultLimits(), func() uint32 { return 133 })
 	assert.NoError(t, err)
 	assert.Equal(t, tag.KeyID(11), tagKeyID)
 }
@@ -120,14 +121,14 @@ func TestMetricSchemaStore_Gen_Error(t *testing.T) {
 
 	t.Run("get schema from kv error when gen field", func(t *testing.T) {
 		snapshot.EXPECT().Load(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-		fID, err := ms.genFieldID(10, field.Meta{Name: "test", Type: field.SumField})
+		fID, err := ms.genFieldID(10, field.Meta{Name: "test", Type: field.SumField}, models.NewDefaultLimits())
 		assert.Error(t, err)
 		assert.Equal(t, field.ID(0), fID)
 	})
 
 	t.Run("get schema from kv error when gen tag", func(t *testing.T) {
 		snapshot.EXPECT().Load(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-		tID, err := ms.genTagKeyID(10, []byte("key"), func() uint32 { return 1 })
+		tID, err := ms.genTagKeyID(10, []byte("key"), models.NewDefaultLimits(), func() uint32 { return 1 })
 		assert.Error(t, err)
 		assert.Equal(t, tag.KeyID(0), tID)
 	})
@@ -135,22 +136,24 @@ func TestMetricSchemaStore_Gen_Error(t *testing.T) {
 	snapshot.EXPECT().Load(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	t.Run("field limit", func(t *testing.T) {
 		for i := 0; i < math.MaxUint8; i++ {
-			fID, err := ms.genFieldID(10, field.Meta{Name: field.Name(fmt.Sprintf("test-%d", i)), Type: field.SumField})
+			fID, err := ms.genFieldID(10, field.Meta{Name: field.Name(fmt.Sprintf("test-%d", i)), Type: field.SumField}, models.NewDefaultLimits())
 			assert.NoError(t, err)
 			assert.Equal(t, field.ID(i), fID)
 		}
-		fID, err := ms.genFieldID(10, field.Meta{Name: "limit", Type: field.SumField})
+		fID, err := ms.genFieldID(10, field.Meta{Name: "limit", Type: field.SumField}, models.NewDefaultLimits())
 		assert.Equal(t, constants.ErrTooManyFields, err)
 		assert.Equal(t, field.ID(0), fID)
 	})
 
 	t.Run("tag limit", func(t *testing.T) {
+		limits := models.NewDefaultLimits()
+		limits.MaxTagsPerMetric = 5000
 		for i := 0; i < math.MaxUint8; i++ {
-			tID, err := ms.genTagKeyID(10, []byte(fmt.Sprintf("key-%d", i)), func() uint32 { return uint32(i) })
+			tID, err := ms.genTagKeyID(10, []byte(fmt.Sprintf("key-%d", i)), limits, func() uint32 { return uint32(i) })
 			assert.NoError(t, err)
 			assert.Equal(t, tag.KeyID(i), tID)
 		}
-		tID, err := ms.genTagKeyID(10, []byte("limit"), func() uint32 { return 1 })
+		tID, err := ms.genTagKeyID(10, []byte("limit"), models.NewDefaultLimits(), func() uint32 { return 1 })
 		assert.Equal(t, constants.ErrTooManyTagKeys, err)
 		assert.Equal(t, tag.KeyID(0), tID)
 	})
