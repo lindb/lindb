@@ -22,10 +22,12 @@ import (
 	"sync"
 
 	"github.com/lindb/common/pkg/fasttime"
+	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/timeutil"
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/index"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/imap"
 	"github.com/lindb/lindb/series/metric"
 )
@@ -36,6 +38,8 @@ var empty = struct{}{}
 
 // MetadataDatabase represents memory metadata database for storing metric meta(name,field etc./database level)
 type MetadataDatabase interface {
+	// Config returns database's config.
+	Config() *models.DatabaseConfig
 	// GetOrCreateMetricMeta returns metric meta store, if not exist create new store.
 	GetOrCreateMetricMeta(row *metric.StorageRow) (ms mStoreINTF, isNew bool)
 	// GetMetricMeta returns metric meta store by memory metric id.
@@ -54,6 +58,7 @@ type MetadataDatabase interface {
 
 // metadataDatabase implements MetadataDatabase interface.
 type metadataDatabase struct {
+	cfg    *models.DatabaseConfig
 	metaDB index.MetricMetaDatabase
 
 	ctx    context.Context
@@ -67,9 +72,10 @@ type metadataDatabase struct {
 }
 
 // NewMetadataDatabase creates MetadataDatabase instance.
-func NewMetadataDatabase(metaDB index.MetricMetaDatabase) MetadataDatabase {
+func NewMetadataDatabase(cfg *models.DatabaseConfig, metaDB index.MetricMetaDatabase) MetadataDatabase {
 	ctx, cancel := context.WithCancel(context.TODO())
 	db := &metadataDatabase{
+		cfg:              cfg,
 		ctx:              ctx,
 		cancel:           cancel,
 		metaDB:           metaDB,
@@ -78,6 +84,11 @@ func NewMetadataDatabase(metaDB index.MetricMetaDatabase) MetadataDatabase {
 	}
 	go db.handle()
 	return db
+}
+
+// Config returns database's config.
+func (mdb *metadataDatabase) Config() *models.DatabaseConfig {
+	return mdb.cfg
 }
 
 // Notify notifies update or flush metric metadata.
@@ -179,7 +190,8 @@ func (mdb *metadataDatabase) handleRow(row *metric.StorageRow) {
 
 	metricID, err := mdb.metaDB.GenMetricID(row.NameSpace(), row.Name())
 	if err != nil {
-		// TODO: add log/metric
+		memDBLogger.Warn("generate metric id error", logger.String("namespace", string(row.NameSpace())),
+			logger.String("metric", string(row.Name())), logger.Error(err))
 		return
 	}
 	memMetricID := row.NameHash()
@@ -197,7 +209,8 @@ func (mdb *metadataDatabase) handleRow(row *metric.StorageRow) {
 	for _, fm := range row.Fields {
 		fieldID, err := mdb.metaDB.GenFieldID(metricID, fm)
 		if err != nil {
-			// TODO: add log and metric
+			memDBLogger.Warn("generate field error", logger.String("namespace", string(row.NameSpace())),
+				logger.String("metric", string(row.Name())), logger.String("field", fm.Name.String()), logger.Error(err))
 			continue
 		}
 		mStore.UpdateFieldMeta(fieldID, fm)

@@ -65,6 +65,9 @@ func QuantileCall(q float64, histogramFields map[float64][]*collections.FloatArr
 			histogramBuckets = append(histogramBuckets, bucket{upperBound: upperBound, value: arrays[0]})
 		}
 	}
+	if len(histogramBuckets) == 0 {
+		return nil, nil
+	}
 	sort.Sort(histogramBuckets)
 
 	capacity := histogramFields[histogramBuckets[0].upperBound][0].Capacity()

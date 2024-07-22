@@ -161,7 +161,7 @@ func newDatabase(
 	}()
 	db.limits.Store(limits)
 
-	db.memMetaDB = memdb.NewMetadataDatabase(db.metaDB)
+	db.memMetaDB = memdb.NewMetadataDatabase(db.config, db.metaDB)
 	// load families if engine is existed
 	var shard Shard
 	if len(db.config.ShardIDs) > 0 {
@@ -261,11 +261,11 @@ func (db *database) createShard(shardID models.ShardID) error {
 		return fmt.Errorf("create shard[%d] for engine[%s] with error: %s", shardID, db.name, err)
 	}
 	// using new engine option
-	newCfg := &models.DatabaseConfig{Option: db.config.Option, ShardIDs: db.config.ShardIDs}
+	newCfg := &models.DatabaseConfig{Name: db.name, Option: db.config.Option, ShardIDs: db.config.ShardIDs}
 	// add new shard id
 	newCfg.ShardIDs = append(newCfg.ShardIDs, shardID)
 	if err := db.dumpDatabaseConfig(newCfg); err != nil {
-		// TODO if dump config err, need close shard??
+		// TODO: if dump config err, need close shard??
 		return err
 	}
 	db.shardSet.InsertShard(shardID, createdShard)
@@ -341,7 +341,7 @@ func (db *database) dumpDatabaseConfig(newConfig *models.DatabaseConfig) error {
 
 // initMetadata initializes metadata backend storage
 func (db *database) initMetadata() error {
-	metaDB, err := newMetaDBFunc(metricsMetaPath(db.name))
+	metaDB, err := newMetaDBFunc(db.name, metricsMetaPath(db.name))
 	if err != nil {
 		return err
 	}

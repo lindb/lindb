@@ -27,6 +27,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/index"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/imap"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
@@ -38,7 +39,8 @@ func TestMetadataDatabase_flush(t *testing.T) {
 	metaDB := index.NewMockMetricMetaDatabase(ctrl)
 	metaDB.EXPECT().PrepareFlush()
 	metaDB.EXPECT().Flush().Return(nil)
-	mdb := NewMetadataDatabase(metaDB)
+	mdb := NewMetadataDatabase(&models.DatabaseConfig{}, metaDB)
+	assert.NotNil(t, mdb.Config())
 	ch := make(chan error)
 	mdb.Notify(&FlushEvent{
 		Callback: func(err error) {
@@ -51,7 +53,7 @@ func TestMetadataDatabase_flush(t *testing.T) {
 }
 
 func TestMetadataDatabase_GetOrCreateMetricMeta(t *testing.T) {
-	mdb := NewMetadataDatabase(nil)
+	mdb := NewMetadataDatabase(&models.DatabaseConfig{}, nil)
 
 	m := &protoMetricsV1.Metric{
 		Name:      "test1",
@@ -85,7 +87,7 @@ func TestMetadataDatabase_handleRow(t *testing.T) {
 	defer ctrl.Finish()
 
 	metaDB := index.NewMockMetricMetaDatabase(ctrl)
-	mdb := NewMetadataDatabase(metaDB).(*metadataDatabase)
+	mdb := NewMetadataDatabase(&models.DatabaseConfig{}, metaDB).(*metadataDatabase)
 	m := &protoMetricsV1.Metric{
 		Name:      "test1",
 		Namespace: "ns",

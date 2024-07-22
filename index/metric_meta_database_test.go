@@ -29,6 +29,7 @@ import (
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
@@ -42,7 +43,7 @@ func TestMetricMetaDatabase(t *testing.T) {
 		_ = os.RemoveAll(name)
 	}()
 
-	db, err := NewMetricMetaDatabase(name)
+	db, err := NewMetricMetaDatabase("test", name)
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 
@@ -135,7 +136,7 @@ func TestMetricMetaDatabase_Flush_Error(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	db, err := NewMetricMetaDatabase(name)
+	db, err := NewMetricMetaDatabase("test", name)
 	assert.NoError(t, err)
 	t.Run("sync sequence error", func(t *testing.T) {
 		syncFn = func(_ []byte) error {
@@ -263,10 +264,24 @@ func TestMetricMetaDatabase_New_Error(t *testing.T) {
 			}
 			tt.prepare()
 
-			_, err := NewMetricMetaDatabase("./dir")
+			_, err := NewMetricMetaDatabase("test", "./dir")
 			assert.Error(t, err)
 		})
 	}
+}
+
+func TestMetricMetaDatabase_GenField(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	schemaStore := NewMockMetricSchemaStore(ctrl)
+	db := &metricMetaDatabase{
+		schemaStore: schemaStore,
+		statistics:  metrics.NewMetaDBStatistics("test"),
+	}
+	schemaStore.EXPECT().genFieldID(gomock.Any(), gomock.Any()).Return(field.ID(0), fmt.Errorf("err"))
+	_, err := db.GenFieldID(1, field.Meta{Name: "test"})
+	assert.Error(t, err)
 }
 
 func TestMetricMetaDatabase_Read_Error(t *testing.T) {
@@ -275,9 +290,10 @@ func TestMetricMetaDatabase_Read_Error(t *testing.T) {
 
 	indexStore := NewMockIndexKVStore(ctrl)
 	db := &metricMetaDatabase{
-		tagValue: indexStore,
-		ns:       indexStore,
-		metric:   indexStore,
+		tagValue:   indexStore,
+		ns:         indexStore,
+		metric:     indexStore,
+		statistics: metrics.NewMetaDBStatistics("test"),
 	}
 
 	t.Run("read tag value error", func(t *testing.T) {
@@ -349,6 +365,7 @@ func TestMetricMetaDatabase_GenTag_Error(t *testing.T) {
 	db := &metricMetaDatabase{
 		tagValue:    indexStore,
 		schemaStore: schemaStore,
+		statistics:  metrics.NewMetaDBStatistics("test"),
 		logger:      logger.GetLogger("Index", "Test"),
 	}
 

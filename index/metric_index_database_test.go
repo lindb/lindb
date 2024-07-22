@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/golang-lru/v2/expirable"
+	"github.com/lindb/common/pkg/logger"
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
@@ -37,6 +38,7 @@ import (
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/table"
 	"github.com/lindb/lindb/kv/version"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/imap"
@@ -52,7 +54,7 @@ func TestMetricIndexDatabase(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	metaDB, err := NewMetricMetaDatabase(path.Join(name, "meta"))
+	metaDB, err := NewMetricMetaDatabase("test", path.Join(name, "meta"))
 	assert.NoError(t, err)
 	db, err := NewMetricIndexDatabase(path.Join(name, "index"), metaDB)
 	assert.NoError(t, err)
@@ -545,7 +547,9 @@ func TestMetricIndexDatabase_buildInvertIndex(t *testing.T) {
 	}
 	row1 := protoToStorageRow(m)
 	idx := &metricIndexDatabase{
-		metaDB: metaDB,
+		metaDB:     metaDB,
+		statistics: metrics.NewIndexDBStatistics("test"),
+		logger:     logger.GetLogger("test", "test"),
 	}
 	metaDB.EXPECT().GenTagKeyID(gomock.Any(), gomock.Any()).Return(tag.KeyID(0), fmt.Errorf("err"))
 	idx.buildInvertIndex(1, row1.NewKeyValueIterator(), 1, nil)

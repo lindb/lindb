@@ -77,6 +77,8 @@ type MetricMetaDatabase interface {
 	series.MetricMetaSuggester
 	series.TagValueSuggester
 
+	// Name returns database's name.
+	Name() string
 	// GenMetricID generates metric id if not exist, else return it.
 	GenMetricID(ns, metricName []byte) (metric.ID, error)
 	// GenTagKeyID generates tag key id if not exist, else returns it.

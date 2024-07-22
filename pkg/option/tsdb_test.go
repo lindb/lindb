@@ -21,9 +21,8 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	commontimeutil "github.com/lindb/common/pkg/timeutil"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -88,30 +87,29 @@ func TestDatabaseOption_Validate(t *testing.T) {
 
 func TestDatabaseOption_GetAcceptWritableRange(t *testing.T) {
 	cases := []struct {
-		name    string
-		in      DatabaseOption
 		prepare func(in *DatabaseOption)
 		assert  func(ahead, behind int64)
+		name    string
+		in      DatabaseOption
 	}{
 		{
-			"default option",
-			DatabaseOption{},
-			func(in *DatabaseOption) {
+			name: "default option",
+			in:   DatabaseOption{},
+			prepare: func(in *DatabaseOption) {
 				in.Default()
 			},
-			func(ahead, behind int64) {
+			assert: func(ahead, behind int64) {
 				assert.Equal(t, constants.MetricMaxAheadDuration, ahead)
 				assert.Equal(t, constants.MetricMaxBehindDuration, behind)
 			},
 		},
 		{
-
-			"get accept writable range",
-			DatabaseOption{Ahead: "10s", Behind: "20s"},
-			func(in *DatabaseOption) {
+			name: "get accept writable range",
+			in:   DatabaseOption{Ahead: "10s", Behind: "20s"},
+			prepare: func(in *DatabaseOption) {
 				in.Default()
 			},
-			func(ahead, behind int64) {
+			assert: func(ahead, behind int64) {
 				assert.Equal(t, int64(10000), ahead)
 				assert.Equal(t, int64(20000), behind)
 			},

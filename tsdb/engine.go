@@ -104,7 +104,7 @@ func NewEngine() (Engine, error) {
 // return success when creating database's path successfully
 func (e *engine) createDatabase(databaseName string, dbOption *option.DatabaseOption) (Database, error) {
 	cfgPath := optionsPath(databaseName)
-	cfg := &models.DatabaseConfig{Option: dbOption}
+	cfg := &models.DatabaseConfig{Name: databaseName, Option: dbOption}
 	engineLogger.Info("load database option from local storage", logger.String("path", cfgPath))
 	if fileExist(cfgPath) {
 		if err := decodeToml(cfgPath, cfg); err != nil {

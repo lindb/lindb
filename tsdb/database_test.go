@@ -78,7 +78,7 @@ func TestDatabase_New(t *testing.T) {
 		{
 			name: "create metadata err",
 			prepare: func() {
-				newMetaDBFunc = func(_ string) (metadata index.MetricMetaDatabase, err error) {
+				newMetaDBFunc = func(_, _ string) (metadata index.MetricMetaDatabase, err error) {
 					return nil, fmt.Errorf("err")
 				}
 			},
@@ -102,7 +102,7 @@ func TestDatabase_New(t *testing.T) {
 			name: "create database successfully",
 			prepare: func() {
 				metaDB := index.NewMockMetricMetaDatabase(ctrl)
-				newMetaDBFunc = func(_ string) (index.MetricMetaDatabase, error) {
+				newMetaDBFunc = func(_, _ string) (index.MetricMetaDatabase, error) {
 					return metaDB, nil
 				}
 				newShardFunc = func(db Database, shardID models.ShardID) (s Shard, err error) {
@@ -115,7 +115,7 @@ func TestDatabase_New(t *testing.T) {
 			name: "close metadata err when create database failure",
 			prepare: func() {
 				metaDB := index.NewMockMetricMetaDatabase(ctrl)
-				newMetaDBFunc = func(_ string) (index.MetricMetaDatabase, error) {
+				newMetaDBFunc = func(_, _ string) (index.MetricMetaDatabase, error) {
 					return metaDB, nil
 				}
 				newShardFunc = func(db Database, shardID models.ShardID) (s Shard, err error) {
@@ -137,7 +137,7 @@ func TestDatabase_New(t *testing.T) {
 				mkDirIfNotExist = func(path string) error {
 					return nil
 				}
-				newMetaDBFunc = func(_ string) (index.MetricMetaDatabase, error) {
+				newMetaDBFunc = func(_, _ string) (index.MetricMetaDatabase, error) {
 					return nil, nil
 				}
 				newShardFunc = newShard

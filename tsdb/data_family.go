@@ -526,10 +526,8 @@ func (f *dataFamily) WriteRows(rows []*metric.StorageRow) error {
 		return err
 	}
 	db.AcquireWrite()
-	memSizeBefore := db.MemSize()
 	defer func() {
 		f.statistics.WriteBatches.Incr()
-		f.statistics.MemDBTotalSize.Add(float64(db.MemSize() - memSizeBefore))
 		db.CompleteWrite()
 	}()
 
@@ -681,7 +679,6 @@ func (f *dataFamily) flushMemoryDatabase(sequences map[int32]int64, memDB memdb.
 	}
 
 	f.statistics.ActiveMemDBs.Decr()
-	f.statistics.MemDBTotalSize.Sub(float64(memDB.MemSize()))
 
 	if err := memDB.Close(); err != nil {
 		// ignore close memory database err, if not maybe write duplicate data into file storage

@@ -288,8 +288,10 @@ func (md *memoryDatabase) getFieldWriteBuffer(fieldIndex uint8) (DataPointBuffer
 	// alloc a new data point buffer
 	newBuf, err := md.cfg.BufferMgr.AllocBuffer(md.cfg.FamilyTime)
 	if err != nil {
+		md.statistics.AllocatePageFailures.Incr()
 		return nil, err
 	}
+	md.statistics.AllocatedPages.Incr()
 	// cache data point buffer
 	md.fieldWriteStores.Store(fieldIndex, newBuf)
 	return newBuf, nil

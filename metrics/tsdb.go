@@ -50,40 +50,35 @@ type DatabaseStatistics struct {
 	MetaDBFlushDuration *linmetric.BoundHistogram // flush metadata database duration(include count)
 }
 
-// TagMetaStatistics represents tag metadata statistics.
-type TagMetaStatistics struct {
+// MetaDBStatistics represents metadata database statistics.
+type MetaDBStatistics struct {
+	GenMetricIDs          *linmetric.BoundCounter // generate metric id success
+	GenMetricIDFailures   *linmetric.BoundCounter // generate metric id failure
+	GenFieldIDs           *linmetric.BoundCounter // generate field id success
+	GenFieldIDFailures    *linmetric.BoundCounter // generate field id failure
+	GenTagKeyIDs          *linmetric.BoundCounter // generate tag key id success
+	GenTagKeyIDFailures   *linmetric.BoundCounter // generate tag key id failure
 	GenTagValueIDs        *linmetric.BoundCounter // generate tag value id success
 	GenTagValueIDFailures *linmetric.BoundCounter // generate tag value id failure
 }
 
-// MetaDBStatistics represents metadata database statistics.
-type MetaDBStatistics struct {
-	GenMetricIDs        *linmetric.BoundCounter // generate metric id success
-	GenMetricIDFailures *linmetric.BoundCounter // generate metric id failure
-	GenFieldIDs         *linmetric.BoundCounter // generate field id success
-	GenFieldIDFailures  *linmetric.BoundCounter // generate field id failure
-	GenTagKeyIDs        *linmetric.BoundCounter // generate tag key id success
-	GenTagKeyIDFailures *linmetric.BoundCounter // generate tag key id failure
-}
-
 // ShardStatistics represents shard statistics.
 type ShardStatistics struct {
-	LookupMetricMetaFailures *linmetric.BoundCounter   // lookup meta of metric failure
-	IndexDBFlushDuration     *linmetric.BoundHistogram // flush index database duration(include count)
-	IndexDBFlushFailures     *linmetric.BoundCounter   // flush index database failure
+	IndexDBFlushDuration *linmetric.BoundHistogram // flush index database duration(include count)
+	IndexDBFlushFailures *linmetric.BoundCounter   // flush index database failure
 }
 
 // FamilyStatistics represents family statistics.
 type FamilyStatistics struct {
-	ActiveFamilies      *linmetric.BoundGauge     // number of current active families
-	WriteBatches        *linmetric.BoundCounter   // write batch count
-	WriteMetrics        *linmetric.BoundCounter   // write metric success count
-	WriteFields         *linmetric.BoundCounter   // write field data point success count
-	WriteMetricFailures *linmetric.BoundCounter   // write metric failures
-	MemDBTotalSize      *linmetric.BoundGauge     // total memory size of memory database
-	ActiveMemDBs        *linmetric.BoundGauge     // number of current active memory database
-	MemDBFlushFailures  *linmetric.BoundCounter   // flush memory database failure
-	MemDBFlushDuration  *linmetric.BoundHistogram // flush memory database duration(include count)
+	ActiveFamilies      *linmetric.BoundGauge   // number of current active families
+	WriteBatches        *linmetric.BoundCounter // write batch count
+	WriteMetrics        *linmetric.BoundCounter // write metric success count
+	WriteFields         *linmetric.BoundCounter // write field data point success count
+	WriteMetricFailures *linmetric.BoundCounter // write metric failures
+	// MemDBTotalSize      *linmetric.BoundGauge     // total memory size of memory database
+	ActiveMemDBs       *linmetric.BoundGauge     // number of current active memory database
+	MemDBFlushFailures *linmetric.BoundCounter   // flush memory database failure
+	MemDBFlushDuration *linmetric.BoundHistogram // flush memory database duration(include count)
 }
 
 // NewFamilyStatistics creates a family statistics.
@@ -99,8 +94,8 @@ func NewFamilyStatistics(database, shard string) *FamilyStatistics {
 			WithTagValues(database),
 		WriteMetricFailures: shardScope.NewCounterVec("write_metrics_failures", "db", "shard").
 			WithTagValues(database, shard),
-		MemDBTotalSize: shardScope.NewGaugeVec("memdb_total_size", "db", "shard").
-			WithTagValues(database, shard),
+		// MemDBTotalSize: shardScope.NewGaugeVec("memdb_total_size", "db", "shard").
+		// 	WithTagValues(database, shard),
 		ActiveMemDBs: shardScope.NewGaugeVec("active_memdbs", "db", "shard").
 			WithTagValues(database, shard),
 		MemDBFlushFailures: shardScope.NewCounterVec("memdb_flush_failures", "db", "shard").
@@ -113,8 +108,6 @@ func NewFamilyStatistics(database, shard string) *FamilyStatistics {
 // NewShardStatistics creates a shard statistics.
 func NewShardStatistics(database, shard string) *ShardStatistics {
 	return &ShardStatistics{
-		LookupMetricMetaFailures: shardScope.NewCounterVec("lookup_metric_meta_failures", "db", "shard").
-			WithTagValues(database, shard),
 		IndexDBFlushFailures: shardScope.NewCounterVec("indexdb_flush_failures", "db", "shard").
 			WithTagValues(database, shard),
 		IndexDBFlushDuration: shardScope.Scope("indexdb_flush_duration").NewHistogramVec("db", "shard").
@@ -125,18 +118,12 @@ func NewShardStatistics(database, shard string) *ShardStatistics {
 // NewMetaDBStatistics create a metadata database statistics.
 func NewMetaDBStatistics(database string) *MetaDBStatistics {
 	return &MetaDBStatistics{
-		GenMetricIDs:        metaDBScope.NewCounterVec("gen_metric_ids", "db").WithTagValues(database),
-		GenMetricIDFailures: metaDBScope.NewCounterVec("gen_metric_id_failures", "db").WithTagValues(database),
-		GenTagKeyIDs:        metaDBScope.NewCounterVec("gen_tag_key_ids", "db").WithTagValues(database),
-		GenTagKeyIDFailures: metaDBScope.NewCounterVec("gen_tag_key_id_failures", "db").WithTagValues(database),
-		GenFieldIDs:         metaDBScope.NewCounterVec("gen_field_ids", "db").WithTagValues(database),
-		GenFieldIDFailures:  metaDBScope.NewCounterVec("gen_field_id_failures", "db").WithTagValues(database),
-	}
-}
-
-// NewTagMetaStatistics creates a tag metadata statistics.
-func NewTagMetaStatistics(database string) *TagMetaStatistics {
-	return &TagMetaStatistics{
+		GenMetricIDs:          metaDBScope.NewCounterVec("gen_metric_ids", "db").WithTagValues(database),
+		GenMetricIDFailures:   metaDBScope.NewCounterVec("gen_metric_id_failures", "db").WithTagValues(database),
+		GenFieldIDs:           metaDBScope.NewCounterVec("gen_field_ids", "db").WithTagValues(database),
+		GenFieldIDFailures:    metaDBScope.NewCounterVec("gen_field_id_failures", "db").WithTagValues(database),
+		GenTagKeyIDs:          metaDBScope.NewCounterVec("gen_tag_key_ids", "db").WithTagValues(database),
+		GenTagKeyIDFailures:   metaDBScope.NewCounterVec("gen_tag_key_id_failures", "db").WithTagValues(database),
 		GenTagValueIDs:        metaDBScope.NewCounterVec("gen_tag_value_ids", "db").WithTagValues(database),
 		GenTagValueIDFailures: metaDBScope.NewCounterVec("gen_tag_value_id_failures", "db").WithTagValues(database),
 	}
