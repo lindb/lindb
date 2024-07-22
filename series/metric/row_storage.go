@@ -27,7 +27,7 @@ import (
 
 // StorageRow represents a metric row with meta information and fields.
 type StorageRow struct {
-	Fields field.Metas
+	Fields field.Metas // need lookup meta for metadata database.
 	readOnlyRow
 	ref           sync.WaitGroup
 	WrittenFields float64

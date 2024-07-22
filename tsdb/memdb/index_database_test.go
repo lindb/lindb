@@ -28,6 +28,7 @@ import (
 	gomock "go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/index"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/series/metric"
 )
 
@@ -102,7 +103,7 @@ func TestIndexDatabase_handleRow(t *testing.T) {
 	defer ctrl.Finish()
 
 	metaDB := index.NewMockMetricMetaDatabase(ctrl)
-	memMetaDB := NewMetadataDatabase(metaDB)
+	memMetaDB := NewMetadataDatabase(&models.DatabaseConfig{}, metaDB)
 	indexDB := NewIndexDatabase(memMetaDB, nil)
 
 	m := &protoMetricsV1.Metric{

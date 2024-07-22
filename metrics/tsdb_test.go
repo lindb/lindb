@@ -29,6 +29,5 @@ func TestTSDBStatistics_New(t *testing.T) {
 	assert.NotNil(t, NewDatabaseStatistics("test"))
 	assert.NotNil(t, NewShardStatistics("test", "shard"))
 	assert.NotNil(t, NewFamilyStatistics("test", "shard"))
-	assert.NotNil(t, NewTagMetaStatistics("test"))
 	assert.NotNil(t, NewMetaDBStatistics("test"))
 }

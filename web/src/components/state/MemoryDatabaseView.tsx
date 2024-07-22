@@ -294,14 +294,6 @@ const MemoryDatabaseView: React.FC<{
             },
           },
           {
-            title: ReplicationView.numOfMetrics,
-            dataIndex: "numOfMetrics",
-            width: 150,
-            render: (text, _record, _index) => {
-              return FormatKit.format(text, Unit.Short);
-            },
-          },
-          {
             title: ReplicationView.numOfSeries,
             dataIndex: "numOfSeries",
             width: 150,

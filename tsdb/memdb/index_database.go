@@ -21,6 +21,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/timeutil"
 	"go.uber.org/atomic"
 
@@ -184,7 +185,8 @@ func (idb *indexDatabase) handleRow(row *metric.StorageRow) {
 
 	metricID, err := idb.metaDB.GetMetaDB().GenMetricID(row.NameSpace(), row.Name())
 	if err != nil {
-		// FIXME: add log and metric
+		memDBLogger.Warn("generate metric id error", logger.String("namespace", string(row.NameSpace())),
+			logger.String("metric", string(row.Name())), logger.Error(err))
 		return
 	}
 

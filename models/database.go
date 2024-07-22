@@ -22,7 +22,6 @@ import (
 	"strconv"
 
 	"github.com/jedib0t/go-pretty/v6/table"
-
 	"github.com/lindb/common/models"
 
 	"github.com/lindb/lindb/pkg/option"
@@ -77,32 +76,33 @@ func ParseShardID(shard string) ShardID {
 
 // DatabaseConfig represents a database configuration about config and families
 type DatabaseConfig struct {
-	ShardIDs []ShardID              `toml:"shardIDs" json:"shardIDs"`
 	Option   *option.DatabaseOption `toml:"option" json:"option"`
+	Name     string                 `toml:"name" json:"name"`
+	ShardIDs []ShardID              `toml:"shardIDs" json:"shardIDs"`
 }
 
 // Router represents the router of database.
 type Router struct {
 	Key      string   `json:"key" validate:"required"`    // routing key
-	Values   []string `json:"values" validate:"required"` // routing values
 	Broker   string   `json:"broker" validate:"required"` // target broker
 	Database string   `json:"database,omitempty"`         // target database
+	Values   []string `json:"values" validate:"required"` // routing values
 }
 
 // LogicDatabase defines database logic config, database can include multi-cluster.
 type LogicDatabase struct {
-	Name    string   `json:"name" validate:"required"`    // database's name
-	Routers []Router `json:"routers" validate:"required"` // database router
+	Name    string   `json:"name" validate:"required"` // database's name
 	Desc    string   `json:"desc,omitempty"`
+	Routers []Router `json:"routers" validate:"required"` // database router
 }
 
 // Database defines database config.
 type Database struct {
-	Name          string                 `json:"name" validate:"required"`      // database's name
+	Option        *option.DatabaseOption `json:"option"`                   // time series database option
+	Name          string                 `json:"name" validate:"required"` // database's name
+	Desc          string                 `json:"desc,omitempty"`
 	NumOfShard    int                    `json:"numOfShard" validate:"gt=0"`    // num. of shard
 	ReplicaFactor int                    `json:"replicaFactor" validate:"gt=0"` // replica refactor
-	Option        *option.DatabaseOption `json:"option"`                        // time series database option
-	Desc          string                 `json:"desc,omitempty"`
 }
 
 // String returns the database's description.
@@ -130,8 +130,8 @@ func (r Replica) Contain(nodeID NodeID) bool {
 
 // ShardAssignment defines shard assignment for database.
 type ShardAssignment struct {
-	Name   string               `json:"name"` // database's name
 	Shards map[ShardID]*Replica `json:"shards"`
+	Name   string               `json:"name"` // database's name
 
 	replicaFactor int // for storage recover
 }

@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/golang-lru/v2/expirable"
+	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/roaring"
 	"go.uber.org/atomic"
 
@@ -32,6 +33,7 @@ import (
 	v1 "github.com/lindb/lindb/index/v1"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/version"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/imap"
@@ -67,6 +69,8 @@ type metricIndexDatabase struct {
 	forward        *forwardIndex  // tag key id => [time seried ids, tag value ids]
 
 	sequenceCache *expirable.LRU[metric.ID, uint32]
+	statistics    *metrics.IndexDBStatistics
+	logger        logger.Logger
 
 	lock     sync.RWMutex
 	flushing atomic.Bool
@@ -112,7 +116,9 @@ func NewMetricIndexDatabase(dir string, metaDB MetricMetaDatabase) (MetricIndexD
 		metricInverted: newInvertedIndex(metricFamily),
 		inverted:       newInvertedIndex(invertedFamily),
 		forward:        newForwardIndex(forwadFamily),
+		statistics:     metrics.NewIndexDBStatistics(metaDB.Name()),
 		sequenceCache:  expirable.NewLRU[metric.ID, uint32](100000, nil, time.Hour),
+		logger:         logger.GetLogger("Index", "IndexDB"),
 	}
 	return index, nil
 }
@@ -154,10 +160,11 @@ func (index *metricIndexDatabase) GenSeriesID(metricID metric.ID, row *metric.St
 
 		if row.TagsLen() > 0 {
 			// write tag related index
-			index.buildInvertIndex(metricID, row.NewKeyValueIterator(), seriesID, models.NewDefaultLimits()) // FIXME: add limit
+			index.buildInvertIndex(metricID, row.NewKeyValueIterator(), seriesID, models.NewDefaultLimits())
+			// FIXME: add limit
+			index.statistics.BuildInvertedIndex.Incr()
 		}
 	}
-	// TODO: hee
 	return
 }
 
@@ -219,13 +226,15 @@ func (index *metricIndexDatabase) buildInvertIndex(metricID metric.ID,
 		key := tags.NextKey()
 		tagKeyID, err := index.metaDB.GenTagKeyID(metricID, key)
 		if err != nil {
-			// FIXME: add log/metric
+			index.logger.Error("gen tag key id error when build inverted index",
+				logger.String("tagKey", string(key)), logger.Error(err))
 			continue
 		}
 		value := tags.NextValue()
 		tagValueID, err := index.metaDB.GenTagValueID(tagKeyID, value)
 		if err != nil {
-			// FIXME: add log/metric
+			index.logger.Error("gen tag value id error when build inverted index",
+				logger.String("tagKey", string(key)), logger.String("tagValue", string(value)), logger.Error(err))
 			continue
 		}
 		index.lock.Lock()

@@ -32,6 +32,7 @@ import (
 	"github.com/lindb/lindb/constants"
 	v1 "github.com/lindb/lindb/index/v1"
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
@@ -56,21 +57,23 @@ const (
 
 // metricMetaDatabase implements MetricMetaDatabase interface.
 type metricMetaDatabase struct {
-	ctx         context.Context
-	cancel      context.CancelFunc
-	kvStore     kv.Store
-	ns          IndexKVStore // namespace => namespace id
-	metric      IndexKVStore // metric name => metric id
-	tagValue    IndexKVStore // tag key id => tag values
-	schemaStore MetricSchemaStore
-	sequence    *Sequence
-	logger      logger.Logger
+	ctx          context.Context
+	cancel       context.CancelFunc
+	kvStore      kv.Store
+	ns           IndexKVStore // namespace => namespace id
+	metric       IndexKVStore // metric name => metric id
+	tagValue     IndexKVStore // tag key id => tag values
+	schemaStore  MetricSchemaStore
+	statistics   *metrics.MetaDBStatistics
+	sequence     *Sequence
+	logger       logger.Logger
+	databaseName string
 
 	flushing atomic.Bool
 }
 
 // NewMetricMetaDatabase creates a metric meta store.
-func NewMetricMetaDatabase(dir string) (MetricMetaDatabase, error) {
+func NewMetricMetaDatabase(databaseName, dir string) (MetricMetaDatabase, error) {
 	if err := mkdir(dir); err != nil {
 		return nil, err
 	}
@@ -109,44 +112,75 @@ func NewMetricMetaDatabase(dir string) (MetricMetaDatabase, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	mm := &metricMetaDatabase{
-		ctx:         ctx,
-		cancel:      cancel,
-		kvStore:     kvStore,
-		ns:          NewIndexKVStore(nsFamily, 1000, 20*time.Minute),
-		metric:      NewIndexKVStore(metricFamily, 1000, 10*time.Minute),
-		tagValue:    NewIndexKVStore(tagValueFamily, 10000, 10*time.Minute),
-		schemaStore: NewMetricSchemaStore(schemaFamily),
-		sequence:    sequence,
-		logger:      logger.GetLogger("Index", "MetricMetaDatabase"),
+		databaseName: databaseName,
+		ctx:          ctx,
+		cancel:       cancel,
+		kvStore:      kvStore,
+		ns:           NewIndexKVStore(nsFamily, 1000, 20*time.Minute),
+		metric:       NewIndexKVStore(metricFamily, 1000, 10*time.Minute),
+		tagValue:     NewIndexKVStore(tagValueFamily, 10000, 10*time.Minute),
+		schemaStore:  NewMetricSchemaStore(schemaFamily),
+		sequence:     sequence,
+		statistics:   metrics.NewMetaDBStatistics(databaseName),
+		logger:       logger.GetLogger("Index", "MetricMetaDatabase"),
 	}
 
 	return mm, nil
+}
+
+// Name returns database's name
+func (mm *metricMetaDatabase) Name() string {
+	return mm.databaseName
 }
 
 // GenMetricID generates metric id if not exist, else return it.
 func (mm *metricMetaDatabase) GenMetricID(namespace, metricName []byte) (metric.ID, error) {
 	nsID, _, err := mm.ns.GetOrCreateValue(uint32(namespace[0]), namespace, mm.sequence.GetNamespaceSeq)
 	if err != nil {
+		mm.statistics.GenMetricIDFailures.Incr()
 		return 0, err
 	}
-	metricID, _, err := mm.metric.GetOrCreateValue(nsID, metricName, mm.sequence.GetMetricNameSeq)
+	metricID, isNew, err := mm.metric.GetOrCreateValue(nsID, metricName, mm.sequence.GetMetricNameSeq)
 	if err != nil {
+		mm.statistics.GenMetricIDFailures.Incr()
 		return 0, err
+	}
+	if isNew {
+		mm.statistics.GenMetricIDs.Incr()
 	}
 	return metric.ID(metricID), nil
 }
 
 // GenFieldID generates field id for metric.
 func (mm *metricMetaDatabase) GenFieldID(metricID metric.ID, f field.Meta) (field.ID, error) {
-	return mm.schemaStore.genFieldID(metricID, f)
+	fID, err := mm.schemaStore.genFieldID(metricID, f)
+	if err != nil {
+		mm.statistics.GenFieldIDFailures.Incr()
+		return fID, err
+	}
+	mm.statistics.GenFieldIDs.Incr()
+	return fID, nil
 }
 
 func (mm *metricMetaDatabase) GenTagKeyID(metricID metric.ID, tagKey []byte) (tag.KeyID, error) {
-	return mm.schemaStore.genTagKeyID(metricID, tagKey, mm.sequence.GetTagKeySeq)
+	tKey, err := mm.schemaStore.genTagKeyID(metricID, tagKey, mm.sequence.GetTagKeySeq)
+	if err != nil {
+		mm.statistics.GenTagKeyIDFailures.Incr()
+		return tKey, err
+	}
+	mm.statistics.GenTagKeyIDs.Incr()
+	return tKey, nil
 }
 
 func (mm *metricMetaDatabase) GenTagValueID(tagKeyID tag.KeyID, tagValue []byte) (uint32, error) {
-	tagValueID, _, err := mm.tagValue.GetOrCreateValue(uint32(tagKeyID), tagValue, mm.sequence.GetTagValueSeq)
+	tagValueID, isNew, err := mm.tagValue.GetOrCreateValue(uint32(tagKeyID), tagValue, mm.sequence.GetTagValueSeq)
+	if err != nil {
+		mm.statistics.GenTagValueIDFailures.Incr()
+		return tagValueID, err
+	}
+	if isNew {
+		mm.statistics.GenTagValueIDs.Incr()
+	}
 	return tagValueID, err
 }
 
