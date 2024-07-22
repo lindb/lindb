@@ -1,3 +1,51 @@
+## [v0.4.0](https://github.com/lindb/lindb/releases/tag/v0.4.0) - 2024-07-22
+
+See [code changes](https://github.com/lindb/lindb/compare/v0.3.1...v0.4.0).
+
+### 🚀 New features
+
+- [opt]: reduce memory database memory usage by @stone1100 in #1030
+- [opt]: ignore histogram bucket if count<0 by @stone1100 in #1033
+- [opt]: opt metric field memory store by @stone1100 in #1035
+- [feat]: memory database approximate memory size by @stone1100 in #1036
+- [feat]: cleanup memory metric meta/index if not used by @stone1100 in #1037
+- [enhance]: add self-monitoring metric/docs by @stone1100 in #1040
+- [feat]: add tsdb limits(namespace/metric/field/tag key/series) by @stone1100 in #1041
+
+### 🐛 Bug fixes
+
+- [bug]: fix build docker fail by @stone1100 in #1031
+- [bug]: miss makezero in slice init by @stone1100 in #1032
+- [opt]: ignore histogram bucket if count<0 by @stone1100 in #1033
+- [bug]: fix get wrong data from memory database by @stone1100 in #1034
+- [bug]: fix wal ack invalid seq msg by @stone1100 in #1038
+
+### 💬 Others
+
+- [docs]: update architecture image by @stone1100 in #985
+- [refactor]: use common lib(logger/timeutil/fileutil) by @stone1100 in #986
+- [feat]: remove duplicate agg types by @joyant in #989
+- [opt]: succinct trie by @stone1100 in #990
+- [bug]: fix nil metadata and refactor lindcli by @joyant in #993
+- [bug:#994]: fix not in statement returns an empty result by @joyant in #996
+- [feat]: build index on LinDB common kv store by @stone1100 in #997
+- [chore]: upgrade go version for ci by @stone1100 in #998
+- [feat:#912]: support comparison binary operations by @joyant in #1000
+- [feat:#995]: create database by with statement by @joyant in #1002
+- [bug]: fix read index data panic after kv store compact by @stone1100 in #1004
+- [chore]: disable golangci-lint cache by @stone1100 in #1006
+- [feat]: memory database estimate heap size by @stone1100 in #1005
+- [refactor]: memory database data loader by @stone1100 in #1009
+- [refactor]: only one storage cluster under broker cluster by @kevin6025 in #1008
+- [bug:#1012]: fix show metrics returns incorrect results by @joyant in #1013
+- [feat:#1001]: support promql by @joyant in #1014
+- [enhance:#1007]: reduce goroutine when write too many data families by @joyant in #1016
+- [chore]: rebase v0.3.0_bug_fix by @stone1100 in #1025
+- [bug:#1019]: fix storage node goes dead when gc pause by @stone1100 in #1026
+- [opt]: compress write data by re-use snappy streaming by @stone1100 in #1027
+- [docs]: add Japanese README file by @eltociear in #1039
+
+
 ## [v0.3.1](https://github.com/lindb/lindb/releases/tag/v0.3.1) - 2024-04-21
 
 See [code changes](https://github.com/lindb/lindb/compare/v0.3.0...v0.3.1).
