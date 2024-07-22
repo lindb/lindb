@@ -23,6 +23,7 @@ import (
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
@@ -45,7 +46,7 @@ type IndexKVStore interface {
 	FlushLifeCycle
 
 	// GetOrCreateValue returns unique id for key, if key not exist, creates a new unique id.
-	GetOrCreateValue(bucketID uint32, key []byte, createFn func() uint32) (id uint32, isNew bool, err error)
+	GetOrCreateValue(bucketID uint32, key []byte, createFn func() (uint32, error)) (id uint32, isNew bool, err error)
 	// GetValue returns value based on bucket and key.
 	GetValue(bucketID uint32, key []byte) (uint32, bool, error)
 	// GetValues returns all values for bucket.
@@ -65,9 +66,9 @@ type MetricSchemaStore interface {
 	// GetSchema returns metric schema by metric id, return nil if not exist.
 	GetSchema(id metric.ID) (*metric.Schema, error)
 	// genFieldID generates field id if field not exist.
-	genFieldID(id metric.ID, fm field.Meta) (field.ID, error)
+	genFieldID(id metric.ID, fm field.Meta, limits *models.Limits) (field.ID, error)
 	// genTagKeyID generates tag key id if tag key not exist.
-	genTagKeyID(id metric.ID, tagKey []byte, createFn func() uint32) (tag.KeyID, error)
+	genTagKeyID(id metric.ID, tagKey []byte, limits *models.Limits, createFn func() uint32) (tag.KeyID, error)
 }
 
 // MetricMetaDatabase represents metric metadata store.
@@ -114,5 +115,5 @@ type MetricIndexDatabase interface {
 	flow.GroupingBuilder
 
 	// GenSeriesID generates time series id based on tags hash.
-	GenSeriesID(metricID metric.ID, row *metric.StorageRow) (seriesID uint32)
+	GenSeriesID(metricID metric.ID, row *metric.StorageRow) (seriesID uint32, err error)
 }

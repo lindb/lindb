@@ -208,7 +208,8 @@ func TestStateManager_ShardState(t *testing.T) {
 	c := 0
 	mgr.WatchShardStateChangeEvent(func(_ models.Database,
 		_ map[models.ShardID]models.ShardState,
-		_ map[models.NodeID]models.StatefulNode) {
+		_ map[models.NodeID]models.StatefulNode,
+	) {
 		c++
 	})
 	connectionMgr.EXPECT().CreateConnection(gomock.Any()).MaxTimes(2)
@@ -346,6 +347,6 @@ func TestStateManager_onDatabaseLimits(t *testing.T) {
 		Value: []byte(limit2.TOML()),
 	})
 	time.Sleep(100 * time.Millisecond)
-	assert.Equal(t, limit2, mgr.GetDatabaseLimits("db2"))
-	assert.Equal(t, defaultDatabaseLimits, mgr.GetDatabaseLimits("test"))
+	assert.Equal(t, limit2, models.GetDatabaseLimits("db2"))
+	assert.Equal(t, models.NewDefaultLimits(), models.GetDatabaseLimits("test"))
 }

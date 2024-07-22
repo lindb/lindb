@@ -81,7 +81,6 @@ type Database interface {
 // database implements Database for storing families,
 // each shard represents a time series storage
 type database struct {
-	limits         atomic.Value // store models.Limits
 	metaDB         index.MetricMetaDatabase
 	config         *models.DatabaseConfig // meta configuration
 	executorPool   *ExecutorPool          // executor pool for querying task
@@ -159,7 +158,7 @@ func newDatabase(
 			}
 		}
 	}()
-	db.limits.Store(limits)
+	models.SetDatabaseLimits(databaseName, limits)
 
 	db.memMetaDB = memdb.NewMetadataDatabase(db.config, db.metaDB)
 	// load families if engine is existed
@@ -179,20 +178,12 @@ func newDatabase(
 
 // SetLimits sets database's limits.
 func (db *database) SetLimits(limits *models.Limits) {
-	db.limits.Store(limits)
-
-	db.mutex.Lock()
-	defer db.mutex.Unlock()
-
-	shards := db.shardSet.Entries()
-	for _, shard := range shards {
-		shard.shard.notifyLimitsChange()
-	}
+	models.SetDatabaseLimits(db.name, limits)
 }
 
 // GetLimits returns database's limits.
 func (db *database) GetLimits() *models.Limits {
-	return db.limits.Load().(*models.Limits)
+	return models.GetDatabaseLimits(db.name)
 }
 
 // MetaDB returns the metric metadata database include metric/tag/schema etc.

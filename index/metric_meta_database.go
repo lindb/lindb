@@ -33,6 +33,7 @@ import (
 	v1 "github.com/lindb/lindb/index/v1"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/metrics"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
@@ -133,14 +134,30 @@ func (mm *metricMetaDatabase) Name() string {
 	return mm.databaseName
 }
 
+func (mm *metricMetaDatabase) genNSID() (uint32, error) {
+	limits := models.GetDatabaseLimits(mm.databaseName)
+	if limits.EnableNamespacesCheck() && limits.MaxNamespaces < mm.sequence.GetNamespaceSeq() {
+		return 0, constants.ErrTooManyNamespace
+	}
+	return mm.sequence.GenNamespaceSeq(), nil
+}
+
+func (mm *metricMetaDatabase) genMetricID() (uint32, error) {
+	limits := models.GetDatabaseLimits(mm.databaseName)
+	if limits.EnableMetricsCheck() && limits.MaxMetrics < mm.sequence.GetMetricNameSeq() {
+		return 0, constants.ErrTooManyMetric
+	}
+	return mm.sequence.GenMetricNameSeq(), nil
+}
+
 // GenMetricID generates metric id if not exist, else return it.
 func (mm *metricMetaDatabase) GenMetricID(namespace, metricName []byte) (metric.ID, error) {
-	nsID, _, err := mm.ns.GetOrCreateValue(uint32(namespace[0]), namespace, mm.sequence.GetNamespaceSeq)
+	nsID, _, err := mm.ns.GetOrCreateValue(uint32(namespace[0]), namespace, mm.genNSID)
 	if err != nil {
 		mm.statistics.GenMetricIDFailures.Incr()
 		return 0, err
 	}
-	metricID, isNew, err := mm.metric.GetOrCreateValue(nsID, metricName, mm.sequence.GetMetricNameSeq)
+	metricID, isNew, err := mm.metric.GetOrCreateValue(nsID, metricName, mm.genMetricID)
 	if err != nil {
 		mm.statistics.GenMetricIDFailures.Incr()
 		return 0, err
@@ -153,7 +170,8 @@ func (mm *metricMetaDatabase) GenMetricID(namespace, metricName []byte) (metric.
 
 // GenFieldID generates field id for metric.
 func (mm *metricMetaDatabase) GenFieldID(metricID metric.ID, f field.Meta) (field.ID, error) {
-	fID, err := mm.schemaStore.genFieldID(metricID, f)
+	limits := models.GetDatabaseLimits(mm.databaseName)
+	fID, err := mm.schemaStore.genFieldID(metricID, f, limits)
 	if err != nil {
 		mm.statistics.GenFieldIDFailures.Incr()
 		return fID, err
@@ -163,7 +181,8 @@ func (mm *metricMetaDatabase) GenFieldID(metricID metric.ID, f field.Meta) (fiel
 }
 
 func (mm *metricMetaDatabase) GenTagKeyID(metricID metric.ID, tagKey []byte) (tag.KeyID, error) {
-	tKey, err := mm.schemaStore.genTagKeyID(metricID, tagKey, mm.sequence.GetTagKeySeq)
+	limits := models.GetDatabaseLimits(mm.databaseName)
+	tKey, err := mm.schemaStore.genTagKeyID(metricID, tagKey, limits, mm.sequence.GenTagKeySeq)
 	if err != nil {
 		mm.statistics.GenTagKeyIDFailures.Incr()
 		return tKey, err
@@ -172,8 +191,12 @@ func (mm *metricMetaDatabase) GenTagKeyID(metricID metric.ID, tagKey []byte) (ta
 	return tKey, nil
 }
 
+func (mm *metricMetaDatabase) getTagValueID() (uint32, error) {
+	return mm.sequence.GenTagValueSeq(), nil
+}
+
 func (mm *metricMetaDatabase) GenTagValueID(tagKeyID tag.KeyID, tagValue []byte) (uint32, error) {
-	tagValueID, isNew, err := mm.tagValue.GetOrCreateValue(uint32(tagKeyID), tagValue, mm.sequence.GetTagValueSeq)
+	tagValueID, isNew, err := mm.tagValue.GetOrCreateValue(uint32(tagKeyID), tagValue, mm.getTagValueID)
 	if err != nil {
 		mm.statistics.GenTagValueIDFailures.Incr()
 		return tagValueID, err

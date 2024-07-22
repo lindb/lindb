@@ -178,7 +178,8 @@ func TestStateManager_OnShardAssignment(t *testing.T) {
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.ShardAssignmentChanged,
 		Key:  "/shard/assign/test",
-		Value: encoding.JSONMarshal(&models.ShardAssignment{Name: "test",
+		Value: encoding.JSONMarshal(&models.ShardAssignment{
+			Name:   "test",
 			Shards: map[models.ShardID]*models.Replica{1: {Replicas: []models.NodeID{1, 2, 3}}},
 		}),
 	})

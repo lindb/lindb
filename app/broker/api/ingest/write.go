@@ -36,6 +36,7 @@ import (
 	"github.com/lindb/lindb/ingestion/proto"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/metrics"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/series/metric"
 )
 
@@ -131,7 +132,7 @@ func (w *Write) write(c *gin.Context) (err error) {
 	}
 
 	now := time.Now()
-	limits := w.deps.StateMgr.GetDatabaseLimits(param.Database)
+	limits := models.GetDatabaseLimits(param.Database)
 	for _, tag := range enrichedTags {
 		if limits.EnableTagNameLengthCheck() && len(tag.Key) > limits.MaxTagNameLength {
 			return constants.ErrTagKeyTooLong

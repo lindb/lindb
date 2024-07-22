@@ -42,10 +42,10 @@ func TestSequence(t *testing.T) {
 			assert.Equal(t, s, get())
 		}
 	}
-	test(0, 4, seq.GetNamespaceSeq)
-	test(0, 8, seq.GetMetricNameSeq)
-	test(0, 16, seq.GetTagKeySeq)
-	test(0, 32, seq.GetTagValueSeq)
+	test(0, 4, seq.GenNamespaceSeq)
+	test(0, 8, seq.GenMetricNameSeq)
+	test(0, 16, seq.GenTagKeySeq)
+	test(0, 32, seq.GenTagValueSeq)
 
 	assert.NoError(t, seq.Sync())
 	assert.NoError(t, seq.Close())
@@ -53,10 +53,12 @@ func TestSequence(t *testing.T) {
 	seq, err = NewSequence(name)
 	assert.NotNil(t, seq)
 	assert.NoError(t, err)
-	assert.Equal(t, uint32(4), seq.GetNamespaceSeq())
-	assert.Equal(t, uint32(8), seq.GetMetricNameSeq())
-	assert.Equal(t, uint32(16), seq.GetTagKeySeq())
-	assert.Equal(t, uint32(32), seq.GetTagValueSeq())
+	assert.Equal(t, uint32(4), seq.GenNamespaceSeq())
+	assert.Equal(t, uint32(5), seq.GetNamespaceSeq())
+	assert.Equal(t, uint32(8), seq.GenMetricNameSeq())
+	assert.Equal(t, uint32(9), seq.GetMetricNameSeq())
+	assert.Equal(t, uint32(16), seq.GenTagKeySeq())
+	assert.Equal(t, uint32(32), seq.GenTagValueSeq())
 	assert.NoError(t, seq.Close())
 }
 

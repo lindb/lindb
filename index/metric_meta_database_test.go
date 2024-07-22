@@ -28,8 +28,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	gomock "go.uber.org/mock/gomock"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/metrics"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/fileutil"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
@@ -49,6 +51,17 @@ func TestMetricMetaDatabase(t *testing.T) {
 
 	mID, err := db.GenMetricID([]byte("system"), []byte("cpu"))
 	assert.NoError(t, err)
+	_, err = db.GenMetricID([]byte("system9"), []byte("cpu1"))
+	assert.NoError(t, err)
+	limits := models.NewDefaultLimits()
+	limits.MaxMetrics = 1
+	limits.MaxNamespaces = 1
+	models.SetDatabaseLimits("test", limits)
+	_, err = db.GenMetricID([]byte("system2"), []byte("cpu"))
+	assert.Equal(t, constants.ErrTooManyNamespace, err)
+	_, err = db.GenMetricID([]byte("system"), []byte("cpu3"))
+	assert.Equal(t, constants.ErrTooManyMetric, err)
+
 	_, err = db.GenFieldID(mID, field.Meta{Name: "f1", Type: field.SumField})
 	assert.NoError(t, err)
 	k1, err := db.GenTagKeyID(mID, []byte("key1"))
@@ -276,10 +289,11 @@ func TestMetricMetaDatabase_GenField(t *testing.T) {
 
 	schemaStore := NewMockMetricSchemaStore(ctrl)
 	db := &metricMetaDatabase{
-		schemaStore: schemaStore,
-		statistics:  metrics.NewMetaDBStatistics("test"),
+		databaseName: "test",
+		schemaStore:  schemaStore,
+		statistics:   metrics.NewMetaDBStatistics("test"),
 	}
-	schemaStore.EXPECT().genFieldID(gomock.Any(), gomock.Any()).Return(field.ID(0), fmt.Errorf("err"))
+	schemaStore.EXPECT().genFieldID(gomock.Any(), gomock.Any(), gomock.Any()).Return(field.ID(0), fmt.Errorf("err"))
 	_, err := db.GenFieldID(1, field.Meta{Name: "test"})
 	assert.Error(t, err)
 }
@@ -363,14 +377,14 @@ func TestMetricMetaDatabase_GenTag_Error(t *testing.T) {
 	schemaStore := NewMockMetricSchemaStore(ctrl)
 	indexStore := NewMockIndexKVStore(ctrl)
 	db := &metricMetaDatabase{
-		tagValue:    indexStore,
-		schemaStore: schemaStore,
-		statistics:  metrics.NewMetaDBStatistics("test"),
-		logger:      logger.GetLogger("Index", "Test"),
+		databaseName: "test",
+		tagValue:     indexStore,
+		schemaStore:  schemaStore,
+		statistics:   metrics.NewMetaDBStatistics("test"),
+		logger:       logger.GetLogger("Index", "Test"),
 	}
-
 	// gen tag key error
-	schemaStore.EXPECT().genTagKeyID(gomock.Any(), gomock.Any(), gomock.Any()).Return(tag.KeyID(0), fmt.Errorf("Err"))
+	schemaStore.EXPECT().genTagKeyID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(tag.KeyID(0), fmt.Errorf("Err"))
 	_, err := db.GenTagKeyID(1, []byte("key1"))
 	assert.Error(t, err)
 	// gen tag value error

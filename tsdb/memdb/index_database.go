@@ -190,6 +190,11 @@ func (idb *indexDatabase) handleRow(row *metric.StorageRow) {
 		return
 	}
 
-	seriesID := idb.indexDB.GenSeriesID(metricID, row)
+	seriesID, err := idb.indexDB.GenSeriesID(metricID, row)
+	if err != nil {
+		memDBLogger.Warn("generate time series id error", logger.String("namespace", string(row.NameSpace())),
+			logger.String("metric", string(row.Name())), logger.Error(err))
+		return
+	}
 	idb.indexTimeSeries(row, seriesID)
 }

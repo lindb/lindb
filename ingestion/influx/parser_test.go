@@ -110,7 +110,7 @@ func Test_tags(t *testing.T) {
 		assert.NoError(t, err)
 		(&br).FromBlock(data)
 		m := br.Metric()
-		var mp = make(map[string]string)
+		mp := make(map[string]string)
 		var kv flatMetricsV1.KeyValue
 		for i := 0; i < m.KeyValuesLength(); i++ {
 			m.KeyValues(&kv, i)
@@ -235,7 +235,8 @@ func Test_parseUnescapedMetric(t *testing.T) {
 		Fields     []flatSimpleField
 	}{
 		// commas in metric name
-		{`foo\,bar value_total=1i`,
+		{
+			`foo\,bar value_total=1i`,
 			"foo,bar",
 			map[string]string{},
 			[]flatSimpleField{
@@ -248,7 +249,8 @@ func Test_parseUnescapedMetric(t *testing.T) {
 			},
 		},
 		// comma in metric name with tags
-		{`cpu\,main,regions=east value=1.0 1465839830100400200`,
+		{
+			`cpu\,main,regions=east value=1.0 1465839830100400200`,
 			"cpu,main",
 			map[string]string{"regions": "east"},
 			[]flatSimpleField{
@@ -261,7 +263,8 @@ func Test_parseUnescapedMetric(t *testing.T) {
 			},
 		},
 		// spaces in metric name
-		{`cpu\ load,region=east value_sum=1.0 1465839830100400200`,
+		{
+			`cpu\ load,region=east value_sum=1.0 1465839830100400200`,
 			"cpu load",
 			map[string]string{"region": "east"},
 			[]flatSimpleField{{
@@ -269,7 +272,8 @@ func Test_parseUnescapedMetric(t *testing.T) {
 			}},
 		},
 		// equals in metric name, boolean false
-		{`cpu\=load,region=east value=false`,
+		{
+			`cpu\=load,region=east value=false`,
 			`cpu\=load`,
 			map[string]string{"region": "east"},
 			[]flatSimpleField{{
@@ -277,7 +281,8 @@ func Test_parseUnescapedMetric(t *testing.T) {
 			}},
 		},
 		// equals in metric name, boolean true
-		{`cpu\=load,region=east value=true`,
+		{
+			`cpu\=load,region=east value=true`,
 			`cpu\=load`,
 			map[string]string{"region": "east"},
 			[]flatSimpleField{{
@@ -285,7 +290,8 @@ func Test_parseUnescapedMetric(t *testing.T) {
 			}},
 		},
 		// commas in tag names, boolean true
-		{`cpu,region\,zone=east value=t`,
+		{
+			`cpu,region\,zone=east value=t`,
 			`cpu`,
 			map[string]string{"region,zone": "east"},
 			[]flatSimpleField{{
@@ -293,7 +299,8 @@ func Test_parseUnescapedMetric(t *testing.T) {
 			}},
 		},
 		// spaces in tag name, boolean false
-		{`cpu,region\ zone=east value=f`,
+		{
+			`cpu,region\ zone=east value=f`,
 			`cpu`,
 			map[string]string{"region zone": "east"},
 			[]flatSimpleField{{
@@ -301,7 +308,8 @@ func Test_parseUnescapedMetric(t *testing.T) {
 			}},
 		},
 		// backslash with escaped equals in tag name, decimal value
-		{`cpu,reg\=ion=east value=1.0`,
+		{
+			`cpu,reg\=ion=east value=1.0`,
 			`cpu`,
 			map[string]string{"reg=ion": "east"},
 			[]flatSimpleField{
@@ -314,7 +322,8 @@ func Test_parseUnescapedMetric(t *testing.T) {
 			},
 		},
 		// space is tag name
-		{`cpu,\ =east value=1.0`,
+		{
+			`cpu,\ =east value=1.0`,
 			`cpu`,
 			map[string]string{` `: "east"},
 			[]flatSimpleField{
@@ -323,7 +332,8 @@ func Test_parseUnescapedMetric(t *testing.T) {
 			},
 		},
 		// commas in tag values
-		{`cpu,regions=east\,west value=1.0`,
+		{
+			`cpu,regions=east\,west value=1.0`,
 			`cpu`,
 			map[string]string{"regions": "east,west"},
 			[]flatSimpleField{
@@ -332,7 +342,8 @@ func Test_parseUnescapedMetric(t *testing.T) {
 			},
 		},
 		// backslash literal followed by trailing space
-		{`cpu,regions=east\  value=1.0`,
+		{
+			`cpu,regions=east\  value=1.0`,
 			`cpu`,
 			map[string]string{"regions": `east `},
 			[]flatSimpleField{
@@ -341,7 +352,8 @@ func Test_parseUnescapedMetric(t *testing.T) {
 			},
 		},
 		// spaces in tag values
-		{`cpu,regions=east\ west value=1.0`,
+		{
+			`cpu,regions=east\ west value=1.0`,
 			`cpu`,
 			map[string]string{"regions": `east west`},
 			[]flatSimpleField{
@@ -350,7 +362,8 @@ func Test_parseUnescapedMetric(t *testing.T) {
 			},
 		},
 		// commas in field keys
-		{`cpu,regions=east value\,ms_last=1.0`,
+		{
+			`cpu,regions=east value\,ms_last=1.0`,
 			`cpu`,
 			map[string]string{"regions": "east"},
 			[]flatSimpleField{
@@ -360,7 +373,8 @@ func Test_parseUnescapedMetric(t *testing.T) {
 			},
 		},
 		// commas in field keys
-		{`cpu,regions=east value\,ms_first=1.0`,
+		{
+			`cpu,regions=east value\,ms_first=1.0`,
 			`cpu`,
 			map[string]string{"regions": "east"},
 			[]flatSimpleField{
@@ -370,7 +384,8 @@ func Test_parseUnescapedMetric(t *testing.T) {
 			},
 		},
 		// spaces in field keys
-		{`cpu,regions=east value\ ms=1.0`,
+		{
+			`cpu,regions=east value\ ms=1.0`,
 			`cpu`,
 			map[string]string{"regions": "east"},
 			[]flatSimpleField{
@@ -379,7 +394,8 @@ func Test_parseUnescapedMetric(t *testing.T) {
 			},
 		},
 		// random character escaped
-		{`cpu,regions=eas\t value=1.0`,
+		{
+			`cpu,regions=eas\t value=1.0`,
 			`cpu`,
 			map[string]string{"regions": "eas\\t"},
 			[]flatSimpleField{
@@ -392,7 +408,8 @@ func Test_parseUnescapedMetric(t *testing.T) {
 			},
 		},
 		// field keys using escape char.
-		{`cpu \a=1i`,
+		{
+			`cpu \a=1i`,
 			`cpu`,
 			map[string]string{},
 			[]flatSimpleField{
@@ -405,14 +422,16 @@ func Test_parseUnescapedMetric(t *testing.T) {
 			},
 		},
 		// measurement, tag and tag value with equals
-		{`cpu=load,equals\=foo=tag\=value value=1i,bool=f`,
+		{
+			`cpu=load,equals\=foo=tag\=value value=1i,bool=f`,
 			`cpu=load`,
 			map[string]string{"equals=foo": "tag=value"},
 			[]flatSimpleField{
 				{Name: []byte("value_sum"), Type: flatMetricsV1.SimpleFieldTypeDeltaSum, Value: 1},
 				{Name: []byte("value_last"), Type: flatMetricsV1.SimpleFieldTypeLast, Value: 1},
 				{Name: []byte("bool"), Type: flatMetricsV1.SimpleFieldTypeLast, Value: 0},
-			}},
+			},
+		},
 	}
 
 	builder, releaseFunc := commonseries.NewRowBuilder()
@@ -426,9 +445,9 @@ func Test_parseUnescapedMetric(t *testing.T) {
 		data, err := builder.Build()
 		assert.NoError(t, err)
 		(&row).FromBlock(data)
-		var m = row.Metric()
+		m := row.Metric()
 		assert.Equal(t, example.MetricName, string(m.Name()))
-		var mp = make(map[string]string)
+		mp := make(map[string]string)
 		var kv flatMetricsV1.KeyValue
 		for i := 0; i < m.KeyValuesLength(); i++ {
 			m.KeyValues(&kv, i)
@@ -519,11 +538,11 @@ func Test_limits(t *testing.T) {
 	assert.Equal(t, constants.ErrTagValueTooLong, err)
 	limits.MaxTagValueLength = 0
 	limits.MaxFieldNameLength = 3
-	// field nae limit
+	// field name limit
 	err = parseInfluxLine(builder, []byte(line), "ns", 0, limits)
 	assert.Equal(t, constants.ErrFieldNameTooLong, err)
 	limits.MaxFieldNameLength = 0
-	limits.MaxFieldsPerMetric = -1
+	limits.MaxFieldsPerMetric = 1
 	// tag value limit
 	err = parseInfluxLine(builder, []byte(line), "ns", 0, limits)
 	assert.Equal(t, constants.ErrTooManyFields, err)

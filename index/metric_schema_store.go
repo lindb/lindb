@@ -27,6 +27,7 @@ import (
 	"github.com/lindb/lindb/constants"
 	v1 "github.com/lindb/lindb/index/v1"
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/imap"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/series/field"
@@ -82,7 +83,7 @@ func (s *metricSchemaStore) GetSchema(id metric.ID) (schema *metric.Schema, err 
 }
 
 // genFieldID generates field id if field not exist.
-func (s *metricSchemaStore) genFieldID(id metric.ID, f field.Meta) (fID field.ID, err error) {
+func (s *metricSchemaStore) genFieldID(id metric.ID, f field.Meta, limits *models.Limits) (fID field.ID, err error) {
 	schema, err := s.GetSchema(id)
 	if err != nil {
 		return 0, err
@@ -102,7 +103,8 @@ func (s *metricSchemaStore) genFieldID(id metric.ID, f field.Meta) (fID field.ID
 		return fm.ID, nil
 	}
 
-	if len(schema.Fields) >= math.MaxUint8 {
+	if len(schema.Fields) >= math.MaxUint8 ||
+		(limits.EnableFieldsCheck() && limits.MaxFieldsPerMetric < len(schema.Fields)) {
 		return 0, constants.ErrTooManyFields
 	}
 	fID = field.ID(len(schema.Fields))
@@ -112,7 +114,9 @@ func (s *metricSchemaStore) genFieldID(id metric.ID, f field.Meta) (fID field.ID
 }
 
 // genTagKeyID generates tag key id if tag key not exist.
-func (s *metricSchemaStore) genTagKeyID(id metric.ID, tagKey []byte, createFn func() uint32) (tagKeyID tag.KeyID, err error) {
+func (s *metricSchemaStore) genTagKeyID(id metric.ID, tagKey []byte, limits *models.Limits,
+	createFn func() uint32,
+) (tagKeyID tag.KeyID, err error) {
 	schema, err := s.GetSchema(id)
 	if err != nil {
 		return 0, err
@@ -132,7 +136,8 @@ func (s *metricSchemaStore) genTagKeyID(id metric.ID, tagKey []byte, createFn fu
 		return tm.ID, nil
 	}
 
-	if len(schema.TagKeys) >= math.MaxUint8 {
+	if len(schema.TagKeys) >= math.MaxUint8 ||
+		(limits.EnableTagsCheck() && limits.MaxTagsPerMetric < len(schema.TagKeys)) {
 		return 0, constants.ErrTooManyTagKeys
 	}
 	tm = tag.Meta{

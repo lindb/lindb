@@ -75,8 +75,9 @@ var (
 	ErrNoAvailableStorageNode = errors.New("no available storage node for server")
 
 	// ErrTooManySeries represents the series be limited.
-	ErrTooManySeries     = errors.New("too manay series")
-	ErrTooManyMetadata   = errors.New("too manay namespace or metric")
+	ErrTooManySeries     = errors.New("too many series")
+	ErrTooManyNamespace  = errors.New("too many namespace")
+	ErrTooManyMetric     = errors.New("too many metric name")
 	ErrNamespaceTooLong  = errors.New("namespace is too long")
 	ErrMetricNameTooLong = errors.New("metric name is too long")
 	ErrFieldNameTooLong  = errors.New("field name is too long")

@@ -56,10 +56,8 @@ type stateMachineFactory struct {
 	ctx              context.Context
 	discoveryFactory discovery.Factory
 	stateMgr         StateManager
-
-	stateMachines []discovery.StateMachine
-
-	logger logger.Logger
+	logger           logger.Logger
+	stateMachines    []discovery.StateMachine
 }
 
 // NewStateMachineFactory creates a state machine factory instance.

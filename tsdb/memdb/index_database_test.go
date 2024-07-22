@@ -104,7 +104,8 @@ func TestIndexDatabase_handleRow(t *testing.T) {
 
 	metaDB := index.NewMockMetricMetaDatabase(ctrl)
 	memMetaDB := NewMetadataDatabase(&models.DatabaseConfig{}, metaDB)
-	indexDB := NewIndexDatabase(memMetaDB, nil)
+	indexDB := index.NewMockMetricIndexDatabase(ctrl)
+	memIndexDB := NewIndexDatabase(memMetaDB, indexDB)
 
 	m := &protoMetricsV1.Metric{
 		Name:      "test1",
@@ -119,5 +120,9 @@ func TestIndexDatabase_handleRow(t *testing.T) {
 	row.Add(100)
 
 	metaDB.EXPECT().GenMetricID([]byte("ns"), []byte("test1")).Return(metric.ID(0), fmt.Errorf("err"))
-	indexDB.(*indexDatabase).handleRow(row)
+	memIndexDB.(*indexDatabase).handleRow(row)
+
+	metaDB.EXPECT().GenMetricID([]byte("ns"), []byte("test1")).Return(metric.ID(0), nil)
+	indexDB.EXPECT().GenSeriesID(gomock.Any(), gomock.Any()).Return(uint32(0), fmt.Errorf("err"))
+	memIndexDB.(*indexDatabase).handleRow(row)
 }

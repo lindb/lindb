@@ -77,23 +77,33 @@ func NewSequence(fileName string) (*Sequence, error) {
 	}, nil
 }
 
-// GetNamespaceSeq retruns the sequence for namespace.
+// GetNamespaceSeq returns sequence for namespace.
 func (s *Sequence) GetNamespaceSeq() uint32 {
+	return s.ns.Load()
+}
+
+// GetMetricNameSeq returns sequence for metric name.
+func (s *Sequence) GetMetricNameSeq() uint32 {
+	return s.metric.Load()
+}
+
+// GenNamespaceSeq generates sequence for namespace.
+func (s *Sequence) GenNamespaceSeq() uint32 {
 	return s.ns.Inc() - 1
 }
 
-// GetMetricNameSeq returns the sequence for metric name.
-func (s *Sequence) GetMetricNameSeq() uint32 {
+// GenMetricNameSeq generates sequence for metric name.
+func (s *Sequence) GenMetricNameSeq() uint32 {
 	return s.metric.Inc() - 1
 }
 
-// GetTagKeySeq returns the sequence for tag key.
-func (s *Sequence) GetTagKeySeq() uint32 {
+// GenTagKeySeq generates sequence for tag key.
+func (s *Sequence) GenTagKeySeq() uint32 {
 	return s.tagKey.Inc() - 1
 }
 
-// GetTagValueSeq returns the sequence for tag value.
-func (s *Sequence) GetTagValueSeq() uint32 {
+// GenTagValueSeq generates sequence for tag value.
+func (s *Sequence) GenTagValueSeq() uint32 {
 	return s.tagValue.Inc() - 1
 }
 

@@ -49,7 +49,6 @@ func TestDatabase_New(t *testing.T) {
 
 	opt := &option.DatabaseOption{}
 	shard := NewMockShard(ctrl)
-	shard.EXPECT().notifyLimitsChange().AnyTimes()
 
 	cases := []struct {
 		cfg     *models.DatabaseConfig

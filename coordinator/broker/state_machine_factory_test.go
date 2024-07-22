@@ -119,6 +119,21 @@ func TestStateMachineFactory_OnNode(t *testing.T) {
 	fct1.onNodeStartup("/key", []byte("value"))
 }
 
+func TestStateMachineFactory_OnStorageStateChange(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	stateMgr := NewMockStateManager(ctrl)
+	fct := NewStateMachineFactory(context.TODO(), nil, stateMgr)
+	fct1 := fct.(*stateMachineFactory)
+	stateMgr.EXPECT().EmitEvent(&discovery.Event{
+		Type:  discovery.StorageStateChanged,
+		Key:   "/key",
+		Value: []byte{},
+	})
+	fct1.onStorageStateChange("/key", []byte{})
+}
+
 func TestStateMachineFactory_CreateState(t *testing.T) {
 	assert.NotNil(t, StateMachinePaths[constants.LiveNode].CreateState())
 	assert.NotNil(t, StateMachinePaths[constants.DatabaseConfig].CreateState())

@@ -68,8 +68,6 @@ type Shard interface {
 	TTL()
 	// EvictSegment evicts segment which long term no read operation.
 	EvictSegment()
-	// notifyLimitsChange notifies the limits changed.
-	notifyLimitsChange()
 	// Closer releases shard's resource, such as flush data, spawned goroutines etc.
 	io.Closer
 }
@@ -86,7 +84,6 @@ type shard struct {
 	segment        IntervalSegment // smallest interval for writing data
 	flushCondition *sync.Cond      // flush condition
 
-	limits *models.Limits // NOTE: limits only update in write goroutine
 	logger logger.Logger
 
 	statistics *metrics.ShardStatistics
@@ -99,8 +96,7 @@ type shard struct {
 	interval timeutil.Interval
 	id       models.ShardID
 
-	isFlushing    atomic.Bool // restrict flusher concurrency
-	limitsChanged atomic.Bool
+	isFlushing atomic.Bool // restrict flusher concurrency
 }
 
 // newShard creates shard instance, if shard path exist then load shard data for init.
@@ -164,9 +160,6 @@ func newShard(
 	if err = createdShard.initIndexDatabase(); err != nil {
 		return nil, fmt.Errorf("create index database for shard[%d] error: %s", shardID, err)
 	}
-	// init datatbase limits
-	createdShard.limits = db.GetLimits()
-
 	createdShard.memIndexDB = memdb.NewIndexDatabase(db.MemMetaDB(), createdShard.indexDB)
 
 	return createdShard, nil
@@ -180,11 +173,6 @@ func (s *shard) ShardID() models.ShardID { return s.id }
 
 // Indicator returns the unique shard info.
 func (s *shard) Indicator() string { return s.indicator }
-
-// notifyLimitsChange notifies the limits changed.
-func (s *shard) notifyLimitsChange() {
-	s.limitsChanged.Store(true)
-}
 
 // CurrentInterval returns current interval for metric  write.
 func (s *shard) CurrentInterval() timeutil.Interval { return s.interval }
