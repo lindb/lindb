@@ -36,6 +36,9 @@ func (c *Column) GetString(row int) *value.String {
 }
 
 func (c *Column) GetTimeSeries(row int) *value.TimeSeries {
-	//FIXME:
+	if row >= len(c.Blocks) {
+		return nil
+	}
+	// FIXME:
 	return c.Blocks[row].(*value.TimeSeries)
 }

@@ -9,8 +9,8 @@ import (
 )
 
 type DriverFactory struct {
-	pielineID         int32
 	operatorFactories []operator.OperatorFactory
+	pielineID         int32
 }
 
 func NewDriverFactory(pipelineID int32, operatorFactories []operator.OperatorFactory) *DriverFactory {
@@ -29,8 +29,8 @@ func (fct *DriverFactory) CreateDriver() *Driver {
 }
 
 type Driver struct {
-	operators      []operator.Operator
 	sourceOperator operator.SourceOperator
+	operators      []operator.Operator
 }
 
 func NewDriver(operators []operator.Operator) *Driver {

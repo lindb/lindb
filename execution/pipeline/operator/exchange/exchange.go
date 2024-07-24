@@ -15,6 +15,7 @@ import (
 type mergeKey struct {
 	columns []string
 }
+
 type ExchangeOperatorFactory struct {
 	sourceID   plan.PlanNodeID
 	numOfChild int
@@ -32,7 +33,6 @@ func (fct *ExchangeOperatorFactory) CreateOperator() operator.Operator {
 }
 
 type ExchangeOperator struct {
-	sourceID            plan.PlanNodeID
 	noMoreSplitsTracker *atomic.Int32
 
 	splits chan *spi.BinarySplit
@@ -43,6 +43,8 @@ type ExchangeOperator struct {
 
 	mergedPage *spi.Page
 	mergedRows map[*mergeKey]int // merge key => row index
+
+	sourceID plan.PlanNodeID
 }
 
 func NewExchangeOperator(sourceID plan.PlanNodeID, numOfChild int) operator.SourceOperator {
@@ -62,6 +64,7 @@ func (op *ExchangeOperator) GetSourceID() plan.PlanNodeID {
 
 func (op *ExchangeOperator) NoMoreSplits() {
 	newVal := op.noMoreSplitsTracker.Dec()
+	fmt.Printf("exchange no more split,%d\n", newVal)
 	if newVal == 0 {
 		close(op.splits)
 	}

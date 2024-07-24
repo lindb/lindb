@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"reflect"
 
+	common_timeutil "github.com/lindb/common/pkg/timeutil"
 	"github.com/lindb/roaring"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/spi"
@@ -147,10 +149,12 @@ func (mss *MetricSplitSource) Prepare() {
 	for i := range mss.families {
 		family := mss.families[i]
 		resultSet, err := family.Filter(&flow.MetricScanContext{
-			MetricID:  mss.metricID,
-			SeriesIDs: seriesIDs,
-			Fields:    mss.fields,
-			TimeRange: mss.table.TimeRange,
+			MetricID:                mss.metricID,
+			SeriesIDs:               seriesIDs,
+			SeriesIDsAfterFiltering: seriesIDs,
+			Fields:                  mss.fields,
+			TimeRange:               mss.table.TimeRange,
+			StorageInterval:         timeutil.Interval(10 * common_timeutil.OneSecond),
 		})
 		if !errors.Is(err, constants.ErrNotFound) && err != nil {
 			panic(err)

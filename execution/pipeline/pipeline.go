@@ -27,8 +27,9 @@ func (p *Pipeline) Run() {
 		// source from exchange(local/remote)
 		driver := p.driverFct.CreateDriver()
 		sourceOperator := driver.GetSourceOperator()
-		fmt.Printf("run diver====%v,%s\n", sourceOperator, reflect.TypeOf(sourceOperator))
+		fmt.Printf("run driver====%v,%d,%s\n", sourceOperator, sourceOperator.GetSourceID(), reflect.TypeOf(sourceOperator))
 		if sourceOperator != nil {
+			fmt.Println(p.taskCtx.TaskID)
 			// if driver has source operator, register it
 			DriverManager.RegisterSourceOperator(p.taskCtx.TaskID, sourceOperator)
 		}

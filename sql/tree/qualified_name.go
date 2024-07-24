@@ -5,11 +5,11 @@ import (
 )
 
 type QualifiedName struct {
+	Prefix        *QualifiedName
+	Name          string
+	Suffix        string
 	OriginalParts []*Identifier
 	Parts         []string
-	Name          string
-	Prefix        *QualifiedName
-	Suffix        string
 }
 
 func NewQualifiedName(partsIdent []*Identifier) *QualifiedName {
@@ -39,5 +39,5 @@ func (qn *QualifiedName) HasSuffix(suffix *QualifiedName) bool {
 		return false
 	}
 	start := len(qn.Parts) - len(suffix.Parts)
-	return start >= 0 //FIXME:
+	return start >= 0 // FIXME:
 }

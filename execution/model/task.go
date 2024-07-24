@@ -7,14 +7,11 @@ import (
 	"github.com/lindb/lindb/sql/planner/plan"
 )
 
-type OperatorKey struct {
-	TaskID TaskID
-	NodeID plan.PlanNodeID
-}
+type RequestID string
 
 type TaskID struct {
-	RequestID string `json:"requestId"`
-	ID        int    `json:"id"`
+	RequestID RequestID `json:"requestId"`
+	ID        int       `json:"id"`
 }
 
 type TaskRequest struct {
@@ -24,8 +21,8 @@ type TaskRequest struct {
 }
 
 type TaskResultSet struct {
+	Page   *spi.Page       `json:"page,omitempty"`
 	TaskID TaskID          `json:"taskId"`
 	NodeID plan.PlanNodeID `json:"nodeId"`
-	Page   *spi.Page       `json:"page,omitempty"`
 	NoMore bool            `json:"noMore"`
 }

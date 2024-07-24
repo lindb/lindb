@@ -3,15 +3,12 @@ package plan
 import "github.com/lindb/lindb/models"
 
 type PlanFragment struct {
-	ID FragmentID `json:"id"`
-
-	Receivers []models.InternalNode `json:"receivers"`
-
-	Root               PlanNode            `json:"root,omitempty"`
-	RemoteParentNodeID *PlanNodeID         `json:"parentNode,omitempty"`
-	RemoteSources      []*RemoteSourceNode `json:"remoteSources,omitempty"`
-
-	Partitions map[models.InternalNode][]int `json:"-"`
+	Root               PlanNode                      `json:"root,omitempty"`
+	RemoteParentNodeID *PlanNodeID                   `json:"parentNode,omitempty"`
+	Partitions         map[models.InternalNode][]int `json:"-"`
+	Receivers          []models.InternalNode         `json:"receivers"`
+	RemoteSources      []*RemoteSourceNode           `json:"remoteSources,omitempty"`
+	ID                 FragmentID                    `json:"id"`
 }
 
 func NewPlanFragment(id FragmentID, root PlanNode) *PlanFragment {
