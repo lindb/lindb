@@ -22,6 +22,7 @@ func (rsb *ResultSetBuild) AddPage(page *spi.Page) {
 }
 
 func (rsb *ResultSetBuild) Process() {
+	// TODO: need close when timeout
 	for page := range rsb.pages {
 		rsb.resultSet.Schema.Columns = page.Layout
 		it := page.Iterator()

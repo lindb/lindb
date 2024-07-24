@@ -78,7 +78,7 @@ func (mgr *taskManager) dispatchTask() {
 	for {
 		select {
 		case task := <-mgr.taskCh:
-			output := buffer.NewPartitionOutputBuffer(task.fragment.Receivers)
+			output := buffer.NewPartitionOutputBuffer(task.id, task.fragment)
 			mgr.taskPool.Submit(context.TODO(), concurrent.NewTask(func() {
 				fmt.Println(task)
 				printer := printer.NewPlanPrinter(printer.NewTextRender(0))

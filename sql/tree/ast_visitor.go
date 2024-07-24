@@ -1,6 +1,7 @@
 package tree
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -47,18 +48,39 @@ func (v *AstVisitor) VisitStatement(ctx *grammar.StatementContext) any {
 func (v *AstVisitor) VisitDdlStatement(ctx *grammar.DdlStatementContext) any {
 	switch {
 	case ctx.CreateDatabase() != nil:
+		createDatabaseCtx := ctx.CreateDatabase()
+		props := createDatabaseCtx.Properties()
+		if props != nil {
+			props.Accept(v)
+		}
 		return &CreateDatabase{
 			BaseNode: BaseNode{
 				ID:       v.idAllocator.Next(),
 				Location: getLocation(ctx.GetStart()),
 			},
-			Name: v.getQualifiedName(ctx.CreateDatabase().GetName()).Name,
+			Name: v.getQualifiedName(createDatabaseCtx.GetName()).Name,
 		}
 	case ctx.CreateBroker() != nil:
 		panic("need impl create broker")
 	default:
 		return v.VisitChildren(ctx)
 	}
+}
+
+func (v *AstVisitor) VisitProperties(ctx *grammar.PropertiesContext) any {
+	for _, prop := range ctx.PropertyAssignments().AllProperty() {
+		prop.Accept(v)
+	}
+	fmt.Println("test.....props")
+	return nil
+}
+
+func (v *AstVisitor) VisitProperty(ctx *grammar.PropertyContext) any {
+	identifer := v.Visit(ctx.GetName()).(*Identifier)
+	fmt.Println(reflect.TypeOf(ctx.GetValue()))
+	fmt.Println(identifer.Value)
+	fmt.Println("test.....")
+	return nil
 }
 
 func (v *AstVisitor) VisitUseStatement(ctx *grammar.UseStatementContext) any {

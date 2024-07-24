@@ -6,9 +6,11 @@ import (
 
 	"github.com/lindb/common/pkg/encoding"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/lindb/lindb/execution/buffer"
 	"github.com/lindb/lindb/execution/model"
+	"github.com/lindb/lindb/execution/pipeline"
 	"github.com/lindb/lindb/models"
 	protoCommandV1 "github.com/lindb/lindb/proto/gen/v1/command"
 	sqlContext "github.com/lindb/lindb/sql/context"
@@ -82,6 +84,7 @@ func (ctx QueryContext) GetOutput() buffer.OutputBuffer {
 
 func (ctx *QueryContext) Wait() {
 	go ctx.rsBuild.Process()
+	// FIXME: add timeout
 	<-ctx.completed
 	ctx.rsBuild.Complete()
 }
@@ -108,6 +111,11 @@ func NewQueryExecution(session *Session, deps *Deps, preparedStatement *tree.Pre
 }
 
 func (exec *QueryExecution) Start() any {
+	defer func() {
+		// cleanup execution context
+		pipeline.DriverManager.Cleanup(exec.session.RequestID)
+	}()
+
 	exec.queryContext = NewQueryContext()
 	exec.plannerContext = sqlContext.NewPlannerContext(
 		exec.session.Context,
@@ -160,7 +168,7 @@ func (exec *QueryExecution) planQuery(output buffer.OutputBuffer) *PlanRoot {
 	fmt.Println(printer.PrintLogicPlan(plan.Root))
 	fmt.Println("******************")
 	fmt.Println(printer.PrintDistributedPlan(fragmentedPlan))
-	// session := exec.ctx.Value(constants.ContextKeySession).(*models.Session)
+	session := exec.session
 
 	fragments := fragmentedPlan.GetAllFragments()
 
@@ -170,10 +178,8 @@ func (exec *QueryExecution) planQuery(output buffer.OutputBuffer) *PlanRoot {
 	// submit all task
 	for i := 0; i < len(fragments); i++ {
 		taskID := model.TaskID{
-			// RequestID: session.RequestID,
-			// ID:        i,
-			RequestID: "1",
-			ID:        1,
+			RequestID: session.RequestID,
+			ID:        i,
 		}
 		fragment := fragments[i]
 
@@ -195,7 +201,7 @@ func (exec *QueryExecution) planQuery(output buffer.OutputBuffer) *PlanRoot {
 				for node, shards := range fragment.Partitions {
 					// run under remote node, send fragment to remote execution node
 					data := encoding.JSONMarshal(fragment)
-					conn, err := grpc.Dial(node.Address(), grpc.WithInsecure())
+					conn, err := grpc.Dial(node.Address(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 					if err != nil {
 						panic(err)
 					}

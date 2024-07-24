@@ -1,23 +1,27 @@
 package execution
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/lindb/lindb/execution/model"
+)
 
 type RequestManager interface {
-	CompleteRequet(id RequestID, err error)
+	CompleteRequet(id model.RequestID, err error)
 }
 
 type requestManager struct {
-	requests map[RequestID]any
+	requests map[model.RequestID]any
 	lock     sync.RWMutex
 }
 
 func NewRequestManager() RequestManager {
 	return &requestManager{
-		requests: make(map[RequestID]any),
+		requests: make(map[model.RequestID]any),
 	}
 }
 
-func (mgr *requestManager) CompleteRequet(id RequestID, err error) {
+func (mgr *requestManager) CompleteRequet(id model.RequestID, err error) {
 	mgr.lock.Lock()
 	defer mgr.lock.Unlock()
 

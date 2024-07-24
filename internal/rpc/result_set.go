@@ -29,7 +29,7 @@ func (srv *ResultSetService) ResultSet(ctx context.Context, request *protoComman
 		return nil, err
 	}
 
-	srv.logger.Debug("receive task result set", logger.String("requestID", resultSet.TaskID.RequestID),
+	srv.logger.Debug("receive task result set", logger.Any("requestID", resultSet.TaskID.RequestID),
 		logger.Int("TaskID", resultSet.TaskID.ID), logger.Int("nodeID", int(resultSet.NodeID)))
 
 	fmt.Println(string(request.Payload))
@@ -44,6 +44,9 @@ func (srv *ResultSetService) ResultSet(ctx context.Context, request *protoComman
 			// current task no more splits
 			sourceOperator.NoMoreSplits()
 		}
+	} else {
+		srv.logger.Warn("source operator not found", logger.Any("requestID", resultSet.TaskID.RequestID),
+			logger.Int("TaskID", resultSet.TaskID.ID), logger.Int("nodeID", int(resultSet.NodeID)))
 	}
 	return &protoCommandV1.ResultSetResponse{}, nil
 }

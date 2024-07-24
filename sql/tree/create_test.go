@@ -63,7 +63,6 @@ func TestCreate_Database(t *testing.T) {
 		},
 	}
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.sql, func(t *testing.T) {
 			stmt, err := GetParser().CreateStatement(tt.sql, NewNodeIDAllocator())
 			assert.NoError(t, err)

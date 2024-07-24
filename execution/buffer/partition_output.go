@@ -3,30 +3,33 @@ package buffer
 import (
 	"context"
 
-	"google.golang.org/grpc"
-
 	"github.com/lindb/common/pkg/encoding"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/lindb/lindb/execution/model"
-	"github.com/lindb/lindb/models"
 	protoCommandV1 "github.com/lindb/lindb/proto/gen/v1/command"
 	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/sql/planner/plan"
 )
 
 type PartitionOutputBuffer struct {
-	receivers []models.InternalNode
+	fragment *plan.PlanFragment
+	taskID   model.TaskID
 }
 
-func NewPartitionOutputBuffer(receivers []models.InternalNode) OutputBuffer {
+func NewPartitionOutputBuffer(taskID model.TaskID, fragment *plan.PlanFragment) OutputBuffer {
 	return &PartitionOutputBuffer{
-		receivers: receivers,
+		taskID:   taskID,
+		fragment: fragment,
 	}
 }
 
 // AddPage implements OutputBuffer
 func (output *PartitionOutputBuffer) AddPage(page *spi.Page) {
-	receiver := output.receivers[0]
-	conn, err := grpc.Dial(receiver.Address(), grpc.WithInsecure())
+	// TODO: conn pool?
+	receiver := output.fragment.Receivers[0]
+	conn, err := grpc.Dial(receiver.Address(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		panic(err)
 	}
@@ -35,13 +38,12 @@ func (output *PartitionOutputBuffer) AddPage(page *spi.Page) {
 	client := protoCommandV1.NewResultSetServiceClient(conn)
 	_, err = client.ResultSet(context.TODO(), &protoCommandV1.ResultSetRequest{
 		Payload: encoding.JSONMarshal(&model.TaskResultSet{
-			TaskID: model.TaskID{RequestID: "1", ID: 1},
-			NodeID: 6,
+			TaskID: output.taskID,
+			NodeID: *output.fragment.RemoteParentNodeID,
 			Page:   page,
-			NoMore: true,
+			NoMore: true, // FIXME: set nomore
 		}),
 	})
-
 	if err != nil {
 		panic(err)
 	}
