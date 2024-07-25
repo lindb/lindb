@@ -30,7 +30,9 @@ func NewMetricSplitSourceProvider(engine tsdb.Engine) *MetricSplitSourceProvider
 	}
 }
 
-func (msp *MetricSplitSourceProvider) CreateSplitSources(database string, table spi.TableHandle, partitions []int, columns []spi.ColumnMetadata, filter tree.Expression) (splits []spi.SplitSource) {
+func (msp *MetricSplitSourceProvider) CreateSplitSources(database string, table spi.TableHandle, partitions []int,
+	columns []spi.ColumnMetadata, filter tree.Expression,
+) (splits []spi.SplitSource) {
 	var (
 		metricTable *MetricTableHandle
 		ok          bool

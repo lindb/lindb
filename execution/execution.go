@@ -119,10 +119,10 @@ func (exec *QueryExecution) Start() any {
 	exec.queryContext = NewQueryContext()
 	exec.plannerContext = sqlContext.NewPlannerContext(
 		exec.session.Context,
+		exec.session.Database,
 		exec.session.NodeIDAllocator,
 		exec.preparedStatement.Statement,
 	)
-	exec.plannerContext.Database = exec.session.Database
 
 	exec.analyze()
 
