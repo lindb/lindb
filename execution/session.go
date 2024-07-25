@@ -7,12 +7,13 @@ import (
 	"github.com/lindb/lindb/sql/tree"
 )
 
-// Session represents query session.
+// Session represents query language execution session.
 type Session struct {
-	RequestID model.RequestID
-	Context   context.Context
-	Database  string
+	Context  context.Context
+	Database string
 
 	Statement       *tree.PreparedStatement
 	NodeIDAllocator *tree.NodeIDAllocator
+
+	RequestID model.RequestID
 }

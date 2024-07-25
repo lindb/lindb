@@ -11,7 +11,6 @@ import (
 	"github.com/lindb/lindb/execution/pipeline/operator/scan"
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/sql/context"
-	"github.com/lindb/lindb/sql/planner/plan"
 	planpkg "github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/tree"
 )
@@ -120,7 +119,7 @@ func (v *TaskExecutionPlanVisitor) visitScanFilterAndProjection(context any, sou
 
 func (v *TaskExecutionPlanVisitor) visitTableScan(node *planpkg.TableScanNode, filter tree.Expression, context any) operator.OperatorFactory {
 	outputs := node.GetOutputSymbols()
-	columns := lo.Map(outputs, func(item *plan.Symbol, index int) spi.ColumnMetadata {
+	columns := lo.Map(outputs, func(item *planpkg.Symbol, index int) spi.ColumnMetadata {
 		return spi.ColumnMetadata{
 			Name: item.Name,
 		}

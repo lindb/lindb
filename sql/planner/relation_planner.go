@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/lindb/common/constants"
 	commonttimeutil "github.com/lindb/common/pkg/timeutil"
 
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -102,8 +103,8 @@ func (p *RelationPlanner) visitTable(context any, node *tree.Table) (r any) {
 		tableMetadata := p.context.AnalyzerContext.Analysis.GetTableMetadata(node)
 		root := planpkg.NewTableScanNode(p.context.PlanNodeIDAllocator.Next())
 		root.Table = &metric.MetricTableHandle{
-			Namespace: "default-ns",
-			Metric:    node.Name.Name,
+			Namespace: node.GetNamespace(),
+			Metric:    node.GetTableName(),
 			TimeRange: timeutil.TimeRange{
 				Start: time.Now().UnixMilli() - time.Hour.Milliseconds(),
 				End:   time.Now().UnixMilli(),
@@ -111,7 +112,7 @@ func (p *RelationPlanner) visitTable(context any, node *tree.Table) (r any) {
 			Interval:        timeutil.Interval(10 * commonttimeutil.OneSecond),
 			StorageInterval: timeutil.Interval(10 * commonttimeutil.OneSecond),
 		} // FIXME: database/namespace
-		root.Database = p.context.Database
+		root.Database = node.GetDatabase(p.context.Database)
 		root.OutputSymbols = outputSymbols
 		root.Partitions = tableMetadata.Partitions
 		plan = &RelationPlan{

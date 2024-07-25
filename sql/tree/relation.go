@@ -1,5 +1,7 @@
 package tree
 
+import "github.com/lindb/common/constants"
+
 type Relation interface {
 	Node
 }
@@ -18,6 +20,28 @@ func (n *AliasedRelation) Accept(context any, vistor Visitor) any {
 type Table struct {
 	BaseNode
 	Name *QualifiedName
+}
+
+func (n *Table) GetDatabase(defaultDB string) string {
+	if len(n.Name.Parts) == 3 {
+		return n.Name.Parts[0]
+	}
+	return defaultDB
+}
+
+func (n *Table) GetNamespace() string {
+	switch len(n.Name.Parts) {
+	case 3:
+		return n.Name.Parts[1]
+	case 2:
+		return n.Name.Parts[0]
+	default:
+		return constants.DefaultNamespace
+	}
+}
+
+func (n *Table) GetTableName() string {
+	return n.Name.Parts[len(n.Name.Parts)-1]
 }
 
 func (n *Table) Accept(context any, vistor Visitor) any {
