@@ -154,7 +154,7 @@ const (
 	Metric
 	TagKey
 	TagValue
-	Field
+	Field1
 )
 
 // String returns string value of metadata type
@@ -164,7 +164,7 @@ func (m MetricMetadataType) String() string {
 		return "namespace"
 	case Metric:
 		return "metric"
-	case Field:
+	case Field1:
 		return field
 	case TagKey:
 		return "tagKey"

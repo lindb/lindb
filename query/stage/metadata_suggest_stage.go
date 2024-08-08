@@ -50,7 +50,7 @@ func (stage *metadataSuggestStage) Plan() PlanNode {
 		return NewPlanNode(operator.NewMetricSuggest(stage.ctx))
 	case tree.TagKey:
 		return NewPlanNode(operator.NewTagKeySuggest(stage.ctx))
-	case tree.Field:
+	case tree.Field1:
 		return NewPlanNode(operator.NewFieldSuggest(stage.ctx))
 	case tree.TagValue:
 		execPlan := NewEmptyPlanNode()

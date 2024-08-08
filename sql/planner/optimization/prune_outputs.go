@@ -34,9 +34,8 @@ func (v *PruneOutputsVisitor) Visit(context any, n planpkg.PlanNode) (r any) {
 	switch node := n.(type) {
 	case *planpkg.ProjectionNode:
 		restrictedOutputs := restrictOutputs(node, permittedOutputs)
-		assigments := make(planpkg.Assignments)
-		assigments.Add(restrictedOutputs)
-		node.Assignments = assigments
+		var assigments planpkg.Assignments
+		node.Assignments = assigments.Add(restrictedOutputs)
 	case *planpkg.TableScanNode:
 		restrictedOutputs := restrictOutputs(node, permittedOutputs)
 		node.OutputSymbols = restrictedOutputs
@@ -48,11 +47,16 @@ func (v *PruneOutputsVisitor) Visit(context any, n planpkg.PlanNode) (r any) {
 	return n
 }
 
-func restrictOutputs(node planpkg.PlanNode, permittedOutputs []*planpkg.Symbol) []*planpkg.Symbol {
+func restrictOutputs(node planpkg.PlanNode, permittedOutputs []*planpkg.Symbol) (newOutputs []*planpkg.Symbol) {
 	outputs := node.GetOutputSymbols()
-	return lo.Filter(outputs, func(item *planpkg.Symbol, index int) bool {
-		return lo.ContainsBy(permittedOutputs, func(other *planpkg.Symbol) bool {
-			return other.Name == item.Name
+	// restrict outputs based on permitted outputs
+	for _, output := range permittedOutputs {
+		o, ok := lo.Find(outputs, func(item *planpkg.Symbol) bool {
+			return item.Name == output.Name
 		})
-	})
+		if ok {
+			newOutputs = append(newOutputs, o)
+		}
+	}
+	return
 }

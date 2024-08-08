@@ -1,19 +1,17 @@
 package function
 
-import "github.com/lindb/lindb/spi/value"
+import "github.com/lindb/lindb/spi/types"
 
 type BoundSignature struct {
-	returnType    value.Type
-	argumentTypes []value.Type
+	Name          string           `json:"name"`
+	ArgumentTypes []types.DataType `json:"argumentTypes"`
+	ReturnType    types.DataType   `json:"returnType"`
 }
 
-func NewBoundSignature(returnType value.Type, argumentTypes []value.Type) *BoundSignature {
+func NewBoundSignature(name string, returnType types.DataType, argumentTypes []types.DataType) *BoundSignature {
 	return &BoundSignature{
-		returnType:    returnType,
-		argumentTypes: argumentTypes,
+		Name:          name,
+		ReturnType:    returnType,
+		ArgumentTypes: argumentTypes,
 	}
-}
-
-func (s *BoundSignature) GetReturnType() value.Type {
-	return s.returnType
 }

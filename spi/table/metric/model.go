@@ -1,6 +1,8 @@
 package metric
 
 import (
+	"fmt"
+
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/flow"
@@ -14,13 +16,17 @@ func init() {
 }
 
 type MetricTableHandle struct {
+	Database        string             `json:"database"`
 	Namespace       string             `json:"namespace"`
 	Metric          string             `json:"metric"`
-	GroupBy         []string           `json:"groupBy"`
 	TimeRange       timeutil.TimeRange `json:"timeRange"`
-	Interval        timeutil.Interval
-	StorageInterval timeutil.Interval
-	IntervalRatio   int
+	Interval        timeutil.Interval  `json:"interval"`
+	StorageInterval timeutil.Interval  `json:"storageInterval"`
+	IntervalRatio   int                `json:"intervalRatio"`
+}
+
+func (t *MetricTableHandle) String() string {
+	return fmt.Sprintf("%s:%s:%s", t.Database, t.Namespace, t.Metric)
 }
 
 type MetricScanSplit struct {

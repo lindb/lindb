@@ -1,7 +1,11 @@
 package analyzer
 
 import (
+	"fmt"
+
 	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/spi/function"
+	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 )
 
@@ -27,7 +31,12 @@ func (gsa *GroupingSetAnalysis) GetComplexExpressions() []tree.Expression {
 	return gsa.complexExpressions
 }
 
+func (gsa *GroupingSetAnalysis) GetOrdinarySets() [][]*FieldID {
+	return gsa.ordinarySets
+}
+
 func (gsa *GroupingSetAnalysis) GetAllFields() (rs []*FieldID) {
+	// TODO: cube/rollup
 	for _, fields := range gsa.ordinarySets {
 		rs = append(rs, fields...)
 	}
@@ -42,8 +51,10 @@ type Analysis struct {
 	root                  tree.Statement
 	scopes                map[tree.NodeID]*Scope      // TODO: node ref?
 	namedQueries          map[tree.NodeID]*tree.Query // table reference to with query
-	selectAllResultFields map[tree.NodeID][]*Field
+	selectAllResultFields map[tree.NodeID][]*tree.Field
 	selectExpressions     map[tree.NodeID][]*SelectExpression
+	resolvedFunctions     map[tree.NodeID]*function.ResolvedFunction
+	aggregates            map[tree.NodeID][]*tree.FunctionCall
 	aliasedRelations      map[*tree.QualifiedName]tree.Relation
 	tableMetadatas        map[tree.NodeID]*spi.TableMetadata
 	relationNames         map[tree.NodeID]*tree.QualifiedName
@@ -54,6 +65,7 @@ type Analysis struct {
 	orderByExpressions    map[tree.NodeID][]tree.Expression
 	limit                 map[tree.NodeID]int64
 
+	types            map[tree.NodeID]types.DataType
 	columnReferences map[tree.NodeID]*ResolvedField
 }
 
@@ -62,8 +74,10 @@ func NewAnalysis(root tree.Statement) *Analysis {
 		root:                  root,
 		scopes:                make(map[tree.NodeID]*Scope),
 		namedQueries:          make(map[tree.NodeID]*tree.Query),
-		selectAllResultFields: make(map[tree.NodeID][]*Field),
+		selectAllResultFields: make(map[tree.NodeID][]*tree.Field),
 		selectExpressions:     make(map[tree.NodeID][]*SelectExpression),
+		aggregates:            make(map[tree.NodeID][]*tree.FunctionCall),
+		resolvedFunctions:     make(map[tree.NodeID]*function.ResolvedFunction),
 		tableMetadatas:        make(map[tree.NodeID]*spi.TableMetadata),
 		relationNames:         make(map[tree.NodeID]*tree.QualifiedName),
 		aliasedRelations:      make(map[*tree.QualifiedName]tree.Relation),
@@ -74,6 +88,7 @@ func NewAnalysis(root tree.Statement) *Analysis {
 		orderByExpressions:    make(map[tree.NodeID][]tree.Expression),
 		limit:                 make(map[tree.NodeID]int64),
 
+		types:            make(map[tree.NodeID]types.DataType),
 		columnReferences: make(map[tree.NodeID]*ResolvedField),
 	}
 }
@@ -91,11 +106,11 @@ func (a *Analysis) GetScope(node tree.Node) (scope *Scope) {
 	return
 }
 
-func (a *Analysis) SetSelectAllResultFields(node *tree.AllColumns, fields []*Field) {
+func (a *Analysis) SetSelectAllResultFields(node *tree.AllColumns, fields []*tree.Field) {
 	a.selectAllResultFields[node.GetID()] = fields
 }
 
-func (a *Analysis) GetSelectAllResultFields(node *tree.AllColumns) (fields []*Field) {
+func (a *Analysis) GetSelectAllResultFields(node *tree.AllColumns) (fields []*tree.Field) {
 	fields = a.selectAllResultFields[node.GetID()]
 	return
 }
@@ -165,7 +180,7 @@ func (a *Analysis) SetGroupingSets(node tree.Node, groupingSets *GroupingSetAnal
 	a.groupingSets[node.GetID()] = groupingSets
 }
 
-func (a *Analysis) IsAggregation(node tree.Node) (ok bool) {
+func (a *Analysis) IsGroupingSets(node tree.Node) (ok bool) {
 	_, ok = a.groupingSets[node.GetID()]
 	return
 }
@@ -204,6 +219,7 @@ func (a *Analysis) IsColumnReference(node tree.Expression) bool {
 }
 
 func (a *Analysis) GetColumnReferenceField(node tree.Expression) (field *ResolvedField) {
+	fmt.Println(a.columnReferences)
 	field = a.columnReferences[node.GetID()]
 	return
 }
@@ -212,6 +228,33 @@ func (a *Analysis) RecordSubQueries(node tree.Node, expressionAnalysis *Expressi
 	// panic("impl it")
 }
 
+func (a *Analysis) AddType(node tree.Expression, dataType types.DataType) {
+	a.types[node.GetID()] = dataType
+}
+
+func (a *Analysis) GetType(node tree.Expression) (dataType types.DataType) {
+	dataType = a.types[node.GetID()]
+	return
+}
+
 func (a *Analysis) GetStatement() tree.Statement {
 	return a.root
+}
+
+func (a *Analysis) SetAggregates(query *tree.QuerySpecification, aggregates []*tree.FunctionCall) {
+	a.aggregates[query.GetID()] = aggregates
+}
+
+func (a *Analysis) GetAggregates(query *tree.QuerySpecification) (aggregates []*tree.FunctionCall) {
+	aggregates = a.aggregates[query.GetID()]
+	return
+}
+
+func (a *Analysis) AddResolvedFunction(node tree.Node, fn *function.ResolvedFunction) {
+	a.resolvedFunctions[node.GetID()] = fn
+}
+
+func (a *Analysis) GetResolvedFunction(node tree.Node) (fn *function.ResolvedFunction) {
+	fn = a.resolvedFunctions[node.GetID()]
+	return
 }

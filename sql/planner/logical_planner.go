@@ -6,6 +6,7 @@ import (
 	"github.com/lindb/lindb/sql/context"
 	"github.com/lindb/lindb/sql/planner/optimization"
 	planpkg "github.com/lindb/lindb/sql/planner/plan"
+	printpkg "github.com/lindb/lindb/sql/planner/printer"
 	"github.com/lindb/lindb/sql/tree"
 )
 
@@ -25,12 +26,19 @@ func (p *LogicalPlanner) Plan() *planpkg.Plan {
 	// plan
 	root := p.planStatement()
 
+	printer := printpkg.NewPlanPrinter(printpkg.NewTextRender(0))
+	fmt.Printf("init plan:\n%s\n", printer.PrintLogicPlan(root))
+
 	// TODO: check intermediate plan
 
 	// optimizer
-	for i := range p.planOptimizers {
-		root = p.runOptimizer(root, p.planOptimizers[i])
+	for _, optimizer := range p.planOptimizers {
+		root = p.runOptimizer(root, optimizer)
+		printer = printpkg.NewPlanPrinter(printpkg.NewTextRender(0))
+		fmt.Printf("after optimizer plan:%T\n%s\n", optimizer, printer.PrintLogicPlan(root))
 	}
+	printer = printpkg.NewPlanPrinter(printpkg.NewTextRender(0))
+	fmt.Printf("after plan:\n%s\n", printer.PrintLogicPlan(root))
 
 	return &planpkg.Plan{
 		Root: root,

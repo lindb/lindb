@@ -13,8 +13,7 @@ type AddExchangesPlan struct {
 	props *ActualProps
 }
 
-type AddExchanges struct {
-}
+type AddExchanges struct{}
 
 func NewAddExchanges() PlanOptimizer {
 	return &AddExchanges{}
@@ -28,7 +27,7 @@ func (opt *AddExchanges) Optimize(plan plan.PlanNode, idAllocator *plan.PlanNode
 	if planProps, ok := result.(*AddExchangesPlan); ok {
 		return planProps.node
 	}
-	//FIXME: need remove
+	// FIXME: need remove
 	return plan
 }
 
@@ -48,6 +47,8 @@ func (v *AddExchangesRewrite) Visit(context any, n plan.PlanNode) (r any) {
 		return v.VisitProjection(parentProps, node)
 	case *plan.TableScanNode:
 		return v.VisitTableScan(parentProps, node)
+	case *plan.AggregationNode:
+		return v.VisitAggregation(parentProps, node)
 	default:
 		return v.rebaseAndDeriveProps(n, v.planChild(n, parentProps))
 	}
@@ -55,8 +56,10 @@ func (v *AddExchangesRewrite) Visit(context any, n plan.PlanNode) (r any) {
 
 func (v *AddExchangesRewrite) VisitOutput(context any, node *plan.OutputNode) (r any) {
 	child := v.planChild(node, undistributed())
-	//FIXME:??? check sigle
-	child = v.withDerivedProps(plan.GatheringExchange(v.idAllocator.Next(), plan.Remote, child.node), child.props)
+	if !child.props.isSingleNode() {
+		// FIXME:??? check sigle/force single node output
+		child = v.withDerivedProps(plan.GatheringExchange(v.idAllocator.Next(), plan.Remote, child.node), child.props)
+	}
 	return v.rebaseAndDeriveProps(node, child)
 }
 
@@ -71,7 +74,7 @@ func (v *AddExchangesRewrite) VisitTableScan(context any, node *plan.TableScanNo
 }
 
 func (v *AddExchangesRewrite) VisitProjection(context any, node *plan.ProjectionNode) (r any) {
-	//FIXME: translate
+	// FIXME: translate
 	return v.rebaseAndDeriveProps(node, v.planChild(node, context.(*PreferredProps)))
 }
 
@@ -87,6 +90,13 @@ func (v *AddExchangesRewrite) VisitFilter(node *plan.FilterNode, context any) (r
 	}
 
 	return v.rebaseAndDeriveProps(node, v.planChild(node, preferredProps))
+}
+
+func (v *AddExchangesRewrite) VisitAggregation(context any, node *plan.AggregationNode) (r any) {
+	preferredProps := context.(*PreferredProps)
+	child := v.planChild(node, preferredProps)
+	// TODO:
+	return v.rebaseAndDeriveProps(node, child)
 }
 
 func (v *AddExchangesRewrite) planPartitionedJoin(node *plan.JoinNode) *AddExchangesPlan {
@@ -108,14 +118,14 @@ func (v *AddExchangesRewrite) rebaseAndDeriveProps(node plan.PlanNode, child *Ad
 }
 
 func (v *AddExchangesRewrite) withDerivedProps(node plan.PlanNode, inputProps *ActualProps) *AddExchangesPlan {
-	//FIXME::::
+	// FIXME::::
 	return &AddExchangesPlan{
-		node: node,
+		node:  node,
+		props: inputProps,
 	}
 }
 
 func (v *AddExchangesRewrite) buildJoin(node *plan.JoinNode, newLeft, newRight *AddExchangesPlan, newDistributionType plan.DistributionType) *AddExchangesPlan {
-
 	result := plan.JoinNode{
 		BaseNode: plan.BaseNode{
 			ID: node.GetNodeID(),

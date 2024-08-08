@@ -21,7 +21,7 @@ import (
 	"math"
 
 	"github.com/lindb/lindb/aggregation/function"
-	"github.com/lindb/lindb/spi/value"
+	"github.com/lindb/lindb/spi/types"
 )
 
 // EmptyFieldID represents empty value for field id.
@@ -82,20 +82,39 @@ const (
 	FirstField
 )
 
-func (t Type) AggregateType() value.AggregateType {
+func (t Type) AggregateType() types.AggregateType {
 	switch t {
 	case SumField:
-		return value.ATSum
+		return types.ATSum
 	case MinField:
-		return value.ATMin
+		return types.ATMin
 	case MaxField:
-		return value.ATMax
+		return types.ATMax
 	case LastField:
-		return value.ATLast
+		return types.ATLast
 	case HistogramField:
-		return value.ATHistogram
+		return types.ATHistogram
 	case FirstField:
-		return value.ATFirst
+		return types.ATFirst
+	default:
+		panic("unknown aggregate type")
+	}
+}
+
+func (t Type) DateType() types.DataType {
+	switch t {
+	case SumField:
+		return types.DataTypeSum
+	case MinField:
+		return types.DataTypeMin
+	case MaxField:
+		return types.DataTypeMax
+	case LastField:
+		return types.DataTypeLast
+	case FirstField:
+		return types.DataTypeFirst
+	case HistogramField:
+		return types.DataTypeHistogram
 	default:
 		panic("unknown aggregate type")
 	}

@@ -43,11 +43,7 @@ func (r *TextRender) writeTextOutput(output *strings.Builder, plan *PlanRepresen
 	output.WriteString("[" + strings.Join(kvs, ", ") + "]")
 	output.WriteString("\n")
 
-	var columns []string
-	for i := range node.outputs {
-		columns = append(columns, node.outputs[i].Name)
-	}
-	output.WriteString(indentMultilineString("Layout: ["+strings.Join(columns, ", ")+"]", indent.detailIndent()))
+	output.WriteString(indentMultilineString("Layout: "+formatSymbols(node.outputs), indent.detailIndent()))
 	output.WriteString("\n")
 
 	if len(node.details) > 0 {

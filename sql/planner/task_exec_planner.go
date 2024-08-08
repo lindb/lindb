@@ -1,6 +1,8 @@
 package planner
 
 import (
+	"fmt"
+
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/execution/buffer"
@@ -69,8 +71,25 @@ func (v *TaskExecutionPlanVisitor) Visit(context any, n planpkg.PlanNode) (r any
 		return v.VisitTableScan(context, node)
 	case *planpkg.RemoteSourceNode:
 		return v.visitRemoteSource(context, node)
+	case *planpkg.AggregationNode:
+		return v.visitAggregation(context, node)
+	default:
+		panic(fmt.Sprintf("imple task planner %v", n))
 	}
-	return nil
+}
+
+func (v *TaskExecutionPlanVisitor) visitAggregation(context any, node *planpkg.AggregationNode) (r any) {
+	source := node.Source.Accept(context, v).(*PhysicalOperation)
+	return v.planGroupByAggregation(node, source)
+}
+
+func (v *TaskExecutionPlanVisitor) planGroupByAggregation(node *planpkg.AggregationNode, source *PhysicalOperation) *PhysicalOperation {
+	operatorFct := v.createHashAggregationOperatorFactory()
+	return NewPhysicalOperation(operatorFct, source)
+}
+
+func (v *TaskExecutionPlanVisitor) createHashAggregationOperatorFactory() operator.OperatorFactory {
+	return operator.NewHashAggregationOperatorFactory()
 }
 
 func (v *TaskExecutionPlanVisitor) visitProjection(context any, node *planpkg.ProjectionNode) (r any) {

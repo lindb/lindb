@@ -4,12 +4,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lindb/common/constants"
 	commonttimeutil "github.com/lindb/common/pkg/timeutil"
 
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/spi/table/metric"
-	"github.com/lindb/lindb/spi/value"
+	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/analyzer"
 	"github.com/lindb/lindb/sql/context"
 	planpkg "github.com/lindb/lindb/sql/planner/plan"
@@ -48,7 +47,6 @@ func (p *RelationPlanner) visitQuery(context any, node *tree.Query) (r any) {
 }
 
 func (p *RelationPlanner) visitQuerySpecification(context any, node *tree.QuerySpecification) (r any) {
-	fmt.Println("plan query spec")
 	return NewQueryPlanner(p.context).planQuerySpecification(node)
 }
 
@@ -91,11 +89,10 @@ func (p *RelationPlanner) visitTable(context any, node *tree.Table) (r any) {
 		}
 	} else {
 		var outputSymbols []*planpkg.Symbol
-		fmt.Printf("table scan.........%v\n", scope)
-		fmt.Printf("table scan.........%v\n", scope.RelationType.Fields)
 		for i := range scope.RelationType.Fields {
 			symbol := &planpkg.Symbol{
-				Name: scope.RelationType.Fields[i].Name, // FIXME: id allocator
+				Name:     scope.RelationType.Fields[i].Name, // FIXME: id allocator
+				DataType: scope.RelationType.Fields[i].DataType,
 			}
 			outputSymbols = append(outputSymbols, symbol)
 		}
@@ -103,15 +100,17 @@ func (p *RelationPlanner) visitTable(context any, node *tree.Table) (r any) {
 		tableMetadata := p.context.AnalyzerContext.Analysis.GetTableMetadata(node)
 		root := planpkg.NewTableScanNode(p.context.PlanNodeIDAllocator.Next())
 		root.Table = &metric.MetricTableHandle{
+			Database:  node.GetDatabase(p.context.Database),
 			Namespace: node.GetNamespace(),
 			Metric:    node.GetTableName(),
 			TimeRange: timeutil.TimeRange{
 				Start: time.Now().UnixMilli() - time.Hour.Milliseconds(),
 				End:   time.Now().UnixMilli(),
 			},
+			// FIXME: set interval
 			Interval:        timeutil.Interval(10 * commonttimeutil.OneSecond),
 			StorageInterval: timeutil.Interval(10 * commonttimeutil.OneSecond),
-		} // FIXME: database/namespace
+		}
 		root.Database = node.GetDatabase(p.context.Database)
 		root.OutputSymbols = outputSymbols
 		root.Partitions = tableMetadata.Partitions
@@ -191,7 +190,7 @@ func (p *RelationPlanner) planJoin(node *tree.Join, scope *analyzer.Scope, left,
 	}
 }
 
-func coerce(plan *RelationPlan, types []value.Type, symbolAllocator *planpkg.SymbolAllocator, idAllocator *planpkg.PlanNodeIDAllocator) *NodeAndMappings {
+func coerce(plan *RelationPlan, types []types.Type, symbolAllocator *planpkg.SymbolAllocator, idAllocator *planpkg.PlanNodeIDAllocator) *NodeAndMappings {
 	return nil
 }
 
@@ -201,7 +200,8 @@ func coerceExpressions(subPlan *PlanBuilder, expressions []tree.Expression, symb
 	for i := range expressions {
 		expression := expressions[i]
 		if _, ok := mappings[expression]; !ok {
-			symbol := symbolAllocator.NewSymbol(subPlan.translations.Rewrite(expression), "")
+			// TODO: need modify
+			symbol := symbolAllocator.NewSymbol(subPlan.translations.Rewrite(expression), "", types.DataTypeSum) // TODO: get type from context
 			mappings[expression] = symbol
 		}
 	}

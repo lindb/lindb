@@ -5,13 +5,11 @@ type GroupBy struct {
 	GroupingElements []GroupingElement
 }
 
-type GroupingElement interface {
-}
+type GroupingElement interface{}
 
 type SimpleGroupBy struct {
 	BaseNode
 	Columns []Expression
 }
 
-type GroupByAllColumns struct {
-}
+type GroupByAllColumns struct{}

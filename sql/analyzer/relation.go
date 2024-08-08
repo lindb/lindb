@@ -17,15 +17,15 @@ var (
 
 type Relation struct {
 	Type         RelationType
-	Fields       []*Field
-	FieldIndexes map[*Field]int
+	Fields       []*tree.Field
+	FieldIndexes map[*tree.Field]int
 }
 
-func NewRelation(relationType RelationType, fields []*Field) *Relation {
+func NewRelation(relationType RelationType, fields []*tree.Field) *Relation {
 	rt := &Relation{
 		Type:         relationType,
 		Fields:       fields,
-		FieldIndexes: make(map[*Field]int),
+		FieldIndexes: make(map[*tree.Field]int),
 	}
 	for i, f := range fields {
 		rt.FieldIndexes[f] = i
@@ -34,12 +34,13 @@ func NewRelation(relationType RelationType, fields []*Field) *Relation {
 }
 
 func (r *Relation) withAlias(relationAlias string) *Relation {
-	var fields []*Field
+	var fields []*tree.Field
 	for i := range r.Fields {
 		field := r.Fields[i]
 
-		fields = append(fields, &Field{
+		fields = append(fields, &tree.Field{
 			Name:          field.Name,
+			DataType:      field.DataType,
 			RelationAlias: tree.NewQualifiedName([]*tree.Identifier{{Value: relationAlias}}),
 		})
 	}
@@ -47,23 +48,23 @@ func (r *Relation) withAlias(relationAlias string) *Relation {
 }
 
 func (r *Relation) joinWith(other *Relation) *Relation {
-	var fields []*Field
+	var fields []*tree.Field
 	fields = append(fields, r.Fields...)
 	fields = append(fields, other.Fields...)
 	return NewRelation(JoinRelation, fields)
 }
 
-func (r *Relation) getFieldByIndex(fieldIndex int) *Field {
+func (r *Relation) getFieldByIndex(fieldIndex int) *tree.Field {
 	return r.Fields[fieldIndex]
 }
 
-func (r *Relation) resolveFields(name *tree.QualifiedName) (result []*Field) {
-	return lo.Filter(r.Fields, func(item *Field, _ int) bool {
-		return item.canResolve(name)
+func (r *Relation) resolveFields(name *tree.QualifiedName) (result []*tree.Field) {
+	return lo.Filter(r.Fields, func(item *tree.Field, _ int) bool {
+		return item.CanResolve(name)
 	})
 }
 
-func (r *Relation) IndexOf(field *Field) int {
+func (r *Relation) IndexOf(field *tree.Field) int {
 	return r.FieldIndexes[field]
 }
 

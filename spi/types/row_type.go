@@ -1,3 +1,3 @@
-package value
+package types
 
 type RowType struct{}

@@ -96,7 +96,7 @@ func (scope *Scope) resolveField(node tree.Expression, name *tree.QualifiedName,
 	return nil
 }
 
-func (scope *Scope) asResolvedField(field *Field, fieldIndexOffset int, local bool) *ResolvedField {
+func (scope *Scope) asResolvedField(field *tree.Field, fieldIndexOffset int, local bool) *ResolvedField {
 	relationFieldIndex := scope.RelationType.IndexOf(field)
 	return &ResolvedField{
 		Field:               field,
@@ -113,7 +113,7 @@ func (scope *Scope) resolveAsteriskedIdentifierChain(identifierChain *tree.Quali
 		scopeForTableRef *Scope
 		scopeForFieldRef *Scope
 	)
-	find := func(scope *Scope, match func(field *Field) bool) bool {
+	find := func(scope *Scope, match func(field *tree.Field) bool) bool {
 		fmt.Println(scope.RelationType)
 		fields := scope.RelationType.Fields
 		for i := range fields {
@@ -125,8 +125,8 @@ func (scope *Scope) resolveAsteriskedIdentifierChain(identifierChain *tree.Quali
 	}
 	if partsLen <= 3 {
 		scopeForTableRef = scope.findLocally(func(scope *Scope) bool {
-			return find(scope, func(field *Field) bool {
-				return field.matchesPrefix(identifierChain)
+			return find(scope, func(field *tree.Field) bool {
+				return field.MatchesPrefix(identifierChain)
 			})
 		})
 	}
@@ -134,8 +134,8 @@ func (scope *Scope) resolveAsteriskedIdentifierChain(identifierChain *tree.Quali
 		part0 := identifierChain.Parts[0]
 		part1 := identifierChain.Parts[1]
 		scopeForFieldRef = scope.findLocally(func(scope *Scope) bool {
-			return find(scope, func(field *Field) bool {
-				return field.Name != "" && field.Name == part1 && field.matchesPrefix(
+			return find(scope, func(field *tree.Field) bool {
+				return field.Name != "" && field.Name == part1 && field.MatchesPrefix(
 					tree.NewQualifiedName([]*tree.Identifier{{Value: part0}}),
 				)
 			})

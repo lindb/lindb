@@ -11,9 +11,10 @@ import (
 )
 
 type TableScanOperatorFactory struct {
+	table  spi.TableHandle
+	filter tree.Expression
+
 	sourceID plan.PlanNodeID
-	table    spi.TableHandle
-	filter   tree.Expression
 }
 
 func NewTableScanOperatorFactory(sourceID plan.PlanNodeID, table spi.TableHandle, filter tree.Expression) operator.OperatorFactory {
@@ -30,9 +31,9 @@ func (fct *TableScanOperatorFactory) CreateOperator() operator.Operator {
 }
 
 type TableScanOperator struct {
-	sourceID plan.PlanNodeID
-
 	pageSource spi.PageSource
+
+	sourceID plan.PlanNodeID
 }
 
 func NewTableScanOperator(sourceID plan.PlanNodeID, pageSource spi.PageSource) operator.SourceOperator {
@@ -47,7 +48,6 @@ func (op *TableScanOperator) GetSourceID() plan.PlanNodeID {
 }
 
 func (op *TableScanOperator) NoMoreSplits() {
-
 }
 
 func (op *TableScanOperator) AddSplit(split spi.Split) {
@@ -61,7 +61,6 @@ func (op *TableScanOperator) AddInput(page *spi.Page) {
 
 // Finish implements operator.Operator
 func (op *TableScanOperator) Finish() {
-
 }
 
 // GetOutput implements operator.Operator

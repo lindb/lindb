@@ -54,6 +54,9 @@ func (v *aggregationAnalyzeVisitor) Visit(context any, n tree.Node) (r any) {
 	switch node := n.(type) {
 	case *tree.DereferenceExpression:
 		return v.visitDereferenceExpression(node)
+	case *tree.Identifier:
+		// TODO: modify
+		return true
 	default:
 		panic(fmt.Sprintf("unsupported node<%T> when aggregation ananlyzer", n))
 	}

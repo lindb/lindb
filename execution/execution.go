@@ -15,6 +15,8 @@ import (
 	protoCommandV1 "github.com/lindb/lindb/proto/gen/v1/command"
 	sqlContext "github.com/lindb/lindb/sql/context"
 	"github.com/lindb/lindb/sql/planner"
+	"github.com/lindb/lindb/sql/planner/iterative"
+	"github.com/lindb/lindb/sql/planner/iterative/rule"
 	"github.com/lindb/lindb/sql/planner/optimization"
 	"github.com/lindb/lindb/sql/planner/printer"
 	"github.com/lindb/lindb/sql/tree"
@@ -55,6 +57,7 @@ func NewDataDefinitionExecution(task DataDefinitionTask) Execution {
 
 func (exec *DataDefinitionExecution) Start() any {
 	err := exec.task.Execute(context.TODO())
+	// TODO: add log
 	fmt.Println(err)
 
 	fmt.Println("execution task")
@@ -149,12 +152,13 @@ func (exec *QueryExecution) planQuery(output buffer.OutputBuffer) *PlanRoot {
 
 	// plan query
 	planOptimizers := []optimization.PlanOptimizer{
+		optimization.NewPruneOutputs(),
+		iterative.NewIterativeOptimizer([]iterative.Rule{
+			rule.NewPruneOutputSourceColumnsRule(),
+			rule.NewRemoveRedundantIdentityProjections(),
+		}),
 		optimization.NewAddExchanges(),
 		optimization.NewAddLocalExchanges(),
-		optimization.NewPruneOutputs(),
-		// iterative.NewIterativeOptimizer([]iterative.Rule{
-		// 	iterative.NewPruneOutputSourceColumnsRule(),
-		// }),
 	}
 	logicalPlanner := planner.NewLogicalPlanner(exec.plannerContext, planOptimizers)
 	plan := logicalPlanner.Plan()

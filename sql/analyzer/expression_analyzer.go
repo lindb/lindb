@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/lindb/lindb/spi/function"
-	"github.com/lindb/lindb/spi/value"
+	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 )
 
@@ -15,25 +15,21 @@ type Context struct {
 type ExpressionAnalyzer struct {
 	ctx             *AnalyzerContext
 	funcionResolver *function.FunctionResolver
-	analysis        *ExpressionAnalysis
 }
 
 func NewExpressionAnalyzer(ctx *AnalyzerContext) *ExpressionAnalyzer {
 	return &ExpressionAnalyzer{
 		ctx:             ctx,
 		funcionResolver: function.NewFunctionResolver(), // FIXME:???
-		analysis:        NewExpressionAnalysis(),
 	}
 }
 
-func (a *ExpressionAnalyzer) Analyze(expression tree.Expression, scope *Scope) *ExpressionAnalysis {
+func (a *ExpressionAnalyzer) Analyze(expression tree.Expression, scope *Scope) {
 	fmt.Println("expression analyze")
 	visitor := NewExpressionVisitor(scope, a)
 	expression.Accept(tree.NewStackableVisitorContext(&Context{
 		scope: scope,
 	}), visitor)
-
-	return a.analysis
 }
 
 type ExpressionVisitor struct {
@@ -97,47 +93,50 @@ func (v *ExpressionVisitor) visitDereferenceExpression(context any, node *tree.D
 			return v.handleResolvedField(node, resolvedField, ctx)
 		}
 	}
-	rowType := &value.RowType{}
-	return v.setExpressionType(node, rowType)
+	// rowType := &types.RowType{}
+	// TODO: fixme
+	return v.setExpressionType(node, types.DataTypeString)
 }
 
 func (v *ExpressionVisitor) visitFunctionCall(context any, node *tree.FunctionCall) (r any) {
-	// FIXME:???
-	rowType := &value.RowType{}
-	return v.setExpressionType(node, rowType)
+	// FIXME:func call???
+	// rowType := &types.RowType{}
+	return v.setExpressionType(node, types.DataTypeFirst)
 }
 
 func (v *ExpressionVisitor) visitStringLiteral(context any, node *tree.StringLiteral) (r any) {
 	// FIXME:???
-	rowType := &value.RowType{}
-	return v.setExpressionType(node, rowType)
+	// rowType := &types.RowType{}
+	return v.setExpressionType(node, types.DataTypeString)
 }
 
 func (v *ExpressionVisitor) visitIdentifier(context any, node *tree.Identifier) (r any) {
 	ctx := context.(*tree.StackableVisitorContext[*Context])
+	fmt.Printf("expr visitor %V\n", node.Value)
 	// FIXME:???
 	resolvedField := ctx.GetContext().scope.resolveField(node, tree.NewQualifiedName([]*tree.Identifier{node}), true)
 	return v.handleResolvedField(node, resolvedField, ctx)
 }
 
-func (v *ExpressionVisitor) getOperator(context *tree.StackableVisitorContext[*Context], node tree.Expression, operatorType function.OperatorType, arguments ...tree.Expression) value.Type {
-	var argumentTypes []value.Type
+func (v *ExpressionVisitor) getOperator(context *tree.StackableVisitorContext[*Context], node tree.Expression, operatorType function.OperatorType, arguments ...tree.Expression) types.Type {
+	var argumentTypes []types.Type
 	for i := range arguments {
 		expression := arguments[i]
-		argumentTypes = append(argumentTypes, expression.Accept(context, v).(value.Type))
+		argumentTypes = append(argumentTypes, expression.Accept(context, v).(types.Type))
 	}
 
-	operatorSignature := v.analyzer.funcionResolver.ResolveOperator(operatorType, argumentTypes).GetSignature()
+	operatorSignature := v.analyzer.funcionResolver.ResolveOperator(operatorType, argumentTypes).Signature
 
-	return v.setExpressionType(node, operatorSignature.GetReturnType())
+	return v.setExpressionType(node, operatorSignature.ReturnType)
 }
 
-func (v *ExpressionVisitor) handleResolvedField(node tree.Expression, resolvedField *ResolvedField, context *tree.StackableVisitorContext[*Context]) value.Type {
+func (v *ExpressionVisitor) handleResolvedField(node tree.Expression, resolvedField *ResolvedField, context *tree.StackableVisitorContext[*Context]) types.Type {
 	v.analyzer.ctx.Analysis.AddColumnReference(node, resolvedField)
-	return &value.RowType{}
+	v.analyzer.ctx.Analysis.AddType(node, resolvedField.Field.DataType)
+	return &types.RowType{}
 }
 
-func (v *ExpressionVisitor) setExpressionType(expression tree.Expression, expressionType value.Type) value.Type {
-	v.analyzer.analysis.expressionTypes[expression] = expressionType
+func (v *ExpressionVisitor) setExpressionType(expression tree.Expression, expressionType types.DataType) types.DataType {
+	v.analyzer.ctx.Analysis.AddType(expression, expressionType)
 	return expressionType
 }

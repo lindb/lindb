@@ -1,22 +1,27 @@
 package function
 
-import "github.com/lindb/lindb/spi/value"
+import (
+	"github.com/lindb/lindb/spi/types"
+	"github.com/lindb/lindb/sql/tree"
+)
 
-type ResolvedFunction struct{}
-
-func (f *ResolvedFunction) GetSignature() *BoundSignature {
-	return &BoundSignature{
-		returnType: &value.RowType{},
-	}
+type ResolvedFunction struct {
+	Signature *BoundSignature `json:"signature"`
 }
 
-type FunctionResolver struct {
-}
+type FunctionResolver struct{}
 
 func NewFunctionResolver() *FunctionResolver {
 	return &FunctionResolver{}
 }
 
-func (r *FunctionResolver) ResolveOperator(operatorType OperatorType, argumentTypes []value.Type) *ResolvedFunction {
+func (r *FunctionResolver) ResolveOperator(operatorType OperatorType, argumentTypes []types.Type) *ResolvedFunction {
 	return &ResolvedFunction{}
+}
+
+func (r *FunctionResolver) ResolveFunction(name *tree.QualifiedName) *ResolvedFunction {
+	return &ResolvedFunction{
+		// FIXME: function name/types
+		Signature: NewBoundSignature(name.Suffix, types.DataTypeSum, []types.DataType{types.DataTypeSum}),
+	}
 }
