@@ -15,7 +15,7 @@ import (
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/spi"
-	"github.com/lindb/lindb/spi/value"
+	"github.com/lindb/lindb/spi/types"
 )
 
 type MetricPageSourceProvider struct{}
@@ -159,7 +159,7 @@ func (mps *MetricPageSource) buildOutputPage(groupedSeriesList series.GroupedIte
 				for fieldIt.HasNext() {
 					pField := fieldIt.Next()
 
-					timeSeries := value.NewTimeSeries(mps.table.TimeRange, mps.table.Interval)
+					timeSeries := types.NewTimeSeries(mps.table.TimeRange, mps.table.Interval)
 
 					for pField.HasNext() {
 						timestamp, value := pField.Next()
@@ -171,7 +171,7 @@ func (mps *MetricPageSource) buildOutputPage(groupedSeriesList series.GroupedIte
 			}
 
 			page.AppendColumn(
-				spi.NewColumnInfo(string(groupedSeriesItr.Next().FieldName()), value.VTTimeSeries),
+				spi.NewColumnInfo(string(groupedSeriesItr.Next().FieldName()), types.DataTypeSum), // TODO: set type
 				column)
 			fmt.Println("add colll")
 		}

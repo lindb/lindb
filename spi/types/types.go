@@ -1,18 +1,27 @@
-package value
+package types
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/lindb/common/pkg/encoding"
 )
 
 type AggregateType byte
-type ValueType byte
+
+type DataType uint16
 
 const (
-	VTString ValueType = iota + 1
-	VTTimeSeries
+	DataTypeString DataType = iota + 1
+	DataTypeFloat
+	DataTypeSum
+	DataTypeMin
+	DataTypeMax
+	DataTypeLast
+	DataTypeFirst
+	DataTypeHistogram
 )
+
 const (
 	ATUnknown AggregateType = iota
 	ATSum
@@ -23,33 +32,58 @@ const (
 	ATHistogram
 )
 
-func (vt ValueType) String() string {
-	switch vt {
-	case VTString:
+func (dt DataType) CanAggregatin() bool {
+	return dt == DataTypeSum || dt == DataTypeMin || dt == DataTypeMax ||
+		dt == DataTypeLast || dt == DataTypeFirst || dt == DataTypeHistogram
+}
+
+func (dt DataType) String() string {
+	switch dt {
+	case DataTypeString:
 		return "string"
-	case VTTimeSeries:
-		return "timeseries"
+	case DataTypeSum:
+		return "sum"
+	case DataTypeMin:
+		return "min"
+	case DataTypeMax:
+		return "max"
+	case DataTypeLast:
+		return "last"
+	case DataTypeFirst:
+		return "first"
+	case DataTypeHistogram:
+		return "histogram"
 	default:
-		panic("invalid value type")
+		panic(fmt.Sprintf("invalid value type<%d>", dt))
 	}
 }
 
-func (vt ValueType) MarshalJSON() ([]byte, error) {
+func (vt DataType) MarshalJSON() ([]byte, error) {
 	return encoding.JSONMarshal(vt.String()), nil
 }
 
-func (tv *ValueType) UnmarshalJSON(data []byte) error {
+func (tv *DataType) UnmarshalJSON(data []byte) error {
 	var str string
 	if err := encoding.JSONUnmarshal(data, &str); err != nil {
 		return err
 	}
 	switch str {
 	case "string":
-		*tv = VTString
-	case "timeseries":
-		*tv = VTTimeSeries
+		*tv = DataTypeString
+	case "sum":
+		*tv = DataTypeSum
+	case "min":
+		*tv = DataTypeMin
+	case "max":
+		*tv = DataTypeMax
+	case "last":
+		*tv = DataTypeLast
+	case "first":
+		*tv = DataTypeFirst
+	case "histogram":
+		*tv = DataTypeHistogram
 	default:
-		return errors.New("invalid value type")
+		return fmt.Errorf("invalid value type<%s>", str)
 	}
 	return nil
 }
@@ -101,7 +135,6 @@ func (at *AggregateType) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type Type interface {
-}
+type Type interface{}
 
 type Block interface{}

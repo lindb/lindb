@@ -4,6 +4,8 @@ type FunctionCall struct {
 	BaseNode
 	Name      QualifiedName
 	Arguments []Expression
+
+	RefField *Field
 }
 
 // Accept implements Expression

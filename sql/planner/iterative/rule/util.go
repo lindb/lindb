@@ -1,11 +1,11 @@
-package iterative
+package rule
 
 import (
 	"fmt"
 
-	"github.com/lindb/lindb/sql/planner/plan"
-
 	lo "github.com/samber/lo"
+
+	"github.com/lindb/lindb/sql/planner/plan"
 )
 
 func restrictOutputs(idAllcator *plan.PlanNodeIDAllocator, node plan.PlanNode, permittedOutputs []*plan.Symbol) plan.PlanNode {
@@ -16,11 +16,13 @@ func restrictOutputs(idAllcator *plan.PlanNodeIDAllocator, node plan.PlanNode, p
 		})
 	})
 	if len(outputs) == len(restrictedOutputs) {
+		fmt.Println("outputs same.....")
 		return nil
 	}
+	fmt.Printf("restrictedOutputs, a=%v,b=%v,c=%v\n", outputs, restrictedOutputs, permittedOutputs)
 
-	assigments := make(plan.Assignments)
-	assigments.Add(restrictedOutputs)
+	var assigments plan.Assignments
+	assigments = assigments.Add(restrictedOutputs)
 
 	return &plan.ProjectionNode{
 		BaseNode: plan.BaseNode{

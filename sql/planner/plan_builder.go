@@ -33,23 +33,28 @@ func (pb *PlanBuilder) withNewRoot(root plan.PlanNode) *PlanBuilder {
 }
 
 func (pb *PlanBuilder) appendProjections(expressions []tree.Expression) *PlanBuilder {
-	assignments := make(plan.Assignments)
+	var assignments plan.Assignments
 	fmt.Printf("add root...%T\n", pb.root)
-	assignments.Add(pb.root.GetOutputSymbols())
+	assignments = assignments.Add(pb.root.GetOutputSymbols())
 	symbolAllocator := pb.translations.context.SymbolAllocator
 	idAllocator := pb.translations.context.PlanNodeIDAllocator
 
 	mappings := make(map[tree.NodeID]*plan.Symbol)
 	for i := range expressions {
 		expression := expressions[i]
+		fmt.Printf("check transs %v=%v\n", expression, pb.translations.CanTranslate(expression))
 		if _, ok := mappings[expression.GetID()]; !ok && !pb.translations.CanTranslate(expression) {
 			fmt.Println("kkkkkkkkkkkkk..............")
-			symbol := symbolAllocator.NewSymbol(expression, "")
-			assignments[symbol] = pb.translations.Rewrite(expression)
+			symbol := symbolAllocator.NewSymbol(expression, "", pb.translations.context.AnalyzerContext.Analysis.GetType(expression))
+			assignments = append(assignments, &plan.Assignment{
+				Symbol:     symbol,
+				Expression: pb.translations.Rewrite(expression),
+			})
 			mappings[expression.GetID()] = symbol
 			fmt.Println("kkkkkkkkkkkkk.............. done")
 		}
 	}
+	fmt.Printf("proejct ass.......%v\n", assignments)
 	return &PlanBuilder{
 		translations: pb.translations.withAdditionalMapping(mappings), // FIXME:
 		root: &plan.ProjectionNode{

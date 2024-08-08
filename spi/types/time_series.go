@@ -1,11 +1,11 @@
-package value
+package types
 
 import "github.com/lindb/lindb/pkg/timeutil"
 
 type TimeSeries struct {
+	Values    []float64          `json:"values"`
 	TimeRange timeutil.TimeRange `json:"timeRange"`
 	Interval  timeutil.Interval  `json:"interval"`
-	Values    []float64          `json:"values"`
 }
 
 func NewTimeSeries(timeRange timeutil.TimeRange, interval timeutil.Interval) *TimeSeries {

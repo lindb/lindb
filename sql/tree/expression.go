@@ -65,16 +65,16 @@ func (n *DereferenceExpression) ToQualifiedName() (name *QualifiedName) {
 
 type ArithmeticBinaryExpression struct {
 	Left     Expression
-	Operator string
 	Right    Expression
+	Operator string
 }
 
 type ComparisonExpression struct {
 	BaseNode
 
 	Left     Expression         `json:"left"`
-	Operator ComparisonOperator `json:"operator"`
 	Right    Expression         `json:"right"`
+	Operator ComparisonOperator `json:"operator"`
 }
 
 func (n *ComparisonExpression) Accept(context any, visitor Visitor) (r any) {

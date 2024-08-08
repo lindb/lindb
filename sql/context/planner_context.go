@@ -17,11 +17,12 @@ type PlannerContext struct {
 }
 
 func NewPlannerContext(ctx context.Context, database string, idAllocator *tree.NodeIDAllocator, stmt tree.Statement) *PlannerContext {
+	analyzerContext := analyzer.NewAnalyzerContext(database, stmt, idAllocator)
 	return &PlannerContext{
 		Context:             ctx,
 		Database:            database,
-		AnalyzerContext:     analyzer.NewAnalyzerContext(database, stmt, idAllocator),
+		AnalyzerContext:     analyzerContext,
 		PlanNodeIDAllocator: plan.NewPlanNodeIDAllocator(),
-		SymbolAllocator:     plan.NewSymbolAllocator(),
+		SymbolAllocator:     plan.NewSymbolAllocator(analyzerContext),
 	}
 }

@@ -11,7 +11,7 @@ import (
 )
 
 type Context struct {
-	idAllocator *plan.PlanNodeIDAllocator
+	IDAllocator *plan.PlanNodeIDAllocator
 	memo        *Memo
 }
 
@@ -32,7 +32,7 @@ func (opt *IterativeOptimizer) Optimize(node plan.PlanNode, idAllocator *plan.Pl
 	memo := NewMemo(idAllocator, node)
 	context := &Context{
 		memo:        memo,
-		idAllocator: idAllocator,
+		IDAllocator: idAllocator,
 	}
 	_ = opt.exploreGroup(context, memo.rootGroup)
 
@@ -56,8 +56,9 @@ func (opt *IterativeOptimizer) exploreChildren(context *Context, group int) bool
 	expression := context.memo.getNode(group)
 
 	for _, child := range expression.GetSources() {
-		if groupRef, ok := child.(*GroupReference); ok {
-			if opt.exploreGroup(context, groupRef.groupID) {
+		fmt.Printf("explore child: %v\n", child)
+		if groupRef, ok := child.(*plan.GroupReference); ok {
+			if opt.exploreGroup(context, groupRef.GroupID) {
 				progress = true
 			}
 		} else {
@@ -89,8 +90,8 @@ func (opt *IterativeOptimizer) exploreNode(context *Context, group int) bool {
 func (opt *IterativeOptimizer) transform(context *Context, node plan.PlanNode, rule Rule) plan.PlanNode {
 	// TODO: iterator?
 	result := rule.Apply(context, node)
-	if result != nil {
-		opt.logger.Debug(fmt.Sprintf("rule:%T\nbefore:\n%s\nafter:\n%s",
+	if result != nil && opt.logger.Enabled(logger.InfoLevel) {
+		opt.logger.Info(fmt.Sprintf("rule:%T\nbefore:\n%s\nafter:\n%s",
 			rule, printer.TextLogicalPlan(node), printer.TextLogicalPlan(result)))
 	}
 	return result

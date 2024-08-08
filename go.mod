@@ -25,7 +25,7 @@ require (
 	github.com/jedib0t/go-pretty/v6 v6.4.6
 	github.com/json-iterator/go v1.1.12
 	github.com/klauspost/compress v1.17.1
-	github.com/lindb/common v0.0.6
+	github.com/lindb/common v0.0.7
 	github.com/lindb/roaring v1.2.1
 	github.com/lithammer/go-jump-consistent-hash v1.0.2
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
@@ -158,8 +158,8 @@ require (
 	github.com/prometheus/common v0.44.0
 	github.com/prometheus/procfs v0.11.1 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
-	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/samber/lo v1.39.0
+	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/soheilhy/cmux v0.1.5 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/tklauser/go-sysconf v0.3.10 // indirect

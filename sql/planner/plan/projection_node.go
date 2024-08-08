@@ -1,25 +1,50 @@
 package plan
 
-import "github.com/lindb/lindb/sql/tree"
+import (
+	"fmt"
 
-type Assignments map[*Symbol]tree.Expression
+	"github.com/lindb/lindb/sql/tree"
+)
 
-func (a Assignments) Add(symbols []*Symbol) {
+type Assignment struct {
+	Symbol     *Symbol         `json:"symbol"`
+	Expression tree.Expression `json:"expression"`
+}
+
+type Assignments []*Assignment
+
+func (a Assignments) Add(symbols []*Symbol) Assignments {
 	for _, symbol := range symbols {
-		a[symbol] = symbol.ToSymbolReference()
+		a = append(a, &Assignment{
+			Symbol:     symbol,
+			Expression: symbol.ToSymbolReference(),
+		})
 	}
+	return a
 }
 
 func (a Assignments) GetOutputs() (outputs []*Symbol) {
-	for k := range a {
-		outputs = append(outputs, k)
+	for _, assignment := range a {
+		outputs = append(outputs, assignment.Symbol)
 	}
+	fmt.Printf("project ass outputs=%v\n", outputs)
 	return
+}
+
+func (a Assignments) IsIdentity() bool {
+	for _, assignment := range a {
+		if symbolRef, ok := assignment.Expression.(*tree.SymbolReference); ok && symbolRef.Name == assignment.Symbol.Name {
+			continue
+		} else {
+			return false
+		}
+	}
+	return true
 }
 
 type ProjectionNode struct {
 	Source      PlanNode    `json:"source"`
-	Assignments Assignments `json:"-"` // FIXME:
+	Assignments Assignments `json:"assignments"`
 
 	BaseNode
 }

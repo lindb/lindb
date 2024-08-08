@@ -12,4 +12,6 @@ func init() {
 }
 
 type TableHandle interface {
+	// String returns table info, format: ${database}:${namespace}:${tableName}
+	String() string
 }

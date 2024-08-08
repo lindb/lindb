@@ -2,6 +2,7 @@ package printer
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/lindb/lindb/sql/planner/plan"
@@ -34,8 +35,34 @@ func (v *PrintPlanVisitor) Visit(_ any, n plan.PlanNode) (r any) {
 		v.visitRemoteSource(node)
 	case *plan.TableScanNode:
 		v.visitTableScan(node)
+	case *plan.AggregationNode:
+		v.visitAggregation(node)
+	case *plan.GroupReference:
+		v.visitGroupReference(node)
+	default:
+		panic(fmt.Sprintf("impl print %T", n))
 	}
 	return
+}
+
+func (v *PrintPlanVisitor) visitGroupReference(node *plan.GroupReference) {
+	v.addNode(node, "GroupReference", map[string]string{"groupId": strconv.Itoa(int(node.GetNodeID()))}, nil)
+}
+
+func (v *PrintPlanVisitor) visitAggregation(node *plan.AggregationNode) {
+	// TODO: add type
+	descriptor := make(map[string]string)
+
+	if node.GroupingSets != nil && len(node.GroupingSets.GroupingKeys) > 0 {
+		descriptor["keys"] = formatSymbols(node.GroupingSets.GroupingKeys)
+	}
+
+	nodeOutput := v.addNode(node, "Aggregate", descriptor, node.GetSources())
+	for _, agg := range node.Aggregations {
+		nodeOutput.appendDetails(fmt.Sprintf("%s := %s", agg.Symbol.Name, formatAggregation(agg.Aggregation)))
+	}
+	// TODO: add agg func
+	v.processChildren(node)
 }
 
 func (v *PrintPlanVisitor) visitJoin(node *plan.JoinNode) {
@@ -83,7 +110,6 @@ func (v *PrintPlanVisitor) visitOutput(node *plan.OutputNode) {
 }
 
 func (v *PrintPlanVisitor) visitProjection(node *plan.ProjectionNode) {
-	v.processChildren(node)
 	if source, ok := node.Source.(*plan.FilterNode); ok {
 		v.visitScanFilterAndProjection(node, source, node)
 		return
@@ -133,7 +159,7 @@ func (v *PrintPlanVisitor) visitScanFilterAndProjection(node plan.PlanNode, filt
 	descriptor := make(map[string]string)
 	if scanNode != nil {
 		operatorName += "Scan"
-		// descriptor["table"] = scanNode.Table
+		descriptor["table"] = scanNode.Table.String()
 	}
 	if filter != nil {
 		operatorName += "Filter"
@@ -151,10 +177,19 @@ func (v *PrintPlanVisitor) visitScanFilterAndProjection(node plan.PlanNode, filt
 
 	if projection != nil {
 		// print assignments
-		for symbol, expression := range projection.Assignments {
-			// FIXME: skip identity assignments
+		for _, assignment := range projection.Assignments {
+			expression := assignment.Expression
+			symbol := assignment.Symbol
+			if symboleRef, ok := expression.(*tree.SymbolReference); ok && symboleRef.Name == symbol.Name {
+				// skip identity assignments
+				continue
+			}
 			outputNode.appendDetails(fmt.Sprintf("%s := %s", symbol.Name, tree.FormatExpression(expression)))
 		}
+	}
+
+	if scanNode != nil {
+		return
 	}
 
 	sourceNode.Accept(nil, v)

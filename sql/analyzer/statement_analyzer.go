@@ -5,10 +5,10 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/lindb/common/constants"
 	"github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/spi/function"
 	"github.com/lindb/lindb/sql/tree"
 )
 
@@ -37,14 +37,16 @@ import (
 var log = logger.GetLogger("Analyzer", "Statement")
 
 type StatementAnalyzer struct {
-	ctx         *AnalyzerContext
-	metadataMgr spi.MetadataManager
+	ctx             *AnalyzerContext
+	metadataMgr     spi.MetadataManager
+	funcionResolver *function.FunctionResolver // FIXME:???
 }
 
 func NewStatementAnalyzer(ctx *AnalyzerContext, metadataMgr spi.MetadataManager) *StatementAnalyzer {
 	return &StatementAnalyzer{
-		ctx:         ctx,
-		metadataMgr: metadataMgr,
+		ctx:             ctx,
+		metadataMgr:     metadataMgr,
+		funcionResolver: function.NewFunctionResolver(),
 	}
 }
 
@@ -258,11 +260,12 @@ func (v *StatementVisitor) visitTable(ctx any, table *tree.Table) (r any) {
 	}
 
 	// analyze table
-	var outputFields []*Field
+	var outputFields []*tree.Field
 	for _, col := range tableMetadata.Schema.Columns {
 		// TODO: check agg????
-		outputFields = append(outputFields, &Field{
+		outputFields = append(outputFields, &tree.Field{
 			Name:          col.Name, // TODO: dup tag name/field name
+			DataType:      col.DataType,
 			RelationAlias: table.Name,
 		})
 	}
@@ -311,11 +314,9 @@ func (v *StatementVisitor) analyzeSelect(node *tree.QuerySpecification,
 		selectItem := node.Select.SelectItems[i]
 		switch item := selectItem.(type) {
 		case *tree.AllColumns:
-			fmt.Println("all coo...")
 			outputExpressions, selectExpressions = v.analyzeSelectAllColumns(item, node, scope,
 				outputExpressions, selectExpressions)
 		case *tree.SingleColumn:
-			fmt.Println("single col...")
 			outputExpressions, selectExpressions = v.analyzeSelectSingleColumn(item, node, scope,
 				outputExpressions, selectExpressions)
 		default:
@@ -405,8 +406,8 @@ func (v *StatementVisitor) analyzeFrom(node *tree.QuerySpecification, scope *Sco
 func (v *StatementVisitor) analyzeWhere(node tree.Node, scope *Scope, predicate tree.Expression) {
 	// FIXME: verify no aggregate and group by function
 	fmt.Println("analyze where")
-	expressionAnalysis := v.analyzeExpression(predicate, scope)
-	v.analyzer.ctx.Analysis.RecordSubQueries(node, expressionAnalysis)
+	v.analyzeExpression(predicate, scope)
+	// v.analyzer.ctx.Analysis.RecordSubQueries(node, expressionAnalysis)
 
 	// FIXME: check predicate type
 	// predicateType := expressionAnalysis.GetType(predicate)
@@ -426,6 +427,7 @@ func (v *StatementVisitor) analyzeGroupBy(node *tree.QuerySpecification, scope *
 
 		for _, groupingElement := range node.GroupBy.GroupingElements {
 			switch groupByEle := groupingElement.(type) {
+			// TODO: gropu by *
 			case *tree.SimpleGroupBy:
 				for _, column := range groupByEle.Columns {
 					switch column.(type) {
@@ -465,8 +467,30 @@ func (v *StatementVisitor) analyzeGroupingOperations(node *tree.QuerySpecificati
 func (v *StatementVisitor) analyzeAggregations(node *tree.QuerySpecification, sourceScope, orderByScope *Scope,
 	groupByAnalysis *GroupingSetAnalysis, outputExpressions, orderByExpressions []tree.Expression,
 ) {
+	var expr []tree.Expression
+	expr = append(expr, outputExpressions...)
+	expr = append(expr, orderByExpressions...)
+	// TODO:
+	ExtractAggregationFunctions(expr, v.analyzer.funcionResolver)
+	for _, selectExpr := range outputExpressions {
+		if ident, ok := selectExpr.(*tree.Identifier); ok {
+			// transfer filed builtin aggregation
+			resolvedField := sourceScope.resolveField(node, tree.NewQualifiedName([]*tree.Identifier{ident}), true)
+			if resolvedField.Field.DataType.CanAggregatin() {
+				fn := &tree.FunctionCall{
+					Name:      tree.QualifiedName{Suffix: resolvedField.Field.DataType.String()},
+					Arguments: []tree.Expression{selectExpr},
+					RefField:  resolvedField.Field,
+				}
+				v.analyzer.ctx.Analysis.SetAggregates(node, []*tree.FunctionCall{fn})
+				resolvedFn := v.analyzer.funcionResolver.ResolveFunction(&fn.Name)
+				v.analyzer.ctx.Analysis.AddResolvedFunction(fn, resolvedFn)
+				v.analyzer.ctx.Analysis.AddType(fn, resolvedFn.Signature.ReturnType)
+			}
+		}
+	}
 	// TODO: extract agg func
-	if v.analyzer.ctx.Analysis.IsAggregation(node) {
+	if v.analyzer.ctx.Analysis.IsGroupingSets(node) {
 		// ensure SELECT, ORDER BY and HAVING are constant with respect to group
 		// e.g, these are all valid expressions:
 		//     SELECT f(a) GROUP BY a
@@ -503,9 +527,9 @@ func (v *StatementVisitor) analyzeLimit(node *tree.Limit, scope *Scope) {
 	v.analyzer.ctx.Analysis.SetLimit(node, rowCount)
 }
 
-func (v *StatementVisitor) analyzeExpression(expression tree.Expression, scope *Scope) *ExpressionAnalysis {
+func (v *StatementVisitor) analyzeExpression(expression tree.Expression, scope *Scope) {
 	analyzer := NewExpressionAnalyzer(v.analyzer.ctx)
-	return analyzer.Analyze(expression, scope)
+	analyzer.Analyze(expression, scope)
 }
 
 func (v *StatementVisitor) createScopeForCommonTableExpression(table *tree.Table, scope *Scope,
@@ -514,7 +538,7 @@ func (v *StatementVisitor) createScopeForCommonTableExpression(table *tree.Table
 	query := withQuery.Query
 	v.analyzer.ctx.Analysis.RegisterNamedQuery(table, query)
 	// FIXME: analyze field
-	var fields []*Field
+	var fields []*tree.Field
 
 	return v.createAndAssignScope(table, scope, NewRelation(UnknownRelation, fields))
 }
@@ -533,7 +557,7 @@ func (v *StatementVisitor) createAndAssignScope(node tree.Node, parent *Scope, r
 func (v *StatementVisitor) computeAndAssignOutputScope(node *tree.QuerySpecification,
 	scope, sourceScope *Scope,
 ) *Scope {
-	var outputFields []*Field
+	var outputFields []*tree.Field
 	selectItems := node.Select.SelectItems
 	for i := range selectItems {
 		selectItem := selectItems[i]
@@ -563,7 +587,7 @@ func (v *StatementVisitor) computeAndAssignOutputScope(node *tree.QuerySpecifica
 				fieldName = field.Value
 			}
 
-			outputFields = append(outputFields, &Field{
+			outputFields = append(outputFields, &tree.Field{
 				Name: fieldName,
 			})
 		default:
@@ -574,7 +598,7 @@ func (v *StatementVisitor) computeAndAssignOutputScope(node *tree.QuerySpecifica
 }
 
 func (v *StatementVisitor) computeAndAssignOrderByScope(node *tree.OrderBy,
-	sourceScope, outputSource *Scope, fields []*Field,
+	sourceScope, outputSource *Scope, fields []*tree.Field,
 ) *Scope {
 	return &Scope{}
 }

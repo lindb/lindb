@@ -163,7 +163,7 @@ func buildMetadataResultSet(statement *stmtpkg.MetricMetadata, result []string) 
 	values := strutil.DeDupStringSlice(result)
 	sort.Strings(values)
 	switch statement.Type {
-	case stmtpkg.Field:
+	case stmtpkg.Field1:
 		// build field result model
 		result := make(map[field.Name]field.Meta)
 		fields := field.Metas{}

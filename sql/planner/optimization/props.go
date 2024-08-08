@@ -9,11 +9,14 @@ var (
 	Multiple StreamDistribution = "Multiple"
 )
 
-type ActualProps struct {
+type ActualProps struct{}
+
+func (props *ActualProps) isSingleNode() bool {
+	// FIXME:  impl check single node
+	return true
 }
 
-type PreferredProps struct {
-}
+type PreferredProps struct{}
 
 func undistributed() *PreferredProps {
 	return &PreferredProps{}
@@ -64,7 +67,7 @@ func (p *StreamPreferredProps) withoutPreference() *StreamPreferredProps {
 }
 
 func (p *StreamPreferredProps) withDefaultParallelism() *StreamPreferredProps {
-	//FIXME:>>>>>>>>>>>>
+	// FIXME:>>>>>>>>>>>>
 	return p
 }
 
@@ -74,8 +77,9 @@ func (p *StreamPreferredProps) withOrderSensitivity() *StreamPreferredProps {
 		orderSensitive: true,
 	}
 }
+
 func (p *StreamPreferredProps) constrainTo(symbols []*plan.Symbol) *StreamPreferredProps {
-	//FIXME:>>>>>>>>>>>>
+	// FIXME:>>>>>>>>>>>>
 	return p
 }
 
@@ -84,9 +88,10 @@ func empty() *StreamPreferredProps {
 }
 
 func defaultParallelism() *StreamPreferredProps {
-	//FIXME:>>>>>>>>>>>>
+	// FIXME:>>>>>>>>>>>>
 	return empty()
 }
+
 func singleStream() *StreamPreferredProps {
 	return &StreamPreferredProps{
 		distribution: Single,

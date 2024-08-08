@@ -66,6 +66,7 @@ func (op *ExchangeOperator) NoMoreSplits() {
 	newVal := op.noMoreSplitsTracker.Dec()
 	fmt.Printf("exchange no more split,%d\n", newVal)
 	if newVal == 0 {
+		fmt.Println("closed")
 		close(op.splits)
 	}
 }
@@ -87,6 +88,7 @@ func (op *ExchangeOperator) GetOutput() *spi.Page {
 	for split := range op.splits {
 		page := split.Page
 		if page == nil {
+			fmt.Println("page nil")
 			continue
 		}
 		// it := page.Iterator()
@@ -95,6 +97,7 @@ func (op *ExchangeOperator) GetOutput() *spi.Page {
 		// 	fmt.Println("kkkk......")
 		// 	op.mergedPage.AppendColumn(page.Layout[], page.Columns[])
 		// }
+		fmt.Println("merge")
 		op.mergedPage.Layout = page.Layout
 		op.mergedPage.Columns = page.Columns
 	}

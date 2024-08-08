@@ -41,10 +41,11 @@ func (t *TranslationMap) withAdditionalMapping(mappings map[tree.NodeID]*plan.Sy
 	for k, v := range mappings {
 		newMappings[k] = v
 	}
+	fmt.Printf("addition mapping=%v,%v\n", newMappings, t)
 	return &TranslationMap{
 		scope:        t.scope,
 		context:      t.context,
-		astToSymbols: newMappings,
+		astToSymbols: newMappings, // TODO: verify ast expression
 		fieldSymbols: t.fieldSymbols,
 	}
 }
@@ -63,6 +64,7 @@ func (t *TranslationMap) getSymbolForColumn(node tree.Expression) *plan.Symbol {
 		return nil
 	}
 	if t.scope.IsLocalScope(field.Scope) {
+		fmt.Printf("look........%v\n", field.HierarchyFieldIndex)
 		return t.fieldSymbols[field.HierarchyFieldIndex]
 	}
 
@@ -74,13 +76,16 @@ func (t *TranslationMap) getSymbolForColumn(node tree.Expression) *plan.Symbol {
 func (t *TranslationMap) CanTranslate(node tree.Expression) bool {
 	// TODO: check symbol referencea are not allowed
 	if _, ok := t.astToSymbols[node.GetID()]; ok {
+		fmt.Println("ct.....1111")
 		return true
 	}
 	if _, ok := node.(*tree.FieldReference); ok {
+		fmt.Println("ct.....2222")
 		return true
 	}
 
 	if field := t.context.AnalyzerContext.Analysis.GetColumnReferenceField(node); field != nil {
+		fmt.Println("ct.....3333")
 		return t.scope.IsLocalScope(field.Scope)
 	}
 	return false
@@ -101,16 +106,19 @@ func (e *expressionRewriter) RewriteExpression(context any, node tree.Expression
 	case *tree.Cast:
 		return e.RewriteExpression(context, expr.Expression)
 	default:
-		panic(fmt.Sprintf("unimplemented: %T", node))
+		panic(fmt.Sprintf("expression rewrite unimplemented: %T", node))
 	}
 }
 
 func (e *expressionRewriter) rewriteIndentifier(node *tree.Identifier) tree.Expression {
+	fmt.Printf("rewrite====%v\n", node.Value)
 	mapped := e.translation.tryGetMapping(node)
+	fmt.Printf("mapped %v\n", mapped)
 	if mapped != nil {
 		return e.coerceIfNecessary(node, mapped)
 	}
 	symbol := e.translation.getSymbolForColumn(node)
+	fmt.Printf("symbol %v\n", symbol)
 	if symbol == nil {
 		return e.coerceIfNecessary(node, node)
 	}

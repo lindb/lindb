@@ -9,7 +9,7 @@ import (
 	"github.com/lindb/lindb/constants"
 	protoMetaV1 "github.com/lindb/lindb/proto/gen/v1/meta"
 	"github.com/lindb/lindb/spi"
-	"github.com/lindb/lindb/spi/value"
+	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/tsdb"
 )
 
@@ -40,10 +40,10 @@ func (srv *MetaService) TableSchema(ctx context.Context, request *protoMetaV1.Ta
 	}
 	tableSchema := spi.NewTableSchema()
 	for _, tagKey := range schema.TagKeys {
-		tableSchema.AddColumn(spi.ColumnMetadata{Name: tagKey.Key, ValueType: value.VTString})
+		tableSchema.AddColumn(spi.ColumnMetadata{Name: tagKey.Key, DataType: types.DataTypeString})
 	}
 	for _, field := range schema.Fields {
-		tableSchema.AddColumn(spi.ColumnMetadata{Name: field.Name.String(), ValueType: value.VTTimeSeries, AggregateType: field.Type.AggregateType()})
+		tableSchema.AddColumn(spi.ColumnMetadata{Name: field.Name.String(), DataType: field.Type.DateType()})
 	}
 	return &protoMetaV1.TableSchemaResponse{
 		Payload: encoding.JSONMarshal(tableSchema),
