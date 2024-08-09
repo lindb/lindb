@@ -1,20 +1,24 @@
 package plan
 
 type ExchangeScope string
+
 type ExchangeType string
 
 var (
 	Local  ExchangeScope = "Local"
 	Remote ExchangeScope = "Remote"
 
-	Gather    ExchangeType = "Gather"
-	Partition ExchangeType = "Partition"
+	Gather      ExchangeType = "GATHER"
+	RePartition ExchangeType = "REPARTITION"
 )
 
 type ExchangeNode struct {
-	Type    ExchangeType
-	Scope   ExchangeScope
-	Sources []PlanNode
+	Type    ExchangeType  `json:"type"`
+	Scope   ExchangeScope `json:"scope"`
+	Sources []PlanNode    `json:"sources"`
+
+	// for each source, the list of inputs corresponding to each output
+	Inputs [][]*Symbol `json:"inputs"`
 
 	BaseNode
 }
@@ -28,7 +32,7 @@ func (n *ExchangeNode) GetSources() []PlanNode {
 }
 
 func (n *ExchangeNode) GetOutputSymbols() []*Symbol {
-	return n.Sources[0].GetOutputSymbols() //FIXME: fix it
+	return n.Sources[0].GetOutputSymbols() // FIXME: fix it
 }
 
 func (n *ExchangeNode) ReplaceChildren(newChildren []PlanNode) PlanNode {

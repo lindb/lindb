@@ -1,6 +1,8 @@
 package optimization
 
-import "github.com/lindb/lindb/sql/planner/plan"
+import (
+	"github.com/lindb/lindb/sql/planner/plan"
+)
 
 type StreamDistribution string
 
@@ -9,20 +11,63 @@ var (
 	Multiple StreamDistribution = "Multiple"
 )
 
-type ActualProps struct{}
-
-func (props *ActualProps) isSingleNode() bool {
-	// FIXME:  impl check single node
-	return true
+type ActualProps struct {
+	global *ActualPropsGlobal
 }
 
-type PreferredProps struct{}
+// isSingleNode checks if the plan will only execute on a single node.
+func (props *ActualProps) isSingleNode() bool {
+	// FIXME:  impl check single node
+	return props.global.isSingleNode()
+}
 
-func undistributed() *PreferredProps {
+func (props *ActualProps) translate(translator func(symbol *plan.Symbol) *plan.Symbol) *ActualProps {
+	return &ActualProps{
+		global: props.global.translate(translator),
+	}
+}
+
+type ActualPropsBuilder struct {
+	global *ActualPropsGlobal
+}
+
+func NewActualPropsBuilder(global *ActualPropsGlobal) *ActualPropsBuilder {
+	return &ActualPropsBuilder{
+		global: global,
+	}
+}
+
+func BuilderFrom(props *ActualProps) *ActualPropsBuilder {
+	return &ActualPropsBuilder{
+		global: props.global,
+	}
+}
+
+func (b *ActualPropsBuilder) Build() *ActualProps {
+	return &ActualProps{
+		global: b.global,
+	}
+}
+
+type PreferredProps struct {
+	global *PreferredPropsGlobal
+}
+
+func Undistributed() *PreferredProps {
+	return &PreferredProps{
+		// global:Undistributed()
+	}
+}
+
+func Any() *PreferredProps {
 	return &PreferredProps{}
 }
 
-func partitioned() *PreferredProps {
+func Partitioned() *PreferredProps {
+	return &PreferredProps{}
+}
+
+func PartitionedWithLocal(columns []*plan.Symbol) *PreferredProps {
 	return &PreferredProps{}
 }
 
@@ -96,4 +141,40 @@ func singleStream() *StreamPreferredProps {
 	return &StreamPreferredProps{
 		distribution: Single,
 	}
+}
+
+type PreferredPropsGlobal struct {
+	// nil => partitioned with some unknown scheme
+	partitioningProps *plan.PartitioningProps
+}
+
+type ActualPropsGlobal struct {
+	nodePartitioning *plan.Partitioning
+}
+
+func arbitraryPartition() *ActualPropsGlobal {
+	return &ActualPropsGlobal{}
+}
+
+func singlePartition() *ActualPropsGlobal {
+	// FIXME: impl single partition
+	return partitionedOn(&plan.Partitioning{})
+}
+
+func partitionedOn(nodePartitioning *plan.Partitioning) *ActualPropsGlobal {
+	return &ActualPropsGlobal{
+		nodePartitioning: nodePartitioning,
+	}
+}
+
+func (g *ActualPropsGlobal) translate(translator func(symbol *plan.Symbol) *plan.Symbol) *ActualPropsGlobal {
+	return &ActualPropsGlobal{}
+}
+
+func (g *ActualPropsGlobal) isSingleNode() bool {
+	if g.nodePartitioning == nil {
+		return false
+	}
+	// TODO: fixme  check partition single node
+	return g.nodePartitioning.Handle.IsSingleNode()
 }

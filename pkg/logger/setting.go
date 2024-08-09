@@ -18,14 +18,11 @@
 package logger
 
 import (
-	"go.uber.org/zap"
-
 	"github.com/lindb/common/pkg/logger"
+	"go.uber.org/zap"
 )
 
-var (
-	initLoggerFn = logger.InitLogger
-)
+var initLoggerFn = logger.InitLogger
 
 const (
 	AccessLogFileName  = "access.log"

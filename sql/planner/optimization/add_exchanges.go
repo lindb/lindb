@@ -40,45 +40,46 @@ func (v *AddExchangesRewrite) Visit(context any, n plan.PlanNode) (r any) {
 	parentProps := context.(*PreferredProps)
 	switch node := n.(type) {
 	case *plan.OutputNode:
-		return v.VisitOutput(parentProps, node)
+		return v.visitOutput(parentProps, node)
 	case *plan.JoinNode:
-		return v.VisitJoin(parentProps, node)
+		return v.visitJoin(parentProps, node)
 	case *plan.ProjectionNode:
-		return v.VisitProjection(parentProps, node)
+		return v.visitProjection(parentProps, node)
 	case *plan.TableScanNode:
-		return v.VisitTableScan(parentProps, node)
+		return v.visitTableScan(parentProps, node)
 	case *plan.AggregationNode:
-		return v.VisitAggregation(parentProps, node)
+		return v.visitAggregation(parentProps, node)
 	default:
 		return v.rebaseAndDeriveProps(n, v.planChild(n, parentProps))
 	}
 }
 
-func (v *AddExchangesRewrite) VisitOutput(context any, node *plan.OutputNode) (r any) {
-	child := v.planChild(node, undistributed())
-	if !child.props.isSingleNode() {
-		// FIXME:??? check sigle/force single node output
-		child = v.withDerivedProps(plan.GatheringExchange(v.idAllocator.Next(), plan.Remote, child.node), child.props)
-	}
+func (v *AddExchangesRewrite) visitOutput(context any, node *plan.OutputNode) (r any) {
+	child := v.planChild(node, Undistributed())
+	// 	// FIXME:??? check sigle/force single node output
+	// if !child.props.isSingleNode() {
+	// 	child = v.withDerivedProps(plan.GatheringExchange(v.idAllocator.Next(), plan.Remote, child.node), child.props)
+	// }
 	return v.rebaseAndDeriveProps(node, child)
 }
 
-func (v *AddExchangesRewrite) VisitJoin(context any, node *plan.JoinNode) (r any) {
+func (v *AddExchangesRewrite) visitJoin(context any, node *plan.JoinNode) (r any) {
 	return v.planPartitionedJoin(node)
 }
 
-func (v *AddExchangesRewrite) VisitTableScan(context any, node *plan.TableScanNode) (r any) {
+func (v *AddExchangesRewrite) visitTableScan(context any, node *plan.TableScanNode) (r any) {
 	return &AddExchangesPlan{
-		node: node,
+		node:  node,
+		props: v.dervieProps(node, nil),
 	}
 }
 
-func (v *AddExchangesRewrite) VisitProjection(context any, node *plan.ProjectionNode) (r any) {
+func (v *AddExchangesRewrite) visitProjection(context any, node *plan.ProjectionNode) (r any) {
 	// FIXME: translate
 	return v.rebaseAndDeriveProps(node, v.planChild(node, context.(*PreferredProps)))
 }
 
-func (v *AddExchangesRewrite) VisitFilter(node *plan.FilterNode, context any) (r any) {
+func (v *AddExchangesRewrite) visitFilter(node *plan.FilterNode, context any) (r any) {
 	preferredProps := context.(*PreferredProps)
 	if tableScan, ok := node.Source.(*plan.TableScanNode); ok {
 		planNode := iterative.PushFilterIntoTableScan(node, tableScan)
@@ -92,16 +93,37 @@ func (v *AddExchangesRewrite) VisitFilter(node *plan.FilterNode, context any) (r
 	return v.rebaseAndDeriveProps(node, v.planChild(node, preferredProps))
 }
 
-func (v *AddExchangesRewrite) VisitAggregation(context any, node *plan.AggregationNode) (r any) {
-	preferredProps := context.(*PreferredProps)
+func (v *AddExchangesRewrite) visitAggregation(context any, node *plan.AggregationNode) (r any) {
+	parentPreferredProps := context.(*PreferredProps)
+	partitioningRequirement := node.GetGroupingKeys() // TODO: cope it?
+	preferSingleNode := node.IsSingleNodeExecutionPreference()
+	var preferredProps *PreferredProps
+	if preferSingleNode {
+		preferredProps = Undistributed()
+	} else {
+		preferredProps = Any()
+	}
+
+	if len(node.GetGroupingKeys()) > 0 {
+		preferredProps = v.computePreference(PartitionedWithLocal(partitioningRequirement), parentPreferredProps)
+	}
+
 	child := v.planChild(node, preferredProps)
-	// TODO:
+	if child.props.isSingleNode() {
+		return v.rebaseAndDeriveProps(node, child)
+	}
+	if preferSingleNode {
+		child = v.withDerivedProps(plan.GatheringExchange(v.idAllocator.Next(), plan.Remote, child.node), child.props)
+	} else {
+		// TODO: partition keys
+		child = v.withDerivedProps(plan.PartitionedExchange(v.idAllocator.Next(), plan.Remote, child.node), child.props)
+	}
 	return v.rebaseAndDeriveProps(node, child)
 }
 
 func (v *AddExchangesRewrite) planPartitionedJoin(node *plan.JoinNode) *AddExchangesPlan {
-	left := node.Left.Accept(partitioned(), v).(*AddExchangesPlan)
-	right := node.Right.Accept(partitioned(), v).(*AddExchangesPlan)
+	left := node.Left.Accept(Partitioned(), v).(*AddExchangesPlan)
+	right := node.Right.Accept(Partitioned(), v).(*AddExchangesPlan)
 
 	left = v.withDerivedProps(plan.PartitionedExchange(v.idAllocator.Next(), plan.Remote, left.node), left.props)
 	right = v.withDerivedProps(plan.PartitionedExchange(v.idAllocator.Next(), plan.Remote, right.node), right.props)
@@ -110,7 +132,9 @@ func (v *AddExchangesRewrite) planPartitionedJoin(node *plan.JoinNode) *AddExcha
 }
 
 func (v *AddExchangesRewrite) planChild(node plan.PlanNode, preferredProps *PreferredProps) *AddExchangesPlan {
-	return node.GetSources()[0].Accept(preferredProps, v).(*AddExchangesPlan)
+	child := node.GetSources()[0].Accept(preferredProps, v).(*AddExchangesPlan)
+	fmt.Printf("add exchange child====%T\n", child.node)
+	return child
 }
 
 func (v *AddExchangesRewrite) rebaseAndDeriveProps(node plan.PlanNode, child *AddExchangesPlan) *AddExchangesPlan {
@@ -121,8 +145,12 @@ func (v *AddExchangesRewrite) withDerivedProps(node plan.PlanNode, inputProps *A
 	// FIXME::::
 	return &AddExchangesPlan{
 		node:  node,
-		props: inputProps,
+		props: v.dervieProps(node, []*ActualProps{inputProps}),
 	}
+}
+
+func (v *AddExchangesRewrite) dervieProps(node plan.PlanNode, inputProperties []*ActualProps) *ActualProps {
+	return deriveProps(node, inputProperties)
 }
 
 func (v *AddExchangesRewrite) buildJoin(node *plan.JoinNode, newLeft, newRight *AddExchangesPlan, newDistributionType plan.DistributionType) *AddExchangesPlan {
@@ -139,4 +167,10 @@ func (v *AddExchangesRewrite) buildJoin(node *plan.JoinNode, newLeft, newRight *
 	return &AddExchangesPlan{
 		node: &result,
 	}
+}
+
+func (a *AddExchangesRewrite) computePreference(preferredProps, parentPreferredProperties *PreferredProps) *PreferredProps {
+	// TODO: check ignore down stream preferences
+
+	return preferredProps
 }
