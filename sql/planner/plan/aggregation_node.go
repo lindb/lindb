@@ -66,7 +66,16 @@ func (n *AggregationNode) GetGroupingKeys() []*Symbol {
 	return n.GroupingSets.GroupingKeys
 }
 
+func (n *AggregationNode) HasEmptyGroupingSet() bool {
+	// TODO: add global check
+	return len(n.GroupingSets.GroupingKeys) == 0
+}
+
 func (n *AggregationNode) IsSingleNodeExecutionPreference() bool {
+	// 1. aggregations with only empty grouping sets like
+	// select sum(order_count) from order
+	// There is no need for distributed aggregation.
+	// Single node FINAL aggregation will suffice, since all input have to be aggregated into one line output.
 	// TODO: impl it
-	return true
+	return n.HasEmptyGroupingSet()
 }
