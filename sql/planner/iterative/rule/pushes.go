@@ -9,6 +9,10 @@ import (
 
 type PushPartialAggregationThroughExchange struct{}
 
+func NewPushPartialAggregationThroughExchange() *PushPartialAggregationThroughExchange {
+	return &PushPartialAggregationThroughExchange{}
+}
+
 func (rule *PushPartialAggregationThroughExchange) Apply(context *iterative.Context, node plan.PlanNode) plan.PlanNode {
 	if aggregationNode, ok := node.(*plan.AggregationNode); ok {
 		fmt.Println(aggregationNode)

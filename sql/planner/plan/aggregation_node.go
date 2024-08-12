@@ -5,6 +5,11 @@ import (
 	"github.com/lindb/lindb/sql/tree"
 )
 
+type AggregationStep struct {
+	InputRaw      bool
+	OutputPartial bool
+}
+
 type GroupingSetDescriptor struct {
 	GroupingKeys []*Symbol `json:"groupingKeys"`
 }
@@ -72,7 +77,7 @@ func (n *AggregationNode) HasEmptyGroupingSet() bool {
 }
 
 func (n *AggregationNode) IsSingleNodeExecutionPreference() bool {
-	// 1. aggregations with only empty grouping sets like
+	// 1. aggregations with only empty grouping sets like this:
 	// select sum(order_count) from order
 	// There is no need for distributed aggregation.
 	// Single node FINAL aggregation will suffice, since all input have to be aggregated into one line output.
