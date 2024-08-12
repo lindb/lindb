@@ -9,7 +9,7 @@ var (
 	Remote ExchangeScope = "Remote"
 
 	Gather      ExchangeType = "GATHER"
-	RePartition ExchangeType = "REPARTITION"
+	Repartition ExchangeType = "REPARTITION"
 )
 
 type ExchangeNode struct {
@@ -62,7 +62,7 @@ func PartitionedExchange(id PlanNodeID, scope ExchangeScope, child PlanNode) *Ex
 		BaseNode: BaseNode{
 			ID: id,
 		},
-		Type:    Partition,
+		Type:    Repartition,
 		Scope:   scope,
 		Sources: []PlanNode{child},
 	}

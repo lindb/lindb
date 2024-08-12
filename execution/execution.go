@@ -159,6 +159,12 @@ func (exec *QueryExecution) planQuery(output buffer.OutputBuffer) *PlanRoot {
 		}),
 		optimization.NewAddExchanges(),
 		optimization.NewAddLocalExchanges(),
+		iterative.NewIterativeOptimizer([]iterative.Rule{
+			rule.NewPushPartialAggregationThroughExchange(),
+		}),
+		iterative.NewIterativeOptimizer([]iterative.Rule{
+			rule.NewRemoveRedundantIdentityProjections(),
+		}),
 	}
 	logicalPlanner := planner.NewLogicalPlanner(exec.plannerContext, planOptimizers)
 	plan := logicalPlanner.Plan()

@@ -120,6 +120,7 @@ func (v *PrintPlanVisitor) visitProjection(node *plan.ProjectionNode) {
 func (v *PrintPlanVisitor) visitExchange(node *plan.ExchangeNode) {
 	descriptor := make(map[string]string)
 	descriptor["type"] = string(node.Type)
+	// TODO: add type check
 	v.addNode(node, fmt.Sprintf("%sExchange", node.Scope), descriptor, node.GetSources())
 	v.processChildren(node)
 }

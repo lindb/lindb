@@ -75,7 +75,7 @@ func (v *PropertyDerivationVisitor) visitExchangeNode(inputProperties []*ActualP
 	case plan.Gather:
 		// TODO: check coord
 		return NewActualPropsBuilder(singlePartition()).Build()
-	case plan.Partition:
+	case plan.Repartition:
 		return NewActualPropsBuilder(partitionedOn(&plan.Partitioning{})).Build()
 	default:
 		panic("unknonw exchange type")
