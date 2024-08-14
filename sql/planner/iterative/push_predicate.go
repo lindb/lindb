@@ -7,8 +7,7 @@ func PushFilterIntoTableScan(filter *plan.FilterNode, node *plan.TableScanNode) 
 		BaseNode: plan.BaseNode{
 			ID: node.GetNodeID(),
 		},
-		Table:    node.Table,
-		Database: node.Database,
+		Table: node.Table,
 	}
 	return &plan.FilterNode{
 		BaseNode: plan.BaseNode{

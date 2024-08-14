@@ -19,6 +19,7 @@ package memdb
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/lindb/common/pkg/fasttime"
@@ -233,6 +234,7 @@ func (mdb *metadataDatabase) gc(gcTimestamp int64) {
 	})
 
 	active := len(activeMetricIDs)
+	fmt.Printf("ttt..... gc %v,active:=%v\n", gcTimestamp, active)
 
 	mdb.lock.Lock()
 	defer mdb.lock.Unlock()

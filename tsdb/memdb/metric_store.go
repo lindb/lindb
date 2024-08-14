@@ -18,6 +18,7 @@
 package memdb
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/lindb/common/pkg/fasttime"
@@ -123,5 +124,6 @@ func (ms *metricStore) FindFields(fields field.Metas) (found field.Metas) {
 
 // IsActive returns if metric store active.
 func (ms *metricStore) IsActive(timestamp int64) bool {
+	fmt.Println(ms.accessTime)
 	return ms.accessTime >= timestamp
 }

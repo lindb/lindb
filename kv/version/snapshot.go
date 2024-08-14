@@ -44,12 +44,11 @@ type Snapshot interface {
 
 // snapshot implements Snapshot interface
 type snapshot struct {
-	familyName string
 	cache      table.Cache
-
-	readers []table.Reader // current read table.Reader list
-	version Version
-	closed  atomic.Bool
+	version    Version
+	familyName string
+	readers    []table.Reader // current read table.Reader list
+	closed     atomic.Bool
 }
 
 // newSnapshot new snapshot instance

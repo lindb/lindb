@@ -494,11 +494,13 @@ func (f *dataFamily) fileFilter(ctx *flow.MetricScanContext) (resultSet []flow.F
 		engineLogger.Error("filter data family error", logger.Error(err))
 		return nil, err
 	}
+	fmt.Printf("find reader =%v,%v\n", readers, metricKey)
 	var metricReaders []metricsdata.MetricReader
 	for _, reader := range readers {
 		value, err0 := reader.Get(metricKey)
 		// metric data not found
 		if err0 != nil {
+			fmt.Println("metric not found from file")
 			continue
 		}
 		r, err := newReaderFunc(reader.Path(), value)
@@ -514,10 +516,11 @@ func (f *dataFamily) fileFilter(ctx *flow.MetricScanContext) (resultSet []flow.F
 		if storageTimeRange.Overlap(ctx.TimeRange) {
 			metricReaders = append(metricReaders, r)
 		} else {
-			fmt.Println("out...")
+			fmt.Println("file time range out...")
 		}
 	}
 	if len(metricReaders) == 0 {
+		fmt.Println("no file found")
 		return nil, nil
 	}
 	filter := newFilterFunc(f.timeRange.Start, snapShot, metricReaders)
@@ -666,9 +669,11 @@ func (f *dataFamily) flushMemoryDatabase(sequences map[int32]int64, memDB memdb.
 	for leader, seq := range sequences {
 		flusher.Sequence(leader, seq)
 	}
+	fmt.Println("ffffffffffffffff.....")
 
 	dataFlusher, err := newMetricDataFlusher(flusher)
 	if err != nil {
+		fmt.Println(err)
 		return err
 	}
 	// flush family data

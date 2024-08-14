@@ -19,6 +19,7 @@ package flow
 
 import (
 	"context"
+	"encoding/binary"
 	"sort"
 	"sync"
 	"time"
@@ -314,25 +315,25 @@ func (ctx *DataLoadContext) PrepareAggregatorWithoutGrouping() {
 // returns index of grouping aggregator.
 func (ctx *DataLoadContext) NewSeriesAggregator(groupingKey string) uint16 {
 	rs := ctx.groupingSeriesAggRefIdx
-	// groupingSeriesAgg := &GroupingSeriesAgg{
-	// 	Key: groupingKey,
-	// }
-	// tagsData := []byte(groupingKey)
-	// var tagValueIDs []uint32
-	// for idx := range ctx.ShardExecuteCtx.StorageExecuteCtx.GroupByTagKeyIDs {
-	// 	offset := idx * 4
-	// 	tagValueID := binary.LittleEndian.Uint32(tagsData[offset:])
-	// 	tagValueIDs = append(tagValueIDs, tagValueID)
-	// }
-	// ctx.ShardExecuteCtx.StorageExecuteCtx.collectGroupingTagValueIDs(tagValueIDs)
-	//
-	// if ctx.IsMultiField {
-	// 	groupingSeriesAgg.Aggregators = ctx.newSeriesAggregators()
-	// } else {
-	// 	groupingSeriesAgg.Aggregator = ctx.newSeriesAggregator(0)
-	// }
-	// ctx.GroupingSeriesAgg = append(ctx.GroupingSeriesAgg, groupingSeriesAgg)
-	// ctx.groupingSeriesAggRefIdx++
+	groupingSeriesAgg := &GroupingSeriesAgg{
+		Key: groupingKey,
+	}
+	tagsData := []byte(groupingKey)
+	var tagValueIDs []uint32
+	for idx := range ctx.ShardExecuteCtx.StorageExecuteCtx.GroupByTagKeyIDs {
+		offset := idx * 4
+		tagValueID := binary.LittleEndian.Uint32(tagsData[offset:])
+		tagValueIDs = append(tagValueIDs, tagValueID)
+	}
+	ctx.ShardExecuteCtx.StorageExecuteCtx.collectGroupingTagValueIDs(tagValueIDs)
+
+	if ctx.IsMultiField {
+		groupingSeriesAgg.Aggregators = ctx.newSeriesAggregators()
+	} else {
+		groupingSeriesAgg.Aggregator = ctx.newSeriesAggregator(0)
+	}
+	ctx.GroupingSeriesAgg = append(ctx.GroupingSeriesAgg, groupingSeriesAgg)
+	ctx.groupingSeriesAggRefIdx++
 	return rs
 }
 

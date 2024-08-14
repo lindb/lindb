@@ -135,7 +135,7 @@ func (tags Tags) Size() int {
 }
 
 func (tags Tags) Clone() Tags {
-	var newTags = make([]Tag, len(tags))
+	newTags := make([]Tag, len(tags))
 	for idx := 0; idx < len(tags); idx++ {
 		newTags[idx] = Tag{
 			Key:   tags[idx].Key,

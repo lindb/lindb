@@ -34,13 +34,12 @@ func NewGroupingTagsLookup(executeCtx *flow.DataLoadContext) Operator {
 // Execute executes grouping tag value ids lookup, if it hasn't grouping tag key returns no grouping.
 func (op *groupingTagsLookup) Execute() error {
 	op.executeCtx.Grouping()
-	//FIXME:
-	// if op.executeCtx.ShardExecuteCtx.GroupingContext != nil {
-	// 	// lookup grouping tags, grouped series: tags => series IDs(based on low series ids)
-	// 	op.executeCtx.ShardExecuteCtx.GroupingContext.BuildGroup(op.executeCtx)
-	// } else {
-	// 	op.executeCtx.PrepareAggregatorWithoutGrouping()
-	// }
+	if op.executeCtx.ShardExecuteCtx.GroupingContext != nil {
+		// lookup grouping tags, grouped series: tags => series IDs(based on low series ids)
+		op.executeCtx.ShardExecuteCtx.GroupingContext.BuildGroup(op.executeCtx)
+	} else {
+		op.executeCtx.PrepareAggregatorWithoutGrouping()
+	}
 	return nil
 }
 

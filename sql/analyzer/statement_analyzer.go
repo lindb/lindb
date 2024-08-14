@@ -12,28 +12,6 @@ import (
 	"github.com/lindb/lindb/sql/tree"
 )
 
-// Plan Fragemnt 0
-//
-//	Output[columnNames = [idle]]
-//	│ Layout: [xxx]
-//	│ idle := xxx
-//	└─ Remote[sourceFragmentIds = [1]]
-//	     Layout: []
-//
-// Plan Fragemnt 1
-//
-//	Projection[]
-//	│ Layout: []
-//	│ detail 1
-//	│ detail 2
-//	└─ ScanFilterProjection[filterPredicate = (role = 'Broker')]
-//	   │ Layout: []
-//	   │ detail 1
-//	   │ detail 2
-//	   └─ TableScan[database = _internal]
-//	        Layout: [idle, nice, system, user, irq, steal, softirq, iowait]
-//	        Partitions: [10.73.59.79:2891=[0]]
-
 var log = logger.GetLogger("Analyzer", "Statement")
 
 type StatementAnalyzer struct {
@@ -273,6 +251,8 @@ func (v *StatementVisitor) visitTable(ctx any, table *tree.Table) (r any) {
 	// TODO: check table type
 	v.analyzer.ctx.Analysis.SetRelationName(table, table.Name)
 	v.analyzer.ctx.Analysis.RegisterTableMetadata(table, tableMetadata)
+	tableHandle := v.analyzer.metadataMgr.GetTableHandle(database, namespace, table.GetTableName())
+	v.analyzer.ctx.Analysis.RegisterTableHandle(table, tableHandle)
 	// FIXME: table fields??
 
 	return v.createAndAssignScope(table, scope, NewRelation(TableRelation, outputFields))
@@ -405,7 +385,6 @@ func (v *StatementVisitor) analyzeFrom(node *tree.QuerySpecification, scope *Sco
 
 func (v *StatementVisitor) analyzeWhere(node tree.Node, scope *Scope, predicate tree.Expression) {
 	// FIXME: verify no aggregate and group by function
-	fmt.Println("analyze where")
 	v.analyzeExpression(predicate, scope)
 	// v.analyzer.ctx.Analysis.RecordSubQueries(node, expressionAnalysis)
 

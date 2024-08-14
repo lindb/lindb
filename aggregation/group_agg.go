@@ -82,7 +82,6 @@ func (ga *groupingAggregator) Aggregate(it series.GroupedIterator) {
 				break
 			}
 		}
-		// fmt.Printf("sagg=%v,seriesIt=%v\n", sAgg, seriesIt)
 		if sAgg == nil {
 			continue
 		}

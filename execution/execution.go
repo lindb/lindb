@@ -22,25 +22,6 @@ import (
 	"github.com/lindb/lindb/sql/tree"
 )
 
-// Plan Fragemnt 0
-//    Output[columnNames = [idle]]
-//    │ Layout: [xxx]
-//    │ idle := xxx
-//    └─ Remote[sourceFragmentIds = [1]]
-//         Layout: []
-// Plan Fragemnt 1
-//    Projection[]
-//    │ Layout: []
-//    │ detail 1
-//    │ detail 2
-//    └─ ScanFilterProjection[filterPredicate = (role = 'Broker')]
-//       │ Layout: []
-//       │ detail 1
-//       │ detail 2
-//       └─ TableScan[database = _internal]
-//            Layout: [*]
-//            Partitions: [10.73.59.20:2891=[0]]
-
 type Execution interface {
 	Start() any
 }

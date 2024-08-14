@@ -20,6 +20,8 @@ package stage
 import (
 	"fmt"
 
+	"go.uber.org/atomic"
+
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/query/context"
 	"github.com/lindb/lindb/query/operator"
@@ -92,27 +94,27 @@ func (stage *shardScanStage) Plan() PlanNode {
 // NextStages returns the next stages after shard scan completed.
 func (stage *shardScanStage) NextStages() (stages []Stage) {
 	// if not grouping found, series id is empty.
-	// shardExecuteContext := stage.shardExecuteCtx
-	// seriesIDs := shardExecuteContext.SeriesIDsAfterFiltering
-	// seriesIDsHighKeys := seriesIDs.GetHighKeys()
+	shardExecuteContext := stage.shardExecuteCtx
+	seriesIDs := shardExecuteContext.SeriesIDsAfterFiltering
+	seriesIDsHighKeys := seriesIDs.GetHighKeys()
 
-	// for seriesIDHighKeyIdx := range seriesIDsHighKeys {
-	// be carefully, need use new variable for variable scope problem(closures)
-	// ref: https://go.dev/doc/faq#closures_and_goroutines
-	// highSeriesIDIdx := seriesIDHighKeyIdx
-	// grouping based on group by tag keys for each low series container
-	// lowSeriesIDs := seriesIDs.GetContainerAtIndex(highSeriesIDIdx)
-	// dataLoadCtx := &flow.DataLoadContext{
-	// 	ShardExecuteCtx:       shardExecuteContext,
-	// 	LowSeriesIDsContainer: lowSeriesIDs,
-	// 	SeriesIDHighKey:       seriesIDsHighKeys[highSeriesIDIdx],
-	// 	IsMultiField:          len(shardExecuteContext.StorageExecuteCtx.Fields) > 1,
-	// 	IsGrouping:            shardExecuteContext.StorageExecuteCtx.Query.HasGroupBy(),
-	// 	PendingDataLoadTasks:  atomic.NewInt32(0),
-	// }
-	//
-	// stages = append(stages, NewGroupingStage(stage.leafExecuteCtx, dataLoadCtx, stage.shard))
-	// }
+	for seriesIDHighKeyIdx := range seriesIDsHighKeys {
+		// be carefully, need use new variable for variable scope problem(closures)
+		// ref: https://go.dev/doc/faq#closures_and_goroutines
+		highSeriesIDIdx := seriesIDHighKeyIdx
+		// grouping based on group by tag keys for each low series container
+		lowSeriesIDs := seriesIDs.GetContainerAtIndex(highSeriesIDIdx)
+		dataLoadCtx := &flow.DataLoadContext{
+			ShardExecuteCtx:       shardExecuteContext,
+			LowSeriesIDsContainer: lowSeriesIDs,
+			SeriesIDHighKey:       seriesIDsHighKeys[highSeriesIDIdx],
+			IsMultiField:          len(shardExecuteContext.StorageExecuteCtx.Fields) > 1,
+			IsGrouping:            shardExecuteContext.StorageExecuteCtx.Query.HasGroupBy(),
+			PendingDataLoadTasks:  atomic.NewInt32(0),
+		}
+
+		stages = append(stages, NewGroupingStage(stage.leafExecuteCtx, dataLoadCtx, stage.shard))
+	}
 	return stages
 }
 
