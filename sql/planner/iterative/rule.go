@@ -1,7 +1,12 @@
 package iterative
 
-import "github.com/lindb/lindb/sql/planner/plan"
+import (
+	"github.com/lindb/lindb/sql/matching"
+	"github.com/lindb/lindb/sql/planner/plan"
+)
 
 type Rule interface {
-	Apply(context *Context, node plan.PlanNode) plan.PlanNode
+	// GetPattern returns a pattern to which plan nodes this rule applies.
+	GetPattern() *matching.Pattern
+	Apply(context *Context, captures *matching.Captures, node plan.PlanNode) plan.PlanNode
 }

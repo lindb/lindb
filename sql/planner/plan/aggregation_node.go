@@ -5,9 +5,31 @@ import (
 	"github.com/lindb/lindb/sql/tree"
 )
 
+var (
+	PARTIAL      = &AggregationStep{InputRaw: true, OutputPartial: true}
+	FINAL        = &AggregationStep{InputRaw: false, OutputPartial: false}
+	INTERMEDIATE = &AggregationStep{InputRaw: false, OutputPartial: true}
+	SINGLE       = &AggregationStep{InputRaw: true, OutputPartial: false}
+)
+
 type AggregationStep struct {
 	InputRaw      bool
 	OutputPartial bool
+}
+
+func (step *AggregationStep) String() string {
+	switch {
+	case step.InputRaw && step.OutputPartial:
+		return "PARTIAL"
+	case !step.InputRaw && !step.OutputPartial:
+		return "FINAL"
+	case !step.InputRaw && step.OutputPartial:
+		return "INTERMEDIATE"
+	case step.InputRaw && !step.OutputPartial:
+		return "SINGLE"
+	default:
+		return "UNKNOWN"
+	}
 }
 
 type GroupingSetDescriptor struct {
@@ -27,20 +49,24 @@ type AggregationAssignment struct {
 
 type AggregationNode struct {
 	Source       PlanNode                 `json:"source"`
-	Aggregations []*AggregationAssignment `json:"aggregations"`
 	GroupingSets *GroupingSetDescriptor   `json:"groupingSets"`
+	Step         *AggregationStep         `json:"step"`
+	Aggregations []*AggregationAssignment `json:"aggregations"`
 	Outputs      []*Symbol                `json:"outputs"`
-
 	BaseNode
 }
 
-func NewAggregationNode(id PlanNodeID, source PlanNode, aggregations []*AggregationAssignment, groupingSets *GroupingSetDescriptor) *AggregationNode {
+func NewAggregationNode(id PlanNodeID, source PlanNode,
+	aggregations []*AggregationAssignment, groupingSets *GroupingSetDescriptor,
+	step *AggregationStep,
+) *AggregationNode {
 	aggregation := &AggregationNode{
 		BaseNode: BaseNode{
 			ID: id,
 		},
 		Aggregations: aggregations,
 		Source:       source,
+		Step:         step,
 		GroupingSets: groupingSets,
 	}
 	aggregation.Outputs = append(aggregation.Outputs, groupingSets.GroupingKeys...)
@@ -64,7 +90,7 @@ func (n *AggregationNode) GetOutputSymbols() []*Symbol {
 }
 
 func (n *AggregationNode) ReplaceChildren(newChildren []PlanNode) PlanNode {
-	return NewAggregationNode(n.GetNodeID(), newChildren[0], n.Aggregations, n.GroupingSets)
+	return NewAggregationNode(n.GetNodeID(), newChildren[0], n.Aggregations, n.GroupingSets, n.Step)
 }
 
 func (n *AggregationNode) GetGroupingKeys() []*Symbol {

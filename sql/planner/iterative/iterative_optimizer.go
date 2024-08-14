@@ -13,6 +13,7 @@ import (
 type Context struct {
 	IDAllocator *plan.PlanNodeIDAllocator
 	memo        *Memo
+	Lookup      Lookup
 }
 
 type IterativeOptimizer struct {
@@ -31,8 +32,11 @@ func NewIterativeOptimizer(rules []Rule) *IterativeOptimizer {
 func (opt *IterativeOptimizer) Optimize(node plan.PlanNode, idAllocator *plan.PlanNodeIDAllocator) plan.PlanNode {
 	memo := NewMemo(idAllocator, node)
 	context := &Context{
-		memo:        memo,
 		IDAllocator: idAllocator,
+		memo:        memo,
+		Lookup: NewLookup(func(groupRef *plan.GroupReference) []plan.PlanNode {
+			return []plan.PlanNode{memo.resolve(groupRef)}
+		}),
 	}
 	_ = opt.exploreGroup(context, memo.rootGroup)
 
@@ -88,11 +92,21 @@ func (opt *IterativeOptimizer) exploreNode(context *Context, group int) bool {
 }
 
 func (opt *IterativeOptimizer) transform(context *Context, node plan.PlanNode, rule Rule) plan.PlanNode {
-	// TODO: iterator?
-	result := rule.Apply(context, node)
-	if result != nil && opt.logger.Enabled(logger.InfoLevel) {
-		opt.logger.Info(fmt.Sprintf("rule:%T\nbefore:\n%s\nafter:\n%s",
-			rule, printer.TextLogicalPlan(node), printer.TextLogicalPlan(result)))
+	// nodeCapture := matching.NewCapture()
+	// pattern := matching.CapturedAs(nodeCapture, rule.GetPattern())
+	// matches := pattern.Match(context.lookup, node, matching.EmptyCaptures)
+	// fmt.Printf("transform===%T,%v,%T,%v\n", rule, matches, node, node)
+	// for _, match := range matches {
+	// TODO: add cost?
+	// fmt.Printf("rule========%T,match=%v,node=%T\n", rule, match, node)
+	result := rule.Apply(context, nil, node)
+	if result != nil {
+		if opt.logger.Enabled(logger.InfoLevel) {
+			opt.logger.Info(fmt.Sprintf("rule:%T\nbefore:\n%s\nafter:\n%s",
+				rule, printer.TextLogicalPlan(node), printer.TextLogicalPlan(result)))
+		}
+		return result
 	}
-	return result
+	// }
+	return nil
 }

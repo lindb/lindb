@@ -205,7 +205,8 @@ func (p *QueryPlanner) planAggregation(subPlan *PlanBuilder, groupingSets [][]*p
 		aggregateMapping,
 		&plan.GroupingSetDescriptor{
 			GroupingKeys: lo.Values(groupingKeys),
-		})
+		},
+		plan.SINGLE)
 	return &PlanBuilder{
 		root:         aggregationNode,
 		translations: subPlan.translations,

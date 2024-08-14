@@ -67,7 +67,7 @@ func (v *AddLocalExchangesRewrite) visitAggregation(parentProps *StreamPreferred
 	childRequirements := parentProps.constrainTo(node.Source.GetOutputSymbols()).withDefaultParallelism().withPartitioning(groupingKeys)
 	child := v.planAndEnforce(node.Source, childRequirements, childRequirements)
 	fmt.Printf("agg child:=%v\n", child.node)
-	result := plan.NewAggregationNode(node.GetNodeID(), child.node, node.Aggregations, node.GroupingSets)
+	result := plan.NewAggregationNode(node.GetNodeID(), child.node, node.Aggregations, node.GroupingSets, node.Step)
 	return v.deriveProps(result, []*StreamProps{child.props})
 }
 

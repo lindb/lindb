@@ -52,6 +52,9 @@ func (v *PrintPlanVisitor) visitGroupReference(node *plan.GroupReference) {
 func (v *PrintPlanVisitor) visitAggregation(node *plan.AggregationNode) {
 	// TODO: add type
 	descriptor := make(map[string]string)
+	if node.Step != plan.SINGLE {
+		descriptor["type"] = node.Step.String()
+	}
 
 	if node.GroupingSets != nil && len(node.GroupingSets.GroupingKeys) > 0 {
 		descriptor["keys"] = formatSymbols(node.GroupingSets.GroupingKeys)
