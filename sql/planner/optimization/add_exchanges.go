@@ -116,7 +116,14 @@ func (v *AddExchangesRewrite) visitAggregation(context any, node *plan.Aggregati
 		child = v.withDerivedProps(plan.GatheringExchange(v.idAllocator.Next(), plan.Remote, child.node), child.props)
 	} else {
 		// TODO: partition keys
-		child = v.withDerivedProps(plan.PartitionedExchange(v.idAllocator.Next(), plan.Remote, child.node), child.props)
+		child = v.withDerivedProps(
+			plan.PartitionedExchange(v.idAllocator.Next(),
+				plan.Remote,
+				child.node,
+				&plan.PartitioningScheme{
+					OutputLayout: child.node.GetOutputSymbols(),
+				}),
+			child.props)
 	}
 	return v.rebaseAndDeriveProps(node, child)
 }
@@ -125,8 +132,9 @@ func (v *AddExchangesRewrite) planPartitionedJoin(node *plan.JoinNode) *AddExcha
 	left := node.Left.Accept(Partitioned(), v).(*AddExchangesPlan)
 	right := node.Right.Accept(Partitioned(), v).(*AddExchangesPlan)
 
-	left = v.withDerivedProps(plan.PartitionedExchange(v.idAllocator.Next(), plan.Remote, left.node), left.props)
-	right = v.withDerivedProps(plan.PartitionedExchange(v.idAllocator.Next(), plan.Remote, right.node), right.props)
+	// TODO: set partitioning scheme
+	left = v.withDerivedProps(plan.PartitionedExchange(v.idAllocator.Next(), plan.Remote, left.node, nil), left.props)
+	right = v.withDerivedProps(plan.PartitionedExchange(v.idAllocator.Next(), plan.Remote, right.node, nil), right.props)
 
 	return v.buildJoin(node, left, right, plan.Partitioned)
 }

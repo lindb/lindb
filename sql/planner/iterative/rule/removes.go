@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/lindb/lindb/sql/matching"
 	"github.com/lindb/lindb/sql/planner/iterative"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
@@ -15,7 +16,11 @@ func NewRemoveRedundantIdentityProjections() iterative.Rule {
 	return &RemoveRedundantIdentityProjections{}
 }
 
-func (rule *RemoveRedundantIdentityProjections) Apply(context *iterative.Context, node plan.PlanNode) plan.PlanNode {
+func (rule *RemoveRedundantIdentityProjections) GetPattern() *matching.Pattern {
+	return project()
+}
+
+func (rule *RemoveRedundantIdentityProjections) Apply(context *iterative.Context, captures *matching.Captures, node plan.PlanNode) plan.PlanNode {
 	if project, ok := node.(*plan.ProjectionNode); ok {
 		fmt.Printf("remove identity project...............................................%v,%v\n", project.Assignments.IsIdentity(),
 			symbolsEquals(project.GetOutputSymbols(), project.Source.GetOutputSymbols()),

@@ -14,12 +14,21 @@ type Assignment struct {
 type Assignments []*Assignment
 
 func (a Assignments) Add(symbols []*Symbol) Assignments {
+	// TODO: check dup
 	for _, symbol := range symbols {
 		a = append(a, &Assignment{
 			Symbol:     symbol,
 			Expression: symbol.ToSymbolReference(),
 		})
 	}
+	return a
+}
+
+func (a Assignments) Put(symbol *Symbol, expression tree.Expression) Assignments {
+	a = append(a, &Assignment{
+		Symbol:     symbol,
+		Expression: expression,
+	})
 	return a
 }
 

@@ -2,6 +2,11 @@ package plan
 
 import "github.com/lindb/lindb/sql/tree"
 
+type PartitioningScheme struct {
+	Partitioning *Partitioning `json:"partitioning"`
+	OutputLayout []*Symbol     `json:"outputLayout"`
+}
+
 type Partitioning struct {
 	Handle    *PartitioningHandle `json:"handle"`
 	Arguments []*ArgumentBinding  `json:"arguments"`
@@ -18,6 +23,7 @@ type ArgumentBinding struct {
 }
 
 func (arg *ArgumentBinding) Translate() *ArgumentBinding {
+	// FIXME: imple arg binding translate
 	return nil
 }
 

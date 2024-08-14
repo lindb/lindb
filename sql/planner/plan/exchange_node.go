@@ -17,6 +17,7 @@ type ExchangeNode struct {
 	Scope   ExchangeScope `json:"scope"`
 	Sources []PlanNode    `json:"sources"`
 
+	PartitioningScheme *PartitioningScheme `json:"PartitioningScheme"`
 	// for each source, the list of inputs corresponding to each output
 	Inputs [][]*Symbol `json:"inputs"`
 
@@ -40,9 +41,11 @@ func (n *ExchangeNode) ReplaceChildren(newChildren []PlanNode) PlanNode {
 		BaseNode: BaseNode{
 			ID: n.GetNodeID(),
 		},
-		Type:    n.Type,
-		Scope:   n.Scope,
-		Sources: newChildren,
+		Type:               n.Type,
+		Scope:              n.Scope,
+		Sources:            newChildren,
+		PartitioningScheme: n.PartitioningScheme,
+		Inputs:             n.Inputs,
 	}
 }
 
@@ -54,16 +57,24 @@ func GatheringExchange(id PlanNodeID, scope ExchangeScope, child PlanNode) *Exch
 		Type:    Gather,
 		Scope:   scope,
 		Sources: []PlanNode{child},
+		PartitioningScheme: &PartitioningScheme{
+			// FIXME: Partitioning: &Partitioning{},
+			OutputLayout: child.GetOutputSymbols(),
+		},
+		Inputs: [][]*Symbol{child.GetOutputSymbols()},
 	}
 }
 
-func PartitionedExchange(id PlanNodeID, scope ExchangeScope, child PlanNode) *ExchangeNode {
+func PartitionedExchange(id PlanNodeID, scope ExchangeScope, child PlanNode, partitioningScheme *PartitioningScheme) *ExchangeNode {
+	// TODO: add check single
 	return &ExchangeNode{
 		BaseNode: BaseNode{
 			ID: id,
 		},
-		Type:    Repartition,
-		Scope:   scope,
-		Sources: []PlanNode{child},
+		Type:               Repartition,
+		Scope:              scope,
+		Sources:            []PlanNode{child},
+		PartitioningScheme: partitioningScheme,
+		Inputs:             [][]*Symbol{partitioningScheme.OutputLayout},
 	}
 }
