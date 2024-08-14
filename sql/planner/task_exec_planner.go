@@ -73,9 +73,20 @@ func (v *TaskExecutionPlanVisitor) Visit(context any, n planpkg.PlanNode) (r any
 		return v.visitRemoteSource(context, node)
 	case *planpkg.AggregationNode:
 		return v.visitAggregation(context, node)
+	case *planpkg.ExchangeNode:
+		return v.visitExchange(context, node)
 	default:
 		panic(fmt.Sprintf("imple task planner %v", n))
 	}
+}
+
+func (v *TaskExecutionPlanVisitor) visitExchange(context any, node *planpkg.ExchangeNode) (r any) {
+	if node.Scope != planpkg.Local {
+		panic("only local exchanges are supported in the local planner")
+	}
+	source := node.Sources[0].Accept(context, v).(*PhysicalOperation)
+	operatorFct := exchange.NewLocalExchangeOperatorFactory()
+	return NewPhysicalOperation(operatorFct, source)
 }
 
 func (v *TaskExecutionPlanVisitor) visitAggregation(context any, node *planpkg.AggregationNode) (r any) {
@@ -141,9 +152,10 @@ func (v *TaskExecutionPlanVisitor) visitTableScan(node *planpkg.TableScanNode, f
 	columns := lo.Map(outputs, func(item *planpkg.Symbol, index int) spi.ColumnMetadata {
 		return spi.ColumnMetadata{
 			Name: item.Name,
+			// TODO: add data type
 		}
 	})
-	splitSources := spi.GetSplitSourceProvider(node.Table).CreateSplitSources(node.Database, node.Table, v.taskExecCtx.Partitions, columns, filter)
+	splitSources := spi.GetSplitSourceProvider(node.Table).CreateSplitSources(node.Table, v.taskExecCtx.Partitions, columns, filter)
 	planContext := context.(*TaskExecutionPlanContext)
 	planContext.SetSplitSources(splitSources)
 	planContext.SetLocalStore(true)

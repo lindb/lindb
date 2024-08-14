@@ -57,6 +57,7 @@ type Analysis struct {
 	aggregates            map[tree.NodeID][]*tree.FunctionCall
 	aliasedRelations      map[*tree.QualifiedName]tree.Relation
 	tableMetadatas        map[tree.NodeID]*spi.TableMetadata
+	tableHandles          map[tree.NodeID]spi.TableHandle
 	relationNames         map[tree.NodeID]*tree.QualifiedName
 	joins                 map[tree.NodeID]tree.Expression
 	where                 map[tree.NodeID]tree.Expression
@@ -79,6 +80,7 @@ func NewAnalysis(root tree.Statement) *Analysis {
 		aggregates:            make(map[tree.NodeID][]*tree.FunctionCall),
 		resolvedFunctions:     make(map[tree.NodeID]*function.ResolvedFunction),
 		tableMetadatas:        make(map[tree.NodeID]*spi.TableMetadata),
+		tableHandles:          make(map[tree.NodeID]spi.TableHandle),
 		relationNames:         make(map[tree.NodeID]*tree.QualifiedName),
 		aliasedRelations:      make(map[*tree.QualifiedName]tree.Relation),
 		joins:                 make(map[tree.NodeID]tree.Expression),
@@ -150,8 +152,17 @@ func (a *Analysis) RegisterTableMetadata(table *tree.Table, tableMetadata *spi.T
 	a.tableMetadatas[table.GetID()] = tableMetadata
 }
 
-func (a Analysis) GetTableMetadata(table *tree.Table) (tableMetadata *spi.TableMetadata) {
+func (a *Analysis) GetTableMetadata(table *tree.Table) (tableMetadata *spi.TableMetadata) {
 	tableMetadata = a.tableMetadatas[table.GetID()]
+	return
+}
+
+func (a *Analysis) RegisterTableHandle(table *tree.Table, tableHandle spi.TableHandle) {
+	a.tableHandles[table.GetID()] = tableHandle
+}
+
+func (a *Analysis) GetTableHandle(table *tree.Table) (tableHandle spi.TableHandle) {
+	tableHandle = a.tableHandles[table.GetID()]
 	return
 }
 

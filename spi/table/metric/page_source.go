@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"reflect"
 
-	commontimeutil "github.com/lindb/common/pkg/timeutil"
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/aggregation"
@@ -54,16 +53,17 @@ func (mps *MetricPageSource) GetNextPage() *spi.Page {
 	}()
 
 	dataLoadCtx := &flow.DataLoadContext{
+		ShardExecuteCtx:       mps.split.ShardExecuteContext,
 		Fields:                mps.split.Fields,
 		LowSeriesIDsContainer: mps.split.LowSeriesIDsContainer,
 		SeriesIDHighKey:       mps.split.HighSeriesID,
-		IntervalRatio:         1,
-		Interval:              timeutil.Interval(10 * commontimeutil.OneSecond),
+		IntervalRatio:         mps.table.IntervalRatio,
+		Interval:              mps.table.Interval,
 		IsMultiField:          len(mps.split.Fields) > 1,
-		// IsGrouping:            shardExecuteCtx.StorageExecuteCtx.Query.HasGroupBy(),
-		PendingDataLoadTasks: atomic.NewInt32(0),
-		TimeRange:            mps.table.TimeRange,
-		Decoder:              mps.decoder,
+		IsGrouping:            mps.split.GroupingTags.Len() > 0,
+		PendingDataLoadTasks:  atomic.NewInt32(0),
+		TimeRange:             mps.table.TimeRange,
+		Decoder:               mps.decoder,
 	}
 	dataLoadCtx.DownSamplingSpecs = make(aggregation.AggregatorSpecs, len(dataLoadCtx.Fields))
 	dataLoadCtx.AggregatorSpecs = make(aggregation.AggregatorSpecs, len(dataLoadCtx.Fields))
@@ -76,8 +76,8 @@ func (mps *MetricPageSource) GetNextPage() *spi.Page {
 		dataLoadCtx.AggregatorSpecs[i] = b
 	}
 
+	// dataLoadCtx.PrepareAggregatorWithoutGrouping()
 	dataLoadCtx.Grouping()
-	dataLoadCtx.PrepareAggregatorWithoutGrouping()
 
 	var loaders []flow.DataLoader
 	for i := range mps.split.ResultSet {
@@ -91,21 +91,26 @@ func (mps *MetricPageSource) GetNextPage() *spi.Page {
 	if len(loaders) == 0 {
 		return nil
 	}
+	if mps.split.ShardExecuteContext.GroupingContext != nil {
+		mps.split.ShardExecuteContext.GroupingContext.BuildGroup(dataLoadCtx)
+	} else {
+		dataLoadCtx.PrepareAggregatorWithoutGrouping()
+	}
 
-	min := dataLoadCtx.LowSeriesIDsContainer.Minimum()
-	dataLoadCtx.MinSeriesID = min
-	dataLoadCtx.MaxSeriesID = dataLoadCtx.LowSeriesIDsContainer.Maximum()
-	lengthOfSeriesIDs := int(dataLoadCtx.MaxSeriesID-dataLoadCtx.MinSeriesID) + 1
-	dataLoadCtx.LowSeriesIDs = make([]uint16, lengthOfSeriesIDs)
-	if dataLoadCtx.IsGrouping {
-		dataLoadCtx.GroupingSeriesAggRefs = make([]uint16, lengthOfSeriesIDs)
-	}
-	it := dataLoadCtx.LowSeriesIDsContainer.PeekableIterator()
-	for it.HasNext() {
-		lowSeriesID := it.Next()
-		seriesIdx := lowSeriesID - min
-		dataLoadCtx.LowSeriesIDs[seriesIdx] = lowSeriesID
-	}
+	// min := dataLoadCtx.LowSeriesIDsContainer.Minimum()
+	// dataLoadCtx.MinSeriesID = min
+	// dataLoadCtx.MaxSeriesID = dataLoadCtx.LowSeriesIDsContainer.Maximum()
+	// lengthOfSeriesIDs := int(dataLoadCtx.MaxSeriesID-dataLoadCtx.MinSeriesID) + 1
+	// dataLoadCtx.LowSeriesIDs = make([]uint16, lengthOfSeriesIDs)
+	// if dataLoadCtx.IsGrouping {
+	// 	dataLoadCtx.GroupingSeriesAggRefs = make([]uint16, lengthOfSeriesIDs)
+	// }
+	// it := dataLoadCtx.LowSeriesIDsContainer.PeekableIterator()
+	// for it.HasNext() {
+	// 	lowSeriesID := it.Next()
+	// 	seriesIdx := lowSeriesID - min
+	// 	dataLoadCtx.LowSeriesIDs[seriesIdx] = lowSeriesID
+	// }
 
 	// for each low series ids
 	for _, loader := range loaders {
@@ -139,7 +144,13 @@ func (mps *MetricPageSource) GetNextPage() *spi.Page {
 	if dataLoadCtx.IsMultiField {
 		reduceAgg.Aggregate(dataLoadCtx.WithoutGroupingSeriesAgg.Aggregators.ResultSet(""))
 	} else {
-		reduceAgg.Aggregate(aggregation.FieldAggregates{dataLoadCtx.WithoutGroupingSeriesAgg.Aggregator}.ResultSet(""))
+		if mps.split.GroupingTags.Len() > 0 {
+			for _, groupAgg := range dataLoadCtx.GroupingSeriesAgg {
+				reduceAgg.Aggregate(aggregation.FieldAggregates{groupAgg.Aggregator}.ResultSet(""))
+			}
+		} else {
+			reduceAgg.Aggregate(aggregation.FieldAggregates{dataLoadCtx.WithoutGroupingSeriesAgg.Aggregator}.ResultSet(""))
+		}
 	}
 	rs := reduceAgg.ResultSet()
 

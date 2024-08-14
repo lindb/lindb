@@ -86,7 +86,7 @@ func (v *PrintPlanVisitor) visitJoin(node *plan.JoinNode) {
 }
 
 func (v *PrintPlanVisitor) visitTableScan(node *plan.TableScanNode) {
-	descriptor := map[string]string{"database": node.Database}
+	descriptor := map[string]string{"table": node.Table.String()}
 	outputNode := v.addNode(node, "TableScan", descriptor, node.GetSources())
 	partitions := []string{}
 	for node, shards := range node.Partitions {

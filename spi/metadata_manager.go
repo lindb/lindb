@@ -5,13 +5,23 @@ import (
 
 	"github.com/lindb/common/pkg/encoding"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/lindb/lindb/flow"
 	protoMetaV1 "github.com/lindb/lindb/proto/gen/v1/meta"
 )
 
+type CreateTableHandle func(db, ns, name string) TableHandle
+
+var createTableHandleFn = make(map[string]CreateTableHandle)
+
+func RegisterCreateTableHandleFn(kind string, fn CreateTableHandle) {
+	createTableHandleFn[kind] = fn
+}
+
 type MetadataManager interface {
 	GetTableMetadata(db, ns, name string) (*TableMetadata, error)
+	GetTableHandle(db, ns, name string) TableHandle
 }
 
 type metadataManager struct {
@@ -24,6 +34,15 @@ func NewMetadataManager(nodeSelector flow.NodeSelector) MetadataManager {
 	}
 }
 
+func (mgr *metadataManager) GetTableHandle(db, ns, name string) TableHandle {
+	// FIXME:
+	fn, ok := createTableHandleFn["metric"]
+	if !ok {
+		panic("create table handle fn not exist")
+	}
+	return fn(db, ns, name)
+}
+
 func (mgr *metadataManager) GetTableMetadata(db, ns, name string) (*TableMetadata, error) {
 	partitions, err := mgr.nodeSelector.GetPartitions(db)
 	if err != nil {
@@ -31,7 +50,7 @@ func (mgr *metadataManager) GetTableMetadata(db, ns, name string) (*TableMetadat
 	}
 	schema := NewTableSchema()
 	for node := range partitions {
-		conn, err := grpc.Dial(node.Address(), grpc.WithInsecure())
+		conn, err := grpc.Dial(node.Address(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			return nil, err
 		}

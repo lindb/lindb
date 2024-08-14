@@ -8,7 +8,6 @@ import (
 type TableScanNode struct {
 	Table         spi.TableHandle               `json:"table"`
 	Partitions    map[models.InternalNode][]int `json:"-"`
-	Database      string                        `json:"database"`
 	OutputSymbols []*Symbol                     `json:"outputSymbols"`
 
 	BaseNode

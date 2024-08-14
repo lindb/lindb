@@ -16,8 +16,9 @@ type SplitSource interface {
 }
 
 type SplitSourceProvider interface {
-	CreateSplitSources(database string, table TableHandle, partitions []int, columns []ColumnMetadata, filter tree.Expression) (splits []SplitSource)
+	CreateSplitSources(table TableHandle, partitions []int, columns []ColumnMetadata, filter tree.Expression) (splits []SplitSource)
 }
+
 type PageSourceProvider interface {
 	CreatePageSource(table TableHandle) PageSource
 }

@@ -5,16 +5,15 @@ import (
 	"fmt"
 	"reflect"
 
-	common_timeutil "github.com/lindb/common/pkg/timeutil"
 	"github.com/lindb/roaring"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
+	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/sql/tree"
 	"github.com/lindb/lindb/tsdb"
@@ -30,8 +29,8 @@ func NewMetricSplitSourceProvider(engine tsdb.Engine) *MetricSplitSourceProvider
 	}
 }
 
-func (msp *MetricSplitSourceProvider) CreateSplitSources(database string, table spi.TableHandle, partitions []int,
-	columns []spi.ColumnMetadata, filter tree.Expression,
+func (msp *MetricSplitSourceProvider) CreateSplitSources(table spi.TableHandle, partitions []int,
+	outputColumns []spi.ColumnMetadata, filter tree.Expression,
 ) (splits []spi.SplitSource) {
 	var (
 		metricTable *MetricTableHandle
@@ -40,10 +39,31 @@ func (msp *MetricSplitSourceProvider) CreateSplitSources(database string, table 
 	if metricTable, ok = table.(*MetricTableHandle); !ok {
 		panic("not support table handle")
 	}
-	db, ok := msp.engine.GetDatabase(database)
+	db, ok := msp.engine.GetDatabase(metricTable.Database)
 	if !ok {
-		panic(fmt.Errorf("%w: %s", constants.ErrDatabaseNotFound, database))
+		panic(fmt.Errorf("%w: %s", constants.ErrDatabaseNotFound, metricTable.Database))
 	}
+	// find metric id(table id)
+	metricID, err := db.MetaDB().GetMetricID(metricTable.Namespace, metricTable.Metric)
+	if err != nil {
+		panic(err)
+	}
+	// find table schema
+	schema, err := db.MetaDB().GetSchema(metricID)
+	if err != nil {
+		panic(err)
+	}
+
+	var filterResult map[tree.NodeID]*flow.TagFilterResult
+	if filter != nil {
+		// lookup column if filter not nil
+		lookup := NewColumnValuesLookVisitor(db, schema)
+		lookup.filterResult = make(map[tree.NodeID]*flow.TagFilterResult)
+		_ = filter.Accept(nil, lookup)
+		filterResult = lookup.ResultSet()
+		// TODO: check filter result if empty????
+	}
+
 	var shards []tsdb.Shard
 	var families [][]tsdb.DataFamily
 	for _, partition := range partitions {
@@ -61,28 +81,27 @@ func (msp *MetricSplitSourceProvider) CreateSplitSources(database string, table 
 		panic(constants.ErrShardNotFound)
 	}
 
-	metricID, err := db.MetaDB().GetMetricID(metricTable.Namespace, metricTable.Metric)
-	if err != nil {
-		panic(err)
-	}
-	// check table schema
-	schema, err := db.MetaDB().GetSchema(metricID)
-	if err != nil {
-		panic(err)
+	groupingTags := lo.Filter(schema.TagKeys, func(item tag.Meta, index int) bool {
+		return lo.ContainsBy(outputColumns, func(column spi.ColumnMetadata) bool {
+			return column.Name == item.Key
+		})
+	})
+	lengthOfGroupByTagKeys := len(groupingTags)
+	stargetCtx := &flow.StorageExecuteContext{}
+
+	stargetCtx.GroupByTagKeyIDs = make([]tag.KeyID, lengthOfGroupByTagKeys)
+	stargetCtx.GroupByTags = make(tag.Metas, lengthOfGroupByTagKeys)
+
+	for idx, tagKey := range groupingTags {
+		stargetCtx.GroupByTags[idx] = tagKey
+		stargetCtx.GroupByTagKeyIDs[idx] = tagKey.ID
 	}
 
-	var filterResult map[tree.NodeID]*flow.TagFilterResult
-	if filter != nil {
-		// lookup column if filter not nil
-		lookup := NewColumnLookVisitor(db, schema)
-		lookup.filterResult = make(map[tree.NodeID]*flow.TagFilterResult)
-		_ = filter.Accept(nil, lookup)
-		filterResult = lookup.ResultSet()
-		// TODO: check filter result if empty????
-	}
+	// init grouping tag value collection, need cache found grouping tag value id
+	stargetCtx.GroupingTagValueIDs = make([]*roaring.Bitmap, lengthOfGroupByTagKeys)
 
 	for i := range shards {
-		splits = append(splits, NewMetricSplitSource(metricTable, db, shards[i], metricID, schema, columns, families[i], filter, filterResult))
+		splits = append(splits, NewMetricSplitSource(metricTable, db, stargetCtx, shards[i], metricID, schema, outputColumns, families[i], filter, filterResult))
 	}
 
 	return
@@ -97,15 +116,21 @@ type MetricSplitSource struct {
 	table        *MetricTableHandle
 	filterResult map[tree.NodeID]*flow.TagFilterResult
 	fields       field.Metas
+	groupingTags tag.Metas
 	families     []tsdb.DataFamily
 	resultSet    []flow.FilterResultSet
 	highKeys     []uint16
 	index        int
 	metricID     metric.ID
+
+	shardCtx   *flow.ShardExecuteContext
+	storageCtx *flow.StorageExecuteContext
 }
 
 // TODO: remove schema
-func NewMetricSplitSource(table *MetricTableHandle, db tsdb.Database, shard tsdb.Shard, metricID metric.ID, schema *metric.Schema, columns []spi.ColumnMetadata, families []tsdb.DataFamily, where tree.Expression, filterResult map[tree.NodeID]*flow.TagFilterResult) *MetricSplitSource {
+func NewMetricSplitSource(table *MetricTableHandle, db tsdb.Database, storageCtx *flow.StorageExecuteContext, shard tsdb.Shard, metricID metric.ID,
+	schema *metric.Schema, outputColumns []spi.ColumnMetadata, families []tsdb.DataFamily, where tree.Expression, filterResult map[tree.NodeID]*flow.TagFilterResult,
+) *MetricSplitSource {
 	return &MetricSplitSource{
 		table:    table,
 		db:       db,
@@ -114,12 +139,18 @@ func NewMetricSplitSource(table *MetricTableHandle, db tsdb.Database, shard tsdb
 		metricID: metricID,
 		schema:   schema,
 		fields: lo.Filter(schema.Fields, func(item field.Meta, index int) bool {
-			return lo.ContainsBy(columns, func(column spi.ColumnMetadata) bool {
+			return lo.ContainsBy(outputColumns, func(column spi.ColumnMetadata) bool {
 				return column.Name == item.Name.String()
+			})
+		}),
+		groupingTags: lo.Filter(schema.TagKeys, func(item tag.Meta, index int) bool {
+			return lo.ContainsBy(outputColumns, func(column spi.ColumnMetadata) bool {
+				return column.Name == item.Key
 			})
 		}),
 		where:        where,
 		filterResult: filterResult,
+		storageCtx:   storageCtx,
 	}
 }
 
@@ -131,11 +162,13 @@ func (mss *MetricSplitSource) Prepare() {
 	)
 
 	if mss.where == nil {
+		// if where condition nil, find all series ids under metric
 		seriesIDs, err = mss.shard.IndexDB().GetSeriesIDsForMetric(mss.metricID)
 		if err != nil {
 			panic(err)
 		}
 	} else {
+		// find series ids based on where condition
 		lookup := NewRowLookupVisitor(mss)
 		if seriesIDs, ok = mss.where.Accept(nil, lookup).(*roaring.Bitmap); !ok {
 			panic(constants.ErrSeriesIDNotFound)
@@ -150,19 +183,20 @@ func (mss *MetricSplitSource) Prepare() {
 
 	for i := range mss.families {
 		family := mss.families[i]
+		// check family data if matches condition(series ids)
 		resultSet, err := family.Filter(&flow.MetricScanContext{
 			MetricID:                mss.metricID,
 			SeriesIDs:               seriesIDs,
 			SeriesIDsAfterFiltering: seriesIDs,
 			Fields:                  mss.fields,
 			TimeRange:               mss.table.TimeRange,
-			StorageInterval:         timeutil.Interval(10 * common_timeutil.OneSecond),
+			StorageInterval:         mss.table.StorageInterval,
 		})
+
 		if !errors.Is(err, constants.ErrNotFound) && err != nil {
 			panic(err)
 		}
 
-		// FIXME: group by
 		for i := range resultSet {
 			rs := resultSet[i]
 
@@ -176,15 +210,23 @@ func (mss *MetricSplitSource) Prepare() {
 			mss.seriesIDs.Or(finalSeriesIDs)
 		}
 	}
-	if len(mss.resultSet) == 0 {
-		panic(constants.ErrNotFound)
-	}
 
 	if mss.seriesIDs.IsEmpty() {
 		panic(constants.ErrSeriesIDNotFound)
 	}
+	mss.shardCtx = &flow.ShardExecuteContext{
+		StorageExecuteCtx:       mss.storageCtx,
+		SeriesIDsAfterFiltering: mss.seriesIDs,
+	}
+
+	if mss.groupingTags.Len() > 0 {
+		fmt.Println("grouping tag keys")
+		// if it has grouping, do group by tag keys, else just split series ids as batch first.
+		mss.shard.IndexDB().GetGroupingContext(mss.shardCtx)
+	}
 
 	mss.highKeys = mss.seriesIDs.GetHighKeys()
+
 	fmt.Printf("series id====%v,rs=%v\n", mss.seriesIDs.String(), mss.resultSet)
 }
 
@@ -205,7 +247,9 @@ func (mss *MetricSplitSource) GetNextSplit() spi.Split {
 		HighSeriesID:          highSeriesID,
 		LowSeriesIDsContainer: lowSeriesIDsContainer,
 		Fields:                mss.fields,
+		GroupingTags:          mss.groupingTags,
 		ResultSet:             mss.resultSet,
+		ShardExecuteContext:   mss.shardCtx,
 	}
 }
 
@@ -242,7 +286,7 @@ func (v *RowLookupVisitor) visitComparisonExpression(_ any, node *tree.Compariso
 	return seriesIDs
 }
 
-type ColumnLookupVisitor struct {
+type ColumnValuesLookupVisitor struct {
 	db     tsdb.Database
 	schema *metric.Schema
 
@@ -252,15 +296,15 @@ type ColumnLookupVisitor struct {
 	filterResult map[tree.NodeID]*flow.TagFilterResult
 }
 
-func NewColumnLookVisitor(db tsdb.Database, schema *metric.Schema) *ColumnLookupVisitor {
-	return &ColumnLookupVisitor{
+func NewColumnValuesLookVisitor(db tsdb.Database, schema *metric.Schema) *ColumnValuesLookupVisitor {
+	return &ColumnValuesLookupVisitor{
 		db:           db,
 		schema:       schema,
 		filterResult: make(map[tree.NodeID]*flow.TagFilterResult),
 	}
 }
 
-func (v *ColumnLookupVisitor) Visit(context any, n tree.Node) any {
+func (v *ColumnValuesLookupVisitor) Visit(context any, n tree.Node) any {
 	switch node := n.(type) {
 	case *tree.ComparisonExpression:
 		return v.visitComparisonExpression(context, node)
@@ -274,11 +318,11 @@ func (v *ColumnLookupVisitor) Visit(context any, n tree.Node) any {
 	return nil
 }
 
-func (v *ColumnLookupVisitor) ResultSet() map[tree.NodeID]*flow.TagFilterResult {
+func (v *ColumnValuesLookupVisitor) ResultSet() map[tree.NodeID]*flow.TagFilterResult {
 	return v.filterResult
 }
 
-func (v *ColumnLookupVisitor) visitComparisonExpression(context any, node *tree.ComparisonExpression) (r any) {
+func (v *ColumnValuesLookupVisitor) visitComparisonExpression(context any, node *tree.ComparisonExpression) (r any) {
 	column := node.Left.Accept(context, v)
 	columnValue := node.Right.Accept(context, v)
 
@@ -296,6 +340,7 @@ func (v *ColumnLookupVisitor) visitComparisonExpression(context any, node *tree.
 	var err error
 	switch val := columnValue.(type) {
 	case string:
+		// FIXME: impl other expr
 		tagValueIDs, err = v.db.MetaDB().FindTagValueDsByExpr(tagKeyID, &tree.EqualsExpr{
 			Name:  columnName,
 			Value: val,

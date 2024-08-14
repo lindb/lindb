@@ -18,6 +18,7 @@
 package memdb
 
 import (
+	"fmt"
 	"io"
 	"math"
 	"sync"
@@ -349,32 +350,39 @@ func (md *memoryDatabase) writeLinField(
 func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher) error {
 	// waiting current writing complete
 	md.writeCondition.Wait()
-
+	fmt.Println("flush family")
 	metaDB := md.indexDB.GetMetadataDatabase()
 	metricIDs := metaDB.GetMetricIDs()
+	fmt.Println(metricIDs)
 	metricIDsIt := metricIDs.Iterator()
 	for metricIDsIt.HasNext() {
+		fmt.Println("flush metric")
 		metricID := metricIDsIt.Next()
 		memMetricID, ok := metaDB.GetMemMetricID(metricID)
 		if !ok {
+			fmt.Println("1111111111111111")
 			continue // flush next metric if memory metric meta not exist
 		}
 		mStore, ok := metaDB.GetMetricMeta(memMetricID)
 		if !ok {
+			fmt.Println("222222222")
 			continue // flush next metric if memory metric meta not exist
 		}
 		// shard level metric time series index, shared multi data families
 		timeSeriesIndex, ok := md.indexDB.GetTimeSeriesIndex(memMetricID)
 		if !ok {
+			fmt.Println("3333")
 			continue // flush next metric if time series index not exist
 		}
 		slotRange, ok := timeSeriesIndex.GetTimeRange(md.createdTime)
 		if !ok {
+			fmt.Println("44444")
 			continue // flush next metric if not time range
 		}
 		timeSeriesIDs := timeSeriesIndex.MemTimeSeriesIDs()
 		curMetricMemTimeSeriesIDs := roaring.FastAnd(timeSeriesIDs, md.timeSeriesIDs)
 		if curMetricMemTimeSeriesIDs.IsEmpty() {
+			fmt.Println("5555")
 			continue // flush next metric if current metric no data written
 		}
 		var needFlushFields field.Metas // current memory database's fields
@@ -383,6 +391,7 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher) error {
 		for idx := range allFields {
 			f := allFields[idx]
 			if !f.Persisted {
+				fmt.Println("66666")
 				// ignore if field meta not persist
 				continue
 			}
@@ -394,6 +403,7 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher) error {
 			}
 		}
 		if len(buffers) == 0 {
+			fmt.Println("8888")
 			continue // flush next metric if temp buffers of field not exist
 		}
 		// prepare for flushing metric
