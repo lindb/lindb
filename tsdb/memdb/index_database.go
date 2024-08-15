@@ -21,6 +21,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/lindb/common/pkg/fasttime"
 	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/timeutil"
 	"go.uber.org/atomic"
@@ -131,13 +132,13 @@ func (idb *indexDatabase) GetTimeSeriesIndex(memMetricID uint64) (TimeSeriesInde
 // Cleanup cleanups index data for inactive memory database.
 func (idb *indexDatabase) Cleanup(db MemoryDatabase) {
 	familyCreateTime := db.CreatedTime()
-	expiredTimestamp := timeutil.Now()
+	now := fasttime.UnixMilliseconds()
 	memTimeSeriesIDs := db.MemTimeSeriesIDs()
-	gcTimestamp := timeutil.Now() - 3*timeutil.OneHour // TODO: add config?
+	gcTimestamp := now - 3*timeutil.OneHour // TODO: add config?
 	idb.timeSeriesIndexes.Range(func(key, value any) bool {
 		timeSeriesIndex := (value.(TimeSeriesIndex))
 		timeSeriesIndex.ClearTimeRange(familyCreateTime)
-		timeSeriesIndex.ExpireTimeSeriesIDs(memTimeSeriesIDs, expiredTimestamp)
+		timeSeriesIndex.ExpireTimeSeriesIDs(memTimeSeriesIDs, now)
 		timeSeriesIndex.GC(gcTimestamp)
 
 		// if no time series undex index, remove it from metric index store

@@ -181,7 +181,7 @@ func (mdb *metadataDatabase) handleFlush(event *FlushEvent) {
 	err := mdb.metaDB.Flush()
 	event.Callback(err)
 
-	mdb.gc(fasttime.UnixMicroseconds() - timeutil.OneDay)
+	mdb.gc(fasttime.UnixMilliseconds() - timeutil.OneDay)
 }
 
 // handleRow lookups metric metedata and indexes.
