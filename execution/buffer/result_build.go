@@ -7,6 +7,7 @@ import (
 
 	"github.com/lindb/lindb/execution/model"
 	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/spi/types"
 )
 
 type ResultSetBuild struct {
@@ -38,8 +39,15 @@ func (rsb *ResultSetBuild) Process() {
 		it := page.Iterator()
 		for row := it.Begin(); row != it.End(); row = it.Next() {
 			columns := []any{}
-			for i := range page.Layout {
-				columns = append(columns, row.GetTimeSeries(i))
+			for i, meta := range page.Layout {
+				// TODO: add more type
+				fmt.Printf("layout index=%d\n", i)
+				switch meta.DataType {
+				case types.DataTypeString:
+					columns = append(columns, row.GetString(i))
+				default:
+					columns = append(columns, row.GetTimeSeries(i))
+				}
 			}
 			rsb.resultSet.Rows = append(rsb.resultSet.Rows, columns)
 		}

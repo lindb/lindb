@@ -10,15 +10,14 @@ import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/series/field"
-	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/tsdb"
 )
 
 func init() {
-	encoding.RegisterNodeType(MetricTableHandle{})
+	encoding.RegisterNodeType(TableHandle{})
 	spi.RegisterCreateTableHandleFn("metric", func(db, ns, name string) spi.TableHandle {
-		return &MetricTableHandle{
+		return &TableHandle{
 			Database:  db,
 			Namespace: ns,
 			Metric:    name,
@@ -33,7 +32,7 @@ func init() {
 	})
 }
 
-type MetricTableHandle struct {
+type TableHandle struct {
 	Database        string             `json:"database"`
 	Namespace       string             `json:"namespace"`
 	Metric          string             `json:"metric"`
@@ -43,18 +42,22 @@ type MetricTableHandle struct {
 	IntervalRatio   int                `json:"intervalRatio"`
 }
 
-func (t *MetricTableHandle) String() string {
+func (t *TableHandle) String() string {
 	return fmt.Sprintf("%s:%s:%s", t.Database, t.Namespace, t.Metric)
 }
 
-type MetricScanSplit struct {
+type ScanSplit struct {
 	LowSeriesIDsContainer roaring.Container
-	Fields                field.Metas
-	GroupingTags          tag.Metas
+	tableScan             *TableScan
+	groupingContext       flow.GroupingContext
 	ResultSet             []flow.FilterResultSet
-	MinSeriesID           uint16
-	MaxSeriesID           uint16
-	HighSeriesID          uint16
 
-	ShardExecuteContext *flow.ShardExecuteContext
+	MinSeriesID  uint16
+	MaxSeriesID  uint16
+	HighSeriesID uint16
+}
+
+type Partition struct {
+	shard    tsdb.Shard
+	families []tsdb.DataFamily
 }

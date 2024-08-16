@@ -40,8 +40,8 @@ func (p *Pipeline) Run() {
 		p.splitSource.Prepare()
 		driver := p.driverFct.CreateDriver()
 
-		for p.splitSource.HasSplit() {
-			split := p.splitSource.GetNextSplit()
+		for p.splitSource.HasNext() {
+			split := p.splitSource.Next()
 
 			if split != nil {
 				driver.AddSplit(split)

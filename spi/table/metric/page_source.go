@@ -25,20 +25,20 @@ func NewMetricPageSourceProvider() *MetricPageSourceProvider {
 
 func (p *MetricPageSourceProvider) CreatePageSource(table spi.TableHandle) spi.PageSource {
 	return &MetricPageSource{
-		table:   table.(*MetricTableHandle),
+		table:   table.(*TableHandle),
 		decoder: encoding.GetTSDDecoder(),
 	}
 }
 
 type MetricPageSource struct {
-	table *MetricTableHandle
-	split *MetricScanSplit
+	table *TableHandle
+	split *ScanSplit
 
 	decoder *encoding.TSDDecoder
 }
 
 func (mps *MetricPageSource) AddSplit(split spi.Split) {
-	if metricScanSplit, ok := split.(*MetricScanSplit); ok {
+	if metricScanSplit, ok := split.(*ScanSplit); ok {
 		mps.split = metricScanSplit
 	}
 }
@@ -53,14 +53,13 @@ func (mps *MetricPageSource) GetNextPage() *spi.Page {
 	}()
 
 	dataLoadCtx := &flow.DataLoadContext{
-		ShardExecuteCtx:       mps.split.ShardExecuteContext,
-		Fields:                mps.split.Fields,
+		Fields:                mps.split.tableScan.fields,
 		LowSeriesIDsContainer: mps.split.LowSeriesIDsContainer,
 		SeriesIDHighKey:       mps.split.HighSeriesID,
 		IntervalRatio:         mps.table.IntervalRatio,
 		Interval:              mps.table.Interval,
-		IsMultiField:          len(mps.split.Fields) > 1,
-		IsGrouping:            mps.split.GroupingTags.Len() > 0,
+		IsMultiField:          len(mps.split.tableScan.fields) > 1,
+		IsGrouping:            mps.split.tableScan.hasGrouping(),
 		PendingDataLoadTasks:  atomic.NewInt32(0),
 		TimeRange:             mps.table.TimeRange,
 		Decoder:               mps.decoder,
@@ -76,8 +75,7 @@ func (mps *MetricPageSource) GetNextPage() *spi.Page {
 		dataLoadCtx.AggregatorSpecs[i] = b
 	}
 
-	// dataLoadCtx.PrepareAggregatorWithoutGrouping()
-	dataLoadCtx.Grouping()
+	dataLoadCtx.Prepare()
 
 	var loaders []flow.DataLoader
 	for i := range mps.split.ResultSet {
@@ -91,26 +89,13 @@ func (mps *MetricPageSource) GetNextPage() *spi.Page {
 	if len(loaders) == 0 {
 		return nil
 	}
-	if mps.split.ShardExecuteContext.GroupingContext != nil {
-		mps.split.ShardExecuteContext.GroupingContext.BuildGroup(dataLoadCtx)
+	if mps.split.tableScan.hasGrouping() {
+		// set collect grouping tag value ids func
+		dataLoadCtx.Grouping = mps.split.tableScan.grouping.CollectTagValueIDs
+		mps.split.groupingContext.BuildGroup(dataLoadCtx)
 	} else {
 		dataLoadCtx.PrepareAggregatorWithoutGrouping()
 	}
-
-	// min := dataLoadCtx.LowSeriesIDsContainer.Minimum()
-	// dataLoadCtx.MinSeriesID = min
-	// dataLoadCtx.MaxSeriesID = dataLoadCtx.LowSeriesIDsContainer.Maximum()
-	// lengthOfSeriesIDs := int(dataLoadCtx.MaxSeriesID-dataLoadCtx.MinSeriesID) + 1
-	// dataLoadCtx.LowSeriesIDs = make([]uint16, lengthOfSeriesIDs)
-	// if dataLoadCtx.IsGrouping {
-	// 	dataLoadCtx.GroupingSeriesAggRefs = make([]uint16, lengthOfSeriesIDs)
-	// }
-	// it := dataLoadCtx.LowSeriesIDsContainer.PeekableIterator()
-	// for it.HasNext() {
-	// 	lowSeriesID := it.Next()
-	// 	seriesIdx := lowSeriesID - min
-	// 	dataLoadCtx.LowSeriesIDs[seriesIdx] = lowSeriesID
-	// }
 
 	// for each low series ids
 	for _, loader := range loaders {
@@ -144,26 +129,43 @@ func (mps *MetricPageSource) GetNextPage() *spi.Page {
 	if dataLoadCtx.IsMultiField {
 		reduceAgg.Aggregate(dataLoadCtx.WithoutGroupingSeriesAgg.Aggregators.ResultSet(""))
 	} else {
-		if mps.split.GroupingTags.Len() > 0 {
+		if mps.split.tableScan.hasGrouping() {
 			for _, groupAgg := range dataLoadCtx.GroupingSeriesAgg {
-				reduceAgg.Aggregate(aggregation.FieldAggregates{groupAgg.Aggregator}.ResultSet(""))
+				reduceAgg.Aggregate(aggregation.FieldAggregates{groupAgg.Aggregator}.ResultSet(groupAgg.Key))
+				// TODO: reset
+				groupAgg.Aggregator.Reset()
 			}
 		} else {
 			reduceAgg.Aggregate(aggregation.FieldAggregates{dataLoadCtx.WithoutGroupingSeriesAgg.Aggregator}.ResultSet(""))
 		}
 	}
-	rs := reduceAgg.ResultSet()
+	// TODO: remove it?
+	mps.split.tableScan.grouping.CollectTagValues()
 
+	rs := reduceAgg.ResultSet()
 	return mps.buildOutputPage(rs)
 }
 
 func (mps *MetricPageSource) buildOutputPage(groupedSeriesList series.GroupedIterators) *spi.Page {
 	page := spi.NewPage()
+	hasGrouping := mps.split.tableScan.hasGrouping()
 	// TODO: refact
 	for _, groupedSeriesItr := range groupedSeriesList {
 		for groupedSeriesItr.HasNext() {
+			if hasGrouping {
+				groupingTags := mps.split.tableScan.grouping.tags
+				tagValueIDs := groupedSeriesItr.Tags()
+				tags := mps.split.tableScan.grouping.GetTagValues(tagValueIDs)
+				for idx, tag := range tags {
+					column := spi.NewColumn()
+					column.AppendString(tag)
+					page.AppendColumn(
+						spi.NewColumnInfo(groupingTags[idx].Key, types.DataTypeString),
+						column)
+				}
+			}
+
 			column := spi.NewColumn()
-			// TODO: parse tags
 			seriesItr := groupedSeriesItr.Next()
 			for seriesItr.HasNext() {
 				_, fieldIt := seriesItr.Next()
@@ -184,10 +186,8 @@ func (mps *MetricPageSource) buildOutputPage(groupedSeriesList series.GroupedIte
 			page.AppendColumn(
 				spi.NewColumnInfo(string(groupedSeriesItr.Next().FieldName()), types.DataTypeSum), // TODO: set type
 				column)
-			fmt.Println("add colll")
 		}
 	}
 
-	fmt.Println("return page.....")
 	return page
 }

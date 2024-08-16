@@ -185,8 +185,10 @@ func (index *metricIndexDatabase) GetSeriesIDsByTagValueIDs(tagKeyID tag.KeyID, 
 }
 
 // GetGroupingContext returns the context of group by
-func (index *metricIndexDatabase) GetGroupingContext(ctx *flow.ShardExecuteContext) error {
-	return index.forward.GetGroupingContext(ctx)
+func (index *metricIndexDatabase) GetGroupingContext(
+	groupingTags tag.Metas, seriesIDs *roaring.Bitmap,
+) (*roaring.Bitmap, flow.GroupingContext, error) {
+	return index.forward.GetGroupingContext(groupingTags, seriesIDs)
 }
 
 func (index *metricIndexDatabase) PrepareFlush() {
@@ -453,24 +455,20 @@ func (fi *forwardIndex) findSeriesIDsForTag(tagKeyID tag.KeyID) (*roaring.Bitmap
 }
 
 // GetGroupingContext returns the context of group by
-func (fi *forwardIndex) GetGroupingContext(ctx *flow.ShardExecuteContext) error {
+func (fi *forwardIndex) GetGroupingContext(
+	groupingTags tag.Metas, seriesIDs *roaring.Bitmap,
+) (*roaring.Bitmap, flow.GroupingContext, error) {
 	snapshot := fi.family.GetSnapshot()
 	defer snapshot.Close()
 
 	scannerMap := make(map[tag.KeyID][]flow.GroupingScanner)
-	tagKeyIDs := ctx.StorageExecuteCtx.GroupByTagKeyIDs
-	seriesIDs := ctx.SeriesIDsAfterFiltering
 	finalSeriesIDs := seriesIDs.Clone()
-	defer func() {
-		// maybe filtering some series ids that is result of filtering.
-		// if not found, return empty series ids.
-		ctx.SeriesIDsAfterFiltering = finalSeriesIDs
-	}()
-	for _, tagKeyID := range tagKeyIDs {
+
+	for _, groupingTag := range groupingTags {
 		// get grouping scanners by tag key
-		scanners, err := fi.getGroupingScanners(tagKeyID, seriesIDs, snapshot)
+		scanners, err := fi.getGroupingScanners(groupingTag.ID, seriesIDs, snapshot)
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
 		seriesIDsForCurrentTagKey := roaring.New()
 		for idx := range scanners {
@@ -478,14 +476,12 @@ func (fi *forwardIndex) GetGroupingContext(ctx *flow.ShardExecuteContext) error 
 		}
 		finalSeriesIDs.And(seriesIDsForCurrentTagKey)
 		if finalSeriesIDs.IsEmpty() {
-			return constants.ErrNotFound
+			return finalSeriesIDs, nil, constants.ErrNotFound
 		}
-		scannerMap[tagKeyID] = scanners
+		scannerMap[groupingTag.ID] = scanners
 	}
 
-	// set context for next execution stage of query
-	ctx.GroupingContext = flow.NewGroupContext(tagKeyIDs, scannerMap)
-	return nil
+	return finalSeriesIDs, flow.NewGroupContext(groupingTags, scannerMap), nil
 }
 
 // getGroupingScanners returns the grouping scanner list for tag key, need match series ids

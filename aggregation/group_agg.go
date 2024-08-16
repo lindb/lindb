@@ -93,7 +93,6 @@ func (ga *groupingAggregator) Aggregate(it series.GroupedIterator) {
 			}
 			aggregator := sAgg.getAggregator(startTime)
 			aggregator.Aggregate(fieldIt)
-			// fmt.Println("merge....")
 		}
 	}
 }

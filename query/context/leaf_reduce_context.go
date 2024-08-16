@@ -22,7 +22,6 @@ import (
 	"sync"
 
 	"github.com/cespare/xxhash/v2"
-
 	"github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/aggregation"
@@ -95,7 +94,7 @@ func (ctx *LeafReduceContext) BuildResultSet(leafNode *models.Target, receivers 
 		// during intermediate task, time series will be grouped by hash
 		// and send to multi intermediate receiver
 		// hash mod -> series list
-		var timeSeriesHashGroups = make([][]*protoCommonV1.TimeSeries, numOfReceivers)
+		timeSeriesHashGroups := make([][]*protoCommonV1.TimeSeries, numOfReceivers)
 		for _, ts := range timeSeriesList {
 			h := xxhash.Sum64String(ts.Tags)
 			index := int(h % uint64(numOfReceivers))
@@ -147,7 +146,7 @@ func (ctx *LeafReduceContext) makeTimeSeriesList() []*protoCommonV1.TimeSeries {
 			tags := ""
 			if hasGroupBy {
 				tagValueIDs := groupedSeriesItr.Tags() // returns tag value ids string value under leaf node.
-				tags = ctx.leafGroupingCtx.getTagValues(tagValueIDs)
+				tags = ctx.leafGroupingCtx.GetTagValues(tagValueIDs)
 			}
 			timeSeriesList = append(timeSeriesList, &protoCommonV1.TimeSeries{
 				Tags:   tags,

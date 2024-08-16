@@ -11,4 +11,5 @@ func init() {
 	jsoniter.RegisterTypeDecoder("types.Block", &encoding.JSONDecoder[Block]{})
 
 	encoding.RegisterNodeType(TimeSeries{})
+	encoding.RegisterNodeType(String(""))
 }

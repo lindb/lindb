@@ -7,8 +7,6 @@ import (
 type ColumnMetadata struct {
 	Name     string         `json:"name"`
 	DataType types.DataType `json:"type"`
-	// TODO: remove it
-	AggregateType types.AggregateType `json:"aggregateType,omitempty"`
 }
 
 func NewColumnInfo(name string, vt types.DataType) ColumnMetadata {
@@ -32,8 +30,18 @@ func (c *Column) AppendTimeSeries(val *types.TimeSeries) {
 	c.Length++
 }
 
+func (c *Column) AppendString(val string) {
+	v := types.String(val)
+	c.Blocks = append(c.Blocks, &v)
+	c.Length++
+}
+
 func (c *Column) GetString(row int) *types.String {
-	return nil
+	if row >= len(c.Blocks) {
+		return nil
+	}
+	// FIXME:
+	return c.Blocks[row].(*types.String)
 }
 
 func (c *Column) GetTimeSeries(row int) *types.TimeSeries {

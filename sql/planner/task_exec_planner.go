@@ -151,11 +151,12 @@ func (v *TaskExecutionPlanVisitor) visitTableScan(node *planpkg.TableScanNode, f
 	outputs := node.GetOutputSymbols()
 	columns := lo.Map(outputs, func(item *planpkg.Symbol, index int) spi.ColumnMetadata {
 		return spi.ColumnMetadata{
-			Name: item.Name,
-			// TODO: add data type
+			Name:     item.Name,
+			DataType: item.DataType,
 		}
 	})
 	splitSources := spi.GetSplitSourceProvider(node.Table).CreateSplitSources(node.Table, v.taskExecCtx.Partitions, columns, filter)
+	// TODO: check source split
 	planContext := context.(*TaskExecutionPlanContext)
 	planContext.SetSplitSources(splitSources)
 	planContext.SetLocalStore(true)

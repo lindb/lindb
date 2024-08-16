@@ -8,11 +8,11 @@ import (
 )
 
 type TaskExecutionPlanContext struct {
-	nextPipelineID  atomic.Int32
 	driverFactories []*pipeline.DriverFactory
 	splitSources    []spi.SplitSource
 
-	localStore bool
+	nextPipelineID atomic.Int32
+	localStore     bool
 }
 
 func NewTaskExecutionPlanContext(driverFactories []*pipeline.DriverFactory) *TaskExecutionPlanContext {
@@ -22,7 +22,7 @@ func NewTaskExecutionPlanContext(driverFactories []*pipeline.DriverFactory) *Tas
 }
 
 func (ctx *TaskExecutionPlanContext) AddDriverFactory(physicalOperation *PhysicalOperation) {
-	//FIXME: add lookup outer driver?
+	// FIXME: add lookup outer driver?
 	driverFct := pipeline.NewDriverFactory(ctx.nextPipelineID.Inc(), physicalOperation.operatorFactories)
 	ctx.driverFactories = append(ctx.driverFactories, driverFct)
 }

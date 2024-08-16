@@ -22,9 +22,8 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/atomic"
-
 	commonmodels "github.com/lindb/common/models"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/query/tracker"
 	"github.com/lindb/lindb/series/tag"
@@ -37,6 +36,7 @@ const (
 // LeafGroupingContext represents collect grouping tags context under lead node.
 type LeafGroupingContext struct {
 	leafExecuteCtx *LeafExecuteContext
+	LeafExecuteCtx *LeafExecuteContext
 
 	collectGroupingTagsCompleted chan struct{}       // collect completed signal
 	groupingRelatedTasks         atomic.Int32        // track how many tasks are pending
@@ -53,6 +53,7 @@ func NewLeafGroupingContext(leafExecuteCtx *LeafExecuteContext) *LeafGroupingCon
 	// if not grouping, create empty context just for check grouping related task completed.
 	ctx := &LeafGroupingContext{
 		leafExecuteCtx: leafExecuteCtx,
+		LeafExecuteCtx: leafExecuteCtx,
 	}
 	storageExecuteCtx := leafExecuteCtx.StorageExecuteCtx
 	groupByKenLen := len(storageExecuteCtx.Query.GroupBy)
@@ -109,7 +110,7 @@ func (ctx *LeafGroupingContext) collectGroupByTagValues() {
 			tagValueIDs := storageExecuteCtx.GroupingTagValueIDs[idx]
 			tagIndex := idx
 			if tagValueIDs == nil || tagValueIDs.IsEmpty() {
-				ctx.reduceTagValues(tagIndex, nil)
+				ctx.ReduceTagValues(tagIndex, nil)
 				continue
 			}
 
@@ -125,13 +126,13 @@ func (ctx *LeafGroupingContext) collectGroupByTagValues() {
 				ctx.leafExecuteCtx.SendResponse(err)
 				return
 			}
-			ctx.reduceTagValues(tagIndex, tagValues)
+			ctx.ReduceTagValues(tagIndex, tagValues)
 		}
 	})
 }
 
 // reduceTagValues reduces the group by tag values
-func (ctx *LeafGroupingContext) reduceTagValues(tagKeyIndex int, tagValues map[uint32]string) {
+func (ctx *LeafGroupingContext) ReduceTagValues(tagKeyIndex int, tagValues map[uint32]string) {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
 
@@ -143,7 +144,7 @@ func (ctx *LeafGroupingContext) reduceTagValues(tagKeyIndex int, tagValues map[u
 }
 
 // getTagValues returns grouping tag string values by tag value ids.
-func (ctx *LeafGroupingContext) getTagValues(tagValueIDs string) string {
+func (ctx *LeafGroupingContext) GetTagValues(tagValueIDs string) string {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
 
