@@ -1,3 +1,16 @@
+## [v0.4.1](https://github.com/lindb/lindb/releases/tag/v0.4.1) - 2024-08-16
+
+See [code changes](https://github.com/lindb/lindb/compare/v0.4.0...v0.4.1).
+
+### 🚀 New features
+
+- [enhance]: remove installation guides from release notes by @stone1100 in #1043
+
+### 🐛 Bug fixes
+
+- [bug]: fix cannot flush metric data when server shutdown by @stone1100 in #1044
+
+
 ## [v0.4.0](https://github.com/lindb/lindb/releases/tag/v0.4.0) - 2024-07-22
 
 See [code changes](https://github.com/lindb/lindb/compare/v0.3.1...v0.4.0).
