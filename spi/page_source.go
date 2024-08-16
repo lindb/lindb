@@ -11,12 +11,12 @@ type PageSource interface {
 
 type SplitSource interface {
 	Prepare()
-	HasSplit() bool
-	GetNextSplit() Split
+	HasNext() bool
+	Next() Split
 }
 
 type SplitSourceProvider interface {
-	CreateSplitSources(table TableHandle, partitions []int, columns []ColumnMetadata, filter tree.Expression) (splits []SplitSource)
+	CreateSplitSources(table TableHandle, partitions []int, outputColumns []ColumnMetadata, predicate tree.Expression) (splits []SplitSource)
 }
 
 type PageSourceProvider interface {

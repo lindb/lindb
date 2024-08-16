@@ -55,21 +55,23 @@ type Grouping interface {
 // GroupingBuilder represents grouping tag builder.
 type GroupingBuilder interface {
 	// GetGroupingContext returns the context of group by
-	GetGroupingContext(ctx *ShardExecuteContext) error
+	GetGroupingContext(
+		groupingTags tag.Metas, seriesIDs *roaring.Bitmap,
+	) (*roaring.Bitmap, GroupingContext, error)
 }
 
 // groupingContext represents the context of group by query for tag keys
 // builds tags => series ids mapping, using such as counting sort
 // https://en.wikipedia.org/wiki/Counting_sort
 type groupingContext struct {
-	tagKeys  []tag.KeyID
+	tags     tag.Metas // grouping tags
 	scanners map[tag.KeyID][]GroupingScanner
 }
 
 // NewGroupContext creates a GroupingContext
-func NewGroupContext(tagKeys []tag.KeyID, scanners map[tag.KeyID][]GroupingScanner) GroupingContext {
+func NewGroupContext(tags tag.Metas, scanners map[tag.KeyID][]GroupingScanner) GroupingContext {
 	return &groupingContext{
-		tagKeys:  tagKeys,
+		tags:     tags,
 		scanners: scanners,
 	}
 }
@@ -77,9 +79,9 @@ func NewGroupContext(tagKeys []tag.KeyID, scanners map[tag.KeyID][]GroupingScann
 // ScanTagValueIDs scans grouping context by high key/container of series ids,
 // then returns grouped tag value ids for each tag key
 func (g *groupingContext) ScanTagValueIDs(highKey uint16, container roaring.Container) []*roaring.Bitmap {
-	result := make([]*roaring.Bitmap, len(g.tagKeys))
-	for i, tagKey := range g.tagKeys {
-		scanners := g.scanners[tagKey]
+	result := make([]*roaring.Bitmap, len(g.tags))
+	for i, groupingTag := range g.tags {
+		scanners := g.scanners[groupingTag.ID]
 		tagValues := roaring.New()
 		result[i] = tagValues
 		for _, scanner := range scanners {
@@ -107,7 +109,7 @@ func (g *groupingContext) ScanTagValueIDs(highKey uint16, container roaring.Cont
 // BuildGroup builds the grouped series ids by the high key of series id
 // and the container includes low keys of series id.
 func (g *groupingContext) BuildGroup(ctx *DataLoadContext) {
-	if len(g.tagKeys) == 1 {
+	if g.tags.Len() == 1 {
 		g.buildGroupForSingleTag(ctx)
 	} else {
 		g.buildGroupForMultiTags(ctx)
@@ -116,9 +118,10 @@ func (g *groupingContext) BuildGroup(ctx *DataLoadContext) {
 
 // buildGroupForMultiTags builds grouping for multi-tags.
 func (g *groupingContext) buildGroupForMultiTags(ctx *DataLoadContext) {
-	tagSize := len(g.tagKeys)
+	tagSize := g.tags.Len()
 	tagValueIDsForGrouping := make([][]byte, len(ctx.LowSeriesIDs))
 	result := make(map[string]uint16)
+	groupingTagValueIDs := make([]*roaring.Bitmap, tagSize)
 	g.scanGroupingTags(ctx, func(seriesIdxFromQuery uint16, tagKeyIDIdx int, tagValueID uint32) {
 		tagValueIDs := tagValueIDsForGrouping[seriesIdxFromQuery]
 		if tagValueIDs == nil {
@@ -127,6 +130,12 @@ func (g *groupingContext) buildGroupForMultiTags(ctx *DataLoadContext) {
 		}
 		tagOffset := tagKeyIDIdx * 4
 		binary.LittleEndian.PutUint32(tagValueIDs[tagOffset:], tagValueID)
+
+		// add grouping tag value ids
+		if groupingTagValueIDs[tagKeyIDIdx] == nil {
+			groupingTagValueIDs[tagKeyIDIdx] = roaring.New()
+		}
+		groupingTagValueIDs[tagKeyIDIdx].Add(tagValueID)
 
 		if tagKeyIDIdx == tagSize-1 {
 			key := strutil.ByteSlice2String(tagValueIDs)
@@ -140,18 +149,24 @@ func (g *groupingContext) buildGroupForMultiTags(ctx *DataLoadContext) {
 			ctx.GroupingSeriesAggRefs[seriesIdxFromQuery] = aggIdx
 		}
 	})
+
+	// add grouping tag value ids
+	ctx.Grouping(groupingTagValueIDs)
 }
 
 // buildGroupForMultiTags builds grouping for single-tags.
 func (g *groupingContext) buildGroupForSingleTag(ctx *DataLoadContext) {
-	tagSize := len(g.tagKeys)
+	tagSize := g.tags.Len()
 	result := make(map[uint32]uint16)
+	tagValueIDs := roaring.New()
 	var scratch [4]byte
 	g.scanGroupingTags(ctx, func(seriesIdxFromQuery uint16, tagKeyIDIdx int, tagValueID uint32) {
 		if tagKeyIDIdx == tagSize-1 {
 			// last tag key
 			aggIdx, ok := result[tagValueID]
 			if !ok {
+				tagValueIDs.Add(tagValueID)
+
 				binary.LittleEndian.PutUint32(scratch[:], tagValueID)
 				groupingSeriesAggIdx := ctx.NewSeriesAggregator(string(scratch[:]))
 				aggIdx = groupingSeriesAggIdx
@@ -160,6 +175,9 @@ func (g *groupingContext) buildGroupForSingleTag(ctx *DataLoadContext) {
 			ctx.GroupingSeriesAggRefs[seriesIdxFromQuery] = aggIdx
 		}
 	})
+
+	// add grouping tag value ids
+	ctx.Grouping([]*roaring.Bitmap{tagValueIDs})
 }
 
 // scanGroupingTags scans grouping tags(series ids=>tag value ids)
@@ -167,8 +185,8 @@ func (g *groupingContext) scanGroupingTags(ctx *DataLoadContext,
 	fn func(seriesIdxFromQuery uint16, tagKeyIDIdx int, tagValueID uint32),
 ) {
 	seriesIDHighKey := ctx.SeriesIDHighKey
-	for tagKeyIdx, tagKey := range g.tagKeys {
-		scanners := g.scanners[tagKey]
+	for tagKeyIdx, groupingTag := range g.tags {
+		scanners := g.scanners[groupingTag.ID]
 		for _, scanner := range scanners {
 			lowSeriesIDs, tagValueIDs := scanner.GetSeriesAndTagValue(seriesIDHighKey)
 			if lowSeriesIDs == nil {

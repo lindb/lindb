@@ -669,11 +669,9 @@ func (f *dataFamily) flushMemoryDatabase(sequences map[int32]int64, memDB memdb.
 	for leader, seq := range sequences {
 		flusher.Sequence(leader, seq)
 	}
-	fmt.Println("ffffffffffffffff.....")
 
 	dataFlusher, err := newMetricDataFlusher(flusher)
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
 	// flush family data

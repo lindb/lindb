@@ -185,8 +185,8 @@ func (r *runtime) Run() error {
 	}
 	r.engine = engine
 
-	spi.RegisterSplitSourceProvider(&metric.MetricTableHandle{}, metric.NewMetricSplitSourceProvider(engine))
-	spi.RegisterPageSourceProvider(&metric.MetricTableHandle{}, metric.NewMetricPageSourceProvider())
+	spi.RegisterSplitSourceProvider(&metric.TableHandle{}, metric.NewSplitSourceProvider(engine))
+	spi.RegisterPageSourceProvider(&metric.TableHandle{}, metric.NewMetricPageSourceProvider())
 
 	hostName, err := hostName()
 	if err != nil {

@@ -19,7 +19,6 @@ package flow
 
 import (
 	"context"
-	"encoding/binary"
 	"sort"
 	"sync"
 	"time"
@@ -292,6 +291,7 @@ type DataLoadContext struct {
 
 	Decoder      *encoding.TSDDecoder
 	DownSampling func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, getter encoding.TSDValueGetter)
+	Grouping     func(tagValueIDs []*roaring.Bitmap)
 
 	PendingDataLoadTasks *atomic.Int32
 
@@ -318,15 +318,6 @@ func (ctx *DataLoadContext) NewSeriesAggregator(groupingKey string) uint16 {
 	groupingSeriesAgg := &GroupingSeriesAgg{
 		Key: groupingKey,
 	}
-	tagsData := []byte(groupingKey)
-	var tagValueIDs []uint32
-	for idx := range ctx.ShardExecuteCtx.StorageExecuteCtx.GroupByTagKeyIDs {
-		offset := idx * 4
-		tagValueID := binary.LittleEndian.Uint32(tagsData[offset:])
-		tagValueIDs = append(tagValueIDs, tagValueID)
-	}
-	ctx.ShardExecuteCtx.StorageExecuteCtx.collectGroupingTagValueIDs(tagValueIDs)
-
 	if ctx.IsMultiField {
 		groupingSeriesAgg.Aggregators = ctx.newSeriesAggregators()
 	} else {
@@ -382,8 +373,8 @@ func (ctx *DataLoadContext) GetSeriesAggregator(lowSeriesIdx uint16, fieldIdx in
 	return groupingSeriesAgg.Aggregator
 }
 
-// Grouping prepares context for grouping query.
-func (ctx *DataLoadContext) Grouping() {
+// Prepare prepares context for grouping query.
+func (ctx *DataLoadContext) Prepare() {
 	min := ctx.LowSeriesIDsContainer.Minimum()
 	ctx.MinSeriesID = min
 	ctx.MaxSeriesID = ctx.LowSeriesIDsContainer.Maximum()
