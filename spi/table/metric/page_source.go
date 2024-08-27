@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/samber/lo"
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/aggregation"
@@ -23,9 +24,10 @@ func NewMetricPageSourceProvider() *MetricPageSourceProvider {
 	return &MetricPageSourceProvider{}
 }
 
-func (p *MetricPageSourceProvider) CreatePageSource(table spi.TableHandle) spi.PageSource {
+func (p *MetricPageSourceProvider) CreatePageSource(table spi.TableHandle, outputs []spi.ColumnMetadata) spi.PageSource {
 	return &MetricPageSource{
 		table:   table.(*TableHandle),
+		outputs: outputs,
 		decoder: encoding.GetTSDDecoder(),
 	}
 }
@@ -35,6 +37,8 @@ type MetricPageSource struct {
 	split *ScanSplit
 
 	decoder *encoding.TSDDecoder
+
+	outputs []spi.ColumnMetadata
 }
 
 func (mps *MetricPageSource) AddSplit(split spi.Split) {
@@ -56,13 +60,14 @@ func (mps *MetricPageSource) GetNextPage() *spi.Page {
 		Fields:                mps.split.tableScan.fields,
 		LowSeriesIDsContainer: mps.split.LowSeriesIDsContainer,
 		SeriesIDHighKey:       mps.split.HighSeriesID,
-		IntervalRatio:         mps.table.IntervalRatio,
-		Interval:              mps.table.Interval,
-		IsMultiField:          len(mps.split.tableScan.fields) > 1,
-		IsGrouping:            mps.split.tableScan.hasGrouping(),
-		PendingDataLoadTasks:  atomic.NewInt32(0),
-		TimeRange:             mps.table.TimeRange,
-		Decoder:               mps.decoder,
+
+		TimeRange:            mps.table.TimeRange,
+		IntervalRatio:        mps.table.IntervalRatio,
+		Interval:             mps.table.Interval,
+		IsMultiField:         mps.split.tableScan.fields.Len() > 1,
+		IsGrouping:           mps.split.tableScan.hasGrouping(),
+		PendingDataLoadTasks: atomic.NewInt32(0),
+		Decoder:              mps.decoder,
 	}
 	dataLoadCtx.DownSamplingSpecs = make(aggregation.AggregatorSpecs, len(dataLoadCtx.Fields))
 	dataLoadCtx.AggregatorSpecs = make(aggregation.AggregatorSpecs, len(dataLoadCtx.Fields))
@@ -80,6 +85,7 @@ func (mps *MetricPageSource) GetNextPage() *spi.Page {
 	var loaders []flow.DataLoader
 	for i := range mps.split.ResultSet {
 		rs := mps.split.ResultSet[i]
+		// check series ids if match
 		loader := rs.Load(dataLoadCtx)
 		if loader != nil {
 			loaders = append(loaders, loader)
@@ -102,6 +108,7 @@ func (mps *MetricPageSource) GetNextPage() *spi.Page {
 		var familyTime int64
 		// load field series data by series ids
 		dataLoadCtx.DownSampling = func(slotRange timeutil.SlotRange, lowSeriesIdx uint16, fieldIdx int, getter encoding.TSDValueGetter) {
+			fmt.Printf("low series id=%d\n", lowSeriesIdx)
 			seriesAggregator := dataLoadCtx.GetSeriesAggregator(lowSeriesIdx, fieldIdx)
 
 			agg := seriesAggregator.GetAggregator(familyTime)
@@ -148,25 +155,39 @@ func (mps *MetricPageSource) GetNextPage() *spi.Page {
 
 func (mps *MetricPageSource) buildOutputPage(groupedSeriesList series.GroupedIterators) *spi.Page {
 	page := spi.NewPage()
+	var (
+		fields          []*spi.Column
+		grouping        []*spi.Column
+		groupingIndexes []int
+	)
+	for idx, output := range mps.outputs {
+		column := spi.NewColumn()
+		page.AppendColumn(output, column)
+		if lo.ContainsBy(mps.split.tableScan.fields, func(item field.Meta) bool {
+			return item.Name.String() == output.Name
+		}) {
+			fields = append(fields, column)
+		} else {
+			grouping = append(grouping, column)
+			groupingIndexes = append(groupingIndexes, idx)
+		}
+	}
+	// set grouping columns' index
+	page.SetGrouping(groupingIndexes)
+
 	hasGrouping := mps.split.tableScan.hasGrouping()
-	// TODO: refact
 	for _, groupedSeriesItr := range groupedSeriesList {
 		for groupedSeriesItr.HasNext() {
 			if hasGrouping {
-				groupingTags := mps.split.tableScan.grouping.tags
 				tagValueIDs := groupedSeriesItr.Tags()
 				tags := mps.split.tableScan.grouping.GetTagValues(tagValueIDs)
 				for idx, tag := range tags {
-					column := spi.NewColumn()
-					column.AppendString(tag)
-					page.AppendColumn(
-						spi.NewColumnInfo(groupingTags[idx].Key, types.DataTypeString),
-						column)
+					grouping[idx].AppendString(tag)
 				}
 			}
 
-			column := spi.NewColumn()
 			seriesItr := groupedSeriesItr.Next()
+			fieldIdx := 0
 			for seriesItr.HasNext() {
 				_, fieldIt := seriesItr.Next()
 				for fieldIt.HasNext() {
@@ -179,13 +200,10 @@ func (mps *MetricPageSource) buildOutputPage(groupedSeriesList series.GroupedIte
 						timeSeries.Put(timestamp, value)
 					}
 
-					column.AppendTimeSeries(timeSeries)
+					fields[fieldIdx].AppendTimeSeries(timeSeries)
+					fieldIdx++
 				}
 			}
-
-			page.AppendColumn(
-				spi.NewColumnInfo(string(groupedSeriesItr.Next().FieldName()), types.DataTypeSum), // TODO: set type
-				column)
 		}
 	}
 

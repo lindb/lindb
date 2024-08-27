@@ -102,6 +102,7 @@ func (msp *SplitSourceProvider) findPartitions(tableScan *TableScan, partitionID
 	for _, id := range partitionIDs {
 		shard, ok := tableScan.db.GetShard(models.ShardID(id))
 		if ok {
+			// TODO: use storage interval?
 			dataFamilies := shard.GetDataFamilies(tableScan.interval.Type(), tableScan.timeRange)
 			if len(dataFamilies) > 0 {
 				partitions = append(partitions, &Partition{
@@ -133,15 +134,6 @@ func (msp *SplitSourceProvider) CreateSplitSources(table spi.TableHandle, partit
 	tableScan.predicate = predicate
 	tableScan.lookupColumnValues()
 	// TODO: if grouping start tag value collect
-
-	// init grouping tag value collection, need cache found grouping tag value id
-	// stargetCtx.GroupingTagValueIDs = make([]*roaring.Bitmap, lengthOfGroupByTagKeys)
-
-	// all shard pending query tasks and grouping task completed, start collect tag values
-	// leafCtx := context.NewLeafGroupingContext(&context.LeafExecuteContext{
-	// 	// StorageExecuteCtx: stargetCtx,
-	// 	Database: tableScan.db,
-	// })
 
 	for i := range partitions {
 		splits = append(splits, NewSplitSource(tableScan, partitions[i]))
@@ -250,6 +242,7 @@ func (mss *SplitSource) Prepare() {
 		mss.seriesIDs = seriesIDsAfterGrouping
 		mss.groupingContext = groupingContext
 	}
+	fmt.Printf("final series id=%s\n", mss.seriesIDs)
 
 	mss.highKeys = mss.seriesIDs.GetHighKeys()
 }

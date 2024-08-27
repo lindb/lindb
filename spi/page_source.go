@@ -20,7 +20,7 @@ type SplitSourceProvider interface {
 }
 
 type PageSourceProvider interface {
-	CreatePageSource(table TableHandle) PageSource
+	CreatePageSource(table TableHandle, outputs []ColumnMetadata) PageSource
 }
 
 type PageSourceManager struct{}

@@ -31,7 +31,7 @@ func (p *Page) NumRows() int {
 		return 0
 	}
 	// TODO: select rows/no column
-	return p.Columns[0].Length
+	return p.Columns[0].NumOfRows
 }
 
 func (p *Page) Iterator() *Iterator4Page {

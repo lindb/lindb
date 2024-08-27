@@ -268,11 +268,10 @@ func (agg *GroupingSeriesAgg) reduce(reduceFn func(it series.GroupedIterator)) {
 
 // DataLoadContext represents data load level query execute context.
 type DataLoadContext struct {
-	ShardExecuteCtx *ShardExecuteContext
-	Fields          field.Metas
-	Interval        timeutil.Interval
-	IntervalRatio   int
-	TimeRange       timeutil.TimeRange
+	Fields        field.Metas
+	Interval      timeutil.Interval
+	IntervalRatio int
+	TimeRange     timeutil.TimeRange
 
 	// range of min/max low series id
 	// if no grouping value is low series ids

@@ -149,17 +149,17 @@ func (v *TaskExecutionPlanVisitor) visitScanFilterAndProjection(context any, sou
 
 func (v *TaskExecutionPlanVisitor) visitTableScan(node *planpkg.TableScanNode, filter tree.Expression, context any) operator.OperatorFactory {
 	outputs := node.GetOutputSymbols()
-	columns := lo.Map(outputs, func(item *planpkg.Symbol, index int) spi.ColumnMetadata {
+	outputColumns := lo.Map(outputs, func(item *planpkg.Symbol, index int) spi.ColumnMetadata {
 		return spi.ColumnMetadata{
 			Name:     item.Name,
 			DataType: item.DataType,
 		}
 	})
-	splitSources := spi.GetSplitSourceProvider(node.Table).CreateSplitSources(node.Table, v.taskExecCtx.Partitions, columns, filter)
+	splitSources := spi.GetSplitSourceProvider(node.Table).CreateSplitSources(node.Table, v.taskExecCtx.Partitions, outputColumns, filter)
 	// TODO: check source split
 	planContext := context.(*TaskExecutionPlanContext)
 	planContext.SetSplitSources(splitSources)
 	planContext.SetLocalStore(true)
 
-	return scan.NewTableScanOperatorFactory(node.GetNodeID(), node.Table, filter)
+	return scan.NewTableScanOperatorFactory(node.GetNodeID(), node.Table, outputColumns, filter)
 }
