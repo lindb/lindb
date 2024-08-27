@@ -17,8 +17,8 @@ func NewColumnInfo(name string, vt types.DataType) ColumnMetadata {
 }
 
 type Column struct {
-	Blocks []types.Block `json:"block"`
-	Length int           `json:"length"`
+	Blocks    []types.Block `json:"block"`
+	NumOfRows int           `json:"numOfRows"`
 }
 
 func NewColumn() *Column {
@@ -27,13 +27,13 @@ func NewColumn() *Column {
 
 func (c *Column) AppendTimeSeries(val *types.TimeSeries) {
 	c.Blocks = append(c.Blocks, val)
-	c.Length++
+	c.NumOfRows++
 }
 
 func (c *Column) AppendString(val string) {
 	v := types.String(val)
 	c.Blocks = append(c.Blocks, &v)
-	c.Length++
+	c.NumOfRows++
 }
 
 func (c *Column) GetString(row int) *types.String {

@@ -46,6 +46,7 @@ func (t *TableHandle) String() string {
 	return fmt.Sprintf("%s:%s:%s", t.Database, t.Namespace, t.Metric)
 }
 
+// scan by low series ids
 type ScanSplit struct {
 	LowSeriesIDsContainer roaring.Container
 	tableScan             *TableScan

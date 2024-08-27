@@ -105,7 +105,7 @@ func (stage *shardScanStage) NextStages() (stages []Stage) {
 		// grouping based on group by tag keys for each low series container
 		lowSeriesIDs := seriesIDs.GetContainerAtIndex(highSeriesIDIdx)
 		dataLoadCtx := &flow.DataLoadContext{
-			ShardExecuteCtx:       shardExecuteContext,
+			// ShardExecuteCtx:       shardExecuteContext,
 			LowSeriesIDsContainer: lowSeriesIDs,
 			SeriesIDHighKey:       seriesIDsHighKeys[highSeriesIDIdx],
 			IsMultiField:          len(shardExecuteContext.StorageExecuteCtx.Fields) > 1,

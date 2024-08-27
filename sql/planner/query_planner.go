@@ -45,6 +45,7 @@ func (p *QueryPlanner) planQuery(node *tree.Query) *RelationPlan {
 	// FIXME:>>>>> order/limit
 
 	builder = builder.appendProjections(outputs)
+	fmt.Printf("query plan outputs==%v\n", outputs)
 
 	return &RelationPlan{
 		Root:          builder.root,

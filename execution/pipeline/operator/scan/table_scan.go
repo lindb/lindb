@@ -14,20 +14,26 @@ type TableScanOperatorFactory struct {
 	table  spi.TableHandle
 	filter tree.Expression
 
+	outputs []spi.ColumnMetadata
+
 	sourceID plan.PlanNodeID
 }
 
-func NewTableScanOperatorFactory(sourceID plan.PlanNodeID, table spi.TableHandle, filter tree.Expression) operator.OperatorFactory {
+func NewTableScanOperatorFactory(sourceID plan.PlanNodeID,
+	table spi.TableHandle, outputs []spi.ColumnMetadata,
+	filter tree.Expression,
+) operator.OperatorFactory {
 	return &TableScanOperatorFactory{
 		sourceID: sourceID,
 		table:    table,
+		outputs:  outputs,
 		filter:   filter,
 	}
 }
 
 func (fct *TableScanOperatorFactory) CreateOperator() operator.Operator {
 	provider := spi.GetPageSourceProvider(fct.table)
-	return NewTableScanOperator(fct.sourceID, provider.CreatePageSource(fct.table))
+	return NewTableScanOperator(fct.sourceID, provider.CreatePageSource(fct.table, fct.outputs))
 }
 
 type TableScanOperator struct {
