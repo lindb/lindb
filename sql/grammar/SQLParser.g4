@@ -3,7 +3,10 @@ parser grammar SQLParser;
 options {
     tokenVocab = SQLLexer;
 }
-
+// debug:(-gui/-tree)
+// antlr4-parse SQLParser.g4 SQLLexer.g4 statement -gui
+// select 10*(idle+10*5)/10,node from cpu group by node
+// ^D
 statement           : ddlStatement
                     | dmlStatement
                     | adminStatement
@@ -132,12 +135,8 @@ booleanExpression   : notOperator = (NOT | '!') booleanExpression           #log
                     | predicate                                             #predicatedExpression
                     ;
 valueExpression     : primaryExpression                                     #valueExpressionDefault
-                    | left=valueExpression 
-					    operator=(ASTERISK | SLASH | PERCENT)
-					  right=valueExpression                                 #arithmeticBinary
-                    | left=valueExpression 
-					    operator=(PLUS | MINUS) 
-					  right=valueExpression                                 #arithmeticBinary
+                    | left=valueExpression operator=(ASTERISK | SLASH | PERCENT) right=valueExpression  #arithmeticBinary
+                    | left=valueExpression operator=(PLUS | MINUS) right=valueExpression                #arithmeticBinary
                     ;
 primaryExpression   : 
                     number                                                  #numericLiteral

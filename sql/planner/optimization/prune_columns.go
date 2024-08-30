@@ -1,21 +1,23 @@
 package optimization
 
 import (
+	"fmt"
+
 	"github.com/samber/lo"
 
 	planpkg "github.com/lindb/lindb/sql/planner/plan"
 )
 
-type PruneOutputs struct{}
+type PruneColumns struct{}
 
-func NewPruneOutputs() PlanOptimizer {
-	return &PruneOutputs{}
+func NewPruneColumns() PlanOptimizer {
+	return &PruneColumns{}
 }
 
 // Optimize implements PlanOptimizer
-func (opt *PruneOutputs) Optimize(node planpkg.PlanNode, idAllocator *planpkg.PlanNodeIDAllocator) planpkg.PlanNode {
+func (opt *PruneColumns) Optimize(node planpkg.PlanNode, idAllocator *planpkg.PlanNodeIDAllocator) planpkg.PlanNode {
 	outputs := node.GetOutputSymbols()
-	result := node.Accept(outputs, &PruneOutputsVisitor{
+	result := node.Accept(outputs, &PruneColumnsVisitor{
 		idAllocator: idAllocator,
 	})
 	if r, ok := result.(planpkg.PlanNode); ok {
@@ -25,12 +27,13 @@ func (opt *PruneOutputs) Optimize(node planpkg.PlanNode, idAllocator *planpkg.Pl
 	return node
 }
 
-type PruneOutputsVisitor struct {
+type PruneColumnsVisitor struct {
 	idAllocator *planpkg.PlanNodeIDAllocator
 }
 
-func (v *PruneOutputsVisitor) Visit(context any, n planpkg.PlanNode) (r any) {
+func (v *PruneColumnsVisitor) Visit(context any, n planpkg.PlanNode) (r any) {
 	permittedOutputs := context.([]*planpkg.Symbol)
+	fmt.Printf("table scan permitted outputs,%T=%v\n", n, permittedOutputs)
 	switch node := n.(type) {
 	case *planpkg.ProjectionNode:
 		restrictedOutputs := restrictOutputs(node, permittedOutputs)
@@ -42,7 +45,7 @@ func (v *PruneOutputsVisitor) Visit(context any, n planpkg.PlanNode) (r any) {
 	}
 
 	for _, child := range n.GetSources() {
-		child.Accept(context, v)
+		child.Accept(n.GetOutputSymbols(), v)
 	}
 	return n
 }

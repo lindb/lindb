@@ -6,6 +6,7 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/sql/planner/plan"
+	"github.com/lindb/lindb/sql/tree"
 )
 
 func deriveProps(node plan.PlanNode, inputProperties []*ActualProps) *ActualProps {
@@ -40,9 +41,22 @@ func (v *PropertyDerivationVisitor) Visit(context any, n plan.PlanNode) (r any) 
 		return v.visitExchangeNode(inputProperties, node)
 	case *plan.TableScanNode:
 		return v.visitTableScan(inputProperties, node)
+	case *plan.ProjectionNode:
+		return v.visitProjection(inputProperties, node)
 	default:
 		panic(fmt.Sprintf("impl prop derivation visitor %T", n))
 	}
+}
+
+func (v *PropertyDerivationVisitor) visitProjection(inputProperties []*ActualProps, node *plan.ProjectionNode) *ActualProps {
+	props := inputProperties[0]
+	identities := computeIdentityTranslations(node.Assignments)
+	// TODO: expression rewrite
+	translated := props.translate(func(symbol *plan.Symbol) *plan.Symbol {
+		return identities[symbol.Name]
+	})
+	// FIXME: add constant
+	return BuilderFrom(translated).Build()
 }
 
 func (v *PropertyDerivationVisitor) visitOutput(inputProperties []*ActualProps, node *plan.OutputNode) *ActualProps {
@@ -80,4 +94,14 @@ func (v *PropertyDerivationVisitor) visitExchangeNode(inputProperties []*ActualP
 	default:
 		panic("unknonw exchange type")
 	}
+}
+
+func computeIdentityTranslations(assigments plan.Assignments) map[string]*plan.Symbol {
+	inputToOutput := make(map[string]*plan.Symbol)
+	for _, assignment := range assigments {
+		if symbolRef, ok := assignment.Expression.(*tree.SymbolReference); ok {
+			inputToOutput[plan.SymbolFrom(symbolRef).Name] = assignment.Symbol
+		}
+	}
+	return inputToOutput
 }

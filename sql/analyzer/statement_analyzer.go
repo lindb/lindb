@@ -443,33 +443,37 @@ func (v *StatementVisitor) analyzeGroupingOperations(node *tree.QuerySpecificati
 	outputExpressions, orderByExpressions []tree.Expression) {
 }
 
-func (v *StatementVisitor) analyzeAggregations(node *tree.QuerySpecification, sourceScope, orderByScope *Scope,
+func (v *StatementVisitor) analyzeAggregations(query *tree.QuerySpecification, sourceScope, orderByScope *Scope,
 	groupByAnalysis *GroupingSetAnalysis, outputExpressions, orderByExpressions []tree.Expression,
 ) {
 	var expr []tree.Expression
 	expr = append(expr, outputExpressions...)
 	expr = append(expr, orderByExpressions...)
+	var functions []*tree.FunctionCall
 	// TODO:
-	ExtractAggregationFunctions(expr, v.analyzer.funcionResolver)
-	for _, selectExpr := range outputExpressions {
-		if ident, ok := selectExpr.(*tree.Identifier); ok {
+	ExtractAggregationFunctions(expr, func(node tree.Node) {
+		if ident, ok := node.(*tree.Identifier); ok {
 			// transfer filed builtin aggregation
 			resolvedField := sourceScope.resolveField(node, tree.NewQualifiedName([]*tree.Identifier{ident}), true)
 			if resolvedField.Field.DataType.CanAggregatin() {
 				fn := &tree.FunctionCall{
-					Name:      tree.QualifiedName{Suffix: resolvedField.Field.DataType.String()},
-					Arguments: []tree.Expression{selectExpr},
-					RefField:  resolvedField.Field,
+					Name: tree.QualifiedName{Suffix: resolvedField.Field.DataType.String()},
+					Arguments: []tree.Expression{&tree.SymbolReference{
+						Name:     resolvedField.Field.Name,
+						DataType: resolvedField.Field.DataType,
+					}},
+					RefField: resolvedField.Field,
 				}
-				v.analyzer.ctx.Analysis.SetAggregates(node, []*tree.FunctionCall{fn})
+				functions = append(functions, fn)
 				resolvedFn := v.analyzer.funcionResolver.ResolveFunction(&fn.Name)
 				v.analyzer.ctx.Analysis.AddResolvedFunction(fn, resolvedFn)
 				v.analyzer.ctx.Analysis.AddType(fn, resolvedFn.Signature.ReturnType)
 			}
 		}
-	}
+	})
+	v.analyzer.ctx.Analysis.SetAggregates(query, functions) // TODO: remove
 	// TODO: extract agg func
-	if v.analyzer.ctx.Analysis.IsGroupingSets(node) {
+	if v.analyzer.ctx.Analysis.IsGroupingSets(query) {
 		// ensure SELECT, ORDER BY and HAVING are constant with respect to group
 		// e.g, these are all valid expressions:
 		//     SELECT f(a) GROUP BY a
@@ -485,11 +489,13 @@ func (v *StatementVisitor) analyzeAggregations(node *tree.QuerySpecification, so
 }
 
 func (v *StatementVisitor) analyzeHaving(node *tree.QuerySpecification, scope *Scope) {
+	// FIXME:impl it
 }
 
 func (v *StatementVisitor) analyzeOrderBy(node tree.Node,
 	sortItems []*tree.SortItem, orderByScope *Scope,
 ) (orderByExpressions []tree.Expression) {
+	// FIXME:impl it
 	return
 }
 

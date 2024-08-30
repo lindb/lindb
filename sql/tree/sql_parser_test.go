@@ -307,3 +307,9 @@ func TestSQLParser_QueryStatement(t *testing.T) {
 		})
 	}
 }
+
+func TestSQLParse(t *testing.T) {
+	parser := GetParser()
+	_, err := parser.CreateStatement(`select 12*(idle*10+100)/10,node from "lindb.monitor.system.cpu_stat" group by node`, NewNodeIDAllocator())
+	assert.NoError(t, err)
+}

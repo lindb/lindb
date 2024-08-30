@@ -41,6 +41,8 @@ func (dt DataType) String() string {
 	switch dt {
 	case DataTypeString:
 		return "string"
+	case DataTypeFloat:
+		return "float"
 	case DataTypeSum:
 		return "sum"
 	case DataTypeMin:
@@ -70,6 +72,8 @@ func (tv *DataType) UnmarshalJSON(data []byte) error {
 	switch str {
 	case "string":
 		*tv = DataTypeString
+	case "float":
+		*tv = DataTypeFloat
 	case "sum":
 		*tv = DataTypeSum
 	case "min":

@@ -1,4 +1,4 @@
-// Code generated from ./sql/grammar/SQLLexer.g4 by ANTLR 4.13.1. DO NOT EDIT.
+// Code generated from ./sql/grammar/SQLLexer.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package grammar
 

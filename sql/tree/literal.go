@@ -1,6 +1,9 @@
 package tree
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
 
 type Literal interface {
 	Node
@@ -40,11 +43,13 @@ type LongLiteral struct {
 }
 
 func NewLongLiteral(location *NodeLocation, value string) *LongLiteral {
-	// TODO: parse value
+	// TODO: check error
+	val, _ := strconv.ParseInt(value, 10, 64)
 	return &LongLiteral{
 		BaseNode: BaseNode{
 			Location: location,
 		},
+		Value: val,
 	}
 }
 

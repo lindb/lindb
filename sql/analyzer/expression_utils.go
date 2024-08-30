@@ -1,7 +1,6 @@
 package analyzer
 
 import (
-	"github.com/lindb/lindb/spi/function"
 	"github.com/lindb/lindb/sql/tree"
 )
 
@@ -31,15 +30,11 @@ func ExtractPredicates(operator tree.LogicalOperator, expression tree.Expression
 	return result
 }
 
-func ExtractAggregationFunctions(nodes []tree.Expression, functionResolver *function.FunctionResolver) []tree.FunctionCall {
-	for _, node := range nodes {
-		linearizeNodes(node)
+func ExtractAggregationFunctions(nodes []tree.Expression, handle func(node tree.Node)) {
+	visitor := &tree.DefaultTraversalVisitor{
+		Process: handle,
 	}
-	return nil
-}
-
-func linearizeNodes(node tree.Expression) []tree.Expression {
-	visitor := &tree.DefaultTraversalVisitor{}
-	visitor.Visit(nil, node)
-	return nil
+	for _, node := range nodes {
+		visitor.Visit(nil, node)
+	}
 }

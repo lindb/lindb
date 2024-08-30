@@ -38,7 +38,7 @@ func NewFormatVisitor() Visitor {
 func (v *FormatVisitor) Visit(context any, n Node) any {
 	switch node := n.(type) {
 	case *ComparisonExpression:
-		return v.formatBinaryExpression(node.Operator, node.Left, node.Right)
+		return v.formatBinaryExpression(string(node.Operator), node.Left, node.Right)
 	case *DereferenceExpression:
 		return v.visitDereferenceExpression(context, node)
 	case *SymbolReference:
@@ -50,6 +50,10 @@ func (v *FormatVisitor) Visit(context any, n Node) any {
 		return v.visitIdentifier(context, node)
 	case *StringLiteral:
 		return v.formatStringLiteral(node.Value)
+	case *LongLiteral:
+		return fmt.Sprintf("%d", node.Value)
+	case *ArithmeticBinaryExpression:
+		return v.formatBinaryExpression(node.Operator, node.Left, node.Right)
 	case *Cast:
 		return "Cast need impl"
 	default:
@@ -75,8 +79,8 @@ func (v *FormatVisitor) visitIdentifier(context any, node *Identifier) (r any) {
 	return node.Value
 }
 
-func (v *FormatVisitor) formatBinaryExpression(operator ComparisonOperator, left, right Expression) any {
-	return fmt.Sprintf("(%v %s %v)", left.Accept(v, nil), operator, right.Accept(v, nil))
+func (v *FormatVisitor) formatBinaryExpression(operator string, left, right Expression) any {
+	return fmt.Sprintf("(%v %s %v)", left.Accept(nil, v), operator, right.Accept(nil, v))
 }
 
 func (v *FormatVisitor) formatStringLiteral(s string) string {

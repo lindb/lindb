@@ -5,7 +5,9 @@ import (
 
 	lo "github.com/samber/lo"
 
+	"github.com/lindb/lindb/sql/planner"
 	"github.com/lindb/lindb/sql/planner/plan"
+	"github.com/lindb/lindb/sql/tree"
 )
 
 func restrictOutputs(idAllcator *plan.PlanNodeIDAllocator, node plan.PlanNode, permittedOutputs []*plan.Symbol) plan.PlanNode {
@@ -57,4 +59,19 @@ func restrictChildOutputs(idAllcator *plan.PlanNodeIDAllocator, node plan.PlanNo
 	}
 
 	return node.ReplaceChildren(newChildren)
+}
+
+func pruneInputs(availableInputs []*plan.Symbol, expressions []tree.Expression) []*plan.Symbol {
+	symbols := planner.ExtractSymbolsFromExpressions(expressions)
+
+	prunedInputs := lo.Filter(availableInputs, func(input *plan.Symbol, index int) bool {
+		return lo.ContainsBy(symbols, func(item *plan.Symbol) bool {
+			return item.Name == input.Name
+		})
+	})
+	fmt.Printf("prune inputs..=%v====,%v====%v====%v\n", symbols, availableInputs, prunedInputs, expressions)
+	if len(prunedInputs) == len(availableInputs) {
+		return nil
+	}
+	return prunedInputs
 }

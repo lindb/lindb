@@ -31,6 +31,7 @@ func NewAstVisitor(idAllocator *NodeIDAllocator) *AstVisitor {
 }
 
 func (v *AstVisitor) Visit(ctx antlr.ParseTree) any {
+	fmt.Printf("visit tree node=%T\n", ctx)
 	return ctx.Accept(v)
 }
 
@@ -258,6 +259,7 @@ func (v *AstVisitor) VisitSelectAll(ctx *grammar.SelectAllContext) any {
 }
 
 func (v *AstVisitor) VisitSelectSingle(ctx *grammar.SelectSingleContext) any {
+	fmt.Printf("single select=%T\n", ctx.Expression())
 	expression := v.Visit(ctx.Expression()).(Expression)
 	return &SingleColumn{
 		BaseNode: BaseNode{
@@ -523,10 +525,6 @@ func (v *AstVisitor) flatten(root antlr.ParserRuleContext, extractChildren func(
 	return
 }
 
-func (v *AstVisitor) VisitPredicatedExpression(ctx *grammar.PredicatedExpressionContext) any {
-	return v.Visit(ctx.Predicate())
-}
-
 func (v *AstVisitor) VisitParenExpression(ctx *grammar.ParenExpressionContext) any {
 	return v.Visit(ctx.Expression())
 }
@@ -590,12 +588,26 @@ func (v *AstVisitor) VisitQuotedIdentifier(ctx *grammar.QuotedIdentifierContext)
 	}
 }
 
+func (v *AstVisitor) VisitPredicatedExpression(ctx *grammar.PredicatedExpressionContext) any {
+	fmt.Printf("predicate.....=%v,%T\n", ctx, ctx.Predicate())
+	return v.Visit(ctx.Predicate())
+}
+
 func (v *AstVisitor) VisitValueExpressionDefault(ctx *grammar.ValueExpressionDefaultContext) any {
 	return v.Visit(ctx.PrimaryExpression())
 }
 
+// func (v *AstVisitor) VisitValueExpressionPredicate(ctx *grammar.ValueExpressionPredicateContext) any {
+// 	fmt.Printf("value path...=%v\n", ctx)
+// 	return v.Visit(ctx.ValueExpression())
+// }
+
 func (v *AstVisitor) VisitValueExpressionPredicate(ctx *grammar.ValueExpressionPredicateContext) any {
-	return v.Visit(ctx.ValueExpression())
+	if ctx.ValueExpression() != nil {
+		return v.Visit(ctx.ValueExpression())
+	}
+	fmt.Printf("value path...=%v\n", ctx)
+	return v.VisitChildren(ctx)
 }
 
 func (v *AstVisitor) VisitDereference(ctx *grammar.DereferenceContext) any {
@@ -629,10 +641,26 @@ func (v *AstVisitor) VisitFunctionCall(ctx *grammar.FunctionCallContext) any {
 	}
 }
 
+func (v *AstVisitor) VisitArithmeticBinary(ctx *grammar.ArithmeticBinaryContext) any {
+	return &ArithmeticBinaryExpression{
+		BaseNode: BaseNode{
+			ID:       v.idAllocator.Next(),
+			Location: getLocation(ctx.GetStart()),
+		},
+		Operator: ctx.GetOperator().GetText(),
+		Left:     v.Visit(ctx.GetLeft()).(Expression),
+		Right:    v.Visit(ctx.GetRight()).(Expression),
+	}
+}
+
 // ************** literals **************
 
 func (v *AstVisitor) VisitStringLiteral(ctx *grammar.StringLiteralContext) any {
 	return v.Visit(ctx.String_())
+}
+
+func (v *AstVisitor) VisitNumericLiteral(ctx *grammar.NumericLiteralContext) any {
+	return v.Visit(ctx.Number())
 }
 
 func (v *AstVisitor) VisitBasicStringLiteral(ctx *grammar.BasicStringLiteralContext) any {
