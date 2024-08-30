@@ -21,7 +21,7 @@ func (f *Field) CanResolve(name *QualifiedName) bool {
 		return false
 	}
 	// TODO: need to know whether the qualified name and the name of this field were quoted
-	return f.MatchesPrefix(name.Prefix) && strings.ToLower(f.Name) == strings.ToLower(name.Suffix)
+	return f.MatchesPrefix(name.Prefix) && strings.EqualFold(f.Name, name.Suffix)
 }
 
 func (f *Field) String() string {

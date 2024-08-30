@@ -16,7 +16,10 @@ func NewFunctionResolver() *FunctionResolver {
 }
 
 func (r *FunctionResolver) ResolveOperator(operatorType OperatorType, argumentTypes []types.Type) *ResolvedFunction {
-	return &ResolvedFunction{}
+	return &ResolvedFunction{
+		// FIXME: function name/types
+		Signature: NewBoundSignature(operatorType.operator, types.DataTypeFloat, []types.DataType{types.DataTypeSum}),
+	}
 }
 
 func (r *FunctionResolver) ResolveFunction(name *tree.QualifiedName) *ResolvedFunction {

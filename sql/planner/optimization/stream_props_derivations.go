@@ -46,9 +46,19 @@ func (v *StreamPropsDerivationVisitor) Visit(context any, n plan.PlanNode) (r an
 		return v.visitExchange(inputProps, node)
 	case *plan.TableScanNode:
 		return v.visitTableScan(inputProps, node)
+	case *plan.ProjectionNode:
+		return v.visitProjection(inputProps, node)
 	default:
 		panic(fmt.Sprintf("impl stream props derivation visitor:%T", n))
 	}
+}
+
+func (v *StreamPropsDerivationVisitor) visitProjection(inputProps []*StreamProps, node *plan.ProjectionNode) *StreamProps {
+	props := inputProps[0]
+	identities := computeIdentityTranslations(node.Assignments)
+	return props.translate(func(column *plan.Symbol) *plan.Symbol {
+		return identities[column.Name]
+	})
 }
 
 func (v *StreamPropsDerivationVisitor) visitOutput(inputProps []*StreamProps, node *plan.OutputNode) *StreamProps {

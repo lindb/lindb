@@ -22,11 +22,12 @@ func (rule *RemoveRedundantIdentityProjections) GetPattern() *matching.Pattern {
 
 func (rule *RemoveRedundantIdentityProjections) Apply(context *iterative.Context, captures *matching.Captures, node plan.PlanNode) plan.PlanNode {
 	if project, ok := node.(*plan.ProjectionNode); ok {
-		fmt.Printf("remove identity project...............................................%v,%v\n", project.Assignments.IsIdentity(),
-			symbolsEquals(project.GetOutputSymbols(), project.Source.GetOutputSymbols()),
+		fmt.Printf("remove identity project...............................................%v,%v,%T\n", project.Assignments.IsIdentity(),
+			symbolsEquals(project.GetOutputSymbols(), project.Source.GetOutputSymbols()), context.Lookup.Resolve(project.Source),
 		)
 		if project.Assignments.IsIdentity() &&
 			symbolsEquals(project.GetOutputSymbols(), project.Source.GetOutputSymbols()) {
+			fmt.Printf("remove project return=%T\n", context.Lookup.Resolve(project.Source))
 			return project.Source
 		}
 	}

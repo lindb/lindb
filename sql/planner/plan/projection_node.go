@@ -3,12 +3,14 @@ package plan
 import (
 	"fmt"
 
+	"github.com/samber/lo"
+
 	"github.com/lindb/lindb/sql/tree"
 )
 
 type Assignment struct {
-	Symbol     *Symbol         `json:"symbol"`
-	Expression tree.Expression `json:"expression"`
+	Symbol     *Symbol         `json:"symbol"`     // ouput
+	Expression tree.Expression `json:"expression"` // input
 }
 
 type Assignments []*Assignment
@@ -32,6 +34,13 @@ func (a Assignments) Put(symbol *Symbol, expression tree.Expression) Assignments
 	return a
 }
 
+func (a Assignments) GetExpressions() (r []tree.Expression) {
+	for _, assignment := range a {
+		r = append(r, assignment.Expression)
+	}
+	return
+}
+
 func (a Assignments) GetOutputs() (outputs []*Symbol) {
 	for _, assignment := range a {
 		outputs = append(outputs, assignment.Symbol)
@@ -49,6 +58,12 @@ func (a Assignments) IsIdentity() bool {
 		}
 	}
 	return true
+}
+
+func (a Assignments) Unique() Assignments {
+	return lo.UniqBy(a, func(item *Assignment) string {
+		return item.Symbol.Name
+	})
 }
 
 type ProjectionNode struct {

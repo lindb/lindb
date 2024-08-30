@@ -114,7 +114,8 @@ func (p *QueryPlanner) planGroupingSets(subPlan *PlanBuilder, node *tree.QuerySp
 	for _, field := range groupingSetAnalysis.GetAllFields() {
 		input := subPlan.translations.fieldSymbols[field.FieldIndex]
 		// add group field suffix
-		output := p.context.SymbolAllocator.FromSymbol(input, "gid", input.DataType)
+		// FIXME: add gid for symbol suffix
+		output := p.context.SymbolAllocator.FromSymbol(input, "", input.DataType)
 		fields[field.FieldIndex] = output
 		groupingSetMappings[output] = input
 	}
@@ -124,7 +125,8 @@ func (p *QueryPlanner) planGroupingSets(subPlan *PlanBuilder, node *tree.QuerySp
 		if _, ok := complexExpressions[expression.GetID()]; !ok {
 			fmt.Println("5555555555555555555.....")
 			input := subPlan.translate(expression)
-			output := p.context.SymbolAllocator.NewSymbol(expression, "gid", p.context.AnalyzerContext.Analysis.GetType(expression))
+			// FIXME: add gid for symbol suffix
+			output := p.context.SymbolAllocator.NewSymbol(expression, "", p.context.AnalyzerContext.Analysis.GetType(expression))
 			complexExpressions[expression.GetID()] = output
 			groupingSetMappings[output] = input
 		}
@@ -140,10 +142,7 @@ func (p *QueryPlanner) planGroupingSets(subPlan *PlanBuilder, node *tree.QuerySp
 	var assignments plan.Assignments
 	assignments = assignments.Add(subPlan.root.GetOutputSymbols())
 	for k, v := range groupingSetMappings {
-		assignments = append(assignments, &plan.Assignment{
-			Symbol:     k,
-			Expression: v.ToSymbolReference(),
-		})
+		assignments = assignments.Put(k, v.ToSymbolReference())
 	}
 
 	groupID := &plan.ProjectionNode{
@@ -151,8 +150,9 @@ func (p *QueryPlanner) planGroupingSets(subPlan *PlanBuilder, node *tree.QuerySp
 			ID: p.context.PlanNodeIDAllocator.Next(),
 		},
 		Source:      subPlan.root,
-		Assignments: assignments,
+		Assignments: assignments.Unique(),
 	}
+	fmt.Printf("plan agg group... fields=%v\n", fields)
 	subPlan = &PlanBuilder{
 		root:         groupID,
 		translations: subPlan.translations.withNewMappings(complexExpressions, fields),

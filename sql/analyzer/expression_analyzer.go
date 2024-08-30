@@ -57,10 +57,14 @@ func (v *ExpressionVisitor) Visit(context any, n tree.Node) (r any) {
 		return v.visitFunctionCall(context, node)
 	case *tree.StringLiteral:
 		return v.visitStringLiteral(context, node)
+	case *tree.LongLiteral:
+		return v.visitLongLiteral(context, node)
 	case *tree.Identifier:
 		return v.visitIdentifier(context, node)
 	case *tree.FieldReference:
 		return v.visitFieldReference(context, node)
+	case *tree.ArithmeticBinaryExpression:
+		return v.visitArithemticBinary(context, node)
 	default:
 		panic(fmt.Sprintf("expression analyzer unsupport node:%T", n))
 	}
@@ -110,12 +114,20 @@ func (v *ExpressionVisitor) visitStringLiteral(context any, node *tree.StringLit
 	return v.setExpressionType(node, types.DataTypeString)
 }
 
+func (v *ExpressionVisitor) visitLongLiteral(context any, node *tree.LongLiteral) (r any) {
+	return v.setExpressionType(node, types.DataTypeFloat)
+}
+
 func (v *ExpressionVisitor) visitIdentifier(context any, node *tree.Identifier) (r any) {
 	ctx := context.(*tree.StackableVisitorContext[*Context])
 	fmt.Printf("expr visitor %V\n", node.Value)
 	// FIXME:???
 	resolvedField := ctx.GetContext().scope.resolveField(node, tree.NewQualifiedName([]*tree.Identifier{node}), true)
 	return v.handleResolvedField(node, resolvedField, ctx)
+}
+
+func (v *ExpressionVisitor) visitArithemticBinary(context any, node *tree.ArithmeticBinaryExpression) (r any) {
+	return v.getOperator(context.(*tree.StackableVisitorContext[*Context]), node, function.Add, node.Left, node.Right)
 }
 
 func (v *ExpressionVisitor) getOperator(context *tree.StackableVisitorContext[*Context], node tree.Expression, operatorType function.OperatorType, arguments ...tree.Expression) types.Type {
@@ -127,6 +139,7 @@ func (v *ExpressionVisitor) getOperator(context *tree.StackableVisitorContext[*C
 
 	operatorSignature := v.analyzer.funcionResolver.ResolveOperator(operatorType, argumentTypes).Signature
 
+	fmt.Println(operatorSignature)
 	return v.setExpressionType(node, operatorSignature.ReturnType)
 }
 

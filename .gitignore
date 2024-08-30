@@ -6,6 +6,7 @@ bin/
 *.log
 .history
 *.bat
+*.iml
 release/
 
 # temp file during testing
