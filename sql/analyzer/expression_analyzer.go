@@ -77,10 +77,10 @@ func (v *ExpressionVisitor) visitFieldReference(context any, node *tree.FieldRef
 }
 
 func (v *ExpressionVisitor) visitComparisonExpression(context any, node *tree.ComparisonExpression) (r any) {
-	var operatorType function.OperatorType
+	var operatorType types.OperatorType
 	switch node.Operator {
 	case tree.ComparisonEqual:
-		operatorType = function.Equal
+		operatorType = types.Equal
 	}
 
 	return v.getOperator(context.(*tree.StackableVisitorContext[*Context]), node, operatorType, node.Left, node.Right)
@@ -127,10 +127,11 @@ func (v *ExpressionVisitor) visitIdentifier(context any, node *tree.Identifier) 
 }
 
 func (v *ExpressionVisitor) visitArithemticBinary(context any, node *tree.ArithmeticBinaryExpression) (r any) {
-	return v.getOperator(context.(*tree.StackableVisitorContext[*Context]), node, function.Add, node.Left, node.Right)
+	// TODO: remove op
+	return v.getOperator(context.(*tree.StackableVisitorContext[*Context]), node, types.Subtract, node.Left, node.Right)
 }
 
-func (v *ExpressionVisitor) getOperator(context *tree.StackableVisitorContext[*Context], node tree.Expression, operatorType function.OperatorType, arguments ...tree.Expression) types.Type {
+func (v *ExpressionVisitor) getOperator(context *tree.StackableVisitorContext[*Context], node tree.Expression, operatorType types.OperatorType, arguments ...tree.Expression) types.Type {
 	var argumentTypes []types.Type
 	for i := range arguments {
 		expression := arguments[i]

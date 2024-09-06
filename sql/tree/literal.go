@@ -3,6 +3,8 @@ package tree
 import (
 	"strconv"
 	"strings"
+
+	"github.com/lindb/lindb/spi/types"
 )
 
 type Literal interface {
@@ -73,5 +75,15 @@ func NewFloatLiteral(location *NodeLocation, value string) *FloatLiteral {
 }
 
 func (n *FloatLiteral) Accept(context any, visitor Visitor) any {
+	return visitor.Visit(context, n)
+}
+
+type Constant struct {
+	BaseNode
+	Value any
+	Type  types.DataType // TODO:
+}
+
+func (n *Constant) Accept(context any, visitor Visitor) any {
 	return visitor.Visit(context, n)
 }

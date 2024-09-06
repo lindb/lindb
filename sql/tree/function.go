@@ -2,10 +2,9 @@ package tree
 
 type FunctionCall struct {
 	BaseNode
+	RefField  *Field
 	Name      QualifiedName
 	Arguments []Expression
-
-	RefField *Field
 }
 
 // Accept implements Expression

@@ -6,19 +6,14 @@ import (
 	"github.com/lindb/lindb/sql/planner/plan"
 )
 
-type PruneOutputSourceColumns struct{}
+type PruneOutputSourceColumns struct {
+	Base[*plan.OutputNode]
+}
 
 func NewPruneOutputSourceColumns() iterative.Rule {
-	return &PruneOutputSourceColumns{}
-}
-
-func (rule *PruneOutputSourceColumns) GetPattern() *matching.Pattern {
-	return output()
-}
-
-func (rule *PruneOutputSourceColumns) Apply(context *iterative.Context, captures *matching.Captures, node plan.PlanNode) plan.PlanNode {
-	if output, ok := node.(*plan.OutputNode); ok {
-		return restrictChildOutputs(context.IDAllocator, output, node.GetOutputSymbols())
+	rule := &PruneOutputSourceColumns{}
+	rule.apply = func(context *iterative.Context, captures *matching.Captures, node *plan.OutputNode) plan.PlanNode {
+		return restrictChildOutputs(context.IDAllocator, node, node.GetOutputSymbols())
 	}
-	return nil
+	return rule
 }

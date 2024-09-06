@@ -42,13 +42,14 @@ func (pb *PlanBuilder) appendProjections(expressions []tree.Expression) *PlanBui
 	mappings := make(map[tree.NodeID]*plan.Symbol)
 	for i := range expressions {
 		expression := expressions[i]
-		fmt.Printf("check transs %v=%v\n", expression, pb.translations.CanTranslate(expression))
+		fmt.Printf("check transs====%T,,,, %v=%v\n", expression, expression, pb.translations.CanTranslate(expression))
 		if _, ok := mappings[expression.GetID()]; !ok && !pb.translations.CanTranslate(expression) {
 			fmt.Println("kkkkkkkkkkkkk..............")
 			symbol := symbolAllocator.NewSymbol(expression, "", pb.translations.context.AnalyzerContext.Analysis.GetType(expression))
+			expr := pb.translations.Rewrite(expression)
 			assignments = append(assignments, &plan.Assignment{
 				Symbol:     symbol,
-				Expression: pb.translations.Rewrite(expression),
+				Expression: expr,
 			})
 			mappings[expression.GetID()] = symbol
 			fmt.Println("kkkkkkkkkkkkk.............. done")

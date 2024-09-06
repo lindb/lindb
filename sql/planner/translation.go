@@ -3,6 +3,7 @@ package planner
 import (
 	"fmt"
 
+	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/analyzer"
 	"github.com/lindb/lindb/sql/context"
 	"github.com/lindb/lindb/sql/planner/plan"
@@ -19,9 +20,10 @@ type TranslationMap struct {
 	fieldSymbols []*plan.Symbol
 }
 
-func (t *TranslationMap) Rewrite(node tree.Expression) tree.Expression {
-	// TODO: check symbol referencea are not allowed
-	return tree.RewriteExpression(nil, &expressionRewriter{translation: t}, node)
+func (t *TranslationMap) Rewrite(root tree.Expression) tree.Expression {
+	// TODO: check symbol referencea are not allowed/expr if analyzed
+	// return tree.RewriteExpression(nil, &expressionRewriter{translation: t}, node)
+	return t.translate(root, true)
 }
 
 func (t *TranslationMap) withNewMappings(mappings map[tree.NodeID]*plan.Symbol, fields []*plan.Symbol) *TranslationMap {
@@ -86,6 +88,62 @@ func (t *TranslationMap) CanTranslate(node tree.Expression) bool {
 		return t.scope.IsLocalScope(field.Scope)
 	}
 	return false
+}
+
+func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tree.Expression) {
+	mapped := t.tryGetMapping(node)
+	if mapped != nil {
+		result = mapped
+	} else {
+		switch expr := node.(type) {
+		case *tree.FieldReference:
+			result = t.getSymbolForColumn(expr).ToSymbolReference()
+		case *tree.DereferenceExpression:
+			if t.context.AnalyzerContext.Analysis.IsColumnReference(node) {
+				symbol := t.getSymbolForColumn(node)
+				if symbol == nil {
+					panic(fmt.Sprintf("no mapping for %T", node))
+				}
+				result = symbol.ToSymbolReference()
+			}
+			// TODO: add
+		case *tree.Identifier:
+			result = t.getSymbolForColumn(node).ToSymbolReference()
+		case *tree.LongLiteral:
+			result = &tree.Constant{
+				// TODO: replace
+				BaseNode: tree.BaseNode{
+					ID: node.GetID(),
+				},
+				Type:  types.DataTypeFloat, // TODO: fix it
+				Value: expr.Value,
+			}
+		case *tree.ArithmeticBinaryExpression:
+			result = &tree.Call{
+				// TODO: replace
+				BaseNode: tree.BaseNode{
+					ID: node.GetID(),
+				},
+				Function: expr.Operator.FunctionName(),
+				Args:     []tree.Expression{t.translate(expr.Left, false), t.translate(expr.Right, false)},
+			}
+		default:
+			panic(fmt.Sprintf("expression rewrite unimplemented: %T", node))
+		}
+	}
+	if isRoot {
+		return result
+	}
+	// TODO: need refact
+	return t.coerceIfNecessary(node, result)
+}
+
+func (t *TranslationMap) coerceIfNecessary(origianl, rewritten tree.Expression) tree.Expression {
+	if origianl == rewritten {
+		return rewritten
+	}
+	return rewritten
+	// return coerceIfNecessary(origianl, rewritten)
 }
 
 type expressionRewriter struct {

@@ -69,7 +69,6 @@ func pruneInputs(availableInputs []*plan.Symbol, expressions []tree.Expression) 
 			return item.Name == input.Name
 		})
 	})
-	fmt.Printf("prune inputs..=%v====,%v====%v====%v\n", symbols, availableInputs, prunedInputs, expressions)
 	if len(prunedInputs) == len(availableInputs) {
 		return nil
 	}

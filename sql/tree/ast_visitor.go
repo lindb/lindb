@@ -647,7 +647,7 @@ func (v *AstVisitor) VisitArithmeticBinary(ctx *grammar.ArithmeticBinaryContext)
 			ID:       v.idAllocator.Next(),
 			Location: getLocation(ctx.GetStart()),
 		},
-		Operator: ctx.GetOperator().GetText(),
+		Operator: ArithmeticOperator(ctx.GetOperator().GetText()), // TODO: add check
 		Left:     v.Visit(ctx.GetLeft()).(Expression),
 		Right:    v.Visit(ctx.GetRight()).(Expression),
 	}

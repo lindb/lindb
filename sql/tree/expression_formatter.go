@@ -52,17 +52,26 @@ func (v *FormatVisitor) Visit(context any, n Node) any {
 		return v.formatStringLiteral(node.Value)
 	case *LongLiteral:
 		return fmt.Sprintf("%d", node.Value)
-	case *ArithmeticBinaryExpression:
-		return v.formatBinaryExpression(node.Operator, node.Left, node.Right)
-	case *Cast:
-		return "Cast need impl"
+	case *Constant:
+		// TODO: add more
+		return fmt.Sprintf("%v", node.Value)
+	// case *ArithmeticBinaryExpression:
+	// 	return v.formatBinaryExpression(string(node.Operator), node.Left, node.Right)
+	case *Call:
+		var args []string
+		for _, arg := range node.Args {
+			args = append(args, arg.Accept(context, v).(string))
+		}
+		return fmt.Sprintf("%v(%s)", node.Function, strings.Join(args, ","))
+	// case *Cast:
+	// 	return "Cast need impl"
 	default:
 		panic(fmt.Sprintf("expression formatter unsupport node:%T", n))
 	}
 }
 
 func (v *FormatVisitor) visitDereferenceExpression(context any, node *DereferenceExpression) (r any) {
-	field := "*"
+	field := "*" // FIXME: all select?
 	if node.Field != nil {
 		fieldMsg := node.Field.Accept(context, v)
 		if fieldMsg != nil {

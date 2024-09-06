@@ -15,10 +15,10 @@ func NewFunctionResolver() *FunctionResolver {
 	return &FunctionResolver{}
 }
 
-func (r *FunctionResolver) ResolveOperator(operatorType OperatorType, argumentTypes []types.Type) *ResolvedFunction {
+func (r *FunctionResolver) ResolveOperator(operatorType types.OperatorType, argumentTypes []types.Type) *ResolvedFunction {
 	return &ResolvedFunction{
 		// FIXME: function name/types
-		Signature: NewBoundSignature(operatorType.operator, types.DataTypeFloat, []types.DataType{types.DataTypeSum}),
+		Signature: NewBoundSignature(operatorType.Operator, types.DataTypeFloat, []types.DataType{types.DataTypeSum}),
 	}
 }
 

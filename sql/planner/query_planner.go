@@ -121,9 +121,7 @@ func (p *QueryPlanner) planGroupingSets(subPlan *PlanBuilder, node *tree.QuerySp
 	}
 
 	for _, expression := range groupingSetAnalysis.GetComplexExpressions() {
-		fmt.Println("grouping express.........")
 		if _, ok := complexExpressions[expression.GetID()]; !ok {
-			fmt.Println("5555555555555555555.....")
 			input := subPlan.translate(expression)
 			// FIXME: add gid for symbol suffix
 			output := p.context.SymbolAllocator.NewSymbol(expression, "", p.context.AnalyzerContext.Analysis.GetType(expression))
