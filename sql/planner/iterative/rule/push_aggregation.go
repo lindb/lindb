@@ -6,60 +6,34 @@ import (
 	"github.com/lindb/lindb/sql/planner/plan"
 )
 
-var EXCHANGE_NODE = matching.NewCapture()
-
-type PushPartialAggregationThroughExchange struct{}
+type PushPartialAggregationThroughExchange struct {
+	Base[*plan.AggregationNode]
+}
 
 func NewPushPartialAggregationThroughExchange() iterative.Rule {
-	return &PushPartialAggregationThroughExchange{}
-}
-
-func (rule *PushPartialAggregationThroughExchange) GetPattern() *matching.Pattern {
-	// FIXME: add order scheme filter
-	// return aggregation()
-	// return matching.With(source().Matching(matching.CapturedAs(EXCHANGE_NODE, exchange())), aggregation())
-	exchangeNode := matching.CapturedAs(EXCHANGE_NODE, exchange())
-	fn := func(source plan.PlanNode, lookup iterative.Lookup) plan.PlanNode {
-		if len(source.GetSources()) == 1 {
-			sourceNode := source.GetSources()[0]
-			node := lookup.Resolve(sourceNode)
-			return node
-		}
-		return nil
-	}
-	pattern := &matching.Pattern{
-		Accept: func(context, val any, captures *matching.Captures) []*matching.Match {
-			node := fn(val.(plan.PlanNode), context.(iterative.Lookup))
-			result := exchangeNode.Match(context, node, captures)
-			return result
-		},
-		Previous: aggregation(),
-	}
-	return pattern
-}
-
-func (rule *PushPartialAggregationThroughExchange) Apply(context *iterative.Context, captures *matching.Captures, node plan.PlanNode) plan.PlanNode {
-	if aggregationNode, ok := node.(*plan.AggregationNode); ok {
-		exchangeNode, isExchange := context.Lookup.Resolve(aggregationNode.Source).(*plan.ExchangeNode)
+	rule := &PushPartialAggregationThroughExchange{}
+	rule.apply = func(context *iterative.Context, captures *matching.Captures, node *plan.AggregationNode) plan.PlanNode {
+		exchangeNode, isExchange := context.Lookup.Resolve(node.Source).(*plan.ExchangeNode)
 		if !isExchange {
 			return nil
 		}
 		// FIXME:add check(exchagne)
-		if aggregationNode.Step == plan.SINGLE &&
+		if node.Step == plan.SINGLE &&
 			exchangeNode.Type == plan.Repartition {
-			return rule.split(context, aggregationNode)
+			return rule.split(context, node)
 		}
 		if exchangeNode.Type != plan.Gather && exchangeNode.Type != plan.Repartition {
 			return nil
 		}
-		switch aggregationNode.Step {
+		switch node.Step {
 		case plan.SINGLE:
-			return rule.split(context, aggregationNode)
+			return rule.split(context, node)
 		case plan.PARTIAL:
-			return rule.pushPartial(context, aggregationNode, exchangeNode)
+			return rule.pushPartial(context, node, exchangeNode)
 		}
+		return nil
 	}
-	return nil
+	return rule
 }
 
 func (rule *PushPartialAggregationThroughExchange) pushPartial(context *iterative.Context,

@@ -1,8 +1,6 @@
 package rule
 
 import (
-	"fmt"
-
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/sql/matching"
@@ -11,32 +9,38 @@ import (
 	"github.com/lindb/lindb/sql/planner/plan"
 )
 
-type PruneTableScanColumns struct{}
-
-func NewPruneTableScanColumns() iterative.Rule {
-	return &PruneTableScanColumns{}
+type ProjectionOffPushDown[N plan.PlanNode] struct {
+	pushDownProjectOff func(context *iterative.Context, targetNode N, referencedOutputs []*plan.Symbol) plan.PlanNode
 }
 
-func (rule *PruneTableScanColumns) Apply(context *iterative.Context, captures *matching.Captures, node plan.PlanNode) plan.PlanNode {
+func (rule *ProjectionOffPushDown[N]) Apply(context *iterative.Context, captures *matching.Captures, node plan.PlanNode) plan.PlanNode {
 	if parent, ok := node.(*plan.ProjectionNode); ok {
-		table, isTable := context.Lookup.Resolve(parent.Source).(*plan.TableScanNode)
-		fmt.Printf("prune table columns 1.....%T,%v\n", context.Lookup.Resolve(parent.Source), isTable)
-		if isTable {
-			prunedOutputs := pruneInputs(table.GetOutputSymbols(), parent.Assignments.GetExpressions())
+		target, isMatch := context.Lookup.Resolve(parent.Source).(N)
+		if isMatch {
+			prunedOutputs := pruneInputs(target.GetOutputSymbols(), parent.Assignments.GetExpressions())
 			if len(prunedOutputs) == 0 {
 				return nil
 			}
-			newTable := rule.pruneColumns(table, prunedOutputs)
-			fmt.Printf("prune table columns 2.....%v,%v\n", newTable, parent.Assignments)
-			if newTable != nil {
-				fmt.Printf("prune table columns 3.....%v\n", newTable.GetOutputSymbols())
-				return parent.ReplaceChildren([]plan.PlanNode{newTable})
+			child := rule.pushDownProjectOff(context, target, prunedOutputs)
+			if child != nil {
+				return parent.ReplaceChildren([]plan.PlanNode{child})
 			}
-			return nil
 		}
 	}
 
 	return nil
+}
+
+type PruneTableScanColumns struct {
+	ProjectionOffPushDown[*plan.TableScanNode]
+}
+
+func NewPruneTableScanColumns() iterative.Rule {
+	rule := &PruneTableScanColumns{}
+	rule.pushDownProjectOff = func(context *iterative.Context, table *plan.TableScanNode, referencedOutputs []*plan.Symbol) plan.PlanNode {
+		return rule.pruneColumns(table, referencedOutputs)
+	}
+	return rule
 }
 
 func (rule *PruneTableScanColumns) pruneColumns(node *plan.TableScanNode, referencedOutputs []*plan.Symbol) plan.PlanNode {
@@ -45,73 +49,54 @@ func (rule *PruneTableScanColumns) pruneColumns(node *plan.TableScanNode, refere
 			return ref.Name == output.Name
 		})
 	})
-	fmt.Printf("column 4....%v=%v=%v\n", node.GetOutputSymbols(), referencedOutputs, newOutputs)
-
 	if len(newOutputs) == len(node.GetOutputSymbols()) {
 		return nil
 	}
 
-	// // TODO: refact?
-	// newTable := plan.NewTableScanNode(node.GetNodeID())
-	// newTable.Table = node.Table
-	// newTable.Partitions = node.Partitions
-	// newTable.OutputSymbols = newOutputs
-	//
+	// TODO: create new table node?
 	node.OutputSymbols = newOutputs
 	return node
 }
 
-type PruneProjectionColumns struct{}
+type PruneProjectionColumns struct {
+	ProjectionOffPushDown[*plan.ProjectionNode]
+}
 
 func NewPruneProjectionColumns() iterative.Rule {
-	return &PruneProjectionColumns{}
-}
-
-func (rule *PruneProjectionColumns) Apply(context *iterative.Context, captures *matching.Captures, node plan.PlanNode) plan.PlanNode {
-	if parent, ok := node.(*plan.ProjectionNode); ok {
-		childProjection, isTable := context.Lookup.Resolve(parent.Source).(*plan.ProjectionNode)
-		if isTable {
-			prunedOutputs := pruneInputs(childProjection.GetOutputSymbols(), parent.Assignments.GetExpressions())
-			return &plan.ProjectionNode{
-				BaseNode: plan.BaseNode{
-					ID: childProjection.GetNodeID(),
-				},
-				Source: childProjection.Source,
-				Assignments: lo.Filter(childProjection.Assignments, func(assignment *plan.Assignment, index int) bool {
-					return lo.ContainsBy(prunedOutputs, func(item *plan.Symbol) bool {
-						return assignment.Symbol.Name == item.Name
-					})
-				}),
-			}
+	rule := &PruneProjectionColumns{}
+	rule.pushDownProjectOff = func(context *iterative.Context, childProjection *plan.ProjectionNode, referencedOutputs []*plan.Symbol) plan.PlanNode {
+		return &plan.ProjectionNode{
+			BaseNode: plan.BaseNode{
+				ID: childProjection.GetNodeID(),
+			},
+			Source: childProjection.Source,
+			Assignments: lo.Filter(childProjection.Assignments, func(assignment *plan.Assignment, index int) bool {
+				return lo.ContainsBy(referencedOutputs, func(item *plan.Symbol) bool {
+					return assignment.Symbol.Name == item.Name
+				})
+			}),
 		}
 	}
-
-	return nil
+	return rule
 }
 
-type PruneAggregationSourceColumns struct{}
+type PruneAggregationSourceColumns struct {
+	Base[*plan.AggregationNode]
+}
 
 func NewPruneAggregationSourceColumns() iterative.Rule {
-	return &PruneAggregationSourceColumns{}
-}
-
-func (rule *PruneAggregationSourceColumns) Apply(context *iterative.Context, captures *matching.Captures, node plan.PlanNode) plan.PlanNode {
-	if aggregationNode, ok := node.(*plan.AggregationNode); ok {
+	rule := &PruneAggregationSourceColumns{}
+	rule.apply = func(context *iterative.Context, captures *matching.Captures, node *plan.AggregationNode) plan.PlanNode {
 		var requiredInputs []*plan.Symbol
-		requiredInputs = append(requiredInputs, aggregationNode.GetGroupingKeys()...)
-		for _, agg := range aggregationNode.Aggregations {
+		requiredInputs = append(requiredInputs, node.GetGroupingKeys()...)
+		for _, agg := range node.Aggregations {
 			requiredInputs = append(requiredInputs, planner.ExtractSymbolsFromAggreation(agg.Aggregation)...)
 		}
-		// TODO: remove
-		requiredInputs = lo.UniqBy(requiredInputs, func(item *plan.Symbol) string {
-			return item.Name
-		})
-		fmt.Printf("pure agg sources....%v\n", requiredInputs)
 		return restrictChildOutputs(
 			context.IDAllocator,
-			aggregationNode,
+			node,
 			requiredInputs,
 		)
 	}
-	return nil
+	return rule
 }

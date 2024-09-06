@@ -62,6 +62,6 @@ func (d *Driver) Process() {
 		if page != nil {
 			next.AddInput(page)
 		}
-		fmt.Printf("%s->%s,page=%v\n", reflect.TypeOf(current), reflect.TypeOf(next), page)
+		fmt.Printf("process operator:(driver=%p) %s->%s,page=%v\n", d, reflect.TypeOf(current), reflect.TypeOf(next), page)
 	}
 }

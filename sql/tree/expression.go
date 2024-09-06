@@ -1,8 +1,13 @@
 package tree
 
+import (
+	"fmt"
+)
+
 type (
 	LogicalOperator    string
 	ComparisonOperator string
+	ArithmeticOperator string
 )
 
 var (
@@ -10,7 +15,30 @@ var (
 	LogicalOR  LogicalOperator = "OR"
 
 	ComparisonEqual ComparisonOperator = "="
+
+	Add      ArithmeticOperator = "+"
+	Subtract ArithmeticOperator = "-"
+	Multiply ArithmeticOperator = "*"
+	Divide   ArithmeticOperator = "/"
+	Modulus  ArithmeticOperator = "%"
 )
+
+func (op ArithmeticOperator) FunctionName() FunctionName {
+	switch op {
+	case Add:
+		return Plus
+	case Subtract:
+		return Minus
+	case Multiply:
+		return Mul
+	case Divide:
+		return Div
+	case Modulus:
+		return Mod
+	default:
+		panic(fmt.Sprintf("unknown arithmetic operator: %s", op))
+	}
+}
 
 type Expression interface {
 	Node
@@ -66,9 +94,9 @@ func (n *DereferenceExpression) ToQualifiedName() (name *QualifiedName) {
 type ArithmeticBinaryExpression struct {
 	BaseNode
 
-	Left     Expression `json:"left"`
-	Right    Expression `json:"right"`
-	Operator string     `json:"operator"` // TODO: add type
+	Left     Expression         `json:"left"`
+	Right    Expression         `json:"right"`
+	Operator ArithmeticOperator `json:"operator"` // TODO: add type
 }
 
 func (n *ArithmeticBinaryExpression) Accept(context any, visitor Visitor) (r any) {

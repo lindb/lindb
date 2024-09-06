@@ -10,28 +10,20 @@ import (
 )
 
 // RemoveRedundantIdentityProjections removes projection nodes that only perform non-renaming identity projections.
-type RemoveRedundantIdentityProjections struct{}
+type RemoveRedundantIdentityProjections struct {
+	Base[*plan.ProjectionNode]
+}
 
 func NewRemoveRedundantIdentityProjections() iterative.Rule {
-	return &RemoveRedundantIdentityProjections{}
-}
-
-func (rule *RemoveRedundantIdentityProjections) GetPattern() *matching.Pattern {
-	return project()
-}
-
-func (rule *RemoveRedundantIdentityProjections) Apply(context *iterative.Context, captures *matching.Captures, node plan.PlanNode) plan.PlanNode {
-	if project, ok := node.(*plan.ProjectionNode); ok {
-		fmt.Printf("remove identity project...............................................%v,%v,%T\n", project.Assignments.IsIdentity(),
-			symbolsEquals(project.GetOutputSymbols(), project.Source.GetOutputSymbols()), context.Lookup.Resolve(project.Source),
-		)
-		if project.Assignments.IsIdentity() &&
-			symbolsEquals(project.GetOutputSymbols(), project.Source.GetOutputSymbols()) {
-			fmt.Printf("remove project return=%T\n", context.Lookup.Resolve(project.Source))
-			return project.Source
+	rule := &RemoveRedundantIdentityProjections{}
+	rule.apply = func(context *iterative.Context, captures *matching.Captures, node *plan.ProjectionNode) plan.PlanNode {
+		if node.Assignments.IsIdentity() &&
+			symbolsEquals(node.GetOutputSymbols(), node.Source.GetOutputSymbols()) {
+			return node.Source
 		}
+		return nil
 	}
-	return nil
+	return rule
 }
 
 func symbolsEquals(a, b []*plan.Symbol) bool {

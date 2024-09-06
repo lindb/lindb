@@ -112,7 +112,7 @@ func (v *TaskExecutionPlanVisitor) visitProjection(context any, node *planpkg.Pr
 	} else {
 		source = node.Source
 	}
-	return v.visitScanFilterAndProjection(context, source, filter)
+	return v.visitScanFilterAndProjection(context, node, source, filter)
 }
 
 func (v *TaskExecutionPlanVisitor) VisitTableScan(context any, node *planpkg.TableScanNode) (r any) {
@@ -125,7 +125,7 @@ func (v *TaskExecutionPlanVisitor) visitRemoteSource(context any, node *planpkg.
 	return NewPhysicalOperation(operatorFct, nil)
 }
 
-func (v *TaskExecutionPlanVisitor) visitScanFilterAndProjection(context any, sourceNode planpkg.PlanNode, filter tree.Expression) any {
+func (v *TaskExecutionPlanVisitor) visitScanFilterAndProjection(context any, project *planpkg.ProjectionNode, sourceNode planpkg.PlanNode, filter tree.Expression) any {
 	var (
 		source    *PhysicalOperation
 		table     spi.TableHandle
@@ -143,8 +143,8 @@ func (v *TaskExecutionPlanVisitor) visitScanFilterAndProjection(context any, sou
 		operatorFct := v.visitTableScan(tableScan, filter, context)
 		return NewPhysicalOperation(operatorFct, source)
 	}
-
-	return source
+	projectOpFct := operator.NewProjectionOperatorFactory(project, sourceNode.GetOutputSymbols())
+	return NewPhysicalOperation(projectOpFct, source)
 }
 
 func (v *TaskExecutionPlanVisitor) visitTableScan(node *planpkg.TableScanNode, filter tree.Expression, context any) operator.OperatorFactory {
