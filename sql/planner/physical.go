@@ -1,6 +1,6 @@
 package planner
 
-import "github.com/lindb/lindb/execution/pipeline/operator"
+import "github.com/lindb/lindb/sql/execution/pipeline/operator"
 
 type PhysicalOperation struct {
 	operatorFactories []operator.OperatorFactory

@@ -29,8 +29,8 @@ import (
 
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/execution"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/sql/execution"
 	"github.com/lindb/lindb/sql/tree"
 )
 

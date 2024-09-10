@@ -7,9 +7,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/lindb/lindb/execution/model"
 	protoCommandV1 "github.com/lindb/lindb/proto/gen/v1/command"
 	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/sql/execution/model"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
 

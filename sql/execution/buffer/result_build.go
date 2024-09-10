@@ -5,9 +5,9 @@ import (
 
 	"github.com/lindb/common/pkg/encoding"
 
-	"github.com/lindb/lindb/execution/model"
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
+	"github.com/lindb/lindb/sql/execution/model"
 )
 
 type ResultSetBuild struct {

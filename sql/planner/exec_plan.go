@@ -3,8 +3,8 @@ package planner
 import (
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/execution/pipeline"
 	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/sql/execution/pipeline"
 )
 
 type TaskExecutionPlanContext struct {

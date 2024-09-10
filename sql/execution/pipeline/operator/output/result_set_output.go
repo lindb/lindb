@@ -1,9 +1,9 @@
 package output
 
 import (
-	"github.com/lindb/lindb/execution/buffer"
-	"github.com/lindb/lindb/execution/pipeline/operator"
 	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/sql/execution/buffer"
+	"github.com/lindb/lindb/sql/execution/pipeline/operator"
 )
 
 type RSOutputOperatorFactory struct {

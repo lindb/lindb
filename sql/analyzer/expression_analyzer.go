@@ -115,7 +115,7 @@ func (v *ExpressionVisitor) visitStringLiteral(context any, node *tree.StringLit
 }
 
 func (v *ExpressionVisitor) visitLongLiteral(context any, node *tree.LongLiteral) (r any) {
-	return v.setExpressionType(node, types.DataTypeFloat)
+	return v.setExpressionType(node, types.DataTypeInt)
 }
 
 func (v *ExpressionVisitor) visitIdentifier(context any, node *tree.Identifier) (r any) {
@@ -132,22 +132,36 @@ func (v *ExpressionVisitor) visitArithemticBinary(context any, node *tree.Arithm
 }
 
 func (v *ExpressionVisitor) getOperator(context *tree.StackableVisitorContext[*Context], node tree.Expression, operatorType types.OperatorType, arguments ...tree.Expression) types.Type {
-	var argumentTypes []types.Type
+	var argumentTypes []types.DataType
 	for i := range arguments {
 		expression := arguments[i]
-		argumentTypes = append(argumentTypes, expression.Accept(context, v).(types.Type))
+		argumentTypes = append(argumentTypes, expression.Accept(context, v).(types.DataType))
 	}
 
-	operatorSignature := v.analyzer.funcionResolver.ResolveOperator(operatorType, argumentTypes).Signature
+	// operatorSignature := v.analyzer.funcionResolver.ResolveOperator(operatorType, nil).Signature
 
-	fmt.Println(operatorSignature)
-	return v.setExpressionType(node, operatorSignature.ReturnType)
+	// TODO: check args types
+	expectedType := types.GetAccurateType(argumentTypes[0], argumentTypes[1])
+	fmt.Printf("visit arithmetic id=%v left=%v,right=%v,result=%v\n", node.GetID(), argumentTypes[0], argumentTypes[1], expectedType)
+	for i, argumentType := range argumentTypes {
+		v.coerceType(arguments[i], argumentType, expectedType)
+	}
+
+	return v.setExpressionType(node, expectedType)
 }
 
-func (v *ExpressionVisitor) handleResolvedField(node tree.Expression, resolvedField *ResolvedField, context *tree.StackableVisitorContext[*Context]) types.Type {
+func (v *ExpressionVisitor) coerceType(expression tree.Expression, actualType, expectedType types.DataType) {
+	// TODO: add check
+	if actualType != expectedType {
+		fmt.Printf("add coercion %v=>%v\n", expression, expectedType)
+		v.analyzer.ctx.Analysis.AddCoercion(expression, expectedType)
+	}
+}
+
+func (v *ExpressionVisitor) handleResolvedField(node tree.Expression, resolvedField *ResolvedField, context *tree.StackableVisitorContext[*Context]) types.DataType {
 	v.analyzer.ctx.Analysis.AddColumnReference(node, resolvedField)
 	v.analyzer.ctx.Analysis.AddType(node, resolvedField.Field.DataType)
-	return &types.RowType{}
+	return resolvedField.Field.DataType
 }
 
 func (v *ExpressionVisitor) setExpressionType(expression tree.Expression, expressionType types.DataType) types.DataType {

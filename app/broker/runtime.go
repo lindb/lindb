@@ -38,7 +38,6 @@ import (
 	"github.com/lindb/lindb/coordinator"
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/discovery"
-	"github.com/lindb/lindb/execution"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	internalrpc "github.com/lindb/lindb/internal/rpc"
@@ -56,6 +55,7 @@ import (
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/sql/analyzer"
+	"github.com/lindb/lindb/sql/execution"
 	"github.com/lindb/lindb/sql/rewrite"
 )
 

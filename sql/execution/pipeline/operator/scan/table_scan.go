@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/execution/pipeline/operator"
 	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/sql/execution/pipeline/operator"
 	"github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/tree"
 )

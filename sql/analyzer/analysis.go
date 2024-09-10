@@ -68,6 +68,7 @@ type Analysis struct {
 
 	types            map[tree.NodeID]types.DataType
 	columnReferences map[tree.NodeID]*ResolvedField
+	coercons         map[tree.NodeID]types.DataType
 }
 
 func NewAnalysis(root tree.Statement) *Analysis {
@@ -92,6 +93,7 @@ func NewAnalysis(root tree.Statement) *Analysis {
 
 		types:            make(map[tree.NodeID]types.DataType),
 		columnReferences: make(map[tree.NodeID]*ResolvedField),
+		coercons:         make(map[tree.NodeID]types.DataType),
 	}
 }
 
@@ -267,5 +269,16 @@ func (a *Analysis) AddResolvedFunction(node tree.Node, fn *function.ResolvedFunc
 
 func (a *Analysis) GetResolvedFunction(node tree.Node) (fn *function.ResolvedFunction) {
 	fn = a.resolvedFunctions[node.GetID()]
+	return
+}
+
+// AddCoercion adds a coercons for a given expression.
+func (a *Analysis) AddCoercion(node tree.Expression, coercion types.DataType) {
+	a.coercons[node.GetID()] = coercion
+}
+
+// GetCorection gets the coercion for a given expression.
+func (a *Analysis) GetCoercion(node tree.Expression) (coercion types.DataType, ok bool) {
+	coercion, ok = a.coercons[node.GetID()]
 	return
 }

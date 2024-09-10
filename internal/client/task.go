@@ -7,7 +7,7 @@ import (
 	resty "github.com/go-resty/resty/v2"
 	"github.com/lindb/common/pkg/encoding"
 
-	"github.com/lindb/lindb/execution/model"
+	"github.com/lindb/lindb/sql/execution/model"
 )
 
 type TaskCli interface {
@@ -24,7 +24,8 @@ func NewTaskCli(endpoint string) TaskCli {
 	return &taskCli{
 		Base{
 			cli: cli,
-		}}
+		},
+	}
 }
 
 func (cli *taskCli) Submit(task *model.TaskRequest) error {

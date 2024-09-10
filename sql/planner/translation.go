@@ -115,16 +115,23 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 				BaseNode: tree.BaseNode{
 					ID: node.GetID(),
 				},
-				Type:  types.DataTypeFloat, // TODO: fix it
+				Type:  types.DataTypeInt,
 				Value: expr.Value,
 			}
 		case *tree.ArithmeticBinaryExpression:
+			exceptedType := t.context.AnalyzerContext.Analysis.GetType(expr)
+			// coercion, ok := t.context.AnalyzerContext.Analysis.GetCoercion(expr)
+			// if ok {
+			// 	exceptedType = coercion
+			// }
+
 			result = &tree.Call{
 				// TODO: replace
 				BaseNode: tree.BaseNode{
 					ID: node.GetID(),
 				},
 				Function: expr.Operator.FunctionName(),
+				RetType:  exceptedType,
 				Args:     []tree.Expression{t.translate(expr.Left, false), t.translate(expr.Right, false)},
 			}
 		default:
@@ -139,11 +146,19 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 }
 
 func (t *TranslationMap) coerceIfNecessary(origianl, rewritten tree.Expression) tree.Expression {
-	if origianl == rewritten {
+	coercion, ok := t.context.AnalyzerContext.Analysis.GetCoercion(origianl)
+	fmt.Printf("check coercion%T=%v,=%v\n", origianl, coercion, ok)
+	if !ok {
 		return rewritten
 	}
-	return rewritten
-	// return coerceIfNecessary(origianl, rewritten)
+	fmt.Println("cast ....... rewrite")
+	return &tree.Cast{
+		BaseNode: tree.BaseNode{
+			ID: origianl.GetID(),
+		},
+		Type:       coercion,
+		Expression: rewritten,
+	}
 }
 
 type expressionRewriter struct {
@@ -228,9 +243,17 @@ func (e *expressionRewriter) rewriteFieldReference(node *tree.FieldReference) tr
 }
 
 func (e *expressionRewriter) coerceIfNecessary(origianl, rewritten tree.Expression) tree.Expression {
-	if origianl == rewritten {
+	coercion, ok := e.translation.context.AnalyzerContext.Analysis.GetCoercion(origianl)
+	fmt.Println("check coercion")
+	if !ok {
 		return rewritten
 	}
-	return rewritten
-	// return coerceIfNecessary(origianl, rewritten)
+	fmt.Println("cast ....... rewrite")
+	return &tree.Cast{
+		BaseNode: tree.BaseNode{
+			ID: e.translation.context.AnalyzerContext.IDAllocator.Next(),
+		},
+		Type:       coercion,
+		Expression: rewritten,
+	}
 }

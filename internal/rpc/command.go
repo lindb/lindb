@@ -7,9 +7,9 @@ import (
 	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
 
-	"github.com/lindb/lindb/execution"
-	"github.com/lindb/lindb/execution/model"
 	protoCommandV1 "github.com/lindb/lindb/proto/gen/v1/command"
+	"github.com/lindb/lindb/sql/execution"
+	"github.com/lindb/lindb/sql/execution/model"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
 

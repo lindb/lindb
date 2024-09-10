@@ -63,8 +63,8 @@ func (v *FormatVisitor) Visit(context any, n Node) any {
 			args = append(args, arg.Accept(context, v).(string))
 		}
 		return fmt.Sprintf("%v(%s)", node.Function, strings.Join(args, ","))
-	// case *Cast:
-	// 	return "Cast need impl"
+	case *Cast:
+		return fmt.Sprintf("CAST(%v as %s)", node.Expression.Accept(context, v), node.Type)
 	default:
 		panic(fmt.Sprintf("expression formatter unsupport node:%T", n))
 	}
