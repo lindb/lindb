@@ -30,9 +30,10 @@ func (n *BooleanLiteral) Accept(context any, visitor Visitor) any {
 	return visitor.Visit(context, n)
 }
 
-func NewBooleanLiteral(location *NodeLocation, value string) *BooleanLiteral {
+func NewBooleanLiteral(id NodeID, location *NodeLocation, value string) *BooleanLiteral {
 	return &BooleanLiteral{
 		BaseNode: BaseNode{
+			ID:       id,
 			Location: location,
 		},
 		Value: strings.ToLower(value) == "true",
@@ -44,11 +45,12 @@ type LongLiteral struct {
 	Value int64
 }
 
-func NewLongLiteral(location *NodeLocation, value string) *LongLiteral {
+func NewLongLiteral(id NodeID, location *NodeLocation, value string) *LongLiteral {
 	// TODO: check error
 	val, _ := strconv.ParseInt(value, 10, 64)
 	return &LongLiteral{
 		BaseNode: BaseNode{
+			ID:       id,
 			Location: location,
 		},
 		Value: val,
@@ -64,13 +66,15 @@ type FloatLiteral struct {
 	Value float64
 }
 
-func NewFloatLiteral(location *NodeLocation, value string) *FloatLiteral {
+func NewFloatLiteral(id NodeID, location *NodeLocation, value string) *FloatLiteral {
 	// TODO: parse value
+	val, _ := strconv.ParseFloat(value, 64)
 	return &FloatLiteral{
 		BaseNode: BaseNode{
+			ID:       id,
 			Location: location,
 		},
-		Value: 1.0,
+		Value: val,
 	}
 }
 

@@ -5,8 +5,8 @@ import (
 
 	"github.com/lindb/common/pkg/logger"
 
-	"github.com/lindb/lindb/execution/model"
-	"github.com/lindb/lindb/execution/pipeline/operator"
+	"github.com/lindb/lindb/sql/execution/model"
+	"github.com/lindb/lindb/sql/execution/pipeline/operator"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
 

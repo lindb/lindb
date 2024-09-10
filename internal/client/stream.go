@@ -8,7 +8,7 @@ import (
 	resty "github.com/go-resty/resty/v2"
 	"github.com/lindb/common/pkg/encoding"
 
-	"github.com/lindb/lindb/execution/model"
+	"github.com/lindb/lindb/sql/execution/model"
 )
 
 type StreamCli interface {
@@ -25,7 +25,8 @@ func NewStreamCli(endpoint string) StreamCli {
 	return &streamCli{
 		Base{
 			cli: cli,
-		}}
+		},
+	}
 }
 
 func (cli *streamCli) SendTaskResultSet(result *model.TaskResultSet) error {

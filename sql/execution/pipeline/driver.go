@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/lindb/lindb/execution/pipeline/operator"
 	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/sql/execution/pipeline/operator"
 )
 
 type DriverFactory struct {

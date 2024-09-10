@@ -3,7 +3,7 @@ package execution
 import (
 	"sync"
 
-	"github.com/lindb/lindb/execution/model"
+	"github.com/lindb/lindb/sql/execution/model"
 )
 
 type RequestManager interface {

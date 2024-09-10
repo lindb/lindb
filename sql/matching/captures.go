@@ -6,6 +6,7 @@ import (
 	"go.uber.org/atomic"
 )
 
+// TODO: remove this package
 var (
 	EmptyCaptures = &Captures{}
 	sequence      = atomic.NewUint64(0)

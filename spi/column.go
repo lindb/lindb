@@ -36,6 +36,20 @@ func (c *Column) AppendString(val string) {
 	c.NumOfRows++
 }
 
+func (c *Column) AppendInt(val int64) {
+	// TODO:
+	// v := types.Int(val)
+	// c.Blocks = append(c.Blocks, &v)
+	// c.NumOfRows++
+}
+
+func (c *Column) AppendFloat(val float64) {
+	// TODO:
+	// v := types.Float(val)
+	// c.Blocks = append(c.Blocks, &v)
+	// c.NumOfRows++
+}
+
 func (c *Column) GetString(row int) *types.String {
 	if row >= len(c.Blocks) {
 		return nil

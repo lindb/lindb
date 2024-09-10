@@ -7,10 +7,10 @@ import (
 	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
 
-	"github.com/lindb/lindb/execution/model"
-	"github.com/lindb/lindb/execution/pipeline"
 	protoCommandV1 "github.com/lindb/lindb/proto/gen/v1/command"
 	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/sql/execution/model"
+	"github.com/lindb/lindb/sql/execution/pipeline"
 )
 
 type ResultSetService struct {

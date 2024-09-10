@@ -1,7 +1,7 @@
 package context
 
 import (
-	"github.com/lindb/lindb/execution/model"
+	"github.com/lindb/lindb/sql/execution/model"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
 

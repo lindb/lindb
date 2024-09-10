@@ -157,6 +157,7 @@ func (v *AstVisitor) VisitQueryNoWith(ctx *grammar.QueryNoWithContext) any {
 		var rowCount Expression
 		if ctx.LimitRowCount().INTEGER_VALUE() != nil {
 			rowCount = NewLongLiteral(
+				v.idAllocator.Next(),
 				getLocation(ctx.LimitRowCount().INTEGER_VALUE().GetSymbol()),
 				ctx.LimitRowCount().GetText())
 		}
@@ -653,7 +654,7 @@ func (v *AstVisitor) VisitArithmeticBinary(ctx *grammar.ArithmeticBinaryContext)
 	}
 }
 
-// ************** literals **************
+// ************** visit literals **************
 
 func (v *AstVisitor) VisitStringLiteral(ctx *grammar.StringLiteralContext) any {
 	return v.Visit(ctx.String_())
@@ -678,19 +679,19 @@ func (v *AstVisitor) VisitBasicStringLiteral(ctx *grammar.BasicStringLiteralCont
 }
 
 func (v *AstVisitor) VisitBooleanLiteral(ctx *grammar.BooleanLiteralContext) any {
-	return NewBooleanLiteral(getLocation(ctx.GetStart()), ctx.GetText())
+	return NewBooleanLiteral(v.idAllocator.Next(), getLocation(ctx.GetStart()), ctx.GetText())
 }
 
 func (v *AstVisitor) VisitIntegerLiteral(ctx *grammar.IntegerLiteralContext) any {
-	return NewLongLiteral(getLocation(ctx.GetStart()), ctx.GetText())
+	return NewLongLiteral(v.idAllocator.Next(), getLocation(ctx.GetStart()), ctx.GetText())
 }
 
 func (v *AstVisitor) VisitDecimalLiteral(ctx *grammar.DecimalLiteralContext) any {
-	return NewFloatLiteral(getLocation(ctx.GetStart()), ctx.GetText())
+	return NewFloatLiteral(v.idAllocator.Next(), getLocation(ctx.GetStart()), ctx.GetText())
 }
 
 func (v *AstVisitor) VisitDoubleLiteral(ctx *grammar.DoubleLiteralContext) any {
-	return NewFloatLiteral(getLocation(ctx.GetStart()), ctx.GetText())
+	return NewFloatLiteral(v.idAllocator.Next(), getLocation(ctx.GetStart()), ctx.GetText())
 }
 
 func (v *AstVisitor) getQualifiedName(ctx grammar.IQualifiedNameContext) *QualifiedName {

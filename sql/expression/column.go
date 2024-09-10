@@ -1,30 +1,42 @@
 package expression
 
 import (
-	"fmt"
-
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
 )
 
 type Column struct {
-	name  string
-	index int
+	name    string
+	retType types.DataType
+	index   int
 }
 
-func NewColumn(name string, index int) Expression {
-	return &Column{name: name, index: index}
+func NewColumn(name string, index int, retType types.DataType) Expression {
+	return &Column{name: name, index: index, retType: retType}
 }
 
-func (c *Column) EvalInt(row spi.Row) (val int64, err error) {
-	fmt.Printf("column===%s,%d,%v\n", c.name, c.index, row.GetTimeSeries(1))
-	return 40, nil
+func (c *Column) EvalString(row spi.Row) (val string, isNull bool, err error) {
+	return string(*row.GetString(c.index)), false, nil
 }
 
-func (c *Column) EvalFloat(row spi.Row) (val float64, err error) {
-	return 0, nil
+func (c *Column) EvalInt(row spi.Row) (val int64, isNull bool, err error) {
+	return 40, false, nil
 }
 
-func (c *Column) EvalTimeSeries(row spi.Row) (val *types.TimeSeries, err error) {
-	return nil, nil
+func (c *Column) EvalFloat(row spi.Row) (val float64, isNull bool, err error) {
+	return
+}
+
+func (c *Column) EvalTimeSeries(row spi.Row) (val *types.TimeSeries, isNull bool, err error) {
+	return row.GetTimeSeries(c.index), false, nil
+}
+
+// GetType returns the data type of the column returns.
+func (c *Column) GetType() types.DataType {
+	return c.retType
+}
+
+// String returns the column in string format.
+func (c *Column) String() string {
+	return c.name
 }

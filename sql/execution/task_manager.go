@@ -6,11 +6,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lindb/lindb/execution/buffer"
-	"github.com/lindb/lindb/execution/model"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/metrics"
+	"github.com/lindb/lindb/sql/execution/buffer"
+	"github.com/lindb/lindb/sql/execution/model"
 	"github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/planner/printer"
 )

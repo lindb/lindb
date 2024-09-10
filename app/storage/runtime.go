@@ -38,7 +38,6 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/coordinator/storage"
-	"github.com/lindb/lindb/execution"
 	"github.com/lindb/lindb/internal/api"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
@@ -61,6 +60,7 @@ import (
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/table/metric"
+	"github.com/lindb/lindb/sql/execution"
 	"github.com/lindb/lindb/tsdb"
 )
 

@@ -23,7 +23,6 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator"
 	"github.com/lindb/lindb/coordinator/broker"
-	"github.com/lindb/lindb/execution"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/state"
@@ -31,6 +30,7 @@ import (
 	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/tag"
+	"github.com/lindb/lindb/sql/execution"
 )
 
 // HTTPDeps represents http server handler's dependency.

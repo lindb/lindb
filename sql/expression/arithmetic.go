@@ -1,6 +1,7 @@
 package expression
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/lindb/lindb/spi"
@@ -19,19 +20,58 @@ type arithmeticPlusFunc struct {
 	baseFunc
 }
 
-func (f *arithmeticPlusFunc) EvalInt(row spi.Row) (val int64, err error) {
-	lv, _ := f.args[0].EvalInt(row)
-	rv, _ := f.args[1].EvalInt(row)
-	fmt.Println("plus.....")
-	return lv + rv, nil
+func (f *arithmeticPlusFunc) EvalInt(row spi.Row) (val int64, isNull bool, err error) {
+	lv, _, _ := f.args[0].EvalInt(row)
+	rv, _, _ := f.args[1].EvalInt(row)
+	fmt.Println("plus int.....")
+	return lv + rv, false, nil
 }
 
-func (f *arithmeticPlusFunc) EvalFloat(row spi.Row) (val float64, err error) {
-	return 0, nil
+func (f *arithmeticPlusFunc) EvalFloat(row spi.Row) (val float64, isNull bool, err error) {
+	fmt.Println("plus float.....")
+	return
 }
 
-func (f *arithmeticPlusFunc) EvalTimeSeries(row spi.Row) (val *types.TimeSeries, err error) {
-	return nil, nil
+func (f *arithmeticPlusFunc) EvalTimeSeries(row spi.Row) (val *types.TimeSeries, isNull bool, err error) {
+	fmt.Println("plus time series.....")
+	return evalTimeSeries(row, f.args, func(lv, rv float64) float64 {
+		return lv + rv
+	})
+}
+
+func evalTimeSeries(row spi.Row, args []Expression, math func(lv, rv float64) float64) (val *types.TimeSeries, isNull bool, err error) {
+	l, lIsNull, err := args[0].EvalTimeSeries(row)
+	if err != nil {
+		return nil, false, err
+	}
+	r, rIsNull, err := args[1].EvalTimeSeries(row)
+	if err != nil {
+		return nil, false, err
+	}
+	if lIsNull {
+		return r, rIsNull, nil
+	}
+	if rIsNull {
+		return l, lIsNull, nil
+	}
+	fmt.Println(l)
+	fmt.Println(r)
+	// check num. of points whether match
+	if !l.IsSingleValue() && !r.IsSingleValue() && l.Size() != r.Size() {
+		return nil, true, errors.New("num. of points not match")
+	}
+	var result *types.TimeSeries
+	if !l.IsSingleValue() {
+		result = types.NewTimeSeries(l.TimeRange, l.Interval)
+	} else if !r.IsSingleValue() {
+		result = types.NewTimeSeries(r.TimeRange, r.Interval)
+	} else {
+		result = types.NewTimeSeriesWithSingleValue(0)
+	}
+	for i := 0; i < result.Size(); i++ {
+		result.Put(i, math(l.Get(i), r.Get(i)))
+	}
+	return result, false, nil
 }
 
 type arithmeticMinusFuncFactory struct{}
@@ -46,19 +86,23 @@ type arithmeticMinusFunc struct {
 	baseFunc
 }
 
-func (f *arithmeticMinusFunc) EvalInt(row spi.Row) (val int64, err error) {
-	lv, _ := f.args[0].EvalInt(row)
-	rv, _ := f.args[1].EvalInt(row)
-	fmt.Println("minus.....")
-	return lv - rv, nil
+func (f *arithmeticMinusFunc) EvalInt(row spi.Row) (val int64, isNull bool, err error) {
+	lv, _, _ := f.args[0].EvalInt(row)
+	rv, _, _ := f.args[1].EvalInt(row)
+	fmt.Println("minus int.....")
+	return lv - rv, false, nil
 }
 
-func (f *arithmeticMinusFunc) EvalFloat(row spi.Row) (val float64, err error) {
-	return 0, nil
+func (f *arithmeticMinusFunc) EvalFloat(row spi.Row) (val float64, isNull bool, err error) {
+	fmt.Println("minus float.....")
+	return
 }
 
-func (f *arithmeticMinusFunc) EvalTimeSeries(row spi.Row) (val *types.TimeSeries, err error) {
-	return nil, nil
+func (f *arithmeticMinusFunc) EvalTimeSeries(row spi.Row) (val *types.TimeSeries, isNull bool, err error) {
+	fmt.Println("minus time series.....")
+	return evalTimeSeries(row, f.args, func(lv, rv float64) float64 {
+		return lv - rv
+	})
 }
 
 type arithmeticMulFuncFactory struct{}
@@ -73,19 +117,23 @@ type arithmeticMulFunc struct {
 	baseFunc
 }
 
-func (f *arithmeticMulFunc) EvalInt(row spi.Row) (val int64, err error) {
-	lv, _ := f.args[0].EvalInt(row)
-	rv, _ := f.args[1].EvalInt(row)
-	fmt.Println("mul.....")
-	return lv * rv, nil
+func (f *arithmeticMulFunc) EvalInt(row spi.Row) (val int64, isNull bool, err error) {
+	lv, _, _ := f.args[0].EvalInt(row)
+	rv, _, _ := f.args[1].EvalInt(row)
+	fmt.Println("mul int.....")
+	return lv * rv, false, nil
 }
 
-func (f *arithmeticMulFunc) EvalFloat(row spi.Row) (val float64, err error) {
-	return 0, nil
-}
-
-func (f *arithmeticMulFunc) EvalTimeSeries(row spi.Row) (val *types.TimeSeries, err error) {
+func (f *arithmeticMulFunc) EvalFloat(row spi.Row) (val float64, isNull bool, err error) {
+	fmt.Println("mul float.....")
 	return
+}
+
+func (f *arithmeticMulFunc) EvalTimeSeries(row spi.Row) (val *types.TimeSeries, isNull bool, err error) {
+	fmt.Println("mul time series.....")
+	return evalTimeSeries(row, f.args, func(lv, rv float64) float64 {
+		return lv * rv
+	})
 }
 
 type arithmeticDivFuncFactory struct{}
@@ -98,19 +146,26 @@ func (fct *arithmeticDivFuncFactory) NewFunc(args []Expression) Func {
 
 type arithmeticDivFunc struct{ baseFunc }
 
-func (f *arithmeticDivFunc) EvalInt(row spi.Row) (val int64, err error) {
-	lv, _ := f.args[0].EvalInt(row)
-	rv, _ := f.args[1].EvalInt(row)
-	fmt.Println("div.....")
-	return lv / rv, nil
+func (f *arithmeticDivFunc) EvalInt(row spi.Row) (val int64, isNull bool, err error) {
+	lv, _, _ := f.args[0].EvalInt(row)
+	rv, _, _ := f.args[1].EvalInt(row)
+	fmt.Println("div int.....")
+	return lv / rv, false, nil
 }
 
-func (f *arithmeticDivFunc) EvalFloat(row spi.Row) (val float64, err error) {
+func (f *arithmeticDivFunc) EvalFloat(row spi.Row) (val float64, isNull bool, err error) {
+	fmt.Println("div float.....")
 	return
 }
 
-func (f *arithmeticDivFunc) EvalTimeSeries(row spi.Row) (val *types.TimeSeries, err error) {
-	return
+func (f *arithmeticDivFunc) EvalTimeSeries(row spi.Row) (val *types.TimeSeries, isNull bool, err error) {
+	fmt.Println("div time series.....")
+	return evalTimeSeries(row, f.args, func(lv, rv float64) float64 {
+		if rv == 0 {
+			return 0
+		}
+		return lv / rv
+	})
 }
 
 type arithmeticModFuncFactory struct{}
@@ -125,18 +180,25 @@ type arithmeticModFunc struct {
 	baseFunc
 }
 
-func (f *arithmeticModFunc) EvalInt(row spi.Row) (val int64, err error) {
-	lv, _ := f.args[0].EvalInt(row)
-	rv, _ := f.args[1].EvalInt(row)
+func (f *arithmeticModFunc) EvalInt(row spi.Row) (val int64, isNull bool, err error) {
+	lv, _, _ := f.args[0].EvalInt(row)
+	rv, _, _ := f.args[1].EvalInt(row)
 
-	fmt.Println("mod.....")
-	return lv % rv, nil
+	fmt.Println("mod int.....")
+	return lv % rv, false, nil
 }
 
-func (f *arithmeticModFunc) EvalFloat(row spi.Row) (val float64, err error) {
+func (f *arithmeticModFunc) EvalFloat(row spi.Row) (val float64, isNull bool, err error) {
+	fmt.Println("mod float.....")
 	return
 }
 
-func (f *arithmeticModFunc) EvalTimeSeries(row spi.Row) (val *types.TimeSeries, err error) {
-	return
+func (f *arithmeticModFunc) EvalTimeSeries(row spi.Row) (val *types.TimeSeries, isNull bool, err error) {
+	fmt.Println("mod time series.....")
+	return evalTimeSeries(row, f.args, func(lv, rv float64) float64 {
+		if rv == 0 {
+			return 0
+		}
+		return float64(int64(lv) % int64(rv))
+	})
 }

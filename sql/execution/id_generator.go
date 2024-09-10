@@ -7,7 +7,7 @@ import (
 
 	"github.com/lindb/common/pkg/timeutil"
 
-	"github.com/lindb/lindb/execution/model"
+	"github.com/lindb/lindb/sql/execution/model"
 )
 
 type RequestIDGenerator struct {

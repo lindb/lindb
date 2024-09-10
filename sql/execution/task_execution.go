@@ -1,13 +1,12 @@
 package execution
 
 import (
-	"github.com/lindb/lindb/execution/buffer"
 	"github.com/lindb/lindb/sql/context"
+	"github.com/lindb/lindb/sql/execution/buffer"
 	"github.com/lindb/lindb/sql/planner"
 )
 
-type TaskExecutionFactory struct {
-}
+type TaskExecutionFactory struct{}
 
 func NewTaskExecutionFactory() *TaskExecutionFactory {
 	return &TaskExecutionFactory{}

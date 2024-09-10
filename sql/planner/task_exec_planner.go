@@ -5,14 +5,14 @@ import (
 
 	"github.com/samber/lo"
 
-	"github.com/lindb/lindb/execution/buffer"
-	"github.com/lindb/lindb/execution/pipeline"
-	"github.com/lindb/lindb/execution/pipeline/operator"
-	"github.com/lindb/lindb/execution/pipeline/operator/exchange"
-	"github.com/lindb/lindb/execution/pipeline/operator/output"
-	"github.com/lindb/lindb/execution/pipeline/operator/scan"
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/sql/context"
+	"github.com/lindb/lindb/sql/execution/buffer"
+	"github.com/lindb/lindb/sql/execution/pipeline"
+	"github.com/lindb/lindb/sql/execution/pipeline/operator"
+	"github.com/lindb/lindb/sql/execution/pipeline/operator/exchange"
+	"github.com/lindb/lindb/sql/execution/pipeline/operator/output"
+	"github.com/lindb/lindb/sql/execution/pipeline/operator/scan"
 	planpkg "github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/tree"
 )
@@ -47,6 +47,7 @@ func (p *TaskExecutionPlanner) Plan(taskCtx *context.TaskContext, plan planpkg.P
 		var splitSource spi.SplitSource
 		if taskExecPlanCtx.IsLocalStore() {
 			// local data source
+			// TODO: need check split source if nil
 			splitSource = taskExecPlanCtx.splitSources[i]
 		}
 

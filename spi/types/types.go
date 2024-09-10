@@ -13,7 +13,9 @@ type DataType uint16
 
 const (
 	DataTypeString DataType = iota + 1
+	DataTypeInt
 	DataTypeFloat
+	DataTypeTimeSeries
 	DataTypeSum
 	DataTypeMin
 	DataTypeMax
@@ -41,8 +43,12 @@ func (dt DataType) String() string {
 	switch dt {
 	case DataTypeString:
 		return "string"
+	case DataTypeInt:
+		return "int"
 	case DataTypeFloat:
 		return "float"
+	case DataTypeTimeSeries:
+		return "timeSeries"
 	case DataTypeSum:
 		return "sum"
 	case DataTypeMin:
@@ -72,8 +78,12 @@ func (tv *DataType) UnmarshalJSON(data []byte) error {
 	switch str {
 	case "string":
 		*tv = DataTypeString
+	case "int":
+		*tv = DataTypeInt
 	case "float":
 		*tv = DataTypeFloat
+	case "timeSeries":
+		*tv = DataTypeTimeSeries
 	case "sum":
 		*tv = DataTypeSum
 	case "min":

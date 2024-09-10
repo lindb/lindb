@@ -2,6 +2,8 @@ package tree
 
 import (
 	"fmt"
+
+	"github.com/lindb/lindb/spi/types"
 )
 
 type (
@@ -46,8 +48,8 @@ type Expression interface {
 
 type Cast struct {
 	BaseNode
-
-	Expression Expression `json:"expression"`
+	Type       types.DataType `json:"type"`
+	Expression Expression     `json:"expression"`
 }
 
 func (n *Cast) Accept(context any, visitor Visitor) (r any) {
