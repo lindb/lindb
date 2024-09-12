@@ -2,7 +2,6 @@ package metric
 
 import (
 	"fmt"
-	"reflect"
 
 	"github.com/samber/lo"
 	"go.uber.org/atomic"
@@ -89,7 +88,6 @@ func (mps *MetricPageSource) GetNextPage() *spi.Page {
 		loader := rs.Load(dataLoadCtx)
 		if loader != nil {
 			loaders = append(loaders, loader)
-			fmt.Printf("ident11=%s,loader=%v\n", rs.Identifier(), reflect.TypeOf(loader))
 		}
 	}
 	if len(loaders) == 0 {
@@ -108,7 +106,6 @@ func (mps *MetricPageSource) GetNextPage() *spi.Page {
 		var familyTime int64
 		// load field series data by series ids
 		dataLoadCtx.DownSampling = func(slotRange timeutil.SlotRange, lowSeriesIdx uint16, fieldIdx int, getter encoding.TSDValueGetter) {
-			fmt.Printf("low series id=%d\n", lowSeriesIdx)
 			seriesAggregator := dataLoadCtx.GetSeriesAggregator(lowSeriesIdx, fieldIdx)
 
 			agg := seriesAggregator.GetAggregator(familyTime)
