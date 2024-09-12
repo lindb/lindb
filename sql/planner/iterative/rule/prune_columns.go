@@ -3,7 +3,6 @@ package rule
 import (
 	"github.com/samber/lo"
 
-	"github.com/lindb/lindb/sql/matching"
 	"github.com/lindb/lindb/sql/planner"
 	"github.com/lindb/lindb/sql/planner/iterative"
 	"github.com/lindb/lindb/sql/planner/plan"
@@ -13,7 +12,7 @@ type ProjectionOffPushDown[N plan.PlanNode] struct {
 	pushDownProjectOff func(context *iterative.Context, targetNode N, referencedOutputs []*plan.Symbol) plan.PlanNode
 }
 
-func (rule *ProjectionOffPushDown[N]) Apply(context *iterative.Context, captures *matching.Captures, node plan.PlanNode) plan.PlanNode {
+func (rule *ProjectionOffPushDown[N]) Apply(context *iterative.Context, node plan.PlanNode) plan.PlanNode {
 	if parent, ok := node.(*plan.ProjectionNode); ok {
 		target, isMatch := context.Lookup.Resolve(parent.Source).(N)
 		if isMatch {
@@ -86,7 +85,7 @@ type PruneAggregationSourceColumns struct {
 
 func NewPruneAggregationSourceColumns() iterative.Rule {
 	rule := &PruneAggregationSourceColumns{}
-	rule.apply = func(context *iterative.Context, captures *matching.Captures, node *plan.AggregationNode) plan.PlanNode {
+	rule.apply = func(context *iterative.Context, node *plan.AggregationNode) plan.PlanNode {
 		var requiredInputs []*plan.Symbol
 		requiredInputs = append(requiredInputs, node.GetGroupingKeys()...)
 		for _, agg := range node.Aggregations {

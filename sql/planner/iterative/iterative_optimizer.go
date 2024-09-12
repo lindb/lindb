@@ -99,7 +99,7 @@ func (opt *IterativeOptimizer) transform(context *Context, node plan.PlanNode, r
 	// for _, match := range matches {
 	// TODO: add cost?
 	// fmt.Printf("rule========%T,match=%v,node=%T\n", rule, match, node)
-	result := rule.Apply(context, nil, node)
+	result := rule.Apply(context, node)
 	if result != nil {
 		if opt.logger.Enabled(logger.InfoLevel) {
 			opt.logger.Info(fmt.Sprintf("rule:%T\nbefore:\n%s\nafter:\n%s",

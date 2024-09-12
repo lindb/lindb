@@ -133,15 +133,14 @@ func (exec *QueryExecution) planQuery(output buffer.OutputBuffer) *PlanRoot {
 
 	// plan query
 	planOptimizers := []optimization.PlanOptimizer{
-		// column pruning optimizer
 		// optimization.NewPruneColumns(),
 		iterative.NewIterativeOptimizer([]iterative.Rule{
-			// rule.NewPruneOutputSourceColumns(),
 			rule.NewRemoveRedundantIdentityProjections(),
 		}),
 		// column pruning optimizer
 		iterative.NewIterativeOptimizer([]iterative.Rule{
 			rule.NewPruneAggregationSourceColumns(),
+			rule.NewPruneOutputSourceColumns(),
 			rule.NewPruneProjectionColumns(),
 			rule.NewPruneTableScanColumns(),
 		}),

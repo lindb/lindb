@@ -1,7 +1,6 @@
 package rule
 
 import (
-	"github.com/lindb/lindb/sql/matching"
 	"github.com/lindb/lindb/sql/planner/iterative"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
@@ -12,7 +11,7 @@ type PushPartialAggregationThroughExchange struct {
 
 func NewPushPartialAggregationThroughExchange() iterative.Rule {
 	rule := &PushPartialAggregationThroughExchange{}
-	rule.apply = func(context *iterative.Context, captures *matching.Captures, node *plan.AggregationNode) plan.PlanNode {
+	rule.apply = func(context *iterative.Context, node *plan.AggregationNode) plan.PlanNode {
 		exchangeNode, isExchange := context.Lookup.Resolve(node.Source).(*plan.ExchangeNode)
 		if !isExchange {
 			return nil
