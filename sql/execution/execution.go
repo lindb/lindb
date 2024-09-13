@@ -140,6 +140,7 @@ func (exec *QueryExecution) planQuery(output buffer.OutputBuffer) *PlanRoot {
 		// column pruning optimizer
 		iterative.NewIterativeOptimizer([]iterative.Rule{
 			rule.NewPruneAggregationSourceColumns(),
+			rule.NewPruneFilterColumns(),
 			rule.NewPruneOutputSourceColumns(),
 			rule.NewPruneProjectionColumns(),
 			rule.NewPruneTableScanColumns(),

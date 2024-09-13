@@ -4,6 +4,7 @@ import (
 	"github.com/lindb/lindb/sql/tree"
 )
 
+// PageSource represents a page of data source.
 type PageSource interface {
 	AddSplit(split Split)
 	GetNextPage() *Page

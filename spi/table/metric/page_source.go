@@ -131,6 +131,7 @@ func (mps *MetricPageSource) GetNextPage() *spi.Page {
 		mps.table.IntervalRatio, mps.table.TimeRange, dataLoadCtx.AggregatorSpecs)
 	// TODO:
 	if dataLoadCtx.IsMultiField {
+		fmt.Println(dataLoadCtx.WithoutGroupingSeriesAgg)
 		reduceAgg.Aggregate(dataLoadCtx.WithoutGroupingSeriesAgg.Aggregators.ResultSet(""))
 	} else {
 		if mps.split.tableScan.hasGrouping() {

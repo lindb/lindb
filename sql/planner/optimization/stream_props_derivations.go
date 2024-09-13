@@ -44,13 +44,19 @@ func (v *StreamPropsDerivationVisitor) Visit(context any, n plan.PlanNode) (r an
 		return v.visitAggregation(inputProps, node)
 	case *plan.ExchangeNode:
 		return v.visitExchange(inputProps, node)
-	case *plan.TableScanNode:
-		return v.visitTableScan(inputProps, node)
 	case *plan.ProjectionNode:
 		return v.visitProjection(inputProps, node)
+	case *plan.FilterNode:
+		return v.visitFilter(inputProps, node)
+	case *plan.TableScanNode:
+		return v.visitTableScan(inputProps, node)
 	default:
 		panic(fmt.Sprintf("impl stream props derivation visitor:%T", n))
 	}
+}
+
+func (v *StreamPropsDerivationVisitor) visitFilter(inputProps []*StreamProps, _ *plan.FilterNode) *StreamProps {
+	return inputProps[0]
 }
 
 func (v *StreamPropsDerivationVisitor) visitProjection(inputProps []*StreamProps, node *plan.ProjectionNode) *StreamProps {
