@@ -71,3 +71,7 @@ func (pb *PlanBuilder) appendProjections(expressions []tree.Expression) *PlanBui
 func (pb *PlanBuilder) translate(node tree.Expression) *plan.Symbol {
 	return plan.SymbolFrom(pb.translations.Rewrite(node))
 }
+
+func (pb *PlanBuilder) rewrite(node tree.Expression) tree.Expression {
+	return pb.translations.Rewrite(node)
+}

@@ -74,6 +74,7 @@ func (msp *SplitSourceProvider) buildTableScan(table spi.TableHandle, outputColu
 			return column.Name == item.Key && column.DataType == types.DataTypeString
 		})
 	})
+	fmt.Printf("all fields=%v, group key=%v, select field=%v,output=%v\n", schema.Fields, groupingTags, fields, outputColumns)
 
 	if len(fields)+len(groupingTags) != len(outputColumns) {
 		// output columns size not match

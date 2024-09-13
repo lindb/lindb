@@ -223,16 +223,9 @@ func (p *QueryPlanner) filter(subPlan *PlanBuilder, predicate tree.Expression, n
 			ID: p.context.PlanNodeIDAllocator.Next(),
 		},
 		Source:    subPlan.root,
-		Predicate: coerceIfNecessary(predicate, predicate), // FIXME:::
+		Predicate: coerceIfNecessary(p.context.AnalyzerContext.Analysis, predicate, subPlan.rewrite(predicate)),
 		// TODO:
 	})
-}
-
-func coerceIfNecessary(original, rewritten tree.Expression) tree.Expression {
-	// FIXME::
-	return &tree.Cast{
-		Expression: rewritten,
-	}
 }
 
 func (p *QueryPlanner) computeOutputs(builder *PlanBuilder, outputs []tree.Expression) (outputSymbols []*plan.Symbol) {

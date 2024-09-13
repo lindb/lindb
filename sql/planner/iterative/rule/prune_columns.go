@@ -99,3 +99,16 @@ func NewPruneAggregationSourceColumns() iterative.Rule {
 	}
 	return rule
 }
+
+type PruneFilterColumns struct {
+	ProjectionOffPushDown[*plan.FilterNode]
+}
+
+func NewPruneFilterColumns() iterative.Rule {
+	rule := &PruneFilterColumns{}
+	rule.pushDownProjectOff = func(context *iterative.Context, filter *plan.FilterNode, referencedOutputs []*plan.Symbol) plan.PlanNode {
+		// TODO: add filter columns
+		return restrictChildOutputs(context.IDAllocator, filter, referencedOutputs)
+	}
+	return rule
+}

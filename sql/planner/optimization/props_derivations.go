@@ -39,13 +39,26 @@ func (v *PropertyDerivationVisitor) Visit(context any, n plan.PlanNode) (r any) 
 		return v.visitAggregation(inputProperties, node)
 	case *plan.ExchangeNode:
 		return v.visitExchangeNode(inputProperties, node)
-	case *plan.TableScanNode:
-		return v.visitTableScan(inputProperties, node)
 	case *plan.ProjectionNode:
 		return v.visitProjection(inputProperties, node)
+	case *plan.FilterNode:
+		return v.visitFilter(inputProperties, node)
+	case *plan.TableScanNode:
+		return v.visitTableScan(inputProperties, node)
 	default:
 		panic(fmt.Sprintf("impl prop derivation visitor %T", n))
 	}
+}
+
+func (v *PropertyDerivationVisitor) visitFilter(inputProperties []*ActualProps, node *plan.FilterNode) *ActualProps {
+	props := inputProperties[0]
+	// identities := computeIdentityTranslations(node.Assignments)
+	// // TODO: expression rewrite
+	// translated := props.translate(func(symbol *plan.Symbol) *plan.Symbol {
+	// 	return identities[symbol.Name]
+	// })
+	// FIXME: add constant
+	return BuilderFrom(props).Build()
 }
 
 func (v *PropertyDerivationVisitor) visitProjection(inputProperties []*ActualProps, node *plan.ProjectionNode) *ActualProps {
