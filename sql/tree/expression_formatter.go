@@ -97,7 +97,7 @@ func (v *FormatVisitor) formatStringLiteral(s string) string {
 }
 
 func (v *FormatVisitor) formatIdentifier(s string) string {
-	return fmt.Sprintf(`"%s"`, strings.ReplaceAll(s, "\"", "\"\""))
+	return strings.ReplaceAll(s, "\"", "\"\"")
 }
 
 func reserved(name string) bool {

@@ -5,8 +5,9 @@ import (
 )
 
 type ColumnMetadata struct {
-	Name     string         `json:"name"`
-	DataType types.DataType `json:"type"`
+	Name     string              `json:"name"`
+	DataType types.DataType      `json:"type"`
+	AggType  types.AggregateType `json:"aggType,omitempty"`
 }
 
 func NewColumnInfo(name string, vt types.DataType) ColumnMetadata {

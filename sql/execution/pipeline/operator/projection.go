@@ -59,16 +59,16 @@ func (h *ProjectionOperator) GetOutput() *spi.Page {
 		for i, expr := range h.exprs {
 			fmt.Printf("do ..... projection op expr %T,%s ret type=%v\n", expr, expr.String(), expr.GetType().String())
 			switch expr.GetType() {
-			case types.DataTypeString:
+			case types.DTString:
 				val, _, _ := expr.EvalString(row)
 				h.outputColumns[i].AppendString(val)
-			case types.DataTypeInt:
+			case types.DTInt:
 				val, _, _ := expr.EvalInt(row)
 				h.outputColumns[i].AppendInt(val)
-			case types.DataTypeFloat:
+			case types.DTFloat:
 				val, _, _ := expr.EvalFloat(row)
 				h.outputColumns[i].AppendFloat(val)
-			case types.DataTypeTimeSeries, types.DataTypeSum, types.DataTypeFirst, types.DataTypeLast, types.DataTypeMin, types.DataTypeMax, types.DataTypeHistogram:
+			case types.DTTimeSeries:
 				val, _, _ := expr.EvalTimeSeries(row)
 				h.outputColumns[i].AppendTimeSeries(val)
 			default:

@@ -146,8 +146,12 @@ func (exec *QueryExecution) planQuery(output buffer.OutputBuffer) *PlanRoot {
 			rule.NewPruneTableScanColumns(),
 		}),
 		iterative.NewIterativeOptimizer([]iterative.Rule{
-			// inline project
 			rule.NewRemoveRedundantIdentityProjections(),
+		}),
+		// push into table scan optimizer
+		iterative.NewIterativeOptimizer([]iterative.Rule{
+			rule.NewPushProjectionIntoTableScan(),
+			rule.NewPushAggregationIntoTableScan(),
 		}),
 		optimization.NewAddExchanges(),
 		optimization.NewAddLocalExchanges(),

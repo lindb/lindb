@@ -29,6 +29,7 @@ func NewSplitSourceProvider(engine tsdb.Engine) *SplitSourceProvider {
 	}
 }
 
+// getSchema returns table schema based on table handle.
 func (msp *SplitSourceProvider) getSchema(db tsdb.Database, table *TableHandle) (metric.ID, *metric.Schema, error) {
 	// find metric id(table id)
 	metricID, err := db.MetaDB().GetMetricID(table.Namespace, table.Metric)
@@ -63,15 +64,15 @@ func (msp *SplitSourceProvider) buildTableScan(table spi.TableHandle, outputColu
 		panic(err)
 	}
 	// mapping fields for searching
-	fields := lo.Filter(schema.Fields, func(item field.Meta, index int) bool {
+	fields := lo.Filter(schema.Fields, func(field field.Meta, index int) bool {
 		return lo.ContainsBy(outputColumns, func(column spi.ColumnMetadata) bool {
-			return column.Name == item.Name.String() && column.DataType == item.Type.DateType()
+			return column.Name == field.Name.String() && column.DataType == types.DTTimeSeries
 		})
 	})
 	// mpaaing tags for grouping
-	groupingTags := lo.Filter(schema.TagKeys, func(item tag.Meta, index int) bool {
+	groupingTags := lo.Filter(schema.TagKeys, func(tagMeta tag.Meta, index int) bool {
 		return lo.ContainsBy(outputColumns, func(column spi.ColumnMetadata) bool {
-			return column.Name == item.Key && column.DataType == types.DataTypeString
+			return column.Name == tagMeta.Key && column.DataType == types.DTString
 		})
 	})
 	fmt.Printf("all fields=%v, group key=%v, select field=%v,output=%v\n", schema.Fields, groupingTags, fields, outputColumns)

@@ -1,68 +1,57 @@
 package types
 
 import (
-	"errors"
-	"fmt"
-
 	"github.com/lindb/common/pkg/encoding"
 )
 
+// AggregateType represents aggregation type of column value.
 type AggregateType byte
 
+// DataType represents data type of column value.
 type DataType uint16
 
 const (
-	DataTypeString DataType = iota + 1
-	DataTypeInt
-	DataTypeFloat
-	DataTypeTimeSeries
-	DataTypeSum
-	DataTypeMin
-	DataTypeMax
-	DataTypeLast
-	DataTypeFirst
-	DataTypeHistogram
+	// DTUnknown represents unknown data type.
+	DTUnknown DataType = iota
+	// DTString represents string data type.
+	DTString
+	// DTInt represents int data type.
+	DTInt
+	// DTFloat represents float data type.
+	DTFloat
+	// DTTimeSeries represents time series data type.
+	DTTimeSeries
 )
 
 const (
+	// ATUnknown represents unknown aggregation type.
 	ATUnknown AggregateType = iota
+	// ATSum represents sum aggregation type.
 	ATSum
+	// ATMin represents min aggregation type.
 	ATMin
+	// ATMax represents max aggregation type.
 	ATMax
+	// ATLast represents last aggregation type.
 	ATLast
+	// ATFirst represents first aggregation type.
 	ATFirst
+	// ATHistogram represents histogram aggregation type.
 	ATHistogram
 )
 
-func (dt DataType) CanAggregatin() bool {
-	return dt == DataTypeSum || dt == DataTypeMin || dt == DataTypeMax ||
-		dt == DataTypeLast || dt == DataTypeFirst || dt == DataTypeHistogram
-}
-
 func (dt DataType) String() string {
 	switch dt {
-	case DataTypeString:
+	case DTString:
 		return "string"
-	case DataTypeInt:
+	case DTInt:
 		return "int"
-	case DataTypeFloat:
+	case DTFloat:
 		return "float"
-	case DataTypeTimeSeries:
-		return "timeSeries"
-	case DataTypeSum:
-		return "sum"
-	case DataTypeMin:
-		return "min"
-	case DataTypeMax:
-		return "max"
-	case DataTypeLast:
-		return "last"
-	case DataTypeFirst:
-		return "first"
-	case DataTypeHistogram:
-		return "histogram"
+	case DTTimeSeries:
+		return "time_series"
 	default:
-		panic(fmt.Sprintf("invalid value type<%d>", dt))
+		return "unknown"
 	}
 }
 
@@ -77,27 +66,15 @@ func (tv *DataType) UnmarshalJSON(data []byte) error {
 	}
 	switch str {
 	case "string":
-		*tv = DataTypeString
+		*tv = DTString
 	case "int":
-		*tv = DataTypeInt
+		*tv = DTInt
 	case "float":
-		*tv = DataTypeFloat
-	case "timeSeries":
-		*tv = DataTypeTimeSeries
-	case "sum":
-		*tv = DataTypeSum
-	case "min":
-		*tv = DataTypeMin
-	case "max":
-		*tv = DataTypeMax
-	case "last":
-		*tv = DataTypeLast
-	case "first":
-		*tv = DataTypeFirst
-	case "histogram":
-		*tv = DataTypeHistogram
+		*tv = DTFloat
+	case "time_series":
+		*tv = DTTimeSeries
 	default:
-		return fmt.Errorf("invalid value type<%s>", str)
+		*tv = DTUnknown
 	}
 	return nil
 }
@@ -117,7 +94,7 @@ func (at AggregateType) String() string {
 	case ATHistogram:
 		return "histogram"
 	default:
-		panic("invalid aggregate type")
+		return "unknown"
 	}
 }
 
@@ -144,7 +121,7 @@ func (at *AggregateType) UnmarshalJSON(data []byte) error {
 	case "histogram":
 		*at = ATHistogram
 	default:
-		return errors.New("invalid aggregate type")
+		*at = ATUnknown
 	}
 	return nil
 }

@@ -40,10 +40,14 @@ func (srv *MetaService) TableSchema(ctx context.Context, request *protoMetaV1.Ta
 	}
 	tableSchema := spi.NewTableSchema()
 	for _, tagKey := range schema.TagKeys {
-		tableSchema.AddColumn(spi.ColumnMetadata{Name: tagKey.Key, DataType: types.DataTypeString})
+		tableSchema.AddColumn(spi.ColumnMetadata{Name: tagKey.Key, DataType: types.DTString})
 	}
 	for _, field := range schema.Fields {
-		tableSchema.AddColumn(spi.ColumnMetadata{Name: field.Name.String(), DataType: field.Type.DateType()})
+		tableSchema.AddColumn(spi.ColumnMetadata{
+			Name:     field.Name.String(),
+			DataType: types.DTTimeSeries,
+			AggType:  field.Type.AggregateType(),
+		})
 	}
 	return &protoMetaV1.TableSchemaResponse{
 		Payload: encoding.JSONMarshal(tableSchema),

@@ -10,6 +10,7 @@ type Field struct {
 	RelationAlias *QualifiedName
 	Name          string
 	DataType      types.DataType
+	AggType       types.AggregateType
 }
 
 func (f *Field) MatchesPrefix(prefix *QualifiedName) bool {

@@ -1,9 +1,9 @@
 package plan
 
 type RemoteSourceNode struct {
-	BaseNode
-
 	SourceFragmentIDs []FragmentID `json:"sourceFragmentIDs,omitempty"`
+
+	BaseNode
 }
 
 func (n *RemoteSourceNode) Accept(context any, visitor Visitor) any {

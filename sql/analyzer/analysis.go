@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/lindb/lindb/spi"
-	"github.com/lindb/lindb/spi/function"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 )
@@ -53,7 +52,7 @@ type Analysis struct {
 	namedQueries          map[tree.NodeID]*tree.Query // table reference to with query
 	selectAllResultFields map[tree.NodeID][]*tree.Field
 	selectExpressions     map[tree.NodeID][]*SelectExpression
-	resolvedFunctions     map[tree.NodeID]*function.ResolvedFunction
+	resolvedFunctions     map[tree.NodeID]tree.FunctionName
 	aggregates            map[tree.NodeID][]*tree.FunctionCall
 	aliasedRelations      map[*tree.QualifiedName]tree.Relation
 	tableMetadatas        map[tree.NodeID]*spi.TableMetadata
@@ -79,7 +78,7 @@ func NewAnalysis(root tree.Statement) *Analysis {
 		selectAllResultFields: make(map[tree.NodeID][]*tree.Field),
 		selectExpressions:     make(map[tree.NodeID][]*SelectExpression),
 		aggregates:            make(map[tree.NodeID][]*tree.FunctionCall),
-		resolvedFunctions:     make(map[tree.NodeID]*function.ResolvedFunction),
+		resolvedFunctions:     make(map[tree.NodeID]tree.FunctionName),
 		tableMetadatas:        make(map[tree.NodeID]*spi.TableMetadata),
 		tableHandles:          make(map[tree.NodeID]spi.TableHandle),
 		relationNames:         make(map[tree.NodeID]*tree.QualifiedName),
@@ -263,11 +262,11 @@ func (a *Analysis) GetAggregates(query *tree.QuerySpecification) (aggregates []*
 	return
 }
 
-func (a *Analysis) AddResolvedFunction(node tree.Node, fn *function.ResolvedFunction) {
+func (a *Analysis) AddResolvedFunction(node tree.Node, fn tree.FunctionName) {
 	a.resolvedFunctions[node.GetID()] = fn
 }
 
-func (a *Analysis) GetResolvedFunction(node tree.Node) (fn *function.ResolvedFunction) {
+func (a *Analysis) GetResolvedFunction(node tree.Node) (fn tree.FunctionName) {
 	fn = a.resolvedFunctions[node.GetID()]
 	return
 }

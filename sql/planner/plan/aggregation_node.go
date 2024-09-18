@@ -1,7 +1,6 @@
 package plan
 
 import (
-	"github.com/lindb/lindb/spi/function"
 	"github.com/lindb/lindb/sql/tree"
 )
 
@@ -37,8 +36,9 @@ type GroupingSetDescriptor struct {
 }
 
 type Aggregation struct {
-	ResolvedFunction *function.ResolvedFunction `json:"resolvedFunction"`
-	Arguments        []tree.Expression          `json:"arguments"`
+	Function  tree.FunctionName `json:"function"`
+	Arguments []tree.Expression `json:"arguments"`
+	// TODO: add filter
 }
 
 type AggregationAssignment struct {

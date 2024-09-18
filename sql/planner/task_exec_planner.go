@@ -62,6 +62,7 @@ type TaskExecutionPlanVisitor struct {
 	planner     *TaskExecutionPlanner
 }
 
+// Visit visits all plan node and plans task execution physical operator.
 func (v *TaskExecutionPlanVisitor) Visit(context any, n planpkg.PlanNode) (r any) {
 	switch node := n.(type) {
 	case *planpkg.OutputNode:
@@ -79,10 +80,11 @@ func (v *TaskExecutionPlanVisitor) Visit(context any, n planpkg.PlanNode) (r any
 	case *planpkg.TableScanNode:
 		return v.VisitTableScan(context, node)
 	default:
-		panic(fmt.Sprintf("imple task planner %T", n))
+		panic(fmt.Sprintf("umimplements task planner %T", n))
 	}
 }
 
+// visitFilter plans filter physical operator.
 func (v *TaskExecutionPlanVisitor) visitFilter(context any, node *planpkg.FilterNode) (r any) {
 	if tableScan, ok := node.Source.(*planpkg.TableScanNode); ok {
 		operatorFct := v.visitTableScan(context, tableScan, node.Predicate)

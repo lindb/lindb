@@ -78,7 +78,7 @@ func (f *castFunc) EvalFloat(row spi.Row) (val float64, isNull bool, err error) 
 func (f *castFunc) EvalTimeSeries(row spi.Row) (val *types.TimeSeries, isNull bool, err error) {
 	fmt.Printf("cast time series..........,type =%T,%s,%s\n", f.args[0], f.args[0].GetType(), f.args[0].String())
 	switch f.args[0].GetType() {
-	case types.DataTypeInt:
+	case types.DTInt:
 		val, isNull, err := f.args[0].EvalInt(row)
 		if err != nil {
 			return nil, false, err
@@ -87,7 +87,7 @@ func (f *castFunc) EvalTimeSeries(row spi.Row) (val *types.TimeSeries, isNull bo
 			return nil, true, nil
 		}
 		return types.NewTimeSeriesWithSingleValue(float64(val)), false, nil
-	case types.DataTypeFloat:
+	case types.DTFloat:
 		val, isNull, err := f.args[0].EvalFloat(row)
 		if err != nil {
 			return nil, false, err
@@ -96,7 +96,7 @@ func (f *castFunc) EvalTimeSeries(row spi.Row) (val *types.TimeSeries, isNull bo
 			return nil, true, nil
 		}
 		return types.NewTimeSeriesWithSingleValue(val), false, nil
-	case types.DataTypeTimeSeries, types.DataTypeSum, types.DataTypeFirst, types.DataTypeLast, types.DataTypeMin, types.DataTypeMax, types.DataTypeHistogram:
+	case types.DTTimeSeries:
 		return f.args[0].EvalTimeSeries(row)
 	}
 	return

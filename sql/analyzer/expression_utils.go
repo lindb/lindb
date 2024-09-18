@@ -32,7 +32,7 @@ func ExtractPredicates(operator tree.LogicalOperator, expression tree.Expression
 
 func ExtractAggregationFunctions(nodes []tree.Expression, handle func(node tree.Node)) {
 	visitor := &tree.DefaultTraversalVisitor{
-		Process: handle,
+		PreProcess: handle,
 	}
 	for _, node := range nodes {
 		visitor.Visit(nil, node)

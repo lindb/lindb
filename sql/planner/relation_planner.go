@@ -185,7 +185,7 @@ func coerceExpressions(subPlan *PlanBuilder, expressions []tree.Expression, symb
 		expression := expressions[i]
 		if _, ok := mappings[expression]; !ok {
 			// TODO: need modify
-			symbol := symbolAllocator.NewSymbol(subPlan.translations.Rewrite(expression), "", types.DataTypeSum) // TODO: get type from context
+			symbol := symbolAllocator.NewSymbol(subPlan.translations.Rewrite(expression), "", types.DTFloat) // TODO: get type from context
 			mappings[expression] = symbol
 		}
 	}

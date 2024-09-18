@@ -1,7 +1,6 @@
 package expression
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -22,7 +21,7 @@ type ScalarFunc struct {
 func NewScalarFunc(funcName tree.FunctionName, retType types.DataType, args []Expression) (Expression, error) {
 	fct, ok := funcs[funcName]
 	if !ok {
-		return nil, errors.New("func not support")
+		return nil, fmt.Errorf("func not support, func name: %s", funcName)
 	}
 	fn := fct.NewFunc(args)
 	return &ScalarFunc{

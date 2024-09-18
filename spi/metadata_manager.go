@@ -13,9 +13,9 @@ import (
 
 type CreateTableHandle func(db, ns, name string) TableHandle
 
-var createTableHandleFn = make(map[string]CreateTableHandle)
+var createTableHandleFn = make(map[TableKind]CreateTableHandle)
 
-func RegisterCreateTableHandleFn(kind string, fn CreateTableHandle) {
+func RegisterCreateTableHandleFn(kind TableKind, fn CreateTableHandle) {
 	createTableHandleFn[kind] = fn
 }
 
@@ -35,8 +35,8 @@ func NewMetadataManager(nodeSelector flow.NodeSelector) MetadataManager {
 }
 
 func (mgr *metadataManager) GetTableHandle(db, ns, name string) TableHandle {
-	// FIXME:
-	fn, ok := createTableHandleFn["metric"]
+	// FIXME: set table kind
+	fn, ok := createTableHandleFn[MetricTable]
 	if !ok {
 		panic("create table handle fn not exist")
 	}

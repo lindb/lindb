@@ -99,23 +99,37 @@ func (v *ExpressionVisitor) visitDereferenceExpression(context any, node *tree.D
 	}
 	// rowType := &types.RowType{}
 	// TODO: fixme
-	return v.setExpressionType(node, types.DataTypeString)
+	return v.setExpressionType(node, types.DTString)
 }
 
 func (v *ExpressionVisitor) visitFunctionCall(context any, node *tree.FunctionCall) (r any) {
+	var argumentTypes []types.DataType
+	for _, arg := range node.Arguments {
+		argumentTypes = append(argumentTypes, arg.Accept(context, v).(types.DataType))
+	}
+	// TODO: check args types
+	expectedType := argumentTypes[0]
+	for i := 1; i < len(argumentTypes); i++ {
+		expectedType = types.GetAccurateType(expectedType, argumentTypes[i])
+	}
+
+	for i, argumentType := range argumentTypes {
+		v.coerceType(node.Arguments[i], argumentType, expectedType)
+	}
+
 	// FIXME:func call???
 	// rowType := &types.RowType{}
-	return v.setExpressionType(node, types.DataTypeFirst)
+	return v.setExpressionType(node, expectedType)
 }
 
 func (v *ExpressionVisitor) visitStringLiteral(context any, node *tree.StringLiteral) (r any) {
 	// FIXME:???
 	// rowType := &types.RowType{}
-	return v.setExpressionType(node, types.DataTypeString)
+	return v.setExpressionType(node, types.DTString)
 }
 
 func (v *ExpressionVisitor) visitLongLiteral(context any, node *tree.LongLiteral) (r any) {
-	return v.setExpressionType(node, types.DataTypeInt)
+	return v.setExpressionType(node, types.DTInt)
 }
 
 func (v *ExpressionVisitor) visitIdentifier(context any, node *tree.Identifier) (r any) {

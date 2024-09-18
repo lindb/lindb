@@ -18,13 +18,13 @@ func NewFunctionResolver() *FunctionResolver {
 func (r *FunctionResolver) ResolveOperator(operatorType types.OperatorType, argumentTypes []types.Type) *ResolvedFunction {
 	return &ResolvedFunction{
 		// FIXME: function name/types
-		Signature: NewBoundSignature(operatorType.Operator, types.DataTypeFloat, []types.DataType{types.DataTypeSum}),
+		Signature: NewBoundSignature(operatorType.Operator, types.DTFloat, []types.DataType{types.DTFloat}),
 	}
 }
 
 func (r *FunctionResolver) ResolveFunction(name *tree.QualifiedName) *ResolvedFunction {
 	return &ResolvedFunction{
 		// FIXME: function name/types
-		Signature: NewBoundSignature(name.Suffix, types.DataTypeSum, []types.DataType{types.DataTypeSum}),
+		Signature: NewBoundSignature(name.Suffix, types.DTFloat, []types.DataType{types.DTFloat}),
 	}
 }
