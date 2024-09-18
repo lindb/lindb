@@ -44,7 +44,7 @@ func (a *SymbolAllocator) NewSymbol(expression tree.Expression, suffix string, d
 			nameHint = expr.RefField.Name
 			dataType = expr.RefField.DataType
 		} else {
-			nameHint = expr.Name.Suffix
+			nameHint = string(expr.Name)
 		}
 		// FIXME: func call
 	}

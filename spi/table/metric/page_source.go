@@ -71,9 +71,11 @@ func (mps *MetricPageSource) GetNextPage() *spi.Page {
 	dataLoadCtx.DownSamplingSpecs = make(aggregation.AggregatorSpecs, len(dataLoadCtx.Fields))
 	dataLoadCtx.AggregatorSpecs = make(aggregation.AggregatorSpecs, len(dataLoadCtx.Fields))
 	for i := range dataLoadCtx.Fields {
-		a := aggregation.NewAggregatorSpec(dataLoadCtx.Fields[i].Name, field.SumField)
-		a.AddFunctionType(function.Sum)
-		dataLoadCtx.DownSamplingSpecs[i] = a
+		// build down sampling aggregator spec based on field type
+		downSamplingSpec := aggregation.NewAggregatorSpec(dataLoadCtx.Fields[i].Name, field.SumField)
+		downSamplingSpec.AddFunctionType(dataLoadCtx.Fields[i].Type.DownSamplingFunc())
+		dataLoadCtx.DownSamplingSpecs[i] = downSamplingSpec
+
 		b := aggregation.NewAggregatorSpec(dataLoadCtx.Fields[i].Name, field.SumField)
 		b.AddFunctionType(function.Sum)
 		dataLoadCtx.AggregatorSpecs[i] = b

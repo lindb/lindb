@@ -3,6 +3,8 @@ package planner
 import (
 	"fmt"
 
+	"github.com/samber/lo"
+
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/analyzer"
 	"github.com/lindb/lindb/sql/context"
@@ -53,6 +55,7 @@ func (t *TranslationMap) withAdditionalMapping(mappings map[tree.NodeID]*plan.Sy
 }
 
 func (t *TranslationMap) tryGetMapping(node tree.Expression) *tree.SymbolReference {
+	fmt.Printf("try get maping=%v,%T\n", t.astToSymbols, node)
 	symbol, ok := t.astToSymbols[node.GetID()]
 	if ok {
 		return symbol.ToSymbolReference()
@@ -115,7 +118,7 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 				BaseNode: tree.BaseNode{
 					ID: node.GetID(),
 				},
-				Type:  types.DataTypeInt,
+				Type:  types.DTInt,
 				Value: expr.Value,
 			}
 		case *tree.ArithmeticBinaryExpression:
@@ -130,7 +133,22 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 				Args:     []tree.Expression{t.translate(expr.Left, false), t.translate(expr.Right, false)},
 			}
 		case *tree.ComparisonExpression:
+			// TODO:
 			result = expr
+		case *tree.FunctionCall:
+			fn := t.context.AnalyzerContext.Analysis.GetResolvedFunction(expr)
+			exceptedType := t.context.AnalyzerContext.Analysis.GetType(expr)
+			result = &tree.Call{
+				// TODO: replace
+				BaseNode: tree.BaseNode{
+					ID: node.GetID(),
+				},
+				Function: fn,
+				RetType:  exceptedType,
+				Args: lo.Map(expr.Arguments, func(arg tree.Expression, index int) tree.Expression {
+					return t.translate(arg, false)
+				}),
+			}
 		default:
 			panic(fmt.Sprintf("expression rewrite unimplemented: %T", node))
 		}

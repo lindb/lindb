@@ -41,6 +41,7 @@ func (r *Relation) withAlias(relationAlias string) *Relation {
 		fields = append(fields, &tree.Field{
 			Name:          field.Name,
 			DataType:      field.DataType,
+			AggType:       field.AggType,
 			RelationAlias: tree.NewQualifiedName([]*tree.Identifier{{Value: relationAlias}}),
 		})
 	}

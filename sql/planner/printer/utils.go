@@ -21,5 +21,5 @@ func formatAggregation(aggregation *plan.Aggregation) string {
 	for _, arg := range aggregation.Arguments {
 		args = append(args, fmt.Sprintf("\"%s\"", tree.FormatExpression(arg)))
 	}
-	return fmt.Sprintf("%s(%s)", aggregation.ResolvedFunction.Signature.Name, strings.Join(args, ", "))
+	return fmt.Sprintf("%s(%s)", aggregation.Function, strings.Join(args, ", "))
 }

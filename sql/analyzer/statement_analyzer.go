@@ -9,6 +9,7 @@ import (
 
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/function"
+	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 )
 
@@ -244,6 +245,7 @@ func (v *StatementVisitor) visitTable(ctx any, table *tree.Table) (r any) {
 		outputFields = append(outputFields, &tree.Field{
 			Name:          col.Name, // TODO: dup tag name/field name
 			DataType:      col.DataType,
+			AggType:       col.AggType,
 			RelationAlias: table.Name,
 		})
 	}
@@ -450,14 +452,26 @@ func (v *StatementVisitor) analyzeAggregations(query *tree.QuerySpecification, s
 	expr = append(expr, outputExpressions...)
 	expr = append(expr, orderByExpressions...)
 	var functions []*tree.FunctionCall
+	var stack []tree.Expression
+	isFuncArg := func() bool {
+		if len(stack) == 0 {
+			return false
+		}
+		_, ok := stack[len(stack)-1].(*tree.FunctionCall)
+		return ok
+	}
 	// TODO:
-	ExtractAggregationFunctions(expr, func(node tree.Node) {
-		if ident, ok := node.(*tree.Identifier); ok {
+	ExtractAggregationFunctions(expr, func(n tree.Node) {
+		fmt.Printf("extract agg func:%T=%v\n", n, n)
+		switch node := n.(type) {
+		case *tree.Identifier:
 			// transfer filed builtin aggregation
-			resolvedField := sourceScope.resolveField(node, tree.NewQualifiedName([]*tree.Identifier{ident}), true)
-			if resolvedField.Field.DataType.CanAggregatin() {
+			resolvedField := sourceScope.resolveField(n, tree.NewQualifiedName([]*tree.Identifier{node}), true)
+			fmt.Printf("analyze builtin agg func:%v, is func arg: %v\n", resolvedField.Field.AggType, isFuncArg())
+			if resolvedField.Field.AggType != types.ATUnknown && !isFuncArg() {
+				// agg field and field is not function arg, add builtin agg func for this field
 				fn := &tree.FunctionCall{
-					Name: tree.QualifiedName{Suffix: resolvedField.Field.DataType.String()},
+					Name: tree.FunctionName(tree.QualifiedName{Suffix: resolvedField.Field.DataType.String()}.Name),
 					Arguments: []tree.Expression{&tree.SymbolReference{
 						Name:     resolvedField.Field.Name,
 						DataType: resolvedField.Field.DataType,
@@ -465,11 +479,16 @@ func (v *StatementVisitor) analyzeAggregations(query *tree.QuerySpecification, s
 					RefField: resolvedField.Field,
 				}
 				functions = append(functions, fn)
-				resolvedFn := v.analyzer.funcionResolver.ResolveFunction(&fn.Name)
-				v.analyzer.ctx.Analysis.AddResolvedFunction(fn, resolvedFn)
-				v.analyzer.ctx.Analysis.AddType(fn, resolvedFn.Signature.ReturnType)
+				v.analyzer.ctx.Analysis.AddResolvedFunction(fn, fn.Name)
+				v.analyzer.ctx.Analysis.AddType(fn, resolvedField.Field.DataType) // TODO: remove it
 			}
+		case *tree.FunctionCall:
+			functions = append(functions, node)
+			v.analyzer.ctx.Analysis.AddResolvedFunction(node, node.Name)
 		}
+
+		// add node into expression stack
+		stack = append(stack, n)
 	})
 	v.analyzer.ctx.Analysis.SetAggregates(query, functions) // TODO: remove
 	// TODO: extract agg func

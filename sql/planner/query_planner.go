@@ -178,21 +178,28 @@ func (p *QueryPlanner) planGroupingOperations(subPlan *PlanBuilder, node *tree.Q
 }
 
 func (p *QueryPlanner) planAggregation(subPlan *PlanBuilder, groupingSets [][]*plan.Symbol, aggregates []*tree.FunctionCall) *PlanBuilder {
-	fmt.Printf("planagg.....%v\n", groupingSets)
+	fmt.Printf("planagg.....%v,func call=%v\n", groupingSets, aggregates)
 
 	var aggregateMapping []*plan.AggregationAssignment
+	additionalMapping := make(map[tree.NodeID]*plan.Symbol)
 	// TODO: scopeAwareDistinct
 	for _, function := range aggregates {
 		symbol := p.context.SymbolAllocator.NewSymbol(function, "", p.context.AnalyzerContext.Analysis.GetType(function))
 		aggregation := &plan.Aggregation{
-			ResolvedFunction: p.context.AnalyzerContext.Analysis.GetResolvedFunction(function),
-			Arguments:        function.Arguments, // TODO: parse arg
+			Function: p.context.AnalyzerContext.Analysis.GetResolvedFunction(function),
+			Arguments: lo.Map(function.Arguments, func(arg tree.Expression, _ int) tree.Expression {
+				if iden, ok := arg.(*tree.Identifier); ok {
+					return p.context.SymbolAllocator.NewSymbol(iden, "", p.context.AnalyzerContext.Analysis.GetType(iden)).ToSymbolReference()
+				}
+				return arg
+			}), // TODO: parse arg
 		}
 		aggregateMapping = append(aggregateMapping, &plan.AggregationAssignment{
 			Symbol:        symbol,
 			Aggregation:   aggregation,
 			ASTExpression: function,
 		})
+		additionalMapping[function.GetID()] = symbol
 	}
 	groupingKeys := make(map[string]*plan.Symbol)
 	for _, symbol := range lo.Flatten(groupingSets) {
@@ -207,8 +214,9 @@ func (p *QueryPlanner) planAggregation(subPlan *PlanBuilder, groupingSets [][]*p
 		},
 		plan.SINGLE)
 	return &PlanBuilder{
-		root:         aggregationNode,
-		translations: subPlan.translations,
+		root: aggregationNode,
+		// add aggregation symbol(function call node=>symbol)
+		translations: subPlan.translations.withAdditionalMapping(additionalMapping),
 	}
 }
 

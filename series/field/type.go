@@ -101,25 +101,6 @@ func (t Type) AggregateType() types.AggregateType {
 	}
 }
 
-func (t Type) DateType() types.DataType {
-	switch t {
-	case SumField:
-		return types.DataTypeSum
-	case MinField:
-		return types.DataTypeMin
-	case MaxField:
-		return types.DataTypeMax
-	case LastField:
-		return types.DataTypeLast
-	case FirstField:
-		return types.DataTypeFirst
-	case HistogramField:
-		return types.DataTypeHistogram
-	default:
-		panic("unknown aggregate type")
-	}
-}
-
 // String returns the field type's string value
 func (t Type) String() string {
 	switch t {

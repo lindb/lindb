@@ -9,7 +9,7 @@ import (
 
 func ExtractSymbolsFromExpressions(expressions []tree.Expression) (symbols []*plan.Symbol) {
 	visitor := &tree.DefaultTraversalVisitor{
-		Process: func(n tree.Node) {
+		PostProcess: func(n tree.Node) {
 			if ref, ok := n.(*tree.SymbolReference); ok {
 				symbols = append(symbols, plan.SymbolFrom(ref))
 			}
@@ -23,7 +23,7 @@ func ExtractSymbolsFromExpressions(expressions []tree.Expression) (symbols []*pl
 
 func ExtractSymbolsFromAggreation(aggregation *plan.Aggregation) (symbols []*plan.Symbol) {
 	visitor := &tree.DefaultTraversalVisitor{
-		Process: func(n tree.Node) {
+		PostProcess: func(n tree.Node) {
 			if ref, ok := n.(*tree.SymbolReference); ok {
 				symbols = append(symbols, plan.SymbolFrom(ref))
 			}
@@ -38,5 +38,5 @@ func ExtractSymbolsFromAggreation(aggregation *plan.Aggregation) (symbols []*pla
 }
 
 func ExtractSymbolsFromExpression(expression tree.Expression) []*plan.Symbol {
-	return nil
+	panic("unimplemented implements extract symbols from expression")
 }

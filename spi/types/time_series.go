@@ -2,13 +2,14 @@ package types
 
 import "github.com/lindb/lindb/pkg/timeutil"
 
+// TimeSeries represents time series data type.
 type TimeSeries struct {
-	Values      []float64          `json:"values"`
-	TimeRange   timeutil.TimeRange `json:"timeRange"`
-	Interval    timeutil.Interval  `json:"interval"`
-	NumOfPoints int                `json:"numOfPoints"`
-	Value       float64            `json:"value"`
-	IsSingle    bool               `json:"isSingle"`
+	Values      []float64          `json:"values,omitempty"`
+	TimeRange   timeutil.TimeRange `json:"timeRange,omitempty"`
+	Interval    timeutil.Interval  `json:"interval,omitempty"`
+	NumOfPoints int                `json:"numOfPoints,omitempty"`
+	Value       float64            `json:"value,omitempty"`
+	IsSingle    bool               `json:"isSingle,omitempty"`
 }
 
 // NewTimeSeries creates a time series with given time range and interval.

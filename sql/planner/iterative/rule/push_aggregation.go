@@ -1,8 +1,11 @@
 package rule
 
 import (
+	"fmt"
+
 	"github.com/lindb/lindb/sql/planner/iterative"
 	"github.com/lindb/lindb/sql/planner/plan"
+	"github.com/lindb/lindb/sql/tree"
 )
 
 type PushPartialAggregationThroughExchange struct {
@@ -93,4 +96,41 @@ func (rule *PushPartialAggregationThroughExchange) split(context *iterative.Cont
 	// TODO: add agg fun
 	partial := plan.NewAggregationNode(context.IDAllocator.Next(), node.Source, node.Aggregations, node.GroupingSets, plan.PARTIAL)
 	return plan.NewAggregationNode(node.GetNodeID(), partial, node.Aggregations, node.GroupingSets, plan.FINAL)
+}
+
+type PushAggregationIntoTableScan struct {
+	Base[*plan.AggregationNode]
+}
+
+func NewPushAggregationIntoTableScan() iterative.Rule {
+	rule := &PushAggregationIntoTableScan{}
+	rule.apply = rule.pushAggregationIntoTableScan
+	return rule
+}
+
+func (rule *PushAggregationIntoTableScan) pushAggregationIntoTableScan(context *iterative.Context, node *plan.AggregationNode) plan.PlanNode {
+	if node.Step != plan.SINGLE || len(node.Aggregations) == 0 {
+		// if step is single or no aggregation, return nil
+		return nil
+	}
+	// TODO: duplicate
+	var symbols []*tree.SymbolReference
+	for _, agg := range node.Aggregations {
+		for _, arg := range agg.Aggregation.Arguments {
+			if symbol, ok := arg.(*tree.SymbolReference); ok {
+				symbols = append(symbols, symbol)
+			}
+		}
+	}
+	if len(symbols) == 0 {
+		return nil
+	}
+	tableScan := iterative.ExtractTableScan(context, node)
+	if tableScan == nil {
+		return nil
+	}
+	for _, symbol := range symbols {
+		fmt.Printf("push column %s into table scan\n", symbol.Name)
+	}
+	return nil
 }

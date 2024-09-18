@@ -5,27 +5,25 @@ import "fmt"
 func GetAccurateType(lhs, rhs DataType) DataType {
 	fmt.Printf("get accurate type lhs %v, rhs %v\n", lhs, rhs)
 	switch lhs {
-	case DataTypeInt:
+	case DTInt:
 		switch rhs {
-		case DataTypeInt:
-			return DataTypeInt
-		case DataTypeFloat:
-			return DataTypeFloat
-		case DataTypeTimeSeries:
-			return DataTypeTimeSeries
+		case DTInt:
+			return DTInt
+		case DTFloat:
+			return DTFloat
+		case DTTimeSeries:
+			return DTTimeSeries
 		}
-	case DataTypeFloat:
+	case DTFloat:
 		switch rhs {
-		case DataTypeFloat:
-			return DataTypeFloat
-		case DataTypeTimeSeries:
-			return DataTypeTimeSeries
+		case DTFloat:
+			return DTFloat
+		case DTTimeSeries:
+			return DTTimeSeries
 		}
-	case DataTypeTimeSeries:
-		return DataTypeTimeSeries
-	case DataTypeSum, DataTypeFirst, DataTypeLast, DataTypeMin, DataTypeMax, DataTypeHistogram:
-		return DataTypeTimeSeries
+	case DTTimeSeries:
+		return DTTimeSeries
 	}
 	// TODO: add unknown type and string
-	return DataTypeFloat
+	return DTUnknown
 }

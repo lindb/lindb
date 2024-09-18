@@ -3,6 +3,7 @@ package plan
 import "github.com/lindb/lindb/sql/tree"
 
 type JoinType string
+
 type DistributionType string
 
 var (
@@ -28,13 +29,13 @@ func (n *EqualJoinCriteria) ToExpression() *tree.ComparisonExpression {
 }
 
 type JoinNode struct {
-	BaseNode
-	DistributionType DistributionType
-	Type             JoinType
 	Left             PlanNode
 	Right            PlanNode
+	DistributionType DistributionType
+	Type             JoinType
+	Criteria         []*EqualJoinCriteria
 
-	Criteria []*EqualJoinCriteria
+	BaseNode
 }
 
 func (n *JoinNode) Accept(context any, visitor Visitor) any {
@@ -50,7 +51,7 @@ func (n *JoinNode) GetOutputSymbols() []*Symbol {
 }
 
 func (n *JoinNode) IsCrossJoin() bool {
-	return n.Criteria != nil && n.Type == Inner //FIXME: check filter?????
+	return n.Criteria != nil && n.Type == Inner // FIXME: check filter?????
 }
 
 func (n *JoinNode) ReplaceChildren(newChildren []PlanNode) PlanNode {

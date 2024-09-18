@@ -43,7 +43,7 @@ func (rsb *ResultSetBuild) Process() {
 				// TODO: add more type
 				fmt.Printf("layout index=%d\n", i)
 				switch meta.DataType {
-				case types.DataTypeString:
+				case types.DTString:
 					columns = append(columns, row.GetString(i))
 				default:
 					columns = append(columns, row.GetTimeSeries(i))

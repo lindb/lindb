@@ -16,7 +16,7 @@ import (
 
 func init() {
 	encoding.RegisterNodeType(TableHandle{})
-	spi.RegisterCreateTableHandleFn("metric", func(db, ns, name string) spi.TableHandle {
+	spi.RegisterCreateTableHandleFn(spi.MetricTable, func(db, ns, name string) spi.TableHandle {
 		return &TableHandle{
 			Database:  db,
 			Namespace: ns,
