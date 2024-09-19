@@ -179,7 +179,6 @@ func (exec *QueryExecution) planQuery(output buffer.OutputBuffer) *PlanRoot {
 	fragments := fragmentedPlan.GetAllFragments()
 
 	rootFragment := fragments[0]
-	fmt.Printf("remote source====%v\n", rootFragment.RemoteSources[0].SourceFragmentIDs)
 
 	// submit all task
 	for i := 0; i < len(fragments); i++ {

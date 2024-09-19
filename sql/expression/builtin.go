@@ -20,7 +20,7 @@ type FuncFactory interface {
 	NewFunc(args []Expression) Func
 }
 
-var funcs = map[tree.FunctionName]FuncFactory{
+var funcs = map[tree.FuncName]FuncFactory{
 	tree.Plus:  &arithmeticPlusFuncFactory{},
 	tree.Minus: &arithmeticMinusFuncFactory{},
 	tree.Mul:   &arithmeticMulFuncFactory{},

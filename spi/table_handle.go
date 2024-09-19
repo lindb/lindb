@@ -12,14 +12,16 @@ func init() {
 	jsoniter.RegisterTypeDecoder("spi.TableHandle", &encoding.JSONDecoder[TableHandle]{})
 }
 
-type TableKind int
+type DatasourceKind int
 
 const (
-	MetricTable TableKind = iota + 1
+	Metric DatasourceKind = iota + 1
 )
 
 // TableHandle represents a table handle that connect the storage engine.
 type TableHandle interface {
+	// Kind returns the kind of data source.
+	Kind() DatasourceKind
 	// String returns table info, format: ${database}:${namespace}:${tableName}
 	String() string
 }

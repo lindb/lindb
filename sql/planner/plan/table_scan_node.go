@@ -9,6 +9,7 @@ type TableScanNode struct {
 	Table         spi.TableHandle               `json:"table"`
 	Partitions    map[models.InternalNode][]int `json:"-"`
 	OutputSymbols []*Symbol                     `json:"outputs"`
+	Assignments   []*spi.ColumnAssignment       `json:"assignments,omitempty"`
 
 	BaseNode
 }

@@ -639,7 +639,7 @@ func (v *AstVisitor) VisitFunctionCall(ctx *grammar.FunctionCallContext) any {
 			ID:       v.idAllocator.Next(),
 			Location: getLocation(ctx.GetStart()),
 		},
-		Name:      FunctionName(v.getQualifiedName(ctx.QualifiedName()).Name), // TODO: check function name
+		Name:      FuncName(v.getQualifiedName(ctx.QualifiedName()).Name), // TODO: check function name
 		Arguments: visit[Expression](ctx.AllExpression(), v),
 	}
 }

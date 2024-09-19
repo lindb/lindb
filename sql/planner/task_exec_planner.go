@@ -174,5 +174,5 @@ func (v *TaskExecutionPlanVisitor) visitTableScan(context any, node *planpkg.Tab
 	planContext.SetSplitSources(splitSources)
 	planContext.SetLocalStore(true)
 
-	return scan.NewTableScanOperatorFactory(node.GetNodeID(), node.Table, outputColumns, filter)
+	return scan.NewTableScanOperatorFactory(node.GetNodeID(), node.Table, outputColumns, node.Assignments, filter)
 }

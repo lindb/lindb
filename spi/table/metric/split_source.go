@@ -23,7 +23,7 @@ type SplitSourceProvider struct {
 	engine tsdb.Engine
 }
 
-func NewSplitSourceProvider(engine tsdb.Engine) *SplitSourceProvider {
+func NewSplitSourceProvider(engine tsdb.Engine) spi.SplitSourceProvider {
 	return &SplitSourceProvider{
 		engine: engine,
 	}

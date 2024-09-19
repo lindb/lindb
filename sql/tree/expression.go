@@ -25,7 +25,7 @@ var (
 	Modulus  ArithmeticOperator = "%"
 )
 
-func (op ArithmeticOperator) FunctionName() FunctionName {
+func (op ArithmeticOperator) FunctionName() FuncName {
 	switch op {
 	case Add:
 		return Plus

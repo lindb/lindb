@@ -3,7 +3,7 @@ package tree
 type FunctionCall struct {
 	BaseNode
 	RefField  *Field
-	Name      FunctionName
+	Name      FuncName
 	Arguments []Expression
 }
 

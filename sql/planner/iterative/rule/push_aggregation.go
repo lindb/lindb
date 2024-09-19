@@ -1,8 +1,7 @@
 package rule
 
 import (
-	"fmt"
-
+	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/sql/planner/iterative"
 	"github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/tree"
@@ -57,7 +56,7 @@ func (rule *PushPartialAggregationThroughExchange) pushPartial(context *iterativ
 		}
 
 		symbolMapper := plan.NewSymbolMapper(mapping)
-		mappedPartial := symbolMapper.MapAggregation(aggregation, source, context.IDAllocator.Next())
+		mappedPartial := symbolMapper.MapAggregation(aggregation, source, context.PlannerContext.PlanNodeIDAllocator.Next())
 
 		var assignments plan.Assignments
 		for _, output := range aggregation.GetOutputSymbols() {
@@ -66,7 +65,7 @@ func (rule *PushPartialAggregationThroughExchange) pushPartial(context *iterativ
 		}
 		partials = append(partials, &plan.ProjectionNode{
 			BaseNode: plan.BaseNode{
-				ID: context.IDAllocator.Next(),
+				ID: context.PlannerContext.PlanNodeIDAllocator.Next(),
 			},
 			Source:      mappedPartial,
 			Assignments: assignments,
@@ -82,7 +81,7 @@ func (rule *PushPartialAggregationThroughExchange) pushPartial(context *iterativ
 	}
 	return &plan.ExchangeNode{
 		BaseNode: plan.BaseNode{
-			ID: context.IDAllocator.Next(),
+			ID: context.PlannerContext.PlanNodeIDAllocator.Next(),
 		},
 		Type:               exchange.Type,
 		Scope:              exchange.Scope,
@@ -94,7 +93,7 @@ func (rule *PushPartialAggregationThroughExchange) pushPartial(context *iterativ
 
 func (rule *PushPartialAggregationThroughExchange) split(context *iterative.Context, node *plan.AggregationNode) plan.PlanNode {
 	// TODO: add agg fun
-	partial := plan.NewAggregationNode(context.IDAllocator.Next(), node.Source, node.Aggregations, node.GroupingSets, plan.PARTIAL)
+	partial := plan.NewAggregationNode(context.PlannerContext.PlanNodeIDAllocator.Next(), node.Source, node.Aggregations, node.GroupingSets, plan.PARTIAL)
 	return plan.NewAggregationNode(node.GetNodeID(), partial, node.Aggregations, node.GroupingSets, plan.FINAL)
 }
 
@@ -114,23 +113,48 @@ func (rule *PushAggregationIntoTableScan) pushAggregationIntoTableScan(context *
 		return nil
 	}
 	// TODO: duplicate
-	var symbols []*tree.SymbolReference
+	var columnAggregations []spi.ColumnAggregation
+	var assigments plan.Assignments
 	for _, agg := range node.Aggregations {
 		for _, arg := range agg.Aggregation.Arguments {
 			if symbol, ok := arg.(*tree.SymbolReference); ok {
-				symbols = append(symbols, symbol)
+				columnAggregations = append(columnAggregations, spi.ColumnAggregation{Column: symbol.Name, AggFuncName: agg.Aggregation.Function})
+				assigments = assigments.Put(plan.SymbolFrom(symbol), agg.ASTExpression)
 			}
 		}
 	}
-	if len(symbols) == 0 {
+	if len(columnAggregations) == 0 {
 		return nil
 	}
 	tableScan := iterative.ExtractTableScan(context, node)
 	if tableScan == nil {
 		return nil
 	}
-	for _, symbol := range symbols {
-		fmt.Printf("push column %s into table scan\n", symbol.Name)
+	result := spi.ApplyAggregation(tableScan.Table,
+		context.PlannerContext.AnalyzerContext.Analysis.GetTableMetadata(tableScan.Table.String()),
+		columnAggregations,
+	)
+	if result == nil || len(result.ColumnAssignments) == 0 {
+		return nil
 	}
+	// just replace column assignments of table scan
+	tableScan.Assignments = result.ColumnAssignments
 	return nil
+	//
+	// project := &plan.ProjectionNode{
+	// 	BaseNode: plan.BaseNode{
+	// 		ID: context.PlannerContext.PlanNodeIDAllocator.Next(),
+	// 	},
+	// 	Source: &plan.TableScanNode{
+	// 		BaseNode: plan.BaseNode{
+	// 			ID: context.PlannerContext.PlanNodeIDAllocator.Next(),
+	// 		},
+	// 		Table:         tableScan.Table,
+	// 		OutputSymbols: tableScan.OutputSymbols,
+	// 		Partitions:    tableScan.Partitions,
+	// 		Assignments:   result.ColumnAssignments,
+	// 	},
+	// 	Assignments: assigments,
+	// }
+	// return plan.NewAggregationNode(context.PlannerContext.PlanNodeIDAllocator.Next(), project, node.Aggregations, node.GroupingSets, node.Step)
 }

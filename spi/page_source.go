@@ -21,7 +21,7 @@ type SplitSourceProvider interface {
 }
 
 type PageSourceProvider interface {
-	CreatePageSource(table TableHandle, outputs []ColumnMetadata) PageSource
+	CreatePageSource(table TableHandle, outputs []ColumnMetadata, assignments []*ColumnAssignment) PageSource
 }
 
 type PageSourceManager struct{}

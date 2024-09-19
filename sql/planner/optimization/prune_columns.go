@@ -5,6 +5,7 @@ import (
 
 	"github.com/samber/lo"
 
+	"github.com/lindb/lindb/sql/context"
 	planpkg "github.com/lindb/lindb/sql/planner/plan"
 )
 
@@ -15,10 +16,10 @@ func NewPruneColumns() PlanOptimizer {
 }
 
 // Optimize implements PlanOptimizer
-func (opt *PruneColumns) Optimize(node planpkg.PlanNode, idAllocator *planpkg.PlanNodeIDAllocator) planpkg.PlanNode {
+func (opt *PruneColumns) Optimize(ctx *context.PlannerContext, node planpkg.PlanNode) planpkg.PlanNode {
 	outputs := node.GetOutputSymbols()
 	result := node.Accept(outputs, &PruneColumnsVisitor{
-		idAllocator: idAllocator,
+		idAllocator: ctx.PlanNodeIDAllocator,
 	})
 	if r, ok := result.(planpkg.PlanNode); ok {
 		return r

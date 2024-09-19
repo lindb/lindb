@@ -252,9 +252,9 @@ func (v *StatementVisitor) visitTable(ctx any, table *tree.Table) (r any) {
 
 	// TODO: check table type
 	v.analyzer.ctx.Analysis.SetRelationName(table, table.Name)
-	v.analyzer.ctx.Analysis.RegisterTableMetadata(table, tableMetadata)
 	tableHandle := v.analyzer.metadataMgr.GetTableHandle(database, namespace, table.GetTableName())
 	v.analyzer.ctx.Analysis.RegisterTableHandle(table, tableHandle)
+	v.analyzer.ctx.Analysis.RegisterTableMetadata(tableHandle.String(), tableMetadata)
 	// FIXME: table fields??
 
 	return v.createAndAssignScope(table, scope, NewRelation(TableRelation, outputFields))
@@ -471,7 +471,7 @@ func (v *StatementVisitor) analyzeAggregations(query *tree.QuerySpecification, s
 			if resolvedField.Field.AggType != types.ATUnknown && !isFuncArg() {
 				// agg field and field is not function arg, add builtin agg func for this field
 				fn := &tree.FunctionCall{
-					Name: tree.FunctionName(tree.QualifiedName{Suffix: resolvedField.Field.DataType.String()}.Name),
+					Name: tree.FuncName(tree.QualifiedName{Suffix: resolvedField.Field.DataType.String()}.Name),
 					Arguments: []tree.Expression{&tree.SymbolReference{
 						Name:     resolvedField.Field.Name,
 						DataType: resolvedField.Field.DataType,

@@ -13,12 +13,12 @@ import (
 
 type ScalarFunc struct {
 	function Func
-	funcName tree.FunctionName
+	funcName tree.FuncName
 	args     []Expression
 	retType  types.DataType
 }
 
-func NewScalarFunc(funcName tree.FunctionName, retType types.DataType, args []Expression) (Expression, error) {
+func NewScalarFunc(funcName tree.FuncName, retType types.DataType, args []Expression) (Expression, error) {
 	fct, ok := funcs[funcName]
 	if !ok {
 		return nil, fmt.Errorf("func not support, func name: %s", funcName)

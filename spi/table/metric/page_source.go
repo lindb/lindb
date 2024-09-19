@@ -19,20 +19,23 @@ import (
 
 type MetricPageSourceProvider struct{}
 
-func NewMetricPageSourceProvider() *MetricPageSourceProvider {
+func NewMetricPageSourceProvider() spi.PageSourceProvider {
 	return &MetricPageSourceProvider{}
 }
 
-func (p *MetricPageSourceProvider) CreatePageSource(table spi.TableHandle, outputs []spi.ColumnMetadata) spi.PageSource {
+func (p *MetricPageSourceProvider) CreatePageSource(table spi.TableHandle, outputs []spi.ColumnMetadata, assignments []*spi.ColumnAssignment) spi.PageSource {
 	return &MetricPageSource{
-		table:   table.(*TableHandle),
-		outputs: outputs,
-		decoder: encoding.GetTSDDecoder(),
+		table:       table.(*TableHandle),
+		assignments: assignments,
+		outputs:     outputs,
+		decoder:     encoding.GetTSDDecoder(),
 	}
 }
 
 type MetricPageSource struct {
-	table *TableHandle
+	table       *TableHandle
+	assignments []*spi.ColumnAssignment
+
 	split *ScanSplit
 
 	decoder *encoding.TSDDecoder
@@ -70,15 +73,25 @@ func (mps *MetricPageSource) GetNextPage() *spi.Page {
 	}
 	dataLoadCtx.DownSamplingSpecs = make(aggregation.AggregatorSpecs, len(dataLoadCtx.Fields))
 	dataLoadCtx.AggregatorSpecs = make(aggregation.AggregatorSpecs, len(dataLoadCtx.Fields))
-	for i := range dataLoadCtx.Fields {
+	for i, field := range dataLoadCtx.Fields {
 		// build down sampling aggregator spec based on field type
-		downSamplingSpec := aggregation.NewAggregatorSpec(dataLoadCtx.Fields[i].Name, field.SumField)
-		downSamplingSpec.AddFunctionType(dataLoadCtx.Fields[i].Type.DownSamplingFunc())
+		columnHandles := lo.Filter(mps.assignments, func(item *spi.ColumnAssignment, index int) bool {
+			return item.Column == field.Name.String()
+		})
+
+		downSamplingSpec := aggregation.NewAggregatorSpec(field.Name, field.Type)
 		dataLoadCtx.DownSamplingSpecs[i] = downSamplingSpec
 
-		b := aggregation.NewAggregatorSpec(dataLoadCtx.Fields[i].Name, field.SumField)
-		b.AddFunctionType(function.Sum)
-		dataLoadCtx.AggregatorSpecs[i] = b
+		aggregatorSpec := aggregation.NewAggregatorSpec(field.Name, field.Type)
+		dataLoadCtx.AggregatorSpecs[i] = aggregatorSpec
+
+		for _, columnHandle := range columnHandles {
+			if handle, ok := columnHandle.Handler.(*ColumnHandle); ok {
+				// TODO: react it
+				downSamplingSpec.AddFunctionType(function.FuncTypeValueOf(string(handle.Downsampling)))
+				aggregatorSpec.AddFunctionType(function.FuncTypeValueOf(string(handle.Aggregation)))
+			}
+		}
 	}
 
 	dataLoadCtx.Prepare()

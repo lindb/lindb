@@ -16,6 +16,7 @@ type RemoveRedundantIdentityProjections struct {
 func NewRemoveRedundantIdentityProjections() iterative.Rule {
 	rule := &RemoveRedundantIdentityProjections{}
 	rule.apply = func(context *iterative.Context, node *plan.ProjectionNode) plan.PlanNode {
+		fmt.Printf("remove projection node: %v,%v,source=%T\n", node.Assignments, node.Assignments.IsIdentity(), node.Source)
 		if node.Assignments.IsIdentity() &&
 			symbolsEquals(node.GetOutputSymbols(), node.Source.GetOutputSymbols()) {
 			return node.Source

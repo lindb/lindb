@@ -52,10 +52,10 @@ type Analysis struct {
 	namedQueries          map[tree.NodeID]*tree.Query // table reference to with query
 	selectAllResultFields map[tree.NodeID][]*tree.Field
 	selectExpressions     map[tree.NodeID][]*SelectExpression
-	resolvedFunctions     map[tree.NodeID]tree.FunctionName
+	resolvedFunctions     map[tree.NodeID]tree.FuncName
 	aggregates            map[tree.NodeID][]*tree.FunctionCall
 	aliasedRelations      map[*tree.QualifiedName]tree.Relation
-	tableMetadatas        map[tree.NodeID]*spi.TableMetadata
+	tableMetadatas        map[string]*spi.TableMetadata // table name => table metadata
 	tableHandles          map[tree.NodeID]spi.TableHandle
 	relationNames         map[tree.NodeID]*tree.QualifiedName
 	joins                 map[tree.NodeID]tree.Expression
@@ -78,8 +78,8 @@ func NewAnalysis(root tree.Statement) *Analysis {
 		selectAllResultFields: make(map[tree.NodeID][]*tree.Field),
 		selectExpressions:     make(map[tree.NodeID][]*SelectExpression),
 		aggregates:            make(map[tree.NodeID][]*tree.FunctionCall),
-		resolvedFunctions:     make(map[tree.NodeID]tree.FunctionName),
-		tableMetadatas:        make(map[tree.NodeID]*spi.TableMetadata),
+		resolvedFunctions:     make(map[tree.NodeID]tree.FuncName),
+		tableMetadatas:        make(map[string]*spi.TableMetadata),
 		tableHandles:          make(map[tree.NodeID]spi.TableHandle),
 		relationNames:         make(map[tree.NodeID]*tree.QualifiedName),
 		aliasedRelations:      make(map[*tree.QualifiedName]tree.Relation),
@@ -149,12 +149,12 @@ func (a *Analysis) GetRelationByAliased(aliased *tree.QualifiedName) (relation t
 	return
 }
 
-func (a *Analysis) RegisterTableMetadata(table *tree.Table, tableMetadata *spi.TableMetadata) {
-	a.tableMetadatas[table.GetID()] = tableMetadata
+func (a *Analysis) RegisterTableMetadata(table string, tableMetadata *spi.TableMetadata) {
+	a.tableMetadatas[table] = tableMetadata
 }
 
-func (a *Analysis) GetTableMetadata(table *tree.Table) (tableMetadata *spi.TableMetadata) {
-	tableMetadata = a.tableMetadatas[table.GetID()]
+func (a *Analysis) GetTableMetadata(table string) (tableMetadata *spi.TableMetadata) {
+	tableMetadata = a.tableMetadatas[table]
 	return
 }
 
@@ -262,11 +262,11 @@ func (a *Analysis) GetAggregates(query *tree.QuerySpecification) (aggregates []*
 	return
 }
 
-func (a *Analysis) AddResolvedFunction(node tree.Node, fn tree.FunctionName) {
+func (a *Analysis) AddResolvedFunction(node tree.Node, fn tree.FuncName) {
 	a.resolvedFunctions[node.GetID()] = fn
 }
 
-func (a *Analysis) GetResolvedFunction(node tree.Node) (fn tree.FunctionName) {
+func (a *Analysis) GetResolvedFunction(node tree.Node) (fn tree.FuncName) {
 	fn = a.resolvedFunctions[node.GetID()]
 	return
 }

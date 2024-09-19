@@ -36,7 +36,7 @@ type GroupingSetDescriptor struct {
 }
 
 type Aggregation struct {
-	Function  tree.FunctionName `json:"function"`
+	Function  tree.FuncName     `json:"function"`
 	Arguments []tree.Expression `json:"arguments"`
 	// TODO: add filter
 }

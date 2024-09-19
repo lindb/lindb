@@ -1,7 +1,10 @@
 package optimization
 
-import "github.com/lindb/lindb/sql/planner/plan"
+import (
+	"github.com/lindb/lindb/sql/context"
+	"github.com/lindb/lindb/sql/planner/plan"
+)
 
 type PlanOptimizer interface {
-	Optimize(node plan.PlanNode, idAllocator *plan.PlanNodeIDAllocator) plan.PlanNode
+	Optimize(ctx *context.PlannerContext, node plan.PlanNode) plan.PlanNode
 }

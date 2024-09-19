@@ -11,12 +11,16 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/sql/tree"
 	"github.com/lindb/lindb/tsdb"
 )
 
 func init() {
+	// register table/column handle
 	encoding.RegisterNodeType(TableHandle{})
-	spi.RegisterCreateTableHandleFn(spi.MetricTable, func(db, ns, name string) spi.TableHandle {
+	encoding.RegisterNodeType(ColumnHandle{})
+
+	spi.RegisterCreateTableHandleFn(spi.Metric, func(db, ns, name string) spi.TableHandle {
 		return &TableHandle{
 			Database:  db,
 			Namespace: ns,
@@ -30,6 +34,17 @@ func init() {
 			IntervalRatio:   1,
 		}
 	})
+
+	spi.RegisterApplyAggregationFn(spi.Metric, func(table spi.TableHandle, tableMeta *spi.TableMetadata, aggregations []spi.ColumnAggregation) *spi.ApplyAggregationResult {
+		result := &spi.ApplyAggregationResult{}
+		// TODO: find downSampling agg
+		for _, agg := range aggregations {
+			result.ColumnAssignments = append(result.ColumnAssignments,
+				&spi.ColumnAssignment{Column: agg.Column, Handler: &ColumnHandle{Downsampling: tree.Max, Aggregation: agg.AggFuncName}},
+			)
+		}
+		return result
+	})
 }
 
 type TableHandle struct {
@@ -42,8 +57,17 @@ type TableHandle struct {
 	IntervalRatio   int                `json:"intervalRatio"`
 }
 
+func (t *TableHandle) Kind() spi.DatasourceKind {
+	return spi.Metric
+}
+
 func (t *TableHandle) String() string {
 	return fmt.Sprintf("%s:%s:%s", t.Database, t.Namespace, t.Metric)
+}
+
+type ColumnHandle struct {
+	Downsampling tree.FuncName `json:"downsampling"`
+	Aggregation  tree.FuncName `json:"aggregation"`
 }
 
 // scan by low series ids
