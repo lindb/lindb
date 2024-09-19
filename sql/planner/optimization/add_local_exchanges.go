@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/lindb/lindb/sql/context"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
 
@@ -14,9 +15,9 @@ func NewAddLocalExchanges() PlanOptimizer {
 }
 
 // Optimize implements PlanOptimizer
-func (opt *AddLocalExchanges) Optimize(plan plan.PlanNode, idAllocator *plan.PlanNodeIDAllocator) plan.PlanNode {
+func (opt *AddLocalExchanges) Optimize(ctx *context.PlannerContext, plan plan.PlanNode) plan.PlanNode {
 	result := plan.Accept(&StreamPreferredProps{}, &AddLocalExchangesRewrite{
-		idAllocator: idAllocator,
+		idAllocator: ctx.PlanNodeIDAllocator,
 	})
 	if planProps, ok := result.(*PlanProps); ok {
 		return planProps.node

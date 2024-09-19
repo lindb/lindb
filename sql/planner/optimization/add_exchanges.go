@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/lindb/lindb/sql/context"
 	"github.com/lindb/lindb/sql/planner/iterative"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
@@ -20,9 +21,9 @@ func NewAddExchanges() PlanOptimizer {
 }
 
 // Optimize implements PlanOptimizer
-func (opt *AddExchanges) Optimize(plan plan.PlanNode, idAllocator *plan.PlanNodeIDAllocator) plan.PlanNode {
+func (opt *AddExchanges) Optimize(ctx *context.PlannerContext, plan plan.PlanNode) plan.PlanNode {
 	result := plan.Accept(&PreferredProps{}, &AddExchangesRewrite{
-		idAllocator: idAllocator,
+		idAllocator: ctx.PlanNodeIDAllocator,
 	})
 	if planProps, ok := result.(*AddExchangesPlan); ok {
 		return planProps.node

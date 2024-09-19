@@ -93,7 +93,8 @@ func (p *RelationPlanner) visitTable(context any, node *tree.Table) (r any) {
 		}
 
 		fmt.Printf("table visit relation plan====%v\n", outputSymbols)
-		tableMetadata := p.context.AnalyzerContext.Analysis.GetTableMetadata(node)
+		tableHandle := p.context.AnalyzerContext.Analysis.GetTableHandle(node)
+		tableMetadata := p.context.AnalyzerContext.Analysis.GetTableMetadata(tableHandle.String())
 		root := planpkg.NewTableScanNode(p.context.PlanNodeIDAllocator.Next())
 		root.Table = p.context.AnalyzerContext.Analysis.GetTableHandle(node)
 		root.OutputSymbols = outputSymbols

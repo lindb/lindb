@@ -2,6 +2,7 @@ package spi
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/lindb/common/pkg/encoding"
 	"google.golang.org/grpc"
@@ -11,12 +12,34 @@ import (
 	protoMetaV1 "github.com/lindb/lindb/proto/gen/v1/meta"
 )
 
+type ApplyAggregationResult struct {
+	ColumnAssignments []*ColumnAssignment
+}
+
 type CreateTableHandle func(db, ns, name string) TableHandle
 
-var createTableHandleFn = make(map[TableKind]CreateTableHandle)
+type applyAggregation func(table TableHandle, tableMeta *TableMetadata,
+	aggregations []ColumnAggregation) *ApplyAggregationResult
 
-func RegisterCreateTableHandleFn(kind TableKind, fn CreateTableHandle) {
+var (
+	createTableHandleFn = make(map[DatasourceKind]CreateTableHandle)
+	applyAggregationFn  = make(map[DatasourceKind]applyAggregation)
+)
+
+func RegisterCreateTableHandleFn(kind DatasourceKind, fn CreateTableHandle) {
 	createTableHandleFn[kind] = fn
+}
+
+func RegisterApplyAggregationFn(kind DatasourceKind, fn applyAggregation) {
+	applyAggregationFn[kind] = fn
+}
+
+func ApplyAggregation(table TableHandle, tableMeta *TableMetadata, aggregations []ColumnAggregation) *ApplyAggregationResult {
+	applyFn, ok := applyAggregationFn[table.Kind()]
+	if !ok {
+		panic(fmt.Sprintf("apply aggregation func not exist, kind: %v", table.Kind()))
+	}
+	return applyFn(table, tableMeta, aggregations)
 }
 
 type MetadataManager interface {
@@ -35,10 +58,10 @@ func NewMetadataManager(nodeSelector flow.NodeSelector) MetadataManager {
 }
 
 func (mgr *metadataManager) GetTableHandle(db, ns, name string) TableHandle {
-	// FIXME: set table kind
-	fn, ok := createTableHandleFn[MetricTable]
+	// FIXME: get table kind by database
+	fn, ok := createTableHandleFn[Metric]
 	if !ok {
-		panic("create table handle fn not exist")
+		panic(fmt.Sprintf("create table handle func not exist, kind: %v", Metric))
 	}
 	return fn(db, ns, name)
 }

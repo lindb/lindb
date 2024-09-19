@@ -92,6 +92,6 @@ func (p *LogicalPlanner) createOutputPlan(plan *RelationPlan) planpkg.PlanNode {
 
 func (p *LogicalPlanner) runOptimizer(root planpkg.PlanNode, optimizer optimization.PlanOptimizer) (result planpkg.PlanNode) {
 	// FIXME:
-	result = optimizer.Optimize(root, p.context.PlanNodeIDAllocator)
+	result = optimizer.Optimize(p.context, root)
 	return
 }

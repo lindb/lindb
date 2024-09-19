@@ -17,7 +17,7 @@ type PruneOutputSourceColumns struct {
 func NewPruneOutputSourceColumns() iterative.Rule {
 	rule := &PruneOutputSourceColumns{}
 	rule.apply = func(context *iterative.Context, node *plan.OutputNode) plan.PlanNode {
-		return restrictChildOutputs(context.IDAllocator, node, node.GetOutputSymbols())
+		return restrictChildOutputs(context.PlannerContext.PlanNodeIDAllocator, node, node.GetOutputSymbols())
 	}
 	return rule
 }
@@ -106,7 +106,7 @@ func NewPruneAggregationSourceColumns() iterative.Rule {
 			requiredInputs = append(requiredInputs, planner.ExtractSymbolsFromAggreation(agg.Aggregation)...)
 		}
 		return restrictChildOutputs(
-			context.IDAllocator,
+			context.PlannerContext.PlanNodeIDAllocator,
 			node,
 			requiredInputs,
 		)
@@ -122,7 +122,7 @@ func NewPruneFilterColumns() iterative.Rule {
 	rule := &PruneFilterColumns{}
 	rule.pushDownProjectOff = func(context *iterative.Context, filter *plan.FilterNode, referencedOutputs []*plan.Symbol) plan.PlanNode {
 		// TODO: add filter columns
-		return restrictChildOutputs(context.IDAllocator, filter, referencedOutputs)
+		return restrictChildOutputs(context.PlannerContext.PlanNodeIDAllocator, filter, referencedOutputs)
 	}
 	return rule
 }

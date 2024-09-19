@@ -62,6 +62,20 @@ func (t FuncType) String() string {
 	}
 }
 
+// TODO: remove it
+func FuncTypeValueOf(str string) FuncType {
+	switch str {
+	case "sum":
+		return Sum
+	case "min":
+		return Min
+	case "max":
+		return Max
+	default:
+		return Unknown
+	}
+}
+
 // IsSupportOrderBy checks if function support order by.
 func IsSupportOrderBy(t FuncType) bool {
 	return t == Sum || t == Min || t == Max || t == Count || t == Avg || t == Last || t == First || t == Stddev

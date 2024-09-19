@@ -5,7 +5,7 @@ import "github.com/lindb/lindb/spi/types"
 type Call struct {
 	BaseNode
 
-	Function FunctionName
+	Function FuncName
 	Args     []Expression
 	RetType  types.DataType
 }

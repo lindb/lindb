@@ -63,6 +63,12 @@ func (v *FormatVisitor) Visit(context any, n Node) any {
 			args = append(args, arg.Accept(context, v).(string))
 		}
 		return fmt.Sprintf("%v(%s)", node.Function, strings.Join(args, ","))
+	case *FunctionCall:
+		var args []string
+		for _, arg := range node.Arguments {
+			args = append(args, arg.Accept(context, v).(string))
+		}
+		return fmt.Sprintf("%v(%s)", node.Name, strings.Join(args, ","))
 	case *Cast:
 		return fmt.Sprintf("CAST(%v as %s)", node.Expression.Accept(context, v), node.Type)
 	default:

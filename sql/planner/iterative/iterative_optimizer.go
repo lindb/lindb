@@ -6,14 +6,15 @@ import (
 
 	"github.com/lindb/common/pkg/logger"
 
+	"github.com/lindb/lindb/sql/context"
 	"github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/planner/printer"
 )
 
 type Context struct {
-	IDAllocator *plan.PlanNodeIDAllocator
-	memo        *Memo
-	Lookup      Lookup
+	PlannerContext *context.PlannerContext
+	memo           *Memo
+	Lookup         Lookup
 }
 
 type IterativeOptimizer struct {
@@ -29,11 +30,11 @@ func NewIterativeOptimizer(rules []Rule) *IterativeOptimizer {
 	}
 }
 
-func (opt *IterativeOptimizer) Optimize(node plan.PlanNode, idAllocator *plan.PlanNodeIDAllocator) plan.PlanNode {
-	memo := NewMemo(idAllocator, node)
+func (opt *IterativeOptimizer) Optimize(ctx *context.PlannerContext, node plan.PlanNode) plan.PlanNode {
+	memo := NewMemo(ctx.PlanNodeIDAllocator, node)
 	context := &Context{
-		IDAllocator: idAllocator,
-		memo:        memo,
+		PlannerContext: ctx,
+		memo:           memo,
 		Lookup: NewLookup(func(groupRef *plan.GroupReference) []plan.PlanNode {
 			return []plan.PlanNode{memo.resolve(groupRef)}
 		}),
