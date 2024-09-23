@@ -120,7 +120,6 @@ func (g *groupingContext) BuildGroup(ctx *DataLoadContext) {
 func (g *groupingContext) buildGroupForMultiTags(ctx *DataLoadContext) {
 	tagSize := g.tags.Len()
 	tagValueIDsForGrouping := make([][]byte, len(ctx.LowSeriesIDs))
-	result := make(map[string]uint16)
 	groupingTagValueIDs := make([]*roaring.Bitmap, tagSize)
 	g.scanGroupingTags(ctx, func(seriesIdxFromQuery uint16, tagKeyIDIdx int, tagValueID uint32) {
 		tagValueIDs := tagValueIDsForGrouping[seriesIdxFromQuery]
@@ -139,14 +138,7 @@ func (g *groupingContext) buildGroupForMultiTags(ctx *DataLoadContext) {
 
 		if tagKeyIDIdx == tagSize-1 {
 			key := strutil.ByteSlice2String(tagValueIDs)
-			// last tag key
-			aggIdx, ok := result[key]
-			if !ok {
-				groupingSeriesAggIdx := ctx.NewSeriesAggregator(key)
-				aggIdx = groupingSeriesAggIdx
-				result[key] = aggIdx
-			}
-			ctx.GroupingSeriesAggRefs[seriesIdxFromQuery] = aggIdx
+			ctx.CollectGrouping(key, seriesIdxFromQuery)
 		}
 	})
 
@@ -156,24 +148,15 @@ func (g *groupingContext) buildGroupForMultiTags(ctx *DataLoadContext) {
 
 // buildGroupForMultiTags builds grouping for single-tags.
 func (g *groupingContext) buildGroupForSingleTag(ctx *DataLoadContext) {
-	tagSize := g.tags.Len()
-	result := make(map[uint32]uint16)
+	// result := make(map[uint32]uint16)
 	tagValueIDs := roaring.New()
 	var scratch [4]byte
 	g.scanGroupingTags(ctx, func(seriesIdxFromQuery uint16, tagKeyIDIdx int, tagValueID uint32) {
-		if tagKeyIDIdx == tagSize-1 {
-			// last tag key
-			aggIdx, ok := result[tagValueID]
-			if !ok {
-				tagValueIDs.Add(tagValueID)
-
-				binary.LittleEndian.PutUint32(scratch[:], tagValueID)
-				groupingSeriesAggIdx := ctx.NewSeriesAggregator(string(scratch[:]))
-				aggIdx = groupingSeriesAggIdx
-				result[tagValueID] = aggIdx
-			}
-			ctx.GroupingSeriesAggRefs[seriesIdxFromQuery] = aggIdx
-		}
+		// TODO: opt
+		binary.LittleEndian.PutUint32(scratch[:], tagValueID)
+		key := string(scratch[:])
+		ctx.CollectGrouping(key, seriesIdxFromQuery)
+		tagValueIDs.Add(tagValueID)
 	})
 
 	// add grouping tag value ids

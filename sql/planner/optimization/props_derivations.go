@@ -105,7 +105,7 @@ func (v *PropertyDerivationVisitor) visitExchangeNode(inputProperties []*ActualP
 	case plan.Repartition:
 		return NewActualPropsBuilder(partitionedOn(&plan.Partitioning{})).Build()
 	default:
-		panic("unknonw exchange type")
+		panic(fmt.Sprintf("unknonw exchange type:%v", node.Type))
 	}
 }
 

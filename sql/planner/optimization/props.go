@@ -1,6 +1,8 @@
 package optimization
 
 import (
+	"fmt"
+
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/sql/planner/plan"
@@ -266,6 +268,7 @@ func (g *ActualPropsGlobal) translate(translator func(symbol *plan.Symbol) *plan
 }
 
 func (g *ActualPropsGlobal) isSingleNode() bool {
+	fmt.Printf("paritition ======%v\n", g.nodePartitioning)
 	if g.nodePartitioning == nil {
 		return false
 	}

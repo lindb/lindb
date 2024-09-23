@@ -104,13 +104,21 @@ func (msp *SplitSourceProvider) findPartitions(tableScan *TableScan, partitionID
 	for _, id := range partitionIDs {
 		shard, ok := tableScan.db.GetShard(models.ShardID(id))
 		if ok {
-			// TODO: use storage interval?
-			dataFamilies := shard.GetDataFamilies(tableScan.interval.Type(), tableScan.timeRange)
-			if len(dataFamilies) > 0 {
+			if tableScan.fields.Len() == 0 {
+				// query tag values of metric
 				partitions = append(partitions, &Partition{
-					shard:    shard,
-					families: dataFamilies,
+					shard: shard,
 				})
+			} else {
+				// TODO: use storage interval?
+				// check time range is empty if select metric meta
+				dataFamilies := shard.GetDataFamilies(tableScan.storageInterval.Type(), tableScan.timeRange)
+				if len(dataFamilies) > 0 {
+					partitions = append(partitions, &Partition{
+						shard:    shard,
+						families: dataFamilies,
+					})
+				}
 			}
 		}
 	}
@@ -125,11 +133,13 @@ func (msp *SplitSourceProvider) CreateSplitSources(table spi.TableHandle, partit
 ) (splits []spi.SplitSource) {
 	tableScan := msp.buildTableScan(table, outputColumns)
 	if tableScan == nil {
+		fmt.Println("table scan is nil")
 		return
 	}
 	// find partitions
 	partitions := msp.findPartitions(tableScan, partitionIDs)
 	if len(partitions) == 0 {
+		fmt.Printf("partitions is nil:%v\n", partitionIDs)
 		return
 	}
 
@@ -191,9 +201,14 @@ func (mss *SplitSource) lookupSeriesIDs() *roaring.Bitmap {
 	return seriesIDs
 }
 
-// 1. find series ids
-func (mss *SplitSource) Prepare() {
+func (mss *SplitSource) matchSeriesIDs() {
 	seriesIDs := mss.lookupSeriesIDs()
+	fmt.Printf("after load series ids: %v\n", seriesIDs)
+	if mss.tableScan.fields.Len() == 0 && len(mss.partition.families) == 0 {
+		// find metadata from index db
+		mss.seriesIDs = seriesIDs
+		return
+	}
 
 	mss.seriesIDs = roaring.New()
 
@@ -226,6 +241,11 @@ func (mss *SplitSource) Prepare() {
 			mss.seriesIDs.Or(finalSeriesIDs)
 		}
 	}
+}
+
+// 1. find series ids
+func (mss *SplitSource) Prepare() {
+	mss.matchSeriesIDs()
 
 	if mss.seriesIDs.IsEmpty() {
 		panic(constants.ErrSeriesIDNotFound)
