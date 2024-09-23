@@ -288,9 +288,10 @@ type DataLoadContext struct {
 	IsMultiField, IsGrouping bool
 	MinSeriesID, MaxSeriesID uint16
 
-	Decoder      *encoding.TSDDecoder
-	DownSampling func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, getter encoding.TSDValueGetter)
-	Grouping     func(tagValueIDs []*roaring.Bitmap)
+	Decoder         *encoding.TSDDecoder
+	DownSampling    func(slotRange timeutil.SlotRange, seriesIdx uint16, fieldIdx int, getter encoding.TSDValueGetter)
+	Grouping        func(tagValueIDs []*roaring.Bitmap)
+	CollectGrouping func(tagValueIDs string, seriesIdxFromQuery uint16)
 
 	PendingDataLoadTasks *atomic.Int32
 

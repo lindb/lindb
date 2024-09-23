@@ -112,7 +112,7 @@ func (rule *PushAggregationIntoTableScan) pushAggregationIntoTableScan(context *
 		// if step is single or no aggregation, return nil
 		return nil
 	}
-	// TODO: duplicate
+	// TODO: duplicate?
 	var columnAggregations []spi.ColumnAggregation
 	var assigments plan.Assignments
 	for _, agg := range node.Aggregations {
@@ -140,21 +140,4 @@ func (rule *PushAggregationIntoTableScan) pushAggregationIntoTableScan(context *
 	// just replace column assignments of table scan
 	tableScan.Assignments = result.ColumnAssignments
 	return nil
-	//
-	// project := &plan.ProjectionNode{
-	// 	BaseNode: plan.BaseNode{
-	// 		ID: context.PlannerContext.PlanNodeIDAllocator.Next(),
-	// 	},
-	// 	Source: &plan.TableScanNode{
-	// 		BaseNode: plan.BaseNode{
-	// 			ID: context.PlannerContext.PlanNodeIDAllocator.Next(),
-	// 		},
-	// 		Table:         tableScan.Table,
-	// 		OutputSymbols: tableScan.OutputSymbols,
-	// 		Partitions:    tableScan.Partitions,
-	// 		Assignments:   result.ColumnAssignments,
-	// 	},
-	// 	Assignments: assigments,
-	// }
-	// return plan.NewAggregationNode(context.PlannerContext.PlanNodeIDAllocator.Next(), project, node.Aggregations, node.GroupingSets, node.Step)
 }

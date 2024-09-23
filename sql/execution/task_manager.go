@@ -75,6 +75,7 @@ func (mgr *taskManager) CompleteTask(taskID model.TaskID) {
 }
 
 func (mgr *taskManager) dispatchTask() {
+	// FIXME:
 	for {
 		select {
 		case task := <-mgr.taskCh:

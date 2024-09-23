@@ -8,7 +8,7 @@ type QueryOutputBuffer struct {
 	rsBuild *ResultSetBuild
 }
 
-func NewQueryOutoutBuffer(rsBuild *ResultSetBuild) OutputBuffer {
+func NewQueryOutputBuffer(rsBuild *ResultSetBuild) OutputBuffer {
 	return &QueryOutputBuffer{
 		rsBuild: rsBuild,
 	}

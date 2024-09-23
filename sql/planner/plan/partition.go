@@ -12,6 +12,11 @@ type Partitioning struct {
 	Arguments []*ArgumentBinding  `json:"arguments"`
 }
 
+func (p *Partitioning) Translate(translator func(symbol *Symbol) *Symbol) *Partitioning {
+	// FIXME: imple translate
+	return nil
+}
+
 type PartitioningHandle struct{}
 
 func (h *PartitioningHandle) IsSingleNode() bool {

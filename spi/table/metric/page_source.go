@@ -71,6 +71,7 @@ func (mps *MetricPageSource) GetNextPage() *spi.Page {
 		PendingDataLoadTasks: atomic.NewInt32(0),
 		Decoder:              mps.decoder,
 	}
+
 	dataLoadCtx.DownSamplingSpecs = make(aggregation.AggregatorSpecs, len(dataLoadCtx.Fields))
 	dataLoadCtx.AggregatorSpecs = make(aggregation.AggregatorSpecs, len(dataLoadCtx.Fields))
 	for i, field := range dataLoadCtx.Fields {
@@ -96,6 +97,41 @@ func (mps *MetricPageSource) GetNextPage() *spi.Page {
 
 	dataLoadCtx.Prepare()
 
+	if mps.split.tableScan.fields.Len() == 0 {
+		dataLoadCtx.Grouping = mps.split.tableScan.grouping.CollectTagValueIDs
+		result := make(map[string]struct{})
+		dataLoadCtx.CollectGrouping = func(tagValueIDs string, seriesIdxFromQuery uint16) {
+			_, ok := result[tagValueIDs]
+			if !ok {
+				result[tagValueIDs] = struct{}{}
+			}
+		}
+		mps.split.groupingContext.BuildGroup(dataLoadCtx)
+		mps.split.tableScan.grouping.CollectTagValues()
+
+		page := spi.NewPage()
+		var (
+			grouping        []*spi.Column
+			groupingIndexes []int
+		)
+		for idx, output := range mps.outputs {
+			column := spi.NewColumn()
+			page.AppendColumn(output, column)
+			grouping = append(grouping, column)
+			groupingIndexes = append(groupingIndexes, idx)
+		}
+		// set grouping index of the columns
+		page.SetGrouping(groupingIndexes)
+		for tagValueIDs := range result {
+
+			tags := mps.split.tableScan.grouping.GetTagValues(tagValueIDs)
+			for idx, tag := range tags {
+				grouping[idx].AppendString(tag)
+			}
+		}
+		return page
+	}
+
 	var loaders []flow.DataLoader
 	for i := range mps.split.ResultSet {
 		rs := mps.split.ResultSet[i]
@@ -111,6 +147,17 @@ func (mps *MetricPageSource) GetNextPage() *spi.Page {
 	if mps.split.tableScan.hasGrouping() {
 		// set collect grouping tag value ids func
 		dataLoadCtx.Grouping = mps.split.tableScan.grouping.CollectTagValueIDs
+		result := make(map[string]uint16)
+		dataLoadCtx.CollectGrouping = func(tagValueIDs string, seriesIdxFromQuery uint16) {
+			// last tag key
+			aggIdx, ok := result[tagValueIDs]
+			if !ok {
+				groupingSeriesAggIdx := dataLoadCtx.NewSeriesAggregator(tagValueIDs)
+				aggIdx = groupingSeriesAggIdx
+				result[tagValueIDs] = aggIdx
+			}
+			dataLoadCtx.GroupingSeriesAggRefs[seriesIdxFromQuery] = aggIdx
+		}
 		mps.split.groupingContext.BuildGroup(dataLoadCtx)
 	} else {
 		dataLoadCtx.PrepareAggregatorWithoutGrouping()

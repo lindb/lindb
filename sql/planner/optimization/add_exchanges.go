@@ -33,7 +33,8 @@ func (opt *AddExchanges) Optimize(ctx *context.PlannerContext, plan plan.PlanNod
 }
 
 type AddExchangesRewrite struct {
-	idAllocator *plan.PlanNodeIDAllocator
+	idAllocator       *plan.PlanNodeIDAllocator
+	exchangeNodeAdded bool
 }
 
 func (v *AddExchangesRewrite) Visit(context any, n plan.PlanNode) (r any) {
@@ -57,10 +58,11 @@ func (v *AddExchangesRewrite) Visit(context any, n plan.PlanNode) (r any) {
 
 func (v *AddExchangesRewrite) visitOutput(context any, node *plan.OutputNode) (r any) {
 	child := v.planChild(node, Undistributed())
-	// 	// FIXME:??? check sigle/force single node output
-	// if !child.props.isSingleNode() {
-	// 	child = v.withDerivedProps(plan.GatheringExchange(v.idAllocator.Next(), plan.Remote, child.node), child.props)
-	// }
+	// FIXME:??? check sigle/force single node output
+	if !child.props.isSingleNode() && !v.exchangeNodeAdded {
+		child = v.withDerivedProps(plan.GatheringExchange(v.idAllocator.Next(), plan.Remote, child.node), child.props)
+		v.exchangeNodeAdded = true
+	}
 	return v.rebaseAndDeriveProps(node, child)
 }
 
@@ -125,6 +127,7 @@ func (v *AddExchangesRewrite) visitAggregation(context any, node *plan.Aggregati
 					OutputLayout: child.node.GetOutputSymbols(),
 				}),
 			child.props)
+		v.exchangeNodeAdded = true
 	}
 	return v.rebaseAndDeriveProps(node, child)
 }
@@ -136,6 +139,7 @@ func (v *AddExchangesRewrite) planPartitionedJoin(node *plan.JoinNode) *AddExcha
 	// TODO: set partitioning scheme
 	left = v.withDerivedProps(plan.PartitionedExchange(v.idAllocator.Next(), plan.Remote, left.node, nil), left.props)
 	right = v.withDerivedProps(plan.PartitionedExchange(v.idAllocator.Next(), plan.Remote, right.node, nil), right.props)
+	v.exchangeNodeAdded = true
 
 	return v.buildJoin(node, left, right, plan.Partitioned)
 }

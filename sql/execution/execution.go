@@ -57,7 +57,7 @@ func NewQueryContext() *QueryContext {
 	rsBuild := buffer.CreateResultSetBuild()
 	return &QueryContext{
 		rsBuild:   rsBuild,
-		output:    buffer.NewQueryOutoutBuffer(rsBuild),
+		output:    buffer.NewQueryOutputBuffer(rsBuild),
 		completed: make(chan struct{}),
 	}
 }
@@ -222,6 +222,7 @@ func (exec *QueryExecution) planQuery(output buffer.OutputBuffer) *PlanRoot {
 						}),
 					})
 					if err != nil {
+						// TODO: check panic
 						panic(err)
 					}
 				}
