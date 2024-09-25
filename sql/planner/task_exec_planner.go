@@ -6,6 +6,7 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/context"
 	"github.com/lindb/lindb/sql/execution/buffer"
 	"github.com/lindb/lindb/sql/execution/pipeline"
@@ -162,8 +163,8 @@ func (v *TaskExecutionPlanVisitor) visitScanFilterAndProjection(context any, pro
 
 func (v *TaskExecutionPlanVisitor) visitTableScan(context any, node *planpkg.TableScanNode, filter tree.Expression) operator.OperatorFactory {
 	outputs := node.GetOutputSymbols()
-	outputColumns := lo.Map(outputs, func(item *planpkg.Symbol, index int) spi.ColumnMetadata {
-		return spi.ColumnMetadata{
+	outputColumns := lo.Map(outputs, func(item *planpkg.Symbol, index int) types.ColumnMetadata {
+		return types.ColumnMetadata{
 			Name:     item.Name,
 			DataType: item.DataType,
 		}

@@ -1,4 +1,4 @@
-package spi
+package types
 
 type Page struct {
 	Layout   []ColumnMetadata `json:"layout,omitempty"`

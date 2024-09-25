@@ -1,7 +1,7 @@
 package output
 
 import (
-	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/buffer"
 	"github.com/lindb/lindb/sql/execution/pipeline/operator"
 )
@@ -32,7 +32,7 @@ func NewResultSetOutputOperator(output buffer.OutputBuffer) operator.Operator {
 }
 
 // AddInput implements operator.Operator
-func (op *ResultSetOutputOperator) AddInput(page *spi.Page) {
+func (op *ResultSetOutputOperator) AddInput(page *types.Page) {
 	op.output.AddPage(page)
 }
 
@@ -42,7 +42,7 @@ func (op *ResultSetOutputOperator) Finish() {
 }
 
 // GetOutput implements operator.Operator
-func (op *ResultSetOutputOperator) GetOutput() *spi.Page {
+func (op *ResultSetOutputOperator) GetOutput() *types.Page {
 	return nil
 }
 

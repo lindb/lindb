@@ -83,7 +83,7 @@ func (ctx *IntermediateMetricContext) MakePlan() error {
 	if len(physicalPlans) == 0 {
 		return constants.ErrReplicaNotFound
 	}
-	databaseCfg, ok := ctx.stateMgr.GetDatabaseCfg(database)
+	databaseCfg, ok := ctx.stateMgr.GetDatabase(database)
 	if !ok {
 		return constants.ErrDatabaseNotFound
 	}

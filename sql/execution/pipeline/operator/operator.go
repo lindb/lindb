@@ -2,6 +2,7 @@ package operator
 
 import (
 	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
 
@@ -14,9 +15,9 @@ type SourceOperatorFactory interface {
 }
 
 type Operator interface {
-	GetOutput() *spi.Page
+	GetOutput() *types.Page
 
-	AddInput(page *spi.Page)
+	AddInput(page *types.Page)
 	// Finish notifies the operator that no more pages will be added
 	// and the operator should finish processing and flush results.
 	Finish()

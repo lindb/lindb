@@ -1,7 +1,9 @@
 package buffer
 
-import "github.com/lindb/lindb/spi"
+import (
+	"github.com/lindb/lindb/spi/types"
+)
 
 type OutputBuffer interface {
-	AddPage(page *spi.Page)
+	AddPage(page *types.Page)
 }

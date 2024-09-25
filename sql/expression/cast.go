@@ -3,7 +3,6 @@ package expression
 import (
 	"fmt"
 
-	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
 )
 
@@ -24,20 +23,20 @@ func NewCast(retType types.DataType, arg Expression) Expression {
 }
 
 // EvalString implements Expression.
-func (c *Cast) EvalString(row spi.Row) (val string, isNull bool, err error) {
+func (c *Cast) EvalString(row types.Row) (val string, isNull bool, err error) {
 	panic("unimplemented")
 }
 
-func (c *Cast) EvalInt(row spi.Row) (val int64, isNull bool, err error) {
+func (c *Cast) EvalInt(row types.Row) (val int64, isNull bool, err error) {
 	fmt.Printf("cast eval int=%v\n", c.retType)
 	return c.function.EvalInt(row)
 }
 
-func (c *Cast) EvalFloat(row spi.Row) (val float64, isNull bool, err error) {
+func (c *Cast) EvalFloat(row types.Row) (val float64, isNull bool, err error) {
 	return c.function.EvalFloat(row)
 }
 
-func (c *Cast) EvalTimeSeries(row spi.Row) (val *types.TimeSeries, isNull bool, err error) {
+func (c *Cast) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error) {
 	return c.function.EvalTimeSeries(row)
 }
 
@@ -62,20 +61,20 @@ type castFunc struct {
 	baseFunc
 }
 
-func (f *castFunc) EvalInt(row spi.Row) (val int64, isNull bool, err error) {
+func (f *castFunc) EvalInt(row types.Row) (val int64, isNull bool, err error) {
 	lv, _, _ := f.args[0].EvalInt(row)
 	fmt.Println("cast int..........")
 	return lv, false, nil
 }
 
 // EvalFloat implements Func.
-func (f *castFunc) EvalFloat(row spi.Row) (val float64, isNull bool, err error) {
+func (f *castFunc) EvalFloat(row types.Row) (val float64, isNull bool, err error) {
 	fmt.Println("cast float..........")
 	return
 }
 
 // EvalTimeSeries evaluates the expression, cast result to types.TimeSeries type.
-func (f *castFunc) EvalTimeSeries(row spi.Row) (val *types.TimeSeries, isNull bool, err error) {
+func (f *castFunc) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error) {
 	fmt.Printf("cast time series..........,type =%T,%s,%s\n", f.args[0], f.args[0].GetType(), f.args[0].String())
 	switch f.args[0].GetType() {
 	case types.DTInt:

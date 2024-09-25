@@ -2,15 +2,14 @@ package operator
 
 import (
 	"github.com/lindb/lindb/series"
-	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/spi/types"
 )
 
 type OutputFactory interface {
 	CreateOutputOperator() OperatorFactory
 }
 
-type MetricResultSetOutputFactory struct {
-}
+type MetricResultSetOutputFactory struct{}
 
 func NewMetricResultSetOutputFactory() OutputFactory {
 	return &MetricResultSetOutputFactory{}
@@ -20,8 +19,7 @@ func (fct *MetricResultSetOutputFactory) CreateOutputOperator() OperatorFactory 
 	return &MetricRSOperatorFactory{}
 }
 
-type MetricRSOperatorFactory struct {
-}
+type MetricRSOperatorFactory struct{}
 
 func (fct *MetricRSOperatorFactory) CreateOperator() Operator {
 	return NewMetricResultSetOperator()
@@ -36,11 +34,11 @@ func NewMetricResultSetOperator() Operator {
 }
 
 // AddInput implements Operator
-func (*MetricResultSetOperator) AddInput(page *spi.Page) {
+func (*MetricResultSetOperator) AddInput(page *types.Page) {
 }
 
 // GetOutput implements Operator
-func (*MetricResultSetOperator) GetOutput() *spi.Page {
+func (*MetricResultSetOperator) GetOutput() *types.Page {
 	return nil
 }
 

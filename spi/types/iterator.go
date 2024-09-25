@@ -1,4 +1,4 @@
-package spi
+package types
 
 // Iterator4Page represents a iterator that is used to iterator rows inside a page.
 type Iterator4Page struct {

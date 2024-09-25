@@ -15,7 +15,8 @@ func init() {
 type DatasourceKind int
 
 const (
-	Metric DatasourceKind = iota + 1
+	InfoSchema DatasourceKind = iota + 1
+	Metric
 )
 
 // TableHandle represents a table handle that connect the storage engine.

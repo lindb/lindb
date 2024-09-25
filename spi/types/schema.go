@@ -1,4 +1,4 @@
-package spi
+package types
 
 import "github.com/lindb/lindb/models"
 
@@ -21,4 +21,17 @@ func (s *TableSchema) AddColumn(column ColumnMetadata) {
 
 func (s *TableSchema) AddColumns(columns []ColumnMetadata) {
 	s.Columns = append(s.Columns, columns...)
+}
+
+type ColumnMetadata struct {
+	Name     string        `json:"name"`
+	DataType DataType      `json:"type"`
+	AggType  AggregateType `json:"aggType,omitempty"`
+}
+
+func NewColumnInfo(name string, vt DataType) ColumnMetadata {
+	return ColumnMetadata{
+		Name:     name,
+		DataType: vt,
+	}
 }

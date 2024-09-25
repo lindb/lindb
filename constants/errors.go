@@ -34,6 +34,7 @@ var (
 
 	ErrTagValueFilterResultNotFound = fmt.Errorf("tag value fitler result %w", ErrNotFound)
 
+	// TODO: remove it, replace ErroDatabaseNotExist
 	ErrDatabaseNotFound    = fmt.Errorf("database %w", ErrNotFound)
 	ErrPartitionNotFound   = fmt.Errorf("partition %w", ErrNotFound)
 	ErrColumnNotFound      = fmt.Errorf("column %w", ErrNotFound)

@@ -1,7 +1,7 @@
 package exchange
 
 import (
-	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/pipeline/operator"
 )
 
@@ -17,7 +17,7 @@ func (l *LocalExchangeOperatorFactory) CreateOperator() operator.Operator {
 }
 
 type LocalExchangeOperator struct {
-	page *spi.Page
+	page *types.Page
 }
 
 func NewLocalExchangeOperator() operator.Operator {
@@ -25,7 +25,7 @@ func NewLocalExchangeOperator() operator.Operator {
 }
 
 // AddInput implements operator.Operator.
-func (l *LocalExchangeOperator) AddInput(page *spi.Page) {
+func (l *LocalExchangeOperator) AddInput(page *types.Page) {
 	l.page = page
 }
 
@@ -34,7 +34,7 @@ func (l *LocalExchangeOperator) Finish() {
 }
 
 // GetOutput implements operator.Operator.
-func (l *LocalExchangeOperator) GetOutput() *spi.Page {
+func (l *LocalExchangeOperator) GetOutput() *types.Page {
 	return l.page
 }
 

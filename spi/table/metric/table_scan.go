@@ -10,7 +10,7 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
-	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 	"github.com/lindb/lindb/tsdb"
 )
@@ -24,7 +24,7 @@ type TableScan struct {
 	filterResult map[tree.NodeID]*flow.TagFilterResult
 
 	fields field.Metas
-	output []spi.ColumnMetadata
+	output []types.ColumnMetadata
 
 	timeRange       timeutil.TimeRange
 	interval        timeutil.Interval

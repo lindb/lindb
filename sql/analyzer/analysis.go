@@ -55,7 +55,7 @@ type Analysis struct {
 	resolvedFunctions     map[tree.NodeID]tree.FuncName
 	aggregates            map[tree.NodeID][]*tree.FunctionCall
 	aliasedRelations      map[*tree.QualifiedName]tree.Relation
-	tableMetadatas        map[string]*spi.TableMetadata // table name => table metadata
+	tableMetadatas        map[string]*types.TableMetadata // table name => table metadata
 	tableHandles          map[tree.NodeID]spi.TableHandle
 	relationNames         map[tree.NodeID]*tree.QualifiedName
 	joins                 map[tree.NodeID]tree.Expression
@@ -79,7 +79,7 @@ func NewAnalysis(root tree.Statement) *Analysis {
 		selectExpressions:     make(map[tree.NodeID][]*SelectExpression),
 		aggregates:            make(map[tree.NodeID][]*tree.FunctionCall),
 		resolvedFunctions:     make(map[tree.NodeID]tree.FuncName),
-		tableMetadatas:        make(map[string]*spi.TableMetadata),
+		tableMetadatas:        make(map[string]*types.TableMetadata),
 		tableHandles:          make(map[tree.NodeID]spi.TableHandle),
 		relationNames:         make(map[tree.NodeID]*tree.QualifiedName),
 		aliasedRelations:      make(map[*tree.QualifiedName]tree.Relation),
@@ -149,11 +149,11 @@ func (a *Analysis) GetRelationByAliased(aliased *tree.QualifiedName) (relation t
 	return
 }
 
-func (a *Analysis) RegisterTableMetadata(table string, tableMetadata *spi.TableMetadata) {
+func (a *Analysis) RegisterTableMetadata(table string, tableMetadata *types.TableMetadata) {
 	a.tableMetadatas[table] = tableMetadata
 }
 
-func (a *Analysis) GetTableMetadata(table string) (tableMetadata *spi.TableMetadata) {
+func (a *Analysis) GetTableMetadata(table string) (tableMetadata *types.TableMetadata) {
 	tableMetadata = a.tableMetadatas[table]
 	return
 }

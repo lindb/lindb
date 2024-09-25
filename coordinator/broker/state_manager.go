@@ -50,7 +50,7 @@ type StateManager interface {
 	// GetLiveNodes returns all live broker nodes.
 	GetLiveNodes() []models.StatelessNode
 	// GetDatabaseCfg returns the database config by name.
-	GetDatabaseCfg(databaseName string) (models.Database, bool)
+	GetDatabase(databaseName string) (models.Database, bool)
 	// GetDatabases returns current database config list.
 	GetDatabases() []models.Database
 	// GetQueryableReplicas returns the queryable replicas，
@@ -125,7 +125,7 @@ func (m *stateManager) GetPartitions(database string) (partitions map[models.Int
 	// 1. check database if exist
 	_, ok := m.databases[database]
 	if !ok {
-		return nil, constants.ErrDatabaseNotFound
+		return nil, constants.ErrDatabaseNotExist
 	}
 
 	// check if it has live nodes
@@ -401,8 +401,8 @@ func (m *stateManager) GetLiveNodes() (rs []models.StatelessNode) {
 	return
 }
 
-// GetDatabaseCfg returns the database config by name.
-func (m *stateManager) GetDatabaseCfg(databaseName string) (models.Database, bool) {
+// GetDatabase returns the database config by name.
+func (m *stateManager) GetDatabase(databaseName string) (models.Database, bool) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 

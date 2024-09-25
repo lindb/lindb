@@ -5,6 +5,7 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/pipeline/operator"
 	"github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/tree"
@@ -14,14 +15,14 @@ type TableScanOperatorFactory struct {
 	table  spi.TableHandle
 	filter tree.Expression
 
-	outputs     []spi.ColumnMetadata
+	outputs     []types.ColumnMetadata
 	assignments []*spi.ColumnAssignment
 
 	sourceID plan.PlanNodeID
 }
 
 func NewTableScanOperatorFactory(sourceID plan.PlanNodeID,
-	table spi.TableHandle, outputs []spi.ColumnMetadata, assignments []*spi.ColumnAssignment,
+	table spi.TableHandle, outputs []types.ColumnMetadata, assignments []*spi.ColumnAssignment,
 	filter tree.Expression,
 ) operator.OperatorFactory {
 	return &TableScanOperatorFactory{
@@ -63,7 +64,7 @@ func (op *TableScanOperator) AddSplit(split spi.Split) {
 }
 
 // AddInput implements operator.Operator
-func (op *TableScanOperator) AddInput(page *spi.Page) {
+func (op *TableScanOperator) AddInput(page *types.Page) {
 	panic(fmt.Errorf("%w: table scan cannot take input", constants.ErrNotSupportOperation))
 }
 
@@ -72,7 +73,7 @@ func (op *TableScanOperator) Finish() {
 }
 
 // GetOutput implements operator.Operator
-func (op *TableScanOperator) GetOutput() *spi.Page {
+func (op *TableScanOperator) GetOutput() *types.Page {
 	return op.pageSource.GetNextPage()
 }
 
