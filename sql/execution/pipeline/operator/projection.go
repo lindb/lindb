@@ -3,7 +3,6 @@ package operator
 import (
 	"fmt"
 
-	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/expression"
 	"github.com/lindb/lindb/sql/planner/plan"
@@ -28,11 +27,11 @@ func (fct *ProjectionOperatorFactory) CreateOperator() Operator {
 
 type ProjectionOperator struct {
 	project *plan.ProjectionNode
-	source  *spi.Page // TODO: refact
-	ouput   *spi.Page
+	source  *types.Page // TODO: refact
+	ouput   *types.Page
 
 	sourceLayout  []*plan.Symbol
-	outputColumns []*spi.Column
+	outputColumns []*types.Column
 	exprs         []expression.Expression
 }
 
@@ -41,7 +40,7 @@ func NewProjectionOperator(project *plan.ProjectionNode, sourceLayout []*plan.Sy
 }
 
 // AddInput implements Operator.
-func (h *ProjectionOperator) AddInput(page *spi.Page) {
+func (h *ProjectionOperator) AddInput(page *types.Page) {
 	h.source = page
 }
 
@@ -50,7 +49,7 @@ func (h *ProjectionOperator) Finish() {
 }
 
 // GetOutput implements Operator.
-func (h *ProjectionOperator) GetOutput() *spi.Page {
+func (h *ProjectionOperator) GetOutput() *types.Page {
 	if len(h.exprs) == 0 {
 		h.prepare()
 	}
@@ -86,13 +85,13 @@ func (h *ProjectionOperator) IsFinished() bool {
 
 func (h *ProjectionOperator) prepare() {
 	h.exprs = make([]expression.Expression, len(h.project.Assignments))
-	h.outputColumns = make([]*spi.Column, len(h.project.Assignments))
-	h.ouput = spi.NewPage()
+	h.outputColumns = make([]*types.Column, len(h.project.Assignments))
+	h.ouput = types.NewPage()
 	for i, assign := range h.project.Assignments {
 		h.exprs[i] = expression.Rewrite(&expression.RewriteContext{
 			SourceLayout: h.sourceLayout,
 		}, assign.Expression)
-		h.outputColumns[i] = spi.NewColumn()
-		h.ouput.AppendColumn(spi.NewColumnInfo(assign.Symbol.Name, assign.Symbol.DataType), h.outputColumns[i])
+		h.outputColumns[i] = types.NewColumn()
+		h.ouput.AppendColumn(types.NewColumnInfo(assign.Symbol.Name, assign.Symbol.DataType), h.outputColumns[i])
 	}
 }

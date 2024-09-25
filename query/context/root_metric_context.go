@@ -96,7 +96,7 @@ func (ctx *RootMetricContext) MakePlan() error {
 	}
 	stateMgr, ok := ctx.Deps.Choose.(broker.StateManager)
 	if ok {
-		databaseCfg, ok := stateMgr.GetDatabaseCfg(database)
+		databaseCfg, ok := stateMgr.GetDatabase(database)
 		if !ok {
 			return constants.ErrDatabaseNotFound
 		}
@@ -104,7 +104,7 @@ func (ctx *RootMetricContext) MakePlan() error {
 	}
 	payload, _ := ctx.Deps.Statement.MarshalJSON()
 	for _, physicalPlan := range physicalPlans {
-		//FIXME:
+		// FIXME:
 		physicalPlan.AddReceiver(ctx.Deps.CurrentNode.Indicator())
 		if err := physicalPlan.Validate(); err != nil {
 			return err

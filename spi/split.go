@@ -1,8 +1,9 @@
 package spi
 
-type Split interface {
-}
+import "github.com/lindb/lindb/spi/types"
+
+type Split interface{}
 
 type BinarySplit struct {
-	Page *Page
+	Page *types.Page
 }

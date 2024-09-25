@@ -1,13 +1,14 @@
 package spi
 
 import (
+	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 )
 
 // PageSource represents a page of data source.
 type PageSource interface {
 	AddSplit(split Split)
-	GetNextPage() *Page
+	GetNextPage() *types.Page
 }
 
 type SplitSource interface {
@@ -17,11 +18,11 @@ type SplitSource interface {
 }
 
 type SplitSourceProvider interface {
-	CreateSplitSources(table TableHandle, partitions []int, outputColumns []ColumnMetadata, predicate tree.Expression) (splits []SplitSource)
+	CreateSplitSources(table TableHandle, partitions []int, outputColumns []types.ColumnMetadata, predicate tree.Expression) (splits []SplitSource)
 }
 
 type PageSourceProvider interface {
-	CreatePageSource(table TableHandle, outputs []ColumnMetadata, assignments []*ColumnAssignment) PageSource
+	CreatePageSource(table TableHandle, outputs []types.ColumnMetadata, assignments []*ColumnAssignment) PageSource
 }
 
 type PageSourceManager struct{}

@@ -1,7 +1,7 @@
 package buffer
 
 import (
-	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/spi/types"
 )
 
 type QueryOutputBuffer struct {
@@ -14,6 +14,6 @@ func NewQueryOutputBuffer(rsBuild *ResultSetBuild) OutputBuffer {
 	}
 }
 
-func (buf *QueryOutputBuffer) AddPage(page *spi.Page) {
+func (buf *QueryOutputBuffer) AddPage(page *types.Page) {
 	buf.rsBuild.AddPage(page)
 }

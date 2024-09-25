@@ -44,10 +44,10 @@ func (msp *SplitSourceProvider) getSchema(db tsdb.Database, table *TableHandle) 
 	return metricID, schema, nil
 }
 
-func (msp *SplitSourceProvider) buildTableScan(table spi.TableHandle, outputColumns []spi.ColumnMetadata) *TableScan {
+func (msp *SplitSourceProvider) buildTableScan(table spi.TableHandle, outputColumns []types.ColumnMetadata) *TableScan {
 	metricTable, ok := table.(*TableHandle)
 	if !ok {
-		panic(fmt.Sprintf("not support table handle<%T>", table))
+		panic(fmt.Sprintf("metric provider not support table handle<%T>", table))
 	}
 	db, ok := msp.engine.GetDatabase(metricTable.Database)
 	if !ok {
@@ -65,19 +65,20 @@ func (msp *SplitSourceProvider) buildTableScan(table spi.TableHandle, outputColu
 	}
 	// mapping fields for searching
 	fields := lo.Filter(schema.Fields, func(field field.Meta, index int) bool {
-		return lo.ContainsBy(outputColumns, func(column spi.ColumnMetadata) bool {
+		return lo.ContainsBy(outputColumns, func(column types.ColumnMetadata) bool {
 			return column.Name == field.Name.String() && column.DataType == types.DTTimeSeries
 		})
 	})
 	// mpaaing tags for grouping
 	groupingTags := lo.Filter(schema.TagKeys, func(tagMeta tag.Meta, index int) bool {
-		return lo.ContainsBy(outputColumns, func(column spi.ColumnMetadata) bool {
+		return lo.ContainsBy(outputColumns, func(column types.ColumnMetadata) bool {
 			return column.Name == tagMeta.Key && column.DataType == types.DTString
 		})
 	})
 	fmt.Printf("all fields=%v, group key=%v, select field=%v,output=%v\n", schema.Fields, groupingTags, fields, outputColumns)
 
 	if len(fields)+len(groupingTags) != len(outputColumns) {
+		// TODO: only check grouping keys
 		// output columns size not match
 		return nil
 	}
@@ -129,7 +130,7 @@ func (msp *SplitSourceProvider) findPartitions(tableScan *TableScan, partitionID
 // 2. find columns(tags)' values if has predicate
 // 3. find partitions
 func (msp *SplitSourceProvider) CreateSplitSources(table spi.TableHandle, partitionIDs []int,
-	outputColumns []spi.ColumnMetadata, predicate tree.Expression,
+	outputColumns []types.ColumnMetadata, predicate tree.Expression,
 ) (splits []spi.SplitSource) {
 	tableScan := msp.buildTableScan(table, outputColumns)
 	if tableScan == nil {

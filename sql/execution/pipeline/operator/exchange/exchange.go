@@ -8,6 +8,7 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/pipeline/operator"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
@@ -41,7 +42,7 @@ type ExchangeOperator struct {
 
 	completed chan struct{}
 
-	mergedPage *spi.Page
+	mergedPage *types.Page
 	mergedRows map[*mergeKey]int // merge key => row index
 
 	sourceID plan.PlanNodeID
@@ -52,7 +53,7 @@ func NewExchangeOperator(sourceID plan.PlanNodeID, numOfChild int) operator.Sour
 		sourceID:            sourceID,
 		noMoreSplitsTracker: atomic.NewInt32(int32(numOfChild)),
 		splits:              make(chan *spi.BinarySplit, 10),
-		mergedPage:          spi.NewPage(),
+		mergedPage:          types.NewPage(),
 		mergedRows:          make(map[*mergeKey]int),
 		completed:           make(chan struct{}, 1),
 	}
@@ -79,12 +80,12 @@ func (op *ExchangeOperator) AddSplit(split spi.Split) {
 }
 
 // AddInput implements Operator
-func (op *ExchangeOperator) AddInput(page *spi.Page) {
+func (op *ExchangeOperator) AddInput(page *types.Page) {
 	panic(fmt.Errorf("%w: exchange cannot take input", constants.ErrNotSupportOperation))
 }
 
 // GetOutput implements Operator
-func (op *ExchangeOperator) GetOutput() *spi.Page {
+func (op *ExchangeOperator) GetOutput() *types.Page {
 	for split := range op.splits {
 		page := split.Page
 		if page == nil {

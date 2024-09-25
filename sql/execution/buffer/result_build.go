@@ -5,26 +5,25 @@ import (
 
 	"github.com/lindb/common/pkg/encoding"
 
-	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/model"
 )
 
 type ResultSetBuild struct {
-	pages     chan *spi.Page
+	pages     chan *types.Page
 	completed chan struct{}
 	resultSet *model.ResultSet
 }
 
 func CreateResultSetBuild() *ResultSetBuild {
 	return &ResultSetBuild{
-		pages:     make(chan *spi.Page),
+		pages:     make(chan *types.Page),
 		completed: make(chan struct{}),
 		resultSet: model.NewResultSet(),
 	}
 }
 
-func (rsb *ResultSetBuild) AddPage(page *spi.Page) {
+func (rsb *ResultSetBuild) AddPage(page *types.Page) {
 	fmt.Println("add result page")
 	rsb.pages <- page
 }

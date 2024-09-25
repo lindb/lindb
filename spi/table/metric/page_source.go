@@ -17,14 +17,14 @@ import (
 	"github.com/lindb/lindb/spi/types"
 )
 
-type MetricPageSourceProvider struct{}
+type PageSourceProvider struct{}
 
-func NewMetricPageSourceProvider() spi.PageSourceProvider {
-	return &MetricPageSourceProvider{}
+func NewPageSourceProvider() spi.PageSourceProvider {
+	return &PageSourceProvider{}
 }
 
-func (p *MetricPageSourceProvider) CreatePageSource(table spi.TableHandle, outputs []spi.ColumnMetadata, assignments []*spi.ColumnAssignment) spi.PageSource {
-	return &MetricPageSource{
+func (p *PageSourceProvider) CreatePageSource(table spi.TableHandle, outputs []types.ColumnMetadata, assignments []*spi.ColumnAssignment) spi.PageSource {
+	return &PageSource{
 		table:       table.(*TableHandle),
 		assignments: assignments,
 		outputs:     outputs,
@@ -32,7 +32,7 @@ func (p *MetricPageSourceProvider) CreatePageSource(table spi.TableHandle, outpu
 	}
 }
 
-type MetricPageSource struct {
+type PageSource struct {
 	table       *TableHandle
 	assignments []*spi.ColumnAssignment
 
@@ -40,16 +40,16 @@ type MetricPageSource struct {
 
 	decoder *encoding.TSDDecoder
 
-	outputs []spi.ColumnMetadata
+	outputs []types.ColumnMetadata
 }
 
-func (mps *MetricPageSource) AddSplit(split spi.Split) {
+func (mps *PageSource) AddSplit(split spi.Split) {
 	if metricScanSplit, ok := split.(*ScanSplit); ok {
 		mps.split = metricScanSplit
 	}
 }
 
-func (mps *MetricPageSource) GetNextPage() *spi.Page {
+func (mps *PageSource) GetNextPage() *types.Page {
 	if mps.split == nil {
 		return nil
 	}
@@ -109,13 +109,13 @@ func (mps *MetricPageSource) GetNextPage() *spi.Page {
 		mps.split.groupingContext.BuildGroup(dataLoadCtx)
 		mps.split.tableScan.grouping.CollectTagValues()
 
-		page := spi.NewPage()
+		page := types.NewPage()
 		var (
-			grouping        []*spi.Column
+			grouping        []*types.Column
 			groupingIndexes []int
 		)
 		for idx, output := range mps.outputs {
-			column := spi.NewColumn()
+			column := types.NewColumn()
 			page.AppendColumn(output, column)
 			grouping = append(grouping, column)
 			groupingIndexes = append(groupingIndexes, idx)
@@ -213,15 +213,15 @@ func (mps *MetricPageSource) GetNextPage() *spi.Page {
 	return mps.buildOutputPage(rs)
 }
 
-func (mps *MetricPageSource) buildOutputPage(groupedSeriesList series.GroupedIterators) *spi.Page {
-	page := spi.NewPage()
+func (mps *PageSource) buildOutputPage(groupedSeriesList series.GroupedIterators) *types.Page {
+	page := types.NewPage()
 	var (
-		fields          []*spi.Column
-		grouping        []*spi.Column
+		fields          []*types.Column
+		grouping        []*types.Column
 		groupingIndexes []int
 	)
 	for idx, output := range mps.outputs {
-		column := spi.NewColumn()
+		column := types.NewColumn()
 		page.AppendColumn(output, column)
 		if lo.ContainsBy(mps.split.tableScan.fields, func(item field.Meta) bool {
 			return item.Name.String() == output.Name

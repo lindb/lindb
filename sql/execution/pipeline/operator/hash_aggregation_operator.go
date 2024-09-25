@@ -1,6 +1,6 @@
 package operator
 
-import "github.com/lindb/lindb/spi"
+import "github.com/lindb/lindb/spi/types"
 
 type HashAggregationOperatorFactory struct{}
 
@@ -14,7 +14,7 @@ func (fct *HashAggregationOperatorFactory) CreateOperator() Operator {
 }
 
 type HashAggregationOperator struct {
-	page *spi.Page
+	page *types.Page
 }
 
 func NewHashAggregationOperator() Operator {
@@ -22,7 +22,7 @@ func NewHashAggregationOperator() Operator {
 }
 
 // AddInput implements Operator.
-func (h *HashAggregationOperator) AddInput(page *spi.Page) {
+func (h *HashAggregationOperator) AddInput(page *types.Page) {
 	h.page = page
 }
 
@@ -31,7 +31,7 @@ func (h *HashAggregationOperator) Finish() {
 }
 
 // GetOutput implements Operator.
-func (h *HashAggregationOperator) GetOutput() *spi.Page {
+func (h *HashAggregationOperator) GetOutput() *types.Page {
 	// TODO: imple
 	return h.page
 }

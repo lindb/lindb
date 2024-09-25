@@ -8,7 +8,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	protoCommandV1 "github.com/lindb/lindb/proto/gen/v1/command"
-	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/model"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
@@ -26,7 +26,7 @@ func NewPartitionOutputBuffer(taskID model.TaskID, fragment *plan.PlanFragment) 
 }
 
 // AddPage implements OutputBuffer
-func (output *PartitionOutputBuffer) AddPage(page *spi.Page) {
+func (output *PartitionOutputBuffer) AddPage(page *types.Page) {
 	// TODO: conn pool?
 	receiver := output.fragment.Receivers[0]
 	conn, err := grpc.Dial(receiver.Address(), grpc.WithTransportCredentials(insecure.NewCredentials()))

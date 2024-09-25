@@ -1,6 +1,8 @@
 package spi
 
+import "github.com/lindb/lindb/spi/types"
+
 type Merger interface {
 	AddSplit(split *BinarySplit)
-	GetOutputPage() *Page
+	GetOutputPage() *types.Page
 }

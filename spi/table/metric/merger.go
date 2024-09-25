@@ -15,6 +15,7 @@ import (
 	"github.com/lindb/lindb/series"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 )
 
@@ -90,12 +91,12 @@ func (m *MetricMerger) AddSplit(split *spi.BinarySplit) {
 }
 
 // GetOutputPage implements spi.Merger
-func (m *MetricMerger) GetOutputPage() *spi.Page {
+func (m *MetricMerger) GetOutputPage() *types.Page {
 	if m.groupAgg == nil {
 		return nil
 	}
 	// groupIts := m.groupAgg.ResultSet()
-	page := spi.NewPage()
+	page := types.NewPage()
 
 	// for _, it := range groupIts {
 	// 	for it.HasNext() {

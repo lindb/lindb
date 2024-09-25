@@ -6,7 +6,6 @@ import (
 
 	"github.com/samber/lo"
 
-	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 )
@@ -33,19 +32,19 @@ func NewScalarFunc(funcName tree.FuncName, retType types.DataType, args []Expres
 }
 
 // EvalString implements Expression.
-func (f *ScalarFunc) EvalString(row spi.Row) (val string, isNull bool, err error) {
+func (f *ScalarFunc) EvalString(row types.Row) (val string, isNull bool, err error) {
 	panic("unimplemented")
 }
 
-func (f *ScalarFunc) EvalInt(row spi.Row) (val int64, isNull bool, err error) {
+func (f *ScalarFunc) EvalInt(row types.Row) (val int64, isNull bool, err error) {
 	return f.function.EvalInt(row)
 }
 
-func (f *ScalarFunc) EvalFloat(row spi.Row) (val float64, isNull bool, err error) {
+func (f *ScalarFunc) EvalFloat(row types.Row) (val float64, isNull bool, err error) {
 	return f.function.EvalFloat(row)
 }
 
-func (f *ScalarFunc) EvalTimeSeries(row spi.Row) (val *types.TimeSeries, isNull bool, err error) {
+func (f *ScalarFunc) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error) {
 	return f.function.EvalTimeSeries(row)
 }
 

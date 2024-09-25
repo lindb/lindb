@@ -8,7 +8,6 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	protoMetaV1 "github.com/lindb/lindb/proto/gen/v1/meta"
-	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/tsdb"
 )
@@ -38,12 +37,12 @@ func (srv *MetaService) TableSchema(ctx context.Context, request *protoMetaV1.Ta
 	if err != nil {
 		return nil, err
 	}
-	tableSchema := spi.NewTableSchema()
+	tableSchema := types.NewTableSchema()
 	for _, tagKey := range schema.TagKeys {
-		tableSchema.AddColumn(spi.ColumnMetadata{Name: tagKey.Key, DataType: types.DTString})
+		tableSchema.AddColumn(types.ColumnMetadata{Name: tagKey.Key, DataType: types.DTString})
 	}
 	for _, field := range schema.Fields {
-		tableSchema.AddColumn(spi.ColumnMetadata{
+		tableSchema.AddColumn(types.ColumnMetadata{
 			Name:     field.Name.String(),
 			DataType: types.DTTimeSeries,
 			AggType:  field.Type.AggregateType(),

@@ -11,6 +11,7 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 	"github.com/lindb/lindb/tsdb"
 )
@@ -20,7 +21,7 @@ func init() {
 	encoding.RegisterNodeType(TableHandle{})
 	encoding.RegisterNodeType(ColumnHandle{})
 
-	spi.RegisterCreateTableHandleFn(spi.Metric, func(db, ns, name string) spi.TableHandle {
+	spi.RegisterCreateTableFn(spi.Metric, func(db, ns, name string) spi.TableHandle {
 		return &TableHandle{
 			Database:  db,
 			Namespace: ns,
@@ -35,7 +36,7 @@ func init() {
 		}
 	})
 
-	spi.RegisterApplyAggregationFn(spi.Metric, func(table spi.TableHandle, tableMeta *spi.TableMetadata, aggregations []spi.ColumnAggregation) *spi.ApplyAggregationResult {
+	spi.RegisterApplyAggregationFn(spi.Metric, func(table spi.TableHandle, tableMeta *types.TableMetadata, aggregations []spi.ColumnAggregation) *spi.ApplyAggregationResult {
 		result := &spi.ApplyAggregationResult{}
 		// TODO: find downSampling agg
 		for _, agg := range aggregations {

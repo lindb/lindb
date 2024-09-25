@@ -1,4 +1,4 @@
-// Licensed to LinDB under one or more contributor
+// Licensed to LinDB under one or more contributorrup
 // license agreements. See the NOTICE file distributed with
 // this work for additional information regarding copyright
 // ownership. LinDB licenses this file to you under
@@ -42,6 +42,7 @@ import (
 	"github.com/lindb/lindb/internal/linmetric"
 	internalrpc "github.com/lindb/lindb/internal/rpc"
 	"github.com/lindb/lindb/internal/server"
+	"github.com/lindb/lindb/meta"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/hostutil"
@@ -54,6 +55,8 @@ import (
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/spi/table/infoschema"
+	_ "github.com/lindb/lindb/spi/table/infoschema"
 	"github.com/lindb/lindb/sql/analyzer"
 	"github.com/lindb/lindb/sql/execution"
 	"github.com/lindb/lindb/sql/rewrite"
@@ -110,6 +113,7 @@ type runtime struct {
 	registry            discovery.Registry
 	stateMachineFactory discovery.StateMachineFactory
 	stateMgr            broker.StateManager
+	metadataMgr         meta.MetadataManager
 
 	httpDeps *deps.HTTPDeps
 	// prometheusWriter writes data received from Prometheus to LinDB.
@@ -206,9 +210,6 @@ func (r *runtime) Run() error {
 
 	r.buildServiceDependency()
 
-	// start tcp server
-	r.startGRPCServer()
-
 	discoveryFactory := discovery.NewFactory(r.repo)
 
 	masterCfg := &coordinator.MasterCfg{
@@ -264,9 +265,10 @@ func (r *runtime) Run() error {
 	}
 	r.logger.Info("broker state machine started successfully")
 
+	r.metadataMgr = meta.NewBrokerMetadataManager(r.stateMgr, r.master.GetStateManager())
 	execDeps := &execution.Deps{
 		StatementRewrite: rewrite.NewStatementRewrite(nil),
-		AnalyzerFct:      analyzer.NewAnalyzerFactory(spi.NewMetadataManager(r.stateMgr)),
+		AnalyzerFct:      analyzer.NewAnalyzerFactory(spi.NewMetadataManager(r.metadataMgr)),
 		Repo:             r.repo,
 		CurrentNode: &models.InternalNode{
 			IP:   r.node.HostIP,
@@ -276,6 +278,10 @@ func (r *runtime) Run() error {
 	execution.RegisterExecutionFactory(models.DataDefinition, execution.NewDataDefinitionExecutionFactory(execDeps))
 	execution.RegisterExecutionFactory(models.Select, execution.NewQueryExecutionFactory(execDeps))
 
+	infoschema.InitInfoSchema(r.metadataMgr)
+
+	// start tcp server
+	r.startGRPCServer()
 	// start http server
 	r.startHTTPServer()
 
@@ -483,6 +489,7 @@ func (r *runtime) startGRPCServer() {
 
 	protoCommonV1.RegisterTaskServiceServer(r.grpcServer.GetServer(), r.rpcHandler.handler)
 	protoCommandV1.RegisterResultSetServiceServer(r.grpcServer.GetServer(), internalrpc.NewResultSetService())
+	protoCommandV1.RegisterCommandServiceServer(r.grpcServer.GetServer(), internalrpc.NewCommandService(execution.NewTaskManager()))
 
 	go serveGRPCFn(r.grpcServer)
 }

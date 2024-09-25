@@ -1,7 +1,6 @@
 package expression
 
 import (
-	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 )
@@ -11,9 +10,9 @@ type baseFunc struct {
 }
 
 type Func interface {
-	EvalInt(row spi.Row) (val int64, isNull bool, err error)
-	EvalFloat(row spi.Row) (val float64, isNull bool, err error)
-	EvalTimeSeries(row spi.Row) (val *types.TimeSeries, isNull bool, err error)
+	EvalInt(row types.Row) (val int64, isNull bool, err error)
+	EvalFloat(row types.Row) (val float64, isNull bool, err error)
+	EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error)
 }
 
 type FuncFactory interface {

@@ -2,12 +2,12 @@ package model
 
 import (
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/spi/types"
 )
 
 type Schema struct {
-	Columns   []spi.ColumnMetadata `json:"columns,omitempty"`
-	Partition []models.Partition   `json:"partitions,omitempty"`
+	Columns   []types.ColumnMetadata `json:"columns,omitempty"`
+	Partition []models.Partition     `json:"partitions,omitempty"`
 }
 
 type ResultSet struct {

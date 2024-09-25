@@ -126,6 +126,6 @@ func (at *AggregateType) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type Type interface{}
+type Type any
 
-type Block interface{}
+type Block any
