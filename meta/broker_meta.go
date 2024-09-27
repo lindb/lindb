@@ -2,21 +2,31 @@ package meta
 
 import (
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/coordinator"
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/master"
 	"github.com/lindb/lindb/models"
 )
 
 type brokerMetadataManager struct {
-	brokerStateMgr broker.StateManager
-	masterStateMgr master.StateManager
+	brokerStateMgr   broker.StateManager
+	masterStateMgr   master.StateManager
+	masterController coordinator.MasterController
 }
 
-func NewBrokerMetadataManager(brokerStateMgr broker.StateManager, masterStateMgr master.StateManager) MetadataManager {
+func NewBrokerMetadataManager(
+	brokerStateMgr broker.StateManager,
+	masterController coordinator.MasterController,
+) MetadataManager {
 	return &brokerMetadataManager{
-		brokerStateMgr: brokerStateMgr,
-		masterStateMgr: masterStateMgr,
+		brokerStateMgr:   brokerStateMgr,
+		masterStateMgr:   masterController.GetStateManager(),
+		masterController: masterController,
 	}
+}
+
+func (m *brokerMetadataManager) GetMaster() *models.Master {
+	return m.masterController.GetMaster()
 }
 
 func (m *brokerMetadataManager) GetDatabase(database string) (models.Database, bool) {
@@ -32,7 +42,7 @@ func (m *brokerMetadataManager) GetPartitions(database, ns, table string) (map[m
 		var partitions map[models.InternalNode][]int
 		currentNode := m.brokerStateMgr.GetCurrentNode()
 		switch table {
-		case constants.TableSchemata:
+		case constants.TableSchemata, constants.TableMetrics, constants.TableMaster:
 			partitions = map[models.InternalNode][]int{
 				{IP: currentNode.HostIP, Port: currentNode.GRPCPort}: {},
 			}

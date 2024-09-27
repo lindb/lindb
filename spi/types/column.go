@@ -26,17 +26,15 @@ func (c *Column) Append(val any) {
 }
 
 func (c *Column) AppendInt(val int64) {
-	// TODO:
-	// v := types.Int(val)
-	// c.Blocks = append(c.Blocks, &v)
-	// c.NumOfRows++
+	v := Int(val)
+	c.Blocks = append(c.Blocks, &v)
+	c.NumOfRows++
 }
 
 func (c *Column) AppendFloat(val float64) {
-	// TODO:
-	// v := types.Float(val)
-	// c.Blocks = append(c.Blocks, &v)
-	// c.NumOfRows++
+	v := Float(val)
+	c.Blocks = append(c.Blocks, &v)
+	c.NumOfRows++
 }
 
 func (c *Column) GetString(row int) *String {
@@ -45,6 +43,22 @@ func (c *Column) GetString(row int) *String {
 	}
 	// FIXME:
 	return c.Blocks[row].(*String)
+}
+
+func (c *Column) GetInt(row int) *Int {
+	if row >= len(c.Blocks) {
+		return nil
+	}
+	// FIXME:
+	return c.Blocks[row].(*Int)
+}
+
+func (c *Column) GetFloat(row int) *Float {
+	if row >= len(c.Blocks) {
+		return nil
+	}
+	// FIXME:
+	return c.Blocks[row].(*Float)
 }
 
 func (c *Column) GetTimeSeries(row int) *TimeSeries {

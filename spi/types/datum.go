@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/samber/lo"
 )
@@ -15,6 +16,36 @@ func (d *Datum) String() string {
 		return str
 	}
 	return fmt.Sprint(d.val)
+}
+
+func (d *Datum) Float() float64 {
+	v := reflect.ValueOf(d.val)
+	fmt.Printf("datum v=%v,type=%v\n", d.val, v.Kind())
+	switch v.Kind() {
+	case reflect.Float32, reflect.Float64:
+		return v.Float()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return float64(v.Int())
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return float64(v.Uint())
+	default:
+		return 0 // TODO:set 0?
+	}
+}
+
+func (d *Datum) Int() int64 {
+	v := reflect.ValueOf(d.val)
+	fmt.Printf("datum v=%v,type=%v\n", d.val, v.Kind())
+	switch v.Kind() {
+	case reflect.Float32, reflect.Float64:
+		return v.Int()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return v.Int()
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return int64(v.Uint())
+	default:
+		return 0 // TODO:set 0?
+	}
 }
 
 func MakeDatums(vals ...any) []*Datum {

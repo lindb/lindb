@@ -265,7 +265,7 @@ func (r *runtime) Run() error {
 	}
 	r.logger.Info("broker state machine started successfully")
 
-	r.metadataMgr = meta.NewBrokerMetadataManager(r.stateMgr, r.master.GetStateManager())
+	r.metadataMgr = meta.NewBrokerMetadataManager(r.stateMgr, r.master)
 	execDeps := &execution.Deps{
 		StatementRewrite: rewrite.NewStatementRewrite(nil),
 		AnalyzerFct:      analyzer.NewAnalyzerFactory(spi.NewMetadataManager(r.metadataMgr)),

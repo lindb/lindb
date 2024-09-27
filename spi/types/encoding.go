@@ -12,4 +12,6 @@ func init() {
 
 	encoding.RegisterNodeType(TimeSeries{})
 	encoding.RegisterNodeType(String(""))
+	encoding.RegisterNodeType(Float(0))
+	encoding.RegisterNodeType(Int(0))
 }
