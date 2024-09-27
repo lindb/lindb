@@ -1,6 +1,9 @@
 package infoschema
 
 import (
+	"fmt"
+
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
 )
@@ -40,7 +43,18 @@ func (p *PageSource) AddSplit(split spi.Split) {
 
 // GetNextPage implements spi.PageSource.
 func (p *PageSource) GetNextPage() *types.Page {
-	schemata, err := p.reader.ReadSchemata()
+	var (
+		rows [][]*types.Datum
+		err  error
+	)
+	switch p.split.table {
+	case constants.TableMaster:
+		rows, err = p.reader.ReadMaster()
+	case constants.TableSchemata:
+		rows, err = p.reader.ReadSchemata()
+	case constants.TableMetrics:
+		rows, err = p.reader.ReadMetrics()
+	}
 	if err != nil {
 		panic(err)
 	}
@@ -51,11 +65,16 @@ func (p *PageSource) GetNextPage() *types.Page {
 		page.AppendColumn(output, column)
 		columns = append(columns, column)
 	}
-	for _, row := range schemata {
+	fmt.Printf("ouputs=%v,index=%v\n", p.outputs, p.split.colIdxs)
+	for _, row := range rows {
 		for idx, col := range columns {
 			switch p.outputs[idx].DataType {
 			case types.DTString:
 				col.AppendString(row[p.split.colIdxs[idx]].String())
+			case types.DTFloat:
+				col.AppendFloat(row[p.split.colIdxs[idx]].Float())
+			case types.DTInt:
+				col.AppendInt(row[p.split.colIdxs[idx]].Int())
 			}
 		}
 	}

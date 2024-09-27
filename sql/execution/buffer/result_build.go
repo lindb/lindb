@@ -34,6 +34,7 @@ func (rsb *ResultSetBuild) Process() {
 	}()
 	// TODO: need close when timeout
 	for page := range rsb.pages {
+		// TODO: modify column layout
 		rsb.resultSet.Schema.Columns = page.Layout
 		it := page.Iterator()
 		for row := it.Begin(); row != it.End(); row = it.Next() {
@@ -44,8 +45,14 @@ func (rsb *ResultSetBuild) Process() {
 				switch meta.DataType {
 				case types.DTString:
 					columns = append(columns, row.GetString(i))
-				default:
+				case types.DTInt:
+					columns = append(columns, row.GetInt(i))
+				case types.DTFloat:
+					columns = append(columns, row.GetFloat(i))
+				case types.DTTimeSeries:
 					columns = append(columns, row.GetTimeSeries(i))
+				default:
+					panic(fmt.Sprintf("unknown data type:%v", meta.DataType))
 				}
 			}
 			rsb.resultSet.Rows = append(rsb.resultSet.Rows, columns)
