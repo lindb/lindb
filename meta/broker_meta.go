@@ -29,6 +29,18 @@ func (m *brokerMetadataManager) GetMaster() *models.Master {
 	return m.masterController.GetMaster()
 }
 
+func (m *brokerMetadataManager) GetBrokerNodes() (nodes []models.StatelessNode) {
+	return m.brokerStateMgr.GetLiveNodes()
+}
+
+func (m *brokerMetadataManager) GetStorageNodes() (nodes []models.StatefulNode) {
+	liveNodes := m.brokerStateMgr.GetStorage().LiveNodes
+	for _, node := range liveNodes {
+		nodes = append(nodes, node)
+	}
+	return
+}
+
 func (m *brokerMetadataManager) GetDatabase(database string) (models.Database, bool) {
 	return m.brokerStateMgr.GetDatabase(database)
 }
@@ -42,7 +54,7 @@ func (m *brokerMetadataManager) GetPartitions(database, ns, table string) (map[m
 		var partitions map[models.InternalNode][]int
 		currentNode := m.brokerStateMgr.GetCurrentNode()
 		switch table {
-		case constants.TableSchemata, constants.TableMetrics, constants.TableMaster:
+		case constants.TableSchemata, constants.TableMetrics, constants.TableMaster, constants.TableBroker, constants.TableStorage:
 			partitions = map[models.InternalNode][]int{
 				{IP: currentNode.HostIP, Port: currentNode.GRPCPort}: {},
 			}

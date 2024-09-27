@@ -50,6 +50,10 @@ func (p *PageSource) GetNextPage() *types.Page {
 	switch p.split.table {
 	case constants.TableMaster:
 		rows, err = p.reader.ReadMaster()
+	case constants.TableBroker:
+		rows, err = p.reader.ReadBroker()
+	case constants.TableStorage:
+		rows, err = p.reader.ReadStorage()
 	case constants.TableSchemata:
 		rows, err = p.reader.ReadSchemata()
 	case constants.TableMetrics:
