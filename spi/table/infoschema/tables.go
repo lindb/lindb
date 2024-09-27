@@ -34,6 +34,33 @@ var (
 			{Name: "elect_time", DataType: types.DTInt},
 		},
 	}
+	brokerSchema = &types.TableSchema{
+		Columns: []types.ColumnMetadata{
+			{Name: "host_ip", DataType: types.DTString},
+			{Name: "host_name", DataType: types.DTString},
+			{Name: "version", DataType: types.DTString},
+			{Name: "online_time", DataType: types.DTInt},
+			{Name: "grpc", DataType: types.DTInt},
+			{Name: "http", DataType: types.DTInt},
+		},
+	}
+	storageSchema = &types.TableSchema{
+		Columns: []types.ColumnMetadata{
+			{Name: "id", DataType: types.DTInt},
+			{Name: "host_ip", DataType: types.DTString},
+			{Name: "host_name", DataType: types.DTString},
+			{Name: "version", DataType: types.DTString},
+			{Name: "online_time", DataType: types.DTInt},
+			{Name: "grpc", DataType: types.DTInt},
+			{Name: "http", DataType: types.DTInt},
+		},
+	}
+	replicationSchema = &types.TableSchema{
+		Columns: []types.ColumnMetadata{},
+	}
+	memoryDatabaseSchema = &types.TableSchema{
+		Columns: []types.ColumnMetadata{},
+	}
 	schemtatSchema = &types.TableSchema{
 		Columns: []types.ColumnMetadata{
 			{Name: "schema_name", DataType: types.DTString},
@@ -67,12 +94,16 @@ var (
 
 	// tables represents the schema of tables.
 	tables = map[string]*types.TableSchema{
-		constants.TableMaster:   masterSchema,
-		constants.TableSchemata: schemtatSchema,
-		constants.TableMetrics:  metricsSchema,
-		"tables":                tablesSchema,
-		"namespaces":            namespacesSchema,
-		"columns":               columnsSchema,
+		constants.TableMaster:         masterSchema,
+		constants.TableBroker:         brokerSchema,
+		constants.TableStorage:        storageSchema,
+		constants.TableReplication:    replicationSchema,
+		constants.TableMemoryDatabase: memoryDatabaseSchema,
+		constants.TableSchemata:       schemtatSchema,
+		constants.TableMetrics:        metricsSchema,
+		"tables":                      tablesSchema,
+		"namespaces":                  namespacesSchema,
+		"columns":                     columnsSchema,
 	}
 )
 

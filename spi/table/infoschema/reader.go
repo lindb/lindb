@@ -7,6 +7,8 @@ import (
 
 type Reader interface {
 	ReadMaster() (rows [][]*types.Datum, err error)
+	ReadBroker() (rows [][]*types.Datum, err error)
+	ReadStorage() (rows [][]*types.Datum, err error)
 	ReadSchemata() (rows [][]*types.Datum, err error)
 	ReadMetrics() (rows [][]*types.Datum, err error)
 }
@@ -30,6 +32,37 @@ func (r *reader) ReadMaster() (rows [][]*types.Datum, err error) {
 		master.Node.OnlineTime, // online_time
 		master.ElectTime,       // elect_time
 	))
+	return
+}
+
+func (r *reader) ReadBroker() (rows [][]*types.Datum, err error) {
+	nodes := r.metadataMgr.GetBrokerNodes()
+	for _, node := range nodes {
+		rows = append(rows, types.MakeDatums(
+			node.HostIP,     // host_ip
+			node.HostName,   // host_name
+			node.Version,    // version
+			node.OnlineTime, // online_time
+			node.GRPCPort,   // grpc
+			node.HTTPPort,   // http
+		))
+	}
+	return
+}
+
+func (r *reader) ReadStorage() (rows [][]*types.Datum, err error) {
+	nodes := r.metadataMgr.GetStorageNodes()
+	for _, node := range nodes {
+		rows = append(rows, types.MakeDatums(
+			node.ID,         // id
+			node.HostIP,     // host_ip
+			node.HostName,   // host_name
+			node.Version,    // version
+			node.OnlineTime, // online_time
+			node.GRPCPort,   // grpc
+			node.HTTPPort,   // http
+		))
+	}
 	return
 }
 
