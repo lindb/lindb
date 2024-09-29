@@ -41,7 +41,6 @@ type API struct {
 
 	execute            *exec.ExecuteAPI
 	brokerStateMachine *state.BrokerStateMachineAPI
-	request            *apipkg.RequestAPI
 	metricExplore      *apipkg.ExploreAPI
 	log                *apipkg.LoggerAPI
 	config             *apipkg.ConfigAPI
@@ -58,7 +57,6 @@ func NewAPI(deps *depspkg.HTTPDeps, prometheusWriter prometheusIngest.Writer) *A
 		prometheusWriter:   prometheusWriter,
 		execute:            exec.NewExecuteAPI(deps),
 		brokerStateMachine: state.NewBrokerStateMachineAPI(deps),
-		request:            apipkg.NewRequestAPI(),
 		metricExplore:      apipkg.NewExploreAPI(deps.GlobalKeyValues, linmetric.BrokerRegistry),
 		log:                apipkg.NewLoggerAPI(deps.BrokerCfg.Logging.Dir),
 		config:             apipkg.NewConfigAPI(deps.Node, deps.BrokerCfg),
@@ -78,7 +76,6 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 
 	// state
 	api.brokerStateMachine.Register(v1)
-	api.request.Register(v1)
 
 	// write metric data
 	api.write.Register(v1)

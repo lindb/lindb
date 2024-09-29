@@ -50,11 +50,9 @@ import (
 	httppkg "github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/state"
 	protoCommandV1 "github.com/lindb/lindb/proto/gen/v1/command"
-	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	protoMetaV1 "github.com/lindb/lindb/proto/gen/v1/meta"
 	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
 	protoWriteV1 "github.com/lindb/lindb/proto/gen/v1/write"
-	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/tag"
@@ -64,16 +62,10 @@ import (
 	"github.com/lindb/lindb/tsdb"
 )
 
-// factory represents all factories for storage
-type factory struct {
-	taskServer rpc.TaskServerFactory
-}
-
 // rpcHandler represents all dependency rpc handlers
 type rpcHandler struct {
 	replica *rpchandler.ReplicaHandler
 	write   *rpchandler.WriteHandler
-	task    *query.TaskHandler
 }
 
 var (
@@ -100,7 +92,6 @@ var (
 
 // runtime represents storage runtime dependency
 type runtime struct {
-	factory             factory
 	stateMachineFactory discovery.StateMachineFactory
 	queryPool           concurrent.Pool
 	httpServer          httppkg.Server
@@ -231,7 +222,6 @@ func (r *runtime) Run() error {
 		return err
 	}
 
-	r.factory = factory{taskServer: rpc.NewTaskServerFactory()}
 	r.stateMgr = storage.NewStateManager(r.ctx, r.repo, r.node, engine)
 
 	// start tcp server
@@ -409,8 +399,6 @@ func (r *runtime) startHTTPServer() {
 	logAPI.Register(v1)
 	configAPI := api.NewConfigAPI(r.node, r.config)
 	configAPI.Register(v1)
-	requestAPI := stateapi.NewRequestAPI()
-	requestAPI.Register(v1)
 	metadataAPI := stateapi.NewMetadataAPI(r.engine)
 	metadataAPI.Register(v1)
 
@@ -443,26 +431,14 @@ func (r *runtime) startRPCServer() {
 // bindRPCHandlers binds rpc handlers, registers task into grpc server
 func (r *runtime) bindRPCHandlers() {
 	// FIXME: (stone1100) need close
-	leafTaskProcessor := query.NewLeafTaskProcessor(
-		r.node,
-		r.engine,
-		r.factory.taskServer,
-	)
 
 	r.rpcHandler = &rpcHandler{
 		replica: rpchandler.NewReplicaHandler(r.walMgr),
 		write:   rpchandler.NewWriteHandler(r.walMgr),
-		task: query.NewTaskHandler(
-			r.config.Query,
-			r.factory.taskServer,
-			leafTaskProcessor,
-			r.queryPool,
-		),
 	}
 
 	protoReplicaV1.RegisterReplicaServiceServer(r.server.GetServer(), r.rpcHandler.replica)
 	protoWriteV1.RegisterWriteServiceServer(r.server.GetServer(), r.rpcHandler.write)
-	protoCommonV1.RegisterTaskServiceServer(r.server.GetServer(), r.rpcHandler.task)
 
 	protoMetaV1.RegisterMetaServiceServer(r.server.GetServer(), rpchandler.NewMetaService(r.engine))
 	protoCommandV1.RegisterCommandServiceServer(r.server.GetServer(), internalrpc.NewCommandService(execution.NewTaskManager()))

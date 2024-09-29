@@ -30,7 +30,6 @@ import (
 	"github.com/lindb/lindb/internal/conntrack"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/models"
-	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
 	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
 	protoWriteV1 "github.com/lindb/lindb/proto/gen/v1/write"
 )
@@ -39,8 +38,7 @@ import (
 
 // just for testing
 var (
-	grpcDialFn             = grpc.Dial
-	newTaskServiceClientFn = protoCommonV1.NewTaskServiceClient
+	grpcDialFn = grpc.Dial
 )
 
 var (
@@ -157,8 +155,6 @@ func (fct *clientConnFactory) CloseClientConn(target models.Node) error {
 type ClientStreamFactory interface {
 	// LogicNode returns the logic Node which will be transferred to the target server for identification.
 	LogicNode() models.Node
-	// CreateTaskClient creates a stream task client
-	CreateTaskClient(target models.Node) (protoCommonV1.TaskService_HandleClient, error)
 	// CreateReplicaServiceClient creates a protoReplicaV1.ReplicaServiceClient.
 	CreateReplicaServiceClient(target models.Node) (protoReplicaV1.ReplicaServiceClient, error)
 	// CreateWriteServiceClient creates a protoWriteV1.WriteServiceClient.
@@ -184,21 +180,6 @@ func NewClientStreamFactory(ctx context.Context, logicNode models.Node, connFct 
 // LogicNode returns the logic Node which will be transferred to the target server for identification.
 func (w *clientStreamFactory) LogicNode() models.Node {
 	return w.logicNode
-}
-
-// CreateTaskClient creates a stream task client
-func (w *clientStreamFactory) CreateTaskClient(target models.Node) (protoCommonV1.TaskService_HandleClient, error) {
-	conn, err := w.connFct.GetClientConn(target)
-	if err != nil {
-		return nil, err
-	}
-
-	node := w.LogicNode()
-	// https://pkg.go.dev/google.golang.org/grpc#ClientConn.NewStream
-	// context is the lifetime of stream
-	ctx := CreateOutgoingContextWithPairs(w.ctx, constants.RPCMetaKeyLogicNode, node.Indicator())
-	cli, err := newTaskServiceClientFn(conn).Handle(ctx)
-	return cli, err
 }
 
 // CreateReplicaServiceClient creates a protoReplicaV1.ReplicaServiceClient.

@@ -25,8 +25,6 @@ import (
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/query"
-	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/tag"
 )
 
@@ -39,8 +37,6 @@ type HTTPDeps struct {
 	Repo         state.Repository
 	RepoFactory  state.RepositoryFactory
 	StateMgr     root.StateManager
-	TransportMgr rpc.TransportManager
-	TaskMgr      query.TaskManager
 
 	GlobalKeyValues tag.Tags
 }

@@ -96,7 +96,6 @@ func NewStateManager(
 	ctx context.Context,
 	currentNode models.StatelessNode,
 	connectionManager rpc.ConnectionManager,
-	taskClientFactory rpc.TaskClientFactory,
 ) StateManager {
 	c, cancel := context.WithCancel(ctx)
 	mgr := &stateManager{
