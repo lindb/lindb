@@ -49,9 +49,9 @@ func NewClusterInitializer(endpoint string) ClusterInitializer {
 // InitInternalDatabase initializes internal database
 func (i *clusterInitializer) InitInternalDatabase(sql string) error {
 	cli := client.NewExecuteCli(i.endpoint)
-	if err := cli.Execute(models.ExecuteParam{
+	if _, err := cli.Execute(models.ExecuteParam{
 		SQL: sql,
-	}, nil); err != nil {
+	}); err != nil {
 		return err
 	}
 	return nil

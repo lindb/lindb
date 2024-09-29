@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/spi/types"
 )
 
@@ -61,9 +62,9 @@ func evalTimeSeries(row types.Row, args []Expression, math func(lv, rv float64) 
 	}
 	var result *types.TimeSeries
 	if !l.IsSingleValue() {
-		result = types.NewTimeSeries(l.TimeRange, l.Interval)
+		result = types.NewTimeSeries(l.TimeRange, timeutil.Interval(l.Interval))
 	} else if !r.IsSingleValue() {
-		result = types.NewTimeSeries(r.TimeRange, r.Interval)
+		result = types.NewTimeSeries(r.TimeRange, timeutil.Interval(r.Interval))
 	} else {
 		result = types.NewTimeSeriesWithSingleValue(0)
 	}

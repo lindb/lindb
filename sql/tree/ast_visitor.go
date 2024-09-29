@@ -31,7 +31,6 @@ func NewAstVisitor(idAllocator *NodeIDAllocator) *AstVisitor {
 }
 
 func (v *AstVisitor) Visit(ctx antlr.ParseTree) any {
-	fmt.Printf("visit tree node=%T\n", ctx)
 	return ctx.Accept(v)
 }
 
@@ -41,6 +40,8 @@ func (v *AstVisitor) VisitStatement(ctx *grammar.StatementContext) any {
 		return v.Visit(ctx.DmlStatement())
 	case ctx.DdlStatement() != nil:
 		return v.Visit(ctx.DdlStatement())
+	case ctx.UtilityStatement() != nil:
+		return v.Visit(ctx.UtilityStatement())
 	default:
 		return v.VisitChildren(ctx)
 	}
@@ -82,6 +83,15 @@ func (v *AstVisitor) VisitProperty(ctx *grammar.PropertyContext) any {
 	fmt.Println(identifer.Value)
 	fmt.Println("test.....")
 	return nil
+}
+
+func (v *AstVisitor) VisitUtilityStatement(ctx *grammar.UtilityStatementContext) any {
+	switch {
+	case ctx.UseStatement() != nil:
+		return v.Visit(ctx.UseStatement())
+	default:
+		panic("unsupported utility statement")
+	}
 }
 
 func (v *AstVisitor) VisitUseStatement(ctx *grammar.UseStatementContext) any {
@@ -260,7 +270,6 @@ func (v *AstVisitor) VisitSelectAll(ctx *grammar.SelectAllContext) any {
 }
 
 func (v *AstVisitor) VisitSelectSingle(ctx *grammar.SelectSingleContext) any {
-	fmt.Printf("single select=%T\n", ctx.Expression())
 	expression := v.Visit(ctx.Expression()).(Expression)
 	return &SingleColumn{
 		BaseNode: BaseNode{
@@ -590,7 +599,6 @@ func (v *AstVisitor) VisitQuotedIdentifier(ctx *grammar.QuotedIdentifierContext)
 }
 
 func (v *AstVisitor) VisitPredicatedExpression(ctx *grammar.PredicatedExpressionContext) any {
-	fmt.Printf("predicate.....=%v,%T\n", ctx, ctx.Predicate())
 	return v.Visit(ctx.Predicate())
 }
 

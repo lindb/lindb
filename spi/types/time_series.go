@@ -6,7 +6,7 @@ import "github.com/lindb/lindb/pkg/timeutil"
 type TimeSeries struct {
 	Values      []float64          `json:"values,omitempty"`
 	TimeRange   timeutil.TimeRange `json:"timeRange,omitempty"`
-	Interval    timeutil.Interval  `json:"interval,omitempty"`
+	Interval    int64              `json:"interval,omitempty"`
 	NumOfPoints int                `json:"numOfPoints,omitempty"`
 	Value       float64            `json:"value,omitempty"`
 	IsSingle    bool               `json:"isSingle,omitempty"`
@@ -17,7 +17,7 @@ func NewTimeSeries(timeRange timeutil.TimeRange, interval timeutil.Interval) *Ti
 	numOfPoints := (&timeRange).NumOfPoints(interval)
 	return &TimeSeries{
 		TimeRange:   timeRange,
-		Interval:    interval,
+		Interval:    interval.Int64(),
 		NumOfPoints: numOfPoints,
 		Values:      make([]float64, numOfPoints),
 	}

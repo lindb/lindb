@@ -1,6 +1,14 @@
 package model
 
 import (
+	"fmt"
+	"strconv"
+
+	"github.com/jedib0t/go-pretty/v6/table"
+	commonmodels "github.com/lindb/common/models"
+	"github.com/lindb/common/pkg/timeutil"
+	"github.com/mitchellh/mapstructure"
+
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/spi/types"
 )
@@ -18,5 +26,75 @@ type ResultSet struct {
 func NewResultSet() *ResultSet {
 	return &ResultSet{
 		Schema: &Schema{},
+	}
+}
+
+// ToTable returns stateless node list as table if it has value, else return empty string.
+func (rs *ResultSet) ToTable() (tableStr string) {
+	writer := commonmodels.NewTableFormatter()
+	var headers table.Row
+	var (
+		hasTimeSeries bool
+		timeSeriesIdx int
+		dataPoints    int
+	)
+	for i, col := range rs.Schema.Columns {
+		if !hasTimeSeries && col.DataType == types.DTTimeSeries {
+			timeSeriesIdx = i
+			hasTimeSeries = true
+			timeSeries := &types.TimeSeries{}
+			_ = mapstructure.Decode(rs.Rows[0][i], timeSeries)
+			dataPoints = len(timeSeries.Values)
+			headers = append(headers, "timestamp") // add timestamp column
+		}
+		headers = append(headers, col.Name)
+	}
+	writer.AppendHeader(headers)
+	for _, row := range rs.Rows {
+		if hasTimeSeries {
+			// has time series, build row based on data points
+			for pos := 0; pos < dataPoints; pos++ {
+				cols := make(table.Row, len(rs.Schema.Columns)+1) // add timestamp column
+				colIdx := 0
+				for i, col := range row {
+					if rs.Schema.Columns[colIdx].DataType == types.DTTimeSeries {
+						timeSeries := &types.TimeSeries{}
+						_ = mapstructure.Decode(row[colIdx], timeSeries)
+						if timeSeriesIdx == i {
+							cols[colIdx] = timeutil.FormatTimestamp(
+								timeSeries.TimeRange.Start+timeSeries.Interval*int64(pos),
+								timeutil.DataTimeFormat2)
+							colIdx++
+							cols[colIdx] = timeSeries.Values[pos]
+						} else {
+							cols[colIdx] = timeSeries.Values[pos]
+						}
+					} else {
+						appendColumn(cols, col, colIdx)
+					}
+					colIdx++
+				}
+				writer.AppendRow(cols)
+			}
+		} else {
+			cols := make(table.Row, len(rs.Schema.Columns))
+			for i, col := range row {
+				appendColumn(cols, col, i)
+			}
+			writer.AppendRow(cols)
+		}
+	}
+	return writer.Render()
+}
+
+// appendColumn appends column value to row.
+func appendColumn(row table.Row, col any, index int) {
+	switch v := col.(type) {
+	case string:
+		row[index] = v
+	case int64:
+		row[index] = strconv.FormatInt(v, 10)
+	case float64:
+		row[index] = fmt.Sprintf("%v", v)
 	}
 }

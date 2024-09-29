@@ -3,7 +3,6 @@ package infoschema
 import (
 	"fmt"
 
-	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
 )
@@ -43,22 +42,7 @@ func (p *PageSource) AddSplit(split spi.Split) {
 
 // GetNextPage implements spi.PageSource.
 func (p *PageSource) GetNextPage() *types.Page {
-	var (
-		rows [][]*types.Datum
-		err  error
-	)
-	switch p.split.table {
-	case constants.TableMaster:
-		rows, err = p.reader.ReadMaster()
-	case constants.TableBroker:
-		rows, err = p.reader.ReadBroker()
-	case constants.TableStorage:
-		rows, err = p.reader.ReadStorage()
-	case constants.TableSchemata:
-		rows, err = p.reader.ReadSchemata()
-	case constants.TableMetrics:
-		rows, err = p.reader.ReadMetrics()
-	}
+	rows, err := p.reader.ReadData(p.split.table)
 	if err != nil {
 		panic(err)
 	}

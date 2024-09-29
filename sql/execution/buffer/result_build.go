@@ -38,19 +38,19 @@ func (rsb *ResultSetBuild) Process() {
 		rsb.resultSet.Schema.Columns = page.Layout
 		it := page.Iterator()
 		for row := it.Begin(); row != it.End(); row = it.Next() {
-			columns := []any{}
+			columns := make([]any, len(page.Layout))
 			for i, meta := range page.Layout {
 				// TODO: add more type
 				fmt.Printf("layout index=%d\n", i)
 				switch meta.DataType {
 				case types.DTString:
-					columns = append(columns, row.GetString(i))
+					columns[i] = row.GetString(i)
 				case types.DTInt:
-					columns = append(columns, row.GetInt(i))
+					columns[i] = row.GetInt(i)
 				case types.DTFloat:
-					columns = append(columns, row.GetFloat(i))
+					columns[i] = row.GetFloat(i)
 				case types.DTTimeSeries:
-					columns = append(columns, row.GetTimeSeries(i))
+					columns[i] = row.GetTimeSeries(i)
 				default:
 					panic(fmt.Sprintf("unknown data type:%v", meta.DataType))
 				}
