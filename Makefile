@@ -17,6 +17,9 @@ help:  ## Display this help
 run: ## run local standalone cluster for demo/debug
 	go run github.com/lindb/lindb/cmd/lind standalone run --pprof --doc
 
+cli: ## run LinDB CLI
+	go run github.com/lindb/lindb/cmd/cli
+
 build-frontend: ## build frontend
 	cd web/ && make web_build
 

@@ -19,17 +19,13 @@ package client
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
-	"time"
 
 	resty "github.com/go-resty/resty/v2"
-
-	commonmodels "github.com/lindb/common/models"
 	"github.com/lindb/common/pkg/encoding"
-	"github.com/lindb/common/pkg/ltoml"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/sql/execution/model"
 )
 
 //go:generate mockgen -source=./execute.go -destination=./execute_mock.go -package=client
@@ -37,9 +33,7 @@ import (
 // ExecuteCli represents lin query language execute client.
 type ExecuteCli interface {
 	// Execute executes lin query language, then returns execute result.
-	Execute(param models.ExecuteParam, rs interface{}) error
-	// ExecuteAsResult executes lin query language, then returns terminal result.
-	ExecuteAsResult(param models.ExecuteParam, rs interface{}) (string, error)
+	Execute(param models.ExecuteParam) (*model.ResultSet, error)
 }
 
 // executeCli implements ExecuteCli interface.
@@ -54,57 +48,31 @@ func NewExecuteCli(endpoint string) ExecuteCli {
 	return &executeCli{
 		Base{
 			cli: cli,
-		}}
+		},
+	}
 }
 
 // Execute executes lin query language, then returns execute result.
-func (cli *executeCli) Execute(param models.ExecuteParam, rs interface{}) error {
+func (cli *executeCli) Execute(param models.ExecuteParam) (*model.ResultSet, error) {
 	// send request
 	resp, err := cli.cli.R().
 		SetBody(&param).
 		SetHeader("Accept", "application/json").
 		Put("/exec")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if resp.StatusCode() == http.StatusOK {
 		// if success, unmarshal response
 		data := resp.Body()
-		if rs != nil && len(data) > 0 {
-			if err := encoding.JSONUnmarshal(data, &rs); err != nil {
-				return err
+		if len(data) > 0 {
+			rs := &model.ResultSet{}
+			if err := encoding.JSONUnmarshal(data, rs); err != nil {
+				return nil, err
 			}
+			return rs, nil
 		}
-		return nil
+		return nil, errors.New("no data found")
 	}
-	return errors.New(string(resp.Body()))
-}
-
-// ExecuteAsResult executes lin query language, then returns terminal result.
-func (cli *executeCli) ExecuteAsResult(param models.ExecuteParam, rs interface{}) (queryResult string, err error) {
-	defer func() {
-		if err0 := recover(); err0 != nil {
-			err = fmt.Errorf("query error: %v", err0)
-		}
-	}()
-
-	n := time.Now()
-	err = cli.Execute(param, rs)
-	cost := time.Since(n)
-	if err != nil {
-		return
-	}
-	result := ""
-	rows := 0
-	if formatter, ok := rs.(commonmodels.TableFormatter); ok {
-		rows, result = formatter.ToTable()
-	}
-	if rows == 0 {
-		return fmt.Sprintf("Query OK, 0 rows affected (%s)", ltoml.Duration(cost)), nil
-	}
-	if result != "" {
-		result += "\n"
-	}
-	return fmt.Sprintf("%s%s", result,
-		fmt.Sprintf("%d rows in sets (%s)", rows, ltoml.Duration(cost))), nil
+	return nil, errors.New(string(resp.Body()))
 }

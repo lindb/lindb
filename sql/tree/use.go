@@ -5,3 +5,7 @@ type Use struct {
 	BaseNode
 	Database *Identifier
 }
+
+func (n *Use) Accept(context any, visitor Visitor) any {
+	return visitor.Visit(context, n)
+}
