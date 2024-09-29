@@ -26,9 +26,7 @@ import (
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/replica"
-	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/execution"
 )
@@ -44,8 +42,6 @@ type HTTPDeps struct {
 	RepoFactory state.RepositoryFactory
 	StateMgr    broker.StateManager
 
-	TransportMgr  rpc.TransportManager
-	TaskMgr       query.TaskManager
 	CM            replica.ChannelManager
 	IngestLimiter *concurrent.Limiter
 	QueryLimiter  *concurrent.Limiter

@@ -49,8 +49,6 @@ import (
 	httppkg "github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/state"
 	protoCommandV1 "github.com/lindb/lindb/proto/gen/v1/command"
-	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
-	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/tag"
@@ -70,7 +68,6 @@ var (
 	newRegistry            = discovery.NewRegistry
 	newRepositoryFactory   = state.NewRepositoryFactory
 	newGRPCServer          = rpc.NewGRPCServer
-	newTaskClientFactory   = rpc.NewTaskClientFactory
 	newStateManager        = broker.NewStateManager
 	newChannelManager      = replica.NewChannelManager
 	newMasterController    = coordinator.NewMasterController
@@ -80,20 +77,12 @@ var (
 
 // srv represents all services for broker
 type srv struct {
-	channelManager   replica.ChannelManager
-	taskManager      query.TaskManager
-	transportManager rpc.TransportManager
+	channelManager replica.ChannelManager
 }
 
 // factory represents all factories for broker
 type factory struct {
-	taskClient    rpc.TaskClientFactory
-	taskServer    rpc.TaskServerFactory
 	connectionMgr rpc.ConnectionManager
-}
-
-type rpcHandler struct {
-	handler *query.TaskHandler
 }
 
 // runtime represents broker runtime dependency
@@ -120,7 +109,6 @@ type runtime struct {
 	prometheusWriter prometheusIngest.Writer
 
 	grpcServer rpc.GRPCServer
-	rpcHandler *rpcHandler
 	queryPool  concurrent.Pool
 
 	ctx                 context.Context
@@ -195,18 +183,15 @@ func (r *runtime) Run() error {
 	}
 	r.BaseRuntime = app.NewBaseRuntimeFn(r.ctx, r.config.Monitor, linmetric.BrokerRegistry, r.globalKeyValues)
 
-	tackClientFct := newTaskClientFactory(r.ctx, r.node, rpc.GetBrokerClientConnFactory())
 	r.factory = factory{
-		taskClient:    tackClientFct,
-		taskServer:    rpc.NewTaskServerFactory(),
-		connectionMgr: rpc.NewConnectionManager(tackClientFct),
+		connectionMgr: rpc.NewConnectionManager(),
 	}
 
 	r.stateMgr = newStateManager(
 		r.ctx,
 		*r.node,
 		r.factory.connectionMgr,
-		r.factory.taskClient)
+	)
 
 	r.buildServiceDependency()
 
@@ -392,16 +377,14 @@ func (r *runtime) startHTTPServer() {
 	r.httpServer = newHTTPServer(r.config.BrokerBase.HTTP, true, linmetric.BrokerRegistry)
 	// TODO login api is not registered
 	r.httpDeps = &deps.HTTPDeps{
-		Ctx:          r.ctx,
-		Node:         r.node,
-		BrokerCfg:    r.config,
-		Master:       r.master,
-		Repo:         r.repo,
-		RepoFactory:  r.repoFactory,
-		StateMgr:     r.stateMgr,
-		TaskMgr:      r.srv.taskManager,
-		TransportMgr: r.srv.transportManager,
-		CM:           r.srv.channelManager,
+		Ctx:         r.ctx,
+		Node:        r.node,
+		BrokerCfg:   r.config,
+		Master:      r.master,
+		Repo:        r.repo,
+		RepoFactory: r.repoFactory,
+		StateMgr:    r.stateMgr,
+		CM:          r.srv.channelManager,
 		IngestLimiter: concurrent.NewLimiter(
 			r.ctx,
 			r.config.BrokerBase.Ingestion.MaxConcurrency,
@@ -459,14 +442,8 @@ func (r *runtime) buildServiceDependency() {
 	// create replica channel mgr.
 	cm := newChannelManager(r.ctx, rpc.NewClientStreamFactory(r.ctx, r.node, rpc.GetBrokerClientConnFactory()), r.stateMgr)
 
-	taskMgr := query.NewTaskManager(r.queryPool, linmetric.BrokerRegistry)
-	// close connections in connection-manager
-	r.factory.taskClient.SetTaskReceiver(taskMgr)
-
 	s := srv{
-		channelManager:   cm,
-		taskManager:      taskMgr,
-		transportManager: query.NewTransportManager(r.factory.taskClient, r.factory.taskServer, linmetric.BrokerRegistry),
+		channelManager: cm,
 	}
 	r.srv = s
 }
@@ -477,17 +454,6 @@ func (r *runtime) startGRPCServer() {
 	r.grpcServer = newGRPCServer(r.config.BrokerBase.GRPC, linmetric.BrokerRegistry)
 
 	// bind grpc handlers
-	r.rpcHandler = &rpcHandler{
-		handler: query.NewTaskHandler(
-			r.config.Query,
-			r.factory.taskServer,
-			query.NewIntermediateTaskProcessor(*r.node, r.config.Query.Timeout.Duration(),
-				r.stateMgr, r.srv.taskManager, r.srv.transportManager),
-			r.queryPool,
-		),
-	}
-
-	protoCommonV1.RegisterTaskServiceServer(r.grpcServer.GetServer(), r.rpcHandler.handler)
 	protoCommandV1.RegisterResultSetServiceServer(r.grpcServer.GetServer(), internalrpc.NewResultSetService())
 	protoCommandV1.RegisterCommandServiceServer(r.grpcServer.GetServer(), internalrpc.NewCommandService(execution.NewTaskManager()))
 

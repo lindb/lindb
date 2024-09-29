@@ -42,7 +42,6 @@ import (
 	"github.com/lindb/lindb/pkg/hostutil"
 	httppkg "github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/query"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/tag"
 )
@@ -51,10 +50,8 @@ import (
 var (
 	getHostIP              = hostutil.GetHostIP
 	hostName               = os.Hostname
-	newTaskClientFactory   = rpc.NewTaskClientFactory
 	newStateMachineFactory = root.NewStateMachineFactory
 	newRegistry            = discovery.NewRegistry
-	newTaskManager         = query.NewTaskManager
 	newRepositoryFactory   = state.NewRepositoryFactory
 	newHTTPServer          = httppkg.NewServer
 )
@@ -66,12 +63,10 @@ var (
 
 // deps represents all dependencies for root.
 type deps struct {
-	taskClientFct   rpc.TaskClientFactory
 	connectionMgr   rpc.ConnectionManager
 	repoFct         state.RepositoryFactory
 	stateMachineFct discovery.StateMachineFactory
 	stateMgr        root.StateManager
-	taskMgr         query.TaskManager
 }
 
 // runtime represents root runtime dependency.
@@ -143,23 +138,12 @@ func (r *runtime) Run() error {
 
 	// build dependencies
 	repoFct := newRepositoryFactory("root")
-	taskClientFct := newTaskClientFactory(r.ctx, r.node, rpc.GetBrokerClientConnFactory())
-	connectionMgr := rpc.NewConnectionManager(taskClientFct)
+	connectionMgr := rpc.NewConnectionManager()
 	stateMgr := root.NewStateManager(r.ctx, repoFct, connectionMgr)
-	taskMgr := newTaskManager(
-		concurrent.NewPool(
-			"task-pool",
-			r.config.Query.QueryConcurrency,
-			r.config.Query.IdleTimeout.Duration(),
-			metrics.NewConcurrentStatistics("root-query", linmetric.RootRegistry)),
-		linmetric.RootRegistry)
-	taskClientFct.SetTaskReceiver(taskMgr)
 	r.deps = &deps{
-		taskClientFct: taskClientFct,
 		connectionMgr: connectionMgr,
 		repoFct:       repoFct,
 		stateMgr:      stateMgr,
-		taskMgr:       taskMgr,
 	}
 
 	// start state repository
@@ -270,14 +254,12 @@ func (r *runtime) startHTTPServer() {
 	r.httpServer = newHTTPServer(r.config.HTTP, true, linmetric.RootRegistry)
 	// TODO: login api is not registered
 	httpAPI := api.NewAPI(&depspkg.HTTPDeps{
-		Ctx:          r.ctx,
-		Cfg:          r.config,
-		Node:         r.node,
-		Repo:         r.repo,
-		RepoFactory:  r.deps.repoFct,
-		StateMgr:     r.deps.stateMgr,
-		TransportMgr: query.NewTransportManager(r.deps.taskClientFct, nil, linmetric.RootRegistry), // root node no grpc server
-		TaskMgr:      r.deps.taskMgr,
+		Ctx:         r.ctx,
+		Cfg:         r.config,
+		Node:        r.node,
+		Repo:        r.repo,
+		RepoFactory: r.deps.repoFct,
+		StateMgr:    r.deps.stateMgr,
 		QueryLimiter: concurrent.NewLimiter(
 			r.ctx,
 			r.config.Query.QueryConcurrency,

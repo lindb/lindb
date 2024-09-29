@@ -32,7 +32,6 @@ import (
 type API struct {
 	execute          *ExecuteAPI
 	rootStateMachine *state.RootStateMachineAPI
-	request          *apipkg.RequestAPI
 	metricExplore    *apipkg.ExploreAPI
 	env              *apipkg.EnvAPI
 	config           *apipkg.ConfigAPI
@@ -45,7 +44,6 @@ func NewAPI(deps *depspkg.HTTPDeps) *API {
 	return &API{
 		execute:          NewExecuteAPI(deps),
 		rootStateMachine: state.NewRootStateMachineAPI(deps),
-		request:          apipkg.NewRequestAPI(),
 		metricExplore:    apipkg.NewExploreAPI(deps.GlobalKeyValues, linmetric.RootRegistry),
 		env:              apipkg.NewEnvAPI(deps.Cfg.Monitor, constants.RootRole),
 		log:              apipkg.NewLoggerAPI(deps.Cfg.Logging.Dir),
@@ -64,7 +62,6 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 	api.rootStateMachine.Register(v1)
 	api.config.Register(v1)
 	api.log.Register(v1)
-	api.request.Register(v1)
 
 	api.proxy.Register(v1)
 	api.env.Register(v1)

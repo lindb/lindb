@@ -11,9 +11,6 @@ import (
 	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/aggregation/function"
 	"github.com/lindb/lindb/pkg/timeutil"
-	protoCommonV1 "github.com/lindb/lindb/proto/gen/v1/common"
-	"github.com/lindb/lindb/series"
-	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
@@ -24,70 +21,69 @@ type MetricMerger struct {
 	stats    *commonmodels.NodeStats
 	// field name -> aggregator spec
 	// we will use it during intermediate tasks
-	aggregatorSpecs map[string]*protoCommonV1.AggregatorSpec
-	timeRange       timeutil.TimeRange
-	interval        int64
+	timeRange timeutil.TimeRange
+	interval  int64
 }
 
 func NewMetricMerger() spi.Merger {
 	return &MetricMerger{
-		aggregatorSpecs: make(map[string]*protoCommonV1.AggregatorSpec),
+		// aggregatorSpecs: make(map[string]*protoCommonV1.AggregatorSpec),
 	}
 }
 
 // AddSplit implements spi.Merger
 func (m *MetricMerger) AddSplit(split *spi.BinarySplit) {
-	timeSeriesList := &protoCommonV1.TimeSeriesList{}
+	// timeSeriesList := &protoCommonV1.TimeSeriesList{}
 	// if err := timeSeriesList.Unmarshal(split.Page); err != nil {
 	// 	panic(err)
 	// }
-	if len(timeSeriesList.FieldAggSpecs) == 0 {
-		// if it gets empty aggregator spec(empty response), need ignore response.
-		// if not ignore, will build empty group aggregator, and cannot aggregate real response data.
-		return
-	}
-
-	for _, spec := range timeSeriesList.FieldAggSpecs {
-		m.aggregatorSpecs[spec.FieldName] = spec
-	}
-
-	if m.groupAgg == nil {
-		m.timeRange = timeutil.TimeRange{
-			Start: timeSeriesList.Start,
-			End:   timeSeriesList.End,
-		}
-		m.interval = timeSeriesList.Interval
-		AggregatorSpecs := make(aggregation.AggregatorSpecs, len(timeSeriesList.FieldAggSpecs))
-		for idx, aggSpec := range timeSeriesList.FieldAggSpecs {
-			AggregatorSpecs[idx] = aggregation.NewAggregatorSpec(
-				field.Name(aggSpec.FieldName),
-				field.Type(aggSpec.FieldType),
-			)
-			for _, funcType := range aggSpec.FuncTypeList {
-				AggregatorSpecs[idx].AddFunctionType(function.FuncType(funcType))
-			}
-		}
-		m.groupAgg = aggregation.NewGroupingAggregator(
-			timeutil.Interval(m.interval),
-			1, // interval ratio is 1 when do merge result.
-			m.timeRange,
-			AggregatorSpecs,
-		)
-	}
-
-	for _, ts := range timeSeriesList.TimeSeriesList {
-		// if no field data, ignore this response
-		if len(ts.Fields) == 0 {
-			continue
-		}
-		fields := make(map[field.Name][]byte)
-		for k, v := range ts.Fields {
-			fmt.Printf("result field=%v\n", v)
-			fields[field.Name(k)] = v
-		}
-		fmt.Println("group agg")
-		m.groupAgg.Aggregate(series.NewGroupedIterator(ts.Tags, fields))
-	}
+	// if len(timeSeriesList.FieldAggSpecs) == 0 {
+	// 	// if it gets empty aggregator spec(empty response), need ignore response.
+	// 	// if not ignore, will build empty group aggregator, and cannot aggregate real response data.
+	// 	return
+	// }
+	//
+	// for _, spec := range timeSeriesList.FieldAggSpecs {
+	// 	m.aggregatorSpecs[spec.FieldName] = spec
+	// }
+	//
+	// if m.groupAgg == nil {
+	// 	m.timeRange = timeutil.TimeRange{
+	// 		Start: timeSeriesList.Start,
+	// 		End:   timeSeriesList.End,
+	// 	}
+	// 	m.interval = timeSeriesList.Interval
+	// 	AggregatorSpecs := make(aggregation.AggregatorSpecs, len(timeSeriesList.FieldAggSpecs))
+	// 	for idx, aggSpec := range timeSeriesList.FieldAggSpecs {
+	// 		AggregatorSpecs[idx] = aggregation.NewAggregatorSpec(
+	// 			field.Name(aggSpec.FieldName),
+	// 			field.Type(aggSpec.FieldType),
+	// 		)
+	// 		for _, funcType := range aggSpec.FuncTypeList {
+	// 			AggregatorSpecs[idx].AddFunctionType(function.FuncType(funcType))
+	// 		}
+	// 	}
+	// 	m.groupAgg = aggregation.NewGroupingAggregator(
+	// 		timeutil.Interval(m.interval),
+	// 		1, // interval ratio is 1 when do merge result.
+	// 		m.timeRange,
+	// 		AggregatorSpecs,
+	// 	)
+	// }
+	//
+	// for _, ts := range timeSeriesList.TimeSeriesList {
+	// 	// if no field data, ignore this response
+	// 	if len(ts.Fields) == 0 {
+	// 		continue
+	// 	}
+	// 	fields := make(map[field.Name][]byte)
+	// 	for k, v := range ts.Fields {
+	// 		fmt.Printf("result field=%v\n", v)
+	// 		fields[field.Name(k)] = v
+	// 	}
+	// 	fmt.Println("group agg")
+	// 	m.groupAgg.Aggregate(series.NewGroupedIterator(ts.Tags, fields))
+	// }
 }
 
 // GetOutputPage implements spi.Merger

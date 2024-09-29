@@ -40,8 +40,7 @@ type ConnectionManager interface {
 
 // connectionManager implements ConnectionManager interface.
 type connectionManager struct {
-	connections   map[string]struct{}
-	taskClientFct TaskClientFactory
+	connections map[string]struct{}
 
 	mutex sync.Mutex
 
@@ -49,11 +48,10 @@ type connectionManager struct {
 }
 
 // NewConnectionManager creates a ConnectionManager instance.
-func NewConnectionManager(taskClientFct TaskClientFactory) ConnectionManager {
+func NewConnectionManager() ConnectionManager {
 	return &connectionManager{
-		taskClientFct: taskClientFct,
-		connections:   make(map[string]struct{}),
-		logger:        logger.GetLogger("RPC", "ConnectionManager"),
+		connections: make(map[string]struct{}),
+		logger:      logger.GetLogger("RPC", "ConnectionManager"),
 	}
 }
 
@@ -66,20 +64,6 @@ func (m *connectionManager) CreateConnection(target models.Node) {
 	if _, ok := m.connections[nodeID]; ok {
 		// connection exist, return it
 		return
-	}
-
-	if err := m.taskClientFct.CreateTaskClient(target); err == nil {
-		m.logger.Info("established connection successfully",
-			logger.String("target", nodeID),
-		)
-		m.connections[target.Indicator()] = struct{}{}
-	} else {
-		m.logger.Error("failed to establish connection",
-			logger.String("target", nodeID),
-			logger.Error(err),
-		)
-		// if connection failure, remove target from cache
-		delete(m.connections, target.Indicator())
 	}
 }
 
@@ -104,23 +88,6 @@ func (m *connectionManager) Close() error {
 
 // closeConnection closes a grpc connection, then clear the cache for target server.
 func (m *connectionManager) closeConnection(target string) {
-	closed, err := m.taskClientFct.CloseTaskClient(target)
+	// TODO: check connection closed?
 	delete(m.connections, target)
-
-	if closed {
-		if err == nil {
-			m.logger.Info("closed connection successfully",
-				logger.String("target", target),
-			)
-		} else {
-			m.logger.Error("failed to close connection",
-				logger.String("target", target),
-				logger.Error(err),
-			)
-		}
-	} else {
-		m.logger.Debug("unable to close a non-existent connection",
-			logger.String("target", target),
-		)
-	}
 }
