@@ -98,6 +98,7 @@ func (mps *PageSource) GetNextPage() *types.Page {
 	dataLoadCtx.Prepare()
 
 	if mps.split.tableScan.fields.Len() == 0 {
+		fmt.Printf("grouping...%v\n", mps.split.tableScan.grouping.tags)
 		dataLoadCtx.Grouping = mps.split.tableScan.grouping.CollectTagValueIDs
 		result := make(map[string]struct{})
 		dataLoadCtx.CollectGrouping = func(tagValueIDs string, seriesIdxFromQuery uint16) {
@@ -123,7 +124,6 @@ func (mps *PageSource) GetNextPage() *types.Page {
 		// set grouping index of the columns
 		page.SetGrouping(groupingIndexes)
 		for tagValueIDs := range result {
-
 			tags := mps.split.tableScan.grouping.GetTagValues(tagValueIDs)
 			for idx, tag := range tags {
 				grouping[idx].AppendString(tag)

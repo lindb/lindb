@@ -17,6 +17,5 @@ func NewSubQueryPlanner(context *context.PlannerContext) *SubQueryPlanner {
 }
 
 func (p *SubQueryPlanner) handleSubQueries(builder *PlanBuilder, expression tree.Expression, subQueries *analyzer.SubQueryAnalysis) *PlanBuilder {
-
 	return builder
 }

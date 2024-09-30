@@ -4,35 +4,62 @@ import (
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/buffer"
 	"github.com/lindb/lindb/sql/execution/pipeline/operator"
+	"github.com/lindb/lindb/sql/planner/plan"
 )
 
 type RSOutputOperatorFactory struct {
-	output buffer.OutputBuffer
+	output       buffer.OutputBuffer
+	sourceLayout map[string]int
+	layout       []*plan.Symbol
+	rebuildPage  bool
 }
 
-func NewRSOutputOperatorFactory(output buffer.OutputBuffer) operator.OperatorFactory {
+func NewRSOutputOperatorFactory(output buffer.OutputBuffer, layout []*plan.Symbol, sourceLayout map[string]int) operator.OperatorFactory {
+	rebuildPage := false
+	for idx, symbol := range layout {
+		sourceIdx, ok := sourceLayout[symbol.Name]
+		if ok && idx != sourceIdx {
+			rebuildPage = true
+			break
+		}
+	}
 	return &RSOutputOperatorFactory{
-		output: output,
+		output:       output,
+		layout:       layout,
+		sourceLayout: sourceLayout,
+		rebuildPage:  rebuildPage,
 	}
 }
 
 // CreateOperator implements operator.OperatorFactory
 func (fct *RSOutputOperatorFactory) CreateOperator() operator.Operator {
-	return NewResultSetOutputOperator(fct.output)
+	return &ResultSetOutputOperator{
+		output:       fct.output,
+		sourceLayout: fct.sourceLayout,
+		layout:       fct.layout,
+		rebuildPage:  fct.rebuildPage,
+	}
 }
 
 type ResultSetOutputOperator struct {
-	output buffer.OutputBuffer
-}
-
-func NewResultSetOutputOperator(output buffer.OutputBuffer) operator.Operator {
-	return &ResultSetOutputOperator{
-		output: output,
-	}
+	output       buffer.OutputBuffer
+	sourceLayout map[string]int
+	layout       []*plan.Symbol
+	rebuildPage  bool
 }
 
 // AddInput implements operator.Operator
 func (op *ResultSetOutputOperator) AddInput(page *types.Page) {
+	if op.rebuildPage {
+		targetPage := types.NewPage()
+		for _, col := range op.layout {
+			if idx, ok := op.sourceLayout[col.Name]; ok {
+				targetPage.AppendColumn(page.Layout[idx], page.Columns[idx])
+			}
+		}
+		op.output.AddPage(targetPage)
+		return
+	}
 	op.output.AddPage(page)
 }
 

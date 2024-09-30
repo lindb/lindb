@@ -33,7 +33,7 @@ func (n *ExchangeNode) GetSources() []PlanNode {
 }
 
 func (n *ExchangeNode) GetOutputSymbols() []*Symbol {
-	return n.Sources[0].GetOutputSymbols() // FIXME: fix it
+	return n.PartitioningScheme.OutputLayout
 }
 
 func (n *ExchangeNode) ReplaceChildren(newChildren []PlanNode) PlanNode {

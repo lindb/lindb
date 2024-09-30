@@ -24,7 +24,6 @@ func CreateResultSetBuild() *ResultSetBuild {
 }
 
 func (rsb *ResultSetBuild) AddPage(page *types.Page) {
-	fmt.Println("add result page")
 	rsb.pages <- page
 }
 
@@ -34,14 +33,14 @@ func (rsb *ResultSetBuild) Process() {
 	}()
 	// TODO: need close when timeout
 	for page := range rsb.pages {
-		// TODO: modify column layout
-		rsb.resultSet.Schema.Columns = page.Layout
+		if len(rsb.resultSet.Schema.Columns) == 0 {
+			rsb.resultSet.Schema.Columns = page.Layout
+		}
 		it := page.Iterator()
 		for row := it.Begin(); row != it.End(); row = it.Next() {
 			columns := make([]any, len(page.Layout))
 			for i, meta := range page.Layout {
 				// TODO: add more type
-				fmt.Printf("layout index=%d\n", i)
 				switch meta.DataType {
 				case types.DTString:
 					columns[i] = row.GetString(i)
