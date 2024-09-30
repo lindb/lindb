@@ -73,6 +73,7 @@ func (f *Fragmenter) visitExchange(context any, n *planpkg.ExchangeNode) (r any)
 			ID: n.GetNodeID(),
 		},
 		SourceFragmentIDs: childrenIDs,
+		OutputSymbols:     n.GetOutputSymbols(),
 	}
 }
 

@@ -64,16 +64,22 @@ func (msp *SplitSourceProvider) buildTableScan(table spi.TableHandle, outputColu
 		panic(err)
 	}
 	// mapping fields for searching
-	fields := lo.Filter(schema.Fields, func(field field.Meta, index int) bool {
-		return lo.ContainsBy(outputColumns, func(column types.ColumnMetadata) bool {
-			return column.Name == field.Name.String() && column.DataType == types.DTTimeSeries
-		})
+	var fields field.Metas
+	lo.ForEach(outputColumns, func(column types.ColumnMetadata, index int) {
+		if fieldMeta, ok := lo.Find(schema.Fields, func(fieldMeta field.Meta) bool {
+			return column.Name == fieldMeta.Name.String() && column.DataType == types.DTString
+		}); ok {
+			fields = append(fields, fieldMeta)
+		}
 	})
 	// mpaaing tags for grouping
-	groupingTags := lo.Filter(schema.TagKeys, func(tagMeta tag.Meta, index int) bool {
-		return lo.ContainsBy(outputColumns, func(column types.ColumnMetadata) bool {
+	var groupingTags tag.Metas
+	lo.ForEach(outputColumns, func(column types.ColumnMetadata, index int) {
+		if tagKey, ok := lo.Find(schema.TagKeys, func(tagMeta tag.Meta) bool {
 			return column.Name == tagMeta.Key && column.DataType == types.DTString
-		})
+		}); ok {
+			groupingTags = append(groupingTags, tagKey)
+		}
 	})
 	fmt.Printf("all fields=%v, group key=%v, select field=%v,output=%v\n", schema.Fields, groupingTags, fields, outputColumns)
 

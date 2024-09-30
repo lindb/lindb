@@ -2,6 +2,7 @@ package plan
 
 type RemoteSourceNode struct {
 	SourceFragmentIDs []FragmentID `json:"sourceFragmentIDs,omitempty"`
+	OutputSymbols     []*Symbol    `json:"outputs"`
 
 	BaseNode
 }
@@ -15,7 +16,7 @@ func (n *RemoteSourceNode) GetSources() []PlanNode {
 }
 
 func (n *RemoteSourceNode) GetOutputSymbols() []*Symbol {
-	return nil
+	return n.OutputSymbols
 }
 
 func (n *RemoteSourceNode) ReplaceChildren(newChildren []PlanNode) PlanNode {

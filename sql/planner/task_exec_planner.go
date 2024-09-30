@@ -24,24 +24,24 @@ func NewTaskExecutionPlanner() *TaskExecutionPlanner {
 	return &TaskExecutionPlanner{}
 }
 
-func (p *TaskExecutionPlanner) Plan(taskCtx *context.TaskContext, plan planpkg.PlanNode, outputBuffer buffer.OutputBuffer) *TaskExecutionPlan {
+func (p *TaskExecutionPlanner) Plan(taskCtx *context.TaskContext, node planpkg.PlanNode, outputBuffer buffer.OutputBuffer) *TaskExecutionPlan {
 	visitor := &TaskExecutionPlanVisitor{
 		taskExecCtx: taskCtx,
 		planner:     p,
 	}
 	taskExecPlanCtx := NewTaskExecutionPlanContext(nil)
 	var physicalOperator *PhysicalOperation
-	if op, ok := plan.Accept(taskExecPlanCtx, visitor).(*PhysicalOperation); ok {
+	if op, ok := node.Accept(taskExecPlanCtx, visitor).(*PhysicalOperation); ok {
 		physicalOperator = op
 	}
 	if physicalOperator == nil {
 		panic("cannot get physicalOperator")
 	}
 
-	outputOperatorFct := output.NewRSOutputOperatorFactory(outputBuffer)
-
+	outputOperatorFct := output.NewRSOutputOperatorFactory(outputBuffer, node.GetOutputSymbols(), physicalOperator.GetLayout())
+	fmt.Printf("task exec plan:%T,output:%v,op:%T\n", node, physicalOperator.GetLayout(), physicalOperator)
 	// add output operator
-	taskExecPlanCtx.AddDriverFactory(NewPhysicalOperation(outputOperatorFct, physicalOperator))
+	taskExecPlanCtx.AddDriverFactory(NewPhysicalOperation(outputOperatorFct, node.GetOutputSymbols(), physicalOperator))
 
 	var pipelines []*pipeline.Pipeline
 	for i := range taskExecPlanCtx.driverFactories {
@@ -89,7 +89,7 @@ func (v *TaskExecutionPlanVisitor) Visit(context any, n planpkg.PlanNode) (r any
 func (v *TaskExecutionPlanVisitor) visitFilter(context any, node *planpkg.FilterNode) (r any) {
 	if tableScan, ok := node.Source.(*planpkg.TableScanNode); ok {
 		operatorFct := v.visitTableScan(context, tableScan, node.Predicate)
-		return NewPhysicalOperation(operatorFct, nil)
+		return NewPhysicalOperation(operatorFct, node.GetOutputSymbols(), nil)
 	}
 	panic("need impl visitFilter")
 }
@@ -100,7 +100,7 @@ func (v *TaskExecutionPlanVisitor) visitExchange(context any, node *planpkg.Exch
 	}
 	source := node.Sources[0].Accept(context, v).(*PhysicalOperation)
 	operatorFct := exchange.NewLocalExchangeOperatorFactory()
-	return NewPhysicalOperation(operatorFct, source)
+	return NewPhysicalOperation(operatorFct, node.GetOutputSymbols(), source)
 }
 
 func (v *TaskExecutionPlanVisitor) visitAggregation(context any, node *planpkg.AggregationNode) (r any) {
@@ -110,7 +110,7 @@ func (v *TaskExecutionPlanVisitor) visitAggregation(context any, node *planpkg.A
 
 func (v *TaskExecutionPlanVisitor) planGroupByAggregation(node *planpkg.AggregationNode, source *PhysicalOperation) *PhysicalOperation {
 	operatorFct := v.createHashAggregationOperatorFactory()
-	return NewPhysicalOperation(operatorFct, source)
+	return NewPhysicalOperation(operatorFct, node.GetOutputSymbols(), source)
 }
 
 func (v *TaskExecutionPlanVisitor) createHashAggregationOperatorFactory() operator.OperatorFactory {
@@ -131,12 +131,12 @@ func (v *TaskExecutionPlanVisitor) visitProjection(context any, node *planpkg.Pr
 
 func (v *TaskExecutionPlanVisitor) VisitTableScan(context any, node *planpkg.TableScanNode) (r any) {
 	operatorFct := v.visitTableScan(context, node, nil)
-	return NewPhysicalOperation(operatorFct, nil)
+	return NewPhysicalOperation(operatorFct, node.GetOutputSymbols(), nil)
 }
 
 func (v *TaskExecutionPlanVisitor) visitRemoteSource(context any, node *planpkg.RemoteSourceNode) (r any) {
 	operatorFct := exchange.NewExchangeOperatorFactory(node.GetNodeID(), len(node.SourceFragmentIDs))
-	return NewPhysicalOperation(operatorFct, nil)
+	return NewPhysicalOperation(operatorFct, node.GetOutputSymbols(), nil)
 }
 
 func (v *TaskExecutionPlanVisitor) visitScanFilterAndProjection(context any, project *planpkg.ProjectionNode, sourceNode planpkg.PlanNode, filter tree.Expression) any {
@@ -155,10 +155,10 @@ func (v *TaskExecutionPlanVisitor) visitScanFilterAndProjection(context any, pro
 
 	if table != nil {
 		operatorFct := v.visitTableScan(context, tableScan, filter)
-		return NewPhysicalOperation(operatorFct, source)
+		return NewPhysicalOperation(operatorFct, project.GetOutputSymbols(), source)
 	}
 	projectOpFct := operator.NewProjectionOperatorFactory(project, sourceNode.GetOutputSymbols())
-	return NewPhysicalOperation(projectOpFct, source)
+	return NewPhysicalOperation(projectOpFct, project.GetOutputSymbols(), source)
 }
 
 func (v *TaskExecutionPlanVisitor) visitTableScan(context any, node *planpkg.TableScanNode, filter tree.Expression) operator.OperatorFactory {
