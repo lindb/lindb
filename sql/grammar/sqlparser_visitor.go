@@ -34,6 +34,9 @@ type SQLParserVisitor interface {
 	// Visit a parse tree produced by SQLParser#createDatabase.
 	VisitCreateDatabase(ctx *CreateDatabaseContext) interface{}
 
+	// Visit a parse tree produced by SQLParser#engineOption.
+	VisitEngineOption(ctx *EngineOptionContext) interface{}
+
 	// Visit a parse tree produced by SQLParser#rollupOptions.
 	VisitRollupOptions(ctx *RollupOptionsContext) interface{}
 

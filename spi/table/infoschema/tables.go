@@ -61,6 +61,12 @@ var (
 	memoryDatabaseSchema = &types.TableSchema{
 		Columns: []types.ColumnMetadata{},
 	}
+	enginesSchema = &types.TableSchema{
+		Columns: []types.ColumnMetadata{
+			{Name: "engine", DataType: types.DTString},
+			{Name: "support", DataType: types.DTString}, // default/yes/no/disabled
+		},
+	}
 	schemtatSchema = &types.TableSchema{
 		Columns: []types.ColumnMetadata{
 			{Name: "schema_name", DataType: types.DTString},
@@ -99,6 +105,7 @@ var (
 		constants.TableStorage:        storageSchema,
 		constants.TableReplication:    replicationSchema,
 		constants.TableMemoryDatabase: memoryDatabaseSchema,
+		constants.TableEngines:        enginesSchema,
 		constants.TableSchemata:       schemtatSchema,
 		constants.TableMetrics:        metricsSchema,
 		"tables":                      tablesSchema,

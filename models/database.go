@@ -21,46 +21,17 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/lindb/common/models"
-
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/validate"
 )
 
-// DatabaseNames represents the database name list.
-type DatabaseNames []string
+type EngineType string
 
-// ToTable returns database name list as table if it has value, else return empty string.
-func (dbs DatabaseNames) ToTable() (rows int, tableStr string) {
-	if len(dbs) == 0 {
-		return 0, ""
-	}
-	writer := models.NewTableFormatter()
-	writer.AppendHeader(table.Row{"Database"})
-	for i := range dbs {
-		r := dbs[i]
-		writer.AppendRow(table.Row{r})
-	}
-	return len(dbs), writer.Render()
-}
-
-// Databases represents the database list.
-type Databases []Database
-
-// ToTable returns database list as table if it has value, else return empty string.
-func (dbs Databases) ToTable() (rows int, tableStr string) {
-	if len(dbs) == 0 {
-		return 0, ""
-	}
-	writer := models.NewTableFormatter()
-	writer.AppendHeader(table.Row{"Name", "Desc"})
-	for i := range dbs {
-		r := dbs[i]
-		writer.AppendRow(table.Row{r.Name, r.Desc})
-	}
-	return len(dbs), writer.Render()
-}
+const (
+	Metric EngineType = "METRIC"
+	Log    EngineType = "LOG"
+	Trace  EngineType = "TRACE"
+)
 
 // ShardID represents type for shard id.
 type ShardID int
@@ -99,8 +70,9 @@ type LogicDatabase struct {
 
 // Database defines database config.
 type Database struct {
-	Option *option.DatabaseOption `json:"option"`                   // time series database option
-	Name   string                 `json:"name" validate:"required"` // database's name
+	Option *option.DatabaseOption `json:"option"`                     // time series database option
+	Engine EngineType             `json:"engine" validate:"required"` // storage engine type of database
+	Name   string                 `json:"name" validate:"required"`   // name of database
 	Desc   string                 `json:"desc,omitempty"`
 }
 

@@ -43,6 +43,10 @@ func (v *BaseSQLParserVisitor) VisitCreateDatabase(ctx *CreateDatabaseContext) i
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseSQLParserVisitor) VisitEngineOption(ctx *EngineOptionContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseSQLParserVisitor) VisitRollupOptions(ctx *RollupOptionsContext) interface{} {
 	return v.VisitChildren(ctx)
 }

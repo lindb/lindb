@@ -34,6 +34,9 @@ type SQLParserListener interface {
 	// EnterCreateDatabase is called when entering the createDatabase production.
 	EnterCreateDatabase(c *CreateDatabaseContext)
 
+	// EnterEngineOption is called when entering the engineOption production.
+	EnterEngineOption(c *EngineOptionContext)
+
 	// EnterRollupOptions is called when entering the rollupOptions production.
 	EnterRollupOptions(c *RollupOptionsContext)
 
@@ -309,6 +312,9 @@ type SQLParserListener interface {
 
 	// ExitCreateDatabase is called when exiting the createDatabase production.
 	ExitCreateDatabase(c *CreateDatabaseContext)
+
+	// ExitEngineOption is called when exiting the engineOption production.
+	ExitEngineOption(c *EngineOptionContext)
 
 	// ExitRollupOptions is called when exiting the rollupOptions production.
 	ExitRollupOptions(c *RollupOptionsContext)

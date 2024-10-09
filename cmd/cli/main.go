@@ -78,6 +78,7 @@ func suggestTokens() (tokens []prompt.Suggest) {
 		}
 	}
 	keyWords = append(keyWords, "EXIT")
+	keyWords = append(keyWords, "information_schema")
 	sort.Strings(keyWords)
 	for _, word := range keyWords {
 		tokens = append(tokens, prompt.Suggest{Text: word})

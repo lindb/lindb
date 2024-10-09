@@ -37,9 +37,14 @@ explainOption       : TYPE value=(LOGICAL | DISTRIBUTED)                     #ex
 
 // ddl
 createDatabase      : CREATE DATABASE name=qualifiedName
+                       ( createDatabaseOptions (',' createDatabaseOptions)* )? 
                        (WITH properties)?
                        (ROLLUP '(' rollupOptions (',' rollupOptions)* ')')? 
                     ;
+
+createDatabaseOptions : ENGINE (EQ)? value=(METRIC | LOG | TRACE)            #engineOption
+											;
+
 rollupOptions       : properties ;
 dropDatabase        : DROP DATABASE (IF EXISTS)? database=qualifiedName ;
 createBroker        : CREATE BROKER name=qualifiedName
@@ -193,21 +198,21 @@ nonReserved         :
                     | BROKER | BROKERS | BY 
                     | COMPACT | CREATE | CROSS 
                     | DATABASE | DATABASES | DEFAULT | DESC | DISTRIBUTED | DROP
-                    | ESCAPE | EXPLAIN | EXISTS
+                    | ENGINE | ESCAPE | EXPLAIN | EXISTS
                     | FALSE | FIELDS | FILTER | FLUSH | FROM
                     | GROUP 
                     | HAVING
                     | IF | IN 
                     | JOIN
                     | KEYS
-                    | LEFT | LIKE | LIMIT | LOGICAL
-                    | MASTER | METRICS | METADATA | METADATAS
+                    | LEFT | LIKE | LIMIT | LOG | LOGICAL
+                    | MASTER | METRIC | METRICS | METADATA | METADATAS
                     | NAMESPACE | NAMESPACES | NOT
                     | ON | OR | ORDER
                     | PLAN
                     | REQUESTS | REPLICATIONS | RIGHT | ROLLUP
                     | SELECT | SHOW | STATE | STORAGE
-                    | TAG | TRUE | TYPE | TYPES 
+                    | TAG | TRACE | TRUE | TYPE | TYPES 
                     | VALUES
                     | WHERE | WITH | WITHIN
                     | USING | USE

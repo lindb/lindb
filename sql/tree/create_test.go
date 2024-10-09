@@ -21,7 +21,7 @@ func TestCreate_Database(t *testing.T) {
 			sql: `create database db with(p1='v1',p2='v2',p3='v3')`,
 			stmt: &CreateDatabase{
 				Name: "db",
-				Options: map[string]any{
+				Props: map[string]any{
 					"p1": "v1",
 					"p2": "v2",
 					"p3": "v3",
@@ -40,7 +40,7 @@ func TestCreate_Database(t *testing.T) {
 			`,
 			stmt: &CreateDatabase{
 				Name: "db",
-				Options: map[string]any{
+				Props: map[string]any{
 					"p1": "v1",
 					"p2": "v2",
 					"p3": "v3",
@@ -68,7 +68,7 @@ func TestCreate_Database(t *testing.T) {
 			assert.NoError(t, err)
 			createDB := stmt.(*CreateDatabase)
 			assert.Equal(t, tt.stmt.Name, createDB.Name)
-			assert.Equal(t, tt.stmt.Options, createDB.Options)
+			assert.Equal(t, tt.stmt.CreateOptions, createDB.CreateOptions)
 			assert.Equal(t, tt.stmt.Rollup, createDB.Rollup)
 		})
 	}

@@ -54,7 +54,7 @@ func (m *brokerMetadataManager) GetPartitions(database, ns, table string) (map[m
 		var partitions map[models.InternalNode][]int
 		currentNode := m.brokerStateMgr.GetCurrentNode()
 		switch table {
-		case constants.TableSchemata, constants.TableMetrics, constants.TableMaster, constants.TableBroker, constants.TableStorage:
+		case constants.TableEngines, constants.TableSchemata, constants.TableMetrics, constants.TableMaster, constants.TableBroker, constants.TableStorage:
 			partitions = map[models.InternalNode][]int{
 				{IP: currentNode.HostIP, Port: currentNode.GRPCPort}: {},
 			}

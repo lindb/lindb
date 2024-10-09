@@ -132,7 +132,7 @@ func (r *runtime) Run() error {
 	r.state = server.Running
 
 	time.AfterFunc(r.delayInit, func() {
-		if err := r.initializer.InitInternalDatabase("create database _internal"); err != nil {
+		if err := r.initializer.InitInternalDatabase("create database _internal engine metric"); err != nil {
 			log.Error("init _internal database with error", logger.Error(err))
 		} else {
 			log.Info("initialized _internal database successfully")

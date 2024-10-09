@@ -74,6 +74,12 @@ func (s *BaseSQLParserListener) EnterCreateDatabase(ctx *CreateDatabaseContext) 
 // ExitCreateDatabase is called when production createDatabase is exited.
 func (s *BaseSQLParserListener) ExitCreateDatabase(ctx *CreateDatabaseContext) {}
 
+// EnterEngineOption is called when production engineOption is entered.
+func (s *BaseSQLParserListener) EnterEngineOption(ctx *EngineOptionContext) {}
+
+// ExitEngineOption is called when production engineOption is exited.
+func (s *BaseSQLParserListener) ExitEngineOption(ctx *EngineOptionContext) {}
+
 // EnterRollupOptions is called when production rollupOptions is entered.
 func (s *BaseSQLParserListener) EnterRollupOptions(ctx *RollupOptionsContext) {}
 

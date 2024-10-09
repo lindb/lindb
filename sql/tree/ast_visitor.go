@@ -6,6 +6,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/sql/grammar"
@@ -50,22 +51,42 @@ func (v *AstVisitor) VisitStatement(ctx *grammar.StatementContext) any {
 func (v *AstVisitor) VisitDdlStatement(ctx *grammar.DdlStatementContext) any {
 	switch {
 	case ctx.CreateDatabase() != nil:
-		createDatabaseCtx := ctx.CreateDatabase()
-		props := createDatabaseCtx.Properties()
-		if props != nil {
-			props.Accept(v)
-		}
-		return &CreateDatabase{
-			BaseNode: BaseNode{
-				ID:       v.idAllocator.Next(),
-				Location: getLocation(ctx.GetStart()),
-			},
-			Name: v.getQualifiedName(createDatabaseCtx.GetName()).Name,
-		}
+		return v.Visit(ctx.CreateDatabase())
 	case ctx.CreateBroker() != nil:
 		panic("need impl create broker")
 	default:
 		return v.VisitChildren(ctx)
+	}
+}
+
+func (v *AstVisitor) VisitCreateDatabase(ctx *grammar.CreateDatabaseContext) any {
+	props := ctx.Properties()
+	if props != nil {
+		props.Accept(v)
+	}
+	return &CreateDatabase{
+		BaseNode: BaseNode{
+			ID:       v.idAllocator.Next(),
+			Location: getLocation(ctx.GetStart()),
+		},
+		Name:          v.getQualifiedName(ctx.GetName()).Name,
+		CreateOptions: visit[CreateOption](ctx.AllCreateDatabaseOptions(), v),
+	}
+}
+
+func (v *AstVisitor) VisitEngineOption(ctx *grammar.EngineOptionContext) any {
+	engineType := models.Metric
+
+	switch {
+	case ctx.METRIC() != nil:
+		engineType = models.Metric
+	case ctx.LOG() != nil:
+		engineType = models.Log
+	case ctx.TRACE() != nil:
+		engineType = models.Trace
+	}
+	return &EngineOption{
+		Type: engineType,
 	}
 }
 
