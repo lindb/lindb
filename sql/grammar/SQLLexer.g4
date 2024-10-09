@@ -13,6 +13,7 @@ WS                       : [ \r\n\t]+ -> channel(HIDDEN) ;
 ALL                      : 'ALL' ;
 ALIVE                    : 'ALIVE' ;
 AND                      : 'AND' ;
+ANALYZE                  : 'ANALYZE' ;
 AS                       : 'AS' ;
 ASC                      : 'ASC' ;
 BROKER                   : 'BROKER' ;

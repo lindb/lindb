@@ -13,8 +13,14 @@ type SQLParserVisitor interface {
 	// Visit a parse tree produced by SQLParser#ddlStatement.
 	VisitDdlStatement(ctx *DdlStatementContext) interface{}
 
-	// Visit a parse tree produced by SQLParser#dmlStatement.
-	VisitDmlStatement(ctx *DmlStatementContext) interface{}
+	// Visit a parse tree produced by SQLParser#statementDefault.
+	VisitStatementDefault(ctx *StatementDefaultContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#explain.
+	VisitExplain(ctx *ExplainContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#explainAnalyze.
+	VisitExplainAnalyze(ctx *ExplainAnalyzeContext) interface{}
 
 	// Visit a parse tree produced by SQLParser#adminStatement.
 	VisitAdminStatement(ctx *AdminStatementContext) interface{}

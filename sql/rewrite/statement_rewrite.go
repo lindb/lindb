@@ -1,12 +1,15 @@
 package rewrite
 
-import "github.com/lindb/lindb/sql/tree"
+import (
+	"github.com/lindb/lindb/sql/interfaces"
+	"github.com/lindb/lindb/sql/tree"
+)
 
 type StatementRewrite struct {
-	rewrites []Rewrite
+	rewrites []interfaces.Rewrite
 }
 
-func NewStatementRewrite(rewrites []Rewrite) *StatementRewrite {
+func NewStatementRewrite(rewrites []interfaces.Rewrite) *StatementRewrite {
 	return &StatementRewrite{
 		rewrites: rewrites,
 	}

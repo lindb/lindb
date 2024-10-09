@@ -32,11 +32,23 @@ func (s *BaseSQLParserListener) EnterDdlStatement(ctx *DdlStatementContext) {}
 // ExitDdlStatement is called when production ddlStatement is exited.
 func (s *BaseSQLParserListener) ExitDdlStatement(ctx *DdlStatementContext) {}
 
-// EnterDmlStatement is called when production dmlStatement is entered.
-func (s *BaseSQLParserListener) EnterDmlStatement(ctx *DmlStatementContext) {}
+// EnterStatementDefault is called when production statementDefault is entered.
+func (s *BaseSQLParserListener) EnterStatementDefault(ctx *StatementDefaultContext) {}
 
-// ExitDmlStatement is called when production dmlStatement is exited.
-func (s *BaseSQLParserListener) ExitDmlStatement(ctx *DmlStatementContext) {}
+// ExitStatementDefault is called when production statementDefault is exited.
+func (s *BaseSQLParserListener) ExitStatementDefault(ctx *StatementDefaultContext) {}
+
+// EnterExplain is called when production explain is entered.
+func (s *BaseSQLParserListener) EnterExplain(ctx *ExplainContext) {}
+
+// ExitExplain is called when production explain is exited.
+func (s *BaseSQLParserListener) ExitExplain(ctx *ExplainContext) {}
+
+// EnterExplainAnalyze is called when production explainAnalyze is entered.
+func (s *BaseSQLParserListener) EnterExplainAnalyze(ctx *ExplainAnalyzeContext) {}
+
+// ExitExplainAnalyze is called when production explainAnalyze is exited.
+func (s *BaseSQLParserListener) ExitExplainAnalyze(ctx *ExplainAnalyzeContext) {}
 
 // EnterAdminStatement is called when production adminStatement is entered.
 func (s *BaseSQLParserListener) EnterAdminStatement(ctx *AdminStatementContext) {}

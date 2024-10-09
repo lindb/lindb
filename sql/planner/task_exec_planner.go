@@ -80,9 +80,16 @@ func (v *TaskExecutionPlanVisitor) Visit(context any, n planpkg.PlanNode) (r any
 		return v.visitFilter(context, node)
 	case *planpkg.TableScanNode:
 		return v.VisitTableScan(context, node)
+	case *planpkg.ValuesNode:
+		return v.visitValues(context, node)
 	default:
 		panic(fmt.Sprintf("umimplements task planner %T", n))
 	}
+}
+
+func (v *TaskExecutionPlanVisitor) visitValues(_ any, node *planpkg.ValuesNode) (r any) {
+	operatorFct := operator.NewValuesOperatorFactory(node.ID, []*types.Page{node.Rows})
+	return NewPhysicalOperation(operatorFct, node.GetOutputSymbols(), nil)
 }
 
 // visitFilter plans filter physical operator.

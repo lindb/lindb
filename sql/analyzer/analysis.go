@@ -101,10 +101,12 @@ func (a *Analysis) GetRoot() tree.Node {
 }
 
 func (a *Analysis) SetScope(node tree.Node, scope *Scope) {
+	fmt.Printf("set scope=%v\n", node.GetID())
 	a.scopes[node.GetID()] = scope
 }
 
 func (a *Analysis) GetScope(node tree.Node) (scope *Scope) {
+	fmt.Printf("get scope=%v\n", node.GetID())
 	scope = a.scopes[node.GetID()]
 	return
 }
@@ -231,7 +233,6 @@ func (a *Analysis) IsColumnReference(node tree.Expression) bool {
 }
 
 func (a *Analysis) GetColumnReferenceField(node tree.Expression) (field *ResolvedField) {
-	fmt.Println(a.columnReferences)
 	field = a.columnReferences[node.GetID()]
 	return
 }

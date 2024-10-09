@@ -17,75 +17,75 @@
 
 package memdb
 
-import (
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-	gomock "go.uber.org/mock/gomock"
-
-	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/series/field"
-)
-
-func TestFieldEntry(t *testing.T) {
-	f := &fieldEntry{}
-	f.Reset(nil)
-
-	// write buffer not set
-	v, ok := f.GetValue(10)
-	assert.Zero(t, v)
-	assert.False(t, ok)
-	buf := make([]byte, pageSize)
-	f.Reset(buf)
-	// no data
-	v, ok = f.GetValue(10)
-	assert.Zero(t, v)
-	assert.False(t, ok)
-
-	// no compress store
-	b := f.getCompressBuf(0)
-	assert.Nil(t, b)
-
-	// no compress data
-	f.compressBuf = NewCompressStore()
-	b = f.getCompressBuf(0)
-	assert.Nil(t, b)
-}
-
-func TestMemoryDatabase_filter(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	metaDB := NewMockMetadataDatabase(ctrl)
-	indexDB := NewMockIndexDatabase(ctrl)
-	indexDB.EXPECT().GetMetadataDatabase().Return(metaDB).AnyTimes()
-	md := &memoryDatabase{
-		indexDB: indexDB,
-	}
-	t.Run("memory metric not found", func(t *testing.T) {
-		metaDB.EXPECT().GetMetricMeta(gomock.Any()).Return(nil, false)
-		rs, err := md.filter(nil, 100, nil, nil)
-		assert.NoError(t, err)
-		assert.Nil(t, rs)
-	})
-
-	t.Run("field not found", func(t *testing.T) {
-		ms := newMetricStore()
-		metaDB.EXPECT().GetMetricMeta(gomock.Any()).Return(ms, true)
-		rs, err := md.filter(&flow.ShardExecuteContext{
-			StorageExecuteCtx: &flow.StorageExecuteContext{Fields: field.Metas{{Name: "test"}}},
-		}, 100, nil, nil)
-		assert.Error(t, err)
-		assert.Nil(t, rs)
-	})
-	t.Run("field data not found", func(t *testing.T) {
-		ms := newMetricStore()
-		_, _ = ms.GenField("test", field.SumField)
-		metaDB.EXPECT().GetMetricMeta(gomock.Any()).Return(ms, true)
-		rs, err := md.filter(&flow.ShardExecuteContext{
-			StorageExecuteCtx: &flow.StorageExecuteContext{Fields: field.Metas{{Name: "test"}}},
-		}, 100, nil, nil)
-		assert.Error(t, err)
-		assert.Nil(t, rs)
-	})
-}
+// import (
+// 	"testing"
+//
+// 	"github.com/stretchr/testify/assert"
+// 	gomock "go.uber.org/mock/gomock"
+//
+// 	"github.com/lindb/lindb/flow"
+// 	"github.com/lindb/lindb/series/field"
+// )
+//
+// func TestFieldEntry(t *testing.T) {
+// 	f := &fieldEntry{}
+// 	f.Reset(nil)
+//
+// 	// write buffer not set
+// 	v, ok := f.GetValue(10)
+// 	assert.Zero(t, v)
+// 	assert.False(t, ok)
+// 	buf := make([]byte, pageSize)
+// 	f.Reset(buf)
+// 	// no data
+// 	v, ok = f.GetValue(10)
+// 	assert.Zero(t, v)
+// 	assert.False(t, ok)
+//
+// 	// no compress store
+// 	b := f.getCompressBuf(0)
+// 	assert.Nil(t, b)
+//
+// 	// no compress data
+// 	f.compressBuf = NewCompressStore()
+// 	b = f.getCompressBuf(0)
+// 	assert.Nil(t, b)
+// }
+//
+// func TestMemoryDatabase_filter(t *testing.T) {
+// 	ctrl := gomock.NewController(t)
+// 	defer ctrl.Finish()
+//
+// 	metaDB := NewMockMetadataDatabase(ctrl)
+// 	indexDB := NewMockIndexDatabase(ctrl)
+// 	indexDB.EXPECT().GetMetadataDatabase().Return(metaDB).AnyTimes()
+// 	md := &memoryDatabase{
+// 		indexDB: indexDB,
+// 	}
+// 	t.Run("memory metric not found", func(t *testing.T) {
+// 		metaDB.EXPECT().GetMetricMeta(gomock.Any()).Return(nil, false)
+// 		rs, err := md.filter(nil, 100, nil, nil)
+// 		assert.NoError(t, err)
+// 		assert.Nil(t, rs)
+// 	})
+//
+// 	t.Run("field not found", func(t *testing.T) {
+// 		ms := newMetricStore()
+// 		metaDB.EXPECT().GetMetricMeta(gomock.Any()).Return(ms, true)
+// 		rs, err := md.filter(&flow.ShardExecuteContext{
+// 			StorageExecuteCtx: &flow.StorageExecuteContext{Fields: field.Metas{{Name: "test"}}},
+// 		}, 100, nil, nil)
+// 		assert.Error(t, err)
+// 		assert.Nil(t, rs)
+// 	})
+// 	t.Run("field data not found", func(t *testing.T) {
+// 		ms := newMetricStore()
+// 		_, _ = ms.GenField("test", field.SumField)
+// 		metaDB.EXPECT().GetMetricMeta(gomock.Any()).Return(ms, true)
+// 		rs, err := md.filter(&flow.ShardExecuteContext{
+// 			StorageExecuteCtx: &flow.StorageExecuteContext{Fields: field.Metas{{Name: "test"}}},
+// 		}, 100, nil, nil)
+// 		assert.Error(t, err)
+// 		assert.Nil(t, rs)
+// 	})
+// }

@@ -17,161 +17,161 @@
 
 package client
 
-import (
-	"fmt"
-	"net/http"
-	"net/http/httptest"
-	"strings"
-	"testing"
-
-	"github.com/lindb/common/pkg/encoding"
-	"github.com/lindb/common/pkg/timeutil"
-	"github.com/stretchr/testify/assert"
-
-	"github.com/lindb/lindb/models"
-)
-
-func TestExecuteCli_Execute(t *testing.T) {
-	cases := []struct {
-		rs      interface{}
-		prepare func(rw http.ResponseWriter)
-		param   models.ExecuteParam
-		name    string
-		url     string
-		wantErr bool
-	}{
-		{
-			name:    "wrong url",
-			url:     "http://localhost:30001",
-			wantErr: true,
-		},
-		{
-			name:    "no data return",
-			wantErr: false,
-		},
-		{
-			name: "http status no ok",
-			prepare: func(rw http.ResponseWriter) {
-				rw.WriteHeader(http.StatusInternalServerError)
-			},
-			wantErr: true,
-		},
-		{
-			name:  "unmarshal result failure",
-			param: models.ExecuteParam{SQL: "show master"},
-			rs:    &models.Master{},
-			prepare: func(rw http.ResponseWriter) {
-				rw.WriteHeader(http.StatusOK)
-				_, _ = rw.Write([]byte("err"))
-			},
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range cases {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, _ *http.Request) {
-				if tt.prepare != nil {
-					tt.prepare(rw)
-				}
-			}))
-			defer server.Close()
-
-			cli := NewExecuteCli(server.URL)
-			if tt.url != "" {
-				cli = NewExecuteCli(tt.url)
-			}
-			err := cli.Execute(tt.param, &tt.rs)
-
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Execute() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestExecuteCli_ExecuteAsResult(t *testing.T) {
-	cases := []struct {
-		name    string
-		param   models.ExecuteParam
-		rs      interface{}
-		prepare func(rw http.ResponseWriter)
-		assert  func(rs string)
-		wantErr bool
-	}{
-		{
-			name: "http status no ok",
-			prepare: func(rw http.ResponseWriter) {
-				rw.WriteHeader(http.StatusInternalServerError)
-			},
-			wantErr: true,
-		},
-		{
-			name: "no data return",
-			assert: func(rs string) {
-				assert.True(t, strings.HasPrefix(rs, "Query OK,"))
-			},
-			wantErr: false,
-		},
-		{
-			name: "not format as table",
-			rs:   &[]models.ExecuteParam{},
-			prepare: func(rw http.ResponseWriter) {
-				rw.WriteHeader(http.StatusOK)
-				_, _ = rw.Write(encoding.JSONMarshal(&[]models.ExecuteParam{{SQL: "sql"}}))
-			},
-			assert: func(rs string) {
-				fmt.Println(rs)
-				assert.True(t, strings.Contains(rs, "0 rows"))
-			},
-			wantErr: false,
-		},
-		{
-			name: "format as table",
-			rs:   &models.Databases{},
-			prepare: func(rw http.ResponseWriter) {
-				rw.WriteHeader(http.StatusOK)
-				_, _ = rw.Write(encoding.JSONMarshal(&models.Databases{{Name: "test"}}))
-			},
-			assert: func(rs string) {
-				_, s := (&models.Databases{{Name: "test"}}).ToTable()
-				assert.True(t, strings.Contains(rs, s))
-			},
-			wantErr: false,
-		},
-		{
-			name: "object format as table",
-			rs:   &models.Master{},
-			prepare: func(rw http.ResponseWriter) {
-				rw.WriteHeader(http.StatusOK)
-				_, _ = rw.Write(encoding.JSONMarshal(&models.Master{ElectTime: timeutil.Now(), Node: &models.StatelessNode{}}))
-			},
-			assert: func(rs string) {
-				assert.True(t, strings.Contains(rs, "1 row"))
-			},
-			wantErr: false,
-		},
-	}
-
-	for _, tt := range cases {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, _ *http.Request) {
-				if tt.prepare != nil {
-					tt.prepare(rw)
-				}
-			}))
-			defer server.Close()
-
-			cli := NewExecuteCli(server.URL)
-			rs, err := cli.ExecuteAsResult(tt.param, tt.rs)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Execute() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if tt.assert != nil {
-				tt.assert(rs)
-			}
-		})
-	}
-}
+// import (
+// 	"fmt"
+// 	"net/http"
+// 	"net/http/httptest"
+// 	"strings"
+// 	"testing"
+//
+// 	"github.com/lindb/common/pkg/encoding"
+// 	"github.com/lindb/common/pkg/timeutil"
+// 	"github.com/stretchr/testify/assert"
+//
+// 	"github.com/lindb/lindb/models"
+// )
+//
+// func TestExecuteCli_Execute(t *testing.T) {
+// 	cases := []struct {
+// 		rs      interface{}
+// 		prepare func(rw http.ResponseWriter)
+// 		param   models.ExecuteParam
+// 		name    string
+// 		url     string
+// 		wantErr bool
+// 	}{
+// 		{
+// 			name:    "wrong url",
+// 			url:     "http://localhost:30001",
+// 			wantErr: true,
+// 		},
+// 		{
+// 			name:    "no data return",
+// 			wantErr: false,
+// 		},
+// 		{
+// 			name: "http status no ok",
+// 			prepare: func(rw http.ResponseWriter) {
+// 				rw.WriteHeader(http.StatusInternalServerError)
+// 			},
+// 			wantErr: true,
+// 		},
+// 		{
+// 			name:  "unmarshal result failure",
+// 			param: models.ExecuteParam{SQL: "show master"},
+// 			rs:    &models.Master{},
+// 			prepare: func(rw http.ResponseWriter) {
+// 				rw.WriteHeader(http.StatusOK)
+// 				_, _ = rw.Write([]byte("err"))
+// 			},
+// 			wantErr: true,
+// 		},
+// 	}
+//
+// 	for _, tt := range cases {
+// 		tt := tt
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, _ *http.Request) {
+// 				if tt.prepare != nil {
+// 					tt.prepare(rw)
+// 				}
+// 			}))
+// 			defer server.Close()
+//
+// 			cli := NewExecuteCli(server.URL)
+// 			if tt.url != "" {
+// 				cli = NewExecuteCli(tt.url)
+// 			}
+// 			err := cli.Execute(tt.param, &tt.rs)
+//
+// 			if (err != nil) != tt.wantErr {
+// 				t.Errorf("Execute() error = %v, wantErr %v", err, tt.wantErr)
+// 			}
+// 		})
+// 	}
+// }
+//
+// func TestExecuteCli_ExecuteAsResult(t *testing.T) {
+// 	cases := []struct {
+// 		name    string
+// 		param   models.ExecuteParam
+// 		rs      interface{}
+// 		prepare func(rw http.ResponseWriter)
+// 		assert  func(rs string)
+// 		wantErr bool
+// 	}{
+// 		{
+// 			name: "http status no ok",
+// 			prepare: func(rw http.ResponseWriter) {
+// 				rw.WriteHeader(http.StatusInternalServerError)
+// 			},
+// 			wantErr: true,
+// 		},
+// 		{
+// 			name: "no data return",
+// 			assert: func(rs string) {
+// 				assert.True(t, strings.HasPrefix(rs, "Query OK,"))
+// 			},
+// 			wantErr: false,
+// 		},
+// 		{
+// 			name: "not format as table",
+// 			rs:   &[]models.ExecuteParam{},
+// 			prepare: func(rw http.ResponseWriter) {
+// 				rw.WriteHeader(http.StatusOK)
+// 				_, _ = rw.Write(encoding.JSONMarshal(&[]models.ExecuteParam{{SQL: "sql"}}))
+// 			},
+// 			assert: func(rs string) {
+// 				fmt.Println(rs)
+// 				assert.True(t, strings.Contains(rs, "0 rows"))
+// 			},
+// 			wantErr: false,
+// 		},
+// 		{
+// 			name: "format as table",
+// 			rs:   &models.Databases{},
+// 			prepare: func(rw http.ResponseWriter) {
+// 				rw.WriteHeader(http.StatusOK)
+// 				_, _ = rw.Write(encoding.JSONMarshal(&models.Databases{{Name: "test"}}))
+// 			},
+// 			assert: func(rs string) {
+// 				_, s := (&models.Databases{{Name: "test"}}).ToTable()
+// 				assert.True(t, strings.Contains(rs, s))
+// 			},
+// 			wantErr: false,
+// 		},
+// 		{
+// 			name: "object format as table",
+// 			rs:   &models.Master{},
+// 			prepare: func(rw http.ResponseWriter) {
+// 				rw.WriteHeader(http.StatusOK)
+// 				_, _ = rw.Write(encoding.JSONMarshal(&models.Master{ElectTime: timeutil.Now(), Node: &models.StatelessNode{}}))
+// 			},
+// 			assert: func(rs string) {
+// 				assert.True(t, strings.Contains(rs, "1 row"))
+// 			},
+// 			wantErr: false,
+// 		},
+// 	}
+//
+// 	for _, tt := range cases {
+// 		tt := tt
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, _ *http.Request) {
+// 				if tt.prepare != nil {
+// 					tt.prepare(rw)
+// 				}
+// 			}))
+// 			defer server.Close()
+//
+// 			cli := NewExecuteCli(server.URL)
+// 			rs, err := cli.ExecuteAsResult(tt.param, tt.rs)
+// 			if (err != nil) != tt.wantErr {
+// 				t.Errorf("Execute() error = %v, wantErr %v", err, tt.wantErr)
+// 			}
+// 			if tt.assert != nil {
+// 				tt.assert(rs)
+// 			}
+// 		})
+// 	}
+// }

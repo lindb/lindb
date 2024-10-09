@@ -11,12 +11,14 @@ import (
 )
 
 type RelationPlanner struct {
-	context *context.PlannerContext
+	outerContext *TranslationMap
+	context      *context.PlannerContext
 }
 
-func NewRelationPlanner(context *context.PlannerContext) tree.Visitor {
+func NewRelationPlanner(context *context.PlannerContext, outerContext *TranslationMap) tree.Visitor {
 	return &RelationPlanner{
-		context: context,
+		context:      context,
+		outerContext: outerContext,
 	}
 }
 
@@ -32,17 +34,19 @@ func (p *RelationPlanner) Visit(context any, n tree.Node) (r any) {
 		return p.visitAliasedRelation(context, node)
 	case *tree.Table:
 		return p.visitTable(context, node)
+	case *tree.Values:
+		return p.visitValues(context, node)
 	default:
 		panic(fmt.Sprintf("relation analyzer unsupport node:%T", n))
 	}
 }
 
 func (p *RelationPlanner) visitQuery(context any, node *tree.Query) (r any) {
-	return NewQueryPlanner(p.context).planQuery(node)
+	return NewQueryPlanner(p.context, p.outerContext).planQuery(node)
 }
 
 func (p *RelationPlanner) visitQuerySpecification(context any, node *tree.QuerySpecification) (r any) {
-	return NewQueryPlanner(p.context).planQuerySpecification(node)
+	return NewQueryPlanner(p.context, p.outerContext).planQuerySpecification(node)
 }
 
 func (p *RelationPlanner) visitJoin(context any, node *tree.Join) (r any) {
@@ -58,13 +62,37 @@ func (p *RelationPlanner) visitJoin(context any, node *tree.Join) (r any) {
 func (p *RelationPlanner) visitAliasedRelation(context any, node *tree.AliasedRelation) (r any) {
 	subPlan := node.Relation.Accept(context, p).(*RelationPlan)
 	root := subPlan.Root
-
-	// FIXME: columns?
-
+	mappings := subPlan.FieldMappings
 	return &RelationPlan{
 		Root:          root,
+		OutContext:    p.outerContext,
 		Scope:         p.context.AnalyzerContext.Analysis.GetScope(node),
-		FieldMappings: subPlan.FieldMappings,
+		FieldMappings: mappings,
+	}
+}
+
+func (p *RelationPlanner) visitValues(_ any, node *tree.Values) (r any) {
+	scope := p.context.AnalyzerContext.Analysis.GetScope(node)
+	var outputSymbols []*planpkg.Symbol
+	for i := range scope.RelationType.Fields {
+		symbol := &planpkg.Symbol{
+			Name:     scope.RelationType.Fields[i].Name,
+			DataType: scope.RelationType.Fields[i].DataType,
+		}
+		outputSymbols = append(outputSymbols, symbol)
+	}
+	return &RelationPlan{
+		Root: &planpkg.ValuesNode{
+			BaseNode: planpkg.BaseNode{
+				ID: p.context.PlanNodeIDAllocator.Next(),
+			},
+			RowCount:      node.Rows.NumRows(),
+			Rows:          node.Rows,
+			OutputSymbols: outputSymbols,
+		},
+		OutContext:    p.outerContext,
+		Scope:         scope,
+		FieldMappings: outputSymbols,
 	}
 }
 
@@ -103,6 +131,7 @@ func (p *RelationPlanner) visitTable(context any, node *tree.Table) (r any) {
 			Root:          root,
 			Scope:         scope,
 			FieldMappings: outputSymbols,
+			OutContext:    p.outerContext,
 		}
 	}
 	return plan
@@ -172,6 +201,7 @@ func (p *RelationPlanner) planJoin(node *tree.Join, scope *analyzer.Scope, left,
 	return &RelationPlan{
 		Root:          root,
 		FieldMappings: outputSymbols,
+		OutContext:    p.outerContext,
 	}
 }
 

@@ -105,10 +105,26 @@ func (v *AstVisitor) VisitUseStatement(ctx *grammar.UseStatementContext) any {
 	}
 }
 
-func (v *AstVisitor) VisitDmlStatement(ctx *grammar.DmlStatementContext) any {
+// VisitStatementDefault visits default statement(query statement).
+func (v *AstVisitor) VisitStatementDefault(ctx *grammar.StatementDefaultContext) any {
 	if ctx.Query() != nil {
 		return v.Visit(ctx.Query())
 	}
+	return v.VisitChildren(ctx)
+}
+
+func (v *AstVisitor) VisitExplain(ctx *grammar.ExplainContext) interface{} {
+	statement := visitIfPresent[Statement](ctx.DmlStatement(), v)
+	return &Explain{
+		BaseNode: BaseNode{
+			ID:       v.idAllocator.Next(),
+			Location: getLocation(ctx.GetStart()),
+		},
+		Statement: statement,
+	}
+}
+
+func (v *AstVisitor) VisitExplainAnalyze(ctx *grammar.ExplainAnalyzeContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

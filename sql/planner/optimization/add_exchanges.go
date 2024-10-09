@@ -51,8 +51,18 @@ func (v *AddExchangesRewrite) Visit(context any, n plan.PlanNode) (r any) {
 		return v.visitTableScan(parentProps, node)
 	case *plan.AggregationNode:
 		return v.visitAggregation(parentProps, node)
+	case *plan.ValuesNode:
+		return v.visitValues(parentProps, node)
 	default:
 		return v.rebaseAndDeriveProps(n, v.planChild(n, parentProps))
+	}
+}
+
+func (v *AddExchangesRewrite) visitValues(context any, node *plan.ValuesNode) (r any) {
+	v.exchangeNodeAdded = true
+	return &AddExchangesPlan{
+		node:  node,
+		props: NewActualPropsBuilder(singlePartition()).Build(),
 	}
 }
 

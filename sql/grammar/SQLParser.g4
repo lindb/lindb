@@ -19,8 +19,9 @@ ddlStatement        : createDatabase
                     | createBroker 
                     ;
 
-dmlStatement        : query 
-                    | showMetricMetadata 
+dmlStatement        : query                                                  #statementDefault
+  									| EXPLAIN dmlStatement                                   #explain
+   				 					| EXPLAIN ANALYZE dmlStatement                           #explainAnalyze
                     ;
 
 adminStatement      : flushDatabase

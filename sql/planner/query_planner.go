@@ -17,14 +17,16 @@ type GroupingSetsPlan struct {
 }
 
 type QueryPlanner struct {
-	context *context.PlannerContext
+	context      *context.PlannerContext
+	outerContext *TranslationMap
 
 	subQueryPlanner *SubQueryPlanner
 }
 
-func NewQueryPlanner(context *context.PlannerContext) *QueryPlanner {
+func NewQueryPlanner(context *context.PlannerContext, outerContext *TranslationMap) *QueryPlanner {
 	return &QueryPlanner{
 		context:         context,
+		outerContext:    outerContext,
 		subQueryPlanner: NewSubQueryPlanner(context),
 	}
 }
@@ -55,7 +57,7 @@ func (p *QueryPlanner) planQuery(node *tree.Query) *RelationPlan {
 }
 
 func (p *QueryPlanner) planQueryBody(query *tree.Query) *PlanBuilder {
-	planner := NewRelationPlanner(p.context)
+	planner := NewRelationPlanner(p.context, p.outerContext)
 	relationPlan := query.QueryBody.Accept(nil, planner).(*RelationPlan)
 	return newPlanBuilder(p.context, relationPlan, nil)
 }
@@ -83,7 +85,7 @@ func (p *QueryPlanner) planQuerySpecification(node *tree.QuerySpecification) *Re
 }
 
 func (p *QueryPlanner) planFrom(node *tree.QuerySpecification) *PlanBuilder {
-	planner := NewRelationPlanner(p.context)
+	planner := NewRelationPlanner(p.context, p.outerContext)
 	relationPlan := node.From.Accept(nil, planner).(*RelationPlan)
 
 	return newPlanBuilder(p.context, relationPlan, nil)
@@ -238,7 +240,7 @@ func (p *QueryPlanner) filter(subPlan *PlanBuilder, predicate tree.Expression, n
 
 func (p *QueryPlanner) computeOutputs(builder *PlanBuilder, outputs []tree.Expression) (outputSymbols []*plan.Symbol) {
 	for _, expression := range outputs {
-		fmt.Println(expression)
+		fmt.Printf("output exp=%v,%T\n", expression, expression)
 		outputSymbols = append(outputSymbols, builder.translate(expression))
 	}
 	return

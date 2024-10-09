@@ -35,7 +35,7 @@ import (
 	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/pkg/imap"
 	"github.com/lindb/lindb/pkg/strutil"
-	"github.com/lindb/lindb/sql/stmt"
+	"github.com/lindb/lindb/sql/tree"
 )
 
 var familyOption = kv.FamilyOption{Merger: string(v1.IndexKVMerger)}
@@ -164,77 +164,77 @@ func TestIndexKVStore_Find(t *testing.T) {
 		assert.Equal(t, uint32(idx), v)
 	}
 	cases := []struct {
-		expr    stmt.TagFilter
+		expr    tree.Expr
 		name    string
 		size    int
 		wantErr bool
 	}{
 		{
 			name: "find data(equals expr)",
-			expr: &stmt.EqualsExpr{
+			expr: &tree.EqualsExpr{
 				Value: "ab",
 			},
 			size: 1,
 		},
 		{
 			name: "no data(equals expr)",
-			expr: &stmt.EqualsExpr{
+			expr: &tree.EqualsExpr{
 				Value: "ab0",
 			},
 		},
 		{
 			name: "find data(in expr)",
-			expr: &stmt.InExpr{
+			expr: &tree.InExpr{
 				Values: []string{"ab0", "a", "abc", "ab"},
 			},
 			size: 3,
 		},
 		{
 			name: "find no data(in expr)",
-			expr: &stmt.InExpr{
+			expr: &tree.InExpr{
 				Values: []string{"ab0"},
 			},
 		},
 		{
 			name: "find data(regex expr)",
-			expr: &stmt.RegexExpr{
+			expr: &tree.RegexExpr{
 				Regexp: "^abc",
 			},
 			size: 4,
 		},
 		{
 			name: "find no data(regex expr)",
-			expr: &stmt.RegexExpr{
+			expr: &tree.RegexExpr{
 				Regexp: "hh",
 			},
 		},
 		{
 			name: "find data(like prefix expr)",
-			expr: &stmt.LikeExpr{
+			expr: &tree.LikeExpr{
 				Value: "abc*",
 			},
 			size: 4,
 		},
 		{
 			name: "find no data(like expr)",
-			expr: &stmt.LikeExpr{
+			expr: &tree.LikeExpr{
 				Value: "hh",
 			},
 		},
 		{
 			name: "find no data(like empty expr)",
-			expr: &stmt.LikeExpr{},
+			expr: &tree.LikeExpr{},
 		},
 		{
 			name: "find data(like suffix expr)",
-			expr: &stmt.LikeExpr{
+			expr: &tree.LikeExpr{
 				Value: "*abc",
 			},
 			size: 1,
 		},
 		{
 			name: "find data(like prefix/suffix expr)",
-			expr: &stmt.LikeExpr{
+			expr: &tree.LikeExpr{
 				Value: "*abc*",
 			},
 			size: 4,
@@ -284,21 +284,21 @@ func TestIndexKVStore_Read_Error(t *testing.T) {
 
 	t.Run("load error when do in expr", func(t *testing.T) {
 		snapshot.EXPECT().Load(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-		ids, err := store.FindValuesByExpr(10, &stmt.InExpr{Values: []string{"abc"}})
+		ids, err := store.FindValuesByExpr(10, &tree.InExpr{Values: []string{"abc"}})
 		assert.Error(t, err)
 		assert.Empty(t, ids)
 	})
 
 	t.Run("load error when do like expr", func(t *testing.T) {
 		snapshot.EXPECT().Load(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-		ids, err := store.FindValuesByExpr(10, &stmt.LikeExpr{Value: "abc*"})
+		ids, err := store.FindValuesByExpr(10, &tree.LikeExpr{Value: "abc*"})
 		assert.Error(t, err)
 		assert.Empty(t, ids)
 	})
 
 	t.Run("load error when do regex expr", func(t *testing.T) {
 		snapshot.EXPECT().Load(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
-		ids, err := store.FindValuesByExpr(10, &stmt.RegexExpr{Regexp: "^abc"})
+		ids, err := store.FindValuesByExpr(10, &tree.RegexExpr{Regexp: "^abc"})
 		assert.Error(t, err)
 		assert.Empty(t, ids)
 	})
@@ -313,7 +313,7 @@ func TestIndexKVStore_Read_Error(t *testing.T) {
 		regexpCompile = func(expr string) (*regexp.Regexp, error) {
 			return nil, fmt.Errorf("err")
 		}
-		ids, err := store.FindValuesByExpr(10, &stmt.RegexExpr{})
+		ids, err := store.FindValuesByExpr(10, &tree.RegexExpr{})
 		assert.Error(t, err)
 		assert.Empty(t, ids)
 	})

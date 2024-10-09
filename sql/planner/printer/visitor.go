@@ -39,6 +39,8 @@ func (v *PrintPlanVisitor) Visit(_ any, n plan.PlanNode) (r any) {
 		v.visitAggregation(node)
 	case *plan.GroupReference:
 		v.visitGroupReference(node)
+	case *plan.ValuesNode:
+		v.visitValues(node)
 	default:
 		panic(fmt.Sprintf("impl print %T", n))
 	}
@@ -47,6 +49,11 @@ func (v *PrintPlanVisitor) Visit(_ any, n plan.PlanNode) (r any) {
 
 func (v *PrintPlanVisitor) visitGroupReference(node *plan.GroupReference) {
 	v.addNode(node, "GroupReference", map[string]string{"groupId": strconv.Itoa(int(node.GetNodeID()))}, nil)
+}
+
+func (v *PrintPlanVisitor) visitValues(node *plan.ValuesNode) {
+	v.addNode(node, "Values", nil, nil)
+	// TODO: add rows?
 }
 
 func (v *PrintPlanVisitor) visitAggregation(node *plan.AggregationNode) {
