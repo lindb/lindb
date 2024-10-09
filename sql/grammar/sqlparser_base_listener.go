@@ -62,6 +62,12 @@ func (s *BaseSQLParserListener) EnterUtilityStatement(ctx *UtilityStatementConte
 // ExitUtilityStatement is called when production utilityStatement is exited.
 func (s *BaseSQLParserListener) ExitUtilityStatement(ctx *UtilityStatementContext) {}
 
+// EnterExplainType is called when production explainType is entered.
+func (s *BaseSQLParserListener) EnterExplainType(ctx *ExplainTypeContext) {}
+
+// ExitExplainType is called when production explainType is exited.
+func (s *BaseSQLParserListener) ExitExplainType(ctx *ExplainTypeContext) {}
+
 // EnterCreateDatabase is called when production createDatabase is entered.
 func (s *BaseSQLParserListener) EnterCreateDatabase(ctx *CreateDatabaseContext) {}
 

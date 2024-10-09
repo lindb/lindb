@@ -28,6 +28,9 @@ type SQLParserListener interface {
 	// EnterUtilityStatement is called when entering the utilityStatement production.
 	EnterUtilityStatement(c *UtilityStatementContext)
 
+	// EnterExplainType is called when entering the explainType production.
+	EnterExplainType(c *ExplainTypeContext)
+
 	// EnterCreateDatabase is called when entering the createDatabase production.
 	EnterCreateDatabase(c *CreateDatabaseContext)
 
@@ -300,6 +303,9 @@ type SQLParserListener interface {
 
 	// ExitUtilityStatement is called when exiting the utilityStatement production.
 	ExitUtilityStatement(c *UtilityStatementContext)
+
+	// ExitExplainType is called when exiting the explainType production.
+	ExitExplainType(c *ExplainTypeContext)
 
 	// ExitCreateDatabase is called when exiting the createDatabase production.
 	ExitCreateDatabase(c *CreateDatabaseContext)

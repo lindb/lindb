@@ -35,6 +35,10 @@ func (v *BaseSQLParserVisitor) VisitUtilityStatement(ctx *UtilityStatementContex
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseSQLParserVisitor) VisitExplainType(ctx *ExplainTypeContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseSQLParserVisitor) VisitCreateDatabase(ctx *CreateDatabaseContext) interface{} {
 	return v.VisitChildren(ctx)
 }
