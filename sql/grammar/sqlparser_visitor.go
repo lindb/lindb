@@ -28,6 +28,9 @@ type SQLParserVisitor interface {
 	// Visit a parse tree produced by SQLParser#utilityStatement.
 	VisitUtilityStatement(ctx *UtilityStatementContext) interface{}
 
+	// Visit a parse tree produced by SQLParser#explainType.
+	VisitExplainType(ctx *ExplainTypeContext) interface{}
+
 	// Visit a parse tree produced by SQLParser#createDatabase.
 	VisitCreateDatabase(ctx *CreateDatabaseContext) interface{}
 

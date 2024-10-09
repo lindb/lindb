@@ -103,13 +103,8 @@ func (exec *QueryExecution) Start() any {
 
 	// rewrite statement
 	statement := exec.rewrite(exec.preparedStatement.Statement)
-
 	// plan statement
 	plan := exec.planner.Plan(exec.session, statement)
-	fmt.Println("******************")
-	printer := printer.NewPlanPrinter(printer.NewTextRender(0))
-	fmt.Println(printer.PrintLogicPlan(plan.Root))
-	fmt.Println("******************")
 	// distribute plan
 	fragmentedPlan := exec.planner.PlanDistribution(plan)
 	// scheduler start

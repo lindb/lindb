@@ -114,13 +114,23 @@ func (v *AstVisitor) VisitStatementDefault(ctx *grammar.StatementDefaultContext)
 }
 
 func (v *AstVisitor) VisitExplain(ctx *grammar.ExplainContext) interface{} {
-	statement := visitIfPresent[Statement](ctx.DmlStatement(), v)
 	return &Explain{
 		BaseNode: BaseNode{
 			ID:       v.idAllocator.Next(),
 			Location: getLocation(ctx.GetStart()),
 		},
-		Statement: statement,
+		Options:   visit[ExplainOption](ctx.AllExplainOption(), v),
+		Statement: visitIfPresent[Statement](ctx.DmlStatement(), v),
+	}
+}
+
+func (v *AstVisitor) VisitExplainType(ctx *grammar.ExplainTypeContext) any {
+	val := LogicalExplain
+	if ctx.DISTRIBUTED() != nil {
+		val = DistributedExplain
+	}
+	return &ExplainType{
+		Type: val,
 	}
 }
 

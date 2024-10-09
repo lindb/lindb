@@ -23,6 +23,12 @@ func (e *ExplainRewrite) Rewrite(statement tree.Statement) tree.Statement {
 }
 
 func (e *ExplainRewrite) visitExplain(node *tree.Explain) tree.Statement {
-	plan := e.explainer.ExplainPlan(e.session, node.Statement)
+	explainType := tree.LogicalExplain
+	for _, option := range node.Options {
+		if eType, ok := option.(*tree.ExplainType); ok {
+			explainType = eType.Type
+		}
+	}
+	plan := e.explainer.ExplainPlan(e.session, node.Statement, explainType)
 	return utils.SingleValueQuery("Query Plan", plan)
 }

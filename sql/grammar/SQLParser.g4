@@ -20,7 +20,8 @@ ddlStatement        : createDatabase
                     ;
 
 dmlStatement        : query                                                  #statementDefault
-  									| EXPLAIN dmlStatement                                   #explain
+  									| EXPLAIN ('(' explainOption (',' explainOption)* ')')? 
+                        dmlStatement                                         #explain
    				 					| EXPLAIN ANALYZE dmlStatement                           #explainAnalyze
                     ;
 
@@ -30,6 +31,9 @@ adminStatement      : flushDatabase
                     ;
 
 utilityStatement    : useStatement ;
+
+explainOption       : TYPE value=(LOGICAL | DISTRIBUTED)                     #explainType
+										;                   
 
 // ddl
 createDatabase      : CREATE DATABASE name=qualifiedName
@@ -188,7 +192,7 @@ nonReserved         :
                       ALL | ALIVE | AND | AS | ASC
                     | BROKER | BROKERS | BY 
                     | COMPACT | CREATE | CROSS 
-                    | DATABASE | DATABASES | DEFAULT | DESC | DROP
+                    | DATABASE | DATABASES | DEFAULT | DESC | DISTRIBUTED | DROP
                     | ESCAPE | EXPLAIN | EXISTS
                     | FALSE | FIELDS | FILTER | FLUSH | FROM
                     | GROUP 
@@ -196,14 +200,14 @@ nonReserved         :
                     | IF | IN 
                     | JOIN
                     | KEYS
-                    | LEFT | LIKE | LIMIT
+                    | LEFT | LIKE | LIMIT | LOGICAL
                     | MASTER | METRICS | METADATA | METADATAS
                     | NAMESPACE | NAMESPACES | NOT
                     | ON | OR | ORDER
                     | PLAN
                     | REQUESTS | REPLICATIONS | RIGHT | ROLLUP
                     | SELECT | SHOW | STATE | STORAGE
-                    | TAG | TRUE | TYPES 
+                    | TAG | TRUE | TYPE | TYPES 
                     | VALUES
                     | WHERE | WITH | WITHIN
                     | USING | USE
