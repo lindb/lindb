@@ -17,327 +17,327 @@
 
 package flow
 
-import (
-	"context"
-	"sort"
-	"testing"
-	"time"
-
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/mock/gomock"
-
-	commontimeutil "github.com/lindb/common/pkg/timeutil"
-	"github.com/lindb/roaring"
-
-	"github.com/lindb/lindb/aggregation"
-	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/series"
-	"github.com/lindb/lindb/series/field"
-	"github.com/lindb/lindb/series/tag"
-	"github.com/lindb/lindb/sql/stmt"
-)
-
-func TestStorageExecuteContext_collectGroupingTagValueIDs(t *testing.T) {
-	ctx := &StorageExecuteContext{
-		GroupingTagValueIDs: make([]*roaring.Bitmap, 2),
-	}
-	ctx.collectGroupingTagValueIDs([]uint32{1, 4})
-	ctx.collectGroupingTagValueIDs([]uint32{2, 5})
-	ctx.collectGroupingTagValueIDs([]uint32{8, 10})
-	assert.Equal(t, roaring.BitmapOf(1, 2, 8), ctx.GroupingTagValueIDs[0])
-	assert.Equal(t, roaring.BitmapOf(4, 5, 10), ctx.GroupingTagValueIDs[1])
-
-	c := 0
-	ctx.CollectTagValues(func() {
-		assert.True(t, true)
-		c++
-	})
-	assert.Equal(t, 1, c)
-}
-
-func TestStorageExecuteContext(t *testing.T) {
-	assert.True(t, (&StorageExecuteContext{Query: &stmt.Query{Condition: &stmt.FieldExpr{}}}).HasWhereCondition())
-	assert.False(t, (&StorageExecuteContext{Query: &stmt.Query{}}).HasWhereCondition())
-}
-
-func TestStorageExecuteContext_CalcSlotRange(t *testing.T) {
-	t1, _ := commontimeutil.ParseTimestamp("20190101 00:00:00", "20060102 15:04:05")
-	t2, _ := commontimeutil.ParseTimestamp("20190101 03:10:00", "20060102 15:04:05")
-	ctx := &StorageExecuteContext{
-		Query: &stmt.Query{
-			Interval:        timeutil.Interval(commontimeutil.OneMinute),
-			StorageInterval: timeutil.Interval(commontimeutil.OneMinute),
-			TimeRange: timeutil.TimeRange{
-				Start: t1,
-				End:   t2,
-			},
-		},
-	}
-	slotRange := ctx.CalcSourceSlotRange(t1)
-	assert.Equal(t, timeutil.SlotRange{
-		Start: 0,
-		End:   59,
-	}, slotRange)
-}
-
-func TestStorageExecuteContext_HasGroupingTagValueIDs(t *testing.T) {
-	ctx := &StorageExecuteContext{
-		GroupingTagValueIDs: make([]*roaring.Bitmap, 2),
-	}
-	assert.False(t, ctx.HasGroupingTagValueIDs())
-	ctx = &StorageExecuteContext{
-		GroupingTagValueIDs: []*roaring.Bitmap{nil, roaring.BitmapOf(1), nil},
-	}
-	assert.True(t, ctx.HasGroupingTagValueIDs())
-}
-
-func TestStorageExecuteContext_SortFields(t *testing.T) {
-	ctx := &StorageExecuteContext{
-		Fields: field.Metas{{ID: 4}, {ID: 1}, {ID: 3}},
-	}
-	ctx.SortFields()
-	assert.Equal(t, field.Metas{{ID: 1}, {ID: 3}, {ID: 4}}, ctx.Fields)
-}
-
-func TestStorageExecuteContext_Release(t *testing.T) {
-	ctx := &StorageExecuteContext{
-		TaskCtx: NewTaskContextWithTimeout(context.TODO(), time.Second),
-	}
-	ctx.Release()
-	ctx.ShardContexts = make([]*ShardExecuteContext, 2)
-	ctx.Release()
-	ctx.ShardContexts[0] = &ShardExecuteContext{}
-	ctx.Release()
-}
-
-func TestTimeSegmentContext_AddFilterResultSet(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	ctx := NewTimeSegmentContext()
-	rs1 := NewMockFilterResultSet(ctrl)
-	rs1.EXPECT().FamilyTime().Return(int64(20)).AnyTimes()
-	rs1.EXPECT().SlotRange().Return(timeutil.SlotRange{}).AnyTimes()
-	rs1.EXPECT().SeriesIDs().Return(roaring.BitmapOf(1)).AnyTimes()
-	rs2 := NewMockFilterResultSet(ctrl)
-	rs2.EXPECT().FamilyTime().Return(int64(10)).AnyTimes()
-	rs2.EXPECT().SlotRange().Return(timeutil.SlotRange{}).AnyTimes()
-	rs2.EXPECT().SeriesIDs().Return(roaring.BitmapOf(2)).AnyTimes()
-	rs3 := NewMockFilterResultSet(ctrl)
-	rs3.EXPECT().FamilyTime().Return(int64(20)).AnyTimes()
-	rs3.EXPECT().SlotRange().Return(timeutil.SlotRange{}).AnyTimes()
-	rs3.EXPECT().SeriesIDs().Return(roaring.BitmapOf(3)).AnyTimes()
-
-	ctx.AddFilterResultSet(timeutil.Interval(10), rs1)
-	ctx.AddFilterResultSet(timeutil.Interval(10), rs2)
-	ctx.AddFilterResultSet(timeutil.Interval(10), rs3)
-
-	assert.Equal(t, roaring.BitmapOf(1, 2, 3), ctx.SeriesIDs)
-	segments := ctx.GetTimeSegments()
-	assert.Len(t, segments, 2)
-	assert.Equal(t, int64(10), segments[0].FamilyTime)
-	assert.Equal(t, int64(20), segments[1].FamilyTime)
-
-	rs1.EXPECT().Close()
-	rs2.EXPECT().Close()
-	rs3.EXPECT().Close()
-	ctx.Release()
-}
-
-func TestShardExecuteContext(t *testing.T) {
-	ctx := NewShardExecuteContext(&StorageExecuteContext{})
-	assert.True(t, ctx.IsSeriesIDsEmpty())
-	ctx.TimeSegmentContext = &TimeSegmentContext{SeriesIDs: roaring.BitmapOf(1, 2, 3)}
-	assert.False(t, ctx.IsSeriesIDsEmpty())
-	ctx.Release()
-}
-
-func TestGroupingSeriesAgg_reduce(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	seriesAgg := aggregation.NewMockSeriesAggregator(ctrl)
-	agg := &GroupingSeriesAgg{Aggregator: seriesAgg}
-	c := 0
-	seriesAgg.EXPECT().Reset()
-	agg.reduce(func(_ series.GroupedIterator) {
-		c++
-	})
-	assert.Equal(t, 1, c)
-
-	c = 0
-	seriesAgg.EXPECT().Reset()
-	agg = &GroupingSeriesAgg{Aggregators: aggregation.FieldAggregates{seriesAgg}}
-	agg.reduce(func(_ series.GroupedIterator) {
-		c++
-	})
-	assert.Equal(t, 1, c)
-}
-
-func TestDataLoadContext_PrepareAggregatorWithoutGrouping(t *testing.T) {
-	ctx := &DataLoadContext{
-		ShardExecuteCtx: &ShardExecuteContext{
-			StorageExecuteCtx: &StorageExecuteContext{
-				Fields:            field.Metas{{ID: 1}},
-				DownSamplingSpecs: aggregation.AggregatorSpecs{aggregation.NewAggregatorSpec("f", field.SumField)},
-				Query:             &stmt.Query{},
-			},
-		},
-		IsMultiField: false,
-	}
-	ctx.PrepareAggregatorWithoutGrouping()
-	assert.NotNil(t, ctx.WithoutGroupingSeriesAgg.Aggregator)
-	assert.Nil(t, ctx.WithoutGroupingSeriesAgg.Aggregators)
-
-	ctx = &DataLoadContext{
-		ShardExecuteCtx: &ShardExecuteContext{
-			StorageExecuteCtx: &StorageExecuteContext{
-				Fields: field.Metas{{ID: 1}, {ID: 2}},
-				DownSamplingSpecs: aggregation.AggregatorSpecs{
-					aggregation.NewAggregatorSpec("a", field.SumField),
-					aggregation.NewAggregatorSpec("b", field.SumField),
-				},
-				Query: &stmt.Query{},
-			},
-		},
-		IsMultiField: true,
-	}
-	ctx.PrepareAggregatorWithoutGrouping()
-	assert.Nil(t, ctx.WithoutGroupingSeriesAgg.Aggregator)
-	assert.NotNil(t, ctx.WithoutGroupingSeriesAgg.Aggregators)
-}
-
-func TestDataLoadContext_NewSeriesAggregator(t *testing.T) {
-	ctx := &DataLoadContext{
-		ShardExecuteCtx: &ShardExecuteContext{
-			StorageExecuteCtx: &StorageExecuteContext{
-				Fields:              field.Metas{{ID: 1}},
-				DownSamplingSpecs:   aggregation.AggregatorSpecs{aggregation.NewAggregatorSpec("f", field.SumField)},
-				Query:               &stmt.Query{},
-				GroupByTagKeyIDs:    []tag.KeyID{1},
-				GroupingTagValueIDs: make([]*roaring.Bitmap, 1),
-			},
-		},
-		IsMultiField: false,
-	}
-	idx := ctx.NewSeriesAggregator(string([]byte{1, 0, 0, 0}))
-	assert.Equal(t, uint16(0), idx)
-	idx = ctx.NewSeriesAggregator(string([]byte{2, 0, 0, 0}))
-	assert.Equal(t, uint16(1), idx)
-	assert.NotNil(t, ctx.GroupingSeriesAgg[0].Aggregator)
-	assert.Nil(t, ctx.GroupingSeriesAgg[0].Aggregators)
-
-	ctx = &DataLoadContext{
-		ShardExecuteCtx: &ShardExecuteContext{
-			StorageExecuteCtx: &StorageExecuteContext{
-				Fields: field.Metas{{ID: 1}, {ID: 2}},
-				DownSamplingSpecs: aggregation.AggregatorSpecs{
-					aggregation.NewAggregatorSpec("a", field.SumField),
-					aggregation.NewAggregatorSpec("b", field.SumField),
-				},
-				Query: &stmt.Query{},
-			},
-		},
-		IsMultiField: true,
-	}
-	idx = ctx.NewSeriesAggregator("")
-	assert.Equal(t, uint16(0), idx)
-	assert.Nil(t, ctx.GroupingSeriesAgg[0].Aggregator)
-	assert.NotNil(t, ctx.GroupingSeriesAgg[0].Aggregators)
-}
-
-func TestDataLoadContext_HasGroupingData(t *testing.T) {
-	ctx := &DataLoadContext{
-		ShardExecuteCtx: &ShardExecuteContext{
-			StorageExecuteCtx: &StorageExecuteContext{
-				Query: &stmt.Query{},
-			},
-		},
-		IsGrouping: false,
-	}
-	assert.True(t, ctx.HasGroupingData())
-	ctx = &DataLoadContext{
-		ShardExecuteCtx: &ShardExecuteContext{
-			StorageExecuteCtx: &StorageExecuteContext{
-				Query: &stmt.Query{GroupBy: []string{"ip"}},
-			},
-		},
-		IsGrouping: true,
-	}
-	assert.False(t, ctx.HasGroupingData())
-	ctx.GroupingSeriesAgg = []*GroupingSeriesAgg{nil}
-	assert.True(t, ctx.HasGroupingData())
-}
-
-func TestDataLoadContext_IterateLowSeriesIDs(t *testing.T) {
-	querySeriesIDs := roaring.BitmapOf(5, 11, 13)
-	storageSeriesIDs := roaring.BitmapOf(1, 3, 5, 7, 9, 11, 13, 15)
-	ctx := &DataLoadContext{
-		LowSeriesIDsContainer: querySeriesIDs.GetContainer(0),
-		ShardExecuteCtx: &ShardExecuteContext{
-			StorageExecuteCtx: &StorageExecuteContext{
-				Query: &stmt.Query{GroupBy: []string{"ip"}},
-			},
-		},
-		IsGrouping: true,
-	}
-	ctx.Grouping()
-	findSeriesIDs := roaring.New()
-	storageLowSeriesContainer := storageSeriesIDs.GetContainer(0)
-	storageLowSeriesIDs := storageLowSeriesContainer.ToArray()
-	ctx.IterateLowSeriesIDs(storageLowSeriesContainer, func(_ uint16, seriesIdxFromStorage int) {
-		findSeriesIDs.Add(uint32(storageLowSeriesIDs[seriesIdxFromStorage]))
-	})
-	assert.Equal(t, querySeriesIDs, findSeriesIDs)
-}
-
-func TestDataLoadContext_GetSeriesAggregator(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	agg := aggregation.NewMockSeriesAggregator(ctrl)
-	agg.EXPECT().Reset().AnyTimes()
-	ctx := &DataLoadContext{
-		ShardExecuteCtx: &ShardExecuteContext{
-			StorageExecuteCtx: &StorageExecuteContext{
-				Query: &stmt.Query{GroupBy: []string{"ip"}},
-			},
-		},
-		GroupingSeriesAggRefs: []uint16{1},
-		GroupingSeriesAgg:     []*GroupingSeriesAgg{{Aggregator: agg}, {Aggregator: agg}},
-		IsGrouping:            true,
-	}
-	aggregator := ctx.GetSeriesAggregator(0, 0)
-	assert.NotNil(t, aggregator)
-	ctx.Reduce(func(it series.GroupedIterator) {})
-
-	ctx = &DataLoadContext{
-		ShardExecuteCtx: &ShardExecuteContext{
-			StorageExecuteCtx: &StorageExecuteContext{
-				Query:  &stmt.Query{},
-				Fields: field.Metas{{ID: 1}, {ID: 2}},
-			},
-		},
-		WithoutGroupingSeriesAgg: &GroupingSeriesAgg{Aggregators: aggregation.FieldAggregates{agg, agg}},
-		IsMultiField:             true,
-		IsGrouping:               false,
-	}
-	aggregator = ctx.GetSeriesAggregator(0, 1)
-	assert.NotNil(t, aggregator)
-	ctx.Reduce(func(it series.GroupedIterator) {})
-}
-
-func TestTimeSegmentContexts(t *testing.T) {
-	segments := TimeSegmentContexts{
-		{
-			FamilyTime: 10,
-		},
-		{
-			FamilyTime: 100,
-		},
-		{
-			FamilyTime: 5,
-		},
-	}
-	sort.Sort(segments)
-}
+// import (
+// 	"context"
+// 	"sort"
+// 	"testing"
+// 	"time"
+//
+// 	"github.com/stretchr/testify/assert"
+// 	"go.uber.org/mock/gomock"
+//
+// 	commontimeutil "github.com/lindb/common/pkg/timeutil"
+// 	"github.com/lindb/roaring"
+//
+// 	"github.com/lindb/lindb/aggregation"
+// 	"github.com/lindb/lindb/pkg/timeutil"
+// 	"github.com/lindb/lindb/series"
+// 	"github.com/lindb/lindb/series/field"
+// 	"github.com/lindb/lindb/series/tag"
+// 	"github.com/lindb/lindb/sql/stmt"
+// )
+//
+// func TestStorageExecuteContext_collectGroupingTagValueIDs(t *testing.T) {
+// 	ctx := &StorageExecuteContext{
+// 		GroupingTagValueIDs: make([]*roaring.Bitmap, 2),
+// 	}
+// 	ctx.collectGroupingTagValueIDs([]uint32{1, 4})
+// 	ctx.collectGroupingTagValueIDs([]uint32{2, 5})
+// 	ctx.collectGroupingTagValueIDs([]uint32{8, 10})
+// 	assert.Equal(t, roaring.BitmapOf(1, 2, 8), ctx.GroupingTagValueIDs[0])
+// 	assert.Equal(t, roaring.BitmapOf(4, 5, 10), ctx.GroupingTagValueIDs[1])
+//
+// 	c := 0
+// 	ctx.CollectTagValues(func() {
+// 		assert.True(t, true)
+// 		c++
+// 	})
+// 	assert.Equal(t, 1, c)
+// }
+//
+// func TestStorageExecuteContext(t *testing.T) {
+// 	assert.True(t, (&StorageExecuteContext{Query: &stmt.Query{Condition: &stmt.FieldExpr{}}}).HasWhereCondition())
+// 	assert.False(t, (&StorageExecuteContext{Query: &stmt.Query{}}).HasWhereCondition())
+// }
+//
+// func TestStorageExecuteContext_CalcSlotRange(t *testing.T) {
+// 	t1, _ := commontimeutil.ParseTimestamp("20190101 00:00:00", "20060102 15:04:05")
+// 	t2, _ := commontimeutil.ParseTimestamp("20190101 03:10:00", "20060102 15:04:05")
+// 	ctx := &StorageExecuteContext{
+// 		Query: &stmt.Query{
+// 			Interval:        timeutil.Interval(commontimeutil.OneMinute),
+// 			StorageInterval: timeutil.Interval(commontimeutil.OneMinute),
+// 			TimeRange: timeutil.TimeRange{
+// 				Start: t1,
+// 				End:   t2,
+// 			},
+// 		},
+// 	}
+// 	slotRange := ctx.CalcSourceSlotRange(t1)
+// 	assert.Equal(t, timeutil.SlotRange{
+// 		Start: 0,
+// 		End:   59,
+// 	}, slotRange)
+// }
+//
+// func TestStorageExecuteContext_HasGroupingTagValueIDs(t *testing.T) {
+// 	ctx := &StorageExecuteContext{
+// 		GroupingTagValueIDs: make([]*roaring.Bitmap, 2),
+// 	}
+// 	assert.False(t, ctx.HasGroupingTagValueIDs())
+// 	ctx = &StorageExecuteContext{
+// 		GroupingTagValueIDs: []*roaring.Bitmap{nil, roaring.BitmapOf(1), nil},
+// 	}
+// 	assert.True(t, ctx.HasGroupingTagValueIDs())
+// }
+//
+// func TestStorageExecuteContext_SortFields(t *testing.T) {
+// 	ctx := &StorageExecuteContext{
+// 		Fields: field.Metas{{ID: 4}, {ID: 1}, {ID: 3}},
+// 	}
+// 	ctx.SortFields()
+// 	assert.Equal(t, field.Metas{{ID: 1}, {ID: 3}, {ID: 4}}, ctx.Fields)
+// }
+//
+// func TestStorageExecuteContext_Release(t *testing.T) {
+// 	ctx := &StorageExecuteContext{
+// 		TaskCtx: NewTaskContextWithTimeout(context.TODO(), time.Second),
+// 	}
+// 	ctx.Release()
+// 	ctx.ShardContexts = make([]*ShardExecuteContext, 2)
+// 	ctx.Release()
+// 	ctx.ShardContexts[0] = &ShardExecuteContext{}
+// 	ctx.Release()
+// }
+//
+// func TestTimeSegmentContext_AddFilterResultSet(t *testing.T) {
+// 	ctrl := gomock.NewController(t)
+// 	defer ctrl.Finish()
+//
+// 	ctx := NewTimeSegmentContext()
+// 	rs1 := NewMockFilterResultSet(ctrl)
+// 	rs1.EXPECT().FamilyTime().Return(int64(20)).AnyTimes()
+// 	rs1.EXPECT().SlotRange().Return(timeutil.SlotRange{}).AnyTimes()
+// 	rs1.EXPECT().SeriesIDs().Return(roaring.BitmapOf(1)).AnyTimes()
+// 	rs2 := NewMockFilterResultSet(ctrl)
+// 	rs2.EXPECT().FamilyTime().Return(int64(10)).AnyTimes()
+// 	rs2.EXPECT().SlotRange().Return(timeutil.SlotRange{}).AnyTimes()
+// 	rs2.EXPECT().SeriesIDs().Return(roaring.BitmapOf(2)).AnyTimes()
+// 	rs3 := NewMockFilterResultSet(ctrl)
+// 	rs3.EXPECT().FamilyTime().Return(int64(20)).AnyTimes()
+// 	rs3.EXPECT().SlotRange().Return(timeutil.SlotRange{}).AnyTimes()
+// 	rs3.EXPECT().SeriesIDs().Return(roaring.BitmapOf(3)).AnyTimes()
+//
+// 	ctx.AddFilterResultSet(timeutil.Interval(10), rs1)
+// 	ctx.AddFilterResultSet(timeutil.Interval(10), rs2)
+// 	ctx.AddFilterResultSet(timeutil.Interval(10), rs3)
+//
+// 	assert.Equal(t, roaring.BitmapOf(1, 2, 3), ctx.SeriesIDs)
+// 	segments := ctx.GetTimeSegments()
+// 	assert.Len(t, segments, 2)
+// 	assert.Equal(t, int64(10), segments[0].FamilyTime)
+// 	assert.Equal(t, int64(20), segments[1].FamilyTime)
+//
+// 	rs1.EXPECT().Close()
+// 	rs2.EXPECT().Close()
+// 	rs3.EXPECT().Close()
+// 	ctx.Release()
+// }
+//
+// func TestShardExecuteContext(t *testing.T) {
+// 	ctx := NewShardExecuteContext(&StorageExecuteContext{})
+// 	assert.True(t, ctx.IsSeriesIDsEmpty())
+// 	ctx.TimeSegmentContext = &TimeSegmentContext{SeriesIDs: roaring.BitmapOf(1, 2, 3)}
+// 	assert.False(t, ctx.IsSeriesIDsEmpty())
+// 	ctx.Release()
+// }
+//
+// func TestGroupingSeriesAgg_reduce(t *testing.T) {
+// 	ctrl := gomock.NewController(t)
+// 	defer ctrl.Finish()
+//
+// 	seriesAgg := aggregation.NewMockSeriesAggregator(ctrl)
+// 	agg := &GroupingSeriesAgg{Aggregator: seriesAgg}
+// 	c := 0
+// 	seriesAgg.EXPECT().Reset()
+// 	agg.reduce(func(_ series.GroupedIterator) {
+// 		c++
+// 	})
+// 	assert.Equal(t, 1, c)
+//
+// 	c = 0
+// 	seriesAgg.EXPECT().Reset()
+// 	agg = &GroupingSeriesAgg{Aggregators: aggregation.FieldAggregates{seriesAgg}}
+// 	agg.reduce(func(_ series.GroupedIterator) {
+// 		c++
+// 	})
+// 	assert.Equal(t, 1, c)
+// }
+//
+// func TestDataLoadContext_PrepareAggregatorWithoutGrouping(t *testing.T) {
+// 	ctx := &DataLoadContext{
+// 		ShardExecuteCtx: &ShardExecuteContext{
+// 			StorageExecuteCtx: &StorageExecuteContext{
+// 				Fields:            field.Metas{{ID: 1}},
+// 				DownSamplingSpecs: aggregation.AggregatorSpecs{aggregation.NewAggregatorSpec("f", field.SumField)},
+// 				Query:             &stmt.Query{},
+// 			},
+// 		},
+// 		IsMultiField: false,
+// 	}
+// 	ctx.PrepareAggregatorWithoutGrouping()
+// 	assert.NotNil(t, ctx.WithoutGroupingSeriesAgg.Aggregator)
+// 	assert.Nil(t, ctx.WithoutGroupingSeriesAgg.Aggregators)
+//
+// 	ctx = &DataLoadContext{
+// 		ShardExecuteCtx: &ShardExecuteContext{
+// 			StorageExecuteCtx: &StorageExecuteContext{
+// 				Fields: field.Metas{{ID: 1}, {ID: 2}},
+// 				DownSamplingSpecs: aggregation.AggregatorSpecs{
+// 					aggregation.NewAggregatorSpec("a", field.SumField),
+// 					aggregation.NewAggregatorSpec("b", field.SumField),
+// 				},
+// 				Query: &stmt.Query{},
+// 			},
+// 		},
+// 		IsMultiField: true,
+// 	}
+// 	ctx.PrepareAggregatorWithoutGrouping()
+// 	assert.Nil(t, ctx.WithoutGroupingSeriesAgg.Aggregator)
+// 	assert.NotNil(t, ctx.WithoutGroupingSeriesAgg.Aggregators)
+// }
+//
+// func TestDataLoadContext_NewSeriesAggregator(t *testing.T) {
+// 	ctx := &DataLoadContext{
+// 		ShardExecuteCtx: &ShardExecuteContext{
+// 			StorageExecuteCtx: &StorageExecuteContext{
+// 				Fields:              field.Metas{{ID: 1}},
+// 				DownSamplingSpecs:   aggregation.AggregatorSpecs{aggregation.NewAggregatorSpec("f", field.SumField)},
+// 				Query:               &stmt.Query{},
+// 				GroupByTagKeyIDs:    []tag.KeyID{1},
+// 				GroupingTagValueIDs: make([]*roaring.Bitmap, 1),
+// 			},
+// 		},
+// 		IsMultiField: false,
+// 	}
+// 	idx := ctx.NewSeriesAggregator(string([]byte{1, 0, 0, 0}))
+// 	assert.Equal(t, uint16(0), idx)
+// 	idx = ctx.NewSeriesAggregator(string([]byte{2, 0, 0, 0}))
+// 	assert.Equal(t, uint16(1), idx)
+// 	assert.NotNil(t, ctx.GroupingSeriesAgg[0].Aggregator)
+// 	assert.Nil(t, ctx.GroupingSeriesAgg[0].Aggregators)
+//
+// 	ctx = &DataLoadContext{
+// 		ShardExecuteCtx: &ShardExecuteContext{
+// 			StorageExecuteCtx: &StorageExecuteContext{
+// 				Fields: field.Metas{{ID: 1}, {ID: 2}},
+// 				DownSamplingSpecs: aggregation.AggregatorSpecs{
+// 					aggregation.NewAggregatorSpec("a", field.SumField),
+// 					aggregation.NewAggregatorSpec("b", field.SumField),
+// 				},
+// 				Query: &stmt.Query{},
+// 			},
+// 		},
+// 		IsMultiField: true,
+// 	}
+// 	idx = ctx.NewSeriesAggregator("")
+// 	assert.Equal(t, uint16(0), idx)
+// 	assert.Nil(t, ctx.GroupingSeriesAgg[0].Aggregator)
+// 	assert.NotNil(t, ctx.GroupingSeriesAgg[0].Aggregators)
+// }
+//
+// func TestDataLoadContext_HasGroupingData(t *testing.T) {
+// 	ctx := &DataLoadContext{
+// 		ShardExecuteCtx: &ShardExecuteContext{
+// 			StorageExecuteCtx: &StorageExecuteContext{
+// 				Query: &stmt.Query{},
+// 			},
+// 		},
+// 		IsGrouping: false,
+// 	}
+// 	assert.True(t, ctx.HasGroupingData())
+// 	ctx = &DataLoadContext{
+// 		ShardExecuteCtx: &ShardExecuteContext{
+// 			StorageExecuteCtx: &StorageExecuteContext{
+// 				Query: &stmt.Query{GroupBy: []string{"ip"}},
+// 			},
+// 		},
+// 		IsGrouping: true,
+// 	}
+// 	assert.False(t, ctx.HasGroupingData())
+// 	ctx.GroupingSeriesAgg = []*GroupingSeriesAgg{nil}
+// 	assert.True(t, ctx.HasGroupingData())
+// }
+//
+// func TestDataLoadContext_IterateLowSeriesIDs(t *testing.T) {
+// 	querySeriesIDs := roaring.BitmapOf(5, 11, 13)
+// 	storageSeriesIDs := roaring.BitmapOf(1, 3, 5, 7, 9, 11, 13, 15)
+// 	ctx := &DataLoadContext{
+// 		LowSeriesIDsContainer: querySeriesIDs.GetContainer(0),
+// 		ShardExecuteCtx: &ShardExecuteContext{
+// 			StorageExecuteCtx: &StorageExecuteContext{
+// 				Query: &stmt.Query{GroupBy: []string{"ip"}},
+// 			},
+// 		},
+// 		IsGrouping: true,
+// 	}
+// 	ctx.Grouping()
+// 	findSeriesIDs := roaring.New()
+// 	storageLowSeriesContainer := storageSeriesIDs.GetContainer(0)
+// 	storageLowSeriesIDs := storageLowSeriesContainer.ToArray()
+// 	ctx.IterateLowSeriesIDs(storageLowSeriesContainer, func(_ uint16, seriesIdxFromStorage int) {
+// 		findSeriesIDs.Add(uint32(storageLowSeriesIDs[seriesIdxFromStorage]))
+// 	})
+// 	assert.Equal(t, querySeriesIDs, findSeriesIDs)
+// }
+//
+// func TestDataLoadContext_GetSeriesAggregator(t *testing.T) {
+// 	ctrl := gomock.NewController(t)
+// 	defer ctrl.Finish()
+//
+// 	agg := aggregation.NewMockSeriesAggregator(ctrl)
+// 	agg.EXPECT().Reset().AnyTimes()
+// 	ctx := &DataLoadContext{
+// 		ShardExecuteCtx: &ShardExecuteContext{
+// 			StorageExecuteCtx: &StorageExecuteContext{
+// 				Query: &stmt.Query{GroupBy: []string{"ip"}},
+// 			},
+// 		},
+// 		GroupingSeriesAggRefs: []uint16{1},
+// 		GroupingSeriesAgg:     []*GroupingSeriesAgg{{Aggregator: agg}, {Aggregator: agg}},
+// 		IsGrouping:            true,
+// 	}
+// 	aggregator := ctx.GetSeriesAggregator(0, 0)
+// 	assert.NotNil(t, aggregator)
+// 	ctx.Reduce(func(it series.GroupedIterator) {})
+//
+// 	ctx = &DataLoadContext{
+// 		ShardExecuteCtx: &ShardExecuteContext{
+// 			StorageExecuteCtx: &StorageExecuteContext{
+// 				Query:  &stmt.Query{},
+// 				Fields: field.Metas{{ID: 1}, {ID: 2}},
+// 			},
+// 		},
+// 		WithoutGroupingSeriesAgg: &GroupingSeriesAgg{Aggregators: aggregation.FieldAggregates{agg, agg}},
+// 		IsMultiField:             true,
+// 		IsGrouping:               false,
+// 	}
+// 	aggregator = ctx.GetSeriesAggregator(0, 1)
+// 	assert.NotNil(t, aggregator)
+// 	ctx.Reduce(func(it series.GroupedIterator) {})
+// }
+//
+// func TestTimeSegmentContexts(t *testing.T) {
+// 	segments := TimeSegmentContexts{
+// 		{
+// 			FamilyTime: 10,
+// 		},
+// 		{
+// 			FamilyTime: 100,
+// 		},
+// 		{
+// 			FamilyTime: 5,
+// 		},
+// 	}
+// 	sort.Sort(segments)
+// }

@@ -10,15 +10,13 @@ import (
 
 	"github.com/lindb/lindb/models"
 	protoCommandV1 "github.com/lindb/lindb/proto/gen/v1/command"
-	sqlContext "github.com/lindb/lindb/sql/context"
 	"github.com/lindb/lindb/sql/execution/buffer"
 	"github.com/lindb/lindb/sql/execution/model"
 	"github.com/lindb/lindb/sql/execution/pipeline"
-	"github.com/lindb/lindb/sql/planner"
-	"github.com/lindb/lindb/sql/planner/iterative"
-	"github.com/lindb/lindb/sql/planner/iterative/rule"
-	"github.com/lindb/lindb/sql/planner/optimization"
+	"github.com/lindb/lindb/sql/interfaces"
+	"github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/planner/printer"
+	"github.com/lindb/lindb/sql/rewrite"
 	"github.com/lindb/lindb/sql/tree"
 )
 
@@ -78,9 +76,9 @@ func (ctx *QueryContext) ResultSet() *model.ResultSet {
 }
 
 type QueryExecution struct {
-	session        *Session
-	queryContext   *QueryContext
-	plannerContext *sqlContext.PlannerContext
+	session      *Session
+	queryContext *QueryContext
+	planner      *Planner
 
 	preparedStatement *tree.PreparedStatement
 	deps              *Deps
@@ -90,6 +88,7 @@ func NewQueryExecution(session *Session, deps *Deps, preparedStatement *tree.Pre
 	return &QueryExecution{
 		session:           session,
 		deps:              deps,
+		planner:           NewPlanner(deps.AnalyzerFct),
 		preparedStatement: preparedStatement,
 	}
 }
@@ -101,78 +100,36 @@ func (exec *QueryExecution) Start() any {
 	}()
 
 	exec.queryContext = NewQueryContext()
-	exec.plannerContext = sqlContext.NewPlannerContext(
-		exec.session.Context,
-		exec.session.Database,
-		exec.session.NodeIDAllocator,
-		exec.preparedStatement.Statement,
-	)
 
-	exec.analyze()
+	// rewrite statement
+	statement := exec.rewrite(exec.preparedStatement.Statement)
 
-	plan := exec.planQuery(exec.queryContext.GetOutput())
-	exec.planDistribution(plan)
+	// plan statement
+	plan := exec.planner.Plan(exec.session, statement)
+	fmt.Println("******************")
+	printer := printer.NewPlanPrinter(printer.NewTextRender(0))
+	fmt.Println(printer.PrintLogicPlan(plan.Root))
+	fmt.Println("******************")
+	// distribute plan
+	fragmentedPlan := exec.planner.PlanDistribution(plan)
 	// scheduler start
+	exec.execute(fragmentedPlan, exec.queryContext.GetOutput())
 
 	// waiting query complete
 	exec.queryContext.Wait()
 	return exec.queryContext.ResultSet()
 }
 
-func (exec *QueryExecution) analyze() {
+func (exec *QueryExecution) rewrite(statement tree.Statement) tree.Statement {
+	rewrites := rewrite.NewStatementRewrite([]interfaces.Rewrite{
+		NewExplainRewrite(exec.session, NewQueryExplainer(exec.planner)),
+	})
 	// rewrite
-	rewrittenStatement := exec.deps.StatementRewrite.Rewrite(exec.preparedStatement.Statement)
-	// create analyzer
-	analyzer := exec.deps.AnalyzerFct.CreateAnalyzer(exec.plannerContext.AnalyzerContext)
-	// do analyze
-	analyzer.Analyze(rewrittenStatement)
+	return rewrites.Rewrite(statement)
 }
 
-func (exec *QueryExecution) planQuery(output buffer.OutputBuffer) *PlanRoot {
-	// FIXME: fixme:
-
-	// plan query
-	planOptimizers := []optimization.PlanOptimizer{
-		// optimization.NewPruneColumns(),
-		iterative.NewIterativeOptimizer([]iterative.Rule{
-			rule.NewRemoveRedundantIdentityProjections(),
-		}),
-		// column pruning optimizer
-		iterative.NewIterativeOptimizer([]iterative.Rule{
-			rule.NewPruneAggregationSourceColumns(),
-			rule.NewPruneFilterColumns(),
-			rule.NewPruneOutputSourceColumns(),
-			rule.NewPruneProjectionColumns(),
-			rule.NewPruneTableScanColumns(),
-		}),
-		iterative.NewIterativeOptimizer([]iterative.Rule{
-			rule.NewRemoveRedundantIdentityProjections(),
-		}),
-		// push into table scan optimizer
-		iterative.NewIterativeOptimizer([]iterative.Rule{
-			rule.NewPushProjectionIntoTableScan(),
-			rule.NewPushAggregationIntoTableScan(),
-		}),
-		optimization.NewAddExchanges(),
-		optimization.NewAddLocalExchanges(),
-		iterative.NewIterativeOptimizer([]iterative.Rule{
-			rule.NewPushPartialAggregationThroughExchange(),
-		}),
-		iterative.NewIterativeOptimizer([]iterative.Rule{
-			rule.NewRemoveRedundantIdentityProjections(),
-		}),
-	}
-	logicalPlanner := planner.NewLogicalPlanner(exec.plannerContext, planOptimizers)
-	plan := logicalPlanner.Plan()
-
-	// fragment the plan
-	fragmenter := planner.NewPlanFragmenter()
-	fragmentedPlan := fragmenter.CreateSubPlans(plan)
-
+func (exec *QueryExecution) execute(fragmentedPlan *plan.SubPlan, output buffer.OutputBuffer) {
 	printer := printer.NewPlanPrinter(printer.NewTextRender(0))
-	fmt.Println("******************")
-	fmt.Println(printer.PrintLogicPlan(plan.Root))
-	fmt.Println("******************")
 	fmt.Println(printer.PrintDistributedPlan(fragmentedPlan))
 	session := exec.session
 
@@ -231,10 +188,4 @@ func (exec *QueryExecution) planQuery(output buffer.OutputBuffer) *PlanRoot {
 	}
 
 	fmt.Println("done.......")
-	return &PlanRoot{
-		root: fragmentedPlan,
-	}
-}
-
-func (exec *QueryExecution) planDistribution(plan *PlanRoot) {
 }

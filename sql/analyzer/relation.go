@@ -1,6 +1,8 @@
 package analyzer
 
 import (
+	"fmt"
+
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/sql/tree"
@@ -16,14 +18,12 @@ var (
 )
 
 type Relation struct {
-	Type         RelationType
 	Fields       []*tree.Field
 	FieldIndexes map[*tree.Field]int
 }
 
-func NewRelation(relationType RelationType, fields []*tree.Field) *Relation {
+func NewRelation(fields []*tree.Field) *Relation {
 	rt := &Relation{
-		Type:         relationType,
 		Fields:       fields,
 		FieldIndexes: make(map[*tree.Field]int),
 	}
@@ -33,26 +33,31 @@ func NewRelation(relationType RelationType, fields []*tree.Field) *Relation {
 	return rt
 }
 
-func (r *Relation) withAlias(relationAlias string) *Relation {
+func (r *Relation) withAlias(relationAlias string, columnAliases []string) *Relation {
 	var fields []*tree.Field
 	for i := range r.Fields {
 		field := r.Fields[i]
+		columnAlias := field.Name
+		if len(columnAliases) != 0 {
+			columnAlias = columnAliases[i]
+		}
+		fmt.Printf("columnAlias=%s,columnAliases=%v", columnAlias, columnAliases)
 
 		fields = append(fields, &tree.Field{
-			Name:          field.Name,
+			Name:          columnAlias,
 			DataType:      field.DataType,
 			AggType:       field.AggType,
 			RelationAlias: tree.NewQualifiedName([]*tree.Identifier{{Value: relationAlias}}),
 		})
 	}
-	return NewRelation(AliasedRelation, fields)
+	return NewRelation(fields)
 }
 
 func (r *Relation) joinWith(other *Relation) *Relation {
 	var fields []*tree.Field
 	fields = append(fields, r.Fields...)
 	fields = append(fields, other.Fields...)
-	return NewRelation(JoinRelation, fields)
+	return NewRelation(fields)
 }
 
 func (r *Relation) getFieldByIndex(fieldIndex int) *tree.Field {

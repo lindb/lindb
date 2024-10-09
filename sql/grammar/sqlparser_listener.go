@@ -13,8 +13,14 @@ type SQLParserListener interface {
 	// EnterDdlStatement is called when entering the ddlStatement production.
 	EnterDdlStatement(c *DdlStatementContext)
 
-	// EnterDmlStatement is called when entering the dmlStatement production.
-	EnterDmlStatement(c *DmlStatementContext)
+	// EnterStatementDefault is called when entering the statementDefault production.
+	EnterStatementDefault(c *StatementDefaultContext)
+
+	// EnterExplain is called when entering the explain production.
+	EnterExplain(c *ExplainContext)
+
+	// EnterExplainAnalyze is called when entering the explainAnalyze production.
+	EnterExplainAnalyze(c *ExplainAnalyzeContext)
 
 	// EnterAdminStatement is called when entering the adminStatement production.
 	EnterAdminStatement(c *AdminStatementContext)
@@ -280,8 +286,14 @@ type SQLParserListener interface {
 	// ExitDdlStatement is called when exiting the ddlStatement production.
 	ExitDdlStatement(c *DdlStatementContext)
 
-	// ExitDmlStatement is called when exiting the dmlStatement production.
-	ExitDmlStatement(c *DmlStatementContext)
+	// ExitStatementDefault is called when exiting the statementDefault production.
+	ExitStatementDefault(c *StatementDefaultContext)
+
+	// ExitExplain is called when exiting the explain production.
+	ExitExplain(c *ExplainContext)
+
+	// ExitExplainAnalyze is called when exiting the explainAnalyze production.
+	ExitExplainAnalyze(c *ExplainAnalyzeContext)
 
 	// ExitAdminStatement is called when exiting the adminStatement production.
 	ExitAdminStatement(c *AdminStatementContext)

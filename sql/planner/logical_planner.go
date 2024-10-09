@@ -52,9 +52,10 @@ func (p *LogicalPlanner) planStatement() planpkg.PlanNode {
 
 func (p *LogicalPlanner) planStatementWithoutOutput() *RelationPlan {
 	statement := p.context.AnalyzerContext.Analysis.GetStatement()
+	fmt.Printf("statement type=%T\n", statement)
 	switch stmt := statement.(type) {
 	case *tree.Query:
-		planner := NewRelationPlanner(p.context)
+		planner := NewRelationPlanner(p.context, nil)
 		return stmt.Accept(nil, planner).(*RelationPlan)
 	default:
 		// TODO: plan other statement

@@ -24,7 +24,9 @@ func CreateResultSetBuild() *ResultSetBuild {
 }
 
 func (rsb *ResultSetBuild) AddPage(page *types.Page) {
-	rsb.pages <- page
+	if page != nil {
+		rsb.pages <- page
+	}
 }
 
 func (rsb *ResultSetBuild) Process() {

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/lindb/common/pkg/logger"
+	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/function"
@@ -67,6 +68,8 @@ func (v *StatementVisitor) Visit(context any, n tree.Node) any {
 		return v.visitTable(context, node)
 	case *tree.AliasedRelation:
 		return v.visitAliasedRelation(context, node)
+	case *tree.Values:
+		return v.visitValues(context, node)
 	case *tree.Join:
 		return v.visitJoin(context, node)
 	case *tree.FunctionCall:
@@ -208,11 +211,28 @@ func (v *StatementVisitor) visitAliasedRelation(context any, relation *tree.Alia
 	// v.analyzer.analysis.AddAliased(relation, aliased)
 
 	relationScope := relation.Relation.Accept(scope, v).(*Scope)
+	columnAliases := lo.Map(relation.ColumnNames, func(item *tree.Identifier, index int) string {
+		return item.Value
+	})
+	fmt.Printf("aliased relation columns:%v\n", columnAliases)
 	relationType := relationScope.RelationType
-	descriptor := relationType.withAlias(relation.Aliase.Value)
-	// FIXME: add column
+	descriptor := relationType.withAlias(relation.Aliase.Value, columnAliases)
 
 	return v.createAndAssignScope(relation, scope, descriptor)
+}
+
+func (v *StatementVisitor) visitValues(context any, values *tree.Values) (r any) {
+	scope := context.(*Scope)
+	layout := values.Rows.Layout
+	var fields []*tree.Field
+	for _, column := range layout {
+		fields = append(fields, &tree.Field{
+			Name:     column.Name,
+			DataType: column.DataType,
+		})
+	}
+
+	return v.createAndAssignScope(values, scope, NewRelation(fields))
 }
 
 func (v *StatementVisitor) visitTable(ctx any, table *tree.Table) (r any) {
@@ -257,7 +277,7 @@ func (v *StatementVisitor) visitTable(ctx any, table *tree.Table) (r any) {
 	v.analyzer.ctx.Analysis.RegisterTableMetadata(tableHandle.String(), tableMetadata)
 	// FIXME: table fields??
 
-	return v.createAndAssignScope(table, scope, NewRelation(TableRelation, outputFields))
+	return v.createAndAssignScope(table, scope, NewRelation(outputFields))
 }
 
 func (v *StatementVisitor) visitFunctionCall(context any, node *tree.FunctionCall) (r any) {
@@ -544,7 +564,7 @@ func (v *StatementVisitor) createScopeForCommonTableExpression(table *tree.Table
 	// FIXME: analyze field
 	var fields []*tree.Field
 
-	return v.createAndAssignScope(table, scope, NewRelation(UnknownRelation, fields))
+	return v.createAndAssignScope(table, scope, NewRelation(fields))
 }
 
 func (v *StatementVisitor) createAndAssignScope(node tree.Node, parent *Scope, relationType *Relation) *Scope {
@@ -598,7 +618,7 @@ func (v *StatementVisitor) computeAndAssignOutputScope(node *tree.QuerySpecifica
 			panic(fmt.Sprintf("unsupported selec type type: %s", reflect.TypeOf(item)))
 		}
 	}
-	return v.createAndAssignScope(node, scope, NewRelation(UnknownRelation, outputFields))
+	return v.createAndAssignScope(node, scope, NewRelation(outputFields))
 }
 
 func (v *StatementVisitor) computeAndAssignOrderByScope(node *tree.OrderBy,

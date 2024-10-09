@@ -46,6 +46,15 @@ type Expression interface {
 	Node
 }
 
+type Row struct {
+	BaseNode
+	Items []Expression
+}
+
+func (n *Row) Accept(context any, visitor Visitor) (r any) {
+	return visitor.Visit(context, n)
+}
+
 type Cast struct {
 	BaseNode
 	Type       types.DataType `json:"type"`

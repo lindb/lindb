@@ -1,16 +1,31 @@
 package tree
 
-import "github.com/lindb/common/constants"
+import (
+	"github.com/lindb/common/constants"
+
+	"github.com/lindb/lindb/spi/types"
+)
 
 type Relation interface {
 	Node
 }
 
+type Values struct {
+	BaseNode
+
+	Rows *types.Page
+}
+
+func (n *Values) Accept(context any, vistor Visitor) any {
+	return vistor.Visit(context, n)
+}
+
 type AliasedRelation struct {
 	BaseNode
 
-	Relation Relation
-	Aliase   *Identifier
+	Relation    Relation
+	Aliase      *Identifier
+	ColumnNames []*Identifier
 }
 
 func (n *AliasedRelation) Accept(context any, vistor Visitor) any {

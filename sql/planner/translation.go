@@ -18,6 +18,7 @@ type TranslationMap struct {
 	scope        *analyzer.Scope
 	context      *context.PlannerContext
 	astToSymbols map[tree.NodeID]*plan.Symbol
+	outerContext *TranslationMap
 
 	fieldSymbols []*plan.Symbol
 }
@@ -32,6 +33,7 @@ func (t *TranslationMap) withNewMappings(mappings map[tree.NodeID]*plan.Symbol, 
 	return &TranslationMap{
 		context:      t.context,
 		scope:        t.scope,
+		outerContext: t.outerContext,
 		astToSymbols: mappings,
 		fieldSymbols: fields,
 	}
@@ -49,6 +51,7 @@ func (t *TranslationMap) withAdditionalMapping(mappings map[tree.NodeID]*plan.Sy
 	return &TranslationMap{
 		scope:        t.scope,
 		context:      t.context,
+		outerContext: t.outerContext,
 		astToSymbols: newMappings, // TODO: verify ast expression
 		fieldSymbols: t.fieldSymbols,
 	}
@@ -73,7 +76,9 @@ func (t *TranslationMap) getSymbolForColumn(node tree.Expression) *plan.Symbol {
 		return t.fieldSymbols[field.HierarchyFieldIndex]
 	}
 
-	// TODO: out context
+	if t.outerContext != nil {
+		return plan.SymbolFrom(t.outerContext.Rewrite(node))
+	}
 
 	return nil
 }

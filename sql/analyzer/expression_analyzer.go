@@ -65,9 +65,19 @@ func (v *ExpressionVisitor) Visit(context any, n tree.Node) (r any) {
 		return v.visitFieldReference(context, node)
 	case *tree.ArithmeticBinaryExpression:
 		return v.visitArithemticBinary(context, node)
+	case *tree.Row:
+		return v.visitRow(context, node)
 	default:
 		panic(fmt.Sprintf("expression analyzer unsupport node:%T", n))
 	}
+}
+
+func (v *ExpressionVisitor) visitRow(context any, node *tree.Row) (r any) {
+	for _, item := range node.Items {
+		item.Accept(context, v)
+	}
+	// TODO: change data type
+	return v.setExpressionType(node, types.DTString)
 }
 
 func (v *ExpressionVisitor) visitFieldReference(context any, node *tree.FieldReference) (r any) {

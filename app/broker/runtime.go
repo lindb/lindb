@@ -57,7 +57,6 @@ import (
 	_ "github.com/lindb/lindb/spi/table/infoschema"
 	"github.com/lindb/lindb/sql/analyzer"
 	"github.com/lindb/lindb/sql/execution"
-	"github.com/lindb/lindb/sql/rewrite"
 )
 
 // just for testing
@@ -252,9 +251,8 @@ func (r *runtime) Run() error {
 
 	r.metadataMgr = meta.NewBrokerMetadataManager(r.stateMgr, r.master)
 	execDeps := &execution.Deps{
-		StatementRewrite: rewrite.NewStatementRewrite(nil),
-		AnalyzerFct:      analyzer.NewAnalyzerFactory(spi.NewMetadataManager(r.metadataMgr)),
-		Repo:             r.repo,
+		AnalyzerFct: analyzer.NewAnalyzerFactory(spi.NewMetadataManager(r.metadataMgr)),
+		Repo:        r.repo,
 		CurrentNode: &models.InternalNode{
 			IP:   r.node.HostIP,
 			Port: r.node.GRPCPort,

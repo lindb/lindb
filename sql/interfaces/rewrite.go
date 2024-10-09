@@ -1,4 +1,4 @@
-package rewrite
+package interfaces
 
 import "github.com/lindb/lindb/sql/tree"
 

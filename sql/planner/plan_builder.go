@@ -19,6 +19,7 @@ func newPlanBuilder(context *context.PlannerContext, plan *RelationPlan, mapping
 		translations: &TranslationMap{
 			scope:        plan.Scope,
 			context:      context,
+			outerContext: plan.OutContext,
 			fieldSymbols: plan.FieldMappings,
 			astToSymbols: mappings,
 		},

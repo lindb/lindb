@@ -1,11 +1,7 @@
 // Code generated from ./sql/grammar/SQLParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package grammar // SQLParser
-import (
-	"fmt"
-
-	"github.com/antlr4-go/antlr/v4"
-)
+import "github.com/antlr4-go/antlr/v4"
 
 type BaseSQLParserVisitor struct {
 	*antlr.BaseParseTreeVisitor
@@ -19,7 +15,15 @@ func (v *BaseSQLParserVisitor) VisitDdlStatement(ctx *DdlStatementContext) inter
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLParserVisitor) VisitDmlStatement(ctx *DmlStatementContext) interface{} {
+func (v *BaseSQLParserVisitor) VisitStatementDefault(ctx *StatementDefaultContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLParserVisitor) VisitExplain(ctx *ExplainContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLParserVisitor) VisitExplainAnalyze(ctx *ExplainAnalyzeContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -228,7 +232,6 @@ func (v *BaseSQLParserVisitor) VisitLogicalNot(ctx *LogicalNotContext) interface
 }
 
 func (v *BaseSQLParserVisitor) VisitPredicatedExpression(ctx *PredicatedExpressionContext) interface{} {
-	fmt.Println("kkkkffff..............")
 	return v.VisitChildren(ctx)
 }
 
@@ -245,7 +248,6 @@ func (v *BaseSQLParserVisitor) VisitValueExpressionDefault(ctx *ValueExpressionD
 }
 
 func (v *BaseSQLParserVisitor) VisitArithmeticBinary(ctx *ArithmeticBinaryContext) interface{} {
-	fmt.Println("kkk..fsd1111")
 	return v.VisitChildren(ctx)
 }
 
@@ -278,7 +280,6 @@ func (v *BaseSQLParserVisitor) VisitBooleanLiteral(ctx *BooleanLiteralContext) i
 }
 
 func (v *BaseSQLParserVisitor) VisitBinaryComparisonPredicate(ctx *BinaryComparisonPredicateContext) interface{} {
-	fmt.Println("binary compare pppp")
 	return v.VisitChildren(ctx)
 }
 
@@ -295,7 +296,6 @@ func (v *BaseSQLParserVisitor) VisitRegexpPredicate(ctx *RegexpPredicateContext)
 }
 
 func (v *BaseSQLParserVisitor) VisitValueExpressionPredicate(ctx *ValueExpressionPredicateContext) interface{} {
-	fmt.Println("value pppp")
 	return v.VisitChildren(ctx)
 }
 

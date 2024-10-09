@@ -31,7 +31,7 @@ type Scope struct {
 func createScope(parent *Scope) *Scope {
 	return &Scope{
 		Parent:       parent,
-		RelationType: NewRelation(TableRelation, nil), // FIXME:???
+		RelationType: NewRelation(nil), // FIXME:???
 	}
 }
 

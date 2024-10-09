@@ -8,15 +8,15 @@ import (
 	"github.com/lindb/lindb/sql/tree"
 )
 
-var (
-	statementTypes = make(map[reflect.Type]models.StatementType)
-)
+var statementTypes = make(map[reflect.Type]models.StatementType)
 
 func init() {
 	// DDL
 	statementTypes[reflect.TypeOf(&tree.CreateDatabase{})] = models.DataDefinition
 	// DML
 	statementTypes[reflect.TypeOf(&tree.Query{})] = models.Select
+	// Explain
+	statementTypes[reflect.TypeOf(&tree.Explain{})] = models.Select
 }
 
 func GetStatementType(statement tree.Statement) models.StatementType {
