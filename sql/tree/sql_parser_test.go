@@ -1,9 +1,15 @@
 package tree
 
 import (
+	"fmt"
+	"reflect"
+	"sort"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lindb/lindb/sql/grammar"
 )
 
 var (
@@ -312,4 +318,26 @@ func TestSQLParse(t *testing.T) {
 	parser := GetParser()
 	_, err := parser.CreateStatement(`select 12*(idle*10+100)/10,node from "lindb.monitor.system.cpu_stat" group by node`, NewNodeIDAllocator())
 	assert.NoError(t, err)
+}
+
+func Test_KeyWorks(t *testing.T) {
+	typ := reflect.TypeOf(&grammar.NonReservedContext{})
+	var keyWords []string
+	for i := 0; i < typ.NumMethod(); i++ {
+		methodName := typ.Method(i).Name
+		if strings.ToUpper(methodName) == methodName {
+			fmt.Println(methodName)
+			keyWords = append(keyWords, methodName)
+		}
+	}
+	sort.Strings(keyWords)
+	count := 0
+	for _, name := range keyWords {
+		fmt.Printf("%-15s", name)
+		count++
+		if count%6 == 0 {
+			fmt.Printf("\n")
+		}
+	}
+	fmt.Println()
 }
