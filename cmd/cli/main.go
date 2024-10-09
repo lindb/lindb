@@ -23,7 +23,9 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -36,6 +38,7 @@ import (
 	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/logger"
+	"github.com/lindb/lindb/sql/grammar"
 )
 
 // for testing
@@ -56,41 +59,31 @@ type inputCtx struct {
 }
 
 var (
-	endpoint string
-	// tokens represents suggest token.
-	tokens = []prompt.Suggest{
-		{Text: "show"},
-		{Text: "use"},
-		{Text: "alive"},
-		{Text: "master"},
-		{Text: "storages"},
-		{Text: "storage"},
-		{Text: "broker"},
-		{Text: "schemas"},
-		{Text: "database"},
-		{Text: "databases"},
-		{Text: "group by"},
-		{Text: "select"},
-		{Text: "from"},
-		{Text: "where"},
-		{Text: "namespaces"},
-		{Text: "namespace"},
-		{Text: "metrics"},
-		{Text: "metric"},
-		{Text: "fields"},
-		{Text: "tag"},
-		{Text: "with"},
-		{Text: "keys"},
-		{Text: "key"},
-		{Text: "values"},
-		{Text: "and"},
-	}
+	endpoint      string
 	spacesPattern = regexp.MustCompile(`\s+`)
 	inputC        = &inputCtx{}
 	query         = ""
 	live          = true
 	cli           client.ExecuteCli
 )
+
+// suggestTokens returns prompt suggest tokens.
+func suggestTokens() (tokens []prompt.Suggest) {
+	typ := reflect.TypeOf(&grammar.NonReservedContext{})
+	var keyWords []string
+	for i := 0; i < typ.NumMethod(); i++ {
+		methodName := typ.Method(i).Name
+		if strings.ToUpper(methodName) == methodName {
+			keyWords = append(keyWords, methodName)
+		}
+	}
+	keyWords = append(keyWords, "EXIT")
+	sort.Strings(keyWords)
+	for _, word := range keyWords {
+		tokens = append(tokens, prompt.Suggest{Text: word})
+	}
+	return
+}
 
 func init() {
 	flag.StringVar(&endpoint, "endpoint", "http://localhost:9000", "Broker HTTP Endpoint")
@@ -118,7 +111,7 @@ func executor(in string) {
 			return
 		}
 		blocks := strings.Split(spacesPattern.ReplaceAllString(query, " "), " ")
-		switch blocks[0] {
+		switch strings.ToLower(blocks[0]) {
 		case "exit":
 			fmt.Println("Good Bye :)")
 			exit(0)
@@ -171,7 +164,7 @@ func completer(bc string) []prompt.Suggest {
 	}
 	args := strings.Split(spacesPattern.ReplaceAllString(bc, " "), " ")
 	cmdName := args[len(args)-1]
-	return prompt.FilterHasPrefix(tokens, cmdName, true)
+	return prompt.FilterHasPrefix(suggestTokens(), cmdName, true)
 }
 
 func main() {
