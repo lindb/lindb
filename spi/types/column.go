@@ -1,5 +1,7 @@
 package types
 
+import "time"
+
 type Column struct {
 	Blocks    []Block `json:"block"`
 	NumOfRows int     `json:"numOfRows"`
@@ -37,6 +39,11 @@ func (c *Column) AppendFloat(val float64) {
 	c.NumOfRows++
 }
 
+func (c *Column) AppendTimestamp(val time.Time) {
+	c.Blocks = append(c.Blocks, &val)
+	c.NumOfRows++
+}
+
 func (c *Column) GetString(row int) *String {
 	if row >= len(c.Blocks) {
 		return nil
@@ -59,6 +66,14 @@ func (c *Column) GetFloat(row int) *Float {
 	}
 	// FIXME:
 	return c.Blocks[row].(*Float)
+}
+
+func (c *Column) GetTimestamp(row int) *time.Time {
+	if row >= len(c.Blocks) {
+		return nil
+	}
+	// FIXME:
+	return c.Blocks[row].(*time.Time)
 }
 
 func (c *Column) GetTimeSeries(row int) *TimeSeries {

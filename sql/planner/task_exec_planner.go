@@ -88,7 +88,18 @@ func (v *TaskExecutionPlanVisitor) Visit(context any, n planpkg.PlanNode) (r any
 }
 
 func (v *TaskExecutionPlanVisitor) visitValues(_ any, node *planpkg.ValuesNode) (r any) {
-	operatorFct := operator.NewValuesOperatorFactory(node.ID, []*types.Page{node.Rows})
+	var page *types.Page
+	if node.Rows != nil {
+		page = node.Rows
+	} else if node.RowCount > 0 {
+		page = types.NewPage()
+		column := types.NewColumn()
+		page.AppendColumn(types.ColumnMetadata{}, column)
+		column.AppendString("") // mock empty value
+	}
+	fmt.Printf("values node =%v\n", page)
+
+	operatorFct := operator.NewValuesOperatorFactory(node.ID, page)
 	return NewPhysicalOperation(operatorFct, node.GetOutputSymbols(), nil)
 }
 

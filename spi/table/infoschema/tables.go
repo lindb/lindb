@@ -2,6 +2,7 @@ package infoschema
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/meta"
@@ -11,8 +12,8 @@ import (
 
 func init() {
 	spi.RegisterGetTableSchemaFn(spi.InfoSchema, func(db, ns, table string) (*types.TableSchema, error) {
-		schema := GetTableSchema(table)
-		if schema == nil {
+		schema, ok := GetTableSchema(table)
+		if !ok {
 			return nil, fmt.Errorf("information table schema not found: %s", table)
 		}
 		return schema, nil
@@ -30,8 +31,8 @@ var (
 			{Name: "host_ip", DataType: types.DTString},
 			{Name: "host_name", DataType: types.DTString},
 			{Name: "version", DataType: types.DTString},
-			{Name: "online_time", DataType: types.DTInt},
-			{Name: "elect_time", DataType: types.DTInt},
+			{Name: "online_time", DataType: types.DTString},
+			{Name: "elect_time", DataType: types.DTString},
 		},
 	}
 	brokerSchema = &types.TableSchema{
@@ -39,7 +40,7 @@ var (
 			{Name: "host_ip", DataType: types.DTString},
 			{Name: "host_name", DataType: types.DTString},
 			{Name: "version", DataType: types.DTString},
-			{Name: "online_time", DataType: types.DTInt},
+			{Name: "online_time", DataType: types.DTString},
 			{Name: "grpc", DataType: types.DTInt},
 			{Name: "http", DataType: types.DTInt},
 		},
@@ -50,7 +51,7 @@ var (
 			{Name: "host_ip", DataType: types.DTString},
 			{Name: "host_name", DataType: types.DTString},
 			{Name: "version", DataType: types.DTString},
-			{Name: "online_time", DataType: types.DTInt},
+			{Name: "online_time", DataType: types.DTString},
 			{Name: "grpc", DataType: types.DTInt},
 			{Name: "http", DataType: types.DTInt},
 		},
@@ -63,7 +64,7 @@ var (
 	}
 	enginesSchema = &types.TableSchema{
 		Columns: []types.ColumnMetadata{
-			{Name: "engine", DataType: types.DTString},
+			{Name: "engine", DataType: types.DTString},  // metric/log/trace
 			{Name: "support", DataType: types.DTString}, // default/yes/no/disabled
 		},
 	}
@@ -114,6 +115,7 @@ var (
 	}
 )
 
-func GetTableSchema(name string) *types.TableSchema {
-	return tables[name]
+func GetTableSchema(name string) (schema *types.TableSchema, ok bool) {
+	schema, ok = tables[strings.ToLower(name)]
+	return
 }

@@ -158,7 +158,8 @@ primaryExpression   :
                     | '(' expression ')'                                    #parenExpression
                     ;
 
-predicate           : left=valueExpression operator=comparisonOperator right=valueExpression                   #binaryComparisonPredicate
+predicate           : TIME operator=comparisonOperator right=valueExpression                                   #timestampPredicate 
+										| left=valueExpression operator=comparisonOperator right=valueExpression                   #binaryComparisonPredicate
                     | left=valueExpression NOT? IN '(' expression (',' expression)* ')'                        #inPredicate
                     | left=valueExpression NOT? LIKE pattern=valueExpression (ESCAPE escape=valueExpression)?  #likePredicate
                     | left=valueExpression operator=(REGEXP|NEQREGEXP) pattern=valueExpression?                #regexpPredicate
@@ -166,7 +167,6 @@ predicate           : left=valueExpression operator=comparisonOperator right=val
                     ;
 
 comparisonOperator  : EQ | NEQ | LT | LTE | GT | GTE ;
-filter              : FILTER '(' WHERE booleanExpression ')' ;
 
 qualifiedName       : identifier ('.' identifier)* ;
 
@@ -192,14 +192,15 @@ number              : MINUS? DECIMAL_VALUE                                  #dec
                     | MINUS? DOUBLE_VALUE                                   #doubleLiteral
                     | MINUS? INTEGER_VALUE                                  #integerLiteral
                     ;
-
+timestamp           : NOW '(' ')'  #currentTimestamp
+                    ; 
 nonReserved         :
                       ALL | ALIVE | AND | AS | ASC
                     | BROKER | BROKERS | BY 
                     | COMPACT | CREATE | CROSS 
                     | DATABASE | DATABASES | DEFAULT | DESC | DISTRIBUTED | DROP
                     | ENGINE | ESCAPE | EXPLAIN | EXISTS
-                    | FALSE | FIELDS | FILTER | FLUSH | FROM
+                    | FALSE | FIELDS | FLUSH | FROM
                     | GROUP 
                     | HAVING
                     | IF | IN 
@@ -207,12 +208,11 @@ nonReserved         :
                     | KEYS
                     | LEFT | LIKE | LIMIT | LOG | LOGICAL
                     | MASTER | METRIC | METRICS | METADATA | METADATAS
-                    | NAMESPACE | NAMESPACES | NOT
+                    | NAMESPACE | NAMESPACES | NOT | NOW
                     | ON | OR | ORDER
-                    | PLAN
                     | REQUESTS | REPLICATIONS | RIGHT | ROLLUP
                     | SELECT | SHOW | STATE | STORAGE
-                    | TAG | TRACE | TRUE | TYPE | TYPES 
+                    | TAG | TIME | TRACE | TRUE | TYPE | TYPES 
                     | VALUES
                     | WHERE | WITH | WITHIN
                     | USING | USE

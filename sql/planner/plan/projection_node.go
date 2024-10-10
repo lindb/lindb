@@ -1,8 +1,6 @@
 package plan
 
 import (
-	"fmt"
-
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/sql/tree"
@@ -45,7 +43,6 @@ func (a Assignments) GetOutputs() (outputs []*Symbol) {
 	for _, assignment := range a {
 		outputs = append(outputs, assignment.Symbol)
 	}
-	fmt.Printf("project ass outputs=%v\n", outputs)
 	return
 }
 

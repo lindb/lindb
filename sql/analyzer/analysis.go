@@ -48,6 +48,7 @@ func (gsa *GroupingSetAnalysis) GetOriginalExpression() []tree.Expression {
 
 type Analysis struct {
 	root                  tree.Statement
+	implicitFromScopes    map[tree.NodeID]*Scope
 	scopes                map[tree.NodeID]*Scope      // TODO: node ref?
 	namedQueries          map[tree.NodeID]*tree.Query // table reference to with query
 	selectAllResultFields map[tree.NodeID][]*tree.Field
@@ -73,6 +74,7 @@ type Analysis struct {
 func NewAnalysis(root tree.Statement) *Analysis {
 	return &Analysis{
 		root:                  root,
+		implicitFromScopes:    make(map[tree.NodeID]*Scope),
 		scopes:                make(map[tree.NodeID]*Scope),
 		namedQueries:          make(map[tree.NodeID]*tree.Query),
 		selectAllResultFields: make(map[tree.NodeID][]*tree.Field),
@@ -98,6 +100,15 @@ func NewAnalysis(root tree.Statement) *Analysis {
 
 func (a *Analysis) GetRoot() tree.Node {
 	return a.root
+}
+
+func (a *Analysis) SetImplicitFromScope(node *tree.QuerySpecification, scope *Scope) {
+	a.implicitFromScopes[node.GetID()] = scope
+}
+
+func (a *Analysis) GetImplicitFromScope(node *tree.QuerySpecification) (scope *Scope) {
+	scope = a.implicitFromScopes[node.GetID()]
+	return
 }
 
 func (a *Analysis) SetScope(node tree.Node, scope *Scope) {

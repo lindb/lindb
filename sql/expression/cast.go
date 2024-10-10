@@ -2,6 +2,7 @@ package expression
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/lindb/lindb/spi/types"
 )
@@ -38,6 +39,10 @@ func (c *Cast) EvalFloat(row types.Row) (val float64, isNull bool, err error) {
 
 func (c *Cast) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error) {
 	return c.function.EvalTimeSeries(row)
+}
+
+func (c *Cast) EvalTime(_ types.Row) (val time.Time, isNull bool, err error) {
+	return
 }
 
 // GetType implements Expression.

@@ -28,7 +28,7 @@ func (s *SplitSourceProvider) CreateSplitSources(table spi.TableHandle, partitio
 	if !ok {
 		panic(fmt.Sprintf("information schema provider not support table handle<%T>", table))
 	}
-	schema, ok := tables[infoTable.Table]
+	schema, ok := GetTableSchema(infoTable.Table)
 	if !ok {
 		panic(fmt.Errorf("information table schema not found: %s", infoTable.Table))
 	}

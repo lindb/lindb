@@ -1,5 +1,7 @@
 package types
 
+import "time"
+
 // Row represents a row in the page.
 type Row struct {
 	p   *Page
@@ -24,4 +26,8 @@ func (r *Row) GetInt(colIdx int) *Int {
 // GetimeSeries returns the time series value in the row with the column index.
 func (r *Row) GetTimeSeries(colIdx int) *TimeSeries {
 	return r.p.Columns[colIdx].GetTimeSeries(r.idx)
+}
+
+func (r *Row) GetTimestamp(colIdx int) *time.Time {
+	return r.p.Columns[colIdx].GetTimestamp(r.idx)
 }

@@ -19,6 +19,8 @@ const (
 	DTInt
 	// DTFloat represents float data type.
 	DTFloat
+	// DTTimestamp represents timestamp data type.
+	DTTimestamp
 	// DTTimeSeries represents time series data type.
 	DTTimeSeries
 )
@@ -48,6 +50,8 @@ func (dt DataType) String() string {
 		return "int"
 	case DTFloat:
 		return "float"
+	case DTTimestamp:
+		return "timestamp"
 	case DTTimeSeries:
 		return "time_series"
 	default:
@@ -71,6 +75,8 @@ func (tv *DataType) UnmarshalJSON(data []byte) error {
 		*tv = DTInt
 	case "float":
 		*tv = DTFloat
+	case "timestamp":
+		*tv = DTTimestamp
 	case "time_series":
 		*tv = DTTimeSeries
 	default:

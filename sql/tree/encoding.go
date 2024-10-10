@@ -11,7 +11,10 @@ func init() {
 	jsoniter.RegisterTypeDecoder("tree.Expression", &encoding.JSONDecoder[Expression]{})
 
 	encoding.RegisterNodeType(ComparisonExpression{})
+	encoding.RegisterNodeType(LogicalExpression{})
+	encoding.RegisterNodeType(TimestampPredicate{})
 	encoding.RegisterNodeType(StringLiteral{})
+	encoding.RegisterNodeType(LongLiteral{})
 	encoding.RegisterNodeType(Identifier{})
 	encoding.RegisterNodeType(Cast{})
 	encoding.RegisterNodeType(FunctionCall{})

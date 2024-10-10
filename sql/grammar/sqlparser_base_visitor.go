@@ -287,6 +287,10 @@ func (v *BaseSQLParserVisitor) VisitBooleanLiteral(ctx *BooleanLiteralContext) i
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseSQLParserVisitor) VisitTimestampPredicate(ctx *TimestampPredicateContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseSQLParserVisitor) VisitBinaryComparisonPredicate(ctx *BinaryComparisonPredicateContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -308,10 +312,6 @@ func (v *BaseSQLParserVisitor) VisitValueExpressionPredicate(ctx *ValueExpressio
 }
 
 func (v *BaseSQLParserVisitor) VisitComparisonOperator(ctx *ComparisonOperatorContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseSQLParserVisitor) VisitFilter(ctx *FilterContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

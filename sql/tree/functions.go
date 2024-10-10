@@ -1,5 +1,9 @@
 package tree
 
+import (
+	"github.com/lindb/lindb/spi/types"
+)
+
 // FuncName represents function name.
 type FuncName string
 
@@ -18,8 +22,17 @@ const (
 	Sum FuncName = "sum"
 	Min FuncName = "min"
 	Max FuncName = "max"
+
+	// time function names
+	Now       FuncName = "now"
+	StrToDate FuncName = "str_to_date"
 )
 
-const (
-// Sum
-)
+func GetDefaultFuncReturnType(name FuncName) types.DataType {
+	return defaultFuncReturnTypes[name]
+}
+
+var defaultFuncReturnTypes = map[FuncName]types.DataType{
+	Now:       types.DTTimestamp,
+	StrToDate: types.DTTimestamp,
+}

@@ -1,6 +1,8 @@
 package expression
 
 import (
+	"time"
+
 	"github.com/lindb/lindb/spi/types"
 )
 
@@ -28,6 +30,10 @@ func (c *Column) EvalFloat(row types.Row) (val float64, isNull bool, err error) 
 
 func (c *Column) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error) {
 	return row.GetTimeSeries(c.index), false, nil
+}
+
+func (c *Column) EvalTime(_ types.Row) (val time.Time, isNull bool, err error) {
+	return
 }
 
 // GetType returns the data type of the column returns.

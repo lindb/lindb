@@ -10,13 +10,13 @@ import (
 )
 
 type ValuesOperatorFactory struct {
-	pages    []*types.Page
+	page     *types.Page
 	sourceID plan.PlanNodeID
 }
 
-func NewValuesOperatorFactory(sourceID plan.PlanNodeID, pages []*types.Page) SourceOperatorFactory {
+func NewValuesOperatorFactory(sourceID plan.PlanNodeID, page *types.Page) SourceOperatorFactory {
 	return &ValuesOperatorFactory{
-		pages:    pages,
+		page:     page,
 		sourceID: sourceID,
 	}
 }
@@ -25,20 +25,19 @@ func NewValuesOperatorFactory(sourceID plan.PlanNodeID, pages []*types.Page) Sou
 func (fct *ValuesOperatorFactory) CreateOperator() Operator {
 	return &ValuesOperator{
 		sourceID: fct.sourceID,
-		pages:    fct.pages,
+		page:     fct.page,
 	}
 }
 
 type ValuesOperator struct {
-	pages    []*types.Page
+	page     *types.Page
 	sourceID plan.PlanNodeID
-	idx      int
 }
 
-func NewValuesOperator(sourceID plan.PlanNodeID, pages []*types.Page) SourceOperator {
+func NewValuesOperator(sourceID plan.PlanNodeID, page *types.Page) SourceOperator {
 	return &ValuesOperator{
 		sourceID: sourceID,
-		pages:    pages,
+		page:     page,
 	}
 }
 
@@ -68,12 +67,10 @@ func (op *ValuesOperator) GetOutput() (page *types.Page) {
 	if op.IsFinished() {
 		return
 	}
-	page = op.pages[op.idx]
-	op.idx++
-	return
+	return op.page
 }
 
 // IsFinished implements Operator.
 func (op *ValuesOperator) IsFinished() bool {
-	return op.idx == len(op.pages)
+	return op.page == nil
 }

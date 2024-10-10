@@ -217,6 +217,9 @@ type SQLParserListener interface {
 	// EnterBooleanLiteral is called when entering the booleanLiteral production.
 	EnterBooleanLiteral(c *BooleanLiteralContext)
 
+	// EnterTimestampPredicate is called when entering the timestampPredicate production.
+	EnterTimestampPredicate(c *TimestampPredicateContext)
+
 	// EnterBinaryComparisonPredicate is called when entering the binaryComparisonPredicate production.
 	EnterBinaryComparisonPredicate(c *BinaryComparisonPredicateContext)
 
@@ -234,9 +237,6 @@ type SQLParserListener interface {
 
 	// EnterComparisonOperator is called when entering the comparisonOperator production.
 	EnterComparisonOperator(c *ComparisonOperatorContext)
-
-	// EnterFilter is called when entering the filter production.
-	EnterFilter(c *FilterContext)
 
 	// EnterQualifiedName is called when entering the qualifiedName production.
 	EnterQualifiedName(c *QualifiedNameContext)
@@ -496,6 +496,9 @@ type SQLParserListener interface {
 	// ExitBooleanLiteral is called when exiting the booleanLiteral production.
 	ExitBooleanLiteral(c *BooleanLiteralContext)
 
+	// ExitTimestampPredicate is called when exiting the timestampPredicate production.
+	ExitTimestampPredicate(c *TimestampPredicateContext)
+
 	// ExitBinaryComparisonPredicate is called when exiting the binaryComparisonPredicate production.
 	ExitBinaryComparisonPredicate(c *BinaryComparisonPredicateContext)
 
@@ -513,9 +516,6 @@ type SQLParserListener interface {
 
 	// ExitComparisonOperator is called when exiting the comparisonOperator production.
 	ExitComparisonOperator(c *ComparisonOperatorContext)
-
-	// ExitFilter is called when exiting the filter production.
-	ExitFilter(c *FilterContext)
 
 	// ExitQualifiedName is called when exiting the qualifiedName production.
 	ExitQualifiedName(c *QualifiedNameContext)

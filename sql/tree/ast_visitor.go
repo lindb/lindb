@@ -3,6 +3,7 @@ package tree
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
 
@@ -291,8 +292,6 @@ func (v *AstVisitor) VisitQuerySpecification(ctx *grammar.QuerySpecificationCont
 			i++
 		}
 		from = relation
-	} else {
-		panic("relation cannot be empty")
 	}
 
 	return &QuerySpecification{
@@ -458,6 +457,17 @@ func (v *AstVisitor) VisitRegexpPredicate(ctx *grammar.RegexpPredicateContext) a
 		}
 	}
 	return result
+}
+
+func (v *AstVisitor) VisitTimestampPredicate(ctx *grammar.TimestampPredicateContext) any {
+	return &TimestampPredicate{
+		BaseNode: BaseNode{
+			ID:       v.idAllocator.Next(),
+			Location: getLocation(ctx.GetStart()),
+		},
+		Operator: ComparisonOperator(ctx.GetOperator().GetText()), // FIXME:
+		Value:    visitIfPresent[Expression](ctx.ValueExpression(), v),
+	}
 }
 
 func (v *AstVisitor) VisitLikePredicate(ctx *grammar.LikePredicateContext) any {
@@ -694,7 +704,7 @@ func (v *AstVisitor) VisitFunctionCall(ctx *grammar.FunctionCallContext) any {
 			ID:       v.idAllocator.Next(),
 			Location: getLocation(ctx.GetStart()),
 		},
-		Name:      FuncName(v.getQualifiedName(ctx.QualifiedName()).Name), // TODO: check function name
+		Name:      FuncName(strings.ToLower(v.getQualifiedName(ctx.QualifiedName()).Name)), // TODO: check function name
 		Arguments: visit[Expression](ctx.AllExpression(), v),
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/analyzer"
 	"github.com/lindb/lindb/sql/context"
+	"github.com/lindb/lindb/sql/expression"
 	"github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/tree"
 )
@@ -23,10 +24,10 @@ type TranslationMap struct {
 	fieldSymbols []*plan.Symbol
 }
 
-func (t *TranslationMap) Rewrite(root tree.Expression) tree.Expression {
+func (t *TranslationMap) Rewrite(expr tree.Expression) tree.Expression {
 	// TODO: check symbol referencea are not allowed/expr if analyzed
-	// return tree.RewriteExpression(nil, &expressionRewriter{translation: t}, node)
-	return t.translate(root, true)
+	fmt.Sprintf("rewrite expression=%v,%T\n", expr)
+	return t.translate(expr, true)
 }
 
 func (t *TranslationMap) withNewMappings(mappings map[tree.NodeID]*plan.Symbol, fields []*plan.Symbol) *TranslationMap {
@@ -99,6 +100,7 @@ func (t *TranslationMap) CanTranslate(node tree.Expression) bool {
 }
 
 func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tree.Expression) {
+	fmt.Printf("translate(%T)=n", node)
 	mapped := t.tryGetMapping(node)
 	if mapped != nil {
 		result = mapped
@@ -126,6 +128,15 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 				Type:  types.DTInt,
 				Value: expr.Value,
 			}
+		case *tree.StringLiteral:
+			result = &tree.Constant{
+				// TODO: replace
+				BaseNode: tree.BaseNode{
+					ID: node.GetID(),
+				},
+				Type:  types.DTString,
+				Value: expr.Value,
+			}
 		case *tree.ArithmeticBinaryExpression:
 			exceptedType := t.context.AnalyzerContext.Analysis.GetType(expr)
 			result = &tree.Call{
@@ -137,11 +148,25 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 				RetType:  exceptedType,
 				Args:     []tree.Expression{t.translate(expr.Left, false), t.translate(expr.Right, false)},
 			}
+		case *tree.LogicalExpression:
+			for _, term := range expr.Terms {
+				t.translate(term, false)
+			}
+			result = expr
+		case *tree.TimestampPredicate:
+			t.translate(expr.Value, false)
+			result = expr
 		case *tree.ComparisonExpression:
+			t.translate(expr.Left, false)
+			t.translate(expr.Right, false)
 			// TODO:
 			result = expr
 		case *tree.FunctionCall:
+			if !expression.IsFuncSupported(expr.Name) {
+				panic(fmt.Sprintf("function %s is not supported", expr.Name))
+			}
 			fn := t.context.AnalyzerContext.Analysis.GetResolvedFunction(expr)
+			fmt.Printf("call fun=%v\n", fn)
 			exceptedType := t.context.AnalyzerContext.Analysis.GetType(expr)
 			result = &tree.Call{
 				// TODO: replace
@@ -155,7 +180,7 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 				}),
 			}
 		default:
-			panic(fmt.Sprintf("expression rewrite unimplemented: %T", node))
+			panic(fmt.Sprintf("translate not supported: %T", node))
 		}
 	}
 	if isRoot {

@@ -52,8 +52,10 @@ func (rsb *ResultSetBuild) Process() {
 					columns[i] = row.GetFloat(i)
 				case types.DTTimeSeries:
 					columns[i] = row.GetTimeSeries(i)
+				case types.DTTimestamp:
+					columns[i] = row.GetTimestamp(i)
 				default:
-					panic(fmt.Sprintf("unknown data type:%v", meta.DataType))
+					panic(fmt.Sprintf("build result set error, unknown data type:%v", meta.DataType))
 				}
 			}
 			rsb.resultSet.Rows = append(rsb.resultSet.Rows, columns)

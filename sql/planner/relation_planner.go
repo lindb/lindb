@@ -86,8 +86,8 @@ func (p *RelationPlanner) visitValues(_ any, node *tree.Values) (r any) {
 			BaseNode: planpkg.BaseNode{
 				ID: p.context.PlanNodeIDAllocator.Next(),
 			},
-			RowCount:      node.Rows.NumRows(),
 			Rows:          node.Rows,
+			RowCount:      node.Rows.NumRows(),
 			OutputSymbols: outputSymbols,
 		},
 		OutContext:    p.outerContext,
