@@ -26,6 +26,7 @@ func init() {
 			Database:  db,
 			Namespace: ns,
 			Metric:    name,
+			// FIXME: remove it??
 			TimeRange: timeutil.TimeRange{
 				Start: time.Now().UnixMilli() - time.Hour.Milliseconds(),
 				End:   time.Now().UnixMilli(),
@@ -56,6 +57,10 @@ type TableHandle struct {
 	Interval        timeutil.Interval  `json:"interval"`
 	StorageInterval timeutil.Interval  `json:"storageInterval"`
 	IntervalRatio   int                `json:"intervalRatio"`
+}
+
+func (t *TableHandle) SetTimeRange(timeRange timeutil.TimeRange) {
+	t.TimeRange = timeRange
 }
 
 func (t *TableHandle) Kind() spi.DatasourceKind {

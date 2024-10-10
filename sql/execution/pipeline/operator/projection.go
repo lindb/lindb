@@ -53,8 +53,11 @@ func (h *ProjectionOperator) GetOutput() *types.Page {
 	if len(h.exprs) == 0 {
 		h.prepare()
 	}
+	fmt.Println(h.exprs)
+	fmt.Println(h.source)
 	it := h.source.Iterator()
 	for row := it.Begin(); row != it.End(); row = it.Next() {
+		fmt.Println("do projection op....")
 		for i, expr := range h.exprs {
 			fmt.Printf("do ..... projection op expr %T,%s ret type=%v\n", expr, expr.String(), expr.GetType().String())
 			switch expr.GetType() {
@@ -70,8 +73,11 @@ func (h *ProjectionOperator) GetOutput() *types.Page {
 			case types.DTTimeSeries:
 				val, _, _ := expr.EvalTimeSeries(row)
 				h.outputColumns[i].AppendTimeSeries(val)
+			case types.DTTimestamp:
+				val, _, _ := expr.EvalTime(row)
+				h.outputColumns[i].AppendTimestamp(val)
 			default:
-				panic("unsupport data type:" + expr.GetType().String())
+				panic("projection operator error, unsupport data type:" + expr.GetType().String())
 			}
 		}
 	}

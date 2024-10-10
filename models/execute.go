@@ -34,7 +34,6 @@ const (
 	DataDefinition
 	Describe
 	Select
-	Explain
 )
 
 func (stmt StatementType) String() string {
@@ -45,8 +44,6 @@ func (stmt StatementType) String() string {
 		return "Describe"
 	case Select:
 		return "Select"
-	case Explain:
-		return "Explain"
 	default:
 		return "Unknown"
 	}

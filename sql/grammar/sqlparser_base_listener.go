@@ -74,6 +74,12 @@ func (s *BaseSQLParserListener) EnterCreateDatabase(ctx *CreateDatabaseContext) 
 // ExitCreateDatabase is called when production createDatabase is exited.
 func (s *BaseSQLParserListener) ExitCreateDatabase(ctx *CreateDatabaseContext) {}
 
+// EnterEngineOption is called when production engineOption is entered.
+func (s *BaseSQLParserListener) EnterEngineOption(ctx *EngineOptionContext) {}
+
+// ExitEngineOption is called when production engineOption is exited.
+func (s *BaseSQLParserListener) ExitEngineOption(ctx *EngineOptionContext) {}
+
 // EnterRollupOptions is called when production rollupOptions is entered.
 func (s *BaseSQLParserListener) EnterRollupOptions(ctx *RollupOptionsContext) {}
 
@@ -434,6 +440,12 @@ func (s *BaseSQLParserListener) EnterBooleanLiteral(ctx *BooleanLiteralContext) 
 // ExitBooleanLiteral is called when production booleanLiteral is exited.
 func (s *BaseSQLParserListener) ExitBooleanLiteral(ctx *BooleanLiteralContext) {}
 
+// EnterTimestampPredicate is called when production timestampPredicate is entered.
+func (s *BaseSQLParserListener) EnterTimestampPredicate(ctx *TimestampPredicateContext) {}
+
+// ExitTimestampPredicate is called when production timestampPredicate is exited.
+func (s *BaseSQLParserListener) ExitTimestampPredicate(ctx *TimestampPredicateContext) {}
+
 // EnterBinaryComparisonPredicate is called when production binaryComparisonPredicate is entered.
 func (s *BaseSQLParserListener) EnterBinaryComparisonPredicate(ctx *BinaryComparisonPredicateContext) {
 }
@@ -471,12 +483,6 @@ func (s *BaseSQLParserListener) EnterComparisonOperator(ctx *ComparisonOperatorC
 
 // ExitComparisonOperator is called when production comparisonOperator is exited.
 func (s *BaseSQLParserListener) ExitComparisonOperator(ctx *ComparisonOperatorContext) {}
-
-// EnterFilter is called when production filter is entered.
-func (s *BaseSQLParserListener) EnterFilter(ctx *FilterContext) {}
-
-// ExitFilter is called when production filter is exited.
-func (s *BaseSQLParserListener) ExitFilter(ctx *FilterContext) {}
 
 // EnterQualifiedName is called when production qualifiedName is entered.
 func (s *BaseSQLParserListener) EnterQualifiedName(ctx *QualifiedNameContext) {}

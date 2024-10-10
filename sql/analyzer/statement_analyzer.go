@@ -402,7 +402,12 @@ func (v *StatementVisitor) analyzeAllColumnsFromTable(allColumns *tree.AllColumn
 
 // ----- relation ------
 func (v *StatementVisitor) analyzeFrom(node *tree.QuerySpecification, scope *Scope) *Scope {
-	return node.From.Accept(scope, v).(*Scope)
+	if node.From != nil {
+		return node.From.Accept(scope, v).(*Scope)
+	}
+	result := createScope(scope)
+	v.analyzer.ctx.Analysis.SetImplicitFromScope(node, result)
+	return result
 }
 
 func (v *StatementVisitor) analyzeWhere(node tree.Node, scope *Scope, predicate tree.Expression) {

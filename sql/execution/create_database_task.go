@@ -30,7 +30,7 @@ func (task *CreateDatabaseTask) Name() string {
 
 func (task *CreateDatabaseTask) Execute(ctx context.Context) error {
 	options := option.DatabaseOption{}
-	err := mapstructure.Decode(task.statement.Options, &options)
+	err := mapstructure.Decode(task.statement.Props, &options)
 	if err != nil {
 		return err
 	}
@@ -43,8 +43,18 @@ func (task *CreateDatabaseTask) Execute(ctx context.Context) error {
 		}
 		options.Intervals = append(options.Intervals, rollupOption)
 	}
+	engineType := models.Metric
+	for _, option := range task.statement.CreateOptions {
+		switch createOption := option.(type) {
+		case *tree.EngineOption:
+			engineType = createOption.Type
+		default:
+			panic("unknown option type")
+		}
+	}
 	database := &models.Database{
 		Name:   task.statement.Name,
+		Engine: engineType,
 		Option: &options,
 	}
 	database.Default()

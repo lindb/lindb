@@ -29,3 +29,13 @@ type RegexPredicate struct {
 func (n *RegexPredicate) Accept(context any, visitor Visitor) any {
 	return visitor.Visit(context, n)
 }
+
+type TimestampPredicate struct {
+	BaseNode
+	Operator ComparisonOperator
+	Value    Expression
+}
+
+func (n *TimestampPredicate) Accept(context any, visitor Visitor) any {
+	return visitor.Visit(context, n)
+}

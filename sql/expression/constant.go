@@ -2,6 +2,7 @@ package expression
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/lindb/lindb/spi/types"
 )
@@ -20,7 +21,7 @@ func NewConstant(value any, retType types.DataType) Expression {
 
 // EvalString implements Expression.
 func (c *Constant) EvalString(row types.Row) (val string, isNull bool, err error) {
-	panic("unimplemented")
+	return c.value.(string), false, nil
 }
 
 func (c *Constant) EvalInt(_ types.Row) (val int64, isNull bool, err error) {
@@ -32,6 +33,10 @@ func (c *Constant) EvalFloat(_ types.Row) (val float64, isNull bool, err error) 
 }
 
 func (c *Constant) EvalTimeSeries(_ types.Row) (val *types.TimeSeries, isNull bool, err error) {
+	return
+}
+
+func (c *Constant) EvalTime(_ types.Row) (val time.Time, isNull bool, err error) {
 	return
 }
 

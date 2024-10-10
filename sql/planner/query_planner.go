@@ -85,10 +85,23 @@ func (p *QueryPlanner) planQuerySpecification(node *tree.QuerySpecification) *Re
 }
 
 func (p *QueryPlanner) planFrom(node *tree.QuerySpecification) *PlanBuilder {
-	planner := NewRelationPlanner(p.context, p.outerContext)
-	relationPlan := node.From.Accept(nil, planner).(*RelationPlan)
-
-	return newPlanBuilder(p.context, relationPlan, nil)
+	if node.From != nil {
+		planner := NewRelationPlanner(p.context, p.outerContext)
+		relationPlan := node.From.Accept(nil, planner).(*RelationPlan)
+		return newPlanBuilder(p.context, relationPlan, nil)
+	}
+	return &PlanBuilder{
+		root: &plan.ValuesNode{
+			BaseNode: plan.BaseNode{
+				ID: p.context.PlanNodeIDAllocator.Next(),
+			},
+			RowCount: 1,
+		},
+		translations: &TranslationMap{
+			scope:   p.context.AnalyzerContext.Analysis.GetImplicitFromScope(node),
+			context: p.context,
+		},
+	}
 }
 
 func (p *QueryPlanner) aggregate(subPlan *PlanBuilder, node *tree.QuerySpecification) *PlanBuilder {
@@ -228,6 +241,7 @@ func (p *QueryPlanner) filter(subPlan *PlanBuilder, predicate tree.Expression, n
 	}
 	subPlan = p.subQueryPlanner.handleSubQueries(subPlan, predicate, nil)
 
+	fmt.Printf("plan filter......%T\n", predicate)
 	return subPlan.withNewRoot(&plan.FilterNode{
 		BaseNode: plan.BaseNode{
 			ID: p.context.PlanNodeIDAllocator.Next(),

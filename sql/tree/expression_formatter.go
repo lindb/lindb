@@ -6,6 +6,8 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/samber/lo"
+
 	"github.com/lindb/lindb/sql/grammar"
 )
 
@@ -39,6 +41,10 @@ func (v *FormatVisitor) Visit(context any, n Node) any {
 	switch node := n.(type) {
 	case *ComparisonExpression:
 		return v.formatBinaryExpression(string(node.Operator), node.Left, node.Right)
+	case *TimestampPredicate:
+		return v.formatTimestampPredicate(node)
+	case *LogicalExpression:
+		return v.formatLogical(node)
 	case *DereferenceExpression:
 		return v.visitDereferenceExpression(context, node)
 	case *SymbolReference:
@@ -94,8 +100,12 @@ func (v *FormatVisitor) visitIdentifier(context any, node *Identifier) (r any) {
 	return node.Value
 }
 
-func (v *FormatVisitor) formatBinaryExpression(operator string, left, right Expression) any {
+func (v *FormatVisitor) formatBinaryExpression(operator string, left, right Expression) string {
 	return fmt.Sprintf("(%v %s %v)", left.Accept(nil, v), operator, right.Accept(nil, v))
+}
+
+func (v *FormatVisitor) formatTimestampPredicate(node *TimestampPredicate) string {
+	return fmt.Sprintf("(ts %s %v)", node.Operator, node.Value.Accept(nil, v))
 }
 
 func (v *FormatVisitor) formatStringLiteral(s string) string {
@@ -104,6 +114,12 @@ func (v *FormatVisitor) formatStringLiteral(s string) string {
 
 func (v *FormatVisitor) formatIdentifier(s string) string {
 	return strings.ReplaceAll(s, "\"", "\"\"")
+}
+
+func (v *FormatVisitor) formatLogical(node *LogicalExpression) string {
+	return fmt.Sprintf("(%v)", strings.Join(lo.Map(node.Terms, func(item Expression, index int) string {
+		return v.Visit(nil, item).(string)
+	}), fmt.Sprintf(" %v ", node.Operator)))
 }
 
 func reserved(name string) bool {

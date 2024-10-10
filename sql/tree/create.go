@@ -1,10 +1,19 @@
 package tree
 
+import "github.com/lindb/lindb/models"
+
+type CreateOption interface{}
+
+type EngineOption struct {
+	Type models.EngineType
+}
+
 type CreateDatabase struct {
 	BaseNode
-	Name    string
-	Options map[string]any
-	Rollup  []RollupOption
+	Name          string
+	CreateOptions []CreateOption
+	Props         map[string]any
+	Rollup        []RollupOption
 }
 
 func (n *CreateDatabase) Accept(context any, visitor Visitor) any {

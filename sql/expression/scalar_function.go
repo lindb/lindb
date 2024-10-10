@@ -3,6 +3,7 @@ package expression
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/samber/lo"
 
@@ -33,7 +34,7 @@ func NewScalarFunc(funcName tree.FuncName, retType types.DataType, args []Expres
 
 // EvalString implements Expression.
 func (f *ScalarFunc) EvalString(row types.Row) (val string, isNull bool, err error) {
-	panic("unimplemented")
+	return f.function.EvalString(row)
 }
 
 func (f *ScalarFunc) EvalInt(row types.Row) (val int64, isNull bool, err error) {
@@ -46,6 +47,10 @@ func (f *ScalarFunc) EvalFloat(row types.Row) (val float64, isNull bool, err err
 
 func (f *ScalarFunc) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error) {
 	return f.function.EvalTimeSeries(row)
+}
+
+func (f *ScalarFunc) EvalTime(row types.Row) (val time.Time, isNull bool, err error) {
+	return f.function.EvalTime(row)
 }
 
 // GetType implements Expression.

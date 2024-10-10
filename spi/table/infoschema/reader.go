@@ -1,8 +1,13 @@
 package infoschema
 
 import (
+	"strings"
+
+	"github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/meta"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/spi/types"
 )
 
@@ -21,13 +26,15 @@ func NewReader(metadataMgr meta.MetadataManager) Reader {
 }
 
 func (r *reader) ReadData(table string) (rows [][]*types.Datum, err error) {
-	switch table {
+	switch strings.ToLower(table) {
 	case constants.TableMaster:
 		rows, err = r.readMaster()
 	case constants.TableBroker:
 		rows, err = r.readBroker()
 	case constants.TableStorage:
 		rows, err = r.readStorage()
+	case constants.TableEngines:
+		rows, err = r.readEngines()
 	case constants.TableSchemata:
 		rows, err = r.readSchemata()
 	case constants.TableMetrics:
@@ -39,11 +46,11 @@ func (r *reader) ReadData(table string) (rows [][]*types.Datum, err error) {
 func (r *reader) readMaster() (rows [][]*types.Datum, err error) {
 	master := r.metadataMgr.GetMaster()
 	rows = append(rows, types.MakeDatums(
-		master.Node.HostIP,     // host_ip
-		master.Node.HostName,   // host_name
-		master.Node.Version,    // version
-		master.Node.OnlineTime, // online_time
-		master.ElectTime,       // elect_time
+		master.Node.HostIP,   // host_ip
+		master.Node.HostName, // host_name
+		master.Node.Version,  // version
+		timeutil.FormatTimestamp(master.Node.OnlineTime, timeutil.DataTimeFormat2), // online_time
+		timeutil.FormatTimestamp(master.ElectTime, timeutil.DataTimeFormat2),       // elect_time
 	))
 	return
 }
@@ -52,12 +59,12 @@ func (r *reader) readBroker() (rows [][]*types.Datum, err error) {
 	nodes := r.metadataMgr.GetBrokerNodes()
 	for _, node := range nodes {
 		rows = append(rows, types.MakeDatums(
-			node.HostIP,     // host_ip
-			node.HostName,   // host_name
-			node.Version,    // version
-			node.OnlineTime, // online_time
-			node.GRPCPort,   // grpc
-			node.HTTPPort,   // http
+			node.HostIP,   // host_ip
+			node.HostName, // host_name
+			node.Version,  // version
+			timeutil.FormatTimestamp(node.OnlineTime, timeutil.DataTimeFormat2), // online_time
+			node.GRPCPort, // grpc
+			node.HTTPPort, // http
 		))
 	}
 	return
@@ -67,14 +74,23 @@ func (r *reader) readStorage() (rows [][]*types.Datum, err error) {
 	nodes := r.metadataMgr.GetStorageNodes()
 	for _, node := range nodes {
 		rows = append(rows, types.MakeDatums(
-			node.ID,         // id
-			node.HostIP,     // host_ip
-			node.HostName,   // host_name
-			node.Version,    // version
-			node.OnlineTime, // online_time
-			node.GRPCPort,   // grpc
-			node.HTTPPort,   // http
+			node.ID,       // id
+			node.HostIP,   // host_ip
+			node.HostName, // host_name
+			node.Version,  // version
+			timeutil.FormatTimestamp(node.OnlineTime, timeutil.DataTimeFormat2), // online_time
+			node.GRPCPort, // grpc
+			node.HTTPPort, // http
 		))
+	}
+	return
+}
+
+func (r *reader) readEngines() (rows [][]*types.Datum, err error) {
+	rows = [][]*types.Datum{
+		types.MakeDatums(models.Metric, "DEFAULT"), // engine/support
+		types.MakeDatums(models.Log, "NO"),
+		types.MakeDatums(models.Trace, "NO"),
 	}
 	return
 }
@@ -83,8 +99,8 @@ func (r *reader) readSchemata() (rows [][]*types.Datum, err error) {
 	databases := r.metadataMgr.GetDatabases()
 	for _, database := range databases {
 		rows = append(rows, types.MakeDatums(
-			database.Name, // schema_name
-			"METRIC",      // FIXME: engine
+			database.Name,   // schema_name
+			database.Engine, // engine
 		))
 	}
 	return

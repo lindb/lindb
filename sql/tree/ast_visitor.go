@@ -3,9 +3,11 @@ package tree
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
 
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/sql/grammar"
@@ -50,22 +52,42 @@ func (v *AstVisitor) VisitStatement(ctx *grammar.StatementContext) any {
 func (v *AstVisitor) VisitDdlStatement(ctx *grammar.DdlStatementContext) any {
 	switch {
 	case ctx.CreateDatabase() != nil:
-		createDatabaseCtx := ctx.CreateDatabase()
-		props := createDatabaseCtx.Properties()
-		if props != nil {
-			props.Accept(v)
-		}
-		return &CreateDatabase{
-			BaseNode: BaseNode{
-				ID:       v.idAllocator.Next(),
-				Location: getLocation(ctx.GetStart()),
-			},
-			Name: v.getQualifiedName(createDatabaseCtx.GetName()).Name,
-		}
+		return v.Visit(ctx.CreateDatabase())
 	case ctx.CreateBroker() != nil:
 		panic("need impl create broker")
 	default:
 		return v.VisitChildren(ctx)
+	}
+}
+
+func (v *AstVisitor) VisitCreateDatabase(ctx *grammar.CreateDatabaseContext) any {
+	props := ctx.Properties()
+	if props != nil {
+		props.Accept(v)
+	}
+	return &CreateDatabase{
+		BaseNode: BaseNode{
+			ID:       v.idAllocator.Next(),
+			Location: getLocation(ctx.GetStart()),
+		},
+		Name:          v.getQualifiedName(ctx.GetName()).Name,
+		CreateOptions: visit[CreateOption](ctx.AllCreateDatabaseOptions(), v),
+	}
+}
+
+func (v *AstVisitor) VisitEngineOption(ctx *grammar.EngineOptionContext) any {
+	engineType := models.Metric
+
+	switch {
+	case ctx.METRIC() != nil:
+		engineType = models.Metric
+	case ctx.LOG() != nil:
+		engineType = models.Log
+	case ctx.TRACE() != nil:
+		engineType = models.Trace
+	}
+	return &EngineOption{
+		Type: engineType,
 	}
 }
 
@@ -270,8 +292,6 @@ func (v *AstVisitor) VisitQuerySpecification(ctx *grammar.QuerySpecificationCont
 			i++
 		}
 		from = relation
-	} else {
-		panic("relation cannot be empty")
 	}
 
 	return &QuerySpecification{
@@ -437,6 +457,17 @@ func (v *AstVisitor) VisitRegexpPredicate(ctx *grammar.RegexpPredicateContext) a
 		}
 	}
 	return result
+}
+
+func (v *AstVisitor) VisitTimestampPredicate(ctx *grammar.TimestampPredicateContext) any {
+	return &TimestampPredicate{
+		BaseNode: BaseNode{
+			ID:       v.idAllocator.Next(),
+			Location: getLocation(ctx.GetStart()),
+		},
+		Operator: ComparisonOperator(ctx.GetOperator().GetText()), // FIXME:
+		Value:    visitIfPresent[Expression](ctx.ValueExpression(), v),
+	}
 }
 
 func (v *AstVisitor) VisitLikePredicate(ctx *grammar.LikePredicateContext) any {
@@ -673,7 +704,7 @@ func (v *AstVisitor) VisitFunctionCall(ctx *grammar.FunctionCallContext) any {
 			ID:       v.idAllocator.Next(),
 			Location: getLocation(ctx.GetStart()),
 		},
-		Name:      FuncName(v.getQualifiedName(ctx.QualifiedName()).Name), // TODO: check function name
+		Name:      FuncName(strings.ToLower(v.getQualifiedName(ctx.QualifiedName()).Name)), // TODO: check function name
 		Arguments: visit[Expression](ctx.AllExpression(), v),
 	}
 }

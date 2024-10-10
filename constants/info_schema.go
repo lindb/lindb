@@ -8,6 +8,7 @@ const (
 	TableStorage        = "storage"
 	TableReplication    = "replication"
 	TableMemoryDatabase = "memory_database"
+	TableEngines        = "engines"
 	TableSchemata       = "schemata"
 	TableMetrics        = "metrics"
 )

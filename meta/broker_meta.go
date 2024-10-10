@@ -1,6 +1,8 @@
 package meta
 
 import (
+	"strings"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator"
 	"github.com/lindb/lindb/coordinator/broker"
@@ -53,8 +55,8 @@ func (m *brokerMetadataManager) GetPartitions(database, ns, table string) (map[m
 	if database == constants.InformationSchema {
 		var partitions map[models.InternalNode][]int
 		currentNode := m.brokerStateMgr.GetCurrentNode()
-		switch table {
-		case constants.TableSchemata, constants.TableMetrics, constants.TableMaster, constants.TableBroker, constants.TableStorage:
+		switch strings.ToLower(table) {
+		case constants.TableEngines, constants.TableSchemata, constants.TableMetrics, constants.TableMaster, constants.TableBroker, constants.TableStorage:
 			partitions = map[models.InternalNode][]int{
 				{IP: currentNode.HostIP, Port: currentNode.GRPCPort}: {},
 			}

@@ -51,6 +51,12 @@ func (v *ExpressionVisitor) Visit(context any, n tree.Node) (r any) {
 	switch node := n.(type) {
 	case *tree.ComparisonExpression:
 		return v.visitComparisonExpression(context, node)
+	case *tree.ArithmeticBinaryExpression:
+		return v.visitArithemticBinary(context, node)
+	case *tree.TimestampPredicate:
+		return v.visitTimestampPredicate(context, node)
+	case *tree.LogicalExpression:
+		return v.visitLogicalExpression(context, node)
 	case *tree.DereferenceExpression:
 		return v.visitDereferenceExpression(context, node)
 	case *tree.FunctionCall:
@@ -63,8 +69,6 @@ func (v *ExpressionVisitor) Visit(context any, n tree.Node) (r any) {
 		return v.visitIdentifier(context, node)
 	case *tree.FieldReference:
 		return v.visitFieldReference(context, node)
-	case *tree.ArithmeticBinaryExpression:
-		return v.visitArithemticBinary(context, node)
 	case *tree.Row:
 		return v.visitRow(context, node)
 	default:
@@ -117,15 +121,18 @@ func (v *ExpressionVisitor) visitFunctionCall(context any, node *tree.FunctionCa
 	for _, arg := range node.Arguments {
 		argumentTypes = append(argumentTypes, arg.Accept(context, v).(types.DataType))
 	}
-	// TODO: check args types
-	expectedType := argumentTypes[0]
-	for i := 1; i < len(argumentTypes); i++ {
-		expectedType = types.GetAccurateType(expectedType, argumentTypes[i])
+	expectedType := tree.GetDefaultFuncReturnType(node.Name)
+	if len(argumentTypes) > 0 {
+		// TODO: check args types
+		for i := 0; i < len(argumentTypes); i++ {
+			expectedType = types.GetAccurateType(expectedType, argumentTypes[i])
+		}
 	}
 
-	for i, argumentType := range argumentTypes {
-		v.coerceType(node.Arguments[i], argumentType, expectedType)
-	}
+	// TODO: coerce args types
+	// for i, argumentType := range argumentTypes {
+	// 	v.coerceType(node.Arguments[i], argumentType, expectedType)
+	// }
 
 	// FIXME:func call???
 	// rowType := &types.RowType{}
@@ -133,8 +140,6 @@ func (v *ExpressionVisitor) visitFunctionCall(context any, node *tree.FunctionCa
 }
 
 func (v *ExpressionVisitor) visitStringLiteral(context any, node *tree.StringLiteral) (r any) {
-	// FIXME:???
-	// rowType := &types.RowType{}
 	return v.setExpressionType(node, types.DTString)
 }
 
@@ -155,7 +160,22 @@ func (v *ExpressionVisitor) visitArithemticBinary(context any, node *tree.Arithm
 	return v.getOperator(context.(*tree.StackableVisitorContext[*Context]), node, types.Subtract, node.Left, node.Right)
 }
 
-func (v *ExpressionVisitor) getOperator(context *tree.StackableVisitorContext[*Context], node tree.Expression, operatorType types.OperatorType, arguments ...tree.Expression) types.Type {
+func (v *ExpressionVisitor) visitTimestampPredicate(context any, node *tree.TimestampPredicate) (r any) {
+	return v.setExpressionType(node, types.DTTimestamp)
+}
+
+func (v *ExpressionVisitor) visitLogicalExpression(context any, node *tree.LogicalExpression) (r any) {
+	for _, term := range node.Terms {
+		activeType := term.Accept(context, v).(types.DataType)
+		v.coerceType(term, activeType, types.DTInt)
+	}
+	// TODO: set bool
+	return v.setExpressionType(node, types.DTInt)
+}
+
+func (v *ExpressionVisitor) getOperator(context *tree.StackableVisitorContext[*Context],
+	node tree.Expression, operatorType types.OperatorType, arguments ...tree.Expression,
+) types.DataType {
 	var argumentTypes []types.DataType
 	for i := range arguments {
 		expression := arguments[i]

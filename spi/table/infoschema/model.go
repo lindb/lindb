@@ -5,6 +5,7 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/spi"
 )
 
@@ -20,6 +21,10 @@ func init() {
 
 type TableHandle struct {
 	Table string `json:"table"`
+}
+
+func (t *TableHandle) SetTimeRange(timeRange timeutil.TimeRange) {
+	panic(constants.ErrNotSupportOperation)
 }
 
 // Kind returns the datasource kind.

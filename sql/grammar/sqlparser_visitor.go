@@ -34,6 +34,9 @@ type SQLParserVisitor interface {
 	// Visit a parse tree produced by SQLParser#createDatabase.
 	VisitCreateDatabase(ctx *CreateDatabaseContext) interface{}
 
+	// Visit a parse tree produced by SQLParser#engineOption.
+	VisitEngineOption(ctx *EngineOptionContext) interface{}
+
 	// Visit a parse tree produced by SQLParser#rollupOptions.
 	VisitRollupOptions(ctx *RollupOptionsContext) interface{}
 
@@ -214,6 +217,9 @@ type SQLParserVisitor interface {
 	// Visit a parse tree produced by SQLParser#booleanLiteral.
 	VisitBooleanLiteral(ctx *BooleanLiteralContext) interface{}
 
+	// Visit a parse tree produced by SQLParser#timestampPredicate.
+	VisitTimestampPredicate(ctx *TimestampPredicateContext) interface{}
+
 	// Visit a parse tree produced by SQLParser#binaryComparisonPredicate.
 	VisitBinaryComparisonPredicate(ctx *BinaryComparisonPredicateContext) interface{}
 
@@ -231,9 +237,6 @@ type SQLParserVisitor interface {
 
 	// Visit a parse tree produced by SQLParser#comparisonOperator.
 	VisitComparisonOperator(ctx *ComparisonOperatorContext) interface{}
-
-	// Visit a parse tree produced by SQLParser#filter.
-	VisitFilter(ctx *FilterContext) interface{}
 
 	// Visit a parse tree produced by SQLParser#qualifiedName.
 	VisitQualifiedName(ctx *QualifiedNameContext) interface{}
