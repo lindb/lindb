@@ -12,7 +12,7 @@ func init() {
 
 	encoding.RegisterNodeType(ComparisonExpression{})
 	encoding.RegisterNodeType(LogicalExpression{})
-	encoding.RegisterNodeType(TimestampPredicate{})
+	encoding.RegisterNodeType(TimePredicate{})
 	encoding.RegisterNodeType(StringLiteral{})
 	encoding.RegisterNodeType(LongLiteral{})
 	encoding.RegisterNodeType(Identifier{})

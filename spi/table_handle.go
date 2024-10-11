@@ -24,6 +24,8 @@ const (
 type TableHandle interface {
 	// SetTimeRange sets the time range of table handle.
 	SetTimeRange(timeRange timeutil.TimeRange)
+	// GetTimeRange returns the time range of table handle.
+	GetTimeRange() timeutil.TimeRange
 	// Kind returns the kind of data source.
 	Kind() DatasourceKind
 	// String returns table info, format: ${database}:${namespace}:${tableName}

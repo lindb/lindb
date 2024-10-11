@@ -41,7 +41,7 @@ func (v *FormatVisitor) Visit(context any, n Node) any {
 	switch node := n.(type) {
 	case *ComparisonExpression:
 		return v.formatBinaryExpression(string(node.Operator), node.Left, node.Right)
-	case *TimestampPredicate:
+	case *TimePredicate:
 		return v.formatTimestampPredicate(node)
 	case *LogicalExpression:
 		return v.formatLogical(node)
@@ -65,18 +65,10 @@ func (v *FormatVisitor) Visit(context any, n Node) any {
 		return fmt.Sprintf("%v", node.Value)
 	// case *ArithmeticBinaryExpression:
 	// 	return v.formatBinaryExpression(string(node.Operator), node.Left, node.Right)
-	case *Call:
-		var args []string
-		for _, arg := range node.Args {
-			args = append(args, arg.Accept(context, v).(string))
-		}
-		return fmt.Sprintf("%v(%s)", node.Function, strings.Join(args, ","))
 	case *FunctionCall:
-		var args []string
-		for _, arg := range node.Arguments {
-			args = append(args, arg.Accept(context, v).(string))
-		}
-		return fmt.Sprintf("%v(%s)", node.Name, strings.Join(args, ","))
+		return fmt.Sprintf("%v(%s)", node.Name, strings.Join(lo.Map(node.Arguments, func(arg Expression, index int) string {
+			return arg.Accept(context, v).(string)
+		}), ","))
 	case *Cast:
 		return fmt.Sprintf("CAST(%v as %s)", node.Expression.Accept(context, v), node.Type)
 	default:
@@ -106,7 +98,7 @@ func (v *FormatVisitor) formatBinaryExpression(operator string, left, right Expr
 	return fmt.Sprintf("(%v %s %v)", left.Accept(nil, v), operator, right.Accept(nil, v))
 }
 
-func (v *FormatVisitor) formatTimestampPredicate(node *TimestampPredicate) string {
+func (v *FormatVisitor) formatTimestampPredicate(node *TimePredicate) string {
 	return fmt.Sprintf("(ts %s %v)", node.Operator, node.Value.Accept(nil, v))
 }
 

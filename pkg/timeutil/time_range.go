@@ -17,6 +17,12 @@
 
 package timeutil
 
+import (
+	"fmt"
+
+	"github.com/lindb/common/pkg/timeutil"
+)
+
 // SlotRange represents time range with start/end timestamp using low value.
 type SlotRange struct {
 	Start, End uint16
@@ -107,4 +113,16 @@ func (r *TimeRange) Intersect(o TimeRange) TimeRange {
 // NumOfPoints returns num. of points by interval.
 func (r *TimeRange) NumOfPoints(interval Interval) int {
 	return int((r.End - r.Start) / int64(interval))
+}
+
+// String returns the string value of time range.
+func (r *TimeRange) String() string {
+	var startStr, endStr string
+	if r.Start > 0 {
+		startStr = timeutil.FormatTimestamp(r.Start, timeutil.DataTimeFormat2)
+	}
+	if r.End > 0 {
+		endStr = timeutil.FormatTimestamp(r.End, timeutil.DataTimeFormat2)
+	}
+	return fmt.Sprintf("{%s ~ %s}", startStr, endStr)
 }

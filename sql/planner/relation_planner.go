@@ -2,23 +2,30 @@ package planner
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/analyzer"
 	"github.com/lindb/lindb/sql/context"
+	"github.com/lindb/lindb/sql/expression"
 	planpkg "github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/tree"
 )
 
 type RelationPlanner struct {
-	outerContext *TranslationMap
-	context      *context.PlannerContext
+	outerContext   *TranslationMap
+	context        *context.PlannerContext
+	timePredicates []*tree.TimePredicate
 }
 
-func NewRelationPlanner(context *context.PlannerContext, outerContext *TranslationMap) tree.Visitor {
+func NewRelationPlanner(context *context.PlannerContext, outerContext *TranslationMap,
+	timePredicates []*tree.TimePredicate,
+) tree.Visitor {
 	return &RelationPlanner{
-		context:      context,
-		outerContext: outerContext,
+		context:        context,
+		outerContext:   outerContext,
+		timePredicates: timePredicates,
 	}
 }
 
@@ -97,6 +104,7 @@ func (p *RelationPlanner) visitValues(_ any, node *tree.Values) (r any) {
 }
 
 func (p *RelationPlanner) visitTable(context any, node *tree.Table) (r any) {
+	fmt.Printf("visit table, time predicates=%v\n", p.timePredicates)
 	namedQuery := p.context.AnalyzerContext.Analysis.GetNamedQuery(node)
 	scope := p.context.AnalyzerContext.Analysis.GetScope(node)
 	var plan *RelationPlan
@@ -125,6 +133,24 @@ func (p *RelationPlanner) visitTable(context any, node *tree.Table) (r any) {
 		tableMetadata := p.context.AnalyzerContext.Analysis.GetTableMetadata(tableHandle.String())
 		root := planpkg.NewTableScanNode(p.context.PlanNodeIDAllocator.Next())
 		root.Table = p.context.AnalyzerContext.Analysis.GetTableHandle(node)
+		timeRange := timeutil.TimeRange{
+			Start: time.Now().UnixMilli() - time.Hour.Milliseconds(),
+			End:   time.Now().UnixMilli(),
+		}
+		if len(p.timePredicates) > 0 {
+			// if has time predicate, add time range filter for table handle
+			for _, timePredicate := range p.timePredicates {
+				timestamp, _ := expression.EvalTime(timePredicate.Value)
+				switch timePredicate.Operator {
+				case tree.ComparisonGT:
+					timeRange.Start = timestamp.UnixMilli()
+				case tree.ComparisonLT:
+					timeRange.End = timestamp.UnixMilli()
+				}
+			}
+		}
+		root.Table.SetTimeRange(timeRange)
+
 		root.OutputSymbols = outputSymbols
 		root.Partitions = tableMetadata.Partitions
 		plan = &RelationPlan{
@@ -178,7 +204,7 @@ func (p *RelationPlanner) planJoin(node *tree.Join, scope *analyzer.Scope, left,
 		rightCoercions := coerceExpressions(rightPlanBuilder, rightComparisonExpressions, p.context.SymbolAllocator, p.context.PlanNodeIDAllocator)
 		fmt.Println(leftCoercions)
 		for i := range leftComparisonExpressions {
-			if joinConditionComparisonOperators[i] == tree.ComparisonEqual {
+			if joinConditionComparisonOperators[i] == tree.ComparisonEQ {
 				leftSymbol := leftCoercions.mappings[leftComparisonExpressions[i]]
 				rightSymbol := rightCoercions.mappings[rightComparisonExpressions[i]]
 				joinCriteriaClauses = append(joinCriteriaClauses, &planpkg.EqualJoinCriteria{

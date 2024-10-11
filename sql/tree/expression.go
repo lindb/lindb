@@ -16,7 +16,9 @@ var (
 	LogicalAND LogicalOperator = "AND"
 	LogicalOR  LogicalOperator = "OR"
 
-	ComparisonEqual ComparisonOperator = "="
+	ComparisonEQ ComparisonOperator = "="
+	ComparisonGT ComparisonOperator = ">"
+	ComparisonLT ComparisonOperator = "<"
 
 	Add      ArithmeticOperator = "+"
 	Subtract ArithmeticOperator = "-"

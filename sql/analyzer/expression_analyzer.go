@@ -53,7 +53,7 @@ func (v *ExpressionVisitor) Visit(context any, n tree.Node) (r any) {
 		return v.visitComparisonExpression(context, node)
 	case *tree.ArithmeticBinaryExpression:
 		return v.visitArithemticBinary(context, node)
-	case *tree.TimestampPredicate:
+	case *tree.TimePredicate:
 		return v.visitTimestampPredicate(context, node)
 	case *tree.LogicalExpression:
 		return v.visitLogicalExpression(context, node)
@@ -95,7 +95,7 @@ func (v *ExpressionVisitor) visitFieldReference(context any, node *tree.FieldRef
 func (v *ExpressionVisitor) visitComparisonExpression(context any, node *tree.ComparisonExpression) (r any) {
 	var operatorType types.OperatorType
 	switch node.Operator {
-	case tree.ComparisonEqual:
+	case tree.ComparisonEQ:
 		operatorType = types.Equal
 	}
 
@@ -166,7 +166,7 @@ func (v *ExpressionVisitor) visitArithemticBinary(context any, node *tree.Arithm
 	return v.getOperator(context.(*tree.StackableVisitorContext[*Context]), node, types.Subtract, node.Left, node.Right)
 }
 
-func (v *ExpressionVisitor) visitTimestampPredicate(context any, node *tree.TimestampPredicate) (r any) {
+func (v *ExpressionVisitor) visitTimestampPredicate(context any, node *tree.TimePredicate) (r any) {
 	return v.setExpressionType(node, types.DTTimestamp)
 }
 
