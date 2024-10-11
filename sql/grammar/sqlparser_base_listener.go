@@ -434,6 +434,12 @@ func (s *BaseSQLParserListener) EnterNumericLiteral(ctx *NumericLiteralContext) 
 // ExitNumericLiteral is called when production numericLiteral is exited.
 func (s *BaseSQLParserListener) ExitNumericLiteral(ctx *NumericLiteralContext) {}
 
+// EnterIntervalLiteral is called when production intervalLiteral is entered.
+func (s *BaseSQLParserListener) EnterIntervalLiteral(ctx *IntervalLiteralContext) {}
+
+// ExitIntervalLiteral is called when production intervalLiteral is exited.
+func (s *BaseSQLParserListener) ExitIntervalLiteral(ctx *IntervalLiteralContext) {}
+
 // EnterBooleanLiteral is called when production booleanLiteral is entered.
 func (s *BaseSQLParserListener) EnterBooleanLiteral(ctx *BooleanLiteralContext) {}
 
@@ -573,6 +579,18 @@ func (s *BaseSQLParserListener) EnterIntegerLiteral(ctx *IntegerLiteralContext) 
 
 // ExitIntegerLiteral is called when production integerLiteral is exited.
 func (s *BaseSQLParserListener) ExitIntegerLiteral(ctx *IntegerLiteralContext) {}
+
+// EnterInterval is called when production interval is entered.
+func (s *BaseSQLParserListener) EnterInterval(ctx *IntervalContext) {}
+
+// ExitInterval is called when production interval is exited.
+func (s *BaseSQLParserListener) ExitInterval(ctx *IntervalContext) {}
+
+// EnterIntervalUnit is called when production intervalUnit is entered.
+func (s *BaseSQLParserListener) EnterIntervalUnit(ctx *IntervalUnitContext) {}
+
+// ExitIntervalUnit is called when production intervalUnit is exited.
+func (s *BaseSQLParserListener) ExitIntervalUnit(ctx *IntervalUnitContext) {}
 
 // EnterNonReserved is called when production nonReserved is entered.
 func (s *BaseSQLParserListener) EnterNonReserved(ctx *NonReservedContext) {}

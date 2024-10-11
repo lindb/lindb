@@ -32,6 +32,10 @@ func (c *Column) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bo
 	return row.GetTimeSeries(c.index), false, nil
 }
 
+func (c *Column) EvalDuration(row types.Row) (val time.Duration, isNull bool, err error) {
+	return
+}
+
 func (c *Column) EvalTime(_ types.Row) (val time.Time, isNull bool, err error) {
 	return
 }

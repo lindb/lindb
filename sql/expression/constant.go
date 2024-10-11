@@ -36,6 +36,11 @@ func (c *Constant) EvalTimeSeries(_ types.Row) (val *types.TimeSeries, isNull bo
 	return
 }
 
+func (c *Constant) EvalDuration(_ types.Row) (val time.Duration, isNull bool, err error) {
+	val = c.value.(time.Duration)
+	return
+}
+
 func (c *Constant) EvalTime(_ types.Row) (val time.Time, isNull bool, err error) {
 	return
 }

@@ -41,6 +41,10 @@ func (c *Cast) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool
 	return c.function.EvalTimeSeries(row)
 }
 
+func (c *Cast) EvalDuration(row types.Row) (val time.Duration, isNull bool, err error) {
+	return
+}
+
 func (c *Cast) EvalTime(_ types.Row) (val time.Time, isNull bool, err error) {
 	return
 }

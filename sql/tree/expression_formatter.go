@@ -58,6 +58,8 @@ func (v *FormatVisitor) Visit(context any, n Node) any {
 		return v.formatStringLiteral(node.Value)
 	case *LongLiteral:
 		return fmt.Sprintf("%d", node.Value)
+	case *IntervalLiteral:
+		return v.formatIntervalLiteral(node)
 	case *Constant:
 		// TODO: add more
 		return fmt.Sprintf("%v", node.Value)
@@ -110,6 +112,10 @@ func (v *FormatVisitor) formatTimestampPredicate(node *TimestampPredicate) strin
 
 func (v *FormatVisitor) formatStringLiteral(s string) string {
 	return fmt.Sprintf("'%s'", strings.ReplaceAll(s, "'", "''"))
+}
+
+func (v *FormatVisitor) formatIntervalLiteral(node *IntervalLiteral) string {
+	return fmt.Sprintf("INTERVAL %v %s", node.Value, node.Unit)
 }
 
 func (v *FormatVisitor) formatIdentifier(s string) string {

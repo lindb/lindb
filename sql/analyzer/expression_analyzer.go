@@ -65,6 +65,8 @@ func (v *ExpressionVisitor) Visit(context any, n tree.Node) (r any) {
 		return v.visitStringLiteral(context, node)
 	case *tree.LongLiteral:
 		return v.visitLongLiteral(context, node)
+	case *tree.IntervalLiteral:
+		return v.visitIntervalLiteral(context, node)
 	case *tree.Identifier:
 		return v.visitIdentifier(context, node)
 	case *tree.FieldReference:
@@ -145,6 +147,10 @@ func (v *ExpressionVisitor) visitStringLiteral(context any, node *tree.StringLit
 
 func (v *ExpressionVisitor) visitLongLiteral(context any, node *tree.LongLiteral) (r any) {
 	return v.setExpressionType(node, types.DTInt)
+}
+
+func (v *ExpressionVisitor) visitIntervalLiteral(context any, node *tree.IntervalLiteral) (r any) {
+	return v.setExpressionType(node, types.DTDuration)
 }
 
 func (v *ExpressionVisitor) visitIdentifier(context any, node *tree.Identifier) (r any) {
