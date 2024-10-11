@@ -23,9 +23,7 @@ type TableHandle struct {
 	Table string `json:"table"`
 }
 
-func (t *TableHandle) SetTimeRange(timeRange timeutil.TimeRange) {
-	panic(constants.ErrNotSupportOperation)
-}
+func (t *TableHandle) SetTimeRange(timeRange timeutil.TimeRange) {}
 
 func (t *TableHandle) GetTimeRange() timeutil.TimeRange {
 	panic(constants.ErrNotSupportOperation)

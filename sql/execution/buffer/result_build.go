@@ -54,6 +54,8 @@ func (rsb *ResultSetBuild) Process() {
 					columns[i] = row.GetTimeSeries(i)
 				case types.DTTimestamp:
 					columns[i] = row.GetTimestamp(i)
+				case types.DTDuration:
+					columns[i] = row.GetDuration(i)
 				default:
 					panic(fmt.Sprintf("build result set error, unknown data type:%v", meta.DataType))
 				}

@@ -3,6 +3,7 @@ package expression
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/spi/types"
@@ -37,6 +38,13 @@ func (f *arithmeticPlusFunc) EvalTimeSeries(row types.Row) (val *types.TimeSerie
 	return evalTimeSeries(row, f.args, func(lv, rv float64) float64 {
 		return lv + rv
 	})
+}
+
+func (f *arithmeticPlusFunc) EvalTime(row types.Row) (val time.Time, isNull bool, err error) {
+	lv, _, _ := f.args[0].EvalTime(row)
+	rv, _, _ := f.args[1].EvalDuration(row)
+	val = lv.Add(rv)
+	return
 }
 
 func evalTimeSeries(row types.Row, args []Expression, math func(lv, rv float64) float64) (val *types.TimeSeries, isNull bool, err error) {
@@ -103,6 +111,13 @@ func (f *arithmeticMinusFunc) EvalTimeSeries(row types.Row) (val *types.TimeSeri
 	return evalTimeSeries(row, f.args, func(lv, rv float64) float64 {
 		return lv - rv
 	})
+}
+
+func (f *arithmeticMinusFunc) EvalTime(row types.Row) (val time.Time, isNull bool, err error) {
+	lv, _, _ := f.args[0].EvalTime(row)
+	rv, _, _ := f.args[1].EvalDuration(row)
+	val = lv.Add(-rv)
+	return
 }
 
 type arithmeticMulFuncFactory struct{}

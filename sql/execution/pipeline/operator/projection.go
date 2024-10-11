@@ -76,6 +76,9 @@ func (h *ProjectionOperator) GetOutput() *types.Page {
 			case types.DTTimestamp:
 				val, _, _ := expr.EvalTime(row)
 				h.outputColumns[i].AppendTimestamp(val)
+			case types.DTDuration:
+				val, _, _ := expr.EvalDuration(row)
+				h.outputColumns[i].AppendDuration(val)
 			default:
 				panic("projection operator error, unsupport data type:" + expr.GetType().String())
 			}

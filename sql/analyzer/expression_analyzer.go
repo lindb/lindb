@@ -193,8 +193,10 @@ func (v *ExpressionVisitor) getOperator(context *tree.StackableVisitorContext[*C
 	// TODO: check args types
 	expectedType := types.GetAccurateType(argumentTypes[0], argumentTypes[1])
 	fmt.Printf("visit arithmetic id=%v left=%v,right=%v,result=%v\n", node.GetID(), argumentTypes[0], argumentTypes[1], expectedType)
-	for i, argumentType := range argumentTypes {
-		v.coerceType(arguments[i], argumentType, expectedType)
+	if expectedType == types.DTTimeSeries {
+		for i, argumentType := range argumentTypes {
+			v.coerceType(arguments[i], argumentType, expectedType)
+		}
 	}
 
 	return v.setExpressionType(node, expectedType)
