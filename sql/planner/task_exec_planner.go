@@ -91,11 +91,8 @@ func (v *TaskExecutionPlanVisitor) visitValues(_ any, node *planpkg.ValuesNode) 
 	var page *types.Page
 	if node.Rows != nil {
 		page = node.Rows
-	} else if node.RowCount > 0 {
-		page = types.NewPage()
-		column := types.NewColumn()
-		page.AppendColumn(types.ColumnMetadata{}, column)
-		column.AppendString("") // mock empty value
+	} else if node.RowCount == 1 {
+		page = types.RowWithEmptyValue
 	}
 	fmt.Printf("values node =%v\n", page)
 

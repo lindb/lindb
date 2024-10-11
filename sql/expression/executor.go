@@ -23,7 +23,7 @@ type rewriter struct {
 
 func (r *rewriter) rewrite(node tree.Expression) Expression {
 	switch expr := node.(type) {
-	case *tree.Call:
+	case *tree.FunctionCall:
 		return r.rewriteCall(expr)
 	case *tree.Constant:
 		return NewConstant(expr.Value, expr.Type)
@@ -40,8 +40,8 @@ func (r *rewriter) rewrite(node tree.Expression) Expression {
 	}
 }
 
-func (r *rewriter) rewriteCall(node *tree.Call) Expression {
-	scalarFunc, err := NewScalarFunc(node.Function, node.RetType, lo.Map(node.Args,
+func (r *rewriter) rewriteCall(node *tree.FunctionCall) Expression {
+	scalarFunc, err := NewScalarFunc(node.Name, node.RetType, lo.Map(node.Arguments,
 		func(item tree.Expression, index int) Expression {
 			return r.rewrite(item)
 		},

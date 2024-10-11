@@ -1,5 +1,10 @@
 package types
 
+var (
+	RowWithEmptyValue = NewRowWithEmptyValue()
+	EmptyRow          = Row{}
+)
+
 type Page struct {
 	Layout   []ColumnMetadata `json:"layout,omitempty"`
 	Grouping []int            `json:"grouping,omitempty"` // grouping column indexes
@@ -8,6 +13,14 @@ type Page struct {
 
 func NewPage() *Page {
 	return &Page{}
+}
+
+func NewRowWithEmptyValue() *Page {
+	page := NewPage()
+	column := NewColumn()
+	page.AppendColumn(ColumnMetadata{DataType: DTString}, column)
+	column.AppendString("") // mock empty value
+	return page
 }
 
 func (p *Page) SetGrouping(columnIndexes []int) {

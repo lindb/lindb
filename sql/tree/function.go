@@ -1,10 +1,13 @@
 package tree
 
+import "github.com/lindb/lindb/spi/types"
+
 type FunctionCall struct {
 	BaseNode
 	RefField  *Field
 	Name      FuncName
 	Arguments []Expression
+	RetType   types.DataType
 }
 
 // Accept implements Expression

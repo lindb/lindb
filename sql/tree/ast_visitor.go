@@ -460,7 +460,7 @@ func (v *AstVisitor) VisitRegexpPredicate(ctx *grammar.RegexpPredicateContext) a
 }
 
 func (v *AstVisitor) VisitTimestampPredicate(ctx *grammar.TimestampPredicateContext) any {
-	return &TimestampPredicate{
+	return &TimePredicate{
 		BaseNode: BaseNode{
 			ID:       v.idAllocator.Next(),
 			Location: getLocation(ctx.GetStart()),
@@ -699,12 +699,14 @@ func (v *AstVisitor) VisitExpression(ctx *grammar.ExpressionContext) any {
 
 func (v *AstVisitor) VisitFunctionCall(ctx *grammar.FunctionCallContext) any {
 	// FIXME: parse funcion call
+	funcName := FuncName(strings.ToLower(v.getQualifiedName(ctx.QualifiedName()).Name)) // TODO: check function name
 	return &FunctionCall{
 		BaseNode: BaseNode{
 			ID:       v.idAllocator.Next(),
 			Location: getLocation(ctx.GetStart()),
 		},
-		Name:      FuncName(strings.ToLower(v.getQualifiedName(ctx.QualifiedName()).Name)), // TODO: check function name
+		Name:      funcName,
+		RetType:   GetDefaultFuncReturnType(funcName),
 		Arguments: visit[Expression](ctx.AllExpression(), v),
 	}
 }

@@ -147,21 +147,21 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 			}
 		case *tree.ArithmeticBinaryExpression:
 			exceptedType := t.context.AnalyzerContext.Analysis.GetType(expr)
-			result = &tree.Call{
+			result = &tree.FunctionCall{
 				// TODO: replace
 				BaseNode: tree.BaseNode{
 					ID: node.GetID(),
 				},
-				Function: expr.Operator.FunctionName(),
-				RetType:  exceptedType,
-				Args:     []tree.Expression{t.translate(expr.Left, false), t.translate(expr.Right, false)},
+				Name:      expr.Operator.FunctionName(),
+				RetType:   exceptedType,
+				Arguments: []tree.Expression{t.translate(expr.Left, false), t.translate(expr.Right, false)},
 			}
 		case *tree.LogicalExpression:
 			for _, term := range expr.Terms {
 				t.translate(term, false)
 			}
 			result = expr
-		case *tree.TimestampPredicate:
+		case *tree.TimePredicate:
 			t.translate(expr.Value, false)
 			result = expr
 		case *tree.ComparisonExpression:
@@ -173,20 +173,12 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 			if !expression.IsFuncSupported(expr.Name) {
 				panic(fmt.Sprintf("function %s is not supported", expr.Name))
 			}
-			fn := t.context.AnalyzerContext.Analysis.GetResolvedFunction(expr)
-			fmt.Printf("call fun=%v\n", fn)
-			exceptedType := t.context.AnalyzerContext.Analysis.GetType(expr)
-			result = &tree.Call{
-				// TODO: replace
-				BaseNode: tree.BaseNode{
-					ID: node.GetID(),
-				},
-				Function: fn,
-				RetType:  exceptedType,
-				Args: lo.Map(expr.Arguments, func(arg tree.Expression, index int) tree.Expression {
-					return t.translate(arg, false)
-				}),
-			}
+			expr.RetType = t.context.AnalyzerContext.Analysis.GetType(expr)
+			expr.Name = t.context.AnalyzerContext.Analysis.GetResolvedFunction(expr)
+			expr.Arguments = lo.Map(expr.Arguments, func(arg tree.Expression, index int) tree.Expression {
+				return t.translate(arg, false)
+			})
+			result = expr
 		default:
 			panic(fmt.Sprintf("translate not supported: %T", node))
 		}

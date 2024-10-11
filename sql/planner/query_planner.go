@@ -57,7 +57,7 @@ func (p *QueryPlanner) planQuery(node *tree.Query) *RelationPlan {
 }
 
 func (p *QueryPlanner) planQueryBody(query *tree.Query) *PlanBuilder {
-	planner := NewRelationPlanner(p.context, p.outerContext)
+	planner := NewRelationPlanner(p.context, p.outerContext, nil)
 	relationPlan := query.QueryBody.Accept(nil, planner).(*RelationPlan)
 	return newPlanBuilder(p.context, relationPlan, nil)
 }
@@ -86,7 +86,7 @@ func (p *QueryPlanner) planQuerySpecification(node *tree.QuerySpecification) *Re
 
 func (p *QueryPlanner) planFrom(node *tree.QuerySpecification) *PlanBuilder {
 	if node.From != nil {
-		planner := NewRelationPlanner(p.context, p.outerContext)
+		planner := NewRelationPlanner(p.context, p.outerContext, p.context.AnalyzerContext.Analysis.GetTimePredicates(node))
 		relationPlan := node.From.Accept(nil, planner).(*RelationPlan)
 		return newPlanBuilder(p.context, relationPlan, nil)
 	}
@@ -241,7 +241,6 @@ func (p *QueryPlanner) filter(subPlan *PlanBuilder, predicate tree.Expression, n
 	}
 	subPlan = p.subQueryPlanner.handleSubQueries(subPlan, predicate, nil)
 
-	fmt.Printf("plan filter......%T\n", predicate)
 	return subPlan.withNewRoot(&plan.FilterNode{
 		BaseNode: plan.BaseNode{
 			ID: p.context.PlanNodeIDAllocator.Next(),

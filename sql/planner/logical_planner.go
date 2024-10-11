@@ -55,7 +55,7 @@ func (p *LogicalPlanner) planStatementWithoutOutput() *RelationPlan {
 	fmt.Printf("statement type=%T\n", statement)
 	switch stmt := statement.(type) {
 	case *tree.Query:
-		planner := NewRelationPlanner(p.context, nil)
+		planner := NewRelationPlanner(p.context, nil, nil)
 		return stmt.Accept(nil, planner).(*RelationPlan)
 	default:
 		// TODO: plan other statement

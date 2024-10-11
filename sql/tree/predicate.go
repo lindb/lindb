@@ -30,12 +30,12 @@ func (n *RegexPredicate) Accept(context any, visitor Visitor) any {
 	return visitor.Visit(context, n)
 }
 
-type TimestampPredicate struct {
+type TimePredicate struct {
 	BaseNode
 	Operator ComparisonOperator
 	Value    Expression
 }
 
-func (n *TimestampPredicate) Accept(context any, visitor Visitor) any {
+func (n *TimePredicate) Accept(context any, visitor Visitor) any {
 	return visitor.Visit(context, n)
 }

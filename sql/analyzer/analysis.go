@@ -61,6 +61,7 @@ type Analysis struct {
 	relationNames         map[tree.NodeID]*tree.QualifiedName
 	joins                 map[tree.NodeID]tree.Expression
 	where                 map[tree.NodeID]tree.Expression
+	timePredicates        map[tree.NodeID][]*tree.TimePredicate
 	groupingSets          map[tree.NodeID]*GroupingSetAnalysis
 	having                map[tree.NodeID]tree.Expression
 	orderByExpressions    map[tree.NodeID][]tree.Expression
@@ -87,6 +88,7 @@ func NewAnalysis(root tree.Statement) *Analysis {
 		aliasedRelations:      make(map[*tree.QualifiedName]tree.Relation),
 		joins:                 make(map[tree.NodeID]tree.Expression),
 		where:                 make(map[tree.NodeID]tree.Expression),
+		timePredicates:        make(map[tree.NodeID][]*tree.TimePredicate),
 		groupingSets:          make(map[tree.NodeID]*GroupingSetAnalysis),
 		having:                make(map[tree.NodeID]tree.Expression),
 		orderByExpressions:    make(map[tree.NodeID][]tree.Expression),
@@ -190,6 +192,15 @@ func (a *Analysis) SetJoinCriteria(node *tree.Join, criteria tree.Expression) {
 
 func (a *Analysis) GetJoinCriteria(node *tree.Join) (criteria tree.Expression) {
 	criteria = a.joins[node.GetID()]
+	return
+}
+
+func (a *Analysis) SetTimePredicates(node *tree.QuerySpecification, timePredicates []*tree.TimePredicate) {
+	a.timePredicates[node.GetID()] = timePredicates
+}
+
+func (a *Analysis) GetTimePredicates(node *tree.QuerySpecification) (timePredicates []*tree.TimePredicate) {
+	timePredicates = a.timePredicates[node.GetID()]
 	return
 }
 

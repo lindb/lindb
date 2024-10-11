@@ -2,7 +2,6 @@ package metric
 
 import (
 	"fmt"
-	"time"
 
 	common_tileutil "github.com/lindb/common/pkg/timeutil"
 	"github.com/lindb/roaring"
@@ -26,11 +25,7 @@ func init() {
 			Database:  db,
 			Namespace: ns,
 			Metric:    name,
-			// FIXME: remove it??
-			TimeRange: timeutil.TimeRange{
-				Start: time.Now().UnixMilli() - time.Hour.Milliseconds(),
-				End:   time.Now().UnixMilli(),
-			},
+			// FIXME: remove it
 			Interval:        timeutil.Interval(10 * common_tileutil.OneSecond),
 			StorageInterval: timeutil.Interval(10 * common_tileutil.OneSecond),
 			IntervalRatio:   1,
@@ -63,12 +58,16 @@ func (t *TableHandle) SetTimeRange(timeRange timeutil.TimeRange) {
 	t.TimeRange = timeRange
 }
 
+func (t *TableHandle) GetTimeRange() timeutil.TimeRange {
+	return t.TimeRange
+}
+
 func (t *TableHandle) Kind() spi.DatasourceKind {
 	return spi.Metric
 }
 
 func (t *TableHandle) String() string {
-	return fmt.Sprintf("%s:%s:%s", t.Database, t.Namespace, t.Metric)
+	return fmt.Sprintf("%s:%s:%s%s", t.Database, t.Namespace, t.Metric, t.TimeRange.String())
 }
 
 type ColumnHandle struct {

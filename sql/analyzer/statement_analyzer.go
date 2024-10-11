@@ -410,7 +410,22 @@ func (v *StatementVisitor) analyzeFrom(node *tree.QuerySpecification, scope *Sco
 	return result
 }
 
-func (v *StatementVisitor) analyzeWhere(node tree.Node, scope *Scope, predicate tree.Expression) {
+func (v *StatementVisitor) analyzeWhere(node *tree.QuerySpecification, scope *Scope, predicate tree.Expression) {
+	if timePredicate, ok := predicate.(*tree.TimePredicate); ok {
+		v.analyzer.ctx.Analysis.SetTimePredicates(node, []*tree.TimePredicate{timePredicate})
+		return
+	}
+	// extract time predicates from where clause expressions
+	timePredicates, newPredicate := ExtractTimePredicates(predicate)
+	if len(timePredicates) > 0 {
+		v.analyzer.ctx.Analysis.SetTimePredicates(node, timePredicates)
+	}
+
+	if newPredicate == nil {
+		// new predicate is nil, means no where clause after extract time predicates
+		return
+	}
+
 	// FIXME: verify no aggregate and group by function
 	v.analyzeExpression(predicate, scope)
 	// v.analyzer.ctx.Analysis.RecordSubQueries(node, expressionAnalysis)
@@ -451,7 +466,6 @@ func (v *StatementVisitor) analyzeGroupBy(node *tree.QuerySpecification, scope *
 						// TODO: field sets
 						complexExpressions = append(complexExpressions, column)
 					}
-
 					groupingExpressions = append(groupingExpressions, column)
 				}
 			}

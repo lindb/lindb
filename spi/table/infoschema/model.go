@@ -27,6 +27,10 @@ func (t *TableHandle) SetTimeRange(timeRange timeutil.TimeRange) {
 	panic(constants.ErrNotSupportOperation)
 }
 
+func (t *TableHandle) GetTimeRange() timeutil.TimeRange {
+	panic(constants.ErrNotSupportOperation)
+}
+
 // Kind returns the datasource kind.
 func (t *TableHandle) Kind() spi.DatasourceKind {
 	return spi.InfoSchema

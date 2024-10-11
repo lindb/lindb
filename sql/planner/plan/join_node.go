@@ -23,7 +23,7 @@ type EqualJoinCriteria struct {
 func (n *EqualJoinCriteria) ToExpression() *tree.ComparisonExpression {
 	return &tree.ComparisonExpression{
 		Left:     n.Left.ToSymbolReference(),
-		Operator: tree.ComparisonEqual,
+		Operator: tree.ComparisonEQ,
 		Right:    n.Right.ToSymbolReference(),
 	}
 }
