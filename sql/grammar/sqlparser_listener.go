@@ -214,6 +214,9 @@ type SQLParserListener interface {
 	// EnterNumericLiteral is called when entering the numericLiteral production.
 	EnterNumericLiteral(c *NumericLiteralContext)
 
+	// EnterIntervalLiteral is called when entering the intervalLiteral production.
+	EnterIntervalLiteral(c *IntervalLiteralContext)
+
 	// EnterBooleanLiteral is called when entering the booleanLiteral production.
 	EnterBooleanLiteral(c *BooleanLiteralContext)
 
@@ -282,6 +285,12 @@ type SQLParserListener interface {
 
 	// EnterIntegerLiteral is called when entering the integerLiteral production.
 	EnterIntegerLiteral(c *IntegerLiteralContext)
+
+	// EnterInterval is called when entering the interval production.
+	EnterInterval(c *IntervalContext)
+
+	// EnterIntervalUnit is called when entering the intervalUnit production.
+	EnterIntervalUnit(c *IntervalUnitContext)
 
 	// EnterNonReserved is called when entering the nonReserved production.
 	EnterNonReserved(c *NonReservedContext)
@@ -493,6 +502,9 @@ type SQLParserListener interface {
 	// ExitNumericLiteral is called when exiting the numericLiteral production.
 	ExitNumericLiteral(c *NumericLiteralContext)
 
+	// ExitIntervalLiteral is called when exiting the intervalLiteral production.
+	ExitIntervalLiteral(c *IntervalLiteralContext)
+
 	// ExitBooleanLiteral is called when exiting the booleanLiteral production.
 	ExitBooleanLiteral(c *BooleanLiteralContext)
 
@@ -561,6 +573,12 @@ type SQLParserListener interface {
 
 	// ExitIntegerLiteral is called when exiting the integerLiteral production.
 	ExitIntegerLiteral(c *IntegerLiteralContext)
+
+	// ExitInterval is called when exiting the interval production.
+	ExitInterval(c *IntervalContext)
+
+	// ExitIntervalUnit is called when exiting the intervalUnit production.
+	ExitIntervalUnit(c *IntervalUnitContext)
 
 	// ExitNonReserved is called when exiting the nonReserved production.
 	ExitNonReserved(c *NonReservedContext)

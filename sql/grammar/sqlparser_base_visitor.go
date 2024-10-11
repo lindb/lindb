@@ -283,6 +283,10 @@ func (v *BaseSQLParserVisitor) VisitNumericLiteral(ctx *NumericLiteralContext) i
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseSQLParserVisitor) VisitIntervalLiteral(ctx *IntervalLiteralContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseSQLParserVisitor) VisitBooleanLiteral(ctx *BooleanLiteralContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -372,6 +376,14 @@ func (v *BaseSQLParserVisitor) VisitDoubleLiteral(ctx *DoubleLiteralContext) int
 }
 
 func (v *BaseSQLParserVisitor) VisitIntegerLiteral(ctx *IntegerLiteralContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLParserVisitor) VisitInterval(ctx *IntervalContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLParserVisitor) VisitIntervalUnit(ctx *IntervalUnitContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

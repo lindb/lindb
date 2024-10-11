@@ -27,6 +27,10 @@ func (*baseFunc) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bo
 	panic("implement me")
 }
 
+func (*baseFunc) EvalDuration(row types.Row) (val time.Duration, isNull bool, err error) {
+	panic("implement me")
+}
+
 func (*baseFunc) EvalTime(row types.Row) (val time.Time, isNull bool, err error) {
 	panic("implement me")
 }
@@ -36,6 +40,7 @@ type Func interface {
 	EvalFloat(row types.Row) (val float64, isNull bool, err error)
 	EvalString(row types.Row) (val string, isNull bool, err error)
 	EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error)
+	EvalDuration(row types.Row) (val time.Duration, isNull bool, err error)
 	EvalTime(row types.Row) (val time.Time, isNull bool, err error)
 }
 
@@ -57,6 +62,8 @@ var funcs = map[tree.FuncName]FuncFactory{
 	tree.Mod:   &arithmeticModFuncFactory{},
 
 	// time functions
+	// ref: https://dev.mysql.com/doc/refman/8.4/en/date-and-time-functions.html
+	tree.DateAdd:   &addSubDateFuncFactory{},
 	tree.Now:       &nowFuncFactory{},
 	tree.StrToDate: &strToDateFuncFactory{},
 }

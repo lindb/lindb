@@ -24,6 +24,7 @@ const (
 	Max FuncName = "max"
 
 	// time function names
+	DateAdd   FuncName = "date_add"
 	Now       FuncName = "now"
 	StrToDate FuncName = "str_to_date"
 )
@@ -33,6 +34,7 @@ func GetDefaultFuncReturnType(name FuncName) types.DataType {
 }
 
 var defaultFuncReturnTypes = map[FuncName]types.DataType{
+	DateAdd:   types.DTTimestamp,
 	Now:       types.DTTimestamp,
 	StrToDate: types.DTTimestamp,
 }

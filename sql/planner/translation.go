@@ -128,6 +128,14 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 				Type:  types.DTInt,
 				Value: expr.Value,
 			}
+		case *tree.IntervalLiteral:
+			result = &tree.Constant{
+				BaseNode: tree.BaseNode{
+					ID: node.GetID(),
+				},
+				Type:  types.DTDuration,
+				Value: expr.Value,
+			}
 		case *tree.StringLiteral:
 			result = &tree.Constant{
 				// TODO: replace

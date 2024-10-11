@@ -49,6 +49,10 @@ func (f *ScalarFunc) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNul
 	return f.function.EvalTimeSeries(row)
 }
 
+func (f *ScalarFunc) EvalDuration(row types.Row) (val time.Duration, isNull bool, err error) {
+	return f.function.EvalDuration(row)
+}
+
 func (f *ScalarFunc) EvalTime(row types.Row) (val time.Time, isNull bool, err error) {
 	return f.function.EvalTime(row)
 }

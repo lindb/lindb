@@ -214,6 +214,9 @@ type SQLParserVisitor interface {
 	// Visit a parse tree produced by SQLParser#numericLiteral.
 	VisitNumericLiteral(ctx *NumericLiteralContext) interface{}
 
+	// Visit a parse tree produced by SQLParser#intervalLiteral.
+	VisitIntervalLiteral(ctx *IntervalLiteralContext) interface{}
+
 	// Visit a parse tree produced by SQLParser#booleanLiteral.
 	VisitBooleanLiteral(ctx *BooleanLiteralContext) interface{}
 
@@ -282,6 +285,12 @@ type SQLParserVisitor interface {
 
 	// Visit a parse tree produced by SQLParser#integerLiteral.
 	VisitIntegerLiteral(ctx *IntegerLiteralContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#interval.
+	VisitInterval(ctx *IntervalContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#intervalUnit.
+	VisitIntervalUnit(ctx *IntervalUnitContext) interface{}
 
 	// Visit a parse tree produced by SQLParser#nonReserved.
 	VisitNonReserved(ctx *NonReservedContext) interface{}

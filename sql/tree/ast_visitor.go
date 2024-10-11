@@ -731,6 +731,11 @@ func (v *AstVisitor) VisitNumericLiteral(ctx *grammar.NumericLiteralContext) any
 	return v.Visit(ctx.Number())
 }
 
+func (v *AstVisitor) VisitIntervalLiteral(ctx *grammar.IntervalLiteralContext) any {
+	return NewIntervalLiteral(v.idAllocator.Next(), getLocation(ctx.GetStart()),
+		ctx.Interval().GetValue().GetText(), IntervalUnit(strings.ToUpper(ctx.Interval().GetUnit().GetText())))
+}
+
 func (v *AstVisitor) VisitBasicStringLiteral(ctx *grammar.BasicStringLiteralContext) any {
 	value, err := strutil.GetStringValue(ctx.STRING().GetText())
 	if err != nil {

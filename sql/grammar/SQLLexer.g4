@@ -40,6 +40,7 @@ GROUP                    : 'GROUP' ;
 HAVING                   : 'HAVING' ;
 IF                       : 'IF' ;
 IN                       : 'IN' ;
+INTERVAL                 : 'INTERVAL' ;
 JOIN                     : 'JOIN' ;
 KEYS                     : 'KEYS' ;
 LEFT                     : 'LEFT' ;
@@ -79,6 +80,14 @@ WITH                     : 'WITH' ;
 WITHIN                   : 'WITHIN' ;
 USING                    : 'USING' ;
 USE                      : 'USE' ;
+
+// interval unit
+SECOND                   : 'SECOND' ;
+MINUTE                   : 'MINUTE' ;
+HOUR                     : 'HOUR' ;
+DAY                      : 'DAY' ;
+MONTH                    : 'MONTH' ;
+YEAR                     : 'YEAR' ;
 
 EQ    : '=' ;
 NEQ   : '<>' | '!=' ;

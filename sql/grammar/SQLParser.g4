@@ -150,6 +150,7 @@ valueExpression     : primaryExpression                                     #val
                     ;
 primaryExpression   : 
                     number                                                  #numericLiteral
+                    | interval                                              #intervalLiteral
                     | booleanValue                                          #booleanLiteral
                     | string                                                #stringLiteral
                     | qualifiedName '(' (expression (',' expression)*)? ')' #functionCall
@@ -192,8 +193,9 @@ number              : MINUS? DECIMAL_VALUE                                  #dec
                     | MINUS? DOUBLE_VALUE                                   #doubleLiteral
                     | MINUS? INTEGER_VALUE                                  #integerLiteral
                     ;
-timestamp           : NOW '(' ')'  #currentTimestamp
-                    ; 
+interval            : INTERVAL value=number unit=intervalUnit ;
+intervalUnit        : SECOND | MINUTE | HOUR | DAY | MONTH | YEAR ;
+
 nonReserved         :
                       ALL | ALIVE | AND | AS | ASC
                     | BROKER | BROKERS | BY 
@@ -216,5 +218,6 @@ nonReserved         :
                     | VALUES
                     | WHERE | WITH | WITHIN
                     | USING | USE
+                    | SECOND | MINUTE | HOUR | DAY | MONTH | YEAR
                     ;
 
