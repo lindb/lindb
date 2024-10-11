@@ -31,3 +31,7 @@ func (r *Row) GetTimeSeries(colIdx int) *TimeSeries {
 func (r *Row) GetTimestamp(colIdx int) *time.Time {
 	return r.p.Columns[colIdx].GetTimestamp(r.idx)
 }
+
+func (r *Row) GetDuration(colIdx int) *time.Duration {
+	return r.p.Columns[colIdx].GetDuration(r.idx)
+}

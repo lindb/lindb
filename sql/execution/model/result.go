@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	commonmodels "github.com/lindb/common/models"
@@ -33,6 +34,7 @@ func NewResultSet() *ResultSet {
 func (rs *ResultSet) ToTable() (tableStr string) {
 	writer := commonmodels.NewTableFormatter()
 	var headers table.Row
+	var columnTypes []types.DataType
 	var (
 		hasTimeSeries bool
 		timeSeriesIdx int
@@ -46,8 +48,10 @@ func (rs *ResultSet) ToTable() (tableStr string) {
 			_ = mapstructure.Decode(rs.Rows[0][i], timeSeries)
 			dataPoints = len(timeSeries.Values)
 			headers = append(headers, "timestamp") // add timestamp column
+			columnTypes = append(columnTypes, types.DTTimestamp)
 		}
 		headers = append(headers, col.Name)
+		columnTypes = append(columnTypes, col.DataType)
 	}
 	writer.AppendHeader(headers)
 	for _, row := range rs.Rows {
@@ -61,16 +65,14 @@ func (rs *ResultSet) ToTable() (tableStr string) {
 						timeSeries := &types.TimeSeries{}
 						_ = mapstructure.Decode(row[colIdx], timeSeries)
 						if timeSeriesIdx == i {
-							cols[colIdx] = timeutil.FormatTimestamp(
-								timeSeries.TimeRange.Start+timeSeries.Interval*int64(pos),
-								timeutil.DataTimeFormat2)
+							cols[colIdx] = timeSeries.TimeRange.Start + timeSeries.Interval*int64(pos)
 							colIdx++
 							cols[colIdx] = timeSeries.Values[pos]
 						} else {
 							cols[colIdx] = timeSeries.Values[pos]
 						}
 					} else {
-						appendColumn(cols, col, colIdx)
+						appendColumn(cols, columnTypes[colIdx], col, colIdx)
 					}
 					colIdx++
 				}
@@ -79,7 +81,7 @@ func (rs *ResultSet) ToTable() (tableStr string) {
 		} else {
 			cols := make(table.Row, len(rs.Schema.Columns))
 			for i, col := range row {
-				appendColumn(cols, col, i)
+				appendColumn(cols, columnTypes[i], col, i)
 			}
 			writer.AppendRow(cols)
 		}
@@ -88,13 +90,22 @@ func (rs *ResultSet) ToTable() (tableStr string) {
 }
 
 // appendColumn appends column value to row.
-func appendColumn(row table.Row, col any, index int) {
-	switch v := col.(type) {
-	case string:
-		row[index] = v
-	case int64:
-		row[index] = strconv.FormatInt(v, 10)
-	case float64:
-		row[index] = fmt.Sprintf("%v", v)
+func appendColumn(row table.Row, colType types.DataType, col any, index int) {
+	switch colType {
+	case types.DTString:
+		row[index] = col.(string)
+	case types.DTDuration:
+		row[index] = time.Duration(col.(float64))
+	case types.DTInt:
+		row[index] = strconv.FormatInt(col.(int64), 10)
+	case types.DTFloat:
+		row[index] = fmt.Sprintf("%v", col)
+	case types.DTTimestamp:
+		switch val := col.(type) {
+		case string:
+			row[index] = val
+		case int64:
+			row[index] = timeutil.FormatTimestamp(val, timeutil.DataTimeFormat2)
+		}
 	}
 }

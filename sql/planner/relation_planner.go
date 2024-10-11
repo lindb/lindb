@@ -138,9 +138,10 @@ func (p *RelationPlanner) visitTable(context any, node *tree.Table) (r any) {
 			End:   time.Now().UnixMilli(),
 		}
 		if len(p.timePredicates) > 0 {
+			translations := &TranslationMap{context: p.context}
 			// if has time predicate, add time range filter for table handle
 			for _, timePredicate := range p.timePredicates {
-				timestamp, _ := expression.EvalTime(timePredicate.Value)
+				timestamp, _ := expression.EvalTime(translations.Rewrite(timePredicate.Value))
 				switch timePredicate.Operator {
 				case tree.ComparisonGT:
 					timeRange.Start = timestamp.UnixMilli()

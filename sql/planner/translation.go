@@ -60,6 +60,9 @@ func (t *TranslationMap) withAdditionalMapping(mappings map[tree.NodeID]*plan.Sy
 
 func (t *TranslationMap) tryGetMapping(node tree.Expression) *tree.SymbolReference {
 	fmt.Printf("try get maping=%v,%T\n", t.astToSymbols, node)
+	if t.astToSymbols == nil {
+		return nil
+	}
 	symbol, ok := t.astToSymbols[node.GetID()]
 	if ok {
 		return symbol.ToSymbolReference()
@@ -100,7 +103,7 @@ func (t *TranslationMap) CanTranslate(node tree.Expression) bool {
 }
 
 func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tree.Expression) {
-	fmt.Printf("translate(%T)=n", node)
+	fmt.Printf("translate(%T)\n", node)
 	mapped := t.tryGetMapping(node)
 	if mapped != nil {
 		result = mapped
@@ -174,7 +177,7 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 				panic(fmt.Sprintf("function %s is not supported", expr.Name))
 			}
 			expr.RetType = t.context.AnalyzerContext.Analysis.GetType(expr)
-			expr.Name = t.context.AnalyzerContext.Analysis.GetResolvedFunction(expr)
+			// expr.Name = t.context.AnalyzerContext.Analysis.GetResolvedFunction(expr)
 			expr.Arguments = lo.Map(expr.Arguments, func(arg tree.Expression, index int) tree.Expression {
 				return t.translate(arg, false)
 			})

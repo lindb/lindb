@@ -44,6 +44,11 @@ func (c *Column) AppendTimestamp(val time.Time) {
 	c.NumOfRows++
 }
 
+func (c *Column) AppendDuration(val time.Duration) {
+	c.Blocks = append(c.Blocks, &val)
+	c.NumOfRows++
+}
+
 func (c *Column) GetString(row int) *String {
 	if row >= len(c.Blocks) {
 		return nil
@@ -74,6 +79,13 @@ func (c *Column) GetTimestamp(row int) *time.Time {
 	}
 	// FIXME:
 	return c.Blocks[row].(*time.Time)
+}
+
+func (c *Column) GetDuration(row int) *time.Duration {
+	if row >= len(c.Blocks) {
+		return nil
+	}
+	return c.Blocks[row].(*time.Duration)
 }
 
 func (c *Column) GetTimeSeries(row int) *TimeSeries {

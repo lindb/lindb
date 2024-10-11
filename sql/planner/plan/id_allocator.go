@@ -23,11 +23,15 @@ func (a *PlanNodeIDAllocator) Next() PlanNodeID {
 
 type SymbolAllocator struct {
 	analyzerContext *analyzer.AnalyzerContext
+
+	symbols map[string]struct{}
+	next    int
 }
 
 func NewSymbolAllocator(analyzerContext *analyzer.AnalyzerContext) *SymbolAllocator {
 	return &SymbolAllocator{
 		analyzerContext: analyzerContext,
+		symbols:         make(map[string]struct{}),
 	}
 }
 
@@ -48,6 +52,12 @@ func (a *SymbolAllocator) NewSymbol(expression tree.Expression, suffix string, d
 		}
 		// FIXME: func call
 	}
+	_, exist := a.symbols[nameHint]
+	if exist {
+		nameHint = fmt.Sprintf("%s_%d", nameHint, a.next)
+		a.next++
+	}
+	a.symbols[nameHint] = struct{}{}
 	// FIXME: ????
 	return a.newSymbol(nameHint, suffix, dataType)
 }
