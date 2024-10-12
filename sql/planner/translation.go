@@ -172,6 +172,14 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 			t.translate(expr.Right, false)
 			// TODO:
 			result = expr
+		case *tree.InPredicate:
+			t.translate(expr.Value, false)
+			if inListExpression, ok := expr.ValueList.(*tree.InListExpression); ok {
+				lo.ForEach(inListExpression.Values, func(item tree.Expression, index int) {
+					t.translate(item, false)
+				})
+			}
+			result = expr
 		case *tree.FunctionCall:
 			if !expression.IsFuncSupported(expr.Name) {
 				panic(fmt.Sprintf("function %s is not supported", expr.Name))

@@ -52,6 +52,9 @@ type ResultSetOutputOperator struct {
 
 // AddInput implements operator.Operator
 func (op *ResultSetOutputOperator) AddInput(page *types.Page) {
+	if page == nil || page.NumRows() == 0 {
+		return
+	}
 	if op.rebuildPage {
 		targetPage := types.NewPage()
 		for _, col := range op.layout {
@@ -60,9 +63,9 @@ func (op *ResultSetOutputOperator) AddInput(page *types.Page) {
 			}
 		}
 		op.output.AddPage(targetPage)
-		return
+	} else {
+		op.output.AddPage(page)
 	}
-	op.output.AddPage(page)
 }
 
 // Finish implements operator.Operator

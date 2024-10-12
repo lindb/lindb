@@ -5,6 +5,7 @@ import (
 
 	"github.com/samber/lo"
 
+	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/tree"
 )
@@ -25,6 +26,12 @@ func (r *rewriter) rewrite(node tree.Expression) Expression {
 	switch expr := node.(type) {
 	case *tree.FunctionCall:
 		return r.rewriteCall(expr)
+	case *tree.Identifier:
+		// TODO: right?
+		return NewConstant(expr.Value, types.DTString)
+	case *tree.StringLiteral:
+		// TODO: right?
+		return NewConstant(expr.Value, types.DTString)
 	case *tree.Constant:
 		return NewConstant(expr.Value, expr.Type)
 	case *tree.SymbolReference:

@@ -1,6 +1,7 @@
 package metric
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -44,7 +45,7 @@ func (msp *SplitSourceProvider) getSchema(db tsdb.Database, table *TableHandle) 
 	return metricID, schema, nil
 }
 
-func (msp *SplitSourceProvider) buildTableScan(table spi.TableHandle, outputColumns []types.ColumnMetadata) *TableScan {
+func (msp *SplitSourceProvider) buildTableScan(ctx context.Context, table spi.TableHandle, outputColumns []types.ColumnMetadata) *TableScan {
 	metricTable, ok := table.(*TableHandle)
 	if !ok {
 		panic(fmt.Sprintf("metric provider not support table handle<%T>", table))
@@ -95,6 +96,7 @@ func (msp *SplitSourceProvider) buildTableScan(table spi.TableHandle, outputColu
 	}
 
 	return &TableScan{
+		ctx:             ctx,
 		db:              db,
 		schema:          schema,
 		metricID:        metricID,
@@ -135,10 +137,10 @@ func (msp *SplitSourceProvider) findPartitions(tableScan *TableScan, partitionID
 // 1. find database/table(metric) schema
 // 2. find columns(tags)' values if has predicate
 // 3. find partitions
-func (msp *SplitSourceProvider) CreateSplitSources(table spi.TableHandle, partitionIDs []int,
+func (msp *SplitSourceProvider) CreateSplitSources(ctx context.Context, table spi.TableHandle, partitionIDs []int,
 	outputColumns []types.ColumnMetadata, predicate tree.Expression,
 ) (splits []spi.SplitSource) {
-	tableScan := msp.buildTableScan(table, outputColumns)
+	tableScan := msp.buildTableScan(ctx, table, outputColumns)
 	if tableScan == nil {
 		fmt.Println("table scan is nil")
 		return
@@ -309,20 +311,25 @@ func NewRowLookupVisitor(split *SplitSource) *RowsLookupVisitor {
 }
 
 func (v *RowsLookupVisitor) Visit(context any, n tree.Node) any {
+	fmt.Printf("row lookup visitor: %v\n", v.split.tableScan.filterResult)
 	switch node := n.(type) {
 	case *tree.ComparisonExpression:
-		return v.visitComparisonExpression(context, node)
+		return v.visitPredicate(context, node)
+	case *tree.InPredicate:
+		return v.visitPredicate(context, node)
 	case *tree.Cast:
 		return node.Expression.Accept(context, v)
 	}
 	return nil
 }
 
-func (v *RowsLookupVisitor) visitComparisonExpression(_ any, node *tree.ComparisonExpression) (r any) {
-	columnResult, ok := v.split.tableScan.filterResult[node.ID]
+func (v *RowsLookupVisitor) visitPredicate(_ any, node tree.Node) (r any) {
+	columnResult, ok := v.split.tableScan.filterResult[node.GetID()]
 	if !ok {
+		fmt.Println("column result not found")
 		return nil
 	}
+	fmt.Printf("tag value ids=%v\n", columnResult.TagValueIDs)
 	indexDB := v.split.partition.shard.IndexDB()
 	seriesIDs, err := indexDB.GetSeriesIDsByTagValueIDs(columnResult.TagKeyID, columnResult.TagValueIDs)
 	if err != nil {

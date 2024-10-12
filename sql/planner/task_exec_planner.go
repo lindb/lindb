@@ -184,7 +184,7 @@ func (v *TaskExecutionPlanVisitor) visitTableScan(context any, node *planpkg.Tab
 			DataType: item.DataType,
 		}
 	})
-	splitSources := spi.GetSplitSourceProvider(node.Table).CreateSplitSources(node.Table, v.taskExecCtx.Partitions, outputColumns, filter)
+	splitSources := spi.GetSplitSourceProvider(node.Table).CreateSplitSources(v.taskExecCtx.Context, node.Table, v.taskExecCtx.Partitions, outputColumns, filter)
 	// TODO: check source split
 	planContext := context.(*TaskExecutionPlanContext)
 	planContext.SetSplitSources(splitSources)

@@ -1,6 +1,7 @@
 package infoschema
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/samber/lo"
@@ -21,7 +22,7 @@ func NewSplitSourceProvider(metadataMgr meta.MetadataManager) spi.SplitSourcePro
 	}
 }
 
-func (s *SplitSourceProvider) CreateSplitSources(table spi.TableHandle, partitions []int,
+func (s *SplitSourceProvider) CreateSplitSources(ctx context.Context, table spi.TableHandle, partitions []int,
 	outputColumns []types.ColumnMetadata, predicate tree.Expression,
 ) (splits []spi.SplitSource) {
 	infoTable, ok := table.(*TableHandle)

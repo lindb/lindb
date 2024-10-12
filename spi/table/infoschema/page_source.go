@@ -1,6 +1,7 @@
 package infoschema
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/lindb/lindb/spi"
@@ -18,7 +19,7 @@ func NewPageSourceProvider(reader Reader) spi.PageSourceProvider {
 }
 
 // CreatePageSource implements spi.PageSourceProvider.
-func (p *PageSourceProvider) CreatePageSource(table spi.TableHandle,
+func (p *PageSourceProvider) CreatePageSource(ctx context.Context, table spi.TableHandle,
 	outputs []types.ColumnMetadata, assignments []*spi.ColumnAssignment,
 ) spi.PageSource {
 	return &PageSource{
