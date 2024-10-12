@@ -8,7 +8,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/utils"
 	protoCommandV1 "github.com/lindb/lindb/proto/gen/v1/command"
 	"github.com/lindb/lindb/sql/execution/buffer"
 	"github.com/lindb/lindb/sql/execution/model"
@@ -131,6 +133,7 @@ func (exec *QueryExecution) execute(fragmentedPlan *plan.SubPlan, output buffer.
 	fragments := fragmentedPlan.GetAllFragments()
 
 	rootFragment := fragments[0]
+	currentTime, _ := utils.GetInt64FromContext(session.Context, constants.ContextKeyCurrentTime)
 
 	// submit all task
 	for i := 0; i < len(fragments); i++ {
@@ -147,8 +150,9 @@ func (exec *QueryExecution) execute(fragmentedPlan *plan.SubPlan, output buffer.
 				// run under current node
 				taskFct := NewTaskExecutionFactory()
 				taskExec := taskFct.Create(&SQLTask{
-					id:       taskID,
-					fragment: rootFragment,
+					currentTime: currentTime,
+					id:          taskID,
+					fragment:    rootFragment,
 				}, output)
 				taskExec.Execute()
 				// TODO::
@@ -168,6 +172,9 @@ func (exec *QueryExecution) execute(fragmentedPlan *plan.SubPlan, output buffer.
 					_, err = client.Command(context.TODO(), &protoCommandV1.CommandRequest{
 						Cmd: protoCommandV1.Command_SubmitTask,
 						Payload: encoding.JSONMarshal(&model.TaskRequest{
+							RequestContext: model.RequestContext{
+								CurrentTime: currentTime,
+							},
 							TaskID:     taskID,
 							Fragment:   data,
 							Partitions: shards,

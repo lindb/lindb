@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
@@ -9,12 +10,14 @@ import (
 )
 
 type DriverFactory struct {
+	ctx               context.Context
 	operatorFactories []operator.OperatorFactory
 	pielineID         int32
 }
 
-func NewDriverFactory(pipelineID int32, operatorFactories []operator.OperatorFactory) *DriverFactory {
+func NewDriverFactory(ctx context.Context, pipelineID int32, operatorFactories []operator.OperatorFactory) *DriverFactory {
 	return &DriverFactory{
+		ctx:               ctx,
 		pielineID:         pipelineID,
 		operatorFactories: operatorFactories,
 	}
@@ -23,7 +26,7 @@ func NewDriverFactory(pipelineID int32, operatorFactories []operator.OperatorFac
 func (fct *DriverFactory) CreateDriver() *Driver {
 	var operators []operator.Operator
 	for _, operatorFct := range fct.operatorFactories {
-		operators = append(operators, operatorFct.CreateOperator())
+		operators = append(operators, operatorFct.CreateOperator(fct.ctx))
 	}
 	return NewDriver(operators)
 }

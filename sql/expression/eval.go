@@ -7,8 +7,8 @@ import (
 	"github.com/lindb/lindb/sql/tree"
 )
 
-func EvalTime(expression tree.Expression) (time.Time, error) {
+func EvalTime(ctx EvalContext, expression tree.Expression) (time.Time, error) {
 	expr := Rewrite(&RewriteContext{}, expression)
-	val, _, err := expr.EvalTime(types.EmptyRow)
+	val, _, err := expr.EvalTime(ctx, types.EmptyRow)
 	return val, err
 }

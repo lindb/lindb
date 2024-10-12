@@ -1,6 +1,8 @@
 package exchange
 
 import (
+	"context"
+
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/pipeline/operator"
 )
@@ -12,7 +14,7 @@ func NewLocalExchangeOperatorFactory() operator.OperatorFactory {
 }
 
 // CreateOperator implements operator.OperatorFactory.
-func (l *LocalExchangeOperatorFactory) CreateOperator() operator.Operator {
+func (l *LocalExchangeOperatorFactory) CreateOperator(ctx context.Context) operator.Operator {
 	return NewLocalExchangeOperator()
 }
 

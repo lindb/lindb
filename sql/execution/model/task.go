@@ -9,15 +9,20 @@ import (
 
 type RequestID string
 
+type RequestContext struct {
+	CurrentTime int64 `json:"currentTime"`
+}
+
 type TaskID struct {
 	RequestID RequestID `json:"requestId"`
 	ID        int       `json:"id"`
 }
 
 type TaskRequest struct {
-	TaskID     TaskID          `json:"taskId"`
-	Partitions []int           `json:"partitions"`
-	Fragment   json.RawMessage `json:"fragment,omitempty"`
+	RequestContext RequestContext  `json:"requestContext"`
+	TaskID         TaskID          `json:"taskId"`
+	Partitions     []int           `json:"partitions"`
+	Fragment       json.RawMessage `json:"fragment,omitempty"`
 }
 
 type TaskResultSet struct {

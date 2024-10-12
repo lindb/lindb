@@ -11,37 +11,37 @@ type baseFunc struct {
 	args []Expression
 }
 
-func (*baseFunc) EvalInt(row types.Row) (val int64, isNull bool, err error) {
+func (*baseFunc) EvalInt(ctx EvalContext, row types.Row) (val int64, isNull bool, err error) {
 	panic("implement me")
 }
 
-func (*baseFunc) EvalFloat(row types.Row) (val float64, isNull bool, err error) {
+func (*baseFunc) EvalFloat(ctx EvalContext, row types.Row) (val float64, isNull bool, err error) {
 	panic("implement me")
 }
 
-func (*baseFunc) EvalString(row types.Row) (val string, isNull bool, err error) {
+func (*baseFunc) EvalString(ctx EvalContext, row types.Row) (val string, isNull bool, err error) {
 	panic("implement me")
 }
 
-func (*baseFunc) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error) {
+func (*baseFunc) EvalTimeSeries(ctx EvalContext, row types.Row) (val *types.TimeSeries, isNull bool, err error) {
 	panic("implement me")
 }
 
-func (*baseFunc) EvalDuration(row types.Row) (val time.Duration, isNull bool, err error) {
+func (*baseFunc) EvalDuration(ctx EvalContext, row types.Row) (val time.Duration, isNull bool, err error) {
 	panic("implement me")
 }
 
-func (*baseFunc) EvalTime(row types.Row) (val time.Time, isNull bool, err error) {
+func (*baseFunc) EvalTime(ctx EvalContext, row types.Row) (val time.Time, isNull bool, err error) {
 	panic("implement me")
 }
 
 type Func interface {
-	EvalInt(row types.Row) (val int64, isNull bool, err error)
-	EvalFloat(row types.Row) (val float64, isNull bool, err error)
-	EvalString(row types.Row) (val string, isNull bool, err error)
-	EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error)
-	EvalDuration(row types.Row) (val time.Duration, isNull bool, err error)
-	EvalTime(row types.Row) (val time.Time, isNull bool, err error)
+	EvalInt(ctx EvalContext, row types.Row) (val int64, isNull bool, err error)
+	EvalFloat(ctx EvalContext, row types.Row) (val float64, isNull bool, err error)
+	EvalString(ctx EvalContext, row types.Row) (val string, isNull bool, err error)
+	EvalTimeSeries(ctx EvalContext, row types.Row) (val *types.TimeSeries, isNull bool, err error)
+	EvalDuration(ctx EvalContext, row types.Row) (val time.Duration, isNull bool, err error)
+	EvalTime(ctx EvalContext, row types.Row) (val time.Time, isNull bool, err error)
 }
 
 type FuncFactory interface {

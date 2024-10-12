@@ -19,6 +19,7 @@ package utils
 
 import (
 	"context"
+	"time"
 
 	"github.com/lindb/lindb/constants"
 )
@@ -29,7 +30,19 @@ func GetStringFromContext(ctx context.Context, key constants.ContextKey) (string
 	return val, ok
 }
 
+// GetInt64FromContext returns int64 value from context.
+func GetInt64FromContext(ctx context.Context, key constants.ContextKey) (int64, bool) {
+	val, ok := ctx.Value(key).(int64)
+	return val, ok
+}
+
+// GetTimeFromContext returns time value from context.
+func GetTimeFromContext(ctx context.Context, key constants.ContextKey) time.Time {
+	val := ctx.Value(key)
+	return time.UnixMilli(val.(int64))
+}
+
 // GetFromContext gets value from context.
-func GetFromContext(ctx context.Context, key constants.ContextKey) interface{} {
+func GetFromContext(ctx context.Context, key constants.ContextKey) any {
 	return ctx.Value(key)
 }
