@@ -140,7 +140,7 @@ func (n *LogicalExpression) Accept(context any, visitor Visitor) (r any) {
 
 type InListExpression struct {
 	BaseNode
-	Values []Expression
+	Values []Expression `json:"values"`
 }
 
 func (n *InListExpression) Accept(context any, visitor Visitor) (r any) {

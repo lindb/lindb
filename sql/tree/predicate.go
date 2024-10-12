@@ -12,8 +12,8 @@ func (n *LikePredicate) Accept(context any, visitor Visitor) any {
 
 type InPredicate struct {
 	BaseNode
-	Value     Expression
-	ValueList Expression
+	Value     Expression `json:"value"`
+	ValueList Expression `json:"valueList"`
 }
 
 func (n *InPredicate) Accept(context any, visitor Visitor) any {

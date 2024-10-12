@@ -1,6 +1,8 @@
 package spi
 
 import (
+	"context"
+
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 )
@@ -18,11 +20,11 @@ type SplitSource interface {
 }
 
 type SplitSourceProvider interface {
-	CreateSplitSources(table TableHandle, partitions []int, outputColumns []types.ColumnMetadata, predicate tree.Expression) (splits []SplitSource)
+	CreateSplitSources(ctx context.Context, table TableHandle, partitions []int, outputColumns []types.ColumnMetadata, predicate tree.Expression) (splits []SplitSource)
 }
 
 type PageSourceProvider interface {
-	CreatePageSource(table TableHandle, outputs []types.ColumnMetadata, assignments []*ColumnAssignment) PageSource
+	CreatePageSource(ctx context.Context, table TableHandle, outputs []types.ColumnMetadata, assignments []*ColumnAssignment) PageSource
 }
 
 type PageSourceManager struct{}

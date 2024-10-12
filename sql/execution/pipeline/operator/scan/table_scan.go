@@ -37,7 +37,7 @@ func NewTableScanOperatorFactory(sourceID plan.PlanNodeID,
 
 func (fct *TableScanOperatorFactory) CreateOperator(ctx context.Context) operator.Operator {
 	provider := spi.GetPageSourceProvider(fct.table)
-	return NewTableScanOperator(fct.sourceID, provider.CreatePageSource(fct.table, fct.outputs, fct.assignments))
+	return NewTableScanOperator(fct.sourceID, provider.CreatePageSource(ctx, fct.table, fct.outputs, fct.assignments))
 }
 
 type TableScanOperator struct {

@@ -1,6 +1,7 @@
 package metric
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/samber/lo"
@@ -23,7 +24,7 @@ func NewPageSourceProvider() spi.PageSourceProvider {
 	return &PageSourceProvider{}
 }
 
-func (p *PageSourceProvider) CreatePageSource(table spi.TableHandle, outputs []types.ColumnMetadata, assignments []*spi.ColumnAssignment) spi.PageSource {
+func (p *PageSourceProvider) CreatePageSource(ctx context.Context, table spi.TableHandle, outputs []types.ColumnMetadata, assignments []*spi.ColumnAssignment) spi.PageSource {
 	return &PageSource{
 		table:       table.(*TableHandle),
 		assignments: assignments,

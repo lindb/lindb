@@ -51,6 +51,8 @@ func (v *ExpressionVisitor) Visit(context any, n tree.Node) (r any) {
 	switch node := n.(type) {
 	case *tree.ComparisonExpression:
 		return v.visitComparisonExpression(context, node)
+	case *tree.InPredicate:
+		return v.visitInPredicate(context, node)
 	case *tree.ArithmeticBinaryExpression:
 		return v.visitArithemticBinary(context, node)
 	case *tree.TimePredicate:
@@ -100,6 +102,18 @@ func (v *ExpressionVisitor) visitComparisonExpression(context any, node *tree.Co
 	}
 
 	return v.getOperator(context.(*tree.StackableVisitorContext[*Context]), node, operatorType, node.Left, node.Right)
+}
+
+func (v *ExpressionVisitor) visitInPredicate(context any, node *tree.InPredicate) (r any) {
+	node.Value.Accept(context, v)
+	if inListExpression, ok := node.ValueList.(*tree.InListExpression); ok {
+		for _, value := range inListExpression.Values {
+			value.Accept(context, v)
+		}
+	}
+	// TODO: check args types
+	// TODO: check all
+	return v.setExpressionType(node, types.DTInt)
 }
 
 func (v *ExpressionVisitor) visitDereferenceExpression(context any, node *tree.DereferenceExpression) (r any) {

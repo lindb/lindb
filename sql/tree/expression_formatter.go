@@ -41,6 +41,10 @@ func (v *FormatVisitor) Visit(context any, n Node) any {
 	switch node := n.(type) {
 	case *ComparisonExpression:
 		return v.formatBinaryExpression(string(node.Operator), node.Left, node.Right)
+	case *InPredicate:
+		return v.formatInPredicate(node)
+	case *InListExpression:
+		return v.formatInListExpression(node)
 	case *TimePredicate:
 		return v.formatTimestampPredicate(node)
 	case *LogicalExpression:
@@ -96,6 +100,16 @@ func (v *FormatVisitor) visitIdentifier(context any, node *Identifier) (r any) {
 
 func (v *FormatVisitor) formatBinaryExpression(operator string, left, right Expression) string {
 	return fmt.Sprintf("(%v %s %v)", left.Accept(nil, v), operator, right.Accept(nil, v))
+}
+
+func (v *FormatVisitor) formatInPredicate(node *InPredicate) string {
+	return fmt.Sprintf("(%v IN %v)", node.Value.Accept(nil, v), node.ValueList.Accept(nil, v))
+}
+
+func (v *FormatVisitor) formatInListExpression(node *InListExpression) string {
+	return fmt.Sprintf("(%v)", strings.Join(lo.Map(node.Values, func(item Expression, index int) string {
+		return item.Accept(nil, v).(string)
+	}), ","))
 }
 
 func (v *FormatVisitor) formatTimestampPredicate(node *TimePredicate) string {
