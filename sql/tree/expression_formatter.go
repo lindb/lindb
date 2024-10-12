@@ -47,6 +47,10 @@ func (v *FormatVisitor) Visit(context any, n Node) any {
 		return v.formatInPredicate(node)
 	case *InListExpression:
 		return v.formatInListExpression(node)
+	case *LikePredicate:
+		return v.formatLikePredicate(node)
+	case *RegexPredicate:
+		return v.formatRegexPredicate(node)
 	case *TimePredicate:
 		return v.formatTimestampPredicate(node)
 	case *LogicalExpression:
@@ -118,8 +122,16 @@ func (v *FormatVisitor) formatInListExpression(node *InListExpression) string {
 	}), ","))
 }
 
+func (v *FormatVisitor) formatLikePredicate(node *LikePredicate) string {
+	return fmt.Sprintf("(%s LIKE %s)", node.Value.Accept(nil, v), node.Pattern.Accept(nil, v))
+}
+
+func (v *FormatVisitor) formatRegexPredicate(node *RegexPredicate) string {
+	return fmt.Sprintf("(%s REGEXP %s)", node.Value.Accept(nil, v), node.Pattern.Accept(nil, v))
+}
+
 func (v *FormatVisitor) formatTimestampPredicate(node *TimePredicate) string {
-	return fmt.Sprintf("(ts %s %v)", node.Operator, node.Value.Accept(nil, v))
+	return fmt.Sprintf("(time %s %v)", node.Operator, node.Value.Accept(nil, v))
 }
 
 func (v *FormatVisitor) formatStringLiteral(s string) string {

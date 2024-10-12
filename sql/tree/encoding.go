@@ -13,6 +13,8 @@ func init() {
 	encoding.RegisterNodeType(ComparisonExpression{})
 	encoding.RegisterNodeType(NotExpression{})
 	encoding.RegisterNodeType(InPredicate{})
+	encoding.RegisterNodeType(LikePredicate{})
+	encoding.RegisterNodeType(RegexPredicate{})
 	encoding.RegisterNodeType(InListExpression{})
 	encoding.RegisterNodeType(LogicalExpression{})
 	encoding.RegisterNodeType(TimePredicate{})
