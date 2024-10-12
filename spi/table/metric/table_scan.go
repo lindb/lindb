@@ -69,6 +69,8 @@ func (v *ColumnValuesLookupVisitor) Visit(context any, n tree.Node) any {
 		return v.visitComparisonExpression(context, node)
 	case *tree.InPredicate:
 		return v.visitInPredicate(context, node)
+	case *tree.NotExpression:
+		return node.Value.Accept(context, v)
 	case *tree.Cast:
 		return node.Expression.Accept(context, v)
 	default:

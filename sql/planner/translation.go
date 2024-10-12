@@ -172,6 +172,8 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 			t.translate(expr.Right, false)
 			// TODO:
 			result = expr
+		case *tree.NotExpression:
+			result = expr
 		case *tree.InPredicate:
 			t.translate(expr.Value, false)
 			if inListExpression, ok := expr.ValueList.(*tree.InListExpression); ok {
