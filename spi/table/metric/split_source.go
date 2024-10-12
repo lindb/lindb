@@ -313,27 +313,37 @@ func NewRowLookupVisitor(split *SplitSource) *RowsLookupVisitor {
 func (v *RowsLookupVisitor) Visit(context any, n tree.Node) any {
 	fmt.Printf("row lookup visitor: %v\n", v.split.tableScan.filterResult)
 	var seriesIDs *roaring.Bitmap
+	var tagKey tag.KeyID
+	indexDB := v.split.partition.shard.IndexDB()
 
 	switch node := n.(type) {
 	case *tree.ComparisonExpression:
-		_, seriesIDs = v.visitPredicate(context, node)
+		tagKey, seriesIDs = v.visitPredicate(context, node)
+		if node.Operator == tree.ComparisonNEQ {
+			// get all series ids for tag key
+			all, err := indexDB.GetSeriesIDsForTag(tagKey)
+			if err != nil {
+				panic(err)
+			}
+			// do and not got series ids not in 'a' list
+			all.AndNot(seriesIDs)
+			return all
+		}
 	case *tree.InPredicate:
 		_, seriesIDs = v.visitPredicate(context, node)
 	case *tree.NotExpression:
 		// get filter series ids
-		tagKey, matchResult := v.visitPredicate(context, node.Value)
-		// get all series ids for tag key
-		indexDB := v.split.partition.shard.IndexDB()
+		tagKey, seriesIDs = v.visitPredicate(context, node.Value)
 		// TODO: cache if dup
+		// get all series ids for tag key
 		all, err := indexDB.GetSeriesIDsForTag(tagKey)
 		if err != nil {
 			panic(err)
 		}
 		// do and not got series ids not in 'a' list
-		all.AndNot(matchResult)
+		all.AndNot(seriesIDs)
 		return all
 	case *tree.LogicalExpression:
-		var seriesIDs *roaring.Bitmap
 		for _, term := range node.Terms {
 			matchResult := term.Accept(context, v).(*roaring.Bitmap)
 			if seriesIDs == nil {

@@ -67,7 +67,7 @@ func (t *TableHandle) Kind() spi.DatasourceKind {
 }
 
 func (t *TableHandle) String() string {
-	return fmt.Sprintf("%s:%s:%s%s", t.Database, t.Namespace, t.Metric, t.TimeRange.String())
+	return fmt.Sprintf("%s:%s:%s", t.Database, t.Namespace, t.Metric)
 }
 
 type ColumnHandle struct {

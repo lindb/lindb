@@ -81,9 +81,9 @@ type TimeRange struct {
 	End   int64 `json:"end"`
 }
 
-// IsEmpty tests if empty, start>=end => empty
+// IsEmpty tests if empty, start/end=0 => empty
 func (r *TimeRange) IsEmpty() bool {
-	return r.Start >= r.End
+	return r.Start == r.End && r.Start == 0
 }
 
 // Contains tests if timestamp in current time range

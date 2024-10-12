@@ -200,6 +200,7 @@ func (v *PrintPlanVisitor) visitScanFilterAndProjection(node plan.PlanNode, filt
 	}
 
 	if scanNode != nil {
+		v.printTableScanInfo(outputNode, scanNode)
 		return
 	}
 
@@ -228,6 +229,13 @@ func (v *PrintPlanVisitor) addNode(node plan.PlanNode,
 }
 
 func (v *PrintPlanVisitor) printTableScanInfo(outputNode *NodeRepresentation, node *plan.TableScanNode) {
+	if node == nil {
+		return
+	}
+	timeRange := node.Table.GetTimeRange()
+	if !timeRange.IsEmpty() {
+		outputNode.appendDetails("TimeRange: " + timeRange.String())
+	}
 }
 
 func (v *PrintPlanVisitor) anonymizeExpressions(expressions []tree.Expression) (result []string) {
