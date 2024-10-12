@@ -66,10 +66,7 @@ func (v *AstVisitor) VisitCreateDatabase(ctx *grammar.CreateDatabaseContext) any
 		props.Accept(v)
 	}
 	return &CreateDatabase{
-		BaseNode: BaseNode{
-			ID:       v.idAllocator.Next(),
-			Location: getLocation(ctx.GetStart()),
-		},
+		BaseNode:      v.createBaseNode(ctx.GetStart()),
 		Name:          v.getQualifiedName(ctx.GetName()).Name,
 		CreateOptions: visit[CreateOption](ctx.AllCreateDatabaseOptions(), v),
 	}
@@ -119,10 +116,7 @@ func (v *AstVisitor) VisitUtilityStatement(ctx *grammar.UtilityStatementContext)
 func (v *AstVisitor) VisitUseStatement(ctx *grammar.UseStatementContext) any {
 	identifer := v.Visit(ctx.GetDatabase()).(*Identifier)
 	return &Use{
-		BaseNode: BaseNode{
-			ID:       v.idAllocator.Next(),
-			Location: getLocation(ctx.GetStart()),
-		},
+		BaseNode: v.createBaseNode(ctx.GetStart()),
 		Database: identifer,
 	}
 }
@@ -137,10 +131,7 @@ func (v *AstVisitor) VisitStatementDefault(ctx *grammar.StatementDefaultContext)
 
 func (v *AstVisitor) VisitExplain(ctx *grammar.ExplainContext) interface{} {
 	return &Explain{
-		BaseNode: BaseNode{
-			ID:       v.idAllocator.Next(),
-			Location: getLocation(ctx.GetStart()),
-		},
+		BaseNode:  v.createBaseNode(ctx.GetStart()),
 		Options:   visit[ExplainOption](ctx.AllExplainOption(), v),
 		Statement: visitIfPresent[Statement](ctx.DmlStatement(), v),
 	}
@@ -163,10 +154,7 @@ func (v *AstVisitor) VisitExplainAnalyze(ctx *grammar.ExplainAnalyzeContext) int
 func (v *AstVisitor) VisitQuery(ctx *grammar.QueryContext) any {
 	query := v.Visit(ctx.QueryNoWith()).(*Query)
 	return &Query{
-		BaseNode: BaseNode{
-			ID:       v.idAllocator.Next(),
-			Location: getLocation(ctx.GetStart()),
-		},
+		BaseNode:  v.createBaseNode(ctx.GetStart()),
 		With:      visitIfPresent[*With](ctx.With(), v),
 		QueryBody: query.QueryBody,
 		OrderBy:   query.OrderBy,
@@ -176,11 +164,8 @@ func (v *AstVisitor) VisitQuery(ctx *grammar.QueryContext) any {
 
 func (v *AstVisitor) VisitWith(ctx *grammar.WithContext) any {
 	return &With{
-		BaseNode: BaseNode{
-			ID:       v.idAllocator.Next(),
-			Location: getLocation(ctx.GetStart()),
-		},
-		Queries: visit[*WithQuery](ctx.AllNamedQuery(), v),
+		BaseNode: v.createBaseNode(ctx.GetStart()),
+		Queries:  visit[*WithQuery](ctx.AllNamedQuery(), v),
 	}
 }
 
@@ -188,12 +173,9 @@ func (v *AstVisitor) VisitNamedQuery(ctx *grammar.NamedQueryContext) any {
 	identifer := v.Visit(ctx.GetName()).(*Identifier)
 	query := v.Visit(ctx.Query()).(*Query)
 	return &WithQuery{
-		BaseNode: BaseNode{
-			ID:       v.idAllocator.Next(),
-			Location: getLocation(ctx.GetStart()),
-		},
-		Name:  identifer,
-		Query: query,
+		BaseNode: v.createBaseNode(ctx.GetStart()),
+		Name:     identifer,
+		Query:    query,
 	}
 }
 
@@ -202,10 +184,7 @@ func (v *AstVisitor) VisitQueryNoWith(ctx *grammar.QueryNoWithContext) any {
 	var orderBy *OrderBy
 	if ctx.ORDER() != nil {
 		orderBy = &OrderBy{
-			BaseNode: BaseNode{
-				ID:       v.idAllocator.Next(),
-				Location: getLocation(ctx.ORDER().GetSymbol()),
-			},
+			BaseNode:  v.createBaseNode(ctx.GetStart()),
 			SortItems: visit[*SortItem](ctx.OrderBy().AllSortItem(), v),
 		}
 	}
@@ -220,10 +199,7 @@ func (v *AstVisitor) VisitQueryNoWith(ctx *grammar.QueryNoWithContext) any {
 				ctx.LimitRowCount().GetText())
 		}
 		limit = &Limit{
-			BaseNode: BaseNode{
-				ID:       v.idAllocator.Next(),
-				Location: getLocation(ctx.LIMIT().GetSymbol()),
-			},
+			BaseNode: v.createBaseNode(ctx.GetStart()),
 			RowCount: rowCount,
 		}
 	}
@@ -235,30 +211,21 @@ func (v *AstVisitor) VisitQueryNoWith(ctx *grammar.QueryNoWithContext) any {
 		// expects this structure to resolve references with respect
 		// to columns defined in the query specification)
 		return &Query{
-			BaseNode: BaseNode{
-				ID:       v.idAllocator.Next(),
-				Location: getLocation(ctx.GetStart()),
-			},
+			BaseNode: v.createBaseNode(ctx.GetStart()),
 			QueryBody: &QuerySpecification{
-				BaseNode: BaseNode{
-					ID:       v.idAllocator.Next(),
-					Location: getLocation(ctx.GetStart()),
-				},
-				Select:  query.Select,
-				From:    query.From,
-				Where:   query.Where,
-				GroupBy: query.GroupBy,
-				Having:  query.Having,
-				OrderBy: orderBy,
-				Limit:   limit,
+				BaseNode: v.createBaseNode(ctx.GetStart()),
+				Select:   query.Select,
+				From:     query.From,
+				Where:    query.Where,
+				GroupBy:  query.GroupBy,
+				Having:   query.Having,
+				OrderBy:  orderBy,
+				Limit:    limit,
 			},
 		}
 	}
 	return &Query{
-		BaseNode: BaseNode{
-			ID:       v.idAllocator.Next(),
-			Location: getLocation(ctx.GetStart()),
-		},
+		BaseNode:  v.createBaseNode(ctx.GetStart()),
 		QueryBody: term,
 		OrderBy:   orderBy,
 		Limit:     limit,
@@ -307,21 +274,15 @@ func (v *AstVisitor) VisitQuerySpecification(ctx *grammar.QuerySpecificationCont
 
 func (v *AstVisitor) VisitSelectAll(ctx *grammar.SelectAllContext) any {
 	return &AllColumns{
-		BaseNode: BaseNode{
-			ID:       v.idAllocator.Next(),
-			Location: getLocation(ctx.GetStart()),
-		},
-		Target: visitIfPresent[Expression](ctx.PrimaryExpression(), v),
+		BaseNode: v.createBaseNode(ctx.GetStart()),
+		Target:   visitIfPresent[Expression](ctx.PrimaryExpression(), v),
 	}
 }
 
 func (v *AstVisitor) VisitSelectSingle(ctx *grammar.SelectSingleContext) any {
 	expression := v.Visit(ctx.Expression()).(Expression)
 	return &SingleColumn{
-		BaseNode: BaseNode{
-			ID:       v.idAllocator.Next(),
-			Location: getLocation(ctx.GetStart()),
-		},
+		BaseNode:   v.createBaseNode(ctx.GetStart()),
 		Expression: expression,
 		Aliase:     visitIfPresent[*Identifier](ctx.Identifier(), v),
 	}
@@ -333,13 +294,10 @@ func (v *AstVisitor) VisitJoinRelation(ctx *grammar.JoinRelationContext) any {
 		// prase cross join
 		right := v.Visit(ctx.GetRight()).(Relation)
 		return &Join{
-			BaseNode: BaseNode{
-				ID:       v.idAllocator.Next(),
-				Location: getLocation(ctx.GetStart()),
-			},
-			Type:  CROSS,
-			Left:  left,
-			Right: right,
+			BaseNode: v.createBaseNode(ctx.GetStart()),
+			Type:     CROSS,
+			Left:     left,
+			Right:    right,
 		}
 	}
 	// parse left/right/inner join
@@ -368,10 +326,7 @@ func (v *AstVisitor) VisitJoinRelation(ctx *grammar.JoinRelationContext) any {
 		joinType = INNER
 	}
 	return &Join{
-		BaseNode: BaseNode{
-			ID:       v.idAllocator.Next(),
-			Location: getLocation(ctx.GetStart()),
-		},
+		BaseNode: v.createBaseNode(ctx.GetStart()),
 		Type:     joinType,
 		Left:     left,
 		Right:    right,
@@ -385,22 +340,16 @@ func (v *AstVisitor) VisitRelationDefault(ctx *grammar.RelationDefaultContext) a
 
 func (v *AstVisitor) VisitTableName(ctx *grammar.TableNameContext) any {
 	return &Table{
-		BaseNode: BaseNode{
-			ID:       v.idAllocator.Next(),
-			Location: getLocation(ctx.GetStart()),
-		},
-		Name: v.getQualifiedName(ctx.QualifiedName()),
+		BaseNode: v.createBaseNode(ctx.GetStart()),
+		Name:     v.getQualifiedName(ctx.QualifiedName()),
 	}
 }
 
 func (v *AstVisitor) VisitSubQueryRelation(ctx *grammar.SubQueryRelationContext) any {
 	query := v.Visit(ctx.Query()).(*Query)
 	return &TableSubQuery{
-		BaseNode: BaseNode{
-			ID:       v.idAllocator.Next(),
-			Location: getLocation(ctx.GetStart()),
-		},
-		Query: query,
+		BaseNode: v.createBaseNode(ctx.GetStart()),
+		Query:    query,
 	}
 }
 
@@ -412,10 +361,7 @@ func (v *AstVisitor) VisitAliasedRelation(ctx *grammar.AliasedRelationContext) a
 	// parese relation aliase
 	identifer := v.Visit(ctx.Identifier()).(*Identifier)
 	return &AliasedRelation{
-		BaseNode: BaseNode{
-			Location: getLocation(ctx.GetStart()),
-			ID:       v.idAllocator.Next(),
-		},
+		BaseNode: v.createBaseNode(ctx.GetStart()),
 		Relation: child,
 		Aliase:   identifer,
 	}
@@ -425,10 +371,7 @@ func (v *AstVisitor) VisitBinaryComparisonPredicate(ctx *grammar.BinaryCompariso
 	left := v.Visit(ctx.GetLeft()).(Expression)
 	right := v.Visit(ctx.GetRight()).(Expression)
 	return &ComparisonExpression{
-		BaseNode: BaseNode{
-			ID:       v.idAllocator.Next(),
-			Location: getLocation(ctx.GetStart()),
-		},
+		BaseNode: v.createBaseNode(ctx.GetStart()),
 		Operator: ComparisonOperator(ctx.GetOperator().GetText()), // FIXME:
 		Left:     left,
 		Right:    right,
@@ -440,20 +383,14 @@ func (v *AstVisitor) VisitRegexpPredicate(ctx *grammar.RegexpPredicateContext) a
 	value := v.Visit(ctx.GetLeft()).(Expression)
 	pattern := v.Visit(ctx.GetPattern()).(Expression)
 	result = &RegexPredicate{
-		BaseNode: BaseNode{
-			ID:       v.idAllocator.Next(),
-			Location: getLocation(ctx.GetStart()),
-		},
-		Value:   value,
-		Pattern: pattern,
+		BaseNode: v.createBaseNode(ctx.GetStart()),
+		Value:    value,
+		Pattern:  pattern,
 	}
 	if ctx.NEQREGEXP() != nil {
 		result = &NotExpression{
-			BaseNode: BaseNode{
-				ID:       v.idAllocator.Next(),
-				Location: getLocation(ctx.GetStart()),
-			},
-			Value: result,
+			BaseNode: v.createBaseNode(ctx.GetStart()),
+			Value:    result,
 		}
 	}
 	return result
@@ -461,10 +398,7 @@ func (v *AstVisitor) VisitRegexpPredicate(ctx *grammar.RegexpPredicateContext) a
 
 func (v *AstVisitor) VisitTimestampPredicate(ctx *grammar.TimestampPredicateContext) any {
 	return &TimePredicate{
-		BaseNode: BaseNode{
-			ID:       v.idAllocator.Next(),
-			Location: getLocation(ctx.GetStart()),
-		},
+		BaseNode: v.createBaseNode(ctx.GetStart()),
 		Operator: ComparisonOperator(ctx.GetOperator().GetText()), // FIXME:
 		Value:    visitIfPresent[Expression](ctx.ValueExpression(), v),
 	}
@@ -475,20 +409,14 @@ func (v *AstVisitor) VisitLikePredicate(ctx *grammar.LikePredicateContext) any {
 	value := v.Visit(ctx.GetLeft()).(Expression)
 	pattern := v.Visit(ctx.GetPattern()).(Expression)
 	result = &LikePredicate{
-		BaseNode: BaseNode{
-			ID:       v.idAllocator.Next(),
-			Location: getLocation(ctx.GetStart()),
-		},
-		Value:   value,
-		Pattern: pattern,
+		BaseNode: v.createBaseNode(ctx.GetStart()),
+		Value:    value,
+		Pattern:  pattern,
 	}
 	if ctx.NOT() != nil {
 		result = &NotExpression{
-			BaseNode: BaseNode{
-				ID:       v.idAllocator.Next(),
-				Location: getLocation(ctx.GetStart()),
-			},
-			Value: result,
+			BaseNode: v.createBaseNode(ctx.GetStart()),
+			Value:    result,
 		}
 	}
 	return result
@@ -498,27 +426,18 @@ func (v *AstVisitor) VisitInPredicate(ctx *grammar.InPredicateContext) any {
 	var result Expression
 	value := v.Visit(ctx.GetLeft()).(Expression)
 	result = &InPredicate{
-		BaseNode: BaseNode{
-			ID:       v.idAllocator.Next(),
-			Location: getLocation(ctx.GetStart()),
-		},
-		Value: value,
+		BaseNode: v.createBaseNode(ctx.GetStart()),
+		Value:    value,
 		ValueList: &InListExpression{
-			BaseNode: BaseNode{
-				ID:       v.idAllocator.Next(),
-				Location: getLocation(ctx.GetStart()),
-			},
-			Values: visit[Expression](ctx.AllExpression(), v),
+			BaseNode: v.createBaseNode(ctx.GetStart()),
+			Values:   visit[Expression](ctx.AllExpression(), v),
 		},
 	}
 
 	if ctx.NOT() != nil {
 		result = &NotExpression{
-			BaseNode: BaseNode{
-				ID:       v.idAllocator.Next(),
-				Location: getLocation(ctx.GetStart()),
-			},
-			Value: result,
+			BaseNode: v.createBaseNode(ctx.GetStart()),
+			Value:    result,
 		}
 	}
 	return result
@@ -527,11 +446,8 @@ func (v *AstVisitor) VisitInPredicate(ctx *grammar.InPredicateContext) any {
 func (v *AstVisitor) VisitLogicalNot(ctx *grammar.LogicalNotContext) any {
 	value := v.Visit(ctx.BooleanExpression()).(Expression)
 	return &NotExpression{
-		BaseNode: BaseNode{
-			ID:       v.idAllocator.Next(),
-			Location: getLocation(ctx.GetStart()),
-		},
-		Value: value,
+		BaseNode: v.createBaseNode(ctx.GetStart()),
+		Value:    value,
 	}
 }
 
@@ -556,6 +472,7 @@ func (v *AstVisitor) VisitOr(ctx *grammar.OrContext) any {
 }
 
 func (v *AstVisitor) VisitAnd(ctx *grammar.AndContext) any {
+	fmt.Println("visit and logic")
 	terms := v.flatten(ctx, func(parentCtx antlr.ParserRuleContext) (rs []antlr.ParserRuleContext) {
 		if and, ok := parentCtx.(*grammar.AndContext); ok {
 			expressions := and.AllBooleanExpression()
@@ -566,10 +483,7 @@ func (v *AstVisitor) VisitAnd(ctx *grammar.AndContext) any {
 		return
 	})
 	return &LogicalExpression{
-		BaseNode: BaseNode{
-			ID:       v.idAllocator.Next(),
-			Location: getLocation(ctx.GetStart()),
-		},
+		BaseNode: v.createBaseNode(ctx.GetStart()),
 		Operator: LogicalAND,
 		Terms:    visit[Expression](terms, v),
 	}
@@ -598,31 +512,22 @@ func (v *AstVisitor) VisitParenExpression(ctx *grammar.ParenExpressionContext) a
 
 func (v *AstVisitor) VisitGroupBy(ctx *grammar.GroupByContext) any {
 	return &GroupBy{
-		BaseNode: BaseNode{
-			ID:       v.idAllocator.Next(),
-			Location: getLocation(ctx.GetStart()),
-		},
+		BaseNode:         v.createBaseNode(ctx.GetStart()),
 		GroupingElements: visit[GroupingElement](ctx.AllGroupingElement(), v),
 	}
 }
 
 func (v *AstVisitor) VisitSingleGroupingSet(ctx *grammar.SingleGroupingSetContext) any {
 	return &SimpleGroupBy{
-		BaseNode: BaseNode{
-			ID:       v.idAllocator.Next(),
-			Location: getLocation(ctx.GetStart()),
-		},
-		Columns: visit[Expression](ctx.GroupingSet().AllExpression(), v),
+		BaseNode: v.createBaseNode(ctx.GetStart()),
+		Columns:  visit[Expression](ctx.GroupingSet().AllExpression(), v),
 	}
 }
 
 func (v *AstVisitor) VisitSortItem(ctx *grammar.SortItemContext) any {
 	expression := v.Visit(ctx.Expression()).(Expression)
 	return &SortItem{
-		BaseNode: BaseNode{
-			ID:       v.idAllocator.Next(),
-			Location: getLocation(ctx.GetStart()),
-		},
+		BaseNode: v.createBaseNode(ctx.GetStart()),
 		SortKey:  expression,
 		Ordering: getOrderingType(ctx),
 	}
@@ -630,10 +535,7 @@ func (v *AstVisitor) VisitSortItem(ctx *grammar.SortItemContext) any {
 
 func (v *AstVisitor) VisitUnquotedIdentifier(ctx *grammar.UnquotedIdentifierContext) any {
 	return &Identifier{
-		BaseNode: BaseNode{
-			ID:       v.idAllocator.Next(),
-			Location: getLocation(ctx.GetStart()),
-		},
+		BaseNode:  v.createBaseNode(ctx.GetStart()),
 		Value:     ctx.GetText(),
 		Delimited: false,
 	}
@@ -646,10 +548,7 @@ func (v *AstVisitor) VisitQuotedIdentifier(ctx *grammar.QuotedIdentifierContext)
 		panic(err)
 	}
 	return &Identifier{
-		BaseNode: BaseNode{
-			ID:       v.idAllocator.Next(),
-			Location: getLocation(ctx.GetStart()),
-		},
+		BaseNode:  v.createBaseNode(ctx.GetStart()),
 		Value:     identifier,
 		Delimited: true,
 	}
@@ -680,12 +579,9 @@ func (v *AstVisitor) VisitDereference(ctx *grammar.DereferenceContext) any {
 	base := v.Visit(ctx.GetBase()).(Expression)
 	fieldName := v.Visit(ctx.GetFieldName()).(*Identifier)
 	return &DereferenceExpression{
-		BaseNode: BaseNode{
-			ID:       v.idAllocator.Next(),
-			Location: getLocation(ctx.GetStart()),
-		},
-		Base:  base,
-		Field: fieldName,
+		BaseNode: v.createBaseNode(ctx.GetStart()),
+		Base:     base,
+		Field:    fieldName,
 	}
 }
 
@@ -701,10 +597,7 @@ func (v *AstVisitor) VisitFunctionCall(ctx *grammar.FunctionCallContext) any {
 	// FIXME: parse funcion call
 	funcName := FuncName(strings.ToLower(v.getQualifiedName(ctx.QualifiedName()).Name)) // TODO: check function name
 	return &FunctionCall{
-		BaseNode: BaseNode{
-			ID:       v.idAllocator.Next(),
-			Location: getLocation(ctx.GetStart()),
-		},
+		BaseNode:  v.createBaseNode(ctx.GetStart()),
 		Name:      funcName,
 		RetType:   GetDefaultFuncReturnType(funcName),
 		Arguments: visit[Expression](ctx.AllExpression(), v),
@@ -713,10 +606,7 @@ func (v *AstVisitor) VisitFunctionCall(ctx *grammar.FunctionCallContext) any {
 
 func (v *AstVisitor) VisitArithmeticBinary(ctx *grammar.ArithmeticBinaryContext) any {
 	return &ArithmeticBinaryExpression{
-		BaseNode: BaseNode{
-			ID:       v.idAllocator.Next(),
-			Location: getLocation(ctx.GetStart()),
-		},
+		BaseNode: v.createBaseNode(ctx.GetStart()),
 		Operator: ArithmeticOperator(ctx.GetOperator().GetText()), // TODO: add check
 		Left:     v.Visit(ctx.GetLeft()).(Expression),
 		Right:    v.Visit(ctx.GetRight()).(Expression),
@@ -744,11 +634,8 @@ func (v *AstVisitor) VisitBasicStringLiteral(ctx *grammar.BasicStringLiteralCont
 		panic(err)
 	}
 	return &StringLiteral{
-		BaseNode: BaseNode{
-			ID:       v.idAllocator.Next(),
-			Location: getLocation(ctx.GetStart()),
-		},
-		Value: value,
+		BaseNode: v.createBaseNode(ctx.GetStart()),
+		Value:    value,
 	}
 }
 
@@ -771,6 +658,13 @@ func (v *AstVisitor) VisitDoubleLiteral(ctx *grammar.DoubleLiteralContext) any {
 func (v *AstVisitor) getQualifiedName(ctx grammar.IQualifiedNameContext) *QualifiedName {
 	parts := visit[*Identifier](ctx.AllIdentifier(), v)
 	return NewQualifiedName(parts)
+}
+
+func (v *AstVisitor) createBaseNode(token antlr.Token) BaseNode {
+	return BaseNode{
+		ID:       v.idAllocator.Next(),
+		Location: getLocation(token),
+	}
 }
 
 func visit[R any, C antlr.ParserRuleContext](contexts []C, visitor grammar.SQLParserVisitor) (r []R) {

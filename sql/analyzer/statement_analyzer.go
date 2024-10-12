@@ -420,6 +420,7 @@ func (v *StatementVisitor) analyzeWhere(node *tree.QuerySpecification, scope *Sc
 	if len(timePredicates) > 0 {
 		v.analyzer.ctx.Analysis.SetTimePredicates(node, timePredicates)
 	}
+	fmt.Printf("analyze where: %v,%v\n", timePredicates, newPredicate)
 
 	if newPredicate == nil {
 		// new predicate is nil, means no where clause after extract time predicates

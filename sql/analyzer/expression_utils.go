@@ -42,6 +42,8 @@ func ExtractTimePredicates(expression tree.Expression) (result []*tree.TimePredi
 		if len(newTerms) != len(logicalExpression.Terms) {
 			logicalExpression.Terms = newTerms
 			newExpr = logicalExpression
+		} else {
+			newExpr = logicalExpression
 		}
 	} else {
 		newExpr = expression
