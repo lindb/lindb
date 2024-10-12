@@ -26,7 +26,7 @@ type TableHandle struct {
 func (t *TableHandle) SetTimeRange(timeRange timeutil.TimeRange) {}
 
 func (t *TableHandle) GetTimeRange() timeutil.TimeRange {
-	panic(constants.ErrNotSupportOperation)
+	return timeutil.TimeRange{}
 }
 
 // Kind returns the datasource kind.
