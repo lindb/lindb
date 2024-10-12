@@ -1,6 +1,10 @@
 package operator
 
-import "github.com/lindb/lindb/spi/types"
+import (
+	"context"
+
+	"github.com/lindb/lindb/spi/types"
+)
 
 type HashAggregationOperatorFactory struct{}
 
@@ -9,7 +13,7 @@ func NewHashAggregationOperatorFactory() OperatorFactory {
 }
 
 // CreateOperator implements OperatorFactory.
-func (fct *HashAggregationOperatorFactory) CreateOperator() Operator {
+func (fct *HashAggregationOperatorFactory) CreateOperator(ctx context.Context) Operator {
 	return NewHashAggregationOperator()
 }
 

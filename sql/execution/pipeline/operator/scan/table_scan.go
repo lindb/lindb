@@ -1,6 +1,7 @@
 package scan
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/lindb/lindb/constants"
@@ -34,7 +35,7 @@ func NewTableScanOperatorFactory(sourceID plan.PlanNodeID,
 	}
 }
 
-func (fct *TableScanOperatorFactory) CreateOperator() operator.Operator {
+func (fct *TableScanOperatorFactory) CreateOperator(ctx context.Context) operator.Operator {
 	provider := spi.GetPageSourceProvider(fct.table)
 	return NewTableScanOperator(fct.sourceID, provider.CreatePageSource(fct.table, fct.outputs, fct.assignments))
 }

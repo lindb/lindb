@@ -1,13 +1,15 @@
 package operator
 
 import (
+	"context"
+
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
 
 type OperatorFactory interface {
-	CreateOperator() Operator
+	CreateOperator(ctx context.Context) Operator
 }
 
 type SourceOperatorFactory interface {

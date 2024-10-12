@@ -1,6 +1,8 @@
 package planner
 
 import (
+	"context"
+
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/spi"
@@ -8,6 +10,7 @@ import (
 )
 
 type TaskExecutionPlanContext struct {
+	ctx             context.Context
 	driverFactories []*pipeline.DriverFactory
 	splitSources    []spi.SplitSource
 
@@ -15,15 +18,16 @@ type TaskExecutionPlanContext struct {
 	localStore     bool
 }
 
-func NewTaskExecutionPlanContext(driverFactories []*pipeline.DriverFactory) *TaskExecutionPlanContext {
+func NewTaskExecutionPlanContext(ctx context.Context, driverFactories []*pipeline.DriverFactory) *TaskExecutionPlanContext {
 	return &TaskExecutionPlanContext{
+		ctx:             ctx,
 		driverFactories: driverFactories,
 	}
 }
 
 func (ctx *TaskExecutionPlanContext) AddDriverFactory(physicalOperation *PhysicalOperation) {
 	// FIXME: add lookup outer driver?
-	driverFct := pipeline.NewDriverFactory(ctx.nextPipelineID.Inc(), physicalOperation.operatorFactories)
+	driverFct := pipeline.NewDriverFactory(ctx.ctx, ctx.nextPipelineID.Inc(), physicalOperation.operatorFactories)
 	ctx.driverFactories = append(ctx.driverFactories, driverFct)
 }
 

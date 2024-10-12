@@ -29,7 +29,7 @@ func (p *TaskExecutionPlanner) Plan(taskCtx *context.TaskContext, node planpkg.P
 		taskExecCtx: taskCtx,
 		planner:     p,
 	}
-	taskExecPlanCtx := NewTaskExecutionPlanContext(nil)
+	taskExecPlanCtx := NewTaskExecutionPlanContext(taskCtx.Context, nil)
 	var physicalOperator *PhysicalOperation
 	if op, ok := node.Accept(taskExecPlanCtx, visitor).(*PhysicalOperation); ok {
 		physicalOperator = op

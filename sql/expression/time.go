@@ -1,6 +1,7 @@
 package expression
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/lindb/common/pkg/timeutil"
@@ -22,15 +23,15 @@ type addSubDateFunc struct {
 	baseFunc
 }
 
-func (n *addSubDateFunc) EvalTime(row types.Row) (val time.Time, isNull bool, err error) {
+func (n *addSubDateFunc) EvalTime(ctx EvalContext, row types.Row) (val time.Time, isNull bool, err error) {
 	// TODO: check error
-	tsStr, _, _ := n.args[0].EvalString(row)
+	tsStr, _, _ := n.args[0].EvalString(ctx, row)
 	format := timeutil.DataTimeFormat2
 	timestamp, err := timeutil.ParseTimestamp(tsStr, format)
 	if err != nil {
 		return time.Time{}, true, err
 	}
-	duration, _, _ := n.args[1].EvalDuration(row)
+	duration, _, _ := n.args[1].EvalDuration(ctx, row)
 	return time.UnixMilli(timestamp).Add(duration), false, nil
 }
 
@@ -44,8 +45,9 @@ type nowFunc struct {
 	baseFunc
 }
 
-func (n *nowFunc) EvalTime(row types.Row) (val time.Time, isNull bool, err error) {
-	return time.Now(), false, nil
+func (n *nowFunc) EvalTime(ctx EvalContext, row types.Row) (val time.Time, isNull bool, err error) {
+	fmt.Println(ctx)
+	return ctx.CurrentTime(), false, nil
 }
 
 type strToDateFuncFactory struct{}
@@ -62,10 +64,10 @@ type strToDateFunc struct {
 	baseFunc
 }
 
-func (n *strToDateFunc) EvalTime(row types.Row) (val time.Time, isNull bool, err error) {
+func (n *strToDateFunc) EvalTime(ctx EvalContext, row types.Row) (val time.Time, isNull bool, err error) {
 	// TODO: check error
-	tsStr, _, _ := n.args[0].EvalString(row)
-	format, _, _ := n.args[1].EvalString(row)
+	tsStr, _, _ := n.args[0].EvalString(ctx, row)
+	format, _, _ := n.args[1].EvalString(ctx, row)
 	switch format {
 	case "YYYYMMDD HH:mm:ss":
 		format = timeutil.DataTimeFormat1

@@ -1,6 +1,7 @@
 package operator
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/lindb/lindb/spi/types"
@@ -21,11 +22,13 @@ func NewProjectionOperatorFactory(project *plan.ProjectionNode, sourceLayout []*
 }
 
 // CreateOperator implements OperatorFactory.
-func (fct *ProjectionOperatorFactory) CreateOperator() Operator {
-	return NewProjectionOperator(fct.project, fct.sourceLayout)
+func (fct *ProjectionOperatorFactory) CreateOperator(ctx context.Context) Operator {
+	return NewProjectionOperator(ctx, fct.project, fct.sourceLayout)
 }
 
 type ProjectionOperator struct {
+	ctx     context.Context
+	exprCtx expression.EvalContext
 	project *plan.ProjectionNode
 	source  *types.Page // TODO: refact
 	ouput   *types.Page
@@ -35,8 +38,8 @@ type ProjectionOperator struct {
 	exprs         []expression.Expression
 }
 
-func NewProjectionOperator(project *plan.ProjectionNode, sourceLayout []*plan.Symbol) Operator {
-	return &ProjectionOperator{project: project, sourceLayout: sourceLayout}
+func NewProjectionOperator(ctx context.Context, project *plan.ProjectionNode, sourceLayout []*plan.Symbol) Operator {
+	return &ProjectionOperator{ctx: ctx, project: project, sourceLayout: sourceLayout}
 }
 
 // AddInput implements Operator.
@@ -62,22 +65,22 @@ func (h *ProjectionOperator) GetOutput() *types.Page {
 			fmt.Printf("do ..... projection op expr %T,%s ret type=%v\n", expr, expr.String(), expr.GetType().String())
 			switch expr.GetType() {
 			case types.DTString:
-				val, _, _ := expr.EvalString(row)
+				val, _, _ := expr.EvalString(h.exprCtx, row)
 				h.outputColumns[i].AppendString(val)
 			case types.DTInt:
-				val, _, _ := expr.EvalInt(row)
+				val, _, _ := expr.EvalInt(h.exprCtx, row)
 				h.outputColumns[i].AppendInt(val)
 			case types.DTFloat:
-				val, _, _ := expr.EvalFloat(row)
+				val, _, _ := expr.EvalFloat(h.exprCtx, row)
 				h.outputColumns[i].AppendFloat(val)
 			case types.DTTimeSeries:
-				val, _, _ := expr.EvalTimeSeries(row)
+				val, _, _ := expr.EvalTimeSeries(h.exprCtx, row)
 				h.outputColumns[i].AppendTimeSeries(val)
 			case types.DTTimestamp:
-				val, _, _ := expr.EvalTime(row)
+				val, _, _ := expr.EvalTime(h.exprCtx, row)
 				h.outputColumns[i].AppendTimestamp(val)
 			case types.DTDuration:
-				val, _, _ := expr.EvalDuration(row)
+				val, _, _ := expr.EvalDuration(h.exprCtx, row)
 				h.outputColumns[i].AppendDuration(val)
 			default:
 				panic("projection operator error, unsupport data type:" + expr.GetType().String())
@@ -93,6 +96,7 @@ func (h *ProjectionOperator) IsFinished() bool {
 }
 
 func (h *ProjectionOperator) prepare() {
+	h.exprCtx = expression.NewEvalContext(h.ctx)
 	h.exprs = make([]expression.Expression, len(h.project.Assignments))
 	h.outputColumns = make([]*types.Column, len(h.project.Assignments))
 	h.ouput = types.NewPage()

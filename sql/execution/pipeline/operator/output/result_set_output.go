@@ -1,6 +1,8 @@
 package output
 
 import (
+	"context"
+
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/buffer"
 	"github.com/lindb/lindb/sql/execution/pipeline/operator"
@@ -32,7 +34,7 @@ func NewRSOutputOperatorFactory(output buffer.OutputBuffer, layout []*plan.Symbo
 }
 
 // CreateOperator implements operator.OperatorFactory
-func (fct *RSOutputOperatorFactory) CreateOperator() operator.Operator {
+func (fct *RSOutputOperatorFactory) CreateOperator(ctx context.Context) operator.Operator {
 	return &ResultSetOutputOperator{
 		output:       fct.output,
 		sourceLayout: fct.sourceLayout,

@@ -1,6 +1,7 @@
 package operator
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/lindb/lindb/constants"
@@ -22,7 +23,7 @@ func NewValuesOperatorFactory(sourceID plan.PlanNodeID, page *types.Page) Source
 }
 
 // CreateOperator implements OperatorFactory.
-func (fct *ValuesOperatorFactory) CreateOperator() Operator {
+func (fct *ValuesOperatorFactory) CreateOperator(ctx context.Context) Operator {
 	return &ValuesOperator{
 		sourceID: fct.sourceID,
 		page:     fct.page,

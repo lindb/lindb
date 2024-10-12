@@ -16,9 +16,10 @@ import (
 )
 
 type SQLTask struct {
-	id         model.TaskID
-	fragment   *plan.PlanFragment
-	partitions []int
+	id          model.TaskID
+	currentTime int64
+	fragment    *plan.PlanFragment
+	partitions  []int
 }
 
 type TaskManager interface {
@@ -58,9 +59,10 @@ func (mgr *taskManager) SubmitTask(req *model.TaskRequest, fragment *plan.PlanFr
 	mgr.lock.Lock()
 	defer mgr.lock.Unlock()
 	task := &SQLTask{
-		id:         req.TaskID,
-		fragment:   fragment,
-		partitions: req.Partitions,
+		currentTime: req.RequestContext.CurrentTime,
+		id:          req.TaskID,
+		fragment:    fragment,
+		partitions:  req.Partitions,
 	}
 
 	mgr.tasks[req.TaskID] = task

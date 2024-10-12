@@ -25,6 +25,8 @@ const (
 	ContextKeySQL = ContextKey("lin_ql")
 	// ContextKeySession represents session key.
 	ContextKeySession = ContextKey("lin_session")
+	// ContextKeyCurrentTime represents current time key
+	ContextKeyCurrentTime = ContextKey("current_time")
 
 	// CurrentSQL represents the key of current sql context.
 	CurrentSQL = "LinDB_SQL"

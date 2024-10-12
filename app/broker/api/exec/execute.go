@@ -26,6 +26,7 @@ import (
 	"github.com/gin-gonic/gin"
 	httppkg "github.com/lindb/common/pkg/http"
 	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/timeutil"
 
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
@@ -141,7 +142,9 @@ func (e *ExecuteAPI) execute(c *gin.Context) error {
 		PrepareSQL: param.SQL,
 	}
 	session := &execution.Session{
-		Context:         ctx,
+		// the current system time when creating this session,
+		// make sure the same current time is used in the session.
+		Context:         context.WithValue(ctx, constants.ContextKeyCurrentTime, timeutil.Now()),
 		RequestID:       requestID,
 		NodeIDAllocator: idAllocator,
 		Database:        reqSession.Databases,

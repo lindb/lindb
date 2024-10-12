@@ -1,7 +1,10 @@
 package execution
 
 import (
-	"github.com/lindb/lindb/sql/context"
+	"context"
+
+	"github.com/lindb/lindb/constants"
+	sqlContext "github.com/lindb/lindb/sql/context"
 	"github.com/lindb/lindb/sql/execution/buffer"
 	"github.com/lindb/lindb/sql/planner"
 )
@@ -15,7 +18,8 @@ func NewTaskExecutionFactory() *TaskExecutionFactory {
 func (fct *TaskExecutionFactory) Create(task *SQLTask, output buffer.OutputBuffer) *TaskExecution {
 	planner := planner.NewTaskExecutionPlanner()
 
-	ctx := &context.TaskContext{
+	ctx := &sqlContext.TaskContext{
+		Context:    context.WithValue(context.TODO(), constants.ContextKeyCurrentTime, task.currentTime),
 		TaskID:     task.id,
 		Fragment:   task.fragment,
 		Partitions: task.partitions,
@@ -29,7 +33,7 @@ func (fct *TaskExecutionFactory) Create(task *SQLTask, output buffer.OutputBuffe
 }
 
 type TaskExecution struct {
-	taskCtx *context.TaskContext
+	taskCtx *sqlContext.TaskContext
 	plan    *planner.TaskExecutionPlan
 }
 

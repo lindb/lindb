@@ -29,7 +29,7 @@ func NewExchangeOperatorFactory(sourceID plan.PlanNodeID, numOfChild int) operat
 	}
 }
 
-func (fct *ExchangeOperatorFactory) CreateOperator() operator.Operator {
+func (fct *ExchangeOperatorFactory) CreateOperator(ctx context.Context) operator.Operator {
 	return NewExchangeOperator(fct.sourceID, fct.numOfChild)
 }
 

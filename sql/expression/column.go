@@ -16,27 +16,27 @@ func NewColumn(name string, index int, retType types.DataType) Expression {
 	return &Column{name: name, index: index, retType: retType}
 }
 
-func (c *Column) EvalString(row types.Row) (val string, isNull bool, err error) {
+func (c *Column) EvalString(ctx EvalContext, row types.Row) (val string, isNull bool, err error) {
 	return string(*row.GetString(c.index)), false, nil
 }
 
-func (c *Column) EvalInt(row types.Row) (val int64, isNull bool, err error) {
+func (c *Column) EvalInt(ctx EvalContext, row types.Row) (val int64, isNull bool, err error) {
 	return 40, false, nil
 }
 
-func (c *Column) EvalFloat(row types.Row) (val float64, isNull bool, err error) {
+func (c *Column) EvalFloat(ctx EvalContext, row types.Row) (val float64, isNull bool, err error) {
 	return
 }
 
-func (c *Column) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error) {
+func (c *Column) EvalTimeSeries(ctx EvalContext, row types.Row) (val *types.TimeSeries, isNull bool, err error) {
 	return row.GetTimeSeries(c.index), false, nil
 }
 
-func (c *Column) EvalDuration(row types.Row) (val time.Duration, isNull bool, err error) {
+func (c *Column) EvalDuration(ctx EvalContext, row types.Row) (val time.Duration, isNull bool, err error) {
 	return
 }
 
-func (c *Column) EvalTime(_ types.Row) (val time.Time, isNull bool, err error) {
+func (c *Column) EvalTime(ctx EvalContext, _ types.Row) (val time.Time, isNull bool, err error) {
 	return
 }
 
