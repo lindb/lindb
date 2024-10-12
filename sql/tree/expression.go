@@ -149,7 +149,7 @@ func (n *InListExpression) Accept(context any, visitor Visitor) (r any) {
 
 type NotExpression struct {
 	BaseNode
-	Value Expression
+	Value Expression `json:"value"`
 }
 
 func (n *NotExpression) Accept(context any, visitor Visitor) (r any) {

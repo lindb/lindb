@@ -312,22 +312,36 @@ func NewRowLookupVisitor(split *SplitSource) *RowsLookupVisitor {
 
 func (v *RowsLookupVisitor) Visit(context any, n tree.Node) any {
 	fmt.Printf("row lookup visitor: %v\n", v.split.tableScan.filterResult)
+	var seriesIDs *roaring.Bitmap
+
 	switch node := n.(type) {
 	case *tree.ComparisonExpression:
-		return v.visitPredicate(context, node)
+		_, seriesIDs = v.visitPredicate(context, node)
 	case *tree.InPredicate:
-		return v.visitPredicate(context, node)
+		_, seriesIDs = v.visitPredicate(context, node)
+	case *tree.NotExpression:
+		// get filter series ids
+		tagKey, matchResult := v.visitPredicate(context, node.Value)
+		// get all series ids for tag key
+		indexDB := v.split.partition.shard.IndexDB()
+		// TODO: cache if dup
+		all, err := indexDB.GetSeriesIDsForTag(tagKey)
+		if err != nil {
+			panic(err)
+		}
+		// do and not got series ids not in 'a' list
+		all.AndNot(matchResult)
+		return all
 	case *tree.Cast:
 		return node.Expression.Accept(context, v)
 	}
-	return nil
+	return seriesIDs
 }
 
-func (v *RowsLookupVisitor) visitPredicate(_ any, node tree.Node) (r any) {
+func (v *RowsLookupVisitor) visitPredicate(_ any, node tree.Node) (tag.KeyID, *roaring.Bitmap) {
 	columnResult, ok := v.split.tableScan.filterResult[node.GetID()]
 	if !ok {
-		fmt.Println("column result not found")
-		return nil
+		panic(constants.ErrSeriesIDNotFound)
 	}
 	fmt.Printf("tag value ids=%v\n", columnResult.TagValueIDs)
 	indexDB := v.split.partition.shard.IndexDB()
@@ -335,5 +349,5 @@ func (v *RowsLookupVisitor) visitPredicate(_ any, node tree.Node) (r any) {
 	if err != nil {
 		panic(err)
 	}
-	return seriesIDs
+	return columnResult.TagKeyID, seriesIDs
 }

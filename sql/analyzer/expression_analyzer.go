@@ -51,6 +51,8 @@ func (v *ExpressionVisitor) Visit(context any, n tree.Node) (r any) {
 	switch node := n.(type) {
 	case *tree.ComparisonExpression:
 		return v.visitComparisonExpression(context, node)
+	case *tree.NotExpression:
+		return node.Value.Accept(context, v)
 	case *tree.InPredicate:
 		return v.visitInPredicate(context, node)
 	case *tree.ArithmeticBinaryExpression:
