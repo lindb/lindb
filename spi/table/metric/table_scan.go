@@ -71,6 +71,12 @@ func (v *ColumnValuesLookupVisitor) Visit(context any, n tree.Node) any {
 		return v.visitInPredicate(context, node)
 	case *tree.NotExpression:
 		return node.Value.Accept(context, v)
+	case *tree.LogicalExpression:
+		for _, term := range node.Terms {
+			fmt.Printf("logical expr: %v, id=%v\n", term, term.GetID())
+			term.Accept(context, v)
+		}
+		return nil
 	case *tree.Cast:
 		return node.Expression.Accept(context, v)
 	default:

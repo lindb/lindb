@@ -332,6 +332,21 @@ func (v *RowsLookupVisitor) Visit(context any, n tree.Node) any {
 		// do and not got series ids not in 'a' list
 		all.AndNot(matchResult)
 		return all
+	case *tree.LogicalExpression:
+		var seriesIDs *roaring.Bitmap
+		for _, term := range node.Terms {
+			matchResult := term.Accept(context, v).(*roaring.Bitmap)
+			if seriesIDs == nil {
+				seriesIDs = matchResult
+			} else {
+				if node.Operator == tree.LogicalAND {
+					seriesIDs.And(matchResult)
+				} else {
+					seriesIDs.Or(matchResult)
+				}
+			}
+		}
+		return seriesIDs
 	case *tree.Cast:
 		return node.Expression.Accept(context, v)
 	}
