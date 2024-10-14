@@ -64,15 +64,20 @@ func NewColumnValuesLookVisitor(tableScan *TableScan) *ColumnValuesLookupVisitor
 }
 
 func (v *ColumnValuesLookupVisitor) Visit(context any, n tree.Node) any {
+	var (
+		column tree.Expression
+		fn     func(columnName string) tree.Expr
+	)
 	switch node := n.(type) {
 	case *tree.ComparisonExpression:
 		columnValue, _ := expression.EvalString(v.evalCtx, node.Right)
-		return v.visitPredicate(context, node, node.Left, func(columnName string) tree.Expr {
+		column = node.Left
+		fn = func(columnName string) tree.Expr {
 			return &tree.EqualsExpr{
 				Name:  columnName,
 				Value: columnValue,
 			}
-		})
+		}
 	case *tree.InPredicate:
 		var values []string
 		if inListExpression, ok := node.ValueList.(*tree.InListExpression); ok {
@@ -81,29 +86,31 @@ func (v *ColumnValuesLookupVisitor) Visit(context any, n tree.Node) any {
 				return columnValue
 			})
 		}
-		// FIXME: impl other expr
-		return v.visitPredicate(context, node, node.Value, func(columnName string) tree.Expr {
+		column = node.Value
+		fn = func(columnName string) tree.Expr {
 			return &tree.InExpr{
 				Name:   columnName,
 				Values: values,
 			}
-		})
+		}
 	case *tree.LikePredicate:
 		columnValue, _ := expression.EvalString(v.evalCtx, node.Pattern)
-		return v.visitPredicate(context, node, node.Value, func(columnName string) tree.Expr {
+		column = node.Value
+		fn = func(columnName string) tree.Expr {
 			return &tree.LikeExpr{
 				Name:  columnName,
 				Value: columnValue,
 			}
-		})
+		}
 	case *tree.RegexPredicate:
 		regexp, _ := expression.EvalString(v.evalCtx, node.Pattern)
-		return v.visitPredicate(context, node, node.Value, func(columnName string) tree.Expr {
+		column = node.Value
+		fn = func(columnName string) tree.Expr {
 			return &tree.RegexExpr{
 				Name:   columnName,
 				Regexp: regexp,
 			}
-		})
+		}
 	case *tree.NotExpression:
 		return node.Value.Accept(context, v)
 	case *tree.LogicalExpression:
@@ -116,6 +123,8 @@ func (v *ColumnValuesLookupVisitor) Visit(context any, n tree.Node) any {
 	default:
 		panic(fmt.Sprintf("column values lookup error, not support node type: %T", n))
 	}
+	// visit predicate which finding tag value ids
+	return v.visitPredicate(context, n, column, fn)
 }
 
 func (v *ColumnValuesLookupVisitor) visitPredicate(context any,
@@ -131,15 +140,13 @@ func (v *ColumnValuesLookupVisitor) visitPredicate(context any,
 	tagKeyID := tagMeta.ID
 	var tagValueIDs *roaring.Bitmap
 	var err error
-	// FIXME: impl other expr
 	tagValueIDs, err = v.tableScan.db.MetaDB().FindTagValueDsByExpr(tagKeyID, buildExpr(columnName))
 	if err != nil {
 		panic(err)
 	}
 
 	if tagValueIDs == nil || tagValueIDs.IsEmpty() {
-		// TODO: panic if not found?
-		return nil
+		panic(fmt.Errorf("%w, column name: %s", constants.ErrColumnValueNotFound, columnName))
 	}
 
 	if v.tableScan.filterResult == nil {
