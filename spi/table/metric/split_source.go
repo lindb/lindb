@@ -329,7 +329,7 @@ func (v *RowsLookupVisitor) Visit(context any, n tree.Node) any {
 			all.AndNot(seriesIDs)
 			return all
 		}
-	case *tree.InPredicate:
+	case *tree.InPredicate, *tree.RegexPredicate, *tree.LikePredicate:
 		_, seriesIDs = v.visitPredicate(context, node)
 	case *tree.NotExpression:
 		// get filter series ids

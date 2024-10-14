@@ -167,6 +167,14 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 		case *tree.TimePredicate:
 			t.translate(expr.Value, false)
 			result = expr
+		case *tree.LikePredicate:
+			t.translate(expr.Value, false)
+			t.translate(expr.Pattern, false)
+			result = expr
+		case *tree.RegexPredicate:
+			t.translate(expr.Value, false)
+			t.translate(expr.Pattern, false)
+			result = expr
 		case *tree.ComparisonExpression:
 			t.translate(expr.Left, false)
 			t.translate(expr.Right, false)

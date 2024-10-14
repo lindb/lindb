@@ -2,8 +2,8 @@ package tree
 
 type LikePredicate struct {
 	BaseNode
-	Value   Expression
-	Pattern Expression
+	Value   Expression `json:"value"`
+	Pattern Expression `json:"pattern"`
 }
 
 func (n *LikePredicate) Accept(context any, visitor Visitor) any {
@@ -22,8 +22,8 @@ func (n *InPredicate) Accept(context any, visitor Visitor) any {
 
 type RegexPredicate struct {
 	BaseNode
-	Value   Expression
-	Pattern Expression
+	Value   Expression `json:"value"`
+	Pattern Expression `json:"pattern"`
 }
 
 func (n *RegexPredicate) Accept(context any, visitor Visitor) any {

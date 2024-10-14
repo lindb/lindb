@@ -472,7 +472,6 @@ func (v *AstVisitor) VisitOr(ctx *grammar.OrContext) any {
 }
 
 func (v *AstVisitor) VisitAnd(ctx *grammar.AndContext) any {
-	fmt.Println("visit and logic")
 	terms := v.flatten(ctx, func(parentCtx antlr.ParserRuleContext) (rs []antlr.ParserRuleContext) {
 		if and, ok := parentCtx.(*grammar.AndContext); ok {
 			expressions := and.AllBooleanExpression()

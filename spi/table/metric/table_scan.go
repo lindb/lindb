@@ -66,14 +66,48 @@ func NewColumnValuesLookVisitor(tableScan *TableScan) *ColumnValuesLookupVisitor
 func (v *ColumnValuesLookupVisitor) Visit(context any, n tree.Node) any {
 	switch node := n.(type) {
 	case *tree.ComparisonExpression:
-		return v.visitComparisonExpression(context, node)
+		columnValue, _ := expression.EvalString(v.evalCtx, node.Right)
+		return v.visitPredicate(context, node, node.Left, func(columnName string) tree.Expr {
+			return &tree.EqualsExpr{
+				Name:  columnName,
+				Value: columnValue,
+			}
+		})
 	case *tree.InPredicate:
-		return v.visitInPredicate(context, node)
+		var values []string
+		if inListExpression, ok := node.ValueList.(*tree.InListExpression); ok {
+			values = lo.Map(inListExpression.Values, func(item tree.Expression, index int) string {
+				columnValue, _ := expression.EvalString(v.evalCtx, item)
+				return columnValue
+			})
+		}
+		// FIXME: impl other expr
+		return v.visitPredicate(context, node, node.Value, func(columnName string) tree.Expr {
+			return &tree.InExpr{
+				Name:   columnName,
+				Values: values,
+			}
+		})
+	case *tree.LikePredicate:
+		columnValue, _ := expression.EvalString(v.evalCtx, node.Pattern)
+		return v.visitPredicate(context, node, node.Value, func(columnName string) tree.Expr {
+			return &tree.LikeExpr{
+				Name:  columnName,
+				Value: columnValue,
+			}
+		})
+	case *tree.RegexPredicate:
+		regexp, _ := expression.EvalString(v.evalCtx, node.Pattern)
+		return v.visitPredicate(context, node, node.Value, func(columnName string) tree.Expr {
+			return &tree.RegexExpr{
+				Name:   columnName,
+				Regexp: regexp,
+			}
+		})
 	case *tree.NotExpression:
 		return node.Value.Accept(context, v)
 	case *tree.LogicalExpression:
 		for _, term := range node.Terms {
-			fmt.Printf("logical expr: %v, id=%v\n", term, term.GetID())
 			term.Accept(context, v)
 		}
 		return nil
@@ -84,10 +118,11 @@ func (v *ColumnValuesLookupVisitor) Visit(context any, n tree.Node) any {
 	}
 }
 
-func (v *ColumnValuesLookupVisitor) visitComparisonExpression(context any, node *tree.ComparisonExpression) (r any) {
-	// TODO: check error
-	columnName, _ := expression.EvalString(v.evalCtx, node.Left)
-	columnValue, _ := expression.EvalString(v.evalCtx, node.Right)
+func (v *ColumnValuesLookupVisitor) visitPredicate(context any,
+	predicate tree.Node, column tree.Expression,
+	buildExpr func(columnName string) tree.Expr,
+) (r any) {
+	columnName, _ := expression.EvalString(v.evalCtx, column)
 
 	tagMeta, ok := v.tableScan.schema.TagKeys.Find(columnName)
 	if !ok {
@@ -97,10 +132,7 @@ func (v *ColumnValuesLookupVisitor) visitComparisonExpression(context any, node 
 	var tagValueIDs *roaring.Bitmap
 	var err error
 	// FIXME: impl other expr
-	tagValueIDs, err = v.tableScan.db.MetaDB().FindTagValueDsByExpr(tagKeyID, &tree.EqualsExpr{
-		Name:  columnName,
-		Value: columnValue,
-	})
+	tagValueIDs, err = v.tableScan.db.MetaDB().FindTagValueDsByExpr(tagKeyID, buildExpr(columnName))
 	if err != nil {
 		panic(err)
 	}
@@ -114,50 +146,7 @@ func (v *ColumnValuesLookupVisitor) visitComparisonExpression(context any, node 
 		v.tableScan.filterResult = make(map[tree.NodeID]*flow.TagFilterResult)
 	}
 
-	v.tableScan.filterResult[node.ID] = &flow.TagFilterResult{
-		TagKeyID:    tagKeyID,
-		TagValueIDs: tagValueIDs,
-	}
-	return nil
-}
-
-func (v *ColumnValuesLookupVisitor) visitInPredicate(context any, node *tree.InPredicate) (r any) {
-	columnName, _ := expression.EvalString(v.evalCtx, node.Value)
-
-	tagMeta, ok := v.tableScan.schema.TagKeys.Find(columnName)
-	if !ok {
-		panic(fmt.Errorf("%w, column name: %s", constants.ErrColumnNotFound, columnName))
-	}
-	tagKeyID := tagMeta.ID
-	var tagValueIDs *roaring.Bitmap
-	var err error
-	var values []string
-	// TODO: check values
-	if inListExpression, ok := node.ValueList.(*tree.InListExpression); ok {
-		values = lo.Map(inListExpression.Values, func(item tree.Expression, index int) string {
-			columnValue, _ := expression.EvalString(v.evalCtx, item)
-			return columnValue
-		})
-	}
-	// FIXME: impl other expr
-	tagValueIDs, err = v.tableScan.db.MetaDB().FindTagValueDsByExpr(tagKeyID, &tree.InExpr{
-		Name:   columnName,
-		Values: values,
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	if tagValueIDs == nil || tagValueIDs.IsEmpty() {
-		// TODO: panic if not found?
-		return nil
-	}
-
-	if v.tableScan.filterResult == nil {
-		v.tableScan.filterResult = make(map[tree.NodeID]*flow.TagFilterResult)
-	}
-
-	v.tableScan.filterResult[node.ID] = &flow.TagFilterResult{
+	v.tableScan.filterResult[predicate.GetID()] = &flow.TagFilterResult{
 		TagKeyID:    tagKeyID,
 		TagValueIDs: tagValueIDs,
 	}

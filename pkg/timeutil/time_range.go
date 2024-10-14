@@ -124,5 +124,5 @@ func (r *TimeRange) String() string {
 	if r.End > 0 {
 		endStr = timeutil.FormatTimestamp(r.End, timeutil.DataTimeFormat2)
 	}
-	return fmt.Sprintf("{%s ~ %s}", startStr, endStr)
+	return fmt.Sprintf("[%s ~ %s]", startStr, endStr)
 }
