@@ -59,11 +59,13 @@ func (f *metricsDataFilter) Filter(
 	seriesIDs *roaring.Bitmap, fields field.Metas,
 ) (rs []flow.FilterResultSet, err error) {
 	for _, reader := range f.readers {
-		fieldMetas, _ := reader.GetFields().Intersects(fields)
-		if len(fieldMetas) == 0 {
-			fmt.Printf("field not found,fields=%v\n", fields)
-			// field not found
-			continue
+		if fields.Len() > 0 {
+			fieldMetas, _ := reader.GetFields().Intersects(fields)
+			if len(fieldMetas) == 0 {
+				fmt.Printf("field not found,fields=%v\n", fields)
+				// field not found
+				continue
+			}
 		}
 		// after and operator, query bitmap is sub of store bitmap
 		matchSeriesIDs := roaring.FastAnd(seriesIDs, reader.GetSeriesIDs())

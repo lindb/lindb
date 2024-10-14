@@ -113,21 +113,14 @@ func (msp *SplitSourceProvider) findPartitions(tableScan *TableScan, partitionID
 	for _, id := range partitionIDs {
 		shard, ok := tableScan.db.GetShard(models.ShardID(id))
 		if ok {
-			if tableScan.fields.Len() == 0 {
-				// query tag values of metric
+			// TODO: use storage interval?
+			// check time range is empty if select metric meta
+			dataFamilies := shard.GetDataFamilies(tableScan.storageInterval.Type(), tableScan.timeRange)
+			if len(dataFamilies) > 0 {
 				partitions = append(partitions, &Partition{
-					shard: shard,
+					shard:    shard,
+					families: dataFamilies,
 				})
-			} else {
-				// TODO: use storage interval?
-				// check time range is empty if select metric meta
-				dataFamilies := shard.GetDataFamilies(tableScan.storageInterval.Type(), tableScan.timeRange)
-				if len(dataFamilies) > 0 {
-					partitions = append(partitions, &Partition{
-						shard:    shard,
-						families: dataFamilies,
-					})
-				}
 			}
 		}
 	}
@@ -212,6 +205,7 @@ func (mss *SplitSource) lookupSeriesIDs() *roaring.Bitmap {
 
 func (mss *SplitSource) matchSeriesIDs() {
 	seriesIDs := mss.lookupSeriesIDs()
+	fmt.Printf("families=%v,fields=%v\n", mss.partition.families, mss.tableScan.fields)
 	fmt.Printf("after load series ids: %v\n", seriesIDs)
 	if mss.tableScan.fields.Len() == 0 && len(mss.partition.families) == 0 {
 		// find metadata from index db

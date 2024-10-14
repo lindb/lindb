@@ -80,39 +80,41 @@ func (md *memoryDatabase) filter(metricScanCtx *flow.MetricScanContext,
 		// metric meta not found
 		return nil, nil
 	}
-	fields := metricScanCtx.Fields.Clone()
-	// NOTE: must re-stort by field name, if not cannot find field from query fields
-	sort.Sort(fields)
-	// first need check query's fields is match store's fields, if not return.
-	foundFields := mStore.FindFields(fields)
-	if len(foundFields) == 0 {
-		// field not found
-		return nil, fmt.Errorf("%w, fields: %s", constants.ErrFieldNotFound, fields.String())
-	}
-
 	var fieldEntries []*fieldEntry
-	for _, fm := range foundFields {
-		fStore, ok := md.fieldWriteStores.Load(fm.Index)
-		fcStore, fcOK := md.fieldCompressStore.Load(fm.Index)
-		if ok || fcOK {
-			queryField, _ := fields.GetFromName(fm.Name)
-			fieldEntry := &fieldEntry{
-				pageBuf: fStore.(DataPointBuffer), // TEST: add test case
-				field:   queryField,
-			}
-			fieldEntries = append(fieldEntries, fieldEntry)
-			if ok {
-				fieldEntry.pageBuf = fStore.(DataPointBuffer)
-			}
-			if fcOK {
-				fieldEntry.compressBuf = fcStore.(CompressStore)
+	if metricScanCtx.Fields.Len() > 0 {
+		fields := metricScanCtx.Fields.Clone()
+		// NOTE: must re-stort by field name, if not cannot find field from query fields
+		sort.Sort(fields)
+		// first need check query's fields is match store's fields, if not return.
+		foundFields := mStore.FindFields(fields)
+		if len(foundFields) == 0 {
+			// field not found
+			return nil, fmt.Errorf("%w, fields: %s", constants.ErrFieldNotFound, fields.String())
+		}
+
+		for _, fm := range foundFields {
+			fStore, ok := md.fieldWriteStores.Load(fm.Index)
+			fcStore, fcOK := md.fieldCompressStore.Load(fm.Index)
+			if ok || fcOK {
+				queryField, _ := fields.GetFromName(fm.Name)
+				fieldEntry := &fieldEntry{
+					pageBuf: fStore.(DataPointBuffer), // TEST: add test case
+					field:   queryField,
+				}
+				fieldEntries = append(fieldEntries, fieldEntry)
+				if ok {
+					fieldEntry.pageBuf = fStore.(DataPointBuffer)
+				}
+				if fcOK {
+					fieldEntry.compressBuf = fcStore.(CompressStore)
+				}
 			}
 		}
-	}
 
-	if len(fieldEntries) == 0 {
-		// field temp store buffer not found
-		return nil, fmt.Errorf("%w, fields: %s", constants.ErrFieldNotFound, fields.String())
+		if len(fieldEntries) == 0 {
+			// field temp store buffer not found
+			return nil, fmt.Errorf("%w, fields: %s", constants.ErrFieldNotFound, fields.String())
+		}
 	}
 
 	seriesIDs := metricScanCtx.SeriesIDsAfterFiltering
@@ -121,8 +123,8 @@ func (md *memoryDatabase) filter(metricScanCtx *flow.MetricScanContext,
 	matchSeriesIDs := roaring.FastAnd(seriesIDs, timeSeriesIndex.TimeSeriesIDs())
 	if matchSeriesIDs.IsEmpty() {
 		// series id not found
-		return nil, fmt.Errorf("%w when Filter, familyTime: %d, fields: %s",
-			constants.ErrSeriesIDNotFound, familyTime, fields.String())
+		return nil, fmt.Errorf("%w when Filter, familyTime: %d",
+			constants.ErrSeriesIDNotFound, familyTime)
 	}
 	// returns the filter result set
 	return []flow.FilterResultSet{
