@@ -59,7 +59,7 @@ func (dt DataType) String() string {
 	case DTTimeSeries:
 		return "time_series"
 	default:
-		return "unknown"
+		return ""
 	}
 }
 
@@ -106,7 +106,7 @@ func (at AggregateType) String() string {
 	case ATHistogram:
 		return "histogram"
 	default:
-		return "unknown"
+		return ""
 	}
 }
 

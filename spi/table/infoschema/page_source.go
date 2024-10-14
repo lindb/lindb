@@ -23,12 +23,14 @@ func (p *PageSourceProvider) CreatePageSource(ctx context.Context, table spi.Tab
 	outputs []types.ColumnMetadata, assignments []*spi.ColumnAssignment,
 ) spi.PageSource {
 	return &PageSource{
+		ctx:     ctx,
 		outputs: outputs,
 		reader:  p.reader,
 	}
 }
 
 type PageSource struct {
+	ctx     context.Context
 	reader  Reader
 	split   *InfoSplit
 	outputs []types.ColumnMetadata
@@ -43,7 +45,7 @@ func (p *PageSource) AddSplit(split spi.Split) {
 
 // GetNextPage implements spi.PageSource.
 func (p *PageSource) GetNextPage() *types.Page {
-	rows, err := p.reader.ReadData(p.split.table)
+	rows, err := p.reader.ReadData(p.ctx, p.split.table, p.split.predicate)
 	if err != nil {
 		panic(err)
 	}

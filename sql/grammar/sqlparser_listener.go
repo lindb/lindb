@@ -226,6 +226,9 @@ type SQLParserListener interface {
 	// EnterBinaryComparisonPredicate is called when entering the binaryComparisonPredicate production.
 	EnterBinaryComparisonPredicate(c *BinaryComparisonPredicateContext)
 
+	// EnterBetweenPredicate is called when entering the betweenPredicate production.
+	EnterBetweenPredicate(c *BetweenPredicateContext)
+
 	// EnterInPredicate is called when entering the inPredicate production.
 	EnterInPredicate(c *InPredicateContext)
 
@@ -513,6 +516,9 @@ type SQLParserListener interface {
 
 	// ExitBinaryComparisonPredicate is called when exiting the binaryComparisonPredicate production.
 	ExitBinaryComparisonPredicate(c *BinaryComparisonPredicateContext)
+
+	// ExitBetweenPredicate is called when exiting the betweenPredicate production.
+	ExitBetweenPredicate(c *BetweenPredicateContext)
 
 	// ExitInPredicate is called when exiting the inPredicate production.
 	ExitInPredicate(c *InPredicateContext)

@@ -161,6 +161,7 @@ primaryExpression   :
 
 predicate           : TIME operator=comparisonOperator right=valueExpression                                   #timestampPredicate 
 										| left=valueExpression operator=comparisonOperator right=valueExpression                   #binaryComparisonPredicate
+                    | TIME BETWEEN lower=valueExpression AND upper=valueExpression                             #betweenPredicate
                     | left=valueExpression NOT? IN '(' expression (',' expression)* ')'                        #inPredicate
                     | left=valueExpression NOT? LIKE pattern=valueExpression (ESCAPE escape=valueExpression)?  #likePredicate
                     | left=valueExpression operator=(REGEXP|NEQREGEXP) pattern=valueExpression?                #regexpPredicate
@@ -198,7 +199,7 @@ intervalUnit        : SECOND | MINUTE | HOUR | DAY | MONTH | YEAR ;
 
 nonReserved         :
                       ALL | ALIVE | AND | AS | ASC
-                    | BROKER | BROKERS | BY 
+                    | BETWEEN | BROKER | BROKERS | BY 
                     | COMPACT | CREATE | CROSS 
                     | DATABASE | DATABASES | DEFAULT | DESC | DISTRIBUTED | DROP
                     | ENGINE | ESCAPE | EXPLAIN | EXISTS

@@ -7,6 +7,7 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/sql/tree"
 )
 
 func init() {
@@ -40,6 +41,7 @@ func (t *TableHandle) String() string {
 }
 
 type InfoSplit struct {
-	table   string
-	colIdxs []int
+	table     string
+	predicate tree.Expression
+	colIdxs   []int
 }

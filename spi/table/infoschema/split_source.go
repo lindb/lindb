@@ -47,8 +47,9 @@ func (s *SplitSourceProvider) CreateSplitSources(ctx context.Context, table spi.
 	return []spi.SplitSource{
 		&SplitSource{
 			split: &InfoSplit{
-				table:   infoTable.Table,
-				colIdxs: colIdxs,
+				table:     infoTable.Table,
+				predicate: predicate,
+				colIdxs:   colIdxs,
 			},
 		},
 	}

@@ -226,6 +226,9 @@ type SQLParserVisitor interface {
 	// Visit a parse tree produced by SQLParser#binaryComparisonPredicate.
 	VisitBinaryComparisonPredicate(ctx *BinaryComparisonPredicateContext) interface{}
 
+	// Visit a parse tree produced by SQLParser#betweenPredicate.
+	VisitBetweenPredicate(ctx *BetweenPredicateContext) interface{}
+
 	// Visit a parse tree produced by SQLParser#inPredicate.
 	VisitInPredicate(ctx *InPredicateContext) interface{}
 
