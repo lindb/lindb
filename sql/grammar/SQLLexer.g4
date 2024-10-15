@@ -23,6 +23,7 @@ BY                       : 'BY' ;
 COMPACT                  : 'COMPACT' ;
 CREATE                   : 'CREATE' ;
 CROSS                    : 'CROSS' ;
+COLUMNS                  : 'COLUMNS' ;
 DATABASE                 : 'DATABASE' ;
 DATABASES                : 'DATABASES' ;
 DEFAULT                  : 'DEFAULT' ;

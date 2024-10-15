@@ -208,8 +208,9 @@ func (v *ExpressionVisitor) visitTimestampPredicate(context any, node *tree.Time
 
 func (v *ExpressionVisitor) visitLogicalExpression(context any, node *tree.LogicalExpression) (r any) {
 	for _, term := range node.Terms {
-		activeType := term.Accept(context, v).(types.DataType)
-		v.coerceType(term, activeType, types.DTInt)
+		// TODO: add coerce type?
+		_ = term.Accept(context, v).(types.DataType)
+		// v.coerceType(term, activeType, types.DTInt)
 	}
 	// TODO: set bool
 	return v.setExpressionType(node, types.DTInt)

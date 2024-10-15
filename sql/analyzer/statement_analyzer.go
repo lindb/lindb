@@ -277,6 +277,7 @@ func (v *StatementVisitor) visitTable(ctx any, table *tree.Table) (r any) {
 	v.analyzer.ctx.Analysis.RegisterTableMetadata(tableHandle.String(), tableMetadata)
 	// FIXME: table fields??
 
+	fmt.Printf("visit table output fields %v\n", outputFields)
 	return v.createAndAssignScope(table, scope, NewRelation(outputFields))
 }
 

@@ -78,9 +78,10 @@ func (p *LogicalPlanner) createOutputPlan(plan *RelationPlan) planpkg.PlanNode {
 		}
 		columns = append(columns, name)
 		fieldIdx := outputDescriptor.IndexOf(field)
+		fmt.Printf("find field index=%v\n", fieldIdx)
 		outputs = append(outputs, plan.getSymbol(fieldIdx))
 	}
-
+	fmt.Printf("create output columns=%v,%v\n", columns, outputs)
 	return &planpkg.OutputNode{
 		BaseNode: planpkg.BaseNode{
 			ID: p.context.PlanNodeIDAllocator.Next(),

@@ -44,8 +44,27 @@ func (v *AstVisitor) VisitStatement(ctx *grammar.StatementContext) any {
 		return v.Visit(ctx.DdlStatement())
 	case ctx.UtilityStatement() != nil:
 		return v.Visit(ctx.UtilityStatement())
+	case ctx.AdminStatement() != nil:
+		return v.Visit(ctx.AdminStatement())
 	default:
 		return v.VisitChildren(ctx)
+	}
+}
+
+func (v *AstVisitor) VisitAdminStatement(ctx *grammar.AdminStatementContext) interface{} {
+	switch {
+	case ctx.ShowStatement() != nil:
+		return v.Visit(ctx.ShowStatement())
+	}
+	return v.VisitChildren(ctx)
+}
+
+func (v *AstVisitor) VisitShowColumns(ctx *grammar.ShowColumnsContext) interface{} {
+	return &ShowColumns{
+		Table: &Table{
+			BaseNode: v.createBaseNode(ctx.GetStart()),
+			Name:     v.getQualifiedName(ctx.QualifiedName()),
+		},
 	}
 }
 

@@ -4,7 +4,7 @@ type FragmentID int
 
 const RootFragmentID = FragmentID(0)
 
-type PlanNodeID int
+type PlanNodeID int64
 
 type PlanNode interface {
 	GetNodeID() PlanNodeID

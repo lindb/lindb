@@ -17,6 +17,8 @@ func init() {
 	statementTypes[reflect.TypeOf(&tree.Query{})] = models.Select
 	// Explain
 	statementTypes[reflect.TypeOf(&tree.Explain{})] = models.Select
+	// Show columns
+	statementTypes[reflect.TypeOf(&tree.ShowColumns{})] = models.Select
 }
 
 func GetStatementType(statement tree.Statement) models.StatementType {
