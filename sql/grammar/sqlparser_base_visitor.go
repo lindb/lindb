@@ -299,6 +299,10 @@ func (v *BaseSQLParserVisitor) VisitBinaryComparisonPredicate(ctx *BinaryCompari
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseSQLParserVisitor) VisitBetweenPredicate(ctx *BetweenPredicateContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseSQLParserVisitor) VisitInPredicate(ctx *InPredicateContext) interface{} {
 	return v.VisitChildren(ctx)
 }

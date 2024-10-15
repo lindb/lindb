@@ -1,13 +1,20 @@
 package meta
 
 import (
+	"context"
 	"strings"
+
+	"github.com/lindb/common/pkg/encoding"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator"
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/master"
 	"github.com/lindb/lindb/models"
+	protoMetaV1 "github.com/lindb/lindb/proto/gen/v1/meta"
+	"github.com/lindb/lindb/spi/types"
 )
 
 type brokerMetadataManager struct {
@@ -56,7 +63,13 @@ func (m *brokerMetadataManager) GetPartitions(database, ns, table string) (map[m
 		var partitions map[models.InternalNode][]int
 		currentNode := m.brokerStateMgr.GetCurrentNode()
 		switch strings.ToLower(table) {
-		case constants.TableEngines, constants.TableSchemata, constants.TableMetrics, constants.TableMaster, constants.TableBroker, constants.TableStorage:
+		case constants.TableEngines,
+			constants.TableSchemata,
+			constants.TableMetrics,
+			constants.TableMaster,
+			constants.TableBroker,
+			constants.TableStorage,
+			constants.TableColumns:
 			partitions = map[models.InternalNode][]int{
 				{IP: currentNode.HostIP, Port: currentNode.GRPCPort}: {},
 			}
@@ -66,4 +79,40 @@ func (m *brokerMetadataManager) GetPartitions(database, ns, table string) (map[m
 
 	// find tabel metadata from partitions
 	return m.brokerStateMgr.GetPartitions(database)
+}
+
+func (m *brokerMetadataManager) GetTableMetadata(database, ns, table string) (*types.TableMetadata, error) {
+	// find tabel metadata from partitions
+	partitions, err := m.GetPartitions(database, ns, table)
+	if err != nil {
+		return nil, err
+	}
+	schema := types.NewTableSchema()
+	for node := range partitions {
+		conn, err := grpc.Dial(node.Address(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			return nil, err
+		}
+		defer conn.Close()
+
+		client := protoMetaV1.NewMetaServiceClient(conn)
+		resp, err := client.TableSchema(context.TODO(), &protoMetaV1.TableSchemaRequest{
+			Database:  database,
+			Namespace: ns,
+			Table:     table,
+		})
+		if err != nil {
+			return nil, err
+		}
+		tableSchema := &types.TableSchema{}
+		if err = encoding.JSONUnmarshal(resp.Payload, tableSchema); err != nil {
+			return nil, err
+		}
+		// TODO: remove duplicate column
+		schema.AddColumns(tableSchema.Columns)
+	}
+	return &types.TableMetadata{
+		Schema:     schema,
+		Partitions: partitions,
+	}, nil
 }

@@ -1,18 +1,23 @@
 package infoschema
 
 import (
+	"context"
+	"fmt"
 	"strings"
 
+	commonConstants "github.com/lindb/common/constants"
 	"github.com/lindb/common/pkg/timeutil"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/meta"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/spi/types"
+	"github.com/lindb/lindb/sql/expression"
+	"github.com/lindb/lindb/sql/tree"
 )
 
 type Reader interface {
-	ReadData(table string) (rows [][]*types.Datum, err error)
+	ReadData(ctx context.Context, table string, predicate tree.Expression) (rows [][]*types.Datum, err error)
 }
 
 // reader implements Reader interface.
@@ -25,7 +30,12 @@ func NewReader(metadataMgr meta.MetadataManager) Reader {
 	return &reader{metadataMgr: metadataMgr}
 }
 
-func (r *reader) ReadData(table string) (rows [][]*types.Datum, err error) {
+func (r *reader) ReadData(ctx context.Context, table string, expression tree.Expression) (rows [][]*types.Datum, err error) {
+	predicate := newPredicate(ctx)
+	if expression != nil {
+		_ = expression.Accept(nil, predicate)
+	}
+
 	switch strings.ToLower(table) {
 	case constants.TableMaster:
 		rows, err = r.readMaster()
@@ -39,6 +49,8 @@ func (r *reader) ReadData(table string) (rows [][]*types.Datum, err error) {
 		rows, err = r.readSchemata()
 	case constants.TableMetrics:
 		rows, err = r.readMetrics()
+	case constants.TableColumns:
+		rows, err = r.readColumns(predicate)
 	}
 	return
 }
@@ -106,11 +118,64 @@ func (r *reader) readSchemata() (rows [][]*types.Datum, err error) {
 	return
 }
 
-func (r reader) readMetrics() (rows [][]*types.Datum, err error) {
+func (r *reader) readMetrics() (rows [][]*types.Datum, err error) {
 	rows = append(rows, types.MakeDatums(
 		"cpu",         // metrics_name
 		"1.1.1.1",     // instance
 		float64(10.3), // value
 	))
+	return
+}
+
+func (r *reader) readColumns(predicate *predicate) (rows [][]*types.Datum, err error) {
+	schema := predicate.columns[columnsSchema.Columns[0].Name]
+	namespace := predicate.columns[columnsSchema.Columns[1].Name]
+	if namespace == "" {
+		namespace = commonConstants.DefaultNamespace
+	}
+	tableName := predicate.columns[columnsSchema.Columns[2].Name]
+	table, err := r.metadataMgr.GetTableMetadata(schema, namespace, tableName)
+	if err != nil {
+		return nil, err
+	}
+	for _, column := range table.Schema.Columns {
+		rows = append(rows, types.MakeDatums(
+			schema,                   // table_schema
+			namespace,                // namespace
+			tableName,                // table_name
+			column.Name,              // column_name
+			column.DataType.String(), // data_type
+			column.AggType.String(),  // agg_type
+		))
+	}
+	return
+}
+
+type predicate struct {
+	evalCtx expression.EvalContext
+	columns map[string]string
+}
+
+func newPredicate(ctx context.Context) *predicate {
+	return &predicate{
+		evalCtx: expression.NewEvalContext(ctx),
+		columns: make(map[string]string),
+	}
+}
+
+func (v *predicate) Visit(context any, n tree.Node) (rs any) {
+	switch node := n.(type) {
+	case *tree.ComparisonExpression:
+		// TODO: check err
+		columnName, _ := expression.EvalString(v.evalCtx, node.Left)
+		columnValue, _ := expression.EvalString(v.evalCtx, node.Right)
+		v.columns[columnName] = columnValue
+	case *tree.LogicalExpression:
+		for _, term := range node.Terms {
+			_ = term.Accept(context, v)
+		}
+	default:
+		panic(fmt.Sprintf("infoschema predicate visit error, not support node type: %T", n))
+	}
 	return
 }

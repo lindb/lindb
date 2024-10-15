@@ -190,6 +190,10 @@ func (v *ExpressionVisitor) visitIdentifier(context any, node *tree.Identifier) 
 	fmt.Printf("expr visitor %V\n", node.Value)
 	// FIXME:???
 	resolvedField := ctx.GetContext().scope.resolveField(node, tree.NewQualifiedName([]*tree.Identifier{node}), true)
+
+	if resolvedField == nil {
+		panic(fmt.Sprintf("unknown column: '%v'", node.Value))
+	}
 	return v.handleResolvedField(node, resolvedField, ctx)
 }
 

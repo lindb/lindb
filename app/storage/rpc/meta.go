@@ -2,7 +2,9 @@ package rpc
 
 import (
 	context "context"
+	"fmt"
 
+	commonConstants "github.com/lindb/common/constants"
 	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
 
@@ -25,16 +27,23 @@ func NewMetaService(engine tsdb.Engine) protoMetaV1.MetaServiceServer {
 }
 
 func (srv *MetaService) TableSchema(ctx context.Context, request *protoMetaV1.TableSchemaRequest) (*protoMetaV1.TableSchemaResponse, error) {
+	fmt.Printf("mete request=%v\n", request)
 	database, ok := srv.engine.GetDatabase(request.Database)
 	if !ok {
 		return nil, constants.ErrDatabaseNotFound
 	}
-	metricID, err := database.MetaDB().GetMetricID(request.Namespace, request.Table)
+	namespace := commonConstants.DefaultNamespace
+	if request.Namespace != "" {
+		namespace = request.Namespace
+	}
+	metricID, err := database.MetaDB().GetMetricID(namespace, request.Table)
 	if err != nil {
+		fmt.Printf("err1=%v\n", err)
 		return nil, err
 	}
 	schema, err := database.MetaDB().GetSchema(metricID)
 	if err != nil {
+		fmt.Printf("err2=%v\n", err)
 		return nil, err
 	}
 	tableSchema := types.NewTableSchema()

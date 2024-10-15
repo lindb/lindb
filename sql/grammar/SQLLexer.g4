@@ -16,6 +16,7 @@ AND                      : 'AND' ;
 ANALYZE                  : 'ANALYZE' ;
 AS                       : 'AS' ;
 ASC                      : 'ASC' ;
+BETWEEN                  : 'BETWEEN' ;
 BROKER                   : 'BROKER' ;
 BROKERS                  : 'BROKERS' ;
 BY                       : 'BY' ;

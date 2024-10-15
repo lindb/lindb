@@ -86,8 +86,12 @@ var (
 	}
 	columnsSchema = &types.TableSchema{
 		Columns: []types.ColumnMetadata{
+			{Name: "table_schema", DataType: types.DTString},
+			{Name: "namespace", DataType: types.DTString},
+			{Name: "table_name", DataType: types.DTString},
 			{Name: "column_name", DataType: types.DTString},
 			{Name: "data_type", DataType: types.DTString},
+			{Name: "agg_type", DataType: types.DTString},
 		},
 	}
 
@@ -111,7 +115,7 @@ var (
 		constants.TableMetrics:        metricsSchema,
 		"tables":                      tablesSchema,
 		"namespaces":                  namespacesSchema,
-		"columns":                     columnsSchema,
+		constants.TableColumns:        columnsSchema,
 	}
 )
 

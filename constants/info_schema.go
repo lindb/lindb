@@ -11,4 +11,5 @@ const (
 	TableEngines        = "engines"
 	TableSchemata       = "schemata"
 	TableMetrics        = "metrics"
+	TableColumns        = "columns"
 )

@@ -2,6 +2,7 @@ package meta
 
 import (
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/spi/types"
 )
 
 type MetadataManager interface {
@@ -16,4 +17,5 @@ type MetadataManager interface {
 	// GetDatabases returns current database config list.
 	GetDatabases() []models.Database
 	GetPartitions(database, ns, table string) (partitions map[models.InternalNode][]int, err error)
+	GetTableMetadata(database, ns, table string) (*types.TableMetadata, error)
 }

@@ -460,6 +460,12 @@ func (s *BaseSQLParserListener) EnterBinaryComparisonPredicate(ctx *BinaryCompar
 func (s *BaseSQLParserListener) ExitBinaryComparisonPredicate(ctx *BinaryComparisonPredicateContext) {
 }
 
+// EnterBetweenPredicate is called when production betweenPredicate is entered.
+func (s *BaseSQLParserListener) EnterBetweenPredicate(ctx *BetweenPredicateContext) {}
+
+// ExitBetweenPredicate is called when production betweenPredicate is exited.
+func (s *BaseSQLParserListener) ExitBetweenPredicate(ctx *BetweenPredicateContext) {}
+
 // EnterInPredicate is called when production inPredicate is entered.
 func (s *BaseSQLParserListener) EnterInPredicate(ctx *InPredicateContext) {}
 
