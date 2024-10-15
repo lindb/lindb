@@ -256,12 +256,15 @@ func (p *QueryPlanner) computeOutputs(builder *PlanBuilder, outputs []tree.Expre
 		fmt.Printf("output exp=%v,%T\n", expression, expression)
 		outputSymbols = append(outputSymbols, builder.translate(expression))
 	}
+	fmt.Printf("output result==%v\n", outputSymbols)
 	return
 }
 
 func (p *QueryPlanner) outputExpressions(selectExpressions []*analyzer.SelectExpression) (outputs []tree.Expression) {
+	fmt.Printf("select output expression==%v\n", selectExpressions)
 	// TODO: fixme unfolded express
 	for i := range selectExpressions {
+		fmt.Println(selectExpressions[i].Expression)
 		outputs = append(outputs, selectExpressions[i].Expression)
 	}
 	return

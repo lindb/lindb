@@ -46,6 +46,10 @@ func (n *BaseNode) GetID() NodeID {
 	return n.ID
 }
 
+func (n *BaseNode) SetID(id NodeID) {
+	n.ID = id
+}
+
 type PreparedStatement struct {
 	PrepareSQL string
 	Statement  Statement

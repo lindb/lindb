@@ -2,6 +2,7 @@ package infoschema
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -35,6 +36,7 @@ func (r *reader) ReadData(ctx context.Context, table string, expression tree.Exp
 	if expression != nil {
 		_ = expression.Accept(nil, predicate)
 	}
+	fmt.Printf("read meta data table=%v\n", table)
 
 	switch strings.ToLower(table) {
 	case constants.TableMaster:
@@ -134,6 +136,10 @@ func (r *reader) readColumns(predicate *predicate) (rows [][]*types.Datum, err e
 		namespace = commonConstants.DefaultNamespace
 	}
 	tableName := predicate.columns[columnsSchema.Columns[2].Name]
+	if schema == "" || tableName == "" {
+		return nil, errors.New("table_schema/table_name not found in where clause")
+	}
+	fmt.Printf("db=%v,ns=%v,table=%v\n", schema, namespace, tableName)
 	table, err := r.metadataMgr.GetTableMetadata(schema, namespace, tableName)
 	if err != nil {
 		return nil, err
@@ -174,6 +180,8 @@ func (v *predicate) Visit(context any, n tree.Node) (rs any) {
 		for _, term := range node.Terms {
 			_ = term.Accept(context, v)
 		}
+	case *tree.Cast:
+		_ = node.Expression.Accept(context, v)
 	default:
 		panic(fmt.Sprintf("infoschema predicate visit error, not support node type: %T", n))
 	}

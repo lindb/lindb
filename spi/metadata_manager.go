@@ -63,6 +63,7 @@ func NewMetadataManager(metadataMgr meta.MetadataManager) MetadataManager {
 }
 
 func (mgr *metadataManager) GetTableHandle(db, ns, table string) TableHandle {
+	fmt.Printf("get table handle %v\n", db)
 	var kind DatasourceKind
 	if db == constants.InformationSchema {
 		kind = InfoSchema

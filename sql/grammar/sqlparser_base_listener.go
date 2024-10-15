@@ -170,6 +170,12 @@ func (s *BaseSQLParserListener) EnterShowDatabases(ctx *ShowDatabasesContext) {}
 // ExitShowDatabases is called when production showDatabases is exited.
 func (s *BaseSQLParserListener) ExitShowDatabases(ctx *ShowDatabasesContext) {}
 
+// EnterShowColumns is called when production showColumns is entered.
+func (s *BaseSQLParserListener) EnterShowColumns(ctx *ShowColumnsContext) {}
+
+// ExitShowColumns is called when production showColumns is exited.
+func (s *BaseSQLParserListener) ExitShowColumns(ctx *ShowColumnsContext) {}
+
 // EnterUseStatement is called when production useStatement is entered.
 func (s *BaseSQLParserListener) EnterUseStatement(ctx *UseStatementContext) {}
 

@@ -19,17 +19,18 @@ var (
 
 type Relation struct {
 	Fields       []*tree.Field
-	FieldIndexes map[*tree.Field]int
+	FieldIndexes map[string]int
 }
 
 func NewRelation(fields []*tree.Field) *Relation {
 	rt := &Relation{
 		Fields:       fields,
-		FieldIndexes: make(map[*tree.Field]int),
+		FieldIndexes: make(map[string]int),
 	}
 	for i, f := range fields {
-		rt.FieldIndexes[f] = i
+		rt.FieldIndexes[f.Name] = i
 	}
+	fmt.Printf("new relation fields=%v\n", rt.FieldIndexes)
 	return rt
 }
 
@@ -71,7 +72,8 @@ func (r *Relation) resolveFields(name *tree.QualifiedName) (result []*tree.Field
 }
 
 func (r *Relation) IndexOf(field *tree.Field) int {
-	return r.FieldIndexes[field]
+	fmt.Printf("relation index of %v\n", r.FieldIndexes)
+	return r.FieldIndexes[field.Name]
 }
 
 type RelationID struct {

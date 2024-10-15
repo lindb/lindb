@@ -64,6 +64,7 @@ showStatement       : SHOW MASTER                                            #sh
                     | SHOW REPLICATIONS                                      #showReplications
                     | SHOW STATE                                             #showState
                     | SHOW DATABASES                                         #showDatabases
+                    | SHOW COLUMNS FROM qualifiedName                        #showColumns
                     ;
 
 // utility
@@ -200,7 +201,7 @@ intervalUnit        : SECOND | MINUTE | HOUR | DAY | MONTH | YEAR ;
 nonReserved         :
                       ALL | ALIVE | AND | AS | ASC
                     | BETWEEN | BROKER | BROKERS | BY 
-                    | COMPACT | CREATE | CROSS 
+                    | COMPACT | CREATE | CROSS | COLUMNS
                     | DATABASE | DATABASES | DEFAULT | DESC | DISTRIBUTED | DROP
                     | ENGINE | ESCAPE | EXPLAIN | EXISTS
                     | FALSE | FIELDS | FLUSH | FROM

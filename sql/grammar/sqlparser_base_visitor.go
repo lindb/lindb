@@ -107,6 +107,10 @@ func (v *BaseSQLParserVisitor) VisitShowDatabases(ctx *ShowDatabasesContext) int
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseSQLParserVisitor) VisitShowColumns(ctx *ShowColumnsContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseSQLParserVisitor) VisitUseStatement(ctx *UseStatementContext) interface{} {
 	return v.VisitChildren(ctx)
 }

@@ -9,7 +9,7 @@ type StatementRewrite struct {
 	rewrites []interfaces.Rewrite
 }
 
-func NewStatementRewrite(rewrites []interfaces.Rewrite) *StatementRewrite {
+func NewStatementRewrite(rewrites []interfaces.Rewrite) interfaces.Rewrite {
 	return &StatementRewrite{
 		rewrites: rewrites,
 	}

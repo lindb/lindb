@@ -14,6 +14,7 @@ type PlanBuilder struct {
 }
 
 func newPlanBuilder(context *context.PlannerContext, plan *RelationPlan, mappings map[tree.NodeID]*plan.Symbol) *PlanBuilder {
+	fmt.Printf("new plan builder=%v\n", plan.FieldMappings)
 	return &PlanBuilder{
 		root: plan.Root,
 		translations: &TranslationMap{

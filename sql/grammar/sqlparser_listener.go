@@ -82,6 +82,9 @@ type SQLParserListener interface {
 	// EnterShowDatabases is called when entering the showDatabases production.
 	EnterShowDatabases(c *ShowDatabasesContext)
 
+	// EnterShowColumns is called when entering the showColumns production.
+	EnterShowColumns(c *ShowColumnsContext)
+
 	// EnterUseStatement is called when entering the useStatement production.
 	EnterUseStatement(c *UseStatementContext)
 
@@ -372,6 +375,9 @@ type SQLParserListener interface {
 
 	// ExitShowDatabases is called when exiting the showDatabases production.
 	ExitShowDatabases(c *ShowDatabasesContext)
+
+	// ExitShowColumns is called when exiting the showColumns production.
+	ExitShowColumns(c *ShowColumnsContext)
 
 	// ExitUseStatement is called when exiting the useStatement production.
 	ExitUseStatement(c *UseStatementContext)
