@@ -2,127 +2,143 @@ package utils
 
 import (
 	"github.com/samber/lo"
-	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 )
 
-var nodeId = atomic.NewInt64(0)
+type QueryBuilder struct {
+	idAllocator *tree.NodeIDAllocator
+}
 
-func SingleValueQuery(columnName, value string) *tree.Query {
+func NewQueryBuilder(idAllocator *tree.NodeIDAllocator) *QueryBuilder {
+	return &QueryBuilder{
+		idAllocator: idAllocator,
+	}
+}
+
+func (b *QueryBuilder) SingleValueQuery(columnName, value string) *tree.Query {
 	page := types.NewPage()
 	column := types.NewColumn()
 	page.AppendColumn(types.ColumnMetadata{Name: columnName, DataType: types.DTString}, column)
 	column.AppendString(value)
 	body := &tree.QuerySpecification{
-		Select: SelectAll(),
-		From:   Values(page),
+		Select: b.SelectAll(),
+		From:   b.Values(page),
 	}
-	setNodeID(body)
-	query := Query(body)
+	b.setNodeID(body)
+	query := b.Query(body)
 	return query
 }
 
-func SimpleQuery(selectItem *tree.Select, from tree.Relation, where tree.Expression) *tree.Query {
+func (b *QueryBuilder) SimpleQuery(selectItem *tree.Select, from tree.Relation, where tree.Expression) *tree.Query {
 	body := &tree.QuerySpecification{
 		Select: selectItem,
 		From:   from,
 		Where:  where,
 	}
-	setNodeID(body)
-	query := Query(body)
+	b.setNodeID(body)
+	query := b.Query(body)
 	return query
 }
 
-func Query(body tree.QueryBody) *tree.Query {
+func (b *QueryBuilder) Query(body tree.QueryBody) *tree.Query {
 	query := &tree.Query{
 		QueryBody: body,
 	}
-	setNodeID(query)
+	b.setNodeID(query)
 	return query
 }
 
-func SelectItems(columns ...string) *tree.Select {
+func (b *QueryBuilder) SelectItems(columns ...string) *tree.Select {
 	return &tree.Select{
 		SelectItems: lo.Map(columns, func(item string, index int) tree.SelectItem {
-			return SingleSelect(item)
+			return b.SingleSelect(item)
 		}),
 	}
 }
 
-func SingleSelect(columnName string) *tree.SingleColumn {
+func (b *QueryBuilder) SingleSelect(columnName string) *tree.SingleColumn {
 	singleColumn := &tree.SingleColumn{
-		Expression: Identifier(columnName),
+		Expression: b.Identifier(columnName),
 	}
-	setNodeID(singleColumn)
+	b.setNodeID(singleColumn)
 	return singleColumn
 }
 
-func Table(database, namespace, tableName string) *tree.Table {
+func (b *QueryBuilder) Table(database, namespace, tableName string) *tree.Table {
 	table := &tree.Table{
 		Name: tree.NewQualifiedName([]*tree.Identifier{
-			Identifier(database),
-			Identifier(namespace),
-			Identifier(tableName),
+			b.Identifier(database),
+			b.Identifier(namespace),
+			b.Identifier(tableName),
 		}),
 	}
-	setNodeID(table)
+	b.setNodeID(table)
 	return table
 }
 
-func SelectAll() *tree.Select {
+func (b *QueryBuilder) SelectAll() *tree.Select {
 	all := &tree.AllColumns{}
-	setNodeID(all)
+	b.setNodeID(all)
 	return &tree.Select{
 		SelectItems: []tree.SelectItem{all},
 	}
 }
 
-func Values(rows *types.Page) *tree.Values {
+func (b *QueryBuilder) Values(rows *types.Page) *tree.Values {
 	values := &tree.Values{
 		Rows: rows,
 	}
-	setNodeID(values)
+	b.setNodeID(values)
 	return values
 }
 
-func LogicalAnd(term ...tree.Expression) *tree.LogicalExpression {
+func (b *QueryBuilder) LogicalAnd(term ...tree.Expression) *tree.LogicalExpression {
 	logical := &tree.LogicalExpression{Terms: term, Operator: tree.LogicalAND}
-	setNodeID(logical)
+	b.setNodeID(logical)
 	return logical
 }
 
-func StringEqual(column, value string) tree.Expression {
-	return Equal(Identifier(column), StringLiteral(value))
+func (b *QueryBuilder) StringEqual(column, value string) tree.Expression {
+	return b.Equal(b.Identifier(column), b.StringLiteral(value))
 }
 
-func Equal(left, right tree.Expression) tree.Expression {
+func (b *QueryBuilder) Like(column, pattern string) *tree.LikePredicate {
+	like := &tree.LikePredicate{
+		Value:   b.Identifier(column),
+		Pattern: b.StringLiteral(pattern),
+	}
+	b.setNodeID(like)
+	return like
+}
+
+func (b *QueryBuilder) Equal(left, right tree.Expression) tree.Expression {
 	expr := &tree.ComparisonExpression{
 		Left:     left,
 		Right:    right,
 		Operator: tree.ComparisonEQ,
 	}
-	setNodeID(expr)
+	b.setNodeID(expr)
 	return expr
 }
 
-func Identifier(value string) *tree.Identifier {
+func (b *QueryBuilder) Identifier(value string) *tree.Identifier {
 	ident := &tree.Identifier{
 		Value: value,
 	}
-	setNodeID(ident)
+	b.setNodeID(ident)
 	return ident
 }
 
-func StringLiteral(value string) *tree.StringLiteral {
+func (b *QueryBuilder) StringLiteral(value string) *tree.StringLiteral {
 	ident := &tree.StringLiteral{
 		Value: value,
 	}
-	setNodeID(ident)
+	b.setNodeID(ident)
 	return ident
 }
 
-func setNodeID(node tree.Node) {
-	node.SetID(tree.NodeID(nodeId.Inc()))
+func (b *QueryBuilder) setNodeID(node tree.Node) {
+	node.SetID(b.idAllocator.Next())
 }

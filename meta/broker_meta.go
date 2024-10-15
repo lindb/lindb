@@ -69,6 +69,8 @@ func (m *brokerMetadataManager) GetPartitions(database, ns, table string) (map[m
 			constants.TableMaster,
 			constants.TableBroker,
 			constants.TableStorage,
+			constants.TableNamespaces,
+			constants.TableTableNames,
 			constants.TableColumns:
 			partitions = map[models.InternalNode][]int{
 				{IP: currentNode.HostIP, Port: currentNode.GRPCPort}: {},
@@ -79,6 +81,61 @@ func (m *brokerMetadataManager) GetPartitions(database, ns, table string) (map[m
 
 	// find tabel metadata from partitions
 	return m.brokerStateMgr.GetPartitions(database)
+}
+
+func (m *brokerMetadataManager) SuggestNamespaces(database, ns string, limit int64) ([]string, error) {
+	partitions, err := m.GetPartitions(database, "", "")
+	if err != nil {
+		return nil, err
+	}
+	var values []string
+	for node := range partitions {
+		conn, err := grpc.Dial(node.Address(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			return nil, err
+		}
+		defer conn.Close()
+
+		client := protoMetaV1.NewMetaServiceClient(conn)
+		resp, err := client.SuggestNamespace(context.TODO(), &protoMetaV1.SuggestRequest{
+			Database:  database,
+			Namespace: ns,
+			Limit:     limit,
+		})
+		if err != nil {
+			return nil, err
+		}
+		values = append(values, resp.Values...)
+	}
+	return values, nil
+}
+
+func (m *brokerMetadataManager) SuggestTables(database, ns, table string, limit int64) ([]string, error) {
+	partitions, err := m.GetPartitions(database, "", "")
+	if err != nil {
+		return nil, err
+	}
+	var values []string
+	for node := range partitions {
+		conn, err := grpc.Dial(node.Address(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			return nil, err
+		}
+		defer conn.Close()
+
+		client := protoMetaV1.NewMetaServiceClient(conn)
+		resp, err := client.SuggestTable(context.TODO(), &protoMetaV1.SuggestRequest{
+			Database:  database,
+			Namespace: ns,
+			Table:     table,
+			Limit:     limit,
+		})
+		if err != nil {
+			return nil, err
+		}
+		values = append(values, resp.Values...)
+	}
+	return values, nil
 }
 
 func (m *brokerMetadataManager) GetTableMetadata(database, ns, table string) (*types.TableMetadata, error) {

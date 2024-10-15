@@ -12,6 +12,19 @@ message TableSchemaResponse {
 	bytes payload = 1;
 }
 
+message SuggestRequest { 
+	string database = 1;
+	string namespace = 2;
+	string table = 3;
+	int64 limit =4;
+}
+
+message SuggestResponse {
+	repeated string values = 1;
+}
+
 service MetaService {
+	rpc SuggestNamespace(SuggestRequest) returns (SuggestResponse) {} 
+	rpc SuggestTable(SuggestRequest) returns (SuggestResponse) {}
 	rpc TableSchema(TableSchemaRequest) returns (TableSchemaResponse) {}
 }

@@ -114,7 +114,7 @@ func (a *Analysis) GetImplicitFromScope(node *tree.QuerySpecification) (scope *S
 }
 
 func (a *Analysis) SetScope(node tree.Node, scope *Scope) {
-	fmt.Printf("set scope=%v\n", node.GetID())
+	fmt.Printf("set scope=%v,%v,%T\n", node.GetID(), node, node)
 	a.scopes[node.GetID()] = scope
 }
 
@@ -246,6 +246,7 @@ func (a *Analysis) SetLimit(node tree.Node, rowCount int64) {
 }
 
 func (a *Analysis) AddColumnReference(expression tree.Expression, field *ResolvedField) {
+	fmt.Printf("add column reference: %v,%T,%T,%v\n", expression.GetID(), expression, field.Scope.RelationID.SourceNode, field)
 	a.columnReferences[expression.GetID()] = field
 }
 
@@ -256,6 +257,7 @@ func (a *Analysis) IsColumnReference(node tree.Expression) bool {
 
 func (a *Analysis) GetColumnReferenceField(node tree.Expression) (field *ResolvedField) {
 	field = a.columnReferences[node.GetID()]
+	fmt.Printf("get column reference field: %v,%v\n", node.GetID(), field)
 	return
 }
 

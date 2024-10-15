@@ -107,31 +107,19 @@ func (v *BaseSQLParserVisitor) VisitShowDatabases(ctx *ShowDatabasesContext) int
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseSQLParserVisitor) VisitShowNamespaces(ctx *ShowNamespacesContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLParserVisitor) VisitShowTableNames(ctx *ShowTableNamesContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseSQLParserVisitor) VisitShowColumns(ctx *ShowColumnsContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
 func (v *BaseSQLParserVisitor) VisitUseStatement(ctx *UseStatementContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseSQLParserVisitor) VisitShowNamespaces(ctx *ShowNamespacesContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseSQLParserVisitor) VisitShowMetrics(ctx *ShowMetricsContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseSQLParserVisitor) VisitShowFields(ctx *ShowFieldsContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseSQLParserVisitor) VisitShowTagKeys(ctx *ShowTagKeysContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseSQLParserVisitor) VisitShowTagValues(ctx *ShowTagValuesContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

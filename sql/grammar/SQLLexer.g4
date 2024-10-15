@@ -70,7 +70,7 @@ SELECT                   : 'SELECT' ;
 SHOW                     : 'SHOW' ;
 STATE                    : 'STATE' ;
 STORAGE                  : 'STORAGE' ;
-TAG                      : 'TAG' ;
+TABLE_NAMES              : 'TABLE_NAMES' ;
 TIME                     : 'TIME' ;
 TRACE                    : 'TRACE' ;
 TRUE                     : 'TRUE' ;

@@ -82,26 +82,17 @@ type SQLParserVisitor interface {
 	// Visit a parse tree produced by SQLParser#showDatabases.
 	VisitShowDatabases(ctx *ShowDatabasesContext) interface{}
 
+	// Visit a parse tree produced by SQLParser#showNamespaces.
+	VisitShowNamespaces(ctx *ShowNamespacesContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#showTableNames.
+	VisitShowTableNames(ctx *ShowTableNamesContext) interface{}
+
 	// Visit a parse tree produced by SQLParser#showColumns.
 	VisitShowColumns(ctx *ShowColumnsContext) interface{}
 
 	// Visit a parse tree produced by SQLParser#useStatement.
 	VisitUseStatement(ctx *UseStatementContext) interface{}
-
-	// Visit a parse tree produced by SQLParser#showNamespaces.
-	VisitShowNamespaces(ctx *ShowNamespacesContext) interface{}
-
-	// Visit a parse tree produced by SQLParser#showMetrics.
-	VisitShowMetrics(ctx *ShowMetricsContext) interface{}
-
-	// Visit a parse tree produced by SQLParser#showFields.
-	VisitShowFields(ctx *ShowFieldsContext) interface{}
-
-	// Visit a parse tree produced by SQLParser#showTagKeys.
-	VisitShowTagKeys(ctx *ShowTagKeysContext) interface{}
-
-	// Visit a parse tree produced by SQLParser#showTagValues.
-	VisitShowTagValues(ctx *ShowTagValuesContext) interface{}
 
 	// Visit a parse tree produced by SQLParser#query.
 	VisitQuery(ctx *QueryContext) interface{}

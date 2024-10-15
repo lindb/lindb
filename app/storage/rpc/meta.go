@@ -2,7 +2,6 @@ package rpc
 
 import (
 	context "context"
-	"fmt"
 
 	commonConstants "github.com/lindb/common/constants"
 	"github.com/lindb/common/pkg/encoding"
@@ -26,8 +25,38 @@ func NewMetaService(engine tsdb.Engine) protoMetaV1.MetaServiceServer {
 	}
 }
 
+func (srv *MetaService) SuggestNamespace(ctx context.Context, request *protoMetaV1.SuggestRequest) (*protoMetaV1.SuggestResponse, error) {
+	database, ok := srv.engine.GetDatabase(request.Database)
+	if !ok {
+		return nil, constants.ErrDatabaseNotFound
+	}
+	namespaces, err := database.MetaDB().SuggestNamespace(request.Namespace, int(request.Limit))
+	if err != nil {
+		return nil, err
+	}
+	return &protoMetaV1.SuggestResponse{Values: namespaces}, nil
+}
+
+func (srv *MetaService) SuggestTable(ctx context.Context, request *protoMetaV1.SuggestRequest) (*protoMetaV1.SuggestResponse, error) {
+	database, ok := srv.engine.GetDatabase(request.Database)
+	if !ok {
+		return nil, constants.ErrDatabaseNotFound
+	}
+	if !ok {
+		return nil, constants.ErrDatabaseNotFound
+	}
+	namespace := commonConstants.DefaultNamespace
+	if request.Namespace != "" {
+		namespace = request.Namespace
+	}
+	metrics, err := database.MetaDB().SuggestMetrics(namespace, request.Table, int(request.Limit))
+	if err != nil {
+		return nil, err
+	}
+	return &protoMetaV1.SuggestResponse{Values: metrics}, nil
+}
+
 func (srv *MetaService) TableSchema(ctx context.Context, request *protoMetaV1.TableSchemaRequest) (*protoMetaV1.TableSchemaResponse, error) {
-	fmt.Printf("mete request=%v\n", request)
 	database, ok := srv.engine.GetDatabase(request.Database)
 	if !ok {
 		return nil, constants.ErrDatabaseNotFound
@@ -38,12 +67,10 @@ func (srv *MetaService) TableSchema(ctx context.Context, request *protoMetaV1.Ta
 	}
 	metricID, err := database.MetaDB().GetMetricID(namespace, request.Table)
 	if err != nil {
-		fmt.Printf("err1=%v\n", err)
 		return nil, err
 	}
 	schema, err := database.MetaDB().GetSchema(metricID)
 	if err != nil {
-		fmt.Printf("err2=%v\n", err)
 		return nil, err
 	}
 	tableSchema := types.NewTableSchema()

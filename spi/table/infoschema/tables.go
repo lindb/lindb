@@ -25,6 +25,11 @@ func InitInfoSchema(metadataMgr meta.MetadataManager) {
 	spi.RegisterPageSourceProvider(&TableHandle{}, NewPageSourceProvider(NewReader(metadataMgr)))
 }
 
+func GetTableSchema(name string) (schema *types.TableSchema, ok bool) {
+	schema, ok = tables[strings.ToLower(name)]
+	return
+}
+
 var (
 	masterSchema = &types.TableSchema{
 		Columns: []types.ColumnMetadata{
@@ -76,11 +81,14 @@ var (
 	}
 	namespacesSchema = &types.TableSchema{
 		Columns: []types.ColumnMetadata{
-			{Name: "namespace_name", DataType: types.DTString},
+			{Name: "table_schema", DataType: types.DTString},
+			{Name: "namespace", DataType: types.DTString},
 		},
 	}
 	tablesSchema = &types.TableSchema{
 		Columns: []types.ColumnMetadata{
+			{Name: "table_schema", DataType: types.DTString},
+			{Name: "namespace", DataType: types.DTString},
 			{Name: "table_name", DataType: types.DTString},
 		},
 	}
@@ -113,13 +121,8 @@ var (
 		constants.TableEngines:        enginesSchema,
 		constants.TableSchemata:       schemtatSchema,
 		constants.TableMetrics:        metricsSchema,
-		"tables":                      tablesSchema,
-		"namespaces":                  namespacesSchema,
+		constants.TableNamespaces:     namespacesSchema,
+		constants.TableTableNames:     tablesSchema,
 		constants.TableColumns:        columnsSchema,
 	}
 )
-
-func GetTableSchema(name string) (schema *types.TableSchema, ok bool) {
-	schema, ok = tables[strings.ToLower(name)]
-	return
-}

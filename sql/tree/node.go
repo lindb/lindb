@@ -1,6 +1,6 @@
 package tree
 
-type NodeID int64
+type NodeID int
 
 type Node interface {
 	Accept(context any, visitor Visitor) any

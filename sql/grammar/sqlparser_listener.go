@@ -82,26 +82,17 @@ type SQLParserListener interface {
 	// EnterShowDatabases is called when entering the showDatabases production.
 	EnterShowDatabases(c *ShowDatabasesContext)
 
+	// EnterShowNamespaces is called when entering the showNamespaces production.
+	EnterShowNamespaces(c *ShowNamespacesContext)
+
+	// EnterShowTableNames is called when entering the showTableNames production.
+	EnterShowTableNames(c *ShowTableNamesContext)
+
 	// EnterShowColumns is called when entering the showColumns production.
 	EnterShowColumns(c *ShowColumnsContext)
 
 	// EnterUseStatement is called when entering the useStatement production.
 	EnterUseStatement(c *UseStatementContext)
-
-	// EnterShowNamespaces is called when entering the showNamespaces production.
-	EnterShowNamespaces(c *ShowNamespacesContext)
-
-	// EnterShowMetrics is called when entering the showMetrics production.
-	EnterShowMetrics(c *ShowMetricsContext)
-
-	// EnterShowFields is called when entering the showFields production.
-	EnterShowFields(c *ShowFieldsContext)
-
-	// EnterShowTagKeys is called when entering the showTagKeys production.
-	EnterShowTagKeys(c *ShowTagKeysContext)
-
-	// EnterShowTagValues is called when entering the showTagValues production.
-	EnterShowTagValues(c *ShowTagValuesContext)
 
 	// EnterQuery is called when entering the query production.
 	EnterQuery(c *QueryContext)
@@ -376,26 +367,17 @@ type SQLParserListener interface {
 	// ExitShowDatabases is called when exiting the showDatabases production.
 	ExitShowDatabases(c *ShowDatabasesContext)
 
+	// ExitShowNamespaces is called when exiting the showNamespaces production.
+	ExitShowNamespaces(c *ShowNamespacesContext)
+
+	// ExitShowTableNames is called when exiting the showTableNames production.
+	ExitShowTableNames(c *ShowTableNamesContext)
+
 	// ExitShowColumns is called when exiting the showColumns production.
 	ExitShowColumns(c *ShowColumnsContext)
 
 	// ExitUseStatement is called when exiting the useStatement production.
 	ExitUseStatement(c *UseStatementContext)
-
-	// ExitShowNamespaces is called when exiting the showNamespaces production.
-	ExitShowNamespaces(c *ShowNamespacesContext)
-
-	// ExitShowMetrics is called when exiting the showMetrics production.
-	ExitShowMetrics(c *ShowMetricsContext)
-
-	// ExitShowFields is called when exiting the showFields production.
-	ExitShowFields(c *ShowFieldsContext)
-
-	// ExitShowTagKeys is called when exiting the showTagKeys production.
-	ExitShowTagKeys(c *ShowTagKeysContext)
-
-	// ExitShowTagValues is called when exiting the showTagValues production.
-	ExitShowTagValues(c *ShowTagValuesContext)
 
 	// ExitQuery is called when exiting the query production.
 	ExitQuery(c *QueryContext)

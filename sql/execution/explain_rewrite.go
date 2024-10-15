@@ -9,10 +9,11 @@ import (
 type ExplainRewrite struct {
 	session   *Session
 	explainer *QueryExplainer
+	builder   *utils.QueryBuilder
 }
 
 func NewExplainRewrite(session *Session, explainer *QueryExplainer) interfaces.Rewrite {
-	return &ExplainRewrite{explainer: explainer, session: session}
+	return &ExplainRewrite{explainer: explainer, session: session, builder: utils.NewQueryBuilder(session.NodeIDAllocator)}
 }
 
 func (e *ExplainRewrite) Rewrite(statement tree.Statement) tree.Statement {
@@ -30,5 +31,5 @@ func (e *ExplainRewrite) visitExplain(node *tree.Explain) tree.Statement {
 		}
 	}
 	plan := e.explainer.ExplainPlan(e.session, node.Statement, explainType)
-	return utils.SingleValueQuery("Query Plan", plan)
+	return e.builder.SingleValueQuery("Query Plan", plan)
 }

@@ -120,7 +120,7 @@ func (exec *QueryExecution) Start() any {
 func (exec *QueryExecution) rewrite(statement tree.Statement) tree.Statement {
 	rewrites := rewrite.NewStatementRewrite([]interfaces.Rewrite{
 		NewExplainRewrite(exec.session, NewQueryExplainer(exec.planner)),
-		rewrite.NewShowQueriesRewrite(exec.session.Database),
+		rewrite.NewShowQueriesRewrite(exec.session.Database, exec.session.NodeIDAllocator),
 	})
 	// rewrite
 	return rewrites.Rewrite(statement)

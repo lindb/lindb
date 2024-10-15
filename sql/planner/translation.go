@@ -75,7 +75,10 @@ func (t *TranslationMap) getSymbolForColumn(node tree.Expression) *plan.Symbol {
 	if field == nil {
 		return nil
 	}
-	if t.scope.IsLocalScope(field.Scope) {
+	fmt.Printf("get symbol for column=%v,%T,%T,%v\n", node.GetID(), node, field.Scope.RelationID.SourceNode, field.Scope.RelationID.SourceNode.GetID())
+	a := t.scope.IsLocalScope(field.Scope)
+	fmt.Printf("t.scope.IsLocalScope(field.Scope)=%v ,%v,%T\n", a, node, node.GetID())
+	if a {
 		fmt.Printf("look........%v\n", field.HierarchyFieldIndex)
 		return t.fieldSymbols[field.HierarchyFieldIndex]
 	}
@@ -121,6 +124,7 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 			}
 			// TODO: add
 		case *tree.Identifier:
+			fmt.Printf("vvvvvvvvvvvvvvvvvvvvvvv ident=%v\n", expr.Value)
 			result = t.getSymbolForColumn(node).ToSymbolReference()
 		case *tree.LongLiteral:
 			result = &tree.Constant{

@@ -136,29 +136,154 @@ func (m *TableSchemaResponse) GetPayload() []byte {
 	return nil
 }
 
+type SuggestRequest struct {
+	Database             string   `protobuf:"bytes,1,opt,name=database,proto3" json:"database,omitempty"`
+	Namespace            string   `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	Table                string   `protobuf:"bytes,3,opt,name=table,proto3" json:"table,omitempty"`
+	Limit                int64    `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *SuggestRequest) Reset()         { *m = SuggestRequest{} }
+func (m *SuggestRequest) String() string { return proto.CompactTextString(m) }
+func (*SuggestRequest) ProtoMessage()    {}
+func (*SuggestRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_3b5ea8fe65782bcc, []int{2}
+}
+func (m *SuggestRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *SuggestRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_SuggestRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *SuggestRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SuggestRequest.Merge(m, src)
+}
+func (m *SuggestRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *SuggestRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_SuggestRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SuggestRequest proto.InternalMessageInfo
+
+func (m *SuggestRequest) GetDatabase() string {
+	if m != nil {
+		return m.Database
+	}
+	return ""
+}
+
+func (m *SuggestRequest) GetNamespace() string {
+	if m != nil {
+		return m.Namespace
+	}
+	return ""
+}
+
+func (m *SuggestRequest) GetTable() string {
+	if m != nil {
+		return m.Table
+	}
+	return ""
+}
+
+func (m *SuggestRequest) GetLimit() int64 {
+	if m != nil {
+		return m.Limit
+	}
+	return 0
+}
+
+type SuggestResponse struct {
+	Values               []string `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *SuggestResponse) Reset()         { *m = SuggestResponse{} }
+func (m *SuggestResponse) String() string { return proto.CompactTextString(m) }
+func (*SuggestResponse) ProtoMessage()    {}
+func (*SuggestResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_3b5ea8fe65782bcc, []int{3}
+}
+func (m *SuggestResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *SuggestResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_SuggestResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *SuggestResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SuggestResponse.Merge(m, src)
+}
+func (m *SuggestResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *SuggestResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_SuggestResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SuggestResponse proto.InternalMessageInfo
+
+func (m *SuggestResponse) GetValues() []string {
+	if m != nil {
+		return m.Values
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*TableSchemaRequest)(nil), "metaCommandV1.TableSchemaRequest")
 	proto.RegisterType((*TableSchemaResponse)(nil), "metaCommandV1.TableSchemaResponse")
+	proto.RegisterType((*SuggestRequest)(nil), "metaCommandV1.SuggestRequest")
+	proto.RegisterType((*SuggestResponse)(nil), "metaCommandV1.SuggestResponse")
 }
 
 func init() { proto.RegisterFile("meta.proto", fileDescriptor_3b5ea8fe65782bcc) }
 
 var fileDescriptor_3b5ea8fe65782bcc = []byte{
-	// 215 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0xca, 0x4d, 0x2d, 0x49,
-	0xd4, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0x05, 0xb1, 0x9d, 0xf3, 0x73, 0x73, 0x13, 0xf3,
-	0x52, 0xc2, 0x0c, 0x95, 0x52, 0xb8, 0x84, 0x42, 0x12, 0x93, 0x72, 0x52, 0x83, 0x93, 0x33, 0x52,
-	0x73, 0x13, 0x83, 0x52, 0x0b, 0x4b, 0x53, 0x8b, 0x4b, 0x84, 0xa4, 0xb8, 0x38, 0x52, 0x12, 0x4b,
-	0x12, 0x93, 0x12, 0x8b, 0x53, 0x25, 0x18, 0x15, 0x18, 0x35, 0x38, 0x83, 0xe0, 0x7c, 0x21, 0x19,
-	0x2e, 0xce, 0xbc, 0xc4, 0xdc, 0xd4, 0xe2, 0x82, 0xc4, 0xe4, 0x54, 0x09, 0x26, 0xb0, 0x24, 0x42,
-	0x40, 0x48, 0x84, 0x8b, 0xb5, 0x04, 0x64, 0x9e, 0x04, 0x33, 0x58, 0x06, 0xc2, 0x51, 0xd2, 0xe7,
-	0x12, 0x46, 0xb1, 0xa5, 0xb8, 0x20, 0x3f, 0xaf, 0x38, 0x55, 0x48, 0x82, 0x8b, 0xbd, 0x20, 0xb1,
-	0x32, 0x27, 0x3f, 0x31, 0x05, 0x6c, 0x0b, 0x4f, 0x10, 0x8c, 0x6b, 0x94, 0xca, 0xc5, 0xed, 0x9b,
-	0x5a, 0x92, 0x18, 0x9c, 0x5a, 0x54, 0x96, 0x99, 0x9c, 0x2a, 0x14, 0xc6, 0xc5, 0x8d, 0xa4, 0x5f,
-	0x48, 0x51, 0x0f, 0xc5, 0x13, 0x7a, 0x98, 0x3e, 0x90, 0x52, 0xc2, 0xa7, 0x04, 0x62, 0xbd, 0x12,
-	0x83, 0x93, 0xc0, 0x89, 0x47, 0x72, 0x8c, 0x17, 0x1e, 0xc9, 0x31, 0x3e, 0x78, 0x24, 0xc7, 0x38,
-	0xe3, 0xb1, 0x1c, 0x43, 0x12, 0x1b, 0x38, 0x94, 0x8c, 0x01, 0x01, 0x00, 0x00, 0xff, 0xff, 0x14,
-	0xe6, 0x7b, 0xff, 0x33, 0x01, 0x00, 0x00,
+	// 301 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x52, 0x4b, 0x4e, 0xc3, 0x30,
+	0x10, 0xad, 0x5b, 0x28, 0x74, 0x5a, 0xa0, 0x32, 0x08, 0x59, 0x15, 0x44, 0xc5, 0xab, 0xb2, 0x29,
+	0x02, 0x6e, 0x00, 0x6b, 0x40, 0x4a, 0x50, 0xf7, 0xd3, 0x64, 0x54, 0x22, 0xc5, 0x49, 0xa8, 0x9d,
+	0x48, 0x9c, 0x81, 0x0b, 0x70, 0x24, 0x96, 0x1c, 0x01, 0x85, 0x8b, 0xa0, 0x7c, 0x1a, 0x08, 0x08,
+	0x36, 0x88, 0x9d, 0xdf, 0x7b, 0x9e, 0xf7, 0xc6, 0xe3, 0x01, 0x50, 0x64, 0x70, 0x1a, 0x2f, 0x23,
+	0x13, 0xf1, 0xad, 0xfc, 0x7c, 0x19, 0x29, 0x85, 0xa1, 0x37, 0x3b, 0x95, 0x1e, 0xf0, 0x5b, 0x9c,
+	0x07, 0xe4, 0xb8, 0x77, 0xa4, 0xd0, 0xa6, 0xfb, 0x84, 0xb4, 0xe1, 0x23, 0xd8, 0xf4, 0xd0, 0xe0,
+	0x1c, 0x35, 0x09, 0x36, 0x66, 0x93, 0x9e, 0x5d, 0x63, 0x7e, 0x00, 0xbd, 0x10, 0x15, 0xe9, 0x18,
+	0x5d, 0x12, 0xed, 0x42, 0xfc, 0x20, 0xf8, 0x1e, 0xac, 0x9b, 0xdc, 0x4f, 0x74, 0x0a, 0xa5, 0x04,
+	0xf2, 0x04, 0x76, 0x1b, 0x29, 0x3a, 0x8e, 0x42, 0x4d, 0x5c, 0xc0, 0x46, 0x8c, 0x0f, 0x41, 0x84,
+	0x5e, 0x91, 0x32, 0xb0, 0x57, 0x50, 0xa6, 0xb0, 0xed, 0x24, 0x8b, 0x05, 0x69, 0xf3, 0x4f, 0x2d,
+	0xe5, 0x6c, 0xe0, 0x2b, 0xdf, 0x88, 0xb5, 0x31, 0x9b, 0x74, 0xec, 0x12, 0xc8, 0x63, 0xd8, 0xa9,
+	0x73, 0xab, 0x26, 0xf7, 0xa1, 0x9b, 0x62, 0x90, 0x90, 0x16, 0x6c, 0xdc, 0x99, 0xf4, 0xec, 0x0a,
+	0x9d, 0x3d, 0xb6, 0xa1, 0x7f, 0x45, 0x06, 0x1d, 0x5a, 0xa6, 0xbe, 0x4b, 0xdc, 0x81, 0x61, 0x55,
+	0x7a, 0x5d, 0x47, 0x1f, 0x4e, 0x1b, 0xd3, 0x9e, 0x36, 0xdf, 0x34, 0xb2, 0x7e, 0x92, 0xcb, 0x68,
+	0xd9, 0xe2, 0x37, 0x30, 0xa8, 0xc8, 0x62, 0x7e, 0x7f, 0x37, 0x9c, 0x41, 0xff, 0xd3, 0x4f, 0xf0,
+	0xa3, 0x2f, 0x05, 0xdf, 0x77, 0x61, 0x24, 0x7f, 0xbb, 0xb2, 0xf2, 0xbd, 0x18, 0x3e, 0x67, 0x16,
+	0x7b, 0xc9, 0x2c, 0xf6, 0x9a, 0x59, 0xec, 0xe9, 0xcd, 0x6a, 0xcd, 0xbb, 0xc5, 0xbe, 0x9d, 0xbf,
+	0x07, 0x00, 0x00, 0xff, 0xff, 0xa1, 0x04, 0xa8, 0x94, 0x7d, 0x02, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -173,6 +298,8 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type MetaServiceClient interface {
+	SuggestNamespace(ctx context.Context, in *SuggestRequest, opts ...grpc.CallOption) (*SuggestResponse, error)
+	SuggestTable(ctx context.Context, in *SuggestRequest, opts ...grpc.CallOption) (*SuggestResponse, error)
 	TableSchema(ctx context.Context, in *TableSchemaRequest, opts ...grpc.CallOption) (*TableSchemaResponse, error)
 }
 
@@ -182,6 +309,24 @@ type metaServiceClient struct {
 
 func NewMetaServiceClient(cc *grpc.ClientConn) MetaServiceClient {
 	return &metaServiceClient{cc}
+}
+
+func (c *metaServiceClient) SuggestNamespace(ctx context.Context, in *SuggestRequest, opts ...grpc.CallOption) (*SuggestResponse, error) {
+	out := new(SuggestResponse)
+	err := c.cc.Invoke(ctx, "/metaCommandV1.MetaService/SuggestNamespace", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *metaServiceClient) SuggestTable(ctx context.Context, in *SuggestRequest, opts ...grpc.CallOption) (*SuggestResponse, error) {
+	out := new(SuggestResponse)
+	err := c.cc.Invoke(ctx, "/metaCommandV1.MetaService/SuggestTable", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *metaServiceClient) TableSchema(ctx context.Context, in *TableSchemaRequest, opts ...grpc.CallOption) (*TableSchemaResponse, error) {
@@ -195,6 +340,8 @@ func (c *metaServiceClient) TableSchema(ctx context.Context, in *TableSchemaRequ
 
 // MetaServiceServer is the server API for MetaService service.
 type MetaServiceServer interface {
+	SuggestNamespace(context.Context, *SuggestRequest) (*SuggestResponse, error)
+	SuggestTable(context.Context, *SuggestRequest) (*SuggestResponse, error)
 	TableSchema(context.Context, *TableSchemaRequest) (*TableSchemaResponse, error)
 }
 
@@ -202,12 +349,54 @@ type MetaServiceServer interface {
 type UnimplementedMetaServiceServer struct {
 }
 
+func (*UnimplementedMetaServiceServer) SuggestNamespace(ctx context.Context, req *SuggestRequest) (*SuggestResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SuggestNamespace not implemented")
+}
+func (*UnimplementedMetaServiceServer) SuggestTable(ctx context.Context, req *SuggestRequest) (*SuggestResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SuggestTable not implemented")
+}
 func (*UnimplementedMetaServiceServer) TableSchema(ctx context.Context, req *TableSchemaRequest) (*TableSchemaResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TableSchema not implemented")
 }
 
 func RegisterMetaServiceServer(s *grpc.Server, srv MetaServiceServer) {
 	s.RegisterService(&_MetaService_serviceDesc, srv)
+}
+
+func _MetaService_SuggestNamespace_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SuggestRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MetaServiceServer).SuggestNamespace(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/metaCommandV1.MetaService/SuggestNamespace",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MetaServiceServer).SuggestNamespace(ctx, req.(*SuggestRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MetaService_SuggestTable_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SuggestRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MetaServiceServer).SuggestTable(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/metaCommandV1.MetaService/SuggestTable",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MetaServiceServer).SuggestTable(ctx, req.(*SuggestRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _MetaService_TableSchema_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -232,6 +421,14 @@ var _MetaService_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "metaCommandV1.MetaService",
 	HandlerType: (*MetaServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "SuggestNamespace",
+			Handler:    _MetaService_SuggestNamespace_Handler,
+		},
+		{
+			MethodName: "SuggestTable",
+			Handler:    _MetaService_SuggestTable_Handler,
+		},
 		{
 			MethodName: "TableSchema",
 			Handler:    _MetaService_TableSchema_Handler,
@@ -323,6 +520,95 @@ func (m *TableSchemaResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *SuggestRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *SuggestRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *SuggestRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.Limit != 0 {
+		i = encodeVarintMeta(dAtA, i, uint64(m.Limit))
+		i--
+		dAtA[i] = 0x20
+	}
+	if len(m.Table) > 0 {
+		i -= len(m.Table)
+		copy(dAtA[i:], m.Table)
+		i = encodeVarintMeta(dAtA, i, uint64(len(m.Table)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.Namespace) > 0 {
+		i -= len(m.Namespace)
+		copy(dAtA[i:], m.Namespace)
+		i = encodeVarintMeta(dAtA, i, uint64(len(m.Namespace)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Database) > 0 {
+		i -= len(m.Database)
+		copy(dAtA[i:], m.Database)
+		i = encodeVarintMeta(dAtA, i, uint64(len(m.Database)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *SuggestResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *SuggestResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *SuggestResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if len(m.Values) > 0 {
+		for iNdEx := len(m.Values) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Values[iNdEx])
+			copy(dAtA[i:], m.Values[iNdEx])
+			i = encodeVarintMeta(dAtA, i, uint64(len(m.Values[iNdEx])))
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintMeta(dAtA []byte, offset int, v uint64) int {
 	offset -= sovMeta(v)
 	base := offset
@@ -367,6 +653,51 @@ func (m *TableSchemaResponse) Size() (n int) {
 	l = len(m.Payload)
 	if l > 0 {
 		n += 1 + l + sovMeta(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *SuggestRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Database)
+	if l > 0 {
+		n += 1 + l + sovMeta(uint64(l))
+	}
+	l = len(m.Namespace)
+	if l > 0 {
+		n += 1 + l + sovMeta(uint64(l))
+	}
+	l = len(m.Table)
+	if l > 0 {
+		n += 1 + l + sovMeta(uint64(l))
+	}
+	if m.Limit != 0 {
+		n += 1 + sovMeta(uint64(m.Limit))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *SuggestResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.Values) > 0 {
+		for _, s := range m.Values {
+			l = len(s)
+			n += 1 + l + sovMeta(uint64(l))
+		}
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -589,6 +920,255 @@ func (m *TableSchemaResponse) Unmarshal(dAtA []byte) error {
 			if m.Payload == nil {
 				m.Payload = []byte{}
 			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipMeta(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthMeta
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *SuggestRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowMeta
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: SuggestRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: SuggestRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Database", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMeta
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMeta
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMeta
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Database = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Namespace", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMeta
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMeta
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMeta
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Namespace = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Table", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMeta
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMeta
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMeta
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Table = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Limit", wireType)
+			}
+			m.Limit = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMeta
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Limit |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipMeta(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthMeta
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *SuggestResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowMeta
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: SuggestResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: SuggestResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Values", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMeta
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthMeta
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMeta
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Values = append(m.Values, string(dAtA[iNdEx:postIndex]))
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex

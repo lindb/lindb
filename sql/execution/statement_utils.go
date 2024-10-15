@@ -17,7 +17,9 @@ func init() {
 	statementTypes[reflect.TypeOf(&tree.Query{})] = models.Select
 	// Explain
 	statementTypes[reflect.TypeOf(&tree.Explain{})] = models.Select
-	// Show columns
+	// Show namespaces/table names/columns
+	statementTypes[reflect.TypeOf(&tree.ShowNamespaces{})] = models.Select
+	statementTypes[reflect.TypeOf(&tree.ShowTableNames{})] = models.Select
 	statementTypes[reflect.TypeOf(&tree.ShowColumns{})] = models.Select
 }
 

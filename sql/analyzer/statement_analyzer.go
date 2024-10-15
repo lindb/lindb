@@ -429,13 +429,13 @@ func (v *StatementVisitor) analyzeWhere(node *tree.QuerySpecification, scope *Sc
 	}
 
 	// FIXME: verify no aggregate and group by function
-	v.analyzeExpression(predicate, scope)
+	v.analyzeExpression(newPredicate, scope)
 	// v.analyzer.ctx.Analysis.RecordSubQueries(node, expressionAnalysis)
 
 	// FIXME: check predicate type
 	// predicateType := expressionAnalysis.GetType(predicate)
 
-	v.analyzer.ctx.Analysis.SetWhere(node, predicate)
+	v.analyzer.ctx.Analysis.SetWhere(node, newPredicate)
 }
 
 func (v *StatementVisitor) analyzeGroupBy(node *tree.QuerySpecification, scope *Scope,
