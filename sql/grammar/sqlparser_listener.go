@@ -70,9 +70,6 @@ type SQLParserListener interface {
 	// EnterShowMetadatas is called when entering the showMetadatas production.
 	EnterShowMetadatas(c *ShowMetadatasContext)
 
-	// EnterShowAlive is called when entering the showAlive production.
-	EnterShowAlive(c *ShowAliveContext)
-
 	// EnterShowReplications is called when entering the showReplications production.
 	EnterShowReplications(c *ShowReplicationsContext)
 
@@ -354,9 +351,6 @@ type SQLParserListener interface {
 
 	// ExitShowMetadatas is called when exiting the showMetadatas production.
 	ExitShowMetadatas(c *ShowMetadatasContext)
-
-	// ExitShowAlive is called when exiting the showAlive production.
-	ExitShowAlive(c *ShowAliveContext)
 
 	// ExitShowReplications is called when exiting the showReplications production.
 	ExitShowReplications(c *ShowReplicationsContext)

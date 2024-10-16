@@ -37,3 +37,11 @@ type ShowColumns struct {
 func (n *ShowColumns) Accept(context any, visitor Visitor) (r any) {
 	return visitor.Visit(context, n)
 }
+
+type ShowReplication struct {
+	BaseNode
+}
+
+func (n *ShowReplication) Accept(context any, visitor Visitor) (r any) {
+	return visitor.Visit(context, n)
+}

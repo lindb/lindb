@@ -60,7 +60,6 @@ showStatement       : SHOW MASTER                                            #sh
                     | SHOW LIMIT                                             #showLimit
                     | SHOW METADATA TYPES                                    #showMetadataTypes
                     | SHOW METADATAS                                         #showMetadatas
-                    | SHOW ALIVE                                             #showAlive
                     | SHOW REPLICATIONS                                      #showReplications
                     | SHOW STATE                                             #showState
                     | SHOW DATABASES                                         #showDatabases

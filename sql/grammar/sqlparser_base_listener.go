@@ -146,12 +146,6 @@ func (s *BaseSQLParserListener) EnterShowMetadatas(ctx *ShowMetadatasContext) {}
 // ExitShowMetadatas is called when production showMetadatas is exited.
 func (s *BaseSQLParserListener) ExitShowMetadatas(ctx *ShowMetadatasContext) {}
 
-// EnterShowAlive is called when production showAlive is entered.
-func (s *BaseSQLParserListener) EnterShowAlive(ctx *ShowAliveContext) {}
-
-// ExitShowAlive is called when production showAlive is exited.
-func (s *BaseSQLParserListener) ExitShowAlive(ctx *ShowAliveContext) {}
-
 // EnterShowReplications is called when production showReplications is entered.
 func (s *BaseSQLParserListener) EnterShowReplications(ctx *ShowReplicationsContext) {}
 

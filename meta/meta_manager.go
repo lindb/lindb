@@ -17,7 +17,5 @@ type MetadataManager interface {
 	// GetDatabases returns current database config list.
 	GetDatabases() []models.Database
 	GetPartitions(database, ns, table string) (partitions map[models.InternalNode][]int, err error)
-	SuggestNamespaces(database, ns string, limit int64) ([]string, error)
-	SuggestTables(database, ns, table string, limit int64) ([]string, error)
 	GetTableMetadata(database, ns, table string) (*types.TableMetadata, error)
 }

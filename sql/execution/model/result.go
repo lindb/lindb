@@ -2,7 +2,6 @@ package model
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -96,9 +95,7 @@ func appendColumn(row table.Row, colType types.DataType, col any, index int) {
 		row[index] = col.(string)
 	case types.DTDuration:
 		row[index] = time.Duration(col.(float64))
-	case types.DTInt:
-		row[index] = strconv.FormatInt(col.(int64), 10)
-	case types.DTFloat:
+	case types.DTFloat, types.DTInt:
 		row[index] = fmt.Sprintf("%v", col)
 	case types.DTTimestamp:
 		switch val := col.(type) {
