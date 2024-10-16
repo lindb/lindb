@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/samber/lo"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/meta"
 	"github.com/lindb/lindb/spi"
@@ -28,6 +30,16 @@ func InitInfoSchema(metadataMgr meta.MetadataManager) {
 func GetTableSchema(name string) (schema *types.TableSchema, ok bool) {
 	schema, ok = tables[strings.ToLower(name)]
 	return
+}
+
+func GetShowSelectColumns(name string, start int) (columns []string) {
+	schema, ok := GetTableSchema(name)
+	if !ok {
+		return
+	}
+	return lo.Map(schema.Columns[start:], func(item types.ColumnMetadata, index int) string {
+		return item.Name
+	})
 }
 
 var (
@@ -62,7 +74,21 @@ var (
 		},
 	}
 	replicationSchema = &types.TableSchema{
-		Columns: []types.ColumnMetadata{},
+		Columns: []types.ColumnMetadata{
+			{Name: "table_schema", DataType: types.DTString},
+			{Name: "node", DataType: types.DTString},
+			{Name: "shard_id", DataType: types.DTInt},
+			{Name: "family_time", DataType: types.DTString},
+			{Name: "leader", DataType: types.DTInt},
+			{Name: "replicator", DataType: types.DTString},
+			{Name: "replicator_type", DataType: types.DTString},
+			{Name: "append", DataType: types.DTInt},
+			{Name: "consume", DataType: types.DTInt},
+			{Name: "ack", DataType: types.DTInt},
+			{Name: "pending", DataType: types.DTInt},
+			{Name: "state", DataType: types.DTString},
+			{Name: "err_msg", DataType: types.DTString},
+		},
 	}
 	memoryDatabaseSchema = &types.TableSchema{
 		Columns: []types.ColumnMetadata{},
@@ -116,7 +142,7 @@ var (
 		constants.TableMaster:         masterSchema,
 		constants.TableBroker:         brokerSchema,
 		constants.TableStorage:        storageSchema,
-		constants.TableReplication:    replicationSchema,
+		constants.TableReplications:   replicationSchema,
 		constants.TableMemoryDatabase: memoryDatabaseSchema,
 		constants.TableEngines:        enginesSchema,
 		constants.TableSchemata:       schemtatSchema,

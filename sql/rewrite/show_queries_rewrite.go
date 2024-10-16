@@ -1,11 +1,10 @@
 package rewrite
 
 import (
-	"fmt"
-
 	commonConstants "github.com/lindb/common/constants"
 
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/spi/table/infoschema"
 	"github.com/lindb/lindb/sql/interfaces"
 	"github.com/lindb/lindb/sql/tree"
 	"github.com/lindb/lindb/sql/utils"
@@ -33,15 +32,22 @@ func (r *ShowQueriesRewrite) Rewrite(statement tree.Statement) tree.Statement {
 
 func (v *ShowQueriesRewrite) Visit(context any, n tree.Node) (r any) {
 	switch node := n.(type) {
+	case *tree.ShowReplication:
+		var terms []tree.Expression
+		terms = append(terms, v.builder.StringEqual("table_schema", v.db)) // database
+		return v.builder.SimpleQuery(
+			v.builder.SelectItems(infoschema.GetShowSelectColumns(constants.TableReplications, 1)...),
+			v.builder.Table(constants.InformationSchema, commonConstants.DefaultNamespace, constants.TableReplications),
+			v.builder.LogicalAnd(terms...),
+		)
 	case *tree.ShowNamespaces:
 		var terms []tree.Expression
 		terms = append(terms, v.builder.StringEqual("table_schema", v.db)) // database
 		if node.LikePattern != "" {
 			terms = append(terms, v.builder.Like("namespace", node.LikePattern)) // namespace like pattern
 		}
-		fmt.Printf("like pattern=%v,terms=%v\n", node.LikePattern, terms)
 		return v.builder.SimpleQuery(
-			v.builder.SelectItems("namespace"),
+			v.builder.SelectItems(infoschema.GetShowSelectColumns(constants.TableNamespaces, 1)...),
 			v.builder.Table(constants.InformationSchema, commonConstants.DefaultNamespace, constants.TableNamespaces),
 			v.builder.LogicalAnd(terms...),
 		)
@@ -56,15 +62,14 @@ func (v *ShowQueriesRewrite) Visit(context any, n tree.Node) (r any) {
 		if node.LikePattern != "" {
 			terms = append(terms, v.builder.Like("table_name", node.LikePattern)) // table_name like pattern
 		}
-		fmt.Printf("show table names predicate=%v\n", terms)
 		return v.builder.SimpleQuery(
-			v.builder.SelectItems("table_name"),
+			v.builder.SelectItems(infoschema.GetShowSelectColumns(constants.TableTableNames, 1)...),
 			v.builder.Table(constants.InformationSchema, commonConstants.DefaultNamespace, constants.TableTableNames),
 			v.builder.LogicalAnd(terms...),
 		)
 	case *tree.ShowColumns:
 		return v.builder.SimpleQuery(
-			v.builder.SelectItems("column_name", "data_type", "agg_type"),
+			v.builder.SelectItems(infoschema.GetShowSelectColumns(constants.TableColumns, 3)...),
 			v.builder.Table(constants.InformationSchema, commonConstants.DefaultNamespace, constants.TableColumns),
 			v.builder.LogicalAnd(
 				v.builder.StringEqual("table_schema", v.db),

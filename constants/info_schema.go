@@ -6,7 +6,7 @@ const (
 	TableMaster         = "master"
 	TableBroker         = "broker"
 	TableStorage        = "storage"
-	TableReplication    = "replication"
+	TableReplications   = "replications"
 	TableMemoryDatabase = "memory_database"
 	TableEngines        = "engines"
 	TableSchemata       = "schemata"

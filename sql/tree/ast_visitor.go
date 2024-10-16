@@ -95,6 +95,12 @@ func (v *AstVisitor) VisitShowColumns(ctx *grammar.ShowColumnsContext) any {
 	}
 }
 
+func (v *AstVisitor) VisitShowReplications(ctx *grammar.ShowReplicationsContext) interface{} {
+	return &ShowReplication{
+		BaseNode: v.createBaseNode(ctx.GetStart()),
+	}
+}
+
 func (v *AstVisitor) VisitDdlStatement(ctx *grammar.DdlStatementContext) any {
 	switch {
 	case ctx.CreateDatabase() != nil:

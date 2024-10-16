@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	commonConstants "github.com/lindb/common/constants"
+	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/timeutil"
 
 	"github.com/lindb/lindb/constants"
@@ -25,10 +26,12 @@ type Reader interface {
 // schema of rows returned ref to: tables.go
 type reader struct {
 	metadataMgr meta.MetadataManager
+
+	logger logger.Logger
 }
 
 func NewReader(metadataMgr meta.MetadataManager) Reader {
-	return &reader{metadataMgr: metadataMgr}
+	return &reader{metadataMgr: metadataMgr, logger: logger.GetLogger("Infoschema", "Reader")}
 }
 
 func (r *reader) ReadData(ctx context.Context, table string, expression tree.Expression) (rows [][]*types.Datum, err error) {
@@ -51,6 +54,8 @@ func (r *reader) ReadData(ctx context.Context, table string, expression tree.Exp
 		rows, err = r.readSchemata()
 	case constants.TableMetrics:
 		rows, err = r.readMetrics()
+	case constants.TableReplications:
+		rows, err = r.readReplications(predicate)
 	case constants.TableNamespaces:
 		rows, err = r.readNamespaces(predicate)
 	case constants.TableTableNames:
@@ -133,13 +138,51 @@ func (r *reader) readMetrics() (rows [][]*types.Datum, err error) {
 	return
 }
 
+func (r *reader) readReplications(predicate *predicate) (rows [][]*types.Datum, err error) {
+	schema := predicate.columns[replicationSchema.Columns[0].Name]
+	if schema == "" {
+		return nil, errors.New("table_schema not found in where clause")
+	}
+	state, err := r.getStateFromStorage("/state/replica", map[string]string{"db": schema}, func() any {
+		var state []models.FamilyLogReplicaState
+		return &state
+	})
+	if err != nil {
+		return nil, err
+	}
+	result := state.(map[string]any)
+	for node, state := range result {
+		familyWALLogs := *(state.(*[]models.FamilyLogReplicaState))
+		for _, familyWALLog := range familyWALLogs {
+			for _, replicator := range familyWALLog.Replicators {
+				rows = append(rows, types.MakeDatums(
+					schema,                    // table_schema
+					node,                      // node
+					familyWALLog.ShardID,      // shard_id
+					familyWALLog.FamilyTime,   // family_time
+					familyWALLog.Leader,       // leader
+					replicator.Replicator,     // replicator
+					replicator.ReplicatorType, // replicator_type
+					familyWALLog.Append,       // append
+					replicator.Consume,        // consume
+					replicator.ACK,            // ack
+					replicator.Pending,        // pending
+					replicator.State.String(), // state
+					replicator.StateErrMsg,    // err_msg
+				))
+			}
+		}
+	}
+	return
+}
+
 func (r *reader) readNamespaces(predicate *predicate) (rows [][]*types.Datum, err error) {
 	schema := predicate.columns[columnsSchema.Columns[0].Name]
 	if schema == "" {
 		return nil, errors.New("table_schema not found in where clause")
 	}
 	namespace := predicate.columns[columnsSchema.Columns[1].Name]
-	namespaces, err := r.metadataMgr.SuggestNamespaces(schema, namespace, 10)
+	namespaces, err := r.suggestNamespaces(schema, namespace, 10)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +205,7 @@ func (r *reader) readTableNames(predicate *predicate) (rows [][]*types.Datum, er
 	if schema == "" {
 		return nil, errors.New("table_schema not found in where clause")
 	}
-	tableNames, err := r.metadataMgr.SuggestTables(schema, namespace, tableName, 10) // FIXME: set limit
+	tableNames, err := r.suggestTables(schema, namespace, tableName, 10) // FIXME: set limit
 	if err != nil {
 		return nil, err
 	}
@@ -190,6 +233,8 @@ func (r *reader) readColumns(predicate *predicate) (rows [][]*types.Datum, err e
 	if err != nil {
 		return nil, err
 	}
+	// add time(reserved column)
+	table.Schema.AddColumn(types.ColumnMetadata{Name: "time", DataType: types.DTTimestamp})
 	for _, column := range table.Schema.Columns {
 		rows = append(rows, types.MakeDatums(
 			schema,                   // table_schema

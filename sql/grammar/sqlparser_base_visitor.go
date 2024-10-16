@@ -91,10 +91,6 @@ func (v *BaseSQLParserVisitor) VisitShowMetadatas(ctx *ShowMetadatasContext) int
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLParserVisitor) VisitShowAlive(ctx *ShowAliveContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
 func (v *BaseSQLParserVisitor) VisitShowReplications(ctx *ShowReplicationsContext) interface{} {
 	return v.VisitChildren(ctx)
 }
