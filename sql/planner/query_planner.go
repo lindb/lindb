@@ -240,6 +240,7 @@ func (p *QueryPlanner) filter(subPlan *PlanBuilder, predicate tree.Expression, n
 		return subPlan
 	}
 	subPlan = p.subQueryPlanner.handleSubQueries(subPlan, predicate, nil)
+	fmt.Printf("filter sub plat%v\n", subPlan.translations.scope.RelationType.Fields)
 
 	return subPlan.withNewRoot(&plan.FilterNode{
 		BaseNode: plan.BaseNode{

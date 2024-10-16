@@ -170,6 +170,18 @@ func (s *BaseSQLParserListener) EnterShowDatabases(ctx *ShowDatabasesContext) {}
 // ExitShowDatabases is called when production showDatabases is exited.
 func (s *BaseSQLParserListener) ExitShowDatabases(ctx *ShowDatabasesContext) {}
 
+// EnterShowNamespaces is called when production showNamespaces is entered.
+func (s *BaseSQLParserListener) EnterShowNamespaces(ctx *ShowNamespacesContext) {}
+
+// ExitShowNamespaces is called when production showNamespaces is exited.
+func (s *BaseSQLParserListener) ExitShowNamespaces(ctx *ShowNamespacesContext) {}
+
+// EnterShowTableNames is called when production showTableNames is entered.
+func (s *BaseSQLParserListener) EnterShowTableNames(ctx *ShowTableNamesContext) {}
+
+// ExitShowTableNames is called when production showTableNames is exited.
+func (s *BaseSQLParserListener) ExitShowTableNames(ctx *ShowTableNamesContext) {}
+
 // EnterShowColumns is called when production showColumns is entered.
 func (s *BaseSQLParserListener) EnterShowColumns(ctx *ShowColumnsContext) {}
 
@@ -181,36 +193,6 @@ func (s *BaseSQLParserListener) EnterUseStatement(ctx *UseStatementContext) {}
 
 // ExitUseStatement is called when production useStatement is exited.
 func (s *BaseSQLParserListener) ExitUseStatement(ctx *UseStatementContext) {}
-
-// EnterShowNamespaces is called when production showNamespaces is entered.
-func (s *BaseSQLParserListener) EnterShowNamespaces(ctx *ShowNamespacesContext) {}
-
-// ExitShowNamespaces is called when production showNamespaces is exited.
-func (s *BaseSQLParserListener) ExitShowNamespaces(ctx *ShowNamespacesContext) {}
-
-// EnterShowMetrics is called when production showMetrics is entered.
-func (s *BaseSQLParserListener) EnterShowMetrics(ctx *ShowMetricsContext) {}
-
-// ExitShowMetrics is called when production showMetrics is exited.
-func (s *BaseSQLParserListener) ExitShowMetrics(ctx *ShowMetricsContext) {}
-
-// EnterShowFields is called when production showFields is entered.
-func (s *BaseSQLParserListener) EnterShowFields(ctx *ShowFieldsContext) {}
-
-// ExitShowFields is called when production showFields is exited.
-func (s *BaseSQLParserListener) ExitShowFields(ctx *ShowFieldsContext) {}
-
-// EnterShowTagKeys is called when production showTagKeys is entered.
-func (s *BaseSQLParserListener) EnterShowTagKeys(ctx *ShowTagKeysContext) {}
-
-// ExitShowTagKeys is called when production showTagKeys is exited.
-func (s *BaseSQLParserListener) ExitShowTagKeys(ctx *ShowTagKeysContext) {}
-
-// EnterShowTagValues is called when production showTagValues is entered.
-func (s *BaseSQLParserListener) EnterShowTagValues(ctx *ShowTagValuesContext) {}
-
-// ExitShowTagValues is called when production showTagValues is exited.
-func (s *BaseSQLParserListener) ExitShowTagValues(ctx *ShowTagValuesContext) {}
 
 // EnterQuery is called when production query is entered.
 func (s *BaseSQLParserListener) EnterQuery(ctx *QueryContext) {}

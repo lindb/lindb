@@ -48,6 +48,7 @@ func NewExpressionVisitor(scope *Scope, analyzer *ExpressionAnalyzer) *Expressio
 func (v *ExpressionVisitor) Visit(context any, n tree.Node) (r any) {
 	// TODO:
 	_ = n.Accept(context, &v.StackableAstVisitor)
+	fmt.Printf("visit expression=%T,id=%v\n", n, n.GetID())
 	switch node := n.(type) {
 	case *tree.ComparisonExpression:
 		return v.visitComparisonExpression(context, node)

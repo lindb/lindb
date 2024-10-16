@@ -51,6 +51,10 @@ func (r *reader) ReadData(ctx context.Context, table string, expression tree.Exp
 		rows, err = r.readSchemata()
 	case constants.TableMetrics:
 		rows, err = r.readMetrics()
+	case constants.TableNamespaces:
+		rows, err = r.readNamespaces(predicate)
+	case constants.TableTableNames:
+		rows, err = r.readTableNames(predicate)
 	case constants.TableColumns:
 		rows, err = r.readColumns(predicate)
 	}
@@ -129,6 +133,49 @@ func (r *reader) readMetrics() (rows [][]*types.Datum, err error) {
 	return
 }
 
+func (r *reader) readNamespaces(predicate *predicate) (rows [][]*types.Datum, err error) {
+	schema := predicate.columns[columnsSchema.Columns[0].Name]
+	if schema == "" {
+		return nil, errors.New("table_schema not found in where clause")
+	}
+	namespace := predicate.columns[columnsSchema.Columns[1].Name]
+	namespaces, err := r.metadataMgr.SuggestNamespaces(schema, namespace, 10)
+	if err != nil {
+		return nil, err
+	}
+	for _, ns := range namespaces {
+		rows = append(rows, types.MakeDatums(
+			schema, // table_schema
+			ns,     // namespace
+		))
+	}
+	return
+}
+
+func (r *reader) readTableNames(predicate *predicate) (rows [][]*types.Datum, err error) {
+	schema := predicate.columns[columnsSchema.Columns[0].Name]
+	namespace := predicate.columns[columnsSchema.Columns[1].Name]
+	if namespace == "" {
+		namespace = commonConstants.DefaultNamespace
+	}
+	tableName := predicate.columns[columnsSchema.Columns[2].Name]
+	if schema == "" {
+		return nil, errors.New("table_schema not found in where clause")
+	}
+	tableNames, err := r.metadataMgr.SuggestTables(schema, namespace, tableName, 10) // FIXME: set limit
+	if err != nil {
+		return nil, err
+	}
+	for _, name := range tableNames {
+		rows = append(rows, types.MakeDatums(
+			schema,    // table_schema
+			namespace, // namespace
+			name,      // table_name
+		))
+	}
+	return
+}
+
 func (r *reader) readColumns(predicate *predicate) (rows [][]*types.Datum, err error) {
 	schema := predicate.columns[columnsSchema.Columns[0].Name]
 	namespace := predicate.columns[columnsSchema.Columns[1].Name]
@@ -139,7 +186,6 @@ func (r *reader) readColumns(predicate *predicate) (rows [][]*types.Datum, err e
 	if schema == "" || tableName == "" {
 		return nil, errors.New("table_schema/table_name not found in where clause")
 	}
-	fmt.Printf("db=%v,ns=%v,table=%v\n", schema, namespace, tableName)
 	table, err := r.metadataMgr.GetTableMetadata(schema, namespace, tableName)
 	if err != nil {
 		return nil, err
@@ -175,6 +221,11 @@ func (v *predicate) Visit(context any, n tree.Node) (rs any) {
 		// TODO: check err
 		columnName, _ := expression.EvalString(v.evalCtx, node.Left)
 		columnValue, _ := expression.EvalString(v.evalCtx, node.Right)
+		v.columns[columnName] = columnValue
+	case *tree.LikePredicate:
+		// TODO: check err
+		columnName, _ := expression.EvalString(v.evalCtx, node.Value)
+		columnValue, _ := expression.EvalString(v.evalCtx, node.Pattern)
 		v.columns[columnName] = columnValue
 	case *tree.LogicalExpression:
 		for _, term := range node.Terms {

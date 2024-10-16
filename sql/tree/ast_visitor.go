@@ -51,7 +51,7 @@ func (v *AstVisitor) VisitStatement(ctx *grammar.StatementContext) any {
 	}
 }
 
-func (v *AstVisitor) VisitAdminStatement(ctx *grammar.AdminStatementContext) interface{} {
+func (v *AstVisitor) VisitAdminStatement(ctx *grammar.AdminStatementContext) any {
 	switch {
 	case ctx.ShowStatement() != nil:
 		return v.Visit(ctx.ShowStatement())
@@ -59,7 +59,34 @@ func (v *AstVisitor) VisitAdminStatement(ctx *grammar.AdminStatementContext) int
 	return v.VisitChildren(ctx)
 }
 
-func (v *AstVisitor) VisitShowColumns(ctx *grammar.ShowColumnsContext) interface{} {
+func (v *AstVisitor) VisitShowNamespaces(ctx *grammar.ShowNamespacesContext) any {
+	show := &ShowNamespaces{}
+	if ctx.GetNamespace() != nil {
+		value, err := strutil.GetStringValue(ctx.GetNamespace().GetText())
+		if err != nil {
+			panic(err)
+		}
+		show.LikePattern = value
+	}
+	return show
+}
+
+func (v *AstVisitor) VisitShowTableNames(ctx *grammar.ShowTableNamesContext) any {
+	show := &ShowTableNames{}
+	if ctx.QualifiedName() != nil {
+		show.Namespace = v.getQualifiedName(ctx.QualifiedName())
+	}
+	if ctx.GetTableName() != nil {
+		value, err := strutil.GetStringValue(ctx.GetTableName().GetText())
+		if err != nil {
+			panic(err)
+		}
+		show.LikePattern = value
+	}
+	return show
+}
+
+func (v *AstVisitor) VisitShowColumns(ctx *grammar.ShowColumnsContext) any {
 	return &ShowColumns{
 		Table: &Table{
 			BaseNode: v.createBaseNode(ctx.GetStart()),

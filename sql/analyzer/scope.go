@@ -58,11 +58,11 @@ func (scope *Scope) getNameQuery(name string) (withQuery *tree.WithQuery) {
 
 func (scope *Scope) IsLocalScope(other *Scope) bool {
 	return scope.findLocally(func(scope *Scope) bool {
+		fmt.Printf("scope=%v,other=%v,%v=%v\n", scope, other, scope.RelationID.SourceNode.GetID(), other.RelationID.SourceNode.GetID())
 		if scope == other {
 			return true
 		}
 		// FIXME: check replation set
-		fmt.Printf("scope=%v,other=%v\n", scope, other)
 		return scope.RelationID != nil &&
 			other.RelationID != nil &&
 			scope.RelationID.SourceNode.GetID() == other.RelationID.SourceNode.GetID()
@@ -78,6 +78,7 @@ func (scope *Scope) resolveField(node tree.Expression, name *tree.QualifiedName,
 	if len(fields) > 1 {
 		panic(fmt.Sprintf("column '%s' is ambiguous", name.Name))
 	}
+	fmt.Printf("resolveField=%v\n", fields)
 	if len(fields) == 1 {
 		// TODO: dup
 		parentFieldCount := 0
@@ -187,8 +188,7 @@ func (scope *Scope) findLocally(match func(scope *Scope) bool) *Scope {
 		if parent == scope {
 			panic("===")
 		}
-		fmt.Println("partnn......")
-		fmt.Println(parent)
+		fmt.Printf("use parent scope=%v, id=%v\n......", parent, parent.RelationID)
 		s = parent
 	}
 	return nil

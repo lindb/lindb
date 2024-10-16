@@ -64,6 +64,10 @@ showStatement       : SHOW MASTER                                            #sh
                     | SHOW REPLICATIONS                                      #showReplications
                     | SHOW STATE                                             #showState
                     | SHOW DATABASES                                         #showDatabases
+                    | SHOW NAMESPACES                      
+                      (LIKE namespace=expression)?                           #showNamespaces
+                    | SHOW TABLE_NAMES (FROM qualifiedName)? 
+                      (LIKE tableName=expression)?                           #showTableNames
                     | SHOW COLUMNS FROM qualifiedName                        #showColumns
                     ;
 
@@ -71,12 +75,6 @@ showStatement       : SHOW MASTER                                            #sh
 useStatement        : USE database=identifier ;
 
 // dml
-showMetricMetadata  : SHOW NAMESPACES                                        #showNamespaces
-                    | SHOW METRICS                                           #showMetrics
-                    | SHOW FIELDS                                            #showFields
-                    | SHOW TAG KEYS                                          #showTagKeys
-                    | SHOW TAG VALUES                                        #showTagValues
-                    ;
 query               : with? queryNoWith ;
 with                : WITH namedQuery (',' namedQuery)* ;
 namedQuery          : name=identifier AS '(' query ')' ;
@@ -216,7 +214,7 @@ nonReserved         :
                     | ON | OR | ORDER
                     | REQUESTS | REPLICATIONS | RIGHT | ROLLUP
                     | SELECT | SHOW | STATE | STORAGE
-                    | TAG | TIME | TRACE | TRUE | TYPE | TYPES 
+                    | TABLE_NAMES | TIME | TRACE | TRUE | TYPE | TYPES 
                     | VALUES
                     | WHERE | WITH | WITHIN
                     | USING | USE
