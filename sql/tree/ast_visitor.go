@@ -95,8 +95,14 @@ func (v *AstVisitor) VisitShowColumns(ctx *grammar.ShowColumnsContext) any {
 	}
 }
 
-func (v *AstVisitor) VisitShowReplications(ctx *grammar.ShowReplicationsContext) interface{} {
-	return &ShowReplication{
+func (v *AstVisitor) VisitShowReplications(ctx *grammar.ShowReplicationsContext) any {
+	return &ShowReplications{
+		BaseNode: v.createBaseNode(ctx.GetStart()),
+	}
+}
+
+func (v *AstVisitor) VisitShowMemoryDatabases(ctx *grammar.ShowMemoryDatabasesContext) any {
+	return &ShowMemoryDatabases{
 		BaseNode: v.createBaseNode(ctx.GetStart()),
 	}
 }

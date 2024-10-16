@@ -45,7 +45,8 @@ func (c *Column) AppendTimestamp(val time.Time) {
 }
 
 func (c *Column) AppendDuration(val time.Duration) {
-	c.Blocks = append(c.Blocks, &val)
+	v := Int(val.Nanoseconds())
+	c.Blocks = append(c.Blocks, &v)
 	c.NumOfRows++
 }
 
@@ -85,7 +86,9 @@ func (c *Column) GetDuration(row int) *time.Duration {
 	if row >= len(c.Blocks) {
 		return nil
 	}
-	return c.Blocks[row].(*time.Duration)
+	val := c.Blocks[row].(*Int)
+	duration := time.Duration(int64(*val))
+	return &duration
 }
 
 func (c *Column) GetTimeSeries(row int) *TimeSeries {

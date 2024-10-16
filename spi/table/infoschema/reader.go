@@ -56,6 +56,8 @@ func (r *reader) ReadData(ctx context.Context, table string, expression tree.Exp
 		rows, err = r.readMetrics()
 	case constants.TableReplications:
 		rows, err = r.readReplications(predicate)
+	case constants.TableMemoryDatabases:
+		rows, err = r.readMemoryDatabases(predicate)
 	case constants.TableNamespaces:
 		rows, err = r.readNamespaces(predicate)
 	case constants.TableTableNames:
@@ -169,6 +171,39 @@ func (r *reader) readReplications(predicate *predicate) (rows [][]*types.Datum, 
 					replicator.Pending,        // pending
 					replicator.State.String(), // state
 					replicator.StateErrMsg,    // err_msg
+				))
+			}
+		}
+	}
+	return
+}
+
+func (r *reader) readMemoryDatabases(predicate *predicate) (rows [][]*types.Datum, err error) {
+	schema := predicate.columns[replicationSchema.Columns[0].Name]
+	if schema == "" {
+		return nil, errors.New("table_schema not found in where clause")
+	}
+	state, err := r.getStateFromStorage("/state/tsdb/memory", map[string]string{"db": schema}, func() any {
+		var state []models.DataFamilyState
+		return &state
+	})
+	if err != nil {
+		return nil, err
+	}
+	result := state.(map[string]any)
+	for node, state := range result {
+		familyStates := *(state.(*[]models.DataFamilyState))
+		for _, familyState := range familyStates {
+			for _, replicator := range familyState.MemoryDatabases {
+				rows = append(rows, types.MakeDatums(
+					schema,                 // table_schema
+					node,                   // node
+					familyState.ShardID,    // shard_id
+					familyState.FamilyTime, // family_time
+					replicator.State,       // state
+					replicator.Uptime,      // uptime
+					replicator.MemSize,     // mem_size
+					replicator.NumOfSeries, // num_of_series
 				))
 			}
 		}

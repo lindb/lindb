@@ -91,7 +91,16 @@ var (
 		},
 	}
 	memoryDatabaseSchema = &types.TableSchema{
-		Columns: []types.ColumnMetadata{},
+		Columns: []types.ColumnMetadata{
+			{Name: "table_schema", DataType: types.DTString},
+			{Name: "node", DataType: types.DTString},
+			{Name: "shard_id", DataType: types.DTInt},
+			{Name: "family_time", DataType: types.DTString},
+			{Name: "state", DataType: types.DTString},
+			{Name: "uptime", DataType: types.DTDuration},
+			{Name: "mem_size", DataType: types.DTInt},
+			{Name: "num_of_series", DataType: types.DTInt},
+		},
 	}
 	enginesSchema = &types.TableSchema{
 		Columns: []types.ColumnMetadata{
@@ -139,16 +148,16 @@ var (
 
 	// tables represents the schema of tables.
 	tables = map[string]*types.TableSchema{
-		constants.TableMaster:         masterSchema,
-		constants.TableBroker:         brokerSchema,
-		constants.TableStorage:        storageSchema,
-		constants.TableReplications:   replicationSchema,
-		constants.TableMemoryDatabase: memoryDatabaseSchema,
-		constants.TableEngines:        enginesSchema,
-		constants.TableSchemata:       schemtatSchema,
-		constants.TableMetrics:        metricsSchema,
-		constants.TableNamespaces:     namespacesSchema,
-		constants.TableTableNames:     tablesSchema,
-		constants.TableColumns:        columnsSchema,
+		constants.TableMaster:          masterSchema,
+		constants.TableBroker:          brokerSchema,
+		constants.TableStorage:         storageSchema,
+		constants.TableReplications:    replicationSchema,
+		constants.TableMemoryDatabases: memoryDatabaseSchema,
+		constants.TableEngines:         enginesSchema,
+		constants.TableSchemata:        schemtatSchema,
+		constants.TableMetrics:         metricsSchema,
+		constants.TableNamespaces:      namespacesSchema,
+		constants.TableTableNames:      tablesSchema,
+		constants.TableColumns:         columnsSchema,
 	}
 )

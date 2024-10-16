@@ -70,14 +70,17 @@ type SQLParserVisitor interface {
 	// Visit a parse tree produced by SQLParser#showMetadatas.
 	VisitShowMetadatas(ctx *ShowMetadatasContext) interface{}
 
-	// Visit a parse tree produced by SQLParser#showReplications.
-	VisitShowReplications(ctx *ShowReplicationsContext) interface{}
-
 	// Visit a parse tree produced by SQLParser#showState.
 	VisitShowState(ctx *ShowStateContext) interface{}
 
 	// Visit a parse tree produced by SQLParser#showDatabases.
 	VisitShowDatabases(ctx *ShowDatabasesContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#showMemoryDatabases.
+	VisitShowMemoryDatabases(ctx *ShowMemoryDatabasesContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#showReplications.
+	VisitShowReplications(ctx *ShowReplicationsContext) interface{}
 
 	// Visit a parse tree produced by SQLParser#showNamespaces.
 	VisitShowNamespaces(ctx *ShowNamespacesContext) interface{}

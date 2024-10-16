@@ -70,6 +70,7 @@ func (m *brokerMetadataManager) GetPartitions(database, ns, table string) (map[m
 			constants.TableBroker,
 			constants.TableStorage,
 			constants.TableReplications,
+			constants.TableMemoryDatabases,
 			constants.TableNamespaces,
 			constants.TableTableNames,
 			constants.TableColumns:

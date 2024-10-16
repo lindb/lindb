@@ -60,9 +60,10 @@ showStatement       : SHOW MASTER                                            #sh
                     | SHOW LIMIT                                             #showLimit
                     | SHOW METADATA TYPES                                    #showMetadataTypes
                     | SHOW METADATAS                                         #showMetadatas
-                    | SHOW REPLICATIONS                                      #showReplications
                     | SHOW STATE                                             #showState
                     | SHOW DATABASES                                         #showDatabases
+                    | SHOW MEMORY_DATABASES                                  #showMemoryDatabases
+                    | SHOW REPLICATIONS                                      #showReplications
                     | SHOW NAMESPACES                      
                       (LIKE namespace=expression)?                           #showNamespaces
                     | SHOW TABLE_NAMES (FROM qualifiedName)? 
@@ -208,7 +209,7 @@ nonReserved         :
                     | JOIN
                     | KEYS
                     | LEFT | LIKE | LIMIT | LOG | LOGICAL
-                    | MASTER | METRIC | METRICS | METADATA | METADATAS
+                    | MASTER | MEMORY_DATABASES | METRIC | METRICS | METADATA | METADATAS
                     | NAMESPACE | NAMESPACES | NOT | NOW
                     | ON | OR | ORDER
                     | REQUESTS | REPLICATIONS | RIGHT | ROLLUP
