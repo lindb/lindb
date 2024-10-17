@@ -2,16 +2,16 @@ package constants
 
 const (
 	// InformationSchema represents information schema database.
-	InformationSchema   = "information_schema"
-	TableMaster         = "master"
-	TableBroker         = "broker"
-	TableStorage        = "storage"
-	TableReplications   = "replications"
-	TableMemoryDatabase = "memory_database"
-	TableEngines        = "engines"
-	TableSchemata       = "schemata"
-	TableMetrics        = "metrics"
-	TableNamespaces     = "namespaces"
-	TableTableNames     = "table_names"
-	TableColumns        = "columns"
+	InformationSchema    = "information_schema"
+	TableMaster          = "master"
+	TableBroker          = "broker"
+	TableStorage         = "storage"
+	TableReplications    = "replications"
+	TableMemoryDatabases = "memory_databases"
+	TableEngines         = "engines"
+	TableSchemata        = "schemata"
+	TableMetrics         = "metrics"
+	TableNamespaces      = "namespaces"
+	TableTableNames      = "table_names"
+	TableColumns         = "columns"
 )

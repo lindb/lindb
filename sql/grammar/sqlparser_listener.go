@@ -70,14 +70,17 @@ type SQLParserListener interface {
 	// EnterShowMetadatas is called when entering the showMetadatas production.
 	EnterShowMetadatas(c *ShowMetadatasContext)
 
-	// EnterShowReplications is called when entering the showReplications production.
-	EnterShowReplications(c *ShowReplicationsContext)
-
 	// EnterShowState is called when entering the showState production.
 	EnterShowState(c *ShowStateContext)
 
 	// EnterShowDatabases is called when entering the showDatabases production.
 	EnterShowDatabases(c *ShowDatabasesContext)
+
+	// EnterShowMemoryDatabases is called when entering the showMemoryDatabases production.
+	EnterShowMemoryDatabases(c *ShowMemoryDatabasesContext)
+
+	// EnterShowReplications is called when entering the showReplications production.
+	EnterShowReplications(c *ShowReplicationsContext)
 
 	// EnterShowNamespaces is called when entering the showNamespaces production.
 	EnterShowNamespaces(c *ShowNamespacesContext)
@@ -352,14 +355,17 @@ type SQLParserListener interface {
 	// ExitShowMetadatas is called when exiting the showMetadatas production.
 	ExitShowMetadatas(c *ShowMetadatasContext)
 
-	// ExitShowReplications is called when exiting the showReplications production.
-	ExitShowReplications(c *ShowReplicationsContext)
-
 	// ExitShowState is called when exiting the showState production.
 	ExitShowState(c *ShowStateContext)
 
 	// ExitShowDatabases is called when exiting the showDatabases production.
 	ExitShowDatabases(c *ShowDatabasesContext)
+
+	// ExitShowMemoryDatabases is called when exiting the showMemoryDatabases production.
+	ExitShowMemoryDatabases(c *ShowMemoryDatabasesContext)
+
+	// ExitShowReplications is called when exiting the showReplications production.
+	ExitShowReplications(c *ShowReplicationsContext)
 
 	// ExitShowNamespaces is called when exiting the showNamespaces production.
 	ExitShowNamespaces(c *ShowNamespacesContext)

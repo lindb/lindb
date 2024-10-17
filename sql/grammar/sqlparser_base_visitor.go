@@ -91,15 +91,19 @@ func (v *BaseSQLParserVisitor) VisitShowMetadatas(ctx *ShowMetadatasContext) int
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLParserVisitor) VisitShowReplications(ctx *ShowReplicationsContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
 func (v *BaseSQLParserVisitor) VisitShowState(ctx *ShowStateContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
 func (v *BaseSQLParserVisitor) VisitShowDatabases(ctx *ShowDatabasesContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLParserVisitor) VisitShowMemoryDatabases(ctx *ShowMemoryDatabasesContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLParserVisitor) VisitShowReplications(ctx *ShowReplicationsContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

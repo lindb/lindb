@@ -32,12 +32,20 @@ func (r *ShowQueriesRewrite) Rewrite(statement tree.Statement) tree.Statement {
 
 func (v *ShowQueriesRewrite) Visit(context any, n tree.Node) (r any) {
 	switch node := n.(type) {
-	case *tree.ShowReplication:
+	case *tree.ShowReplications:
 		var terms []tree.Expression
 		terms = append(terms, v.builder.StringEqual("table_schema", v.db)) // database
 		return v.builder.SimpleQuery(
 			v.builder.SelectItems(infoschema.GetShowSelectColumns(constants.TableReplications, 1)...),
 			v.builder.Table(constants.InformationSchema, commonConstants.DefaultNamespace, constants.TableReplications),
+			v.builder.LogicalAnd(terms...),
+		)
+	case *tree.ShowMemoryDatabases:
+		var terms []tree.Expression
+		terms = append(terms, v.builder.StringEqual("table_schema", v.db)) // database
+		return v.builder.SimpleQuery(
+			v.builder.SelectItems(infoschema.GetShowSelectColumns(constants.TableMemoryDatabases, 1)...),
+			v.builder.Table(constants.InformationSchema, commonConstants.DefaultNamespace, constants.TableMemoryDatabases),
 			v.builder.LogicalAnd(terms...),
 		)
 	case *tree.ShowNamespaces:

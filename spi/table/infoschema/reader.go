@@ -7,16 +7,21 @@ import (
 	"strings"
 
 	commonConstants "github.com/lindb/common/constants"
+	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/timeutil"
+	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/meta"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/expression"
 	"github.com/lindb/lindb/sql/tree"
 )
+
+var metricCli = client.NewMetricCli()
 
 type Reader interface {
 	ReadData(ctx context.Context, table string, predicate tree.Expression) (rows [][]*types.Datum, err error)
@@ -53,9 +58,11 @@ func (r *reader) ReadData(ctx context.Context, table string, expression tree.Exp
 	case constants.TableSchemata:
 		rows, err = r.readSchemata()
 	case constants.TableMetrics:
-		rows, err = r.readMetrics()
+		rows, err = r.readMetrics(predicate)
 	case constants.TableReplications:
 		rows, err = r.readReplications(predicate)
+	case constants.TableMemoryDatabases:
+		rows, err = r.readMemoryDatabases(predicate)
 	case constants.TableNamespaces:
 		rows, err = r.readNamespaces(predicate)
 	case constants.TableTableNames:
@@ -129,17 +136,62 @@ func (r *reader) readSchemata() (rows [][]*types.Datum, err error) {
 	return
 }
 
-func (r *reader) readMetrics() (rows [][]*types.Datum, err error) {
-	rows = append(rows, types.MakeDatums(
-		"cpu",         // metrics_name
-		"1.1.1.1",     // instance
-		float64(10.3), // value
-	))
+func (r *reader) readMetrics(predicate *predicate) (rows [][]*types.Datum, err error) {
+	inputRole := predicate.getColumnValue(metricsSchema.Columns[0].Name)
+	names := predicate.getColumnValues(metricsSchema.Columns[1].Name)
+	roles := []struct {
+		role  string
+		nodes []models.Node
+	}{
+		{
+			constants.BrokerRole,
+			lo.Map(r.metadataMgr.GetBrokerNodes(), func(item models.StatelessNode, index int) models.Node {
+				return &item
+			}),
+		},
+		{
+			constants.StorageRole,
+			lo.Map(r.metadataMgr.GetStorageNodes(), func(item models.StatefulNode, index int) models.Node {
+				return &item
+			}),
+		},
+	}
+
+	roleList := lo.Filter(roles, func(item struct {
+		role  string
+		nodes []models.Node
+	}, index int,
+	) bool {
+		return inputRole == "" || strings.ToUpper(item.role) == strings.ToUpper(inputRole)
+	})
+	for _, role := range roleList {
+		nodes := role.nodes
+		if len(nodes) == 0 {
+			continue
+		}
+		metrics, err := metricCli.FetchMetricData(nodes, names)
+		if err != nil {
+			return nil, err
+		}
+		for name, metricList := range metrics {
+			for _, metric := range metricList {
+				for _, field := range metric.Fields {
+					rows = append(rows, types.MakeDatums(
+						role.role, // role
+						name,      // name
+						string(encoding.JSONMarshal(metric.Tags)), // tags
+						field.Type,  // type
+						field.Value, // value
+					))
+				}
+			}
+		}
+	}
 	return
 }
 
 func (r *reader) readReplications(predicate *predicate) (rows [][]*types.Datum, err error) {
-	schema := predicate.columns[replicationSchema.Columns[0].Name]
+	schema := predicate.getColumnValue(replicationSchema.Columns[0].Name)
 	if schema == "" {
 		return nil, errors.New("table_schema not found in where clause")
 	}
@@ -176,12 +228,45 @@ func (r *reader) readReplications(predicate *predicate) (rows [][]*types.Datum, 
 	return
 }
 
-func (r *reader) readNamespaces(predicate *predicate) (rows [][]*types.Datum, err error) {
-	schema := predicate.columns[columnsSchema.Columns[0].Name]
+func (r *reader) readMemoryDatabases(predicate *predicate) (rows [][]*types.Datum, err error) {
+	schema := predicate.getColumnValue(memoryDatabaseSchema.Columns[0].Name)
 	if schema == "" {
 		return nil, errors.New("table_schema not found in where clause")
 	}
-	namespace := predicate.columns[columnsSchema.Columns[1].Name]
+	state, err := r.getStateFromStorage("/state/tsdb/memory", map[string]string{"db": schema}, func() any {
+		var state []models.DataFamilyState
+		return &state
+	})
+	if err != nil {
+		return nil, err
+	}
+	result := state.(map[string]any)
+	for node, state := range result {
+		familyStates := *(state.(*[]models.DataFamilyState))
+		for _, familyState := range familyStates {
+			for _, replicator := range familyState.MemoryDatabases {
+				rows = append(rows, types.MakeDatums(
+					schema,                 // table_schema
+					node,                   // node
+					familyState.ShardID,    // shard_id
+					familyState.FamilyTime, // family_time
+					replicator.State,       // state
+					replicator.Uptime,      // uptime
+					replicator.MemSize,     // mem_size
+					replicator.NumOfSeries, // num_of_series
+				))
+			}
+		}
+	}
+	return
+}
+
+func (r *reader) readNamespaces(predicate *predicate) (rows [][]*types.Datum, err error) {
+	schema := predicate.getColumnValue(namespacesSchema.Columns[0].Name)
+	if schema == "" {
+		return nil, errors.New("table_schema not found in where clause")
+	}
+	namespace := predicate.getColumnValue(namespacesSchema.Columns[1].Name)
 	namespaces, err := r.suggestNamespaces(schema, namespace, 10)
 	if err != nil {
 		return nil, err
@@ -196,12 +281,12 @@ func (r *reader) readNamespaces(predicate *predicate) (rows [][]*types.Datum, er
 }
 
 func (r *reader) readTableNames(predicate *predicate) (rows [][]*types.Datum, err error) {
-	schema := predicate.columns[columnsSchema.Columns[0].Name]
-	namespace := predicate.columns[columnsSchema.Columns[1].Name]
+	schema := predicate.getColumnValue(tableNamesSchema.Columns[0].Name)
+	namespace := predicate.getColumnValue(tableNamesSchema.Columns[1].Name)
 	if namespace == "" {
 		namespace = commonConstants.DefaultNamespace
 	}
-	tableName := predicate.columns[columnsSchema.Columns[2].Name]
+	tableName := predicate.getColumnValue(tableNamesSchema.Columns[2].Name)
 	if schema == "" {
 		return nil, errors.New("table_schema not found in where clause")
 	}
@@ -220,12 +305,12 @@ func (r *reader) readTableNames(predicate *predicate) (rows [][]*types.Datum, er
 }
 
 func (r *reader) readColumns(predicate *predicate) (rows [][]*types.Datum, err error) {
-	schema := predicate.columns[columnsSchema.Columns[0].Name]
-	namespace := predicate.columns[columnsSchema.Columns[1].Name]
+	schema := predicate.getColumnValue(columnsSchema.Columns[0].Name)
+	namespace := predicate.getColumnValue(columnsSchema.Columns[1].Name)
 	if namespace == "" {
 		namespace = commonConstants.DefaultNamespace
 	}
-	tableName := predicate.columns[columnsSchema.Columns[2].Name]
+	tableName := predicate.getColumnValue(columnsSchema.Columns[2].Name)
 	if schema == "" || tableName == "" {
 		return nil, errors.New("table_schema/table_name not found in where clause")
 	}
@@ -250,14 +335,32 @@ func (r *reader) readColumns(predicate *predicate) (rows [][]*types.Datum, err e
 
 type predicate struct {
 	evalCtx expression.EvalContext
-	columns map[string]string
+	columns map[string][]string
 }
 
 func newPredicate(ctx context.Context) *predicate {
 	return &predicate{
 		evalCtx: expression.NewEvalContext(ctx),
-		columns: make(map[string]string),
+		columns: make(map[string][]string),
 	}
+}
+
+func (v *predicate) getColumnValue(name string) string {
+	values := v.getColumnValues(name)
+	if len(values) == 0 {
+		return ""
+	}
+	return values[0]
+}
+
+func (v *predicate) getColumnValues(name string) []string {
+	return v.columns[strings.ToUpper(name)]
+}
+
+func (v *predicate) addColumnValue(name, value string) {
+	colName := strings.ToUpper(name)
+	values := v.columns[colName]
+	v.columns[colName] = append(values, value)
 }
 
 func (v *predicate) Visit(context any, n tree.Node) (rs any) {
@@ -266,15 +369,23 @@ func (v *predicate) Visit(context any, n tree.Node) (rs any) {
 		// TODO: check err
 		columnName, _ := expression.EvalString(v.evalCtx, node.Left)
 		columnValue, _ := expression.EvalString(v.evalCtx, node.Right)
-		v.columns[columnName] = columnValue
+		v.addColumnValue(columnName, columnValue)
 	case *tree.LikePredicate:
 		// TODO: check err
 		columnName, _ := expression.EvalString(v.evalCtx, node.Value)
 		columnValue, _ := expression.EvalString(v.evalCtx, node.Pattern)
-		v.columns[columnName] = columnValue
+		v.addColumnValue(columnName, columnValue)
 	case *tree.LogicalExpression:
 		for _, term := range node.Terms {
 			_ = term.Accept(context, v)
+		}
+	case *tree.InPredicate:
+		columnName, _ := expression.EvalString(v.evalCtx, node.Value)
+		if inListExpression, ok := node.ValueList.(*tree.InListExpression); ok {
+			lo.ForEach(inListExpression.Values, func(item tree.Expression, index int) {
+				columnValue, _ := expression.EvalString(v.evalCtx, item)
+				v.addColumnValue(columnName, columnValue)
+			})
 		}
 	case *tree.Cast:
 		_ = node.Expression.Accept(context, v)

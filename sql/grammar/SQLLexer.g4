@@ -51,6 +51,7 @@ LIMIT                    : 'LIMIT' ;
 LOG                      : 'LOG' ;
 LOGICAL                  : 'LOGICAL' ;
 MASTER                   : 'MASTER' ;
+MEMORY_DATABASES         : 'MEMORY_DATABASES' ;
 METRICS                  : 'METRICS' ;
 METRIC                   : 'METRIC' ;
 METADATA                 : 'METADATA' ;

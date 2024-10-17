@@ -3,12 +3,19 @@ package types
 import (
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/samber/lo"
 )
 
 type Datum struct {
 	val any
+}
+
+func MakeDatums(vals ...any) []*Datum {
+	return lo.Map(vals, func(v any, _ int) *Datum {
+		return &Datum{val: v}
+	})
 }
 
 func (d *Datum) String() string {
@@ -48,8 +55,6 @@ func (d *Datum) Int() int64 {
 	}
 }
 
-func MakeDatums(vals ...any) []*Datum {
-	return lo.Map(vals, func(v any, _ int) *Datum {
-		return &Datum{val: v}
-	})
+func (d *Datum) Duration() time.Duration {
+	return d.val.(time.Duration)
 }

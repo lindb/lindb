@@ -67,6 +67,8 @@ func (p *PageSource) GetNextPage() *types.Page {
 				col.AppendFloat(row[p.split.colIdxs[idx]].Float())
 			case types.DTInt:
 				col.AppendInt(row[p.split.colIdxs[idx]].Int())
+			case types.DTDuration:
+				col.AppendDuration(row[p.split.colIdxs[idx]].Duration())
 			}
 		}
 	}

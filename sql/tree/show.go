@@ -38,10 +38,18 @@ func (n *ShowColumns) Accept(context any, visitor Visitor) (r any) {
 	return visitor.Visit(context, n)
 }
 
-type ShowReplication struct {
+type ShowReplications struct {
 	BaseNode
 }
 
-func (n *ShowReplication) Accept(context any, visitor Visitor) (r any) {
+func (n *ShowReplications) Accept(context any, visitor Visitor) (r any) {
+	return visitor.Visit(context, n)
+}
+
+type ShowMemoryDatabases struct {
+	BaseNode
+}
+
+func (n *ShowMemoryDatabases) Accept(context any, visitor Visitor) (r any) {
 	return visitor.Visit(context, n)
 }

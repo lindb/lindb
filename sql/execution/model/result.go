@@ -2,11 +2,15 @@ package model
 
 import (
 	"fmt"
+	"syscall"
 	"time"
+	"unsafe"
 
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/jedib0t/go-pretty/v6/text"
 	commonmodels "github.com/lindb/common/models"
 	"github.com/lindb/common/pkg/timeutil"
+	"github.com/mattn/go-runewidth"
 	"github.com/mitchellh/mapstructure"
 
 	"github.com/lindb/lindb/models"
@@ -32,13 +36,16 @@ func NewResultSet() *ResultSet {
 // ToTable returns stateless node list as table if it has value, else return empty string.
 func (rs *ResultSet) ToTable() (tableStr string) {
 	writer := commonmodels.NewTableFormatter()
+	writer.SetStyle(tableSylte())
 	var headers table.Row
 	var columnTypes []types.DataType
 	var (
 		hasTimeSeries bool
 		timeSeriesIdx int
 		dataPoints    int
+		rows          []table.Row
 	)
+	var maxWidths []int
 	for i, col := range rs.Schema.Columns {
 		if !hasTimeSeries && col.DataType == types.DTTimeSeries {
 			timeSeriesIdx = i
@@ -48,11 +55,14 @@ func (rs *ResultSet) ToTable() (tableStr string) {
 			dataPoints = len(timeSeries.Values)
 			headers = append(headers, "timestamp") // add timestamp column
 			columnTypes = append(columnTypes, types.DTTimestamp)
+			maxWidths = append(maxWidths, len("timestamp"))
 		}
 		headers = append(headers, col.Name)
 		columnTypes = append(columnTypes, col.DataType)
+		maxWidths = append(maxWidths, len(col.Name))
 	}
 	writer.AppendHeader(headers)
+
 	for _, row := range rs.Rows {
 		if hasTimeSeries {
 			// has time series, build row based on data points
@@ -65,26 +75,33 @@ func (rs *ResultSet) ToTable() (tableStr string) {
 						_ = mapstructure.Decode(row[colIdx], timeSeries)
 						if timeSeriesIdx == i {
 							cols[colIdx] = timeSeries.TimeRange.Start + timeSeries.Interval*int64(pos)
+							maxWidths[colIdx] = stringWidth(maxWidths[colIdx], cols[colIdx])
 							colIdx++
 							cols[colIdx] = timeSeries.Values[pos]
+							maxWidths[colIdx] = stringWidth(maxWidths[colIdx], cols[colIdx])
 						} else {
 							cols[colIdx] = timeSeries.Values[pos]
+							maxWidths[colIdx] = stringWidth(maxWidths[colIdx], cols[colIdx])
 						}
 					} else {
 						appendColumn(cols, columnTypes[colIdx], col, colIdx)
+						maxWidths[colIdx] = stringWidth(maxWidths[colIdx], cols[colIdx])
 					}
 					colIdx++
 				}
-				writer.AppendRow(cols)
+				rows = append(rows, cols)
 			}
 		} else {
 			cols := make(table.Row, len(rs.Schema.Columns))
-			for i, col := range row {
-				appendColumn(cols, columnTypes[i], col, i)
+			for colIdx, col := range row {
+				appendColumn(cols, columnTypes[colIdx], col, colIdx)
+				maxWidths[colIdx] = stringWidth(maxWidths[colIdx], cols[colIdx])
 			}
-			writer.AppendRow(cols)
+			rows = append(rows, cols)
 		}
 	}
+	writer.AppendRows(rows)
+	writer.SetColumnConfigs(columnStyles(maxWidths))
 	return writer.Render()
 }
 
@@ -105,4 +122,103 @@ func appendColumn(row table.Row, colType types.DataType, col any, index int) {
 			row[index] = timeutil.FormatTimestamp(val, timeutil.DataTimeFormat2)
 		}
 	}
+}
+
+func stringWidth(width int, v any) int {
+	return max(width, runewidth.StringWidth(fmt.Sprintf("%v", v)))
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func tableSylte() table.Style {
+	return table.Style{
+		Name: "Custom",
+		Box: table.BoxStyle{
+			BottomLeft:       "+",
+			BottomRight:      "+",
+			BottomSeparator:  "+",
+			Left:             "|",
+			LeftSeparator:    "+",
+			MiddleHorizontal: "-",
+			MiddleSeparator:  "+",
+			MiddleVertical:   "|",
+			PaddingLeft:      "",
+			PaddingRight:     "",
+			Right:            "|",
+			RightSeparator:   "+",
+			TopLeft:          "+",
+			TopRight:         "+",
+			TopSeparator:     "+",
+			UnfinishedRow:    "",
+		},
+		Color: table.ColorOptions{
+			Header: text.Colors{text.Bold},
+		},
+		Options: table.Options{
+			DrawBorder:      true,
+			SeparateColumns: true,
+			SeparateHeader:  true,
+			SeparateRows:    true,
+		},
+	}
+}
+
+func columnStyles(maxWidths []int) []table.ColumnConfig {
+	// get terminal width
+	terminalWidth := getTerminalWidth()
+	// calculate the width of each column
+	numCols := len(maxWidths)
+	colWidths := make([]int, numCols)
+	remainingWidth := terminalWidth - numCols // subtract the width of separators end
+
+	//  initialize all column widths
+	for i := range colWidths {
+		colWidths[i] = remainingWidth / numCols
+	}
+	// dynamically adjust column widths
+	for i := range colWidths {
+		maxWidth := maxWidths[i]
+		if maxWidth < colWidths[i] {
+			remainingWidth += colWidths[i] - maxWidth
+			colWidths[i] = maxWidth
+		}
+	}
+
+	//  allocate remaining width
+	for i := range colWidths {
+		if remainingWidth <= 0 {
+			break
+		}
+		colWidths[i] += remainingWidth / numCols
+		remainingWidth -= remainingWidth / numCols
+	}
+
+	//  set the maximum width of the column
+	columnConfigs := make([]table.ColumnConfig, numCols)
+	for i := range columnConfigs {
+		columnConfigs[i] = table.ColumnConfig{Number: i + 1, WidthMax: colWidths[i]}
+	}
+	return columnConfigs
+}
+
+func getTerminalWidth() int {
+	var ws struct {
+		Row    uint16
+		Col    uint16
+		Xpixel uint16
+		Ypixel uint16
+	}
+	_, _, err := syscall.Syscall(syscall.SYS_IOCTL,
+		uintptr(syscall.Stdin),
+		uintptr(syscall.TIOCGWINSZ),
+		uintptr(unsafe.Pointer(&ws)))
+	if err != 0 {
+		return 80 // default width
+	}
+	return int(ws.Col)
 }

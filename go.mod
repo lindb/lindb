@@ -7,9 +7,9 @@ toolchain go1.22.3
 require (
 	github.com/BurntSushi/toml v1.2.1
 	github.com/antlr4-go/antlr/v4 v4.13.1
-	github.com/c-bata/go-prompt v0.2.6
 	github.com/cespare/xxhash/v2 v2.2.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
+	github.com/elk-language/go-prompt v1.1.5
 	github.com/fatih/color v1.15.0
 	github.com/felixge/fgprof v0.9.2
 	github.com/gin-contrib/cors v1.4.0
@@ -156,7 +156,7 @@ require (
 	github.com/prometheus/client_model v0.5.0 // indirect
 	github.com/prometheus/common v0.44.0
 	github.com/prometheus/procfs v0.11.1 // indirect
-	github.com/rivo/uniseg v0.2.0 // indirect
+	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/samber/lo v1.39.0
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/soheilhy/cmux v0.1.5 // indirect

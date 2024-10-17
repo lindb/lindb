@@ -146,12 +146,6 @@ func (s *BaseSQLParserListener) EnterShowMetadatas(ctx *ShowMetadatasContext) {}
 // ExitShowMetadatas is called when production showMetadatas is exited.
 func (s *BaseSQLParserListener) ExitShowMetadatas(ctx *ShowMetadatasContext) {}
 
-// EnterShowReplications is called when production showReplications is entered.
-func (s *BaseSQLParserListener) EnterShowReplications(ctx *ShowReplicationsContext) {}
-
-// ExitShowReplications is called when production showReplications is exited.
-func (s *BaseSQLParserListener) ExitShowReplications(ctx *ShowReplicationsContext) {}
-
 // EnterShowState is called when production showState is entered.
 func (s *BaseSQLParserListener) EnterShowState(ctx *ShowStateContext) {}
 
@@ -163,6 +157,18 @@ func (s *BaseSQLParserListener) EnterShowDatabases(ctx *ShowDatabasesContext) {}
 
 // ExitShowDatabases is called when production showDatabases is exited.
 func (s *BaseSQLParserListener) ExitShowDatabases(ctx *ShowDatabasesContext) {}
+
+// EnterShowMemoryDatabases is called when production showMemoryDatabases is entered.
+func (s *BaseSQLParserListener) EnterShowMemoryDatabases(ctx *ShowMemoryDatabasesContext) {}
+
+// ExitShowMemoryDatabases is called when production showMemoryDatabases is exited.
+func (s *BaseSQLParserListener) ExitShowMemoryDatabases(ctx *ShowMemoryDatabasesContext) {}
+
+// EnterShowReplications is called when production showReplications is entered.
+func (s *BaseSQLParserListener) EnterShowReplications(ctx *ShowReplicationsContext) {}
+
+// ExitShowReplications is called when production showReplications is exited.
+func (s *BaseSQLParserListener) ExitShowReplications(ctx *ShowReplicationsContext) {}
 
 // EnterShowNamespaces is called when production showNamespaces is entered.
 func (s *BaseSQLParserListener) EnterShowNamespaces(ctx *ShowNamespacesContext) {}
