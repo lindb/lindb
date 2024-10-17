@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/internal/client"
@@ -77,6 +78,14 @@ func (r *reader) suggestTables(database, ns, table string, limit int64) ([]strin
 		values = append(values, resp.Values...)
 	}
 	return values, nil
+}
+
+func (r *reader) env(address string) (rs []config.Env, err error) {
+	_, err = resty.New().R().
+		SetHeader("Accept", "application/json").
+		SetResult(&rs).
+		Get("http://" + address + constants.APIVersion1CliPath + "/env")
+	return
 }
 
 // getStateFromStorage returns the state from storage cluster.

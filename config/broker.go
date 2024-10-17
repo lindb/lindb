@@ -235,6 +235,18 @@ func (b *Broker) TOML() string {
 	)
 }
 
+// NewDefaultBroker creates broker default config
+func NewDefaultBroker() *Broker {
+	return &Broker{
+		Coordinator: *NewDefaultCoordinator(),
+		Query:       *NewDefaultQuery(),
+		BrokerBase:  *NewDefaultBrokerBase(),
+		Monitor:     *NewDefaultMonitor(),
+		Logging:     *logger.NewDefaultSetting(),
+		Prometheus:  *NewDefaultPrometheus(),
+	}
+}
+
 // NewDefaultBrokerTOML creates broker default toml config
 func NewDefaultBrokerTOML() string {
 	return fmt.Sprintf(`## Coordinator related configuration.

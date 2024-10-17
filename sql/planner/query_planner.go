@@ -262,10 +262,8 @@ func (p *QueryPlanner) computeOutputs(builder *PlanBuilder, outputs []tree.Expre
 }
 
 func (p *QueryPlanner) outputExpressions(selectExpressions []*analyzer.SelectExpression) (outputs []tree.Expression) {
-	fmt.Printf("select output expression==%v\n", selectExpressions)
 	// TODO: fixme unfolded express
 	for i := range selectExpressions {
-		fmt.Println(selectExpressions[i].Expression)
 		outputs = append(outputs, selectExpressions[i].Expression)
 	}
 	return

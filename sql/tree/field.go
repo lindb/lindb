@@ -11,6 +11,8 @@ type Field struct {
 	Name          string
 	DataType      types.DataType
 	AggType       types.AggregateType
+	Index         int
+	Hidden        bool
 }
 
 func (f *Field) MatchesPrefix(prefix *QualifiedName) bool {

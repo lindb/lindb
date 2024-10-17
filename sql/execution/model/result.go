@@ -201,7 +201,7 @@ func columnStyles(maxWidths []int) []table.ColumnConfig {
 	//  set the maximum width of the column
 	columnConfigs := make([]table.ColumnConfig, numCols)
 	for i := range columnConfigs {
-		columnConfigs[i] = table.ColumnConfig{Number: i + 1, WidthMax: colWidths[i]}
+		columnConfigs[i] = table.ColumnConfig{Number: i + 1, WidthMax: colWidths[i], WidthMaxEnforcer: text.WrapText}
 	}
 	return columnConfigs
 }

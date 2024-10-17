@@ -260,11 +260,13 @@ func (v *StatementVisitor) visitTable(ctx any, table *tree.Table) (r any) {
 
 	// analyze table
 	var outputFields []*tree.Field
-	for _, col := range tableMetadata.Schema.Columns {
+	for i, col := range tableMetadata.Schema.Columns {
 		// TODO: check agg????
 		outputFields = append(outputFields, &tree.Field{
+			Index:         i,
 			Name:          col.Name, // TODO: dup tag name/field name
 			DataType:      col.DataType,
+			Hidden:        col.Hidden,
 			AggType:       col.AggType,
 			RelationAlias: table.Name,
 		})
@@ -383,12 +385,16 @@ func (v *StatementVisitor) analyzeAllColumnsFromTable(allColumns *tree.AllColumn
 	scope *Scope, outputExpressions []tree.Expression, selectExpressions []*SelectExpression,
 	relationType *Relation, relationAlias *tree.QualifiedName,
 ) (outputs []tree.Expression, selects []*SelectExpression) {
-	for i := range relationType.Fields {
+	// ignore hidden column
+	fields := lo.Filter(relationType.Fields, func(item *tree.Field, index int) bool {
+		return !item.Hidden
+	})
+	for _, field := range fields {
 		fieldRef := &tree.FieldReference{
 			BaseNode: tree.BaseNode{
 				ID: v.analyzer.ctx.IDAllocator.Next(),
 			},
-			FieldIndex: i,
+			FieldIndex: field.Index,
 		}
 		v.analyzeExpression(fieldRef, scope)
 		outputExpressions = append(outputExpressions, fieldRef)
@@ -397,7 +403,7 @@ func (v *StatementVisitor) analyzeAllColumnsFromTable(allColumns *tree.AllColumn
 		})
 	}
 	// FIXME: ???
-	v.analyzer.ctx.Analysis.SetSelectAllResultFields(allColumns, relationType.Fields)
+	v.analyzer.ctx.Analysis.SetSelectAllResultFields(allColumns, fields)
 	return outputExpressions, selectExpressions
 }
 

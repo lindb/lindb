@@ -22,42 +22,75 @@ import (
 	"reflect"
 )
 
+type Env struct {
+	Key     string `json:"key"`
+	Value   string `json:"value"`
+	Default string `json:"default"`
+}
+
 // PrintEnvFormat prints config as env format.
 func PrintEnvFormat(v any) {
-	ptrRef := reflect.ValueOf(v)
+	envs := toEnvs(v)
+	for k, v := range envs {
+		fmt.Printf("%s=%s\n", k, v)
+	}
+}
+
+func ToEnvs(cfg, defaultCfg any) (rs []Env) {
+	envs := toEnvs(cfg)
+	defaultEnvs := toEnvs(defaultCfg)
+	for k, v := range envs {
+		val := v
+		defaultV := defaultEnvs[k]
+		if v == defaultV {
+			val = ""
+		}
+		rs = append(rs, Env{
+			Key:     k,
+			Value:   val,
+			Default: defaultV,
+		})
+	}
+	return
+}
+
+func toEnvs(cfg any) map[string]string {
+	envsMap := make(map[string]string)
+	ptrRef := reflect.ValueOf(cfg)
 	if ptrRef.Kind() != reflect.Ptr {
-		return
+		return nil
 	}
 	ref := ptrRef.Elem()
 	if ref.Kind() != reflect.Struct {
-		return
+		return nil
 	}
-	printStruct(ptrRef.Elem(), "")
+	structToEnvs(ptrRef.Elem(), "", envsMap)
+	return envsMap
 }
 
 // printStruct prints struct.
-func printStruct(ref reflect.Value, prefix string) {
+func structToEnvs(ref reflect.Value, prefix string, envs map[string]string) {
 	refType := ref.Type()
 
 	for i := 0; i < refType.NumField(); i++ {
 		refField := ref.Field(i)
 		refTypeField := refType.Field(i)
 
-		printField(refField, &refTypeField, prefix)
+		fieldToEnvs(refField, &refTypeField, prefix, envs)
 	}
 }
 
-// printField prints field.
-func printField(refField reflect.Value, refTypeField *reflect.StructField, parent string) {
+// fieldToEnvs prints field.
+func fieldToEnvs(refField reflect.Value, refTypeField *reflect.StructField, parent string, envs map[string]string) {
 	prefix := refTypeField.Tag.Get("envPrefix")
 	if prefix != "" {
 		if reflect.Struct == refField.Kind() {
-			printStruct(refField, parent+prefix)
+			structToEnvs(refField, parent+prefix, envs)
 		}
 	} else {
 		envName := refTypeField.Tag.Get("env")
 		if envName != "" {
-			fmt.Printf("%s%s=%v\n", parent, envName, refField)
+			envs[fmt.Sprintf("%s%s", parent, envName)] = fmt.Sprintf("%v", refField)
 		}
 	}
 }

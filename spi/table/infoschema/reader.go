@@ -56,6 +56,8 @@ func (r *reader) ReadData(ctx context.Context, table string, expression tree.Exp
 		_ = expression.Accept(nil, predicate)
 	}
 	switch strings.ToLower(table) {
+	case constants.TableEnv:
+		rows, err = r.readEnv(predicate)
 	case constants.TableMaster:
 		rows, err = r.readMaster()
 	case constants.TableBroker:
@@ -82,6 +84,29 @@ func (r *reader) ReadData(ctx context.Context, table string, expression tree.Exp
 		rows, err = r.readTableNames(predicate)
 	case constants.TableColumns:
 		rows, err = r.readColumns(predicate)
+	}
+	return
+}
+
+func (r *reader) readEnv(predicate *predicate) (rows [][]*types.Datum, err error) {
+	instance := predicate.getColumnValue(envSchema.Columns[0].Name) // instance
+	if instance == "" {
+		return nil, errors.New("instance not found in where clause(ip:port)")
+	}
+	key := predicate.getColumnValue(envSchema.Columns[1].Name) // key
+	envs, err := r.env(instance)
+	if err != nil {
+		return nil, err
+	}
+	for _, env := range envs {
+		if key == "" || env.Key == key {
+			rows = append(rows, types.MakeDatums(
+				instance,    // instance
+				env.Key,     // key
+				env.Value,   // value
+				env.Default, // default
+			))
+		}
 	}
 	return
 }

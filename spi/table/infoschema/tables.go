@@ -43,6 +43,14 @@ func GetShowSelectColumns(name string, start int) (columns []string) {
 }
 
 var (
+	envSchema = &types.TableSchema{
+		Columns: []types.ColumnMetadata{
+			{Name: "instance", DataType: types.DTString, Hidden: true},
+			{Name: "key", DataType: types.DTString},
+			{Name: "value", DataType: types.DTString},
+			{Name: "default", DataType: types.DTString},
+		},
+	}
 	masterSchema = &types.TableSchema{
 		Columns: []types.ColumnMetadata{
 			{Name: "host_ip", DataType: types.DTString},
@@ -163,6 +171,7 @@ var (
 	}
 	// tables represents the schema of tables.
 	tables = map[string]*types.TableSchema{
+		constants.TableEnv:             envSchema,
 		constants.TableMaster:          masterSchema,
 		constants.TableBroker:          brokerSchema,
 		constants.TableStorage:         storageSchema,

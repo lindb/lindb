@@ -231,6 +231,17 @@ func NewDefaultStorageBase() *StorageBase {
 	}
 }
 
+// NewDefaultStorage creates storage's default config
+func NewDefaultStorage() *Storage {
+	return &Storage{
+		Coordinator: *NewDefaultCoordinator(),
+		Query:       *NewDefaultQuery(),
+		Monitor:     *NewDefaultMonitor(),
+		Logging:     *logger.NewDefaultSetting(),
+		StorageBase: *NewDefaultStorageBase(),
+	}
+}
+
 // NewDefaultStorageTOML creates storage's default toml config
 func NewDefaultStorageTOML() string {
 	return fmt.Sprintf(`## Coordinator related configuration.

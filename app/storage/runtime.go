@@ -402,6 +402,9 @@ func (r *runtime) startHTTPServer() {
 	metadataAPI := stateapi.NewMetadataAPI(r.engine)
 	metadataAPI.Register(v1)
 
+	envAPI := api.NewEnvAPI(config.ToEnvs(r.config, config.NewDefaultStorage()))
+	envAPI.Register(v1)
+
 	go r.runHTTPServer()
 }
 
