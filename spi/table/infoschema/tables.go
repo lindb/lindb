@@ -77,25 +77,25 @@ var (
 		Columns: []types.ColumnMetadata{
 			{Name: "table_schema", DataType: types.DTString},
 			{Name: "node", DataType: types.DTString},
-			{Name: "shard_id", DataType: types.DTInt},
-			{Name: "family_time", DataType: types.DTString},
+			{Name: "shard", DataType: types.DTInt},
+			{Name: "family", DataType: types.DTString},
 			{Name: "leader", DataType: types.DTInt},
 			{Name: "replicator", DataType: types.DTString},
-			{Name: "replicator_type", DataType: types.DTString},
+			{Name: "type", DataType: types.DTString},
 			{Name: "append", DataType: types.DTInt},
 			{Name: "consume", DataType: types.DTInt},
 			{Name: "ack", DataType: types.DTInt},
 			{Name: "pending", DataType: types.DTInt},
 			{Name: "state", DataType: types.DTString},
-			{Name: "err_msg", DataType: types.DTString},
+			{Name: "error", DataType: types.DTString},
 		},
 	}
 	memoryDatabaseSchema = &types.TableSchema{
 		Columns: []types.ColumnMetadata{
 			{Name: "table_schema", DataType: types.DTString},
 			{Name: "node", DataType: types.DTString},
-			{Name: "shard_id", DataType: types.DTInt},
-			{Name: "family_time", DataType: types.DTString},
+			{Name: "shard", DataType: types.DTInt},
+			{Name: "family", DataType: types.DTString},
 			{Name: "state", DataType: types.DTString},
 			{Name: "uptime", DataType: types.DTDuration},
 			{Name: "mem_size", DataType: types.DTInt},
@@ -120,7 +120,7 @@ var (
 			{Name: "namespace", DataType: types.DTString},
 		},
 	}
-	tablesSchema = &types.TableSchema{
+	tableNamesSchema = &types.TableSchema{
 		Columns: []types.ColumnMetadata{
 			{Name: "table_schema", DataType: types.DTString},
 			{Name: "namespace", DataType: types.DTString},
@@ -140,8 +140,10 @@ var (
 
 	metricsSchema = &types.TableSchema{
 		Columns: []types.ColumnMetadata{
-			{Name: "metrics_name", DataType: types.DTString},
-			{Name: "instance", DataType: types.DTString},
+			{Name: "role", DataType: types.DTString},
+			{Name: "name", DataType: types.DTString},
+			{Name: "tags", DataType: types.DTString},
+			{Name: "type", DataType: types.DTString},
 			{Name: "value", DataType: types.DTFloat},
 		},
 	}
@@ -157,7 +159,7 @@ var (
 		constants.TableSchemata:        schemtatSchema,
 		constants.TableMetrics:         metricsSchema,
 		constants.TableNamespaces:      namespacesSchema,
-		constants.TableTableNames:      tablesSchema,
+		constants.TableTableNames:      tableNamesSchema,
 		constants.TableColumns:         columnsSchema,
 	}
 )

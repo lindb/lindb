@@ -28,11 +28,15 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
-	prompt "github.com/c-bata/go-prompt"
+	"github.com/elk-language/go-prompt"
+	istrings "github.com/elk-language/go-prompt/strings"
 	"github.com/fatih/color"
 	commonlogger "github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/ltoml"
+	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/client"
@@ -46,7 +50,6 @@ var (
 	urlParse      = url.Parse
 	newExecuteCli = client.NewExecuteCli
 	runPromptFn   = runPrompt
-	exit          = os.Exit
 	newPrompt     = prompt.New
 )
 
@@ -65,6 +68,7 @@ var (
 	query         = ""
 	live          = true
 	cli           client.ExecuteCli
+	suggestItems  = suggestTokens()
 )
 
 // suggestTokens returns prompt suggest tokens.
@@ -95,6 +99,11 @@ func printErr(err error) {
 	fmt.Println(color.RedString("ERROR:%s", err))
 }
 
+func exit() {
+	fmt.Println("Good Bye :)")
+	os.Exit(0)
+}
+
 // executor executes command.
 func executor(in string) {
 	in = strings.TrimSpace(in)
@@ -114,8 +123,7 @@ func executor(in string) {
 		blocks := strings.Split(spacesPattern.ReplaceAllString(query, " "), " ")
 		switch strings.ToLower(blocks[0]) {
 		case "exit":
-			fmt.Println("Good Bye :)")
-			exit(0)
+			exit()
 			return
 		case "use":
 			if len(blocks) == 1 || strings.TrimSpace(blocks[0]) == "" {
@@ -158,16 +166,6 @@ func executeAndPrint(param models.ExecuteParam) {
 		color.GreenString("%d rows in sets (%s)", len(rs.Rows), ltoml.Duration(cost)))
 }
 
-// completer returns prompt suggest.
-func completer(bc string) []prompt.Suggest {
-	if bc == "" {
-		return nil
-	}
-	args := strings.Split(spacesPattern.ReplaceAllString(bc, " "), " ")
-	cmdName := args[len(args)-1]
-	return prompt.FilterHasPrefix(suggestTokens(), cmdName, true)
-}
-
 func main() {
 	flag.Parse()
 
@@ -195,8 +193,9 @@ func main() {
 		printErr(errors.New("no master found"))
 		return
 	}
-	fmt.Println("Welcome to the LinDB.")
-	fmt.Printf("Server version: %s\n", rs.Rows[0][0])
+	version := rs.Rows[0][0]
+	fmt.Println("Welcome to the LinDB. Commands end with ; .")
+	fmt.Printf("Server version: %s\n", version)
 	endpointStr := fmt.Sprintf("lin@%s", endpointURL.Host)
 	var spaces []string
 	for i := 2; i < len(endpointStr); i++ {
@@ -206,29 +205,101 @@ func main() {
 
 	p := newPrompt(
 		executor,
-		func(document prompt.Document) []prompt.Suggest {
-			return completer(document.TextBeforeCursor())
-		},
-		prompt.OptionLivePrefix(func() (string, bool) {
-			if live {
-				return endpointStr + "> ", true
+		prompt.WithCompleter(func(doc prompt.Document) (suggestions []prompt.Suggest, startChar istrings.RuneNumber, endChar istrings.RuneNumber) {
+			endIndex := doc.CurrentRuneIndex()
+			w := doc.GetWordBeforeCursor()
+			startIndex := endIndex - istrings.RuneCountInString(w)
+			if w == "" {
+				return nil, startIndex, endIndex
 			}
-			return prefix + "- > ", true
+			return prompt.FilterHasPrefix(suggestItems, w, true), startIndex, endIndex
 		}),
-		prompt.OptionTitle("LinDB Client"),
+		prompt.WithPrefixCallback(func() string {
+			if live {
+				return endpointStr + "> "
+			}
+			return prefix + "- > "
+		}),
+		prompt.WithTitle(fmt.Sprintf("LinDB %s Command Line Client", version)),
 
-		prompt.OptionPrefixTextColor(prompt.Blue),
-		prompt.OptionInputTextColor(prompt.White),
+		prompt.WithPrefixTextColor(prompt.Blue),
+		prompt.WithInputTextColor(prompt.White),
 
-		prompt.OptionSuggestionBGColor(prompt.LightGray),
-		prompt.OptionSuggestionTextColor(prompt.Black),
-		prompt.OptionDescriptionBGColor(prompt.White),
-		prompt.OptionDescriptionTextColor(prompt.Black),
+		prompt.WithSuggestionBGColor(prompt.LightGray),
+		prompt.WithSuggestionTextColor(prompt.Black),
+		prompt.WithDescriptionBGColor(prompt.White),
+		prompt.WithDescriptionTextColor(prompt.Black),
 
-		prompt.OptionSelectedSuggestionBGColor(prompt.DarkBlue),
-		prompt.OptionSelectedSuggestionTextColor(prompt.Black),
-		prompt.OptionSelectedDescriptionBGColor(prompt.Blue),
-		prompt.OptionSelectedDescriptionTextColor(prompt.Black),
+		prompt.WithSelectedSuggestionBGColor(prompt.DarkBlue),
+		prompt.WithSelectedSuggestionTextColor(prompt.Black),
+		prompt.WithSelectedDescriptionBGColor(prompt.Blue),
+		prompt.WithSelectedDescriptionTextColor(prompt.Black),
+
+		// key bind
+		prompt.WithKeyBind(prompt.KeyBind{Key: prompt.ControlC, Fn: func(buf *prompt.Prompt) bool {
+			exit()
+			return false
+		}}),
+
+		// highlight
+		prompt.WithLexer(prompt.NewEagerLexer(func(line string) []prompt.Token {
+			if len(line) == 0 {
+				return nil
+			}
+
+			var elements []prompt.Token
+			var currentByte istrings.ByteNumber
+			var firstByte istrings.ByteNumber
+			var firstCharSeen bool
+			var lastChar rune
+
+			isKeyWord := func(key string) bool {
+				_, ok := lo.Find(suggestItems, func(item prompt.Suggest) bool {
+					return strings.ToUpper(key) == strings.ToUpper(item.Text)
+				})
+				return ok
+			}
+			var color prompt.Color
+			for i, char := range line {
+				currentByte = istrings.ByteNumber(i)
+				lastChar = char
+				if unicode.IsSpace(char) {
+					if !firstCharSeen {
+						continue
+					}
+
+					if isKeyWord(line[firstByte:currentByte]) {
+						color = prompt.Purple
+						element := prompt.NewSimpleToken(
+							firstByte,
+							currentByte-1,
+							prompt.SimpleTokenWithColor(color),
+						)
+						elements = append(elements, element)
+					}
+					firstCharSeen = false
+					continue
+				}
+				if !firstCharSeen {
+					firstByte = istrings.ByteNumber(i)
+					firstCharSeen = true
+				}
+			}
+			if !unicode.IsSpace(lastChar) {
+				start := currentByte + istrings.ByteNumber(utf8.RuneLen(lastChar)) - 1
+				if isKeyWord(line[firstByte:start]) {
+					color = prompt.Purple
+					element := prompt.NewSimpleToken(
+						firstByte,
+						start,
+						prompt.SimpleTokenWithColor(color),
+					)
+					elements = append(elements, element)
+				}
+			}
+
+			return elements
+		})),
 	)
 	runPromptFn(p)
 }

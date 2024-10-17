@@ -23,7 +23,7 @@ import (
 	"os"
 	"testing"
 
-	prompt "github.com/c-bata/go-prompt"
+	prompt "github.com/elk-language/go-prompt"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 
@@ -69,7 +69,8 @@ func Test_main(t *testing.T) {
 				runPromptFn = func(p *prompt.Prompt) {
 				}
 				newPrompt = func(executor prompt.Executor, completer prompt.Completer,
-					opts ...prompt.Option) *prompt.Prompt {
+					opts ...prompt.Option,
+				) *prompt.Prompt {
 					return nil
 				}
 			},

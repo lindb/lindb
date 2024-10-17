@@ -22,7 +22,6 @@ import (
 	"sync"
 
 	resty "github.com/go-resty/resty/v2"
-
 	"github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/constants"
@@ -34,7 +33,7 @@ import (
 // MetricCli represents metric explore client.
 type MetricCli interface {
 	// FetchMetricData fetches the state metric from each live nodes.
-	FetchMetricData(nodes []models.Node, names []string) (interface{}, error)
+	FetchMetricData(nodes []models.Node, names []string) (map[string][]*models.StateMetric, error)
 }
 
 // metricCli implements MetricCli interface.
@@ -50,7 +49,7 @@ func NewMetricCli() MetricCli {
 }
 
 // FetchMetricData fetches the state metric from each live nodes.
-func (cli *metricCli) FetchMetricData(nodes []models.Node, names []string) (interface{}, error) {
+func (cli *metricCli) FetchMetricData(nodes []models.Node, names []string) (map[string][]*models.StateMetric, error) {
 	size := len(nodes)
 	if size == 0 {
 		return nil, nil

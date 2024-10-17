@@ -19,7 +19,6 @@ package api
 
 import (
 	"github.com/gin-gonic/gin"
-
 	httppkg "github.com/lindb/common/pkg/http"
 	"github.com/lindb/common/pkg/logger"
 
@@ -27,9 +26,7 @@ import (
 	"github.com/lindb/lindb/series/tag"
 )
 
-var (
-	ExploreCurrentPath = "/state/explore/current"
-)
+var ExploreCurrentPath = "/state/explore/current"
 
 // ExploreAPI represents monitoring metric explore rest api.
 type ExploreAPI struct {
@@ -55,7 +52,7 @@ func (d *ExploreAPI) Register(route gin.IRoutes) {
 // ExploreCurrent explores current node monitoring metric.
 func (d *ExploreAPI) ExploreCurrent(c *gin.Context) {
 	var param struct {
-		Names []string `form:"names" binding:"required"`
+		Names []string `form:"names"`
 	}
 	err := c.ShouldBindQuery(&param)
 	if err != nil {
