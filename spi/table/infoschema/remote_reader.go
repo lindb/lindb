@@ -2,6 +2,7 @@ package infoschema
 
 import (
 	"context"
+	"strings"
 	"sync"
 
 	"github.com/go-resty/resty/v2"
@@ -11,8 +12,16 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/coordinator/discovery"
+	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
 	protoMetaV1 "github.com/lindb/lindb/proto/gen/v1/meta"
+)
+
+// for testing
+var (
+	// NewRestyFn represents new resty client.
+	NewStateMachineCliFn = client.NewStateMachineCli
 )
 
 func (r *reader) suggestNamespaces(database, ns string, limit int64) ([]string, error) {
@@ -111,4 +120,35 @@ func (r *reader) fetchStateData(nodes []models.Node, path string, params map[str
 		rs[nodes[idx].Indicator()] = result[idx]
 	}
 	return rs, nil
+}
+
+// exploreStateRepoData explores state data from repo.
+func (r *reader) exploreStateRepoData(ctx context.Context, stateMachineInfo models.StateMachineInfo) (any, error) {
+	return discovery.ExploreData(ctx, r.metadataMgr.GetStateRepo(), stateMachineInfo)
+}
+
+// exploreStateMachineDate explores the state from state machine of broker/master/storage.
+func (r *reader) exploreStateMachineDate(role, metadataType string) (any, error) {
+	param := map[string]string{
+		"type": metadataType,
+		"role": role,
+	}
+	var nodes []models.Node
+	switch strings.ToLower(role) {
+	case strings.ToLower(constants.BrokerRole):
+		nodes = lo.Map(r.metadataMgr.GetBrokerNodes(), func(item models.StatelessNode, index int) models.Node {
+			return &item
+		})
+	case strings.ToLower(constants.MasterRole):
+		nodes = append(nodes, r.metadataMgr.GetMaster().Node)
+	case strings.ToLower(constants.StorageRole):
+		nodes = lo.Map(r.metadataMgr.GetStorageNodes(), func(item models.StatefulNode, index int) models.Node {
+			return &item
+		})
+	default:
+		return nil, nil
+	}
+	// forward broker node
+	cli := NewStateMachineCliFn()
+	return cli.FetchStateByNodes(param, nodes), nil
 }

@@ -19,9 +19,9 @@ package state
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/gin-gonic/gin"
-
 	"github.com/lindb/common/pkg/http"
 	"github.com/lindb/common/pkg/logger"
 
@@ -29,17 +29,13 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/sql/tree"
 )
 
-var (
-	ExplorePath = "/state/machine/explore"
-)
+var ExplorePath = "/state/machine/explore"
 
 type Param struct {
-	Type        string            `form:"type" binding:"required"`
-	Role        tree.MetadataType `form:"role" binding:"required"`
-	StorageName string            `form:"storageName"`
+	Type string `form:"type" binding:"required"`
+	Role string `form:"role" binding:"required"`
 }
 
 // BrokerStateMachineAPI represents state machine explore api.
@@ -71,12 +67,12 @@ func (api *BrokerStateMachineAPI) Explore(c *gin.Context) {
 		http.Error(c, err)
 		return
 	}
-	switch param.Role {
-	case tree.BrokerMetadata:
+	switch strings.ToLower(param.Role) {
+	case strings.ToLower(constants.BrokerRole):
 		api.exploreBroker(c, param)
-	case tree.MasterMetadata:
+	case strings.ToLower(constants.MasterRole):
 		api.exploreMaster(c, param)
-	case tree.StorageMetadata:
+	case strings.ToLower(constants.StorageRole):
 		stateMgr := api.deps.Master.GetStateManager()
 		storageCluster := stateMgr.GetStorageCluster()
 		if storageCluster == nil {

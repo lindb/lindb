@@ -2,6 +2,7 @@ package infoschema
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -13,6 +14,9 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/coordinator/broker"
+	"github.com/lindb/lindb/coordinator/master"
+	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/meta"
 	"github.com/lindb/lindb/models"
@@ -21,7 +25,14 @@ import (
 	"github.com/lindb/lindb/sql/tree"
 )
 
-var metricCli = client.NewMetricCli()
+var (
+	metricCli     = client.NewMetricCli()
+	metadataPaths = map[string]map[string]models.StateMachineInfo{
+		strings.ToLower(constants.BrokerRole):  broker.StateMachinePaths,
+		strings.ToLower(constants.MasterRole):  master.StateMachinePaths,
+		strings.ToLower(constants.StorageRole): storage.StateMachinePaths,
+	}
+)
 
 type Reader interface {
 	ReadData(ctx context.Context, table string, predicate tree.Expression) (rows [][]*types.Datum, err error)
@@ -44,8 +55,6 @@ func (r *reader) ReadData(ctx context.Context, table string, expression tree.Exp
 	if expression != nil {
 		_ = expression.Accept(nil, predicate)
 	}
-	fmt.Printf("read meta data table=%v\n", table)
-
 	switch strings.ToLower(table) {
 	case constants.TableMaster:
 		rows, err = r.readMaster()
@@ -57,6 +66,10 @@ func (r *reader) ReadData(ctx context.Context, table string, expression tree.Exp
 		rows, err = r.readEngines()
 	case constants.TableSchemata:
 		rows, err = r.readSchemata()
+	case constants.TableMetadataTypes:
+		rows, err = r.readMetadataTypes()
+	case constants.TableMetadatas:
+		rows, err = r.readMetadatas(ctx, predicate)
 	case constants.TableMetrics:
 		rows, err = r.readMetrics(predicate)
 	case constants.TableReplications:
@@ -133,6 +146,69 @@ func (r *reader) readSchemata() (rows [][]*types.Datum, err error) {
 			database.Engine, // engine
 		))
 	}
+	return
+}
+
+func (r *reader) readMetadataTypes() (rows [][]*types.Datum, err error) {
+	for role, paths := range metadataPaths {
+		for key, info := range paths {
+			rows = append(rows, types.MakeDatums(
+				role,         // role
+				key,          // type
+				info.Comment, // comment
+			))
+		}
+	}
+	return
+}
+
+func (r *reader) getStateMachineInfo(role, metadataType string) (models.StateMachineInfo, error) {
+	paths := metadataPaths[strings.ToLower(role)]
+	info, ok := paths[metadataType]
+	if !ok {
+		return models.StateMachineInfo{}, errors.New("metadata type not found")
+	}
+	return info, nil
+}
+
+func (r *reader) readMetadatas(ctx context.Context, predicate *predicate) (rows [][]*types.Datum, err error) {
+	role := predicate.getColumnValue(metadatasSchema.Columns[0].Name) // role
+	if role == "" {
+		return nil, errors.New("role not found in where clause(broker/master/storage)")
+	}
+	metadataType := predicate.getColumnValue(metadatasSchema.Columns[1].Name) // type
+	if metadataType == "" {
+		return nil, errors.New("type not found in where clause")
+	}
+	source := predicate.getColumnValue(metadatasSchema.Columns[2].Name) // source
+	if source == "" {
+		return nil, errors.New("source not found in where clause")
+	}
+	info, err := r.getStateMachineInfo(role, metadataType)
+	if err != nil {
+		return nil, err
+	}
+	var data []byte
+	switch strings.ToLower(source) {
+	case "repo":
+		rs, err := r.exploreStateRepoData(ctx, info)
+		if err != nil {
+			return nil, err
+		}
+		data, _ = json.MarshalIndent(rs, "", "  ")
+	case "state_machine":
+		rs, err := r.exploreStateMachineDate(role, metadataType)
+		if err != nil {
+			return nil, err
+		}
+		data, _ = json.MarshalIndent(rs, "", "  ")
+	}
+	rows = append(rows, types.MakeDatums(
+		role,                    // role
+		metadataType,            // type
+		strings.ToLower(source), // source
+		string(data),            // data
+	))
 	return
 }
 
@@ -220,7 +296,7 @@ func (r *reader) readReplications(predicate *predicate) (rows [][]*types.Datum, 
 					replicator.ACK,            // ack
 					replicator.Pending,        // pending
 					replicator.State.String(), // state
-					replicator.StateErrMsg,    // err_msg
+					replicator.StateErrMsg,    // error
 				))
 			}
 		}

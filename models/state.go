@@ -285,6 +285,7 @@ func (s *StorageState) String() string {
 type StateMachineInfo struct {
 	CreateState func() interface{} `json:"-"`
 	Path        string             `json:"path"`
+	Comment     string             `json:"comment"`
 }
 
 // StateMetric represents internal state metric.

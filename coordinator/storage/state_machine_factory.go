@@ -32,13 +32,15 @@ var StateMachinePaths = make(map[string]models.StateMachineInfo)
 
 func init() {
 	StateMachinePaths[constants.LiveNode] = models.StateMachineInfo{
-		Path: constants.StorageLiveNodesPath,
+		Path:    constants.StorageLiveNodesPath,
+		Comment: "Storage alive nodes",
 		CreateState: func() interface{} {
 			return &models.StatefulNode{}
 		},
 	}
 	StateMachinePaths[constants.ShardAssignment] = models.StateMachineInfo{
-		Path: constants.ShardAssignmentPath,
+		Path:    constants.ShardAssignmentPath,
+		Comment: "Database shard assignment.",
 		CreateState: func() interface{} {
 			return &models.ShardAssignment{}
 		},

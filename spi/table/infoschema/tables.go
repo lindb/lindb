@@ -137,7 +137,6 @@ var (
 			{Name: "agg_type", DataType: types.DTString},
 		},
 	}
-
 	metricsSchema = &types.TableSchema{
 		Columns: []types.ColumnMetadata{
 			{Name: "role", DataType: types.DTString},
@@ -147,7 +146,21 @@ var (
 			{Name: "value", DataType: types.DTFloat},
 		},
 	}
-
+	metadataTypesSchema = &types.TableSchema{
+		Columns: []types.ColumnMetadata{
+			{Name: "role", DataType: types.DTString},
+			{Name: "type", DataType: types.DTString},
+			{Name: "comment", DataType: types.DTString},
+		},
+	}
+	metadatasSchema = &types.TableSchema{
+		Columns: []types.ColumnMetadata{
+			{Name: "role", DataType: types.DTString},
+			{Name: "type", DataType: types.DTString},
+			{Name: "source", DataType: types.DTString},
+			{Name: "data", DataType: types.DTString},
+		},
+	}
 	// tables represents the schema of tables.
 	tables = map[string]*types.TableSchema{
 		constants.TableMaster:          masterSchema,
@@ -161,5 +174,7 @@ var (
 		constants.TableNamespaces:      namespacesSchema,
 		constants.TableTableNames:      tableNamesSchema,
 		constants.TableColumns:         columnsSchema,
+		constants.TableMetadataTypes:   metadataTypesSchema,
+		constants.TableMetadatas:       metadatasSchema,
 	}
 )
