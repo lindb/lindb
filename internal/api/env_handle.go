@@ -18,37 +18,23 @@
 package api
 
 import (
-	"net/url"
-
 	"github.com/gin-gonic/gin"
-
 	"github.com/lindb/common/pkg/http"
 
 	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/models"
 )
 
-// for testing
-var (
-	urlParseFn      = url.Parse
-	urlParseQueryFn = url.ParseQuery
-)
-
-var (
-	EnvPath = "/env"
-)
+var EnvPath = "/env"
 
 // EnvAPI represents LinDB's env api.
 type EnvAPI struct {
-	monitor config.Monitor
-	role    string
+	envs []config.Env
 }
 
 // NewEnvAPI creates a EnvAPI instance.
-func NewEnvAPI(monitor config.Monitor, role string) *EnvAPI {
+func NewEnvAPI(envs []config.Env) *EnvAPI {
 	return &EnvAPI{
-		monitor: monitor,
-		role:    role,
+		envs: envs,
 	}
 }
 
@@ -59,27 +45,5 @@ func (api *EnvAPI) Register(route gin.IRoutes) {
 
 // GetEnv returns LinDB's env vars.
 func (api *EnvAPI) GetEnv(c *gin.Context) {
-	monitor, err := api.getSelfMonitor()
-	if err != nil {
-		http.Error(c, err)
-		return
-	}
-	http.OK(c, &models.Env{Monitor: *monitor, Role: api.role})
-}
-
-// getSelfMonitor retruns LinDB's self-monitor vars.
-func (api *EnvAPI) getSelfMonitor() (*models.Monitor, error) {
-	monitorURL := api.monitor.URL
-
-	u, err := urlParseFn(monitorURL)
-	if err != nil {
-		return nil, err
-	}
-	q, err := urlParseQueryFn(u.RawQuery)
-	if err != nil {
-		return nil, err
-	}
-	return &models.Monitor{
-		Database: q.Get("db"),
-	}, nil
+	http.OK(c, api.envs)
 }

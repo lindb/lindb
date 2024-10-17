@@ -27,6 +27,7 @@ type ColumnMetadata struct {
 	Name     string        `json:"name"`
 	DataType DataType      `json:"type"`
 	AggType  AggregateType `json:"aggType,omitempty"`
+	Hidden   bool          `json:"hidden"`
 }
 
 func NewColumnInfo(name string, vt DataType) ColumnMetadata {

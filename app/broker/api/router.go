@@ -27,6 +27,7 @@ import (
 	prometheusIngest "github.com/lindb/lindb/app/broker/api/prometheus/ingest"
 	"github.com/lindb/lindb/app/broker/api/state"
 	depspkg "github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	apipkg "github.com/lindb/lindb/internal/api"
 	"github.com/lindb/lindb/internal/linmetric"
@@ -60,7 +61,7 @@ func NewAPI(deps *depspkg.HTTPDeps, prometheusWriter prometheusIngest.Writer) *A
 		metricExplore:      apipkg.NewExploreAPI(deps.GlobalKeyValues, linmetric.BrokerRegistry),
 		log:                apipkg.NewLoggerAPI(deps.BrokerCfg.Logging.Dir),
 		config:             apipkg.NewConfigAPI(deps.Node, deps.BrokerCfg),
-		env:                apipkg.NewEnvAPI(deps.BrokerCfg.Monitor, constants.BrokerRole),
+		env:                apipkg.NewEnvAPI(config.ToEnvs(deps.BrokerCfg, config.NewDefaultBroker())),
 		write:              ingest.NewWrite(deps),
 		proxy:              httppkg.NewReverseProxy(),
 		prometheusExecute:  prometheus.NewExecuteAPI(deps, prometheusWriter),

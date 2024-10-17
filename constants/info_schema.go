@@ -4,6 +4,8 @@ const (
 	// InformationSchema represents information schema database.
 	InformationSchema = "information_schema"
 
+	TableEnv = "env"
+
 	TableMaster  = "master"
 	TableBroker  = "broker"
 	TableMetrics = "metrics"

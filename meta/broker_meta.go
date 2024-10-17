@@ -72,6 +72,7 @@ func (m *brokerMetadataManager) GetPartitions(database, ns, table string) (map[m
 		currentNode := m.brokerStateMgr.GetCurrentNode()
 		switch strings.ToLower(table) {
 		case constants.TableEngines,
+			constants.TableEnv,
 			constants.TableSchemata,
 			constants.TableMetrics,
 			constants.TableMaster,

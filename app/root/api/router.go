@@ -22,6 +22,7 @@ import (
 
 	"github.com/lindb/lindb/app/root/api/state"
 	depspkg "github.com/lindb/lindb/app/root/deps"
+	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	apipkg "github.com/lindb/lindb/internal/api"
 	"github.com/lindb/lindb/internal/linmetric"
@@ -45,7 +46,7 @@ func NewAPI(deps *depspkg.HTTPDeps) *API {
 		execute:          NewExecuteAPI(deps),
 		rootStateMachine: state.NewRootStateMachineAPI(deps),
 		metricExplore:    apipkg.NewExploreAPI(deps.GlobalKeyValues, linmetric.RootRegistry),
-		env:              apipkg.NewEnvAPI(deps.Cfg.Monitor, constants.RootRole),
+		env:              apipkg.NewEnvAPI(config.ToEnvs(deps.Cfg, config.NewDefaultRoot())),
 		log:              apipkg.NewLoggerAPI(deps.Cfg.Logging.Dir),
 		config:           apipkg.NewConfigAPI(deps.Node, deps.Cfg),
 		proxy:            httppkg.NewReverseProxy(),
