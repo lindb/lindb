@@ -200,7 +200,7 @@ func (sm *stateMachine) Close() error {
 }
 
 // ExploreData explores state repository data by given path.
-func ExploreData(ctx context.Context, repo state.Repository, stateMachineInfo models.StateMachineInfo) (interface{}, error) {
+func ExploreData(ctx context.Context, repo state.Repository, stateMachineInfo models.StateMachineInfo) (any, error) {
 	var rs []interface{}
 	err := repo.WalkEntry(ctx, stateMachineInfo.Path, func(key, value []byte) {
 		r := stateMachineInfo.CreateState()

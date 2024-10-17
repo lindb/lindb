@@ -13,25 +13,33 @@ import (
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/master"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/state"
 	protoMetaV1 "github.com/lindb/lindb/proto/gen/v1/meta"
 	"github.com/lindb/lindb/spi/types"
 )
 
 type brokerMetadataManager struct {
+	repo             state.Repository
 	brokerStateMgr   broker.StateManager
 	masterStateMgr   master.StateManager
 	masterController coordinator.MasterController
 }
 
 func NewBrokerMetadataManager(
+	repo state.Repository,
 	brokerStateMgr broker.StateManager,
 	masterController coordinator.MasterController,
 ) MetadataManager {
 	return &brokerMetadataManager{
+		repo:             repo,
 		brokerStateMgr:   brokerStateMgr,
 		masterStateMgr:   masterController.GetStateManager(),
 		masterController: masterController,
 	}
+}
+
+func (m *brokerMetadataManager) GetStateRepo() state.Repository {
+	return m.repo
 }
 
 func (m *brokerMetadataManager) GetMaster() *models.Master {
@@ -73,6 +81,8 @@ func (m *brokerMetadataManager) GetPartitions(database, ns, table string) (map[m
 			constants.TableMemoryDatabases,
 			constants.TableNamespaces,
 			constants.TableTableNames,
+			constants.TableMetadataTypes,
+			constants.TableMetadatas,
 			constants.TableColumns:
 			partitions = map[models.InternalNode][]int{
 				{IP: currentNode.HostIP, Port: currentNode.GRPCPort}: {},

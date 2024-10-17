@@ -2,10 +2,12 @@ package meta
 
 import (
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/spi/types"
 )
 
 type MetadataManager interface {
+	GetStateRepo() state.Repository
 	// GetMaster returns the current master info.
 	GetMaster() *models.Master
 	// GetBrokerNodes returns all alive broker nodes.
