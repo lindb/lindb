@@ -68,8 +68,13 @@ var (
 	query         = ""
 	live          = true
 	cli           client.ExecuteCli
-	suggestItems  = suggestTokens()
+	suggestItems  []prompt.Suggest
 )
+
+func init() {
+	loadHistory()
+	suggestItems = suggestTokens()
+}
 
 // suggestTokens returns prompt suggest tokens.
 func suggestTokens() (tokens []prompt.Suggest) {
@@ -101,6 +106,7 @@ func printErr(err error) {
 
 func exit() {
 	fmt.Println("Good Bye :)")
+	saveHistory()
 	os.Exit(0)
 }
 
@@ -116,12 +122,17 @@ func executor(in string) {
 			query = ""
 		}()
 
+		addToHistory(query)
+
 		query = strings.TrimSpace(strings.TrimSuffix(query, ";"))
 		if query == "" {
 			return
 		}
 		blocks := strings.Split(spacesPattern.ReplaceAllString(query, " "), " ")
 		switch strings.ToLower(blocks[0]) {
+		case "history":
+			fmt.Println(historyList.String())
+			return
 		case "exit":
 			exit()
 			return
@@ -177,6 +188,7 @@ func main() {
 		printErr(err)
 		return
 	}
+
 	commonlogger.IsCli = true
 	_ = logger.InitLogger(commonlogger.Setting{Level: "error", Dir: "."}, "lin-cli.log")
 
@@ -212,7 +224,7 @@ func main() {
 			if w == "" {
 				return nil, startIndex, endIndex
 			}
-			return prompt.FilterHasPrefix(suggestItems, w, true), startIndex, endIndex
+			return prompt.FilterHasPrefix(suggestItems, w, true), 0, endIndex
 		}),
 		prompt.WithPrefixCallback(func() string {
 			if live {
@@ -234,12 +246,24 @@ func main() {
 		prompt.WithSelectedSuggestionTextColor(prompt.Black),
 		prompt.WithSelectedDescriptionBGColor(prompt.Blue),
 		prompt.WithSelectedDescriptionTextColor(prompt.Black),
+		prompt.WithHistory(lo.Map(historyList, func(line string, _ int) string {
+			return line
+		})),
 
 		// key bind
-		prompt.WithKeyBind(prompt.KeyBind{Key: prompt.ControlC, Fn: func(buf *prompt.Prompt) bool {
-			exit()
-			return false
-		}}),
+		prompt.WithKeyBind(
+			prompt.KeyBind{Key: prompt.ControlC, Fn: func(p *prompt.Prompt) bool {
+				exit()
+				return false
+			}},
+			prompt.KeyBind{
+				Key: prompt.ControlR, Fn: func(p *prompt.Prompt) bool {
+					return p.CursorLeftRunes(
+						p.Buffer().Document().FindStartOfFirstWordOfLine(),
+					)
+				},
+			},
+		),
 
 		// highlight
 		prompt.WithLexer(prompt.NewEagerLexer(func(line string) []prompt.Token {
