@@ -2,9 +2,7 @@ package model
 
 import (
 	"fmt"
-	"syscall"
 	"time"
-	"unsafe"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
@@ -14,6 +12,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/terminal"
 	"github.com/lindb/lindb/spi/types"
 )
 
@@ -36,7 +35,7 @@ func NewResultSet() *ResultSet {
 // ToTable returns stateless node list as table if it has value, else return empty string.
 func (rs *ResultSet) ToTable() (tableStr string) {
 	writer := commonmodels.NewTableFormatter()
-	writer.SetStyle(tableSylte())
+	writer.SetStyle(terminal.TableSylte())
 	var headers table.Row
 	var columnTypes []types.DataType
 	var (
@@ -135,42 +134,9 @@ func max(a, b int) int {
 	return b
 }
 
-func tableSylte() table.Style {
-	return table.Style{
-		Name: "Custom",
-		Box: table.BoxStyle{
-			BottomLeft:       "+",
-			BottomRight:      "+",
-			BottomSeparator:  "+",
-			Left:             "|",
-			LeftSeparator:    "+",
-			MiddleHorizontal: "-",
-			MiddleSeparator:  "+",
-			MiddleVertical:   "|",
-			PaddingLeft:      "",
-			PaddingRight:     "",
-			Right:            "|",
-			RightSeparator:   "+",
-			TopLeft:          "+",
-			TopRight:         "+",
-			TopSeparator:     "+",
-			UnfinishedRow:    "",
-		},
-		Color: table.ColorOptions{
-			Header: text.Colors{text.Bold},
-		},
-		Options: table.Options{
-			DrawBorder:      true,
-			SeparateColumns: true,
-			SeparateHeader:  true,
-			SeparateRows:    true,
-		},
-	}
-}
-
 func columnStyles(maxWidths []int) []table.ColumnConfig {
 	// get terminal width
-	terminalWidth := getTerminalWidth()
+	terminalWidth := terminal.GetTerminalWidth()
 	// calculate the width of each column
 	numCols := len(maxWidths)
 	colWidths := make([]int, numCols)
@@ -204,21 +170,4 @@ func columnStyles(maxWidths []int) []table.ColumnConfig {
 		columnConfigs[i] = table.ColumnConfig{Number: i + 1, WidthMax: colWidths[i], WidthMaxEnforcer: text.WrapText}
 	}
 	return columnConfigs
-}
-
-func getTerminalWidth() int {
-	var ws struct {
-		Row    uint16
-		Col    uint16
-		Xpixel uint16
-		Ypixel uint16
-	}
-	_, _, err := syscall.Syscall(syscall.SYS_IOCTL,
-		uintptr(syscall.Stdin),
-		uintptr(syscall.TIOCGWINSZ),
-		uintptr(unsafe.Pointer(&ws)))
-	if err != 0 {
-		return 80 // default width
-	}
-	return int(ws.Col)
 }
