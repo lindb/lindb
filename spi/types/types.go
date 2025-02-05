@@ -1,3 +1,20 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package types
 
 import (
@@ -63,30 +80,30 @@ func (dt DataType) String() string {
 	}
 }
 
-func (vt DataType) MarshalJSON() ([]byte, error) {
-	return encoding.JSONMarshal(vt.String()), nil
+func (dt DataType) MarshalJSON() ([]byte, error) {
+	return encoding.JSONMarshal(dt.String()), nil
 }
 
-func (tv *DataType) UnmarshalJSON(data []byte) error {
+func (dt *DataType) UnmarshalJSON(data []byte) error {
 	var str string
 	if err := encoding.JSONUnmarshal(data, &str); err != nil {
 		return err
 	}
 	switch str {
 	case "string":
-		*tv = DTString
+		*dt = DTString
 	case "int":
-		*tv = DTInt
+		*dt = DTInt
 	case "float":
-		*tv = DTFloat
+		*dt = DTFloat
 	case "duration":
-		*tv = DTDuration
+		*dt = DTDuration
 	case "timestamp":
-		*tv = DTTimestamp
+		*dt = DTTimestamp
 	case "time_series":
-		*tv = DTTimeSeries
+		*dt = DTTimeSeries
 	default:
-		*tv = DTUnknown
+		*dt = DTUnknown
 	}
 	return nil
 }

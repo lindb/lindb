@@ -1,3 +1,20 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package tree
 
 import (
@@ -53,10 +70,29 @@ func (v *AstVisitor) VisitStatement(ctx *grammar.StatementContext) any {
 
 func (v *AstVisitor) VisitAdminStatement(ctx *grammar.AdminStatementContext) any {
 	switch {
+	case ctx.FlushDatabase() != nil:
+		return v.Visit(ctx.FlushDatabase())
+	case ctx.CompactDatabase() != nil:
+		return v.Visit(ctx.CompactDatabase())
 	case ctx.ShowStatement() != nil:
 		return v.Visit(ctx.ShowStatement())
+	default:
+		return v.VisitChildren(ctx)
 	}
-	return v.VisitChildren(ctx)
+}
+
+func (v *AstVisitor) VisitFlushDatabase(ctx *grammar.FlushDatabaseContext) any {
+	return &FlushDatabase{
+		BaseNode: v.createBaseNode(ctx),
+		Database: v.getQualifiedName(ctx.GetDatabase()).Name,
+	}
+}
+
+func (v *AstVisitor) VisitCompactDatabase(ctx *grammar.CompactDatabaseContext) any {
+	return &CompactDatabase{
+		BaseNode: v.createBaseNode(ctx),
+		Database: v.getQualifiedName(ctx.GetDatabase()).Name,
+	}
 }
 
 func (v *AstVisitor) VisitShowDatabases(ctx *grammar.ShowDatabasesContext) any {
@@ -176,15 +212,15 @@ func (v *AstVisitor) VisitCreateDatabase(ctx *grammar.CreateDatabaseContext) any
 	return createDatabase
 }
 
-func (v *AstVisitor) VisitDbOptions(ctx *grammar.DbOptionsContext) interface{} {
+func (v *AstVisitor) VisitDatabaseOpts(ctx *grammar.DatabaseOptsContext) any {
 	return visit[CreateOption](ctx.AllCreateDatabaseOptions(), v)
 }
 
-func (v *AstVisitor) VisitWithProps(ctx *grammar.WithPropsContext) interface{} {
+func (v *AstVisitor) VisitWithProps(ctx *grammar.WithPropsContext) any {
 	return visit[*Property](ctx.Properties().PropertyAssignments().AllProperty(), v)
 }
 
-func (v *AstVisitor) VisitRollupProps(ctx *grammar.RollupPropsContext) interface{} {
+func (v *AstVisitor) VisitRollupProps(ctx *grammar.RollupPropsContext) any {
 	fmt.Println("rollup props")
 	return visit[*RollupOption](ctx.AllRollupOptions(), v)
 }
@@ -240,10 +276,10 @@ func (v *AstVisitor) VisitUtilityStatement(ctx *grammar.UtilityStatementContext)
 }
 
 func (v *AstVisitor) VisitUseStatement(ctx *grammar.UseStatementContext) any {
-	identifer := v.Visit(ctx.GetDatabase()).(*Identifier)
+	identifier := v.Visit(ctx.GetDatabase()).(*Identifier)
 	return &Use{
 		BaseNode: v.createBaseNode(ctx),
-		Database: identifer,
+		Database: identifier,
 	}
 }
 
@@ -255,7 +291,7 @@ func (v *AstVisitor) VisitStatementDefault(ctx *grammar.StatementDefaultContext)
 	return v.VisitChildren(ctx)
 }
 
-func (v *AstVisitor) VisitExplain(ctx *grammar.ExplainContext) interface{} {
+func (v *AstVisitor) VisitExplain(ctx *grammar.ExplainContext) any {
 	return &Explain{
 		BaseNode:  v.createBaseNode(ctx),
 		Options:   visit[ExplainOption](ctx.AllExplainOption(), v),
@@ -273,7 +309,7 @@ func (v *AstVisitor) VisitExplainType(ctx *grammar.ExplainTypeContext) any {
 	}
 }
 
-func (v *AstVisitor) VisitExplainAnalyze(ctx *grammar.ExplainAnalyzeContext) interface{} {
+func (v *AstVisitor) VisitExplainAnalyze(ctx *grammar.ExplainAnalyzeContext) any {
 	return v.VisitChildren(ctx)
 }
 
@@ -482,11 +518,11 @@ func (v *AstVisitor) VisitAliasedRelation(ctx *grammar.AliasedRelationContext) a
 		return child
 	}
 	// parese relation aliase
-	identifer := v.Visit(ctx.Identifier()).(*Identifier)
+	identifier := v.Visit(ctx.Identifier()).(*Identifier)
 	return &AliasedRelation{
 		BaseNode: v.createBaseNode(ctx),
 		Relation: child,
-		Aliase:   identifer,
+		Aliase:   identifier,
 	}
 }
 
@@ -600,7 +636,9 @@ func (v *AstVisitor) VisitAnd(ctx *grammar.AndContext) any {
 	}
 }
 
-func (v *AstVisitor) flatten(root antlr.ParserRuleContext, extractChildren func(ctx antlr.ParserRuleContext) []antlr.ParserRuleContext) (result []antlr.ParserRuleContext) {
+func (v *AstVisitor) flatten(root antlr.ParserRuleContext,
+	extractChildren func(ctx antlr.ParserRuleContext) []antlr.ParserRuleContext,
+) (result []antlr.ParserRuleContext) {
 	pending := collections.NewStack()
 	pending.Push(root)
 	for pending.Size() > 0 {

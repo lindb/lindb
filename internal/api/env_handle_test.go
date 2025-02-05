@@ -18,10 +18,8 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -34,8 +32,7 @@ import (
 func TestGetEnv(t *testing.T) {
 	r := gin.New()
 	api := NewEnvAPI(
-		config.Monitor{URL: "http://localhost?db=_internal"},
-		"Broker",
+		[]config.Env{},
 	)
 	api.Register(r)
 
@@ -45,29 +42,7 @@ func TestGetEnv(t *testing.T) {
 		assert  func(resp *httptest.ResponseRecorder)
 	}{
 		{
-			desc: "parse url fail",
-			prepare: func() {
-				urlParseFn = func(_ string) (*url.URL, error) {
-					return nil, fmt.Errorf("err")
-				}
-			},
-			assert: func(resp *httptest.ResponseRecorder) {
-				assert.Equal(t, http.StatusInternalServerError, resp.Code)
-			},
-		},
-		{
-			desc: "parse params fail",
-			prepare: func() {
-				urlParseQueryFn = func(_ string) (url.Values, error) {
-					return url.Values{}, fmt.Errorf("err")
-				}
-			},
-			assert: func(resp *httptest.ResponseRecorder) {
-				assert.Equal(t, http.StatusInternalServerError, resp.Code)
-			},
-		},
-		{
-			desc: "get monitor env successfully",
+			desc: "get env successfully",
 			prepare: func() {
 			},
 			assert: func(resp *httptest.ResponseRecorder) {
@@ -77,10 +52,6 @@ func TestGetEnv(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(_ *testing.T) {
-			defer func() {
-				urlParseFn = url.Parse
-				urlParseQueryFn = url.ParseQuery
-			}()
 			tC.prepare()
 			resp := mock.DoRequest(t, r, http.MethodGet, EnvPath, "")
 			tC.assert(resp)

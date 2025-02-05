@@ -24,13 +24,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/mock/gomock"
-
 	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/ltoml"
 	"github.com/lindb/common/pkg/timeutil"
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/broker"
@@ -58,12 +57,14 @@ func TestChannelManager_GetChannel(t *testing.T) {
 	assert.Error(t, err)
 
 	opt := &option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}
-	ch1, err := cm1.CreateChannel(models.Database{Name: "database",
+	ch1, err := cm1.CreateChannel(models.Database{
+		Name:   "database",
 		Option: opt,
 	}, 3, 0)
 	assert.NoError(t, err)
 
-	ch111, err := cm1.CreateChannel(models.Database{Name: "database",
+	ch111, err := cm1.CreateChannel(models.Database{
+		Name:   "database",
 		Option: opt,
 	}, 3, 0)
 	assert.NoError(t, err)
@@ -153,7 +154,6 @@ func TestChannelManager_handleShardStateChangeEvent(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(_ *testing.T) {
 			if tt.prepare != nil {
 				tt.prepare()
@@ -196,7 +196,8 @@ func mockBrokerRows(t *testing.T) *metric.BrokerBatchRows {
 		Name:      "cpu",
 		Timestamp: timeutil.Now(),
 		SimpleFields: []*protoMetricsV1.SimpleField{
-			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
+			{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
+		},
 	}, &brokerRow))
 	rows := metric.NewBrokerBatchRows()
 	assert.NoError(t, rows.TryAppend(func(row *metric.BrokerRow) error {

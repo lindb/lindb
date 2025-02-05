@@ -33,7 +33,7 @@ import (
 )
 
 func Test_BrokerBatchRows(t *testing.T) {
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		brokerRows := NewBrokerBatchRows()
 		assertBrokerBatchRows(t, brokerRows)
 		brokerRows.Release()
@@ -44,8 +44,7 @@ func assertBrokerBatchRows(t *testing.T, brokerRows *BrokerBatchRows) {
 	now := fasttime.UnixMilliseconds()
 
 	assert.Zero(t, brokerRows.Len())
-	for i := 0; i < 1000; i++ {
-		i := i
+	for i := range 1000 {
 		assert.NoError(t, brokerRows.TryAppend(func(row *BrokerRow) error {
 			buildRow(row, now-int64(i)*1000*60)
 			return nil
@@ -74,7 +73,7 @@ func assertBrokerBatchRows(t *testing.T, brokerRows *BrokerBatchRows) {
 	assert.False(t, itr.HasRowsForNextShard())
 
 	itr = brokerRows.NewShardGroupIterator(10)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		assert.True(t, itr.HasRowsForNextShard())
 		shardIdx, familyItr = itr.FamilyRowsForNextShard(interval)
 		assert.Equal(t, i, shardIdx)
@@ -135,7 +134,7 @@ func Test_BrokerBatchRows_FamilyRowsForNextShard_SingleShard(t *testing.T) {
 	now := fasttime.UnixMilliseconds()
 
 	var brokerRows BrokerBatchRows
-	for i := 0; i < 30; i++ {
+	for range 30 {
 		_ = brokerRows.TryAppend(func(row *BrokerRow) error {
 			buildRow(row, now)
 			return nil

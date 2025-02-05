@@ -1,39 +1,36 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package operator
 
 import (
-	"context"
-
-	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
 
-type OperatorFactory interface {
-	CreateOperator(ctx context.Context) Operator
-}
-
-type SourceOperatorFactory interface {
-	OperatorFactory
-}
-
 type Operator interface {
-	GetOutput() *types.Page
-
-	GetOutbound() <-chan *types.Page
-
-	AddInput(page *types.Page)
-	// Finish notifies the operator that no more pages will be added
-	// and the operator should finish processing and flush results.
-	Finish()
-	// IsFinished if this operator finished processing and no more output page will be produced.
-	IsFinished() bool
+	Run(output chan<- *types.Page)
+	// GetLayout returns the output layout.
+	GetLayout() []*plan.Symbol
 }
 
 type SourceOperator interface {
 	Operator
-
 	GetSourceID() plan.PlanNodeID
-
-	AddSplit(split spi.Split)
-	NoMoreSplits()
+	Receive(page *types.Page)
+	Complete()
 }

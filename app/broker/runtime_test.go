@@ -177,6 +177,7 @@ func TestBrokerRuntime_Run(t *testing.T) {
 				newMasterController = func(cfg *coordinator.MasterCfg) coordinator.MasterController {
 					return mc
 				}
+				mc.EXPECT().GetStateManager().Return(nil)
 				mc.EXPECT().WatchMasterElected(gomock.Any()).DoAndReturn(func(fn func(_ *models.Master)) {
 					fn(&models.Master{})
 				})
@@ -201,13 +202,11 @@ func TestBrokerRuntime_Run(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				getHostIP = hostutil.GetHostIP
 				hostName = os.Hostname
 				newGRPCServer = rpc.NewGRPCServer
-				newTaskClientFactory = rpc.NewTaskClientFactory
 				newStateManager = brokerpkg.NewStateManager
 				newChannelManager = replica.NewChannelManager
 				newMasterController = coordinator.NewMasterController
@@ -252,7 +251,6 @@ func TestBrokerRuntime_Stop(t *testing.T) {
 	smFct := discovery.NewMockStateMachineFactory(ctrl)
 	repo := state.NewMockRepository(ctrl)
 	stateMgr := brokerpkg.NewMockStateManager(ctrl)
-	connectionMgr := rpc.NewMockConnectionManager(ctrl)
 	channelMgr := replica.NewMockChannelManager(ctrl)
 	grpcServer := rpc.NewMockGRPCServer(ctrl)
 	registry.EXPECT().Deregister().Return(fmt.Errorf("err")).AnyTimes()
@@ -270,7 +268,6 @@ func TestBrokerRuntime_Stop(t *testing.T) {
 				smFct.EXPECT().Stop()
 				repo.EXPECT().Close().Return(fmt.Errorf("err"))
 				stateMgr.EXPECT().Close()
-				connectionMgr.EXPECT().Close().Return(fmt.Errorf("err"))
 				channelMgr.EXPECT().Close()
 				grpcServer.EXPECT().Stop()
 			},
@@ -284,7 +281,6 @@ func TestBrokerRuntime_Stop(t *testing.T) {
 				smFct.EXPECT().Stop()
 				repo.EXPECT().Close().Return(nil)
 				stateMgr.EXPECT().Close()
-				connectionMgr.EXPECT().Close().Return(nil)
 				channelMgr.EXPECT().Close()
 				grpcServer.EXPECT().Stop()
 			},
@@ -292,7 +288,6 @@ func TestBrokerRuntime_Stop(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.TODO())
 			r := &runtime{
@@ -306,9 +301,6 @@ func TestBrokerRuntime_Stop(t *testing.T) {
 				stateMgr:            stateMgr,
 				srv: srv{
 					channelManager: channelMgr,
-				},
-				factory: factory{
-					connectionMgr: connectionMgr,
 				},
 				grpcServer: grpcServer,
 				logger:     logger.GetLogger("Runtime", "Test"),
@@ -356,8 +348,6 @@ func TestBrokerRuntime_RunHTTPServer(t *testing.T) {
 
 func resetNewDepsMock() {
 	newStateManager = func(ctx context.Context, currentNode models.StatelessNode,
-		connectionManager rpc.ConnectionManager,
-		taskClientFactory rpc.TaskClientFactory,
 	) brokerpkg.StateManager {
 		return nil
 	}

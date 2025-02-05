@@ -21,13 +21,11 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 
-	"github.com/lindb/roaring"
-
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
@@ -39,14 +37,11 @@ func TestFileFilterResultSet_Load(t *testing.T) {
 
 	reader := NewMockMetricReader(ctrl)
 	snapshot := version.NewMockSnapshot(ctrl)
-	rs := newFileFilterResultSet(1, nil, reader, snapshot)
-	reader.EXPECT().Load(gomock.Any())
-	rs.Load(&flow.DataLoadContext{})
+	rs := newFileFilterResultSet(1, timeutil.Interval(0), timeutil.SlotRange{Start: 10, End: 20},
+		nil, field.Metas{}, reader, snapshot)
+	reader.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any())
+	rs.Load(1, roaring.NewBitmap().GetContainer(0))
 	assert.Equal(t, int64(1), rs.FamilyTime())
-	reader.EXPECT().GetTimeRange().Return(timeutil.SlotRange{
-		Start: 10,
-		End:   20,
-	})
 	assert.Equal(t, timeutil.SlotRange{
 		Start: 10,
 		End:   20,
@@ -60,7 +55,8 @@ func TestMetricsDataFilter_Filter(t *testing.T) {
 	defer ctrl.Finish()
 
 	reader := NewMockMetricReader(ctrl)
-	filter := NewFilter(10, nil, []MetricReader{reader})
+	reader.EXPECT().GetTimeRange().Return(timeutil.SlotRange{}).AnyTimes()
+	filter := NewFilter(10, timeutil.Interval(0), timeutil.SlotRange{}, nil, []MetricReader{reader})
 
 	// case 1: field not found
 	reader.EXPECT().GetFields().Return(field.Metas{{ID: 2}, {ID: 20}})

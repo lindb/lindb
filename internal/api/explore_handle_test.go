@@ -40,13 +40,11 @@ func TestExploreAPI_ExploreCurrent(t *testing.T) {
 	}, linmetric.BrokerRegistry)
 	r := gin.New()
 	api.Register(r)
-	resp := mock.DoRequest(t, r, http.MethodGet, ExploreCurrentPath, "")
-	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 
 	metric := linmetric.BrokerRegistry.
 		NewScope("lindb.ut").
 		NewGauge("path")
 	metric.Add(1)
-	resp = mock.DoRequest(t, r, http.MethodGet, ExploreCurrentPath+"?names=lindb.ut&tags[a]=b", "")
+	resp := mock.DoRequest(t, r, http.MethodGet, ExploreCurrentPath+"?names=lindb.ut&tags[a]=b", "")
 	assert.Equal(t, http.StatusOK, resp.Code)
 }

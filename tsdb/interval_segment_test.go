@@ -68,7 +68,6 @@ func TestIntervalSegment_New(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				mkDirIfNotExist = fileutil.MkDirIfNotExist
@@ -127,7 +126,6 @@ func TestIntervalSegment_GetOrCreateSegment(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				newSegmentFunc = newSegment
@@ -274,7 +272,6 @@ func TestIntervalSegment_GetDataFamilies(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				listDir = fileutil.ListDir
@@ -360,7 +357,6 @@ func TestIntervalSegment_TTL(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				listDir = fileutil.ListDir

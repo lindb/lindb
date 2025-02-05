@@ -1,9 +1,25 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package metric
 
 import (
 	"fmt"
 
-	common_tileutil "github.com/lindb/common/pkg/timeutil"
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/flow"
@@ -25,33 +41,31 @@ func init() {
 			Database:  db,
 			Namespace: ns,
 			Metric:    name,
-			// FIXME: remove it
-			Interval:        timeutil.Interval(10 * common_tileutil.OneSecond),
-			StorageInterval: timeutil.Interval(10 * common_tileutil.OneSecond),
-			IntervalRatio:   1,
 		}
 	})
 
-	spi.RegisterApplyAggregationFn(spi.Metric, func(table spi.TableHandle, tableMeta *types.TableMetadata, aggregations []spi.ColumnAggregation) *spi.ApplyAggregationResult {
-		result := &spi.ApplyAggregationResult{}
-		// FIXME: find downSampling agg
-		for _, agg := range aggregations {
-			result.ColumnAssignments = append(result.ColumnAssignments,
-				&spi.ColumnAssignment{Column: agg.Column, Handler: &ColumnHandle{Downsampling: tree.Max, Aggregation: agg.AggFuncName}},
-			)
-		}
-		return result
-	})
+	spi.RegisterApplyAggregationFn(spi.Metric,
+		func(table spi.TableHandle, tableMeta *types.TableMetadata,
+			aggregations []spi.ColumnAggregation,
+		) *spi.ApplyAggregationResult {
+			result := &spi.ApplyAggregationResult{}
+			// FIXME: find downSampling agg
+			for _, agg := range aggregations {
+				result.ColumnAssignments = append(result.ColumnAssignments,
+					&spi.ColumnAssignment{Column: agg.Column, Handler: &ColumnHandle{Downsampling: tree.Max, Aggregation: agg.AggFuncName}},
+				)
+			}
+			return result
+		})
 }
 
 type TableHandle struct {
-	Database        string             `json:"database"`
-	Namespace       string             `json:"namespace"`
-	Metric          string             `json:"metric"`
-	TimeRange       timeutil.TimeRange `json:"timeRange"`
-	Interval        timeutil.Interval  `json:"interval"`
-	StorageInterval timeutil.Interval  `json:"storageInterval"`
-	IntervalRatio   int                `json:"intervalRatio"`
+	Database  string `json:"database"`
+	Namespace string `json:"namespace"`
+	Metric    string `json:"metric"`
+
+	TimeRange timeutil.TimeRange `json:"timeRange"`
+	Interval  timeutil.Interval  `json:"interval"`
 }
 
 func (t *TableHandle) SetTimeRange(timeRange timeutil.TimeRange) {
@@ -60,6 +74,14 @@ func (t *TableHandle) SetTimeRange(timeRange timeutil.TimeRange) {
 
 func (t *TableHandle) GetTimeRange() timeutil.TimeRange {
 	return t.TimeRange
+}
+
+func (t *TableHandle) SetInterval(interval timeutil.Interval) {
+	t.Interval = interval
+}
+
+func (t *TableHandle) GetInterval() timeutil.Interval {
+	return t.Interval
 }
 
 func (t *TableHandle) Kind() spi.DatasourceKind {
@@ -73,15 +95,6 @@ func (t *TableHandle) String() string {
 type ColumnHandle struct {
 	Downsampling tree.FuncName `json:"downsampling"`
 	Aggregation  tree.FuncName `json:"aggregation"`
-}
-
-type ScanSplit struct {
-	tableScan       *TableScan
-	groupingContext flow.GroupingContext
-	resultSet       []flow.FilterResultSet // FIXME: need close result set after task finish
-
-	lowSeriesIDs    roaring.Container
-	seriesIDHighKey uint16
 }
 
 type DataSplit struct {
@@ -98,7 +111,7 @@ type Partition struct {
 	shard     tsdb.Shard
 	families  []tsdb.DataFamily
 
-	resultSet []flow.FilterResultSet
+	fieldsData []flow.FilterResultSet
 }
 
 type TimeSeries struct {

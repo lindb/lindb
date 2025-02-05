@@ -17,6 +17,8 @@
 
 package models
 
+import "github.com/lindb/lindb/constants"
+
 // ExecuteParam represents lin query language executor's param.
 type ExecuteParam struct {
 	Database string `form:"db" json:"db"`
@@ -45,6 +47,6 @@ func (stmt StatementType) String() string {
 	case Select:
 		return "Select"
 	default:
-		return "Unknown"
+		return constants.Unknown
 	}
 }

@@ -394,7 +394,7 @@ func (e *ExecuteAPI) queryRangeResult(c *gin.Context) (result apiFuncResult) {
 			return invalidParamError(err0, "timeout")
 		}
 
-		ctx, cancel = context.WithTimeout(ctx, timeout)
+		_, cancel = context.WithTimeout(ctx, timeout)
 		defer cancel()
 	}
 
@@ -403,7 +403,7 @@ func (e *ExecuteAPI) queryRangeResult(c *gin.Context) (result apiFuncResult) {
 		return apiFuncResult{nil, &apiError{errorBadData, err}, nil, nil}
 	}
 
-	// queryable := NewQueryable(e.deps)
+	//TODO: queryable := NewQueryable(e.deps)
 	//
 	// qry, err := e.engine.NewRangeQuery(ctx, queryable, opts, r.FormValue("query"), start, end, step)
 	// if err != nil {

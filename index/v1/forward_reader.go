@@ -158,11 +158,10 @@ type tagForwardScanner struct {
 
 // newTagForwardScanner creates a tag forward index scanner
 func newTagForwardScanner(reader TagForwardReader) *tagForwardScanner {
-	min := reader.GetSeriesIDs().Minimum()
 	s := &tagForwardScanner{
 		reader: reader,
 	}
-	s.highKey = encoding.HighBits(min)
+	s.highKey = encoding.HighBits(reader.GetSeriesIDs().Minimum())
 	s.nextContainer(s.highKey)
 	return s
 }

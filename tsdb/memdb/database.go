@@ -447,7 +447,7 @@ func (md *memoryDatabase) Filter(metricScanCtx *flow.MetricScanContext) (rs []fl
 		fmt.Println("time range not exist")
 		return
 	}
-	querySlotRange := metricScanCtx.CalcSourceSlotRange(md.familyTime)
+	querySlotRange := md.cfg.Interval.CalcSlotRange(md.familyTime, metricScanCtx.TimeRange)
 	if !storageSlotRange.Overlap(querySlotRange) {
 		// time range not match
 		fmt.Println("time range not match")

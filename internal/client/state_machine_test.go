@@ -59,7 +59,6 @@ func TestStateMachineCli_FetchStateByNode(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 				if tt.prepare != nil {
@@ -105,7 +104,6 @@ func TestStateMachineCli_FetchStateByNodes(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			ts := httptest.NewUnstartedServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 				if tt.prepare != nil {

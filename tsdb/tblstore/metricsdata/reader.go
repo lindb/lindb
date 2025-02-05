@@ -40,8 +40,6 @@ const (
 		4 + // series ids position
 		4 + // high offsets position
 		4 // crc32 checksum
-
-	fieldNotFound = -1
 )
 
 // MetricReader represents the metric block metricReader

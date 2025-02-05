@@ -68,7 +68,7 @@ func TestDatabase_New(t *testing.T) {
 		{
 			name: "dump config err",
 			prepare: func() {
-				encodeToml = func(fileName string, v interface{}) error {
+				encodeToml = func(fileName string, v any) error {
 					return fmt.Errorf("err")
 				}
 			},
@@ -127,10 +127,9 @@ func TestDatabase_New(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
-				encodeToml = func(fileName string, v interface{}) error {
+				encodeToml = func(fileName string, v any) error {
 					return nil
 				}
 				mkDirIfNotExist = func(path string) error {
@@ -233,7 +232,7 @@ func TestDatabase_CreateShards(t *testing.T) {
 				newShardFunc = func(db Database, shardID models.ShardID) (s Shard, err error) {
 					return nil, nil
 				}
-				encodeToml = func(fileName string, v interface{}) error {
+				encodeToml = func(fileName string, v any) error {
 					return fmt.Errorf("err")
 				}
 			},
@@ -242,11 +241,10 @@ func TestDatabase_CreateShards(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				newShardFunc = newShard
-				encodeToml = func(fileName string, v interface{}) error {
+				encodeToml = func(fileName string, v any) error {
 					return nil
 				}
 			}()
@@ -315,7 +313,6 @@ func TestDatabase_Close(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.prepare != nil {
 				tt.prepare()
@@ -375,7 +372,6 @@ func TestDatabase_FlushMeta(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				db.isFlushing.Store(false)
@@ -540,7 +536,7 @@ func TestDatabase_EvictSegment(t *testing.T) {
 
 func Benchmark_LoadSyncMap(b *testing.B) {
 	var m sync.Map
-	for i := 0; i < boundaryShardSetLen; i++ {
+	for i := range boundaryShardSetLen {
 		m.Store(i, &shard{})
 	}
 	// 8.435 ns
@@ -563,7 +559,7 @@ func Benchmark_LoadAtomicValue(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			list := v.Load().([]*shard)
-			for i := 0; i < boundaryShardSetLen; i++ {
+			for i := range boundaryShardSetLen {
 				if i == boundaryShardSetLen-1 {
 					_ = list[boundaryShardSetLen-1]
 				}
@@ -575,7 +571,7 @@ func Benchmark_LoadAtomicValue(b *testing.B) {
 func Benchmark_SyncRWMutex(b *testing.B) {
 	var lock sync.RWMutex
 	m := make(map[int]*shard)
-	for i := 0; i < boundaryShardSetLen; i++ {
+	for i := range boundaryShardSetLen {
 		m[i] = &shard{}
 	}
 
@@ -591,7 +587,7 @@ func Benchmark_SyncRWMutex(b *testing.B) {
 
 func Benchmark_MapWithoutLock(b *testing.B) {
 	m := make(map[int]*shard)
-	for i := 0; i < boundaryShardSetLen; i++ {
+	for i := range boundaryShardSetLen {
 		m[i] = &shard{}
 	}
 	var v atomic.Value
@@ -609,7 +605,7 @@ var boundaryShardSetLen = 20
 
 func Benchmark_ShardSet_iterating(b *testing.B) {
 	set := newShardSet()
-	for i := 0; i < boundaryShardSetLen; i++ {
+	for i := range boundaryShardSetLen {
 		set.InsertShard(models.ShardID(i), nil)
 	}
 	// 2.8ns
@@ -622,7 +618,7 @@ func Benchmark_ShardSet_iterating(b *testing.B) {
 
 func Benchmark_ShardSet_binarySearch(b *testing.B) {
 	set := newShardSet()
-	for i := 0; i < boundaryShardSetLen+1; i++ {
+	for i := range boundaryShardSetLen + 1 {
 		set.InsertShard(models.ShardID(i), nil)
 	}
 	// 4.68ns

@@ -1,27 +1,64 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package output
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/lindb/common/pkg/encoding"
+	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/spi/types"
-	"github.com/lindb/lindb/sql/execution/buffer"
 	"github.com/lindb/lindb/sql/execution/pipeline/operator"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
 
-type RSOutputOperatorFactory struct {
-	output       buffer.OutputBuffer
-	sourceLayout map[string]int
-	columnNames  []string
-	layout       []*plan.Symbol
-	rebuildPage  bool
+type ResultSetOutputOperator struct {
+	node  *plan.OutputNode
+	child operator.Operator
 }
 
-func NewRSOutputOperatorFactory(output buffer.OutputBuffer, columnNames []string, layout []*plan.Symbol, sourceLayout map[string]int) operator.OperatorFactory {
+func NewRSOutputOperator(node *plan.OutputNode, child operator.Operator) operator.Operator {
+	return &ResultSetOutputOperator{
+		node:  node,
+		child: child,
+	}
+}
+
+// AddInput implements operator.Operator
+func (op *ResultSetOutputOperator) Run(output chan<- *types.Page) {
+	inbound := make(chan *types.Page)
+
+	go func() {
+		defer close(inbound)
+
+		op.child.Run(inbound)
+	}()
+
 	rebuildPage := false
+	layout := op.node.GetOutputSymbols()
+
+	sourceLayout := make(map[string]int)
+	lo.ForEach(op.child.GetLayout(), func(symbol *plan.Symbol, index int) {
+		sourceLayout[symbol.Name] = index
+	})
+	columnNames := op.node.ColumnNames
+
 	for idx, symbol := range layout {
 		sourceIdx, ok := sourceLayout[symbol.Name]
 		if ok && (idx != sourceIdx || (len(columnNames) > 0 && columnNames[idx] != symbol.Name)) {
@@ -29,74 +66,33 @@ func NewRSOutputOperatorFactory(output buffer.OutputBuffer, columnNames []string
 			break
 		}
 	}
-	return &RSOutputOperatorFactory{
-		output:       output,
-		columnNames:  columnNames,
-		layout:       layout,
-		sourceLayout: sourceLayout,
-		rebuildPage:  rebuildPage,
-	}
-}
 
-// CreateOperator implements operator.OperatorFactory
-func (fct *RSOutputOperatorFactory) CreateOperator(ctx context.Context) operator.Operator {
-	return &ResultSetOutputOperator{
-		output:       fct.output,
-		sourceLayout: fct.sourceLayout,
-		columnNames:  fct.columnNames,
-		layout:       fct.layout,
-		rebuildPage:  fct.rebuildPage,
-	}
-}
-
-type ResultSetOutputOperator struct {
-	output       buffer.OutputBuffer
-	columnNames  []string
-	sourceLayout map[string]int
-	layout       []*plan.Symbol
-	rebuildPage  bool
-}
-
-// AddInput implements operator.Operator
-func (op *ResultSetOutputOperator) AddInput(page *types.Page) {
-	if page == nil || page.NumRows() == 0 {
-		fmt.Printf("add empty page====%v\n", string(encoding.JSONMarshal(page)))
-		return
-	}
-	if op.rebuildPage {
-		targetPage := types.NewPage()
-		for colIdx, col := range op.layout {
-			if idx, ok := op.sourceLayout[col.Name]; ok {
-				column := page.Layout[idx]
-				if len(op.columnNames) > 0 {
-					column.Name = op.columnNames[colIdx]
-				}
-				targetPage.AppendColumn(column, page.Columns[idx])
-			}
+	// process child output
+	for page := range inbound {
+		if page == nil || page.NumRows() == 0 {
+			fmt.Printf("add empty page====%v\n", string(encoding.JSONMarshal(page)))
+			return
 		}
-		fmt.Printf("after result set output rebuild, page=%v target=%v\n",
-			string(encoding.JSONMarshal(page)), string(encoding.JSONMarshal(targetPage)))
-		op.output.AddPage(targetPage)
-	} else {
-		op.output.AddPage(page)
+		if rebuildPage {
+			targetPage := types.NewPage()
+			for colIdx, col := range layout {
+				if idx, ok := sourceLayout[col.Name]; ok {
+					column := page.Layout[idx]
+					if len(columnNames) > 0 {
+						column.Name = columnNames[colIdx]
+					}
+					targetPage.AppendColumn(column, page.Columns[idx])
+				}
+			}
+			fmt.Printf("after result set output rebuild, page=%v target=%v\n",
+				string(encoding.JSONMarshal(page)), string(encoding.JSONMarshal(targetPage)))
+			output <- targetPage
+		} else {
+			output <- page
+		}
 	}
 }
 
-// Finish implements operator.Operator
-func (op *ResultSetOutputOperator) Finish() {
-	panic("unimplemented")
-}
-
-// GetOutput implements operator.Operator
-func (op *ResultSetOutputOperator) GetOutput() *types.Page {
-	return nil
-}
-
-func (op *ResultSetOutputOperator) GetOutbound() <-chan *types.Page {
-	return nil
-}
-
-// IsFinished implements operator.Operator
-func (op *ResultSetOutputOperator) IsFinished() bool {
-	panic("unimplemented")
+func (op *ResultSetOutputOperator) GetLayout() []*plan.Symbol {
+	panic("result set output operator should not get layout")
 }

@@ -18,28 +18,17 @@
 package api
 
 import (
-	"context"
 	"errors"
 
 	"github.com/gin-gonic/gin"
-
 	httppkg "github.com/lindb/common/pkg/http"
 
 	depspkg "github.com/lindb/lindb/app/root/deps"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/sql/tree"
 )
 
-// statementExecFn represents statement execution funcation define.
-type statementExecFn func(ctx context.Context,
-	deps *depspkg.HTTPDeps,
-	param *models.ExecuteParam,
-	stmt tree.Statement) (interface{}, error)
-
-var (
-	// ExecutePath represents lin language executor's path.
-	ExecutePath = "/exec"
-)
+// ExecutePath represents lin language executor's path.
+var ExecutePath = "/exec"
 
 type ExecuteAPI struct {
 	deps *depspkg.HTTPDeps
@@ -99,22 +88,5 @@ func (e *ExecuteAPI) execute(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
-	// _, err = sqlParseFn(param.SQL)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// if commandFn, ok := commands[stmt.StatementType()]; ok {
-	// 	result, err := commandFn(ctx, e.deps, &param, stmt)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	if result == nil || reflect.ValueOf(result).IsNil() {
-	// 		httppkg.NotFound(c)
-	// 	} else {
-	// 		httppkg.OK(c, result)
-	// 	}
-	// 	return nil
-	// }
 	return errors.New("can't parse lin query language")
 }

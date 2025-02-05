@@ -86,7 +86,7 @@ func (fms Metas) Swap(i, j int) { fms[i], fms[j] = fms[j], fms[i] }
 
 func UnmarshalBinary(data []byte) (Metas, ID, error) {
 	reader := stream.NewReader(data)
-	var max ID
+	var maximum ID
 	var fms Metas
 
 	for !reader.Empty() && reader.Error() == nil {
@@ -95,11 +95,11 @@ func UnmarshalBinary(data []byte) (Metas, ID, error) {
 		nameLen := reader.ReadInt16()
 		name := reader.ReadBytes(int(nameLen))
 		fms = append(fms, Meta{ID: id, Type: fType, Name: Name(name)})
-		if id > max {
-			max = id
+		if id > maximum {
+			maximum = id
 		}
 	}
-	return fms, max, reader.Error()
+	return fms, maximum, reader.Error()
 }
 
 // Find returns Meta by given field name, if not exist returns false.

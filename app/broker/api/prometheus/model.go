@@ -130,17 +130,13 @@ type metadata struct {
 }
 
 // seriesSet is implementation of storage.SeriesSet.
-type seriesSet struct {
+type seriesSet struct { //nolint
 	series []storage.Series
 	index  int
 	err    error
 }
 
-func newSeriesSet() *seriesSet {
-	return &seriesSet{index: -1}
-}
-
-func (s *seriesSet) Next() bool {
+func (s *seriesSet) Next() bool { //nolint
 	if len(s.series) == 0 {
 		return false
 	}
@@ -151,24 +147,16 @@ func (s *seriesSet) Next() bool {
 	return false
 }
 
-func (s *seriesSet) At() storage.Series {
+func (s *seriesSet) At() storage.Series { //nolint
 	if s.index < 0 {
 		return nil
 	}
 	return s.series[s.index]
 }
 
-func (s *seriesSet) Err() error { return s.err }
+func (s *seriesSet) Err() error { return s.err } //nolint
 
-func (s *seriesSet) Warnings() annotations.Annotations { return nil }
-
-func (s *seriesSet) setErr(err error) {
-	s.err = err
-}
-
-func (s *seriesSet) setSeries(series []storage.Series) {
-	s.series = series
-}
+func (s *seriesSet) Warnings() annotations.Annotations { return nil } //nolint
 
 // A Codec performs encoding of API responses.
 type Codec interface {

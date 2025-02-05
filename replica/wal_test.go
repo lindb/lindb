@@ -24,13 +24,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/mock/gomock"
-
 	"github.com/lindb/common/pkg/fileutil"
 	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/ltoml"
 	"github.com/lindb/common/pkg/timeutil"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/storage"
@@ -96,7 +95,8 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 				}
 				NewPartitionFn = func(ctx context.Context, shard tsdb.Shard, family tsdb.DataFamily,
 					currentNodeID models.NodeID, log queue.FanOutQueue,
-					cliFct rpc.ClientStreamFactory, stateMgr storage.StateManager) Partition {
+					cliFct rpc.ClientStreamFactory, stateMgr storage.StateManager,
+				) Partition {
 					p := NewMockPartition(ctrl)
 					p.EXPECT().StartReplica().Times(1)
 					return p
@@ -107,7 +107,6 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				newFanOutQueue = queue.NewFanOutQueue
@@ -267,7 +266,6 @@ func TestWriteAheadLog_recovery(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				listDirFn = fileutil.ListDir

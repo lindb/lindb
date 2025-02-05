@@ -1,3 +1,20 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package infoschema
 
 import (
@@ -63,17 +80,17 @@ func (r *reader) ReadData(ctx context.Context, table string, expression tree.Exp
 	case constants.TableEnv:
 		rows, err = r.readEnv(predicate)
 	case constants.TableMaster:
-		rows, err = r.readMaster()
-	case constants.TableBroker:
-		rows, err = r.readBroker()
-	case constants.TableStorage:
-		rows, err = r.readStorage()
+		rows = r.readMaster()
+	case constants.TableBrokers:
+		rows = r.readBroker()
+	case constants.TableStorages:
+		rows = r.readStorage()
 	case constants.TableEngines:
-		rows, err = r.readEngines()
+		rows = r.readEngines()
 	case constants.TableSchemata:
-		rows, err = r.readSchemata()
+		rows = r.readSchemata()
 	case constants.TableMetadataTypes:
-		rows, err = r.readMetadataTypes()
+		rows = r.readMetadataTypes()
 	case constants.TableMetadatas:
 		rows, err = r.readMetadatas(ctx, predicate)
 	case constants.TableMetrics:
@@ -93,7 +110,7 @@ func (r *reader) ReadData(ctx context.Context, table string, expression tree.Exp
 	case constants.TableSnippets:
 		rows, err = r.readSnippets()
 	}
-	return
+	return rows, err
 }
 
 func (r *reader) readEnv(predicate *predicate) (rows [][]*types.Datum, err error) {
@@ -118,7 +135,7 @@ func (r *reader) readEnv(predicate *predicate) (rows [][]*types.Datum, err error
 	return
 }
 
-func (r *reader) readMaster() (rows [][]*types.Datum, err error) {
+func (r *reader) readMaster() (rows [][]*types.Datum) {
 	master := r.metadataMgr.GetMaster()
 	rows = append(rows, types.MakeDatums(
 		master.Node.HostIP,     // host_ip
@@ -131,7 +148,7 @@ func (r *reader) readMaster() (rows [][]*types.Datum, err error) {
 	return
 }
 
-func (r *reader) readBroker() (rows [][]*types.Datum, err error) {
+func (r *reader) readBroker() (rows [][]*types.Datum) {
 	nodes := r.metadataMgr.GetBrokerNodes()
 	now := time.Now().UnixMilli()
 	for _, node := range nodes {
@@ -148,7 +165,7 @@ func (r *reader) readBroker() (rows [][]*types.Datum, err error) {
 	return
 }
 
-func (r *reader) readStorage() (rows [][]*types.Datum, err error) {
+func (r *reader) readStorage() (rows [][]*types.Datum) {
 	nodes := r.metadataMgr.GetStorageNodes()
 	now := time.Now().UnixMilli()
 	for _, node := range nodes {
@@ -166,7 +183,7 @@ func (r *reader) readStorage() (rows [][]*types.Datum, err error) {
 	return
 }
 
-func (r *reader) readEngines() (rows [][]*types.Datum, err error) {
+func (r *reader) readEngines() (rows [][]*types.Datum) {
 	rows = [][]*types.Datum{
 		types.MakeDatums(models.Metric, "DEFAULT"), // engine/support
 		types.MakeDatums(models.Log, "NO"),
@@ -175,7 +192,7 @@ func (r *reader) readEngines() (rows [][]*types.Datum, err error) {
 	return
 }
 
-func (r *reader) readSchemata() (rows [][]*types.Datum, err error) {
+func (r *reader) readSchemata() (rows [][]*types.Datum) {
 	databases := r.metadataMgr.GetDatabases()
 	for _, database := range databases {
 		rows = append(rows, types.MakeDatums(
@@ -186,7 +203,7 @@ func (r *reader) readSchemata() (rows [][]*types.Datum, err error) {
 	return
 }
 
-func (r *reader) readMetadataTypes() (rows [][]*types.Datum, err error) {
+func (r *reader) readMetadataTypes() (rows [][]*types.Datum) {
 	for role, paths := range metadataPaths {
 		for key, info := range paths {
 			rows = append(rows, types.MakeDatums(
@@ -221,23 +238,20 @@ func (r *reader) readMetadatas(ctx context.Context, predicate *predicate) (rows 
 	if source == "" {
 		return nil, errors.New("source not found in where clause")
 	}
-	info, err := r.getStateMachineInfo(role, metadataType)
-	if err != nil {
-		return nil, err
+	info, err0 := r.getStateMachineInfo(role, metadataType)
+	if err0 != nil {
+		return nil, err0
 	}
 	var data []byte
 	switch strings.ToLower(source) {
 	case "repo":
-		rs, err := r.exploreStateRepoData(ctx, info)
-		if err != nil {
-			return nil, err
+		rs, err0 := r.exploreStateRepoData(ctx, info)
+		if err0 != nil {
+			return nil, err0
 		}
 		data, _ = json.MarshalIndent(rs, "", "  ")
 	case "state_machine":
-		rs, err := r.exploreStateMachineDate(role, metadataType)
-		if err != nil {
-			return nil, err
-		}
+		rs := r.exploreStateMachineDate(role, metadataType)
 		data, _ = json.MarshalIndent(rs, "", "  ")
 	}
 	rows = append(rows, types.MakeDatums(
@@ -246,7 +260,7 @@ func (r *reader) readMetadatas(ctx context.Context, predicate *predicate) (rows 
 		strings.ToLower(source), // source
 		string(data),            // data
 	))
-	return
+	return rows, err
 }
 
 func (r *reader) readMetrics(predicate *predicate) (rows [][]*types.Datum, err error) {
@@ -275,16 +289,16 @@ func (r *reader) readMetrics(predicate *predicate) (rows [][]*types.Datum, err e
 		nodes []models.Node
 	}, index int,
 	) bool {
-		return inputRole == "" || strings.ToUpper(item.role) == strings.ToUpper(inputRole)
+		return inputRole == "" || strings.EqualFold(item.role, inputRole)
 	})
 	for _, role := range roleList {
 		nodes := role.nodes
 		if len(nodes) == 0 {
 			continue
 		}
-		metrics, err := metricCli.FetchMetricData(nodes, names)
-		if err != nil {
-			return nil, err
+		metrics, err0 := metricCli.FetchMetricData(nodes, names)
+		if err0 != nil {
+			return nil, err0
 		}
 		for name, metricList := range metrics {
 			for _, metric := range metricList {
@@ -301,7 +315,7 @@ func (r *reader) readMetrics(predicate *predicate) (rows [][]*types.Datum, err e
 			}
 		}
 	}
-	return
+	return rows, err
 }
 
 func (r *reader) readReplications(predicate *predicate) (rows [][]*types.Datum, err error) {
@@ -309,12 +323,12 @@ func (r *reader) readReplications(predicate *predicate) (rows [][]*types.Datum, 
 	if schema == "" {
 		return nil, errors.New("table_schema not found in where clause")
 	}
-	state, err := r.getStateFromStorage("/state/replica", map[string]string{"db": schema}, func() any {
+	state, err0 := r.getStateFromStorage("/state/replica", map[string]string{"db": schema}, func() any {
 		var state []models.FamilyLogReplicaState
 		return &state
 	})
-	if err != nil {
-		return nil, err
+	if err0 != nil {
+		return nil, err0
 	}
 	result := state.(map[string]any)
 	for node, state := range result {
@@ -339,7 +353,7 @@ func (r *reader) readReplications(predicate *predicate) (rows [][]*types.Datum, 
 			}
 		}
 	}
-	return
+	return rows, err
 }
 
 func (r *reader) readMemoryDatabases(predicate *predicate) (rows [][]*types.Datum, err error) {
@@ -347,12 +361,12 @@ func (r *reader) readMemoryDatabases(predicate *predicate) (rows [][]*types.Datu
 	if schema == "" {
 		return nil, errors.New("table_schema not found in where clause")
 	}
-	state, err := r.getStateFromStorage("/state/tsdb/memory", map[string]string{"db": schema}, func() any {
+	state, err0 := r.getStateFromStorage("/state/tsdb/memory", map[string]string{"db": schema}, func() any {
 		var state []models.DataFamilyState
 		return &state
 	})
-	if err != nil {
-		return nil, err
+	if err0 != nil {
+		return nil, err0
 	}
 	result := state.(map[string]any)
 	for node, state := range result {
@@ -372,7 +386,7 @@ func (r *reader) readMemoryDatabases(predicate *predicate) (rows [][]*types.Datu
 			}
 		}
 	}
-	return
+	return rows, err
 }
 
 func (r *reader) readNamespaces(predicate *predicate) (rows [][]*types.Datum, err error) {
@@ -488,7 +502,7 @@ func (r *reader) readSnippets() (rows [][]*types.Datum, err error) {
 }
 
 func getCurrentDir() string {
-	_, dir, _, _ := runtime.Caller(0)
+	_, dir, _, _ := runtime.Caller(0) //nolint
 	return filepath.Dir(dir)
 }
 

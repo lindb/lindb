@@ -117,23 +117,23 @@ func newDatabase(
 		config:       cfg,
 		shardSet:     *newShardSet(),
 		executorPool: &ExecutorPool{
-			Filtering: concurrent.NewPool(
-				databaseName+"-filtering-pool",
+			MetaFetcher: concurrent.NewPool(
+				databaseName+"-meta-fetcher-pool",
 				runtime.GOMAXPROCS(-1), /*nRoutines*/
 				time.Second*5,
-				metrics.NewConcurrentStatistics(databaseName+"-filtering", linmetric.StorageRegistry),
+				metrics.NewConcurrentStatistics(databaseName+"-meta-fecher", linmetric.StorageRegistry),
 			),
-			Grouping: concurrent.NewPool(
-				databaseName+"-grouping-pool",
+			DataFetcher: concurrent.NewPool(
+				databaseName+"-data-fetcher-pool",
 				runtime.GOMAXPROCS(-1), /*nRoutines*/
 				time.Second*5,
-				metrics.NewConcurrentStatistics(databaseName+"-grouping", linmetric.StorageRegistry),
+				metrics.NewConcurrentStatistics(databaseName+"-data-fetcher", linmetric.StorageRegistry),
 			),
-			Scanner: concurrent.NewPool(
-				databaseName+"-scanner-pool",
+			Reducer: concurrent.NewPool(
+				databaseName+"-reducer-pool",
 				runtime.GOMAXPROCS(-1), /*nRoutines*/
 				time.Second*5,
-				metrics.NewConcurrentStatistics(databaseName+"-scanner", linmetric.StorageRegistry),
+				metrics.NewConcurrentStatistics(databaseName+"-reducer", linmetric.StorageRegistry),
 			),
 		},
 		isFlushing:     *atomic.NewBool(false),

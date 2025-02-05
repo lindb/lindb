@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/samber/lo"
+
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/validate"
 )
@@ -99,8 +101,8 @@ func (db *Database) Validate() error {
 // String returns the database's description.
 func (db *Database) String() string {
 	result := "create database " + db.Name + " with ("
-	result += "numOfShard=" + fmt.Sprintf("%d", db.Option.NumOfShard) + ", replicaRactor=" + fmt.Sprintf("%d", db.Option.ReplicaFactor)
-	result += ", intervals " + db.Option.Intervals.String()
+	result += "numOfShard=" + fmt.Sprintf("%d", db.Option.NumOfShard) + ", replicaFactor=" + fmt.Sprintf("%d", db.Option.ReplicaFactor)
+	result += ", intervals=" + db.Option.Intervals.String() + ")"
 	return result
 }
 
@@ -111,12 +113,7 @@ type Replica struct {
 
 // Contain returns if replica include node id.
 func (r Replica) Contain(nodeID NodeID) bool {
-	for _, id := range r.Replicas {
-		if id == nodeID {
-			return true
-		}
-	}
-	return false
+	return lo.Contains(r.Replicas, nodeID)
 }
 
 // ShardAssignment defines shard assignment for database.

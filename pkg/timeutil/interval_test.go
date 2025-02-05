@@ -50,7 +50,6 @@ func TestInterval_MarshalText(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			val, err := tt.in.MarshalText()
 			assert.NoError(t, err)
@@ -83,7 +82,6 @@ func TestInterval_UnmarshalText(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			var rs Interval
 			err := rs.UnmarshalText(tt.in)
@@ -133,7 +131,6 @@ func TestInterval_UnmarshalJSON(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			var rs retention
 			err := encoding.JSONUnmarshal(tt.in, &rs)
@@ -146,7 +143,7 @@ func TestInterval_UnmarshalJSON(t *testing.T) {
 		unmarshalFn = jsoniter.Unmarshal
 	}()
 
-	unmarshalFn = func(data []byte, v interface{}) error {
+	unmarshalFn = func(data []byte, v any) error {
 		return fmt.Errorf("err")
 	}
 	interval := Interval(10)
@@ -178,7 +175,6 @@ func TestInterval_JSONMarshal(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			val := encoding.JSONMarshal(&tt.in)
 			assert.Equal(t, tt.assert, val)
@@ -255,7 +251,6 @@ func TestInterval_String(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			strVal := tt.in.String()
 			assert.Equal(t, tt.assert, strVal)
@@ -397,7 +392,6 @@ func Test_CalcQueryInterval(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			interval := CalcQueryInterval(tt.timeRange, tt.queryInterval)
 			assert.Equal(t, tt.targetInterval, interval)

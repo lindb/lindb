@@ -1,3 +1,20 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package analyzer
 
 import (
@@ -45,8 +62,9 @@ func (sa *StatementAnalyzer) analyze(node tree.Node, outerQueryScope *Scope, isT
 
 type StatementVisitor struct {
 	outerQueryScope *Scope
-	isTopLevel      bool
 	analyzer        *StatementAnalyzer
+
+	isTopLevel bool
 }
 
 func NewStatementVisitor(outerQueryScope *Scope, analyzer *StatementAnalyzer, isTopLevel bool) *StatementVisitor {
@@ -185,14 +203,12 @@ func (v *StatementVisitor) visitJoin(context any, node *tree.Join) (r any) {
 
 	if joinOn, ok := criteria.(*tree.JoinOn); ok {
 		expression := joinOn.Expression
+		// FIXME: impl it
 		v.analyzeExpression(expression, output)
-		// FIXME:
-		// panic("impl it")
 
 		v.analyzer.ctx.Analysis.SetJoinCriteria(node, expression)
 	}
 	fmt.Println("jjjjjjj")
-	// fmt.Println(output.RelationType.Fields[0])
 
 	return output
 }
@@ -200,10 +216,7 @@ func (v *StatementVisitor) visitJoin(context any, node *tree.Join) (r any) {
 func (v *StatementVisitor) analyzeJoinUsing(node *tree.Join, columns []*tree.Identifier,
 	scope, left, right *Scope,
 ) *Scope {
-	fmt.Println("fdd..........")
-	// return &Scope{
-	// 	RelationType: NewRelationType(nil),
-	// }
+	fmt.Printf("fdd..........%v,%v,%v,%v,%v", node, columns, scope, left, right)
 	panic("using")
 }
 
@@ -211,7 +224,7 @@ func (v *StatementVisitor) visitAliasedRelation(context any, relation *tree.Alia
 	scope := context.(*Scope)
 	aliased := tree.NewQualifiedName([]*tree.Identifier{relation.Aliase})
 	v.analyzer.ctx.Analysis.SetRelationName(relation, aliased)
-	// v.analyzer.analysis.AddAliased(relation, aliased)
+	// TODO: v.analyzer.analysis.AddAliased(relation, aliased)
 
 	relationScope := relation.Relation.Accept(scope, v).(*Scope)
 	columnAliases := lo.Map(relation.ColumnNames, func(item *tree.Identifier, index int) string {
@@ -341,7 +354,7 @@ func (v *StatementVisitor) analyzeSelectSingleColumn(singleColumn *tree.SingleCo
 	scope *Scope, outputExpressions []tree.Expression, selectExpressions []*SelectExpression,
 ) (outputs []tree.Expression, selects []*SelectExpression) {
 	expression := singleColumn.Expression
-	fmt.Printf("analyzeSelectSingleColumn=%v,%T\n", singleColumn.Expression, singleColumn.Expression)
+	fmt.Printf("analyzeSelectSingleColumn=%v,%T,%v\n", singleColumn.Expression, singleColumn.Expression, node)
 	v.analyzeExpression(expression, scope)
 	outputExpressions = append(outputExpressions, expression)
 	selectExpressions = append(selectExpressions, &SelectExpression{
@@ -363,13 +376,13 @@ func (v *StatementVisitor) analyzeSelectAllColumns(allColumns *tree.AllColumns, 
 			// analyze prefix as an 'asterisked identifier chain'
 			// ref table
 			identifierChain := scope.resolveAsteriskedIdentifierChain(prefix, allColumns)
-			// relation := v.analyzer.analysis.GetRelationByAliased(prefix)
+			// TODO: relation := v.analyzer.analysis.GetRelationByAliased(prefix)
 			if identifierChain == nil {
 				panic(fmt.Sprintf("unable to resolve reference %s", prefix.Name))
 			}
 			if identifierChain.Type == TABLE {
 				relationType := identifierChain.RelationType
-				// relationScope := v.analyzer.analysis.GetScope(relation)
+				// TODO: relationScope := v.analyzer.analysis.GetScope(relation)
 				fmt.Println("table========" + prefix.Name)
 				// FIXME:????? scope from
 				outputExpressions, selectExpressions = v.analyzeAllColumnsFromTable(allColumns, node, scope,
@@ -398,7 +411,7 @@ func (v *StatementVisitor) analyzeAllColumnsFromTable(allColumns *tree.AllColumn
 			},
 			FieldIndex: field.Index,
 		}
-		fmt.Printf("analyzeAllColumnsFromTable=%v\n", field)
+		fmt.Printf("analyzeAllColumnsFromTable=%v,%v,%v\n", field, node, relationAlias)
 		v.analyzeExpression(fieldRef, scope)
 		outputExpressions = append(outputExpressions, fieldRef)
 		selectExpressions = append(selectExpressions, &SelectExpression{
@@ -439,7 +452,7 @@ func (v *StatementVisitor) analyzeWhere(node *tree.QuerySpecification, scope *Sc
 
 	// FIXME: verify no aggregate and group by function
 	v.analyzeExpression(newPredicate, scope)
-	// v.analyzer.ctx.Analysis.RecordSubQueries(node, expressionAnalysis)
+	// TODO: v.analyzer.ctx.Analysis.RecordSubQueries(node, expressionAnalysis)
 
 	// FIXME: check predicate type
 	// predicateType := expressionAnalysis.GetType(predicate)
@@ -448,7 +461,7 @@ func (v *StatementVisitor) analyzeWhere(node *tree.QuerySpecification, scope *Sc
 }
 
 func (v *StatementVisitor) analyzeGroupBy(node *tree.QuerySpecification, scope *Scope,
-	outputExpressions []tree.Expression,
+	_ []tree.Expression,
 ) *GroupingSetAnalysis {
 	if node.GroupBy != nil {
 		var (
@@ -459,18 +472,26 @@ func (v *StatementVisitor) analyzeGroupBy(node *tree.QuerySpecification, scope *
 
 		for _, groupingElement := range node.GroupBy.GroupingElements {
 			switch groupByEle := groupingElement.(type) {
-			// TODO: gropu by *
+			case *tree.GroupByAllColumns:
+				panic("impl group by all columns")
+			// TODO: group by *
 			case *tree.SimpleGroupBy:
+				var field *ResolvedField
 				for _, column := range groupByEle.Columns {
-					switch column.(type) {
+					switch item := column.(type) {
 					case *tree.LongLiteral:
-						// TODO: fixme index field
-						panic("impl long group key")
+						// fixme: index field
+						panic("impl long group key index ref to select item")
+					case *tree.IntervalLiteral:
+						// set grouping interval
+						v.analyzer.ctx.Analysis.SetGroupingInterval(node, item)
+						// ignore grouping interval
+						goto Next
 					default:
 						v.analyzeExpression(column, scope)
 					}
 
-					field := v.analyzer.ctx.Analysis.GetColumnReferenceField(column)
+					field = v.analyzer.ctx.Analysis.GetColumnReferenceField(column)
 					if field != nil {
 						sets = append(sets, []*FieldID{field.FieldID()})
 					} else {
@@ -478,8 +499,14 @@ func (v *StatementVisitor) analyzeGroupBy(node *tree.QuerySpecification, scope *
 						complexExpressions = append(complexExpressions, column)
 					}
 					groupingExpressions = append(groupingExpressions, column)
+
+				Next:
 				}
 			}
+		}
+		if len(groupingExpressions) == 0 {
+			// no grouping column
+			return nil
 		}
 
 		groupingSets := NewGroupingSetAnalysis(groupingExpressions, sets, complexExpressions)
@@ -512,7 +539,7 @@ func (v *StatementVisitor) analyzeAggregations(query *tree.QuerySpecification, s
 	}
 	// TODO:
 	ExtractAggregationFunctions(expr, func(n tree.Node) {
-		fmt.Printf("extract agg func:%T=%v\n", n, n)
+		fmt.Printf("extract agg func:%T=%v,%v\n", n, n, orderByScope)
 		switch node := n.(type) {
 		case *tree.Identifier:
 			// transfer filed builtin aggregation
@@ -564,11 +591,10 @@ func (v *StatementVisitor) analyzeHaving(node *tree.QuerySpecification, scope *S
 func (v *StatementVisitor) analyzeOrderBy(node tree.Node,
 	sortItems []*tree.SortItem, orderByScope *Scope,
 ) (orderByExpressions []tree.Expression) {
-	// FIXME:impl it
-	return
+	panic("implement it analyzeOrderBy")
 }
 
-func (v *StatementVisitor) analyzeLimit(node *tree.Limit, scope *Scope) {
+func (v *StatementVisitor) analyzeLimit(node *tree.Limit, _ *Scope) {
 	var rowCount int64
 
 	if long, ok := node.RowCount.(*tree.LongLiteral); ok {
@@ -609,7 +635,7 @@ func (v *StatementVisitor) createAndAssignScope(node tree.Node, parent *Scope, r
 }
 
 func (v *StatementVisitor) computeAndAssignOutputScope(node *tree.QuerySpecification,
-	scope, sourceScope *Scope,
+	scope, _ *Scope,
 ) *Scope {
 	var outputFields []*tree.Field
 	selectItems := node.Select.SelectItems
@@ -654,10 +680,10 @@ func (v *StatementVisitor) computeAndAssignOutputScope(node *tree.QuerySpecifica
 	return v.createAndAssignScope(node, scope, NewRelation(outputFields))
 }
 
-func (v *StatementVisitor) computeAndAssignOrderByScope(node *tree.OrderBy,
+func (v *StatementVisitor) computeAndAssignOrderByScope(_ *tree.OrderBy,
 	sourceScope, outputSource *Scope, fields []*tree.Field,
 ) *Scope {
-	return &Scope{}
+	panic("impl ordery by")
 }
 
 func (v *StatementVisitor) descriptorToFields(scope *Scope) (selectExpressions []*SelectExpression) {

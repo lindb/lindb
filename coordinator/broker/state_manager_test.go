@@ -30,11 +30,10 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/rpc"
 )
 
 func TestStateManager_Close(t *testing.T) {
-	mgr := NewStateManager(context.TODO(), models.StatelessNode{}, nil, nil)
+	mgr := NewStateManager(context.TODO(), models.StatelessNode{})
 	mgr.Close()
 }
 
@@ -42,15 +41,11 @@ func TestStateManager_Handle_Event_Panic(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	connectionMgr := rpc.NewMockConnectionManager(ctrl)
-	mgr := NewStateManager(context.TODO(), models.StatelessNode{}, connectionMgr, nil)
+	mgr := NewStateManager(context.TODO(), models.StatelessNode{})
 	mgr1 := mgr.(*stateManager)
 	mgr1.mutex.Lock()
 	mgr1.nodes["1.1.1.1:9000"] = models.StatelessNode{}
 	mgr1.mutex.Unlock()
-	connectionMgr.EXPECT().CloseConnection(gomock.Any()).Do(func(node models.Node) {
-		panic("err")
-	})
 	// case 1: panic
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.NodeFailure,
@@ -61,7 +56,7 @@ func TestStateManager_Handle_Event_Panic(t *testing.T) {
 }
 
 func TestStateManager_DatabaseConfig(t *testing.T) {
-	mgr := NewStateManager(context.TODO(), models.StatelessNode{}, nil, nil)
+	mgr := NewStateManager(context.TODO(), models.StatelessNode{})
 	// case 1: unmarshal database config err
 	mgr.EmitEvent(&discovery.Event{
 		Type:  discovery.DatabaseConfigChanged,
@@ -81,7 +76,7 @@ func TestStateManager_DatabaseConfig(t *testing.T) {
 		Value: []byte(`{"name":"test"}`),
 	})
 	time.Sleep(time.Second) // wait
-	databaseCfg, ok := mgr.GetDatabaseCfg("test")
+	databaseCfg, ok := mgr.GetDatabase("test")
 	assert.True(t, ok)
 	assert.Equal(t, models.Database{Name: "test"}, databaseCfg)
 	assert.Len(t, mgr.GetDatabases(), 1)
@@ -97,7 +92,7 @@ func TestStateManager_DatabaseConfig(t *testing.T) {
 		Key:  "/test",
 	})
 	time.Sleep(time.Second) // wait
-	_, ok = mgr.GetDatabaseCfg("test")
+	_, ok = mgr.GetDatabase("test")
 	assert.False(t, ok)
 
 	mgr.Close()
@@ -107,8 +102,7 @@ func TestStateManager_Node(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	cm := rpc.NewMockConnectionManager(ctrl)
-	mgr := NewStateManager(context.TODO(), models.StatelessNode{HostIP: "3.3.3.3"}, cm, nil)
+	mgr := NewStateManager(context.TODO(), models.StatelessNode{HostIP: "3.3.3.3"})
 	// case 1: unmarshal node info err
 	mgr.EmitEvent(&discovery.Event{
 		Type:  discovery.NodeStartup,
@@ -116,7 +110,6 @@ func TestStateManager_Node(t *testing.T) {
 		Value: []byte("221"),
 	})
 	// case 2: cache node
-	cm.EXPECT().CreateConnection(gomock.Any())
 	mgr.EmitEvent(&discovery.Event{
 		Type:  discovery.NodeStartup,
 		Key:   "/lives/1.1.1.1:9000",
@@ -132,7 +125,6 @@ func TestStateManager_Node(t *testing.T) {
 		Key:  "/lives/2.2.2.2:9000",
 	})
 	// case 5: remove node
-	cm.EXPECT().CloseConnection(&models.StatelessNode{HostIP: "1.1.1.1", GRPCPort: 9000})
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.NodeFailure,
 		Key:  "/lives/1.1.1.1:9000",
@@ -150,8 +142,7 @@ func TestStateManager_Storage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	connectionMgr := rpc.NewMockConnectionManager(ctrl)
-	mgr := NewStateManager(context.TODO(), models.StatelessNode{}, connectionMgr, nil)
+	mgr := NewStateManager(context.TODO(), models.StatelessNode{})
 
 	// case 1: unmarshal storage state err
 	mgr.EmitEvent(&discovery.Event{
@@ -166,7 +157,6 @@ func TestStateManager_Storage(t *testing.T) {
 		Value: []byte("{}"),
 	})
 	// case 3: new storage state
-	connectionMgr.EXPECT().CreateConnection(gomock.Any()).MaxTimes(2)
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.StorageStateChanged,
 		Key:  constants.StorageStatePath,
@@ -177,11 +167,6 @@ func TestStateManager_Storage(t *testing.T) {
 				StatelessNode: models.StatelessNode{HostIP: "2.2.2.2", GRPCPort: 9000},
 			}},
 		}),
-	})
-	// case 4: old storage state, new node online, old node offline
-	connectionMgr.EXPECT().CreateConnection(gomock.Any()).MaxTimes(2)
-	connectionMgr.EXPECT().CloseConnection(&models.StatefulNode{
-		StatelessNode: models.StatelessNode{HostIP: "2.2.2.2", GRPCPort: 9000},
 	})
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.StorageStateChanged,
@@ -203,8 +188,7 @@ func TestStateManager_ShardState(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	connectionMgr := rpc.NewMockConnectionManager(ctrl)
-	mgr := NewStateManager(context.TODO(), models.StatelessNode{}, connectionMgr, nil)
+	mgr := NewStateManager(context.TODO(), models.StatelessNode{})
 	c := 0
 	mgr.WatchShardStateChangeEvent(func(_ models.Database,
 		_ map[models.ShardID]models.ShardState,
@@ -212,7 +196,6 @@ func TestStateManager_ShardState(t *testing.T) {
 	) {
 		c++
 	})
-	connectionMgr.EXPECT().CreateConnection(gomock.Any()).MaxTimes(2)
 
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.StorageStateChanged,
@@ -254,7 +237,6 @@ func TestStateManager_ShardState(t *testing.T) {
 	assert.Len(t, replicas, 1)
 	assert.True(t, c > 0)
 
-	connectionMgr.EXPECT().CloseConnection(gomock.Any()).MaxTimes(2)
 	mgr.EmitEvent(&discovery.Event{
 		Type: discovery.StorageStateChanged,
 		Key:  constants.StorageStatePath,
@@ -330,7 +312,7 @@ func TestStateManager_onDatabaseLimits(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mgr := NewStateManager(context.TODO(), models.StatelessNode{}, nil, nil)
+	mgr := NewStateManager(context.TODO(), models.StatelessNode{})
 
 	// case 1: decode limit failure
 	mgr.EmitEvent(&discovery.Event{

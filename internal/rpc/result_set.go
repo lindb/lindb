@@ -1,3 +1,20 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package rpc
 
 import (
@@ -8,7 +25,6 @@ import (
 	"github.com/lindb/common/pkg/logger"
 
 	protoCommandV1 "github.com/lindb/lindb/proto/gen/v1/command"
-	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/sql/execution/model"
 	"github.com/lindb/lindb/sql/execution/pipeline"
 )
@@ -23,7 +39,9 @@ func NewResultSetService() protoCommandV1.ResultSetServiceServer {
 	}
 }
 
-func (srv *ResultSetService) ResultSet(ctx context.Context, request *protoCommandV1.ResultSetRequest) (*protoCommandV1.ResultSetResponse, error) {
+func (srv *ResultSetService) ResultSet(ctx context.Context,
+	request *protoCommandV1.ResultSetRequest,
+) (*protoCommandV1.ResultSetResponse, error) {
 	resultSet := &model.TaskResultSet{}
 	if err := encoding.JSONUnmarshal(request.Payload, resultSet); err != nil {
 		// TODO: send handle error?
@@ -31,24 +49,22 @@ func (srv *ResultSetService) ResultSet(ctx context.Context, request *protoComman
 	}
 
 	srv.logger.Debug("receive task result set", logger.Any("requestID", resultSet.TaskID.RequestID),
-		logger.Int("TaskID", resultSet.TaskID.ID), logger.Int("nodeID", int(resultSet.NodeID)))
+		logger.Int("TaskID", resultSet.TaskID.ID), logger.Int("nodeID", int(resultSet.Node)))
 
 	fmt.Println(string(request.Payload))
 
-	sourceOperator := pipeline.DriverManager.GetSourceOperator(resultSet.TaskID, resultSet.NodeID)
+	sourceOperator := pipeline.DriverManager.GetSourceOperator(resultSet.TaskID, resultSet.Node)
 	if sourceOperator != nil {
-		sourceOperator.AddSplit(&spi.BinarySplit{
-			Page:  resultSet.Page,
-			Error: resultSet.Error,
-		})
-
+		// FIXME: handle error
 		if resultSet.NoMore {
 			// current task no more splits
-			sourceOperator.NoMoreSplits()
+			sourceOperator.Complete()
+		} else {
+			sourceOperator.Receive(resultSet.Page)
 		}
 	} else {
 		srv.logger.Warn("source operator not found", logger.Any("requestID", resultSet.TaskID.RequestID),
-			logger.Int("TaskID", resultSet.TaskID.ID), logger.Int("nodeID", int(resultSet.NodeID)))
+			logger.Int("TaskID", resultSet.TaskID.ID), logger.Int("nodeID", int(resultSet.Node)))
 	}
 	return &protoCommandV1.ResultSetResponse{}, nil
 }

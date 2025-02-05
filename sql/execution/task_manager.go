@@ -1,3 +1,20 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package execution
 
 import (
@@ -9,6 +26,7 @@ import (
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/metrics"
+	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/buffer"
 	"github.com/lindb/lindb/sql/execution/model"
 	"github.com/lindb/lindb/sql/planner/plan"
@@ -28,6 +46,7 @@ type TaskManager interface {
 }
 
 type taskManager struct {
+	ctx      context.Context
 	tasks    map[model.TaskID]*SQLTask
 	taskCh   chan *SQLTask
 	taskPool concurrent.Pool
@@ -35,12 +54,14 @@ type taskManager struct {
 	lock sync.RWMutex
 }
 
-func NewTaskManager() TaskManager {
+func NewTaskManager(ctx context.Context) TaskManager {
 	mgr := &taskManager{
+		ctx:   ctx,
 		tasks: make(map[model.TaskID]*SQLTask),
 		// TODO: add config
-		taskCh:   make(chan *SQLTask, 100),
-		taskPool: concurrent.NewPool("task-exec", 10, time.Minute, metrics.NewConcurrentStatistics("task-exec", linmetric.BrokerRegistry)), // TODO: fix it
+		taskCh: make(chan *SQLTask, 100),
+		taskPool: concurrent.NewPool("task-exec",
+			10, time.Minute, metrics.NewConcurrentStatistics("task-exec", linmetric.BrokerRegistry)), // TODO: fix it
 	}
 
 	go mgr.dispatchTask()
@@ -90,15 +111,26 @@ func (mgr *taskManager) dispatchTask() {
 				fmt.Println("******************")
 
 				fct := NewTaskExecutionFactory()
-				exec := fct.Create(task, output) // TODO:
+				exec := fct.Create(task) // TODO:
 
-				exec.Execute()
+				outputCh := make(chan *types.Page)
+				defer close(outputCh)
 
+				go func() {
+					for page := range outputCh {
+						output.AddPage(page)
+					}
+					output.Complete()
+				}()
+
+				exec.Execute(outputCh)
 				fmt.Printf("task exec result\n")
 			}, func(err error) {
 				fmt.Printf("task exec fail %v\n", err)
 				output.SetError(err)
 			}))
+		case <-mgr.ctx.Done():
+			return
 		}
 	}
 }

@@ -1,77 +1,45 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package scan
 
 import (
-	"context"
-	"fmt"
-
-	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/pipeline/operator"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
 
-type TableScanOperatorFactory struct {
-	conector spi.PageSourceConnector
-
-	sourceID plan.PlanNodeID
-}
-
-func NewTableScanOperatorFactory(sourceID plan.PlanNodeID, connector spi.PageSourceConnector) operator.OperatorFactory {
-	return &TableScanOperatorFactory{
-		sourceID: sourceID,
-		conector: connector,
-	}
-}
-
-func (fct *TableScanOperatorFactory) CreateOperator(ctx context.Context) operator.Operator {
-	return NewTableScanOperator(fct.sourceID, fct.conector)
-}
-
 type TableScanOperator struct {
-	connector spi.PageSourceConnector
-
-	sourceID plan.PlanNodeID
+	connector spi.SourceConnector
+	node      *plan.TableScanNode
 }
 
-func NewTableScanOperator(sourceID plan.PlanNodeID, connector spi.PageSourceConnector) operator.SourceOperator {
+func NewTableScanOperator(connector spi.SourceConnector, node *plan.TableScanNode) operator.Operator {
 	return &TableScanOperator{
-		sourceID:  sourceID,
 		connector: connector,
+		node:      node,
 	}
 }
 
-func (op *TableScanOperator) GetSourceID() plan.PlanNodeID {
-	return op.sourceID
+func (op *TableScanOperator) Run(output chan<- *types.Page) {
+	op.connector.Run(output)
 }
 
-func (op *TableScanOperator) NoMoreSplits() {
-}
-
-func (op *TableScanOperator) AddSplit(split spi.Split) {
-	panic("remove it")
-}
-
-// AddInput implements operator.Operator
-func (op *TableScanOperator) AddInput(page *types.Page) {
-	panic(fmt.Errorf("%w: table scan cannot take input", constants.ErrNotSupportOperation))
-}
-
-// Finish implements operator.Operator
-func (op *TableScanOperator) Finish() {
-}
-
-// GetOutput implements operator.Operator
-func (op *TableScanOperator) GetOutput() *types.Page {
-	// return op.pageSource.GetNextPage()
-	return nil
-}
-
-func (op *TableScanOperator) GetOutbound() <-chan *types.Page {
-	return op.connector.GetPages()
-}
-
-// IsFinished implements operator.Operator
-func (op *TableScanOperator) IsFinished() bool {
-	return true
+func (op *TableScanOperator) GetLayout() []*plan.Symbol {
+	return op.node.GetOutputSymbols()
 }

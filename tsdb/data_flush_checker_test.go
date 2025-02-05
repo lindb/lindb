@@ -185,7 +185,6 @@ func TestDataFamilyCheck_check(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(_ *testing.T) {
 			memoryUsageCheckInterval.Store(10 * time.Millisecond)
 			checker := newDataFlushChecker(context.TODO())
@@ -277,7 +276,6 @@ func TestDataFlushChecker_requestFlush(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(_ *testing.T) {
 			checker := newDataFlushChecker(context.TODO())
 			checker1 := checker.(*dataFlushChecker)
@@ -374,7 +372,6 @@ func TestDataFlushChecker_doFlush(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(_ *testing.T) {
 			checker := newDataFlushChecker(context.TODO())
 			checker1 := checker.(*dataFlushChecker)

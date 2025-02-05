@@ -145,7 +145,7 @@ type memFilterResultSet struct {
 	db              *memoryDatabase
 	slotRange       timeutil.SlotRange
 	seriesIDs       *roaring.Bitmap // series ids of match
-	fields          []*fieldEntry
+	fields          []*fieldEntry   // has value when search metric data
 	familyTime      int64
 }
 
@@ -199,7 +199,7 @@ func (rs *memFilterResultSet) Load(seriesIDHighKey uint16, lowSeriesIDs roaring.
 		return nil
 	}
 	// must use lowContainer from store, because get series index based on container
-	return NewTimeSeriesLoader(rs.db, rs.timeSeriesIndex, seriesIDsFromStorage,
+	return NewTimeSeriesLoader(rs.db, seriesIDsFromStorage,
 		memTimeSeriesIDs, rs.slotRange, rs.fields)
 }
 

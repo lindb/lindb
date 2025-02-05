@@ -75,7 +75,7 @@ func NewDefaultLimits() *Limits {
 		MaxTagNameLength:    128,
 		MaxTagValueLength:   1024,
 		MaxTagsPerMetric:    32,
-		MaxSeriesPerMetric:  20_0000,
+		MaxSeriesPerMetric:  2000_0000, // FIXME: change default value
 		Metrics:             make(map[string]uint32),
 		// Read limits
 		MaxSeriesPerQuery: 200000,

@@ -1,4 +1,4 @@
-// Licensed to LinDB under one or more contributormaiu
+// Licensed to LinDB under one or more contributor
 // license agreements. See the NOTICE file distributed with
 // this work for additional information regarding copyright
 // ownership. LinDB licenses this file to you under
@@ -51,6 +51,7 @@ var (
 	newExecuteCli = client.NewExecuteCli
 	runPromptFn   = runPrompt
 	newPrompt     = prompt.New
+	exitFn        = os.Exit
 )
 
 const (
@@ -80,14 +81,13 @@ func init() {
 func suggestTokens() (tokens []prompt.Suggest) {
 	typ := reflect.TypeOf(&grammar.NonReservedContext{})
 	var keyWords []string
-	for i := 0; i < typ.NumMethod(); i++ {
+	for i := range typ.NumMethod() {
 		methodName := typ.Method(i).Name
 		if strings.ToUpper(methodName) == methodName {
 			keyWords = append(keyWords, methodName)
 		}
 	}
-	keyWords = append(keyWords, "EXIT")
-	keyWords = append(keyWords, "information_schema")
+	keyWords = append(keyWords, "EXIT", "information_schema")
 	sort.Strings(keyWords)
 	for _, word := range keyWords {
 		tokens = append(tokens, prompt.Suggest{Text: word})
@@ -107,7 +107,7 @@ func printErr(err error) {
 func exit() {
 	fmt.Println("Good Bye :)")
 	saveHistory()
-	os.Exit(0)
+	exitFn(0)
 }
 
 // executor executes command.
@@ -218,7 +218,9 @@ func main() {
 
 	p := newPrompt(
 		executor,
-		prompt.WithCompleter(func(doc prompt.Document) (suggestions []prompt.Suggest, startChar istrings.RuneNumber, endChar istrings.RuneNumber) {
+		prompt.WithCompleter(func(doc prompt.Document) (suggestions []prompt.Suggest,
+			startChar istrings.RuneNumber, endChar istrings.RuneNumber,
+		) {
 			endIndex := doc.CurrentRuneIndex()
 			w := doc.GetWordBeforeCursor()
 			startIndex := endIndex - istrings.RuneCountInString(w)
@@ -268,7 +270,7 @@ func main() {
 
 		// highlight
 		prompt.WithLexer(prompt.NewEagerLexer(func(line string) []prompt.Token {
-			if len(line) == 0 {
+			if line == "" {
 				return nil
 			}
 
@@ -280,7 +282,7 @@ func main() {
 
 			isKeyWord := func(key string) bool {
 				_, ok := lo.Find(suggestItems, func(item prompt.Suggest) bool {
-					return strings.ToUpper(key) == strings.ToUpper(item.Text)
+					return strings.EqualFold(key, item.Text)
 				})
 				return ok
 			}

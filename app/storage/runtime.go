@@ -176,7 +176,7 @@ func (r *runtime) Run() error {
 	}
 	r.engine = engine
 
-	spi.RegisterPageSourceConnectorProvider(&metric.TableHandle{}, metric.NewPageSourceConnectorProvider(engine))
+	spi.RegisterSourceConnectorProvider(&metric.TableHandle{}, metric.NewSourceConnectorProvider(engine))
 
 	hostName, err := hostName()
 	if err != nil {
@@ -443,7 +443,8 @@ func (r *runtime) bindRPCHandlers() {
 	protoWriteV1.RegisterWriteServiceServer(r.server.GetServer(), r.rpcHandler.write)
 
 	protoMetaV1.RegisterMetaServiceServer(r.server.GetServer(), rpchandler.NewMetaService(r.engine))
-	protoCommandV1.RegisterCommandServiceServer(r.server.GetServer(), internalrpc.NewCommandService(execution.NewTaskManager()))
+	protoCommandV1.RegisterCommandServiceServer(r.server.GetServer(),
+		internalrpc.NewCommandService(execution.NewTaskManager(r.ctx)))
 }
 
 // initMyID initializes myid for storage server.

@@ -18,8 +18,6 @@
 package memdb
 
 import (
-	"fmt"
-
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -28,32 +26,28 @@ import (
 
 // timeSeriesLoader represents time series store loader.
 type timeSeriesLoader struct {
-	db              *memoryDatabase
-	timeSeriesIndex TimeSeriesIndex
-	fields          []*fieldEntry
-	slotRange       timeutil.SlotRange // slot range of metric memory store
-	seriesIDHighKey uint16
+	db        *memoryDatabase
+	seriesIDs *flow.LowSeriesIDs
+	decoder   *encoding.TSDDecoder
 
-	seriesIDs        *flow.LowSeriesIDs
 	memTimeSeriesIDs []uint32
+	fields           []*fieldEntry
 
-	decoder *encoding.TSDDecoder
+	slotRange timeutil.SlotRange // slot range of metric memory store
 }
 
 // NewTimeSeriesLoader creates a time series store loader.
 func NewTimeSeriesLoader(
 	db *memoryDatabase,
-	timeSeriesIndex TimeSeriesIndex,
 	seriesIDs *flow.LowSeriesIDs,
 	memTimeSeriesIDs []uint32,
 	slotRange timeutil.SlotRange,
 	fields []*fieldEntry,
 ) flow.DataLoader {
 	return &timeSeriesLoader{
-		db:              db,
-		timeSeriesIndex: timeSeriesIndex,
-		fields:          fields,
-		slotRange:       slotRange,
+		db:        db,
+		fields:    fields,
+		slotRange: slotRange,
 
 		seriesIDs:        seriesIDs,
 		memTimeSeriesIDs: memTimeSeriesIDs,
@@ -63,8 +57,7 @@ func NewTimeSeriesLoader(
 
 func (tsl *timeSeriesLoader) Load(seriesID uint16, fn func(field field.Meta, geter encoding.TSDValueGetter)) {
 	index, ok := tsl.seriesIDs.Find(seriesID)
-	// TODO: add lock
-	fmt.Printf("find series id=%d, ok=%v,series id=%d\n", index, ok, seriesID)
+	// FIXME: add lock????
 	if ok {
 		memTimeSeriesID := tsl.memTimeSeriesIDs[index]
 		for _, fm := range tsl.fields {

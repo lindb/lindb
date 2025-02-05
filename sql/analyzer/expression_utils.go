@@ -1,3 +1,20 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package analyzer
 
 import (
@@ -5,11 +22,12 @@ import (
 )
 
 func asQualifiedName(expression tree.Expression) (name *tree.QualifiedName) {
-	if identifier, ok := expression.(*tree.Identifier); ok {
-		name = tree.NewQualifiedName([]*tree.Identifier{identifier})
-	} else if dereference, ok := expression.(*tree.DereferenceExpression); ok {
+	switch e := expression.(type) {
+	case *tree.Identifier:
+		name = tree.NewQualifiedName([]*tree.Identifier{e})
+	case *tree.DereferenceExpression:
+		name = e.ToQualifiedName()
 		// TODO:????
-		name = dereference.ToQualifiedName()
 	}
 	return
 }
@@ -36,8 +54,7 @@ func ExtractTimePredicates(expression tree.Expression) (result []*tree.TimePredi
 			}
 		}
 		if len(newTerms) == 0 {
-			newExpr = nil
-			return
+			return result, nil
 		}
 		if len(newTerms) != len(logicalExpression.Terms) {
 			logicalExpression.Terms = newTerms
@@ -51,7 +68,9 @@ func ExtractTimePredicates(expression tree.Expression) (result []*tree.TimePredi
 	return
 }
 
-func ExtractPredicates(operator tree.LogicalOperator, expression tree.Expression, result []tree.Expression) (r []tree.Expression) {
+func ExtractPredicates(operator tree.LogicalOperator,
+	expression tree.Expression, result []tree.Expression,
+) (r []tree.Expression) {
 	if logicalExpression, ok := expression.(*tree.LogicalExpression); ok && logicalExpression.Operator == operator {
 		for i := range logicalExpression.Terms {
 			term := logicalExpression.Terms[i]

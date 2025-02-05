@@ -498,7 +498,7 @@ func (f *dataFamily) fileFilter(ctx *flow.MetricScanContext) (resultSet []flow.F
 		engineLogger.Error("filter data family error", logger.Error(err))
 		return nil, err
 	}
-	querySlotRange := ctx.CalcSourceSlotRange(f.familyTime)
+	querySlotRange := f.interval.CalcSlotRange(f.familyTime, ctx.TimeRange)
 	fmt.Printf("find reader =%v,%v\n", readers, metricKey)
 	var metricReaders []metricsdata.MetricReader
 	for _, reader := range readers {

@@ -101,7 +101,6 @@ func TestMasterController_OnFailOver(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			mc := &masterController{
 				ctx: context.TODO(),
@@ -250,7 +249,6 @@ func TestMasterController_FlushDatabase(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			mc := &masterController{
 				elect:    masterElect,

@@ -109,7 +109,6 @@ func TestShard_New(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				// mock mkdir
@@ -195,7 +194,6 @@ func TestShard_GetDataFamilies(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(_ *testing.T) {
 			if tt.prepare != nil {
 				tt.prepare()
@@ -285,7 +283,6 @@ func TestShard_Close(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.prepare != nil {
 				tt.prepare()
@@ -347,7 +344,6 @@ func TestShard_Flush(t *testing.T) {
 		},
 	}
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				s.isFlushing.Store(false)

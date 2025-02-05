@@ -1,3 +1,20 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package rule
 
 import (
@@ -93,9 +110,12 @@ func (rule *PushPartialAggregationThroughExchange) pushPartial(context *iterativ
 	}
 }
 
-func (rule *PushPartialAggregationThroughExchange) split(context *iterative.Context, node *plan.AggregationNode) plan.PlanNode {
+func (rule *PushPartialAggregationThroughExchange) split(context *iterative.Context,
+	node *plan.AggregationNode,
+) plan.PlanNode {
 	// TODO: add agg fun
-	partial := plan.NewAggregationNode(context.PlannerContext.PlanNodeIDAllocator.Next(), node.Source, node.Aggregations, node.GroupingSets, plan.PARTIAL)
+	partial := plan.NewAggregationNode(context.PlannerContext.PlanNodeIDAllocator.Next(),
+		node.Source, node.Aggregations, node.GroupingSets, plan.PARTIAL)
 	return plan.NewAggregationNode(node.GetNodeID(), partial, node.Aggregations, node.GroupingSets, plan.FINAL)
 }
 
@@ -109,19 +129,22 @@ func NewPushAggregationIntoTableScan() iterative.Rule {
 	return rule
 }
 
-func (rule *PushAggregationIntoTableScan) pushAggregationIntoTableScan(context *iterative.Context, node *plan.AggregationNode) plan.PlanNode {
+func (rule *PushAggregationIntoTableScan) pushAggregationIntoTableScan(context *iterative.Context,
+	node *plan.AggregationNode,
+) plan.PlanNode {
 	if node.Step != plan.SINGLE || len(node.Aggregations) == 0 {
 		// if step is single or no aggregation, return nil
 		return nil
 	}
 	// TODO: duplicate?
 	var columnAggregations []spi.ColumnAggregation
-	var assigments plan.Assignments
+	var assignments plan.Assignments
 	for _, agg := range node.Aggregations {
 		for _, arg := range agg.Aggregation.Arguments {
 			if symbol, ok := arg.(*tree.SymbolReference); ok {
-				columnAggregations = append(columnAggregations, spi.ColumnAggregation{Column: symbol.Name, AggFuncName: agg.Aggregation.Function})
-				assigments = assigments.Put(plan.SymbolFrom(symbol), agg.ASTExpression)
+				columnAggregations = append(columnAggregations,
+					spi.ColumnAggregation{Column: symbol.Name, AggFuncName: agg.Aggregation.Function})
+				assignments = assignments.Put(plan.SymbolFrom(symbol), agg.ASTExpression)
 			}
 		}
 	}

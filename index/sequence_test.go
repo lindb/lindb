@@ -45,7 +45,7 @@ func TestSequence(t *testing.T) {
 	test(0, 4, seq.GenNamespaceSeq)
 	test(0, 8, seq.GenMetricNameSeq)
 	test(0, 16, seq.GenTagKeySeq)
-	test(0, 32, seq.GenTagValueSeq)
+	test(1, 32, seq.GenTagValueSeq)
 
 	assert.NoError(t, seq.Sync())
 	assert.NoError(t, seq.Close())

@@ -1,7 +1,26 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package analyzer
 
 import (
 	"fmt"
+
+	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/sql/tree"
 )
@@ -73,7 +92,7 @@ func (scope *Scope) tryResolveField(node tree.Expression, name *tree.QualifiedNa
 	return scope.resolveField(node, name, true)
 }
 
-func (scope *Scope) resolveField(node tree.Expression, name *tree.QualifiedName, local bool) *ResolvedField {
+func (scope *Scope) resolveField(node tree.Expression, name *tree.QualifiedName, local bool) *ResolvedField { //nolint
 	fields := scope.RelationType.resolveFields(name)
 	if len(fields) > 1 {
 		panic(fmt.Sprintf("column '%s' is ambiguous", name.Name))
@@ -109,7 +128,10 @@ func (scope *Scope) asResolvedField(field *tree.Field, fieldIndexOffset int, loc
 	}
 }
 
-func (scope *Scope) resolveAsteriskedIdentifierChain(identifierChain *tree.QualifiedName, selectItem *tree.AllColumns) *AsteriskedIdentifierChain {
+func (scope *Scope) resolveAsteriskedIdentifierChain(
+	identifierChain *tree.QualifiedName,
+	selectItem *tree.AllColumns, //nolint
+) *AsteriskedIdentifierChain {
 	partsLen := len(identifierChain.Parts)
 	var (
 		scopeForTableRef *Scope
@@ -118,11 +140,9 @@ func (scope *Scope) resolveAsteriskedIdentifierChain(identifierChain *tree.Quali
 	find := func(scope *Scope, match func(field *tree.Field) bool) bool {
 		fmt.Println(scope.RelationType)
 		fields := scope.RelationType.Fields
-		for i := range fields {
-			if match(fields[i]) {
-				return true
-			}
-		}
+		lo.ContainsBy(fields, func(item *tree.Field) bool {
+			return match(item)
+		})
 		return false
 	}
 	if partsLen <= 3 {
@@ -191,15 +211,6 @@ func (scope *Scope) findLocally(match func(scope *Scope) bool) *Scope {
 		}
 		fmt.Printf("use parent scope=%v, id=%v\n......", parent, parent.RelationID)
 		s = parent
-	}
-	return nil
-}
-
-func (scope *Scope) getOuterQueryParent() *Scope {
-	s := scope
-	if s.Parent != nil {
-		// FIXME:MMMMMMMM
-		return s.Parent
 	}
 	return nil
 }

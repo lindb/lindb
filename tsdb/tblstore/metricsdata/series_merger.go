@@ -18,7 +18,6 @@
 package metricsdata
 
 import (
-	"github.com/lindb/lindb/aggregation"
 	"github.com/lindb/lindb/pkg/encoding"
 )
 
@@ -75,7 +74,7 @@ func (sm *seriesMerger) merge(
 		// merges field data from source time range => target time range,
 		// compact merge: source range = target range and ratio = 1
 		// rollup merge: source range[5,182]=>target range[0,6], ratio:30, source interval:10s, target interval:5min
-		aggregation.DownSamplingMultiSeriesInto(
+		DownSamplingMultiSeriesInto(
 			mergeCtx.targetRange, mergeCtx.ratio, mergeCtx.baseSlot,
 			f.Type, streams,
 			encodeStream.EmitDownSamplingValue,

@@ -83,7 +83,6 @@ func TestStorageCluster_listLiveNodes(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			sc := &storageCluster{
 				repo: repo,

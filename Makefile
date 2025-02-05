@@ -66,7 +66,7 @@ format: ## go format
 lint: ## run lint
 ifeq (, $(shell which golangci-lint))
 	# binary will be $(go env GOPATH)/bin/golangci-lint
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.57.2
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(shell go env GOPATH)/bin v1.64.6
 else
 	echo "Found golangci-lint"
 endif

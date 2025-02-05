@@ -112,7 +112,6 @@ func TestFamilyChannel_Write(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			ch := &familyChannel{
 				chunk:          chunk,
@@ -527,7 +526,6 @@ func TestFamilyChannel_writeTask(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(_ *testing.T) {
 			ctx, cancel := context.WithCancel(context.TODO())
 			f := &familyChannel{

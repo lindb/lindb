@@ -104,7 +104,7 @@ func (s *Sequence) GenTagKeySeq() uint32 {
 
 // GenTagValueSeq generates sequence for tag value.
 func (s *Sequence) GenTagValueSeq() uint32 {
-	return s.tagValue.Inc() // start with 1 TODO: add test
+	return s.tagValue.Inc() // start with 1
 }
 
 // Sync persists the sequence data.

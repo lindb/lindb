@@ -1,7 +1,25 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package planner
 
 import (
 	"fmt"
+	"maps"
 
 	"github.com/samber/lo"
 
@@ -26,7 +44,7 @@ type TranslationMap struct {
 
 func (t *TranslationMap) Rewrite(expr tree.Expression) tree.Expression {
 	// TODO: check symbol referencea are not allowed/expr if analyzed
-	fmt.Printf("rewrite expression=%v,%T\n", expr)
+	fmt.Printf("rewrite expression=%v,%T\n", expr, expr)
 	return t.translate(expr, true)
 }
 
@@ -42,12 +60,8 @@ func (t *TranslationMap) withNewMappings(mappings map[tree.NodeID]*plan.Symbol, 
 
 func (t *TranslationMap) withAdditionalMapping(mappings map[tree.NodeID]*plan.Symbol) *TranslationMap {
 	newMappings := make(map[tree.NodeID]*plan.Symbol)
-	for k, v := range t.astToSymbols {
-		newMappings[k] = v
-	}
-	for k, v := range mappings {
-		newMappings[k] = v
-	}
+	maps.Copy(newMappings, t.astToSymbols)
+	maps.Copy(newMappings, mappings)
 	fmt.Printf("addition mapping=%v,%v\n", newMappings, t)
 	return &TranslationMap{
 		scope:        t.scope,
@@ -75,7 +89,8 @@ func (t *TranslationMap) getSymbolForColumn(node tree.Expression) *plan.Symbol {
 	if field == nil {
 		return nil
 	}
-	fmt.Printf("get symbol for column=%v,%T,%T,%v\n", node.GetID(), node, field.Scope.RelationID.SourceNode, field.Scope.RelationID.SourceNode.GetID())
+	fmt.Printf("get symbol for column=%v,%T,%T,%v\n", node.GetID(), node,
+		field.Scope.RelationID.SourceNode, field.Scope.RelationID.SourceNode.GetID())
 	a := t.scope.IsLocalScope(field.Scope)
 	fmt.Printf("t.scope.IsLocalScope(field.Scope)=%v ,%v,%T\n", a, node, node.GetID())
 	if a {
@@ -199,7 +214,7 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 				panic(fmt.Sprintf("function %s is not supported", expr.Name))
 			}
 			expr.RetType = t.context.AnalyzerContext.Analysis.GetType(expr)
-			// expr.Name = t.context.AnalyzerContext.Analysis.GetResolvedFunction(expr)
+			// TODO: expr.Name = t.context.AnalyzerContext.Analysis.GetResolvedFunction(expr)
 			expr.Arguments = lo.Map(expr.Arguments, func(arg tree.Expression, index int) tree.Expression {
 				return t.translate(arg, false)
 			})

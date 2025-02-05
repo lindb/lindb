@@ -42,7 +42,6 @@ import (
 	"github.com/lindb/lindb/pkg/hostutil"
 	httppkg "github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/tag"
 )
 
@@ -63,7 +62,6 @@ var (
 
 // deps represents all dependencies for root.
 type deps struct {
-	connectionMgr   rpc.ConnectionManager
 	repoFct         state.RepositoryFactory
 	stateMachineFct discovery.StateMachineFactory
 	stateMgr        root.StateManager
@@ -138,12 +136,10 @@ func (r *runtime) Run() error {
 
 	// build dependencies
 	repoFct := newRepositoryFactory("root")
-	connectionMgr := rpc.NewConnectionManager()
-	stateMgr := root.NewStateManager(r.ctx, repoFct, connectionMgr)
+	stateMgr := root.NewStateManager(r.ctx, repoFct)
 	r.deps = &deps{
-		connectionMgr: connectionMgr,
-		repoFct:       repoFct,
-		stateMgr:      stateMgr,
+		repoFct:  repoFct,
+		stateMgr: stateMgr,
 	}
 
 	// start state repository

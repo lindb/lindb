@@ -1,3 +1,20 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package planner
 
 import (
@@ -8,7 +25,6 @@ import (
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/context"
-	"github.com/lindb/lindb/sql/execution/buffer"
 	"github.com/lindb/lindb/sql/execution/pipeline"
 	"github.com/lindb/lindb/sql/execution/pipeline/operator"
 	"github.com/lindb/lindb/sql/execution/pipeline/operator/exchange"
@@ -24,38 +40,21 @@ func NewTaskExecutionPlanner() *TaskExecutionPlanner {
 	return &TaskExecutionPlanner{}
 }
 
-func (p *TaskExecutionPlanner) Plan(taskCtx *context.TaskContext, node planpkg.PlanNode, outputBuffer buffer.OutputBuffer) *TaskExecutionPlan {
+func (p *TaskExecutionPlanner) Plan(taskCtx *context.TaskContext, node planpkg.PlanNode) *TaskExecutionPlan {
 	visitor := &TaskExecutionPlanVisitor{
 		taskExecCtx: taskCtx,
 		planner:     p,
 	}
-	taskExecPlanCtx := NewTaskExecutionPlanContext(taskCtx.Context, nil)
-	var physicalOperator *PhysicalOperation
-	if op, ok := node.Accept(taskExecPlanCtx, visitor).(*PhysicalOperation); ok {
-		physicalOperator = op
-	}
-	if physicalOperator == nil {
+	taskExecPlanCtx := NewTaskExecutionPlanContext(taskCtx)
+	var (
+		op operator.Operator
+		ok bool
+	)
+	if op, ok = node.Accept(taskExecPlanCtx, visitor).(operator.Operator); !ok {
 		panic("cannot get physicalOperator")
 	}
-
-	var columnNames []string
-	if outputNode, ok := node.(*planpkg.OutputNode); ok {
-		columnNames = outputNode.ColumnNames
-	}
-
-	sourceLayout := physicalOperator.GetLayout()
-	// // set source/output layout for output buffer
-	// outputBuffer.SetOutputLayout(node.GetOutputSymbols())
-	// outputBuffer.SetSourceLayout(sourceLayout)
-
-	outputOperatorFct := output.NewRSOutputOperatorFactory(outputBuffer, columnNames, node.GetOutputSymbols(), sourceLayout)
-	fmt.Printf("task exec plan:%T,output:%v,op:%T\n", node, sourceLayout, physicalOperator)
-	// add output operator
-	taskExecPlanCtx.AddDriverFactory(NewPhysicalOperation(outputOperatorFct, node.GetOutputSymbols(), physicalOperator))
-
-	pipelines := []*pipeline.Pipeline{pipeline.NewPipeline(taskCtx, taskExecPlanCtx.driverFactories[0])}
-
-	return NewTaskExecutionPlan(pipelines)
+	fmt.Printf("task exec plan:%T,op:%T\n", node, op)
+	return NewTaskExecutionPlan([]*pipeline.Pipeline{pipeline.NewPipeline(taskCtx, op)})
 }
 
 type TaskExecutionPlanVisitor struct {
@@ -67,7 +66,8 @@ type TaskExecutionPlanVisitor struct {
 func (v *TaskExecutionPlanVisitor) Visit(context any, n planpkg.PlanNode) (r any) {
 	switch node := n.(type) {
 	case *planpkg.OutputNode:
-		return node.Source.Accept(context, v)
+		child := node.Source.Accept(context, v).(operator.Operator)
+		return output.NewRSOutputOperator(node, child)
 	case *planpkg.AggregationNode:
 		return v.visitAggregation(context, node)
 	case *planpkg.RemoteSourceNode:
@@ -88,23 +88,15 @@ func (v *TaskExecutionPlanVisitor) Visit(context any, n planpkg.PlanNode) (r any
 }
 
 func (v *TaskExecutionPlanVisitor) visitValues(_ any, node *planpkg.ValuesNode) (r any) {
-	var page *types.Page
-	if node.Rows != nil {
-		page = node.Rows
-	} else if node.RowCount == 1 {
-		page = types.RowWithEmptyValue
-	}
-	fmt.Printf("values node =%v\n", page)
-
-	operatorFct := operator.NewValuesOperatorFactory(node.ID, page)
-	return NewPhysicalOperation(operatorFct, node.GetOutputSymbols(), nil)
+	return operator.NewValuesOperator(node)
 }
 
 // visitFilter plans filter physical operator.
 func (v *TaskExecutionPlanVisitor) visitFilter(context any, node *planpkg.FilterNode) (r any) {
 	if tableScan, ok := node.Source.(*planpkg.TableScanNode); ok {
-		operatorFct := v.visitTableScan(context, tableScan, node.Predicate)
-		return NewPhysicalOperation(operatorFct, node.GetOutputSymbols(), nil)
+		return v.visitTableScan(context, tableScan, node.Predicate)
+		// FIXME: source layout???
+		// return NewPhysicalOperation(operatorFct, node.GetOutputSymbols(), nil)
 	}
 	panic("need impl visitFilter")
 }
@@ -113,23 +105,25 @@ func (v *TaskExecutionPlanVisitor) visitExchange(context any, node *planpkg.Exch
 	if node.Scope != planpkg.Local {
 		panic("only local exchanges are supported in the local planner")
 	}
-	source := node.Sources[0].Accept(context, v).(*PhysicalOperation)
-	operatorFct := exchange.NewLocalExchangeOperatorFactory()
-	return NewPhysicalOperation(operatorFct, node.GetOutputSymbols(), source)
+	// FIXME: set child
+	_ = node.Sources[0].Accept(context, v).(*operator.Operator)
+	return exchange.NewLocalExchangeOperator(node)
 }
 
 func (v *TaskExecutionPlanVisitor) visitAggregation(context any, node *planpkg.AggregationNode) (r any) {
-	source := node.Source.Accept(context, v).(*PhysicalOperation)
+	source := node.Source.Accept(context, v).(operator.Operator)
 	return v.planGroupByAggregation(node, source)
 }
 
-func (v *TaskExecutionPlanVisitor) planGroupByAggregation(node *planpkg.AggregationNode, source *PhysicalOperation) *PhysicalOperation {
-	operatorFct := v.createHashAggregationOperatorFactory()
-	return NewPhysicalOperation(operatorFct, node.GetOutputSymbols(), source)
+func (v *TaskExecutionPlanVisitor) planGroupByAggregation(
+	_ *planpkg.AggregationNode, _ operator.Operator,
+) operator.Operator {
+	// TODO: need fixit
+	return v.createHashAggregationOperatorFactory()
 }
 
-func (v *TaskExecutionPlanVisitor) createHashAggregationOperatorFactory() operator.OperatorFactory {
-	return operator.NewHashAggregationOperatorFactory()
+func (v *TaskExecutionPlanVisitor) createHashAggregationOperatorFactory() operator.Operator {
+	return operator.NewHashAggregationOperator(nil)
 }
 
 func (v *TaskExecutionPlanVisitor) visitProjection(context any, node *planpkg.ProjectionNode) (r any) {
@@ -145,40 +139,30 @@ func (v *TaskExecutionPlanVisitor) visitProjection(context any, node *planpkg.Pr
 }
 
 func (v *TaskExecutionPlanVisitor) VisitTableScan(context any, node *planpkg.TableScanNode) (r any) {
-	operatorFct := v.visitTableScan(context, node, nil)
-	return NewPhysicalOperation(operatorFct, node.GetOutputSymbols(), nil)
+	return v.visitTableScan(context, node, nil)
 }
 
 func (v *TaskExecutionPlanVisitor) visitRemoteSource(_ any, node *planpkg.RemoteSourceNode) (r any) {
-	operatorFct := exchange.NewExchangeOperatorFactory(node.GetNodeID(), len(node.SourceFragmentIDs))
-	return NewPhysicalOperation(operatorFct, node.GetOutputSymbols(), nil)
+	op := exchange.NewRemoteExchangeOperator(v.taskExecCtx.Context, node, len(node.SourceFragmentIDs))
+	// register remote exchange source
+	pipeline.DriverManager.RegisterSourceOperator(v.taskExecCtx.TaskID, op)
+	return op
 }
 
-func (v *TaskExecutionPlanVisitor) visitScanFilterAndProjection(context any, project *planpkg.ProjectionNode, sourceNode planpkg.PlanNode, filter tree.Expression) any {
-	var (
-		source    *PhysicalOperation
-		table     spi.TableHandle
-		tableScan *planpkg.TableScanNode
-		ok        bool
-	)
-	if tableScan, ok = sourceNode.(*planpkg.TableScanNode); ok {
-		table = tableScan.Table
-	} else {
-		// plan source node
-		source = sourceNode.Accept(context, v).(*PhysicalOperation)
+func (v *TaskExecutionPlanVisitor) visitScanFilterAndProjection(context any,
+	project *planpkg.ProjectionNode, sourceNode planpkg.PlanNode, filter tree.Expression,
+) any {
+	if tableScan, ok := sourceNode.(*planpkg.TableScanNode); ok {
+		return v.visitTableScan(context, tableScan, filter)
 	}
-
-	if table != nil {
-		operatorFct := v.visitTableScan(context, tableScan, filter)
-		return NewPhysicalOperation(operatorFct, project.GetOutputSymbols(), source)
-	}
-	projectOpFct := operator.NewProjectionOperatorFactory(project, sourceNode.GetOutputSymbols())
-	return NewPhysicalOperation(projectOpFct, project.GetOutputSymbols(), source)
+	// plan source node
+	child := sourceNode.Accept(context, v).(operator.Operator)
+	return operator.NewProjectionOperator(v.taskExecCtx.Context, project, child)
 }
 
-func (v *TaskExecutionPlanVisitor) visitTableScan(context any,
+func (v *TaskExecutionPlanVisitor) visitTableScan(_ any,
 	node *planpkg.TableScanNode, predicate tree.Expression,
-) operator.OperatorFactory {
+) operator.Operator {
 	outputs := node.GetOutputSymbols()
 	outputColumns := lo.Map(outputs, func(item *planpkg.Symbol, index int) types.ColumnMetadata {
 		return types.ColumnMetadata{
@@ -186,9 +170,9 @@ func (v *TaskExecutionPlanVisitor) visitTableScan(context any,
 			DataType: item.DataType,
 		}
 	})
-	provider := spi.GetPageSourceConnectorProvider(node.Table)
-	connector := provider.CreatePageSourceConnector(v.taskExecCtx.Context,
+	provider := spi.GetSourceConnectorProvider(node.Table)
+	connector := provider.CreateSourceConnector(v.taskExecCtx.Context,
 		node.Table, v.taskExecCtx.Partitions, predicate, outputColumns, node.Assignments)
 
-	return scan.NewTableScanOperatorFactory(node.GetNodeID(), connector)
+	return scan.NewTableScanOperator(connector, node)
 }

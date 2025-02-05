@@ -36,7 +36,6 @@ import (
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	statepkg "github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/rpc"
 )
 
 //go:generate mockgen -source=./state_manager.go -destination=./state_manager_mock.go -package=root
@@ -75,8 +74,6 @@ type stateManager struct {
 	newBrokerClusterFn func(cfg *config.BrokerCluster,
 		stateMgr StateManager,
 		repoFactory statepkg.RepositoryFactory) (cluster BrokerCluster, err error)
-	// connection manager
-	connectionManager rpc.ConnectionManager
 
 	mutex sync.RWMutex
 
@@ -88,7 +85,6 @@ type stateManager struct {
 func NewStateManager(
 	ctx context.Context,
 	repoFactory statepkg.RepositoryFactory,
-	connectionManager rpc.ConnectionManager,
 ) StateManager {
 	c, cancel := context.WithCancel(ctx)
 	mgr := &stateManager{
@@ -100,7 +96,6 @@ func NewStateManager(
 		events:             make(chan *discovery.Event, 10),
 		nodes:              make(map[string]models.StatelessNode),
 		running:            atomic.NewBool(true),
-		connectionManager:  connectionManager,
 		statistics:         metrics.NewStateManagerStatistics(linmetric.RootRegistry),
 		newBrokerClusterFn: newBrokerCluster,
 		logger:             logger.GetLogger("Root", "StateManager"),
@@ -308,8 +303,6 @@ func (s *stateManager) onBrokerNodeStartup(brokerName, key string, data []byte) 
 	}
 	_, nodeID := filepath.Split(key)
 
-	s.connectionManager.CreateConnection(&node)
-
 	cluster := s.brokers[brokerName]
 	state := cluster.GetState()
 	state.NodeOnline(nodeID, node)
@@ -327,10 +320,6 @@ func (s *stateManager) onBrokerNodeFailure(brokerName, key string) {
 	cluster := s.brokers[brokerName]
 	state := cluster.GetState()
 
-	node, ok := state.LiveNodes[nodeID]
-	if ok {
-		s.connectionManager.CloseConnection(&node)
-	}
 	state.NodeOffline(nodeID)
 }
 

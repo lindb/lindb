@@ -1,3 +1,20 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package rule
 
 import (
@@ -10,7 +27,9 @@ import (
 	"github.com/lindb/lindb/sql/tree"
 )
 
-func restrictOutputs(idAllcator *plan.PlanNodeIDAllocator, node plan.PlanNode, permittedOutputs []*plan.Symbol) plan.PlanNode {
+func restrictOutputs(idAllcator *plan.PlanNodeIDAllocator,
+	node plan.PlanNode, permittedOutputs []*plan.Symbol,
+) plan.PlanNode {
 	outputs := node.GetOutputSymbols()
 	restrictedOutputs := lo.Filter(outputs, func(item *plan.Symbol, index int) bool {
 		return lo.ContainsBy(permittedOutputs, func(other *plan.Symbol) bool {
@@ -23,19 +42,21 @@ func restrictOutputs(idAllcator *plan.PlanNodeIDAllocator, node plan.PlanNode, p
 	}
 	fmt.Printf("restrictedOutputs, a=%v,b=%v,c=%v\n", outputs, restrictedOutputs, permittedOutputs)
 
-	var assigments plan.Assignments
-	assigments = assigments.Add(restrictedOutputs)
+	var assignments plan.Assignments
+	assignments = assignments.Add(restrictedOutputs)
 
 	return &plan.ProjectionNode{
 		BaseNode: plan.BaseNode{
 			ID: idAllcator.Next(),
 		},
 		Source:      node,
-		Assignments: assigments,
+		Assignments: assignments,
 	}
 }
 
-func restrictChildOutputs(idAllcator *plan.PlanNodeIDAllocator, node plan.PlanNode, permittedChildOutputs ...[]*plan.Symbol) plan.PlanNode {
+func restrictChildOutputs(idAllcator *plan.PlanNodeIDAllocator,
+	node plan.PlanNode, permittedChildOutputs ...[]*plan.Symbol,
+) plan.PlanNode {
 	if len(node.GetSources()) != len(permittedChildOutputs) {
 		panic(fmt.Sprintf("mismatched child (%d) and permitted outputs (%d) sizes",
 			len(node.GetSources()), len(permittedChildOutputs)))

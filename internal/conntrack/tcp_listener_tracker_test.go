@@ -61,7 +61,6 @@ func TestNewTrackedListener(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.prepare != nil {
 				tt.prepare()
@@ -102,7 +101,6 @@ func TestTrackedListener_Accept(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			tracker := &TrackedListener{
 				Listener:   listener,

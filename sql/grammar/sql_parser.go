@@ -1,3 +1,20 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 // Code generated from ./sql/grammar/SQLParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package grammar // SQLParser
@@ -42,7 +59,7 @@ func sqlparserParserInit() {
 		"'METRIC'", "'METADATA'", "'METADATAS'", "'NAMESPACE'", "'NAMESPACES'",
 		"'NOT'", "'NOW'", "'ON'", "'OR'", "'ORDER'", "'REQUESTS'", "'REPLICATIONS'",
 		"'RIGHT'", "'ROLLUP'", "'SELECT'", "'SHOW'", "'STATE'", "'STORAGE'",
-		"'TABLE_NAMES'", "'TIME'", "'TRACE'", "'TRUE'", "'TYPE'", "'TYPES'",
+		"'TABLE_NAMES'", "'TIMESTAMP'", "'TRACE'", "'TRUE'", "'TYPE'", "'TYPES'",
 		"'VALUES'", "'WHERE'", "'WITH'", "'WITHIN'", "'USING'", "'USE'", "'SECOND'",
 		"'MINUTE'", "'HOUR'", "'DAY'", "'MONTH'", "'YEAR'", "'='", "", "'<'",
 		"'<='", "'>'", "'>='", "'+'", "'-'", "'*'", "'/'", "'%'", "'=~'", "'!~'",
@@ -58,7 +75,7 @@ func sqlparserParserInit() {
 		"MEMORY_DATABASES", "METRICS", "METRIC", "METADATA", "METADATAS", "NAMESPACE",
 		"NAMESPACES", "NOT", "NOW", "ON", "OR", "ORDER", "REQUESTS", "REPLICATIONS",
 		"RIGHT", "ROLLUP", "SELECT", "SHOW", "STATE", "STORAGE", "TABLE_NAMES",
-		"TIME", "TRACE", "TRUE", "TYPE", "TYPES", "VALUES", "WHERE", "WITH",
+		"TIMESTAMP", "TRACE", "TRUE", "TYPE", "TYPES", "VALUES", "WHERE", "WITH",
 		"WITHIN", "USING", "USE", "SECOND", "MINUTE", "HOUR", "DAY", "MONTH",
 		"YEAR", "EQ", "NEQ", "LT", "LTE", "GT", "GTE", "PLUS", "MINUS", "ASTERISK",
 		"SLASH", "PERCENT", "REGEXP", "NEQREGEXP", "EXCLAMATION_SYMBOL", "DOT",
@@ -463,7 +480,7 @@ const (
 	SQLParserSTATE                 = 63
 	SQLParserSTORAGE               = 64
 	SQLParserTABLE_NAMES           = 65
-	SQLParserTIME                  = 66
+	SQLParserTIMESTAMP             = 66
 	SQLParserTRACE                 = 67
 	SQLParserTRUE                  = 68
 	SQLParserTYPE                  = 69
@@ -2096,6 +2113,95 @@ func (s *DatabaseOptionsContext) ToStringTree(ruleNames []string, recog antlr.Re
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
+type DatabaseOptsContext struct {
+	DatabaseOptionsContext
+}
+
+func NewDatabaseOptsContext(parser antlr.Parser, ctx antlr.ParserRuleContext) *DatabaseOptsContext {
+	var p = new(DatabaseOptsContext)
+
+	InitEmptyDatabaseOptionsContext(&p.DatabaseOptionsContext)
+	p.parser = parser
+	p.CopyAll(ctx.(*DatabaseOptionsContext))
+
+	return p
+}
+
+func (s *DatabaseOptsContext) GetRuleContext() antlr.RuleContext {
+	return s
+}
+
+func (s *DatabaseOptsContext) AllCreateDatabaseOptions() []ICreateDatabaseOptionsContext {
+	children := s.GetChildren()
+	len := 0
+	for _, ctx := range children {
+		if _, ok := ctx.(ICreateDatabaseOptionsContext); ok {
+			len++
+		}
+	}
+
+	tst := make([]ICreateDatabaseOptionsContext, len)
+	i := 0
+	for _, ctx := range children {
+		if t, ok := ctx.(ICreateDatabaseOptionsContext); ok {
+			tst[i] = t.(ICreateDatabaseOptionsContext)
+			i++
+		}
+	}
+
+	return tst
+}
+
+func (s *DatabaseOptsContext) CreateDatabaseOptions(i int) ICreateDatabaseOptionsContext {
+	var t antlr.RuleContext
+	j := 0
+	for _, ctx := range s.GetChildren() {
+		if _, ok := ctx.(ICreateDatabaseOptionsContext); ok {
+			if j == i {
+				t = ctx.(antlr.RuleContext)
+				break
+			}
+			j++
+		}
+	}
+
+	if t == nil {
+		return nil
+	}
+
+	return t.(ICreateDatabaseOptionsContext)
+}
+
+func (s *DatabaseOptsContext) AllCOMMA() []antlr.TerminalNode {
+	return s.GetTokens(SQLParserCOMMA)
+}
+
+func (s *DatabaseOptsContext) COMMA(i int) antlr.TerminalNode {
+	return s.GetToken(SQLParserCOMMA, i)
+}
+
+func (s *DatabaseOptsContext) EnterRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SQLParserListener); ok {
+		listenerT.EnterDatabaseOpts(s)
+	}
+}
+
+func (s *DatabaseOptsContext) ExitRule(listener antlr.ParseTreeListener) {
+	if listenerT, ok := listener.(SQLParserListener); ok {
+		listenerT.ExitDatabaseOpts(s)
+	}
+}
+
+func (s *DatabaseOptsContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+	switch t := visitor.(type) {
+	case SQLParserVisitor:
+		return t.VisitDatabaseOpts(s)
+
+	default:
+		return t.VisitChildren(s)
+	}
+}
+
 type WithPropsContext struct {
 	DatabaseOptionsContext
 }
@@ -2257,95 +2363,6 @@ func (s *RollupPropsContext) Accept(visitor antlr.ParseTreeVisitor) interface{} 
 	}
 }
 
-type DbOptionsContext struct {
-	DatabaseOptionsContext
-}
-
-func NewDbOptionsContext(parser antlr.Parser, ctx antlr.ParserRuleContext) *DbOptionsContext {
-	var p = new(DbOptionsContext)
-
-	InitEmptyDatabaseOptionsContext(&p.DatabaseOptionsContext)
-	p.parser = parser
-	p.CopyAll(ctx.(*DatabaseOptionsContext))
-
-	return p
-}
-
-func (s *DbOptionsContext) GetRuleContext() antlr.RuleContext {
-	return s
-}
-
-func (s *DbOptionsContext) AllCreateDatabaseOptions() []ICreateDatabaseOptionsContext {
-	children := s.GetChildren()
-	len := 0
-	for _, ctx := range children {
-		if _, ok := ctx.(ICreateDatabaseOptionsContext); ok {
-			len++
-		}
-	}
-
-	tst := make([]ICreateDatabaseOptionsContext, len)
-	i := 0
-	for _, ctx := range children {
-		if t, ok := ctx.(ICreateDatabaseOptionsContext); ok {
-			tst[i] = t.(ICreateDatabaseOptionsContext)
-			i++
-		}
-	}
-
-	return tst
-}
-
-func (s *DbOptionsContext) CreateDatabaseOptions(i int) ICreateDatabaseOptionsContext {
-	var t antlr.RuleContext
-	j := 0
-	for _, ctx := range s.GetChildren() {
-		if _, ok := ctx.(ICreateDatabaseOptionsContext); ok {
-			if j == i {
-				t = ctx.(antlr.RuleContext)
-				break
-			}
-			j++
-		}
-	}
-
-	if t == nil {
-		return nil
-	}
-
-	return t.(ICreateDatabaseOptionsContext)
-}
-
-func (s *DbOptionsContext) AllCOMMA() []antlr.TerminalNode {
-	return s.GetTokens(SQLParserCOMMA)
-}
-
-func (s *DbOptionsContext) COMMA(i int) antlr.TerminalNode {
-	return s.GetToken(SQLParserCOMMA, i)
-}
-
-func (s *DbOptionsContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SQLParserListener); ok {
-		listenerT.EnterDbOptions(s)
-	}
-}
-
-func (s *DbOptionsContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SQLParserListener); ok {
-		listenerT.ExitDbOptions(s)
-	}
-}
-
-func (s *DbOptionsContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SQLParserVisitor:
-		return t.VisitDbOptions(s)
-
-	default:
-		return t.VisitChildren(s)
-	}
-}
-
 func (p *SQLParser) DatabaseOptions() (localctx IDatabaseOptionsContext) {
 	localctx = NewDatabaseOptionsContext(p, p.GetParserRuleContext(), p.GetState())
 	p.EnterRule(localctx, 14, SQLParserRULE_databaseOptions)
@@ -2359,7 +2376,7 @@ func (p *SQLParser) DatabaseOptions() (localctx IDatabaseOptionsContext) {
 
 	switch p.GetTokenStream().LA(1) {
 	case SQLParserENGINE:
-		localctx = NewDbOptionsContext(p, localctx)
+		localctx = NewDatabaseOptsContext(p, localctx)
 		p.EnterOuterAlt(localctx, 1)
 		{
 			p.SetState(161)
@@ -7546,7 +7563,7 @@ func (p *SQLParser) RelationPrimary() (localctx IRelationPrimaryContext) {
 	}
 
 	switch p.GetTokenStream().LA(1) {
-	case SQLParserALL, SQLParserALIVE, SQLParserAND, SQLParserAS, SQLParserASC, SQLParserBETWEEN, SQLParserBROKER, SQLParserBROKERS, SQLParserBY, SQLParserCOMPACT, SQLParserCREATE, SQLParserCROSS, SQLParserCOLUMNS, SQLParserDATABASE, SQLParserDATABASES, SQLParserDEFAULT, SQLParserDESC, SQLParserDISTRIBUTED, SQLParserDROP, SQLParserENGINE, SQLParserESCAPE, SQLParserEXPLAIN, SQLParserEXISTS, SQLParserFALSE, SQLParserFIELDS, SQLParserFLUSH, SQLParserFROM, SQLParserGROUP, SQLParserHAVING, SQLParserIF, SQLParserIN, SQLParserJOIN, SQLParserKEYS, SQLParserLEFT, SQLParserLIKE, SQLParserLIMIT, SQLParserLOG, SQLParserLOGICAL, SQLParserMASTER, SQLParserMEMORY_DATABASES, SQLParserMETRICS, SQLParserMETRIC, SQLParserMETADATA, SQLParserMETADATAS, SQLParserNAMESPACE, SQLParserNAMESPACES, SQLParserNOT, SQLParserNOW, SQLParserON, SQLParserOR, SQLParserORDER, SQLParserREQUESTS, SQLParserREPLICATIONS, SQLParserRIGHT, SQLParserROLLUP, SQLParserSELECT, SQLParserSHOW, SQLParserSTATE, SQLParserSTORAGE, SQLParserTABLE_NAMES, SQLParserTIME, SQLParserTRACE, SQLParserTRUE, SQLParserTYPE, SQLParserTYPES, SQLParserVALUES, SQLParserWHERE, SQLParserWITH, SQLParserWITHIN, SQLParserUSING, SQLParserUSE, SQLParserSECOND, SQLParserMINUTE, SQLParserHOUR, SQLParserDAY, SQLParserMONTH, SQLParserYEAR, SQLParserIDENTIFIER, SQLParserDIGIT_IDENTIFIER, SQLParserQUOTED_IDENTIFIER, SQLParserBACKQUOTED_IDENTIFIER:
+	case SQLParserALL, SQLParserALIVE, SQLParserAND, SQLParserAS, SQLParserASC, SQLParserBETWEEN, SQLParserBROKER, SQLParserBROKERS, SQLParserBY, SQLParserCOMPACT, SQLParserCREATE, SQLParserCROSS, SQLParserCOLUMNS, SQLParserDATABASE, SQLParserDATABASES, SQLParserDEFAULT, SQLParserDESC, SQLParserDISTRIBUTED, SQLParserDROP, SQLParserENGINE, SQLParserESCAPE, SQLParserEXPLAIN, SQLParserEXISTS, SQLParserFALSE, SQLParserFIELDS, SQLParserFLUSH, SQLParserFROM, SQLParserGROUP, SQLParserHAVING, SQLParserIF, SQLParserIN, SQLParserJOIN, SQLParserKEYS, SQLParserLEFT, SQLParserLIKE, SQLParserLIMIT, SQLParserLOG, SQLParserLOGICAL, SQLParserMASTER, SQLParserMEMORY_DATABASES, SQLParserMETRICS, SQLParserMETRIC, SQLParserMETADATA, SQLParserMETADATAS, SQLParserNAMESPACE, SQLParserNAMESPACES, SQLParserNOT, SQLParserNOW, SQLParserON, SQLParserOR, SQLParserORDER, SQLParserREQUESTS, SQLParserREPLICATIONS, SQLParserRIGHT, SQLParserROLLUP, SQLParserSELECT, SQLParserSHOW, SQLParserSTATE, SQLParserSTORAGE, SQLParserTABLE_NAMES, SQLParserTIMESTAMP, SQLParserTRACE, SQLParserTRUE, SQLParserTYPE, SQLParserTYPES, SQLParserVALUES, SQLParserWHERE, SQLParserWITH, SQLParserWITHIN, SQLParserUSING, SQLParserUSE, SQLParserSECOND, SQLParserMINUTE, SQLParserHOUR, SQLParserDAY, SQLParserMONTH, SQLParserYEAR, SQLParserIDENTIFIER, SQLParserDIGIT_IDENTIFIER, SQLParserQUOTED_IDENTIFIER, SQLParserBACKQUOTED_IDENTIFIER:
 		localctx = NewTableNameContext(p, localctx)
 		p.EnterOuterAlt(localctx, 1)
 		{
@@ -10988,8 +11005,8 @@ func (s *BetweenPredicateContext) GetRuleContext() antlr.RuleContext {
 	return s
 }
 
-func (s *BetweenPredicateContext) TIME() antlr.TerminalNode {
-	return s.GetToken(SQLParserTIME, 0)
+func (s *BetweenPredicateContext) TIMESTAMP() antlr.TerminalNode {
+	return s.GetToken(SQLParserTIMESTAMP, 0)
 }
 
 func (s *BetweenPredicateContext) BETWEEN() antlr.TerminalNode {
@@ -11091,8 +11108,8 @@ func (s *TimestampPredicateContext) GetRuleContext() antlr.RuleContext {
 	return s
 }
 
-func (s *TimestampPredicateContext) TIME() antlr.TerminalNode {
-	return s.GetToken(SQLParserTIME, 0)
+func (s *TimestampPredicateContext) TIMESTAMP() antlr.TerminalNode {
+	return s.GetToken(SQLParserTIMESTAMP, 0)
 }
 
 func (s *TimestampPredicateContext) ComparisonOperator() IComparisonOperatorContext {
@@ -11378,7 +11395,7 @@ func (p *SQLParser) Predicate() (localctx IPredicateContext) {
 		p.EnterOuterAlt(localctx, 1)
 		{
 			p.SetState(502)
-			p.Match(SQLParserTIME)
+			p.Match(SQLParserTIMESTAMP)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -11429,7 +11446,7 @@ func (p *SQLParser) Predicate() (localctx IPredicateContext) {
 		p.EnterOuterAlt(localctx, 3)
 		{
 			p.SetState(510)
-			p.Match(SQLParserTIME)
+			p.Match(SQLParserTIMESTAMP)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit
@@ -13228,7 +13245,7 @@ func (p *SQLParser) Identifier() (localctx IIdentifierContext) {
 			}
 		}
 
-	case SQLParserALL, SQLParserALIVE, SQLParserAND, SQLParserAS, SQLParserASC, SQLParserBETWEEN, SQLParserBROKER, SQLParserBROKERS, SQLParserBY, SQLParserCOMPACT, SQLParserCREATE, SQLParserCROSS, SQLParserCOLUMNS, SQLParserDATABASE, SQLParserDATABASES, SQLParserDEFAULT, SQLParserDESC, SQLParserDISTRIBUTED, SQLParserDROP, SQLParserENGINE, SQLParserESCAPE, SQLParserEXPLAIN, SQLParserEXISTS, SQLParserFALSE, SQLParserFIELDS, SQLParserFLUSH, SQLParserFROM, SQLParserGROUP, SQLParserHAVING, SQLParserIF, SQLParserIN, SQLParserJOIN, SQLParserKEYS, SQLParserLEFT, SQLParserLIKE, SQLParserLIMIT, SQLParserLOG, SQLParserLOGICAL, SQLParserMASTER, SQLParserMEMORY_DATABASES, SQLParserMETRICS, SQLParserMETRIC, SQLParserMETADATA, SQLParserMETADATAS, SQLParserNAMESPACE, SQLParserNAMESPACES, SQLParserNOT, SQLParserNOW, SQLParserON, SQLParserOR, SQLParserORDER, SQLParserREQUESTS, SQLParserREPLICATIONS, SQLParserRIGHT, SQLParserROLLUP, SQLParserSELECT, SQLParserSHOW, SQLParserSTATE, SQLParserSTORAGE, SQLParserTABLE_NAMES, SQLParserTIME, SQLParserTRACE, SQLParserTRUE, SQLParserTYPE, SQLParserTYPES, SQLParserVALUES, SQLParserWHERE, SQLParserWITH, SQLParserWITHIN, SQLParserUSING, SQLParserUSE, SQLParserSECOND, SQLParserMINUTE, SQLParserHOUR, SQLParserDAY, SQLParserMONTH, SQLParserYEAR:
+	case SQLParserALL, SQLParserALIVE, SQLParserAND, SQLParserAS, SQLParserASC, SQLParserBETWEEN, SQLParserBROKER, SQLParserBROKERS, SQLParserBY, SQLParserCOMPACT, SQLParserCREATE, SQLParserCROSS, SQLParserCOLUMNS, SQLParserDATABASE, SQLParserDATABASES, SQLParserDEFAULT, SQLParserDESC, SQLParserDISTRIBUTED, SQLParserDROP, SQLParserENGINE, SQLParserESCAPE, SQLParserEXPLAIN, SQLParserEXISTS, SQLParserFALSE, SQLParserFIELDS, SQLParserFLUSH, SQLParserFROM, SQLParserGROUP, SQLParserHAVING, SQLParserIF, SQLParserIN, SQLParserJOIN, SQLParserKEYS, SQLParserLEFT, SQLParserLIKE, SQLParserLIMIT, SQLParserLOG, SQLParserLOGICAL, SQLParserMASTER, SQLParserMEMORY_DATABASES, SQLParserMETRICS, SQLParserMETRIC, SQLParserMETADATA, SQLParserMETADATAS, SQLParserNAMESPACE, SQLParserNAMESPACES, SQLParserNOT, SQLParserNOW, SQLParserON, SQLParserOR, SQLParserORDER, SQLParserREQUESTS, SQLParserREPLICATIONS, SQLParserRIGHT, SQLParserROLLUP, SQLParserSELECT, SQLParserSHOW, SQLParserSTATE, SQLParserSTORAGE, SQLParserTABLE_NAMES, SQLParserTIMESTAMP, SQLParserTRACE, SQLParserTRUE, SQLParserTYPE, SQLParserTYPES, SQLParserVALUES, SQLParserWHERE, SQLParserWITH, SQLParserWITHIN, SQLParserUSING, SQLParserUSE, SQLParserSECOND, SQLParserMINUTE, SQLParserHOUR, SQLParserDAY, SQLParserMONTH, SQLParserYEAR:
 		localctx = NewUnquotedIdentifierContext(p, localctx)
 		p.EnterOuterAlt(localctx, 3)
 		{
@@ -13975,7 +13992,7 @@ type INonReservedContext interface {
 	STATE() antlr.TerminalNode
 	STORAGE() antlr.TerminalNode
 	TABLE_NAMES() antlr.TerminalNode
-	TIME() antlr.TerminalNode
+	TIMESTAMP() antlr.TerminalNode
 	TRACE() antlr.TerminalNode
 	TRUE() antlr.TerminalNode
 	TYPE() antlr.TerminalNode
@@ -14269,8 +14286,8 @@ func (s *NonReservedContext) TABLE_NAMES() antlr.TerminalNode {
 	return s.GetToken(SQLParserTABLE_NAMES, 0)
 }
 
-func (s *NonReservedContext) TIME() antlr.TerminalNode {
-	return s.GetToken(SQLParserTIME, 0)
+func (s *NonReservedContext) TIMESTAMP() antlr.TerminalNode {
+	return s.GetToken(SQLParserTIMESTAMP, 0)
 }
 
 func (s *NonReservedContext) TRACE() antlr.TerminalNode {

@@ -34,7 +34,6 @@ import (
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/rpc"
 )
 
 //go:generate mockgen -source=./state_manager.go -destination=./state_manager_mock.go -package=broker
@@ -81,8 +80,6 @@ type stateManager struct {
 		shards map[models.ShardID]models.ShardState,
 		liveNodes map[models.NodeID]models.StatefulNode,
 	)
-	// connection manager
-	connectionManager rpc.ConnectionManager
 
 	statistics *metrics.StateManagerStatistics
 	logger     logger.Logger
@@ -95,20 +92,18 @@ type stateManager struct {
 func NewStateManager(
 	ctx context.Context,
 	currentNode models.StatelessNode,
-	connectionManager rpc.ConnectionManager,
 ) StateManager {
 	c, cancel := context.WithCancel(ctx)
 	mgr := &stateManager{
-		ctx:               c,
-		cancel:            cancel,
-		currentNode:       currentNode,
-		connectionManager: connectionManager,
-		storageState:      models.NewStorageState(),
-		databases:         make(map[string]models.Database),
-		nodes:             make(map[string]models.StatelessNode),
-		events:            make(chan *discovery.Event, 10),
-		statistics:        metrics.NewStateManagerStatistics(linmetric.BrokerRegistry),
-		logger:            logger.GetLogger("Broker", "StateManager"),
+		ctx:          c,
+		cancel:       cancel,
+		currentNode:  currentNode,
+		storageState: models.NewStorageState(),
+		databases:    make(map[string]models.Database),
+		nodes:        make(map[string]models.StatelessNode),
+		events:       make(chan *discovery.Event, 10),
+		statistics:   metrics.NewStateManagerStatistics(linmetric.BrokerRegistry),
+		logger:       logger.GetLogger("Broker", "StateManager"),
 	}
 
 	// start consume discovery event task
@@ -150,7 +145,7 @@ func (m *stateManager) GetPartitions(database string) (partitions map[models.Int
 			return nil, constants.ErrPartitionOffline
 		}
 	}
-	return
+	return partitions, nil
 }
 
 // Choose chooses the compute nodes then builds physical plan.
@@ -318,8 +313,6 @@ func (m *stateManager) onNodeStartup(key string, data []byte) error {
 	_, fileName := filepath.Split(key)
 	nodeID := fileName
 
-	m.connectionManager.CreateConnection(node)
-
 	m.nodes[nodeID] = *node
 
 	return nil
@@ -333,11 +326,6 @@ func (m *stateManager) onNodeFailure(key string) {
 	m.logger.Info("broker node online => offline",
 		logger.String("nodeID", nodeID),
 		logger.String("key", key))
-
-	node, ok := m.nodes[nodeID]
-	if ok {
-		m.connectionManager.CloseConnection(&node)
-	}
 
 	delete(m.nodes, nodeID)
 }
@@ -353,23 +341,6 @@ func (m *stateManager) onStorageStateChange(key string, data []byte) error {
 		m.logger.Error("storage state is changed but unmarshal error", logger.Error(err))
 		return err
 	}
-	oldState := m.storageState
-	liveNodesSet := make(map[string]struct{})
-	for idx := range newState.LiveNodes {
-		node := newState.LiveNodes[idx]
-		liveNodesSet[node.Indicator()] = struct{}{}
-		// try to create connection for live node
-		m.connectionManager.CreateConnection(&node)
-	}
-
-	// close old deal node connection
-	for _, node := range oldState.LiveNodes {
-		target := node.Indicator()
-		if _, exist := liveNodesSet[target]; !exist {
-			m.connectionManager.CloseConnection(&node)
-		}
-	}
-
 	// set state into cache
 	m.storageState = newState
 
