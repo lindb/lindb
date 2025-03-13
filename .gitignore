@@ -39,12 +39,8 @@ docker/broker*/
 docker/storage*/
 
 default.etcd
-web/node_modules/
-web/build/*
-web/static/* web/yarn-error.log
-web/package-lock.json
-web/.yarn
-web/.yarnrc.yml
+web/*
+!web/README.md
 
 # Test binary, built with `go test -c`
 *.test
@@ -57,6 +53,8 @@ web/.yarnrc.yml
 coverage.html
 
 /data
+
+packaging/*_temp
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
