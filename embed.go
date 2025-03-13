@@ -23,5 +23,8 @@ import (
 
 // StaticContent represents static resource path.
 //
-//go:embed web/static
+//go:embed web
 var StaticContent embed.FS
+
+//go:embed web/index.html
+var IndexFile string

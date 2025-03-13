@@ -22,16 +22,17 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"path"
+	"strings"
 
 	"github.com/felixge/fgprof"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
-	swaggerFiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
-
 	"github.com/lindb/common/pkg/http/middleware"
 	"github.com/lindb/common/pkg/logger"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 
 	"github.com/lindb/lindb"
 	"github.com/lindb/lindb/config"
@@ -118,17 +119,42 @@ func (s *server) init() {
 			ginSwagger.DefaultModelsExpandDepth(-1)))
 	}
 	if s.staticResource {
-		// server static file
-		staticFS, err := fs.Sub(lindb.StaticContent, "web/static")
-		staticHome := "/console"
+		staticFS, err := fs.Sub(lindb.StaticContent, "web")
 		if err != nil {
 			s.logger.Error("cannot find static resource", logger.Error(err))
 		} else {
-			s.gin.StaticFS(staticHome, http.FS(staticFS))
-			// redirects to admin console
-			s.gin.GET("/", func(c *gin.Context) {
-				c.Request.URL.Path = staticHome
-				s.gin.HandleContext(c)
+			httpFS := http.FS(staticFS)
+			urlPrefix := "/"
+			fileserver := http.FileServer(httpFS)
+			fileserver = http.StripPrefix(urlPrefix, fileserver)
+			serveStatic := func() gin.HandlerFunc {
+				return func(c *gin.Context) {
+					if !s.isStaticResource(c) {
+						return
+					}
+					filePath := path.Join(urlPrefix, c.Request.URL.Path)
+					file, err := httpFS.Open(filePath)
+					if err == nil {
+						_ = file.Close()
+						fileserver.ServeHTTP(c.Writer, c.Request)
+						c.Abort()
+					} else {
+						s.logger.Error("static resource not found", logger.String("resource", filePath), logger.Error(err))
+					}
+				}
+			}
+			s.gin.Use(serveStatic())
+			// handle SAP(react-router) path
+			s.gin.NoRoute(func(c *gin.Context) {
+				if s.isStaticResource(c) {
+					// if request is not api, forwad index page
+					c.Header("Content-Type", "text/html;charset=utf-8")
+					c.String(http.StatusOK, lindb.IndexFile)
+					return
+				}
+
+				// default 404 page not found
+				c.String(http.StatusNotFound, "page not found")
 			})
 		}
 	}
@@ -159,4 +185,8 @@ func (s *server) Run() error {
 // Close closes the server.
 func (s *server) Close(ctx context.Context) error {
 	return s.server.Shutdown(ctx)
+}
+
+func (s *server) isStaticResource(c *gin.Context) bool {
+	return c.Request.Method == http.MethodGet && !strings.HasPrefix(c.Request.RequestURI, constants.APIRoot)
 }

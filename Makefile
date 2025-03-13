@@ -20,13 +20,13 @@ run: ## run local standalone cluster for demo/debug
 cli: ## run LinDB CLI
 	go run github.com/lindb/lindb/cmd/cli
 
-build-frontend: ## build frontend
-	cd web/ && make web_build
+build-web-console: ## build web console 
+	sh packaging/build_web_console.sh
 
 GOARCH = amd64
-build: clean-build build-frontend build-lind ## Build executable files.
+build: clean-build build-lind ## Build executable files.
 
-build-all: clean-frontend-build build-frontend clean-build build-lind ## Build executable files with front-end files inside.
+build-all: build-web-console clean-build build-lind ## Build executable files with web console files inside.
 
 build-lind: ## build lindb binary
 	env GOOS=darwin GOARCH=$(GOARCH) go build -o 'bin/lind-darwin' $(LD_FLAGS) ./cmd/lind
@@ -36,8 +36,8 @@ build-lind: ## build lindb binary
 	env GOOS=linux GOARCH=$(GOARCH) go build -o 'bin/lindcli-linux' $(LD_FLAGS) ./cmd/cli
 	env GOOS=windows GOARCH=$(GOARCH) go build -o 'bin/lindcli-windows.exe' $(LD_FLAGS) ./cmd/cli
 
-deploy: build-frontend ## deploy release packages
-	sh deploy.sh
+release: build-web-console ## build release packages
+	sh release.sh
 
 .PHONY: docker-build
 docker-build: ## build docker image
@@ -117,9 +117,6 @@ clean-mock: ## remove all mock files
 clean-build:
 	rm -rf bin/*
 
-clean-frontend-build:
-	cd web/ && make web_clean
-
 clean-tmp: ## clean up tmp and test out files
 	find . -type f -name '*.out' -exec rm -f {} +
 	find . -type f -name '.DS_Store' -exec rm -f {} +
@@ -129,6 +126,6 @@ clean-tmp: ## clean up tmp and test out files
 	find . -type s -name '127.0.0.1:*' -exec rm -f {} +
 	rm -rf data
 
-clean: clean-mock clean-tmp clean-build clean-frontend-build ## Clean up useless files.
+clean: clean-mock clean-tmp clean-build ## Clean up useless files.
 
 
