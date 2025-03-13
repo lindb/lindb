@@ -1,3 +1,20 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package metric
 
 import (
@@ -12,40 +29,22 @@ import (
 )
 
 type dataScan struct {
-	inbound chan *DataSplit
+	split *DataSplit
 
-	outbound chan<- *DataSplit
+	reduceCh chan<- any
 }
 
-func NewDataScan(inbound, outbound chan *DataSplit) *dataScan {
+func NewDataScan(split *DataSplit, reduceCh chan<- any) *dataScan {
 	return &dataScan{
-		inbound:  inbound,
-		outbound: outbound,
+		split:    split,
+		reduceCh: reduceCh,
 	}
 }
 
-func (ds *dataScan) Start() {
-	ds.inbound = make(chan *DataSplit)
-
-	ds.outbound = (&reducer{}).inbound
-
-	go func() {
-		for split := range ds.inbound {
-			ds.process(split)
-		}
-	}()
-}
-
-func (ds *dataScan) process(split *DataSplit) {
-	if split.partition.tableScan.fields.Len() == 0 {
-		// if fields is empty, then do series query(send reducer task).
-		ds.outbound <- split
-		return
-	}
-
+func (ds *dataScan) Run() {
 	// find time series data of filed
-	tableScan := split.partition.tableScan
-	familyLoaders := ds.buildFamilyLoaders(split)
+	tableScan := ds.split.partition.tableScan
+	familyLoaders := ds.buildFamilyLoaders(ds.split)
 	if len(familyLoaders) == 0 {
 		// family not match
 		return
@@ -58,21 +57,28 @@ func (ds *dataScan) process(split *DataSplit) {
 	)
 
 	if isGrouping {
-		tagScanners := split.groupingContext.BuildGroup(split.seriesIDHighKey, split.lowSeriesIDs)
+		tagScanners := ds.split.groupingContext.BuildGroup(ds.split.seriesIDHighKey, ds.split.lowSeriesIDs)
 		tagsScanner = NewTagsScanner(tagScanners)
 		groupingAgg = newGroupingWithTags(tagsScanner, tableScan)
 	} else {
 		groupingAgg = newGroupingWithoutTags(tableScan)
 	}
 
-	split.groupingAgg = groupingAgg
+	ds.split.groupingAgg = groupingAgg
+	fmt.Println("run data scan")
 
 	columnRollups := tableScan.createRollups()
-	numOfPoints := tableScan.timeRange.NumOfPoints(tableScan.interval)
+	var numOfPoints int
+	step := int64(0)
 	start := tableScan.timeRange.Start
-	step := tableScan.interval.Int64()
+	if tableScan.isTimestampSelected {
+		numOfPoints = tableScan.timeRange.NumOfPoints(tableScan.interval)
+		step = tableScan.interval.Int64()
+	} else {
+		numOfPoints = 1 // timestamp not in select item list
+	}
 
-	it := split.lowSeriesIDs.PeekableIterator()
+	it := ds.split.lowSeriesIDs.PeekableIterator()
 	// loop each low series ids
 	for it.HasNext() {
 		lowSeriesID := it.Next()
@@ -80,7 +86,7 @@ func (ds *dataScan) process(split *DataSplit) {
 
 		// load all fields data from families
 		for _, loader := range familyLoaders {
-			fmt.Printf("start load family time=%v\n", loader.familyTime)
+			// fmt.Printf("start load family time=%v\n", loader.familyTime)
 			// TODO: go? reset stream
 			for _, family := range loader.families {
 				slotRange := family.filterResultSet.SlotRange()
@@ -126,10 +132,8 @@ func (ds *dataScan) process(split *DataSplit) {
 				if aggregator[idx] == nil {
 					aggregator[idx] = collections.NewFloatArray(numOfPoints)
 				}
-				// fmt.Printf("rollup result=%v,%v\n", rollups[agg.target].timeseries.values, rollups[agg.target].timeseries.timestamps)
-				// aggregate
-				aggregate(agg.aggType, start, step, aggregator[idx], columnRollups[agg.target].timeseries)
-				fmt.Printf("rollup result=%v,%v,%v\n", agg.target, columnRollups[agg.target].timeseries.values, aggregator[idx].Values())
+				// aggregate down sampled data
+				aggregate(agg.aggType, start, step, aggregator[idx], columnRollups[agg.target].getTimeSeries())
 			}
 
 			// reset rollup context for next column
@@ -139,20 +143,19 @@ func (ds *dataScan) process(split *DataSplit) {
 		}
 	}
 
-	// TODO: remove it?
 	if isGrouping {
-		tableScan.grouping.CollectTagValueIDs(tagsScanner.GetTagValueIDs())
-		tableScan.grouping.CollectTagValues()
+		// emit tag value ids, reduce task need lookup tag value by id.
+		ds.reduceCh <- tagsScanner.GetTagValueIDs()
 	}
 
-	ds.outbound <- split
+	ds.reduceCh <- ds.split
 }
 
-func (rs *dataScan) buildFamilyLoaders(split *DataSplit) []*loader {
+func (ds *dataScan) buildFamilyLoaders(split *DataSplit) []*loader {
 	tableScan := split.partition.tableScan
 	familyLoaderMap := make(map[int64]*loader)
-	for i := range split.partition.resultSet {
-		rs := split.partition.resultSet[i]
+	for i := range split.partition.fieldsData {
+		rs := split.partition.fieldsData[i]
 		// check series ids if match
 		dataLoader := rs.Load(split.seriesIDHighKey, split.lowSeriesIDs)
 		if dataLoader != nil {

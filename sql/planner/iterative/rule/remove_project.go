@@ -1,8 +1,24 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package rule
 
 import (
 	"fmt"
-	"sort"
 
 	"github.com/lindb/lindb/sql/planner/iterative"
 	"github.com/lindb/lindb/sql/planner/plan"
@@ -31,15 +47,13 @@ func symbolsEquals(a, b []*plan.Symbol) bool {
 	if len(a) != len(b) {
 		return false
 	}
-	sort.Slice(a, func(i, j int) bool {
-		return a[i].Name > a[j].Name
-	})
-	sort.Slice(b, func(i, j int) bool {
-		return b[i].Name > b[j].Name
-	})
+	names := make(map[string]struct{})
+	for _, aName := range a {
+		names[aName.Name] = struct{}{}
+	}
 
-	for i := range a {
-		if a[i].Name != b[i].Name {
+	for _, bName := range b {
+		if _, ok := names[bName.Name]; !ok {
 			return false
 		}
 	}

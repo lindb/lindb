@@ -1,3 +1,20 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package rpc
 
 import (
@@ -25,7 +42,9 @@ func NewMetaService(engine tsdb.Engine) protoMetaV1.MetaServiceServer {
 	}
 }
 
-func (srv *MetaService) SuggestNamespace(ctx context.Context, request *protoMetaV1.SuggestRequest) (*protoMetaV1.SuggestResponse, error) {
+func (srv *MetaService) SuggestNamespace(ctx context.Context,
+	request *protoMetaV1.SuggestRequest,
+) (*protoMetaV1.SuggestResponse, error) {
 	database, ok := srv.engine.GetDatabase(request.Database)
 	if !ok {
 		return nil, constants.ErrDatabaseNotFound
@@ -37,7 +56,9 @@ func (srv *MetaService) SuggestNamespace(ctx context.Context, request *protoMeta
 	return &protoMetaV1.SuggestResponse{Values: namespaces}, nil
 }
 
-func (srv *MetaService) SuggestTable(ctx context.Context, request *protoMetaV1.SuggestRequest) (*protoMetaV1.SuggestResponse, error) {
+func (srv *MetaService) SuggestTable(ctx context.Context,
+	request *protoMetaV1.SuggestRequest,
+) (*protoMetaV1.SuggestResponse, error) {
 	database, ok := srv.engine.GetDatabase(request.Database)
 	if !ok {
 		return nil, constants.ErrDatabaseNotFound
@@ -56,7 +77,9 @@ func (srv *MetaService) SuggestTable(ctx context.Context, request *protoMetaV1.S
 	return &protoMetaV1.SuggestResponse{Values: metrics}, nil
 }
 
-func (srv *MetaService) TableSchema(ctx context.Context, request *protoMetaV1.TableSchemaRequest) (*protoMetaV1.TableSchemaResponse, error) {
+func (srv *MetaService) TableSchema(ctx context.Context,
+	request *protoMetaV1.TableSchemaRequest,
+) (*protoMetaV1.TableSchemaResponse, error) {
 	database, ok := srv.engine.GetDatabase(request.Database)
 	if !ok {
 		return nil, constants.ErrDatabaseNotFound
@@ -73,6 +96,7 @@ func (srv *MetaService) TableSchema(ctx context.Context, request *protoMetaV1.Ta
 	if err != nil {
 		return nil, err
 	}
+	// TODO: return schema for metric engine
 	tableSchema := types.NewTableSchema()
 	for _, tagKey := range schema.TagKeys {
 		tableSchema.AddColumn(types.ColumnMetadata{Name: tagKey.Key, DataType: types.DTString})
@@ -84,6 +108,13 @@ func (srv *MetaService) TableSchema(ctx context.Context, request *protoMetaV1.Ta
 			AggType:  field.Type.AggregateType(),
 		})
 	}
+
+	// add timestamp column name
+	tableSchema.AddColumn(types.ColumnMetadata{
+		Name:     constants.TimestampColumnName,
+		DataType: types.DTTimestamp,
+		Hidden:   true,
+	})
 	return &protoMetaV1.TableSchemaResponse{
 		Payload: encoding.JSONMarshal(tableSchema),
 	}, nil

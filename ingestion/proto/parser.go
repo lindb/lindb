@@ -33,12 +33,10 @@ import (
 	"github.com/lindb/lindb/series/tag"
 )
 
-var (
-	protoIngestionStatistics = metrics.NewNativeIngestionStatistics()
-)
+var protoIngestionStatistics = metrics.NewNativeIngestionStatistics()
 
 func Parse(req *http.Request, enrichedTags tag.Tags, namespace string, limits *models.Limits) (*metric.BrokerBatchRows, error) {
-	var reader = req.Body
+	reader := req.Body
 	if strings.EqualFold(req.Header.Get("Content-Encoding"), "gzip") {
 		gzipReader, err := ingestCommon.GetGzipReader(req.Body)
 		if err != nil {
@@ -84,10 +82,9 @@ func parseProtoMetric(
 	if err := ms.Unmarshal(data); err != nil {
 		return nil, err
 	}
-	for _, m := range ms.Metrics {
-		m := m
+	for i := range ms.Metrics {
 		if err := batch.TryAppend(func(row *metric.BrokerRow) error {
-			return converter.ConvertTo(m, row)
+			return converter.ConvertTo(ms.Metrics[i], row)
 		}); err != nil {
 			protoIngestionStatistics.DroppedMetrics.Incr()
 		}

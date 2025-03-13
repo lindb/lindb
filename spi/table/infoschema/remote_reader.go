@@ -1,3 +1,20 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package infoschema
 
 import (
@@ -33,14 +50,7 @@ func (r *reader) suggestNamespaces(database, ns string, limit int64) ([]string, 
 	}
 	var values []string
 	for node := range partitions {
-		conn, err := grpc.Dial(node.Address(), grpc.WithTransportCredentials(insecure.NewCredentials()))
-		if err != nil {
-			return nil, err
-		}
-		defer conn.Close()
-
-		client := protoMetaV1.NewMetaServiceClient(conn)
-		resp, err := client.SuggestNamespace(context.TODO(), &protoMetaV1.SuggestRequest{
+		resp, err := r.getMeta(node, &protoMetaV1.SuggestRequest{
 			Database:  database,
 			Namespace: ns,
 			Limit:     limit,
@@ -60,14 +70,7 @@ func (r *reader) suggestTables(database, ns, table string, limit int64) ([]strin
 	}
 	var values []string
 	for node := range partitions {
-		conn, err := grpc.Dial(node.Address(), grpc.WithTransportCredentials(insecure.NewCredentials()))
-		if err != nil {
-			return nil, err
-		}
-		defer conn.Close()
-
-		client := protoMetaV1.NewMetaServiceClient(conn)
-		resp, err := client.SuggestTable(context.TODO(), &protoMetaV1.SuggestRequest{
+		resp, err := r.getMeta(node, &protoMetaV1.SuggestRequest{
 			Database:  database,
 			Namespace: ns,
 			Table:     table,
@@ -79,6 +82,19 @@ func (r *reader) suggestTables(database, ns, table string, limit int64) ([]strin
 		values = append(values, resp.Values...)
 	}
 	return values, nil
+}
+
+func (r *reader) getMeta(
+	node models.InternalNode, req *protoMetaV1.SuggestRequest,
+) (*protoMetaV1.SuggestResponse, error) {
+	conn, err := grpc.Dial(node.Address(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	client := protoMetaV1.NewMetaServiceClient(conn)
+	return client.SuggestTable(context.TODO(), req)
 }
 
 func (r *reader) env(address string, keys []string) (rs []config.Env, err error) {
@@ -141,7 +157,7 @@ func (r *reader) exploreStateRepoData(ctx context.Context, stateMachineInfo mode
 }
 
 // exploreStateMachineDate explores the state from state machine of broker/master/storage.
-func (r *reader) exploreStateMachineDate(role, metadataType string) (any, error) {
+func (r *reader) exploreStateMachineDate(role, metadataType string) any {
 	param := map[string]string{
 		"type": metadataType,
 		"role": role,
@@ -159,9 +175,9 @@ func (r *reader) exploreStateMachineDate(role, metadataType string) (any, error)
 			return &item
 		})
 	default:
-		return nil, nil
+		return nil
 	}
 	// forward broker node
 	cli := NewStateMachineCliFn()
-	return cli.FetchStateByNodes(param, nodes), nil
+	return cli.FetchStateByNodes(param, nodes)
 }

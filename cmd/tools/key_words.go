@@ -32,7 +32,7 @@ var keyWordsCmd = &cobra.Command{
 	Use:   "keywords",
 	Short: "Print the keywords for lin query language",
 	Run: func(_ *cobra.Command, _ []string) {
-		typ := reflect.TypeOf(&grammar.NonReservedWordsContext{})
+		typ := reflect.TypeOf(&grammar.NonReservedContext{})
 		var keyWords []string
 		for i := 0; i < typ.NumMethod(); i++ {
 			methodName := typ.Method(i).Name

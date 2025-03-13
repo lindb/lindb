@@ -20,9 +20,11 @@ package memdb
 import (
 	"testing"
 
+	"github.com/lindb/roaring"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
 
@@ -30,14 +32,10 @@ func TestTimeSeriesLoader(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	loader := NewTimeSeriesLoader(nil, nil, 0, timeutil.SlotRange{}, nil)
+	loader := NewTimeSeriesLoader(
+		nil, flow.NewLowSeriesIDs(roaring.BitmapOf(1, 2, 3).GetContainer(0)),
+		[]uint32{1, 2}, timeutil.SlotRange{}, nil)
 	assert.NotNil(t, loader)
 
-	tsIndex := NewMockTimeSeriesIndex(ctrl)
-	tsLoader := &timeSeriesLoader{
-		timeSeriesIndex: tsIndex,
-	}
-
-	tsIndex.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
-	tsLoader.Load(nil)
+	loader.Load(1, nil)
 }

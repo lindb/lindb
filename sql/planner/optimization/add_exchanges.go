@@ -1,3 +1,20 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package optimization
 
 import (
@@ -58,7 +75,7 @@ func (v *AddExchangesRewrite) Visit(context any, n plan.PlanNode) (r any) {
 	}
 }
 
-func (v *AddExchangesRewrite) visitValues(context any, node *plan.ValuesNode) (r any) {
+func (v *AddExchangesRewrite) visitValues(_ any, node *plan.ValuesNode) (r any) {
 	v.exchangeNodeAdded = true
 	return &AddExchangesPlan{
 		node:  node,
@@ -66,7 +83,7 @@ func (v *AddExchangesRewrite) visitValues(context any, node *plan.ValuesNode) (r
 	}
 }
 
-func (v *AddExchangesRewrite) visitOutput(context any, node *plan.OutputNode) (r any) {
+func (v *AddExchangesRewrite) visitOutput(_ any, node *plan.OutputNode) (r any) {
 	child := v.planChild(node, Undistributed())
 	// FIXME:??? check sigle/force single node output
 	if !child.props.isSingleNode() && !v.exchangeNodeAdded {
@@ -76,11 +93,11 @@ func (v *AddExchangesRewrite) visitOutput(context any, node *plan.OutputNode) (r
 	return v.rebaseAndDeriveProps(node, child)
 }
 
-func (v *AddExchangesRewrite) visitJoin(context any, node *plan.JoinNode) (r any) {
+func (v *AddExchangesRewrite) visitJoin(_ any, node *plan.JoinNode) (r any) {
 	return v.planPartitionedJoin(node)
 }
 
-func (v *AddExchangesRewrite) visitTableScan(context any, node *plan.TableScanNode) (r any) {
+func (v *AddExchangesRewrite) visitTableScan(_ any, node *plan.TableScanNode) (r any) {
 	return &AddExchangesPlan{
 		node:  node,
 		props: v.dervieProps(node, nil),
@@ -92,7 +109,7 @@ func (v *AddExchangesRewrite) visitProjection(context any, node *plan.Projection
 	return v.rebaseAndDeriveProps(node, v.planChild(node, context.(*PreferredProps)))
 }
 
-func (v *AddExchangesRewrite) visitFilter(node *plan.FilterNode, context any) (r any) {
+func (v *AddExchangesRewrite) visitFilter(node *plan.FilterNode, context any) (r any) { //nolint
 	preferredProps := context.(*PreferredProps)
 	if tableScan, ok := node.Source.(*plan.TableScanNode); ok {
 		planNode := iterative.PushFilterIntoTableScan(node, tableScan)
@@ -176,7 +193,9 @@ func (v *AddExchangesRewrite) dervieProps(node plan.PlanNode, inputProperties []
 	return deriveProps(node, inputProperties)
 }
 
-func (v *AddExchangesRewrite) buildJoin(node *plan.JoinNode, newLeft, newRight *AddExchangesPlan, newDistributionType plan.DistributionType) *AddExchangesPlan {
+func (v *AddExchangesRewrite) buildJoin(node *plan.JoinNode,
+	newLeft, newRight *AddExchangesPlan, newDistributionType plan.DistributionType,
+) *AddExchangesPlan {
 	result := plan.JoinNode{
 		BaseNode: plan.BaseNode{
 			ID: node.GetNodeID(),
@@ -192,7 +211,9 @@ func (v *AddExchangesRewrite) buildJoin(node *plan.JoinNode, newLeft, newRight *
 	}
 }
 
-func (a *AddExchangesRewrite) computePreference(preferredProps, parentPreferredProperties *PreferredProps) *PreferredProps {
+func (v *AddExchangesRewrite) computePreference(preferredProps,
+	parentPreferredProperties *PreferredProps,
+) *PreferredProps {
 	// TODO: check ignore down stream preferences
 
 	return preferredProps

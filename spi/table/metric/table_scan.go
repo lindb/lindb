@@ -1,3 +1,20 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package metric
 
 import (
@@ -12,7 +29,6 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
-	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/expression"
 	"github.com/lindb/lindb/sql/tree"
@@ -50,11 +66,12 @@ type aggConfig struct {
 }
 
 type TableScan struct {
-	ctx       context.Context
 	db        tsdb.Database
-	schema    *metric.Schema
-	predicate tree.Expression
-	grouping  *Grouping
+	metricID  metric.ID       // table id
+	schema    *metric.Schema  // metric(table) schema
+	predicate tree.Expression // where clause
+
+	grouping *Grouping
 
 	// TODO: check if found all filter column values
 	filterResult map[tree.NodeID]*flow.TagFilterResult
@@ -64,12 +81,10 @@ type TableScan struct {
 	maxOfRollups int
 	numOfAggs    int
 	outputs      []types.ColumnMetadata
-	assignments  []*spi.ColumnAssignment
 
-	timeRange       timeutil.TimeRange
-	interval        timeutil.Interval
-	storageInterval timeutil.Interval
-	metricID        metric.ID
+	isTimestampSelected bool
+	timeRange           timeutil.TimeRange
+	interval            timeutil.Interval
 }
 
 func (t *TableScan) isGrouping() bool {
@@ -84,24 +99,15 @@ func (t *TableScan) createRollups() (rs rollups) {
 	return
 }
 
-func (t *TableScan) lookupColumnValues() {
-	if t.predicate != nil {
-		// lookup column if predicate not nil
-		lookup := NewColumnValuesLookVisitor(t)
-		_ = t.predicate.Accept(nil, lookup)
-		// TODO: check filter result if empty????
-	}
-}
-
 type ColumnValuesLookupVisitor struct {
 	evalCtx   expression.EvalContext
 	tableScan *TableScan
 }
 
-func NewColumnValuesLookVisitor(tableScan *TableScan) *ColumnValuesLookupVisitor {
+func NewColumnValuesLookVisitor(ctx context.Context, tableScan *TableScan) *ColumnValuesLookupVisitor {
 	return &ColumnValuesLookupVisitor{
 		tableScan: tableScan,
-		evalCtx:   expression.NewEvalContext(tableScan.ctx),
+		evalCtx:   expression.NewEvalContext(ctx),
 	}
 }
 

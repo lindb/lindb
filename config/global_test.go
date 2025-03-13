@@ -22,9 +22,8 @@ import (
 	"testing"
 
 	"github.com/caarlos0/env/v7"
-	"github.com/stretchr/testify/assert"
-
 	"github.com/lindb/common/pkg/ltoml"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSetGlobalConfig(t *testing.T) {
@@ -46,7 +45,7 @@ func TestLoadAndSetBrokerConfig(t *testing.T) {
 		{
 			name: "load config failure",
 			prepare: func(_ *Broker) {
-				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v any) error {
 					return fmt.Errorf("err")
 				}
 			},
@@ -55,10 +54,10 @@ func TestLoadAndSetBrokerConfig(t *testing.T) {
 		{
 			name: "load env failure",
 			prepare: func(_ *Broker) {
-				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v any) error {
 					return nil
 				}
-				envParseFn = func(v interface{}, opts ...env.Options) error {
+				envParseFn = func(v any, opts ...env.Options) error {
 					return fmt.Errorf("err")
 				}
 			},
@@ -67,7 +66,7 @@ func TestLoadAndSetBrokerConfig(t *testing.T) {
 		{
 			name: "valid coordinator failure",
 			prepare: func(cfg *Broker) {
-				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v any) error {
 					return nil
 				}
 				cfg.Coordinator.Namespace = ""
@@ -77,7 +76,7 @@ func TestLoadAndSetBrokerConfig(t *testing.T) {
 		{
 			name: "valid broker failure",
 			prepare: func(cfg *Broker) {
-				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v any) error {
 					return nil
 				}
 				cfg.BrokerBase.HTTP.Port = 0
@@ -87,7 +86,7 @@ func TestLoadAndSetBrokerConfig(t *testing.T) {
 		{
 			name: "load and set cfg success",
 			prepare: func(_ *Broker) {
-				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v any) error {
 					return nil
 				}
 			},
@@ -96,7 +95,6 @@ func TestLoadAndSetBrokerConfig(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				loadConfigFn = ltoml.LoadConfig
@@ -127,7 +125,7 @@ func TestLoadAdnSetRootConfig(t *testing.T) {
 		{
 			name: "load config failure",
 			prepare: func(_ *Root) {
-				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v any) error {
 					return fmt.Errorf("err")
 				}
 			},
@@ -136,10 +134,10 @@ func TestLoadAdnSetRootConfig(t *testing.T) {
 		{
 			name: "load env failure",
 			prepare: func(_ *Root) {
-				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v any) error {
 					return nil
 				}
-				envParseFn = func(v interface{}, opts ...env.Options) error {
+				envParseFn = func(v any, opts ...env.Options) error {
 					return fmt.Errorf("err")
 				}
 			},
@@ -148,7 +146,7 @@ func TestLoadAdnSetRootConfig(t *testing.T) {
 		{
 			name: "valid coordinator failure",
 			prepare: func(cfg *Root) {
-				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v any) error {
 					return nil
 				}
 				cfg.Coordinator.Namespace = ""
@@ -158,7 +156,7 @@ func TestLoadAdnSetRootConfig(t *testing.T) {
 		{
 			name: "load and set cfg success",
 			prepare: func(_ *Root) {
-				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v any) error {
 					return nil
 				}
 			},
@@ -167,7 +165,6 @@ func TestLoadAdnSetRootConfig(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				loadConfigFn = ltoml.LoadConfig
@@ -197,7 +194,7 @@ func TestLoadAndSetStorageConfig(t *testing.T) {
 		{
 			name: "load config failure",
 			prepare: func(_ *Storage) {
-				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v any) error {
 					return fmt.Errorf("err")
 				}
 			},
@@ -206,10 +203,10 @@ func TestLoadAndSetStorageConfig(t *testing.T) {
 		{
 			name: "load env failure",
 			prepare: func(_ *Storage) {
-				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v any) error {
 					return nil
 				}
-				envParseFn = func(v interface{}, opts ...env.Options) error {
+				envParseFn = func(v any, opts ...env.Options) error {
 					return fmt.Errorf("err")
 				}
 			},
@@ -218,7 +215,7 @@ func TestLoadAndSetStorageConfig(t *testing.T) {
 		{
 			name: "valid coordinator failure",
 			prepare: func(cfg *Storage) {
-				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v any) error {
 					return nil
 				}
 				cfg.Coordinator.Namespace = ""
@@ -228,7 +225,7 @@ func TestLoadAndSetStorageConfig(t *testing.T) {
 		{
 			name: "valid storage failure",
 			prepare: func(cfg *Storage) {
-				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v any) error {
 					return nil
 				}
 				cfg.StorageBase.GRPC.Port = 0
@@ -238,7 +235,7 @@ func TestLoadAndSetStorageConfig(t *testing.T) {
 		{
 			name: "load and set cfg success",
 			prepare: func(_ *Storage) {
-				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v any) error {
 					return nil
 				}
 			},
@@ -247,7 +244,6 @@ func TestLoadAndSetStorageConfig(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				loadConfigFn = ltoml.LoadConfig
@@ -278,7 +274,7 @@ func TestLoadAndSetStandaloneConfig(t *testing.T) {
 		{
 			name: "load config failure",
 			prepare: func(_ *Standalone) {
-				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v any) error {
 					return fmt.Errorf("err")
 				}
 			},
@@ -287,10 +283,10 @@ func TestLoadAndSetStandaloneConfig(t *testing.T) {
 		{
 			name: "load env failure",
 			prepare: func(_ *Standalone) {
-				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v any) error {
 					return nil
 				}
-				envParseFn = func(v interface{}, opts ...env.Options) error {
+				envParseFn = func(v any, opts ...env.Options) error {
 					return fmt.Errorf("err")
 				}
 			},
@@ -299,7 +295,7 @@ func TestLoadAndSetStandaloneConfig(t *testing.T) {
 		{
 			name: "valid coordinator failure",
 			prepare: func(cfg *Standalone) {
-				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v any) error {
 					return nil
 				}
 				cfg.Coordinator.Namespace = ""
@@ -309,7 +305,7 @@ func TestLoadAndSetStandaloneConfig(t *testing.T) {
 		{
 			name: "valid broker failure",
 			prepare: func(cfg *Standalone) {
-				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v any) error {
 					return nil
 				}
 				cfg.BrokerBase.HTTP.Port = 0
@@ -319,7 +315,7 @@ func TestLoadAndSetStandaloneConfig(t *testing.T) {
 		{
 			name: "valid storage failure",
 			prepare: func(cfg *Standalone) {
-				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v any) error {
 					return nil
 				}
 				cfg.StorageBase.GRPC.Port = 0
@@ -329,7 +325,7 @@ func TestLoadAndSetStandaloneConfig(t *testing.T) {
 		{
 			name: "load and set cfg success",
 			prepare: func(_ *Standalone) {
-				loadConfigFn = func(cfgPath, defaultCfgPath string, v interface{}) error {
+				loadConfigFn = func(cfgPath, defaultCfgPath string, v any) error {
 					return nil
 				}
 			},
@@ -338,7 +334,6 @@ func TestLoadAndSetStandaloneConfig(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				loadConfigFn = ltoml.LoadConfig

@@ -1,81 +1,52 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package operator
 
 import (
-	"context"
 	"fmt"
 
-	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
 
-type ValuesOperatorFactory struct {
-	page     *types.Page
-	sourceID plan.PlanNodeID
-}
-
-func NewValuesOperatorFactory(sourceID plan.PlanNodeID, page *types.Page) SourceOperatorFactory {
-	return &ValuesOperatorFactory{
-		page:     page,
-		sourceID: sourceID,
-	}
-}
-
-// CreateOperator implements OperatorFactory.
-func (fct *ValuesOperatorFactory) CreateOperator(ctx context.Context) Operator {
-	return &ValuesOperator{
-		sourceID: fct.sourceID,
-		page:     fct.page,
-	}
-}
-
 type ValuesOperator struct {
-	page     *types.Page
-	sourceID plan.PlanNodeID
+	node *plan.ValuesNode
 }
 
-func NewValuesOperator(sourceID plan.PlanNodeID, page *types.Page) SourceOperator {
+func NewValuesOperator(node *plan.ValuesNode) Operator {
 	return &ValuesOperator{
-		sourceID: sourceID,
-		page:     page,
+		node: node,
 	}
 }
 
-// AddSplit implements SourceOperator.
-func (op *ValuesOperator) AddSplit(split spi.Split) {}
-
-// GetSourceID implements SourceOperator.
-func (op *ValuesOperator) GetSourceID() plan.PlanNodeID {
-	return op.sourceID
-}
-
-func (op *ValuesOperator) GetOutbound() <-chan *types.Page {
-	return nil
-}
-
-// NoMoreSplits implements SourceOperator.
-func (op *ValuesOperator) NoMoreSplits() {}
-
-// AddInput implements Operator.
-func (op *ValuesOperator) AddInput(page *types.Page) {
-	panic(fmt.Errorf("%w: values cannot take input", constants.ErrNotSupportOperation))
-}
-
-// Finish implements Operator.
-func (op *ValuesOperator) Finish() {
-	panic("unimplemented")
-}
-
-// GetOutput implements Operator.
-func (op *ValuesOperator) GetOutput() (page *types.Page) {
-	if op.IsFinished() {
-		return
+func (op *ValuesOperator) Run(output chan<- *types.Page) {
+	var page *types.Page
+	node := op.node
+	if node.Rows != nil {
+		page = node.Rows
+	} else if node.RowCount == 1 {
+		page = types.RowWithEmptyValue
 	}
-	return op.page
+	fmt.Printf("values node =%v\n", page)
+
+	output <- page
 }
 
-// IsFinished implements Operator.
-func (op *ValuesOperator) IsFinished() bool {
-	return op.page == nil
+func (op *ValuesOperator) GetLayout() []*plan.Symbol {
+	return op.node.GetOutputSymbols()
 }

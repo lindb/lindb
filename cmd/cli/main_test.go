@@ -24,11 +24,10 @@ import (
 	"testing"
 
 	prompt "github.com/elk-language/go-prompt"
-	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/internal/client"
-	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/sql/execution/model"
 )
 
 func Test_main(t *testing.T) {
@@ -59,16 +58,11 @@ func Test_main(t *testing.T) {
 				newExecuteCli = func(endpoint string) client.ExecuteCli {
 					return cli
 				}
-				cli.EXPECT().Execute(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(_ models.ExecuteParam, rs interface{}) error {
-						m := rs.(*models.Master)
-						m.Node = &models.StatelessNode{}
-						return nil
-					})
+				cli.EXPECT().Execute(gomock.Any()).Return(&model.ResultSet{}, nil)
 
 				runPromptFn = func(p *prompt.Prompt) {
 				}
-				newPrompt = func(executor prompt.Executor, completer prompt.Completer,
+				newPrompt = func(executor prompt.Executor,
 					opts ...prompt.Option,
 				) *prompt.Prompt {
 					return nil
@@ -78,7 +72,6 @@ func Test_main(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(_ *testing.T) {
 			defer func() {
 				urlParse = url.Parse
@@ -111,98 +104,42 @@ func Test_executor(t *testing.T) {
 			name: "exit",
 			in:   "exit;",
 			prepare: func() {
-				exit = func(code int) {}
+				exitFn = func(code int) {}
 			},
+		},
+		{
+			name: "use empty database",
+			in:   "use;",
 		},
 		{
 			name: "use database",
 			in:   "use database;",
 		},
 		{
+			name: "history",
+			in:   "history;",
+		},
+		{
 			name: "show master",
-			in:   "show master;",
+			in:   "select * from master;",
 			prepare: func() {
-				mockCli.EXPECT().ExecuteAsResult(gomock.Any(), gomock.Any())
+				mockCli.EXPECT().Execute(gomock.Any())
 			},
 		},
 		{
-			name: "show broker alive",
-			in:   "show broker alive;",
+			name: "show brokers",
+			in:   "select * from brokers;",
 			prepare: func() {
-				mockCli.EXPECT().ExecuteAsResult(gomock.Any(), gomock.Any())
+				mockCli.EXPECT().Execute(gomock.Any())
 			},
-		},
-		{
-			name: "show databases",
-			in:   "show databases;",
-			prepare: func() {
-				mockCli.EXPECT().ExecuteAsResult(gomock.Any(), gomock.Any())
-			},
-		},
-		{
-			name: "show schemas",
-			in:   "show schemas;",
-			prepare: func() {
-				mockCli.EXPECT().ExecuteAsResult(gomock.Any(), gomock.Any())
-			},
-		},
-		{
-			name: "show namespaces",
-			in:   "show namespaces;",
-			prepare: func() {
-				mockCli.EXPECT().ExecuteAsResult(gomock.Any(), gomock.Any())
-			},
-		},
-		{
-			name: "show metrics, but not use database",
-			in:   "show metrics;",
-			prepare: func() {
-				inputC.db = ""
-			},
-		},
-		{
-			name: "select query, but not use database",
-			in:   "select f from cpu;",
-			prepare: func() {
-				inputC.db = ""
-			},
-		},
-		{
-			name: "select query, but execute failure",
-			in:   "select f from cpu;",
-			prepare: func() {
-				inputC.db = "test"
-				mockCli.EXPECT().ExecuteAsResult(gomock.Any(), gomock.Any()).Return("", fmt.Errorf("err"))
-			},
-		},
-		{
-			name: "select query successfully",
-			in:   "select f from cpu;",
-			prepare: func() {
-				inputC.db = "test"
-				mockCli.EXPECT().ExecuteAsResult(gomock.Any(), gomock.Any())
-			},
-		},
-		{
-			name: "from query successfully",
-			in:   "from cpu select f;",
-			prepare: func() {
-				inputC.db = "test_2"
-				mockCli.EXPECT().ExecuteAsResult(gomock.Any(), gomock.Any())
-			},
-		},
-		{
-			name: "parse query sql failure",
-			in:   "select f;",
 		},
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				executor(";")
-				exit = os.Exit
+				exitFn = os.Exit
 			}()
 			if tt.prepare != nil {
 				tt.prepare()
@@ -210,9 +147,4 @@ func Test_executor(t *testing.T) {
 			executor(tt.in)
 		})
 	}
-}
-
-func Test_completer(t *testing.T) {
-	assert.Nil(t, completer(""))
-	assert.NotEmpty(t, completer("s"))
 }

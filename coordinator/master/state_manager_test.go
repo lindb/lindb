@@ -136,10 +136,11 @@ func TestStateManager_DatabaseCfg(t *testing.T) {
 		Value: encoding.JSONMarshal(&models.Database{}),
 	})
 	db := &models.Database{
-		Name:          "test",
-		NumOfShard:    3,
-		ReplicaFactor: 2,
-		Option:        &option.DatabaseOption{},
+		Name: "test",
+		Option: &option.DatabaseOption{
+			NumOfShard:    3,
+			ReplicaFactor: 2,
+		},
 	}
 	data := encoding.JSONMarshal(db)
 	// case 3: get shard assign err
@@ -235,9 +236,7 @@ func TestStateManager_ShardAssignment(t *testing.T) {
 
 func TestStateManager_createShardAssign(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer func() {
-		ctrl.Finish()
-	}()
+	defer ctrl.Finish()
 	repo := state.NewMockRepository(ctrl)
 	storage := NewMockStorageCluster(ctrl)
 	mgr := NewStateManager(context.TODO(), repo, nil)
@@ -254,20 +253,38 @@ func TestStateManager_createShardAssign(t *testing.T) {
 	assert.Nil(t, shardAssign)
 	// case 3: assign shard err
 	storage.EXPECT().GetLiveNodes().Return([]models.StatefulNode{{ID: 1}, {ID: 2}, {ID: 3}}, nil).AnyTimes()
-	shardAssign, err = mgr1.createShardAssignment(storage, &models.Database{Name: "test"}, -1, -1)
+	shardAssign, err = mgr1.createShardAssignment(storage, &models.Database{
+		Name: "test",
+		Option: &option.DatabaseOption{
+			NumOfShard:    0,
+			ReplicaFactor: 0,
+		},
+	}, -1, -1)
 	assert.Error(t, err)
 	assert.Nil(t, shardAssign)
 	// case 4: save shard assign err
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	shardAssign, err = mgr1.createShardAssignment(storage,
-		&models.Database{Name: "test", NumOfShard: 3, ReplicaFactor: 2},
+		&models.Database{
+			Name: "test",
+			Option: &option.DatabaseOption{
+				NumOfShard:    3,
+				ReplicaFactor: 2,
+			},
+		},
 		-1, -1)
 	assert.Error(t, err)
 	assert.Nil(t, shardAssign)
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	storage.EXPECT().SaveDatabaseAssignment(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	shardAssign, err = mgr1.createShardAssignment(storage,
-		&models.Database{Name: "test", NumOfShard: 3, ReplicaFactor: 2},
+		&models.Database{
+			Name: "test",
+			Option: &option.DatabaseOption{
+				NumOfShard:    3,
+				ReplicaFactor: 2,
+			},
+		},
 		-1, -1)
 	assert.Error(t, err)
 	assert.Nil(t, shardAssign)
@@ -275,7 +292,13 @@ func TestStateManager_createShardAssign(t *testing.T) {
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	storage.EXPECT().SaveDatabaseAssignment(gomock.Any(), gomock.Any()).Return(nil)
 	shardAssign, err = mgr1.createShardAssignment(storage,
-		&models.Database{Name: "test", NumOfShard: 3, ReplicaFactor: 2},
+		&models.Database{
+			Name: "test",
+			Option: &option.DatabaseOption{
+				NumOfShard:    3,
+				ReplicaFactor: 2,
+			},
+		},
 		-1, -1)
 	assert.NoError(t, err)
 	assert.NotNil(t, shardAssign)
@@ -299,38 +322,38 @@ func TestStateManager_modifyShardAssign(t *testing.T) {
 	// case 2: get live nodes err
 	storage.EXPECT().GetLiveNodes().Return(nil, fmt.Errorf("err"))
 	err := mgr1.modifyShardAssignment(storage,
-		&models.Database{Name: "test", NumOfShard: 3},
+		&models.Database{Name: "test", Option: &option.DatabaseOption{NumOfShard: 3}},
 		&models.ShardAssignment{Shards: map[models.ShardID]*models.Replica{1: {}, 2: {}}})
 	assert.Error(t, err)
 	// case 3: no live nodes
 	storage.EXPECT().GetLiveNodes().Return(nil, nil)
 	err = mgr1.modifyShardAssignment(storage,
-		&models.Database{Name: "test", NumOfShard: 3},
+		&models.Database{Name: "test", Option: &option.DatabaseOption{NumOfShard: 3}},
 		&models.ShardAssignment{Shards: map[models.ShardID]*models.Replica{1: {}, 2: {}}})
 	assert.Error(t, err)
 	// case 4: modify err
 	storage.EXPECT().GetLiveNodes().Return([]models.StatefulNode{{ID: 1}, {ID: 2}, {ID: 3}}, nil).AnyTimes()
 	err = mgr1.modifyShardAssignment(storage,
-		&models.Database{Name: "test", NumOfShard: 3},
+		&models.Database{Name: "test", Option: &option.DatabaseOption{NumOfShard: 3}},
 		&models.ShardAssignment{Shards: map[models.ShardID]*models.Replica{1: {}, 2: {}}})
 	assert.Error(t, err)
 
 	// case 5: save err
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	err = mgr1.modifyShardAssignment(storage,
-		&models.Database{Name: "test", NumOfShard: 3, ReplicaFactor: 2},
+		&models.Database{Name: "test", Option: &option.DatabaseOption{NumOfShard: 3, ReplicaFactor: 2}},
 		&models.ShardAssignment{Shards: map[models.ShardID]*models.Replica{1: {}, 2: {}}})
 	assert.Error(t, err)
 	repo.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	storage.EXPECT().SaveDatabaseAssignment(gomock.Any(), gomock.Any()).Return(fmt.Errorf("err"))
 	err = mgr1.modifyShardAssignment(storage,
-		&models.Database{Name: "test", NumOfShard: 3, ReplicaFactor: 2},
+		&models.Database{Name: "test", Option: &option.DatabaseOption{NumOfShard: 3, ReplicaFactor: 2}},
 		&models.ShardAssignment{Shards: map[models.ShardID]*models.Replica{1: {}, 2: {}}})
 	assert.Error(t, err)
 	// case 6: ok
 	storage.EXPECT().SaveDatabaseAssignment(gomock.Any(), gomock.Any()).Return(nil)
 	err = mgr1.modifyShardAssignment(storage,
-		&models.Database{Name: "test", NumOfShard: 3, ReplicaFactor: 2},
+		&models.Database{Name: "test", Option: &option.DatabaseOption{NumOfShard: 3, ReplicaFactor: 2}},
 		&models.ShardAssignment{Shards: map[models.ShardID]*models.Replica{1: {}, 2: {}}})
 	assert.NoError(t, err)
 }

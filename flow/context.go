@@ -63,11 +63,4 @@ type MetricScanContext struct {
 	SeriesIDs *roaring.Bitmap
 	Fields    field.Metas
 	TimeRange timeutil.TimeRange
-
-	Interval timeutil.Interval // storage Interval
-}
-
-// CalcSourceSlotRange returns slot range for filtering by family time and query time range.
-func (ctx *MetricScanContext) CalcSourceSlotRange(familyTime int64) timeutil.SlotRange {
-	return ctx.Interval.CalcSlotRange(familyTime, ctx.TimeRange)
 }

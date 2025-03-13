@@ -22,7 +22,6 @@ import (
 	"sync"
 
 	resty "github.com/go-resty/resty/v2"
-
 	"github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/constants"
@@ -34,9 +33,9 @@ import (
 // StateMachineCli represents state machine explore client.
 type StateMachineCli interface {
 	// FetchStateByNode fetches the state from state machine by target node.
-	FetchStateByNode(params map[string]string, node models.Node) (interface{}, error)
+	FetchStateByNode(params map[string]string, node models.Node) (any, error)
 	// FetchStateByNodes fetches the state from state machine by target nodes.
-	FetchStateByNodes(params map[string]string, nodes []models.Node) interface{}
+	FetchStateByNodes(params map[string]string, nodes []models.Node) any
 }
 
 // stateMachineCli implements StateMachineCli interface.
@@ -52,7 +51,7 @@ func NewStateMachineCli() StateMachineCli {
 }
 
 // FetchStateByNode fetches the state from state machine by target node.
-func (cli *stateMachineCli) FetchStateByNode(params map[string]string, node models.Node) (interface{}, error) {
+func (cli *stateMachineCli) FetchStateByNode(params map[string]string, node models.Node) (any, error) {
 	address := node.HTTPAddress()
 	var r json.RawMessage
 	_, err := resty.New().R().
@@ -67,10 +66,10 @@ func (cli *stateMachineCli) FetchStateByNode(params map[string]string, node mode
 }
 
 // FetchStateByNodes fetches the state from state machine by target nodes.
-func (cli *stateMachineCli) FetchStateByNodes(params map[string]string, nodes []models.Node) interface{} {
+func (cli *stateMachineCli) FetchStateByNodes(params map[string]string, nodes []models.Node) any {
 	var wait sync.WaitGroup
 	wait.Add(len(nodes))
-	result := make(map[string]interface{})
+	result := make(map[string]any)
 	for idx := range nodes {
 		i := idx
 		go func() {

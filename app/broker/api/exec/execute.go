@@ -35,12 +35,6 @@ import (
 	"github.com/lindb/lindb/sql/tree"
 )
 
-// statementExecFn represents statement execution funcation define.
-type statementExecFn func(ctx context.Context,
-	deps *depspkg.HTTPDeps,
-	param *models.ExecuteParam,
-	stmt tree.Statement) (interface{}, error)
-
 // ExecutePath represents lin language executor's path.
 var ExecutePath = "/exec"
 
@@ -162,19 +156,5 @@ func (e *ExecuteAPI) execute(c *gin.Context) error {
 	}
 
 	// TODO: resource group
-
-	// if commandFn, ok := commands[stmt.StatementType()]; ok {
-	// 	result, err := commandFn(ctx, e.deps, &param, stmt)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	if result == nil || reflect.ValueOf(result).IsNil() {
-	// 		httppkg.NotFound(c)
-	// 	} else {
-	// 		httppkg.OK(c, result)
-	// 	}
-	// 	return nil
-	// }
-	// return errors.New("can't parse lin query language")
 	return nil
 }

@@ -24,9 +24,8 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/mock/gomock"
-
 	"github.com/lindb/common/pkg/ltoml"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
@@ -152,7 +151,6 @@ func TestDatabaseLifecycle_dropDatabases(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(_ *testing.T) {
 			dbLifecycle := NewDatabaseLifecycle(context.TODO(), repo, walMgr, engine)
 			dbLifecycle1 := dbLifecycle.(*databaseLifecycle)

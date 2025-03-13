@@ -1,3 +1,20 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package meta
 
 import (
@@ -80,8 +97,8 @@ func (m *brokerMetadataManager) GetPartitions(database, ns, table string) (map[m
 			constants.TableSchemata,
 			constants.TableMetrics,
 			constants.TableMaster,
-			constants.TableBroker,
-			constants.TableStorage,
+			constants.TableBrokers,
+			constants.TableStorages,
 			constants.TableReplications,
 			constants.TableMemoryDatabases,
 			constants.TableNamespaces,
@@ -110,23 +127,8 @@ func (m *brokerMetadataManager) GetTableMetadata(database, ns, table string) (*t
 	}
 	schema := types.NewTableSchema()
 	for node := range partitions {
-		conn, err := grpc.Dial(node.Address(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+		tableSchema, err := m.getTableSchema(database, ns, table, node)
 		if err != nil {
-			return nil, err
-		}
-		defer conn.Close()
-
-		client := protoMetaV1.NewMetaServiceClient(conn)
-		resp, err := client.TableSchema(context.TODO(), &protoMetaV1.TableSchemaRequest{
-			Database:  database,
-			Namespace: ns,
-			Table:     table,
-		})
-		if err != nil {
-			return nil, err
-		}
-		tableSchema := &types.TableSchema{}
-		if err = encoding.JSONUnmarshal(resp.Payload, tableSchema); err != nil {
 			return nil, err
 		}
 		// TODO: remove duplicate column
@@ -144,4 +146,30 @@ func (m *brokerMetadataManager) CreateDatabase(ctx context.Context, database *mo
 
 func (m *brokerMetadataManager) DropDatabase(ctx context.Context, database string) error {
 	return m.masterStateMgr.DropDatabase(ctx, database)
+}
+
+func (m *brokerMetadataManager) getTableSchema(
+	database, ns, table string,
+	node models.InternalNode,
+) (*types.TableSchema, error) {
+	conn, err := grpc.Dial(node.Address(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	client := protoMetaV1.NewMetaServiceClient(conn)
+	resp, err := client.TableSchema(context.TODO(), &protoMetaV1.TableSchemaRequest{
+		Database:  database,
+		Namespace: ns,
+		Table:     table,
+	})
+	if err != nil {
+		return nil, err
+	}
+	tableSchema := &types.TableSchema{}
+	if err0 := encoding.JSONUnmarshal(resp.Payload, tableSchema); err0 != nil {
+		return nil, err0
+	}
+	return tableSchema, nil
 }

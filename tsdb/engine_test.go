@@ -100,7 +100,6 @@ func TestEngine_New(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				mkDirIfNotExist = fileutil.MkDirIfNotExist
@@ -430,7 +429,6 @@ func TestEngine_CreateShards(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			e := &engine{
 				dbSet: *newDatabaseSet(),

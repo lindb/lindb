@@ -22,7 +22,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/lindb/lindb/models"
+	"github.com/lindb/common/pkg/encoding"
+
+	"github.com/lindb/lindb/sql/execution/model"
 )
 
 func TestClusterInitializer_InitDatabase(t *testing.T) {
@@ -33,6 +35,10 @@ func TestClusterInitializer_InitDatabase(t *testing.T) {
 	}{
 		{
 			name: "create database successfully",
+			prepare: func(w http.ResponseWriter) {
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write(encoding.JSONMarshal(&model.ResultSet{}))
+			},
 		},
 		{
 			name: "create database failure",
@@ -44,7 +50,6 @@ func TestClusterInitializer_InitDatabase(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			ts := httptest.NewServer(
 				http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -56,7 +61,7 @@ func TestClusterInitializer_InitDatabase(t *testing.T) {
 
 			init := NewClusterInitializer(ts.URL)
 
-			err := init.InitInternalDatabase(models.Database{})
+			err := init.InitInternalDatabase("create database test")
 			if (err != nil) != tt.wantErr {
 				t.Errorf("InitStorageCluster() error = %v, wantErr %v", err, tt.wantErr)
 			}

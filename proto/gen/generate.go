@@ -17,6 +17,7 @@
 
 package gen
 
-//go:generate mockgen -source=./v1/common/common.pb.go -destination=./v1/common/common_pb_mock.go -package=protoCommonV1
+//go:generate mockgen -source=./v1/command/command.pb.go -destination=./v1/command/command_pb_mock.go -package=protoCommandV1
+//go:generate mockgen -source=./v1/meta/meta.pb.go -destination=./v1/meta/meta_pb_mock.go -package=protoMetaV1
 //go:generate mockgen -source=./v1/replica/replica.pb.go -destination=./v1/replica/replica_pb_mock.go -package=protoReplicaV1
 //go:generate mockgen -source=./v1/write/write.pb.go -destination=./v1/write/write_pb_mock.go -package=protoWriteV1

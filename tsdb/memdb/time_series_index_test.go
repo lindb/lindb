@@ -25,9 +25,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	gomock "go.uber.org/mock/gomock"
 
-	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/pkg/bit"
-	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/tsdb/tblstore/metricsdata"
 )
@@ -74,65 +71,6 @@ func TestTimeSeriesIndex_GenMemTimeSeriesID(t *testing.T) {
 	id, isNew = idx.(*timeSeriesIndex).genMemTimeSeriesID(10, nil)
 	assert.Equal(t, uint32(100), id)
 	assert.False(t, isNew)
-}
-
-func TestTimeSeriesIndex_Load(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	t.Run("no data under time series index", func(t *testing.T) {
-		idx := NewTimeSeriesIndex()
-		idx.Load(nil, 0, timeutil.NewSlotRange(0, 100), []*fieldEntry{})
-	})
-
-	t.Run("no field data", func(t *testing.T) {
-		idx := NewTimeSeriesIndex()
-		// add data
-		idx.IndexTimeSeries(10, 100)
-		seriesIDs := roaring.BitmapOf(10)
-		ctx := &flow.DataLoadContext{
-			MinSeriesID:  10,
-			MaxSeriesID:  1000,
-			LowSeriesIDs: seriesIDs.GetContainerAtIndex(0).ToArray(),
-		}
-		idx.Load(ctx, 0, timeutil.NewSlotRange(0, 100), []*fieldEntry{})
-	})
-
-	t.Run("load data", func(t *testing.T) {
-		idx := NewTimeSeriesIndex()
-		// add data
-		idx.IndexTimeSeries(10, 100)
-		seriesIDs := roaring.BitmapOf(10)
-		ctx := &flow.DataLoadContext{
-			MinSeriesID:  10,
-			MaxSeriesID:  1000,
-			LowSeriesIDs: seriesIDs.GetContainerAtIndex(0).ToArray(),
-			DownSampling: func(slotRange timeutil.SlotRange, seriesIdx uint16,
-				fieldIdx int, getter encoding.TSDValueGetter) {
-			},
-			Decoder: encoding.GetTSDDecoder(),
-		}
-		compress := NewCompressStore()
-		encoder := encoding.NewTSDEncoder(10)
-		// case 1: encode with err
-		encoder.AppendTime(bit.One)
-		encoder.AppendValue(uint64(10))
-		data, err := encoder.Bytes()
-		assert.NoError(t, err)
-		compress.StoreCompressBuffer(100, data)
-		idx.Load(ctx, 0, timeutil.NewSlotRange(0, 100), []*fieldEntry{
-			{
-				compressBuf: compress,
-			},
-		})
-		pageBuf := NewMockDataPointBuffer(ctrl)
-		pageBuf.EXPECT().GetPage(gomock.Any()).Return([]byte{1, 2, 3}, true)
-		idx.Load(ctx, 0, timeutil.NewSlotRange(0, 100), []*fieldEntry{
-			{
-				compressBuf: compress,
-				pageBuf:     pageBuf,
-			},
-		})
-	})
 }
 
 func TestTimeSeriesIndex_GC(t *testing.T) {

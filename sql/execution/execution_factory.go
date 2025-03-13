@@ -1,3 +1,20 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package execution
 
 import (
@@ -20,37 +37,6 @@ type ExecutionFactory interface {
 	CreateExecution(session *Session, statement *tree.PreparedStatement) Execution
 }
 
-type DataDefinitionExecutionFactory struct {
-	deps *Deps
-}
-
-func NewDataDefinitionExecutionFactory(deps *Deps) ExecutionFactory {
-	return &DataDefinitionExecutionFactory{
-		deps: deps,
-	}
-}
-
-func (f *DataDefinitionExecutionFactory) CreateExecution(session *Session, statement *tree.PreparedStatement) Execution {
-	var task DataDefinitionTask
-	switch sType := statement.Statement.(type) {
-	case *tree.CreateDatabase:
-		task = NewCreateDatabaseTask(f.deps, sType)
-	case *tree.DropDatabase:
-		task = NewDropDatabaseTask(f.deps, sType)
-	}
-	return NewDataDefinitionExecution(task)
-}
-
-type QueryExecutionFactory struct {
-	deps *Deps
-}
-
-func NewQueryExecutionFactory(deps *Deps) ExecutionFactory {
-	return &QueryExecutionFactory{
-		deps: deps,
-	}
-}
-
-func (f *QueryExecutionFactory) CreateExecution(session *Session, statement *tree.PreparedStatement) Execution {
-	return NewQueryExecution(session, f.deps, statement)
+type Execution interface {
+	Start() any
 }

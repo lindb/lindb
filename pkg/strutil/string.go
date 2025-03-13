@@ -25,7 +25,7 @@ import (
 
 // GetStringValue aggregation format function name
 func GetStringValue(rawString string) (string, error) {
-	if len(rawString) > 0 {
+	if rawString != "" {
 		if strings.HasPrefix(rawString, "'") && strings.HasSuffix(rawString, "'") {
 			rawString = `"` + rawString[1:len(rawString)-1] + `"`
 		}

@@ -24,13 +24,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"go.etcd.io/etcd/server/v3/embed"
-	"go.uber.org/mock/gomock"
-
 	"github.com/lindb/common/pkg/fileutil"
 	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/ltoml"
+	"github.com/stretchr/testify/assert"
+	"go.etcd.io/etcd/server/v3/embed"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/internal/bootstrap"
@@ -104,7 +103,6 @@ func TestRuntime_Run(t *testing.T) {
 			wantErr: true,
 		},
 		{
-
 			name: "clean up master state failure",
 			prepare: func(_ *config.Standalone) {
 				repo := state.NewMockRepository(ctrl)
@@ -115,7 +113,6 @@ func TestRuntime_Run(t *testing.T) {
 			wantErr: true,
 		},
 		{
-
 			name: "create broker state failure",
 			prepare: func(_ *config.Standalone) {
 				repo := state.NewMockRepository(ctrl)
@@ -199,7 +196,6 @@ func TestRuntime_Run(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				startEtcdFn = embed.StartEtcd

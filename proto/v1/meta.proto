@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package metaCommandV1;
+package protoMetaV1;
 
 message TableSchemaRequest {
 	string database = 1;

@@ -72,7 +72,7 @@ SHOW                     : 'SHOW' ;
 STATE                    : 'STATE' ;
 STORAGE                  : 'STORAGE' ;
 TABLE_NAMES              : 'TABLE_NAMES' ;
-TIME                     : 'TIME' ;
+TIMESTAMP                : 'TIMESTAMP' ;
 TRACE                    : 'TRACE' ;
 TRUE                     : 'TRUE' ;
 TYPE                     : 'TYPE' ;

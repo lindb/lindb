@@ -46,7 +46,8 @@ import (
 // s3		s4		s0		s1		s2		(3st replica)
 // s7		s8		s9		s5		s6		(3st replica)
 func ShardAssignment(storageNodeIDs []models.NodeID, cfg *models.Database,
-	fixedStartIndex int, startShardID models.ShardID) (*models.ShardAssignment, error) {
+	fixedStartIndex int, startShardID models.ShardID,
+) (*models.ShardAssignment, error) {
 	numOfShard := cfg.Option.NumOfShard
 	replicaFactor := cfg.Option.ReplicaFactor
 	if numOfShard <= 0 {
@@ -68,7 +69,8 @@ func ShardAssignment(storageNodeIDs []models.NodeID, cfg *models.Database,
 }
 
 func ModifyShardAssignment(storageNodeIDs []models.NodeID, cfg *models.Database, shardAssignment *models.ShardAssignment,
-	fixedStartIndex int, startShardID models.ShardID) error {
+	fixedStartIndex int, startShardID models.ShardID,
+) error {
 	numOfShard := cfg.Option.NumOfShard - len(shardAssignment.Shards)
 	replicaFactor := cfg.Option.ReplicaFactor
 	if numOfShard <= 0 {
@@ -91,7 +93,8 @@ func ModifyShardAssignment(storageNodeIDs []models.NodeID, cfg *models.Database,
 // which database's each shard based on selected node list in storageCluster.
 func assignReplicasToStorageNodes(storageNodeIDs []models.NodeID,
 	numOfShard, replicaFactor, fixedStartIndex int, startShardID models.ShardID,
-	shardAssignment *models.ShardAssignment) {
+	shardAssignment *models.ShardAssignment,
+) {
 	numOfNode := len(storageNodeIDs)
 
 	// init start index/shift/current shard
@@ -107,7 +110,7 @@ func assignReplicasToStorageNodes(storageNodeIDs []models.NodeID,
 	}
 
 	// assign replica list for each shard
-	for i := 0; i < numOfShard; i++ {
+	for range numOfShard {
 		if currentShardID > 0 && (int(currentShardID)%numOfNode == 0) {
 			nextReplicaShift++
 		}
@@ -118,7 +121,7 @@ func assignReplicasToStorageNodes(storageNodeIDs []models.NodeID,
 		shardAssignment.AddReplica(currentShardID, leader)
 
 		// assign other replica
-		for j := 0; j < replicaFactor-1; j++ {
+		for j := range replicaFactor - 1 {
 			idx := replicaIndex(firstReplicaIndex, nextReplicaShift, j, numOfNode)
 			shardAssignment.AddReplica(currentShardID, storageNodeIDs[idx])
 		}

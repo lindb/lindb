@@ -22,9 +22,8 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/atomic"
-
 	"github.com/lindb/common/pkg/logger"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/metrics"
 	errorpkg "github.com/lindb/lindb/pkg/error"
@@ -128,6 +127,7 @@ func NewPool(name string, maxWorkers int, idleTimeout time.Duration, statistics 
 
 func (p *workerPool) Submit(ctx context.Context, task *Task) {
 	if task.handle == nil || p.Stopped() {
+		// TODO: do task if pool is stopped?
 		return
 	}
 	select {

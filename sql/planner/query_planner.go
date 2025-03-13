@@ -1,3 +1,20 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package planner
 
 import (
@@ -57,7 +74,7 @@ func (p *QueryPlanner) planQuery(node *tree.Query) *RelationPlan {
 }
 
 func (p *QueryPlanner) planQueryBody(query *tree.Query) *PlanBuilder {
-	planner := NewRelationPlanner(p.context, p.outerContext, nil)
+	planner := NewRelationPlanner(p.context, p.outerContext, nil, nil)
 	relationPlan := query.QueryBody.Accept(nil, planner).(*RelationPlan)
 	return newPlanBuilder(p.context, relationPlan, nil)
 }
@@ -88,7 +105,10 @@ func (p *QueryPlanner) planQuerySpecification(node *tree.QuerySpecification) *Re
 
 func (p *QueryPlanner) planFrom(node *tree.QuerySpecification) *PlanBuilder {
 	if node.From != nil {
-		planner := NewRelationPlanner(p.context, p.outerContext, p.context.AnalyzerContext.Analysis.GetTimePredicates(node))
+		planner := NewRelationPlanner(p.context, p.outerContext,
+			p.context.AnalyzerContext.Analysis.GetTimePredicates(node),
+			p.context.AnalyzerContext.Analysis.GetGroupingInterval(node),
+		)
 		relationPlan := node.From.Accept(nil, planner).(*RelationPlan)
 		return newPlanBuilder(p.context, relationPlan, nil)
 	}
@@ -120,8 +140,10 @@ func (p *QueryPlanner) aggregate(subPlan *PlanBuilder, node *tree.QuerySpecifica
 	return p.planGroupingOperations(subPlan, node)
 }
 
-func (p *QueryPlanner) planGroupingSets(subPlan *PlanBuilder, node *tree.QuerySpecification, groupingSetAnalysis *analyzer.GroupingSetAnalysis) *GroupingSetsPlan {
-	groupingSetMappings := make(map[*plan.Symbol]*plan.Symbol) // ouput -> input
+func (p *QueryPlanner) planGroupingSets(subPlan *PlanBuilder,
+	_ *tree.QuerySpecification, groupingSetAnalysis *analyzer.GroupingSetAnalysis,
+) *GroupingSetsPlan {
+	groupingSetMappings := make(map[*plan.Symbol]*plan.Symbol) // output -> input
 	complexExpressions := make(map[tree.NodeID]*plan.Symbol)
 	fields := make([]*plan.Symbol, len(subPlan.translations.fieldSymbols))
 	fmt.Printf("sub plan fields=%v\n", subPlan.translations.fieldSymbols)
@@ -190,11 +212,13 @@ func (p *QueryPlanner) enumerateGroupingSets(groupingSetAnalysis *analyzer.Group
 	return partialSet
 }
 
-func (p *QueryPlanner) planGroupingOperations(subPlan *PlanBuilder, node *tree.QuerySpecification) *PlanBuilder {
+func (p *QueryPlanner) planGroupingOperations(subPlan *PlanBuilder, _ *tree.QuerySpecification) *PlanBuilder {
 	return subPlan
 }
 
-func (p *QueryPlanner) planAggregation(subPlan *PlanBuilder, groupingSets [][]*plan.Symbol, aggregates []*tree.FunctionCall) *PlanBuilder {
+func (p *QueryPlanner) planAggregation(subPlan *PlanBuilder,
+	groupingSets [][]*plan.Symbol, aggregates []*tree.FunctionCall,
+) *PlanBuilder {
 	fmt.Printf("planagg.....%v,func call=%v\n", groupingSets, aggregates)
 
 	var aggregateMapping []*plan.AggregationAssignment
@@ -206,7 +230,8 @@ func (p *QueryPlanner) planAggregation(subPlan *PlanBuilder, groupingSets [][]*p
 			Function: p.context.AnalyzerContext.Analysis.GetResolvedFunction(function),
 			Arguments: lo.Map(function.Arguments, func(arg tree.Expression, _ int) tree.Expression {
 				if iden, ok := arg.(*tree.Identifier); ok {
-					return p.context.SymbolAllocator.NewSymbol(iden, "", p.context.AnalyzerContext.Analysis.GetType(iden)).ToSymbolReference()
+					return p.context.SymbolAllocator.NewSymbol(iden, "",
+						p.context.AnalyzerContext.Analysis.GetType(iden)).ToSymbolReference()
 				}
 				return arg
 			}), // TODO: parse arg
@@ -237,7 +262,7 @@ func (p *QueryPlanner) planAggregation(subPlan *PlanBuilder, groupingSets [][]*p
 	}
 }
 
-func (p *QueryPlanner) filter(subPlan *PlanBuilder, predicate tree.Expression, node tree.Node) *PlanBuilder {
+func (p *QueryPlanner) filter(subPlan *PlanBuilder, predicate tree.Expression, _ tree.Node) *PlanBuilder {
 	if predicate == nil {
 		return subPlan
 	}

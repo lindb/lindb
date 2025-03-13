@@ -1,3 +1,20 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package optimization
 
 import (
@@ -24,10 +41,6 @@ func filterIfMissing(columns []*plan.Symbol, column *plan.Symbol) *plan.Symbol {
 	return nil
 }
 
-func exchangeInputToOutput(node *plan.ExchangeNode, sourceIndex int) map[*plan.Symbol]*plan.Symbol {
-	return nil
-}
-
 type PropertyDerivationVisitor struct{}
 
 func (v *PropertyDerivationVisitor) Visit(context any, n plan.PlanNode) (r any) {
@@ -50,7 +63,7 @@ func (v *PropertyDerivationVisitor) Visit(context any, n plan.PlanNode) (r any) 
 	}
 }
 
-func (v *PropertyDerivationVisitor) visitFilter(inputProperties []*ActualProps, node *plan.FilterNode) *ActualProps {
+func (v *PropertyDerivationVisitor) visitFilter(inputProperties []*ActualProps, _ *plan.FilterNode) *ActualProps {
 	props := inputProperties[0]
 	// identities := computeIdentityTranslations(node.Assignments)
 	// // TODO: expression rewrite
@@ -72,13 +85,17 @@ func (v *PropertyDerivationVisitor) visitProjection(inputProperties []*ActualPro
 	return BuilderFrom(translated).Build()
 }
 
-func (v *PropertyDerivationVisitor) visitOutput(inputProperties []*ActualProps, node *plan.OutputNode) *ActualProps {
+func (v *PropertyDerivationVisitor) visitOutput(
+	inputProperties []*ActualProps, node *plan.OutputNode,
+) *ActualProps {
 	return inputProperties[0].translate(func(column *plan.Symbol) *plan.Symbol {
 		return filterIfMissing(node.GetOutputSymbols(), column)
 	})
 }
 
-func (v *PropertyDerivationVisitor) visitAggregation(inputProperties []*ActualProps, node *plan.AggregationNode) *ActualProps {
+func (v *PropertyDerivationVisitor) visitAggregation(
+	inputProperties []*ActualProps, node *plan.AggregationNode,
+) *ActualProps {
 	props := inputProperties[0]
 	translated := props.translate(func(symbol *plan.Symbol) *plan.Symbol {
 		if lo.ContainsBy(node.GetGroupingKeys(), func(item *plan.Symbol) bool {
@@ -91,12 +108,12 @@ func (v *PropertyDerivationVisitor) visitAggregation(inputProperties []*ActualPr
 	return BuilderFrom(translated).Build()
 }
 
-func (v *PropertyDerivationVisitor) visitTableScan(inputProperties []*ActualProps, node *plan.TableScanNode) *ActualProps {
+func (v *PropertyDerivationVisitor) visitTableScan(_ []*ActualProps, _ *plan.TableScanNode) *ActualProps {
 	props := NewActualPropsBuilder(arbitraryPartition())
 	return props.Build()
 }
 
-func (v *PropertyDerivationVisitor) visitExchangeNode(inputProperties []*ActualProps, node *plan.ExchangeNode) *ActualProps {
+func (v *PropertyDerivationVisitor) visitExchangeNode(_ []*ActualProps, node *plan.ExchangeNode) *ActualProps {
 	// TODO: check
 	switch node.Type {
 	case plan.Gather:
@@ -109,9 +126,9 @@ func (v *PropertyDerivationVisitor) visitExchangeNode(inputProperties []*ActualP
 	}
 }
 
-func computeIdentityTranslations(assigments plan.Assignments) map[string]*plan.Symbol {
+func computeIdentityTranslations(assignments plan.Assignments) map[string]*plan.Symbol {
 	inputToOutput := make(map[string]*plan.Symbol)
-	for _, assignment := range assigments {
+	for _, assignment := range assignments {
 		if symbolRef, ok := assignment.Expression.(*tree.SymbolReference); ok {
 			inputToOutput[plan.SymbolFrom(symbolRef).Name] = assignment.Symbol
 		}

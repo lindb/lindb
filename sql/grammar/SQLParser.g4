@@ -38,7 +38,7 @@ explainOption       : TYPE value=(LOGICAL | DISTRIBUTED)                     #ex
 // ddl
 createDatabase      : CREATE DATABASE name=qualifiedName databaseOptions* ;
 
-databaseOptions     : createDatabaseOptions (',' createDatabaseOptions)*    #dbOptions
+databaseOptions     : createDatabaseOptions (',' createDatabaseOptions)*    #databaseOpts
                     | WITH properties                                       #withProps 
                     | ROLLUP '(' rollupOptions (',' rollupOptions)* ')'     #rollupProps 
                     ;
@@ -156,9 +156,9 @@ primaryExpression   :
                     | '(' expression ')'                                    #parenExpression
                     ;
 
-predicate           : TIME operator=comparisonOperator right=valueExpression                                   #timestampPredicate 
+predicate           : TIMESTAMP operator=comparisonOperator right=valueExpression                              #timestampPredicate 
 										| left=valueExpression operator=comparisonOperator right=valueExpression                   #binaryComparisonPredicate
-                    | TIME BETWEEN lower=valueExpression AND upper=valueExpression                             #betweenPredicate
+                    | TIMESTAMP BETWEEN lower=valueExpression AND upper=valueExpression                         #betweenPredicate
                     | left=valueExpression NOT? IN '(' expression (',' expression)* ')'                        #inPredicate
                     | left=valueExpression NOT? LIKE pattern=valueExpression (ESCAPE escape=valueExpression)?  #likePredicate
                     | left=valueExpression operator=(REGEXP|NEQREGEXP) pattern=valueExpression?                #regexpPredicate
@@ -212,7 +212,7 @@ nonReserved         :
                     | ON | OR | ORDER
                     | REQUESTS | REPLICATIONS | RIGHT | ROLLUP
                     | SELECT | SHOW | STATE | STORAGE
-                    | TABLE_NAMES | TIME | TRACE | TRUE | TYPE | TYPES 
+                    | TABLE_NAMES | TIMESTAMP | TRACE | TRUE | TYPE | TYPES 
                     | VALUES
                     | WHERE | WITH | WITHIN
                     | USING | USE

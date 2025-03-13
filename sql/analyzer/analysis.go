@@ -1,3 +1,20 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package analyzer
 
 import (
@@ -63,6 +80,7 @@ type Analysis struct {
 	where                 map[tree.NodeID]tree.Expression
 	timePredicates        map[tree.NodeID][]*tree.TimePredicate
 	groupingSets          map[tree.NodeID]*GroupingSetAnalysis
+	groupintInterval      map[tree.NodeID]*tree.IntervalLiteral
 	having                map[tree.NodeID]tree.Expression
 	orderByExpressions    map[tree.NodeID][]tree.Expression
 	limit                 map[tree.NodeID]int64
@@ -90,6 +108,7 @@ func NewAnalysis(root tree.Statement) *Analysis {
 		where:                 make(map[tree.NodeID]tree.Expression),
 		timePredicates:        make(map[tree.NodeID][]*tree.TimePredicate),
 		groupingSets:          make(map[tree.NodeID]*GroupingSetAnalysis),
+		groupintInterval:      make(map[tree.NodeID]*tree.IntervalLiteral),
 		having:                make(map[tree.NodeID]tree.Expression),
 		orderByExpressions:    make(map[tree.NodeID][]tree.Expression),
 		limit:                 make(map[tree.NodeID]int64),
@@ -221,6 +240,15 @@ func (a *Analysis) IsGroupingSets(node tree.Node) (ok bool) {
 	return
 }
 
+func (a *Analysis) SetGroupingInterval(node tree.Node, interval *tree.IntervalLiteral) {
+	a.groupintInterval[node.GetID()] = interval
+}
+
+func (a *Analysis) GetGroupingInterval(node tree.Node) (interval *tree.IntervalLiteral) {
+	interval = a.groupintInterval[node.GetID()]
+	return
+}
+
 func (a *Analysis) GetGroupingSets(node tree.Node) *GroupingSetAnalysis {
 	return a.groupingSets[node.GetID()]
 }
@@ -265,7 +293,7 @@ func (a *Analysis) GetColumnReferenceField(node tree.Expression) (field *Resolve
 }
 
 func (a *Analysis) RecordSubQueries(node tree.Node, expressionAnalysis *ExpressionAnalysis) {
-	// panic("impl it")
+	panic("impl record sub query")
 }
 
 func (a *Analysis) AddType(node tree.Expression, dataType types.DataType) {

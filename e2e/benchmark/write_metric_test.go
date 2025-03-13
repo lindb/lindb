@@ -41,7 +41,7 @@ const (
 	host          = "host"
 	disk          = "disk"
 	partition     = "partition"
-	internalDBURL = "http://127.0.0.1:9000/api/v1/write?db=_internal"
+	internalDBURL = "http://127.0.0.1:9003/api/v1/write?db=_internal"
 	testDBURL     = "http://127.0.0.1:9000/api/v1/write?db=test"
 )
 

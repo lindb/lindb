@@ -70,7 +70,6 @@ func TestRequestCli_FetchRequestsByNodes(t *testing.T) {
 		},
 	}
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			cli := NewRequestCli()
 			rs := cli.FetchRequestsByNodes(tt.nodes)

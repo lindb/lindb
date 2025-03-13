@@ -51,7 +51,8 @@ func Test_NewBrokerRowFlatDecoder(t *testing.T) {
 	assert.NoError(t, err)
 	_, _ = buf.Write(data1)
 
-	data2, err := converter2.MarshalProtoMetricV1(&protoMetricsV1.Metric{Name: "test",
+	data2, err := converter2.MarshalProtoMetricV1(&protoMetricsV1.Metric{
+		Name:      "test",
 		Namespace: "ns",
 		Timestamp: now,
 		Tags: []*protoMetricsV1.KeyValue{
@@ -240,7 +241,6 @@ func Test_BrokerRowFlatDecoder_Decode_Fail(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			limits := models.NewDefaultLimits()
 			tt.prepare(limits)

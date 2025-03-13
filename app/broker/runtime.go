@@ -1,4 +1,4 @@
-// Licensed to LinDB under one or more contributorrup
+// Licensed to LinDB under one or more contributor
 // license agreements. See the NOTICE file distributed with
 // this work for additional information regarding copyright
 // ownership. LinDB licenses this file to you under
@@ -54,7 +54,6 @@ import (
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/table/infoschema"
-	_ "github.com/lindb/lindb/spi/table/infoschema"
 	"github.com/lindb/lindb/sql/analyzer"
 	"github.com/lindb/lindb/sql/execution"
 )
@@ -79,11 +78,6 @@ type srv struct {
 	channelManager replica.ChannelManager
 }
 
-// factory represents all factories for broker
-type factory struct {
-	connectionMgr rpc.ConnectionManager
-}
-
 // runtime represents broker runtime dependency
 type runtime struct {
 	app.BaseRuntime
@@ -95,7 +89,6 @@ type runtime struct {
 	repo                state.Repository
 	repoFactory         state.RepositoryFactory
 	srv                 srv
-	factory             factory
 	httpServer          httppkg.Server
 	master              coordinator.MasterController
 	registry            discovery.Registry
@@ -182,14 +175,9 @@ func (r *runtime) Run() error {
 	}
 	r.BaseRuntime = app.NewBaseRuntimeFn(r.ctx, r.config.Monitor, linmetric.BrokerRegistry, r.globalKeyValues)
 
-	r.factory = factory{
-		connectionMgr: rpc.NewConnectionManager(),
-	}
-
 	r.stateMgr = newStateManager(
 		r.ctx,
 		*r.node,
-		r.factory.connectionMgr,
 	)
 
 	r.buildServiceDependency()
@@ -258,8 +246,8 @@ func (r *runtime) Run() error {
 			Port: r.node.GRPCPort,
 		},
 	}
-	execution.RegisterExecutionFactory(models.DataDefinition, execution.NewDataDefinitionExecutionFactory(execDeps))
-	execution.RegisterExecutionFactory(models.Select, execution.NewQueryExecutionFactory(execDeps))
+	execution.RegisterExecutionFactory(models.DataDefinition, execution.NewDDLExecutionFactory(execDeps))
+	execution.RegisterExecutionFactory(models.Select, execution.NewDMLExecutionFactory(execDeps))
 
 	infoschema.InitInfoSchema(r.metadataMgr)
 
@@ -348,15 +336,6 @@ func (r *runtime) Stop() {
 		r.srv.channelManager.Close()
 		r.logger.Info("closed write channel successfully")
 	}
-
-	if r.factory.connectionMgr != nil {
-		if err := r.factory.connectionMgr.Close(); err != nil {
-			r.logger.Error("close connection manager error, when broker stop", logger.Error(err))
-		} else {
-			r.logger.Info("closed connection manager successfully")
-		}
-	}
-	r.logger.Info("close connections successfully")
 
 	// finally, shutdown rpc server
 	if r.grpcServer != nil {
@@ -453,7 +432,8 @@ func (r *runtime) startGRPCServer() {
 
 	// bind grpc handlers
 	protoCommandV1.RegisterResultSetServiceServer(r.grpcServer.GetServer(), internalrpc.NewResultSetService())
-	protoCommandV1.RegisterCommandServiceServer(r.grpcServer.GetServer(), internalrpc.NewCommandService(execution.NewTaskManager()))
+	protoCommandV1.RegisterCommandServiceServer(r.grpcServer.GetServer(),
+		internalrpc.NewCommandService(execution.NewTaskManager(r.ctx)))
 
 	go serveGRPCFn(r.grpcServer)
 }

@@ -95,7 +95,6 @@ func TestSegment_New(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				newDataFamilyFunc = newDataFamily
@@ -185,7 +184,6 @@ func TestSegment_GetOrCreateDataFamily(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				newDataFamilyFunc = newDataFamily
@@ -269,7 +267,6 @@ func TestSegment_GetDataFamilies(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			s := &segment{
 				kvStore:  store,
@@ -345,7 +342,6 @@ func TestSegment_Close(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(_ *testing.T) {
 			if tt.prepare != nil {
 				tt.prepare()

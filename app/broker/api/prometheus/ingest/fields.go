@@ -129,10 +129,10 @@ type Histogram struct {
 }
 
 // NewHistogram creates a Histogram field.
-func NewHistogram(min, max, sum, count float64, values, bounds []float64) Field {
+func NewHistogram(minimum, maximum, sum, count float64, values, bounds []float64) Field {
 	return &Histogram{
-		min:    min,
-		max:    max,
+		min:    minimum,
+		max:    maximum,
 		sum:    sum,
 		count:  count,
 		values: values,

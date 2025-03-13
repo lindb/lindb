@@ -12,18 +12,18 @@ enum Command {
 
 message CommandRequest {
 	Command cmd = 1;
-    bytes payload = 2;
+  bytes payload = 2;
 	Error err = 3;
 }
 
 message CommandResponse {
 	Command cmd = 1;
-    bytes payload = 2;
+  bytes payload = 2;
 	Error err = 3;
 }
 
 message ResultSetRequest {
-    bytes payload = 2;
+  bytes payload = 2;
 	Error err = 3;
 }
 

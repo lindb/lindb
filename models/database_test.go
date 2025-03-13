@@ -20,9 +20,8 @@ package models
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	commontimeutil "github.com/lindb/common/pkg/timeutil"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -43,16 +42,17 @@ func TestNewShardAssignment(t *testing.T) {
 
 func TestDatabase_String(t *testing.T) {
 	database := Database{
-		Name:          "test",
-		NumOfShard:    10,
-		ReplicaFactor: 1,
+		Name: "test",
 		Option: &option.DatabaseOption{
+			NumOfShard:    10,
+			ReplicaFactor: 1,
 			Intervals: option.Intervals{
 				{Interval: timeutil.Interval(10 * commontimeutil.OneSecond), Retention: timeutil.Interval(commontimeutil.OneMonth)},
 				{Interval: timeutil.Interval(10 * commontimeutil.OneMinute), Retention: timeutil.Interval(commontimeutil.OneMonth)},
-			}},
+			},
+		},
 	}
-	assert.Equal(t, "create database test with shard 10, replica 1, intervals [10s->1M,10m->1M]", database.String())
+	assert.Equal(t, "create database test with (numOfShard=10, replicaFactor=1, intervals=[10s->1M,10m->1M])", database.String())
 }
 
 func TestParseShardID(t *testing.T) {
@@ -61,29 +61,8 @@ func TestParseShardID(t *testing.T) {
 	assert.Equal(t, 1, ShardID(1).Int())
 }
 
-func TestDatabases_ToTable(t *testing.T) {
-	rows, rs := Databases{}.ToTable()
-	assert.Zero(t, rows)
-	assert.Empty(t, rs)
-	rows, rs = Databases{{Name: "test"}}.ToTable()
-	assert.NotEmpty(t, rs)
-	assert.Equal(t, rows, 1)
-}
-
 func TestReplica_Contain(t *testing.T) {
 	replica := Replica{Replicas: []NodeID{1, 2}}
 	assert.True(t, replica.Contain(2))
 	assert.False(t, replica.Contain(4))
-}
-
-func TestDatabase_ToTable(t *testing.T) {
-	rows, rs := (&DatabaseNames{}).ToTable()
-	assert.Empty(t, rs)
-	assert.Equal(t, rows, 0)
-
-	rows, rs = (&DatabaseNames{
-		"test",
-	}).ToTable()
-	assert.NotEmpty(t, rs)
-	assert.Equal(t, rows, 1)
 }

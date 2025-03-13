@@ -23,12 +23,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/mock/gomock"
-
 	"github.com/lindb/common/pkg/fileutil"
 	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/ltoml"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator/storage"
@@ -153,7 +152,6 @@ func TestWriteAheadLogManager_Recovery(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				fileExistFn = func(file string) bool {
@@ -202,7 +200,6 @@ func TestWriteAheadLogManager_Stop_Close(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			mgr := &writeAheadLogManager{
 				databaseLogs: map[string]WriteAheadLog{
@@ -264,7 +261,6 @@ func TestMockWriteAheadLogMockRecorder_Drop(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			mgr := &writeAheadLogManager{
 				databaseLogs: map[string]WriteAheadLog{
@@ -303,7 +299,6 @@ func TestMockWriteAheadLogMockRecorder_Stop(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			mgr := &writeAheadLogManager{
 				databaseLogs: map[string]WriteAheadLog{

@@ -98,7 +98,6 @@ func TestStoreManager_CreateStore(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				newStoreFunc = func(name, path string, option StoreOption) (s Store, err error) {
@@ -161,7 +160,6 @@ func TestMockStoreManager_CloseStore(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.prepare != nil {
 				tt.prepare()

@@ -41,7 +41,7 @@ func makeProtoMetricV1(timestamp int64) *protoMetricsV1.Metric {
 	m.Namespace = "default-ns"
 	m.Timestamp = timestamp
 
-	var keyValues = tag.KeyValuesFromMap(map[string]string{
+	keyValues := tag.KeyValuesFromMap(map[string]string{
 		"host": strconv.FormatInt(timestamp, 10),
 		"ip":   "1.1.1.1",
 		"zone": "sh",
@@ -74,7 +74,8 @@ func makeProtoMetricV1(timestamp int64) *protoMetricsV1.Metric {
 			Name:  "max",
 			Type:  protoMetricsV1.SimpleFieldType_Max,
 			Value: 1000,
-		}}
+		},
+	}
 	m.CompoundField = &protoMetricsV1.CompoundField{
 		Min:            1,
 		Max:            1000,
@@ -88,14 +89,14 @@ func makeProtoMetricV1(timestamp int64) *protoMetricsV1.Metric {
 
 func Test_MarshalProtoMetricsV1List(t *testing.T) {
 	var ml protoMetricsV1.MetricList
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		ml.Metrics = append(ml.Metrics, makeProtoMetricV1(fasttime.UnixMilliseconds()))
 	}
 
 	converter := NewProtoConverter(models.NewDefaultLimits())
 
 	var buf bytes.Buffer
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		buf.Reset()
 		size, err := converter.MarshalProtoMetricListV1To(ml, &buf)
 		assert.Equal(t, size, len(buf.Bytes()))
@@ -149,7 +150,8 @@ func Test_BrokerRowProtoConverter_ValidateMetric(t *testing.T) {
 				Name:  "f1",
 				Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
 				Value: 1,
-			}},
+			},
+		},
 		Tags: []*protoMetricsV1.KeyValue{nil, nil},
 	}))
 	// empty tag
@@ -160,7 +162,8 @@ func Test_BrokerRowProtoConverter_ValidateMetric(t *testing.T) {
 				Name:  "f1",
 				Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
 				Value: 1,
-			}},
+			},
+		},
 		Tags: []*protoMetricsV1.KeyValue{{Key: "", Value: ""}},
 	}))
 
@@ -187,7 +190,8 @@ func Test_BrokerRowProtoConverter_ValidateMetric(t *testing.T) {
 				Name:  "__bucket_1",
 				Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
 				Value: math.NaN(),
-			}},
+			},
+		},
 	}))
 	// Inf simple field value
 	assert.Error(t, converter.validateMetric(&protoMetricsV1.Metric{
@@ -197,7 +201,8 @@ func Test_BrokerRowProtoConverter_ValidateMetric(t *testing.T) {
 				Name:  "f1",
 				Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
 				Value: math.Inf(1),
-			}},
+			},
+		},
 	}))
 	// ok with none compound field
 	assert.NoError(t, converter.validateMetric(&protoMetricsV1.Metric{
@@ -207,7 +212,8 @@ func Test_BrokerRowProtoConverter_ValidateMetric(t *testing.T) {
 				Name:  "__bucket_1",
 				Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
 				Value: 1,
-			}},
+			},
+		},
 	}))
 
 	// compound field values not match explicit-bounds
@@ -264,7 +270,7 @@ func Test_BrokerRowProtoConverter_MarshalProtoMetricV1(t *testing.T) {
 	assert.Error(t, err)
 	assert.Len(t, data, 0)
 
-	var ml = protoMetricsV1.MetricList{
+	ml := protoMetricsV1.MetricList{
 		Metrics: []*protoMetricsV1.Metric{{Name: ""}},
 	}
 	var buf bytes.Buffer
@@ -281,7 +287,8 @@ func Test_BrokerRowProtoConverter_MarshalProtoMetricV1(t *testing.T) {
 				Name:  "__bucket_1",
 				Type:  protoMetricsV1.SimpleFieldType_DELTA_SUM,
 				Value: 1,
-			}},
+			},
+		},
 	}
 	data, err = converter.MarshalProtoMetricV1(m)
 	assert.NoError(t, err)
@@ -442,7 +449,6 @@ func TestProtoCoverter_Limits(t *testing.T) {
 		},
 	}
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			limits := models.NewDefaultLimits()
 			// marshal ok

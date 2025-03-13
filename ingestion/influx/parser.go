@@ -426,24 +426,24 @@ func parseTimestamp(buf []byte, startAt int, multiplier int64) (int64, error) {
 // timestamp2MilliSeconds guesses the real timestamp precision,
 // then converts it into milliseconds
 func timestamp2MilliSeconds(timestamp int64) int64 {
-	min := fasttime.UnixMilliseconds() - constants.MetricMaxBehindDuration
-	max := fasttime.UnixMilliseconds() + constants.MetricMaxAheadDuration
+	minimum := fasttime.UnixMilliseconds() - constants.MetricMaxBehindDuration
+	maximum := fasttime.UnixMilliseconds() + constants.MetricMaxAheadDuration
 
 	switch {
 	// ms
-	case min < timestamp && timestamp < max:
+	case minimum < timestamp && timestamp < maximum:
 		return timestamp
 	// ns
-	case min < (timestamp/1e6) && (timestamp/1e6) < max:
+	case minimum < (timestamp/1e6) && (timestamp/1e6) < maximum:
 		return timestamp / 1e6
 	// us
-	case min < (timestamp/1e3) && (timestamp/1e3) < max:
+	case minimum < (timestamp/1e3) && (timestamp/1e3) < maximum:
 		return timestamp / 1e3
 	// m
-	case min < (timestamp*60*1000) && (timestamp*60*1000) < max:
+	case minimum < (timestamp*60*1000) && (timestamp*60*1000) < maximum:
 		return timestamp * 1000 * 60
 	// h
-	case min < (timestamp*1000*3600) && (timestamp*1000*3600) < max:
+	case minimum < (timestamp*1000*3600) && (timestamp*1000*3600) < maximum:
 		return timestamp * 1000 * 3600
 	// unknown precision, use milliseconds
 	default:

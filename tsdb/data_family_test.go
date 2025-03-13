@@ -321,7 +321,6 @@ func TestDataFamily_NeedFlush(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				config.SetGlobalStorageConfig(config.NewDefaultStorageBase())
@@ -429,7 +428,6 @@ func TestDataFamily_Flush(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				newMetricDataFlusher = metricsdata.NewFlusher
@@ -500,7 +498,6 @@ func TestDataFamily_Close(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				newMetricDataFlusher = metricsdata.NewFlusher
@@ -692,7 +689,6 @@ func TestDataFamily_WriteRows(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				newMemoryDBFunc = memdb.NewMemoryDatabase
@@ -838,7 +834,6 @@ func TestDataFamily_Evict(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(_ *testing.T) {
 			defer func() {
 				closeFamilyFunc = closeFamily

@@ -88,17 +88,17 @@ func (p *DeltaBitPackingEncoder) Add(v int32) {
 
 // Bytes returns binary data
 func (p *DeltaBitPackingEncoder) Bytes() []byte {
-	max := uint32(0)
+	maximum := uint32(0)
 	p.buffer.Reset()
 
 	p.sw.PutVarint32(int32(len(p.deltas))) // write deltas length
 	for _, v := range p.deltas {
 		deltaDelta := uint32(v - p.minDelta)
-		if max < deltaDelta {
-			max = deltaDelta
+		if maximum < deltaDelta {
+			maximum = deltaDelta
 		}
 	}
-	width := 32 - bits.LeadingZeros32(max)
+	width := 32 - bits.LeadingZeros32(maximum)
 	p.sw.PutByte(byte(width))                                // width
 	p.sw.PutVarint64(int64(ZigZagEncode(int64(p.minDelta)))) // min delta
 	p.sw.PutVarint32(p.first)                                // first value
@@ -143,8 +143,8 @@ func (d *DeltaBitPackingDecoder) Reset(buf []byte) {
 	d.pos = d.count
 	w := d.sr.ReadByte() // width
 	d.width = int(w)
-	min := d.sr.ReadVarint64()
-	d.minDelta = int32(ZigZagDecode(uint64(min))) // min delta
+	minimum := d.sr.ReadVarint64()
+	d.minDelta = int32(ZigZagDecode(uint64(minimum))) // min delta
 
 	// need read first value
 	d.previous = d.sr.ReadVarint32()

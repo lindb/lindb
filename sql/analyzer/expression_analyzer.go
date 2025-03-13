@@ -1,3 +1,20 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package analyzer
 
 import (
@@ -98,7 +115,7 @@ func (v *ExpressionVisitor) visitRow(context any, node *tree.Row) (r any) {
 func (v *ExpressionVisitor) visitFieldReference(context any, node *tree.FieldReference) (r any) {
 	ctx := context.(*tree.StackableVisitorContext[*Context])
 	resolvedField := v.baseScope.getField(node.FieldIndex)
-	return v.handleResolvedField(node, resolvedField, ctx)
+	return v.handleResolvedField(ctx, node, resolvedField)
 }
 
 func (v *ExpressionVisitor) visitComparisonExpression(context any, node *tree.ComparisonExpression) (r any) {
@@ -106,6 +123,8 @@ func (v *ExpressionVisitor) visitComparisonExpression(context any, node *tree.Co
 	switch node.Operator {
 	case tree.ComparisonEQ:
 		operatorType = types.Equal
+	default:
+		panic("not supported operator:" + node.Operator)
 	}
 
 	return v.getOperator(context.(*tree.StackableVisitorContext[*Context]), node, operatorType, node.Left, node.Right)
@@ -143,7 +162,7 @@ func (v *ExpressionVisitor) visitDereferenceExpression(context any, node *tree.D
 		resolvedField := ctx.GetContext().scope.tryResolveField(node, qualifiedName)
 		fmt.Printf("visit de expre =%v\n", resolvedField)
 		if resolvedField != nil {
-			return v.handleResolvedField(node, resolvedField, ctx)
+			return v.handleResolvedField(ctx, node, resolvedField)
 		}
 	}
 	// rowType := &types.RowType{}
@@ -159,7 +178,7 @@ func (v *ExpressionVisitor) visitFunctionCall(context any, node *tree.FunctionCa
 	expectedType := tree.GetDefaultFuncReturnType(node.Name)
 	if len(argumentTypes) > 0 {
 		// TODO: check args types
-		for i := 0; i < len(argumentTypes); i++ {
+		for i := range len(argumentTypes) {
 			expectedType = types.GetAccurateType(expectedType, argumentTypes[i])
 		}
 	}
@@ -174,28 +193,28 @@ func (v *ExpressionVisitor) visitFunctionCall(context any, node *tree.FunctionCa
 	return v.setExpressionType(node, expectedType)
 }
 
-func (v *ExpressionVisitor) visitStringLiteral(context any, node *tree.StringLiteral) (r any) {
+func (v *ExpressionVisitor) visitStringLiteral(_ any, node *tree.StringLiteral) (r any) {
 	return v.setExpressionType(node, types.DTString)
 }
 
-func (v *ExpressionVisitor) visitLongLiteral(context any, node *tree.LongLiteral) (r any) {
+func (v *ExpressionVisitor) visitLongLiteral(_ any, node *tree.LongLiteral) (r any) {
 	return v.setExpressionType(node, types.DTInt)
 }
 
-func (v *ExpressionVisitor) visitIntervalLiteral(context any, node *tree.IntervalLiteral) (r any) {
+func (v *ExpressionVisitor) visitIntervalLiteral(_ any, node *tree.IntervalLiteral) (r any) {
 	return v.setExpressionType(node, types.DTDuration)
 }
 
 func (v *ExpressionVisitor) visitIdentifier(context any, node *tree.Identifier) (r any) {
 	ctx := context.(*tree.StackableVisitorContext[*Context])
-	fmt.Printf("expr visitor %V\n", node.Value)
+	fmt.Printf("expr visitor %v\n", node.Value)
 	// FIXME:???
 	resolvedField := ctx.GetContext().scope.resolveField(node, tree.NewQualifiedName([]*tree.Identifier{node}), true)
 
 	if resolvedField == nil {
 		panic(fmt.Sprintf("unknown column: '%v'", node.Value))
 	}
-	return v.handleResolvedField(node, resolvedField, ctx)
+	return v.handleResolvedField(ctx, node, resolvedField)
 }
 
 func (v *ExpressionVisitor) visitArithemticBinary(context any, node *tree.ArithmeticBinaryExpression) (r any) {
@@ -203,7 +222,7 @@ func (v *ExpressionVisitor) visitArithemticBinary(context any, node *tree.Arithm
 	return v.getOperator(context.(*tree.StackableVisitorContext[*Context]), node, types.Subtract, node.Left, node.Right)
 }
 
-func (v *ExpressionVisitor) visitTimestampPredicate(context any, node *tree.TimePredicate) (r any) {
+func (v *ExpressionVisitor) visitTimestampPredicate(_ any, node *tree.TimePredicate) (r any) {
 	return v.setExpressionType(node, types.DTTimestamp)
 }
 
@@ -211,14 +230,14 @@ func (v *ExpressionVisitor) visitLogicalExpression(context any, node *tree.Logic
 	for _, term := range node.Terms {
 		// TODO: add coerce type?
 		_ = term.Accept(context, v).(types.DataType)
-		// v.coerceType(term, activeType, types.DTInt)
+		// TODO: v.coerceType(term, activeType, types.DTInt)
 	}
 	// TODO: set bool
 	return v.setExpressionType(node, types.DTInt)
 }
 
 func (v *ExpressionVisitor) getOperator(context *tree.StackableVisitorContext[*Context],
-	node tree.Expression, operatorType types.OperatorType, arguments ...tree.Expression,
+	node tree.Expression, _ types.OperatorType, arguments ...tree.Expression,
 ) types.DataType {
 	var argumentTypes []types.DataType
 	for i := range arguments {
@@ -226,11 +245,10 @@ func (v *ExpressionVisitor) getOperator(context *tree.StackableVisitorContext[*C
 		argumentTypes = append(argumentTypes, expression.Accept(context, v).(types.DataType))
 	}
 
-	// operatorSignature := v.analyzer.funcionResolver.ResolveOperator(operatorType, nil).Signature
+	// TODO: operatorSignature := v.analyzer.funcionResolver.ResolveOperator(operatorType, nil).Signature
 
 	// TODO: check args types
 	expectedType := types.GetAccurateType(argumentTypes[0], argumentTypes[1])
-	fmt.Printf("visit arithmetic id=%v left=%v,right=%v,result=%v\n", node.GetID(), argumentTypes[0], argumentTypes[1], expectedType)
 	if expectedType == types.DTTimeSeries {
 		for i, argumentType := range argumentTypes {
 			v.coerceType(arguments[i], argumentType, expectedType)
@@ -248,7 +266,9 @@ func (v *ExpressionVisitor) coerceType(expression tree.Expression, actualType, e
 	}
 }
 
-func (v *ExpressionVisitor) handleResolvedField(node tree.Expression, resolvedField *ResolvedField, context *tree.StackableVisitorContext[*Context]) types.DataType {
+func (v *ExpressionVisitor) handleResolvedField(_ *tree.StackableVisitorContext[*Context],
+	node tree.Expression, resolvedField *ResolvedField,
+) types.DataType {
 	v.analyzer.ctx.Analysis.AddColumnReference(node, resolvedField)
 	v.analyzer.ctx.Analysis.AddType(node, resolvedField.Field.DataType)
 	return resolvedField.Field.DataType

@@ -17,21 +17,6 @@
 
 package tree
 
-type StatementType int
-
-const (
-	UseStatement StatementType = iota + 1
-	MetadataStatement
-	SchemaStatement
-	StorageStatement
-	StateStatement
-	MetricMetadataStatement
-	QueryStatement
-	RequestStatement
-	BrokerStatement
-	LimitStatement
-)
-
 // Statement represents LinDB query language statement
 type Statement interface {
 	Node

@@ -24,10 +24,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lindb/common/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
-
-	"github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/metrics"
@@ -188,7 +187,6 @@ func TestRemoteReplicator_IsReady(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			r := NewRemoteReplicator(context.TODO(), rc, stateMgr, cliFct)
 			r1 := r.(*remoteReplicator)
@@ -357,7 +355,6 @@ func TestRemoteReplicator_Connect(t *testing.T) {
 		},
 	}
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			r := NewRemoteReplicator(context.TODO(), rc, stateMgr, cliFct)
 			r1 := r.(*remoteReplicator)

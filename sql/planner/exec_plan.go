@@ -1,31 +1,35 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package planner
 
 import (
-	"context"
-
-	"go.uber.org/atomic"
-
+	"github.com/lindb/lindb/sql/context"
 	"github.com/lindb/lindb/sql/execution/pipeline"
 )
 
 type TaskExecutionPlanContext struct {
-	ctx             context.Context
-	driverFactories []*pipeline.DriverFactory
-
-	nextPipelineID atomic.Int32
+	ctx *context.TaskContext
 }
 
-func NewTaskExecutionPlanContext(ctx context.Context, driverFactories []*pipeline.DriverFactory) *TaskExecutionPlanContext {
+func NewTaskExecutionPlanContext(ctx *context.TaskContext) *TaskExecutionPlanContext {
 	return &TaskExecutionPlanContext{
-		ctx:             ctx,
-		driverFactories: driverFactories,
+		ctx: ctx,
 	}
-}
-
-func (ctx *TaskExecutionPlanContext) AddDriverFactory(physicalOperation *PhysicalOperation) {
-	// FIXME: add lookup outer driver?
-	driverFct := pipeline.NewDriverFactory(ctx.ctx, ctx.nextPipelineID.Inc(), physicalOperation.operatorFactories)
-	ctx.driverFactories = append(ctx.driverFactories, driverFct)
 }
 
 type TaskExecutionPlan struct {

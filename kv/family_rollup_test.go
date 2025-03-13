@@ -123,7 +123,6 @@ func TestFamily_needRollup(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer f.rolluping.Store(false)
 			if tt.prepare != nil {
@@ -295,7 +294,6 @@ func TestFamily_rollup(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(_ *testing.T) {
 			defer f.rolluping.Store(false)
 			if tt.prepare != nil {
@@ -396,7 +394,6 @@ func TestFamily_doRollupWork(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
 				newCompactJobFunc = newCompactJob

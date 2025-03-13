@@ -63,29 +63,17 @@ func (sr *SlotRange) Overlap(o SlotRange) bool {
 
 // Union returns the union of two slot range
 func (sr *SlotRange) Union(o SlotRange) SlotRange {
-	var result SlotRange
-	result.Start = sr.Start
-	if o.Start < sr.Start {
-		result.Start = o.Start
+	return SlotRange{
+		Start: min(o.Start, sr.Start),
+		End:   max(o.End, sr.End),
 	}
-	result.End = sr.End
-	if o.End > sr.End {
-		result.End = o.End
-	}
-	return result
 }
 
 func (sr *SlotRange) Intersect(o SlotRange) SlotRange {
-	var result SlotRange
-	result.Start = sr.Start
-	if o.Start > sr.Start {
-		result.Start = o.Start
+	return SlotRange{
+		Start: max(o.Start, sr.Start),
+		End:   min(o.End, sr.End),
 	}
-	result.End = sr.End
-	if o.End < sr.End {
-		result.End = o.End
-	}
-	return result
 }
 
 // TimeRange represents time range with start/end timestamp.
@@ -96,7 +84,7 @@ type TimeRange struct {
 
 // IsEmpty tests if empty, start/end=0 => empty
 func (r *TimeRange) IsEmpty() bool {
-	return r.Start == r.End && r.Start == 0
+	return r.Start >= r.End
 }
 
 // Contains tests if timestamp in current time range
@@ -111,16 +99,10 @@ func (r *TimeRange) Overlap(o TimeRange) bool {
 
 // Intersect returns the intersection of two time range
 func (r *TimeRange) Intersect(o TimeRange) TimeRange {
-	var result TimeRange
-	result.Start = r.Start
-	if o.Start > r.Start {
-		result.Start = o.Start
+	return TimeRange{
+		Start: max(o.Start, r.Start),
+		End:   min(o.End, r.End),
 	}
-	result.End = r.End
-	if o.End < r.End {
-		result.End = o.End
-	}
-	return result
 }
 
 // NumOfPoints returns num. of points by interval.

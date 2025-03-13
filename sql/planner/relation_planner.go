@@ -1,3 +1,20 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package planner
 
 import (
@@ -14,18 +31,20 @@ import (
 )
 
 type RelationPlanner struct {
-	outerContext   *TranslationMap
-	context        *context.PlannerContext
-	timePredicates []*tree.TimePredicate
+	outerContext     *TranslationMap
+	context          *context.PlannerContext
+	timePredicates   []*tree.TimePredicate
+	groupingInterval *tree.IntervalLiteral
 }
 
 func NewRelationPlanner(context *context.PlannerContext, outerContext *TranslationMap,
-	timePredicates []*tree.TimePredicate,
+	timePredicates []*tree.TimePredicate, groupingInterval *tree.IntervalLiteral,
 ) tree.Visitor {
 	return &RelationPlanner{
-		context:        context,
-		outerContext:   outerContext,
-		timePredicates: timePredicates,
+		context:          context,
+		outerContext:     outerContext,
+		timePredicates:   timePredicates,
+		groupingInterval: groupingInterval,
 	}
 }
 
@@ -48,11 +67,11 @@ func (p *RelationPlanner) Visit(context any, n tree.Node) (r any) {
 	}
 }
 
-func (p *RelationPlanner) visitQuery(context any, node *tree.Query) (r any) {
+func (p *RelationPlanner) visitQuery(_ any, node *tree.Query) (r any) {
 	return NewQueryPlanner(p.context, p.outerContext).planQuery(node)
 }
 
-func (p *RelationPlanner) visitQuerySpecification(context any, node *tree.QuerySpecification) (r any) {
+func (p *RelationPlanner) visitQuerySpecification(_ any, node *tree.QuerySpecification) (r any) {
 	return NewQueryPlanner(p.context, p.outerContext).planQuerySpecification(node)
 }
 
@@ -103,7 +122,7 @@ func (p *RelationPlanner) visitValues(_ any, node *tree.Values) (r any) {
 	}
 }
 
-func (p *RelationPlanner) visitTable(context any, node *tree.Table) (r any) {
+func (p *RelationPlanner) visitTable(_ any, node *tree.Table) (r any) {
 	fmt.Printf("visit table, time predicates=%v\n", p.timePredicates)
 	namedQuery := p.context.AnalyzerContext.Analysis.GetNamedQuery(node)
 	scope := p.context.AnalyzerContext.Analysis.GetScope(node)
@@ -133,6 +152,7 @@ func (p *RelationPlanner) visitTable(context any, node *tree.Table) (r any) {
 		tableMetadata := p.context.AnalyzerContext.Analysis.GetTableMetadata(tableHandle.String())
 		root := planpkg.NewTableScanNode(p.context.PlanNodeIDAllocator.Next())
 		root.Table = p.context.AnalyzerContext.Analysis.GetTableHandle(node)
+		// default query time range(last hour)
 		timeRange := timeutil.TimeRange{
 			Start: time.Now().UnixMilli() - time.Hour.Milliseconds(),
 			End:   time.Now().UnixMilli(),
@@ -153,6 +173,10 @@ func (p *RelationPlanner) visitTable(context any, node *tree.Table) (r any) {
 		}
 		root.Table.SetTimeRange(timeRange)
 
+		if p.groupingInterval != nil {
+			root.Table.SetInterval(p.groupingInterval.Interval())
+		}
+
 		root.OutputSymbols = outputSymbols
 		root.Partitions = tableMetadata.Partitions
 
@@ -170,7 +194,7 @@ func (p *RelationPlanner) planJoinUsing(node *tree.Join, left, right *RelationPl
 	panic("need implement join using")
 }
 
-func (p *RelationPlanner) planJoin(node *tree.Join, scope *analyzer.Scope, left, right *RelationPlan) *RelationPlan {
+func (p *RelationPlanner) planJoin(node *tree.Join, _ *analyzer.Scope, left, right *RelationPlan) *RelationPlan {
 	var outputSymbols []*planpkg.Symbol
 	outputSymbols = append(outputSymbols, left.FieldMappings...)
 	outputSymbols = append(outputSymbols, right.FieldMappings...)
@@ -203,8 +227,10 @@ func (p *RelationPlanner) planJoin(node *tree.Join, scope *analyzer.Scope, left,
 		leftPlanBuilder = leftPlanBuilder.appendProjections(leftComparisonExpressions)
 		rightPlanBuilder = rightPlanBuilder.appendProjections(rightComparisonExpressions)
 
-		leftCoercions := coerceExpressions(leftPlanBuilder, leftComparisonExpressions, p.context.SymbolAllocator, p.context.PlanNodeIDAllocator)
-		rightCoercions := coerceExpressions(rightPlanBuilder, rightComparisonExpressions, p.context.SymbolAllocator, p.context.PlanNodeIDAllocator)
+		leftCoercions := coerceExpressions(leftPlanBuilder, leftComparisonExpressions,
+			p.context.SymbolAllocator, p.context.PlanNodeIDAllocator)
+		rightCoercions := coerceExpressions(rightPlanBuilder, rightComparisonExpressions,
+			p.context.SymbolAllocator, p.context.PlanNodeIDAllocator)
 		fmt.Println(leftCoercions)
 		for i := range leftComparisonExpressions {
 			if joinConditionComparisonOperators[i] == tree.ComparisonEQ {
@@ -234,11 +260,15 @@ func (p *RelationPlanner) planJoin(node *tree.Join, scope *analyzer.Scope, left,
 	}
 }
 
-func coerce(plan *RelationPlan, types []types.Type, symbolAllocator *planpkg.SymbolAllocator, idAllocator *planpkg.PlanNodeIDAllocator) *NodeAndMappings {
+func coerce(plan *RelationPlan, types []types.Type,
+	symbolAllocator *planpkg.SymbolAllocator, idAllocator *planpkg.PlanNodeIDAllocator,
+) *NodeAndMappings {
 	return nil
 }
 
-func coerceExpressions(subPlan *PlanBuilder, expressions []tree.Expression, symbolAllocator *planpkg.SymbolAllocator, idAllocator *planpkg.PlanNodeIDAllocator) *PlanAndMappings {
+func coerceExpressions(subPlan *PlanBuilder, expressions []tree.Expression,
+	symbolAllocator *planpkg.SymbolAllocator, _ *planpkg.PlanNodeIDAllocator,
+) *PlanAndMappings {
 	mappings := make(map[tree.Expression]*planpkg.Symbol)
 
 	for i := range expressions {
