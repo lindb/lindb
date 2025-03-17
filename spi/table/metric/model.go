@@ -97,6 +97,10 @@ type ColumnHandle struct {
 	Aggregation  tree.FuncName `json:"aggregation"`
 }
 
+func (c *ColumnHandle) String() string {
+	return fmt.Sprintf("(downsampling=%s,aggregation=%s)", c.Downsampling, c.Aggregation)
+}
+
 type DataSplit struct {
 	partition       *Partition
 	groupingContext flow.GroupingContext

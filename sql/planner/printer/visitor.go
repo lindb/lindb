@@ -22,6 +22,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/samber/lo"
+
+	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/tree"
 )
@@ -248,6 +251,12 @@ func (v *PrintPlanVisitor) addNode(node plan.PlanNode,
 func (v *PrintPlanVisitor) printTableScanInfo(outputNode *NodeRepresentation, node *plan.TableScanNode) {
 	if node == nil {
 		return
+	}
+	if len(node.Assignments) > 0 {
+		outputNode.appendDetails(fmt.Sprintf("Assignments: [%s]",
+			strings.Join(lo.Map(node.Assignments, func(item *spi.ColumnAssignment, _ int) string {
+				return item.String()
+			}), ", ")))
 	}
 	timeRange := node.Table.GetTimeRange()
 	if !timeRange.IsEmpty() {

@@ -37,6 +37,7 @@ func (fct *TaskExecutionFactory) Create(task *SQLTask) *TaskExecution {
 	taskPlanner := planner.NewTaskExecutionPlanner()
 
 	ctx := &sqlContext.TaskContext{
+		// FIXME: set context
 		Context:    context.WithValue(context.TODO(), constants.ContextKeyCurrentTime, task.currentTime),
 		TaskID:     task.id,
 		Fragment:   task.fragment,

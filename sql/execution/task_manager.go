@@ -114,13 +114,24 @@ func (mgr *taskManager) dispatchTask() {
 				exec := fct.Create(task) // TODO:
 
 				outputCh := make(chan *types.Page)
-				defer close(outputCh)
+				defer func() {
+					close(outputCh)
+					fmt.Println("close task output")
+				}()
 
 				go func() {
+					defer func() {
+						if err := recover(); err != nil {
+							fmt.Println(err)
+						}
+					}()
 					for page := range outputCh {
 						output.AddPage(page)
+						fmt.Println("send page done...")
 					}
+					fmt.Println("task done 2.....")
 					output.Complete()
+					fmt.Println("task done.....")
 				}()
 
 				exec.Execute(outputCh)

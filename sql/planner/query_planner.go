@@ -225,6 +225,7 @@ func (p *QueryPlanner) planAggregation(subPlan *PlanBuilder,
 	additionalMapping := make(map[tree.NodeID]*plan.Symbol)
 	// TODO: scopeAwareDistinct
 	for _, function := range aggregates {
+		fmt.Printf("agg func=%v\n", function.Name)
 		symbol := p.context.SymbolAllocator.NewSymbol(function, "", p.context.AnalyzerContext.Analysis.GetType(function))
 		aggregation := &plan.Aggregation{
 			Function: p.context.AnalyzerContext.Analysis.GetResolvedFunction(function),

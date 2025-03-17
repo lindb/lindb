@@ -24,27 +24,29 @@ import (
 )
 
 type LocalExchangeOperator struct {
-	inbound chan *types.Page
-	node    *plan.ExchangeNode
+	node  *plan.ExchangeNode
+	child operator.Operator
 }
 
 // FIXME: source op
-func NewLocalExchangeOperator(node *plan.ExchangeNode) operator.Operator {
+func NewLocalExchangeOperator(node *plan.ExchangeNode, child operator.Operator) operator.Operator {
 	return &LocalExchangeOperator{
-		node:    node,
-		inbound: make(chan *types.Page),
+		node:  node,
+		child: child,
 	}
 }
 
 // Finish implements operator.Operator.
 func (l *LocalExchangeOperator) Run(output chan<- *types.Page) {
-	for page := range l.inbound {
+	inbound := make(chan *types.Page)
+	go func() {
+		defer close(inbound)
+		l.child.Run(inbound)
+	}()
+
+	for page := range inbound {
 		output <- page
 	}
-}
-
-func (l *LocalExchangeOperator) Receive(page *types.Page) {
-	l.inbound <- page
 }
 
 func (l *LocalExchangeOperator) GetLayout() []*plan.Symbol {
