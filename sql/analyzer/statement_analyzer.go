@@ -493,6 +493,9 @@ func (v *StatementVisitor) analyzeGroupBy(node *tree.QuerySpecification, scope *
 
 					field = v.analyzer.ctx.Analysis.GetColumnReferenceField(column)
 					if field != nil {
+						if field.Field.AggType != types.ATUnknown || field.Field.DataType == types.DTTimestamp {
+							panic(fmt.Sprintf("aggregate/timestamp field[%v] cannot appear in group by", field.Field.Name))
+						}
 						sets = append(sets, []*FieldID{field.FieldID()})
 					} else {
 						// TODO: field sets
