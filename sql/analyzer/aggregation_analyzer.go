@@ -72,14 +72,17 @@ func (v *aggregationAnalyzeVisitor) Visit(context any, n tree.Node) (r any) {
 	case *tree.DereferenceExpression:
 		return v.visitDereferenceExpression(node)
 	case *tree.Identifier:
-		// TODO: modify
-		return true
+		return v.visitIdentifier(node)
 	case *tree.ArithmeticBinaryExpression:
 		// TODO: modify
 		return true
 	default:
 		panic(fmt.Sprintf("unsupported node<%T> when aggregation ananlyzer", n))
 	}
+}
+
+func (v *aggregationAnalyzeVisitor) visitIdentifier(node *tree.Identifier) (r any) {
+	return true
 }
 
 func (v *aggregationAnalyzeVisitor) visitDereferenceExpression(node *tree.DereferenceExpression) (r any) {

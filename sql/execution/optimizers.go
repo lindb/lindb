@@ -42,6 +42,7 @@ func planOptimizers() []optimization.PlanOptimizer {
 		}),
 		// push into table scan optimizer
 		iterative.NewIterativeOptimizer([]iterative.Rule{
+			rule.NewPushTimestampIntoTableScan(),
 			rule.NewPushProjectionIntoTableScan(),
 			rule.NewPushAggregationIntoTableScan(),
 		}),
