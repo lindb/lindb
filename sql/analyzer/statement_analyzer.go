@@ -548,7 +548,7 @@ func (v *StatementVisitor) analyzeAggregations(query *tree.QuerySpecification, s
 			if resolvedField.Field.AggType != types.ATUnknown && !isFuncArg() {
 				// agg field and field is not function arg, add builtin agg func for this field
 				fn := &tree.FunctionCall{
-					Name: tree.FuncName(tree.QualifiedName{Suffix: resolvedField.Field.DataType.String()}.Name),
+					Name: tree.FuncName(tree.QualifiedName{Name: resolvedField.Field.AggType.String()}.Name),
 					Arguments: []tree.Expression{&tree.SymbolReference{
 						Name:     resolvedField.Field.Name,
 						DataType: resolvedField.Field.DataType,

@@ -106,8 +106,8 @@ func (v *TaskExecutionPlanVisitor) visitExchange(context any, node *planpkg.Exch
 		panic("only local exchanges are supported in the local planner")
 	}
 	// FIXME: set child
-	_ = node.Sources[0].Accept(context, v).(*operator.Operator)
-	return exchange.NewLocalExchangeOperator(node)
+	child := node.Sources[0].Accept(context, v).(operator.Operator)
+	return exchange.NewLocalExchangeOperator(node, child)
 }
 
 func (v *TaskExecutionPlanVisitor) visitAggregation(context any, node *planpkg.AggregationNode) (r any) {
@@ -116,14 +116,16 @@ func (v *TaskExecutionPlanVisitor) visitAggregation(context any, node *planpkg.A
 }
 
 func (v *TaskExecutionPlanVisitor) planGroupByAggregation(
-	_ *planpkg.AggregationNode, _ operator.Operator,
+	node *planpkg.AggregationNode, source operator.Operator,
 ) operator.Operator {
 	// TODO: need fixit
-	return v.createHashAggregationOperatorFactory()
+	return v.createHashAggregationOperatorFactory(node, source)
 }
 
-func (v *TaskExecutionPlanVisitor) createHashAggregationOperatorFactory() operator.Operator {
-	return operator.NewHashAggregationOperator(nil)
+func (v *TaskExecutionPlanVisitor) createHashAggregationOperatorFactory(
+	node *planpkg.AggregationNode, source operator.Operator,
+) operator.Operator {
+	return operator.NewHashAggregationOperator(node, source)
 }
 
 func (v *TaskExecutionPlanVisitor) visitProjection(context any, node *planpkg.ProjectionNode) (r any) {

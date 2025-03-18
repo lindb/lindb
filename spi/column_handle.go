@@ -18,6 +18,8 @@
 package spi
 
 import (
+	"fmt"
+
 	jsoniter "github.com/json-iterator/go"
 
 	"github.com/lindb/lindb/pkg/encoding"
@@ -30,11 +32,17 @@ func init() {
 	jsoniter.RegisterTypeDecoder("spi.ColumnHandle", &encoding.JSONDecoder[ColumnHandle]{})
 }
 
-type ColumnHandle interface{}
+type ColumnHandle interface {
+	String() string
+}
 
 type ColumnAssignment struct {
 	Handler ColumnHandle `json:"handler"`
 	Column  string       `json:"column"`
+}
+
+func (ca *ColumnAssignment) String() string {
+	return fmt.Sprintf("%s->%s", ca.Column, ca.Handler.String())
 }
 
 type ColumnAggregation struct {

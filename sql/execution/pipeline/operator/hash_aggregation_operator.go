@@ -18,17 +18,21 @@
 package operator
 
 import (
+	"fmt"
+
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
 
 type HashAggregationOperator struct {
+	node  *plan.AggregationNode
 	child Operator
 }
 
-func NewHashAggregationOperator(child Operator) Operator {
+func NewHashAggregationOperator(node *plan.AggregationNode, child Operator) Operator {
 	return &HashAggregationOperator{
 		child: child,
+		node:  node,
 	}
 }
 
@@ -41,8 +45,9 @@ func (h *HashAggregationOperator) Run(output chan<- *types.Page) {
 	for source := range inbound {
 		output <- source
 	}
+	fmt.Println("hash agg complete....")
 }
 
 func (h *HashAggregationOperator) GetLayout() []*plan.Symbol {
-	panic("hash agg not impl")
+	return h.node.GetOutputSymbols()
 }
