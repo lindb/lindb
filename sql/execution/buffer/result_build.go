@@ -107,11 +107,12 @@ func (rsb *ResultSetBuild) Process() {
 						columns[i] = timeSeries.GetValue()
 					}
 				case types.DTTimestamp:
+					// FIXME: maybe timestamp is nil
 					columns[i] = row.GetTimestamp(i).UnixMilli()
 				case types.DTDuration:
 					columns[i] = row.GetDuration(i)
 				default:
-					panic(fmt.Sprintf("build result set error, column:%v, unknown data type:%v", meta.Name, meta.DataType))
+					panic(fmt.Sprintf("build resultset error, column:%v, unknown data type:%v", meta.Name, meta.DataType))
 				}
 			}
 			rsb.resultSet.Rows = append(rsb.resultSet.Rows, columns)
@@ -130,6 +131,5 @@ func (rsb *ResultSetBuild) ResultSet() *model.ResultSet {
 	// waiting process result page completed
 	<-rsb.completed
 	fmt.Println("result.....")
-	fmt.Println(string(encoding.JSONMarshal(rsb.resultSet)))
 	return rsb.resultSet
 }

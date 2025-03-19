@@ -25,21 +25,27 @@ import (
 	"github.com/lindb/lindb/sql/planner/plan"
 )
 
+// PushTimestampIntoTableScan pushes timestamp column into table scan.
 type PushTimestampIntoTableScan struct {
 	Base[*plan.OutputNode]
 }
 
+// NewPushTimestampIntoTableScan creates a PushTimestampIntoTableScan instance.
 func NewPushTimestampIntoTableScan() iterative.Rule {
 	rule := &PushTimestampIntoTableScan{}
 	rule.apply = rule.pushTimestampIntoTableScan
 	return rule
 }
 
-func (rule *PushTimestampIntoTableScan) pushTimestampIntoTableScan(context *iterative.Context, node *plan.OutputNode) plan.PlanNode {
+// pushTimestampIntoTableScan pushes timestamp column into table scan.
+func (rule *PushTimestampIntoTableScan) pushTimestampIntoTableScan(
+	context *iterative.Context, node *plan.OutputNode,
+) plan.PlanNode {
 	timestamp, ok := lo.Find(node.GetOutputSymbols(), func(item *plan.Symbol) bool {
 		return item.DataType == types.DTTimestamp
 	})
 	if !ok {
+		// output node has no timestamp column
 		return nil
 	}
 	tableScan := iterative.ExtractTableScan(context, node)
@@ -49,6 +55,7 @@ func (rule *PushTimestampIntoTableScan) pushTimestampIntoTableScan(context *iter
 	if _, ok = lo.Find(tableScan.GetOutputSymbols(), func(item *plan.Symbol) bool {
 		return item.DataType == types.DTTimestamp
 	}); ok {
+		// table scan already has timestamp column
 		return nil
 	}
 	tableScan.OutputSymbols = append(tableScan.OutputSymbols, timestamp)

@@ -22,6 +22,7 @@ import (
 	sqlContext "github.com/lindb/lindb/sql/context"
 	"github.com/lindb/lindb/sql/planner"
 	"github.com/lindb/lindb/sql/planner/plan"
+	"github.com/lindb/lindb/sql/planner/validate"
 	"github.com/lindb/lindb/sql/tree"
 )
 
@@ -51,7 +52,12 @@ func (p *Planner) Plan(session *Session,
 
 	// plan query
 	logicalPlanner := planner.NewLogicalPlanner(plannerContext, planOptimizers())
-	return logicalPlanner.Plan()
+	plan := logicalPlanner.Plan()
+	v := validate.NewValidators()
+	if err := v.Validate(plannerContext, plan.Root); err != nil {
+		panic(err)
+	}
+	return plan
 }
 
 func (p *Planner) PlanDistribution(plan *plan.Plan) *plan.SubPlan {
