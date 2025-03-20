@@ -77,3 +77,7 @@ func (op *RemoteExchangeOperator) GetLayout() []*plan.Symbol {
 func (op *RemoteExchangeOperator) Complete() {
 	close(op.inbound)
 }
+
+func (op *RemoteExchangeOperator) Children() []operator.Operator {
+	return nil
+}

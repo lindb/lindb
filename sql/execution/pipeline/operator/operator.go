@@ -26,6 +26,7 @@ type Operator interface {
 	Run(output chan<- *types.Page)
 	// GetLayout returns the output layout.
 	GetLayout() []*plan.Symbol
+	Children() []Operator
 }
 
 type SourceOperator interface {

@@ -43,3 +43,7 @@ func (op *TableScanOperator) Run(output chan<- *types.Page) {
 func (op *TableScanOperator) GetLayout() []*plan.Symbol {
 	return op.node.GetOutputSymbols()
 }
+
+func (op *TableScanOperator) Children() []operator.Operator {
+	return nil
+}

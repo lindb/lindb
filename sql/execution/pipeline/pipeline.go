@@ -38,6 +38,6 @@ func NewPipeline(taskCtx *context.TaskContext, root operator.Operator) *Pipeline
 }
 
 func (p *Pipeline) Run(output chan<- *types.Page) {
-	fmt.Printf("run pipeline, root=%T\n", p.root)
+	fmt.Printf("run pipeline, root=>\n%s\n", renderText(p.root))
 	p.root.Run(output)
 }
