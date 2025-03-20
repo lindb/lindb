@@ -100,10 +100,11 @@ func (p *RelationPlanner) visitAliasedRelation(context any, node *tree.AliasedRe
 func (p *RelationPlanner) visitValues(_ any, node *tree.Values) (r any) {
 	scope := p.context.AnalyzerContext.Analysis.GetScope(node)
 	var outputSymbols []*planpkg.Symbol
-	for i := range scope.RelationType.Fields {
+	for _, f := range scope.RelationType.Fields {
 		symbol := &planpkg.Symbol{
-			Name:     scope.RelationType.Fields[i].Name,
-			DataType: scope.RelationType.Fields[i].DataType,
+			Name:     f.Name,
+			DataType: f.DataType,
+			Hidden:   f.Hidden,
 		}
 		outputSymbols = append(outputSymbols, symbol)
 	}
@@ -139,10 +140,11 @@ func (p *RelationPlanner) visitTable(_ any, node *tree.Table) (r any) {
 		}
 	} else {
 		var outputSymbols []*planpkg.Symbol
-		for i := range scope.RelationType.Fields {
+		for _, f := range scope.RelationType.Fields {
 			symbol := &planpkg.Symbol{
-				Name:     scope.RelationType.Fields[i].Name, // FIXME: id allocator
-				DataType: scope.RelationType.Fields[i].DataType,
+				Name:     f.Name, // FIXME: id allocator
+				DataType: f.DataType,
+				Hidden:   f.Hidden,
 			}
 			outputSymbols = append(outputSymbols, symbol)
 		}
@@ -227,9 +229,9 @@ func (p *RelationPlanner) planJoin(node *tree.Join, _ *analyzer.Scope, left, rig
 		leftPlanBuilder = leftPlanBuilder.appendProjections(leftComparisonExpressions)
 		rightPlanBuilder = rightPlanBuilder.appendProjections(rightComparisonExpressions)
 
-		leftCoercions := coerceExpressions(leftPlanBuilder, leftComparisonExpressions,
+		leftCoercions := p.coerceExpressions(leftPlanBuilder, leftComparisonExpressions,
 			p.context.SymbolAllocator, p.context.PlanNodeIDAllocator)
-		rightCoercions := coerceExpressions(rightPlanBuilder, rightComparisonExpressions,
+		rightCoercions := p.coerceExpressions(rightPlanBuilder, rightComparisonExpressions,
 			p.context.SymbolAllocator, p.context.PlanNodeIDAllocator)
 		fmt.Println(leftCoercions)
 		for i := range leftComparisonExpressions {
@@ -266,7 +268,7 @@ func coerce(plan *RelationPlan, types []types.Type,
 	return nil
 }
 
-func coerceExpressions(subPlan *PlanBuilder, expressions []tree.Expression,
+func (p *RelationPlanner) coerceExpressions(subPlan *PlanBuilder, expressions []tree.Expression,
 	symbolAllocator *planpkg.SymbolAllocator, _ *planpkg.PlanNodeIDAllocator,
 ) *PlanAndMappings {
 	mappings := make(map[tree.Expression]*planpkg.Symbol)
@@ -275,7 +277,8 @@ func coerceExpressions(subPlan *PlanBuilder, expressions []tree.Expression,
 		expression := expressions[i]
 		if _, ok := mappings[expression]; !ok {
 			// TODO: need modify
-			symbol := symbolAllocator.NewSymbol(subPlan.translations.Rewrite(expression), "", types.DTFloat) // TODO: get type from context
+			t := p.context.AnalyzerContext.Analysis.GetType(expression)
+			symbol := symbolAllocator.NewSymbol(subPlan.translations.Rewrite(expression), "", t)
 			mappings[expression] = symbol
 		}
 	}

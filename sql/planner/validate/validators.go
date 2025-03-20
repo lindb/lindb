@@ -35,6 +35,9 @@ func NewValidators() Validator {
 }
 
 func (v *Validators) Validate(ctx *context.PlannerContext, node plan.PlanNode) error {
+	if len(v.validators) == 0 {
+		return nil
+	}
 	if err := v.validate(ctx, node); err != nil {
 		return err
 	}

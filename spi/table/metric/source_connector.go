@@ -26,6 +26,7 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
@@ -221,6 +222,9 @@ func (psc *sourceConnector) buildTableScan() *TableScan {
 	targetTimeRange, targetInterval := calcTimeRangeAndInterval(metricTable.TimeRange,
 		metricTable.Interval, db.GetConfig()) // TODO: move to plan?
 	fmt.Printf("time range=%v,interval=%v\n", targetTimeRange, targetInterval)
+	if !isTimestampSelected {
+		targetInterval = timeutil.Interval(targetTimeRange.End - targetTimeRange.Start)
+	}
 
 	return &TableScan{
 		db:                  db,

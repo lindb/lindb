@@ -42,7 +42,7 @@ func (rule *PushTimestampIntoTableScan) pushTimestampIntoTableScan(
 	context *iterative.Context, node *plan.OutputNode,
 ) plan.PlanNode {
 	timestamp, ok := lo.Find(node.GetOutputSymbols(), func(item *plan.Symbol) bool {
-		return item.DataType == types.DTTimestamp
+		return item.DataType == types.DTTimestamp && item.Hidden
 	})
 	if !ok {
 		// output node has no timestamp column
@@ -53,7 +53,7 @@ func (rule *PushTimestampIntoTableScan) pushTimestampIntoTableScan(
 		return nil
 	}
 	if _, ok = lo.Find(tableScan.GetOutputSymbols(), func(item *plan.Symbol) bool {
-		return item.DataType == types.DTTimestamp
+		return item.DataType == types.DTTimestamp && item.Hidden
 	}); ok {
 		// table scan already has timestamp column
 		return nil

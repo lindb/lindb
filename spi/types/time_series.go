@@ -22,7 +22,7 @@ import "github.com/lindb/lindb/pkg/timeutil"
 // TimeSeries represents time series data type.
 type TimeSeries struct {
 	Values      []float64          `json:"values,omitempty"`
-	TimeRange   timeutil.TimeRange `json:"timeRange,omitempty"`
+	TimeRange   timeutil.TimeRange `json:"timeRange"`
 	Interval    int64              `json:"interval,omitempty"`
 	NumOfPoints int                `json:"numOfPoints,omitempty"`
 	Value       float64            `json:"value,omitempty"`

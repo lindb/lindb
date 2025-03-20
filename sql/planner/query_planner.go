@@ -154,7 +154,7 @@ func (p *QueryPlanner) planGroupingSets(subPlan *PlanBuilder,
 		input := subPlan.translations.fieldSymbols[field.FieldIndex]
 		// add group field suffix
 		// FIXME: add gid for symbol suffix
-		output := p.context.SymbolAllocator.FromSymbol(input, "", input.DataType)
+		output := p.context.SymbolAllocator.FromSymbol(input, "", input.DataType, input.Hidden)
 		fields[field.FieldIndex] = output
 		groupingSetMappings[output] = input
 	}
