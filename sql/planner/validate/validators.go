@@ -15,29 +15,43 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package pipeline
+package validate
 
 import (
-	"fmt"
-
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/context"
-	"github.com/lindb/lindb/sql/execution/pipeline/operator"
+	"github.com/lindb/lindb/sql/planner/plan"
 )
 
-type Pipeline struct {
-	taskCtx *context.TaskContext
-	root    operator.Operator
+type Validators struct {
+	validators []Validator
 }
 
-func NewPipeline(taskCtx *context.TaskContext, root operator.Operator) *Pipeline {
-	return &Pipeline{
-		taskCtx: taskCtx,
-		root:    root,
+func NewValidators() Validator {
+	return &Validators{
+		validators: []Validator{
+			NewOutputValidator(),
+		},
 	}
 }
 
-func (p *Pipeline) Run(output chan<- *types.Page) {
-	fmt.Printf("run pipeline, root=>\n%s\n", renderText(p.root))
-	p.root.Run(output)
+func (v *Validators) Validate(ctx *context.PlannerContext, node plan.PlanNode) error {
+	if err := v.validate(ctx, node); err != nil {
+		return err
+	}
+
+	for _, child := range node.GetSources() {
+		if err := v.Validate(ctx, child); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (v *Validators) validate(ctx *context.PlannerContext, node plan.PlanNode) error {
+	for _, validator := range v.validators {
+		if err := validator.Validate(ctx, node); err != nil {
+			return err
+		}
+	}
+	return nil
 }

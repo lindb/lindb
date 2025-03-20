@@ -52,3 +52,7 @@ func (l *LocalExchangeOperator) Run(output chan<- *types.Page) {
 func (l *LocalExchangeOperator) GetLayout() []*plan.Symbol {
 	return l.node.GetOutputSymbols()
 }
+
+func (l *LocalExchangeOperator) Children() []operator.Operator {
+	return []operator.Operator{l.child}
+}

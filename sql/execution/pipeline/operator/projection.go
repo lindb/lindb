@@ -104,6 +104,10 @@ func (h *ProjectionOperator) GetLayout() []*plan.Symbol {
 	return h.project.GetOutputSymbols()
 }
 
+func (h *ProjectionOperator) Children() []Operator {
+	return []Operator{h.child}
+}
+
 func (h *ProjectionOperator) prepare() {
 	h.exprCtx = expression.NewEvalContext(h.ctx)
 	h.exprs = make([]expression.Expression, len(h.project.Assignments))

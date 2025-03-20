@@ -96,3 +96,7 @@ func (op *ResultSetOutputOperator) Run(output chan<- *types.Page) {
 func (op *ResultSetOutputOperator) GetLayout() []*plan.Symbol {
 	panic("result set output operator should not get layout")
 }
+
+func (op *ResultSetOutputOperator) Children() []operator.Operator {
+	return []operator.Operator{op.child}
+}

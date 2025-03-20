@@ -51,3 +51,7 @@ func (h *HashAggregationOperator) Run(output chan<- *types.Page) {
 func (h *HashAggregationOperator) GetLayout() []*plan.Symbol {
 	return h.node.GetOutputSymbols()
 }
+
+func (h *HashAggregationOperator) Children() []Operator {
+	return []Operator{h.child}
+}

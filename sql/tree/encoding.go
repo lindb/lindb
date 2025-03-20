@@ -41,4 +41,5 @@ func init() {
 	encoding.RegisterNodeType(Cast{})
 	encoding.RegisterNodeType(FunctionCall{})
 	encoding.RegisterNodeType(SymbolReference{})
+	encoding.RegisterNodeType(Constant{})
 }

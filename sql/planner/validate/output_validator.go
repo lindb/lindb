@@ -15,29 +15,38 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package pipeline
+package validate
 
 import (
-	"fmt"
+	"errors"
+
+	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/context"
-	"github.com/lindb/lindb/sql/execution/pipeline/operator"
+	"github.com/lindb/lindb/sql/planner/plan"
 )
 
-type Pipeline struct {
-	taskCtx *context.TaskContext
-	root    operator.Operator
+type OutputValidator struct {
+	Base[*plan.OutputNode]
 }
 
-func NewPipeline(taskCtx *context.TaskContext, root operator.Operator) *Pipeline {
-	return &Pipeline{
-		taskCtx: taskCtx,
-		root:    root,
+func NewOutputValidator() Validator {
+	v := &OutputValidator{}
+	v.validate = func(ctx *context.PlannerContext, node *plan.OutputNode) error {
+		_, ok := lo.Find(node.GetOutputSymbols(), func(item *plan.Symbol) bool {
+			return item.DataType == types.DTTimestamp
+		})
+		if !ok {
+			// output node has no timestamp column
+			return nil
+		}
+		if _, ok = lo.Find(node.GetOutputSymbols(), func(item *plan.Symbol) bool {
+			return item.DataType == types.DTTimeSeries
+		}); !ok {
+			return errors.New("push timestamp column failed, output node has no time series column")
+		}
+		return nil
 	}
-}
-
-func (p *Pipeline) Run(output chan<- *types.Page) {
-	fmt.Printf("run pipeline, root=>\n%s\n", renderText(p.root))
-	p.root.Run(output)
+	return v
 }

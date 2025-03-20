@@ -50,3 +50,7 @@ func (op *ValuesOperator) Run(output chan<- *types.Page) {
 func (op *ValuesOperator) GetLayout() []*plan.Symbol {
 	return op.node.GetOutputSymbols()
 }
+
+func (op *ValuesOperator) Children() []Operator {
+	return nil
+}

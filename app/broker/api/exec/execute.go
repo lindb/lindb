@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"reflect"
 
 	"github.com/gin-gonic/gin"
@@ -85,9 +86,20 @@ func (e *ExecuteAPI) Register(route gin.IRoutes) {
 // @Router /exec [post]
 func (e *ExecuteAPI) Execute(c *gin.Context) {
 	if err := e.deps.QueryLimiter.Do(func() error {
+		// FIXME: move to common pkg
+		defer func() {
+			if err := recover(); err != nil {
+				msg := fmt.Sprintf("%v", err)
+				_ = c.Error(errors.New(msg))
+				c.Header("Content-Type", "text/plain")
+				c.String(http.StatusInternalServerError, msg)
+			}
+		}()
 		return e.execute(c)
 	}); err != nil {
-		httppkg.Error(c, err)
+		_ = c.Error(err)
+		c.Header("Content-Type", "text/plain")
+		c.String(http.StatusInternalServerError, err.Error())
 	}
 }
 
@@ -129,7 +141,6 @@ func (e *ExecuteAPI) execute(c *gin.Context) error {
 	if stmt == nil {
 		return errors.New("can't parse lin query language")
 	}
-
 	// set query session context
 	preparedStmt := &tree.PreparedStatement{
 		Statement:  stmt,
