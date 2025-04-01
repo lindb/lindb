@@ -74,7 +74,7 @@ func (t *TranslationMap) withAdditionalMapping(mappings map[tree.NodeID]*plan.Sy
 
 func (t *TranslationMap) tryGetMapping(node tree.Expression) *tree.SymbolReference {
 	fmt.Printf("try get maping=%v,%T\n", t.astToSymbols, node)
-	if t.astToSymbols == nil {
+	if len(t.astToSymbols) == 0 {
 		return nil
 	}
 	symbol, ok := t.astToSymbols[node.GetID()]
@@ -89,12 +89,12 @@ func (t *TranslationMap) getSymbolForColumn(node tree.Expression) *plan.Symbol {
 	if field == nil {
 		return nil
 	}
-	fmt.Printf("get symbol for column=%v,%T,%T,%v\n", node.GetID(), node,
+	fmt.Printf("get symbol for column=scope=%v,%v,%T,%T,%v\n", t.scope, node.GetID(), node,
 		field.Scope.RelationID.SourceNode, field.Scope.RelationID.SourceNode.GetID())
-	a := t.scope.IsLocalScope(field.Scope)
-	fmt.Printf("t.scope.IsLocalScope(field.Scope)=%v ,%v,%T\n", a, node, node.GetID())
-	if a {
-		fmt.Printf("look........%v\n", field.HierarchyFieldIndex)
+	isLocalScope := t.scope.IsLocalScope(field.Scope)
+	fmt.Printf("t.scope.IsLocalScope(field.Scope)=%v ,%v,%v,%T\n", isLocalScope, t.fieldSymbols, node, node.GetID())
+	if isLocalScope {
+		fmt.Printf("look........%v==%v\n", field.RelationFieldIndex, field.HierarchyFieldIndex)
 		return t.fieldSymbols[field.HierarchyFieldIndex]
 	}
 
@@ -195,8 +195,8 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 			t.translate(expr.Pattern, false)
 			result = expr
 		case *tree.ComparisonExpression:
-			t.translate(expr.Left, false)
-			t.translate(expr.Right, false)
+			expr.Left = t.translate(expr.Left, false)
+			expr.Right = t.translate(expr.Right, false)
 			// TODO:
 			result = expr
 		case *tree.NotExpression:

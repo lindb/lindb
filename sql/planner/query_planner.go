@@ -154,7 +154,7 @@ func (p *QueryPlanner) planGroupingSets(subPlan *PlanBuilder,
 		input := subPlan.translations.fieldSymbols[field.FieldIndex]
 		// add group field suffix
 		// FIXME: add gid for symbol suffix
-		output := p.context.SymbolAllocator.FromSymbol(input, "", input.DataType, input.Hidden)
+		output := p.context.SymbolAllocator.FromSymbol(input, input.DataType, input.Hidden)
 		fields[field.FieldIndex] = output
 		groupingSetMappings[output] = input
 	}
@@ -163,7 +163,7 @@ func (p *QueryPlanner) planGroupingSets(subPlan *PlanBuilder,
 		if _, ok := complexExpressions[expression.GetID()]; !ok {
 			input := subPlan.translate(expression)
 			// FIXME: add gid for symbol suffix
-			output := p.context.SymbolAllocator.NewSymbol(expression, "", p.context.AnalyzerContext.Analysis.GetType(expression))
+			output := p.context.SymbolAllocator.FromExpression(expression, p.context.AnalyzerContext.Analysis.GetType(expression))
 			complexExpressions[expression.GetID()] = output
 			groupingSetMappings[output] = input
 		}
@@ -226,12 +226,12 @@ func (p *QueryPlanner) planAggregation(subPlan *PlanBuilder,
 	// TODO: scopeAwareDistinct
 	for _, function := range aggregates {
 		fmt.Printf("agg func=%v\n", function.Name)
-		symbol := p.context.SymbolAllocator.NewSymbol(function, "", p.context.AnalyzerContext.Analysis.GetType(function))
+		symbol := p.context.SymbolAllocator.FromExpression(function, p.context.AnalyzerContext.Analysis.GetType(function))
 		aggregation := &plan.Aggregation{
 			Function: p.context.AnalyzerContext.Analysis.GetResolvedFunction(function),
 			Arguments: lo.Map(function.Arguments, func(arg tree.Expression, _ int) tree.Expression {
 				if iden, ok := arg.(*tree.Identifier); ok {
-					return p.context.SymbolAllocator.NewSymbol(iden, "",
+					return p.context.SymbolAllocator.FromExpression(iden,
 						p.context.AnalyzerContext.Analysis.GetType(iden)).ToSymbolReference()
 				}
 				return arg
@@ -268,7 +268,7 @@ func (p *QueryPlanner) filter(subPlan *PlanBuilder, predicate tree.Expression, _
 		return subPlan
 	}
 	subPlan = p.subQueryPlanner.handleSubQueries(subPlan, predicate, nil)
-	fmt.Printf("filter sub plat%v\n", subPlan.translations.scope.RelationType.Fields)
+	fmt.Printf("filter sub plat%v\n", subPlan)
 
 	return subPlan.withNewRoot(&plan.FilterNode{
 		BaseNode: plan.BaseNode{
@@ -285,7 +285,7 @@ func (p *QueryPlanner) computeOutputs(builder *PlanBuilder, outputs []tree.Expre
 		fmt.Printf("output exp=%v,%T\n", expression, expression)
 		outputSymbols = append(outputSymbols, builder.translate(expression))
 	}
-	fmt.Printf("output result==%v\n", outputSymbols)
+	fmt.Printf("query planner output result==%v\n", outputSymbols)
 	return
 }
 

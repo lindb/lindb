@@ -42,9 +42,11 @@ func (opt *AddExchanges) Optimize(ctx *context.PlannerContext, plan plan.PlanNod
 		idAllocator: ctx.PlanNodeIDAllocator,
 	})
 	if planProps, ok := result.(*AddExchangesPlan); ok {
+		fmt.Printf("after exchange rewrite=%v\n", planProps.node)
 		return planProps.node
 	}
 	// FIXME: need remove
+	fmt.Printf("after exchange rewrite=%v\n", plan)
 	return plan
 }
 
@@ -53,7 +55,7 @@ type AddExchangesRewrite struct {
 }
 
 func (v *AddExchangesRewrite) Visit(context any, n plan.PlanNode) (r any) {
-	fmt.Printf("exchange rewrite=%s\n", reflect.TypeOf(n))
+	fmt.Printf("222exchange rewrite=%s\n", reflect.TypeOf(n))
 	parentProps := context.(*PreferredProps)
 	switch node := n.(type) {
 	case *plan.OutputNode:
@@ -62,6 +64,8 @@ func (v *AddExchangesRewrite) Visit(context any, n plan.PlanNode) (r any) {
 		return v.visitJoin(parentProps, node)
 	case *plan.ProjectionNode:
 		return v.visitProjection(parentProps, node)
+	case *plan.FilterNode:
+		return v.visitFilter(parentProps, node)
 	case *plan.TableScanNode:
 		return v.visitTableScan(parentProps, node)
 	case *plan.AggregationNode:
@@ -89,6 +93,19 @@ func (v *AddExchangesRewrite) visitJoin(_ any, node *plan.JoinNode) (r any) {
 	return v.planPartitionedJoin(node)
 }
 
+func (v *AddExchangesRewrite) visitFilter(_ any, node *plan.FilterNode) (r any) {
+	fmt.Printf("node=%v,child=%v\n", node, node.GetSources())
+	if _, ok := node.GetSources()[0].(*plan.TableScanNode); ok {
+		fmt.Println("1231232...")
+		child := &AddExchangesPlan{
+			node:  node,
+			props: v.dervieProps(node, nil),
+		}
+		return v.rebaseAndDeriveProps(plan.GatheringExchange(v.idAllocator.Next(), plan.Remote, node), child)
+	}
+	return v.rebaseAndDeriveProps(node, v.planChild(node, Any()))
+}
+
 func (v *AddExchangesRewrite) visitTableScan(_ any, node *plan.TableScanNode) (r any) {
 	child := &AddExchangesPlan{
 		node:  node,
@@ -102,9 +119,7 @@ func (v *AddExchangesRewrite) visitProjection(context any, node *plan.Projection
 	return v.rebaseAndDeriveProps(node, v.planChild(node, context.(*PreferredProps)))
 }
 
-func (v *AddExchangesRewrite) visitAggregation(context any, node *plan.AggregationNode) (r any) {
-	parentPreferredProps := context.(*PreferredProps)
-	partitioningRequirement := node.GetGroupingKeys() // TODO: cope it?
+func (v *AddExchangesRewrite) visitAggregation(_ any, node *plan.AggregationNode) (r any) {
 	preferSingleNode := node.IsSingleNodeExecutionPreference()
 	var preferredProps *PreferredProps
 	if preferSingleNode {
@@ -113,27 +128,7 @@ func (v *AddExchangesRewrite) visitAggregation(context any, node *plan.Aggregati
 		preferredProps = Any()
 	}
 
-	if len(node.GetGroupingKeys()) > 0 {
-		preferredProps = v.computePreference(PartitionedWithLocal(partitioningRequirement), parentPreferredProps)
-	}
-
 	child := v.planChild(node, preferredProps)
-	if child.props.isSingleNode() {
-		return v.rebaseAndDeriveProps(node, child)
-	}
-	if preferSingleNode {
-		child = v.withDerivedProps(plan.GatheringExchange(v.idAllocator.Next(), plan.Remote, child.node), child.props)
-	} else {
-		// TODO: partition keys
-		child = v.withDerivedProps(
-			plan.PartitionedExchange(v.idAllocator.Next(),
-				plan.Remote,
-				child.node,
-				&plan.PartitioningScheme{
-					OutputLayout: child.node.GetOutputSymbols(),
-				}),
-			child.props)
-	}
 	return v.rebaseAndDeriveProps(node, child)
 }
 
@@ -142,10 +137,14 @@ func (v *AddExchangesRewrite) planPartitionedJoin(node *plan.JoinNode) *AddExcha
 	right := node.Right.Accept(Partitioned(), v).(*AddExchangesPlan)
 
 	// TODO: set partitioning scheme
-	left = v.withDerivedProps(plan.PartitionedExchange(v.idAllocator.Next(), plan.Remote, left.node, nil), left.props)
-	right = v.withDerivedProps(plan.PartitionedExchange(v.idAllocator.Next(), plan.Remote, right.node, nil), right.props)
+	// left = v.withDerivedProps(plan.PartitionedExchange(v.idAllocator.Next(), plan.Remote, left.node, &plan.PartitioningScheme{OutputLayout: left.node.GetOutputSymbols()}), left.props)
+	// right = v.withDerivedProps(plan.PartitionedExchange(v.idAllocator.Next(), plan.Remote, right.node, &plan.PartitioningScheme{OutputLayout: right.node.GetOutputSymbols()}), right.props)
 
 	return v.buildJoin(node, left, right, plan.Partitioned)
+	// return &AddExchangesPlan{
+	// 	node:  node,
+	// 	props: v.dervieProps(node, []*ActualProps{left.props, right.props}),
+	// }
 }
 
 func (v *AddExchangesRewrite) planChild(node plan.PlanNode, preferredProps *PreferredProps) *AddExchangesPlan {
@@ -173,25 +172,20 @@ func (v *AddExchangesRewrite) dervieProps(node plan.PlanNode, inputProperties []
 func (v *AddExchangesRewrite) buildJoin(node *plan.JoinNode,
 	newLeft, newRight *AddExchangesPlan, newDistributionType plan.DistributionType,
 ) *AddExchangesPlan {
-	result := plan.JoinNode{
+	result := &plan.JoinNode{
 		BaseNode: plan.BaseNode{
 			ID: node.GetNodeID(),
 		},
-		Type:             node.Type,
-		DistributionType: newDistributionType,
-		Left:             newLeft.node,
-		Right:            newRight.node,
-		Criteria:         node.Criteria,
+		Type:               node.Type,
+		DistributionType:   newDistributionType,
+		Left:               newLeft.node,
+		Right:              newRight.node,
+		LeftOutputSymbols:  newLeft.node.GetOutputSymbols(),
+		RightOutputSymbols: newRight.node.GetOutputSymbols(),
+		Criteria:           node.Criteria,
 	}
 	return &AddExchangesPlan{
-		node: &result,
+		node:  result,
+		props: v.dervieProps(result, []*ActualProps{newLeft.props, newRight.props}),
 	}
-}
-
-func (v *AddExchangesRewrite) computePreference(preferredProps,
-	_ *PreferredProps,
-) *PreferredProps {
-	// TODO: check ignore down stream preferences
-
-	return preferredProps
 }

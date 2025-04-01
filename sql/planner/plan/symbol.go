@@ -25,10 +25,8 @@ import (
 )
 
 type Symbol struct {
-	Name string `json:"name"`
-	// FIXME: remove suffix?
-	Suffix   string         `json:"suffix"`
-	DataType types.DataType `json:"Datatype"`
+	Name     string         `json:"name"`
+	DataType types.DataType `json:"datatype"`
 	Hidden   bool           `json:"hidden"`
 }
 
@@ -51,9 +49,6 @@ func (s *Symbol) String() string {
 	var h string
 	if s.Hidden {
 		h = "!" // mark symbol hidden
-	}
-	if s.Suffix != "" {
-		return fmt.Sprintf("%s%s$%s:%s", h, s.Name, s.Suffix, s.DataType)
 	}
 	return fmt.Sprintf("%s%s:%s", h, s.Name, s.DataType)
 }

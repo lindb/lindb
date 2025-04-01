@@ -18,9 +18,10 @@
 package rule
 
 import (
+	"slices"
+
 	"github.com/samber/lo"
 
-	"github.com/lindb/lindb/sql/planner"
 	"github.com/lindb/lindb/sql/planner/iterative"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
@@ -122,7 +123,7 @@ func NewPruneAggregationSourceColumns() iterative.Rule {
 		var requiredInputs []*plan.Symbol
 		requiredInputs = append(requiredInputs, node.GetGroupingKeys()...)
 		for _, agg := range node.Aggregations {
-			requiredInputs = append(requiredInputs, planner.ExtractSymbolsFromAggreation(agg.Aggregation)...)
+			requiredInputs = append(requiredInputs, plan.ExtractSymbolsFromAggreation(agg.Aggregation)...)
 		}
 		return restrictChildOutputs(
 			context.PlannerContext.PlanNodeIDAllocator,
@@ -142,8 +143,27 @@ func NewPruneFilterColumns() iterative.Rule {
 	rule.pushDownProjectOff = func(context *iterative.Context,
 		filter *plan.FilterNode, referencedOutputs []*plan.Symbol,
 	) plan.PlanNode {
-		// TODO: add filter columns
-		return restrictChildOutputs(context.PlannerContext.PlanNodeIDAllocator, filter, referencedOutputs)
+		return restrictChildOutputs(context.PlannerContext.PlanNodeIDAllocator, filter,
+			// symbols of outputs and predicate field referenced
+			slices.Concat(referencedOutputs, plan.ExtractSymbolsFromExpression(filter.Predicate)))
+	}
+	return rule
+}
+
+type PruneJoinColumns struct {
+	ProjectionOffPushDown[*plan.JoinNode]
+}
+
+func NewPruneJoinColumns() iterative.Rule {
+	rule := &PruneJoinColumns{}
+	rule.pushDownProjectOff = func(context *iterative.Context,
+		join *plan.JoinNode, referencedOutputs []*plan.Symbol,
+	) plan.PlanNode {
+		newJoin := join.Clone()
+		// restrict outputs for left/right node
+		newJoin.Left = restrictOutputs(context.PlannerContext.PlanNodeIDAllocator, join.Left, referencedOutputs)
+		newJoin.Right = restrictOutputs(context.PlannerContext.PlanNodeIDAllocator, join.Right, referencedOutputs)
+		return newJoin
 	}
 	return rule
 }

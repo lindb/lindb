@@ -44,6 +44,7 @@ func NewSourceConnectorProvider(
 
 func (p *sourceConnectorProvider) CreateSourceConnector(ctx context.Context,
 	table spi.TableHandle, partitions []int,
+	columnMapping map[string]string,
 	predicate tree.Expression,
 	outputColumns []types.ColumnMetadata, assignments []*spi.ColumnAssignment,
 ) spi.SourceConnector {

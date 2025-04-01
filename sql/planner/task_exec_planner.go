@@ -28,6 +28,7 @@ import (
 	"github.com/lindb/lindb/sql/execution/pipeline"
 	"github.com/lindb/lindb/sql/execution/pipeline/operator"
 	"github.com/lindb/lindb/sql/execution/pipeline/operator/exchange"
+	"github.com/lindb/lindb/sql/execution/pipeline/operator/join"
 	"github.com/lindb/lindb/sql/execution/pipeline/operator/output"
 	"github.com/lindb/lindb/sql/execution/pipeline/operator/scan"
 	planpkg "github.com/lindb/lindb/sql/planner/plan"
@@ -64,6 +65,7 @@ type TaskExecutionPlanVisitor struct {
 
 // Visit visits all plan node and plans task execution physical operator.
 func (v *TaskExecutionPlanVisitor) Visit(context any, n planpkg.PlanNode) (r any) {
+	fmt.Printf("task exec plan visit: %T\n", n)
 	switch node := n.(type) {
 	case *planpkg.OutputNode:
 		child := node.Source.Accept(context, v).(operator.Operator)
@@ -74,6 +76,8 @@ func (v *TaskExecutionPlanVisitor) Visit(context any, n planpkg.PlanNode) (r any
 		return v.visitRemoteSource(context, node)
 	case *planpkg.ExchangeNode:
 		return v.visitExchange(context, node)
+	case *planpkg.JoinNode:
+		return v.visitJoin(context, node)
 	case *planpkg.ProjectionNode:
 		return v.visitProjection(context, node)
 	case *planpkg.FilterNode:
@@ -85,6 +89,13 @@ func (v *TaskExecutionPlanVisitor) Visit(context any, n planpkg.PlanNode) (r any
 	default:
 		panic(fmt.Sprintf("umimplements task planner %T", n))
 	}
+}
+
+func (v *TaskExecutionPlanVisitor) visitJoin(context any, node *planpkg.JoinNode) any {
+	left := node.Left.Accept(context, v).(operator.Operator)
+	right := node.Right.Accept(context, v).(operator.Operator)
+
+	return join.NewHashJoinOperator(node, left, right)
 }
 
 func (v *TaskExecutionPlanVisitor) visitValues(_ any, node *planpkg.ValuesNode) (r any) {
@@ -174,7 +185,7 @@ func (v *TaskExecutionPlanVisitor) visitTableScan(_ any,
 	})
 	provider := spi.GetSourceConnectorProvider(node.Table)
 	connector := provider.CreateSourceConnector(v.taskExecCtx.Context,
-		node.Table, v.taskExecCtx.Partitions, predicate, outputColumns, node.Assignments)
+		node.Table, v.taskExecCtx.Partitions, node.ColumnMapping, predicate, outputColumns, node.Assignments)
 
 	return scan.NewTableScanOperator(connector, node)
 }

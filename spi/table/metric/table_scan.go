@@ -31,6 +31,7 @@ import (
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/expression"
+	"github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/tree"
 	"github.com/lindb/lindb/tsdb"
 )
@@ -76,11 +77,12 @@ type TableScan struct {
 	// TODO: check if found all filter column values
 	filterResult map[tree.NodeID]*flow.TagFilterResult
 
-	fields       field.Metas
-	columns      []*column
-	maxOfRollups int
-	numOfAggs    int
-	outputs      []types.ColumnMetadata
+	fields        field.Metas
+	columns       []*column
+	columnMapping map[string]string
+	maxOfRollups  int
+	numOfAggs     int
+	outputs       []types.ColumnMetadata
 
 	isTimestampSelected bool
 	timeRange           timeutil.TimeRange
@@ -178,7 +180,13 @@ func (v *ColumnValuesLookupVisitor) Visit(context any, n tree.Node) any {
 func (v *ColumnValuesLookupVisitor) visitPredicate(predicate tree.Node, column tree.Expression,
 	buildExpr func(columnName string) tree.Expr,
 ) (r any) {
-	columnName, _ := expression.EvalString(v.evalCtx, column)
+	columnSymbols := plan.ExtractSymbolsFromExpression(column)
+	if len(columnSymbols) != 1 {
+		panic(fmt.Sprintf("column values lookup error, column: %s, symbol size: %d",
+			tree.FormatExpression(column), len(columnSymbols)))
+	}
+	columnName := getColumnName(columnSymbols[0].Name, v.tableScan.columnMapping)
+	fmt.Printf("column values lookup, column: %s,name=%s\n", column, columnName)
 
 	tagMeta, ok := v.tableScan.schema.TagKeys.Find(columnName)
 	if !ok {
@@ -187,13 +195,19 @@ func (v *ColumnValuesLookupVisitor) visitPredicate(predicate tree.Node, column t
 	tagKeyID := tagMeta.ID
 	var tagValueIDs *roaring.Bitmap
 	var err error
-	tagValueIDs, err = v.tableScan.db.MetaDB().FindTagValueDsByExpr(tagKeyID, buildExpr(columnName))
+	expr := buildExpr(columnName)
+	fmt.Printf("filter expr==%v\n", expr)
+	tagValueIDs, err = v.tableScan.db.MetaDB().FindTagValueDsByExpr(tagKeyID, expr)
 	if err != nil {
 		panic(err)
 	}
 
 	if tagValueIDs == nil || tagValueIDs.IsEmpty() {
 		panic(fmt.Errorf("%w, column name: %s", constants.ErrColumnValueNotFound, columnName))
+	}
+
+	if v.tableScan.filterResult == nil {
+		v.tableScan.filterResult = make(map[tree.NodeID]*flow.TagFilterResult)
 	}
 
 	v.tableScan.filterResult[predicate.GetID()] = &flow.TagFilterResult{

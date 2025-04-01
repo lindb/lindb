@@ -140,13 +140,13 @@ func (p *RelationPlanner) visitTable(_ any, node *tree.Table) (r any) {
 		}
 	} else {
 		var outputSymbols []*planpkg.Symbol
+		columnMapping := make(map[string]string)
 		for _, f := range scope.RelationType.Fields {
-			symbol := &planpkg.Symbol{
-				Name:     f.Name, // FIXME: id allocator
-				DataType: f.DataType,
-				Hidden:   f.Hidden,
-			}
+			symbol := p.context.SymbolAllocator.NewSymbol(f.Name, f.DataType, f.Hidden)
 			outputSymbols = append(outputSymbols, symbol)
+			if symbol.Name != f.Name {
+				columnMapping[symbol.Name] = f.Name
+			}
 		}
 
 		fmt.Printf("table visit relation plan====%v\n", outputSymbols)
@@ -181,6 +181,7 @@ func (p *RelationPlanner) visitTable(_ any, node *tree.Table) (r any) {
 
 		root.OutputSymbols = outputSymbols
 		root.Partitions = tableMetadata.Partitions
+		root.ColumnMapping = columnMapping
 
 		plan = &RelationPlan{
 			Root:          root,
@@ -196,7 +197,7 @@ func (p *RelationPlanner) planJoinUsing(node *tree.Join, left, right *RelationPl
 	panic("need implement join using")
 }
 
-func (p *RelationPlanner) planJoin(node *tree.Join, _ *analyzer.Scope, left, right *RelationPlan) *RelationPlan {
+func (p *RelationPlanner) planJoin(node *tree.Join, scope *analyzer.Scope, left, right *RelationPlan) *RelationPlan {
 	var outputSymbols []*planpkg.Symbol
 	outputSymbols = append(outputSymbols, left.FieldMappings...)
 	outputSymbols = append(outputSymbols, right.FieldMappings...)
@@ -204,9 +205,10 @@ func (p *RelationPlanner) planJoin(node *tree.Join, _ *analyzer.Scope, left, rig
 	var joinCriteriaClauses []*planpkg.EqualJoinCriteria
 	leftPlanBuilder := newPlanBuilder(p.context, left, nil)
 	rightPlanBuilder := newPlanBuilder(p.context, right, nil)
+	fmt.Printf("join type===%v\n", node.Type)
 	if node.Type != tree.CROSS && node.Type != tree.IMPLICIT {
 		criteria := p.context.AnalyzerContext.Analysis.GetJoinCriteria(node)
-		expressions := analyzer.ExtractConjuncts(criteria)
+		expressions := tree.ExtractConjuncts(criteria)
 		var leftComparisonExpressions []tree.Expression
 		var rightComparisonExpressions []tree.Expression
 		var joinConditionComparisonOperators []tree.ComparisonOperator
@@ -233,7 +235,7 @@ func (p *RelationPlanner) planJoin(node *tree.Join, _ *analyzer.Scope, left, rig
 			p.context.SymbolAllocator, p.context.PlanNodeIDAllocator)
 		rightCoercions := p.coerceExpressions(rightPlanBuilder, rightComparisonExpressions,
 			p.context.SymbolAllocator, p.context.PlanNodeIDAllocator)
-		fmt.Println(leftCoercions)
+		fmt.Printf("join......%v\n", leftCoercions)
 		for i := range leftComparisonExpressions {
 			if joinConditionComparisonOperators[i] == tree.ComparisonEQ {
 				leftSymbol := leftCoercions.mappings[leftComparisonExpressions[i]]
@@ -250,13 +252,16 @@ func (p *RelationPlanner) planJoin(node *tree.Join, _ *analyzer.Scope, left, rig
 		BaseNode: planpkg.BaseNode{
 			ID: p.context.PlanNodeIDAllocator.Next(),
 		},
-		Type:     planpkg.JoinTypeConvert(node.Type),
-		Left:     leftPlanBuilder.root,
-		Right:    rightPlanBuilder.root,
-		Criteria: joinCriteriaClauses,
+		Type:               planpkg.JoinTypeConvert(node.Type),
+		Left:               leftPlanBuilder.root,
+		Right:              rightPlanBuilder.root,
+		Criteria:           joinCriteriaClauses,
+		LeftOutputSymbols:  leftPlanBuilder.root.GetOutputSymbols(),
+		RightOutputSymbols: rightPlanBuilder.root.GetOutputSymbols(),
 	}
 	return &RelationPlan{
 		Root:          root,
+		Scope:         scope,
 		FieldMappings: outputSymbols,
 		OutContext:    p.outerContext,
 	}
@@ -278,7 +283,7 @@ func (p *RelationPlanner) coerceExpressions(subPlan *PlanBuilder, expressions []
 		if _, ok := mappings[expression]; !ok {
 			// TODO: need modify
 			t := p.context.AnalyzerContext.Analysis.GetType(expression)
-			symbol := symbolAllocator.NewSymbol(subPlan.translations.Rewrite(expression), "", t)
+			symbol := symbolAllocator.FromExpression(subPlan.translations.Rewrite(expression), t)
 			mappings[expression] = symbol
 		}
 	}

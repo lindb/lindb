@@ -35,6 +35,7 @@ func planOptimizers() []optimization.PlanOptimizer {
 			rule.NewPruneFilterColumns(),
 			rule.NewPruneOutputSourceColumns(),
 			rule.NewPruneProjectionColumns(),
+			rule.NewPruneJoinColumns(),
 			rule.NewPruneTableScanColumns(),
 		}),
 		iterative.NewIterativeOptimizer([]iterative.Rule{
@@ -46,6 +47,7 @@ func planOptimizers() []optimization.PlanOptimizer {
 			rule.NewPushProjectionIntoTableScan(),
 			rule.NewPushAggregationIntoTableScan(),
 		}),
+		optimization.NewPredicatePushDown(),
 		optimization.NewAddExchanges(),
 		optimization.NewAddLocalExchanges(),
 		iterative.NewIterativeOptimizer([]iterative.Rule{

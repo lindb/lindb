@@ -27,6 +27,7 @@ type TableScanNode struct {
 	Partitions    map[models.InternalNode][]int `json:"-"`
 	OutputSymbols []*Symbol                     `json:"outputs"`
 	Assignments   []*spi.ColumnAssignment       `json:"assignments,omitempty"`
+	ColumnMapping map[string]string             `json:"columnMapping,omitempty"`
 
 	BaseNode
 }

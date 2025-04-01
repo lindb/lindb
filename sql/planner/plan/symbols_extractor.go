@@ -15,34 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package planner
+package plan
 
 import (
 	"fmt"
 
-	"github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/tree"
 )
 
-func ExtractSymbolsFromExpressions(expressions []tree.Expression) (symbols []*plan.Symbol) {
-	visitor := &tree.DefaultTraversalVisitor{
-		PostProcess: func(n tree.Node) {
-			if ref, ok := n.(*tree.SymbolReference); ok {
-				symbols = append(symbols, plan.SymbolFrom(ref))
-			}
-		},
-	}
+func ExtractSymbolsFromExpressions(expressions []tree.Expression) (symbols []*Symbol) {
 	for _, node := range expressions {
-		visitor.Visit(nil, node)
+		symbols = append(symbols, ExtractSymbolsFromExpression(node)...)
 	}
 	return
 }
 
-func ExtractSymbolsFromAggreation(aggregation *plan.Aggregation) (symbols []*plan.Symbol) {
+func ExtractSymbolsFromAggreation(aggregation *Aggregation) (symbols []*Symbol) {
 	visitor := &tree.DefaultTraversalVisitor{
 		PostProcess: func(n tree.Node) {
 			if ref, ok := n.(*tree.SymbolReference); ok {
-				symbols = append(symbols, plan.SymbolFrom(ref))
+				symbols = append(symbols, SymbolFrom(ref))
 			}
 		},
 	}
@@ -54,6 +46,14 @@ func ExtractSymbolsFromAggreation(aggregation *plan.Aggregation) (symbols []*pla
 	return
 }
 
-func ExtractSymbolsFromExpression(expression tree.Expression) []*plan.Symbol {
-	panic("unimplemented implements extract symbols from expression")
+func ExtractSymbolsFromExpression(expression tree.Expression) (symbols []*Symbol) {
+	visitor := &tree.DefaultTraversalVisitor{
+		PostProcess: func(n tree.Node) {
+			if ref, ok := n.(*tree.SymbolReference); ok {
+				symbols = append(symbols, SymbolFrom(ref))
+			}
+		},
+	}
+	visitor.Visit(nil, expression)
+	return
 }

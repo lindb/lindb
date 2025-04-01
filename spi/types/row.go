@@ -52,3 +52,7 @@ func (r *Row) GetTimestamp(colIdx int) *time.Time {
 func (r *Row) GetDuration(colIdx int) *time.Duration {
 	return r.p.Columns[colIdx].GetDuration(r.idx)
 }
+
+func (r *Row) Get(colIdx int) any {
+	return r.p.Columns[colIdx].Get(r.idx)
+}

@@ -101,7 +101,7 @@ func (v *PrintPlanVisitor) visitJoin(node *plan.JoinNode) {
 		criteriaExpressions = append(criteriaExpressions, criteria.ToExpression()) // FIXME:
 	}
 	if node.IsCrossJoin() {
-		panic("impl it")
+		v.addNode(node, "CrossJoin", nil, node.GetSources())
 	} else {
 		descriptor := make(map[string]string)
 		descriptor["criteria"] = strings.Join(v.anonymizeExpressions(criteriaExpressions), " AND ")

@@ -35,6 +35,9 @@ func (v *DefaultTraversalVisitor) Visit(context any, n PlanNode) (r any) {
 		_ = node.Source.Accept(context, v)
 	case *ProjectionNode:
 		_ = node.Source.Accept(context, v)
+	case *JoinNode:
+		_ = node.Left.Accept(context, v)
+		_ = node.Right.Accept(context, v)
 	case *GroupReference:
 		// need resolve group reference(raw plan node)
 		if v.Resolve != nil {
@@ -53,5 +56,5 @@ func (v *DefaultTraversalVisitor) Visit(context any, n PlanNode) (r any) {
 	if v.Process != nil {
 		v.Process(curNode)
 	}
-	return
+	return nil
 }

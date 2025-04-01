@@ -110,6 +110,7 @@ func NewDMLExecution(session *Session, deps *Deps, preparedStatement *tree.Prepa
 func (exec *DMLExecution) Start() any {
 	defer func() {
 		// cleanup execution context
+		fmt.Println("cleanup execution context")
 		pipeline.DriverManager.Cleanup(exec.session.RequestID)
 	}()
 
@@ -153,11 +154,11 @@ func (exec *DMLExecution) execute(fragmentedPlan *plan.SubPlan, output buffer.Ou
 
 	// submit all task
 	for i := range len(fragments) {
+		fragment := fragments[i]
 		taskID := model.TaskID{
 			RequestID: session.RequestID,
 			ID:        i,
 		}
-		fragment := fragments[i]
 
 		fmt.Printf("remote parent node=====%v\n", fragment.ParentNode)
 		go func() {

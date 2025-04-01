@@ -58,15 +58,21 @@ type TaskExecution struct {
 
 func (exe *TaskExecution) Execute(output chan<- *types.Page) {
 	pipelines := exe.plan.GetPipelines()
+	var err error
 	var wait sync.WaitGroup
 	wait.Add(len(pipelines))
 	for i := range pipelines {
 		pipeline := pipelines[i]
 		go func() {
-			defer wait.Done()
+			defer func() {
+				wait.Done()
+			}()
 			pipeline.Run(output)
 		}()
 	}
 
 	wait.Wait()
+	if err != nil {
+		panic(err)
+	}
 }
