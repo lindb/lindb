@@ -29,25 +29,31 @@ type Symbol struct {
 	// FIXME: remove suffix?
 	Suffix   string         `json:"suffix"`
 	DataType types.DataType `json:"Datatype"`
+	Hidden   bool           `json:"hidden"`
 }
 
 func (s *Symbol) ToSymbolReference() *tree.SymbolReference {
 	return &tree.SymbolReference{
 		Name:     s.Name,
 		DataType: s.DataType,
+		Hidden:   s.Hidden,
 	}
 }
 
 func SymbolFrom(expression tree.Expression) *Symbol {
 	if symbolRef, ok := expression.(*tree.SymbolReference); ok {
-		return &Symbol{Name: symbolRef.Name, DataType: symbolRef.DataType}
+		return &Symbol{Name: symbolRef.Name, DataType: symbolRef.DataType, Hidden: symbolRef.Hidden}
 	}
 	panic(fmt.Sprintf("new symbol with unexpected expression: %T", expression))
 }
 
 func (s *Symbol) String() string {
-	if s.Suffix != "" {
-		return fmt.Sprintf("%s$%s:%s", s.Name, s.Suffix, s.DataType)
+	var h string
+	if s.Hidden {
+		h = "!" // mark symbol hidden
 	}
-	return fmt.Sprintf("%s:%s", s.Name, s.DataType)
+	if s.Suffix != "" {
+		return fmt.Sprintf("%s%s$%s:%s", h, s.Name, s.Suffix, s.DataType)
+	}
+	return fmt.Sprintf("%s%s:%s", h, s.Name, s.DataType)
 }

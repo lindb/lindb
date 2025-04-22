@@ -59,8 +59,7 @@ func NewRelation(fields []*tree.Field) *Relation {
 
 func (r *Relation) withAlias(relationAlias string, columnAliases []string) *Relation {
 	var fields []*tree.Field
-	for i := range r.Fields {
-		field := r.Fields[i]
+	for i, field := range r.Fields {
 		columnAlias := field.Name
 		if len(columnAliases) != 0 {
 			columnAlias = columnAliases[i]
@@ -72,6 +71,7 @@ func (r *Relation) withAlias(relationAlias string, columnAliases []string) *Rela
 			DataType:      field.DataType,
 			AggType:       field.AggType,
 			Index:         field.Index,
+			Hidden:        field.Hidden,
 			RelationAlias: tree.NewQualifiedName([]*tree.Identifier{{Value: relationAlias}}),
 		})
 	}

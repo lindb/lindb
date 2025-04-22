@@ -246,6 +246,7 @@ func (v *StatementVisitor) visitValues(context any, values *tree.Values) (r any)
 			Name:     column.Name,
 			DataType: column.DataType,
 			Index:    tree.FieldIndex(i),
+			Hidden:   column.Hidden,
 		})
 	}
 
@@ -555,6 +556,7 @@ func (v *StatementVisitor) analyzeAggregations(query *tree.QuerySpecification, s
 					Arguments: []tree.Expression{&tree.SymbolReference{
 						Name:     resolvedField.Field.Name,
 						DataType: resolvedField.Field.DataType,
+						Hidden:   resolvedField.Field.Hidden,
 					}},
 					RefField: resolvedField.Field,
 				}

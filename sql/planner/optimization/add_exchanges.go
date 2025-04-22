@@ -22,7 +22,6 @@ import (
 	"reflect"
 
 	"github.com/lindb/lindb/sql/context"
-	"github.com/lindb/lindb/sql/planner/iterative"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
 
@@ -50,8 +49,7 @@ func (opt *AddExchanges) Optimize(ctx *context.PlannerContext, plan plan.PlanNod
 }
 
 type AddExchangesRewrite struct {
-	idAllocator       *plan.PlanNodeIDAllocator
-	exchangeNodeAdded bool
+	idAllocator *plan.PlanNodeIDAllocator
 }
 
 func (v *AddExchangesRewrite) Visit(context any, n plan.PlanNode) (r any) {
@@ -76,7 +74,6 @@ func (v *AddExchangesRewrite) Visit(context any, n plan.PlanNode) (r any) {
 }
 
 func (v *AddExchangesRewrite) visitValues(_ any, node *plan.ValuesNode) (r any) {
-	v.exchangeNodeAdded = true
 	return &AddExchangesPlan{
 		node:  node,
 		props: NewActualPropsBuilder(singlePartition()).Build(),
@@ -85,11 +82,6 @@ func (v *AddExchangesRewrite) visitValues(_ any, node *plan.ValuesNode) (r any) 
 
 func (v *AddExchangesRewrite) visitOutput(_ any, node *plan.OutputNode) (r any) {
 	child := v.planChild(node, Undistributed())
-	// FIXME:??? check sigle/force single node output
-	if !child.props.isSingleNode() && !v.exchangeNodeAdded {
-		child = v.withDerivedProps(plan.GatheringExchange(v.idAllocator.Next(), plan.Remote, child.node), child.props)
-		v.exchangeNodeAdded = true
-	}
 	return v.rebaseAndDeriveProps(node, child)
 }
 
@@ -98,29 +90,16 @@ func (v *AddExchangesRewrite) visitJoin(_ any, node *plan.JoinNode) (r any) {
 }
 
 func (v *AddExchangesRewrite) visitTableScan(_ any, node *plan.TableScanNode) (r any) {
-	return &AddExchangesPlan{
+	child := &AddExchangesPlan{
 		node:  node,
 		props: v.dervieProps(node, nil),
 	}
+	return v.rebaseAndDeriveProps(plan.GatheringExchange(v.idAllocator.Next(), plan.Remote, node), child)
 }
 
 func (v *AddExchangesRewrite) visitProjection(context any, node *plan.ProjectionNode) (r any) {
 	// FIXME: translate
 	return v.rebaseAndDeriveProps(node, v.planChild(node, context.(*PreferredProps)))
-}
-
-func (v *AddExchangesRewrite) visitFilter(node *plan.FilterNode, context any) (r any) { //nolint
-	preferredProps := context.(*PreferredProps)
-	if tableScan, ok := node.Source.(*plan.TableScanNode); ok {
-		planNode := iterative.PushFilterIntoTableScan(node, tableScan)
-		if planNode != nil {
-			return &AddExchangesPlan{
-				node: planNode,
-			}
-		}
-	}
-
-	return v.rebaseAndDeriveProps(node, v.planChild(node, preferredProps))
 }
 
 func (v *AddExchangesRewrite) visitAggregation(context any, node *plan.AggregationNode) (r any) {
@@ -154,7 +133,6 @@ func (v *AddExchangesRewrite) visitAggregation(context any, node *plan.Aggregati
 					OutputLayout: child.node.GetOutputSymbols(),
 				}),
 			child.props)
-		v.exchangeNodeAdded = true
 	}
 	return v.rebaseAndDeriveProps(node, child)
 }
@@ -166,7 +144,6 @@ func (v *AddExchangesRewrite) planPartitionedJoin(node *plan.JoinNode) *AddExcha
 	// TODO: set partitioning scheme
 	left = v.withDerivedProps(plan.PartitionedExchange(v.idAllocator.Next(), plan.Remote, left.node, nil), left.props)
 	right = v.withDerivedProps(plan.PartitionedExchange(v.idAllocator.Next(), plan.Remote, right.node, nil), right.props)
-	v.exchangeNodeAdded = true
 
 	return v.buildJoin(node, left, right, plan.Partitioned)
 }
@@ -212,7 +189,7 @@ func (v *AddExchangesRewrite) buildJoin(node *plan.JoinNode,
 }
 
 func (v *AddExchangesRewrite) computePreference(preferredProps,
-	parentPreferredProperties *PreferredProps,
+	_ *PreferredProps,
 ) *PreferredProps {
 	// TODO: check ignore down stream preferences
 

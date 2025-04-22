@@ -24,6 +24,7 @@ type SymbolReference struct {
 
 	Name     string
 	DataType types.DataType
+	Hidden   bool
 }
 
 func (n *SymbolReference) Accept(context any, vistor Visitor) any {

@@ -35,7 +35,7 @@ func NewOutputValidator() Validator {
 	v := &OutputValidator{}
 	v.validate = func(ctx *context.PlannerContext, node *plan.OutputNode) error {
 		_, ok := lo.Find(node.GetOutputSymbols(), func(item *plan.Symbol) bool {
-			return item.DataType == types.DTTimestamp
+			return item.DataType == types.DTTimestamp && item.Hidden
 		})
 		if !ok {
 			// output node has no timestamp column
@@ -44,7 +44,7 @@ func NewOutputValidator() Validator {
 		if _, ok = lo.Find(node.GetOutputSymbols(), func(item *plan.Symbol) bool {
 			return item.DataType == types.DTTimeSeries
 		}); !ok {
-			return errors.New("push timestamp column failed, output node has no time series column")
+			return errors.New("timestamp column is hidden, output must contain time series column")
 		}
 		return nil
 	}

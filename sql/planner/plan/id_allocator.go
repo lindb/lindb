@@ -55,11 +55,13 @@ func NewSymbolAllocator(analyzerContext *analyzer.AnalyzerContext) *SymbolAlloca
 func (a *SymbolAllocator) NewSymbol(expression tree.Expression, suffix string, dataType types.DataType) *Symbol {
 	fmt.Printf("new symbol=%T\n", expression)
 	nameHint := "expr"
+	var hidden bool
 	switch expr := expression.(type) {
 	case *tree.Identifier:
 		nameHint = expr.Value
 	case *tree.SymbolReference:
 		nameHint = expr.Name
+		hidden = expr.Hidden
 	case *tree.FunctionCall:
 		if expr.RefField != nil {
 			nameHint = expr.RefField.Name
@@ -76,14 +78,14 @@ func (a *SymbolAllocator) NewSymbol(expression tree.Expression, suffix string, d
 	}
 	a.symbols[nameHint] = struct{}{}
 	// FIXME: ????
-	return a.newSymbol(nameHint, suffix, dataType)
+	return a.newSymbol(nameHint, suffix, dataType, hidden)
 }
 
-func (a *SymbolAllocator) FromSymbol(symbolHint *Symbol, suffix string, dataType types.DataType) *Symbol {
-	return a.newSymbol(symbolHint.Name, suffix, dataType)
+func (a *SymbolAllocator) FromSymbol(symbolHint *Symbol, suffix string, dataType types.DataType, hidden bool) *Symbol {
+	return a.newSymbol(symbolHint.Name, suffix, dataType, hidden)
 }
 
-func (a *SymbolAllocator) newSymbol(nameHint, suffix string, dataType types.DataType) *Symbol {
+func (a *SymbolAllocator) newSymbol(nameHint, suffix string, dataType types.DataType, hidden bool) *Symbol {
 	unique := nameHint
 
 	// if suffix != "" {
@@ -94,5 +96,6 @@ func (a *SymbolAllocator) newSymbol(nameHint, suffix string, dataType types.Data
 		Name:     unique,
 		Suffix:   suffix,
 		DataType: dataType,
+		Hidden:   hidden,
 	}
 }
