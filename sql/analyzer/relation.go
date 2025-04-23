@@ -72,7 +72,7 @@ func (r *Relation) withAlias(relationAlias string, columnAliases []string) *Rela
 			AggType:       field.AggType,
 			Index:         field.Index,
 			Hidden:        field.Hidden,
-			RelationAlias: tree.NewQualifiedName([]*tree.Identifier{{Value: relationAlias}}),
+			RelationAlias: relationAlias,
 		})
 	}
 	return NewRelation(fields)
@@ -80,8 +80,19 @@ func (r *Relation) withAlias(relationAlias string, columnAliases []string) *Rela
 
 func (r *Relation) joinWith(other *Relation) *Relation {
 	var fields []*tree.Field
-	fields = append(fields, r.Fields...)
-	fields = append(fields, other.Fields...)
+	index := tree.FieldIndex(0)
+	add := func(fieldList []*tree.Field) {
+		for _, field := range fieldList {
+			// create new field of join relation
+			newField := field.Clone()
+			newField.Index = index // NOTE: need reset index, maybe table a/b have same column name
+			fields = append(fields, newField)
+			index++
+		}
+	}
+
+	add(r.Fields)
+	add(other.Fields)
 	return NewRelation(fields)
 }
 

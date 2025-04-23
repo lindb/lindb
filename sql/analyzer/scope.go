@@ -58,7 +58,7 @@ func (scope *Scope) getField(index tree.FieldIndex) *ResolvedField {
 	parentFieldCount := 0
 	parentScope := scope.getLocalParent()
 	if parentScope != nil {
-		parentFieldCount = parentScope.getlocalScopeFieldCount()
+		parentFieldCount = parentScope.getLocalScopeFieldCount()
 	}
 
 	return scope.asResolvedField(scope.RelationType.getFieldByIndex(index), parentFieldCount, true)
@@ -76,15 +76,16 @@ func (scope *Scope) getNameQuery(name string) (withQuery *tree.WithQuery) {
 }
 
 func (scope *Scope) IsLocalScope(other *Scope) bool {
-	return scope.findLocally(func(scope *Scope) bool {
-		fmt.Printf("scope=%v,other=%v,%v=%v\n", scope, other, scope.RelationID.SourceNode.GetID(), other.RelationID.SourceNode.GetID())
-		if scope == other {
+	fmt.Printf("IsLocalScope %v=%v\n", scope, other)
+	return scope.findLocally(func(matchScope *Scope) bool {
+		// fmt.Printf("scope=%v,other=%v,%v=%v\n", scope, other, scope.RelationID.SourceNode.GetID(), other.RelationID.SourceNode.GetID())
+		if matchScope == other {
 			return true
 		}
 		// FIXME: check replation set
-		return scope.RelationID != nil &&
+		return matchScope.RelationID != nil &&
 			other.RelationID != nil &&
-			scope.RelationID.SourceNode.GetID() == other.RelationID.SourceNode.GetID()
+			matchScope.RelationID.SourceNode.GetID() == other.RelationID.SourceNode.GetID()
 	}) != nil
 }
 
@@ -93,6 +94,7 @@ func (scope *Scope) tryResolveField(node tree.Expression, name *tree.QualifiedNa
 }
 
 func (scope *Scope) resolveField(node tree.Expression, name *tree.QualifiedName, local bool) *ResolvedField { //nolint
+	fmt.Printf("scope field=%v\n", scope.RelationType.Fields)
 	fields := scope.RelationType.resolveFields(name)
 	if len(fields) > 1 {
 		panic(fmt.Sprintf("column '%s' is ambiguous", name.Name))
@@ -102,8 +104,10 @@ func (scope *Scope) resolveField(node tree.Expression, name *tree.QualifiedName,
 		// TODO: dup
 		parentFieldCount := 0
 		parentScope := scope.getLocalParent()
+		fmt.Printf("resolveField,.......parent=%v\n", parentScope)
 		if parentScope != nil {
-			parentFieldCount = parentScope.getlocalScopeFieldCount()
+			fmt.Printf("parent scope=%v\n", parentScope.getLocalScopeFieldCount())
+			parentFieldCount = parentScope.getLocalScopeFieldCount()
 		}
 
 		return scope.asResolvedField(fields[0], parentFieldCount, local)
@@ -146,7 +150,7 @@ func (scope *Scope) resolveAsteriskedIdentifierChain(
 		return false
 	}
 	if partsLen <= 3 {
-		scopeForTableRef = scope.findLocally(func(scope *Scope) bool {
+		scopeForTableRef = scope.findLocally(func(matchScope *Scope) bool {
 			return find(scope, func(field *tree.Field) bool {
 				return field.MatchesPrefix(identifierChain)
 			})
@@ -155,7 +159,7 @@ func (scope *Scope) resolveAsteriskedIdentifierChain(
 	if partsLen >= 2 {
 		part0 := identifierChain.Parts[0]
 		part1 := identifierChain.Parts[1]
-		scopeForFieldRef = scope.findLocally(func(scope *Scope) bool {
+		scopeForFieldRef = scope.findLocally(func(matchScope *Scope) bool {
 			return find(scope, func(field *tree.Field) bool {
 				return field.Name != "" && field.Name == part1 && field.MatchesPrefix(
 					tree.NewQualifiedName([]*tree.Identifier{{Value: part0}}),
@@ -187,16 +191,17 @@ func (scope *Scope) resolveAsteriskedIdentifierChain(
 	return scope.Parent.resolveAsteriskedIdentifierChain(identifierChain, selectItem)
 }
 
-func (scope *Scope) getlocalScopeFieldCount() int {
+func (scope *Scope) getLocalScopeFieldCount() int {
 	parent := 0
 	parentScope := scope.getLocalParent()
 	if parentScope != nil {
-		parent = parentScope.getlocalScopeFieldCount()
+		parent = parentScope.getLocalScopeFieldCount()
 	}
+	fmt.Printf("......relation fields=%v\n", scope.RelationType.Fields)
 	return parent + len(scope.RelationType.Fields) // TODO: all field??
 }
 
-func (scope *Scope) findLocally(match func(scope *Scope) bool) *Scope {
+func (scope *Scope) findLocally(match func(matchScope *Scope) bool) *Scope {
 	s := scope
 	for {
 		if match(s) {
@@ -216,8 +221,8 @@ func (scope *Scope) findLocally(match func(scope *Scope) bool) *Scope {
 }
 
 func (scope *Scope) getLocalParent() *Scope {
-	// FIXME: check query boundary
-	return scope.Parent
+	// FIXME: check query boundary, out query
+	return nil
 }
 
 type ScopeBuilder struct {

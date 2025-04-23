@@ -17,7 +17,9 @@
 
 package plan
 
-import "github.com/lindb/lindb/sql/tree"
+import (
+	"github.com/lindb/lindb/sql/tree"
+)
 
 type JoinType string
 
@@ -46,11 +48,14 @@ func (n *EqualJoinCriteria) ToExpression() *tree.ComparisonExpression {
 }
 
 type JoinNode struct {
-	Left             PlanNode
-	Right            PlanNode
-	DistributionType DistributionType
-	Type             JoinType
-	Criteria         []*EqualJoinCriteria
+	Left               PlanNode
+	Right              PlanNode
+	DistributionType   DistributionType
+	Type               JoinType
+	Criteria           []*EqualJoinCriteria
+	LeftOutputSymbols  []*Symbol // FIXME: remove it
+	RightOutputSymbols []*Symbol
+	Filter             tree.Expression // FIXME: set expression
 
 	BaseNode
 }
@@ -63,12 +68,18 @@ func (n *JoinNode) GetSources() []PlanNode {
 	return []PlanNode{n.Left, n.Right}
 }
 
-func (n *JoinNode) GetOutputSymbols() []*Symbol {
-	return nil
+func (n *JoinNode) GetOutputSymbols() (output []*Symbol) {
+	output = append(output, n.Left.GetOutputSymbols()...)
+	output = append(output, n.Right.GetOutputSymbols()...)
+	return output
 }
 
 func (n *JoinNode) IsCrossJoin() bool {
-	return n.Criteria != nil && n.Type == Inner // FIXME: check filter?????
+	return len(n.Criteria) == 0 && n.Filter == nil && n.Type == Inner
+}
+
+func (n *JoinNode) Clone() *JoinNode {
+	return n.ReplaceChildren(n.GetSources()).(*JoinNode)
 }
 
 func (n *JoinNode) ReplaceChildren(newChildren []PlanNode) PlanNode {
@@ -76,11 +87,14 @@ func (n *JoinNode) ReplaceChildren(newChildren []PlanNode) PlanNode {
 		BaseNode: BaseNode{
 			ID: n.GetNodeID(),
 		},
-		DistributionType: n.DistributionType,
-		Type:             n.Type,
-		Criteria:         n.Criteria,
-		Left:             newChildren[0],
-		Right:            newChildren[1],
+		Left:               newChildren[0],
+		Right:              newChildren[1],
+		LeftOutputSymbols:  n.LeftOutputSymbols,
+		RightOutputSymbols: n.RightOutputSymbols,
+		DistributionType:   n.DistributionType,
+		Type:               n.Type,
+		Criteria:           n.Criteria,
+		Filter:             n.Filter,
 	}
 }
 

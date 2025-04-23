@@ -38,6 +38,13 @@ func (v *DefaultTraversalVisitor) Visit(context any, n Node) (r any) {
 		for _, arg := range node.Arguments {
 			_ = arg.Accept(context, v)
 		}
+	case *LogicalExpression:
+		for _, term := range node.Terms {
+			_ = term.Accept(context, v)
+		}
+	case *ComparisonExpression:
+		_ = node.Left.Accept(context, v)
+		_ = node.Right.Accept(context, v)
 	default:
 		// TODO: remove
 		fmt.Printf("default traversal visitor not support..................=%T\n", n)

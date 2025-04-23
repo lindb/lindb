@@ -22,7 +22,6 @@ import (
 
 	lo "github.com/samber/lo"
 
-	"github.com/lindb/lindb/sql/planner"
 	"github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/tree"
 )
@@ -31,11 +30,8 @@ func restrictOutputs(idAllcator *plan.PlanNodeIDAllocator,
 	node plan.PlanNode, permittedOutputs []*plan.Symbol,
 ) plan.PlanNode {
 	outputs := node.GetOutputSymbols()
-	restrictedOutputs := lo.Filter(outputs, func(item *plan.Symbol, index int) bool {
-		return lo.ContainsBy(permittedOutputs, func(other *plan.Symbol) bool {
-			return other.Name == item.Name
-		})
-	})
+	restrictedOutputs := filter(outputs, permittedOutputs)
+
 	if len(outputs) == len(restrictedOutputs) {
 		fmt.Println("outputs same.....")
 		return nil
@@ -83,15 +79,19 @@ func restrictChildOutputs(idAllcator *plan.PlanNodeIDAllocator,
 }
 
 func pruneInputs(availableInputs []*plan.Symbol, expressions []tree.Expression) []*plan.Symbol {
-	symbols := planner.ExtractSymbolsFromExpressions(expressions)
-
-	prunedInputs := lo.Filter(availableInputs, func(input *plan.Symbol, index int) bool {
-		return lo.ContainsBy(symbols, func(item *plan.Symbol) bool {
-			return item.Name == input.Name
-		})
-	})
+	symbols := plan.ExtractSymbolsFromExpressions(expressions)
+	prunedInputs := filter(availableInputs, symbols)
 	if len(prunedInputs) == len(availableInputs) {
 		return nil
 	}
 	return prunedInputs
+}
+
+func filter(source, predicate []*plan.Symbol) []*plan.Symbol {
+	fmt.Printf("opt rule util.go filter source=%v,predicate=%v\n", source, predicate)
+	return lo.Filter(source, func(item *plan.Symbol, index int) bool {
+		return lo.ContainsBy(predicate, func(other *plan.Symbol) bool {
+			return other.Name == item.Name
+		})
+	})
 }

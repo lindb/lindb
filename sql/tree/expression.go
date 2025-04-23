@@ -66,6 +66,7 @@ type Expression interface {
 	Node
 }
 
+// FIXME: remove it
 type Row struct {
 	BaseNode
 	Items []Expression

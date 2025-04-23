@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
 	"github.com/samber/lo"
 
@@ -196,6 +197,7 @@ func (v *StatementVisitor) visitJoin(context any, node *tree.Join) (r any) {
 	if joinUsing, ok := criteria.(*tree.JoinUsing); ok {
 		return v.analyzeJoinUsing(node, joinUsing.Columns, scope, left, right)
 	}
+	fmt.Println("create and assign scope..........................")
 	output := v.createAndAssignScope(node, scope, left.RelationType.joinWith(right.RelationType))
 	if node.Type == tree.CROSS || node.Type == tree.IMPLICIT {
 		return output
@@ -275,6 +277,7 @@ func (v *StatementVisitor) visitTable(ctx any, table *tree.Table) (r any) {
 		// TODO: remove
 		panic(err)
 	}
+	fmt.Printf("visit table =%v\n", string(encoding.JSONMarshal(table)))
 
 	// analyze table
 	var outputFields []*tree.Field
@@ -286,7 +289,7 @@ func (v *StatementVisitor) visitTable(ctx any, table *tree.Table) (r any) {
 			DataType:      col.DataType,
 			Hidden:        col.Hidden,
 			AggType:       col.AggType,
-			RelationAlias: table.Name,
+			RelationAlias: table.Name.Name, // TODO: relation alias
 		})
 	}
 
@@ -440,7 +443,7 @@ func (v *StatementVisitor) analyzeWhere(node *tree.QuerySpecification, scope *Sc
 		return
 	}
 	// extract time predicates from where clause expressions
-	timePredicates, newPredicate := ExtractTimePredicates(predicate)
+	timePredicates, newPredicate := tree.ExtractTimePredicates(predicate)
 	if len(timePredicates) > 0 {
 		v.analyzer.ctx.Analysis.SetTimePredicates(node, timePredicates)
 	}
@@ -542,7 +545,7 @@ func (v *StatementVisitor) analyzeAggregations(query *tree.QuerySpecification, s
 		return ok
 	}
 	// TODO:
-	ExtractAggregationFunctions(expr, func(n tree.Node) {
+	tree.ExtractAggregationFunctions(expr, func(n tree.Node) {
 		fmt.Printf("extract agg func:%T=%v,%v\n", n, n, orderByScope)
 		switch node := n.(type) {
 		case *tree.Identifier:

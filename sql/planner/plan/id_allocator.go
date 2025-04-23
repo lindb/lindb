@@ -52,7 +52,7 @@ func NewSymbolAllocator(analyzerContext *analyzer.AnalyzerContext) *SymbolAlloca
 	}
 }
 
-func (a *SymbolAllocator) NewSymbol(expression tree.Expression, suffix string, dataType types.DataType) *Symbol {
+func (a *SymbolAllocator) FromExpression(expression tree.Expression, dataType types.DataType) *Symbol {
 	fmt.Printf("new symbol=%T\n", expression)
 	nameHint := "expr"
 	var hidden bool
@@ -71,30 +71,24 @@ func (a *SymbolAllocator) NewSymbol(expression tree.Expression, suffix string, d
 		}
 		// FIXME: func call
 	}
+	return a.NewSymbol(nameHint, dataType, hidden)
+}
+
+func (a *SymbolAllocator) FromSymbol(symbolHint *Symbol, dataType types.DataType, hidden bool) *Symbol {
+	return a.NewSymbol(symbolHint.Name, dataType, hidden)
+}
+
+func (a *SymbolAllocator) NewSymbol(nameHint string, dataType types.DataType, hidden bool) *Symbol {
 	_, exist := a.symbols[nameHint]
 	if exist {
 		nameHint = fmt.Sprintf("%s_%d", nameHint, a.next)
 		a.next++
 	}
 	a.symbols[nameHint] = struct{}{}
-	// FIXME: ????
-	return a.newSymbol(nameHint, suffix, dataType, hidden)
-}
+	fmt.Printf("...................................nameHint=%v, symbols=%v\n", nameHint, a.symbols)
 
-func (a *SymbolAllocator) FromSymbol(symbolHint *Symbol, suffix string, dataType types.DataType, hidden bool) *Symbol {
-	return a.newSymbol(symbolHint.Name, suffix, dataType, hidden)
-}
-
-func (a *SymbolAllocator) newSymbol(nameHint, suffix string, dataType types.DataType, hidden bool) *Symbol {
-	unique := nameHint
-
-	// if suffix != "" {
-	// 	unique += "$" + suffix
-	// }
-	// TODO: fixme cache symbols
 	return &Symbol{
-		Name:     unique,
-		Suffix:   suffix,
+		Name:     nameHint,
 		DataType: dataType,
 		Hidden:   hidden,
 	}

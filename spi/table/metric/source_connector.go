@@ -48,6 +48,7 @@ func NewSourceConnectorProvider(engine tsdb.Engine) spi.SourceConnectorProvider 
 
 func (p *sourceConnectorProvider) CreateSourceConnector(ctx context.Context,
 	table spi.TableHandle, partitionIDs []int,
+	columnMapping map[string]string,
 	predicate tree.Expression,
 	outputColumns []types.ColumnMetadata, assignments []*spi.ColumnAssignment,
 ) spi.SourceConnector {
@@ -56,6 +57,7 @@ func (p *sourceConnectorProvider) CreateSourceConnector(ctx context.Context,
 		engine:        p.engine,
 		table:         table,
 		partitionIDs:  partitionIDs,
+		columnMapping: columnMapping,
 		predicate:     predicate,
 		outputColumns: outputColumns,
 		assignments:   assignments,
@@ -72,6 +74,7 @@ type sourceConnector struct {
 	predicate     tree.Expression
 	outputColumns []types.ColumnMetadata
 	assignments   []*spi.ColumnAssignment
+	columnMapping map[string]string
 
 	reduceCh   chan any
 	partitions []*Partition
@@ -130,6 +133,17 @@ func (psc *sourceConnector) close() {
 	}
 }
 
+func getColumnName(name string, mapping map[string]string) string {
+	if len(mapping) == 0 {
+		return name
+	}
+	realName, ok := mapping[name]
+	if !ok {
+		return name
+	}
+	return realName
+}
+
 func (psc *sourceConnector) buildTableScan() *TableScan {
 	metricTable, ok := psc.table.(*TableHandle)
 	if !ok {
@@ -164,7 +178,7 @@ func (psc *sourceConnector) buildTableScan() *TableScan {
 			numOfOutputColumns--
 		} else if fieldMeta, ok := lo.Find(schema.Fields, func(fieldMeta field.Meta) bool {
 			// field
-			return columnMeta.Name == fieldMeta.Name.String() && columnMeta.DataType == types.DTTimeSeries
+			return getColumnName(columnMeta.Name, psc.columnMapping) == fieldMeta.Name.String() && columnMeta.DataType == types.DTTimeSeries
 		}); ok {
 			fieldMeta.Index = index
 			fields = append(fields, fieldMeta)
@@ -191,7 +205,7 @@ func (psc *sourceConnector) buildTableScan() *TableScan {
 			}
 		} else if tagKey, ok := lo.Find(schema.TagKeys, func(tagMeta tag.Meta) bool {
 			// tag
-			return columnMeta.Name == tagMeta.Key && columnMeta.DataType == types.DTString
+			return getColumnName(columnMeta.Name, psc.columnMapping) == tagMeta.Key && columnMeta.DataType == types.DTString
 		}); ok {
 			groupingTags = append(groupingTags, tagKey)
 		}
@@ -201,6 +215,7 @@ func (psc *sourceConnector) buildTableScan() *TableScan {
 	if len(fields)+len(groupingTags) != numOfOutputColumns {
 		// TODO: only check grouping keys
 		// output columns size not match
+		fmt.Println("output columns not match......")
 		return nil
 	}
 
@@ -235,6 +250,7 @@ func (psc *sourceConnector) buildTableScan() *TableScan {
 		interval:            targetInterval,
 		fields:              fields,
 		columns:             columns,
+		columnMapping:       psc.columnMapping,
 		maxOfRollups:        maxOfRollups,
 		numOfAggs:           numOfAggs,
 		grouping:            grouping,

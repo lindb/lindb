@@ -87,14 +87,15 @@ func (e *ExecuteAPI) Register(route gin.IRoutes) {
 func (e *ExecuteAPI) Execute(c *gin.Context) {
 	if err := e.deps.QueryLimiter.Do(func() error {
 		// FIXME: move to common pkg
-		defer func() {
-			if err := recover(); err != nil {
-				msg := fmt.Sprintf("%v", err)
-				_ = c.Error(errors.New(msg))
-				c.Header("Content-Type", "text/plain")
-				c.String(http.StatusInternalServerError, msg)
-			}
-		}()
+		// defer func() {
+		// 	if err := recover(); err != nil {
+		// 		fmt.Println(err)
+		// 		msg := fmt.Sprintf("%v", err)
+		// 		_ = c.Error(errors.New(msg))
+		// 		c.Header("Content-Type", "text/plain")
+		// 		c.String(http.StatusInternalServerError, msg)
+		// 	}
+		// }()
 		return e.execute(c)
 	}); err != nil {
 		_ = c.Error(err)

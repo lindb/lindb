@@ -115,3 +115,11 @@ func (c *Column) GetTimeSeries(row int) *TimeSeries {
 	// FIXME:
 	return c.Blocks[row].(*TimeSeries)
 }
+
+func (c *Column) Get(row int) any {
+	if row >= len(c.Blocks) {
+		return nil
+	}
+	// FIXME:
+	return c.Blocks[row]
+}

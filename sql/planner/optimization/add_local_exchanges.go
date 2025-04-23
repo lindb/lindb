@@ -57,8 +57,8 @@ func (v *AddLocalExchangesRewrite) Visit(context any, n plan.PlanNode) (r any) {
 		return v.visitExchange(parentProps, node)
 	case *plan.AggregationNode:
 		return v.visitAggregation(parentProps, node)
-	case *plan.JoinNode:
-		return v.visitJoin(parentProps, node)
+	// case *plan.JoinNode:
+	// 	return v.visitJoin(parentProps, node)
 	default:
 		return v.planAndEnforceChildren(n,
 			parentProps.withoutPreference().withDefaultParallelism(),

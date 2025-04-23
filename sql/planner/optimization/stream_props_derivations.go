@@ -50,9 +50,15 @@ func (v *StreamPropsDerivationVisitor) Visit(context any, n plan.PlanNode) (r an
 		return v.visitTableScan(inputProps, node)
 	case *plan.ValuesNode:
 		return v.visitValues(inputProps, node)
+	case *plan.JoinNode:
+		return v.visitJoin(inputProps, node)
 	default:
 		panic(fmt.Sprintf("impl stream props derivation visitor:%T", n))
 	}
+}
+
+func (v *StreamPropsDerivationVisitor) visitJoin(inputProps []*StreamProps, _ *plan.JoinNode) *StreamProps {
+	return inputProps[0]
 }
 
 func (v *StreamPropsDerivationVisitor) visitFilter(inputProps []*StreamProps, _ *plan.FilterNode) *StreamProps {

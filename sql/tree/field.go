@@ -18,6 +18,7 @@
 package tree
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/lindb/lindb/spi/types"
@@ -26,7 +27,7 @@ import (
 type FieldIndex int
 
 type Field struct {
-	RelationAlias *QualifiedName
+	RelationAlias string
 	Name          string
 	DataType      types.DataType
 	AggType       types.AggregateType
@@ -35,20 +36,32 @@ type Field struct {
 }
 
 func (f *Field) MatchesPrefix(prefix *QualifiedName) bool {
-	return prefix == nil || (f.RelationAlias != nil && f.RelationAlias.HasSuffix(prefix))
+	return prefix == nil || (f.RelationAlias != "" && f.RelationAlias == prefix.Name)
 }
 
 func (f *Field) CanResolve(name *QualifiedName) bool {
 	if f.Name == "" {
 		return false
 	}
+	fmt.Printf("can resolve %v,aaa==%v,%v\n", f, name.Prefix, name.Suffix)
 	// TODO: need to know whether the qualified name and the name of this field were quoted
 	return f.MatchesPrefix(name.Prefix) && strings.EqualFold(f.Name, name.Suffix)
 }
 
 func (f *Field) String() string {
-	if f.RelationAlias == nil {
+	if f.RelationAlias == "" {
 		return f.Name
 	}
-	return f.RelationAlias.Name + "." + f.Name
+	return f.RelationAlias + "." + f.Name
+}
+
+func (f *Field) Clone() *Field {
+	return &Field{
+		RelationAlias: f.RelationAlias,
+		Name:          f.Name,
+		DataType:      f.DataType,
+		AggType:       f.AggType,
+		Index:         f.Index,
+		Hidden:        f.Hidden,
+	}
 }

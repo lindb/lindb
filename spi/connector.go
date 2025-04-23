@@ -46,6 +46,7 @@ type SourceConnector interface {
 type SourceConnectorProvider interface {
 	CreateSourceConnector(ctx context.Context,
 		table TableHandle, partitions []int, // table info
+		columnMapping map[string]string,
 		predicate tree.Expression, // predicate
 		outputColumns []types.ColumnMetadata, assignments []*ColumnAssignment, // output
 	) SourceConnector

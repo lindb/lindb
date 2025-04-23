@@ -67,7 +67,7 @@ func (pb *PlanBuilder) appendProjections(expressions []tree.Expression) *PlanBui
 		fmt.Printf("check transs====%T,,,, %v=%v\n", expression, expression, pb.translations.CanTranslate(expression))
 		if _, ok := mappings[expression.GetID()]; !ok && !pb.translations.CanTranslate(expression) {
 			fmt.Println("kkkkkkkkkkkkk..............")
-			symbol := symbolAllocator.NewSymbol(expression, "", pb.translations.context.AnalyzerContext.Analysis.GetType(expression))
+			symbol := symbolAllocator.FromExpression(expression, pb.translations.context.AnalyzerContext.Analysis.GetType(expression))
 			expr := pb.translations.Rewrite(expression)
 			assignments = append(assignments, &plan.Assignment{
 				Symbol:     symbol,
