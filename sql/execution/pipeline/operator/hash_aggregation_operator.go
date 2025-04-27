@@ -18,6 +18,7 @@
 package operator
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/lindb/lindb/spi/types"
@@ -36,11 +37,11 @@ func NewHashAggregationOperator(node *plan.AggregationNode, child Operator) Oper
 	}
 }
 
-func (h *HashAggregationOperator) Run(output chan<- *types.Page) {
+func (h *HashAggregationOperator) Run(ctx context.Context, output chan<- *types.Page) {
 	inbound := make(chan *types.Page)
 	go func() {
 		defer close(inbound)
-		h.child.Run(inbound)
+		h.child.Run(ctx, inbound)
 	}()
 	for source := range inbound {
 		output <- source

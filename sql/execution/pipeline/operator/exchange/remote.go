@@ -19,9 +19,6 @@ package exchange
 
 import (
 	"context"
-	"fmt"
-
-	"github.com/lindb/common/pkg/encoding"
 
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/pipeline/operator"
@@ -46,23 +43,30 @@ func (op *RemoteExchangeOperator) GetSourceID() plan.PlanNodeID {
 	return op.node.GetNodeID()
 }
 
-// GetOutput implements Operator
-func (op *RemoteExchangeOperator) Run(output chan<- *types.Page) {
-	for page := range op.inbound {
-		if page == nil {
-			fmt.Println("page nil")
-			continue
-		}
-		// FIXME: do merge logic
-		// it := page.Iterator()
-		// groupingColumns := page.Grouping
-		// for row := it.Begin(); row != it.End(); row = it.Next() {
-		// 	fmt.Println("kkkk......")
-		// 	op.mergedPage.AppendColumn(page.Layout[], page.Columns[])
-		// }
-		fmt.Printf("exchange merge,page=%v\n", string(encoding.JSONMarshal(page)))
+// Run runs the exchange operator, consuming the pages from inbound channel and merging the pages.
+func (op *RemoteExchangeOperator) Run(ctx context.Context, output chan<- *types.Page) {
+	var buffer []*types.Page
 
-		output <- page
+	for {
+		select {
+		// consume the pages from inbound channel
+		case page, ok := <-op.inbound:
+			if !ok {
+				// merge pages
+				mergedPage := types.MergePages(buffer)
+				if mergedPage != nil {
+					output <- mergedPage
+				}
+				// return if inbound channel is closed
+				return
+			}
+			if page == nil {
+				continue
+			}
+			buffer = append(buffer, page)
+		case err := <-ctx.Done():
+			panic(err)
+		}
 	}
 }
 

@@ -18,6 +18,7 @@
 package strutil
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"unsafe"
@@ -37,10 +38,12 @@ func GetStringValue(rawString string) (string, error) {
 	return "", nil
 }
 
+// ByteSlice2String returns the string of the byte slice.
 func ByteSlice2String(bytes []byte) string {
 	return unsafe.String(&bytes[0], len(bytes))
 }
 
+// String2ByteSlice returns the byte slice of the string.
 func String2ByteSlice(str string) []byte {
 	return unsafe.Slice(unsafe.StringData(str), len(str))
 }
@@ -61,4 +64,29 @@ func DeDupStringSlice(items []string) []string {
 		idx++
 	}
 	return dst
+}
+
+// SliceToTypedString returns the string of the slice.
+func SliceToTypedString(slice []any) string {
+	if len(slice) == 0 {
+		return ""
+	}
+	var sb strings.Builder
+	for _, v := range slice {
+		switch val := v.(type) {
+		case int:
+			sb.WriteString(strconv.Itoa(val))
+		case string:
+			sb.WriteString(val)
+		case bool:
+			if val {
+				sb.WriteString("1")
+			} else {
+				sb.WriteString("0")
+			}
+		default:
+			sb.WriteString(fmt.Sprintf("%v", val))
+		}
+	}
+	return sb.String()
 }

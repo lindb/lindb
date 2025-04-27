@@ -18,6 +18,8 @@
 package exchange
 
 import (
+	"context"
+
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/pipeline/operator"
 	"github.com/lindb/lindb/sql/planner/plan"
@@ -37,11 +39,11 @@ func NewLocalExchangeOperator(node *plan.ExchangeNode, child operator.Operator) 
 }
 
 // Finish implements operator.Operator.
-func (l *LocalExchangeOperator) Run(output chan<- *types.Page) {
+func (l *LocalExchangeOperator) Run(ctx context.Context, output chan<- *types.Page) {
 	inbound := make(chan *types.Page)
 	go func() {
 		defer close(inbound)
-		l.child.Run(inbound)
+		l.child.Run(ctx, inbound)
 	}()
 
 	for page := range inbound {

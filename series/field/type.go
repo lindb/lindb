@@ -92,7 +92,7 @@ func (t Type) AggregateType() types.AggregateType {
 	case LastField:
 		return types.ATLast
 	case HistogramField:
-		return types.ATHistogram
+		return types.ATSum
 	case FirstField:
 		return types.ATFirst
 	default:

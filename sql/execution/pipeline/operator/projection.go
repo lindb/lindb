@@ -46,7 +46,7 @@ func NewProjectionOperator(ctx context.Context, project *plan.ProjectionNode, ch
 }
 
 // GetOutput implements Operator.
-func (h *ProjectionOperator) Run(output chan<- *types.Page) {
+func (h *ProjectionOperator) Run(ctx context.Context, output chan<- *types.Page) {
 	if len(h.exprs) == 0 {
 		h.prepare()
 	}
@@ -56,7 +56,7 @@ func (h *ProjectionOperator) Run(output chan<- *types.Page) {
 
 	go func() {
 		defer close(inbound)
-		h.child.Run(inbound)
+		h.child.Run(ctx, inbound)
 	}()
 
 	for source := range inbound {

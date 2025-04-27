@@ -18,6 +18,8 @@
 package types
 
 import (
+	"math"
+
 	"github.com/lindb/common/pkg/encoding"
 )
 
@@ -57,8 +59,6 @@ const (
 	ATLast
 	// ATFirst represents first aggregation type.
 	ATFirst
-	// ATHistogram represents histogram aggregation type.
-	ATHistogram
 )
 
 func (dt DataType) String() string {
@@ -120,8 +120,6 @@ func (at AggregateType) String() string {
 		return "first"
 	case ATLast:
 		return "last"
-	case ATHistogram:
-		return "histogram"
 	default:
 		return ""
 	}
@@ -147,12 +145,28 @@ func (at *AggregateType) UnmarshalJSON(data []byte) error {
 		*at = ATLast
 	case "first":
 		*at = ATFirst
-	case "histogram":
-		*at = ATHistogram
 	default:
 		*at = ATUnknown
 	}
 	return nil
+}
+
+// Aggregate aggregates two float64 values into one
+func (at AggregateType) Aggregate(a, b float64) float64 {
+	switch at {
+	case ATSum:
+		return a + b
+	case ATLast:
+		return b
+	case ATFirst:
+		return a
+	case ATMin:
+		return math.Min(a, b)
+	case ATMax:
+		return math.Max(a, b)
+	default:
+		panic("unspecified AggregateType")
+	}
 }
 
 type Type any

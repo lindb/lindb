@@ -18,6 +18,7 @@
 package output
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/lindb/common/pkg/encoding"
@@ -41,13 +42,13 @@ func NewRSOutputOperator(node *plan.OutputNode, child operator.Operator) operato
 }
 
 // AddInput implements operator.Operator
-func (op *ResultSetOutputOperator) Run(output chan<- *types.Page) {
+func (op *ResultSetOutputOperator) Run(ctx context.Context, output chan<- *types.Page) {
 	inbound := make(chan *types.Page)
 
 	go func() {
 		defer close(inbound)
 
-		op.child.Run(inbound)
+		op.child.Run(ctx, inbound)
 	}()
 
 	rebuildPage := false

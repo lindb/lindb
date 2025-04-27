@@ -18,6 +18,7 @@
 package operator
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/lindb/lindb/spi/types"
@@ -34,7 +35,7 @@ func NewValuesOperator(node *plan.ValuesNode) Operator {
 	}
 }
 
-func (op *ValuesOperator) Run(output chan<- *types.Page) {
+func (op *ValuesOperator) Run(ctx context.Context, output chan<- *types.Page) {
 	var page *types.Page
 	node := op.node
 	if node.Rows != nil {

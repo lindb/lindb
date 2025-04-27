@@ -17,7 +17,10 @@
 
 package types
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type Column struct {
 	Blocks    []Block `json:"block"`
@@ -42,6 +45,10 @@ func (c *Column) AppendString(val string) {
 func (c *Column) Append(val any) {
 	c.Blocks = append(c.Blocks, val)
 	c.NumOfRows++
+}
+
+func (c *Column) Reset(row int, val any) {
+	c.Blocks[row] = val
 }
 
 func (c *Column) AppendInt(val int64) {
@@ -71,8 +78,12 @@ func (c *Column) GetString(row int) *String {
 	if row >= len(c.Blocks) {
 		return nil
 	}
-	// FIXME:
-	return c.Blocks[row].(*String)
+	val, ok := c.Blocks[row].(*String)
+	if ok {
+		return val
+	}
+	v := String(fmt.Sprintf("%v", val))
+	return &v
 }
 
 func (c *Column) GetInt(row int) *Int {

@@ -18,6 +18,8 @@
 package scan
 
 import (
+	"context"
+
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/pipeline/operator"
@@ -36,7 +38,7 @@ func NewTableScanOperator(connector spi.SourceConnector, node *plan.TableScanNod
 	}
 }
 
-func (op *TableScanOperator) Run(output chan<- *types.Page) {
+func (op *TableScanOperator) Run(ctx context.Context, output chan<- *types.Page) {
 	op.connector.Run(output)
 }
 

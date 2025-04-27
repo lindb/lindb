@@ -18,12 +18,14 @@
 package operator
 
 import (
+	"context"
+
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
 
 type Operator interface {
-	Run(output chan<- *types.Page)
+	Run(ctx context.Context, output chan<- *types.Page)
 	// GetLayout returns the output layout.
 	GetLayout() []*plan.Symbol
 	Children() []Operator
