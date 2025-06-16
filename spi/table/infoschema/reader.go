@@ -43,6 +43,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/expression"
+	"github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/tree"
 )
 
@@ -196,8 +197,9 @@ func (r *reader) readSchemata() (rows [][]*types.Datum) {
 	databases := r.metadataMgr.GetDatabases()
 	for _, database := range databases {
 		rows = append(rows, types.MakeDatums(
-			database.Name,   // schema_name
-			database.Engine, // engine
+			database.Name,     // schema_name
+			database.Engine,   // engine
+			database.String(), // statement
 		))
 	}
 	return
@@ -536,16 +538,25 @@ func (v *predicate) addColumnValue(name, value string) {
 	v.columns[colName] = append(values, value)
 }
 
+func (v *predicate) getColumnName(column tree.Expression) string {
+	columnSymbols := plan.ExtractSymbolsFromExpression(column)
+	if len(columnSymbols) != 1 {
+		panic(fmt.Sprintf("column values lookup error, column: %s, symbol size: %d",
+			tree.FormatExpression(column), len(columnSymbols)))
+	}
+	return columnSymbols[0].Name
+}
+
 func (v *predicate) Visit(context any, n tree.Node) (rs any) {
 	switch node := n.(type) {
 	case *tree.ComparisonExpression:
 		// TODO: check err
-		columnName, _ := expression.EvalString(v.evalCtx, node.Left)
+		columnName := v.getColumnName(node.Left)
 		columnValue, _ := expression.EvalString(v.evalCtx, node.Right)
 		v.addColumnValue(columnName, columnValue)
 	case *tree.LikePredicate:
 		// TODO: check err
-		columnName, _ := expression.EvalString(v.evalCtx, node.Value)
+		columnName := v.getColumnName(node.Value)
 		columnValue, _ := expression.EvalString(v.evalCtx, node.Pattern)
 		v.addColumnValue(columnName, columnValue)
 	case *tree.LogicalExpression:
@@ -553,7 +564,7 @@ func (v *predicate) Visit(context any, n tree.Node) (rs any) {
 			_ = term.Accept(context, v)
 		}
 	case *tree.InPredicate:
-		columnName, _ := expression.EvalString(v.evalCtx, node.Value)
+		columnName := v.getColumnName(node.Value)
 		if inListExpression, ok := node.ValueList.(*tree.InListExpression); ok {
 			lo.ForEach(inListExpression.Values, func(item tree.Expression, index int) {
 				columnValue, _ := expression.EvalString(v.evalCtx, item)

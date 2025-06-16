@@ -119,9 +119,9 @@ func (exec *DMLExecution) Start() any {
 	// rewrite statement
 	statement := exec.rewrite(exec.preparedStatement.Statement)
 	// plan statement
-	plan := exec.planner.Plan(exec.session, statement)
+	statementPlan := exec.planner.Plan(exec.session, statement)
 	// distribute plan
-	fragmentedPlan := exec.planner.PlanDistribution(plan)
+	fragmentedPlan := exec.planner.PlanDistribution(statementPlan)
 	// scheduler start
 	exec.execute(fragmentedPlan, exec.context.GetOutput())
 

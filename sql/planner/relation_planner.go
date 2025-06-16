@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/analyzer"
@@ -154,11 +156,25 @@ func (p *RelationPlanner) visitTable(_ any, node *tree.Table) (r any) {
 		tableMetadata := p.context.AnalyzerContext.Analysis.GetTableMetadata(tableHandle.String())
 		root := planpkg.NewTableScanNode(p.context.PlanNodeIDAllocator.Next())
 		root.Table = p.context.AnalyzerContext.Analysis.GetTableHandle(node)
-		// default query time range(last hour)
+		// time range(statement>context>default)
+		// 1. default query time range(last hour)
 		timeRange := timeutil.TimeRange{
 			Start: time.Now().UnixMilli() - time.Hour.Milliseconds(),
 			End:   time.Now().UnixMilli(),
 		}
+		// 2. time range from context
+		currentParams := p.context.Context.Value(constants.ContextKeyParams)
+		if currentParams != nil {
+			if params, ok := currentParams.(*models.ExecuteParam); ok {
+				if params.TimeRange.Start > 0 {
+					timeRange.Start = params.TimeRange.Start
+				}
+				if params.TimeRange.End > 0 {
+					timeRange.End = params.TimeRange.End
+				}
+			}
+		}
+		// 3. time range from statement condition
 		if len(p.timePredicates) > 0 {
 			translations := &TranslationMap{context: p.context}
 			evalCtx := expression.NewEvalContext(p.context.Context)

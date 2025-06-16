@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-
 	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/timeutil"
 
@@ -36,7 +35,7 @@ func SlowSQLLog(deps *depspkg.HTTPDeps, log logger.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 		defer func() {
-			sql, exist := c.Get(constants.CurrentSQL)
+			sql, exist := c.Get(constants.CurrentSQLParams)
 			if exist {
 				throttle := deps.BrokerCfg.BrokerBase.SlowSQL
 				sqlParam := sql.(*models.ExecuteParam)

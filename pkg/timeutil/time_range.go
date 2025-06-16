@@ -78,8 +78,8 @@ func (sr *SlotRange) Intersect(o SlotRange) SlotRange {
 
 // TimeRange represents time range with start/end timestamp.
 type TimeRange struct {
-	Start int64 `json:"start"`
-	End   int64 `json:"end"`
+	Start int64 `json:"start" form:"start"`
+	End   int64 `json:"end" form:"end"`
 }
 
 // IsEmpty tests if empty, start/end=0 => empty

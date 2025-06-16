@@ -17,12 +17,16 @@
 
 package models
 
-import "github.com/lindb/lindb/constants"
+import (
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/pkg/timeutil"
+)
 
 // ExecuteParam represents lin query language executor's param.
 type ExecuteParam struct {
-	Database string `form:"db" json:"db"`
-	SQL      string `form:"sql" json:"sql" binding:"required"`
+	Database  string             `form:"db" json:"db"`
+	SQL       string             `form:"sql" json:"sql" binding:"required"`
+	TimeRange timeutil.TimeRange `form:"timeRange" json:"timeRange"`
 }
 
 type Session struct {

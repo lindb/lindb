@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-
 	commonlogger "github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/ltoml"
 
@@ -48,14 +47,14 @@ func TestSlowLogMiddleware(t *testing.T) {
 		commonlogger.GetLogger(logger.SlowSQLModule, "SQL"),
 	))
 	r.GET("/home", func(c *gin.Context) {
-		c.Set(constants.CurrentSQL, &models.ExecuteParam{
+		c.Set(constants.CurrentSQLParams, &models.ExecuteParam{
 			SQL: "show databases",
 		})
 		time.Sleep(time.Millisecond * 10)
 		c.JSON(http.StatusOK, "ok")
 	})
 	r.GET("/metrics", func(c *gin.Context) {
-		c.Set(constants.CurrentSQL, &models.ExecuteParam{
+		c.Set(constants.CurrentSQLParams, &models.ExecuteParam{
 			Database: "test",
 			SQL:      "show metrics",
 		})

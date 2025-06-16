@@ -335,7 +335,7 @@ func (e *ExecuteAPI) queryResult(c *gin.Context) (result apiFuncResult) {
 	}
 
 	param := models.ExecuteParam{SQL: r.FormValue("query")}
-	c.Set(constants.CurrentSQL, &param)
+	c.Set(constants.CurrentSQLParams, &param)
 
 	ctx = httputil.ContextFromRequest(ctx, r)
 

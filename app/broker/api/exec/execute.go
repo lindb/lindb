@@ -132,7 +132,7 @@ func (e *ExecuteAPI) execute(c *gin.Context) error {
 	fmt.Println(param)
 
 	// FIXME: session?
-	c.Set(constants.CurrentSQL, &param)
+	c.Set(constants.CurrentSQLParams, &param)
 	idAllocator := tree.NewNodeIDAllocator()
 	stmt, err := tree.GetParser().CreateStatement(param.SQL, idAllocator)
 	if err != nil {
@@ -150,7 +150,8 @@ func (e *ExecuteAPI) execute(c *gin.Context) error {
 	session := &execution.Session{
 		// the current system time when creating this session,
 		// make sure the same current time is used in the session.
-		Context:         context.WithValue(ctx, constants.ContextKeyCurrentTime, timeutil.Now()),
+		Context: context.WithValue(context.WithValue(ctx, constants.ContextKeyCurrentTime, timeutil.Now()),
+			constants.ContextKeyParams, &param),
 		RequestID:       requestID,
 		NodeIDAllocator: idAllocator,
 		Database:        reqSession.Databases,

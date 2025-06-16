@@ -139,6 +139,7 @@ var (
 		Columns: []types.ColumnMetadata{
 			{Name: "schema_name", DataType: types.DTString},
 			{Name: "engine", DataType: types.DTString},
+			{Name: "statement", DataType: types.DTString},
 		},
 	}
 	namespacesSchema = &types.TableSchema{
