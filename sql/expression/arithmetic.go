@@ -81,9 +81,6 @@ func evalTimeSeries(ctx EvalContext, row types.Row, args []Expression,
 	if rIsNull {
 		return l, lIsNull, nil
 	}
-	// FIXME: remove it
-	fmt.Println(l)
-	fmt.Println(r)
 	// check num. of points whether match
 	if !l.IsSingleValue() && !r.IsSingleValue() && l.Size() != r.Size() {
 		return nil, true, errors.New("num. of points not match")

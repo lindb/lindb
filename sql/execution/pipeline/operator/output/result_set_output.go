@@ -85,8 +85,6 @@ func (op *ResultSetOutputOperator) Run(ctx context.Context, output chan<- *types
 					targetPage.AppendColumn(column, page.Columns[idx])
 				}
 			}
-			fmt.Printf("after result set output rebuild, page=%v target=%v\n",
-				string(encoding.JSONMarshal(page)), string(encoding.JSONMarshal(targetPage)))
 			output <- targetPage
 		} else {
 			output <- page

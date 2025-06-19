@@ -20,7 +20,6 @@ package buffer
 import (
 	"fmt"
 
-	"github.com/lindb/common/pkg/encoding"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/spi/types"
@@ -117,7 +116,6 @@ func (rsb *ResultSetBuild) Process() {
 			}
 			rsb.resultSet.Rows = append(rsb.resultSet.Rows, columns)
 		}
-		fmt.Println(string(encoding.JSONMarshal(rsb.resultSet)))
 		fmt.Println("merge result page")
 	}
 }

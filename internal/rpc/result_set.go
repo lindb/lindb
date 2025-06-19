@@ -19,7 +19,6 @@ package rpc
 
 import (
 	context "context"
-	"fmt"
 
 	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
@@ -50,8 +49,6 @@ func (srv *ResultSetService) ResultSet(ctx context.Context,
 
 	srv.logger.Debug("receive task result set", logger.Any("requestID", resultSet.TaskID.RequestID),
 		logger.Int("TaskID", resultSet.TaskID.ID), logger.Int("nodeID", int(resultSet.Node)))
-
-	fmt.Println(string(request.Payload))
 
 	sourceOperator := pipeline.DriverManager.GetSourceOperator(resultSet.TaskID, resultSet.Node)
 	if sourceOperator != nil {

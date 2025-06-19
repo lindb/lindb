@@ -47,8 +47,10 @@ func calcTimeRangeAndInterval(
 	}
 	// re-calc query interval based on query time range
 	targetInterval = timeutil.CalcQueryInterval(timeRange, targetInterval)
-	targetInterval = max(option.FindMatchSmallestInterval(targetInterval), interval)
-	intervalVal := targetInterval.Int64()
+	// TODO: need add test
+	storageInterval := option.FindMatchSmallestInterval(targetInterval)
+	targetInterval = max(storageInterval, targetInterval)
+	intervalVal := storageInterval.Int64()
 	return timeutil.TimeRange{
 		Start: timeutil.Truncate(timeRange.Start, intervalVal),
 		End:   timeutil.Truncate(timeRange.End, intervalVal),

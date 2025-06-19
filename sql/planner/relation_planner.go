@@ -39,11 +39,11 @@ type RelationPlanner struct {
 	groupingInterval *tree.IntervalLiteral
 }
 
-func NewRelationPlanner(context *context.PlannerContext, outerContext *TranslationMap,
+func NewRelationPlanner(ctx *context.PlannerContext, outerContext *TranslationMap,
 	timePredicates []*tree.TimePredicate, groupingInterval *tree.IntervalLiteral,
 ) tree.Visitor {
 	return &RelationPlanner{
-		context:          context,
+		context:          ctx,
 		outerContext:     outerContext,
 		timePredicates:   timePredicates,
 		groupingInterval: groupingInterval,
