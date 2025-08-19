@@ -18,6 +18,7 @@
 package execution
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/lindb/common/pkg/encoding"
@@ -130,7 +131,12 @@ func (exec *DMLExecution) Start() any {
 	if exec.context.Error() != "" {
 		panic(exec.context.Error())
 	}
-	return exec.context.ResultSet()
+	rs := exec.context.ResultSet()
+	if rs.Error != "" {
+		// return error
+		return errors.New(rs.Error)
+	}
+	return rs
 }
 
 func (exec *DMLExecution) rewrite(statement tree.Statement) tree.Statement {
@@ -143,8 +149,8 @@ func (exec *DMLExecution) rewrite(statement tree.Statement) tree.Statement {
 }
 
 func (exec *DMLExecution) execute(fragmentedPlan *plan.SubPlan, output buffer.OutputBuffer) {
-	printer := printer.NewPlanPrinter(printer.NewTextRender(0))
-	fmt.Println(printer.PrintDistributedPlan(fragmentedPlan))
+	planPrinter := printer.NewPlanPrinter(printer.NewTextRender(0))
+	fmt.Println(planPrinter.PrintDistributedPlan(fragmentedPlan))
 	session := exec.session
 
 	fragments := fragmentedPlan.GetAllFragments()
@@ -187,7 +193,9 @@ func (exec *DMLExecution) execute(fragmentedPlan *plan.SubPlan, output buffer.Ou
 					}
 					output.Complete()
 				}()
-				taskExec.Execute(outputCh)
+				if err := taskExec.Execute(outputCh); err != nil {
+					output.AddPage(&types.Page{Error: err.Error()})
+				}
 			} else {
 				// execute task under remote node, send fragment to remote execution node
 				fragment.Receivers = []models.InternalNode{*exec.deps.CurrentNode}
@@ -206,7 +214,7 @@ func (exec *DMLExecution) execute(fragmentedPlan *plan.SubPlan, output buffer.Ou
 func (exec *DMLExecution) sendTask(node models.InternalNode, taskID model.TaskID,
 	shards []int, currentTime int64, data []byte,
 ) {
-	conn, err := grpc.Dial(node.Address(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(node.Address(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		panic(err)
 	}

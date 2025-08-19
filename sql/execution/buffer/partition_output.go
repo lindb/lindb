@@ -34,6 +34,8 @@ import (
 type PartitionOutputBuffer struct {
 	fragment *plan.PlanFragment
 	taskID   model.TaskID
+
+	finished bool
 }
 
 func NewPartitionOutputBuffer(taskID model.TaskID, fragment *plan.PlanFragment) OutputBuffer {
@@ -45,36 +47,32 @@ func NewPartitionOutputBuffer(taskID model.TaskID, fragment *plan.PlanFragment) 
 
 // AddPage implements OutputBuffer
 func (output *PartitionOutputBuffer) AddPage(page *types.Page) {
+	output.finished = page.Error != ""
 	output.sendResultSet(&model.TaskResultSet{
 		TaskID: output.taskID,
 		Node:   *output.fragment.ParentNode,
 		Page:   page,
-	})
-}
-
-func (output *PartitionOutputBuffer) SetError(err error) {
-	output.sendResultSet(&model.TaskResultSet{
-		TaskID: output.taskID,
-		Node:   *output.fragment.ParentNode,
-		NoMore: true, // FIXME: set nomore
-		Error:  err.Error(),
+		NoMore: output.finished,
 	})
 }
 
 func (output *PartitionOutputBuffer) Complete() {
 	fmt.Println("partition complete complete")
-	// TODO: send complete sign
-	output.sendResultSet(&model.TaskResultSet{
-		TaskID: output.taskID,
-		Node:   *output.fragment.ParentNode,
-		NoMore: true, // FIXME: set nomore
-	})
+	if !output.finished {
+		output.finished = true
+		// TODO: send complete sign
+		output.sendResultSet(&model.TaskResultSet{
+			TaskID: output.taskID,
+			Node:   *output.fragment.ParentNode,
+			NoMore: output.finished, // FIXME: set nomore
+		})
+	}
 }
 
 func (output *PartitionOutputBuffer) sendResultSet(rs *model.TaskResultSet) {
 	// TODO: conn pool?
 	receiver := output.fragment.Receivers[0]
-	conn, err := grpc.Dial(receiver.Address(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(receiver.Address(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		panic(err)
 	}

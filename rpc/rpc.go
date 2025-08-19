@@ -38,7 +38,7 @@ import (
 
 // just for testing
 var (
-	grpcDialFn = grpc.Dial
+	grpcDialFn = grpc.NewClient
 )
 
 var (

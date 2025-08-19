@@ -40,6 +40,8 @@ type Schema struct {
 type ResultSet struct {
 	Schema *Schema `json:"schema,omitempty"`
 	Rows   [][]any `json:"rows,omitempty"`
+
+	Error string `json:"-"`
 }
 
 func NewResultSet() *ResultSet {

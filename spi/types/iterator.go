@@ -32,7 +32,7 @@ func NewIterator4Page(page *Page) *Iterator4Page {
 	}
 }
 
-// Gegin resets the cursor of the iterator and returns the first Row.
+// Begin resets the cursor of the iterator and returns the first Row.
 func (it *Iterator4Page) Begin() Row {
 	if it.page == nil {
 		return it.End()

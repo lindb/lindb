@@ -41,7 +41,6 @@ func NewRSOutputOperator(node *plan.OutputNode, child operator.Operator) operato
 	}
 }
 
-// AddInput implements operator.Operator
 func (op *ResultSetOutputOperator) Run(ctx context.Context, output chan<- *types.Page) {
 	inbound := make(chan *types.Page)
 
@@ -71,6 +70,9 @@ func (op *ResultSetOutputOperator) Run(ctx context.Context, output chan<- *types
 	// process child output
 	for page := range inbound {
 		if page == nil || page.NumRows() == 0 {
+			if page != nil && page.Error != "" {
+				output <- page
+			}
 			fmt.Printf("add empty page====%v\n", string(encoding.JSONMarshal(page)))
 			return
 		}

@@ -15,10 +15,5 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package ingest
-
-type DatabaseConfig struct {
-	Namespace string
-	Database  string
-	Field     string
-}
+// Package exchange provides a set of operators for exchange.
+package exchange

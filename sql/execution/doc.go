@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Package execution provides sql statement execution framework.
 package execution
 
 // +-------+    +---------+    +-----------------+    +----------+    +------------------------+

@@ -19,7 +19,11 @@ package execution
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync"
+
+	"github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/spi/types"
@@ -27,10 +31,14 @@ import (
 	"github.com/lindb/lindb/sql/planner"
 )
 
-type TaskExecutionFactory struct{}
+type TaskExecutionFactory struct {
+	logger logger.Logger
+}
 
 func NewTaskExecutionFactory() *TaskExecutionFactory {
-	return &TaskExecutionFactory{}
+	return &TaskExecutionFactory{
+		logger: logger.GetLogger("SQL", "execution"),
+	}
 }
 
 func (fct *TaskExecutionFactory) Create(task *SQLTask) *TaskExecution {
@@ -48,31 +56,38 @@ func (fct *TaskExecutionFactory) Create(task *SQLTask) *TaskExecution {
 	return &TaskExecution{
 		taskCtx: ctx,
 		plan:    plan,
+		logger:  fct.logger,
 	}
 }
 
 type TaskExecution struct {
 	taskCtx *sqlContext.TaskContext
 	plan    *planner.TaskExecutionPlan
+
+	logger logger.Logger
 }
 
-func (exe *TaskExecution) Execute(output chan<- *types.Page) {
+func (exe *TaskExecution) Execute(output chan<- *types.Page) error {
 	pipelines := exe.plan.GetPipelines()
-	var err error
 	var wait sync.WaitGroup
 	wait.Add(len(pipelines))
+	errs := make([]error, len(pipelines))
 	for i := range pipelines {
 		pipeline := pipelines[i]
 		go func() {
 			defer func() {
 				wait.Done()
+
+				if r := recover(); r != nil {
+					// FIXME: handle not found
+					errs[i] = fmt.Errorf("%v", r)
+					exe.logger.Warn("task execution pipeline error", logger.Any("error", r))
+				}
 			}()
 			pipeline.Run(output)
 		}()
 	}
 
 	wait.Wait()
-	if err != nil {
-		panic(err)
-	}
+	return errors.Join(errs...)
 }

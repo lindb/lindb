@@ -152,7 +152,7 @@ func (m *brokerMetadataManager) getTableSchema(
 	database, ns, table string,
 	node models.InternalNode,
 ) (*types.TableSchema, error) {
-	conn, err := grpc.Dial(node.Address(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(node.Address(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}

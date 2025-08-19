@@ -26,7 +26,7 @@ import (
 	"github.com/lindb/lindb/sql/planner/plan"
 )
 
-// Projection means choosing which columns (or expressions) the query shall return.
+// ProjectionOperator means choosing which columns (or expressions) the query shall return.
 type ProjectionOperator struct {
 	ctx     context.Context
 	exprCtx expression.EvalContext
@@ -45,7 +45,6 @@ func NewProjectionOperator(ctx context.Context, project *plan.ProjectionNode, ch
 	}
 }
 
-// GetOutput implements Operator.
 func (h *ProjectionOperator) Run(ctx context.Context, output chan<- *types.Page) {
 	if len(h.exprs) == 0 {
 		h.prepare()

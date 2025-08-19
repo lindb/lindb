@@ -19,6 +19,7 @@ package exchange
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/pipeline/operator"
@@ -51,6 +52,7 @@ func (op *RemoteExchangeOperator) Run(ctx context.Context, output chan<- *types.
 		select {
 		// consume the pages from inbound channel
 		case page, ok := <-op.inbound:
+			fmt.Printf("receive pagll...e=%v\n", page)
 			if !ok {
 				// merge pages
 				mergedPage := types.MergePages(buffer)
@@ -63,6 +65,9 @@ func (op *RemoteExchangeOperator) Run(ctx context.Context, output chan<- *types.
 			if page == nil {
 				continue
 			}
+			if page.Error != "" {
+				panic(page.Error)
+			}
 			buffer = append(buffer, page)
 		case err := <-ctx.Done():
 			panic(err)
@@ -71,7 +76,9 @@ func (op *RemoteExchangeOperator) Run(ctx context.Context, output chan<- *types.
 }
 
 func (op *RemoteExchangeOperator) Receive(page *types.Page) {
-	op.inbound <- page
+	if page != nil {
+		op.inbound <- page
+	}
 }
 
 func (op *RemoteExchangeOperator) GetLayout() []*plan.Symbol {

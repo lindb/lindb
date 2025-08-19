@@ -35,9 +35,6 @@ func (buf *QueryOutputBuffer) AddPage(page *types.Page) {
 	buf.rsBuild.AddPage(page)
 }
 
-func (buf *QueryOutputBuffer) SetError(err error) {
-}
-
 func (buf *QueryOutputBuffer) Complete() {
 	buf.rsBuild.Complete()
 }

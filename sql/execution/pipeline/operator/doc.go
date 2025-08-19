@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Package operator provides the core operators for the execution pipeline.
 package operator
 
 // A distributed SQL query engine designed for time series(ref:https://trino.io/).

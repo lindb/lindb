@@ -26,8 +26,8 @@ var (
 	Modulus  OperatorType = NewOperatorType("%", 2)
 )
 
-// FIXME: remove it
 type OperatorType struct {
+	// FIXME: remove it
 	Operator      string
 	ArgumentCount int
 }

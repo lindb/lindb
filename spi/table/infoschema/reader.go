@@ -72,10 +72,10 @@ func NewReader(metadataMgr meta.MetadataManager) Reader {
 	return &reader{metadataMgr: metadataMgr, logger: logger.GetLogger("Infoschema", "Reader")}
 }
 
-func (r *reader) ReadData(ctx context.Context, table string, expression tree.Expression) (rows [][]*types.Datum, err error) {
+func (r *reader) ReadData(ctx context.Context, table string, expr tree.Expression) (rows [][]*types.Datum, err error) {
 	predicate := newPredicate(ctx)
-	if expression != nil {
-		_ = expression.Accept(nil, predicate)
+	if expr != nil {
+		_ = expr.Accept(nil, predicate)
 	}
 	switch strings.ToLower(table) {
 	case constants.TableEnv:
@@ -137,14 +137,14 @@ func (r *reader) readEnv(predicate *predicate) (rows [][]*types.Datum, err error
 }
 
 func (r *reader) readMaster() (rows [][]*types.Datum) {
-	master := r.metadataMgr.GetMaster()
+	masterNode := r.metadataMgr.GetMaster()
 	rows = append(rows, types.MakeDatums(
-		master.Node.HostIP,     // host_ip
-		master.Node.HostName,   // host_name
-		master.Node.HTTPPort,   // http
-		master.Node.Version,    // version
-		master.Node.OnlineTime, // online_time
-		master.ElectTime,       // elect_time
+		masterNode.Node.HostIP,     // host_ip
+		masterNode.Node.HostName,   // host_name
+		masterNode.Node.HTTPPort,   // http
+		masterNode.Node.Version,    // version
+		masterNode.Node.OnlineTime, // online_time
+		masterNode.ElectTime,       // elect_time
 	))
 	return
 }
@@ -448,8 +448,6 @@ func (r *reader) readColumns(predicate *predicate) (rows [][]*types.Datum, err e
 	if err != nil {
 		return nil, err
 	}
-	// add time(reserved column)
-	table.Schema.AddColumn(types.ColumnMetadata{Name: "time", DataType: types.DTTimestamp})
 	for _, column := range table.Schema.Columns {
 		rows = append(rows, types.MakeDatums(
 			schema,                   // table_schema
@@ -547,7 +545,7 @@ func (v *predicate) getColumnName(column tree.Expression) string {
 	return columnSymbols[0].Name
 }
 
-func (v *predicate) Visit(context any, n tree.Node) (rs any) {
+func (v *predicate) Visit(ctx any, n tree.Node) (rs any) {
 	switch node := n.(type) {
 	case *tree.ComparisonExpression:
 		// TODO: check err
@@ -561,7 +559,7 @@ func (v *predicate) Visit(context any, n tree.Node) (rs any) {
 		v.addColumnValue(columnName, columnValue)
 	case *tree.LogicalExpression:
 		for _, term := range node.Terms {
-			_ = term.Accept(context, v)
+			_ = term.Accept(ctx, v)
 		}
 	case *tree.InPredicate:
 		columnName := v.getColumnName(node.Value)
@@ -572,7 +570,7 @@ func (v *predicate) Visit(context any, n tree.Node) (rs any) {
 			})
 		}
 	case *tree.Cast:
-		_ = node.Expression.Accept(context, v)
+		_ = node.Expression.Accept(ctx, v)
 	default:
 		panic(fmt.Sprintf("infoschema predicate visit error, not support node type: %T", n))
 	}

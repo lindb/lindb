@@ -113,7 +113,7 @@ func NewColumnValuesLookVisitor(ctx context.Context, tableScan *TableScan) *Colu
 	}
 }
 
-func (v *ColumnValuesLookupVisitor) Visit(context any, n tree.Node) any {
+func (v *ColumnValuesLookupVisitor) Visit(ctx any, n tree.Node) any {
 	var (
 		column tree.Expression
 		fn     func(columnName string) tree.Expr
@@ -122,6 +122,7 @@ func (v *ColumnValuesLookupVisitor) Visit(context any, n tree.Node) any {
 	case *tree.ComparisonExpression:
 		columnValue, _ := expression.EvalString(v.evalCtx, node.Right)
 		column = node.Left
+		// TODO: add other operator
 		fn = func(columnName string) tree.Expr {
 			return &tree.EqualsExpr{
 				Name:  columnName,
@@ -162,14 +163,14 @@ func (v *ColumnValuesLookupVisitor) Visit(context any, n tree.Node) any {
 			}
 		}
 	case *tree.NotExpression:
-		return node.Value.Accept(context, v)
+		return node.Value.Accept(ctx, v)
 	case *tree.LogicalExpression:
 		for _, term := range node.Terms {
-			term.Accept(context, v)
+			term.Accept(ctx, v)
 		}
 		return nil
 	case *tree.Cast:
-		return node.Expression.Accept(context, v)
+		return node.Expression.Accept(ctx, v)
 	default:
 		panic(fmt.Sprintf("column values lookup error, not support node type: %T", n))
 	}

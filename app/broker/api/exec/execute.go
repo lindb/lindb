@@ -164,6 +164,8 @@ func (e *ExecuteAPI) execute(c *gin.Context) error {
 	result := exec.Start()
 	if result == nil || reflect.ValueOf(result).IsNil() {
 		httppkg.NotFound(c)
+	} else if err, hasError := result.(error); hasError {
+		httppkg.Error(c, err)
 	} else {
 		httppkg.OK(c, result)
 	}

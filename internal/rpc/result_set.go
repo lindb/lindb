@@ -47,17 +47,16 @@ func (srv *ResultSetService) ResultSet(ctx context.Context,
 		return nil, err
 	}
 
-	srv.logger.Debug("receive task result set", logger.Any("requestID", resultSet.TaskID.RequestID),
-		logger.Int("TaskID", resultSet.TaskID.ID), logger.Int("nodeID", int(resultSet.Node)))
+	srv.logger.Warn("receive task result set", logger.Any("requestID", resultSet.TaskID.RequestID),
+		logger.Int("TaskID", resultSet.TaskID.ID), logger.Int("nodeID", int(resultSet.Node)), logger.Any("page", resultSet.Page))
 
 	sourceOperator := pipeline.DriverManager.GetSourceOperator(resultSet.TaskID, resultSet.Node)
 	if sourceOperator != nil {
+		sourceOperator.Receive(resultSet.Page)
 		// FIXME: handle error
 		if resultSet.NoMore {
 			// current task no more splits
 			sourceOperator.Complete()
-		} else {
-			sourceOperator.Receive(resultSet.Page)
 		}
 	} else {
 		srv.logger.Warn("source operator not found", logger.Any("requestID", resultSet.TaskID.RequestID),

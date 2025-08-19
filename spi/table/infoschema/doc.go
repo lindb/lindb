@@ -15,21 +15,5 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package api
-
-import (
-	"testing"
-
-	"github.com/gin-gonic/gin"
-
-	"github.com/lindb/lindb/app/broker/deps"
-	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/constants"
-)
-
-func TestNewRouter(t *testing.T) {
-	brokerCfg := &config.Broker{}
-	httpDeps := &deps.HTTPDeps{BrokerCfg: brokerCfg}
-	r := NewAPI(httpDeps)
-	r.RegisterRouter(gin.New().Group(constants.APIRoot))
-}
+// Package infoschema provides infoschema table.
+package infoschema

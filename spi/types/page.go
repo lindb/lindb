@@ -17,7 +17,9 @@
 
 package types
 
-import "github.com/samber/lo"
+import (
+	"github.com/samber/lo"
+)
 
 var (
 	RowWithEmptyValue = NewRowWithEmptyValue()
@@ -28,6 +30,8 @@ type Page struct {
 	Layout   []ColumnMetadata `json:"layout,omitempty"`
 	Grouping []int            `json:"grouping,omitempty"` // grouping column indexes
 	Columns  []*Column        `json:"columns,omitempty"`
+
+	Error string `json:"error,omitempty"`
 }
 
 func NewPage() *Page {

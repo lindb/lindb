@@ -109,7 +109,7 @@ func (srv *MetaService) TableSchema(ctx context.Context,
 		})
 	}
 
-	// add timestamp column name
+	// add timestamp column name(reserved column)
 	tableSchema.AddColumn(types.ColumnMetadata{
 		Name:     constants.TimestampColumnName,
 		DataType: types.DTTimestamp,

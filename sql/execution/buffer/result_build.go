@@ -54,6 +54,11 @@ func (rsb *ResultSetBuild) Process() {
 	isTimestampSelected := false
 	hasTimeSeries := false
 	for page := range rsb.inbound {
+		fmt.Printf("page.....=.....%v\n", page)
+		if page.Error != "" {
+			rsb.resultSet.Error = page.Error
+			break
+		}
 		if len(rsb.resultSet.Schema.Columns) == 0 {
 			lo.ForEach(page.Layout, func(item types.ColumnMetadata, index int) {
 				if item.DataType == types.DTTimestamp {

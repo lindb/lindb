@@ -25,6 +25,7 @@ import (
 )
 
 func MergePages(pages []*Page) *Page {
+	fmt.Printf("merge pages: %v\n", pages)
 	switch len(pages) {
 	case 0:
 		return nil
@@ -49,7 +50,13 @@ func MergePages(pages []*Page) *Page {
 				mergeColumns = append(mergeColumns, &mergeColumn{meta: c, target: column, index: idx})
 			}
 		}
+		fmt.Printf("merge columns: %v=%v\n", mergeColumns, pages)
 		for _, page := range pages {
+			if page.Error != "" {
+				// NOTE: if has error, return it
+				mergedPage.Error = page.Error
+				break
+			}
 			it := page.Iterator()
 			rowNum := 0
 			for row := it.Begin(); row != it.End(); row = it.Next() {

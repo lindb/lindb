@@ -87,7 +87,7 @@ func (r *reader) suggestTables(database, ns, table string, limit int64) ([]strin
 func (r *reader) getMeta(
 	node models.InternalNode, req *protoMetaV1.SuggestRequest,
 ) (*protoMetaV1.SuggestResponse, error) {
-	conn, err := grpc.Dial(node.Address(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(node.Address(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}

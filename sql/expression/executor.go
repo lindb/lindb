@@ -58,7 +58,8 @@ func (r *rewriter) rewrite(node tree.Expression) Expression {
 	case *tree.Constant:
 		return NewConstant(expr.Value, expr.Type)
 	case *tree.SymbolReference:
-		// TODO: add check
+		// FIXME: add check,index not found
+		fmt.Printf("expr rewrite %v,%v\n", r.ctx.SourceLayout, expr.Name)
 		_, index, _ := lo.FindIndexOf(r.ctx.SourceLayout, func(item *plan.Symbol) bool {
 			return item.Name == expr.Name
 		})

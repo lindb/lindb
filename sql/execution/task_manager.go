@@ -105,9 +105,9 @@ func (mgr *taskManager) dispatchTask() {
 			output := buffer.NewPartitionOutputBuffer(task.id, task.fragment)
 			mgr.taskPool.Submit(context.TODO(), concurrent.NewTask(func() {
 				fmt.Println(task)
-				printer := printer.NewPlanPrinter(printer.NewTextRender(0))
+				planPrinter := printer.NewPlanPrinter(printer.NewTextRender(0))
 				fmt.Println("******************")
-				fmt.Println(printer.PrintLogicPlan(task.fragment.Root))
+				fmt.Println(planPrinter.PrintLogicPlan(task.fragment.Root))
 				fmt.Println("******************")
 
 				fct := NewTaskExecutionFactory()
@@ -116,16 +116,11 @@ func (mgr *taskManager) dispatchTask() {
 				outputCh := make(chan *types.Page)
 				defer func() {
 					close(outputCh)
-					fmt.Println("close task output")
 				}()
 
 				go func() {
-					defer func() {
-						if err := recover(); err != nil {
-							fmt.Println(err)
-						}
-					}()
 					for page := range outputCh {
+						// TODO: can merge page?
 						output.AddPage(page)
 						fmt.Println("send page done...")
 					}
@@ -134,11 +129,13 @@ func (mgr *taskManager) dispatchTask() {
 					fmt.Println("task done.....")
 				}()
 
-				exec.Execute(outputCh)
+				if err := exec.Execute(outputCh); err != nil {
+					output.AddPage(&types.Page{Error: err.Error()})
+				}
 				fmt.Printf("task exec result\n")
 			}, func(err error) {
 				fmt.Printf("task exec fail %v\n", err)
-				output.SetError(err)
+				output.AddPage(&types.Page{Error: err.Error()})
 			}))
 		case <-mgr.ctx.Done():
 			return
