@@ -55,3 +55,7 @@ func (op *ValuesOperator) GetLayout() []*plan.Symbol {
 func (op *ValuesOperator) Children() []Operator {
 	return nil
 }
+
+func (op *ValuesOperator) GetInbounds() []chan *types.Page {
+	return nil
+}

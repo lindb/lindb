@@ -49,3 +49,7 @@ func (op *TableScanOperator) GetLayout() []*plan.Symbol {
 func (op *TableScanOperator) Children() []operator.Operator {
 	return nil
 }
+
+func (op *TableScanOperator) GetInbounds() []chan *types.Page {
+	return nil
+}

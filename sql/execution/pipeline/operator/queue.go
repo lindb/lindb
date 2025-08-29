@@ -21,20 +21,41 @@ import (
 	"context"
 
 	"github.com/lindb/lindb/spi/types"
-	"github.com/lindb/lindb/sql/planner/plan"
 )
 
-type Operator interface {
-	Run(ctx context.Context, output chan<- *types.Page)
-	// GetLayout returns the output layout.
-	GetLayout() []*plan.Symbol
-	Children() []Operator
-	GetInbounds() []chan *types.Page
+type Queue struct {
+	pageCh chan *types.Page
 }
 
-type SourceOperator interface {
-	Operator
-	GetSourceID() plan.PlanNodeID
-	Receive(page *types.Page)
-	Complete()
+func NewQueue(pageCh chan *types.Page) *Queue {
+	return &Queue{
+		pageCh: pageCh,
+	}
+}
+
+func (q *Queue) Produce(page *types.Page) {
+	if page == nil {
+		return
+	}
+	q.pageCh <- page
+}
+
+func (q *Queue) Consume(ctx context.Context) (*types.Page, bool) {
+	select {
+	case err := <-ctx.Done():
+		panic(err)
+	case page, ok := <-q.pageCh:
+		if page != nil && page.Error != "" {
+			panic(page.Error)
+		}
+		return page, ok
+	}
+}
+
+func (q *Queue) GetInbound() chan *types.Page {
+	return q.pageCh
+}
+
+func (q *Queue) Close() {
+	close(q.pageCh)
 }

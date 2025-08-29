@@ -19,7 +19,6 @@ package operator
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/planner/plan"
@@ -28,25 +27,26 @@ import (
 type HashAggregationOperator struct {
 	node  *plan.AggregationNode
 	child Operator
+
+	inbound *Queue
 }
 
 func NewHashAggregationOperator(node *plan.AggregationNode, child Operator) Operator {
 	return &HashAggregationOperator{
-		child: child,
-		node:  node,
+		child:   child,
+		node:    node,
+		inbound: NewQueue(make(chan *types.Page)),
 	}
 }
 
 func (h *HashAggregationOperator) Run(ctx context.Context, output chan<- *types.Page) {
-	inbound := make(chan *types.Page)
-	go func() {
-		defer close(inbound)
-		h.child.Run(ctx, inbound)
-	}()
-	for source := range inbound {
+	for {
+		source, ok := h.inbound.Consume(ctx)
+		if !ok {
+			return
+		}
 		output <- source
 	}
-	fmt.Println("hash agg complete....")
 }
 
 func (h *HashAggregationOperator) GetLayout() []*plan.Symbol {
@@ -55,4 +55,8 @@ func (h *HashAggregationOperator) GetLayout() []*plan.Symbol {
 
 func (h *HashAggregationOperator) Children() []Operator {
 	return []Operator{h.child}
+}
+
+func (h *HashAggregationOperator) GetInbounds() []chan *types.Page {
+	return []chan *types.Page{h.inbound.GetInbound()}
 }

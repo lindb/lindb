@@ -15,26 +15,5 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package operator
-
-import (
-	"context"
-
-	"github.com/lindb/lindb/spi/types"
-	"github.com/lindb/lindb/sql/planner/plan"
-)
-
-type Operator interface {
-	Run(ctx context.Context, output chan<- *types.Page)
-	// GetLayout returns the output layout.
-	GetLayout() []*plan.Symbol
-	Children() []Operator
-	GetInbounds() []chan *types.Page
-}
-
-type SourceOperator interface {
-	Operator
-	GetSourceID() plan.PlanNodeID
-	Receive(page *types.Page)
-	Complete()
-}
+// Package scan provides the data scan operator.
+package scan

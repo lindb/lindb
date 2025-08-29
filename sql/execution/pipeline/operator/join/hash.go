@@ -20,6 +20,7 @@ package join
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/samber/lo"
 
@@ -39,6 +40,8 @@ type HashJoinOperator struct {
 	memTable              map[string]*rows
 	leftKeys, rightKeys   []int
 	leftScope, rightScope []*plan.Symbol
+
+	leftInbound, rightInbound *operator.Queue
 }
 
 func NewHashJoinOperator(node *plan.JoinNode, left, right operator.Operator) operator.Operator {
@@ -48,12 +51,20 @@ func NewHashJoinOperator(node *plan.JoinNode, left, right operator.Operator) ope
 		right:      right,
 		leftScope:  node.Left.GetOutputSymbols(),
 		rightScope: node.Right.GetOutputSymbols(),
+
+		leftInbound:  operator.NewQueue(make(chan *types.Page)),
+		rightInbound: operator.NewQueue(make(chan *types.Page)),
 	}
 }
 
 // Children implements operator.Operator.
 func (h *HashJoinOperator) Children() []operator.Operator {
 	return []operator.Operator{h.left, h.right}
+}
+
+// GetInbounds implements operator.Operator.
+func (h *HashJoinOperator) GetInbounds() []chan *types.Page {
+	return []chan *types.Page{h.leftInbound.GetInbound(), h.rightInbound.GetInbound()}
 }
 
 // GetLayout implements operator.Operator.
@@ -88,37 +99,26 @@ func (h *HashJoinOperator) prepare() {
 func (h *HashJoinOperator) Run(ctx context.Context, output chan<- *types.Page) {
 	h.prepare()
 
-	leftInbound := make(chan *types.Page)
-	go func() {
-		defer close(leftInbound)
-		h.left.Run(ctx, leftInbound)
-	}()
+	var wg sync.WaitGroup
+	wg.Add(2)
 
-	rightInbound := make(chan *types.Page)
-	go func() {
-		defer close(rightInbound)
-		h.right.Run(ctx, rightInbound)
-	}()
-
-	for leftInbound != nil || rightInbound != nil {
-		// consume page from left and right inbound
-		select {
-		case left, ok := <-leftInbound:
+	consume := func(inbound *operator.Queue, keys []int, isLeft bool) {
+		defer wg.Done()
+		for {
+			page, ok := inbound.Consume(ctx)
 			if !ok {
-				leftInbound = nil
-			} else {
-				h.process(left, h.leftKeys, true)
-				fmt.Printf("left=>>>>>>>%v\n", left)
+				return
 			}
-		case right, ok := <-rightInbound:
-			if !ok {
-				rightInbound = nil
-			} else {
-				h.process(right, h.rightKeys, false)
-				fmt.Printf("right=>>>>>>>%v\n", right)
-			}
+			h.process(page, keys, isLeft)
+			fmt.Printf("isLeft %v=>>>>>>>%v\n", isLeft, page)
 		}
 	}
+
+	go consume(h.leftInbound, h.leftKeys, true)
+	go consume(h.rightInbound, h.rightKeys, false)
+
+	wg.Wait()
+
 	newPage := types.NewPage()
 	outputs := h.node.GetOutputSymbols()
 	outputColumns := make([]*types.Column, len(outputs))

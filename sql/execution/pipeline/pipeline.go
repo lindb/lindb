@@ -18,19 +18,20 @@
 package pipeline
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/lindb/lindb/spi/types"
-	"github.com/lindb/lindb/sql/context"
+	sqlContext "github.com/lindb/lindb/sql/context"
 	"github.com/lindb/lindb/sql/execution/pipeline/operator"
 )
 
 type Pipeline struct {
-	taskCtx *context.TaskContext
+	taskCtx *sqlContext.TaskContext
 	root    operator.Operator
 }
 
-func NewPipeline(taskCtx *context.TaskContext, root operator.Operator) *Pipeline {
+func NewPipeline(taskCtx *sqlContext.TaskContext, root operator.Operator) *Pipeline {
 	return &Pipeline{
 		taskCtx: taskCtx,
 		root:    root,
@@ -39,5 +40,25 @@ func NewPipeline(taskCtx *context.TaskContext, root operator.Operator) *Pipeline
 
 func (p *Pipeline) Run(output chan<- *types.Page) {
 	fmt.Printf("run pipeline, root=>\n%s\n", renderText(p.root))
+
+	p.execOperator(p.taskCtx.Context, p.root, true, output)
+
 	p.root.Run(p.taskCtx.Context, output)
+}
+
+func (p *Pipeline) execOperator(ctx context.Context,
+	op operator.Operator,
+	exclude bool,
+	output chan<- *types.Page,
+) {
+	fmt.Printf("run operator=%T\n", op)
+	children := op.Children()
+	inbounds := op.GetInbounds()
+	for i, child := range children {
+		p.execOperator(ctx, child, false, inbounds[i])
+	}
+
+	if !exclude {
+		operator.RunAsync(ctx, op, output)
+	}
 }

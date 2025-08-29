@@ -30,26 +30,20 @@ import (
 )
 
 type ResultSetOutputOperator struct {
-	node  *plan.OutputNode
-	child operator.Operator
+	node    *plan.OutputNode
+	child   operator.Operator
+	inbound *operator.Queue
 }
 
 func NewRSOutputOperator(node *plan.OutputNode, child operator.Operator) operator.Operator {
 	return &ResultSetOutputOperator{
-		node:  node,
-		child: child,
+		node:    node,
+		child:   child,
+		inbound: operator.NewQueue(make(chan *types.Page)),
 	}
 }
 
 func (op *ResultSetOutputOperator) Run(ctx context.Context, output chan<- *types.Page) {
-	inbound := make(chan *types.Page)
-
-	go func() {
-		defer close(inbound)
-
-		op.child.Run(ctx, inbound)
-	}()
-
 	rebuildPage := false
 	layout := op.node.GetOutputSymbols()
 
@@ -68,13 +62,17 @@ func (op *ResultSetOutputOperator) Run(ctx context.Context, output chan<- *types
 	}
 
 	// process child output
-	for page := range inbound {
+	for {
+		page, ok := op.inbound.Consume(ctx)
+		if !ok {
+			break
+		}
 		if page == nil || page.NumRows() == 0 {
 			if page != nil && page.Error != "" {
 				output <- page
 			}
 			fmt.Printf("add empty page====%v\n", string(encoding.JSONMarshal(page)))
-			return
+			break
 		}
 		if rebuildPage {
 			targetPage := types.NewPage()
@@ -100,4 +98,8 @@ func (op *ResultSetOutputOperator) GetLayout() []*plan.Symbol {
 
 func (op *ResultSetOutputOperator) Children() []operator.Operator {
 	return []operator.Operator{op.child}
+}
+
+func (op *ResultSetOutputOperator) GetInbounds() []chan *types.Page {
+	return []chan *types.Page{op.inbound.GetInbound()}
 }

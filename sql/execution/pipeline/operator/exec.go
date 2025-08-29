@@ -19,22 +19,20 @@ package operator
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/lindb/lindb/spi/types"
-	"github.com/lindb/lindb/sql/planner/plan"
 )
 
-type Operator interface {
-	Run(ctx context.Context, output chan<- *types.Page)
-	// GetLayout returns the output layout.
-	GetLayout() []*plan.Symbol
-	Children() []Operator
-	GetInbounds() []chan *types.Page
-}
+func RunAsync(ctx context.Context, op Operator, output chan<- *types.Page) {
+	go func() {
+		defer func() {
+			if err := recover(); err != nil {
+				output <- &types.Page{Error: fmt.Sprintf("%v", err)}
+			}
+			close(output)
+		}()
 
-type SourceOperator interface {
-	Operator
-	GetSourceID() plan.PlanNodeID
-	Receive(page *types.Page)
-	Complete()
+		op.Run(ctx, output)
+	}()
 }

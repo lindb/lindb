@@ -28,25 +28,25 @@ import (
 type LocalExchangeOperator struct {
 	node  *plan.ExchangeNode
 	child operator.Operator
+
+	inbound *operator.Queue
 }
 
-// FIXME: source op
 func NewLocalExchangeOperator(node *plan.ExchangeNode, child operator.Operator) operator.Operator {
+	// FIXME: source op
 	return &LocalExchangeOperator{
-		node:  node,
-		child: child,
+		node:    node,
+		child:   child,
+		inbound: operator.NewQueue(make(chan *types.Page)),
 	}
 }
 
-// Finish implements operator.Operator.
 func (l *LocalExchangeOperator) Run(ctx context.Context, output chan<- *types.Page) {
-	inbound := make(chan *types.Page)
-	go func() {
-		defer close(inbound)
-		l.child.Run(ctx, inbound)
-	}()
-
-	for page := range inbound {
+	for {
+		page, ok := l.inbound.Consume(ctx)
+		if !ok {
+			return
+		}
 		output <- page
 	}
 }
@@ -57,4 +57,8 @@ func (l *LocalExchangeOperator) GetLayout() []*plan.Symbol {
 
 func (l *LocalExchangeOperator) Children() []operator.Operator {
 	return []operator.Operator{l.child}
+}
+
+func (l *LocalExchangeOperator) GetInbounds() []chan *types.Page {
+	return []chan *types.Page{l.inbound.GetInbound()}
 }

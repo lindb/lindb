@@ -29,14 +29,14 @@ import (
 type RemoteExchangeOperator struct {
 	ctx     context.Context
 	node    *plan.RemoteSourceNode
-	inbound chan *types.Page
+	inbound *operator.Queue
 }
 
 func NewRemoteExchangeOperator(ctx context.Context, node *plan.RemoteSourceNode, numOfChild int) operator.SourceOperator {
 	return &RemoteExchangeOperator{
 		ctx:     ctx,
 		node:    node,
-		inbound: make(chan *types.Page),
+		inbound: operator.NewQueue(make(chan *types.Page)),
 	}
 }
 
@@ -49,36 +49,30 @@ func (op *RemoteExchangeOperator) Run(ctx context.Context, output chan<- *types.
 	var buffer []*types.Page
 
 	for {
-		select {
 		// consume the pages from inbound channel
-		case page, ok := <-op.inbound:
-			fmt.Printf("receive pagll...e=%v\n", page)
-			if !ok {
-				// merge pages
-				mergedPage := types.MergePages(buffer)
-				if mergedPage != nil {
-					output <- mergedPage
-				}
-				// return if inbound channel is closed
-				return
+		page, ok := op.inbound.Consume(ctx)
+		fmt.Printf("receive pagll...e=%v\n", page)
+		if !ok {
+			// TODO: merge pages (streaming)
+			mergedPage := types.MergePages(buffer)
+			if mergedPage != nil {
+				output <- mergedPage
 			}
-			if page == nil {
-				continue
-			}
-			if page.Error != "" {
-				panic(page.Error)
-			}
-			buffer = append(buffer, page)
-		case err := <-ctx.Done():
-			panic(err)
+			// return if inbound channel is closed
+			return
 		}
+		if page == nil {
+			continue
+		}
+		if page.Error != "" {
+			panic(page.Error)
+		}
+		buffer = append(buffer, page)
 	}
 }
 
 func (op *RemoteExchangeOperator) Receive(page *types.Page) {
-	if page != nil {
-		op.inbound <- page
-	}
+	op.inbound.Produce(page)
 }
 
 func (op *RemoteExchangeOperator) GetLayout() []*plan.Symbol {
@@ -86,9 +80,13 @@ func (op *RemoteExchangeOperator) GetLayout() []*plan.Symbol {
 }
 
 func (op *RemoteExchangeOperator) Complete() {
-	close(op.inbound)
+	op.inbound.Close()
 }
 
 func (op *RemoteExchangeOperator) Children() []operator.Operator {
+	return nil
+}
+
+func (op *RemoteExchangeOperator) GetInbounds() []chan *types.Page {
 	return nil
 }
