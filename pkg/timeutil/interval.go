@@ -27,9 +27,7 @@ import (
 	"github.com/lindb/common/pkg/timeutil"
 )
 
-var (
-	unmarshalFn = jsoniter.Unmarshal
-)
+var unmarshalFn = jsoniter.Unmarshal
 
 // IntervalType defines interval type
 type IntervalType string
@@ -122,7 +120,7 @@ func (i Interval) MarshalText() (text []byte, err error) {
 
 // UnmarshalJSON parses a JSON value into an interval value.
 func (i *Interval) UnmarshalJSON(data []byte) (err error) {
-	var v interface{}
+	var v any
 	if err := unmarshalFn(data, &v); err != nil {
 		return err
 	}

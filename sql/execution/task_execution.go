@@ -81,7 +81,7 @@ func (exe *TaskExecution) Execute(output chan<- *types.Page) error {
 				if r := recover(); r != nil {
 					// FIXME: handle not found
 					errs[i] = fmt.Errorf("%v", r)
-					exe.logger.Warn("task execution pipeline error", logger.Any("error", r))
+					exe.logger.Warn("task execution pipeline error", logger.Any("error", r), logger.Stack())
 				}
 			}()
 			pipeline.Run(output)

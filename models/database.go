@@ -27,14 +27,6 @@ import (
 	"github.com/lindb/lindb/pkg/validate"
 )
 
-type EngineType string
-
-const (
-	Metric EngineType = "METRIC"
-	Log    EngineType = "LOG"
-	Trace  EngineType = "TRACE"
-)
-
 // ShardID represents type for shard id.
 type ShardID int
 
@@ -72,9 +64,8 @@ type LogicDatabase struct {
 
 // Database defines database config.
 type Database struct {
-	Option *option.DatabaseOption `json:"option"`                     // time series database option
-	Engine EngineType             `json:"engine" validate:"required"` // storage engine type of database
-	Name   string                 `json:"name" validate:"required"`   // name of database
+	Option *option.DatabaseOption `json:"option"`                   // time series database option
+	Name   string                 `json:"name" validate:"required"` // name of database
 	Desc   string                 `json:"desc,omitempty"`
 }
 

@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -114,7 +113,7 @@ func TestQueue_Ack(t *testing.T) {
 	q.SetAcknowledgedSeq(0)
 	assert.Equal(t, int64(1), q.AcknowledgedSeq())
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		data, err = q.Get(int64(i))
 		assert.True(t, errors.Is(err, ErrOutOfSequenceRange))
 		assert.Nil(t, data)
@@ -192,7 +191,7 @@ func TestQueue_new_err(t *testing.T) {
 
 	mkDirFunc = fileutil.MkDirIfNotExist
 	// case 2: create data page factory err
-	newPageFactoryFunc = func(_ string, _ int) (page.Factory, error) {
+	newPageFactoryFunc = func(_, _ string, _ int) (page.Factory, error) {
 		return nil, fmt.Errorf("err")
 	}
 	q, err = NewQueue(dir, 1024)
@@ -200,8 +199,8 @@ func TestQueue_new_err(t *testing.T) {
 	assert.Nil(t, q)
 	// case 3: create index page factory err
 	fct := page.NewMockFactory(ctrl)
-	newPageFactoryFunc = func(path string, _ int) (page.Factory, error) {
-		if strings.HasSuffix(path, dataPath) {
+	newPageFactoryFunc = func(path, dataType string, _ int) (page.Factory, error) {
+		if dataType == logData {
 			return fct, nil
 		}
 
@@ -214,10 +213,8 @@ func TestQueue_new_err(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, q)
 	// case 4: create meta page factory err
-	newPageFactoryFunc = func(path string, _ int) (page.Factory, error) {
-		if strings.HasSuffix(path, dataPath) {
-			return fct, nil
-		} else if strings.HasSuffix(path, indexPath) {
+	newPageFactoryFunc = func(path, dataType string, _ int) (page.Factory, error) {
+		if dataType == logData || dataType == indexData {
 			return fct, nil
 		}
 
@@ -230,7 +227,7 @@ func TestQueue_new_err(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, q)
 	// case 5: acquire meta page err
-	newPageFactoryFunc = func(_ string, _ int) (page.Factory, error) {
+	newPageFactoryFunc = func(_, _ string, _ int) (page.Factory, error) {
 		return fct, nil
 	}
 
@@ -242,12 +239,12 @@ func TestQueue_new_err(t *testing.T) {
 	assert.Nil(t, q)
 	// case 6: acquire index page err when empty queue
 	indexFct := page.NewMockFactory(ctrl)
-	newPageFactoryFunc = func(path string, pageSize int) (page.Factory, error) {
-		if strings.HasSuffix(path, indexPath) {
+	newPageFactoryFunc = func(path, dataType string, pageSize int) (page.Factory, error) {
+		if dataType == indexData {
 			return indexFct, nil
 		}
 
-		return page.NewFactory(path, pageSize)
+		return page.NewFactory(path, dataType, pageSize)
 	}
 
 	indexFct.EXPECT().Close().Return(nil)
@@ -257,27 +254,27 @@ func TestQueue_new_err(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, q)
 	// case 6: acquire data page err when empty queue
-	newPageFactoryFunc = func(path string, pageSize int) (page.Factory, error) {
-		if strings.HasSuffix(path, dataPath) {
+	newPageFactoryFunc = func(path, dataType string, pageSize int) (page.Factory, error) {
+		if dataType == metaData {
 			return fct, nil
 		}
 
-		return page.NewFactory(path, pageSize)
+		return page.NewFactory(path, dataType, pageSize)
 	}
 
-	fct.EXPECT().Close().Return(nil)
 	fct.EXPECT().AcquirePage(gomock.Any()).Return(nil, fmt.Errorf("err"))
+	fct.EXPECT().Close().Return(nil)
 
 	q, err = NewQueue(dir, 1024)
 	assert.Error(t, err)
 	assert.Nil(t, q)
 	// case 7: sync meta data err
-	newPageFactoryFunc = func(path string, pageSize int) (page.Factory, error) {
-		if strings.HasSuffix(path, metaPath) {
+	newPageFactoryFunc = func(path, dataType string, pageSize int) (page.Factory, error) {
+		if dataType == metaData {
 			return fct, nil
 		}
 
-		return page.NewFactory(path, pageSize)
+		return page.NewFactory(path, dataType, pageSize)
 	}
 
 	fct.EXPECT().Close().Return(nil)
@@ -327,12 +324,12 @@ func TestQueue_reopen_err(t *testing.T) {
 
 	// case 1: acquire index page err
 	fct := page.NewMockFactory(ctrl)
-	newPageFactoryFunc = func(path string, pageSize int) (page.Factory, error) {
-		if strings.HasSuffix(path, indexPath) {
+	newPageFactoryFunc = func(path, dataType string, pageSize int) (page.Factory, error) {
+		if dataType == indexData {
 			return fct, nil
 		}
 
-		return page.NewFactory(path, pageSize)
+		return page.NewFactory(path, dataType, pageSize)
 	}
 
 	fct.EXPECT().AcquirePage(gomock.Any()).Return(nil, fmt.Errorf("err"))
@@ -344,12 +341,12 @@ func TestQueue_reopen_err(t *testing.T) {
 
 	// case 1: acquire data page err
 	fct = page.NewMockFactory(ctrl)
-	newPageFactoryFunc = func(path string, pageSize int) (page.Factory, error) {
-		if strings.HasSuffix(path, dataPath) {
+	newPageFactoryFunc = func(path, dataType string, pageSize int) (page.Factory, error) {
+		if dataType == logData {
 			return fct, nil
 		}
 
-		return page.NewFactory(path, pageSize)
+		return page.NewFactory(path, dataType, pageSize)
 	}
 
 	fct.EXPECT().AcquirePage(gomock.Any()).Return(nil, fmt.Errorf("err"))
@@ -492,12 +489,12 @@ func TestQueue_concurrently(t *testing.T) {
 
 	sendMessages := make([]map[string][]byte, 4)
 
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		sendMessages[i] = mockMessageData(i, 100)
 	}
 	wait.Add(4)
 
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		msg := sendMessages[i]
 
 		go func() {
@@ -516,13 +513,13 @@ func TestQueue_concurrently(t *testing.T) {
 
 	wait.Wait()
 
-	for i := 0; i < 400; i++ {
+	for i := range 400 {
 		data, err := q.Get(int64(i))
 		assert.NoError(t, err)
 		messages.Delete(string(data))
 	}
 
-	messages.Range(func(key, value interface{}) bool {
+	messages.Range(func(key, value any) bool {
 		panic("get data")
 	})
 
@@ -568,11 +565,11 @@ func TestQueue_big_loop(t *testing.T) {
 	assert.NoError(t, err)
 	loop := 1000000
 	str := "big_loop_test"
-	for i := 0; i < loop; i++ {
+	for i := range loop {
 		err = q.Put([]byte(fmt.Sprintf("%s-%d", str, i)))
 		assert.NoError(t, err)
 	}
-	for i := 0; i < loop; i++ {
+	for i := range loop {
 		data, err := q.Get(int64(i))
 		assert.NoError(t, err)
 		assert.Equal(t, []byte(fmt.Sprintf("%s-%d", str, i)), data)
@@ -586,7 +583,7 @@ func TestQueue_big_loop(t *testing.T) {
 func mockMessageData(bucket, length int) map[string][]byte {
 	data := make(map[string][]byte)
 
-	for i := 0; i < length; i++ {
+	for i := range length {
 		str := fmt.Sprintf("%d-bucket-%d", bucket, i)
 		data[str] = []byte(str)
 	}

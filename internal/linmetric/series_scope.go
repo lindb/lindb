@@ -22,10 +22,9 @@ import (
 	"sync"
 
 	xxhash "github.com/cespare/xxhash/v2"
-
+	commonMetric "github.com/lindb/common/metric"
 	"github.com/lindb/common/pkg/fasttime"
 	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
-	commonseries "github.com/lindb/common/series"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/strutil"
@@ -234,7 +233,7 @@ func (s *taggedSeries) NewMinVec(fieldName string, tagKey ...string) *MinVec {
 	return newMinVec(s.r, s.metricName, fieldName, s.tags, tagKey...)
 }
 
-func (s *taggedSeries) buildFlatMetric(builder *commonseries.RowBuilder) bool {
+func (s *taggedSeries) buildFlatMetric(builder *commonMetric.RowBuilder) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

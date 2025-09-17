@@ -33,7 +33,7 @@ import (
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/tsdb"
+	storagepkg "github.com/lindb/lindb/storage"
 )
 
 func TestWriteAheadLogManager_GetOrCreateLog(t *testing.T) {
@@ -45,7 +45,7 @@ func TestWriteAheadLogManager_GetOrCreateLog(t *testing.T) {
 
 	newWriteAheadLog = func(_ context.Context, cfg config.WAL,
 		currentNodeID models.NodeID, database string,
-		engine tsdb.Engine,
+		engine storagepkg.Engine,
 		cliFct rpc.ClientStreamFactory,
 		_ storage.StateManager,
 	) WriteAheadLog {

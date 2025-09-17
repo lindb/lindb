@@ -24,8 +24,8 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/collections"
+	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/sql/grammar"
 )
@@ -226,15 +226,16 @@ func (v *AstVisitor) VisitRollupProps(ctx *grammar.RollupPropsContext) any {
 }
 
 func (v *AstVisitor) VisitEngineOption(ctx *grammar.EngineOptionContext) any {
-	engineType := models.Metric
+	engineType := option.Metric
 
 	switch {
 	case ctx.METRIC() != nil:
-		engineType = models.Metric
+		engineType = option.Metric
 	case ctx.LOG() != nil:
-		engineType = models.Log
+		engineType = option.Log
 	case ctx.TRACE() != nil:
-		engineType = models.Trace
+		engineType = option.Trace
+
 	}
 	return &EngineOption{
 		Type: engineType,

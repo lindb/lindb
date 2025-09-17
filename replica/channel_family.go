@@ -43,6 +43,7 @@ type FamilyChannel interface {
 	// ErrCanceled is returned when the shardChannel is canceled before data is written successfully.
 	// Concurrent safe.
 	Write(ctx context.Context, rows []metric.BrokerRow) error
+	WriteMsg(ctx context.Context, rows []byte) error
 	// leaderChanged notifies family shardChannel need change leader send stream
 	leaderChanged(shardState models.ShardState,
 		liveNodes map[models.NodeID]models.StatefulNode)
@@ -145,7 +146,7 @@ func (fc *familyChannel) Write(ctx context.Context, rows []metric.BrokerRow) err
 		fc.lock4write.Unlock()
 	}()
 
-	for idx := 0; idx < total; idx++ {
+	for idx := range total {
 		if _, err := rows[idx].WriteTo(fc.chunk); err != nil {
 			return err
 		}
@@ -155,6 +156,12 @@ func (fc *familyChannel) Write(ctx context.Context, rows []metric.BrokerRow) err
 		}
 		success++
 	}
+
+	return nil
+}
+
+func (fc *familyChannel) WriteMsg(ctx context.Context, rows []byte) error {
+	fc.ch <- rows
 
 	return nil
 }

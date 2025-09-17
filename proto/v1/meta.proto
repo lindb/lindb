@@ -3,28 +3,28 @@ syntax = "proto3";
 package protoMetaV1;
 
 message TableSchemaRequest {
-	string database = 1;
-	string namespace = 2;
-	string table = 3;
+  string database = 1;
+  string namespace = 2;
+  string table = 3;
 }
 
 message TableSchemaResponse {
-	bytes payload = 1;
+  bytes payload = 1;
 }
 
-message SuggestRequest { 
-	string database = 1;
-	string namespace = 2;
-	string table = 3;
-	int64 limit =4;
+message SuggestRequest {
+  string database = 1;
+  string namespace = 2;
+  string table = 3;
+  int64 limit = 4;
 }
 
 message SuggestResponse {
-	repeated string values = 1;
+  repeated string values = 1;
 }
 
 service MetaService {
-	rpc SuggestNamespace(SuggestRequest) returns (SuggestResponse) {} 
-	rpc SuggestTable(SuggestRequest) returns (SuggestResponse) {}
-	rpc TableSchema(TableSchemaRequest) returns (TableSchemaResponse) {}
+  rpc SuggestNamespace(SuggestRequest) returns (SuggestResponse) {}
+  rpc SuggestTable(SuggestRequest) returns (SuggestResponse) {}
+  rpc TableSchema(TableSchemaRequest) returns (TableSchemaResponse) {}
 }

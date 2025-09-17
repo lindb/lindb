@@ -24,10 +24,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lindb/common/pkg/fileutil"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
-
-	"github.com/lindb/common/pkg/fileutil"
 
 	"github.com/lindb/lindb/pkg/queue/page"
 )
@@ -43,18 +42,18 @@ func TestNewConsumerGroup(t *testing.T) {
 	}()
 
 	// case 1: new meta page factory
-	newPageFactoryFunc = func(path string, pageSize int) (page.Factory, error) {
-		return nil, fmt.Errorf("err")
+	newPageFactoryFunc = func(path, dataType string, pageSize int) (page.Factory, error) {
+		return nil, fmt.Errorf("err2")
 	}
 	fo, err := NewConsumerGroup(dir, "f1", nil)
 	assert.Error(t, err)
 	assert.Nil(t, fo)
 	// case 2: acquire meta page err
 	pageFct := page.NewMockFactory(ctrl)
-	newPageFactoryFunc = func(path string, pageSize int) (page.Factory, error) {
+	newPageFactoryFunc = func(path, dataType string, pageSize int) (page.Factory, error) {
 		return pageFct, nil
 	}
-	pageFct.EXPECT().Close().Return(fmt.Errorf("err"))
+	pageFct.EXPECT().Close().Return(fmt.Errorf("err3"))
 	pageFct.EXPECT().AcquirePage(gomock.Any()).Return(nil, fmt.Errorf("err"))
 	fo, err = NewConsumerGroup(dir, "f1", nil)
 	assert.Error(t, err)

@@ -33,14 +33,14 @@ import (
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
-	"github.com/lindb/lindb/tsdb"
+	"github.com/lindb/lindb/storage"
 )
 
 type sourceConnectorProvider struct {
-	engine tsdb.Engine
+	engine storage.Engine
 }
 
-func NewSourceConnectorProvider(engine tsdb.Engine) spi.SourceConnectorProvider {
+func NewSourceConnectorProvider(engine storage.Engine) spi.SourceConnectorProvider {
 	return &sourceConnectorProvider{
 		engine: engine,
 	}
@@ -67,7 +67,7 @@ func (p *sourceConnectorProvider) CreateSourceConnector(ctx context.Context,
 type sourceConnector struct {
 	ctx *ExecutionContext
 
-	engine tsdb.Engine
+	engine storage.Engine
 
 	table         spi.TableHandle
 	partitionIDs  []int
@@ -259,7 +259,7 @@ func (psc *sourceConnector) buildTableScan() *TableScan {
 }
 
 // getSchema returns table schema based on table handle.
-func (psc *sourceConnector) getSchema(db tsdb.Database, table *TableHandle) (metric.ID, *metric.Schema, error) {
+func (psc *sourceConnector) getSchema(db storage.Database, table *TableHandle) (metric.ID, *metric.Schema, error) {
 	// find metric id(table id)
 	metricID, err := db.MetaDB().GetMetricID(table.Namespace, table.Metric)
 	if err != nil {

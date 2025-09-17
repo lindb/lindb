@@ -18,6 +18,7 @@
 package encoding
 
 import (
+	"encoding/binary"
 	"unsafe"
 )
 
@@ -55,4 +56,14 @@ func Float64ToBytes(f64 float64) []byte {
 
 func BytesToFloat64(b []byte) float64 {
 	return unsafe.Slice((*float64)(unsafe.Pointer(unsafe.SliceData(b))), 1)[0]
+}
+
+func U32ToBytes(u uint32) []byte {
+	buf := make([]byte, 4)
+	binary.BigEndian.PutUint32(buf[:4], u)
+	return buf
+}
+
+func BytesToU32(b []byte) uint32 {
+	return binary.BigEndian.Uint32(b)
 }

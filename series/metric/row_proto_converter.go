@@ -26,10 +26,10 @@ import (
 
 	"github.com/cespare/xxhash/v2"
 	flatbuffers "github.com/google/flatbuffers/go"
+	commonMetric "github.com/lindb/common/metric"
 	"github.com/lindb/common/pkg/fasttime"
 	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
 	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
-	commonseries "github.com/lindb/common/series"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
@@ -89,7 +89,7 @@ func (rc *BrokerRowProtoConverter) validateMetric(m *protoMetricsV1.Metric) erro
 	if rc.limits.EnableMetricNameLengthCheck() && len(m.Name) > rc.limits.MaxMetricNameLength {
 		return constants.ErrMetricNameTooLong
 	}
-	m.Name = commonseries.SanitizeMetricName(m.Name)
+	m.Name = commonMetric.SanitizeMetricName(m.Name)
 	// empty field
 	if len(m.SimpleFields) == 0 && m.CompoundField == nil {
 		return ErrMetricPBEmptyField
@@ -108,7 +108,7 @@ func (rc *BrokerRowProtoConverter) validateMetric(m *protoMetricsV1.Metric) erro
 	if len(rc.namespace) > 0 {
 		m.Namespace = string(rc.namespace)
 	}
-	m.Namespace = commonseries.SanitizeNamespace(m.Namespace)
+	m.Namespace = commonMetric.SanitizeNamespace(m.Namespace)
 
 	tags := len(m.Tags)
 	if rc.limits.EnableTagsCheck() && tags > rc.limits.MaxTagsPerMetric {
@@ -154,8 +154,8 @@ func (rc *BrokerRowProtoConverter) validateMetric(m *protoMetricsV1.Metric) erro
 		}
 		// check sanitize
 		fieldName := strutil.String2ByteSlice(m.SimpleFields[idx].Name)
-		if commonseries.ShouldSanitizeFieldName(fieldName) {
-			m.SimpleFields[idx].Name = string(commonseries.SanitizeFieldName(fieldName))
+		if commonMetric.ShouldSanitizeFieldName(fieldName) {
+			m.SimpleFields[idx].Name = string(commonMetric.SanitizeFieldName(fieldName))
 		}
 		// field type unspecified
 		if m.SimpleFields[idx].Type == protoMetricsV1.SimpleFieldType_SIMPLE_UNSPECIFIED {

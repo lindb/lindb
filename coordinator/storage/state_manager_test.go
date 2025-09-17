@@ -31,7 +31,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/tsdb"
+	"github.com/lindb/lindb/storage"
 )
 
 func TestStateManager_Close(t *testing.T) {
@@ -139,7 +139,7 @@ func TestStateManager_OnShardAssignment(t *testing.T) {
 	defer ctrl.Finish()
 
 	repo := state.NewMockRepository(ctrl)
-	engine := tsdb.NewMockEngine(ctrl)
+	engine := storage.NewMockEngine(ctrl)
 	mgr := NewStateManager(context.TODO(), repo, &models.StatefulNode{ID: 1}, engine)
 	// case 1: create shard storage engine err
 	repo.EXPECT().Get(gomock.Any(), gomock.Any()).Return([]byte("{}"), nil)
@@ -213,7 +213,7 @@ func TestStateManager_onDatabaseLimits(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	engine := tsdb.NewMockEngine(ctrl)
+	engine := storage.NewMockEngine(ctrl)
 	mgr := NewStateManager(context.TODO(), nil, nil, engine)
 
 	// case 1: decode limit failure

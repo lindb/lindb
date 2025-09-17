@@ -82,10 +82,8 @@ func (mr *readOnlyRow) NewCompoundFieldIterator() (*CompoundFieldIterator, bool)
 	if obj := mr.m.CompoundField(&mr.compoundFieldIterator.f); obj == nil {
 		return nil, false
 	}
-	mr.compoundFieldIterator.num = mr.compoundFieldIterator.f.ExplicitBoundsLength()
-	if mr.compoundFieldIterator.f.ValuesLength() < mr.compoundFieldIterator.num {
-		mr.compoundFieldIterator.num = mr.compoundFieldIterator.f.ValuesLength()
-	}
+	mr.compoundFieldIterator.num = min(mr.compoundFieldIterator.f.ExplicitBoundsLength(),
+		mr.compoundFieldIterator.f.ValuesLength())
 	return &mr.compoundFieldIterator, true
 }
 

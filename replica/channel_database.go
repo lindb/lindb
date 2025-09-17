@@ -19,12 +19,14 @@ package replica
 
 import (
 	"context"
+	"fmt"
+	"maps"
 	"sort"
 	"sync"
-
-	"go.uber.org/atomic"
+	"time"
 
 	"github.com/lindb/common/pkg/logger"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
@@ -44,6 +46,8 @@ var (
 type DatabaseChannel interface {
 	// Write writes the metric data into shardChannel's buffer
 	Write(ctx context.Context, brokerBatchRows *metric.BrokerBatchRows) error
+
+	WriteMsg(ctx context.Context, data []byte) error
 	// CreateChannel creates the shard level replication shardChannel by given shard id
 	CreateChannel(numOfShard int32, shardID models.ShardID) (ShardChannel, error)
 	// Stop stops current database write shardChannel.
@@ -163,6 +167,23 @@ func (dc *databaseChannel) Write(ctx context.Context, brokerBatchRows *metric.Br
 	return err
 }
 
+func (dc *databaseChannel) WriteMsg(ctx context.Context, data []byte) error {
+	var err error
+
+	channel, ok := dc.getChannelByShardID(models.ShardID(0))
+	if !ok {
+		dc.statistics.ShardNotFound.Incr()
+		return errChannelNotFound
+
+	}
+	familyTime := timeutil.Interval(60_000).Calculator().CalcFamilyTime(time.Now().UnixMilli())
+	familyChannel := channel.GetOrCreateFamilyChannel(familyTime)
+	if err = familyChannel.WriteMsg(ctx, data); err != nil {
+		return err
+	}
+	return err
+}
+
 // CreateChannel creates the shard level replication shardChannel by given shard id
 func (dc *databaseChannel) CreateChannel(numOfShard int32, shardID models.ShardID) (ShardChannel, error) {
 	if channel, ok := dc.getChannelByShardID(shardID); ok {
@@ -204,6 +225,9 @@ func (dc *databaseChannel) Stop() {
 
 // getChannelByShardID gets the replica shardChannel by shard id
 func (dc *databaseChannel) getChannelByShardID(shardID models.ShardID) (ShardChannel, bool) {
+	fmt.Printf(
+		"getshard====%v\n", dc.shardChannels.value.Load(),
+	)
 	ch, ok := dc.shardChannels.value.Load().(shard2Channel)[shardID]
 	return ch, ok
 }
@@ -211,9 +235,7 @@ func (dc *databaseChannel) getChannelByShardID(shardID models.ShardID) (ShardCha
 func (dc *databaseChannel) insertShardChannel(newShardID models.ShardID, newChannel ShardChannel) {
 	oldMap := dc.shardChannels.value.Load().(shard2Channel)
 	newMap := make(shard2Channel)
-	for shardID, channel := range oldMap {
-		newMap[shardID] = channel
-	}
+	maps.Copy(newMap, oldMap)
 	newMap[newShardID] = newChannel
 	dc.shardChannels.value.Store(newMap)
 }

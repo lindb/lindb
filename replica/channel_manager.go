@@ -40,6 +40,7 @@ import (
 type ChannelManager interface {
 	// Write writes a MetricList, the manager handler the database, sharding things.
 	Write(ctx context.Context, database string, brokerBatchRows *metric.BrokerBatchRows) error
+	WriteMsg(ctx context.Context, database string, data []byte) error
 
 	// Close closes all the shardChannel.
 	Close()
@@ -97,6 +98,13 @@ func (cm *channelManager) Write(ctx context.Context, database string, brokerBatc
 
 	if databaseChannel, ok := cm.getDatabaseChannel(database); ok {
 		return databaseChannel.Write(ctx, brokerBatchRows)
+	}
+	return fmt.Errorf("database [%s] not found", database)
+}
+
+func (cm *channelManager) WriteMsg(ctx context.Context, database string, data []byte) error {
+	if databaseChannel, ok := cm.getDatabaseChannel(database); ok {
+		return databaseChannel.WriteMsg(ctx, data)
 	}
 	return fmt.Errorf("database [%s] not found", database)
 }
@@ -172,6 +180,7 @@ func (cm *channelManager) handleShardStateChangeEvent(
 	liveNodes map[models.NodeID]models.StatefulNode,
 ) {
 	numOfShard := len(shards)
+	fmt.Printf("num of shard: %d,%s,%v\n", numOfShard, databaseCfg.Name, shards)
 	for _, shardState := range shards {
 		shardID := shardState.ID
 		ch, err := cm.CreateChannel(databaseCfg, int32(numOfShard), shardID)

@@ -282,7 +282,7 @@ func (r *remoteReplicator) Replica(idx int64, msg []byte) {
 		logger.String("replicator", r.String()),
 		logger.Int64("replicaIdx", resp.ReplicaIndex),
 		logger.Int64("ackIdx", resp.AckIndex))
-	// FIXME: need check resp err
+	// FIXME: need check resp err code
 	if resp.AckIndex == resp.ReplicaIndex {
 		// if ack index = replica, need ack wal
 		r.SetAckIndex(resp.AckIndex)

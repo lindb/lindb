@@ -19,34 +19,36 @@ package rpc
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io"
-
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	protoWriteV1 "github.com/lindb/lindb/proto/gen/v1/write"
-	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/rpc"
+	"github.com/lindb/lindb/storage"
+	"github.com/lindb/lindb/storage/wal"
 )
 
 // WriteHandler implements protoWriteV1.WriteServiceServer interface for handling write rpc request.
 type WriteHandler struct {
-	walMgr replica.WriteAheadLogManager
+	engine storage.Engine
 
 	logger logger.Logger
 }
 
 // NewWriteHandler creates a write handler.
 func NewWriteHandler(
-	walMgr replica.WriteAheadLogManager,
+	engine storage.Engine,
 ) *WriteHandler {
 	return &WriteHandler{
-		walMgr: walMgr,
+		engine: engine,
 		logger: logger.GetLogger("Storage", "WriteRPC"),
 	}
 }
@@ -71,11 +73,12 @@ func (r *WriteHandler) Write(server protoWriteV1.WriteService_WriteServer) error
 		r.logger.Error("get or create wal partition err, when do write", logger.Error(err))
 		return status.Error(codes.Internal, err.Error())
 	}
-	err = p.BuildReplicaForLeader(familyState.Shard.Leader, familyState.Shard.Replica.Replicas)
-	if err != nil {
-		r.logger.Error("build replica replica err", logger.Error(err))
-		return status.Error(codes.Internal, err.Error())
-	}
+	// fixme:
+	// err = p.BuildReplicaForLeader(familyState.Shard.Leader, familyState.Shard.Replica.Replicas)
+	// if err != nil {
+	// 	r.logger.Error("build replica replica err", logger.Error(err))
+	// 	return status.Error(codes.Internal, err.Error())
+	// }
 
 	// handle write request from stream
 	for {
@@ -90,8 +93,7 @@ func (r *WriteHandler) Write(server protoWriteV1.WriteService_WriteServer) error
 
 		resp := &protoWriteV1.WriteResponse{}
 		// write wal log
-		err = p.WriteLog(req.Record)
-
+		err = p.Write(req.Record)
 		if err != nil {
 			resp.Err = err.Error()
 		}
@@ -121,11 +123,31 @@ func (r *WriteHandler) getOrCreatePartition(
 	shardID models.ShardID,
 	familyTime int64,
 	leader models.NodeID,
-) (replica.Partition, error) {
-	wal := r.walMgr.GetOrCreateLog(database)
-	p, err := wal.GetOrCreatePartition(shardID, familyTime, leader)
+) (wal.WriteAheadLog, error) {
+	db, ok := r.engine.GetDatabase2(database)
+	if !ok {
+		return nil, errors.New("database not exist")
+	}
+
+	shard, ok := db.GetShard(shardID)
+	if !ok {
+		fmt.Println(shardID)
+		return nil, errors.New("shard not exist")
+	}
+	p, err := shard.GetOrCreatePartition(familyTime)
 	if err != nil {
+		fmt.Printf("err0=%s\n", err)
 		return nil, err
 	}
-	return p, nil
+	segment, err := p.GetOrCreateSegment(familyTime)
+	if err != nil {
+		fmt.Printf("err1=%s\n", err)
+		return nil, err
+	}
+	log, err := segment.GetOrCreateWAL(leader)
+	if err != nil {
+		fmt.Printf("err2=%s\n", err)
+		return nil, err
+	}
+	return log, nil
 }

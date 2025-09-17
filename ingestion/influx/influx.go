@@ -24,8 +24,8 @@ import (
 	"net/http"
 	"strings"
 
+	commonMetric "github.com/lindb/common/metric"
 	"github.com/lindb/common/pkg/logger"
-	commonseries "github.com/lindb/common/series"
 
 	ingestCommon "github.com/lindb/lindb/ingestion/common"
 	"github.com/lindb/lindb/models"
@@ -33,15 +33,13 @@ import (
 	"github.com/lindb/lindb/series/tag"
 )
 
-var (
-	influxLogger = logger.GetLogger("Ingestion", "InfluxDB")
-)
+var influxLogger = logger.GetLogger("Ingestion", "InfluxDB")
 
 // Parse parses influxdb line protocol data to LinDB pb prometheus.
 // https://docs.influxdata.com/influxdb/v2.0/write-data/developer-tools/api/#example-api-write-request
 func Parse(req *http.Request, enrichedTags tag.Tags, namespace string, limits *models.Limits) (*metric.BrokerBatchRows, error) {
 	qry := req.URL.Query()
-	var reader = req.Body
+	reader := req.Body
 	if strings.EqualFold(req.Header.Get("Content-Encoding"), "gzip") {
 		gzipReader, err := ingestCommon.GetGzipReader(req.Body)
 		if err != nil {
@@ -57,7 +55,7 @@ func Parse(req *http.Request, enrichedTags tag.Tags, namespace string, limits *m
 	cr := GetChunkReader(reader)
 	defer PutChunkReader(cr)
 
-	rowBuilder, releaseFunc := commonseries.NewRowBuilder()
+	rowBuilder, releaseFunc := commonMetric.NewRowBuilder()
 	defer releaseFunc(rowBuilder)
 
 	batch := metric.NewBrokerBatchRows()

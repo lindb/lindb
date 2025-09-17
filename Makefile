@@ -15,7 +15,7 @@ help:  ## Display this help
 		/^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
 run: ## run local standalone cluster for demo/debug
-	go run github.com/lindb/lindb/cmd/lind standalone run --pprof --doc
+	go run -tags grocksdb_clean_link github.com/lindb/lindb/cmd/lind standalone run --pprof --doc
 
 cli: ## run LinDB CLI
 	go run github.com/lindb/lindb/cmd/cli

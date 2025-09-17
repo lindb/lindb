@@ -25,7 +25,7 @@ import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/series/tag"
-	"github.com/lindb/lindb/tsdb"
+	"github.com/lindb/lindb/storage"
 )
 
 const (
@@ -75,7 +75,7 @@ func (s *TagsScanner) GetTagValueIDs() []*roaring.Bitmap {
 }
 
 type Grouping struct {
-	db   tsdb.Database
+	db   storage.Database
 	tags tag.Metas
 
 	// tag value ids for each grouping tag key
@@ -83,7 +83,7 @@ type Grouping struct {
 	tagValuesMap        []map[uint32]string // tag value id=> tag value for each group by tag key
 }
 
-func NewGrouping(db tsdb.Database, tags tag.Metas) *Grouping {
+func NewGrouping(db storage.Database, tags tag.Metas) *Grouping {
 	lenOfTags := tags.Len()
 	return &Grouping{
 		db:                  db,

@@ -28,7 +28,7 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/replica"
-	"github.com/lindb/lindb/tsdb"
+	"github.com/lindb/lindb/storage"
 )
 
 //go:generate mockgen -source=./database_lifecycle.go -destination=./database_lifecycle_mock.go -package=storage
@@ -47,7 +47,7 @@ type databaseLifecycle struct {
 	cancel context.CancelFunc
 
 	walMgr replica.WriteAheadLogManager
-	engine tsdb.Engine
+	engine storage.Engine
 	repo   state.Repository
 
 	logger logger.Logger
@@ -58,7 +58,7 @@ func NewDatabaseLifecycle(
 	ctx context.Context,
 	repo state.Repository,
 	walMgr replica.WriteAheadLogManager,
-	engine tsdb.Engine,
+	engine storage.Engine,
 ) DatabaseLifecycle {
 	c, cancel := context.WithCancel(ctx)
 	return &databaseLifecycle{
@@ -115,7 +115,7 @@ func (l *databaseLifecycle) ttlTask() {
 				// do data ttl
 				l.engine.TTL()
 				// do data compaction
-				tsdb.GetFamilyManager().WalkEntry(func(family tsdb.DataFamily) {
+				storage.GetFamilyManager().WalkEntry(func(family storage.DataFamily) {
 					family.Compact()
 					family.Evict()
 				})

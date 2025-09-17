@@ -40,32 +40,32 @@ func TestNewFactory(t *testing.T) {
 	listDirFunc = func(path string) ([]string, error) {
 		return nil, fmt.Errorf("err")
 	}
-	fct, err := NewFactory(tmpDir, 128)
+	fct, err := NewFactory(tmpDir, "log", 128)
 	assert.Error(t, err)
 	assert.Nil(t, fct)
 	// case 2: list page files parse file sequence err
 	listDirFunc = func(path string) ([]string, error) {
-		return []string{"a.bat"}, nil
+		return []string{"a.log"}, nil
 	}
-	fct, err = NewFactory(tmpDir, 128)
+	fct, err = NewFactory(tmpDir, "log", 128)
 	assert.Error(t, err)
 	assert.Nil(t, fct)
 	// case 3: create page err
 	listDirFunc = func(path string) ([]string, error) {
-		return []string{"10.bat"}, nil
+		return []string{"10.log"}, nil
 	}
 	mapFileFunc = func(file *os.File, size int) ([]byte, error) {
 		return nil, fmt.Errorf("err")
 	}
-	fct, err = NewFactory(tmpDir, 128)
+	fct, err = NewFactory(tmpDir, "log", 128)
 	assert.Error(t, err)
 	assert.Nil(t, fct)
 	// case 4: reopen page file
 	listDirFunc = func(path string) ([]string, error) {
-		return []string{"10.bat"}, nil
+		return []string{"10.log"}, nil
 	}
 	mapFileFunc = fileutil.RWMap
-	fct, err = NewFactory(tmpDir, 128)
+	fct, err = NewFactory(tmpDir, "log", 128)
 	assert.NoError(t, err)
 	assert.NotNil(t, fct)
 	fct1 := fct.(*factory)
@@ -79,21 +79,10 @@ func TestNewFactory(t *testing.T) {
 func TestFactory_AcquirePage(t *testing.T) {
 	tmpDir := t.TempDir()
 	defer func() {
-		mkDirFunc = commonfileutil.MkDirIfNotExist
 		mapFileFunc = fileutil.RWMap
 	}()
-	// case 1: new factory err
-	mkDirFunc = func(path string) error {
-		return fmt.Errorf("err")
-	}
-	fct, err := NewFactory(tmpDir, 128)
-	assert.Error(t, err)
-	assert.Nil(t, fct)
-
-	mkDirFunc = commonfileutil.MkDirIfNotExist
-
 	// case 2: new factory success
-	fct, err = NewFactory(tmpDir, 128)
+	fct, err := NewFactory(tmpDir, "log", 128)
 	assert.NoError(t, err)
 	assert.NotNil(t, fct)
 	// case 3: acquire page success
@@ -135,7 +124,7 @@ func TestFactory_Close(t *testing.T) {
 
 	defer ctrl.Finish()
 
-	fct, err := NewFactory(tmpDir, 128)
+	fct, err := NewFactory(tmpDir, "log", 128)
 	assert.NoError(t, err)
 
 	page1 := NewMockMappedPage(ctrl)
@@ -157,7 +146,7 @@ func TestFactory_TruncatePages(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	fct, err := NewFactory(tmpDir, 128)
+	fct, err := NewFactory(tmpDir, "log", 128)
 	assert.NoError(t, err)
 	p, err := fct.AcquirePage(10)
 	assert.NoError(t, err)

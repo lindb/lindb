@@ -128,7 +128,7 @@ func NewQueue(dirPath string, pageSize int64) (Queue, error) {
 
 	// init data page factory
 	var dataPageFct page.Factory
-	dataPageFct, err = newPageFactoryFunc(filepath.Join(dirPath, dataPath), int(q.pageSize))
+	dataPageFct, err = newPageFactoryFunc(dirPath, logData, int(q.pageSize))
 	if err != nil {
 		return nil, err
 	}
@@ -137,18 +137,18 @@ func NewQueue(dirPath string, pageSize int64) (Queue, error) {
 
 	// init index page factory
 	var indexPageFct page.Factory
-	indexPageFct, err = newPageFactoryFunc(filepath.Join(dirPath, indexPath), indexPageSize)
+	indexPageFct, err = newPageFactoryFunc(dirPath, indexData, indexPageSize)
 	if err != nil {
 		return nil, err
 	}
 
 	q.indexPageFct = indexPageFct
 
-	hasMeta := fileutil.Exist(filepath.Join(dirPath, metaPath, fmt.Sprintf("%d.bat", metaPageIndex)))
+	hasMeta := fileutil.Exist(filepath.Join(dirPath, fmt.Sprintf("%020d.%s", metaPageIndex, metaData)))
 
 	// init meta page factory
 	var metaPageFct page.Factory
-	metaPageFct, err = newPageFactoryFunc(filepath.Join(dirPath, metaPath), metaPageSize)
+	metaPageFct, err = newPageFactoryFunc(dirPath, metaData, metaPageSize)
 	if err != nil {
 		return nil, err
 	}

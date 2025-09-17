@@ -32,7 +32,7 @@ import (
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/metric"
-	"github.com/lindb/lindb/tsdb"
+	"github.com/lindb/lindb/storage"
 )
 
 func TestLocalReplicator_New(t *testing.T) {
@@ -40,12 +40,12 @@ func TestLocalReplicator_New(t *testing.T) {
 	defer func() {
 		ctrl.Finish()
 	}()
-	database := tsdb.NewMockDatabase(ctrl)
+	database := storage.NewMockDatabase(ctrl)
 	database.EXPECT().Name().Return("test-database").AnyTimes()
-	shard := tsdb.NewMockShard(ctrl)
+	shard := storage.NewMockShard(ctrl)
 	shard.EXPECT().Database().Return(database).AnyTimes()
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
-	family := tsdb.NewMockDataFamily(ctrl)
+	family := storage.NewMockDataFamily(ctrl)
 	family.EXPECT().Retain().AnyTimes()
 	family.EXPECT().CommitSequence(gomock.Any(), gomock.Any()).AnyTimes()
 	family.EXPECT().AckSequence(gomock.Any(), gomock.Any()).DoAndReturn(func(_ int32, fn func(int64)) {
@@ -67,15 +67,15 @@ func TestLocalReplicator_Replica(t *testing.T) {
 	defer func() {
 		ctrl.Finish()
 	}()
-	database := tsdb.NewMockDatabase(ctrl)
+	database := storage.NewMockDatabase(ctrl)
 	database.EXPECT().Name().Return("test-database").AnyTimes()
-	shard := tsdb.NewMockShard(ctrl)
+	shard := storage.NewMockShard(ctrl)
 	var interval timeutil.Interval
 	_ = interval.ValueOf("10s")
 	shard.EXPECT().CurrentInterval().Return(interval).AnyTimes()
 	shard.EXPECT().Database().Return(database).AnyTimes()
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
-	family := tsdb.NewMockDataFamily(ctrl)
+	family := storage.NewMockDataFamily(ctrl)
 	family.EXPECT().Retain().AnyTimes()
 	family.EXPECT().CommitSequence(gomock.Any(), gomock.Any()).AnyTimes()
 	family.EXPECT().AckSequence(gomock.Any(), gomock.Any()).AnyTimes()
@@ -140,7 +140,7 @@ func TestLocalReplicator_Replica(t *testing.T) {
 func TestLocalReplicator_Close(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	family := tsdb.NewMockDataFamily(ctrl)
+	family := storage.NewMockDataFamily(ctrl)
 	r := &localReplicator{
 		family: family,
 	}

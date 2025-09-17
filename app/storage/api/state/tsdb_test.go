@@ -27,7 +27,7 @@ import (
 
 	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/tsdb"
+	"github.com/lindb/lindb/storage"
 )
 
 func TestTSDBAPI_GetMemoryDatabaseState(t *testing.T) {
@@ -36,15 +36,15 @@ func TestTSDBAPI_GetMemoryDatabaseState(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	f := tsdb.NewMockDataFamily(ctrl)
+	f := storage.NewMockDataFamily(ctrl)
 	f.EXPECT().Indicator().Return("f")
 	f.EXPECT().GetState().Return(models.DataFamilyState{})
-	s := tsdb.NewMockShard(ctrl)
+	s := storage.NewMockShard(ctrl)
 	f.EXPECT().Shard().Return(s).AnyTimes()
-	db := tsdb.NewMockDatabase(ctrl)
+	db := storage.NewMockDatabase(ctrl)
 	s.EXPECT().Database().Return(db)
 	db.EXPECT().Name().Return("test")
-	tsdb.GetFamilyManager().AddFamily(f)
+	storage.GetFamilyManager().AddFamily(f)
 
 	api := NewTSDBAPI()
 	r := gin.New()

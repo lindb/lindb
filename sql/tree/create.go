@@ -17,12 +17,12 @@
 
 package tree
 
-import "github.com/lindb/lindb/models"
+import "github.com/lindb/lindb/pkg/option"
 
 type CreateOption interface{}
 
 type EngineOption struct {
-	Type models.EngineType
+	Type option.EngineType
 }
 
 type CreateDatabase struct {

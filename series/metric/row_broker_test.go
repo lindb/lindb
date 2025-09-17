@@ -23,10 +23,10 @@ import (
 	"strconv"
 	"testing"
 
+	commonMetric "github.com/lindb/common/metric"
 	"github.com/lindb/common/pkg/fasttime"
 	commontimeutil "github.com/lindb/common/pkg/timeutil"
 	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
-	commonseries "github.com/lindb/common/series"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -90,7 +90,7 @@ func assertBrokerBatchRows(t *testing.T, brokerRows *BrokerBatchRows) {
 }
 
 func buildRow(row *BrokerRow, timestamp int64) {
-	builder, releaseFunc := commonseries.NewRowBuilder()
+	builder, releaseFunc := commonMetric.NewRowBuilder()
 	defer releaseFunc(builder)
 
 	builder.AddMetricName([]byte("test"))
@@ -189,7 +189,7 @@ func Test_BrokerBatchRows_FamilyRowsForNextShard_SameFamily(t *testing.T) {
 	now := fasttime.UnixMilliseconds()
 
 	var brokerRows BrokerBatchRows
-	for i := 0; i < 30; i++ {
+	for range 30 {
 		_ = brokerRows.TryAppend(func(row *BrokerRow) error {
 			buildRow(row, now)
 			return nil

@@ -22,7 +22,7 @@ import (
 	"sync"
 
 	commonconstants "github.com/lindb/common/constants"
-	commonseries "github.com/lindb/common/series"
+	commonMetric "github.com/lindb/common/metric"
 )
 
 var (
@@ -222,7 +222,7 @@ func (l *Limits) GetSeriesLimit(namespace, metricName string) uint32 {
 	}
 	key := metricName
 	if namespace != commonconstants.DefaultNamespace {
-		key = commonseries.JoinNamespaceMetric(namespace, metricName)
+		key = commonMetric.JoinNamespaceMetric(namespace, metricName)
 	}
 	limit, ok := l.Metrics[key]
 	if ok {

@@ -19,17 +19,14 @@ package state
 
 import (
 	"github.com/gin-gonic/gin"
-
 	httppkg "github.com/lindb/common/pkg/http"
 	"github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/tsdb"
+	"github.com/lindb/lindb/storage"
 )
 
-var (
-	MemoryDatabase = "/state/tsdb/memory"
-)
+var MemoryDatabase = "/state/tsdb/memory"
 
 // TSDBAPI represents tsdb internal state rest api.
 type TSDBAPI struct {
@@ -59,7 +56,7 @@ func (db *TSDBAPI) GetMemoryDatabaseState(c *gin.Context) {
 		return
 	}
 	var rs []models.DataFamilyState
-	tsdb.GetFamilyManager().WalkEntry(func(family tsdb.DataFamily) {
+	storage.GetFamilyManager().WalkEntry(func(family storage.DataFamily) {
 		if param.DB == family.Shard().Database().Name() {
 			rs = append(rs, family.GetState())
 		}

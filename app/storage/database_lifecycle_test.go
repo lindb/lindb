@@ -31,7 +31,7 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/replica"
-	"github.com/lindb/lindb/tsdb"
+	storagepkg "github.com/lindb/lindb/storage"
 )
 
 func TestNewDatabaseLifecycle(t *testing.T) {
@@ -42,7 +42,7 @@ func TestNewDatabaseLifecycle(t *testing.T) {
 	walMgr := replica.NewMockWriteAheadLogManager(ctrl)
 	walMgr.EXPECT().Stop().MaxTimes(2)
 	walMgr.EXPECT().Close().Return(nil)
-	engine := tsdb.NewMockEngine(ctrl)
+	engine := storagepkg.NewMockEngine(ctrl)
 	engine.EXPECT().Close().MaxTimes(2)
 
 	dbLifecycle := NewDatabaseLifecycle(context.TODO(), repo, walMgr, engine)
@@ -72,20 +72,20 @@ func TestDatabaseLifecycle_ttlTask(t *testing.T) {
 		config.SetGlobalStorageConfig(config.NewDefaultStorageBase())
 		ctrl.Finish()
 	}()
-	family := tsdb.NewMockDataFamily(ctrl)
+	family := storagepkg.NewMockDataFamily(ctrl)
 	family.EXPECT().Compact().AnyTimes()
 	family.EXPECT().Evict().AnyTimes()
 	family.EXPECT().Indicator().Return("ttl_family").AnyTimes()
-	tsdb.GetFamilyManager().AddFamily(family)
+	storagepkg.GetFamilyManager().AddFamily(family)
 	defer func() {
-		tsdb.GetFamilyManager().RemoveFamily(family)
+		storagepkg.GetFamilyManager().RemoveFamily(family)
 	}()
 
 	repo := state.NewMockRepository(ctrl)
 	walMgr := replica.NewMockWriteAheadLogManager(ctrl)
 	walMgr.EXPECT().Close()
 	walMgr.EXPECT().Stop()
-	engine := tsdb.NewMockEngine(ctrl)
+	engine := storagepkg.NewMockEngine(ctrl)
 	engine.EXPECT().Close()
 
 	dbLifecycle := NewDatabaseLifecycle(context.TODO(), repo, walMgr, engine)
@@ -114,7 +114,7 @@ func TestDatabaseLifecycle_dropDatabases(t *testing.T) {
 	}()
 	repo := state.NewMockRepository(ctrl)
 	walMgr := replica.NewMockWriteAheadLogManager(ctrl)
-	engine := tsdb.NewMockEngine(ctrl)
+	engine := storagepkg.NewMockEngine(ctrl)
 
 	cases := []struct {
 		name    string

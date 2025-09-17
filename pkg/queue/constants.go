@@ -18,9 +18,9 @@
 package queue
 
 const (
-	dataPath  = "data"
-	indexPath = "index"
-	metaPath  = "meta"
+	logData   = "log"
+	indexData = "index"
+	metaData  = "meta"
 
 	metaPageIndex = 0
 

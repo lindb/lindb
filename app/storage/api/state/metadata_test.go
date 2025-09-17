@@ -27,20 +27,20 @@ import (
 
 	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/tsdb"
+	"github.com/lindb/lindb/storage"
 )
 
 func TestMetadataAPI_GetLocalAllDatabaseCfg(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	engine := tsdb.NewMockEngine(ctrl)
-	db := tsdb.NewMockDatabase(ctrl)
+	engine := storage.NewMockEngine(ctrl)
+	db := storage.NewMockDatabase(ctrl)
 	api := NewMetadataAPI(engine)
 	r := gin.New()
 	api.Register(r)
 
-	engine.EXPECT().GetAllDatabases().Return(map[string]tsdb.Database{"test": db})
+	engine.EXPECT().GetAllDatabases().Return(map[string]storage.Database{"test": db})
 	db.EXPECT().GetConfig().Return(&models.DatabaseConfig{})
 	resp := mock.DoRequest(t, r, http.MethodGet, DatabaseCfgPath, "")
 	assert.Equal(t, http.StatusOK, resp.Code)

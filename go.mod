@@ -27,6 +27,7 @@ require (
 	github.com/klauspost/cpuid v1.3.1
 	github.com/lindb/common v0.0.7
 	github.com/lindb/roaring v1.2.1
+	github.com/linxGnu/grocksdb v1.10.2
 	github.com/lithammer/go-jump-consistent-hash v1.0.2
 	github.com/mattn/go-runewidth v0.0.16
 	github.com/mitchellh/mapstructure v1.5.0
@@ -153,3 +154,5 @@ require (
 )
 
 replace google.golang.org/genproto => google.golang.org/genproto/googleapis/rpc v0.0.0-20250811230008-5f3141c8851a
+
+replace github.com/lindb/common => ../common

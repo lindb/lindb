@@ -41,6 +41,7 @@ import (
 	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/meta"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/expression"
 	"github.com/lindb/lindb/sql/planner/plan"
@@ -185,10 +186,11 @@ func (r *reader) readStorage() (rows [][]*types.Datum) {
 }
 
 func (r *reader) readEngines() (rows [][]*types.Datum) {
+	// TODO: read from config file
 	rows = [][]*types.Datum{
-		types.MakeDatums(models.Metric, "DEFAULT"), // engine/support
-		types.MakeDatums(models.Log, "NO"),
-		types.MakeDatums(models.Trace, "NO"),
+		types.MakeDatums(option.Metric, "DEFAULT"), // engine/support
+		types.MakeDatums(option.Log, "NO"),
+		types.MakeDatums(option.Trace, "NO"),
 	}
 	return
 }
@@ -197,9 +199,9 @@ func (r *reader) readSchemata() (rows [][]*types.Datum) {
 	databases := r.metadataMgr.GetDatabases()
 	for _, database := range databases {
 		rows = append(rows, types.MakeDatums(
-			database.Name,     // schema_name
-			database.Engine,   // engine
-			database.String(), // statement
+			database.Name,          // schema_name
+			database.Option.Engine, // engine
+			database.String(),      // statement
 		))
 	}
 	return

@@ -126,13 +126,16 @@ func (m *brokerMetadataManager) GetTableMetadata(database, ns, table string) (*t
 		return nil, err
 	}
 	schema := types.NewTableSchema()
-	for node := range partitions {
-		tableSchema, err := m.getTableSchema(database, ns, table, node)
-		if err != nil {
-			return nil, err
+	if table != "logs" {
+		// FIXME: log table???
+		for node := range partitions {
+			tableSchema, err := m.getTableSchema(database, ns, table, node)
+			if err != nil {
+				return nil, err
+			}
+			// TODO: remove duplicate column
+			schema.AddColumns(tableSchema.Columns)
 		}
-		// TODO: remove duplicate column
-		schema.AddColumns(tableSchema.Columns)
 	}
 	return &types.TableMetadata{
 		Schema:     schema,

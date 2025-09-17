@@ -22,6 +22,7 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/meta"
+	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/spi/types"
 )
 
@@ -85,16 +86,24 @@ func (mgr *metadataManager) GetTableHandle(db, ns, table string) TableHandle {
 	if db == constants.InformationSchema {
 		kind = InfoSchema
 	} else {
-		_, ok := mgr.metadataMgr.GetDatabase(db)
+		database, ok := mgr.metadataMgr.GetDatabase(db)
 		if !ok {
 			panic(constants.ErrDatabaseNotExist)
 		}
-		// FIXME: get table kind by database
-		kind = Metric
+		switch database.Option.Engine {
+		case option.Metric:
+			kind = Metric
+		case option.Log:
+			kind = Log
+		case option.Trace:
+			kind = Trace
+		default:
+			panic(fmt.Sprintf("not support engine: %v", database.Option.Engine))
+		}
 	}
 	fn, ok := createTableFn[kind]
 	if !ok {
-		panic(fmt.Sprintf("create table handle func not exist, kind: %v", Metric))
+		panic(fmt.Sprintf("create table handle func not exist, kind: %v", kind))
 	}
 	return fn(db, ns, table)
 }

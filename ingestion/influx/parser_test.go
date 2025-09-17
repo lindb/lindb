@@ -23,9 +23,9 @@ import (
 	"strings"
 	"testing"
 
+	commonMetric "github.com/lindb/common/metric"
 	"github.com/lindb/common/pkg/fasttime"
 	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
-	commonseries "github.com/lindb/common/series"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/constants"
@@ -34,7 +34,7 @@ import (
 )
 
 func Test_tooManyTags(t *testing.T) {
-	builder, releaseFunc := commonseries.NewRowBuilder()
+	builder, releaseFunc := commonMetric.NewRowBuilder()
 	defer releaseFunc(builder)
 	var tagPair []string
 	for i := 0; i <= 10; i++ {
@@ -49,7 +49,7 @@ func Test_tooManyTags(t *testing.T) {
 }
 
 func Test_noTags_noTimestamp(t *testing.T) {
-	builder, releaseFunc := commonseries.NewRowBuilder()
+	builder, releaseFunc := commonMetric.NewRowBuilder()
 	defer releaseFunc(builder)
 
 	err := parseInfluxLine(builder, []byte("cpu value=1"), "ns2", -1e6, models.NewDefaultLimits())
@@ -64,7 +64,7 @@ func Test_noTags_noTimestamp(t *testing.T) {
 }
 
 func Test_badTimestamp(t *testing.T) {
-	builder, releaseFunc := commonseries.NewRowBuilder()
+	builder, releaseFunc := commonMetric.NewRowBuilder()
 	defer releaseFunc(builder)
 
 	lines := []string{
@@ -84,7 +84,7 @@ func Test_badTimestamp(t *testing.T) {
 }
 
 func Test_tags(t *testing.T) {
-	builder, releaseFunc := commonseries.NewRowBuilder()
+	builder, releaseFunc := commonMetric.NewRowBuilder()
 	defer releaseFunc(builder)
 
 	examples := []struct {
@@ -121,7 +121,7 @@ func Test_tags(t *testing.T) {
 }
 
 func Test_InvalidLine(t *testing.T) {
-	builder, releaseFunc := commonseries.NewRowBuilder()
+	builder, releaseFunc := commonMetric.NewRowBuilder()
 	defer releaseFunc(builder)
 
 	examples := []struct {
@@ -143,7 +143,7 @@ func Test_InvalidLine(t *testing.T) {
 }
 
 func Test_metricName(t *testing.T) {
-	builder, releaseFunc := commonseries.NewRowBuilder()
+	builder, releaseFunc := commonMetric.NewRowBuilder()
 	defer releaseFunc(builder)
 
 	examples := []struct {
@@ -172,7 +172,7 @@ func Test_metricName(t *testing.T) {
 }
 
 func Test_missingTagValues(t *testing.T) {
-	builder, releaseFunc := commonseries.NewRowBuilder()
+	builder, releaseFunc := commonMetric.NewRowBuilder()
 	defer releaseFunc(builder)
 
 	examples := []struct {
@@ -197,7 +197,7 @@ func Test_missingTagValues(t *testing.T) {
 }
 
 func Test_missingFieldNames(t *testing.T) {
-	builder, releaseFunc := commonseries.NewRowBuilder()
+	builder, releaseFunc := commonMetric.NewRowBuilder()
 	defer releaseFunc(builder)
 
 	examples := []struct {
@@ -434,7 +434,7 @@ func Test_parseUnescapedMetric(t *testing.T) {
 		},
 	}
 
-	builder, releaseFunc := commonseries.NewRowBuilder()
+	builder, releaseFunc := commonMetric.NewRowBuilder()
 	defer releaseFunc(builder)
 
 	for _, example := range examples {
@@ -484,7 +484,7 @@ func Test_parseBadFields(t *testing.T) {
 		`cpu,regions=east value=1t`,
 		`cpu,regions=east value=2f`,
 	}
-	builder, releaseFunc := commonseries.NewRowBuilder()
+	builder, releaseFunc := commonMetric.NewRowBuilder()
 	defer releaseFunc(builder)
 	for _, line := range lines {
 		builder.Reset()
@@ -514,7 +514,7 @@ func Test_parseField(t *testing.T) {
 }
 
 func Test_limits(t *testing.T) {
-	builder, releaseFunc := commonseries.NewRowBuilder()
+	builder, releaseFunc := commonMetric.NewRowBuilder()
 	defer releaseFunc(builder)
 
 	limits := models.NewDefaultLimits()

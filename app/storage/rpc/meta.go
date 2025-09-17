@@ -27,15 +27,15 @@ import (
 	"github.com/lindb/lindb/constants"
 	protoMetaV1 "github.com/lindb/lindb/proto/gen/v1/meta"
 	"github.com/lindb/lindb/spi/types"
-	"github.com/lindb/lindb/tsdb"
+	"github.com/lindb/lindb/storage"
 )
 
 type MetaService struct {
-	engine tsdb.Engine
+	engine storage.Engine
 	logger logger.Logger
 }
 
-func NewMetaService(engine tsdb.Engine) protoMetaV1.MetaServiceServer {
+func NewMetaService(engine storage.Engine) protoMetaV1.MetaServiceServer {
 	return &MetaService{
 		engine: engine,
 		logger: logger.GetLogger("RPC", "resultSet"),

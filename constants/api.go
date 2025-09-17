@@ -34,4 +34,6 @@ const (
 	ContentTypeProto = "application/protobuf"
 	// ContentTypeInflux represents influx content type.
 	ContentTypeInflux = "application/influx"
+	// ContentTypeJson represents json content type.
+	ContentTypeJson = "application/json"
 )

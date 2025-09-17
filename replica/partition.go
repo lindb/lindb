@@ -33,7 +33,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/tsdb"
+	storagepkg "github.com/lindb/lindb/storage"
 )
 
 //go:generate mockgen -source=./partition.go -destination=./partition_mock.go -package=replica
@@ -89,9 +89,9 @@ type partition struct {
 	logger               logger.Logger
 	ctx                  context.Context
 	cliFct               rpc.ClientStreamFactory
-	family               tsdb.DataFamily
+	family               storagepkg.DataFamily
 	log                  queue.FanOutQueue
-	shard                tsdb.Shard
+	shard                storagepkg.Shard
 	closed               *atomic.Bool
 	replicators          map[models.NodeID]Replicator
 	cancel               context.CancelFunc
@@ -107,8 +107,8 @@ type partition struct {
 // NewPartition creates a writeTask ahead log partition(db+shard+family time+leader).
 func NewPartition(
 	ctx context.Context,
-	shard tsdb.Shard,
-	family tsdb.DataFamily,
+	shard storagepkg.Shard,
+	family storagepkg.DataFamily,
 	currentNodeID models.NodeID,
 	log queue.FanOutQueue,
 	cliFct rpc.ClientStreamFactory,

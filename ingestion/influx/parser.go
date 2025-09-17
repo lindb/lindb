@@ -22,10 +22,10 @@ import (
 	"errors"
 	"strconv"
 
+	commonMetric "github.com/lindb/common/metric"
 	"github.com/lindb/common/pkg/fasttime"
 	"github.com/lindb/common/pkg/timeutil"
 	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
-	commonseries "github.com/lindb/common/series"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/metrics"
@@ -47,7 +47,7 @@ var influxIngestionStatistics = metrics.NewInfluxIngestionStatistics()
 // https://github.com/influxdata/influxdb/blob/master/models/points_test.go
 
 func parseInfluxLine(
-	builder *commonseries.RowBuilder,
+	builder *commonMetric.RowBuilder,
 	content []byte,
 	namespace string,
 	multiplier int64,

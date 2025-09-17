@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	commonseries "github.com/lindb/common/series"
+	commonMetric "github.com/lindb/common/metric"
 )
 
 // BoundHistogram is a histogram which has been Bound to a certain metric
@@ -100,7 +100,7 @@ func (h *BoundHistogram) Update(f func()) {
 	h.UpdateSince(start)
 }
 
-func (h *BoundHistogram) marshalToCompoundField(builder *commonseries.RowBuilder) {
+func (h *BoundHistogram) marshalToCompoundField(builder *commonMetric.RowBuilder) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 

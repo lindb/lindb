@@ -36,14 +36,14 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/tsdb"
+	storagepkg "github.com/lindb/lindb/storage"
 )
 
 func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	engine := tsdb.NewMockEngine(ctrl)
-	shard := tsdb.NewMockShard(ctrl)
+	engine := storagepkg.NewMockEngine(ctrl)
+	shard := storagepkg.NewMockShard(ctrl)
 
 	cases := []struct {
 		name    string
@@ -93,7 +93,7 @@ func TestWriteAheadLog_GetOrCreatePartition(t *testing.T) {
 				newFanOutQueue = func(dirPath string, dataSizeLimit int64) (q queue.FanOutQueue, err error) {
 					return nil, nil
 				}
-				NewPartitionFn = func(ctx context.Context, shard tsdb.Shard, family tsdb.DataFamily,
+				NewPartitionFn = func(ctx context.Context, shard storagepkg.Shard, family storagepkg.DataFamily,
 					currentNodeID models.NodeID, log queue.FanOutQueue,
 					cliFct rpc.ClientStreamFactory, stateMgr storage.StateManager,
 				) Partition {
@@ -154,7 +154,7 @@ func TestWriteAheadLog_recovery(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	now := timeutil.Now() - timeutil.Now()%timeutil.OneHour
-	engine := tsdb.NewMockEngine(ctrl)
+	engine := storagepkg.NewMockEngine(ctrl)
 	p := NewMockPartition(ctrl)
 	cases := []struct {
 		name    string

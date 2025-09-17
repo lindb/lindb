@@ -21,7 +21,7 @@ import (
 	"io"
 	"sync"
 
-	commonseries "github.com/lindb/common/series"
+	commonMetric "github.com/lindb/common/metric"
 
 	"github.com/lindb/lindb/models"
 )
@@ -114,7 +114,7 @@ func (r *Registry) register(seriesID uint64, series *taggedSeries) *taggedSeries
 
 // gatherMetricList transforms event-metrics to native LinDB dto-proto format
 func (r *Registry) gatherMetricList(
-	writer io.Writer, merger func(builder *commonseries.RowBuilder),
+	writer io.Writer, merger func(builder *commonMetric.RowBuilder),
 ) (count int) {
 	// store metrics in buffer to prevent long waiting during flushing
 	var buffer []*taggedSeries
@@ -124,7 +124,7 @@ func (r *Registry) gatherMetricList(
 	}
 	r.mu.RUnlock()
 
-	builder, releaseFunc := commonseries.NewRowBuilder()
+	builder, releaseFunc := commonMetric.NewRowBuilder()
 	defer releaseFunc(builder)
 
 	for _, s := range buffer {

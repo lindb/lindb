@@ -38,7 +38,7 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/tsdb"
+	storagepkg "github.com/lindb/lindb/storage"
 )
 
 func TestPartition_BuildReplicaRelation(t *testing.T) {
@@ -48,18 +48,18 @@ func TestPartition_BuildReplicaRelation(t *testing.T) {
 		newRemoteReplicatorFn = NewRemoteReplicator
 		ctrl.Finish()
 	}()
-	database := tsdb.NewMockDatabase(ctrl)
-	family := tsdb.NewMockDataFamily(ctrl)
+	database := storagepkg.NewMockDatabase(ctrl)
+	family := storagepkg.NewMockDataFamily(ctrl)
 	family.EXPECT().FamilyTime().Return(commontimeutil.Now()).AnyTimes()
 	database.EXPECT().Name().Return("test").AnyTimes()
 	r := NewMockReplicator(ctrl)
-	shard := tsdb.NewMockShard(ctrl)
+	shard := storagepkg.NewMockShard(ctrl)
 	shard.EXPECT().Database().Return(database).AnyTimes()
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 	r.EXPECT().String().Return("TestPartition_BuildReplicaRelation").AnyTimes()
 	r.EXPECT().ReplicaState().Return(&models.ReplicaState{}).AnyTimes()
 	r.EXPECT().Pending().Return(int64(10)).AnyTimes()
-	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ tsdb.Shard, _ tsdb.DataFamily) Replicator {
+	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ storagepkg.Shard, _ storagepkg.DataFamily) Replicator {
 		return r
 	}
 	newRemoteReplicatorFn = func(_ context.Context, _ *ReplicatorChannel,
@@ -113,17 +113,17 @@ func TestPartition_BuildReplicaForFollower(t *testing.T) {
 		ctrl.Finish()
 	}()
 	r := NewMockReplicator(ctrl)
-	database := tsdb.NewMockDatabase(ctrl)
+	database := storagepkg.NewMockDatabase(ctrl)
 	database.EXPECT().Name().Return("test").AnyTimes()
-	shard := tsdb.NewMockShard(ctrl)
+	shard := storagepkg.NewMockShard(ctrl)
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 	shard.EXPECT().Database().Return(database).AnyTimes()
-	family := tsdb.NewMockDataFamily(ctrl)
+	family := storagepkg.NewMockDataFamily(ctrl)
 	family.EXPECT().FamilyTime().Return(commontimeutil.Now()).AnyTimes()
 	r.EXPECT().String().Return("TestPartition_BuildReplicaForFollower").AnyTimes()
 	r.EXPECT().ReplicaState().Return(&models.ReplicaState{}).AnyTimes()
 	r.EXPECT().Pending().Return(int64(10)).AnyTimes()
-	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ tsdb.Shard, _ tsdb.DataFamily) Replicator {
+	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ storagepkg.Shard, _ storagepkg.DataFamily) Replicator {
 		return r
 	}
 	newRemoteReplicatorFn = func(_ context.Context, _ *ReplicatorChannel,
@@ -161,18 +161,18 @@ func TestPartition_Close(t *testing.T) {
 	}()
 	r := NewMockReplicator(ctrl)
 	r.EXPECT().ReplicaState().Return(&models.ReplicaState{}).AnyTimes()
-	database := tsdb.NewMockDatabase(ctrl)
+	database := storagepkg.NewMockDatabase(ctrl)
 	database.EXPECT().Name().Return("test").AnyTimes()
-	shard := tsdb.NewMockShard(ctrl)
+	shard := storagepkg.NewMockShard(ctrl)
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 	shard.EXPECT().Database().Return(database).AnyTimes()
-	family := tsdb.NewMockDataFamily(ctrl)
+	family := storagepkg.NewMockDataFamily(ctrl)
 	family.EXPECT().FamilyTime().Return(commontimeutil.Now()).AnyTimes()
 	l := queue.NewMockFanOutQueue(ctrl)
 	l.EXPECT().GetOrCreateConsumerGroup(gomock.Any()).Return(nil, nil).AnyTimes()
 	r.EXPECT().String().Return("TestPartition_Close").AnyTimes()
 	r.EXPECT().Pending().Return(int64(10)).AnyTimes()
-	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ tsdb.Shard, _ tsdb.DataFamily) Replicator {
+	newLocalReplicatorFn = func(_ *ReplicatorChannel, _ storagepkg.Shard, _ storagepkg.DataFamily) Replicator {
 		return r
 	}
 	newRemoteReplicatorFn = func(_ context.Context, _ *ReplicatorChannel,
@@ -203,12 +203,12 @@ func TestPartition_WriteLog(t *testing.T) {
 	l := queue.NewMockFanOutQueue(ctrl)
 	q := queue.NewMockQueue(ctrl)
 	l.EXPECT().Queue().Return(q).AnyTimes()
-	db := tsdb.NewMockDatabase(ctrl)
+	db := storagepkg.NewMockDatabase(ctrl)
 	db.EXPECT().Name().Return("test").AnyTimes()
-	shard := tsdb.NewMockShard(ctrl)
+	shard := storagepkg.NewMockShard(ctrl)
 	shard.EXPECT().Database().Return(db).AnyTimes()
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
-	family := tsdb.NewMockDataFamily(ctrl)
+	family := storagepkg.NewMockDataFamily(ctrl)
 	family.EXPECT().FamilyTime().Return(commontimeutil.Now()).AnyTimes()
 	p := NewPartition(context.TODO(), shard, family, 1, l, nil, nil)
 	q.EXPECT().Put(gomock.Any()).Return(fmt.Errorf("err"))
@@ -230,12 +230,12 @@ func TestPartition_ReplicaLog(t *testing.T) {
 	l := queue.NewMockFanOutQueue(ctrl)
 	q := queue.NewMockQueue(ctrl)
 	l.EXPECT().Queue().Return(q).AnyTimes()
-	db := tsdb.NewMockDatabase(ctrl)
+	db := storagepkg.NewMockDatabase(ctrl)
 	db.EXPECT().Name().Return("test").AnyTimes()
-	shard := tsdb.NewMockShard(ctrl)
+	shard := storagepkg.NewMockShard(ctrl)
 	shard.EXPECT().Database().Return(db).AnyTimes()
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
-	family := tsdb.NewMockDataFamily(ctrl)
+	family := storagepkg.NewMockDataFamily(ctrl)
 	family.EXPECT().FamilyTime().Return(commontimeutil.Now()).AnyTimes()
 	p := NewPartition(context.TODO(), shard, family, 1, l, nil, nil)
 	// case 1: replica idx err
@@ -267,11 +267,11 @@ func TestPartition_getReplicaState(t *testing.T) {
 	l := queue.NewMockFanOutQueue(ctrl)
 	q := queue.NewMockQueue(ctrl)
 	l.EXPECT().Queue().Return(q).AnyTimes()
-	db := tsdb.NewMockDatabase(ctrl)
+	db := storagepkg.NewMockDatabase(ctrl)
 	db.EXPECT().Name().Return("test").AnyTimes()
-	family := tsdb.NewMockDataFamily(ctrl)
+	family := storagepkg.NewMockDataFamily(ctrl)
 	family.EXPECT().FamilyTime().Return(commontimeutil.Now()).AnyTimes()
-	shard := tsdb.NewMockShard(ctrl)
+	shard := storagepkg.NewMockShard(ctrl)
 	shard.EXPECT().Database().Return(db).AnyTimes()
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 	p := NewPartition(context.TODO(), shard, family, 1, l, nil, nil)
@@ -317,10 +317,10 @@ func TestPartition_IsExpire(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	shard := tsdb.NewMockShard(ctrl)
-	db := tsdb.NewMockDatabase(ctrl)
+	shard := storagepkg.NewMockShard(ctrl)
+	db := storagepkg.NewMockDatabase(ctrl)
 	shard.EXPECT().Database().Return(db).AnyTimes()
-	family := tsdb.NewMockDataFamily(ctrl)
+	family := storagepkg.NewMockDataFamily(ctrl)
 
 	log := queue.NewMockFanOutQueue(ctrl)
 	q := queue.NewMockQueue(ctrl)
@@ -380,11 +380,11 @@ func TestPartition_recovery(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	shard := tsdb.NewMockShard(ctrl)
-	db := tsdb.NewMockDatabase(ctrl)
+	shard := storagepkg.NewMockShard(ctrl)
+	db := storagepkg.NewMockDatabase(ctrl)
 	shard.EXPECT().Database().Return(db).AnyTimes()
 	db.EXPECT().Name().Return("test").AnyTimes()
-	family := tsdb.NewMockDataFamily(ctrl)
+	family := storagepkg.NewMockDataFamily(ctrl)
 	log := queue.NewMockFanOutQueue(ctrl)
 	log.EXPECT().ConsumerGroupNames().Return([]string{"1"}).AnyTimes()
 
@@ -407,7 +407,7 @@ func TestPartition_recovery(t *testing.T) {
 		family.EXPECT().TimeRange().Return(timeutil.TimeRange{Start: commontimeutil.Now()})
 		r := NewMockReplicator(ctrl)
 		r.EXPECT().ReplicaState().Return(&models.ReplicaState{}).AnyTimes()
-		newLocalReplicatorFn = func(channel *ReplicatorChannel, shard tsdb.Shard, family tsdb.DataFamily) Replicator {
+		newLocalReplicatorFn = func(channel *ReplicatorChannel, shard storagepkg.Shard, family storagepkg.DataFamily) Replicator {
 			return r
 		}
 		err := p.recovery(1)
@@ -442,11 +442,11 @@ func TestNewReplicator_replica3(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	database := tsdb.NewMockDatabase(ctrl)
-	family := tsdb.NewMockDataFamily(ctrl)
+	database := storagepkg.NewMockDatabase(ctrl)
+	family := storagepkg.NewMockDataFamily(ctrl)
 	family.EXPECT().FamilyTime().Return(commontimeutil.Now()).AnyTimes()
 	database.EXPECT().Name().Return("test").AnyTimes()
-	shard := tsdb.NewMockShard(ctrl)
+	shard := storagepkg.NewMockShard(ctrl)
 	shard.EXPECT().Database().Return(database).AnyTimes()
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()
 	log := queue.NewMockFanOutQueue(ctrl)
@@ -597,7 +597,7 @@ func TestPartition_getReplicaState2(t *testing.T) {
 	_, err = log.GetOrCreateConsumerGroup("2")
 	assert.NoError(t, err)
 
-	family := tsdb.NewMockDataFamily(ctrl)
+	family := storagepkg.NewMockDataFamily(ctrl)
 	family.EXPECT().FamilyTime().Return(commontimeutil.Now()).AnyTimes()
 
 	local := &localReplicator{}
@@ -651,7 +651,7 @@ func TestPartition_remote_replica(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = log.GetOrCreateConsumerGroup("2")
 	assert.NoError(t, err)
-	family := tsdb.NewMockDataFamily(ctrl)
+	family := storagepkg.NewMockDataFamily(ctrl)
 	family.EXPECT().FamilyTime().Return(commontimeutil.Now()).AnyTimes()
 
 	remote := NewRemoteReplicator(context.Background(), rc, stateMgr, cliFct)
@@ -692,7 +692,7 @@ func TestPartition_local_replica(t *testing.T) {
 	cg.EXPECT().Queue().Return(fq).AnyTimes()
 	cg.EXPECT().ConsumedSeq().Return(int64(10)).AnyTimes()
 	cg.EXPECT().Consume().Return(int64(1)).AnyTimes()
-	family := tsdb.NewMockDataFamily(ctrl)
+	family := storagepkg.NewMockDataFamily(ctrl)
 	family.EXPECT().FamilyTime().Return(commontimeutil.Now()).AnyTimes()
 	family.EXPECT().TimeRange().Return(timeutil.TimeRange{}).AnyTimes()
 	family.EXPECT().AckSequence(gomock.Any(), gomock.Any()).AnyTimes()
@@ -702,8 +702,8 @@ func TestPartition_local_replica(t *testing.T) {
 	fq.EXPECT().Queue().Return(q).AnyTimes()
 	cg.EXPECT().Queue().Return(fq).AnyTimes()
 	cg.EXPECT().ConsumedSeq().Return(int64(10)).AnyTimes()
-	shard := tsdb.NewMockShard(ctrl)
-	database := tsdb.NewMockDatabase(ctrl)
+	shard := storagepkg.NewMockShard(ctrl)
+	database := storagepkg.NewMockDatabase(ctrl)
 	database.EXPECT().Name().Return("database name").AnyTimes()
 	shard.EXPECT().Database().Return(database).AnyTimes()
 	shard.EXPECT().ShardID().Return(models.ShardID(1)).AnyTimes()

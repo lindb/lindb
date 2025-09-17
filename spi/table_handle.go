@@ -20,6 +20,7 @@ package spi
 import (
 	jsoniter "github.com/json-iterator/go"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
@@ -35,7 +36,24 @@ type DatasourceKind int
 const (
 	InfoSchema DatasourceKind = iota + 1
 	Metric
+	Log
+	Trace
 )
+
+func (kind DatasourceKind) String() string {
+	switch kind {
+	case InfoSchema:
+		return constants.InformationSchema
+	case Metric:
+		return "metric"
+	case Log:
+		return "log"
+	case Trace:
+		return "trace"
+	default:
+		return "unknwon"
+	}
+}
 
 // TableHandle represents a table handle that connect the storage engine.
 type TableHandle interface {

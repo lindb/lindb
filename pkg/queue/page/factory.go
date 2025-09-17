@@ -28,6 +28,7 @@ import (
 
 	commonfileutil "github.com/lindb/common/pkg/fileutil"
 	"github.com/lindb/common/pkg/logger"
+	"github.com/samber/lo"
 	"go.uber.org/atomic"
 )
 
@@ -35,7 +36,6 @@ import (
 
 // for testing
 var (
-	mkDirFunc      = commonfileutil.MkDirIfNotExist
 	removeFileFunc = commonfileutil.RemoveFile
 	listDirFunc    = commonfileutil.ListDir
 )
@@ -43,9 +43,6 @@ var (
 var pageLogger = logger.GetLogger("Queue", "PageFactory")
 
 var errFactoryClosed = errors.New("page factory is closed")
-
-// pageSuffix represents the page file suffix
-const pageSuffix = "bat"
 
 // Factory represents mapped page manage factory
 type Factory interface {
@@ -65,6 +62,7 @@ type factory struct {
 	logger   logger.Logger
 	pages    map[int64]MappedPage
 	path     string
+	dataType string
 	pageSize int
 	closed   atomic.Bool
 	size     atomic.Int64
@@ -72,13 +70,10 @@ type factory struct {
 }
 
 // NewFactory creates page factory based on page size
-func NewFactory(path string, pageSize int) (fct Factory, err error) {
-	if err := mkDirFunc(path); err != nil {
-		return nil, err
-	}
-
+func NewFactory(path, dataType string, pageSize int) (fct Factory, err error) {
 	f := &factory{
 		path:     path,
+		dataType: dataType,
 		pageSize: pageSize,
 		pages:    make(map[int64]MappedPage),
 		logger:   logger.GetLogger("Queue", "Page"),
@@ -181,7 +176,7 @@ func (f *factory) Close() error {
 
 // pageFileName returns the mapped file name
 func (f *factory) pageFileName(index int64) string {
-	return filepath.Join(f.path, fmt.Sprintf("%d.%s", index, pageSuffix))
+	return filepath.Join(f.path, fmt.Sprintf("%020d.%s", index, f.dataType))
 }
 
 // loadPages loads exist pages when factory init
@@ -190,13 +185,12 @@ func (f *factory) loadPages() error {
 	if err != nil {
 		return err
 	}
-	if len(fileNames) == 0 {
-		// page file not exist
-		return nil
-	}
+	fileNames = lo.Filter(fileNames, func(name string, _ int) bool {
+		return strings.HasSuffix(name, f.dataType)
+	})
 
 	for _, fn := range fileNames {
-		seqNumStr := fn[0 : strings.Index(fn, pageSuffix)-1]
+		seqNumStr := fn[0 : strings.Index(fn, f.dataType)-1]
 		seq, err := strconv.ParseInt(seqNumStr, 10, 64)
 		if err != nil {
 			return err

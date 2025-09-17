@@ -28,7 +28,7 @@ import (
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
-	"github.com/lindb/lindb/tsdb"
+	"github.com/lindb/lindb/storage"
 )
 
 func init() {
@@ -112,8 +112,8 @@ type DataSplit struct {
 
 type Partition struct {
 	tableScan *TableScan
-	shard     tsdb.Shard
-	families  []tsdb.DataFamily
+	shard     storage.Shard
+	families  []storage.DataFamily
 
 	fieldsData []flow.FilterResultSet
 }

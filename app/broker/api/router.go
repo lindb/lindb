@@ -44,6 +44,7 @@ type API struct {
 	config             *apipkg.ConfigAPI
 	env                *apipkg.EnvAPI
 	write              *ingest.Write
+	logWrite           *ingest.Log
 	proxy              *httppkg.ReverseProxy
 }
 
@@ -58,6 +59,7 @@ func NewAPI(deps *depspkg.HTTPDeps) *API {
 		config:             apipkg.NewConfigAPI(deps.Node, deps.BrokerCfg),
 		env:                apipkg.NewEnvAPI(config.ToEnvs(deps.BrokerCfg, config.NewDefaultBroker())),
 		write:              ingest.NewWrite(deps),
+		logWrite:           ingest.NewLog(deps),
 		proxy:              httppkg.NewReverseProxy(),
 	}
 }
@@ -74,6 +76,8 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 
 	// write metric data
 	api.write.Register(v1)
+
+	api.logWrite.Register(v1)
 
 	// monitoring
 	api.metricExplore.Register(v1)

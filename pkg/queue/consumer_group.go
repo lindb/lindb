@@ -80,8 +80,12 @@ type consumerGroup struct {
 // NewConsumerGroup builds a ConsumerGroup from metaPath.
 func NewConsumerGroup(parent, fanOutPath string, q FanOutQueue) (ConsumerGroup, error) {
 	name := filepath.Join(parent, fanOutPath)
+	if err := mkDirFunc(name); err != nil {
+		return nil, err
+	}
+
 	var err error
-	metaPageFct, err := newPageFactoryFunc(name, consumerGroupMetaSize)
+	metaPageFct, err := newPageFactoryFunc(name, metaData, consumerGroupMetaSize)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +98,7 @@ func NewConsumerGroup(parent, fanOutPath string, q FanOutQueue) (ConsumerGroup, 
 		}
 	}()
 
-	hasMeta := existFunc(filepath.Join(name, fmt.Sprintf("%d.bat", metaPageIndex)))
+	hasMeta := existFunc(filepath.Join(name, fmt.Sprintf("%020d.%s", metaPageIndex, metaData)))
 
 	metaPage, err := metaPageFct.AcquirePage(metaPageIndex)
 	if err != nil {

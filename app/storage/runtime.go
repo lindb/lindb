@@ -57,9 +57,10 @@ import (
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/spi/table/log"
 	"github.com/lindb/lindb/spi/table/metric"
 	"github.com/lindb/lindb/sql/execution"
-	"github.com/lindb/lindb/tsdb"
+	storagepkg "github.com/lindb/lindb/storage"
 )
 
 // rpcHandler represents all dependency rpc handlers
@@ -80,7 +81,7 @@ var (
 	newRegistry               = discovery.NewRegistry
 	newStateMachineFactory    = storage.NewStateMachineFactory
 	newDatabaseLifecycleFn    = NewDatabaseLifecycle
-	newEngineFn               = tsdb.NewEngine
+	newEngineFn               = storagepkg.NewEngine
 	newWriteAheadLogManagerFn = replica.NewWriteAheadLogManager
 	mkDirIfNotExistFn         = fileutil.MkDirIfNotExist
 	readFileFn                = os.ReadFile
@@ -95,7 +96,7 @@ type runtime struct {
 	stateMachineFactory discovery.StateMachineFactory
 	queryPool           concurrent.Pool
 	httpServer          httppkg.Server
-	engine              tsdb.Engine
+	engine              storagepkg.Engine
 	ctx                 context.Context
 	log                 logger.Logger
 	jobScheduler        kv.JobScheduler
@@ -177,6 +178,7 @@ func (r *runtime) Run() error {
 	r.engine = engine
 
 	spi.RegisterSourceConnectorProvider(&metric.TableHandle{}, metric.NewSourceConnectorProvider(engine))
+	spi.RegisterSourceConnectorProvider(&log.TableHandle{}, log.NewSourceConnectorProvider(engine))
 
 	hostName, err := hostName()
 	if err != nil {
@@ -436,7 +438,7 @@ func (r *runtime) bindRPCHandlers() {
 
 	r.rpcHandler = &rpcHandler{
 		replica: rpchandler.NewReplicaHandler(r.walMgr),
-		write:   rpchandler.NewWriteHandler(r.walMgr),
+		write:   rpchandler.NewWriteHandler(r.engine),
 	}
 
 	protoReplicaV1.RegisterReplicaServiceServer(r.server.GetServer(), r.rpcHandler.replica)

@@ -32,7 +32,7 @@ import (
 	"github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/tsdb"
+	storagepkg "github.com/lindb/lindb/storage"
 )
 
 //go:generate mockgen -source=./wal.go -destination=./wal_mock.go -package=replica
@@ -65,7 +65,7 @@ type writeAheadLog struct {
 	dir           string
 	cfg           config.WAL
 	currentNodeID models.NodeID
-	engine        tsdb.Engine
+	engine        storagepkg.Engine
 	cliFct        rpc.ClientStreamFactory
 	stateMgr      storage.StateManager
 
@@ -82,7 +82,7 @@ func NewWriteAheadLog(
 	cfg config.WAL,
 	currentNodeID models.NodeID,
 	database string,
-	engine tsdb.Engine,
+	engine storagepkg.Engine,
 	cliFct rpc.ClientStreamFactory,
 	stateMgr storage.StateManager,
 ) WriteAheadLog {

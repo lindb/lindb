@@ -36,7 +36,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/tsdb"
+	"github.com/lindb/lindb/storage"
 )
 
 //go:generate mockgen -source=./state_manager.go -destination=./state_manager_mock.go -package=storage
@@ -66,7 +66,7 @@ type stateManager struct {
 	cancel context.CancelFunc
 
 	repo             state.Repository
-	engine           tsdb.Engine
+	engine           storage.Engine
 	current          *models.StatefulNode
 	nodes            map[models.NodeID]models.StatefulNode // storage live nodes
 	watches          map[models.NodeID][]func(state models.NodeStateType)
@@ -86,7 +86,7 @@ func NewStateManager(
 	ctx context.Context,
 	repo state.Repository,
 	current *models.StatefulNode,
-	engine tsdb.Engine,
+	engine storage.Engine,
 ) StateManager {
 	c, cancel := context.WithCancel(ctx)
 	mgr := &stateManager{
@@ -211,11 +211,10 @@ func (m *stateManager) onShardAssignmentChange(key string, data []byte) error {
 	if err != nil {
 		return err
 	}
-	cfg := &models.DatabaseConfig{}
+	cfg := &models.Database{}
 	if err := encoding.JSONUnmarshal(cfgData, &cfg); err != nil {
 		return err
 	}
-
 	if err := m.engine.CreateShards(
 		param.Name,
 		cfg.Option,

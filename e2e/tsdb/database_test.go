@@ -35,7 +35,7 @@ import (
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/metric"
-	"github.com/lindb/lindb/tsdb"
+	"github.com/lindb/lindb/storage"
 )
 
 func TestDatabase_Write_And_Rollup(t *testing.T) {
@@ -44,7 +44,7 @@ func TestDatabase_Write_And_Rollup(t *testing.T) {
 		TSDB: config.TSDB{Dir: dir},
 	})
 
-	engine, err := tsdb.NewEngine()
+	engine, err := storage.NewEngine()
 	assert.NoError(t, err)
 	assert.NotNil(t, engine)
 	defer func() {
@@ -90,11 +90,11 @@ func TestDatabase_Write_And_Rollup(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	storeName := tsdb.ShardSegmentPath("write-db", models.ShardID(1), interval, "20190702")
+	storeName := storage.ShardSegmentPath("write-db", models.ShardID(1), interval, "20190702")
 	store, ok := kv.GetStoreManager().GetStoreByName(storeName)
 	assert.True(t, ok)
 	assert.NotNil(t, store)
-	storeName = tsdb.ShardSegmentPath("write-db", models.ShardID(1), rollupInterval, "201907")
+	storeName = storage.ShardSegmentPath("write-db", models.ShardID(1), rollupInterval, "201907")
 	rollupTargetStore, ok := kv.GetStoreManager().GetStoreByName(storeName)
 	assert.True(t, ok)
 	assert.NotNil(t, rollupTargetStore)

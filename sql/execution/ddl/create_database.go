@@ -47,7 +47,7 @@ func (task *CreateDatabaseTask) Name() string {
 
 func (task *CreateDatabaseTask) Execute(ctx context.Context) error {
 	// FIXME: check database exist
-	engineType := models.Metric
+	engineType := option.Metric
 	for _, option := range task.statement.CreateOptions {
 		switch createOption := option.(type) {
 		case *tree.EngineOption:
@@ -57,44 +57,42 @@ func (task *CreateDatabaseTask) Execute(ctx context.Context) error {
 		}
 	}
 	evalCtx := expression.NewEvalContext(ctx)
-	switch engineType {
-	case models.Metric:
-		// FIXME: need check alive node/shard/replica
-		database, err := task.buildMetricDatabase(evalCtx, engineType)
-		if err != nil {
-			return err
-		}
-		// save database config
-		// TODO: remove metadata manager
-		if err := task.metaMgr.CreateDatabase(ctx, database); err != nil {
-			return err
-		}
-	default:
-		panic("impl other engine type")
+	// FIXME: need check alive node/shard/replica/engine type
+	database, err := task.buildDatabase(evalCtx, engineType)
+	if err != nil {
+		return err
+	}
+	// save database config
+	// TODO: remove metadata manager
+	if err := task.metaMgr.CreateDatabase(ctx, database); err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func (task *CreateDatabaseTask) buildMetricDatabase(
+func (task *CreateDatabaseTask) buildDatabase(
 	evalCtx expression.EvalContext,
-	engineType models.EngineType,
+	engineType option.EngineType,
 ) (*models.Database, error) {
-	options := option.DatabaseOption{}
+	options := option.DatabaseOption{
+		Engine: engineType,
+	}
 	if err := task.evalPropsExpression(evalCtx, task.statement.Props, &options); err != nil {
 		return nil, err
 	}
-	// rollup interval options
-	for _, rollup := range task.statement.Rollup {
-		rollupOption := option.Interval{}
-		if err := task.evalPropsExpression(evalCtx, rollup.Props, &rollupOption); err != nil {
-			return nil, err
+	if engineType == option.Metric {
+		// rollup interval options
+		for _, rollup := range task.statement.Rollup {
+			rollupOption := option.Interval{}
+			if err := task.evalPropsExpression(evalCtx, rollup.Props, &rollupOption); err != nil {
+				return nil, err
+			}
+			options.Intervals = append(options.Intervals, rollupOption)
 		}
-		options.Intervals = append(options.Intervals, rollupOption)
 	}
 	database := &models.Database{
 		Name:   task.statement.Name,
-		Engine: engineType,
 		Option: &options,
 	}
 	database.Default()

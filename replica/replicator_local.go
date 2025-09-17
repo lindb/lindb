@@ -24,14 +24,14 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/compress"
 	"github.com/lindb/lindb/series/metric"
-	"github.com/lindb/lindb/tsdb"
+	"github.com/lindb/lindb/storage"
 )
 
 // localReplicator represents local replicator which writes data into local tsdb storage.
 type localReplicator struct {
 	replicator
-	shard      tsdb.Shard
-	family     tsdb.DataFamily
+	shard      storage.Shard
+	family     storage.DataFamily
 	logger     logger.Logger
 	batchRows  *metric.StorageBatchRows
 	reader     compress.Reader
@@ -39,7 +39,7 @@ type localReplicator struct {
 	leader     int32
 }
 
-func NewLocalReplicator(channel *ReplicatorChannel, shard tsdb.Shard, family tsdb.DataFamily) Replicator {
+func NewLocalReplicator(channel *ReplicatorChannel, shard storage.Shard, family storage.DataFamily) Replicator {
 	lr := &localReplicator{
 		leader: int32(channel.State.Leader),
 		replicator: replicator{

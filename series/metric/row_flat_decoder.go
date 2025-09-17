@@ -23,7 +23,7 @@ import (
 	"sync"
 
 	flatbuffers "github.com/google/flatbuffers/go"
-	commonseries "github.com/lindb/common/series"
+	commonMetric "github.com/lindb/common/metric"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
@@ -35,7 +35,7 @@ var maxRowLength = 10 * 1024
 type BrokerRowFlatDecoder struct {
 	reader         io.Reader
 	limits         *models.Limits
-	rowBuilder     commonseries.RowBuilder
+	rowBuilder     commonMetric.RowBuilder
 	buf            []byte
 	compoundValues []float64
 	compoundBounds []float64
@@ -66,7 +66,7 @@ func NewBrokerRowFlatDecoder(
 	if item != nil {
 		decoder = item.(*BrokerRowFlatDecoder)
 	} else {
-		decoder = &BrokerRowFlatDecoder{rowBuilder: *commonseries.CreateRowBuilder()}
+		decoder = &BrokerRowFlatDecoder{rowBuilder: *commonMetric.CreateRowBuilder()}
 	}
 	decoder.namespace = namespace
 	decoder.reader = reader

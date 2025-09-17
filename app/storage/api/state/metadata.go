@@ -19,24 +19,21 @@ package state
 
 import (
 	"github.com/gin-gonic/gin"
-
 	httppkg "github.com/lindb/common/pkg/http"
 
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/tsdb"
+	"github.com/lindb/lindb/storage"
 )
 
-var (
-	DatabaseCfgPath = "/state/metadata/local/database/config"
-)
+var DatabaseCfgPath = "/state/metadata/local/database/config"
 
 // MetadataAPI represents internal metadata state rest api.
 type MetadataAPI struct {
-	engine tsdb.Engine
+	engine storage.Engine
 }
 
 // NewMetadataAPI creates a metadata api instance.
-func NewMetadataAPI(engine tsdb.Engine) *MetadataAPI {
+func NewMetadataAPI(engine storage.Engine) *MetadataAPI {
 	return &MetadataAPI{
 		engine: engine,
 	}

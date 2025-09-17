@@ -31,7 +31,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/tsdb"
+	storagepkg "github.com/lindb/lindb/storage"
 )
 
 //go:generate mockgen -source=./wal_manager.go -destination=./wal_manager_mock.go -package=replica
@@ -75,7 +75,7 @@ type WriteAheadLogManager interface {
 // writeAheadLogManager implements WriteAheadLogManager.
 type writeAheadLogManager struct {
 	ctx           context.Context
-	engine        tsdb.Engine
+	engine        storagepkg.Engine
 	cliFct        rpc.ClientStreamFactory
 	stateMgr      storage.StateManager
 	logger        logger.Logger
@@ -90,7 +90,7 @@ func NewWriteAheadLogManager(
 	ctx context.Context,
 	cfg config.WAL,
 	currentNodeID models.NodeID,
-	engine tsdb.Engine,
+	engine storagepkg.Engine,
 	cliFct rpc.ClientStreamFactory,
 	stateMgr storage.StateManager,
 ) WriteAheadLogManager {
