@@ -126,7 +126,7 @@ func (m *brokerMetadataManager) GetTableMetadata(database, ns, table string) (*t
 		return nil, err
 	}
 	schema := types.NewTableSchema()
-	if table != "logs" {
+	if table != "logs" && table != "traces" {
 		// FIXME: log table???
 		for node := range partitions {
 			tableSchema, err := m.getTableSchema(database, ns, table, node)

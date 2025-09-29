@@ -19,7 +19,6 @@ package replica
 
 import (
 	"context"
-	"fmt"
 	"maps"
 	"sort"
 	"sync"
@@ -225,9 +224,6 @@ func (dc *databaseChannel) Stop() {
 
 // getChannelByShardID gets the replica shardChannel by shard id
 func (dc *databaseChannel) getChannelByShardID(shardID models.ShardID) (ShardChannel, bool) {
-	fmt.Printf(
-		"getshard====%v\n", dc.shardChannels.value.Load(),
-	)
 	ch, ok := dc.shardChannels.value.Load().(shard2Channel)[shardID]
 	return ch, ok
 }

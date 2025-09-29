@@ -301,7 +301,9 @@ func (v *StatementVisitor) visitTable(ctx any, table *tree.Table) (r any) {
 	// FIXME: table fields??
 
 	fmt.Printf("visit table output fields %v\n", outputFields)
-	return v.createAndAssignScope(table, scope, NewRelation(outputFields))
+	subScope := v.createAndAssignScope(table, scope, NewRelation(outputFields))
+	subScope.Dynamic = true
+	return subScope
 }
 
 func (v *StatementVisitor) visitFunctionCall(context any, node *tree.FunctionCall) (r any) {

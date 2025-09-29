@@ -30,6 +30,7 @@ import (
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/storage/log"
 	"github.com/lindb/lindb/storage/store"
+	"github.com/lindb/lindb/storage/trace"
 )
 
 //go:generate mockgen -source=./engine.go -destination=./engine_mock.go -package=storage
@@ -128,12 +129,25 @@ func (e *engine) createDatabase(databaseName string, dbOption *option.DatabaseOp
 	}
 	// FIXME:
 	if dbOption.Engine == option.Log {
-		db, err := log.NewDatabase(databaseName, cfg)
-		if err == nil {
-			db.CreateShards([]models.ShardID{0})
-			e.databases[databaseName] = db
+		if _, ok := e.databases[databaseName]; !ok {
+			db, err := log.NewDatabase(databaseName, cfg)
+			if err == nil {
+				db.CreateShards([]models.ShardID{0})
+				e.databases[databaseName] = db
+			}
+			fmt.Println(err)
 		}
-		fmt.Println(err)
+		return nil, nil
+	}
+	if dbOption.Engine == option.Trace {
+		if _, ok := e.databases[databaseName]; !ok {
+			db, err := trace.NewDatabase(databaseName, cfg)
+			if err == nil {
+				db.CreateShards([]models.ShardID{0})
+				e.databases[databaseName] = db
+			}
+			fmt.Println(err)
+		}
 		return nil, nil
 	}
 
@@ -171,7 +185,7 @@ func (e *engine) CreateShards(
 		}
 	}
 
-	if databaseOption.Engine == option.Log {
+	if databaseOption.Engine == option.Log || databaseOption.Engine == option.Trace {
 		return nil
 	}
 

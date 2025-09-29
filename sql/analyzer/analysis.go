@@ -274,7 +274,6 @@ func (a *Analysis) SetLimit(node tree.Node, rowCount int64) {
 }
 
 func (a *Analysis) AddColumnReference(expression tree.Expression, field *ResolvedField) {
-	fmt.Printf("add column reference: %v,%T,%T,%v\n", expression.GetID(), expression, field.Scope.RelationID.SourceNode, field)
 	a.columnReferences[expression.GetID()] = field
 }
 

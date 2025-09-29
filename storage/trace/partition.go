@@ -1,15 +1,13 @@
-package log
+package trace
 
 import (
 	"fmt"
-	"path"
 	"path/filepath"
 	"strconv"
 	"sync"
 
 	"github.com/lindb/common/pkg/fileutil"
 
-	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/storage/base"
 	"github.com/lindb/lindb/storage/store"
@@ -26,8 +24,6 @@ type partition struct {
 
 	shard *shard
 
-	kvStore kv.Store
-
 	segments map[int]store.Segment
 
 	mutex sync.Mutex
@@ -43,21 +39,15 @@ func NewPartition(timestamp int64, shard *shard) (store.Partition, error) {
 		shard:    shard,
 		segments: make(map[int]store.Segment),
 	}
-	storeOption := kv.DefaultStoreOption()
-	kvStore, err := kv.GetStoreManager().CreateStore(path.Join(p.Dir, "secondary"), storeOption)
-	if err != nil {
-		return nil, fmt.Errorf("create kv store for segment error:%s", err)
+	if err := fileutil.MkDirIfNotExist(p.Dir); err != nil {
+		return nil, err
 	}
-	p.kvStore = kvStore
 
 	segments, err := fileutil.ListDir(p.Dir)
 	if err != nil {
 		return nil, err
 	}
 	for _, segment := range segments {
-		if segment == "secondary" {
-			continue
-		}
 		segmentSlot, err := strconv.Atoi(segment)
 		if err != nil {
 			// TODO: add metric
@@ -65,7 +55,7 @@ func NewPartition(timestamp int64, shard *shard) (store.Partition, error) {
 		}
 		// create data family
 		segmentTime := intervalCalc.CalcFamilyStartTime(timestamp, segmentSlot)
-		fmt.Printf("create segment: %d\n", segmentTime)
+		fmt.Printf("create trace segment: %d\n", segmentTime)
 		p.GetOrCreateSegment(segmentTime)
 	}
 
@@ -77,6 +67,7 @@ func (p *partition) GetOrCreateSegment(timestamp int64) (store.Segment, error) {
 	defer p.mutex.Unlock()
 
 	segmentKey := intervalCalc.CalcFamily(timestamp, intervalCalc.CalcSegmentTime(timestamp))
+	fmt.Printf("segmentKey=%v=\n", segmentKey)
 
 	if segment, ok := p.segments[segmentKey]; ok {
 		return segment, nil
@@ -87,12 +78,15 @@ func (p *partition) GetOrCreateSegment(timestamp int64) (store.Segment, error) {
 		return nil, err
 	}
 	p.segments[segmentKey] = segment
+	fmt.Println("load trace segment")
+	fmt.Printf("trace segment......:%p= %d\n", p, len(p.segments))
 	return segment, nil
 }
 
 func (p *partition) GetSegments(timeRange timeutil.TimeRange) (segments []store.Segment) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
+	fmt.Printf("trace segment......: %d\n", len(p.segments))
 
 	for _, segment := range p.segments {
 		segments = append(segments, segment)

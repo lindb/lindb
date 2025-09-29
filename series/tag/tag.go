@@ -59,7 +59,7 @@ func (kvs KeyValues) DeDup() KeyValues {
 
 // Map transforms the KeyValues into map
 func (kvs KeyValues) Map() map[string]string {
-	var m = make(map[string]string)
+	m := make(map[string]string)
 	for idx := range kvs {
 		m[kvs[idx].Key] = kvs[idx].Value
 	}
@@ -68,7 +68,7 @@ func (kvs KeyValues) Map() map[string]string {
 
 // Clone returns a copy of keyValues
 func (kvs KeyValues) Clone() KeyValues {
-	var dst = make([]*protoMetricsV1.KeyValue, len(kvs))
+	dst := make([]*protoMetricsV1.KeyValue, len(kvs))
 	for i := range kvs {
 		dst[i] = &protoMetricsV1.KeyValue{
 			Key:   kvs[i].Key,

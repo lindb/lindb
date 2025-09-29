@@ -4,15 +4,13 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/storage/wal"
 )
 
 type Segment struct {
-	Path   string
-	WALs   map[models.NodeID]wal.WriteAheadLog // leader => write ahead log
-	Family kv.Family
+	Path string
+	WALs map[models.NodeID]wal.WriteAheadLog // leader => write ahead log
 
 	mutex sync.Mutex
 }

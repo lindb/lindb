@@ -89,6 +89,12 @@ func (t *TranslationMap) getSymbolForColumn(node tree.Expression) *plan.Symbol {
 	if field == nil {
 		return nil
 	}
+	if t.scope.Dynamic {
+		return &plan.Symbol{
+			Name:     field.Field.Name,
+			DataType: field.Field.DataType,
+		}
+	}
 	fmt.Printf("get symbol for column=scope=%v,%v,%T,%T,%v\n", t.scope, node.GetID(), node,
 		field.Scope.RelationID.SourceNode, field.Scope.RelationID.SourceNode.GetID())
 	isLocalScope := t.scope.IsLocalScope(field.Scope)

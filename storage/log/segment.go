@@ -10,7 +10,6 @@ import (
 
 	flatbuffers "github.com/google/flatbuffers/go"
 	"github.com/lindb/common/pkg/fileutil"
-	"github.com/lindb/common/pkg/timeutil"
 	"github.com/lindb/common/proto/gen/v1/flatLogV1"
 	"github.com/lindb/roaring"
 	"go.uber.org/atomic"
@@ -34,6 +33,8 @@ type Segment struct {
 	shard store.Shard
 	index queue.Queue
 
+	family kv.Family
+
 	immutable memdb.Database
 	mutable   memdb.Database
 
@@ -42,8 +43,8 @@ type Segment struct {
 	buf []byte
 }
 
-func NewSegment(partition *partition) (store.Segment, error) {
-	family := fmt.Sprintf("%d", intervalCalc.CalcFamily(timeutil.Now(), intervalCalc.CalcSegmentTime(timeutil.Now())))
+func NewSegment(timestmap int64, partition *partition) (store.Segment, error) {
+	family := fmt.Sprintf("%d", intervalCalc.CalcFamily(timestmap, intervalCalc.CalcSegmentTime(timestmap)))
 	segmentPath := filepath.Join(partition.Path(), family)
 	index, err := queue.NewQueue(path.Join(segmentPath, "index"), 128*1024*1024)
 	if err != nil {
@@ -64,10 +65,10 @@ func NewSegment(partition *partition) (store.Segment, error) {
 	}
 	seg := &Segment{
 		Segment: base.Segment{
-			Path:   segmentPath,
-			Family: kvFamily,
-			WALs:   make(map[models.NodeID]wal.WriteAheadLog),
+			Path: segmentPath,
+			WALs: make(map[models.NodeID]wal.WriteAheadLog),
 		},
+		family:  kvFamily,
 		index:   index,
 		running: *atomic.NewBool(true),
 
@@ -102,7 +103,7 @@ func NewSegment(partition *partition) (store.Segment, error) {
 }
 
 func (s *Segment) GetLogIDs(fieldID uint32) *roaring.Bitmap {
-	snapshot := s.Family.GetSnapshot()
+	snapshot := s.family.GetSnapshot()
 	defer snapshot.Close()
 	logIDs := roaring.New()
 	temp := roaring.New()
@@ -145,7 +146,7 @@ func (s *Segment) Close() error {
 }
 
 func (s *Segment) Flush() error {
-	flusher := s.Family.NewFlusher()
+	flusher := s.family.NewFlusher()
 	if err := s.mutable.Flush(flusher); err != nil {
 		return err
 	}
@@ -177,7 +178,6 @@ func (s *Segment) indexLog(leader models.NodeID, index int64, msg []byte) {
 	s.buf[0] = byte(leader)
 	stream.PutUint32(s.buf, 1, uint32(logID))
 	s.index.Put(s.buf)
-	fmt.Println("index log......")
 
 	// build secondary index for log(timestamp/fields)
 	s.mutable.Write([]byte("ns"), logID, log.Timestamp(), logproto.NewFieldIterator(log))

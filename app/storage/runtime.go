@@ -59,6 +59,7 @@ import (
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/table/log"
 	"github.com/lindb/lindb/spi/table/metric"
+	"github.com/lindb/lindb/spi/table/trace"
 	"github.com/lindb/lindb/sql/execution"
 	storagepkg "github.com/lindb/lindb/storage"
 )
@@ -179,6 +180,7 @@ func (r *runtime) Run() error {
 
 	spi.RegisterSourceConnectorProvider(&metric.TableHandle{}, metric.NewSourceConnectorProvider(engine))
 	spi.RegisterSourceConnectorProvider(&log.TableHandle{}, log.NewSourceConnectorProvider(engine))
+	spi.RegisterSourceConnectorProvider(&trace.TableHandle{}, trace.NewSourceConnectorProvider(engine))
 
 	hostName, err := hostName()
 	if err != nil {

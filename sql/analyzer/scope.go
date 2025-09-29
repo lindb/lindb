@@ -22,6 +22,7 @@ import (
 
 	"github.com/samber/lo"
 
+	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 )
 
@@ -41,6 +42,8 @@ type AsteriskedIdentifierChain struct {
 type Scope struct {
 	Parent        *Scope
 	QueryBoundary bool
+
+	Dynamic bool
 
 	RelationID   *RelationID
 	RelationType *Relation
@@ -94,7 +97,7 @@ func (scope *Scope) tryResolveField(node tree.Expression, name *tree.QualifiedNa
 }
 
 func (scope *Scope) resolveField(node tree.Expression, name *tree.QualifiedName, local bool) *ResolvedField { //nolint
-	fmt.Printf("scope field=%v\n", scope.RelationType.Fields)
+	fmt.Printf("scope field=%v=%v\n", scope.Dynamic, scope.RelationType.Fields)
 	fields := scope.RelationType.resolveFields(name)
 	if len(fields) > 1 {
 		panic(fmt.Sprintf("column '%s' is ambiguous", name.Name))
@@ -111,6 +114,18 @@ func (scope *Scope) resolveField(node tree.Expression, name *tree.QualifiedName,
 		}
 
 		return scope.asResolvedField(fields[0], parentFieldCount, local)
+	}
+	if scope.Dynamic {
+		return &ResolvedField{
+			Field: &tree.Field{
+				Name:     name.Name,
+				DataType: types.DTUnknown,
+			},
+			Scope: scope,
+			// RelationFieldIndex:  relationFieldIndex,
+			// HierarchyFieldIndex: relationFieldIndex + tree.FieldIndex(fieldIndexOffset),
+			Local: local,
+		}
 	}
 	// TODO: column ref
 	if scope.Parent != nil {
