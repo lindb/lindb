@@ -63,6 +63,11 @@ type RegexExpr struct {
 	Regexp string `json:"regexp"`
 }
 
+type NullExpr struct {
+	Name string `json:"name"`
+	Not  bool   `json:"not"`
+}
+
 // Rewrite rewrites the equals expr after parse
 func (e *EqualsExpr) Rewrite() string {
 	return fmt.Sprintf("%s=%s", e.Name, e.Value)
@@ -81,4 +86,12 @@ func (e *LikeExpr) Rewrite() string {
 // Rewrite rewrites the regex expr after parse
 func (e *RegexExpr) Rewrite() string {
 	return fmt.Sprintf("%s=~%s", e.Name, e.Regexp)
+}
+
+func (e *NullExpr) Rewrite() string {
+	isNot := ""
+	if e.Not {
+		isNot = "NOT "
+	}
+	return fmt.Sprintf("%s IS %sNULL", e.Name, isNot)
 }

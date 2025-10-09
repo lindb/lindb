@@ -1,20 +1,3 @@
-// Licensed to LinDB under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. LinDB licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 // Code generated from ./sql/grammar/SQLParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package grammar // SQLParser
@@ -276,6 +259,10 @@ func (v *BaseSQLParserVisitor) VisitColumnReference(ctx *ColumnReferenceContext)
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseSQLParserVisitor) VisitNullLiteral(ctx *NullLiteralContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseSQLParserVisitor) VisitStringLiteral(ctx *StringLiteralContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -321,6 +308,10 @@ func (v *BaseSQLParserVisitor) VisitLikePredicate(ctx *LikePredicateContext) int
 }
 
 func (v *BaseSQLParserVisitor) VisitRegexpPredicate(ctx *RegexpPredicateContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLParserVisitor) VisitNullPredicate(ctx *NullPredicateContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

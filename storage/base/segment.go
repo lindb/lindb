@@ -5,14 +5,20 @@ import (
 	"sync"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/storage/wal"
 )
 
 type Segment struct {
-	Path string
-	WALs map[models.NodeID]wal.WriteAheadLog // leader => write ahead log
+	TimeRange timeutil.TimeRange
+	Path      string
+	WALs      map[models.NodeID]wal.WriteAheadLog // leader => write ahead log
 
 	mutex sync.Mutex
+}
+
+func (s *Segment) SegmentTimeRange() timeutil.TimeRange {
+	return s.TimeRange
 }
 
 func (s *Segment) GetOrCreateWAL(leader models.NodeID) (wal.WriteAheadLog, error) {

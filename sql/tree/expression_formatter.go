@@ -68,6 +68,8 @@ func (v *FormatVisitor) Visit(context any, n Node) any {
 		return v.formatLikePredicate(node)
 	case *RegexPredicate:
 		return v.formatRegexPredicate(node)
+	case *NullPredicate:
+		return v.formatNullPredicate(node)
 	case *TimePredicate:
 		return v.formatTimestampPredicate(node)
 	case *LogicalExpression:
@@ -145,6 +147,14 @@ func (v *FormatVisitor) formatLikePredicate(node *LikePredicate) string {
 
 func (v *FormatVisitor) formatRegexPredicate(node *RegexPredicate) string {
 	return fmt.Sprintf("(%s REGEXP %s)", node.Value.Accept(nil, v), node.Pattern.Accept(nil, v))
+}
+
+func (v *FormatVisitor) formatNullPredicate(node *NullPredicate) string {
+	isNot := ""
+	if node.Not {
+		isNot = "NOT "
+	}
+	return fmt.Sprintf("(%s IS %sNULL)", node.Value.Accept(nil, v), isNot)
 }
 
 func (v *FormatVisitor) formatTimestampPredicate(node *TimePredicate) string {

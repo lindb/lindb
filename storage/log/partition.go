@@ -12,6 +12,7 @@ import (
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/storage/base"
+	"github.com/lindb/lindb/storage/log/tblstore"
 	"github.com/lindb/lindb/storage/store"
 	"github.com/lindb/lindb/storage/utils"
 )
@@ -26,7 +27,8 @@ type partition struct {
 
 	shard *shard
 
-	kvStore kv.Store
+	kvStore        kv.Store
+	timestampIndex kv.Family
 
 	segments map[int]store.Segment
 
@@ -49,6 +51,22 @@ func NewPartition(timestamp int64, shard *shard) (store.Partition, error) {
 		return nil, fmt.Errorf("create kv store for segment error:%s", err)
 	}
 	p.kvStore = kvStore
+	// TODO: close kv store if err
+
+	kvFamily := p.kvStore.GetFamily("t")
+	if kvFamily == nil {
+		// create kv family
+		var err error
+		familyOption := kv.FamilyOption{
+			CompactThreshold: 0,
+			Merger:           string(tblstore.LogIndexMerger),
+		}
+		kvFamily, err = p.kvStore.CreateFamily("t", familyOption)
+		if err != nil {
+			return nil, err
+		}
+	}
+	p.timestampIndex = kvFamily
 
 	segments, err := fileutil.ListDir(p.Dir)
 	if err != nil {
@@ -95,7 +113,9 @@ func (p *partition) GetSegments(timeRange timeutil.TimeRange) (segments []store.
 	defer p.mutex.Unlock()
 
 	for _, segment := range p.segments {
-		segments = append(segments, segment)
+		if (&timeRange).Overlap(segment.SegmentTimeRange()) {
+			segments = append(segments, segment)
+		}
 	}
 
 	return

@@ -149,6 +149,7 @@ primaryExpression   :
                     number                                                  #numericLiteral
                     | interval                                              #intervalLiteral
                     | booleanValue                                          #booleanLiteral
+                    | NULL                                                  #nullLiteral
                     | string                                                #stringLiteral
                     | qualifiedName '(' (expression (',' expression)*)? ')' #functionCall
                     | identifier                                            #columnReference
@@ -158,10 +159,11 @@ primaryExpression   :
 
 predicate           : TIMESTAMP operator=comparisonOperator right=valueExpression                              #timestampPredicate 
 										| left=valueExpression operator=comparisonOperator right=valueExpression                   #binaryComparisonPredicate
-                    | TIMESTAMP BETWEEN lower=valueExpression AND upper=valueExpression                         #betweenPredicate
+                    | TIMESTAMP BETWEEN lower=valueExpression AND upper=valueExpression                        #betweenPredicate
                     | left=valueExpression NOT? IN '(' expression (',' expression)* ')'                        #inPredicate
                     | left=valueExpression NOT? LIKE pattern=valueExpression (ESCAPE escape=valueExpression)?  #likePredicate
                     | left=valueExpression operator=(REGEXP|NEQREGEXP) pattern=valueExpression?                #regexpPredicate
+                    | left=valueExpression IS NOT? NULL                                                        #nullPredicate
                     | valueExpression                                                                          #valueExpressionPredicate
                     ;
 
@@ -203,12 +205,12 @@ nonReserved         :
                     | FALSE | FIELDS | FLUSH | FROM
                     | GROUP 
                     | HAVING
-                    | IF | IN 
                     | JOIN
                     | KEYS
                     | LEFT | LIKE | LIMIT | LOG | LOGICAL
+		                | IF | IN | INTERVAL | IS
                     | MASTER | MEMORY_DATABASES | METRIC | METRICS | METADATA | METADATAS
-                    | NAMESPACE | NAMESPACES | NOT | NOW
+                    | NAMESPACE | NAMESPACES | NULL | NOT | NOW
                     | ON | OR | ORDER
                     | REQUESTS | REPLICATIONS | RIGHT | ROLLUP
                     | SELECT | SHOW | STATE | STORAGE

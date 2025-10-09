@@ -86,6 +86,7 @@ func (p *partition) GetOrCreateSegment(timestamp int64) (store.Segment, error) {
 func (p *partition) GetSegments(timeRange timeutil.TimeRange) (segments []store.Segment) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
+
 	fmt.Printf("trace segment......: %d\n", len(p.segments))
 
 	for _, segment := range p.segments {

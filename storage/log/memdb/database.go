@@ -2,28 +2,27 @@ package memdb
 
 import (
 	"fmt"
-	"sync"
 
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/imap"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/proto/log"
 	"github.com/lindb/lindb/storage/log/index"
 )
 
 type Database interface {
-	Write(namespace []byte, logID uint32, timestamp int64, fields *log.FieldIterator) error
-	GetLogIDs(fieldID uint32) *roaring.Bitmap
+	Write(namespace []byte, logID uint32, fields *log.FieldIterator) error
+	FindLogIDsByField(fieldID uint32) *roaring.Bitmap
 	Flush(flusher kv.Flusher) error
 
 	IndexDatabase() index.Database
 }
 
 type database struct {
-	index            index.Database
-	timestampIndexes sync.Map                      // timestamp index => (timestamp(second) => bitmap(log ids) )
-	fieldIndexes     *imap.IntMap[*roaring.Bitmap] // field index => (global field value id => bitmap(log ids))
+	index        index.Database
+	fieldIndexes *imap.IntMap[*roaring.Bitmap] // field index => (global field value id => bitmap(log ids))
 }
 
 func NewDatabase(indexDB index.Database) Database {
@@ -37,9 +36,7 @@ func (md *database) IndexDatabase() index.Database {
 	return md.index
 }
 
-func (md *database) Write(namespace []byte, logID uint32, timestamp int64, fields *log.FieldIterator) error {
-	md.indexTimestamp(timestamp, logID)
-
+func (md *database) Write(namespace []byte, logID uint32, fields *log.FieldIterator) error {
 	ns, err := md.index.GetOrCreateNamespaceID(namespace)
 	if err != nil {
 		fmt.Println(err)
@@ -58,7 +55,11 @@ func (md *database) Write(namespace []byte, logID uint32, timestamp int64, field
 	return nil
 }
 
-func (md *database) GetLogIDs(fieldID uint32) *roaring.Bitmap {
+func (md *database) FindLogIDsByTimeRange(timeRange timeutil.SlotRange) *roaring.Bitmap {
+	return nil
+}
+
+func (md *database) FindLogIDsByField(fieldID uint32) *roaring.Bitmap {
 	value, ok := md.fieldIndexes.Get(fieldID)
 	if ok {
 		return value
@@ -82,15 +83,5 @@ func (md *database) indexField(fieldID, logID uint32) {
 		index.Add(logID)
 	} else {
 		md.fieldIndexes.Put(fieldID, roaring.BitmapOf(logID))
-	}
-}
-
-func (md *database) indexTimestamp(timestamp int64, logID uint32) {
-	// TODO: truncate timestamp
-	index, ok := md.timestampIndexes.Load(timestamp)
-	if ok {
-		(index.(*roaring.Bitmap)).Add(logID)
-	} else {
-		md.timestampIndexes.Store(timestamp, roaring.BitmapOf(logID))
 	}
 }

@@ -18,6 +18,7 @@
 package types
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -39,6 +40,11 @@ func (c *Column) AppendTimeSeries(val *TimeSeries) {
 func (c *Column) AppendString(val string) {
 	v := String(val)
 	c.Blocks = append(c.Blocks, &v)
+	c.NumOfRows++
+}
+
+func (c *Column) AppendJSON(val json.RawMessage) {
+	c.Blocks = append(c.Blocks, &val)
 	c.NumOfRows++
 }
 
@@ -84,6 +90,13 @@ func (c *Column) GetString(row int) *String {
 	}
 	v := String(fmt.Sprintf("%v", val))
 	return &v
+}
+
+func (c *Column) GetJSON(row int) *json.RawMessage {
+	if row >= len(c.Blocks) {
+		return nil
+	}
+	return c.Blocks[row].(*json.RawMessage)
 }
 
 func (c *Column) GetInt(row int) *Int {

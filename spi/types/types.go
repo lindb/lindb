@@ -44,6 +44,8 @@ const (
 	DTTimestamp
 	// DTTimeSeries represents time series data type.
 	DTTimeSeries
+	// DTJSON represents json data type.
+	DTJSON
 )
 
 const (
@@ -75,6 +77,8 @@ func (dt DataType) String() string {
 		return "timestamp"
 	case DTTimeSeries:
 		return "time_series"
+	case DTJSON:
+		return "json"
 	default:
 		return ""
 	}
@@ -102,6 +106,8 @@ func (dt *DataType) UnmarshalJSON(data []byte) error {
 		*dt = DTTimestamp
 	case "time_series":
 		*dt = DTTimeSeries
+	case "json":
+		*dt = DTJSON
 	default:
 		*dt = DTUnknown
 	}

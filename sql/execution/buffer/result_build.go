@@ -93,12 +93,13 @@ func (rsb *ResultSetBuild) Process() {
 		for row := it.Begin(); row != it.End(); row = it.Next() {
 			columns := make([]any, len(rsb.resultSet.Schema.Columns))
 			for i, c := range rsb.resultSet.Schema.Columns {
-				fmt.Printf("%v=%v\n", i, c.Ref)
 				meta := page.Layout[c.Ref]
 				// TODO: add more type
 				switch meta.DataType {
 				case types.DTString:
 					columns[i] = row.GetString(i)
+				case types.DTJSON:
+					columns[i] = row.GetJSON(i)
 				case types.DTInt:
 					columns[i] = row.GetInt(i)
 				case types.DTFloat:

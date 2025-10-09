@@ -560,6 +560,17 @@ func (v *AstVisitor) VisitTimestampPredicate(ctx *grammar.TimestampPredicateCont
 	}
 }
 
+func (v *AstVisitor) VisitNullPredicate(ctx *grammar.NullPredicateContext) any {
+	predicate := &NullPredicate{
+		BaseNode: v.createBaseNode(ctx),
+		Value:    visitIfPresent[Expression](ctx.GetLeft(), v),
+	}
+	if ctx.NOT() != nil {
+		predicate.Not = true
+	}
+	return predicate
+}
+
 func (v *AstVisitor) VisitLikePredicate(ctx *grammar.LikePredicateContext) any {
 	var result Expression
 	result = &LikePredicate{

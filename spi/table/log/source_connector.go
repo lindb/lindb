@@ -3,10 +3,12 @@ package log
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	flatbuffers "github.com/google/flatbuffers/go"
 	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/proto/gen/v1/flatLogV1"
+	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
@@ -15,6 +17,7 @@ import (
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 	"github.com/lindb/lindb/storage"
+	"github.com/lindb/lindb/storage/log"
 	logstore "github.com/lindb/lindb/storage/log"
 )
 
@@ -35,19 +38,24 @@ func (s *sourceConnectorProvider) CreateSourceConnector(ctx context.Context,
 	outputColumns []types.ColumnMetadata, assignments []*spi.ColumnAssignment,
 ) spi.SourceConnector {
 	return &sourceConnector{
+		ctx:          ctx,
 		engine:       s.engine,
 		table:        table,
 		partitionIDs: partitions,
+		predicate:    predicate,
 	}
 }
 
 type sourceConnector struct {
+	ctx    context.Context
 	engine storage.Engine
 
 	table        spi.TableHandle
 	partitionIDs []int
 
 	partitions []*Partition
+
+	predicate tree.Expression
 }
 
 // Run implements spi.SourceConnector.
@@ -62,27 +70,55 @@ func (sc *sourceConnector) Run(output chan<- *types.Page) {
 		fmt.Printf("table partition is nil,ids=%v\n", sc.partitionIDs)
 		return
 	}
-	logDB := tableScan.db.(*logstore.Database)
-	indexDB := logDB.IndexDatabase()
+	indexDB := tableScan.db.IndexDatabase()
 	ns, err := indexDB.GetNamespaceID([]byte("ns"))
 	if err != nil {
 		fmt.Printf("rr1=%v\n", err)
 		panic(ns)
 	}
+	tableScan.nsID = ns
+
+	if sc.predicate != nil {
+		fieldLookup := NewFieldValuesLookupVisitor(sc.ctx, tableScan)
+		fieldLookup.Visit(sc.ctx, sc.predicate)
+	}
+
 	page := types.NewPage()
 	timeColumn := types.NewColumn()
 	page.AppendColumn(types.ColumnMetadata{DataType: types.DTInt, Name: "timestamp"}, timeColumn)
 	msgColumn := types.NewColumn()
 	page.AppendColumn(types.ColumnMetadata{DataType: types.DTString, Name: "_msg"}, msgColumn)
 	fieldsColumn := types.NewColumn()
-	page.AppendColumn(types.ColumnMetadata{DataType: types.DTString, Name: "fields"}, fieldsColumn)
+	page.AppendColumn(types.ColumnMetadata{DataType: types.DTJSON, Name: "fields"}, fieldsColumn)
+
+	total := 0
+
+	// sort partitions desc
+	sort.Slice(sc.partitions, func(i, j int) bool {
+		return sc.partitions[i].paritition.PartitionTime() > sc.partitions[j].paritition.PartitionTime()
+	})
 
 	for _, partition := range sc.partitions {
+		// sort segments desc
+		sort.Slice(partition.segments, func(i, j int) bool {
+			return partition.segments[i].SegmentTimeRange().Start > partition.segments[j].SegmentTimeRange().Start
+		})
+
 		for _, segment := range partition.segments {
 			logSegment := segment.(*logstore.Segment)
-			logIDs := logSegment.GetLogIDs(ns)
-			fmt.Printf("logSegment=%v,log ids:%v\n", logSegment, logIDs)
-			it := logIDs.Iterator()
+			logIDs := logSegment.FindLogIDsByTimeRange(tableScan.timeRange)
+			if sc.predicate != nil {
+				rowLookup := NewRowLookupVisitor(tableScan, logSegment, logIDs)
+				logIDsObj := rowLookup.Visit(sc.ctx, sc.predicate)
+				if logIDsByPredicate, ok := logIDsObj.(*roaring.Bitmap); ok {
+					logIDs.And(logIDsByPredicate)
+				}
+			}
+			if logIDs == nil || logIDs.IsEmpty() {
+				continue
+			}
+			fmt.Printf("logSegment=%v,log ids:%v,%v\n", logSegment, logIDs)
+			it := logIDs.ReverseIterator()
 			for it.HasNext() {
 				logID := it.Next()
 				logData, err := logSegment.GetLog(logID)
@@ -99,11 +135,18 @@ func (sc *sourceConnector) Run(output chan<- *types.Page) {
 					for fIt.HasNext() {
 						fMap[string(fIt.NextName())] = string(fIt.NextValue())
 					}
-					fieldsColumn.AppendString(string(encoding.JSONMarshal(fMap)))
+					fieldsColumn.AppendJSON(encoding.JSONMarshal(fMap))
+					total++
+
+					if total >= 1000 {
+						// limit return
+						goto END
+					}
 				}
 			}
 		}
 	}
+END:
 
 	output <- page
 }
@@ -119,8 +162,10 @@ func (sc *sourceConnector) buildTableScan() *TableScan {
 	}
 
 	return &TableScan{
-		db:        db,
+		db:        db.(*log.Database),
 		timeRange: logTable.GetTimeRange(),
+
+		predicate: sc.predicate,
 	}
 }
 
@@ -136,9 +181,10 @@ func (sc *sourceConnector) findPartitions(tableScan *TableScan, partitionIDs []i
 					fmt.Printf("segments=%v\n", segments)
 					if len(segments) > 0 {
 						partitions = append(partitions, &Partition{
-							tableScan: tableScan,
-							shard:     shard,
-							segments:  segments,
+							tableScan:  tableScan,
+							shard:      shard,
+							paritition: partition,
+							segments:   segments,
 						})
 					}
 				}

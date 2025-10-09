@@ -17,7 +17,9 @@
 
 package tree
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type DefaultTraversalVisitor struct {
 	PreProcess  func(n Node)

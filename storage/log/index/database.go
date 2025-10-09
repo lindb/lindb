@@ -3,6 +3,7 @@ package index
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 
 	"github.com/lindb/common/pkg/fileutil"
 	"github.com/linxGnu/grocksdb"
@@ -10,6 +11,8 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/strutil"
+	"github.com/lindb/lindb/sql/tree"
 )
 
 var (
@@ -34,6 +37,8 @@ type Database interface {
 	GetNamespaceID(namespace []byte) (uint32, error)
 	GetFieldKeyID(ns uint32, key []byte) (uint32, error)
 	GetFieldValueID(key uint32, value []byte) (uint32, error)
+
+	FindFieldValueIDs(key uint32, expr tree.Expr) ([]uint32, error)
 
 	Flush() error
 	Close()
@@ -105,6 +110,8 @@ func NewDatabase(dbPath string) Database {
 		fieldValue: fieldValue,
 	}
 
+	indexDB.initialize()
+
 	return indexDB
 }
 
@@ -117,6 +124,7 @@ func (db *database) initialize() {
 	defer v.Free()
 	if v.Exists() {
 		db.sequence.Store(encoding.BytesToU32(v.Data()))
+		fmt.Printf("index database init sequence=%d\n", db.sequence.Load())
 	}
 }
 
@@ -165,9 +173,29 @@ func (db *database) GetFieldValueID(key uint32, value []byte) (uint32, error) {
 	return db.getID(db.fieldValue, key, value)
 }
 
+func (db *database) FindFieldValueIDs(key uint32, expr tree.Expr) (ids []uint32, err error) {
+	switch expression := expr.(type) {
+	case *tree.EqualsExpr:
+		id, err := db.GetFieldValueID(key, strutil.String2ByteSlice(expression.Value))
+		if err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+		return ids, nil
+	case *tree.InExpr:
+		return nil, nil
+	case *tree.LikeExpr:
+		return nil, nil
+	case *tree.RegexExpr:
+		return nil, nil
+	}
+	return ids, nil
+}
+
 func (db *database) Flush() error {
 	opt := grocksdb.NewDefaultFlushOptions()
 	db.db.Put(wo, sequenceKey, encoding.U32ToBytes(db.sequence.Load()))
+	fmt.Printf("flush index database init sequence=%d\n", db.sequence.Load())
 	return db.db.Flush(opt)
 }
 

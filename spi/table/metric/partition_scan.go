@@ -194,6 +194,7 @@ func (v *RowsLookupVisitor) Visit(context any, n tree.Node) any {
 			all.AndNot(seriesIDs)
 			return all
 		}
+	// TODO: add null predicate
 	case *tree.InPredicate, *tree.RegexPredicate, *tree.LikePredicate:
 		_, seriesIDs = v.visitPredicate(node)
 	case *tree.NotExpression:

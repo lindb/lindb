@@ -1,20 +1,3 @@
-// Licensed to LinDB under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. LinDB licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 // Code generated from ./sql/grammar/SQLParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package grammar // SQLParser
@@ -415,6 +398,12 @@ func (s *BaseSQLParserListener) EnterColumnReference(ctx *ColumnReferenceContext
 // ExitColumnReference is called when production columnReference is exited.
 func (s *BaseSQLParserListener) ExitColumnReference(ctx *ColumnReferenceContext) {}
 
+// EnterNullLiteral is called when production nullLiteral is entered.
+func (s *BaseSQLParserListener) EnterNullLiteral(ctx *NullLiteralContext) {}
+
+// ExitNullLiteral is called when production nullLiteral is exited.
+func (s *BaseSQLParserListener) ExitNullLiteral(ctx *NullLiteralContext) {}
+
 // EnterStringLiteral is called when production stringLiteral is entered.
 func (s *BaseSQLParserListener) EnterStringLiteral(ctx *StringLiteralContext) {}
 
@@ -488,6 +477,12 @@ func (s *BaseSQLParserListener) EnterRegexpPredicate(ctx *RegexpPredicateContext
 
 // ExitRegexpPredicate is called when production regexpPredicate is exited.
 func (s *BaseSQLParserListener) ExitRegexpPredicate(ctx *RegexpPredicateContext) {}
+
+// EnterNullPredicate is called when production nullPredicate is entered.
+func (s *BaseSQLParserListener) EnterNullPredicate(ctx *NullPredicateContext) {}
+
+// ExitNullPredicate is called when production nullPredicate is exited.
+func (s *BaseSQLParserListener) ExitNullPredicate(ctx *NullPredicateContext) {}
 
 // EnterValueExpressionPredicate is called when production valueExpressionPredicate is entered.
 func (s *BaseSQLParserListener) EnterValueExpressionPredicate(ctx *ValueExpressionPredicateContext) {}

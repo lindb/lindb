@@ -32,6 +32,7 @@ func init() {
 	encoding.RegisterNodeType(InPredicate{})
 	encoding.RegisterNodeType(LikePredicate{})
 	encoding.RegisterNodeType(RegexPredicate{})
+	encoding.RegisterNodeType(NullPredicate{})
 	encoding.RegisterNodeType(InListExpression{})
 	encoding.RegisterNodeType(LogicalExpression{})
 	encoding.RegisterNodeType(TimePredicate{})

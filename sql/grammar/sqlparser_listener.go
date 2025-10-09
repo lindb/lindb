@@ -1,20 +1,3 @@
-// Licensed to LinDB under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. LinDB licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 // Code generated from ./sql/grammar/SQLParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package grammar // SQLParser
@@ -213,6 +196,9 @@ type SQLParserListener interface {
 	// EnterColumnReference is called when entering the columnReference production.
 	EnterColumnReference(c *ColumnReferenceContext)
 
+	// EnterNullLiteral is called when entering the nullLiteral production.
+	EnterNullLiteral(c *NullLiteralContext)
+
 	// EnterStringLiteral is called when entering the stringLiteral production.
 	EnterStringLiteral(c *StringLiteralContext)
 
@@ -248,6 +234,9 @@ type SQLParserListener interface {
 
 	// EnterRegexpPredicate is called when entering the regexpPredicate production.
 	EnterRegexpPredicate(c *RegexpPredicateContext)
+
+	// EnterNullPredicate is called when entering the nullPredicate production.
+	EnterNullPredicate(c *NullPredicateContext)
 
 	// EnterValueExpressionPredicate is called when entering the valueExpressionPredicate production.
 	EnterValueExpressionPredicate(c *ValueExpressionPredicateContext)
@@ -498,6 +487,9 @@ type SQLParserListener interface {
 	// ExitColumnReference is called when exiting the columnReference production.
 	ExitColumnReference(c *ColumnReferenceContext)
 
+	// ExitNullLiteral is called when exiting the nullLiteral production.
+	ExitNullLiteral(c *NullLiteralContext)
+
 	// ExitStringLiteral is called when exiting the stringLiteral production.
 	ExitStringLiteral(c *StringLiteralContext)
 
@@ -533,6 +525,9 @@ type SQLParserListener interface {
 
 	// ExitRegexpPredicate is called when exiting the regexpPredicate production.
 	ExitRegexpPredicate(c *RegexpPredicateContext)
+
+	// ExitNullPredicate is called when exiting the nullPredicate production.
+	ExitNullPredicate(c *NullPredicateContext)
 
 	// ExitValueExpressionPredicate is called when exiting the valueExpressionPredicate production.
 	ExitValueExpressionPredicate(c *ValueExpressionPredicateContext)

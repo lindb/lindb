@@ -77,6 +77,8 @@ func (v *ExpressionVisitor) Visit(context any, n tree.Node) (r any) {
 		return v.visitLikePredicate(context, node)
 	case *tree.RegexPredicate:
 		return v.visitRegexPredicate(context, node)
+	case *tree.NullPredicate:
+		return v.visitNullPredicate(context, node)
 	case *tree.ArithmeticBinaryExpression:
 		return v.visitArithemticBinary(context, node)
 	case *tree.TimePredicate:
@@ -151,6 +153,11 @@ func (v *ExpressionVisitor) visitLikePredicate(context any, node *tree.LikePredi
 func (v *ExpressionVisitor) visitRegexPredicate(context any, node *tree.RegexPredicate) (r any) {
 	node.Value.Accept(context, v)
 	node.Pattern.Accept(context, v)
+	return v.setExpressionType(node, types.DTInt)
+}
+
+func (v *ExpressionVisitor) visitNullPredicate(context any, node *tree.NullPredicate) (r any) {
+	node.Value.Accept(context, v)
 	return v.setExpressionType(node, types.DTInt)
 }
 

@@ -18,6 +18,7 @@
 package types
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -30,6 +31,11 @@ type Row struct {
 // GetString returns the string value in the row with the column index.
 func (r *Row) GetString(colIdx int) *String {
 	return r.p.Columns[colIdx].GetString(r.idx)
+}
+
+// GetJSON returns the json value in the row with the column index.
+func (r *Row) GetJSON(colIdx int) *json.RawMessage {
+	return r.p.Columns[colIdx].GetJSON(r.idx)
 }
 
 // GetFloat returns the float value in the row with the column index.

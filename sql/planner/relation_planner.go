@@ -162,6 +162,7 @@ func (p *RelationPlanner) visitTable(_ any, node *tree.Table) (r any) {
 			Start: time.Now().UnixMilli() - time.Hour.Milliseconds(),
 			End:   time.Now().UnixMilli(),
 		}
+		fmt.Printf("default time range:%v\n", timeRange)
 		// 2. time range from context
 		currentParams := p.context.Context.Value(constants.ContextKeyParams)
 		if currentParams != nil {
@@ -173,6 +174,7 @@ func (p *RelationPlanner) visitTable(_ any, node *tree.Table) (r any) {
 					timeRange.End = params.TimeRange.End
 				}
 			}
+			fmt.Printf("params time range:%v\n", timeRange)
 		}
 		// 3. time range from statement condition
 		if len(p.timePredicates) > 0 {
@@ -189,6 +191,7 @@ func (p *RelationPlanner) visitTable(_ any, node *tree.Table) (r any) {
 				}
 			}
 		}
+		fmt.Printf("set time range:%v\n", timeRange)
 		root.Table.SetTimeRange(timeRange)
 
 		if p.groupingInterval != nil {

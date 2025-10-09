@@ -7,7 +7,6 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/sql/tree"
-	"github.com/lindb/lindb/storage/store"
 )
 
 func init() {
@@ -57,10 +56,4 @@ func (t *TableHandle) String() string {
 type ColumnHandle struct {
 	Downsampling tree.FuncName `json:"downsampling"`
 	Aggregation  tree.FuncName `json:"aggregation"`
-}
-
-type Partition struct {
-	tableScan *TableScan
-	shard     store.Shard
-	segments  []store.Segment
 }

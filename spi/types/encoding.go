@@ -18,6 +18,7 @@
 package types
 
 import (
+	"encoding/json"
 	"time"
 
 	jsoniter "github.com/json-iterator/go"
@@ -35,4 +36,5 @@ func init() {
 	encoding.RegisterNodeType(Int(0))
 	encoding.RegisterNodeType(time.Time{})
 	encoding.RegisterNodeType(time.Duration(0))
+	encoding.RegisterNodeType(json.RawMessage{})
 }

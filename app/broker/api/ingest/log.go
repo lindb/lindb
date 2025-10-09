@@ -75,27 +75,5 @@ func (w *Log) write(c *gin.Context) error {
 		}
 		rb.Reset()
 	}
-
-	// contentType := strings.ToLower(strings.Trim(c.Request.Header.Get(headers.ContentType), " "))
-	// var err error
-	// var rows *metric.BrokerBatchRows
-	// var writeType string
-	// switch {
-	// case strings.HasPrefix(contentType, constants.ContentTypeFlat):
-	// 	rows, err = flat.Parse(c.Request, enrichedTags, param.Namespace, limits)
-	// 	writeType = "flat"
-	// case strings.HasPrefix(contentType, constants.ContentTypeJson):
-	// 	rows, err = influx.Parse(c.Request, enrichedTags, param.Namespace, limits)
-	// 	writeType = "json"
-	// case strings.HasPrefix(contentType, constants.ContentTypeProto):
-	// 	writeType = "proto"
-	// 	rows, err = proto.Parse(c.Request, enrichedTags, param.Namespace, limits)
-	// default:
-	// 	err = fmt.Errorf("not support content type: %s, only support %s/%s/%s", contentType,
-	// 		constants.ContentTypeFlat, constants.ContentTypeProto, constants.ContentTypeJson)
-	// }
-	// if err != nil {
-	// 	return err
-	// }
 	return nil
 }

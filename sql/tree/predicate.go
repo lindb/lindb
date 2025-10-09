@@ -56,3 +56,13 @@ type TimePredicate struct {
 func (n *TimePredicate) Accept(context any, visitor Visitor) any {
 	return visitor.Visit(context, n)
 }
+
+type NullPredicate struct {
+	BaseNode
+	Value Expression `json:"value"`
+	Not   bool       `json:"not"`
+}
+
+func (n *NullPredicate) Accept(context any, visitor Visitor) any {
+	return visitor.Visit(context, n)
+}

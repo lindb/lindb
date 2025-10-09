@@ -6,6 +6,7 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	flatbuffers "github.com/google/flatbuffers/go"
@@ -19,6 +20,7 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/pkg/stream"
+	"github.com/lindb/lindb/pkg/timeutil"
 	logproto "github.com/lindb/lindb/proto/log"
 	"github.com/lindb/lindb/storage/base"
 	"github.com/lindb/lindb/storage/log/memdb"
@@ -30,10 +32,13 @@ import (
 type Segment struct {
 	base.Segment
 
-	shard store.Shard
-	index queue.Queue
+	shard     store.Shard
+	partition *partition
+	index     queue.Queue
 
 	family kv.Family
+
+	timestampIndexes sync.Map
 
 	immutable memdb.Database
 	mutable   memdb.Database
@@ -41,10 +46,14 @@ type Segment struct {
 	running atomic.Bool
 
 	buf []byte
+
+	mutex sync.Mutex
 }
 
-func NewSegment(timestmap int64, partition *partition) (store.Segment, error) {
-	family := fmt.Sprintf("%d", intervalCalc.CalcFamily(timestmap, intervalCalc.CalcSegmentTime(timestmap)))
+func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
+	segmentTime := intervalCalc.CalcSegmentTime(timestamp)
+	familySlot := intervalCalc.CalcFamily(timestamp, segmentTime)
+	family := fmt.Sprintf("%d", familySlot)
 	segmentPath := filepath.Join(partition.Path(), family)
 	index, err := queue.NewQueue(path.Join(segmentPath, "index"), 128*1024*1024)
 	if err != nil {
@@ -63,14 +72,20 @@ func NewSegment(timestmap int64, partition *partition) (store.Segment, error) {
 			return nil, err
 		}
 	}
+	segmentStartTime := intervalCalc.CalcFamilyStartTime(segmentTime, familySlot)
 	seg := &Segment{
 		Segment: base.Segment{
+			TimeRange: timeutil.TimeRange{
+				Start: segmentStartTime,
+				End:   intervalCalc.CalcFamilyEndTime(segmentStartTime),
+			},
 			Path: segmentPath,
 			WALs: make(map[models.NodeID]wal.WriteAheadLog),
 		},
-		family:  kvFamily,
-		index:   index,
-		running: *atomic.NewBool(true),
+		partition: partition,
+		family:    kvFamily,
+		index:     index,
+		running:   *atomic.NewBool(true),
 
 		mutable: memdb.NewDatabase(partition.shard.database.indexDB),
 
@@ -98,27 +113,72 @@ func NewSegment(timestmap int64, partition *partition) (store.Segment, error) {
 		}
 	}
 
+	// start build index goroutine
 	go seg.buildIndex()
+
 	return seg, nil
 }
 
-func (s *Segment) GetLogIDs(fieldID uint32) *roaring.Bitmap {
-	snapshot := s.family.GetSnapshot()
+func (s *Segment) FindLogIDsByTimeRange(timeRange timeutil.TimeRange) *roaring.Bitmap {
+	snapshot := s.partition.timestampIndex.GetSnapshot()
 	defer snapshot.Close()
+
+	target := (&timeRange).Intersect(s.SegmentTimeRange())
+	start := target.Start - target.Start%minuteInterval.Int64()
+	end := target.End - target.End%minuteInterval.Int64()
+	interval := minuteInterval.Int64()
+	partitionTime := s.partition.PartitionTime()
 	logIDs := roaring.New()
 	temp := roaring.New()
-	if err := snapshot.Load(fieldID, func(value []byte) error {
-		_, err := encoding.BitmapUnmarshal(temp, value)
-		if err != nil {
-			return err
+	for i := int64(1); start <= end; i++ {
+		idsObj, _ := s.timestampIndexes.Load(start)
+		if ids, ok := idsObj.(*roaring.Bitmap); ok {
+			logIDs.Or(ids)
 		}
-		logIDs.Or(temp)
-		return nil
-	}); err != nil {
-		panic(err)
+		fmt.Printf("find mem start: %d, end: %d, i: %v\n", start, end, idsObj)
+		if err := snapshot.Load(uint32(start-partitionTime), func(value []byte) error {
+			_, err := encoding.BitmapUnmarshal(temp, value)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("find disk start: %d, i: %v\n", start, temp)
+			logIDs.Or(temp)
+			return nil
+		}); err != nil {
+			panic(err)
+		}
+		start += i * interval
 	}
-	if memLogIDs := s.mutable.GetLogIDs(fieldID); memLogIDs != nil {
-		logIDs.Or(memLogIDs)
+	s.timestampIndexes.Range(func(key, value interface{}) bool {
+		fmt.Printf("key: %v, value: %v\n", key, value)
+		return true
+	})
+	fmt.Printf("logIDs: %v\n", logIDs)
+	return logIDs
+}
+
+func (s *Segment) FindLogIDsByFields(fieldIDs []uint32) *roaring.Bitmap {
+	snapshot := s.family.GetSnapshot()
+	defer snapshot.Close()
+
+	logIDs := roaring.New()
+
+	temp := roaring.New()
+	for _, fieldID := range fieldIDs {
+		if err := snapshot.Load(fieldID, func(value []byte) error {
+			fmt.Printf("==>>>>>fieldID: %d, value: %s\n", fieldID, value)
+			_, err := encoding.BitmapUnmarshal(temp, value)
+			if err != nil {
+				return err
+			}
+			logIDs.Or(temp)
+			return nil
+		}); err != nil {
+			panic(err)
+		}
+		if memLogIDs := s.mutable.FindLogIDsByField(fieldID); memLogIDs != nil {
+			logIDs.Or(memLogIDs)
+		}
 	}
 	return logIDs
 }
@@ -146,6 +206,11 @@ func (s *Segment) Close() error {
 }
 
 func (s *Segment) Flush() error {
+	// flush timestamp index
+	if err := s.FlushTimestampIndex(); err != nil {
+		return err
+	}
+	// flush log fields index
 	flusher := s.family.NewFlusher()
 	if err := s.mutable.Flush(flusher); err != nil {
 		return err
@@ -179,6 +244,49 @@ func (s *Segment) indexLog(leader models.NodeID, index int64, msg []byte) {
 	stream.PutUint32(s.buf, 1, uint32(logID))
 	s.index.Put(s.buf)
 
-	// build secondary index for log(timestamp/fields)
-	s.mutable.Write([]byte("ns"), logID, log.Timestamp(), logproto.NewFieldIterator(log))
+	// build secondary index for log timestmap
+	s.indexTimestamp(log.Timestamp(), logID)
+
+	// build secondary index for log fields
+	s.mutable.Write([]byte("ns"), logID, logproto.NewFieldIterator(log))
+}
+
+func (s *Segment) indexTimestamp(timestamp int64, logID uint32) {
+	// truncate timestamp based on interval
+	targetTimestamp := timestamp - timestamp%minuteInterval.Int64()
+
+	index, ok := s.timestampIndexes.Load(targetTimestamp)
+	if ok {
+		(index.(*roaring.Bitmap)).Add(logID)
+	} else {
+		s.timestampIndexes.Store(targetTimestamp, roaring.BitmapOf(logID))
+	}
+}
+
+func (s *Segment) FlushTimestampIndex() error {
+	flusher := s.partition.timestampIndex.NewFlusher()
+	start := s.TimeRange.Start
+	end := s.TimeRange.End
+	interval := minuteInterval.Int64()
+	partitionTime := s.partition.PartitionTime()
+	for i := int64(1); start <= end; i++ {
+		idsObj, _ := s.timestampIndexes.Load(start)
+		if ids, ok := idsObj.(*roaring.Bitmap); ok {
+			data, err := ids.ToBytes()
+			if err != nil {
+				return err
+			}
+			// store timestamp index(key=offset based partition timestamp,value=log ids)
+			flusher.Add(uint32(start-partitionTime), data)
+		}
+
+		fmt.Printf("start: %d, end: %d, i: %v\n", start, end, idsObj)
+
+		start += i * interval
+	}
+	s.timestampIndexes.Range(func(key, value interface{}) bool {
+		fmt.Printf("key: %v, value: %v\n", key, value)
+		return true
+	})
+	return flusher.Commit()
 }

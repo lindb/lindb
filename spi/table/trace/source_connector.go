@@ -69,7 +69,7 @@ func (sc *sourceConnector) Run(output chan<- *types.Page) {
 	// timeColumn := types.NewColumn()
 	// page.AppendColumn(types.ColumnMetadata{DataType: types.DTInt, Name: "timestamp"}, timeColumn)
 	msgColumn := types.NewColumn()
-	page.AppendColumn(types.ColumnMetadata{DataType: types.DTString, Name: "_msg"}, msgColumn)
+	page.AppendColumn(types.ColumnMetadata{DataType: types.DTJSON, Name: "callstack"}, msgColumn)
 	// fieldsColumn := types.NewColumn()
 	// page.AppendColumn(types.ColumnMetadata{DataType: types.DTString, Name: "fields"}, fieldsColumn)
 
@@ -170,7 +170,7 @@ func FilterTracesByTraceID(traceID string, msg []byte, column *types.Column) {
 		rs := resourceSpans.At(i)
 		callStack := TranslateResourceSpans(rs, traceID)
 		if callStack != nil {
-			column.AppendString(string(encoding.JSONMarshal(callStack)))
+			column.AppendJSON(encoding.JSONMarshal(callStack))
 		}
 	}
 }

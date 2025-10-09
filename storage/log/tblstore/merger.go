@@ -17,12 +17,16 @@ func init() {
 // merger implements kv.Merger for merging series data for each metric
 type merger struct {
 	flusher kv.Flusher
+
+	result, temp *roaring.Bitmap
 }
 
 // NewMerger creates a metric data merger
 func NewMerger(flusher kv.Flusher) (kv.Merger, error) {
 	return &merger{
 		flusher: flusher,
+		result:  roaring.New(),
+		temp:    roaring.New(),
 	}, nil
 }
 
@@ -32,14 +36,17 @@ func (m *merger) Init(params map[string]any) {
 
 // Merge implements kv.Merger.
 func (m *merger) Merge(key uint32, values [][]byte) error {
-	value := roaring.New()
-	value2 := roaring.New()
+	m.result.Clear()
+
 	for _, op := range values {
-		encoding.BitmapUnmarshal(value2, op)
-		value.Or(value2)
-		value2.Clear()
+		m.temp.Clear()
+		encoding.BitmapUnmarshal(m.temp, op)
+
+		// merge
+		m.result.Or(m.temp)
 	}
-	d, err := value.ToBytes()
+
+	d, err := m.result.ToBytes()
 	if err != nil {
 		return err
 	}

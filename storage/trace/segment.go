@@ -15,10 +15,23 @@ import (
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/storage/base"
 	"github.com/lindb/lindb/storage/store"
 	"github.com/lindb/lindb/storage/wal"
 )
+
+var (
+	wo *grocksdb.WriteOptions
+	ro *grocksdb.ReadOptions
+)
+
+func init() {
+	wo = grocksdb.NewDefaultWriteOptions()
+	wo.DisableWAL(true)
+
+	ro = grocksdb.NewDefaultReadOptions()
+}
 
 type Segment struct {
 	base.Segment
@@ -33,8 +46,9 @@ type Segment struct {
 }
 
 func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
-	family := fmt.Sprintf("%d", intervalCalc.CalcFamily(timestamp,
-		intervalCalc.CalcSegmentTime(timestamp)))
+	segmentTime := intervalCalc.CalcSegmentTime(timestamp)
+	familySlot := intervalCalc.CalcFamily(timestamp, segmentTime)
+	family := fmt.Sprintf("%d", familySlot)
 	segmentPath := filepath.Join(partition.Path(), family)
 
 	opts := grocksdb.NewDefaultOptions()
@@ -49,9 +63,14 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 	if err != nil {
 		return nil, err
 	}
+	start := intervalCalc.CalcFamilyStartTime(segmentTime, familySlot)
 
 	seg := &Segment{
 		Segment: base.Segment{
+			TimeRange: timeutil.TimeRange{
+				Start: start,
+				End:   intervalCalc.CalcFamilyEndTime(start),
+			},
 			Path: segmentPath,
 			WALs: make(map[models.NodeID]wal.WriteAheadLog),
 		},
@@ -87,8 +106,7 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 }
 
 func (segment *Segment) GetTrace(traceID string) (rs [][]byte, err error) {
-	options := grocksdb.NewDefaultReadOptions()
-	indexes, err := segment.db.Get(options, []byte(traceID))
+	indexes, err := segment.db.Get(ro, []byte(traceID))
 	if err != nil {
 		return nil, err
 	}
@@ -163,9 +181,6 @@ func (segment *Segment) indexTrace(leader models.NodeID, index int64, msg []byte
 			for k := range sSpans.Len() {
 				ss := sSpans.At(k)
 				if _, ok := traceIDs[ss.TraceID().String()]; !ok {
-					wo := grocksdb.NewDefaultWriteOptions()
-					wo.DisableWAL(true)
-
 					segment.db.Merge(wo, []byte(ss.TraceID().String()), encoding.U32ToBytes(uint32(index)))
 					traceIDs[ss.TraceID().String()] = struct{}{}
 					fmt.Printf("traceID:%s, index:%d\n", ss.TraceID().String(), index)
@@ -173,32 +188,4 @@ func (segment *Segment) indexTrace(leader models.NodeID, index int64, msg []byte
 			}
 		}
 	}
-}
-
-type TraceMergeOperator struct{}
-
-func (op *TraceMergeOperator) Name() string {
-	return "TraceMergeOperator"
-}
-
-func (op *TraceMergeOperator) FullMerge(key, existingValue []byte, operands [][]byte) ([]byte, bool) {
-	fmt.Println("full merge")
-	total := len(existingValue)
-	for _, v := range operands {
-		total += len(v)
-	}
-	dest := make([]byte, total)
-	offset := copy(dest, existingValue)
-	for _, operand := range operands {
-		offset += copy(dest[offset:], operand)
-	}
-	return dest, true
-}
-
-func (op *TraceMergeOperator) PartialMerge(key, leftOperand, rightOperand []byte) ([]byte, bool) {
-	fmt.Println("merge...")
-	dest := make([]byte, (len(rightOperand) + len(leftOperand)))
-	copy(dest, leftOperand)
-	copy(dest[len(leftOperand):], rightOperand)
-	return dest, true
 }

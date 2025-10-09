@@ -200,6 +200,9 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 			t.translate(expr.Value, false)
 			t.translate(expr.Pattern, false)
 			result = expr
+		case *tree.NullPredicate:
+			expr.Value = t.translate(expr.Value, false)
+			result = expr
 		case *tree.ComparisonExpression:
 			expr.Left = t.translate(expr.Left, false)
 			expr.Right = t.translate(expr.Right, false)

@@ -84,6 +84,7 @@ func (w *Log) write(c *gin.Context) error {
 				lr := lrs.At(k)
 				rb.AddMessage([]byte(lr.Body().AsString())).
 					AddTimestamp(lr.Timestamp().AsTime().UnixMilli())
+				rb.AddField([]byte("level"), []byte(lr.SeverityText()))
 				attr.Range(func(k string, v pcommon.Value) bool {
 					if v.AsString() != "" {
 						rb.AddField([]byte(k), []byte(v.AsString()))
