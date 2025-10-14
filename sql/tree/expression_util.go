@@ -67,7 +67,7 @@ func ExtractPredicates(operator LogicalOperator,
 	return result
 }
 
-func ExtractAggregationFunctions(nodes []Expression, handle func(node Node)) {
+func ExtractAggregationFunctions(nodes []Node, handle func(node Node)) {
 	visitor := &DefaultTraversalVisitor{
 		PreProcess: handle,
 	}

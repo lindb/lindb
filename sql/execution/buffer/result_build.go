@@ -20,6 +20,7 @@ package buffer
 import (
 	"fmt"
 
+	"github.com/lindb/common/pkg/encoding"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/spi/types"
@@ -54,7 +55,7 @@ func (rsb *ResultSetBuild) Process() {
 	isTimestampSelected := false
 	hasTimeSeries := false
 	for page := range rsb.inbound {
-		fmt.Printf("page.....=.....%v\n", page)
+		fmt.Printf("page.....=.....%v\n", string(encoding.JSONMarshal(page))) // TODO: remove page)
 		if page.Error != "" {
 			rsb.resultSet.Error = page.Error
 			break
@@ -106,7 +107,7 @@ func (rsb *ResultSetBuild) Process() {
 					columns[i] = row.GetFloat(i)
 				case types.DTTimeSeries:
 					timeSeries := row.GetTimeSeries(i)
-					if isTimestampSelected {
+					if isTimestampSelected || timeSeries.NumOfPoints > 1 {
 						columns[i] = timeSeries
 					} else {
 						columns[i] = timeSeries.GetValue()

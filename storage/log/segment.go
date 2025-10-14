@@ -119,7 +119,7 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 	return seg, nil
 }
 
-func (s *Segment) FindLogIDsByTimeRange(timeRange timeutil.TimeRange) *roaring.Bitmap {
+func (s *Segment) FindLogIDsByTimeRange(timeRange timeutil.TimeRange, callback func(timestamp int64, logIDs *roaring.Bitmap)) {
 	snapshot := s.partition.timestampIndex.GetSnapshot()
 	defer snapshot.Close()
 
@@ -128,33 +128,27 @@ func (s *Segment) FindLogIDsByTimeRange(timeRange timeutil.TimeRange) *roaring.B
 	end := target.End - target.End%minuteInterval.Int64()
 	interval := minuteInterval.Int64()
 	partitionTime := s.partition.PartitionTime()
-	logIDs := roaring.New()
 	temp := roaring.New()
-	for i := int64(1); start <= end; i++ {
-		idsObj, _ := s.timestampIndexes.Load(start)
+	if err := walkTimeRange(start, end, interval, func(timestamp int64) error {
+		idsObj, _ := s.timestampIndexes.Load(timestamp)
 		if ids, ok := idsObj.(*roaring.Bitmap); ok {
-			logIDs.Or(ids)
+			callback(timestamp, ids)
 		}
-		fmt.Printf("find mem start: %d, end: %d, i: %v\n", start, end, idsObj)
-		if err := snapshot.Load(uint32(start-partitionTime), func(value []byte) error {
+		if err := snapshot.Load(uint32(timestamp-partitionTime), func(value []byte) error {
 			_, err := encoding.BitmapUnmarshal(temp, value)
 			if err != nil {
 				return err
 			}
-			fmt.Printf("find disk start: %d, i: %v\n", start, temp)
-			logIDs.Or(temp)
+			fmt.Printf("timestamp:%d,log ids:%v\n", timestamp, temp.GetCardinality())
+			callback(timestamp, temp)
 			return nil
 		}); err != nil {
 			panic(err)
 		}
-		start += i * interval
+		return nil
+	}); err != nil {
+		panic(err)
 	}
-	s.timestampIndexes.Range(func(key, value interface{}) bool {
-		fmt.Printf("key: %v, value: %v\n", key, value)
-		return true
-	})
-	fmt.Printf("logIDs: %v\n", logIDs)
-	return logIDs
 }
 
 func (s *Segment) FindLogIDsByFields(fieldIDs []uint32) *roaring.Bitmap {
@@ -166,7 +160,6 @@ func (s *Segment) FindLogIDsByFields(fieldIDs []uint32) *roaring.Bitmap {
 	temp := roaring.New()
 	for _, fieldID := range fieldIDs {
 		if err := snapshot.Load(fieldID, func(value []byte) error {
-			fmt.Printf("==>>>>>fieldID: %d, value: %s\n", fieldID, value)
 			_, err := encoding.BitmapUnmarshal(temp, value)
 			if err != nil {
 				return err
@@ -269,24 +262,30 @@ func (s *Segment) FlushTimestampIndex() error {
 	end := s.TimeRange.End
 	interval := minuteInterval.Int64()
 	partitionTime := s.partition.PartitionTime()
-	for i := int64(1); start <= end; i++ {
-		idsObj, _ := s.timestampIndexes.Load(start)
+	if err := walkTimeRange(start, end, interval, func(timestamp int64) error {
+		idsObj, _ := s.timestampIndexes.Load(timestamp)
 		if ids, ok := idsObj.(*roaring.Bitmap); ok {
 			data, err := ids.ToBytes()
 			if err != nil {
 				return err
 			}
 			// store timestamp index(key=offset based partition timestamp,value=log ids)
-			flusher.Add(uint32(start-partitionTime), data)
+			flusher.Add(uint32(timestamp-partitionTime), data)
 		}
-
-		fmt.Printf("start: %d, end: %d, i: %v\n", start, end, idsObj)
-
-		start += i * interval
+		return nil
+	}); err != nil {
+		return err
 	}
-	s.timestampIndexes.Range(func(key, value interface{}) bool {
-		fmt.Printf("key: %v, value: %v\n", key, value)
-		return true
-	})
 	return flusher.Commit()
+}
+
+func walkTimeRange(start, end, interval int64, fn func(timestamp int64) error) error {
+	step := start
+	for i := int64(1); step <= end; i++ {
+		if err := fn(step); err != nil {
+			return err
+		}
+		step = start + i*interval
+	}
+	return nil
 }

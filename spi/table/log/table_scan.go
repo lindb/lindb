@@ -17,6 +17,7 @@ import (
 type TableScan struct {
 	db        *log.Database
 	timeRange timeutil.TimeRange
+	interval  timeutil.Interval
 
 	nsID uint32
 

@@ -37,6 +37,7 @@ func NewPushPartialAggregationThroughExchange() iterative.Rule {
 		if !isExchange {
 			return nil
 		}
+		fmt.Printf("push partial through exchange=%v,%v\n", node.Step, exchangeNode.Type)
 		// FIXME:add check(exchagne)
 		if node.Step == plan.SINGLE &&
 			exchangeNode.Type == plan.Repartition {
@@ -132,23 +133,28 @@ func NewPushAggregationIntoTableScan() iterative.Rule {
 func (rule *PushAggregationIntoTableScan) pushAggregationIntoTableScan(context *iterative.Context,
 	node *plan.AggregationNode,
 ) plan.PlanNode {
-	if node.Step != plan.SINGLE || len(node.Aggregations) == 0 {
-		// if step is single or no aggregation, return nil
+	if node.Step != plan.PARTIAL || len(node.Aggregations) == 0 {
+		fmt.Printf("setp=%v,aggs=%v\n", node.Step, node.Aggregations)
+		// if step is not partial or no aggregation, return nil
 		return nil
 	}
 	// TODO: duplicate?
 	var columnAggregations []spi.ColumnAggregation
-	var assignments plan.Assignments
 	for _, agg := range node.Aggregations {
 		for _, arg := range agg.Aggregation.Arguments {
-			if symbol, ok := arg.(*tree.SymbolReference); ok {
+			switch argument := arg.(type) {
+			case *tree.SymbolReference:
 				columnAggregations = append(columnAggregations,
-					spi.ColumnAggregation{Column: symbol.Name, AggFuncName: agg.Aggregation.Function})
-				assignments = assignments.Put(plan.SymbolFrom(symbol), agg.ASTExpression)
+					spi.ColumnAggregation{Column: argument.Name, AggFuncName: agg.Aggregation.Function})
+			case *tree.Constant:
+				columnAggregations = append(columnAggregations,
+					// FIXME: add constant column??
+					spi.ColumnAggregation{Column: string(agg.Aggregation.Function), AggFuncName: agg.Aggregation.Function})
 			}
 		}
 	}
 	if len(columnAggregations) == 0 {
+		fmt.Println("no columnAggregations")
 		return nil
 	}
 	tableScan := iterative.ExtractTableScan(context, node)
@@ -165,5 +171,7 @@ func (rule *PushAggregationIntoTableScan) pushAggregationIntoTableScan(context *
 	}
 	// just replace column assignments of table scan
 	tableScan.Assignments = result.ColumnAssignments
-	return nil
+	// TODO: need check???
+	tableScan.OutputSymbols = node.GetOutputSymbols()
+	return node.Source
 }

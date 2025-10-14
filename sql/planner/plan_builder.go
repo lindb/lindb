@@ -20,6 +20,8 @@ package planner
 import (
 	"fmt"
 
+	"github.com/lindb/common/pkg/encoding"
+
 	"github.com/lindb/lindb/sql/context"
 	"github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/tree"
@@ -77,7 +79,7 @@ func (pb *PlanBuilder) appendProjections(expressions []tree.Expression) *PlanBui
 			fmt.Println("kkkkkkkkkkkkk.............. done")
 		}
 	}
-	fmt.Printf("proejct ass.......%v\n", assignments)
+	fmt.Printf("project ass.......%v\n", string(encoding.JSONMarshal(assignments)))
 	return &PlanBuilder{
 		translations: pb.translations.withAdditionalMapping(mappings), // FIXME:
 		root: &plan.ProjectionNode{

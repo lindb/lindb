@@ -6,6 +6,7 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 )
 
@@ -20,6 +21,20 @@ func init() {
 			Namespace: ns,
 		}
 	})
+
+	spi.RegisterApplyAggregationFn(spi.Log,
+		func(table spi.TableHandle, tableMeta *types.TableMetadata,
+			aggregations []spi.ColumnAggregation,
+		) *spi.ApplyAggregationResult {
+			result := &spi.ApplyAggregationResult{}
+			// FIXME: find downSampling agg
+			for _, agg := range aggregations {
+				result.ColumnAssignments = append(result.ColumnAssignments,
+					&spi.ColumnAssignment{Column: agg.Column, Handler: &ColumnHandle{Aggregation: agg.AggFuncName}},
+				)
+			}
+			return result
+		})
 }
 
 type TableHandle struct {
@@ -54,6 +69,9 @@ func (t *TableHandle) String() string {
 }
 
 type ColumnHandle struct {
-	Downsampling tree.FuncName `json:"downsampling"`
-	Aggregation  tree.FuncName `json:"aggregation"`
+	Aggregation tree.FuncName `json:"aggregation"`
+}
+
+func (c *ColumnHandle) String() string {
+	return fmt.Sprintf("(aggregation=%s)", c.Aggregation)
 }

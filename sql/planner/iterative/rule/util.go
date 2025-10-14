@@ -32,7 +32,7 @@ func restrictOutputs(idAllcator *plan.PlanNodeIDAllocator,
 	outputs := node.GetOutputSymbols()
 	restrictedOutputs := filter(outputs, permittedOutputs)
 
-	if len(outputs) == len(restrictedOutputs) {
+	if len(outputs) == len(restrictedOutputs) || len(restrictedOutputs) == 0 {
 		fmt.Println("outputs same.....")
 		return nil
 	}

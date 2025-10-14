@@ -9,9 +9,11 @@ import (
 	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/proto/gen/v1/flatLogV1"
 	"github.com/lindb/roaring"
+	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/timeutil"
 	logproto "github.com/lindb/lindb/proto/log"
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
@@ -37,12 +39,16 @@ func (s *sourceConnectorProvider) CreateSourceConnector(ctx context.Context,
 	predicate tree.Expression,
 	outputColumns []types.ColumnMetadata, assignments []*spi.ColumnAssignment,
 ) spi.SourceConnector {
+	fmt.Printf("create log source connector,table=%s,partitions=%v\n", outputColumns, assignments)
 	return &sourceConnector{
 		ctx:          ctx,
 		engine:       s.engine,
 		table:        table,
 		partitionIDs: partitions,
 		predicate:    predicate,
+
+		assignments:   assignments,
+		outputColumns: outputColumns,
 	}
 }
 
@@ -56,6 +62,9 @@ type sourceConnector struct {
 	partitions []*Partition
 
 	predicate tree.Expression
+
+	outputColumns []types.ColumnMetadata
+	assignments   []*spi.ColumnAssignment
 }
 
 // Run implements spi.SourceConnector.
@@ -84,6 +93,43 @@ func (sc *sourceConnector) Run(output chan<- *types.Page) {
 	}
 
 	page := types.NewPage()
+	if sc.hasAggregate() {
+		if sc.outputsHasTimestamp() {
+			fmt.Printf("has timestamp=%v\n", sc.outputColumns)
+			timeColumn := types.NewColumn()
+			page.AppendColumn(types.ColumnMetadata{DataType: types.DTTimestamp, Name: "timestamp"}, timeColumn)
+			statsColumn := types.NewColumn()
+			page.AppendColumn(types.ColumnMetadata{DataType: types.DTTimeSeries, Name: "count"}, statsColumn)
+			timeseries := types.NewTimeSeries(tableScan.timeRange, timeutil.Interval(60_000))
+			sc.findLogs(tableScan, false, func(segment *logstore.Segment, logIDs *roaring.Bitmap) bool {
+				segment.FindLogIDsByTimeRange(tableScan.timeRange, func(timestamp int64, logIDsFromStore *roaring.Bitmap) {
+					logIDsFromStore.And(logIDs)
+					pos := int((timestamp - tableScan.timeRange.Start) / 60_000)
+					fmt.Printf("--------------logID===>%v=%v,%v\n", pos, logIDsFromStore.GetCardinality(), logIDs.GetCardinality())
+
+					timeseries.Put(pos, timeseries.Get(pos)+float64(logIDsFromStore.GetCardinality()))
+				})
+				return true
+			})
+			statsColumn.AppendTimeSeries(timeseries)
+
+			output <- page
+			return
+		} else {
+			statsColumn := types.NewColumn()
+			page.AppendColumn(types.ColumnMetadata{DataType: types.DTInt, Name: "count"}, statsColumn)
+			stats := uint64(0)
+			sc.findLogs(tableScan, false, func(segment *logstore.Segment, logIDs *roaring.Bitmap) bool {
+				stats += logIDs.GetCardinality()
+				return true
+			})
+			statsColumn.AppendInt(int64(stats))
+
+			output <- page
+			return
+		}
+	}
+
 	timeColumn := types.NewColumn()
 	page.AppendColumn(types.ColumnMetadata{DataType: types.DTInt, Name: "timestamp"}, timeColumn)
 	msgColumn := types.NewColumn()
@@ -92,61 +138,37 @@ func (sc *sourceConnector) Run(output chan<- *types.Page) {
 	page.AppendColumn(types.ColumnMetadata{DataType: types.DTJSON, Name: "fields"}, fieldsColumn)
 
 	total := 0
-
-	// sort partitions desc
-	sort.Slice(sc.partitions, func(i, j int) bool {
-		return sc.partitions[i].paritition.PartitionTime() > sc.partitions[j].paritition.PartitionTime()
-	})
-
-	for _, partition := range sc.partitions {
-		// sort segments desc
-		sort.Slice(partition.segments, func(i, j int) bool {
-			return partition.segments[i].SegmentTimeRange().Start > partition.segments[j].SegmentTimeRange().Start
-		})
-
-		for _, segment := range partition.segments {
-			logSegment := segment.(*logstore.Segment)
-			logIDs := logSegment.FindLogIDsByTimeRange(tableScan.timeRange)
-			if sc.predicate != nil {
-				rowLookup := NewRowLookupVisitor(tableScan, logSegment, logIDs)
-				logIDsObj := rowLookup.Visit(sc.ctx, sc.predicate)
-				if logIDsByPredicate, ok := logIDsObj.(*roaring.Bitmap); ok {
-					logIDs.And(logIDsByPredicate)
+	sc.findLogs(tableScan, true, func(segment *log.Segment, logIDs *roaring.Bitmap) bool {
+		fmt.Printf("logSegment=%v,log ids:%v,%v\n", segment, logIDs)
+		it := logIDs.ReverseIterator()
+		for it.HasNext() {
+			logID := it.Next()
+			logData, err := segment.GetLog(logID)
+			if err != nil {
+				fmt.Printf("get log err:%v\n", err)
+			} else {
+				log := &flatLogV1.Log{}
+				log.Init(logData, flatbuffers.GetUOffsetT(logData))
+				timeColumn.AppendInt(log.Timestamp())
+				// TODO:
+				msgColumn.AppendString(string(log.Message()))
+				fIt := logproto.NewFieldIterator(log)
+				fMap := make(map[string]string)
+				for fIt.HasNext() {
+					fMap[string(fIt.NextName())] = string(fIt.NextValue())
 				}
-			}
-			if logIDs == nil || logIDs.IsEmpty() {
-				continue
-			}
-			fmt.Printf("logSegment=%v,log ids:%v,%v\n", logSegment, logIDs)
-			it := logIDs.ReverseIterator()
-			for it.HasNext() {
-				logID := it.Next()
-				logData, err := logSegment.GetLog(logID)
-				if err != nil {
-					fmt.Printf("get log err:%v\n", err)
-				} else {
-					log := &flatLogV1.Log{}
-					log.Init(logData, flatbuffers.GetUOffsetT(logData))
-					timeColumn.AppendInt(log.Timestamp())
-					// TODO:
-					msgColumn.AppendString(string(log.Message()))
-					fIt := logproto.NewFieldIterator(log)
-					fMap := make(map[string]string)
-					for fIt.HasNext() {
-						fMap[string(fIt.NextName())] = string(fIt.NextValue())
-					}
-					fieldsColumn.AppendJSON(encoding.JSONMarshal(fMap))
-					total++
+				fieldsColumn.AppendJSON(encoding.JSONMarshal(fMap))
+				total++
 
-					if total >= 1000 {
-						// limit return
-						goto END
-					}
+				if total >= 1000 {
+					// limit return
+					return false
 				}
 			}
 		}
-	}
-END:
+
+		return true
+	})
 
 	output <- page
 }
@@ -164,6 +186,7 @@ func (sc *sourceConnector) buildTableScan() *TableScan {
 	return &TableScan{
 		db:        db.(*log.Database),
 		timeRange: logTable.GetTimeRange(),
+		interval:  logTable.GetInterval(),
 
 		predicate: sc.predicate,
 	}
@@ -192,4 +215,60 @@ func (sc *sourceConnector) findPartitions(tableScan *TableScan, partitionIDs []i
 		}
 	}
 	return
+}
+
+func (sc *sourceConnector) findLogs(tableScan *TableScan, needSort bool, callback func(segment *log.Segment, logIDs *roaring.Bitmap) bool) {
+	if needSort {
+		// sort partitions desc
+		sort.Slice(sc.partitions, func(i, j int) bool {
+			return sc.partitions[i].paritition.PartitionTime() > sc.partitions[j].paritition.PartitionTime()
+		})
+	}
+	for _, partition := range sc.partitions {
+		if needSort {
+			// sort segments desc
+			sort.Slice(partition.segments, func(i, j int) bool {
+				return partition.segments[i].SegmentTimeRange().Start > partition.segments[j].SegmentTimeRange().Start
+			})
+		}
+
+		logIDs := roaring.New()
+		for _, segment := range partition.segments {
+			logSegment := segment.(*logstore.Segment)
+			logSegment.FindLogIDsByTimeRange(tableScan.timeRange, func(timestamp int64, logIDsFromStore *roaring.Bitmap) {
+				logIDs.Or(logIDsFromStore)
+			})
+			if sc.predicate != nil {
+				rowLookup := NewRowLookupVisitor(tableScan, logSegment, logIDs)
+				logIDsObj := rowLookup.Visit(sc.ctx, sc.predicate)
+				if logIDsByPredicate, ok := logIDsObj.(*roaring.Bitmap); ok {
+					logIDs.And(logIDsByPredicate)
+				}
+			}
+			if logIDs == nil || logIDs.IsEmpty() {
+				continue
+			}
+
+			if !callback(logSegment, logIDs) {
+				return
+			}
+
+			logIDs.Clear()
+		}
+	}
+}
+
+func (sc *sourceConnector) outputsHasTimestamp() bool {
+	return lo.ContainsBy(sc.outputColumns, func(item types.ColumnMetadata) bool {
+		return item.DataType == types.DTTimestamp && item.Name == constants.TimestampColumnName
+	})
+}
+
+func (sc *sourceConnector) hasAggregate() bool {
+	return lo.ContainsBy(sc.assignments, func(item *spi.ColumnAssignment) bool {
+		if handle, ok := item.Handler.(*ColumnHandle); ok && handle.Aggregation != "" {
+			return true
+		}
+		return false
+	})
 }

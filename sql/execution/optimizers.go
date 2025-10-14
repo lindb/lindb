@@ -45,13 +45,16 @@ func planOptimizers() []optimization.PlanOptimizer {
 		iterative.NewIterativeOptimizer([]iterative.Rule{
 			rule.NewPushTimestampIntoTableScan(),
 			rule.NewPushProjectionIntoTableScan(),
-			rule.NewPushAggregationIntoTableScan(),
 		}),
 		optimization.NewPredicatePushDown(),
 		optimization.NewAddExchanges(),
 		optimization.NewAddLocalExchanges(),
 		iterative.NewIterativeOptimizer([]iterative.Rule{
 			rule.NewPushPartialAggregationThroughExchange(),
+		}),
+		// push into table scan optimizer
+		iterative.NewIterativeOptimizer([]iterative.Rule{
+			rule.NewPushAggregationIntoTableScan(),
 		}),
 		iterative.NewIterativeOptimizer([]iterative.Rule{
 			rule.NewRemoveRedundantIdentityProjections(),

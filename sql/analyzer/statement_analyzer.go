@@ -469,12 +469,12 @@ func (v *StatementVisitor) analyzeWhere(node *tree.QuerySpecification, scope *Sc
 func (v *StatementVisitor) analyzeGroupBy(node *tree.QuerySpecification, scope *Scope,
 	_ []tree.Expression,
 ) *GroupingSetAnalysis {
+	var (
+		groupingExpressions []tree.Expression
+		complexExpressions  []tree.Expression
+		sets                [][]*FieldID
+	)
 	if node.GroupBy != nil {
-		var (
-			groupingExpressions []tree.Expression
-			complexExpressions  []tree.Expression
-			sets                [][]*FieldID
-		)
 
 		for _, groupingElement := range node.GroupBy.GroupingElements {
 			switch groupByEle := groupingElement.(type) {
@@ -499,6 +499,7 @@ func (v *StatementVisitor) analyzeGroupBy(node *tree.QuerySpecification, scope *
 
 					field = v.analyzer.ctx.Analysis.GetColumnReferenceField(column)
 					if field != nil {
+						// TODO: check timestamp???
 						if field.Field.AggType != types.ATUnknown || field.Field.DataType == types.DTTimestamp {
 							panic(fmt.Sprintf("aggregate/timestamp field[%v] cannot appear in group by", field.Field.Name))
 						}
@@ -517,14 +518,22 @@ func (v *StatementVisitor) analyzeGroupBy(node *tree.QuerySpecification, scope *
 			// no grouping column
 			return nil
 		}
-
-		groupingSets := NewGroupingSetAnalysis(groupingExpressions, sets, complexExpressions)
-		v.analyzer.ctx.Analysis.SetGroupingSets(node, groupingSets)
-
-		return groupingSets
+	} else if v.hasAggregates(node) {
+		for _, item := range node.Select.SelectItems {
+			if single, ok := item.(*tree.SingleColumn); ok {
+				field := v.analyzer.ctx.Analysis.GetColumnReferenceField(single.Expression)
+				if field != nil && field.Field.DataType == types.DTTimestamp {
+					sets = append(sets, []*FieldID{field.FieldID()})
+				}
+			}
+		}
+	} else {
+		return nil
 	}
-	// TODO: has aggs
-	return nil
+
+	groupingSets := NewGroupingSetAnalysis(groupingExpressions, sets, complexExpressions)
+	v.analyzer.ctx.Analysis.SetGroupingSets(node, groupingSets)
+	return groupingSets
 }
 
 func (v *StatementVisitor) analyzeGroupingOperations(node *tree.QuerySpecification,
@@ -534,9 +543,13 @@ func (v *StatementVisitor) analyzeGroupingOperations(node *tree.QuerySpecificati
 func (v *StatementVisitor) analyzeAggregations(query *tree.QuerySpecification, sourceScope, orderByScope *Scope,
 	groupByAnalysis *GroupingSetAnalysis, outputExpressions, orderByExpressions []tree.Expression,
 ) {
-	var expr []tree.Expression
-	expr = append(expr, outputExpressions...)
-	expr = append(expr, orderByExpressions...)
+	var expr []tree.Node
+	for _, output := range outputExpressions {
+		expr = append(expr, output)
+	}
+	for _, orderBy := range orderByExpressions {
+		expr = append(expr, orderBy)
+	}
 	var functions []*tree.FunctionCall
 	var stack []tree.Expression
 	isFuncArg := func() bool {
@@ -711,4 +724,19 @@ func (v *StatementVisitor) descriptorToFields(scope *Scope) (selectExpressions [
 		v.analyzeExpression(expression, scope)
 	}
 	return
+}
+
+func (v *StatementVisitor) hasAggregates(node *tree.QuerySpecification) bool {
+	var toExtract []tree.Node
+	for _, selectItem := range node.Select.SelectItems {
+		toExtract = append(toExtract, selectItem)
+	}
+	var aggregates []tree.Expression
+	tree.ExtractAggregationFunctions(toExtract, func(n tree.Node) {
+		fmt.Printf("hasAggregates==>%T\n", n)
+		if _, ok := n.(*tree.FunctionCall); ok {
+			aggregates = append(aggregates, n)
+		}
+	})
+	return len(aggregates) != 0
 }

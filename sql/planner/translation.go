@@ -127,8 +127,8 @@ func (t *TranslationMap) CanTranslate(node tree.Expression) bool {
 }
 
 func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tree.Expression) {
-	fmt.Printf("translate(%T)\n", node)
 	mapped := t.tryGetMapping(node)
+	fmt.Printf("==translate(%T),mapping=%v\n", node, mapped)
 	if mapped != nil {
 		result = mapped
 	} else {
@@ -210,6 +210,8 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 			result = expr
 		case *tree.NotExpression:
 			result = expr
+		case *tree.Constant:
+			result = expr
 		case *tree.InPredicate:
 			t.translate(expr.Value, false)
 			if inListExpression, ok := expr.ValueList.(*tree.InListExpression); ok {
@@ -223,8 +225,10 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 				panic(fmt.Sprintf("function %s is not supported", expr.Name))
 			}
 			expr.RetType = t.context.AnalyzerContext.Analysis.GetType(expr)
+			fmt.Printf("=======================translate function call=%v\n", expr.Arguments)
 			// TODO: expr.Name = t.context.AnalyzerContext.Analysis.GetResolvedFunction(expr)
 			expr.Arguments = lo.Map(expr.Arguments, func(arg tree.Expression, index int) tree.Expression {
+				fmt.Printf("=======================translate function arg=%v,%T\n", arg, arg)
 				return t.translate(arg, false)
 			})
 			result = expr

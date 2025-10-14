@@ -47,6 +47,8 @@ func (v *DefaultTraversalVisitor) Visit(context any, n Node) (r any) {
 	case *ComparisonExpression:
 		_ = node.Left.Accept(context, v)
 		_ = node.Right.Accept(context, v)
+	case *SingleColumn:
+		_ = node.Expression.Accept(context, v)
 	default:
 		// TODO: remove
 		fmt.Printf("default traversal visitor not support..................=%T\n", n)

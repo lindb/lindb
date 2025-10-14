@@ -250,9 +250,11 @@ func (p *RelationPlanner) planJoin(node *tree.Join, scope *analyzer.Scope, left,
 		leftPlanBuilder = leftPlanBuilder.appendProjections(leftComparisonExpressions)
 		rightPlanBuilder = rightPlanBuilder.appendProjections(rightComparisonExpressions)
 
-		leftCoercions := p.coerceExpressions(leftPlanBuilder, leftComparisonExpressions,
+		leftCoercions := coerceExpressions(leftPlanBuilder, leftComparisonExpressions,
+			p.context.AnalyzerContext.Analysis,
 			p.context.SymbolAllocator, p.context.PlanNodeIDAllocator)
-		rightCoercions := p.coerceExpressions(rightPlanBuilder, rightComparisonExpressions,
+		rightCoercions := coerceExpressions(rightPlanBuilder, rightComparisonExpressions,
+			p.context.AnalyzerContext.Analysis,
 			p.context.SymbolAllocator, p.context.PlanNodeIDAllocator)
 		fmt.Printf("join......%v\n", leftCoercions)
 		for i := range leftComparisonExpressions {
@@ -290,23 +292,4 @@ func coerce(plan *RelationPlan, types []types.Type,
 	symbolAllocator *planpkg.SymbolAllocator, idAllocator *planpkg.PlanNodeIDAllocator,
 ) *NodeAndMappings {
 	return nil
-}
-
-func (p *RelationPlanner) coerceExpressions(subPlan *PlanBuilder, expressions []tree.Expression,
-	symbolAllocator *planpkg.SymbolAllocator, _ *planpkg.PlanNodeIDAllocator,
-) *PlanAndMappings {
-	mappings := make(map[tree.Expression]*planpkg.Symbol)
-
-	for i := range expressions {
-		expression := expressions[i]
-		if _, ok := mappings[expression]; !ok {
-			// TODO: need modify
-			t := p.context.AnalyzerContext.Analysis.GetType(expression)
-			symbol := symbolAllocator.FromExpression(subPlan.translations.Rewrite(expression), t)
-			mappings[expression] = symbol
-		}
-	}
-	return &PlanAndMappings{
-		mappings: mappings,
-	}
 }

@@ -41,6 +41,7 @@ const (
 	Max   FuncName = "max"
 	First FuncName = "first"
 	Last  FuncName = "last"
+	Count FuncName = "count"
 
 	// time function names
 	DateAdd   FuncName = "date_add"
@@ -56,4 +57,5 @@ var defaultFuncReturnTypes = map[FuncName]types.DataType{
 	DateAdd:   types.DTTimestamp,
 	Now:       types.DTTimestamp,
 	StrToDate: types.DTTimestamp,
+	Count:     types.DTTimeSeries,
 }

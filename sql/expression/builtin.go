@@ -78,6 +78,8 @@ var funcs = map[tree.FuncName]FuncFactory{
 	tree.Div:   &arithmeticDivFuncFactory{},
 	tree.Mod:   &arithmeticModFuncFactory{},
 
+	tree.Count: &arithmeticPlusFuncFactory{},
+
 	// time functions
 	// ref: https://dev.mysql.com/doc/refman/8.4/en/date-and-time-functions.html
 	tree.DateAdd:   &addSubDateFuncFactory{},

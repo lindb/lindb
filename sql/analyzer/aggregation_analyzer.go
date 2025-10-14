@@ -76,6 +76,9 @@ func (v *aggregationAnalyzeVisitor) Visit(context any, n tree.Node) (r any) {
 	case *tree.ArithmeticBinaryExpression:
 		// TODO: modify
 		return true
+	case *tree.FunctionCall:
+		// FIXME: add logic
+		return true
 	default:
 		panic(fmt.Sprintf("unsupported node<%T> when aggregation ananlyzer", n))
 	}

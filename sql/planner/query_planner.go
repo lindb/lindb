@@ -20,6 +20,7 @@ package planner
 import (
 	"fmt"
 
+	"github.com/lindb/common/pkg/encoding"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/sql/analyzer"
@@ -91,10 +92,10 @@ func (p *QueryPlanner) planQuerySpecification(node *tree.QuerySpecification) *Re
 	// TODO: sub query
 
 	selectExpressions := p.context.AnalyzerContext.Analysis.GetSelectExpressions(node)
-	fmt.Println("output expressions .......")
 	outputs := p.outputExpressions(selectExpressions)
 	// TODO: sort/order by
 
+	fmt.Printf("planQuerySpecification output expressions .......%v\n", string(encoding.JSONMarshal(outputs)))
 	builder = builder.appendProjections(outputs)
 	return &RelationPlan{
 		Root:          builder.root,
@@ -132,6 +133,14 @@ func (p *QueryPlanner) aggregate(subPlan *PlanBuilder, node *tree.QuerySpecifica
 		return subPlan
 	}
 	// TODO: aggregates
+	aggregates := p.context.AnalyzerContext.Analysis.GetAggregates(node)
+	var inputs []tree.Expression
+	for _, agg := range aggregates {
+		inputs = append(inputs, agg.Arguments...)
+	}
+	// subPlan = subPlan.appendProjections(inputs)
+	fmt.Printf("aggregates=====>>>>>>%v\n", subPlan.root.GetOutputSymbols())
+
 	groupingSetAnalysis := p.context.AnalyzerContext.Analysis.GetGroupingSets(node)
 	groupingSets := p.planGroupingSets(subPlan, node, groupingSetAnalysis)
 	// TODO: group agg
@@ -154,7 +163,8 @@ func (p *QueryPlanner) planGroupingSets(subPlan *PlanBuilder,
 		input := subPlan.translations.fieldSymbols[field.FieldIndex]
 		// add group field suffix
 		// FIXME: add gid for symbol suffix
-		output := p.context.SymbolAllocator.FromSymbol(input, input.DataType, input.Hidden)
+		// output := p.context.SymbolAllocator.FromSymbol(input, input.DataType, input.Hidden)
+		output := input
 		fields[field.FieldIndex] = output
 		groupingSetMappings[output] = input
 	}
@@ -189,7 +199,7 @@ func (p *QueryPlanner) planGroupingSets(subPlan *PlanBuilder,
 		Source:      subPlan.root,
 		Assignments: assignments.Unique(),
 	}
-	fmt.Printf("plan agg group... fields=%v\n", fields)
+	fmt.Printf("plan agg group... fields=%v===%v\n", fields, groupID.GetOutputSymbols())
 	subPlan = &PlanBuilder{
 		root:         groupID,
 		translations: subPlan.translations.withNewMappings(complexExpressions, fields),
@@ -230,11 +240,13 @@ func (p *QueryPlanner) planAggregation(subPlan *PlanBuilder,
 		aggregation := &plan.Aggregation{
 			Function: p.context.AnalyzerContext.Analysis.GetResolvedFunction(function),
 			Arguments: lo.Map(function.Arguments, func(arg tree.Expression, _ int) tree.Expression {
-				if iden, ok := arg.(*tree.Identifier); ok {
-					return p.context.SymbolAllocator.FromExpression(iden,
-						p.context.AnalyzerContext.Analysis.GetType(iden)).ToSymbolReference()
-				}
-				return arg
+				// TODO:node check??
+				// if iden, ok := arg.(*tree.Identifier); ok {
+				// 	return p.context.SymbolAllocator.FromExpression(iden,
+				// 		p.context.AnalyzerContext.Analysis.GetType(iden)).ToSymbolReference()
+				// }
+				return p.context.SymbolAllocator.FromExpression(arg,
+					p.context.AnalyzerContext.Analysis.GetType(arg)).ToSymbolReference()
 			}), // TODO: parse arg
 		}
 		aggregateMapping = append(aggregateMapping, &plan.AggregationAssignment{

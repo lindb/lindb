@@ -79,9 +79,7 @@ func (v *PrintPlanVisitor) visitValues(node *plan.ValuesNode) {
 func (v *PrintPlanVisitor) visitAggregation(node *plan.AggregationNode) {
 	// TODO: add type
 	descriptor := make(map[string]string)
-	if node.Step != plan.SINGLE {
-		descriptor["type"] = node.Step.String()
-	}
+	descriptor["step"] = node.Step.String()
 
 	if node.GroupingSets != nil && len(node.GroupingSets.GroupingKeys) > 0 {
 		descriptor["keys"] = formatSymbols(node.GroupingSets.GroupingKeys)
@@ -235,6 +233,7 @@ func (v *PrintPlanVisitor) addNode(node plan.PlanNode,
 	for _, child := range children {
 		childrenIDs = append(childrenIDs, child.GetNodeID())
 	}
+	fmt.Printf("==========add node:%T,children:%v\n", node, node.GetOutputSymbols())
 
 	outputNode := &NodeRepresentation{
 		id:         node.GetNodeID(),

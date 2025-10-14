@@ -136,6 +136,8 @@ func (m *brokerMetadataManager) GetTableMetadata(database, ns, table string) (*t
 			// TODO: remove duplicate column
 			schema.AddColumns(tableSchema.Columns)
 		}
+	} else {
+		schema.AddColumns([]types.ColumnMetadata{{Name: constants.TimestampColumnName, DataType: types.DTTimestamp, Hidden: true}})
 	}
 	return &types.TableMetadata{
 		Schema:     schema,
