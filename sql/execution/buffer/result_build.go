@@ -97,7 +97,7 @@ func (rsb *ResultSetBuild) Process() {
 				meta := page.Layout[c.Ref]
 				// TODO: add more type
 				switch meta.DataType {
-				case types.DTString:
+				case types.DTString, types.DTDynamic:
 					columns[i] = row.GetString(i)
 				case types.DTJSON:
 					columns[i] = row.GetJSON(i)

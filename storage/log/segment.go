@@ -47,6 +47,8 @@ type Segment struct {
 
 	buf []byte
 
+	numOfPoints int
+
 	mutex sync.Mutex
 }
 
@@ -92,6 +94,8 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 		buf: make([]byte, 8),
 	}
 
+	seg.numOfPoints = seg.TimeRange.NumOfPoints(minuteInterval)
+
 	wals, err := fileutil.ListDir(segmentPath)
 	if err != nil {
 		return nil, err
@@ -119,6 +123,10 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 	return seg, nil
 }
 
+func (s *Segment) NumOfPoints() int {
+	return s.numOfPoints
+}
+
 func (s *Segment) FindLogIDsByTimeRange(timeRange timeutil.TimeRange, callback func(timestamp int64, logIDs *roaring.Bitmap)) {
 	snapshot := s.partition.timestampIndex.GetSnapshot()
 	defer snapshot.Close()
@@ -129,22 +137,29 @@ func (s *Segment) FindLogIDsByTimeRange(timeRange timeutil.TimeRange, callback f
 	interval := minuteInterval.Int64()
 	partitionTime := s.partition.PartitionTime()
 	temp := roaring.New()
+	result := roaring.New()
 	if err := walkTimeRange(start, end, interval, func(timestamp int64) error {
 		idsObj, _ := s.timestampIndexes.Load(timestamp)
 		if ids, ok := idsObj.(*roaring.Bitmap); ok {
-			callback(timestamp, ids)
+			result.Or(ids)
 		}
 		if err := snapshot.Load(uint32(timestamp-partitionTime), func(value []byte) error {
 			_, err := encoding.BitmapUnmarshal(temp, value)
 			if err != nil {
 				return err
 			}
-			fmt.Printf("timestamp:%d,log ids:%v\n", timestamp, temp.GetCardinality())
-			callback(timestamp, temp)
+			result.Or(temp)
 			return nil
 		}); err != nil {
 			panic(err)
 		}
+
+		if !result.IsEmpty() {
+			fmt.Printf("timestamp:%d,log ids:%v\n", timestamp, result.GetCardinality())
+			callback(timestamp, result)
+		}
+
+		result.Clear()
 		return nil
 	}); err != nil {
 		panic(err)
@@ -237,6 +252,8 @@ func (s *Segment) indexLog(leader models.NodeID, index int64, msg []byte) {
 	stream.PutUint32(s.buf, 1, uint32(logID))
 	s.index.Put(s.buf)
 
+	s.index.AppendedSeq()
+
 	// build secondary index for log timestmap
 	s.indexTimestamp(log.Timestamp(), logID)
 
@@ -281,11 +298,11 @@ func (s *Segment) FlushTimestampIndex() error {
 
 func walkTimeRange(start, end, interval int64, fn func(timestamp int64) error) error {
 	step := start
-	for i := int64(1); step <= end; i++ {
+	for i := int64(0); step <= end; i++ {
+		step = start + i*interval
 		if err := fn(step); err != nil {
 			return err
 		}
-		step = start + i*interval
 	}
 	return nil
 }

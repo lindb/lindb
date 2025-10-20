@@ -515,6 +515,7 @@ func (v *StatementVisitor) analyzeGroupBy(node *tree.QuerySpecification, scope *
 			}
 		}
 		if len(groupingExpressions) == 0 {
+			fmt.Println("statement analyzer no group by expression")
 			// no grouping column
 			return nil
 		}
@@ -530,6 +531,7 @@ func (v *StatementVisitor) analyzeGroupBy(node *tree.QuerySpecification, scope *
 	} else {
 		return nil
 	}
+	fmt.Printf("grouping sets==,%v,%v,%v\n", string(encoding.JSONMarshal(groupingExpressions)), string(encoding.JSONMarshal(sets)), complexExpressions)
 
 	groupingSets := NewGroupingSetAnalysis(groupingExpressions, sets, complexExpressions)
 	v.analyzer.ctx.Analysis.SetGroupingSets(node, groupingSets)

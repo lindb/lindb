@@ -13,7 +13,6 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/timeutil"
 	logproto "github.com/lindb/lindb/proto/log"
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
@@ -65,6 +64,16 @@ type sourceConnector struct {
 
 	outputColumns []types.ColumnMetadata
 	assignments   []*spi.ColumnAssignment
+
+	outputsHasTimestamp bool
+	hasAggregate        bool
+
+	aggregator Aggregator
+
+	fieldKeys []uint32
+	fields    []string
+
+	logIDsBucket []*roaring.Bitmap // need create when stats logs(ouput time series data)
 }
 
 // Run implements spi.SourceConnector.
@@ -92,42 +101,13 @@ func (sc *sourceConnector) Run(output chan<- *types.Page) {
 		fieldLookup.Visit(sc.ctx, sc.predicate)
 	}
 
+	sc.initializeSearchContext(tableScan)
+
 	page := types.NewPage()
-	if sc.hasAggregate() {
-		if sc.outputsHasTimestamp() {
-			fmt.Printf("has timestamp=%v\n", sc.outputColumns)
-			timeColumn := types.NewColumn()
-			page.AppendColumn(types.ColumnMetadata{DataType: types.DTTimestamp, Name: "timestamp"}, timeColumn)
-			statsColumn := types.NewColumn()
-			page.AppendColumn(types.ColumnMetadata{DataType: types.DTTimeSeries, Name: "count"}, statsColumn)
-			timeseries := types.NewTimeSeries(tableScan.timeRange, timeutil.Interval(60_000))
-			sc.findLogs(tableScan, false, func(segment *logstore.Segment, logIDs *roaring.Bitmap) bool {
-				segment.FindLogIDsByTimeRange(tableScan.timeRange, func(timestamp int64, logIDsFromStore *roaring.Bitmap) {
-					logIDsFromStore.And(logIDs)
-					pos := int((timestamp - tableScan.timeRange.Start) / 60_000)
-					fmt.Printf("--------------logID===>%v=%v,%v\n", pos, logIDsFromStore.GetCardinality(), logIDs.GetCardinality())
-
-					timeseries.Put(pos, timeseries.Get(pos)+float64(logIDsFromStore.GetCardinality()))
-				})
-				return true
-			})
-			statsColumn.AppendTimeSeries(timeseries)
-
-			output <- page
-			return
-		} else {
-			statsColumn := types.NewColumn()
-			page.AppendColumn(types.ColumnMetadata{DataType: types.DTInt, Name: "count"}, statsColumn)
-			stats := uint64(0)
-			sc.findLogs(tableScan, false, func(segment *logstore.Segment, logIDs *roaring.Bitmap) bool {
-				stats += logIDs.GetCardinality()
-				return true
-			})
-			statsColumn.AppendInt(int64(stats))
-
-			output <- page
-			return
-		}
+	if sc.hasAggregate {
+		sc.aggregator.Initialize()
+		sc.aggregator.Aggregate(output)
+		return
 	}
 
 	timeColumn := types.NewColumn()
@@ -138,7 +118,7 @@ func (sc *sourceConnector) Run(output chan<- *types.Page) {
 	page.AppendColumn(types.ColumnMetadata{DataType: types.DTJSON, Name: "fields"}, fieldsColumn)
 
 	total := 0
-	sc.findLogs(tableScan, true, func(segment *log.Segment, logIDs *roaring.Bitmap) bool {
+	sc.findLogs(tableScan, func(segment *log.Segment, logIDs *roaring.Bitmap) bool {
 		fmt.Printf("logSegment=%v,log ids:%v,%v\n", segment, logIDs)
 		it := logIDs.ReverseIterator()
 		for it.HasNext() {
@@ -217,15 +197,17 @@ func (sc *sourceConnector) findPartitions(tableScan *TableScan, partitionIDs []i
 	return
 }
 
-func (sc *sourceConnector) findLogs(tableScan *TableScan, needSort bool, callback func(segment *log.Segment, logIDs *roaring.Bitmap) bool) {
-	if needSort {
+func (sc *sourceConnector) findLogs(tableScan *TableScan,
+	callback func(segment *log.Segment, logIDs *roaring.Bitmap) bool,
+) {
+	if !sc.hasAggregate {
 		// sort partitions desc
 		sort.Slice(sc.partitions, func(i, j int) bool {
 			return sc.partitions[i].paritition.PartitionTime() > sc.partitions[j].paritition.PartitionTime()
 		})
 	}
 	for _, partition := range sc.partitions {
-		if needSort {
+		if !sc.hasAggregate {
 			// sort segments desc
 			sort.Slice(partition.segments, func(i, j int) bool {
 				return partition.segments[i].SegmentTimeRange().Start > partition.segments[j].SegmentTimeRange().Start
@@ -258,17 +240,36 @@ func (sc *sourceConnector) findLogs(tableScan *TableScan, needSort bool, callbac
 	}
 }
 
-func (sc *sourceConnector) outputsHasTimestamp() bool {
-	return lo.ContainsBy(sc.outputColumns, func(item types.ColumnMetadata) bool {
-		return item.DataType == types.DTTimestamp && item.Name == constants.TimestampColumnName
-	})
-}
-
-func (sc *sourceConnector) hasAggregate() bool {
-	return lo.ContainsBy(sc.assignments, func(item *spi.ColumnAssignment) bool {
+func (sc *sourceConnector) initializeSearchContext(tableScan *TableScan) {
+	sc.hasAggregate = lo.ContainsBy(sc.assignments, func(item *spi.ColumnAssignment) bool {
 		if handle, ok := item.Handler.(*ColumnHandle); ok && handle.Aggregation != "" {
 			return true
 		}
 		return false
 	})
+
+	indexDB := tableScan.db.IndexDatabase()
+	lo.ForEach(sc.outputColumns, func(item types.ColumnMetadata, index int) {
+		if item.DataType == types.DTTimestamp && item.Name == constants.TimestampColumnName {
+			sc.outputsHasTimestamp = true
+		} else if item.DataType == types.DTDynamic {
+			if len(sc.fieldKeys) == 1 {
+				panic("too many grouping fields, only support one field")
+			}
+			fieldKey, err := indexDB.GetFieldKeyID(tableScan.nsID, []byte(item.Name))
+			if err != nil {
+				panic(fmt.Errorf("field:%s,err:=%w", item.Name, err))
+			}
+			sc.fieldKeys = append(sc.fieldKeys, fieldKey)
+			sc.fields = append(sc.fields, item.Name)
+		}
+	})
+
+	if sc.hasAggregate {
+		if sc.outputsHasTimestamp {
+			sc.aggregator = newAggregatorByTime(sc, tableScan)
+		} else {
+			sc.aggregator = newAggregatorByField(sc, tableScan)
+		}
+	}
 }

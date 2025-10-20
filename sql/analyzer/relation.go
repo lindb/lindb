@@ -20,8 +20,10 @@ package analyzer
 import (
 	"fmt"
 
+	"github.com/lindb/common/pkg/encoding"
 	"github.com/samber/lo"
 
+	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 )
 
@@ -41,6 +43,8 @@ type Relation struct {
 	FieldIndexes map[*tree.Field]tree.FieldIndex
 
 	fieldsMap map[tree.FieldIndex]*tree.Field
+
+	maxIndex tree.FieldIndex
 }
 
 func NewRelation(fields []*tree.Field) *Relation {
@@ -52,6 +56,10 @@ func NewRelation(fields []*tree.Field) *Relation {
 	for _, f := range fields {
 		rt.FieldIndexes[f] = f.Index
 		rt.fieldsMap[f.Index] = f
+
+		if f.Index > rt.maxIndex {
+			rt.maxIndex = f.Index
+		}
 	}
 	fmt.Printf("new relation fields=%v\n", rt.FieldIndexes)
 	return rt
@@ -107,8 +115,21 @@ func (r *Relation) resolveFields(name *tree.QualifiedName) (result []*tree.Field
 }
 
 func (r *Relation) IndexOf(field *tree.Field) tree.FieldIndex {
-	fmt.Printf("relation index of %v\n", r.FieldIndexes)
-	return r.FieldIndexes[field]
+	index, ok := r.FieldIndexes[field]
+	fmt.Printf("relation index of %v,%v,%v,%v\n", r.FieldIndexes, ok, r.maxIndex, string(encoding.JSONMarshal(field)))
+	if ok {
+		return index
+	}
+	if field.DataType == types.DTDynamic {
+		r.Fields = append(r.Fields, field)
+
+		r.maxIndex++
+		field.Index = r.maxIndex
+		r.FieldIndexes[field] = field.Index
+		r.fieldsMap[field.Index] = field
+		return field.Index
+	}
+	return 0
 }
 
 type RelationID struct {

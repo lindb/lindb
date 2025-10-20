@@ -158,7 +158,7 @@ func (p *QueryPlanner) planGroupingSets(subPlan *PlanBuilder,
 	fmt.Printf("sub plan fields=%v\n", subPlan.translations.fieldSymbols)
 	// TODO: remove it?
 	copy(fields, subPlan.translations.fieldSymbols)
-	fmt.Printf("plan grouping sets:%v\n", len(subPlan.translations.fieldSymbols))
+	fmt.Printf("plan grouping sets:%v,%v\n", len(subPlan.translations.fieldSymbols), len(groupingSetAnalysis.GetComplexExpressions()))
 	for _, field := range groupingSetAnalysis.GetAllFields() {
 		input := subPlan.translations.fieldSymbols[field.FieldIndex]
 		// add group field suffix
@@ -176,6 +176,7 @@ func (p *QueryPlanner) planGroupingSets(subPlan *PlanBuilder,
 			output := p.context.SymbolAllocator.FromExpression(expression, p.context.AnalyzerContext.Analysis.GetType(expression))
 			complexExpressions[expression.GetID()] = output
 			groupingSetMappings[output] = input
+			fmt.Printf("complexExpressions=====>>>>>>%v,%v\n", input, output)
 		}
 	}
 	columnOnlyGroupingSets := p.enumerateGroupingSets(groupingSetAnalysis)

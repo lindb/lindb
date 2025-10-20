@@ -89,7 +89,7 @@ func (t *TranslationMap) getSymbolForColumn(node tree.Expression) *plan.Symbol {
 	if field == nil {
 		return nil
 	}
-	if t.scope.Dynamic {
+	if t.scope.Dynamic || field.Field.DataType == types.DTDynamic {
 		return &plan.Symbol{
 			Name:     field.Field.Name,
 			DataType: field.Field.DataType,

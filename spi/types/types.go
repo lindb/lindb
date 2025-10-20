@@ -46,6 +46,8 @@ const (
 	DTTimeSeries
 	// DTJSON represents json data type.
 	DTJSON
+	// DTDynamic represents dynamic data type.
+	DTDynamic
 )
 
 const (
@@ -79,8 +81,10 @@ func (dt DataType) String() string {
 		return "time_series"
 	case DTJSON:
 		return "json"
+	case DTDynamic:
+		return "dynamic"
 	default:
-		return ""
+		return "unknown"
 	}
 }
 
@@ -108,6 +112,8 @@ func (dt *DataType) UnmarshalJSON(data []byte) error {
 		*dt = DTTimeSeries
 	case "json":
 		*dt = DTJSON
+	case "dynamic":
+		*dt = DTDynamic
 	default:
 		*dt = DTUnknown
 	}

@@ -1,6 +1,7 @@
 package index
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -39,6 +40,8 @@ type Database interface {
 	GetFieldValueID(key uint32, value []byte) (uint32, error)
 
 	FindFieldValueIDs(key uint32, expr tree.Expr) ([]uint32, error)
+
+	ScanField(fieldKey uint32, prefix []byte, callback func(key []byte, value uint32) bool)
 
 	Flush() error
 	Close()
@@ -171,6 +174,32 @@ func (db *database) GetFieldKeyID(ns uint32, key []byte) (uint32, error) {
 
 func (db *database) GetFieldValueID(key uint32, value []byte) (uint32, error) {
 	return db.getID(db.fieldValue, key, value)
+}
+
+func (db *database) ScanField(fieldKey uint32, prefix []byte, callback func(key []byte, value uint32) bool) {
+	it := db.db.NewIteratorCF(ro, db.fieldValue)
+	keyBytes := make([]byte, 4+len(prefix))
+	binary.BigEndian.PutUint32(keyBytes[:4], fieldKey)
+	copy(keyBytes[4:], prefix)
+	it.Seek(keyBytes)
+	for ; it.Valid(); it.Next() {
+		key := it.Key()
+		value := it.Value()
+
+		if !bytes.HasPrefix(key.Data(), keyBytes) {
+			key.Free()
+			value.Free()
+			break
+		}
+		ok := callback(key.Data()[4:], encoding.BytesToU32(value.Data()))
+
+		key.Free()
+		value.Free()
+
+		if !ok {
+			break
+		}
+	}
 }
 
 func (db *database) FindFieldValueIDs(key uint32, expr tree.Expr) (ids []uint32, err error) {

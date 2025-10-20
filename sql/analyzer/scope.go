@@ -116,10 +116,11 @@ func (scope *Scope) resolveField(node tree.Expression, name *tree.QualifiedName,
 		return scope.asResolvedField(fields[0], parentFieldCount, local)
 	}
 	if scope.Dynamic {
+		fmt.Printf("=========??????dynamic field=%v\n", name.Name)
 		return &ResolvedField{
 			Field: &tree.Field{
 				Name:     name.Name,
-				DataType: types.DTUnknown,
+				DataType: types.DTDynamic,
 			},
 			Scope: scope,
 			// RelationFieldIndex:  relationFieldIndex,
