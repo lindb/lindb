@@ -15,66 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package replica
+package wal
 
 import (
-	"fmt"
-
 	"github.com/lindb/common/pkg/timeutil"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/storage/store"
 )
 
 //go:generate mockgen -source=./replicator.go -destination=./replicator_mock.go -package=replica
 
-// state represents the state of replicator.
-type state struct {
-	errMsg string
-	state  models.ReplicatorState
-}
-
-// Replicator represents write ahead log replicator.
-type Replicator interface {
-	fmt.Stringer
-	// ReplicaState returns the replica state.
-	ReplicaState() *models.ReplicaState
-	// State returns the state of replicator.
-	State() *state
-	// Pause paused replica data.
-	Pause()
-	// Consume returns the index of message replica.
-	Consume() int64
-	// GetMessage returns message by replica index.
-	GetMessage(replicaIdx int64) ([]byte, error)
-	// Replica replicas message by replica index.
-	Replica(idx int64, msg []byte)
-	// IsReady returns if replicator is ready.
-	IsReady() bool
-	// Connect connects follower for sending replica message.
-	Connect() bool
-	// ReplicaIndex returns the index of message replica
-	ReplicaIndex() int64
-	// AckIndex returns the index of message replica ack
-	AckIndex() int64
-	// AppendIndex returns next append index.
-	AppendIndex() int64
-	// ResetReplicaIndex resets replica index.
-	ResetReplicaIndex(idx int64)
-	// ResetAppendIndex resets append index.
-	ResetAppendIndex(idx int64)
-	// SetAckIndex sets ack index.
-	SetAckIndex(ackIdx int64)
-	// Pending returns lag of queue.
-	Pending() int64
-	// IgnoreMessage ignores invalid message.
-	IgnoreMessage(replicaIdx int64)
-	// Close closes replicator, releases resource.
-	Close()
-}
-
 // replicator implements Replicator interface.
 type replicator struct {
-	channel *ReplicatorChannel
+	channel *store.ReplicatorChannel
 }
 
 // ReplicaState returns the replica state.
@@ -168,7 +122,7 @@ func (r *replicator) String() string {
 	return "[" +
 		"database:" + r.channel.State.Database +
 		",shard:" + r.channel.State.ShardID.String() +
-		",family:" + timeutil.FormatTimestamp(r.channel.State.FamilyTime, timeutil.DataTimeFormat2) +
+		",family:" + timeutil.FormatTimestamp(r.channel.State.SegmentTime, timeutil.DataTimeFormat2) +
 		",from(leader):" + r.channel.State.Leader.String() +
 		",to(follower):" + r.channel.State.Follower.String() +
 		"]"

@@ -39,6 +39,8 @@ var (
 	globalBrokerCfg  atomic.Value
 	globalStorageCfg atomic.Value
 
+	globalCurrentNode atomic.Value
+
 	// Profile represents profiling Go programs with pprof
 	Profile = false
 	// Doc enables swagger api doc.

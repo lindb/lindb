@@ -19,8 +19,6 @@ package rpc
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"io"
 
 	"github.com/lindb/common/pkg/encoding"
@@ -33,7 +31,6 @@ import (
 	protoWriteV1 "github.com/lindb/lindb/proto/gen/v1/write"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/storage"
-	"github.com/lindb/lindb/storage/wal"
 )
 
 // WriteHandler implements protoWriteV1.WriteServiceServer interface for handling write rpc request.
@@ -55,30 +52,30 @@ func NewWriteHandler(
 
 // Write does metric write request.
 func (r *WriteHandler) Write(server protoWriteV1.WriteService_WriteServer) error {
-	familyState, err := r.getFamilyInfoFromCtx(server.Context())
+	segmentState, err := r.getSegmentInfoFromCtx(server.Context())
 	if err != nil {
 		r.logger.Error("get param err", logger.Error(err))
 		return status.Error(codes.InvalidArgument, err.Error())
 	}
-	if len(familyState.Shard.Replica.Replicas) == 0 {
+	if len(segmentState.Shard.Replica.Replicas) == 0 {
 		return status.Error(codes.InvalidArgument, "replicas cannot be empty")
 	}
 
-	p, err := r.getOrCreatePartition(
-		familyState.Database,
-		familyState.Shard.ID,
-		familyState.FamilyTime,
-		familyState.Shard.Leader)
+	log, err := getOrCreateSegment(
+		r.engine,
+		segmentState.Database,
+		segmentState.Shard.ID,
+		segmentState.SegmentTime,
+		segmentState.Shard.Leader)
 	if err != nil {
 		r.logger.Error("get or create wal partition err, when do write", logger.Error(err))
 		return status.Error(codes.Internal, err.Error())
 	}
-	// fixme:
-	// err = p.BuildReplicaForLeader(familyState.Shard.Leader, familyState.Shard.Replica.Replicas)
-	// if err != nil {
-	// 	r.logger.Error("build replica replica err", logger.Error(err))
-	// 	return status.Error(codes.Internal, err.Error())
-	// }
+	err = log.BuildReplicaForLeader(segmentState.Shard.Leader, segmentState.Shard.Replica.Replicas)
+	if err != nil {
+		r.logger.Error("build replica replica err", logger.Error(err))
+		return status.Error(codes.Internal, err.Error())
+	}
 
 	// handle write request from stream
 	for {
@@ -93,7 +90,7 @@ func (r *WriteHandler) Write(server protoWriteV1.WriteService_WriteServer) error
 
 		resp := &protoWriteV1.WriteResponse{}
 		// write wal log
-		err = p.Write(req.Record)
+		err = log.Write(req.Record)
 		if err != nil {
 			resp.Err = err.Error()
 		}
@@ -104,50 +101,15 @@ func (r *WriteHandler) Write(server protoWriteV1.WriteService_WriteServer) error
 	}
 }
 
-// getFamilyInfoFromCtx returns family state metadata from rpc context.
-func (r *WriteHandler) getFamilyInfoFromCtx(ctx context.Context) (familyState models.FamilyState, err error) {
-	familyStateDate, err := rpc.GetStringFromContext(ctx, constants.RPCMetaKeyFamilyState)
+// getSegmentInfoFromCtx returns segment state metadata from rpc context.
+func (r *WriteHandler) getSegmentInfoFromCtx(ctx context.Context) (segmentState models.SegmentState, err error) {
+	segmentStateDate, err := rpc.GetStringFromContext(ctx, constants.RPCMetaKeyFamilyState)
 	if err != nil {
 		return
 	}
-	err = encoding.JSONUnmarshal([]byte(familyStateDate), &familyState)
+	err = encoding.JSONUnmarshal([]byte(segmentStateDate), &segmentState)
 	if err != nil {
 		return
 	}
 	return
-}
-
-// getOrCreatePartition returns write ahead log's partition if it exists, else creates a new partition.
-func (r *WriteHandler) getOrCreatePartition(
-	database string,
-	shardID models.ShardID,
-	familyTime int64,
-	leader models.NodeID,
-) (wal.WriteAheadLog, error) {
-	db, ok := r.engine.GetDatabase2(database)
-	if !ok {
-		return nil, errors.New("database not exist")
-	}
-
-	shard, ok := db.GetShard(shardID)
-	if !ok {
-		fmt.Println(shardID)
-		return nil, errors.New("shard not exist")
-	}
-	p, err := shard.GetOrCreatePartition(familyTime)
-	if err != nil {
-		fmt.Printf("err0=%s\n", err)
-		return nil, err
-	}
-	segment, err := p.GetOrCreateSegment(familyTime)
-	if err != nil {
-		fmt.Printf("err1=%s\n", err)
-		return nil, err
-	}
-	log, err := segment.GetOrCreateWAL(leader)
-	if err != nil {
-		fmt.Printf("err2=%s\n", err)
-		return nil, err
-	}
-	return log, nil
 }

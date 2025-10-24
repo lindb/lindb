@@ -44,6 +44,7 @@ import (
 	internalrpc "github.com/lindb/lindb/internal/rpc"
 	"github.com/lindb/lindb/internal/server"
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/meta"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/hostutil"
@@ -53,7 +54,6 @@ import (
 	protoMetaV1 "github.com/lindb/lindb/proto/gen/v1/meta"
 	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
 	protoWriteV1 "github.com/lindb/lindb/proto/gen/v1/write"
-	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/spi"
@@ -62,6 +62,8 @@ import (
 	"github.com/lindb/lindb/spi/table/trace"
 	"github.com/lindb/lindb/sql/execution"
 	storagepkg "github.com/lindb/lindb/storage"
+	"github.com/lindb/lindb/storage/store"
+	"github.com/lindb/lindb/storage/wal"
 )
 
 // rpcHandler represents all dependency rpc handlers
@@ -77,16 +79,15 @@ var (
 
 // just for testing
 var (
-	getHostIP                 = hostutil.GetHostIP
-	hostName                  = os.Hostname
-	newRegistry               = discovery.NewRegistry
-	newStateMachineFactory    = storage.NewStateMachineFactory
-	newDatabaseLifecycleFn    = NewDatabaseLifecycle
-	newEngineFn               = storagepkg.NewEngine
-	newWriteAheadLogManagerFn = replica.NewWriteAheadLogManager
-	mkDirIfNotExistFn         = fileutil.MkDirIfNotExist
-	readFileFn                = os.ReadFile
-	writeFileFn               = os.WriteFile
+	getHostIP              = hostutil.GetHostIP
+	hostName               = os.Hostname
+	newRegistry            = discovery.NewRegistry
+	newStateMachineFactory = storage.NewStateMachineFactory
+	newDatabaseLifecycleFn = NewDatabaseLifecycle
+	newEngineFn            = storagepkg.NewEngine
+	mkDirIfNotExistFn      = fileutil.MkDirIfNotExist
+	readFileFn             = os.ReadFile
+	writeFileFn            = os.WriteFile
 
 	atoiFn  = strconv.Atoi
 	existFn = fileutil.Exist
@@ -103,7 +104,6 @@ type runtime struct {
 	jobScheduler        kv.JobScheduler
 	repoFactory         state.RepositoryFactory
 	stateMgr            storage.StateManager
-	walMgr              replica.WriteAheadLogManager
 	dbLifecycle         DatabaseLifecycle
 	repo                state.Repository
 	server              rpc.GRPCServer
@@ -170,6 +170,8 @@ func (r *runtime) Run() error {
 	r.jobScheduler = kv.NewJobScheduler(r.ctx, kv.DefaultCompactCheckInterval)
 	r.jobScheduler.Startup() // startup kv compact job scheduler
 
+	store.CreateWriteAheadLog = wal.NewWriteAheadLog
+
 	// start TSDB engine for storage server
 	engine, err := newEngineFn()
 	if err != nil {
@@ -198,25 +200,15 @@ func (r *runtime) Run() error {
 			Version:    config.Version,
 		},
 	}
+
+	meta.SetCurrentNode(r.node.ID)
+
 	r.globalKeyValues = tag.Tags{
 		{Key: []byte("node"), Value: []byte(r.node.Indicator())},
 		{Key: []byte("role"), Value: []byte(constants.StorageRole)},
 		{Key: []byte("namespace"), Value: []byte(r.config.Coordinator.Namespace)},
 	}
 	r.BaseRuntime = app.NewBaseRuntimeFn(r.ctx, r.config.Monitor, linmetric.StorageRegistry, r.globalKeyValues)
-
-	walMgr := newWriteAheadLogManagerFn(
-		r.ctx,
-		r.config.StorageBase.WAL,
-		r.node.ID, r.engine,
-		rpc.NewClientStreamFactory(r.ctx, r.node, rpc.GetStorageClientConnFactory()),
-		r.stateMgr,
-	)
-	if err = walMgr.Recovery(); err != nil {
-		r.state = server.Failed
-		return err
-	}
-	r.walMgr = walMgr
 
 	// start state repo
 	if err := r.startStateRepo(); err != nil {
@@ -234,7 +226,7 @@ func (r *runtime) Run() error {
 
 	discoveryFactory := discovery.NewFactory(r.repo)
 	r.stateMachineFactory = newStateMachineFactory(r.ctx, discoveryFactory, r.stateMgr)
-	r.dbLifecycle = newDatabaseLifecycleFn(r.ctx, r.repo, r.walMgr, r.engine)
+	r.dbLifecycle = newDatabaseLifecycleFn(r.ctx, r.repo, r.engine)
 	r.dbLifecycle.Startup()
 
 	if err := r.startStorageState(); err != nil {
@@ -392,7 +384,7 @@ func (r *runtime) startHTTPServer() {
 	exploreAPI := api.NewExploreAPI(r.globalKeyValues, linmetric.StorageRegistry)
 	v1 := r.httpServer.GetAPIRouter().Group(constants.APIVersion1)
 	exploreAPI.Register(v1)
-	replicaAPI := stateapi.NewReplicaAPI(r.walMgr)
+	replicaAPI := stateapi.NewReplicaAPI(r.engine)
 	replicaAPI.Register(v1)
 	tsdbStateAPI := stateapi.NewTSDBAPI()
 	tsdbStateAPI.Register(v1)
@@ -439,7 +431,7 @@ func (r *runtime) bindRPCHandlers() {
 	// FIXME: (stone1100) need close
 
 	r.rpcHandler = &rpcHandler{
-		replica: rpchandler.NewReplicaHandler(r.walMgr),
+		replica: rpchandler.NewReplicaHandler(r.engine),
 		write:   rpchandler.NewWriteHandler(r.engine),
 	}
 

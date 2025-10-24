@@ -16,5 +16,5 @@ type Shard interface {
 
 	GetOrCreatePartition(timestamp int64) (Partition, error)
 
-	GetPartitions(timeRange timeutil.TimeRange) []Partition
+	GetPartitions(interval timeutil.Interval, timeRange timeutil.TimeRange) []Partition
 }

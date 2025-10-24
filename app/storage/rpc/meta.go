@@ -28,6 +28,7 @@ import (
 	protoMetaV1 "github.com/lindb/lindb/proto/gen/v1/meta"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/storage"
+	"github.com/lindb/lindb/storage/metric"
 )
 
 type MetaService struct {
@@ -45,10 +46,11 @@ func NewMetaService(engine storage.Engine) protoMetaV1.MetaServiceServer {
 func (srv *MetaService) SuggestNamespace(ctx context.Context,
 	request *protoMetaV1.SuggestRequest,
 ) (*protoMetaV1.SuggestResponse, error) {
-	database, ok := srv.engine.GetDatabase(request.Database)
+	db, ok := srv.engine.GetDatabase(request.Database)
 	if !ok {
 		return nil, constants.ErrDatabaseNotFound
 	}
+	database := db.(*metric.Database)
 	namespaces, err := database.MetaDB().SuggestNamespace(request.Namespace, int(request.Limit))
 	if err != nil {
 		return nil, err
@@ -59,13 +61,14 @@ func (srv *MetaService) SuggestNamespace(ctx context.Context,
 func (srv *MetaService) SuggestTable(ctx context.Context,
 	request *protoMetaV1.SuggestRequest,
 ) (*protoMetaV1.SuggestResponse, error) {
-	database, ok := srv.engine.GetDatabase(request.Database)
+	db, ok := srv.engine.GetDatabase(request.Database)
 	if !ok {
 		return nil, constants.ErrDatabaseNotFound
 	}
 	if !ok {
 		return nil, constants.ErrDatabaseNotFound
 	}
+	database := db.(*metric.Database)
 	namespace := commonConstants.DefaultNamespace
 	if request.Namespace != "" {
 		namespace = request.Namespace
@@ -80,10 +83,11 @@ func (srv *MetaService) SuggestTable(ctx context.Context,
 func (srv *MetaService) TableSchema(ctx context.Context,
 	request *protoMetaV1.TableSchemaRequest,
 ) (*protoMetaV1.TableSchemaResponse, error) {
-	database, ok := srv.engine.GetDatabase(request.Database)
+	db, ok := srv.engine.GetDatabase(request.Database)
 	if !ok {
 		return nil, constants.ErrDatabaseNotFound
 	}
+	database := db.(*metric.Database)
 	namespace := commonConstants.DefaultNamespace
 	if request.Namespace != "" {
 		namespace = request.Namespace

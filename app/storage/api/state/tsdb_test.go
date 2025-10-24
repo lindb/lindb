@@ -38,7 +38,7 @@ func TestTSDBAPI_GetMemoryDatabaseState(t *testing.T) {
 
 	f := storage.NewMockDataFamily(ctrl)
 	f.EXPECT().Indicator().Return("f")
-	f.EXPECT().GetState().Return(models.DataFamilyState{})
+	f.EXPECT().GetState().Return(models.DataSegmentState{})
 	s := storage.NewMockShard(ctrl)
 	f.EXPECT().Shard().Return(s).AnyTimes()
 	db := storage.NewMockDatabase(ctrl)

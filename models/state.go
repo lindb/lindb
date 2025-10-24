@@ -148,11 +148,12 @@ type Storage struct {
 
 // ReplicaState represents the relationship for a replica.
 type ReplicaState struct {
-	Database   string  `json:"database"`
-	ShardID    ShardID `json:"shardId"`
-	Leader     NodeID  `json:"leader"`
-	Follower   NodeID  `json:"follower"`
-	FamilyTime int64   `json:"familyTime"`
+	Database    string  `json:"database"`
+	ShardID     ShardID `json:"shardId"`
+	SegmentTime int64   `json:"segmentTime"`
+
+	Leader   NodeID `json:"leader"`
+	Follower NodeID `json:"follower"`
 }
 
 // String returns the string value of ReplicaState.
@@ -160,7 +161,7 @@ func (r ReplicaState) String() string {
 	return "[" +
 		"database:" + r.Database +
 		",shard:" + strconv.Itoa(int(r.ShardID)) +
-		",family:" + timeutil.FormatTimestamp(r.FamilyTime, timeutil.DataTimeFormat4) +
+		",segment:" + timeutil.FormatTimestamp(r.SegmentTime, timeutil.DataTimeFormat4) +
 		",from(leader):" + strconv.Itoa(int(r.Leader)) +
 		",to(follower):" + strconv.Itoa(int(r.Follower)) +
 		"]"
@@ -174,11 +175,11 @@ type ShardState struct {
 	Leader  NodeID         `json:"leader"`
 }
 
-// FamilyState represents current state of shard's family.
-type FamilyState struct {
-	Database   string     `json:"database"`
-	Shard      ShardState `json:"shard"`
-	FamilyTime int64      `json:"familyTime"`
+// SegmentState represents current state of shard's segment.
+type SegmentState struct {
+	Database    string     `json:"database"`
+	Shard       ShardState `json:"shard"`
+	SegmentTime int64      `json:"segmentTime"`
 }
 
 // BrokerState represents broker cluster state.
@@ -276,16 +277,16 @@ func (s *StorageState) NodeOffline(nodeID NodeID) {
 	delete(s.LiveNodes, nodeID)
 }
 
-// Stringer returns a human readable string
+// String returns a human readable string
 func (s *StorageState) String() string {
 	return string(encoding.JSONMarshal(s))
 }
 
 // StateMachineInfo represents state machine register info.
 type StateMachineInfo struct {
-	CreateState func() interface{} `json:"-"`
-	Path        string             `json:"path"`
-	Comment     string             `json:"comment"`
+	CreateState func() any `json:"-"`
+	Path        string     `json:"path"`
+	Comment     string     `json:"comment"`
 }
 
 // StateMetric represents internal state metric.
@@ -301,11 +302,11 @@ type StateField struct {
 	Value float64 `json:"value"`
 }
 
-// DataFamilyState represents the state of data family.
-type DataFamilyState struct {
+// DataSegmentState represents the state of data segment.
+type DataSegmentState struct {
 	AckSequences     map[int32]int64       `json:"ackSequences"`
 	ReplicaSequences map[int32]int64       `json:"replicaSequences"`
-	FamilyTime       string                `json:"familyTime"`
+	SegmentTime      string                `json:"segmentTime"`
 	MemoryDatabases  []MemoryDatabaseState `json:"memoryDatabases"`
 	ShardID          ShardID               `json:"shardId"`
 }

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package replica
+package wal
 
 import (
 	"context"
@@ -31,6 +31,7 @@ import (
 	"github.com/lindb/lindb/models"
 	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
 	"github.com/lindb/lindb/rpc"
+	"github.com/lindb/lindb/storage/store"
 )
 
 // remoteReplicator implements Replicator interface, do remote wal replica.
@@ -43,44 +44,44 @@ type remoteReplicator struct {
 	replicaCli    protoReplicaV1.ReplicaServiceClient
 	replicaStream protoReplicaV1.ReplicaService_ReplicaClient
 	stateMgr      storage.StateManager
-	logger        logger.Logger
 	isSuspend     *atomic.Bool
 	suspend       chan struct{}
 	statistics    *metrics.StorageRemoteReplicatorStatistics
 	rwMutex       sync.RWMutex
+
+	logger logger.Logger
 }
 
 // NewRemoteReplicator creates remote replicator.
 func NewRemoteReplicator(
 	ctx context.Context,
-	channel *ReplicatorChannel,
-	stateMgr storage.StateManager,
-	cliFct rpc.ClientStreamFactory,
-) Replicator {
+	channel *store.ReplicatorChannel,
+) store.Replicator {
 	r := &remoteReplicator{
 		ctx: ctx,
 		replicator: replicator{
 			channel: channel,
 		},
-		cliFct:     cliFct,
-		stateMgr:   stateMgr,
+		// FIXME: need get
+		// cliFct:     cliFct,
+		// stateMgr:   stateMgr,
 		isSuspend:  atomic.NewBool(false),
 		suspend:    make(chan struct{}),
 		statistics: metrics.NewStorageRemoteReplicatorStatistics(channel.State.Database, channel.State.ShardID.String()),
 		logger:     logger.GetLogger("Replica", "RemoteReplicator"),
 	}
-	r.state.Store(&state{state: models.ReplicatorInitState, errMsg: "replicator initialized"})
+	r.state.Store(&store.ReplicatorState{State: models.ReplicatorInitState, ErrMsg: "replicator initialized"})
 
 	// watch follower node state change
-	stateMgr.WatchNodeStateChangeEvent(channel.State.Follower, r.handleNodeStateChangeEvent)
+	// stateMgr.WatchNodeStateChangeEvent(channel.State.Follower, r.handleNodeStateChangeEvent)
 
 	r.logger.Info("start remote replicator", logger.String("replica", r.String()))
 	return r
 }
 
 // State returns the state of remote replicator.
-func (r *remoteReplicator) State() *state {
-	return r.state.Load().(*state)
+func (r *remoteReplicator) State() *store.ReplicatorState {
+	return r.state.Load().(*store.ReplicatorState)
 }
 
 func (r *remoteReplicator) handleNodeStateChangeEvent(state models.NodeStateType) {
@@ -98,23 +99,23 @@ func (r *remoteReplicator) Connect() bool {
 		return true
 	}
 
-	r.state.Store(&state{state: models.ReplicatorInitState, errMsg: "creating replica stream"})
+	r.state.Store(&store.ReplicatorState{State: models.ReplicatorInitState, ErrMsg: "creating replica stream"})
 	// pass metadata(database/shard state) when create rpc connection.
 	replicaState := encoding.JSONMarshal(&r.channel.State)
 	ctx := rpc.CreateOutgoingContextWithPairs(r.ctx,
 		constants.RPCMetaReplicaState, string(replicaState))
-	replicaStream, err := r.replicaCli.Replica(ctx) // TODO add timeout ??
+	replicaStream, err := r.replicaCli.Replica(ctx) // TODO: add timeout ??
 	if err != nil {
 		r.statistics.CloseLastStreamFailures.Incr()
 		r.logger.Warn("create replica service client stream err",
 			logger.String("replicator", r.String()),
 			logger.Error(err))
-		r.state.Store(&state{state: models.ReplicatorFailureState, errMsg: "create replica stream failure"})
+		r.state.Store(&store.ReplicatorState{State: models.ReplicatorFailureState, ErrMsg: "create replica stream failure"})
 		return false
 	}
 	r.statistics.CreateReplicaStream.Incr()
 	r.replicaStream = replicaStream
-	r.state.Store(&state{state: models.ReplicatorReadyState})
+	r.state.Store(&store.ReplicatorState{State: models.ReplicatorReadyState})
 	return true
 }
 
@@ -126,9 +127,9 @@ func (r *remoteReplicator) Connect() bool {
 //     c. last remote ack index > current node's append index,
 //     need reset current append index/replica index, then return true.
 func (r *remoteReplicator) IsReady() bool {
-	stateVal := r.state.Load().(*state)
+	stateVal := r.state.Load().(*store.ReplicatorState)
 	r.rwMutex.Lock()
-	if stateVal.state == models.ReplicatorReadyState {
+	if stateVal.State == models.ReplicatorReadyState {
 		r.rwMutex.Unlock()
 		return true
 	}
@@ -144,7 +145,7 @@ func (r *remoteReplicator) IsReady() bool {
 		r.rwMutex.Unlock() // unlock
 		if r.isSuspend.CompareAndSwap(false, true) {
 			r.statistics.FollowerOffline.Incr()
-			r.state.Store(&state{state: models.ReplicatorFailureState, errMsg: "follower node is offline"})
+			r.state.Store(&store.ReplicatorState{State: models.ReplicatorFailureState, ErrMsg: "follower node is offline"})
 			<-r.suspend // wait follower node online
 		}
 		return r.IsReady() // check replicator is ready now
@@ -154,34 +155,34 @@ func (r *remoteReplicator) IsReady() bool {
 
 	r.closeStream()
 
-	r.state.Store(&state{state: models.ReplicatorInitState, errMsg: "creating replica client"})
+	r.state.Store(&store.ReplicatorState{State: models.ReplicatorInitState, ErrMsg: "creating replica client"})
 	replicaCli, err := r.cliFct.CreateReplicaServiceClient(&node)
 	if err != nil {
 		r.statistics.CreateReplicaCliFailures.Incr()
 		r.logger.Warn("create replica service client err",
 			logger.String("replicator", r.String()),
 			logger.Error(err))
-		r.state.Store(&state{state: models.ReplicatorFailureState, errMsg: "create replica client failure, root cause: " + err.Error()})
+		r.state.Store(&store.ReplicatorState{State: models.ReplicatorFailureState, ErrMsg: "create replica client failure, root cause: " + err.Error()})
 		return false
 	}
 	r.replicaCli = replicaCli
 	r.statistics.CreateReplicaCli.Incr()
 
-	r.state.Store(&state{state: models.ReplicatorInitState, errMsg: "getting ack index"})
+	r.state.Store(&store.ReplicatorState{State: models.ReplicatorInitState, ErrMsg: "getting ack index"})
 	remoteLastReplicaAckIdx, err := r.getLastAckIdxFromReplica() // last ack index remote replica node
 	if err != nil {
 		r.statistics.GetLastAckFailures.Incr()
 		r.logger.Warn("do get replica ack index err",
 			logger.String("replicator", r.String()),
 			logger.Error(err))
-		r.state.Store(&state{state: models.ReplicatorFailureState, errMsg: "get ack index failure, root cause: " + err.Error()})
+		r.state.Store(&store.ReplicatorState{State: models.ReplicatorFailureState, ErrMsg: "get ack index failure, root cause: " + err.Error()})
 		return false
 	}
 	localReplicaIdx := r.ReplicaIndex() // current need replica index from current node
 	nextReplicaIdx := remoteLastReplicaAckIdx + 1
 	if nextReplicaIdx == localReplicaIdx {
 		// replica index == remote replica append index, can do replicator
-		r.state.Store(&state{state: models.ReplicatorReadyState})
+		r.state.Store(&store.ReplicatorState{State: models.ReplicatorReadyState})
 		return true
 	}
 
@@ -197,13 +198,13 @@ func (r *remoteReplicator) IsReady() bool {
 			logger.Int64("remoteLastReplicaAckIdx", remoteLastReplicaAckIdx),
 			logger.Int64("smallestAckIdx", smallestAckIdx),
 			logger.Int64("resetReplicaIdx", needResetReplicaIdx))
-		r.state.Store(&state{state: models.ReplicatorInitState, errMsg: "resetting replica append index"})
+		r.state.Store(&store.ReplicatorState{State: models.ReplicatorInitState, ErrMsg: "resetting replica append index"})
 		// send reset index request
 		_, err = r.replicaCli.Reset(r.ctx, &protoReplicaV1.ResetIndexRequest{
 			Database:    r.channel.State.Database,
 			Shard:       int32(r.channel.State.ShardID),
 			Leader:      int32(r.channel.State.Leader),
-			FamilyTime:  r.channel.State.FamilyTime,
+			SegmentTime: r.channel.State.SegmentTime,
 			AppendIndex: needResetReplicaIdx,
 		})
 		if err != nil {
@@ -211,22 +212,22 @@ func (r *remoteReplicator) IsReady() bool {
 			r.logger.Warn("do reset replica append index err",
 				logger.String("replicator", r.String()),
 				logger.Error(err))
-			r.state.Store(&state{
-				state:  models.ReplicatorFailureState,
-				errMsg: "reset replica append index failure, root cause: " + err.Error(),
+			r.state.Store(&store.ReplicatorState{
+				State:  models.ReplicatorFailureState,
+				ErrMsg: "reset replica append index failure, root cause: " + err.Error(),
 			})
 			return false
 		}
 		r.statistics.ResetFollowerAppendIdx.Incr()
 		r.ResetReplicaIndex(needResetReplicaIdx)
-		r.state.Store(&state{state: models.ReplicatorReadyState})
+		r.state.Store(&store.ReplicatorState{State: models.ReplicatorReadyState})
 		return true
 	case remoteLastReplicaAckIdx > appendIdx:
 		// new write data will be lost, because leader's lost old wal data
 		r.ResetAppendIndex(nextReplicaIdx)
 		r.statistics.ResetAppendIdx.Incr()
 	}
-	r.state.Store(&state{state: models.ReplicatorInitState, errMsg: "resetting replica index"})
+	r.state.Store(&store.ReplicatorState{State: models.ReplicatorInitState, ErrMsg: "resetting replica index"})
 	// remote replica ack idx > current ack idx, maybe ack request lost
 	r.ResetReplicaIndex(nextReplicaIdx)
 	r.SetAckIndex(remoteLastReplicaAckIdx)
@@ -244,10 +245,10 @@ func (r *remoteReplicator) IsReady() bool {
 		r.statistics.ResetReplicaIdx.Incr()
 		r.logger.Info("remote replica ack idx != current replica idx, reset current replica idx successfully",
 			logger.String("replicator", r.String()))
-		r.state.Store(&state{state: models.ReplicatorReadyState})
+		r.state.Store(&store.ReplicatorState{State: models.ReplicatorReadyState})
 		return true
 	}
-	r.state.Store(&state{state: models.ReplicatorFailureState, errMsg: "reset replica index failure"})
+	r.state.Store(&store.ReplicatorState{State: models.ReplicatorFailureState, ErrMsg: "reset replica index failure"})
 	r.statistics.ResetReplicaIdxFailures.Incr()
 	return false
 }
@@ -260,7 +261,7 @@ func (r *remoteReplicator) Replica(idx int64, msg []byte) {
 		Record:       msg,
 	})
 	if err != nil {
-		r.state.Store(&state{state: models.ReplicatorFailureState, errMsg: "send replica req failure, root cause: " + err.Error()})
+		r.state.Store(&store.ReplicatorState{State: models.ReplicatorFailureState, ErrMsg: "send replica req failure, root cause: " + err.Error()})
 		r.statistics.SendMsgFailures.Incr()
 		r.logger.Error("send replica request",
 			logger.String("replicator", r.String()),
@@ -270,7 +271,7 @@ func (r *remoteReplicator) Replica(idx int64, msg []byte) {
 	r.statistics.SendMsg.Incr()
 	resp, err := cli.Recv()
 	if err != nil {
-		r.state.Store(&state{state: models.ReplicatorFailureState, errMsg: "receive replica resp failure, root case: " + err.Error()})
+		r.state.Store(&store.ReplicatorState{State: models.ReplicatorFailureState, ErrMsg: "receive replica resp failure, root case: " + err.Error()})
 		r.statistics.ReceiveMsgFailures.Incr()
 		r.logger.Error("receive replica response",
 			logger.String("replicator", r.String()),
@@ -316,10 +317,10 @@ func (r *remoteReplicator) closeStream() {
 // getLastAckIdxFromReplica returns replica replica ack index.
 func (r *remoteReplicator) getLastAckIdxFromReplica() (int64, error) {
 	resp, err := r.replicaCli.GetReplicaAckIndex(r.ctx, &protoReplicaV1.GetReplicaAckIndexRequest{
-		Database:   r.channel.State.Database,
-		Shard:      int32(r.channel.State.ShardID),
-		Leader:     int32(r.channel.State.Leader),
-		FamilyTime: r.channel.State.FamilyTime,
+		Database:    r.channel.State.Database,
+		Shard:       int32(r.channel.State.ShardID),
+		Leader:      int32(r.channel.State.Leader),
+		SegmentTime: r.channel.State.SegmentTime,
 	})
 	if err != nil {
 		return 0, err

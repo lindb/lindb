@@ -21,32 +21,31 @@ import (
 	"context"
 	"io"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
 	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
-	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/rpc"
+	"github.com/lindb/lindb/storage"
 )
 
 // ReplicaHandler implements replica.ReplicaServiceServer interface for handling replica rpc request.
 type ReplicaHandler struct {
-	walMgr replica.WriteAheadLogManager
+	engine storage.Engine
 
 	logger logger.Logger
 }
 
 // NewReplicaHandler creates a replica handler.
 func NewReplicaHandler(
-	walMgr replica.WriteAheadLogManager,
+	engine storage.Engine,
 ) *ReplicaHandler {
 	return &ReplicaHandler{
-		walMgr: walMgr,
+		engine: engine,
 		logger: logger.GetLogger("Storage", "ReplicaRPC"),
 	}
 }
@@ -55,17 +54,18 @@ func NewReplicaHandler(
 func (r *ReplicaHandler) GetReplicaAckIndex(_ context.Context,
 	request *protoReplicaV1.GetReplicaAckIndexRequest,
 ) (*protoReplicaV1.GetReplicaAckIndexResponse, error) {
-	p, err := r.getOrCreatePartition(
+	log, err := getOrCreateSegment(
+		r.engine,
 		request.Database,
 		models.ShardID(request.Shard),
-		request.FamilyTime,
+		request.SegmentTime,
 		models.NodeID(request.Leader))
 	if err != nil {
 		r.logger.Error("get or create wal partition err, when do get replica ack index", logger.Error(err))
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &protoReplicaV1.GetReplicaAckIndexResponse{
-		AckIndex: p.ReplicaAckIndex(),
+		AckIndex: log.ReplicaAckIndex(),
 	}, nil
 }
 
@@ -73,16 +73,17 @@ func (r *ReplicaHandler) GetReplicaAckIndex(_ context.Context,
 func (r *ReplicaHandler) Reset(_ context.Context,
 	request *protoReplicaV1.ResetIndexRequest,
 ) (*protoReplicaV1.ResetIndexResponse, error) {
-	p, err := r.getOrCreatePartition(
+	log, err := getOrCreateSegment(
+		r.engine,
 		request.Database,
 		models.ShardID(request.Shard),
-		request.FamilyTime,
+		request.SegmentTime,
 		models.NodeID(request.Leader))
 	if err != nil {
 		r.logger.Error("get or create wal partition err, when do reset replica index", logger.Error(err))
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	p.ResetReplicaIndex(request.AppendIndex)
+	log.ResetReplicaIndex(request.AppendIndex)
 	return &protoReplicaV1.ResetIndexResponse{}, nil
 }
 
@@ -94,16 +95,17 @@ func (r *ReplicaHandler) Replica(server protoReplicaV1.ReplicaService_ReplicaSer
 		return status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	p, err := r.getOrCreatePartition(
+	log, err := getOrCreateSegment(
+		r.engine,
 		replicaState.Database,
 		replicaState.ShardID,
-		replicaState.FamilyTime,
+		replicaState.SegmentTime,
 		replicaState.Leader)
 	if err != nil {
 		r.logger.Error("get or create wal partition err, when do replica", logger.Error(err))
 		return status.Error(codes.Internal, err.Error())
 	}
-	err = p.BuildReplicaForFollower(replicaState.Leader, replicaState.Follower)
+	err = log.BuildReplicaForFollower(replicaState.Leader, replicaState.Follower)
 	if err != nil {
 		r.logger.Error("build replica replica err", logger.Error(err))
 		return status.Error(codes.Internal, err.Error())
@@ -124,7 +126,7 @@ func (r *ReplicaHandler) Replica(server protoReplicaV1.ReplicaService_ReplicaSer
 		r.logger.Debug("receive write ahead log replica log",
 			logger.Any("from", replicaState.Leader), logger.Int64("index", req.ReplicaIndex))
 		// write replica wal log
-		appendedIdx, err := p.ReplicaLog(req.ReplicaIndex, req.Record)
+		appendedIdx, err := log.Replica(req.ReplicaIndex, req.Record)
 
 		resp.ReplicaIndex = req.ReplicaIndex
 		resp.AckIndex = appendedIdx
@@ -150,19 +152,4 @@ func (r *ReplicaHandler) getReplicaStateFromCtx(ctx context.Context) (replicator
 		return
 	}
 	return
-}
-
-// getOrCreatePartition returns write ahead log's partition if it exists, else creates a new partition.
-func (r *ReplicaHandler) getOrCreatePartition(
-	database string,
-	shardID models.ShardID,
-	familyTime int64,
-	leader models.NodeID,
-) (replica.Partition, error) {
-	wal := r.walMgr.GetOrCreateLog(database)
-	p, err := wal.GetOrCreatePartition(shardID, familyTime, leader)
-	if err != nil {
-		return nil, err
-	}
-	return p, nil
 }

@@ -19,27 +19,24 @@ package state
 
 import (
 	"github.com/gin-gonic/gin"
-
 	httppkg "github.com/lindb/common/pkg/http"
 	"github.com/lindb/common/pkg/logger"
 
-	"github.com/lindb/lindb/replica"
+	"github.com/lindb/lindb/storage"
 )
 
-var (
-	ReplicaPath = "/state/replica"
-)
+var ReplicaPath = "/state/replica"
 
 // ReplicaAPI represents internal replica state rest api.
 type ReplicaAPI struct {
-	walMgr replica.WriteAheadLogManager
+	engine storage.Engine
 	logger logger.Logger
 }
 
 // NewReplicaAPI creates a replica state api instance.
-func NewReplicaAPI(walMgr replica.WriteAheadLogManager) *ReplicaAPI {
+func NewReplicaAPI(engine storage.Engine) *ReplicaAPI {
 	return &ReplicaAPI{
-		walMgr: walMgr,
+		engine: engine,
 		logger: logger.GetLogger("Storage", "ReplicaAPI"),
 	}
 }
@@ -59,6 +56,7 @@ func (d *ReplicaAPI) GetReplicaState(c *gin.Context) {
 		httppkg.Error(c, err)
 		return
 	}
-	rs := d.walMgr.GetReplicaState(param.DB)
-	httppkg.OK(c, rs)
+	// FIXME: get replica state
+	// rs := d.walMgr.GetReplicaState(param.DB)
+	httppkg.OK(c, nil)
 }

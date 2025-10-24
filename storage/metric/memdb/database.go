@@ -104,7 +104,7 @@ type MemoryDatabaseCfg struct {
 	IndexDatabase IndexDatabase
 	Name          string
 	Interval      timeutil.Interval
-	FamilyTime    int64
+	SegmentTime   int64
 }
 
 // memoryDatabase implements MemoryDatabase.
@@ -135,7 +135,7 @@ func NewMemoryDatabase(cfg *MemoryDatabaseCfg) (MemoryDatabase, error) {
 	return &memoryDatabase{
 		cfg:           cfg,
 		indexDB:       cfg.IndexDatabase,
-		familyTime:    cfg.FamilyTime,
+		familyTime:    cfg.SegmentTime,
 		name:          cfg.Name,
 		timeSeriesIDs: roaring.New(),
 		createdTime:   fasttime.UnixNano(),
@@ -286,7 +286,7 @@ func (md *memoryDatabase) getFieldWriteBuffer(fieldIndex uint8) (DataPointBuffer
 	}
 
 	// alloc a new data point buffer
-	newBuf, err := md.cfg.BufferMgr.AllocBuffer(md.cfg.FamilyTime)
+	newBuf, err := md.cfg.BufferMgr.AllocBuffer(md.cfg.SegmentTime)
 	if err != nil {
 		md.statistics.AllocatePageFailures.Incr()
 		return nil, err

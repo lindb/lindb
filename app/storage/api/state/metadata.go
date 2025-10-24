@@ -49,7 +49,7 @@ func (m *MetadataAPI) GetLocalAllDatabaseCfg(c *gin.Context) {
 	databases := m.engine.GetAllDatabases()
 	cfgMap := make(map[string]models.DatabaseConfig)
 	for name, db := range databases {
-		cfgMap[name] = *db.GetConfig()
+		cfgMap[name] = *db.GetOption()
 	}
 	httppkg.OK(c, cfgMap)
 }

@@ -33,7 +33,7 @@ import (
 	"github.com/lindb/lindb/sql/expression"
 	"github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/tree"
-	"github.com/lindb/lindb/storage"
+	metricstore "github.com/lindb/lindb/storage/metric"
 )
 
 type column struct {
@@ -67,7 +67,7 @@ type aggConfig struct {
 }
 
 type TableScan struct {
-	db        storage.Database
+	db        *metricstore.Database
 	metricID  metric.ID       // table id
 	schema    *metric.Schema  // metric(table) schema
 	predicate tree.Expression // where clause

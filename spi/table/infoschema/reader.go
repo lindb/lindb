@@ -366,7 +366,7 @@ func (r *reader) readMemoryDatabases(predicate *predicate) (rows [][]*types.Datu
 		return nil, errors.New("table_schema not found in where clause")
 	}
 	state, err0 := r.getStateFromStorage("/state/tsdb/memory", map[string]string{"db": schema}, func() any {
-		var state []models.DataFamilyState
+		var state []models.DataSegmentState
 		return &state
 	})
 	if err0 != nil {
@@ -374,18 +374,18 @@ func (r *reader) readMemoryDatabases(predicate *predicate) (rows [][]*types.Datu
 	}
 	result := state.(map[string]any)
 	for node, state := range result {
-		familyStates := *(state.(*[]models.DataFamilyState))
+		familyStates := *(state.(*[]models.DataSegmentState))
 		for _, familyState := range familyStates {
 			for _, replicator := range familyState.MemoryDatabases {
 				rows = append(rows, types.MakeDatums(
-					schema,                 // table_schema
-					node,                   // node
-					familyState.ShardID,    // shard_id
-					familyState.FamilyTime, // family_time
-					replicator.State,       // state
-					replicator.Uptime,      // uptime
-					replicator.MemSize,     // mem_size
-					replicator.NumOfSeries, // num_of_series
+					schema,                  // table_schema
+					node,                    // node
+					familyState.ShardID,     // shard_id
+					familyState.SegmentTime, // family_time
+					replicator.State,        // state
+					replicator.Uptime,       // uptime
+					replicator.MemSize,      // mem_size
+					replicator.NumOfSeries,  // num_of_series
 				))
 			}
 		}

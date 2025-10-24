@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package utils
+package store
 
 import (
 	"fmt"
@@ -38,28 +38,18 @@ var (
 // directory tree for database[xx]:
 //
 //	xx/OPTIONS => config file
-//	xx/meta/namespace => namespace metadata
-//	xx/meta/metric => metrics' name metadata
-//	xx/meta/field => metrics' field metadata
-//	xx/meta/tagkey => metrics' tag key metadata
-//	xx/meta/tagvalue => metrics' tag value metadata
 //	xx/shard/1/(path)
-//	xx/shard/1/buffer/123213123131 // time of ns
-//	xx/shard/1/index
 //	xx/shard/1/segment/day/20191012/
 //	xx/shard/1/segment/month/201910/
 const (
-	options          = "OPTIONS"
-	shardDir         = "shard"
-	metaDir          = "meta"
-	tagValueMetaDir  = "tagvalue"
-	tagValueDir      = "tag_value"
-	segmentDir       = "segment"
-	indexParentDir   = "index"
-	forwardIndexDir  = "forward"
-	invertedIndexDir = "inverted"
-	bufferDir        = "buffer"
-	limits           = "limits.toml"
+	options        = "OPTIONS"
+	shardDir       = "shard"
+	metaDir        = "meta"
+	PartitionDir   = "partition"
+	segmentDir     = "segment"
+	indexParentDir = "index"
+	bufferDir      = "buffer"
+	limits         = "limits.toml"
 )
 
 // CreateDatabasePath creates database's root path if existed.
@@ -71,8 +61,8 @@ func CreateDatabasePath(database string) (string, error) {
 	return dbPath, nil
 }
 
-// limitsPath returns database's limits file path.
-func limitsPath(database string) string {
+// LimitsPath returns database's limits file path.
+func LimitsPath(database string) string {
 	return filepath.Join(config.GlobalStorageConfig().TSDB.Dir, database, limits)
 }
 
@@ -114,4 +104,9 @@ func ShardIntervalSegmentPath(database string, shardID models.ShardID, interval 
 // ShardSegmentPath returns segment path in shard dir.
 func ShardSegmentPath(database string, shardID models.ShardID, interval timeutil.Interval, name string) string {
 	return filepath.Join(ShardPath(database, shardID), segmentDir, interval.Type().String(), name)
+}
+
+// PartitionPath returns partition path in shard dir.
+func PartitionPath(database string, shardID models.ShardID, interval timeutil.Interval, name string) string {
+	return filepath.Join(ShardPath(database, shardID), PartitionDir, interval.Type().String(), name)
 }

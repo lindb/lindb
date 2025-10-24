@@ -8,23 +8,22 @@ import (
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/storage/store"
-	"github.com/lindb/lindb/storage/utils"
 )
 
 type CreateShardFn func(shardID models.ShardID) (store.Shard, error)
 
 type Database struct {
-	Options      *models.DatabaseConfig
 	DatabaseName string
+	Options      *models.DatabaseConfig
 
-	Shards        sync.Map // shard id => shard
+	ShardSet      store.ShardSet // atomic value
 	CreateShardFn CreateShardFn
 
 	mutex sync.Mutex
 }
 
 func (db *Database) DumpOption() error {
-	optionsPath := utils.OptionsPath(db.DatabaseName)
+	optionsPath := store.OptionsPath(db.DatabaseName)
 	fmt.Println(optionsPath)
 	// write options using toml format
 	if err := ltoml.EncodeToml(optionsPath, db.Options); err != nil {
@@ -35,11 +34,7 @@ func (db *Database) DumpOption() error {
 
 // GetShard returns shard by given shard id,
 func (db *Database) GetShard(shardID models.ShardID) (store.Shard, bool) {
-	shard, ok := db.Shards.Load(shardID)
-	if ok {
-		return shard.(store.Shard), ok
-	}
-	return nil, false
+	return db.ShardSet.GetShard(shardID)
 }
 
 func (db *Database) CreateShards(shardIDs []models.ShardID) error {
@@ -56,7 +51,7 @@ func (db *Database) CreateShards(shardIDs []models.ShardID) error {
 		if err != nil {
 			return fmt.Errorf("create shard[%d] for database[%s] with error: %s", shardID, db.DatabaseName, err)
 		}
-		db.Shards.Store(shardID, createdShard)
+		db.ShardSet.InsertShard(shardID, createdShard)
 	}
 
 	// using new engine option
@@ -73,7 +68,25 @@ func (db *Database) Name() string {
 	return db.DatabaseName
 }
 
+func (db *Database) GetOption() *models.DatabaseConfig {
+	return db.Options
+}
+
+// SetLimits sets database's limits.
+func (db *Database) SetLimits(limits *models.Limits) {
+	models.SetDatabaseLimits(db.DatabaseName, limits)
+}
+
+// GetLimits returns database's limits.
+func (db *Database) GetLimits() *models.Limits {
+	return models.GetDatabaseLimits(db.DatabaseName)
+}
+
 // NumOfShards implements store.Database.
 func (db *Database) NumOfShards() int {
-	panic("unimplemented")
+	return db.ShardSet.GetShardNum()
+}
+
+func (db *Database) EvictSegment() {
+	panic("need implements")
 }

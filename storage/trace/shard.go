@@ -2,13 +2,13 @@ package trace
 
 import (
 	"fmt"
+	"path"
 
 	"github.com/lindb/common/pkg/fileutil"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/storage/base"
 	"github.com/lindb/lindb/storage/store"
-	"github.com/lindb/lindb/storage/utils"
 )
 
 type shard struct {
@@ -19,7 +19,7 @@ type shard struct {
 }
 
 func NewShard(id models.ShardID, database *Database) (store.Shard, error) {
-	shardPath := utils.ShardPath(database.Name(), id)
+	shardPath := store.ShardPath(database.Name(), id)
 	if err := fileutil.MkDirIfNotExist(shardPath); err != nil {
 		return nil, err
 	}
@@ -27,14 +27,14 @@ func NewShard(id models.ShardID, database *Database) (store.Shard, error) {
 		Shard: base.Shard{
 			ID:                  id,
 			CalcPartitionTimeFn: intervalCalc.CalcSegmentTime,
-			Partitions:          make(map[int64]store.Partition),
+			Partitions:          store.NewPartitions(),
 		},
 		database: database,
 		dir:      shardPath,
 	}
 	s.CreatePartitionFn = s.createPartition
 
-	partitions, err := fileutil.ListDir(shardPath)
+	partitions, err := fileutil.ListDir(path.Join(shardPath, store.PartitionDir, minuteInterval.Type().String()))
 	if err != nil {
 		return nil, err
 	}

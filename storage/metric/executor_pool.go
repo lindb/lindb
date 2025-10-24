@@ -15,17 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package replica
+package metric
 
-import (
-	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/queue"
-)
+import "github.com/lindb/lindb/internal/concurrent"
 
-// ReplicatorChannel represents channel peer[from,to] for the shard of database.
-type ReplicatorChannel struct {
-	State *models.ReplicaState
-
-	// underlying ConsumerGroup records the replication process.
-	ConsumerGroup queue.ConsumerGroup
+// ExecutorPool represents the executor pool used by query flow for each storage engine
+type ExecutorPool struct {
+	MetaFetcher concurrent.Pool
+	DataFetcher concurrent.Pool
+	Reducer     concurrent.Pool
 }

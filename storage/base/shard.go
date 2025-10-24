@@ -17,7 +17,7 @@ type Shard struct {
 	CreatePartitionFn   CreatePartitionFn
 	CalcPartitionTimeFn CalcPartitionTimeFn
 
-	Partitions map[int64]store.Partition
+	Partitions *store.Partitions // partition timestamp -> partition
 	mutex      sync.Mutex
 }
 
@@ -25,7 +25,7 @@ func (s *Shard) GetOrCreatePartition(timestamp int64) (store.Partition, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	partition, ok := s.Partitions[s.CalcPartitionTimeFn(timestamp)]
+	partition, ok := s.Partitions.GetPartition(s.CalcPartitionTimeFn(timestamp))
 	if ok {
 		return partition, nil
 	}
@@ -35,7 +35,7 @@ func (s *Shard) GetOrCreatePartition(timestamp int64) (store.Partition, error) {
 		return nil, err
 	}
 
-	s.Partitions[partition.PartitionTime()] = partition
+	s.Partitions.PutPartition(partition)
 
 	return partition, nil
 }
@@ -45,18 +45,21 @@ func (s *Shard) ShardID() models.ShardID {
 	return s.ID
 }
 
-func (s *Shard) GetPartitions(timeRange timeutil.TimeRange) (partitions []store.Partition) {
+func (s *Shard) GetPartitions(interval timeutil.Interval, timeRange timeutil.TimeRange) (partitions []store.Partition) {
 	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	for _, partition := range s.Partitions {
-		partitions = append(partitions, partition)
-	}
+	partitions = s.Partitions.GetPartitions()
+	s.mutex.Unlock()
 	return
 }
 
 func (s *Shard) Close() error {
-	for _, partition := range s.Partitions {
+	var partitions []store.Partition
+
+	s.mutex.Lock()
+	partitions = s.Partitions.GetPartitions()
+	s.mutex.Unlock()
+
+	for _, partition := range partitions {
 		partition.Close()
 	}
 	return nil

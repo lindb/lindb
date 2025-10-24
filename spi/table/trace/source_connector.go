@@ -8,12 +8,13 @@ import (
 	"go.opentelemetry.io/collector/pdata/ptrace/ptraceotlp"
 
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
+	"github.com/lindb/lindb/spi/utils"
 	"github.com/lindb/lindb/sql/expression"
 	"github.com/lindb/lindb/sql/tree"
 	"github.com/lindb/lindb/storage"
+	"github.com/lindb/lindb/storage/store"
 	tracestore "github.com/lindb/lindb/storage/trace"
 )
 
@@ -118,7 +119,7 @@ func (sc *sourceConnector) buildTableScan() *TableScan {
 	if !ok {
 		panic(fmt.Sprintf("metric provider not support table handle<%T>", sc.table))
 	}
-	db, ok := sc.engine.GetDatabase2(logTable.Database)
+	db, ok := sc.engine.GetDatabase(logTable.Database)
 	if !ok {
 		panic(fmt.Errorf("%w: %s", constants.ErrDatabaseNotFound, logTable.Database))
 	}
@@ -130,26 +131,14 @@ func (sc *sourceConnector) buildTableScan() *TableScan {
 }
 
 func (sc *sourceConnector) findPartitions(tableScan *TableScan, partitionIDs []int) (partitions []*Partition) {
-	for _, id := range partitionIDs {
-		shard, ok := tableScan.db.GetShard(models.ShardID(id))
-		if ok {
-			pList := shard.GetPartitions(tableScan.timeRange)
-			fmt.Printf("partitions=%v\n", pList)
-			if len(pList) > 0 {
-				for _, partition := range pList {
-					segments := partition.GetSegments(tableScan.timeRange)
-					fmt.Printf("segments=%v\n", segments)
-					if len(segments) > 0 {
-						partitions = append(partitions, &Partition{
-							tableScan: tableScan,
-							shard:     shard,
-							segments:  segments,
-						})
-					}
-				}
-			}
-		}
-	}
+	utils.FindSegments(tableScan.db, partitionIDs, sc.table.GetInterval(), tableScan.timeRange,
+		func(shard store.Shard, partition store.Partition, segments []store.Segment) {
+			partitions = append(partitions, &Partition{
+				tableScan: tableScan,
+				shard:     shard,
+				segments:  segments,
+			})
+		})
 	return
 }
 

@@ -27,7 +27,6 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/storage"
 )
 
@@ -46,7 +45,6 @@ type databaseLifecycle struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	walMgr replica.WriteAheadLogManager
 	engine storage.Engine
 	repo   state.Repository
 
@@ -57,7 +55,6 @@ type databaseLifecycle struct {
 func NewDatabaseLifecycle(
 	ctx context.Context,
 	repo state.Repository,
-	walMgr replica.WriteAheadLogManager,
 	engine storage.Engine,
 ) DatabaseLifecycle {
 	c, cancel := context.WithCancel(ctx)
@@ -65,7 +62,6 @@ func NewDatabaseLifecycle(
 		ctx:    c,
 		cancel: cancel,
 		repo:   repo,
-		walMgr: walMgr,
 		engine: engine,
 		logger: logger.GetLogger("Lifecycle", "Database"),
 	}
@@ -80,26 +76,11 @@ func (l *databaseLifecycle) Startup() {
 func (l *databaseLifecycle) Shutdown() {
 	l.cancel()
 
-	if l.walMgr != nil {
-		l.logger.Info("stopping write ahead log replicator...")
-		l.walMgr.Stop()
-		l.logger.Info("stopped write ahead log replicator...")
-	}
-
 	// close the storage engine
 	if l.engine != nil {
 		l.logger.Info("stopping tsdb engine...")
 		l.engine.Close()
 		l.logger.Info("stopped tsdb engine")
-	}
-
-	if l.walMgr != nil {
-		l.logger.Info("Closing write ahead log ...")
-		if err := l.walMgr.Close(); err != nil {
-			l.logger.Error("stopped write ahead log replicator with error", logger.Error(err))
-		} else {
-			l.logger.Info("write ahead log closed...")
-		}
 	}
 }
 
@@ -114,11 +95,12 @@ func (l *databaseLifecycle) ttlTask() {
 				l.tryDropDatabases()
 				// do data ttl
 				l.engine.TTL()
-				// do data compaction
-				storage.GetFamilyManager().WalkEntry(func(family storage.DataFamily) {
-					family.Compact()
-					family.Evict()
-				})
+				// TODO: do data compaction
+
+				// storage.GetFamilyManager().WalkEntry(func(family storage.DataFamily) {
+				// 	family.Compact()
+				// 	family.Evict()
+				// })
 				// try to evict segment(long term no read)
 				l.engine.EvictSegment()
 				// support dynamic modify config
@@ -144,7 +126,5 @@ func (l *databaseLifecycle) tryDropDatabases() {
 		// if active database is empty, do not drop database operation.
 		return
 	}
-	l.walMgr.StopDatabases(activeDatabases)
 	l.engine.DropDatabases(activeDatabases)
-	l.walMgr.DropDatabases(activeDatabases)
 }

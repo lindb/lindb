@@ -12,14 +12,15 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/models"
 	logproto "github.com/lindb/lindb/proto/log"
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
+	"github.com/lindb/lindb/spi/utils"
 	"github.com/lindb/lindb/sql/tree"
 	"github.com/lindb/lindb/storage"
 	"github.com/lindb/lindb/storage/log"
 	logstore "github.com/lindb/lindb/storage/log"
+	"github.com/lindb/lindb/storage/store"
 )
 
 type sourceConnectorProvider struct {
@@ -158,7 +159,7 @@ func (sc *sourceConnector) buildTableScan() *TableScan {
 	if !ok {
 		panic(fmt.Sprintf("metric provider not support table handle<%T>", sc.table))
 	}
-	db, ok := sc.engine.GetDatabase2(logTable.Database)
+	db, ok := sc.engine.GetDatabase(logTable.Database)
 	if !ok {
 		panic(fmt.Errorf("%w: %s", constants.ErrDatabaseNotFound, logTable.Database))
 	}
@@ -173,27 +174,15 @@ func (sc *sourceConnector) buildTableScan() *TableScan {
 }
 
 func (sc *sourceConnector) findPartitions(tableScan *TableScan, partitionIDs []int) (partitions []*Partition) {
-	for _, id := range partitionIDs {
-		shard, ok := tableScan.db.GetShard(models.ShardID(id))
-		if ok {
-			pList := shard.GetPartitions(tableScan.timeRange)
-			fmt.Printf("partitions=%v\n", pList)
-			if len(pList) > 0 {
-				for _, partition := range pList {
-					segments := partition.GetSegments(tableScan.timeRange)
-					fmt.Printf("segments=%v\n", segments)
-					if len(segments) > 0 {
-						partitions = append(partitions, &Partition{
-							tableScan:  tableScan,
-							shard:      shard,
-							paritition: partition,
-							segments:   segments,
-						})
-					}
-				}
-			}
-		}
-	}
+	utils.FindSegments(tableScan.db, partitionIDs, tableScan.interval, tableScan.timeRange,
+		func(shard store.Shard, partition store.Partition, segments []store.Segment) {
+			partitions = append(partitions, &Partition{
+				tableScan:  tableScan,
+				shard:      shard,
+				paritition: partition,
+				segments:   segments,
+			})
+		})
 	return
 }
 
@@ -264,6 +253,7 @@ func (sc *sourceConnector) initializeSearchContext(tableScan *TableScan) {
 			sc.fields = append(sc.fields, item.Name)
 		}
 	})
+	fmt.Printf("hahs ..fields=%v\n", sc.outputsHasTimestamp)
 
 	if sc.hasAggregate {
 		if sc.outputsHasTimestamp {

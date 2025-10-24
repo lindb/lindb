@@ -5,12 +5,23 @@ import (
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/storage/wal"
 )
 
 type Segment interface {
 	io.Closer
+	Partition() Partition
 
 	SegmentTimeRange() timeutil.TimeRange
-	GetOrCreateWAL(leader models.NodeID) (wal.WriteAheadLog, error)
+	GetOrCreateWAL(leader models.NodeID) (WriteAheadLog, error)
+
+	Retain()
+	Release()
+
+	ValidateSequence(leader models.NodeID, seq int64) bool
+	CommitSequence(leader models.NodeID, seq int64)
+	AckSequence(leader models.NodeID, fn func(seq int64))
+
+	Write(leader models.NodeID, seq int64, msg []byte) (rows int, err error)
+
+	Flush() error
 }

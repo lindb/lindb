@@ -15,49 +15,46 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package storage
+package store
 
 import (
+	"maps"
 	"sync/atomic"
 )
 
-type databaseSet struct {
+type DatabaseSet struct {
 	value atomic.Value // map[string]Database
 }
 
-func newDatabaseSet() *databaseSet {
+func NewDatabaseSet() *DatabaseSet {
 	m := make(map[string]Database)
-	set := &databaseSet{}
+	set := &DatabaseSet{}
 	set.value.Store(m)
 	return set
 }
 
-func (ds *databaseSet) PutDatabase(newDBName string, newDB Database) {
+func (ds *DatabaseSet) PutDatabase(newDBName string, newDB Database) {
 	oldDBSet := ds.Entries()
 	newDBSet := make(map[string]Database)
-	for dbName, db := range oldDBSet {
-		newDBSet[dbName] = db
-	}
+	maps.Copy(newDBSet, oldDBSet)
 	newDBSet[newDBName] = newDB
 	ds.value.Store(newDBSet)
 }
 
-func (ds *databaseSet) DropDatabase(newDBName string) {
+func (ds *DatabaseSet) DropDatabase(newDBName string) {
 	oldDBSet := ds.Entries()
 	delete(oldDBSet, newDBName)
 
 	newDBSet := make(map[string]Database)
-	for dbName, db := range oldDBSet {
-		newDBSet[dbName] = db
-	}
+	maps.Copy(newDBSet, oldDBSet)
 	ds.value.Store(newDBSet)
 }
 
-func (ds *databaseSet) GetDatabase(dbName string) (Database, bool) {
+func (ds *DatabaseSet) GetDatabase(dbName string) (Database, bool) {
 	db, ok := ds.Entries()[dbName]
 	return db, ok
 }
 
-func (ds *databaseSet) Entries() map[string]Database {
+func (ds *DatabaseSet) Entries() map[string]Database {
 	return ds.value.Load().(map[string]Database)
 }

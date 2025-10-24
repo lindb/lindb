@@ -21,10 +21,9 @@ import (
 	"context"
 	"io"
 
-	"go.uber.org/atomic"
-
 	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
@@ -93,14 +92,13 @@ func (s *writeStream) initialize() error {
 	}
 
 	// pass metadata(database/shard/family state) when create rpc connection.
-	familyState := encoding.JSONMarshal(&models.FamilyState{
-		Database:   s.database,
-		Shard:      *s.shardState,
-		FamilyTime: s.familyTime,
+	familyState := encoding.JSONMarshal(&models.SegmentState{
+		Database:    s.database,
+		Shard:       *s.shardState,
+		SegmentTime: s.familyTime,
 	})
 	ctx := CreateOutgoingContextWithPairs(s.ctx, constants.RPCMetaKeyFamilyState, string(familyState))
 	writeCli, err := writeService.Write(ctx)
-
 	if err != nil {
 		return err
 	}

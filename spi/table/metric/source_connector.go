@@ -25,15 +25,17 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
+	"github.com/lindb/lindb/spi/utils"
 	"github.com/lindb/lindb/sql/tree"
 	"github.com/lindb/lindb/storage"
+	metricstore "github.com/lindb/lindb/storage/metric"
+	"github.com/lindb/lindb/storage/store"
 )
 
 type sourceConnectorProvider struct {
@@ -154,7 +156,7 @@ func (psc *sourceConnector) buildTableScan() *TableScan {
 		panic(fmt.Errorf("%w: %s", constants.ErrDatabaseNotFound, metricTable.Database))
 	}
 	// find table(metric) schema
-	metricID, schema, err := psc.getSchema(db, metricTable)
+	metricID, schema, err := psc.getSchema(db.(*metricstore.Database), metricTable)
 	if err != nil {
 		if errors.Is(err, constants.ErrNotFound) {
 			return nil
@@ -221,7 +223,7 @@ func (psc *sourceConnector) buildTableScan() *TableScan {
 
 	var grouping *Grouping
 	if len(groupingTags) > 0 {
-		grouping = NewGrouping(db, groupingTags)
+		grouping = NewGrouping(db.(*metricstore.Database), groupingTags)
 	}
 	maxOfRollups := 0
 	numOfAggs := 0
@@ -235,14 +237,14 @@ func (psc *sourceConnector) buildTableScan() *TableScan {
 	}
 
 	targetTimeRange, targetInterval := calcTimeRangeAndInterval(metricTable.TimeRange,
-		metricTable.Interval, db.GetConfig()) // TODO: move to plan?
+		metricTable.Interval, db.GetOption()) // TODO: move to plan?
 	fmt.Printf("time range=%v,interval=%v\n", targetTimeRange, targetInterval)
 	if !isTimestampSelected {
 		targetInterval = timeutil.Interval(targetTimeRange.End - targetTimeRange.Start)
 	}
 
 	return &TableScan{
-		db:                  db,
+		db:                  db.(*metricstore.Database),
 		schema:              schema,
 		metricID:            metricID,
 		isTimestampSelected: isTimestampSelected,
@@ -259,7 +261,7 @@ func (psc *sourceConnector) buildTableScan() *TableScan {
 }
 
 // getSchema returns table schema based on table handle.
-func (psc *sourceConnector) getSchema(db storage.Database, table *TableHandle) (metric.ID, *metric.Schema, error) {
+func (psc *sourceConnector) getSchema(db *metricstore.Database, table *TableHandle) (metric.ID, *metric.Schema, error) {
 	// find metric id(table id)
 	metricID, err := db.MetaDB().GetMetricID(table.Namespace, table.Metric)
 	if err != nil {
@@ -273,20 +275,16 @@ func (psc *sourceConnector) getSchema(db storage.Database, table *TableHandle) (
 	return metricID, schema, nil
 }
 
-func (psc *sourceConnector) findPartitions(tableScan *TableScan, partitionIDs []int) (partitions []*Partition) {
-	storageInterval := tableScan.db.GetConfig().Option.FindMatchSmallestInterval(tableScan.interval)
-	for _, id := range partitionIDs {
-		shard, ok := tableScan.db.GetShard(models.ShardID(id))
-		if ok {
-			families := shard.GetDataFamilies(storageInterval.Type(), tableScan.timeRange)
-			if len(families) > 0 {
-				partitions = append(partitions, &Partition{
-					tableScan: tableScan,
-					shard:     shard,
-					families:  families,
-				})
-			}
-		}
-	}
+func (psc *sourceConnector) findPartitions(tableScan *TableScan, shardIDs []int) (partitions []*Partition) {
+	utils.FindSegments(tableScan.db, shardIDs, tableScan.interval, tableScan.timeRange,
+		func(shard store.Shard, partition store.Partition, segments []store.Segment) {
+			partitions = append(partitions, &Partition{
+				tableScan: tableScan,
+				shard:     shard.(*metricstore.Shard),
+				segments: lo.Map(segments, func(item store.Segment, index int) *metricstore.Segment {
+					return item.(*metricstore.Segment)
+				}),
+			})
+		})
 	return
 }

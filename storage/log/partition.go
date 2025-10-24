@@ -3,7 +3,6 @@ package log
 import (
 	"fmt"
 	"path"
-	"path/filepath"
 	"strconv"
 	"sync"
 
@@ -14,7 +13,6 @@ import (
 	"github.com/lindb/lindb/storage/base"
 	"github.com/lindb/lindb/storage/log/tblstore"
 	"github.com/lindb/lindb/storage/store"
-	"github.com/lindb/lindb/storage/utils"
 )
 
 var (
@@ -36,10 +34,12 @@ type partition struct {
 }
 
 func NewPartition(timestamp int64, shard *shard) (store.Partition, error) {
+	partitionName := intervalCalc.GetSegment(timestamp)
+	dir := store.PartitionPath(shard.Database().Name(), shard.ShardID(), minuteInterval, partitionName)
 	p := &partition{
 		Partition: base.Partition{
 			Timestamp: intervalCalc.CalcSegmentTime(timestamp),
-			Dir:       filepath.Join(utils.ShardPath(shard.Database().Name(), shard.ShardID()), intervalCalc.GetSegment(timestamp)),
+			Dir:       dir,
 		},
 
 		shard:    shard,

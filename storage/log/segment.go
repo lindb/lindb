@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
-	"time"
 
 	flatbuffers "github.com/google/flatbuffers/go"
 	"github.com/lindb/common/pkg/fileutil"
@@ -26,7 +25,6 @@ import (
 	"github.com/lindb/lindb/storage/log/memdb"
 	"github.com/lindb/lindb/storage/log/tblstore"
 	"github.com/lindb/lindb/storage/store"
-	"github.com/lindb/lindb/storage/wal"
 )
 
 type Segment struct {
@@ -42,8 +40,6 @@ type Segment struct {
 
 	immutable memdb.Database
 	mutable   memdb.Database
-
-	running atomic.Bool
 
 	buf []byte
 
@@ -81,13 +77,15 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 				Start: segmentStartTime,
 				End:   intervalCalc.CalcFamilyEndTime(segmentStartTime),
 			},
-			Path: segmentPath,
-			WALs: make(map[models.NodeID]wal.WriteAheadLog),
+			Path:              segmentPath,
+			WALs:              make(map[models.NodeID]store.WriteAheadLog),
+			Sequence:          make(map[models.NodeID]atomic.Int64),
+			ImmutableSequence: make(map[models.NodeID]int64),
+			PersistSequence:   make(map[models.NodeID]atomic.Int64),
 		},
 		partition: partition,
 		family:    kvFamily,
 		index:     index,
-		running:   *atomic.NewBool(true),
 
 		mutable: memdb.NewDatabase(partition.shard.database.indexDB),
 
@@ -99,6 +97,10 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 	wals, err := fileutil.ListDir(segmentPath)
 	if err != nil {
 		return nil, err
+	}
+
+	seg.CreateWriteAheadLog = func(p string) (store.WriteAheadLog, error) {
+		return store.CreateWriteAheadLog(p, seg)
 	}
 
 	for _, leader := range wals {
@@ -116,11 +118,11 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 			return nil, err
 		}
 	}
-
-	// start build index goroutine
-	go seg.buildIndex()
-
 	return seg, nil
+}
+
+func (s *Segment) Partition() store.Partition {
+	return s.partition
 }
 
 func (s *Segment) NumOfPoints() int {
@@ -200,49 +202,7 @@ func (s *Segment) GetLog(logID uint32) ([]byte, error) {
 	return s.WALs[models.NodeID(id[0])].Get(int64(index))
 }
 
-func (s *Segment) Close() error {
-	s.Flush()
-
-	for _, d := range s.WALs {
-		d.Close()
-	}
-
-	s.index.Close()
-	s.running.Store(false)
-
-	return nil
-}
-
-func (s *Segment) Flush() error {
-	// flush timestamp index
-	if err := s.FlushTimestampIndex(); err != nil {
-		return err
-	}
-	// flush log fields index
-	flusher := s.family.NewFlusher()
-	if err := s.mutable.Flush(flusher); err != nil {
-		return err
-	}
-	return flusher.Commit()
-}
-
-func (s *Segment) buildIndex() {
-	for s.running.Load() {
-		for leader, log := range s.WALs {
-			seq, data, err := log.Consume()
-			if err != nil {
-				fmt.Println(err)
-				continue
-			}
-			if data != nil {
-				s.indexLog(leader, seq, data)
-			}
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-}
-
-func (s *Segment) indexLog(leader models.NodeID, index int64, msg []byte) {
+func (s *Segment) Write(leader models.NodeID, seq int64, msg []byte) (rows int, err error) {
 	log := &flatLogV1.Log{}
 	log.Init(msg, flatbuffers.GetUOffsetT(msg))
 
@@ -259,6 +219,32 @@ func (s *Segment) indexLog(leader models.NodeID, index int64, msg []byte) {
 
 	// build secondary index for log fields
 	s.mutable.Write([]byte("ns"), logID, logproto.NewFieldIterator(log))
+	return 1, nil
+}
+
+func (s *Segment) Flush() error {
+	// flush timestamp index
+	if err := s.FlushTimestampIndex(); err != nil {
+		return err
+	}
+	// flush log fields index
+	flusher := s.family.NewFlusher()
+	if err := s.mutable.Flush(flusher); err != nil {
+		return err
+	}
+	return flusher.Commit()
+}
+
+func (s *Segment) Close() error {
+	s.Flush()
+
+	for _, d := range s.WALs {
+		d.Close()
+	}
+
+	s.index.Close()
+
+	return nil
 }
 
 func (s *Segment) indexTimestamp(timestamp int64, logID uint32) {

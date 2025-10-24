@@ -94,8 +94,8 @@ func (ps *partitionScan) Run() {
 
 func (ps *partitionScan) findSeriesIDs(partition *Partition) *roaring.Bitmap {
 	tableScan := partition.tableScan
-	fmt.Printf("families=%v,fields=%v\n", partition.families, tableScan.fields)
-	if tableScan.fields.Len() == 0 && len(partition.families) == 0 {
+	fmt.Printf("families=%v,fields=%v\n", partition.segments, tableScan.fields)
+	if tableScan.fields.Len() == 0 && len(partition.segments) == 0 {
 		// no data family return empty series ids
 		return roaring.New()
 	}
@@ -103,8 +103,8 @@ func (ps *partitionScan) findSeriesIDs(partition *Partition) *roaring.Bitmap {
 	seriesIDs := ps.lookupSeriesIDs(partition)
 	result := roaring.New()
 
-	for i := range partition.families {
-		family := partition.families[i]
+	for i := range partition.segments {
+		family := partition.segments[i]
 		// check family data if matches condition(series ids)
 		resultSet, err := family.Filter(&flow.MetricScanContext{
 			MetricID:  tableScan.metricID,

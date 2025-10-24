@@ -1,14 +1,12 @@
 package base
 
-import (
-	"sync"
-)
+import "github.com/lindb/lindb/pkg/timeutil"
 
 type Partition struct {
 	Dir       string
 	Timestamp int64
 
-	mutex sync.Mutex
+	Interval timeutil.Interval
 }
 
 func (p *Partition) Path() string {
@@ -17,4 +15,8 @@ func (p *Partition) Path() string {
 
 func (p *Partition) PartitionTime() int64 {
 	return p.Timestamp
+}
+
+func (p *Partition) PartitionInterval() timeutil.Interval {
+	return p.Interval
 }

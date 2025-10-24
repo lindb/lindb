@@ -23,14 +23,14 @@ import (
 	"sync"
 
 	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/fileutil"
 	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/ltoml"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
-	"github.com/lindb/lindb/storage/log"
 	"github.com/lindb/lindb/storage/store"
-	"github.com/lindb/lindb/storage/trace"
 )
 
 //go:generate mockgen -source=./engine.go -destination=./engine_mock.go -package=storage
@@ -42,7 +42,7 @@ type Engine interface {
 	// createDatabase creates database instance by database's name
 	// return success when creating database's path successfully
 	// called when CreateShards without database created
-	createDatabase(databaseName string, dbOption *option.DatabaseOption) (Database, error)
+	createDatabase(databaseName string, dbOption *option.DatabaseOption) (store.Database, error)
 	// CreateShards creates families for data partition by given options
 	// 1) dump engine option into local disk
 	// 2) create shard storage struct
@@ -54,12 +54,11 @@ type Engine interface {
 	// SetDatabaseLimits sets database's limits.
 	SetDatabaseLimits(database string, limits *models.Limits)
 	// GetShard returns shard by given db and shard id
-	GetShard(databaseName string, shardID models.ShardID) (Shard, bool)
+	GetShard(databaseName string, shardID models.ShardID) (store.Shard, bool)
 	// GetDatabase returns the time series database by given name
-	GetDatabase(databaseName string) (Database, bool)
-	GetDatabase2(databaseName string) (store.Database, bool)
+	GetDatabase(databaseName string) (store.Database, bool)
 	// GetAllDatabases returns all databases.
-	GetAllDatabases() map[string]Database
+	GetAllDatabases() map[string]store.Database
 	// FlushDatabase produces a signal to workers for flushing memory database by name
 	FlushDatabase(ctx context.Context, databaseName string) bool
 	// DropDatabases drops databases, keep active database.
@@ -74,11 +73,12 @@ type Engine interface {
 
 // engine implements Engine
 type engine struct {
-	dbSet            databaseSet        // atomic value, holding databaseName -> Database
-	ctx              context.Context    // context
-	cancel           context.CancelFunc // cancel function of flusher
-	dataFlushChecker DataFlushChecker
-	mutex            sync.Mutex // mutex for creating database
+	dbSet store.DatabaseSet // atomic value, holding databaseName -> Database
+
+	ctx    context.Context    // context
+	cancel context.CancelFunc // cancel function of flusher
+	// dataFlushChecker DataFlushChecker
+	mutex sync.Mutex // mutex for creating database
 
 	databases map[string]store.Database
 }
@@ -86,17 +86,17 @@ type engine struct {
 // NewEngine creates an engine for manipulating the databases
 func NewEngine() (Engine, error) {
 	// create time series storage path
-	if err := mkDirIfNotExist(config.GlobalStorageConfig().TSDB.Dir); err != nil {
+	if err := fileutil.MkDirIfNotExist(config.GlobalStorageConfig().TSDB.Dir); err != nil {
 		return nil, fmt.Errorf("create time sereis storage path[%s] erorr: %s",
 			config.GlobalStorageConfig().TSDB.Dir, err)
 	}
 	e := &engine{
-		dbSet: *newDatabaseSet(),
+		dbSet: *store.NewDatabaseSet(),
 	}
 	e.ctx, e.cancel = context.WithCancel(context.Background())
 	e.databases = make(map[string]store.Database)
-	e.dataFlushChecker = newDataFlushChecker(e.ctx)
-	e.dataFlushChecker.Start()
+	// e.dataFlushChecker = newDataFlushChecker(e.ctx)
+	// e.dataFlushChecker.Start()
 
 	if err := e.load(); err != nil {
 		engineLogger.Error("load engine data error when create a new engine", logger.Error(err))
@@ -109,49 +109,25 @@ func NewEngine() (Engine, error) {
 
 // createDatabase creates database instance by database's name
 // return success when creating database's path successfully
-func (e *engine) createDatabase(databaseName string, dbOption *option.DatabaseOption) (Database, error) {
-	cfgPath := optionsPath(databaseName)
+func (e *engine) createDatabase(databaseName string, dbOption *option.DatabaseOption) (store.Database, error) {
+	cfgPath := store.OptionsPath(databaseName)
 	cfg := &models.DatabaseConfig{Name: databaseName, Option: dbOption}
 	engineLogger.Info("load database option from local storage", logger.String("path", cfgPath))
-	if fileExist(cfgPath) {
-		if err := decodeToml(cfgPath, cfg); err != nil {
+	if fileutil.Exist(cfgPath) {
+		if err := ltoml.DecodeToml(cfgPath, cfg); err != nil {
 			return nil, fmt.Errorf("load database[%s] config from file[%s] with error: %s",
 				databaseName, cfgPath, err)
 		}
 	}
-	limits := limitsPath(databaseName)
+	limits := store.LimitsPath(databaseName)
 	limitCfg := models.NewDefaultLimits()
-	if fileExist(limits) {
-		if err := decodeToml(limits, limitCfg); err != nil {
+	if fileutil.Exist(limits) {
+		if err := ltoml.DecodeToml(limits, limitCfg); err != nil {
 			return nil, fmt.Errorf("load database[%s] limits config from file[%s] with error: %s",
 				databaseName, cfgPath, err)
 		}
 	}
-	// FIXME:
-	if dbOption.Engine == option.Log {
-		if _, ok := e.databases[databaseName]; !ok {
-			db, err := log.NewDatabase(databaseName, cfg)
-			if err == nil {
-				db.CreateShards([]models.ShardID{0})
-				e.databases[databaseName] = db
-			}
-			fmt.Println(err)
-		}
-		return nil, nil
-	}
-	if dbOption.Engine == option.Trace {
-		if _, ok := e.databases[databaseName]; !ok {
-			db, err := trace.NewDatabase(databaseName, cfg)
-			if err == nil {
-				db.CreateShards([]models.ShardID{0})
-				e.databases[databaseName] = db
-			}
-			fmt.Println(err)
-		}
-		return nil, nil
-	}
-
-	db, err := newDatabaseFunc(databaseName, cfg, limitCfg, e.dataFlushChecker)
+	db, err := store.CreateDatabase(databaseName, cfg, limitCfg, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -185,10 +161,6 @@ func (e *engine) CreateShards(
 		}
 	}
 
-	if databaseOption.Engine == option.Log || databaseOption.Engine == option.Trace {
-		return nil
-	}
-
 	// create families for database
 	shardIDData := encoding.JSONMarshal(shardIDs)
 	if err := db.CreateShards(shardIDs); err != nil {
@@ -203,7 +175,7 @@ func (e *engine) CreateShards(
 func (e *engine) SetDatabaseLimits(database string, limits *models.Limits) {
 	db, ok := e.dbSet.GetDatabase(database)
 	if ok {
-		if err := writeConfigFn(limitsPath(database), limits.TOML()); err != nil {
+		if err := ltoml.WriteConfig(store.LimitsPath(database), limits.TOML()); err != nil {
 			engineLogger.Warn("write limits config failure", logger.Error(err))
 		}
 		db.SetLimits(limits)
@@ -211,7 +183,7 @@ func (e *engine) SetDatabaseLimits(database string, limits *models.Limits) {
 }
 
 // GetDatabase returns the time series database by given name
-func (e *engine) GetDatabase(databaseName string) (Database, bool) {
+func (e *engine) GetDatabase(databaseName string) (store.Database, bool) {
 	return e.dbSet.GetDatabase(databaseName)
 }
 
@@ -224,12 +196,12 @@ func (e *engine) GetDatabase2(databaseName string) (store.Database, bool) {
 }
 
 // GetAllDatabases returns all databases.
-func (e *engine) GetAllDatabases() map[string]Database {
+func (e *engine) GetAllDatabases() map[string]store.Database {
 	return e.dbSet.Entries()
 }
 
 // GetShard returns shard by given db and shard id
-func (e *engine) GetShard(databaseName string, shardID models.ShardID) (Shard, bool) {
+func (e *engine) GetShard(databaseName string, shardID models.ShardID) (store.Shard, bool) {
 	if db, ok := e.GetDatabase(databaseName); ok {
 		return db.GetShard(shardID)
 	}
@@ -238,9 +210,9 @@ func (e *engine) GetShard(databaseName string, shardID models.ShardID) (Shard, b
 
 // Close closes the cached time series databases
 func (e *engine) Close() {
-	if e.dataFlushChecker != nil {
-		e.dataFlushChecker.Stop()
-	}
+	// if e.dataFlushChecker != nil {
+	// 	e.dataFlushChecker.Stop()
+	// }
 	for dbName, db := range e.dbSet.Entries() {
 		if err := db.Close(); err != nil {
 			engineLogger.Error("close database",
@@ -297,12 +269,13 @@ func (e *engine) EvictSegment() {
 
 // load the time series engines if exist
 func (e *engine) load() error {
-	databaseNames, err := listDir(config.GlobalStorageConfig().TSDB.Dir)
+	databaseNames, err := fileutil.GetDirectoryList(config.GlobalStorageConfig().TSDB.Dir)
 	if err != nil {
 		return err
 	}
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
+
 	for _, databaseName := range databaseNames {
 		_, err := e.createDatabase(databaseName, &option.DatabaseOption{}) // need load config from local file
 		if err != nil {

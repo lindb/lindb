@@ -6,7 +6,6 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	"github.com/lindb/common/pkg/fileutil"
 	"github.com/linxGnu/grocksdb"
@@ -18,7 +17,6 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/storage/base"
 	"github.com/lindb/lindb/storage/store"
-	"github.com/lindb/lindb/storage/wal"
 )
 
 var (
@@ -36,11 +34,9 @@ func init() {
 type Segment struct {
 	base.Segment
 
-	shard store.Shard
+	partition *partition
 
 	db *grocksdb.DB
-
-	running atomic.Bool
 
 	buf []byte
 }
@@ -71,11 +67,14 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 				Start: start,
 				End:   intervalCalc.CalcFamilyEndTime(start),
 			},
-			Path: segmentPath,
-			WALs: make(map[models.NodeID]wal.WriteAheadLog),
+			Path:              segmentPath,
+			WALs:              make(map[models.NodeID]store.WriteAheadLog),
+			Sequence:          make(map[models.NodeID]atomic.Int64),
+			ImmutableSequence: make(map[models.NodeID]int64),
+			PersistSequence:   make(map[models.NodeID]atomic.Int64),
 		},
-		db:      db,
-		running: *atomic.NewBool(true),
+		partition: partition,
+		db:        db,
 
 		buf: make([]byte, 8),
 	}
@@ -83,6 +82,10 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 	wals, err := fileutil.ListDir(segmentPath)
 	if err != nil {
 		return nil, err
+	}
+
+	seg.CreateWriteAheadLog = func(p string) (store.WriteAheadLog, error) {
+		return store.CreateWriteAheadLog(p, seg)
 	}
 
 	for _, leader := range wals {
@@ -101,12 +104,43 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 		}
 	}
 
-	go seg.buildIndex()
 	return seg, nil
 }
 
-func (segment *Segment) GetTrace(traceID string) (rs [][]byte, err error) {
-	indexes, err := segment.db.Get(ro, []byte(traceID))
+func (seg *Segment) Partition() store.Partition {
+	return seg.partition
+}
+
+func (seg *Segment) Write(leader models.NodeID, seq int64, msg []byte) (rows int, err error) {
+	req := ptraceotlp.NewExportRequest()
+	if err = req.UnmarshalProto(msg); err != nil {
+		fmt.Println(err)
+		return
+	}
+	traceIDs := make(map[string]struct{})
+	traces := req.Traces()
+	spans := traces.ResourceSpans()
+	for i := range spans.Len() {
+		s := spans.At(i)
+		scopeSpans := s.ScopeSpans()
+		for j := range scopeSpans.Len() {
+			span := scopeSpans.At(j)
+			sSpans := span.Spans()
+			for k := range sSpans.Len() {
+				ss := sSpans.At(k)
+				if _, ok := traceIDs[ss.TraceID().String()]; !ok {
+					seg.db.Merge(wo, []byte(ss.TraceID().String()), encoding.U32ToBytes(uint32(seq)))
+					traceIDs[ss.TraceID().String()] = struct{}{}
+					fmt.Printf("traceID:%s, index:%d\n", ss.TraceID().String(), seq)
+				}
+			}
+		}
+	}
+	return 1, nil
+}
+
+func (seg *Segment) GetTrace(traceID string) (rs [][]byte, err error) {
+	indexes, err := seg.db.Get(ro, []byte(traceID))
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +152,7 @@ func (segment *Segment) GetTrace(traceID string) (rs [][]byte, err error) {
 	fmt.Printf("get data len=%d\n", len(data))
 	for i := range len(data) / 4 {
 		index := binary.BigEndian.Uint32(data[i*4:])
-		trace, err := segment.WALs[models.NodeID(1)].Get(int64(index))
+		trace, err := seg.WALs[models.NodeID(1)].Get(int64(index))
 		if err != nil {
 			return nil, err
 		}
@@ -129,41 +163,23 @@ func (segment *Segment) GetTrace(traceID string) (rs [][]byte, err error) {
 	return rs, nil
 }
 
-func (segment *Segment) Close() error {
-	segment.Flush()
+func (seg *Segment) Close() error {
+	seg.Flush()
 
-	for _, d := range segment.WALs {
+	for _, d := range seg.WALs {
 		d.Close()
 	}
 
-	segment.running.Store(false)
-
 	return nil
 }
 
-func (segment *Segment) Flush() error {
-	segment.db.Flush(grocksdb.NewDefaultFlushOptions())
-	segment.db.Close()
+func (seg *Segment) Flush() error {
+	seg.db.Flush(grocksdb.NewDefaultFlushOptions())
+	seg.db.Close()
 	return nil
 }
 
-func (segment *Segment) buildIndex() {
-	for segment.running.Load() {
-		for leader, log := range segment.WALs {
-			seq, data, err := log.Consume()
-			if err != nil {
-				fmt.Println(err)
-				continue
-			}
-			if data != nil {
-				segment.indexTrace(leader, seq, data)
-			}
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-}
-
-func (segment *Segment) indexTrace(leader models.NodeID, index int64, msg []byte) {
+func (seg *Segment) indexTrace(leader models.NodeID, index int64, msg []byte) {
 	req := ptraceotlp.NewExportRequest()
 	if err := req.UnmarshalProto(msg); err != nil {
 		fmt.Println(err)
@@ -181,7 +197,7 @@ func (segment *Segment) indexTrace(leader models.NodeID, index int64, msg []byte
 			for k := range sSpans.Len() {
 				ss := sSpans.At(k)
 				if _, ok := traceIDs[ss.TraceID().String()]; !ok {
-					segment.db.Merge(wo, []byte(ss.TraceID().String()), encoding.U32ToBytes(uint32(index)))
+					seg.db.Merge(wo, []byte(ss.TraceID().String()), encoding.U32ToBytes(uint32(index)))
 					traceIDs[ss.TraceID().String()] = struct{}{}
 					fmt.Printf("traceID:%s, index:%d\n", ss.TraceID().String(), index)
 				}

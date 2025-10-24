@@ -23,7 +23,6 @@ import (
 	"github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/storage"
 )
 
 var MemoryDatabase = "/state/tsdb/memory"
@@ -55,11 +54,12 @@ func (db *TSDBAPI) GetMemoryDatabaseState(c *gin.Context) {
 		httppkg.Error(c, err)
 		return
 	}
-	var rs []models.DataFamilyState
-	storage.GetFamilyManager().WalkEntry(func(family storage.DataFamily) {
-		if param.DB == family.Shard().Database().Name() {
-			rs = append(rs, family.GetState())
-		}
-	})
+	var rs []models.DataSegmentState
+	// FIXME: load segment
+	// storage.GetFamilyManager().WalkEntry(func(family storage.DataFamily) {
+	// 	if param.DB == family.Shard().Database().Name() {
+	// 		rs = append(rs, family.GetState())
+	// 	}
+	// })
 	httppkg.OK(c, rs)
 }

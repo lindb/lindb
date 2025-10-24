@@ -26,11 +26,9 @@ type aggregatorByTime struct {
 }
 
 func newAggregatorByTime(source *sourceConnector, tableScan *TableScan) Aggregator {
-	return &aggregatorByField{
+	return &aggregatorByTime{
 		source:    source,
 		tableScan: tableScan,
-		fields:    source.fields,
-		fieldKeys: source.fieldKeys,
 	}
 }
 

@@ -15,16 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package storage
+package metric
 
 import (
-	"fmt"
 	"path/filepath"
 	"strconv"
 
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/storage/store"
 )
 
 // define database storage structure.
@@ -39,40 +38,20 @@ import (
 //	xx/shard/1/(path)
 //	xx/shard/1/buffer/123213123131 // time of ns
 //	xx/shard/1/index
-//	xx/shard/1/segment/day/20191012/
-//	xx/shard/1/segment/month/201910/
+//	xx/shard/1/partition/day/20191012/
+//	xx/shard/1/partition/month/201910/
 const (
 	options          = "OPTIONS"
 	shardDir         = "shard"
 	metaDir          = "meta"
 	tagValueMetaDir  = "tagvalue"
 	tagValueDir      = "tag_value"
-	segmentDir       = "segment"
 	indexParentDir   = "index"
 	forwardIndexDir  = "forward"
 	invertedIndexDir = "inverted"
 	bufferDir        = "buffer"
 	limits           = "limits.toml"
 )
-
-// createDatabasePath creates database's root path if existed.
-func createDatabasePath(database string) (string, error) {
-	dbPath := filepath.Join(config.GlobalStorageConfig().TSDB.Dir, database)
-	if err := mkDirIfNotExist(dbPath); err != nil {
-		return "", fmt.Errorf("create database[%s]'s path with error: %s", database, err)
-	}
-	return dbPath, nil
-}
-
-// limitsPath returns database's limits file path.
-func limitsPath(database string) string {
-	return filepath.Join(config.GlobalStorageConfig().TSDB.Dir, database, limits)
-}
-
-// optionsPath returns database's options file path.
-func optionsPath(database string) string {
-	return filepath.Join(config.GlobalStorageConfig().TSDB.Dir, database, options)
-}
 
 // metricsMetaPath returns metrics' metadata storage path.
 func metricsMetaPath(database string) string {
@@ -84,27 +63,12 @@ func shardIndicator(database string, shardID models.ShardID) string {
 	return filepath.Join(database, shardDir, strconv.Itoa(int(shardID)))
 }
 
-// shardPath returns shard's storage path.
-func shardPath(database string, shardID models.ShardID) string {
-	return filepath.Join(config.GlobalStorageConfig().TSDB.Dir, shardIndicator(database, shardID))
-}
-
 // shardTempBufferPath returns temp buffer path for write data.
 func shardTempBufferPath(database string, shardID models.ShardID) string {
-	return filepath.Join(shardPath(database, shardID), bufferDir)
+	return filepath.Join(store.ShardPath(database, shardID), bufferDir)
 }
 
 // shardIndexPath returns shard level index index path.
 func shardIndexPath(database string, shardID models.ShardID) string {
-	return filepath.Join(shardPath(database, shardID), indexParentDir)
-}
-
-// FIXME: new
-func ShardIntervalSegmentPath(database string, shardID models.ShardID, interval timeutil.Interval) string {
-	return filepath.Join(shardPath(database, shardID), segmentDir, interval.Type().String())
-}
-
-// ShardSegmentPath returns segment path in shard dir.
-func ShardSegmentPath(database string, shardID models.ShardID, interval timeutil.Interval, name string) string {
-	return filepath.Join(shardPath(database, shardID), segmentDir, interval.Type().String(), name)
+	return filepath.Join(store.ShardPath(database, shardID), indexParentDir)
 }
