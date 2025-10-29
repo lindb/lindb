@@ -41,16 +41,12 @@ import (
 type Shard struct {
 	base.Shard
 
-	db *Database
-
 	bufferMgr memdb.BufferManager
 	// segments keeps all rollup target interval segments,
 	// includes one smallest interval segment for writing data, and rollup interval segments
 	rollupPartitions map[timeutil.Interval]*store.Partitions
 
 	flushCondition *sync.Cond // flush condition
-
-	logger logger.Logger
 
 	statistics *metrics.ShardStatistics
 
@@ -60,9 +56,10 @@ type Shard struct {
 	indicator string // => db/shard
 	// write accept time range
 	interval timeutil.Interval
-	id       models.ShardID
 
 	isFlushing atomic.Bool // restrict flusher concurrency
+
+	logger logger.Logger
 }
 
 // newShard creates shard instance, if shard path exist then load shard data for init.
@@ -80,10 +77,9 @@ func newShard(
 	createdShard := &Shard{
 		Shard: base.Shard{
 			ID: shardID,
+			DB: db,
 		},
-		db:               db,
 		indicator:        shardIndicator(db.Name(), shardID),
-		id:               shardID,
 		bufferMgr:        memdb.NewBufferManager(shardTempBufferPath(db.Name(), shardID)),
 		rollupPartitions: make(map[timeutil.Interval]*store.Partitions),
 		isFlushing:       *atomic.NewBool(false),
@@ -99,28 +95,34 @@ func newShard(
 
 	createdShard.interval = dbOption.Intervals[0].Interval
 
-	for idx, targetInterval := range dbOption.Intervals {
-		// new partitions for rollup
-		partitions := store.NewPartitions()
-		if idx == 0 {
-			// the smallest interval for writing
-			createdShard.Partitions = partitions
-			createdShard.CalcPartitionTimeFn = targetInterval.Interval.Calculator().CalcSegmentTime
-		}
-		// set rollup partitions
-		createdShard.rollupPartitions[targetInterval.Interval] = partitions
-	}
-
 	defer func() {
 		if err == nil {
 			return
 		}
 		if err0 := createdShard.Close(); err0 != nil {
 			createdShard.logger.Error("close shard error when create shard fail",
-				logger.String("database", createdShard.db.Name()),
-				logger.Any("shardID", createdShard.id), logger.Error(err0))
+				logger.String("database", createdShard.Database().Name()),
+				logger.Any("shardID", createdShard.ShardID()), logger.Error(err0))
 		}
 	}()
+
+	for idx, targetInterval := range dbOption.Intervals {
+		// new partitions for rollup
+		partitions := store.NewPartitions(targetInterval.Interval)
+		if idx == 0 {
+			// the smallest interval for writing
+			if err = partitions.Load(store.PartitionsPath(db.Name(), shardID, targetInterval.Interval), func(timestamp int64) (*store.LazyPartition, error) {
+				return store.NewLazyPartition(timestamp, createdShard.createPartition), nil
+			}); err != nil {
+				break
+			}
+
+			createdShard.Partitions = partitions
+			createdShard.CalcPartitionTimeFn = targetInterval.Interval.Calculator().CalcSegmentTime
+		}
+		// set rollup partitions
+		createdShard.rollupPartitions[targetInterval.Interval] = partitions
+	}
 
 	if err = createdShard.initIndexDatabase(); err != nil {
 		return nil, fmt.Errorf("create index database for shard[%d] error: %s", shardID, err)
@@ -134,12 +136,6 @@ func newShard(
 func (s *Shard) createPartition(timestamp int64) (store.Partition, error) {
 	return NewPartition(s, timestamp, s.interval)
 }
-
-// Database returns the database.
-func (s *Shard) Database() store.Database { return s.db }
-
-// ShardID returns the shard id.
-func (s *Shard) ShardID() models.ShardID { return s.id }
 
 // Indicator returns the unique shard info.
 func (s *Shard) Indicator() string { return s.indicator }
@@ -184,8 +180,16 @@ func (s *Shard) Close() error {
 	// close segment/flush family data
 	for _, rollupSegment := range s.rollupPartitions {
 		partitions := rollupSegment.GetPartitions()
-		for _, p := range partitions {
-			p.Close()
+		for _, partition := range partitions {
+			if partition.Loaded() {
+
+				p, err := partition.Get()
+				if err != nil {
+					s.logger.Warn("load partition fail when close shard", logger.Error(err))
+					continue
+				}
+				p.Close()
+			}
 		}
 	}
 	return nil
@@ -211,14 +215,14 @@ func (s *Shard) FlushIndex() (err error) {
 	if err = s.flushIndex(); err != nil {
 		s.statistics.IndexDBFlushFailures.Incr()
 		s.logger.Error("failed to flush indexDB ",
-			logger.String("database", s.db.Name()),
-			logger.Any("shardID", s.id),
+			logger.String("database", s.Database().Name()),
+			logger.Any("shardID", s.ShardID()),
 			logger.Error(err))
 		return err
 	}
 	s.logger.Info("flush indexDB successfully",
-		logger.String("database", s.db.Name()),
-		logger.Any("shardID", s.id),
+		logger.String("database", s.Database().Name()),
+		logger.Any("shardID", s.ShardID()),
 	)
 
 	return nil
@@ -270,7 +274,8 @@ func (s *Shard) EvictSegment() {
 // initIndexDatabase initializes the index database
 func (s *Shard) initIndexDatabase() error {
 	var err error
-	s.indexDB, err = index.NewMetricIndexDatabase(shardIndexPath(s.db.Name(), s.ShardID()), s.db.MetaDB())
+	db := s.Database().(*Database)
+	s.indexDB, err = index.NewMetricIndexDatabase(shardIndexPath(db.Name(), s.ShardID()), db.MetaDB())
 	if err != nil {
 		return err
 	}

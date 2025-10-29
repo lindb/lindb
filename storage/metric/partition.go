@@ -1,10 +1,30 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package metric
 
 import (
 	"fmt"
 	"path"
 	"sort"
+	"strconv"
 	"sync"
+
+	"github.com/lindb/common/pkg/fileutil"
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -44,7 +64,7 @@ func NewPartition(shard *Shard, partitionTime int64, interval timeutil.Interval)
 	if err != nil {
 		return nil, fmt.Errorf("create kv store for partition error:%s", err)
 	}
-	return &partition{
+	p := &partition{
 		Partition: base.Partition{
 			Timestamp: partitionTime,
 			Dir:       dir,
@@ -53,7 +73,28 @@ func NewPartition(shard *Shard, partitionTime int64, interval timeutil.Interval)
 		shard:    shard,
 		kvStore:  kvStore,
 		segments: make(map[int]store.Segment),
-	}, nil
+	}
+
+	segments, err := fileutil.ListDir(p.Dir)
+	if err != nil {
+		return nil, err
+	}
+	for _, segment := range segments {
+		if segment == "data" {
+			continue
+		}
+		segmentSlot, err := strconv.Atoi(segment)
+		if err != nil {
+			// TODO: add metric
+			continue
+		}
+		// create data family
+		segmentTime := store.MinuteIntervalCalc.CalcFamilyStartTime(partitionTime, segmentSlot)
+		fmt.Printf("create trace segment: %d\n", segmentTime)
+		p.GetOrCreateSegment(segmentTime)
+	}
+
+	return p, nil
 }
 
 // Close implements store.Partition.

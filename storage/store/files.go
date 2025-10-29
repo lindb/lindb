@@ -71,11 +71,6 @@ func OptionsPath(database string) string {
 	return filepath.Join(config.GlobalStorageConfig().TSDB.Dir, database, options)
 }
 
-// metricsMetaPath returns metrics' metadata storage path.
-func metricsMetaPath(database string) string {
-	return filepath.Join(config.GlobalStorageConfig().TSDB.Dir, database, metaDir)
-}
-
 // shardIndicator returns shard indicator information.
 func shardIndicator(database string, shardID models.ShardID) string {
 	return filepath.Join(database, shardDir, strconv.Itoa(int(shardID)))
@@ -84,11 +79,6 @@ func shardIndicator(database string, shardID models.ShardID) string {
 // ShardPath returns shard's storage path.
 func ShardPath(database string, shardID models.ShardID) string {
 	return filepath.Join(config.GlobalStorageConfig().TSDB.Dir, shardIndicator(database, shardID))
-}
-
-// shardTempBufferPath returns temp buffer path for write data.
-func shardTempBufferPath(database string, shardID models.ShardID) string {
-	return filepath.Join(ShardPath(database, shardID), bufferDir)
 }
 
 // shardIndexPath returns shard level index index path.
@@ -109,4 +99,9 @@ func ShardSegmentPath(database string, shardID models.ShardID, interval timeutil
 // PartitionPath returns partition path in shard dir.
 func PartitionPath(database string, shardID models.ShardID, interval timeutil.Interval, name string) string {
 	return filepath.Join(ShardPath(database, shardID), PartitionDir, interval.Type().String(), name)
+}
+
+// PartitionsPath returns partitions path in shard dir.
+func PartitionsPath(database string, shardID models.ShardID, interval timeutil.Interval) string {
+	return filepath.Join(ShardPath(database, shardID), PartitionDir, interval.Type().String())
 }

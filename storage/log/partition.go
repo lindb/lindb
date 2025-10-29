@@ -1,3 +1,20 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package log
 
 import (
@@ -15,11 +32,6 @@ import (
 	"github.com/lindb/lindb/storage/store"
 )
 
-var (
-	minuteInterval = timeutil.Interval(60_000)
-	intervalCalc   = minuteInterval.Calculator()
-)
-
 type partition struct {
 	base.Partition
 
@@ -34,11 +46,11 @@ type partition struct {
 }
 
 func NewPartition(timestamp int64, shard *shard) (store.Partition, error) {
-	partitionName := intervalCalc.GetSegment(timestamp)
-	dir := store.PartitionPath(shard.Database().Name(), shard.ShardID(), minuteInterval, partitionName)
+	partitionName := store.MinuteIntervalCalc.GetSegment(timestamp)
+	dir := store.PartitionPath(shard.Database().Name(), shard.ShardID(), store.MinuteInterval, partitionName)
 	p := &partition{
 		Partition: base.Partition{
-			Timestamp: intervalCalc.CalcSegmentTime(timestamp),
+			Timestamp: store.MinuteIntervalCalc.CalcSegmentTime(timestamp),
 			Dir:       dir,
 		},
 
@@ -82,7 +94,7 @@ func NewPartition(timestamp int64, shard *shard) (store.Partition, error) {
 			continue
 		}
 		// create data family
-		segmentTime := intervalCalc.CalcFamilyStartTime(timestamp, segmentSlot)
+		segmentTime := store.MinuteIntervalCalc.CalcFamilyStartTime(timestamp, segmentSlot)
 		fmt.Printf("create segment: %d\n", segmentTime)
 		p.GetOrCreateSegment(segmentTime)
 	}
@@ -94,7 +106,7 @@ func (p *partition) GetOrCreateSegment(timestamp int64) (store.Segment, error) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
-	segmentKey := intervalCalc.CalcFamily(timestamp, intervalCalc.CalcSegmentTime(timestamp))
+	segmentKey := store.MinuteIntervalCalc.CalcFamily(timestamp, store.MinuteIntervalCalc.CalcSegmentTime(timestamp))
 
 	if segment, ok := p.segments[segmentKey]; ok {
 		return segment, nil

@@ -1,3 +1,20 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package log
 
 import (
@@ -49,8 +66,8 @@ type Segment struct {
 }
 
 func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
-	segmentTime := intervalCalc.CalcSegmentTime(timestamp)
-	familySlot := intervalCalc.CalcFamily(timestamp, segmentTime)
+	segmentTime := store.MinuteIntervalCalc.CalcSegmentTime(timestamp)
+	familySlot := store.MinuteIntervalCalc.CalcFamily(timestamp, segmentTime)
 	family := fmt.Sprintf("%d", familySlot)
 	segmentPath := filepath.Join(partition.Path(), family)
 	index, err := queue.NewQueue(path.Join(segmentPath, "index"), 128*1024*1024)
@@ -70,12 +87,13 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 			return nil, err
 		}
 	}
-	segmentStartTime := intervalCalc.CalcFamilyStartTime(segmentTime, familySlot)
+	segmentStartTime := store.MinuteIntervalCalc.CalcFamilyStartTime(segmentTime, familySlot)
+	db := partition.shard.Database().(*Database)
 	seg := &Segment{
 		Segment: base.Segment{
 			TimeRange: timeutil.TimeRange{
 				Start: segmentStartTime,
-				End:   intervalCalc.CalcFamilyEndTime(segmentStartTime),
+				End:   store.MinuteIntervalCalc.CalcFamilyEndTime(segmentStartTime),
 			},
 			Path:              segmentPath,
 			WALs:              make(map[models.NodeID]store.WriteAheadLog),
@@ -87,12 +105,12 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 		family:    kvFamily,
 		index:     index,
 
-		mutable: memdb.NewDatabase(partition.shard.database.indexDB),
+		mutable: memdb.NewDatabase(db.indexDB),
 
 		buf: make([]byte, 8),
 	}
 
-	seg.numOfPoints = seg.TimeRange.NumOfPoints(minuteInterval)
+	seg.numOfPoints = seg.TimeRange.NumOfPoints(store.MinuteInterval)
 
 	wals, err := fileutil.ListDir(segmentPath)
 	if err != nil {
@@ -133,10 +151,11 @@ func (s *Segment) FindLogIDsByTimeRange(timeRange timeutil.TimeRange, callback f
 	snapshot := s.partition.timestampIndex.GetSnapshot()
 	defer snapshot.Close()
 
+	interval := store.MinuteInterval.Int64()
+
 	target := (&timeRange).Intersect(s.SegmentTimeRange())
-	start := target.Start - target.Start%minuteInterval.Int64()
-	end := target.End - target.End%minuteInterval.Int64()
-	interval := minuteInterval.Int64()
+	start := target.Start - target.Start%interval
+	end := target.End - target.End%interval
 	partitionTime := s.partition.PartitionTime()
 	temp := roaring.New()
 	result := roaring.New()
@@ -249,7 +268,7 @@ func (s *Segment) Close() error {
 
 func (s *Segment) indexTimestamp(timestamp int64, logID uint32) {
 	// truncate timestamp based on interval
-	targetTimestamp := timestamp - timestamp%minuteInterval.Int64()
+	targetTimestamp := timestamp - timestamp%store.MinuteInterval.Int64()
 
 	index, ok := s.timestampIndexes.Load(targetTimestamp)
 	if ok {
@@ -263,7 +282,7 @@ func (s *Segment) FlushTimestampIndex() error {
 	flusher := s.partition.timestampIndex.NewFlusher()
 	start := s.TimeRange.Start
 	end := s.TimeRange.End
-	interval := minuteInterval.Int64()
+	interval := store.MinuteInterval.Int64()
 	partitionTime := s.partition.PartitionTime()
 	if err := walkTimeRange(start, end, interval, func(timestamp int64) error {
 		idsObj, _ := s.timestampIndexes.Load(timestamp)
