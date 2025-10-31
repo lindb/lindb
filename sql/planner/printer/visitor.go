@@ -61,10 +61,29 @@ func (v *PrintPlanVisitor) Visit(_ any, n plan.PlanNode) (r any) {
 		v.visitGroupReference(node)
 	case *plan.ValuesNode:
 		v.visitValues(node)
+	case *plan.InsertNode:
+		v.visitInsert(node)
 	default:
 		panic(fmt.Sprintf("impl print %T", n))
 	}
 	return
+}
+
+func (v *PrintPlanVisitor) visitInsert(node *plan.InsertNode) {
+	descriptor := make(map[string]string)
+	// descriptor["step"] = node.Step.String()
+	//
+	// if node.GroupingSets != nil && len(node.GroupingSets.GroupingKeys) > 0 {
+	// 	descriptor["keys"] = formatSymbols(node.GroupingSets.GroupingKeys)
+	// }
+
+	// nodeOutput :=
+	v.addNode(node, "Insert", descriptor, node.GetSources())
+	// for _, agg := range node.Aggregations {
+	// 	nodeOutput.appendDetails(fmt.Sprintf("%s := %s", agg.Symbol.Name, formatAggregation(agg.Aggregation)))
+	// }
+	// TODO: add agg func
+	v.processChildren(node)
 }
 
 func (v *PrintPlanVisitor) visitGroupReference(node *plan.GroupReference) {

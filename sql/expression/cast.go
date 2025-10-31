@@ -66,6 +66,10 @@ func (c *Cast) EvalTime(ctx EvalContext, _ types.Row) (val time.Time, isNull boo
 	return
 }
 
+func (c *Cast) EvalMap(ctx EvalContext, _ types.Row) (val map[string]string, isNull bool, err error) {
+	return
+}
+
 // GetType implements Expression.
 func (c *Cast) GetType() types.DataType {
 	return c.retType

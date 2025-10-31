@@ -61,7 +61,7 @@ func (a *SymbolAllocator) FromExpression(expression tree.Expression, dataType ty
 		return symbol
 	}
 
-	fmt.Printf("new symbol=%T\n", expression)
+	fmt.Printf("new symbol=%T=>%s\n", expression, dataType)
 	nameHint := "expr"
 	var hidden bool
 	switch expr := expression.(type) {

@@ -33,7 +33,7 @@ type PlanBuilder struct {
 }
 
 func newPlanBuilder(context *context.PlannerContext,
-	plan *RelationPlan, mappings map[tree.NodeID]*plan.Symbol, //nolint
+	plan *RelationPlan, mappings map[string]*plan.Symbol, //nolint
 ) *PlanBuilder {
 	// TODO: check mappings if nil(remove nolint)
 	fmt.Printf("new plan builder=%v\n", plan.FieldMappings)
@@ -63,11 +63,12 @@ func (pb *PlanBuilder) appendProjections(expressions []tree.Expression) *PlanBui
 	symbolAllocator := pb.translations.context.SymbolAllocator
 	idAllocator := pb.translations.context.PlanNodeIDAllocator
 
-	mappings := make(map[tree.NodeID]*plan.Symbol)
+	mappings := make(map[string]*plan.Symbol)
 	for i := range expressions {
 		expression := expressions[i]
 		fmt.Printf("check transs====%T,,,, %v=%v\n", expression, expression, pb.translations.CanTranslate(expression))
-		if _, ok := mappings[expression.GetID()]; !ok && !pb.translations.CanTranslate(expression) {
+		expressionName := expression.String()
+		if _, ok := mappings[expressionName]; !ok && !pb.translations.CanTranslate(expression) {
 			fmt.Println("kkkkkkkkkkkkk..............")
 			symbol := symbolAllocator.FromExpression(expression, pb.translations.context.AnalyzerContext.Analysis.GetType(expression))
 			expr := pb.translations.Rewrite(expression)
@@ -75,7 +76,7 @@ func (pb *PlanBuilder) appendProjections(expressions []tree.Expression) *PlanBui
 				Symbol:     symbol,
 				Expression: expr,
 			})
-			mappings[expression.GetID()] = symbol
+			mappings[expressionName] = symbol
 			fmt.Println("kkkkkkkkkkkkk.............. done")
 		}
 	}

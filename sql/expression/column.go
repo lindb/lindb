@@ -37,6 +37,10 @@ func (c *Column) EvalString(ctx EvalContext, row types.Row) (val string, isNull 
 	return string(*row.GetString(c.index)), false, nil
 }
 
+func (c *Column) EvalMap(ctx EvalContext, row types.Row) (val map[string]string, isNull bool, err error) {
+	return row.Get(c.index).(map[string]string), false, nil
+}
+
 func (c *Column) EvalInt(ctx EvalContext, row types.Row) (val int64, isNull bool, err error) {
 	return 40, false, nil
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/lindb/lindb/sql/analyzer"
 	sqlContext "github.com/lindb/lindb/sql/context"
 	"github.com/lindb/lindb/sql/planner"
+	"github.com/lindb/lindb/sql/planner/optimization"
 	"github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/planner/validate"
 	"github.com/lindb/lindb/sql/tree"
@@ -36,6 +37,7 @@ func NewPlanner(analyzerFct *analyzer.AnalyzerFactory) *Planner {
 
 func (p *Planner) Plan(session *Session,
 	statement tree.Statement,
+	optimizers []optimization.PlanOptimizer,
 ) *plan.Plan {
 	analyzerContext := analyzer.NewAnalyzerContext(session.Database, statement, session.NodeIDAllocator)
 	plannerContext := sqlContext.NewPlannerContext(
@@ -51,7 +53,7 @@ func (p *Planner) Plan(session *Session,
 	analyzer.Analyze(statement)
 
 	// plan query
-	logicalPlanner := planner.NewLogicalPlanner(plannerContext, planOptimizers())
+	logicalPlanner := planner.NewLogicalPlanner(plannerContext, optimizers)
 	plan := logicalPlanner.Plan()
 	v := validate.NewValidators()
 	if err := v.Validate(plannerContext, plan.Root); err != nil {

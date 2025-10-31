@@ -32,6 +32,8 @@ import (
 )
 
 type MetaService struct {
+	protoMetaV1.UnimplementedMetaServiceServer
+
 	engine storage.Engine
 	logger logger.Logger
 }

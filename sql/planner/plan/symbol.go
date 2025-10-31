@@ -42,7 +42,8 @@ func SymbolFrom(expression tree.Expression) *Symbol {
 	if symbolRef, ok := expression.(*tree.SymbolReference); ok {
 		return &Symbol{Name: symbolRef.Name, DataType: symbolRef.DataType, Hidden: symbolRef.Hidden}
 	}
-	panic(fmt.Sprintf("new symbol with unexpected expression: %T", expression))
+	panic(fmt.Sprintf("new symbol with unexpected expression: %s, type:%T",
+		tree.FormatExpression(expression), expression))
 }
 
 func (s *Symbol) String() string {

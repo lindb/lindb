@@ -23,7 +23,7 @@ import (
 
 var (
 	RowWithEmptyValue = NewRowWithEmptyValue()
-	EmptyRow          = Row{}
+	EmptyRow          = &PageRow{}
 )
 
 type Page struct {
@@ -58,7 +58,7 @@ func (p *Page) AppendColumn(info ColumnMetadata, column *Column) {
 // GetRow gets the Row in the page with the row index.
 func (p *Page) GetRow(idx int) Row {
 	// TODO: select rows?
-	return Row{p: p, idx: idx}
+	return &PageRow{p: p, idx: idx}
 }
 
 // NumRows returns the number of rows in the page.

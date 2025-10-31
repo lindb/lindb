@@ -33,7 +33,7 @@ func NewQueryExplainer(planner *Planner) *QueryExplainer {
 func (qe *QueryExplainer) ExplainPlan(session *Session,
 	statement tree.Statement, explainType string,
 ) string {
-	plan := qe.planner.Plan(session, statement)
+	plan := qe.planner.Plan(session, statement, PlanOptimizers())
 	printer := printer.NewPlanPrinter(printer.NewTextRender(0))
 	if explainType == tree.DistributedExplain {
 		fragmentedPlan := qe.planner.PlanDistribution(plan)

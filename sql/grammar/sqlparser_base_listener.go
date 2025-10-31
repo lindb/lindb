@@ -1,20 +1,3 @@
-// Licensed to LinDB under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. LinDB licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 // Code generated from ./sql/grammar/SQLParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package grammar // SQLParser
@@ -43,6 +26,18 @@ func (s *BaseSQLParserListener) EnterStatement(ctx *StatementContext) {}
 // ExitStatement is called when production statement is exited.
 func (s *BaseSQLParserListener) ExitStatement(ctx *StatementContext) {}
 
+// EnterStreamingApp is called when production streamingApp is entered.
+func (s *BaseSQLParserListener) EnterStreamingApp(ctx *StreamingAppContext) {}
+
+// ExitStreamingApp is called when production streamingApp is exited.
+func (s *BaseSQLParserListener) ExitStreamingApp(ctx *StreamingAppContext) {}
+
+// EnterStreamingQuery is called when production streamingQuery is entered.
+func (s *BaseSQLParserListener) EnterStreamingQuery(ctx *StreamingQueryContext) {}
+
+// ExitStreamingQuery is called when production streamingQuery is exited.
+func (s *BaseSQLParserListener) ExitStreamingQuery(ctx *StreamingQueryContext) {}
+
 // EnterDdlStatement is called when production ddlStatement is entered.
 func (s *BaseSQLParserListener) EnterDdlStatement(ctx *DdlStatementContext) {}
 
@@ -66,6 +61,12 @@ func (s *BaseSQLParserListener) EnterExplainAnalyze(ctx *ExplainAnalyzeContext) 
 
 // ExitExplainAnalyze is called when production explainAnalyze is exited.
 func (s *BaseSQLParserListener) ExitExplainAnalyze(ctx *ExplainAnalyzeContext) {}
+
+// EnterInsertInto is called when production insertInto is entered.
+func (s *BaseSQLParserListener) EnterInsertInto(ctx *InsertIntoContext) {}
+
+// ExitInsertInto is called when production insertInto is exited.
+func (s *BaseSQLParserListener) ExitInsertInto(ctx *InsertIntoContext) {}
 
 // EnterAdminStatement is called when production adminStatement is entered.
 func (s *BaseSQLParserListener) EnterAdminStatement(ctx *AdminStatementContext) {}
@@ -518,6 +519,30 @@ func (s *BaseSQLParserListener) EnterQualifiedName(ctx *QualifiedNameContext) {}
 
 // ExitQualifiedName is called when production qualifiedName is exited.
 func (s *BaseSQLParserListener) ExitQualifiedName(ctx *QualifiedNameContext) {}
+
+// EnterColumnAliases is called when production columnAliases is entered.
+func (s *BaseSQLParserListener) EnterColumnAliases(ctx *ColumnAliasesContext) {}
+
+// ExitColumnAliases is called when production columnAliases is exited.
+func (s *BaseSQLParserListener) ExitColumnAliases(ctx *ColumnAliasesContext) {}
+
+// EnterAppAnnotation is called when production appAnnotation is entered.
+func (s *BaseSQLParserListener) EnterAppAnnotation(ctx *AppAnnotationContext) {}
+
+// ExitAppAnnotation is called when production appAnnotation is exited.
+func (s *BaseSQLParserListener) ExitAppAnnotation(ctx *AppAnnotationContext) {}
+
+// EnterAnnotation is called when production annotation is entered.
+func (s *BaseSQLParserListener) EnterAnnotation(ctx *AnnotationContext) {}
+
+// ExitAnnotation is called when production annotation is exited.
+func (s *BaseSQLParserListener) ExitAnnotation(ctx *AnnotationContext) {}
+
+// EnterAnnotation_element is called when production annotation_element is entered.
+func (s *BaseSQLParserListener) EnterAnnotation_element(ctx *Annotation_elementContext) {}
+
+// ExitAnnotation_element is called when production annotation_element is exited.
+func (s *BaseSQLParserListener) ExitAnnotation_element(ctx *Annotation_elementContext) {}
 
 // EnterProperties is called when production properties is entered.
 func (s *BaseSQLParserListener) EnterProperties(ctx *PropertiesContext) {}

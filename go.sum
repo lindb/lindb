@@ -190,8 +190,8 @@ github.com/kylelemons/godebug v1.1.0/go.mod h1:9/0rRGxNHcop5bhtWyNeEfOS8JIWk580+
 github.com/ledongthuc/pdf v0.0.0-20220302134840-0c2507a12d80/go.mod h1:imJHygn/1yfhB7XSJJKlFZKl/J+dCPAknuiaGOshXAs=
 github.com/leodido/go-urn v1.4.0 h1:WT9HwE9SGECu3lg4d/dIA+jxlljEa1/ffXKmRjqdmIQ=
 github.com/leodido/go-urn v1.4.0/go.mod h1:bvxc+MVxLKB4z00jd1z+Dvzr47oO32F/QSNjSBOlFxI=
-github.com/lindb/common v0.0.8 h1:Y4rrLVgjlMKfcrRKHa9fGW7lLNmWq+7wCCRnrqoy8yA=
-github.com/lindb/common v0.0.8/go.mod h1:+SeD9JHo9FyTwxnhID+haytSm2oZtmbDiitL/8kbp4o=
+github.com/lindb/common v0.0.9 h1:yLPwwxbryP6bV5InHxY7utvpLKJ6Q2of+arie28FsXU=
+github.com/lindb/common v0.0.9/go.mod h1:bJ0RBD4GVJFOa9EC718/9oD08V/Hwjd9jpeK8La/nEk=
 github.com/lindb/roaring v1.2.1 h1:Ik1hEg3i55CwNOYefdKWWYfm5CUy4SWp84zMSDxZSEo=
 github.com/lindb/roaring v1.2.1/go.mod h1:MDk6EPsveXlV1nOxVGw5XgoWekxVdiaVALgrrzMjg6E=
 github.com/linxGnu/grocksdb v1.10.2 h1:y0dXsWYULY15/BZMcwAZzLd13ZuyA470vyoNzWwmqG0=

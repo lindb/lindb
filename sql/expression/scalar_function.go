@@ -36,11 +36,11 @@ type ScalarFunc struct {
 }
 
 func NewScalarFunc(funcName tree.FuncName, retType types.DataType, args []Expression) (Expression, error) {
-	fct, ok := funcs[funcName]
+	newFn, ok := funcs[funcName]
 	if !ok {
 		return nil, fmt.Errorf("func not support, func name: %s", funcName)
 	}
-	fn := fct.NewFunc(args)
+	fn := newFn(args)
 	return &ScalarFunc{
 		retType:  retType,
 		function: fn,
@@ -72,6 +72,10 @@ func (f *ScalarFunc) EvalDuration(ctx EvalContext, row types.Row) (val time.Dura
 
 func (f *ScalarFunc) EvalTime(ctx EvalContext, row types.Row) (val time.Time, isNull bool, err error) {
 	return f.function.EvalTime(ctx, row)
+}
+
+func (f *ScalarFunc) EvalMap(ctx EvalContext, row types.Row) (val map[string]string, isNull bool, err error) {
+	return f.function.EvalMap(ctx, row)
 }
 
 // GetType implements Expression.

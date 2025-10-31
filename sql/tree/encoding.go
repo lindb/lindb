@@ -27,6 +27,9 @@ func init() {
 	jsoniter.RegisterTypeEncoder("tree.Expression", &encoding.JSONEncoder[Expression]{})
 	jsoniter.RegisterTypeDecoder("tree.Expression", &encoding.JSONDecoder[Expression]{})
 
+	jsoniter.RegisterTypeEncoder("tree.AnnotationElement", &encoding.JSONEncoder[AnnotationElement]{})
+	jsoniter.RegisterTypeDecoder("tree.AnnotationElement", &encoding.JSONDecoder[AnnotationElement]{})
+
 	encoding.RegisterNodeType(ComparisonExpression{})
 	encoding.RegisterNodeType(NotExpression{})
 	encoding.RegisterNodeType(InPredicate{})
@@ -43,4 +46,7 @@ func init() {
 	encoding.RegisterNodeType(FunctionCall{})
 	encoding.RegisterNodeType(SymbolReference{})
 	encoding.RegisterNodeType(Constant{})
+
+	encoding.RegisterNodeType(Annotation{})
+	encoding.RegisterNodeType(Property{})
 }

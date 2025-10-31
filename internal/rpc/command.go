@@ -31,6 +31,8 @@ import (
 )
 
 type CommandService struct {
+	protoCommandV1.UnimplementedCommandServiceServer
+
 	taskMgr execution.TaskManager
 	logger  logger.Logger
 }

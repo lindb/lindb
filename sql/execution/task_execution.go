@@ -46,12 +46,13 @@ func (fct *TaskExecutionFactory) Create(task *SQLTask) *TaskExecution {
 
 	ctx := &sqlContext.TaskContext{
 		// FIXME: set context
-		Context:    context.WithValue(context.TODO(), constants.ContextKeyCurrentTime, task.currentTime),
-		TaskID:     task.id,
-		Fragment:   task.fragment,
-		Partitions: task.partitions,
+		Context:    context.WithValue(context.TODO(), constants.ContextKeyCurrentTime, task.CurrentTime),
+		TaskID:     task.ID,
+		Fragment:   task.Fragment,
+		Partitions: task.Partitions,
+		Streaming:  task.Streaming,
 	}
-	plan := taskPlanner.Plan(ctx, task.fragment.Root)
+	plan := taskPlanner.Plan(ctx, task.Fragment.Root)
 
 	return &TaskExecution{
 		taskCtx: ctx,

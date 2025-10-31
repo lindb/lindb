@@ -52,6 +52,10 @@ func (*baseFunc) EvalTime(ctx EvalContext, row types.Row) (val time.Time, isNull
 	panic("implement me")
 }
 
+func (*baseFunc) EvalMap(ctx EvalContext, row types.Row) (val map[string]string, isNull bool, err error) {
+	panic("implement me")
+}
+
 type Func interface {
 	EvalInt(ctx EvalContext, row types.Row) (val int64, isNull bool, err error)
 	EvalFloat(ctx EvalContext, row types.Row) (val float64, isNull bool, err error)
@@ -59,30 +63,27 @@ type Func interface {
 	EvalTimeSeries(ctx EvalContext, row types.Row) (val *types.TimeSeries, isNull bool, err error)
 	EvalDuration(ctx EvalContext, row types.Row) (val time.Duration, isNull bool, err error)
 	EvalTime(ctx EvalContext, row types.Row) (val time.Time, isNull bool, err error)
+	EvalMap(ctx EvalContext, row types.Row) (val map[string]string, isNull bool, err error)
 }
 
-type FuncFactory interface {
-	NewFunc(args []Expression) Func
-}
+type NewFunc = func(args []Expression) Func
 
 // IsFuncSupported check if given function name is supported.
-func IsFuncSupported(name tree.FuncName) bool {
-	_, ok := funcs[name]
-	return ok
-}
+var funcs = map[tree.FuncName]NewFunc{
+	tree.Plus:  newArithmeticPlusFunc,
+	tree.Minus: newArithmeticMinusFunc,
+	tree.Mul:   newArithmeticMulFunc,
+	tree.Div:   newArithmeticDivFunc,
+	tree.Mod:   newArithmeticModFunc,
 
-var funcs = map[tree.FuncName]FuncFactory{
-	tree.Plus:  &arithmeticPlusFuncFactory{},
-	tree.Minus: &arithmeticMinusFuncFactory{},
-	tree.Mul:   &arithmeticMulFuncFactory{},
-	tree.Div:   &arithmeticDivFuncFactory{},
-	tree.Mod:   &arithmeticModFuncFactory{},
-
-	tree.Count: &arithmeticPlusFuncFactory{},
+	tree.Count: newArithmeticPlusFunc,
 
 	// time functions
 	// ref: https://dev.mysql.com/doc/refman/8.4/en/date-and-time-functions.html
-	tree.DateAdd:   &addSubDateFuncFactory{},
-	tree.Now:       &nowFuncFactory{},
-	tree.StrToDate: &strToDateFuncFactory{},
+	tree.DateAdd:   newAddSubDateFunc,
+	tree.Now:       newNowFunc,
+	tree.StrToDate: newStrToDateFunc,
+
+	// map functions
+	tree.MapValues: newMapValuesFunc,
 }

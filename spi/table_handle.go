@@ -38,6 +38,7 @@ const (
 	Metric
 	Log
 	Trace
+	Streaming
 )
 
 func (kind DatasourceKind) String() string {
@@ -50,6 +51,8 @@ func (kind DatasourceKind) String() string {
 		return "log"
 	case Trace:
 		return "trace"
+	case Streaming:
+		return "streaming"
 	default:
 		return "unknwon"
 	}

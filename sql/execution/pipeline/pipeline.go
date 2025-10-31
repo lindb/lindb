@@ -23,7 +23,7 @@ import (
 
 	"github.com/lindb/lindb/spi/types"
 	sqlContext "github.com/lindb/lindb/sql/context"
-	"github.com/lindb/lindb/sql/execution/pipeline/operator"
+	"github.com/lindb/lindb/sql/execution/operator"
 )
 
 type Pipeline struct {

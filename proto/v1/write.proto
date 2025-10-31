@@ -1,6 +1,8 @@
 syntax = "proto3";
 
-package protoWriteV1;
+package write;
+
+option go_package = "proto/gen/v1/write";
 
 message WriteRequest {
   bytes record = 1;

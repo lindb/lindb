@@ -18,7 +18,7 @@
 package trace
 
 import (
-	protoTraceV1 "github.com/lindb/common/proto/gen/v1/lintrace"
+	protoTraceV1 "github.com/lindb/common/proto/gen/v1/trace"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/ptrace"
 )

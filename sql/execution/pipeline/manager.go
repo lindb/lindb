@@ -24,7 +24,7 @@ import (
 	"github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/sql/execution/model"
-	"github.com/lindb/lindb/sql/execution/pipeline/operator"
+	"github.com/lindb/lindb/sql/execution/operator"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
 

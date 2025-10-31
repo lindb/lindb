@@ -26,14 +26,15 @@ import (
 
 func coerceIfNecessary(analysis *analyzer.Analysis, origianl, rewritten tree.Expression) tree.Expression {
 	coercion, ok := analysis.GetCoercion(origianl)
-	fmt.Printf("check coercion%T=%v,=%v\n", origianl, coercion, ok)
+	fmt.Printf("check coercion%T=%v,=%v,%T,%T\n", origianl, coercion, ok, origianl, rewritten)
 	if !ok {
 		return rewritten
 	}
 	fmt.Println("cast ....... rewrite")
 	return &tree.Cast{
 		BaseNode: tree.BaseNode{
-			ID: origianl.GetID(),
+			ID:   origianl.GetID(),
+			Text: origianl.String(),
 		},
 		Type:       coercion,
 		Expression: rewritten,

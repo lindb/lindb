@@ -1,6 +1,8 @@
 syntax = "proto3";
 
-package protoMetaV1;
+package meta;
+
+option go_package = "proto/gen/v1/meta";
 
 message TableSchemaRequest {
   string database = 1;

@@ -80,6 +80,10 @@ func (n *LongLiteral) Accept(context any, visitor Visitor) any {
 	return visitor.Visit(context, n)
 }
 
+func (n *LongLiteral) String() string {
+	panic("not implement")
+}
+
 type FloatLiteral struct {
 	BaseNode
 	Value float64

@@ -23,7 +23,8 @@ import (
 	"net/http"
 	"strings"
 
-	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
+	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/metrics"
+	"google.golang.org/protobuf/proto"
 
 	ingestCommon "github.com/lindb/lindb/ingestion/common"
 	"github.com/lindb/lindb/metrics"
@@ -79,7 +80,7 @@ func parseProtoMetric(
 	defer releaseFunc(converter)
 
 	var ms protoMetricsV1.MetricList
-	if err := ms.Unmarshal(data); err != nil {
+	if err := proto.Unmarshal(data, &ms); err != nil {
 		return nil, err
 	}
 	for i := range ms.Metrics {

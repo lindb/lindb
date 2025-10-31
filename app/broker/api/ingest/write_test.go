@@ -29,7 +29,7 @@ import (
 	"github.com/go-http-utils/headers"
 	"github.com/lindb/common/pkg/ltoml"
 	"github.com/lindb/common/pkg/timeutil"
-	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
+	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/metrics"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 

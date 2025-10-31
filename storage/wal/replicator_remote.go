@@ -200,7 +200,7 @@ func (r *remoteReplicator) IsReady() bool {
 			logger.Int64("resetReplicaIdx", needResetReplicaIdx))
 		r.state.Store(&store.ReplicatorState{State: models.ReplicatorInitState, ErrMsg: "resetting replica append index"})
 		// send reset index request
-		_, err = r.replicaCli.Reset(r.ctx, &protoReplicaV1.ResetIndexRequest{
+		_, err = r.replicaCli.ResetIndex(r.ctx, &protoReplicaV1.ResetIndexRequest{
 			Database:    r.channel.State.Database,
 			Shard:       int32(r.channel.State.ShardID),
 			Leader:      int32(r.channel.State.Leader),

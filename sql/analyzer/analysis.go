@@ -88,6 +88,8 @@ type Analysis struct {
 	types            map[tree.NodeID]types.DataType
 	columnReferences map[tree.NodeID]*ResolvedField
 	coercons         map[tree.NodeID]types.DataType
+
+	insert *Insert
 }
 
 func NewAnalysis(root tree.Statement) *Analysis {
@@ -331,8 +333,15 @@ func (a *Analysis) AddCoercion(node tree.Expression, coercion types.DataType) {
 	a.coercons[node.GetID()] = coercion
 }
 
-// GetCorection gets the coercion for a given expression.
 func (a *Analysis) GetCoercion(node tree.Expression) (coercion types.DataType, ok bool) {
 	coercion, ok = a.coercons[node.GetID()]
 	return
+}
+
+func (a *Analysis) SetInsert(insert *Insert) {
+	a.insert = insert
+}
+
+func (a *Analysis) GetInsert() *Insert {
+	return a.insert
 }

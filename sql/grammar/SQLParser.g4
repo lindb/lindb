@@ -11,7 +11,15 @@ statement           : ddlStatement
                     | dmlStatement
                     | adminStatement
                     | utilityStatement 
+                    | streamingApp 
                     EOF
+                    ;
+
+streamingApp        : (appAnnotation)* 
+                      (streamingQuery)*
+                    ;
+
+streamingQuery      : (annotation)* dmlStatement SEMICOLON?
                     ;
 
 ddlStatement        : createDatabase
@@ -23,6 +31,7 @@ dmlStatement        : query                                                  #st
   									| EXPLAIN ('(' explainOption (',' explainOption)* ')')? 
                         dmlStatement                                         #explain
    				 					| EXPLAIN ANALYZE dmlStatement                           #explainAnalyze
+                    | INSERT INTO qualifiedName columnAliases? query         #insertInto
                     ;
 
 adminStatement      : flushDatabase
@@ -170,6 +179,13 @@ predicate           : TIMESTAMP operator=comparisonOperator right=valueExpressio
 comparisonOperator  : EQ | NEQ | LT | LTE | GT | GTE ;
 
 qualifiedName       : identifier ('.' identifier)* ;
+columnAliases       : '(' identifier (',' identifier)* ')' ;
+
+appAnnotation       : AT APP ('(' annotation_element (',' annotation_element)* ')')? ;
+
+annotation          : AT identifier ('(' annotation_element (',' annotation_element)* ')')? ;
+
+annotation_element  : property | annotation ;
 
 properties          : '(' propertyAssignments ')' ;
 propertyAssignments : property (',' property)* ;
@@ -197,7 +213,7 @@ interval            : INTERVAL value=number unit=intervalUnit ;
 intervalUnit        : SECOND | MINUTE | HOUR | DAY | MONTH | YEAR ;
 
 nonReserved         :
-                      ALL | ALIVE | AND | AS | ASC
+                      APP | ALL | ALIVE | AND | AS | ASC
                     | BETWEEN | BROKER | BROKERS | BY 
                     | COMPACT | CREATE | CROSS | COLUMNS
                     | DATABASE | DATABASES | DEFAULT | DESC | DISTRIBUTED | DROP
@@ -208,7 +224,7 @@ nonReserved         :
                     | JOIN
                     | KEYS
                     | LEFT | LIKE | LIMIT | LOG | LOGICAL
-		                | IF | IN | INTERVAL | IS
+		                | IF | IN | INTERVAL | IS | INSERT | INTO
                     | MASTER | MEMORY_DATABASES | METRIC | METRICS | METADATA | METADATAS
                     | NAMESPACE | NAMESPACES | NULL | NOT | NOW
                     | ON | OR | ORDER

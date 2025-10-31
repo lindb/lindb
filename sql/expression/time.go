@@ -26,18 +26,16 @@ import (
 	"github.com/lindb/lindb/spi/types"
 )
 
-type addSubDateFuncFactory struct{}
+type addSubDateFunc struct {
+	baseFunc
+}
 
-func (fct *addSubDateFuncFactory) NewFunc(args []Expression) Func {
+func newAddSubDateFunc(args []Expression) Func {
 	return &addSubDateFunc{
 		baseFunc: baseFunc{
 			args: args,
 		},
 	}
-}
-
-type addSubDateFunc struct {
-	baseFunc
 }
 
 func (n *addSubDateFunc) EvalTime(ctx EvalContext, row types.Row) (val time.Time, isNull bool, err error) {
@@ -52,14 +50,12 @@ func (n *addSubDateFunc) EvalTime(ctx EvalContext, row types.Row) (val time.Time
 	return time.UnixMilli(timestamp).Add(duration), false, nil
 }
 
-type nowFuncFactory struct{}
-
-func (fct *nowFuncFactory) NewFunc(args []Expression) Func {
-	return &nowFunc{}
-}
-
 type nowFunc struct {
 	baseFunc
+}
+
+func newNowFunc(args []Expression) Func {
+	return &nowFunc{}
 }
 
 func (n *nowFunc) EvalTime(ctx EvalContext, row types.Row) (val time.Time, isNull bool, err error) {
@@ -67,18 +63,16 @@ func (n *nowFunc) EvalTime(ctx EvalContext, row types.Row) (val time.Time, isNul
 	return ctx.CurrentTime(), false, nil
 }
 
-type strToDateFuncFactory struct{}
+type strToDateFunc struct {
+	baseFunc
+}
 
-func (fct *strToDateFuncFactory) NewFunc(args []Expression) Func {
+func newStrToDateFunc(args []Expression) Func {
 	return &strToDateFunc{
 		baseFunc: baseFunc{
 			args: args,
 		},
 	}
-}
-
-type strToDateFunc struct {
-	baseFunc
 }
 
 func (n *strToDateFunc) EvalTime(ctx EvalContext, row types.Row) (val time.Time, isNull bool, err error) {

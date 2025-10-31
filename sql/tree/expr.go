@@ -36,7 +36,12 @@ type ParenExpr struct {
 // BinaryExpr represents an operations with two expressions
 type BinaryExpr struct {
 	Left, Right Expr
-	Operator    BinaryOP
+	Operator    LogicalOperator
+}
+
+// NotExpr represents not expression.
+type NotExpr struct {
+	Expr Expr
 }
 
 // EqualsExpr represents an equals expression

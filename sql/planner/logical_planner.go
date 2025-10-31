@@ -55,7 +55,7 @@ func (p *LogicalPlanner) Plan() *planpkg.Plan {
 		fmt.Printf("after optimizer plan:%T\n%s\n", optimizer, printer.PrintLogicPlan(root))
 	}
 	printer = printpkg.NewPlanPrinter(printpkg.NewTextRender(0))
-	fmt.Printf("after plan:\n%s\n", printer.PrintLogicPlan(root))
+	fmt.Printf("after op plan:\n%s\n", printer.PrintLogicPlan(root))
 
 	return &planpkg.Plan{
 		Root: root,
@@ -74,9 +74,25 @@ func (p *LogicalPlanner) planStatementWithoutOutput() *RelationPlan {
 	case *tree.Query:
 		planner := NewRelationPlanner(p.context, nil, nil, nil)
 		return stmt.Accept(nil, planner).(*RelationPlan)
+	case *tree.Insert:
+		return p.createInsertPlan(stmt)
 	default:
 		// TODO: plan other statement
 		panic("not support statement type")
+	}
+}
+
+func (p *LogicalPlanner) createInsertPlan(statement *tree.Insert) *RelationPlan {
+	insert := p.context.AnalyzerContext.Analysis.GetInsert()
+	planner := NewRelationPlanner(p.context, nil, nil, nil)
+	queryPlan := planner.Visit(nil, statement.Query).(*RelationPlan)
+
+	return &RelationPlan{
+		Scope: p.context.AnalyzerContext.Analysis.GetScope(statement),
+		Root: &planpkg.InsertNode{
+			Table:  insert.Table,
+			Source: queryPlan.Root,
+		},
 	}
 }
 

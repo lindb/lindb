@@ -69,7 +69,7 @@ func (p *Parser) CreateStatement(sql string, idAllocator *NodeIDAllocator) (stmt
 	// TODO: fail to LL mode
 	parseTree := parser.Statement()
 
-	visitor := NewAstVisitor(idAllocator)
+	visitor := NewAstVisitor(idAllocator, input)
 	node := visitor.Visit(parseTree)
 	if node != nil {
 		stmt = node.(Statement)

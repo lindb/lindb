@@ -120,7 +120,7 @@ func (exec *DMLExecution) Start() any {
 	// rewrite statement
 	statement := exec.rewrite(exec.preparedStatement.Statement)
 	// plan statement
-	statementPlan := exec.planner.Plan(exec.session, statement)
+	statementPlan := exec.planner.Plan(exec.session, statement, PlanOptimizers())
 	// distribute plan
 	fragmentedPlan := exec.planner.PlanDistribution(statementPlan)
 	// scheduler start
@@ -183,9 +183,9 @@ func (exec *DMLExecution) execute(fragmentedPlan *plan.SubPlan, output buffer.Ou
 				// run under current node
 				taskFct := NewTaskExecutionFactory()
 				taskExec := taskFct.Create(&SQLTask{
-					currentTime: currentTime,
-					id:          taskID,
-					fragment:    rootFragment,
+					CurrentTime: currentTime,
+					ID:          taskID,
+					Fragment:    rootFragment,
 				})
 				go func() {
 					for page := range outputCh {

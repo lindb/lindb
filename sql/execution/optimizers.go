@@ -23,7 +23,7 @@ import (
 	"github.com/lindb/lindb/sql/planner/optimization"
 )
 
-func planOptimizers() []optimization.PlanOptimizer {
+func PlanOptimizers() []optimization.PlanOptimizer {
 	return []optimization.PlanOptimizer{
 		// optimization.NewPruneColumns(),
 		iterative.NewIterativeOptimizer([]iterative.Rule{
@@ -56,6 +56,35 @@ func planOptimizers() []optimization.PlanOptimizer {
 		iterative.NewIterativeOptimizer([]iterative.Rule{
 			rule.NewPushAggregationIntoTableScan(),
 		}),
+		iterative.NewIterativeOptimizer([]iterative.Rule{
+			rule.NewRemoveRedundantIdentityProjections(),
+		}),
+	}
+}
+
+func StreamingPlanOptimizers() []optimization.PlanOptimizer {
+	return []optimization.PlanOptimizer{
+		// optimization.NewPruneColumns(),
+		iterative.NewIterativeOptimizer([]iterative.Rule{
+			rule.NewRemoveRedundantIdentityProjections(),
+		}),
+		// column pruning optimizer
+		iterative.NewIterativeOptimizer([]iterative.Rule{
+			rule.NewPruneAggregationSourceColumns(),
+			rule.NewPruneFilterColumns(),
+			rule.NewPruneOutputSourceColumns(),
+			rule.NewPruneProjectionColumns(),
+			rule.NewPruneJoinColumns(),
+			rule.NewPruneTableScanColumns(),
+		}),
+		iterative.NewIterativeOptimizer([]iterative.Rule{
+			rule.NewRemoveRedundantIdentityProjections(),
+		}),
+		// push into table scan optimizer
+		iterative.NewIterativeOptimizer([]iterative.Rule{
+			rule.NewPushProjectionIntoTableScan(),
+		}),
+		optimization.NewPredicatePushDown(),
 		iterative.NewIterativeOptimizer([]iterative.Rule{
 			rule.NewRemoveRedundantIdentityProjections(),
 		}),

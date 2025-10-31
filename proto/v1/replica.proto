@@ -1,13 +1,15 @@
 syntax = "proto3";
 
-package protoReplicaV1;
+package replica;
+
+option go_package = "proto/gen/v1/replica";
 
 message ResetIndexRequest {
   string database = 1;
   int32 shard = 2;
   int32 leader = 3;
-  int64 segmentTime = 4;
-  int64 appendIndex = 5;
+  int64 segment_time = 4;
+  int64 append_index = 5;
 }
 
 message ResetIndexResponse {}
@@ -16,15 +18,15 @@ message GetReplicaAckIndexRequest {
   string database = 1;
   int32 shard = 2;
   int32 leader = 3;
-  int64 segmentTime = 4;
+  int64 segment_time = 4;
 }
 
 message GetReplicaAckIndexResponse {
-  int64 ackIndex = 5;
+  int64 ack_index = 5;
 }
 
 message ReplicaRequest {
-  int64 replicaIndex = 4;
+  int64 replica_index = 4;
   bytes record = 5;
 }
 
@@ -32,14 +34,14 @@ message ReplicaResponse {
   string database = 1;
   int32 shard = 2;
   int32 leader = 3;
-  int64 replicaIndex = 4;
-  int64 ackIndex = 5;
-  int64 responseTime = 6;
+  int64 replica_index = 4;
+  int64 ack_index = 5;
+  int64 response_time = 6;
   string err = 7;
 }
 
 service ReplicaService {
-  rpc Reset(ResetIndexRequest) returns (ResetIndexResponse) {}
+  rpc ResetIndex(ResetIndexRequest) returns (ResetIndexResponse) {}
   rpc GetReplicaAckIndex(GetReplicaAckIndexRequest) returns (GetReplicaAckIndexResponse) {}
   rpc Replica(stream ReplicaRequest) returns (stream ReplicaResponse) {}
 }

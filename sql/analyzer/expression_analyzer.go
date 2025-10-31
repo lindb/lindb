@@ -183,12 +183,14 @@ func (v *ExpressionVisitor) visitFunctionCall(context any, node *tree.FunctionCa
 		argumentTypes = append(argumentTypes, arg.Accept(context, v).(types.DataType))
 	}
 	expectedType := tree.GetDefaultFuncReturnType(node.Name)
+	fmt.Printf("get func default type=%v\n", expectedType)
 	if len(argumentTypes) > 0 {
 		// TODO: check args types
 		for i := range len(argumentTypes) {
 			expectedType = types.GetAccurateType(expectedType, argumentTypes[i])
 		}
 	}
+	fmt.Printf("get func default type=%v\n", expectedType)
 
 	// TODO: coerce args types
 	// for i, argumentType := range argumentTypes {

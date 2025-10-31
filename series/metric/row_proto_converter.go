@@ -29,7 +29,7 @@ import (
 	commonMetric "github.com/lindb/common/metric"
 	"github.com/lindb/common/pkg/fasttime"
 	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
-	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
+	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/metrics"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"

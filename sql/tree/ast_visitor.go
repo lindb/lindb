@@ -43,10 +43,11 @@ type AstVisitor struct {
 	grammar.BaseSQLParserVisitor
 
 	idAllocator *NodeIDAllocator
+	input       *antlr.InputStream
 }
 
-func NewAstVisitor(idAllocator *NodeIDAllocator) *AstVisitor {
-	return &AstVisitor{idAllocator: idAllocator}
+func NewAstVisitor(idAllocator *NodeIDAllocator, input *antlr.InputStream) *AstVisitor {
+	return &AstVisitor{idAllocator: idAllocator, input: input}
 }
 
 func (v *AstVisitor) Visit(ctx antlr.ParseTree) any {
@@ -63,8 +64,26 @@ func (v *AstVisitor) VisitStatement(ctx *grammar.StatementContext) any {
 		return v.Visit(ctx.UtilityStatement())
 	case ctx.AdminStatement() != nil:
 		return v.Visit(ctx.AdminStatement())
+	case ctx.StreamingApp() != nil:
+		return v.Visit(ctx.StreamingApp())
 	default:
 		return v.VisitChildren(ctx)
+	}
+}
+
+func (v *AstVisitor) VisitStreamingApp(ctx *grammar.StreamingAppContext) any {
+	return &StreamingApp{
+		BaseNode:    v.createBaseNode(ctx),
+		Annotations: visit[*Annotation](ctx.AllAppAnnotation(), v),
+		Statements:  visit[*StreamingStatement](ctx.AllStreamingQuery(), v),
+	}
+}
+
+func (v *AstVisitor) VisitStreamingQuery(ctx *grammar.StreamingQueryContext) any {
+	return &StreamingStatement{
+		BaseNode:    v.createBaseNode(ctx),
+		Annotations: visit[*Annotation](ctx.AllAnnotation(), v),
+		Statement:   visitIfPresent[Statement](ctx.DmlStatement(), v),
 	}
 }
 
@@ -250,6 +269,19 @@ func (v *AstVisitor) VisitRollupOptions(ctx *grammar.RollupOptionsContext) any {
 	}
 }
 
+func (v *AstVisitor) VisitAppAnnotation(ctx *grammar.AppAnnotationContext) any {
+	return &Annotation{
+		Elements: v.visitAnnotations(ctx.AllAnnotation_element()),
+	}
+}
+
+func (v *AstVisitor) VisitAnnotation(ctx *grammar.AnnotationContext) any {
+	return &Annotation{
+		Name:     visitIfPresent[*Identifier](ctx.Identifier(), v),
+		Elements: v.visitAnnotations(ctx.AllAnnotation_element()),
+	}
+}
+
 func (v *AstVisitor) VisitProperty(ctx *grammar.PropertyContext) any {
 	fmt.Println("visit property.....")
 	return &Property{
@@ -290,6 +322,17 @@ func (v *AstVisitor) VisitStatementDefault(ctx *grammar.StatementDefaultContext)
 		return v.Visit(ctx.Query())
 	}
 	return v.VisitChildren(ctx)
+}
+
+func (v *AstVisitor) VisitInsertInto(ctx *grammar.InsertIntoContext) any {
+	return &Insert{
+		BaseNode: v.createBaseNode(ctx),
+		Query:    v.Visit(ctx.Query()).(*Query),
+		Table: &Table{
+			BaseNode: v.createBaseNode(ctx),
+			Name:     v.getQualifiedName(ctx.QualifiedName()),
+		},
+	}
 }
 
 func (v *AstVisitor) VisitExplain(ctx *grammar.ExplainContext) any {
@@ -817,7 +860,20 @@ func (v *AstVisitor) createBaseNode(ctx antlr.ParserRuleContext) BaseNode {
 	return BaseNode{
 		ID:       v.idAllocator.Next(),
 		Location: getLocation(ctx),
+		Text:     v.input.GetText(ctx.GetStart().GetStart(), ctx.GetStop().GetStop()),
 	}
+}
+
+func (v *AstVisitor) visitAnnotations(elements []grammar.IAnnotation_elementContext) (annotations []AnnotationElement) {
+	for _, element := range elements {
+		switch {
+		case element.Property() != nil:
+			annotations = append(annotations, v.Visit(element.Property()))
+		case element.Annotation() != nil:
+			annotations = append(annotations, v.Visit(element.Annotation()))
+		}
+	}
+	return
 }
 
 func visit[R any, C antlr.ParserRuleContext](contexts []C, visitor grammar.SQLParserVisitor) (r []R) {

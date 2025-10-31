@@ -26,7 +26,6 @@ import (
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/analyzer"
 	"github.com/lindb/lindb/sql/context"
-	"github.com/lindb/lindb/sql/expression"
 	"github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/tree"
 )
@@ -36,7 +35,7 @@ import (
 type TranslationMap struct {
 	scope        *analyzer.Scope
 	context      *context.PlannerContext
-	astToSymbols map[tree.NodeID]*plan.Symbol
+	astToSymbols map[string]*plan.Symbol // expression format string => symbol
 	outerContext *TranslationMap
 
 	fieldSymbols []*plan.Symbol
@@ -48,7 +47,7 @@ func (t *TranslationMap) Rewrite(expr tree.Expression) tree.Expression {
 	return t.translate(expr, true)
 }
 
-func (t *TranslationMap) withNewMappings(mappings map[tree.NodeID]*plan.Symbol, fields []*plan.Symbol) *TranslationMap {
+func (t *TranslationMap) withNewMappings(mappings map[string]*plan.Symbol, fields []*plan.Symbol) *TranslationMap {
 	return &TranslationMap{
 		context:      t.context,
 		scope:        t.scope,
@@ -58,8 +57,8 @@ func (t *TranslationMap) withNewMappings(mappings map[tree.NodeID]*plan.Symbol, 
 	}
 }
 
-func (t *TranslationMap) withAdditionalMapping(mappings map[tree.NodeID]*plan.Symbol) *TranslationMap {
-	newMappings := make(map[tree.NodeID]*plan.Symbol)
+func (t *TranslationMap) withAdditionalMapping(mappings map[string]*plan.Symbol) *TranslationMap {
+	newMappings := make(map[string]*plan.Symbol)
 	maps.Copy(newMappings, t.astToSymbols)
 	maps.Copy(newMappings, mappings)
 	fmt.Printf("addition mapping=%v,%v\n", newMappings, t)
@@ -77,7 +76,7 @@ func (t *TranslationMap) tryGetMapping(node tree.Expression) *tree.SymbolReferen
 	if len(t.astToSymbols) == 0 {
 		return nil
 	}
-	symbol, ok := t.astToSymbols[node.GetID()]
+	symbol, ok := t.astToSymbols[node.String()]
 	if ok {
 		return symbol.ToSymbolReference()
 	}
@@ -113,7 +112,7 @@ func (t *TranslationMap) getSymbolForColumn(node tree.Expression) *plan.Symbol {
 
 func (t *TranslationMap) CanTranslate(node tree.Expression) bool {
 	// TODO: check symbol referencea are not allowed
-	if _, ok := t.astToSymbols[node.GetID()]; ok {
+	if _, ok := t.astToSymbols[node.String()]; ok {
 		return true
 	}
 	if _, ok := node.(*tree.FieldReference); ok {
@@ -151,7 +150,8 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 			result = &tree.Constant{
 				// TODO: replace
 				BaseNode: tree.BaseNode{
-					ID: node.GetID(),
+					ID:   node.GetID(),
+					Text: expr.Text,
 				},
 				Type:  types.DTInt,
 				Value: expr.Value,
@@ -159,7 +159,8 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 		case *tree.IntervalLiteral:
 			result = &tree.Constant{
 				BaseNode: tree.BaseNode{
-					ID: node.GetID(),
+					ID:   node.GetID(),
+					Text: expr.Text,
 				},
 				Type:  types.DTDuration,
 				Value: expr.Value,
@@ -168,7 +169,8 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 			result = &tree.Constant{
 				// TODO: replace
 				BaseNode: tree.BaseNode{
-					ID: node.GetID(),
+					ID:   node.GetID(),
+					Text: expr.Text,
 				},
 				Type:  types.DTString,
 				Value: expr.Value,
@@ -178,7 +180,8 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 			result = &tree.FunctionCall{
 				// TODO: replace
 				BaseNode: tree.BaseNode{
-					ID: node.GetID(),
+					ID:   node.GetID(),
+					Text: expr.Text,
 				},
 				Name:      expr.Operator.FunctionName(),
 				RetType:   exceptedType,
@@ -221,7 +224,7 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 			}
 			result = expr
 		case *tree.FunctionCall:
-			if !expression.IsFuncSupported(expr.Name) {
+			if !tree.IsFuncSupported(expr.Name) {
 				panic(fmt.Sprintf("function %s is not supported", expr.Name))
 			}
 			expr.RetType = t.context.AnalyzerContext.Analysis.GetType(expr)
@@ -231,6 +234,8 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 				fmt.Printf("=======================translate function arg=%v,%T\n", arg, arg)
 				return t.translate(arg, false)
 			})
+			result = expr
+		case *tree.SymbolReference:
 			result = expr
 		default:
 			panic(fmt.Sprintf("translate not supported: %T", node))

@@ -59,5 +59,5 @@ func (it *Iterator4Page) Next() Row {
 
 // End returns the invalid end Row.
 func (it *Iterator4Page) End() Row {
-	return Row{}
+	return EmptyRow
 }

@@ -35,6 +35,8 @@ import (
 
 // ReplicaHandler implements replica.ReplicaServiceServer interface for handling replica rpc request.
 type ReplicaHandler struct {
+	protoReplicaV1.UnimplementedReplicaServiceServer
+
 	engine storage.Engine
 
 	logger logger.Logger
@@ -43,7 +45,7 @@ type ReplicaHandler struct {
 // NewReplicaHandler creates a replica handler.
 func NewReplicaHandler(
 	engine storage.Engine,
-) *ReplicaHandler {
+) protoReplicaV1.ReplicaServiceServer {
 	return &ReplicaHandler{
 		engine: engine,
 		logger: logger.GetLogger("Storage", "ReplicaRPC"),
@@ -70,7 +72,7 @@ func (r *ReplicaHandler) GetReplicaAckIndex(_ context.Context,
 }
 
 // Reset resets replica index.
-func (r *ReplicaHandler) Reset(_ context.Context,
+func (r *ReplicaHandler) ResetIndex(_ context.Context,
 	request *protoReplicaV1.ResetIndexRequest,
 ) (*protoReplicaV1.ResetIndexResponse, error) {
 	log, err := getOrCreateSegment(

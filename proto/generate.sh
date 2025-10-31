@@ -23,11 +23,8 @@ function collect() {
 function gen() {
     dir_name=$1
     base_name=$(basename $2 ".proto")
-    protoc -I. --gofast_out=plugins=grpc,$GO_OUT_M:../gen/$dir_name/$base_name $2
+    protoc -I. --go-grpc_out=../.. $2
 }
-
-# brew install protobuf
-go install github.com/gogo/protobuf/protoc-gen-gofast@latest
 
 # for dir in v1
 for dir in v1; do

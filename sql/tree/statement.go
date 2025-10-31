@@ -25,6 +25,7 @@ type Statement interface {
 type BaseNode struct {
 	ID       NodeID        `json:"id"`
 	Location *NodeLocation `json:"-"`
+	Text     string        `json:"-"`
 }
 
 func (n *BaseNode) GetID() NodeID {
@@ -33,6 +34,10 @@ func (n *BaseNode) GetID() NodeID {
 
 func (n *BaseNode) SetID(id NodeID) {
 	n.ID = id
+}
+
+func (n *BaseNode) String() string {
+	return n.Text
 }
 
 type PreparedStatement struct {

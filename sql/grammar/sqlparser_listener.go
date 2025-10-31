@@ -1,20 +1,3 @@
-// Licensed to LinDB under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. LinDB licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 // Code generated from ./sql/grammar/SQLParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package grammar // SQLParser
@@ -27,6 +10,12 @@ type SQLParserListener interface {
 	// EnterStatement is called when entering the statement production.
 	EnterStatement(c *StatementContext)
 
+	// EnterStreamingApp is called when entering the streamingApp production.
+	EnterStreamingApp(c *StreamingAppContext)
+
+	// EnterStreamingQuery is called when entering the streamingQuery production.
+	EnterStreamingQuery(c *StreamingQueryContext)
+
 	// EnterDdlStatement is called when entering the ddlStatement production.
 	EnterDdlStatement(c *DdlStatementContext)
 
@@ -38,6 +27,9 @@ type SQLParserListener interface {
 
 	// EnterExplainAnalyze is called when entering the explainAnalyze production.
 	EnterExplainAnalyze(c *ExplainAnalyzeContext)
+
+	// EnterInsertInto is called when entering the insertInto production.
+	EnterInsertInto(c *InsertIntoContext)
 
 	// EnterAdminStatement is called when entering the adminStatement production.
 	EnterAdminStatement(c *AdminStatementContext)
@@ -264,6 +256,18 @@ type SQLParserListener interface {
 	// EnterQualifiedName is called when entering the qualifiedName production.
 	EnterQualifiedName(c *QualifiedNameContext)
 
+	// EnterColumnAliases is called when entering the columnAliases production.
+	EnterColumnAliases(c *ColumnAliasesContext)
+
+	// EnterAppAnnotation is called when entering the appAnnotation production.
+	EnterAppAnnotation(c *AppAnnotationContext)
+
+	// EnterAnnotation is called when entering the annotation production.
+	EnterAnnotation(c *AnnotationContext)
+
+	// EnterAnnotation_element is called when entering the annotation_element production.
+	EnterAnnotation_element(c *Annotation_elementContext)
+
 	// EnterProperties is called when entering the properties production.
 	EnterProperties(c *PropertiesContext)
 
@@ -318,6 +322,12 @@ type SQLParserListener interface {
 	// ExitStatement is called when exiting the statement production.
 	ExitStatement(c *StatementContext)
 
+	// ExitStreamingApp is called when exiting the streamingApp production.
+	ExitStreamingApp(c *StreamingAppContext)
+
+	// ExitStreamingQuery is called when exiting the streamingQuery production.
+	ExitStreamingQuery(c *StreamingQueryContext)
+
 	// ExitDdlStatement is called when exiting the ddlStatement production.
 	ExitDdlStatement(c *DdlStatementContext)
 
@@ -329,6 +339,9 @@ type SQLParserListener interface {
 
 	// ExitExplainAnalyze is called when exiting the explainAnalyze production.
 	ExitExplainAnalyze(c *ExplainAnalyzeContext)
+
+	// ExitInsertInto is called when exiting the insertInto production.
+	ExitInsertInto(c *InsertIntoContext)
 
 	// ExitAdminStatement is called when exiting the adminStatement production.
 	ExitAdminStatement(c *AdminStatementContext)
@@ -554,6 +567,18 @@ type SQLParserListener interface {
 
 	// ExitQualifiedName is called when exiting the qualifiedName production.
 	ExitQualifiedName(c *QualifiedNameContext)
+
+	// ExitColumnAliases is called when exiting the columnAliases production.
+	ExitColumnAliases(c *ColumnAliasesContext)
+
+	// ExitAppAnnotation is called when exiting the appAnnotation production.
+	ExitAppAnnotation(c *AppAnnotationContext)
+
+	// ExitAnnotation is called when exiting the annotation production.
+	ExitAnnotation(c *AnnotationContext)
+
+	// ExitAnnotation_element is called when exiting the annotation_element production.
+	ExitAnnotation_element(c *Annotation_elementContext)
 
 	// ExitProperties is called when exiting the properties production.
 	ExitProperties(c *PropertiesContext)

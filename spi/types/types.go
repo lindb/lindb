@@ -48,6 +48,8 @@ const (
 	DTJSON
 	// DTDynamic represents dynamic data type.
 	DTDynamic
+	// DTMap represents map data type.
+	DTMap
 )
 
 const (
@@ -83,6 +85,8 @@ func (dt DataType) String() string {
 		return "json"
 	case DTDynamic:
 		return "dynamic"
+	case DTMap:
+		return "map"
 	default:
 		return "unknown"
 	}
@@ -114,6 +118,8 @@ func (dt *DataType) UnmarshalJSON(data []byte) error {
 		*dt = DTJSON
 	case "dynamic":
 		*dt = DTDynamic
+	case "map":
+		*dt = DTMap
 	default:
 		*dt = DTUnknown
 	}

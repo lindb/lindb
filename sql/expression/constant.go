@@ -73,6 +73,10 @@ func (c *Constant) EvalTime(_ EvalContext, _ types.Row) (val time.Time, isNull b
 	}
 }
 
+func (c *Constant) EvalMap(_ EvalContext, _ types.Row) (val map[string]string, isNull bool, err error) {
+	return
+}
+
 func (c *Constant) GetType() types.DataType {
 	return c.retType
 }

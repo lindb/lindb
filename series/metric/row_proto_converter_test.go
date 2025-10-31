@@ -26,7 +26,7 @@ import (
 	"testing"
 
 	"github.com/lindb/common/pkg/fasttime"
-	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
+	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/metrics"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/constants"

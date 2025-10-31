@@ -1,6 +1,8 @@
 syntax = "proto3";
 
-package protoCommandV1;
+package command;
+
+option go_package = "proto/gen/v1/command";
 
 message Error {
   string msg = 1;

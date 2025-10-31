@@ -65,7 +65,7 @@ func (p *RelationPlanner) Visit(context any, n tree.Node) (r any) {
 	case *tree.Values:
 		return p.visitValues(context, node)
 	default:
-		panic(fmt.Sprintf("relation analyzer unsupport node:%T", n))
+		panic(fmt.Sprintf("relation planner unsupport node:%T", n))
 	}
 }
 

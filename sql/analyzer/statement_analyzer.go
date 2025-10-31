@@ -76,9 +76,10 @@ func NewStatementVisitor(outerQueryScope *Scope, analyzer *StatementAnalyzer, is
 	}
 }
 
-// TODO: check state
 func (v *StatementVisitor) Visit(context any, n tree.Node) any {
 	switch node := n.(type) {
+	case *tree.Insert:
+		return v.visitInsert(context, node)
 	case *tree.Query:
 		return v.visitQuery(context, node)
 	case *tree.QuerySpecification:
@@ -98,7 +99,19 @@ func (v *StatementVisitor) Visit(context any, n tree.Node) any {
 	}
 }
 
-func (v *StatementVisitor) visitQuery(context any, node *tree.Query) (r any) {
+func (v *StatementVisitor) visitInsert(context any, node *tree.Insert) *Scope {
+	// analyze query that creates data
+	queryScope := node.Query.Accept(context, v).(*Scope)
+
+	v.analyzer.ctx.Analysis.SetInsert(&Insert{
+		Table: node.Table,
+	})
+
+	// TODO: need add output scope
+	return v.createAndAssignScope(node, queryScope, NewRelation([]*tree.Field{}))
+}
+
+func (v *StatementVisitor) visitQuery(context any, node *tree.Query) *Scope {
 	var scope *Scope
 	if context != nil {
 		scope = context.(*Scope)
@@ -135,7 +148,7 @@ func (v *StatementVisitor) visitQuery(context any, node *tree.Query) (r any) {
 	return queryScope
 }
 
-func (v *StatementVisitor) visitQuerySpecification(context any, node *tree.QuerySpecification) (r any) {
+func (v *StatementVisitor) visitQuerySpecification(context any, node *tree.QuerySpecification) *Scope {
 	scope := context.(*Scope)
 	// analyze from(relation)
 	sourceScope := v.analyzeFrom(node, scope)
@@ -188,7 +201,7 @@ func (v *StatementVisitor) visitQuerySpecification(context any, node *tree.Query
 	return outputScope
 }
 
-func (v *StatementVisitor) visitJoin(context any, node *tree.Join) (r any) {
+func (v *StatementVisitor) visitJoin(context any, node *tree.Join) *Scope {
 	fmt.Println("join table...")
 	scope := context.(*Scope)
 	left := node.Left.Accept(scope, v).(*Scope)
@@ -222,7 +235,7 @@ func (v *StatementVisitor) analyzeJoinUsing(node *tree.Join, columns []*tree.Ide
 	panic("using")
 }
 
-func (v *StatementVisitor) visitAliasedRelation(context any, relation *tree.AliasedRelation) (r any) {
+func (v *StatementVisitor) visitAliasedRelation(context any, relation *tree.AliasedRelation) *Scope {
 	scope := context.(*Scope)
 	aliased := tree.NewQualifiedName([]*tree.Identifier{relation.Aliase})
 	v.analyzer.ctx.Analysis.SetRelationName(relation, aliased)
@@ -239,7 +252,7 @@ func (v *StatementVisitor) visitAliasedRelation(context any, relation *tree.Alia
 	return v.createAndAssignScope(relation, scope, descriptor)
 }
 
-func (v *StatementVisitor) visitValues(context any, values *tree.Values) (r any) {
+func (v *StatementVisitor) visitValues(context any, values *tree.Values) *Scope {
 	scope := context.(*Scope)
 	layout := values.Rows.Layout
 	var fields []*tree.Field
@@ -255,7 +268,7 @@ func (v *StatementVisitor) visitValues(context any, values *tree.Values) (r any)
 	return v.createAndAssignScope(values, scope, NewRelation(fields))
 }
 
-func (v *StatementVisitor) visitTable(ctx any, table *tree.Table) (r any) {
+func (v *StatementVisitor) visitTable(ctx any, table *tree.Table) *Scope {
 	scope := ctx.(*Scope)
 	if table.Name.Prefix == nil {
 		name := strings.ToLower(table.Name.Suffix)
@@ -302,7 +315,7 @@ func (v *StatementVisitor) visitTable(ctx any, table *tree.Table) (r any) {
 
 	fmt.Printf("visit table output fields %v\n", outputFields)
 	subScope := v.createAndAssignScope(table, scope, NewRelation(outputFields))
-	subScope.Dynamic = true
+	subScope.Dynamic = tableMetadata.SupportDynamicField
 	return subScope
 }
 
@@ -475,7 +488,6 @@ func (v *StatementVisitor) analyzeGroupBy(node *tree.QuerySpecification, scope *
 		sets                [][]*FieldID
 	)
 	if node.GroupBy != nil {
-
 		for _, groupingElement := range node.GroupBy.GroupingElements {
 			switch groupByEle := groupingElement.(type) {
 			case *tree.GroupByAllColumns:
@@ -585,8 +597,11 @@ func (v *StatementVisitor) analyzeAggregations(query *tree.QuerySpecification, s
 				v.analyzer.ctx.Analysis.AddType(fn, resolvedField.Field.DataType) // TODO: remove it
 			}
 		case *tree.FunctionCall:
-			functions = append(functions, node)
-			v.analyzer.ctx.Analysis.AddResolvedFunction(node, node.Name)
+			if tree.IsAggFunc(node.Name) {
+				functions = append(functions, node)
+				// TODO: need do other func
+				v.analyzer.ctx.Analysis.AddResolvedFunction(node, node.Name)
+			}
 		}
 
 		// add node into expression stack

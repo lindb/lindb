@@ -24,4 +24,6 @@ type Node interface {
 
 	GetID() NodeID
 	SetID(id NodeID)
+
+	String() string
 }

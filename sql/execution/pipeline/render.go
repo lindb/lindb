@@ -18,11 +18,10 @@
 package pipeline
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/lindb/lindb/pkg/strutil"
-	"github.com/lindb/lindb/sql/execution/pipeline/operator"
+	"github.com/lindb/lindb/sql/execution/operator"
 )
 
 func renderText(root operator.Operator) string {
@@ -32,7 +31,8 @@ func renderText(root operator.Operator) string {
 
 func writeTextOutput(sb *strings.Builder, indent *strutil.Indent, node operator.Operator) string {
 	sb.WriteString(indent.NodeIndent())
-	sb.WriteString(strings.TrimPrefix(fmt.Sprintf("%T\n", node), "*"))
+	sb.WriteString(node.String())
+	sb.WriteString("\n")
 	children := node.Children()
 	for i, child := range children {
 		writeTextOutput(sb, indent.ForChild(i == len(children)-1, len(child.Children()) > 0), child)

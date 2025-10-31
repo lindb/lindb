@@ -25,12 +25,14 @@ import (
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/context"
+	"github.com/lindb/lindb/sql/execution/operator"
+	"github.com/lindb/lindb/sql/execution/operator/exchange"
+	"github.com/lindb/lindb/sql/execution/operator/join"
+	"github.com/lindb/lindb/sql/execution/operator/output"
+	"github.com/lindb/lindb/sql/execution/operator/scan"
+	"github.com/lindb/lindb/sql/execution/operator/streaming"
+	"github.com/lindb/lindb/sql/execution/operator/streaming/executor"
 	"github.com/lindb/lindb/sql/execution/pipeline"
-	"github.com/lindb/lindb/sql/execution/pipeline/operator"
-	"github.com/lindb/lindb/sql/execution/pipeline/operator/exchange"
-	"github.com/lindb/lindb/sql/execution/pipeline/operator/join"
-	"github.com/lindb/lindb/sql/execution/pipeline/operator/output"
-	"github.com/lindb/lindb/sql/execution/pipeline/operator/scan"
 	planpkg "github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/tree"
 )
@@ -68,8 +70,14 @@ func (v *TaskExecutionPlanVisitor) Visit(context any, n planpkg.PlanNode) (r any
 	fmt.Printf("task exec plan visit: %T\n", n)
 	switch node := n.(type) {
 	case *planpkg.OutputNode:
+		if v.taskExecCtx.Streaming {
+			// no output for streaming process
+			return node.Source.Accept(context, v)
+		}
 		child := node.Source.Accept(context, v).(operator.Operator)
 		return output.NewRSOutputOperator(node, child)
+	case *planpkg.InsertNode:
+		return v.visitInsert(context, node)
 	case *planpkg.AggregationNode:
 		return v.visitAggregation(context, node)
 	case *planpkg.RemoteSourceNode:
@@ -89,6 +97,11 @@ func (v *TaskExecutionPlanVisitor) Visit(context any, n planpkg.PlanNode) (r any
 	default:
 		panic(fmt.Sprintf("umimplements task planner %T", n))
 	}
+}
+
+func (v *TaskExecutionPlanVisitor) visitInsert(context any, node *planpkg.InsertNode) any {
+	source := node.Source.Accept(context, v).(operator.Operator)
+	return streaming.NewInsertOperator(v.taskExecCtx.Context, node, source)
 }
 
 func (v *TaskExecutionPlanVisitor) visitJoin(context any, node *planpkg.JoinNode) any {
@@ -123,6 +136,13 @@ func (v *TaskExecutionPlanVisitor) visitExchange(context any, node *planpkg.Exch
 
 func (v *TaskExecutionPlanVisitor) visitAggregation(context any, node *planpkg.AggregationNode) (r any) {
 	source := node.Source.Accept(context, v).(operator.Operator)
+	if v.taskExecCtx.Streaming {
+		var assignments []*planpkg.Assignment
+		if projection, ok := node.Source.(*planpkg.ProjectionNode); ok {
+			assignments = projection.Assignments
+		}
+		return streaming.NewTimeWindowOperator(node, executor.NewHashGrouping(node, assignments), source)
+	}
 	return v.planGroupByAggregation(node, source)
 }
 
@@ -141,14 +161,14 @@ func (v *TaskExecutionPlanVisitor) createHashAggregationOperatorFactory(
 
 func (v *TaskExecutionPlanVisitor) visitProjection(context any, node *planpkg.ProjectionNode) (r any) {
 	var source planpkg.PlanNode
-	var filter tree.Expression
+	var predicate tree.Expression
 	if filterNode, ok := node.Source.(*planpkg.FilterNode); ok {
 		source = filterNode.Source
-		filter = filterNode.Predicate
+		predicate = filterNode.Predicate
 	} else {
 		source = node.Source
 	}
-	return v.visitScanFilterAndProjection(context, node, source, filter)
+	return v.visitScanFilterAndProjection(context, node, source, predicate)
 }
 
 func (v *TaskExecutionPlanVisitor) VisitTableScan(context any, node *planpkg.TableScanNode) (r any) {
@@ -163,10 +183,15 @@ func (v *TaskExecutionPlanVisitor) visitRemoteSource(_ any, node *planpkg.Remote
 }
 
 func (v *TaskExecutionPlanVisitor) visitScanFilterAndProjection(context any,
-	project *planpkg.ProjectionNode, sourceNode planpkg.PlanNode, filter tree.Expression,
+	project *planpkg.ProjectionNode, sourceNode planpkg.PlanNode, predicate tree.Expression,
 ) any {
+	fmt.Printf("visitScanFilterAndProjection:%T,filter=%v\n", sourceNode, predicate)
 	if tableScan, ok := sourceNode.(*planpkg.TableScanNode); ok {
-		return v.visitTableScan(context, tableScan, filter)
+		child := v.visitTableScan(context, tableScan, predicate)
+		if v.taskExecCtx.Streaming {
+			return operator.NewProjectionOperator(v.taskExecCtx.Context, project, child)
+		}
+		return child
 	}
 	// plan source node
 	child := sourceNode.Accept(context, v).(operator.Operator)
@@ -176,6 +201,7 @@ func (v *TaskExecutionPlanVisitor) visitScanFilterAndProjection(context any,
 func (v *TaskExecutionPlanVisitor) visitTableScan(_ any,
 	node *planpkg.TableScanNode, predicate tree.Expression,
 ) operator.Operator {
+	fmt.Printf("table node=%v\n", predicate)
 	outputs := node.GetOutputSymbols()
 	outputColumns := lo.Map(outputs, func(item *planpkg.Symbol, index int) types.ColumnMetadata {
 		return types.ColumnMetadata{

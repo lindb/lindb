@@ -24,7 +24,7 @@ import (
 	"testing"
 
 	commontimeutil "github.com/lindb/common/pkg/timeutil"
-	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
+	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/metrics"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/constants"

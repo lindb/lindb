@@ -17,7 +17,9 @@
 
 package types
 
-import "fmt"
+import (
+	"fmt"
+)
 
 func GetAccurateType(lhs, rhs DataType) DataType {
 	fmt.Printf("get accurate type lhs %v, rhs %v\n", lhs, rhs)
@@ -52,6 +54,8 @@ func GetAccurateType(lhs, rhs DataType) DataType {
 		return DTTimeSeries
 	case DTTimestamp:
 		return DTTimestamp
+	case DTMap:
+		return DTMap
 	}
 	// TODO: add unknown type and string
 	return DTUnknown

@@ -29,6 +29,8 @@ import (
 )
 
 type ResultSetService struct {
+	protoCommandV1.UnimplementedResultSetServiceServer
+
 	logger logger.Logger
 }
 

@@ -11,6 +11,7 @@ BRACKETED_COMMENT        : '/*' .*? '*/' -> channel(COMMENT) ;
 WS                       : [ \r\n\t]+ -> channel(HIDDEN) ;
 
 ALL                      : 'ALL' ;
+APP                      : 'APP' ;
 ALIVE                    : 'ALIVE' ;
 AND                      : 'AND' ;
 ANALYZE                  : 'ANALYZE' ;
@@ -42,6 +43,8 @@ GROUP                    : 'GROUP' ;
 HAVING                   : 'HAVING' ;
 IF                       : 'IF' ;
 IN                       : 'IN' ;
+INSERT                   : 'INSERT' ;
+INTO                     : 'INTO' ;
 INTERVAL                 : 'INTERVAL' ;
 IS                       : 'IS' ;
 JOIN                     : 'JOIN' ;
@@ -115,6 +118,8 @@ DOT                : '.' ;
 LR_BRACKET         : '(' ;
 RR_BRACKET         : ')' ;
 COMMA              : ',' ;
+AT                 : '@' ; 
+SEMICOLON          : ';' ;
 
 STRING                        : '\'' ( ~'\'' | '\'\'' )* '\'' ;
 INTEGER_VALUE                 : DECIMAL_INTEGER ;

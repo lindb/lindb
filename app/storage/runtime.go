@@ -68,8 +68,8 @@ import (
 
 // rpcHandler represents all dependency rpc handlers
 type rpcHandler struct {
-	replica *rpchandler.ReplicaHandler
-	write   *rpchandler.WriteHandler
+	replica protoReplicaV1.ReplicaServiceServer
+	write   protoWriteV1.WriteServiceServer
 }
 
 var (

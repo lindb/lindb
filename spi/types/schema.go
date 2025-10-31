@@ -22,6 +22,8 @@ import "github.com/lindb/lindb/models"
 type TableMetadata struct {
 	Schema     *TableSchema
 	Partitions map[models.InternalNode][]int
+
+	SupportDynamicField bool
 }
 
 type TableSchema struct {

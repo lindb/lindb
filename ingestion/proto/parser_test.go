@@ -25,7 +25,7 @@ import (
 	"testing"
 
 	"github.com/klauspost/compress/gzip"
-	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
+	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/metrics"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lindb/lindb/models"
@@ -39,7 +39,8 @@ var testMetricList = &protoMetricsV1.MetricList{Metrics: []*protoMetricsV1.Metri
 		Timestamp: 0,
 		SimpleFields: []*protoMetricsV1.SimpleField{
 			{Name: "counter", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 23},
-		}},
+		},
+	},
 }}
 
 func makeGzipData(testMetricList *protoMetricsV1.MetricList) []byte {
@@ -87,7 +88,7 @@ func Test_Parse_error(t *testing.T) {
 }
 
 func Test_Parser_empty(t *testing.T) {
-	var m = &protoMetricsV1.MetricList{}
+	m := &protoMetricsV1.MetricList{}
 	data, _ := m.Marshal()
 	req, _ := http.NewRequestWithContext(context.TODO(), http.MethodPut, "", bytes.NewReader(data))
 	_, err := Parse(req, nil, "ns", models.NewDefaultLimits())

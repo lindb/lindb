@@ -22,11 +22,10 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/lindb/common/pkg/timeutil"
+	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/metrics"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
-
-	"github.com/lindb/common/pkg/timeutil"
-	protoMetricsV1 "github.com/lindb/common/proto/gen/v1/linmetrics"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
@@ -52,7 +51,8 @@ func TestDatabaseChannel_Write(t *testing.T) {
 			Name:      "cpu",
 			Timestamp: timeutil.Now(),
 			SimpleFields: []*protoMetricsV1.SimpleField{
-				{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
+				{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
+			},
 			Tags: []*protoMetricsV1.KeyValue{{Key: "host", Value: "1.1.1.1"}},
 		}, row)
 	})
@@ -72,7 +72,8 @@ func TestDatabaseChannel_Write(t *testing.T) {
 			Name:      "cpu",
 			Timestamp: timeutil.Now(),
 			SimpleFields: []*protoMetricsV1.SimpleField{
-				{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1}},
+				{Name: "f1", Type: protoMetricsV1.SimpleFieldType_DELTA_SUM, Value: 1},
+			},
 			Tags: []*protoMetricsV1.KeyValue{{Key: "host", Value: "1.1.1.1"}},
 		}, row)
 	})

@@ -60,9 +60,24 @@ func (v *PropertyDerivationVisitor) Visit(context any, n plan.PlanNode) (r any) 
 		return v.visitTableScan(inputProperties, node)
 	case *plan.JoinNode:
 		return v.visitJoin(inputProperties, node)
+	case *plan.InsertNode:
+		return v.visitInsert(inputProperties, node)
 	default:
 		panic(fmt.Sprintf("impl prop derivation visitor %T", n))
 	}
+}
+
+func (v *PropertyDerivationVisitor) visitInsert(inputProperties []*ActualProps, _ *plan.InsertNode) *ActualProps {
+	// props := inputProperties[0]
+	// // identities := computeIdentityTranslations(node.Assignments)
+	// // // TODO: expression rewrite
+	// // translated := props.translate(func(symbol *plan.Symbol) *plan.Symbol {
+	// // 	return identities[symbol.Name]
+	// // })
+	// // FIXME: add constant
+	// return BuilderFrom(props).Build()
+	props := NewActualPropsBuilder(arbitraryPartition())
+	return props.Build()
 }
 
 func (v *PropertyDerivationVisitor) visitJoin(inputProperties []*ActualProps, _ *plan.JoinNode) *ActualProps {

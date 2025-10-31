@@ -30,6 +30,7 @@ type Expression interface {
 	EvalDuration(ctx EvalContext, row types.Row) (val time.Duration, isNull bool, err error)
 	EvalTimeSeries(ctx EvalContext, row types.Row) (val *types.TimeSeries, isNull bool, err error)
 	EvalTime(ctx EvalContext, row types.Row) (val time.Time, isNull bool, err error)
+	EvalMap(ctx EvalContext, row types.Row) (val map[string]string, isNull bool, err error)
 	// Getype returns the data type of the expression returns.
 	GetType() types.DataType
 	// String returns the expression in string format.

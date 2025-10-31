@@ -35,6 +35,8 @@ import (
 
 // WriteHandler implements protoWriteV1.WriteServiceServer interface for handling write rpc request.
 type WriteHandler struct {
+	protoWriteV1.UnimplementedWriteServiceServer
+
 	engine storage.Engine
 
 	logger logger.Logger
@@ -43,7 +45,7 @@ type WriteHandler struct {
 // NewWriteHandler creates a write handler.
 func NewWriteHandler(
 	engine storage.Engine,
-) *WriteHandler {
+) protoWriteV1.WriteServiceServer {
 	return &WriteHandler{
 		engine: engine,
 		logger: logger.GetLogger("Storage", "WriteRPC"),

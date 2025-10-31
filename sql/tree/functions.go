@@ -47,6 +47,8 @@ const (
 	DateAdd   FuncName = "date_add"
 	Now       FuncName = "now"
 	StrToDate FuncName = "str_to_date"
+
+	MapValues FuncName = "map_values"
 )
 
 func GetDefaultFuncReturnType(name FuncName) types.DataType {
@@ -58,4 +60,35 @@ var defaultFuncReturnTypes = map[FuncName]types.DataType{
 	Now:       types.DTTimestamp,
 	StrToDate: types.DTTimestamp,
 	Count:     types.DTTimeSeries,
+
+	MapValues: types.DTMap,
+}
+
+// IsAggFunc returns if given function name is an aggregation function.
+func IsAggFunc(name FuncName) bool {
+	return name == Sum || name == Min || name == Max || name == First || name == Last || name == Count
+}
+
+// IsFuncSupported checks if given function name is supported.
+func IsFuncSupported(name FuncName) bool {
+	_, ok := funcs[name]
+	return ok
+}
+
+var funcs = map[FuncName]struct{}{
+	Plus:  {},
+	Minus: {},
+	Mul:   {},
+	Div:   {},
+	Mod:   {},
+
+	Count: {},
+
+	// time functions
+	// ref: https://dev.mysql.com/doc/refman/8.4/en/date-and-time-functions.html
+	DateAdd:   {},
+	Now:       {},
+	StrToDate: {},
+
+	MapValues: {},
 }

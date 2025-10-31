@@ -97,6 +97,7 @@ func (p *QueryPlanner) planQuerySpecification(node *tree.QuerySpecification) *Re
 
 	fmt.Printf("planQuerySpecification output expressions .......%v\n", string(encoding.JSONMarshal(outputs)))
 	builder = builder.appendProjections(outputs)
+	fmt.Println("finsh planQuerySpecification")
 	return &RelationPlan{
 		Root:          builder.root,
 		Scope:         p.context.AnalyzerContext.Analysis.GetScope(node),
@@ -142,6 +143,10 @@ func (p *QueryPlanner) aggregate(subPlan *PlanBuilder, node *tree.QuerySpecifica
 	fmt.Printf("aggregates=====>>>>>>%v\n", subPlan.root.GetOutputSymbols())
 
 	groupingSetAnalysis := p.context.AnalyzerContext.Analysis.GetGroupingSets(node)
+
+	inputs = groupingSetAnalysis.GetComplexExpressions()
+	subPlan = subPlan.appendProjections(inputs)
+
 	groupingSets := p.planGroupingSets(subPlan, node, groupingSetAnalysis)
 	// TODO: group agg
 	subPlan = p.planAggregation(groupingSets.subPlan, groupingSets.groupingSets, p.context.AnalyzerContext.Analysis.GetAggregates(node))
@@ -153,7 +158,7 @@ func (p *QueryPlanner) planGroupingSets(subPlan *PlanBuilder,
 	_ *tree.QuerySpecification, groupingSetAnalysis *analyzer.GroupingSetAnalysis,
 ) *GroupingSetsPlan {
 	groupingSetMappings := make(map[*plan.Symbol]*plan.Symbol) // output -> input
-	complexExpressions := make(map[tree.NodeID]*plan.Symbol)
+	complexExpressions := make(map[string]*plan.Symbol)
 	fields := make([]*plan.Symbol, len(subPlan.translations.fieldSymbols))
 	fmt.Printf("sub plan fields=%v\n", subPlan.translations.fieldSymbols)
 	// TODO: remove it?
@@ -170,11 +175,12 @@ func (p *QueryPlanner) planGroupingSets(subPlan *PlanBuilder,
 	}
 
 	for _, expression := range groupingSetAnalysis.GetComplexExpressions() {
-		if _, ok := complexExpressions[expression.GetID()]; !ok {
+		expressionName := expression.String()
+		if _, ok := complexExpressions[expressionName]; !ok {
 			input := subPlan.translate(expression)
 			// FIXME: add gid for symbol suffix
 			output := p.context.SymbolAllocator.FromExpression(expression, p.context.AnalyzerContext.Analysis.GetType(expression))
-			complexExpressions[expression.GetID()] = output
+			complexExpressions[expressionName] = output
 			groupingSetMappings[output] = input
 			fmt.Printf("complexExpressions=====>>>>>>%v,%v\n", input, output)
 		}
@@ -233,7 +239,7 @@ func (p *QueryPlanner) planAggregation(subPlan *PlanBuilder,
 	fmt.Printf("planagg.....%v,func call=%v\n", groupingSets, aggregates)
 
 	var aggregateMapping []*plan.AggregationAssignment
-	additionalMapping := make(map[tree.NodeID]*plan.Symbol)
+	additionalMapping := make(map[string]*plan.Symbol)
 	// TODO: scopeAwareDistinct
 	for _, function := range aggregates {
 		fmt.Printf("agg func=%v\n", function.Name)
@@ -255,7 +261,7 @@ func (p *QueryPlanner) planAggregation(subPlan *PlanBuilder,
 			Aggregation:   aggregation,
 			ASTExpression: function,
 		})
-		additionalMapping[function.GetID()] = symbol
+		additionalMapping[function.String()] = symbol
 	}
 	groupingKeys := make(map[string]*plan.Symbol)
 	for _, symbol := range lo.Flatten(groupingSets) {

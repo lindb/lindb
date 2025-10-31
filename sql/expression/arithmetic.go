@@ -26,16 +26,14 @@ import (
 	"github.com/lindb/lindb/spi/types"
 )
 
-type arithmeticPlusFuncFactory struct{}
+type arithmeticPlusFunc struct {
+	baseFunc
+}
 
-func (fct *arithmeticPlusFuncFactory) NewFunc(args []Expression) Func {
+func newArithmeticPlusFunc(args []Expression) Func {
 	return &arithmeticPlusFunc{
 		baseFunc: baseFunc{args: args},
 	}
-}
-
-type arithmeticPlusFunc struct {
-	baseFunc
 }
 
 func (f *arithmeticPlusFunc) EvalInt(ctx EvalContext, row types.Row) (val int64, isNull bool, err error) {
@@ -99,16 +97,14 @@ func evalTimeSeries(ctx EvalContext, row types.Row, args []Expression,
 	return result, false, nil
 }
 
-type arithmeticMinusFuncFactory struct{}
+type arithmeticMinusFunc struct {
+	baseFunc
+}
 
-func (fct *arithmeticMinusFuncFactory) NewFunc(args []Expression) Func {
+func newArithmeticMinusFunc(args []Expression) Func {
 	return &arithmeticMinusFunc{
 		baseFunc: baseFunc{args: args},
 	}
-}
-
-type arithmeticMinusFunc struct {
-	baseFunc
 }
 
 func (f *arithmeticMinusFunc) EvalInt(ctx EvalContext, row types.Row) (val int64, isNull bool, err error) {
@@ -137,16 +133,14 @@ func (f *arithmeticMinusFunc) EvalTime(ctx EvalContext, row types.Row) (val time
 	return
 }
 
-type arithmeticMulFuncFactory struct{}
+type arithmeticMulFunc struct {
+	baseFunc
+}
 
-func (fct *arithmeticMulFuncFactory) NewFunc(args []Expression) Func {
+func newArithmeticMulFunc(args []Expression) Func {
 	return &arithmeticMulFunc{
 		baseFunc: baseFunc{args: args},
 	}
-}
-
-type arithmeticMulFunc struct {
-	baseFunc
 }
 
 func (f *arithmeticMulFunc) EvalInt(ctx EvalContext, row types.Row) (val int64, isNull bool, err error) {
@@ -163,15 +157,13 @@ func (f *arithmeticMulFunc) EvalTimeSeries(ctx EvalContext, row types.Row) (val 
 	})
 }
 
-type arithmeticDivFuncFactory struct{}
+type arithmeticDivFunc struct{ baseFunc }
 
-func (fct *arithmeticDivFuncFactory) NewFunc(args []Expression) Func {
+func newArithmeticDivFunc(args []Expression) Func {
 	return &arithmeticDivFunc{
 		baseFunc: baseFunc{args: args},
 	}
 }
-
-type arithmeticDivFunc struct{ baseFunc }
 
 func (f *arithmeticDivFunc) EvalInt(ctx EvalContext, row types.Row) (val int64, isNull bool, err error) {
 	lv, _, _ := f.args[0].EvalInt(ctx, row)
@@ -190,16 +182,14 @@ func (f *arithmeticDivFunc) EvalTimeSeries(ctx EvalContext, row types.Row) (val 
 	})
 }
 
-type arithmeticModFuncFactory struct{}
+type arithmeticModFunc struct {
+	baseFunc
+}
 
-func (fct *arithmeticModFuncFactory) NewFunc(args []Expression) Func {
+func newArithmeticModFunc(args []Expression) Func {
 	return &arithmeticModFunc{
 		baseFunc: baseFunc{args: args},
 	}
-}
-
-type arithmeticModFunc struct {
-	baseFunc
 }
 
 func (f *arithmeticModFunc) EvalInt(ctx EvalContext, row types.Row) (val int64, isNull bool, err error) {

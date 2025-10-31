@@ -29,4 +29,6 @@ type TaskContext struct {
 	TaskID     model.TaskID
 	Fragment   *plan.PlanFragment
 	Partitions []int
+
+	Streaming bool
 }

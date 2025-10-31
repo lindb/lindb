@@ -126,6 +126,7 @@ func (m *brokerMetadataManager) GetTableMetadata(database, ns, table string) (*t
 		return nil, err
 	}
 	schema := types.NewTableSchema()
+	supportDynamicField := false
 	if table != "logs" && table != "traces" {
 		// FIXME: log table???
 		for node := range partitions {
@@ -137,11 +138,13 @@ func (m *brokerMetadataManager) GetTableMetadata(database, ns, table string) (*t
 			schema.AddColumns(tableSchema.Columns)
 		}
 	} else {
+		supportDynamicField = true // for log/tarce
 		schema.AddColumns([]types.ColumnMetadata{{Name: constants.TimestampColumnName, DataType: types.DTTimestamp, Hidden: true}})
 	}
 	return &types.TableMetadata{
-		Schema:     schema,
-		Partitions: partitions,
+		Schema:              schema,
+		Partitions:          partitions,
+		SupportDynamicField: supportDynamicField,
 	}, nil
 }
 

@@ -34,10 +34,12 @@ import (
 )
 
 type SQLTask struct {
-	id          model.TaskID
-	currentTime int64
-	fragment    *plan.PlanFragment
-	partitions  []int
+	ID          model.TaskID
+	CurrentTime int64
+	Fragment    *plan.PlanFragment
+	Partitions  []int
+
+	Streaming bool
 }
 
 type TaskManager interface {
@@ -80,10 +82,10 @@ func (mgr *taskManager) SubmitTask(req *model.TaskRequest, fragment *plan.PlanFr
 	mgr.lock.Lock()
 	defer mgr.lock.Unlock()
 	task := &SQLTask{
-		currentTime: req.RequestContext.CurrentTime,
-		id:          req.TaskID,
-		fragment:    fragment,
-		partitions:  req.Partitions,
+		CurrentTime: req.RequestContext.CurrentTime,
+		ID:          req.TaskID,
+		Fragment:    fragment,
+		Partitions:  req.Partitions,
 	}
 
 	mgr.tasks[req.TaskID] = task
@@ -102,12 +104,12 @@ func (mgr *taskManager) dispatchTask() {
 	for {
 		select {
 		case task := <-mgr.taskCh:
-			output := buffer.NewPartitionOutputBuffer(task.id, task.fragment)
+			output := buffer.NewPartitionOutputBuffer(task.ID, task.Fragment)
 			mgr.taskPool.Submit(context.TODO(), concurrent.NewTask(func() {
 				fmt.Println(task)
 				planPrinter := printer.NewPlanPrinter(printer.NewTextRender(0))
 				fmt.Println("******************")
-				fmt.Println(planPrinter.PrintLogicPlan(task.fragment.Root))
+				fmt.Println(planPrinter.PrintLogicPlan(task.Fragment.Root))
 				fmt.Println("******************")
 
 				fct := NewTaskExecutionFactory()
