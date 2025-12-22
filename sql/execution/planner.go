@@ -39,7 +39,8 @@ func (p *Planner) Plan(session *Session,
 	statement tree.Statement,
 	optimizers []optimization.PlanOptimizer,
 ) *plan.Plan {
-	analyzerContext := analyzer.NewAnalyzerContext(session.Database, statement, session.NodeIDAllocator)
+	analyzerContext := analyzer.NewAnalyzerContext(session.Database, statement,
+		session.NodeIDAllocator, session.Streaming)
 	plannerContext := sqlContext.NewPlannerContext(
 		session.Context,
 		session.Database,

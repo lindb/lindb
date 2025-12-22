@@ -24,7 +24,7 @@ type FunctionCall struct {
 	RefField  *Field
 	Name      FuncName
 	Arguments []Expression
-	RetType   types.DataType
+	RetType   types.DataType // set return type by planner
 }
 
 // Accept implements Expression

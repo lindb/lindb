@@ -25,7 +25,7 @@ import (
 	"github.com/lindb/lindb/spi/types"
 )
 
-var log = logger.GetLogger("operator", "queue")
+var log = logger.GetLogger("operator", "execute")
 
 type Queue struct {
 	pageCh chan *types.Page

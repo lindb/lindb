@@ -29,6 +29,8 @@ type Session struct {
 	Context  context.Context
 	Database string
 
+	Streaming bool
+
 	Statement       *tree.PreparedStatement
 	NodeIDAllocator *tree.NodeIDAllocator
 

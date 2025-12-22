@@ -65,12 +65,13 @@ type AggregationAssignment struct {
 }
 
 type AggregationNode struct {
+	BaseNode
+
 	Source       PlanNode                 `json:"source"`
 	GroupingSets *GroupingSetDescriptor   `json:"groupingSets"`
 	Step         *AggregationStep         `json:"step"`
 	Aggregations []*AggregationAssignment `json:"aggregations"`
 	Outputs      []*Symbol                `json:"outputs"`
-	BaseNode
 }
 
 func NewAggregationNode(id PlanNodeID, source PlanNode,

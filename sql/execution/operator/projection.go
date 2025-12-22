@@ -66,6 +66,7 @@ func (op *ProjectionOperator) Run(ctx context.Context, output chan<- *types.Page
 		}
 		rowNum := 0
 
+		// fmt.Printf("source page layout=%v\n", source.Layout)
 		// fmt.Printf("%s\n%s\n", string(encoding.JSONMarshal(source)), string(encoding.JSONMarshal(op.project)))
 		it := source.Iterator()
 		for row := it.Begin(); row != it.End(); row = it.Next() {
@@ -147,4 +148,5 @@ func (op *ProjectionOperator) prepare() {
 			SourceLayout: op.child.GetLayout(),
 		}, assign.Expression)
 	}
+	// fmt.Printf("do projection op prepare %v\n", op.child.GetLayout())
 }

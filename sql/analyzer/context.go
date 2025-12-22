@@ -23,12 +23,21 @@ type AnalyzerContext struct {
 	Database    string // default database name
 	Analysis    *Analysis
 	IDAllocator *tree.NodeIDAllocator
+
+	GetFuncReturnType tree.GetFuncReturnType
 }
 
-func NewAnalyzerContext(database string, stmt tree.Statement, idallocator *tree.NodeIDAllocator) *AnalyzerContext {
-	return &AnalyzerContext{
-		Database:    database,
-		Analysis:    NewAnalysis(stmt),
-		IDAllocator: idallocator,
+func NewAnalyzerContext(database string, stmt tree.Statement,
+	idallocator *tree.NodeIDAllocator, streaming bool,
+) *AnalyzerContext {
+	ctx := &AnalyzerContext{
+		Database:          database,
+		Analysis:          NewAnalysis(stmt),
+		IDAllocator:       idallocator,
+		GetFuncReturnType: tree.GetDefaultFuncReturnType,
 	}
+	if streaming {
+		ctx.GetFuncReturnType = tree.GetStreamingFuncReturnType
+	}
+	return ctx
 }

@@ -20,8 +20,11 @@ package planner
 import (
 	"fmt"
 
+	"github.com/samber/lo"
+
 	"github.com/lindb/lindb/sql/context"
 	"github.com/lindb/lindb/sql/planner/optimization"
+	"github.com/lindb/lindb/sql/planner/plan"
 	planpkg "github.com/lindb/lindb/sql/planner/plan"
 	printpkg "github.com/lindb/lindb/sql/planner/printer"
 	"github.com/lindb/lindb/sql/tree"
@@ -86,12 +89,47 @@ func (p *LogicalPlanner) createInsertPlan(statement *tree.Insert) *RelationPlan 
 	insert := p.context.AnalyzerContext.Analysis.GetInsert()
 	planner := NewRelationPlanner(p.context, nil, nil, nil)
 	queryPlan := planner.Visit(nil, statement.Query).(*RelationPlan)
+	outputDescriptor := p.context.AnalyzerContext.Analysis.GetOutputDescriptor(statement.Query)
+	var (
+		columns []string
+		outputs []*planpkg.Symbol
+	)
+	for i := range outputDescriptor.Fields {
+		field := outputDescriptor.Fields[i]
+		if field.Hidden {
+			// ignore hidden column
+			continue
+		}
+		name := field.Name
+		if name == "" {
+			name = fmt.Sprintf("_col%d", i)
+		}
+		fieldIdx := outputDescriptor.IndexOf(field)
+		fmt.Printf("find field index=%v\n", fieldIdx)
+		outputs = append(outputs, queryPlan.getSymbol(fieldIdx))
+		columns = append(columns, name)
+	}
+	fmt.Printf("create insert plan output descriptor=%v,%v\n", outputDescriptor, outputs)
+
+	project := &plan.ProjectionNode{
+		BaseNode: plan.BaseNode{
+			ID: p.context.PlanNodeIDAllocator.Next(),
+		},
+		Source: queryPlan.Root,
+		Assignments: lo.Map(outputs, func(item *plan.Symbol, index int) *plan.Assignment {
+			return &plan.Assignment{
+				Symbol:     &plan.Symbol{Name: columns[index], DataType: item.DataType},
+				Expression: item.ToSymbolReference(),
+			}
+		}),
+	}
+	fmt.Printf("create insert plan project=%v\n", project)
 
 	return &RelationPlan{
 		Scope: p.context.AnalyzerContext.Analysis.GetScope(statement),
 		Root: &planpkg.InsertNode{
 			Table:  insert.Table,
-			Source: queryPlan.Root,
+			Source: project,
 		},
 	}
 }

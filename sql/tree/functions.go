@@ -18,6 +18,8 @@
 package tree
 
 import (
+	"github.com/samber/lo"
+
 	"github.com/lindb/lindb/spi/types"
 )
 
@@ -51,8 +53,14 @@ const (
 	MapValues FuncName = "map_values"
 )
 
+type GetFuncReturnType func(name FuncName) types.DataType
+
 func GetDefaultFuncReturnType(name FuncName) types.DataType {
 	return defaultFuncReturnTypes[name]
+}
+
+func GetStreamingFuncReturnType(name FuncName) types.DataType {
+	return streamingFuncReturnTypes[name]
 }
 
 var defaultFuncReturnTypes = map[FuncName]types.DataType{
@@ -62,6 +70,14 @@ var defaultFuncReturnTypes = map[FuncName]types.DataType{
 	Count:     types.DTTimeSeries,
 
 	MapValues: types.DTMap,
+}
+
+var streamingFuncReturnTypes = map[FuncName]types.DataType{
+	Count: types.DTInt,
+}
+
+func init() {
+	streamingFuncReturnTypes = lo.Assign(defaultFuncReturnTypes, streamingFuncReturnTypes)
 }
 
 // IsAggFunc returns if given function name is an aggregation function.

@@ -27,7 +27,6 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/spi"
-	"github.com/lindb/lindb/spi/function"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 )
@@ -35,16 +34,14 @@ import (
 var log = logger.GetLogger("Analyzer", "Statement")
 
 type StatementAnalyzer struct {
-	ctx             *AnalyzerContext
-	metadataMgr     spi.MetadataManager
-	funcionResolver *function.FunctionResolver // FIXME:???
+	ctx         *AnalyzerContext
+	metadataMgr spi.MetadataManager
 }
 
 func NewStatementAnalyzer(ctx *AnalyzerContext, metadataMgr spi.MetadataManager) *StatementAnalyzer {
 	return &StatementAnalyzer{
-		ctx:             ctx,
-		metadataMgr:     metadataMgr,
-		funcionResolver: function.NewFunctionResolver(),
+		ctx:         ctx,
+		metadataMgr: metadataMgr,
 	}
 }
 

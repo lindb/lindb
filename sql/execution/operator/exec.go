@@ -21,6 +21,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/spi/types"
 )
 
@@ -28,6 +30,7 @@ func RunAsync(ctx context.Context, op Operator, output chan<- *types.Page) {
 	go func() {
 		defer func() {
 			if err := recover(); err != nil {
+				log.Warn("run operator panic", logger.Any("error", err), logger.Stack())
 				output <- &types.Page{Error: fmt.Sprintf("%v", err)}
 			}
 			close(output)

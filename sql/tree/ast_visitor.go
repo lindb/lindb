@@ -795,7 +795,6 @@ func (v *AstVisitor) VisitFunctionCall(ctx *grammar.FunctionCallContext) any {
 	return &FunctionCall{
 		BaseNode:  v.createBaseNode(ctx),
 		Name:      funcName,
-		RetType:   GetDefaultFuncReturnType(funcName),
 		Arguments: visit[Expression](ctx.AllExpression(), v),
 	}
 }

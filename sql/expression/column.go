@@ -34,7 +34,13 @@ func NewColumn(name string, index int, retType types.DataType) Expression {
 }
 
 func (c *Column) EvalString(ctx EvalContext, row types.Row) (val string, isNull bool, err error) {
-	return string(*row.GetString(c.index)), false, nil
+	v := row.Get(c.index)
+	switch sv := v.(type) {
+	case string:
+		return sv, false, nil
+	default:
+		return string(*row.GetString(c.index)), false, nil
+	}
 }
 
 func (c *Column) EvalMap(ctx EvalContext, row types.Row) (val map[string]string, isNull bool, err error) {
@@ -42,7 +48,7 @@ func (c *Column) EvalMap(ctx EvalContext, row types.Row) (val map[string]string,
 }
 
 func (c *Column) EvalInt(ctx EvalContext, row types.Row) (val int64, isNull bool, err error) {
-	return 40, false, nil
+	return int64(*row.GetInt(c.index)), false, nil
 }
 
 func (c *Column) EvalFloat(ctx EvalContext, row types.Row) (val float64, isNull bool, err error) {

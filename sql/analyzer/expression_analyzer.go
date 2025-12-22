@@ -20,7 +20,6 @@ package analyzer
 import (
 	"fmt"
 
-	"github.com/lindb/lindb/spi/function"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 )
@@ -30,14 +29,12 @@ type Context struct {
 }
 
 type ExpressionAnalyzer struct {
-	ctx             *AnalyzerContext
-	funcionResolver *function.FunctionResolver
+	ctx *AnalyzerContext
 }
 
 func NewExpressionAnalyzer(ctx *AnalyzerContext) *ExpressionAnalyzer {
 	return &ExpressionAnalyzer{
-		ctx:             ctx,
-		funcionResolver: function.NewFunctionResolver(), // FIXME:???
+		ctx: ctx,
 	}
 }
 
@@ -182,7 +179,7 @@ func (v *ExpressionVisitor) visitFunctionCall(context any, node *tree.FunctionCa
 	for _, arg := range node.Arguments {
 		argumentTypes = append(argumentTypes, arg.Accept(context, v).(types.DataType))
 	}
-	expectedType := tree.GetDefaultFuncReturnType(node.Name)
+	expectedType := v.analyzer.ctx.GetFuncReturnType(node.Name)
 	fmt.Printf("get func default type=%v\n", expectedType)
 	if len(argumentTypes) > 0 {
 		// TODO: check args types
