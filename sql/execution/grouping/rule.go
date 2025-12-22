@@ -39,6 +39,7 @@ func (m *MapRule) Map(value any, buf *Buffer) {
 	if !ok {
 		return
 	}
+	// TODO: need sort keys of map
 	buf.Write(uint32(len(values)))
 	for k, v := range values {
 		buf.Write(m.mapper.GetID(k))
