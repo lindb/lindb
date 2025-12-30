@@ -34,21 +34,21 @@ func init() {
 	StateMachinePaths[constants.LiveNode] = models.StateMachineInfo{
 		Path:    constants.LiveNodesPath,
 		Comment: "Broker live nodes",
-		CreateState: func() interface{} {
+		CreateState: func() any {
 			return &models.StatelessNode{}
 		},
 	}
 	StateMachinePaths[constants.DatabaseConfig] = models.StateMachineInfo{
 		Path:    constants.DatabaseConfigPath,
 		Comment: "Database config",
-		CreateState: func() interface{} {
+		CreateState: func() any {
 			return &models.Database{}
 		},
 	}
 	StateMachinePaths[constants.StorageState] = models.StateMachineInfo{
 		Path:    constants.StorageStatePath,
 		Comment: "Storage state",
-		CreateState: func() interface{} {
+		CreateState: func() any {
 			return &models.StorageState{}
 		},
 	}

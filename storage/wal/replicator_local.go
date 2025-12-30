@@ -18,6 +18,8 @@
 package wal
 
 import (
+	"strconv"
+
 	"github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/metrics"
@@ -38,8 +40,9 @@ type localReplicator struct {
 }
 
 func NewLocalReplicator(channel *store.ReplicatorChannel, segment store.Segment) store.Replicator {
+	nodeID, _ := strconv.ParseInt(channel.State.Leader, 10, 64)
 	lr := &localReplicator{
-		leader: channel.State.Leader,
+		leader: models.NodeID(nodeID),
 		replicator: replicator{
 			channel: channel,
 		},

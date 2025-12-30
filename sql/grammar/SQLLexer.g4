@@ -76,6 +76,8 @@ SELECT                   : 'SELECT' ;
 SHOW                     : 'SHOW' ;
 STATE                    : 'STATE' ;
 STORAGE                  : 'STORAGE' ;
+STREAMING								 : 'STREAMING' ;
+OBSERVER 							   : 'OBSERVER' ;
 TABLE_NAMES              : 'TABLE_NAMES' ;
 TIMESTAMP                : 'TIMESTAMP' ;
 TRACE                    : 'TRACE' ;

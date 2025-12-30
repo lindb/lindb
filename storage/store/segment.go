@@ -40,5 +40,7 @@ type Segment interface {
 
 	Write(leader models.NodeID, seq int64, msg []byte) (rows int, err error)
 
+	Consume(streaming string, consume models.NodeID)
+
 	Flush() error
 }

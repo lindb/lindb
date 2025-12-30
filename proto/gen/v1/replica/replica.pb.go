@@ -156,6 +156,7 @@ type GetReplicaAckIndexRequest struct {
 	Shard         int32                  `protobuf:"varint,2,opt,name=shard,proto3" json:"shard,omitempty"`
 	Leader        int32                  `protobuf:"varint,3,opt,name=leader,proto3" json:"leader,omitempty"`
 	SegmentTime   int64                  `protobuf:"varint,4,opt,name=segment_time,json=segmentTime,proto3" json:"segment_time,omitempty"`
+	CurrentIndex  int64                  `protobuf:"varint,5,opt,name=current_index,json=currentIndex,proto3" json:"current_index,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -214,6 +215,13 @@ func (x *GetReplicaAckIndexRequest) GetLeader() int32 {
 func (x *GetReplicaAckIndexRequest) GetSegmentTime() int64 {
 	if x != nil {
 		return x.SegmentTime
+	}
+	return 0
+}
+
+func (x *GetReplicaAckIndexRequest) GetCurrentIndex() int64 {
+	if x != nil {
+		return x.CurrentIndex
 	}
 	return 0
 }
@@ -417,12 +425,13 @@ const file_replica_proto_rawDesc = "" +
 	"\x06leader\x18\x03 \x01(\x05R\x06leader\x12!\n" +
 	"\fsegment_time\x18\x04 \x01(\x03R\vsegmentTime\x12!\n" +
 	"\fappend_index\x18\x05 \x01(\x03R\vappendIndex\"\x14\n" +
-	"\x12ResetIndexResponse\"\x88\x01\n" +
+	"\x12ResetIndexResponse\"\xad\x01\n" +
 	"\x19GetReplicaAckIndexRequest\x12\x1a\n" +
 	"\bdatabase\x18\x01 \x01(\tR\bdatabase\x12\x14\n" +
 	"\x05shard\x18\x02 \x01(\x05R\x05shard\x12\x16\n" +
 	"\x06leader\x18\x03 \x01(\x05R\x06leader\x12!\n" +
-	"\fsegment_time\x18\x04 \x01(\x03R\vsegmentTime\"9\n" +
+	"\fsegment_time\x18\x04 \x01(\x03R\vsegmentTime\x12#\n" +
+	"\rcurrent_index\x18\x05 \x01(\x03R\fcurrentIndex\"9\n" +
 	"\x1aGetReplicaAckIndexResponse\x12\x1b\n" +
 	"\tack_index\x18\x05 \x01(\x03R\backIndex\"M\n" +
 	"\x0eReplicaRequest\x12#\n" +

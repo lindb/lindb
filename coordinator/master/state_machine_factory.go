@@ -34,28 +34,28 @@ func init() {
 	StateMachinePaths[constants.Master] = models.StateMachineInfo{
 		Path:    constants.MasterPath,
 		Comment: "Master information",
-		CreateState: func() interface{} {
+		CreateState: func() any {
 			return &models.Master{}
 		},
 	}
 	StateMachinePaths[constants.DatabaseConfig] = models.StateMachineInfo{
 		Path:    constants.DatabaseConfigPath,
 		Comment: "Database config",
-		CreateState: func() interface{} {
+		CreateState: func() any {
 			return &models.Database{}
 		},
 	}
 	StateMachinePaths[constants.ShardAssignment] = models.StateMachineInfo{
 		Path:    constants.ShardAssignmentPath,
 		Comment: "Database shard assignment",
-		CreateState: func() interface{} {
+		CreateState: func() any {
 			return &models.ShardAssignment{}
 		},
 	}
 	StateMachinePaths[constants.StorageState] = models.StateMachineInfo{
 		Path:    constants.StorageStatePath,
 		Comment: "Storage state",
-		CreateState: func() interface{} {
+		CreateState: func() any {
 			return &models.StorageState{}
 		},
 	}
@@ -109,6 +109,20 @@ func (f *StateMachineFactory) Start() (err error) {
 
 	f.logger.Debug("starting DatabaseLimitsStateMachine")
 	sm, err = f.createDatabaseLimitsStateMachine()
+	if err != nil {
+		return err
+	}
+	f.stateMachines = append(f.stateMachines, sm)
+
+	f.logger.Debug("starting StreamingConfigStateMachine")
+	sm, err = f.createStreamingConfigStateMachine()
+	if err != nil {
+		return err
+	}
+	f.stateMachines = append(f.stateMachines, sm)
+
+	f.logger.Debug("starting ObserverNodeStateMachine")
+	sm, err = f.createObserverNodeStateMachine()
 	if err != nil {
 		return err
 	}
@@ -213,5 +227,51 @@ func (f *StateMachineFactory) createDatabaseLimitsStateMachine() (discovery.Stat
 			})
 		},
 		nil,
+	)
+}
+
+// createStreamingConfigStateMachine creates streaming config state machine.
+func (f *StateMachineFactory) createStreamingConfigStateMachine() (discovery.StateMachine, error) {
+	return discovery.NewStateMachine(
+		f.ctx,
+		discovery.StreamingConfigStateMachine,
+		f.discoveryFactory,
+		constants.StreamingConfigPath,
+		true,
+		func(key string, data []byte) {
+			f.stateMgr.EmitEvent(&discovery.Event{
+				Type:  discovery.StreamingConfigChanged,
+				Key:   key,
+				Value: data,
+			})
+		},
+		func(key string) {
+			f.stateMgr.EmitEvent(&discovery.Event{
+				Type: discovery.StreamingConfigDeletion,
+				Key:  key,
+			})
+		})
+}
+
+func (f *StateMachineFactory) createObserverNodeStateMachine() (discovery.StateMachine, error) {
+	return discovery.NewStateMachine(
+		f.ctx,
+		discovery.ObserverNodeStateMachine,
+		f.discoveryFactory,
+		constants.StreamingConsumerGroupPath,
+		true,
+		func(key string, data []byte) {
+			f.stateMgr.EmitEvent(&discovery.Event{
+				Type:  discovery.ObserverNodeStartup,
+				Key:   key,
+				Value: data,
+			})
+		},
+		func(key string) {
+			f.stateMgr.EmitEvent(&discovery.Event{
+				Type: discovery.ObserverNodeFailure,
+				Key:  key,
+			})
+		},
 	)
 }

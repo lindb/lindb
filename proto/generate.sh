@@ -24,6 +24,7 @@ function gen() {
     dir_name=$1
     base_name=$(basename $2 ".proto")
     protoc -I. --go-grpc_out=../.. $2
+		protoc -I. --go_out=../.. $2
 }
 
 # for dir in v1
@@ -31,9 +32,9 @@ for dir in v1; do
 
   cd proto/$dir
 
-  for file in `ls *.proto`; do
-    collect $dir $file
-  done
+  # for file in `ls *.proto`; do
+  #   collect $dir $file
+  # done
 
   for file in `ls *.proto`; do
     gen $dir $file

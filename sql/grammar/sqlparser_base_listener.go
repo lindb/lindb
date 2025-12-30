@@ -103,6 +103,24 @@ func (s *BaseSQLParserListener) EnterExplainType(ctx *ExplainTypeContext) {}
 // ExitExplainType is called when production explainType is exited.
 func (s *BaseSQLParserListener) ExitExplainType(ctx *ExplainTypeContext) {}
 
+// EnterCreateStreaming is called when production createStreaming is entered.
+func (s *BaseSQLParserListener) EnterCreateStreaming(ctx *CreateStreamingContext) {}
+
+// ExitCreateStreaming is called when production createStreaming is exited.
+func (s *BaseSQLParserListener) ExitCreateStreaming(ctx *CreateStreamingContext) {}
+
+// EnterCreateStreamingOptions is called when production createStreamingOptions is entered.
+func (s *BaseSQLParserListener) EnterCreateStreamingOptions(ctx *CreateStreamingOptionsContext) {}
+
+// ExitCreateStreamingOptions is called when production createStreamingOptions is exited.
+func (s *BaseSQLParserListener) ExitCreateStreamingOptions(ctx *CreateStreamingOptionsContext) {}
+
+// EnterCreateStreamingOption is called when production createStreamingOption is entered.
+func (s *BaseSQLParserListener) EnterCreateStreamingOption(ctx *CreateStreamingOptionContext) {}
+
+// ExitCreateStreamingOption is called when production createStreamingOption is exited.
+func (s *BaseSQLParserListener) ExitCreateStreamingOption(ctx *CreateStreamingOptionContext) {}
+
 // EnterCreateDatabase is called when production createDatabase is entered.
 func (s *BaseSQLParserListener) EnterCreateDatabase(ctx *CreateDatabaseContext) {}
 

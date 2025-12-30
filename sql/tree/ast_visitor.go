@@ -196,6 +196,8 @@ func (v *AstVisitor) VisitDdlStatement(ctx *grammar.DdlStatementContext) any {
 		return v.Visit(ctx.CreateDatabase())
 	case ctx.DropDatabase() != nil:
 		return v.Visit(ctx.DropDatabase())
+	case ctx.CreateStreaming() != nil:
+		return v.Visit(ctx.CreateStreaming())
 	case ctx.CreateBroker() != nil:
 		panic("need impl create broker")
 	default:
@@ -209,6 +211,23 @@ func (v *AstVisitor) VisitDropDatabase(ctx *grammar.DropDatabaseContext) any {
 		Name:     v.getQualifiedName(ctx.QualifiedName()).Name,
 		Exists:   ctx.EXISTS() != nil,
 	}
+}
+
+func (v *AstVisitor) VisitCreateStreaming(ctx *grammar.CreateStreamingContext) any {
+	createStreaming := &CreateStreaming{
+		BaseNode: v.createBaseNode(ctx),
+		Name:     v.getQualifiedName(ctx.GetName()).Name,
+	}
+	options := ctx.CreateStreamingOptions().AllCreateStreamingOption()
+	for _, option := range options {
+		switch {
+		case option.DATABASE() != nil:
+			createStreaming.Database = v.Visit(option.GetDatabase()).(*Identifier).Value
+		case option.OBSERVER() != nil:
+			createStreaming.Observer = v.Visit(option.GetObserver()).(*Identifier).Value
+		}
+	}
+	return createStreaming
 }
 
 func (v *AstVisitor) VisitCreateDatabase(ctx *grammar.CreateDatabaseContext) any {

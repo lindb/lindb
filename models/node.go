@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"github.com/jedib0t/go-pretty/v6/table"
-
 	"github.com/lindb/common/models"
 	"github.com/lindb/common/pkg/timeutil"
 )
@@ -52,6 +51,11 @@ type Node interface {
 	HTTPAddress() string
 	// Online sets node's online time.
 	Online()
+}
+
+type NodeState struct {
+	State NodeStateType
+	Node  StatefulNode
 }
 
 // StatefulNode represents stateful node basic info.
@@ -110,24 +114,24 @@ func (n *StatelessNode) Online() {
 // ParseNode parses Node from indicator,
 // if indicator is not in the form [ip]:port  or port is not valid num, return error.
 func ParseNode(indicator string) (Node, error) {
-	index := strings.Index(indicator, ":")
-	if index < 0 {
+	before, after, ok := strings.Cut(indicator, ":")
+	if !ok {
 		return nil, fmt.Errorf("indicator(%s) is not in the format [ip]:port", indicator)
 	}
 
-	ipStr := indicator[:index]
+	ipStr := before
 	if ip := net.ParseIP(ipStr); ip == nil {
 		return nil, fmt.Errorf("indicator(%s) contains a invalid ip address", indicator)
 	}
 
-	portStr := indicator[index+1:]
+	portStr := after
 	port, err := strconv.ParseUint(portStr, 10, 16)
 	if err != nil {
 		return nil, err
 	}
 	// TODO: change base node info???
 	return &StatelessNode{
-		HostIP:   indicator[:index],
+		HostIP:   before,
 		GRPCPort: uint16(port),
 	}, nil
 }

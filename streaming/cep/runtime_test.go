@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package streaming
+package cep
 
 import (
 	"fmt"
@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/lindb/lindb/spi/types"
-	"github.com/lindb/lindb/streaming/stream/output"
+	"github.com/lindb/lindb/streaming/cep/stream/output"
 )
 
 type RPCService struct {
@@ -35,7 +35,7 @@ type RPCService struct {
 type Result struct{}
 
 func Test_Runtime(t *testing.T) {
-	runtime := NewRuntime()
+	runtime := NewRuntime("test")
 	runtime.RegisterStreamByType(RPCService{})
 	runtime.RegisterStreamByType(Result{})
 	// add result listener

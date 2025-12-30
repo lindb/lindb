@@ -24,6 +24,7 @@ import (
 
 	"github.com/lindb/common/pkg/fileutil"
 
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/storage/base"
 	"github.com/lindb/lindb/storage/store"
@@ -75,6 +76,12 @@ func NewPartition(timestamp int64, shard *shard) (store.Partition, error) {
 	}
 
 	return p, nil
+}
+
+func (p *partition) Consume(streaming string, consume models.NodeID) {
+	for _, segment := range p.segments {
+		segment.Consume(streaming, consume)
+	}
 }
 
 func (p *partition) GetOrCreateSegment(timestamp int64) (store.Segment, error) {

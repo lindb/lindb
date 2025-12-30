@@ -21,6 +21,17 @@ import "github.com/lindb/lindb/pkg/option"
 
 type CreateOption interface{}
 
+type CreateStreaming struct {
+	BaseNode
+	Name     string
+	Observer string
+	Database string
+}
+
+func (n *CreateStreaming) Accept(context any, visitor Visitor) any {
+	return visitor.Visit(context, n)
+}
+
 type EngineOption struct {
 	Type option.EngineType
 }

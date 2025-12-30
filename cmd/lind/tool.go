@@ -28,6 +28,10 @@ import (
 )
 
 func printLogoWhenIsTty() {
+	if os.Getenv("DISABLE_LOGO") == "1" {
+		return
+	}
+
 	if logger.IsTerminal(os.Stdout) {
 		fmt.Print(logger.Cyan.Add(linDBLogo))
 		fmt.Print(logger.Green.Add(" ::  LinDB  :: ") +

@@ -32,6 +32,8 @@ import (
 
 type aggregators []aggregation.Aggregator
 
+// HashGrouping implements hash-based grouping aggregation for streaming data.
+// It maintains a hash map of groups and their associated aggregators.
 type HashGrouping struct {
 	node          *plan.AggregationNode
 	outputColumns []types.ColumnMetadata
@@ -47,6 +49,9 @@ type HashGrouping struct {
 	mapper *grouping.StringMapper
 }
 
+// NewHashGrouping creates a new HashGrouping executor.
+// It initializes grouping rules for each grouping key based on their data types,
+// and sets up the internal structures for hash-based aggregation.
 func NewHashGrouping(node *plan.AggregationNode, assignments []*plan.Assignment) Executor {
 	sourceLayout := node.Source.GetOutputSymbols()
 	groupingKeys := node.GetGroupingKeys()
@@ -83,6 +88,9 @@ func NewHashGrouping(node *plan.AggregationNode, assignments []*plan.Assignment)
 	return exec
 }
 
+// Enter processes an incoming page of data by extracting grouping keys,
+// computing hash keys, and feeding rows into the appropriate aggregators.
+// Each row is assigned to a group based on its grouping key values.
 func (g *HashGrouping) Enter(page *types.Page) {
 	it := page.Iterator()
 	for row := it.Begin(); row != it.End(); row = it.Next() {
@@ -110,6 +118,9 @@ func (g *HashGrouping) Enter(page *types.Page) {
 	}
 }
 
+// Leave finalizes the aggregation and outputs the results.
+// It iterates through all groups, reconstructs the grouping key values,
+// flushes the aggregation results, and sends the output page to the channel.
 func (g *HashGrouping) Leave(output chan<- *types.Page) {
 	// TODO: create new grouping map???
 	newPage := types.NewPage()
@@ -139,6 +150,8 @@ func (g *HashGrouping) Leave(output chan<- *types.Page) {
 	output <- newPage
 }
 
+// createOutputs builds the output column metadata for the aggregation result.
+// It includes both the grouping key columns and the aggregation result columns.
 func createOutputs(node *plan.AggregationNode) (columns []types.ColumnMetadata) {
 	for _, key := range node.GroupingSets.GroupingKeys {
 		columns = append(columns, types.NewColumnInfo(key.Name, key.DataType))
@@ -151,6 +164,9 @@ func createOutputs(node *plan.AggregationNode) (columns []types.ColumnMetadata) 
 	return columns
 }
 
+// createAggregators creates aggregator instances for each aggregation function
+// defined in the aggregation node. Each aggregator is responsible for computing
+// one aggregate function (e.g., SUM, COUNT, AVG).
 func createAggregators(node *plan.AggregationNode) []aggregation.Aggregator {
 	var aggregators []aggregation.Aggregator
 	for _, agg := range node.Aggregations {

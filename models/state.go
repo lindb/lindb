@@ -92,7 +92,7 @@ func (s *ClusterStatus) UnmarshalJSON(value []byte) error {
 	}
 }
 
-// Storage represents storage config and state.
+// Broker represents broker config and state.
 type Broker struct {
 	config.BrokerCluster
 	Status ClusterStatus `json:"status"`
@@ -152,8 +152,10 @@ type ReplicaState struct {
 	ShardID     ShardID `json:"shardId"`
 	SegmentTime int64   `json:"segmentTime"`
 
-	Leader   NodeID `json:"leader"`
-	Follower NodeID `json:"follower"`
+	Leader   string `json:"leader"`
+	Follower string `json:"follower"`
+
+	Streaming string `json:"streaming"` // streaming name
 }
 
 // String returns the string value of ReplicaState.
@@ -162,8 +164,8 @@ func (r ReplicaState) String() string {
 		"database:" + r.Database +
 		",shard:" + strconv.Itoa(int(r.ShardID)) +
 		",segment:" + timeutil.FormatTimestamp(r.SegmentTime, timeutil.DataTimeFormat4) +
-		",from(leader):" + strconv.Itoa(int(r.Leader)) +
-		",to(follower):" + strconv.Itoa(int(r.Follower)) +
+		",from(leader):" + r.Leader +
+		",to(follower):" + r.Follower +
 		"]"
 }
 

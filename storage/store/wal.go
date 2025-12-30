@@ -33,8 +33,9 @@ var (
 )
 
 const (
-	ReplicatorTypeLocal  ReplicatorType = "local"
-	ReplicatorTypeRemote ReplicatorType = "remote"
+	ReplicatorTypeLocal   ReplicatorType = "local"
+	ReplicatorTypeRemote  ReplicatorType = "remote"
+	ReplicatorTypeObserve ReplicatorType = "observe"
 )
 
 type WriteAheadLog interface {
@@ -50,9 +51,12 @@ type WriteAheadLog interface {
 	ResetReplicaIndex(idx int64)
 
 	// BuildReplicaForLeader builds replica relation when handle writeTask connection.
+	// FIXME: move wal internal
 	BuildReplicaForLeader(leader models.NodeID, replicas []models.NodeID) error
 	// BuildReplicaForFollower builds replica relation when handle replica connection.
 	BuildReplicaForFollower(leader models.NodeID, replica models.NodeID) error
+
+	Consume(streaming string, consume models.NodeID)
 }
 
 // ReplicatorState represents the state of replicator.

@@ -35,11 +35,10 @@ var (
 	// StandaloneMode represents LinDB run as standalone mode
 	StandaloneMode = false
 
-	globalRootCfg    atomic.Value
-	globalBrokerCfg  atomic.Value
-	globalStorageCfg atomic.Value
-
-	globalCurrentNode atomic.Value
+	globalRootCfg      atomic.Value
+	globalBrokerCfg    atomic.Value
+	globalStorageCfg   atomic.Value
+	globalStreamingCfg atomic.Value
 
 	// Profile represents profiling Go programs with pprof
 	Profile = false
@@ -51,6 +50,7 @@ func init() {
 	globalRootCfg.Store(NewDefaultRoot())
 	globalBrokerCfg.Store(NewDefaultBrokerBase())
 	globalStorageCfg.Store(NewDefaultStorageBase())
+	globalStreamingCfg.Store(NewDefaultStreamingBase())
 }
 
 // GlobalBrokerConfig returns the global broker config
@@ -153,5 +153,21 @@ func LoadAndSetStandAloneConfig(cfgName, defaultPath string, standaloneCfg *Stan
 	}
 	globalBrokerCfg.Store(&standaloneCfg.BrokerBase)
 	globalStorageCfg.Store(&standaloneCfg.StorageBase)
+	return nil
+}
+
+// LoadAndSetStreamingConfig parses the streaming config file
+// this config will be triggered to reload when receiving a SIGHUP signal
+func LoadAndSetStreamingConfig(cfgName, defaultPath string, streamingCfg *Streaming) error { //nolint:dupl
+	if err := loadConfigFn(cfgName, defaultPath, &streamingCfg); err != nil {
+		return fmt.Errorf("decode streaming config file error: %s", err)
+	}
+	if err := envParseFn(streamingCfg); err != nil {
+		return fmt.Errorf("read streaming env error: %s", err)
+	}
+	if err := checkCoordinatorCfg(&streamingCfg.Coordinator); err != nil {
+		return fmt.Errorf("failed check coordinator config: %s", err)
+	}
+	globalStreamingCfg.Store(&streamingCfg.StreamingBase)
 	return nil
 }

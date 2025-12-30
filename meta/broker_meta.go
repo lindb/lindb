@@ -149,11 +149,15 @@ func (m *brokerMetadataManager) GetTableMetadata(database, ns, table string) (*t
 }
 
 func (m *brokerMetadataManager) CreateDatabase(ctx context.Context, database *models.Database) error {
-	return m.masterStateMgr.CreateDatabase(ctx, database)
+	return m.repo.Put(ctx, constants.GetDatabaseConfigPath(database.Name), encoding.JSONMarshal(database))
 }
 
 func (m *brokerMetadataManager) DropDatabase(ctx context.Context, database string) error {
-	return m.masterStateMgr.DropDatabase(ctx, database)
+	return m.repo.Delete(ctx, constants.GetDatabaseConfigPath(database))
+}
+
+func (m *brokerMetadataManager) CreateStreaming(ctx context.Context, streaming *models.Streaming) error {
+	return m.repo.Put(ctx, constants.GetStreamingConfigPath(streaming.Name), encoding.JSONMarshal(streaming))
 }
 
 func (m *brokerMetadataManager) getTableSchema(

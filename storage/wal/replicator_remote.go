@@ -19,6 +19,7 @@ package wal
 
 import (
 	"context"
+	"strconv"
 	"sync"
 
 	"github.com/lindb/common/pkg/encoding"
@@ -26,7 +27,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/coordinator/storage"
+	"github.com/lindb/lindb/meta"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
@@ -37,13 +38,12 @@ import (
 // remoteReplicator implements Replicator interface, do remote wal replica.
 type remoteReplicator struct {
 	replicator
-	ctx   context.Context
-	state atomic.Value // ref: state
+	ctx            context.Context
+	replicatorType store.ReplicatorType
+	state          atomic.Value // ref: state
 
-	cliFct        rpc.ClientStreamFactory
 	replicaCli    protoReplicaV1.ReplicaServiceClient
 	replicaStream protoReplicaV1.ReplicaService_ReplicaClient
-	stateMgr      storage.StateManager
 	isSuspend     *atomic.Bool
 	suspend       chan struct{}
 	statistics    *metrics.StorageRemoteReplicatorStatistics
@@ -55,16 +55,15 @@ type remoteReplicator struct {
 // NewRemoteReplicator creates remote replicator.
 func NewRemoteReplicator(
 	ctx context.Context,
+	replicatorType store.ReplicatorType,
 	channel *store.ReplicatorChannel,
 ) store.Replicator {
 	r := &remoteReplicator{
-		ctx: ctx,
+		ctx:            ctx,
+		replicatorType: replicatorType,
 		replicator: replicator{
 			channel: channel,
 		},
-		// FIXME: need get
-		// cliFct:     cliFct,
-		// stateMgr:   stateMgr,
 		isSuspend:  atomic.NewBool(false),
 		suspend:    make(chan struct{}),
 		statistics: metrics.NewStorageRemoteReplicatorStatistics(channel.State.Database, channel.State.ShardID.String()),
@@ -84,6 +83,7 @@ func (r *remoteReplicator) State() *store.ReplicatorState {
 	return r.state.Load().(*store.ReplicatorState)
 }
 
+// FIXME:
 func (r *remoteReplicator) handleNodeStateChangeEvent(state models.NodeStateType) {
 	if state == models.NodeOnline {
 		if r.isSuspend.CompareAndSwap(true, false) {
@@ -136,9 +136,10 @@ func (r *remoteReplicator) IsReady() bool {
 
 	r.statistics.NotReady.Incr()
 
+	nodeID, _ := strconv.ParseInt(r.channel.State.Follower, 10, 64)
 	// replicator is not ready, need do init like tcp three-way handshake
-	follower := r.channel.State.Follower
-	node, ok := r.stateMgr.GetLiveNode(follower)
+	follower := models.NodeID(nodeID)
+	node, ok := meta.GetStorageMetaManager().GetLiveNode(r.channel.State.Streaming, follower)
 	if !ok {
 		r.logger.Warn("follower node is offline, need suspend replicator", logger.String("replicator", r.String()))
 
@@ -156,7 +157,7 @@ func (r *remoteReplicator) IsReady() bool {
 	r.closeStream()
 
 	r.state.Store(&store.ReplicatorState{State: models.ReplicatorInitState, ErrMsg: "creating replica client"})
-	replicaCli, err := r.cliFct.CreateReplicaServiceClient(&node)
+	replicaCli, err := meta.GetStorageMetaManager().CreateReplicaServiceClient(node)
 	if err != nil {
 		r.statistics.CreateReplicaCliFailures.Incr()
 		r.logger.Warn("create replica service client err",
@@ -200,10 +201,11 @@ func (r *remoteReplicator) IsReady() bool {
 			logger.Int64("resetReplicaIdx", needResetReplicaIdx))
 		r.state.Store(&store.ReplicatorState{State: models.ReplicatorInitState, ErrMsg: "resetting replica append index"})
 		// send reset index request
+		leader, _ := strconv.ParseInt(r.channel.State.Leader, 10, 64)
 		_, err = r.replicaCli.ResetIndex(r.ctx, &protoReplicaV1.ResetIndexRequest{
 			Database:    r.channel.State.Database,
 			Shard:       int32(r.channel.State.ShardID),
-			Leader:      int32(r.channel.State.Leader),
+			Leader:      int32(leader),
 			SegmentTime: r.channel.State.SegmentTime,
 			AppendIndex: needResetReplicaIdx,
 		})
@@ -316,11 +318,13 @@ func (r *remoteReplicator) closeStream() {
 
 // getLastAckIdxFromReplica returns replica replica ack index.
 func (r *remoteReplicator) getLastAckIdxFromReplica() (int64, error) {
+	leader, _ := strconv.ParseInt(r.channel.State.Leader, 10, 64)
 	resp, err := r.replicaCli.GetReplicaAckIndex(r.ctx, &protoReplicaV1.GetReplicaAckIndexRequest{
-		Database:    r.channel.State.Database,
-		Shard:       int32(r.channel.State.ShardID),
-		Leader:      int32(r.channel.State.Leader),
-		SegmentTime: r.channel.State.SegmentTime,
+		Database:     r.channel.State.Database,
+		Shard:        int32(r.channel.State.ShardID),
+		Leader:       int32(leader),
+		SegmentTime:  r.channel.State.SegmentTime,
+		CurrentIndex: r.channel.ConsumerGroup.ConsumedSeq(),
 	})
 	if err != nil {
 		return 0, err

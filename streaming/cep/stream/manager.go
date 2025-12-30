@@ -81,7 +81,7 @@ func newStreamManager() StreamManager {
 
 func (mgr *streamManager) RegisterStreamByType(event any) error {
 	t := reflect.TypeOf(event)
-	if t.Kind() == reflect.Ptr {
+	if t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 	if t.Kind() != reflect.Struct {

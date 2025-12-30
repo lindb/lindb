@@ -57,6 +57,15 @@ type SQLParserListener interface {
 	// EnterExplainType is called when entering the explainType production.
 	EnterExplainType(c *ExplainTypeContext)
 
+	// EnterCreateStreaming is called when entering the createStreaming production.
+	EnterCreateStreaming(c *CreateStreamingContext)
+
+	// EnterCreateStreamingOptions is called when entering the createStreamingOptions production.
+	EnterCreateStreamingOptions(c *CreateStreamingOptionsContext)
+
+	// EnterCreateStreamingOption is called when entering the createStreamingOption production.
+	EnterCreateStreamingOption(c *CreateStreamingOptionContext)
+
 	// EnterCreateDatabase is called when entering the createDatabase production.
 	EnterCreateDatabase(c *CreateDatabaseContext)
 
@@ -368,6 +377,15 @@ type SQLParserListener interface {
 
 	// ExitExplainType is called when exiting the explainType production.
 	ExitExplainType(c *ExplainTypeContext)
+
+	// ExitCreateStreaming is called when exiting the createStreaming production.
+	ExitCreateStreaming(c *CreateStreamingContext)
+
+	// ExitCreateStreamingOptions is called when exiting the createStreamingOptions production.
+	ExitCreateStreamingOptions(c *CreateStreamingOptionsContext)
+
+	// ExitCreateStreamingOption is called when exiting the createStreamingOption production.
+	ExitCreateStreamingOption(c *CreateStreamingOptionContext)
 
 	// ExitCreateDatabase is called when exiting the createDatabase production.
 	ExitCreateDatabase(c *CreateDatabaseContext)

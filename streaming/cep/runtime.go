@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package streaming
+package cep
 
 import (
 	contextpkg "context"
@@ -30,9 +30,9 @@ import (
 	planpkg "github.com/lindb/lindb/sql/planner/plan"
 	printpkg "github.com/lindb/lindb/sql/planner/printer"
 	"github.com/lindb/lindb/sql/tree"
-	"github.com/lindb/lindb/streaming/stream"
-	"github.com/lindb/lindb/streaming/stream/input"
-	"github.com/lindb/lindb/streaming/stream/output"
+	"github.com/lindb/lindb/streaming/cep/stream"
+	"github.com/lindb/lindb/streaming/cep/stream/input"
+	"github.com/lindb/lindb/streaming/cep/stream/output"
 )
 
 func init() {
@@ -46,14 +46,18 @@ type Runtime interface {
 	Shutdown()
 }
 
-type runtime struct{}
+type runtime struct {
+	database string
+}
 
-func NewRuntime() *runtime {
-	return &runtime{}
+func NewRuntime(database string) *runtime {
+	return &runtime{
+		database: database,
+	}
 }
 
 func (r *runtime) RegisterStreamByType(eventType any) error {
-	return stream.GetManager().GetStreamManager("test").RegisterStreamByType(eventType)
+	return stream.GetManager().GetStreamManager(r.database).RegisterStreamByType(eventType)
 }
 
 func (r *runtime) AddListener(stream string, listener output.Listener) {
@@ -61,7 +65,6 @@ func (r *runtime) AddListener(stream string, listener output.Listener) {
 }
 
 func (r *runtime) GetInputHandler(stream string) input.InputHandler {
-	// return r.inputManager.GetInputHandler(stream)
 	return input.GetManager().GetInputHandler("test", stream)
 }
 
@@ -86,9 +89,9 @@ func (r *runtime) Query(sql string) error {
 }
 
 func (r *runtime) plan(idAllocator *tree.NodeIDAllocator, statement tree.Statement) {
-	planner := execution.NewPlanner(analyzer.NewAnalyzerFactory(stream.GetManager().GetStreamManager("test")))
+	planner := execution.NewPlanner(analyzer.NewAnalyzerFactory(stream.GetManager().GetStreamManager(r.database)))
 	plan := planner.Plan(&execution.Session{
-		Database:        "test", // fixme: set streaming database
+		Database:        r.database,
 		Context:         contextpkg.TODO(),
 		NodeIDAllocator: idAllocator,
 		Streaming:       true,

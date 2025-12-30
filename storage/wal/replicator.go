@@ -123,7 +123,7 @@ func (r *replicator) String() string {
 		"database:" + r.channel.State.Database +
 		",shard:" + r.channel.State.ShardID.String() +
 		",family:" + timeutil.FormatTimestamp(r.channel.State.SegmentTime, timeutil.DataTimeFormat2) +
-		",from(leader):" + r.channel.State.Leader.String() +
-		",to(follower):" + r.channel.State.Follower.String() +
+		",from(leader):" + r.channel.State.Leader +
+		",to(follower):" + r.channel.State.Follower +
 		"]"
 }

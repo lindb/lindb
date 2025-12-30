@@ -54,7 +54,7 @@ func (t *PhysicalPlan) Validate() error {
 	return nil
 }
 
-// Leaf represents the leaf node info
+// Target represents the target node info in physical plan.
 type Target struct {
 	ReceiveOnly bool      `json:"receiverOnly"`
 	Indicator   string    `json:"indicator"` // current node's indicator

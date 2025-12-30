@@ -57,6 +57,15 @@ type SQLParserVisitor interface {
 	// Visit a parse tree produced by SQLParser#explainType.
 	VisitExplainType(ctx *ExplainTypeContext) interface{}
 
+	// Visit a parse tree produced by SQLParser#createStreaming.
+	VisitCreateStreaming(ctx *CreateStreamingContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#createStreamingOptions.
+	VisitCreateStreamingOptions(ctx *CreateStreamingOptionsContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#createStreamingOption.
+	VisitCreateStreamingOption(ctx *CreateStreamingOptionContext) interface{}
+
 	// Visit a parse tree produced by SQLParser#createDatabase.
 	VisitCreateDatabase(ctx *CreateDatabaseContext) interface{}
 

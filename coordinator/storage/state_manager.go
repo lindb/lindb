@@ -32,11 +32,11 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/meta"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/rpc"
-	"github.com/lindb/lindb/storage"
 )
 
 //go:generate mockgen -source=./state_manager.go -destination=./state_manager_mock.go -package=storage
@@ -52,12 +52,13 @@ type StateManager interface {
 
 	// GetLiveNode returns storage live node by node id, return false if not exist.
 	GetLiveNode(nodeID models.NodeID) (models.StatefulNode, bool)
-	// WatchNodeStateChangeEvent registers node state change event handle.
-	WatchNodeStateChangeEvent(nodeID models.NodeID, fn func(state models.NodeStateType))
 	// GetLiveNodes returns the current live nodes.
 	GetLiveNodes() []models.StatefulNode
 	// GetShardAssignments returns the current database's shard assignments.
 	GetShardAssignments() []*models.ShardAssignment
+
+	// RegisterWatcher registers state manager watcher.
+	RegisterWatcher(watcher meta.Watcher)
 }
 
 // stateManager implements StateManager.
@@ -66,13 +67,13 @@ type stateManager struct {
 	cancel context.CancelFunc
 
 	repo             state.Repository
-	engine           storage.Engine
 	current          *models.StatefulNode
 	nodes            map[models.NodeID]models.StatefulNode // storage live nodes
-	watches          map[models.NodeID][]func(state models.NodeStateType)
-	shardAssignments map[string]*models.ShardAssignment
+	shardAssignments map[string]*models.ShardAssignment    // database name => shard assignment
 
 	events chan *discovery.Event
+
+	watchers []meta.Watcher
 
 	mutex sync.RWMutex
 
@@ -86,7 +87,6 @@ func NewStateManager(
 	ctx context.Context,
 	repo state.Repository,
 	current *models.StatefulNode,
-	engine storage.Engine,
 ) StateManager {
 	c, cancel := context.WithCancel(ctx)
 	mgr := &stateManager{
@@ -94,11 +94,9 @@ func NewStateManager(
 		cancel:           cancel,
 		repo:             repo,
 		current:          current,
-		engine:           engine,
 		nodes:            make(map[models.NodeID]models.StatefulNode),
 		shardAssignments: make(map[string]*models.ShardAssignment),
 		events:           make(chan *discovery.Event, 10),
-		watches:          make(map[models.NodeID][]func(state models.NodeStateType)),
 		statistics:       metrics.NewStateManagerStatistics(linmetric.StorageRegistry),
 		logger:           logger.GetLogger("Storage", "StateManager"),
 	}
@@ -107,6 +105,13 @@ func NewStateManager(
 	go mgr.consumeEvent()
 
 	return mgr
+}
+
+func (m *stateManager) RegisterWatcher(watcher meta.Watcher) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	m.watchers = append(m.watchers, watcher)
 }
 
 // EmitEvent emits discovery event when state changed.
@@ -157,6 +162,10 @@ func (m *stateManager) processEvent(event *discovery.Event) {
 		err = m.onShardAssignmentChange(event.Key, event.Value)
 	case discovery.DatabaseLimitsChanged:
 		err = m.onDatabaseLimitsChange(event.Key, event.Value)
+	case discovery.StreamingStateChanged:
+		err = m.onStreamingStateChange(event.Key, event.Value)
+	case discovery.StreamingStateDeletion:
+		err = m.onStreamingStateDeletion(event.Key)
 	}
 	if err != nil {
 		m.statistics.HandleEventFailure.WithTagValues(eventType, constants.StorageRole).Incr()
@@ -179,7 +188,12 @@ func (m *stateManager) onDatabaseLimitsChange(key string, data []byte) error {
 			logger.Error(err))
 		return err
 	}
-	m.engine.SetDatabaseLimits(name, limits)
+	for _, watcher := range m.watchers {
+		watcher.OnEvent(&models.DatabaseLimits{
+			Database: name,
+			Limits:   limits,
+		})
+	}
 	return nil
 }
 
@@ -215,16 +229,13 @@ func (m *stateManager) onShardAssignmentChange(key string, data []byte) error {
 	if err := encoding.JSONUnmarshal(cfgData, &cfg); err != nil {
 		return err
 	}
-	if err := m.engine.CreateShards(
-		param.Name,
-		cfg.Option,
-		shardIDs...,
-	); err != nil {
-		m.logger.Error("create shard storage engine err",
-			logger.String("db", param.Name),
-			logger.Any("shards", shardIDs),
-			logger.Error(err))
-		return err
+
+	for _, watcher := range m.watchers {
+		watcher.OnEvent(&models.CreateShard{
+			Database: param.Name,
+			ShardIDs: shardIDs,
+			Option:   *cfg.Option,
+		})
 	}
 	return nil
 }
@@ -244,22 +255,24 @@ func (m *stateManager) onNodeStartup(key string, data []byte) error {
 	m.nodes[node.ID] = *node
 
 	// notify node online
-	watches := m.watches[node.ID]
-	for _, handle := range watches {
-		handle(models.NodeOnline)
+	for _, watcher := range m.watchers {
+		watcher.OnEvent(&models.NodeState{
+			State: models.NodeOffline,
+			Node:  *node,
+		})
 	}
 	return nil
 }
 
 // onNodeFailure triggers when storage node offline.
 func (m *stateManager) onNodeFailure(key string) error {
-	_, fileName := filepath.Split(key)
+	_, nodeIDStr := filepath.Split(key)
 
 	m.logger.Info("node online => offline",
-		logger.String("nodeID", fileName),
+		logger.String("nodeID", nodeIDStr),
 		logger.String("key", key))
 
-	id, err := strconv.ParseInt(fileName, 10, 64)
+	id, err := strconv.ParseInt(nodeIDStr, 10, 64)
 	if err != nil {
 		m.logger.Error("parse offline node id err", logger.Error(err))
 		return err
@@ -269,15 +282,18 @@ func (m *stateManager) onNodeFailure(key string) error {
 	node, ok := m.nodes[nodeID]
 	if !ok {
 		// node not exist in alive node list
-		return fmt.Errorf("node not alive")
+		return fmt.Errorf("do node offline error, because node is not alive")
 	}
 	delete(m.nodes, nodeID)
 
 	// notify node offline
-	watches := m.watches[nodeID]
-	for _, handle := range watches {
-		handle(models.NodeOffline)
+	for _, watcher := range m.watchers {
+		watcher.OnEvent(&models.NodeState{
+			State: models.NodeOffline,
+			Node:  node,
+		})
 	}
+
 	// try close offline node connection in pool
 	if err := getConnFct().CloseClientConn(&node); err != nil {
 		m.logger.Error("close connection for offline node err", logger.Error(err))
@@ -293,20 +309,6 @@ func (m *stateManager) GetLiveNode(nodeID models.NodeID) (models.StatefulNode, b
 
 	node, ok := m.nodes[nodeID]
 	return node, ok
-}
-
-// WatchNodeStateChangeEvent registers node state change event handle.
-func (m *stateManager) WatchNodeStateChangeEvent(nodeID models.NodeID, fn func(state models.NodeStateType)) {
-	if fn == nil {
-		return
-	}
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
-	watches := m.watches[nodeID]
-	watches = append(watches, fn)
-	m.watches[nodeID] = watches
 }
 
 // GetLiveNodes returns the current live nodes.

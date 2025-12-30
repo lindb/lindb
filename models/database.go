@@ -62,6 +62,13 @@ type LogicDatabase struct {
 	Routers []Router `json:"routers" validate:"required"` // database router
 }
 
+// CreateShard represents create shard request.
+type CreateShard struct {
+	Database string
+	Option   option.DatabaseOption
+	ShardIDs []ShardID
+}
+
 // Database defines database config.
 type Database struct {
 	Option *option.DatabaseOption `json:"option"`                   // time series database option

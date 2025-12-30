@@ -19,7 +19,6 @@ package master
 
 import (
 	"context"
-	"encoding/json"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -56,9 +55,6 @@ type StateManager interface {
 	GetShardAssignments() []models.ShardAssignment
 	// GetStorageState returns current storage state.
 	GetStorageState() *models.StorageState
-
-	CreateDatabase(ctx context.Context, databaseCfg *models.Database) error
-	DropDatabase(ctx context.Context, database string) error
 }
 
 // stateManager implements StateManager.
@@ -73,8 +69,12 @@ type stateManager struct {
 	masterRepo statepkg.Repository
 	elector    ReplicaLeaderElector
 
-	databases        map[string]*models.Database
-	shardAssignments map[string]*models.ShardAssignment
+	databases        map[string]*models.Database        // database name -> database config
+	shardAssignments map[string]*models.ShardAssignment // database name -> shard assignment
+
+	observerNodes   map[string][]models.StatelessNode // consume group name(streaming namespace) -> observer nodes
+	streamings      map[string]*models.Streaming      // streaming name -> streaming config
+	streamingStates map[string]*models.StreamingState // streaming name -> streaming state
 
 	events chan *discovery.Event
 
@@ -101,6 +101,9 @@ func NewStateManager(
 		storage:               newStorageCluster(c, masterRepo),
 		databases:             make(map[string]*models.Database),
 		shardAssignments:      make(map[string]*models.ShardAssignment),
+		observerNodes:         make(map[string][]models.StatelessNode),
+		streamings:            make(map[string]*models.Streaming),
+		streamingStates:       make(map[string]*models.StreamingState),
 		elector:               newReplicaLeaderElector(),
 		events:                make(chan *discovery.Event, 10),
 		running:               atomic.NewBool(true),
@@ -154,21 +157,32 @@ func (m *stateManager) processEvent(event *discovery.Event) {
 	switch event.Type {
 	case discovery.DatabaseConfigChanged:
 		err = m.onDatabaseCfgChange(event.Key, event.Value)
-	case discovery.DatabaseLimitsChanged:
-		err = m.onDatabaseLimitsChange(event.Key, event.Value)
 	case discovery.DatabaseConfigDeletion:
 		err = m.onDatabaseCfgDelete(event.Key)
+	case discovery.DatabaseLimitsChanged:
+		err = m.onDatabaseLimitsChange(event.Key, event.Value)
 	case discovery.ShardAssignmentChanged:
 		err = m.onShardAssignmentChange(event.Key, event.Value)
 	case discovery.NodeStartup:
 		err = m.onStorageNodeStartup(event.Key, event.Value)
 	case discovery.NodeFailure:
 		err = m.onStorageNodeFailure(event.Key)
+	case discovery.StreamingConfigChanged:
+		err = m.onStreamingCfgChange(event.Key, event.Value)
+	case discovery.StreamingConfigDeletion:
+		err = m.onStreamingCfgDelete(event.Key)
+	case discovery.ObserverNodeStartup:
+		err = m.onObserverNodeStartup(event.Key, event.Value)
+	case discovery.ObserverNodeFailure:
+		err = m.onObserverNodeFailure(event.Key)
 	}
 	if err != nil {
 		m.statistics.HandleEventFailure.WithTagValues(eventType, constants.MasterRole).Incr()
 	} else {
 		m.statistics.HandleEvents.WithTagValues(eventType, constants.MasterRole).Incr()
+
+		// alway do consumer reassign after each event processed when no error
+		m.consumerReassign()
 	}
 }
 
@@ -270,7 +284,7 @@ func (m *stateManager) onStorageNodeStartup(key string, data []byte) error {
 		logger.String("data", string(data)))
 
 	node := models.StatefulNode{}
-	if err := json.Unmarshal(data, &node); err != nil {
+	if err := encoding.JSONUnmarshal(data, &node); err != nil {
 		m.logger.Error("new storage node online in storage cluster but unmarshal error", logger.Error(err))
 		return err
 	}
@@ -583,14 +597,6 @@ func (m *stateManager) GetStorageState() *models.StorageState {
 	defer m.mutex.RUnlock()
 
 	return m.storage.GetState()
-}
-
-func (m *stateManager) CreateDatabase(ctx context.Context, database *models.Database) error {
-	return m.masterRepo.Put(ctx, constants.GetDatabaseConfigPath(database.Name), encoding.JSONMarshal(database))
-}
-
-func (m *stateManager) DropDatabase(ctx context.Context, name string) error {
-	return m.masterRepo.Delete(ctx, constants.GetDatabaseConfigPath(name))
 }
 
 // initializeShardState initializes the shard state based on shard assignment for storage cluster.

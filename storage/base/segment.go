@@ -19,11 +19,14 @@ package base
 
 import (
 	"path/filepath"
+	"strconv"
 	"sync"
 
+	"github.com/lindb/common/pkg/fileutil"
 	loggerpkg "github.com/lindb/common/pkg/logger"
 	"go.uber.org/atomic"
 
+	"github.com/lindb/lindb/meta"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/storage/store"
@@ -45,6 +48,36 @@ type Segment struct {
 	ref atomic.Int32
 
 	mutex sync.Mutex
+}
+
+func (s *Segment) Consume(streaming string, consume models.NodeID) {
+	// just consume current node's wal(leader)
+	wal, ok := s.WALs[meta.CurrentNode()]
+	if !ok {
+		return
+	}
+	wal.Consume(streaming, consume)
+}
+
+func (s *Segment) LoadWALs() error {
+	if !fileutil.Exist(s.Path) {
+		return nil
+	}
+	leaders, err := fileutil.ListDir(s.Path)
+	if err != nil {
+		return err
+	}
+	for _, leader := range leaders {
+		nodeID, err := strconv.ParseInt(leader, 10, 64)
+		if err != nil {
+			return err
+		}
+		_, err = s.GetOrCreateWAL(models.NodeID(nodeID))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Segment) SegmentTimeRange() timeutil.TimeRange {

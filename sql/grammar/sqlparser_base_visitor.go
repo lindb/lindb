@@ -68,6 +68,18 @@ func (v *BaseSQLParserVisitor) VisitExplainType(ctx *ExplainTypeContext) interfa
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseSQLParserVisitor) VisitCreateStreaming(ctx *CreateStreamingContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLParserVisitor) VisitCreateStreamingOptions(ctx *CreateStreamingOptionsContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLParserVisitor) VisitCreateStreamingOption(ctx *CreateStreamingOptionContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseSQLParserVisitor) VisitCreateDatabase(ctx *CreateDatabaseContext) interface{} {
 	return v.VisitChildren(ctx)
 }

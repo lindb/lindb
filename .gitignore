@@ -20,6 +20,7 @@ root.toml
 broker.toml
 storage.toml
 standalone.toml
+streaming.toml
 
 ## Go
 # Binaries for programs and plugins

@@ -17,7 +17,7 @@
 
 package models
 
-// monitor represents self-monitor vars.
+// Monitor represents self-monitor vars.
 type Monitor struct {
 	Database string `json:"database"`
 }

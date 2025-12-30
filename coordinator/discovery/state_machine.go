@@ -50,6 +50,9 @@ const (
 	BrokerConfigStateMachine
 	BrokerNodeStateMachine
 	DatabaseLimitsStateMachine
+	ObserverNodeStateMachine
+	StreamingConfigStateMachine
+	StreamingStateStateMachine
 )
 
 // String returns state machine type desc.
@@ -73,6 +76,12 @@ func (st StateMachineType) String() string {
 		return "BrokerNodeStateMachine"
 	case DatabaseLimitsStateMachine:
 		return "DatabaseLimitsStateMachine"
+	case ObserverNodeStateMachine:
+		return "ObserverNodeStateMachine"
+	case StreamingConfigStateMachine:
+		return "StreamingConfigStateMachine"
+	case StreamingStateStateMachine:
+		return "StreamingStateStateMachine"
 	default:
 		return "Unknown"
 	}
@@ -201,7 +210,7 @@ func (sm *stateMachine) Close() error {
 
 // ExploreData explores state repository data by given path.
 func ExploreData(ctx context.Context, repo state.Repository, stateMachineInfo models.StateMachineInfo) (any, error) {
-	var rs []interface{}
+	var rs []any
 	err := repo.WalkEntry(ctx, stateMachineInfo.Path, func(key, value []byte) {
 		r := stateMachineInfo.CreateState()
 		err0 := encoding.JSONUnmarshal(value, r)

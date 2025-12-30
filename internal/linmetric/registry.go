@@ -39,6 +39,10 @@ var (
 	StorageRegistry = &Registry{
 		series: make(map[uint64]*taggedSeries),
 	}
+	// StreamingRegistry represents streaming level metric Registry.
+	StreamingRegistry = &Registry{
+		series: make(map[uint64]*taggedSeries),
+	}
 )
 
 // Registry is a set of metrics

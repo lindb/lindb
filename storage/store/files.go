@@ -44,11 +44,9 @@ var (
 const (
 	options        = "OPTIONS"
 	shardDir       = "shard"
-	metaDir        = "meta"
 	PartitionDir   = "partition"
 	segmentDir     = "segment"
 	indexParentDir = "index"
-	bufferDir      = "buffer"
 	limits         = "limits.toml"
 )
 

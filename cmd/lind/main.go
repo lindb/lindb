@@ -54,6 +54,7 @@ func init() {
 		newBrokerCmd(),
 		newStorageCmd(),
 		newStandaloneCmd(),
+		newStreamingCmd(),
 	)
 }
 

@@ -19,6 +19,7 @@ package models
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	commonconstants "github.com/lindb/common/constants"
@@ -42,6 +43,12 @@ func GetDatabaseLimits(database string) *Limits {
 // SetDatabaseLimits sets database limits based on database name and limits.
 func SetDatabaseLimits(database string, limits *Limits) {
 	globalLimits.Store(database, limits)
+}
+
+// DatabaseLimits represents database level limits info.
+type DatabaseLimits struct {
+	Database string
+	Limits   *Limits
 }
 
 // Limits represents all the limit for database level; can be used to describe global
@@ -127,7 +134,7 @@ func (l *Limits) EnableTagsCheck() bool {
 	return l.MaxTagsPerMetric > 0
 }
 
-// EnableSereisCheckForQuery returns if need check num. of series for query
+// EnableSeriesCheckForQuery returns if need check num. of series for query
 func (l *Limits) EnableSeriesCheckForQuery() bool {
 	return l.MaxSeriesPerQuery > 0
 }
@@ -208,11 +215,11 @@ max-series-per-query = %d
 
 // metricsTOML returns limits' configuration for metric level.
 func (l *Limits) metricsTOML() string {
-	rs := ""
+	var rs strings.Builder
 	for k, v := range l.Metrics {
-		rs += fmt.Sprintf("%q = %d\n", k, v)
+		fmt.Fprintf(&rs, "%q = %d\n", k, v)
 	}
-	return rs
+	return rs.String()
 }
 
 // GetSeriesLimit returns the limit by given namespace/metric name.

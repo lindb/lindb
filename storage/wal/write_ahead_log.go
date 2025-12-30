@@ -37,7 +37,9 @@ type writeAheadLog struct {
 	segment store.Segment
 	data    queue.FanOutQueue
 
-	peers map[models.NodeID]store.ReplicatorPeer
+	peers map[models.NodeID]store.ReplicatorPeer // follower nodeID => peer
+
+	streamings map[string]store.ReplicatorPeer // streaming name => peer
 
 	closed atomic.Bool
 	mutex  sync.Mutex
@@ -48,15 +50,17 @@ type writeAheadLog struct {
 func NewWriteAheadLog(path string, segment store.Segment) (store.WriteAheadLog, error) {
 	// TODO: database level???
 	pageSize := config.GlobalStorageConfig().WAL.PageSize
+	fmt.Printf("wal page=%s\n", path)
 	data, err := queue.NewFanOutQueue(path, int64(pageSize))
 	if err != nil {
 		return nil, err
 	}
 	return &writeAheadLog{
-		segment: segment,
-		data:    data,
-		peers:   make(map[models.NodeID]store.ReplicatorPeer),
-		logger:  logger.GetLogger("WAL", "WriteAheadLog"),
+		segment:    segment,
+		data:       data,
+		peers:      make(map[models.NodeID]store.ReplicatorPeer),
+		streamings: make(map[string]store.ReplicatorPeer),
+		logger:     logger.GetLogger("WAL", "WriteAheadLog"),
 	}, nil
 }
 
@@ -103,6 +107,45 @@ func (w *writeAheadLog) Close() error {
 		w.data.Close()
 	}
 	return nil
+}
+
+func (w *writeAheadLog) Consume(streaming string, consume models.NodeID) {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	if _, ok := w.streamings[streaming]; ok {
+		// exist
+		return
+	}
+	walConsumer, err := w.data.GetOrCreateConsumerGroup(streaming)
+	if err != nil {
+		w.logger.Error("failed to create wal consumer group",
+			logger.String("streaming", streaming),
+			logger.Int("consumer", consume.Int()),
+			logger.Error(err))
+		return
+	}
+
+	var replicator store.Replicator
+	channel := store.ReplicatorChannel{
+		State: &models.ReplicaState{
+			Database:    w.segment.Partition().Shard().Database().Name(),
+			ShardID:     w.segment.Partition().Shard().ShardID(),
+			Streaming:   streaming,
+			SegmentTime: w.segment.SegmentTimeRange().Start,
+			Leader:      fmt.Sprintf("%d", meta.CurrentNode()),
+			Follower:    fmt.Sprintf("%d", consume),
+		},
+		ConsumerGroup: walConsumer,
+	}
+	// build remote replicator
+	// TODO: set context
+	replicator = NewRemoteReplicator(context.TODO(), store.ReplicatorTypeObserve, &channel)
+
+	// startup replicator peer
+	peer := NewReplicatorPeer(replicator)
+	w.streamings[streaming] = peer
+	peer.Startup()
 }
 
 // BuildReplicaForLeader builds replica relation when handle writeTask connection.
@@ -160,8 +203,11 @@ func (w *writeAheadLog) buildReplica(leader, replica models.NodeID) error {
 	var replicator store.Replicator
 	channel := store.ReplicatorChannel{
 		State: &models.ReplicaState{
-			Leader:   leader,
-			Follower: replica,
+			Database:    w.segment.Partition().Shard().Database().Name(),
+			ShardID:     w.segment.Partition().Shard().ShardID(),
+			SegmentTime: w.segment.SegmentTimeRange().Start,
+			Leader:      fmt.Sprintf("%d", leader),
+			Follower:    fmt.Sprintf("%d", replica),
 		},
 		ConsumerGroup: walConsumer,
 	}
@@ -171,7 +217,7 @@ func (w *writeAheadLog) buildReplica(leader, replica models.NodeID) error {
 	} else {
 		// build remote replicator
 		// TODO: set context
-		replicator = NewRemoteReplicator(context.TODO(), &channel)
+		replicator = NewRemoteReplicator(context.TODO(), store.ReplicatorTypeRemote, &channel)
 	}
 
 	// startup replicator peer

@@ -20,6 +20,7 @@ package rpc
 import (
 	"context"
 	"io"
+	"strconv"
 
 	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
@@ -96,20 +97,20 @@ func (r *ReplicaHandler) Replica(server protoReplicaV1.ReplicaService_ReplicaSer
 		r.logger.Error("get replica state err", logger.Error(err))
 		return status.Error(codes.InvalidArgument, err.Error())
 	}
+	nodeID, err := strconv.ParseInt(replicaState.Leader, 10, 64)
+	if err != nil {
+		r.logger.Error("parse leader node id err", logger.Error(err))
+		return status.Error(codes.InvalidArgument, err.Error())
+	}
 
 	log, err := getOrCreateSegment(
 		r.engine,
 		replicaState.Database,
 		replicaState.ShardID,
 		replicaState.SegmentTime,
-		replicaState.Leader)
+		models.NodeID(nodeID))
 	if err != nil {
 		r.logger.Error("get or create wal partition err, when do replica", logger.Error(err))
-		return status.Error(codes.Internal, err.Error())
-	}
-	err = log.BuildReplicaForFollower(replicaState.Leader, replicaState.Follower)
-	if err != nil {
-		r.logger.Error("build replica replica err", logger.Error(err))
 		return status.Error(codes.Internal, err.Error())
 	}
 	r.logger.Info("build replica stream channel successful", logger.String("replica", replicaState.String()))

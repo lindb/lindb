@@ -34,14 +34,14 @@ func init() {
 	StateMachinePaths[constants.LiveNode] = models.StateMachineInfo{
 		Path:    constants.StorageLiveNodesPath,
 		Comment: "Storage alive nodes",
-		CreateState: func() interface{} {
+		CreateState: func() any {
 			return &models.StatefulNode{}
 		},
 	}
 	StateMachinePaths[constants.ShardAssignment] = models.StateMachineInfo{
 		Path:    constants.ShardAssignmentPath,
 		Comment: "Database shard assignment",
-		CreateState: func() interface{} {
+		CreateState: func() any {
 			return &models.ShardAssignment{}
 		},
 	}
@@ -86,6 +86,13 @@ func (f *StateMachineFactory) Start() (err error) {
 	f.stateMachines = append(f.stateMachines, sm)
 	f.logger.Debug("starting DatabaseLimitsStateMachine")
 	sm, err = f.createDatabaseLimitsStateMachine()
+	if err != nil {
+		return err
+	}
+	f.stateMachines = append(f.stateMachines, sm)
+
+	f.logger.Debug("starting StreamingStateStateMachine")
+	sm, err = f.createStreamingStateStateMachine()
 	if err != nil {
 		return err
 	}
@@ -172,5 +179,29 @@ func (f *StateMachineFactory) createDatabaseLimitsStateMachine() (discovery.Stat
 			})
 		},
 		nil,
+	)
+}
+
+// createStreamingStateStateMachine creates streaming state state machine.
+func (f *StateMachineFactory) createStreamingStateStateMachine() (discovery.StateMachine, error) {
+	return discovery.NewStateMachine(
+		f.ctx,
+		discovery.StreamingStateStateMachine,
+		f.discoveryFactory,
+		constants.StreamingStatePath,
+		true,
+		func(key string, data []byte) {
+			f.stateMgr.EmitEvent(&discovery.Event{
+				Type:  discovery.StreamingStateChanged,
+				Key:   key,
+				Value: data,
+			})
+		},
+		func(key string) {
+			f.stateMgr.EmitEvent(&discovery.Event{
+				Type: discovery.StreamingStateDeletion,
+				Key:  key,
+			})
+		},
 	)
 }

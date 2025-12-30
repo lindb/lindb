@@ -29,14 +29,15 @@ var statementTypes = make(map[reflect.Type]models.StatementType)
 
 func init() {
 	// DDL
-	statementTypes[reflect.TypeOf(&tree.CreateDatabase{})] = models.DataDefinition
-	statementTypes[reflect.TypeOf(&tree.DropDatabase{})] = models.DataDefinition
+	statementTypes[reflect.TypeFor[*tree.CreateDatabase]()] = models.DataDefinition
+	statementTypes[reflect.TypeFor[*tree.CreateStreaming]()] = models.DataDefinition
+	statementTypes[reflect.TypeFor[*tree.DropDatabase]()] = models.DataDefinition
 	// DML
-	statementTypes[reflect.TypeOf(&tree.Query{})] = models.Select
+	statementTypes[reflect.TypeFor[*tree.Query]()] = models.Select
 	// Explain
-	statementTypes[reflect.TypeOf(&tree.Explain{})] = models.Select
+	statementTypes[reflect.TypeFor[*tree.Explain]()] = models.Select
 	// Show replication/memory databases/namespaces/table names/columns
-	statementTypes[reflect.TypeOf(&tree.Show{})] = models.Select
+	statementTypes[reflect.TypeFor[*tree.Show]()] = models.Select
 }
 
 func GetStatementType(statement tree.Statement) models.StatementType {

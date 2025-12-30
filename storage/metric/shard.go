@@ -114,6 +114,8 @@ func newShard(
 			if err = partitions.Load(store.PartitionsPath(db.Name(), shardID, targetInterval.Interval), func(timestamp int64) (*store.LazyPartition, error) {
 				return store.NewLazyPartition(timestamp, createdShard.createPartition), nil
 			}); err != nil {
+				// FIXME: add log
+				fmt.Println("load partitions error:", err)
 				break
 			}
 

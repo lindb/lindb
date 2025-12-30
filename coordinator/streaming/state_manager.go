@@ -1,0 +1,144 @@
+// Licensed to LinDB under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. LinDB licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+package streaming
+
+import (
+	"context"
+	"sync"
+
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/lindb/common/pkg/logger"
+
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/coordinator/discovery"
+	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/metrics"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/streaming"
+)
+
+type StateManager interface {
+	discovery.StateMachineEventHandle
+}
+
+type stateManager struct {
+	discovery.StateMachineEventHandle
+
+	ctx    context.Context
+	cancel context.CancelFunc
+
+	events chan *discovery.Event
+
+	mutex sync.RWMutex
+
+	statistics *metrics.StateManagerStatistics
+	logger     logger.Logger
+}
+
+func NewStateManager(ctx context.Context) StateManager {
+	c, cancel := context.WithCancel(ctx)
+	mgr := &stateManager{
+		ctx:    c,
+		cancel: cancel,
+		events: make(chan *discovery.Event),
+
+		statistics: metrics.NewStateManagerStatistics(linmetric.StreamingRegistry),
+		logger:     logger.GetLogger("Streaming", "StateManager"),
+	}
+
+	// start discovery event consumer task
+	go mgr.consumeEvents()
+
+	return mgr
+}
+
+// EmitEvent emits the discovery event to state manager.
+func (s *stateManager) EmitEvent(event *discovery.Event) {
+	s.events <- event
+}
+
+// consumeEvents consumes discovery events, processes events based on event type.
+func (s *stateManager) consumeEvents() {
+	for {
+		select {
+		case <-s.ctx.Done():
+			s.logger.Info("state manager event consumer exiting")
+			return
+		case event := <-s.events:
+			s.processEvent(event)
+		}
+	}
+}
+
+// processEvent processes the discovery event.
+func (s *stateManager) processEvent(event *discovery.Event) {
+	eventType := event.Type.String()
+	defer func() {
+		if err := recover(); err != nil {
+			s.statistics.Panics.WithTagValues(eventType, constants.BrokerRole).Incr()
+			s.logger.Error("panic when process discovery event, lost the state",
+				logger.Any("err", err), logger.Stack())
+		}
+	}()
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	var err error
+	switch event.Type {
+	case discovery.DatabaseConfigChanged:
+		err = s.onDatabaseCfgChange(event.Key, event.Value)
+	case discovery.DatabaseConfigDeletion:
+	// FIXME:
+	default:
+		s.logger.Warn("unknown event type", logger.String("type", event.Type.String()))
+	}
+
+	if err != nil {
+		s.statistics.HandleEventFailure.WithTagValues(eventType, constants.StreamingRole).Incr()
+	} else {
+		s.statistics.HandleEvents.WithTagValues(eventType, constants.StreamingRole).Incr()
+	}
+}
+
+// onDatabaseCfgChange triggers when database create/modify.
+func (s *stateManager) onDatabaseCfgChange(key string, data []byte) error {
+	s.logger.Info("database config is modified",
+		logger.String("key", key),
+		logger.String("data", string(data)))
+
+	cfg := models.Database{}
+	if err := encoding.JSONUnmarshal(data, &cfg); err != nil {
+		s.logger.Error("database config modified but unmarshal error", logger.Error(err))
+		return err
+	}
+
+	if cfg.Name == "" {
+		s.logger.Error("database name cannot be empty")
+		return constants.ErrNameEmpty
+	}
+
+	streaming.GetManager().AddDataSource(streaming.NewDataSource(cfg))
+	return nil
+}
+
+// Close implements [StateManager].
+// Subtle: this method shadows the method (StateMachineEventHandle).Close of stateManager.StateMachineEventHandle.
+func (s *stateManager) Close() {
+	s.cancel()
+}

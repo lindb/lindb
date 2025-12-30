@@ -73,7 +73,8 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 	familySlot := intervalCalc.CalcFamily(timestamp, segmentTime)
 	family := fmt.Sprintf("%d", familySlot)
 	segmentPath := filepath.Join(partition.Path(), family)
-	fmt.Printf("segmentPath:%s\n", segmentPath)
+	fmt.Printf("segmentPath:%s====>%s\n", segmentPath, family)
+	// FIXME: close kv store if load segment fail
 	kvFamily := partition.kvStore.GetFamily(family)
 	if kvFamily == nil {
 		// create kv family
@@ -113,6 +114,10 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 
 	seg.CreateWriteAheadLog = func(p string) (store.WriteAheadLog, error) {
 		return store.CreateWriteAheadLog(p, seg)
+	}
+
+	if err := seg.LoadWALs(); err != nil {
+		return nil, err
 	}
 
 	return seg, nil

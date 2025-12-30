@@ -18,11 +18,13 @@
 package store
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/lindb/common/pkg/fileutil"
 	"github.com/samber/lo"
 
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
 
@@ -38,6 +40,8 @@ type Partition interface {
 	GetOrCreateSegment(timestamp int64) (Segment, error)
 
 	GetSegments(timeRange timeutil.TimeRange) []Segment
+
+	Consume(streaming string, consumer models.NodeID)
 }
 
 type Partitions struct {
@@ -53,8 +57,12 @@ func NewPartitions(interval timeutil.Interval) *Partitions {
 }
 
 func (ps *Partitions) Load(path string, create func(timestamp int64) (*LazyPartition, error)) error {
+	if !fileutil.Exist(path) {
+		return nil
+	}
 	partitions, err := fileutil.ListDir(path)
 	if err != nil {
+		fmt.Println("kkk..")
 		return err
 	}
 	intervalCalc := ps.interval.Calculator()

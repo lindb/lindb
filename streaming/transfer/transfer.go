@@ -15,9 +15,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package gen
+package transfer
 
-//go:generate mockgen -source=./v1/command/command.pb.go -destination=./v1/command/command_pb_mock.go -package=protoCommandV1
-//go:generate mockgen -source=./v1/meta/meta.pb.go -destination=./v1/meta/meta_pb_mock.go -package=protoMetaV1
-//go:generate mockgen -source=./v1/replica/replica.pb.go -destination=./v1/replica/replica_pb_mock.go -package=protoReplicaV1
-//go:generate mockgen -source=./v1/write/write.pb.go -destination=./v1/write/write_pb_mock.go -package=protoWriteV1
+import (
+	"github.com/lindb/lindb/pkg/option"
+	"github.com/lindb/lindb/spi/types"
+)
+
+var transferRegistry = make(map[option.EngineType]Transfer)
+
+// RegisterTransfer registers transfer for given format.
+func RegisterTransfer(engine option.EngineType, transfer Transfer) {
+	transferRegistry[engine] = transfer
+}
+
+func GetTransfer(engine option.EngineType) Transfer {
+	return transferRegistry[engine]
+}
+
+type Transfer interface {
+	Schema() *types.TableSchema
+	ToPage(data []byte) (*types.Page, error)
+}

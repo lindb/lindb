@@ -43,4 +43,6 @@ type MetadataManager interface {
 
 	CreateDatabase(ctx context.Context, database *models.Database) error
 	DropDatabase(ctx context.Context, database string) error
+
+	CreateStreaming(ctx context.Context, stream *models.Streaming) error
 }

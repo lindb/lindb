@@ -27,6 +27,7 @@ import (
 	"github.com/lindb/common/pkg/fileutil"
 
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/storage/base"
 	"github.com/lindb/lindb/storage/store"
@@ -47,6 +48,7 @@ func NewPartition(shard *Shard, partitionTime int64, interval timeutil.Interval)
 	calc := interval.Calculator()
 	partitionName := calc.GetSegment(partitionTime)
 	dir := store.PartitionPath(shard.Database().Name(), shard.ShardID(), interval, partitionName)
+	fmt.Printf("partition dir %s\n", dir)
 
 	storeOption := kv.DefaultStoreOption()
 	intervals := shard.Database().GetOption().Option.Intervals
@@ -60,6 +62,7 @@ func NewPartition(shard *Shard, partitionTime int64, interval timeutil.Interval)
 		storeOption.Rollup = rollup[1:]
 		storeOption.Source = interval
 	}
+	fmt.Printf("partition=%s\n", dir)
 	kvStore, err := kv.GetStoreManager().CreateStore(path.Join(dir, "data"), storeOption)
 	if err != nil {
 		return nil, fmt.Errorf("create kv store for partition error:%s", err)
@@ -95,6 +98,12 @@ func NewPartition(shard *Shard, partitionTime int64, interval timeutil.Interval)
 	}
 
 	return p, nil
+}
+
+func (p *partition) Consume(streaming string, consume models.NodeID) {
+	for _, segment := range p.segments {
+		segment.Consume(streaming, consume)
+	}
 }
 
 // Close implements store.Partition.

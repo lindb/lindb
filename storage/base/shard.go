@@ -121,3 +121,21 @@ func (s *Shard) Close() error {
 	}
 	return nil
 }
+
+func (s *Shard) Consume(streaming string, consumer models.NodeID) {
+	var partitions []*store.LazyPartition
+
+	s.mutex.Lock()
+	partitions = s.Partitions.GetPartitions()
+	s.mutex.Unlock()
+
+	for _, partition := range partitions {
+		p, err := partition.Get()
+		if err != nil {
+			logger.Error("load partition fail when consume shard",
+				loggerpkg.String("streaming", streaming), loggerpkg.Error(err))
+			continue
+		}
+		p.Consume(streaming, consumer)
+	}
+}

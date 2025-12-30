@@ -217,7 +217,11 @@ func (r *runtime) Run() error {
 		return err
 	}
 
-	r.stateMgr = storage.NewStateManager(r.ctx, r.repo, r.node, engine)
+	r.stateMgr = storage.NewStateManager(r.ctx, r.repo, r.node)
+	coordinator := storagepkg.NewCoordinator(r.engine)
+	meta.SetStorageMetaManager(coordinator)
+	// register coordinator as state watcher
+	r.stateMgr.RegisterWatcher(coordinator)
 
 	// start tcp server
 	r.startTCPServer()

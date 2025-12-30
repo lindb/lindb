@@ -26,10 +26,8 @@ import (
 
 //go:generate mockgen -source=./repository.go -destination=./repository_mock.go -package=state
 
-var (
-	// ErrNotExist represents key not exist.
-	ErrNotExist = errors.New("key not exist")
-)
+// ErrNotExist represents key not exist.
+var ErrNotExist = errors.New("key not exist")
 
 // RepositoryFactory represents the repository create factory.
 type RepositoryFactory interface {
@@ -155,7 +153,7 @@ func (f *repositoryFactory) CreateNormalRepo(repoState *config.RepoState) (Repos
 }
 
 type Transaction interface {
-	ModRevisionCmp(key, op string, v interface{})
+	ModRevisionCmp(key, op string, v any)
 	Put(key string, value []byte)
 	Delete(key string)
 }

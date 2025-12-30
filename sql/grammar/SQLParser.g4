@@ -25,6 +25,7 @@ streamingQuery      : (annotation)* dmlStatement SEMICOLON?
 ddlStatement        : createDatabase
                     | dropDatabase
                     | createBroker 
+										| createStreaming
                     ;
 
 dmlStatement        : query                                                  #statementDefault
@@ -43,6 +44,18 @@ utilityStatement    : useStatement ;
 
 explainOption       : TYPE value=(LOGICAL | DISTRIBUTED)                     #explainType
 										;                   
+
+// streaming ddl
+createStreaming     : CREATE STREAMING name=qualifiedName
+                       '(' createStreamingOptions ')'
+										;
+createStreamingOptions : createStreamingOption (',' createStreamingOption)*
+  										 ;
+
+createStreamingOption  : OBSERVER observer=identifier
+                       | DATABASE database=identifier
+                       ;
+
 
 // ddl
 createDatabase      : CREATE DATABASE name=qualifiedName databaseOptions* ;
@@ -229,8 +242,9 @@ nonReserved         :
                     | NAMESPACE | NAMESPACES | NULL | NOT | NOW
                     | ON | OR | ORDER
                     | REQUESTS | REPLICATIONS | RIGHT | ROLLUP
-                    | SELECT | SHOW | STATE | STORAGE
+                    | SELECT | SHOW | STATE | STORAGE | STREAMING 
                     | TABLE_NAMES | TIMESTAMP | TRACE | TRUE | TYPE | TYPES 
+                    | OBSERVER
                     | VALUES
                     | WHERE | WITH | WITHIN
                     | USING | USE

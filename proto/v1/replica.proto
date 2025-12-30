@@ -19,6 +19,7 @@ message GetReplicaAckIndexRequest {
   int32 shard = 2;
   int32 leader = 3;
   int64 segment_time = 4;
+  int64 current_index = 5;
 }
 
 message GetReplicaAckIndexResponse {

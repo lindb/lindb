@@ -19,6 +19,7 @@ package constants
 
 import (
 	"fmt"
+	"strings"
 )
 
 // StatePathSeparator represents the separator of state store's path.
@@ -26,10 +27,11 @@ const StatePathSeparator = "/"
 
 // defines the role type of node.
 const (
-	MasterRole  = "Master"
-	RootRole    = "Root"
-	BrokerRole  = "Broker"
-	StorageRole = "Storage"
+	MasterRole    = "Master"
+	RootRole      = "Root"
+	BrokerRole    = "Broker"
+	StorageRole   = "Storage"
+	StreamingRole = "Streaming"
 )
 
 // defines all metadata type.
@@ -69,6 +71,16 @@ const (
 	BrokerConfigPath = "/broker/config"
 )
 
+// deines streaming level constants will be used in streaming.
+const (
+	// StreamingConfigPath represents streaming cluster's config.
+	StreamingConfigPath = "/streaming/config"
+	// StreamingConsumerGroupPath represents streaming consumer group path.
+	StreamingConsumerGroupPath = "/streaming/consumer/groups"
+	// StreamingStatePath represents streaming consumer state path.
+	StreamingStatePath = "/streaming/state"
+)
+
 // GetBrokerClusterConfigPath returns path which storing config of broker cluster.
 func GetBrokerClusterConfigPath(name string) string {
 	return fmt.Sprintf("%s/%s", BrokerConfigPath, name)
@@ -102,4 +114,33 @@ func GetStorageLiveNodePath(node string) string {
 // GetLiveNodePath returns live node register path for broker/root.
 func GetLiveNodePath(node string) string {
 	return fmt.Sprintf("%s/%s", LiveNodesPath, node)
+}
+
+// GetObserverLiveNodePath returns live node register path for observer nodes.
+func GetObserverLiveNodePath(consumerGroup, node string) string {
+	return fmt.Sprintf("%s/%s/%s", StreamingConsumerGroupPath, consumerGroup, node)
+}
+
+// GetStreamingConfigPath returns path which streaming config for observer.
+func GetStreamingConfigPath(name string) string {
+	return fmt.Sprintf("%s/%s", StreamingConfigPath, name)
+}
+
+// GetStreamingStatePath returns path which storing streaming state for observer.
+func GetStreamingStatePath(name string) string {
+	return fmt.Sprintf("%s/%s", StreamingStatePath, name)
+}
+
+// ParseObserverLiveNode parses observer live node path to consumer group and node id.
+func ParseObserverLiveNode(path string) (string, string, error) {
+	if !strings.HasPrefix(path, StreamingConsumerGroupPath+"/") {
+		return "", "", fmt.Errorf("invalid observer live node path: %s", path)
+	}
+	temp := strings.TrimPrefix(path, StreamingConsumerGroupPath+"/")
+	strs := strings.Split(temp, "/")
+	if len(strs) != 2 || strs[0] == "" || strs[1] == "" {
+		return "", "", fmt.Errorf("invalid observer live node path: %s", path)
+	}
+
+	return strs[0], strs[1], nil
 }

@@ -25,7 +25,7 @@ import (
 	"github.com/lindb/lindb/sql/execution/operator"
 	"github.com/lindb/lindb/sql/expression"
 	"github.com/lindb/lindb/sql/planner/plan"
-	"github.com/lindb/lindb/streaming/stream/input"
+	"github.com/lindb/lindb/streaming/cep/stream/input"
 )
 
 type InsertOperator struct {

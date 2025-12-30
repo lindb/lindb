@@ -31,6 +31,12 @@ const (
 	BrokerConfigChanged
 	BrokerConfigDeletion
 	DatabaseLimitsChanged
+	ObserverNodeStartup
+	ObserverNodeFailure
+	StreamingConfigChanged
+	StreamingConfigDeletion
+	StreamingStateChanged
+	StreamingStateDeletion
 )
 
 // String returns string value of EventType.
@@ -56,6 +62,18 @@ func (e EventType) String() string {
 		return "BrokerConfigDeletion"
 	case DatabaseLimitsChanged:
 		return "DatabaseLimitsChanged"
+	case ObserverNodeStartup:
+		return "ObserverNodeStartup"
+	case ObserverNodeFailure:
+		return "ObserverNodeFailure"
+	case StreamingConfigChanged:
+		return "StreamingConfigChanged"
+	case StreamingConfigDeletion:
+		return "StreamingConfigDeletion"
+	case StreamingStateChanged:
+		return "StreamingStateChanged"
+	case StreamingStateDeletion:
+		return "StreamingStateDeletion"
 	default:
 		return "unknown"
 	}
