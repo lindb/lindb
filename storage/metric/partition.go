@@ -27,7 +27,6 @@ import (
 	"github.com/lindb/common/pkg/fileutil"
 
 	"github.com/lindb/lindb/kv"
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/storage/base"
 	"github.com/lindb/lindb/storage/store"
@@ -98,12 +97,6 @@ func NewPartition(shard *Shard, partitionTime int64, interval timeutil.Interval)
 	}
 
 	return p, nil
-}
-
-func (p *partition) Consume(streaming string, consume models.NodeID) {
-	for _, segment := range p.segments {
-		segment.Consume(streaming, consume)
-	}
 }
 
 // Close implements store.Partition.

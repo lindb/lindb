@@ -50,15 +50,6 @@ type Segment struct {
 	mutex sync.Mutex
 }
 
-func (s *Segment) Consume(streaming string, consume models.NodeID) {
-	// just consume current node's wal(leader)
-	wal, ok := s.WALs[meta.CurrentNode()]
-	if !ok {
-		return
-	}
-	wal.Consume(streaming, consume)
-}
-
 func (s *Segment) LoadWALs() error {
 	if !fileutil.Exist(s.Path) {
 		return nil
@@ -98,6 +89,13 @@ func (s *Segment) GetOrCreateWAL(leader models.NodeID) (store.WriteAheadLog, err
 	}
 
 	s.WALs[leader] = log
+
+	if leader == meta.CurrentNode() {
+		// subscribe storage meta change events, if node is leader.
+		// only leader node do replica or observe.
+		// unsubscribe when write ahead log closed.
+		meta.GetStorageMetaManager().Subscribe(log)
+	}
 
 	return log, nil
 }

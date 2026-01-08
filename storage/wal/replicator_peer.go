@@ -46,7 +46,7 @@ func NewReplicatorPeer(replicator store.Replicator) store.ReplicatorPeer {
 func (r *replicatorPeer) Startup() {
 	if r.running.CompareAndSwap(false, true) {
 		go func() {
-			replicatorLabels := pprof.Labels("type", r.runner.replicatorType,
+			replicatorLabels := pprof.Labels("type", string(r.runner.replicatorType),
 				"replicator", r.runner.replicator.String())
 			pprof.Do(context.Background(), replicatorLabels, r.runner.replicaLoop)
 		}()
@@ -60,9 +60,14 @@ func (r *replicatorPeer) Shutdown() {
 	}
 }
 
+// Replicator returns the underlying replicator.
+func (r *replicatorPeer) Replicator() store.Replicator {
+	return r.runner.replicator
+}
+
 // ReplicatorState returns the state and type of the replicator.
 func (r *replicatorPeer) ReplicatorState() (string, *store.ReplicatorState) {
-	return r.runner.replicatorType, r.runner.replicator.State()
+	return string(r.runner.replicatorType), r.runner.replicator.State()
 }
 
 type replicatorRunner struct {
@@ -70,7 +75,7 @@ type replicatorRunner struct {
 	cannel         context.CancelFunc
 	running        *atomic.Bool
 	lastPending    *atomic.Int64
-	replicatorType string
+	replicatorType store.ReplicatorType
 	replicator     store.Replicator
 
 	closed chan struct{}
@@ -80,10 +85,7 @@ type replicatorRunner struct {
 }
 
 func newReplicatorRunner(replicator store.Replicator) *replicatorRunner {
-	replicaType := "local"
-	if _, ok := replicator.(*remoteReplicator); ok {
-		replicaType = "remote"
-	}
+	replicaType := replicator.Type()
 	ctx, cancel := context.WithCancel(context.Background())
 	state := replicator.ReplicaState()
 	r := &replicatorRunner{
@@ -94,7 +96,7 @@ func newReplicatorRunner(replicator store.Replicator) *replicatorRunner {
 		replicatorType: replicaType,
 		running:        atomic.NewBool(false),
 		closed:         make(chan struct{}),
-		statistics:     metrics.NewStorageReplicatorRunnerStatistics(replicaType, state.Database, state.ShardID.String()),
+		statistics:     metrics.NewStorageReplicatorRunnerStatistics(string(replicaType), state.Database, state.ShardID.String()),
 		logger:         logger.GetLogger("Replica", "ReplicatorRunner"),
 	}
 	// set replica lag callback
@@ -150,7 +152,7 @@ func (r *replicatorRunner) replica(_ context.Context) {
 		seq := r.replicator.Consume()
 		if seq >= 0 {
 			r.logger.Debug("replica write ahead log",
-				logger.String("type", r.replicatorType),
+				logger.String("type", string(r.replicatorType)),
 				logger.String("replicator", r.replicator.String()),
 				logger.Int64("index", seq))
 			data, err := r.replicator.GetMessage(seq)

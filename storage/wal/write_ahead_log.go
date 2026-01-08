@@ -50,7 +50,6 @@ type writeAheadLog struct {
 func NewWriteAheadLog(path string, segment store.Segment) (store.WriteAheadLog, error) {
 	// TODO: database level???
 	pageSize := config.GlobalStorageConfig().WAL.PageSize
-	fmt.Printf("wal page=%s\n", path)
 	data, err := queue.NewFanOutQueue(path, int64(pageSize))
 	if err != nil {
 		return nil, err
@@ -62,6 +61,28 @@ func NewWriteAheadLog(path string, segment store.Segment) (store.WriteAheadLog, 
 		streamings: make(map[string]store.ReplicatorPeer),
 		logger:     logger.GetLogger("WAL", "WriteAheadLog"),
 	}, nil
+}
+
+// Database implements [store.WriteAheadLog].
+func (w *writeAheadLog) Database() string {
+	return w.segment.Partition().Shard().Database().Name()
+}
+
+// Segment implements [store.WriteAheadLog].
+func (w *writeAheadLog) SegmentTime() int64 {
+	return w.segment.SegmentTimeRange().Start
+}
+
+// Shard implements [store.WriteAheadLog].
+func (w *writeAheadLog) Shard() models.ShardID {
+	return w.segment.Partition().Shard().ShardID()
+}
+
+func (w *writeAheadLog) Receive(event meta.Event) {
+	switch stateEvent := event.(type) {
+	case *store.ConsumerStateChange:
+		w.Consume(stateEvent.Streaming, stateEvent.ConsumerID)
+	}
 }
 
 func (w *writeAheadLog) Replica(replicaIndex int64, msg []byte) (int64, error) {
@@ -113,8 +134,9 @@ func (w *writeAheadLog) Consume(streaming string, consume models.NodeID) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
-	if _, ok := w.streamings[streaming]; ok {
-		// exist
+	peer, ok := w.streamings[streaming]
+	if ok {
+		peer.Replicator().Resume()
 		return
 	}
 	walConsumer, err := w.data.GetOrCreateConsumerGroup(streaming)
@@ -143,7 +165,7 @@ func (w *writeAheadLog) Consume(streaming string, consume models.NodeID) {
 	replicator = NewRemoteReplicator(context.TODO(), store.ReplicatorTypeObserve, &channel)
 
 	// startup replicator peer
-	peer := NewReplicatorPeer(replicator)
+	peer = NewReplicatorPeer(replicator)
 	w.streamings[streaming] = peer
 	peer.Startup()
 }

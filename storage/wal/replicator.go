@@ -46,6 +46,10 @@ func (r *replicator) IsReady() bool {
 	return true
 }
 
+// Resume resumes paused/suspend replicator.
+func (r *replicator) Resume() {
+}
+
 // Pause paused replica data.
 func (r *replicator) Pause() {
 	r.channel.ConsumerGroup.Pause()

@@ -15,26 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package meta
+package store
 
-import (
-	"github.com/lindb/lindb/models"
-	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
-)
+import "github.com/lindb/lindb/models"
 
-var manager StorageMetaManager
-
-func SetStorageMetaManager(m StorageMetaManager) {
-	manager = m
-}
-
-func GetStorageMetaManager() StorageMetaManager {
-	return manager
-}
-
-type StorageMetaManager interface {
-	Watcher
-
-	GetLiveNode(name string, nodeID models.NodeID) (models.Node, bool)
-	CreateReplicaServiceClient(target models.Node) (protoReplicaV1.ReplicaServiceClient, error)
+type ConsumerStateChange struct {
+	Streaming  string
+	ConsumerID models.NodeID
 }

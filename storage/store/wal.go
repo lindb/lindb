@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/lindb/lindb/meta"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/queue"
 )
@@ -40,6 +41,7 @@ const (
 
 type WriteAheadLog interface {
 	io.Closer
+	meta.Subscriber
 
 	Get(index int64) ([]byte, error)
 	Write(msg []byte) error
@@ -55,8 +57,6 @@ type WriteAheadLog interface {
 	BuildReplicaForLeader(leader models.NodeID, replicas []models.NodeID) error
 	// BuildReplicaForFollower builds replica relation when handle replica connection.
 	BuildReplicaForFollower(leader models.NodeID, replica models.NodeID) error
-
-	Consume(streaming string, consume models.NodeID)
 }
 
 // ReplicatorState represents the state of replicator.
@@ -68,10 +68,13 @@ type ReplicatorState struct {
 // Replicator represents write ahead log replicator.
 type Replicator interface {
 	fmt.Stringer
+	Type() ReplicatorType
 	// ReplicaState returns the replica state.
 	ReplicaState() *models.ReplicaState
 	// State returns the state of replicator.
 	State() *ReplicatorState
+	// Resume resumes paused/suspend replicator.
+	Resume()
 	// Pause paused replica data.
 	Pause()
 	// Consume returns the index of message replica.
@@ -114,6 +117,8 @@ type ReplicatorPeer interface {
 	Shutdown()
 	// ReplicatorState returns the state and type of the replicator.
 	ReplicatorState() (string, *ReplicatorState)
+	// Replicator returns the underlying replicator.
+	Replicator() Replicator
 }
 
 // ReplicatorChannel represents channel peer[from,to] for the shard of database.

@@ -70,6 +70,10 @@ func NewLocalReplicator(channel *store.ReplicatorChannel, segment store.Segment)
 	return lr
 }
 
+func (r *localReplicator) Type() store.ReplicatorType {
+	return store.ReplicatorTypeLocal
+}
+
 // State returns the state of local replicator, it's always ready.
 func (r *localReplicator) State() *store.ReplicatorState {
 	return &store.ReplicatorState{State: models.ReplicatorReadyState}

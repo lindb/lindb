@@ -34,6 +34,4 @@ type Shard interface {
 	GetOrCreatePartition(timestamp int64) (Partition, error)
 
 	GetPartitions(interval timeutil.Interval, timeRange timeutil.TimeRange) []Partition
-
-	Consume(streaming string, consumer models.NodeID)
 }

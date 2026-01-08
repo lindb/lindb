@@ -104,6 +104,7 @@ type runtime struct {
 	jobScheduler        kv.JobScheduler
 	repoFactory         state.RepositoryFactory
 	stateMgr            storage.StateManager
+	watcher             meta.Watcher
 	dbLifecycle         DatabaseLifecycle
 	repo                state.Repository
 	server              rpc.GRPCServer
@@ -220,6 +221,7 @@ func (r *runtime) Run() error {
 	r.stateMgr = storage.NewStateManager(r.ctx, r.repo, r.node)
 	coordinator := storagepkg.NewCoordinator(r.engine)
 	meta.SetStorageMetaManager(coordinator)
+	r.watcher = coordinator
 	// register coordinator as state watcher
 	r.stateMgr.RegisterWatcher(coordinator)
 
@@ -351,6 +353,9 @@ func (r *runtime) Stop() {
 
 	if r.stateMgr != nil {
 		r.stateMgr.Close()
+	}
+	if r.watcher != nil {
+		r.watcher.Close()
 	}
 
 	if r.httpServer != nil {

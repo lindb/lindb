@@ -24,7 +24,6 @@ import (
 	"github.com/lindb/common/pkg/fileutil"
 	"github.com/samber/lo"
 
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
 
@@ -40,8 +39,6 @@ type Partition interface {
 	GetOrCreateSegment(timestamp int64) (Segment, error)
 
 	GetSegments(timeRange timeutil.TimeRange) []Segment
-
-	Consume(streaming string, consumer models.NodeID)
 }
 
 type Partitions struct {

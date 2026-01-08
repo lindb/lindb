@@ -17,8 +17,20 @@
 
 package meta
 
+import "github.com/lindb/lindb/models"
+
 type Event any
 
 type Watcher interface {
 	OnEvent(event Event)
+	Subscribe(sub Subscriber)
+	Unsubscribe(sub Subscriber)
+	Close()
+}
+
+type Subscriber interface {
+	Database() string
+	Shard() models.ShardID
+	SegmentTime() int64
+	Receive(event Event)
 }

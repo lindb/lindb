@@ -71,11 +71,12 @@ func NewRemoteReplicator(
 	}
 	r.state.Store(&store.ReplicatorState{State: models.ReplicatorInitState, ErrMsg: "replicator initialized"})
 
-	// watch follower node state change
-	// stateMgr.WatchNodeStateChangeEvent(channel.State.Follower, r.handleNodeStateChangeEvent)
-
 	r.logger.Info("start remote replicator", logger.String("replica", r.String()))
 	return r
+}
+
+func (r *remoteReplicator) Type() store.ReplicatorType {
+	return r.replicatorType
 }
 
 // State returns the state of remote replicator.
@@ -83,13 +84,11 @@ func (r *remoteReplicator) State() *store.ReplicatorState {
 	return r.state.Load().(*store.ReplicatorState)
 }
 
-// FIXME:
-func (r *remoteReplicator) handleNodeStateChangeEvent(state models.NodeStateType) {
-	if state == models.NodeOnline {
-		if r.isSuspend.CompareAndSwap(true, false) {
-			r.logger.Info("notify replicator follower node is online", logger.String("replicator", r.String()))
-			r.suspend <- struct{}{} // notify follower node online
-		}
+// Resume resumes paused/suspend replicator.
+func (r *remoteReplicator) Resume() {
+	if r.isSuspend.CompareAndSwap(true, false) {
+		r.logger.Info("notify replicator follower node is online", logger.String("replicator", r.String()))
+		r.suspend <- struct{}{} // notify follower/observer node online
 	}
 }
 
