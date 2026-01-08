@@ -20,9 +20,9 @@ package streaming
 import (
 	"fmt"
 
-	"github.com/lindb/common/pkg/encoding"
-
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/streaming/cep"
+	"github.com/lindb/lindb/streaming/cep/stream/output"
 	"github.com/lindb/lindb/streaming/transfer"
 )
 
@@ -32,10 +32,13 @@ type DataSource interface {
 	Produce(data []byte)
 }
 
+type Result struct{}
+
 type dataSource struct {
 	db models.Database
 
 	transfer transfer.Transfer
+	runtime  cep.Runtime
 }
 
 func NewDataSource(db models.Database) DataSource {
@@ -46,6 +49,28 @@ func NewDataSource(db models.Database) DataSource {
 
 func (d *dataSource) Initialize() {
 	d.transfer = transfer.GetTransfer(d.db.Option.Engine)
+
+	schema := d.transfer.Schema()
+	if schema != nil {
+		runtime := cep.NewRuntime(d.db.Name)
+		runtime.RegisterStreamBySchema("span", schema)
+		runtime.RegisterStreamByType(Result{})
+		// add result listener
+		runtime.AddListener("Result", output.NewConsoleOutput())
+		// add streaming query
+		err := runtime.Query(`
+	@app(name="test_app")
+	@name(name="count_rpc",@header(user="test_user",pwd="pwd"))
+	insert into Result
+	select name,kind,status,count(1) as qps
+	from span 
+	group by name,kind,status;
+		`)
+		fmt.Println(err)
+		if err == nil {
+			d.runtime = runtime
+		}
+	}
 }
 
 func (d *dataSource) Name() string {
@@ -57,5 +82,9 @@ func (d *dataSource) Produce(data []byte) {
 	if err != nil {
 		fmt.Println("produce trace data error:", err)
 	}
-	fmt.Println("produce trace data:", string(encoding.JSONMarshal(page)))
+	if page != nil && d.runtime != nil {
+		inputHandler := d.runtime.GetInputHandler("span")
+		inputHandler.Send(page)
+		fmt.Println("send span")
+	}
 }

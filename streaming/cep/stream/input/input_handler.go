@@ -35,7 +35,7 @@ func (h *inputHandler) Subscribe(receiver Receiver) {
 }
 
 func (h *inputHandler) Send(event any) {
-	// fmt.Printf("current:%v, send event:%v\n", h, event)
+	// fmt.Printf("current:%v,receivers=%d, send event:%v\n", h, len(h.receivers), event)
 	for _, r := range h.receivers {
 		r.Receive(event)
 	}

@@ -128,8 +128,9 @@ func (p *LogicalPlanner) createInsertPlan(statement *tree.Insert) *RelationPlan 
 	return &RelationPlan{
 		Scope: p.context.AnalyzerContext.Analysis.GetScope(statement),
 		Root: &planpkg.InsertNode{
-			Table:  insert.Table,
-			Source: project,
+			Database: p.context.Database,
+			Table:    insert.Table,
+			Source:   project,
 		},
 	}
 }

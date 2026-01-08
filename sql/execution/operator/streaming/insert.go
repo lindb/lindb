@@ -49,10 +49,10 @@ func NewInsertOperator(ctx context.Context, insert *plan.InsertNode, child opera
 func (op *InsertOperator) Run(ctx context.Context, output chan<- *types.Page) {
 	streamName := op.insert.Table.Name.Name
 	// FIXME: get app from context
-	inputHandle := input.GetManager().GetInputHandler("test", streamName)
+	inputHandle := input.GetManager().GetInputHandler(op.insert.Database, streamName)
 	for {
 		page, ok := op.inbound.Consume(ctx)
-		fmt.Printf("insert...%v=>%v", ok, page)
+		fmt.Printf("insert db=%s,table=%s...%v=>%v\n", op.insert.Database, streamName, ok, page)
 		if !ok {
 			break
 		}

@@ -18,8 +18,6 @@
 package aggregation
 
 import (
-	"fmt"
-
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 )
@@ -41,7 +39,7 @@ func (c *countAgg) Enter(row types.Row) {
 }
 
 func (c *countAgg) Flush(column *types.Column) {
-	fmt.Printf("flush count value=%v\n", c.value)
+	// fmt.Printf("flush count value=%v\n", c.value)
 	column.AppendInt(c.value)
 
 	// need reset value after flush

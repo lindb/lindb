@@ -65,6 +65,7 @@ type StreamManager interface {
 	spi.MetadataManager
 
 	RegisterStreamByType(event any) error
+	RegisterStreamBySchema(name string, schema *types.TableSchema) error
 }
 
 type streamManager struct {
@@ -77,6 +78,14 @@ func newStreamManager() StreamManager {
 	return &streamManager{
 		streams: make(map[string]*types.TableSchema),
 	}
+}
+
+func (mgr *streamManager) RegisterStreamBySchema(name string, schema *types.TableSchema) error {
+	mgr.mutex.Lock()
+	defer mgr.mutex.Unlock()
+
+	mgr.streams[name] = schema
+	return nil
 }
 
 func (mgr *streamManager) RegisterStreamByType(event any) error {

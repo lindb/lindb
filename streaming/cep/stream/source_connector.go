@@ -45,18 +45,25 @@ func (s *sourceConnectorProvider) CreateSourceConnector(ctx context.Context,
 	fmt.Printf("create log source connector,table=%v,partitions=%v,predicate=%v\n", outputColumns, assignments, predicate)
 
 	tableHandle := table.(*TableHandle)
-	inputHandle := input.GetManager().GetInputHandler(tableHandle.App, tableHandle.Stream)
+	schema, err := GetManager().GetStreamManager(tableHandle.App).GetTableMetadata(tableHandle.App, "", tableHandle.Stream)
+	if err != nil {
+		panic(err)
+	}
 
 	connector := &sourceConnector{
 		ctx: ctx,
 
+		schema:        schema.Schema,
 		predicate:     predicate,
 		outputColumns: outputColumns,
 
 		inbound: operator.NewQueue(make(chan *types.Page, 256)),
 	}
+	connector.initialize()
 
+	inputHandle := input.GetManager().GetInputHandler(tableHandle.App, tableHandle.Stream)
 	inputHandle.Subscribe(connector)
+
 	fmt.Println("create streaming connector .....")
 	return connector
 }
@@ -64,14 +71,32 @@ func (s *sourceConnectorProvider) CreateSourceConnector(ctx context.Context,
 type sourceConnector struct {
 	ctx context.Context
 
+	schema        *types.TableSchema
 	predicate     tree.Expression
 	outputColumns []types.ColumnMetadata
 
 	inbound *operator.Queue // TODO: queue need close
 }
 
+func (sc *sourceConnector) initialize() {
+	index := 0
+	columnMap := lo.Associate(sc.schema.Columns, func(item types.ColumnMetadata) (string, int) {
+		i := index
+		index++
+		return item.Name, i
+	})
+	for i := range sc.outputColumns {
+		colMeta := &sc.outputColumns[i]
+		colIndex, ok := columnMap[colMeta.Name]
+		if !ok {
+			colMeta.Ref = -1
+			continue
+		}
+		colMeta.Ref = colIndex
+	}
+}
+
 func (sc *sourceConnector) Receive(event any) {
-	// fmt.Printf("stream h connector receiver, receive event:%v\n", event)
 	if page, ok := event.(*types.Page); ok {
 		sc.inbound.Produce(page)
 	}
@@ -86,7 +111,23 @@ func (sc *sourceConnector) Run(output chan<- *types.Page) {
 		}
 		if sc.predicate == nil {
 			// no filter, send page to next operator
-			output <- source
+
+			newPage := types.NewPage()
+			newPage.Layout = sc.outputColumns
+			newPage.Columns = lo.Map(sc.outputColumns, func(item types.ColumnMetadata, index int) *types.Column {
+				return types.NewColumn()
+			})
+
+			it := source.Iterator()
+			for row := it.Begin(); row != it.End(); row = it.Next() {
+				for i, column := range newPage.Columns {
+					ref := sc.outputColumns[i].Ref
+					if ref > 0 {
+						column.Append(row.Get(ref))
+					}
+				}
+			}
+			output <- newPage
 			continue
 		}
 		// do filter based on predicate
@@ -98,6 +139,7 @@ func (sc *sourceConnector) Run(output chan<- *types.Page) {
 			})
 			// create predicate visitor if nil
 			v = &visitor{
+				sc:          sc,
 				columns:     columns,
 				evalContext: expression.NewEvalContext(sc.ctx),
 			}
@@ -113,6 +155,7 @@ func (sc *sourceConnector) Run(output chan<- *types.Page) {
 }
 
 type visitor struct {
+	sc          *sourceConnector
 	columns     map[string]types.ColumnMetadata // column name -> column(include column ref(index))
 	evalContext expression.EvalContext
 
@@ -179,7 +222,7 @@ func (v *visitor) filter(page *types.Page) *types.Page {
 	for row := it.Begin(); row != it.End(); row = it.Next() {
 		if v.check(row) {
 			for i, column := range newPage.Columns {
-				column.Append(row.Get(i))
+				column.Append(row.Get(v.sc.outputColumns[i].Ref))
 			}
 		}
 	}

@@ -107,7 +107,7 @@ func (op *ProjectionOperator) Run(ctx context.Context, output chan<- *types.Page
 		}
 
 		// if rowNum > 0 {
-		// fmt.Println("do projection op end....")
+		// fmt.Println("do projection op end....", newPage.NumRows())
 		output <- newPage
 
 		// 	rowNum = 0
@@ -120,7 +120,7 @@ func (op *ProjectionOperator) Run(ctx context.Context, output chan<- *types.Page
 		// }
 	}
 
-	fmt.Println("do projection op end....")
+	// fmt.Println("do projection op end....")
 	// output <- newPage
 }
 

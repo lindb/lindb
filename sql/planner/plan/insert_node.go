@@ -22,9 +22,10 @@ import "github.com/lindb/lindb/sql/tree"
 type InsertNode struct {
 	BaseNode
 
-	Source PlanNode `json:"source"`
+	Database string
+	Table    *tree.Table
 
-	Table *tree.Table
+	Source PlanNode
 }
 
 func (n *InsertNode) Accept(context any, visitor Visitor) any {
@@ -44,7 +45,8 @@ func (n *InsertNode) ReplaceChildren(newChildren []PlanNode) PlanNode {
 		BaseNode: BaseNode{
 			ID: n.GetNodeID(),
 		},
-		Source: newChildren[0],
-		Table:  n.Table,
+		Source:   newChildren[0],
+		Database: n.Database,
+		Table:    n.Table,
 	}
 }

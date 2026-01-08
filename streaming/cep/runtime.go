@@ -24,6 +24,7 @@ import (
 	"github.com/lindb/common/pkg/encoding"
 
 	"github.com/lindb/lindb/spi"
+	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/analyzer"
 	"github.com/lindb/lindb/sql/execution"
 	"github.com/lindb/lindb/sql/execution/model"
@@ -42,6 +43,10 @@ func init() {
 type Runtime interface {
 	AddEventType(eventType any)
 	Query(sql string) error
+	RegisterStreamByType(eventType any) error
+	RegisterStreamBySchema(name string, schema *types.TableSchema) error
+	AddListener(stream string, listener output.Listener)
+	GetInputHandler(stream string) input.InputHandler
 	Startup()
 	Shutdown()
 }
@@ -50,7 +55,22 @@ type runtime struct {
 	database string
 }
 
-func NewRuntime(database string) *runtime {
+// AddEventType implements [Runtime].
+func (r *runtime) AddEventType(eventType any) {
+	panic("unimplemented")
+}
+
+// Shutdown implements [Runtime].
+func (r *runtime) Shutdown() {
+	panic("unimplemented")
+}
+
+// Startup implements [Runtime].
+func (r *runtime) Startup() {
+	panic("unimplemented")
+}
+
+func NewRuntime(database string) Runtime {
 	return &runtime{
 		database: database,
 	}
@@ -60,12 +80,16 @@ func (r *runtime) RegisterStreamByType(eventType any) error {
 	return stream.GetManager().GetStreamManager(r.database).RegisterStreamByType(eventType)
 }
 
+func (r *runtime) RegisterStreamBySchema(name string, schema *types.TableSchema) error {
+	return stream.GetManager().GetStreamManager(r.database).RegisterStreamBySchema(name, schema)
+}
+
 func (r *runtime) AddListener(stream string, listener output.Listener) {
 	r.GetInputHandler(stream).Subscribe(listener)
 }
 
 func (r *runtime) GetInputHandler(stream string) input.InputHandler {
-	return input.GetManager().GetInputHandler("test", stream)
+	return input.GetManager().GetInputHandler(r.database, stream)
 }
 
 func (r *runtime) Query(sql string) error {

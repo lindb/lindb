@@ -32,7 +32,7 @@ type metric struct{}
 
 // Schema implements [Transfer].
 func (m *metric) Schema() *types.TableSchema {
-	panic("unimplemented")
+	return nil
 }
 
 // ToPage implements [Transfer].

@@ -32,7 +32,7 @@ type log struct{}
 
 // Schema implements [Transfer].
 func (l *log) Schema() *types.TableSchema {
-	panic("unimplemented")
+	return nil
 }
 
 // ToPage implements [Transfer].
