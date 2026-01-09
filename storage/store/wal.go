@@ -68,6 +68,7 @@ type ReplicatorState struct {
 // Replicator represents write ahead log replicator.
 type Replicator interface {
 	fmt.Stringer
+	// Type returns the replicator type.
 	Type() ReplicatorType
 	// ReplicaState returns the replica state.
 	ReplicaState() *models.ReplicaState

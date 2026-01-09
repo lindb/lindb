@@ -50,9 +50,11 @@ type ColumnMetadata struct {
 	Ref      int           `json:"-"`
 }
 
-func NewColumnInfo(name string, vt DataType) ColumnMetadata {
+func NewColumnInfo(name string, vt DataType, hidden bool, aggType AggregateType) ColumnMetadata {
 	return ColumnMetadata{
 		Name:     name,
 		DataType: vt,
+		Hidden:   hidden,
+		AggType:  aggType,
 	}
 }

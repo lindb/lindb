@@ -30,27 +30,15 @@ import (
 // directory tree for database[xx]:
 //
 //	xx/OPTIONS => config file
-//	xx/meta/namespace => namespace metadata
-//	xx/meta/metric => metrics' name metadata
-//	xx/meta/field => metrics' field metadata
-//	xx/meta/tagkey => metrics' tag key metadata
-//	xx/meta/tagvalue => metrics' tag value metadata
 //	xx/shard/1/(path)
-//	xx/shard/1/buffer/123213123131 // time of ns
 //	xx/shard/1/index
 //	xx/shard/1/partition/day/20191012/
 //	xx/shard/1/partition/month/201910/
 const (
-	options          = "OPTIONS"
-	shardDir         = "shard"
-	metaDir          = "meta"
-	tagValueMetaDir  = "tagvalue"
-	tagValueDir      = "tag_value"
-	indexParentDir   = "index"
-	forwardIndexDir  = "forward"
-	invertedIndexDir = "inverted"
-	bufferDir        = "buffer"
-	limits           = "limits.toml"
+	shardDir       = "shard"
+	metaDir        = "meta"
+	indexParentDir = "index"
+	bufferDir      = "buffer"
 )
 
 // metricsMetaPath returns metrics' metadata storage path.

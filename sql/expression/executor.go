@@ -59,10 +59,10 @@ func (r *rewriter) rewrite(node tree.Expression) Expression {
 		return NewConstant(expr.Value, expr.Type)
 	case *tree.SymbolReference:
 		// FIXME: add check,index not found
-		fmt.Printf("expr rewrite %v,%v\n", r.ctx.SourceLayout, expr.Name)
-		_, index, _ := lo.FindIndexOf(r.ctx.SourceLayout, func(item *plan.Symbol) bool {
+		_, index, ok := lo.FindIndexOf(r.ctx.SourceLayout, func(item *plan.Symbol) bool {
 			return item.Name == expr.Name
 		})
+		fmt.Printf("expr rewrite %v,%v,%v,%v\n", r.ctx.SourceLayout, expr.Name, ok, index)
 		return NewColumn(expr.Name, index, expr.DataType)
 	case *tree.Cast:
 		return NewCast(expr.Type, r.rewrite(expr.Expression))

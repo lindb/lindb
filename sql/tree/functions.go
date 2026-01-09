@@ -63,6 +63,10 @@ func GetStreamingFuncReturnType(name FuncName) types.DataType {
 	return streamingFuncReturnTypes[name]
 }
 
+func GetDefaultFuncAggType(name FuncName) types.AggregateType {
+	return defaultFuncAggTypes[name]
+}
+
 var defaultFuncReturnTypes = map[FuncName]types.DataType{
 	DateAdd:   types.DTTimestamp,
 	Now:       types.DTTimestamp,
@@ -76,13 +80,23 @@ var streamingFuncReturnTypes = map[FuncName]types.DataType{
 	Count: types.DTInt,
 }
 
+var defaultFuncAggTypes = map[FuncName]types.AggregateType{
+	Count: types.ATSum,
+	Sum:   types.ATSum,
+	Min:   types.ATMin,
+	Max:   types.ATMax,
+	First: types.ATFirst,
+	Last:  types.ATLast,
+}
+
 func init() {
 	streamingFuncReturnTypes = lo.Assign(defaultFuncReturnTypes, streamingFuncReturnTypes)
 }
 
 // IsAggFunc returns if given function name is an aggregation function.
 func IsAggFunc(name FuncName) bool {
-	return name == Sum || name == Min || name == Max || name == First || name == Last || name == Count
+	_, ok := defaultFuncAggTypes[name]
+	return ok
 }
 
 // IsFuncSupported checks if given function name is supported.

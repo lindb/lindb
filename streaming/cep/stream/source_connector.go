@@ -64,7 +64,7 @@ func (s *sourceConnectorProvider) CreateSourceConnector(ctx context.Context,
 	inputHandle := input.GetManager().GetInputHandler(tableHandle.App, tableHandle.Stream)
 	inputHandle.Subscribe(connector)
 
-	fmt.Println("create streaming connector .....")
+	fmt.Printf("create streaming connector .....%+v====>%+v\n", schema.Schema, connector.outputColumns)
 	return connector
 }
 
@@ -112,20 +112,11 @@ func (sc *sourceConnector) Run(output chan<- *types.Page) {
 		if sc.predicate == nil {
 			// no filter, send page to next operator
 
-			newPage := types.NewPage()
-			newPage.Layout = sc.outputColumns
-			newPage.Columns = lo.Map(sc.outputColumns, func(item types.ColumnMetadata, index int) *types.Column {
-				return types.NewColumn()
-			})
+			newPage := sc.createPage()
 
 			it := source.Iterator()
 			for row := it.Begin(); row != it.End(); row = it.Next() {
-				for i, column := range newPage.Columns {
-					ref := sc.outputColumns[i].Ref
-					if ref > 0 {
-						column.Append(row.Get(ref))
-					}
-				}
+				sc.setPageValues(newPage, row)
 			}
 			output <- newPage
 			continue
@@ -150,6 +141,24 @@ func (sc *sourceConnector) Run(output chan<- *types.Page) {
 		page := v.filter(source)
 		if page != nil {
 			output <- page
+		}
+	}
+}
+
+func (sc *sourceConnector) createPage() *types.Page {
+	newPage := types.NewPage()
+	newPage.Layout = sc.outputColumns
+	newPage.Columns = lo.Map(sc.outputColumns, func(item types.ColumnMetadata, index int) *types.Column {
+		return types.NewColumn()
+	})
+	return newPage
+}
+
+func (sc *sourceConnector) setPageValues(page *types.Page, row types.Row) {
+	for i, column := range page.Columns {
+		ref := sc.outputColumns[i].Ref
+		if ref >= 0 {
+			column.Append(row.Get(ref))
 		}
 	}
 }
@@ -212,18 +221,12 @@ func (v *visitor) rewrite(n tree.Expression) Expr {
 }
 
 func (v *visitor) filter(page *types.Page) *types.Page {
-	newPage := types.NewPage()
-	newPage.Layout = page.Layout
-	newPage.Columns = lo.Map(page.Columns, func(item *types.Column, index int) *types.Column {
-		return types.NewColumn()
-	})
+	newPage := v.sc.createPage()
 
 	it := page.Iterator()
 	for row := it.Begin(); row != it.End(); row = it.Next() {
 		if v.check(row) {
-			for i, column := range newPage.Columns {
-				column.Append(row.Get(v.sc.outputColumns[i].Ref))
-			}
+			v.sc.setPageValues(newPage, row)
 		}
 	}
 

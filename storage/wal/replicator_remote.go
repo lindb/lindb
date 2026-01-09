@@ -75,6 +75,7 @@ func NewRemoteReplicator(
 	return r
 }
 
+// Type returns the replicator type.
 func (r *remoteReplicator) Type() store.ReplicatorType {
 	return r.replicatorType
 }

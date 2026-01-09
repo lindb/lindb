@@ -124,7 +124,9 @@ func (h *HashJoinOperator) Run(ctx context.Context, output chan<- *types.Page) {
 	outputColumns := make([]*types.Column, len(outputs))
 	for i, output := range outputs {
 		outputColumns[i] = types.NewColumn()
-		newPage.AppendColumn(types.NewColumnInfo(output.Name, output.DataType), outputColumns[i])
+		newPage.AppendColumn(
+			types.NewColumnInfo(output.Name, output.DataType, output.Hidden, output.AggType),
+			outputColumns[i])
 	}
 
 	for key, memRows := range h.memTable {

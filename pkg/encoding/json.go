@@ -29,7 +29,7 @@ var nodeTypes = make(map[string]reflect.Type)
 
 func RegisterNodeType(node any) {
 	nodeType := reflect.TypeOf(node)
-	if nodeType.Kind() == reflect.Ptr {
+	if nodeType.Kind() == reflect.Pointer {
 		nodeType = nodeType.Elem()
 	}
 	nodeTypes[nodeType.String()] = nodeType

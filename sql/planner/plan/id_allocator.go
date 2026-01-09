@@ -64,12 +64,14 @@ func (a *SymbolAllocator) FromExpression(expression tree.Expression, dataType ty
 	fmt.Printf("new symbol=%T=>%s\n", expression, dataType)
 	nameHint := "expr"
 	var hidden bool
+	var aggregateType types.AggregateType
 	switch expr := expression.(type) {
 	case *tree.Identifier:
 		nameHint = expr.Value
 	case *tree.SymbolReference:
 		nameHint = expr.Name
 		hidden = expr.Hidden
+		aggregateType = expr.AggType
 	case *tree.FunctionCall:
 		if expr.RefField != nil {
 			// FIXME: func call,not use ref field name
@@ -78,8 +80,11 @@ func (a *SymbolAllocator) FromExpression(expression tree.Expression, dataType ty
 		} else {
 			nameHint = string(expr.Name)
 		}
+
+		aggregateType = expr.AggType
 	}
 	symbol := a.NewSymbol(nameHint, dataType, hidden)
+	symbol.AggType = aggregateType
 	a.mapping[expression.GetID()] = symbol
 	return symbol
 }

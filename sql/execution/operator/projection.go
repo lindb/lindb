@@ -62,12 +62,14 @@ func (op *ProjectionOperator) Run(ctx context.Context, output chan<- *types.Page
 		outputColumns := make([]*types.Column, len(op.project.Assignments))
 		for i, assign := range op.project.Assignments {
 			outputColumns[i] = types.NewColumn()
-			newPage.AppendColumn(types.NewColumnInfo(assign.Symbol.Name, assign.Symbol.DataType), outputColumns[i])
+			newPage.AppendColumn(
+				types.NewColumnInfo(assign.Symbol.Name, assign.Symbol.DataType, assign.Symbol.Hidden, assign.Symbol.AggType),
+				outputColumns[i])
 		}
 		rowNum := 0
 
 		// fmt.Printf("source page layout=%v\n", source.Layout)
-		// fmt.Printf("%s\n%s\n", string(encoding.JSONMarshal(source)), string(encoding.JSONMarshal(op.project)))
+		// fmt.Printf("do projection op start....%v\n", string(encoding.JSONMarshal(source)))
 		it := source.Iterator()
 		for row := it.Begin(); row != it.End(); row = it.Next() {
 			// fmt.Printf("do projection op %v....\n", rowNum)

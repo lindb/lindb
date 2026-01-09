@@ -39,7 +39,11 @@ func (c *Column) EvalString(ctx EvalContext, row types.Row) (val string, isNull 
 	case string:
 		return sv, false, nil
 	default:
-		return string(*row.GetString(c.index)), false, nil
+		val := row.GetString(c.index)
+		if val == nil {
+			return "", true, nil
+		}
+		return string(*val), false, nil
 	}
 }
 

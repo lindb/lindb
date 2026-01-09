@@ -73,7 +73,8 @@ func (s *StringRule) Map(value any, buf *Buffer) {
 	case string:
 		buf.Write(s.mapper.GetID(t))
 	case *types.String:
-		buf.Write(s.mapper.GetID(string(*t)))
+		val := string(*t)
+		buf.Write(s.mapper.GetID(val))
 	}
 }
 

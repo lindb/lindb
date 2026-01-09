@@ -70,6 +70,7 @@ func NewLocalReplicator(channel *store.ReplicatorChannel, segment store.Segment)
 	return lr
 }
 
+// Type returns the replicator type.
 func (r *localReplicator) Type() store.ReplicatorType {
 	return store.ReplicatorTypeLocal
 }

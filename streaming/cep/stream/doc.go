@@ -15,20 +15,5 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package tree
-
-import "github.com/lindb/lindb/spi/types"
-
-type FunctionCall struct {
-	BaseNode
-	RefField  *Field
-	Name      FuncName
-	Arguments []Expression
-	RetType   types.DataType // set return type by planner
-	AggType   types.AggregateType
-}
-
-// Accept implements Expression
-func (n *FunctionCall) Accept(context any, visitor Visitor) any {
-	return visitor.Visit(context, n)
-}
+// Package stream provides service provides for processing and analyzing data streams.
+package stream

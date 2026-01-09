@@ -586,8 +586,10 @@ func (v *StatementVisitor) analyzeAggregations(query *tree.QuerySpecification, s
 						Name:     resolvedField.Field.Name,
 						DataType: resolvedField.Field.DataType,
 						Hidden:   resolvedField.Field.Hidden,
+						AggType:  resolvedField.Field.AggType,
 					}},
 					RefField: resolvedField.Field,
+					AggType:  resolvedField.Field.AggType,
 				}
 				functions = append(functions, fn)
 				v.analyzer.ctx.Analysis.AddResolvedFunction(fn, fn.Name)
@@ -595,6 +597,7 @@ func (v *StatementVisitor) analyzeAggregations(query *tree.QuerySpecification, s
 			}
 		case *tree.FunctionCall:
 			if tree.IsAggFunc(node.Name) {
+				node.AggType = tree.GetDefaultFuncAggType(node.Name)
 				functions = append(functions, node)
 				// TODO: need do other func
 				v.analyzer.ctx.Analysis.AddResolvedFunction(node, node.Name)

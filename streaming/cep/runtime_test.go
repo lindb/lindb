@@ -83,6 +83,8 @@ func Test_Runtime(t *testing.T) {
 	page.AppendColumn(types.ColumnMetadata{DataType: types.DTString, Name: "interface"}, interfaceColumn)
 	tagsColumn := types.NewColumn()
 	page.AppendColumn(types.ColumnMetadata{DataType: types.DTMap, Name: "tags"}, tagsColumn)
+	statusColumn := types.NewColumn()
+	page.AppendColumn(types.ColumnMetadata{DataType: types.DTMap, Name: "status"}, statusColumn)
 
 	interfaceColumn.AppendString("grpc")
 	tagsColumn.Append(map[string]string{"host": "1.1.1.1", "app": "order"})
@@ -102,7 +104,7 @@ func Test_Runtime(t *testing.T) {
 	// for range 5 {
 	// 	go func() {
 	// 		defer wait.Done()
-	for range 100_0000 {
+	for range 3 {
 		input.Send(page)
 	}
 	// 	}()

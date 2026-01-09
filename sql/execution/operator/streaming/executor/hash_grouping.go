@@ -96,7 +96,6 @@ func (g *HashGrouping) Enter(page *types.Page) {
 	for row := it.Begin(); row != it.End(); row = it.Next() {
 		for i, colIdx := range g.colIdxOfKeys {
 			val := row.Get(colIdx)
-			// fmt.Printf("column value===> %v=%d=%d\n", val, colIdx, i)
 			g.rules[i].Map(val, g.buf)
 		}
 
@@ -154,12 +153,13 @@ func (g *HashGrouping) Leave(output chan<- *types.Page) {
 // It includes both the grouping key columns and the aggregation result columns.
 func createOutputs(node *plan.AggregationNode) (columns []types.ColumnMetadata) {
 	for _, key := range node.GroupingSets.GroupingKeys {
-		columns = append(columns, types.NewColumnInfo(key.Name, key.DataType))
+		columns = append(columns, types.NewColumnInfo(key.Name, key.DataType, key.Hidden, key.AggType))
 	}
 
 	for _, agg := range node.Aggregations {
 		// TODO: add aggregation type
-		columns = append(columns, types.NewColumnInfo(agg.Symbol.Name, agg.Symbol.DataType))
+		columns = append(columns,
+			types.NewColumnInfo(agg.Symbol.Name, agg.Symbol.DataType, agg.Symbol.Hidden, agg.Symbol.AggType))
 	}
 	return columns
 }

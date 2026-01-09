@@ -25,9 +25,10 @@ import (
 )
 
 type Symbol struct {
-	Name     string         `json:"name"`
-	DataType types.DataType `json:"datatype"`
-	Hidden   bool           `json:"hidden"`
+	Name     string              `json:"name"`
+	DataType types.DataType      `json:"datatype"`
+	Hidden   bool                `json:"hidden,omitempty"`
+	AggType  types.AggregateType `json:"agg_type,omitempty"`
 }
 
 func (s *Symbol) ToSymbolReference() *tree.SymbolReference {
@@ -35,12 +36,18 @@ func (s *Symbol) ToSymbolReference() *tree.SymbolReference {
 		Name:     s.Name,
 		DataType: s.DataType,
 		Hidden:   s.Hidden,
+		AggType:  s.AggType,
 	}
 }
 
 func SymbolFrom(expression tree.Expression) *Symbol {
 	if symbolRef, ok := expression.(*tree.SymbolReference); ok {
-		return &Symbol{Name: symbolRef.Name, DataType: symbolRef.DataType, Hidden: symbolRef.Hidden}
+		return &Symbol{
+			Name:     symbolRef.Name,
+			DataType: symbolRef.DataType,
+			Hidden:   symbolRef.Hidden,
+			AggType:  symbolRef.AggType,
+		}
 	}
 	panic(fmt.Sprintf("new symbol with unexpected expression: %s, type:%T",
 		tree.FormatExpression(expression), expression))
@@ -48,8 +55,12 @@ func SymbolFrom(expression tree.Expression) *Symbol {
 
 func (s *Symbol) String() string {
 	var h string
+	var agg string
 	if s.Hidden {
 		h = "!" // mark symbol hidden
 	}
-	return fmt.Sprintf("%s%s:%s", h, s.Name, s.DataType)
+	if s.AggType != types.ATUnknown {
+		agg = fmt.Sprintf("@%s", s.AggType.String())
+	}
+	return fmt.Sprintf("%s%s:%s%s", h, s.Name, s.DataType, agg)
 }
