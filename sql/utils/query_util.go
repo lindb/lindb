@@ -70,7 +70,7 @@ func (b *QueryBuilder) Query(body tree.QueryBody) *tree.Query {
 func (b *QueryBuilder) AliasedSelectItem(column, aliased string) *tree.Select {
 	singleColumn := &tree.SingleColumn{
 		Expression: b.Identifier(column),
-		Aliase:     b.Identifier(aliased),
+		Alias:      b.Identifier(aliased),
 	}
 	b.setNodeID(singleColumn)
 	return &tree.Select{

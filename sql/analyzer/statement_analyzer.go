@@ -154,8 +154,8 @@ func (v *StatementVisitor) visitQuerySpecification(context any, node *tree.Query
 		v.analyzeWhere(node, sourceScope, node.Where)
 	}
 
-	outputExpressions := v.analyzeSelect(node, sourceScope)
-	groupByAnalysis := v.analyzeGroupBy(node, sourceScope, outputExpressions)
+	v.analyzeSelect(node, sourceScope)
+	groupByAnalysis := v.analyzeGroupBy(node, sourceScope)
 	v.analyzeHaving(node, sourceScope)
 
 	outputScope := v.computeAndAssignOutputScope(node, scope, sourceScope)
@@ -374,6 +374,7 @@ func (v *StatementVisitor) analyzeSelectSingleColumn(singleColumn *tree.SingleCo
 	v.analyzeExpression(expression, scope)
 	outputExpressions = append(outputExpressions, expression)
 	selectExpressions = append(selectExpressions, &SelectExpression{
+		Alias:      singleColumn.Alias,
 		Expression: expression,
 	})
 	// TODO: check distinct
@@ -476,14 +477,13 @@ func (v *StatementVisitor) analyzeWhere(node *tree.QuerySpecification, scope *Sc
 	v.analyzer.ctx.Analysis.SetWhere(node, newPredicate)
 }
 
-func (v *StatementVisitor) analyzeGroupBy(node *tree.QuerySpecification, scope *Scope,
-	_ []tree.Expression,
-) *GroupingSetAnalysis {
+func (v *StatementVisitor) analyzeGroupBy(node *tree.QuerySpecification, scope *Scope) *GroupingSetAnalysis {
 	var (
 		groupingExpressions []tree.Expression
 		complexExpressions  []tree.Expression
 		sets                [][]*FieldID
 	)
+	selectExpressions := v.analyzer.ctx.Analysis.GetSelectExpressions(node)
 	if node.GroupBy != nil {
 		for _, groupingElement := range node.GroupBy.GroupingElements {
 			switch groupByEle := groupingElement.(type) {
@@ -502,7 +502,18 @@ func (v *StatementVisitor) analyzeGroupBy(node *tree.QuerySpecification, scope *
 						v.analyzer.ctx.Analysis.SetGroupingInterval(node, item)
 						// ignore grouping interval
 						goto Next
+					case *tree.Identifier:
+						selectExpression, ok := lo.Find(selectExpressions, func(selectExpr *SelectExpression) bool {
+							return selectExpr.Alias != nil && selectExpr.Alias.Value == item.Value
+						})
+						if ok {
+							// rewrite group by column with select expression if alias matched
+							column = selectExpression.Expression
+						} else {
+							v.analyzeExpression(column, scope)
+						}
 					default:
+						fmt.Printf("==========group by expression:%T=%v,%v\n", column, column, selectExpressions)
 						v.analyzeExpression(column, scope)
 					}
 
@@ -687,7 +698,7 @@ func (v *StatementVisitor) computeAndAssignOutputScope(node *tree.QuerySpecifica
 			outputFields = append(outputFields, fields...)
 		case *tree.SingleColumn:
 			expression := item.Expression
-			field := item.Aliase
+			field := item.Alias
 			var name *tree.QualifiedName
 			switch expr := expression.(type) {
 			case *tree.Identifier:

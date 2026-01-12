@@ -18,7 +18,6 @@
 package expression
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/lindb/common/pkg/timeutil"

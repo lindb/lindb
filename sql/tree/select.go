@@ -37,7 +37,7 @@ func (n *AllColumns) Accept(context any, visitor Visitor) (r any) {
 type SingleColumn struct {
 	BaseNode
 	Expression Expression
-	Aliase     *Identifier
+	Alias      *Identifier
 }
 
 func (n *SingleColumn) Accept(context any, visitor Visitor) (r any) {

@@ -39,7 +39,8 @@ type Reader struct {
 func NewReader(data []byte) *Reader {
 	return &Reader{
 		original: data,
-		reader:   bytes.NewReader(data)}
+		reader:   bytes.NewReader(data),
+	}
 }
 
 // ReadVarint32 reads int32 from buffer

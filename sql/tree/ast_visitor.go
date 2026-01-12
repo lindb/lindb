@@ -506,7 +506,7 @@ func (v *AstVisitor) VisitSelectSingle(ctx *grammar.SelectSingleContext) any {
 	return &SingleColumn{
 		BaseNode:   v.createBaseNode(ctx),
 		Expression: visitIfPresent[Expression](ctx.Expression(), v),
-		Aliase:     visitIfPresent[*Identifier](ctx.Identifier(), v),
+		Alias:      visitIfPresent[*Identifier](ctx.Identifier(), v),
 	}
 }
 

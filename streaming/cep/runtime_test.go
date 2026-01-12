@@ -46,10 +46,10 @@ func Test_Runtime(t *testing.T) {
 	@app(name="test_app")
 	@name(name="count_rpc",@header(user="test_user",pwd="pwd"))
 	insert into Result
-	select map_values(tags,'app') as tags_map,interface,count(1) as qps,time_trunc(timestamp,interval 10 second)
+	select map_values(tags,'app') as tags_map,interface,count(1) as qps,time_trunc(timestamp,interval 10 second) as ts
 	from RPCService
 	where interface in('grpc','http')
-	group by map_values(tags,'app'),interface,time_trunc(timestamp,interval 10 second);
+	group by tags,interface,ts;
 		`)
 	fmt.Println(err)
 	//

@@ -32,10 +32,12 @@ type Page struct {
 	Columns  []*Column        `json:"columns,omitempty"`
 
 	Error string `json:"error,omitempty"`
+
+	numRows int // cache num of rows
 }
 
 func NewPage() *Page {
-	return &Page{}
+	return &Page{numRows: -1}
 }
 
 func NewRowWithEmptyValue() *Page {
@@ -63,13 +65,17 @@ func (p *Page) GetRow(idx int) Row {
 
 // NumRows returns the number of rows in the page.
 func (p *Page) NumRows() int {
+	if p.numRows != -1 {
+		return p.numRows
+	}
 	if len(p.Columns) == 0 {
 		return 0
 	}
 	// TODO: select rows/no column
-	return lo.MaxBy(p.Columns, func(a, b *Column) bool {
+	p.numRows = lo.MaxBy(p.Columns, func(a, b *Column) bool {
 		return a.NumOfRows > b.NumOfRows
 	}).NumOfRows
+	return p.numRows
 }
 
 func (p *Page) Iterator() *Iterator4Page {

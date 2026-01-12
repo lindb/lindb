@@ -130,13 +130,13 @@ func NewBufferWriter(buffer *bytes.Buffer) *BufferWriter {
 
 // Reset resets the underling buffer
 func (bw *BufferWriter) Reset() {
-	bw.writer.err = nil
+	bw.err = nil
 	bw.buf.Reset()
 }
 
 // SwitchBuffer switches to write a new buffer
 func (bw *BufferWriter) SwitchBuffer(newBuffer *bytes.Buffer) {
-	bw.writer.err = nil
+	bw.err = nil
 	bw.buf = newBuffer
 }
 
@@ -168,7 +168,8 @@ func NewSliceWriter(buffer []byte) *SliceWriter {
 	length := len(buffer)
 	return &SliceWriter{
 		writer: writer{buf: bytes.NewBuffer(buffer[:0])},
-		maxLen: length}
+		maxLen: length,
+	}
 }
 
 // Error returns the error of BufferWriter
