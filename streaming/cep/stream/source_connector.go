@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/lindb/common/pkg/encoding"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/spi"
@@ -147,6 +148,7 @@ func (sc *sourceConnector) Run(output chan<- *types.Page) {
 
 func (sc *sourceConnector) createPage() *types.Page {
 	newPage := types.NewPage()
+	// FIXME: maybe page layout not match table schema
 	newPage.Layout = sc.outputColumns
 	newPage.Columns = lo.Map(sc.outputColumns, func(item types.ColumnMetadata, index int) *types.Column {
 		return types.NewColumn()
@@ -267,6 +269,7 @@ func (v *visitor) filter(page *types.Page) *types.Page {
 	// 	default:
 	// 		panic(fmt.Errorf("not support,%T", n))
 	// 	}
+	fmt.Println("filtered page rows:", string(encoding.JSONMarshal(newPage)))
 	return newPage
 }
 

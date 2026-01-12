@@ -26,8 +26,9 @@ import (
 type newRule func(mapper *StringMapper) Rule
 
 var rules = map[types.DataType]newRule{
-	types.DTMap:    newMapRule,
-	types.DTString: newStringRule,
+	types.DTMap:       newMapRule,
+	types.DTString:    newStringRule,
+	types.DTTimestamp: newTimestampRule,
 }
 
 func CreateRule(dt types.DataType, mapper *StringMapper) (Rule, error) {

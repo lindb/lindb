@@ -18,6 +18,11 @@
 package grouping
 
 import (
+	"fmt"
+	"time"
+
+	"github.com/lindb/common/pkg/timeutil"
+
 	"github.com/lindb/lindb/spi/types"
 )
 
@@ -34,7 +39,7 @@ func newMapRule(mapper *StringMapper) Rule {
 	return &MapRule{mapper: mapper}
 }
 
-func (m *MapRule) Map(value any, buf *Buffer) {
+func (r *MapRule) Map(value any, buf *Buffer) {
 	values, ok := value.(map[string]string)
 	if !ok {
 		return
@@ -42,19 +47,19 @@ func (m *MapRule) Map(value any, buf *Buffer) {
 	// TODO: need sort keys of map
 	buf.Write(uint32(len(values)))
 	for k, v := range values {
-		buf.Write(m.mapper.GetID(k))
-		buf.Write(m.mapper.GetID(v))
+		buf.Write(r.mapper.GetID(k))
+		buf.Write(r.mapper.GetID(v))
 	}
 }
 
-func (m *MapRule) Unmap(buf *Buffer) any {
+func (r *MapRule) Unmap(buf *Buffer) any {
 	count := buf.Read()
 	if count == 0 {
 		return nil
 	}
 	values := make(map[string]string, count)
 	for range count {
-		values[m.mapper.GetValue(buf.Read())] = m.mapper.GetValue(buf.Read())
+		values[r.mapper.GetValue(buf.Read())] = r.mapper.GetValue(buf.Read())
 	}
 
 	return values
@@ -68,16 +73,53 @@ func newStringRule(mapper *StringMapper) Rule {
 	return &StringRule{mapper: mapper}
 }
 
-func (s *StringRule) Map(value any, buf *Buffer) {
+func (r *StringRule) Map(value any, buf *Buffer) {
 	switch t := value.(type) {
 	case string:
-		buf.Write(s.mapper.GetID(t))
+		buf.Write(r.mapper.GetID(t))
 	case *types.String:
 		val := string(*t)
-		buf.Write(s.mapper.GetID(val))
+		buf.Write(r.mapper.GetID(val))
 	}
 }
 
-func (s *StringRule) Unmap(buf *Buffer) any {
-	return s.mapper.GetValue(buf.Read())
+func (r *StringRule) Unmap(buf *Buffer) any {
+	return r.mapper.GetValue(buf.Read())
+}
+
+type TimestampRule struct {
+	mapper *StringMapper
+}
+
+func newTimestampRule(mapper *StringMapper) Rule {
+	return &TimestampRule{
+		mapper: mapper,
+	}
+}
+
+func (r *TimestampRule) Map(value any, buf *Buffer) {
+	fmt.Println("timestamp rule map...", value)
+	// OPT: need refactor time mapping logic
+	switch t := value.(type) {
+	case *time.Time:
+		ts := timeutil.FormatTimestamp(t.UnixMilli(), timeutil.DataTimeFormat4)
+		fmt.Println(ts)
+		fmt.Println(t.String())
+		buf.Write(r.mapper.GetID(ts))
+	default:
+		buf.Write(0)
+	}
+}
+
+func (r *TimestampRule) Unmap(buf *Buffer) any {
+	val := buf.Read()
+	if val == 0 {
+		return nil
+	}
+	tsStr := r.mapper.GetValue(val)
+	t, err := time.ParseInLocation(timeutil.DataTimeFormat4, tsStr, time.Local)
+	if err != nil {
+		panic("parse timestamp string error:" + tsStr)
+	}
+	return &t
 }

@@ -28,6 +28,7 @@ import (
 
 type RPCService struct {
 	Interface string
+	Timestamp time.Time
 	Tags      map[string]string
 	Status    string
 }
@@ -45,10 +46,10 @@ func Test_Runtime(t *testing.T) {
 	@app(name="test_app")
 	@name(name="count_rpc",@header(user="test_user",pwd="pwd"))
 	insert into Result
-	select map_values(tags,'app') as tags_map,interface,count(1) as qps
+	select map_values(tags,'app') as tags_map,interface,count(1) as qps,time_trunc(timestamp,interval 10 second)
 	from RPCService
 	where interface in('grpc','http')
-	group by map_values(tags,'app'),interface;
+	group by map_values(tags,'app'),interface,time_trunc(timestamp,interval 10 second);
 		`)
 	fmt.Println(err)
 	//
@@ -81,21 +82,27 @@ func Test_Runtime(t *testing.T) {
 	page := types.NewPage()
 	interfaceColumn := types.NewColumn()
 	page.AppendColumn(types.ColumnMetadata{DataType: types.DTString, Name: "interface"}, interfaceColumn)
+	timestampColumn := types.NewColumn()
+	page.AppendColumn(types.ColumnMetadata{DataType: types.DTTimestamp, Name: "timestamp"}, timestampColumn)
 	tagsColumn := types.NewColumn()
 	page.AppendColumn(types.ColumnMetadata{DataType: types.DTMap, Name: "tags"}, tagsColumn)
 	statusColumn := types.NewColumn()
 	page.AppendColumn(types.ColumnMetadata{DataType: types.DTMap, Name: "status"}, statusColumn)
 
 	interfaceColumn.AppendString("grpc")
+	timestampColumn.AppendTimestamp(time.Now())
 	tagsColumn.Append(map[string]string{"host": "1.1.1.1", "app": "order"})
 
 	interfaceColumn.AppendString("http")
+	timestampColumn.AppendTimestamp(time.Now())
 	tagsColumn.Append(map[string]string{"host": "1.1.1.1", "app": "user"})
 
 	interfaceColumn.AppendString("dubbo")
+	timestampColumn.AppendTimestamp(time.Now())
 	tagsColumn.Append(map[string]string{"host": "1.1.1.1", "app": "order"})
 
 	interfaceColumn.AppendString("http")
+	timestampColumn.AppendTimestamp(time.Now())
 	tagsColumn.Append(map[string]string{"host": "1.1.1.1", "app": "github"})
 
 	now := time.Now()

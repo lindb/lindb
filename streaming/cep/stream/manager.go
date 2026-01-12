@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"time"
 
 	"github.com/samber/lo"
 
@@ -135,7 +136,8 @@ func (mgr *streamManager) GetTableHandle(db string, ns string, table string) spi
 }
 
 func fieldType(field reflect.StructField) types.DataType {
-	switch field.Type.Kind() {
+	t := field.Type
+	switch t.Kind() {
 	case reflect.Map:
 		return types.DTMap
 	case reflect.String:
@@ -144,7 +146,10 @@ func fieldType(field reflect.StructField) types.DataType {
 		return types.DTInt
 	case reflect.Float32:
 		return types.DTFloat
-	default:
-		panic("unsupported field type:" + field.Type.Key().String())
+	case reflect.Struct:
+		if t == reflect.TypeFor[time.Time]() {
+			return types.DTTimestamp
+		}
 	}
+	panic("unsupported field type:" + field.Type.Key().String())
 }

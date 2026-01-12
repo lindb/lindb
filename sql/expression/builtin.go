@@ -83,6 +83,7 @@ var funcs = map[tree.FuncName]NewFunc{
 	tree.DateAdd:   newAddSubDateFunc,
 	tree.Now:       newNowFunc,
 	tree.StrToDate: newStrToDateFunc,
+	tree.TimeTrunc: newTimeTruncFunc,
 
 	// map functions
 	tree.MapValues: newMapValuesFunc,

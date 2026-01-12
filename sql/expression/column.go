@@ -56,7 +56,7 @@ func (c *Column) EvalInt(ctx EvalContext, row types.Row) (val int64, isNull bool
 }
 
 func (c *Column) EvalFloat(ctx EvalContext, row types.Row) (val float64, isNull bool, err error) {
-	return
+	return float64(*row.GetFloat(c.index)), false, nil
 }
 
 func (c *Column) EvalTimeSeries(ctx EvalContext, row types.Row) (val *types.TimeSeries, isNull bool, err error) {
@@ -64,11 +64,11 @@ func (c *Column) EvalTimeSeries(ctx EvalContext, row types.Row) (val *types.Time
 }
 
 func (c *Column) EvalDuration(ctx EvalContext, row types.Row) (val time.Duration, isNull bool, err error) {
-	return
+	return *row.GetDuration(c.index), false, nil
 }
 
-func (c *Column) EvalTime(ctx EvalContext, _ types.Row) (val time.Time, isNull bool, err error) {
-	return
+func (c *Column) EvalTime(ctx EvalContext, row types.Row) (val time.Time, isNull bool, err error) {
+	return *row.GetTimestamp(c.index), false, nil
 }
 
 // GetType returns the data type of the column returns.

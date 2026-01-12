@@ -49,7 +49,9 @@ const (
 	DateAdd   FuncName = "date_add"
 	Now       FuncName = "now"
 	StrToDate FuncName = "str_to_date"
+	TimeTrunc FuncName = "time_trunc"
 
+	// map function names
 	MapValues FuncName = "map_values"
 )
 
@@ -71,7 +73,9 @@ var defaultFuncReturnTypes = map[FuncName]types.DataType{
 	DateAdd:   types.DTTimestamp,
 	Now:       types.DTTimestamp,
 	StrToDate: types.DTTimestamp,
-	Count:     types.DTTimeSeries,
+	TimeTrunc: types.DTTimestamp,
+
+	Count: types.DTTimeSeries,
 
 	MapValues: types.DTMap,
 }
@@ -119,6 +123,7 @@ var funcs = map[FuncName]struct{}{
 	DateAdd:   {},
 	Now:       {},
 	StrToDate: {},
+	TimeTrunc: {},
 
 	MapValues: {},
 }

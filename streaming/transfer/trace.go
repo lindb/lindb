@@ -156,9 +156,9 @@ func NewTracePageBuilder() *TracePageBuilder {
 	builder.page.AppendColumn(types.ColumnMetadata{Name: "kind", DataType: types.DTString}, builder.kind)
 	builder.page.AppendColumn(types.ColumnMetadata{Name: "status", DataType: types.DTString}, builder.status)
 	builder.page.AppendColumn(types.ColumnMetadata{Name: "error_message", DataType: types.DTString}, builder.errorMessage)
-	builder.page.AppendColumn(types.ColumnMetadata{Name: "start_time", DataType: types.DTInt}, builder.startTime)
-	builder.page.AppendColumn(types.ColumnMetadata{Name: "end_time", DataType: types.DTInt}, builder.endTime)
-	builder.page.AppendColumn(types.ColumnMetadata{Name: "duration", DataType: types.DTInt}, builder.duration)
+	builder.page.AppendColumn(types.ColumnMetadata{Name: "start_time", DataType: types.DTTimestamp}, builder.startTime)
+	builder.page.AppendColumn(types.ColumnMetadata{Name: "end_time", DataType: types.DTTimestamp}, builder.endTime)
+	builder.page.AppendColumn(types.ColumnMetadata{Name: "duration", DataType: types.DTDuration}, builder.duration)
 	builder.page.AppendColumn(types.ColumnMetadata{Name: "attributes", DataType: types.DTMap}, builder.attributes)
 	builder.page.AppendColumn(types.ColumnMetadata{Name: "resource", DataType: types.DTMap}, builder.resource)
 
@@ -178,11 +178,11 @@ func (b *TracePageBuilder) AppendSpan(resource map[string]string, span ptrace.Sp
 	b.status.AppendString(status.Code().String())
 	b.errorMessage.AppendString(status.Message())
 
-	start := span.StartTimestamp().AsTime().UnixNano()
-	end := span.EndTimestamp().AsTime().UnixNano()
-	b.startTime.AppendInt(start)
-	b.endTime.AppendInt(end)
-	b.duration.AppendInt(end - start)
+	start := span.StartTimestamp().AsTime()
+	end := span.EndTimestamp().AsTime()
+	b.startTime.AppendTimestamp(start)
+	b.endTime.AppendTimestamp(end)
+	b.duration.AppendDuration(end.Sub(start))
 
 	// set resource
 	b.resource.Append(resource)

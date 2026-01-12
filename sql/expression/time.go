@@ -95,3 +95,23 @@ func (n *strToDateFunc) EvalTime(ctx EvalContext, row types.Row) (val time.Time,
 	}
 	return time.UnixMilli(timestamp), false, nil
 }
+
+type timeTruncFunc struct {
+	baseFunc
+}
+
+func newTimeTruncFunc(args []Expression) Func {
+	return &timeTruncFunc{
+		baseFunc: baseFunc{
+			args: args,
+		},
+	}
+}
+
+func (n *timeTruncFunc) EvalTime(ctx EvalContext, row types.Row) (val time.Time, isNull bool, err error) {
+	ts, _, _ := n.args[0].EvalTime(ctx, row)
+	duration, _, _ := n.args[1].EvalDuration(ctx, row)
+	rs := ts.Truncate(duration)
+	fmt.Printf("time trunc=%v,%v,%v\n", duration, ts, rs)
+	return rs, false, nil
+}
