@@ -30,23 +30,24 @@ type addSubDateFunc struct {
 	baseFunc
 }
 
-func newAddSubDateFunc(args []Expression) Func {
+func newAddSubDateFunc(ctx EvalContext, args []Expression) Func {
 	return &addSubDateFunc{
 		baseFunc: baseFunc{
+			ctx:  ctx,
 			args: args,
 		},
 	}
 }
 
-func (n *addSubDateFunc) EvalTime(ctx EvalContext, row types.Row) (val time.Time, isNull bool, err error) {
+func (n *addSubDateFunc) EvalTime(row types.Row) (val time.Time, isNull bool, err error) {
 	// TODO: check error/now func
-	tsStr, _, _ := n.args[0].EvalString(ctx, row)
+	tsStr, _, _ := n.args[0].EvalString(row)
 	format := timeutil.DataTimeFormat2
 	timestamp, err := timeutil.ParseTimestamp(tsStr, format)
 	if err != nil {
 		return time.Time{}, true, err
 	}
-	duration, _, _ := n.args[1].EvalDuration(ctx, row)
+	duration, _, _ := n.args[1].EvalDuration(row)
 	return time.UnixMilli(timestamp).Add(duration), false, nil
 }
 
@@ -54,31 +55,36 @@ type nowFunc struct {
 	baseFunc
 }
 
-func newNowFunc(args []Expression) Func {
-	return &nowFunc{}
+func newNowFunc(ctx EvalContext, args []Expression) Func {
+	return &nowFunc{
+		baseFunc: baseFunc{
+			ctx:  ctx,
+			args: args,
+		},
+	}
 }
 
-func (n *nowFunc) EvalTime(ctx EvalContext, row types.Row) (val time.Time, isNull bool, err error) {
-	fmt.Println(ctx)
-	return ctx.CurrentTime(), false, nil
+func (n *nowFunc) EvalTime(row types.Row) (val time.Time, isNull bool, err error) {
+	return n.ctx.CurrentTime(), false, nil
 }
 
 type strToDateFunc struct {
 	baseFunc
 }
 
-func newStrToDateFunc(args []Expression) Func {
+func newStrToDateFunc(ctx EvalContext, args []Expression) Func {
 	return &strToDateFunc{
 		baseFunc: baseFunc{
+			ctx:  ctx,
 			args: args,
 		},
 	}
 }
 
-func (n *strToDateFunc) EvalTime(ctx EvalContext, row types.Row) (val time.Time, isNull bool, err error) {
+func (n *strToDateFunc) EvalTime(row types.Row) (val time.Time, isNull bool, err error) {
 	// TODO: check error
-	tsStr, _, _ := n.args[0].EvalString(ctx, row)
-	format, _, _ := n.args[1].EvalString(ctx, row)
+	tsStr, _, _ := n.args[0].EvalString(row)
+	format, _, _ := n.args[1].EvalString(row)
 	switch format {
 	case "YYYYMMDD HH:mm:ss":
 		format = timeutil.DataTimeFormat1
@@ -98,20 +104,23 @@ func (n *strToDateFunc) EvalTime(ctx EvalContext, row types.Row) (val time.Time,
 
 type timeTruncFunc struct {
 	baseFunc
+
+	duration time.Duration
 }
 
-func newTimeTruncFunc(args []Expression) Func {
+func newTimeTruncFunc(ctx EvalContext, args []Expression) Func {
+	duration, _, _ := args[1].EvalDuration(types.EmptyRow)
 	return &timeTruncFunc{
+		duration: duration,
 		baseFunc: baseFunc{
+			ctx:  ctx,
 			args: args,
 		},
 	}
 }
 
-func (n *timeTruncFunc) EvalTime(ctx EvalContext, row types.Row) (val time.Time, isNull bool, err error) {
-	ts, _, _ := n.args[0].EvalTime(ctx, row)
-	duration, _, _ := n.args[1].EvalDuration(ctx, row)
-	rs := ts.Truncate(duration)
-	fmt.Printf("time trunc=%v,%v,%v\n", duration, ts, rs)
+func (n *timeTruncFunc) EvalTime(row types.Row) (val time.Time, isNull bool, err error) {
+	ts, _, _ := n.args[0].EvalTime(row)
+	rs := ts.Truncate(n.duration)
 	return rs, false, nil
 }

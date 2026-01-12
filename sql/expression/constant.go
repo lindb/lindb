@@ -31,7 +31,7 @@ type Constant struct {
 	retType types.DataType
 }
 
-func NewConstant(value any, retType types.DataType) Expression {
+func NewConstant(ctx EvalContext, value any, retType types.DataType) Expression {
 	return &Constant{
 		retType: retType,
 		value:   value,
@@ -39,28 +39,28 @@ func NewConstant(value any, retType types.DataType) Expression {
 }
 
 // EvalString implements Expression.
-func (c *Constant) EvalString(_ EvalContext, _ types.Row) (val string, isNull bool, err error) {
+func (c *Constant) EvalString(_ types.Row) (val string, isNull bool, err error) {
 	return c.value.(string), false, nil
 }
 
-func (c *Constant) EvalInt(_ EvalContext, _ types.Row) (val int64, isNull bool, err error) {
+func (c *Constant) EvalInt(_ types.Row) (val int64, isNull bool, err error) {
 	return c.value.(int64), false, nil
 }
 
-func (c *Constant) EvalFloat(_ EvalContext, _ types.Row) (val float64, isNull bool, err error) {
+func (c *Constant) EvalFloat(_ types.Row) (val float64, isNull bool, err error) {
 	return
 }
 
-func (c *Constant) EvalTimeSeries(_ EvalContext, _ types.Row) (val *types.TimeSeries, isNull bool, err error) {
+func (c *Constant) EvalTimeSeries(_ types.Row) (val *types.TimeSeries, isNull bool, err error) {
 	return
 }
 
-func (c *Constant) EvalDuration(_ EvalContext, _ types.Row) (val time.Duration, isNull bool, err error) {
+func (c *Constant) EvalDuration(_ types.Row) (val time.Duration, isNull bool, err error) {
 	val = c.value.(time.Duration)
 	return
 }
 
-func (c *Constant) EvalTime(_ EvalContext, _ types.Row) (val time.Time, isNull bool, err error) {
+func (c *Constant) EvalTime(_ types.Row) (val time.Time, isNull bool, err error) {
 	switch v := c.value.(type) {
 	case string:
 		timestamp, err := timeutil.ParseTimestamp(v, timeutil.DataTimeFormat2)
@@ -73,7 +73,7 @@ func (c *Constant) EvalTime(_ EvalContext, _ types.Row) (val time.Time, isNull b
 	}
 }
 
-func (c *Constant) EvalMap(_ EvalContext, _ types.Row) (val map[string]string, isNull bool, err error) {
+func (c *Constant) EvalMap(_ types.Row) (val map[string]string, isNull bool, err error) {
 	return
 }
 

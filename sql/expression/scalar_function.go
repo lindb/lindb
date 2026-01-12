@@ -29,19 +29,21 @@ import (
 )
 
 type ScalarFunc struct {
+	ctx      EvalContext
 	function Func
 	funcName tree.FuncName
 	args     []Expression
 	retType  types.DataType
 }
 
-func NewScalarFunc(funcName tree.FuncName, retType types.DataType, args []Expression) (Expression, error) {
+func NewScalarFunc(ctx EvalContext, funcName tree.FuncName, retType types.DataType, args []Expression) (Expression, error) {
 	newFn, ok := funcs[funcName]
 	if !ok {
 		return nil, fmt.Errorf("func not support, func name: %s", funcName)
 	}
-	fn := newFn(args)
+	fn := newFn(ctx, args)
 	return &ScalarFunc{
+		ctx:      ctx,
 		retType:  retType,
 		function: fn,
 		funcName: funcName,
@@ -50,32 +52,32 @@ func NewScalarFunc(funcName tree.FuncName, retType types.DataType, args []Expres
 }
 
 // EvalString implements Expression.
-func (f *ScalarFunc) EvalString(ctx EvalContext, row types.Row) (val string, isNull bool, err error) {
-	return f.function.EvalString(ctx, row)
+func (f *ScalarFunc) EvalString(row types.Row) (val string, isNull bool, err error) {
+	return f.function.EvalString(row)
 }
 
-func (f *ScalarFunc) EvalInt(ctx EvalContext, row types.Row) (val int64, isNull bool, err error) {
-	return f.function.EvalInt(ctx, row)
+func (f *ScalarFunc) EvalInt(row types.Row) (val int64, isNull bool, err error) {
+	return f.function.EvalInt(row)
 }
 
-func (f *ScalarFunc) EvalFloat(ctx EvalContext, row types.Row) (val float64, isNull bool, err error) {
-	return f.function.EvalFloat(ctx, row)
+func (f *ScalarFunc) EvalFloat(row types.Row) (val float64, isNull bool, err error) {
+	return f.function.EvalFloat(row)
 }
 
-func (f *ScalarFunc) EvalTimeSeries(ctx EvalContext, row types.Row) (val *types.TimeSeries, isNull bool, err error) {
-	return f.function.EvalTimeSeries(ctx, row)
+func (f *ScalarFunc) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error) {
+	return f.function.EvalTimeSeries(row)
 }
 
-func (f *ScalarFunc) EvalDuration(ctx EvalContext, row types.Row) (val time.Duration, isNull bool, err error) {
-	return f.function.EvalDuration(ctx, row)
+func (f *ScalarFunc) EvalDuration(row types.Row) (val time.Duration, isNull bool, err error) {
+	return f.function.EvalDuration(row)
 }
 
-func (f *ScalarFunc) EvalTime(ctx EvalContext, row types.Row) (val time.Time, isNull bool, err error) {
-	return f.function.EvalTime(ctx, row)
+func (f *ScalarFunc) EvalTime(row types.Row) (val time.Time, isNull bool, err error) {
+	return f.function.EvalTime(row)
 }
 
-func (f *ScalarFunc) EvalMap(ctx EvalContext, row types.Row) (val map[string]string, isNull bool, err error) {
-	return f.function.EvalMap(ctx, row)
+func (f *ScalarFunc) EvalMap(row types.Row) (val map[string]string, isNull bool, err error) {
+	return f.function.EvalMap(row)
 }
 
 // GetType implements Expression.

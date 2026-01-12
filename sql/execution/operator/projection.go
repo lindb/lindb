@@ -77,25 +77,25 @@ func (op *ProjectionOperator) Run(ctx context.Context, output chan<- *types.Page
 				// fmt.Printf("do %d..... projection op expr %T,%s ret type=%v\n", i, expr, expr.String(), expr.GetType().String())
 				switch expr.GetType() {
 				case types.DTString:
-					val, _, _ := expr.EvalString(op.exprCtx, row)
+					val, _, _ := expr.EvalString(row)
 					outputColumns[i].AppendString(val)
 				case types.DTInt:
-					val, _, _ := expr.EvalInt(op.exprCtx, row)
+					val, _, _ := expr.EvalInt(row)
 					outputColumns[i].AppendInt(val)
 				case types.DTFloat:
-					val, _, _ := expr.EvalFloat(op.exprCtx, row)
+					val, _, _ := expr.EvalFloat(row)
 					outputColumns[i].AppendFloat(val)
 				case types.DTTimeSeries:
-					val, _, _ := expr.EvalTimeSeries(op.exprCtx, row)
+					val, _, _ := expr.EvalTimeSeries(row)
 					outputColumns[i].AppendTimeSeries(val)
 				case types.DTTimestamp:
-					val, _, _ := expr.EvalTime(op.exprCtx, row)
+					val, _, _ := expr.EvalTime(row)
 					outputColumns[i].AppendTimestamp(val)
 				case types.DTDuration:
-					val, _, _ := expr.EvalDuration(op.exprCtx, row)
+					val, _, _ := expr.EvalDuration(row)
 					outputColumns[i].AppendDuration(val)
 				case types.DTMap:
-					val, _, _ := expr.EvalMap(op.exprCtx, row)
+					val, _, _ := expr.EvalMap(row)
 					// fmt.Println(val)
 					outputColumns[i].Append(val)
 				default:
@@ -148,6 +148,7 @@ func (op *ProjectionOperator) prepare() {
 	for i, assign := range op.project.Assignments {
 		op.exprs[i] = expression.Rewrite(&expression.RewriteContext{
 			SourceLayout: op.child.GetLayout(),
+			EvalContext:  op.exprCtx,
 		}, assign.Expression)
 	}
 	// fmt.Printf("do projection op prepare %v\n", op.child.GetLayout())

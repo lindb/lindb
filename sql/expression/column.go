@@ -29,11 +29,11 @@ type Column struct {
 	index   int
 }
 
-func NewColumn(name string, index int, retType types.DataType) Expression {
+func NewColumn(ctx EvalContext, name string, index int, retType types.DataType) Expression {
 	return &Column{name: name, index: index, retType: retType}
 }
 
-func (c *Column) EvalString(ctx EvalContext, row types.Row) (val string, isNull bool, err error) {
+func (c *Column) EvalString(row types.Row) (val string, isNull bool, err error) {
 	v := row.Get(c.index)
 	switch sv := v.(type) {
 	case string:
@@ -47,28 +47,36 @@ func (c *Column) EvalString(ctx EvalContext, row types.Row) (val string, isNull 
 	}
 }
 
-func (c *Column) EvalMap(ctx EvalContext, row types.Row) (val map[string]string, isNull bool, err error) {
-	return row.Get(c.index).(map[string]string), false, nil
+func (c *Column) EvalMap(row types.Row) (val map[string]string, isNull bool, err error) {
+	v := row.Get(c.index)
+	if v == nil {
+		return nil, true, nil
+	}
+	return v.(map[string]string), false, nil
 }
 
-func (c *Column) EvalInt(ctx EvalContext, row types.Row) (val int64, isNull bool, err error) {
+func (c *Column) EvalInt(row types.Row) (val int64, isNull bool, err error) {
 	return int64(*row.GetInt(c.index)), false, nil
 }
 
-func (c *Column) EvalFloat(ctx EvalContext, row types.Row) (val float64, isNull bool, err error) {
+func (c *Column) EvalFloat(row types.Row) (val float64, isNull bool, err error) {
 	return float64(*row.GetFloat(c.index)), false, nil
 }
 
-func (c *Column) EvalTimeSeries(ctx EvalContext, row types.Row) (val *types.TimeSeries, isNull bool, err error) {
+func (c *Column) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error) {
 	return row.GetTimeSeries(c.index), false, nil
 }
 
-func (c *Column) EvalDuration(ctx EvalContext, row types.Row) (val time.Duration, isNull bool, err error) {
+func (c *Column) EvalDuration(row types.Row) (val time.Duration, isNull bool, err error) {
 	return *row.GetDuration(c.index), false, nil
 }
 
-func (c *Column) EvalTime(ctx EvalContext, row types.Row) (val time.Time, isNull bool, err error) {
-	return *row.GetTimestamp(c.index), false, nil
+func (c *Column) EvalTime(row types.Row) (val time.Time, isNull bool, err error) {
+	v := row.GetTimestamp(c.index)
+	if v == nil {
+		return time.Time{}, true, nil
+	}
+	return *v, false, nil
 }
 
 // GetType returns the data type of the column returns.

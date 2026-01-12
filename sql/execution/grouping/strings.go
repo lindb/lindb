@@ -36,8 +36,9 @@ func (sm *StringMapper) GetID(val string) uint32 {
 	if ok {
 		return id
 	}
-	id = sm.idx
 	sm.idx++
+
+	id = sm.idx
 
 	// add value=>id mapping
 	sm.s[val] = id

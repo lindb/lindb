@@ -18,7 +18,6 @@
 package grouping
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/lindb/common/pkg/timeutil"
@@ -98,13 +97,13 @@ func newTimestampRule(mapper *StringMapper) Rule {
 }
 
 func (r *TimestampRule) Map(value any, buf *Buffer) {
-	fmt.Println("timestamp rule map...", value)
 	// OPT: need refactor time mapping logic
 	switch t := value.(type) {
 	case *time.Time:
 		ts := timeutil.FormatTimestamp(t.UnixMilli(), timeutil.DataTimeFormat4)
-		fmt.Println(ts)
-		fmt.Println(t.String())
+		buf.Write(r.mapper.GetID(ts))
+	case time.Time:
+		ts := timeutil.FormatTimestamp(t.UnixMilli(), timeutil.DataTimeFormat4)
 		buf.Write(r.mapper.GetID(ts))
 	default:
 		buf.Write(0)

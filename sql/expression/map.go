@@ -25,22 +25,27 @@ import (
 
 type mapValuesFunc struct {
 	baseFunc
+
+	keys []string
 }
 
-func newMapValuesFunc(args []Expression) Func {
+func newMapValuesFunc(ctx EvalContext, args []Expression) Func {
+	keys := make([]string, len(args)-1)
+	for i := 1; i < len(args); i++ {
+		key, _, _ := args[i].EvalString(types.EmptyRow)
+		keys[i-1] = key
+	}
 	return &mapValuesFunc{
+		keys: keys,
 		baseFunc: baseFunc{
+			ctx:  ctx,
 			args: args,
 		},
 	}
 }
 
-func (n *mapValuesFunc) EvalMap(ctx EvalContext, row types.Row) (val map[string]string, isNull bool, err error) {
+func (n *mapValuesFunc) EvalMap(row types.Row) (val map[string]string, isNull bool, err error) {
 	// TODO: check error/now func
-	tsStr, _, _ := n.args[0].EvalMap(ctx, row)
-	// if err != nil {
-	// 	return "kk", true, err
-	// }
-	duration, _, _ := n.args[1].EvalString(ctx, row)
-	return lo.PickByKeys(tsStr, []string{duration}), true, nil
+	tsStr, _, _ := n.args[0].EvalMap(row)
+	return lo.PickByKeys(tsStr, n.keys), true, nil
 }

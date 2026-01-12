@@ -28,6 +28,7 @@ import (
 )
 
 type RewriteContext struct {
+	EvalContext  EvalContext
 	SourceLayout []*plan.Symbol
 }
 
@@ -45,34 +46,34 @@ func (r *rewriter) rewrite(node tree.Expression) Expression {
 		return r.rewriteCall(expr)
 	case *tree.Identifier:
 		// TODO: right?
-		return NewConstant(expr.Value, types.DTString)
+		return NewConstant(r.ctx.EvalContext, expr.Value, types.DTString)
 	case *tree.StringLiteral:
 		// TODO: right?
-		return NewConstant(expr.Value, types.DTString)
+		return NewConstant(r.ctx.EvalContext, expr.Value, types.DTString)
 	case *tree.FloatLiteral:
 		// TODO: right?
-		return NewConstant(expr.Value, types.DTFloat)
+		return NewConstant(r.ctx.EvalContext, expr.Value, types.DTFloat)
 	case *tree.LongLiteral:
 		// TODO: right?
-		return NewConstant(expr.Value, types.DTInt)
+		return NewConstant(r.ctx.EvalContext, expr.Value, types.DTInt)
 	case *tree.Constant:
-		return NewConstant(expr.Value, expr.Type)
+		return NewConstant(r.ctx.EvalContext, expr.Value, expr.Type)
 	case *tree.SymbolReference:
 		// FIXME: add check,index not found
 		_, index, ok := lo.FindIndexOf(r.ctx.SourceLayout, func(item *plan.Symbol) bool {
 			return item.Name == expr.Name
 		})
 		fmt.Printf("expr rewrite %v,%v,%v,%v\n", r.ctx.SourceLayout, expr.Name, ok, index)
-		return NewColumn(expr.Name, index, expr.DataType)
+		return NewColumn(r.ctx.EvalContext, expr.Name, index, expr.DataType)
 	case *tree.Cast:
-		return NewCast(expr.Type, r.rewrite(expr.Expression))
+		return NewCast(r.ctx.EvalContext, expr.Type, r.rewrite(expr.Expression))
 	default:
 		panic(fmt.Sprintf("expression rewrite unimplemented: %T", node))
 	}
 }
 
 func (r *rewriter) rewriteCall(node *tree.FunctionCall) Expression {
-	scalarFunc, err := NewScalarFunc(node.Name, node.RetType, lo.Map(node.Arguments,
+	scalarFunc, err := NewScalarFunc(r.ctx.EvalContext, node.Name, node.RetType, lo.Map(node.Arguments,
 		func(item tree.Expression, index int) Expression {
 			return r.rewrite(item)
 		},

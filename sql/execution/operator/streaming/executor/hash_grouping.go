@@ -18,7 +18,6 @@
 package executor
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/samber/lo"
@@ -97,7 +96,6 @@ func (g *HashGrouping) Enter(page *types.Page) {
 	for row := it.Begin(); row != it.End(); row = it.Next() {
 		for i, colIdx := range g.colIdxOfKeys {
 			val := row.Get(colIdx)
-			fmt.Printf("grouping key colIdx=%d,val=%v\n", colIdx, val)
 			g.rules[i].Map(val, g.buf)
 		}
 

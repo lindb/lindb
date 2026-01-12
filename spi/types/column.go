@@ -119,8 +119,12 @@ func (c *Column) GetTimestamp(row int) *time.Time {
 	if row >= len(c.Blocks) {
 		return nil
 	}
+	val := c.Blocks[row]
+	if val == nil {
+		return nil
+	}
 	// FIXME:
-	return c.Blocks[row].(*time.Time)
+	return val.(*time.Time)
 }
 
 func (c *Column) GetDuration(row int) *time.Duration {

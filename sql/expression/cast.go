@@ -30,43 +30,43 @@ type Cast struct {
 	retType  types.DataType
 }
 
-func NewCast(retType types.DataType, arg Expression) Expression {
+func NewCast(ctx EvalContext, retType types.DataType, arg Expression) Expression {
 	return &Cast{
 		retType: retType,
 		arg:     arg,
 		function: &castFunc{
-			baseFunc: baseFunc{args: []Expression{arg}},
+			baseFunc: baseFunc{ctx: ctx, args: []Expression{arg}},
 		},
 	}
 }
 
 // EvalString implements Expression.
-func (c *Cast) EvalString(ctx EvalContext, row types.Row) (val string, isNull bool, err error) {
+func (c *Cast) EvalString(row types.Row) (val string, isNull bool, err error) {
 	panic("unimplemented")
 }
 
-func (c *Cast) EvalInt(ctx EvalContext, row types.Row) (val int64, isNull bool, err error) {
+func (c *Cast) EvalInt(row types.Row) (val int64, isNull bool, err error) {
 	fmt.Printf("cast eval int=%v\n", c.retType)
-	return c.function.EvalInt(ctx, row)
+	return c.function.EvalInt(row)
 }
 
-func (c *Cast) EvalFloat(ctx EvalContext, row types.Row) (val float64, isNull bool, err error) {
-	return c.function.EvalFloat(ctx, row)
+func (c *Cast) EvalFloat(row types.Row) (val float64, isNull bool, err error) {
+	return c.function.EvalFloat(row)
 }
 
-func (c *Cast) EvalTimeSeries(ctx EvalContext, row types.Row) (val *types.TimeSeries, isNull bool, err error) {
-	return c.function.EvalTimeSeries(ctx, row)
+func (c *Cast) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error) {
+	return c.function.EvalTimeSeries(row)
 }
 
-func (c *Cast) EvalDuration(ctx EvalContext, row types.Row) (val time.Duration, isNull bool, err error) {
+func (c *Cast) EvalDuration(row types.Row) (val time.Duration, isNull bool, err error) {
 	return
 }
 
-func (c *Cast) EvalTime(ctx EvalContext, _ types.Row) (val time.Time, isNull bool, err error) {
+func (c *Cast) EvalTime(_ types.Row) (val time.Time, isNull bool, err error) {
 	return
 }
 
-func (c *Cast) EvalMap(ctx EvalContext, _ types.Row) (val map[string]string, isNull bool, err error) {
+func (c *Cast) EvalMap(_ types.Row) (val map[string]string, isNull bool, err error) {
 	return
 }
 
@@ -83,24 +83,24 @@ type castFunc struct {
 	baseFunc
 }
 
-func (f *castFunc) EvalInt(ctx EvalContext, row types.Row) (val int64, isNull bool, err error) {
-	lv, _, _ := f.args[0].EvalInt(ctx, row)
+func (f *castFunc) EvalInt(row types.Row) (val int64, isNull bool, err error) {
+	lv, _, _ := f.args[0].EvalInt(row)
 	fmt.Println("cast int..........")
 	return lv, false, nil
 }
 
 // EvalFloat implements Func.
-func (f *castFunc) EvalFloat(ctx EvalContext, row types.Row) (val float64, isNull bool, err error) {
+func (f *castFunc) EvalFloat(row types.Row) (val float64, isNull bool, err error) {
 	fmt.Println("cast float..........")
 	return
 }
 
 // EvalTimeSeries evaluates the expression, cast result to types.TimeSeries type.
-func (f *castFunc) EvalTimeSeries(ctx EvalContext, row types.Row) (val *types.TimeSeries, isNull bool, err error) {
+func (f *castFunc) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error) {
 	fmt.Printf("cast time series..........,type =%T,%s,%s\n", f.args[0], f.args[0].GetType(), f.args[0].String())
 	switch f.args[0].GetType() {
 	case types.DTInt:
-		val, isNull, err := f.args[0].EvalInt(ctx, row)
+		val, isNull, err := f.args[0].EvalInt(row)
 		if err != nil {
 			return nil, false, err
 		}
@@ -109,7 +109,7 @@ func (f *castFunc) EvalTimeSeries(ctx EvalContext, row types.Row) (val *types.Ti
 		}
 		return types.NewTimeSeriesWithSingleValue(float64(val)), false, nil
 	case types.DTFloat:
-		val, isNull, err := f.args[0].EvalFloat(ctx, row)
+		val, isNull, err := f.args[0].EvalFloat(row)
 		if err != nil {
 			return nil, false, err
 		}
@@ -118,7 +118,7 @@ func (f *castFunc) EvalTimeSeries(ctx EvalContext, row types.Row) (val *types.Ti
 		}
 		return types.NewTimeSeriesWithSingleValue(val), false, nil
 	case types.DTTimeSeries:
-		return f.args[0].EvalTimeSeries(ctx, row)
+		return f.args[0].EvalTimeSeries(row)
 	}
 	return
 }
