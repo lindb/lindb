@@ -50,7 +50,8 @@ func (fct *TaskExecutionFactory) Create(task *SQLTask) *TaskExecution {
 		TaskID:     task.ID,
 		Fragment:   task.Fragment,
 		Partitions: task.Partitions,
-		Streaming:  task.Streaming,
+		Database:   task.Database,
+		StreamName: task.StreamName,
 	}
 	plan := taskPlanner.Plan(ctx, task.Fragment.Root)
 

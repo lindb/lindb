@@ -19,7 +19,6 @@ package operator
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/expression"
@@ -51,7 +50,6 @@ func (op *ProjectionOperator) Run(ctx context.Context, output chan<- *types.Page
 	if len(op.exprs) == 0 {
 		op.prepare()
 	}
-	fmt.Println(op.exprs)
 
 	for {
 		source, ok := op.inbound.Consume(ctx)

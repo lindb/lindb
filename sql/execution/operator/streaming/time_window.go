@@ -19,6 +19,7 @@ package streaming
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/lindb/lindb/spi/types"
@@ -61,6 +62,7 @@ func (t *TimeWindowOperator) Run(ctx context.Context, output chan<- *types.Page)
 			t.executor.Enter(source)
 			// fmt.Println("time window...")
 		case <-t.ticker.C:
+			fmt.Println("output", output)
 			t.executor.Leave(output)
 			// fmt.Println("get executor result")
 		}

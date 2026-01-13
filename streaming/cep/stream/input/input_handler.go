@@ -17,6 +17,10 @@
 
 package input
 
+import (
+	"fmt"
+)
+
 type InputHandler interface {
 	Send(event any)
 	Subscribe(receiver Receiver)
@@ -35,6 +39,11 @@ func (h *inputHandler) Subscribe(receiver Receiver) {
 }
 
 func (h *inputHandler) Send(event any) {
+	if len(h.receivers) == 0 {
+		// TODO: add log/metric
+		fmt.Printf("no receivers found, drop event:%v\n", event)
+		return
+	}
 	// fmt.Printf("current:%v,receivers=%d, send event:%v\n", h, len(h.receivers), event)
 	for _, r := range h.receivers {
 		r.Receive(event)

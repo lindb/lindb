@@ -30,5 +30,11 @@ type TaskContext struct {
 	Fragment   *plan.PlanFragment
 	Partitions []int
 
-	Streaming bool
+	// stream processing(cep)
+	Database   string
+	StreamName string
+}
+
+func (ctx *TaskContext) IsStreaming() bool {
+	return ctx.StreamName != ""
 }

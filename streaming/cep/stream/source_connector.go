@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/lindb/common/pkg/encoding"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/spi"
@@ -98,6 +97,7 @@ func (sc *sourceConnector) initialize() {
 }
 
 func (sc *sourceConnector) Receive(event any) {
+	// FIXME: close inbound queue if pipeline stopped
 	if page, ok := event.(*types.Page); ok {
 		sc.inbound.Produce(page)
 	}
@@ -269,7 +269,7 @@ func (v *visitor) filter(page *types.Page) *types.Page {
 	// 	default:
 	// 		panic(fmt.Errorf("not support,%T", n))
 	// 	}
-	fmt.Println("filtered page rows:", string(encoding.JSONMarshal(newPage)))
+	// fmt.Println("filtered page rows:", string(encoding.JSONMarshal(newPage)))
 	return newPage
 }
 

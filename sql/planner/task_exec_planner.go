@@ -70,9 +70,11 @@ func (v *TaskExecutionPlanVisitor) Visit(context any, n planpkg.PlanNode) (r any
 	fmt.Printf("task exec plan visit: %T\n", n)
 	switch node := n.(type) {
 	case *planpkg.OutputNode:
-		if v.taskExecCtx.Streaming {
-			// no output for streaming process
-			return node.Source.Accept(context, v)
+		fmt.Println("output node...")
+		if v.taskExecCtx.IsStreaming() {
+			child := node.Source.Accept(context, v)
+			return streaming.NewOutputOperator(v.taskExecCtx.Context, v.taskExecCtx.Database, v.taskExecCtx.StreamName,
+				node, child.(operator.Operator))
 		}
 		child := node.Source.Accept(context, v).(operator.Operator)
 		return output.NewRSOutputOperator(node, child)
@@ -136,7 +138,7 @@ func (v *TaskExecutionPlanVisitor) visitExchange(context any, node *planpkg.Exch
 
 func (v *TaskExecutionPlanVisitor) visitAggregation(context any, node *planpkg.AggregationNode) (r any) {
 	source := node.Source.Accept(context, v).(operator.Operator)
-	if v.taskExecCtx.Streaming {
+	if v.taskExecCtx.IsStreaming() {
 		var assignments []*planpkg.Assignment
 		if projection, ok := node.Source.(*planpkg.ProjectionNode); ok {
 			assignments = projection.Assignments
@@ -188,7 +190,7 @@ func (v *TaskExecutionPlanVisitor) visitScanFilterAndProjection(context any,
 	fmt.Printf("visitScanFilterAndProjection:%T,filter=%v\n", sourceNode, predicate)
 	if tableScan, ok := sourceNode.(*planpkg.TableScanNode); ok {
 		child := v.visitTableScan(context, tableScan, predicate)
-		if v.taskExecCtx.Streaming {
+		if v.taskExecCtx.IsStreaming() {
 			return operator.NewProjectionOperator(v.taskExecCtx.Context, project, child)
 		}
 		return child

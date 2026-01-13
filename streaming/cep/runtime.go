@@ -21,8 +21,6 @@ import (
 	contextpkg "context"
 	"fmt"
 
-	"github.com/lindb/common/pkg/encoding"
-
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/analyzer"
@@ -101,18 +99,18 @@ func (r *runtime) Query(sql string) error {
 
 	switch node := stmt.(type) {
 	case *tree.StreamingApp:
-		fmt.Println(node.Statements)
-		fmt.Printf("stat....===%v,%v\n", len(node.Statements), string(encoding.JSONMarshal(node.Annotations)))
 		for _, stmt := range node.Statements {
-			r.plan(idAllocator, stmt.Statement)
+			r.deploy(idAllocator, stmt.Statement)
+			fmt.Printf("executed statement:%+v\n", stmt.Annotations)
 		}
 	default:
-		r.plan(idAllocator, stmt)
+		r.deploy(idAllocator, stmt)
 	}
 	return nil
 }
 
-func (r *runtime) plan(idAllocator *tree.NodeIDAllocator, statement tree.Statement) {
+func (r *runtime) deploy(idAllocator *tree.NodeIDAllocator, statement tree.Statement) {
+	// TODO: generate stream name for statement
 	planner := execution.NewPlanner(analyzer.NewAnalyzerFactory(stream.GetManager().GetStreamManager(r.database)))
 	plan := planner.Plan(&execution.Session{
 		Database:        r.database,
@@ -130,7 +128,14 @@ func (r *runtime) plan(idAllocator *tree.NodeIDAllocator, statement tree.Stateme
 		Fragment: &planpkg.PlanFragment{
 			Root: plan.Root,
 		},
-		Streaming: true,
+		Database:   r.database,
+		StreamName: statement.String(),
 	})
+
+	// add listener to input handler for this statement
+	output := input.GetManager().GetInputHandler(r.database, statement.String())
+	output.Subscribe(NewListener())
+
+	// run streaming execution
 	go exec.Execute(nil)
 }

@@ -24,7 +24,6 @@ import (
 
 	"github.com/lindb/lindb/sql/context"
 	"github.com/lindb/lindb/sql/planner/optimization"
-	"github.com/lindb/lindb/sql/planner/plan"
 	planpkg "github.com/lindb/lindb/sql/planner/plan"
 	printpkg "github.com/lindb/lindb/sql/planner/printer"
 	"github.com/lindb/lindb/sql/tree"
@@ -66,19 +65,16 @@ func (p *LogicalPlanner) Plan() *planpkg.Plan {
 }
 
 func (p *LogicalPlanner) planStatement() planpkg.PlanNode {
-	relationPlan := p.planStatementWithoutOutput()
-	return p.createOutputPlan(relationPlan)
-}
-
-func (p *LogicalPlanner) planStatementWithoutOutput() *RelationPlan {
 	statement := p.context.AnalyzerContext.Analysis.GetStatement()
 	fmt.Printf("statement type=%T\n", statement)
 	switch stmt := statement.(type) {
 	case *tree.Query:
 		planner := NewRelationPlanner(p.context, nil, nil, nil)
-		return stmt.Accept(nil, planner).(*RelationPlan)
+		relationPlan := stmt.Accept(nil, planner).(*RelationPlan)
+		return p.createOutputPlan(relationPlan)
 	case *tree.Insert:
-		return p.createInsertPlan(stmt)
+		relattionPlan := p.createInsertPlan(stmt)
+		return relattionPlan.Root
 	default:
 		// TODO: plan other statement
 		panic("not support statement type")
@@ -111,14 +107,14 @@ func (p *LogicalPlanner) createInsertPlan(statement *tree.Insert) *RelationPlan 
 	}
 	fmt.Printf("create insert plan output descriptor=%v,%v\n", outputDescriptor, outputs)
 
-	project := &plan.ProjectionNode{
-		BaseNode: plan.BaseNode{
+	project := &planpkg.ProjectionNode{
+		BaseNode: planpkg.BaseNode{
 			ID: p.context.PlanNodeIDAllocator.Next(),
 		},
 		Source: queryPlan.Root,
-		Assignments: lo.Map(outputs, func(item *plan.Symbol, index int) *plan.Assignment {
-			return &plan.Assignment{
-				Symbol:     &plan.Symbol{Name: columns[index], DataType: item.DataType, AggType: item.AggType},
+		Assignments: lo.Map(outputs, func(item *planpkg.Symbol, index int) *planpkg.Assignment {
+			return &planpkg.Assignment{
+				Symbol:     &planpkg.Symbol{Name: columns[index], DataType: item.DataType, AggType: item.AggType},
 				Expression: item.ToSymbolReference(),
 			}
 		}),

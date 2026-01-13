@@ -19,4 +19,5 @@ package cep
 
 type Receiver interface {
 	Receive(msg []byte)
+	// TODO: add close
 }

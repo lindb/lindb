@@ -39,7 +39,8 @@ type SQLTask struct {
 	Fragment    *plan.PlanFragment
 	Partitions  []int
 
-	Streaming bool
+	Database   string
+	StreamName string
 }
 
 type TaskManager interface {
