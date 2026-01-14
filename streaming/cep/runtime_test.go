@@ -78,7 +78,7 @@ func Test_Runtime_Insert(t *testing.T) {
 	// add streaming query
 	err := runtime.Query(`
 	@app(name="test_app")
-	@metric(name="count_rpc",tags=["tags_map","interface"],fields=["qps"])
+	@metric(name="count_rpc",tags=["tags_map","interface"],fields=["qps"],timestamp="ts")
 	insert into Result
 	select map_values(tags,'app') as tags_map,interface,count(1) as qps,time_trunc(timestamp,interval 10 second) as ts
 	from RPCService
@@ -170,11 +170,11 @@ func Test_Runtime_Query(t *testing.T) {
 	// add streaming query
 	err := runtime.Query(`
 	@app(name="test_app")
-	@metric(name="count_rpc",tags=["tags_map","interface"],fields=["qps"])
-	select map_values(tags,'app') as tags,interface,count(1) as qps,time_trunc(timestamp,interval 10 second) as timestamp
+	@metric(name="{{.interface}}.rpc_call",tags=["tags_map","interface"],fields=["qps"],timestamp="ts")
+	select map_values(tags,'app') as tags_map,interface,count(1) as qps,time_trunc(timestamp,interval 10 second) as ts 
 	from RPCService
 	where interface in('grpc','http')
-	group by tags,interface,timestamp;
+	group by tags_map,interface,ts;
 		`)
 	fmt.Println(err)
 	//

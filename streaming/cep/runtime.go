@@ -29,6 +29,8 @@ import (
 	planpkg "github.com/lindb/lindb/sql/planner/plan"
 	printpkg "github.com/lindb/lindb/sql/planner/printer"
 	"github.com/lindb/lindb/sql/tree"
+	"github.com/lindb/lindb/streaming/cep/annotation"
+	mapperpkg "github.com/lindb/lindb/streaming/cep/mapper"
 	"github.com/lindb/lindb/streaming/cep/stream"
 	"github.com/lindb/lindb/streaming/cep/stream/input"
 	"github.com/lindb/lindb/streaming/cep/stream/output"
@@ -100,16 +102,15 @@ func (r *runtime) Query(sql string) error {
 	switch node := stmt.(type) {
 	case *tree.StreamingApp:
 		for _, stmt := range node.Statements {
-			r.deploy(idAllocator, stmt.Statement)
-			fmt.Printf("executed statement:%+v\n", stmt.Annotations)
+			r.deploy(stmt.Statement, idAllocator, stmt.Annotations)
 		}
 	default:
-		r.deploy(idAllocator, stmt)
+		r.deploy(stmt, idAllocator, nil)
 	}
 	return nil
 }
 
-func (r *runtime) deploy(idAllocator *tree.NodeIDAllocator, statement tree.Statement) {
+func (r *runtime) deploy(statement tree.Statement, idAllocator *tree.NodeIDAllocator, annotations []*tree.Annotation) {
 	// TODO: generate stream name for statement
 	planner := execution.NewPlanner(analyzer.NewAnalyzerFactory(stream.GetManager().GetStreamManager(r.database)))
 	plan := planner.Plan(&execution.Session{
@@ -132,9 +133,14 @@ func (r *runtime) deploy(idAllocator *tree.NodeIDAllocator, statement tree.State
 		StreamName: statement.String(),
 	})
 
+	var mapper mapperpkg.Mapper
+	for _, ann := range annotations {
+		mapper = mapperpkg.CreateMapper(annotation.ParseAnnotation(ann))
+	}
+
 	// add listener to input handler for this statement
 	output := input.GetManager().GetInputHandler(r.database, statement.String())
-	output.Subscribe(NewListener())
+	output.Subscribe(NewListener(mapper))
 
 	// run streaming execution
 	go exec.Execute(nil)

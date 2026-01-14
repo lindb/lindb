@@ -309,6 +309,9 @@ type SQLParserListener interface {
 	// EnterNonDefaultPropertyValue is called when entering the nonDefaultPropertyValue production.
 	EnterNonDefaultPropertyValue(c *NonDefaultPropertyValueContext)
 
+	// EnterArrayPropertyValue is called when entering the arrayPropertyValue production.
+	EnterArrayPropertyValue(c *ArrayPropertyValueContext)
+
 	// EnterBooleanValue is called when entering the booleanValue production.
 	EnterBooleanValue(c *BooleanValueContext)
 
@@ -629,6 +632,9 @@ type SQLParserListener interface {
 
 	// ExitNonDefaultPropertyValue is called when exiting the nonDefaultPropertyValue production.
 	ExitNonDefaultPropertyValue(c *NonDefaultPropertyValueContext)
+
+	// ExitArrayPropertyValue is called when exiting the arrayPropertyValue production.
+	ExitArrayPropertyValue(c *ArrayPropertyValueContext)
 
 	// ExitBooleanValue is called when exiting the booleanValue production.
 	ExitBooleanValue(c *BooleanValueContext)

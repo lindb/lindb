@@ -17,6 +17,8 @@
 
 package output
 
+import "github.com/lindb/lindb/models"
+
 type Listener interface {
-	Receive(event any)
+	Receive(event models.Event)
 }

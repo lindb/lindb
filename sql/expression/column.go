@@ -34,33 +34,19 @@ func NewColumn(ctx EvalContext, name string, index int, retType types.DataType) 
 }
 
 func (c *Column) EvalString(row types.Row) (val string, isNull bool, err error) {
-	v := row.Get(c.index)
-	switch sv := v.(type) {
-	case string:
-		return sv, false, nil
-	default:
-		val := row.GetString(c.index)
-		if val == nil {
-			return "", true, nil
-		}
-		return string(*val), false, nil
-	}
+	return row.GetString(c.index), false, nil
 }
 
 func (c *Column) EvalMap(row types.Row) (val map[string]string, isNull bool, err error) {
-	v := row.Get(c.index)
-	if v == nil {
-		return nil, true, nil
-	}
-	return v.(map[string]string), false, nil
+	return row.GetMap(c.index), false, nil
 }
 
 func (c *Column) EvalInt(row types.Row) (val int64, isNull bool, err error) {
-	return int64(*row.GetInt(c.index)), false, nil
+	return row.GetInt(c.index), false, nil
 }
 
 func (c *Column) EvalFloat(row types.Row) (val float64, isNull bool, err error) {
-	return float64(*row.GetFloat(c.index)), false, nil
+	return row.GetFloat(c.index), false, nil
 }
 
 func (c *Column) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error) {
@@ -68,15 +54,11 @@ func (c *Column) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bo
 }
 
 func (c *Column) EvalDuration(row types.Row) (val time.Duration, isNull bool, err error) {
-	return *row.GetDuration(c.index), false, nil
+	return row.GetDuration(c.index), false, nil
 }
 
 func (c *Column) EvalTime(row types.Row) (val time.Time, isNull bool, err error) {
-	v := row.GetTimestamp(c.index)
-	if v == nil {
-		return time.Time{}, true, nil
-	}
-	return *v, false, nil
+	return row.GetTimestamp(c.index), false, nil
 }
 
 // GetType returns the data type of the column returns.

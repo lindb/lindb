@@ -404,6 +404,10 @@ func (v *BaseSQLParserVisitor) VisitNonDefaultPropertyValue(ctx *NonDefaultPrope
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseSQLParserVisitor) VisitArrayPropertyValue(ctx *ArrayPropertyValueContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseSQLParserVisitor) VisitBooleanValue(ctx *BooleanValueContext) interface{} {
 	return v.VisitChildren(ctx)
 }

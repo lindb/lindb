@@ -15,10 +15,37 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package types
+package mapper
 
-type String string
+import (
+	"fmt"
 
-type Float float64
+	"github.com/lindb/common/pkg/logger"
 
-type Int int64
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/collections"
+	"github.com/lindb/lindb/streaming/cep/annotation"
+)
+
+var log = logger.GetLogger("CEP", "Mapper")
+
+type Mapper interface {
+	Map(event models.Event) models.Event
+}
+
+type createMapperFn func(props *collections.Properties) Mapper
+
+var mappers = map[string]createMapperFn{
+	"metric": NewMetricMapper,
+}
+
+func CreateMapper(annotation *annotation.Annotation) Mapper {
+	if annotation == nil {
+		return nil
+	}
+	fmt.Println("Mapper property:", annotation)
+	if createFn, ok := mappers[annotation.Name]; ok {
+		return createFn(annotation.Props)
+	}
+	return nil
+}

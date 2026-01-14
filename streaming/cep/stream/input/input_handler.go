@@ -19,10 +19,12 @@ package input
 
 import (
 	"fmt"
+
+	"github.com/lindb/lindb/models"
 )
 
 type InputHandler interface {
-	Send(event any)
+	Send(event models.Event)
 	Subscribe(receiver Receiver)
 }
 
@@ -38,7 +40,7 @@ func (h *inputHandler) Subscribe(receiver Receiver) {
 	h.receivers = append(h.receivers, receiver)
 }
 
-func (h *inputHandler) Send(event any) {
+func (h *inputHandler) Send(event models.Event) {
 	if len(h.receivers) == 0 {
 		// TODO: add log/metric
 		fmt.Printf("no receivers found, drop event:%v\n", event)

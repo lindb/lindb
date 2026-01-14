@@ -25,6 +25,7 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/klauspost/compress v1.18.0
 	github.com/klauspost/cpuid v1.3.1
+	github.com/lindb/client_go v0.0.3
 	github.com/lindb/common v0.0.9
 	github.com/lindb/roaring v1.2.1
 	github.com/linxGnu/grocksdb v1.10.2
@@ -157,3 +158,5 @@ require (
 )
 
 replace google.golang.org/genproto => google.golang.org/genproto/googleapis/rpc v0.0.0-20250811230008-5f3141c8851a
+
+replace github.com/lindb/client_go => ../client_go

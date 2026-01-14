@@ -17,6 +17,8 @@
 
 package models
 
+type Event any
+
 type Streaming struct {
 	Name     string `json:"name"`
 	Observer string `json:"observer"`

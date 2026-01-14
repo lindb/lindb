@@ -21,8 +21,6 @@ import (
 	"time"
 
 	"github.com/lindb/common/pkg/timeutil"
-
-	"github.com/lindb/lindb/spi/types"
 )
 
 type Rule interface {
@@ -73,13 +71,7 @@ func newStringRule(mapper *StringMapper) Rule {
 }
 
 func (r *StringRule) Map(value any, buf *Buffer) {
-	switch t := value.(type) {
-	case string:
-		buf.Write(r.mapper.GetID(t))
-	case *types.String:
-		val := string(*t)
-		buf.Write(r.mapper.GetID(val))
-	}
+	buf.Write(r.mapper.GetID(value.(string)))
 }
 
 func (r *StringRule) Unmap(buf *Buffer) any {
@@ -120,5 +112,5 @@ func (r *TimestampRule) Unmap(buf *Buffer) any {
 	if err != nil {
 		panic("parse timestamp string error:" + tsStr)
 	}
-	return &t
+	return t
 }

@@ -189,4 +189,4 @@ func (at AggregateType) Aggregate(a, b float64) float64 {
 
 type Type any
 
-type Block any
+type Value any

@@ -17,17 +17,41 @@
 
 package annotation
 
-import "github.com/lindb/lindb/sql/tree"
+import (
+	"context"
 
-var annotations = make(map[string]CraeteAnnotation)
+	"github.com/lindb/common/pkg/logger"
 
-type Annotation interface{}
+	"github.com/lindb/lindb/pkg/collections"
+	"github.com/lindb/lindb/sql/expression"
+	"github.com/lindb/lindb/sql/tree"
+)
 
-type CraeteAnnotation func(ananotion *tree.Annotation) Annotation
+var log = logger.GetLogger("CEP", "Annotation")
 
-func Register(name string, create CraeteAnnotation) {
-	if _, ok := annotations[name]; ok {
-		panic("annotation exsit")
+type Annotation struct {
+	Name  string
+	Props *collections.Properties
+}
+
+func ParseAnnotation(annotation *tree.Annotation) *Annotation {
+	if annotation == nil {
+		return nil
 	}
-	annotations[name] = create
+	var propSlice []*tree.Property
+	for _, elem := range annotation.Elements {
+		// TODO: do nested annotation support?
+		if prop, ok := elem.(*tree.Property); ok {
+			propSlice = append(propSlice, prop)
+		}
+	}
+	props, err := expression.EvalProps(expression.NewEvalContext(context.TODO()), propSlice)
+	if err != nil {
+		log.Error("failed to eval annotation properties", logger.Any("props", propSlice), logger.Error(err))
+		return nil
+	}
+	return &Annotation{
+		Name:  annotation.Name.Value,
+		Props: props,
+	}
 }

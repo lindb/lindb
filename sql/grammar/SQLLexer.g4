@@ -119,6 +119,8 @@ EXCLAMATION_SYMBOL : '!' ;
 DOT                : '.' ;
 LR_BRACKET         : '(' ;
 RR_BRACKET         : ')' ;
+LS_QUARE           : '[' ;
+RS_QUARE           : ']' ;
 COMMA              : ',' ;
 AT                 : '@' ; 
 SEMICOLON          : ';' ;

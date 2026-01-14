@@ -309,6 +309,9 @@ type SQLParserVisitor interface {
 	// Visit a parse tree produced by SQLParser#nonDefaultPropertyValue.
 	VisitNonDefaultPropertyValue(ctx *NonDefaultPropertyValueContext) interface{}
 
+	// Visit a parse tree produced by SQLParser#arrayPropertyValue.
+	VisitArrayPropertyValue(ctx *ArrayPropertyValueContext) interface{}
+
 	// Visit a parse tree produced by SQLParser#booleanValue.
 	VisitBooleanValue(ctx *BooleanValueContext) interface{}
 

@@ -19,13 +19,12 @@ package types
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 )
 
 type Column struct {
-	Blocks    []Block `json:"block"`
-	NumOfRows int     `json:"numOfRows"`
+	Values    []Value
+	NumOfRows int
 }
 
 func NewColumn() *Column {
@@ -33,121 +32,117 @@ func NewColumn() *Column {
 }
 
 func (c *Column) AppendTimeSeries(val *TimeSeries) {
-	c.Blocks = append(c.Blocks, val)
+	c.Values = append(c.Values, val)
 	c.NumOfRows++
 }
 
 func (c *Column) AppendString(val string) {
-	v := String(val)
-	c.Blocks = append(c.Blocks, &v)
+	c.Values = append(c.Values, val)
 	c.NumOfRows++
 }
 
 func (c *Column) AppendJSON(val json.RawMessage) {
-	c.Blocks = append(c.Blocks, &val)
+	c.Values = append(c.Values, &val)
+	c.NumOfRows++
+}
+
+func (c *Column) ApppendMap(val map[string]string) {
+	c.Values = append(c.Values, val)
 	c.NumOfRows++
 }
 
 func (c *Column) Append(val any) {
-	c.Blocks = append(c.Blocks, val)
+	c.Values = append(c.Values, val)
 	c.NumOfRows++
 }
 
 func (c *Column) Reset(row int, val any) {
-	c.Blocks[row] = val
+	c.Values[row] = val
 }
 
 func (c *Column) AppendInt(val int64) {
-	v := Int(val)
-	c.Blocks = append(c.Blocks, &v)
+	c.Values = append(c.Values, val)
 	c.NumOfRows++
 }
 
 func (c *Column) AppendFloat(val float64) {
-	v := Float(val)
-	c.Blocks = append(c.Blocks, &v)
+	c.Values = append(c.Values, val)
 	c.NumOfRows++
 }
 
 func (c *Column) AppendTimestamp(val time.Time) {
-	c.Blocks = append(c.Blocks, &val)
+	c.Values = append(c.Values, val)
 	c.NumOfRows++
 }
 
 func (c *Column) AppendDuration(val time.Duration) {
-	v := Int(val.Nanoseconds())
-	c.Blocks = append(c.Blocks, &v)
+	c.Values = append(c.Values, val)
 	c.NumOfRows++
 }
 
-func (c *Column) GetString(row int) *String {
-	if row >= len(c.Blocks) {
-		return nil
+func (c *Column) GetString(row int) string {
+	if row >= len(c.Values) {
+		return ""
 	}
-	val, ok := c.Blocks[row].(*String)
-	if ok {
-		return val
-	}
-	v := String(fmt.Sprintf("%v", val))
-	return &v
+	return c.Values[row].(string)
 }
 
-func (c *Column) GetJSON(row int) *json.RawMessage {
-	if row >= len(c.Blocks) {
+func (c *Column) GetJSON(row int) json.RawMessage {
+	if row >= len(c.Values) {
 		return nil
 	}
-	return c.Blocks[row].(*json.RawMessage)
+	return c.Values[row].(json.RawMessage)
 }
 
-func (c *Column) GetInt(row int) *Int {
-	if row >= len(c.Blocks) {
-		return nil
+func (c *Column) GetInt(row int) int64 {
+	if row >= len(c.Values) {
+		return 0
 	}
 	// FIXME:
-	return c.Blocks[row].(*Int)
+	return c.Values[row].(int64)
 }
 
-func (c *Column) GetFloat(row int) *Float {
-	if row >= len(c.Blocks) {
-		return nil
+func (c *Column) GetFloat(row int) float64 {
+	if row >= len(c.Values) {
+		return 0
 	}
 	// FIXME:
-	return c.Blocks[row].(*Float)
+	return c.Values[row].(float64)
 }
 
-func (c *Column) GetTimestamp(row int) *time.Time {
-	if row >= len(c.Blocks) {
-		return nil
+func (c *Column) GetTimestamp(row int) time.Time {
+	if row >= len(c.Values) {
+		return time.Time{}
 	}
-	val := c.Blocks[row]
-	if val == nil {
-		return nil
-	}
-	// FIXME:
-	return val.(*time.Time)
+	return c.Values[row].(time.Time)
 }
 
-func (c *Column) GetDuration(row int) *time.Duration {
-	if row >= len(c.Blocks) {
+func (c *Column) GetDuration(row int) time.Duration {
+	if row >= len(c.Values) {
+		return time.Duration(0)
+	}
+	return c.Values[row].(time.Duration)
+}
+
+func (c *Column) GetMap(row int) map[string]string {
+	if row >= len(c.Values) {
 		return nil
 	}
-	val := c.Blocks[row].(*Int)
-	duration := time.Duration(int64(*val))
-	return &duration
+	return c.Values[row].(map[string]string)
 }
 
 func (c *Column) GetTimeSeries(row int) *TimeSeries {
-	if row >= len(c.Blocks) {
+	if row >= len(c.Values) {
 		return nil
 	}
 	// FIXME:
-	return c.Blocks[row].(*TimeSeries)
+	return c.Values[row].(*TimeSeries)
 }
 
 func (c *Column) Get(row int) any {
-	if row >= len(c.Blocks) {
+	if row >= len(c.Values) {
 		return nil
 	}
 	// FIXME:
-	return c.Blocks[row]
+	return c.Values[row]
 }

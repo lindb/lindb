@@ -152,10 +152,10 @@ func (h *HashJoinOperator) process(page *types.Page, keys []int, isLeft bool) {
 	it := page.Iterator()
 	for row := it.Begin(); row != it.End(); row = it.Next() {
 		column := row.GetString(keys[0])
-		memRows, ok := h.memTable[string(*column)]
+		memRows, ok := h.memTable[column]
 		if !ok {
 			memRows = &rows{}
-			h.memTable[string(*column)] = memRows
+			h.memTable[column] = memRows
 		}
 
 		if isLeft {

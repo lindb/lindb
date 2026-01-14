@@ -23,62 +23,15 @@ import (
 )
 
 type Row interface {
-	GetString(colIdx int) *String
-	GetJSON(colIdx int) *json.RawMessage
-	GetFloat(colIdx int) *Float
-	GetInt(colIdx int) *Int
+	GetString(colIdx int) string
+	GetJSON(colIdx int) json.RawMessage
+	GetFloat(colIdx int) float64
+	GetInt(colIdx int) int64
 	GetTimeSeries(colIdx int) *TimeSeries
-	GetTimestamp(colIdx int) *time.Time
-	GetDuration(colIdx int) *time.Duration
+	GetTimestamp(colIdx int) time.Time
+	GetDuration(colIdx int) time.Duration
+	GetMap(colIdx int) map[string]string
 	Get(colIdx int) any
-}
-
-type ArrayRow struct {
-	columns []any
-}
-
-func NewArrayRow(columns []any) Row {
-	return &ArrayRow{columns: columns}
-}
-
-// Get implements Row.
-func (a *ArrayRow) Get(colIdx int) any {
-	return a.columns[colIdx]
-}
-
-// GetDuration implements Row.
-func (a *ArrayRow) GetDuration(colIdx int) *time.Duration {
-	return a.columns[colIdx].(*time.Duration)
-}
-
-// GetFloat implements Row.
-func (a *ArrayRow) GetFloat(colIdx int) *Float {
-	return a.columns[colIdx].(*Float)
-}
-
-// GetInt implements Row.
-func (a *ArrayRow) GetInt(colIdx int) *Int {
-	return a.columns[colIdx].(*Int)
-}
-
-// GetJSON implements Row.
-func (a *ArrayRow) GetJSON(colIdx int) *json.RawMessage {
-	return a.columns[colIdx].(*json.RawMessage)
-}
-
-// GetString implements Row.
-func (a *ArrayRow) GetString(colIdx int) *String {
-	return a.columns[colIdx].(*String)
-}
-
-// GetTimeSeries implements Row.
-func (a *ArrayRow) GetTimeSeries(colIdx int) *TimeSeries {
-	return a.columns[colIdx].(*TimeSeries)
-}
-
-// GetTimestamp implements Row.
-func (a *ArrayRow) GetTimestamp(colIdx int) *time.Time {
-	return a.columns[colIdx].(*time.Time)
 }
 
 // PageRow represents a row in the page.
@@ -88,15 +41,15 @@ type PageRow struct {
 }
 
 // GetString returns the string value in the row with the column index.
-func (r *PageRow) GetString(colIdx int) *String {
+func (r *PageRow) GetString(colIdx int) string {
 	if r.idx >= len(r.p.Columns) {
-		return nil
+		return ""
 	}
 	return r.p.Columns[colIdx].GetString(r.idx)
 }
 
 // GetJSON returns the json value in the row with the column index.
-func (r *PageRow) GetJSON(colIdx int) *json.RawMessage {
+func (r *PageRow) GetJSON(colIdx int) json.RawMessage {
 	if r.idx >= len(r.p.Columns) {
 		return nil
 	}
@@ -104,17 +57,17 @@ func (r *PageRow) GetJSON(colIdx int) *json.RawMessage {
 }
 
 // GetFloat returns the float value in the row with the column index.
-func (r *PageRow) GetFloat(colIdx int) *Float {
+func (r *PageRow) GetFloat(colIdx int) float64 {
 	if r.idx >= len(r.p.Columns) {
-		return nil
+		return 0
 	}
 	return r.p.Columns[colIdx].GetFloat(r.idx)
 }
 
 // GetInt returns the int value in the row with the column index.
-func (r *PageRow) GetInt(colIdx int) *Int {
+func (r *PageRow) GetInt(colIdx int) int64 {
 	if r.idx >= len(r.p.Columns) {
-		return nil
+		return 0
 	}
 	return r.p.Columns[colIdx].GetInt(r.idx)
 }
@@ -127,16 +80,23 @@ func (r *PageRow) GetTimeSeries(colIdx int) *TimeSeries {
 	return r.p.Columns[colIdx].GetTimeSeries(r.idx)
 }
 
-func (r *PageRow) GetTimestamp(colIdx int) *time.Time {
+func (r *PageRow) GetTimestamp(colIdx int) time.Time {
 	if r.idx >= len(r.p.Columns) {
-		return nil
+		return time.Time{}
 	}
 	return r.p.Columns[colIdx].GetTimestamp(r.idx)
 }
 
-func (r *PageRow) GetDuration(colIdx int) *time.Duration {
+func (r *PageRow) GetMap(colIdx int) map[string]string {
 	if r.idx >= len(r.p.Columns) {
 		return nil
+	}
+	return r.p.Columns[colIdx].GetMap(r.idx)
+}
+
+func (r *PageRow) GetDuration(colIdx int) time.Duration {
+	if r.idx >= len(r.p.Columns) {
+		return time.Duration(0)
 	}
 	return r.p.Columns[colIdx].GetDuration(r.idx)
 }

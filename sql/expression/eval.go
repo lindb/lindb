@@ -20,9 +20,15 @@ package expression
 import (
 	"time"
 
+	"github.com/lindb/common/pkg/logger"
+	"github.com/samber/lo"
+
+	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 )
+
+var log = logger.GetLogger("Expression", "Eval")
 
 func EvalTime(ctx EvalContext, expression tree.Expression) (time.Time, error) {
 	expr := Rewrite(&RewriteContext{}, expression)
@@ -51,4 +57,30 @@ func Eval(ctx EvalContext, expression tree.Expression) (val any, err error) {
 		val, _, err = expr.EvalDuration(types.EmptyRow)
 	}
 	return
+}
+
+func EvalProps(ctx EvalContext, props []*tree.Property) (*collections.Properties, error) {
+	rs := collections.NewProperties()
+	for _, prop := range props {
+		expr := prop.Value
+		switch propExpr := expr.(type) {
+		case *tree.ArrayExpression:
+			val := lo.Map(propExpr.Elements, func(item tree.Expression, index int) string {
+				val, err := EvalString(ctx, item)
+				if err != nil {
+					log.Warn("failed to eval property array element", logger.Any("prop", item), logger.Error(err))
+					return ""
+				}
+				return val
+			})
+			rs.Set(prop.Name.Value, val)
+		default:
+			val, err := EvalString(ctx, propExpr)
+			if err != nil {
+				return nil, err
+			}
+			rs.Set(prop.Name.Value, val)
+		}
+	}
+	return rs, nil
 }

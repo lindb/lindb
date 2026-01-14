@@ -609,6 +609,12 @@ func (s *BaseSQLParserListener) EnterNonDefaultPropertyValue(ctx *NonDefaultProp
 // ExitNonDefaultPropertyValue is called when production nonDefaultPropertyValue is exited.
 func (s *BaseSQLParserListener) ExitNonDefaultPropertyValue(ctx *NonDefaultPropertyValueContext) {}
 
+// EnterArrayPropertyValue is called when production arrayPropertyValue is entered.
+func (s *BaseSQLParserListener) EnterArrayPropertyValue(ctx *ArrayPropertyValueContext) {}
+
+// ExitArrayPropertyValue is called when production arrayPropertyValue is exited.
+func (s *BaseSQLParserListener) ExitArrayPropertyValue(ctx *ArrayPropertyValueContext) {}
+
 // EnterBooleanValue is called when production booleanValue is entered.
 func (s *BaseSQLParserListener) EnterBooleanValue(ctx *BooleanValueContext) {}
 

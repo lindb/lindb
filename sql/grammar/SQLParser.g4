@@ -158,6 +158,7 @@ limitRowCount       : INTEGER_VALUE ;
 
 expression          : booleanExpression
                     ;
+
 booleanExpression   : notOperator = (NOT | '!') booleanExpression           #logicalNot
                     | booleanExpression AND booleanExpression               #and
                     | booleanExpression OR booleanExpression                #or
@@ -205,6 +206,7 @@ propertyAssignments : property (',' property)* ;
 property            : name=identifier EQ value=propertyValue ;
 propertyValue       : DEFAULT                                               #defaultPropertyValue
                     | expression                                            #nonDefaultPropertyValue
+                    | LS_QUARE expression (',' expression)* RS_QUARE        #arrayPropertyValue
                     ;
 
 booleanValue        : TRUE | FALSE ;

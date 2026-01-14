@@ -66,6 +66,15 @@ type Expression interface {
 	Node
 }
 
+type ArrayExpression struct {
+	BaseNode
+	Elements []Expression
+}
+
+func (n *ArrayExpression) Accept(context any, visitor Visitor) (r any) {
+	return visitor.Visit(context, n)
+}
+
 type Row struct {
 	// FIXME: remove it
 	BaseNode

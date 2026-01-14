@@ -15,26 +15,5 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package types
-
-import (
-	"encoding/json"
-	"time"
-
-	jsoniter "github.com/json-iterator/go"
-
-	"github.com/lindb/lindb/pkg/encoding"
-)
-
-func init() {
-	jsoniter.RegisterTypeEncoder("types.Block", &encoding.JSONEncoder[Block]{})
-	jsoniter.RegisterTypeDecoder("types.Block", &encoding.JSONDecoder[Block]{})
-
-	encoding.RegisterNodeType(TimeSeries{})
-	encoding.RegisterNodeType(String(""))
-	encoding.RegisterNodeType(Float(0))
-	encoding.RegisterNodeType(Int(0))
-	encoding.RegisterNodeType(time.Time{})
-	encoding.RegisterNodeType(time.Duration(0))
-	encoding.RegisterNodeType(json.RawMessage{})
-}
+// Package collections provides collections of utility types and functions.
+package collections

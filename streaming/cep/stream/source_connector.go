@@ -23,6 +23,7 @@ import (
 
 	"github.com/samber/lo"
 
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/operator"
@@ -96,7 +97,7 @@ func (sc *sourceConnector) initialize() {
 	}
 }
 
-func (sc *sourceConnector) Receive(event any) {
+func (sc *sourceConnector) Receive(event models.Event) {
 	// FIXME: close inbound queue if pipeline stopped
 	if page, ok := event.(*types.Page); ok {
 		sc.inbound.Produce(page)
@@ -276,7 +277,7 @@ func (v *visitor) filter(page *types.Page) *types.Page {
 func (v *visitor) check(row types.Row) bool {
 	switch node := v.expr.(type) {
 	case *InExpr:
-		return lo.Contains(node.values, string(*row.GetString(node.column.Ref)))
+		return lo.Contains(node.values, row.GetString(node.column.Ref))
 	default:
 		panic(fmt.Errorf("not support,%T", v.expr))
 	}

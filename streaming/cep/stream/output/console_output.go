@@ -19,6 +19,8 @@ package output
 
 import (
 	"github.com/lindb/common/pkg/logger"
+
+	"github.com/lindb/lindb/models"
 )
 
 type ConsoleOutput struct {
@@ -31,6 +33,6 @@ func NewConsoleOutput() Listener {
 	}
 }
 
-func (output *ConsoleOutput) Receive(event any) {
+func (output *ConsoleOutput) Receive(event models.Event) {
 	output.logger.Info("console output, receive event", logger.Any("event", event))
 }

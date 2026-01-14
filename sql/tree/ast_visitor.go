@@ -318,6 +318,13 @@ func (v *AstVisitor) VisitNonDefaultPropertyValue(ctx *grammar.NonDefaultPropert
 	return visitIfPresent[Expression](ctx.Expression(), v)
 }
 
+func (v *AstVisitor) VisitArrayPropertyValue(ctx *grammar.ArrayPropertyValueContext) any {
+	return &ArrayExpression{
+		BaseNode: v.createBaseNode(ctx),
+		Elements: visit[Expression](ctx.AllExpression(), v),
+	}
+}
+
 func (v *AstVisitor) VisitUtilityStatement(ctx *grammar.UtilityStatementContext) any {
 	switch {
 	case ctx.UseStatement() != nil:
