@@ -32,6 +32,16 @@ func (n *CreateStreaming) Accept(context any, visitor Visitor) any {
 	return visitor.Visit(context, n)
 }
 
+type CreateSink struct {
+	BaseNode
+	Name  string
+	Props []*Property
+}
+
+func (n *CreateSink) Accept(context any, visitor Visitor) any {
+	return visitor.Visit(context, n)
+}
+
 type EngineOption struct {
 	Type option.EngineType
 }

@@ -30,6 +30,9 @@ type SQLParserVisitor interface {
 	// Visit a parse tree produced by SQLParser#streamingApp.
 	VisitStreamingApp(ctx *StreamingAppContext) interface{}
 
+	// Visit a parse tree produced by SQLParser#streamingStatement.
+	VisitStreamingStatement(ctx *StreamingStatementContext) interface{}
+
 	// Visit a parse tree produced by SQLParser#streamingQuery.
 	VisitStreamingQuery(ctx *StreamingQueryContext) interface{}
 
@@ -68,6 +71,9 @@ type SQLParserVisitor interface {
 
 	// Visit a parse tree produced by SQLParser#createDatabase.
 	VisitCreateDatabase(ctx *CreateDatabaseContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#createSink.
+	VisitCreateSink(ctx *CreateSinkContext) interface{}
 
 	// Visit a parse tree produced by SQLParser#databaseOpts.
 	VisitDatabaseOpts(ctx *DatabaseOptsContext) interface{}

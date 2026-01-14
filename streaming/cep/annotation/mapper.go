@@ -15,23 +15,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package tree
+package annotation
 
-type StreamingApp struct {
-	BaseNode
+import (
+	"strings"
 
-	Annotations []*Annotation
-	CreateSinks []*CreateSink
-	Statements  []*StreamingStatement
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/collections"
+)
+
+type Mapper interface {
+	Map(event models.Event) models.Event
 }
 
-func (n *StreamingApp) Accept(context any, visitor Visitor) any {
-	return visitor.Visit(context, n)
+type createMapperFn func(props *collections.Properties) Mapper
+
+var mappers = map[string]createMapperFn{
+	"metric": NewMetricMapper,
 }
 
-type StreamingStatement struct {
-	BaseNode
-
-	Annotations []*Annotation
-	Statement   Statement
+func CreateMapper(annotation *Annotation) Mapper {
+	if annotation == nil {
+		return nil
+	}
+	if createFn, ok := mappers[strings.ToLower(annotation.Name)]; ok {
+		return createFn(annotation.Props)
+	}
+	return nil
 }

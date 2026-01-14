@@ -49,6 +49,12 @@ func (s *BaseSQLParserListener) EnterStreamingApp(ctx *StreamingAppContext) {}
 // ExitStreamingApp is called when production streamingApp is exited.
 func (s *BaseSQLParserListener) ExitStreamingApp(ctx *StreamingAppContext) {}
 
+// EnterStreamingStatement is called when production streamingStatement is entered.
+func (s *BaseSQLParserListener) EnterStreamingStatement(ctx *StreamingStatementContext) {}
+
+// ExitStreamingStatement is called when production streamingStatement is exited.
+func (s *BaseSQLParserListener) ExitStreamingStatement(ctx *StreamingStatementContext) {}
+
 // EnterStreamingQuery is called when production streamingQuery is entered.
 func (s *BaseSQLParserListener) EnterStreamingQuery(ctx *StreamingQueryContext) {}
 
@@ -126,6 +132,12 @@ func (s *BaseSQLParserListener) EnterCreateDatabase(ctx *CreateDatabaseContext) 
 
 // ExitCreateDatabase is called when production createDatabase is exited.
 func (s *BaseSQLParserListener) ExitCreateDatabase(ctx *CreateDatabaseContext) {}
+
+// EnterCreateSink is called when production createSink is entered.
+func (s *BaseSQLParserListener) EnterCreateSink(ctx *CreateSinkContext) {}
+
+// ExitCreateSink is called when production createSink is exited.
+func (s *BaseSQLParserListener) ExitCreateSink(ctx *CreateSinkContext) {}
 
 // EnterDatabaseOpts is called when production databaseOpts is entered.
 func (s *BaseSQLParserListener) EnterDatabaseOpts(ctx *DatabaseOptsContext) {}

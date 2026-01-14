@@ -15,23 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package tree
+package http
 
-type StreamingApp struct {
-	BaseNode
+import (
+	"strings"
+)
 
-	Annotations []*Annotation
-	CreateSinks []*CreateSink
-	Statements  []*StreamingStatement
-}
-
-func (n *StreamingApp) Accept(context any, visitor Visitor) any {
-	return visitor.Visit(context, n)
-}
-
-type StreamingStatement struct {
-	BaseNode
-
-	Annotations []*Annotation
-	Statement   Statement
+// EnsureHTTP ensures the URL has http scheme, if not, adds http scheme as prefix.
+func EnsureHTTP(raw string) string {
+	if strings.Contains(raw, "://") {
+		return raw
+	}
+	return "http://" + raw
 }

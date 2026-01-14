@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package mapper
+package annotation
 
 import (
 	"bytes"
@@ -69,6 +69,7 @@ func (m *MetricMapper) Map(event models.Event) models.Event {
 	if !m.initialized {
 		m.initialize(page)
 	}
+	var points []*api.Point
 	it := page.Iterator()
 	for row := it.Begin(); row != it.End(); row = it.Next() {
 		point := api.NewPoint(m.getMetricName(row)). // metric name
@@ -87,6 +88,8 @@ func (m *MetricMapper) Map(event models.Event) models.Event {
 			point.SetMetricName(buf.String())
 		}
 
+		points = append(points, point)
+
 		if m.logger.Enabled(logger.InfoLevel) {
 			m.logger.Info("mapped point", logger.Any("name", point.MetricName()),
 				logger.Any("timestamp", point.Timestamp()),
@@ -95,7 +98,7 @@ func (m *MetricMapper) Map(event models.Event) models.Event {
 		}
 	}
 
-	return nil
+	return points
 }
 
 func (m *MetricMapper) initialize(input *types.Page) {

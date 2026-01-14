@@ -30,6 +30,9 @@ type SQLParserListener interface {
 	// EnterStreamingApp is called when entering the streamingApp production.
 	EnterStreamingApp(c *StreamingAppContext)
 
+	// EnterStreamingStatement is called when entering the streamingStatement production.
+	EnterStreamingStatement(c *StreamingStatementContext)
+
 	// EnterStreamingQuery is called when entering the streamingQuery production.
 	EnterStreamingQuery(c *StreamingQueryContext)
 
@@ -68,6 +71,9 @@ type SQLParserListener interface {
 
 	// EnterCreateDatabase is called when entering the createDatabase production.
 	EnterCreateDatabase(c *CreateDatabaseContext)
+
+	// EnterCreateSink is called when entering the createSink production.
+	EnterCreateSink(c *CreateSinkContext)
 
 	// EnterDatabaseOpts is called when entering the databaseOpts production.
 	EnterDatabaseOpts(c *DatabaseOptsContext)
@@ -354,6 +360,9 @@ type SQLParserListener interface {
 	// ExitStreamingApp is called when exiting the streamingApp production.
 	ExitStreamingApp(c *StreamingAppContext)
 
+	// ExitStreamingStatement is called when exiting the streamingStatement production.
+	ExitStreamingStatement(c *StreamingStatementContext)
+
 	// ExitStreamingQuery is called when exiting the streamingQuery production.
 	ExitStreamingQuery(c *StreamingQueryContext)
 
@@ -392,6 +401,9 @@ type SQLParserListener interface {
 
 	// ExitCreateDatabase is called when exiting the createDatabase production.
 	ExitCreateDatabase(c *CreateDatabaseContext)
+
+	// ExitCreateSink is called when exiting the createSink production.
+	ExitCreateSink(c *CreateSinkContext)
 
 	// ExitDatabaseOpts is called when exiting the databaseOpts production.
 	ExitDatabaseOpts(c *DatabaseOptsContext)

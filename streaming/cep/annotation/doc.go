@@ -15,23 +15,5 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package tree
-
-type StreamingApp struct {
-	BaseNode
-
-	Annotations []*Annotation
-	CreateSinks []*CreateSink
-	Statements  []*StreamingStatement
-}
-
-func (n *StreamingApp) Accept(context any, visitor Visitor) any {
-	return visitor.Visit(context, n)
-}
-
-type StreamingStatement struct {
-	BaseNode
-
-	Annotations []*Annotation
-	Statement   Statement
-}
+// Package annotation provides annotation parsing and handling logic.
+package annotation

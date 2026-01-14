@@ -15,37 +15,33 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package mapper
+package sink
 
 import (
-	"fmt"
-
-	"github.com/lindb/common/pkg/logger"
-
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/collections"
-	"github.com/lindb/lindb/streaming/cep/annotation"
 )
 
-var log = logger.GetLogger("CEP", "Mapper")
-
-type Mapper interface {
-	Map(event models.Event) models.Event
+// Sink represents the event sink which publishes event to output transport.
+type Sink interface {
+	// Publish publishes the event to sink vis output transport.
+	Publish(event models.Event)
+	Close()
 }
 
-type createMapperFn func(props *collections.Properties) Mapper
+type createSinkFn func(props *collections.Properties) Sink
 
-var mappers = map[string]createMapperFn{
-	"metric": NewMetricMapper,
+var sinks = map[string]createSinkFn{
+	"lindb": newLinDBSink,
 }
 
-func CreateMapper(annotation *annotation.Annotation) Mapper {
-	if annotation == nil {
+func CreateSink(props *collections.Properties) Sink {
+	sinkType, ok := props.GetString("type")
+	if !ok {
 		return nil
 	}
-	fmt.Println("Mapper property:", annotation)
-	if createFn, ok := mappers[annotation.Name]; ok {
-		return createFn(annotation.Props)
+	if createFn, ok := sinks[sinkType]; ok {
+		return createFn(props)
 	}
 	return nil
 }

@@ -20,17 +20,19 @@ package cep
 import (
 	contextpkg "context"
 	"fmt"
+	"strings"
 
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/analyzer"
 	"github.com/lindb/lindb/sql/execution"
 	"github.com/lindb/lindb/sql/execution/model"
+	"github.com/lindb/lindb/sql/expression"
 	planpkg "github.com/lindb/lindb/sql/planner/plan"
 	printpkg "github.com/lindb/lindb/sql/planner/printer"
 	"github.com/lindb/lindb/sql/tree"
 	"github.com/lindb/lindb/streaming/cep/annotation"
-	mapperpkg "github.com/lindb/lindb/streaming/cep/mapper"
+	"github.com/lindb/lindb/streaming/cep/sink"
 	"github.com/lindb/lindb/streaming/cep/stream"
 	"github.com/lindb/lindb/streaming/cep/stream/input"
 	"github.com/lindb/lindb/streaming/cep/stream/output"
@@ -53,6 +55,8 @@ type Runtime interface {
 
 type runtime struct {
 	database string
+
+	sinks map[string]sink.Sink
 }
 
 // AddEventType implements [Runtime].
@@ -73,6 +77,7 @@ func (r *runtime) Startup() {
 func NewRuntime(database string) Runtime {
 	return &runtime{
 		database: database,
+		sinks:    make(map[string]sink.Sink),
 	}
 }
 
@@ -98,9 +103,15 @@ func (r *runtime) Query(sql string) error {
 	if err != nil {
 		return err
 	}
+	fmt.Printf("parsed statement: %T\n", stmt)
 
 	switch node := stmt.(type) {
 	case *tree.StreamingApp:
+		// create data sinks
+		for _, stmt := range node.CreateSinks {
+			r.creaetSink(stmt)
+		}
+		// dploy streaming query statements
 		for _, stmt := range node.Statements {
 			r.deploy(stmt.Statement, idAllocator, stmt.Annotations)
 		}
@@ -133,15 +144,43 @@ func (r *runtime) deploy(statement tree.Statement, idAllocator *tree.NodeIDAlloc
 		StreamName: statement.String(),
 	})
 
-	var mapper mapperpkg.Mapper
+	var mapper annotation.Mapper
+	var sinks []sink.Sink
 	for _, ann := range annotations {
-		mapper = mapperpkg.CreateMapper(annotation.ParseAnnotation(ann))
+		annotationMeta := annotation.ParseAnnotation(ann)
+		name := strings.ToLower(annotationMeta.Name)
+		if name == "sink" {
+			sinkName, ok := annotationMeta.Props.GetString("name")
+			if !ok {
+				panic(fmt.Errorf("sink annotation must contains name property"))
+			}
+			s, ok := r.sinks[sinkName]
+			if !ok {
+				panic(fmt.Errorf("sink %s not found", sinkName))
+			}
+			sinks = append(sinks, s)
+		} else {
+			mapper = annotation.CreateMapper(annotationMeta)
+		}
 	}
 
 	// add listener to input handler for this statement
 	output := input.GetManager().GetInputHandler(r.database, statement.String())
-	output.Subscribe(NewListener(mapper))
+	output.Subscribe(NewListener(mapper, sinks))
 
 	// run streaming execution
 	go exec.Execute(nil)
+}
+
+func (r *runtime) creaetSink(statment *tree.CreateSink) {
+	name := statment.Name
+	props, err := expression.EvalProps(expression.NewEvalContext(contextpkg.TODO()), statment.Props)
+	if err != nil {
+		panic(err)
+	}
+	sink := sink.CreateSink(props)
+	if sink == nil {
+		panic(fmt.Errorf("unsupported sink type"))
+	}
+	r.sinks[name] = sink
 }

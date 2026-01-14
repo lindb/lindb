@@ -72,11 +72,20 @@ func (v *AstVisitor) VisitStatement(ctx *grammar.StatementContext) any {
 }
 
 func (v *AstVisitor) VisitStreamingApp(ctx *grammar.StreamingAppContext) any {
-	return &StreamingApp{
+	app := &StreamingApp{
 		BaseNode:    v.createBaseNode(ctx),
 		Annotations: visit[*Annotation](ctx.AllAppAnnotation(), v),
-		Statements:  visit[*StreamingStatement](ctx.AllStreamingQuery(), v),
 	}
+	statements := ctx.AllStreamingStatement()
+	for _, statement := range statements {
+		switch {
+		case statement.CreateSink() != nil:
+			app.CreateSinks = append(app.CreateSinks, v.Visit(statement.CreateSink()).(*CreateSink))
+		case statement.StreamingQuery() != nil:
+			app.Statements = append(app.Statements, v.Visit(statement.StreamingQuery()).(*StreamingStatement))
+		}
+	}
+	return app
 }
 
 func (v *AstVisitor) VisitStreamingQuery(ctx *grammar.StreamingQueryContext) any {
@@ -230,6 +239,17 @@ func (v *AstVisitor) VisitCreateStreaming(ctx *grammar.CreateStreamingContext) a
 	return createStreaming
 }
 
+func (v *AstVisitor) VisitCreateSink(ctx *grammar.CreateSinkContext) any {
+	createSink := &CreateSink{
+		BaseNode: v.createBaseNode(ctx),
+		Name:     v.getQualifiedName(ctx.GetName()).Name,
+	}
+	if ctx.Properties() != nil && ctx.Properties().PropertyAssignments() != nil {
+		createSink.Props = visit[*Property](ctx.Properties().PropertyAssignments().AllProperty(), v)
+	}
+	return createSink
+}
+
 func (v *AstVisitor) VisitCreateDatabase(ctx *grammar.CreateDatabaseContext) any {
 	createDatabase := &CreateDatabase{
 		BaseNode: v.createBaseNode(ctx),
@@ -246,7 +266,6 @@ func (v *AstVisitor) VisitCreateDatabase(ctx *grammar.CreateDatabaseContext) any
 			createDatabase.Props = append(createDatabase.Props, opt...)
 		}
 	}
-	fmt.Printf("props=%v,rollup=%v\n", createDatabase.Props, createDatabase.Rollup)
 	return createDatabase
 }
 
@@ -302,7 +321,6 @@ func (v *AstVisitor) VisitAnnotation(ctx *grammar.AnnotationContext) any {
 }
 
 func (v *AstVisitor) VisitProperty(ctx *grammar.PropertyContext) any {
-	fmt.Println("visit property.....")
 	return &Property{
 		BaseNode: v.createBaseNode(ctx),
 		Name:     visitIfPresent[*Identifier](ctx.GetName(), v),

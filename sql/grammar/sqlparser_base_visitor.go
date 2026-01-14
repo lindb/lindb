@@ -32,6 +32,10 @@ func (v *BaseSQLParserVisitor) VisitStreamingApp(ctx *StreamingAppContext) inter
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseSQLParserVisitor) VisitStreamingStatement(ctx *StreamingStatementContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseSQLParserVisitor) VisitStreamingQuery(ctx *StreamingQueryContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -81,6 +85,10 @@ func (v *BaseSQLParserVisitor) VisitCreateStreamingOption(ctx *CreateStreamingOp
 }
 
 func (v *BaseSQLParserVisitor) VisitCreateDatabase(ctx *CreateDatabaseContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLParserVisitor) VisitCreateSink(ctx *CreateSinkContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

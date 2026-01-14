@@ -170,6 +170,10 @@ func Test_Runtime_Query(t *testing.T) {
 	// add streaming query
 	err := runtime.Query(`
 	@app(name="test_app")
+
+	create sink rpc_call with (type="lindb",address="localhost:9003",database="_internal");
+
+	@sink(name="rpc_call")
 	@metric(name="{{.interface}}.rpc_call",tags=["tags_map","interface"],fields=["qps"],timestamp="ts")
 	select map_values(tags,'app') as tags_map,interface,count(1) as qps,time_trunc(timestamp,interval 10 second) as ts 
 	from RPCService

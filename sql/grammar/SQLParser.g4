@@ -16,8 +16,10 @@ statement           : ddlStatement
                     ;
 
 streamingApp        : (appAnnotation)* 
-                      (streamingQuery)*
+                      (streamingStatement)*
                     ;
+
+streamingStatement  : createSink SEMICOLON? | streamingQuery ;
 
 streamingQuery      : (annotation)* dmlStatement SEMICOLON?
                     ;
@@ -59,6 +61,8 @@ createStreamingOption  : OBSERVER observer=identifier
 
 // ddl
 createDatabase      : CREATE DATABASE name=qualifiedName databaseOptions* ;
+
+createSink          : CREATE SINK name=qualifiedName (WITH properties)? ;
 
 databaseOptions     : createDatabaseOptions (',' createDatabaseOptions)*    #databaseOpts
                     | WITH properties                                       #withProps 
@@ -244,7 +248,7 @@ nonReserved         :
                     | NAMESPACE | NAMESPACES | NULL | NOT | NOW
                     | ON | OR | ORDER
                     | REQUESTS | REPLICATIONS | RIGHT | ROLLUP
-                    | SELECT | SHOW | STATE | STORAGE | STREAMING 
+                    | SELECT | SINK | SHOW | STATE | STORAGE | STREAMING 
                     | TABLE_NAMES | TIMESTAMP | TRACE | TRUE | TYPE | TYPES 
                     | OBSERVER
                     | VALUES

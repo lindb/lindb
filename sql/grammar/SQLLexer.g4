@@ -73,6 +73,7 @@ REPLICATIONS             : 'REPLICATIONS' ;
 RIGHT                    : 'RIGHT' ;
 ROLLUP                   : 'ROLLUP' ;
 SELECT                   : 'SELECT' ;
+SINK                     : 'SINK' ;
 SHOW                     : 'SHOW' ;
 STATE                    : 'STATE' ;
 STORAGE                  : 'STORAGE' ;
