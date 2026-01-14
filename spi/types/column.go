@@ -19,7 +19,12 @@ package types
 
 import (
 	"encoding/json"
+	"math"
 	"time"
+
+	"github.com/lindb/common/pkg/encoding"
+
+	"github.com/lindb/lindb/pkg/stream"
 )
 
 type Column struct {
@@ -29,6 +34,102 @@ type Column struct {
 
 func NewColumn() *Column {
 	return &Column{}
+}
+
+func (c *Column) Marshal(meta ColumnMetadata, w *stream.BufferWriter) {
+	switch meta.DataType {
+	case DTString:
+		for _, v := range c.Values {
+			w.PutString(v.(string))
+		}
+	case DTJSON:
+		for _, v := range c.Values {
+			data := []byte(v.(json.RawMessage))
+			w.PutUvarint32(uint32(len(data)))
+			w.PutBytes(data)
+		}
+	case DTInt:
+		for _, v := range c.Values {
+			w.PutVarint64(v.(int64))
+		}
+	case DTFloat:
+		for _, v := range c.Values {
+			w.PutUvarint64(math.Float64bits(v.(float64)))
+		}
+	case DTTimestamp:
+		for _, v := range c.Values {
+			t := v.(time.Time)
+			w.PutVarint64(t.UnixMilli())
+		}
+	case DTDuration:
+		for _, v := range c.Values {
+			w.PutVarint64(int64(v.(time.Duration)))
+		}
+	case DTMap:
+		for _, v := range c.Values {
+			m := v.(map[string]string)
+			w.PutUvarint32(uint32(len(m)))
+			for key, value := range m {
+				w.PutString(key)
+				w.PutString(value)
+			}
+		}
+	case DTTimeSeries:
+		for _, v := range c.Values {
+			ts := v.(*TimeSeries)
+			// TODO:need refactor
+			data := encoding.JSONMarshal(ts)
+			w.PutUvarint32(uint32(len(data)))
+			w.PutBytes(data)
+		}
+	}
+}
+
+func (c *Column) Unmarshal(meta ColumnMetadata, numOfRows int, r *stream.Reader) {
+	if numOfRows == 0 {
+		return
+	}
+	c.NumOfRows = numOfRows
+	c.Values = make([]Value, numOfRows)
+	for i := range numOfRows {
+		switch meta.DataType {
+		case DTString:
+			c.Values[i] = r.ReadString()
+		case DTJSON:
+			size := r.ReadUvarint32()
+			data := r.ReadBytes(int(size))
+			c.Values[i] = json.RawMessage(data)
+		case DTInt:
+			c.Values[i] = r.ReadVarint64()
+		case DTFloat:
+			bits := r.ReadUvarint64()
+			c.Values[i] = math.Float64frombits(bits)
+		case DTTimestamp:
+			ms := r.ReadVarint64()
+			c.Values[i] = time.UnixMilli(ms)
+		case DTDuration:
+			dur := r.ReadVarint64()
+			c.Values[i] = time.Duration(dur)
+		case DTMap:
+			size := r.ReadUvarint32()
+			m := make(map[string]string, size)
+			for range size {
+				key := r.ReadString()
+				value := r.ReadString()
+				m[key] = value
+			}
+			c.Values[i] = m
+		case DTTimeSeries:
+			size := r.ReadUvarint32()
+			data := r.ReadBytes(int(size))
+			ts := &TimeSeries{}
+			err := json.Unmarshal(data, ts)
+			if err != nil {
+				panic(err)
+			}
+			c.Values[i] = ts
+		}
+	}
 }
 
 func (c *Column) AppendTimeSeries(val *TimeSeries) {

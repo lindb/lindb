@@ -21,6 +21,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+
+	"github.com/lindb/lindb/pkg/strutil"
 )
 
 ////////////////////////////////////////////////////////
@@ -33,6 +35,11 @@ type writer struct {
 
 	scratch [binary.MaxVarintLen64]byte
 	err     error
+}
+
+func (w *writer) PutString(v string) {
+	w.PutUvarint32(uint32(len(v)))
+	w.PutBytes(strutil.String2ByteSlice(v))
 }
 
 // PutBytes encodes bytes into buf

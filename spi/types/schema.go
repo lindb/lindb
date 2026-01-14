@@ -17,7 +17,10 @@
 
 package types
 
-import "github.com/lindb/lindb/models"
+import (
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/stream"
+)
 
 type TableMetadata struct {
 	Schema     *TableSchema
@@ -56,5 +59,28 @@ func NewColumnInfo(name string, vt DataType, hidden bool, aggType AggregateType)
 		DataType: vt,
 		Hidden:   hidden,
 		AggType:  aggType,
+	}
+}
+
+func (c *ColumnMetadata) Marshal(w *stream.BufferWriter) {
+	w.PutString(c.Name)
+	w.PutByte(byte(c.DataType))
+	w.PutByte(byte(c.AggType))
+	if c.Hidden {
+		w.PutByte(1)
+	} else {
+		w.PutByte(0)
+	}
+}
+
+func (c *ColumnMetadata) Unmarshal(r *stream.Reader) {
+	c.Name = r.ReadString()
+	c.DataType = DataType(r.ReadByte())
+	c.AggType = AggregateType(r.ReadByte())
+	hidden := r.ReadByte()
+	if hidden == 1 {
+		c.Hidden = true
+	} else {
+		c.Hidden = false
 	}
 }

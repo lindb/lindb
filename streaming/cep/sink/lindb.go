@@ -48,6 +48,7 @@ func newLinDBSink(props *collections.Properties) Sink {
 		lindb.DefaultOptions().SetBatchSize(200).
 			SetReqTimeout(60).
 			SetRetryBufferLimit(100).
+			SetFlushInterval(1000).
 			SetMaxRetries(3),
 	)
 	// get write client
@@ -77,4 +78,5 @@ func (s *LinDBSink) Publish(event models.Event) {
 
 func (s *LinDBSink) Close() {
 	// TODO implement the logic to close LinDB sink
+	s.write.Close()
 }

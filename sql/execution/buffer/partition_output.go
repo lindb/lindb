@@ -48,10 +48,16 @@ func NewPartitionOutputBuffer(taskID model.TaskID, fragment *plan.PlanFragment) 
 // AddPage implements OutputBuffer
 func (output *PartitionOutputBuffer) AddPage(page *types.Page) {
 	output.finished = page.Error != ""
+
+	data, err := types.MarshalPage(page)
+	if err != nil {
+		panic(err)
+	}
+
 	output.sendResultSet(&model.TaskResultSet{
 		TaskID: output.taskID,
 		Node:   *output.fragment.ParentNode,
-		Page:   page,
+		Page:   data,
 		NoMore: output.finished,
 	})
 }

@@ -19,11 +19,13 @@ package rpc
 
 import (
 	context "context"
+	"fmt"
 
 	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
 
 	protoCommandV1 "github.com/lindb/lindb/proto/gen/v1/command"
+	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/model"
 	"github.com/lindb/lindb/sql/execution/pipeline"
 )
@@ -54,7 +56,15 @@ func (srv *ResultSetService) ResultSet(ctx context.Context,
 
 	sourceOperator := pipeline.DriverManager.GetSourceOperator(resultSet.TaskID, resultSet.Node)
 	if sourceOperator != nil {
-		sourceOperator.Receive(resultSet.Page)
+		if len(resultSet.Page) != 0 {
+			page, err := types.UnmarshalPage(resultSet.Page)
+			if err != nil {
+				fmt.Println("unmarshal page error:", err)
+				fmt.Println("page data:", resultSet.Page)
+				panic(err)
+			}
+			sourceOperator.Receive(page)
+		}
 		// FIXME: handle error
 		if resultSet.NoMore {
 			// current task no more splits

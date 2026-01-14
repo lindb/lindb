@@ -171,11 +171,14 @@ func Test_Runtime_Query(t *testing.T) {
 	err := runtime.Query(`
 	@app(name="test_app")
 
-	create sink rpc_call with (type="lindb",address="localhost:9003",database="_internal");
+		create sink rpc_call with (type="lindb",address="http://localhost:9003",database="_internal");
 
 	@sink(name="rpc_call")
 	@metric(name="{{.interface}}.rpc_call",tags=["tags_map","interface"],fields=["qps"],timestamp="ts")
-	select map_values(tags,'app') as tags_map,interface,count(1) as qps,time_trunc(timestamp,interval 10 second) as ts 
+	select map_values(tags,'app') as tags_map,
+		interface,
+		count(1) as qps,
+		time_trunc(timestamp,interval 10 second) as ts 
 	from RPCService
 	where interface in('grpc','http')
 	group by tags_map,interface,ts;
@@ -253,5 +256,5 @@ func Test_Runtime_Query(t *testing.T) {
 	// input.Send(&RPCService{Interface: "dubbo", Tags: map[string]string{"host": "1.1.1.1", "app": "order"}})
 	// input.Send(&RPCService{Interface: "http", Tags: map[string]string{"host": "1.1.1.1", "app": "github"}})
 
-	time.Sleep(10 * time.Second)
+	time.Sleep(30 * time.Second)
 }

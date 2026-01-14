@@ -23,6 +23,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+
+	"github.com/lindb/lindb/pkg/strutil"
 )
 
 // ErrUnexpectedRead is raised when reading negative length
@@ -116,6 +118,18 @@ func (r *Reader) ReadByte() byte {
 	return b
 }
 
+func (r *Reader) ReadString() string {
+	size := r.ReadUvarint32()
+	if size == 0 {
+		return ""
+	}
+	data := r.ReadBytes(int(size))
+	if data == nil {
+		return ""
+	}
+	return strutil.ByteSlice2String(data)
+}
+
 // ReadBytes reads n len bytes
 func (r *Reader) ReadBytes(n int) []byte {
 	if n < 0 {
@@ -123,7 +137,7 @@ func (r *Reader) ReadBytes(n int) []byte {
 		return nil
 	}
 	block := make([]byte, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		block[i], r.err = r.reader.ReadByte()
 		if r.err != nil {
 			return block[:i]

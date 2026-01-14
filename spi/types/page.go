@@ -19,12 +19,27 @@ package types
 
 import (
 	"github.com/samber/lo"
+
+	"github.com/lindb/lindb/pkg/stream"
 )
 
 var (
 	RowWithEmptyValue = NewRowWithEmptyValue()
 	EmptyRow          = &PageRow{}
 )
+
+func MarshalPage(page *Page) ([]byte, error) {
+	w := stream.NewBufferWriter(nil)
+	page.Marshal(w)
+	return w.Bytes()
+}
+
+func UnmarshalPage(data []byte) (*Page, error) {
+	r := stream.NewReader(data)
+	page := NewPage()
+	page.Unmarshal(r)
+	return page, r.Error()
+}
 
 type Page struct {
 	Layout   []ColumnMetadata `json:"layout,omitempty"`
@@ -46,6 +61,73 @@ func NewRowWithEmptyValue() *Page {
 	page.AppendColumn(ColumnMetadata{DataType: DTString}, column)
 	column.AppendString("") // mock empty value
 	return page
+}
+
+func (p *Page) Marshal(w *stream.BufferWriter) {
+	// write error
+	if p.Error != "" {
+		w.PutByte(1)
+		w.PutString(p.Error)
+		return
+	}
+	// no error
+	w.PutByte(0)
+	// write Layout
+	w.PutUvarint32(uint32(len(p.Layout)))
+	for _, c := range p.Layout {
+		c.Marshal(w)
+	}
+	// write Grouping
+	w.PutUvarint32(uint32(len(p.Grouping)))
+	for _, idx := range p.Grouping {
+		w.PutUvarint32(uint32(idx))
+	}
+	numOfRows := p.NumRows()
+	// write NumOfRows
+	w.PutUvarint32(uint32(numOfRows))
+	if numOfRows == 0 {
+		return
+	}
+	// write Columns
+	for i, col := range p.Columns {
+		col.Marshal(p.Layout[i], w)
+	}
+}
+
+func (p *Page) Unmarshal(r *stream.Reader) {
+	// read error
+	hasError := r.ReadByte()
+	if hasError == 1 {
+		p.Error = r.ReadString()
+		return
+	}
+	// read layout
+	size := r.ReadUvarint32()
+	p.Layout = make([]ColumnMetadata, size)
+	for i := range size {
+		col := &ColumnMetadata{}
+		col.Unmarshal(r)
+		p.Layout[i] = *col
+	}
+	// read grouping
+	groupingSize := r.ReadUvarint32()
+	p.Grouping = make([]int, groupingSize)
+	for i := range groupingSize {
+		idx := int(r.ReadUvarint32())
+		p.Grouping[i] = idx
+	}
+	numOfRows := r.ReadUvarint32()
+	p.numRows = int(numOfRows)
+	if numOfRows == 0 {
+		return
+	}
+	// read columns
+	p.Columns = make([]*Column, size)
+	for i := range size {
+		col := NewColumn()
+		col.Unmarshal(p.Layout[i], p.numRows, r)
+		p.Columns[i] = col
+	}
 }
 
 func (p *Page) SetGrouping(columnIndexes []int) {

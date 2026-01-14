@@ -20,7 +20,6 @@ package model
 import (
 	"encoding/json"
 
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
 
@@ -43,7 +42,8 @@ type TaskRequest struct {
 }
 
 type TaskResultSet struct {
-	Page   *types.Page     `json:"page,omitempty"`
+	// TODO: refactor not use json
+	Page   []byte          `json:"page,omitempty"`
 	TaskID TaskID          `json:"taskId"`
 	Node   plan.PlanNodeID `json:"node"`
 	NoMore bool            `json:"noMore"`
