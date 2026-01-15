@@ -36,6 +36,8 @@ func getAggFunc(funcName tree.FuncName) field.AggType {
 		return field.Last
 	case tree.First:
 		return field.First
+	case tree.Exemplar:
+		return field.Exemplar
 	default:
 		panic(fmt.Sprintf("aggregation function not support: %s", funcName))
 	}

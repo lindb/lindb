@@ -47,6 +47,7 @@ const (
 	Max
 	Last
 	First
+	Exemplar
 )
 
 // Aggregate aggregates two float64 values into one
@@ -79,6 +80,7 @@ const (
 	LastField
 	HistogramField // alias for sumField, only visible for tsdb
 	FirstField
+	ExemplarField
 )
 
 func (t Type) AggregateType() types.AggregateType {
@@ -95,6 +97,8 @@ func (t Type) AggregateType() types.AggregateType {
 		return types.ATSum
 	case FirstField:
 		return types.ATFirst
+	case ExemplarField:
+		return types.ATExemplar
 	default:
 		panic("unknown aggregate type")
 	}
@@ -115,6 +119,8 @@ func (t Type) String() string {
 		return "histogram"
 	case FirstField:
 		return "first"
+	case ExemplarField:
+		return "exemplar"
 	default:
 		return "unknown"
 	}
@@ -133,6 +139,8 @@ func (t Type) AggType() AggType {
 		return Last
 	case FirstField:
 		return First
+	case ExemplarField:
+		return Exemplar
 	default:
 		panic("need impl")
 	}

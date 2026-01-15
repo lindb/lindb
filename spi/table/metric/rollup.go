@@ -38,6 +38,10 @@ func newRollup(capacity int, window int64) *rollup {
 }
 
 func (r *rollup) doRollup(aggType field.AggType, timestamp int64, value float64) {
+	if aggType == field.Exemplar {
+		// exemplar field do not need rollup
+		return
+	}
 	if r.currTimestamp == 0 {
 		r.nextWindow(timestamp, value)
 	} else if timestamp < r.nextTimestamp {

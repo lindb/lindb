@@ -58,6 +58,10 @@ type DataPointBuffer interface {
 	GetOrCreatePage(memSeriesID uint32) ([]byte, error)
 	// GetPage returns write page buffer, if not exist returns nil.
 	GetPage(memSeriesID uint32) ([]byte, bool)
+	// GetOrCreateExemplarPage returns write exemplar page buffer, if not exist create new page buffer.
+	GetOrCreateExemplarPage(memSeriesID uint32) (ExemplarPage, error)
+	// GetExemplarPage returns write exemplar page buffer, if not exist returns nil.
+	GetExemplarPage(memSeriesID uint32) (ExemplarPage, bool)
 	// Release marks data point buffer is dirty.
 	Release()
 	// IsDirty returns data point buffer if dirty, dirty buffer can be collect.
@@ -153,6 +157,14 @@ func (d *dataPointBuffer) GetPage(memSeriesID uint32) ([]byte, bool) {
 	rOffset := pageID % pageCount
 	offset := pageSize * rOffset
 	return d.buf[region][offset : offset+pageSize], true
+}
+
+func (d *dataPointBuffer) GetOrCreateExemplarPage(memSeriesID uint32) (ExemplarPage, error) {
+	panic("data point not support exemplar")
+}
+
+func (d *dataPointBuffer) GetExemplarPage(memSeriesID uint32) (ExemplarPage, bool) {
+	panic("data point not support exemplar")
 }
 
 // Release marks data point buffer is dirty.

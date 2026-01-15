@@ -160,3 +160,5 @@ require (
 replace google.golang.org/genproto => google.golang.org/genproto/googleapis/rpc v0.0.0-20250811230008-5f3141c8851a
 
 replace github.com/lindb/client_go => ../client_go
+
+replace github.com/lindb/common => ../common

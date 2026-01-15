@@ -222,6 +222,21 @@ func (md *memoryDatabase) WriteRow(row *metric.StorageRow) error {
 		}
 	}
 
+	exemplarItr := row.NewExemplarIterator()
+	for exemplarItr.HasNext() {
+		if err := md.writeExemplarField(
+			mStore, memSeriesID, row,
+			slotIndex,
+			exemplarItr.NextName(),
+			field.ExemplarField,
+			exemplarItr.NextTraceID(),
+			exemplarItr.NextSpanID(),
+			exemplarItr.NextDuration(),
+		); err != nil {
+			return err
+		}
+	}
+
 	// write compound fields
 	if err := md.writeCompoundField(row, mStore, memSeriesID, slotIndex); err != nil {
 		return err
@@ -279,18 +294,26 @@ func (md *memoryDatabase) writeCompoundField(row *metric.StorageRow,
 	return nil
 }
 
-func (md *memoryDatabase) getFieldWriteBuffer(fieldIndex uint8) (DataPointBuffer, error) {
+func (md *memoryDatabase) getFieldWriteBuffer(fieldIndex uint8, fType field.Type) (DataPointBuffer, error) {
 	buf, ok := md.fieldWriteStores.Load(fieldIndex)
 	if ok {
 		return buf.(DataPointBuffer), nil
 	}
 
-	// alloc a new data point buffer
-	newBuf, err := md.cfg.BufferMgr.AllocBuffer(md.cfg.SegmentTime)
-	if err != nil {
-		md.statistics.AllocatePageFailures.Incr()
-		return nil, err
+	var newBuf DataPointBuffer
+	var err error
+	if fType == field.ExemplarField {
+		// alloc a new exemplar data point buffer
+		newBuf = md.cfg.BufferMgr.AllocExemplarBuffer(md.cfg.SegmentTime)
+	} else {
+		// alloc a new data point buffer
+		newBuf, err = md.cfg.BufferMgr.AllocBuffer(md.cfg.SegmentTime)
+		if err != nil {
+			md.statistics.AllocatePageFailures.Incr()
+			return nil, err
+		}
 	}
+
 	md.statistics.AllocatedPages.Incr()
 	// cache data point buffer
 	md.fieldWriteStores.Store(fieldIndex, newBuf)
@@ -317,6 +340,36 @@ func (md *memoryDatabase) storeFieldComressBuffer(memSeriesID uint32, fieldIndex
 	store.StoreCompressBuffer(memSeriesID, buf)
 }
 
+func (md *memoryDatabase) writeExemplarField(
+	mStore mStoreINTF,
+	memSeriesID uint32, row *metric.StorageRow, slotIndex uint16,
+	fName field.Name, fType field.Type,
+	traceID, spanID []byte, duration int64,
+) (err error) {
+	var fm field.Meta
+	fm, isNew := mStore.GenField(fName, fType)
+	if isNew {
+		row.Fields = append(row.Fields, fm)
+	}
+	var buf DataPointBuffer
+
+	buf, err = md.getFieldWriteBuffer(fm.Index, fType)
+	if err != nil {
+		return err
+	}
+	page, err := buf.GetOrCreateExemplarPage(memSeriesID)
+	if err != nil {
+		return err
+	}
+
+	// write data into buffer
+	page.write(slotIndex, traceID, spanID, duration)
+
+	// record write metric field statistics
+	row.WrittenFields++
+	return nil
+}
+
 func (md *memoryDatabase) writeLinField(
 	mStore mStoreINTF,
 	memSeriesID uint32, row *metric.StorageRow, slotIndex uint16,
@@ -329,7 +382,7 @@ func (md *memoryDatabase) writeLinField(
 	}
 	var buf DataPointBuffer
 
-	buf, err = md.getFieldWriteBuffer(fm.Index)
+	buf, err = md.getFieldWriteBuffer(fm.Index, fType)
 	if err != nil {
 		return err
 	}

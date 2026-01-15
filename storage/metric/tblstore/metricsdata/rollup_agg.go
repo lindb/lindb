@@ -31,7 +31,7 @@ const infBlockSize = 360
 var infFilledBlock = make([]float64, infBlockSize)
 
 func init() {
-	for i := 0; i < infBlockSize; i++ {
+	for i := range infBlockSize {
 		infFilledBlock[i] = math.Inf(1) + 1
 	}
 }
@@ -42,10 +42,7 @@ func fillInfBlock(sl []float64) {
 	length := len(sl)
 	for i := 0; i <= length/infBlockSize; i++ {
 		from := i * infBlockSize
-		to := (i + 1) * infBlockSize
-		if to > length {
-			to = length
-		}
+		to := min((i+1)*infBlockSize, length)
 		copy(sl[from:to], infFilledBlock)
 	}
 }

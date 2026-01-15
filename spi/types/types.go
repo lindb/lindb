@@ -50,6 +50,8 @@ const (
 	DTDynamic
 	// DTMap represents map data type.
 	DTMap
+	// DTExemplar represents exemplar data type.
+	DTExemplar
 )
 
 const (
@@ -65,6 +67,8 @@ const (
 	ATLast
 	// ATFirst represents first aggregation type.
 	ATFirst
+	// ATExemplar represents exemplar aggregation type.
+	ATExemplar
 )
 
 func (dt DataType) String() string {
@@ -87,6 +91,8 @@ func (dt DataType) String() string {
 		return "dynamic"
 	case DTMap:
 		return "map"
+	case DTExemplar:
+		return "exemplar"
 	default:
 		return "unknown"
 	}
@@ -120,6 +126,8 @@ func (dt *DataType) UnmarshalJSON(data []byte) error {
 		*dt = DTDynamic
 	case "map":
 		*dt = DTMap
+	case "exemplar":
+		*dt = DTExemplar
 	default:
 		*dt = DTUnknown
 	}
@@ -138,6 +146,8 @@ func (at AggregateType) String() string {
 		return "first"
 	case ATLast:
 		return "last"
+	case ATExemplar:
+		return "exemplar"
 	default:
 		return ""
 	}
@@ -163,6 +173,8 @@ func (at *AggregateType) UnmarshalJSON(data []byte) error {
 		*at = ATLast
 	case "first":
 		*at = ATFirst
+	case "exemplar":
+		*at = ATExemplar
 	default:
 		*at = ATUnknown
 	}

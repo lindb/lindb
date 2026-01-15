@@ -77,6 +77,9 @@ func (m *MetricMapper) Map(event models.Event) models.Event {
 		m.buildTags(row, point)   // tags
 		m.buildFields(row, point) // fields
 
+		// TODO: add exemplars support
+		point.AddField(api.NewExemplar("exemplar", "traceid", "spanid", 10))
+
 		if m.nameTpl != nil {
 			// TODO:: remove tag if be used in metric name template
 			var buf bytes.Buffer

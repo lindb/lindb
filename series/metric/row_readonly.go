@@ -38,6 +38,7 @@ type readOnlyRow struct {
 	// lazy initialization
 	keyValueIterator      KeyValueIterator
 	simpleFieldIterator   SimpleFieldIterator
+	exemplarIterator      ExemplarIterator
 	compoundFieldIterator CompoundFieldIterator
 }
 
@@ -61,6 +62,8 @@ func (mr *readOnlyRow) TagsLen() int { return mr.m.KeyValuesLength() }
 
 func (mr *readOnlyRow) SimpleFieldsLen() int { return mr.m.SimpleFieldsLength() }
 
+func (mr *readOnlyRow) ExemplarsLen() int { return mr.m.ExemplarsLength() }
+
 func (mr *readOnlyRow) NewKeyValueIterator() *KeyValueIterator {
 	mr.keyValueIterator.idx = -1
 	mr.keyValueIterator.m = &mr.m
@@ -73,6 +76,13 @@ func (mr *readOnlyRow) NewSimpleFieldIterator() *SimpleFieldIterator {
 	mr.simpleFieldIterator.m = &mr.m
 	mr.simpleFieldIterator.num = mr.m.SimpleFieldsLength()
 	return &mr.simpleFieldIterator
+}
+
+func (mr *readOnlyRow) NewExemplarIterator() *ExemplarIterator {
+	mr.exemplarIterator.idx = -1
+	mr.exemplarIterator.m = &mr.m
+	mr.exemplarIterator.num = mr.m.ExemplarsLength()
+	return &mr.exemplarIterator
 }
 
 func (mr *readOnlyRow) NewCompoundFieldIterator() (*CompoundFieldIterator, bool) {
@@ -159,6 +169,37 @@ func (itr *SimpleFieldIterator) NextType() field.Type {
 		return field.Unknown
 	}
 }
+
+// ExemplarIterator iterates exemplar fields
+type ExemplarIterator struct {
+	m   *flatMetricsV1.Metric
+	f   flatMetricsV1.Exemplar
+	idx int
+	num int
+}
+
+func (itr *ExemplarIterator) HasNext() bool {
+	itr.idx++
+	if itr.idx >= itr.num {
+		return false
+	}
+	return itr.m.Exemplars(&itr.f, itr.idx)
+}
+
+// Reset iterator for re-iterating exemplarFields
+func (itr *ExemplarIterator) Reset() { itr.idx = -1 }
+
+func (itr *ExemplarIterator) Len() int { return itr.num }
+
+func (itr *ExemplarIterator) NextName() field.Name { return field.Name(itr.f.Name()) }
+
+func (itr *ExemplarIterator) NextRawName() []byte { return itr.f.Name() }
+
+func (itr *ExemplarIterator) NextTraceID() []byte { return itr.f.TraceId() }
+
+func (itr *ExemplarIterator) NextSpanID() []byte { return itr.f.SpanId() }
+
+func (itr *ExemplarIterator) NextDuration() int64 { return itr.f.Duration() }
 
 type CompoundFieldIterator struct {
 	m   *flatMetricsV1.Metric

@@ -61,6 +61,11 @@ func (fe *fieldEntry) getCompressBuf(memSeriesID uint32) []byte {
 	return fe.compressBuf.GetCompressBuffer(memSeriesID)
 }
 
+// getExemplarPage returns exemplar page by memory time series id.
+func (fe *fieldEntry) getExemplarPage(memSeriesID uint32) (ExemplarPage, bool) {
+	return fe.pageBuf.GetExemplarPage(memSeriesID)
+}
+
 // getPage returns current time series write buffer by memory time series id.
 func (fe *fieldEntry) getPage(memTimeSeriesID uint32) ([]byte, bool) {
 	if fe.pageBuf == nil {

@@ -18,6 +18,8 @@
 package memdb
 
 import (
+	"fmt"
+
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -61,18 +63,26 @@ func (tsl *timeSeriesLoader) Load(seriesID uint16, fn func(field field.Meta, get
 	if ok {
 		memTimeSeriesID := tsl.memTimeSeriesIDs[index]
 		for _, fm := range tsl.fields {
-			// read field compress data
-			compress := fm.getCompressBuf(memTimeSeriesID)
-			size := len(compress)
-			if size > 0 {
-				tsl.decoder.Reset(compress)
-				fn(fm.field, tsl.decoder)
-			}
-			// read current field write buffer
-			buf, ok := fm.getPage(memTimeSeriesID)
-			if ok {
-				fm.Reset(buf)
-				fn(fm.field, fm)
+			if fm.field.Type == field.ExemplarField {
+				page, ok := fm.getExemplarPage(memTimeSeriesID)
+				if ok {
+					fmt.Println("e.......", page)
+				}
+
+			} else {
+				// read field compress data
+				compress := fm.getCompressBuf(memTimeSeriesID)
+				size := len(compress)
+				if size > 0 {
+					tsl.decoder.Reset(compress)
+					fn(fm.field, tsl.decoder)
+				}
+				// read current field write buffer
+				buf, ok := fm.getPage(memTimeSeriesID)
+				if ok {
+					fm.Reset(buf)
+					fn(fm.field, fm)
+				}
 			}
 		}
 	}

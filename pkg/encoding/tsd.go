@@ -45,7 +45,7 @@ type TSDValueGetter interface {
 
 var (
 	decoderPool = sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			return NewTSDDecoder(nil)
 		},
 	}
