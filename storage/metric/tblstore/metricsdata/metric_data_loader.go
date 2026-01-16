@@ -24,7 +24,6 @@ import (
 
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/series/field"
 )
 
 // metricLoader implements flow.DataLoader interface that loads metric data from file storage.
@@ -52,7 +51,7 @@ func newMetricLoader(
 }
 
 // Load loads the metric data by given series id from file storage.
-func (s *metricLoader) Load(seriesID uint16, fn func(field field.Meta, getter encoding.TSDValueGetter)) {
+func (s *metricLoader) Load(seriesID uint16, fn flow.LoaderCallback) {
 	index, ok := s.seriesIDs.Find(seriesID)
 	if ok {
 		seriesEntry, err := s.lowKeyOffsets.GetBlock(index, s.seriesEntriesBlock)

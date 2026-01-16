@@ -17,11 +17,30 @@
 
 package flow
 
-type Downsampling interface{}
+type Stream[V any] interface {
+	SetAtStep(step int, value V, fn func(a, b V) V)
+	GetAtStep(step int) V
+	Reset()
+}
 
-type Stream interface {
-	SetAtStep(step int, value float64, fn func(a, b float64) float64)
-	GetAtStep(step int) float64
-	Merge(stream Stream, fn func(a, b float64) float64)
-	Values() []float64
+type stream[V any] struct {
+	values []V
+}
+
+func NewStream[V any](size int) Stream[V] {
+	return &stream[V]{
+		values: make([]V, size),
+	}
+}
+
+func (s *stream[V]) SetAtStep(step int, value V, fn func(a, b V) V) {
+	s.values[step] = fn(s.values[step], value)
+}
+
+func (s *stream[V]) GetAtStep(step int) V {
+	return s.values[step]
+}
+
+func (s *stream[V]) Reset() {
+	// FIXME: implement reset logic
 }

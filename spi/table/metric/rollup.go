@@ -17,35 +17,33 @@
 
 package metric
 
-import "github.com/lindb/lindb/series/field"
+import (
+	"github.com/lindb/common/models"
+)
 
-type rollups []*rollup
-
-type rollup struct {
-	timeseries *TimeSeries
+type rollup[V float64 | *models.Exemplar] struct {
+	timeseries *TimeSeries[V]
 
 	window        int64
 	currTimestamp int64
 	nextTimestamp int64
-	currValue     float64
+	currValue     V
+	agg           func(a, b V) V
 }
 
-func newRollup(capacity int, window int64) *rollup {
-	return &rollup{
-		timeseries: newTimeSeries(capacity),
+func newRollup[V float64 | *models.Exemplar](capacity int, window int64, agg aggregateFunc[V]) *rollup[V] {
+	return &rollup[V]{
+		timeseries: newTimeSeries[V](capacity),
 		window:     window,
+		agg:        agg,
 	}
 }
 
-func (r *rollup) doRollup(aggType field.AggType, timestamp int64, value float64) {
-	if aggType == field.Exemplar {
-		// exemplar field do not need rollup
-		return
-	}
+func (r *rollup[V]) doRollup(timestamp int64, value V) {
 	if r.currTimestamp == 0 {
 		r.nextWindow(timestamp, value)
 	} else if timestamp < r.nextTimestamp {
-		r.currValue = aggType.Aggregate(r.currValue, value)
+		r.currValue = r.agg(r.currValue, value)
 	} else {
 		r.timeseries.Append(timestamp, value)
 
@@ -53,7 +51,7 @@ func (r *rollup) doRollup(aggType field.AggType, timestamp int64, value float64)
 	}
 }
 
-func (r *rollup) getTimeSeries() *TimeSeries {
+func (r *rollup[V]) getTimeSeries() *TimeSeries[V] {
 	if len(r.timeseries.timestamps) == 0 || r.currTimestamp != r.timeseries.timestamps[len(r.timeseries.timestamps)-1] {
 		// check last timestamp/value if append time series block
 		r.timeseries.Append(r.currTimestamp, r.currValue)
@@ -61,13 +59,13 @@ func (r *rollup) getTimeSeries() *TimeSeries {
 	return r.timeseries
 }
 
-func (r *rollup) nextWindow(timestamp int64, value float64) {
+func (r *rollup[V]) nextWindow(timestamp int64, value V) {
 	r.currTimestamp = timestamp
 	r.currValue = value
 	r.nextTimestamp = timestamp + r.window
 }
 
-func (r *rollup) reset() {
+func (r *rollup[V]) reset() {
 	r.window = 0
 	r.currTimestamp = 0
 

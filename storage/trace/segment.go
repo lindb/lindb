@@ -145,6 +145,7 @@ func (seg *Segment) Write(leader models.NodeID, seq int64, msg []byte) (rows int
 			sSpans := span.Spans()
 			for k := range sSpans.Len() {
 				ss := sSpans.At(k)
+				// TODO: using trace id directly
 				if _, ok := traceIDs[ss.TraceID().String()]; !ok {
 					seg.db.Merge(wo, []byte(ss.TraceID().String()), encoding.U32ToBytes(uint32(seq)))
 					traceIDs[ss.TraceID().String()] = struct{}{}

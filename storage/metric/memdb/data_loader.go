@@ -18,12 +18,9 @@
 package memdb
 
 import (
-	"fmt"
-
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/series/field"
 )
 
 // timeSeriesLoader represents time series store loader.
@@ -57,16 +54,16 @@ func NewTimeSeriesLoader(
 	}
 }
 
-func (tsl *timeSeriesLoader) Load(seriesID uint16, fn func(field field.Meta, geter encoding.TSDValueGetter)) {
+func (tsl *timeSeriesLoader) Load(seriesID uint16, fn flow.LoaderCallback) {
 	index, ok := tsl.seriesIDs.Find(seriesID)
 	// FIXME: add lock????
 	if ok {
 		memTimeSeriesID := tsl.memTimeSeriesIDs[index]
 		for _, fm := range tsl.fields {
-			if fm.field.Type == field.ExemplarField {
+			if fm.field.Type.IsExemplar() {
 				page, ok := fm.getExemplarPage(memTimeSeriesID)
 				if ok {
-					fmt.Println("e.......", page)
+					fn(fm.field, page)
 				}
 
 			} else {

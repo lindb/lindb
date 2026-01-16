@@ -107,6 +107,10 @@ func (rsb *ResultSetBuild) Process() {
 					columns[i] = row.GetFloat(i)
 				case types.DTTimeSeries:
 					timeSeries := row.GetTimeSeries(i)
+					if timeSeries == nil {
+						columns[i] = nil
+						continue
+					}
 					if isTimestampSelected || timeSeries.NumOfPoints > 1 {
 						columns[i] = timeSeries
 					} else {
@@ -117,6 +121,9 @@ func (rsb *ResultSetBuild) Process() {
 					columns[i] = row.GetTimestamp(i).UnixMilli()
 				case types.DTDuration:
 					columns[i] = row.GetDuration(i)
+				case types.DTExemplar:
+					// FIXME: exemplar not support now
+					columns[i] = row.Get(i)
 				default:
 					panic(fmt.Sprintf("build resultset error, column:%v, unknown data type:%v", meta.Name, meta.DataType))
 				}
@@ -135,6 +142,6 @@ func (rsb *ResultSetBuild) Complete() {
 func (rsb *ResultSetBuild) ResultSet() *model.ResultSet {
 	// waiting process result page completed
 	<-rsb.completed
-	fmt.Println("result.....")
+	fmt.Printf("result====%v\n", string(encoding.JSONMarshal(rsb.resultSet)))
 	return rsb.resultSet
 }

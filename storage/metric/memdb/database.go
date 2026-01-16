@@ -302,7 +302,7 @@ func (md *memoryDatabase) getFieldWriteBuffer(fieldIndex uint8, fType field.Type
 
 	var newBuf DataPointBuffer
 	var err error
-	if fType == field.ExemplarField {
+	if fType.IsExemplar() {
 		// alloc a new exemplar data point buffer
 		newBuf = md.cfg.BufferMgr.AllocExemplarBuffer(md.cfg.SegmentTime)
 	} else {
@@ -432,6 +432,7 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher) error {
 		}
 		var needFlushFields field.Metas // current memory database's fields
 		var buffers []DataPointBuffer
+		var fieldWritten bool
 		allFields := mStore.GetFields()
 		for idx := range allFields {
 			f := allFields[idx]
@@ -454,13 +455,29 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher) error {
 		// flush time series of metric
 		if err := timeSeriesIndex.FlushMetricsDataTo(flusher, func(memSeriesID uint32) error {
 			for idx, buf := range buffers {
-				buf, ok := buf.GetPage(memSeriesID)
-				if ok {
-					// flush field data
-					if err := flushFieldTo(md, memSeriesID, buf, *slotRange, flusher, idx, needFlushFields[idx]); err != nil {
-						return err
+				fieldWritten = false
+				fm := needFlushFields[idx]
+				if fm.Type.IsExemplar() {
+					// flush exemplar field
+					page, ok := buf.GetExemplarPage(memSeriesID)
+					if ok {
+						if err := page.flush(flusher); err != nil {
+							return err
+						}
+						fieldWritten = true
 					}
 				} else {
+					// flush normal field
+					page, ok := buf.GetPage(memSeriesID)
+					if ok {
+						if err := flushFieldTo(md, memSeriesID, page, *slotRange, flusher, idx, fm); err != nil {
+							return err
+						}
+						fieldWritten = true
+					}
+				}
+
+				if !fieldWritten {
 					// TEST: need test
 					// NOTE: must flush nil data for metric has multi-field.
 					// because each series need fill all field data in order.

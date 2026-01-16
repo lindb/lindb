@@ -27,7 +27,6 @@ import (
 	"github.com/lindb/common/pkg/ltoml"
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
@@ -306,34 +305,4 @@ func (db *Database) Drop() error {
 	// 	return err
 	// }
 	return nil
-}
-
-func (db *Database) GetStream() flow.Stream {
-	return newStream(6 * 60)
-}
-
-type stream struct {
-	values []float64
-}
-
-func newStream(size int) flow.Stream {
-	return &stream{
-		values: make([]float64, size),
-	}
-}
-
-func (s *stream) SetAtStep(step int, value float64, fn func(a, b float64) float64) {
-	s.values[step] = fn(s.values[step], value)
-}
-
-func (s *stream) GetAtStep(step int) float64 {
-	return s.values[step]
-}
-
-func (s *stream) Merge(stream flow.Stream, fn func(a, b float64) float64) {
-	panic("not implemented")
-}
-
-func (s *stream) Values() []float64 {
-	panic("not implemented")
 }

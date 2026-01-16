@@ -20,10 +20,10 @@ package metric
 import (
 	"fmt"
 
+	"github.com/lindb/common/models"
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/flow"
-	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/storage/metric"
 )
@@ -147,12 +147,12 @@ func (g *Grouping) GetTagValues(tagValueIDs GroupingKey) []string {
 }
 
 type grouping interface {
-	GetAggregator(lowSeriesID uint16) []*collections.FloatArray
-	ForEach(fn func(tags *GroupingKey, rs []*collections.FloatArray))
+	GetAggregator(lowSeriesID uint16) []Result
+	ForEach(fn func(tags *GroupingKey, rs []Result))
 }
 
 type groupingWithTags struct {
-	aggregators map[*GroupingKey][]*collections.FloatArray
+	aggregators map[*GroupingKey][]Result
 	tagsScanner *TagsScanner
 	tableScan   *TableScan
 }
@@ -161,44 +161,124 @@ func newGroupingWithTags(tagsScanner *TagsScanner, tableScan *TableScan) groupin
 	return &groupingWithTags{
 		tagsScanner: tagsScanner,
 		tableScan:   tableScan,
-		aggregators: make(map[*GroupingKey][]*collections.FloatArray),
+		aggregators: make(map[*GroupingKey][]Result),
 	}
 }
 
-func (g *groupingWithTags) ForEach(fn func(tags *GroupingKey, rs []*collections.FloatArray)) {
+func (g *groupingWithTags) ForEach(fn func(tags *GroupingKey, rs []Result)) {
 	for tags, aggregator := range g.aggregators {
 		fn(tags, aggregator)
 	}
 }
 
-func (g *groupingWithTags) GetAggregator(lowSeriesID uint16) []*collections.FloatArray {
+func (g *groupingWithTags) GetAggregator(lowSeriesID uint16) []Result {
 	key := g.tagsScanner.FindTagValues(lowSeriesID)
 	var (
-		rs []*collections.FloatArray
+		rs []Result
 		ok bool
 	)
 	rs, ok = g.aggregators[key]
 	if !ok {
-		rs = make([]*collections.FloatArray, g.tableScan.numOfAggs)
+		rs = make([]Result, g.tableScan.numOfAggs)
 		g.aggregators[key.Clone()] = rs
 	}
 	return rs
 }
 
 type groupingWithoutTags struct {
-	aggregator []*collections.FloatArray // family time => streams of fields
+	aggregator []Result
 }
 
 func newGroupingWithoutTags(tableScan *TableScan) grouping {
 	return &groupingWithoutTags{
-		aggregator: make([]*collections.FloatArray, tableScan.numOfAggs),
+		aggregator: make([]Result, tableScan.numOfAggs),
 	}
 }
 
-func (g *groupingWithoutTags) ForEach(fn func(tags *GroupingKey, rs []*collections.FloatArray)) {
+func (g *groupingWithoutTags) ForEach(fn func(tags *GroupingKey, rs []Result)) {
 	fn(nil, g.aggregator)
 }
 
-func (g *groupingWithoutTags) GetAggregator(_ uint16) []*collections.FloatArray {
+func (g *groupingWithoutTags) GetAggregator(_ uint16) []Result {
 	return g.aggregator
+}
+
+type Result any
+
+type result[V float64 | *models.Exemplar] struct {
+	array *Array[V]
+}
+
+func NewResult[V float64 | *models.Exemplar](numOfPoints int) Result {
+	return &result[V]{
+		array: NewArray[V](numOfPoints),
+	}
+}
+
+const blockSize = 8
+
+type Array[V float64 | *models.Exemplar] struct {
+	marks    []uint8
+	values   []V
+	capacity int
+	size     int
+	isSingle bool
+}
+
+func NewArray[V float64 | *models.Exemplar](capacity int) *Array[V] {
+	markLen := capacity / blockSize
+	if capacity%blockSize > 0 {
+		markLen++
+	}
+	return &Array[V]{
+		capacity: capacity,
+		values:   make([]V, capacity),
+		marks:    make([]uint8, markLen),
+	}
+}
+
+// Values returns the values of array.
+func (f *Array[V]) Values() []V {
+	return f.values
+}
+
+// HasValue returns if has value with pos
+func (f *Array[V]) HasValue(pos int) bool {
+	if !f.checkPos(pos) {
+		return false
+	}
+	blockIdx := pos / blockSize
+	idx := pos % blockSize
+	mark := f.marks[blockIdx]
+	return mark&(1<<uint64(idx)) != 0
+}
+
+// GetValue returns value with pos, if it has not value return 0
+func (f *Array[V]) GetValue(pos int) V {
+	return f.values[pos]
+}
+
+// SetValue sets value with pos, if pos out of bounds, return it
+func (f *Array[V]) SetValue(pos int, value V) {
+	if !f.checkPos(pos) {
+		return
+	}
+	f.values[pos] = value
+
+	if !f.HasValue(pos) {
+		blockIdx := pos / blockSize
+		idx := pos - pos/blockSize*blockSize
+		mark := f.marks[blockIdx]
+		mark |= 1 << uint64(idx)
+		f.marks[blockIdx] = mark
+
+		f.size++
+	}
+}
+
+func (f *Array[V]) checkPos(pos int) bool {
+	if pos < 0 || pos >= f.capacity {
+		return false
+	}
+	return true
 }

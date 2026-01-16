@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/lindb/common/models"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/constants"
@@ -164,47 +165,81 @@ func (psc *sourceConnector) buildTableScan() *TableScan {
 		// if isn't not found error, throw it
 		panic(err)
 	}
+
+	tableScan := &TableScan{
+		db:            db.(*metricstore.Database),
+		schema:        schema,
+		metricID:      metricID,
+		columnMapping: psc.columnMapping,
+		outputs:       psc.outputColumns,
+	}
+
+	targetTimeRange, targetInterval := calcTimeRangeAndInterval(metricTable.TimeRange,
+		metricTable.Interval, db.GetOption()) // TODO: move to plan?
+	fmt.Printf("time range=%v,interval=%v\n", targetTimeRange, targetInterval)
+	if !tableScan.isTimestampSelected {
+		targetInterval = timeutil.Interval(targetTimeRange.End - targetTimeRange.Start)
+	}
+	tableScan.timeRange = targetTimeRange
+	tableScan.interval = targetInterval
+
 	// mapping fields for searching
 	var fields field.Metas
-	var columns []*column
+
 	index := uint8(0)
-	columnIndex := 0
+	numOfAggs := 0
 	// mapping tags for grouping
 	var groupingTags tag.Metas
 	numOfOutputColumns := len(psc.outputColumns)
-	isTimestampSelected := false
 	lo.ForEach(psc.outputColumns, func(columnMeta types.ColumnMetadata, _ int) {
 		if columnMeta.DataType == types.DTTimestamp {
 			// timestamp
-			isTimestampSelected = true
+			tableScan.isTimestampSelected = true
 			numOfOutputColumns--
 		} else if fieldMeta, ok := lo.Find(schema.Fields, func(fieldMeta field.Meta) bool {
 			// field
-			return getColumnName(columnMeta.Name, psc.columnMapping) == fieldMeta.Name.String() && columnMeta.DataType == types.DTTimeSeries
+			return getColumnName(columnMeta.Name, psc.columnMapping) == fieldMeta.Name.String() &&
+				// check data type(field only support time series and exemplar now)
+				(columnMeta.DataType != types.DTTimestamp && columnMeta.DataType != types.DTString)
 		}); ok {
 			fieldMeta.Index = index
 			fields = append(fields, fieldMeta)
-			index++
-
-			column := &column{meta: fieldMeta, offset: columnIndex}
-			columns = append(columns, column)
 
 			// find column handles for field
 			columnHandles := lo.Filter(psc.assignments, func(item *spi.ColumnAssignment, index int) bool {
 				return item.Column == fieldMeta.Name.String()
 			})
+			var handles []*ColumnHandle
 			// not input aggregation func for this field
 			if len(columnHandles) == 0 {
 				// if column handle not found, set default aggregation using field aggregation type
 				funcName := tree.FuncName(fieldMeta.Type.String()) // TODO: using same type
-				column.handles = []*ColumnHandle{{Downsampling: funcName, Aggregation: funcName}}
+				handles = []*ColumnHandle{{Downsampling: funcName, Aggregation: funcName}}
 			}
 			for _, columnHandle := range columnHandles {
 				if handle, ok := columnHandle.Handler.(*ColumnHandle); ok {
-					column.handles = append(column.handles, handle)
-					columnIndex++
+					handles = append(handles, handle)
 				}
 			}
+			var ch Column
+
+			if fieldMeta.Type.IsExemplar() {
+				ch = newColumn(
+					numOfAggs, tableScan, fieldMeta, handles, exemplarAggregate,
+					func(funcName tree.FuncName) aggregateFunc[*models.Exemplar] {
+						return exemplarAggregate
+					})
+			} else {
+				ch = newColumn(
+					numOfAggs, tableScan, fieldMeta, handles, fieldMeta.Type.AggType().Aggregate,
+					func(funcName tree.FuncName) aggregateFunc[float64] {
+						return getAggFunc(funcName).Aggregate
+					})
+			}
+			numOfAggs += len(handles)
+			tableScan.columns = append(tableScan.columns, ch)
+
+			index++
 		} else if tagKey, ok := lo.Find(schema.TagKeys, func(tagMeta tag.Meta) bool {
 			// tag
 			return getColumnName(columnMeta.Name, psc.columnMapping) == tagMeta.Key && columnMeta.DataType == types.DTString
@@ -221,43 +256,13 @@ func (psc *sourceConnector) buildTableScan() *TableScan {
 		return nil
 	}
 
-	var grouping *Grouping
+	tableScan.fields = fields
 	if len(groupingTags) > 0 {
-		grouping = NewGrouping(db.(*metricstore.Database), groupingTags)
-	}
-	maxOfRollups := 0
-	numOfAggs := 0
-	for _, column := range columns {
-		// init column rollup and aggregation context
-		column.init()
-		if maxOfRollups < len(column.rollups) {
-			maxOfRollups = len(column.rollups)
-		}
-		numOfAggs += len(column.aggs)
+		tableScan.grouping = NewGrouping(db.(*metricstore.Database), groupingTags)
 	}
 
-	targetTimeRange, targetInterval := calcTimeRangeAndInterval(metricTable.TimeRange,
-		metricTable.Interval, db.GetOption()) // TODO: move to plan?
-	fmt.Printf("time range=%v,interval=%v\n", targetTimeRange, targetInterval)
-	if !isTimestampSelected {
-		targetInterval = timeutil.Interval(targetTimeRange.End - targetTimeRange.Start)
-	}
-
-	return &TableScan{
-		db:                  db.(*metricstore.Database),
-		schema:              schema,
-		metricID:            metricID,
-		isTimestampSelected: isTimestampSelected,
-		timeRange:           targetTimeRange,
-		interval:            targetInterval,
-		fields:              fields,
-		columns:             columns,
-		columnMapping:       psc.columnMapping,
-		maxOfRollups:        maxOfRollups,
-		numOfAggs:           numOfAggs,
-		grouping:            grouping,
-		outputs:             psc.outputColumns,
-	}
+	tableScan.numOfAggs = numOfAggs
+	return tableScan
 }
 
 // getSchema returns table schema based on table handle.

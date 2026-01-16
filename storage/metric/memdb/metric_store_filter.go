@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/lindb/common/models"
 	commontimeutil "github.com/lindb/common/pkg/timeutil"
 	"github.com/lindb/roaring"
 
@@ -51,6 +52,10 @@ func (fe *fieldEntry) GetValue(slot uint16) (float64, bool) {
 	}
 	startTime := getStart(fe.buf)
 	return getCurrentValue(fe.buf, startTime, slot)
+}
+
+func (fe *fieldEntry) GetExemplar(slot uint16) (*models.Exemplar, bool) {
+	return nil, false
 }
 
 // getCompressBuf returns time series compress buffer by memory time series id.
@@ -105,7 +110,7 @@ func (md *memoryDatabase) filter(metricScanCtx *flow.MetricScanContext,
 				queryField, _ := fields.GetFromName(fm.Name)
 				fieldEntry := &fieldEntry{
 					pageBuf: fStore.(DataPointBuffer), // TEST: add test case
-					field:   queryField,
+					field:   queryField,               // NOTE: must use query field meta
 				}
 				fieldEntries = append(fieldEntries, fieldEntry)
 				if ok {

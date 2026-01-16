@@ -26,6 +26,7 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	protoMetaV1 "github.com/lindb/lindb/proto/gen/v1/meta"
+	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/storage"
 	"github.com/lindb/lindb/storage/metric"
@@ -107,10 +108,18 @@ func (srv *MetaService) TableSchema(ctx context.Context,
 	for _, tagKey := range schema.TagKeys {
 		tableSchema.AddColumn(types.ColumnMetadata{Name: tagKey.Key, DataType: types.DTString})
 	}
+	getDataType := func(fieldType field.Type) types.DataType {
+		switch fieldType {
+		case field.ExemplarField:
+			return types.DTExemplar
+		default:
+			return types.DTTimeSeries
+		}
+	}
 	for _, field := range schema.Fields {
 		tableSchema.AddColumn(types.ColumnMetadata{
 			Name:     field.Name.String(),
-			DataType: types.DTTimeSeries,
+			DataType: getDataType(field.Type),
 			AggType:  field.Type.AggregateType(),
 		})
 	}

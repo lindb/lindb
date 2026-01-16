@@ -22,6 +22,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/lindb/common/models"
 	"github.com/lindb/common/pkg/encoding"
 
 	"github.com/lindb/lindb/pkg/stream"
@@ -76,7 +77,23 @@ func (c *Column) Marshal(meta ColumnMetadata, w *stream.BufferWriter) {
 		}
 	case DTTimeSeries:
 		for _, v := range c.Values {
+			if v == nil {
+				w.PutUvarint32(uint32(0))
+				continue
+			}
 			ts := v.(*TimeSeries)
+			// TODO:need refactor
+			data := encoding.JSONMarshal(ts)
+			w.PutUvarint32(uint32(len(data)))
+			w.PutBytes(data)
+		}
+	case DTExemplar:
+		for _, v := range c.Values {
+			if v == nil {
+				w.PutUvarint32(uint32(0))
+				continue
+			}
+			ts := v.([]*models.Exemplar)
 			// TODO:need refactor
 			data := encoding.JSONMarshal(ts)
 			w.PutUvarint32(uint32(len(data)))
@@ -121,9 +138,24 @@ func (c *Column) Unmarshal(meta ColumnMetadata, numOfRows int, r *stream.Reader)
 			c.Values[i] = m
 		case DTTimeSeries:
 			size := r.ReadUvarint32()
+			if size == 0 {
+				continue
+			}
 			data := r.ReadBytes(int(size))
 			ts := &TimeSeries{}
 			err := json.Unmarshal(data, ts)
+			if err != nil {
+				panic(err)
+			}
+			c.Values[i] = ts
+		case DTExemplar:
+			size := r.ReadUvarint32()
+			if size == 0 {
+				continue
+			}
+			data := r.ReadBytes(int(size))
+			var ts []*models.Exemplar
+			err := json.Unmarshal(data, &ts)
 			if err != nil {
 				panic(err)
 			}
@@ -236,6 +268,11 @@ func (c *Column) GetTimeSeries(row int) *TimeSeries {
 	if row >= len(c.Values) {
 		return nil
 	}
+	val := c.Values[row]
+	if val == nil {
+		return nil
+	}
+
 	// FIXME:
 	return c.Values[row].(*TimeSeries)
 }

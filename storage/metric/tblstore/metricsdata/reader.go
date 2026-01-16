@@ -55,13 +55,12 @@ type MetricReader interface {
 	// Load loads the data from sst file, then returns the file metric scanner.
 	Load(SeriesIDHighKey uint16, lowSeriesIDs roaring.Container, fields field.Metas) flow.DataLoader
 	// readSeriesData reads series data from file by seriesEntryBlock
-	readSeriesData(seriesIdx uint16, seriesEntryBlock []byte,
-		fn func(field field.Meta, getter encoding.TSDValueGetter))
+	readSeriesData(seriesIdx uint16, seriesEntryBlock []byte, fn flow.LoaderCallback)
 }
 
 type fieldEntry struct {
 	index int
-	field field.Meta // field of query
+	field field.Meta // NOTE: field of query(must)
 }
 
 // metricReader implements MetricReader interface that reads metric block
@@ -175,15 +174,11 @@ func (r *metricReader) Load(seriesIDHighKey uint16, lowSeriesIDs roaring.Contain
 }
 
 // readSeriesData reads series data from file by given position.
-func (r *metricReader) readSeriesData(seriesIdx uint16, seriesEntryBlock []byte,
-	fn func(field field.Meta, getter encoding.TSDValueGetter),
-) {
-	decoder := r.decoder
+func (r *metricReader) readSeriesData(seriesIdx uint16, seriesEntryBlock []byte, fn flow.LoaderCallback) {
 	fieldCount := r.fields.Len()
 	if fieldCount == 1 {
-		decoder.ResetWithTimeRange(seriesEntryBlock, r.timeRange.Start, r.timeRange.End)
 		// metric has one field, just read the data
-		fn(r.fieldEntries[0].field, decoder)
+		r.readFieldData(r.fieldEntries[0].field, seriesEntryBlock, fn)
 		return
 	}
 
@@ -201,12 +196,24 @@ func (r *metricReader) readSeriesData(seriesIdx uint16, seriesEntryBlock []byte,
 	for _, fm := range r.fieldEntries {
 		fieldBlock, err := fieldOffsetsDecoder.GetBlock(fm.index, seriesEntryBlock[:fieldOffsetsAt])
 		if err == nil {
-			decoder.ResetWithTimeRange(fieldBlock, r.timeRange.Start, r.timeRange.End)
-			// read field data
-			fn(fm.field, decoder)
+			r.readFieldData(fm.field, fieldBlock, fn)
 		}
 	}
 	encoding.ReleaseFixedOffsetDecoder(fieldOffsetsDecoder)
+}
+
+func (r *metricReader) readFieldData(
+	fm field.Meta, fieldBlock []byte,
+	fn flow.LoaderCallback,
+) {
+	var getter encoding.TSDValueGetter
+	if fm.Type.IsExemplar() {
+		getter = newExemplarTSDGetter(fieldBlock)
+	} else {
+		r.decoder.ResetWithTimeRange(fieldBlock, r.timeRange.Start, r.timeRange.End)
+		getter = r.decoder
+	}
+	fn(fm, getter)
 }
 
 // initReader initializes the metricReader context includes tag value ids/high offsets
@@ -234,7 +241,7 @@ func (r *metricReader) initReader() error {
 	fieldCount := r.metricBlock[fieldMetaStartPos]
 	cursor := fieldMetaStartPos + 1
 	r.fields = make(field.Metas, fieldCount)
-	for i := uint8(0); i < fieldCount; i++ {
+	for i := range fieldCount {
 		if cursor+1 >= seriesIDsStartPos {
 			return fmt.Errorf("corruted field metas, field count: %d", fieldCount)
 		}

@@ -36,36 +36,6 @@ import (
 	metricstore "github.com/lindb/lindb/storage/metric"
 )
 
-type column struct {
-	offset  int
-	meta    field.Meta
-	handles []*ColumnHandle
-
-	rollups []rollupConfig
-	aggs    []aggConfig
-}
-
-func (c *column) init() {
-	rollupMap := make(map[tree.FuncName]struct{})
-	index := 0
-	for _, handle := range c.handles {
-		c.aggs = append(c.aggs, aggConfig{target: index, aggType: getAggFunc(handle.Aggregation)})
-		if _, ok := rollupMap[handle.Downsampling]; !ok {
-			c.rollups = append(c.rollups, rollupConfig{aggType: getAggFunc(handle.Downsampling)})
-			index++
-		}
-	}
-}
-
-type rollupConfig struct {
-	aggType field.AggType
-}
-
-type aggConfig struct {
-	target  int // ref to rollup result set
-	aggType field.AggType
-}
-
 type TableScan struct {
 	db        *metricstore.Database
 	metricID  metric.ID       // table id
@@ -78,9 +48,8 @@ type TableScan struct {
 	filterResult map[tree.NodeID]*flow.TagFilterResult
 
 	fields        field.Metas
-	columns       []*column
+	columns       []Column
 	columnMapping map[string]string
-	maxOfRollups  int
 	numOfAggs     int
 	outputs       []types.ColumnMetadata
 
@@ -91,14 +60,6 @@ type TableScan struct {
 
 func (t *TableScan) isGrouping() bool {
 	return t.grouping != nil && t.grouping.tags.Len() > 0
-}
-
-func (t *TableScan) createRollups() (rs rollups) {
-	rs = make(rollups, t.maxOfRollups)
-	for index := range rs {
-		rs[index] = newRollup(t.timeRange.NumOfPoints(t.interval), t.interval.Int64())
-	}
-	return
 }
 
 type ColumnValuesLookupVisitor struct {

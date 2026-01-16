@@ -52,9 +52,13 @@ type FilterResultSet interface {
 	Close()
 }
 
+// LoaderCallback represents the callback function after loading data.
+// NOTE: field must be one of query fields.
+type LoaderCallback func(fieldOfQuery field.Meta, getter encoding.TSDValueGetter)
+
 // DataLoader represents the loader which load metric data from storage.
 type DataLoader interface {
-	Load(seriesID uint16, fn func(field field.Meta, getter encoding.TSDValueGetter))
+	Load(seriesID uint16, fn LoaderCallback)
 }
 
 type LowSeriesIDs struct {

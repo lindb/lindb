@@ -18,28 +18,18 @@
 package metric
 
 import (
-	"fmt"
-
-	"github.com/lindb/lindb/pkg/collections"
-	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/common/models"
 )
 
-func aggregate(fn field.AggType, start, step int64, dst *collections.FloatArray, src *TimeSeries) {
-	for index, timestamp := range src.timestamps {
-		value := src.values[index]
-		offset := 0
-		if step > 0 {
-			offset = int((timestamp - start) / step)
-		}
-		// TODO: add log
-		if offset < 0 {
-			panic(fmt.Sprintf("warn offset < 0, offset=%v\n", offset))
-		}
-
-		if dst.HasValue(offset) {
-			dst.SetValue(offset, fn.Aggregate(dst.GetValue(offset), value))
-		} else {
-			dst.SetValue(offset, value)
-		}
+func exemplarAggregate(a, b *models.Exemplar) *models.Exemplar {
+	if a == nil {
+		return b
 	}
+	if b == nil {
+		return a
+	}
+	if a.Duration <= b.Duration {
+		return a
+	}
+	return b
 }

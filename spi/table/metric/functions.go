@@ -20,9 +20,15 @@ package metric
 import (
 	"fmt"
 
+	"github.com/lindb/common/models"
+
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/sql/tree"
 )
+
+type aggregateFunc[V float64 | *models.Exemplar] func(a, b V) V
+
+type getAggregateFunc[V float64 | *models.Exemplar] func(funcName tree.FuncName) aggregateFunc[V]
 
 func getAggFunc(funcName tree.FuncName) field.AggType {
 	switch funcName {

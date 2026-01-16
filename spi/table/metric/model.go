@@ -20,6 +20,7 @@ package metric
 import (
 	"fmt"
 
+	"github.com/lindb/common/models"
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/flow"
@@ -118,24 +119,24 @@ type Partition struct {
 	fieldsData []flow.FilterResultSet
 }
 
-type TimeSeries struct {
+type TimeSeries[V float64 | *models.Exemplar] struct {
 	timestamps []int64
-	values     []float64
+	values     []V
 }
 
-func newTimeSeries(capacity int) *TimeSeries {
-	return &TimeSeries{
+func newTimeSeries[V float64 | *models.Exemplar](capacity int) *TimeSeries[V] {
+	return &TimeSeries[V]{
 		timestamps: make([]int64, 0, capacity),
-		values:     make([]float64, 0, capacity),
+		values:     make([]V, 0, capacity),
 	}
 }
 
-func (ts *TimeSeries) Append(timestamp int64, value float64) {
+func (ts *TimeSeries[V]) Append(timestamp int64, value V) {
 	ts.timestamps = append(ts.timestamps, timestamp)
 	ts.values = append(ts.values, value)
 }
 
-func (ts *TimeSeries) Reset() {
+func (ts *TimeSeries[V]) Reset() {
 	ts.timestamps = ts.timestamps[:0]
 	ts.values = ts.values[:0]
 }

@@ -19,6 +19,7 @@ package model
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -141,6 +142,17 @@ func appendColumn(row table.Row, colType types.DataType, col any, index int) {
 		case float64:
 			row[index] = timeutil.FormatTimestamp(int64(val), timeutil.DataTimeFormat2)
 		}
+	case types.DTExemplar:
+		exemplars := col.([]any)
+		var values []string
+		for _, exemplarData := range exemplars {
+			if exemplarData != nil {
+				exemplar := &commonmodels.Exemplar{}
+				_ = mapstructure.Decode(exemplarData, exemplar)
+				values = append(values, fmt.Sprintf("%s:%s@%v", exemplar.TraceID, exemplar.SpanID, exemplar.Duration))
+			}
+		}
+		row[index] = fmt.Sprintf("[%s]", strings.Join(values, ", "))
 	}
 }
 

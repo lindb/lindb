@@ -20,10 +20,10 @@ package metric
 import (
 	"fmt"
 
+	"github.com/lindb/common/models"
 	"github.com/lindb/roaring"
 	"github.com/samber/lo"
 
-	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/spi/types"
 )
@@ -34,7 +34,7 @@ type reducer struct {
 	inbound   <-chan any // *DataSplit or []*roaring.Bitmap
 	outbound  chan<- *types.Page
 
-	result map[*GroupingKey][]*collections.FloatArray // tags => series data of fields(aggregators)
+	result map[*GroupingKey][]Result // tags => series data of fields(aggregators)
 }
 
 func NewReducer(ctx *ExecutionContext, tableScan *TableScan, inbound <-chan any, outbound chan<- *types.Page) *reducer {
@@ -43,7 +43,7 @@ func NewReducer(ctx *ExecutionContext, tableScan *TableScan, inbound <-chan any,
 		tableScan: tableScan,
 		inbound:   inbound,
 		outbound:  outbound,
-		result:    make(map[*GroupingKey][]*collections.FloatArray),
+		result:    make(map[*GroupingKey][]Result),
 	}
 }
 
@@ -86,7 +86,7 @@ func (r *reducer) process(split *DataSplit) {
 	}
 
 	// merge the data of time series
-	split.groupingAgg.ForEach(func(tags *GroupingKey, rs []*collections.FloatArray) {
+	split.groupingAgg.ForEach(func(tags *GroupingKey, rs []Result) {
 		if _, ok := r.result[tags]; !ok {
 			r.result[tags] = rs
 		} else {
@@ -147,8 +147,19 @@ func (r *reducer) buildOutputPage() *types.Page {
 			}
 		}
 		for fieldIdx, stream := range seriesData {
-			timeSeries := types.NewTimeSeriesWithValues(r.tableScan.timeRange, r.tableScan.interval, stream.Values())
-			fields[fieldIdx].AppendTimeSeries(timeSeries)
+			if stream == nil {
+				fields[fieldIdx].Append(nil)
+				continue
+			}
+			switch dst := stream.(type) {
+			case *result[float64]:
+				fmt.Printf("reducer field idx=%d, values=%v\n", fieldIdx, dst.array.Values())
+				timeSeries := types.NewTimeSeriesWithValues(r.tableScan.timeRange, r.tableScan.interval, dst.array.Values())
+				fields[fieldIdx].AppendTimeSeries(timeSeries)
+			case *result[*models.Exemplar]:
+				// timeSeries := types.NewTimeSeriesWithValues(r.tableScan.timeRange, r.tableScan.interval, dst.array.Values())
+				fields[fieldIdx].Append(dst.array.Values())
+			}
 		}
 	}
 	return page

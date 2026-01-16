@@ -83,6 +83,10 @@ const (
 	ExemplarField
 )
 
+func (t Type) IsExemplar() bool {
+	return t == ExemplarField
+}
+
 func (t Type) AggregateType() types.AggregateType {
 	switch t {
 	case SumField:
