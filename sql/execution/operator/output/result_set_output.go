@@ -19,9 +19,7 @@ package output
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/lindb/common/pkg/encoding"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/spi/types"
@@ -71,7 +69,6 @@ func (op *ResultSetOutputOperator) Run(ctx context.Context, output chan<- *types
 			if page != nil && page.Error != "" {
 				output <- page
 			}
-			fmt.Printf("add empty page====%v\n", string(encoding.JSONMarshal(page)))
 			break
 		}
 		if rebuildPage {

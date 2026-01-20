@@ -34,7 +34,7 @@ type RPCService struct {
 
 	TraceID  string
 	SpanID   string
-	Duration int64
+	Duration time.Duration
 }
 
 type Result struct{}
@@ -193,7 +193,7 @@ func Test_Runtime_Query(t *testing.T) {
 	err := runtime.Query(`
 	@app(name="test_app")
 
-		create sink rpc_call with (type="lindb",address="http://localhost:9003",database="_internal");
+	create sink rpc_call with (type="lindb",address="http://localhost:9003",database="_internal");
 
 	@sink(name="rpc_call")
 	@metric(name="{{.interface}}.rpc_call",tags=["tags_map","interface"],fields=["qps","exemplar"],timestamp="ts")
@@ -248,14 +248,14 @@ func Test_Runtime_Query(t *testing.T) {
 	spanColumn := types.NewColumn()
 	page.AppendColumn(types.ColumnMetadata{DataType: types.DTString, Name: "span_id"}, spanColumn)
 	durationColumn := types.NewColumn()
-	page.AppendColumn(types.ColumnMetadata{DataType: types.DTInt, Name: "duration"}, durationColumn)
+	page.AppendColumn(types.ColumnMetadata{DataType: types.DTDuration, Name: "duration"}, durationColumn)
 
 	interfaceColumn.Append("grpc")
 	timestampColumn.Append(time.Now())
 	tagsColumn.Append(map[string]string{"host": "1.1.1.1", "app": "order"})
 	traceColumn.Append("trace_grpc_order")
 	spanColumn.Append("span_grpc_order")
-	durationColumn.Append(int64(200))
+	durationColumn.Append(time.Duration(200))
 	statusColumn.Append(nil)
 
 	interfaceColumn.Append("http")
@@ -263,7 +263,7 @@ func Test_Runtime_Query(t *testing.T) {
 	tagsColumn.Append(map[string]string{"host": "1.1.1.1", "app": "user"})
 	traceColumn.Append("trace_http_user")
 	spanColumn.Append("span_http_user")
-	durationColumn.Append(int64(150))
+	durationColumn.Append(time.Duration(150))
 	statusColumn.Append(nil)
 
 	interfaceColumn.Append("dubbo")
@@ -271,7 +271,7 @@ func Test_Runtime_Query(t *testing.T) {
 	tagsColumn.Append(map[string]string{"host": "1.1.1.1", "app": "order"})
 	traceColumn.Append("trace_dubbo_order")
 	spanColumn.Append("span_dubbo_order")
-	durationColumn.Append(int64(300))
+	durationColumn.Append(time.Duration(300))
 	statusColumn.Append(nil)
 
 	interfaceColumn.Append("http")
@@ -279,7 +279,7 @@ func Test_Runtime_Query(t *testing.T) {
 	tagsColumn.Append(map[string]string{"host": "1.1.1.1", "app": "github"})
 	traceColumn.Append("trace_http_github")
 	spanColumn.Append("span_http_github")
-	durationColumn.Append(int64(100))
+	durationColumn.Append(time.Duration(100))
 	statusColumn.Append(nil)
 
 	now := time.Now()

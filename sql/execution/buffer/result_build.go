@@ -20,7 +20,6 @@ package buffer
 import (
 	"fmt"
 
-	"github.com/lindb/common/pkg/encoding"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/spi/types"
@@ -55,7 +54,7 @@ func (rsb *ResultSetBuild) Process() {
 	isTimestampSelected := false
 	hasTimeSeries := false
 	for page := range rsb.inbound {
-		fmt.Printf("page.....=.....%v\n", string(encoding.JSONMarshal(page))) // TODO: remove page)
+
 		if page.Error != "" {
 			rsb.resultSet.Error = page.Error
 			break
@@ -121,7 +120,7 @@ func (rsb *ResultSetBuild) Process() {
 					columns[i] = row.GetTimestamp(i).UnixMilli()
 				case types.DTDuration:
 					columns[i] = row.GetDuration(i)
-				case types.DTExemplar:
+				case types.DTExemplar, types.DTMap:
 					// FIXME: exemplar not support now
 					columns[i] = row.Get(i)
 				default:
@@ -142,6 +141,5 @@ func (rsb *ResultSetBuild) Complete() {
 func (rsb *ResultSetBuild) ResultSet() *model.ResultSet {
 	// waiting process result page completed
 	<-rsb.completed
-	fmt.Printf("result====%v\n", string(encoding.JSONMarshal(rsb.resultSet)))
 	return rsb.resultSet
 }

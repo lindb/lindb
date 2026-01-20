@@ -32,8 +32,6 @@ import (
 type BufferManager interface {
 	// AllocBuffer allocates a new DataPointBuffer for data point.
 	AllocBuffer(familyTime int64) (buf DataPointBuffer, err error)
-	/// AllocExemplarBuffer allocates a new DataPointBuffer for exemplar.
-	AllocExemplarBuffer(familyTime int64) (buf DataPointBuffer)
 	// GarbageCollect cleans all dirty buffers.
 	GarbageCollect()
 	// Cleanup cleans all history buffers.
@@ -42,9 +40,8 @@ type BufferManager interface {
 
 // bufferManager implements BufferManager.
 type bufferManager struct {
-	path     string
-	value    atomic.Value // []DataPointBuffer
-	exemplar DataPointBuffer
+	path  string
+	value atomic.Value // []DataPointBuffer
 
 	logger logger.Logger
 }
@@ -52,9 +49,8 @@ type bufferManager struct {
 // NewBufferManager creates a BufferManager instance.
 func NewBufferManager(path string) BufferManager {
 	mgr := &bufferManager{
-		path:     path,
-		exemplar: newExemplarBuffer(),
-		logger:   logger.GetLogger("TSDB", "BufferManager"),
+		path:   path,
+		logger: logger.GetLogger("TSDB", "BufferManager"),
 	}
 	mgr.value.Store(make([]DataPointBuffer, 0))
 	return mgr
@@ -79,11 +75,6 @@ func (b *bufferManager) AllocBuffer(familyTime int64) (buf DataPointBuffer, err 
 	b.value.Store(newSet)
 
 	return buf, err
-}
-
-// AllocExemplarBuffer allocates a new DataPointBuffer for exemplar.
-func (b *bufferManager) AllocExemplarBuffer(familyTime int64) (buf DataPointBuffer) {
-	return b.exemplar
 }
 
 // GarbageCollect cleans all dirty buffers.

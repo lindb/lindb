@@ -60,7 +60,8 @@ func (c *samplingAggregator) Enter(row types.Row) {
 	}
 	var duration int64
 	if c.duration != nil {
-		duration, _, _ = c.duration.EvalInt(row)
+		d, _, _ := c.duration.EvalDuration(row)
+		duration = d.Nanoseconds()
 	}
 	if c.value != nil && duration <= c.value.Duration {
 		return

@@ -90,6 +90,9 @@ func (p *Page) Marshal(w *stream.BufferWriter) {
 	}
 	// write Columns
 	for i, col := range p.Columns {
+		if p.Layout[i].Hidden {
+			continue
+		}
 		col.Marshal(p.Layout[i], w)
 	}
 }
@@ -125,7 +128,9 @@ func (p *Page) Unmarshal(r *stream.Reader) {
 	p.Columns = make([]*Column, size)
 	for i := range size {
 		col := NewColumn()
-		col.Unmarshal(p.Layout[i], p.numRows, r)
+		if !p.Layout[i].Hidden {
+			col.Unmarshal(p.Layout[i], p.numRows, r)
+		}
 		p.Columns[i] = col
 	}
 }
@@ -141,7 +146,9 @@ func (p *Page) AppendColumn(info ColumnMetadata, column *Column) {
 
 // GetRow gets the Row in the page with the row index.
 func (p *Page) GetRow(idx int) Row {
-	// TODO: select rows?
+	if idx >= p.NumRows() || idx < 0 {
+		return EmptyRow
+	}
 	return &PageRow{p: p, idx: idx}
 }
 

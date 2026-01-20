@@ -72,13 +72,14 @@ type DataPointBuffer interface {
 
 // dataPointBuffer implements DataPointBuffer interface
 type dataPointBuffer struct {
-	ids       *imap.IntMap[int32] // store all time series ids(memory time series id => page id)
-	path      string
-	buf       [][]byte
-	files     []*os.File
-	dirty     atomic.Bool
-	lock      sync.RWMutex
-	pageIDSeq int32
+	ids         *imap.IntMap[int32]        // store all time series ids(memory time series id => page id)
+	exemplarIds *imap.IntMap[ExemplarPage] // store all time series ids(memory time series id => ExemplarPage)
+	path        string
+	buf         [][]byte
+	files       []*os.File
+	dirty       atomic.Bool
+	lock        sync.RWMutex
+	pageIDSeq   int32
 }
 
 // newDataPointBuffer creates data point buffer for writing points of metric.
@@ -87,9 +88,10 @@ func newDataPointBuffer(path string) (DataPointBuffer, error) {
 		return nil, err
 	}
 	return &dataPointBuffer{
-		path:      path,
-		pageIDSeq: 0,
-		ids:       imap.NewIntMap[int32](),
+		path:        path,
+		pageIDSeq:   0,
+		ids:         imap.NewIntMap[int32](),
+		exemplarIds: imap.NewIntMap[ExemplarPage](),
 	}, nil
 }
 
@@ -159,12 +161,34 @@ func (d *dataPointBuffer) GetPage(memSeriesID uint32) ([]byte, bool) {
 	return d.buf[region][offset : offset+pageSize], true
 }
 
-func (d *dataPointBuffer) GetOrCreateExemplarPage(memSeriesID uint32) (ExemplarPage, error) {
-	panic("data point not support exemplar")
+// GetExemplarPage implements [DataPointBuffer].
+func (d *dataPointBuffer) GetExemplarPage(memSeriesID uint32) (ExemplarPage, bool) {
+	d.lock.RLock()
+	defer d.lock.RUnlock()
+
+	return d.exemplarIds.Get(memSeriesID)
 }
 
-func (d *dataPointBuffer) GetExemplarPage(memSeriesID uint32) (ExemplarPage, bool) {
-	panic("data point not support exemplar")
+// GetOrCreateExemplarPage implements [DataPointBuffer].
+func (d *dataPointBuffer) GetOrCreateExemplarPage(memSeriesID uint32) (ExemplarPage, error) {
+	var (
+		page ExemplarPage
+		ok   bool
+	)
+
+	d.lock.RLock()
+	page, ok = d.exemplarIds.Get(memSeriesID)
+	d.lock.RUnlock()
+	if ok {
+		return page, nil
+	}
+	// generate a new page
+	// NOTE: single goroutine write family data, so can read directly
+	page = newExemplarPage()
+	d.lock.Lock()
+	d.exemplarIds.PutIfNotExist(memSeriesID, page)
+	d.lock.Unlock()
+	return page, nil
 }
 
 // Release marks data point buffer is dirty.

@@ -60,11 +60,16 @@ func (d *dataSource) Initialize() {
 		// add streaming query
 		err := runtime.Query(`
 	@app(name="test_app")
-	@name(name="count_rpc",@header(user="test_user",pwd="pwd"))
-	insert into Result
-	select name,kind,status,count(1) as qps
+	create sink rpc_call with (type="lindb",address="http://localhost:9003",database="_internal");
+
+	@sink(name="rpc_call")
+	@metric(name="span.rpc_call",tags=["name","kind","status"],fields=["qps","s_qps"],timestamp="ts")
+	select name,kind,status,
+		time_trunc(start_time,interval 10 second) as ts,
+		count(1) as qps,
+		sampling(trace_id,span_id,duration) as s_qps 
 	from span 
-	group by name,kind,status;
+	group by name,kind,status,ts;
 		`)
 		fmt.Println(err)
 		if err == nil {

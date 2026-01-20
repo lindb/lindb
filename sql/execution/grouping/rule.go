@@ -71,11 +71,19 @@ func newStringRule(mapper *StringMapper) Rule {
 }
 
 func (r *StringRule) Map(value any, buf *Buffer) {
+	if value == nil {
+		buf.Write(0)
+		return
+	}
 	buf.Write(r.mapper.GetID(value.(string)))
 }
 
 func (r *StringRule) Unmap(buf *Buffer) any {
-	return r.mapper.GetValue(buf.Read())
+	v := buf.Read()
+	if v == 0 {
+		return ""
+	}
+	return r.mapper.GetValue(v)
 }
 
 type TimestampRule struct {

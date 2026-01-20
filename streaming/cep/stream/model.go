@@ -32,13 +32,6 @@ func init() {
 	encoding.RegisterNodeType(TableHandle{})
 	encoding.RegisterNodeType(ColumnHandle{})
 
-	spi.RegisterCreateTableFn(spi.Log, func(db, ns, name string) spi.TableHandle {
-		return &TableHandle{
-			App:    db,
-			Stream: name,
-		}
-	})
-
 	spi.RegisterApplyAggregationFn(spi.Streaming,
 		func(table spi.TableHandle, tableMeta *types.TableMetadata,
 			aggregations []spi.ColumnAggregation,

@@ -160,6 +160,7 @@ func (m *MetricMapper) getTimestamp(row types.Row) time.Time {
 			return val
 		}
 	}
+	// TODO: fast time?
 	return time.Now()
 }
 

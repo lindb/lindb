@@ -294,29 +294,22 @@ func (md *memoryDatabase) writeCompoundField(row *metric.StorageRow,
 	return nil
 }
 
-func (md *memoryDatabase) getFieldWriteBuffer(fieldIndex uint8, fType field.Type) (DataPointBuffer, error) {
-	buf, ok := md.fieldWriteStores.Load(fieldIndex)
+func (md *memoryDatabase) getFieldWriteBuffer(fm field.Meta, fType field.Type) (DataPointBuffer, error) {
+	buf, ok := md.fieldWriteStores.Load(fm.Index)
 	if ok {
 		return buf.(DataPointBuffer), nil
 	}
 
-	var newBuf DataPointBuffer
-	var err error
-	if fType.IsExemplar() {
-		// alloc a new exemplar data point buffer
-		newBuf = md.cfg.BufferMgr.AllocExemplarBuffer(md.cfg.SegmentTime)
-	} else {
-		// alloc a new data point buffer
-		newBuf, err = md.cfg.BufferMgr.AllocBuffer(md.cfg.SegmentTime)
-		if err != nil {
-			md.statistics.AllocatePageFailures.Incr()
-			return nil, err
-		}
+	// alloc a new data point buffer
+	newBuf, err := md.cfg.BufferMgr.AllocBuffer(md.cfg.SegmentTime)
+	if err != nil {
+		md.statistics.AllocatePageFailures.Incr()
+		return nil, err
 	}
 
 	md.statistics.AllocatedPages.Incr()
 	// cache data point buffer
-	md.fieldWriteStores.Store(fieldIndex, newBuf)
+	md.fieldWriteStores.Store(fm.Index, newBuf)
 	return newBuf, nil
 }
 
@@ -353,7 +346,7 @@ func (md *memoryDatabase) writeExemplarField(
 	}
 	var buf DataPointBuffer
 
-	buf, err = md.getFieldWriteBuffer(fm.Index, fType)
+	buf, err = md.getFieldWriteBuffer(fm, fType)
 	if err != nil {
 		return err
 	}
@@ -382,7 +375,7 @@ func (md *memoryDatabase) writeLinField(
 	}
 	var buf DataPointBuffer
 
-	buf, err = md.getFieldWriteBuffer(fm.Index, fType)
+	buf, err = md.getFieldWriteBuffer(fm, fType)
 	if err != nil {
 		return err
 	}

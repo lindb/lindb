@@ -137,19 +137,19 @@ func (mgr *streamManager) GetTableHandle(db string, ns string, table string) spi
 
 func fieldType(field reflect.StructField) types.DataType {
 	t := field.Type
-	switch t.Kind() {
-	case reflect.Map:
+	switch {
+	case t == reflect.TypeFor[map[string]string]():
 		return types.DTMap
-	case reflect.String:
+	case t == reflect.TypeFor[string]():
 		return types.DTString
-	case reflect.Int, reflect.Int32, reflect.Int64:
+	case t == reflect.TypeFor[int](), t == reflect.TypeFor[int32](), t == reflect.TypeFor[int64]():
 		return types.DTInt
-	case reflect.Float32:
+	case t == reflect.TypeFor[float32](), t == reflect.TypeFor[float64]():
 		return types.DTFloat
-	case reflect.Struct:
-		if t == reflect.TypeFor[time.Time]() {
-			return types.DTTimestamp
-		}
+	case t == reflect.TypeFor[time.Time]():
+		return types.DTTimestamp
+	case t == reflect.TypeFor[time.Duration]():
+		return types.DTDuration
 	}
 	panic("unsupported field type:" + field.Type.Key().String())
 }

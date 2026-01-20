@@ -23,7 +23,6 @@ import (
 	"sort"
 
 	flatbuffers "github.com/google/flatbuffers/go"
-	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/proto/gen/v1/flatLogV1"
 	"github.com/lindb/roaring"
 	"github.com/samber/lo"
@@ -133,7 +132,7 @@ func (sc *sourceConnector) Run(output chan<- *types.Page) {
 	msgColumn := types.NewColumn()
 	page.AppendColumn(types.ColumnMetadata{DataType: types.DTString, Name: "_msg"}, msgColumn)
 	fieldsColumn := types.NewColumn()
-	page.AppendColumn(types.ColumnMetadata{DataType: types.DTJSON, Name: "fields"}, fieldsColumn)
+	page.AppendColumn(types.ColumnMetadata{DataType: types.DTMap, Name: "fields"}, fieldsColumn)
 
 	total := 0
 	sc.findLogs(tableScan, func(segment *log.Segment, logIDs *roaring.Bitmap) bool {
@@ -155,7 +154,7 @@ func (sc *sourceConnector) Run(output chan<- *types.Page) {
 				for fIt.HasNext() {
 					fMap[string(fIt.NextName())] = string(fIt.NextValue())
 				}
-				fieldsColumn.Append(encoding.JSONMarshal(fMap))
+				fieldsColumn.Append(fMap)
 				total++
 
 				if total >= 1000 {

@@ -126,6 +126,10 @@ func (rs *ResultSet) ToTable() (tableStr string) {
 
 // appendColumn appends column value to row.
 func appendColumn(row table.Row, colType types.DataType, col any, index int) {
+	if col == nil {
+		row[index] = "null"
+		return
+	}
 	switch colType {
 	case types.DTString:
 		row[index] = col.(string)

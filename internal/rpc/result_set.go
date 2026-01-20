@@ -51,8 +51,8 @@ func (srv *ResultSetService) ResultSet(ctx context.Context,
 		return nil, err
 	}
 
-	srv.logger.Warn("receive task result set", logger.Any("requestID", resultSet.TaskID.RequestID),
-		logger.Int("TaskID", resultSet.TaskID.ID), logger.Int("nodeID", int(resultSet.Node)), logger.Any("page", resultSet.Page))
+	srv.logger.Info("receive task result set", logger.Any("requestID", resultSet.TaskID.RequestID),
+		logger.Int("TaskID", resultSet.TaskID.ID), logger.Int("nodeID", int(resultSet.Node)))
 
 	sourceOperator := pipeline.DriverManager.GetSourceOperator(resultSet.TaskID, resultSet.Node)
 	if sourceOperator != nil {
@@ -60,7 +60,6 @@ func (srv *ResultSetService) ResultSet(ctx context.Context,
 			page, err := types.UnmarshalPage(resultSet.Page)
 			if err != nil {
 				fmt.Println("unmarshal page error:", err)
-				fmt.Println("page data:", resultSet.Page)
 				panic(err)
 			}
 			sourceOperator.Receive(page)

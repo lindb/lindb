@@ -42,68 +42,41 @@ type PageRow struct {
 
 // GetString returns the string value in the row with the column index.
 func (r *PageRow) GetString(colIdx int) string {
-	if r.idx >= len(r.p.Columns) {
-		return ""
-	}
 	return r.p.Columns[colIdx].GetString(r.idx)
 }
 
 // GetJSON returns the json value in the row with the column index.
 func (r *PageRow) GetJSON(colIdx int) json.RawMessage {
-	if r.idx >= len(r.p.Columns) {
-		return nil
-	}
 	return r.p.Columns[colIdx].GetJSON(r.idx)
 }
 
 // GetFloat returns the float value in the row with the column index.
 func (r *PageRow) GetFloat(colIdx int) float64 {
-	if r.idx >= len(r.p.Columns) {
-		return 0
-	}
 	return r.p.Columns[colIdx].GetFloat(r.idx)
 }
 
 // GetInt returns the int value in the row with the column index.
 func (r *PageRow) GetInt(colIdx int) int64 {
-	if r.idx >= len(r.p.Columns) {
-		return 0
-	}
 	return r.p.Columns[colIdx].GetInt(r.idx)
 }
 
 // GetTimeSeries returns the time series value in the row with the column index.
 func (r *PageRow) GetTimeSeries(colIdx int) *TimeSeries {
-	if r.idx >= len(r.p.Columns) {
-		return nil
-	}
 	return r.p.Columns[colIdx].GetTimeSeries(r.idx)
 }
 
 func (r *PageRow) GetTimestamp(colIdx int) time.Time {
-	if r.idx >= len(r.p.Columns) {
-		return time.Time{}
-	}
 	return r.p.Columns[colIdx].GetTimestamp(r.idx)
 }
 
 func (r *PageRow) GetMap(colIdx int) map[string]string {
-	if r.idx >= len(r.p.Columns) {
-		return nil
-	}
 	return r.p.Columns[colIdx].GetMap(r.idx)
 }
 
 func (r *PageRow) GetDuration(colIdx int) time.Duration {
-	if r.idx >= len(r.p.Columns) {
-		return time.Duration(0)
-	}
 	return r.p.Columns[colIdx].GetDuration(r.idx)
 }
 
 func (r *PageRow) Get(colIdx int) any {
-	if r.idx >= len(r.p.Columns) {
-		return nil
-	}
 	return r.p.Columns[colIdx].Get(r.idx)
 }

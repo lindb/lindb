@@ -39,13 +39,13 @@ func NewColumn() *Column {
 
 func (c *Column) Marshal(meta ColumnMetadata, w *stream.BufferWriter) {
 	switch meta.DataType {
-	case DTString:
+	case DTString, DTDynamic:
 		for _, v := range c.Values {
 			w.PutString(v.(string))
 		}
 	case DTJSON:
 		for _, v := range c.Values {
-			data := []byte(v.(json.RawMessage))
+			data := v.([]byte)
 			w.PutUvarint32(uint32(len(data)))
 			w.PutBytes(data)
 		}
@@ -110,12 +110,12 @@ func (c *Column) Unmarshal(meta ColumnMetadata, numOfRows int, r *stream.Reader)
 	c.Values = make([]Value, numOfRows)
 	for i := range numOfRows {
 		switch meta.DataType {
-		case DTString:
+		case DTString, DTDynamic:
 			c.Values[i] = r.ReadString()
 		case DTJSON:
 			size := r.ReadUvarint32()
 			data := r.ReadBytes(int(size))
-			c.Values[i] = json.RawMessage(data)
+			c.Values[i] = data
 		case DTInt:
 			c.Values[i] = r.ReadVarint64()
 		case DTFloat:
@@ -188,7 +188,11 @@ func (c *Column) GetJSON(row int) json.RawMessage {
 	if row >= len(c.Values) {
 		return nil
 	}
-	return c.Values[row].(json.RawMessage)
+	val := c.Values[row]
+	if val == nil {
+		return nil
+	}
+	return json.RawMessage(val.([]byte))
 }
 
 func (c *Column) GetInt(row int) int64 {
@@ -211,7 +215,11 @@ func (c *Column) GetTimestamp(row int) time.Time {
 	if row >= len(c.Values) {
 		return time.Time{}
 	}
-	return c.Values[row].(time.Time)
+	val := c.Values[row]
+	if val == nil {
+		return time.Time{}
+	}
+	return val.(time.Time)
 }
 
 func (c *Column) GetDuration(row int) time.Duration {

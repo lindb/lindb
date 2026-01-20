@@ -20,83 +20,14 @@ package memdb
 import (
 	"fmt"
 	"sort"
-	"sync"
 
 	"github.com/lindb/common/models"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/pkg/encoding"
-	"github.com/lindb/lindb/pkg/imap"
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/storage/metric/tblstore/metricsdata"
 )
-
-type exemplarBuffer struct {
-	ids  *imap.IntMap[ExemplarPage] // store all time series ids(memory time series id => ExemplarPage)
-	lock sync.RWMutex
-}
-
-func newExemplarBuffer() DataPointBuffer {
-	return &exemplarBuffer{
-		ids: imap.NewIntMap[ExemplarPage](),
-	}
-}
-
-func (e *exemplarBuffer) BufferSize() int64 {
-	return int64(e.ids.Size())
-}
-
-// Close implements [DataPointBuffer].
-func (e *exemplarBuffer) Close() error {
-	return nil
-}
-
-// GetExemplarPage implements [DataPointBuffer].
-func (e *exemplarBuffer) GetExemplarPage(memSeriesID uint32) (ExemplarPage, bool) {
-	e.lock.RLock()
-	defer e.lock.RUnlock()
-
-	return e.ids.Get(memSeriesID)
-}
-
-// GetOrCreateExemplarPage implements [DataPointBuffer].
-func (e *exemplarBuffer) GetOrCreateExemplarPage(memSeriesID uint32) (ExemplarPage, error) {
-	var (
-		page ExemplarPage
-		ok   bool
-	)
-
-	e.lock.RLock()
-	page, ok = e.ids.Get(memSeriesID)
-	e.lock.RUnlock()
-	if ok {
-		return page, nil
-	}
-	// generate a new page
-	// NOTE: single goroutine write family data, so can read directly
-	page = newExemplarPage()
-	e.lock.Lock()
-	e.ids.PutIfNotExist(memSeriesID, page)
-	e.lock.Unlock()
-	return page, nil
-}
-
-// GetOrCreatePage implements [DataPointBuffer].
-func (e *exemplarBuffer) GetOrCreatePage(memSeriesID uint32) ([]byte, error) {
-	panic("exemplar not support page")
-}
-
-// GetPage implements [DataPointBuffer].
-func (e *exemplarBuffer) GetPage(memSeriesID uint32) ([]byte, bool) {
-	panic("exemplar not support page")
-}
-
-func (e *exemplarBuffer) IsDirty() bool {
-	return false
-}
-
-func (e *exemplarBuffer) Release() {
-}
 
 type ExemplarPage interface {
 	encoding.TSDValueGetter
