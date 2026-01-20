@@ -181,10 +181,12 @@ func (v *ExpressionVisitor) visitFunctionCall(context any, node *tree.FunctionCa
 	}
 	expectedType := v.analyzer.ctx.GetFuncReturnType(node.Name)
 	fmt.Printf("get func default type=%v\n", expectedType)
-	if len(argumentTypes) > 0 {
-		// TODO: check args types
-		for i := range len(argumentTypes) {
-			expectedType = types.GetAccurateType(expectedType, argumentTypes[i])
+	if expectedType == types.DTUnknown {
+		if len(argumentTypes) > 0 {
+			// TODO: check args types
+			for i := range len(argumentTypes) {
+				expectedType = types.GetAccurateType(expectedType, argumentTypes[i])
+			}
 		}
 	}
 	fmt.Printf("get func default type=%v\n", expectedType)
@@ -193,7 +195,6 @@ func (v *ExpressionVisitor) visitFunctionCall(context any, node *tree.FunctionCa
 	// for i, argumentType := range argumentTypes {
 	// 	v.coerceType(node.Arguments[i], argumentType, expectedType)
 	// }
-
 	// FIXME:func call???
 	// rowType := &types.RowType{}
 	return v.setExpressionType(node, expectedType)

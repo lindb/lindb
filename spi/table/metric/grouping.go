@@ -276,9 +276,49 @@ func (f *Array[V]) SetValue(pos int, value V) {
 	}
 }
 
+func (f *Array[V]) Reset() {
+	f.size = 0
+	f.isSingle = false
+	for i := range f.marks {
+		f.marks[i] = 0
+	}
+}
+
 func (f *Array[V]) checkPos(pos int) bool {
 	if pos < 0 || pos >= f.capacity {
 		return false
 	}
 	return true
+}
+
+type Stream[V any] interface {
+	SetAtStep(step int, value V, fn func(a, b V) V)
+	GetAtStep(step int) V
+	Reset()
+}
+
+type stream[V float64 | *models.Exemplar] struct {
+	values *Array[V]
+}
+
+func NewStream[V float64 | *models.Exemplar](size int) Stream[V] {
+	return &stream[V]{
+		values: NewArray[V](size),
+	}
+}
+
+func (s *stream[V]) SetAtStep(step int, value V, fn func(a, b V) V) {
+	if s.values.HasValue(step) {
+		s.values.SetValue(step, fn(s.values.GetValue(step), value))
+		return
+	}
+	s.values.SetValue(step, value)
+}
+
+func (s *stream[V]) GetAtStep(step int) V {
+	return s.values.GetValue(step)
+}
+
+func (s *stream[V]) Reset() {
+	s.values.Reset()
 }

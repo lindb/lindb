@@ -70,7 +70,7 @@ func (agg *aggregatorByTime) Aggregate(output chan<- *types.Page) {
 		})
 		return true
 	})
-	agg.statsColumn.AppendTimeSeries(timeseries)
+	agg.statsColumn.Append(timeseries)
 
 	output <- agg.page
 }
@@ -143,11 +143,11 @@ func (agg *aggregatorByField) Aggregate(output chan<- *types.Page) {
 	})
 	if hasGrouping {
 		for k, v := range grouping {
-			agg.fieldColumn.AppendString(k)
-			agg.statsColumn.AppendTimeSeries(types.NewTimeSeriesWithSingleValue(float64(v[1])))
+			agg.fieldColumn.Append(k)
+			agg.statsColumn.Append(types.NewTimeSeriesWithSingleValue(float64(v[1])))
 		}
 	} else {
-		agg.statsColumn.AppendTimeSeries(types.NewTimeSeriesWithSingleValue(float64(stats)))
+		agg.statsColumn.Append(types.NewTimeSeriesWithSingleValue(float64(stats)))
 	}
 
 	output <- agg.page

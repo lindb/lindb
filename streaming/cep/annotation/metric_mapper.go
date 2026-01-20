@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/lindb/client_go/api"
+	commontmodels "github.com/lindb/common/models"
 	"github.com/lindb/common/pkg/logger"
 	"github.com/samber/lo"
 
@@ -69,6 +70,9 @@ func (m *MetricMapper) Map(event models.Event) models.Event {
 	if !m.initialized {
 		m.initialize(page)
 	}
+
+	m.logger.Info("metric mapper...", logger.Any("page", page))
+
 	var points []*api.Point
 	it := page.Iterator()
 	for row := it.Begin(); row != it.End(); row = it.Next() {
@@ -76,9 +80,6 @@ func (m *MetricMapper) Map(event models.Event) models.Event {
 								SetTimestamp(m.getTimestamp(row)) // timestamp
 		m.buildTags(row, point)   // tags
 		m.buildFields(row, point) // fields
-
-		// TODO: add exemplars support
-		point.AddField(api.NewExemplar("exemplar", "traceid", "spanid", 30))
 
 		if m.nameTpl != nil {
 			// TODO:: remove tag if be used in metric name template
@@ -187,6 +188,14 @@ func (m *MetricMapper) buildFields(row types.Row, point *api.Point) {
 		if col == nil {
 			continue
 		}
+		if col.DataType == types.DTExemplar {
+			val, ok := row.Get(col.Ref).(*commontmodels.Exemplar)
+			if ok && val != nil {
+				point.AddField(api.NewExemplar(col.Name, val.TraceID, val.SpanID, val.Duration))
+			}
+			continue
+		}
+
 		val := float64(row.GetInt(col.Ref))
 		switch col.AggType {
 		case types.ATSum:

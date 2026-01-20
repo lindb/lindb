@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/lindb/common/models"
 	"github.com/lindb/common/pkg/timeutil"
 
 	"github.com/lindb/lindb/spi/types"
@@ -57,6 +58,10 @@ func (c *Constant) EvalTimeSeries(_ types.Row) (val *types.TimeSeries, isNull bo
 
 func (c *Constant) EvalDuration(_ types.Row) (val time.Duration, isNull bool, err error) {
 	val = c.value.(time.Duration)
+	return
+}
+
+func (c *Constant) EvalExemplar(_ types.Row) (val *models.Exemplar, isNull bool, err error) {
 	return
 }
 

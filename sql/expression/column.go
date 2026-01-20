@@ -20,6 +20,8 @@ package expression
 import (
 	"time"
 
+	"github.com/lindb/common/models"
+
 	"github.com/lindb/lindb/spi/types"
 )
 
@@ -59,6 +61,10 @@ func (c *Column) EvalDuration(row types.Row) (val time.Duration, isNull bool, er
 
 func (c *Column) EvalTime(row types.Row) (val time.Time, isNull bool, err error) {
 	return row.GetTimestamp(c.index), false, nil
+}
+
+func (c *Column) EvalExemplar(row types.Row) (val *models.Exemplar, isNull bool, err error) {
+	return
 }
 
 // GetType returns the data type of the column returns.

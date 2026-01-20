@@ -167,22 +167,22 @@ func NewTracePageBuilder() *TracePageBuilder {
 
 func (b *TracePageBuilder) AppendSpan(resource map[string]string, span ptrace.Span) {
 	// translate span
-	b.traceID.AppendString(span.TraceID().String())
-	b.spanID.AppendString(span.SpanID().String())
-	b.parentSpanID.AppendString(span.ParentSpanID().String())
-	b.name.AppendString(span.Name())
-	b.kind.AppendString(span.Kind().String())
+	b.traceID.Append(span.TraceID().String())
+	b.spanID.Append(span.SpanID().String())
+	b.parentSpanID.Append(span.ParentSpanID().String())
+	b.name.Append(span.Name())
+	b.kind.Append(span.Kind().String())
 	b.attributes.Append(translateAttributes(span.Attributes()))
 
 	status := span.Status()
-	b.status.AppendString(status.Code().String())
-	b.errorMessage.AppendString(status.Message())
+	b.status.Append(status.Code().String())
+	b.errorMessage.Append(status.Message())
 
 	start := span.StartTimestamp().AsTime()
 	end := span.EndTimestamp().AsTime()
-	b.startTime.AppendTimestamp(start)
-	b.endTime.AppendTimestamp(end)
-	b.duration.AppendDuration(end.Sub(start))
+	b.startTime.Append(start)
+	b.endTime.Append(end)
+	b.duration.Append(end.Sub(start))
 
 	// set resource
 	b.resource.Append(resource)

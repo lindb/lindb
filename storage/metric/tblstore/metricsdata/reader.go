@@ -194,6 +194,7 @@ func (r *metricReader) readSeriesData(seriesIdx uint16, seriesEntryBlock []byte,
 	_, _ = fieldOffsetsDecoder.Unmarshal(seriesEntryBlock[fieldOffsetsAt:])
 
 	for _, fm := range r.fieldEntries {
+		fmt.Printf("read file field=%v\n", fm)
 		fieldBlock, err := fieldOffsetsDecoder.GetBlock(fm.index, seriesEntryBlock[:fieldOffsetsAt])
 		if err == nil {
 			r.readFieldData(fm.field, fieldBlock, fn)
@@ -208,6 +209,7 @@ func (r *metricReader) readFieldData(
 ) {
 	var getter encoding.TSDValueGetter
 	if fm.Type.IsExemplar() {
+		// TODO: set time range
 		getter = newExemplarTSDGetter(fieldBlock)
 	} else {
 		r.decoder.ResetWithTimeRange(fieldBlock, r.timeRange.Start, r.timeRange.End)

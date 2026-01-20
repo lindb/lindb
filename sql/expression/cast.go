@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/lindb/common/models"
+
 	"github.com/lindb/lindb/spi/types"
 )
 
@@ -67,6 +69,10 @@ func (c *Cast) EvalTime(_ types.Row) (val time.Time, isNull bool, err error) {
 }
 
 func (c *Cast) EvalMap(_ types.Row) (val map[string]string, isNull bool, err error) {
+	return
+}
+
+func (c *Cast) EvalExemplar(_ types.Row) (val *models.Exemplar, isNull bool, err error) {
 	return
 }
 

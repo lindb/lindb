@@ -114,15 +114,15 @@ func (p *sourceConnector) Run(output chan<- *types.Page) {
 		for idx, col := range columns {
 			switch p.outputColumns[idx].DataType {
 			case types.DTString:
-				col.AppendString(row[colIdxs[idx]].String())
+				col.Append(row[colIdxs[idx]].String())
 			case types.DTFloat:
-				col.AppendFloat(row[colIdxs[idx]].Float())
+				col.Append(row[colIdxs[idx]].Float())
 			case types.DTInt:
-				col.AppendInt(row[colIdxs[idx]].Int())
+				col.Append(row[colIdxs[idx]].Int())
 			case types.DTTimestamp:
-				col.AppendTimestamp(time.UnixMilli(row[colIdxs[idx]].Int()))
+				col.Append(time.UnixMilli(row[colIdxs[idx]].Int()))
 			case types.DTDuration:
-				col.AppendDuration(row[colIdxs[idx]].Duration())
+				col.Append(row[colIdxs[idx]].Duration())
 			}
 		}
 	}

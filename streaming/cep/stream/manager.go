@@ -104,7 +104,7 @@ func (mgr *streamManager) RegisterStreamByType(event any) error {
 		if field.PkgPath != "" {
 			continue
 		}
-		schema.AddColumn(types.ColumnMetadata{Name: lo.CamelCase(field.Name), DataType: fieldType(field)})
+		schema.AddColumn(types.ColumnMetadata{Name: lo.SnakeCase(field.Name), DataType: fieldType(field)})
 	}
 	mgr.mutex.Lock()
 	defer mgr.mutex.Unlock()

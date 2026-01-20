@@ -18,6 +18,7 @@
 package executor
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -28,6 +29,7 @@ import (
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/grouping"
 	"github.com/lindb/lindb/sql/execution/operator/streaming/aggregation"
+	"github.com/lindb/lindb/sql/expression"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
 
@@ -171,8 +173,18 @@ func createOutputs(node *plan.AggregationNode) (columns []types.ColumnMetadata) 
 // one aggregate function (e.g., SUM, COUNT, AVG).
 func createAggregators(node *plan.AggregationNode) []aggregation.Aggregator {
 	var aggregators []aggregation.Aggregator
+	ctx := expression.NewEvalContext(context.TODO())
 	for _, agg := range node.Aggregations {
-		aggregator, err := aggregation.CreateAggregator(agg.Aggregation.Function, agg.Aggregation.Arguments)
+		args := make([]expression.Expression, len(agg.Aggregation.Arguments))
+		for i, arg := range agg.Aggregation.Arguments {
+			args[i] = expression.Rewrite(&expression.RewriteContext{
+				SourceLayout: node.Source.GetOutputSymbols(),
+				EvalContext:  ctx,
+			}, arg)
+		}
+		// TODO: extract eval context
+		aggregator, err := aggregation.CreateAggregator(ctx,
+			agg.Aggregation.Function, args)
 		if err != nil {
 			panic(err)
 		}

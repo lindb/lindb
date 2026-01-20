@@ -20,6 +20,8 @@ package expression
 import (
 	"time"
 
+	"github.com/lindb/common/models"
+
 	"github.com/lindb/lindb/spi/types"
 )
 
@@ -31,6 +33,7 @@ type Expression interface {
 	EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error)
 	EvalTime(row types.Row) (val time.Time, isNull bool, err error)
 	EvalMap(row types.Row) (val map[string]string, isNull bool, err error)
+	EvalExemplar(row types.Row) (val *models.Exemplar, isNull bool, err error)
 	// Getype returns the data type of the expression returns.
 	GetType() types.DataType
 	// String returns the expression in string format.

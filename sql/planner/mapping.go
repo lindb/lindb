@@ -19,18 +19,17 @@ package planner
 
 import (
 	"github.com/lindb/lindb/sql/analyzer"
-	"github.com/lindb/lindb/sql/planner/plan"
 	planpkg "github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/tree"
 )
 
 type NodeAndMappings struct {
-	Node   plan.PlanNode
-	Fields []*plan.Symbol
+	Node   planpkg.PlanNode
+	Fields []*planpkg.Symbol
 }
 
 type PlanAndMappings struct {
-	mappings map[tree.Expression]*plan.Symbol
+	mappings map[tree.Expression]*planpkg.Symbol
 }
 
 func coerceExpressions(subPlan *PlanBuilder, expressions []tree.Expression, analysis *analyzer.Analysis,

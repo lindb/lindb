@@ -38,7 +38,7 @@ func (b *QueryBuilder) SingleValueQuery(columnName, value string) *tree.Query {
 	page := types.NewPage()
 	column := types.NewColumn()
 	page.AppendColumn(types.ColumnMetadata{Name: columnName, DataType: types.DTString}, column)
-	column.AppendString(value)
+	column.Append(value)
 	body := &tree.QuerySpecification{
 		Select: b.SelectAll(),
 		From:   b.Values(page),

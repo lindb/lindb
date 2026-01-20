@@ -44,7 +44,7 @@ const (
 	First    FuncName = "first"
 	Last     FuncName = "last"
 	Count    FuncName = "count"
-	Exemplar FuncName = "exemplar"
+	Sampling FuncName = "sampling"
 
 	// time function names
 	DateAdd   FuncName = "date_add"
@@ -76,7 +76,8 @@ var defaultFuncReturnTypes = map[FuncName]types.DataType{
 	StrToDate: types.DTTimestamp,
 	TimeTrunc: types.DTTimestamp,
 
-	Count: types.DTTimeSeries,
+	Count:    types.DTTimeSeries,
+	Sampling: types.DTExemplar,
 
 	MapValues: types.DTMap,
 }
@@ -86,12 +87,13 @@ var streamingFuncReturnTypes = map[FuncName]types.DataType{
 }
 
 var defaultFuncAggTypes = map[FuncName]types.AggregateType{
-	Count: types.ATSum,
-	Sum:   types.ATSum,
-	Min:   types.ATMin,
-	Max:   types.ATMax,
-	First: types.ATFirst,
-	Last:  types.ATLast,
+	Count:    types.ATSum,
+	Sum:      types.ATSum,
+	Min:      types.ATMin,
+	Max:      types.ATMax,
+	First:    types.ATFirst,
+	Last:     types.ATLast,
+	Sampling: types.ATExemplar,
 }
 
 func init() {
@@ -117,7 +119,8 @@ var funcs = map[FuncName]struct{}{
 	Div:   {},
 	Mod:   {},
 
-	Count: {},
+	Count:    {},
+	Sampling: {},
 
 	// time functions
 	// ref: https://dev.mysql.com/doc/refman/8.4/en/date-and-time-functions.html

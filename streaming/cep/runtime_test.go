@@ -31,6 +31,10 @@ type RPCService struct {
 	Timestamp time.Time
 	Tags      map[string]string
 	Status    string
+
+	TraceID  string
+	SpanID   string
+	Duration int64
 }
 
 type Result struct{}
@@ -121,23 +125,41 @@ func Test_Runtime_Insert(t *testing.T) {
 	tagsColumn := types.NewColumn()
 	page.AppendColumn(types.ColumnMetadata{DataType: types.DTMap, Name: "tags"}, tagsColumn)
 	statusColumn := types.NewColumn()
-	page.AppendColumn(types.ColumnMetadata{DataType: types.DTMap, Name: "status"}, statusColumn)
+	page.AppendColumn(types.ColumnMetadata{DataType: types.DTString, Name: "status"}, statusColumn)
+	traceColumn := types.NewColumn()
+	page.AppendColumn(types.ColumnMetadata{DataType: types.DTString, Name: "trace_id"}, traceColumn)
+	spanColumn := types.NewColumn()
+	page.AppendColumn(types.ColumnMetadata{DataType: types.DTString, Name: "span_id"}, spanColumn)
+	durationColumn := types.NewColumn()
+	page.AppendColumn(types.ColumnMetadata{DataType: types.DTInt, Name: "duration"}, durationColumn)
 
-	interfaceColumn.AppendString("grpc")
-	timestampColumn.AppendTimestamp(time.Now())
+	interfaceColumn.Append("grpc")
+	timestampColumn.Append(time.Now())
 	tagsColumn.Append(map[string]string{"host": "1.1.1.1", "app": "order"})
+	traceColumn.Append("trace_grpc_order")
+	spanColumn.Append("span_grpc_order")
+	durationColumn.Append(int64(200))
 
-	interfaceColumn.AppendString("http")
-	timestampColumn.AppendTimestamp(time.Now())
+	interfaceColumn.Append("http")
+	timestampColumn.Append(time.Now())
 	tagsColumn.Append(map[string]string{"host": "1.1.1.1", "app": "user"})
+	traceColumn.Append("trace_http_user")
+	spanColumn.Append("span_http_user")
+	durationColumn.Append(int64(150))
 
-	interfaceColumn.AppendString("dubbo")
-	timestampColumn.AppendTimestamp(time.Now())
+	interfaceColumn.Append("dubbo")
+	timestampColumn.Append(time.Now())
 	tagsColumn.Append(map[string]string{"host": "1.1.1.1", "app": "order"})
+	traceColumn.Append("trace_dubbo_order")
+	spanColumn.Append("span_dubbo_order")
+	durationColumn.Append(int64(300))
 
-	interfaceColumn.AppendString("http")
-	timestampColumn.AppendTimestamp(time.Now())
+	interfaceColumn.Append("http")
+	timestampColumn.Append(time.Now())
 	tagsColumn.Append(map[string]string{"host": "1.1.1.1", "app": "github"})
+	traceColumn.Append("trace_http_github")
+	spanColumn.Append("span_http_github")
+	durationColumn.Append(int64(100))
 
 	now := time.Now()
 	// var wait sync.WaitGroup
@@ -174,10 +196,11 @@ func Test_Runtime_Query(t *testing.T) {
 		create sink rpc_call with (type="lindb",address="http://localhost:9003",database="_internal");
 
 	@sink(name="rpc_call")
-	@metric(name="{{.interface}}.rpc_call",tags=["tags_map","interface"],fields=["qps"],timestamp="ts")
+	@metric(name="{{.interface}}.rpc_call",tags=["tags_map","interface"],fields=["qps","exemplar"],timestamp="ts")
 	select map_values(tags,'app') as tags_map,
 		interface,
 		count(1) as qps,
+		sampling(trace_id,span_id,duration) as exemplar,
 		time_trunc(timestamp,interval 10 second) as ts 
 	from RPCService
 	where interface in('grpc','http')
@@ -219,23 +242,45 @@ func Test_Runtime_Query(t *testing.T) {
 	tagsColumn := types.NewColumn()
 	page.AppendColumn(types.ColumnMetadata{DataType: types.DTMap, Name: "tags"}, tagsColumn)
 	statusColumn := types.NewColumn()
-	page.AppendColumn(types.ColumnMetadata{DataType: types.DTMap, Name: "status"}, statusColumn)
+	page.AppendColumn(types.ColumnMetadata{DataType: types.DTString, Name: "status"}, statusColumn)
+	traceColumn := types.NewColumn()
+	page.AppendColumn(types.ColumnMetadata{DataType: types.DTString, Name: "trace_id"}, traceColumn)
+	spanColumn := types.NewColumn()
+	page.AppendColumn(types.ColumnMetadata{DataType: types.DTString, Name: "span_id"}, spanColumn)
+	durationColumn := types.NewColumn()
+	page.AppendColumn(types.ColumnMetadata{DataType: types.DTInt, Name: "duration"}, durationColumn)
 
-	interfaceColumn.AppendString("grpc")
-	timestampColumn.AppendTimestamp(time.Now())
+	interfaceColumn.Append("grpc")
+	timestampColumn.Append(time.Now())
 	tagsColumn.Append(map[string]string{"host": "1.1.1.1", "app": "order"})
+	traceColumn.Append("trace_grpc_order")
+	spanColumn.Append("span_grpc_order")
+	durationColumn.Append(int64(200))
+	statusColumn.Append(nil)
 
-	interfaceColumn.AppendString("http")
-	timestampColumn.AppendTimestamp(time.Now())
+	interfaceColumn.Append("http")
+	timestampColumn.Append(time.Now())
 	tagsColumn.Append(map[string]string{"host": "1.1.1.1", "app": "user"})
+	traceColumn.Append("trace_http_user")
+	spanColumn.Append("span_http_user")
+	durationColumn.Append(int64(150))
+	statusColumn.Append(nil)
 
-	interfaceColumn.AppendString("dubbo")
-	timestampColumn.AppendTimestamp(time.Now())
+	interfaceColumn.Append("dubbo")
+	timestampColumn.Append(time.Now())
 	tagsColumn.Append(map[string]string{"host": "1.1.1.1", "app": "order"})
+	traceColumn.Append("trace_dubbo_order")
+	spanColumn.Append("span_dubbo_order")
+	durationColumn.Append(int64(300))
+	statusColumn.Append(nil)
 
-	interfaceColumn.AppendString("http")
-	timestampColumn.AppendTimestamp(time.Now())
+	interfaceColumn.Append("http")
+	timestampColumn.Append(time.Now())
 	tagsColumn.Append(map[string]string{"host": "1.1.1.1", "app": "github"})
+	traceColumn.Append("trace_http_github")
+	spanColumn.Append("span_http_github")
+	durationColumn.Append(int64(100))
+	statusColumn.Append(nil)
 
 	now := time.Now()
 	// var wait sync.WaitGroup

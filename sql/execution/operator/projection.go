@@ -65,6 +65,7 @@ func (op *ProjectionOperator) Run(ctx context.Context, output chan<- *types.Page
 				outputColumns[i])
 		}
 		rowNum := 0
+		// logger.GetLogger("sql", "projection").Info("do projection op start", logger.Any("page", source), logger.Any("exp", op.project.Assignments))
 
 		// fmt.Printf("source page layout=%v\n", source.Layout)
 		// fmt.Printf("do projection op start....%v\n", string(encoding.JSONMarshal(source)))
@@ -76,24 +77,28 @@ func (op *ProjectionOperator) Run(ctx context.Context, output chan<- *types.Page
 				switch expr.GetType() {
 				case types.DTString:
 					val, _, _ := expr.EvalString(row)
-					outputColumns[i].AppendString(val)
+					outputColumns[i].Append(val)
 				case types.DTInt:
 					val, _, _ := expr.EvalInt(row)
-					outputColumns[i].AppendInt(val)
+					outputColumns[i].Append(val)
 				case types.DTFloat:
 					val, _, _ := expr.EvalFloat(row)
-					outputColumns[i].AppendFloat(val)
+					outputColumns[i].Append(val)
 				case types.DTTimeSeries:
 					val, _, _ := expr.EvalTimeSeries(row)
-					outputColumns[i].AppendTimeSeries(val)
+					outputColumns[i].Append(val)
 				case types.DTTimestamp:
 					val, _, _ := expr.EvalTime(row)
-					outputColumns[i].AppendTimestamp(val)
+					outputColumns[i].Append(val)
 				case types.DTDuration:
 					val, _, _ := expr.EvalDuration(row)
-					outputColumns[i].AppendDuration(val)
+					outputColumns[i].Append(val)
 				case types.DTMap:
 					val, _, _ := expr.EvalMap(row)
+					// fmt.Println(val)
+					outputColumns[i].Append(val)
+				case types.DTExemplar:
+					val, _, _ := expr.EvalExemplar(row)
 					// fmt.Println(val)
 					outputColumns[i].Append(val)
 				default:

@@ -147,15 +147,15 @@ func (sc *sourceConnector) Run(output chan<- *types.Page) {
 			} else {
 				log := &flatLogV1.Log{}
 				log.Init(logData, flatbuffers.GetUOffsetT(logData))
-				timeColumn.AppendInt(log.Timestamp())
+				timeColumn.Append(log.Timestamp())
 				// TODO:
-				msgColumn.AppendString(string(log.Message()))
+				msgColumn.Append(string(log.Message()))
 				fIt := logproto.NewFieldIterator(log)
 				fMap := make(map[string]string)
 				for fIt.HasNext() {
 					fMap[string(fIt.NextName())] = string(fIt.NextValue())
 				}
-				fieldsColumn.AppendJSON(encoding.JSONMarshal(fMap))
+				fieldsColumn.Append(encoding.JSONMarshal(fMap))
 				total++
 
 				if total >= 1000 {

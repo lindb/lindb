@@ -18,6 +18,8 @@
 package metric
 
 import (
+	"fmt"
+
 	"github.com/lindb/common/models"
 )
 
@@ -32,6 +34,7 @@ type rollup[V float64 | *models.Exemplar] struct {
 }
 
 func newRollup[V float64 | *models.Exemplar](capacity int, window int64, agg aggregateFunc[V]) *rollup[V] {
+	fmt.Println("new rollup", capacity, window)
 	return &rollup[V]{
 		timeseries: newTimeSeries[V](capacity),
 		window:     window,
@@ -66,8 +69,8 @@ func (r *rollup[V]) nextWindow(timestamp int64, value V) {
 }
 
 func (r *rollup[V]) reset() {
-	r.window = 0
 	r.currTimestamp = 0
+	r.nextTimestamp = 0
 
 	r.timeseries.Reset()
 }

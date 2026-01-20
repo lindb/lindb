@@ -59,7 +59,7 @@ func NewRowWithEmptyValue() *Page {
 	page := NewPage()
 	column := NewColumn()
 	page.AppendColumn(ColumnMetadata{DataType: DTString}, column)
-	column.AppendString("") // mock empty value
+	column.Append("") // mock empty value
 	return page
 }
 

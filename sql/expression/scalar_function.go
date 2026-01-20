@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lindb/common/models"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/spi/types"
@@ -78,6 +79,11 @@ func (f *ScalarFunc) EvalTime(row types.Row) (val time.Time, isNull bool, err er
 
 func (f *ScalarFunc) EvalMap(row types.Row) (val map[string]string, isNull bool, err error) {
 	return f.function.EvalMap(row)
+}
+
+func (f *ScalarFunc) EvalExemplar(row types.Row) (val *models.Exemplar, isNull bool, err error) {
+	fmt.Println("eval exemplar func...", f.funcName)
+	return f.function.EvalExemplar(row)
 }
 
 // GetType implements Expression.

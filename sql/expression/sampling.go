@@ -15,32 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package flow
+package expression
 
-type Stream[V any] interface {
-	SetAtStep(step int, value V, fn func(a, b V) V)
-	GetAtStep(step int) V
-	Reset()
+type samplingFunc struct {
+	baseFunc
 }
 
-type stream[V any] struct {
-	values []V
-}
-
-func NewStream[V any](size int) Stream[V] {
-	return &stream[V]{
-		values: make([]V, size),
+func newSamplingFunc(ctx EvalContext, args []Expression) Func {
+	return &samplingFunc{
+		baseFunc: baseFunc{
+			ctx:  ctx,
+			args: args,
+		},
 	}
-}
-
-func (s *stream[V]) SetAtStep(step int, value V, fn func(a, b V) V) {
-	s.values[step] = fn(s.values[step], value)
-}
-
-func (s *stream[V]) GetAtStep(step int) V {
-	return s.values[step]
-}
-
-func (s *stream[V]) Reset() {
-	// FIXME: implement reset logic
 }

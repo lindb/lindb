@@ -57,10 +57,6 @@ func (n *TimePredicate) Accept(context any, visitor Visitor) any {
 	return visitor.Visit(context, n)
 }
 
-func (n *TimePredicate) String() string {
-	panic("not implement")
-}
-
 type NullPredicate struct {
 	BaseNode
 	Value Expression `json:"value"`
@@ -69,8 +65,4 @@ type NullPredicate struct {
 
 func (n *NullPredicate) Accept(context any, visitor Visitor) any {
 	return visitor.Visit(context, n)
-}
-
-func (n *NullPredicate) String() string {
-	panic("not implement")
 }

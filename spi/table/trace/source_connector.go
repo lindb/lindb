@@ -176,7 +176,7 @@ func FilterTracesByTraceID(traceID string, msg []byte, column *types.Column) {
 		rs := resourceSpans.At(i)
 		callStack := TranslateResourceSpans(rs, traceID)
 		if callStack != nil {
-			column.AppendJSON(encoding.JSONMarshal(callStack))
+			column.Append(encoding.JSONMarshal(callStack))
 		}
 	}
 }

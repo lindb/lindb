@@ -18,6 +18,8 @@
 package metric
 
 import (
+	"fmt"
+
 	"github.com/lindb/common/models"
 
 	"github.com/lindb/lindb/flow"
@@ -36,6 +38,7 @@ type familyLoader struct {
 func (fl *familyLoader) load(field field.Meta, getter encoding.TSDValueGetter) {
 	slotRange := fl.filterResultSet.SlotRange()
 	fc := fl.columns[field.Index]
+	fmt.Printf("loading field: %T\n", fc)
 	switch c := (fc).(type) {
 	case *column[float64]:
 		c.load(fl.familyIndex, slotRange, getter.GetValue)
@@ -59,16 +62,16 @@ func (l *loader) load(lowSeriesID uint16) {
 }
 
 type Streams[V float64 | *models.Exemplar] struct {
-	streams []flow.Stream[V] // stream of fields
+	streams []Stream[V] // stream of fields
 }
 
 func newStreams[V float64 | *models.Exemplar](numOfFamilies int) *Streams[V] {
 	return &Streams[V]{
-		streams: make([]flow.Stream[V], numOfFamilies),
+		streams: make([]Stream[V], numOfFamilies),
 	}
 }
 
-func (s *Streams[V]) GetStreamByIndex(familyIndex int, fn func() flow.Stream[V]) flow.Stream[V] {
+func (s *Streams[V]) GetStreamByIndex(familyIndex int, fn func() Stream[V]) Stream[V] {
 	stream := s.streams[familyIndex]
 	if stream == nil {
 		stream = fn()

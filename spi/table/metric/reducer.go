@@ -143,7 +143,7 @@ func (r *reducer) buildOutputPage() *types.Page {
 		if hasGrouping {
 			tags := r.tableScan.grouping.GetTagValues(*tags)
 			for idx, tag := range tags {
-				grouping[idx].AppendString(tag)
+				grouping[idx].Append(tag)
 			}
 		}
 		for fieldIdx, stream := range seriesData {
@@ -155,7 +155,7 @@ func (r *reducer) buildOutputPage() *types.Page {
 			case *result[float64]:
 				fmt.Printf("reducer field idx=%d, values=%v\n", fieldIdx, dst.array.Values())
 				timeSeries := types.NewTimeSeriesWithValues(r.tableScan.timeRange, r.tableScan.interval, dst.array.Values())
-				fields[fieldIdx].AppendTimeSeries(timeSeries)
+				fields[fieldIdx].Append(timeSeries)
 			case *result[*models.Exemplar]:
 				// timeSeries := types.NewTimeSeriesWithValues(r.tableScan.timeRange, r.tableScan.interval, dst.array.Values())
 				fields[fieldIdx].Append(dst.array.Values())

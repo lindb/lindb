@@ -164,26 +164,6 @@ func (c *Column) Unmarshal(meta ColumnMetadata, numOfRows int, r *stream.Reader)
 	}
 }
 
-func (c *Column) AppendTimeSeries(val *TimeSeries) {
-	c.Values = append(c.Values, val)
-	c.NumOfRows++
-}
-
-func (c *Column) AppendString(val string) {
-	c.Values = append(c.Values, val)
-	c.NumOfRows++
-}
-
-func (c *Column) AppendJSON(val json.RawMessage) {
-	c.Values = append(c.Values, &val)
-	c.NumOfRows++
-}
-
-func (c *Column) ApppendMap(val map[string]string) {
-	c.Values = append(c.Values, val)
-	c.NumOfRows++
-}
-
 func (c *Column) Append(val any) {
 	c.Values = append(c.Values, val)
 	c.NumOfRows++
@@ -193,31 +173,15 @@ func (c *Column) Reset(row int, val any) {
 	c.Values[row] = val
 }
 
-func (c *Column) AppendInt(val int64) {
-	c.Values = append(c.Values, val)
-	c.NumOfRows++
-}
-
-func (c *Column) AppendFloat(val float64) {
-	c.Values = append(c.Values, val)
-	c.NumOfRows++
-}
-
-func (c *Column) AppendTimestamp(val time.Time) {
-	c.Values = append(c.Values, val)
-	c.NumOfRows++
-}
-
-func (c *Column) AppendDuration(val time.Duration) {
-	c.Values = append(c.Values, val)
-	c.NumOfRows++
-}
-
 func (c *Column) GetString(row int) string {
 	if row >= len(c.Values) {
 		return ""
 	}
-	return c.Values[row].(string)
+	val := c.Values[row]
+	if val == nil {
+		return ""
+	}
+	return val.(string)
 }
 
 func (c *Column) GetJSON(row int) json.RawMessage {

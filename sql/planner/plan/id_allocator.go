@@ -44,7 +44,7 @@ type SymbolAllocator struct {
 	analyzerContext *analyzer.AnalyzerContext
 
 	symbols map[string]struct{}
-	mapping map[tree.NodeID]*Symbol
+	mapping map[string]*Symbol
 	next    int
 }
 
@@ -52,16 +52,16 @@ func NewSymbolAllocator(analyzerContext *analyzer.AnalyzerContext) *SymbolAlloca
 	return &SymbolAllocator{
 		analyzerContext: analyzerContext,
 		symbols:         make(map[string]struct{}),
-		mapping:         make(map[tree.NodeID]*Symbol),
+		mapping:         make(map[string]*Symbol),
 	}
 }
 
 func (a *SymbolAllocator) FromExpression(expression tree.Expression, dataType types.DataType) *Symbol {
-	if symbol, ok := a.mapping[expression.GetID()]; ok {
+	if symbol, ok := a.mapping[expression.String()]; ok {
 		return symbol
 	}
 
-	fmt.Printf("new symbol=%T=>%s\n", expression, dataType)
+	fmt.Printf("new symbol=%s=>%s,m===>%v,ssss=>%v\n", expression.String(), dataType, a.mapping, a.symbols)
 	nameHint := "expr"
 	var hidden bool
 	var aggregateType types.AggregateType
@@ -85,17 +85,18 @@ func (a *SymbolAllocator) FromExpression(expression tree.Expression, dataType ty
 	}
 	symbol := a.NewSymbol(nameHint, dataType, hidden)
 	symbol.AggType = aggregateType
-	a.mapping[expression.GetID()] = symbol
+	a.mapping[expression.String()] = symbol
 	return symbol
 }
 
-func (a *SymbolAllocator) FromSymbol(symbolHint *Symbol, dataType types.DataType, hidden bool) *Symbol {
-	return a.NewSymbol(symbolHint.Name, dataType, hidden)
-}
+// func (a *SymbolAllocator) FromSymbol(symbolHint *Symbol, dataType types.DataType, hidden bool) *Symbol {
+// 	return a.NewSymbol(symbolHint.Name, dataType, hidden)
+// }
 
 func (a *SymbolAllocator) NewSymbol(nameHint string, dataType types.DataType, hidden bool) *Symbol {
 	nameHint = cleanNameHint(nameHint)
 
+	fmt.Printf("...................................nameHint=%v, symbols=%v\n", nameHint, a.symbols)
 	// TODO: modify for?
 	_, exist := a.symbols[nameHint]
 	if exist {
@@ -103,13 +104,14 @@ func (a *SymbolAllocator) NewSymbol(nameHint string, dataType types.DataType, hi
 		a.next++
 	}
 	a.symbols[nameHint] = struct{}{}
-	fmt.Printf("...................................nameHint=%v, symbols=%v\n", nameHint, a.symbols)
 
-	return &Symbol{
+	rs := &Symbol{
 		Name:     nameHint,
 		DataType: dataType,
 		Hidden:   hidden,
 	}
+	a.mapping[nameHint] = rs
+	return rs
 }
 
 func cleanNameHint(nameHint string) string {

@@ -20,6 +20,8 @@ package expression
 import (
 	"time"
 
+	"github.com/lindb/common/models"
+
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 )
@@ -57,6 +59,10 @@ func (*baseFunc) EvalMap(row types.Row) (val map[string]string, isNull bool, err
 	panic("implement me")
 }
 
+func (*baseFunc) EvalExemplar(row types.Row) (val *models.Exemplar, isNull bool, err error) {
+	panic("implement me")
+}
+
 type Func interface {
 	EvalInt(row types.Row) (val int64, isNull bool, err error)
 	EvalFloat(row types.Row) (val float64, isNull bool, err error)
@@ -65,6 +71,7 @@ type Func interface {
 	EvalDuration(row types.Row) (val time.Duration, isNull bool, err error)
 	EvalTime(row types.Row) (val time.Time, isNull bool, err error)
 	EvalMap(row types.Row) (val map[string]string, isNull bool, err error)
+	EvalExemplar(row types.Row) (val *models.Exemplar, isNull bool, err error)
 }
 
 type NewFunc = func(ctx EvalContext, args []Expression) Func
@@ -77,7 +84,8 @@ var funcs = map[tree.FuncName]NewFunc{
 	tree.Div:   newArithmeticDivFunc,
 	tree.Mod:   newArithmeticModFunc,
 
-	tree.Count: newArithmeticPlusFunc,
+	tree.Count:    newArithmeticPlusFunc,
+	tree.Sampling: newSamplingFunc, // NOTE: just pass check function if exists
 
 	// time functions
 	// ref: https://dev.mysql.com/doc/refman/8.4/en/date-and-time-functions.html

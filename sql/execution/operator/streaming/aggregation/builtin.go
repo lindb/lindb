@@ -20,19 +20,21 @@ package aggregation
 import (
 	"fmt"
 
+	"github.com/lindb/lindb/sql/expression"
 	"github.com/lindb/lindb/sql/tree"
 )
 
-type NewAggregator func(args []tree.Expression) Aggregator
+type NewAggregator func(ctx expression.EvalContext, args []expression.Expression) Aggregator
 
 var funcs = map[tree.FuncName]NewAggregator{
-	tree.Count: newCountAggregator,
+	tree.Count:    newCountAggregator,
+	tree.Sampling: newSampllingAggregator,
 }
 
-func CreateAggregator(name tree.FuncName, args []tree.Expression) (Aggregator, error) {
+func CreateAggregator(ctx expression.EvalContext, name tree.FuncName, args []expression.Expression) (Aggregator, error) {
 	factory, ok := funcs[name]
 	if !ok {
 		return nil, fmt.Errorf("not support %s", name)
 	}
-	return factory(args), nil
+	return factory(ctx, args), nil
 }

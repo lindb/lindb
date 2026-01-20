@@ -19,28 +19,23 @@ package aggregation
 
 import (
 	"github.com/lindb/lindb/spi/types"
-	"github.com/lindb/lindb/sql/tree"
+	"github.com/lindb/lindb/sql/expression"
 )
 
-func newCountAggregator(args []tree.Expression) Aggregator {
-	return &countAgg{}
+func newCountAggregator(ctx expression.EvalContext, args []expression.Expression) Aggregator {
+	return &countAggregator{}
 }
 
-type countAgg struct {
+type countAggregator struct {
 	value int64
 }
 
-func NewCountAgg() Aggregator {
-	return &countAgg{}
-}
-
-func (c *countAgg) Enter(row types.Row) {
+func (c *countAggregator) Enter(row types.Row) {
 	c.value++
 }
 
-func (c *countAgg) Flush(column *types.Column) {
-	// fmt.Printf("flush count value=%v\n", c.value)
-	column.AppendInt(c.value)
+func (c *countAggregator) Flush(column *types.Column) {
+	column.Append(c.value)
 
 	// need reset value after flush
 	c.value = 0

@@ -28,7 +28,7 @@ func exemplarAggregate(a, b *models.Exemplar) *models.Exemplar {
 	if b == nil {
 		return a
 	}
-	if a.Duration <= b.Duration {
+	if a.Duration >= b.Duration {
 		return a
 	}
 	return b
