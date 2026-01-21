@@ -138,8 +138,26 @@ func executor(in string) {
 		case "exit":
 			exit()
 			return
+		case "import":
+			if inputC.db == "" {
+				printErr(errors.New("please use 'use <database>' command to specify database first"))
+				return
+			}
+			if len(blocks) == 1 || strings.TrimSpace(blocks[1]) == "" {
+				printErr(errors.New("usage: import <file.sql>"))
+				return
+			}
+			path := strings.TrimSpace(blocks[1])
+			if path == "" {
+				printErr(errors.New("usage: import <file.sql>"))
+				return
+			}
+			if err := importSQLFile(path); err != nil {
+				printErr(fmt.Errorf("import error: %v", err))
+			}
+			return
 		case "use":
-			if len(blocks) == 1 || strings.TrimSpace(blocks[0]) == "" {
+			if len(blocks) == 1 || strings.TrimSpace(blocks[1]) == "" {
 				printErr(errors.New("database is required"))
 				return
 			}

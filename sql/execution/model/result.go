@@ -132,7 +132,7 @@ func appendColumn(row table.Row, colType types.DataType, col any, index int) {
 	}
 	switch colType {
 	case types.DTString:
-		row[index] = col.(string)
+		row[index] = strings.ReplaceAll(col.(string), "\t", "  ") // replace tab with space
 	case types.DTDuration:
 		row[index] = time.Duration(col.(float64))
 	case types.DTFloat, types.DTInt:

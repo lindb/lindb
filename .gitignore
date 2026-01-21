@@ -29,6 +29,7 @@ streaming.toml
 *.dll
 *.so
 *.dylib
+*.sql
 
 # mock files
 *mock.go
