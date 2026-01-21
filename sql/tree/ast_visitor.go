@@ -66,8 +66,17 @@ func (v *AstVisitor) VisitStatement(ctx *grammar.StatementContext) any {
 		return v.Visit(ctx.AdminStatement())
 	case ctx.StreamingApp() != nil:
 		return v.Visit(ctx.StreamingApp())
+	case ctx.CreateStreamingJob() != nil:
+		return v.Visit(ctx.CreateStreamingJob())
 	default:
 		return v.VisitChildren(ctx)
+	}
+}
+
+func (v *AstVisitor) VisitCreateStreamingJob(ctx *grammar.CreateStreamingJobContext) any {
+	return &CreateJob{
+		BaseNode:  v.createBaseNode(ctx),
+		Streaming: v.Visit(ctx.StreamingApp()).(*StreamingApp),
 	}
 }
 

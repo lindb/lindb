@@ -19,7 +19,18 @@ package tree
 
 import "github.com/lindb/lindb/pkg/option"
 
-type CreateOption interface{}
+type CreateOption any
+
+type CreateJob struct {
+	BaseNode
+	Name string
+
+	Streaming *StreamingApp
+}
+
+func (n *CreateJob) Accept(context any, visitor Visitor) any {
+	return visitor.Visit(context, n)
+}
 
 type CreateStreaming struct {
 	BaseNode

@@ -191,20 +191,23 @@ func Test_Runtime_Query(t *testing.T) {
 	runtime.AddListener("Result", output.NewConsoleOutput())
 	// add streaming query
 	err := runtime.Query(`
-	@app(name="test_app")
+	create job test_app
+	begin
+	  @app(name="test_app")
 
-	create sink rpc_call with (type="lindb",address="http://localhost:9003",database="_internal");
+	  create sink rpc_call with (type="lindb",address="http://localhost:9003",database="_internal");
 
-	@sink(name="rpc_call")
-	@metric(name="{{.interface}}.rpc_call",tags=["tags_map","interface"],fields=["qps","exemplar"],timestamp="ts")
-	select map_values(tags,'app') as tags_map,
-		interface,
-		count(1) as qps,
-		sampling(trace_id,span_id,duration) as exemplar,
-		time_trunc(timestamp,interval 10 second) as ts 
-	from RPCService
-	where interface in('grpc','http')
-	group by tags_map,interface,ts;
+	  @sink(name="rpc_call")
+	  @metric(name="{{.interface}}.rpc_call",tags=["tags_map","interface"],fields=["qps","exemplar"],timestamp="ts")
+	  select map_values(tags,'app') as tags_map,
+	  	interface,
+	  	count(1) as qps,
+	  	sampling(trace_id,span_id,duration) as exemplar,
+	  	time_trunc(timestamp,interval 10 second) as ts 
+	  from RPCService
+	  where interface in('grpc','http')
+	  group by tags_map,interface,ts;
+	end
 		`)
 	fmt.Println(err)
 	//

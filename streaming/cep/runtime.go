@@ -107,18 +107,26 @@ func (r *runtime) Query(sql string) error {
 
 	switch node := stmt.(type) {
 	case *tree.StreamingApp:
-		// create data sinks
-		for _, stmt := range node.CreateSinks {
-			r.creaetSink(stmt)
-		}
-		// dploy streaming query statements
-		for _, stmt := range node.Statements {
-			r.deploy(stmt.Statement, idAllocator, stmt.Annotations)
+		r.deployStreaming(node, idAllocator)
+	case *tree.CreateJob:
+		if node.Streaming != nil {
+			r.deployStreaming(node.Streaming, idAllocator)
 		}
 	default:
 		r.deploy(stmt, idAllocator, nil)
 	}
 	return nil
+}
+
+func (r *runtime) deployStreaming(stmt *tree.StreamingApp, idAllocator *tree.NodeIDAllocator) {
+	// create data sinks
+	for _, stmt := range stmt.CreateSinks {
+		r.creaetSink(stmt)
+	}
+	// dploy streaming query statements
+	for _, stmt := range stmt.Statements {
+		r.deploy(stmt.Statement, idAllocator, stmt.Annotations)
+	}
 }
 
 func (r *runtime) deploy(statement tree.Statement, idAllocator *tree.NodeIDAllocator, annotations []*tree.Annotation) {

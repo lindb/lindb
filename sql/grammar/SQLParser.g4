@@ -11,9 +11,16 @@ statement           : ddlStatement
                     | dmlStatement
                     | adminStatement
                     | utilityStatement 
+                    | createStreamingJob
                     | streamingApp 
                     EOF
                     ;
+
+createStreamingJob	: CREATE JOB name=qualifiedName
+											BEGIN
+											 streamingApp
+											END SEMICOLON?
+										;
 
 streamingApp        : (appAnnotation)* 
                       (streamingStatement)*
@@ -233,14 +240,14 @@ intervalUnit        : SECOND | MINUTE | HOUR | DAY | MONTH | YEAR ;
 
 nonReserved         :
                       APP | ALL | ALIVE | AND | AS | ASC
-                    | BETWEEN | BROKER | BROKERS | BY 
+                    | BEGIN | BETWEEN | BROKER | BROKERS | BY 
                     | COMPACT | CREATE | CROSS | COLUMNS
                     | DATABASE | DATABASES | DEFAULT | DESC | DISTRIBUTED | DROP
-                    | ENGINE | ESCAPE | EXPLAIN | EXISTS
+                    | END | ENGINE | ESCAPE | EXPLAIN | EXISTS
                     | FALSE | FIELDS | FLUSH | FROM
                     | GROUP 
                     | HAVING
-                    | JOIN
+                    | JOB | JOIN
                     | KEYS
                     | LEFT | LIKE | LIMIT | LOG | LOGICAL
 		                | IF | IN | INTERVAL | IS | INSERT | INTO

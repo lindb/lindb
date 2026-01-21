@@ -27,6 +27,9 @@ type SQLParserListener interface {
 	// EnterStatement is called when entering the statement production.
 	EnterStatement(c *StatementContext)
 
+	// EnterCreateStreamingJob is called when entering the createStreamingJob production.
+	EnterCreateStreamingJob(c *CreateStreamingJobContext)
+
 	// EnterStreamingApp is called when entering the streamingApp production.
 	EnterStreamingApp(c *StreamingAppContext)
 
@@ -356,6 +359,9 @@ type SQLParserListener interface {
 
 	// ExitStatement is called when exiting the statement production.
 	ExitStatement(c *StatementContext)
+
+	// ExitCreateStreamingJob is called when exiting the createStreamingJob production.
+	ExitCreateStreamingJob(c *CreateStreamingJobContext)
 
 	// ExitStreamingApp is called when exiting the streamingApp production.
 	ExitStreamingApp(c *StreamingAppContext)
