@@ -31,13 +31,15 @@ func init() {
 	encoding.RegisterNodeType(TableHandle{})
 	spi.RegisterCreateTableFn(spi.InfoSchema, func(db, ns, name string) spi.TableHandle {
 		return &TableHandle{
-			Table: name,
+			Database: db,
+			Table:    name,
 		}
 	})
 }
 
 type TableHandle struct {
-	Table string `json:"table"`
+	Database string `json:"database"`
+	Table    string `json:"table"`
 }
 
 func (t *TableHandle) SetTimeRange(timeRange timeutil.TimeRange) {}

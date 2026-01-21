@@ -81,6 +81,8 @@ const (
 	StreamingConsumerGroupPath = "/streaming/consumer/groups"
 	// StreamingStatePath represents streaming consumer state path.
 	StreamingStatePath = "/streaming/state"
+	// StreamingJobPath represents streaming job path.
+	StreamingJobPath = "/streaming/job"
 )
 
 // GetBrokerClusterConfigPath returns path which storing config of broker cluster.
@@ -116,6 +118,11 @@ func GetStorageLiveNodePath(node string) string {
 // GetLiveNodePath returns live node register path for broker/root.
 func GetLiveNodePath(node string) string {
 	return fmt.Sprintf("%s/%s", LiveNodesPath, node)
+}
+
+// GetStreamingJobPath returns path which streaming job config for broker.
+func GetStreamingJobPath(streaming, job string) string {
+	return fmt.Sprintf("%s/%s/%s", StreamingJobPath, streaming, job)
 }
 
 // GetObserverLiveNodePath returns live node register path for observer nodes.

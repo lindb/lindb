@@ -93,6 +93,13 @@ func (f *stateMachineFactory) Start() (err error) {
 	}
 	f.stateMachines = append(f.stateMachines, sm)
 
+	f.logger.Debug("starting StreamingConfigStateMachine")
+	sm, err = f.createStreamingCfgStateMachine()
+	if err != nil {
+		return err
+	}
+	f.stateMachines = append(f.stateMachines, sm)
+
 	f.logger.Debug("starting StorageStatusStateMachine")
 	sm, err = f.createStorageStatusStateMachine()
 	if err != nil {
@@ -129,6 +136,30 @@ func (f *stateMachineFactory) createBrokerLiveNodeStateMachine() (discovery.Stat
 		true,
 		f.onNodeStartup,
 		f.onNodeFailure,
+	)
+}
+
+// createStreamingCfgStateMachine creates streaming config state machine.
+func (f *stateMachineFactory) createStreamingCfgStateMachine() (discovery.StateMachine, error) {
+	return discovery.NewStateMachineFn(
+		f.ctx,
+		discovery.StreamingConfigStateMachine,
+		f.discoveryFactory,
+		constants.StreamingConfigPath,
+		true,
+		func(key string, data []byte) {
+			f.stateMgr.EmitEvent(&discovery.Event{
+				Type:  discovery.StreamingConfigChanged,
+				Key:   key,
+				Value: data,
+			})
+		},
+		func(key string) {
+			f.stateMgr.EmitEvent(&discovery.Event{
+				Type: discovery.StreamingConfigDeletion,
+				Key:  key,
+			})
+		},
 	)
 }
 

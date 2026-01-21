@@ -36,6 +36,7 @@ type MetadataManager interface {
 	GetStorageNodes() (nodes []models.StatefulNode)
 	// GetDatabaseCfg returns the database config by name.
 	GetDatabase(database string) (models.Database, bool)
+	GetStreaming(streaming string) (models.Streaming, bool)
 	// GetDatabases returns current database config list.
 	GetDatabases() []models.Database
 	GetPartitions(database, ns, table string) (partitions map[models.InternalNode][]int, err error)
@@ -45,4 +46,5 @@ type MetadataManager interface {
 	DropDatabase(ctx context.Context, database string) error
 
 	CreateStreaming(ctx context.Context, stream *models.Streaming) error
+	CreateJob(ctx context.Context, stream, job, sql string) error
 }

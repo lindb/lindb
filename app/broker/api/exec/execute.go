@@ -20,7 +20,6 @@ package exec
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"reflect"
 
@@ -128,8 +127,6 @@ func (e *ExecuteAPI) execute(c *gin.Context) error {
 	defer func() {
 		e.deps.RequestMgr.CompleteRequet(requestID, nil)
 	}()
-
-	fmt.Println(param)
 
 	// FIXME: session?
 	c.Set(constants.CurrentSQLParams, &param)

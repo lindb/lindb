@@ -18,7 +18,6 @@
 package execution
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/lindb/lindb/spi/types"
@@ -45,28 +44,30 @@ func (f *DDLExecutionFactory) CreateExecution(session *Session, statement *tree.
 		task = ddl.NewDropDatabase(f.deps.MetaMgr, sType)
 	case *tree.CreateStreaming:
 		task = ddl.NewCreateStreaming(f.deps.MetaMgr, sType)
+	case *tree.CreateJob:
+		task = ddl.NewCreateJob(f.deps.MetaMgr, sType)
 	}
-	return NewDDLExecution(task)
+	return NewDDLExecution(session, task)
 }
 
 type DDLExecution struct {
-	task ddl.Task
+	session *Session
+	task    ddl.Task
 }
 
-func NewDDLExecution(task ddl.Task) Execution {
+func NewDDLExecution(session *Session, task ddl.Task) Execution {
 	return &DDLExecution{
-		task: task,
+		session: session,
+		task:    task,
 	}
 }
 
 func (exec *DDLExecution) Start() any {
-	err := exec.task.Execute(context.TODO())
+	err := exec.task.Execute(exec.session.Context)
 	if err != nil {
 		panic(err)
 	}
 	// TODO: add log
-
-	fmt.Println("execution task")
 	fmt.Println(exec.task.Name())
 	return types.NewPage()
 }

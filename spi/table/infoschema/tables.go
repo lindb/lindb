@@ -210,6 +210,7 @@ var (
 	}
 	streamingJobsSchema = &types.TableSchema{
 		Columns: []types.ColumnMetadata{
+			{Name: "streaming", DataType: types.DTString, Hidden: true},
 			{Name: "name", DataType: types.DTString},
 			{Name: "statement", DataType: types.DTString},
 		},

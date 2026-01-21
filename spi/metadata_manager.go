@@ -86,19 +86,25 @@ func (mgr *metadataManager) GetTableHandle(db, ns, table string) TableHandle {
 	if db == constants.InformationSchema {
 		kind = InfoSchema
 	} else {
-		database, ok := mgr.metadataMgr.GetDatabase(db)
-		if !ok {
-			panic(constants.ErrDatabaseNotExist)
-		}
-		switch database.Option.Engine {
-		case option.Metric:
-			kind = Metric
-		case option.Log:
-			kind = Log
-		case option.Trace:
-			kind = Trace
-		default:
-			panic(fmt.Sprintf("not support engine: %v", database.Option.Engine))
+		_, isStreaming := mgr.metadataMgr.GetStreaming(db)
+		if isStreaming {
+			// streaming metadata query forward to info schema
+			kind = InfoSchema
+		} else {
+			database, ok := mgr.metadataMgr.GetDatabase(db)
+			if !ok {
+				panic(constants.ErrDatabaseNotExist)
+			}
+			switch database.Option.Engine {
+			case option.Metric:
+				kind = Metric
+			case option.Log:
+				kind = Log
+			case option.Trace:
+				kind = Trace
+			default:
+				panic(fmt.Sprintf("not support engine: %v", database.Option.Engine))
+			}
 		}
 	}
 	fn, ok := createTableFn[kind]
@@ -109,6 +115,11 @@ func (mgr *metadataManager) GetTableHandle(db, ns, table string) TableHandle {
 }
 
 func (mgr *metadataManager) GetTableMetadata(database, ns, table string) (*types.TableMetadata, error) {
+	_, isStreaming := mgr.metadataMgr.GetStreaming(database)
+	if isStreaming {
+		// redirect streaming metadata query to info schema
+		database = constants.InformationSchema
+	}
 	if database == constants.InformationSchema {
 		schema, err := GetTableSchema(InfoSchema, database, ns, table)
 		if err != nil {

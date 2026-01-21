@@ -186,6 +186,7 @@ func (exec *DMLExecution) execute(fragmentedPlan *plan.SubPlan, output buffer.Ou
 					CurrentTime: currentTime,
 					ID:          taskID,
 					Fragment:    rootFragment,
+					Database:    session.Database,
 				})
 				go func() {
 					for page := range outputCh {

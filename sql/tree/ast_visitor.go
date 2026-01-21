@@ -76,6 +76,7 @@ func (v *AstVisitor) VisitStatement(ctx *grammar.StatementContext) any {
 func (v *AstVisitor) VisitCreateStreamingJob(ctx *grammar.CreateStreamingJobContext) any {
 	return &CreateJob{
 		BaseNode:  v.createBaseNode(ctx),
+		Name:      v.getQualifiedName(ctx.GetName()).Name,
 		Streaming: v.Visit(ctx.StreamingApp()).(*StreamingApp),
 	}
 }

@@ -62,7 +62,7 @@ type sourceConnector struct {
 	reader Reader
 
 	table         spi.TableHandle
-	tableName     string
+	tableHandle   *TableHandle
 	predicate     tree.Expression
 	outputColumns []types.ColumnMetadata
 	colIdxs       []int
@@ -90,12 +90,12 @@ func (p *sourceConnector) open() {
 		return
 	}
 
-	p.tableName = infoTable.Table
+	p.tableHandle = infoTable
 }
 
 func (p *sourceConnector) Run(output chan<- *types.Page) {
 	p.open()
-	rows, err := p.reader.ReadData(p.ctx, p.tableName, p.predicate)
+	rows, err := p.reader.ReadData(p.ctx, p.tableHandle, p.predicate)
 	if err != nil {
 		panic(err)
 	}

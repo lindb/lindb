@@ -203,7 +203,6 @@ func (v *TaskExecutionPlanVisitor) visitScanFilterAndProjection(context any,
 func (v *TaskExecutionPlanVisitor) visitTableScan(_ any,
 	node *planpkg.TableScanNode, predicate tree.Expression,
 ) operator.Operator {
-	fmt.Printf("table node=%v\n", predicate)
 	outputs := node.GetOutputSymbols()
 	outputColumns := lo.Map(outputs, func(item *planpkg.Symbol, index int) types.ColumnMetadata {
 		return types.ColumnMetadata{

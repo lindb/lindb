@@ -83,6 +83,10 @@ func (m *brokerMetadataManager) GetDatabase(database string) (models.Database, b
 	return m.brokerStateMgr.GetDatabase(database)
 }
 
+func (m *brokerMetadataManager) GetStreaming(streaming string) (models.Streaming, bool) {
+	return m.brokerStateMgr.GetStreaming(streaming)
+}
+
 func (m *brokerMetadataManager) GetDatabases() []models.Database {
 	return m.brokerStateMgr.GetDatabases()
 }
@@ -160,6 +164,11 @@ func (m *brokerMetadataManager) DropDatabase(ctx context.Context, database strin
 
 func (m *brokerMetadataManager) CreateStreaming(ctx context.Context, streaming *models.Streaming) error {
 	return m.repo.Put(ctx, constants.GetStreamingConfigPath(streaming.Name), encoding.JSONMarshal(streaming))
+}
+
+func (m *brokerMetadataManager) CreateJob(ctx context.Context, stream, job, sql string) error {
+	jobPath := constants.GetStreamingJobPath(stream, job)
+	return m.repo.Put(ctx, jobPath, []byte(sql))
 }
 
 func (m *brokerMetadataManager) getTableSchema(

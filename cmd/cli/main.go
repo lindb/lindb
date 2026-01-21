@@ -52,6 +52,8 @@ var (
 	runPromptFn   = runPrompt
 	newPrompt     = prompt.New
 	exitFn        = os.Exit
+	prefix        = ""
+	endpointStr   = ""
 )
 
 const (
@@ -79,7 +81,7 @@ func init() {
 
 // suggestTokens returns prompt suggest tokens.
 func suggestTokens() (tokens []prompt.Suggest) {
-	typ := reflect.TypeOf(&grammar.NonReservedContext{})
+	typ := reflect.TypeFor[*grammar.NonReservedContext]()
 	var keyWords []string
 	for i := range typ.NumMethod() {
 		methodName := typ.Method(i).Name
@@ -142,6 +144,13 @@ func executor(in string) {
 				return
 			}
 			inputC.db = strings.TrimSpace(blocks[1])
+
+			endpointStr = fmt.Sprintf("lin@%s", inputC.db)
+			var spaces []string
+			for i := 2; i < len(endpointStr); i++ {
+				spaces = append(spaces, " ")
+			}
+			prefix = strings.Join(spaces, "")
 			fmt.Println(color.GreenString("Database changed(current:%s)", inputC.db))
 			return
 		default:
@@ -209,12 +218,12 @@ func main() {
 	version := rs.Rows[0][0]
 	fmt.Println("Welcome to the LinDB. Commands end with ; .")
 	fmt.Printf("Server version: %s\n", version)
-	endpointStr := fmt.Sprintf("lin@%s", endpointURL.Host)
+	endpointStr = fmt.Sprintf("lin@%s", endpointURL.Host)
 	var spaces []string
 	for i := 2; i < len(endpointStr); i++ {
 		spaces = append(spaces, " ")
 	}
-	prefix := strings.Join(spaces, "")
+	prefix = strings.Join(spaces, "")
 
 	p := newPrompt(
 		executor,

@@ -43,7 +43,7 @@ const (
 	TableSnippets  = "snippets"
 
 	TableStreamings    = "streamings"
-	TableStreamingJobs = "jos"
+	TableStreamingJobs = "jobs"
 )
 
 const (

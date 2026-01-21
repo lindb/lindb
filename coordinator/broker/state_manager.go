@@ -50,6 +50,8 @@ type StateManager interface {
 	GetLiveNodes() []models.StatelessNode
 	// GetDatabaseCfg returns the database config by name.
 	GetDatabase(databaseName string) (models.Database, bool)
+	// GetStreaming returns the streaming config by name.
+	GetStreaming(streaming string) (models.Streaming, bool)
 	// GetDatabases returns current database config list.
 	GetDatabases() []models.Database
 	// GetQueryableReplicas returns the queryable replicas，
@@ -74,6 +76,7 @@ type stateManager struct {
 	currentNode  models.StatelessNode
 	storageState *models.StorageState            // storage state
 	databases    map[string]models.Database      // database config
+	streamings   map[string]models.Streaming     // streaming config
 	nodes        map[string]models.StatelessNode // live nodes of broker cluster
 
 	callbacks []func(databaseCfg models.Database,
@@ -100,6 +103,7 @@ func NewStateManager(
 		currentNode:  currentNode,
 		storageState: models.NewStorageState(),
 		databases:    make(map[string]models.Database),
+		streamings:   make(map[string]models.Streaming),
 		nodes:        make(map[string]models.StatelessNode),
 		events:       make(chan *discovery.Event, 10),
 		statistics:   metrics.NewStateManagerStatistics(linmetric.BrokerRegistry),
@@ -233,6 +237,10 @@ func (m *stateManager) processEvent(event *discovery.Event) {
 		err = m.onDatabaseCfgChange(event.Key, event.Value)
 	case discovery.DatabaseConfigDeletion:
 		m.onDatabaseCfgDelete(event.Key)
+	case discovery.StreamingConfigChanged:
+		err = m.onStreamingCfgChange(event.Key, event.Value)
+	case discovery.StreamingConfigDeletion:
+		m.onStreamingCfgDelete(event.Key)
 	case discovery.NodeStartup:
 		err = m.onNodeStartup(event.Key, event.Value)
 	case discovery.NodeFailure:
@@ -296,6 +304,37 @@ func (m *stateManager) onDatabaseCfgDelete(key string) {
 	_, databaseName := filepath.Split(key)
 
 	delete(m.databases, databaseName)
+}
+
+// onStreamingCfgChange triggers when streaming create/modify.
+func (m *stateManager) onStreamingCfgChange(key string, data []byte) error {
+	m.logger.Info("streaming config is modified",
+		logger.String("key", key),
+		logger.String("data", string(data)))
+
+	cfg := models.Streaming{}
+	if err := encoding.JSONUnmarshal(data, &cfg); err != nil {
+		m.logger.Error("streaming config modified but unmarshal error", logger.Error(err))
+		return err
+	}
+
+	if cfg.Name == "" {
+		m.logger.Error("streaming name cannot be empty")
+		return constants.ErrNameEmpty
+	}
+
+	m.streamings[cfg.Name] = cfg
+	return nil
+}
+
+// onStreamingCfgDelete triggers when streaming is deletion.
+func (m *stateManager) onStreamingCfgDelete(key string) {
+	m.logger.Info("streaming config deleted",
+		logger.String("key", key))
+
+	_, streaming := filepath.Split(key)
+
+	delete(m.streamings, streaming)
 }
 
 // onNodeStartup triggers when broker node online.
@@ -378,6 +417,15 @@ func (m *stateManager) GetDatabase(databaseName string) (models.Database, bool) 
 
 	database, ok := m.databases[databaseName]
 	return database, ok
+}
+
+// GetStreaming returns the streaming config by name.
+func (m *stateManager) GetStreaming(streamingName string) (models.Streaming, bool) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	streaming, ok := m.streamings[streamingName]
+	return streaming, ok
 }
 
 // GetDatabases returns current database config list.

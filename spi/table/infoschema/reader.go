@@ -60,7 +60,7 @@ var (
 )
 
 type Reader interface {
-	ReadData(ctx context.Context, table string, predicate tree.Expression) (rows [][]*types.Datum, err error)
+	ReadData(ctx context.Context, tableHandle *TableHandle, predicate tree.Expression) (rows [][]*types.Datum, err error)
 }
 
 // reader implements Reader interface.
@@ -75,11 +75,12 @@ func NewReader(metadataMgr meta.MetadataManager) Reader {
 	return &reader{metadataMgr: metadataMgr, logger: logger.GetLogger("Infoschema", "Reader")}
 }
 
-func (r *reader) ReadData(ctx context.Context, table string, expr tree.Expression) (rows [][]*types.Datum, err error) {
+func (r *reader) ReadData(ctx context.Context, tableHandle *TableHandle, expr tree.Expression) (rows [][]*types.Datum, err error) {
 	predicate := newPredicate(ctx)
 	if expr != nil {
 		_ = expr.Accept(nil, predicate)
 	}
+	table := tableHandle.Table
 	switch strings.ToLower(table) {
 	case constants.TableEnv:
 		rows, err = r.readEnv(predicate)
@@ -116,7 +117,7 @@ func (r *reader) ReadData(ctx context.Context, table string, expr tree.Expressio
 	case constants.TableStreamings:
 		rows, err = r.readStreamings(ctx)
 	case constants.TableStreamingJobs:
-		rows, err = r.readStreamingJobs(predicate)
+		rows, err = r.readStreamingJobs(ctx, tableHandle.Database, predicate)
 	}
 	return rows, err
 }
@@ -234,7 +235,33 @@ func (r *reader) readStreamings(ctx context.Context) (rows [][]*types.Datum, err
 	return
 }
 
-func (r *reader) readStreamingJobs(predicate *predicate) (rows [][]*types.Datum, err error) {
+func (r *reader) readStreamingJobs(ctx context.Context, database string, predicate *predicate) (rows [][]*types.Datum, err error) {
+	var streaming string
+	if database == constants.InformationSchema {
+		streaming = predicate.getColumnValue(streamingJobsSchema.Columns[0].Name) // streaming
+		if streaming == "" {
+			return nil, errors.New("streaming not found in where clause")
+		}
+	} else {
+		streaming = database
+	}
+	fmt.Printf("streaming: %s,database:%s\n", streaming, database)
+	if streaming == "" {
+		return nil, errors.New("streaming not select")
+	}
+	name := predicate.getColumnValue(streamingJobsSchema.Columns[1].Name) // name
+	if name == "" {
+		return nil, errors.New("name not found in where clause")
+	}
+	data, err := r.metadataMgr.GetStateRepo().Get(ctx, constants.GetStreamingJobPath(streaming, name))
+	if err != nil {
+		return nil, err
+	}
+	rows = append(rows, types.MakeDatums(
+		streaming,    // streaming
+		name,         // name
+		string(data), // statement
+	))
 	return
 }
 
