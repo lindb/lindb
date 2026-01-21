@@ -43,6 +43,8 @@ const (
 	ShardAssignment = "ShardAssignment"
 	Master          = "Master"
 	StorageConfig   = "StorageConfig"
+	StreamingConfig = "StreamingConfig"
+	StreamingJob    = "StreamingJob"
 )
 
 // defines common constants will be used in broker and storage.

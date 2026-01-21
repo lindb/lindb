@@ -35,13 +35,13 @@ type DataSource interface {
 type Result struct{}
 
 type dataSource struct {
-	db models.Database
+	db *models.Database
 
 	transfer transfer.Transfer
 	runtime  cep.Runtime
 }
 
-func NewDataSource(db models.Database) DataSource {
+func NewDataSource(db *models.Database) DataSource {
 	return &dataSource{
 		db: db,
 	}

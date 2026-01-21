@@ -202,6 +202,18 @@ var (
 			{Name: "template", DataType: types.DTString},
 		},
 	}
+	streamingsSchema = &types.TableSchema{
+		Columns: []types.ColumnMetadata{
+			{Name: "name", DataType: types.DTString},
+			{Name: "statement", DataType: types.DTString},
+		},
+	}
+	streamingJobsSchema = &types.TableSchema{
+		Columns: []types.ColumnMetadata{
+			{Name: "name", DataType: types.DTString},
+			{Name: "statement", DataType: types.DTString},
+		},
+	}
 
 	// tables represents the schema of tables.
 	tables = map[string]*types.TableSchema{
@@ -221,5 +233,7 @@ var (
 		constants.TableMetadatas:       metadatasSchema,
 		constants.TableFunctions:       functionsSchema,
 		constants.TableSnippets:        snippetsSchema,
+		constants.TableStreamings:      streamingsSchema,
+		constants.TableStreamingJobs:   streamingJobsSchema,
 	}
 )

@@ -38,6 +38,7 @@ import (
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/coordinator/master"
 	"github.com/lindb/lindb/coordinator/storage"
+	"github.com/lindb/lindb/coordinator/streaming"
 	"github.com/lindb/lindb/internal/client"
 	"github.com/lindb/lindb/meta"
 	"github.com/lindb/lindb/models"
@@ -51,9 +52,10 @@ import (
 var (
 	metricCli     = client.NewMetricCli()
 	metadataPaths = map[string]map[string]models.StateMachineInfo{
-		strings.ToLower(constants.BrokerRole):  broker.StateMachinePaths,
-		strings.ToLower(constants.MasterRole):  master.StateMachinePaths,
-		strings.ToLower(constants.StorageRole): storage.StateMachinePaths,
+		strings.ToLower(constants.BrokerRole):    broker.StateMachinePaths,
+		strings.ToLower(constants.MasterRole):    master.StateMachinePaths,
+		strings.ToLower(constants.StorageRole):   storage.StateMachinePaths,
+		strings.ToLower(constants.StreamingRole): streaming.StateMachinePaths,
 	}
 )
 
@@ -111,6 +113,10 @@ func (r *reader) ReadData(ctx context.Context, table string, expr tree.Expressio
 		rows, err = r.readFunctions()
 	case constants.TableSnippets:
 		rows, err = r.readSnippets()
+	case constants.TableStreamings:
+		rows, err = r.readStreamings(ctx)
+	case constants.TableStreamingJobs:
+		rows, err = r.readStreamingJobs(predicate)
 	}
 	return rows, err
 }
@@ -204,6 +210,31 @@ func (r *reader) readSchemata() (rows [][]*types.Datum) {
 			database.String(),      // statement
 		))
 	}
+	return
+}
+
+func (r *reader) readStreamings(ctx context.Context) (rows [][]*types.Datum, err error) {
+	info, err0 := r.getStateMachineInfo(constants.MasterRole, constants.StreamingConfig)
+	if err0 != nil {
+		return nil, err0
+	}
+	rs, err0 := r.exploreStateRepoData(ctx, info)
+	if err0 != nil {
+		return nil, err0
+	}
+	if streamings, ok := rs.([]any); ok {
+		for _, streaming := range streamings {
+			streamingCfg := streaming.(*models.Streaming)
+			rows = append(rows, types.MakeDatums(
+				streamingCfg.Name,     // name
+				streamingCfg.String(), // statement
+			))
+		}
+	}
+	return
+}
+
+func (r *reader) readStreamingJobs(predicate *predicate) (rows [][]*types.Datum, err error) {
 	return
 }
 

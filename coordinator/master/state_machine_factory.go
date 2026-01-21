@@ -59,6 +59,13 @@ func init() {
 			return &models.StorageState{}
 		},
 	}
+	StateMachinePaths[constants.StreamingConfig] = models.StateMachineInfo{
+		Path:    constants.StreamingConfigPath,
+		Comment: "Streaming config",
+		CreateState: func() any {
+			return &models.Streaming{}
+		},
+	}
 }
 
 // StateMachineFactory represents master state machine maintainer.

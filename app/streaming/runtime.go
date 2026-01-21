@@ -42,6 +42,7 @@ import (
 	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/tag"
+	streamingpkg "github.com/lindb/lindb/streaming"
 )
 
 // rpcHandler represents all dependency rpc handlers
@@ -149,6 +150,8 @@ func (r *runtime) Run() error {
 	discoveryFactory := discovery.NewFactory(r.repo)
 
 	r.stateMgr = streaming.NewStateManager(r.ctx)
+
+	r.stateMgr.RegisterWatcher(streamingpkg.NewCoordinator())
 
 	r.stateMachineFactory = streaming.NewStateMachineFactory(r.ctx, discoveryFactory, r.stateMgr)
 	if err := r.stateMachineFactory.Start(); err != nil {

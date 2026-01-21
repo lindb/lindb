@@ -41,6 +41,9 @@ const (
 
 	TableFunctions = "functions"
 	TableSnippets  = "snippets"
+
+	TableStreamings    = "streamings"
+	TableStreamingJobs = "jos"
 )
 
 const (

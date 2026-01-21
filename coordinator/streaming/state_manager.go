@@ -27,13 +27,16 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/internal/linmetric"
+	"github.com/lindb/lindb/meta"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/streaming"
 )
 
 type StateManager interface {
 	discovery.StateMachineEventHandle
+
+	// RegisterWatcher registers state manager watcher.
+	RegisterWatcher(watcher meta.Watcher)
 }
 
 type stateManager struct {
@@ -42,7 +45,8 @@ type stateManager struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	events chan *discovery.Event
+	events   chan *discovery.Event
+	watchers []meta.Watcher
 
 	mutex sync.RWMutex
 
@@ -65,6 +69,13 @@ func NewStateManager(ctx context.Context) StateManager {
 	go mgr.consumeEvents()
 
 	return mgr
+}
+
+func (s *stateManager) RegisterWatcher(watcher meta.Watcher) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.watchers = append(s.watchers, watcher)
 }
 
 // EmitEvent emits the discovery event to state manager.
@@ -133,7 +144,10 @@ func (s *stateManager) onDatabaseCfgChange(key string, data []byte) error {
 		return constants.ErrNameEmpty
 	}
 
-	streaming.GetManager().AddDataSource(streaming.NewDataSource(cfg))
+	for _, watcher := range s.watchers {
+		watcher.OnEvent(&cfg)
+	}
+
 	return nil
 }
 

@@ -15,31 +15,41 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package models
+package streaming
 
 import (
-	"fmt"
+	"github.com/lindb/lindb/meta"
+	"github.com/lindb/lindb/models"
 )
 
-type Event any
+type Coordinator struct{}
 
-type Streaming struct {
-	Name     string `json:"name"`
-	Observer string `json:"observer"`
-	Database string `json:"database"`
+func NewCoordinator() meta.Watcher {
+	return &Coordinator{}
 }
 
-func (s *Streaming) String() string {
-	return fmt.Sprintf(`create streaming "%s"(observer "%s", database "%s")`, s.Name, s.Observer, s.Database)
+func (c *Coordinator) RegisterWatcher(watcher meta.Watcher) {
 }
 
-type ConsumeAssignment struct {
-	ConsumerID NodeID
-	Shards     []ShardID
+// OnEvent implements [meta.Watcher].
+func (c *Coordinator) OnEvent(e meta.Event) {
+	switch event := e.(type) {
+	case *models.Database:
+		GetManager().AddDataSource(NewDataSource(event))
+	}
 }
 
-type StreamingState struct {
-	Config             Streaming                `json:"config"`
-	Consumers          map[NodeID]StatelessNode `json:"consumers"`
-	ConsumeAssignments []ConsumeAssignment      `json:"consumeAssignments"`
+// Subscribe implements [meta.Watcher].
+func (c *Coordinator) Subscribe(sub meta.Subscriber) {
+	panic("unimplemented")
+}
+
+// Unsubscribe implements [meta.Watcher].
+func (c *Coordinator) Unsubscribe(sub meta.Subscriber) {
+	panic("unimplemented")
+}
+
+// Close implements [meta.Watcher].
+func (c *Coordinator) Close() {
+	panic("unimplemented")
 }
