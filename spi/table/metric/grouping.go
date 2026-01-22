@@ -18,8 +18,6 @@
 package metric
 
 import (
-	"fmt"
-
 	"github.com/lindb/common/models"
 	"github.com/lindb/roaring"
 
@@ -120,7 +118,6 @@ func (g *Grouping) CollectTagValues() {
 		if err != nil {
 			panic(err)
 		}
-		fmt.Printf("collect tag values...%v\n", tagValues)
 		g.tagValuesMap[idx] = tagValues
 	}
 }
@@ -131,7 +128,6 @@ func (g *Grouping) GetTagValues(tagValueIDs GroupingKey) []string {
 	// 	return tagValues
 	// }
 
-	fmt.Printf("get value values==%v\n", tagValueIDs)
 	tagValues := make([]string, g.tags.Len())
 	for idx := range g.tagValuesMap {
 		tagValuesForKey := g.tagValuesMap[idx]
@@ -139,7 +135,6 @@ func (g *Grouping) GetTagValues(tagValueIDs GroupingKey) []string {
 		if tagValue, ok := tagValuesForKey[tagValueID]; ok {
 			tagValues[idx] = tagValue
 		} else {
-			fmt.Printf("tag value not found...%v\n", tagValueID)
 			tagValues[idx] = tagValueNotFound
 		}
 	}

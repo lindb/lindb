@@ -18,8 +18,6 @@
 package rule
 
 import (
-	"fmt"
-
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/sql/planner/iterative"
 	"github.com/lindb/lindb/sql/planner/plan"
@@ -37,7 +35,6 @@ func NewPushPartialAggregationThroughExchange() iterative.Rule {
 		if !isExchange {
 			return nil
 		}
-		fmt.Printf("push partial through exchange=%v,%v\n", node.Step, exchangeNode.Type)
 		// FIXME:add check(exchagne)
 		if node.Step == plan.SINGLE &&
 			exchangeNode.Type == plan.Repartition {
@@ -134,7 +131,6 @@ func (rule *PushAggregationIntoTableScan) pushAggregationIntoTableScan(context *
 	node *plan.AggregationNode,
 ) plan.PlanNode {
 	if node.Step != plan.PARTIAL || len(node.Aggregations) == 0 {
-		fmt.Printf("setp=%v,aggs=%v\n", node.Step, node.Aggregations)
 		// if step is not partial or no aggregation, return nil
 		return nil
 	}
@@ -154,7 +150,6 @@ func (rule *PushAggregationIntoTableScan) pushAggregationIntoTableScan(context *
 		}
 	}
 	if len(columnAggregations) == 0 {
-		fmt.Println("no columnAggregations")
 		return nil
 	}
 	tableScan := iterative.ExtractTableScan(context, node)
@@ -165,7 +160,6 @@ func (rule *PushAggregationIntoTableScan) pushAggregationIntoTableScan(context *
 		context.PlannerContext.AnalyzerContext.Analysis.GetTableMetadata(tableScan.Table.String()),
 		columnAggregations,
 	)
-	fmt.Printf("agg columns aggignments: %v\n", result)
 	if result == nil || len(result.ColumnAssignments) == 0 {
 		return nil
 	}

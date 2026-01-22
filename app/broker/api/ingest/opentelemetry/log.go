@@ -18,7 +18,6 @@
 package opentelemetry
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/gin-gonic/gin"
@@ -69,7 +68,6 @@ func (w *Log) Register(route gin.IRoutes) {
 
 func (w *Log) Write(c *gin.Context) {
 	if err := w.write(c); err != nil {
-		fmt.Println(err)
 		http.Error(c, err)
 	}
 }

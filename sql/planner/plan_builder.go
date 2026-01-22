@@ -18,10 +18,6 @@
 package planner
 
 import (
-	"fmt"
-
-	"github.com/lindb/common/pkg/encoding"
-
 	"github.com/lindb/lindb/sql/context"
 	"github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/tree"
@@ -36,7 +32,6 @@ func newPlanBuilder(context *context.PlannerContext,
 	plan *RelationPlan, mappings map[string]*plan.Symbol, //nolint
 ) *PlanBuilder {
 	// TODO: check mappings if nil(remove nolint)
-	fmt.Printf("new plan builder=%v\n", plan.FieldMappings)
 	return &PlanBuilder{
 		root: plan.Root,
 		translations: &TranslationMap{
@@ -58,7 +53,6 @@ func (pb *PlanBuilder) withNewRoot(root plan.PlanNode) *PlanBuilder {
 
 func (pb *PlanBuilder) appendProjections(expressions []tree.Expression) *PlanBuilder {
 	var assignments plan.Assignments
-	fmt.Printf("add root...%T\n", pb.root)
 	assignments = assignments.Add(pb.root.GetOutputSymbols())
 	symbolAllocator := pb.translations.context.SymbolAllocator
 	idAllocator := pb.translations.context.PlanNodeIDAllocator
@@ -66,10 +60,8 @@ func (pb *PlanBuilder) appendProjections(expressions []tree.Expression) *PlanBui
 	mappings := make(map[string]*plan.Symbol)
 	for i := range expressions {
 		expression := expressions[i]
-		fmt.Printf("check transs====%T,,,, %v=%v\n", expression, expression, pb.translations.CanTranslate(expression))
 		expressionName := expression.String()
 		if _, ok := mappings[expressionName]; !ok && !pb.translations.CanTranslate(expression) {
-			fmt.Println("kkkkkkkkkkkkk..............")
 			symbol := symbolAllocator.FromExpression(expression, pb.translations.context.AnalyzerContext.Analysis.GetType(expression))
 			expr := pb.translations.Rewrite(expression)
 			assignments = append(assignments, &plan.Assignment{
@@ -77,10 +69,8 @@ func (pb *PlanBuilder) appendProjections(expressions []tree.Expression) *PlanBui
 				Expression: expr,
 			})
 			mappings[expressionName] = symbol
-			fmt.Println("kkkkkkkkkkkkk.............. done")
 		}
 	}
-	fmt.Printf("project ass.......%v\n", string(encoding.JSONMarshal(assignments)))
 	return &PlanBuilder{
 		translations: pb.translations.withAdditionalMapping(mappings), // FIXME:
 		root: &plan.ProjectionNode{

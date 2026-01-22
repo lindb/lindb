@@ -99,7 +99,6 @@ func (p *sourceConnector) Run(output chan<- *types.Page) {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("info schema: rows=%v\n", rows)
 	page := types.NewPage()
 	var columns []*types.Column
 	outputs := make(map[string]int)

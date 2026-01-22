@@ -111,7 +111,6 @@ func NewDMLExecution(session *Session, deps *Deps, preparedStatement *tree.Prepa
 func (exec *DMLExecution) Start() any {
 	defer func() {
 		// cleanup execution context
-		fmt.Println("cleanup execution context")
 		pipeline.DriverManager.Cleanup(exec.session.RequestID)
 	}()
 
@@ -166,7 +165,6 @@ func (exec *DMLExecution) execute(fragmentedPlan *plan.SubPlan, output buffer.Ou
 			ID:        i,
 		}
 
-		fmt.Printf("remote parent node=====%v\n", fragment.ParentNode)
 		go func() {
 			// TODO: handle panic
 			if fragment.ParentNode == nil {
@@ -208,8 +206,6 @@ func (exec *DMLExecution) execute(fragmentedPlan *plan.SubPlan, output buffer.Ou
 			}
 		}()
 	}
-
-	fmt.Println("done.......")
 }
 
 func (exec *DMLExecution) sendTask(node models.InternalNode, taskID model.TaskID,
@@ -234,7 +230,6 @@ func (exec *DMLExecution) sendTask(node models.InternalNode, taskID model.TaskID
 		}),
 	})
 	if err != nil {
-		fmt.Println(exec.session.Context.Err())
 		// TODO: check panic
 		panic(err)
 	}

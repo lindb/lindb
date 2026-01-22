@@ -19,7 +19,6 @@ package metric
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/lindb/roaring"
 
@@ -67,7 +66,6 @@ func (ps *partitionScan) Run() {
 		// maybe filtering some series ids after grouping that is result of filtering.
 		// if not found, return empty series ids.
 		seriesIDs = seriesIDsAfterGrouping
-		fmt.Println("groupiung.....")
 	}
 
 	highKeys := seriesIDs.GetHighKeys()
@@ -80,7 +78,6 @@ func (ps *partitionScan) Run() {
 			lowSeriesIDs:    seriesIDs.GetContainerAtIndex(index),
 		}
 		if tableScan.fields.Len() == 0 {
-			fmt.Printf("sereis meta grouping=%v\n", data.groupingContext)
 			// if fields is empty, then do series query(send reducer task).
 			ps.reduceCh <- data
 		} else {
@@ -94,7 +91,6 @@ func (ps *partitionScan) Run() {
 
 func (ps *partitionScan) findSeriesIDs(partition *Partition) *roaring.Bitmap {
 	tableScan := partition.tableScan
-	fmt.Printf("families=%v,fields=%v\n", partition.segments, tableScan.fields)
 	if tableScan.fields.Len() == 0 && len(partition.segments) == 0 {
 		// no data family return empty series ids
 		return roaring.New()
@@ -176,7 +172,6 @@ func NewRowLookupVisitor(partition *Partition) *RowsLookupVisitor {
 }
 
 func (v *RowsLookupVisitor) Visit(context any, n tree.Node) any {
-	fmt.Printf("row lookup visitor: %v\n", v.partition.tableScan.filterResult)
 	var seriesIDs *roaring.Bitmap
 	var tagKey tag.KeyID
 	indexDB := v.partition.shard.IndexDB()
@@ -234,7 +229,6 @@ func (v *RowsLookupVisitor) visitPredicate(node tree.Node) (tag.KeyID, *roaring.
 	if !ok {
 		panic(constants.ErrSeriesIDNotFound)
 	}
-	fmt.Printf("tag value ids=%v\n", columnResult.TagValueIDs)
 	indexDB := v.partition.shard.IndexDB()
 	seriesIDs, err := indexDB.GetSeriesIDsByTagValueIDs(columnResult.TagKeyID, columnResult.TagValueIDs)
 	if err != nil {

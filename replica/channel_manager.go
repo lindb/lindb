@@ -180,7 +180,6 @@ func (cm *channelManager) handleShardStateChangeEvent(
 	liveNodes map[models.NodeID]models.StatefulNode,
 ) {
 	numOfShard := len(shards)
-	fmt.Printf("num of shard: %d,%s,%v\n", numOfShard, databaseCfg.Name, shards)
 	for _, shardState := range shards {
 		shardID := shardState.ID
 		ch, err := cm.CreateChannel(databaseCfg, int32(numOfShard), shardID)

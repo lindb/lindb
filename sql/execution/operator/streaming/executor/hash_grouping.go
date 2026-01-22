@@ -116,7 +116,6 @@ func (g *HashGrouping) Enter(page *types.Page) {
 		for _, agg := range aggregators {
 			agg.Enter(row)
 		}
-		// fmt.Printf("grouping key=%v,aggregators%d=>>=%d\n", key, len(g.colIdxOfKeys), len(aggregators))
 	}
 }
 

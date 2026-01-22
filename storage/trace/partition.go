@@ -18,7 +18,6 @@
 package trace
 
 import (
-	"fmt"
 	"strconv"
 	"sync"
 
@@ -70,7 +69,6 @@ func NewPartition(timestamp int64, shard *shard) (store.Partition, error) {
 		}
 		// create data family
 		segmentTime := store.MinuteIntervalCalc.CalcFamilyStartTime(timestamp, segmentSlot)
-		fmt.Printf("create trace segment: %d\n", segmentTime)
 		p.GetOrCreateSegment(segmentTime)
 	}
 
@@ -82,7 +80,6 @@ func (p *partition) GetOrCreateSegment(timestamp int64) (store.Segment, error) {
 	defer p.mutex.Unlock()
 
 	segmentKey := store.MinuteIntervalCalc.CalcFamily(timestamp, store.MinuteIntervalCalc.CalcSegmentTime(timestamp))
-	fmt.Printf("segmentKey=%v=\n", segmentKey)
 
 	if segment, ok := p.segments[segmentKey]; ok {
 		return segment, nil
@@ -93,16 +90,12 @@ func (p *partition) GetOrCreateSegment(timestamp int64) (store.Segment, error) {
 		return nil, err
 	}
 	p.segments[segmentKey] = segment
-	fmt.Println("load trace segment")
-	fmt.Printf("trace segment......:%p= %d\n", p, len(p.segments))
 	return segment, nil
 }
 
 func (p *partition) GetSegments(timeRange timeutil.TimeRange) (segments []store.Segment) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-
-	fmt.Printf("trace segment......: %d\n", len(p.segments))
 
 	for _, segment := range p.segments {
 		segments = append(segments, segment)

@@ -66,7 +66,6 @@ func (p *LogicalPlanner) Plan() *planpkg.Plan {
 
 func (p *LogicalPlanner) planStatement() planpkg.PlanNode {
 	statement := p.context.AnalyzerContext.Analysis.GetStatement()
-	fmt.Printf("statement type=%T\n", statement)
 	switch stmt := statement.(type) {
 	case *tree.Query:
 		planner := NewRelationPlanner(p.context, nil, nil, nil)
@@ -101,11 +100,9 @@ func (p *LogicalPlanner) createInsertPlan(statement *tree.Insert) *RelationPlan 
 			name = fmt.Sprintf("_col%d", i)
 		}
 		fieldIdx := outputDescriptor.IndexOf(field)
-		fmt.Printf("find field index=%v\n", fieldIdx)
 		outputs = append(outputs, queryPlan.getSymbol(fieldIdx))
 		columns = append(columns, name)
 	}
-	fmt.Printf("create insert plan output descriptor=%v,%v\n", outputDescriptor, outputs)
 
 	project := &planpkg.ProjectionNode{
 		BaseNode: planpkg.BaseNode{
@@ -119,7 +116,6 @@ func (p *LogicalPlanner) createInsertPlan(statement *tree.Insert) *RelationPlan 
 			}
 		}),
 	}
-	fmt.Printf("create insert plan project=%v\n", project)
 
 	return &RelationPlan{
 		Scope: p.context.AnalyzerContext.Analysis.GetScope(statement),
@@ -150,10 +146,8 @@ func (p *LogicalPlanner) createOutputPlan(plan *RelationPlan) planpkg.PlanNode {
 		}
 		columns = append(columns, name)
 		fieldIdx := outputDescriptor.IndexOf(field)
-		fmt.Printf("find field index=%v\n", fieldIdx)
 		outputs = append(outputs, plan.getSymbol(fieldIdx))
 	}
-	fmt.Printf("create output columns=%v,%v\n", columns, outputs)
 	return &planpkg.OutputNode{
 		BaseNode: planpkg.BaseNode{
 			ID: p.context.PlanNodeIDAllocator.Next(),

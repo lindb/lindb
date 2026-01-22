@@ -79,9 +79,7 @@ func (scope *Scope) getNameQuery(name string) (withQuery *tree.WithQuery) {
 }
 
 func (scope *Scope) IsLocalScope(other *Scope) bool {
-	fmt.Printf("IsLocalScope %v=%v\n", scope, other)
 	return scope.findLocally(func(matchScope *Scope) bool {
-		// fmt.Printf("scope=%v,other=%v,%v=%v\n", scope, other, scope.RelationID.SourceNode.GetID(), other.RelationID.SourceNode.GetID())
 		if matchScope == other {
 			return true
 		}
@@ -97,26 +95,21 @@ func (scope *Scope) tryResolveField(node tree.Expression, name *tree.QualifiedNa
 }
 
 func (scope *Scope) resolveField(node tree.Expression, name *tree.QualifiedName, local bool) *ResolvedField { //nolint
-	fmt.Printf("scope field=%v=%v\n", scope.Dynamic, scope.RelationType.Fields)
 	fields := scope.RelationType.resolveFields(name)
 	if len(fields) > 1 {
 		panic(fmt.Sprintf("column '%s' is ambiguous", name.Name))
 	}
-	fmt.Printf("resolveField=%v\n", fields)
 	if len(fields) == 1 {
 		// TODO: dup
 		parentFieldCount := 0
 		parentScope := scope.getLocalParent()
-		fmt.Printf("resolveField,.......parent=%v\n", parentScope)
 		if parentScope != nil {
-			fmt.Printf("parent scope=%v\n", parentScope.getLocalScopeFieldCount())
 			parentFieldCount = parentScope.getLocalScopeFieldCount()
 		}
 
 		return scope.asResolvedField(fields[0], parentFieldCount, local)
 	}
 	if scope.Dynamic {
-		fmt.Printf("=========??????dynamic field=%v\n", name.Name)
 		return &ResolvedField{
 			Field: &tree.Field{
 				Name:     name.Name,
@@ -138,7 +131,6 @@ func (scope *Scope) resolveField(node tree.Expression, name *tree.QualifiedName,
 
 func (scope *Scope) asResolvedField(field *tree.Field, fieldIndexOffset int, local bool) *ResolvedField {
 	relationFieldIndex := scope.RelationType.IndexOf(field)
-	fmt.Printf("as resolved field: %v\n", *field)
 	return &ResolvedField{
 		Field:               field,
 		Scope:               scope,
@@ -158,7 +150,6 @@ func (scope *Scope) resolveAsteriskedIdentifierChain(
 		scopeForFieldRef *Scope
 	)
 	find := func(scope *Scope, match func(field *tree.Field) bool) bool {
-		fmt.Println(scope.RelationType)
 		fields := scope.RelationType.Fields
 		lo.ContainsBy(fields, func(item *tree.Field) bool {
 			return match(item)
@@ -198,8 +189,6 @@ func (scope *Scope) resolveAsteriskedIdentifierChain(
 			Type: FIELD,
 		}
 	}
-	fmt.Println(scopeForFieldRef)
-	fmt.Println(scopeForTableRef)
 	if scope.Parent == nil {
 		return nil
 	}
@@ -213,7 +202,6 @@ func (scope *Scope) getLocalScopeFieldCount() int {
 	if parentScope != nil {
 		parent = parentScope.getLocalScopeFieldCount()
 	}
-	fmt.Printf("......relation fields=%v\n", scope.RelationType.Fields)
 	return parent + len(scope.RelationType.Fields) // TODO: all field??
 }
 
@@ -227,10 +215,6 @@ func (scope *Scope) findLocally(match func(matchScope *Scope) bool) *Scope {
 		if parent == nil {
 			break
 		}
-		if parent == scope {
-			panic("===")
-		}
-		fmt.Printf("use parent scope=%v, id=%v\n......", parent, parent.RelationID)
 		s = parent
 	}
 	return nil

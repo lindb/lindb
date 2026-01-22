@@ -186,7 +186,6 @@ func (r *metricReader) readSeriesData(seriesIdx uint16, seriesEntryBlock []byte,
 	fieldOffsetsBlockLen, uVariantEncodingLen := stream.UvarintLittleEndian(seriesEntryBlock)
 	fieldOffsetsAt := len(seriesEntryBlock) - int(fieldOffsetsBlockLen) - uVariantEncodingLen
 	if uVariantEncodingLen <= 0 || fieldOffsetsAt <= 0 || fieldOffsetsAt >= len(seriesEntryBlock) {
-		fmt.Println("nnnn........")
 		return
 	}
 	// read data for multi-fields
@@ -194,7 +193,6 @@ func (r *metricReader) readSeriesData(seriesIdx uint16, seriesEntryBlock []byte,
 	_, _ = fieldOffsetsDecoder.Unmarshal(seriesEntryBlock[fieldOffsetsAt:])
 
 	for _, fm := range r.fieldEntries {
-		fmt.Printf("read file field=%v\n", fm)
 		fieldBlock, err := fieldOffsetsDecoder.GetBlock(fm.index, seriesEntryBlock[:fieldOffsetsAt])
 		if err == nil {
 			r.readFieldData(fm.field, fieldBlock, fn)

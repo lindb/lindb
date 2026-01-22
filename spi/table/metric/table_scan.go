@@ -148,7 +148,6 @@ func (v *ColumnValuesLookupVisitor) visitPredicate(predicate tree.Node, column t
 			tree.FormatExpression(column), len(columnSymbols)))
 	}
 	columnName := getColumnName(columnSymbols[0].Name, v.tableScan.columnMapping)
-	fmt.Printf("column values lookup, column: %s,name=%s\n", column, columnName)
 
 	tagMeta, ok := v.tableScan.schema.TagKeys.Find(columnName)
 	if !ok {
@@ -158,7 +157,6 @@ func (v *ColumnValuesLookupVisitor) visitPredicate(predicate tree.Node, column t
 	var tagValueIDs *roaring.Bitmap
 	var err error
 	expr := buildExpr(columnName)
-	fmt.Printf("filter expr==%v\n", expr)
 	tagValueIDs, err = v.tableScan.db.MetaDB().FindTagValueDsByExpr(tagKeyID, expr)
 	if err != nil {
 		panic(err)

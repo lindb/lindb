@@ -19,7 +19,6 @@ package client
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 
 	resty "github.com/go-resty/resty/v2"
@@ -28,6 +27,7 @@ import (
 	"github.com/lindb/lindb/sql/execution/model"
 )
 
+// FIXME: remove it?
 type StreamCli interface {
 	SendTaskResultSet(result *model.TaskResultSet) error
 }
@@ -47,7 +47,6 @@ func NewStreamCli(endpoint string) StreamCli {
 }
 
 func (cli *streamCli) SendTaskResultSet(result *model.TaskResultSet) error {
-	fmt.Printf("task result=%v,%v\n", result, string(encoding.JSONMarshal(result)))
 	resp, err := cli.cli.R().
 		SetBody(encoding.JSONMarshal(result)).
 		SetHeader("Accept", "application/json").

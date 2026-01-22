@@ -252,7 +252,6 @@ func (v *PrintPlanVisitor) addNode(node plan.PlanNode,
 	for _, child := range children {
 		childrenIDs = append(childrenIDs, child.GetNodeID())
 	}
-	fmt.Printf("==========add node:%T,children:%v\n", node, node.GetOutputSymbols())
 
 	outputNode := &NodeRepresentation{
 		id:         node.GetNodeID(),

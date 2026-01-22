@@ -95,7 +95,6 @@ func NewPartition(timestamp int64, shard *shard) (store.Partition, error) {
 		}
 		// create data family
 		segmentTime := store.MinuteIntervalCalc.CalcFamilyStartTime(timestamp, segmentSlot)
-		fmt.Printf("create segment: %d\n", segmentTime)
 		p.GetOrCreateSegment(segmentTime)
 	}
 

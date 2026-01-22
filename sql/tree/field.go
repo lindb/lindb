@@ -18,7 +18,6 @@
 package tree
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/lindb/lindb/spi/types"
@@ -43,7 +42,6 @@ func (f *Field) CanResolve(name *QualifiedName) bool {
 	if f.Name == "" {
 		return false
 	}
-	fmt.Printf("can resolve %v,aaa==%v,%v\n", f, name.Prefix, name.Suffix)
 	// TODO: need to know whether the qualified name and the name of this field were quoted
 	return f.MatchesPrefix(name.Prefix) && strings.EqualFold(f.Name, name.Suffix)
 }

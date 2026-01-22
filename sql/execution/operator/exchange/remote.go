@@ -51,7 +51,6 @@ func (op *RemoteExchangeOperator) Run(ctx context.Context, output chan<- *types.
 	for {
 		// consume the pages from inbound channel
 		page, ok := op.inbound.Consume(ctx)
-		fmt.Printf("receive pagll...e=%v\n", page)
 		if !ok {
 			// TODO: merge pages (streaming)
 			mergedPage := types.MergePages(buffer)

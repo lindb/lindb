@@ -44,7 +44,6 @@ func (d *Datum) String() string {
 
 func (d *Datum) Float() float64 {
 	v := reflect.ValueOf(d.val)
-	fmt.Printf("datum v=%v,type=%v\n", d.val, v.Kind())
 	switch v.Kind() {
 	case reflect.Float32, reflect.Float64:
 		return v.Float()
@@ -59,7 +58,6 @@ func (d *Datum) Float() float64 {
 
 func (d *Datum) Int() int64 {
 	v := reflect.ValueOf(d.val)
-	fmt.Printf("datum v=%v,type=%v\n", d.val, v.Kind())
 	switch v.Kind() {
 	case reflect.Float32, reflect.Float64:
 		return v.Int()

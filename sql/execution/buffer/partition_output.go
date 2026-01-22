@@ -19,7 +19,6 @@ package buffer
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/lindb/common/pkg/encoding"
 	"google.golang.org/grpc"
@@ -63,7 +62,6 @@ func (output *PartitionOutputBuffer) AddPage(page *types.Page) {
 }
 
 func (output *PartitionOutputBuffer) Complete() {
-	fmt.Println("partition complete complete")
 	if !output.finished {
 		output.finished = true
 		// TODO: send complete sign

@@ -18,8 +18,6 @@
 package plan
 
 import (
-	"fmt"
-
 	"github.com/lindb/lindb/sql/tree"
 )
 
@@ -39,7 +37,6 @@ func ExtractSymbolsFromAggreation(aggregation *Aggregation) (symbols []*Symbol) 
 		},
 	}
 	for _, node := range aggregation.Arguments {
-		fmt.Printf("extract symbols agg args.......=%T\n", node)
 		visitor.Visit(nil, node)
 	}
 	// TODO: add agg other fields

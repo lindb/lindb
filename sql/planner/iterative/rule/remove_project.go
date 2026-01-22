@@ -18,8 +18,6 @@
 package rule
 
 import (
-	"fmt"
-
 	"github.com/lindb/lindb/sql/planner/iterative"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
@@ -32,7 +30,6 @@ type RemoveRedundantIdentityProjections struct {
 func NewRemoveRedundantIdentityProjections() iterative.Rule {
 	rule := &RemoveRedundantIdentityProjections{}
 	rule.apply = func(context *iterative.Context, node *plan.ProjectionNode) plan.PlanNode {
-		fmt.Printf("remove projection node: %v,%v,source=%T\n", node.Assignments, node.Assignments.IsIdentity(), node.Source)
 		if node.Assignments.IsIdentity() &&
 			symbolsEquals(node.GetOutputSymbols(), node.Source.GetOutputSymbols()) {
 			return node.Source
@@ -43,7 +40,6 @@ func NewRemoveRedundantIdentityProjections() iterative.Rule {
 }
 
 func symbolsEquals(a, b []*plan.Symbol) bool {
-	fmt.Printf("check symbols========a=%v,b=%v\n", a, b)
 	if len(a) != len(b) {
 		return false
 	}

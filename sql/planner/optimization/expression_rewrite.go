@@ -18,8 +18,6 @@
 package optimization
 
 import (
-	"fmt"
-
 	"github.com/lindb/lindb/sql/tree"
 )
 
@@ -35,7 +33,6 @@ func (r *ExpressionRewrite) Rewrite(originSymbol, newSymbol string, e tree.Expre
 }
 
 func (r *ExpressionRewrite) Visit(context any, e tree.Node) any {
-	fmt.Printf("expression rewrite=%T\n", e)
 	switch expr := e.(type) {
 	case *tree.ComparisonExpression:
 		return &tree.ComparisonExpression{

@@ -86,7 +86,6 @@ type sourceConnector struct {
 func (psc *sourceConnector) Run(output chan<- *types.Page) {
 	tableScan := psc.buildTableScan()
 	if tableScan == nil {
-		fmt.Println("table scan is nil")
 		return
 	}
 	// find partitions
@@ -126,7 +125,6 @@ func (psc *sourceConnector) Run(output chan<- *types.Page) {
 
 func (psc *sourceConnector) close() {
 	close(psc.reduceCh)
-	fmt.Println("close rducer")
 
 	// release the resources of query
 	for _, p := range psc.partitions {
@@ -176,7 +174,6 @@ func (psc *sourceConnector) buildTableScan() *TableScan {
 
 	targetTimeRange, targetInterval := calcTimeRangeAndInterval(metricTable.TimeRange,
 		metricTable.Interval, db.GetOption()) // TODO: move to plan?
-	fmt.Printf("time range=%v,interval=%v\n", targetTimeRange, targetInterval)
 	if !tableScan.isTimestampSelected {
 		targetInterval = timeutil.Interval(targetTimeRange.End - targetTimeRange.Start)
 	}
@@ -247,12 +244,10 @@ func (psc *sourceConnector) buildTableScan() *TableScan {
 			groupingTags = append(groupingTags, tagKey)
 		}
 	})
-	fmt.Printf("all fields=%v, group key=%v, select field=%v,output=%v\n", schema.Fields, groupingTags, fields, psc.outputColumns)
 
 	if len(fields)+len(groupingTags) != numOfOutputColumns {
 		// TODO: only check grouping keys
 		// output columns size not match
-		fmt.Println("output columns not match......")
 		return nil
 	}
 

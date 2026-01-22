@@ -56,7 +56,6 @@ func (p *TaskExecutionPlanner) Plan(taskCtx *context.TaskContext, node planpkg.P
 	if op, ok = node.Accept(taskExecPlanCtx, visitor).(operator.Operator); !ok {
 		panic("cannot get physicalOperator")
 	}
-	fmt.Printf("task exec plan:%T,op:%T\n", node, op)
 	return NewTaskExecutionPlan([]*pipeline.Pipeline{pipeline.NewPipeline(taskCtx, op)})
 }
 
@@ -67,10 +66,8 @@ type TaskExecutionPlanVisitor struct {
 
 // Visit visits all plan node and plans task execution physical operator.
 func (v *TaskExecutionPlanVisitor) Visit(context any, n planpkg.PlanNode) (r any) {
-	fmt.Printf("task exec plan visit: %T\n", n)
 	switch node := n.(type) {
 	case *planpkg.OutputNode:
-		fmt.Println("output node...")
 		if v.taskExecCtx.IsStreaming() {
 			child := node.Source.Accept(context, v)
 			return streaming.NewOutputOperator(v.taskExecCtx.Context, v.taskExecCtx.Database, v.taskExecCtx.StreamName,
@@ -187,7 +184,6 @@ func (v *TaskExecutionPlanVisitor) visitRemoteSource(_ any, node *planpkg.Remote
 func (v *TaskExecutionPlanVisitor) visitScanFilterAndProjection(context any,
 	project *planpkg.ProjectionNode, sourceNode planpkg.PlanNode, predicate tree.Expression,
 ) any {
-	fmt.Printf("visitScanFilterAndProjection:%T,filter=%v\n", sourceNode, predicate)
 	if tableScan, ok := sourceNode.(*planpkg.TableScanNode); ok {
 		child := v.visitTableScan(context, tableScan, predicate)
 		if v.taskExecCtx.IsStreaming() {

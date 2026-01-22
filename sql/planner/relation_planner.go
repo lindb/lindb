@@ -126,7 +126,6 @@ func (p *RelationPlanner) visitValues(_ any, node *tree.Values) (r any) {
 }
 
 func (p *RelationPlanner) visitTable(_ any, node *tree.Table) (r any) {
-	fmt.Printf("visit table, time predicates=%v\n", p.timePredicates)
 	namedQuery := p.context.AnalyzerContext.Analysis.GetNamedQuery(node)
 	scope := p.context.AnalyzerContext.Analysis.GetScope(node)
 	var plan *RelationPlan
@@ -151,7 +150,6 @@ func (p *RelationPlanner) visitTable(_ any, node *tree.Table) (r any) {
 			}
 		}
 
-		fmt.Printf("table visit relation plan====%v\n", outputSymbols)
 		tableHandle := p.context.AnalyzerContext.Analysis.GetTableHandle(node)
 		tableMetadata := p.context.AnalyzerContext.Analysis.GetTableMetadata(tableHandle.String())
 		root := planpkg.NewTableScanNode(p.context.PlanNodeIDAllocator.Next())
@@ -162,7 +160,6 @@ func (p *RelationPlanner) visitTable(_ any, node *tree.Table) (r any) {
 			Start: time.Now().UnixMilli() - time.Hour.Milliseconds(),
 			End:   time.Now().UnixMilli(),
 		}
-		fmt.Printf("default time range:%v\n", timeRange)
 		// 2. time range from context
 		currentParams := p.context.Context.Value(constants.ContextKeyParams)
 		if currentParams != nil {
@@ -174,7 +171,6 @@ func (p *RelationPlanner) visitTable(_ any, node *tree.Table) (r any) {
 					timeRange.End = params.TimeRange.End
 				}
 			}
-			fmt.Printf("params time range:%v\n", timeRange)
 		}
 		// 3. time range from statement condition
 		if len(p.timePredicates) > 0 {
@@ -191,7 +187,6 @@ func (p *RelationPlanner) visitTable(_ any, node *tree.Table) (r any) {
 				}
 			}
 		}
-		fmt.Printf("set time range:%v\n", timeRange)
 		root.Table.SetTimeRange(timeRange)
 
 		if p.groupingInterval != nil {
@@ -224,7 +219,6 @@ func (p *RelationPlanner) planJoin(node *tree.Join, scope *analyzer.Scope, left,
 	var joinCriteriaClauses []*planpkg.EqualJoinCriteria
 	leftPlanBuilder := newPlanBuilder(p.context, left, nil)
 	rightPlanBuilder := newPlanBuilder(p.context, right, nil)
-	fmt.Printf("join type===%v\n", node.Type)
 	if node.Type != tree.CROSS && node.Type != tree.IMPLICIT {
 		criteria := p.context.AnalyzerContext.Analysis.GetJoinCriteria(node)
 		expressions := tree.ExtractConjuncts(criteria)
@@ -242,8 +236,6 @@ func (p *RelationPlanner) planJoin(node *tree.Join, scope *analyzer.Scope, left,
 				joinConditionComparisonOperators = append(joinConditionComparisonOperators, comparisonExpression.Operator)
 			}
 			// TODO: check not equal
-
-			fmt.Println(conjunct)
 		}
 
 		// add projections for join criteria
@@ -256,7 +248,6 @@ func (p *RelationPlanner) planJoin(node *tree.Join, scope *analyzer.Scope, left,
 		rightCoercions := coerceExpressions(rightPlanBuilder, rightComparisonExpressions,
 			p.context.AnalyzerContext.Analysis,
 			p.context.SymbolAllocator, p.context.PlanNodeIDAllocator)
-		fmt.Printf("join......%v\n", leftCoercions)
 		for i := range leftComparisonExpressions {
 			if joinConditionComparisonOperators[i] == tree.ComparisonEQ {
 				leftSymbol := leftCoercions.mappings[leftComparisonExpressions[i]]

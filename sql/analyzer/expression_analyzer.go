@@ -39,7 +39,6 @@ func NewExpressionAnalyzer(ctx *AnalyzerContext) *ExpressionAnalyzer {
 }
 
 func (a *ExpressionAnalyzer) Analyze(expression tree.Expression, scope *Scope) {
-	fmt.Println("expression analyze")
 	visitor := NewExpressionVisitor(scope, a)
 	expression.Accept(tree.NewStackableVisitorContext(&Context{
 		scope: scope,
@@ -62,7 +61,6 @@ func NewExpressionVisitor(scope *Scope, analyzer *ExpressionAnalyzer) *Expressio
 func (v *ExpressionVisitor) Visit(context any, n tree.Node) (r any) {
 	// TODO:
 	_ = n.Accept(context, &v.StackableAstVisitor)
-	fmt.Printf("visit expression=%T,id=%v\n", n, n.GetID())
 	switch node := n.(type) {
 	case *tree.ComparisonExpression:
 		return v.visitComparisonExpression(context, node)
@@ -164,7 +162,6 @@ func (v *ExpressionVisitor) visitDereferenceExpression(context any, node *tree.D
 	qualifiedName := node.ToQualifiedName()
 	if qualifiedName != nil {
 		resolvedField := ctx.GetContext().scope.tryResolveField(node, qualifiedName)
-		fmt.Printf("visit de expre =%v\n", resolvedField)
 		if resolvedField != nil {
 			return v.handleResolvedField(ctx, node, resolvedField)
 		}
@@ -180,7 +177,6 @@ func (v *ExpressionVisitor) visitFunctionCall(context any, node *tree.FunctionCa
 		argumentTypes = append(argumentTypes, arg.Accept(context, v).(types.DataType))
 	}
 	expectedType := v.analyzer.ctx.GetFuncReturnType(node.Name)
-	fmt.Printf("get func default type=%v\n", expectedType)
 	if expectedType == types.DTUnknown {
 		if len(argumentTypes) > 0 {
 			// TODO: check args types
@@ -189,7 +185,6 @@ func (v *ExpressionVisitor) visitFunctionCall(context any, node *tree.FunctionCa
 			}
 		}
 	}
-	fmt.Printf("get func default type=%v\n", expectedType)
 
 	// TODO: coerce args types
 	// for i, argumentType := range argumentTypes {
@@ -214,7 +209,6 @@ func (v *ExpressionVisitor) visitIntervalLiteral(_ any, node *tree.IntervalLiter
 
 func (v *ExpressionVisitor) visitIdentifier(context any, node *tree.Identifier) (r any) {
 	ctx := context.(*tree.StackableVisitorContext[*Context])
-	fmt.Printf("expr visitor %v\n", node.Value)
 	// FIXME:???
 	resolvedField := ctx.GetContext().scope.resolveField(node, tree.NewQualifiedName([]*tree.Identifier{node}), true)
 
@@ -268,7 +262,6 @@ func (v *ExpressionVisitor) getOperator(context *tree.StackableVisitorContext[*C
 func (v *ExpressionVisitor) coerceType(expression tree.Expression, actualType, expectedType types.DataType) {
 	// TODO: add check
 	if actualType != expectedType {
-		fmt.Printf("add coercion %v=>%v\n", expression, expectedType)
 		v.analyzer.ctx.Analysis.AddCoercion(expression, expectedType)
 	}
 }

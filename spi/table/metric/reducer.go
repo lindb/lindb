@@ -18,8 +18,6 @@
 package metric
 
 import (
-	"fmt"
-
 	"github.com/lindb/common/models"
 	"github.com/lindb/roaring"
 	"github.com/samber/lo"
@@ -48,7 +46,6 @@ func NewReducer(ctx *ExecutionContext, tableScan *TableScan, inbound <-chan any,
 }
 
 func (r *reducer) Run() {
-	fmt.Printf("tables scan=%v\n", r.tableScan)
 	for {
 		select {
 		case <-r.ctx.ctx.Done():
@@ -96,7 +93,6 @@ func (r *reducer) process(split *DataSplit) {
 }
 
 func (r *reducer) findSeries(split *DataSplit) {
-	fmt.Printf("split low series ids=%v\n", split)
 	tagScanners := split.groupingContext.BuildGroup(split.seriesIDHighKey, split.lowSeriesIDs)
 	tagsScanner := NewTagsScanner(tagScanners)
 	it := split.lowSeriesIDs.PeekableIterator()
@@ -110,7 +106,6 @@ func (r *reducer) findSeries(split *DataSplit) {
 		}
 	}
 	tableScan := split.partition.tableScan
-	fmt.Printf("series grouping...%v\n", tableScan.grouping.tags)
 
 	tableScan.grouping.CollectTagValueIDs(tagsScanner.GetTagValueIDs())
 }
@@ -153,11 +148,9 @@ func (r *reducer) buildOutputPage() *types.Page {
 			}
 			switch dst := stream.(type) {
 			case *result[float64]:
-				fmt.Printf("reducer field idx=%d, values=%v\n", fieldIdx, dst.array.Values())
 				timeSeries := types.NewTimeSeriesWithValues(r.tableScan.timeRange, r.tableScan.interval, dst.array.Values())
 				fields[fieldIdx].Append(timeSeries)
 			case *result[*models.Exemplar]:
-				// timeSeries := types.NewTimeSeriesWithValues(r.tableScan.timeRange, r.tableScan.interval, dst.array.Values())
 				fields[fieldIdx].Append(dst.array.Values())
 			}
 		}

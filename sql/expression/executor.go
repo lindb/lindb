@@ -63,7 +63,6 @@ func (r *rewriter) rewrite(node tree.Expression) Expression {
 		_, index, _ := lo.FindIndexOf(r.ctx.SourceLayout, func(item *plan.Symbol) bool {
 			return item.Name == expr.Name
 		})
-		// fmt.Printf("expr rewrite %v,%v,%v,%v\n", r.ctx.SourceLayout, expr.Name, ok, index)
 		return NewColumn(r.ctx.EvalContext, expr.Name, index, expr.DataType)
 	case *tree.Cast:
 		return NewCast(r.ctx.EvalContext, expr.Type, r.rewrite(expr.Expression))

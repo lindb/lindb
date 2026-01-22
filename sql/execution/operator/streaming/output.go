@@ -99,8 +99,6 @@ func (op *OutputOperator) Run(ctx context.Context, output chan<- *types.Page) {
 		} else {
 			op.inputHandle.Send(page)
 		}
-
-		fmt.Printf("output operator sent page, rows=%d\n", page.NumRows())
 	}
 }
 

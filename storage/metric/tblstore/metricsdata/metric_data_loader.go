@@ -18,8 +18,6 @@
 package metricsdata
 
 import (
-	"fmt"
-
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/flow"
@@ -56,7 +54,6 @@ func (s *metricLoader) Load(seriesID uint16, fn flow.LoaderCallback) {
 	if ok {
 		seriesEntry, err := s.lowKeyOffsets.GetBlock(index, s.seriesEntriesBlock)
 		if err != nil {
-			fmt.Printf("data loader err=%v\n", err)
 			return
 		}
 		// read series data of fields

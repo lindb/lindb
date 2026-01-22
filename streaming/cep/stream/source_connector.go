@@ -43,8 +43,6 @@ func (s *sourceConnectorProvider) CreateSourceConnector(ctx context.Context,
 	predicate tree.Expression,
 	outputColumns []types.ColumnMetadata, assignments []*spi.ColumnAssignment,
 ) spi.SourceConnector {
-	fmt.Printf("create log source connector,table=%v,partitions=%v,predicate=%v\n", outputColumns, assignments, predicate)
-
 	tableHandle := table.(*TableHandle)
 	schema, err := GetManager().GetStreamManager(tableHandle.App).GetTableMetadata(tableHandle.App, "", tableHandle.Stream)
 	if err != nil {
@@ -65,7 +63,6 @@ func (s *sourceConnectorProvider) CreateSourceConnector(ctx context.Context,
 	inputHandle := input.GetManager().GetInputHandler(tableHandle.App, tableHandle.Stream)
 	inputHandle.Subscribe(connector)
 
-	fmt.Printf("create streaming connector .....%+v====>%+v\n", schema.Schema, connector.outputColumns)
 	return connector
 }
 

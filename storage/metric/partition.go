@@ -47,7 +47,6 @@ func NewPartition(shard *Shard, partitionTime int64, interval timeutil.Interval)
 	calc := interval.Calculator()
 	partitionName := calc.GetSegment(partitionTime)
 	dir := store.PartitionPath(shard.Database().Name(), shard.ShardID(), interval, partitionName)
-	fmt.Printf("partition dir %s\n", dir)
 
 	storeOption := kv.DefaultStoreOption()
 	intervals := shard.Database().GetOption().Option.Intervals
@@ -61,7 +60,6 @@ func NewPartition(shard *Shard, partitionTime int64, interval timeutil.Interval)
 		storeOption.Rollup = rollup[1:]
 		storeOption.Source = interval
 	}
-	fmt.Printf("partition=%s\n", dir)
 	kvStore, err := kv.GetStoreManager().CreateStore(path.Join(dir, "data"), storeOption)
 	if err != nil {
 		return nil, fmt.Errorf("create kv store for partition error:%s", err)
@@ -92,7 +90,6 @@ func NewPartition(shard *Shard, partitionTime int64, interval timeutil.Interval)
 		}
 		// create data family
 		segmentTime := store.MinuteIntervalCalc.CalcFamilyStartTime(partitionTime, segmentSlot)
-		fmt.Printf("create trace segment: %d\n", segmentTime)
 		p.GetOrCreateSegment(segmentTime)
 	}
 

@@ -73,7 +73,6 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 	familySlot := intervalCalc.CalcFamily(timestamp, segmentTime)
 	family := fmt.Sprintf("%d", familySlot)
 	segmentPath := filepath.Join(partition.Path(), family)
-	fmt.Printf("segmentPath:%s====>%s\n", segmentPath, family)
 	// FIXME: close kv store if load segment fail
 	kvFamily := partition.kvStore.GetFamily(family)
 	if kvFamily == nil {
@@ -306,13 +305,11 @@ func (s *Segment) Filter(ctx *flow.MetricScanContext) (resultSet []flow.FilterRe
 	s.lastReadTime.Store(fasttime.UnixMilliseconds())
 	memRS, err := s.memoryFilter(ctx)
 	if !errors.Is(err, constants.ErrNotFound) && err != nil {
-		fmt.Printf("mem filter=%v\n", err)
 		// FIXME: ignore not found??
 		return nil, err
 	}
 	fileRS, err := s.fileFilter(ctx)
 	if !errors.Is(err, constants.ErrNotFound) && err != nil {
-		fmt.Printf("file filter=%v\n", err)
 		return nil, err
 	}
 	resultSet = append(resultSet, memRS...)
@@ -324,11 +321,9 @@ func (s *Segment) memoryFilter(ctx *flow.MetricScanContext) (resultSet []flow.Fi
 	memFilter := func(memDB memdb.MemoryDatabase) error {
 		rs, err := memDB.Filter(ctx)
 		if err != nil {
-			fmt.Printf("mem db error=%v\n", err)
 			return err
 		}
 		resultSet = append(resultSet, rs...)
-		fmt.Println("found mem data", len(resultSet))
 		return nil
 	}
 
@@ -363,29 +358,24 @@ func (s *Segment) fileFilter(ctx *flow.MetricScanContext) (resultSet []flow.Filt
 		return nil, err
 	}
 	querySlotRange := s.interval.CalcSlotRange(s.TimeRange.Start, ctx.TimeRange)
-	fmt.Printf("find reader =%v,%v\n", readers, metricKey)
 	var metricReaders []metricsdata.MetricReader
 	for _, reader := range readers {
 		value, err0 := reader.Get(metricKey)
 		// metric data not found
 		if err0 != nil {
-			fmt.Println("metric not found from file")
 			continue
 		}
 		r, err := metricsdata.NewReader(reader.Path(), value)
 		if err != nil {
-			fmt.Printf("new reader file=%v\n", err)
 			return nil, err
 		}
 		storageTimeRange := r.GetTimeRange()
 		if storageTimeRange.Overlap(querySlotRange) {
 			metricReaders = append(metricReaders, r)
 		} else {
-			fmt.Printf("file time range out...,%v,%v\n", storageTimeRange, ctx.TimeRange)
 		}
 	}
 	if len(metricReaders) == 0 {
-		fmt.Println("no file found")
 		return nil, nil
 	}
 	filter := metricsdata.NewFilter(s.TimeRange.Start, s.interval, querySlotRange, snapShot, metricReaders)

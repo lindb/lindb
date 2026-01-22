@@ -17,7 +17,7 @@
 
 package tree
 
-type AnnotationElement interface{}
+type AnnotationElement any
 
 type Annotation struct {
 	Name     *Identifier

@@ -176,7 +176,6 @@ func (s *Segment) FindLogIDsByTimeRange(timeRange timeutil.TimeRange, callback f
 		}
 
 		if !result.IsEmpty() {
-			fmt.Printf("timestamp:%d,log ids:%v\n", timestamp, result.GetCardinality())
 			callback(timestamp, result)
 		}
 

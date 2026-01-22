@@ -19,7 +19,6 @@ package rpc
 
 import (
 	context "context"
-	"fmt"
 
 	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
@@ -59,7 +58,6 @@ func (srv *ResultSetService) ResultSet(ctx context.Context,
 		if len(resultSet.Page) != 0 {
 			page, err := types.UnmarshalPage(resultSet.Page)
 			if err != nil {
-				fmt.Println("unmarshal page error:", err)
 				panic(err)
 			}
 			sourceOperator.Receive(page)

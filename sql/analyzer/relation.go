@@ -18,9 +18,6 @@
 package analyzer
 
 import (
-	"fmt"
-
-	"github.com/lindb/common/pkg/encoding"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/spi/types"
@@ -61,7 +58,6 @@ func NewRelation(fields []*tree.Field) *Relation {
 			rt.maxIndex = f.Index
 		}
 	}
-	fmt.Printf("new relation fields=%v\n", rt.FieldIndexes)
 	return rt
 }
 
@@ -72,7 +68,6 @@ func (r *Relation) withAlias(relationAlias string, columnAliases []string) *Rela
 		if len(columnAliases) != 0 {
 			columnAlias = columnAliases[i]
 		}
-		fmt.Printf("columnAlias=%s,columnAliases=%v", columnAlias, columnAliases)
 
 		fields = append(fields, &tree.Field{
 			Name:          columnAlias,
@@ -116,7 +111,6 @@ func (r *Relation) resolveFields(name *tree.QualifiedName) (result []*tree.Field
 
 func (r *Relation) IndexOf(field *tree.Field) tree.FieldIndex {
 	index, ok := r.FieldIndexes[field]
-	fmt.Printf("relation index of %v,%v,%v,%v\n", r.FieldIndexes, ok, r.maxIndex, string(encoding.JSONMarshal(field)))
 	if ok {
 		return index
 	}

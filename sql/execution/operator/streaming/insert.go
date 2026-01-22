@@ -19,7 +19,6 @@ package streaming
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/operator"
@@ -52,7 +51,6 @@ func (op *InsertOperator) Run(ctx context.Context, output chan<- *types.Page) {
 	inputHandle := input.GetManager().GetInputHandler(op.insert.Database, streamName)
 	for {
 		page, ok := op.inbound.Consume(ctx)
-		fmt.Printf("insert db=%s,table=%s...%v=>%v\n", op.insert.Database, streamName, ok, page)
 		if !ok {
 			break
 		}

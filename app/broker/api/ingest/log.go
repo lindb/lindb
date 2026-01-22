@@ -18,8 +18,6 @@
 package ingest
 
 import (
-	"fmt"
-
 	"github.com/gin-gonic/gin"
 	"github.com/lindb/common/log"
 	"github.com/lindb/common/models"
@@ -73,11 +71,9 @@ func (w *Log) Write(c *gin.Context) {
 
 func (w *Log) write(c *gin.Context) error {
 	var logs []models.Log
-	fmt.Println("write log...")
 	if err := c.ShouldBind(&logs); err != nil {
 		return err
 	}
-	fmt.Println(logs)
 	rb := log.CreateRowBuilder()
 	for _, l := range logs {
 		rb.AddMessage([]byte(l.Message)).
@@ -86,7 +82,6 @@ func (w *Log) write(c *gin.Context) error {
 			rb.AddField([]byte(k), []byte(v))
 		}
 		data, _ := rb.Build()
-		fmt.Println(string(data))
 		if err := w.deps.CM.WriteMsg(c.Request.Context(), "log_test", data); err != nil {
 			return err
 		}

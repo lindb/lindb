@@ -22,7 +22,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
 	"github.com/samber/lo"
 
@@ -119,7 +118,6 @@ func (v *StatementVisitor) visitQuery(context any, node *tree.Query) *Scope {
 
 	// analyze query body
 	queryBodyScope := node.QueryBody.Accept(withScope, v).(*Scope)
-	fmt.Printf("after query body%v,%v\n", queryBodyScope.RelationType.Fields, len(queryBodyScope.RelationType.Fields))
 
 	// analyze order by
 	var orderByExpressions []tree.Expression
@@ -159,7 +157,6 @@ func (v *StatementVisitor) visitQuerySpecification(context any, node *tree.Query
 	v.analyzeHaving(node, sourceScope)
 
 	outputScope := v.computeAndAssignOutputScope(node, scope, sourceScope)
-	fmt.Printf("after outputExpressions=%v,%v\n", outputScope.RelationType.Fields, len(outputScope.RelationType.Fields))
 
 	var orderByExpressions []tree.Expression
 	var orderByScope *Scope
@@ -182,7 +179,6 @@ func (v *StatementVisitor) visitQuerySpecification(context any, node *tree.Query
 		sourceExpressions = append(sourceExpressions, selectExpr.Expression)
 	}
 
-	fmt.Printf("select express.....%v\n", selectExpressions)
 	// FIXME: select
 
 	if node.Having != nil {
@@ -193,13 +189,11 @@ func (v *StatementVisitor) visitQuerySpecification(context any, node *tree.Query
 	v.analyzeAggregations(node, sourceScope, orderByScope, groupByAnalysis, sourceExpressions, orderByExpressions)
 
 	// FIXME: order agg
-	fmt.Println("query spec done....")
 
 	return outputScope
 }
 
 func (v *StatementVisitor) visitJoin(context any, node *tree.Join) *Scope {
-	fmt.Println("join table...")
 	scope := context.(*Scope)
 	left := node.Left.Accept(scope, v).(*Scope)
 	right := node.Right.Accept(scope, v).(*Scope)
@@ -207,7 +201,6 @@ func (v *StatementVisitor) visitJoin(context any, node *tree.Join) *Scope {
 	if joinUsing, ok := criteria.(*tree.JoinUsing); ok {
 		return v.analyzeJoinUsing(node, joinUsing.Columns, scope, left, right)
 	}
-	fmt.Println("create and assign scope..........................")
 	output := v.createAndAssignScope(node, scope, left.RelationType.joinWith(right.RelationType))
 	if node.Type == tree.CROSS || node.Type == tree.IMPLICIT {
 		return output
@@ -220,7 +213,6 @@ func (v *StatementVisitor) visitJoin(context any, node *tree.Join) *Scope {
 
 		v.analyzer.ctx.Analysis.SetJoinCriteria(node, expression)
 	}
-	fmt.Println("jjjjjjj")
 
 	return output
 }
@@ -228,7 +220,6 @@ func (v *StatementVisitor) visitJoin(context any, node *tree.Join) *Scope {
 func (v *StatementVisitor) analyzeJoinUsing(node *tree.Join, columns []*tree.Identifier,
 	scope, left, right *Scope,
 ) *Scope {
-	fmt.Printf("fdd..........%v,%v,%v,%v,%v", node, columns, scope, left, right)
 	panic("using")
 }
 
@@ -242,7 +233,6 @@ func (v *StatementVisitor) visitAliasedRelation(context any, relation *tree.Alia
 	columnAliases := lo.Map(relation.ColumnNames, func(item *tree.Identifier, index int) string {
 		return item.Value
 	})
-	fmt.Printf("aliased relation columns:%v\n", columnAliases)
 	relationType := relationScope.RelationType
 	descriptor := relationType.withAlias(relation.Aliase.Value, columnAliases)
 
@@ -287,7 +277,6 @@ func (v *StatementVisitor) visitTable(ctx any, table *tree.Table) *Scope {
 		// TODO: remove
 		panic(err)
 	}
-	fmt.Printf("visit table =%v\n", string(encoding.JSONMarshal(table)))
 
 	// analyze table
 	var outputFields []*tree.Field
@@ -310,7 +299,6 @@ func (v *StatementVisitor) visitTable(ctx any, table *tree.Table) *Scope {
 	v.analyzer.ctx.Analysis.RegisterTableMetadata(tableHandle.String(), tableMetadata)
 	// FIXME: table fields??
 
-	fmt.Printf("visit table output fields %v\n", outputFields)
 	subScope := v.createAndAssignScope(table, scope, NewRelation(outputFields))
 	subScope.Dynamic = tableMetadata.SupportDynamicField
 	return subScope
@@ -370,7 +358,6 @@ func (v *StatementVisitor) analyzeSelectSingleColumn(singleColumn *tree.SingleCo
 	scope *Scope, outputExpressions []tree.Expression, selectExpressions []*SelectExpression,
 ) (outputs []tree.Expression, selects []*SelectExpression) {
 	expression := singleColumn.Expression
-	fmt.Printf("analyzeSelectSingleColumn=%v,%T,%v\n", singleColumn.Expression, singleColumn.Expression, node)
 	v.analyzeExpression(expression, scope)
 	outputExpressions = append(outputExpressions, expression)
 	selectExpressions = append(selectExpressions, &SelectExpression{
@@ -400,7 +387,6 @@ func (v *StatementVisitor) analyzeSelectAllColumns(allColumns *tree.AllColumns, 
 			if identifierChain.Type == TABLE {
 				relationType := identifierChain.RelationType
 				// TODO: relationScope := v.analyzer.analysis.GetScope(relation)
-				fmt.Println("table========" + prefix.Name)
 				// FIXME:????? scope from
 				outputExpressions, selectExpressions = v.analyzeAllColumnsFromTable(allColumns, node, scope,
 					outputExpressions, selectExpressions, relationType, prefix)
@@ -428,7 +414,6 @@ func (v *StatementVisitor) analyzeAllColumnsFromTable(allColumns *tree.AllColumn
 			},
 			FieldIndex: field.Index,
 		}
-		fmt.Printf("analyzeAllColumnsFromTable=%v,%v,%v\n", field, node, relationAlias)
 		v.analyzeExpression(fieldRef, scope)
 		outputExpressions = append(outputExpressions, fieldRef)
 		selectExpressions = append(selectExpressions, &SelectExpression{
@@ -460,7 +445,6 @@ func (v *StatementVisitor) analyzeWhere(node *tree.QuerySpecification, scope *Sc
 	if len(timePredicates) > 0 {
 		v.analyzer.ctx.Analysis.SetTimePredicates(node, timePredicates)
 	}
-	fmt.Printf("analyze where: %v,%v\n", timePredicates, newPredicate)
 
 	if newPredicate == nil {
 		// new predicate is nil, means no where clause after extract time predicates
@@ -513,7 +497,6 @@ func (v *StatementVisitor) analyzeGroupBy(node *tree.QuerySpecification, scope *
 							v.analyzeExpression(column, scope)
 						}
 					default:
-						fmt.Printf("==========group by expression:%T=%v,%v\n", column, column, selectExpressions)
 						v.analyzeExpression(column, scope)
 					}
 
@@ -535,7 +518,6 @@ func (v *StatementVisitor) analyzeGroupBy(node *tree.QuerySpecification, scope *
 			}
 		}
 		if len(groupingExpressions) == 0 {
-			fmt.Println("statement analyzer no group by expression")
 			// no grouping column
 			return nil
 		}
@@ -551,7 +533,6 @@ func (v *StatementVisitor) analyzeGroupBy(node *tree.QuerySpecification, scope *
 	} else {
 		return nil
 	}
-	fmt.Printf("grouping sets==,%v,%v,%v\n", string(encoding.JSONMarshal(groupingExpressions)), string(encoding.JSONMarshal(sets)), complexExpressions)
 
 	groupingSets := NewGroupingSetAnalysis(groupingExpressions, sets, complexExpressions)
 	v.analyzer.ctx.Analysis.SetGroupingSets(node, groupingSets)
@@ -583,12 +564,10 @@ func (v *StatementVisitor) analyzeAggregations(query *tree.QuerySpecification, s
 	}
 	// TODO:
 	tree.ExtractAggregationFunctions(expr, func(n tree.Node) {
-		fmt.Printf("extract agg func:%T=%v,%v\n", n, n, orderByScope)
 		switch node := n.(type) {
 		case *tree.Identifier:
 			// transfer filed builtin aggregation
 			resolvedField := sourceScope.resolveField(n, tree.NewQualifiedName([]*tree.Identifier{node}), true)
-			fmt.Printf("analyze builtin agg func:%v, is func arg: %v\n", resolvedField.Field.AggType, isFuncArg())
 			if resolvedField.Field.AggType != types.ATUnknown && !isFuncArg() {
 				// agg field and field is not function arg, add builtin agg func for this field
 				fn := &tree.FunctionCall{
@@ -727,7 +706,6 @@ func (v *StatementVisitor) computeAndAssignOutputScope(node *tree.QuerySpecifica
 			panic(fmt.Sprintf("unsupported selec type type: %s", reflect.TypeOf(item)))
 		}
 	}
-	fmt.Printf("compute and assign output scope: %v,%v\n", outputFields, len(outputFields))
 	return v.createAndAssignScope(node, scope, NewRelation(outputFields))
 }
 
@@ -739,7 +717,6 @@ func (v *StatementVisitor) computeAndAssignOrderByScope(_ *tree.OrderBy,
 
 func (v *StatementVisitor) descriptorToFields(scope *Scope) (selectExpressions []*SelectExpression) {
 	for _, field := range scope.RelationType.Fields {
-		fmt.Printf("descriptorToFields=%v,%T\n", field, field)
 		expression := &tree.FieldReference{
 			BaseNode: tree.BaseNode{
 				ID: v.analyzer.ctx.IDAllocator.Next(),
@@ -761,7 +738,6 @@ func (v *StatementVisitor) hasAggregates(node *tree.QuerySpecification) bool {
 	}
 	var aggregates []tree.Expression
 	tree.ExtractAggregationFunctions(toExtract, func(n tree.Node) {
-		fmt.Printf("hasAggregates==>%T\n", n)
 		if _, ok := n.(*tree.FunctionCall); ok {
 			aggregates = append(aggregates, n)
 		}

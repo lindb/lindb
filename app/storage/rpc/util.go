@@ -46,17 +46,14 @@ func getOrCreateSegment(
 	}
 	p, err := shard.GetOrCreatePartition(segmentTime)
 	if err != nil {
-		fmt.Printf("err0=%s\n", err)
 		return nil, err
 	}
 	segment, err := p.GetOrCreateSegment(segmentTime)
 	if err != nil {
-		fmt.Printf("err1=%s\n", err)
 		return nil, err
 	}
 	log, err := segment.GetOrCreateWAL(leader)
 	if err != nil {
-		fmt.Printf("err2=%s\n", err)
 		return nil, err
 	}
 	return log, nil

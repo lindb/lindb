@@ -27,7 +27,6 @@ type DefaultTraversalVisitor struct {
 }
 
 func (v *DefaultTraversalVisitor) Visit(context any, n Node) (r any) {
-	fmt.Printf("express visit = %T value=%v\n", n, n)
 	if v.PreProcess != nil {
 		// do pre process if has pre func
 		v.PreProcess(n)

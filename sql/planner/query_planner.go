@@ -18,9 +18,6 @@
 package planner
 
 import (
-	"fmt"
-
-	"github.com/lindb/common/pkg/encoding"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/sql/analyzer"
@@ -65,7 +62,6 @@ func (p *QueryPlanner) planQuery(node *tree.Query) *RelationPlan {
 	// FIXME:>>>>> order/limit
 
 	builder = builder.appendProjections(outputs)
-	fmt.Printf("query plan outputs==%v\n", outputs)
 
 	return &RelationPlan{
 		Root:          builder.root,
@@ -85,7 +81,6 @@ func (p *QueryPlanner) planQuerySpecification(node *tree.QuerySpecification) *Re
 	builder := p.planFrom(node)
 	// where clause
 	builder = p.filter(builder, p.context.AnalyzerContext.Analysis.GetWhere(node), node)
-	fmt.Println("group by .......")
 	// agg/group by
 	builder = p.aggregate(builder, node)
 	// TODO: having
@@ -95,9 +90,7 @@ func (p *QueryPlanner) planQuerySpecification(node *tree.QuerySpecification) *Re
 	outputs := p.outputExpressions(selectExpressions)
 	// TODO: sort/order by
 
-	fmt.Printf("planQuerySpecification output expressions .......%v\n", string(encoding.JSONMarshal(outputs)))
 	builder = builder.appendProjections(outputs)
-	fmt.Println("finsh planQuerySpecification")
 	return &RelationPlan{
 		Root:          builder.root,
 		Scope:         p.context.AnalyzerContext.Analysis.GetScope(node),
@@ -140,7 +133,6 @@ func (p *QueryPlanner) aggregate(subPlan *PlanBuilder, node *tree.QuerySpecifica
 		inputs = append(inputs, agg.Arguments...)
 	}
 	// subPlan = subPlan.appendProjections(inputs)
-	fmt.Printf("aggregates=====>>>>>>%v\n", subPlan.root.GetOutputSymbols())
 
 	groupingSetAnalysis := p.context.AnalyzerContext.Analysis.GetGroupingSets(node)
 
@@ -160,10 +152,8 @@ func (p *QueryPlanner) planGroupingSets(subPlan *PlanBuilder,
 	groupingSetMappings := make(map[*plan.Symbol]*plan.Symbol) // output -> input
 	complexExpressions := make(map[string]*plan.Symbol)
 	fields := make([]*plan.Symbol, len(subPlan.translations.fieldSymbols))
-	fmt.Printf("sub plan fields=%v\n", subPlan.translations.fieldSymbols)
 	// TODO: remove it?
 	copy(fields, subPlan.translations.fieldSymbols)
-	fmt.Printf("plan grouping sets:%v,%v\n", len(subPlan.translations.fieldSymbols), len(groupingSetAnalysis.GetComplexExpressions()))
 	for _, field := range groupingSetAnalysis.GetAllFields() {
 		input := subPlan.translations.fieldSymbols[field.FieldIndex]
 		// add group field suffix
@@ -182,7 +172,6 @@ func (p *QueryPlanner) planGroupingSets(subPlan *PlanBuilder,
 			output := p.context.SymbolAllocator.FromExpression(expression, p.context.AnalyzerContext.Analysis.GetType(expression))
 			complexExpressions[expressionName] = output
 			groupingSetMappings[output] = input
-			fmt.Printf("complexExpressions=====>>>>>>%v,%v\n", input, output)
 		}
 	}
 	columnOnlyGroupingSets := p.enumerateGroupingSets(groupingSetAnalysis)
@@ -206,7 +195,6 @@ func (p *QueryPlanner) planGroupingSets(subPlan *PlanBuilder,
 		Source:      subPlan.root,
 		Assignments: assignments.Unique(),
 	}
-	fmt.Printf("plan agg group... fields=%v===%v\n", fields, groupID.GetOutputSymbols())
 	subPlan = &PlanBuilder{
 		root:         groupID,
 		translations: subPlan.translations.withNewMappings(complexExpressions, fields),
@@ -236,13 +224,10 @@ func (p *QueryPlanner) planGroupingOperations(subPlan *PlanBuilder, _ *tree.Quer
 func (p *QueryPlanner) planAggregation(subPlan *PlanBuilder,
 	groupingSets [][]*plan.Symbol, aggregates []*tree.FunctionCall,
 ) *PlanBuilder {
-	fmt.Printf("planagg.....%v,func call=%v\n", groupingSets, aggregates)
-
 	var aggregateMapping []*plan.AggregationAssignment
 	additionalMapping := make(map[string]*plan.Symbol)
 	// TODO: scopeAwareDistinct
 	for _, function := range aggregates {
-		fmt.Printf("agg func=%v\n", function.Name)
 		symbol := p.context.SymbolAllocator.FromExpression(function, p.context.AnalyzerContext.Analysis.GetType(function))
 		aggregation := &plan.Aggregation{
 			Function: p.context.AnalyzerContext.Analysis.GetResolvedFunction(function),
@@ -287,7 +272,6 @@ func (p *QueryPlanner) filter(subPlan *PlanBuilder, predicate tree.Expression, _
 		return subPlan
 	}
 	subPlan = p.subQueryPlanner.handleSubQueries(subPlan, predicate, nil)
-	fmt.Printf("filter sub plat%v\n", subPlan)
 
 	return subPlan.withNewRoot(&plan.FilterNode{
 		BaseNode: plan.BaseNode{
@@ -301,10 +285,8 @@ func (p *QueryPlanner) filter(subPlan *PlanBuilder, predicate tree.Expression, _
 
 func (p *QueryPlanner) computeOutputs(builder *PlanBuilder, outputs []tree.Expression) (outputSymbols []*plan.Symbol) {
 	for _, expression := range outputs {
-		fmt.Printf("output exp=%v,%T\n", expression, expression)
 		outputSymbols = append(outputSymbols, builder.translate(expression))
 	}
-	fmt.Printf("query planner output result==%v\n", outputSymbols)
 	return
 }
 

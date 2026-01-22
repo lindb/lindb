@@ -55,7 +55,6 @@ func (s *sourceConnectorProvider) CreateSourceConnector(ctx context.Context,
 	predicate tree.Expression,
 	outputColumns []types.ColumnMetadata, assignments []*spi.ColumnAssignment,
 ) spi.SourceConnector {
-	fmt.Printf("create log source connector,table=%s,partitions=%v\n", outputColumns, assignments)
 	return &sourceConnector{
 		ctx:          ctx,
 		engine:       s.engine,
@@ -97,18 +96,15 @@ type sourceConnector struct {
 func (sc *sourceConnector) Run(output chan<- *types.Page) {
 	tableScan := sc.buildTableScan()
 	if tableScan == nil {
-		fmt.Println("table scan is nil")
 		return
 	}
 	sc.partitions = sc.findPartitions(tableScan, sc.partitionIDs)
 	if len(sc.partitions) == 0 {
-		fmt.Printf("table partition is nil,ids=%v\n", sc.partitionIDs)
 		return
 	}
 	indexDB := tableScan.db.IndexDatabase()
 	ns, err := indexDB.GetNamespaceID([]byte("ns"))
 	if err != nil {
-		fmt.Printf("rr1=%v\n", err)
 		panic(ns)
 	}
 	tableScan.nsID = ns
@@ -136,12 +132,12 @@ func (sc *sourceConnector) Run(output chan<- *types.Page) {
 
 	total := 0
 	sc.findLogs(tableScan, func(segment *log.Segment, logIDs *roaring.Bitmap) bool {
-		fmt.Printf("logSegment=%v,log ids:%v,%v\n", segment, logIDs)
 		it := logIDs.ReverseIterator()
 		for it.HasNext() {
 			logID := it.Next()
 			logData, err := segment.GetLog(logID)
 			if err != nil {
+				// TODO: add log
 				fmt.Printf("get log err:%v\n", err)
 			} else {
 				log := &flatLogV1.Log{}
@@ -269,7 +265,6 @@ func (sc *sourceConnector) initializeSearchContext(tableScan *TableScan) {
 			sc.fields = append(sc.fields, item.Name)
 		}
 	})
-	fmt.Printf("hahs ..fields=%v\n", sc.outputsHasTimestamp)
 
 	if sc.hasAggregate {
 		if sc.outputsHasTimestamp {

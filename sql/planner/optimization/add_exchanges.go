@@ -18,9 +18,6 @@
 package optimization
 
 import (
-	"fmt"
-	"reflect"
-
 	"github.com/lindb/lindb/sql/context"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
@@ -42,11 +39,9 @@ func (opt *AddExchanges) Optimize(ctx *context.PlannerContext, plan plan.PlanNod
 		idAllocator: ctx.PlanNodeIDAllocator,
 	})
 	if planProps, ok := result.(*AddExchangesPlan); ok {
-		fmt.Printf("after exchange rewrite=%v\n", planProps.node)
 		return planProps.node
 	}
 	// FIXME: need remove
-	fmt.Printf("after exchange rewrite=%v\n", plan)
 	return plan
 }
 
@@ -55,7 +50,6 @@ type AddExchangesRewrite struct {
 }
 
 func (v *AddExchangesRewrite) Visit(context any, n plan.PlanNode) (r any) {
-	fmt.Printf("222exchange rewrite=%s\n", reflect.TypeOf(n))
 	parentProps := context.(*PreferredProps)
 	switch node := n.(type) {
 	case *plan.OutputNode:
@@ -94,9 +88,7 @@ func (v *AddExchangesRewrite) visitJoin(_ any, node *plan.JoinNode) (r any) {
 }
 
 func (v *AddExchangesRewrite) visitFilter(_ any, node *plan.FilterNode) (r any) {
-	fmt.Printf("node=%v,child=%v\n", node, node.GetSources())
 	if _, ok := node.GetSources()[0].(*plan.TableScanNode); ok {
-		fmt.Println("1231232...")
 		child := &AddExchangesPlan{
 			node:  node,
 			props: v.dervieProps(node, nil),
@@ -149,7 +141,6 @@ func (v *AddExchangesRewrite) planPartitionedJoin(node *plan.JoinNode) *AddExcha
 
 func (v *AddExchangesRewrite) planChild(node plan.PlanNode, preferredProps *PreferredProps) *AddExchangesPlan {
 	child := node.GetSources()[0].Accept(preferredProps, v).(*AddExchangesPlan)
-	fmt.Printf("add exchange child====%T\n", child.node)
 	return child
 }
 

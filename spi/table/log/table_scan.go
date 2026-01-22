@@ -147,7 +147,6 @@ func (v *FieldValuesLookupVisitor) visitPredicate(predicate tree.Node, column tr
 		}
 		columnName = columnSymbols[0].Name
 	}
-	fmt.Printf("column values lookup, column: %s,name=%s\n", column, columnName)
 
 	fieldID, err := v.tableScan.db.IndexDatabase().GetFieldKeyID(v.tableScan.nsID, []byte(columnName))
 	if err != nil {
@@ -156,7 +155,6 @@ func (v *FieldValuesLookupVisitor) visitPredicate(predicate tree.Node, column tr
 	var fieldValueIDs []uint32
 	if _, ok := predicate.(*tree.NullPredicate); !ok {
 		expr := buildExpr(columnName)
-		fmt.Printf("filter expr==%v\n", expr)
 		fieldValueIDs, err = v.tableScan.db.IndexDatabase().FindFieldValueIDs(fieldID, expr)
 		if err != nil {
 			panic(err)

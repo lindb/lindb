@@ -51,7 +51,6 @@ func (p *Pipeline) execOperator(ctx context.Context,
 	exclude bool,
 	output chan<- *types.Page,
 ) {
-	fmt.Printf("run operator=%T\n", op)
 	children := op.Children()
 	inbounds := op.GetInbounds()
 	for i, child := range children {

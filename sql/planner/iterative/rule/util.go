@@ -33,10 +33,8 @@ func restrictOutputs(idAllcator *plan.PlanNodeIDAllocator,
 	restrictedOutputs := filter(outputs, permittedOutputs)
 
 	if len(outputs) == len(restrictedOutputs) || len(restrictedOutputs) == 0 {
-		fmt.Println("outputs same.....")
 		return nil
 	}
-	fmt.Printf("restrictedOutputs, a=%v,b=%v,c=%v\n", outputs, restrictedOutputs, permittedOutputs)
 
 	var assignments plan.Assignments
 	assignments = assignments.Add(restrictedOutputs)
@@ -88,7 +86,6 @@ func pruneInputs(availableInputs []*plan.Symbol, expressions []tree.Expression) 
 }
 
 func filter(source, predicate []*plan.Symbol) []*plan.Symbol {
-	fmt.Printf("opt rule util.go filter source=%v,predicate=%v\n", source, predicate)
 	return lo.Filter(source, func(item *plan.Symbol, index int) bool {
 		return lo.ContainsBy(predicate, func(other *plan.Symbol) bool {
 			return other.Name == item.Name

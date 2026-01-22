@@ -18,9 +18,6 @@
 package optimization
 
 import (
-	"fmt"
-	"reflect"
-
 	"github.com/lindb/lindb/sql/context"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
@@ -48,7 +45,6 @@ type AddLocalExchangesRewrite struct {
 }
 
 func (v *AddLocalExchangesRewrite) Visit(context any, n plan.PlanNode) (r any) {
-	fmt.Printf("add local exchange rewrite=%s,%v\n", reflect.TypeOf(n), n)
 	parentProps := context.(*StreamPreferredProps)
 	switch node := n.(type) {
 	case *plan.OutputNode:
@@ -84,7 +80,6 @@ func (v *AddLocalExchangesRewrite) visitAggregation(parentProps *StreamPreferred
 
 	childRequirements := parentProps.constrainTo(node.Source.GetOutputSymbols()).withDefaultParallelism().withPartitioning(groupingKeys)
 	child := v.planAndEnforce(node.Source, childRequirements, childRequirements)
-	fmt.Printf("agg child:=%v\n", child.node)
 	result := plan.NewAggregationNode(node.GetNodeID(), child.node, node.Aggregations, node.GroupingSets, node.Step)
 	return v.deriveProps(result, []*StreamProps{child.props})
 }
@@ -141,12 +136,10 @@ func (v *AddLocalExchangesRewrite) enforce(planProps *PlanProps, requiredProps *
 	}
 
 	if requiredProps.isSingleStreamPreferred() {
-		fmt.Println("single stream.......")
 		exchangeNode := plan.GatheringExchange(v.idAllocator.Next(), plan.Local, planProps.node)
 		return v.deriveProps(exchangeNode, []*StreamProps{planProps.props})
 	}
 
-	fmt.Println("other stream.......")
 	// no explicit parallel requirement, so gather to a single stream
 	exchangeNode := plan.GatheringExchange(v.idAllocator.Next(), plan.Local, planProps.node)
 	return v.deriveProps(exchangeNode, []*StreamProps{planProps.props})

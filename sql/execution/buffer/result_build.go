@@ -129,12 +129,10 @@ func (rsb *ResultSetBuild) Process() {
 			}
 			rsb.resultSet.Rows = append(rsb.resultSet.Rows, columns)
 		}
-		fmt.Println("merge result page")
 	}
 }
 
 func (rsb *ResultSetBuild) Complete() {
-	fmt.Println("ResultSetBuild close result page")
 	close(rsb.inbound)
 }
 

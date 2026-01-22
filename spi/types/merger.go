@@ -18,14 +18,12 @@
 package types
 
 import (
-	"fmt"
 	"slices"
 
 	"github.com/lindb/lindb/pkg/strutil"
 )
 
 func MergePages(pages []*Page) *Page {
-	fmt.Printf("merge pages: %v\n", pages)
 	switch len(pages) {
 	case 0:
 		return nil
@@ -50,7 +48,6 @@ func MergePages(pages []*Page) *Page {
 				mergeColumns = append(mergeColumns, &mergeColumn{meta: c, target: column, index: idx})
 			}
 		}
-		fmt.Printf("merge columns: %v=%v\n", mergeColumns, pages)
 		for _, page := range pages {
 			if page.Error != "" {
 				// NOTE: if has error, return it
@@ -63,7 +60,6 @@ func MergePages(pages []*Page) *Page {
 				for idx, columnIndex := range groupingColumns {
 					keys[idx] = row.Get(columnIndex)
 				}
-				fmt.Println("merge..............???????>>>>>>>>>>>>")
 				keysStr := strutil.SliceToTypedString(keys) // merge keys
 				mergedRow, ok := grouping[keysStr]
 				if !ok {

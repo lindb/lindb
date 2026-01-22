@@ -67,13 +67,9 @@ func (op *ProjectionOperator) Run(ctx context.Context, output chan<- *types.Page
 		rowNum := 0
 		// logger.GetLogger("sql", "projection").Info("do projection op start", logger.Any("page", source), logger.Any("exp", op.project.Assignments))
 
-		// fmt.Printf("source page layout=%v\n", source.Layout)
-		// fmt.Printf("do projection op start....%v\n", string(encoding.JSONMarshal(source)))
 		it := source.Iterator()
 		for row := it.Begin(); row != it.End(); row = it.Next() {
-			// fmt.Printf("do projection op %v....\n", rowNum)
 			for i, expr := range op.exprs {
-				// fmt.Printf("do %d..... projection op expr %T,%s ret type=%v\n", i, expr, expr.String(), expr.GetType().String())
 				switch expr.GetType() {
 				case types.DTString:
 					val, _, _ := expr.EvalString(row)
@@ -95,38 +91,20 @@ func (op *ProjectionOperator) Run(ctx context.Context, output chan<- *types.Page
 					outputColumns[i].Append(val)
 				case types.DTMap:
 					val, _, _ := expr.EvalMap(row)
-					// fmt.Println(val)
 					outputColumns[i].Append(val)
 				case types.DTExemplar:
 					val, _, _ := expr.EvalExemplar(row)
-					// fmt.Println(val)
 					outputColumns[i].Append(val)
 				default:
-					// fmt.Printf("fail.... do projection op expr %T,%s ret type=%v\n", expr, expr.String(), expr.GetType().String())
 					panic("projection operator error, unsupport data type:" + expr.GetType().String())
 				}
-				// fmt.Println("finish.....")
 			}
 
 			rowNum++
 		}
 
-		// if rowNum > 0 {
-		// fmt.Println("do projection op end....", newPage.NumRows())
 		output <- newPage
-
-		// 	rowNum = 0
-		// 	newPage = types.NewPage()
-		// 	outputColumns = make([]*types.Column, len(op.project.Assignments))
-		// 	for i, assign := range op.project.Assignments {
-		// 		outputColumns[i] = types.NewColumn()
-		// 		newPage.AppendColumn(types.NewColumnInfo(assign.Symbol.Name, assign.Symbol.DataType), outputColumns[i])
-		// 	}
-		// }
 	}
-
-	// fmt.Println("do projection op end....")
-	// output <- newPage
 }
 
 func (op *ProjectionOperator) GetLayout() []*plan.Symbol {
@@ -154,5 +132,4 @@ func (op *ProjectionOperator) prepare() {
 			EvalContext:  op.exprCtx,
 		}, assign.Expression)
 	}
-	// fmt.Printf("do projection op prepare %v\n", op.child.GetLayout())
 }

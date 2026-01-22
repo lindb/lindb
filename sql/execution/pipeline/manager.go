@@ -18,7 +18,6 @@
 package pipeline
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/lindb/common/pkg/logger"
@@ -61,7 +60,6 @@ func (o *driver) registerSourceOperator(source operator.SourceOperator) {
 }
 
 func (o *driver) getSourceOperator(nodeID plan.PlanNodeID) operator.SourceOperator {
-	fmt.Printf("source operator=%v,%v\n", o.sources, nodeID)
 	return o.sources[nodeID]
 }
 
@@ -80,7 +78,6 @@ func NewDriverManager() *driverManager {
 func (mgr *driverManager) RegisterSourceOperator(taskID model.TaskID, source operator.SourceOperator) {
 	mgr.lock.Lock()
 	defer mgr.lock.Unlock()
-	fmt.Printf("registerSourceOperator------------>>>>>=%v\n", taskID)
 
 	driver, ok := mgr.drivers[taskID.RequestID]
 	if !ok {
@@ -104,7 +101,6 @@ func (mgr *driverManager) GetSourceOperator(taskID model.TaskID, nodeID plan.Pla
 	defer mgr.lock.Unlock()
 
 	driver, ok := mgr.drivers[taskID.RequestID]
-	fmt.Printf("get driver=%v,%v\n", driver, mgr.drivers)
 	if !ok {
 		return nil
 	}

@@ -78,7 +78,6 @@ func (opt *IterativeOptimizer) exploreChildren(context *Context, group int) bool
 	expression := context.memo.getNode(group)
 
 	for _, child := range expression.GetSources() {
-		fmt.Printf("explore child: %v\n", child)
 		if groupRef, ok := child.(*plan.GroupReference); ok {
 			if opt.exploreGroup(context, groupRef.GroupID) {
 				progress = true
@@ -110,13 +109,6 @@ func (opt *IterativeOptimizer) exploreNode(context *Context, group int) bool {
 }
 
 func (opt *IterativeOptimizer) transform(context *Context, node plan.PlanNode, rule Rule) plan.PlanNode {
-	// nodeCapture := matching.NewCapture()
-	// pattern := matching.CapturedAs(nodeCapture, rule.GetPattern())
-	// matches := pattern.Match(context.lookup, node, matching.EmptyCaptures)
-	// fmt.Printf("transform===%T,%v,%T,%v\n", rule, matches, node, node)
-	// for _, match := range matches {
-	// TODO: add cost?
-	fmt.Printf("rule========%T,node=%T\n", rule, node)
 	result := rule.Apply(context, node)
 	if result != nil {
 		if opt.logger.Enabled(logger.ErrorLevel) {
@@ -125,6 +117,5 @@ func (opt *IterativeOptimizer) transform(context *Context, node plan.PlanNode, r
 		}
 		return result
 	}
-	// }
 	return nil
 }

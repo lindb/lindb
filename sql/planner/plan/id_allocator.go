@@ -61,7 +61,6 @@ func (a *SymbolAllocator) FromExpression(expression tree.Expression, dataType ty
 		return symbol
 	}
 
-	fmt.Printf("new symbol=%s=>%s,m===>%v,ssss=>%v\n", expression.String(), dataType, a.mapping, a.symbols)
 	nameHint := "expr"
 	var hidden bool
 	var aggregateType types.AggregateType
@@ -89,14 +88,9 @@ func (a *SymbolAllocator) FromExpression(expression tree.Expression, dataType ty
 	return symbol
 }
 
-// func (a *SymbolAllocator) FromSymbol(symbolHint *Symbol, dataType types.DataType, hidden bool) *Symbol {
-// 	return a.NewSymbol(symbolHint.Name, dataType, hidden)
-// }
-
 func (a *SymbolAllocator) NewSymbol(nameHint string, dataType types.DataType, hidden bool) *Symbol {
 	nameHint = cleanNameHint(nameHint)
 
-	fmt.Printf("...................................nameHint=%v, symbols=%v\n", nameHint, a.symbols)
 	// TODO: modify for?
 	_, exist := a.symbols[nameHint]
 	if exist {

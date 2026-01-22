@@ -43,7 +43,6 @@ type TranslationMap struct {
 
 func (t *TranslationMap) Rewrite(expr tree.Expression) tree.Expression {
 	// TODO: check symbol referencea are not allowed/expr if analyzed
-	fmt.Printf("rewrite expression=%v,%T\n", expr, expr)
 	return t.translate(expr, true)
 }
 
@@ -61,7 +60,6 @@ func (t *TranslationMap) withAdditionalMapping(mappings map[string]*plan.Symbol)
 	newMappings := make(map[string]*plan.Symbol)
 	maps.Copy(newMappings, t.astToSymbols)
 	maps.Copy(newMappings, mappings)
-	fmt.Printf("addition mapping=%v,%v\n", newMappings, t)
 	return &TranslationMap{
 		scope:        t.scope,
 		context:      t.context,
@@ -72,7 +70,6 @@ func (t *TranslationMap) withAdditionalMapping(mappings map[string]*plan.Symbol)
 }
 
 func (t *TranslationMap) tryGetMapping(node tree.Expression) *tree.SymbolReference {
-	fmt.Printf("try get maping=%v,%T\n", t.astToSymbols, node)
 	if len(t.astToSymbols) == 0 {
 		return nil
 	}
@@ -94,12 +91,8 @@ func (t *TranslationMap) getSymbolForColumn(node tree.Expression) *plan.Symbol {
 			DataType: field.Field.DataType,
 		}
 	}
-	fmt.Printf("get symbol for column=scope=%v,%v,%T,%T,%v\n", t.scope, node.GetID(), node,
-		field.Scope.RelationID.SourceNode, field.Scope.RelationID.SourceNode.GetID())
 	isLocalScope := t.scope.IsLocalScope(field.Scope)
-	fmt.Printf("t.scope.IsLocalScope(field.Scope)=%v ,%v,%v,%T\n", isLocalScope, t.fieldSymbols, node, node.GetID())
 	if isLocalScope {
-		fmt.Printf("look........%v==%v\n", field.RelationFieldIndex, field.HierarchyFieldIndex)
 		return t.fieldSymbols[field.HierarchyFieldIndex]
 	}
 
@@ -127,7 +120,6 @@ func (t *TranslationMap) CanTranslate(node tree.Expression) bool {
 
 func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tree.Expression) {
 	mapped := t.tryGetMapping(node)
-	fmt.Printf("==translate(%T),mapping=%v\n", node, mapped)
 	if mapped != nil {
 		result = mapped
 	} else {
@@ -144,7 +136,6 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 			}
 			// TODO: add
 		case *tree.Identifier:
-			fmt.Printf("vvvvvvvvvvvvvvvvvvvvvvv ident=%v\n", expr.Value)
 			result = t.getSymbolForColumn(node).ToSymbolReference()
 		case *tree.LongLiteral:
 			result = &tree.Constant{
@@ -228,10 +219,8 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 				panic(fmt.Sprintf("function %s is not supported", expr.Name))
 			}
 			expr.RetType = t.context.AnalyzerContext.Analysis.GetType(expr)
-			fmt.Printf("=======================translate function call=%v\n", expr.Arguments)
 			// TODO: expr.Name = t.context.AnalyzerContext.Analysis.GetResolvedFunction(expr)
 			expr.Arguments = lo.Map(expr.Arguments, func(arg tree.Expression, index int) tree.Expression {
-				fmt.Printf("=======================translate function arg=%v,%T\n", arg, arg)
 				return t.translate(arg, false)
 			})
 			result = expr

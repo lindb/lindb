@@ -75,12 +75,10 @@ type sourceConnector struct {
 func (sc *sourceConnector) Run(output chan<- *types.Page) {
 	tableScan := sc.buildTableScan()
 	if tableScan == nil {
-		fmt.Println("table scan is nil")
 		return
 	}
 	sc.partitions = sc.findPartitions(tableScan, sc.partitionIDs)
 	if len(sc.partitions) == 0 {
-		fmt.Printf("table partition is nil,ids=%v\n", sc.partitionIDs)
 		return
 	}
 	page := types.NewPage()
@@ -97,18 +95,14 @@ func (sc *sourceConnector) Run(output chan<- *types.Page) {
 
 		evalCtx := expression.NewEvalContext(context.TODO())
 		traceID, _ = expression.EvalString(evalCtx, expr.Right)
-		fmt.Println(traceID)
 	}
 	// TODO: check err
 
 	for _, partition := range sc.partitions {
 		for _, segment := range partition.segments {
 			logSegment := segment.(*tracestore.Segment)
-			// logIDs := logSegment.GetLogIDs(ns)
-			fmt.Printf("trace Segment=%v\n", logSegment)
 			logData, err := logSegment.GetTrace(traceID)
 			if err != nil {
-				fmt.Printf("get log err:%v\n", err)
 			} else if len(logData) > 0 {
 				for _, msg := range logData {
 					FilterTracesByTraceID(traceID, msg, msgColumn)
@@ -116,17 +110,6 @@ func (sc *sourceConnector) Run(output chan<- *types.Page) {
 			}
 		}
 	}
-	// batchs := jaeger.ProtoFromTraces(out)
-	// json := string(encoding.JSONMarshal(batchs))
-	// msgColumn.AppendString(json)
-	// req := ptraceotlp.NewExportRequestFromTraces(out)
-	// json, err := req.MarshalJSON()
-	// if err != nil {
-	// 	panic(err)
-	// }
-	//
-	// fmt.Println(string(json))
-	// msgColumn.AppendString(string(json))
 
 	output <- page
 }
@@ -162,7 +145,6 @@ func (sc *sourceConnector) findPartitions(tableScan *TableScan, partitionIDs []i
 func FilterTracesByTraceID(traceID string, msg []byte, column *types.Column) {
 	req := ptraceotlp.NewExportRequest()
 	if err := req.UnmarshalProto(msg); err != nil {
-		fmt.Println(err)
 		return
 	}
 	traces := req.Traces()

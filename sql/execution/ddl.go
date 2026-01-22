@@ -18,8 +18,6 @@
 package execution
 
 import (
-	"fmt"
-
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/ddl"
 	"github.com/lindb/lindb/sql/tree"
@@ -69,7 +67,5 @@ func (exec *DDLExecution) Start() any {
 	if err != nil {
 		panic(err)
 	}
-	// TODO: add log
-	fmt.Println(exec.task.Name())
 	return types.NewPage()
 }

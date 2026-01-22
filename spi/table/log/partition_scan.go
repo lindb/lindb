@@ -18,8 +18,6 @@
 package log
 
 import (
-	"fmt"
-
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/constants"
@@ -111,7 +109,6 @@ func (v *RowsLookupVisitor) visitPredicate(node tree.Node) (uint32, *roaring.Bit
 	if _, ok := node.(*tree.NullPredicate); ok {
 		return field.fieldID, nil
 	}
-	fmt.Printf("node=%d field=%v,tag value ids=%v\n", node.GetID(), field.fieldID, field.fieldValueIDs)
 	logIDs := v.segment.FindLogIDsByFields(field.fieldValueIDs)
 	return field.fieldID, logIDs
 }

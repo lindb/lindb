@@ -18,8 +18,6 @@
 package iterative
 
 import (
-	"fmt"
-
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/sql/planner/plan"
@@ -84,7 +82,6 @@ func (m *Memo) insertRecursive(node plan.PlanNode) int {
 
 func (m *Memo) insertChildrenAndRewrite(node plan.PlanNode) plan.PlanNode {
 	newChildren := lo.Map(node.GetSources(), func(child plan.PlanNode, index int) plan.PlanNode {
-		fmt.Printf("kkk....%T=%v\n", child, child.GetOutputSymbols())
 		return &plan.GroupReference{
 			BaseNode: plan.BaseNode{
 				ID: m.idAllocator.Next(),

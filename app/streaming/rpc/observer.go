@@ -85,7 +85,6 @@ func (r *ObserverHandler) Replica(server protoReplicaV1.ReplicaService_ReplicaSe
 	for {
 		req, err := server.Recv()
 		if err == io.EOF {
-			fmt.Println("replica stream closed by peer")
 			return nil
 		}
 		if err != nil {
@@ -94,8 +93,6 @@ func (r *ObserverHandler) Replica(server protoReplicaV1.ReplicaService_ReplicaSe
 		}
 
 		resp := &protoReplicaV1.ReplicaResponse{}
-		r.logger.Debug("receive write ahead log",
-			logger.Any("from", replicaState.Leader), logger.Int64("index", req.ReplicaIndex))
 
 		ds.Produce(req.Record)
 

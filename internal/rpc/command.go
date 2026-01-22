@@ -19,7 +19,6 @@ package rpc
 
 import (
 	context "context"
-	"fmt"
 
 	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
@@ -53,12 +52,10 @@ func (srv *CommandService) Command(ctx context.Context, request *protoCommandV1.
 		}
 		fragment := &plan.PlanFragment{}
 		data, _ := req.Fragment.MarshalJSON()
-		fmt.Println(string(data))
 		err := encoding.JSONUnmarshal(data, fragment)
 		if err != nil {
 			return nil, err
 		}
-		fmt.Printf("task-req=%v\n", fragment)
 		srv.taskMgr.SubmitTask(req, fragment)
 	default:
 		panic("not support cmd")

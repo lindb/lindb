@@ -72,7 +72,6 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 		return nil, err
 	}
 	db, err := grocksdb.OpenDb(opts, indexPath)
-	fmt.Println(indexPath)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +130,6 @@ func (seg *Segment) Partition() store.Partition {
 func (seg *Segment) Write(leader models.NodeID, seq int64, msg []byte) (rows int, err error) {
 	req := ptraceotlp.NewExportRequest()
 	if err = req.UnmarshalProto(msg); err != nil {
-		fmt.Println(err)
 		return
 	}
 	traceIDs := make(map[string]struct{})
@@ -149,7 +147,6 @@ func (seg *Segment) Write(leader models.NodeID, seq int64, msg []byte) (rows int
 				if _, ok := traceIDs[ss.TraceID().String()]; !ok {
 					seg.db.Merge(wo, []byte(ss.TraceID().String()), encoding.U32ToBytes(uint32(seq)))
 					traceIDs[ss.TraceID().String()] = struct{}{}
-					fmt.Printf("traceID:%s, index:%d\n", ss.TraceID().String(), seq)
 				}
 			}
 		}
@@ -163,21 +160,17 @@ func (seg *Segment) GetTrace(traceID string) (rs [][]byte, err error) {
 		return nil, err
 	}
 	if !indexes.Exists() {
-		fmt.Println("trace not found")
 		return nil, nil
 	}
 	data := indexes.Data()
-	fmt.Printf("get data len=%d\n", len(data))
 	for i := range len(data) / 4 {
 		index := binary.BigEndian.Uint32(data[i*4:])
 		trace, err := seg.WALs[models.NodeID(1)].Get(int64(index))
 		if err != nil {
 			return nil, err
 		}
-		fmt.Printf("logid===%d,len=%d\n", index, len(trace))
 		rs = append(rs, trace)
 	}
-	fmt.Printf("get data len=%d\n", len(rs))
 	return rs, nil
 }
 
@@ -200,7 +193,6 @@ func (seg *Segment) Flush() error {
 func (seg *Segment) indexTrace(leader models.NodeID, index int64, msg []byte) {
 	req := ptraceotlp.NewExportRequest()
 	if err := req.UnmarshalProto(msg); err != nil {
-		fmt.Println(err)
 		return
 	}
 	traceIDs := make(map[string]struct{})
@@ -217,7 +209,6 @@ func (seg *Segment) indexTrace(leader models.NodeID, index int64, msg []byte) {
 				if _, ok := traceIDs[ss.TraceID().String()]; !ok {
 					seg.db.Merge(wo, []byte(ss.TraceID().String()), encoding.U32ToBytes(uint32(index)))
 					traceIDs[ss.TraceID().String()] = struct{}{}
-					fmt.Printf("traceID:%s, index:%d\n", ss.TraceID().String(), index)
 				}
 			}
 		}

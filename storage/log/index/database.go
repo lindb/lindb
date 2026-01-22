@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"fmt"
 
 	"github.com/lindb/common/pkg/fileutil"
 	"github.com/linxGnu/grocksdb"
@@ -144,7 +143,6 @@ func (db *database) initialize() {
 	defer v.Free()
 	if v.Exists() {
 		db.sequence.Store(encoding.BytesToU32(v.Data()))
-		fmt.Printf("index database init sequence=%d\n", db.sequence.Load())
 	}
 }
 
@@ -241,7 +239,6 @@ func (db *database) FindFieldValueIDs(key uint32, expr tree.Expr) (ids []uint32,
 func (db *database) Flush() error {
 	opt := grocksdb.NewDefaultFlushOptions()
 	db.db.Put(wo, sequenceKey, encoding.U32ToBytes(db.sequence.Load()))
-	fmt.Printf("flush index database init sequence=%d\n", db.sequence.Load())
 	return db.db.Flush(opt)
 }
 

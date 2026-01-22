@@ -18,7 +18,6 @@
 package base
 
 import (
-	"fmt"
 	"sync"
 
 	loggerpkg "github.com/lindb/common/pkg/logger"
@@ -84,7 +83,6 @@ func (s *Shard) GetPartitions(interval timeutil.Interval, timeRange timeutil.Tim
 		Start: interval.Calculator().CalcSegmentTime(timeRange.Start),
 		End:   timeRange.End,
 	}
-	fmt.Printf("query time range==%v,%v\n", timeRange, len(partitions))
 
 	for _, partition := range partitions {
 		p, err := partition.Get()
@@ -92,7 +90,6 @@ func (s *Shard) GetPartitions(interval timeutil.Interval, timeRange timeutil.Tim
 			logger.Warn("load partition fail", loggerpkg.Error(err))
 			continue
 		}
-		fmt.Printf("query time range==%v,%v\n", timeRange, targetTimeRange.Contains(p.PartitionTime()))
 		// TODO: maybe user not input time range of query(modify check condition)
 		if timeRange.Start == timeRange.End || targetTimeRange.Contains(p.PartitionTime()) {
 			result = append(result, p)

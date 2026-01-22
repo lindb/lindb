@@ -19,7 +19,6 @@ package operator
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/planner/plan"
@@ -43,8 +42,6 @@ func (op *ValuesOperator) Run(ctx context.Context, output chan<- *types.Page) {
 	} else if node.RowCount == 1 {
 		page = types.RowWithEmptyValue
 	}
-	fmt.Printf("values node =%v\n", page)
-
 	output <- page
 }
 

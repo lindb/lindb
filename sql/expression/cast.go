@@ -48,7 +48,6 @@ func (c *Cast) EvalString(row types.Row) (val string, isNull bool, err error) {
 }
 
 func (c *Cast) EvalInt(row types.Row) (val int64, isNull bool, err error) {
-	fmt.Printf("cast eval int=%v\n", c.retType)
 	return c.function.EvalInt(row)
 }
 
@@ -91,19 +90,16 @@ type castFunc struct {
 
 func (f *castFunc) EvalInt(row types.Row) (val int64, isNull bool, err error) {
 	lv, _, _ := f.args[0].EvalInt(row)
-	fmt.Println("cast int..........")
 	return lv, false, nil
 }
 
 // EvalFloat implements Func.
 func (f *castFunc) EvalFloat(row types.Row) (val float64, isNull bool, err error) {
-	fmt.Println("cast float..........")
 	return
 }
 
 // EvalTimeSeries evaluates the expression, cast result to types.TimeSeries type.
 func (f *castFunc) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error) {
-	fmt.Printf("cast time series..........,type =%T,%s,%s\n", f.args[0], f.args[0].GetType(), f.args[0].String())
 	switch f.args[0].GetType() {
 	case types.DTInt:
 		val, isNull, err := f.args[0].EvalInt(row)

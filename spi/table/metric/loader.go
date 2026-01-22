@@ -18,8 +18,6 @@
 package metric
 
 import (
-	"fmt"
-
 	"github.com/lindb/common/models"
 
 	"github.com/lindb/lindb/flow"
@@ -38,7 +36,6 @@ type familyLoader struct {
 func (fl *familyLoader) load(field field.Meta, getter encoding.TSDValueGetter) {
 	slotRange := fl.filterResultSet.SlotRange()
 	fc := fl.columns[field.Index]
-	fmt.Printf("loading field: %T\n", fc)
 	switch c := (fc).(type) {
 	case *column[float64]:
 		c.load(fl.familyIndex, slotRange, getter.GetValue)

@@ -18,7 +18,6 @@
 package metric
 
 import (
-	"fmt"
 	"slices"
 
 	"github.com/samber/lo"
@@ -66,7 +65,6 @@ func (ds *dataScan) Run() {
 	}
 
 	ds.split.groupingAgg = groupingAgg
-	fmt.Println("run data scan")
 
 	it := ds.split.lowSeriesIDs.PeekableIterator()
 	// loop each low series ids

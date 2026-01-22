@@ -107,7 +107,6 @@ func (mgr *taskManager) dispatchTask() {
 		case task := <-mgr.taskCh:
 			output := buffer.NewPartitionOutputBuffer(task.ID, task.Fragment)
 			mgr.taskPool.Submit(context.TODO(), concurrent.NewTask(func() {
-				fmt.Println(task)
 				planPrinter := printer.NewPlanPrinter(printer.NewTextRender(0))
 				fmt.Println("******************")
 				fmt.Println(planPrinter.PrintLogicPlan(task.Fragment.Root))
@@ -125,19 +124,14 @@ func (mgr *taskManager) dispatchTask() {
 					for page := range outputCh {
 						// TODO: can merge page?
 						output.AddPage(page)
-						fmt.Println("send page done...")
 					}
-					fmt.Println("task done 2.....")
 					output.Complete()
-					fmt.Println("task done.....")
 				}()
 
 				if err := exec.Execute(outputCh); err != nil {
 					output.AddPage(&types.Page{Error: err.Error()})
 				}
-				fmt.Printf("task exec result\n")
 			}, func(err error) {
-				fmt.Printf("task exec fail %v\n", err)
 				output.AddPage(&types.Page{Error: err.Error()})
 			}))
 		case <-mgr.ctx.Done():

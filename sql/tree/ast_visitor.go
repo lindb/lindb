@@ -18,7 +18,6 @@
 package tree
 
 import (
-	"fmt"
 	"reflect"
 	"strings"
 
@@ -310,7 +309,6 @@ func (v *AstVisitor) VisitWithProps(ctx *grammar.WithPropsContext) any {
 }
 
 func (v *AstVisitor) VisitRollupProps(ctx *grammar.RollupPropsContext) any {
-	fmt.Println("rollup props")
 	return visit[*RollupOption](ctx.AllRollupOptions(), v)
 }
 
@@ -332,7 +330,6 @@ func (v *AstVisitor) VisitEngineOption(ctx *grammar.EngineOptionContext) any {
 }
 
 func (v *AstVisitor) VisitRollupOptions(ctx *grammar.RollupOptionsContext) any {
-	fmt.Println("rollup props options")
 	return &RollupOption{
 		BaseNode: v.createBaseNode(ctx),
 		Props:    visit[*Property](ctx.Properties().PropertyAssignments().AllProperty(), v),
@@ -845,7 +842,6 @@ func (v *AstVisitor) VisitValueExpressionPredicate(ctx *grammar.ValueExpressionP
 	if ctx.ValueExpression() != nil {
 		return v.Visit(ctx.ValueExpression())
 	}
-	fmt.Printf("value path...=%v\n", ctx)
 	return v.VisitChildren(ctx)
 }
 

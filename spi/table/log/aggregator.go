@@ -18,8 +18,6 @@
 package log
 
 import (
-	"fmt"
-
 	"github.com/lindb/roaring"
 	"github.com/samber/lo"
 
@@ -64,7 +62,6 @@ func (agg *aggregatorByTime) Aggregate(output chan<- *types.Page) {
 		segment.FindLogIDsByTimeRange(agg.tableScan.timeRange, func(timestamp int64, logIDsFromStore *roaring.Bitmap) {
 			logIDsFromStore.And(logIDs)
 			pos := int((timestamp - agg.tableScan.timeRange.Start) / 60_000)
-			fmt.Printf("--------------logID===>%v=%v,%v\n", pos, logIDsFromStore.GetCardinality(), logIDs.GetCardinality())
 
 			timeseries.Put(pos, timeseries.Get(pos)+float64(logIDsFromStore.GetCardinality()))
 		})

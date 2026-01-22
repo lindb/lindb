@@ -18,8 +18,6 @@
 package metric
 
 import (
-	"fmt"
-
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -31,7 +29,6 @@ func execute(ctx *ExecutionContext, pool concurrent.Pool, handle func()) {
 		ctx.CompleteTask()
 	}, func(err error) {
 		ctx.CompleteTask()
-		fmt.Printf("task exec fail %v\n", err)
 	}))
 }
 

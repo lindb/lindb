@@ -17,12 +17,7 @@
 
 package types
 
-import (
-	"fmt"
-)
-
 func GetAccurateType(lhs, rhs DataType) DataType {
-	fmt.Printf("get accurate type lhs %v, rhs %v\n", lhs, rhs)
 	switch lhs {
 	case DTInt:
 		switch rhs {

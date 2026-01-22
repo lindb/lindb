@@ -18,8 +18,6 @@
 package analyzer
 
 import (
-	"fmt"
-
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
@@ -135,12 +133,10 @@ func (a *Analysis) GetImplicitFromScope(node *tree.QuerySpecification) (scope *S
 }
 
 func (a *Analysis) SetScope(node tree.Node, scope *Scope) {
-	fmt.Printf("set scope=%v,%v,%T\n", node.GetID(), node, node)
 	a.scopes[node.GetID()] = scope
 }
 
 func (a *Analysis) GetScope(node tree.Node) (scope *Scope) {
-	fmt.Printf("get scope=%v\n", node.GetID())
 	scope = a.scopes[node.GetID()]
 	return
 }
@@ -286,10 +282,6 @@ func (a *Analysis) IsColumnReference(node tree.Expression) bool {
 
 func (a *Analysis) GetColumnReferenceField(node tree.Expression) (field *ResolvedField) {
 	field = a.columnReferences[node.GetID()]
-	fmt.Printf("get column reference field: %v,%v,%v\n", node.GetID(), field, a.columnReferences)
-	if field != nil {
-		fmt.Println(field.Field.Name)
-	}
 	return
 }
 

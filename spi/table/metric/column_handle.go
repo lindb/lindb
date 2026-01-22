@@ -58,7 +58,6 @@ func (a *aggregator[V]) aggregate(dst Result) {
 			// TODO: add log
 			panic(fmt.Sprintf("warn offset < 0, offset=%v\n", offset))
 		}
-		fmt.Printf("debug aggregate source=%p, timestamp=%v, value=%v, offset=%v\n", a.source, timestamp, value, offset)
 		switch d := dst.(type) {
 		case *result[V]:
 			if d.array.HasValue(offset) {
@@ -153,7 +152,6 @@ func (c *column[V]) load(familyIndex int, slotRange timeutil.SlotRange, getter f
 			// no data, goto next loop
 			continue
 		}
-		fmt.Printf("debug load timestamp=%v, value=%v\n", movingSourceSlot, value)
 		columnStream.SetAtStep(int(movingSourceSlot), value, fn)
 	}
 }
@@ -168,7 +166,6 @@ func (c *column[V]) downsampling(familyLoaders []*loader) {
 			value := c.streams.GetStreamByIndex(familyIndex, func() Stream[V] {
 				return NewStream[V](6 * 60)
 			}).GetAtStep(int(movingSourceSlot))
-			// fmt.Printf("debug downsampling timestamp=%v, value=%v\n", timestamp, value)
 
 			// rollup
 			for _, r := range c.rollups {

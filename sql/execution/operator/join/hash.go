@@ -19,7 +19,6 @@ package join
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/samber/lo"
@@ -110,7 +109,6 @@ func (h *HashJoinOperator) Run(ctx context.Context, output chan<- *types.Page) {
 				return
 			}
 			h.process(page, keys, isLeft)
-			fmt.Printf("isLeft %v=>>>>>>>%v\n", isLeft, page)
 		}
 	}
 
@@ -129,8 +127,7 @@ func (h *HashJoinOperator) Run(ctx context.Context, output chan<- *types.Page) {
 			outputColumns[i])
 	}
 
-	for key, memRows := range h.memTable {
-		fmt.Printf("join key=%v,memRows=%v........\n", key, memRows)
+	for _, memRows := range h.memTable {
 		if memRows.left != nil && memRows.right != nil {
 			for i := range len(h.leftScope) {
 				outputColumns[i].Append(memRows.left.Get(i))

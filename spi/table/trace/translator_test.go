@@ -19,7 +19,6 @@ package trace
 
 import (
 	"encoding/hex"
-	"fmt"
 	"testing"
 
 	"go.opentelemetry.io/otel/trace"
@@ -35,5 +34,4 @@ func TestTraceID(t *testing.T) {
 		return
 	}
 	copy(traceID[:], b)
-	fmt.Println(traceID.String())
 }
