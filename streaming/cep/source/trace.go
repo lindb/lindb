@@ -31,14 +31,18 @@ import (
 )
 
 const (
-	SpanStream = "span"
+	SpanStream  = "span"
+	EventStream = "event"
 )
 
 func init() {
 	RegisterSource(SourceType(option.Trace), func(runtime runtime.Runtime) Source {
 		// register span schema
-		emptyPage := NewTracePageBuilder().Build()
+		emptyPage := NewSpanPageBuilder().Build()
 		runtime.RegisterStreamBySchema(SpanStream, &types.TableSchema{Columns: emptyPage.Layout})
+		// register event schema
+		emptyPage = NewEventPageBuilder().Build()
+		runtime.RegisterStreamBySchema(EventStream, &types.TableSchema{Columns: emptyPage.Layout})
 
 		return &trace{
 			runtime: runtime,
@@ -50,6 +54,9 @@ func init() {
 type trace struct {
 	runtime runtime.Runtime
 
+	spans  *SpanPageBuilder
+	events *EventPageBuilder
+
 	logger logger.Logger
 }
 
@@ -60,31 +67,29 @@ func (t *trace) Receive(e models.Event) {
 		t.logger.Warn("trace source receive invalid event type", logger.Any("event", reflect.TypeOf(e)))
 		return
 	}
-	page, err := ToPage(traces)
-	if err != nil {
-		return
-	}
-	t.runtime.GetInputHandler(SpanStream).Send(page)
+	// TODO: check if need create new builders per receive
+	t.spans = NewSpanPageBuilder()
+	t.events = NewEventPageBuilder()
+
+	t.ToPage(traces)
+
+	t.runtime.GetInputHandler(SpanStream).Send(t.spans.Build())
+	t.runtime.GetInputHandler(EventStream).Send(t.events.Build())
 }
 
-func ToPage(traces ptrace.Traces) (*types.Page, error) {
+func (t *trace) ToPage(traces ptrace.Traces) {
 	resourceSpans := traces.ResourceSpans()
 
 	if resourceSpans.Len() == 0 {
-		return nil, nil
+		return
 	}
-
-	builder := NewTracePageBuilder()
 
 	for i := 0; i < resourceSpans.Len(); i++ {
-		rs := resourceSpans.At(i)
-		translateResourceSpans(rs, builder)
+		t.translateResourceSpans(resourceSpans.At(i))
 	}
-
-	return builder.Build(), nil
 }
 
-func translateResourceSpans(rs ptrace.ResourceSpans, builder *TracePageBuilder) {
+func (t *trace) translateResourceSpans(rs ptrace.ResourceSpans) {
 	scopeSpans := rs.ScopeSpans()
 
 	if scopeSpans.Len() == 0 {
@@ -98,10 +103,17 @@ func translateResourceSpans(rs ptrace.ResourceSpans, builder *TracePageBuilder) 
 		for j := 0; j < spans.Len(); j++ {
 			span := spans.At(j)
 
-			builder.AppendSpan(resource, span)
+			t.spans.AppendSpan(resource, span)
 
-			// TODO: add events
+			t.translateSpanEvents(resource, span)
 		}
+	}
+}
+
+func (t *trace) translateSpanEvents(resource map[string]string, span ptrace.Span) {
+	events := span.Events()
+	for i := 0; i < events.Len(); i++ {
+		t.events.AppendEvent(resource, span, events.At(i))
 	}
 }
 
@@ -125,7 +137,7 @@ func translateAttributes(attrs pcommon.Map) map[string]string {
 	return rs
 }
 
-type TracePageBuilder struct {
+type SpanPageBuilder struct {
 	page *types.Page
 
 	traceID      *types.Column
@@ -144,8 +156,8 @@ type TracePageBuilder struct {
 	resource *types.Column
 }
 
-func NewTracePageBuilder() *TracePageBuilder {
-	builder := &TracePageBuilder{
+func NewSpanPageBuilder() *SpanPageBuilder {
+	builder := &SpanPageBuilder{
 		page: types.NewPage(),
 
 		traceID:      types.NewColumn(),
@@ -179,7 +191,7 @@ func NewTracePageBuilder() *TracePageBuilder {
 	return builder
 }
 
-func (b *TracePageBuilder) AppendSpan(resource map[string]string, span ptrace.Span) {
+func (b *SpanPageBuilder) AppendSpan(resource map[string]string, span ptrace.Span) {
 	// translate span
 	b.traceID.Append(span.TraceID().String())
 	b.spanID.Append(span.SpanID().String())
@@ -202,6 +214,62 @@ func (b *TracePageBuilder) AppendSpan(resource map[string]string, span ptrace.Sp
 	b.resource.Append(resource)
 }
 
-func (b *TracePageBuilder) Build() *types.Page {
+func (b *SpanPageBuilder) Build() *types.Page {
+	return b.page
+}
+
+type EventPageBuilder struct {
+	page *types.Page
+
+	traceID *types.Column
+	spanID  *types.Column
+
+	name       *types.Column
+	timestamap *types.Column
+	attributes *types.Column
+
+	resource *types.Column
+}
+
+func NewEventPageBuilder() *EventPageBuilder {
+	builder := &EventPageBuilder{
+		page: types.NewPage(),
+
+		traceID: types.NewColumn(),
+		spanID:  types.NewColumn(),
+
+		name:       types.NewColumn(),
+		timestamap: types.NewColumn(),
+		attributes: types.NewColumn(),
+
+		resource: types.NewColumn(),
+	}
+
+	builder.page.AppendColumn(types.ColumnMetadata{Name: "trace_id", DataType: types.DTString}, builder.traceID)
+	builder.page.AppendColumn(types.ColumnMetadata{Name: "span_id", DataType: types.DTString}, builder.spanID)
+
+	builder.page.AppendColumn(types.ColumnMetadata{Name: "name", DataType: types.DTString}, builder.name)
+	builder.page.AppendColumn(types.ColumnMetadata{Name: "start_time", DataType: types.DTTimestamp}, builder.timestamap)
+	builder.page.AppendColumn(types.ColumnMetadata{Name: "attributes", DataType: types.DTMap}, builder.attributes)
+
+	builder.page.AppendColumn(types.ColumnMetadata{Name: "resource", DataType: types.DTMap}, builder.resource)
+
+	return builder
+}
+
+func (b *EventPageBuilder) AppendEvent(resource map[string]string, span ptrace.Span, event ptrace.SpanEvent) {
+	// translate event
+	b.traceID.Append(span.TraceID().String())
+	b.spanID.Append(span.SpanID().String())
+
+	b.name.Append(span.Name())
+	b.timestamap.Append(event.Timestamp().AsTime())
+	b.attributes.Append(translateAttributes(span.Attributes()))
+
+	// set resource
+	b.resource.Append(resource)
+}
+
+func (b *EventPageBuilder) Build() *types.Page {
 	return b.page
 }
