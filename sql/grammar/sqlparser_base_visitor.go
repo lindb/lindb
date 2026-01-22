@@ -28,6 +28,14 @@ func (v *BaseSQLParserVisitor) VisitStatement(ctx *StatementContext) interface{}
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseSQLParserVisitor) VisitStreamingDDLStement(ctx *StreamingDDLStementContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLParserVisitor) VisitDropStreamingJob(ctx *DropStreamingJobContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseSQLParserVisitor) VisitCreateStreamingJob(ctx *CreateStreamingJobContext) interface{} {
 	return v.VisitChildren(ctx)
 }

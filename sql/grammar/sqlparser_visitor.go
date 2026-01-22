@@ -27,6 +27,12 @@ type SQLParserVisitor interface {
 	// Visit a parse tree produced by SQLParser#statement.
 	VisitStatement(ctx *StatementContext) interface{}
 
+	// Visit a parse tree produced by SQLParser#streamingDDLStement.
+	VisitStreamingDDLStement(ctx *StreamingDDLStementContext) interface{}
+
+	// Visit a parse tree produced by SQLParser#dropStreamingJob.
+	VisitDropStreamingJob(ctx *DropStreamingJobContext) interface{}
+
 	// Visit a parse tree produced by SQLParser#createStreamingJob.
 	VisitCreateStreamingJob(ctx *CreateStreamingJobContext) interface{}
 

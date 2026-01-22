@@ -47,4 +47,5 @@ type MetadataManager interface {
 
 	CreateStreaming(ctx context.Context, stream *models.Streaming) error
 	CreateJob(ctx context.Context, stream, job, sql string) error
+	DropJob(ctx context.Context, stream, job string) error
 }

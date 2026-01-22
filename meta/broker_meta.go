@@ -171,6 +171,11 @@ func (m *brokerMetadataManager) CreateJob(ctx context.Context, stream, job, sql 
 	return m.repo.Put(ctx, jobPath, []byte(sql))
 }
 
+func (m *brokerMetadataManager) DropJob(ctx context.Context, stream, job string) error {
+	jobPath := constants.GetStreamingJobPath(stream, job)
+	return m.repo.Delete(ctx, jobPath)
+}
+
 func (m *brokerMetadataManager) getTableSchema(
 	database, ns, table string,
 	node models.InternalNode,

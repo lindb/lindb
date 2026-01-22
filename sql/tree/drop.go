@@ -17,6 +17,16 @@
 
 package tree
 
+type DropJob struct {
+	BaseNode
+	Name   string
+	Exists bool
+}
+
+func (n *DropJob) Accept(context any, visitor Visitor) (r any) {
+	return visitor.Visit(context, n)
+}
+
 type DropDatabase struct {
 	BaseNode
 	Name   string

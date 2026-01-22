@@ -30,9 +30,13 @@ var statementTypes = make(map[reflect.Type]models.StatementType)
 func init() {
 	// DDL
 	statementTypes[reflect.TypeFor[*tree.CreateDatabase]()] = models.DataDefinition
+	statementTypes[reflect.TypeFor[*tree.DropDatabase]()] = models.DataDefinition
+
+	// Streaming DDL
 	statementTypes[reflect.TypeFor[*tree.CreateStreaming]()] = models.DataDefinition
 	statementTypes[reflect.TypeFor[*tree.CreateJob]()] = models.DataDefinition
-	statementTypes[reflect.TypeFor[*tree.DropDatabase]()] = models.DataDefinition
+	statementTypes[reflect.TypeFor[*tree.DropJob]()] = models.DataDefinition
+
 	// DML
 	statementTypes[reflect.TypeFor[*tree.Query]()] = models.Select
 	// Explain

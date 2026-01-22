@@ -43,6 +43,18 @@ func (s *BaseSQLParserListener) EnterStatement(ctx *StatementContext) {}
 // ExitStatement is called when production statement is exited.
 func (s *BaseSQLParserListener) ExitStatement(ctx *StatementContext) {}
 
+// EnterStreamingDDLStement is called when production streamingDDLStement is entered.
+func (s *BaseSQLParserListener) EnterStreamingDDLStement(ctx *StreamingDDLStementContext) {}
+
+// ExitStreamingDDLStement is called when production streamingDDLStement is exited.
+func (s *BaseSQLParserListener) ExitStreamingDDLStement(ctx *StreamingDDLStementContext) {}
+
+// EnterDropStreamingJob is called when production dropStreamingJob is entered.
+func (s *BaseSQLParserListener) EnterDropStreamingJob(ctx *DropStreamingJobContext) {}
+
+// ExitDropStreamingJob is called when production dropStreamingJob is exited.
+func (s *BaseSQLParserListener) ExitDropStreamingJob(ctx *DropStreamingJobContext) {}
+
 // EnterCreateStreamingJob is called when production createStreamingJob is entered.
 func (s *BaseSQLParserListener) EnterCreateStreamingJob(ctx *CreateStreamingJobContext) {}
 

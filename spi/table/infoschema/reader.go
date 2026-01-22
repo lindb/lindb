@@ -43,6 +43,7 @@ import (
 	"github.com/lindb/lindb/meta"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
+	"github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/expression"
 	"github.com/lindb/lindb/sql/planner/plan"
@@ -245,7 +246,6 @@ func (r *reader) readStreamingJobs(ctx context.Context, database string, predica
 	} else {
 		streaming = database
 	}
-	fmt.Printf("streaming: %s,database:%s\n", streaming, database)
 	if streaming == "" {
 		return nil, errors.New("streaming not select")
 	}
@@ -254,10 +254,14 @@ func (r *reader) readStreamingJobs(ctx context.Context, database string, predica
 		return nil, errors.New("name not found in where clause")
 	}
 	data, err := r.metadataMgr.GetStateRepo().Get(ctx, constants.GetStreamingJobPath(streaming, name))
+	if errors.Is(err, state.ErrNotExist) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}
 	rows = append(rows, types.MakeDatums(
+
 		streaming,    // streaming
 		name,         // name
 		string(data), // statement

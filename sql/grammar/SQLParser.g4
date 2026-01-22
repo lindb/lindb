@@ -11,15 +11,21 @@ statement           : ddlStatement
                     | dmlStatement
                     | adminStatement
                     | utilityStatement 
-                    | createStreamingJob
+                    | streamingDDLStement
                     | streamingApp 
                     EOF
                     ;
 
+streamingDDLStement : createStreamingJob 
+                    | dropStreamingJob
+                    ;
+
+dropStreamingJob    : DROP JOB (IF EXISTS)? name=qualifiedName ;
+
 createStreamingJob	: CREATE JOB name=qualifiedName
 											BEGIN
 											 streamingApp
-											END SEMICOLON?
+											END 
 										;
 
 streamingApp        : (appAnnotation)* 

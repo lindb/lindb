@@ -46,6 +46,8 @@ func (f *DDLExecutionFactory) CreateExecution(session *Session, statement *tree.
 		task = ddl.NewCreateStreaming(f.deps.MetaMgr, sType)
 	case *tree.CreateJob:
 		task = ddl.NewCreateJob(f.deps.MetaMgr, sType)
+	case *tree.DropJob:
+		task = ddl.NewDropJob(f.deps.MetaMgr, sType)
 	}
 	return NewDDLExecution(session, task)
 }

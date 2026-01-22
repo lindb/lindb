@@ -66,11 +66,33 @@ func (v *AstVisitor) VisitStatement(ctx *grammar.StatementContext) any {
 		return v.Visit(ctx.AdminStatement())
 	case ctx.StreamingApp() != nil:
 		return v.Visit(ctx.StreamingApp())
-	case ctx.CreateStreamingJob() != nil:
-		return v.Visit(ctx.CreateStreamingJob())
+	case ctx.StreamingDDLStement() != nil:
+		return v.Visit(ctx.StreamingDDLStement())
 	default:
 		return v.VisitChildren(ctx)
 	}
+}
+
+func (v *AstVisitor) VisitStreamingDDLStement(ctx *grammar.StreamingDDLStementContext) any {
+	switch {
+	case ctx.CreateStreamingJob() != nil:
+		return v.Visit(ctx.CreateStreamingJob())
+	case ctx.DropStreamingJob() != nil:
+		return v.Visit(ctx.DropStreamingJob())
+	default:
+		return v.VisitChildren(ctx)
+	}
+}
+
+func (v *AstVisitor) VisitDropStreamingJob(ctx *grammar.DropStreamingJobContext) any {
+	dropJob := &DropJob{
+		BaseNode: v.createBaseNode(ctx),
+		Name:     v.getQualifiedName(ctx.GetName()).Name,
+	}
+	if ctx.EXISTS() != nil {
+		dropJob.Exists = true
+	}
+	return dropJob
 }
 
 func (v *AstVisitor) VisitCreateStreamingJob(ctx *grammar.CreateStreamingJobContext) any {
