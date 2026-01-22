@@ -15,47 +15,59 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package transfer
+package source
 
 import (
+	"reflect"
+
+	"github.com/lindb/common/pkg/logger"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/ptrace"
-	"go.opentelemetry.io/collector/pdata/ptrace/ptraceotlp"
 
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/spi/types"
+	"github.com/lindb/lindb/streaming/cep/runtime"
+)
+
+const (
+	SpanStream = "span"
 )
 
 func init() {
-	RegisterTransfer(option.Trace, newTrace())
+	RegisterSource(SourceType(option.Trace), func(runtime runtime.Runtime) Source {
+		// register span schema
+		emptyPage := NewTracePageBuilder().Build()
+		runtime.RegisterStreamBySchema(SpanStream, &types.TableSchema{Columns: emptyPage.Layout})
+
+		return &trace{
+			runtime: runtime,
+			logger:  logger.GetLogger("CEP", "TraceSource"),
+		}
+	})
 }
 
 type trace struct {
-	schema *types.TableSchema
+	runtime runtime.Runtime
+
+	logger logger.Logger
 }
 
-func newTrace() *trace {
-	// create empty page just to get schema
-	emptyPage := NewTracePageBuilder().Build()
-	return &trace{
-		schema: &types.TableSchema{
-			Columns: emptyPage.Layout,
-		},
+// Receive implements [Source].
+func (t *trace) Receive(e models.Event) {
+	traces, ok := e.(ptrace.Traces)
+	if !ok {
+		t.logger.Warn("trace source receive invalid event type", logger.Any("event", reflect.TypeOf(e)))
+		return
 	}
-}
-
-// Schema implements [Transfer].
-func (t *trace) Schema() *types.TableSchema {
-	return t.schema
-}
-
-// ToPage implements [Transfer].
-func (t *trace) ToPage(data []byte) (*types.Page, error) {
-	req := ptraceotlp.NewExportRequest()
-	if err := req.UnmarshalProto(data); err != nil {
-		return nil, err
+	page, err := ToPage(traces)
+	if err != nil {
+		return
 	}
-	traces := req.Traces()
+	t.runtime.GetInputHandler(SpanStream).Send(page)
+}
+
+func ToPage(traces ptrace.Traces) (*types.Page, error) {
 	resourceSpans := traces.ResourceSpans()
 
 	if resourceSpans.Len() == 0 {
@@ -87,6 +99,8 @@ func translateResourceSpans(rs ptrace.ResourceSpans, builder *TracePageBuilder) 
 			span := spans.At(j)
 
 			builder.AppendSpan(resource, span)
+
+			// TODO: add events
 		}
 	}
 }

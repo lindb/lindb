@@ -15,9 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package cep
+package decode
 
-type Receiver interface {
-	Receive(msg []byte)
-	// TODO: add close
+import (
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/option"
+)
+
+var decoderRegistry = make(map[option.EngineType]Decoder)
+
+// RegisterDecoder registers decoder for given format.
+func RegisterDecoder(engine option.EngineType, decoder Decoder) {
+	decoderRegistry[engine] = decoder
+}
+
+func GetDecoder(engine option.EngineType) Decoder {
+	return decoderRegistry[engine]
+}
+
+type Decoder interface {
+	ToEvent(data []byte) (models.Event, error)
 }

@@ -15,34 +15,47 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package meta
+package cep
 
 import (
-	"sync/atomic"
+	"fmt"
 
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/streaming/cep/runtime"
+	"github.com/lindb/lindb/streaming/cep/source"
 )
 
-var currentNode atomic.Value
-
-var currentObserver atomic.Value
-
-// SetCurrentNode sets current node.
-func SetCurrentNode(node models.NodeID) {
-	currentNode.Store(node)
+type Engine struct {
+	db      *models.Database
+	source  source.Source
+	runtime runtime.Runtime
 }
 
-// CurrentNode returns current node.
-func CurrentNode() models.NodeID {
-	return currentNode.Load().(models.NodeID)
+func NewEngine(stream *models.Streaming, db *models.Database) *Engine {
+	return &Engine{
+		db:      db,
+		runtime: runtime.NewRuntime(stream.Name),
+	}
 }
 
-// SetCurrentObserver sets current observer(namespace).
-func SetCurrentObserver(observer string) {
-	currentObserver.Store(observer)
+func (e *Engine) Send(event models.Event) {
+	e.source.Receive(event)
 }
 
-// CurrentObserver returns current observer(namespace).
-func CurrentObserver() string {
-	return currentObserver.Load().(string)
+func (e *Engine) DeployJob(script string) error {
+	return e.runtime.Query(script)
+}
+
+func (e *Engine) Start() error {
+	s, err := source.GetSource(source.SourceType(e.db.Option.Engine), e.runtime)
+	if err != nil {
+		return fmt.Errorf("source not found for type %s", e.db.Option.Engine)
+	}
+	e.source = s
+
+	return nil
+}
+
+func (e *Engine) Stop() error {
+	return nil
 }

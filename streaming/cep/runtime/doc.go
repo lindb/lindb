@@ -15,34 +15,5 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package meta
-
-import (
-	"sync/atomic"
-
-	"github.com/lindb/lindb/models"
-)
-
-var currentNode atomic.Value
-
-var currentObserver atomic.Value
-
-// SetCurrentNode sets current node.
-func SetCurrentNode(node models.NodeID) {
-	currentNode.Store(node)
-}
-
-// CurrentNode returns current node.
-func CurrentNode() models.NodeID {
-	return currentNode.Load().(models.NodeID)
-}
-
-// SetCurrentObserver sets current observer(namespace).
-func SetCurrentObserver(observer string) {
-	currentObserver.Store(observer)
-}
-
-// CurrentObserver returns current observer(namespace).
-func CurrentObserver() string {
-	return currentObserver.Load().(string)
-}
+// Package runtime contains the core runtime components for the Complex Event Processing (CEP) engine in a streaming data system.
+package runtime

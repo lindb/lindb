@@ -15,25 +15,5 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package transfer
-
-import (
-	"github.com/lindb/lindb/pkg/option"
-	"github.com/lindb/lindb/spi/types"
-)
-
-var transferRegistry = make(map[option.EngineType]Transfer)
-
-// RegisterTransfer registers transfer for given format.
-func RegisterTransfer(engine option.EngineType, transfer Transfer) {
-	transferRegistry[engine] = transfer
-}
-
-func GetTransfer(engine option.EngineType) Transfer {
-	return transferRegistry[engine]
-}
-
-type Transfer interface {
-	Schema() *types.TableSchema
-	ToPage(data []byte) (*types.Page, error)
-}
+// Package source contains implementations of various event sources for CEP engines.
+package source

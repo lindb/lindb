@@ -15,5 +15,29 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Package transfer provides utilities for transferring streaming data between different data type.
-package transfer
+package decode
+
+import (
+	"go.opentelemetry.io/collector/pdata/ptrace/ptraceotlp"
+
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/option"
+)
+
+func init() {
+	RegisterDecoder(option.Trace, newTrace())
+}
+
+type trace struct{}
+
+func newTrace() *trace {
+	return &trace{}
+}
+
+func (t *trace) ToEvent(data []byte) (models.Event, error) {
+	req := ptraceotlp.NewExportRequest()
+	if err := req.UnmarshalProto(data); err != nil {
+		return nil, err
+	}
+	return req.Traces(), nil
+}

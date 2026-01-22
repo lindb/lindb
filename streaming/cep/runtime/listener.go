@@ -15,38 +15,37 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package models
+package runtime
 
 import (
-	"fmt"
+	"github.com/lindb/common/pkg/logger"
+
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/streaming/cep/annotation"
+	"github.com/lindb/lindb/streaming/cep/sink"
 )
 
-type Event any
-
-type Streaming struct {
-	Name     string `json:"name"`
-	Observer string `json:"observer"`
-	Database string `json:"database"`
+type Listener struct {
+	mapper annotation.Mapper
+	sinks  []sink.Sink
+	logger logger.Logger
 }
 
-func (s *Streaming) String() string {
-	return fmt.Sprintf(`create streaming "%s"(observer "%s", database "%s")`, s.Name, s.Observer, s.Database)
+func NewListener(mapper annotation.Mapper, sinks []sink.Sink) *Listener {
+	return &Listener{
+		mapper: mapper,
+		sinks:  sinks,
+		logger: logger.GetLogger("CEP", "Listener"),
+	}
 }
 
-type ConsumeAssignment struct {
-	ConsumerID NodeID
-	Shards     []ShardID
-}
-
-type StreamingState struct {
-	Config             Streaming                `json:"config"`
-	Consumers          map[NodeID]StatelessNode `json:"consumers"`
-	ConsumeAssignments []ConsumeAssignment      `json:"consumeAssignments"`
-}
-
-// ModifyStreamingJob represents modifying streaming job event.
-type ModifyStreamingJob struct {
-	Streaming string
-	JobName   string
-	Script    string
+func (l *Listener) Receive(event models.Event) {
+	// TODO: add multiple mappers support?
+	if l.mapper != nil {
+		event = l.mapper.Map(event)
+	}
+	for _, s := range l.sinks {
+		s.Publish(event)
+	}
+	l.logger.Info("Listener, receive event", logger.Any("event", event))
 }

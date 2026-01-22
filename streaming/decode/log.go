@@ -15,28 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package transfer
+package decode
 
 import (
 	"fmt"
 
+	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
-	"github.com/lindb/lindb/spi/types"
 )
 
 func init() {
-	RegisterTransfer(option.Metric, &metric{})
+	RegisterDecoder(option.Log, &log{})
 }
 
-type metric struct{}
+type log struct{}
 
-// Schema implements [Transfer].
-func (m *metric) Schema() *types.TableSchema {
-	return nil
-}
-
-// ToPage implements [Transfer].
-func (m *metric) ToPage(data []byte) (*types.Page, error) {
-	fmt.Println("metric to page")
+func (l *log) ToEvent(data []byte) (models.Event, error) {
+	fmt.Println("log to event")
 	return nil, nil
 }

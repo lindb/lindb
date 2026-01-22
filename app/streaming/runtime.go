@@ -35,6 +35,7 @@ import (
 	"github.com/lindb/lindb/internal/api"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/internal/server"
+	"github.com/lindb/lindb/meta"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/hostutil"
 	httppkg "github.com/lindb/lindb/pkg/http"
@@ -131,6 +132,9 @@ func (r *runtime) Run() error {
 		{Key: []byte("namespace"), Value: []byte(r.config.Coordinator.Namespace)},
 	}
 	r.BaseRuntime = app.NewBaseRuntimeFn(r.ctx, r.config.Monitor, linmetric.StreamingRegistry, r.globalKeyValues)
+
+	// set current observer namespace
+	meta.SetCurrentObserver(r.config.StreamingBase.Namespace)
 
 	// start state repo
 	if err = r.startStateRepo(); err != nil {

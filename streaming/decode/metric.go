@@ -15,38 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package models
+package decode
 
 import (
 	"fmt"
+
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/pkg/option"
 )
 
-type Event any
-
-type Streaming struct {
-	Name     string `json:"name"`
-	Observer string `json:"observer"`
-	Database string `json:"database"`
+func init() {
+	RegisterDecoder(option.Metric, &metric{})
 }
 
-func (s *Streaming) String() string {
-	return fmt.Sprintf(`create streaming "%s"(observer "%s", database "%s")`, s.Name, s.Observer, s.Database)
-}
+type metric struct{}
 
-type ConsumeAssignment struct {
-	ConsumerID NodeID
-	Shards     []ShardID
-}
-
-type StreamingState struct {
-	Config             Streaming                `json:"config"`
-	Consumers          map[NodeID]StatelessNode `json:"consumers"`
-	ConsumeAssignments []ConsumeAssignment      `json:"consumeAssignments"`
-}
-
-// ModifyStreamingJob represents modifying streaming job event.
-type ModifyStreamingJob struct {
-	Streaming string
-	JobName   string
-	Script    string
+func (m *metric) ToEvent(data []byte) (models.Event, error) {
+	fmt.Println("metric to event")
+	return nil, nil
 }

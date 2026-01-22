@@ -115,7 +115,15 @@ func (s *stateManager) processEvent(event *discovery.Event) {
 	case discovery.DatabaseConfigChanged:
 		err = s.onDatabaseCfgChange(event.Key, event.Value)
 	case discovery.DatabaseConfigDeletion:
-	// FIXME:
+	// FIXME: impl
+	case discovery.StreamingConfigChanged:
+		err = s.onStreamingCfgChange(event.Key, event.Value)
+	case discovery.StreamingConfigDeletion:
+	// FIXME: impl
+	case discovery.StreamingJobChanged:
+		err = s.onStreamingJobCfgChange(event.Key, event.Value)
+	case discovery.StreamingJobDeletion:
+	// FIXME: impl
 	default:
 		s.logger.Warn("unknown event type", logger.String("type", event.Type.String()))
 	}
@@ -146,6 +154,55 @@ func (s *stateManager) onDatabaseCfgChange(key string, data []byte) error {
 
 	for _, watcher := range s.watchers {
 		watcher.OnEvent(&cfg)
+	}
+
+	return nil
+}
+
+// onStreamingCfgChange triggers when streaming config create/modify.
+func (s *stateManager) onStreamingCfgChange(key string, data []byte) error {
+	s.logger.Info("streaming config is modified",
+		logger.String("key", key),
+		logger.String("data", string(data)))
+
+	cfg := models.Streaming{}
+	if err := encoding.JSONUnmarshal(data, &cfg); err != nil {
+		s.logger.Error("streaming config modified but unmarshal error", logger.Error(err))
+		return err
+	}
+
+	if cfg.Name == "" {
+		s.logger.Error("streaming config name cannot be empty")
+		return constants.ErrNameEmpty
+	}
+
+	for _, watcher := range s.watchers {
+		watcher.OnEvent(&cfg)
+	}
+
+	return nil
+}
+
+// onStreamingJobCfgChange triggers when streaming job create/modify.
+func (s *stateManager) onStreamingJobCfgChange(key string, data []byte) error {
+	s.logger.Info("streaming job config is modified",
+		logger.String("key", key),
+		logger.String("data", string(data)))
+
+	stream, job, err := constants.ParseStreamingJob(key)
+	if err != nil {
+		s.logger.Error("parse streaming job key error", logger.String("key", key), logger.Error(err))
+		return err
+	}
+
+	event := &models.ModifyStreamingJob{
+		Streaming: stream,
+		JobName:   job,
+		Script:    string(data),
+	}
+
+	for _, watcher := range s.watchers {
+		watcher.OnEvent(event)
 	}
 
 	return nil

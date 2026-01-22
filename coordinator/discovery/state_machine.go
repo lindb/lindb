@@ -53,6 +53,7 @@ const (
 	ObserverNodeStateMachine
 	StreamingConfigStateMachine
 	StreamingStateStateMachine
+	StreamingJobStateMachine
 )
 
 // String returns state machine type desc.
@@ -82,6 +83,8 @@ func (st StateMachineType) String() string {
 		return "StreamingConfigStateMachine"
 	case StreamingStateStateMachine:
 		return "StreamingStateStateMachine"
+	case StreamingJobStateMachine:
+		return "StreamingJobStateMachine"
 	default:
 		return "Unknown"
 	}

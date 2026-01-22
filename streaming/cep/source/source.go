@@ -15,28 +15,33 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package transfer
+package source
 
 import (
 	"fmt"
 
-	"github.com/lindb/lindb/pkg/option"
-	"github.com/lindb/lindb/spi/types"
+	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/streaming/cep/runtime"
 )
 
-func init() {
-	RegisterTransfer(option.Log, &log{})
+type SourceType string
+
+type createSourceFunc func(runtime runtime.Runtime) Source
+
+var sourceRegistry = make(map[SourceType]createSourceFunc)
+
+func RegisterSource(sourceType SourceType, source createSourceFunc) {
+	sourceRegistry[sourceType] = source
 }
 
-type log struct{}
-
-// Schema implements [Transfer].
-func (l *log) Schema() *types.TableSchema {
-	return nil
+func GetSource(sourceType SourceType, runtime runtime.Runtime) (Source, error) {
+	fn, ok := sourceRegistry[sourceType]
+	if !ok {
+		return nil, fmt.Errorf("source type %s not registered", sourceType)
+	}
+	return fn(runtime), nil
 }
 
-// ToPage implements [Transfer].
-func (l *log) ToPage(data []byte) (*types.Page, error) {
-	fmt.Println("log to page")
-	return nil, nil
+type Source interface {
+	Receive(e models.Event)
 }

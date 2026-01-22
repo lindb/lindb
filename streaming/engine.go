@@ -15,37 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package cep
+package streaming
 
-import (
-	"github.com/lindb/common/pkg/logger"
+import "github.com/lindb/lindb/models"
 
-	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/streaming/cep/annotation"
-	"github.com/lindb/lindb/streaming/cep/sink"
-)
+type Engine interface {
+	Start() error
+	Stop() error
 
-type Listener struct {
-	mapper annotation.Mapper
-	sinks  []sink.Sink
-	logger logger.Logger
-}
-
-func NewListener(mapper annotation.Mapper, sinks []sink.Sink) *Listener {
-	return &Listener{
-		mapper: mapper,
-		sinks:  sinks,
-		logger: logger.GetLogger("CEP", "Listener"),
-	}
-}
-
-func (l *Listener) Receive(event models.Event) {
-	// TODO: add multiple mappers support?
-	if l.mapper != nil {
-		event = l.mapper.Map(event)
-	}
-	for _, s := range l.sinks {
-		s.Publish(event)
-	}
-	l.logger.Info("Listener, receive event", logger.Any("event", event))
+	Send(event models.Event)
 }

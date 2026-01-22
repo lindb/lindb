@@ -37,6 +37,8 @@ const (
 	StreamingConfigDeletion
 	StreamingStateChanged
 	StreamingStateDeletion
+	StreamingJobChanged
+	StreamingJobDeletion
 )
 
 // String returns string value of EventType.
@@ -74,6 +76,10 @@ func (e EventType) String() string {
 		return "StreamingStateChanged"
 	case StreamingStateDeletion:
 		return "StreamingStateDeletion"
+	case StreamingJobChanged:
+		return "StreamingJobChanged"
+	case StreamingJobDeletion:
+		return "StreamingJobDeletion"
 	default:
 		return "unknown"
 	}

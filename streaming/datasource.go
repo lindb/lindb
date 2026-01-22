@@ -18,64 +18,49 @@
 package streaming
 
 import (
-	"fmt"
+	"sync"
+
+	"github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/streaming/cep"
-	"github.com/lindb/lindb/streaming/cep/stream/output"
-	"github.com/lindb/lindb/streaming/transfer"
+	"github.com/lindb/lindb/streaming/decode"
 )
 
 type DataSource interface {
 	Initialize()
 	Name() string
 	Produce(data []byte)
+	ScheduleStream(stream *models.Streaming) error
+	UnscheduleStream(stream *models.Streaming) error
+	GetEngine(stream string) (Engine, bool)
 }
-
-type Result struct{}
 
 type dataSource struct {
 	db *models.Database
 
-	transfer transfer.Transfer
-	runtime  cep.Runtime
+	streamings map[string]*models.Streaming
+	engines    map[string]Engine
+
+	decoder decode.Decoder
+
+	lock sync.Mutex
+
+	logger logger.Logger
 }
 
 func NewDataSource(db *models.Database) DataSource {
 	return &dataSource{
-		db: db,
+		db:         db,
+		streamings: make(map[string]*models.Streaming),
+		engines:    make(map[string]Engine),
+
+		logger: logger.GetLogger("Streaming", "DataSource"),
 	}
 }
 
 func (d *dataSource) Initialize() {
-	d.transfer = transfer.GetTransfer(d.db.Option.Engine)
-
-	schema := d.transfer.Schema()
-	if schema != nil {
-		runtime := cep.NewRuntime(d.db.Name)
-		runtime.RegisterStreamBySchema("span", schema)
-		runtime.RegisterStreamByType(Result{})
-		// add result listener
-		runtime.AddListener("Result", output.NewConsoleOutput())
-		// add streaming query
-		err := runtime.Query(`
-	@app(name="test_app")
-	create sink rpc_call with (type="lindb",address="http://localhost:9003",database="_internal");
-
-	@sink(name="rpc_call")
-	@metric(name="span.rpc_call",tags=["name","kind","status"],fields=["qps","s_qps"],timestamp="ts")
-	select name,kind,status,
-		time_trunc(start_time,interval 10 second) as ts,
-		count(1) as qps,
-		sampling(trace_id,span_id,duration) as s_qps 
-	from span 
-	group by name,kind,status,ts;
-		`)
-		fmt.Println(err)
-		if err == nil {
-			d.runtime = runtime
-		}
-	}
+	d.decoder = decode.GetDecoder(d.db.Option.Engine)
 }
 
 func (d *dataSource) Name() string {
@@ -83,13 +68,51 @@ func (d *dataSource) Name() string {
 }
 
 func (d *dataSource) Produce(data []byte) {
-	page, err := d.transfer.ToPage(data)
+	event, err := d.decoder.ToEvent(data)
 	if err != nil {
-		fmt.Println("produce trace data error:", err)
+		d.logger.Error("transfer data to event error:", logger.Error(err))
+		return
 	}
-	if page != nil && d.runtime != nil {
-		inputHandler := d.runtime.GetInputHandler("span")
-		inputHandler.Send(page)
-		fmt.Println("send span")
+	if event == nil {
+		return
 	}
+	// TODO: add lock???
+	for _, engine := range d.engines {
+		engine.Send(event)
+	}
+}
+
+func (d *dataSource) ScheduleStream(stream *models.Streaming) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	_, ok := d.engines[stream.Name]
+	if !ok {
+		// TODO: create engine based on streaming config(add engine type)
+		engine := cep.NewEngine(stream, d.db)
+		if err := engine.Start(); err != nil {
+			return err
+		}
+		d.engines[stream.Name] = engine
+	}
+
+	return nil
+}
+
+func (d *dataSource) UnscheduleStream(stream *models.Streaming) error {
+	egnine, ok := d.GetEngine(stream.Name)
+	if ok {
+		if err := egnine.Stop(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (d *dataSource) GetEngine(stream string) (Engine, bool) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	e, ok := d.engines[stream]
+	return e, ok
 }

@@ -142,13 +142,22 @@ func GetStreamingStatePath(name string) string {
 
 // ParseObserverLiveNode parses observer live node path to consumer group and node id.
 func ParseObserverLiveNode(path string) (string, string, error) {
-	if !strings.HasPrefix(path, StreamingConsumerGroupPath+"/") {
-		return "", "", fmt.Errorf("invalid observer live node path: %s", path)
+	return parseTwoLevelPath(StreamingConsumerGroupPath, path)
+}
+
+// ParseStreamingJob parses streaming job path to streaming name and job name.
+func ParseStreamingJob(path string) (stream string, job string, err error) {
+	return parseTwoLevelPath(StreamingJobPath, path)
+}
+
+func parseTwoLevelPath(prefix, path string) (string, string, error) {
+	if !strings.HasPrefix(path, prefix+"/") {
+		return "", "", fmt.Errorf("invalid streaming job path: %s", path)
 	}
-	temp := strings.TrimPrefix(path, StreamingConsumerGroupPath+"/")
+	temp := strings.TrimPrefix(path, prefix+"/")
 	strs := strings.Split(temp, "/")
 	if len(strs) != 2 || strs[0] == "" || strs[1] == "" {
-		return "", "", fmt.Errorf("invalid observer live node path: %s", path)
+		return "", "", fmt.Errorf("invalid streaming job path: %s", path)
 	}
 
 	return strs[0], strs[1], nil

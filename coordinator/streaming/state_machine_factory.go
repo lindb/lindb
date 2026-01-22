@@ -72,6 +72,20 @@ func (f *stateMachineFactory) Start() (err error) {
 	}
 	f.stateMachines = append(f.stateMachines, sm)
 
+	f.logger.Debug("starting StreamingCfgStateMachine")
+	sm, err = f.createStreamingCfgStateMachine()
+	if err != nil {
+		return err
+	}
+	f.stateMachines = append(f.stateMachines, sm)
+
+	f.logger.Debug("starting JobCfgStateMachine")
+	sm, err = f.createJobCfgStateMachine()
+	if err != nil {
+		return err
+	}
+	f.stateMachines = append(f.stateMachines, sm)
+
 	f.logger.Info("started StreamingStateMachines")
 	return nil
 }
@@ -84,6 +98,54 @@ func (f *stateMachineFactory) Stop() {
 			f.logger.Error("close state machine error", logger.Error(err))
 		}
 	}
+}
+
+// createStreamingCfgStateMachine creates streaming config state machine.
+func (f *stateMachineFactory) createStreamingCfgStateMachine() (discovery.StateMachine, error) {
+	return discovery.NewStateMachineFn(
+		f.ctx,
+		discovery.StreamingConfigStateMachine,
+		f.discoveryFactory,
+		constants.StreamingConfigPath,
+		true,
+		func(key string, data []byte) {
+			f.stateMgr.EmitEvent(&discovery.Event{
+				Type:  discovery.StreamingConfigChanged,
+				Key:   key,
+				Value: data,
+			})
+		},
+		func(key string) {
+			f.stateMgr.EmitEvent(&discovery.Event{
+				Type: discovery.StreamingConfigDeletion,
+				Key:  key,
+			})
+		},
+	)
+}
+
+// createJobCfgStateMachine creates job config state machine.
+func (f *stateMachineFactory) createJobCfgStateMachine() (discovery.StateMachine, error) {
+	return discovery.NewStateMachineFn(
+		f.ctx,
+		discovery.StreamingJobStateMachine,
+		f.discoveryFactory,
+		constants.StreamingJobPath,
+		true,
+		func(key string, data []byte) {
+			f.stateMgr.EmitEvent(&discovery.Event{
+				Type:  discovery.StreamingJobChanged,
+				Key:   key,
+				Value: data,
+			})
+		},
+		func(key string) {
+			f.stateMgr.EmitEvent(&discovery.Event{
+				Type: discovery.StreamingJobDeletion,
+				Key:  key,
+			})
+		},
+	)
 }
 
 // createDatabaseCfgStateMachine creates database config state machine.
