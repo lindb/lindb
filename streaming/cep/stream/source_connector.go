@@ -110,7 +110,6 @@ func (sc *sourceConnector) Run(output chan<- *types.Page) {
 		}
 		if sc.predicate == nil {
 			// no filter, send page to next operator
-
 			newPage := sc.createPage()
 
 			it := source.Iterator()

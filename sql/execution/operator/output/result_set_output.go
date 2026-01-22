@@ -69,7 +69,8 @@ func (op *ResultSetOutputOperator) Run(ctx context.Context, output chan<- *types
 			if page != nil && page.Error != "" {
 				output <- page
 			}
-			break
+			// TODO: if has error or no datareturn directly?
+			continue
 		}
 		if rebuildPage {
 			targetPage := types.NewPage()

@@ -19,7 +19,6 @@ package executor
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/samber/lo"
@@ -149,7 +148,6 @@ func (g *HashGrouping) Leave(output chan<- *types.Page) {
 	}
 
 	output <- newPage
-	fmt.Println("done....")
 }
 
 // createOutputs builds the output column metadata for the aggregation result.

@@ -82,7 +82,7 @@ func (op *OutputOperator) Run(ctx context.Context, output chan<- *types.Page) {
 			if page != nil && page.Error != "" {
 				panic(fmt.Errorf("output operator receive error page: %s", page.Error))
 			}
-			break
+			continue
 		}
 		if rebuildPage {
 			targetPage := types.NewPage()

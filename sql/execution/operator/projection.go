@@ -65,7 +65,6 @@ func (op *ProjectionOperator) Run(ctx context.Context, output chan<- *types.Page
 				outputColumns[i])
 		}
 		rowNum := 0
-		// logger.GetLogger("sql", "projection").Info("do projection op start", logger.Any("page", source), logger.Any("exp", op.project.Assignments))
 
 		it := source.Iterator()
 		for row := it.Begin(); row != it.End(); row = it.Next() {
