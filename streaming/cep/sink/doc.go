@@ -15,30 +15,5 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package runtime
-
-import (
-	"github.com/lindb/common/pkg/logger"
-
-	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/streaming/cep/sink"
-)
-
-type Listener struct {
-	bridges []*sink.SinkBridge
-	logger  logger.Logger
-}
-
-func NewListener(bridges []*sink.SinkBridge) *Listener {
-	return &Listener{
-		bridges: bridges,
-		logger:  logger.GetLogger("CEP", "Listener"),
-	}
-}
-
-func (l *Listener) Receive(event models.Event) {
-	l.logger.Info("Listener, receive event", logger.Any("event", event))
-	for _, s := range l.bridges {
-		s.Publish(event)
-	}
-}
+// Package sink provides implementations of various sinks to which streaming data can be sent.
+package sink

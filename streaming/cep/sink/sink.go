@@ -18,8 +18,11 @@
 package sink
 
 import (
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/collections"
+	"github.com/lindb/lindb/streaming/cep/annotation"
 )
 
 // Sink represents the event sink which publishes event to output transport.
@@ -44,4 +47,41 @@ func CreateSink(props *collections.Properties) Sink {
 		return createFn(props)
 	}
 	return nil
+}
+
+type SinkBridge struct {
+	sink    Sink
+	mappers []annotation.Mapper
+
+	logger logger.Logger
+}
+
+func NewSinkBridge(sink Sink, sinkAnn *annotation.Annotation) *SinkBridge {
+	bridge := &SinkBridge{
+		sink:   sink,
+		logger: logger.GetLogger("Streaming", "SinkBridge"),
+	}
+	for _, ann := range sinkAnn.Annotations {
+		mapper := annotation.CreateMapper(ann)
+		if mapper == nil {
+			continue
+		}
+		bridge.mappers = append(bridge.mappers, mapper)
+	}
+	if len(bridge.mappers) == 0 {
+		bridge.logger.Warn("no valid annotation mapper found for sink", logger.String("sink", sinkAnn.Name))
+	}
+	return bridge
+}
+
+func (b *SinkBridge) Publish(event models.Event) {
+	for _, mapper := range b.mappers {
+		mappedEvent := mapper.Map(event)
+		if mappedEvent == nil {
+			continue
+		}
+
+		// send mapped event to sink
+		b.sink.Publish(mappedEvent)
+	}
 }

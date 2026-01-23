@@ -151,30 +151,13 @@ func (r *runtime) deploy(statement tree.Statement, idAllocator *tree.NodeIDAlloc
 		Database:   r.database,
 		StreamName: statement.String(),
 	})
-
-	var mapper annotation.Mapper
-	var sinks []sink.Sink
-	for _, ann := range annotations {
-		annotationMeta := annotation.ParseAnnotation(ann)
-		name := strings.ToLower(annotationMeta.Name)
-		if name == "sink" {
-			sinkName, ok := annotationMeta.Props.GetString("name")
-			if !ok {
-				panic(fmt.Errorf("sink annotation must contains name property"))
-			}
-			s, ok := r.sinks[sinkName]
-			if !ok {
-				panic(fmt.Errorf("sink %s not found", sinkName))
-			}
-			sinks = append(sinks, s)
-		} else {
-			mapper = annotation.CreateMapper(annotationMeta)
-		}
+	sinkBridges, err := r.parseSinkBridges(annotations)
+	if err != nil {
+		panic(err)
 	}
-
 	// add listener to input handler for this statement
 	output := input.GetManager().GetInputHandler(r.database, statement.String())
-	output.Subscribe(NewListener(mapper, sinks))
+	output.Subscribe(NewListener(sinkBridges))
 
 	// run streaming execution
 	go exec.Execute(nil)
@@ -191,4 +174,28 @@ func (r *runtime) creaetSink(statment *tree.CreateSink) {
 		panic(fmt.Errorf("unsupported sink type"))
 	}
 	r.sinks[name] = sink
+}
+
+func (r *runtime) parseSinkBridges(annotations []*tree.Annotation) ([]*sink.SinkBridge, error) {
+	var sinkBridges []*sink.SinkBridge
+	for _, ann := range annotations {
+		annotationMeta := annotation.ParseAnnotation(ann)
+
+		if !strings.EqualFold(annotationMeta.Name, "sink") {
+			continue
+		}
+		sinkName, ok := annotationMeta.Props.GetString("name")
+		if !ok {
+			return nil, fmt.Errorf("sink annotation must contain 'name' property")
+		}
+
+		s, ok := r.sinks[sinkName]
+		if !ok {
+			return nil, fmt.Errorf("sink '%s' not found", sinkName)
+		}
+
+		sinkBridges = append(sinkBridges, sink.NewSinkBridge(s, annotationMeta))
+	}
+
+	return sinkBridges, nil
 }

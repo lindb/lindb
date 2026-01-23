@@ -197,8 +197,10 @@ func Test_Runtime_Query(t *testing.T) {
 
 	  create sink rpc_call with (type="lindb",address="http://localhost:9003",database="_internal");
 
-	  @sink(name="rpc_call")
-	  @metric(name="{{.interface}}.rpc_call",tags=["tags_map","interface"],fields=["qps","exemplar"],timestamp="ts")
+	  @sink(
+		  name="rpc_call",
+	    @metric(name="{{.interface}}.rpc_call",tags=["tags_map","interface"],fields=["qps","exemplar"],timestamp="ts")
+		)
 	  select map_values(tags,'app') as tags_map,
 	  	interface,
 	  	count(1) as qps,

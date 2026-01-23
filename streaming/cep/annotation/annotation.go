@@ -30,19 +30,23 @@ import (
 var log = logger.GetLogger("CEP", "Annotation")
 
 type Annotation struct {
-	Name  string
-	Props *collections.Properties
+	Name        string
+	Props       *collections.Properties
+	Annotations []*Annotation
 }
 
 func ParseAnnotation(annotation *tree.Annotation) *Annotation {
 	if annotation == nil {
 		return nil
 	}
+	var annotations []*Annotation
 	var propSlice []*tree.Property
 	for _, elem := range annotation.Elements {
-		// TODO: do nested annotation support?
-		if prop, ok := elem.(*tree.Property); ok {
-			propSlice = append(propSlice, prop)
+		switch e := elem.(type) {
+		case *tree.Annotation:
+			annotations = append(annotations, ParseAnnotation(e))
+		case *tree.Property:
+			propSlice = append(propSlice, e)
 		}
 	}
 	props, err := expression.EvalProps(expression.NewEvalContext(context.TODO()), propSlice)
@@ -51,7 +55,8 @@ func ParseAnnotation(annotation *tree.Annotation) *Annotation {
 		return nil
 	}
 	return &Annotation{
-		Name:  annotation.Name.Value,
-		Props: props,
+		Name:        annotation.Name.Value,
+		Props:       props,
+		Annotations: annotations,
 	}
 }
