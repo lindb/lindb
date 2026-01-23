@@ -42,8 +42,12 @@ func (e *Engine) Send(event models.Event) {
 	e.source.Receive(event)
 }
 
-func (e *Engine) DeployJob(script string) error {
-	return e.runtime.Query(script)
+func (e *Engine) DeployJob(name, script string) error {
+	return e.runtime.DeployJob(name, script)
+}
+
+func (e *Engine) UndeployJob(name string) error {
+	return e.runtime.UndeployJob(name)
 }
 
 func (e *Engine) Start() error {

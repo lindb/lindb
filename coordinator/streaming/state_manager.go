@@ -19,6 +19,8 @@ package streaming
 
 import (
 	"context"
+	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/lindb/common/pkg/encoding"
@@ -115,15 +117,15 @@ func (s *stateManager) processEvent(event *discovery.Event) {
 	case discovery.DatabaseConfigChanged:
 		err = s.onDatabaseCfgChange(event.Key, event.Value)
 	case discovery.DatabaseConfigDeletion:
-	// FIXME: impl
+		err = s.onDatabaseCfgDelete(event.Key)
 	case discovery.StreamingConfigChanged:
 		err = s.onStreamingCfgChange(event.Key, event.Value)
 	case discovery.StreamingConfigDeletion:
-	// FIXME: impl
+		err = s.onStreamingCfgDelete(event.Key)
 	case discovery.StreamingJobChanged:
 		err = s.onStreamingJobCfgChange(event.Key, event.Value)
 	case discovery.StreamingJobDeletion:
-	// FIXME: impl
+		err = s.onStreamingJobCfgDelete(event.Key)
 	default:
 		s.logger.Warn("unknown event type", logger.String("type", event.Type.String()))
 	}
@@ -154,6 +156,64 @@ func (s *stateManager) onDatabaseCfgChange(key string, data []byte) error {
 
 	for _, watcher := range s.watchers {
 		watcher.OnEvent(&cfg)
+	}
+
+	return nil
+}
+
+// onDatabaseCfgDelete triggers when database delete.
+func (s *stateManager) onDatabaseCfgDelete(key string) error {
+	s.logger.Info("database config is deleted",
+		logger.String("key", key))
+
+	_, dbName := filepath.Split(key)
+	event := &models.DeleteDatabase{
+		Database: dbName,
+	}
+
+	for _, watcher := range s.watchers {
+		watcher.OnEvent(event)
+	}
+
+	return nil
+}
+
+// onStreamingCfgDelete triggers when streaming config delete.
+func (s *stateManager) onStreamingCfgDelete(key string) error {
+	s.logger.Info("streaming config is deleted",
+		logger.String("key", key))
+
+	name := strings.TrimPrefix(key, constants.GetStreamingConfigPath(""))
+
+	event := &models.DeleteStreaming{
+		Streaming: name,
+	}
+
+	for _, watcher := range s.watchers {
+		watcher.OnEvent(event)
+	}
+
+	return nil
+}
+
+// onStreamingJobCfgDelete triggers when streaming job delete.
+func (s *stateManager) onStreamingJobCfgDelete(key string) error {
+	s.logger.Info("streaming job config is deleted",
+		logger.String("key", key))
+
+	stream, job, err := constants.ParseStreamingJob(key)
+	if err != nil {
+		s.logger.Error("parse streaming job key error", logger.String("key", key), logger.Error(err))
+		return err
+	}
+
+	event := &models.DeleteStreamingJob{
+		Streaming: stream,
+		JobName:   job,
+	}
+
+	for _, watcher := range s.watchers {
+		watcher.OnEvent(event)
 	}
 
 	return nil

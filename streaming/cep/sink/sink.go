@@ -69,7 +69,7 @@ func NewSinkBridge(sink Sink, sinkAnn *annotation.Annotation) *SinkBridge {
 		bridge.mappers = append(bridge.mappers, mapper)
 	}
 	if len(bridge.mappers) == 0 {
-		bridge.logger.Warn("no valid annotation mapper found for sink", logger.String("sink", sinkAnn.Name))
+		bridge.logger.Warn("no valid annotation mapper found for sink", logger.Any("sink", sinkAnn))
 	}
 	return bridge
 }

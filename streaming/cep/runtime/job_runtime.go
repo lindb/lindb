@@ -106,6 +106,10 @@ func (r *jobRuntime) deployStreaming(stmt *tree.StreamingApp, idAllocator *tree.
 }
 
 func (r *jobRuntime) deploy(statement tree.Statement, idAllocator *tree.NodeIDAllocator, annotations []*tree.Annotation) {
+	sinkBridges, err := r.parseSinkBridges(annotations)
+	if err != nil {
+		panic(err)
+	}
 	// TODO: generate stream name for statement
 	planner := execution.NewPlanner(analyzer.NewAnalyzerFactory(stream.GetManager().GetStreamManager(r.database)))
 	plan := planner.Plan(&execution.Session{
@@ -127,10 +131,6 @@ func (r *jobRuntime) deploy(statement tree.Statement, idAllocator *tree.NodeIDAl
 		Database:     r.database,
 		OutputStream: statement.String(), // output stream name
 	})
-	sinkBridges, err := r.parseSinkBridges(annotations)
-	if err != nil {
-		panic(err)
-	}
 
 	// add listener to input handler for this statement
 	output := input.GetManager().GetInputHandler(r.database, statement.String())

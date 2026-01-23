@@ -61,34 +61,38 @@ func (c *Coordinator) OnEvent(e meta.Event) {
 		c.streamings[event.Name] = event
 		// trigger scheduling streaming
 		c.scheduleStreaming()
+	case *models.DeleteDatabase:
+		delete(c.databases, event.Database)
+
+		// trigger scheduling streaming
+		c.scheduleStreaming()
+	case *models.DeleteStreaming:
+		delete(c.streamings, event.Streaming)
+
+		// trigger scheduling streaming
+		c.scheduleStreaming()
 	case *models.ModifyStreamingJob:
-		streaming, ok := c.streamings[event.Streaming]
+		engine, ok := c.getCEPEngine(event.Streaming)
 		if !ok {
-			c.logger.Warn("streaming job deploy failed, streaming not found", logger.String("streaming", event.Streaming),
-				logger.String("job", event.JobName))
-			return
-		}
-		dsName := streaming.Database
-		ds, ok := GetManager().GetDataSource(dsName)
-		if !ok {
-			return
-		}
-		engine, ok := ds.GetEngine(event.Streaming)
-		if !ok {
-			c.logger.Warn("streaming job deploy failed, engine not found", logger.String("ds", dsName),
+			c.logger.Warn("streaming job deploy failed, engine not found",
 				logger.String("streaming", event.Streaming), logger.String("job", event.JobName))
 			return
 		}
-		// only cep engine supported(cep job deploy)
-		cepEngine, ok := engine.(*cep.Engine)
-		if !ok {
-			c.logger.Warn("streaming job deploy failed, engine type invalid", logger.String("ds", dsName),
-				logger.String("streaming", event.Streaming), logger.String("job", event.JobName))
-			return
-		}
-		err := cepEngine.DeployJob(event.Script)
+		err := engine.DeployJob(event.JobName, event.Script)
 		if err != nil {
-			c.logger.Error("deploy streaming job failed", logger.String("ds", dsName),
+			c.logger.Error("undeploy streaming job failed",
+				logger.String("job", event.JobName), logger.Error(err))
+		}
+	case *models.DeleteStreamingJob:
+		engine, ok := c.getCEPEngine(event.Streaming)
+		if !ok {
+			c.logger.Warn("streaming job undeploy failed, engine not found",
+				logger.String("streaming", event.Streaming), logger.String("job", event.JobName))
+			return
+		}
+		err := engine.UndeployJob(event.JobName)
+		if err != nil {
+			c.logger.Error("undeploy streaming job failed",
 				logger.String("job", event.JobName), logger.Error(err))
 		}
 	}
@@ -112,6 +116,32 @@ func (c *Coordinator) scheduleStreaming() {
 			c.logger.Error("schedule streaming failed", logger.String("streaming", streaming.Name), logger.Error(err))
 		}
 	}
+}
+
+func (c *Coordinator) getCEPEngine(streaming string) (*cep.Engine, bool) {
+	streamingObj, ok := c.streamings[streaming]
+	if !ok {
+		c.logger.Warn("streaming not found", logger.String("streaming", streaming))
+		return nil, false
+	}
+	database := streamingObj.Database
+	ds, ok := GetManager().GetDataSource(database)
+	if !ok {
+		return nil, false
+	}
+	engine, ok := ds.GetEngine(streaming)
+	if !ok {
+		c.logger.Warn("cep engine not found", logger.String("ds", database), logger.String("streaming", streaming))
+		return nil, false
+	}
+	// only cep engine supported(cep job deploy)
+	cepEngine, ok := engine.(*cep.Engine)
+	if !ok {
+		c.logger.Warn("streaming job deploy failed, engine type invalid", logger.String("ds", database),
+			logger.String("streaming", streaming))
+		return nil, false
+	}
+	return cepEngine, true
 }
 
 // Subscribe implements [meta.Watcher].

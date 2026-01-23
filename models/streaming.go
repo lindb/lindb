@@ -50,3 +50,16 @@ type ModifyStreamingJob struct {
 	JobName   string
 	Script    string
 }
+
+type DeleteStreamingJob struct {
+	Streaming string
+	JobName   string
+}
+
+type DeleteStreaming struct {
+	Streaming string
+}
+
+type DeleteDatabase struct {
+	Database string
+}
