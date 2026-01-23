@@ -22,17 +22,21 @@ import (
 )
 
 type InputManager interface {
+	// FIXME: need remove query output stream
 	GetInputHandler(stream string) InputHandler
+	RemoveInputHandler(stream string)
 }
 
 type inputManager struct {
+	database      string
 	inputHandlers map[string]InputHandler
 
 	mutex sync.Mutex
 }
 
-func NewInputManager() InputManager {
+func NewInputManager(databse string) InputManager {
 	return &inputManager{
+		database:      databse,
 		inputHandlers: make(map[string]InputHandler),
 	}
 }
@@ -45,7 +49,20 @@ func (mgr *inputManager) GetInputHandler(stream string) InputHandler {
 	if ok {
 		return handle
 	}
-	handle = NewInputHandler()
+	handle = NewInputHandler(mgr.database, stream)
 	mgr.inputHandlers[stream] = handle
 	return handle
+}
+
+func (mgr *inputManager) RemoveInputHandler(stream string) {
+	mgr.mutex.Lock()
+	defer mgr.mutex.Unlock()
+
+	handle, ok := mgr.inputHandlers[stream]
+	if !ok {
+		return
+	}
+
+	handle.Close()
+	delete(mgr.inputHandlers, stream)
 }

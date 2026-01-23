@@ -19,7 +19,6 @@ package exchange
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/operator"
@@ -91,5 +90,5 @@ func (op *RemoteExchangeOperator) GetInbounds() []chan *types.Page {
 }
 
 func (op *RemoteExchangeOperator) String() string {
-	return fmt.Sprintf("RemoteExchangeOperator")
+	return "RemoteExchangeOperator"
 }

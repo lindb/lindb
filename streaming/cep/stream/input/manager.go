@@ -29,26 +29,37 @@ var (
 func GetManager() *Manager {
 	once.Do(func() {
 		instance = &Manager{
-			apps: make(map[string]InputManager),
+			databases: make(map[string]InputManager),
 		}
 	})
 	return instance
 }
 
 type Manager struct {
-	apps map[string]InputManager
+	databases map[string]InputManager
 
 	mutex sync.Mutex
 }
 
-func (mgr *Manager) GetInputHandler(app, stream string) InputHandler {
+func (mgr *Manager) GetInputHandler(database, stream string) InputHandler {
 	mgr.mutex.Lock()
 	defer mgr.mutex.Unlock()
 
-	inputMgr, ok := mgr.apps[app]
+	inputMgr, ok := mgr.databases[database]
 	if !ok {
-		inputMgr = NewInputManager()
-		mgr.apps[app] = inputMgr
+		inputMgr = NewInputManager(database)
+		mgr.databases[database] = inputMgr
 	}
 	return inputMgr.GetInputHandler(stream)
+}
+
+func (mgr *Manager) RemoveInputHandler(database, stream string) {
+	mgr.mutex.Lock()
+	defer mgr.mutex.Unlock()
+
+	inputMgr, ok := mgr.databases[database]
+	if !ok {
+		return
+	}
+	inputMgr.RemoveInputHandler(stream)
 }

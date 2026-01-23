@@ -41,22 +41,21 @@ func NewTaskExecutionFactory() *TaskExecutionFactory {
 	}
 }
 
-func (fct *TaskExecutionFactory) Create(task *SQLTask) *TaskExecution {
+func (fct *TaskExecutionFactory) Create(ctx context.Context, task *SQLTask) *TaskExecution {
 	taskPlanner := planner.NewTaskExecutionPlanner()
 
-	ctx := &sqlContext.TaskContext{
-		// FIXME: set context
-		Context:    context.WithValue(context.TODO(), constants.ContextKeyCurrentTime, task.CurrentTime),
-		TaskID:     task.ID,
-		Fragment:   task.Fragment,
-		Partitions: task.Partitions,
-		Database:   task.Database,
-		StreamName: task.StreamName,
+	taskCtx := &sqlContext.TaskContext{
+		Context:      context.WithValue(ctx, constants.ContextKeyCurrentTime, task.CurrentTime),
+		TaskID:       task.ID,
+		Fragment:     task.Fragment,
+		Partitions:   task.Partitions,
+		Database:     task.Database,
+		OutputStream: task.OutputStream,
 	}
-	plan := taskPlanner.Plan(ctx, task.Fragment.Root)
+	plan := taskPlanner.Plan(taskCtx, task.Fragment.Root)
 
 	return &TaskExecution{
-		taskCtx: ctx,
+		taskCtx: taskCtx,
 		plan:    plan,
 		logger:  fct.logger,
 	}

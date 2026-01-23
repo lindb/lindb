@@ -130,8 +130,8 @@ func (mgr *streamManager) GetTableMetadata(db string, ns string, table string) (
 
 func (mgr *streamManager) GetTableHandle(db string, ns string, table string) spi.TableHandle {
 	return &TableHandle{
-		App:    db,
-		Stream: table,
+		Database: db,
+		Stream:   table,
 	}
 }
 

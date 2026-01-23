@@ -31,7 +31,10 @@ import (
 )
 
 type OutputOperator struct {
-	ctx         context.Context
+	ctx          context.Context
+	database     string
+	outputStream string
+
 	inputHandle input.InputHandler
 	exprCtx     expression.EvalContext
 	output      *plan.OutputNode
@@ -40,20 +43,27 @@ type OutputOperator struct {
 	inbound *operator.Queue
 }
 
-func NewOutputOperator(ctx context.Context, database, streamName string,
+func NewOutputOperator(ctx context.Context, database, outputStream string,
 	output *plan.OutputNode, child operator.Operator,
 ) operator.Operator {
-	inputHandle := input.GetManager().GetInputHandler(database, streamName)
+	inputHandle := input.GetManager().GetInputHandler(database, outputStream)
 	return &OutputOperator{
-		ctx:         ctx,
-		inputHandle: inputHandle,
-		output:      output,
-		child:       child,
-		inbound:     operator.NewQueue(make(chan *types.Page, 256)),
+		ctx:          ctx,
+		database:     database,
+		outputStream: outputStream,
+		inputHandle:  inputHandle,
+		output:       output,
+		child:        child,
+		inbound:      operator.NewQueue(make(chan *types.Page, 256)),
 	}
 }
 
 func (op *OutputOperator) Run(ctx context.Context, output chan<- *types.Page) {
+	defer func() {
+		fmt.Println("ouput....")
+		input.GetManager().RemoveInputHandler(op.database, op.outputStream)
+	}()
+
 	// FIXME: get app from context
 	rebuildPage := false
 	layout := op.output.GetOutputSymbols()

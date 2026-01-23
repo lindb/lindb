@@ -19,6 +19,7 @@ package operator
 
 import (
 	"context"
+	"errors"
 
 	"github.com/lindb/common/pkg/logger"
 
@@ -46,7 +47,12 @@ func (q *Queue) Produce(page *types.Page) {
 
 func (q *Queue) Consume(ctx context.Context) (*types.Page, bool) {
 	select {
-	case err := <-ctx.Done():
+	case <-ctx.Done():
+		err := ctx.Err()
+		if err == nil || errors.Is(err, context.Canceled) {
+			log.Info("queue consume canceled")
+			return nil, false
+		}
 		panic(err)
 	case page, ok := <-q.pageCh:
 		if page != nil && page.Error != "" {

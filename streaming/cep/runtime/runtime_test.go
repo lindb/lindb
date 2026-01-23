@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/lindb/lindb/spi/types"
-	"github.com/lindb/lindb/streaming/cep/stream/output"
 )
 
 type RPCService struct {
@@ -78,9 +77,8 @@ func Test_Runtime_Insert(t *testing.T) {
 	runtime.RegisterStreamByType(RPCService{})
 	runtime.RegisterStreamByType(Result{})
 	// add result listener
-	runtime.AddListener("Result", output.NewConsoleOutput())
 	// add streaming query
-	err := runtime.Query(`
+	err := runtime.DeployJob("test_app", `
 	@app(name="test_app")
 	@metric(name="count_rpc",tags=["tags_map","interface"],fields=["qps"],timestamp="ts")
 	insert into Result
@@ -187,10 +185,8 @@ func Test_Runtime_Query(t *testing.T) {
 	runtime := NewRuntime("test")
 	runtime.RegisterStreamByType(RPCService{})
 	runtime.RegisterStreamByType(Result{})
-	// add result listener
-	runtime.AddListener("Result", output.NewConsoleOutput())
 	// add streaming query
-	err := runtime.Query(`
+	err := runtime.DeployJob("test_app", `
 	create job test_app
 	begin
 	  @app(name="test_app")
@@ -301,10 +297,17 @@ func Test_Runtime_Query(t *testing.T) {
 	// wait.Wait()
 	fmt.Println(time.Since(now))
 
+	runtime.UndeployJob("test_app")
+
+	time.Sleep(3 * time.Second)
+
+	for range 3 {
+		input.Send(page)
+	}
 	// input.Send(&RPCService{Interface: "grpc", Tags: map[string]string{"host": "1.1.1.1", "app": "order"}})
 	// input.Send(&RPCService{Interface: "http", Tags: map[string]string{"host": "1.1.1.1", "app": "user"}})
 	// input.Send(&RPCService{Interface: "dubbo", Tags: map[string]string{"host": "1.1.1.1", "app": "order"}})
 	// input.Send(&RPCService{Interface: "http", Tags: map[string]string{"host": "1.1.1.1", "app": "github"}})
 
-	time.Sleep(30 * time.Second)
+	time.Sleep(10 * time.Second)
 }

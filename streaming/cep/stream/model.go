@@ -48,8 +48,8 @@ func init() {
 }
 
 type TableHandle struct {
-	App    string
-	Stream string
+	Database string
+	Stream   string
 }
 
 func (t *TableHandle) SetTimeRange(timeRange timeutil.TimeRange) {
@@ -72,7 +72,7 @@ func (t *TableHandle) Kind() spi.DatasourceKind {
 }
 
 func (t *TableHandle) String() string {
-	return fmt.Sprintf("%s:%s", t.App, t.Stream)
+	return fmt.Sprintf("%s:%s", t.Database, t.Stream)
 }
 
 type ColumnHandle struct {

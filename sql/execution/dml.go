@@ -180,7 +180,7 @@ func (exec *DMLExecution) execute(fragmentedPlan *plan.SubPlan, output buffer.Ou
 				}()
 				// run under current node
 				taskFct := NewTaskExecutionFactory()
-				taskExec := taskFct.Create(&SQLTask{
+				taskExec := taskFct.Create(exec.session.Context, &SQLTask{
 					CurrentTime: currentTime,
 					ID:          taskID,
 					Fragment:    rootFragment,

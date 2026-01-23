@@ -15,26 +15,5 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package context
-
-import (
-	"context"
-
-	"github.com/lindb/lindb/sql/execution/model"
-	"github.com/lindb/lindb/sql/planner/plan"
-)
-
-type TaskContext struct {
-	Context    context.Context
-	TaskID     model.TaskID
-	Fragment   *plan.PlanFragment
-	Partitions []int
-
-	// stream processing(cep)
-	Database     string
-	OutputStream string
-}
-
-func (ctx *TaskContext) IsStreaming() bool {
-	return ctx.OutputStream != ""
-}
+// Package input provides the input handlers for stream processing(CEP).
+package input

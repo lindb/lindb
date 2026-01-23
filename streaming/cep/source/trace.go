@@ -73,6 +73,7 @@ func (t *trace) Receive(e models.Event) {
 
 	t.ToPage(traces)
 
+	// TODO: get input handlers by stream name(initialize phase)
 	t.runtime.GetInputHandler(SpanStream).Send(t.spans.Build())
 	t.runtime.GetInputHandler(EventStream).Send(t.events.Build())
 }

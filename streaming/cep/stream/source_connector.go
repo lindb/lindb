@@ -21,7 +21,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/lindb/common/pkg/logger"
 	"github.com/samber/lo"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/spi"
@@ -44,23 +46,29 @@ func (s *sourceConnectorProvider) CreateSourceConnector(ctx context.Context,
 	outputColumns []types.ColumnMetadata, assignments []*spi.ColumnAssignment,
 ) spi.SourceConnector {
 	tableHandle := table.(*TableHandle)
-	schema, err := GetManager().GetStreamManager(tableHandle.App).GetTableMetadata(tableHandle.App, "", tableHandle.Stream)
+	schema, err := GetManager().GetStreamManager(tableHandle.Database).GetTableMetadata(tableHandle.Database, "", tableHandle.Stream)
 	if err != nil {
 		panic(err)
 	}
 
+	inputHandle := input.GetManager().GetInputHandler(tableHandle.Database, tableHandle.Stream)
 	connector := &sourceConnector{
 		ctx: ctx,
+
+		table:   tableHandle,
+		input:   inputHandle,
+		running: atomic.NewBool(true),
 
 		schema:        schema.Schema,
 		predicate:     predicate,
 		outputColumns: outputColumns,
 
 		inbound: operator.NewQueue(make(chan *types.Page, 256)),
+
+		logger: logger.GetLogger("CEP", "SourceConnector"),
 	}
 	connector.initialize()
 
-	inputHandle := input.GetManager().GetInputHandler(tableHandle.App, tableHandle.Stream)
 	inputHandle.Subscribe(connector)
 
 	return connector
@@ -69,11 +77,17 @@ func (s *sourceConnectorProvider) CreateSourceConnector(ctx context.Context,
 type sourceConnector struct {
 	ctx context.Context
 
+	table   *TableHandle
+	input   input.InputHandler
+	running *atomic.Bool
+
 	schema        *types.TableSchema
 	predicate     tree.Expression
 	outputColumns []types.ColumnMetadata
 
-	inbound *operator.Queue // TODO: queue need close
+	inbound *operator.Queue
+
+	logger logger.Logger
 }
 
 func (sc *sourceConnector) initialize() {
@@ -95,13 +109,29 @@ func (sc *sourceConnector) initialize() {
 }
 
 func (sc *sourceConnector) Receive(event models.Event) {
-	// FIXME: close inbound queue if pipeline stopped
+	if !sc.running.Load() {
+		sc.logger.Warn("source connector has been stopped, drop received event",
+			logger.String("database", sc.table.Database),
+			logger.String("table", sc.table.Stream))
+		return
+	}
 	if page, ok := event.(*types.Page); ok {
 		sc.inbound.Produce(page)
 	}
 }
 
 func (sc *sourceConnector) Run(output chan<- *types.Page) {
+	defer func() {
+		if sc.running.CompareAndSwap(true, false) {
+			// unsubscribe input handler
+			sc.input.Unsubscribe(sc)
+			sc.inbound.Close()
+
+			sc.logger.Info("source connector stopped",
+				logger.String("database", sc.table.Database),
+				logger.String("table", sc.table.Stream))
+		}
+	}()
 	var v *visitor
 	for {
 		source, ok := sc.inbound.Consume(sc.ctx)

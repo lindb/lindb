@@ -70,7 +70,7 @@ func (v *TaskExecutionPlanVisitor) Visit(context any, n planpkg.PlanNode) (r any
 	case *planpkg.OutputNode:
 		if v.taskExecCtx.IsStreaming() {
 			child := node.Source.Accept(context, v)
-			return streaming.NewOutputOperator(v.taskExecCtx.Context, v.taskExecCtx.Database, v.taskExecCtx.StreamName,
+			return streaming.NewOutputOperator(v.taskExecCtx.Context, v.taskExecCtx.Database, v.taskExecCtx.OutputStream,
 				node, child.(operator.Operator))
 		}
 		child := node.Source.Accept(context, v).(operator.Operator)

@@ -39,8 +39,8 @@ type SQLTask struct {
 	Fragment    *plan.PlanFragment
 	Partitions  []int
 
-	Database   string
-	StreamName string
+	Database     string
+	OutputStream string // default output stream name
 }
 
 type TaskManager interface {
@@ -113,7 +113,7 @@ func (mgr *taskManager) dispatchTask() {
 				fmt.Println("******************")
 
 				fct := NewTaskExecutionFactory()
-				exec := fct.Create(task) // TODO:
+				exec := fct.Create(context.Background(), task) // TODO:
 
 				outputCh := make(chan *types.Page)
 				defer func() {
