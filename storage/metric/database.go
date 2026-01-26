@@ -20,6 +20,7 @@ package metric
 import (
 	"fmt"
 	"runtime"
+	"strconv"
 	"sync"
 	"time"
 
@@ -119,6 +120,7 @@ func newDatabase(
 		return nil, err
 	}
 	var err error
+	var shardID int64
 	defer func() {
 		if err != nil && db.metaDB != nil {
 			if e := db.metaDB.Close(); e != nil {
@@ -133,8 +135,17 @@ func newDatabase(
 
 	db.memMetaDB = memdb.NewMetadataDatabase(db.Options, db.metaDB)
 	// load shards if engine is existed
-	if len(db.Options.ShardIDs) > 0 {
-		if err = db.CreateShards(db.Options.ShardIDs); err != nil {
+	if len(db.Options.Shards) > 0 {
+		shards := make(map[models.ShardID]models.Replica)
+		for shardIDStr, replica := range db.Options.Shards {
+			shardID, err = strconv.ParseInt(shardIDStr, 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("invalid shard id[%s] for database[%s] with error: %s",
+					shardIDStr, databaseName, err)
+			}
+			shards[models.ShardID(shardID)] = replica
+		}
+		if err = db.CreateShards(shards); err != nil {
 			return nil, fmt.Errorf("cannot create shards of database[%s] with error: %s",
 				databaseName, err)
 		}

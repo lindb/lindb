@@ -21,6 +21,7 @@ import (
 	"strconv"
 
 	"github.com/lindb/common/pkg/logger"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
@@ -33,6 +34,10 @@ type localReplicator struct {
 
 	leader  models.NodeID
 	segment store.Segment
+
+	sequence          atomic.Int64 // consume sequence(wal)
+	immutableSequence int64
+	persistSequence   atomic.Int64 // leader=>ack sequence(wal)
 
 	statistics *metrics.StorageLocalReplicatorStatistics
 
@@ -51,17 +56,6 @@ func NewLocalReplicator(channel *store.ReplicatorChannel, segment store.Segment)
 		logger:     logger.GetLogger("Replica", "LocalReplicator"),
 	}
 
-	// add ack sequence callback
-	segment.AckSequence(lr.leader, func(seq int64) {
-		lr.SetAckIndex(seq)
-		lr.statistics.AckSequence.Incr()
-		lr.logger.Info("ack local replica index",
-			logger.String("replicator", lr.String()),
-			logger.Int64("ackIdx", seq))
-	})
-
-	// reset replica index = ack index + 1, replay wal log
-	lr.ResetReplicaIndex(lr.AckIndex() + 1)
 	segment.Retain() // mark segment will write data
 
 	lr.logger.Info("start local replicator", logger.String("replica", lr.String()),
@@ -80,6 +74,24 @@ func (r *localReplicator) State() *store.ReplicatorState {
 	return &store.ReplicatorState{State: models.ReplicatorReadyState}
 }
 
+func (r *localReplicator) SwitchSequence() int64 {
+	r.immutableSequence = r.sequence.Load()
+	return r.immutableSequence
+}
+
+func (r *localReplicator) PersistSequence() {
+	r.persistSequence.Store(r.immutableSequence)
+	r.immutableSequence = -1
+}
+
+// AckSequence acknowledges the sequence has been persisted.
+// NOTE: onlu called when creates write ahead log successfully.
+func (r *localReplicator) AckSequence(ack int64) {
+	r.SetAckIndex(ack)
+	r.ResetReplicaIndex(r.AckIndex() + 1)
+	r.statistics.AckSequence.Incr()
+}
+
 // Replica replicas local data into local storage,
 // 1. check replica replica if valid
 // 2. un-compress/unmarshal msg
@@ -88,7 +100,7 @@ func (r *localReplicator) State() *store.ReplicatorState {
 func (r *localReplicator) Replica(sequence int64, msg []byte) {
 	var err error
 
-	if !r.segment.ValidateSequence(r.leader, sequence) {
+	if sequence > r.sequence.Load() {
 		r.statistics.InvalidSequence.Incr()
 		return
 	}
@@ -105,7 +117,7 @@ func (r *localReplicator) Replica(sequence int64, msg []byte) {
 		}
 
 		// after write need commit sequence, drop write failure data.
-		r.segment.CommitSequence(r.leader, sequence)
+		r.sequence.Store(sequence)
 	}()
 
 	// write data

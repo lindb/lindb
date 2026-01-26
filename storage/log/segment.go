@@ -29,7 +29,6 @@ import (
 	"github.com/lindb/common/pkg/fileutil"
 	"github.com/lindb/common/proto/gen/v1/flatLogV1"
 	"github.com/lindb/roaring"
-	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/models"
@@ -95,11 +94,8 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 				Start: segmentStartTime,
 				End:   store.MinuteIntervalCalc.CalcFamilyEndTime(segmentStartTime),
 			},
-			Path:              segmentPath,
-			WALs:              make(map[models.NodeID]store.WriteAheadLog),
-			Sequence:          make(map[models.NodeID]atomic.Int64),
-			ImmutableSequence: make(map[models.NodeID]int64),
-			PersistSequence:   make(map[models.NodeID]atomic.Int64),
+			Path: segmentPath,
+			WALs: make(map[models.NodeID]store.WriteAheadLog),
 		},
 		partition: partition,
 		family:    kvFamily,

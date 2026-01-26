@@ -57,6 +57,12 @@ type WriteAheadLog interface {
 	BuildReplicaForLeader(leader models.NodeID, replicas []models.NodeID) error
 	// BuildReplicaForFollower builds replica relation when handle replica connection.
 	BuildReplicaForFollower(leader models.NodeID, replica models.NodeID) error
+
+	SwitchSequence(leader models.NodeID) int64
+	PersistSequence(leader models.NodeID)
+	GetImmutableSequence(leader models.NodeID) int64
+	GetSequence(leader models.NodeID) int64
+	AckSequence(leader models.NodeID, seq int64)
 }
 
 // ReplicatorState represents the state of replicator.
@@ -104,6 +110,7 @@ type Replicator interface {
 	Pending() int64
 	// IgnoreMessage ignores invalid message.
 	IgnoreMessage(replicaIdx int64)
+
 	// Close closes replicator, releases resource.
 	Close()
 }

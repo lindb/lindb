@@ -91,6 +91,9 @@ func (c *coordinator) process(event meta.Event) {
 				}
 			}
 		}
+	case *models.CreateShard:
+		c.engine.CreateShards(stateEvent.Database, stateEvent.Option, stateEvent.Shards)
+
 	default:
 		fmt.Println("TODO implement me")
 	}

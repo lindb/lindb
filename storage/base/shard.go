@@ -68,6 +68,10 @@ func (s *Shard) ShardID() models.ShardID {
 	return s.ID
 }
 
+func (s *Shard) Replica() models.Replica {
+	return s.Database().GetShardReplica(s.ID)
+}
+
 func (s *Shard) Database() store.Database {
 	return s.DB
 }

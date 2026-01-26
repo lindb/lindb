@@ -22,7 +22,6 @@ import (
 	"sync"
 
 	"github.com/lindb/common/pkg/ltoml"
-	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/storage/store"
@@ -55,12 +54,27 @@ func (db *Database) GetShard(shardID models.ShardID) (store.Shard, bool) {
 	return db.ShardSet.GetShard(shardID)
 }
 
-func (db *Database) CreateShards(shardIDs []models.ShardID) error {
+func (db *Database) GetShardReplica(shardID models.ShardID) models.Replica {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
 
-	hasNewShard := false
-	for _, shardID := range shardIDs {
+	if db.Options.Shards == nil {
+		return models.Replica{}
+	}
+	replica, ok := db.Options.Shards[shardID.String()]
+	if !ok {
+		return models.Replica{}
+	}
+	return replica
+}
+
+func (db *Database) CreateShards(shards map[models.ShardID]models.Replica) error {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+
+	needDumpOptions := false
+
+	for shardID, replica := range shards {
 		// double check
 		if _, ok := db.GetShard(shardID); ok {
 			continue
@@ -71,14 +85,15 @@ func (db *Database) CreateShards(shardIDs []models.ShardID) error {
 			return fmt.Errorf("create shard[%d] for database[%s] with error: %s", shardID, db.DatabaseName, err)
 		}
 		db.ShardSet.InsertShard(shardID, createdShard)
-		hasNewShard = true
+		if db.Options.Shards == nil {
+			db.Options.Shards = make(map[string]models.Replica)
+		}
+		db.Options.Shards[shardID.String()] = replica
+		needDumpOptions = true
 	}
 
-	if hasNewShard {
+	if needDumpOptions {
 		// using new engine option
-		db.Options.ShardIDs = append(db.Options.ShardIDs, shardIDs...)
-		// remove duplicate shard ids
-		db.Options.ShardIDs = lo.Uniq(db.Options.ShardIDs)
 		if err := db.DumpOption(); err != nil {
 			// TODO: if dump config err, need close shard??
 			return err

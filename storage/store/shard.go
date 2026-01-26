@@ -30,6 +30,8 @@ type Shard interface {
 	Database() Database
 	// ShardID returns the shard id.
 	ShardID() models.ShardID
+	// Replica returns the replica nodes of the shard.
+	Replica() models.Replica
 
 	GetOrCreatePartition(timestamp int64) (Partition, error)
 

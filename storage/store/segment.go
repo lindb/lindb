@@ -34,10 +34,6 @@ type Segment interface {
 	Retain()
 	Release()
 
-	ValidateSequence(leader models.NodeID, seq int64) bool
-	CommitSequence(leader models.NodeID, seq int64)
-	AckSequence(leader models.NodeID, fn func(seq int64))
-
 	Write(leader models.NodeID, seq int64, msg []byte) (rows int, err error)
 
 	Flush() error

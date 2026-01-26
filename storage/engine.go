@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/fileutil"
 	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/ltoml"
@@ -48,8 +47,8 @@ type Engine interface {
 	// 2) create shard storage struct
 	CreateShards(
 		databaseName string,
-		databaseOption *option.DatabaseOption,
-		shardIDs ...models.ShardID,
+		databaseOption option.DatabaseOption,
+		shards map[models.ShardID]models.Replica, // shard id -> replica info(current node in replica)
 	) error
 	// SetDatabaseLimits sets database's limits.
 	SetDatabaseLimits(database string, limits *models.Limits)
@@ -135,12 +134,15 @@ func (e *engine) createDatabase(databaseName string, dbOption *option.DatabaseOp
 	return db, nil
 }
 
+// CreateShards creates families for data partition by given options(shard ids and replicas).
+// 1) dump engine option into local disk
+// 2) create shard storage struct
 func (e *engine) CreateShards(
 	databaseName string,
-	databaseOption *option.DatabaseOption,
-	shardIDs ...models.ShardID,
+	databaseOption option.DatabaseOption,
+	shards map[models.ShardID]models.Replica,
 ) error {
-	if len(shardIDs) == 0 {
+	if len(shards) == 0 {
 		return fmt.Errorf("cannot create empty shard for database[%s]", databaseName)
 	}
 	db, ok := e.GetDatabase(databaseName)
@@ -150,7 +152,7 @@ func (e *engine) CreateShards(
 		if db, ok = e.GetDatabase(databaseName); !ok {
 			// double check
 			var err error
-			db, err = e.createDatabase(databaseName, databaseOption)
+			db, err = e.createDatabase(databaseName, &databaseOption)
 			if err != nil {
 				engineLogger.Error("failed to create database",
 					logger.Error(err))
@@ -162,12 +164,11 @@ func (e *engine) CreateShards(
 	}
 
 	// create families for database
-	shardIDData := encoding.JSONMarshal(shardIDs)
-	if err := db.CreateShards(shardIDs); err != nil {
-		engineLogger.Error("failed to create shard", logger.String("shardIDs", string(shardIDData)))
+	if err := db.CreateShards(shards); err != nil {
+		engineLogger.Error("failed to create shard", logger.Any("shards", shards), logger.Error(err))
 		return err
 	}
-	engineLogger.Info("create shard successfully", logger.String("shardIDs", string(shardIDData)))
+	engineLogger.Info("create shard successfully", logger.Any("shards", shards))
 	return nil
 }
 

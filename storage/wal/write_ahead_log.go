@@ -54,13 +54,18 @@ func NewWriteAheadLog(path string, segment store.Segment) (store.WriteAheadLog, 
 	if err != nil {
 		return nil, err
 	}
-	return &writeAheadLog{
+
+	wal := &writeAheadLog{
 		segment:    segment,
 		data:       data,
 		peers:      make(map[models.NodeID]store.ReplicatorPeer),
 		streamings: make(map[string]store.ReplicatorPeer),
 		logger:     logger.GetLogger("WAL", "WriteAheadLog"),
-	}, nil
+	}
+
+	// build wal replica relation for leader
+	wal.BuildReplicaForLeader(meta.CurrentNode(), segment.Partition().Shard().Replica().Replicas)
+	return wal, nil
 }
 
 // Database implements [store.WriteAheadLog].
@@ -73,6 +78,61 @@ func (w *writeAheadLog) SegmentTime() int64 {
 	return w.segment.SegmentTimeRange().Start
 }
 
+func (w *writeAheadLog) SwitchSequence(leader models.NodeID) int64 {
+	local := w.getLocalReplicator(leader)
+	if local == nil {
+		return -1
+	}
+	return local.SwitchSequence()
+}
+
+func (w *writeAheadLog) PersistSequence(leader models.NodeID) {
+	local := w.getLocalReplicator(leader)
+	if local == nil {
+		return
+	}
+	local.PersistSequence()
+}
+
+func (w *writeAheadLog) GetSequence(leader models.NodeID) int64 {
+	local := w.getLocalReplicator(leader)
+	if local == nil {
+		return -1
+	}
+	return local.sequence.Load()
+}
+
+func (w *writeAheadLog) GetImmutableSequence(leader models.NodeID) int64 {
+	local := w.getLocalReplicator(leader)
+	if local == nil {
+		return -1
+	}
+	return local.sequence.Load()
+}
+
+func (w *writeAheadLog) AckSequence(leader models.NodeID, ack int64) {
+	local := w.getLocalReplicator(leader)
+	if local == nil {
+		return
+	}
+	local.AckSequence(ack)
+}
+
+func (w *writeAheadLog) getLocalReplicator(leader models.NodeID) *localReplicator {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	peer, ok := w.peers[leader]
+	if !ok {
+		return nil
+	}
+	replicator := peer.Replicator()
+	if local, ok := replicator.(*localReplicator); ok {
+		return local
+	}
+	return nil
+}
+
 // Shard implements [store.WriteAheadLog].
 func (w *writeAheadLog) Shard() models.ShardID {
 	return w.segment.Partition().Shard().ShardID()
@@ -81,7 +141,7 @@ func (w *writeAheadLog) Shard() models.ShardID {
 func (w *writeAheadLog) Receive(event meta.Event) {
 	switch stateEvent := event.(type) {
 	case *store.ConsumerStateChange:
-		w.Consume(stateEvent.Streaming, stateEvent.ConsumerID)
+		w.BuildConsumer(stateEvent.Streaming, stateEvent.ConsumerID)
 	}
 }
 
@@ -130,7 +190,7 @@ func (w *writeAheadLog) Close() error {
 	return nil
 }
 
-func (w *writeAheadLog) Consume(streaming string, consume models.NodeID) {
+func (w *writeAheadLog) BuildConsumer(streaming string, consume models.NodeID) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
@@ -176,10 +236,6 @@ func (w *writeAheadLog) Consume(streaming string, consume models.NodeID) {
 func (w *writeAheadLog) BuildReplicaForLeader(
 	leader models.NodeID, replicas []models.NodeID,
 ) error {
-	if leader != meta.CurrentNode() {
-		return fmt.Errorf("leader not equals current node")
-	}
-
 	for _, replicaNodeID := range replicas {
 		if err := w.buildReplica(leader, replicaNodeID); err != nil {
 			w.logger.Error(

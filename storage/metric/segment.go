@@ -96,11 +96,8 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 				Start: segmentStartTime,
 				End:   intervalCalc.CalcFamilyEndTime(segmentStartTime),
 			},
-			Path:              segmentPath,
-			WALs:              make(map[models.NodeID]store.WriteAheadLog),
-			Sequence:          make(map[models.NodeID]atomic.Int64),
-			ImmutableSequence: make(map[models.NodeID]int64),
-			PersistSequence:   make(map[models.NodeID]atomic.Int64),
+			Path: segmentPath,
+			WALs: make(map[models.NodeID]store.WriteAheadLog),
 		},
 		partition:    partition,
 		kvFamily:     kvFamily,
@@ -115,7 +112,11 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 		return store.CreateWriteAheadLog(p, seg)
 	}
 
-	if err := seg.LoadWALs(); err != nil {
+	snapshot := kvFamily.GetSnapshot()
+	defer snapshot.Close()
+
+	ackSequences := snapshot.GetCurrent().GetSequences()
+	if err := seg.LoadWALs(ackSequences); err != nil {
 		return nil, err
 	}
 
@@ -212,11 +213,11 @@ func (s *Segment) Flush() error {
 		s.mutableMemDB = nil
 		// mark mutable memory database nil, write data will be created
 		waitingFlushMemDB.MarkReadOnly()
+
 		immutableSeq := make(map[models.NodeID]int64)
-		for leader, seq := range s.Sequence {
-			immutableSeq[leader] = seq.Load()
+		for leader, wal := range s.WALs {
+			immutableSeq[leader] = wal.SwitchSequence(leader)
 		}
-		s.ImmutableSequence = immutableSeq
 		s.mutex.Unlock()
 
 		if err := s.flushMemoryDatabase(immutableSeq, waitingFlushMemDB); err != nil {
@@ -226,10 +227,9 @@ func (s *Segment) Flush() error {
 		// flush success, mark immutable memory database nil
 		s.mutex.Lock()
 		s.immutableMemDB = nil
-		s.ImmutableSequence = nil
 		// save persisted sequence, ack replica sequence in flushMemoryDatabase func
-		for leader, seq := range immutableSeq {
-			s.PersistSequence[leader] = *atomic.NewInt64(seq)
+		for leader, wal := range s.WALs {
+			wal.PersistSequence(leader)
 		}
 
 		s.mutex.Unlock()
@@ -277,14 +277,18 @@ func (s *Segment) Close() error {
 	s.flushCondition.Wait()
 
 	if s.immutableMemDB != nil {
-		if err := s.flushMemoryDatabase(s.ImmutableSequence, s.immutableMemDB); err != nil {
+		immutableSequence := make(map[models.NodeID]int64)
+		for leader, wal := range s.WALs {
+			immutableSequence[leader] = wal.GetImmutableSequence(leader)
+		}
+		if err := s.flushMemoryDatabase(immutableSequence, s.immutableMemDB); err != nil {
 			return err
 		}
 	}
 	if s.mutableMemDB != nil {
 		sequences := make(map[models.NodeID]int64)
-		for leader, seq := range s.Sequence {
-			sequences[leader] = seq.Load()
+		for leader, wal := range s.WALs {
+			sequences[leader] = wal.GetSequence(leader)
 		}
 		if err := s.flushMemoryDatabase(sequences, s.mutableMemDB); err != nil {
 			return err
@@ -372,7 +376,6 @@ func (s *Segment) fileFilter(ctx *flow.MetricScanContext) (resultSet []flow.Filt
 		storageTimeRange := r.GetTimeRange()
 		if storageTimeRange.Overlap(querySlotRange) {
 			metricReaders = append(metricReaders, r)
-		} else {
 		}
 	}
 	if len(metricReaders) == 0 {
@@ -392,6 +395,10 @@ func (s *Segment) flushMemoryDatabase(sequences map[models.NodeID]int64, memDB m
 	}()
 
 	for leader, seq := range sequences {
+		if seq < 0 {
+			// skip invalid sequence
+			continue
+		}
 		flusher.Sequence(int32(leader), seq)
 	}
 
@@ -407,16 +414,6 @@ func (s *Segment) flushMemoryDatabase(sequences map[models.NodeID]int64, memDB m
 		s.statistics.MemDBFlushFailures.Incr()
 		return err
 	}
-
-	// FIXME:
-	// invoke sequence ack callback
-	// for leader, seq := range sequences {
-	// 	if callbacks, ok := f.callbacks[leader]; ok {
-	// 		for _, fn := range callbacks {
-	// 			fn(seq)
-	// 		}
-	// 	}
-	// }
 
 	s.statistics.ActiveMemDBs.Decr()
 

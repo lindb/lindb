@@ -72,10 +72,11 @@ type Database interface {
 	// GetOption returns the database options
 	GetOption() *models.DatabaseConfig
 	FindMatchSmallestInterval(interval timeutil.Interval) timeutil.Interval
-	// CreateShards creates families for data partition
-	CreateShards(shardIDs []models.ShardID) error
+	// CreateShards creates shards with given shard ids and replica info.
+	CreateShards(shards map[models.ShardID]models.Replica) error
 	// GetShard returns shard by given shard id
 	GetShard(shardID models.ShardID) (Shard, bool)
+	GetShardReplica(shardID models.ShardID) models.Replica
 	EvictSegment()
 	SetLimits(limits *models.Limits)
 	GetLimits() *models.Limits

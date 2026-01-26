@@ -42,9 +42,9 @@ func ParseShardID(shard string) ShardID {
 
 // DatabaseConfig represents a database configuration about config and families
 type DatabaseConfig struct {
-	Option   *option.DatabaseOption `toml:"option" json:"option"`
-	Name     string                 `toml:"name" json:"name"`
-	ShardIDs []ShardID              `toml:"shardIDs" json:"shardIDs"`
+	Option *option.DatabaseOption `toml:"option" json:"option"`
+	Name   string                 `toml:"name" json:"name"`
+	Shards map[string]Replica     `toml:"shards" json:"shards"`
 }
 
 // Router represents the router of database.
@@ -66,7 +66,7 @@ type LogicDatabase struct {
 type CreateShard struct {
 	Database string
 	Option   option.DatabaseOption
-	ShardIDs []ShardID
+	Shards   map[ShardID]Replica // shard ids to create(current node in replica)
 }
 
 // Database defines database config.
@@ -116,8 +116,8 @@ func (r Replica) Contain(nodeID NodeID) bool {
 
 // ShardAssignment defines shard assignment for database.
 type ShardAssignment struct {
-	Shards map[ShardID]*Replica `json:"shards"`
-	Name   string               `json:"name"` // database's name
+	Shards map[ShardID]Replica `json:"shards"`
+	Name   string              `json:"name"` // database's name
 
 	replicaFactor int // for storage recover
 }
@@ -126,7 +126,7 @@ type ShardAssignment struct {
 func NewShardAssignment(name string) *ShardAssignment {
 	return &ShardAssignment{
 		Name:   name,
-		Shards: make(map[ShardID]*Replica),
+		Shards: make(map[ShardID]Replica),
 	}
 }
 
@@ -134,7 +134,7 @@ func NewShardAssignment(name string) *ShardAssignment {
 func (s *ShardAssignment) AddReplica(shardID ShardID, replicaID NodeID) {
 	replica, ok := s.Shards[shardID]
 	if !ok {
-		replica = &Replica{}
+		replica = Replica{}
 		s.Shards[shardID] = replica
 	}
 	if !replica.Contain(replicaID) {

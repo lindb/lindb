@@ -212,13 +212,13 @@ func (m *stateManager) onShardAssignmentChange(key string, data []byte) error {
 
 	m.shardAssignments[param.Name] = &param
 
-	var shardIDs []models.ShardID
+	shards := make(map[models.ShardID]models.Replica)
 	for shardID, replica := range param.Shards {
 		if replica.Contain(m.current.ID) {
-			shardIDs = append(shardIDs, shardID)
+			shards[shardID] = replica
 		}
 	}
-	if len(shardIDs) == 0 {
+	if len(shards) == 0 {
 		return constants.ErrShardNotFound
 	}
 	cfgData, err := m.repo.Get(m.ctx, constants.GetDatabaseConfigPath(param.Name))
@@ -233,8 +233,8 @@ func (m *stateManager) onShardAssignmentChange(key string, data []byte) error {
 	for _, watcher := range m.watchers {
 		watcher.OnEvent(&models.CreateShard{
 			Database: param.Name,
-			ShardIDs: shardIDs,
 			Option:   *cfg.Option,
+			Shards:   shards,
 		})
 	}
 	return nil

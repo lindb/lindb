@@ -20,6 +20,7 @@ package log
 import (
 	"fmt"
 	"path"
+	"strconv"
 
 	"github.com/lindb/common/pkg/logger"
 
@@ -70,14 +71,19 @@ func NewDatabase(name string, opt *models.DatabaseConfig,
 	db.indexDB = index.NewDatabase(path.Join(dbPath, "meta"))
 
 	var shard store.Shard
-	if len(db.Options.ShardIDs) > 0 {
-		for _, shardID := range db.Options.ShardIDs {
-			shard, err = db.createShard(shardID)
+	if len(db.Options.Shards) > 0 {
+		for shardIDStr := range db.Options.Shards {
+			shardID, err := strconv.ParseInt(shardIDStr, 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("invalid shard id[%s] for database[%s] with error: %s",
+					shardIDStr, name, err)
+			}
+			shard, err = db.createShard(models.ShardID(shardID))
 			if err != nil {
 				return nil, fmt.Errorf("cannot create shard[%d] of database[%s] with error: %s",
 					shardID, name, err)
 			}
-			db.ShardSet.InsertShard(shardID, shard)
+			db.ShardSet.InsertShard(models.ShardID(shardID), shard)
 		}
 	}
 	return db, nil

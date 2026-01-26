@@ -27,7 +27,6 @@ import (
 	"github.com/lindb/common/pkg/fileutil"
 	"github.com/linxGnu/grocksdb"
 	"go.opentelemetry.io/collector/pdata/ptrace/ptraceotlp"
-	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
@@ -83,11 +82,8 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 				Start: start,
 				End:   store.MinuteIntervalCalc.CalcFamilyEndTime(start),
 			},
-			Path:              segmentPath,
-			WALs:              make(map[models.NodeID]store.WriteAheadLog),
-			Sequence:          make(map[models.NodeID]atomic.Int64),
-			ImmutableSequence: make(map[models.NodeID]int64),
-			PersistSequence:   make(map[models.NodeID]atomic.Int64),
+			Path: segmentPath,
+			WALs: make(map[models.NodeID]store.WriteAheadLog),
 		},
 		partition: partition,
 		db:        db,

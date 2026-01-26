@@ -606,7 +606,7 @@ func (m *stateManager) initializeShardState(storage StorageCluster, shardAssignm
 	shardStates := make(map[models.ShardID]models.ShardState)
 	for shardID, replicas := range shardAssignment.Shards {
 		leader, err := m.elector.ElectLeader(shardAssignment, liveNodes, shardID)
-		shardState := models.ShardState{ID: shardID, Replica: *replicas}
+		shardState := models.ShardState{ID: shardID, Replica: replicas}
 		m.shardLeaderStatistics.LeaderElections.Incr()
 		if err != nil {
 			shardState.State = models.OfflineShard
