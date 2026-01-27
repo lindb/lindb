@@ -26,6 +26,7 @@ import (
 const (
 	dummy                   = ""
 	RollupContext           = "RollupContext"
+	FamilyOptionContext     = "FamilyOptionContext"
 	defaultMaxFileSize      = uint32(256 * 1024 * 1024)
 	defaultCompactThreshold = 4
 	defaultRollupThreshold  = 3

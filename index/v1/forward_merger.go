@@ -46,18 +46,20 @@ type forwardIndexMerger struct {
 }
 
 // NewForwardIndexMerger creates a forward index merger.
-func NewForwardIndexMerger(kvFlusher kv.Flusher) (kv.Merger, error) {
-	flusher, err := newForwardIndexFlusher(kvFlusher)
-	if err != nil {
-		return nil, err
-	}
+func NewForwardIndexMerger() kv.Merger {
 	return &forwardIndexMerger{
-		flusher:   flusher,
 		seriesIDs: roaring.New(),
-	}, nil
+	}
 }
 
-func (m *forwardIndexMerger) Init(params map[string]interface{}) {}
+func (m *forwardIndexMerger) Init(kvFlusher kv.Flusher, params map[string]any) error {
+	flusher, err := newForwardIndexFlusher(kvFlusher)
+	if err != nil {
+		return err
+	}
+	m.flusher = flusher
+	return nil
+}
 
 // Merge merges series ids -> tag value ids.
 func (m *forwardIndexMerger) Merge(tagKeyID uint32, values [][]byte) error {

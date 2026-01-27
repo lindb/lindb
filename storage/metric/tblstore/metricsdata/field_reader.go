@@ -20,88 +20,68 @@ package metricsdata
 import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/stream"
-	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 )
 
 //go:generate mockgen -source ./field_reader.go -destination=./field_reader_mock.go -package metricsdata
 
 // FieldReader represents the field metricReader when does metric data merge.
-// !!!!NOTICE: need get field value in order by field
+// NOTE: need get field value in order by field
 type FieldReader interface {
-	// SlotRange returns the time slot range of metric level
-	SlotRange() timeutil.SlotRange
 	// GetFieldData returns the field data by field id,
 	// if metricReader is completed, return nil, if found data returns field data else returns nil
 	GetFieldData(fieldID field.ID) []byte
 	// Reset resets the field data for reading
-	Reset(seriesEntry []byte, slotRange timeutil.SlotRange)
-	// Close closes the metricReader
-	Close()
+	Reset(fieldIndexes map[field.ID]int, seriesEntry []byte) error
 }
 
 // fieldReader implements FieldReader
 type fieldReader struct {
-	slotRange    timeutil.SlotRange
 	seriesEntry  []byte
 	fieldOffsets *encoding.FixedOffsetDecoder
 	fieldDatas   []byte
 	fieldIndexes map[field.ID]int
 	fieldCount   int
-
-	completed bool // !!!!NOTICE: need reset completed
 }
 
 // newFieldReader creates the field metricReader
-func newFieldReader(fieldIndexes map[field.ID]int, seriesEntry []byte, slotRange timeutil.SlotRange) FieldReader {
+func newFieldReader(fieldIndexes map[field.ID]int, seriesEntry []byte) (FieldReader, error) {
 	r := &fieldReader{
-		fieldIndexes: fieldIndexes,
-		fieldCount:   len(fieldIndexes),
 		seriesEntry:  seriesEntry,
-		slotRange:    slotRange,
 		fieldOffsets: encoding.NewFixedOffsetDecoder(),
 	}
-	r.Reset(seriesEntry, slotRange)
-	return r
+	err := r.Reset(fieldIndexes, seriesEntry)
+	return r, err
 }
 
 // Reset resets the field data for reading
-func (r *fieldReader) Reset(seriesEntry []byte, slotRange timeutil.SlotRange) {
-	r.completed = false
-	r.slotRange = slotRange
+func (r *fieldReader) Reset(fieldIndexes map[field.ID]int, seriesEntry []byte) error {
+	r.fieldIndexes = fieldIndexes
+	r.fieldCount = len(fieldIndexes)
 	if r.fieldCount == 1 {
 		r.seriesEntry = seriesEntry
-		return
+		return nil
 	}
 	if len(seriesEntry) <= 1 {
-		r.completed = true
-		return
+		return nil
 	}
 	// little endian decoding binary.Uvariant
 	fieldOffsetsBlockLen, uVariantEncodingLen := stream.UvarintLittleEndian(seriesEntry)
 	fieldOffsetsAt := len(seriesEntry) - int(fieldOffsetsBlockLen) - uVariantEncodingLen
 	if uVariantEncodingLen <= 0 || fieldOffsetsAt <= 0 || fieldOffsetsAt >= len(seriesEntry) {
-		r.completed = true
-		return
+		return nil
 	}
 
 	if _, err := r.fieldOffsets.Unmarshal(seriesEntry[fieldOffsetsAt:]); err != nil {
-		r.completed = true
+		return err
 	}
 	r.fieldDatas = seriesEntry[:fieldOffsetsAt]
-}
-
-// SlotRange returns the time slot range of metric level
-func (r *fieldReader) SlotRange() timeutil.SlotRange {
-	return r.slotRange
+	return nil
 }
 
 // GetFieldData returns the field data by field id,
 // if metricReader is completed, return nil, if found data returns field data else returns nil
 func (r *fieldReader) GetFieldData(fieldID field.ID) []byte {
-	if r.completed {
-		return nil
-	}
 	if idx, ok := r.fieldIndexes[fieldID]; ok {
 		if r.fieldCount == 1 {
 			return r.seriesEntry
@@ -113,9 +93,4 @@ func (r *fieldReader) GetFieldData(fieldID field.ID) []byte {
 		return fieldBlock
 	}
 	return nil
-}
-
-// Close marks the metricReader completed
-func (r *fieldReader) Close() {
-	r.completed = true
 }

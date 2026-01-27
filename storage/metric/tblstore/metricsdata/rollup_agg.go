@@ -18,102 +18,41 @@
 package metricsdata
 
 import (
-	"math"
-	"sync"
+	"github.com/lindb/common/models"
 
-	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/series/field"
 )
 
-const infBlockSize = 360
-
-var infFilledBlock = make([]float64, infBlockSize)
-
-func init() {
-	for i := range infBlockSize {
-		infFilledBlock[i] = math.Inf(1) + 1
-	}
-}
-
-var float64Pool sync.Pool
-
-func fillInfBlock(sl []float64) {
-	length := len(sl)
-	for i := 0; i <= length/infBlockSize; i++ {
-		from := i * infBlockSize
-		to := min((i+1)*infBlockSize, length)
-		copy(sl[from:to], infFilledBlock)
-	}
-}
-
-func getFloat64Slice(size int) []float64 {
-	item := float64Pool.Get()
-	if item == nil {
-		return make([]float64, size)
-	}
-	sl := item.(*[]float64)
-	if cap(*sl) < size {
-		return make([]float64, size)
-	}
-	return (*sl)[:size]
-}
-
-func putFloat64Slice(sl *[]float64) {
-	float64Pool.Put(sl)
-}
-
-// DownSamplingMultiSeriesInto merges field data from source time range => target time range,
+// downsampling merges field data from source time range => target time range,
 // data will be merged into DownSamplingResult
 // for example: source range[5,182]=>target range[0,6], ratio:30, source interval:10s, target interval:5min.
-func DownSamplingMultiSeriesInto(
-	target timeutil.SlotRange, ratio uint16, baseSlot uint16,
-	fieldType field.Type, decoders []*encoding.TSDDecoder,
-	emitValue func(targetPos int, value float64),
+func downsampling[V float64 | *models.Exemplar](
+	context *mergerContext,
+	timeRange timeutil.SlotRange,
+	result *collections.Array[V], getter func(sloat uint16) (V, bool),
+	aggFn func(old V, new V) V,
 ) {
-	targetValues := make([]float64, infBlockSize)
-	length := int(target.End-target.Start) + 1
-	if length <= infBlockSize {
-		// on stack
-		targetValues = targetValues[:length]
-	} else {
-		// on heap
-		targetValues = getFloat64Slice(length)
-		defer putFloat64Slice(&targetValues)
-	}
-	// first loop: filled target values with inf value,
-	// inf value is invalid, and won't be emitted after down sampling
-	fillInfBlock(targetValues)
-	bs := int(baseSlot)
-	// second loop: iterating tsd decoder
-	for _, decoder := range decoders {
-		if decoder == nil {
+	bs := int(context.baseSlot)
+	target := context.targetRange
+	ratio := context.ratio
+
+	for movingSourceSlot := timeRange.Start; movingSourceSlot <= timeRange.End; movingSourceSlot++ {
+		v, ok := getter(movingSourceSlot)
+		if !ok {
 			continue
 		}
-		for movingSourceSlot := decoder.StartTime(); movingSourceSlot <= decoder.EndTime(); movingSourceSlot++ {
-			if !decoder.HasValueWithSlot(movingSourceSlot) {
-				continue
-			}
-			value := math.Float64frombits(decoder.Value())
-			targetPos := bs + int(movingSourceSlot/ratio) - int(target.Start)
-			if targetPos < 0 {
-				continue
-			}
-			// exhausted
-			if targetPos >= length {
-				break
-			}
-			// not set before
-			if math.IsInf(targetValues[targetPos], 1) {
-				targetValues[targetPos] = value
-				// set before, aggregate
-			} else {
-				targetValues[targetPos] = fieldType.AggType().Aggregate(targetValues[targetPos], value)
-			}
+		targetPos := bs + int(movingSourceSlot/ratio) - int(target.Start)
+		if targetPos < 0 {
+			continue
 		}
-	}
-	// third loop, emit down sampling data
-	for offset, value := range targetValues {
-		emitValue(offset, value)
+
+		// TODO: target pos exceed target range?
+
+		if result.HasValue(targetPos) {
+			result.SetValue(targetPos, aggFn(result.GetValue(targetPos), v))
+		} else {
+			result.SetValue(targetPos, v)
+		}
 	}
 }

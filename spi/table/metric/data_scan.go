@@ -47,7 +47,7 @@ func (ds *dataScan) Run() {
 
 	columns := tableScan.columns
 	for _, column := range columns {
-		column.createStream(len(familyLoaders))
+		column.createStream(len(familyLoaders), ds.split.numOfPoints)
 	}
 
 	isGrouping := tableScan.isGrouping()

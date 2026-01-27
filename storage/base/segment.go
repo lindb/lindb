@@ -36,6 +36,7 @@ var logger = loggerpkg.GetLogger("storage", "base")
 
 type Segment struct {
 	TimeRange timeutil.TimeRange
+	Interval  timeutil.Interval
 	Path      string
 	WALs      map[models.NodeID]store.WriteAheadLog // leader => write ahead log
 
@@ -63,6 +64,7 @@ func (s *Segment) LoadWALs(ackSequences map[int32]int64) error {
 		if err != nil {
 			return err
 		}
+		// set replica sequcence for local replicator
 		ack, ok := ackSequences[int32(nodeID)]
 		if !ok {
 			wal.AckSequence(models.NodeID(nodeID), ack)
@@ -73,6 +75,10 @@ func (s *Segment) LoadWALs(ackSequences map[int32]int64) error {
 
 func (s *Segment) SegmentTimeRange() timeutil.TimeRange {
 	return s.TimeRange
+}
+
+func (s *Segment) NumOfPoints() int {
+	return s.TimeRange.NumOfPoints(s.Interval)
 }
 
 func (s *Segment) GetOrCreateWAL(leader models.NodeID) (store.WriteAheadLog, error) {

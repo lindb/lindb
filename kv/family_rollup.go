@@ -44,20 +44,25 @@ type Rollup interface {
 	CalcSlot(timestamp int64) uint16
 	// BaseSlot returns base slot by source family time/target interval.
 	BaseSlot() uint16
+	// NumOfPoints returns number of points in target interval.
+	NumOfPoints() int
 }
 
 // rollup implements Rollup interface.
 type rollup struct {
 	source, target           timeutil.Interval
 	sourceFTime, targetFTime int64
+
+	numOfPoints int
 }
 
-func newRollup(source, target timeutil.Interval, sourceFTime, targetFTime int64) Rollup {
+func newRollup(source, target timeutil.Interval, sourceFTime, targetFTime int64, numOfPoints int) Rollup {
 	return &rollup{
 		source:      source,
 		target:      target,
 		sourceFTime: sourceFTime,
 		targetFTime: targetFTime,
+		numOfPoints: numOfPoints,
 	}
 }
 
@@ -75,6 +80,10 @@ func (r *rollup) CalcSlot(timestamp int64) uint16 {
 
 func (r *rollup) BaseSlot() uint16 {
 	return r.CalcSlot(r.sourceFTime)
+}
+
+func (r *rollup) NumOfPoints() int {
+	return r.numOfPoints
 }
 
 // needRollup checks if it needs rollup source family data.
@@ -199,7 +208,13 @@ func (f *family) rollup() {
 						logger.Error(err))
 					continue
 				}
-				rollup := newRollup(sourceInterval, targetInterval, familyStartTime, fSTime)
+				fETime := targetInterval.Calculator().CalcFamilyEndTime(fSTime)
+				timeRange := &timeutil.TimeRange{
+					Start: fSTime,
+					End:   fETime,
+				}
+				rollup := newRollup(sourceInterval, targetInterval, familyStartTime,
+					fSTime, timeRange.NumOfPoints(targetInterval))
 				if err := targetFamily.doRollupWork(f, rollup, files); err != nil {
 					kvLogger.Error("do rollup work fail",
 						logger.String("family", f.familyInfo()),

@@ -20,6 +20,8 @@ package field
 import (
 	"math"
 
+	"github.com/lindb/common/models"
+
 	"github.com/lindb/lindb/spi/types"
 )
 
@@ -66,6 +68,19 @@ func (t AggType) Aggregate(a, b float64) float64 {
 	default:
 		panic("unspecified AggType")
 	}
+}
+
+func ExemplarAggregate(a, b *models.Exemplar) *models.Exemplar {
+	if a == nil {
+		return b
+	}
+	if b == nil {
+		return a
+	}
+	if a.Duration >= b.Duration {
+		return a
+	}
+	return b
 }
 
 // Type represents field type for LinDB support

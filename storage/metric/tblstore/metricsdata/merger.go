@@ -1,5 +1,3 @@
-// Licensed to LinDB under one or more contributor
-// license agreements. See the NOTICE file distributed with
 // this work for additional information regarding copyright
 // ownership. LinDB licenses this file to you under
 // the Apache License, Version 2.0 (the "License"); you may
@@ -18,11 +16,15 @@
 package metricsdata
 
 import (
+	"errors"
 	"sort"
 
+	"github.com/lindb/common/models"
 	"github.com/lindb/roaring"
+	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/kv"
+	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
@@ -36,13 +38,28 @@ func init() {
 }
 
 type mergerContext struct {
-	scanners     []*dataScanner
-	seriesIDs    *roaring.Bitmap // target series ids
-	targetFields field.Metas     // target fields
-
+	// per metric level context
+	scanners                 []*dataScanner
+	seriesIDs                *roaring.Bitmap // target series ids
+	allFields                field.Metas     // all target fields(normal+exemplar)
 	targetRange, sourceRange timeutil.SlotRange
-	ratio                    uint16
-	baseSlot                 uint16
+	fieldReader              FieldReader
+
+	// global context
+	ratio             uint16
+	baseSlot          uint16
+	targetNumOfPoints int
+
+	// merger context per series
+	decoder   *encoding.TSDDecoder
+	values    *collections.Array[float64]
+	exemplars *collections.Array[*models.Exemplar]
+}
+
+func (mc *mergerContext) reset() {
+	mc.scanners = mc.scanners[:0]
+	mc.seriesIDs.Clear()
+	mc.allFields = mc.allFields[:0]
 }
 
 // merger implements kv.Merger for merging series data for each metric
@@ -50,65 +67,75 @@ type merger struct {
 	dataFlusher  Flusher
 	seriesMerger SeriesMerger
 	rollup       kv.Rollup
+	option       kv.FamilyOption
+
+	context *mergerContext
 }
 
 // NewMerger creates a metric data merger
-func NewMerger(flusher kv.Flusher) (kv.Merger, error) {
-	dataFlusher, err := NewFlusher(flusher)
-	if err != nil {
-		return nil, err
-	}
-	return &merger{
-		dataFlusher:  dataFlusher,
-		seriesMerger: newSeriesMerger(dataFlusher),
-	}, nil
+func NewMerger() kv.Merger {
+	return &merger{}
 }
 
 // Init initializes metric data merger, if rollup context exist do rollup job, else do compact job
-func (m *merger) Init(params map[string]interface{}) {
+func (m *merger) Init(flusher kv.Flusher, params map[string]any) error {
+	dataFlusher, err := NewFlusher(flusher)
+	if err != nil {
+		return err
+	}
+	option, ok := params[kv.FamilyOptionContext]
+	if !ok {
+		return errors.New("missing family option context")
+	}
+	familyOption := option.(kv.FamilyOption)
+	m.option = familyOption
+
 	if rollupCtx, ok := params[kv.RollupContext]; ok {
 		m.rollup = rollupCtx.(kv.Rollup)
 	}
+	m.dataFlusher = dataFlusher
+	m.seriesMerger = newSeriesMerger(dataFlusher)
+
+	m.context = &mergerContext{
+		seriesIDs: roaring.New(),
+		decoder:   encoding.GetTSDDecoder(),
+	}
+
+	// check if rollup job
+	if m.rollup != nil {
+		m.context.ratio = m.rollup.IntervalRatio()
+		m.context.baseSlot = m.rollup.BaseSlot() // different family, need calc based on base slot
+		m.context.targetNumOfPoints = m.rollup.NumOfPoints()
+	} else {
+		m.context.ratio = 1
+		m.context.targetNumOfPoints = m.option.NumOfPoints
+	}
+
+	m.context.values = collections.NewArray[float64](m.context.targetNumOfPoints)
+	m.context.exemplars = collections.NewArray[*models.Exemplar](m.context.targetNumOfPoints)
+	return nil
 }
 
 // Merge merges the multi metric data into one target metric data for same metric id
 func (m *merger) Merge(key uint32, metricBlocks [][]byte) error {
-	blockCount := len(metricBlocks)
+	defer m.context.reset()
+
 	// 1. prepare readers and metric level data(field/time slot/series ids)
-	mergeCtx, err := m.prepare(metricBlocks)
+	err := m.prepare(metricBlocks)
 	if err != nil {
 		return err
 	}
 	// 2. Prepare metric
-	m.dataFlusher.PrepareMetric(key, mergeCtx.targetFields)
+	m.dataFlusher.PrepareMetric(key, m.context.allFields)
 	// 3. merge series data by roaring container
-	highKeys := mergeCtx.seriesIDs.GetHighKeys()
-	decodeStreams := make([]*encoding.TSDDecoder, blockCount) // make decodeStreams for reuse
-	defer func() {
-		for _, stream := range decodeStreams {
-			encoding.ReleaseTSDDecoder(stream)
-		}
-	}()
-	fieldReaders := make([]FieldReader, blockCount)
+	highKeys := m.context.seriesIDs.GetHighKeys()
+
 	for idx, highKey := range highKeys {
-		container := mergeCtx.seriesIDs.GetContainerAtIndex(idx)
+		container := m.context.seriesIDs.GetContainerAtIndex(idx)
 		it := container.PeekableIterator()
 		for it.HasNext() {
 			lowSeriesID := it.Next()
-			// maybe series id not exist in some values block
-			for blockIdx, scanner := range mergeCtx.scanners {
-				seriesEntry := scanner.scan(highKey, lowSeriesID)
-				if len(seriesEntry) == 0 {
-					continue
-				}
-				timeRange := scanner.slotRange()
-				if fieldReaders[blockIdx] == nil {
-					fieldReaders[blockIdx] = newFieldReader(scanner.fieldIndexes(), seriesEntry, timeRange)
-				} else {
-					fieldReaders[blockIdx].Reset(seriesEntry, timeRange)
-				}
-			}
-			if err := m.seriesMerger.merge(mergeCtx, decodeStreams, fieldReaders); err != nil {
+			if err := m.seriesMerger.merge(m.context, highKey, lowSeriesID); err != nil {
 				return err
 			}
 			// flush series id
@@ -118,64 +145,51 @@ func (m *merger) Merge(key uint32, metricBlocks [][]byte) error {
 		}
 	}
 	// flush metric data
-	if err := m.dataFlusher.CommitMetric(mergeCtx.targetRange); err != nil {
+	if err := m.dataFlusher.CommitMetric(m.context.targetRange); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (m *merger) prepare(metricBlocks [][]byte) (*mergerContext, error) {
-	ctx := &mergerContext{
-		scanners:     make([]*dataScanner, len(metricBlocks)),
-		seriesIDs:    roaring.New(),
-		targetFields: field.Metas{},
-	}
-
-	for idx, metricBlock := range metricBlocks {
+func (m *merger) prepare(metricBlocks [][]byte) error {
+	for _, metricBlock := range metricBlocks {
 		reader, err := NewReader("merge_operation", metricBlock)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		ctx.seriesIDs.Or(reader.GetSeriesIDs())
+		m.context.seriesIDs.Or(reader.GetSeriesIDs())
 		// get target slot range(start/end)
 		timeRange := reader.GetTimeRange()
-		if len(ctx.targetFields) == 0 {
-			ctx.sourceRange.Start = timeRange.Start
-			ctx.sourceRange.End = timeRange.End
+		if len(m.context.allFields) == 0 {
+			m.context.sourceRange.Start = timeRange.Start
+			m.context.sourceRange.End = timeRange.End
 		} else {
-			if ctx.sourceRange.Start > timeRange.Start {
-				ctx.sourceRange.Start = timeRange.Start
-			}
-			if ctx.sourceRange.End < timeRange.End {
-				ctx.sourceRange.End = timeRange.End
-			}
+			m.context.sourceRange = m.context.sourceRange.Union(timeRange)
 		}
 		// merge target fields under metric level
-		for _, f := range reader.GetFields() {
-			// FIXME: sort it????
-			if _, ok := ctx.targetFields.GetFromID(f.ID); !ok {
-				ctx.targetFields = append(ctx.targetFields, f)
-			}
-		}
+		m.context.allFields = append(m.context.allFields, reader.GetFields()...)
 		// create data scanner
-		if ctx.scanners[idx], err = newDataScanner(reader); err != nil {
-			return nil, err
+		scanner, err := newDataScanner(reader)
+		if err != nil {
+			return err
 		}
+		m.context.scanners = append(m.context.scanners, scanner)
 	}
+
+	// deduplicate target fields
+	lo.UniqBy(m.context.allFields, func(f field.Meta) field.ID { return f.ID })
+
 	// sort by field id
-	sort.Slice(ctx.targetFields, func(i, j int) bool { return ctx.targetFields[i].ID < ctx.targetFields[j].ID })
+	sort.Slice(m.context.allFields, func(i, j int) bool { return m.context.allFields[i].ID < m.context.allFields[j].ID })
 
 	// check if rollup job
 	if m.rollup != nil {
 		// calc target time slot range and interval ratio
-		ctx.targetRange.Start = m.rollup.CalcSlot(m.rollup.GetTimestamp(ctx.sourceRange.Start))
-		ctx.targetRange.End = m.rollup.CalcSlot(m.rollup.GetTimestamp(ctx.sourceRange.End))
-		ctx.ratio = m.rollup.IntervalRatio()
-		ctx.baseSlot = m.rollup.BaseSlot() // different family, need calc based on base slot
+		m.context.targetRange.Start = m.rollup.CalcSlot(m.rollup.GetTimestamp(m.context.sourceRange.Start))
+		m.context.targetRange.End = m.rollup.CalcSlot(m.rollup.GetTimestamp(m.context.sourceRange.End))
 	} else {
-		ctx.targetRange.Start = ctx.sourceRange.Start
-		ctx.targetRange.End = ctx.sourceRange.End
-		ctx.ratio = 1
+		m.context.targetRange.Start = m.context.sourceRange.Start
+		m.context.targetRange.End = m.context.sourceRange.End
 	}
-	return ctx, nil
+	return nil
 }

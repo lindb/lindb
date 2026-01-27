@@ -100,7 +100,7 @@ func (r *localReplicator) AckSequence(ack int64) {
 func (r *localReplicator) Replica(sequence int64, msg []byte) {
 	var err error
 
-	if sequence > r.sequence.Load() {
+	if sequence <= r.sequence.Load() {
 		r.statistics.InvalidSequence.Incr()
 		return
 	}

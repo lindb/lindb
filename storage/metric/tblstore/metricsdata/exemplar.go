@@ -33,8 +33,9 @@ func newExemplarTSDGetter(data []byte) encoding.TSDValueGetter {
 	r := stream.NewReader(data)
 	size := r.ReadUint16() // read length
 	var exemplars map[uint16]*models.Exemplar
+
 	if size > 0 {
-		exemplarMap := make(map[uint16]*models.Exemplar)
+		exemplars = make(map[uint16]*models.Exemplar)
 		for i := 0; i < int(size); i++ {
 			slot := r.ReadUint16()
 			traceIDLen := r.ReadUvarint32()
@@ -43,14 +44,14 @@ func newExemplarTSDGetter(data []byte) encoding.TSDValueGetter {
 			spanID := r.ReadBytes(int(spanIDLen))
 			duration := r.ReadVarint64()
 
-			exemplarMap[slot] = &models.Exemplar{
+			exemplars[slot] = &models.Exemplar{
 				TraceID:  strutil.ByteSlice2String(traceID),
 				SpanID:   strutil.ByteSlice2String(spanID),
 				Duration: duration,
 			}
 		}
-		return &exemplarTSDGetter{data: exemplarMap}
 	}
+
 	return &exemplarTSDGetter{
 		data: exemplars,
 	}

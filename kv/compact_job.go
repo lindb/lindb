@@ -133,16 +133,18 @@ func (c *compactJob) mergeCompaction() (err error) {
 
 // doMerge merges the input files based on merger interface which need use implements
 func (c *compactJob) doMerge() error {
-	merger, err := c.newMerger(c.newCompactFlusher())
-	if err != nil {
-		return err
-	}
+	merger := c.newMerger()
 	it, err := c.makeInputIterator()
 	if err != nil {
 		return err
 	}
+	params := map[string]any{FamilyOptionContext: c.family.Option()}
 	if c.rollup != nil {
-		merger.Init(map[string]interface{}{RollupContext: c.rollup})
+		params[RollupContext] = c.rollup
+	}
+
+	if err := merger.Init(c.newCompactFlusher(), params); err != nil {
+		return err
 	}
 
 	var needMerge [][]byte

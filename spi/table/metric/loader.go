@@ -59,19 +59,21 @@ func (l *loader) load(lowSeriesID uint16) {
 }
 
 type Streams[V float64 | *models.Exemplar] struct {
-	streams []Stream[V] // stream of fields
+	streams     []Stream[V] // stream of fields
+	numOfPoints int
 }
 
-func newStreams[V float64 | *models.Exemplar](numOfFamilies int) *Streams[V] {
+func newStreams[V float64 | *models.Exemplar](numOfFamilies, numOfPoints int) *Streams[V] {
 	return &Streams[V]{
-		streams: make([]Stream[V], numOfFamilies),
+		streams:     make([]Stream[V], numOfFamilies),
+		numOfPoints: numOfPoints,
 	}
 }
 
-func (s *Streams[V]) GetStreamByIndex(familyIndex int, fn func() Stream[V]) Stream[V] {
+func (s *Streams[V]) GetStreamByIndex(familyIndex int, fn func(numOfPoints int) Stream[V]) Stream[V] {
 	stream := s.streams[familyIndex]
 	if stream == nil {
-		stream = fn()
+		stream = fn(s.numOfPoints)
 		s.streams[familyIndex] = stream
 	}
 	return stream

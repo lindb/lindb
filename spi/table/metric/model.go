@@ -107,6 +107,8 @@ type DataSplit struct {
 	groupingContext flow.GroupingContext
 	groupingAgg     grouping
 
+	numOfPoints int // num. of points per series(storage level)
+
 	seriesIDHighKey uint16
 	lowSeriesIDs    roaring.Container
 }

@@ -35,18 +35,19 @@ type indexKVMerger struct {
 	kvWriter table.StreamWriter
 }
 
-func NewIndexKVMerger(kvFlusher kv.Flusher) (kv.Merger, error) {
-	kvWriter, err := kvFlusher.StreamWriter()
-	if err != nil {
-		return nil, err
-	}
-	return &indexKVMerger{
-		flusher:  kvFlusher,
-		kvWriter: kvWriter,
-	}, nil
+func NewIndexKVMerger() kv.Merger {
+	return &indexKVMerger{}
 }
 
-func (m *indexKVMerger) Init(_ map[string]interface{}) {}
+func (m *indexKVMerger) Init(kvFlusher kv.Flusher, _ map[string]any) error {
+	kvWriter, err := kvFlusher.StreamWriter()
+	if err != nil {
+		return err
+	}
+	m.flusher = kvFlusher
+	m.kvWriter = kvWriter
+	return nil
+}
 
 func (m *indexKVMerger) Merge(bucketID uint32, buckets [][]byte) error {
 	// TODO: reuse bucket

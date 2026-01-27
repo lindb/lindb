@@ -24,7 +24,7 @@ import (
 )
 
 func TestFloatArray(t *testing.T) {
-	fa := NewFloatArray(10)
+	fa := NewArray(10)
 	assert.Equal(t, 10, fa.Capacity())
 	assert.Equal(t, 0, fa.Size())
 	assert.True(t, fa.IsEmpty())
@@ -78,7 +78,7 @@ func TestFloatArray(t *testing.T) {
 }
 
 func TestFloatArray_Single(t *testing.T) {
-	fa := NewFloatArray(10)
+	fa := NewArray(10)
 	assert.False(t, fa.IsSingle())
 	for i := 0; i < 10; i++ {
 		fa.SetValue(i, 10)

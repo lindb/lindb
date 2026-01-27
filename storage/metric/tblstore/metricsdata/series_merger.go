@@ -18,7 +18,13 @@
 package metricsdata
 
 import (
+	"math"
+
+	"github.com/lindb/lindb/pkg/bit"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/stream"
+	"github.com/lindb/lindb/pkg/strutil"
+	"github.com/lindb/lindb/series/field"
 )
 
 //go:generate mockgen -source ./series_merger.go -destination=./series_merger_mock.go -package metricsdata
@@ -27,8 +33,7 @@ import (
 type SeriesMerger interface {
 	// merge the multi-fields' data with same series id
 	merge(mergeCtx *mergerContext,
-		decodeStreams []*encoding.TSDDecoder,
-		fieldReaders []FieldReader,
+		highKey, lowSeriesID uint16,
 	) error
 }
 
@@ -47,57 +52,104 @@ func newSeriesMerger(flusher Flusher) SeriesMerger {
 // merge the multi-fields' data with same series id
 func (sm *seriesMerger) merge(
 	mergeCtx *mergerContext,
-	streams []*encoding.TSDDecoder,
-	fieldReaders []FieldReader,
-) error {
-	for idx, f := range mergeCtx.targetFields {
+	highKey, lowSeriesID uint16,
+) (err error) {
+	for idx, f := range mergeCtx.allFields {
 		fieldID := f.ID
-		encodeStream := sm.flusher.GetEncoder(idx)
-		encodeStream.RestWithStartTime(mergeCtx.targetRange.Start)
+		isExemplar := f.Type.IsExemplar()
+		var encodeStream *encoding.TSDEncoder
+		if isExemplar {
+		} else {
+			encodeStream = sm.flusher.GetEncoder(idx)
+			encodeStream.RestWithStartTime(mergeCtx.targetRange.Start)
+		}
 
-		for idx, reader := range fieldReaders {
-			if reader == nil {
-				// if series id not exist, metricReader is nil
+		// merger field data from multi scanners(same series)
+		for _, scanner := range mergeCtx.scanners {
+			seriesEntry := scanner.scan(highKey, lowSeriesID)
+			if len(seriesEntry) == 0 {
+				// maybe series id not exist in some values block
 				continue
 			}
-			fieldData := reader.GetFieldData(fieldID)
-			if len(fieldData) > 0 {
-				if streams[idx] == nil {
-					// new tsd decoder
-					streams[idx] = encoding.GetTSDDecoder()
-				}
-				oldSlotRange := reader.SlotRange()
+			// initial field reader
+			timeRange := scanner.slotRange()
+			if mergeCtx.fieldReader == nil {
+				mergeCtx.fieldReader, err = newFieldReader(scanner.fieldIndexes(), seriesEntry)
+			} else {
+				err = mergeCtx.fieldReader.Reset(scanner.fieldIndexes(), seriesEntry)
+			}
+			if err != nil {
+				return err
+			}
+			fieldData := mergeCtx.fieldReader.GetFieldData(fieldID)
+			if len(fieldData) == 0 {
+				// maybe field not exist in some values block
+				continue
+			}
+
+			if isExemplar {
+				getter := newExemplarTSDGetter(fieldData)
+				downsampling(mergeCtx, timeRange, mergeCtx.exemplars, getter.GetExemplar, field.ExemplarAggregate)
+			} else {
 				// reset tsd data
-				streams[idx].ResetWithTimeRange(fieldData, oldSlotRange.Start, oldSlotRange.End)
+				mergeCtx.decoder.ResetWithTimeRange(fieldData, timeRange.Start, timeRange.End)
+				downsampling(mergeCtx, timeRange, mergeCtx.values, mergeCtx.decoder.GetValue, f.Type.AggType().Aggregate)
 			}
 		}
-		// merges field data from source time range => target time range,
-		// compact merge: source range = target range and ratio = 1
-		// rollup merge: source range[5,182]=>target range[0,6], ratio:30, source interval:10s, target interval:5min
-		DownSamplingMultiSeriesInto(
-			mergeCtx.targetRange, mergeCtx.ratio, mergeCtx.baseSlot,
-			f.Type, streams,
-			encodeStream.EmitDownSamplingValue,
-		)
 
-		data, err := encodeStream.BytesWithoutTime()
-		if err != nil {
-			return err
-		}
+		if isExemplar {
+			w := stream.NewBufferWriter(nil)
 
-		// flush field data
-		if err := sm.flusher.FlushField(data); err != nil {
-			return err
+			w.PutUInt16(uint16(mergeCtx.exemplars.Size()))
+			for pos := mergeCtx.targetRange.Start; pos <= mergeCtx.targetRange.End; pos++ {
+				targetPos := int(pos)
+
+				if mergeCtx.exemplars.HasValue(targetPos) {
+					ex := mergeCtx.exemplars.GetValue(targetPos)
+					w.PutUInt16(pos)
+					w.PutUvarint32(uint32(len(ex.TraceID)))
+					w.PutBytes(strutil.String2ByteSlice(ex.TraceID))
+					w.PutUvarint32(uint32(len(ex.SpanID)))
+					w.PutBytes(strutil.String2ByteSlice(ex.SpanID))
+					w.PutVarint64(ex.Duration)
+				}
+			}
+
+			data, err := w.Bytes()
+			if err != nil {
+				return err
+			}
+			// flush field data
+			if err := sm.flusher.FlushField(data); err != nil {
+				return err
+			}
+
+			mergeCtx.exemplars.Reset() // reset exemplars for next field
+		} else {
+			for pos := mergeCtx.targetRange.Start; pos <= mergeCtx.targetRange.End; pos++ {
+				targetPos := int(pos)
+
+				if mergeCtx.values.HasValue(targetPos) {
+					encodeStream.AppendTime(bit.One)
+					encodeStream.AppendValue(math.Float64bits(mergeCtx.values.GetValue(targetPos)))
+				} else {
+					encodeStream.AppendTime(bit.Zero)
+				}
+			}
+
+			data, err := encodeStream.BytesWithoutTime()
+			if err != nil {
+				return err
+			}
+
+			// flush field data
+			if err := sm.flusher.FlushField(data); err != nil {
+				return err
+			}
+			mergeCtx.values.Reset() // reset values for next field
+			encodeStream.Reset()    // reset tsd compress stream for next loop
 		}
-		encodeStream.Reset() // reset tsd compress stream for next loop
 	}
 
-	// need mark metricReader completed, because next series id maybe haven't field data in metricReader,
-	// if it doesn't mark metricReader completed, some data will read duplicate.
-	for _, reader := range fieldReaders {
-		if reader != nil {
-			reader.Close()
-		}
-	}
 	return nil
 }

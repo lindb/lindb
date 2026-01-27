@@ -29,9 +29,11 @@ import (
 )
 
 type partitionScan struct {
-	ctx       *ExecutionContext
-	partition *Partition
-	reduceCh  chan<- any
+	ctx         *ExecutionContext
+	partition   *Partition
+	numOfPoints int // set when find series ids
+
+	reduceCh chan<- any
 }
 
 func NewPartitionScan(ctx *ExecutionContext, partition *Partition, reduceCh chan<- any) *partitionScan {
@@ -73,6 +75,7 @@ func (ps *partitionScan) Run() {
 		data := &DataSplit{
 			partition:       ps.partition,
 			groupingContext: groupingContext,
+			numOfPoints:     ps.numOfPoints,
 
 			seriesIDHighKey: highKey,
 			lowSeriesIDs:    seriesIDs.GetContainerAtIndex(index),
@@ -100,14 +103,16 @@ func (ps *partitionScan) findSeriesIDs(partition *Partition) *roaring.Bitmap {
 	result := roaring.New()
 
 	for i := range partition.segments {
-		family := partition.segments[i]
+		segment := partition.segments[i]
 		// check family data if matches condition(series ids)
-		resultSet, err := family.Filter(&flow.MetricScanContext{
+		resultSet, err := segment.Filter(&flow.MetricScanContext{
 			MetricID:  tableScan.metricID,
 			SeriesIDs: seriesIDs,
 			Fields:    tableScan.fields, // set fields when search the data of time series
 			TimeRange: tableScan.timeRange,
 		})
+		// NOTE: all segment has same num of points
+		ps.numOfPoints = segment.NumOfPoints()
 
 		if err != nil && !errors.Is(err, constants.ErrNotFound) {
 			panic(err)

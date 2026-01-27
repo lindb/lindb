@@ -222,9 +222,9 @@ func (psc *sourceConnector) buildTableScan() *TableScan {
 
 			if fieldMeta.Type.IsExemplar() {
 				ch = newColumn(
-					numOfAggs, tableScan, fieldMeta, handles, exemplarAggregate,
+					numOfAggs, tableScan, fieldMeta, handles, field.ExemplarAggregate,
 					func(funcName tree.FuncName) aggregateFunc[*models.Exemplar] {
-						return exemplarAggregate
+						return field.ExemplarAggregate
 					})
 			} else {
 				ch = newColumn(

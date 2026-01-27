@@ -224,7 +224,7 @@ func (w *flusher) PrepareMetric(
 func (w *flusher) prepareEncoder() {
 	countOfFixEncode := len(w.Level2.fieldMetas) - len(w.encoders)
 	for i := 0; i < countOfFixEncode; i++ {
-		// NOTICE: set invalid start time, need to reset before use
+		// NOTE: set invalid start time, need to reset before use
 		w.encoders = append(w.encoders, encoding.GetTSDEncoder(0))
 	}
 }

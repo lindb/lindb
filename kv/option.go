@@ -32,6 +32,7 @@ type FamilyOption struct {
 	ID               int    `toml:"id"`
 	CompactThreshold int    `toml:"compactThreshold"`
 	RollupThreshold  int    `toml:"rollupThreshold"`
+	NumOfPoints      int    `toml:"numOfPoints"` // number of points in one segment(metric only)
 	MaxFileSize      uint32 `toml:"maxFileSize"`
 }
 

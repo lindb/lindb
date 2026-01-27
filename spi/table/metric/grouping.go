@@ -22,6 +22,7 @@ import (
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/storage/metric"
 )
@@ -201,89 +202,13 @@ func (g *groupingWithoutTags) GetAggregator(_ uint16) []Result {
 type Result any
 
 type result[V float64 | *models.Exemplar] struct {
-	array *Array[V]
+	array *collections.Array[V]
 }
 
 func NewResult[V float64 | *models.Exemplar](numOfPoints int) Result {
 	return &result[V]{
-		array: NewArray[V](numOfPoints),
+		array: collections.NewArray[V](numOfPoints),
 	}
-}
-
-const blockSize = 8
-
-type Array[V float64 | *models.Exemplar] struct {
-	marks    []uint8
-	values   []V
-	capacity int
-	size     int
-	isSingle bool
-}
-
-func NewArray[V float64 | *models.Exemplar](capacity int) *Array[V] {
-	markLen := capacity / blockSize
-	if capacity%blockSize > 0 {
-		markLen++
-	}
-	return &Array[V]{
-		capacity: capacity,
-		values:   make([]V, capacity),
-		marks:    make([]uint8, markLen),
-	}
-}
-
-// Values returns the values of array.
-func (f *Array[V]) Values() []V {
-	return f.values
-}
-
-// HasValue returns if has value with pos
-func (f *Array[V]) HasValue(pos int) bool {
-	if !f.checkPos(pos) {
-		return false
-	}
-	blockIdx := pos / blockSize
-	idx := pos % blockSize
-	mark := f.marks[blockIdx]
-	return mark&(1<<uint64(idx)) != 0
-}
-
-// GetValue returns value with pos, if it has not value return 0
-func (f *Array[V]) GetValue(pos int) V {
-	return f.values[pos]
-}
-
-// SetValue sets value with pos, if pos out of bounds, return it
-func (f *Array[V]) SetValue(pos int, value V) {
-	if !f.checkPos(pos) {
-		return
-	}
-	f.values[pos] = value
-
-	if !f.HasValue(pos) {
-		blockIdx := pos / blockSize
-		idx := pos - pos/blockSize*blockSize
-		mark := f.marks[blockIdx]
-		mark |= 1 << uint64(idx)
-		f.marks[blockIdx] = mark
-
-		f.size++
-	}
-}
-
-func (f *Array[V]) Reset() {
-	f.size = 0
-	f.isSingle = false
-	for i := range f.marks {
-		f.marks[i] = 0
-	}
-}
-
-func (f *Array[V]) checkPos(pos int) bool {
-	if pos < 0 || pos >= f.capacity {
-		return false
-	}
-	return true
 }
 
 type Stream[V any] interface {
@@ -293,12 +218,12 @@ type Stream[V any] interface {
 }
 
 type stream[V float64 | *models.Exemplar] struct {
-	values *Array[V]
+	values *collections.Array[V]
 }
 
 func NewStream[V float64 | *models.Exemplar](size int) Stream[V] {
 	return &stream[V]{
-		values: NewArray[V](size),
+		values: collections.NewArray[V](size),
 	}
 }
 

@@ -39,16 +39,17 @@ type merger struct {
 }
 
 // NewMerger creates a metric data merger
-func NewMerger(flusher kv.Flusher) (kv.Merger, error) {
+func NewMerger() kv.Merger {
 	return &merger{
-		flusher: flusher,
-		result:  roaring.New(),
-		temp:    roaring.New(),
-	}, nil
+		result: roaring.New(),
+		temp:   roaring.New(),
+	}
 }
 
 // Init implements kv.Merger.
-func (m *merger) Init(params map[string]any) {
+func (m *merger) Init(flusher kv.Flusher, params map[string]any) error {
+	m.flusher = flusher
+	return nil
 }
 
 // Merge implements kv.Merger.

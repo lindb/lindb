@@ -63,6 +63,7 @@ func NewWriteAheadLog(path string, segment store.Segment) (store.WriteAheadLog, 
 		logger:     logger.GetLogger("WAL", "WriteAheadLog"),
 	}
 
+	// TODO: only writable write ahead log need build replica for leader
 	// build wal replica relation for leader
 	wal.BuildReplicaForLeader(meta.CurrentNode(), segment.Partition().Shard().Replica().Replicas)
 	return wal, nil

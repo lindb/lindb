@@ -35,17 +35,18 @@ type metricSchemaMerger struct {
 }
 
 // NewMetricScheamMerger creates a MetricSchemaMerger instance.
-func NewMetricScheamMerger(kvFlusher kv.Flusher) (kv.Merger, error) {
-	flusher, err := NewMetricSchemaFlusher(kvFlusher)
-	if err != nil {
-		return nil, err
-	}
-	return &metricSchemaMerger{
-		flusher: flusher,
-	}, nil
+func NewMetricScheamMerger() kv.Merger {
+	return &metricSchemaMerger{}
 }
 
-func (m *metricSchemaMerger) Init(params map[string]interface{}) {}
+func (m *metricSchemaMerger) Init(kvFlusher kv.Flusher, params map[string]any) error {
+	flusher, err := NewMetricSchemaFlusher(kvFlusher)
+	if err != nil {
+		return err
+	}
+	m.flusher = flusher
+	return nil
+}
 
 // Merge merges metric schema.
 func (m *metricSchemaMerger) Merge(metricID uint32, values [][]byte) error {

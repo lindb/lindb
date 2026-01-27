@@ -51,6 +51,7 @@ type Family interface {
 	GetSnapshot() version.Snapshot
 	// Compact compacts all files of level0.
 	Compact()
+	Option() FamilyOption
 
 	getStore() Store
 	// familyInfo return family info
@@ -147,6 +148,10 @@ func (f *family) ID() version.FamilyID {
 // Name return family's name
 func (f *family) Name() string {
 	return f.name
+}
+
+func (f *family) Option() FamilyOption {
+	return f.option
 }
 
 func (f *family) getStore() Store {

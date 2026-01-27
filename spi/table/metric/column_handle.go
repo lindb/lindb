@@ -29,7 +29,7 @@ import (
 
 type Column interface {
 	isExemplar() bool
-	createStream(numOfFamilies int)
+	createStream(numOfFamilies, numOfPoints int)
 	downsampling(familyLoaders []*loader)
 	aggregate(aggregator []Result)
 	reset()
@@ -106,8 +106,8 @@ func (c *column[V]) isExemplar() bool {
 	return c.field.Type.IsExemplar()
 }
 
-func (c *column[V]) createStream(numOfFamilies int) {
-	c.streams = newStreams[V](numOfFamilies)
+func (c *column[V]) createStream(numOfFamilies, numOfPoints int) {
+	c.streams = newStreams[V](numOfFamilies, numOfPoints)
 }
 
 func (c *column[V]) initialize(fn getAggregateFunc[V]) {
@@ -140,8 +140,8 @@ func (c *column[V]) initialize(fn getAggregateFunc[V]) {
 }
 
 func (c *column[V]) load(familyIndex int, slotRange timeutil.SlotRange, getter func(slot uint16) (V, bool)) {
-	columnStream := c.streams.GetStreamByIndex(familyIndex, func() Stream[V] {
-		return NewStream[V](6 * 60)
+	columnStream := c.streams.GetStreamByIndex(familyIndex, func(numOfPoints int) Stream[V] {
+		return NewStream[V](numOfPoints)
 	})
 
 	fn := c.streamAgg
@@ -163,8 +163,8 @@ func (c *column[V]) downsampling(familyLoaders []*loader) {
 		interval := loader.interval.Int64()
 		for movingSourceSlot := slotRange.Start; movingSourceSlot <= slotRange.End; movingSourceSlot++ {
 			timestamp := familyTime + int64(movingSourceSlot)*interval
-			value := c.streams.GetStreamByIndex(familyIndex, func() Stream[V] {
-				return NewStream[V](6 * 60)
+			value := c.streams.GetStreamByIndex(familyIndex, func(numOfPoints int) Stream[V] {
+				return NewStream[V](numOfPoints)
 			}).GetAtStep(int(movingSourceSlot))
 
 			// rollup

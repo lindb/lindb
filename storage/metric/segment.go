@@ -73,6 +73,11 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 	familySlot := intervalCalc.CalcFamily(timestamp, segmentTime)
 	family := fmt.Sprintf("%d", familySlot)
 	segmentPath := filepath.Join(partition.Path(), family)
+	segmentStartTime := intervalCalc.CalcFamilyStartTime(segmentTime, familySlot)
+	timeRange := timeutil.TimeRange{
+		Start: segmentStartTime,
+		End:   intervalCalc.CalcFamilyEndTime(segmentStartTime),
+	}
 	// FIXME: close kv store if load segment fail
 	kvFamily := partition.kvStore.GetFamily(family)
 	if kvFamily == nil {
@@ -80,6 +85,7 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 		var err error
 		familyOption := kv.FamilyOption{
 			CompactThreshold: 0,
+			NumOfPoints:      timeRange.NumOfPoints(interval),
 			Merger:           string(metricsdata.MetricDataMerger),
 		}
 		kvFamily, err = partition.kvStore.CreateFamily(family, familyOption)
@@ -87,17 +93,14 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 			return nil, err
 		}
 	}
-	segmentStartTime := intervalCalc.CalcFamilyStartTime(segmentTime, familySlot)
 	shard := partition.shard
 	db := shard.Database().(*Database)
 	seg := &Segment{
 		Segment: base.Segment{
-			TimeRange: timeutil.TimeRange{
-				Start: segmentStartTime,
-				End:   intervalCalc.CalcFamilyEndTime(segmentStartTime),
-			},
-			Path: segmentPath,
-			WALs: make(map[models.NodeID]store.WriteAheadLog),
+			TimeRange: timeRange,
+			Interval:  interval,
+			Path:      segmentPath,
+			WALs:      make(map[models.NodeID]store.WriteAheadLog),
 		},
 		partition:    partition,
 		kvFamily:     kvFamily,

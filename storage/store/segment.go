@@ -29,6 +29,7 @@ type Segment interface {
 	Partition() Partition
 
 	SegmentTimeRange() timeutil.TimeRange
+	NumOfPoints() int
 	GetOrCreateWAL(leader models.NodeID) (WriteAheadLog, error)
 
 	Retain()

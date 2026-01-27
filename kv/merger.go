@@ -23,7 +23,7 @@ package kv
 type MergerType string
 
 // NewMerger represents create merger instance function
-type NewMerger func(flusher Flusher) (Merger, error)
+type NewMerger func() Merger
 
 var mergers = make(map[MergerType]NewMerger)
 
@@ -39,7 +39,7 @@ func RegisterMerger(name MergerType, merger NewMerger) {
 // Merger represents merger values of same key when do compaction job(compact/rollup etc.)
 type Merger interface {
 	// Init initializes merger params or context, before does merge operation
-	Init(params map[string]interface{})
+	Init(flusher Flusher, params map[string]any) error
 	// Merge merges values for same key,
 	// merged data will be written into Flusher directly
 	// return err if failure

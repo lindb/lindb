@@ -178,6 +178,7 @@ func (md *memoryDatabase) WriteRow(row *metric.StorageRow) error {
 
 	timeSeriesIndex := md.indexDB.GetOrCreateTimeSeriesIndex(row)
 	mStore, newMetric := md.indexDB.GetMetadataDatabase().GetOrCreateMetricMeta(row)
+	fmt.Printf("metirc=%v\n", string(row.Name()))
 
 	tagsHash := row.TagsHash()
 

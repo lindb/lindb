@@ -29,6 +29,7 @@ var (
 	newInvertedIndexFlusher = NewInvertedIndexFlusher
 	bitmapUnmarshal         = encoding.BitmapUnmarshal
 )
+
 var InvertedIndexMerger kv.MergerType = "InvertedIndexMergerV1"
 
 func init() {
@@ -44,19 +45,21 @@ type invertedIndexMerger struct {
 }
 
 // NewInvertedIndexMerger creates an inverted index merger.
-func NewInvertedIndexMerger(kvFlusher kv.Flusher) (kv.Merger, error) {
-	flusher, err := newInvertedIndexFlusher(kvFlusher)
-	if err != nil {
-		return nil, err
-	}
+func NewInvertedIndexMerger() kv.Merger {
 	return &invertedIndexMerger{
-		flusher:         flusher,
 		targetSeriesIDs: roaring.New(),
 		seriesIDs:       roaring.New(),
-	}, nil
+	}
 }
 
-func (m *invertedIndexMerger) Init(params map[string]interface{}) {}
+func (m *invertedIndexMerger) Init(kvFlusher kv.Flusher, params map[string]any) error {
+	flusher, err := newInvertedIndexFlusher(kvFlusher)
+	if err != nil {
+		return err
+	}
+	m.flusher = flusher
+	return nil
+}
 
 // Merge merges series ids for key.
 func (m *invertedIndexMerger) Merge(key uint32, values [][]byte) error {
