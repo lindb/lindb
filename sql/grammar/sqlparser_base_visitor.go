@@ -1,20 +1,3 @@
-// Licensed to LinDB under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. LinDB licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 // Code generated from ./sql/grammar/SQLParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package grammar // SQLParser
@@ -25,6 +8,10 @@ type BaseSQLParserVisitor struct {
 }
 
 func (v *BaseSQLParserVisitor) VisitStatement(ctx *StatementContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLParserVisitor) VisitStreamingDMLStement(ctx *StreamingDMLStementContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -85,6 +72,10 @@ func (v *BaseSQLParserVisitor) VisitExplainType(ctx *ExplainTypeContext) interfa
 }
 
 func (v *BaseSQLParserVisitor) VisitCreateStreaming(ctx *CreateStreamingContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseSQLParserVisitor) VisitDropStreaming(ctx *DropStreamingContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

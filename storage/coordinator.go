@@ -74,6 +74,29 @@ func (c *coordinator) run() {
 
 func (c *coordinator) process(event meta.Event) {
 	switch stateEvent := event.(type) {
+	case *models.DeleteStreaming:
+		state, ok := c.streamings[stateEvent.Streaming]
+		if !ok {
+			return
+		}
+		defer delete(c.streamings, stateEvent.Streaming)
+
+		subscribers, ok := c.subscribers[state.Config.Database]
+		if !ok {
+			return
+		}
+		for _, consumerAssign := range state.ConsumeAssignments {
+			for _, shardID := range consumerAssign.Shards {
+				subs := subscribers.getSubscribers(shardID)
+				for _, sub := range subs {
+					sub.Receive(&store.ConsumerStateChange{
+						Streaming:  state.Config.Name,
+						ConsumerID: consumerAssign.ConsumerID,
+						IsDelete:   true,
+					})
+				}
+			}
+		}
 	case *models.StreamingState:
 		c.streamings[stateEvent.Config.Name] = stateEvent
 		subscribers, ok := c.subscribers[stateEvent.Config.Database]
@@ -92,8 +115,8 @@ func (c *coordinator) process(event meta.Event) {
 			}
 		}
 	case *models.CreateShard:
+		// TODO: add streaming coordinator create shard logic?
 		c.engine.CreateShards(stateEvent.Database, stateEvent.Option, stateEvent.Shards)
-
 	default:
 		fmt.Println("TODO implement me")
 	}

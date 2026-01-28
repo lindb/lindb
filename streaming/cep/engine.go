@@ -61,5 +61,6 @@ func (e *Engine) Start() error {
 }
 
 func (e *Engine) Stop() error {
+	e.runtime.Shutdown()
 	return nil
 }

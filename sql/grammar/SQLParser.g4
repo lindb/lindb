@@ -12,12 +12,16 @@ statement           : ddlStatement
                     | adminStatement
                     | utilityStatement 
                     | streamingDDLStement
-                    | streamingApp 
+                    | streamingDMLStement
                     EOF
+                    ;
+streamingDMLStement : streamingApp
                     ;
 
 streamingDDLStement : createStreamingJob 
+                    | dropStreaming
                     | dropStreamingJob
+										| createStreaming
                     ;
 
 dropStreamingJob    : DROP JOB (IF EXISTS)? name=qualifiedName ;
@@ -40,7 +44,6 @@ streamingQuery      : (annotation)* dmlStatement SEMICOLON?
 ddlStatement        : createDatabase
                     | dropDatabase
                     | createBroker 
-										| createStreaming
                     ;
 
 dmlStatement        : query                                                  #statementDefault
@@ -64,6 +67,9 @@ explainOption       : TYPE value=(LOGICAL | DISTRIBUTED)                     #ex
 createStreaming     : CREATE STREAMING name=qualifiedName
                        '(' createStreamingOptions ')'
 										;
+
+dropStreaming       : DROP STREAMING (IF EXISTS)? name=qualifiedName ;
+
 createStreamingOptions : createStreamingOption (',' createStreamingOption)*
   										 ;
 

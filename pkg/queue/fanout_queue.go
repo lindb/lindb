@@ -44,9 +44,12 @@ type FanOutQueue interface {
 	// GetOrCreateConsumerGroup returns the ConsumerGroup if exists,
 	// otherwise creates a new ConsumerGroup with consume seq and ack seq == queue ack seq.
 	GetOrCreateConsumerGroup(name string) (ConsumerGroup, error)
+	// DeleteConsumerGroup deletes consumer group by name.
+	DeleteConsumerGroup(name string)
 	// ConsumerGroupNames returns all names of ConsumerGroup.
 	ConsumerGroupNames() []string
 	// StopConsumerGroup stops consumer group by name.
+	// TODO: add remove consumer group??
 	StopConsumerGroup(name string)
 	// Sync checks the acknowledged sequence of each ConsumerGroup, update the acknowledged sequence as the smallest one.
 	// Then syncs metadata to storage.
@@ -124,6 +127,17 @@ func (fq *fanOutQueue) GetOrCreateConsumerGroup(name string) (ConsumerGroup, err
 	fq.consumerGroups[name] = fo
 
 	return fo, nil
+}
+
+func (fq *fanOutQueue) DeleteConsumerGroup(name string) {
+	fq.lock4map.Lock()
+	defer fq.lock4map.Unlock()
+
+	consumerGroup, ok := fq.consumerGroups[name]
+	if ok {
+		consumerGroup.Close()
+		delete(fq.consumerGroups, name)
+	}
 }
 
 // ConsumerGroupNames returns all names of ConsumerGroup.

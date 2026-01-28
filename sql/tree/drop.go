@@ -36,3 +36,13 @@ type DropDatabase struct {
 func (n *DropDatabase) Accept(context any, visitor Visitor) (r any) {
 	return visitor.Visit(context, n)
 }
+
+type DropStreaming struct {
+	BaseNode
+	Name   string
+	Exists bool
+}
+
+func (n *DropStreaming) Accept(context any, visitor Visitor) (r any) {
+	return visitor.Visit(context, n)
+}

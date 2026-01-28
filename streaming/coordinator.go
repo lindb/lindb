@@ -99,6 +99,7 @@ func (c *Coordinator) OnEvent(e meta.Event) {
 }
 
 func (c *Coordinator) scheduleStreaming() {
+	activeDS := make(map[string]struct{})
 	for _, streaming := range c.streamings {
 		dsName := streaming.Database
 		dbCfg, ok := c.databases[dsName]
@@ -107,6 +108,7 @@ func (c *Coordinator) scheduleStreaming() {
 				logger.String("streaming", streaming.Name))
 			continue
 		}
+		activeDS[dsName] = struct{}{}
 		ds, ok := GetManager().GetDataSource(dsName)
 		if !ok {
 			ds = NewDataSource(dbCfg)
@@ -115,6 +117,17 @@ func (c *Coordinator) scheduleStreaming() {
 		if err := ds.ScheduleStream(streaming); err != nil {
 			c.logger.Error("schedule streaming failed", logger.String("streaming", streaming.Name), logger.Error(err))
 		}
+	}
+
+	// shutdown inactive data sources
+	datasources := GetManager().GetDataSources()
+	for _, ds := range datasources {
+		_, ok := activeDS[ds.Name()]
+		if ok {
+			continue
+		}
+		c.logger.Info("remove inactive data source", logger.String("ds", ds.Name()), logger.Any("activeDS", activeDS))
+		GetManager().RemoteDataSource(ds.Name())
 	}
 }
 

@@ -53,6 +53,13 @@ func (mgr *Manager) GetInputHandler(database, stream string) InputHandler {
 	return inputMgr.GetInputHandler(stream)
 }
 
+func (mgr *Manager) RemoveInpputByDatabase(database string) {
+	mgr.mutex.Lock()
+	defer mgr.mutex.Unlock()
+
+	delete(mgr.databases, database)
+}
+
 func (mgr *Manager) RemoveInputHandler(database, stream string) {
 	mgr.mutex.Lock()
 	defer mgr.mutex.Unlock()

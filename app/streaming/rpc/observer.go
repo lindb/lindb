@@ -70,7 +70,7 @@ func (r *ObserverHandler) ResetIndex(_ context.Context,
 func (r *ObserverHandler) Replica(server protoReplicaV1.ReplicaService_ReplicaServer) error {
 	replicaState, err := r.getReplicaStateFromCtx(server.Context())
 	if err != nil {
-		r.logger.Error("get replica state err", logger.Error(err))
+		r.logger.Error("get observer state err", logger.Error(err))
 		return status.Error(codes.InvalidArgument, err.Error())
 	}
 
@@ -80,7 +80,7 @@ func (r *ObserverHandler) Replica(server protoReplicaV1.ReplicaService_ReplicaSe
 		return status.Error(codes.NotFound, fmt.Sprintf("data source for database %s not found", replicaState.Database))
 	}
 
-	r.logger.Info("build replica stream channel successful", logger.String("replica", replicaState.String()))
+	r.logger.Info("build observer stream channel successful", logger.String("observer", replicaState.String()))
 	// handle replica request from stream
 	for {
 		req, err := server.Recv()
@@ -88,13 +88,16 @@ func (r *ObserverHandler) Replica(server protoReplicaV1.ReplicaService_ReplicaSe
 			return nil
 		}
 		if err != nil {
-			r.logger.Error("receive replica request err", logger.Error(err))
+			r.logger.Error("receive observer request err", logger.String("observer", replicaState.String()), logger.Error(err))
 			return status.Error(codes.Internal, err.Error())
 		}
 
 		resp := &protoReplicaV1.ReplicaResponse{}
 
-		ds.Produce(req.Record)
+		if err := ds.Produce(req.Record); err != nil {
+			r.logger.Error("publish event err", logger.String("observer", replicaState.String()), logger.Error(err))
+			return status.Error(codes.Internal, err.Error())
+		}
 
 		resp.ReplicaIndex = req.ReplicaIndex
 		resp.AckIndex = req.ReplicaIndex

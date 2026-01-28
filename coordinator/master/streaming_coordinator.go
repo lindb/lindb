@@ -57,6 +57,7 @@ func (m *stateManager) onStreamingCfgDelete(key string) error {
 		return fmt.Errorf("streaming config not found: %s", name)
 	}
 	delete(m.streamings, name)
+	delete(m.streamingStates, name)
 	return nil
 }
 

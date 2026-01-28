@@ -32,6 +32,7 @@ const (
 	ReplicatorInitState
 	ReplicatorReadyState
 	ReplicatorFailureState
+	ReplicatorClosedState
 )
 
 // String returns the string value of ReplicatorState.
@@ -43,6 +44,8 @@ func (s ReplicatorState) String() string {
 		return "Ready"
 	case ReplicatorFailureState:
 		return "Failure"
+	case ReplicatorClosedState:
+		return "Closed"
 	default:
 		return "Unknown"
 	}

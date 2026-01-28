@@ -120,9 +120,14 @@ func GetLiveNodePath(node string) string {
 	return fmt.Sprintf("%s/%s", LiveNodesPath, node)
 }
 
-// GetStreamingJobPath returns path which streaming job config for broker.
+// GetStreamingJobPath returns path which streaming job config for observer.
 func GetStreamingJobPath(streaming, job string) string {
 	return fmt.Sprintf("%s/%s/%s", StreamingJobPath, streaming, job)
+}
+
+// GetStreamingJobsPath returns path which streaming jobs for observer.
+func GetStreamingJobsPath(streaming string) string {
+	return fmt.Sprintf("%s/%s", StreamingJobPath, streaming)
 }
 
 // GetObserverLiveNodePath returns live node register path for observer nodes.

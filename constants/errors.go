@@ -80,6 +80,7 @@ var (
 	// ErrPartitionClosed represents paritition is already closed.
 	ErrPartitionClosed        = errors.New("partition is closed")
 	ErrDatabaseNotExist       = errors.New("database not exist")
+	ErrStreamingNotExist      = errors.New("streaming not exist")
 	ErrNoAvailableStorageNode = errors.New("no available storage node for server")
 
 	// ErrTooManySeries represents the series be limited.

@@ -63,8 +63,6 @@ func (v *AstVisitor) VisitStatement(ctx *grammar.StatementContext) any {
 		return v.Visit(ctx.UtilityStatement())
 	case ctx.AdminStatement() != nil:
 		return v.Visit(ctx.AdminStatement())
-	case ctx.StreamingApp() != nil:
-		return v.Visit(ctx.StreamingApp())
 	case ctx.StreamingDDLStement() != nil:
 		return v.Visit(ctx.StreamingDDLStement())
 	default:
@@ -72,8 +70,21 @@ func (v *AstVisitor) VisitStatement(ctx *grammar.StatementContext) any {
 	}
 }
 
+func (v *AstVisitor) VisitStreamingDMLStement(ctx *grammar.StreamingDMLStementContext) any {
+	switch {
+	case ctx.StreamingApp() != nil:
+		return v.Visit(ctx.StreamingApp())
+	default:
+		return v.VisitChildren(ctx)
+	}
+}
+
 func (v *AstVisitor) VisitStreamingDDLStement(ctx *grammar.StreamingDDLStementContext) any {
 	switch {
+	case ctx.CreateStreaming() != nil:
+		return v.Visit(ctx.CreateStreaming())
+	case ctx.DropStreaming() != nil:
+		return v.Visit(ctx.DropStreaming())
 	case ctx.CreateStreamingJob() != nil:
 		return v.Visit(ctx.CreateStreamingJob())
 	case ctx.DropStreamingJob() != nil:
@@ -81,6 +92,17 @@ func (v *AstVisitor) VisitStreamingDDLStement(ctx *grammar.StreamingDDLStementCo
 	default:
 		return v.VisitChildren(ctx)
 	}
+}
+
+func (v *AstVisitor) VisitDropStreaming(ctx *grammar.DropStreamingContext) any {
+	dropStreaming := &DropStreaming{
+		BaseNode: v.createBaseNode(ctx),
+		Name:     v.getQualifiedName(ctx.GetName()).Name,
+	}
+	if ctx.EXISTS() != nil {
+		dropStreaming.Exists = true
+	}
+	return dropStreaming
 }
 
 func (v *AstVisitor) VisitDropStreamingJob(ctx *grammar.DropStreamingJobContext) any {
@@ -236,8 +258,6 @@ func (v *AstVisitor) VisitDdlStatement(ctx *grammar.DdlStatementContext) any {
 		return v.Visit(ctx.CreateDatabase())
 	case ctx.DropDatabase() != nil:
 		return v.Visit(ctx.DropDatabase())
-	case ctx.CreateStreaming() != nil:
-		return v.Visit(ctx.CreateStreaming())
 	case ctx.CreateBroker() != nil:
 		panic("need impl create broker")
 	default:

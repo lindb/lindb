@@ -47,7 +47,9 @@ const (
 
 var ErrUnknownInterval = errors.New("unknown interval")
 
-// Interval is the interval value in millisecond
+// Interval is the interval value in millisecond.
+// NOTE: to time.Duration need be careful, because time.Duration is int64 nanosecond.
+// Interval * time.Millisecond
 type Interval int64
 
 // String returns the string representation of the interval.

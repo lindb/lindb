@@ -267,7 +267,7 @@ func (s *Shard) TTL() {
 			continue
 		}
 		// e.g., if TTL is 30 days, any data before expireTime is candidate for deletion
-		expireTime := now.Add(-time.Duration(interval.Retention)).UnixMilli()
+		expireTime := now.Add(-time.Duration(interval.Retention) * time.Millisecond).UnixMilli()
 		for _, lp := range partitions.GetPartitions() {
 			partition, err := lp.Get()
 			if err != nil {
@@ -276,21 +276,25 @@ func (s *Shard) TTL() {
 				continue
 			}
 			// partition time is before expire time, need do ttl
-			if partition.PartitionTime() < expireTime {
-				if err := partition.Close(); err != nil {
-					s.logger.Warn("close partition fail when do ttl",
-						logger.String("database", database.Name()), logger.Error(err))
-					continue
-				}
-				if err := fileutil.RemoveDir(partition.Path()); err != nil {
-					s.logger.Warn("remove partition dir fail when do ttl",
-						logger.String("database", database.Name()), logger.Error(err))
-					continue
-				}
-				s.logger.Info("partition ttl completed",
-					logger.String("database", s.Database().Name()),
-					logger.String("path", partition.Path()))
+			if partition.PartitionTime() > expireTime {
+				continue
 			}
+			if err := partition.Close(); err != nil {
+				s.logger.Warn("close partition fail when do ttl",
+					logger.String("database", database.Name()), logger.Error(err))
+				continue
+			}
+			// Remote partition from shard
+			s.Partitions.RemovePartition(partition.PartitionTime())
+
+			if err := fileutil.RemoveDir(partition.Path()); err != nil {
+				s.logger.Warn("remove partition dir fail when do ttl",
+					logger.String("database", database.Name()), logger.Error(err))
+				continue
+			}
+			s.logger.Info("partition ttl completed",
+				logger.String("database", s.Database().Name()),
+				logger.String("path", partition.Path()))
 		}
 	}
 }

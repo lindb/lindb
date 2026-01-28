@@ -1,20 +1,3 @@
-// Licensed to LinDB under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. LinDB licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 // Code generated from ./sql/grammar/SQLParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package grammar // SQLParser
@@ -42,6 +25,12 @@ func (s *BaseSQLParserListener) EnterStatement(ctx *StatementContext) {}
 
 // ExitStatement is called when production statement is exited.
 func (s *BaseSQLParserListener) ExitStatement(ctx *StatementContext) {}
+
+// EnterStreamingDMLStement is called when production streamingDMLStement is entered.
+func (s *BaseSQLParserListener) EnterStreamingDMLStement(ctx *StreamingDMLStementContext) {}
+
+// ExitStreamingDMLStement is called when production streamingDMLStement is exited.
+func (s *BaseSQLParserListener) ExitStreamingDMLStement(ctx *StreamingDMLStementContext) {}
 
 // EnterStreamingDDLStement is called when production streamingDDLStement is entered.
 func (s *BaseSQLParserListener) EnterStreamingDDLStement(ctx *StreamingDDLStementContext) {}
@@ -132,6 +121,12 @@ func (s *BaseSQLParserListener) EnterCreateStreaming(ctx *CreateStreamingContext
 
 // ExitCreateStreaming is called when production createStreaming is exited.
 func (s *BaseSQLParserListener) ExitCreateStreaming(ctx *CreateStreamingContext) {}
+
+// EnterDropStreaming is called when production dropStreaming is entered.
+func (s *BaseSQLParserListener) EnterDropStreaming(ctx *DropStreamingContext) {}
+
+// ExitDropStreaming is called when production dropStreaming is exited.
+func (s *BaseSQLParserListener) ExitDropStreaming(ctx *DropStreamingContext) {}
 
 // EnterCreateStreamingOptions is called when production createStreamingOptions is entered.
 func (s *BaseSQLParserListener) EnterCreateStreamingOptions(ctx *CreateStreamingOptionsContext) {}

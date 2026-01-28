@@ -64,11 +64,6 @@ func NewLocalReplicator(channel *store.ReplicatorChannel, segment store.Segment)
 	return lr
 }
 
-// Type returns the replicator type.
-func (r *localReplicator) Type() store.ReplicatorType {
-	return store.ReplicatorTypeLocal
-}
-
 // State returns the state of local replicator, it's always ready.
 func (r *localReplicator) State() *store.ReplicatorState {
 	return &store.ReplicatorState{State: models.ReplicatorReadyState}
@@ -135,6 +130,7 @@ func (r *localReplicator) Replica(sequence int64, msg []byte) {
 
 // Close closes local replicator.
 func (r *localReplicator) Close() {
+	r.channel.ConsumerGroup.Close()
 	// mark write data completed.
 	r.segment.Release()
 }

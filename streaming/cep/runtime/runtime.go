@@ -18,6 +18,7 @@
 package runtime
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -47,6 +48,9 @@ type Runtime interface {
 }
 
 type runtime struct {
+	ctx        context.Context
+	cacellFunc context.CancelFunc
+
 	database string
 	jobs     map[string]JobRuntime
 
@@ -56,10 +60,13 @@ type runtime struct {
 }
 
 func NewRuntime(database string) Runtime {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &runtime{
-		database: database,
-		jobs:     make(map[string]JobRuntime),
-		logger:   logger.GetLogger("CEP", "Runtime"),
+		ctx:        ctx,
+		cacellFunc: cancel,
+		database:   database,
+		jobs:       make(map[string]JobRuntime),
+		logger:     logger.GetLogger("CEP", "Runtime"),
 	}
 }
 
@@ -84,7 +91,7 @@ func (r *runtime) DeployJob(name, statement string) error {
 	}
 
 	// create and startup job runtime
-	jobRuntime = NewJobRuntime(r.database, name, statement)
+	jobRuntime = NewJobRuntime(r.ctx, r.database, name, statement)
 	if err := jobRuntime.Startup(); err != nil {
 		return err
 	}
@@ -121,7 +128,9 @@ func (r *runtime) AddEventType(eventType any) {
 
 // Shutdown implements [Runtime].
 func (r *runtime) Shutdown() {
-	panic("unimplemented")
+	r.cacellFunc()
+	// remove all inputs for database
+	input.GetManager().RemoveInpputByDatabase(r.database)
 }
 
 func (r *runtime) getJobRuntime(name string) (JobRuntime, bool) {

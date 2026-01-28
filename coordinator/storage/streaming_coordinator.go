@@ -18,6 +18,8 @@
 package storage
 
 import (
+	"path/filepath"
+
 	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
 
@@ -42,7 +44,15 @@ func (m *stateManager) onStreamingStateChange(key string, data []byte) error {
 }
 
 func (m *stateManager) onStreamingStateDeletion(key string) error {
-	m.logger.Error("streaming state deleted", logger.String("key", key))
-	// FIXME: no need to process deletion event currently
+	m.logger.Info("streaming state deleted", logger.String("key", key))
+
+	_, streaming := filepath.Split(key)
+
+	event := models.DeleteStreaming{
+		Streaming: streaming,
+	}
+	for _, watcher := range m.watchers {
+		watcher.OnEvent(&event)
+	}
 	return nil
 }

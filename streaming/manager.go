@@ -39,7 +39,9 @@ func GetManager() Mananger {
 
 type Mananger interface {
 	GetDataSource(name string) (DataSource, bool)
+	GetDataSources() []DataSource
 	AddDataSource(ds DataSource)
+	RemoteDataSource(name string)
 }
 
 type manager struct {
@@ -62,6 +64,17 @@ func (m *manager) GetDataSource(name string) (DataSource, bool) {
 	return ds, ok
 }
 
+func (m *manager) GetDataSources() []DataSource {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
+	dataSources := make([]DataSource, 0, len(m.dataSources))
+	for _, ds := range m.dataSources {
+		dataSources = append(dataSources, ds)
+	}
+	return dataSources
+}
+
 func (m *manager) AddDataSource(ds DataSource) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
@@ -74,4 +87,17 @@ func (m *manager) AddDataSource(ds DataSource) {
 	ds.Initialize()
 
 	m.dataSources[ds.Name()] = ds
+}
+
+func (m *manager) RemoteDataSource(name string) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	ds, ok := m.dataSources[name]
+	if !ok {
+		return
+	}
+	ds.Shutdown()
+
+	delete(m.dataSources, name)
 }

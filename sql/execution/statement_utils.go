@@ -34,6 +34,7 @@ func init() {
 
 	// Streaming DDL
 	statementTypes[reflect.TypeFor[*tree.CreateStreaming]()] = models.DataDefinition
+	statementTypes[reflect.TypeFor[*tree.DropStreaming]()] = models.DataDefinition
 	statementTypes[reflect.TypeFor[*tree.CreateJob]()] = models.DataDefinition
 	statementTypes[reflect.TypeFor[*tree.DropJob]()] = models.DataDefinition
 

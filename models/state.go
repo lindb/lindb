@@ -59,6 +59,14 @@ const (
 	ClusterStatusReady
 )
 
+type ReplicatorType string
+
+const (
+	ReplicatorTypeLocal   ReplicatorType = "local"
+	ReplicatorTypeRemote  ReplicatorType = "remote"
+	ReplicatorTypeObserve ReplicatorType = "observe"
+)
+
 // String returns the string value of StorageStatus.
 func (s ClusterStatus) String() string {
 	val := "Unknown"
@@ -148,9 +156,10 @@ type Storage struct {
 
 // ReplicaState represents the relationship for a replica.
 type ReplicaState struct {
-	Database    string  `json:"database"`
-	ShardID     ShardID `json:"shardId"`
-	SegmentTime int64   `json:"segmentTime"`
+	Type        ReplicatorType `json:"type"`
+	Database    string         `json:"database"`
+	ShardID     ShardID        `json:"shardId"`
+	SegmentTime int64          `json:"segmentTime"`
 
 	Leader   string `json:"leader"`
 	Follower string `json:"follower"`

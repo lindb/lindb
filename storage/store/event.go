@@ -22,4 +22,5 @@ import "github.com/lindb/lindb/models"
 type ConsumerStateChange struct {
 	Streaming  string
 	ConsumerID models.NodeID
+	IsDelete   bool
 }

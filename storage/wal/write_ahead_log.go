@@ -142,7 +142,22 @@ func (w *writeAheadLog) Shard() models.ShardID {
 func (w *writeAheadLog) Receive(event meta.Event) {
 	switch stateEvent := event.(type) {
 	case *store.ConsumerStateChange:
-		w.BuildConsumer(stateEvent.Streaming, stateEvent.ConsumerID)
+		if stateEvent.IsDelete {
+			// delete consumer
+			w.mutex.Lock()
+			defer w.mutex.Unlock()
+
+			peer, ok := w.streamings[stateEvent.Streaming]
+			if ok {
+				// shutdown peer
+				peer.Shutdown()
+
+				w.data.DeleteConsumerGroup(stateEvent.Streaming)
+				delete(w.streamings, stateEvent.Streaming)
+			}
+		} else {
+			w.BuildConsumer(stateEvent.Streaming, stateEvent.ConsumerID)
+		}
 	}
 }
 
@@ -212,6 +227,7 @@ func (w *writeAheadLog) BuildConsumer(streaming string, consume models.NodeID) {
 	var replicator store.Replicator
 	channel := store.ReplicatorChannel{
 		State: &models.ReplicaState{
+			Type:        models.ReplicatorTypeObserve,
 			Database:    w.segment.Partition().Shard().Database().Name(),
 			ShardID:     w.segment.Partition().Shard().ShardID(),
 			Streaming:   streaming,
@@ -223,7 +239,7 @@ func (w *writeAheadLog) BuildConsumer(streaming string, consume models.NodeID) {
 	}
 	// build remote replicator
 	// TODO: set context
-	replicator = NewRemoteReplicator(context.TODO(), store.ReplicatorTypeObserve, &channel)
+	replicator = NewRemoteReplicator(context.TODO(), &channel)
 
 	// startup replicator peer
 	peer = NewReplicatorPeer(replicator)
@@ -291,12 +307,14 @@ func (w *writeAheadLog) buildReplica(leader, replica models.NodeID) error {
 		ConsumerGroup: walConsumer,
 	}
 	if replica == meta.CurrentNode() {
+		channel.State.Type = models.ReplicatorTypeLocal
 		// local replicator
 		replicator = NewLocalReplicator(&channel, w.segment)
 	} else {
 		// build remote replicator
+		channel.State.Type = models.ReplicatorTypeRemote
 		// TODO: set context
-		replicator = NewRemoteReplicator(context.TODO(), store.ReplicatorTypeRemote, &channel)
+		replicator = NewRemoteReplicator(context.TODO(), &channel)
 	}
 
 	// startup replicator peer

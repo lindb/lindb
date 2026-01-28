@@ -133,7 +133,7 @@ func (s *Shard) TTL() {
 	database := s.Database()
 	// normally, shard only has one interval
 	interval := database.GetOption().Option.Intervals[0]
-	expireTime := now.Add(-time.Duration(interval.Retention)).UnixMilli()
+	expireTime := now.Add(-time.Duration(interval.Retention) * time.Millisecond).UnixMilli()
 
 	partitions := s.Partitions.GetPartitions()
 	for _, lp := range partitions {
@@ -143,13 +143,16 @@ func (s *Shard) TTL() {
 			continue
 		}
 		// partition time is before expire time, need do ttl
-		if partition.PartitionTime() < expireTime {
+		if partition.PartitionTime() > expireTime {
 			continue
 		}
 		if err := partition.Close(); err != nil {
 			logger.Warn("close partition fail when do ttl", loggerpkg.String("database", database.Name()), loggerpkg.Error(err))
 			continue
 		}
+		// Remote partition from shard
+		s.Partitions.RemovePartition(partition.PartitionTime())
+
 		if err := fileutil.RemoveDir(partition.Path()); err != nil {
 			logger.Warn("remove partition dir fail when do ttl", loggerpkg.String("database", database.Name()), loggerpkg.Error(err))
 			continue

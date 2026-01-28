@@ -26,17 +26,9 @@ import (
 	"github.com/lindb/lindb/pkg/queue"
 )
 
-type ReplicatorType string
-
 var (
 	CreateWriteAheadLog  func(path string, segment Segment) (WriteAheadLog, error)
 	CreateReplicatorPeer func(replicator Replicator) ReplicatorPeer
-)
-
-const (
-	ReplicatorTypeLocal   ReplicatorType = "local"
-	ReplicatorTypeRemote  ReplicatorType = "remote"
-	ReplicatorTypeObserve ReplicatorType = "observe"
 )
 
 type WriteAheadLog interface {
@@ -74,8 +66,6 @@ type ReplicatorState struct {
 // Replicator represents write ahead log replicator.
 type Replicator interface {
 	fmt.Stringer
-	// Type returns the replicator type.
-	Type() ReplicatorType
 	// ReplicaState returns the replica state.
 	ReplicaState() *models.ReplicaState
 	// State returns the state of replicator.

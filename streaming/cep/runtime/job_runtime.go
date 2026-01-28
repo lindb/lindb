@@ -52,10 +52,10 @@ type jobRuntime struct {
 	sinks map[string]sink.Sink
 }
 
-func NewJobRuntime(database, name, statement string) JobRuntime {
-	ctx, cancel := context.WithCancel(context.Background())
+func NewJobRuntime(ctx context.Context, database, name, statement string) JobRuntime {
+	jobCtx, cancel := context.WithCancel(ctx)
 	return &jobRuntime{
-		ctx:       ctx,
+		ctx:       jobCtx,
 		cancel:    cancel,
 		database:  database,
 		name:      name,

@@ -38,9 +38,8 @@ import (
 // remoteReplicator implements Replicator interface, do remote wal replica.
 type remoteReplicator struct {
 	replicator
-	ctx            context.Context
-	replicatorType store.ReplicatorType
-	state          atomic.Value // ref: state
+	ctx   context.Context
+	state atomic.Value // ref: state
 
 	replicaCli    protoReplicaV1.ReplicaServiceClient
 	replicaStream protoReplicaV1.ReplicaService_ReplicaClient
@@ -55,12 +54,10 @@ type remoteReplicator struct {
 // NewRemoteReplicator creates remote replicator.
 func NewRemoteReplicator(
 	ctx context.Context,
-	replicatorType store.ReplicatorType,
 	channel *store.ReplicatorChannel,
 ) store.Replicator {
 	r := &remoteReplicator{
-		ctx:            ctx,
-		replicatorType: replicatorType,
+		ctx: ctx,
 		replicator: replicator{
 			channel: channel,
 		},
@@ -73,11 +70,6 @@ func NewRemoteReplicator(
 
 	r.logger.Info("start remote replicator", logger.String("replica", r.String()))
 	return r
-}
-
-// Type returns the replicator type.
-func (r *remoteReplicator) Type() store.ReplicatorType {
-	return r.replicatorType
 }
 
 // State returns the state of remote replicator.
@@ -132,6 +124,11 @@ func (r *remoteReplicator) IsReady() bool {
 	if stateVal.State == models.ReplicatorReadyState {
 		r.rwMutex.Unlock()
 		return true
+	}
+
+	if stateVal.State == models.ReplicatorClosedState {
+		r.rwMutex.Unlock()
+		return false
 	}
 
 	r.statistics.NotReady.Incr()
@@ -298,7 +295,13 @@ func (r *remoteReplicator) Replica(idx int64, msg []byte) {
 
 // Close closes remote replica stream.
 func (r *remoteReplicator) Close() {
+	r.rwMutex.Lock()
+	defer r.rwMutex.Unlock()
+
+	r.state.Store(&store.ReplicatorState{State: models.ReplicatorClosedState})
+
 	r.closeStream()
+	r.channel.ConsumerGroup.Close()
 }
 
 // closeStream closes remote replica stream if exist.

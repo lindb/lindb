@@ -166,6 +166,16 @@ func (m *brokerMetadataManager) CreateStreaming(ctx context.Context, streaming *
 	return m.repo.Put(ctx, constants.GetStreamingConfigPath(streaming.Name), encoding.JSONMarshal(streaming))
 }
 
+func (m *brokerMetadataManager) DropStreaming(ctx context.Context, streaming string) error {
+	if err := m.repo.Delete(ctx, constants.GetStreamingStatePath(streaming)); err != nil {
+		return nil
+	}
+	if err := m.repo.Delete(ctx, constants.GetStreamingJobsPath(streaming)); err != nil {
+		return nil
+	}
+	return m.repo.Delete(ctx, constants.GetStreamingConfigPath(streaming))
+}
+
 func (m *brokerMetadataManager) CreateJob(ctx context.Context, stream, job, sql string) error {
 	jobPath := constants.GetStreamingJobPath(stream, job)
 	return m.repo.Put(ctx, jobPath, []byte(sql))

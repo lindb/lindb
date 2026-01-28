@@ -18,9 +18,11 @@
 package streaming
 
 import (
+	"errors"
 	"sync"
 
 	"github.com/lindb/common/pkg/logger"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/streaming/cep"
@@ -30,10 +32,10 @@ import (
 type DataSource interface {
 	Initialize()
 	Name() string
-	Produce(data []byte)
+	Produce(data []byte) error
 	ScheduleStream(stream *models.Streaming) error
-	UnscheduleStream(stream *models.Streaming) error
 	GetEngine(stream string) (Engine, bool)
+	Shutdown()
 }
 
 type dataSource struct {
@@ -43,6 +45,7 @@ type dataSource struct {
 	engines    map[string]Engine
 
 	decoder decode.Decoder
+	running *atomic.Bool
 
 	lock sync.Mutex
 
@@ -54,6 +57,7 @@ func NewDataSource(db *models.Database) DataSource {
 		db:         db,
 		streamings: make(map[string]*models.Streaming),
 		engines:    make(map[string]Engine),
+		running:    atomic.NewBool(true),
 
 		logger: logger.GetLogger("Streaming", "DataSource"),
 	}
@@ -67,22 +71,30 @@ func (d *dataSource) Name() string {
 	return d.db.Name
 }
 
-func (d *dataSource) Produce(data []byte) {
+func (d *dataSource) Produce(data []byte) error {
+	if !d.running.Load() {
+		return errors.New("data source not running")
+	}
 	event, err := d.decoder.ToEvent(data)
 	if err != nil {
 		d.logger.Error("transfer data to event error:", logger.Error(err))
-		return
+		return err
 	}
 	if event == nil {
-		return
+		return nil
 	}
 	// TODO: add lock???
 	for _, engine := range d.engines {
 		engine.Send(event)
 	}
+	return nil
 }
 
 func (d *dataSource) ScheduleStream(stream *models.Streaming) error {
+	if !d.running.Load() {
+		return nil
+	}
+
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
@@ -99,20 +111,23 @@ func (d *dataSource) ScheduleStream(stream *models.Streaming) error {
 	return nil
 }
 
-func (d *dataSource) UnscheduleStream(stream *models.Streaming) error {
-	egnine, ok := d.GetEngine(stream.Name)
-	if ok {
-		if err := egnine.Stop(); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (d *dataSource) GetEngine(stream string) (Engine, bool) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
 	e, ok := d.engines[stream]
 	return e, ok
+}
+
+func (d *dataSource) Shutdown() {
+	if d.running.CompareAndSwap(true, false) {
+		d.lock.Lock()
+		defer d.lock.Unlock()
+
+		for _, engine := range d.engines {
+			if err := engine.Stop(); err != nil {
+				d.logger.Error("stop engine error:", logger.Error(err))
+			}
+		}
+	}
 }

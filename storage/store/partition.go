@@ -18,7 +18,6 @@
 package store
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/lindb/common/pkg/fileutil"
@@ -59,7 +58,6 @@ func (ps *Partitions) Load(path string, create func(timestamp int64) (*LazyParti
 	}
 	partitions, err := fileutil.ListDir(path)
 	if err != nil {
-		fmt.Println("kkk..")
 		return err
 	}
 	intervalCalc := ps.interval.Calculator()
@@ -89,6 +87,10 @@ func (ps *Partitions) GetPartition(timestamp int64) (partition Partition, ok boo
 
 func (ps *Partitions) PutPartition(timestamp int64, partition *LazyPartition) {
 	ps.partitions[timestamp] = partition
+}
+
+func (ps *Partitions) RemovePartition(timestamp int64) {
+	delete(ps.partitions, timestamp)
 }
 
 func (ps *Partitions) GetPartitions() []*LazyPartition {
