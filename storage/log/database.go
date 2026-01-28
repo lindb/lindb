@@ -111,11 +111,6 @@ func (db *Database) Flush() error {
 	panic("unimplemented")
 }
 
-// TTL implements store.Database.
-func (db *Database) TTL() {
-	panic("unimplemented")
-}
-
 // Close implements store.Database.
 func (db *Database) Close() error {
 	db.indexDB.Flush()

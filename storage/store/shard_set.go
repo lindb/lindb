@@ -102,3 +102,10 @@ func (ss *ShardSet) GetShardNum() int {
 func (ss *ShardSet) Entries() shardEntries {
 	return ss.value.Load().(shardEntries)
 }
+
+func (ss *ShardSet) WalkShards(fn func(shard Shard)) {
+	entries := ss.value.Load().(shardEntries)
+	for _, shard := range entries {
+		fn(shard.Shard)
+	}
+}

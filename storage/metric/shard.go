@@ -59,6 +59,7 @@ type Shard struct {
 
 	isFlushing atomic.Bool // restrict flusher concurrency
 
+	lock   sync.Mutex
 	logger logger.Logger
 }
 
@@ -254,16 +255,44 @@ func (s *Shard) WaitFlushIndexCompleted() {
 
 // TTL expires the data of each segment base on time to live.
 func (s *Shard) TTL() {
-	// for interval, rollupSegment := range s.rollupTargets {
-	// 	if err := rollupSegment.TTL(); err != nil {
-	// 		s.logger.Warn("do segment ttl failure",
-	// 			logger.String("database", s.db.Name()),
-	// 			logger.Any("shardID", s.id),
-	// 			logger.String("segment", interval.Type().String()),
-	// 			logger.Error(err),
-	// 		)
-	// 	}
-	// }
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	now := time.Now()
+	database := s.Database()
+	intervals := database.GetOption().Option.Intervals
+	for _, interval := range intervals {
+		partitions, ok := s.rollupPartitions[interval.Interval]
+		if !ok {
+			continue
+		}
+		// e.g., if TTL is 30 days, any data before expireTime is candidate for deletion
+		expireTime := now.Add(-time.Duration(interval.Retention)).UnixMilli()
+		for _, lp := range partitions.GetPartitions() {
+			partition, err := lp.Get()
+			if err != nil {
+				s.logger.Warn("load partition fail when do ttl",
+					logger.String("database", database.Name()), logger.Error(err))
+				continue
+			}
+			// partition time is before expire time, need do ttl
+			if partition.PartitionTime() < expireTime {
+				if err := partition.Close(); err != nil {
+					s.logger.Warn("close partition fail when do ttl",
+						logger.String("database", database.Name()), logger.Error(err))
+					continue
+				}
+				if err := fileutil.RemoveDir(partition.Path()); err != nil {
+					s.logger.Warn("remove partition dir fail when do ttl",
+						logger.String("database", database.Name()), logger.Error(err))
+					continue
+				}
+				s.logger.Info("partition ttl completed",
+					logger.String("database", s.Database().Name()),
+					logger.String("path", partition.Path()))
+			}
+		}
+	}
 }
 
 // EvictSegment evicts segment which long term no read operation.

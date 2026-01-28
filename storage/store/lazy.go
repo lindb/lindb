@@ -51,6 +51,17 @@ func NewLazyPartition(tiemestamp int64, createPartitionFn func(timestamp int64) 
 	}
 }
 
+func (l *LazyPartition) PartitionTime() int64 {
+	return l.timestamp
+}
+
+func (l *LazyPartition) TTL() error {
+	if l.loaded.Load() {
+		l.parition.Close()
+	}
+	return nil
+}
+
 func (l *LazyPartition) Loaded() bool {
 	return l.loaded.Load()
 }

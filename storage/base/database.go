@@ -127,5 +127,10 @@ func (db *Database) NumOfShards() int {
 }
 
 func (db *Database) EvictSegment() {
-	panic("need implements")
+}
+
+func (db *Database) TTL() {
+	db.ShardSet.WalkShards(func(shard store.Shard) {
+		shard.TTL()
+	})
 }

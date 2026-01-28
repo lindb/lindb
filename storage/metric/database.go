@@ -209,14 +209,6 @@ func (db *Database) Close() error {
 	return nil
 }
 
-// TTL expires the data of each shard base on time to live.
-func (db *Database) TTL() {
-	// for _, shardEntry := range db.shardSet.Entries() {
-	// 	thisShard := shardEntry.shard
-	// 	thisShard.TTL()
-	// }
-}
-
 // EvictSegment evicts segment which long term no read operation.
 func (db *Database) EvictSegment() {
 	// for _, shardEntry := range db.ShardSet.Entries() {

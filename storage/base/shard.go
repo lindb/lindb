@@ -19,7 +19,9 @@ package base
 
 import (
 	"sync"
+	"time"
 
+	"github.com/lindb/common/pkg/fileutil"
 	loggerpkg "github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/models"
@@ -121,4 +123,39 @@ func (s *Shard) Close() error {
 		}
 	}
 	return nil
+}
+
+func (s *Shard) TTL() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	now := time.Now()
+	database := s.Database()
+	// normally, shard only has one interval
+	interval := database.GetOption().Option.Intervals[0]
+	expireTime := now.Add(-time.Duration(interval.Retention)).UnixMilli()
+
+	partitions := s.Partitions.GetPartitions()
+	for _, lp := range partitions {
+		partition, err := lp.Get()
+		if err != nil {
+			logger.Warn("load partition fail when do ttl", loggerpkg.String("database", database.Name()), loggerpkg.Error(err))
+			continue
+		}
+		// partition time is before expire time, need do ttl
+		if partition.PartitionTime() < expireTime {
+			continue
+		}
+		if err := partition.Close(); err != nil {
+			logger.Warn("close partition fail when do ttl", loggerpkg.String("database", database.Name()), loggerpkg.Error(err))
+			continue
+		}
+		if err := fileutil.RemoveDir(partition.Path()); err != nil {
+			logger.Warn("remove partition dir fail when do ttl", loggerpkg.String("database", database.Name()), loggerpkg.Error(err))
+			continue
+		}
+		logger.Info("partition ttl completed",
+			loggerpkg.String("database", s.Database().Name()),
+			loggerpkg.String("path", partition.Path()))
+	}
 }
