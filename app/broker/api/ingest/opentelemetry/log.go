@@ -18,46 +18,32 @@
 package opentelemetry
 
 import (
-	"io"
+	"context"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lindb/common/log"
-	"github.com/lindb/common/pkg/http"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/plog/plogotlp"
 
 	depspkg "github.com/lindb/lindb/app/broker/deps"
-	"github.com/lindb/lindb/internal/linmetric"
-	"github.com/lindb/lindb/metrics"
 )
 
 const LogPath = "/opentelemetry/logs"
 
+// Log represents the OpenTelemetry log ingest api handler.
 type Log struct {
-	deps *depspkg.HTTPDeps
-
-	statistics struct {
-		flat   *linmetric.BoundHistogram
-		proto  *linmetric.BoundHistogram
-		influx *linmetric.BoundHistogram
-	}
+	writer
 }
 
+// NewLog creates a new OpenTelemetry log ingest api handler.
 func NewLog(deps *depspkg.HTTPDeps) *Log {
-	ingestStatistics := metrics.NewCommonIngestionStatistics()
-
-	return &Log{
-		deps: deps,
-		statistics: struct {
-			flat   *linmetric.BoundHistogram
-			proto  *linmetric.BoundHistogram
-			influx *linmetric.BoundHistogram
-		}{
-			flat:   ingestStatistics.Duration.WithTagValues("flat"),
-			proto:  ingestStatistics.Duration.WithTagValues("proto"),
-			influx: ingestStatistics.Duration.WithTagValues("influx"),
+	l := &Log{
+		writer: writer{
+			deps: deps,
 		},
 	}
+	l.writer.processProto = l.processProto
+	return l
 }
 
 // Register adds the log ingest url route.
@@ -66,23 +52,13 @@ func (w *Log) Register(route gin.IRoutes) {
 	route.PUT(LogPath, w.Write)
 }
 
-func (w *Log) Write(c *gin.Context) {
-	if err := w.write(c); err != nil {
-		http.Error(c, err)
-	}
-}
-
-func (w *Log) write(c *gin.Context) error {
-	body, err := io.ReadAll(c.Request.Body)
-	if err != nil {
-		return err
-	}
-	defer c.Request.Body.Close()
-
+// processProto processes the OpenTelemetry log proto data.
+func (w *Log) processProto(ctx context.Context, database string, data []byte) error {
 	req := plogotlp.NewExportRequest()
-	if err := req.UnmarshalProto(body); err != nil {
+	if err := req.UnmarshalProto(data); err != nil {
 		return err
 	}
+	// TODO:
 	rb := log.CreateRowBuilder()
 
 	logs := req.Logs()
@@ -116,7 +92,7 @@ func (w *Log) write(c *gin.Context) error {
 				data, _ := rb.Build()
 				dData := make([]byte, len(data))
 				copy(dData, data)
-				if err := w.deps.CM.WriteMsg(c.Request.Context(), "log_test", dData); err != nil {
+				if err := w.deps.CM.WriteMsg(ctx, database, dData); err != nil {
 					return err
 				}
 				rb.Reset()

@@ -118,8 +118,8 @@ func (e *ExecuteAPI) execute(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
-	if reqSession.Databases == "" {
-		reqSession.Databases = param.Database
+	if reqSession.Database == "" {
+		reqSession.Database = param.Database
 	}
 
 	requestID := e.deps.RequestIDGen.GenerateRequestID()
@@ -151,7 +151,7 @@ func (e *ExecuteAPI) execute(c *gin.Context) error {
 			constants.ContextKeyParams, &param),
 		RequestID:       requestID,
 		NodeIDAllocator: idAllocator,
-		Database:        reqSession.Databases,
+		Database:        reqSession.Database,
 		Statement:       preparedStmt,
 	}
 

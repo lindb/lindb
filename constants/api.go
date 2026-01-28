@@ -37,3 +37,8 @@ const (
 	// ContentTypeJson represents json content type.
 	ContentTypeJson = "application/json"
 )
+
+const (
+	// DatabaseHeader represents database header key in http request.
+	DatabaseHeader = "X-LinDB-Database"
+)

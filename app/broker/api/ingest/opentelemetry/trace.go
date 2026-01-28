@@ -18,75 +18,41 @@
 package opentelemetry
 
 import (
-	"fmt"
-	"io"
+	"context"
 
 	"github.com/gin-gonic/gin"
-	"github.com/lindb/common/pkg/http"
-	"go.opentelemetry.io/collector/pdata/ptrace/ptraceotlp"
 
 	depspkg "github.com/lindb/lindb/app/broker/deps"
-	"github.com/lindb/lindb/internal/linmetric"
-	"github.com/lindb/lindb/metrics"
 )
 
 const TracePath = "/opentelemetry/traces"
 
+// Trace represents the OpenTelemetry trace ingest api handler.
 type Trace struct {
-	deps *depspkg.HTTPDeps
-
-	statistics struct {
-		flat   *linmetric.BoundHistogram
-		proto  *linmetric.BoundHistogram
-		influx *linmetric.BoundHistogram
-	}
+	writer
 }
 
+// NewTrace creates OpenTelemetry trace ingest api handler.
 func NewTrace(deps *depspkg.HTTPDeps) *Trace {
-	ingestStatistics := metrics.NewCommonIngestionStatistics()
-
-	return &Trace{
-		deps: deps,
-		statistics: struct {
-			flat   *linmetric.BoundHistogram
-			proto  *linmetric.BoundHistogram
-			influx *linmetric.BoundHistogram
-		}{
-			flat:   ingestStatistics.Duration.WithTagValues("flat"),
-			proto:  ingestStatistics.Duration.WithTagValues("proto"),
-			influx: ingestStatistics.Duration.WithTagValues("influx"),
+	t := &Trace{
+		writer: writer{
+			deps: deps,
 		},
 	}
+	t.writer.processProto = t.processProto
+	return t
 }
 
-// Register adds the log ingest url route.
+// Register adds the trace ingest url route.
 func (w *Trace) Register(route gin.IRoutes) {
 	route.POST(TracePath, w.Write)
 	route.PUT(TracePath, w.Write)
 }
 
-func (w *Trace) Write(c *gin.Context) {
-	if err := w.write(c); err != nil {
-		fmt.Println(err)
-		http.Error(c, err)
-	}
-}
-
-func (w *Trace) write(c *gin.Context) error {
-	body, err := io.ReadAll(c.Request.Body)
-	if err != nil {
+// processProto processes the OpenTelemetry trace proto data.
+func (w *Trace) processProto(ctx context.Context, database string, data []byte) error {
+	if err := w.deps.CM.WriteMsg(ctx, database, data); err != nil {
 		return err
 	}
-	defer c.Request.Body.Close()
-
-	req := ptraceotlp.NewExportRequest()
-	if err := req.UnmarshalProto(body); err != nil {
-		return err
-	}
-	// TODO: set database name
-	if err := w.deps.CM.WriteMsg(c.Request.Context(), "trace_test", body); err != nil {
-		return err
-	}
-
 	return nil
 }

@@ -30,7 +30,7 @@ type ExecuteParam struct {
 }
 
 type Session struct {
-	Databases string `header:"X-LinDB-Database"`
+	Database string `header:"X-LinDB-Database"`
 }
 
 type StatementType int
