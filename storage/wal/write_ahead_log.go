@@ -202,6 +202,7 @@ func (w *writeAheadLog) Close() error {
 	if w.closed.CompareAndSwap(false, true) {
 		// close queue
 		w.data.Close()
+		meta.GetStorageMetaManager().Unsubscribe(w)
 	}
 	return nil
 }

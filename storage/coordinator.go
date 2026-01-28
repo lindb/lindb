@@ -20,7 +20,8 @@ package storage
 import (
 	"context"
 	"fmt"
-	"sync"
+
+	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/meta"
 	"github.com/lindb/lindb/models"
@@ -38,8 +39,9 @@ type coordinator struct {
 	streamings  map[string]*models.StreamingState
 	subscribers map[string]*subscribers
 
-	events chan meta.Event
-	mutex  sync.Mutex
+	subChan   chan meta.Subscriber
+	unsubChan chan meta.Subscriber
+	events    chan meta.Event
 }
 
 func NewCoordinator(engine Engine) *coordinator {
@@ -49,6 +51,8 @@ func NewCoordinator(engine Engine) *coordinator {
 		cancal:      cancel,
 		engine:      engine,
 		events:      make(chan meta.Event, 8),
+		subChan:     make(chan meta.Subscriber, 8),
+		unsubChan:   make(chan meta.Subscriber, 8),
 		streamings:  make(map[string]*models.StreamingState),
 		subscribers: make(map[string]*subscribers),
 	}
@@ -61,6 +65,10 @@ func NewCoordinator(engine Engine) *coordinator {
 func (c *coordinator) run() {
 	for {
 		select {
+		case sub := <-c.subChan:
+			c.subscribe(sub)
+		case unsub := <-c.unsubChan:
+			c.unsubscribe(unsub)
 		case event, ok := <-c.events:
 			if !ok {
 				return
@@ -129,9 +137,10 @@ func (c *coordinator) OnEvent(event meta.Event) {
 }
 
 func (c *coordinator) Subscribe(sub meta.Subscriber) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+	c.subChan <- sub
+}
 
+func (c *coordinator) subscribe(sub meta.Subscriber) {
 	database := sub.Database()
 	subs, ok := c.subscribers[database]
 	if !ok {
@@ -160,8 +169,17 @@ func (c *coordinator) Subscribe(sub meta.Subscriber) {
 	}
 }
 
+func (c *coordinator) unsubscribe(sub meta.Subscriber) {
+	database := sub.Database()
+	subs, ok := c.subscribers[database]
+	if !ok {
+		return
+	}
+	subs.unsubscribe(sub)
+}
+
 func (c *coordinator) Unsubscribe(sub meta.Subscriber) {
-	// no need to subscribe
+	c.unsubChan <- sub
 }
 
 func (c *coordinator) GetLiveNode(name string, nodeID models.NodeID) (models.Node, bool) {
@@ -191,7 +209,6 @@ func (c *coordinator) Close() {
 
 type subscribers struct {
 	subscribers map[models.ShardID][]meta.Subscriber
-	mutex       sync.Mutex
 }
 
 func newSubscribers() *subscribers {
@@ -201,9 +218,6 @@ func newSubscribers() *subscribers {
 }
 
 func (s *subscribers) subscribe(sub meta.Subscriber) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	shardID := sub.Shard()
 	subs, ok := s.subscribers[shardID]
 	if !ok {
@@ -213,9 +227,18 @@ func (s *subscribers) subscribe(sub meta.Subscriber) {
 	s.subscribers[shardID] = subs
 }
 
-func (s *subscribers) getSubscribers(shardID models.ShardID) []meta.Subscriber {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+func (s *subscribers) unsubscribe(sub meta.Subscriber) {
+	shardID := sub.Shard()
+	subs, ok := s.subscribers[shardID]
+	if !ok {
+		return
+	}
+	// remove subscriber from list
+	s.subscribers[shardID] = lo.Filter(subs, func(s meta.Subscriber, _ int) bool {
+		return s != sub
+	})
+}
 
+func (s *subscribers) getSubscribers(shardID models.ShardID) []meta.Subscriber {
 	return s.subscribers[shardID]
 }
