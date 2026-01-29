@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package replica
+package write
 
 import (
 	"context"
@@ -35,7 +35,7 @@ import (
 	"github.com/lindb/lindb/series/metric"
 )
 
-//go:generate mockgen -source=./channel_family.go -destination=./channel_family_mock.go -package=replica
+//go:generate mockgen -source=./channel_family.go -destination=./channel_family_mock.go -package=write
 
 // FamilyChannel represents family write shardChannel.
 type FamilyChannel interface {

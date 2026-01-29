@@ -178,6 +178,12 @@ func (r ReplicaState) String() string {
 		"]"
 }
 
+type ChangeShardStateEvent struct {
+	DatabaseCfg Database
+	Shards      map[ShardID]ShardState
+	LiveNodes   map[NodeID]StatefulNode
+}
+
 // ShardState represents current state of shard.
 type ShardState struct {
 	Replica Replica        `json:"replica"`

@@ -15,16 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package replica
+package discovery
 
-import "errors"
+import "github.com/lindb/lindb/models"
 
-var (
-	// define error types
-	errChannelNotFound = errors.New("shard replica channel not found")
-	errInvalidShardID  = errors.New("numOfShard should be greater than 0 and shardID should less then numOfShard")
-	errInvalidShardNum = errors.New("numOfShard should be equal or greater than original setting")
-	// ErrFamilyChannelCanceled is the error returned when a family channel is closed.
-	ErrFamilyChannelCanceled = errors.New("family Channel is canceled")
-	ErrIngestTimeout         = errors.New("ingest timout")
-)
+type MetaEvent any
+
+type Watcher interface {
+	OnEvent(event MetaEvent)
+	Subscribe(sub Subscriber)
+	Unsubscribe(sub Subscriber)
+	Close()
+}
+
+type Subscriber interface {
+	Database() string
+	Shard() models.ShardID
+	SegmentTime() int64
+	Receive(event MetaEvent)
+}

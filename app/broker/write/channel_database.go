@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package replica
+package write
 
 import (
 	"context"
@@ -34,7 +34,7 @@ import (
 	"github.com/lindb/lindb/series/metric"
 )
 
-//go:generate mockgen -source=./channel_database.go -destination=./channel_database_mock.go -package=replica
+//go:generate mockgen -source=./channel_database.go -destination=./channel_database_mock.go -package=write
 
 // for testing
 var (

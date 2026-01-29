@@ -61,10 +61,8 @@ type StateManager interface {
 	// GetStorage returns storage state.
 	GetStorage() *models.StorageState
 
-	WatchShardStateChangeEvent(fn func(databaseCfg models.Database,
-		shards map[models.ShardID]models.ShardState,
-		liveNodes map[models.NodeID]models.StatefulNode,
-	))
+	// RegisterWatcher registers state manager watcher.
+	RegisterWatcher(watcher discovery.Watcher)
 }
 
 // stateManager implements StateManager.
@@ -79,10 +77,7 @@ type stateManager struct {
 	streamings   map[string]models.Streaming     // streaming config
 	nodes        map[string]models.StatelessNode // live nodes of broker cluster
 
-	callbacks []func(databaseCfg models.Database,
-		shards map[models.ShardID]models.ShardState,
-		liveNodes map[models.NodeID]models.StatefulNode,
-	)
+	watchers []discovery.Watcher
 
 	statistics *metrics.StateManagerStatistics
 	logger     logger.Logger
@@ -114,6 +109,13 @@ func NewStateManager(
 	go mgr.consumeEvent()
 
 	return mgr
+}
+
+func (m *stateManager) RegisterWatcher(watcher discovery.Watcher) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	m.watchers = append(m.watchers, watcher)
 }
 
 func (m *stateManager) GetPartitions(database string) (partitions map[models.InternalNode][]int, err error) {
@@ -180,18 +182,6 @@ func (m *stateManager) Choose(database string, numOfNodes int) ([]*models.Physic
 		})
 	}
 	return []*models.PhysicalPlan{physicalPlan}, nil
-}
-
-func (m *stateManager) WatchShardStateChangeEvent(fn func(databaseCfg models.Database,
-	shards map[models.ShardID]models.ShardState,
-	liveNodes map[models.NodeID]models.StatefulNode,
-),
-) {
-	if fn != nil {
-		m.mutex.Lock()
-		m.callbacks = append(m.callbacks, fn)
-		m.mutex.Unlock()
-	}
 }
 
 // EmitEvent emits discovery event when state changed.
@@ -493,8 +483,13 @@ func (m *stateManager) notifyShardStateChange(storageState *models.StorageState)
 	liveNodes := storageState.LiveNodes
 	for db, shards := range storageState.ShardStates {
 		databaseCfg := m.databases[db]
-		for _, fn := range m.callbacks {
-			fn(databaseCfg, shards, liveNodes)
+		event := models.ChangeShardStateEvent{
+			DatabaseCfg: databaseCfg,
+			Shards:      shards,
+			LiveNodes:   liveNodes,
+		}
+		for _, watcher := range m.watchers {
+			watcher.OnEvent(&event)
 		}
 	}
 }

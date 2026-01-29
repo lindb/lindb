@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package replica
+package write
 
 import (
 	"context"
@@ -29,7 +29,7 @@ import (
 	"github.com/lindb/lindb/rpc"
 )
 
-//go:generate mockgen -source=./channel_shard.go -destination=./channel_shard_mock.go -package=replica
+//go:generate mockgen -source=./channel_shard.go -destination=./channel_shard_mock.go -package=write
 
 // for testing
 var (
@@ -82,7 +82,7 @@ func newShardChannel(
 		shardID:  shardID,
 		families: newFamilyChannelSet(),
 		fct:      fct,
-		logger:   logger.GetLogger("Replica", "ShardChannel"),
+		logger:   logger.GetLogger("Write", "ShardChannel"),
 	}
 }
 

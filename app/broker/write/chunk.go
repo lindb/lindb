@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package replica
+package write
 
 import (
 	"github.com/lindb/common/pkg/ltoml"
@@ -23,7 +23,7 @@ import (
 	"github.com/lindb/lindb/pkg/compress"
 )
 
-//go:generate mockgen -source=./chunk.go -destination=./chunk_mock.go -package=replica
+//go:generate mockgen -source=./chunk.go -destination=./chunk_mock.go -package=write
 
 // Chunk represents the writeTask buffer chunk for compressing the metric list
 type Chunk interface {

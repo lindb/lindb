@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package replica
+package write
 
 import (
 	"context"
@@ -28,16 +28,17 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/config"
-	"github.com/lindb/lindb/coordinator/broker"
+	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/metric"
 )
 
-//go:generate mockgen -source=./channel_manager.go -destination=./channel_manager_mock.go -package=replica
+//go:generate mockgen -source=./channel_manager.go -destination=./channel_manager_mock.go -package=write
 
 // ChannelManager manages the construction, retrieving, closing for all channels.
 type ChannelManager interface {
+	discovery.Watcher
 	// Write writes a MetricList, the manager handler the database, sharding things.
 	Write(ctx context.Context, database string, brokerBatchRows *metric.BrokerBatchRows) error
 	WriteMsg(ctx context.Context, database string, data []byte) error
@@ -55,12 +56,13 @@ type (
 	}
 
 	channelManager struct {
-		ctx              context.Context         // context passed to all ShardChannel
+		ctx    context.Context    // context passed to all ShardChannel
+		cancel context.CancelFunc // cancelFun to cancel context
+
 		fct              rpc.ClientStreamFactory // factory to get rpc  writeTask client
-		stateMgr         broker.StateManager
-		logger           logger.Logger
-		cancel           context.CancelFunc // cancelFun to cancel context
 		databaseChannels databaseChannels
+
+		logger logger.Logger
 	}
 )
 
@@ -69,22 +71,19 @@ type (
 func NewChannelManager(
 	ctx context.Context,
 	fct rpc.ClientStreamFactory,
-	stateMgr broker.StateManager,
 ) ChannelManager {
 	ctx, cancel := context.WithCancel(ctx)
 	cm := &channelManager{
-		ctx:      ctx,
-		cancel:   cancel,
-		fct:      fct,
-		stateMgr: stateMgr,
-		logger:   logger.GetLogger("Replica", "ChannelManager"),
+		ctx:    ctx,
+		cancel: cancel,
+		fct:    fct,
+		logger: logger.GetLogger("Write", "ChannelManager"),
 	}
 	cm.databaseChannels.value.Store(make(database2Channel))
 
 	// start write families garbage collect task
 	cm.gcWriteFamilies()
 
-	stateMgr.WatchShardStateChangeEvent(cm.handleShardStateChangeEvent)
 	return cm
 }
 
@@ -171,25 +170,6 @@ func (cm *channelManager) insertDatabaseChannel(newDatabaseName string, newChann
 	}
 	newMap[newDatabaseName] = newChannel
 	cm.databaseChannels.value.Store(newMap)
-}
-
-// handleShardStateChangeEvent handles shard state change event.
-func (cm *channelManager) handleShardStateChangeEvent(
-	databaseCfg models.Database,
-	shards map[models.ShardID]models.ShardState,
-	liveNodes map[models.NodeID]models.StatefulNode,
-) {
-	numOfShard := len(shards)
-	for _, shardState := range shards {
-		shardID := shardState.ID
-		ch, err := cm.CreateChannel(databaseCfg, int32(numOfShard), shardID)
-		if err != nil {
-			cm.logger.Error("create shard write shardChannel", logger.String("db", databaseCfg.Name),
-				logger.Any("shard", shardID), logger.Error(err))
-		} else {
-			ch.SyncShardState(shardState, liveNodes)
-		}
-	}
 }
 
 // gcWriteFamilies recycles write families which is expired.

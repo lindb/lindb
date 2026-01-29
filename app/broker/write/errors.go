@@ -15,27 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package meta
+package write
 
 import (
-	"github.com/lindb/lindb/coordinator/discovery"
-	"github.com/lindb/lindb/models"
-	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
+	"errors"
 )
 
-var manager StorageMetaManager
-
-func SetStorageMetaManager(m StorageMetaManager) {
-	manager = m
-}
-
-func GetStorageMetaManager() StorageMetaManager {
-	return manager
-}
-
-type StorageMetaManager interface {
-	discovery.Watcher
-
-	GetLiveNode(name string, nodeID models.NodeID) (models.Node, bool)
-	CreateReplicaServiceClient(target models.Node) (protoReplicaV1.ReplicaServiceClient, error)
-}
+var (
+	// define error types
+	errChannelNotFound = errors.New("shard replica channel not found")
+	errInvalidShardID  = errors.New("numOfShard should be greater than 0 and shardID should less then numOfShard")
+	errInvalidShardNum = errors.New("numOfShard should be equal or greater than original setting")
+	// ErrFamilyChannelCanceled is the error returned when a family channel is closed.
+	ErrFamilyChannelCanceled = errors.New("family Channel is canceled")
+	ErrIngestTimeout         = errors.New("ingest timout")
+)

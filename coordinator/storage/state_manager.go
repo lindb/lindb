@@ -32,7 +32,6 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/internal/linmetric"
-	"github.com/lindb/lindb/meta"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/state"
@@ -58,7 +57,7 @@ type StateManager interface {
 	GetShardAssignments() []*models.ShardAssignment
 
 	// RegisterWatcher registers state manager watcher.
-	RegisterWatcher(watcher meta.Watcher)
+	RegisterWatcher(watcher discovery.Watcher)
 }
 
 // stateManager implements StateManager.
@@ -73,7 +72,7 @@ type stateManager struct {
 
 	events chan *discovery.Event
 
-	watchers []meta.Watcher
+	watchers []discovery.Watcher
 
 	mutex sync.RWMutex
 
@@ -107,7 +106,7 @@ func NewStateManager(
 	return mgr
 }
 
-func (m *stateManager) RegisterWatcher(watcher meta.Watcher) {
+func (m *stateManager) RegisterWatcher(watcher discovery.Watcher) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 

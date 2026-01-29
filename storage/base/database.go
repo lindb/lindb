@@ -41,7 +41,6 @@ type Database struct {
 
 func (db *Database) DumpOption() error {
 	optionsPath := store.OptionsPath(db.DatabaseName)
-	fmt.Println(optionsPath)
 	// write options using toml format
 	if err := ltoml.EncodeToml(optionsPath, db.Options); err != nil {
 		return fmt.Errorf("dump database options to file[%s] error:%s", optionsPath, err)

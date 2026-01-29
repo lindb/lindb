@@ -32,6 +32,7 @@ import (
 	"github.com/lindb/lindb/app"
 	"github.com/lindb/lindb/app/broker/api"
 	"github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/app/broker/write"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator"
@@ -48,7 +49,6 @@ import (
 	httppkg "github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/state"
 	protoCommandV1 "github.com/lindb/lindb/proto/gen/v1/command"
-	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/rpc"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/spi"
@@ -66,7 +66,7 @@ var (
 	newRepositoryFactory   = state.NewRepositoryFactory
 	newGRPCServer          = rpc.NewGRPCServer
 	newStateManager        = broker.NewStateManager
-	newChannelManager      = replica.NewChannelManager
+	newChannelManager      = write.NewChannelManager
 	newMasterController    = coordinator.NewMasterController
 	newHTTPServer          = httppkg.NewServer
 	serveGRPCFn            = serveGRPC
@@ -74,7 +74,7 @@ var (
 
 // srv represents all services for broker
 type srv struct {
-	channelManager replica.ChannelManager
+	channelManager write.ChannelManager
 }
 
 // runtime represents broker runtime dependency
@@ -402,11 +402,12 @@ func (r *runtime) startStateRepo() error {
 // buildServiceDependency builds broker service dependency
 func (r *runtime) buildServiceDependency() {
 	// create replica channel mgr.
-	cm := newChannelManager(r.ctx, rpc.NewClientStreamFactory(r.ctx, r.node, rpc.GetBrokerClientConnFactory()), r.stateMgr)
+	cm := newChannelManager(r.ctx, rpc.NewClientStreamFactory(r.ctx, r.node, rpc.GetBrokerClientConnFactory()))
 
 	s := srv{
 		channelManager: cm,
 	}
+	r.stateMgr.RegisterWatcher(cm)
 	r.srv = s
 }
 

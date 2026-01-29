@@ -29,7 +29,6 @@ import (
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/internal/linmetric"
-	"github.com/lindb/lindb/meta"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
 )
@@ -38,7 +37,7 @@ type StateManager interface {
 	discovery.StateMachineEventHandle
 
 	// RegisterWatcher registers state manager watcher.
-	RegisterWatcher(watcher meta.Watcher)
+	RegisterWatcher(watcher discovery.Watcher)
 }
 
 type stateManager struct {
@@ -48,7 +47,7 @@ type stateManager struct {
 	cancel context.CancelFunc
 
 	events   chan *discovery.Event
-	watchers []meta.Watcher
+	watchers []discovery.Watcher
 
 	mutex sync.RWMutex
 
@@ -73,7 +72,7 @@ func NewStateManager(ctx context.Context) StateManager {
 	return mgr
 }
 
-func (s *stateManager) RegisterWatcher(watcher meta.Watcher) {
+func (s *stateManager) RegisterWatcher(watcher discovery.Watcher) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 

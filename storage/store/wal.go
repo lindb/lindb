@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/lindb/lindb/meta"
+	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/queue"
 )
@@ -33,7 +33,7 @@ var (
 
 type WriteAheadLog interface {
 	io.Closer
-	meta.Subscriber
+	discovery.Subscriber
 
 	Get(index int64) ([]byte, error)
 	Write(msg []byte) error

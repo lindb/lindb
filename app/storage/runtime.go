@@ -104,7 +104,7 @@ type runtime struct {
 	jobScheduler        kv.JobScheduler
 	repoFactory         state.RepositoryFactory
 	stateMgr            storage.StateManager
-	watcher             meta.Watcher
+	watcher             discovery.Watcher
 	dbLifecycle         DatabaseLifecycle
 	repo                state.Repository
 	server              rpc.GRPCServer

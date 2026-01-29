@@ -27,6 +27,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/config"
+	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/meta"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/queue"
@@ -139,7 +140,7 @@ func (w *writeAheadLog) Shard() models.ShardID {
 	return w.segment.Partition().Shard().ShardID()
 }
 
-func (w *writeAheadLog) Receive(event meta.Event) {
+func (w *writeAheadLog) Receive(event discovery.MetaEvent) {
 	switch stateEvent := event.(type) {
 	case *store.ConsumerStateChange:
 		if stateEvent.IsDelete {
@@ -202,6 +203,7 @@ func (w *writeAheadLog) Close() error {
 	if w.closed.CompareAndSwap(false, true) {
 		// close queue
 		w.data.Close()
+		// unsubscribe wal consumer events
 		meta.GetStorageMetaManager().Unsubscribe(w)
 	}
 	return nil

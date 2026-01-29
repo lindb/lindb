@@ -23,7 +23,7 @@ import (
 
 	"github.com/samber/lo"
 
-	"github.com/lindb/lindb/meta"
+	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
 	protoReplicaV1 "github.com/lindb/lindb/proto/gen/v1/replica"
 	"github.com/lindb/lindb/rpc"
@@ -39,9 +39,9 @@ type coordinator struct {
 	streamings  map[string]*models.StreamingState
 	subscribers map[string]*subscribers
 
-	subChan   chan meta.Subscriber
-	unsubChan chan meta.Subscriber
-	events    chan meta.Event
+	subChan   chan discovery.Subscriber
+	unsubChan chan discovery.Subscriber
+	events    chan discovery.MetaEvent
 }
 
 func NewCoordinator(engine Engine) *coordinator {
@@ -50,9 +50,9 @@ func NewCoordinator(engine Engine) *coordinator {
 		ctx:         ctx,
 		cancal:      cancel,
 		engine:      engine,
-		events:      make(chan meta.Event, 8),
-		subChan:     make(chan meta.Subscriber, 8),
-		unsubChan:   make(chan meta.Subscriber, 8),
+		events:      make(chan discovery.MetaEvent, 8),
+		subChan:     make(chan discovery.Subscriber, 8),
+		unsubChan:   make(chan discovery.Subscriber, 8),
 		streamings:  make(map[string]*models.StreamingState),
 		subscribers: make(map[string]*subscribers),
 	}
@@ -80,7 +80,7 @@ func (c *coordinator) run() {
 	}
 }
 
-func (c *coordinator) process(event meta.Event) {
+func (c *coordinator) process(event discovery.MetaEvent) {
 	switch stateEvent := event.(type) {
 	case *models.DeleteStreaming:
 		state, ok := c.streamings[stateEvent.Streaming]
@@ -132,15 +132,15 @@ func (c *coordinator) process(event meta.Event) {
 	// panic("implement me")
 }
 
-func (c *coordinator) OnEvent(event meta.Event) {
+func (c *coordinator) OnEvent(event discovery.MetaEvent) {
 	c.events <- event
 }
 
-func (c *coordinator) Subscribe(sub meta.Subscriber) {
+func (c *coordinator) Subscribe(sub discovery.Subscriber) {
 	c.subChan <- sub
 }
 
-func (c *coordinator) subscribe(sub meta.Subscriber) {
+func (c *coordinator) subscribe(sub discovery.Subscriber) {
 	database := sub.Database()
 	subs, ok := c.subscribers[database]
 	if !ok {
@@ -169,7 +169,7 @@ func (c *coordinator) subscribe(sub meta.Subscriber) {
 	}
 }
 
-func (c *coordinator) unsubscribe(sub meta.Subscriber) {
+func (c *coordinator) unsubscribe(sub discovery.Subscriber) {
 	database := sub.Database()
 	subs, ok := c.subscribers[database]
 	if !ok {
@@ -178,7 +178,7 @@ func (c *coordinator) unsubscribe(sub meta.Subscriber) {
 	subs.unsubscribe(sub)
 }
 
-func (c *coordinator) Unsubscribe(sub meta.Subscriber) {
+func (c *coordinator) Unsubscribe(sub discovery.Subscriber) {
 	c.unsubChan <- sub
 }
 
@@ -208,37 +208,37 @@ func (c *coordinator) Close() {
 }
 
 type subscribers struct {
-	subscribers map[models.ShardID][]meta.Subscriber
+	subscribers map[models.ShardID][]discovery.Subscriber
 }
 
 func newSubscribers() *subscribers {
 	return &subscribers{
-		subscribers: make(map[models.ShardID][]meta.Subscriber),
+		subscribers: make(map[models.ShardID][]discovery.Subscriber),
 	}
 }
 
-func (s *subscribers) subscribe(sub meta.Subscriber) {
+func (s *subscribers) subscribe(sub discovery.Subscriber) {
 	shardID := sub.Shard()
 	subs, ok := s.subscribers[shardID]
 	if !ok {
-		subs = []meta.Subscriber{}
+		subs = []discovery.Subscriber{}
 	}
 	subs = append(subs, sub)
 	s.subscribers[shardID] = subs
 }
 
-func (s *subscribers) unsubscribe(sub meta.Subscriber) {
+func (s *subscribers) unsubscribe(sub discovery.Subscriber) {
 	shardID := sub.Shard()
 	subs, ok := s.subscribers[shardID]
 	if !ok {
 		return
 	}
 	// remove subscriber from list
-	s.subscribers[shardID] = lo.Filter(subs, func(s meta.Subscriber, _ int) bool {
+	s.subscribers[shardID] = lo.Filter(subs, func(s discovery.Subscriber, _ int) bool {
 		return s != sub
 	})
 }
 
-func (s *subscribers) getSubscribers(shardID models.ShardID) []meta.Subscriber {
+func (s *subscribers) getSubscribers(shardID models.ShardID) []discovery.Subscriber {
 	return s.subscribers[shardID]
 }

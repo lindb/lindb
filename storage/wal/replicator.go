@@ -24,7 +24,7 @@ import (
 	"github.com/lindb/lindb/storage/store"
 )
 
-//go:generate mockgen -source=./replicator.go -destination=./replicator_mock.go -package=replica
+//go:generate mockgen -source=./replicator.go -destination=./replicator_mock.go -package=wal
 
 // replicator implements Replicator interface.
 type replicator struct {

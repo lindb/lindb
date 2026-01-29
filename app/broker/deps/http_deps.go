@@ -20,13 +20,13 @@ package deps
 import (
 	"context"
 
+	"github.com/lindb/lindb/app/broker/write"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator"
 	"github.com/lindb/lindb/coordinator/broker"
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/sql/execution"
 )
@@ -42,7 +42,7 @@ type HTTPDeps struct {
 	RepoFactory state.RepositoryFactory
 	StateMgr    broker.StateManager
 
-	CM            replica.ChannelManager
+	CM            write.ChannelManager
 	IngestLimiter *concurrent.Limiter
 	QueryLimiter  *concurrent.Limiter
 

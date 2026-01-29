@@ -22,6 +22,7 @@ import (
 
 	"github.com/lindb/common/pkg/logger"
 
+	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/meta"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/streaming/cep"
@@ -33,7 +34,7 @@ type Coordinator struct {
 	logger     logger.Logger
 }
 
-func NewCoordinator() meta.Watcher {
+func NewCoordinator() discovery.Watcher {
 	return &Coordinator{
 		streamings: make(map[string]*models.Streaming),
 		databases:  make(map[string]*models.Database),
@@ -41,8 +42,7 @@ func NewCoordinator() meta.Watcher {
 	}
 }
 
-// OnEvent implements [meta.Watcher].
-func (c *Coordinator) OnEvent(e meta.Event) {
+func (c *Coordinator) OnEvent(e discovery.MetaEvent) {
 	c.logger.Info("receive event", logger.Any("type", reflect.TypeOf(e)), logger.Any("event", e))
 	switch event := e.(type) {
 	case *models.Database:
@@ -157,14 +157,11 @@ func (c *Coordinator) getCEPEngine(streaming string) (*cep.Engine, bool) {
 	return cepEngine, true
 }
 
-// Subscribe implements [meta.Watcher].
-func (c *Coordinator) Subscribe(sub meta.Subscriber) {
+func (c *Coordinator) Subscribe(sub discovery.Subscriber) {
 }
 
-// Unsubscribe implements [meta.Watcher].
-func (c *Coordinator) Unsubscribe(sub meta.Subscriber) {
+func (c *Coordinator) Unsubscribe(sub discovery.Subscriber) {
 }
 
-// Close implements [meta.Watcher].
 func (c *Coordinator) Close() {
 }
