@@ -97,7 +97,7 @@ func (s *writeStream) initialize() error {
 		Shard:       *s.shardState,
 		SegmentTime: s.familyTime,
 	})
-	ctx := CreateOutgoingContextWithPairs(s.ctx, constants.RPCMetaKeyFamilyState, string(familyState))
+	ctx := CreateOutgoingContextWithPairs(s.ctx, constants.RPCMetaKeySegmentState, string(familyState))
 	writeCli, err := writeService.Write(ctx)
 	if err != nil {
 		return err

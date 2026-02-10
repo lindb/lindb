@@ -36,14 +36,12 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/coordinator/discovery"
-	storagepkg "github.com/lindb/lindb/coordinator/storage"
 	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/internal/server"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/hostutil"
 	"github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/rpc"
 	storepkg "github.com/lindb/lindb/storage"
 )
@@ -77,7 +75,7 @@ func TestStorageRun(t *testing.T) {
 	dbLifecycle.EXPECT().Startup()
 	dbLifecycle.EXPECT().Shutdown()
 	newDatabaseLifecycleFn = func(ctx context.Context, repo state.Repository,
-		walMgr replica.WriteAheadLogManager, engine storepkg.Engine,
+		engine storepkg.Engine,
 	) DatabaseLifecycle {
 		return dbLifecycle
 	}
@@ -127,7 +125,7 @@ func TestStorageRun_GetHost_Err(t *testing.T) {
 	dbLifecycle.EXPECT().Startup()
 	dbLifecycle.EXPECT().Shutdown()
 	newDatabaseLifecycleFn = func(ctx context.Context, repo state.Repository,
-		walMgr replica.WriteAheadLogManager, engine storepkg.Engine,
+		engine storepkg.Engine,
 	) DatabaseLifecycle {
 		return dbLifecycle
 	}
@@ -199,7 +197,6 @@ func TestStorageRun_Err(t *testing.T) {
 	storage = NewStorageRuntime("test-version", 6, &cfg)
 	defer func() {
 		newEngineFn = storepkg.NewEngine
-		newWriteAheadLogManagerFn = replica.NewWriteAheadLogManager
 	}()
 	newEngineFn = func() (storepkg.Engine, error) {
 		return nil, fmt.Errorf("err")
@@ -207,15 +204,6 @@ func TestStorageRun_Err(t *testing.T) {
 	err = storage.Run()
 	assert.Error(t, err)
 
-	// wal recovery failure
-	walMgr := replica.NewMockWriteAheadLogManager(ctrl)
-	newWriteAheadLogManagerFn = func(_ context.Context, _ config.WAL,
-		_ models.NodeID, _ storepkg.Engine, _ rpc.ClientStreamFactory,
-		_ storagepkg.StateManager,
-	) replica.WriteAheadLogManager {
-		return walMgr
-	}
-	walMgr.EXPECT().Recovery().Return(fmt.Errorf("err"))
 	cfg.StorageBase.TSDB.Dir = filepath.Join(t.TempDir(), "7")
 	storage = NewStorageRuntime("test-version", 7, &cfg)
 	newEngineFn = func() (storepkg.Engine, error) {

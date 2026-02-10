@@ -15,11 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package constants
+package arrow
 
-const (
-	RPCMetaKeyLogicNode    = "LogicNode"
-	RPCMetaKeyDatabase     = "Database"
-	RPCMetaReplicaState    = "ReplicaState"
-	RPCMetaKeySegmentState = "SegmentState"
+import (
+	"os"
+
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/ipc"
 )
+
+type Writer interface {
+	Write(records []arrow.RecordBatch) error
+	Close() error
+}
+
+type writer struct {
+	writers []*ipc.FileWriter
+	files   []*os.File
+}

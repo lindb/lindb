@@ -19,8 +19,6 @@ package ingest
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/lindb/common/log"
-	"github.com/lindb/common/models"
 	"github.com/lindb/common/pkg/http"
 
 	depspkg "github.com/lindb/lindb/app/broker/deps"
@@ -70,22 +68,23 @@ func (w *Log) Write(c *gin.Context) {
 }
 
 func (w *Log) write(c *gin.Context) error {
-	var logs []models.Log
-	if err := c.ShouldBind(&logs); err != nil {
-		return err
-	}
-	rb := log.CreateRowBuilder()
-	for _, l := range logs {
-		rb.AddMessage([]byte(l.Message)).
-			AddTimestamp(l.Timestamp)
-		for k, v := range l.Fields {
-			rb.AddField([]byte(k), []byte(v))
-		}
-		data, _ := rb.Build()
-		if err := w.deps.CM.WriteMsg(c.Request.Context(), "log_test", data); err != nil {
-			return err
-		}
-		rb.Reset()
-	}
+	// FIXME:
+	// var logs []models.Log
+	// if err := c.ShouldBind(&logs); err != nil {
+	// 	return err
+	// }
+	// rb := log.CreateRowBuilder()
+	// for _, l := range logs {
+	// 	rb.AddMessage([]byte(l.Message)).
+	// 		AddTimestamp(l.Timestamp)
+	// 	for k, v := range l.Fields {
+	// 		rb.AddField([]byte(k), []byte(v))
+	// 	}
+	// 	data, _ := rb.Build()
+	// 	if err := w.deps.CM.WriteMsg(c.Request.Context(), "log_test", data, constants.EncodingJSON); err != nil {
+	// 		return err
+	// 	}
+	// 	rb.Reset()
+	// }
 	return nil
 }

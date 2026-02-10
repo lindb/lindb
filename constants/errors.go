@@ -102,3 +102,6 @@ var (
 	// ErrTooManySeriesFound is the error returned max series limit of data query.
 	ErrTooManySeriesFound = errors.New("found too many series")
 )
+
+// ErrNoAvailableShard represents there is no available shard.
+var ErrNoAvailableShard = errors.New("no available shard")

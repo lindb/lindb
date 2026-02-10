@@ -30,7 +30,6 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/replica"
 	storagepkg "github.com/lindb/lindb/storage"
 )
 
@@ -39,13 +38,10 @@ func TestNewDatabaseLifecycle(t *testing.T) {
 	defer ctrl.Finish()
 
 	repo := state.NewMockRepository(ctrl)
-	walMgr := replica.NewMockWriteAheadLogManager(ctrl)
-	walMgr.EXPECT().Stop().MaxTimes(2)
-	walMgr.EXPECT().Close().Return(nil)
 	engine := storagepkg.NewMockEngine(ctrl)
 	engine.EXPECT().Close().MaxTimes(2)
 
-	dbLifecycle := NewDatabaseLifecycle(context.TODO(), repo, walMgr, engine)
+	dbLifecycle := NewDatabaseLifecycle(context.TODO(), repo, engine)
 
 	var wait sync.WaitGroup
 	wait.Add(1)
@@ -60,9 +56,8 @@ func TestNewDatabaseLifecycle(t *testing.T) {
 	ch <- struct{}{}
 	wait.Wait()
 
-	dbLifecycle = NewDatabaseLifecycle(context.TODO(), repo, walMgr, engine)
+	dbLifecycle = NewDatabaseLifecycle(context.TODO(), repo, engine)
 
-	walMgr.EXPECT().Close().Return(fmt.Errorf("err"))
 	dbLifecycle.Shutdown()
 }
 
@@ -82,13 +77,10 @@ func TestDatabaseLifecycle_ttlTask(t *testing.T) {
 	}()
 
 	repo := state.NewMockRepository(ctrl)
-	walMgr := replica.NewMockWriteAheadLogManager(ctrl)
-	walMgr.EXPECT().Close()
-	walMgr.EXPECT().Stop()
 	engine := storagepkg.NewMockEngine(ctrl)
 	engine.EXPECT().Close()
 
-	dbLifecycle := NewDatabaseLifecycle(context.TODO(), repo, walMgr, engine)
+	dbLifecycle := NewDatabaseLifecycle(context.TODO(), repo, engine)
 	ch := make(chan struct{})
 	go func() {
 		time.Sleep(100 * time.Millisecond)
@@ -113,7 +105,6 @@ func TestDatabaseLifecycle_dropDatabases(t *testing.T) {
 		ctrl.Finish()
 	}()
 	repo := state.NewMockRepository(ctrl)
-	walMgr := replica.NewMockWriteAheadLogManager(ctrl)
 	engine := storagepkg.NewMockEngine(ctrl)
 
 	cases := []struct {
@@ -142,9 +133,7 @@ func TestDatabaseLifecycle_dropDatabases(t *testing.T) {
 					})
 				activeDatabases := map[string]struct{}{"test": {}}
 				gomock.InOrder(
-					walMgr.EXPECT().StopDatabases(activeDatabases),
 					engine.EXPECT().DropDatabases(activeDatabases),
-					walMgr.EXPECT().DropDatabases(activeDatabases),
 				)
 			},
 		},
@@ -152,7 +141,7 @@ func TestDatabaseLifecycle_dropDatabases(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(_ *testing.T) {
-			dbLifecycle := NewDatabaseLifecycle(context.TODO(), repo, walMgr, engine)
+			dbLifecycle := NewDatabaseLifecycle(context.TODO(), repo, engine)
 			dbLifecycle1 := dbLifecycle.(*databaseLifecycle)
 			if tt.prepare != nil {
 				tt.prepare()

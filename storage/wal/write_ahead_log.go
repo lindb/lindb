@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/lindb/common/pkg/logger"
 	"go.uber.org/atomic"
 
@@ -197,6 +198,17 @@ func (w *writeAheadLog) Write(msg []byte) error {
 	}
 	// TODO: add metric
 	return w.data.Queue().Put(msg)
+}
+
+func (w *writeAheadLog) WriteArrow(records []arrow.RecordBatch) error {
+	if w.closed.Load() {
+		return errors.New("write ahead log is closed")
+	}
+	for _, record := range records {
+		record.Release()
+		fmt.Println(record)
+	}
+	return nil
 }
 
 func (w *writeAheadLog) Close() error {

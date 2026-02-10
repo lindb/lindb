@@ -21,11 +21,9 @@ import (
 	"context"
 
 	"github.com/gin-gonic/gin"
-	"github.com/lindb/common/log"
-	"go.opentelemetry.io/collector/pdata/pcommon"
-	"go.opentelemetry.io/collector/pdata/plog/plogotlp"
 
 	depspkg "github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/constants"
 )
 
 const LogPath = "/opentelemetry/logs"
@@ -54,51 +52,9 @@ func (w *Log) Register(route gin.IRoutes) {
 
 // processProto processes the OpenTelemetry log proto data.
 func (w *Log) processProto(ctx context.Context, database string, data []byte) error {
-	req := plogotlp.NewExportRequest()
-	if err := req.UnmarshalProto(data); err != nil {
-		return err
+	writer, ok := w.deps.WriteManager.GetWriter(database)
+	if !ok {
+		return constants.ErrDatabaseNotFound
 	}
-	// TODO:
-	rb := log.CreateRowBuilder()
-
-	logs := req.Logs()
-
-	rLogs := logs.ResourceLogs()
-	for i := range rLogs.Len() {
-		log := rLogs.At(i)
-		attr := log.Resource().Attributes()
-		scopeLogs := log.ScopeLogs()
-		for j := range scopeLogs.Len() {
-			sl := scopeLogs.At(j)
-			lrs := sl.LogRecords()
-			for k := range lrs.Len() {
-				lr := lrs.At(k)
-				rb.AddMessage([]byte(lr.Body().AsString())).
-					AddTimestamp(lr.Timestamp().AsTime().UnixMilli())
-				rb.AddField([]byte("level"), []byte(lr.SeverityText()))
-				attr.Range(func(k string, v pcommon.Value) bool {
-					if v.AsString() != "" {
-						rb.AddField([]byte(k), []byte(v.AsString()))
-					}
-					return true
-				})
-				lr.Attributes().Range(func(k string, v pcommon.Value) bool {
-					if v.AsString() != "" {
-						rb.AddField([]byte(k), []byte(v.AsString()))
-					}
-					return true
-				})
-
-				data, _ := rb.Build()
-				dData := make([]byte, len(data))
-				copy(dData, data)
-				if err := w.deps.CM.WriteMsg(ctx, database, dData); err != nil {
-					return err
-				}
-				rb.Reset()
-			}
-		}
-	}
-
-	return nil
+	return writer.Write(ctx, data, constants.EncodingProto)
 }

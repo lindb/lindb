@@ -126,6 +126,146 @@ func (x *WriteResponse) GetErr() string {
 	return ""
 }
 
+type ArrowPayload struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SchemaIndex   int32                  `protobuf:"varint,1,opt,name=schema_index,json=schemaIndex,proto3" json:"schema_index,omitempty"`
+	Record        []byte                 `protobuf:"bytes,3,opt,name=record,proto3" json:"record,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ArrowPayload) Reset() {
+	*x = ArrowPayload{}
+	mi := &file_write_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ArrowPayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ArrowPayload) ProtoMessage() {}
+
+func (x *ArrowPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_write_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ArrowPayload.ProtoReflect.Descriptor instead.
+func (*ArrowPayload) Descriptor() ([]byte, []int) {
+	return file_write_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ArrowPayload) GetSchemaIndex() int32 {
+	if x != nil {
+		return x.SchemaIndex
+	}
+	return 0
+}
+
+func (x *ArrowPayload) GetRecord() []byte {
+	if x != nil {
+		return x.Record
+	}
+	return nil
+}
+
+type WriteArrowRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Payloads      []*ArrowPayload        `protobuf:"bytes,1,rep,name=payloads,proto3" json:"payloads,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WriteArrowRequest) Reset() {
+	*x = WriteArrowRequest{}
+	mi := &file_write_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WriteArrowRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WriteArrowRequest) ProtoMessage() {}
+
+func (x *WriteArrowRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_write_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WriteArrowRequest.ProtoReflect.Descriptor instead.
+func (*WriteArrowRequest) Descriptor() ([]byte, []int) {
+	return file_write_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *WriteArrowRequest) GetPayloads() []*ArrowPayload {
+	if x != nil {
+		return x.Payloads
+	}
+	return nil
+}
+
+type WriteArrowResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Err           string                 `protobuf:"bytes,1,opt,name=err,proto3" json:"err,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WriteArrowResponse) Reset() {
+	*x = WriteArrowResponse{}
+	mi := &file_write_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WriteArrowResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WriteArrowResponse) ProtoMessage() {}
+
+func (x *WriteArrowResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_write_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WriteArrowResponse.ProtoReflect.Descriptor instead.
+func (*WriteArrowResponse) Descriptor() ([]byte, []int) {
+	return file_write_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *WriteArrowResponse) GetErr() string {
+	if x != nil {
+		return x.Err
+	}
+	return ""
+}
+
 var File_write_proto protoreflect.FileDescriptor
 
 const file_write_proto_rawDesc = "" +
@@ -134,9 +274,18 @@ const file_write_proto_rawDesc = "" +
 	"\fWriteRequest\x12\x16\n" +
 	"\x06record\x18\x01 \x01(\fR\x06record\"!\n" +
 	"\rWriteResponse\x12\x10\n" +
-	"\x03err\x18\x01 \x01(\tR\x03err2H\n" +
+	"\x03err\x18\x01 \x01(\tR\x03err\"I\n" +
+	"\fArrowPayload\x12!\n" +
+	"\fschema_index\x18\x01 \x01(\x05R\vschemaIndex\x12\x16\n" +
+	"\x06record\x18\x03 \x01(\fR\x06record\"D\n" +
+	"\x11WriteArrowRequest\x12/\n" +
+	"\bpayloads\x18\x01 \x03(\v2\x13.write.ArrowPayloadR\bpayloads\"&\n" +
+	"\x12WriteArrowResponse\x12\x10\n" +
+	"\x03err\x18\x01 \x01(\tR\x03err2\x91\x01\n" +
 	"\fWriteService\x128\n" +
-	"\x05Write\x12\x13.write.WriteRequest\x1a\x14.write.WriteResponse\"\x00(\x010\x01B\x14Z\x12proto/gen/v1/writeb\x06proto3"
+	"\x05Write\x12\x13.write.WriteRequest\x1a\x14.write.WriteResponse\"\x00(\x010\x01\x12G\n" +
+	"\n" +
+	"WriteArrow\x12\x18.write.WriteArrowRequest\x1a\x19.write.WriteArrowResponse\"\x00(\x010\x01B\x14Z\x12proto/gen/v1/writeb\x06proto3"
 
 var (
 	file_write_proto_rawDescOnce sync.Once
@@ -150,19 +299,25 @@ func file_write_proto_rawDescGZIP() []byte {
 	return file_write_proto_rawDescData
 }
 
-var file_write_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_write_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_write_proto_goTypes = []any{
-	(*WriteRequest)(nil),  // 0: write.WriteRequest
-	(*WriteResponse)(nil), // 1: write.WriteResponse
+	(*WriteRequest)(nil),       // 0: write.WriteRequest
+	(*WriteResponse)(nil),      // 1: write.WriteResponse
+	(*ArrowPayload)(nil),       // 2: write.ArrowPayload
+	(*WriteArrowRequest)(nil),  // 3: write.WriteArrowRequest
+	(*WriteArrowResponse)(nil), // 4: write.WriteArrowResponse
 }
 var file_write_proto_depIdxs = []int32{
-	0, // 0: write.WriteService.Write:input_type -> write.WriteRequest
-	1, // 1: write.WriteService.Write:output_type -> write.WriteResponse
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	2, // 0: write.WriteArrowRequest.payloads:type_name -> write.ArrowPayload
+	0, // 1: write.WriteService.Write:input_type -> write.WriteRequest
+	3, // 2: write.WriteService.WriteArrow:input_type -> write.WriteArrowRequest
+	1, // 3: write.WriteService.Write:output_type -> write.WriteResponse
+	4, // 4: write.WriteService.WriteArrow:output_type -> write.WriteArrowResponse
+	3, // [3:5] is the sub-list for method output_type
+	1, // [1:3] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_write_proto_init() }
@@ -176,7 +331,7 @@ func file_write_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_write_proto_rawDesc), len(file_write_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

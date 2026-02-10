@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/apache/arrow-go/v18/arrow"
+
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/queue"
@@ -37,6 +39,7 @@ type WriteAheadLog interface {
 
 	Get(index int64) ([]byte, error)
 	Write(msg []byte) error
+	WriteArrow(records []arrow.RecordBatch) error
 	Replica(replicaIndex int64, msg []byte) (int64, error)
 
 	// ReplicaAckIndex returns the index which replica appended index.

@@ -34,11 +34,21 @@ const (
 	ContentTypeProto = "application/protobuf"
 	// ContentTypeInflux represents influx content type.
 	ContentTypeInflux = "application/influx"
-	// ContentTypeJson represents json content type.
-	ContentTypeJson = "application/json"
+	// ContentTypeJSON represents json content type.
+	ContentTypeJSON = "application/json"
 )
 
 const (
 	// DatabaseHeader represents database header key in http request.
 	DatabaseHeader = "X-LinDB-Database"
+)
+
+// EncodingType defines the type for content encoding
+type EncodingType string
+
+const (
+	// EncodingProto represents protobuf encoding type
+	EncodingProto EncodingType = "proto"
+	// EncodingFlat represents json encoding type
+	EncodingJSON EncodingType = "json"
 )

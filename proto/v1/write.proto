@@ -12,6 +12,20 @@ message WriteResponse {
   string err = 1;
 }
 
+message ArrowPayload {
+  int32 schema_index = 1;
+  bytes record = 3;
+}
+
+message WriteArrowRequest {
+  repeated ArrowPayload payloads = 1;
+}
+
+message WriteArrowResponse {
+  string err = 1;
+}
+
 service WriteService {
   rpc Write(stream WriteRequest) returns (stream WriteResponse) {}
+  rpc WriteArrow(stream WriteArrowRequest) returns (stream WriteArrowResponse) {}
 }

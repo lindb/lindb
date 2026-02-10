@@ -26,7 +26,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/internal/mock"
-	"github.com/lindb/lindb/replica"
 )
 
 func TestReplicaAPI_GetReplicaState(t *testing.T) {
@@ -35,8 +34,7 @@ func TestReplicaAPI_GetReplicaState(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	mgr := replica.NewMockWriteAheadLogManager(ctrl)
-	api := NewReplicaAPI(mgr)
+	api := NewReplicaAPI(nil)
 	r := gin.New()
 	api.Register(r)
 
@@ -44,7 +42,6 @@ func TestReplicaAPI_GetReplicaState(t *testing.T) {
 	resp := mock.DoRequest(t, r, http.MethodGet, ReplicaPath, "")
 	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 	// case 2: get replica state ok
-	mgr.EXPECT().GetReplicaState("test").Return(nil)
 	resp = mock.DoRequest(t, r, http.MethodGet, ReplicaPath+"?db=test", "")
 	assert.Equal(t, http.StatusOK, resp.Code)
 }

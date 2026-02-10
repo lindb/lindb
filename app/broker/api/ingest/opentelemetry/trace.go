@@ -23,6 +23,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	depspkg "github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/constants"
 )
 
 const TracePath = "/opentelemetry/traces"
@@ -51,8 +52,9 @@ func (w *Trace) Register(route gin.IRoutes) {
 
 // processProto processes the OpenTelemetry trace proto data.
 func (w *Trace) processProto(ctx context.Context, database string, data []byte) error {
-	if err := w.deps.CM.WriteMsg(ctx, database, data); err != nil {
-		return err
+	writer, ok := w.deps.WriteManager.GetWriter(database)
+	if !ok {
+		return constants.ErrDatabaseNotFound
 	}
-	return nil
+	return writer.Write(ctx, data, constants.EncodingProto)
 }

@@ -36,7 +36,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	WriteService_Write_FullMethodName = "/write.WriteService/Write"
+	WriteService_Write_FullMethodName      = "/write.WriteService/Write"
+	WriteService_WriteArrow_FullMethodName = "/write.WriteService/WriteArrow"
 )
 
 // WriteServiceClient is the client API for WriteService service.
@@ -44,6 +45,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type WriteServiceClient interface {
 	Write(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[WriteRequest, WriteResponse], error)
+	WriteArrow(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[WriteArrowRequest, WriteArrowResponse], error)
 }
 
 type writeServiceClient struct {
@@ -67,11 +69,25 @@ func (c *writeServiceClient) Write(ctx context.Context, opts ...grpc.CallOption)
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type WriteService_WriteClient = grpc.BidiStreamingClient[WriteRequest, WriteResponse]
 
+func (c *writeServiceClient) WriteArrow(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[WriteArrowRequest, WriteArrowResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &WriteService_ServiceDesc.Streams[1], WriteService_WriteArrow_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[WriteArrowRequest, WriteArrowResponse]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type WriteService_WriteArrowClient = grpc.BidiStreamingClient[WriteArrowRequest, WriteArrowResponse]
+
 // WriteServiceServer is the server API for WriteService service.
 // All implementations must embed UnimplementedWriteServiceServer
 // for forward compatibility.
 type WriteServiceServer interface {
 	Write(grpc.BidiStreamingServer[WriteRequest, WriteResponse]) error
+	WriteArrow(grpc.BidiStreamingServer[WriteArrowRequest, WriteArrowResponse]) error
 	mustEmbedUnimplementedWriteServiceServer()
 }
 
@@ -84,6 +100,9 @@ type UnimplementedWriteServiceServer struct{}
 
 func (UnimplementedWriteServiceServer) Write(grpc.BidiStreamingServer[WriteRequest, WriteResponse]) error {
 	return status.Errorf(codes.Unimplemented, "method Write not implemented")
+}
+func (UnimplementedWriteServiceServer) WriteArrow(grpc.BidiStreamingServer[WriteArrowRequest, WriteArrowResponse]) error {
+	return status.Errorf(codes.Unimplemented, "method WriteArrow not implemented")
 }
 func (UnimplementedWriteServiceServer) mustEmbedUnimplementedWriteServiceServer() {}
 func (UnimplementedWriteServiceServer) testEmbeddedByValue()                      {}
@@ -113,6 +132,13 @@ func _WriteService_Write_Handler(srv interface{}, stream grpc.ServerStream) erro
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type WriteService_WriteServer = grpc.BidiStreamingServer[WriteRequest, WriteResponse]
 
+func _WriteService_WriteArrow_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(WriteServiceServer).WriteArrow(&grpc.GenericServerStream[WriteArrowRequest, WriteArrowResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type WriteService_WriteArrowServer = grpc.BidiStreamingServer[WriteArrowRequest, WriteArrowResponse]
+
 // WriteService_ServiceDesc is the grpc.ServiceDesc for WriteService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -124,6 +150,12 @@ var WriteService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "Write",
 			Handler:       _WriteService_Write_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "WriteArrow",
+			Handler:       _WriteService_WriteArrow_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},

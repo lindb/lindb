@@ -75,6 +75,7 @@ var (
 // srv represents all services for broker
 type srv struct {
 	channelManager write.ChannelManager
+	manager        write.Manager
 }
 
 // runtime represents broker runtime dependency
@@ -328,6 +329,11 @@ func (r *runtime) Stop() {
 		r.srv.channelManager.Close()
 		r.logger.Info("closed write channel successfully")
 	}
+	if r.srv.manager != nil {
+		r.logger.Info("closing write manager...")
+		r.srv.manager.Close()
+		r.logger.Info("closed write manager successfully")
+	}
 
 	// finally, shutdown rpc server
 	if r.grpcServer != nil {
@@ -346,14 +352,15 @@ func (r *runtime) startHTTPServer() {
 	r.httpServer = newHTTPServer(r.config.BrokerBase.HTTP, true, linmetric.BrokerRegistry)
 	// TODO login api is not registered
 	r.httpDeps = &deps.HTTPDeps{
-		Ctx:         r.ctx,
-		Node:        r.node,
-		BrokerCfg:   r.config,
-		Master:      r.master,
-		Repo:        r.repo,
-		RepoFactory: r.repoFactory,
-		StateMgr:    r.stateMgr,
-		CM:          r.srv.channelManager,
+		Ctx:          r.ctx,
+		Node:         r.node,
+		BrokerCfg:    r.config,
+		Master:       r.master,
+		Repo:         r.repo,
+		RepoFactory:  r.repoFactory,
+		StateMgr:     r.stateMgr,
+		WriteManager: r.srv.manager,
+		CM:           r.srv.channelManager,
 		IngestLimiter: concurrent.NewLimiter(
 			r.ctx,
 			r.config.BrokerBase.Ingestion.MaxConcurrency,
@@ -406,8 +413,10 @@ func (r *runtime) buildServiceDependency() {
 
 	s := srv{
 		channelManager: cm,
+		manager:        write.NewManager(r.ctx),
 	}
-	r.stateMgr.RegisterWatcher(cm)
+	r.stateMgr.RegisterWatcher(s.channelManager)
+	r.stateMgr.RegisterWatcher(s.manager)
 	r.srv = s
 }
 

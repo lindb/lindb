@@ -29,6 +29,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 
+	"github.com/lindb/lindb/app/broker/write"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/coordinator"
 	brokerpkg "github.com/lindb/lindb/coordinator/broker"
@@ -39,7 +40,6 @@ import (
 	"github.com/lindb/lindb/pkg/hostutil"
 	httppkg "github.com/lindb/lindb/pkg/http"
 	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/rpc"
 )
 
@@ -208,7 +208,7 @@ func TestBrokerRuntime_Run(t *testing.T) {
 				hostName = os.Hostname
 				newGRPCServer = rpc.NewGRPCServer
 				newStateManager = brokerpkg.NewStateManager
-				newChannelManager = replica.NewChannelManager
+				newChannelManager = write.NewChannelManager
 				newMasterController = coordinator.NewMasterController
 				newRegistry = discovery.NewRegistry
 				serveGRPCFn = serveGRPC
@@ -251,7 +251,7 @@ func TestBrokerRuntime_Stop(t *testing.T) {
 	smFct := discovery.NewMockStateMachineFactory(ctrl)
 	repo := state.NewMockRepository(ctrl)
 	stateMgr := brokerpkg.NewMockStateManager(ctrl)
-	channelMgr := replica.NewMockChannelManager(ctrl)
+	channelMgr := write.NewMockChannelManager(ctrl)
 	grpcServer := rpc.NewMockGRPCServer(ctrl)
 	registry.EXPECT().Deregister().Return(fmt.Errorf("err")).AnyTimes()
 
@@ -353,7 +353,7 @@ func resetNewDepsMock() {
 	}
 	newChannelManager = func(ctx context.Context, fct rpc.ClientStreamFactory,
 		stateMgr brokerpkg.StateManager,
-	) replica.ChannelManager {
+	) write.ChannelManager {
 		return nil
 	}
 	newMasterController = func(cfg *coordinator.MasterCfg) coordinator.MasterController {

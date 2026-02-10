@@ -34,6 +34,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/app/broker/write"
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/internal/concurrent"
@@ -41,7 +42,6 @@ import (
 	"github.com/lindb/lindb/internal/mock"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/replica"
 	"github.com/lindb/lindb/series/metric"
 )
 
@@ -49,7 +49,7 @@ func TestWrite_Flat(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	cm := replica.NewMockChannelManager(ctrl)
+	cm := write.NewMockChannelManager(ctrl)
 	api := NewWrite(&deps.HTTPDeps{
 		BrokerCfg: &config.Broker{
 			BrokerBase: config.BrokerBase{
@@ -112,7 +112,7 @@ func TestWrite_Influx(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	cm := replica.NewMockChannelManager(ctrl)
+	cm := write.NewMockChannelManager(ctrl)
 	api := NewWrite(&deps.HTTPDeps{
 		BrokerCfg: &config.Broker{
 			BrokerBase: config.BrokerBase{
@@ -173,7 +173,7 @@ func TestWrite_Proto(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	cm := replica.NewMockChannelManager(ctrl)
+	cm := write.NewMockChannelManager(ctrl)
 	limits := models.NewDefaultLimits()
 	limits.MaxNamespaceLength = 5
 	limits.MaxTagNameLength = 5
