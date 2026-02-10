@@ -25,9 +25,9 @@ import (
 	"strconv"
 	"sync"
 
-	flatbuffers "github.com/google/flatbuffers/go"
+	"github.com/apache/arrow-go/v18/arrow"
+	logspkg "github.com/lindb/arrow/pkg/logs"
 	"github.com/lindb/common/pkg/fileutil"
-	"github.com/lindb/common/proto/gen/v1/flatLogV1"
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/kv"
@@ -36,7 +36,6 @@ import (
 	"github.com/lindb/lindb/pkg/queue"
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/pkg/timeutil"
-	logproto "github.com/lindb/lindb/proto/log"
 	"github.com/lindb/lindb/storage/base"
 	"github.com/lindb/lindb/storage/log/memdb"
 	"github.com/lindb/lindb/storage/log/tblstore"
@@ -60,6 +59,9 @@ type Segment struct {
 	buf []byte
 
 	numOfPoints int
+
+	reader    *logspkg.BinaryReader
+	logReader *logspkg.Reader
 
 	mutex sync.Mutex
 }
@@ -104,7 +106,7 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 
 		mutable: memdb.NewDatabase(db.indexDB),
 
-		buf: make([]byte, 8),
+		buf: make([]byte, 9),
 	}
 
 	seg.numOfPoints = seg.TimeRange.NumOfPoints(store.MinuteInterval)
@@ -218,23 +220,54 @@ func (s *Segment) GetLog(logID uint32) ([]byte, error) {
 }
 
 func (s *Segment) Write(leader models.NodeID, seq int64, msg []byte) (rows int, err error) {
-	log := &flatLogV1.Log{}
-	log.Init(msg, flatbuffers.GetUOffsetT(msg))
+	var logs, attributes arrow.RecordBatch
 
-	// generate log id then index it
-	logID := uint32(s.index.AppendedSeq() + 1)
-	s.buf[0] = byte(leader)
-	stream.PutUint32(s.buf, 1, uint32(logID))
-	s.index.Put(s.buf)
+	if s.logReader == nil {
+		reader, err := logspkg.NewBinaryReader()
+		if err != nil {
+			return 0, err
+		}
+		s.reader = reader
+		logs, attributes, err = reader.ReadFrom(msg)
+		if err != nil {
+			return 0, err
+		}
+		s.logReader = logspkg.NewReader(logs, attributes)
+	} else {
+		logs, attributes, err = s.reader.ReadFrom(msg)
+		if err != nil {
+			return 0, err
+		}
+		s.logReader.Reset(logs, attributes)
+	}
 
-	s.index.AppendedSeq()
+	defer func() {
+		logs.Release()
+		attributes.Release()
+	}()
 
-	// build secondary index for log timestmap
-	s.indexTimestamp(log.Timestamp(), logID)
+	it := s.logReader.Iterator()
 
-	// build secondary index for log fields
-	s.mutable.Write([]byte("ns"), logID, logproto.NewFieldIterator(log))
-	return 1, nil
+	for it.HasNext() {
+		row := it.Next()
+		// generate log id then index it
+		logID := uint32(s.index.AppendedSeq() + 1)
+		s.buf[0] = byte(leader)
+		stream.PutUint32(s.buf, 1, uint32(seq))
+		stream.PutUint32(s.buf, 5, uint32(row))
+		s.index.Put(s.buf)
+
+		s.index.AppendedSeq()
+
+		// build secondary index for log timestmap
+		s.indexTimestamp(s.logReader.Timestamp(row)/1000_1000, logID)
+
+		// build secondary index for log fields
+		s.mutable.Write([]byte("ns"), logID, s.logReader, row)
+		fmt.Println("index logs")
+	}
+
+	return s.logReader.NumRows(), nil
 }
 
 func (s *Segment) Flush() error {

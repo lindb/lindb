@@ -23,14 +23,12 @@ import (
 	"runtime/pprof"
 	"sync"
 
-	"github.com/apache/arrow-go/v18/arrow"
 	larrow "github.com/lindb/arrow/pkg/arrow"
 	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/timeutil"
 
 	"github.com/lindb/lindb/app/broker/write/writer"
 	"github.com/lindb/lindb/models"
-	protoWriteV1 "github.com/lindb/lindb/proto/gen/v1/write"
 )
 
 type segment[V any] struct {
@@ -47,8 +45,6 @@ type segment[V any] struct {
 	shardState models.ShardState
 	liveNodes  map[models.NodeID]models.StatefulNode
 	state      *models.SegmentState
-
-	serializers []*larrow.Serializer
 
 	lock4state sync.Mutex
 
@@ -82,13 +78,6 @@ func (p *segment[V]) initialize() {
 	p.state = &models.SegmentState{
 		Database:    database.Name(),
 		SegmentTime: p.segmentTime,
-	}
-
-	// init serializers
-	schemaIDs := p.builder.SchemaIDs()
-	p.serializers = make([]*larrow.Serializer, len(schemaIDs))
-	for i, schemaID := range schemaIDs {
-		p.serializers[i] = larrow.NewSerializer(schemaID)
 	}
 
 	// start build and send goroutines
@@ -138,7 +127,12 @@ func (p *segment[V]) build(ctx context.Context) {
 			p.builder.Append(entry)
 			if p.builder.NumOfRows() >= 10 {
 				// emit record batches bytes to send channel
-				p.records <- p.builder.Bytes()
+				records, err := p.builder.Bytes()
+				if err != nil {
+					p.logger.Error("failed to build record batch", logger.String("database", p.state.Database), logger.Error(err))
+					continue
+				}
+				p.records <- records
 			}
 		}
 	}
@@ -167,28 +161,6 @@ func (p *segment[V]) send(ctx context.Context) {
 			// TODO: add retry logic for send failure/send pending
 		}
 	}
-}
-
-func (p *segment[V]) serialze(records []arrow.RecordBatch) ([]*protoWriteV1.ArrowPayload, error) {
-	defer func() {
-		// need release record after serialize
-		for _, record := range records {
-			record.Release()
-		}
-	}()
-	payloads := make([]*protoWriteV1.ArrowPayload, len(records))
-	for i, record := range records {
-		data, err := p.serializers[i].Serialize(record)
-		if err != nil {
-			return nil, err
-		}
-		payloads[i] = &protoWriteV1.ArrowPayload{
-			SchemaIndex: int32(i),
-			Record:      data,
-		}
-	}
-
-	return payloads, nil
 }
 
 func (p *segment[V]) buildSender() (Sender, error) {

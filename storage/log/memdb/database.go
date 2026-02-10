@@ -20,17 +20,19 @@ package memdb
 import (
 	"fmt"
 
+	"github.com/lindb/arrow/pkg/constants"
+	"github.com/lindb/arrow/pkg/logs"
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/pkg/imap"
+	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/proto/log"
 	"github.com/lindb/lindb/storage/log/index"
 )
 
 type Database interface {
-	Write(namespace []byte, logID uint32, fields *log.FieldIterator) error
+	Write(namespace []byte, logID uint32, reader *logs.Reader, row int) error
 	FindLogIDsByField(fieldID uint32) *roaring.Bitmap
 	Flush(flusher kv.Flusher) error
 
@@ -53,7 +55,7 @@ func (md *database) IndexDatabase() index.Database {
 	return md.index
 }
 
-func (md *database) Write(namespace []byte, logID uint32, fields *log.FieldIterator) error {
+func (md *database) Write(namespace []byte, logID uint32, reader *logs.Reader, row int) error {
 	ns, err := md.index.GetOrCreateNamespaceID(namespace)
 	if err != nil {
 		fmt.Println(err)
@@ -61,13 +63,48 @@ func (md *database) Write(namespace []byte, logID uint32, fields *log.FieldItera
 		md.indexField(ns, logID)
 	}
 
-	for fields.HasNext() {
-		keyID, _ := md.index.GetOrCreateFieldKeyID(ns, fields.NextName())
-		valueID, _ := md.index.GetOrCreateFieldValueID(keyID, fields.NextValue())
+	traceID := reader.TraceID(row)
+	if len(traceID) > 0 {
+		traceIDKeyID, _ := md.index.GetOrCreateFieldKeyID(ns, strutil.String2ByteSlice(constants.TraceID))
+		traceIDValueID, _ := md.index.GetOrCreateFieldValueID(traceIDKeyID, traceID)
+
+		md.indexField(traceIDKeyID, logID)
+		md.indexField(traceIDValueID, logID)
+	}
+
+	spanID := reader.SpanID(row)
+	if len(spanID) > 0 {
+		spanIDKeyID, _ := md.index.GetOrCreateFieldKeyID(ns, strutil.String2ByteSlice(constants.SpanID))
+		spanIDValueID, _ := md.index.GetOrCreateFieldValueID(spanIDKeyID, spanID)
+
+		md.indexField(spanIDKeyID, logID)
+		md.indexField(spanIDValueID, logID)
+	}
+
+	level := reader.Level(row)
+	if level != "" {
+		levelKeyID, _ := md.index.GetOrCreateFieldKeyID(ns, strutil.String2ByteSlice(constants.Level))
+		levelValueID, _ := md.index.GetOrCreateFieldValueID(levelKeyID, strutil.String2ByteSlice(level))
+
+		md.indexField(levelKeyID, logID)
+		md.indexField(levelValueID, logID)
+	}
+	eventName := reader.EventName(row)
+	if eventName != "" {
+		eventNameKeyID, _ := md.index.GetOrCreateFieldKeyID(ns, strutil.String2ByteSlice(constants.EventName))
+		eventNameValueID, _ := md.index.GetOrCreateFieldValueID(eventNameKeyID, strutil.String2ByteSlice(eventName))
+
+		md.indexField(eventNameKeyID, logID)
+		md.indexField(eventNameValueID, logID)
+	}
+
+	reader.Attributes(row, func(key, value string) {
+		keyID, _ := md.index.GetOrCreateFieldKeyID(ns, strutil.String2ByteSlice(key))
+		valueID, _ := md.index.GetOrCreateFieldValueID(keyID, strutil.String2ByteSlice(value))
 
 		md.indexField(keyID, logID)
 		md.indexField(valueID, logID)
-	}
+	})
 
 	return nil
 }
