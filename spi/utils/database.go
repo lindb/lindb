@@ -18,6 +18,8 @@
 package utils
 
 import (
+	"fmt"
+
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/storage/store"
@@ -28,6 +30,7 @@ func FindSegments(db store.Database, shardIDs []int,
 	fn func(shard store.Shard, partition store.Partition, segments []store.Segment),
 ) {
 	storageInterval := db.FindMatchSmallestInterval(interval)
+	fmt.Printf("find segments, shardIDs: %v\n", storageInterval)
 	for _, id := range shardIDs {
 		shard, ok := db.GetShard(models.ShardID(id))
 		if ok {
@@ -36,6 +39,7 @@ func FindSegments(db store.Database, shardIDs []int,
 				for _, partition := range pList {
 					segments := partition.GetSegments(timeRange)
 					if len(segments) > 0 {
+						fmt.Println("find segments", len(segments))
 						fn(shard, partition, segments)
 					}
 				}

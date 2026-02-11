@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/jedib0t/go-pretty/v6/text"
 	commonmodels "github.com/lindb/common/models"
 	"github.com/lindb/common/pkg/timeutil"
 	"github.com/mattn/go-runewidth"
@@ -146,6 +147,13 @@ func appendColumn(row table.Row, colType types.DataType, col any, index int) {
 		case float64:
 			row[index] = timeutil.FormatTimestamp(int64(val), timeutil.DataTimeFormat2)
 		}
+	case types.DTMap:
+		m := col.(map[string]any)
+		var sb strings.Builder
+		for key, value := range m {
+			fmt.Fprintf(&sb, "%s:%v\n", key, value)
+		}
+		row[index] = sb.String()
 	case types.DTExemplar:
 		exemplars := col.([]any)
 		var values []string
@@ -197,7 +205,10 @@ func columnStyles(maxWidths []int) []table.ColumnConfig {
 	//  set the maximum width of the column
 	columnConfigs := make([]table.ColumnConfig, numCols)
 	for i := range columnConfigs {
-		columnConfigs[i] = table.ColumnConfig{}
+		columnConfigs[i] = table.ColumnConfig{
+			WidthMax:         colWidths[i],
+			WidthMaxEnforcer: text.WrapSoft,
+		}
 	}
 	return columnConfigs
 }

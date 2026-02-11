@@ -22,13 +22,11 @@ import (
 	"fmt"
 	"sort"
 
-	flatbuffers "github.com/google/flatbuffers/go"
-	"github.com/lindb/common/proto/gen/v1/flatLogV1"
+	logspkg "github.com/lindb/arrow/pkg/logs"
 	"github.com/lindb/roaring"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/constants"
-	logproto "github.com/lindb/lindb/proto/log"
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/spi/utils"
@@ -96,10 +94,12 @@ type sourceConnector struct {
 func (sc *sourceConnector) Run(output chan<- *types.Page) {
 	tableScan := sc.buildTableScan()
 	if tableScan == nil {
+		fmt.Println("no table")
 		return
 	}
 	sc.partitions = sc.findPartitions(tableScan, sc.partitionIDs)
 	if len(sc.partitions) == 0 {
+		fmt.Println("no partitions")
 		return
 	}
 	indexDB := tableScan.db.IndexDatabase()
@@ -132,34 +132,32 @@ func (sc *sourceConnector) Run(output chan<- *types.Page) {
 
 	total := 0
 	sc.findLogs(tableScan, func(segment *log.Segment, logIDs *roaring.Bitmap) bool {
-		it := logIDs.ReverseIterator()
-		for it.HasNext() {
-			logID := it.Next()
-			logData, err := segment.GetLog(logID)
-			if err != nil {
-				// TODO: add log
-				fmt.Printf("get log err:%v\n", err)
-			} else {
-				log := &flatLogV1.Log{}
-				log.Init(logData, flatbuffers.GetUOffsetT(logData))
-				timeColumn.Append(log.Timestamp())
-				// TODO:
-				msgColumn.Append(string(log.Message()))
-				fIt := logproto.NewFieldIterator(log)
-				fMap := make(map[string]string)
-				for fIt.HasNext() {
-					fMap[string(fIt.NextName())] = string(fIt.NextValue())
-				}
-				fieldsColumn.Append(fMap)
-				total++
+		scanner := log.NewScanner(segment, logIDs)
+		defer scanner.Close()
 
-				if total >= 1000 {
-					// limit return
-					return false
-				}
+		for scanner.HasNext() {
+			if err := scanner.Next(func(reader *logspkg.Reader, rowNum int) {
+				// read log data from reader
+				timestamp := reader.Timestamp(rowNum)
+				msg := reader.Message(rowNum)
+				fields := make(map[string]string)
+				reader.Attributes(rowNum, func(key, value string) {
+					fields[key] = value
+				})
+
+				timeColumn.Append(timestamp)
+				msgColumn.Append(msg)
+				fieldsColumn.Append(fields)
+			}); err != nil {
+				fmt.Printf("scan logs err:%v\n", err)
+			}
+
+			total++
+			if total >= 1000 {
+				// limit return
+				return false
 			}
 		}
-
 		return true
 	})
 
@@ -208,6 +206,7 @@ func (sc *sourceConnector) findLogs(tableScan *TableScan,
 		})
 	}
 	for _, partition := range sc.partitions {
+		fmt.Println(partition.segments)
 		if !sc.hasAggregate {
 			// sort segments desc
 			sort.Slice(partition.segments, func(i, j int) bool {
@@ -218,7 +217,9 @@ func (sc *sourceConnector) findLogs(tableScan *TableScan,
 		logIDs := roaring.New()
 		for _, segment := range partition.segments {
 			logSegment := segment.(*logstore.Segment)
+			fmt.Println("search logs...")
 			logSegment.FindLogIDsByTimeRange(tableScan.timeRange, func(timestamp int64, logIDsFromStore *roaring.Bitmap) {
+				fmt.Println(logIDsFromStore)
 				logIDs.Or(logIDsFromStore)
 			})
 			if sc.predicate != nil {

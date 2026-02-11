@@ -18,7 +18,6 @@
 package log
 
 import (
-	"encoding/binary"
 	"fmt"
 	"path"
 	"path/filepath"
@@ -63,7 +62,7 @@ type Segment struct {
 	reader    *logspkg.BinaryReader
 	logReader *logspkg.Reader
 
-	mutex sync.Mutex
+	mutex sync.RWMutex
 }
 
 func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
@@ -162,6 +161,8 @@ func (s *Segment) FindLogIDsByTimeRange(timeRange timeutil.TimeRange, callback f
 		idsObj, _ := s.timestampIndexes.Load(timestamp)
 		if ids, ok := idsObj.(*roaring.Bitmap); ok {
 			result.Or(ids)
+		} else {
+			fmt.Println("not found.....")
 		}
 		if err := snapshot.Load(uint32(timestamp-partitionTime), func(value []byte) error {
 			_, err := encoding.BitmapUnmarshal(temp, value)
@@ -210,13 +211,19 @@ func (s *Segment) FindLogIDsByFields(fieldIDs []uint32) *roaring.Bitmap {
 	return logIDs
 }
 
-func (s *Segment) GetLog(logID uint32) ([]byte, error) {
-	id, err := s.index.Get(int64(logID))
-	if err != nil {
-		return nil, err
+func (s *Segment) GetIndex(logID uint32) ([]byte, error) {
+	return s.index.Get(int64(logID))
+}
+
+func (s *Segment) GetWALs() map[models.NodeID]store.WriteAheadLog {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	result := make(map[models.NodeID]store.WriteAheadLog, len(s.WALs))
+	for k, v := range s.WALs {
+		result[k] = v
 	}
-	index := binary.LittleEndian.Uint32(id[1:])
-	return s.WALs[models.NodeID(id[0])].Get(int64(index))
+	return result
 }
 
 func (s *Segment) Write(leader models.NodeID, seq int64, msg []byte) (rows int, err error) {
@@ -260,11 +267,10 @@ func (s *Segment) Write(leader models.NodeID, seq int64, msg []byte) (rows int, 
 		s.index.AppendedSeq()
 
 		// build secondary index for log timestmap
-		s.indexTimestamp(s.logReader.Timestamp(row)/1000_1000, logID)
+		s.indexTimestamp(s.logReader.Timestamp(row)/1000_000, logID)
 
 		// build secondary index for log fields
 		s.mutable.Write([]byte("ns"), logID, s.logReader, row)
-		fmt.Println("index logs")
 	}
 
 	return s.logReader.NumRows(), nil
@@ -298,6 +304,7 @@ func (s *Segment) Close() error {
 func (s *Segment) indexTimestamp(timestamp int64, logID uint32) {
 	// truncate timestamp based on interval
 	targetTimestamp := timestamp - timestamp%store.MinuteInterval.Int64()
+	fmt.Println("index timestamp", targetTimestamp)
 
 	index, ok := s.timestampIndexes.Load(targetTimestamp)
 	if ok {
