@@ -24,7 +24,7 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/pkg/collections"
-	"github.com/lindb/lindb/spi/types"
+	"github.com/lindb/lindb/spi/scalar"
 	"github.com/lindb/lindb/sql/tree"
 )
 
@@ -32,31 +32,20 @@ var log = logger.GetLogger("Expression", "Eval")
 
 func EvalTime(ctx EvalContext, expression tree.Expression) (time.Time, error) {
 	expr := Rewrite(&RewriteContext{}, expression)
-	val, _, err := expr.EvalTime(types.EmptyRow)
-	return val, err
+	val, err := expr.EvalScalar()
+	if err != nil {
+		return time.Time{}, err
+	}
+	return scalar.ToTime(val), nil
 }
 
 func EvalString(ctx EvalContext, expression tree.Expression) (string, error) {
 	expr := Rewrite(&RewriteContext{}, expression)
-	val, _, err := expr.EvalString(types.EmptyRow)
-	return val, err
-}
-
-func Eval(ctx EvalContext, expression tree.Expression) (val any, err error) {
-	expr := Rewrite(&RewriteContext{}, expression)
-	switch expr.GetType() {
-	case types.DTInt:
-		val, _, err = expr.EvalInt(types.EmptyRow)
-	case types.DTFloat:
-		val, _, err = expr.EvalFloat(types.EmptyRow)
-	case types.DTString:
-		val, _, err = expr.EvalString(types.EmptyRow)
-	case types.DTTimestamp:
-		val, _, err = expr.EvalTime(types.EmptyRow)
-	case types.DTDuration:
-		val, _, err = expr.EvalDuration(types.EmptyRow)
+	val, err := expr.EvalScalar()
+	if err != nil {
+		return "", err
 	}
-	return
+	return scalar.ToString(val), nil
 }
 
 func EvalProps(ctx EvalContext, props []*tree.Property) (*collections.Properties, error) {

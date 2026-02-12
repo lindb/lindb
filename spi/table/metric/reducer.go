@@ -18,6 +18,7 @@
 package metric
 
 import (
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/lindb/common/models"
 	"github.com/lindb/roaring"
 	"github.com/samber/lo"
@@ -30,12 +31,12 @@ type reducer struct {
 	ctx       *ExecutionContext
 	tableScan *TableScan
 	inbound   <-chan any // *DataSplit or []*roaring.Bitmap
-	outbound  chan<- *types.Page
+	outbound  chan<- arrow.RecordBatch
 
 	result map[*GroupingKey][]Result // tags => series data of fields(aggregators)
 }
 
-func NewReducer(ctx *ExecutionContext, tableScan *TableScan, inbound <-chan any, outbound chan<- *types.Page) *reducer {
+func NewReducer(ctx *ExecutionContext, tableScan *TableScan, inbound <-chan any, outbound chan<- arrow.RecordBatch) *reducer {
 	return &reducer{
 		ctx:       ctx,
 		tableScan: tableScan,
@@ -110,7 +111,7 @@ func (r *reducer) findSeries(split *DataSplit) {
 	tableScan.grouping.CollectTagValueIDs(tagsScanner.GetTagValueIDs())
 }
 
-func (r *reducer) buildOutputPage() *types.Page {
+func (r *reducer) buildOutputPage() arrow.RecordBatch {
 	page := types.NewPage()
 	var (
 		fields          []*types.Column
@@ -155,5 +156,6 @@ func (r *reducer) buildOutputPage() *types.Page {
 			}
 		}
 	}
-	return page
+	// FIXME: return page
+	return nil
 }

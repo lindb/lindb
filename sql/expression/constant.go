@@ -21,44 +21,76 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/lindb/common/models"
 	"github.com/lindb/common/pkg/timeutil"
 
+	"github.com/lindb/lindb/spi/scalar"
 	"github.com/lindb/lindb/spi/types"
 )
 
 type Constant struct {
-	value   any
-	retType types.DataType
+	value any
+	rt    ResultType
 }
 
-func NewConstant(ctx EvalContext, value any, retType types.DataType) Expression {
+func NewConstant(ctx EvalContext, value any, rt ResultType) Expression {
 	return &Constant{
-		retType: retType,
-		value:   value,
+		value: value,
+		rt:    rt,
 	}
 }
 
-// EvalString implements Expression.
-func (c *Constant) EvalString(_ types.Row) (val string, isNull bool, err error) {
-	return c.value.(string), false, nil
+func (c *Constant) EvalScalar() (scalar.Scalar, error) {
+	switch val := c.value.(type) {
+	case string:
+		return scalar.NewStringScalar(val), nil
+	case int64:
+		return scalar.NewInt64Scalar(val), nil
+	case float64:
+		return scalar.NewFloat64Scalar(val), nil
+	case time.Duration:
+		return scalar.NewDurationScalar(val), nil
+	default:
+		panic(fmt.Sprintf("unsupported data type for constant: %T", val))
+	}
 }
 
-func (c *Constant) EvalInt(_ types.Row) (val int64, isNull bool, err error) {
-	return c.value.(int64), false, nil
-}
-
-func (c *Constant) EvalFloat(_ types.Row) (val float64, isNull bool, err error) {
-	return
-}
-
-func (c *Constant) EvalTimeSeries(_ types.Row) (val *types.TimeSeries, isNull bool, err error) {
-	return
-}
-
-func (c *Constant) EvalDuration(_ types.Row) (val time.Duration, isNull bool, err error) {
-	val = c.value.(time.Duration)
-	return
+func (r *Constant) Eval(record arrow.RecordBatch) (arrow.Array, error) {
+	panic("constant is not supported in vectorized execution")
+	// numOfRows := int(record.NumRows())
+	// var builder array.Builder
+	// defer func() {
+	// 	if builder != nil {
+	// 		builder.Release()
+	// 	}
+	// }()
+	// switch r.retType {
+	// case types.DTString:
+	// 	sb := array.NewStringBuilder(memory.DefaultAllocator)
+	// 	sb.Reserve(numOfRows)
+	// 	for range numOfRows {
+	// 		sb.Append(r.value.(string))
+	// 	}
+	// 	builder = sb
+	// case types.DTInt:
+	// 	ib := array.NewInt64Builder(memory.DefaultAllocator)
+	// 	ib.Reserve(numOfRows)
+	// 	for range numOfRows {
+	// 		ib.Append(r.value.(int64))
+	// 	}
+	// 	builder = ib
+	// case types.DTFloat:
+	// 	fb := array.NewFloat64Builder(memory.DefaultAllocator)
+	// 	fb.Reserve(numOfRows)
+	// 	for range numOfRows {
+	// 		fb.Append(r.value.(float64))
+	// 	}
+	// 	builder = fb
+	// default:
+	// 	panic(fmt.Sprintf("unsupported data type for constant: %s", r.retType))
+	// }
+	// return builder.NewArray(), nil
 }
 
 func (c *Constant) EvalExemplar(_ types.Row) (val *models.Exemplar, isNull bool, err error) {
@@ -78,12 +110,8 @@ func (c *Constant) EvalTime(_ types.Row) (val time.Time, isNull bool, err error)
 	}
 }
 
-func (c *Constant) EvalMap(_ types.Row) (val map[string]string, isNull bool, err error) {
-	return
-}
-
-func (c *Constant) GetType() types.DataType {
-	return c.retType
+func (c *Constant) ResultType() ResultType {
+	return c.rt
 }
 
 // String returns the constant in string format.

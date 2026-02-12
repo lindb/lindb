@@ -17,9 +17,13 @@
 
 package aggregation
 
-import "github.com/lindb/lindb/spi/types"
+import (
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+)
 
 type Aggregator interface {
-	Enter(row types.Row)
-	Flush(column *types.Column)
+	Initialize(record arrow.RecordBatch)
+	Enter(record arrow.RecordBatch, row int)
+	Flush(builder array.Builder)
 }

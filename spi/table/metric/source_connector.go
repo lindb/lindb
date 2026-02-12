@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/lindb/common/models"
 	"github.com/samber/lo"
 
@@ -83,7 +84,7 @@ type sourceConnector struct {
 	partitions []*Partition
 }
 
-func (psc *sourceConnector) Run(output chan<- *types.Page) {
+func (psc *sourceConnector) Run(output chan<- arrow.RecordBatch) {
 	tableScan := psc.buildTableScan()
 	if tableScan == nil {
 		return

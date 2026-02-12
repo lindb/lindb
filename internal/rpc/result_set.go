@@ -18,13 +18,14 @@
 package rpc
 
 import (
+	"bytes"
 	context "context"
 
+	"github.com/apache/arrow-go/v18/arrow/ipc"
 	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
 
 	protoCommandV1 "github.com/lindb/lindb/proto/gen/v1/command"
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/model"
 	"github.com/lindb/lindb/sql/execution/pipeline"
 )
@@ -56,11 +57,20 @@ func (srv *ResultSetService) ResultSet(ctx context.Context,
 	sourceOperator := pipeline.DriverManager.GetSourceOperator(resultSet.TaskID, resultSet.Node)
 	if sourceOperator != nil {
 		if len(resultSet.Page) != 0 {
-			page, err := types.UnmarshalPage(resultSet.Page)
+			buf := bytes.NewReader(resultSet.Page)
+			var err error
+			reader, err := ipc.NewReader(buf)
 			if err != nil {
 				panic(err)
 			}
-			sourceOperator.Receive(page)
+			defer reader.Release()
+
+			if reader.Next() {
+				record := reader.RecordBatch()
+				record.Retain()
+
+				sourceOperator.Receive(record)
+			}
 		}
 		// FIXME: handle error
 		if resultSet.NoMore {

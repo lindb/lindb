@@ -229,6 +229,7 @@ func (s *Segment) GetWALs() map[models.NodeID]store.WriteAheadLog {
 func (s *Segment) Write(leader models.NodeID, seq int64, msg []byte) (rows int, err error) {
 	var logs, attributes arrow.RecordBatch
 
+	// FIXME: need optimize, multiple leader write to same segment(thread not safe)
 	if s.logReader == nil {
 		reader, err := logspkg.NewBinaryReader()
 		if err != nil {

@@ -22,7 +22,6 @@ import (
 
 	"github.com/samber/lo"
 
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/tree"
 )
@@ -46,24 +45,24 @@ func (r *rewriter) rewrite(node tree.Expression) Expression {
 		return r.rewriteCall(expr)
 	case *tree.Identifier:
 		// TODO: right?
-		return NewConstant(r.ctx.EvalContext, expr.Value, types.DTString)
+		return NewConstant(r.ctx.EvalContext, expr.Value, Scalar)
 	case *tree.StringLiteral:
 		// TODO: right?
-		return NewConstant(r.ctx.EvalContext, expr.Value, types.DTString)
+		return NewConstant(r.ctx.EvalContext, expr.Value, Scalar)
 	case *tree.FloatLiteral:
 		// TODO: right?
-		return NewConstant(r.ctx.EvalContext, expr.Value, types.DTFloat)
+		return NewConstant(r.ctx.EvalContext, expr.Value, Scalar)
 	case *tree.LongLiteral:
 		// TODO: right?
-		return NewConstant(r.ctx.EvalContext, expr.Value, types.DTInt)
+		return NewConstant(r.ctx.EvalContext, expr.Value, Scalar)
 	case *tree.Constant:
-		return NewConstant(r.ctx.EvalContext, expr.Value, expr.Type)
+		return NewConstant(r.ctx.EvalContext, expr.Value, Scalar)
 	case *tree.SymbolReference:
 		// FIXME: add check,index not found
 		_, index, _ := lo.FindIndexOf(r.ctx.SourceLayout, func(item *plan.Symbol) bool {
 			return item.Name == expr.Name
 		})
-		return NewColumn(r.ctx.EvalContext, expr.Name, index, expr.DataType)
+		return NewColumn(r.ctx.EvalContext, expr.Name, index, Array)
 	case *tree.Cast:
 		return NewCast(r.ctx.EvalContext, expr.Type, r.rewrite(expr.Expression))
 	default:
@@ -72,13 +71,15 @@ func (r *rewriter) rewrite(node tree.Expression) Expression {
 }
 
 func (r *rewriter) rewriteCall(node *tree.FunctionCall) Expression {
-	scalarFunc, err := NewScalarFunc(r.ctx.EvalContext, node.Name, node.RetType, lo.Map(node.Arguments,
+	rt := Scalar
+	args := lo.Map(node.Arguments,
 		func(item tree.Expression, index int) Expression {
-			return r.rewrite(item)
+			arg := r.rewrite(item)
+			if arg.ResultType() == Array {
+				rt = Array
+			}
+			return arg
 		},
-	))
-	if err != nil {
-		panic(err)
-	}
-	return scalarFunc
+	)
+	return NewScalarFunc(r.ctx.EvalContext, node.Name, rt, args)
 }

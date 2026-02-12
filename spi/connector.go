@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/apache/arrow-go/v18/arrow"
+
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 )
@@ -40,7 +42,7 @@ func GetSourceConnectorProvider(table TableHandle) SourceConnectorProvider {
 }
 
 type SourceConnector interface {
-	Run(output chan<- *types.Page)
+	Run(output chan<- arrow.RecordBatch)
 }
 
 type SourceConnectorProvider interface {

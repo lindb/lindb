@@ -19,19 +19,17 @@ package operator
 
 import (
 	"context"
-	"fmt"
 
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/lindb/common/pkg/logger"
-
-	"github.com/lindb/lindb/spi/types"
 )
 
-func RunAsync(ctx context.Context, op Operator, output chan<- *types.Page) {
+func RunAsync(ctx context.Context, op Operator, output chan<- arrow.RecordBatch) {
 	go func() {
 		defer func() {
 			if err := recover(); err != nil {
 				log.Warn("run operator panic", logger.Any("error", err), logger.Stack())
-				output <- &types.Page{Error: fmt.Sprintf("%v", err)}
+				// FIXME: output <- &types.Page{Error: fmt.Sprintf("%v", err)}
 			}
 			close(output)
 		}()

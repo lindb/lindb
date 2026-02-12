@@ -21,11 +21,12 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/operator"
-	"github.com/lindb/lindb/sql/expression"
 	"github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/streaming/cep/stream/input"
 )
@@ -36,7 +37,6 @@ type OutputOperator struct {
 	outputStream string
 
 	inputHandle input.InputHandler
-	exprCtx     expression.EvalContext
 	output      *plan.OutputNode
 
 	child   operator.Operator
@@ -54,18 +54,18 @@ func NewOutputOperator(ctx context.Context, database, outputStream string,
 		inputHandle:  inputHandle,
 		output:       output,
 		child:        child,
-		inbound:      operator.NewQueue(make(chan *types.Page, 256)),
+		inbound:      operator.NewQueue(make(chan arrow.RecordBatch, 256)),
 	}
 }
 
-func (op *OutputOperator) Run(ctx context.Context, output chan<- *types.Page) {
+func (op *OutputOperator) Run(ctx context.Context, output chan<- arrow.RecordBatch) {
 	defer func() {
 		fmt.Println("ouput....")
 		input.GetManager().RemoveInputHandler(op.database, op.outputStream)
 	}()
 
 	// FIXME: get app from context
-	rebuildPage := false
+	rebuildRecord := false
 	layout := op.output.GetOutputSymbols()
 
 	sourceLayout := make(map[string]int)
@@ -74,40 +74,51 @@ func (op *OutputOperator) Run(ctx context.Context, output chan<- *types.Page) {
 	})
 	columnNames := op.output.ColumnNames
 
+	fields := lo.Map(layout, func(symbol *plan.Symbol, index int) arrow.Field {
+		name := symbol.Name
+		if len(columnNames) > 0 {
+			name = columnNames[index]
+		}
+		var metadata arrow.Metadata
+		if symbol.AggType != types.ATUnknown {
+			metadata = arrow.NewMetadata([]string{"agg"}, []string{symbol.AggType.String()})
+		}
+		return arrow.Field{Name: name, Type: symbol.DataType.ToArrowDataType(), Metadata: metadata}
+	})
+	schema := arrow.NewSchema(fields, nil)
+
 	for idx, symbol := range layout {
 		sourceIdx, ok := sourceLayout[symbol.Name]
 		if ok && (idx != sourceIdx || (len(columnNames) > 0 && columnNames[idx] != symbol.Name)) {
-			rebuildPage = true
+			rebuildRecord = true
 			break
 		}
 	}
 
 	// process child output
 	for {
-		page, ok := op.inbound.Consume(ctx)
+		record, ok := op.inbound.Consume(ctx)
 		if !ok {
 			break
 		}
-		if page == nil || page.NumRows() == 0 {
-			if page != nil && page.Error != "" {
-				panic(fmt.Errorf("output operator receive error page: %s", page.Error))
-			}
+		if record == nil || record.NumRows() == 0 {
+			// FIXME: if page != nil && page.Error != "" {
+			// 	panic(fmt.Errorf("output operator receive error page: %s", page.Error))
+			// }
 			continue
 		}
-		if rebuildPage {
-			targetPage := types.NewPage()
+		if rebuildRecord {
+			defer record.Release()
+
+			columns := make([]arrow.Array, len(layout))
 			for colIdx, col := range layout {
 				if idx, ok := sourceLayout[col.Name]; ok {
-					column := page.Layout[idx]
-					if len(columnNames) > 0 {
-						column.Name = columnNames[colIdx]
-					}
-					targetPage.AppendColumn(column, page.Columns[idx])
+					columns[colIdx] = record.Column(idx)
 				}
 			}
-			op.inputHandle.Send(targetPage)
+			op.inputHandle.Send(array.NewRecordBatch(schema, columns, record.NumRows()))
 		} else {
-			op.inputHandle.Send(page)
+			op.inputHandle.Send(record)
 		}
 	}
 }
@@ -120,8 +131,8 @@ func (op *OutputOperator) Children() []operator.Operator {
 	return []operator.Operator{op.child}
 }
 
-func (op *OutputOperator) GetInbounds() []chan *types.Page {
-	return []chan *types.Page{op.inbound.GetInbound()}
+func (op *OutputOperator) GetInbounds() []chan arrow.RecordBatch {
+	return []chan arrow.RecordBatch{op.inbound.GetInbound()}
 }
 
 func (op *OutputOperator) String() string {

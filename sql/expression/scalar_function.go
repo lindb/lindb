@@ -20,12 +20,11 @@ package expression
 import (
 	"fmt"
 	"strings"
-	"time"
 
-	"github.com/lindb/common/models"
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/samber/lo"
 
-	"github.com/lindb/lindb/spi/types"
+	"github.com/lindb/lindb/spi/scalar"
 	"github.com/lindb/lindb/sql/tree"
 )
 
@@ -34,61 +33,35 @@ type ScalarFunc struct {
 	function Func
 	funcName tree.FuncName
 	args     []Expression
-	retType  types.DataType
+
+	rt ResultType
 }
 
-func NewScalarFunc(ctx EvalContext, funcName tree.FuncName, retType types.DataType, args []Expression) (Expression, error) {
+func NewScalarFunc(ctx EvalContext, funcName tree.FuncName, rt ResultType, args []Expression) Expression {
 	newFn, ok := funcs[funcName]
 	if !ok {
-		return nil, fmt.Errorf("func not support, func name: %s", funcName)
+		panic(fmt.Sprintf("func not support, func name: %s", funcName))
 	}
 	fn := newFn(ctx, args)
 	return &ScalarFunc{
 		ctx:      ctx,
-		retType:  retType,
+		rt:       rt,
 		function: fn,
 		funcName: funcName,
 		args:     args,
-	}, nil
+	}
 }
 
-// EvalString implements Expression.
-func (f *ScalarFunc) EvalString(row types.Row) (val string, isNull bool, err error) {
-	return f.function.EvalString(row)
+func (f *ScalarFunc) EvalScalar() (scalar.Scalar, error) {
+	return f.function.EvalScalar()
 }
 
-func (f *ScalarFunc) EvalInt(row types.Row) (val int64, isNull bool, err error) {
-	return f.function.EvalInt(row)
+func (f *ScalarFunc) Eval(record arrow.RecordBatch) (arrow.Array, error) {
+	return f.function.Eval(record)
 }
 
-func (f *ScalarFunc) EvalFloat(row types.Row) (val float64, isNull bool, err error) {
-	return f.function.EvalFloat(row)
-}
-
-func (f *ScalarFunc) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error) {
-	return f.function.EvalTimeSeries(row)
-}
-
-func (f *ScalarFunc) EvalDuration(row types.Row) (val time.Duration, isNull bool, err error) {
-	return f.function.EvalDuration(row)
-}
-
-func (f *ScalarFunc) EvalTime(row types.Row) (val time.Time, isNull bool, err error) {
-	return f.function.EvalTime(row)
-}
-
-func (f *ScalarFunc) EvalMap(row types.Row) (val map[string]string, isNull bool, err error) {
-	return f.function.EvalMap(row)
-}
-
-func (f *ScalarFunc) EvalExemplar(row types.Row) (val *models.Exemplar, isNull bool, err error) {
-	fmt.Println("eval exemplar func...", f.funcName)
-	return f.function.EvalExemplar(row)
-}
-
-// GetType implements Expression.
-func (f *ScalarFunc) GetType() types.DataType {
-	return f.retType
+func (f *ScalarFunc) ResultType() ResultType {
+	return f.rt
 }
 
 // String returns the scalar function in string format.

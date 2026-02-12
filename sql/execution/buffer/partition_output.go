@@ -20,12 +20,12 @@ package buffer
 import (
 	"context"
 
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/lindb/common/pkg/encoding"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
 	protoCommandV1 "github.com/lindb/lindb/proto/gen/v1/command"
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/model"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
@@ -45,18 +45,18 @@ func NewPartitionOutputBuffer(taskID model.TaskID, fragment *plan.PlanFragment) 
 }
 
 // AddPage implements OutputBuffer
-func (output *PartitionOutputBuffer) AddPage(page *types.Page) {
-	output.finished = page.Error != ""
+func (output *PartitionOutputBuffer) AddRecord(record arrow.RecordBatch) {
+	// output.finished = record.Error != ""
 
-	data, err := types.MarshalPage(page)
-	if err != nil {
-		panic(err)
-	}
-
+	// data, err := types.MarshalPage(record)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	//
 	output.sendResultSet(&model.TaskResultSet{
 		TaskID: output.taskID,
 		Node:   *output.fragment.ParentNode,
-		Page:   data,
+		// Page:   data,
 		NoMore: output.finished,
 	})
 }

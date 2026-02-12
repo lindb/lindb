@@ -21,31 +21,30 @@ import (
 	"context"
 	"errors"
 
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/lindb/common/pkg/logger"
-
-	"github.com/lindb/lindb/spi/types"
 )
 
 var log = logger.GetLogger("operator", "execute")
 
 type Queue struct {
-	pageCh chan *types.Page
+	ch chan arrow.RecordBatch
 }
 
-func NewQueue(pageCh chan *types.Page) *Queue {
+func NewQueue(ch chan arrow.RecordBatch) *Queue {
 	return &Queue{
-		pageCh: pageCh,
+		ch: ch,
 	}
 }
 
-func (q *Queue) Produce(page *types.Page) {
-	if page == nil {
+func (q *Queue) Produce(record arrow.RecordBatch) {
+	if record == nil {
 		return
 	}
-	q.pageCh <- page
+	q.ch <- record
 }
 
-func (q *Queue) Consume(ctx context.Context) (*types.Page, bool) {
+func (q *Queue) Consume(ctx context.Context) (arrow.RecordBatch, bool) {
 	select {
 	case <-ctx.Done():
 		err := ctx.Err()
@@ -54,19 +53,15 @@ func (q *Queue) Consume(ctx context.Context) (*types.Page, bool) {
 			return nil, false
 		}
 		panic(err)
-	case page, ok := <-q.pageCh:
-		if page != nil && page.Error != "" {
-			log.Error("page has error", logger.Stack())
-			panic(page.Error)
-		}
+	case page, ok := <-q.ch:
 		return page, ok
 	}
 }
 
-func (q *Queue) GetInbound() chan *types.Page {
-	return q.pageCh
+func (q *Queue) GetInbound() chan arrow.RecordBatch {
+	return q.ch
 }
 
 func (q *Queue) Close() {
-	close(q.pageCh)
+	close(q.ch)
 }

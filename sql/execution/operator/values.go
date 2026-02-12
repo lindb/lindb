@@ -20,6 +20,8 @@ package operator
 import (
 	"context"
 
+	"github.com/apache/arrow-go/v18/arrow"
+
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
@@ -34,7 +36,7 @@ func NewValuesOperator(node *plan.ValuesNode) Operator {
 	}
 }
 
-func (op *ValuesOperator) Run(ctx context.Context, output chan<- *types.Page) {
+func (op *ValuesOperator) Run(ctx context.Context, output chan<- arrow.RecordBatch) {
 	var page *types.Page
 	node := op.node
 	if node.Rows != nil {
@@ -42,7 +44,8 @@ func (op *ValuesOperator) Run(ctx context.Context, output chan<- *types.Page) {
 	} else if node.RowCount == 1 {
 		page = types.RowWithEmptyValue
 	}
-	output <- page
+	panic(page)
+	// FIXME: output <- page
 }
 
 func (op *ValuesOperator) GetLayout() []*plan.Symbol {
@@ -53,7 +56,7 @@ func (op *ValuesOperator) Children() []Operator {
 	return nil
 }
 
-func (op *ValuesOperator) GetInbounds() []chan *types.Page {
+func (op *ValuesOperator) GetInbounds() []chan arrow.RecordBatch {
 	return nil
 }
 

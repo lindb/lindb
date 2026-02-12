@@ -20,6 +20,8 @@ package exchange
 import (
 	"context"
 
+	"github.com/apache/arrow-go/v18/arrow"
+
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/operator"
 	"github.com/lindb/lindb/sql/planner/plan"
@@ -35,7 +37,7 @@ func NewRemoteExchangeOperator(ctx context.Context, node *plan.RemoteSourceNode,
 	return &RemoteExchangeOperator{
 		ctx:     ctx,
 		node:    node,
-		inbound: operator.NewQueue(make(chan *types.Page)),
+		inbound: operator.NewQueue(make(chan arrow.RecordBatch)),
 	}
 }
 
@@ -44,15 +46,15 @@ func (op *RemoteExchangeOperator) GetSourceID() plan.PlanNodeID {
 }
 
 // Run runs the exchange operator, consuming the pages from inbound channel and merging the pages.
-func (op *RemoteExchangeOperator) Run(ctx context.Context, output chan<- *types.Page) {
-	var buffer []*types.Page
+func (op *RemoteExchangeOperator) Run(ctx context.Context, output chan<- arrow.RecordBatch) {
+	var buffer []arrow.RecordBatch
 
 	for {
 		// consume the pages from inbound channel
 		page, ok := op.inbound.Consume(ctx)
 		if !ok {
 			// TODO: merge pages (streaming)
-			mergedPage := types.MergePages(buffer)
+			mergedPage := types.MergeRecords(buffer)
 			if mergedPage != nil {
 				output <- mergedPage
 			}
@@ -62,15 +64,15 @@ func (op *RemoteExchangeOperator) Run(ctx context.Context, output chan<- *types.
 		if page == nil {
 			continue
 		}
-		if page.Error != "" {
-			panic(page.Error)
-		}
+		// FIXME: if page.Error != "" {
+		// 	panic(page.Error)
+		// }
 		buffer = append(buffer, page)
 	}
 }
 
-func (op *RemoteExchangeOperator) Receive(page *types.Page) {
-	op.inbound.Produce(page)
+func (op *RemoteExchangeOperator) Receive(record arrow.RecordBatch) {
+	op.inbound.Produce(record)
 }
 
 func (op *RemoteExchangeOperator) GetLayout() []*plan.Symbol {
@@ -85,7 +87,7 @@ func (op *RemoteExchangeOperator) Children() []operator.Operator {
 	return nil
 }
 
-func (op *RemoteExchangeOperator) GetInbounds() []chan *types.Page {
+func (op *RemoteExchangeOperator) GetInbounds() []chan arrow.RecordBatch {
 	return nil
 }
 

@@ -20,7 +20,8 @@ package exchange
 import (
 	"context"
 
-	"github.com/lindb/lindb/spi/types"
+	"github.com/apache/arrow-go/v18/arrow"
+
 	"github.com/lindb/lindb/sql/execution/operator"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
@@ -37,17 +38,17 @@ func NewLocalExchangeOperator(node *plan.ExchangeNode, child operator.Operator) 
 	return &LocalExchangeOperator{
 		node:    node,
 		child:   child,
-		inbound: operator.NewQueue(make(chan *types.Page)),
+		inbound: operator.NewQueue(make(chan arrow.RecordBatch)),
 	}
 }
 
-func (l *LocalExchangeOperator) Run(ctx context.Context, output chan<- *types.Page) {
+func (l *LocalExchangeOperator) Run(ctx context.Context, output chan<- arrow.RecordBatch) {
 	for {
-		page, ok := l.inbound.Consume(ctx)
+		record, ok := l.inbound.Consume(ctx)
 		if !ok {
 			return
 		}
-		output <- page
+		output <- record
 	}
 }
 
@@ -59,8 +60,8 @@ func (l *LocalExchangeOperator) Children() []operator.Operator {
 	return []operator.Operator{l.child}
 }
 
-func (l *LocalExchangeOperator) GetInbounds() []chan *types.Page {
-	return []chan *types.Page{l.inbound.GetInbound()}
+func (l *LocalExchangeOperator) GetInbounds() []chan arrow.RecordBatch {
+	return []chan arrow.RecordBatch{l.inbound.GetInbound()}
 }
 
 func (l *LocalExchangeOperator) String() string {

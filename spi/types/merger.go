@@ -18,66 +18,65 @@
 package types
 
 import (
-	"slices"
-
-	"github.com/lindb/lindb/pkg/strutil"
+	"github.com/apache/arrow-go/v18/arrow"
 )
 
-func MergePages(pages []*Page) *Page {
+func MergeRecords(pages []arrow.RecordBatch) arrow.RecordBatch {
 	switch len(pages) {
 	case 0:
 		return nil
 	case 1:
 		return pages[0]
 	default:
-		mergedPage := NewPage()
-		allColumns := make([]*Column, len(pages[0].Columns))
-		grouping := make(map[string]int) // grouping column values => row number
-		var mergeColumns []*mergeColumn
-		var keys []any
-		groupingColumns := pages[0].Grouping
-		if len(groupingColumns) > 0 {
-			keys = make([]any, len(groupingColumns))
-		}
-		for idx, c := range pages[0].Layout {
-			column := NewColumn()
-			allColumns[idx] = column
-			mergedPage.AppendColumn(c, column)
-			if !slices.Contains(groupingColumns, idx) {
-				// columns need merge value
-				mergeColumns = append(mergeColumns, &mergeColumn{meta: c, target: column, index: idx})
-			}
-		}
-		for _, page := range pages {
-			if page.Error != "" {
-				// NOTE: if has error, return it
-				mergedPage.Error = page.Error
-				break
-			}
-			it := page.Iterator()
-			rowNum := 0
-			for row := it.Begin(); row != it.End(); row = it.Next() {
-				for idx, columnIndex := range groupingColumns {
-					keys[idx] = row.Get(columnIndex)
-				}
-				keysStr := strutil.SliceToTypedString(keys) // merge keys
-				mergedRow, ok := grouping[keysStr]
-				if !ok {
-					grouping[keysStr] = rowNum
-					for idx, column := range allColumns {
-						column.Append(row.Get(idx))
-					}
-				} else {
-					for _, column := range mergeColumns {
-						// merge values of columns
-						column.Merge(mergedRow, row)
-					}
-				}
-
-				rowNum++
-			}
-		}
-		return mergedPage
+		panic("not implemented merge")
+		// mergedPage := NewPage()
+		// allColumns := make([]*Column, len(pages[0].Columns))
+		// grouping := make(map[string]int) // grouping column values => row number
+		// var mergeColumns []*mergeColumn
+		// var keys []any
+		// groupingColumns := pages[0].Grouping
+		// if len(groupingColumns) > 0 {
+		// 	keys = make([]any, len(groupingColumns))
+		// }
+		// for idx, c := range pages[0].Layout {
+		// 	column := NewColumn()
+		// 	allColumns[idx] = column
+		// 	mergedPage.AppendColumn(c, column)
+		// 	if !slices.Contains(groupingColumns, idx) {
+		// 		// columns need merge value
+		// 		mergeColumns = append(mergeColumns, &mergeColumn{meta: c, target: column, index: idx})
+		// 	}
+		// }
+		// for _, page := range pages {
+		// 	if page.Error != "" {
+		// 		// NOTE: if has error, return it
+		// 		mergedPage.Error = page.Error
+		// 		break
+		// 	}
+		// 	it := page.Iterator()
+		// 	rowNum := 0
+		// 	for row := it.Begin(); row != it.End(); row = it.Next() {
+		// 		for idx, columnIndex := range groupingColumns {
+		// 			keys[idx] = row.Get(columnIndex)
+		// 		}
+		// 		keysStr := strutil.SliceToTypedString(keys) // merge keys
+		// 		mergedRow, ok := grouping[keysStr]
+		// 		if !ok {
+		// 			grouping[keysStr] = rowNum
+		// 			for idx, column := range allColumns {
+		// 				column.Append(row.Get(idx))
+		// 			}
+		// 		} else {
+		// 			for _, column := range mergeColumns {
+		// 				// merge values of columns
+		// 				column.Merge(mergedRow, row)
+		// 			}
+		// 		}
+		//
+		// 		rowNum++
+		// 	}
+		// }
+		// return mergedPage
 	}
 }
 

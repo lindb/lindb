@@ -22,6 +22,10 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/memory"
+	"github.com/lindb/arrow/pkg/arrow/builder"
 	logspkg "github.com/lindb/arrow/pkg/logs"
 	"github.com/lindb/roaring"
 	"github.com/samber/lo"
@@ -91,7 +95,7 @@ type sourceConnector struct {
 }
 
 // Run implements spi.SourceConnector.
-func (sc *sourceConnector) Run(output chan<- *types.Page) {
+func (sc *sourceConnector) Run(output chan<- arrow.RecordBatch) {
 	tableScan := sc.buildTableScan()
 	if tableScan == nil {
 		fmt.Println("no table")
@@ -116,19 +120,24 @@ func (sc *sourceConnector) Run(output chan<- *types.Page) {
 
 	sc.initializeSearchContext(tableScan)
 
-	page := types.NewPage()
 	if sc.hasAggregate {
 		sc.aggregator.Initialize()
 		sc.aggregator.Aggregate(output)
 		return
 	}
 
-	timeColumn := types.NewColumn()
-	page.AppendColumn(types.ColumnMetadata{DataType: types.DTInt, Name: "timestamp"}, timeColumn)
-	msgColumn := types.NewColumn()
-	page.AppendColumn(types.ColumnMetadata{DataType: types.DTString, Name: "_msg"}, msgColumn)
-	fieldsColumn := types.NewColumn()
-	page.AppendColumn(types.ColumnMetadata{DataType: types.DTMap, Name: "fields"}, fieldsColumn)
+	rb := builder.NewRecordBuilder(memory.NewGoAllocator(), arrow.NewSchema([]arrow.Field{
+		{Name: "timestamp", Type: arrow.FixedWidthTypes.Timestamp_ns},
+		{Name: "_msg", Type: arrow.BinaryTypes.String},
+		{Name: "fields", Type: arrow.MapOf(arrow.BinaryTypes.String, arrow.BinaryTypes.String)},
+	}, nil))
+	defer rb.Release()
+
+	timeColumn := rb.TimestampBuilder("timestamp")
+	msgColumn := rb.StringBuilder("_msg")
+	fieldsColumn := rb.MapBuilder("fields")
+	fKey := fieldsColumn.KeyBuilder().(*array.StringBuilder)
+	fValue := fieldsColumn.ItemBuilder().(*array.StringBuilder)
 
 	total := 0
 	sc.findLogs(tableScan, func(segment *log.Segment, logIDs *roaring.Bitmap) bool {
@@ -138,16 +147,9 @@ func (sc *sourceConnector) Run(output chan<- *types.Page) {
 		for scanner.HasNext() {
 			if err := scanner.Next(func(reader *logspkg.Reader, rowNum int) {
 				// read log data from reader
-				timestamp := reader.Timestamp(rowNum)
-				msg := reader.Message(rowNum)
-				fields := make(map[string]string)
-				reader.Attributes(rowNum, func(key, value string) {
-					fields[key] = value
-				})
-
-				timeColumn.Append(timestamp)
-				msgColumn.Append(msg)
-				fieldsColumn.Append(fields)
+				timeColumn.Append(arrow.Timestamp(reader.Timestamp(rowNum)))
+				msgColumn.Append(reader.Message(rowNum))
+				reader.AttributesToMap(rowNum, fieldsColumn, fKey, fValue)
 			}); err != nil {
 				fmt.Printf("scan logs err:%v\n", err)
 			}
@@ -161,7 +163,7 @@ func (sc *sourceConnector) Run(output chan<- *types.Page) {
 		return true
 	})
 
-	output <- page
+	output <- rb.NewRecord()
 }
 
 func (sc *sourceConnector) buildTableScan() *TableScan {

@@ -1,4 +1,4 @@
-// Licensed to LinDB under one or more contributor
+// Licensed to LinDB under one or more contriutor
 // license agreements. See the NOTICE file distributed with
 // this work for additional information regarding copyright
 // ownership. LinDB licenses this file to you under
@@ -18,58 +18,37 @@
 package expression
 
 import (
-	"time"
+	"fmt"
 
-	"github.com/lindb/common/models"
+	"github.com/apache/arrow-go/v18/arrow"
 
-	"github.com/lindb/lindb/spi/types"
+	"github.com/lindb/lindb/spi/scalar"
 )
 
 type Column struct {
-	name    string
-	retType types.DataType
-	index   int
+	name  string
+	index int
+
+	rt ResultType
 }
 
-func NewColumn(ctx EvalContext, name string, index int, retType types.DataType) Expression {
-	return &Column{name: name, index: index, retType: retType}
+func NewColumn(ctx EvalContext, name string, index int, rt ResultType) Expression {
+	return &Column{name: name, index: index, rt: rt}
 }
 
-func (c *Column) EvalString(row types.Row) (val string, isNull bool, err error) {
-	return row.GetString(c.index), false, nil
+func (c *Column) EvalScalar() (scalar.Scalar, error) {
+	panic("column is not supported in scalar execution")
 }
 
-func (c *Column) EvalMap(row types.Row) (val map[string]string, isNull bool, err error) {
-	return row.GetMap(c.index), false, nil
+func (c *Column) Eval(record arrow.RecordBatch) (arrow.Array, error) {
+	if record.Column(c.index) == nil {
+		fmt.Printf("Evaluating column: %s at index: %d,===%v\n", c.name, c.index, record)
+	}
+	return record.Column(c.index), nil
 }
 
-func (c *Column) EvalInt(row types.Row) (val int64, isNull bool, err error) {
-	return row.GetInt(c.index), false, nil
-}
-
-func (c *Column) EvalFloat(row types.Row) (val float64, isNull bool, err error) {
-	return row.GetFloat(c.index), false, nil
-}
-
-func (c *Column) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error) {
-	return row.GetTimeSeries(c.index), false, nil
-}
-
-func (c *Column) EvalDuration(row types.Row) (val time.Duration, isNull bool, err error) {
-	return row.GetDuration(c.index), false, nil
-}
-
-func (c *Column) EvalTime(row types.Row) (val time.Time, isNull bool, err error) {
-	return row.GetTimestamp(c.index), false, nil
-}
-
-func (c *Column) EvalExemplar(row types.Row) (val *models.Exemplar, isNull bool, err error) {
-	return
-}
-
-// GetType returns the data type of the column returns.
-func (c *Column) GetType() types.DataType {
-	return c.retType
+func (c *Column) ResultType() ResultType {
+	return c.rt
 }
 
 // String returns the column in string format.

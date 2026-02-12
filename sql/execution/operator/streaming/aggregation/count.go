@@ -18,7 +18,9 @@
 package aggregation
 
 import (
-	"github.com/lindb/lindb/spi/types"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+
 	"github.com/lindb/lindb/sql/expression"
 )
 
@@ -27,15 +29,19 @@ func newCountAggregator(ctx expression.EvalContext, args []expression.Expression
 }
 
 type countAggregator struct {
-	value int64
+	value float64
 }
 
-func (c *countAggregator) Enter(row types.Row) {
+func (c *countAggregator) Initialize(record arrow.RecordBatch) {
+}
+
+func (c *countAggregator) Enter(record arrow.RecordBatch, row int) {
 	c.value++
 }
 
-func (c *countAggregator) Flush(column *types.Column) {
-	column.Append(c.value)
+func (c *countAggregator) Flush(builder array.Builder) {
+	value := builder.(*array.Float64Builder)
+	value.Append(c.value)
 
 	// need reset value after flush
 	c.value = 0

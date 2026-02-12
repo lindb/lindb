@@ -21,6 +21,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/spi/types"
@@ -51,8 +52,8 @@ func NewHashJoinOperator(node *plan.JoinNode, left, right operator.Operator) ope
 		leftScope:  node.Left.GetOutputSymbols(),
 		rightScope: node.Right.GetOutputSymbols(),
 
-		leftInbound:  operator.NewQueue(make(chan *types.Page)),
-		rightInbound: operator.NewQueue(make(chan *types.Page)),
+		leftInbound:  operator.NewQueue(make(chan arrow.RecordBatch)),
+		rightInbound: operator.NewQueue(make(chan arrow.RecordBatch)),
 	}
 }
 
@@ -62,8 +63,8 @@ func (h *HashJoinOperator) Children() []operator.Operator {
 }
 
 // GetInbounds implements operator.Operator.
-func (h *HashJoinOperator) GetInbounds() []chan *types.Page {
-	return []chan *types.Page{h.leftInbound.GetInbound(), h.rightInbound.GetInbound()}
+func (h *HashJoinOperator) GetInbounds() []chan arrow.RecordBatch {
+	return []chan arrow.RecordBatch{h.leftInbound.GetInbound(), h.rightInbound.GetInbound()}
 }
 
 // GetLayout implements operator.Operator.
@@ -95,7 +96,7 @@ func (h *HashJoinOperator) prepare() {
 }
 
 // Run implements operator.Operator.
-func (h *HashJoinOperator) Run(ctx context.Context, output chan<- *types.Page) {
+func (h *HashJoinOperator) Run(ctx context.Context, output chan<- arrow.RecordBatch) {
 	h.prepare()
 
 	var wg sync.WaitGroup
@@ -117,48 +118,49 @@ func (h *HashJoinOperator) Run(ctx context.Context, output chan<- *types.Page) {
 
 	wg.Wait()
 
-	newPage := types.NewPage()
-	outputs := h.node.GetOutputSymbols()
-	outputColumns := make([]*types.Column, len(outputs))
-	for i, output := range outputs {
-		outputColumns[i] = types.NewColumn()
-		newPage.AppendColumn(
-			types.NewColumnInfo(output.Name, output.DataType, output.Hidden, output.AggType),
-			outputColumns[i])
-	}
-
-	for _, memRows := range h.memTable {
-		if memRows.left != nil && memRows.right != nil {
-			for i := range len(h.leftScope) {
-				outputColumns[i].Append(memRows.left.Get(i))
-			}
-
-			for i := range len(h.rightScope) {
-				outputColumns[i+len(h.leftScope)].Append(memRows.right.Get(i))
-			}
-		}
-	}
-	output <- newPage
+	//FIXME: do join and output
+	// newPage := types.NewPage()
+	// outputs := h.node.GetOutputSymbols()
+	// outputColumns := make([]*types.Column, len(outputs))
+	// for i, output := range outputs {
+	// 	outputColumns[i] = types.NewColumn()
+	// 	newPage.AppendColumn(
+	// 		types.NewColumnInfo(output.Name, output.DataType, output.Hidden, output.AggType),
+	// 		outputColumns[i])
+	// }
+	//
+	// for _, memRows := range h.memTable {
+	// 	if memRows.left != nil && memRows.right != nil {
+	// 		for i := range len(h.leftScope) {
+	// 			outputColumns[i].Append(memRows.left.Get(i))
+	// 		}
+	//
+	// 		for i := range len(h.rightScope) {
+	// 			outputColumns[i+len(h.leftScope)].Append(memRows.right.Get(i))
+	// 		}
+	// 	}
+	// }
+	// output <- newPage
 }
 
 func (h *HashJoinOperator) String() string {
 	return "HashJoinOperator"
 }
 
-func (h *HashJoinOperator) process(page *types.Page, keys []int, isLeft bool) {
-	it := page.Iterator()
-	for row := it.Begin(); row != it.End(); row = it.Next() {
-		column := row.GetString(keys[0])
-		memRows, ok := h.memTable[column]
-		if !ok {
-			memRows = &rows{}
-			h.memTable[column] = memRows
-		}
-
-		if isLeft {
-			memRows.left = row
-		} else {
-			memRows.right = row
-		}
-	}
+func (h *HashJoinOperator) process(page arrow.RecordBatch, keys []int, isLeft bool) {
+	// it := page.Iterator()
+	// for row := it.Begin(); row != it.End(); row = it.Next() {
+	// 	column := row.GetString(keys[0])
+	// 	memRows, ok := h.memTable[column]
+	// 	if !ok {
+	// 		memRows = &rows{}
+	// 		h.memTable[column] = memRows
+	// 	}
+	//
+	// 	if isLeft {
+	// 		memRows.left = row
+	// 	} else {
+	// 		memRows.right = row
+	// 	}
+	// }
 }

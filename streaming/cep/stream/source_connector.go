@@ -21,6 +21,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/lindb/common/pkg/logger"
 	"github.com/samber/lo"
 	"go.uber.org/atomic"
@@ -63,7 +65,7 @@ func (s *sourceConnectorProvider) CreateSourceConnector(ctx context.Context,
 		predicate:     predicate,
 		outputColumns: outputColumns,
 
-		inbound: operator.NewQueue(make(chan *types.Page, 256)),
+		inbound: operator.NewQueue(make(chan arrow.RecordBatch, 256)),
 
 		logger: logger.GetLogger("CEP", "SourceConnector"),
 	}
@@ -82,10 +84,14 @@ type sourceConnector struct {
 	running *atomic.Bool
 
 	schema        *types.TableSchema
-	predicate     tree.Expression
 	outputColumns []types.ColumnMetadata
 
+	recordSchema *arrow.Schema
+
 	inbound *operator.Queue
+
+	predicate tree.Expression
+	visitor   *visitor
 
 	logger logger.Logger
 }
@@ -106,6 +112,10 @@ func (sc *sourceConnector) initialize() {
 		}
 		colMeta.Ref = colIndex
 	}
+
+	sc.recordSchema = arrow.NewSchema(lo.Map(sc.outputColumns, func(item types.ColumnMetadata, index int) arrow.Field {
+		return arrow.Field{Name: item.Name, Type: item.DataType.ToArrowDataType()}
+	}), nil)
 }
 
 func (sc *sourceConnector) Receive(event models.Event) {
@@ -115,13 +125,16 @@ func (sc *sourceConnector) Receive(event models.Event) {
 			logger.String("table", sc.table.Stream))
 		return
 	}
-	if page, ok := event.(*types.Page); ok {
-		sc.inbound.Produce(page)
+	if record, ok := event.(arrow.RecordBatch); ok {
+		sc.inbound.Produce(record)
 	}
 }
 
-func (sc *sourceConnector) Run(output chan<- *types.Page) {
+func (sc *sourceConnector) Run(output chan<- arrow.RecordBatch) {
 	defer func() {
+		if err := recover(); err != nil {
+			sc.logger.Error("source connector panicked", logger.Any("error", err), logger.Stack())
+		}
 		if sc.running.CompareAndSwap(true, false) {
 			// unsubscribe input handler
 			sc.input.Unsubscribe(sc)
@@ -132,69 +145,100 @@ func (sc *sourceConnector) Run(output chan<- *types.Page) {
 				logger.String("table", sc.table.Stream))
 		}
 	}()
-	var v *visitor
+	fmt.Println("run source connector")
+
 	for {
-		source, ok := sc.inbound.Consume(sc.ctx)
+		record, ok := sc.inbound.Consume(sc.ctx)
+		// fmt.Printf("consume record: %v, ok: %v\n", record, ok)
 		if !ok {
 			break
 		}
-		if sc.predicate == nil {
-			// no filter, send page to next operator
-			newPage := sc.createPage()
-
-			it := source.Iterator()
-			for row := it.Begin(); row != it.End(); row = it.Next() {
-				sc.setPageValues(newPage, row)
-			}
-			output <- newPage
-			continue
-		}
-		// do filter based on predicate
-		if v == nil {
-			columns := make(map[string]types.ColumnMetadata)
-			lo.ForEach(source.Layout, func(item types.ColumnMetadata, index int) {
-				item.Ref = index
-				columns[item.Name] = item
-			})
-			// create predicate visitor if nil
-			v = &visitor{
-				sc:          sc,
-				columns:     columns,
-				evalContext: expression.NewEvalContext(sc.ctx),
-			}
-
-			v.expr = v.rewrite(sc.predicate)
-		}
-
-		page := v.filter(source)
-		if page != nil {
-			output <- page
-		}
+		sc.process(record, output)
 	}
 }
 
-func (sc *sourceConnector) createPage() *types.Page {
-	newPage := types.NewPage()
-	// FIXME: maybe page layout not match table schema
-	newPage.Layout = sc.outputColumns
-	newPage.Columns = lo.Map(sc.outputColumns, func(item types.ColumnMetadata, index int) *types.Column {
-		return types.NewColumn()
-	})
-	return newPage
-}
+func (sc *sourceConnector) process(record arrow.RecordBatch, output chan<- arrow.RecordBatch) {
+	// defer record.Release()
 
-func (sc *sourceConnector) setPageValues(page *types.Page, row types.Row) {
-	for i, column := range page.Columns {
-		ref := sc.outputColumns[i].Ref
-		if ref >= 0 {
-			column.Append(row.Get(ref))
+	if sc.predicate == nil {
+		// no filter, send page to next operator
+		columns := make([]arrow.Array, len(sc.outputColumns))
+		for i, column := range sc.outputColumns {
+			if column.Ref >= 0 {
+				columns[i] = record.Column(column.Ref)
+			}
 		}
+		rs := array.NewRecordBatch(sc.recordSchema, columns, record.NumRows())
+
+		output <- rs
+		return
 	}
+	// do filter based on predicate
+	if sc.visitor == nil {
+		// create predicate visitor if nil
+		sc.visitor = &visitor{
+			sc:          sc,
+			schema:      record.Schema(),
+			evalContext: expression.NewEvalContext(sc.ctx),
+		}
+
+		sc.visitor.expr = sc.visitor.rewrite(sc.predicate)
+	}
+
+	result, err := sc.visitor.expr.Eval(record)
+	if err != nil {
+		fmt.Println("failed to evaluate predicate:", err)
+		return
+	}
+	if result.IsEmpty() {
+		fmt.Println("filter result is empty, skip this record")
+		return
+	}
+	// inputDatum := compute.NewDatum(record)
+	// defer inputDatum.Release()
+	// indices := result.ToArray()
+	//
+	// it32Builder := array.NewInt32Builder(memory.DefaultAllocator)
+	// defer it32Builder.Release()
+	//
+	// for _, idx := range indices {
+	// 	it32Builder.Append(int32(idx))
+	// }
+	// indexArray := it32Builder.NewArray()
+	// defer indexArray.Release()
+	// indexDatum := compute.NewDatum(indexArray)
+	// defer indexDatum.Release()
+	//
+	// r, err := compute.Take(context.TODO(), *compute.DefaultTakeOptions(), inputDatum, indexDatum)
+	// if err != nil {
+	// 	fmt.Println("failed to take record based on filter result:", err)
+	// 	return
+	// }
+	// defer r.Release()
+	// _ = r.(*compute.RecordDatum).Value
+	// fmt.Println(rr)
+	// fmt.Printf("filter result: %v\n", result)
+
+	// if page != nil {
+	columns := make([]arrow.Array, len(sc.outputColumns))
+	fields := make([]arrow.Field, len(sc.outputColumns))
+	for i, column := range sc.outputColumns {
+		if column.Ref >= 0 {
+			columns[i] = record.Column(column.Ref)
+		}
+		fields[i] = arrow.Field{Name: column.Name, Type: columns[i].DataType()}
+	}
+	// fmt.Printf("output record: %v\n", columns)
+	rs := array.NewRecordBatch(arrow.NewSchema(fields, nil), columns, record.NumRows())
+
+	output <- rs
+	// output <- record
+	// }
 }
 
 type visitor struct {
 	sc          *sourceConnector
-	columns     map[string]types.ColumnMetadata // column name -> column(include column ref(index))
+	schema      *arrow.Schema
 	evalContext expression.EvalContext
 
 	expr Expr
@@ -212,9 +256,9 @@ func (v *visitor) rewrite(n tree.Expression) Expr {
 		if err != nil {
 			panic(err)
 		}
-		column, ok := v.columns[columName]
-		if !ok {
-			panic("column not exist")
+		indexes := v.schema.FieldIndices(columName)
+		if len(indexes) != 1 {
+			panic(fmt.Sprintf("invalid column %s, found %d fields", columName, len(indexes)))
 		}
 		var values []string
 		if inListExpression, ok := node.ValueList.(*tree.InListExpression); ok {
@@ -228,7 +272,10 @@ func (v *visitor) rewrite(n tree.Expression) Expr {
 		}
 
 		return &InExpr{
-			column: column,
+			column: column{
+				name:  columName,
+				index: indexes[0],
+			},
 			values: values,
 		}
 	// case *tree.LogicalExpression:
@@ -249,62 +296,54 @@ func (v *visitor) rewrite(n tree.Expression) Expr {
 	}
 }
 
-func (v *visitor) filter(page *types.Page) *types.Page {
-	newPage := v.sc.createPage()
+// func (v *visitor) filter(record arrow.RecordBatch) (*roaring.Bitmap, error) {
+// 	return v.expr.Eval(record)
+// 	switch node := n.(type) {
+// 	case *tree.ComparisonExpression:
+// 		v, err := GetFieldValue(event, getValue(node.Left))
+// 		if err != nil {
+// 			fmt.Println(err)
+// 			return false
+// 		}
+// 		return v == getValue(node.Right)
+// 	case *tree.InPredicate:
+// 		var values []string
+// 		if inListExpression, ok := node.ValueList.(*tree.InListExpression); ok {
+// 			values = lo.Map(inListExpression.Values, func(item tree.Expression, index int) string {
+// 				return getValue(item)
+// 			})
+// 		}
+// 		v, err := GetFieldValue(event, getValue(node.Value))
+// 		if err != nil {
+// 			fmt.Println(err)
+// 			return false
+// 		}
+// 		return lo.Contains(values, v.(string))
+// 	case *tree.LogicalExpression:
+// 		for _, term := range node.Terms {
+// 			val, ok := term.Accept(event, v).(bool)
+// 			if !ok {
+// 				return false
+// 			}
+// 			if node.Operator == tree.LogicalOR && val {
+// 				return true
+// 			} else if !val {
+// 				return false
+// 			}
+// 		}
+// 		return true
+// 	default:
+// 		panic(fmt.Errorf("not support,%T", n))
+// 	}
+// fmt.Println("filtered page rows:", string(encoding.JSONMarshal(newPage)))
+// 	return newPage
+// }
 
-	it := page.Iterator()
-	for row := it.Begin(); row != it.End(); row = it.Next() {
-		if v.check(row) {
-			v.sc.setPageValues(newPage, row)
-		}
-	}
-
-	// 	switch node := n.(type) {
-	// 	case *tree.ComparisonExpression:
-	// 		v, err := GetFieldValue(event, getValue(node.Left))
-	// 		if err != nil {
-	// 			fmt.Println(err)
-	// 			return false
-	// 		}
-	// 		return v == getValue(node.Right)
-	// 	case *tree.InPredicate:
-	// 		var values []string
-	// 		if inListExpression, ok := node.ValueList.(*tree.InListExpression); ok {
-	// 			values = lo.Map(inListExpression.Values, func(item tree.Expression, index int) string {
-	// 				return getValue(item)
-	// 			})
-	// 		}
-	// 		v, err := GetFieldValue(event, getValue(node.Value))
-	// 		if err != nil {
-	// 			fmt.Println(err)
-	// 			return false
-	// 		}
-	// 		return lo.Contains(values, v.(string))
-	// 	case *tree.LogicalExpression:
-	// 		for _, term := range node.Terms {
-	// 			val, ok := term.Accept(event, v).(bool)
-	// 			if !ok {
-	// 				return false
-	// 			}
-	// 			if node.Operator == tree.LogicalOR && val {
-	// 				return true
-	// 			} else if !val {
-	// 				return false
-	// 			}
-	// 		}
-	// 		return true
-	// 	default:
-	// 		panic(fmt.Errorf("not support,%T", n))
-	// 	}
-	// fmt.Println("filtered page rows:", string(encoding.JSONMarshal(newPage)))
-	return newPage
-}
-
-func (v *visitor) check(row types.Row) bool {
-	switch node := v.expr.(type) {
-	case *InExpr:
-		return lo.Contains(node.values, row.GetString(node.column.Ref))
-	default:
-		panic(fmt.Errorf("not support,%T", v.expr))
-	}
-}
+// func (v *visitor) eval(record arrow.RecordBatch, row int) bool {
+// 	switch node := v.expr.(type) {
+// 	case *InExpr:
+// 		return lo.Contains(node.values, row.GetString(node.column.Ref))
+// 	default:
+// 		panic(fmt.Errorf("not support,%T", v.expr))
+// 	}
+// }

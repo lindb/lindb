@@ -20,7 +20,9 @@ package operator
 import (
 	"context"
 
-	"github.com/lindb/lindb/spi/types"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+
 	"github.com/lindb/lindb/sql/expression"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
@@ -42,68 +44,61 @@ func NewProjectionOperator(ctx context.Context, project *plan.ProjectionNode, ch
 		ctx:     ctx,
 		project: project,
 		child:   child,
-		inbound: NewQueue(make(chan *types.Page, 1024)),
+		inbound: NewQueue(make(chan arrow.RecordBatch, 1024)),
 	}
 }
 
-func (op *ProjectionOperator) Run(ctx context.Context, output chan<- *types.Page) {
+func (op *ProjectionOperator) Run(ctx context.Context, output chan<- arrow.RecordBatch) {
 	if len(op.exprs) == 0 {
 		op.prepare()
 	}
 
 	for {
-		source, ok := op.inbound.Consume(ctx)
+		record, ok := op.inbound.Consume(ctx)
 		if !ok {
 			break
 		}
-		newPage := types.NewPage()
-		outputColumns := make([]*types.Column, len(op.project.Assignments))
-		for i, assign := range op.project.Assignments {
-			outputColumns[i] = types.NewColumn()
-			newPage.AppendColumn(
-				types.NewColumnInfo(assign.Symbol.Name, assign.Symbol.DataType, assign.Symbol.Hidden, assign.Symbol.AggType),
-				outputColumns[i])
-		}
-		rowNum := 0
+		output <- op.process(record)
+	}
+}
 
-		it := source.Iterator()
-		for row := it.Begin(); row != it.End(); row = it.Next() {
-			for i, expr := range op.exprs {
-				switch expr.GetType() {
-				case types.DTString:
-					val, _, _ := expr.EvalString(row)
-					outputColumns[i].Append(val)
-				case types.DTInt:
-					val, _, _ := expr.EvalInt(row)
-					outputColumns[i].Append(val)
-				case types.DTFloat:
-					val, _, _ := expr.EvalFloat(row)
-					outputColumns[i].Append(val)
-				case types.DTTimeSeries:
-					val, _, _ := expr.EvalTimeSeries(row)
-					outputColumns[i].Append(val)
-				case types.DTTimestamp:
-					val, _, _ := expr.EvalTime(row)
-					outputColumns[i].Append(val)
-				case types.DTDuration:
-					val, _, _ := expr.EvalDuration(row)
-					outputColumns[i].Append(val)
-				case types.DTMap:
-					val, _, _ := expr.EvalMap(row)
-					outputColumns[i].Append(val)
-				case types.DTExemplar:
-					val, _, _ := expr.EvalExemplar(row)
-					outputColumns[i].Append(val)
-				default:
-					panic("projection operator error, unsupport data type:" + expr.GetType().String())
+func (op *ProjectionOperator) process(record arrow.RecordBatch) arrow.RecordBatch {
+	result := make([]arrow.Array, len(op.exprs))
+	success := false
+
+	defer func() {
+		// record.Release()
+		if !success {
+			for _, array := range result {
+				if array != nil {
+					array.Release()
 				}
 			}
-
-			rowNum++
 		}
+	}()
 
-		output <- newPage
+	for i, expr := range op.exprs {
+		array, err := expr.Eval(record)
+		if err != nil {
+			panic(err)
+		}
+		result[i] = array
 	}
+
+	fields := make([]arrow.Field, len(op.project.Assignments))
+	for i, assign := range op.project.Assignments {
+		fields[i] = arrow.Field{
+			Name: assign.Symbol.Name,
+			Type: result[i].DataType(),
+		}
+	}
+
+	// fmt.Println(record)
+	// fmt.Println(result)
+	rs := array.NewRecordBatch(arrow.NewSchema(fields, nil), result, record.NumRows())
+	// fmt.Println(rs)
+	success = true
+	return rs
 }
 
 func (op *ProjectionOperator) GetLayout() []*plan.Symbol {
@@ -114,8 +109,8 @@ func (op *ProjectionOperator) Children() []Operator {
 	return []Operator{op.child}
 }
 
-func (op *ProjectionOperator) GetInbounds() []chan *types.Page {
-	return []chan *types.Page{op.inbound.GetInbound()}
+func (op *ProjectionOperator) GetInbounds() []chan arrow.RecordBatch {
+	return []chan arrow.RecordBatch{op.inbound.GetInbound()}
 }
 
 func (op *ProjectionOperator) String() string {

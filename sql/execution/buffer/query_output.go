@@ -18,7 +18,7 @@
 package buffer
 
 import (
-	"github.com/lindb/lindb/spi/types"
+	"github.com/apache/arrow-go/v18/arrow"
 )
 
 type QueryOutputBuffer struct {
@@ -31,8 +31,9 @@ func NewQueryOutputBuffer(rsBuild *ResultSetBuild) OutputBuffer {
 	}
 }
 
-func (buf *QueryOutputBuffer) AddPage(page *types.Page) {
-	buf.rsBuild.AddPage(page)
+func (buf *QueryOutputBuffer) AddRecord(record arrow.RecordBatch) {
+	// FIXME: buf.rsBuild.AddPage(page)
+	panic("buf.rsBuild.AddPage(page)")
 }
 
 func (buf *QueryOutputBuffer) Complete() {

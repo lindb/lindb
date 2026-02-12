@@ -20,6 +20,8 @@ package types
 import (
 	"math"
 
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/lindb/arrow/pkg/constants"
 	"github.com/lindb/common/pkg/encoding"
 )
 
@@ -52,6 +54,7 @@ const (
 	DTMap
 	// DTExemplar represents exemplar data type.
 	DTExemplar
+	DTBinary
 )
 
 const (
@@ -70,6 +73,42 @@ const (
 	// ATExemplar represents exemplar aggregation type.
 	ATExemplar
 )
+
+func (dt DataType) ToArrowDataType() arrow.DataType {
+	switch dt {
+	case DTString:
+		return arrow.BinaryTypes.String
+	case DTInt:
+		return arrow.PrimitiveTypes.Int64
+	case DTFloat:
+		return arrow.PrimitiveTypes.Float64
+	case DTDuration:
+		return arrow.FixedWidthTypes.Duration_ns
+	case DTTimestamp:
+		return arrow.FixedWidthTypes.Timestamp_ms
+	case DTTimeSeries:
+		return arrow.StructOf(
+			arrow.Field{Name: "timestamp", Type: arrow.FixedWidthTypes.Timestamp_ms},
+			arrow.Field{Name: "value", Type: arrow.PrimitiveTypes.Float64},
+		)
+	case DTJSON:
+		return arrow.BinaryTypes.String
+	case DTDynamic:
+		return arrow.BinaryTypes.String
+	case DTMap:
+		return arrow.MapOf(arrow.BinaryTypes.String, arrow.BinaryTypes.String)
+	case DTExemplar:
+		return arrow.StructOf(
+			arrow.Field{Name: constants.TraceID, Type: &arrow.FixedSizeBinaryType{ByteWidth: 16}},
+			arrow.Field{Name: constants.SpanID, Type: &arrow.FixedSizeBinaryType{ByteWidth: 8}},
+			arrow.Field{Name: constants.Duration, Type: arrow.FixedWidthTypes.Duration_ns},
+		)
+	case DTBinary:
+		return arrow.BinaryTypes.Binary
+	default:
+		panic("unsupported data type")
+	}
+}
 
 func (dt DataType) String() string {
 	switch dt {

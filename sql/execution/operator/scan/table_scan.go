@@ -21,8 +21,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/apache/arrow-go/v18/arrow"
+
 	"github.com/lindb/lindb/spi"
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/operator"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
@@ -39,7 +40,7 @@ func NewTableScanOperator(connector spi.SourceConnector, node *plan.TableScanNod
 	}
 }
 
-func (op *TableScanOperator) Run(ctx context.Context, output chan<- *types.Page) {
+func (op *TableScanOperator) Run(ctx context.Context, output chan<- arrow.RecordBatch) {
 	fmt.Printf("run table scan=%T\n", op.connector)
 	op.connector.Run(output)
 }
@@ -52,7 +53,7 @@ func (op *TableScanOperator) Children() []operator.Operator {
 	return nil
 }
 
-func (op *TableScanOperator) GetInbounds() []chan *types.Page {
+func (op *TableScanOperator) GetInbounds() []chan arrow.RecordBatch {
 	return nil
 }
 

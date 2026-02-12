@@ -18,20 +18,66 @@
 package stream
 
 import (
-	"github.com/lindb/lindb/spi/types"
+	"fmt"
+
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/lindb/roaring"
+	"github.com/samber/lo"
+
 	"github.com/lindb/lindb/sql/tree"
 )
 
-type Expr interface{}
+var empty = roaring.New()
+
+type column struct {
+	name  string
+	index int
+}
+
+type Expr interface {
+	Eval(record arrow.RecordBatch) (*roaring.Bitmap, error)
+}
 
 type ComparisonExpr struct {
-	column types.ColumnMetadata
+	column column
 	value  string
+	// TODO: add operator
+}
+
+func (e *ComparisonExpr) Eval(record arrow.RecordBatch) (*roaring.Bitmap, error) {
+	col := record.Column(e.column.index)
+	values, ok := col.(*array.String)
+	if !ok {
+		return nil, fmt.Errorf("column %s is not string type", e.column.name)
+	}
+	result := roaring.New()
+	for i := 0; i < col.Len(); i++ {
+		if values.Value(i) == e.value {
+			result.Add(uint32(i))
+		}
+	}
+	return result, nil
 }
 
 type InExpr struct {
-	column types.ColumnMetadata
+	column column
 	values []string
+}
+
+func (e *InExpr) Eval(record arrow.RecordBatch) (*roaring.Bitmap, error) {
+	col := record.Column(e.column.index)
+	values, ok := col.(*array.String)
+	if !ok {
+		return nil, fmt.Errorf("column %s is not string type", e.column.name)
+	}
+	result := roaring.New()
+	for i := 0; i < col.Len(); i++ {
+		if lo.Contains(e.values, values.Value(i)) {
+			result.Add(uint32(i))
+		}
+	}
+	return result, nil
 }
 
 type NotExpr struct {

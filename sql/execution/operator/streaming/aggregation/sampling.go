@@ -18,27 +18,24 @@
 package aggregation
 
 import (
+	"fmt"
 	"strings"
 
-	"github.com/lindb/common/models"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/lindb/arrow/pkg/metrics"
 
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/expression"
 )
 
 func newSampllingAggregator(ctx expression.EvalContext, args []expression.Expression) Aggregator {
-	sampling := &samplingAggregator{args: args}
-	for _, arg := range args {
-		argStr := arg.String()
-		switch {
-		case strings.Contains(argStr, "trace"):
-			sampling.traceID = arg
-		case strings.Contains(argStr, "span"):
-			sampling.spanID = arg
-		case strings.Contains(argStr, "duration"):
-			sampling.duration = arg
-		}
+	sampling := &samplingAggregator{
+		args: args,
+		ctx:  ctx,
 	}
+	sampling.indexes.traceID = -1
+	sampling.indexes.spanID = -1
+	sampling.indexes.duration = -1
 	return sampling
 }
 
@@ -46,41 +43,90 @@ type samplingAggregator struct {
 	ctx  expression.EvalContext
 	args []expression.Expression
 
-	traceID  expression.Expression
-	spanID   expression.Expression
-	duration expression.Expression
+	initialized bool
 
-	value *models.Exemplar
+	indexes struct {
+		traceID  int
+		spanID   int
+		duration int
+	}
+
+	traceID  *array.FixedSizeBinary
+	spanID   *array.FixedSizeBinary
+	duration *array.Duration
+
+	value *metrics.Exemplar
 }
 
-func (c *samplingAggregator) Enter(row types.Row) {
-	if c.traceID == nil || c.spanID == nil {
+func (a *samplingAggregator) Initialize(record arrow.RecordBatch) {
+	if !a.initialized {
+		schema := record.Schema()
+		for _, arg := range a.args {
+			argStr := arg.String()
+			fIndexes := schema.FieldIndices(argStr)
+			if len(fIndexes) != 1 {
+				// invalid argument, skip this argument
+				panic(fmt.Sprintf("invalid argument %s, found %d fields", argStr, len(fIndexes)))
+			}
+			switch {
+			case strings.Contains(argStr, "trace"):
+				a.indexes.traceID = fIndexes[0]
+			case strings.Contains(argStr, "span"):
+				a.indexes.spanID = fIndexes[0]
+			case strings.Contains(argStr, "duration"):
+				a.indexes.duration = fIndexes[0]
+			}
+		}
+
+		a.value = &metrics.Exemplar{}
+
+		a.initialized = true
+	}
+	if a.indexes.traceID >= 0 {
+		a.traceID = record.Column(a.indexes.traceID).(*array.FixedSizeBinary)
+	}
+	if a.indexes.spanID >= 0 {
+		a.spanID = record.Column(a.indexes.spanID).(*array.FixedSizeBinary)
+	}
+	if a.indexes.duration >= 0 {
+		a.duration = record.Column(a.indexes.duration).(*array.Duration)
+	}
+}
+
+func (a *samplingAggregator) Enter(record arrow.RecordBatch, row int) {
+	if a.traceID == nil || a.spanID == nil {
 		// invalid exemplar func
 		return
 	}
 	var duration int64
-	if c.duration != nil {
-		d, _, _ := c.duration.EvalDuration(row)
-		duration = d.Nanoseconds()
+	if a.duration != nil {
+		duration = int64(a.duration.Value(row))
 	}
-	if c.value != nil && duration <= c.value.Duration {
+	if a.value.TraceID != nil && duration <= a.value.Duration {
 		return
 	}
-	traceID, _, _ := c.traceID.EvalString(row)
-	spanID, _, _ := c.spanID.EvalString(row)
 
-	if c.value == nil {
-		c.value = &models.Exemplar{}
-	}
-
-	c.value.Duration = duration
-	c.value.TraceID = traceID
-	c.value.SpanID = spanID
+	a.value.Duration = duration
+	a.value.TraceID = a.traceID.Value(row)
+	a.value.SpanID = a.spanID.Value(row)
 }
 
-func (c *samplingAggregator) Flush(column *types.Column) {
-	column.Append(c.value)
+func (a *samplingAggregator) Flush(builder array.Builder) {
+	if a.value == nil || a.value.TraceID == nil {
+		// no valid exemplar, append null value
+		builder.AppendNull()
+		return
+	}
+
+	sb := builder.(*array.StructBuilder)
+	sb.Append(true)
+	traceIDBuilder := sb.FieldBuilder(0).(*array.FixedSizeBinaryBuilder)
+	spanIDBuilder := sb.FieldBuilder(1).(*array.FixedSizeBinaryBuilder)
+	durationBuilder := sb.FieldBuilder(2).(*array.DurationBuilder)
+	traceIDBuilder.Append(a.value.TraceID)
+	spanIDBuilder.Append(a.value.SpanID)
+	durationBuilder.Append(arrow.Duration(a.value.Duration))
 
 	// need reset value after flush
-	c.value = nil
+	a.value.Reset()
 }

@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/lindb/common/pkg/encoding"
 	"go.opentelemetry.io/collector/pdata/ptrace/ptraceotlp"
 
@@ -72,7 +73,7 @@ type sourceConnector struct {
 }
 
 // Run implements spi.SourceConnector.
-func (sc *sourceConnector) Run(output chan<- *types.Page) {
+func (sc *sourceConnector) Run(output chan<- arrow.RecordBatch) {
 	tableScan := sc.buildTableScan()
 	if tableScan == nil {
 		return
@@ -111,7 +112,7 @@ func (sc *sourceConnector) Run(output chan<- *types.Page) {
 		}
 	}
 
-	output <- page
+	// FIXME: output <- page
 }
 
 func (sc *sourceConnector) buildTableScan() *TableScan {

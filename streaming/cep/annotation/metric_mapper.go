@@ -19,18 +19,20 @@ package annotation
 
 import (
 	"bytes"
+	"fmt"
 	"html/template"
 	"time"
 
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/lindb/arrow/pkg/constants"
 	"github.com/lindb/client_go/api"
-	commontmodels "github.com/lindb/common/models"
 	"github.com/lindb/common/pkg/logger"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/collections"
 	tpl "github.com/lindb/lindb/pkg/template"
-	"github.com/lindb/lindb/spi/types"
 )
 
 const (
@@ -45,10 +47,10 @@ type MetricMapper struct {
 
 	nameTpl      *template.Template
 	name         string
-	nameCol      *types.ColumnMetadata
-	timestampCol *types.ColumnMetadata
-	tagCols      []*types.ColumnMetadata
-	fieldCols    []*types.ColumnMetadata
+	nameCol      int
+	timestampCol int
+	tagCols      []int
+	fieldCols    []int
 
 	initialized bool
 
@@ -57,29 +59,31 @@ type MetricMapper struct {
 
 func NewMetricMapper(props *collections.Properties) Mapper {
 	return &MetricMapper{
-		props:  props,
-		logger: logger.GetLogger("CEP", "MetricMapper"),
+		props:        props,
+		nameCol:      -1,
+		timestampCol: -1,
+		logger:       logger.GetLogger("CEP", "MetricMapper"),
 	}
 }
 
 func (m *MetricMapper) Map(event models.Event) models.Event {
-	page, ok := event.(*types.Page)
+	record, ok := event.(arrow.RecordBatch)
 	if !ok {
 		return nil
 	}
 	if !m.initialized {
-		m.initialize(page)
+		m.initialize(record)
 	}
+	fmt.Println(record)
 
-	m.logger.Info("metric mapper...", logger.Any("page", page))
+	m.logger.Info("metric mapper...", logger.Any("page", record))
 
 	var points []*api.Point
-	it := page.Iterator()
-	for row := it.Begin(); row != it.End(); row = it.Next() {
-		point := api.NewPoint(m.getMetricName(row)). // metric name
-								SetTimestamp(m.getTimestamp(row)) // timestamp
-		m.buildTags(row, point)   // tags
-		m.buildFields(row, point) // fields
+	for i := 0; i < int(record.NumRows()); i++ {
+		point := api.NewPoint(m.getMetricName(record, i)). // metric name
+									SetTimestamp(m.getTimestamp(record, i)) // timestamp
+		m.buildTags(record, i, point)   // tags
+		m.buildFields(record, i, point) // fields
 
 		if m.nameTpl != nil {
 			// TODO:: remove tag if be used in metric name template
@@ -105,11 +109,12 @@ func (m *MetricMapper) Map(event models.Event) models.Event {
 	return points
 }
 
-func (m *MetricMapper) initialize(input *types.Page) {
-	layout := make(map[string]*types.ColumnMetadata)
-	for i, col := range input.Layout {
-		col.Ref = i
-		layout[col.Name] = &col
+func (m *MetricMapper) initialize(input arrow.RecordBatch) {
+	layout := make(map[string]arrow.Field)
+	refs := make(map[string]int)
+	for i, col := range input.Schema().Fields() {
+		refs[col.Name] = i
+		layout[col.Name] = col
 	}
 	m.name = m.props.GetStringDefault(metricName, "name")
 
@@ -122,17 +127,17 @@ func (m *MetricMapper) initialize(input *types.Page) {
 	if tpl != nil {
 		m.nameTpl = tpl
 	} else {
-		m.nameCol = layout[m.name]
+		m.nameCol = refs[m.name]
 	}
 
-	m.timestampCol = layout[m.props.GetStringDefault(metricTimestamp, "timestamp")]
+	m.timestampCol = refs[m.props.GetStringDefault(metricTimestamp, "timestamp")]
 	tags, _ := m.props.GetStringSlice(metricTags)
-	m.tagCols = lo.Map(tags, func(tag string, _ int) *types.ColumnMetadata {
-		return layout[tag]
+	m.tagCols = lo.Map(tags, func(tag string, _ int) int {
+		return refs[tag]
 	})
 	fields, _ := m.props.GetStringSlice(metricFields)
-	m.fieldCols = lo.Map(fields, func(field string, _ int) *types.ColumnMetadata {
-		return layout[field]
+	m.fieldCols = lo.Map(fields, func(field string, _ int) int {
+		return refs[field]
 	})
 	m.initialized = true
 
@@ -143,9 +148,9 @@ func (m *MetricMapper) initialize(input *types.Page) {
 		logger.Any("fieldCols", m.fieldCols))
 }
 
-func (m *MetricMapper) getMetricName(row types.Row) string {
-	if m.nameCol != nil {
-		val := row.GetString(m.nameCol.Ref)
+func (m *MetricMapper) getMetricName(record arrow.RecordBatch, row int) string {
+	if m.nameCol != -1 {
+		val := record.Column(m.nameCol).(*array.String).Value(row)
 		if val != "" {
 			return val
 		}
@@ -153,9 +158,9 @@ func (m *MetricMapper) getMetricName(row types.Row) string {
 	return m.name
 }
 
-func (m *MetricMapper) getTimestamp(row types.Row) time.Time {
-	if m.timestampCol != nil {
-		val := row.GetTimestamp(m.timestampCol.Ref)
+func (m *MetricMapper) getTimestamp(record arrow.RecordBatch, row int) time.Time {
+	if m.timestampCol != -1 {
+		val := record.Column(m.timestampCol).(*array.Timestamp).Value(row).ToTime(arrow.Millisecond)
 		if !val.IsZero() {
 			return val
 		}
@@ -164,53 +169,87 @@ func (m *MetricMapper) getTimestamp(row types.Row) time.Time {
 	return time.Now()
 }
 
-func (m *MetricMapper) buildTags(row types.Row, point *api.Point) {
+func (m *MetricMapper) buildTags(record arrow.RecordBatch, row int, point *api.Point) {
 	for _, col := range m.tagCols {
-		if col == nil {
-			continue
-		}
-		switch col.DataType {
-		case types.DTString:
-			val := row.GetString(col.Ref)
+		// TODO: add check -1?
+		// if col == nil {
+		// 	continue
+		// }
+		column := record.Column(col)
+		switch c := column.(type) {
+		case *array.String:
+			val := c.Value(row)
 			if val != "" {
-				point.AddTag(col.Name, val)
+				point.AddTag(record.Schema().Fields()[col].Name, val)
 			}
-		case types.DTMap:
-			val := row.GetMap(col.Ref)
-			for k, v := range val {
-				point.AddTag(k, v)
+		case *array.Map:
+			keys := c.Keys().(*array.String)
+			items := c.Items().(*array.String)
+			offsets := c.Offsets()
+			start, end := offsets[row], offsets[row+1]
+			for i := int(start); i < int(end); i++ {
+				point.AddTag(keys.Value(i), items.Value(i))
 			}
 		}
 	}
 }
 
-func (m *MetricMapper) buildFields(row types.Row, point *api.Point) {
+func (m *MetricMapper) buildFields(record arrow.RecordBatch, row int, point *api.Point) {
 	for _, col := range m.fieldCols {
-		if col == nil {
+		// if col == nil {
+		// 	continue
+		// }
+		column := record.Column(col)
+		field := record.Schema().Field(col)
+		aggType, ok := field.Metadata.GetValue("agg")
+		if !ok {
+			m.logger.Warn("field column missing agg type metadata, skip",
+				logger.Any("column", field.Name))
 			continue
 		}
-		if col.DataType == types.DTExemplar {
-			val, ok := row.Get(col.Ref).(*commontmodels.Exemplar)
-			if ok && val != nil {
-				point.AddField(api.NewExemplar(col.Name, val.TraceID, val.SpanID, val.Duration))
+		switch aggType {
+		case "sum":
+			if c, ok := column.(*array.Float64); ok {
+				val := c.Value(row)
+				point.AddField(api.NewSum(field.Name, val))
 			}
-			continue
+		case "first":
+			if c, ok := column.(*array.Float64); ok {
+				val := c.Value(row)
+				point.AddField(api.NewFirst(field.Name, val))
+			}
+		case "last":
+			if c, ok := column.(*array.Float64); ok {
+				val := c.Value(row)
+				point.AddField(api.NewLast(field.Name, val))
+			}
+		case "min":
+			if c, ok := column.(*array.Float64); ok {
+				val := c.Value(row)
+				point.AddField(api.NewMin(field.Name, val))
+			}
+		case "max":
+			if c, ok := column.(*array.Float64); ok {
+				val := c.Value(row)
+				point.AddField(api.NewMax(field.Name, val))
+			}
+		case "exemplar":
+			if c, ok := column.(*array.Struct); ok {
+				duration, _ := c.DataType().(*arrow.StructType).FieldIdx(constants.Duration)
+				traeID, _ := c.DataType().(*arrow.StructType).FieldIdx(constants.TraceID)
+				spanID, _ := c.DataType().(*arrow.StructType).FieldIdx(constants.SpanID)
+
+				point.AddField(api.NewExemplar(
+					field.Name,
+					string(c.Field(traeID).(*array.FixedSizeBinary).Value(row)),
+					string(c.Field(spanID).(*array.FixedSizeBinary).Value(row)),
+					int64(c.Field(duration).(*array.Duration).Value(row))))
+			}
+		default:
+			m.logger.Warn("unsupported agg type for field column, skip",
+				logger.Any("column", field.Name), logger.Any("aggType", aggType))
 		}
 
-		val := float64(row.GetInt(col.Ref))
-		switch col.AggType {
-		case types.ATSum:
-			point.AddField(api.NewSum(col.Name, val))
-		case types.ATFirst:
-			point.AddField(api.NewFirst(col.Name, val))
-		case types.ATLast:
-			point.AddField(api.NewLast(col.Name, val))
-		case types.ATMin:
-			point.AddField(api.NewMin(col.Name, val))
-		case types.ATMax:
-			point.AddField(api.NewMax(col.Name, val))
-		default:
-			panic("implement me set field based on agg type")
-		}
+		fmt.Println("field column:", record.Schema().Fields()[col].Name, column.DataType())
 	}
 }

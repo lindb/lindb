@@ -18,24 +18,22 @@
 package expression
 
 import (
-	"time"
+	"github.com/apache/arrow-go/v18/arrow"
 
-	"github.com/lindb/common/models"
+	"github.com/lindb/lindb/spi/scalar"
+)
 
-	"github.com/lindb/lindb/spi/types"
+type ResultType int
+
+const (
+	Scalar ResultType = iota
+	Array
 )
 
 type Expression interface {
-	EvalInt(row types.Row) (val int64, isNull bool, err error)
-	EvalString(row types.Row) (val string, isNull bool, err error)
-	EvalFloat(row types.Row) (val float64, isNull bool, err error)
-	EvalDuration(row types.Row) (val time.Duration, isNull bool, err error)
-	EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error)
-	EvalTime(row types.Row) (val time.Time, isNull bool, err error)
-	EvalMap(row types.Row) (val map[string]string, isNull bool, err error)
-	EvalExemplar(row types.Row) (val *models.Exemplar, isNull bool, err error)
-	// Getype returns the data type of the expression returns.
-	GetType() types.DataType
+	Eval(record arrow.RecordBatch) (arrow.Array, error)
+	EvalScalar() (scalar.Scalar, error)
+	ResultType() ResultType
 	// String returns the expression in string format.
 	String() string
 }

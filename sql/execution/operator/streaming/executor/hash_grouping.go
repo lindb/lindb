@@ -21,11 +21,13 @@ import (
 	"context"
 	"strings"
 
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/memory"
+	"github.com/lindb/arrow/pkg/arrow/builder"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/strutil"
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/grouping"
 	"github.com/lindb/lindb/sql/execution/operator/streaming/aggregation"
 	"github.com/lindb/lindb/sql/expression"
@@ -37,10 +39,9 @@ type aggregators []aggregation.Aggregator
 // HashGrouping implements hash-based grouping aggregation for streaming data.
 // It maintains a hash map of groups and their associated aggregators.
 type HashGrouping struct {
-	node          *plan.AggregationNode
-	outputColumns []types.ColumnMetadata
-	sourceLayout  []*plan.Symbol
-	colIdxOfKeys  []int // coloumn index of grouping keys
+	node                 *plan.AggregationNode
+	sourceLayout         []*plan.Symbol
+	colIdxOfGroupingKeys []int // coloumn index of grouping keys
 
 	assignments []*plan.Assignment // assignments of projection
 
@@ -77,35 +78,35 @@ func NewHashGrouping(node *plan.AggregationNode, assignments []*plan.Assignment)
 	}
 
 	exec := &HashGrouping{
-		node:          node,
-		outputColumns: createOutputs(node),
-		sourceLayout:  sourceLayout,
-		colIdxOfKeys:  colIdxOfKeys,
-		assignments:   assignments,
-		grouping:      make(map[string]aggregators),
-		rules:         rules,
-		buf:           grouping.NewBuffer(),
-		mapper:        mapper,
+		node:                 node,
+		sourceLayout:         sourceLayout,
+		colIdxOfGroupingKeys: colIdxOfKeys,
+		assignments:          assignments,
+		grouping:             make(map[string]aggregators),
+		rules:                rules,
+		buf:                  grouping.NewBuffer(),
+		mapper:               mapper,
 	}
 	return exec
 }
 
-// Enter processes an incoming page of data by extracting grouping keys,
+// Enter processes an incoming record of data by extracting grouping keys,
 // computing hash keys, and feeding rows into the appropriate aggregators.
 // Each row is assigned to a group based on its grouping key values.
-func (g *HashGrouping) Enter(page *types.Page) {
-	it := page.Iterator()
-	for row := it.Begin(); row != it.End(); row = it.Next() {
-		for i, colIdx := range g.colIdxOfKeys {
-			val := row.Get(colIdx)
-			g.rules[i].Map(val, g.buf)
+func (g *HashGrouping) Enter(record arrow.RecordBatch) {
+	// fmt.Println(record)
+	numOfRows := int(record.NumRows())
+	for row := range numOfRows {
+		for i, colIdx := range g.colIdxOfGroupingKeys {
+			column := record.Column(colIdx)
+			g.rules[i].Map(column, row, g.buf)
 		}
 
 		data := encoding.U32SliceToBytes(g.buf.GetData())
 		key := strutil.ByteSlice2String(data)
 		aggregators, ok := g.grouping[key]
 		if !ok {
-			aggregators = createAggregators(g.node)
+			aggregators = g.createAggregators(record)
 			// need clone string(key reuse)
 			g.grouping[strings.Clone(key)] = aggregators
 		}
@@ -113,7 +114,7 @@ func (g *HashGrouping) Enter(page *types.Page) {
 		g.buf.Reset()
 
 		for _, agg := range aggregators {
-			agg.Enter(row)
+			agg.Enter(record, row)
 		}
 	}
 }
@@ -121,61 +122,46 @@ func (g *HashGrouping) Enter(page *types.Page) {
 // Leave finalizes the aggregation and outputs the results.
 // It iterates through all groups, reconstructs the grouping key values,
 // flushes the aggregation results, and sends the output page to the channel.
-func (g *HashGrouping) Leave(output chan<- *types.Page) {
+func (g *HashGrouping) Leave(output chan<- arrow.RecordBatch) {
 	// TODO: create new grouping map???
-	newPage := types.NewPage()
-	outputColumns := make([]*types.Column, len(g.outputColumns))
-	for i, column := range g.outputColumns {
-		outputColumns[i] = types.NewColumn()
-		newPage.AppendColumn(column, outputColumns[i])
-	}
+	fields := lo.Map(g.node.GetOutputSymbols(), func(symbol *plan.Symbol, _ int) arrow.Field {
+		return arrow.Field{Name: symbol.Name, Type: symbol.DataType.ToArrowDataType(), Metadata: arrow.NewMetadata([]string{"agg"}, []string{symbol.AggType.String()})}
+	})
+	rb := builder.NewRecordBuilder(memory.DefaultAllocator, arrow.NewSchema(fields, nil))
+	defer rb.Release()
+
+	builders := rb.Fields()
 
 	for key, aggs := range g.grouping {
 		data := encoding.BytesToU32Slice(strutil.String2ByteSlice(key))
 		g.buf.ResetWithData(data)
 
 		outputIndex := 0
-		for i := range g.colIdxOfKeys {
-			val := g.rules[i].Unmap(g.buf)
-			outputColumns[outputIndex].Append(val)
+		for i := range g.colIdxOfGroupingKeys {
+			g.rules[i].Unmap(builders[outputIndex], g.buf)
 			outputIndex++
 		}
 
 		for _, agg := range aggs {
-			agg.Flush(outputColumns[outputIndex])
+			agg.Flush(builders[outputIndex])
 			outputIndex++
 		}
 	}
 
-	output <- newPage
-}
-
-// createOutputs builds the output column metadata for the aggregation result.
-// It includes both the grouping key columns and the aggregation result columns.
-func createOutputs(node *plan.AggregationNode) (columns []types.ColumnMetadata) {
-	for _, key := range node.GroupingSets.GroupingKeys {
-		columns = append(columns, types.NewColumnInfo(key.Name, key.DataType, key.Hidden, key.AggType))
-	}
-
-	for _, agg := range node.Aggregations {
-		// TODO: add aggregation type
-		columns = append(columns,
-			types.NewColumnInfo(agg.Symbol.Name, agg.Symbol.DataType, agg.Symbol.Hidden, agg.Symbol.AggType))
-	}
-	return columns
+	output <- rb.NewRecord()
 }
 
 // createAggregators creates aggregator instances for each aggregation function
 // defined in the aggregation node. Each aggregator is responsible for computing
 // one aggregate function (e.g., SUM, COUNT, AVG).
-func createAggregators(node *plan.AggregationNode) []aggregation.Aggregator {
+func (g *HashGrouping) createAggregators(record arrow.RecordBatch) []aggregation.Aggregator {
 	var aggregators []aggregation.Aggregator
 	ctx := expression.NewEvalContext(context.TODO())
-	for _, agg := range node.Aggregations {
+	for _, agg := range g.node.Aggregations {
 		args := make([]expression.Expression, len(agg.Aggregation.Arguments))
 		for i, arg := range agg.Aggregation.Arguments {
 			args[i] = expression.Rewrite(&expression.RewriteContext{
-				SourceLayout: node.Source.GetOutputSymbols(),
+				SourceLayout: g.node.Source.GetOutputSymbols(),
 				EvalContext:  ctx,
 			}, arg)
 		}
@@ -185,6 +171,7 @@ func createAggregators(node *plan.AggregationNode) []aggregation.Aggregator {
 		if err != nil {
 			panic(err)
 		}
+		aggregator.Initialize(record)
 		aggregators = append(aggregators, aggregator)
 	}
 	// FIXME: check keys==grouping keys

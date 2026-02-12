@@ -150,6 +150,8 @@ func fieldType(field reflect.StructField) types.DataType {
 		return types.DTTimestamp
 	case t == reflect.TypeFor[time.Duration]():
 		return types.DTDuration
+	default:
+		return types.DTBinary
 	}
-	panic("unsupported field type:" + field.Type.Key().String())
+	panic(fmt.Sprintf("unsupported field type:%v", field.Type))
 }

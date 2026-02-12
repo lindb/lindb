@@ -18,8 +18,9 @@
 package log
 
 import (
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/lindb/arrow/pkg/arrow/builder"
 	"github.com/lindb/roaring"
-	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/spi/types"
@@ -28,13 +29,15 @@ import (
 
 type Aggregator interface {
 	Initialize()
-	Aggregate(output chan<- *types.Page)
+	Aggregate(output chan<- arrow.RecordBatch)
+	Close()
 }
 
 type aggregatorByTime struct {
 	source    *sourceConnector
 	tableScan *TableScan
-	page      *types.Page
+
+	rb *builder.RecordBuilder
 
 	statsColumn *types.Column
 	timeColumn  *types.Column
@@ -48,15 +51,15 @@ func newAggregatorByTime(source *sourceConnector, tableScan *TableScan) Aggregat
 }
 
 func (agg *aggregatorByTime) Initialize() {
-	agg.page = types.NewPage()
-	agg.timeColumn = types.NewColumn()
-	agg.page.AppendColumn(types.ColumnMetadata{DataType: types.DTTimestamp, Name: "timestamp", Hidden: true},
-		agg.timeColumn)
-	agg.statsColumn = types.NewColumn()
-	agg.page.AppendColumn(types.ColumnMetadata{DataType: types.DTTimeSeries, Name: "count"}, agg.statsColumn)
+	// agg.page = types.NewPage()
+	// agg.timeColumn = types.NewColumn()
+	// agg.page.AppendColumn(types.ColumnMetadata{DataType: types.DTTimestamp, Name: "timestamp", Hidden: true},
+	// 	agg.timeColumn)
+	// agg.statsColumn = types.NewColumn()
+	// agg.page.AppendColumn(types.ColumnMetadata{DataType: types.DTTimeSeries, Name: "count"}, agg.statsColumn)
 }
 
-func (agg *aggregatorByTime) Aggregate(output chan<- *types.Page) {
+func (agg *aggregatorByTime) Aggregate(output chan<- arrow.RecordBatch) {
 	timeseries := types.NewTimeSeries(agg.tableScan.timeRange, timeutil.Interval(60_000))
 	agg.source.findLogs(agg.tableScan, func(segment *logstore.Segment, logIDs *roaring.Bitmap) bool {
 		segment.FindLogIDsByTimeRange(agg.tableScan.timeRange, func(timestamp int64, logIDsFromStore *roaring.Bitmap) {
@@ -69,13 +72,19 @@ func (agg *aggregatorByTime) Aggregate(output chan<- *types.Page) {
 	})
 	agg.statsColumn.Append(timeseries)
 
-	output <- agg.page
+	record := agg.rb.NewRecord()
+	output <- record
+}
+
+func (agg *aggregatorByTime) Close() {
+	agg.rb.Release()
 }
 
 type aggregatorByField struct {
 	source    *sourceConnector
 	tableScan *TableScan
-	page      *types.Page
+
+	rb *builder.RecordBuilder
 
 	statsColumn *types.Column
 	fieldColumn *types.Column
@@ -93,26 +102,26 @@ func newAggregatorByField(source *sourceConnector, tableScan *TableScan) Aggrega
 }
 
 func (agg *aggregatorByField) Initialize() {
-	agg.page = types.NewPage()
-	agg.statsColumn = types.NewColumn()
-	agg.fieldColumn = types.NewColumn()
-	_, index, ok := lo.FindIndexOf(agg.source.outputColumns, func(item types.ColumnMetadata) bool {
-		return item.DataType == types.DTDynamic
-	})
-	if !ok {
-		agg.page.AppendColumn(types.ColumnMetadata{DataType: types.DTTimeSeries, Name: "count"}, agg.statsColumn)
-		return
-	}
-	if index > 0 {
-		agg.page.AppendColumn(types.ColumnMetadata{DataType: types.DTTimeSeries, Name: "count"}, agg.statsColumn)
-		agg.page.AppendColumn(types.ColumnMetadata{DataType: types.DTDynamic, Name: agg.fields[0]}, agg.fieldColumn)
-	} else {
-		agg.page.AppendColumn(types.ColumnMetadata{DataType: types.DTDynamic, Name: agg.fields[0]}, agg.fieldColumn)
-		agg.page.AppendColumn(types.ColumnMetadata{DataType: types.DTTimeSeries, Name: "count"}, agg.statsColumn)
-	}
+	// agg.page = types.NewPage()
+	// agg.statsColumn = types.NewColumn()
+	// agg.fieldColumn = types.NewColumn()
+	// _, index, ok := lo.FindIndexOf(agg.source.outputColumns, func(item types.ColumnMetadata) bool {
+	// 	return item.DataType == types.DTDynamic
+	// })
+	// if !ok {
+	// 	agg.page.AppendColumn(types.ColumnMetadata{DataType: types.DTTimeSeries, Name: "count"}, agg.statsColumn)
+	// 	return
+	// }
+	// if index > 0 {
+	// 	agg.page.AppendColumn(types.ColumnMetadata{DataType: types.DTTimeSeries, Name: "count"}, agg.statsColumn)
+	// 	agg.page.AppendColumn(types.ColumnMetadata{DataType: types.DTDynamic, Name: agg.fields[0]}, agg.fieldColumn)
+	// } else {
+	// 	agg.page.AppendColumn(types.ColumnMetadata{DataType: types.DTDynamic, Name: agg.fields[0]}, agg.fieldColumn)
+	// 	agg.page.AppendColumn(types.ColumnMetadata{DataType: types.DTTimeSeries, Name: "count"}, agg.statsColumn)
+	// }
 }
 
-func (agg *aggregatorByField) Aggregate(output chan<- *types.Page) {
+func (agg *aggregatorByField) Aggregate(output chan<- arrow.RecordBatch) {
 	stats := uint64(0)
 	rows := 0
 	var grouping map[string][]uint32
@@ -147,5 +156,10 @@ func (agg *aggregatorByField) Aggregate(output chan<- *types.Page) {
 		agg.statsColumn.Append(types.NewTimeSeriesWithSingleValue(float64(stats)))
 	}
 
-	output <- agg.page
+	record := agg.rb.NewRecord()
+	output <- record
+}
+
+func (agg *aggregatorByField) Close() {
+	agg.rb.Release()
 }

@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/lindb/common/pkg/encoding"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -29,7 +30,6 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/utils"
 	protoCommandV1 "github.com/lindb/lindb/proto/gen/v1/command"
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/buffer"
 	"github.com/lindb/lindb/sql/execution/model"
 	"github.com/lindb/lindb/sql/execution/pipeline"
@@ -168,7 +168,7 @@ func (exec *DMLExecution) execute(fragmentedPlan *plan.SubPlan, output buffer.Ou
 		go func() {
 			// TODO: handle panic
 			if fragment.ParentNode == nil {
-				outputCh := make(chan *types.Page)
+				outputCh := make(chan arrow.RecordBatch)
 				// execute task under current node if it has no parent
 				defer func() {
 					close(outputCh)
@@ -187,13 +187,13 @@ func (exec *DMLExecution) execute(fragmentedPlan *plan.SubPlan, output buffer.Ou
 					Database:    session.Database,
 				})
 				go func() {
-					for page := range outputCh {
-						output.AddPage(page)
+					for record := range outputCh {
+						output.AddRecord(record)
 					}
 					output.Complete()
 				}()
 				if err := taskExec.Execute(outputCh); err != nil {
-					output.AddPage(&types.Page{Error: err.Error()})
+					// FIXME: output.AddPage(&types.Page{Error: err.Error()})
 				}
 			} else {
 				// execute task under remote node, send fragment to remote execution node

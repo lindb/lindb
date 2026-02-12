@@ -18,73 +18,43 @@
 package expression
 
 import (
-	"time"
+	"github.com/apache/arrow-go/v18/arrow"
 
-	"github.com/lindb/common/models"
-
-	"github.com/lindb/lindb/spi/types"
+	"github.com/lindb/lindb/spi/scalar"
 	"github.com/lindb/lindb/sql/tree"
 )
 
-type baseFunc struct {
-	ctx  EvalContext
-	args []Expression
-}
-
-func (*baseFunc) EvalInt(row types.Row) (val int64, isNull bool, err error) {
-	panic("implement me")
-}
-
-func (*baseFunc) EvalFloat(row types.Row) (val float64, isNull bool, err error) {
-	panic("implement me")
-}
-
-func (*baseFunc) EvalString(row types.Row) (val string, isNull bool, err error) {
-	panic("implement me")
-}
-
-func (*baseFunc) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error) {
-	panic("implement me")
-}
-
-func (*baseFunc) EvalDuration(row types.Row) (val time.Duration, isNull bool, err error) {
-	panic("implement me")
-}
-
-func (*baseFunc) EvalTime(row types.Row) (val time.Time, isNull bool, err error) {
-	panic("implement me")
-}
-
-func (*baseFunc) EvalMap(row types.Row) (val map[string]string, isNull bool, err error) {
-	panic("implement me")
-}
-
-func (*baseFunc) EvalExemplar(row types.Row) (val *models.Exemplar, isNull bool, err error) {
-	panic("implement me")
-}
-
 type Func interface {
-	EvalInt(row types.Row) (val int64, isNull bool, err error)
-	EvalFloat(row types.Row) (val float64, isNull bool, err error)
-	EvalString(row types.Row) (val string, isNull bool, err error)
-	EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error)
-	EvalDuration(row types.Row) (val time.Duration, isNull bool, err error)
-	EvalTime(row types.Row) (val time.Time, isNull bool, err error)
-	EvalMap(row types.Row) (val map[string]string, isNull bool, err error)
-	EvalExemplar(row types.Row) (val *models.Exemplar, isNull bool, err error)
+	EvalScalar() (scalar.Scalar, error)
+	Eval(record arrow.RecordBatch) (arrow.Array, error)
 }
 
 type NewFunc = func(ctx EvalContext, args []Expression) Func
 
 // IsFuncSupported check if given function name is supported.
 var funcs = map[tree.FuncName]NewFunc{
-	tree.Plus:  newArithmeticPlusFunc,
-	tree.Minus: newArithmeticMinusFunc,
-	tree.Mul:   newArithmeticMulFunc,
-	tree.Div:   newArithmeticDivFunc,
-	tree.Mod:   newArithmeticModFunc,
+	tree.Plus: func(ctx EvalContext, args []Expression) Func {
+		return newArithmeticFunc(ctx, "plus", args)
+	},
+	tree.Minus: func(ctx EvalContext, args []Expression) Func {
+		return newArithmeticFunc(ctx, "minus", args)
+	},
+	tree.Mul: func(ctx EvalContext, args []Expression) Func {
+		return newArithmeticFunc(ctx, "mul", args)
+	},
+	tree.Div: func(ctx EvalContext, args []Expression) Func {
+		return newArithmeticFunc(ctx, "div", args)
+	},
+	tree.Mod: func(ctx EvalContext, args []Expression) Func {
+		return newArithmeticFunc(ctx, "mod", args)
+	},
+	tree.Sum: func(ctx EvalContext, args []Expression) Func {
+		return newArithmeticFunc(ctx, "plus", args)
+	},
+	tree.Count: func(ctx EvalContext, args []Expression) Func {
+		return newArithmeticFunc(ctx, "plus", args)
+	},
 
-	tree.Count:    newArithmeticPlusFunc,
 	tree.Sampling: newSamplingFunc, // NOTE: just pass check function if exists
 
 	// time functions

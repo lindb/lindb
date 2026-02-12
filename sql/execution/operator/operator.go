@@ -20,22 +20,23 @@ package operator
 import (
 	"context"
 
-	"github.com/lindb/lindb/spi/types"
+	"github.com/apache/arrow-go/v18/arrow"
+
 	"github.com/lindb/lindb/sql/planner/plan"
 )
 
 type Operator interface {
-	Run(ctx context.Context, output chan<- *types.Page)
+	Run(ctx context.Context, output chan<- arrow.RecordBatch)
 	// GetLayout returns the output layout.
 	GetLayout() []*plan.Symbol
 	Children() []Operator
-	GetInbounds() []chan *types.Page
+	GetInbounds() []chan arrow.RecordBatch
 	String() string
 }
 
 type SourceOperator interface {
 	Operator
 	GetSourceID() plan.PlanNodeID
-	Receive(page *types.Page)
+	Receive(record arrow.RecordBatch)
 	Complete()
 }

@@ -23,10 +23,10 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/spi/types"
 	sqlContext "github.com/lindb/lindb/sql/context"
 	"github.com/lindb/lindb/sql/planner"
 )
@@ -68,7 +68,7 @@ type TaskExecution struct {
 	logger logger.Logger
 }
 
-func (exe *TaskExecution) Execute(output chan<- *types.Page) error {
+func (exe *TaskExecution) Execute(output chan<- arrow.RecordBatch) error {
 	pipelines := exe.plan.GetPipelines()
 	var wait sync.WaitGroup
 	wait.Add(len(pipelines))

@@ -103,15 +103,11 @@ func (task *CreateDatabaseTask) buildDatabase(
 }
 
 func (task *CreateDatabaseTask) evalPropsExpression(evalCtx expression.EvalContext, props []*tree.Property, result any) error {
-	values := make(map[string]any)
-	for _, prop := range props {
-		val, err := expression.Eval(evalCtx, prop.Value)
-		if err != nil {
-			return err
-		}
-		values[prop.Name.Value] = val
+	properties, err := expression.EvalProps(evalCtx, props)
+	if err != nil {
+		return err
 	}
-	data := encoding.JSONMarshal(values)
+	data := encoding.JSONMarshal(properties.Values())
 	if err := encoding.JSONUnmarshal(data, result); err != nil {
 		return err
 	}

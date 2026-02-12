@@ -21,7 +21,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/lindb/lindb/spi/types"
+	"github.com/apache/arrow-go/v18/arrow"
+
 	"github.com/lindb/lindb/sql/execution/operator"
 	"github.com/lindb/lindb/sql/execution/operator/streaming/executor"
 	"github.com/lindb/lindb/sql/planner/plan"
@@ -44,12 +45,12 @@ func NewTimeWindowOperator(node plan.PlanNode, executor executor.Executor, child
 		node:     node,
 		executor: executor,
 		child:    child,
-		inbound:  operator.NewQueue(make(chan *types.Page, 1024)),
+		inbound:  operator.NewQueue(make(chan arrow.RecordBatch, 1024)),
 		ticker:   ticker,
 	}
 }
 
-func (t *TimeWindowOperator) Run(ctx context.Context, output chan<- *types.Page) {
+func (t *TimeWindowOperator) Run(ctx context.Context, output chan<- arrow.RecordBatch) {
 	defer t.ticker.Stop()
 
 	for {
@@ -73,8 +74,8 @@ func (t *TimeWindowOperator) Children() []operator.Operator {
 	return []operator.Operator{t.child}
 }
 
-func (t *TimeWindowOperator) GetInbounds() []chan *types.Page {
-	return []chan *types.Page{t.inbound.GetInbound()}
+func (t *TimeWindowOperator) GetInbounds() []chan arrow.RecordBatch {
+	return []chan arrow.RecordBatch{t.inbound.GetInbound()}
 }
 
 func (t *TimeWindowOperator) String() string {

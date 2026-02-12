@@ -23,10 +23,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/apache/arrow-go/v18/arrow"
+
 	"github.com/lindb/lindb/internal/concurrent"
 	"github.com/lindb/lindb/internal/linmetric"
 	"github.com/lindb/lindb/metrics"
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/buffer"
 	"github.com/lindb/lindb/sql/execution/model"
 	"github.com/lindb/lindb/sql/planner/plan"
@@ -115,24 +116,25 @@ func (mgr *taskManager) dispatchTask() {
 				fct := NewTaskExecutionFactory()
 				exec := fct.Create(context.Background(), task) // TODO:
 
-				outputCh := make(chan *types.Page)
+				outputCh := make(chan arrow.RecordBatch)
 				defer func() {
 					close(outputCh)
 				}()
 
 				go func() {
-					for page := range outputCh {
+					for record := range outputCh {
 						// TODO: can merge page?
-						output.AddPage(page)
+						output.AddRecord(record)
 					}
 					output.Complete()
 				}()
 
 				if err := exec.Execute(outputCh); err != nil {
-					output.AddPage(&types.Page{Error: err.Error()})
+					// FIXME: output.AddRecord(&types.Page{Error: err.Error()})
 				}
 			}, func(err error) {
-				output.AddPage(&types.Page{Error: err.Error()})
+				// output.Add&types.Page{Error: err.Error()})
+				// FIXME: output.AddRecord(&types.Page{Error: err.Error()})
 			}))
 		case <-mgr.ctx.Done():
 			return

@@ -20,7 +20,8 @@ package operator
 import (
 	"context"
 
-	"github.com/lindb/lindb/spi/types"
+	"github.com/apache/arrow-go/v18/arrow"
+
 	"github.com/lindb/lindb/sql/planner/plan"
 )
 
@@ -35,11 +36,11 @@ func NewHashAggregationOperator(node *plan.AggregationNode, child Operator) Oper
 	return &HashAggregationOperator{
 		child:   child,
 		node:    node,
-		inbound: NewQueue(make(chan *types.Page)),
+		inbound: NewQueue(make(chan arrow.RecordBatch)),
 	}
 }
 
-func (h *HashAggregationOperator) Run(ctx context.Context, output chan<- *types.Page) {
+func (h *HashAggregationOperator) Run(ctx context.Context, output chan<- arrow.RecordBatch) {
 	for {
 		source, ok := h.inbound.Consume(ctx)
 		if !ok {
@@ -57,8 +58,8 @@ func (h *HashAggregationOperator) Children() []Operator {
 	return []Operator{h.child}
 }
 
-func (h *HashAggregationOperator) GetInbounds() []chan *types.Page {
-	return []chan *types.Page{h.inbound.GetInbound()}
+func (h *HashAggregationOperator) GetInbounds() []chan arrow.RecordBatch {
+	return []chan arrow.RecordBatch{h.inbound.GetInbound()}
 }
 
 func (h *HashAggregationOperator) String() string {

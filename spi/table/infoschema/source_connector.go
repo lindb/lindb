@@ -20,8 +20,11 @@ package infoschema
 import (
 	"context"
 	"fmt"
-	"time"
 
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/memory"
+	"github.com/lindb/arrow/pkg/arrow/builder"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/meta"
@@ -66,6 +69,8 @@ type sourceConnector struct {
 	predicate     tree.Expression
 	outputColumns []types.ColumnMetadata
 	colIdxs       []int
+
+	rb *builder.RecordBuilder
 }
 
 func (p *sourceConnector) open() {
@@ -78,56 +83,69 @@ func (p *sourceConnector) open() {
 		panic(fmt.Errorf("information table schema not found: %s", infoTable.Table))
 	}
 	p.colIdxs = make([]int, len(p.outputColumns))
+	fields := make([]arrow.Field, len(p.outputColumns))
 	for i, col := range p.outputColumns {
 		if _, idx, exist := lo.FindIndexOf(schema.Columns, func(item types.ColumnMetadata) bool {
 			return item.Name == col.Name
 		}); exist {
 			p.colIdxs[i] = idx
+			var dataType arrow.DataType
+			switch col.DataType {
+			case types.DTString:
+				dataType = arrow.BinaryTypes.String
+			case types.DTFloat:
+				dataType = arrow.PrimitiveTypes.Float64
+			case types.DTInt:
+				dataType = arrow.PrimitiveTypes.Int64
+			case types.DTTimestamp:
+				dataType = arrow.FixedWidthTypes.Timestamp_ms
+			case types.DTDuration:
+				dataType = arrow.FixedWidthTypes.Duration_ms
+			default:
+				panic(fmt.Sprintf("unsupported column data type: %s", col.DataType))
+			}
+			fields[i] = arrow.Field{Name: col.Name, Type: dataType}
 		}
 	}
 	if len(p.colIdxs) != len(p.outputColumns) {
-		// FIXME: add panic?
-		return
+		panic("output columns not found in table schema")
 	}
-
+	p.rb = builder.NewRecordBuilder(memory.NewGoAllocator(), arrow.NewSchema(fields, nil))
 	p.tableHandle = infoTable
 }
 
-func (p *sourceConnector) Run(output chan<- *types.Page) {
+func (p *sourceConnector) Run(output chan<- arrow.RecordBatch) {
+	defer func() {
+		if p.rb != nil {
+			p.rb.Release()
+		}
+	}()
+
 	p.open()
+
 	rows, err := p.reader.ReadData(p.ctx, p.tableHandle, p.predicate)
 	if err != nil {
 		panic(err)
 	}
-	page := types.NewPage()
-	var columns []*types.Column
-	outputs := make(map[string]int)
-	for idx, output := range p.outputColumns {
-		column := types.NewColumn()
-		page.AppendColumn(output, column)
-		columns = append(columns, column)
-		outputs[output.Name] = idx
-	}
 	colIdxs := p.colIdxs
+	fields := p.rb.Fields()
 	for _, row := range rows {
-		for idx, col := range columns {
-			switch p.outputColumns[idx].DataType {
-			case types.DTString:
+		for idx, field := range fields {
+			switch col := field.(type) {
+			case *array.StringBuilder:
 				col.Append(row[colIdxs[idx]].String())
-			case types.DTFloat:
+			case *array.Float64Builder:
 				col.Append(row[colIdxs[idx]].Float())
-			case types.DTInt:
+			case *array.Int64Builder:
 				col.Append(row[colIdxs[idx]].Int())
-			case types.DTTimestamp:
-				col.Append(time.UnixMilli(row[colIdxs[idx]].Int()))
-			case types.DTDuration:
-				col.Append(row[colIdxs[idx]].Duration())
+			case *array.TimestampBuilder:
+				col.Append(arrow.Timestamp(row[colIdxs[idx]].Int()))
+			case *array.DurationBuilder:
+				col.Append(arrow.Duration(row[colIdxs[idx]].Duration().Milliseconds()))
 			}
 		}
 	}
 
 	// send result set
-	output <- page
-
-	// close(output)
+	output <- p.rb.NewRecord()
 }

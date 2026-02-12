@@ -18,10 +18,10 @@
 package buffer
 
 import (
-	"github.com/lindb/lindb/spi/types"
+	"github.com/apache/arrow-go/v18/arrow"
 )
 
 type OutputBuffer interface {
-	AddPage(page *types.Page)
+	AddRecord(record arrow.RecordBatch)
 	Complete()
 }

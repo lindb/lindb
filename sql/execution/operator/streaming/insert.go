@@ -20,7 +20,8 @@ package streaming
 import (
 	"context"
 
-	"github.com/lindb/lindb/spi/types"
+	"github.com/apache/arrow-go/v18/arrow"
+
 	"github.com/lindb/lindb/sql/execution/operator"
 	"github.com/lindb/lindb/sql/expression"
 	"github.com/lindb/lindb/sql/planner/plan"
@@ -41,11 +42,11 @@ func NewInsertOperator(ctx context.Context, insert *plan.InsertNode, child opera
 		ctx:     ctx,
 		insert:  insert,
 		child:   child,
-		inbound: operator.NewQueue(make(chan *types.Page, 256)),
+		inbound: operator.NewQueue(make(chan arrow.RecordBatch, 256)),
 	}
 }
 
-func (op *InsertOperator) Run(ctx context.Context, output chan<- *types.Page) {
+func (op *InsertOperator) Run(ctx context.Context, output chan<- arrow.RecordBatch) {
 	streamName := op.insert.Table.Name.Name
 	// FIXME: get app from context
 	inputHandle := input.GetManager().GetInputHandler(op.insert.Database, streamName)
@@ -66,8 +67,8 @@ func (op *InsertOperator) Children() []operator.Operator {
 	return []operator.Operator{op.child}
 }
 
-func (op *InsertOperator) GetInbounds() []chan *types.Page {
-	return []chan *types.Page{op.inbound.GetInbound()}
+func (op *InsertOperator) GetInbounds() []chan arrow.RecordBatch {
+	return []chan arrow.RecordBatch{op.inbound.GetInbound()}
 }
 
 func (op *InsertOperator) String() string {

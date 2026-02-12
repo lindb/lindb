@@ -83,7 +83,7 @@ var defaultFuncReturnTypes = map[FuncName]types.DataType{
 }
 
 var streamingFuncReturnTypes = map[FuncName]types.DataType{
-	Count: types.DTInt,
+	Count: types.DTFloat,
 }
 
 var defaultFuncAggTypes = map[FuncName]types.AggregateType{

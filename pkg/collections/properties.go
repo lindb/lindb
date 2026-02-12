@@ -86,3 +86,7 @@ func (p *Properties) GetStringSlice(key string) ([]string, bool) {
 	}
 	return nil, false
 }
+
+func (p *Properties) Values() map[string]any {
+	return p.data
+}

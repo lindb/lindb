@@ -21,7 +21,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/lindb/lindb/spi/types"
+	"github.com/apache/arrow-go/v18/arrow"
+
 	sqlContext "github.com/lindb/lindb/sql/context"
 	"github.com/lindb/lindb/sql/execution/operator"
 )
@@ -38,7 +39,7 @@ func NewPipeline(taskCtx *sqlContext.TaskContext, root operator.Operator) *Pipel
 	}
 }
 
-func (p *Pipeline) Run(output chan<- *types.Page) {
+func (p *Pipeline) Run(output chan<- arrow.RecordBatch) {
 	fmt.Printf("run pipeline, root=>\n%s\n", renderText(p.root))
 
 	p.execOperator(p.taskCtx.Context, p.root, true, output)
@@ -49,7 +50,7 @@ func (p *Pipeline) Run(output chan<- *types.Page) {
 func (p *Pipeline) execOperator(ctx context.Context,
 	op operator.Operator,
 	exclude bool,
-	output chan<- *types.Page,
+	output chan<- arrow.RecordBatch,
 ) {
 	children := op.Children()
 	inbounds := op.GetInbounds()

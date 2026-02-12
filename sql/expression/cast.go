@@ -21,43 +21,53 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/lindb/common/models"
 
+	"github.com/lindb/lindb/spi/scalar"
 	"github.com/lindb/lindb/spi/types"
 )
 
 type Cast struct {
-	function Func
-	arg      Expression
-	retType  types.DataType
+	// function Func
+	arg     Expression
+	retType types.DataType
 }
 
 func NewCast(ctx EvalContext, retType types.DataType, arg Expression) Expression {
 	return &Cast{
 		retType: retType,
 		arg:     arg,
-		function: &castFunc{
-			baseFunc: baseFunc{ctx: ctx, args: []Expression{arg}},
-		},
+		// function: &castFunc{
+		// 	baseFunc: baseFunc{ctx: ctx, args: []Expression{arg}},
+		// },
 	}
 }
 
-// EvalString implements Expression.
-func (c *Cast) EvalString(row types.Row) (val string, isNull bool, err error) {
-	panic("unimplemented")
+func (c *Cast) EvalScalar() (scalar.Scalar, error) {
+	panic("cast is not supported in scalar execution")
 }
 
-func (c *Cast) EvalInt(row types.Row) (val int64, isNull bool, err error) {
-	return c.function.EvalInt(row)
+func (c *Cast) Eval(record arrow.RecordBatch) (arrow.Array, error) {
+	panic("cast is not supported in vectorized execution")
 }
 
-func (c *Cast) EvalFloat(row types.Row) (val float64, isNull bool, err error) {
-	return c.function.EvalFloat(row)
-}
-
-func (c *Cast) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error) {
-	return c.function.EvalTimeSeries(row)
-}
+// // EvalString implements Expression.
+// func (c *Cast) EvalString(row types.Row) (val string, isNull bool, err error) {
+// 	panic("unimplemented")
+// }
+//
+// func (c *Cast) EvalInt(row types.Row) (val int64, isNull bool, err error) {
+// 	return c.function.EvalInt(row)
+// }
+//
+// func (c *Cast) EvalFloat(row types.Row) (val float64, isNull bool, err error) {
+// 	return c.function.EvalFloat(row)
+// }
+//
+// func (c *Cast) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error) {
+// 	return c.function.EvalTimeSeries(row)
+// }
 
 func (c *Cast) EvalDuration(row types.Row) (val time.Duration, isNull bool, err error) {
 	return
@@ -75,52 +85,56 @@ func (c *Cast) EvalExemplar(_ types.Row) (val *models.Exemplar, isNull bool, err
 	return
 }
 
-// GetType implements Expression.
-func (c *Cast) GetType() types.DataType {
-	return c.retType
+func (c *Cast) ResultType() ResultType {
+	return Array
 }
 
 func (c *Cast) String() string {
 	return fmt.Sprintf("CAST(%s as %s)", c.arg.String(), c.retType)
 }
 
-type castFunc struct {
-	baseFunc
-}
-
-func (f *castFunc) EvalInt(row types.Row) (val int64, isNull bool, err error) {
-	lv, _, _ := f.args[0].EvalInt(row)
-	return lv, false, nil
-}
-
-// EvalFloat implements Func.
-func (f *castFunc) EvalFloat(row types.Row) (val float64, isNull bool, err error) {
-	return
-}
-
-// EvalTimeSeries evaluates the expression, cast result to types.TimeSeries type.
-func (f *castFunc) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error) {
-	switch f.args[0].GetType() {
-	case types.DTInt:
-		val, isNull, err := f.args[0].EvalInt(row)
-		if err != nil {
-			return nil, false, err
-		}
-		if isNull {
-			return nil, true, nil
-		}
-		return types.NewTimeSeriesWithSingleValue(float64(val)), false, nil
-	case types.DTFloat:
-		val, isNull, err := f.args[0].EvalFloat(row)
-		if err != nil {
-			return nil, false, err
-		}
-		if isNull {
-			return nil, true, nil
-		}
-		return types.NewTimeSeriesWithSingleValue(val), false, nil
-	case types.DTTimeSeries:
-		return f.args[0].EvalTimeSeries(row)
-	}
-	return
-}
+//
+// type castFunc struct {
+// 	baseFunc
+// }
+//
+// func (f *castFunc) Eval(record arrow.RecordBatch) (arrow.Array, error) {
+// 	return f.args[0].Eval(record)
+// }
+//
+// func (f *castFunc) EvalInt(row types.Row) (val int64, isNull bool, err error) {
+// 	lv, _, _ := f.args[0].EvalInt(row)
+// 	return lv, false, nil
+// }
+//
+// // EvalFloat implements Func.
+// func (f *castFunc) EvalFloat(row types.Row) (val float64, isNull bool, err error) {
+// 	return
+// }
+//
+// // EvalTimeSeries evaluates the expression, cast result to types.TimeSeries type.
+// func (f *castFunc) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error) {
+// 	switch f.args[0].GetType() {
+// 	case types.DTInt:
+// 		val, isNull, err := f.args[0].EvalInt(row)
+// 		if err != nil {
+// 			return nil, false, err
+// 		}
+// 		if isNull {
+// 			return nil, true, nil
+// 		}
+// 		return types.NewTimeSeriesWithSingleValue(float64(val)), false, nil
+// 	case types.DTFloat:
+// 		val, isNull, err := f.args[0].EvalFloat(row)
+// 		if err != nil {
+// 			return nil, false, err
+// 		}
+// 		if isNull {
+// 			return nil, true, nil
+// 		}
+// 		return types.NewTimeSeriesWithSingleValue(val), false, nil
+// 	case types.DTTimeSeries:
+// 		return f.args[0].EvalTimeSeries(row)
+// 	}
+// 	return
+// }

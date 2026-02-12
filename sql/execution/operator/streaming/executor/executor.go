@@ -17,9 +17,11 @@
 
 package executor
 
-import "github.com/lindb/lindb/spi/types"
+import (
+	"github.com/apache/arrow-go/v18/arrow"
+)
 
 type Executor interface {
-	Enter(page *types.Page)
-	Leave(output chan<- *types.Page)
+	Enter(record arrow.RecordBatch)
+	Leave(output chan<- arrow.RecordBatch)
 }
