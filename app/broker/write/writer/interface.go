@@ -35,20 +35,20 @@ type Database interface {
 	LeaderChanged(shards map[models.ShardID]models.ShardState, liveNodes map[models.NodeID]models.StatefulNode)
 }
 
-type DatabaseAccessor[V any] interface {
+type DatabaseAccessor[V larrow.EntryType] interface {
 	Database
 	Name() string
 	GetShards() []Shard[V]
 }
 
-type Shard[V any] interface {
+type Shard[V larrow.EntryType] interface {
 	ID() models.ShardID
 	GetDatabase() DatabaseAccessor[V]
 	GetOrCreateSegment(segmentTime int64, builder func() larrow.EntryBuilder[V]) Segment[V]
 	LeaderChanged(shardState models.ShardState, liveNodes map[models.NodeID]models.StatefulNode)
 }
 
-type Segment[V any] interface {
+type Segment[V larrow.EntryType] interface {
 	Write(ctx context.Context, entry V)
 	LeaderChanged(shardState models.ShardState, liveNodes map[models.NodeID]models.StatefulNode)
 	Close()

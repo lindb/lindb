@@ -24,6 +24,7 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/memory"
 	larrow "github.com/lindb/arrow/pkg/arrow"
 	"github.com/lindb/arrow/pkg/logs"
+	"github.com/lindb/arrow/pkg/model"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/plog/plogotlp"
 
@@ -35,14 +36,14 @@ import (
 
 type writer struct {
 	ctx          context.Context
-	database     writerpkg.DatabaseAccessor[*logs.Log]
+	database     writerpkg.DatabaseAccessor[*model.Log]
 	intervalCalc timeutil.IntervalCalculator
 }
 
 func NewWriter(
 	ctx context.Context,
 	databaseCfg models.Database,
-	database writerpkg.DatabaseAccessor[*logs.Log],
+	database writerpkg.DatabaseAccessor[*model.Log],
 ) *writer {
 	// TODO: need validation
 	sort.Sort(databaseCfg.Option.Intervals)
@@ -54,8 +55,8 @@ func NewWriter(
 	}
 }
 
-func (c *writer) Write(ctx context.Context, data []byte, encoding constants.EncodingType) error {
-	shards := c.database.GetShards()
+func (w *writer) Write(ctx context.Context, data []byte, encoding constants.EncodingType) error {
+	shards := w.database.GetShards()
 	numOfShards := uint64(len(shards))
 	if numOfShards == 0 {
 		return constants.ErrNoAvailableStorageNode
@@ -79,7 +80,7 @@ func (c *writer) Write(ctx context.Context, data []byte, encoding constants.Enco
 			// iterate log records
 			for k := range lrs.Len() {
 				lr := lrs.At(k)
-				log := logs.GetLog()
+				log := model.GetLog()
 
 				log.Timestamp = int64(lr.Timestamp()) // in nanoseconds
 				// TODO: check in writable time range
@@ -114,9 +115,9 @@ func (c *writer) Write(ctx context.Context, data []byte, encoding constants.Enco
 
 				// route log to shard by log hash
 				shard := shards[log.Hash()%numOfShards]
-				segmentTime := c.intervalCalc.CalcFamilyTime(log.Timestamp / 1000_000)
-				segment := shard.GetOrCreateSegment(segmentTime, func() larrow.EntryBuilder[*logs.Log] {
-					return logs.NewLogsBuilder(memory.NewGoAllocator())
+				segmentTime := w.intervalCalc.CalcFamilyTime(log.Timestamp / 1000_000)
+				segment := shard.GetOrCreateSegment(segmentTime, func() larrow.EntryBuilder[*model.Log] {
+					return logs.NewLogBuilder(memory.NewGoAllocator())
 				})
 				// write log to segment
 				segment.Write(ctx, log)

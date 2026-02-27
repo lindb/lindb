@@ -22,13 +22,14 @@ import (
 	"slices"
 	"sync/atomic"
 
+	larrow "github.com/lindb/arrow/pkg/arrow"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/app/broker/write/writer"
 	"github.com/lindb/lindb/models"
 )
 
-type database[V any] struct {
+type database[V larrow.EntryType] struct {
 	ctx context.Context
 	cfg models.Database
 
@@ -38,7 +39,7 @@ type database[V any] struct {
 	shards      atomic.Value // []Shard
 }
 
-func NewDatabase[V any](ctx context.Context, cfg models.Database) writer.DatabaseAccessor[V] {
+func NewDatabase[V larrow.EntryType](ctx context.Context, cfg models.Database) writer.DatabaseAccessor[V] {
 	db := &database[V]{
 		ctx: ctx,
 		cfg: cfg,

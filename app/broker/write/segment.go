@@ -31,7 +31,7 @@ import (
 	"github.com/lindb/lindb/models"
 )
 
-type segment[V any] struct {
+type segment[V larrow.EntryType] struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
@@ -51,7 +51,7 @@ type segment[V any] struct {
 	logger logger.Logger
 }
 
-func NewSegment[V any](parent context.Context,
+func NewSegment[V larrow.EntryType](parent context.Context,
 	shard writer.Shard[V], segmentTime int64,
 	shardState models.ShardState, liveNodes map[models.NodeID]models.StatefulNode,
 	builder larrow.EntryBuilder[V],

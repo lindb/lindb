@@ -24,12 +24,15 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/lindb/arrow/pkg/traces"
 	"github.com/lindb/common/pkg/fileutil"
 	"github.com/linxGnu/grocksdb"
 	"go.opentelemetry.io/collector/pdata/ptrace/ptraceotlp"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
+	"github.com/lindb/lindb/pkg/stream"
+	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/storage/base"
 	"github.com/lindb/lindb/storage/store"
@@ -55,6 +58,8 @@ type Segment struct {
 	db *grocksdb.DB
 
 	buf []byte
+
+	reader *traces.TraceIDReader
 }
 
 func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
@@ -89,7 +94,7 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 		partition: partition,
 		db:        db,
 
-		buf: make([]byte, 8),
+		buf: make([]byte, 5),
 	}
 
 	wals, err := fileutil.ListDir(segmentPath)
@@ -125,30 +130,32 @@ func (seg *Segment) Partition() store.Partition {
 }
 
 func (seg *Segment) Write(leader models.NodeID, seq int64, msg []byte) (rows int, err error) {
-	req := ptraceotlp.NewExportRequest()
-	if err = req.UnmarshalProto(msg); err != nil {
-		return
-	}
-	traceIDs := make(map[string]struct{})
-	traces := req.Traces()
-	spans := traces.ResourceSpans()
-	for i := range spans.Len() {
-		s := spans.At(i)
-		scopeSpans := s.ScopeSpans()
-		for j := range scopeSpans.Len() {
-			span := scopeSpans.At(j)
-			sSpans := span.Spans()
-			for k := range sSpans.Len() {
-				ss := sSpans.At(k)
-				// TODO: using trace id directly
-				if _, ok := traceIDs[ss.TraceID().String()]; !ok {
-					seg.db.Merge(wo, []byte(ss.TraceID().String()), encoding.U32ToBytes(uint32(seq)))
-					traceIDs[ss.TraceID().String()] = struct{}{}
-				}
-			}
+	// OPT: thread safe reader, avoid new reader for each write
+	if seg.reader == nil {
+		seg.reader, err = traces.NewTraceIDReader(msg)
+		if err != nil {
+			return 0, err
+		}
+	} else {
+		if err := seg.reader.Reset(msg); err != nil {
+			return 0, err
 		}
 	}
-	return 1, nil
+	traceIDs := make(map[string]struct{})
+	numOfRows := seg.reader.NumOfRows()
+	for i := 0; i < numOfRows; i++ {
+		traceID := seg.reader.TraceID(i)
+		traceIDStr := strutil.ByteSlice2String(traceID)
+		if _, ok := traceIDs[traceIDStr]; !ok {
+
+			seg.buf[0] = byte(leader)
+			stream.PutUint32(seg.buf, 1, uint32(seq))
+			// index traceID to WAL index
+			seg.db.Merge(wo, traceID, seg.buf)
+			traceIDs[traceIDStr] = struct{}{}
+		}
+	}
+	return numOfRows, nil
 }
 
 func (seg *Segment) GetTrace(traceID string) (rs [][]byte, err error) {
@@ -160,9 +167,11 @@ func (seg *Segment) GetTrace(traceID string) (rs [][]byte, err error) {
 		return nil, nil
 	}
 	data := indexes.Data()
-	for i := range len(data) / 4 {
-		index := binary.BigEndian.Uint32(data[i*4:])
-		trace, err := seg.WALs[models.NodeID(1)].Get(int64(index))
+	for i := range len(data) / 5 {
+		index := data[i*5 : (i+1)*5]
+		leader := models.NodeID(index[0])
+		sequence := binary.LittleEndian.Uint32(index[1:])
+		trace, err := seg.WALs[leader].Get(int64(sequence))
 		if err != nil {
 			return nil, err
 		}

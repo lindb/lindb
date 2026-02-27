@@ -23,10 +23,11 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/lindb/arrow/pkg/logs"
+	"github.com/lindb/arrow/pkg/model"
 	"github.com/lindb/common/pkg/logger"
 
 	logswriter "github.com/lindb/lindb/app/broker/write/logs"
+	traceswriter "github.com/lindb/lindb/app/broker/write/traces"
 	"github.com/lindb/lindb/app/broker/write/writer"
 	"github.com/lindb/lindb/coordinator/discovery"
 	"github.com/lindb/lindb/models"
@@ -104,8 +105,12 @@ func (m *manager) createShard(e *models.ChangeShardStateEvent) error {
 	if !ok {
 		switch cfg.Option.Engine {
 		case option.Log:
-			databaseAccessor := NewDatabase[*logs.Log](m.ctx, cfg)
+			databaseAccessor := NewDatabase[*model.Log](m.ctx, cfg)
 			m.writers[cfg.Name] = logswriter.NewWriter(m.ctx, cfg, databaseAccessor)
+			database = databaseAccessor
+		case option.Trace:
+			databaseAccessor := NewDatabase[*model.Span](m.ctx, cfg)
+			m.writers[cfg.Name] = traceswriter.NewWriter(m.ctx, cfg, databaseAccessor)
 			database = databaseAccessor
 		default:
 			return errors.New("unsupported engine type: " + string(cfg.Option.Engine))

@@ -21,13 +21,13 @@ import (
 	"context"
 	"sync"
 
-	"github.com/lindb/arrow/pkg/arrow"
+	larrow "github.com/lindb/arrow/pkg/arrow"
 
 	"github.com/lindb/lindb/app/broker/write/writer"
 	"github.com/lindb/lindb/models"
 )
 
-type shard[V any] struct {
+type shard[V larrow.EntryType] struct {
 	ctx        context.Context
 	id         models.ShardID
 	database   writer.DatabaseAccessor[V]
@@ -38,7 +38,7 @@ type shard[V any] struct {
 	lock sync.Mutex
 }
 
-func NewShard[V any](ctx context.Context,
+func NewShard[V larrow.EntryType](ctx context.Context,
 	database writer.DatabaseAccessor[V],
 	shardState models.ShardState, liveNodes map[models.NodeID]models.StatefulNode,
 ) writer.Shard[V] {
@@ -60,7 +60,7 @@ func (s *shard[V]) ID() models.ShardID {
 }
 
 func (s *shard[V]) GetOrCreateSegment(segmentTime int64,
-	builder func() arrow.EntryBuilder[V],
+	builder func() larrow.EntryBuilder[V],
 ) writer.Segment[V] {
 	p, ok := s.segments.Load(segmentTime)
 	if ok {
