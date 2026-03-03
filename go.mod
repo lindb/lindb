@@ -34,7 +34,7 @@ require (
 	github.com/lithammer/go-jump-consistent-hash v1.0.2
 	github.com/mattn/go-runewidth v0.0.16
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/samber/lo v1.51.0
+	github.com/samber/lo v1.52.0
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.11.1

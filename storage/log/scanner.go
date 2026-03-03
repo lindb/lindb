@@ -61,7 +61,8 @@ func (s *scanner) Next(fn func(reader *logspkg.Reader, rowNum int)) error {
 	sequence := binary.LittleEndian.Uint32(index[1:])
 	rowNum := binary.LittleEndian.Uint32(index[5:])
 	if leader != s.current.leader || sequence != s.current.sequence || len(s.current.data) == 0 {
-		// update current log info, if leader or sequence changed, read log data from wal
+		// update current log info, if leader or sequence changed, read log data from wal.
+		// if leader and sequence are same, it means log from same wal record.
 		s.current.leader = leader
 		s.current.sequence = sequence
 

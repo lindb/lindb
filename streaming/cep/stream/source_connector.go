@@ -23,6 +23,7 @@ import (
 
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
+	larrow "github.com/lindb/arrow/pkg/arrow"
 	"github.com/lindb/common/pkg/logger"
 	"github.com/samber/lo"
 	"go.uber.org/atomic"
@@ -169,8 +170,7 @@ func (sc *sourceConnector) process(record arrow.RecordBatch, output chan<- arrow
 			}
 		}
 		rs := array.NewRecordBatch(sc.recordSchema, columns, record.NumRows())
-
-		output <- rs
+		output <- larrow.NewFilterableRecord(rs, nil)
 		return
 	}
 	// do filter based on predicate
@@ -231,7 +231,7 @@ func (sc *sourceConnector) process(record arrow.RecordBatch, output chan<- arrow
 	// fmt.Printf("output record: %v\n", columns)
 	rs := array.NewRecordBatch(arrow.NewSchema(fields, nil), columns, record.NumRows())
 
-	output <- rs
+	output <- larrow.NewFilterableRecord(rs, result.ToArray())
 	// output <- record
 	// }
 }

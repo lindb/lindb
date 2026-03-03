@@ -18,7 +18,9 @@
 package decode
 
 import (
-	"go.opentelemetry.io/collector/pdata/ptrace/ptraceotlp"
+	"fmt"
+
+	"github.com/lindb/arrow/pkg/traces"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
@@ -28,16 +30,28 @@ func init() {
 	RegisterDecoder(option.Trace, newTrace())
 }
 
-type trace struct{}
+type trace struct {
+	reader *traces.TraceReader
+}
 
 func newTrace() *trace {
 	return &trace{}
 }
 
 func (t *trace) ToEvent(data []byte) (models.Event, error) {
-	req := ptraceotlp.NewExportRequest()
-	if err := req.UnmarshalProto(data); err != nil {
-		return nil, err
+	if t.reader == nil {
+		reader, err := traces.NewTraceReader(data)
+		if err != nil {
+			return nil, err
+		}
+		t.reader = reader
+	} else {
+		if err := t.reader.Reset(data); err != nil {
+			return nil, err
+		}
 	}
-	return req.Traces(), nil
+	fmt.Println("trace to event")
+
+	// return req.Traces(), nil
+	return nil, nil
 }

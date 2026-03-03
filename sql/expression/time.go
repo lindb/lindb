@@ -24,6 +24,7 @@ import (
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/memory"
+	larray "github.com/lindb/arrow/pkg/arrow/array"
 	"github.com/lindb/common/pkg/timeutil"
 
 	"github.com/lindb/lindb/spi/scalar"
@@ -161,7 +162,7 @@ func (n *timeTruncFunc) Eval(record arrow.RecordBatch) (arrow.Array, error) {
 	}
 	defer input.Release() // release the input array after processing
 
-	timestampArray, ok := input.(*array.Timestamp)
+	timestampArray, ok := input.(*larray.Generic[arrow.Timestamp])
 	if !ok {
 		return nil, fmt.Errorf("unexpected input type for time_trunc: %T", input)
 	}

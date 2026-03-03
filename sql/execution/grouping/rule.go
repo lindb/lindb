@@ -18,10 +18,12 @@
 package grouping
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
+	larray "github.com/lindb/arrow/pkg/arrow/array"
 	"github.com/lindb/common/pkg/timeutil"
 )
 
@@ -39,17 +41,18 @@ func newMapRule(mapper *StringMapper) Rule {
 }
 
 func (r *MapRule) Map(column arrow.Array, row int, buf *Buffer) {
-	values, ok := column.(*array.Map)
+	values, ok := column.(*larray.Map)
 	if !ok || column.IsNull(row) {
 		buf.Write(0)
+		fmt.Println("kkk..", row)
 		return
 	}
 	// FIXME: need sort keys of map
-
+	rawRow := values.Row(row)
 	keys := values.Keys().(*array.String)
 	items := values.Items().(*array.String)
 	offsets := values.Offsets()
-	start, end := offsets[row], offsets[row+1]
+	start, end := offsets[rawRow], offsets[rawRow+1]
 	buf.Write(uint32(end - start))
 	for i := int(start); i < int(end); i++ {
 		buf.Write(r.mapper.GetID(keys.Value(i)))
@@ -87,7 +90,7 @@ func newStringRule(mapper *StringMapper) Rule {
 }
 
 func (r *StringRule) Map(column arrow.Array, row int, buf *Buffer) {
-	value, ok := column.(*array.String)
+	value, ok := column.(*larray.Generic[string])
 	if !ok || column.IsNull(row) {
 		buf.Write(0)
 		return
@@ -117,7 +120,7 @@ func newTimestampRule(mapper *StringMapper) Rule {
 }
 
 func (r *TimestampRule) Map(column arrow.Array, row int, buf *Buffer) {
-	value, ok := column.(*array.Timestamp)
+	value, ok := column.(*larray.Generic[arrow.Timestamp])
 	if !ok || column.IsNull(row) {
 		buf.Write(0)
 		return

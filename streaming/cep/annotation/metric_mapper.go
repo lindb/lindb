@@ -25,7 +25,7 @@ import (
 
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
-	"github.com/lindb/arrow/pkg/constants"
+	larray "github.com/lindb/arrow/pkg/arrow/array"
 	"github.com/lindb/client_go/api"
 	"github.com/lindb/common/pkg/logger"
 	"github.com/samber/lo"
@@ -234,16 +234,15 @@ func (m *MetricMapper) buildFields(record arrow.RecordBatch, row int, point *api
 				point.AddField(api.NewMax(field.Name, val))
 			}
 		case "exemplar":
-			if c, ok := column.(*array.Struct); ok {
-				duration, _ := c.DataType().(*arrow.StructType).FieldIdx(constants.Duration)
-				traeID, _ := c.DataType().(*arrow.StructType).FieldIdx(constants.TraceID)
-				spanID, _ := c.DataType().(*arrow.StructType).FieldIdx(constants.SpanID)
+			if c, ok := column.(*larray.Exemplar); ok {
+				traceID, spanID, duration := c.Value(row)
 
 				point.AddField(api.NewExemplar(
 					field.Name,
-					string(c.Field(traeID).(*array.FixedSizeBinary).Value(row)),
-					string(c.Field(spanID).(*array.FixedSizeBinary).Value(row)),
-					int64(c.Field(duration).(*array.Duration).Value(row))))
+					string(traceID),
+					string(spanID),
+					duration,
+				))
 			}
 		default:
 			m.logger.Warn("unsupported agg type for field column, skip",

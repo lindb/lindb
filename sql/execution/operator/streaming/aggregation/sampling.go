@@ -23,6 +23,7 @@ import (
 
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
+	larray "github.com/lindb/arrow/pkg/arrow/array"
 	"github.com/lindb/arrow/pkg/metrics"
 
 	"github.com/lindb/lindb/sql/expression"
@@ -51,9 +52,9 @@ type samplingAggregator struct {
 		duration int
 	}
 
-	traceID  *array.FixedSizeBinary
-	spanID   *array.FixedSizeBinary
-	duration *array.Duration
+	traceID  *larray.Generic[[]byte]
+	spanID   *larray.Generic[[]byte]
+	duration *larray.Generic[arrow.Duration]
 
 	value *metrics.Exemplar
 }
@@ -83,13 +84,13 @@ func (a *samplingAggregator) Initialize(record arrow.RecordBatch) {
 		a.initialized = true
 	}
 	if a.indexes.traceID >= 0 {
-		a.traceID = record.Column(a.indexes.traceID).(*array.FixedSizeBinary)
+		a.traceID = record.Column(a.indexes.traceID).(*larray.Generic[[]byte])
 	}
 	if a.indexes.spanID >= 0 {
-		a.spanID = record.Column(a.indexes.spanID).(*array.FixedSizeBinary)
+		a.spanID = record.Column(a.indexes.spanID).(*larray.Generic[[]byte])
 	}
 	if a.indexes.duration >= 0 {
-		a.duration = record.Column(a.indexes.duration).(*array.Duration)
+		a.duration = record.Column(a.indexes.duration).(*larray.Generic[arrow.Duration])
 	}
 }
 
@@ -118,15 +119,9 @@ func (a *samplingAggregator) Flush(builder array.Builder) {
 		return
 	}
 
-	sb := builder.(*array.StructBuilder)
-	sb.Append(true)
-	traceIDBuilder := sb.FieldBuilder(0).(*array.FixedSizeBinaryBuilder)
-	spanIDBuilder := sb.FieldBuilder(1).(*array.FixedSizeBinaryBuilder)
-	durationBuilder := sb.FieldBuilder(2).(*array.DurationBuilder)
-	traceIDBuilder.Append(a.value.TraceID)
-	spanIDBuilder.Append(a.value.SpanID)
-	durationBuilder.Append(arrow.Duration(a.value.Duration))
-
+	sb := builder.(*array.ExtensionBuilder)
+	exemplarBuilder := larray.NewExemplarBuilder(sb)
+	exemplarBuilder.Append(a.value.TraceID, a.value.SpanID, a.value.Duration)
 	// need reset value after flush
 	a.value.Reset()
 }

@@ -19,6 +19,7 @@ package executor
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/apache/arrow-go/v18/arrow"
@@ -94,7 +95,7 @@ func NewHashGrouping(node *plan.AggregationNode, assignments []*plan.Assignment)
 // computing hash keys, and feeding rows into the appropriate aggregators.
 // Each row is assigned to a group based on its grouping key values.
 func (g *HashGrouping) Enter(record arrow.RecordBatch) {
-	// fmt.Println(record)
+	fmt.Println(record)
 	numOfRows := int(record.NumRows())
 	for row := range numOfRows {
 		for i, colIdx := range g.colIdxOfGroupingKeys {

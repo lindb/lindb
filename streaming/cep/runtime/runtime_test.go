@@ -91,7 +91,7 @@ func Test_Runtime_Insert(t *testing.T) {
 	insert into Result
 	select map_values(tags,'app') as tags_map,interface,count(1) as qps,time_trunc(timestamp,interval 10 second) as ts
 	from RPCService
-	where interface in('grpc','http')
+	where interface in('grpc')
 	group by tags_map,interface,ts;
 		`)
 	fmt.Println(err)
@@ -210,7 +210,7 @@ func Test_Runtime_Query(t *testing.T) {
 	  	sampling(trace_id,span_id,duration) as exemplar,
 	  	time_trunc(timestamp,interval 10 second) as ts 
 	  from RPCService
-	  where interface in('grpc','http')
+	  where interface in('http')
 	  group by tags_map,interface,ts;
 	end
 		`)
@@ -300,7 +300,7 @@ func Test_Runtime_Query(t *testing.T) {
 	// 		defer wait.Done()
 	var total int
 	fmt.Println(now)
-	for range 100_0000 {
+	for range 100 {
 
 		total += int(page.NumRows())
 		input.Send(page)

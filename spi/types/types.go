@@ -21,7 +21,7 @@ import (
 	"math"
 
 	"github.com/apache/arrow-go/v18/arrow"
-	"github.com/lindb/arrow/pkg/constants"
+	larray "github.com/lindb/arrow/pkg/arrow/array"
 	"github.com/lindb/common/pkg/encoding"
 )
 
@@ -98,11 +98,7 @@ func (dt DataType) ToArrowDataType() arrow.DataType {
 	case DTMap:
 		return arrow.MapOf(arrow.BinaryTypes.String, arrow.BinaryTypes.String)
 	case DTExemplar:
-		return arrow.StructOf(
-			arrow.Field{Name: constants.TraceID, Type: &arrow.FixedSizeBinaryType{ByteWidth: 16}},
-			arrow.Field{Name: constants.SpanID, Type: &arrow.FixedSizeBinaryType{ByteWidth: 8}},
-			arrow.Field{Name: constants.Duration, Type: arrow.FixedWidthTypes.Duration_ns},
-		)
+		return larray.NewExemplarType()
 	case DTBinary:
 		return arrow.BinaryTypes.Binary
 	default:

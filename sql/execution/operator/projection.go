@@ -22,6 +22,7 @@ import (
 
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
+	larrow "github.com/lindb/arrow/pkg/arrow"
 
 	"github.com/lindb/lindb/sql/expression"
 	"github.com/lindb/lindb/sql/planner/plan"
@@ -93,12 +94,9 @@ func (op *ProjectionOperator) process(record arrow.RecordBatch) arrow.RecordBatc
 		}
 	}
 
-	// fmt.Println(record)
-	// fmt.Println(result)
 	rs := array.NewRecordBatch(arrow.NewSchema(fields, nil), result, record.NumRows())
-	// fmt.Println(rs)
 	success = true
-	return rs
+	return larrow.NewFilterableRecord(rs, nil)
 }
 
 func (op *ProjectionOperator) GetLayout() []*plan.Symbol {

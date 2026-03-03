@@ -53,8 +53,8 @@ func (q *Queue) Consume(ctx context.Context) (arrow.RecordBatch, bool) {
 			return nil, false
 		}
 		panic(err)
-	case page, ok := <-q.ch:
-		return page, ok
+	case record, ok := <-q.ch:
+		return record, ok
 	}
 }
 

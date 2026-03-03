@@ -23,6 +23,7 @@ import (
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/memory"
+	larray "github.com/lindb/arrow/pkg/arrow/array"
 
 	"github.com/lindb/lindb/spi/scalar"
 )
@@ -71,7 +72,7 @@ func (n *mapValuesFunc) Eval(record arrow.RecordBatch) (arrow.Array, error) {
 	}
 	defer input.Release() // release the input array after processing
 
-	inputMap, ok := input.(*array.Map)
+	inputMap, ok := input.(*larray.Map)
 	if !ok {
 		return nil, fmt.Errorf("input of map_values should be map type, but got %T", input)
 	}
@@ -88,27 +89,28 @@ func (n *mapValuesFunc) Eval(record arrow.RecordBatch) (arrow.Array, error) {
 
 	mb.Reserve(inputMap.Len())
 
-	for row := 0; row < inputMap.Len(); row++ {
-		if inputMap.IsNull(row) {
+	for i := 0; i < inputMap.Len(); i++ {
+		if inputMap.IsNull(i) {
 			mb.AppendNull()
 			continue
 		}
 		mb.Append(true)
+		row := inputMap.Row(i)
 
 		start, end := offsets[row], offsets[row+1]
-		for i := int(start); i < int(end); i++ {
+		for j := int(start); j < int(end); j++ {
 			// if keys.IsNull(i) {
 			// 	continue
 			// }
-			key := keys.Value(i)
+			key := keys.Value(j)
 
 			// check if the key is in the target keys, if yes, append the key and value to the builder
 			if _, exists := n.targetKeys[key]; exists {
 				keysBuilder.Append(key)
-				if values.IsNull(i) {
+				if values.IsNull(j) {
 					valuesBuilder.AppendNull()
 				} else {
-					valuesBuilder.Append(values.Value(i))
+					valuesBuilder.Append(values.Value(j))
 				}
 			}
 		}
