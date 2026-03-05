@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_GetStringValue(t *testing.T) {
+func Test_UnescapeString(t *testing.T) {
 	cases := []struct {
 		raw    string
 		result string
@@ -37,7 +37,7 @@ func Test_GetStringValue(t *testing.T) {
 			"sum",
 		},
 		{
-			"\"sum\"",
+			`"sum"`,
 			"sum",
 		},
 		{
@@ -46,14 +46,21 @@ func Test_GetStringValue(t *testing.T) {
 		},
 		{
 			"'sum",
-			"sum",
+			"'sum",
+		},
+		{
+			`'It\'s a sunny day'`,
+			`It's a sunny day`,
+		},
+		{
+			`'It''s a sunny day'`,
+			`It's a sunny day`,
 		},
 	}
 	for i := range cases {
 		tt := cases[i]
 		t.Run(tt.raw, func(t *testing.T) {
-			str, err := GetStringValue("sum")
-			assert.NoError(t, err)
+			str := UnescapeString(tt.raw)
 			assert.Equal(t, tt.result, str)
 		})
 	}

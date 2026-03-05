@@ -76,6 +76,8 @@ func (v *FormatVisitor) Visit(context any, n Node) any {
 		return v.formatLogical(node)
 	case *DereferenceExpression:
 		return v.visitDereferenceExpression(context, node)
+	case *SubscriptExpression:
+		return fmt.Sprintf("%v[%v]", node.Base.Accept(context, v), node.Key.Accept(context, v))
 	case *SymbolReference:
 		return v.formatIdentifier(node.Name)
 	case *FieldReference:

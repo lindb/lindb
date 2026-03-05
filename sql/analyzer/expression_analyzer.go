@@ -85,6 +85,8 @@ func (v *ExpressionVisitor) Visit(context any, n tree.Node) (r any) {
 		return v.visitLogicalExpression(context, node)
 	case *tree.DereferenceExpression:
 		return v.visitDereferenceExpression(context, node)
+	case *tree.SubscriptExpression:
+		return v.visitSubscriptExpression(context, node)
 	case *tree.FunctionCall:
 		return v.visitFunctionCall(context, node)
 	case *tree.StringLiteral:
@@ -157,6 +159,13 @@ func (v *ExpressionVisitor) visitRegexPredicate(context any, node *tree.RegexPre
 func (v *ExpressionVisitor) visitNullPredicate(context any, node *tree.NullPredicate) (r any) {
 	node.Value.Accept(context, v)
 	return v.setExpressionType(node, arrow.PrimitiveTypes.Uint32)
+}
+
+func (v *ExpressionVisitor) visitSubscriptExpression(context any, node *tree.SubscriptExpression) (r any) {
+	// Analyze the base (map column) and key expressions; result is the map's value type (String).
+	node.Base.Accept(context, v)
+	node.Key.Accept(context, v)
+	return v.setExpressionType(node, arrow.BinaryTypes.String)
 }
 
 func (v *ExpressionVisitor) visitDereferenceExpression(context any, node *tree.DereferenceExpression) (r any) {

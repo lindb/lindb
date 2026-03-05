@@ -188,19 +188,19 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 			t.translate(expr.Value, false)
 			result = expr
 		case *tree.LikePredicate:
-			t.translate(expr.Value, false)
-			t.translate(expr.Pattern, false)
+			expr.Value = t.translate(expr.Value, false)
+			expr.Pattern = t.translate(expr.Pattern, false)
 			result = expr
 		case *tree.RegexPredicate:
-			t.translate(expr.Value, false)
-			t.translate(expr.Pattern, false)
+			expr.Value = t.translate(expr.Value, false)
+			expr.Pattern = t.translate(expr.Pattern, false)
 			result = expr
 		case *tree.NullPredicate:
 			expr.Value = t.translate(expr.Value, false)
 			result = expr
 		case *tree.ComparisonExpression:
-			t.translate(expr.Left, false)
-			t.translate(expr.Right, false)
+			expr.Left = t.translate(expr.Left, false)
+			expr.Right = t.translate(expr.Right, false)
 			// TODO:
 			result = expr
 		case *tree.NotExpression:
@@ -208,10 +208,10 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 		case *tree.Constant:
 			result = expr
 		case *tree.InPredicate:
-			t.translate(expr.Value, false)
+			expr.Value = t.translate(expr.Value, false)
 			if inListExpression, ok := expr.ValueList.(*tree.InListExpression); ok {
 				lo.ForEach(inListExpression.Values, func(item tree.Expression, index int) {
-					t.translate(item, false)
+					inListExpression.Values[index] = t.translate(item, false)
 				})
 			}
 			result = expr
@@ -226,6 +226,10 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 			})
 			result = expr
 		case *tree.SymbolReference:
+			result = expr
+		case *tree.SubscriptExpression:
+			expr.Base = t.translate(expr.Base, false)
+			expr.Key = t.translate(expr.Key, false)
 			result = expr
 		default:
 			panic(fmt.Sprintf("translate not supported: %T", node))

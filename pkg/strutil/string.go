@@ -24,18 +24,41 @@ import (
 	"unsafe"
 )
 
-// GetStringValue aggregation format function name
-func GetStringValue(rawString string) (string, error) {
-	if rawString != "" {
-		if strings.HasPrefix(rawString, "'") && strings.HasSuffix(rawString, "'") {
-			rawString = `"` + rawString[1:len(rawString)-1] + `"`
-		}
-		if strings.HasPrefix(rawString, "\"") && strings.HasSuffix(rawString, "\"") {
-			return strconv.Unquote(rawString)
-		}
-		return rawString, nil
+// Create a replacer to handle various SQL escape sequences.
+// This handles both Standard SQL (doubling) and MySQL/Postgres (backslash) styles.
+var sqlUnescaper = strings.NewReplacer(
+	"''", "'", // Standard: 'It''s' -> It's
+	`\'`, "'", // MySQL: 'It\'s' -> It's
+	"``", "`", // Identifiers: `my``table` -> my`table
+	`""`, `"`, // Double Quotes: "" -> "
+	`\"`, `"`, // MySQL Double Quote: \" -> "
+	`\\`, `\`, // Escaped Backslash: \\ -> \
+)
+
+// UnescapeString handles the removal of surrounding quotes and restores escaped characters.
+// It follows SQL standards where a double quote of the same type (e.g., ”)
+// represents a single literal character.
+func UnescapeString(raw string) string {
+	// A valid quoted string must have at least 2 characters (the quotes).
+	if len(raw) < 2 {
+		return raw
 	}
-	return "", nil
+
+	// Identify the quote character used (', ", or `).
+	startQuote := raw[0]
+	endQuote := raw[len(raw)-1]
+
+	// Ensure the string is correctly bounded by matching quotes.
+	if startQuote != endQuote || (startQuote != '\'' && startQuote != '"' && startQuote != '`') {
+		return raw
+	}
+
+	// Extract the inner content.
+	content := raw[1 : len(raw)-1]
+
+	// Apply replacements based on the quote type.
+	// We use the replacer to ensure backslashes are consumed correctly.
+	return sqlUnescaper.Replace(content)
 }
 
 // ByteSlice2String returns the string of the byte slice.

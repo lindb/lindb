@@ -6,8 +6,14 @@ channels {
     COMMENT 
 }
 
-SIMPLE_COMMENT           : '--' ~[\r\n]* '\r'? '\n'? -> channel(COMMENT) ;
-BRACKETED_COMMENT        : '/*' .*? '*/' -> channel(COMMENT) ;
+// Multi-line comment: /* comment */
+BRACKETED_COMMENT        : '/*' .*? '*/' -> channel(HIDDEN) ;
+// Single-line comment: // comment
+// Matches // followed by any character except newline, until a newline or EOF
+SIMPLE_COMMENT           : '//' ~[\r\n]* -> channel(HIDDEN) ;
+// Standard SQL single-line comment (Optional but recommended)
+DASH_COMMENT             : '--' ~[\r\n]* '\r'? '\n'? -> channel(COMMENT) ;
+
 WS                       : [ \r\n\t]+ -> channel(HIDDEN) ;
 
 ALL                      : 'ALL' ;

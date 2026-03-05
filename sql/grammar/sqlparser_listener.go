@@ -258,6 +258,9 @@ type SQLParserListener interface {
 	// EnterStringLiteral is called when entering the stringLiteral production.
 	EnterStringLiteral(c *StringLiteralContext)
 
+	// EnterMapReference is called when entering the mapReference production.
+	EnterMapReference(c *MapReferenceContext)
+
 	// EnterFunctionCall is called when entering the functionCall production.
 	EnterFunctionCall(c *FunctionCallContext)
 
@@ -339,11 +342,11 @@ type SQLParserListener interface {
 	// EnterBasicStringLiteral is called when entering the basicStringLiteral production.
 	EnterBasicStringLiteral(c *BasicStringLiteralContext)
 
+	// EnterQuotedStringLiteral is called when entering the quotedStringLiteral production.
+	EnterQuotedStringLiteral(c *QuotedStringLiteralContext)
+
 	// EnterUnquotedIdentifier is called when entering the unquotedIdentifier production.
 	EnterUnquotedIdentifier(c *UnquotedIdentifierContext)
-
-	// EnterQuotedIdentifier is called when entering the quotedIdentifier production.
-	EnterQuotedIdentifier(c *QuotedIdentifierContext)
 
 	// EnterBackQuotedIdentifier is called when entering the backQuotedIdentifier production.
 	EnterBackQuotedIdentifier(c *BackQuotedIdentifierContext)
@@ -603,6 +606,9 @@ type SQLParserListener interface {
 	// ExitStringLiteral is called when exiting the stringLiteral production.
 	ExitStringLiteral(c *StringLiteralContext)
 
+	// ExitMapReference is called when exiting the mapReference production.
+	ExitMapReference(c *MapReferenceContext)
+
 	// ExitFunctionCall is called when exiting the functionCall production.
 	ExitFunctionCall(c *FunctionCallContext)
 
@@ -684,11 +690,11 @@ type SQLParserListener interface {
 	// ExitBasicStringLiteral is called when exiting the basicStringLiteral production.
 	ExitBasicStringLiteral(c *BasicStringLiteralContext)
 
+	// ExitQuotedStringLiteral is called when exiting the quotedStringLiteral production.
+	ExitQuotedStringLiteral(c *QuotedStringLiteralContext)
+
 	// ExitUnquotedIdentifier is called when exiting the unquotedIdentifier production.
 	ExitUnquotedIdentifier(c *UnquotedIdentifierContext)
-
-	// ExitQuotedIdentifier is called when exiting the quotedIdentifier production.
-	ExitQuotedIdentifier(c *QuotedIdentifierContext)
 
 	// ExitBackQuotedIdentifier is called when exiting the backQuotedIdentifier production.
 	ExitBackQuotedIdentifier(c *BackQuotedIdentifierContext)

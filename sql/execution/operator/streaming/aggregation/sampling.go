@@ -24,7 +24,7 @@ import (
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
 	larray "github.com/lindb/arrow/pkg/arrow/array"
-	"github.com/lindb/arrow/pkg/metrics"
+	"github.com/lindb/arrow/pkg/model"
 
 	"github.com/lindb/lindb/sql/expression"
 )
@@ -56,7 +56,7 @@ type samplingAggregator struct {
 	spanID   *larray.Generic[[]byte]
 	duration *larray.Generic[arrow.Duration]
 
-	value *metrics.Exemplar
+	value *model.Exemplar
 }
 
 func (a *samplingAggregator) Initialize(record arrow.RecordBatch) {
@@ -79,7 +79,7 @@ func (a *samplingAggregator) Initialize(record arrow.RecordBatch) {
 			}
 		}
 
-		a.value = &metrics.Exemplar{}
+		a.value = &model.Exemplar{}
 
 		a.initialized = true
 	}
@@ -121,7 +121,7 @@ func (a *samplingAggregator) Flush(builder array.Builder) {
 
 	sb := builder.(*array.ExtensionBuilder)
 	exemplarBuilder := larray.NewExemplarBuilder(sb)
-	exemplarBuilder.Append(a.value.TraceID, a.value.SpanID, a.value.Duration)
+	exemplarBuilder.Append(a.value)
 	// need reset value after flush
 	a.value.Reset()
 }

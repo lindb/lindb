@@ -184,3 +184,15 @@ type NotExpression struct {
 func (n *NotExpression) Accept(context any, visitor Visitor) (r any) {
 	return visitor.Visit(context, n)
 }
+
+// SubscriptExpression represents a map/array subscript access: base[key]
+// e.g. attributes['http.method'] or labels['env']
+type SubscriptExpression struct {
+	BaseNode
+	Base Expression
+	Key  Expression
+}
+
+func (n *SubscriptExpression) Accept(context any, visitor Visitor) (r any) {
+	return visitor.Visit(context, n)
+}

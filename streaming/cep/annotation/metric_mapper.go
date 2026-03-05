@@ -26,6 +26,7 @@ import (
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
 	larray "github.com/lindb/arrow/pkg/arrow/array"
+	"github.com/lindb/arrow/pkg/model"
 	"github.com/lindb/client_go/api"
 	"github.com/lindb/common/pkg/logger"
 	"github.com/samber/lo"
@@ -150,7 +151,7 @@ func (m *MetricMapper) initialize(input arrow.RecordBatch) {
 
 func (m *MetricMapper) getMetricName(record arrow.RecordBatch, row int) string {
 	if m.nameCol != -1 {
-		val := record.Column(m.nameCol).(*array.String).Value(row)
+		val := record.Column(m.nameCol).(*larray.Generic[string]).Value(row)
 		if val != "" {
 			return val
 		}
@@ -160,7 +161,7 @@ func (m *MetricMapper) getMetricName(record arrow.RecordBatch, row int) string {
 
 func (m *MetricMapper) getTimestamp(record arrow.RecordBatch, row int) time.Time {
 	if m.timestampCol != -1 {
-		val := record.Column(m.timestampCol).(*array.Timestamp).Value(row).ToTime(arrow.Millisecond)
+		val := record.Column(m.timestampCol).(*larray.Generic[arrow.Timestamp]).Value(row).ToTime(arrow.Millisecond)
 		if !val.IsZero() {
 			return val
 		}
@@ -177,16 +178,17 @@ func (m *MetricMapper) buildTags(record arrow.RecordBatch, row int, point *api.P
 		// }
 		column := record.Column(col)
 		switch c := column.(type) {
-		case *array.String:
+		case *larray.Generic[string]:
 			val := c.Value(row)
 			if val != "" {
 				point.AddTag(record.Schema().Fields()[col].Name, val)
 			}
-		case *array.Map:
+		case *larray.Map:
 			keys := c.Keys().(*array.String)
 			items := c.Items().(*array.String)
 			offsets := c.Offsets()
-			start, end := offsets[row], offsets[row+1]
+			actualRow := c.Row(row)
+			start, end := offsets[actualRow], offsets[actualRow+1]
 			for i := int(start); i < int(end); i++ {
 				point.AddTag(keys.Value(i), items.Value(i))
 			}
@@ -196,40 +198,36 @@ func (m *MetricMapper) buildTags(record arrow.RecordBatch, row int, point *api.P
 
 func (m *MetricMapper) buildFields(record arrow.RecordBatch, row int, point *api.Point) {
 	for _, col := range m.fieldCols {
-		// if col == nil {
-		// 	continue
-		// }
 		column := record.Column(col)
+		if column == nil || column.IsNull(row) {
+			continue
+		}
 		field := record.Schema().Field(col)
 		switch col := column.(type) {
-		case *larray.Aggregation:
-			if aggType, ok := col.DataType().(*larray.AggregationType); ok {
+		case *larray.Generic[float64]:
+			if aggType, ok := col.Storage().DataType().(*larray.AggregationType); ok {
+				val := col.Value(row)
 				switch aggType.Kind() {
 				case larray.Sum:
-					val := col.Value(row)
 					point.AddField(api.NewSum(field.Name, val))
 				case larray.First:
-					val := col.Value(row)
 					point.AddField(api.NewFirst(field.Name, val))
 				case larray.Last:
-					val := col.Value(row)
 					point.AddField(api.NewLast(field.Name, val))
 				case larray.Min:
-					val := col.Value(row)
 					point.AddField(api.NewMin(field.Name, val))
 				case larray.Max:
-					val := col.Value(row)
 					point.AddField(api.NewMax(field.Name, val))
 				}
 			}
-		case *larray.Exemplar:
-			traceID, spanID, duration := col.Value(row)
+		case *larray.Generic[*model.Exemplar]:
+			exemplar := col.Value(row)
 
 			point.AddField(api.NewExemplar(
 				field.Name,
-				string(traceID),
-				string(spanID),
-				duration,
+				string(exemplar.TraceID),
+				string(exemplar.SpanID),
+				exemplar.Duration,
 			))
 		default:
 			m.logger.Warn("unsupported field column data type, skip",

@@ -27,6 +27,7 @@ import (
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/memory"
+	larrow "github.com/lindb/arrow/pkg/arrow"
 	"github.com/samber/lo"
 )
 
@@ -86,7 +87,7 @@ func Test_Runtime_Insert(t *testing.T) {
 	err := runtime.DeployJob("test_app", `
 	create job test_app
 	begin
-	  insert into rpc_call
+	  /*insert into rpc_call
 	  select 
 		  map_values(tags,'app') as tt,
 		  interface,count(1) as qps,
@@ -96,6 +97,11 @@ func Test_Runtime_Insert(t *testing.T) {
 	  group by tt,interface,ts;
 
 		select * from rpc_call where interface='http';
+		*/
+		select * from RPCService where interface in('http');
+		// select tags['app'],interface from RPCService where interface like 'h%');
+    // select tags['app'] from RPCService;
+		// select * from RPCService where tags['app']='order';
 	end 
 		`)
 	fmt.Println(err)
@@ -182,7 +188,8 @@ func Test_Runtime_Insert(t *testing.T) {
 	// 	go func() {
 	// 		defer wait.Done()
 	for range 3 {
-		input.Send(page)
+		page.Retain()
+		input.Send(larrow.NewFilterableRecord(page, nil))
 	}
 	// 	}()
 	// }
@@ -312,7 +319,8 @@ func Test_Runtime_Query(t *testing.T) {
 	for range 100 {
 
 		total += int(page.NumRows())
-		input.Send(page)
+		page.Retain()
+		input.Send(larrow.NewFilterableRecord(page, nil))
 		// page.Release()
 	}
 	// 	}()

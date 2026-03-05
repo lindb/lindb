@@ -258,6 +258,9 @@ type SQLParserVisitor interface {
 	// Visit a parse tree produced by SQLParser#stringLiteral.
 	VisitStringLiteral(ctx *StringLiteralContext) interface{}
 
+	// Visit a parse tree produced by SQLParser#mapReference.
+	VisitMapReference(ctx *MapReferenceContext) interface{}
+
 	// Visit a parse tree produced by SQLParser#functionCall.
 	VisitFunctionCall(ctx *FunctionCallContext) interface{}
 
@@ -339,11 +342,11 @@ type SQLParserVisitor interface {
 	// Visit a parse tree produced by SQLParser#basicStringLiteral.
 	VisitBasicStringLiteral(ctx *BasicStringLiteralContext) interface{}
 
+	// Visit a parse tree produced by SQLParser#quotedStringLiteral.
+	VisitQuotedStringLiteral(ctx *QuotedStringLiteralContext) interface{}
+
 	// Visit a parse tree produced by SQLParser#unquotedIdentifier.
 	VisitUnquotedIdentifier(ctx *UnquotedIdentifierContext) interface{}
-
-	// Visit a parse tree produced by SQLParser#quotedIdentifier.
-	VisitQuotedIdentifier(ctx *QuotedIdentifierContext) interface{}
 
 	// Visit a parse tree produced by SQLParser#backQuotedIdentifier.
 	VisitBackQuotedIdentifier(ctx *BackQuotedIdentifierContext) interface{}

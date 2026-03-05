@@ -48,6 +48,9 @@ func (v *DefaultTraversalVisitor) Visit(context any, n Node) (r any) {
 		_ = node.Right.Accept(context, v)
 	case *SingleColumn:
 		_ = node.Expression.Accept(context, v)
+	case *SubscriptExpression:
+		_ = node.Base.Accept(context, v)
+		_ = node.Key.Accept(context, v)
 	default:
 		// TODO: remove
 		fmt.Printf("default traversal visitor not support..................=%T\n", n)

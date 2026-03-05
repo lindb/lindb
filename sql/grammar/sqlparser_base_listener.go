@@ -505,6 +505,12 @@ func (s *BaseSQLParserListener) EnterStringLiteral(ctx *StringLiteralContext) {}
 // ExitStringLiteral is called when production stringLiteral is exited.
 func (s *BaseSQLParserListener) ExitStringLiteral(ctx *StringLiteralContext) {}
 
+// EnterMapReference is called when production mapReference is entered.
+func (s *BaseSQLParserListener) EnterMapReference(ctx *MapReferenceContext) {}
+
+// ExitMapReference is called when production mapReference is exited.
+func (s *BaseSQLParserListener) ExitMapReference(ctx *MapReferenceContext) {}
+
 // EnterFunctionCall is called when production functionCall is entered.
 func (s *BaseSQLParserListener) EnterFunctionCall(ctx *FunctionCallContext) {}
 
@@ -669,17 +675,17 @@ func (s *BaseSQLParserListener) EnterBasicStringLiteral(ctx *BasicStringLiteralC
 // ExitBasicStringLiteral is called when production basicStringLiteral is exited.
 func (s *BaseSQLParserListener) ExitBasicStringLiteral(ctx *BasicStringLiteralContext) {}
 
+// EnterQuotedStringLiteral is called when production quotedStringLiteral is entered.
+func (s *BaseSQLParserListener) EnterQuotedStringLiteral(ctx *QuotedStringLiteralContext) {}
+
+// ExitQuotedStringLiteral is called when production quotedStringLiteral is exited.
+func (s *BaseSQLParserListener) ExitQuotedStringLiteral(ctx *QuotedStringLiteralContext) {}
+
 // EnterUnquotedIdentifier is called when production unquotedIdentifier is entered.
 func (s *BaseSQLParserListener) EnterUnquotedIdentifier(ctx *UnquotedIdentifierContext) {}
 
 // ExitUnquotedIdentifier is called when production unquotedIdentifier is exited.
 func (s *BaseSQLParserListener) ExitUnquotedIdentifier(ctx *UnquotedIdentifierContext) {}
-
-// EnterQuotedIdentifier is called when production quotedIdentifier is entered.
-func (s *BaseSQLParserListener) EnterQuotedIdentifier(ctx *QuotedIdentifierContext) {}
-
-// ExitQuotedIdentifier is called when production quotedIdentifier is exited.
-func (s *BaseSQLParserListener) ExitQuotedIdentifier(ctx *QuotedIdentifierContext) {}
 
 // EnterBackQuotedIdentifier is called when production backQuotedIdentifier is entered.
 func (s *BaseSQLParserListener) EnterBackQuotedIdentifier(ctx *BackQuotedIdentifierContext) {}

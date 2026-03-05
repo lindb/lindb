@@ -336,6 +336,10 @@ func (v *BaseSQLParserVisitor) VisitStringLiteral(ctx *StringLiteralContext) int
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseSQLParserVisitor) VisitMapReference(ctx *MapReferenceContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseSQLParserVisitor) VisitFunctionCall(ctx *FunctionCallContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -444,11 +448,11 @@ func (v *BaseSQLParserVisitor) VisitBasicStringLiteral(ctx *BasicStringLiteralCo
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLParserVisitor) VisitUnquotedIdentifier(ctx *UnquotedIdentifierContext) interface{} {
+func (v *BaseSQLParserVisitor) VisitQuotedStringLiteral(ctx *QuotedStringLiteralContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLParserVisitor) VisitQuotedIdentifier(ctx *QuotedIdentifierContext) interface{} {
+func (v *BaseSQLParserVisitor) VisitUnquotedIdentifier(ctx *UnquotedIdentifierContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

@@ -200,6 +200,7 @@ primaryExpression   :
                     | qualifiedName '(' (expression (',' expression)*)? ')' #functionCall
                     | identifier                                            #columnReference
                     | base=primaryExpression '.' fieldName=identifier       #dereference
+                    | base=primaryExpression '[' key=valueExpression ']'    #mapReference
                     | '(' expression ')'                                    #parenExpression
                     ;
 
@@ -234,10 +235,10 @@ propertyValue       : DEFAULT                                               #def
 
 booleanValue        : TRUE | FALSE ;
 string              : STRING                                                #basicStringLiteral
+                    | QUOTED_IDENTIFIER                                     #quotedStringLiteral
                     ;
 
 identifier          : IDENTIFIER                                            #unquotedIdentifier
-                    | QUOTED_IDENTIFIER                                     #quotedIdentifier
                     | nonReserved                                           #unquotedIdentifier
                     | BACKQUOTED_IDENTIFIER                                 #backQuotedIdentifier
                     | DIGIT_IDENTIFIER                                      #digitIdentifier

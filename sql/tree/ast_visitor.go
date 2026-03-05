@@ -189,11 +189,7 @@ func (v *AstVisitor) VisitShowDatabases(ctx *grammar.ShowDatabasesContext) any {
 func (v *AstVisitor) VisitShowNamespaces(ctx *grammar.ShowNamespacesContext) any {
 	show := &ShowNamespaces{}
 	if ctx.GetNamespace() != nil {
-		value, err := strutil.GetStringValue(ctx.GetNamespace().GetText())
-		if err != nil {
-			panic(err)
-		}
-		show.LikePattern = value
+		show.LikePattern = strutil.UnescapeString(ctx.GetNamespace().GetText())
 	}
 	return &Show{
 		BaseNode: v.createBaseNode(ctx),
@@ -207,11 +203,7 @@ func (v *AstVisitor) VisitShowTableNames(ctx *grammar.ShowTableNamesContext) any
 		show.Namespace = v.getQualifiedName(ctx.QualifiedName())
 	}
 	if ctx.GetTableName() != nil {
-		value, err := strutil.GetStringValue(ctx.GetTableName().GetText())
-		if err != nil {
-			panic(err)
-		}
-		show.LikePattern = value
+		show.LikePattern = strutil.UnescapeString(ctx.GetTableName().GetText())
 	}
 	return &Show{
 		BaseNode: v.createBaseNode(ctx),
@@ -838,18 +830,6 @@ func (v *AstVisitor) VisitUnquotedIdentifier(ctx *grammar.UnquotedIdentifierCont
 	}
 }
 
-func (v *AstVisitor) VisitQuotedIdentifier(ctx *grammar.QuotedIdentifierContext) any {
-	identifier, err := strutil.GetStringValue(ctx.GetText())
-	if err != nil {
-		panic(err)
-	}
-	return &Identifier{
-		BaseNode:  v.createBaseNode(ctx),
-		Value:     identifier,
-		Delimited: true,
-	}
-}
-
 func (v *AstVisitor) VisitPredicatedExpression(ctx *grammar.PredicatedExpressionContext) any {
 	return v.Visit(ctx.Predicate())
 }
@@ -870,6 +850,14 @@ func (v *AstVisitor) VisitDereference(ctx *grammar.DereferenceContext) any {
 		BaseNode: v.createBaseNode(ctx),
 		Base:     visitIfPresent[Expression](ctx.GetBase(), v),
 		Field:    visitIfPresent[*Identifier](ctx.GetFieldName(), v),
+	}
+}
+
+func (v *AstVisitor) VisitMapReference(ctx *grammar.MapReferenceContext) any {
+	return &SubscriptExpression{
+		BaseNode: v.createBaseNode(ctx),
+		Base:     visitIfPresent[Expression](ctx.GetBase(), v),
+		Key:      visitIfPresent[Expression](ctx.GetKey(), v),
 	}
 }
 
@@ -903,7 +891,10 @@ func (v *AstVisitor) VisitArithmeticBinary(ctx *grammar.ArithmeticBinaryContext)
 // ************** visit literals **************
 
 func (v *AstVisitor) VisitStringLiteral(ctx *grammar.StringLiteralContext) any {
-	return v.Visit(ctx.String_())
+	return &StringLiteral{
+		BaseNode: v.createBaseNode(ctx),
+		Value:    strutil.UnescapeString(ctx.GetText()),
+	}
 }
 
 func (v *AstVisitor) VisitNumericLiteral(ctx *grammar.NumericLiteralContext) any {
@@ -913,17 +904,6 @@ func (v *AstVisitor) VisitNumericLiteral(ctx *grammar.NumericLiteralContext) any
 func (v *AstVisitor) VisitIntervalLiteral(ctx *grammar.IntervalLiteralContext) any {
 	return NewIntervalLiteral(v.idAllocator.Next(), getLocation(ctx),
 		ctx.Interval().GetValue().GetText(), IntervalUnit(strings.ToUpper(ctx.Interval().GetUnit().GetText())))
-}
-
-func (v *AstVisitor) VisitBasicStringLiteral(ctx *grammar.BasicStringLiteralContext) any {
-	value, err := strutil.GetStringValue(ctx.STRING().GetText())
-	if err != nil {
-		panic(err)
-	}
-	return &StringLiteral{
-		BaseNode: v.createBaseNode(ctx),
-		Value:    value,
-	}
 }
 
 func (v *AstVisitor) VisitBooleanLiteral(ctx *grammar.BooleanLiteralContext) any {

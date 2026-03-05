@@ -65,6 +65,8 @@ func (r *rewriter) rewrite(node tree.Expression) Expression {
 		return NewColumn(r.ctx.EvalContext, expr.Name, index, Array)
 	case *tree.Cast:
 		return NewCast(r.ctx.EvalContext, expr.Type, r.rewrite(expr.Expression))
+	case *tree.SubscriptExpression:
+		return NewMapAccess(r.ctx.EvalContext, r.rewrite(expr.Base), r.rewrite(expr.Key))
 	default:
 		panic(fmt.Sprintf("expression rewrite unimplemented: %T", node))
 	}
