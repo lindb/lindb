@@ -19,8 +19,10 @@ package meta
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/lindb/common/pkg/encoding"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -131,7 +133,7 @@ func (m *brokerMetadataManager) GetTableMetadata(database, ns, table string) (*t
 	if err != nil {
 		return nil, err
 	}
-	schema := types.NewTableSchema()
+	var fields []arrow.Field
 	supportDynamicField := false
 	if table != "logs" && table != "traces" {
 		// FIXME: log table???
@@ -141,14 +143,15 @@ func (m *brokerMetadataManager) GetTableMetadata(database, ns, table string) (*t
 				return nil, err
 			}
 			// TODO: remove duplicate column
-			schema.AddColumns(tableSchema.Columns)
+			fields = append(fields, tableSchema.Fields()...)
 		}
 	} else {
 		supportDynamicField = true // for log/tarce
-		schema.AddColumns([]types.ColumnMetadata{{Name: constants.TimestampColumnName, DataType: types.DTTimestamp, Hidden: true}})
+		// TODO: add hidden flag?
+		fields = append(fields, arrow.Field{Name: constants.TimestampColumnName, Type: arrow.FixedWidthTypes.Timestamp_s})
 	}
 	return &types.TableMetadata{
-		Schema:              schema,
+		Schema:              arrow.NewSchema(fields, nil),
 		Partitions:          partitions,
 		SupportDynamicField: supportDynamicField,
 	}, nil
@@ -189,7 +192,7 @@ func (m *brokerMetadataManager) DropJob(ctx context.Context, stream, job string)
 func (m *brokerMetadataManager) getTableSchema(
 	database, ns, table string,
 	node models.InternalNode,
-) (*types.TableSchema, error) {
+) (*arrow.Schema, error) {
 	conn, err := grpc.NewClient(node.Address(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
@@ -205,9 +208,6 @@ func (m *brokerMetadataManager) getTableSchema(
 	if err != nil {
 		return nil, err
 	}
-	tableSchema := &types.TableSchema{}
-	if err0 := encoding.JSONUnmarshal(resp.Payload, tableSchema); err0 != nil {
-		return nil, err0
-	}
-	return tableSchema, nil
+	fmt.Println(resp)
+	panic("FIXME: return table schema")
 }

@@ -18,11 +18,11 @@
 package plan
 
 import (
-	"github.com/lindb/lindb/spi/types"
+	"github.com/apache/arrow-go/v18/arrow"
 )
 
 type ValuesNode struct {
-	Rows          *types.Page
+	Rows          arrow.RecordBatch
 	OutputSymbols []*Symbol
 	BaseNode
 	RowCount int

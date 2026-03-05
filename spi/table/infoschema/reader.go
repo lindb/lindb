@@ -124,12 +124,13 @@ func (r *reader) ReadData(ctx context.Context, tableHandle *TableHandle, expr tr
 }
 
 func (r *reader) readEnv(predicate *predicate) (rows [][]*types.Datum, err error) {
-	instance := predicate.getColumnValue(envSchema.Columns[0].Name) // instance
+	fields := envSchema.Fields()
+	instance := predicate.getColumnValue(fields[0].Name) // instance
 	if instance == "" {
 		currentNode := r.metadataMgr.GetCurrentNode()
 		instance = fmt.Sprintf("%s:%d", currentNode.HostIP, currentNode.HTTPPort)
 	}
-	keys := predicate.getColumnValues(envSchema.Columns[1].Name) // key
+	keys := predicate.getColumnValues(fields[1].Name) // key
 	envs, err := r.env(instance, keys)
 	if err != nil {
 		return nil, err
@@ -238,8 +239,9 @@ func (r *reader) readStreamings(ctx context.Context) (rows [][]*types.Datum, err
 
 func (r *reader) readStreamingJobs(ctx context.Context, database string, predicate *predicate) (rows [][]*types.Datum, err error) {
 	var streaming string
+	fields := streamingJobsSchema.Fields()
 	if database == constants.InformationSchema {
-		streaming = predicate.getColumnValue(streamingJobsSchema.Columns[0].Name) // streaming
+		streaming = predicate.getColumnValue(fields[0].Name) // streaming
 		if streaming == "" {
 			return nil, errors.New("streaming not found in where clause")
 		}
@@ -249,7 +251,7 @@ func (r *reader) readStreamingJobs(ctx context.Context, database string, predica
 	if streaming == "" {
 		return nil, errors.New("streaming not select")
 	}
-	name := predicate.getColumnValue(streamingJobsSchema.Columns[1].Name) // name
+	name := predicate.getColumnValue(fields[1].Name) // name
 	if name == "" {
 		return nil, errors.New("name not found in where clause")
 	}
@@ -292,15 +294,16 @@ func (r *reader) getStateMachineInfo(role, metadataType string) (models.StateMac
 }
 
 func (r *reader) readMetadatas(ctx context.Context, predicate *predicate) (rows [][]*types.Datum, err error) {
-	role := predicate.getColumnValue(metadatasSchema.Columns[0].Name) // role
+	fields := metadatasSchema.Fields()
+	role := predicate.getColumnValue(fields[0].Name) // role
 	if role == "" {
 		return nil, errors.New("role not found in where clause(broker/master/storage)")
 	}
-	metadataType := predicate.getColumnValue(metadatasSchema.Columns[1].Name) // type
+	metadataType := predicate.getColumnValue(fields[1].Name) // type
 	if metadataType == "" {
 		return nil, errors.New("type not found in where clause")
 	}
-	source := predicate.getColumnValue(metadatasSchema.Columns[2].Name) // source
+	source := predicate.getColumnValue(fields[2].Name) // source
 	if source == "" {
 		return nil, errors.New("source not found in where clause")
 	}
@@ -330,8 +333,9 @@ func (r *reader) readMetadatas(ctx context.Context, predicate *predicate) (rows 
 }
 
 func (r *reader) readMetrics(predicate *predicate) (rows [][]*types.Datum, err error) {
-	inputRole := predicate.getColumnValue(metricsSchema.Columns[0].Name)
-	names := predicate.getColumnValues(metricsSchema.Columns[1].Name)
+	fields := metricsSchema.Fields()
+	inputRole := predicate.getColumnValue(fields[0].Name)
+	names := predicate.getColumnValues(fields[1].Name)
 	roles := []struct {
 		role  string
 		nodes []models.Node
@@ -385,7 +389,8 @@ func (r *reader) readMetrics(predicate *predicate) (rows [][]*types.Datum, err e
 }
 
 func (r *reader) readReplications(predicate *predicate) (rows [][]*types.Datum, err error) {
-	schema := predicate.getColumnValue(replicationSchema.Columns[0].Name)
+	fields := replicationSchema.Fields()
+	schema := predicate.getColumnValue(fields[0].Name)
 	if schema == "" {
 		return nil, errors.New("table_schema not found in where clause")
 	}
@@ -423,7 +428,8 @@ func (r *reader) readReplications(predicate *predicate) (rows [][]*types.Datum, 
 }
 
 func (r *reader) readMemoryDatabases(predicate *predicate) (rows [][]*types.Datum, err error) {
-	schema := predicate.getColumnValue(memoryDatabaseSchema.Columns[0].Name)
+	fields := memoryDatabaseSchema.Fields()
+	schema := predicate.getColumnValue(fields[0].Name)
 	if schema == "" {
 		return nil, errors.New("table_schema not found in where clause")
 	}
@@ -456,11 +462,12 @@ func (r *reader) readMemoryDatabases(predicate *predicate) (rows [][]*types.Datu
 }
 
 func (r *reader) readNamespaces(predicate *predicate) (rows [][]*types.Datum, err error) {
-	schema := predicate.getColumnValue(namespacesSchema.Columns[0].Name)
+	fields := namespacesSchema.Fields()
+	schema := predicate.getColumnValue(fields[0].Name)
 	if schema == "" {
 		return nil, errors.New("table_schema not found in where clause")
 	}
-	namespace := predicate.getColumnValue(namespacesSchema.Columns[1].Name)
+	namespace := predicate.getColumnValue(fields[1].Name)
 	namespaces, err := r.suggestNamespaces(schema, namespace, 10)
 	if err != nil {
 		return nil, err
@@ -475,12 +482,13 @@ func (r *reader) readNamespaces(predicate *predicate) (rows [][]*types.Datum, er
 }
 
 func (r *reader) readTableNames(predicate *predicate) (rows [][]*types.Datum, err error) {
-	schema := predicate.getColumnValue(tableNamesSchema.Columns[0].Name)
-	namespace := predicate.getColumnValue(tableNamesSchema.Columns[1].Name)
+	fields := tableNamesSchema.Fields()
+	schema := predicate.getColumnValue(fields[0].Name)
+	namespace := predicate.getColumnValue(fields[1].Name)
 	if namespace == "" {
 		namespace = commonConstants.DefaultNamespace
 	}
-	tableName := predicate.getColumnValue(tableNamesSchema.Columns[2].Name)
+	tableName := predicate.getColumnValue(fields[2].Name)
 	if schema == "" {
 		return nil, errors.New("table_schema not found in where clause")
 	}
@@ -499,12 +507,13 @@ func (r *reader) readTableNames(predicate *predicate) (rows [][]*types.Datum, er
 }
 
 func (r *reader) readColumns(predicate *predicate) (rows [][]*types.Datum, err error) {
-	schema := predicate.getColumnValue(columnsSchema.Columns[0].Name)
-	namespace := predicate.getColumnValue(columnsSchema.Columns[1].Name)
+	fields := columnsSchema.Fields()
+	schema := predicate.getColumnValue(fields[0].Name)
+	namespace := predicate.getColumnValue(fields[1].Name)
 	if namespace == "" {
 		namespace = commonConstants.DefaultNamespace
 	}
-	tableName := predicate.getColumnValue(columnsSchema.Columns[2].Name)
+	tableName := predicate.getColumnValue(fields[2].Name)
 	if schema == "" || tableName == "" {
 		return nil, errors.New("table_schema/table_name not found in where clause")
 	}
@@ -512,14 +521,13 @@ func (r *reader) readColumns(predicate *predicate) (rows [][]*types.Datum, err e
 	if err != nil {
 		return nil, err
 	}
-	for _, column := range table.Schema.Columns {
+	for _, column := range table.Schema.Fields() {
 		rows = append(rows, types.MakeDatums(
-			schema,                   // table_schema
-			namespace,                // namespace
-			tableName,                // table_name
-			column.Name,              // column_name
-			column.DataType.String(), // data_type
-			column.AggType.String(),  // agg_type
+			schema,               // table_schema
+			namespace,            // namespace
+			tableName,            // table_name
+			column.Name,          // column_name
+			column.Type.String(), // data_type
 		))
 	}
 	return

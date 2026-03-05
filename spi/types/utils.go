@@ -17,41 +17,15 @@
 
 package types
 
-func GetAccurateType(lhs, rhs DataType) DataType {
-	switch lhs {
-	case DTInt:
-		switch rhs {
-		case DTInt:
-			return DTInt
-		case DTFloat:
-			return DTFloat
-		case DTString:
-			return DTString
-		case DTTimeSeries:
-			return DTTimeSeries
-		case DTTimestamp:
-			return DTTimestamp
-		}
-	case DTFloat:
-		switch rhs {
-		case DTFloat:
-			return DTFloat
-		case DTString:
-			return DTString
-		case DTTimeSeries:
-			return DTTimeSeries
-		case DTTimestamp:
-			return DTTimestamp
-		}
-	case DTString:
-		return DTString
-	case DTTimeSeries:
-		return DTTimeSeries
-	case DTTimestamp:
-		return DTTimestamp
-	case DTMap:
-		return DTMap
+import (
+	"fmt"
+
+	"github.com/apache/arrow-go/v18/arrow"
+)
+
+func GetAccurateType(lhs, rhs arrow.DataType) arrow.DataType {
+	if lhs != rhs {
+		panic(fmt.Sprintf("left side type [%s] is not same as right side type [%s]", lhs, rhs))
 	}
-	// TODO: add unknown type and string
-	return DTUnknown
+	return lhs
 }

@@ -20,6 +20,7 @@ package aggregation
 import (
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
+	larray "github.com/lindb/arrow/pkg/arrow/array"
 
 	"github.com/lindb/lindb/sql/expression"
 )
@@ -40,7 +41,7 @@ func (c *countAggregator) Enter(record arrow.RecordBatch, row int) {
 }
 
 func (c *countAggregator) Flush(builder array.Builder) {
-	value := builder.(*array.Float64Builder)
+	value := larray.NewAggregationBuilder(builder.(*array.ExtensionBuilder))
 	value.Append(c.value)
 
 	// need reset value after flush

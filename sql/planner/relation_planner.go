@@ -21,10 +21,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/apache/arrow-go/v18/arrow"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/analyzer"
 	"github.com/lindb/lindb/sql/context"
 	"github.com/lindb/lindb/sql/expression"
@@ -116,7 +117,7 @@ func (p *RelationPlanner) visitValues(_ any, node *tree.Values) (r any) {
 				ID: p.context.PlanNodeIDAllocator.Next(),
 			},
 			Rows:          node.Rows,
-			RowCount:      node.Rows.NumRows(),
+			RowCount:      int(node.Rows.NumRows()),
 			OutputSymbols: outputSymbols,
 		},
 		OutContext:    p.outerContext,
@@ -279,7 +280,7 @@ func (p *RelationPlanner) planJoin(node *tree.Join, scope *analyzer.Scope, left,
 	}
 }
 
-func coerce(plan *RelationPlan, types []types.Type,
+func coerce(plan *RelationPlan, types []arrow.DataType,
 	symbolAllocator *planpkg.SymbolAllocator, idAllocator *planpkg.PlanNodeIDAllocator,
 ) *NodeAndMappings {
 	return nil

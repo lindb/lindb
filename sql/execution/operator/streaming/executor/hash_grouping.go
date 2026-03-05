@@ -24,6 +24,7 @@ import (
 
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/memory"
+	larrow "github.com/lindb/arrow/pkg/arrow"
 	"github.com/lindb/arrow/pkg/arrow/builder"
 	"github.com/samber/lo"
 
@@ -126,7 +127,7 @@ func (g *HashGrouping) Enter(record arrow.RecordBatch) {
 func (g *HashGrouping) Leave(output chan<- arrow.RecordBatch) {
 	// TODO: create new grouping map???
 	fields := lo.Map(g.node.GetOutputSymbols(), func(symbol *plan.Symbol, _ int) arrow.Field {
-		return arrow.Field{Name: symbol.Name, Type: symbol.DataType.ToArrowDataType(), Metadata: arrow.NewMetadata([]string{"agg"}, []string{symbol.AggType.String()})}
+		return arrow.Field{Name: symbol.Name, Type: symbol.DataType}
 	})
 	rb := builder.NewRecordBuilder(memory.DefaultAllocator, arrow.NewSchema(fields, nil))
 	defer rb.Release()
@@ -149,7 +150,7 @@ func (g *HashGrouping) Leave(output chan<- arrow.RecordBatch) {
 		}
 	}
 
-	output <- rb.NewRecord()
+	output <- larrow.NewFilterableRecord(rb.NewRecord(), nil)
 }
 
 // createAggregators creates aggregator instances for each aggregation function

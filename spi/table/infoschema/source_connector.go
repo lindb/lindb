@@ -29,7 +29,6 @@ import (
 
 	"github.com/lindb/lindb/meta"
 	"github.com/lindb/lindb/spi"
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 )
 
@@ -49,7 +48,7 @@ func (p *sourceConnectorProvider) CreateSourceConnector(ctx context.Context,
 	table spi.TableHandle, partitions []int,
 	columnMapping map[string]string,
 	predicate tree.Expression,
-	outputColumns []types.ColumnMetadata, assignments []*spi.ColumnAssignment,
+	outputColumns []arrow.Field, assignments []*spi.ColumnAssignment,
 ) spi.SourceConnector {
 	return &sourceConnector{
 		ctx:           ctx,
@@ -67,7 +66,7 @@ type sourceConnector struct {
 	table         spi.TableHandle
 	tableHandle   *TableHandle
 	predicate     tree.Expression
-	outputColumns []types.ColumnMetadata
+	outputColumns []arrow.Field
 	colIdxs       []int
 
 	rb *builder.RecordBuilder
@@ -83,34 +82,18 @@ func (p *sourceConnector) open() {
 		panic(fmt.Errorf("information table schema not found: %s", infoTable.Table))
 	}
 	p.colIdxs = make([]int, len(p.outputColumns))
-	fields := make([]arrow.Field, len(p.outputColumns))
+	fields := schema.Fields()
 	for i, col := range p.outputColumns {
-		if _, idx, exist := lo.FindIndexOf(schema.Columns, func(item types.ColumnMetadata) bool {
+		if _, idx, exist := lo.FindIndexOf(fields, func(item arrow.Field) bool {
 			return item.Name == col.Name
 		}); exist {
 			p.colIdxs[i] = idx
-			var dataType arrow.DataType
-			switch col.DataType {
-			case types.DTString:
-				dataType = arrow.BinaryTypes.String
-			case types.DTFloat:
-				dataType = arrow.PrimitiveTypes.Float64
-			case types.DTInt:
-				dataType = arrow.PrimitiveTypes.Int64
-			case types.DTTimestamp:
-				dataType = arrow.FixedWidthTypes.Timestamp_ms
-			case types.DTDuration:
-				dataType = arrow.FixedWidthTypes.Duration_ms
-			default:
-				panic(fmt.Sprintf("unsupported column data type: %s", col.DataType))
-			}
-			fields[i] = arrow.Field{Name: col.Name, Type: dataType}
 		}
 	}
 	if len(p.colIdxs) != len(p.outputColumns) {
 		panic("output columns not found in table schema")
 	}
-	p.rb = builder.NewRecordBuilder(memory.NewGoAllocator(), arrow.NewSchema(fields, nil))
+	p.rb = builder.NewRecordBuilder(memory.NewGoAllocator(), arrow.NewSchema(p.outputColumns, nil))
 	p.tableHandle = infoTable
 }
 

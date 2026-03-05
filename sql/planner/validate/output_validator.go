@@ -20,9 +20,10 @@ package validate
 import (
 	"errors"
 
+	"github.com/apache/arrow-go/v18/arrow"
+	larrow "github.com/lindb/arrow/pkg/arrow"
 	"github.com/samber/lo"
 
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/context"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
@@ -35,14 +36,14 @@ func NewOutputValidator() Validator {
 	v := &OutputValidator{}
 	v.validate = func(ctx *context.PlannerContext, node *plan.OutputNode) error {
 		_, ok := lo.Find(node.GetOutputSymbols(), func(item *plan.Symbol) bool {
-			return item.DataType == types.DTTimestamp && item.Hidden
+			return arrow.TypeEqual(item.DataType, arrow.FixedWidthTypes.Timestamp_ns) && item.Hidden
 		})
 		if !ok {
 			// output node has no timestamp column
 			return nil
 		}
 		if _, ok = lo.Find(node.GetOutputSymbols(), func(item *plan.Symbol) bool {
-			return item.DataType == types.DTTimeSeries
+			return arrow.TypeEqual(item.DataType, larrow.ExtensionTypes.TimeSeries)
 		}); !ok {
 			return errors.New("timestamp column is hidden, output must contain time series column")
 		}

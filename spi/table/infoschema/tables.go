@@ -21,16 +21,16 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/meta"
 	"github.com/lindb/lindb/spi"
-	"github.com/lindb/lindb/spi/types"
 )
 
 func init() {
-	spi.RegisterGetTableSchemaFn(spi.InfoSchema, func(db, ns, table string) (*types.TableSchema, error) {
+	spi.RegisterGetTableSchemaFn(spi.InfoSchema, func(db, ns, table string) (*arrow.Schema, error) {
 		schema, ok := GetTableSchema(table)
 		if !ok {
 			return nil, fmt.Errorf("information table schema not found: %s", table)
@@ -43,7 +43,7 @@ func InitInfoSchema(metadataMgr meta.MetadataManager) {
 	spi.RegisterSourceConnectorProvider(&TableHandle{}, NewSourceConnectorProvider(metadataMgr))
 }
 
-func GetTableSchema(name string) (schema *types.TableSchema, ok bool) {
+func GetTableSchema(name string) (schema *arrow.Schema, ok bool) {
 	schema, ok = tables[strings.ToLower(name)]
 	return
 }
@@ -53,171 +53,135 @@ func GetShowSelectColumns(name string, start int) (columns []string) {
 	if !ok {
 		return
 	}
-	return lo.Map(schema.Columns[start:], func(item types.ColumnMetadata, index int) string {
+	fields := schema.Fields()
+	return lo.Map(fields[start:], func(item arrow.Field, index int) string {
 		return item.Name
 	})
 }
 
 var (
-	envSchema = &types.TableSchema{
-		Columns: []types.ColumnMetadata{
-			{Name: "instance", DataType: types.DTString, Hidden: true},
-			{Name: "key", DataType: types.DTString},
-			{Name: "value", DataType: types.DTString},
-			{Name: "default", DataType: types.DTString},
-		},
-	}
-	masterSchema = &types.TableSchema{
-		Columns: []types.ColumnMetadata{
-			{Name: "host_ip", DataType: types.DTString},
-			{Name: "host_name", DataType: types.DTString},
-			{Name: "http", DataType: types.DTInt},
-			{Name: "version", DataType: types.DTString},
-			{Name: "online_time", DataType: types.DTTimestamp},
-			{Name: "elect_time", DataType: types.DTTimestamp},
-		},
-	}
-	brokerSchema = &types.TableSchema{
-		Columns: []types.ColumnMetadata{
-			{Name: "host_ip", DataType: types.DTString},
-			{Name: "host_name", DataType: types.DTString},
-			{Name: "version", DataType: types.DTString},
-			{Name: "online_time", DataType: types.DTTimestamp},
-			{Name: "uptime", DataType: types.DTDuration},
-			{Name: "grpc", DataType: types.DTInt},
-			{Name: "http", DataType: types.DTInt},
-		},
-	}
-	storageSchema = &types.TableSchema{
-		Columns: []types.ColumnMetadata{
-			{Name: "id", DataType: types.DTInt},
-			{Name: "host_ip", DataType: types.DTString},
-			{Name: "host_name", DataType: types.DTString},
-			{Name: "version", DataType: types.DTString},
-			{Name: "online_time", DataType: types.DTTimestamp},
-			{Name: "uptime", DataType: types.DTDuration},
-			{Name: "grpc", DataType: types.DTInt},
-			{Name: "http", DataType: types.DTInt},
-		},
-	}
-	replicationSchema = &types.TableSchema{
-		Columns: []types.ColumnMetadata{
-			{Name: "table_schema", DataType: types.DTString},
-			{Name: "node", DataType: types.DTString},
-			{Name: "shard", DataType: types.DTInt},
-			{Name: "family", DataType: types.DTString},
-			{Name: "leader", DataType: types.DTInt},
-			{Name: "replicator", DataType: types.DTString},
-			{Name: "type", DataType: types.DTString},
-			{Name: "append", DataType: types.DTInt},
-			{Name: "consume", DataType: types.DTInt},
-			{Name: "ack", DataType: types.DTInt},
-			{Name: "pending", DataType: types.DTInt},
-			{Name: "state", DataType: types.DTString},
-			{Name: "error", DataType: types.DTString},
-		},
-	}
-	memoryDatabaseSchema = &types.TableSchema{
-		Columns: []types.ColumnMetadata{
-			{Name: "table_schema", DataType: types.DTString},
-			{Name: "node", DataType: types.DTString},
-			{Name: "shard", DataType: types.DTInt},
-			{Name: "family", DataType: types.DTString},
-			{Name: "state", DataType: types.DTString},
-			{Name: "uptime", DataType: types.DTDuration},
-			{Name: "mem_size", DataType: types.DTInt},
-			{Name: "num_of_series", DataType: types.DTInt},
-		},
-	}
-	enginesSchema = &types.TableSchema{
-		Columns: []types.ColumnMetadata{
-			{Name: "engine", DataType: types.DTString},  // metric/log/trace
-			{Name: "support", DataType: types.DTString}, // default/yes/no/disabled
-		},
-	}
-	schemtatSchema = &types.TableSchema{
-		Columns: []types.ColumnMetadata{
-			{Name: "schema_name", DataType: types.DTString},
-			{Name: "engine", DataType: types.DTString},
-			{Name: "statement", DataType: types.DTString},
-		},
-	}
-	namespacesSchema = &types.TableSchema{
-		Columns: []types.ColumnMetadata{
-			{Name: "table_schema", DataType: types.DTString},
-			{Name: "namespace", DataType: types.DTString},
-		},
-	}
-	tableNamesSchema = &types.TableSchema{
-		Columns: []types.ColumnMetadata{
-			{Name: "table_schema", DataType: types.DTString},
-			{Name: "namespace", DataType: types.DTString},
-			{Name: "table_name", DataType: types.DTString},
-		},
-	}
-	columnsSchema = &types.TableSchema{
-		Columns: []types.ColumnMetadata{
-			{Name: "table_schema", DataType: types.DTString},
-			{Name: "namespace", DataType: types.DTString},
-			{Name: "table_name", DataType: types.DTString},
-			{Name: "column_name", DataType: types.DTString},
-			{Name: "data_type", DataType: types.DTString},
-			{Name: "agg_type", DataType: types.DTString},
-		},
-	}
-	metricsSchema = &types.TableSchema{
-		Columns: []types.ColumnMetadata{
-			{Name: "role", DataType: types.DTString},
-			{Name: "name", DataType: types.DTString},
-			{Name: "tags", DataType: types.DTString},
-			{Name: "field_name", DataType: types.DTString},
-			{Name: "field_type", DataType: types.DTString},
-			{Name: "field_value", DataType: types.DTFloat},
-		},
-	}
-	metadataTypesSchema = &types.TableSchema{
-		Columns: []types.ColumnMetadata{
-			{Name: "role", DataType: types.DTString},
-			{Name: "type", DataType: types.DTString},
-			{Name: "comment", DataType: types.DTString},
-		},
-	}
-	metadatasSchema = &types.TableSchema{
-		Columns: []types.ColumnMetadata{
-			{Name: "role", DataType: types.DTString},
-			{Name: "type", DataType: types.DTString},
-			{Name: "source", DataType: types.DTString},
-			{Name: "data", DataType: types.DTString},
-		},
-	}
-	functionsSchema = &types.TableSchema{
-		Columns: []types.ColumnMetadata{
-			{Name: "name", DataType: types.DTString},
-			{Name: "template", DataType: types.DTString},
-		},
-	}
-	snippetsSchema = &types.TableSchema{
-		Columns: []types.ColumnMetadata{
-			{Name: "name", DataType: types.DTString},
-			{Name: "template", DataType: types.DTString},
-		},
-	}
-	streamingsSchema = &types.TableSchema{
-		Columns: []types.ColumnMetadata{
-			{Name: "name", DataType: types.DTString},
-			{Name: "statement", DataType: types.DTString},
-		},
-	}
-	streamingJobsSchema = &types.TableSchema{
-		Columns: []types.ColumnMetadata{
-			{Name: "streaming", DataType: types.DTString, Hidden: true},
-			{Name: "name", DataType: types.DTString},
-			{Name: "statement", DataType: types.DTString},
-		},
-	}
+	envSchema = arrow.NewSchema([]arrow.Field{
+		{Name: "instance", Type: arrow.BinaryTypes.String},
+		{Name: "key", Type: arrow.BinaryTypes.String},
+		{Name: "value", Type: arrow.BinaryTypes.String},
+		{Name: "default", Type: arrow.BinaryTypes.String},
+	}, nil)
+	masterSchema = arrow.NewSchema([]arrow.Field{
+		{Name: "host_ip", Type: arrow.BinaryTypes.String},
+		{Name: "host_name", Type: arrow.BinaryTypes.String},
+		{Name: "http", Type: arrow.PrimitiveTypes.Int32},
+		{Name: "version", Type: arrow.BinaryTypes.String},
+		{Name: "online_time", Type: arrow.FixedWidthTypes.Timestamp_ns},
+		{Name: "elect_time", Type: arrow.FixedWidthTypes.Timestamp_ns},
+	}, nil)
+	brokerSchema = arrow.NewSchema([]arrow.Field{
+		{Name: "host_ip", Type: arrow.BinaryTypes.String},
+		{Name: "host_name", Type: arrow.BinaryTypes.String},
+		{Name: "version", Type: arrow.BinaryTypes.String},
+		{Name: "online_time", Type: arrow.FixedWidthTypes.Timestamp_ns},
+		{Name: "uptime", Type: arrow.FixedWidthTypes.Duration_ns},
+		{Name: "grpc", Type: arrow.PrimitiveTypes.Int32},
+		{Name: "http", Type: arrow.PrimitiveTypes.Int32},
+	}, nil)
+	storageSchema = arrow.NewSchema([]arrow.Field{
+		{Name: "id", Type: arrow.PrimitiveTypes.Int32},
+		{Name: "host_ip", Type: arrow.BinaryTypes.String},
+		{Name: "host_name", Type: arrow.BinaryTypes.String},
+		{Name: "version", Type: arrow.BinaryTypes.String},
+		{Name: "online_time", Type: arrow.FixedWidthTypes.Timestamp_ns},
+		{Name: "uptime", Type: arrow.FixedWidthTypes.Duration_ns},
+		{Name: "grpc", Type: arrow.PrimitiveTypes.Int32},
+		{Name: "http", Type: arrow.PrimitiveTypes.Int32},
+	}, nil)
+	replicationSchema = arrow.NewSchema([]arrow.Field{
+		{Name: "table_schema", Type: arrow.BinaryTypes.String},
+		{Name: "node", Type: arrow.BinaryTypes.String},
+		{Name: "shard", Type: arrow.PrimitiveTypes.Int32},
+		{Name: "family", Type: arrow.BinaryTypes.String},
+		{Name: "leader", Type: arrow.PrimitiveTypes.Int32},
+		{Name: "replicator", Type: arrow.BinaryTypes.String},
+		{Name: "type", Type: arrow.BinaryTypes.String},
+		{Name: "append", Type: arrow.PrimitiveTypes.Int32},
+		{Name: "consume", Type: arrow.PrimitiveTypes.Int32},
+		{Name: "ack", Type: arrow.PrimitiveTypes.Int32},
+		{Name: "pending", Type: arrow.PrimitiveTypes.Int32},
+		{Name: "state", Type: arrow.BinaryTypes.String},
+		{Name: "error", Type: arrow.BinaryTypes.String},
+	}, nil)
+	memoryDatabaseSchema = arrow.NewSchema([]arrow.Field{
+		{Name: "table_schema", Type: arrow.BinaryTypes.String},
+		{Name: "node", Type: arrow.BinaryTypes.String},
+		{Name: "shard", Type: arrow.PrimitiveTypes.Int32},
+		{Name: "family", Type: arrow.BinaryTypes.String},
+		{Name: "state", Type: arrow.BinaryTypes.String},
+		{Name: "uptime", Type: arrow.FixedWidthTypes.Duration_ns},
+		{Name: "mem_size", Type: arrow.PrimitiveTypes.Int32},
+		{Name: "num_of_series", Type: arrow.PrimitiveTypes.Int32},
+	}, nil)
+	enginesSchema = arrow.NewSchema([]arrow.Field{
+		{Name: "engine", Type: arrow.BinaryTypes.String},  // metric/log/trace
+		{Name: "support", Type: arrow.BinaryTypes.String}, // default/yes/no/disabled
+	}, nil)
+	schemataSchema = arrow.NewSchema([]arrow.Field{
+		{Name: "schema_name", Type: arrow.BinaryTypes.String},
+		{Name: "engine", Type: arrow.BinaryTypes.String},
+		{Name: "statement", Type: arrow.BinaryTypes.String},
+	}, nil)
+	namespacesSchema = arrow.NewSchema([]arrow.Field{
+		{Name: "table_schema", Type: arrow.BinaryTypes.String},
+		{Name: "namespace", Type: arrow.BinaryTypes.String},
+	}, nil)
+	tableNamesSchema = arrow.NewSchema([]arrow.Field{
+		{Name: "table_schema", Type: arrow.BinaryTypes.String},
+		{Name: "namespace", Type: arrow.BinaryTypes.String},
+		{Name: "table_name", Type: arrow.BinaryTypes.String},
+	}, nil)
+	columnsSchema = arrow.NewSchema([]arrow.Field{
+		{Name: "table_schema", Type: arrow.BinaryTypes.String},
+		{Name: "namespace", Type: arrow.BinaryTypes.String},
+		{Name: "table_name", Type: arrow.BinaryTypes.String},
+		{Name: "column_name", Type: arrow.BinaryTypes.String},
+		{Name: "data_type", Type: arrow.BinaryTypes.String},
+	}, nil)
+	metricsSchema = arrow.NewSchema([]arrow.Field{
+		{Name: "role", Type: arrow.BinaryTypes.String},
+		{Name: "name", Type: arrow.BinaryTypes.String},
+		{Name: "tags", Type: arrow.BinaryTypes.String},
+		{Name: "field_name", Type: arrow.BinaryTypes.String},
+		{Name: "field_type", Type: arrow.BinaryTypes.String},
+		{Name: "field_value", Type: arrow.PrimitiveTypes.Float64},
+	}, nil)
+	metadataTypesSchema = arrow.NewSchema([]arrow.Field{
+		{Name: "role", Type: arrow.BinaryTypes.String},
+		{Name: "type", Type: arrow.BinaryTypes.String},
+		{Name: "comment", Type: arrow.BinaryTypes.String},
+	}, nil)
+	metadatasSchema = arrow.NewSchema([]arrow.Field{
+		{Name: "role", Type: arrow.BinaryTypes.String},
+		{Name: "type", Type: arrow.BinaryTypes.String},
+		{Name: "source", Type: arrow.BinaryTypes.String},
+		{Name: "data", Type: arrow.BinaryTypes.String},
+	}, nil)
+	functionsSchema = arrow.NewSchema([]arrow.Field{
+		{Name: "name", Type: arrow.BinaryTypes.String},
+		{Name: "template", Type: arrow.BinaryTypes.String},
+	}, nil)
+	snippetsSchema = arrow.NewSchema([]arrow.Field{
+		{Name: "name", Type: arrow.BinaryTypes.String},
+		{Name: "template", Type: arrow.BinaryTypes.String},
+	}, nil)
+	streamingsSchema = arrow.NewSchema([]arrow.Field{
+		{Name: "name", Type: arrow.BinaryTypes.String},
+		{Name: "statement", Type: arrow.BinaryTypes.String},
+	}, nil)
+	streamingJobsSchema = arrow.NewSchema([]arrow.Field{
+		{Name: "streaming", Type: arrow.BinaryTypes.String},
+		{Name: "name", Type: arrow.BinaryTypes.String},
+		{Name: "statement", Type: arrow.BinaryTypes.String},
+	}, nil)
 
 	// tables represents the schema of tables.
-	tables = map[string]*types.TableSchema{
+	tables = map[string]*arrow.Schema{
 		constants.TableEnv:             envSchema,
 		constants.TableMaster:          masterSchema,
 		constants.TableBrokers:         brokerSchema,
@@ -225,7 +189,7 @@ var (
 		constants.TableReplications:    replicationSchema,
 		constants.TableMemoryDatabases: memoryDatabaseSchema,
 		constants.TableEngines:         enginesSchema,
-		constants.TableSchemata:        schemtatSchema,
+		constants.TableSchemata:        schemataSchema,
 		constants.TableMetrics:         metricsSchema,
 		constants.TableNamespaces:      namespacesSchema,
 		constants.TableTableNames:      tableNamesSchema,

@@ -18,69 +18,14 @@
 package types
 
 import (
+	"github.com/apache/arrow-go/v18/arrow"
+
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/stream"
 )
 
 type TableMetadata struct {
-	Schema     *TableSchema
+	Schema     *arrow.Schema
 	Partitions map[models.InternalNode][]int
 
 	SupportDynamicField bool
-}
-
-type TableSchema struct {
-	Columns []ColumnMetadata `json:"columns,omitempty"`
-}
-
-func NewTableSchema() *TableSchema {
-	return &TableSchema{}
-}
-
-func (s *TableSchema) AddColumn(column ColumnMetadata) {
-	s.Columns = append(s.Columns, column)
-}
-
-func (s *TableSchema) AddColumns(columns []ColumnMetadata) {
-	s.Columns = append(s.Columns, columns...)
-}
-
-type ColumnMetadata struct {
-	Name     string        `json:"name"`
-	DataType DataType      `json:"type"`
-	AggType  AggregateType `json:"aggType,omitempty"`
-	Hidden   bool          `json:"hidden"`
-	Ref      int           `json:"-"`
-}
-
-func NewColumnInfo(name string, vt DataType, hidden bool, aggType AggregateType) ColumnMetadata {
-	return ColumnMetadata{
-		Name:     name,
-		DataType: vt,
-		Hidden:   hidden,
-		AggType:  aggType,
-	}
-}
-
-func (c *ColumnMetadata) Marshal(w *stream.BufferWriter) {
-	w.PutString(c.Name)
-	w.PutByte(byte(c.DataType))
-	w.PutByte(byte(c.AggType))
-	if c.Hidden {
-		w.PutByte(1)
-	} else {
-		w.PutByte(0)
-	}
-}
-
-func (c *ColumnMetadata) Unmarshal(r *stream.Reader) {
-	c.Name = r.ReadString()
-	c.DataType = DataType(r.ReadByte())
-	c.AggType = AggregateType(r.ReadByte())
-	hidden := r.ReadByte()
-	if hidden == 1 {
-		c.Hidden = true
-	} else {
-		c.Hidden = false
-	}
 }

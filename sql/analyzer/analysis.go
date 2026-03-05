@@ -18,6 +18,8 @@
 package analyzer
 
 import (
+	"github.com/apache/arrow-go/v18/arrow"
+
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
@@ -83,9 +85,9 @@ type Analysis struct {
 	orderByExpressions    map[tree.NodeID][]tree.Expression
 	limit                 map[tree.NodeID]int64
 
-	types            map[tree.NodeID]types.DataType
+	types            map[tree.NodeID]arrow.DataType
 	columnReferences map[tree.NodeID]*ResolvedField
-	coercons         map[tree.NodeID]types.DataType
+	coercons         map[tree.NodeID]arrow.DataType
 
 	insert *Insert
 }
@@ -113,9 +115,9 @@ func NewAnalysis(root tree.Statement) *Analysis {
 		orderByExpressions:    make(map[tree.NodeID][]tree.Expression),
 		limit:                 make(map[tree.NodeID]int64),
 
-		types:            make(map[tree.NodeID]types.DataType),
+		types:            make(map[tree.NodeID]arrow.DataType),
 		columnReferences: make(map[tree.NodeID]*ResolvedField),
-		coercons:         make(map[tree.NodeID]types.DataType),
+		coercons:         make(map[tree.NodeID]arrow.DataType),
 	}
 }
 
@@ -285,15 +287,11 @@ func (a *Analysis) GetColumnReferenceField(node tree.Expression) (field *Resolve
 	return
 }
 
-func (a *Analysis) RecordSubQueries(node tree.Node, expressionAnalysis *ExpressionAnalysis) {
-	panic("impl record sub query")
-}
-
-func (a *Analysis) AddType(node tree.Expression, dataType types.DataType) {
+func (a *Analysis) AddType(node tree.Expression, dataType arrow.DataType) {
 	a.types[node.GetID()] = dataType
 }
 
-func (a *Analysis) GetType(node tree.Expression) (dataType types.DataType) {
+func (a *Analysis) GetType(node tree.Expression) (dataType arrow.DataType) {
 	dataType = a.types[node.GetID()]
 	return
 }
@@ -321,11 +319,11 @@ func (a *Analysis) GetResolvedFunction(node tree.Node) (fn tree.FuncName) {
 }
 
 // AddCoercion adds a coercons for a given expression.
-func (a *Analysis) AddCoercion(node tree.Expression, coercion types.DataType) {
+func (a *Analysis) AddCoercion(node tree.Expression, coercion arrow.DataType) {
 	a.coercons[node.GetID()] = coercion
 }
 
-func (a *Analysis) GetCoercion(node tree.Expression) (coercion types.DataType, ok bool) {
+func (a *Analysis) GetCoercion(node tree.Expression) (coercion arrow.DataType, ok bool) {
 	coercion, ok = a.coercons[node.GetID()]
 	return
 }

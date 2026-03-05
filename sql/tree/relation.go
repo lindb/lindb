@@ -18,9 +18,8 @@
 package tree
 
 import (
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/lindb/common/constants"
-
-	"github.com/lindb/lindb/spi/types"
 )
 
 type Relation interface {
@@ -30,7 +29,7 @@ type Relation interface {
 type Values struct {
 	BaseNode
 
-	Rows *types.Page
+	Rows arrow.RecordBatch
 }
 
 func (n *Values) Accept(context any, vistor Visitor) any {

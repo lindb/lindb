@@ -20,19 +20,19 @@ package grouping
 import (
 	"fmt"
 
-	"github.com/lindb/lindb/spi/types"
+	"github.com/apache/arrow-go/v18/arrow"
 )
 
 type newRule func(mapper *StringMapper) Rule
 
-var rules = map[types.DataType]newRule{
-	types.DTMap:       newMapRule,
-	types.DTString:    newStringRule,
-	types.DTTimestamp: newTimestampRule,
+var rules = map[arrow.Type]newRule{
+	(&arrow.MapType{}).ID():                 newMapRule,
+	arrow.BinaryTypes.String.ID():           newStringRule,
+	arrow.FixedWidthTypes.Timestamp_ns.ID(): newTimestampRule,
 }
 
-func CreateRule(dt types.DataType, mapper *StringMapper) (Rule, error) {
-	newFn, ok := rules[dt]
+func CreateRule(dt arrow.DataType, mapper *StringMapper) (Rule, error) {
+	newFn, ok := rules[dt.ID()]
 	if !ok {
 		return nil, fmt.Errorf("rule not support data type: %s", dt)
 	}

@@ -80,31 +80,32 @@ func MergeRecords(pages []arrow.RecordBatch) arrow.RecordBatch {
 	}
 }
 
-type mergeColumn struct {
-	meta   ColumnMetadata
-	target *Column
-	index  int
-}
-
-func (mc *mergeColumn) Merge(mergedRow int, row Row) {
-	if mc.meta.DataType == DTTimeSeries {
-		// NOTE: merge time series
-		oldVal := mc.target.GetTimeSeries(mergedRow)
-		newVal := row.GetTimeSeries(mc.index)
-
-		switch {
-		case oldVal == nil && newVal == nil:
-		case oldVal == nil:
-			mc.target.Reset(mergedRow, newVal)
-		default:
-			if len(oldVal.Values) != len(newVal.Values) {
-				panic("merge time series values length not equal")
-			} else {
-				for i, v := range oldVal.Values {
-					oldVal.Values[i] = mc.meta.AggType.Aggregate(v, newVal.Values[i])
-				}
-			}
-		}
-	}
-	// TODO: merge value for other data type
-}
+//
+// type mergeColumn struct {
+// 	meta   ColumnMetadata
+// 	target *Column
+// 	index  int
+// }
+//
+// func (mc *mergeColumn) Merge(mergedRow int, row Row) {
+// 	if mc.meta.DataType == DTTimeSeries {
+// 		// NOTE: merge time series
+// 		oldVal := mc.target.GetTimeSeries(mergedRow)
+// 		newVal := row.GetTimeSeries(mc.index)
+//
+// 		switch {
+// 		case oldVal == nil && newVal == nil:
+// 		case oldVal == nil:
+// 			mc.target.Reset(mergedRow, newVal)
+// 		default:
+// 			if len(oldVal.Values) != len(newVal.Values) {
+// 				panic("merge time series values length not equal")
+// 			} else {
+// 				for i, v := range oldVal.Values {
+// 					oldVal.Values[i] = mc.meta.AggType.Aggregate(v, newVal.Values[i])
+// 				}
+// 			}
+// 		}
+// 	}
+// 	// TODO: merge value for other data type
+// }

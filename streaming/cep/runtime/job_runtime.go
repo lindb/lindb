@@ -106,6 +106,7 @@ func (r *jobRuntime) deployStreaming(stmt *tree.StreamingApp, idAllocator *tree.
 }
 
 func (r *jobRuntime) deploy(statement tree.Statement, idAllocator *tree.NodeIDAllocator, annotations []*tree.Annotation) {
+	fmt.Println(statement)
 	sinkBridges, err := r.parseSinkBridges(annotations)
 	if err != nil {
 		panic(err)

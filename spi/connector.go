@@ -24,7 +24,6 @@ import (
 
 	"github.com/apache/arrow-go/v18/arrow"
 
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 )
 
@@ -50,6 +49,6 @@ type SourceConnectorProvider interface {
 		table TableHandle, partitions []int, // table info
 		columnMapping map[string]string,
 		predicate tree.Expression, // predicate
-		outputColumns []types.ColumnMetadata, assignments []*ColumnAssignment, // output
+		outputColumns []arrow.Field, assignments []*ColumnAssignment, // output
 	) SourceConnector
 }

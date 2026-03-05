@@ -20,10 +20,10 @@ package planner
 import (
 	"fmt"
 
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/spi"
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/context"
 	"github.com/lindb/lindb/sql/execution/operator"
 	"github.com/lindb/lindb/sql/execution/operator/exchange"
@@ -200,10 +200,10 @@ func (v *TaskExecutionPlanVisitor) visitTableScan(_ any,
 	node *planpkg.TableScanNode, predicate tree.Expression,
 ) operator.Operator {
 	outputs := node.GetOutputSymbols()
-	outputColumns := lo.Map(outputs, func(item *planpkg.Symbol, index int) types.ColumnMetadata {
-		return types.ColumnMetadata{
-			Name:     item.Name,
-			DataType: item.DataType,
+	outputColumns := lo.Map(outputs, func(item *planpkg.Symbol, index int) arrow.Field {
+		return arrow.Field{
+			Name: item.Name,
+			Type: item.DataType,
 		}
 	})
 	provider := spi.GetSourceConnectorProvider(node.Table)

@@ -20,6 +20,9 @@ package analyzer
 import (
 	"fmt"
 
+	"github.com/apache/arrow-go/v18/arrow"
+	larrow "github.com/lindb/arrow/pkg/arrow"
+
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 )
@@ -106,7 +109,7 @@ func (v *ExpressionVisitor) visitRow(context any, node *tree.Row) (r any) {
 		item.Accept(context, v)
 	}
 	// TODO: change data type
-	return v.setExpressionType(node, types.DTString)
+	return v.setExpressionType(node, arrow.BinaryTypes.String)
 }
 
 func (v *ExpressionVisitor) visitFieldReference(context any, node *tree.FieldReference) (r any) {
@@ -136,24 +139,24 @@ func (v *ExpressionVisitor) visitInPredicate(context any, node *tree.InPredicate
 	}
 	// TODO: check args types
 	// TODO: check all
-	return v.setExpressionType(node, types.DTInt)
+	return v.setExpressionType(node, arrow.PrimitiveTypes.Uint32)
 }
 
 func (v *ExpressionVisitor) visitLikePredicate(context any, node *tree.LikePredicate) (r any) {
 	node.Value.Accept(context, v)
 	node.Pattern.Accept(context, v)
-	return v.setExpressionType(node, types.DTInt)
+	return v.setExpressionType(node, arrow.PrimitiveTypes.Uint32)
 }
 
 func (v *ExpressionVisitor) visitRegexPredicate(context any, node *tree.RegexPredicate) (r any) {
 	node.Value.Accept(context, v)
 	node.Pattern.Accept(context, v)
-	return v.setExpressionType(node, types.DTInt)
+	return v.setExpressionType(node, arrow.PrimitiveTypes.Uint32)
 }
 
 func (v *ExpressionVisitor) visitNullPredicate(context any, node *tree.NullPredicate) (r any) {
 	node.Value.Accept(context, v)
-	return v.setExpressionType(node, types.DTInt)
+	return v.setExpressionType(node, arrow.PrimitiveTypes.Uint32)
 }
 
 func (v *ExpressionVisitor) visitDereferenceExpression(context any, node *tree.DereferenceExpression) (r any) {
@@ -168,16 +171,16 @@ func (v *ExpressionVisitor) visitDereferenceExpression(context any, node *tree.D
 	}
 	// rowType := &types.RowType{}
 	// TODO: fixme
-	return v.setExpressionType(node, types.DTString)
+	return v.setExpressionType(node, arrow.BinaryTypes.String)
 }
 
 func (v *ExpressionVisitor) visitFunctionCall(context any, node *tree.FunctionCall) (r any) {
-	var argumentTypes []types.DataType
+	var argumentTypes []arrow.DataType
 	for _, arg := range node.Arguments {
-		argumentTypes = append(argumentTypes, arg.Accept(context, v).(types.DataType))
+		argumentTypes = append(argumentTypes, arg.Accept(context, v).(arrow.DataType))
 	}
 	expectedType := v.analyzer.ctx.GetFuncReturnType(node.Name)
-	if expectedType == types.DTUnknown {
+	if expectedType == nil {
 		if len(argumentTypes) > 0 {
 			// TODO: check args types
 			for i := range len(argumentTypes) {
@@ -196,15 +199,15 @@ func (v *ExpressionVisitor) visitFunctionCall(context any, node *tree.FunctionCa
 }
 
 func (v *ExpressionVisitor) visitStringLiteral(_ any, node *tree.StringLiteral) (r any) {
-	return v.setExpressionType(node, types.DTString)
+	return v.setExpressionType(node, arrow.BinaryTypes.String)
 }
 
 func (v *ExpressionVisitor) visitLongLiteral(_ any, node *tree.LongLiteral) (r any) {
-	return v.setExpressionType(node, types.DTInt)
+	return v.setExpressionType(node, arrow.PrimitiveTypes.Int64)
 }
 
 func (v *ExpressionVisitor) visitIntervalLiteral(_ any, node *tree.IntervalLiteral) (r any) {
-	return v.setExpressionType(node, types.DTDuration)
+	return v.setExpressionType(node, arrow.FixedWidthTypes.Duration_ns)
 }
 
 func (v *ExpressionVisitor) visitIdentifier(context any, node *tree.Identifier) (r any) {
@@ -224,33 +227,33 @@ func (v *ExpressionVisitor) visitArithemticBinary(context any, node *tree.Arithm
 }
 
 func (v *ExpressionVisitor) visitTimestampPredicate(_ any, node *tree.TimePredicate) (r any) {
-	return v.setExpressionType(node, types.DTTimestamp)
+	return v.setExpressionType(node, arrow.FixedWidthTypes.Timestamp_ns)
 }
 
 func (v *ExpressionVisitor) visitLogicalExpression(context any, node *tree.LogicalExpression) (r any) {
 	for _, term := range node.Terms {
 		// TODO: add coerce type?
-		_ = term.Accept(context, v).(types.DataType)
+		_ = term.Accept(context, v).(arrow.DataType)
 		// TODO: v.coerceType(term, activeType, types.DTInt)
 	}
 	// TODO: set bool
-	return v.setExpressionType(node, types.DTInt)
+	return v.setExpressionType(node, arrow.PrimitiveTypes.Uint32)
 }
 
 func (v *ExpressionVisitor) getOperator(context *tree.StackableVisitorContext[*Context],
 	node tree.Expression, _ types.OperatorType, arguments ...tree.Expression,
-) types.DataType {
-	var argumentTypes []types.DataType
+) arrow.DataType {
+	var argumentTypes []arrow.DataType
 	for i := range arguments {
 		expression := arguments[i]
-		argumentTypes = append(argumentTypes, expression.Accept(context, v).(types.DataType))
+		argumentTypes = append(argumentTypes, expression.Accept(context, v).(arrow.DataType))
 	}
 
 	// TODO: operatorSignature := v.analyzer.funcionResolver.ResolveOperator(operatorType, nil).Signature
 
 	// TODO: check args types
 	expectedType := types.GetAccurateType(argumentTypes[0], argumentTypes[1])
-	if expectedType == types.DTTimeSeries {
+	if expectedType == larrow.ExtensionTypes.TimeSeries {
 		for i, argumentType := range argumentTypes {
 			v.coerceType(arguments[i], argumentType, expectedType)
 		}
@@ -259,7 +262,7 @@ func (v *ExpressionVisitor) getOperator(context *tree.StackableVisitorContext[*C
 	return v.setExpressionType(node, expectedType)
 }
 
-func (v *ExpressionVisitor) coerceType(expression tree.Expression, actualType, expectedType types.DataType) {
+func (v *ExpressionVisitor) coerceType(expression tree.Expression, actualType, expectedType arrow.DataType) {
 	// TODO: add check
 	if actualType != expectedType {
 		v.analyzer.ctx.Analysis.AddCoercion(expression, expectedType)
@@ -268,13 +271,13 @@ func (v *ExpressionVisitor) coerceType(expression tree.Expression, actualType, e
 
 func (v *ExpressionVisitor) handleResolvedField(_ *tree.StackableVisitorContext[*Context],
 	node tree.Expression, resolvedField *ResolvedField,
-) types.DataType {
+) arrow.DataType {
 	v.analyzer.ctx.Analysis.AddColumnReference(node, resolvedField)
 	v.analyzer.ctx.Analysis.AddType(node, resolvedField.Field.DataType)
 	return resolvedField.Field.DataType
 }
 
-func (v *ExpressionVisitor) setExpressionType(expression tree.Expression, expressionType types.DataType) types.DataType {
+func (v *ExpressionVisitor) setExpressionType(expression tree.Expression, expressionType arrow.DataType) arrow.DataType {
 	v.analyzer.ctx.Analysis.AddType(expression, expressionType)
 	return expressionType
 }

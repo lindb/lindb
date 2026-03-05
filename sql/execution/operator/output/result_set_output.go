@@ -53,7 +53,7 @@ func (op *ResultSetOutputOperator) Run(ctx context.Context, output chan<- arrow.
 	columnNames := op.node.ColumnNames
 
 	fields := lo.Map(layout, func(symbol *plan.Symbol, _ int) arrow.Field {
-		return arrow.Field{Name: symbol.Name, Type: symbol.DataType.ToArrowDataType()}
+		return arrow.Field{Name: symbol.Name, Type: symbol.DataType}
 	})
 	schema := arrow.NewSchema(fields, nil)
 

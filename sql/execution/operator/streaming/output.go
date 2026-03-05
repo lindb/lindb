@@ -25,7 +25,6 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/samber/lo"
 
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/operator"
 	"github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/streaming/cep/stream/input"
@@ -79,11 +78,7 @@ func (op *OutputOperator) Run(ctx context.Context, output chan<- arrow.RecordBat
 		if len(columnNames) > 0 {
 			name = columnNames[index]
 		}
-		var metadata arrow.Metadata
-		if symbol.AggType != types.ATUnknown {
-			metadata = arrow.NewMetadata([]string{"agg"}, []string{symbol.AggType.String()})
-		}
-		return arrow.Field{Name: name, Type: symbol.DataType.ToArrowDataType(), Metadata: metadata}
+		return arrow.Field{Name: name, Type: symbol.DataType}
 	})
 	schema := arrow.NewSchema(fields, nil)
 

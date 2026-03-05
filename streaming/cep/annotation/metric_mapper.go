@@ -201,54 +201,40 @@ func (m *MetricMapper) buildFields(record arrow.RecordBatch, row int, point *api
 		// }
 		column := record.Column(col)
 		field := record.Schema().Field(col)
-		aggType, ok := field.Metadata.GetValue("agg")
-		if !ok {
-			m.logger.Warn("field column missing agg type metadata, skip",
-				logger.Any("column", field.Name))
-			continue
-		}
-		switch aggType {
-		case "sum":
-			if c, ok := column.(*array.Float64); ok {
-				val := c.Value(row)
-				point.AddField(api.NewSum(field.Name, val))
+		switch col := column.(type) {
+		case *larray.Aggregation:
+			if aggType, ok := col.DataType().(*larray.AggregationType); ok {
+				switch aggType.Kind() {
+				case larray.Sum:
+					val := col.Value(row)
+					point.AddField(api.NewSum(field.Name, val))
+				case larray.First:
+					val := col.Value(row)
+					point.AddField(api.NewFirst(field.Name, val))
+				case larray.Last:
+					val := col.Value(row)
+					point.AddField(api.NewLast(field.Name, val))
+				case larray.Min:
+					val := col.Value(row)
+					point.AddField(api.NewMin(field.Name, val))
+				case larray.Max:
+					val := col.Value(row)
+					point.AddField(api.NewMax(field.Name, val))
+				}
 			}
-		case "first":
-			if c, ok := column.(*array.Float64); ok {
-				val := c.Value(row)
-				point.AddField(api.NewFirst(field.Name, val))
-			}
-		case "last":
-			if c, ok := column.(*array.Float64); ok {
-				val := c.Value(row)
-				point.AddField(api.NewLast(field.Name, val))
-			}
-		case "min":
-			if c, ok := column.(*array.Float64); ok {
-				val := c.Value(row)
-				point.AddField(api.NewMin(field.Name, val))
-			}
-		case "max":
-			if c, ok := column.(*array.Float64); ok {
-				val := c.Value(row)
-				point.AddField(api.NewMax(field.Name, val))
-			}
-		case "exemplar":
-			if c, ok := column.(*larray.Exemplar); ok {
-				traceID, spanID, duration := c.Value(row)
+		case *larray.Exemplar:
+			traceID, spanID, duration := col.Value(row)
 
-				point.AddField(api.NewExemplar(
-					field.Name,
-					string(traceID),
-					string(spanID),
-					duration,
-				))
-			}
+			point.AddField(api.NewExemplar(
+				field.Name,
+				string(traceID),
+				string(spanID),
+				duration,
+			))
 		default:
-			m.logger.Warn("unsupported agg type for field column, skip",
-				logger.Any("column", field.Name), logger.Any("aggType", aggType))
+			m.logger.Warn("unsupported field column data type, skip",
+				logger.Any("column", field.Name), logger.Any("dataType", column.DataType()))
 		}
-
 		fmt.Println("field column:", record.Schema().Fields()[col].Name, column.DataType())
 	}
 }

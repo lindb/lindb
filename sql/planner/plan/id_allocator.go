@@ -22,7 +22,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/lindb/lindb/spi/types"
+	"github.com/apache/arrow-go/v18/arrow"
+
 	"github.com/lindb/lindb/sql/analyzer"
 	"github.com/lindb/lindb/sql/tree"
 )
@@ -56,21 +57,19 @@ func NewSymbolAllocator(analyzerContext *analyzer.AnalyzerContext) *SymbolAlloca
 	}
 }
 
-func (a *SymbolAllocator) FromExpression(expression tree.Expression, dataType types.DataType) *Symbol {
+func (a *SymbolAllocator) FromExpression(expression tree.Expression, dataType arrow.DataType) *Symbol {
 	if symbol, ok := a.mapping[expression.String()]; ok {
 		return symbol
 	}
 
 	nameHint := "expr"
 	var hidden bool
-	var aggregateType types.AggregateType
 	switch expr := expression.(type) {
 	case *tree.Identifier:
 		nameHint = expr.Value
 	case *tree.SymbolReference:
 		nameHint = expr.Name
 		hidden = expr.Hidden
-		aggregateType = expr.AggType
 	case *tree.FunctionCall:
 		if expr.RefField != nil {
 			// FIXME: func call,not use ref field name
@@ -79,16 +78,13 @@ func (a *SymbolAllocator) FromExpression(expression tree.Expression, dataType ty
 		} else {
 			nameHint = string(expr.Name)
 		}
-
-		aggregateType = expr.AggType
 	}
 	symbol := a.NewSymbol(nameHint, dataType, hidden)
-	symbol.AggType = aggregateType
 	a.mapping[expression.String()] = symbol
 	return symbol
 }
 
-func (a *SymbolAllocator) NewSymbol(nameHint string, dataType types.DataType, hidden bool) *Symbol {
+func (a *SymbolAllocator) NewSymbol(nameHint string, dataType arrow.DataType, hidden bool) *Symbol {
 	nameHint = cleanNameHint(nameHint)
 
 	// TODO: modify for?

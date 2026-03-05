@@ -22,8 +22,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/apache/arrow-go/v18/arrow"
+
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/spi/types"
 )
 
 type Literal interface {
@@ -168,7 +169,7 @@ func (n *IntervalLiteral) Accept(context any, visitor Visitor) any {
 type Constant struct {
 	BaseNode
 	Value any
-	Type  types.DataType // TODO:
+	Type  arrow.DataType // TODO:
 }
 
 func (n *Constant) Accept(context any, visitor Visitor) any {

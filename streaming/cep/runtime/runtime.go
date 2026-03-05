@@ -22,10 +22,10 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/spi"
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/streaming/cep/stream"
 	"github.com/lindb/lindb/streaming/cep/stream/input"
 )
@@ -37,7 +37,7 @@ func init() {
 type Runtime interface {
 	AddEventType(eventType any)
 	RegisterStreamByType(eventType any) error
-	RegisterStreamBySchema(name string, schema *types.TableSchema) error
+	RegisterStreamBySchema(name string, schema *arrow.Schema) error
 
 	DeployJob(name, statement string) error
 	UndeployJob(name string) error
@@ -74,7 +74,7 @@ func (r *runtime) RegisterStreamByType(eventType any) error {
 	return stream.GetManager().GetStreamManager(r.database).RegisterStreamByType(eventType)
 }
 
-func (r *runtime) RegisterStreamBySchema(name string, schema *types.TableSchema) error {
+func (r *runtime) RegisterStreamBySchema(name string, schema *arrow.Schema) error {
 	return stream.GetManager().GetStreamManager(r.database).RegisterStreamBySchema(name, schema)
 }
 

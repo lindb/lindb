@@ -24,13 +24,12 @@ import (
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/samber/lo"
 
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/operator"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
 
 type rows struct {
-	left, right types.Row
+	// left, right types.Row
 }
 
 type HashJoinOperator struct {

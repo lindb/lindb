@@ -20,7 +20,7 @@ package tree
 import (
 	"strings"
 
-	"github.com/lindb/lindb/spi/types"
+	"github.com/apache/arrow-go/v18/arrow"
 )
 
 type FieldIndex int
@@ -28,8 +28,7 @@ type FieldIndex int
 type Field struct {
 	RelationAlias string
 	Name          string
-	DataType      types.DataType
-	AggType       types.AggregateType
+	DataType      arrow.DataType
 	Index         FieldIndex // set field index when statement analyzer(visit relation)
 	Hidden        bool
 }
@@ -58,7 +57,6 @@ func (f *Field) Clone() *Field {
 		RelationAlias: f.RelationAlias,
 		Name:          f.Name,
 		DataType:      f.DataType,
-		AggType:       f.AggType,
 		Index:         f.Index,
 		Hidden:        f.Hidden,
 	}

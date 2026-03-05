@@ -18,9 +18,9 @@
 package rule
 
 import (
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/samber/lo"
 
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/planner/iterative"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
@@ -42,7 +42,7 @@ func (rule *PushTimestampIntoTableScan) pushTimestampIntoTableScan(
 	context *iterative.Context, node *plan.OutputNode,
 ) plan.PlanNode {
 	timestamp, ok := lo.Find(node.GetOutputSymbols(), func(item *plan.Symbol) bool {
-		return item.DataType == types.DTTimestamp && item.Hidden
+		return arrow.TypeEqual(item.DataType, arrow.FixedWidthTypes.Timestamp_ns) && item.Hidden
 	})
 	if !ok {
 		// output node has no timestamp column
@@ -53,7 +53,7 @@ func (rule *PushTimestampIntoTableScan) pushTimestampIntoTableScan(
 		return nil
 	}
 	if _, ok = lo.Find(tableScan.GetOutputSymbols(), func(item *plan.Symbol) bool {
-		return item.DataType == types.DTTimestamp && item.Hidden
+		return arrow.TypeEqual(item.DataType, arrow.FixedWidthTypes.Timestamp_ns) && item.Hidden
 	}); ok {
 		// table scan already has timestamp column
 		return nil

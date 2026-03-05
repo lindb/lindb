@@ -21,8 +21,6 @@ import (
 	"math"
 
 	"github.com/lindb/common/models"
-
-	"github.com/lindb/lindb/spi/types"
 )
 
 // EmptyFieldID represents empty value for field id.
@@ -100,27 +98,6 @@ const (
 
 func (t Type) IsExemplar() bool {
 	return t == ExemplarField
-}
-
-func (t Type) AggregateType() types.AggregateType {
-	switch t {
-	case SumField:
-		return types.ATSum
-	case MinField:
-		return types.ATMin
-	case MaxField:
-		return types.ATMax
-	case LastField:
-		return types.ATLast
-	case HistogramField:
-		return types.ATSum
-	case FirstField:
-		return types.ATFirst
-	case ExemplarField:
-		return types.ATExemplar
-	default:
-		panic("unknown aggregate type")
-	}
 }
 
 // String returns the field type's string value

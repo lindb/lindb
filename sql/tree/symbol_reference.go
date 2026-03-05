@@ -17,15 +17,16 @@
 
 package tree
 
-import "github.com/lindb/lindb/spi/types"
+import (
+	"github.com/apache/arrow-go/v18/arrow"
+)
 
 type SymbolReference struct {
 	BaseNode
 
 	Name     string
-	DataType types.DataType
+	DataType arrow.DataType
 	Hidden   bool
-	AggType  types.AggregateType
 }
 
 func (n *SymbolReference) Accept(context any, vistor Visitor) any {

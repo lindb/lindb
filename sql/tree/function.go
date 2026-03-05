@@ -17,15 +17,16 @@
 
 package tree
 
-import "github.com/lindb/lindb/spi/types"
+import (
+	"github.com/apache/arrow-go/v18/arrow"
+)
 
 type FunctionCall struct {
 	BaseNode
 	RefField  *Field
 	Name      FuncName
 	Arguments []Expression
-	RetType   types.DataType // set return type by planner
-	AggType   types.AggregateType
+	RetType   arrow.DataType // set return type by planner
 }
 
 // Accept implements Expression

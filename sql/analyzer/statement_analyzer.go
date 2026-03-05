@@ -22,11 +22,12 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/apache/arrow-go/v18/arrow"
+	larray "github.com/lindb/arrow/pkg/arrow/array"
 	"github.com/lindb/common/pkg/logger"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/spi"
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 )
 
@@ -241,14 +242,14 @@ func (v *StatementVisitor) visitAliasedRelation(context any, relation *tree.Alia
 
 func (v *StatementVisitor) visitValues(context any, values *tree.Values) *Scope {
 	scope := context.(*Scope)
-	layout := values.Rows.Layout
+	schema := values.Rows.Schema()
 	var fields []*tree.Field
-	for i, column := range layout {
+	for i, column := range schema.Fields() {
 		fields = append(fields, &tree.Field{
 			Name:     column.Name,
-			DataType: column.DataType,
+			DataType: column.Type,
 			Index:    tree.FieldIndex(i),
-			Hidden:   column.Hidden,
+			// FIXME: Hidden:   column.Hidden,???
 		})
 	}
 
@@ -280,14 +281,13 @@ func (v *StatementVisitor) visitTable(ctx any, table *tree.Table) *Scope {
 
 	// analyze table
 	var outputFields []*tree.Field
-	for i, col := range tableMetadata.Schema.Columns {
+	for i, col := range tableMetadata.Schema.Fields() {
 		// TODO: check agg????
 		outputFields = append(outputFields, &tree.Field{
-			Index:         tree.FieldIndex(i),
-			Name:          col.Name, // TODO: dup tag name/field name
-			DataType:      col.DataType,
-			Hidden:        col.Hidden,
-			AggType:       col.AggType,
+			Index:    tree.FieldIndex(i),
+			Name:     col.Name, // TODO: dup tag name/field name
+			DataType: col.Type,
+			// Hidden:        col.Hidden,
 			RelationAlias: table.Name.Name, // TODO: relation alias
 		})
 	}
@@ -502,8 +502,8 @@ func (v *StatementVisitor) analyzeGroupBy(node *tree.QuerySpecification, scope *
 
 					field = v.analyzer.ctx.Analysis.GetColumnReferenceField(column)
 					if field != nil {
-						// TODO: check timestamp???
-						if field.Field.AggType != types.ATUnknown || field.Field.DataType == types.DTTimestamp {
+						// TODO: check field if aggregate
+						if arrow.TypeEqual(field.Field.DataType, arrow.FixedWidthTypes.Timestamp_ns) {
 							panic(fmt.Sprintf("aggregate/timestamp field[%v] cannot appear in group by", field.Field.Name))
 						}
 						sets = append(sets, []*FieldID{field.FieldID()})
@@ -525,7 +525,7 @@ func (v *StatementVisitor) analyzeGroupBy(node *tree.QuerySpecification, scope *
 		for _, item := range node.Select.SelectItems {
 			if single, ok := item.(*tree.SingleColumn); ok {
 				field := v.analyzer.ctx.Analysis.GetColumnReferenceField(single.Expression)
-				if field != nil && field.Field.DataType == types.DTTimestamp {
+				if field != nil && arrow.TypeEqual(field.Field.DataType, arrow.FixedWidthTypes.Timestamp_ns) {
 					sets = append(sets, []*FieldID{field.FieldID()})
 				}
 			}
@@ -568,18 +568,16 @@ func (v *StatementVisitor) analyzeAggregations(query *tree.QuerySpecification, s
 		case *tree.Identifier:
 			// transfer filed builtin aggregation
 			resolvedField := sourceScope.resolveField(n, tree.NewQualifiedName([]*tree.Identifier{node}), true)
-			if resolvedField.Field.AggType != types.ATUnknown && !isFuncArg() {
+			if aggType, ok := resolvedField.Field.DataType.(*larray.AggregationType); ok && !isFuncArg() {
 				// agg field and field is not function arg, add builtin agg func for this field
 				fn := &tree.FunctionCall{
-					Name: tree.FuncName(tree.QualifiedName{Name: resolvedField.Field.AggType.String()}.Name),
+					Name: tree.FuncName(string(aggType.Kind())),
 					Arguments: []tree.Expression{&tree.SymbolReference{
 						Name:     resolvedField.Field.Name,
 						DataType: resolvedField.Field.DataType,
 						Hidden:   resolvedField.Field.Hidden,
-						AggType:  resolvedField.Field.AggType,
 					}},
 					RefField: resolvedField.Field,
-					AggType:  resolvedField.Field.AggType,
 				}
 				functions = append(functions, fn)
 				v.analyzer.ctx.Analysis.AddResolvedFunction(fn, fn.Name)
@@ -587,7 +585,6 @@ func (v *StatementVisitor) analyzeAggregations(query *tree.QuerySpecification, s
 			}
 		case *tree.FunctionCall:
 			if tree.IsAggFunc(node.Name) {
-				node.AggType = tree.GetDefaultFuncAggType(node.Name)
 				functions = append(functions, node)
 				// TODO: need do other func
 				v.analyzer.ctx.Analysis.AddResolvedFunction(node, node.Name)

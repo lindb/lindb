@@ -20,6 +20,8 @@ package spi
 import (
 	"fmt"
 
+	"github.com/apache/arrow-go/v18/arrow"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/meta"
 	"github.com/lindb/lindb/pkg/option"
@@ -37,11 +39,11 @@ type applyAggregation func(table TableHandle, tableMeta *types.TableMetadata,
 
 var (
 	createTableFn      = make(map[DatasourceKind]CreateTable)
-	getTableSchemaFn   = make(map[DatasourceKind]func(db, ns, table string) (*types.TableSchema, error))
+	getTableSchemaFn   = make(map[DatasourceKind]func(db, ns, table string) (*arrow.Schema, error))
 	applyAggregationFn = make(map[DatasourceKind]applyAggregation)
 )
 
-func GetTableSchema(kind DatasourceKind, database, ns, table string) (*types.TableSchema, error) {
+func GetTableSchema(kind DatasourceKind, database, ns, table string) (*arrow.Schema, error) {
 	return getTableSchemaFn[kind](database, ns, table)
 }
 
@@ -49,7 +51,7 @@ func RegisterCreateTableFn(kind DatasourceKind, fn CreateTable) {
 	createTableFn[kind] = fn
 }
 
-func RegisterGetTableSchemaFn(kind DatasourceKind, fn func(database, ns, table string) (*types.TableSchema, error)) {
+func RegisterGetTableSchemaFn(kind DatasourceKind, fn func(database, ns, table string) (*arrow.Schema, error)) {
 	getTableSchemaFn[kind] = fn
 }
 

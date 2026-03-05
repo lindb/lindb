@@ -20,29 +20,30 @@ package buffer
 import (
 	"fmt"
 
+	"github.com/apache/arrow-go/v18/arrow"
+	larrow "github.com/lindb/arrow/pkg/arrow"
 	"github.com/samber/lo"
 
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/model"
 )
 
 type ResultSetBuild struct {
-	inbound   chan *types.Page
+	inbound   chan arrow.RecordBatch
 	completed chan struct{}
 	resultSet *model.ResultSet
 }
 
 func CreateResultSetBuild() *ResultSetBuild {
 	return &ResultSetBuild{
-		inbound:   make(chan *types.Page),
+		inbound:   make(chan arrow.RecordBatch),
 		completed: make(chan struct{}),
 		resultSet: model.NewResultSet(),
 	}
 }
 
-func (rsb *ResultSetBuild) AddPage(page *types.Page) {
-	if page != nil {
-		rsb.inbound <- page
+func (rsb *ResultSetBuild) AddRecord(record arrow.RecordBatch) {
+	if record != nil && record.NumRows() > 0 {
+		rsb.inbound <- record
 	}
 }
 
@@ -53,82 +54,84 @@ func (rsb *ResultSetBuild) Process() {
 	// TODO: need close when timeout
 	isTimestampSelected := false
 	hasTimeSeries := false
-	for page := range rsb.inbound {
-
-		if page.Error != "" {
-			rsb.resultSet.Error = page.Error
-			break
-		}
+	for record := range rsb.inbound {
+		// TODO: how to handle error, maybe add error channel
+		// if page.Error != "" {
+		// 	rsb.resultSet.Error = page.Error
+		// 	break
+		// }
 		if len(rsb.resultSet.Schema.Columns) == 0 {
-			lo.ForEach(page.Layout, func(item types.ColumnMetadata, index int) {
-				if item.DataType == types.DTTimestamp {
+			fields := record.Schema().Fields()
+			lo.ForEach(fields, func(item arrow.Field, index int) {
+				if arrow.TypeEqual(item.Type, arrow.FixedWidthTypes.Timestamp_ms) {
 					isTimestampSelected = true
 				}
-				if item.DataType == types.DTTimeSeries {
+				if arrow.TypeEqual(item.Type, larrow.ExtensionTypes.TimeSeries) {
 					hasTimeSeries = true
 				}
 			})
+			fmt.Printf("isTimestampSelected:%v, hasTimeSeries:%v\n", isTimestampSelected, hasTimeSeries)
 
-			lo.ForEach(page.Layout, func(item types.ColumnMetadata, index int) {
-				column := types.ColumnMetadata{
-					Name:     item.Name,
-					DataType: item.DataType,
-					Ref:      index,
-				}
-				if !hasTimeSeries {
-					rsb.resultSet.Schema.Columns = append(rsb.resultSet.Schema.Columns, column)
-					return
-				}
-
-				if item.DataType == types.DTTimeSeries && !isTimestampSelected {
-					column.DataType = types.DTFloat
-				}
-				if item.DataType != types.DTTimestamp {
-					// ignore timestamp if select item list has time series
-					rsb.resultSet.Schema.Columns = append(rsb.resultSet.Schema.Columns, column)
-				}
-			})
+			// lo.ForEach(record.Layout, func(item types.ColumnMetadata, index int) {
+			// 	column := types.ColumnMetadata{
+			// 		Name:     item.Name,
+			// 		DataType: item.DataType,
+			// 		Ref:      index,
+			// 	}
+			// 	if !hasTimeSeries {
+			// 		rsb.resultSet.Schema.Columns = append(rsb.resultSet.Schema.Columns, column)
+			// 		return
+			// 	}
+			//
+			// 	if item.DataType == types.DTTimeSeries && !isTimestampSelected {
+			// 		column.DataType = types.DTFloat
+			// 	}
+			// 	if item.DataType != types.DTTimestamp {
+			// 		// ignore timestamp if select item list has time series
+			// 		rsb.resultSet.Schema.Columns = append(rsb.resultSet.Schema.Columns, column)
+			// 	}
+			// })
 		}
-		it := page.Iterator()
-		for row := it.Begin(); row != it.End(); row = it.Next() {
-			columns := make([]any, len(rsb.resultSet.Schema.Columns))
-			for i, c := range rsb.resultSet.Schema.Columns {
-				meta := page.Layout[c.Ref]
-				// TODO: add more type
-				switch meta.DataType {
-				case types.DTString, types.DTDynamic:
-					columns[i] = row.GetString(i)
-				case types.DTJSON:
-					columns[i] = row.GetJSON(i)
-				case types.DTInt:
-					columns[i] = row.GetInt(i)
-				case types.DTFloat:
-					columns[i] = row.GetFloat(i)
-				case types.DTTimeSeries:
-					timeSeries := row.GetTimeSeries(i)
-					if timeSeries == nil {
-						columns[i] = nil
-						continue
-					}
-					if isTimestampSelected || timeSeries.NumOfPoints > 1 {
-						columns[i] = timeSeries
-					} else {
-						columns[i] = timeSeries.GetValue()
-					}
-				case types.DTTimestamp:
-					// FIXME: maybe timestamp is nil
-					columns[i] = row.GetTimestamp(i).UnixMilli()
-				case types.DTDuration:
-					columns[i] = row.GetDuration(i)
-				case types.DTExemplar, types.DTMap:
-					// FIXME: exemplar not support now
-					columns[i] = row.Get(i)
-				default:
-					panic(fmt.Sprintf("build resultset error, column:%v, unknown data type:%v", meta.Name, meta.DataType))
-				}
-			}
-			rsb.resultSet.Rows = append(rsb.resultSet.Rows, columns)
-		}
+		// it := record.Iterator()
+		// for row := it.Begin(); row != it.End(); row = it.Next() {
+		// 	columns := make([]any, len(rsb.resultSet.Schema.Columns))
+		// 	for i, c := range rsb.resultSet.Schema.Columns {
+		// 		meta := record.Layout[c.Ref]
+		// 		// TODO: add more type
+		// 		switch meta.DataType {
+		// 		case types.DTString, types.DTDynamic:
+		// 			columns[i] = row.GetString(i)
+		// 		case types.DTJSON:
+		// 			columns[i] = row.GetJSON(i)
+		// 		case types.DTInt:
+		// 			columns[i] = row.GetInt(i)
+		// 		case types.DTFloat:
+		// 			columns[i] = row.GetFloat(i)
+		// 		case types.DTTimeSeries:
+		// 			timeSeries := row.GetTimeSeries(i)
+		// 			if timeSeries == nil {
+		// 				columns[i] = nil
+		// 				continue
+		// 			}
+		// 			if isTimestampSelected || timeSeries.NumOfPoints > 1 {
+		// 				columns[i] = timeSeries
+		// 			} else {
+		// 				columns[i] = timeSeries.GetValue()
+		// 			}
+		// 		case types.DTTimestamp:
+		// 			// FIXME: maybe timestamp is nil
+		// 			columns[i] = row.GetTimestamp(i).UnixMilli()
+		// 		case types.DTDuration:
+		// 			columns[i] = row.GetDuration(i)
+		// 		case types.DTExemplar, types.DTMap:
+		// 			// FIXME: exemplar not support now
+		// 			columns[i] = row.Get(i)
+		// 		default:
+		// 			panic(fmt.Sprintf("build resultset error, column:%v, unknown data type:%v", meta.Name, meta.DataType))
+		// 		}
+		// 	}
+		// 	rsb.resultSet.Rows = append(rsb.resultSet.Rows, columns)
+		// }
 	}
 }
 

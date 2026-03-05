@@ -20,15 +20,15 @@ package plan
 import (
 	"fmt"
 
-	"github.com/lindb/lindb/spi/types"
+	"github.com/apache/arrow-go/v18/arrow"
+
 	"github.com/lindb/lindb/sql/tree"
 )
 
 type Symbol struct {
-	Name     string              `json:"name"`
-	DataType types.DataType      `json:"datatype"`
-	Hidden   bool                `json:"hidden,omitempty"`
-	AggType  types.AggregateType `json:"agg_type,omitempty"`
+	Name     string         `json:"name"`
+	DataType arrow.DataType `json:"datatype"`
+	Hidden   bool           `json:"hidden,omitempty"`
 }
 
 func (s *Symbol) ToSymbolReference() *tree.SymbolReference {
@@ -36,7 +36,6 @@ func (s *Symbol) ToSymbolReference() *tree.SymbolReference {
 		Name:     s.Name,
 		DataType: s.DataType,
 		Hidden:   s.Hidden,
-		AggType:  s.AggType,
 	}
 }
 
@@ -46,7 +45,6 @@ func SymbolFrom(expression tree.Expression) *Symbol {
 			Name:     symbolRef.Name,
 			DataType: symbolRef.DataType,
 			Hidden:   symbolRef.Hidden,
-			AggType:  symbolRef.AggType,
 		}
 	}
 	panic(fmt.Sprintf("new symbol with unexpected expression: %s, type:%T",
@@ -58,9 +56,6 @@ func (s *Symbol) String() string {
 	var agg string
 	if s.Hidden {
 		h = "!" // mark symbol hidden
-	}
-	if s.AggType != types.ATUnknown {
-		agg = fmt.Sprintf("@%s", s.AggType.String())
 	}
 	return fmt.Sprintf("%s%s:%s%s", h, s.Name, s.DataType, agg)
 }

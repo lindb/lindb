@@ -111,7 +111,7 @@ func (p *LogicalPlanner) createInsertPlan(statement *tree.Insert) *RelationPlan 
 		Source: queryPlan.Root,
 		Assignments: lo.Map(outputs, func(item *planpkg.Symbol, index int) *planpkg.Assignment {
 			return &planpkg.Assignment{
-				Symbol:     &planpkg.Symbol{Name: columns[index], DataType: item.DataType, AggType: item.AggType},
+				Symbol:     &planpkg.Symbol{Name: columns[index], DataType: item.DataType},
 				Expression: item.ToSymbolReference(),
 			}
 		}),

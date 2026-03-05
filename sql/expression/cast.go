@@ -19,22 +19,19 @@ package expression
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/apache/arrow-go/v18/arrow"
-	"github.com/lindb/common/models"
 
 	"github.com/lindb/lindb/spi/scalar"
-	"github.com/lindb/lindb/spi/types"
 )
 
 type Cast struct {
 	// function Func
 	arg     Expression
-	retType types.DataType
+	retType arrow.DataType
 }
 
-func NewCast(ctx EvalContext, retType types.DataType, arg Expression) Expression {
+func NewCast(ctx EvalContext, retType arrow.DataType, arg Expression) Expression {
 	return &Cast{
 		retType: retType,
 		arg:     arg,
@@ -69,21 +66,21 @@ func (c *Cast) Eval(record arrow.RecordBatch) (arrow.Array, error) {
 // 	return c.function.EvalTimeSeries(row)
 // }
 
-func (c *Cast) EvalDuration(row types.Row) (val time.Duration, isNull bool, err error) {
-	return
-}
-
-func (c *Cast) EvalTime(_ types.Row) (val time.Time, isNull bool, err error) {
-	return
-}
-
-func (c *Cast) EvalMap(_ types.Row) (val map[string]string, isNull bool, err error) {
-	return
-}
-
-func (c *Cast) EvalExemplar(_ types.Row) (val *models.Exemplar, isNull bool, err error) {
-	return
-}
+// func (c *Cast) EvalDuration(row types.Row) (val time.Duration, isNull bool, err error) {
+// 	return
+// }
+//
+// func (c *Cast) EvalTime(_ types.Row) (val time.Time, isNull bool, err error) {
+// 	return
+// }
+//
+// func (c *Cast) EvalMap(_ types.Row) (val map[string]string, isNull bool, err error) {
+// 	return
+// }
+//
+// func (c *Cast) EvalExemplar(_ types.Row) (val *models.Exemplar, isNull bool, err error) {
+// 	return
+// }
 
 func (c *Cast) ResultType() ResultType {
 	return Array

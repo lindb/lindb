@@ -21,10 +21,12 @@ import (
 	"context"
 
 	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/sql/execution/operator"
 	"github.com/lindb/lindb/sql/expression"
 	"github.com/lindb/lindb/sql/planner/plan"
+	"github.com/lindb/lindb/streaming/cep/stream"
 	"github.com/lindb/lindb/streaming/cep/stream/input"
 )
 
@@ -38,24 +40,31 @@ type InsertOperator struct {
 }
 
 func NewInsertOperator(ctx context.Context, insert *plan.InsertNode, child operator.Operator) operator.Operator {
-	return &InsertOperator{
+	op := &InsertOperator{
 		ctx:     ctx,
 		insert:  insert,
 		child:   child,
 		inbound: operator.NewQueue(make(chan arrow.RecordBatch, 256)),
 	}
+	fields := lo.Map(child.GetLayout(), func(item *plan.Symbol, index int) arrow.Field {
+		return arrow.Field{Name: item.Name, Type: item.DataType}
+	})
+	// register stream by schema, so that the stream can be consumed by other streaming queries
+	// NOTE: only unregistered stream when undeploy the database, because may be register same stream by different queries
+	stream.GetManager().GetStreamManager(insert.Database).
+		RegisterStreamBySchema(insert.Table.GetTableName(), arrow.NewSchema(fields, nil))
+	return op
 }
 
 func (op *InsertOperator) Run(ctx context.Context, output chan<- arrow.RecordBatch) {
 	streamName := op.insert.Table.Name.Name
-	// FIXME: get app from context
 	inputHandle := input.GetManager().GetInputHandler(op.insert.Database, streamName)
 	for {
-		page, ok := op.inbound.Consume(ctx)
+		record, ok := op.inbound.Consume(ctx)
 		if !ok {
 			break
 		}
-		inputHandle.Send(page)
+		inputHandle.Send(record)
 	}
 }
 

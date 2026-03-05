@@ -18,9 +18,9 @@
 package tree
 
 import (
+	"github.com/apache/arrow-go/v18/arrow"
+	larrow "github.com/lindb/arrow/pkg/arrow"
 	"github.com/samber/lo"
-
-	"github.com/lindb/lindb/spi/types"
 )
 
 // FuncName represents function name.
@@ -56,44 +56,40 @@ const (
 	MapValues FuncName = "map_values"
 )
 
-type GetFuncReturnType func(name FuncName) types.DataType
+type GetFuncReturnType func(name FuncName) arrow.DataType
 
-func GetDefaultFuncReturnType(name FuncName) types.DataType {
+func GetDefaultFuncReturnType(name FuncName) arrow.DataType {
 	return defaultFuncReturnTypes[name]
 }
 
-func GetStreamingFuncReturnType(name FuncName) types.DataType {
+func GetStreamingFuncReturnType(name FuncName) arrow.DataType {
 	return streamingFuncReturnTypes[name]
 }
 
-func GetDefaultFuncAggType(name FuncName) types.AggregateType {
-	return defaultFuncAggTypes[name]
+var defaultFuncReturnTypes = map[FuncName]arrow.DataType{
+	DateAdd:   arrow.FixedWidthTypes.Timestamp_ns,
+	Now:       arrow.FixedWidthTypes.Timestamp_ns,
+	StrToDate: arrow.FixedWidthTypes.Timestamp_ns,
+	TimeTrunc: arrow.FixedWidthTypes.Timestamp_ns,
+
+	Count:    larrow.ExtensionTypes.TimeSeries,
+	Sampling: larrow.ExtensionTypes.Exemplar,
+
+	MapValues: arrow.MapOf(arrow.BinaryTypes.String, arrow.BinaryTypes.String),
 }
 
-var defaultFuncReturnTypes = map[FuncName]types.DataType{
-	DateAdd:   types.DTTimestamp,
-	Now:       types.DTTimestamp,
-	StrToDate: types.DTTimestamp,
-	TimeTrunc: types.DTTimestamp,
-
-	Count:    types.DTTimeSeries,
-	Sampling: types.DTExemplar,
-
-	MapValues: types.DTMap,
+var streamingFuncReturnTypes = map[FuncName]arrow.DataType{
+	Count: larrow.ExtensionTypes.Sum,
 }
 
-var streamingFuncReturnTypes = map[FuncName]types.DataType{
-	Count: types.DTFloat,
-}
-
-var defaultFuncAggTypes = map[FuncName]types.AggregateType{
-	Count:    types.ATSum,
-	Sum:      types.ATSum,
-	Min:      types.ATMin,
-	Max:      types.ATMax,
-	First:    types.ATFirst,
-	Last:     types.ATLast,
-	Sampling: types.ATExemplar,
+var defaultFuncAggTypes = map[FuncName]arrow.DataType{
+	Count:    larrow.ExtensionTypes.Sum,
+	Sum:      larrow.ExtensionTypes.Sum,
+	Min:      larrow.ExtensionTypes.Min,
+	Max:      larrow.ExtensionTypes.Max,
+	First:    larrow.ExtensionTypes.First,
+	Last:     larrow.ExtensionTypes.Last,
+	Sampling: larrow.ExtensionTypes.Exemplar,
 }
 
 func init() {

@@ -18,9 +18,9 @@
 package analyzer
 
 import (
+	larrow "github.com/lindb/arrow/pkg/arrow"
 	"github.com/samber/lo"
 
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 )
 
@@ -72,7 +72,6 @@ func (r *Relation) withAlias(relationAlias string, columnAliases []string) *Rela
 		fields = append(fields, &tree.Field{
 			Name:          columnAlias,
 			DataType:      field.DataType,
-			AggType:       field.AggType,
 			Index:         field.Index,
 			Hidden:        field.Hidden,
 			RelationAlias: relationAlias,
@@ -114,7 +113,7 @@ func (r *Relation) IndexOf(field *tree.Field) tree.FieldIndex {
 	if ok {
 		return index
 	}
-	if field.DataType == types.DTDynamic {
+	if field.DataType == larrow.ExtensionTypes.Dynamic {
 		r.Fields = append(r.Fields, field)
 
 		r.maxIndex++

@@ -28,8 +28,6 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/memory"
 	"github.com/samber/lo"
-
-	"github.com/lindb/lindb/spi/types"
 )
 
 type RPCService struct {
@@ -86,13 +84,19 @@ func Test_Runtime_Insert(t *testing.T) {
 	// add result listener
 	// add streaming query
 	err := runtime.DeployJob("test_app", `
-	@app(name="test_app")
-	@metric(name="count_rpc",tags=["tags_map","interface"],fields=["qps"],timestamp="ts")
-	insert into Result
-	select map_values(tags,'app') as tags_map,interface,count(1) as qps,time_trunc(timestamp,interval 10 second) as ts
-	from RPCService
-	where interface in('grpc')
-	group by tags_map,interface,ts;
+	create job test_app
+	begin
+	  insert into rpc_call
+	  select 
+		  map_values(tags,'app') as tt,
+		  interface,count(1) as qps,
+		  time_trunc(timestamp,interval 10 second) as ts
+	  from RPCService
+	  where interface in('http','grpc')
+	  group by tt,interface,ts;
+
+		select * from rpc_call where interface='http';
+	end 
 		`)
 	fmt.Println(err)
 	//
@@ -121,50 +125,55 @@ func Test_Runtime_Insert(t *testing.T) {
 
 	// send event
 	input := runtime.GetInputHandler("RPCService")
+	var rpcs []RPCService
 
-	page := types.NewPage()
-	interfaceColumn := types.NewColumn()
-	page.AppendColumn(types.ColumnMetadata{DataType: types.DTString, Name: "interface"}, interfaceColumn)
-	timestampColumn := types.NewColumn()
-	page.AppendColumn(types.ColumnMetadata{DataType: types.DTTimestamp, Name: "timestamp"}, timestampColumn)
-	tagsColumn := types.NewColumn()
-	page.AppendColumn(types.ColumnMetadata{DataType: types.DTMap, Name: "tags"}, tagsColumn)
-	statusColumn := types.NewColumn()
-	page.AppendColumn(types.ColumnMetadata{DataType: types.DTString, Name: "status"}, statusColumn)
-	traceColumn := types.NewColumn()
-	page.AppendColumn(types.ColumnMetadata{DataType: types.DTString, Name: "trace_id"}, traceColumn)
-	spanColumn := types.NewColumn()
-	page.AppendColumn(types.ColumnMetadata{DataType: types.DTString, Name: "span_id"}, spanColumn)
-	durationColumn := types.NewColumn()
-	page.AppendColumn(types.ColumnMetadata{DataType: types.DTInt, Name: "duration"}, durationColumn)
+	for range 1 {
+		rpcs = append(rpcs, RPCService{
+			Interface: "grpc",
+			Timestamp: time.Now(),
+			Tags:      map[string]string{"host": "1.1.1.1", "app": "order"},
+			TraceID:   [16]byte{1, 2, 3},
+			SpanID:    [8]byte{4, 5, 6},
+			Duration:  time.Duration(200),
+		})
 
-	interfaceColumn.Append("grpc")
-	timestampColumn.Append(time.Now())
-	tagsColumn.Append(map[string]string{"host": "1.1.1.1", "app": "order"})
-	traceColumn.Append("trace_grpc_order")
-	spanColumn.Append("span_grpc_order")
-	durationColumn.Append(int64(200))
+		rpcs = append(rpcs, RPCService{
+			Interface: "http",
+			Timestamp: time.Now(),
+			Tags:      map[string]string{"host": "1.1.1.1", "app": "user"},
+			TraceID:   [16]byte{1, 2, 3},
+			SpanID:    [8]byte{4, 5, 6},
+			Duration:  time.Duration(150),
+		})
 
-	interfaceColumn.Append("http")
-	timestampColumn.Append(time.Now())
-	tagsColumn.Append(map[string]string{"host": "1.1.1.1", "app": "user"})
-	traceColumn.Append("trace_http_user")
-	spanColumn.Append("span_http_user")
-	durationColumn.Append(int64(150))
+		rpcs = append(rpcs, RPCService{
+			Interface: "dubbo",
+			Timestamp: time.Now(),
+			Tags:      map[string]string{"host": "1.1.1.1", "app": "order"},
+			TraceID:   [16]byte{1, 2, 3},
+			SpanID:    [8]byte{4, 5, 6},
+			Duration:  time.Duration(300),
+		})
+		rpcs = append(rpcs, RPCService{
+			Interface: "dubbo",
+			Timestamp: time.Now(),
+			Tags:      map[string]string{"host": "1.1.1.1", "app": "order"},
+			TraceID:   [16]byte{1, 2, 3},
+			SpanID:    [8]byte{4, 5, 6},
+			Duration:  time.Duration(300),
+		})
 
-	interfaceColumn.Append("dubbo")
-	timestampColumn.Append(time.Now())
-	tagsColumn.Append(map[string]string{"host": "1.1.1.1", "app": "order"})
-	traceColumn.Append("trace_dubbo_order")
-	spanColumn.Append("span_dubbo_order")
-	durationColumn.Append(int64(300))
+		rpcs = append(rpcs, RPCService{
+			Interface: "http",
+			Timestamp: time.Now(),
+			Tags:      map[string]string{"host": "1.1.1.1", "app": "github"},
+			TraceID:   [16]byte{1, 2, 3},
+			SpanID:    [8]byte{4, 5, 6},
+			Duration:  time.Duration(100),
+		})
+	}
 
-	interfaceColumn.Append("http")
-	timestampColumn.Append(time.Now())
-	tagsColumn.Append(map[string]string{"host": "1.1.1.1", "app": "github"})
-	traceColumn.Append("trace_http_github")
-	spanColumn.Append("span_http_github")
-	durationColumn.Append(int64(100))
+	page, _ := ToRecord(memory.DefaultAllocator, rpcs)
 
 	now := time.Now()
 	// var wait sync.WaitGroup
@@ -425,7 +434,7 @@ func goTypeToArrow(t reflect.Type) arrow.DataType {
 			return arrow.MapOf(arrow.BinaryTypes.String, arrow.BinaryTypes.String)
 		}
 	case reflect.TypeFor[time.Time]().Kind():
-		return arrow.FixedWidthTypes.Timestamp_ms
+		return arrow.FixedWidthTypes.Timestamp_ns
 	}
 	return arrow.BinaryTypes.String // 默认回退
 }

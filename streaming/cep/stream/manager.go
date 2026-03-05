@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/spi"
@@ -66,22 +67,22 @@ type StreamManager interface {
 	spi.MetadataManager
 
 	RegisterStreamByType(event any) error
-	RegisterStreamBySchema(name string, schema *types.TableSchema) error
+	RegisterStreamBySchema(name string, schema *arrow.Schema) error
 }
 
 type streamManager struct {
-	streams map[string]*types.TableSchema
+	streams map[string]*arrow.Schema
 
 	mutex sync.RWMutex
 }
 
 func newStreamManager() StreamManager {
 	return &streamManager{
-		streams: make(map[string]*types.TableSchema),
+		streams: make(map[string]*arrow.Schema),
 	}
 }
 
-func (mgr *streamManager) RegisterStreamBySchema(name string, schema *types.TableSchema) error {
+func (mgr *streamManager) RegisterStreamBySchema(name string, schema *arrow.Schema) error {
 	mgr.mutex.Lock()
 	defer mgr.mutex.Unlock()
 
@@ -97,19 +98,19 @@ func (mgr *streamManager) RegisterStreamByType(event any) error {
 	if t.Kind() != reflect.Struct {
 		return errors.New("input is not a struct or pointer to struct")
 	}
-	schema := types.NewTableSchema()
+	var fields []arrow.Field
 	for i := range t.NumField() {
 		field := t.Field(i)
 		// only support public field
 		if field.PkgPath != "" {
 			continue
 		}
-		schema.AddColumn(types.ColumnMetadata{Name: lo.SnakeCase(field.Name), DataType: fieldType(field)})
+		fields = append(fields, arrow.Field{Name: lo.SnakeCase(field.Name), Type: fieldType(field)})
 	}
 	mgr.mutex.Lock()
 	defer mgr.mutex.Unlock()
 
-	mgr.streams[t.Name()] = schema
+	mgr.streams[t.Name()] = arrow.NewSchema(fields, nil)
 	return nil
 }
 
@@ -118,7 +119,6 @@ func (mgr *streamManager) GetTableMetadata(db string, ns string, table string) (
 	defer mgr.mutex.RUnlock()
 
 	schema, ok := mgr.streams[table]
-	fmt.Println(mgr.streams)
 	if !ok {
 		return nil, errors.New("table not exist")
 	}
@@ -135,23 +135,27 @@ func (mgr *streamManager) GetTableHandle(db string, ns string, table string) spi
 	}
 }
 
-func fieldType(field reflect.StructField) types.DataType {
+func fieldType(field reflect.StructField) arrow.DataType {
 	t := field.Type
 	switch {
 	case t == reflect.TypeFor[map[string]string]():
-		return types.DTMap
+		return arrow.MapOf(arrow.BinaryTypes.String, arrow.BinaryTypes.String)
 	case t == reflect.TypeFor[string]():
-		return types.DTString
+		return arrow.BinaryTypes.String
 	case t == reflect.TypeFor[int](), t == reflect.TypeFor[int32](), t == reflect.TypeFor[int64]():
-		return types.DTInt
+		return arrow.PrimitiveTypes.Int64
 	case t == reflect.TypeFor[float32](), t == reflect.TypeFor[float64]():
-		return types.DTFloat
+		return arrow.PrimitiveTypes.Float64
 	case t == reflect.TypeFor[time.Time]():
-		return types.DTTimestamp
+		return arrow.FixedWidthTypes.Timestamp_ns
 	case t == reflect.TypeFor[time.Duration]():
-		return types.DTDuration
+		return arrow.FixedWidthTypes.Duration_ns
+	case t.Kind() == reflect.Array:
+		if t.Elem().Kind() == reflect.Uint8 {
+			return &arrow.FixedSizeBinaryType{ByteWidth: int(t.Len())}
+		}
 	default:
-		return types.DTBinary
+		return arrow.BinaryTypes.Binary
 	}
 	panic(fmt.Sprintf("unsupported field type:%v", field.Type))
 }

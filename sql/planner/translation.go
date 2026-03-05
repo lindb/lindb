@@ -21,9 +21,10 @@ import (
 	"fmt"
 	"maps"
 
+	"github.com/apache/arrow-go/v18/arrow"
+	larrow "github.com/lindb/arrow/pkg/arrow"
 	"github.com/samber/lo"
 
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/analyzer"
 	"github.com/lindb/lindb/sql/context"
 	"github.com/lindb/lindb/sql/planner/plan"
@@ -85,7 +86,7 @@ func (t *TranslationMap) getSymbolForColumn(node tree.Expression) *plan.Symbol {
 	if field == nil {
 		return nil
 	}
-	if t.scope.Dynamic || field.Field.DataType == types.DTDynamic {
+	if t.scope.Dynamic || arrow.TypeEqual(field.Field.DataType, larrow.ExtensionTypes.Dynamic) {
 		return &plan.Symbol{
 			Name:     field.Field.Name,
 			DataType: field.Field.DataType,
@@ -144,7 +145,7 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 					ID:   node.GetID(),
 					Text: expr.Text,
 				},
-				Type:  types.DTInt,
+				Type:  arrow.PrimitiveTypes.Int64,
 				Value: expr.Value,
 			}
 		case *tree.IntervalLiteral:
@@ -153,7 +154,7 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 					ID:   node.GetID(),
 					Text: expr.Text,
 				},
-				Type:  types.DTDuration,
+				Type:  arrow.FixedWidthTypes.Duration_ns,
 				Value: expr.Value,
 			}
 		case *tree.StringLiteral:
@@ -163,7 +164,7 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 					ID:   node.GetID(),
 					Text: expr.Text,
 				},
-				Type:  types.DTString,
+				Type:  arrow.BinaryTypes.String,
 				Value: expr.Value,
 			}
 		case *tree.ArithmeticBinaryExpression:
@@ -198,8 +199,8 @@ func (t *TranslationMap) translate(node tree.Expression, isRoot bool) (result tr
 			expr.Value = t.translate(expr.Value, false)
 			result = expr
 		case *tree.ComparisonExpression:
-			expr.Left = t.translate(expr.Left, false)
-			expr.Right = t.translate(expr.Right, false)
+			t.translate(expr.Left, false)
+			t.translate(expr.Right, false)
 			// TODO:
 			result = expr
 		case *tree.NotExpression:

@@ -18,7 +18,9 @@
 package execution
 
 import (
-	"github.com/lindb/lindb/spi/types"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+
 	"github.com/lindb/lindb/sql/execution/ddl"
 	"github.com/lindb/lindb/sql/tree"
 )
@@ -69,5 +71,6 @@ func (exec *DDLExecution) Start() any {
 	if err != nil {
 		panic(err)
 	}
-	return types.NewPage()
+	// TODO: return affected rows
+	return array.NewRecordBatch(arrow.NewSchema(nil, nil), nil, 0)
 }

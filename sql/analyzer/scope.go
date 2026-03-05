@@ -20,9 +20,9 @@ package analyzer
 import (
 	"fmt"
 
+	larrow "github.com/lindb/arrow/pkg/arrow"
 	"github.com/samber/lo"
 
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 )
 
@@ -113,7 +113,7 @@ func (scope *Scope) resolveField(node tree.Expression, name *tree.QualifiedName,
 		return &ResolvedField{
 			Field: &tree.Field{
 				Name:     name.Name,
-				DataType: types.DTDynamic,
+				DataType: larrow.ExtensionTypes.Dynamic,
 			},
 			Scope: scope,
 			// RelationFieldIndex:  relationFieldIndex,

@@ -22,13 +22,12 @@ import (
 
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
+	larray "github.com/lindb/arrow/pkg/arrow/array"
 	"github.com/lindb/roaring"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/sql/tree"
 )
-
-var empty = roaring.New()
 
 type column struct {
 	name  string
@@ -47,7 +46,7 @@ type ComparisonExpr struct {
 
 func (e *ComparisonExpr) Eval(record arrow.RecordBatch) (*roaring.Bitmap, error) {
 	col := record.Column(e.column.index)
-	values, ok := col.(*array.String)
+	values, ok := col.(*larray.Generic[string])
 	if !ok {
 		return nil, fmt.Errorf("column %s is not string type", e.column.name)
 	}

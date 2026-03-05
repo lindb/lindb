@@ -22,11 +22,8 @@ import (
 	"time"
 
 	"github.com/apache/arrow-go/v18/arrow"
-	"github.com/lindb/common/models"
-	"github.com/lindb/common/pkg/timeutil"
 
 	"github.com/lindb/lindb/spi/scalar"
-	"github.com/lindb/lindb/spi/types"
 )
 
 type Constant struct {
@@ -93,22 +90,22 @@ func (r *Constant) Eval(record arrow.RecordBatch) (arrow.Array, error) {
 	// return builder.NewArray(), nil
 }
 
-func (c *Constant) EvalExemplar(_ types.Row) (val *models.Exemplar, isNull bool, err error) {
-	return
-}
-
-func (c *Constant) EvalTime(_ types.Row) (val time.Time, isNull bool, err error) {
-	switch v := c.value.(type) {
-	case string:
-		timestamp, err := timeutil.ParseTimestamp(v, timeutil.DataTimeFormat2)
-		if err != nil {
-			return time.Time{}, true, err
-		}
-		return time.UnixMilli(timestamp), false, nil
-	default:
-		return
-	}
-}
+// func (c *Constant) EvalExemplar(_ types.Row) (val *models.Exemplar, isNull bool, err error) {
+// 	return
+// }
+//
+// func (c *Constant) EvalTime(_ types.Row) (val time.Time, isNull bool, err error) {
+// 	switch v := c.value.(type) {
+// 	case string:
+// 		timestamp, err := timeutil.ParseTimestamp(v, timeutil.DataTimeFormat2)
+// 		if err != nil {
+// 			return time.Time{}, true, err
+// 		}
+// 		return time.UnixMilli(timestamp), false, nil
+// 	default:
+// 		return
+// 	}
+// }
 
 func (c *Constant) ResultType() ResultType {
 	return c.rt

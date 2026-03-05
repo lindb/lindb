@@ -22,8 +22,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
+	larrow "github.com/lindb/arrow/pkg/arrow"
 	commonmodels "github.com/lindb/common/models"
 	"github.com/lindb/common/pkg/timeutil"
 	"github.com/mattn/go-runewidth"
@@ -35,8 +37,8 @@ import (
 )
 
 type Schema struct {
-	Columns   []types.ColumnMetadata `json:"columns,omitempty"`
-	Partition []models.Partition     `json:"partitions,omitempty"`
+	Columns   []arrow.Field      `json:"columns,omitempty"`
+	Partition []models.Partition `json:"partitions,omitempty"`
 }
 
 type ResultSet struct {
@@ -57,7 +59,7 @@ func (rs *ResultSet) ToTable() (tableStr string) {
 	writer := commonmodels.NewTableFormatter()
 	writer.SetStyle(terminal.TableSylte())
 	var headers table.Row
-	var columnTypes []types.DataType
+	var columnTypes []arrow.DataType
 	var (
 		hasTimeSeries bool
 		timeSeriesIdx int
@@ -66,18 +68,18 @@ func (rs *ResultSet) ToTable() (tableStr string) {
 	)
 	var maxWidths []int
 	for i, col := range rs.Schema.Columns {
-		if !hasTimeSeries && col.DataType == types.DTTimeSeries {
+		if !hasTimeSeries && arrow.TypeEqual(col.Type, larrow.ExtensionTypes.TimeSeries) {
 			timeSeriesIdx = i
 			hasTimeSeries = true
 			timeSeries := &types.TimeSeries{}
 			_ = mapstructure.Decode(rs.Rows[0][i], timeSeries)
 			dataPoints = len(timeSeries.Values)
 			headers = append(headers, "timestamp") // add timestamp column
-			columnTypes = append(columnTypes, types.DTTimestamp)
+			columnTypes = append(columnTypes, arrow.FixedWidthTypes.Timestamp_ns)
 			maxWidths = append(maxWidths, len("timestamp"))
 		}
 		headers = append(headers, col.Name)
-		columnTypes = append(columnTypes, col.DataType)
+		columnTypes = append(columnTypes, col.Type)
 		maxWidths = append(maxWidths, len(col.Name))
 	}
 	writer.AppendHeader(headers)
@@ -89,7 +91,7 @@ func (rs *ResultSet) ToTable() (tableStr string) {
 				cols := make(table.Row, len(rs.Schema.Columns)+1) // add timestamp column
 				colIdx := 0
 				for i, col := range row {
-					if rs.Schema.Columns[i].DataType == types.DTTimeSeries {
+					if arrow.TypeEqual(rs.Schema.Columns[i].Type, larrow.ExtensionTypes.TimeSeries) {
 						timeSeries := &types.TimeSeries{}
 						_ = mapstructure.Decode(col, timeSeries)
 						if timeSeriesIdx == i {
@@ -126,19 +128,20 @@ func (rs *ResultSet) ToTable() (tableStr string) {
 }
 
 // appendColumn appends column value to row.
-func appendColumn(row table.Row, colType types.DataType, col any, index int) {
+func appendColumn(row table.Row, colType arrow.DataType, col any, index int) {
 	if col == nil {
 		row[index] = "null"
 		return
 	}
+	// FIXME: check type???
 	switch colType {
-	case types.DTString:
+	case arrow.BinaryTypes.String:
 		row[index] = strings.ReplaceAll(col.(string), "\t", "  ") // replace tab with space
-	case types.DTDuration:
+	case arrow.FixedWidthTypes.Duration_ns:
 		row[index] = time.Duration(col.(float64))
-	case types.DTFloat, types.DTInt:
+	case arrow.PrimitiveTypes.Int64, arrow.PrimitiveTypes.Float64:
 		row[index] = fmt.Sprintf("%v", col)
-	case types.DTTimestamp:
+	case arrow.FixedWidthTypes.Timestamp_ns:
 		switch val := col.(type) {
 		case string:
 			row[index] = val
@@ -147,14 +150,14 @@ func appendColumn(row table.Row, colType types.DataType, col any, index int) {
 		case float64:
 			row[index] = timeutil.FormatTimestamp(int64(val), timeutil.DataTimeFormat2)
 		}
-	case types.DTMap:
+	case &arrow.MapType{}:
 		m := col.(map[string]any)
 		var sb strings.Builder
 		for key, value := range m {
 			fmt.Fprintf(&sb, "%s:%v\n", key, value)
 		}
 		row[index] = sb.String()
-	case types.DTExemplar:
+	case larrow.ExtensionTypes.Exemplar:
 		exemplars := col.([]any)
 		var values []string
 		for _, exemplarData := range exemplars {

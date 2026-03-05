@@ -30,7 +30,6 @@ import (
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/spi"
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/execution/operator"
 	"github.com/lindb/lindb/sql/expression"
 	"github.com/lindb/lindb/sql/tree"
@@ -46,7 +45,7 @@ func NewSourceConnectorProvider() spi.SourceConnectorProvider {
 func (s *sourceConnectorProvider) CreateSourceConnector(ctx context.Context,
 	table spi.TableHandle, partitions []int, columnMapping map[string]string,
 	predicate tree.Expression,
-	outputColumns []types.ColumnMetadata, assignments []*spi.ColumnAssignment,
+	outputColumns []arrow.Field, assignments []*spi.ColumnAssignment,
 ) spi.SourceConnector {
 	tableHandle := table.(*TableHandle)
 	schema, err := GetManager().GetStreamManager(tableHandle.Database).GetTableMetadata(tableHandle.Database, "", tableHandle.Stream)
@@ -84,8 +83,9 @@ type sourceConnector struct {
 	input   input.InputHandler
 	running *atomic.Bool
 
-	schema        *types.TableSchema
-	outputColumns []types.ColumnMetadata
+	schema        *arrow.Schema
+	outputColumns []arrow.Field
+	refs          []int // column index in input record for output columns, -1 means not exist
 
 	recordSchema *arrow.Schema
 
@@ -99,24 +99,24 @@ type sourceConnector struct {
 
 func (sc *sourceConnector) initialize() {
 	index := 0
-	columnMap := lo.Associate(sc.schema.Columns, func(item types.ColumnMetadata) (string, int) {
+	fields := sc.schema.Fields()
+	columnMap := lo.Associate(fields, func(item arrow.Field) (string, int) {
 		i := index
 		index++
 		return item.Name, i
 	})
+	sc.refs = make([]int, len(sc.outputColumns))
 	for i := range sc.outputColumns {
 		colMeta := &sc.outputColumns[i]
 		colIndex, ok := columnMap[colMeta.Name]
 		if !ok {
-			colMeta.Ref = -1
+			sc.refs[i] = -1
 			continue
 		}
-		colMeta.Ref = colIndex
+		sc.refs[i] = colIndex
 	}
 
-	sc.recordSchema = arrow.NewSchema(lo.Map(sc.outputColumns, func(item types.ColumnMetadata, index int) arrow.Field {
-		return arrow.Field{Name: item.Name, Type: item.DataType.ToArrowDataType()}
-	}), nil)
+	sc.recordSchema = arrow.NewSchema(sc.outputColumns, nil)
 }
 
 func (sc *sourceConnector) Receive(event models.Event) {
@@ -164,9 +164,9 @@ func (sc *sourceConnector) process(record arrow.RecordBatch, output chan<- arrow
 	if sc.predicate == nil {
 		// no filter, send page to next operator
 		columns := make([]arrow.Array, len(sc.outputColumns))
-		for i, column := range sc.outputColumns {
-			if column.Ref >= 0 {
-				columns[i] = record.Column(column.Ref)
+		for i, ref := range sc.refs {
+			if ref >= 0 {
+				columns[i] = record.Column(ref)
 			}
 		}
 		rs := array.NewRecordBatch(sc.recordSchema, columns, record.NumRows())
@@ -194,44 +194,21 @@ func (sc *sourceConnector) process(record arrow.RecordBatch, output chan<- arrow
 		fmt.Println("filter result is empty, skip this record")
 		return
 	}
-	// inputDatum := compute.NewDatum(record)
-	// defer inputDatum.Release()
-	// indices := result.ToArray()
-	//
-	// it32Builder := array.NewInt32Builder(memory.DefaultAllocator)
-	// defer it32Builder.Release()
-	//
-	// for _, idx := range indices {
-	// 	it32Builder.Append(int32(idx))
-	// }
-	// indexArray := it32Builder.NewArray()
-	// defer indexArray.Release()
-	// indexDatum := compute.NewDatum(indexArray)
-	// defer indexDatum.Release()
-	//
-	// r, err := compute.Take(context.TODO(), *compute.DefaultTakeOptions(), inputDatum, indexDatum)
-	// if err != nil {
-	// 	fmt.Println("failed to take record based on filter result:", err)
-	// 	return
-	// }
-	// defer r.Release()
-	// _ = r.(*compute.RecordDatum).Value
-	// fmt.Println(rr)
-	// fmt.Printf("filter result: %v\n", result)
+	fmt.Printf("filter result: %v\n", result.String())
 
 	// if page != nil {
 	columns := make([]arrow.Array, len(sc.outputColumns))
-	fields := make([]arrow.Field, len(sc.outputColumns))
-	for i, column := range sc.outputColumns {
-		if column.Ref >= 0 {
-			columns[i] = record.Column(column.Ref)
+	for i, ref := range sc.refs {
+		if ref >= 0 {
+			columns[i] = record.Column(ref)
 		}
-		fields[i] = arrow.Field{Name: column.Name, Type: columns[i].DataType()}
 	}
 	// fmt.Printf("output record: %v\n", columns)
-	rs := array.NewRecordBatch(arrow.NewSchema(fields, nil), columns, record.NumRows())
+	rs := array.NewRecordBatch(sc.recordSchema, columns, record.NumRows())
 
-	output <- larrow.NewFilterableRecord(rs, result.ToArray())
+	tt := larrow.NewFilterableRecord(rs, result.ToArray())
+	fmt.Printf("output record: %v\n", tt)
+	output <- tt
 	// output <- record
 	// }
 }
@@ -277,6 +254,26 @@ func (v *visitor) rewrite(n tree.Expression) Expr {
 				index: indexes[0],
 			},
 			values: values,
+		}
+	case *tree.ComparisonExpression:
+		columName, err := expression.EvalString(v.evalContext, node.Left)
+		if err != nil {
+			panic(err)
+		}
+		indexes := v.schema.FieldIndices(columName)
+		if len(indexes) != 1 {
+			panic(fmt.Sprintf("invalid column %s, found %d fields", columName, len(indexes)))
+		}
+		columValue, err := expression.EvalString(v.evalContext, node.Right)
+		if err != nil {
+			panic(err)
+		}
+		return &ComparisonExpr{
+			column: column{
+				name:  columName,
+				index: indexes[0],
+			},
+			value: columValue,
 		}
 	// case *tree.LogicalExpression:
 	// for _, term := range node.Terms {

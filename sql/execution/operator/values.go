@@ -22,7 +22,6 @@ import (
 
 	"github.com/apache/arrow-go/v18/arrow"
 
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
 
@@ -37,14 +36,14 @@ func NewValuesOperator(node *plan.ValuesNode) Operator {
 }
 
 func (op *ValuesOperator) Run(ctx context.Context, output chan<- arrow.RecordBatch) {
-	var page *types.Page
-	node := op.node
-	if node.Rows != nil {
-		page = node.Rows
-	} else if node.RowCount == 1 {
-		page = types.RowWithEmptyValue
-	}
-	panic(page)
+	// var page *types.Page
+	// node := op.node
+	// if node.Rows != nil {
+	// 	page = node.Rows
+	// } else if node.RowCount == 1 {
+	// 	page = types.RowWithEmptyValue
+	// }
+	panic("implement me values operator")
 	// FIXME: output <- page
 }
 

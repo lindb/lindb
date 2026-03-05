@@ -18,9 +18,11 @@
 package utils
 
 import (
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 	"github.com/samber/lo"
 
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 )
 
@@ -35,13 +37,14 @@ func NewQueryBuilder(idAllocator *tree.NodeIDAllocator) *QueryBuilder {
 }
 
 func (b *QueryBuilder) SingleValueQuery(columnName, value string) *tree.Query {
-	page := types.NewPage()
-	column := types.NewColumn()
-	page.AppendColumn(types.ColumnMetadata{Name: columnName, DataType: types.DTString}, column)
-	column.Append(value)
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: columnName, Type: arrow.BinaryTypes.String},
+	}, nil)
+	sb := array.NewStringBuilder(memory.DefaultAllocator)
+	sb.Append(value)
 	body := &tree.QuerySpecification{
 		Select: b.SelectAll(),
-		From:   b.Values(page),
+		From:   b.Values(array.NewRecordBatch(schema, []arrow.Array{sb.NewArray()}, int64(sb.Len()))),
 	}
 	b.setNodeID(body)
 	query := b.Query(body)
@@ -114,7 +117,7 @@ func (b *QueryBuilder) SelectAll() *tree.Select {
 	}
 }
 
-func (b *QueryBuilder) Values(rows *types.Page) *tree.Values {
+func (b *QueryBuilder) Values(rows arrow.RecordBatch) *tree.Values {
 	values := &tree.Values{
 		Rows: rows,
 	}

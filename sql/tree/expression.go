@@ -20,7 +20,7 @@ package tree
 import (
 	"fmt"
 
-	"github.com/lindb/lindb/spi/types"
+	"github.com/apache/arrow-go/v18/arrow"
 )
 
 type (
@@ -87,7 +87,7 @@ func (n *Row) Accept(context any, visitor Visitor) (r any) {
 
 type Cast struct {
 	BaseNode
-	Type       types.DataType `json:"type"`
+	Type       arrow.DataType `json:"type"`
 	Expression Expression     `json:"expression"`
 }
 
