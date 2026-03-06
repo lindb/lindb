@@ -18,9 +18,9 @@
 package runtime
 
 import (
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/lindb/common/pkg/logger"
 
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/streaming/cep/sink"
 )
 
@@ -36,9 +36,11 @@ func NewListener(bridges []*sink.SinkBridge) *Listener {
 	}
 }
 
-func (l *Listener) Receive(event models.Event) {
-	l.logger.Info("Listener, receive event", logger.Any("event", event))
+func (l *Listener) Receive(record arrow.RecordBatch) {
+	if l.logger.Enabled(logger.DebugLevel) {
+		l.logger.Info("Listener, receive record", logger.Any("record", record))
+	}
 	for _, s := range l.bridges {
-		s.Publish(event)
+		s.Publish(record)
 	}
 }

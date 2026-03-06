@@ -18,7 +18,8 @@
 package decode
 
 import (
-	"github.com/lindb/lindb/models"
+	"github.com/apache/arrow-go/v18/arrow"
+
 	"github.com/lindb/lindb/pkg/option"
 )
 
@@ -34,5 +35,5 @@ func GetDecoder(engine option.EngineType) Decoder {
 }
 
 type Decoder interface {
-	ToEvent(data []byte) (models.Event, error)
+	ToRecord(data []byte) (arrow.RecordBatch, error)
 }

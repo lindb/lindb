@@ -20,6 +20,8 @@ package cep
 import (
 	"fmt"
 
+	"github.com/apache/arrow-go/v18/arrow"
+
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/streaming/cep/runtime"
 	"github.com/lindb/lindb/streaming/cep/source"
@@ -38,8 +40,8 @@ func NewEngine(stream *models.Streaming, db *models.Database) *Engine {
 	}
 }
 
-func (e *Engine) Send(event models.Event) {
-	e.source.Receive(event)
+func (e *Engine) Send(record arrow.RecordBatch) {
+	e.source.Receive(record)
 }
 
 func (e *Engine) DeployJob(name, script string) error {

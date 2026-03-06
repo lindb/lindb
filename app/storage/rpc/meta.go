@@ -20,6 +20,7 @@ package rpc
 import (
 	context "context"
 
+	"github.com/apache/arrow-go/v18/arrow/array"
 	commonConstants "github.com/lindb/common/constants"
 	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
@@ -104,6 +105,7 @@ func (srv *MetaService) TableSchema(ctx context.Context,
 		return nil, err
 	}
 	// TODO: return schema for metric engine
+	var fields []array.Field
 	tableSchema := types.NewTableSchema()
 	for _, tagKey := range schema.TagKeys {
 		tableSchema.AddColumn(types.ColumnMetadata{Name: tagKey.Key, DataType: types.DTString})

@@ -52,7 +52,7 @@ func NewInsertOperator(ctx context.Context, insert *plan.InsertNode, child opera
 	// register stream by schema, so that the stream can be consumed by other streaming queries
 	// NOTE: only unregistered stream when undeploy the database, because may be register same stream by different queries
 	stream.GetManager().GetStreamManager(insert.Database).
-		RegisterStreamBySchema(insert.Table.GetTableName(), arrow.NewSchema(fields, nil))
+		RegisterStream(insert.Table.GetTableName(), arrow.NewSchema(fields, nil))
 	return op
 }
 

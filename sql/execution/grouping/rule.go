@@ -18,7 +18,6 @@
 package grouping
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/apache/arrow-go/v18/arrow"
@@ -44,7 +43,6 @@ func (r *MapRule) Map(column arrow.Array, row int, buf *Buffer) {
 	values, ok := column.(*larray.Map)
 	if !ok || column.IsNull(row) {
 		buf.Write(0)
-		fmt.Println("kkk..", row)
 		return
 	}
 	// FIXME: need sort keys of map

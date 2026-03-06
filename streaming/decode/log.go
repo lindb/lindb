@@ -30,7 +30,7 @@ func init() {
 
 type log struct{}
 
-func (l *log) ToEvent(data []byte) (models.Event, error) {
+func (l *log) ToRecord(data []byte) (models.Event, error) {
 	fmt.Println("log to event")
 	return nil, nil
 }

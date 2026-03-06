@@ -20,12 +20,13 @@ package annotation
 import (
 	"strings"
 
-	"github.com/lindb/lindb/models"
+	"github.com/apache/arrow-go/v18/arrow"
+
 	"github.com/lindb/lindb/pkg/collections"
 )
 
 type Mapper interface {
-	Map(event models.Event) models.Event
+	Map(record arrow.RecordBatch) arrow.RecordBatch
 }
 
 type createMapperFn func(props *collections.Properties) Mapper

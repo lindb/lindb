@@ -31,7 +31,6 @@ import (
 	"github.com/lindb/common/pkg/logger"
 	"github.com/samber/lo"
 
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/collections"
 	tpl "github.com/lindb/lindb/pkg/template"
 )
@@ -67,17 +66,10 @@ func NewMetricMapper(props *collections.Properties) Mapper {
 	}
 }
 
-func (m *MetricMapper) Map(event models.Event) models.Event {
-	record, ok := event.(arrow.RecordBatch)
-	if !ok {
-		return nil
-	}
+func (m *MetricMapper) Map(record arrow.RecordBatch) arrow.RecordBatch {
 	if !m.initialized {
 		m.initialize(record)
 	}
-	fmt.Println(record)
-
-	m.logger.Info("metric mapper...", logger.Any("page", record))
 
 	var points []*api.Point
 	for i := 0; i < int(record.NumRows()); i++ {
@@ -106,16 +98,15 @@ func (m *MetricMapper) Map(event models.Event) models.Event {
 				logger.Any("fields", len(point.Fields())))
 		}
 	}
-
-	return points
+	fmt.Println(points)
+	return nil
+	// return points
 }
 
 func (m *MetricMapper) initialize(input arrow.RecordBatch) {
-	layout := make(map[string]arrow.Field)
-	refs := make(map[string]int)
+	refs := make(map[string]int, input.NumCols())
 	for i, col := range input.Schema().Fields() {
 		refs[col.Name] = i
-		layout[col.Name] = col
 	}
 	m.name = m.props.GetStringDefault(metricName, "name")
 
@@ -127,11 +118,13 @@ func (m *MetricMapper) initialize(input arrow.RecordBatch) {
 	}
 	if tpl != nil {
 		m.nameTpl = tpl
-	} else {
-		m.nameCol = refs[m.name]
+	} else if col, ok := refs[m.name]; ok {
+		m.nameCol = col
 	}
 
-	m.timestampCol = refs[m.props.GetStringDefault(metricTimestamp, "timestamp")]
+	if col, ok := refs[m.props.GetStringDefault(metricTimestamp, "timestamp")]; ok {
+		m.timestampCol = col
+	}
 	tags, _ := m.props.GetStringSlice(metricTags)
 	m.tagCols = lo.Map(tags, func(tag string, _ int) int {
 		return refs[tag]
@@ -151,7 +144,7 @@ func (m *MetricMapper) initialize(input arrow.RecordBatch) {
 
 func (m *MetricMapper) getMetricName(record arrow.RecordBatch, row int) string {
 	if m.nameCol != -1 {
-		val := record.Column(m.nameCol).(*larray.Generic[string]).Value(row)
+		val := larray.ToTypedGeneric[string](record.Column(m.nameCol)).Value(row)
 		if val != "" {
 			return val
 		}
@@ -161,7 +154,7 @@ func (m *MetricMapper) getMetricName(record arrow.RecordBatch, row int) string {
 
 func (m *MetricMapper) getTimestamp(record arrow.RecordBatch, row int) time.Time {
 	if m.timestampCol != -1 {
-		val := record.Column(m.timestampCol).(*larray.Generic[arrow.Timestamp]).Value(row).ToTime(arrow.Millisecond)
+		val := larray.ToTypedGeneric[arrow.Timestamp](record.Column(m.timestampCol)).Value(row).ToTime(arrow.Millisecond)
 		if !val.IsZero() {
 			return val
 		}
@@ -178,11 +171,6 @@ func (m *MetricMapper) buildTags(record arrow.RecordBatch, row int, point *api.P
 		// }
 		column := record.Column(col)
 		switch c := column.(type) {
-		case *larray.Generic[string]:
-			val := c.Value(row)
-			if val != "" {
-				point.AddTag(record.Schema().Fields()[col].Name, val)
-			}
 		case *larray.Map:
 			keys := c.Keys().(*array.String)
 			items := c.Items().(*array.String)
@@ -191,6 +179,16 @@ func (m *MetricMapper) buildTags(record arrow.RecordBatch, row int, point *api.P
 			start, end := offsets[actualRow], offsets[actualRow+1]
 			for i := int(start); i < int(end); i++ {
 				point.AddTag(keys.Value(i), items.Value(i))
+			}
+		case *array.String:
+			val := c.Value(row)
+			if val != "" {
+				point.AddTag(record.Schema().Fields()[col].Name, val)
+			}
+		case *larray.Generic[string]:
+			val := c.Value(row)
+			if val != "" {
+				point.AddTag(record.Schema().Fields()[col].Name, val)
 			}
 		}
 	}
@@ -222,7 +220,6 @@ func (m *MetricMapper) buildFields(record arrow.RecordBatch, row int, point *api
 			}
 		case *larray.Generic[*model.Exemplar]:
 			exemplar := col.Value(row)
-
 			point.AddField(api.NewExemplar(
 				field.Name,
 				string(exemplar.TraceID),
@@ -233,6 +230,5 @@ func (m *MetricMapper) buildFields(record arrow.RecordBatch, row int, point *api
 			m.logger.Warn("unsupported field column data type, skip",
 				logger.Any("column", field.Name), logger.Any("dataType", column.DataType()))
 		}
-		fmt.Println("field column:", record.Schema().Fields()[col].Name, column.DataType())
 	}
 }

@@ -30,7 +30,7 @@ func init() {
 
 type metric struct{}
 
-func (m *metric) ToEvent(data []byte) (models.Event, error) {
+func (m *metric) ToRecord(data []byte) (models.Event, error) {
 	fmt.Println("metric to event")
 	return nil, nil
 }

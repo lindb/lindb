@@ -24,7 +24,6 @@ import (
 
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/memory"
-	larrow "github.com/lindb/arrow/pkg/arrow"
 	"github.com/lindb/arrow/pkg/arrow/builder"
 	"github.com/samber/lo"
 
@@ -150,7 +149,7 @@ func (g *HashGrouping) Leave(output chan<- arrow.RecordBatch) {
 		}
 	}
 
-	output <- larrow.NewFilterableRecord(rb.NewRecord(), nil)
+	output <- rb.NewRecord()
 }
 
 // createAggregators creates aggregator instances for each aggregation function

@@ -80,8 +80,6 @@ Output[columnNames = [tags_map, interface, qps, ts]]
 
 func Test_Runtime_Insert(t *testing.T) {
 	runtime := NewRuntime("test")
-	runtime.RegisterStreamByType(RPCService{})
-	runtime.RegisterStreamByType(Result{})
 	// add result listener
 	// add streaming query
 	err := runtime.DeployJob("test_app", `
@@ -180,6 +178,7 @@ func Test_Runtime_Insert(t *testing.T) {
 	}
 
 	page, _ := ToRecord(memory.DefaultAllocator, rpcs)
+	runtime.RegisterStream("RPCService", page.Schema())
 
 	now := time.Now()
 	// var wait sync.WaitGroup
@@ -189,7 +188,7 @@ func Test_Runtime_Insert(t *testing.T) {
 	// 		defer wait.Done()
 	for range 3 {
 		page.Retain()
-		input.Send(larrow.NewFilterableRecord(page, nil))
+		input.Send(page)
 	}
 	// 	}()
 	// }
@@ -206,31 +205,6 @@ func Test_Runtime_Insert(t *testing.T) {
 
 func Test_Runtime_Query(t *testing.T) {
 	runtime := NewRuntime("test")
-	runtime.RegisterStreamByType(RPCService{})
-	runtime.RegisterStreamByType(Result{})
-	// add streaming query
-	err := runtime.DeployJob("test_app", `
-	create job test_app
-	begin
-	  @app(name="test_app")
-
-	  create sink rpc_call with (type="lindb",address="http://localhost:9003",database="_internal");
-
-	  @sink(
-		  name="rpc_call",
-	    @metric(name="{{.interface}}.rpc_call",tags=["tags_map","interface"],fields=["qps","exemplar"],timestamp="ts")
-		)
-	  select map_values(tags,'app') as tags_map,
-	  	interface,
-	  	count(1) as qps,
-	  	sampling(trace_id,span_id,duration) as exemplar,
-	  	time_trunc(timestamp,interval 10 second) as ts 
-	  from RPCService
-	  where interface in('http')
-	  group by tags_map,interface,ts;
-	end
-		`)
-	fmt.Println(err)
 	//
 	// insert into Result
 	// select interface,'rpc_call',count(1)
@@ -307,6 +281,31 @@ func Test_Runtime_Query(t *testing.T) {
 	}
 
 	page, _ := ToRecord(memory.DefaultAllocator, rpcs)
+
+	runtime.RegisterStream("RPCService", page.Schema())
+	// add streaming query
+	err := runtime.DeployJob("test_app", `
+	create job test_app
+	begin
+	  @app(name="test_app")
+
+	  create sink rpc_call with (type="lindb",address="http://localhost:9003",database="_internal");
+
+	  @sink(
+		  name="rpc_call",
+	    @metric(name="{{.interface}}.rpc_call",tags=["tags_map","interface"],fields=["qps","exemplar"],timestamp="ts")
+		)
+	  select map_values(tags,'app') as tags_map,
+	  	interface,
+	  	count(1) as qps,
+	  	sampling(trace_id,span_id,duration) as exemplar,
+	  	time_trunc(timestamp,interval 10 second) as ts 
+	  from RPCService
+	  where interface in('http')
+	  group by tags_map,interface,ts;
+	end
+		`)
+	fmt.Println(err)
 
 	now := time.Now()
 	// var wait sync.WaitGroup

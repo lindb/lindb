@@ -17,11 +17,13 @@
 
 package streaming
 
-import "github.com/lindb/lindb/models"
+import (
+	"github.com/apache/arrow-go/v18/arrow"
+)
 
 type Engine interface {
 	Start() error
 	Stop() error
 
-	Send(event models.Event)
+	Send(record arrow.RecordBatch)
 }

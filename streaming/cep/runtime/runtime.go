@@ -35,9 +35,7 @@ func init() {
 }
 
 type Runtime interface {
-	AddEventType(eventType any)
-	RegisterStreamByType(eventType any) error
-	RegisterStreamBySchema(name string, schema *arrow.Schema) error
+	RegisterStream(name string, schema *arrow.Schema) error
 
 	DeployJob(name, statement string) error
 	UndeployJob(name string) error
@@ -70,12 +68,8 @@ func NewRuntime(database string) Runtime {
 	}
 }
 
-func (r *runtime) RegisterStreamByType(eventType any) error {
-	return stream.GetManager().GetStreamManager(r.database).RegisterStreamByType(eventType)
-}
-
-func (r *runtime) RegisterStreamBySchema(name string, schema *arrow.Schema) error {
-	return stream.GetManager().GetStreamManager(r.database).RegisterStreamBySchema(name, schema)
+func (r *runtime) RegisterStream(name string, schema *arrow.Schema) error {
+	return stream.GetManager().GetStreamManager(r.database).RegisterStream(name, schema)
 }
 
 func (r *runtime) GetInputHandler(stream string) input.InputHandler {

@@ -75,17 +75,17 @@ func (d *dataSource) Produce(data []byte) error {
 	if !d.running.Load() {
 		return errors.New("data source not running")
 	}
-	event, err := d.decoder.ToEvent(data)
+	record, err := d.decoder.ToRecord(data)
 	if err != nil {
 		d.logger.Error("transfer data to event error:", logger.Error(err))
 		return err
 	}
-	if event == nil {
+	if record == nil || record.NumRows() == 0 {
 		return nil
 	}
 	// TODO: add lock???
 	for _, engine := range d.engines {
-		engine.Send(event)
+		engine.Send(record)
 	}
 	return nil
 }

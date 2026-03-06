@@ -38,7 +38,7 @@ func newTrace() *trace {
 	return &trace{}
 }
 
-func (t *trace) ToEvent(data []byte) (models.Event, error) {
+func (t *trace) ToRecord(data []byte) (models.Event, error) {
 	if t.reader == nil {
 		reader, err := traces.NewTraceReader(data)
 		if err != nil {

@@ -18,7 +18,6 @@
 package stream
 
 import (
-	"fmt"
 	"regexp"
 	"slices"
 	"strings"
@@ -64,7 +63,6 @@ type directCol struct {
 }
 
 func (d *directCol) bind(record arrow.RecordBatch) {
-	fmt.Println(record, d.colIndex)
 	col := record.Column(d.colIndex)
 	d.array = col
 }

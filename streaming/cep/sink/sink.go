@@ -18,9 +18,9 @@
 package sink
 
 import (
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/lindb/common/pkg/logger"
 
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/streaming/cep/annotation"
 )
@@ -28,7 +28,7 @@ import (
 // Sink represents the event sink which publishes event to output transport.
 type Sink interface {
 	// Publish publishes the event to sink vis output transport.
-	Publish(event models.Event)
+	Publish(record arrow.RecordBatch)
 	Close()
 }
 
@@ -74,9 +74,9 @@ func NewSinkBridge(sink Sink, sinkAnn *annotation.Annotation) *SinkBridge {
 	return bridge
 }
 
-func (b *SinkBridge) Publish(event models.Event) {
+func (b *SinkBridge) Publish(record arrow.RecordBatch) {
 	for _, mapper := range b.mappers {
-		mappedEvent := mapper.Map(event)
+		mappedEvent := mapper.Map(record)
 		if mappedEvent == nil {
 			continue
 		}

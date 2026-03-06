@@ -27,7 +27,6 @@ import (
 	"github.com/samber/lo"
 	"go.uber.org/atomic"
 
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/sql/execution/operator"
 	"github.com/lindb/lindb/sql/tree"
@@ -122,16 +121,15 @@ func (sc *sourceConnector) initialize() {
 	}
 }
 
-func (sc *sourceConnector) Receive(event models.Event) {
+func (sc *sourceConnector) Receive(record arrow.RecordBatch) {
 	if !sc.running.Load() {
 		sc.logger.Warn("source connector has been stopped, drop received event",
 			logger.String("database", sc.table.Database),
 			logger.String("table", sc.table.Stream))
 		return
 	}
-	if record, ok := event.(arrow.RecordBatch); ok {
-		sc.inbound.Produce(record)
-	}
+
+	sc.inbound.Produce(record)
 }
 
 func (sc *sourceConnector) Run(output chan<- arrow.RecordBatch) {

@@ -66,8 +66,7 @@ func (mgr *Manager) GetStreamManager(app string) StreamManager {
 type StreamManager interface {
 	spi.MetadataManager
 
-	RegisterStreamByType(event any) error
-	RegisterStreamBySchema(name string, schema *arrow.Schema) error
+	RegisterStream(name string, schema *arrow.Schema) error
 }
 
 type streamManager struct {
@@ -82,7 +81,7 @@ func newStreamManager() StreamManager {
 	}
 }
 
-func (mgr *streamManager) RegisterStreamBySchema(name string, schema *arrow.Schema) error {
+func (mgr *streamManager) RegisterStream(name string, schema *arrow.Schema) error {
 	mgr.mutex.Lock()
 	defer mgr.mutex.Unlock()
 

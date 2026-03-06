@@ -17,8 +17,10 @@
 
 package input
 
-import "github.com/lindb/lindb/models"
+import (
+	"github.com/apache/arrow-go/v18/arrow"
+)
 
 type Receiver interface {
-	Receive(event models.Event)
+	Receive(record arrow.RecordBatch)
 }

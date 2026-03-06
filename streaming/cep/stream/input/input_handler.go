@@ -20,9 +20,8 @@ package input
 import (
 	"context"
 
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/lindb/common/pkg/logger"
-
-	"github.com/lindb/lindb/models"
 )
 
 type subscribeEvent struct {
@@ -31,7 +30,7 @@ type subscribeEvent struct {
 }
 
 type InputHandler interface {
-	Send(event models.Event)
+	Send(record arrow.RecordBatch)
 	Subscribe(receiver Receiver)
 	Unsubscribe(receiver Receiver)
 	Close()
@@ -47,7 +46,7 @@ type inputHandler struct {
 	receivers []Receiver
 
 	metaCh chan *subscribeEvent
-	dataCh chan models.Event
+	dataCh chan arrow.RecordBatch
 
 	logger logger.Logger
 }
@@ -60,7 +59,7 @@ func NewInputHandler(database, name string) InputHandler {
 		database: database,
 		name:     name,
 		metaCh:   make(chan *subscribeEvent, 10),
-		dataCh:   make(chan models.Event, 1024),
+		dataCh:   make(chan arrow.RecordBatch, 1024),
 		logger:   logger.GetLogger("stream", "InputHandler"),
 	}
 	go h.run()
@@ -80,12 +79,12 @@ func (h *inputHandler) Unsubscribe(receiver Receiver) {
 	}
 }
 
-func (h *inputHandler) Send(event models.Event) {
+func (h *inputHandler) Send(record arrow.RecordBatch) {
 	if len(h.receivers) == 0 {
 		// TODO: add log/metric
 		return
 	}
-	h.dataCh <- event
+	h.dataCh <- record
 }
 
 func (h *inputHandler) Close() {

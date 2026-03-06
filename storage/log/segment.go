@@ -59,8 +59,7 @@ type Segment struct {
 
 	numOfPoints int
 
-	reader    *logspkg.BinaryReader
-	logReader *logspkg.Reader
+	reader *logspkg.Reader
 
 	mutex sync.RWMutex
 }
@@ -230,23 +229,17 @@ func (s *Segment) Write(leader models.NodeID, seq int64, msg []byte) (rows int, 
 	var logs, attributes arrow.RecordBatch
 
 	// FIXME: need optimize, multiple leader write to same segment(thread not safe)
-	if s.logReader == nil {
-		reader, err := logspkg.NewBinaryReader()
+	if s.reader == nil {
+		reader, err := logspkg.NewReader(msg)
 		if err != nil {
 			return 0, err
 		}
 		s.reader = reader
-		logs, attributes, err = reader.ReadFrom(msg)
-		if err != nil {
-			return 0, err
-		}
-		s.logReader = logspkg.NewReader(logs, attributes)
 	} else {
-		logs, attributes, err = s.reader.ReadFrom(msg)
+		err = s.reader.Reset(msg)
 		if err != nil {
 			return 0, err
 		}
-		s.logReader.Reset(logs, attributes)
 	}
 
 	defer func() {
@@ -254,7 +247,7 @@ func (s *Segment) Write(leader models.NodeID, seq int64, msg []byte) (rows int, 
 		attributes.Release()
 	}()
 
-	it := s.logReader.Iterator()
+	it := s.reader.Iterator()
 
 	for it.HasNext() {
 		row := it.Next()
@@ -268,13 +261,13 @@ func (s *Segment) Write(leader models.NodeID, seq int64, msg []byte) (rows int, 
 		s.index.AppendedSeq()
 
 		// build secondary index for log timestmap
-		s.indexTimestamp(s.logReader.Timestamp(row)/1000_000, logID)
+		s.indexTimestamp(s.reader.Timestamp(row)/1000_000, logID)
 
 		// build secondary index for log fields
-		s.mutable.Write([]byte("ns"), logID, s.logReader, row)
+		s.mutable.Write([]byte("ns"), logID, s.reader, row)
 	}
 
-	return s.logReader.NumRows(), nil
+	return s.reader.NumRows(), nil
 }
 
 func (s *Segment) Flush() error {

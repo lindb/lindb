@@ -18,13 +18,12 @@
 package sink
 
 import (
-	"context"
 	"fmt"
 
+	"github.com/apache/arrow-go/v18/arrow"
 	lindb "github.com/lindb/client_go"
 	"github.com/lindb/client_go/api"
 
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/collections"
 	"github.com/lindb/lindb/pkg/http"
 )
@@ -66,14 +65,15 @@ func newLinDBSink(props *collections.Properties) Sink {
 	}
 }
 
-func (s *LinDBSink) Publish(event models.Event) {
-	if points, ok := event.([]*api.Point); ok {
-		for _, point := range points {
-			s.write.AddPoint(context.TODO(), point)
-		}
-	}
-	// TODO implement the logic to publish event to LinDB
-	fmt.Println("Publishing event to LinDB:", event)
+func (s *LinDBSink) Publish(record arrow.RecordBatch) {
+	fmt.Println("send lindb", record)
+	// if points, ok := event.([]*api.Point); ok {
+	// 	for _, point := range points {
+	// 		s.write.AddPoint(context.TODO(), point)
+	// 	}
+	// }
+	// // TODO implement the logic to publish event to LinDB
+	// fmt.Println("Publishing event to LinDB:", event)
 }
 
 func (s *LinDBSink) Close() {
