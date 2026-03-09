@@ -19,6 +19,7 @@ package rpc
 
 import (
 	context "context"
+	"fmt"
 
 	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
@@ -54,6 +55,7 @@ func (srv *CommandService) Command(ctx context.Context, request *protoCommandV1.
 		data, _ := req.Fragment.MarshalJSON()
 		err := encoding.JSONUnmarshal(data, fragment)
 		if err != nil {
+			fmt.Println("UnmarshalFragment", err)
 			return nil, err
 		}
 		srv.taskMgr.SubmitTask(req, fragment)

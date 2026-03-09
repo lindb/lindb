@@ -28,9 +28,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 	commonConstants "github.com/lindb/common/constants"
-	"github.com/lindb/common/pkg/encoding"
+	commonEncoding "github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
+	"github.com/lindb/common/pkg/timeutil"
 	"github.com/samber/lo"
 	"gopkg.in/yaml.v3"
 
@@ -43,8 +47,7 @@ import (
 	"github.com/lindb/lindb/meta"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
-	"github.com/lindb/lindb/pkg/state"
-	"github.com/lindb/lindb/spi/types"
+	pkgState "github.com/lindb/lindb/pkg/state"
 	"github.com/lindb/lindb/sql/expression"
 	"github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/tree"
@@ -61,7 +64,7 @@ var (
 )
 
 type Reader interface {
-	ReadData(ctx context.Context, tableHandle *TableHandle, predicate tree.Expression) (rows [][]*types.Datum, err error)
+	ReadData(ctx context.Context, tableHandle *TableHandle, predicate tree.Expression) (arrow.RecordBatch, error)
 }
 
 // reader implements Reader interface.
@@ -76,11 +79,19 @@ func NewReader(metadataMgr meta.MetadataManager) Reader {
 	return &reader{metadataMgr: metadataMgr, logger: logger.GetLogger("Infoschema", "Reader")}
 }
 
-func (r *reader) ReadData(ctx context.Context, tableHandle *TableHandle, expr tree.Expression) (rows [][]*types.Datum, err error) {
+func (r *reader) ReadData(ctx context.Context, tableHandle *TableHandle, expr tree.Expression) (arrow.RecordBatch, error) {
 	predicate := newPredicate(ctx)
 	if expr != nil {
 		_ = expr.Accept(nil, predicate)
 	}
+	schema, ok := GetTableSchema(tableHandle.Table)
+	if !ok {
+		return nil, fmt.Errorf("information table schema not found: %s", tableHandle.Table)
+	}
+	var (
+		rows [][]any
+		err  error
+	)
 	table := tableHandle.Table
 	switch strings.ToLower(table) {
 	case constants.TableEnv:
@@ -120,10 +131,93 @@ func (r *reader) ReadData(ctx context.Context, tableHandle *TableHandle, expr tr
 	case constants.TableStreamingJobs:
 		rows, err = r.readStreamingJobs(ctx, tableHandle.Database, predicate)
 	}
-	return rows, err
+	if err != nil {
+		return nil, err
+	}
+	return buildRecord(schema, rows), nil
 }
 
-func (r *reader) readEnv(predicate *predicate) (rows [][]*types.Datum, err error) {
+// buildRecord builds an arrow.RecordBatch from a schema and raw rows.
+// Each row must have values in the same order as schema fields.
+func buildRecord(schema *arrow.Schema, rows [][]any) arrow.RecordBatch {
+	rb := array.NewRecordBuilder(memory.NewGoAllocator(), schema)
+	defer rb.Release()
+
+	fields := schema.Fields()
+	for _, row := range rows {
+		for idx, val := range row {
+			appendValue(rb.Field(idx), fields[idx].Type, val)
+		}
+	}
+	return rb.NewRecordBatch()
+}
+
+// appendValue appends a single value to the appropriate builder based on field type.
+func appendValue(b array.Builder, dt arrow.DataType, val any) {
+	if val == nil {
+		b.AppendNull()
+		return
+	}
+	switch dt {
+	case arrow.BinaryTypes.String:
+		b.(*array.StringBuilder).Append(fmt.Sprintf("%v", val))
+	case arrow.PrimitiveTypes.Float64:
+		switch v := val.(type) {
+		case float64:
+			b.(*array.Float64Builder).Append(v)
+		case float32:
+			b.(*array.Float64Builder).Append(float64(v))
+		default:
+			b.(*array.Float64Builder).Append(0)
+		}
+	case arrow.PrimitiveTypes.Int64:
+		switch v := val.(type) {
+		case int64:
+			b.(*array.Int64Builder).Append(v)
+		case int:
+			b.(*array.Int64Builder).Append(int64(v))
+		default:
+			b.(*array.Int64Builder).Append(0)
+		}
+	case arrow.PrimitiveTypes.Int32:
+		switch v := val.(type) {
+		case int32:
+			b.(*array.Int32Builder).Append(v)
+		case int:
+			b.(*array.Int32Builder).Append(int32(v))
+		case int64:
+			b.(*array.Int32Builder).Append(int32(v))
+		case uint32:
+			b.(*array.Int32Builder).Append(int32(v))
+		case uint16:
+			b.(*array.Int32Builder).Append(int32(v))
+		default:
+			b.(*array.Int32Builder).Append(0)
+		}
+	case arrow.FixedWidthTypes.Timestamp_ns:
+		switch v := val.(type) {
+		case int64:
+			b.(*array.TimestampBuilder).Append(arrow.Timestamp(v))
+		case arrow.Timestamp:
+			b.(*array.TimestampBuilder).Append(v)
+		default:
+			b.(*array.TimestampBuilder).AppendNull()
+		}
+	case arrow.FixedWidthTypes.Duration_ns:
+		switch v := val.(type) {
+		case time.Duration:
+			b.(*array.DurationBuilder).Append(arrow.Duration(v.Nanoseconds()))
+		case int64:
+			b.(*array.DurationBuilder).Append(arrow.Duration(v))
+		default:
+			b.(*array.DurationBuilder).AppendNull()
+		}
+	default:
+		b.AppendNull()
+	}
+}
+
+func (r *reader) readEnv(predicate *predicate) (rows [][]any, err error) {
 	fields := envSchema.Fields()
 	instance := predicate.getColumnValue(fields[0].Name) // instance
 	if instance == "" {
@@ -136,87 +230,86 @@ func (r *reader) readEnv(predicate *predicate) (rows [][]*types.Datum, err error
 		return nil, err
 	}
 	for _, env := range envs {
-		rows = append(rows, types.MakeDatums(
+		rows = append(rows, []any{
 			instance,    // instance
 			env.Key,     // key
 			env.Value,   // value
 			env.Default, // default
-		))
+		})
 	}
 	return
 }
 
-func (r *reader) readMaster() (rows [][]*types.Datum) {
+func (r *reader) readMaster() (rows [][]any) {
 	masterNode := r.metadataMgr.GetMaster()
-	rows = append(rows, types.MakeDatums(
+	rows = append(rows, []any{
 		masterNode.Node.HostIP,     // host_ip
 		masterNode.Node.HostName,   // host_name
 		masterNode.Node.HTTPPort,   // http
 		masterNode.Node.Version,    // version
 		masterNode.Node.OnlineTime, // online_time
 		masterNode.ElectTime,       // elect_time
-	))
+	})
 	return
 }
 
-func (r *reader) readBroker() (rows [][]*types.Datum) {
+func (r *reader) readBroker() (rows [][]any) {
 	nodes := r.metadataMgr.GetBrokerNodes()
-	now := time.Now().UnixMilli()
+	now := timeutil.NowNano()
 	for _, node := range nodes {
-		rows = append(rows, types.MakeDatums(
-			node.HostIP,     // host_ip
-			node.HostName,   // host_name
-			node.Version,    // version
-			node.OnlineTime, // online_time
-			time.Duration((now-node.OnlineTime)*1000_000), // uptime
-			node.GRPCPort, // grpc
-			node.HTTPPort, // http
-		))
+		rows = append(rows, []any{
+			node.HostIP,                          // host_ip
+			node.HostName,                        // host_name
+			node.Version,                         // version
+			node.OnlineTime,                      // online_time
+			time.Duration(now - node.OnlineTime), // uptime
+			node.GRPCPort,                        // grpc
+			node.HTTPPort,                        // http
+		})
 	}
 	return
 }
 
-func (r *reader) readStorage() (rows [][]*types.Datum) {
+func (r *reader) readStorage() (rows [][]any) {
 	nodes := r.metadataMgr.GetStorageNodes()
-	now := time.Now().UnixMilli()
+	now := timeutil.NowNano()
 	for _, node := range nodes {
-		rows = append(rows, types.MakeDatums(
-			node.ID,         // id
-			node.HostIP,     // host_ip
-			node.HostName,   // host_name
-			node.Version,    // version
-			node.OnlineTime, // online_time
-			time.Duration((now-node.OnlineTime)*1000_000), // uptime
-			node.GRPCPort, // grpc
-			node.HTTPPort, // http
-		))
+		rows = append(rows, []any{
+			node.ID,                              // id
+			node.HostIP,                          // host_ip
+			node.HostName,                        // host_name
+			node.Version,                         // version
+			node.OnlineTime,                      // online_time
+			time.Duration(now - node.OnlineTime), // uptime
+			node.GRPCPort,                        // grpc
+			node.HTTPPort,                        // http
+		})
 	}
 	return
 }
 
-func (r *reader) readEngines() (rows [][]*types.Datum) {
-	// TODO: read from config file
-	rows = [][]*types.Datum{
-		types.MakeDatums(option.Metric, "DEFAULT"), // engine/support
-		types.MakeDatums(option.Log, "NO"),
-		types.MakeDatums(option.Trace, "NO"),
+func (r *reader) readEngines() (rows [][]any) {
+	rows = [][]any{
+		{option.Metric, "DEFAULT"}, // engine/support
+		{option.Log, "NO"},
+		{option.Trace, "NO"},
 	}
 	return
 }
 
-func (r *reader) readSchemata() (rows [][]*types.Datum) {
+func (r *reader) readSchemata() (rows [][]any) {
 	databases := r.metadataMgr.GetDatabases()
 	for _, database := range databases {
-		rows = append(rows, types.MakeDatums(
+		rows = append(rows, []any{
 			database.Name,          // schema_name
 			database.Option.Engine, // engine
 			database.String(),      // statement
-		))
+		})
 	}
 	return
 }
 
-func (r *reader) readStreamings(ctx context.Context) (rows [][]*types.Datum, err error) {
+func (r *reader) readStreamings(ctx context.Context) (rows [][]any, err error) {
 	info, err0 := r.getStateMachineInfo(constants.MasterRole, constants.StreamingConfig)
 	if err0 != nil {
 		return nil, err0
@@ -228,16 +321,16 @@ func (r *reader) readStreamings(ctx context.Context) (rows [][]*types.Datum, err
 	if streamings, ok := rs.([]any); ok {
 		for _, streaming := range streamings {
 			streamingCfg := streaming.(*models.Streaming)
-			rows = append(rows, types.MakeDatums(
+			rows = append(rows, []any{
 				streamingCfg.Name,     // name
 				streamingCfg.String(), // statement
-			))
+			})
 		}
 	}
 	return
 }
 
-func (r *reader) readStreamingJobs(ctx context.Context, database string, predicate *predicate) (rows [][]*types.Datum, err error) {
+func (r *reader) readStreamingJobs(ctx context.Context, database string, predicate *predicate) (rows [][]any, err error) {
 	var streaming string
 	fields := streamingJobsSchema.Fields()
 	if database == constants.InformationSchema {
@@ -256,29 +349,28 @@ func (r *reader) readStreamingJobs(ctx context.Context, database string, predica
 		return nil, errors.New("name not found in where clause")
 	}
 	data, err := r.metadataMgr.GetStateRepo().Get(ctx, constants.GetStreamingJobPath(streaming, name))
-	if errors.Is(err, state.ErrNotExist) {
+	if errors.Is(err, pkgState.ErrNotExist) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	rows = append(rows, types.MakeDatums(
-
+	rows = append(rows, []any{
 		streaming,    // streaming
 		name,         // name
 		string(data), // statement
-	))
+	})
 	return
 }
 
-func (r *reader) readMetadataTypes() (rows [][]*types.Datum) {
+func (r *reader) readMetadataTypes() (rows [][]any) {
 	for role, paths := range metadataPaths {
 		for key, info := range paths {
-			rows = append(rows, types.MakeDatums(
+			rows = append(rows, []any{
 				role,         // role
 				key,          // type
 				info.Comment, // comment
-			))
+			})
 		}
 	}
 	return
@@ -293,7 +385,7 @@ func (r *reader) getStateMachineInfo(role, metadataType string) (models.StateMac
 	return info, nil
 }
 
-func (r *reader) readMetadatas(ctx context.Context, predicate *predicate) (rows [][]*types.Datum, err error) {
+func (r *reader) readMetadatas(ctx context.Context, predicate *predicate) (rows [][]any, err error) {
 	fields := metadatasSchema.Fields()
 	role := predicate.getColumnValue(fields[0].Name) // role
 	if role == "" {
@@ -323,16 +415,16 @@ func (r *reader) readMetadatas(ctx context.Context, predicate *predicate) (rows 
 		rs := r.exploreStateMachineDate(role, metadataType)
 		data, _ = json.MarshalIndent(rs, "", "  ")
 	}
-	rows = append(rows, types.MakeDatums(
+	rows = append(rows, []any{
 		role,                    // role
 		metadataType,            // type
 		strings.ToLower(source), // source
 		string(data),            // data
-	))
+	})
 	return rows, err
 }
 
-func (r *reader) readMetrics(predicate *predicate) (rows [][]*types.Datum, err error) {
+func (r *reader) readMetrics(predicate *predicate) (rows [][]any, err error) {
 	fields := metricsSchema.Fields()
 	inputRole := predicate.getColumnValue(fields[0].Name)
 	names := predicate.getColumnValues(fields[1].Name)
@@ -373,14 +465,14 @@ func (r *reader) readMetrics(predicate *predicate) (rows [][]*types.Datum, err e
 		for name, metricList := range metrics {
 			for _, metric := range metricList {
 				for _, field := range metric.Fields {
-					rows = append(rows, types.MakeDatums(
+					rows = append(rows, []any{
 						role.role, // role
 						name,      // name
-						string(encoding.JSONMarshal(metric.Tags)), // tags
+						string(commonEncoding.JSONMarshal(metric.Tags)), // tags
 						field.Name,  // field name
 						field.Type,  // field type
 						field.Value, // field value
-					))
+					})
 				}
 			}
 		}
@@ -388,7 +480,7 @@ func (r *reader) readMetrics(predicate *predicate) (rows [][]*types.Datum, err e
 	return rows, err
 }
 
-func (r *reader) readReplications(predicate *predicate) (rows [][]*types.Datum, err error) {
+func (r *reader) readReplications(predicate *predicate) (rows [][]any, err error) {
 	fields := replicationSchema.Fields()
 	schema := predicate.getColumnValue(fields[0].Name)
 	if schema == "" {
@@ -406,7 +498,7 @@ func (r *reader) readReplications(predicate *predicate) (rows [][]*types.Datum, 
 		familyWALLogs := *(state.(*[]models.FamilyLogReplicaState))
 		for _, familyWALLog := range familyWALLogs {
 			for _, replicator := range familyWALLog.Replicators {
-				rows = append(rows, types.MakeDatums(
+				rows = append(rows, []any{
 					schema,                    // table_schema
 					node,                      // node
 					familyWALLog.ShardID,      // shard_id
@@ -420,14 +512,14 @@ func (r *reader) readReplications(predicate *predicate) (rows [][]*types.Datum, 
 					replicator.Pending,        // pending
 					replicator.State.String(), // state
 					replicator.StateErrMsg,    // error
-				))
+				})
 			}
 		}
 	}
 	return rows, err
 }
 
-func (r *reader) readMemoryDatabases(predicate *predicate) (rows [][]*types.Datum, err error) {
+func (r *reader) readMemoryDatabases(predicate *predicate) (rows [][]any, err error) {
 	fields := memoryDatabaseSchema.Fields()
 	schema := predicate.getColumnValue(fields[0].Name)
 	if schema == "" {
@@ -445,7 +537,7 @@ func (r *reader) readMemoryDatabases(predicate *predicate) (rows [][]*types.Datu
 		familyStates := *(state.(*[]models.DataSegmentState))
 		for _, familyState := range familyStates {
 			for _, replicator := range familyState.MemoryDatabases {
-				rows = append(rows, types.MakeDatums(
+				rows = append(rows, []any{
 					schema,                  // table_schema
 					node,                    // node
 					familyState.ShardID,     // shard_id
@@ -454,14 +546,14 @@ func (r *reader) readMemoryDatabases(predicate *predicate) (rows [][]*types.Datu
 					replicator.Uptime,       // uptime
 					replicator.MemSize,      // mem_size
 					replicator.NumOfSeries,  // num_of_series
-				))
+				})
 			}
 		}
 	}
 	return rows, err
 }
 
-func (r *reader) readNamespaces(predicate *predicate) (rows [][]*types.Datum, err error) {
+func (r *reader) readNamespaces(predicate *predicate) (rows [][]any, err error) {
 	fields := namespacesSchema.Fields()
 	schema := predicate.getColumnValue(fields[0].Name)
 	if schema == "" {
@@ -473,15 +565,15 @@ func (r *reader) readNamespaces(predicate *predicate) (rows [][]*types.Datum, er
 		return nil, err
 	}
 	for _, ns := range namespaces {
-		rows = append(rows, types.MakeDatums(
+		rows = append(rows, []any{
 			schema, // table_schema
 			ns,     // namespace
-		))
+		})
 	}
 	return
 }
 
-func (r *reader) readTableNames(predicate *predicate) (rows [][]*types.Datum, err error) {
+func (r *reader) readTableNames(predicate *predicate) (rows [][]any, err error) {
 	fields := tableNamesSchema.Fields()
 	schema := predicate.getColumnValue(fields[0].Name)
 	namespace := predicate.getColumnValue(fields[1].Name)
@@ -497,16 +589,16 @@ func (r *reader) readTableNames(predicate *predicate) (rows [][]*types.Datum, er
 		return nil, err
 	}
 	for _, name := range tableNames {
-		rows = append(rows, types.MakeDatums(
+		rows = append(rows, []any{
 			schema,    // table_schema
 			namespace, // namespace
 			name,      // table_name
-		))
+		})
 	}
 	return
 }
 
-func (r *reader) readColumns(predicate *predicate) (rows [][]*types.Datum, err error) {
+func (r *reader) readColumns(predicate *predicate) (rows [][]any, err error) {
 	fields := columnsSchema.Fields()
 	schema := predicate.getColumnValue(fields[0].Name)
 	namespace := predicate.getColumnValue(fields[1].Name)
@@ -522,18 +614,18 @@ func (r *reader) readColumns(predicate *predicate) (rows [][]*types.Datum, err e
 		return nil, err
 	}
 	for _, column := range table.Schema.Fields() {
-		rows = append(rows, types.MakeDatums(
+		rows = append(rows, []any{
 			schema,               // table_schema
 			namespace,            // namespace
 			tableName,            // table_name
 			column.Name,          // column_name
 			column.Type.String(), // data_type
-		))
+		})
 	}
 	return
 }
 
-func (r *reader) readFunctions() (rows [][]*types.Datum, err error) {
+func (r *reader) readFunctions() (rows [][]any, err error) {
 	data, err := os.ReadFile(filepath.Join(getCurrentDir(), "functions.yaml"))
 	if err != nil {
 		return nil, err
@@ -545,15 +637,15 @@ func (r *reader) readFunctions() (rows [][]*types.Datum, err error) {
 		return nil, err
 	}
 	for _, f := range functions {
-		rows = append(rows, types.MakeDatums(
+		rows = append(rows, []any{
 			f.Name,     // name
 			f.Template, // template
-		))
+		})
 	}
 	return
 }
 
-func (r *reader) readSnippets() (rows [][]*types.Datum, err error) {
+func (r *reader) readSnippets() (rows [][]any, err error) {
 	data, err := os.ReadFile(filepath.Join(getCurrentDir(), "snippets.yaml"))
 	if err != nil {
 		return nil, err
@@ -565,10 +657,10 @@ func (r *reader) readSnippets() (rows [][]*types.Datum, err error) {
 		return nil, err
 	}
 	for _, s := range snippets {
-		rows = append(rows, types.MakeDatums(
+		rows = append(rows, []any{
 			s.Name,     // name
 			s.Template, // template
-		))
+		})
 	}
 	return
 }

@@ -134,10 +134,9 @@ func (e *election) elect() {
 		}
 		e.logger.Info("try elect master", logger.String("node", e.node.Indicator()))
 
-		master := models.Master{Node: e.node.(*models.StatelessNode), ElectTime: timeutil.Now()}
+		master := models.Master{Node: e.node.(*models.StatelessNode), ElectTime: timeutil.NowNano()}
 		masterBytes := encoding.JSONMarshal(master)
 		result, _, err := e.repo.Elect(e.ctx, constants.MasterPath, masterBytes, e.ttl)
-
 		if err != nil {
 			e.logger.Warn("got an error when master elect, sleep 500ms then retry",
 				logger.Error(err), logger.Any("node", e.node))

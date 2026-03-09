@@ -20,9 +20,9 @@ package decode
 import (
 	"fmt"
 
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/lindb/arrow/pkg/traces"
 
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
 )
 
@@ -38,7 +38,7 @@ func newTrace() *trace {
 	return &trace{}
 }
 
-func (t *trace) ToRecord(data []byte) (models.Event, error) {
+func (t *trace) ToRecord(data []byte) (arrow.RecordBatch, error) {
 	if t.reader == nil {
 		reader, err := traces.NewTraceReader(data)
 		if err != nil {

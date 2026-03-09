@@ -20,7 +20,6 @@ package log
 import (
 	"encoding/binary"
 
-	"github.com/apache/arrow-go/v18/arrow"
 	logspkg "github.com/lindb/arrow/pkg/logs"
 	"github.com/lindb/roaring"
 
@@ -46,13 +45,10 @@ type scanner struct {
 		leader   models.NodeID
 		sequence uint32
 
-		data       []byte
-		logs       arrow.RecordBatch
-		attributes arrow.RecordBatch
+		data []byte
 	}
 
-	reader    *logspkg.BinaryReader
-	logReader *logspkg.Reader
+	reader *logspkg.Reader
 }
 
 func NewScanner(segment *Segment, logIDs *roaring.Bitmap) Scanner {
@@ -95,47 +91,31 @@ func (s *scanner) Next(fn func(reader *logspkg.Reader, rowNum int)) error {
 		}
 	}
 
-	fn(s.logReader, int(rowNum))
+	fn(s.reader, int(rowNum))
 
 	return nil
 }
 
 func (s *scanner) initializeReader() (err error) {
-	var logs, attributes arrow.RecordBatch
-	if s.logReader == nil {
-		reader, err := logspkg.NewBinaryReader()
+	if s.reader == nil {
+		reader, err := logspkg.NewReader(s.current.data)
 		if err != nil {
 			return err
 		}
 		s.reader = reader
-		logs, attributes, err = reader.ReadFrom(s.current.data)
-		if err != nil {
-			return err
-		}
-		s.logReader = logspkg.NewReader(logs, attributes)
 	} else {
 		// release previous log and attribute record batch before read new data
-		s.current.logs.Release()
-		s.current.attributes.Release()
-
-		logs, attributes, err = s.reader.ReadFrom(s.current.data)
+		err = s.reader.Reset(s.current.data)
 		if err != nil {
 			return err
 		}
-		s.logReader.Reset(logs, attributes)
 	}
 
-	// update current log and attribute record batch
-	s.current.logs = logs
-	s.current.attributes = attributes
 	return nil
 }
 
 func (s *scanner) Close() {
 	if s.reader != nil {
-		s.current.logs.Release()
-		s.current.attributes.Release()
-
 		s.reader.Release()
 	}
 }

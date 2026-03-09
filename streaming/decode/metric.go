@@ -20,7 +20,8 @@ package decode
 import (
 	"fmt"
 
-	"github.com/lindb/lindb/models"
+	"github.com/apache/arrow-go/v18/arrow"
+
 	"github.com/lindb/lindb/pkg/option"
 )
 
@@ -30,7 +31,7 @@ func init() {
 
 type metric struct{}
 
-func (m *metric) ToRecord(data []byte) (models.Event, error) {
+func (m *metric) ToRecord(data []byte) (arrow.RecordBatch, error) {
 	fmt.Println("metric to event")
 	return nil, nil
 }

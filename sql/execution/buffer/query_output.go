@@ -32,8 +32,7 @@ func NewQueryOutputBuffer(rsBuild *ResultSetBuild) OutputBuffer {
 }
 
 func (buf *QueryOutputBuffer) AddRecord(record arrow.RecordBatch) {
-	// FIXME: buf.rsBuild.AddPage(page)
-	panic("buf.rsBuild.AddPage(page)")
+	buf.rsBuild.AddRecord(record)
 }
 
 func (buf *QueryOutputBuffer) Complete() {

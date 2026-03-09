@@ -32,7 +32,6 @@ import (
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/spi"
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/spi/utils"
 	"github.com/lindb/lindb/sql/tree"
 	"github.com/lindb/lindb/storage"
@@ -54,7 +53,7 @@ func (p *sourceConnectorProvider) CreateSourceConnector(ctx context.Context,
 	table spi.TableHandle, partitionIDs []int,
 	columnMapping map[string]string,
 	predicate tree.Expression,
-	outputColumns []types.ColumnMetadata, assignments []*spi.ColumnAssignment,
+	outputColumns []arrow.Field, assignments []*spi.ColumnAssignment,
 ) spi.SourceConnector {
 	return &sourceConnector{
 		ctx:           NewExecutionContext(ctx),
@@ -76,7 +75,7 @@ type sourceConnector struct {
 	table         spi.TableHandle
 	partitionIDs  []int
 	predicate     tree.Expression
-	outputColumns []types.ColumnMetadata
+	outputColumns []arrow.Field
 	assignments   []*spi.ColumnAssignment
 	columnMapping map[string]string
 
@@ -189,8 +188,8 @@ func (psc *sourceConnector) buildTableScan() *TableScan {
 	// mapping tags for grouping
 	var groupingTags tag.Metas
 	numOfOutputColumns := len(psc.outputColumns)
-	lo.ForEach(psc.outputColumns, func(columnMeta types.ColumnMetadata, _ int) {
-		if columnMeta.DataType == types.DTTimestamp {
+	lo.ForEach(psc.outputColumns, func(columnMeta arrow.Field, _ int) {
+		if arrow.TypeEqual(columnMeta.Type, arrow.FixedWidthTypes.Timestamp_ns) {
 			// timestamp
 			tableScan.isTimestampSelected = true
 			numOfOutputColumns--
@@ -198,7 +197,8 @@ func (psc *sourceConnector) buildTableScan() *TableScan {
 			// field
 			return getColumnName(columnMeta.Name, psc.columnMapping) == fieldMeta.Name.String() &&
 				// check data type(field only support time series and exemplar now)
-				(columnMeta.DataType != types.DTTimestamp && columnMeta.DataType != types.DTString)
+				(!arrow.TypeEqual(columnMeta.Type, arrow.FixedWidthTypes.Timestamp_ns) &&
+					!arrow.TypeEqual(columnMeta.Type, arrow.BinaryTypes.String))
 		}); ok {
 			fieldMeta.Index = index
 			fields = append(fields, fieldMeta)
@@ -240,7 +240,8 @@ func (psc *sourceConnector) buildTableScan() *TableScan {
 			index++
 		} else if tagKey, ok := lo.Find(schema.TagKeys, func(tagMeta tag.Meta) bool {
 			// tag
-			return getColumnName(columnMeta.Name, psc.columnMapping) == tagMeta.Key && columnMeta.DataType == types.DTString
+			return getColumnName(columnMeta.Name, psc.columnMapping) == tagMeta.Key &&
+				arrow.TypeEqual(columnMeta.Type, arrow.BinaryTypes.String) // only support string type for tag now
 		}); ok {
 			groupingTags = append(groupingTags, tagKey)
 		}

@@ -22,12 +22,14 @@ import (
 	"fmt"
 
 	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/memory"
+	"github.com/lindb/arrow/pkg/arrow/builder"
 	"github.com/lindb/common/pkg/encoding"
 	"go.opentelemetry.io/collector/pdata/ptrace/ptraceotlp"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/spi"
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/spi/utils"
 	"github.com/lindb/lindb/sql/expression"
 	"github.com/lindb/lindb/sql/tree"
@@ -50,7 +52,7 @@ func NewSourceConnectorProvider(engine storage.Engine) spi.SourceConnectorProvid
 func (s *sourceConnectorProvider) CreateSourceConnector(ctx context.Context,
 	table spi.TableHandle, partitions []int, columnMapping map[string]string,
 	predicate tree.Expression,
-	outputColumns []types.ColumnMetadata, assignments []*spi.ColumnAssignment,
+	outputColumns []arrow.Field, assignments []*spi.ColumnAssignment,
 ) spi.SourceConnector {
 	return &sourceConnector{
 		engine:       s.engine,
@@ -82,18 +84,18 @@ func (sc *sourceConnector) Run(output chan<- arrow.RecordBatch) {
 	if len(sc.partitions) == 0 {
 		return
 	}
-	page := types.NewPage()
-	// timeColumn := types.NewColumn()
-	// page.AppendColumn(types.ColumnMetadata{DataType: types.DTInt, Name: "timestamp"}, timeColumn)
-	msgColumn := types.NewColumn()
-	page.AppendColumn(types.ColumnMetadata{DataType: types.DTJSON, Name: "callstack"}, msgColumn)
-	// fieldsColumn := types.NewColumn()
-	// page.AppendColumn(types.ColumnMetadata{DataType: types.DTString, Name: "fields"}, fieldsColumn)
+
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "callstack", Type: arrow.BinaryTypes.Binary},
+	}, nil)
+	rb := builder.NewRecordBuilder(memory.NewGoAllocator(), schema)
+	defer rb.Release()
+
+	msgColumn := rb.Fields()[0].(*array.BinaryBuilder)
 
 	expr, ok := sc.predicate.(*tree.ComparisonExpression)
 	var traceID string
 	if ok {
-
 		evalCtx := expression.NewEvalContext(context.TODO())
 		traceID, _ = expression.EvalString(evalCtx, expr.Right)
 	}
@@ -112,7 +114,7 @@ func (sc *sourceConnector) Run(output chan<- arrow.RecordBatch) {
 		}
 	}
 
-	// FIXME: output <- page
+	output <- rb.NewRecord()
 }
 
 func (sc *sourceConnector) buildTableScan() *TableScan {
@@ -143,7 +145,7 @@ func (sc *sourceConnector) findPartitions(tableScan *TableScan, partitionIDs []i
 	return
 }
 
-func FilterTracesByTraceID(traceID string, msg []byte, column *types.Column) {
+func FilterTracesByTraceID(traceID string, msg []byte, column *array.BinaryBuilder) {
 	req := ptraceotlp.NewExportRequest()
 	if err := req.UnmarshalProto(msg); err != nil {
 		return

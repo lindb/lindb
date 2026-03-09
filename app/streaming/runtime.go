@@ -122,7 +122,7 @@ func (r *runtime) Run() error {
 		GRPCPort:   r.config.StreamingBase.GRPC.Port,
 		HostName:   hostName,
 		HTTPPort:   r.config.StreamingBase.HTTP.Port,
-		OnlineTime: timeutil.Now(),
+		OnlineTime: timeutil.NowNano(),
 		Version:    config.Version,
 	}
 

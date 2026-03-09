@@ -123,7 +123,7 @@ func (r *runtime) Run() error {
 		HostIP:     ip,
 		HostName:   hostName,
 		HTTPPort:   r.config.HTTP.Port,
-		OnlineTime: timeutil.Now(),
+		OnlineTime: timeutil.NowNano(),
 		Version:    config.Version,
 	}
 	r.globalKeyValues = tag.Tags{

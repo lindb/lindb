@@ -22,10 +22,6 @@ import (
 	"fmt"
 
 	"github.com/apache/arrow-go/v18/arrow"
-	"github.com/apache/arrow-go/v18/arrow/array"
-	"github.com/apache/arrow-go/v18/arrow/memory"
-	"github.com/lindb/arrow/pkg/arrow/builder"
-	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/meta"
 	"github.com/lindb/lindb/spi"
@@ -51,11 +47,10 @@ func (p *sourceConnectorProvider) CreateSourceConnector(ctx context.Context,
 	outputColumns []arrow.Field, assignments []*spi.ColumnAssignment,
 ) spi.SourceConnector {
 	return &sourceConnector{
-		ctx:           ctx,
-		table:         table,
-		predicate:     predicate,
-		outputColumns: outputColumns,
-		reader:        NewReader(p.metadataMgr),
+		ctx:       ctx,
+		table:     table,
+		predicate: predicate,
+		reader:    NewReader(p.metadataMgr),
 	}
 }
 
@@ -63,13 +58,9 @@ type sourceConnector struct {
 	ctx    context.Context
 	reader Reader
 
-	table         spi.TableHandle
-	tableHandle   *TableHandle
-	predicate     tree.Expression
-	outputColumns []arrow.Field
-	colIdxs       []int
-
-	rb *builder.RecordBuilder
+	table       spi.TableHandle
+	tableHandle *TableHandle
+	predicate   tree.Expression
 }
 
 func (p *sourceConnector) open() {
@@ -77,58 +68,17 @@ func (p *sourceConnector) open() {
 	if !ok {
 		panic(fmt.Sprintf("information schema provider not support table handle<%T>", p.table))
 	}
-	schema, ok := GetTableSchema(infoTable.Table)
-	if !ok {
-		panic(fmt.Errorf("information table schema not found: %s", infoTable.Table))
-	}
-	p.colIdxs = make([]int, len(p.outputColumns))
-	fields := schema.Fields()
-	for i, col := range p.outputColumns {
-		if _, idx, exist := lo.FindIndexOf(fields, func(item arrow.Field) bool {
-			return item.Name == col.Name
-		}); exist {
-			p.colIdxs[i] = idx
-		}
-	}
-	if len(p.colIdxs) != len(p.outputColumns) {
-		panic("output columns not found in table schema")
-	}
-	p.rb = builder.NewRecordBuilder(memory.NewGoAllocator(), arrow.NewSchema(p.outputColumns, nil))
 	p.tableHandle = infoTable
 }
 
 func (p *sourceConnector) Run(output chan<- arrow.RecordBatch) {
-	defer func() {
-		if p.rb != nil {
-			p.rb.Release()
-		}
-	}()
-
 	p.open()
 
-	rows, err := p.reader.ReadData(p.ctx, p.tableHandle, p.predicate)
+	record, err := p.reader.ReadData(p.ctx, p.tableHandle, p.predicate)
 	if err != nil {
 		panic(err)
 	}
-	colIdxs := p.colIdxs
-	fields := p.rb.Fields()
-	for _, row := range rows {
-		for idx, field := range fields {
-			switch col := field.(type) {
-			case *array.StringBuilder:
-				col.Append(row[colIdxs[idx]].String())
-			case *array.Float64Builder:
-				col.Append(row[colIdxs[idx]].Float())
-			case *array.Int64Builder:
-				col.Append(row[colIdxs[idx]].Int())
-			case *array.TimestampBuilder:
-				col.Append(arrow.Timestamp(row[colIdxs[idx]].Int()))
-			case *array.DurationBuilder:
-				col.Append(arrow.Duration(row[colIdxs[idx]].Duration().Milliseconds()))
-			}
-		}
+	if record != nil && record.NumRows() > 0 {
+		output <- record
 	}
-
-	// send result set
-	output <- p.rb.NewRecord()
 }

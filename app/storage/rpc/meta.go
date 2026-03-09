@@ -20,15 +20,14 @@ package rpc
 import (
 	context "context"
 
-	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow"
+	larrow "github.com/lindb/arrow/pkg/arrow"
 	commonConstants "github.com/lindb/common/constants"
-	"github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/constants"
 	protoMetaV1 "github.com/lindb/lindb/proto/gen/v1/meta"
 	"github.com/lindb/lindb/series/field"
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/storage"
 	"github.com/lindb/lindb/storage/metric"
 )
@@ -105,34 +104,33 @@ func (srv *MetaService) TableSchema(ctx context.Context,
 		return nil, err
 	}
 	// TODO: return schema for metric engine
-	var fields []array.Field
-	tableSchema := types.NewTableSchema()
+	var fields []arrow.Field
 	for _, tagKey := range schema.TagKeys {
-		tableSchema.AddColumn(types.ColumnMetadata{Name: tagKey.Key, DataType: types.DTString})
+		fields = append(fields, arrow.Field{Name: tagKey.Key, Type: arrow.BinaryTypes.String})
 	}
-	getDataType := func(fieldType field.Type) types.DataType {
+	getDataType := func(fieldType field.Type) arrow.DataType {
 		switch fieldType {
 		case field.ExemplarField:
-			return types.DTExemplar
+			return larrow.ExtensionTypes.Exemplar
 		default:
-			return types.DTTimeSeries
+			// TODO: add agggregation type
+			return larrow.ExtensionTypes.TimeSeries
 		}
 	}
 	for _, field := range schema.Fields {
-		tableSchema.AddColumn(types.ColumnMetadata{
-			Name:     field.Name.String(),
-			DataType: getDataType(field.Type),
-			AggType:  field.Type.AggregateType(),
-		})
+		fields = append(fields, arrow.Field{Name: field.Name.String(), Type: getDataType(field.Type)})
 	}
 
 	// add timestamp column name(reserved column)
-	tableSchema.AddColumn(types.ColumnMetadata{
-		Name:     constants.TimestampColumnName,
-		DataType: types.DTTimestamp,
-		Hidden:   true,
+	fields = append(fields, arrow.Field{
+		Name: constants.TimestampColumnName,
+		Type: arrow.FixedWidthTypes.Timestamp_s,
 	})
+	data, err := larrow.MarshalSchema(arrow.NewSchema(fields, nil))
+	if err != nil {
+		return nil, err
+	}
 	return &protoMetaV1.TableSchemaResponse{
-		Payload: encoding.JSONMarshal(tableSchema),
+		Payload: data,
 	}, nil
 }

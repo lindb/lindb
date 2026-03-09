@@ -19,6 +19,7 @@ package plan
 
 import (
 	jsoniter "github.com/json-iterator/go"
+	larrow "github.com/lindb/arrow/pkg/arrow"
 
 	"github.com/lindb/lindb/pkg/encoding"
 )
@@ -26,6 +27,16 @@ import (
 func init() {
 	jsoniter.RegisterTypeEncoder("plan.PlanNode", &encoding.JSONEncoder[PlanNode]{})
 	jsoniter.RegisterTypeDecoder("plan.PlanNode", &encoding.JSONDecoder[PlanNode]{})
+
+	// Register extension types so arrow.DataType JSON codec can look them up by name.
+	encoding.RegisterArrowDataType(larrow.ExtensionTypes.TimeSeries)
+	encoding.RegisterArrowDataType(larrow.ExtensionTypes.Exemplar)
+	encoding.RegisterArrowDataType(larrow.ExtensionTypes.Dynamic)
+	encoding.RegisterArrowDataType(larrow.ExtensionTypes.Sum)
+	encoding.RegisterArrowDataType(larrow.ExtensionTypes.Max)
+	encoding.RegisterArrowDataType(larrow.ExtensionTypes.Min)
+	encoding.RegisterArrowDataType(larrow.ExtensionTypes.Last)
+	encoding.RegisterArrowDataType(larrow.ExtensionTypes.First)
 
 	encoding.RegisterNodeType(AggregationNode{})
 	encoding.RegisterNodeType(ExchangeNode{})

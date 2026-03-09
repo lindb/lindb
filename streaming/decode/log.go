@@ -20,7 +20,8 @@ package decode
 import (
 	"fmt"
 
-	"github.com/lindb/lindb/models"
+	"github.com/apache/arrow-go/v18/arrow"
+
 	"github.com/lindb/lindb/pkg/option"
 )
 
@@ -30,7 +31,7 @@ func init() {
 
 type log struct{}
 
-func (l *log) ToRecord(data []byte) (models.Event, error) {
+func (l *log) ToRecord(data []byte) (arrow.RecordBatch, error) {
 	fmt.Println("log to event")
 	return nil, nil
 }

@@ -19,12 +19,13 @@ package metric
 
 import (
 	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/memory"
+	larrow "github.com/lindb/arrow/pkg/arrow"
+	larray "github.com/lindb/arrow/pkg/arrow/array"
+	larrowModel "github.com/lindb/arrow/pkg/model"
 	"github.com/lindb/common/models"
 	"github.com/lindb/roaring"
-	"github.com/samber/lo"
-
-	"github.com/lindb/lindb/series/field"
-	"github.com/lindb/lindb/spi/types"
 )
 
 type reducer struct {
@@ -112,50 +113,77 @@ func (r *reducer) findSeries(split *DataSplit) {
 }
 
 func (r *reducer) buildOutputPage() arrow.RecordBatch {
-	page := types.NewPage()
+	rb := array.NewRecordBuilder(memory.NewGoAllocator(), arrow.NewSchema(r.tableScan.outputs, nil))
+	defer rb.Release()
+
+	// classify builders into grouping (string) vs field (timeseries/exemplar)
+	type fieldBuilder struct {
+		idx        int
+		isExemplar bool
+		tsBuilder  *array.StructBuilder
+		exBuilder  *larray.ExemplarBuilder
+	}
 	var (
-		fields          []*types.Column
-		grouping        []*types.Column
-		groupingIndexes []int
+		groupingBuilders []*array.StringBuilder
+		fieldBuilders    []fieldBuilder
 	)
 	for idx, output := range r.tableScan.outputs {
-		column := types.NewColumn()
-		page.AppendColumn(output, column)
-		if lo.ContainsBy(r.tableScan.fields, func(item field.Meta) bool {
-			return item.Name.String() == output.Name
-		}) {
-			fields = append(fields, column)
-		} else if output.DataType == types.DTString {
-			grouping = append(grouping, column)
-			groupingIndexes = append(groupingIndexes, idx)
+		b := rb.Field(idx)
+		if arrow.TypeEqual(output.Type, arrow.BinaryTypes.String) {
+			groupingBuilders = append(groupingBuilders, b.(*array.StringBuilder))
+		} else if arrow.TypeEqual(output.Type, larrow.ExtensionTypes.Exemplar) {
+			exB := larray.NewExemplarBuilder(b.(*array.ExtensionBuilder))
+			fieldBuilders = append(fieldBuilders, fieldBuilder{idx: idx, isExemplar: true, exBuilder: exB})
+		} else {
+			// TimeSeries: struct{start, end, interval, values}
+			structB := b.(*array.ExtensionBuilder).Builder.(*array.StructBuilder)
+			fieldBuilders = append(fieldBuilders, fieldBuilder{idx: idx, tsBuilder: structB})
 		}
 	}
-	// set grouping index of the columns
-	page.SetGrouping(groupingIndexes)
 
 	hasGrouping := r.tableScan.isGrouping()
-	// set tag values
 	for tags, seriesData := range r.result {
 		if hasGrouping {
-			tags := r.tableScan.grouping.GetTagValues(*tags)
-			for idx, tag := range tags {
-				grouping[idx].Append(tag)
+			tagValues := r.tableScan.grouping.GetTagValues(*tags)
+			for i, tag := range tagValues {
+				groupingBuilders[i].Append(tag)
 			}
 		}
 		for fieldIdx, stream := range seriesData {
+			fb := fieldBuilders[fieldIdx]
 			if stream == nil {
-				fields[fieldIdx].Append(nil)
+				rb.Field(fb.idx).AppendNull()
 				continue
 			}
 			switch dst := stream.(type) {
 			case *result[float64]:
-				timeSeries := types.NewTimeSeriesWithValues(r.tableScan.timeRange, r.tableScan.interval, dst.array.Values())
-				fields[fieldIdx].Append(timeSeries)
+				values := dst.array.Values()
+				sb := fb.tsBuilder
+				sb.Append(true)
+				sb.FieldBuilder(0).(*array.Int64Builder).Append(r.tableScan.timeRange.Start)
+				sb.FieldBuilder(1).(*array.Int64Builder).Append(r.tableScan.timeRange.End)
+				sb.FieldBuilder(2).(*array.Int64Builder).Append(r.tableScan.interval.Int64())
+				lb := sb.FieldBuilder(3).(*array.ListBuilder)
+				lb.Append(true)
+				vb := lb.ValueBuilder().(*array.Float64Builder)
+				for _, v := range values {
+					vb.Append(v)
+				}
 			case *result[*models.Exemplar]:
-				fields[fieldIdx].Append(dst.array.Values())
+				for _, ex := range dst.array.Values() {
+					if ex == nil {
+						fb.exBuilder.AppendNull()
+					} else {
+						fb.exBuilder.Append(&larrowModel.Exemplar{
+							TraceID:  []byte(ex.TraceID),
+							SpanID:   []byte(ex.SpanID),
+							Duration: ex.Duration,
+						})
+					}
+				}
 			}
 		}
 	}
-	// FIXME: return page
-	return nil
+
+	return rb.NewRecordBatch()
 }

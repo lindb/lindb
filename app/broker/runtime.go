@@ -153,7 +153,7 @@ func (r *runtime) Run() error {
 		HostName:   hostName,
 		GRPCPort:   r.config.BrokerBase.GRPC.Port,
 		HTTPPort:   r.config.BrokerBase.HTTP.Port,
-		OnlineTime: timeutil.Now(),
+		OnlineTime: timeutil.NowNano(),
 		Version:    config.Version,
 	}
 

@@ -71,16 +71,6 @@ func TestMaster_ToTable(t *testing.T) {
 	assert.Equal(t, rows, 1)
 }
 
-func TestStatelessNodes_ToTable(t *testing.T) {
-	rows, rs := (StatelessNodes{}).ToTable()
-	assert.Empty(t, rs)
-	assert.Equal(t, rows, 0)
-
-	rows, rs = (StatelessNodes{{OnlineTime: timeutil.Now()}}).ToTable()
-	assert.NotEmpty(t, rs)
-	assert.Equal(t, rows, 1)
-}
-
 func TestNodeID(t *testing.T) {
 	assert.Equal(t, 1, NodeID(1).Int())
 	assert.Equal(t, "1", NodeID(1).String())

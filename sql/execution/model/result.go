@@ -18,6 +18,7 @@
 package model
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -31,31 +32,64 @@ import (
 	"github.com/mattn/go-runewidth"
 	"github.com/mitchellh/mapstructure"
 
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/terminal"
 	"github.com/lindb/lindb/spi/types"
 )
 
-type Schema struct {
-	Columns   []arrow.Field      `json:"columns,omitempty"`
-	Partition []models.Partition `json:"partitions,omitempty"`
-}
-
 type ResultSet struct {
-	Schema *Schema `json:"schema,omitempty"`
-	Rows   [][]any `json:"rows,omitempty"`
+	Schema *arrow.Schema `json:"-"`
+	Rows   [][]any       `json:"rows,omitempty"`
 
 	Error string `json:"-"`
 }
 
-func NewResultSet() *ResultSet {
-	return &ResultSet{
-		Schema: &Schema{},
+func (rs *ResultSet) MarshalJSON() ([]byte, error) {
+	type alias struct {
+		Schema []byte  `json:"schema,omitempty"`
+		Rows   [][]any `json:"rows,omitempty"`
 	}
+	a := alias{Rows: rs.Rows}
+	if rs.Schema != nil {
+		b, err := larrow.MarshalSchema(rs.Schema)
+		if err != nil {
+			return nil, err
+		}
+		a.Schema = b
+	}
+	return json.Marshal(a)
+}
+
+func (rs *ResultSet) UnmarshalJSON(data []byte) error {
+	fmt.Println(string(data))
+	type alias struct {
+		Schema []byte  `json:"schema,omitempty"`
+		Rows   [][]any `json:"rows,omitempty"`
+	}
+	var a alias
+	if err := json.Unmarshal(data, &a); err != nil {
+		return err
+	}
+	rs.Rows = a.Rows
+	if len(a.Schema) > 0 {
+		schema, err := larrow.UnmarshalSchema(a.Schema)
+		if err != nil {
+			return err
+		}
+		rs.Schema = schema
+	}
+	return nil
+}
+
+func NewResultSet() *ResultSet {
+	return &ResultSet{}
 }
 
 // ToTable returns stateless node list as table if it has value, else return empty string.
 func (rs *ResultSet) ToTable() (tableStr string) {
+	if rs.Schema == nil {
+		return
+	}
+	fmt.Println(rs.Schema)
 	writer := commonmodels.NewTableFormatter()
 	writer.SetStyle(terminal.TableSylte())
 	var headers table.Row
@@ -67,7 +101,8 @@ func (rs *ResultSet) ToTable() (tableStr string) {
 		rows          []table.Row
 	)
 	var maxWidths []int
-	for i, col := range rs.Schema.Columns {
+	columns := rs.Schema.Fields()
+	for i, col := range columns {
 		if !hasTimeSeries && arrow.TypeEqual(col.Type, larrow.ExtensionTypes.TimeSeries) {
 			timeSeriesIdx = i
 			hasTimeSeries = true
@@ -88,10 +123,10 @@ func (rs *ResultSet) ToTable() (tableStr string) {
 		if hasTimeSeries {
 			// has time series, build row based on data points
 			for pos := range dataPoints {
-				cols := make(table.Row, len(rs.Schema.Columns)+1) // add timestamp column
+				cols := make(table.Row, len(columns)+1) // add timestamp column
 				colIdx := 0
 				for i, col := range row {
-					if arrow.TypeEqual(rs.Schema.Columns[i].Type, larrow.ExtensionTypes.TimeSeries) {
+					if arrow.TypeEqual(columns[i].Type, larrow.ExtensionTypes.TimeSeries) {
 						timeSeries := &types.TimeSeries{}
 						_ = mapstructure.Decode(col, timeSeries)
 						if timeSeriesIdx == i {
@@ -114,7 +149,7 @@ func (rs *ResultSet) ToTable() (tableStr string) {
 				rows = append(rows, cols)
 			}
 		} else {
-			cols := make(table.Row, len(rs.Schema.Columns))
+			cols := make(table.Row, len(columns))
 			for colIdx, col := range row {
 				appendColumn(cols, columnTypes[colIdx], col, colIdx)
 				maxWidths[colIdx] = stringWidth(maxWidths[colIdx], cols[colIdx])
@@ -133,31 +168,34 @@ func appendColumn(row table.Row, colType arrow.DataType, col any, index int) {
 		row[index] = "null"
 		return
 	}
+	fmt.Printf("appendColumn,%v,%T,%v\n", col, col, colType)
 	// FIXME: check type???
-	switch colType {
-	case arrow.BinaryTypes.String:
+	switch colType.ID() {
+	case arrow.BinaryTypes.String.ID():
 		row[index] = strings.ReplaceAll(col.(string), "\t", "  ") // replace tab with space
-	case arrow.FixedWidthTypes.Duration_ns:
+	case arrow.FixedWidthTypes.Duration_ns.ID():
 		row[index] = time.Duration(col.(float64))
-	case arrow.PrimitiveTypes.Int64, arrow.PrimitiveTypes.Float64:
+	case arrow.PrimitiveTypes.Int64.ID(), arrow.PrimitiveTypes.Float64.ID(), arrow.PrimitiveTypes.Int32.ID():
 		row[index] = fmt.Sprintf("%v", col)
-	case arrow.FixedWidthTypes.Timestamp_ns:
+	case arrow.FixedWidthTypes.Timestamp_ns.ID():
+		fmt.Printf("dataPoints,%v,%T\n", col, col)
 		switch val := col.(type) {
 		case string:
 			row[index] = val
 		case int64:
-			row[index] = timeutil.FormatTimestamp(val, timeutil.DataTimeFormat2)
+			row[index] = timeutil.FormatTimestamp(val/1000_1000, timeutil.DataTimeFormat2)
 		case float64:
-			row[index] = timeutil.FormatTimestamp(int64(val), timeutil.DataTimeFormat2)
+			row[index] = timeutil.FormatTimestamp(int64(val)/1000_000, timeutil.DataTimeFormat2)
 		}
-	case &arrow.MapType{}:
-		m := col.(map[string]any)
-		var sb strings.Builder
-		for key, value := range m {
-			fmt.Fprintf(&sb, "%s:%v\n", key, value)
-		}
-		row[index] = sb.String()
-	case larrow.ExtensionTypes.Exemplar:
+	// case &arrow.MapType{}.ID():
+	// 	// fixme: need fix
+	// 	m := col.(map[string]any)
+	// 	var sb strings.Builder
+	// 	for key, value := range m {
+	// 		fmt.Fprintf(&sb, "%s:%v\n", key, value)
+	// 	}
+	// 	row[index] = sb.String()
+	case larrow.ExtensionTypes.Exemplar.ID():
 		exemplars := col.([]any)
 		var values []string
 		for _, exemplarData := range exemplars {

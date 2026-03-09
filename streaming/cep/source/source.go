@@ -20,7 +20,8 @@ package source
 import (
 	"fmt"
 
-	"github.com/lindb/lindb/models"
+	"github.com/apache/arrow-go/v18/arrow"
+
 	"github.com/lindb/lindb/streaming/cep/runtime"
 )
 
@@ -43,5 +44,5 @@ func GetSource(sourceType SourceType, runtime runtime.Runtime) (Source, error) {
 }
 
 type Source interface {
-	Receive(e models.Event)
+	Receive(record arrow.RecordBatch)
 }

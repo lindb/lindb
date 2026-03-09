@@ -25,6 +25,7 @@ import (
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/memory"
+	larrow "github.com/lindb/arrow/pkg/arrow"
 	"github.com/lindb/arrow/pkg/arrow/builder"
 	logspkg "github.com/lindb/arrow/pkg/logs"
 	"github.com/lindb/roaring"
@@ -32,7 +33,6 @@ import (
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/spi"
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/spi/utils"
 	"github.com/lindb/lindb/sql/tree"
 	"github.com/lindb/lindb/storage"
@@ -55,7 +55,7 @@ func NewSourceConnectorProvider(engine storage.Engine) spi.SourceConnectorProvid
 func (s *sourceConnectorProvider) CreateSourceConnector(ctx context.Context,
 	table spi.TableHandle, partitions []int, columnMapping map[string]string,
 	predicate tree.Expression,
-	outputColumns []types.ColumnMetadata, assignments []*spi.ColumnAssignment,
+	outputColumns []arrow.Field, assignments []*spi.ColumnAssignment,
 ) spi.SourceConnector {
 	return &sourceConnector{
 		ctx:          ctx,
@@ -80,7 +80,7 @@ type sourceConnector struct {
 
 	predicate tree.Expression
 
-	outputColumns []types.ColumnMetadata
+	outputColumns []arrow.Field
 	assignments   []*spi.ColumnAssignment
 
 	outputsHasTimestamp bool
@@ -253,10 +253,10 @@ func (sc *sourceConnector) initializeSearchContext(tableScan *TableScan) {
 	})
 
 	indexDB := tableScan.db.IndexDatabase()
-	lo.ForEach(sc.outputColumns, func(item types.ColumnMetadata, index int) {
-		if item.DataType == types.DTTimestamp && item.Name == constants.TimestampColumnName {
+	lo.ForEach(sc.outputColumns, func(item arrow.Field, index int) {
+		if item.Name == constants.TimestampColumnName {
 			sc.outputsHasTimestamp = true
-		} else if item.DataType == types.DTDynamic {
+		} else if arrow.TypeEqual(item.Type, larrow.ExtensionTypes.Dynamic) {
 			if len(sc.fieldKeys) == 1 {
 				panic("too many grouping fields, only support one field")
 			}

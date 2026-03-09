@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/lindb/roaring"
 	"github.com/samber/lo"
 
@@ -29,7 +30,6 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
-	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/expression"
 	"github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/tree"
@@ -51,7 +51,7 @@ type TableScan struct {
 	columns       []Column
 	columnMapping map[string]string
 	numOfAggs     int
-	outputs       []types.ColumnMetadata
+	outputs       []arrow.Field
 
 	isTimestampSelected bool
 	timeRange           timeutil.TimeRange

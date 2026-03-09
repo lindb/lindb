@@ -197,7 +197,7 @@ func (r *runtime) Run() error {
 			GRPCPort:   r.config.StorageBase.GRPC.Port,
 			HostName:   hostName,
 			HTTPPort:   r.config.StorageBase.HTTP.Port,
-			OnlineTime: timeutil.Now(),
+			OnlineTime: timeutil.NowNano(),
 			Version:    config.Version,
 		},
 	}
