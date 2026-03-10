@@ -122,8 +122,20 @@ func (m *stateManager) onObserverNodeFailure(key string) error {
 // consumerReassign reassigns consumers when observer nodes change.
 func (m *stateManager) consumerReassign() {
 	for streamingName, cfg := range m.streamings {
-		observerNodes := m.observerNodes[cfg.Observer]
-		shardAssignment := m.shardAssignments[cfg.Database]
+		observerNodes, ok := m.observerNodes[cfg.Observer]
+		if !ok {
+			m.logger.Warn("observer nodes not found for streaming",
+				logger.String("streaming", streamingName),
+				logger.String("observer", cfg.Observer))
+			continue
+		}
+		shardAssignment, ok := m.shardAssignments[cfg.Database]
+		if !ok {
+			m.logger.Warn("shard assignment not found for streaming",
+				logger.String("streaming", streamingName),
+				logger.String("database", cfg.Database))
+			continue
+		}
 
 		shardIDs := lo.Keys(shardAssignment.Shards)
 		nodeID := models.NodeID(0)
