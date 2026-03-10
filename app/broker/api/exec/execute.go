@@ -21,8 +21,9 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"reflect"
 
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/ipc"
 	"github.com/gin-gonic/gin"
 	httppkg "github.com/lindb/common/pkg/http"
 	"github.com/lindb/common/pkg/logger"
@@ -157,16 +158,32 @@ func (e *ExecuteAPI) execute(c *gin.Context) error {
 
 	statementType := execution.GetStatementType(stmt)
 	factory := execution.GetExecutionFactory(statementType)
-	exec := factory.CreateExecution(session, preparedStmt)
-	result := exec.Start()
-	if result == nil || reflect.ValueOf(result).IsNil() {
+	record := factory.CreateExecution(session, preparedStmt).Start()
+	if record == nil {
 		httppkg.NotFound(c)
-	} else if err, hasError := result.(error); hasError {
-		httppkg.Error(c, err)
+		return nil
+	}
+	defer record.Release()
+
+	if c.GetHeader("Accept") == constants.ContentTypeArrow {
+		writeArrowStream(c, record)
 	} else {
-		httppkg.OK(c, result)
+		// FIXME: impl json response
+		// httppkg.OK(c, executionModel.NewResultSetFromRecord(record))
+		panic("not support json response yet")
 	}
 
 	// TODO: resource group
 	return nil
+}
+
+// writeArrowStream writes an Arrow RecordBatch as an IPC stream to the response.
+// The client must send Accept: application/vnd.apache.arrow.stream to receive this format.
+func writeArrowStream(c *gin.Context, record arrow.RecordBatch) {
+	c.Header("Content-Type", constants.ContentTypeArrow)
+	w := ipc.NewWriter(c.Writer, ipc.WithSchema(record.Schema()))
+	defer w.Close()
+	if err := w.Write(record); err != nil {
+		_ = c.Error(err)
+	}
 }

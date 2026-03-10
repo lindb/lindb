@@ -22,25 +22,26 @@ import (
 
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
-	larray "github.com/lindb/arrow/pkg/arrow/array"
-	commonmodels "github.com/lindb/common/models"
-
-	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/spi/types"
-	"github.com/lindb/lindb/sql/execution/model"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 )
 
+// ResultSetBuild accumulates Arrow RecordBatches produced by the execution pipeline
+// and merges them into a single RecordBatch when the query completes.
+//
+// Ownership model:
+//   - Each record sent via AddRecord is retained by the buffer (Retain called on receipt).
+//   - ResultSet() releases all buffered records after merging and transfers ownership of
+//     the merged record to the caller. The caller is responsible for calling Release().
 type ResultSetBuild struct {
 	inbound   chan arrow.RecordBatch
 	completed chan struct{}
-	resultSet *model.ResultSet
+	buffer    []arrow.RecordBatch
 }
 
 func CreateResultSetBuild() *ResultSetBuild {
 	return &ResultSetBuild{
 		inbound:   make(chan arrow.RecordBatch),
 		completed: make(chan struct{}),
-		resultSet: model.NewResultSet(),
 	}
 }
 
@@ -51,95 +52,11 @@ func (rsb *ResultSetBuild) AddRecord(record arrow.RecordBatch) {
 }
 
 func (rsb *ResultSetBuild) Process() {
-	defer func() {
-		close(rsb.completed)
-	}()
+	defer close(rsb.completed)
 	for record := range rsb.inbound {
-		fmt.Println(record)
-		rsb.processRecord(record)
-		record.Release()
-	}
-}
-
-func (rsb *ResultSetBuild) processRecord(record arrow.RecordBatch) {
-	fields := record.Schema().Fields()
-
-	// build schema on first record
-	if rsb.resultSet.Schema == nil {
-		var visibleFields []arrow.Field
-		for _, f := range fields {
-			if f.Metadata.FindKey("hidden") >= 0 {
-				continue
-			}
-			visibleFields = append(visibleFields, f)
-		}
-		rsb.resultSet.Schema = arrow.NewSchema(visibleFields, nil)
-	}
-
-	numRows := int(record.NumRows())
-	for row := range numRows {
-		cols := make([]any, 0, rsb.resultSet.Schema.NumFields())
-		for colIdx, f := range fields {
-			if f.Metadata.FindKey("hidden") >= 0 {
-				continue
-			}
-			col := record.Column(colIdx)
-			if col.IsNull(row) {
-				cols = append(cols, nil)
-				continue
-			}
-			cols = append(cols, extractValue(f.Type, col, row))
-		}
-		rsb.resultSet.Rows = append(rsb.resultSet.Rows, cols)
-	}
-}
-
-func extractValue(dt arrow.DataType, col arrow.Array, row int) any {
-	fmt.Printf("extract value from column type: %s,%v\n", dt, col)
-	switch c := col.(type) {
-	case *array.String:
-		return c.Value(row)
-	case *array.Int64:
-		return c.Value(row)
-	case *array.Int32:
-		return c.Value(row)
-	case *array.Float64:
-		return c.Value(row)
-	case *array.Timestamp:
-		return int64(c.Value(row))
-	case *larray.TimeSeries:
-		structArr := c.Storage().(*array.Struct)
-		start := structArr.Field(0).(*array.Int64).Value(row)
-		end := structArr.Field(1).(*array.Int64).Value(row)
-		interval := structArr.Field(2).(*array.Int64).Value(row)
-		listArr := structArr.Field(3).(*array.List)
-		offsets := listArr.Offsets()
-		from, to := int(offsets[row]), int(offsets[row+1])
-		floats := listArr.ListValues().(*array.Float64)
-		values := make([]float64, to-from)
-		for i := range values {
-			values[i] = floats.Value(from + i)
-		}
-		return types.NewTimeSeriesWithValues(
-			timeutil.TimeRange{Start: start, End: end},
-			timeutil.Interval(interval),
-			values,
-		)
-	case *larray.Exemplar:
-		ex := c.Value(row)
-		if ex == nil {
-			return nil
-		}
-		return &commonmodels.Exemplar{
-			TraceID:  string(ex.TraceID),
-			SpanID:   string(ex.SpanID),
-			Duration: ex.Duration,
-		}
-	case *larray.Aggregation:
-		return c.Value(row)
-	default:
-		_ = dt
-		return nil
+		// Retain so the buffer holds its own reference independent of the sender.
+		record.Retain()
+		rsb.buffer = append(rsb.buffer, record)
 	}
 }
 
@@ -147,8 +64,62 @@ func (rsb *ResultSetBuild) Complete() {
 	close(rsb.inbound)
 }
 
-func (rsb *ResultSetBuild) ResultSet() *model.ResultSet {
-	// waiting process result page completed
+// ResultSet waits for processing to finish and returns a single merged RecordBatch.
+// The caller owns the returned record and must call Release() on it.
+// Returns nil if no records were received.
+func (rsb *ResultSetBuild) ResultSet() arrow.RecordBatch {
+	// Wait for Process() to drain the inbound channel.
 	<-rsb.completed
-	return rsb.resultSet
+
+	records := rsb.buffer
+	// Release all buffered records once we are done with them.
+	defer func() {
+		for _, rec := range records {
+			rec.Release()
+		}
+	}()
+
+	switch len(records) {
+	case 0:
+		return nil
+	case 1:
+		// Single record: retain once more so the caller gets a clean ref-count,
+		// then the deferred release above drops the buffer's ref.
+		records[0].Retain()
+		return records[0]
+	}
+
+	schema := records[0].Schema()
+	numCols := schema.NumFields()
+	numRows := int64(0)
+
+	// Validate schema consistency and total row count.
+	for _, rec := range records {
+		if !rec.Schema().Equal(schema) {
+			panic("schema mismatch during concatenation")
+		}
+		numRows += rec.NumRows()
+	}
+
+	// Concatenate each column across all records.
+	newCols := make([]arrow.Array, numCols)
+	for i := range numCols {
+		colArrays := make([]arrow.Array, len(records))
+		for j, rec := range records {
+			colArrays[j] = rec.Column(i)
+		}
+		var err error
+		newCols[i], err = array.Concatenate(colArrays, memory.DefaultAllocator)
+		if err != nil {
+			// Release columns already allocated before panicking.
+			for k := range i {
+				newCols[k].Release()
+			}
+			panic(fmt.Sprintf("failed to concatenate column %d: %v", i, err))
+		}
+	}
+
+	// array.NewRecord takes ownership of newCols (ref-count already incremented
+	// by Concatenate), so no additional Retain/Release needed here.
+	return array.NewRecordBatch(schema, newCols, numRows)
 }

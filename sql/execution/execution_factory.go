@@ -18,6 +18,8 @@
 package execution
 
 import (
+	"github.com/apache/arrow-go/v18/arrow"
+
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/sql/tree"
 )
@@ -38,5 +40,5 @@ type ExecutionFactory interface {
 }
 
 type Execution interface {
-	Start() any
+	Start() arrow.RecordBatch
 }

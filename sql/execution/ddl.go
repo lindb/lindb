@@ -66,7 +66,7 @@ func NewDDLExecution(session *Session, task ddl.Task) Execution {
 	}
 }
 
-func (exec *DDLExecution) Start() any {
+func (exec *DDLExecution) Start() arrow.RecordBatch {
 	err := exec.task.Execute(exec.session.Context)
 	if err != nil {
 		panic(err)

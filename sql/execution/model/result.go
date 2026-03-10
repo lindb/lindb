@@ -24,15 +24,19 @@ import (
 	"time"
 
 	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/jedib0t/go-pretty/v6/text"
 	larrow "github.com/lindb/arrow/pkg/arrow"
+	larray "github.com/lindb/arrow/pkg/arrow/array"
 	commonmodels "github.com/lindb/common/models"
 	"github.com/lindb/common/pkg/timeutil"
 	"github.com/mattn/go-runewidth"
 	"github.com/mitchellh/mapstructure"
 
 	"github.com/lindb/lindb/pkg/terminal"
+	lindbTimeutil "github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/spi/types"
 )
 
@@ -82,6 +86,115 @@ func (rs *ResultSet) UnmarshalJSON(data []byte) error {
 
 func NewResultSet() *ResultSet {
 	return &ResultSet{}
+}
+
+// NewResultSetFromRecord converts an arrow.RecordBatch into a ResultSet.
+// Hidden fields (those with a "hidden" metadata key) are excluded from the schema and rows.
+// The caller retains ownership of record; this function does not release it.
+// Returns an empty ResultSet if record is nil.
+func NewResultSetFromRecord(record arrow.RecordBatch) *ResultSet {
+	rs := &ResultSet{}
+	if record == nil {
+		return rs
+	}
+	fields := record.Schema().Fields()
+
+	// Build the visible schema (exclude hidden columns).
+	var visibleFields []arrow.Field
+	for _, f := range fields {
+		if f.Metadata.FindKey("hidden") >= 0 {
+			continue
+		}
+		visibleFields = append(visibleFields, f)
+	}
+	rs.Schema = arrow.NewSchema(visibleFields, nil)
+
+	numRows := int(record.NumRows())
+	for row := range numRows {
+		cols := make([]any, 0, len(visibleFields))
+		for colIdx, f := range fields {
+			if f.Metadata.FindKey("hidden") >= 0 {
+				continue
+			}
+			col := record.Column(colIdx)
+			if col.IsNull(row) {
+				cols = append(cols, nil)
+				continue
+			}
+			cols = append(cols, extractColumnValue(f.Type, col, row))
+		}
+		rs.Rows = append(rs.Rows, cols)
+	}
+	return rs
+}
+
+// extractColumnValue extracts a Go native value from an Arrow array at the given row index.
+func extractColumnValue(dt arrow.DataType, col arrow.Array, row int) any {
+	switch c := col.(type) {
+	case *array.String:
+		return c.Value(row)
+	case *array.Int64:
+		return c.Value(row)
+	case *array.Int32:
+		return c.Value(row)
+	case *array.Float64:
+		return c.Value(row)
+	case *array.Timestamp:
+		return int64(c.Value(row))
+	case *array.Duration:
+		return time.Duration(c.Value(row))
+	case *larray.TimeSeries:
+		structArr := c.Storage().(*array.Struct)
+		start := structArr.Field(0).(*array.Int64).Value(row)
+		end := structArr.Field(1).(*array.Int64).Value(row)
+		interval := structArr.Field(2).(*array.Int64).Value(row)
+		listArr := structArr.Field(3).(*array.List)
+		offsets := listArr.Offsets()
+		from, to := int(offsets[row]), int(offsets[row+1])
+		floats := listArr.ListValues().(*array.Float64)
+		values := make([]float64, to-from)
+		for i := range values {
+			values[i] = floats.Value(from + i)
+		}
+		return types.NewTimeSeriesWithValues(
+			lindbTimeutil.TimeRange{Start: start, End: end},
+			lindbTimeutil.Interval(interval),
+			values,
+		)
+	case *larray.Exemplar:
+		ex := c.Value(row)
+		if ex == nil {
+			return nil
+		}
+		return &commonmodels.Exemplar{
+			TraceID:  string(ex.TraceID),
+			SpanID:   string(ex.SpanID),
+			Duration: ex.Duration,
+		}
+	case *larray.Aggregation:
+		return c.Value(row)
+	default:
+		_ = dt
+		return nil
+	}
+}
+
+// ToRecordBatch converts the ResultSet rows back into an arrow.RecordBatch.
+// Returns nil if Schema is not set.
+func (rs *ResultSet) ToRecordBatch() arrow.RecordBatch {
+	if rs.Schema == nil {
+		return nil
+	}
+	rb := array.NewRecordBuilder(memory.NewGoAllocator(), rs.Schema)
+	defer rb.Release()
+
+	fields := rs.Schema.Fields()
+	for _, row := range rs.Rows {
+		for idx, val := range row {
+			appendValue(rb.Field(idx), fields[idx].Type, val)
+		}
+	}
+	return rb.NewRecordBatch()
 }
 
 // ToTable returns stateless node list as table if it has value, else return empty string.
@@ -206,6 +319,63 @@ func appendColumn(row table.Row, colType arrow.DataType, col any, index int) {
 			}
 		}
 		row[index] = fmt.Sprintf("[%s]", strings.Join(values, ", "))
+	}
+}
+
+// appendValue appends a Go native value (as stored in ResultSet.Rows) back into an Arrow array builder.
+func appendValue(b array.Builder, dt arrow.DataType, val any) {
+	if val == nil {
+		b.AppendNull()
+		return
+	}
+	switch dt.ID() {
+	case arrow.BinaryTypes.String.ID():
+		b.(*array.StringBuilder).Append(fmt.Sprintf("%v", val))
+	case arrow.PrimitiveTypes.Float64.ID():
+		switch v := val.(type) {
+		case float64:
+			b.(*array.Float64Builder).Append(v)
+		case float32:
+			b.(*array.Float64Builder).Append(float64(v))
+		}
+	case arrow.PrimitiveTypes.Int64.ID():
+		switch v := val.(type) {
+		case int64:
+			b.(*array.Int64Builder).Append(v)
+		case int:
+			b.(*array.Int64Builder).Append(int64(v))
+		case float64:
+			b.(*array.Int64Builder).Append(int64(v))
+		}
+	case arrow.PrimitiveTypes.Int32.ID():
+		switch v := val.(type) {
+		case int32:
+			b.(*array.Int32Builder).Append(v)
+		case int:
+			b.(*array.Int32Builder).Append(int32(v))
+		case int64:
+			b.(*array.Int32Builder).Append(int32(v))
+		case float64:
+			b.(*array.Int32Builder).Append(int32(v))
+		}
+	case arrow.FixedWidthTypes.Timestamp_ns.ID():
+		switch v := val.(type) {
+		case int64:
+			b.(*array.TimestampBuilder).Append(arrow.Timestamp(v))
+		case float64:
+			b.(*array.TimestampBuilder).Append(arrow.Timestamp(int64(v)))
+		}
+	case arrow.FixedWidthTypes.Duration_ns.ID():
+		switch v := val.(type) {
+		case time.Duration:
+			b.(*array.DurationBuilder).Append(arrow.Duration(v.Nanoseconds()))
+		case int64:
+			b.(*array.DurationBuilder).Append(arrow.Duration(v))
+		case float64:
+			b.(*array.DurationBuilder).Append(arrow.Duration(int64(v)))
+		}
+	default:
+		b.AppendNull()
 	}
 }
 

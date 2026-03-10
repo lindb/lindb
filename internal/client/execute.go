@@ -18,22 +18,25 @@
 package client
 
 import (
+	"bytes"
 	"errors"
 	"net/http"
 
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/ipc"
 	resty "github.com/go-resty/resty/v2"
-	"github.com/lindb/common/pkg/encoding"
 
+	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/sql/execution/model"
 )
 
 //go:generate mockgen -source=./execute.go -destination=./execute_mock.go -package=client
 
 // ExecuteCli represents lin query language execute client.
 type ExecuteCli interface {
-	// Execute executes lin query language, then returns execute result.
-	Execute(param models.ExecuteParam) (*model.ResultSet, error)
+	// ExecuteAsRecord executes lin query language, returns result as Arrow RecordBatch.
+	// The caller is responsible for calling Release() on the returned RecordBatch.
+	ExecuteAsRecord(param models.ExecuteParam) (arrow.RecordBatch, error)
 }
 
 // executeCli implements ExecuteCli interface.
@@ -52,27 +55,37 @@ func NewExecuteCli(endpoint string) ExecuteCli {
 	}
 }
 
-// Execute executes lin query language, then returns execute result.
-func (cli *executeCli) Execute(param models.ExecuteParam) (*model.ResultSet, error) {
-	// send request
+// ExecuteAsRecord executes lin query language, returns the result as an Arrow RecordBatch
+// by requesting the Arrow IPC stream format from the server.
+// The caller must call Release() on the returned RecordBatch when done.
+func (cli *executeCli) ExecuteAsRecord(param models.ExecuteParam) (arrow.RecordBatch, error) {
 	resp, err := cli.cli.R().
 		SetBody(&param).
-		SetHeader("Accept", "application/json").
+		SetHeader("Accept", constants.ContentTypeArrow).
 		Put("/exec")
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode() == http.StatusOK {
-		// if success, unmarshal response
-		data := resp.Body()
-		if len(data) > 0 {
-			rs := &model.ResultSet{}
-			if err := encoding.JSONUnmarshal(data, rs); err != nil {
-				return nil, err
-			}
-			return rs, nil
-		}
+	if resp.StatusCode() != http.StatusOK {
+		return nil, errors.New(string(resp.Body()))
+	}
+	data := resp.Body()
+	if len(data) == 0 {
 		return nil, errors.New("no data found")
 	}
-	return nil, errors.New(string(resp.Body()))
+	reader, err := ipc.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Release()
+
+	if !reader.Next() {
+		if err := reader.Err(); err != nil {
+			return nil, err
+		}
+		return nil, errors.New("no record batch in response")
+	}
+	record := reader.RecordBatch()
+	record.Retain()
+	return record, nil
 }

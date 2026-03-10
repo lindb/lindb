@@ -34,6 +34,7 @@ import (
 	"github.com/elk-language/go-prompt"
 	istrings "github.com/elk-language/go-prompt/strings"
 	"github.com/fatih/color"
+	larrow "github.com/lindb/arrow/pkg/arrow"
 	commonlogger "github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/ltoml"
 	"github.com/samber/lo"
@@ -191,18 +192,20 @@ func executeAndPrint(param models.ExecuteParam) {
 	}()
 
 	n := time.Now()
-	rs, err := cli.Execute(param)
+	rs, err := cli.ExecuteAsRecord(param)
 	cost := time.Since(n)
 	if err != nil {
 		printErr(err)
 		return
 	}
-	if len(rs.Rows) == 0 {
+	defer rs.Release()
+
+	if rs.NumRows() == 0 {
 		fmt.Println(color.GreenString("Query OK, 0 rows affected (%s)", ltoml.Duration(cost)))
 		return
 	}
-	fmt.Printf("%s\n%s\n", rs.ToTable(),
-		color.GreenString("%d rows in sets (%s)", len(rs.Rows), ltoml.Duration(cost)))
+	fmt.Printf("%s\n%s\n", toTable(rs),
+		color.GreenString("%d rows in sets (%s)", rs.NumRows(), ltoml.Duration(cost)))
 }
 
 func main() {
@@ -224,16 +227,18 @@ func main() {
 	cli = newExecuteCli(apiEndpoint)
 
 	// first retry connect and get master state
-	rs, err := cli.Execute(models.ExecuteParam{Database: "information_schema", SQL: "select version from master"})
+	rs, err := cli.ExecuteAsRecord(models.ExecuteParam{Database: "information_schema", SQL: "select version from master"})
 	if err != nil {
 		printErr(err)
 		return
 	}
-	if len(rs.Rows) == 0 {
+	defer rs.Release()
+
+	if rs.NumRows() == 0 {
 		printErr(errors.New("no master found"))
 		return
 	}
-	version := rs.Rows[0][0]
+	version := larrow.StringFromRecord(rs, 0, 0)
 	fmt.Println("Welcome to the LinDB. Commands end with ; .")
 	fmt.Printf("Server version: %s\n", version)
 	endpointStr = fmt.Sprintf("lin@%s", endpointURL.Host)

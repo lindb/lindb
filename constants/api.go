@@ -36,6 +36,8 @@ const (
 	ContentTypeInflux = "application/influx"
 	// ContentTypeJSON represents json content type.
 	ContentTypeJSON = "application/json"
+	// ContentTypeArrow represents arrow content type.
+	ContentTypeArrow = "application/vnd.apache.arrow.stream"
 )
 
 const (

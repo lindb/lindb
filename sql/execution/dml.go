@@ -18,7 +18,6 @@
 package execution
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/apache/arrow-go/v18/arrow"
@@ -86,7 +85,7 @@ func (ctx *DMLContext) Error() string {
 	return ctx.err
 }
 
-func (ctx *DMLContext) ResultSet() *model.ResultSet {
+func (ctx *DMLContext) ResultSet() arrow.RecordBatch {
 	return ctx.rsBuild.ResultSet()
 }
 
@@ -108,7 +107,7 @@ func NewDMLExecution(session *Session, deps *Deps, preparedStatement *tree.Prepa
 	}
 }
 
-func (exec *DMLExecution) Start() any {
+func (exec *DMLExecution) Start() arrow.RecordBatch {
 	defer func() {
 		// cleanup execution context
 		pipeline.DriverManager.Cleanup(exec.session.RequestID)
@@ -130,12 +129,7 @@ func (exec *DMLExecution) Start() any {
 	if exec.context.Error() != "" {
 		panic(exec.context.Error())
 	}
-	rs := exec.context.ResultSet()
-	if rs.Error != "" {
-		// return error
-		return errors.New(rs.Error)
-	}
-	return rs
+	return exec.context.ResultSet()
 }
 
 func (exec *DMLExecution) rewrite(statement tree.Statement) tree.Statement {
