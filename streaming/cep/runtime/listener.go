@@ -38,7 +38,7 @@ func NewListener(bridges []*sink.SinkBridge) *Listener {
 
 func (l *Listener) Receive(record arrow.RecordBatch) {
 	if l.logger.Enabled(logger.DebugLevel) {
-		l.logger.Info("Listener, receive record", logger.Any("record", record))
+		l.logger.Debug("Listener, receive record", logger.Any("record", record))
 	}
 	for _, s := range l.bridges {
 		s.Publish(record)

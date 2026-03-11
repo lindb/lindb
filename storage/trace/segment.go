@@ -27,10 +27,8 @@ import (
 	"github.com/lindb/arrow/pkg/traces"
 	"github.com/lindb/common/pkg/fileutil"
 	"github.com/linxGnu/grocksdb"
-	"go.opentelemetry.io/collector/pdata/ptrace/ptraceotlp"
 
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -194,29 +192,4 @@ func (seg *Segment) Flush() error {
 	seg.db.Flush(grocksdb.NewDefaultFlushOptions())
 	seg.db.Close()
 	return nil
-}
-
-func (seg *Segment) indexTrace(leader models.NodeID, index int64, msg []byte) {
-	req := ptraceotlp.NewExportRequest()
-	if err := req.UnmarshalProto(msg); err != nil {
-		return
-	}
-	traceIDs := make(map[string]struct{})
-	traces := req.Traces()
-	spans := traces.ResourceSpans()
-	for i := range spans.Len() {
-		s := spans.At(i)
-		scopeSpans := s.ScopeSpans()
-		for j := range scopeSpans.Len() {
-			span := scopeSpans.At(j)
-			sSpans := span.Spans()
-			for k := range sSpans.Len() {
-				ss := sSpans.At(k)
-				if _, ok := traceIDs[ss.TraceID().String()]; !ok {
-					seg.db.Merge(wo, []byte(ss.TraceID().String()), encoding.U32ToBytes(uint32(index)))
-					traceIDs[ss.TraceID().String()] = struct{}{}
-				}
-			}
-		}
-	}
 }

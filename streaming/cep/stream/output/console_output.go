@@ -18,9 +18,8 @@
 package output
 
 import (
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/lindb/common/pkg/logger"
-
-	"github.com/lindb/lindb/models"
 )
 
 type ConsoleOutput struct {
@@ -33,6 +32,6 @@ func NewConsoleOutput() Listener {
 	}
 }
 
-func (output *ConsoleOutput) Receive(event models.Event) {
-	output.logger.Info("console output, receive event", logger.Any("event", event))
+func (output *ConsoleOutput) Receive(record arrow.RecordBatch) {
+	output.logger.Info("console output, receive event", logger.Any("record", record))
 }

@@ -24,7 +24,6 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/apache/arrow-go/v18/arrow"
 	logspkg "github.com/lindb/arrow/pkg/logs"
 	"github.com/lindb/common/pkg/fileutil"
 	"github.com/lindb/roaring"
@@ -226,8 +225,6 @@ func (s *Segment) GetWALs() map[models.NodeID]store.WriteAheadLog {
 }
 
 func (s *Segment) Write(leader models.NodeID, seq int64, msg []byte) (rows int, err error) {
-	var logs, attributes arrow.RecordBatch
-
 	// FIXME: need optimize, multiple leader write to same segment(thread not safe)
 	if s.reader == nil {
 		reader, err := logspkg.NewReader(msg)
@@ -241,11 +238,6 @@ func (s *Segment) Write(leader models.NodeID, seq int64, msg []byte) (rows int, 
 			return 0, err
 		}
 	}
-
-	defer func() {
-		logs.Release()
-		attributes.Release()
-	}()
 
 	it := s.reader.Iterator()
 
@@ -284,6 +276,9 @@ func (s *Segment) Flush() error {
 }
 
 func (s *Segment) Close() error {
+	if s.reader != nil {
+		s.reader.Release()
+	}
 	s.Flush()
 
 	for _, d := range s.WALs {

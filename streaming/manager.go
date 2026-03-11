@@ -84,7 +84,7 @@ func (m *manager) AddDataSource(ds DataSource) {
 		return
 	}
 	// initialize data source
-	ds.Initialize()
+	ds.Startup()
 
 	m.dataSources[ds.Name()] = ds
 }

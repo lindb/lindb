@@ -26,12 +26,14 @@ import (
 )
 
 func init() {
-	RegisterDecoder(option.Metric, &metric{})
+	RegisterDecoder(option.Metric, func() Decoder {
+		return &metric{}
+	})
 }
 
 type metric struct{}
 
-func (m *metric) ToRecord(data []byte) (arrow.RecordBatch, error) {
+func (m *metric) ToRecords(data []byte) ([]arrow.RecordBatch, error) {
 	fmt.Println("metric to event")
 	return nil, nil
 }

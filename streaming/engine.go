@@ -22,8 +22,8 @@ import (
 )
 
 type Engine interface {
-	Start() error
-	Stop() error
+	Startup() error
+	Shutdown() error
 
 	Send(record arrow.RecordBatch)
 }

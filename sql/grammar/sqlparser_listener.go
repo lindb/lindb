@@ -345,14 +345,8 @@ type SQLParserListener interface {
 	// EnterQuotedStringLiteral is called when entering the quotedStringLiteral production.
 	EnterQuotedStringLiteral(c *QuotedStringLiteralContext)
 
-	// EnterUnquotedIdentifier is called when entering the unquotedIdentifier production.
-	EnterUnquotedIdentifier(c *UnquotedIdentifierContext)
-
-	// EnterBackQuotedIdentifier is called when entering the backQuotedIdentifier production.
-	EnterBackQuotedIdentifier(c *BackQuotedIdentifierContext)
-
-	// EnterDigitIdentifier is called when entering the digitIdentifier production.
-	EnterDigitIdentifier(c *DigitIdentifierContext)
+	// EnterIdentifier is called when entering the identifier production.
+	EnterIdentifier(c *IdentifierContext)
 
 	// EnterDecimalLiteral is called when entering the decimalLiteral production.
 	EnterDecimalLiteral(c *DecimalLiteralContext)
@@ -693,14 +687,8 @@ type SQLParserListener interface {
 	// ExitQuotedStringLiteral is called when exiting the quotedStringLiteral production.
 	ExitQuotedStringLiteral(c *QuotedStringLiteralContext)
 
-	// ExitUnquotedIdentifier is called when exiting the unquotedIdentifier production.
-	ExitUnquotedIdentifier(c *UnquotedIdentifierContext)
-
-	// ExitBackQuotedIdentifier is called when exiting the backQuotedIdentifier production.
-	ExitBackQuotedIdentifier(c *BackQuotedIdentifierContext)
-
-	// ExitDigitIdentifier is called when exiting the digitIdentifier production.
-	ExitDigitIdentifier(c *DigitIdentifierContext)
+	// ExitIdentifier is called when exiting the identifier production.
+	ExitIdentifier(c *IdentifierContext)
 
 	// ExitDecimalLiteral is called when exiting the decimalLiteral production.
 	ExitDecimalLiteral(c *DecimalLiteralContext)

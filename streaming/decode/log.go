@@ -26,12 +26,14 @@ import (
 )
 
 func init() {
-	RegisterDecoder(option.Log, &log{})
+	RegisterDecoder(option.Log, func() Decoder {
+		return &log{}
+	})
 }
 
 type log struct{}
 
-func (l *log) ToRecord(data []byte) (arrow.RecordBatch, error) {
+func (l *log) ToRecords(data []byte) ([]arrow.RecordBatch, error) {
 	fmt.Println("log to event")
 	return nil, nil
 }

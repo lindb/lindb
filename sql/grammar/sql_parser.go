@@ -16927,6 +16927,13 @@ type IIdentifierContext interface {
 
 	// GetParser returns the parser.
 	GetParser() antlr.Parser
+
+	// Getter signatures
+	IDENTIFIER() antlr.TerminalNode
+	NonReserved() INonReservedContext
+	BACKQUOTED_IDENTIFIER() antlr.TerminalNode
+	DIGIT_IDENTIFIER() antlr.TerminalNode
+
 	// IsIdentifierContext differentiates from other interfaces.
 	IsIdentifierContext()
 }
@@ -16963,129 +16970,11 @@ func NewIdentifierContext(parser antlr.Parser, parent antlr.ParserRuleContext, i
 
 func (s *IdentifierContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *IdentifierContext) CopyAll(ctx *IdentifierContext) {
-	s.CopyFrom(&ctx.BaseParserRuleContext)
-}
-
-func (s *IdentifierContext) GetRuleContext() antlr.RuleContext {
-	return s
-}
-
-func (s *IdentifierContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
-	return antlr.TreesStringTree(s, ruleNames, recog)
-}
-
-type BackQuotedIdentifierContext struct {
-	IdentifierContext
-}
-
-func NewBackQuotedIdentifierContext(parser antlr.Parser, ctx antlr.ParserRuleContext) *BackQuotedIdentifierContext {
-	var p = new(BackQuotedIdentifierContext)
-
-	InitEmptyIdentifierContext(&p.IdentifierContext)
-	p.parser = parser
-	p.CopyAll(ctx.(*IdentifierContext))
-
-	return p
-}
-
-func (s *BackQuotedIdentifierContext) GetRuleContext() antlr.RuleContext {
-	return s
-}
-
-func (s *BackQuotedIdentifierContext) BACKQUOTED_IDENTIFIER() antlr.TerminalNode {
-	return s.GetToken(SQLParserBACKQUOTED_IDENTIFIER, 0)
-}
-
-func (s *BackQuotedIdentifierContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SQLParserListener); ok {
-		listenerT.EnterBackQuotedIdentifier(s)
-	}
-}
-
-func (s *BackQuotedIdentifierContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SQLParserListener); ok {
-		listenerT.ExitBackQuotedIdentifier(s)
-	}
-}
-
-func (s *BackQuotedIdentifierContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SQLParserVisitor:
-		return t.VisitBackQuotedIdentifier(s)
-
-	default:
-		return t.VisitChildren(s)
-	}
-}
-
-type DigitIdentifierContext struct {
-	IdentifierContext
-}
-
-func NewDigitIdentifierContext(parser antlr.Parser, ctx antlr.ParserRuleContext) *DigitIdentifierContext {
-	var p = new(DigitIdentifierContext)
-
-	InitEmptyIdentifierContext(&p.IdentifierContext)
-	p.parser = parser
-	p.CopyAll(ctx.(*IdentifierContext))
-
-	return p
-}
-
-func (s *DigitIdentifierContext) GetRuleContext() antlr.RuleContext {
-	return s
-}
-
-func (s *DigitIdentifierContext) DIGIT_IDENTIFIER() antlr.TerminalNode {
-	return s.GetToken(SQLParserDIGIT_IDENTIFIER, 0)
-}
-
-func (s *DigitIdentifierContext) EnterRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SQLParserListener); ok {
-		listenerT.EnterDigitIdentifier(s)
-	}
-}
-
-func (s *DigitIdentifierContext) ExitRule(listener antlr.ParseTreeListener) {
-	if listenerT, ok := listener.(SQLParserListener); ok {
-		listenerT.ExitDigitIdentifier(s)
-	}
-}
-
-func (s *DigitIdentifierContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case SQLParserVisitor:
-		return t.VisitDigitIdentifier(s)
-
-	default:
-		return t.VisitChildren(s)
-	}
-}
-
-type UnquotedIdentifierContext struct {
-	IdentifierContext
-}
-
-func NewUnquotedIdentifierContext(parser antlr.Parser, ctx antlr.ParserRuleContext) *UnquotedIdentifierContext {
-	var p = new(UnquotedIdentifierContext)
-
-	InitEmptyIdentifierContext(&p.IdentifierContext)
-	p.parser = parser
-	p.CopyAll(ctx.(*IdentifierContext))
-
-	return p
-}
-
-func (s *UnquotedIdentifierContext) GetRuleContext() antlr.RuleContext {
-	return s
-}
-
-func (s *UnquotedIdentifierContext) IDENTIFIER() antlr.TerminalNode {
+func (s *IdentifierContext) IDENTIFIER() antlr.TerminalNode {
 	return s.GetToken(SQLParserIDENTIFIER, 0)
 }
 
-func (s *UnquotedIdentifierContext) NonReserved() INonReservedContext {
+func (s *IdentifierContext) NonReserved() INonReservedContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
 		if _, ok := ctx.(INonReservedContext); ok {
@@ -17101,22 +16990,38 @@ func (s *UnquotedIdentifierContext) NonReserved() INonReservedContext {
 	return t.(INonReservedContext)
 }
 
-func (s *UnquotedIdentifierContext) EnterRule(listener antlr.ParseTreeListener) {
+func (s *IdentifierContext) BACKQUOTED_IDENTIFIER() antlr.TerminalNode {
+	return s.GetToken(SQLParserBACKQUOTED_IDENTIFIER, 0)
+}
+
+func (s *IdentifierContext) DIGIT_IDENTIFIER() antlr.TerminalNode {
+	return s.GetToken(SQLParserDIGIT_IDENTIFIER, 0)
+}
+
+func (s *IdentifierContext) GetRuleContext() antlr.RuleContext {
+	return s
+}
+
+func (s *IdentifierContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+	return antlr.TreesStringTree(s, ruleNames, recog)
+}
+
+func (s *IdentifierContext) EnterRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(SQLParserListener); ok {
-		listenerT.EnterUnquotedIdentifier(s)
+		listenerT.EnterIdentifier(s)
 	}
 }
 
-func (s *UnquotedIdentifierContext) ExitRule(listener antlr.ParseTreeListener) {
+func (s *IdentifierContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(SQLParserListener); ok {
-		listenerT.ExitUnquotedIdentifier(s)
+		listenerT.ExitIdentifier(s)
 	}
 }
 
-func (s *UnquotedIdentifierContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+func (s *IdentifierContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
 	switch t := visitor.(type) {
 	case SQLParserVisitor:
-		return t.VisitUnquotedIdentifier(s)
+		return t.VisitIdentifier(s)
 
 	default:
 		return t.VisitChildren(s)
@@ -17134,7 +17039,6 @@ func (p *SQLParser) Identifier() (localctx IIdentifierContext) {
 
 	switch p.GetTokenStream().LA(1) {
 	case SQLParserIDENTIFIER:
-		localctx = NewUnquotedIdentifierContext(p, localctx)
 		p.EnterOuterAlt(localctx, 1)
 		{
 			p.SetState(785)
@@ -17146,7 +17050,6 @@ func (p *SQLParser) Identifier() (localctx IIdentifierContext) {
 		}
 
 	case SQLParserALL, SQLParserAPP, SQLParserALIVE, SQLParserAND, SQLParserAS, SQLParserASC, SQLParserBETWEEN, SQLParserBEGIN, SQLParserBROKER, SQLParserBROKERS, SQLParserBY, SQLParserCOMPACT, SQLParserCREATE, SQLParserCROSS, SQLParserCOLUMNS, SQLParserDATABASE, SQLParserDATABASES, SQLParserDEFAULT, SQLParserDESC, SQLParserDISTRIBUTED, SQLParserDROP, SQLParserEND, SQLParserENGINE, SQLParserESCAPE, SQLParserEXPLAIN, SQLParserEXISTS, SQLParserFALSE, SQLParserFIELDS, SQLParserFLUSH, SQLParserFROM, SQLParserGROUP, SQLParserHAVING, SQLParserIF, SQLParserIN, SQLParserINSERT, SQLParserINTO, SQLParserINTERVAL, SQLParserIS, SQLParserJOB, SQLParserJOIN, SQLParserKEYS, SQLParserLEFT, SQLParserLIKE, SQLParserLIMIT, SQLParserLOG, SQLParserLOGICAL, SQLParserMASTER, SQLParserMEMORY_DATABASES, SQLParserMETRICS, SQLParserMETRIC, SQLParserMETADATA, SQLParserMETADATAS, SQLParserNAMESPACE, SQLParserNAMESPACES, SQLParserNULL, SQLParserNOT, SQLParserNOW, SQLParserON, SQLParserOR, SQLParserORDER, SQLParserREQUESTS, SQLParserREPLICATIONS, SQLParserRIGHT, SQLParserROLLUP, SQLParserSELECT, SQLParserSINK, SQLParserSHOW, SQLParserSTATE, SQLParserSTORAGE, SQLParserSTREAMING, SQLParserOBSERVER, SQLParserTABLE_NAMES, SQLParserTIMESTAMP, SQLParserTRACE, SQLParserTRUE, SQLParserTYPE, SQLParserTYPES, SQLParserVALUES, SQLParserWHERE, SQLParserWITH, SQLParserWITHIN, SQLParserUSING, SQLParserUSE, SQLParserSECOND, SQLParserMINUTE, SQLParserHOUR, SQLParserDAY, SQLParserMONTH, SQLParserYEAR:
-		localctx = NewUnquotedIdentifierContext(p, localctx)
 		p.EnterOuterAlt(localctx, 2)
 		{
 			p.SetState(786)
@@ -17154,7 +17057,6 @@ func (p *SQLParser) Identifier() (localctx IIdentifierContext) {
 		}
 
 	case SQLParserBACKQUOTED_IDENTIFIER:
-		localctx = NewBackQuotedIdentifierContext(p, localctx)
 		p.EnterOuterAlt(localctx, 3)
 		{
 			p.SetState(787)
@@ -17166,7 +17068,6 @@ func (p *SQLParser) Identifier() (localctx IIdentifierContext) {
 		}
 
 	case SQLParserDIGIT_IDENTIFIER:
-		localctx = NewDigitIdentifierContext(p, localctx)
 		p.EnterOuterAlt(localctx, 4)
 		{
 			p.SetState(788)

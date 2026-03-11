@@ -60,8 +60,8 @@ type trace struct {
 }
 
 // Receive implements [Source].
-func (t *trace) Receive(e arrow.RecordBatch) {
-	fmt.Println("send span")
+func (t *trace) Receive(record arrow.RecordBatch) {
+	fmt.Println("send span", record)
 	// TODO: get input handlers by stream name(initialize phase)
 	// t.runtime.GetInputHandler(SpanStream).Send(t.spans.Build())
 	// t.runtime.GetInputHandler(EventStream).Send(t.events.Build())

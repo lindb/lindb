@@ -18,27 +18,49 @@
 package decode
 
 import (
-	"fmt"
-
 	"github.com/apache/arrow-go/v18/arrow"
+	larrow "github.com/lindb/arrow/pkg/arrow"
+	"github.com/lindb/arrow/pkg/constants"
 	"github.com/lindb/arrow/pkg/traces"
 
 	"github.com/lindb/lindb/pkg/option"
 )
 
 func init() {
-	RegisterDecoder(option.Trace, newTrace())
+	RegisterDecoder(option.Trace, newTrace)
 }
+
+var spanJoinSchema = arrow.NewSchema([]arrow.Field{
+	larrow.JoinField(constants.TraceID, &arrow.FixedSizeBinaryType{ByteWidth: 16}, string(constants.DTSpans), constants.TraceID),
+	larrow.JoinField(constants.SpanID, &arrow.FixedSizeBinaryType{ByteWidth: 8}, string(constants.DTSpans), constants.SpanID),
+	larrow.JoinField(constants.ParentSpanID, &arrow.FixedSizeBinaryType{ByteWidth: 8}, string(constants.DTSpans), constants.ParentSpanID),
+	larrow.JoinField(constants.StartTime, arrow.FixedWidthTypes.Timestamp_ns, string(constants.DTSpans), constants.StartTime),
+	larrow.JoinField(constants.Duration, arrow.FixedWidthTypes.Duration_ns, string(constants.DTSpans), constants.Duration),
+	larrow.JoinField(constants.Name, arrow.BinaryTypes.String, string(constants.DTSpans), constants.Name),
+	larrow.JoinField(constants.Status, arrow.BinaryTypes.String, string(constants.DTSpans), constants.Status),
+	larrow.JoinField(constants.Kind, arrow.BinaryTypes.String, string(constants.DTSpans), constants.Kind),
+	larrow.JoinDerefField(constants.Resource, string(constants.DTSpans), constants.Resource, string(constants.DTResources)),
+	larrow.JoinDerefField(constants.Scope, string(constants.DTSpans), constants.Scope, string(constants.DTScopes)),
+	larrow.JoinDerefField(constants.Attributes, string(constants.DTSpans), constants.Attributes, string(constants.DTAttributes)),
+}, nil)
+
+var eventJoinSchema = arrow.NewSchema([]arrow.Field{
+	larrow.JoinField(constants.Timestamp, arrow.FixedWidthTypes.Timestamp_ns, string(constants.DTEvents), constants.Timestamp),
+	larrow.JoinField(constants.Name, arrow.BinaryTypes.String, string(constants.DTEvents), constants.Name),
+	larrow.JoinDerefField(constants.Attributes, string(constants.DTEvents), constants.Attributes, string(constants.DTAttributes)),
+}, nil)
 
 type trace struct {
-	reader *traces.TraceReader
+	reader      *traces.TraceReader
+	spanJoiner  *larrow.RecordJoiner
+	eventJoiner *larrow.RecordJoiner
 }
 
-func newTrace() *trace {
+func newTrace() Decoder {
 	return &trace{}
 }
 
-func (t *trace) ToRecord(data []byte) (arrow.RecordBatch, error) {
+func (t *trace) ToRecords(data []byte) ([]arrow.RecordBatch, error) {
 	if t.reader == nil {
 		reader, err := traces.NewTraceReader(data)
 		if err != nil {
@@ -50,8 +72,14 @@ func (t *trace) ToRecord(data []byte) (arrow.RecordBatch, error) {
 			return nil, err
 		}
 	}
-	fmt.Println("trace to event")
 
-	// return req.Traces(), nil
-	return nil, nil
+	if t.spanJoiner == nil {
+		t.spanJoiner = larrow.NewRecordJoiner(spanJoinSchema)
+		t.eventJoiner = larrow.NewRecordJoiner(eventJoinSchema)
+	}
+
+	records := t.reader.Records()
+	spanRecord := t.spanJoiner.Join(records)
+	eventRecord := t.eventJoiner.Join(records)
+	return []arrow.RecordBatch{spanRecord, eventRecord}, nil
 }

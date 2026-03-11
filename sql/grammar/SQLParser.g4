@@ -238,10 +238,10 @@ string              : STRING                                                #bas
                     | QUOTED_IDENTIFIER                                     #quotedStringLiteral
                     ;
 
-identifier          : IDENTIFIER                                            #unquotedIdentifier
-                    | nonReserved                                           #unquotedIdentifier
-                    | BACKQUOTED_IDENTIFIER                                 #backQuotedIdentifier
-                    | DIGIT_IDENTIFIER                                      #digitIdentifier
+identifier          : IDENTIFIER                                            
+                    | nonReserved                                           
+                    | BACKQUOTED_IDENTIFIER                                 
+                    | DIGIT_IDENTIFIER                                      
                     ;
 
 number              : MINUS? DECIMAL_VALUE                                  #decimalLiteral

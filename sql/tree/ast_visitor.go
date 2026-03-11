@@ -822,10 +822,10 @@ func (v *AstVisitor) VisitSortItem(ctx *grammar.SortItemContext) any {
 	}
 }
 
-func (v *AstVisitor) VisitUnquotedIdentifier(ctx *grammar.UnquotedIdentifierContext) any {
+func (v *AstVisitor) VisitIdentifier(ctx *grammar.IdentifierContext) any {
 	return &Identifier{
 		BaseNode:  v.createBaseNode(ctx),
-		Value:     ctx.GetText(),
+		Value:     strutil.UnescapeString(ctx.GetText()),
 		Delimited: false,
 	}
 }

@@ -52,7 +52,7 @@ func (e *Engine) UndeployJob(name string) error {
 	return e.runtime.UndeployJob(name)
 }
 
-func (e *Engine) Start() error {
+func (e *Engine) Startup() error {
 	s, err := source.GetSource(source.SourceType(e.db.Option.Engine), e.runtime)
 	if err != nil {
 		return fmt.Errorf("source not found for type %s", e.db.Option.Engine)
@@ -62,7 +62,7 @@ func (e *Engine) Start() error {
 	return nil
 }
 
-func (e *Engine) Stop() error {
+func (e *Engine) Shutdown() error {
 	e.runtime.Shutdown()
 	return nil
 }

@@ -19,115 +19,177 @@ package streaming
 
 import (
 	"errors"
-	"sync"
+	"sync/atomic"
 
 	"github.com/lindb/common/pkg/logger"
-	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/streaming/cep"
 	"github.com/lindb/lindb/streaming/decode"
 )
 
+// scheduleCmd carries a stream registration request from ScheduleStream to the
+// background event loop, along with a reply channel for the result.
+type scheduleCmd struct {
+	stream  *models.Streaming
+	replyCh chan error
+}
+
+// DataSource receives raw messages, decodes them into Arrow RecordBatches, and
+// fans the records out to all registered streaming engines.
 type DataSource interface {
-	Initialize()
 	Name() string
-	Produce(data []byte) error
-	ScheduleStream(stream *models.Streaming) error
-	GetEngine(stream string) (Engine, bool)
+	// Startup initialises the decoder and starts the internal event loop.
+	Startup()
+	// Shutdown stops all engines and the event loop.
 	Shutdown()
+	// Produce decodes msg and delivers every resulting record to all engines.
+	// It is safe to call concurrently and never acquires a lock.
+	Produce(msg []byte) error
+	// ScheduleStream registers a new streaming engine asynchronously.
+	// It returns once the engine has been started (or an error occurred).
+	ScheduleStream(stream *models.Streaming) error
+	// GetEngine returns the engine registered under the given stream name.
+	GetEngine(stream string) (Engine, bool)
 }
 
 type dataSource struct {
 	db *models.Database
 
-	streamings map[string]*models.Streaming
-	engines    map[string]Engine
+	// enginesSnapshot is an atomically updated, immutable map[string]Engine.
+	// Produce and GetEngine read it without holding any lock.
+	enginesSnapshot atomic.Value // stores map[string]Engine
 
-	decoder decode.Decoder
-	running *atomic.Bool
-
-	lock sync.Mutex
+	decoder   decode.Decoder
+	running   atomic.Bool
+	scheduleC chan scheduleCmd // commands processed by the event loop goroutine
+	stopC     chan struct{}    // closed by Shutdown to stop the event loop
 
 	logger logger.Logger
 }
 
+// NewDataSource creates a DataSource for the given database configuration.
 func NewDataSource(db *models.Database) DataSource {
-	return &dataSource{
-		db:         db,
-		streamings: make(map[string]*models.Streaming),
-		engines:    make(map[string]Engine),
-		running:    atomic.NewBool(true),
-
-		logger: logger.GetLogger("Streaming", "DataSource"),
+	d := &dataSource{
+		db:        db,
+		scheduleC: make(chan scheduleCmd),
+		stopC:     make(chan struct{}),
+		logger:    logger.GetLogger("Streaming", "DataSource"),
 	}
+	// Initialise the snapshot with an empty map so Produce never sees a nil load.
+	d.enginesSnapshot.Store(make(map[string]Engine))
+	return d
 }
 
-func (d *dataSource) Initialize() {
-	d.decoder = decode.GetDecoder(d.db.Option.Engine)
-}
-
+// Name returns the name of the underlying database.
 func (d *dataSource) Name() string {
 	return d.db.Name
 }
 
-func (d *dataSource) Produce(data []byte) error {
+// Startup initialises the decoder and launches the background event loop that
+// serialises engine registration and shutdown operations.
+func (d *dataSource) Startup() {
+	if !d.running.CompareAndSwap(false, true) {
+		return
+	}
+	d.decoder = decode.GetDecoder(d.db.Option.Engine)
+	go d.loop()
+}
+
+// loop is the sole goroutine that mutates the engines map.
+// All other goroutines interact with it through channels, keeping the hot
+// path (Produce / GetEngine) completely lock-free.
+func (d *dataSource) loop() {
+	// Work on a local mutable copy; publish immutable snapshots via atomic.Value.
+	engines := make(map[string]Engine)
+
+	for {
+		select {
+		case cmd := <-d.scheduleC:
+			// Register a new engine if it is not already present.
+			if _, ok := engines[cmd.stream.Name]; !ok {
+				// TODO: create engine based on streaming config (add engine type)
+				engine := cep.NewEngine(cmd.stream, d.db)
+				if err := engine.Startup(); err != nil {
+					cmd.replyCh <- err
+					continue
+				}
+				engines[cmd.stream.Name] = engine
+				// Publish an immutable copy so readers see the new engine atomically.
+				d.publishSnapshot(engines)
+			}
+			cmd.replyCh <- nil
+
+		case <-d.stopC:
+			// Shut down all engines before exiting.
+			for _, engine := range engines {
+				if err := engine.Shutdown(); err != nil {
+					d.logger.Error("stop engine error:", logger.Error(err))
+				}
+			}
+			return
+		}
+	}
+}
+
+// publishSnapshot stores an immutable copy of the current engines map so that
+// Produce and GetEngine can read it without any lock.
+func (d *dataSource) publishSnapshot(engines map[string]Engine) {
+	snapshot := make(map[string]Engine, len(engines))
+	for k, v := range engines {
+		snapshot[k] = v
+	}
+	d.enginesSnapshot.Store(snapshot)
+}
+
+// Produce decodes msg into one or more Arrow RecordBatches and fans each record
+// out to all currently registered engines. It is entirely lock-free: it reads
+// the engines snapshot atomically and performs no writes.
+func (d *dataSource) Produce(msg []byte) error {
 	if !d.running.Load() {
 		return errors.New("data source not running")
 	}
-	record, err := d.decoder.ToRecord(data)
+	records, err := d.decoder.ToRecords(msg)
 	if err != nil {
 		d.logger.Error("transfer data to event error:", logger.Error(err))
 		return err
 	}
-	if record == nil || record.NumRows() == 0 {
-		return nil
-	}
-	// TODO: add lock???
-	for _, engine := range d.engines {
-		engine.Send(record)
+	// Load the current immutable snapshot — no lock required.
+	engines := d.enginesSnapshot.Load().(map[string]Engine)
+	for _, record := range records {
+		if record == nil || record.NumRows() == 0 {
+			continue
+		}
+		for _, engine := range engines {
+			engine.Send(record)
+		}
 	}
 	return nil
 }
 
+// ScheduleStream sends a registration command to the event loop and blocks
+// until the engine has been started (or an error is returned).
 func (d *dataSource) ScheduleStream(stream *models.Streaming) error {
 	if !d.running.Load() {
+		d.logger.Warn("schedule stream failed, data source not running", logger.String("streaming", stream.Name))
 		return nil
 	}
-
-	d.lock.Lock()
-	defer d.lock.Unlock()
-
-	_, ok := d.engines[stream.Name]
-	if !ok {
-		// TODO: create engine based on streaming config(add engine type)
-		engine := cep.NewEngine(stream, d.db)
-		if err := engine.Start(); err != nil {
-			return err
-		}
-		d.engines[stream.Name] = engine
-	}
-
-	return nil
+	replyCh := make(chan error, 1)
+	d.scheduleC <- scheduleCmd{stream: stream, replyCh: replyCh}
+	return <-replyCh
 }
 
+// GetEngine returns the engine for the given stream name from the current
+// immutable snapshot. It is lock-free.
 func (d *dataSource) GetEngine(stream string) (Engine, bool) {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-
-	e, ok := d.engines[stream]
+	engines := d.enginesSnapshot.Load().(map[string]Engine)
+	e, ok := engines[stream]
 	return e, ok
 }
 
+// Shutdown stops the event loop and all registered engines.
 func (d *dataSource) Shutdown() {
 	if d.running.CompareAndSwap(true, false) {
-		d.lock.Lock()
-		defer d.lock.Unlock()
-
-		for _, engine := range d.engines {
-			if err := engine.Stop(); err != nil {
-				d.logger.Error("stop engine error:", logger.Error(err))
-			}
-		}
+		close(d.stopC)
 	}
 }

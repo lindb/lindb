@@ -681,23 +681,11 @@ func (s *BaseSQLParserListener) EnterQuotedStringLiteral(ctx *QuotedStringLitera
 // ExitQuotedStringLiteral is called when production quotedStringLiteral is exited.
 func (s *BaseSQLParserListener) ExitQuotedStringLiteral(ctx *QuotedStringLiteralContext) {}
 
-// EnterUnquotedIdentifier is called when production unquotedIdentifier is entered.
-func (s *BaseSQLParserListener) EnterUnquotedIdentifier(ctx *UnquotedIdentifierContext) {}
+// EnterIdentifier is called when production identifier is entered.
+func (s *BaseSQLParserListener) EnterIdentifier(ctx *IdentifierContext) {}
 
-// ExitUnquotedIdentifier is called when production unquotedIdentifier is exited.
-func (s *BaseSQLParserListener) ExitUnquotedIdentifier(ctx *UnquotedIdentifierContext) {}
-
-// EnterBackQuotedIdentifier is called when production backQuotedIdentifier is entered.
-func (s *BaseSQLParserListener) EnterBackQuotedIdentifier(ctx *BackQuotedIdentifierContext) {}
-
-// ExitBackQuotedIdentifier is called when production backQuotedIdentifier is exited.
-func (s *BaseSQLParserListener) ExitBackQuotedIdentifier(ctx *BackQuotedIdentifierContext) {}
-
-// EnterDigitIdentifier is called when production digitIdentifier is entered.
-func (s *BaseSQLParserListener) EnterDigitIdentifier(ctx *DigitIdentifierContext) {}
-
-// ExitDigitIdentifier is called when production digitIdentifier is exited.
-func (s *BaseSQLParserListener) ExitDigitIdentifier(ctx *DigitIdentifierContext) {}
+// ExitIdentifier is called when production identifier is exited.
+func (s *BaseSQLParserListener) ExitIdentifier(ctx *IdentifierContext) {}
 
 // EnterDecimalLiteral is called when production decimalLiteral is entered.
 func (s *BaseSQLParserListener) EnterDecimalLiteral(ctx *DecimalLiteralContext) {}

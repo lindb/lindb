@@ -21,7 +21,7 @@ type Identifier struct {
 	BaseNode
 
 	Value     string `json:"value"`
-	Delimited bool   `json:"delimited"`
+	Delimited bool   `json:"delimited"` // TODO: remove it?
 }
 
 func (n *Identifier) Accept(context any, visitor Visitor) (r any) {

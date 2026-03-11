@@ -23,17 +23,24 @@ import (
 	"github.com/lindb/lindb/pkg/option"
 )
 
-var decoderRegistry = make(map[option.EngineType]Decoder)
+type createDecoderFunc = func() Decoder
+
+var decoderRegistry = make(map[option.EngineType]createDecoderFunc)
 
 // RegisterDecoder registers decoder for given format.
-func RegisterDecoder(engine option.EngineType, decoder Decoder) {
+func RegisterDecoder(engine option.EngineType, decoder createDecoderFunc) {
 	decoderRegistry[engine] = decoder
 }
 
 func GetDecoder(engine option.EngineType) Decoder {
-	return decoderRegistry[engine]
+	fn := decoderRegistry[engine]
+	return fn()
 }
 
 type Decoder interface {
-	ToRecord(data []byte) (arrow.RecordBatch, error)
+	// ToRecords decodes raw bytes into one or more Arrow RecordBatches.
+	// A single message may expand into multiple records (e.g. one record per
+	// trace span, or one record per metric family). Returns nil without error
+	// when the data is valid but produces no rows.
+	ToRecords(data []byte) ([]arrow.RecordBatch, error)
 }

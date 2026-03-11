@@ -345,14 +345,8 @@ type SQLParserVisitor interface {
 	// Visit a parse tree produced by SQLParser#quotedStringLiteral.
 	VisitQuotedStringLiteral(ctx *QuotedStringLiteralContext) interface{}
 
-	// Visit a parse tree produced by SQLParser#unquotedIdentifier.
-	VisitUnquotedIdentifier(ctx *UnquotedIdentifierContext) interface{}
-
-	// Visit a parse tree produced by SQLParser#backQuotedIdentifier.
-	VisitBackQuotedIdentifier(ctx *BackQuotedIdentifierContext) interface{}
-
-	// Visit a parse tree produced by SQLParser#digitIdentifier.
-	VisitDigitIdentifier(ctx *DigitIdentifierContext) interface{}
+	// Visit a parse tree produced by SQLParser#identifier.
+	VisitIdentifier(ctx *IdentifierContext) interface{}
 
 	// Visit a parse tree produced by SQLParser#decimalLiteral.
 	VisitDecimalLiteral(ctx *DecimalLiteralContext) interface{}

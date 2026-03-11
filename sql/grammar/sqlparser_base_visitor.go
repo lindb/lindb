@@ -452,15 +452,7 @@ func (v *BaseSQLParserVisitor) VisitQuotedStringLiteral(ctx *QuotedStringLiteral
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseSQLParserVisitor) VisitUnquotedIdentifier(ctx *UnquotedIdentifierContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseSQLParserVisitor) VisitBackQuotedIdentifier(ctx *BackQuotedIdentifierContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseSQLParserVisitor) VisitDigitIdentifier(ctx *DigitIdentifierContext) interface{} {
+func (v *BaseSQLParserVisitor) VisitIdentifier(ctx *IdentifierContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
