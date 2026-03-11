@@ -117,7 +117,10 @@ func TestTraceDecoder_ToRecords(t *testing.T) {
 
 	// span record must contain the expected column names
 	spanSchema := spanRecord.Schema()
-	expectedSpanCols := []string{"trace_id", "span_id", "parent_span_id", "start_time", "duration", "name", "status", "kind", "resource", "scope", "attributes"}
+	expectedSpanCols := []string{
+		"trace_id", "span_id", "parent_span_id", "start_time", "duration",
+		"name", "status", "kind", "resource", "scope", "attributes",
+	}
 	for _, col := range expectedSpanCols {
 		indices := spanSchema.FieldIndices(col)
 		assert.NotEmpty(t, indices, "span record missing column %q", col)
