@@ -62,7 +62,7 @@ type CreateDatabase struct {
 	Name          string
 	CreateOptions []CreateOption
 	Props         []*Property
-	Rollup        []*RollupOption
+	Retention     []*RetentionOption
 }
 
 func (n *CreateDatabase) Accept(context any, visitor Visitor) any {
@@ -79,11 +79,12 @@ func (n *CreateBroker) Accept(context any, visitor Visitor) any {
 	return visitor.Visit(context, n)
 }
 
-type RollupOption struct {
+// RetentionOption represents a retention policy option in CREATE DATABASE DDL.
+type RetentionOption struct {
 	BaseNode
 	Props []*Property
 }
 
-func (n *RollupOption) Accept(context any, visitor Visitor) any {
+func (n *RetentionOption) Accept(context any, visitor Visitor) any {
 	return visitor.Visit(context, n)
 }

@@ -19,6 +19,7 @@ package stream
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
@@ -179,6 +180,7 @@ func (sc *sourceConnector) process(record arrow.RecordBatch, output chan<- arrow
 			columns[i] = record.Column(ref)
 		}
 	}
+	fmt.Println(record)
 	rs := array.NewRecordBatch(sc.recordSchema, columns, record.NumRows())
 	output <- larrow.NewFilterableRecord(rs, mark)
 }

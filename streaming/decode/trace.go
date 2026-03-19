@@ -30,7 +30,6 @@ func init() {
 	RegisterDecoder(option.Trace, newTrace)
 }
 
-
 type trace struct {
 	reader      *traces.TraceReader
 	spanJoiner  *larrow.RecordJoiner

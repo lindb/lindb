@@ -100,7 +100,7 @@ func (db *Database) Validate() error {
 func (db *Database) String() string {
 	result := "create database " + db.Name + " with ("
 	result += "numOfShard=" + fmt.Sprintf("%d", db.Option.NumOfShard) + ", replicaFactor=" + fmt.Sprintf("%d", db.Option.ReplicaFactor)
-	result += ", intervals=" + db.Option.Intervals.String() + ")"
+	result += ", retentionPolicies=" + db.Option.RetentionPolicies.String() + ")"
 	return result
 }
 

@@ -50,7 +50,7 @@ func TestCreate_Database(t *testing.T) {
 				with(
 				 	p1='v1',p2='v2',p3='v3'
 				)
-				rollup(
+				retention(
 					(r1='v1',r2='v2'),
 					(r11='v1',r22='v2')
 				)
@@ -62,7 +62,7 @@ func TestCreate_Database(t *testing.T) {
 					// "p2": "v2",
 					// "p3": "v3",
 				},
-				Rollup: []*RollupOption{
+				Retention: []*RetentionOption{
 					{
 						Props: []*Property{
 							// "r1": "v1",

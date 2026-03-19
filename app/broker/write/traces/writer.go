@@ -45,7 +45,7 @@ func NewWriter(
 ) *writer {
 	return &writer{
 		ctx:          ctx,
-		intervalCalc: databaseCfg.Option.Intervals[0].Interval.Calculator(),
+		intervalCalc: databaseCfg.Option.RetentionPolicies[0].Interval.Calculator(),
 		database:     database,
 	}
 }

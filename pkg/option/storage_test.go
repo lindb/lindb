@@ -35,28 +35,28 @@ func TestDatabaseOption_Validate(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			"empty intervals",
-			DatabaseOption{},
+			"empty retention policies",
+			DatabaseOption{Engine: Metric},
 			true,
 		},
 		{
 			"ahead invalid",
-			DatabaseOption{Intervals: Intervals{{}}, Ahead: "aa"},
+			DatabaseOption{Engine: Metric, RetentionPolicies: RetentionPolicies{{}}, Ahead: "aa"},
 			true,
 		},
 		{
 			"behind invalid",
-			DatabaseOption{Intervals: Intervals{{}}, Behind: "aa"},
+			DatabaseOption{Engine: Metric, RetentionPolicies: RetentionPolicies{{}}, Behind: "aa"},
 			true,
 		},
 		{
 			"interval cannot be negative",
-			DatabaseOption{Intervals: Intervals{{}}, Behind: "0h"},
+			DatabaseOption{Engine: Metric, RetentionPolicies: RetentionPolicies{{}}, Behind: "0h"},
 			true,
 		},
 		{
-			"validation pass",
-			DatabaseOption{Intervals: Intervals{
+			"validation pass with duplicate interval type",
+			DatabaseOption{Engine: Metric, RetentionPolicies: RetentionPolicies{
 				{timeutil.Interval(commontimeutil.OneSecond), timeutil.Interval(commontimeutil.OneMonth)},
 				{timeutil.Interval(commontimeutil.OneMinute), timeutil.Interval(commontimeutil.OneMonth)},
 			}, Behind: "1h", Ahead: "1h"},
@@ -64,7 +64,7 @@ func TestDatabaseOption_Validate(t *testing.T) {
 		},
 		{
 			"validation pass",
-			DatabaseOption{Intervals: Intervals{{}}, Behind: "1h", Ahead: "1h"},
+			DatabaseOption{Engine: Metric, RetentionPolicies: RetentionPolicies{{}}, Behind: "1h", Ahead: "1h"},
 			false,
 		},
 	}
@@ -128,48 +128,58 @@ func TestDatabaseOption_GetAcceptWritableRange(t *testing.T) {
 	}
 }
 
-func TestInterval_String(t *testing.T) {
+func TestRetentionPolicy_String(t *testing.T) {
 	assert.Equal(t, "10s->1M",
-		Interval{
+		RetentionPolicy{
 			Interval:  timeutil.Interval(10 * commontimeutil.OneSecond),
 			Retention: timeutil.Interval(commontimeutil.OneMonth),
 		}.String(),
 	)
 }
 
-func TestIntervals_Sort(t *testing.T) {
-	intervals := Intervals{
-		{timeutil.Interval(commontimeutil.OneMinute), timeutil.Interval(commontimeutil.OneMonth)},
-		{timeutil.Interval(commontimeutil.OneHour), timeutil.Interval(commontimeutil.OneMonth)},
-		{timeutil.Interval(commontimeutil.OneSecond), timeutil.Interval(commontimeutil.OneMonth)},
+func TestRetentionPolicy_CalcExpireTime(t *testing.T) {
+	policy := RetentionPolicy{
+		Interval:  timeutil.Interval(commontimeutil.OneSecond),
+		Retention: timeutil.Interval(commontimeutil.OneMonth),
 	}
-	sort.Sort(intervals)
-	assert.Equal(t, Intervals{
-		{timeutil.Interval(commontimeutil.OneSecond), timeutil.Interval(commontimeutil.OneMonth)},
-		{timeutil.Interval(commontimeutil.OneMinute), timeutil.Interval(commontimeutil.OneMonth)},
-		{timeutil.Interval(commontimeutil.OneHour), timeutil.Interval(commontimeutil.OneMonth)},
-	}, intervals)
-
-	assert.Equal(t, "[1s->1M,1m->1M,1h->1M]", intervals.String())
+	nowMs := int64(commontimeutil.OneMonth * 2)
+	expireTime := policy.CalcExpireTime(nowMs)
+	assert.Equal(t, int64(commontimeutil.OneMonth), expireTime)
 }
 
-func TestIntervals_IsValid(t *testing.T) {
-	intervals := Intervals{
+func TestRetentionPolicies_Sort(t *testing.T) {
+	policies := RetentionPolicies{
+		{timeutil.Interval(commontimeutil.OneMinute), timeutil.Interval(commontimeutil.OneMonth)},
+		{timeutil.Interval(commontimeutil.OneHour), timeutil.Interval(commontimeutil.OneMonth)},
+		{timeutil.Interval(commontimeutil.OneSecond), timeutil.Interval(commontimeutil.OneMonth)},
+	}
+	sort.Sort(policies)
+	assert.Equal(t, RetentionPolicies{
+		{timeutil.Interval(commontimeutil.OneSecond), timeutil.Interval(commontimeutil.OneMonth)},
+		{timeutil.Interval(commontimeutil.OneMinute), timeutil.Interval(commontimeutil.OneMonth)},
+		{timeutil.Interval(commontimeutil.OneHour), timeutil.Interval(commontimeutil.OneMonth)},
+	}, policies)
+
+	assert.Equal(t, "[1s->1M,1m->1M,1h->1M]", policies.String())
+}
+
+func TestRetentionPolicies_IsValid(t *testing.T) {
+	policies := RetentionPolicies{
 		{timeutil.Interval(commontimeutil.OneSecond), timeutil.Interval(commontimeutil.OneMonth)},
 		{timeutil.Interval(commontimeutil.OneMinute), timeutil.Interval(commontimeutil.OneMonth)},
 		{timeutil.Interval(commontimeutil.OneHour), timeutil.Interval(commontimeutil.OneMonth)},
 	}
-	assert.Error(t, intervals.IsValid())
-	intervals = Intervals{
+	assert.Error(t, policies.IsValid())
+	policies = RetentionPolicies{
 		{timeutil.Interval(commontimeutil.OneSecond), timeutil.Interval(commontimeutil.OneMonth)},
 		{timeutil.Interval(commontimeutil.OneMinute * 5), timeutil.Interval(commontimeutil.OneMonth)},
 		{timeutil.Interval(commontimeutil.OneHour), timeutil.Interval(commontimeutil.OneMonth)},
 	}
-	assert.NoError(t, intervals.IsValid())
+	assert.NoError(t, policies.IsValid())
 }
 
 func TestDatabaseOption_FindMatchSmallestInterval(t *testing.T) {
-	opt := DatabaseOption{Intervals: Intervals{
+	opt := DatabaseOption{RetentionPolicies: RetentionPolicies{
 		{timeutil.Interval(commontimeutil.OneSecond), timeutil.Interval(commontimeutil.OneMonth)},
 		{timeutil.Interval(commontimeutil.OneMinute), timeutil.Interval(commontimeutil.OneMonth)},
 		{timeutil.Interval(commontimeutil.OneHour), timeutil.Interval(commontimeutil.OneMonth)},

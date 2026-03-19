@@ -8,6 +8,7 @@ bin/
 *.bat
 *.iml
 release/
+.claude/settings.local.json
 
 # temp file during testing
 cpu_profile

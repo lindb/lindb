@@ -1,20 +1,3 @@
-// Licensed to LinDB under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. LinDB licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 // Code generated from ./sql/grammar/SQLParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package grammar // SQLParser
@@ -96,14 +79,14 @@ type SQLParserListener interface {
 	// EnterWithProps is called when entering the withProps production.
 	EnterWithProps(c *WithPropsContext)
 
-	// EnterRollupProps is called when entering the rollupProps production.
-	EnterRollupProps(c *RollupPropsContext)
+	// EnterRetentionProps is called when entering the retentionProps production.
+	EnterRetentionProps(c *RetentionPropsContext)
 
 	// EnterEngineOption is called when entering the engineOption production.
 	EnterEngineOption(c *EngineOptionContext)
 
-	// EnterRollupOptions is called when entering the rollupOptions production.
-	EnterRollupOptions(c *RollupOptionsContext)
+	// EnterRetentionOptions is called when entering the retentionOptions production.
+	EnterRetentionOptions(c *RetentionOptionsContext)
 
 	// EnterDropDatabase is called when entering the dropDatabase production.
 	EnterDropDatabase(c *DropDatabaseContext)
@@ -438,14 +421,14 @@ type SQLParserListener interface {
 	// ExitWithProps is called when exiting the withProps production.
 	ExitWithProps(c *WithPropsContext)
 
-	// ExitRollupProps is called when exiting the rollupProps production.
-	ExitRollupProps(c *RollupPropsContext)
+	// ExitRetentionProps is called when exiting the retentionProps production.
+	ExitRetentionProps(c *RetentionPropsContext)
 
 	// ExitEngineOption is called when exiting the engineOption production.
 	ExitEngineOption(c *EngineOptionContext)
 
-	// ExitRollupOptions is called when exiting the rollupOptions production.
-	ExitRollupOptions(c *RollupOptionsContext)
+	// ExitRetentionOptions is called when exiting the retentionOptions production.
+	ExitRetentionOptions(c *RetentionOptionsContext)
 
 	// ExitDropDatabase is called when exiting the dropDatabase production.
 	ExitDropDatabase(c *DropDatabaseContext)

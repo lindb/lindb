@@ -85,13 +85,13 @@ createSink          : CREATE SINK name=qualifiedName (WITH properties)? ;
 
 databaseOptions     : createDatabaseOptions (',' createDatabaseOptions)*    #databaseOpts
                     | WITH properties                                       #withProps 
-                    | ROLLUP '(' rollupOptions (',' rollupOptions)* ')'     #rollupProps 
+                    | RETENTION '(' retentionOptions (',' retentionOptions)* ')'     #retentionProps 
                     ;
 
 createDatabaseOptions : ENGINE (EQ)? value=(METRIC | LOG | TRACE)            #engineOption
 											;
 
-rollupOptions       : properties ;
+retentionOptions    : properties ;
 dropDatabase        : DROP DATABASE (IF EXISTS)? database=qualifiedName ;
 createBroker        : CREATE BROKER name=qualifiedName
                        (WITH properties)?
@@ -267,7 +267,7 @@ nonReserved         :
                     | MASTER | MEMORY_DATABASES | METRIC | METRICS | METADATA | METADATAS
                     | NAMESPACE | NAMESPACES | NULL | NOT | NOW
                     | ON | OR | ORDER
-                    | REQUESTS | REPLICATIONS | RIGHT | ROLLUP
+                    | REQUESTS | REPLICATIONS | RETENTION | RIGHT
                     | SELECT | SINK | SHOW | STATE | STORAGE | STREAMING 
                     | TABLE_NAMES | TIMESTAMP | TRACE | TRUE | TYPE | TYPES 
                     | OBSERVER

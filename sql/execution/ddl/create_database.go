@@ -82,13 +82,13 @@ func (task *CreateDatabaseTask) buildDatabase(
 		return nil, err
 	}
 	if engineType == option.Metric {
-		// rollup interval options
-		for _, rollup := range task.statement.Rollup {
-			rollupOption := option.Interval{}
-			if err := task.evalPropsExpression(evalCtx, rollup.Props, &rollupOption); err != nil {
+		// retention policy options
+		for _, retention := range task.statement.Retention {
+			retentionPolicy := option.RetentionPolicy{}
+			if err := task.evalPropsExpression(evalCtx, retention.Props, &retentionPolicy); err != nil {
 				return nil, err
 			}
-			options.Intervals = append(options.Intervals, rollupOption)
+			options.RetentionPolicies = append(options.RetentionPolicies, retentionPolicy)
 		}
 	}
 	database := &models.Database{

@@ -102,8 +102,8 @@ func newDatabaseChannel(
 	ch.behind = atomic.NewInt64(behind)
 
 	// TODO need validation
-	sort.Sort(databaseCfg.Option.Intervals)
-	ch.interval = databaseCfg.Option.Intervals[0].Interval
+	sort.Sort(databaseCfg.Option.RetentionPolicies)
+	ch.interval = databaseCfg.Option.RetentionPolicies[0].Interval
 
 	ch.numOfShard.Store(numOfShard)
 

@@ -68,7 +68,7 @@ null
 'REQUESTS'
 'REPLICATIONS'
 'RIGHT'
-'ROLLUP'
+'RETENTION'
 'SELECT'
 'SINK'
 'SHOW'
@@ -195,7 +195,7 @@ ORDER
 REQUESTS
 REPLICATIONS
 RIGHT
-ROLLUP
+RETENTION
 SELECT
 SINK
 SHOW
@@ -274,7 +274,7 @@ createDatabase
 createSink
 databaseOptions
 createDatabaseOptions
-rollupOptions
+retentionOptions
 dropDatabase
 createBroker
 flushDatabase

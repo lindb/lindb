@@ -46,8 +46,8 @@ func NewWriter(
 	database writerpkg.DatabaseAccessor[*model.Log],
 ) *writer {
 	// TODO: need validation
-	sort.Sort(databaseCfg.Option.Intervals)
-	interval := databaseCfg.Option.Intervals[0].Interval
+	sort.Sort(databaseCfg.Option.RetentionPolicies)
+	interval := databaseCfg.Option.RetentionPolicies[0].Interval
 	return &writer{
 		ctx:          ctx,
 		intervalCalc: interval.Calculator(),

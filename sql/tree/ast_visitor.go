@@ -303,8 +303,8 @@ func (v *AstVisitor) VisitCreateDatabase(ctx *grammar.CreateDatabaseContext) any
 		switch opt := (v.Visit(option)).(type) {
 		case []CreateOption:
 			createDatabase.CreateOptions = append(createDatabase.CreateOptions, opt...)
-		case []*RollupOption:
-			createDatabase.Rollup = append(createDatabase.Rollup, opt...)
+		case []*RetentionOption:
+			createDatabase.Retention = append(createDatabase.Retention, opt...)
 		case []*Property:
 			createDatabase.Props = append(createDatabase.Props, opt...)
 		}
@@ -320,8 +320,8 @@ func (v *AstVisitor) VisitWithProps(ctx *grammar.WithPropsContext) any {
 	return visit[*Property](ctx.Properties().PropertyAssignments().AllProperty(), v)
 }
 
-func (v *AstVisitor) VisitRollupProps(ctx *grammar.RollupPropsContext) any {
-	return visit[*RollupOption](ctx.AllRollupOptions(), v)
+func (v *AstVisitor) VisitRetentionProps(ctx *grammar.RetentionPropsContext) any {
+	return visit[*RetentionOption](ctx.AllRetentionOptions(), v)
 }
 
 func (v *AstVisitor) VisitEngineOption(ctx *grammar.EngineOptionContext) any {
@@ -341,8 +341,8 @@ func (v *AstVisitor) VisitEngineOption(ctx *grammar.EngineOptionContext) any {
 	}
 }
 
-func (v *AstVisitor) VisitRollupOptions(ctx *grammar.RollupOptionsContext) any {
-	return &RollupOption{
+func (v *AstVisitor) VisitRetentionOptions(ctx *grammar.RetentionOptionsContext) any {
+	return &RetentionOption{
 		BaseNode: v.createBaseNode(ctx),
 		Props:    visit[*Property](ctx.Properties().PropertyAssignments().AllProperty(), v),
 	}

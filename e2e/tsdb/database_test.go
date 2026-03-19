@@ -54,7 +54,7 @@ func TestDatabase_Write_And_Rollup(t *testing.T) {
 	interval := timeutil.Interval(10 * 1000)
 	rollupInterval := timeutil.Interval(5 * 60 * 1000)
 	opt := &option.DatabaseOption{
-		Intervals:    option.Intervals{{Interval: interval}, {Interval: rollupInterval}},
+		RetentionPolicies: option.RetentionPolicies{{Interval: interval}, {Interval: rollupInterval}},
 		AutoCreateNS: true,
 	}
 	err = engine.CreateShards("write-db", opt, models.ShardID(1))

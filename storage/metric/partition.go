@@ -49,13 +49,13 @@ func NewPartition(shard *Shard, partitionTime int64, interval timeutil.Interval)
 	dir := store.PartitionPath(shard.Database().Name(), shard.ShardID(), interval, partitionName)
 
 	storeOption := kv.DefaultStoreOption()
-	intervals := shard.Database().GetOption().Option.Intervals
-	if shard.CurrentInterval() == interval && len(intervals) > 1 {
+	retentionPolicies := shard.Database().GetOption().Option.RetentionPolicies
+	if shard.CurrentInterval() == interval && len(retentionPolicies) > 1 {
 		// if interval == writeable interval and database set auto rollup intervals
-		sort.Sort(intervals) // need sort interval
+		sort.Sort(retentionPolicies) // need sort by interval
 		var rollup []timeutil.Interval
-		for _, rollupInterval := range intervals {
-			rollup = append(rollup, rollupInterval.Interval)
+		for _, policy := range retentionPolicies {
+			rollup = append(rollup, policy.Interval)
 		}
 		storeOption.Rollup = rollup[1:]
 		storeOption.Source = interval

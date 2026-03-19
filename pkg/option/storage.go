@@ -38,17 +38,17 @@ const (
 	Trace  EngineType = "TRACE"
 )
 
-// Intervals represents the list of Interval.
-type Intervals []Interval
+// RetentionPolicies represents the list of RetentionPolicy.
+type RetentionPolicies []RetentionPolicy
 
-func (m Intervals) Len() int { return len(m) }
+func (m RetentionPolicies) Len() int { return len(m) }
 
-func (m Intervals) Less(i, j int) bool { return m[i].Interval < m[j].Interval }
+func (m RetentionPolicies) Less(i, j int) bool { return m[i].Interval < m[j].Interval }
 
-func (m Intervals) Swap(i, j int) { m[i], m[j] = m[j], m[i] }
+func (m RetentionPolicies) Swap(i, j int) { m[i], m[j] = m[j], m[i] }
 
-// String returns the string representation of the Intervals.
-func (m Intervals) String() string {
+// String returns the string representation of the RetentionPolicies.
+func (m RetentionPolicies) String() string {
 	rs := make([]string, len(m))
 	for idx, i := range m {
 		rs[idx] = i.String()
@@ -56,9 +56,9 @@ func (m Intervals) String() string {
 	return fmt.Sprintf("[%s]", strings.Join(rs, ","))
 }
 
-// IsValid checks if intervals is valid, if invalid return error.
-func (m Intervals) IsValid() error {
-	intervalMap := make(map[timeutil.IntervalType]Interval)
+// IsValid checks if retention policies are valid, if invalid return error.
+func (m RetentionPolicies) IsValid() error {
+	intervalMap := make(map[timeutil.IntervalType]RetentionPolicy)
 	for _, i := range m {
 		intervalType := i.Interval.Type()
 		exist, ok := intervalMap[intervalType]
@@ -71,15 +71,21 @@ func (m Intervals) IsValid() error {
 	return nil
 }
 
-// Interval represents the database's interval option, include interval and data retention.
-type Interval struct {
+// RetentionPolicy represents the database's retention policy, include interval and data retention.
+type RetentionPolicy struct {
 	Interval  timeutil.Interval `toml:"interval" json:"interval,omitempty" mapstructure:"interval" validate:"required"`
 	Retention timeutil.Interval `toml:"retention" json:"retention,omitempty" mapstructure:"retention" validate:"required"`
 }
 
-// String returns the string representation of the Interval.
-func (m Interval) String() string {
-	return fmt.Sprintf("%s->%s", m.Interval, m.Retention)
+// String returns the string representation of the RetentionPolicy.
+func (p RetentionPolicy) String() string {
+	return fmt.Sprintf("%s->%s", p.Interval, p.Retention)
+}
+
+// CalcExpireTime returns the expiration timestamp (ms) based on the retention duration.
+// Data with timestamp before this value should be considered expired and eligible for deletion.
+func (p RetentionPolicy) CalcExpireTime(nowMs int64) int64 {
+	return nowMs - p.Retention.Int64()
 }
 
 // FlusherOption represents a flusher configuration for index and memory db
@@ -94,11 +100,11 @@ type DatabaseOption struct {
 
 	Behind string `toml:"behind" json:"behind,omitempty" mapstructure:"behind"`
 	Ahead  string `toml:"ahead" json:"ahead,omitempty" mapstructure:"ahead"`
-	// write interval(the number of second) => TTL
-	// rollup intervals(like seconds->minute->hour->day)
-	Intervals Intervals     `toml:"intervals" json:"intervals,omitempty"  validate:"required"`
-	Index     FlusherOption `toml:"index" json:"index,omitempty"`
-	Data      FlusherOption `toml:"data" json:"data,omitempty"`
+	// retention policies define write interval and data TTL
+	// supports multiple rollup intervals (e.g., seconds->minute->hour->day)
+	RetentionPolicies RetentionPolicies `toml:"retentionPolicies" json:"retentionPolicies,omitempty" validate:"required"`
+	Index             FlusherOption     `toml:"index" json:"index,omitempty"`
+	Data              FlusherOption     `toml:"data" json:"data,omitempty"`
 
 	ahead         int64
 	behind        int64
@@ -110,10 +116,10 @@ type DatabaseOption struct {
 
 // FindMatchSmallestInterval returns the smallest interval which match query interval.
 func (e *DatabaseOption) FindMatchSmallestInterval(interval timeutil.Interval) timeutil.Interval {
-	storageIntervals := make([]timeutil.Interval, len(e.Intervals))
+	storageIntervals := make([]timeutil.Interval, len(e.RetentionPolicies))
 	idx := 0
-	for k := range e.Intervals {
-		storageIntervals[idx] = e.Intervals[k].Interval
+	for k := range e.RetentionPolicies {
+		storageIntervals[idx] = e.RetentionPolicies[k].Interval
 		idx++
 	}
 	// desc order
@@ -121,7 +127,7 @@ func (e *DatabaseOption) FindMatchSmallestInterval(interval timeutil.Interval) t
 		return storageIntervals[i] > storageIntervals[j]
 	})
 
-	storageInterval := e.Intervals[0].Interval // init using the smallest interval
+	storageInterval := e.RetentionPolicies[0].Interval // init using the smallest interval
 	for _, sInterval := range storageIntervals {
 		if interval >= sInterval {
 			storageInterval = sInterval
@@ -136,10 +142,10 @@ func (e *DatabaseOption) Validate() error {
 	if e.Engine != Metric {
 		return nil
 	}
-	if len(e.Intervals) == 0 {
-		return errors.New("intervals cannot be empty")
+	if len(e.RetentionPolicies) == 0 {
+		return errors.New("retention policies cannot be empty")
 	}
-	if err := e.Intervals.IsValid(); err != nil {
+	if err := e.RetentionPolicies.IsValid(); err != nil {
 		return err
 	}
 	// TODO: need remove
@@ -178,8 +184,8 @@ func (e *DatabaseOption) Default() {
 	if e.ReplicaFactor <= 0 {
 		e.ReplicaFactor = 1
 	}
-	if len(e.Intervals) == 0 {
-		e.Intervals = append(e.Intervals, Interval{
+	if len(e.RetentionPolicies) == 0 {
+		e.RetentionPolicies = append(e.RetentionPolicies, RetentionPolicy{
 			Interval:  timeutil.Interval(10 * commontimeutil.OneSecond),
 			Retention: timeutil.Interval(commontimeutil.OneMonth),
 		})

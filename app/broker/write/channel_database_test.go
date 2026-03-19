@@ -36,7 +36,7 @@ func TestDatabaseChannel_Write(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	opt := &option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}
+	opt := &option.DatabaseOption{RetentionPolicies: option.RetentionPolicies{{Interval: 10 * 1000}}}
 	ch := newDatabaseChannel(context.TODO(),
 		models.Database{
 			Name:   "database",
@@ -84,7 +84,7 @@ func TestDatabaseChannel_Write(t *testing.T) {
 func TestDatabaseChannel_CreateChannel(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	opt := &option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}
+	opt := &option.DatabaseOption{RetentionPolicies: option.RetentionPolicies{{Interval: 10 * 1000}}}
 	ch := newDatabaseChannel(context.TODO(),
 		models.Database{
 			Name:   "database",
@@ -112,7 +112,7 @@ func TestDatabaseChannel_CreateChannel(t *testing.T) {
 func TestDatabaseChannel_Stop(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	opt := &option.DatabaseOption{Intervals: option.Intervals{{Interval: 10 * 1000}}}
+	opt := &option.DatabaseOption{RetentionPolicies: option.RetentionPolicies{{Interval: 10 * 1000}}}
 	ch := newDatabaseChannel(context.TODO(),
 		models.Database{
 			Name:   "database",

@@ -91,10 +91,10 @@ func newShard(
 	// try cleanup history dirty write buffer
 	createdShard.bufferMgr.Cleanup()
 
-	// sort intervals
-	sort.Sort(dbOption.Intervals)
+	// sort retention policies by interval
+	sort.Sort(dbOption.RetentionPolicies)
 
-	createdShard.interval = dbOption.Intervals[0].Interval
+	createdShard.interval = dbOption.RetentionPolicies[0].Interval
 
 	defer func() {
 		if err == nil {
@@ -107,12 +107,12 @@ func newShard(
 		}
 	}()
 
-	for idx, targetInterval := range dbOption.Intervals {
+	for idx, targetPolicy := range dbOption.RetentionPolicies {
 		// new partitions for rollup
-		partitions := store.NewPartitions(targetInterval.Interval)
+		partitions := store.NewPartitions(targetPolicy.Interval)
 		if idx == 0 {
 			// the smallest interval for writing
-			if err = partitions.Load(store.PartitionsPath(db.Name(), shardID, targetInterval.Interval), func(timestamp int64) (*store.LazyPartition, error) {
+			if err = partitions.Load(store.PartitionsPath(db.Name(), shardID, targetPolicy.Interval), func(timestamp int64) (*store.LazyPartition, error) {
 				return store.NewLazyPartition(timestamp, createdShard.createPartition), nil
 			}); err != nil {
 				// FIXME: add log
@@ -121,10 +121,10 @@ func newShard(
 			}
 
 			createdShard.Partitions = partitions
-			createdShard.CalcPartitionTimeFn = targetInterval.Interval.Calculator().CalcSegmentTime
+			createdShard.CalcPartitionTimeFn = targetPolicy.Interval.Calculator().CalcSegmentTime
 		}
 		// set rollup partitions
-		createdShard.rollupPartitions[targetInterval.Interval] = partitions
+		createdShard.rollupPartitions[targetPolicy.Interval] = partitions
 	}
 
 	if err = createdShard.initIndexDatabase(); err != nil {
@@ -260,14 +260,14 @@ func (s *Shard) TTL() {
 
 	now := time.Now()
 	database := s.Database()
-	intervals := database.GetOption().Option.Intervals
-	for _, interval := range intervals {
-		partitions, ok := s.rollupPartitions[interval.Interval]
+	intervals := database.GetOption().Option.RetentionPolicies
+	for _, policy := range intervals {
+		partitions, ok := s.rollupPartitions[policy.Interval]
 		if !ok {
 			continue
 		}
 		// e.g., if TTL is 30 days, any data before expireTime is candidate for deletion
-		expireTime := now.Add(-time.Duration(interval.Retention) * time.Millisecond).UnixMilli()
+		expireTime := policy.CalcExpireTime(now.UnixMilli())
 		for _, lp := range partitions.GetPartitions() {
 			partition, err := lp.Get()
 			if err != nil {

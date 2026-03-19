@@ -131,9 +131,9 @@ func (s *Shard) TTL() {
 
 	now := time.Now()
 	database := s.Database()
-	// normally, shard only has one interval
-	interval := database.GetOption().Option.Intervals[0]
-	expireTime := now.Add(-time.Duration(interval.Retention) * time.Millisecond).UnixMilli()
+	// normally, shard only has one retention policy
+	policy := database.GetOption().Option.RetentionPolicies[0]
+	expireTime := policy.CalcExpireTime(now.UnixMilli())
 
 	partitions := s.Partitions.GetPartitions()
 	for _, lp := range partitions {

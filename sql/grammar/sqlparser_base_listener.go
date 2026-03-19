@@ -1,20 +1,3 @@
-// Licensed to LinDB under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. LinDB licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 // Code generated from ./sql/grammar/SQLParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package grammar // SQLParser
@@ -181,11 +164,11 @@ func (s *BaseSQLParserListener) EnterWithProps(ctx *WithPropsContext) {}
 // ExitWithProps is called when production withProps is exited.
 func (s *BaseSQLParserListener) ExitWithProps(ctx *WithPropsContext) {}
 
-// EnterRollupProps is called when production rollupProps is entered.
-func (s *BaseSQLParserListener) EnterRollupProps(ctx *RollupPropsContext) {}
+// EnterRetentionProps is called when production retentionProps is entered.
+func (s *BaseSQLParserListener) EnterRetentionProps(ctx *RetentionPropsContext) {}
 
-// ExitRollupProps is called when production rollupProps is exited.
-func (s *BaseSQLParserListener) ExitRollupProps(ctx *RollupPropsContext) {}
+// ExitRetentionProps is called when production retentionProps is exited.
+func (s *BaseSQLParserListener) ExitRetentionProps(ctx *RetentionPropsContext) {}
 
 // EnterEngineOption is called when production engineOption is entered.
 func (s *BaseSQLParserListener) EnterEngineOption(ctx *EngineOptionContext) {}
@@ -193,11 +176,11 @@ func (s *BaseSQLParserListener) EnterEngineOption(ctx *EngineOptionContext) {}
 // ExitEngineOption is called when production engineOption is exited.
 func (s *BaseSQLParserListener) ExitEngineOption(ctx *EngineOptionContext) {}
 
-// EnterRollupOptions is called when production rollupOptions is entered.
-func (s *BaseSQLParserListener) EnterRollupOptions(ctx *RollupOptionsContext) {}
+// EnterRetentionOptions is called when production retentionOptions is entered.
+func (s *BaseSQLParserListener) EnterRetentionOptions(ctx *RetentionOptionsContext) {}
 
-// ExitRollupOptions is called when production rollupOptions is exited.
-func (s *BaseSQLParserListener) ExitRollupOptions(ctx *RollupOptionsContext) {}
+// ExitRetentionOptions is called when production retentionOptions is exited.
+func (s *BaseSQLParserListener) ExitRetentionOptions(ctx *RetentionOptionsContext) {}
 
 // EnterDropDatabase is called when production dropDatabase is entered.
 func (s *BaseSQLParserListener) EnterDropDatabase(ctx *DropDatabaseContext) {}

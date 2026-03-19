@@ -19,6 +19,7 @@ package streaming
 
 import (
 	"errors"
+	"maps"
 	"sync/atomic"
 
 	"github.com/lindb/common/pkg/logger"
@@ -136,9 +137,7 @@ func (d *dataSource) loop() {
 // Produce and GetEngine can read it without any lock.
 func (d *dataSource) publishSnapshot(engines map[string]Engine) {
 	snapshot := make(map[string]Engine, len(engines))
-	for k, v := range engines {
-		snapshot[k] = v
-	}
+	maps.Copy(snapshot, engines)
 	d.enginesSnapshot.Store(snapshot)
 }
 

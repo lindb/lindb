@@ -80,7 +80,7 @@ ORDER                    : 'ORDER' ;
 REQUESTS                 : 'REQUESTS' ;
 REPLICATIONS             : 'REPLICATIONS' ;
 RIGHT                    : 'RIGHT' ;
-ROLLUP                   : 'ROLLUP' ;
+RETENTION                : 'RETENTION' ;
 SELECT                   : 'SELECT' ;
 SINK                     : 'SINK' ;
 SHOW                     : 'SHOW' ;

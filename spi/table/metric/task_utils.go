@@ -39,8 +39,8 @@ func calcTimeRangeAndInterval(
 	option := cfg.Option
 	targetInterval := interval
 	if targetInterval <= 0 {
-		// if query interval not set, first set it using the smallest interval in storage option.
-		targetInterval = option.Intervals[0].Interval
+		// if query interval not set, first set it using the smallest interval in retention policy.
+		targetInterval = option.RetentionPolicies[0].Interval
 	}
 	// re-calc query interval based on query time range
 	targetInterval = timeutil.CalcQueryInterval(timeRange, targetInterval)

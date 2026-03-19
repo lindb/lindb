@@ -46,13 +46,13 @@ func TestDatabase_String(t *testing.T) {
 		Option: &option.DatabaseOption{
 			NumOfShard:    10,
 			ReplicaFactor: 1,
-			Intervals: option.Intervals{
+			RetentionPolicies: option.RetentionPolicies{
 				{Interval: timeutil.Interval(10 * commontimeutil.OneSecond), Retention: timeutil.Interval(commontimeutil.OneMonth)},
 				{Interval: timeutil.Interval(10 * commontimeutil.OneMinute), Retention: timeutil.Interval(commontimeutil.OneMonth)},
 			},
 		},
 	}
-	assert.Equal(t, "create database test with (numOfShard=10, replicaFactor=1, intervals=[10s->1M,10m->1M])", database.String())
+	assert.Equal(t, "create database test with (numOfShard=10, replicaFactor=1, retentionPolicies=[10s->1M,10m->1M])", database.String())
 }
 
 func TestParseShardID(t *testing.T) {
