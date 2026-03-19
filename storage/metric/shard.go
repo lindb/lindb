@@ -122,6 +122,15 @@ func newShard(
 
 			createdShard.Partitions = partitions
 			createdShard.CalcPartitionTimeFn = targetPolicy.Interval.Calculator().CalcSegmentTime
+		} else {
+			// load rollup interval partitions from disk so that TTL can see them
+			rollupInterval := targetPolicy.Interval // capture loop variable explicitly
+			if err = partitions.Load(store.PartitionsPath(db.Name(), shardID, rollupInterval), func(timestamp int64) (*store.LazyPartition, error) {
+				return store.NewLazyPartition(timestamp, createdShard.createRollupPartition(rollupInterval)), nil
+			}); err != nil {
+				fmt.Println("load rollup partitions error:", err)
+				break
+			}
 		}
 		// set rollup partitions
 		createdShard.rollupPartitions[targetPolicy.Interval] = partitions
@@ -138,6 +147,14 @@ func newShard(
 
 func (s *Shard) createPartition(timestamp int64) (store.Partition, error) {
 	return NewPartition(s, timestamp, s.interval)
+}
+
+// createRollupPartition returns a factory that creates a rollup partition
+// with the specified rollup interval (not the source write interval).
+func (s *Shard) createRollupPartition(interval timeutil.Interval) store.CreatePartitionFn {
+	return func(timestamp int64) (store.Partition, error) {
+		return NewPartition(s, timestamp, interval)
+	}
 }
 
 // Indicator returns the unique shard info.
@@ -284,8 +301,8 @@ func (s *Shard) TTL() {
 					logger.String("database", database.Name()), logger.Error(err))
 				continue
 			}
-			// Remote partition from shard
-			s.Partitions.RemovePartition(partition.PartitionTime())
+			// Remove partition from the correct rollup partition map
+			partitions.RemovePartition(partition.PartitionTime())
 
 			if err := fileutil.RemoveDir(partition.Path()); err != nil {
 				s.logger.Warn("remove partition dir fail when do ttl",
