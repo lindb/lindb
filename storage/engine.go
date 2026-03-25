@@ -88,19 +88,19 @@ type engine struct {
 // NewEngine creates an engine for manipulating the databases
 func NewEngine() (Engine, error) {
 	// create time series storage path
-	if err := fileutil.MkDirIfNotExist(config.GlobalStorageConfig().TSDB.Dir); err != nil {
+	if err := fileutil.MkDirIfNotExist(config.GlobalStorageConfig().Engine.Dir); err != nil {
 		return nil, fmt.Errorf("create time sereis storage path[%s] erorr: %s",
-			config.GlobalStorageConfig().TSDB.Dir, err)
+			config.GlobalStorageConfig().Engine.Dir, err)
 	}
 
-	tsdbCfg := config.GlobalStorageConfig().TSDB
+	engineCfg := config.GlobalStorageConfig().Engine
 	checkerCfg := flush.CheckerConfig{
-		MaxMemDBSizeBytes:        int64(tsdbCfg.MaxMemDBSize),
-		MutableMemDBTTLNano:      int64(tsdbCfg.MutableMemDBTTL),
-		MaxMemUsageBeforeFlush:   tsdbCfg.MaxMemUsageBeforeFlush,
-		TargetMemUsageAfterFlush: tsdbCfg.TargetMemUsageAfterFlush,
-		FlushConcurrency:         tsdbCfg.FlushConcurrency,
-		CheckInterval:            time.Duration(tsdbCfg.FlushCheckInterval),
+		MaxMemDBSizeBytes:        int64(engineCfg.MaxMemDBSize),
+		MutableMemDBTTLNano:      int64(engineCfg.MutableMemDBTTL),
+		MaxMemUsageBeforeFlush:   engineCfg.MaxMemUsageBeforeFlush,
+		TargetMemUsageAfterFlush: engineCfg.TargetMemUsageAfterFlush,
+		FlushConcurrency:         engineCfg.FlushConcurrency,
+		CheckInterval:            time.Duration(engineCfg.FlushCheckInterval),
 	}
 	flushChecker := flush.NewChecker(checkerCfg, flush.NewDefaultMemoryUsageProvider())
 	flushChecker.Start()
@@ -285,7 +285,7 @@ func (e *engine) EvictSegment() {
 
 // load the time series engines if exist
 func (e *engine) load() error {
-	databaseNames, err := fileutil.GetDirectoryList(config.GlobalStorageConfig().TSDB.Dir)
+	databaseNames, err := fileutil.GetDirectoryList(config.GlobalStorageConfig().Engine.Dir)
 	if err != nil {
 		return err
 	}

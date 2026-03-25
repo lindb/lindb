@@ -49,7 +49,7 @@ func newDefaultStandaloneConfig(_ *testing.T) config.Standalone {
 		Monitor:     *config.NewDefaultMonitor(),
 	}
 	dir := "."
-	saCfg.StorageBase.TSDB.Dir = filepath.Join(dir, "data")
+	saCfg.StorageBase.Engine.Dir = filepath.Join(dir, "data")
 	saCfg.StorageBase.WAL.Dir = filepath.Join(dir, "wal")
 	saCfg.StorageBase.GRPC.Port = 3901
 	saCfg.StorageBase.HTTP.Port = 3902

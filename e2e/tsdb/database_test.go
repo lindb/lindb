@@ -41,7 +41,7 @@ import (
 func TestDatabase_Write_And_Rollup(t *testing.T) {
 	dir := t.TempDir()
 	config.SetGlobalStorageConfig(&config.StorageBase{
-		TSDB: config.TSDB{Dir: dir},
+		Engine: config.Engine{Dir: dir},
 	})
 
 	engine, err := storage.NewEngine()

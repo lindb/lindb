@@ -41,7 +41,7 @@ var writeConfigTestLock sync.Mutex
 
 func withTestPath(dir string) {
 	cfg := config.GlobalStorageConfig()
-	cfg.TSDB.Dir = path.Join("test", dir)
+	cfg.Engine.Dir = path.Join("test", dir)
 }
 
 func TestEngine_New(t *testing.T) {

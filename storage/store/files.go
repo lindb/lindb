@@ -52,7 +52,7 @@ const (
 
 // CreateDatabasePath creates database's root path if existed.
 func CreateDatabasePath(database string) (string, error) {
-	dbPath := filepath.Join(config.GlobalStorageConfig().TSDB.Dir, database)
+	dbPath := filepath.Join(config.GlobalStorageConfig().Engine.Dir, database)
 	if err := mkDirIfNotExist(dbPath); err != nil {
 		return "", fmt.Errorf("create database[%s]'s path with error: %s", database, err)
 	}
@@ -61,12 +61,12 @@ func CreateDatabasePath(database string) (string, error) {
 
 // LimitsPath returns database's limits file path.
 func LimitsPath(database string) string {
-	return filepath.Join(config.GlobalStorageConfig().TSDB.Dir, database, limits)
+	return filepath.Join(config.GlobalStorageConfig().Engine.Dir, database, limits)
 }
 
 // OptionsPath returns database's options file path.
 func OptionsPath(database string) string {
-	return filepath.Join(config.GlobalStorageConfig().TSDB.Dir, database, options)
+	return filepath.Join(config.GlobalStorageConfig().Engine.Dir, database, options)
 }
 
 // shardIndicator returns shard indicator information.
@@ -76,7 +76,7 @@ func shardIndicator(database string, shardID models.ShardID) string {
 
 // ShardPath returns shard's storage path.
 func ShardPath(database string, shardID models.ShardID) string {
-	return filepath.Join(config.GlobalStorageConfig().TSDB.Dir, shardIndicator(database, shardID))
+	return filepath.Join(config.GlobalStorageConfig().Engine.Dir, shardIndicator(database, shardID))
 }
 
 // shardIndexPath returns shard level index index path.

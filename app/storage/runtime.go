@@ -454,7 +454,7 @@ func (r *runtime) bindRPCHandlers() {
 
 // initMyID initializes myid for storage server.
 func (r *runtime) initMyID() (int, error) {
-	dataPath := config.GlobalStorageConfig().TSDB.Dir
+	dataPath := config.GlobalStorageConfig().Engine.Dir
 	if err := mkDirIfNotExistFn(dataPath); err != nil {
 		return 0, err
 	}

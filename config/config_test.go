@@ -136,15 +136,15 @@ func Test_checkStorageBaseCfg(t *testing.T) {
 
 	// ok
 	storageCfg4 := &StorageBase{
-		GRPC: GRPC{Port: 2379},
-		TSDB: TSDB{Dir: "/tmp/lindb"},
+		GRPC:   GRPC{Port: 2379},
+		Engine: Engine{Dir: "/tmp/lindb"},
 	}
 	assert.NoError(t, checkStorageBaseCfg(storageCfg4))
-	assert.NotZero(t, storageCfg4.TSDB.MaxMemDBSize)
-	assert.NotZero(t, storageCfg4.TSDB.MutableMemDBTTL)
-	assert.NotZero(t, storageCfg4.TSDB.MaxMemUsageBeforeFlush)
-	assert.NotZero(t, storageCfg4.TSDB.TargetMemUsageAfterFlush)
-	assert.NotZero(t, storageCfg4.TSDB.FlushConcurrency)
+	assert.NotZero(t, storageCfg4.Engine.MaxMemDBSize)
+	assert.NotZero(t, storageCfg4.Engine.MutableMemDBTTL)
+	assert.NotZero(t, storageCfg4.Engine.MaxMemUsageBeforeFlush)
+	assert.NotZero(t, storageCfg4.Engine.TargetMemUsageAfterFlush)
+	assert.NotZero(t, storageCfg4.Engine.FlushConcurrency)
 }
 
 func Test_checkCoordinatorCfg(t *testing.T) {

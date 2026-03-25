@@ -58,7 +58,7 @@ var cfg = config.Storage{
 		HTTP: config.HTTP{
 			Port: 8888,
 		},
-		TSDB: config.TSDB{Dir: "/tmp/test/data"},
+		Engine: config.Engine{Dir: "/tmp/test/data"},
 	}, Monitor: *config.NewDefaultMonitor(),
 }
 
@@ -84,7 +84,7 @@ func TestStorageRun(t *testing.T) {
 	cfg.Coordinator.Endpoints = cluster.Endpoints
 	cfg.Coordinator.Timeout = ltoml.Duration(time.Second * 10)
 	cfg.StorageBase.GRPC.Port = 9997
-	cfg.StorageBase.TSDB.Dir = filepath.Join(t.TempDir(), "1")
+	cfg.StorageBase.Engine.Dir = filepath.Join(t.TempDir(), "1")
 	config.SetGlobalStorageConfig(&cfg.StorageBase)
 	storage := NewStorageRuntime("test-version", 1, &cfg)
 	err := storage.Run()
@@ -131,7 +131,7 @@ func TestStorageRun_GetHost_Err(t *testing.T) {
 	}
 	cfg.Coordinator.Endpoints = cluster.Endpoints
 	cfg.StorageBase.GRPC.Port = 8889
-	cfg.StorageBase.TSDB.Dir = filepath.Join(t.TempDir(), "2")
+	cfg.StorageBase.Engine.Dir = filepath.Join(t.TempDir(), "2")
 	storage := NewStorageRuntime("test-version", 2, &cfg)
 	getHostIP = func() (string, error) {
 		return "test-ip", fmt.Errorf("err")
@@ -147,7 +147,7 @@ func TestStorageRun_GetHost_Err(t *testing.T) {
 	}
 	cfg.StorageBase.GRPC.Port = 8887
 
-	cfg.StorageBase.TSDB.Dir = filepath.Join(t.TempDir(), "3")
+	cfg.StorageBase.Engine.Dir = filepath.Join(t.TempDir(), "3")
 	storage = NewStorageRuntime("test-version", 3, &cfg)
 	err = storage.Run()
 	assert.NoError(t, err)
@@ -165,14 +165,14 @@ func TestStorageRun_Err(t *testing.T) {
 	defer ctrl.Finish()
 
 	cfg.StorageBase.GRPC.Port = 8889
-	cfg.StorageBase.TSDB.Dir = filepath.Join(t.TempDir(), "0")
+	cfg.StorageBase.Engine.Dir = filepath.Join(t.TempDir(), "0")
 	config.SetGlobalStorageConfig(&cfg.StorageBase)
 	storage := NewStorageRuntime("test-version", 0, &cfg)
 	err := storage.Run()
 	assert.Error(t, err)
 
 	cfg.StorageBase.GRPC.Port = 8886
-	cfg.StorageBase.TSDB.Dir = filepath.Join(t.TempDir(), "4")
+	cfg.StorageBase.Engine.Dir = filepath.Join(t.TempDir(), "4")
 	storage = NewStorageRuntime("test-version", 4, &cfg)
 	s := storage.(*runtime)
 	repoFactory := state.NewMockRepositoryFactory(ctrl)
@@ -193,7 +193,7 @@ func TestStorageRun_Err(t *testing.T) {
 	assert.Error(t, err)
 
 	// create engine failure
-	cfg.StorageBase.TSDB.Dir = filepath.Join(t.TempDir(), "6")
+	cfg.StorageBase.Engine.Dir = filepath.Join(t.TempDir(), "6")
 	storage = NewStorageRuntime("test-version", 6, &cfg)
 	defer func() {
 		newEngineFn = storepkg.NewEngine
@@ -204,7 +204,7 @@ func TestStorageRun_Err(t *testing.T) {
 	err = storage.Run()
 	assert.Error(t, err)
 
-	cfg.StorageBase.TSDB.Dir = filepath.Join(t.TempDir(), "7")
+	cfg.StorageBase.Engine.Dir = filepath.Join(t.TempDir(), "7")
 	storage = NewStorageRuntime("test-version", 7, &cfg)
 	newEngineFn = func() (storepkg.Engine, error) {
 		return nil, nil

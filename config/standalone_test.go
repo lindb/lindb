@@ -77,14 +77,14 @@ func TestStandalone_Env(t *testing.T) {
 		"LINDB_STORAGE_WAL_REMOVE_TASK_INTERVAL":          "2m",
 		"LINDB_STORAGE_WAL_DIR":                           "wal_dir",
 		"LINDB_STORAGE_WAL_PAGE_SIZE":                     "1Mib",
-		"LINDB_STORAGE_TSDB_DIR":                          "tsdb_dir",
-		"LINDB_STORAGE_TSDB_MAX_MEMDB_SIZE":               "1Mib",
-		"LINDB_STORAGE_TSDB_MUTABLE_MEMDB_TTL":            "2m",
-		"LINDB_STORAGE_TSDB_MAX_MEM_USAGE_BEFORE_FLUSH":   "200.0",
-		"LINDB_STORAGE_TSDB_TARGET_MEM_USAGE_AFTER_FLUSH": "200.0",
-		"LINDB_STORAGE_TSDB_FLUSH_CONCURRENCY":            "2000",
-		"LINDB_STORAGE_TSDB_SERIES_SEQ_CACHE":             "1000",
-		"LINDB_STORAGE_TSDB_META_SEQ_CACHE":               "1000",
+		"LINDB_STORAGE_ENGINE_DIR":                          "tsdb_dir",
+		"LINDB_STORAGE_ENGINE_MAX_MEMDB_SIZE":               "1Mib",
+		"LINDB_STORAGE_ENGINE_MUTABLE_MEMDB_TTL":            "2m",
+		"LINDB_STORAGE_ENGINE_MAX_MEM_USAGE_BEFORE_FLUSH":   "200.0",
+		"LINDB_STORAGE_ENGINE_TARGET_MEM_USAGE_AFTER_FLUSH": "200.0",
+		"LINDB_STORAGE_ENGINE_FLUSH_CONCURRENCY":            "2000",
+		"LINDB_STORAGE_ENGINE_METRIC_SERIES_SEQ_CACHE":      "1000",
+		"LINDB_STORAGE_ENGINE_METRIC_META_SEQ_CACHE":        "1000",
 		"LINDB_MONITOR_PUSH_TIMEOUT":                      "2m",
 		"LINDB_MONITOR_REPORT_INTERVAL":                   "2m",
 		"LINDB_MONITOR_URL":                               "monitor_url",
@@ -136,14 +136,14 @@ func TestStandalone_Env(t *testing.T) {
 	assert.Equal(t, ltoml.Duration(time.Second*120), cfg.StorageBase.WAL.RemoveTaskInterval)
 	assert.Equal(t, "wal_dir", cfg.StorageBase.WAL.Dir)
 	assert.Equal(t, ltoml.Size(1024*1024), cfg.StorageBase.WAL.PageSize)
-	assert.Equal(t, "tsdb_dir", cfg.StorageBase.TSDB.Dir)
-	assert.Equal(t, ltoml.Size(1024*1024), cfg.StorageBase.TSDB.MaxMemDBSize)
-	assert.Equal(t, ltoml.Duration(time.Second*120), cfg.StorageBase.TSDB.MutableMemDBTTL)
-	assert.Equal(t, float64(200.0), cfg.StorageBase.TSDB.MaxMemUsageBeforeFlush)
-	assert.Equal(t, float64(200.0), cfg.StorageBase.TSDB.TargetMemUsageAfterFlush)
-	assert.Equal(t, 2000, cfg.StorageBase.TSDB.FlushConcurrency)
-	assert.Equal(t, uint32(1000), cfg.StorageBase.TSDB.SeriesSequenceCache)
-	assert.Equal(t, uint32(1000), cfg.StorageBase.TSDB.MetaSequenceCache)
+	assert.Equal(t, "tsdb_dir", cfg.StorageBase.Engine.Dir)
+	assert.Equal(t, ltoml.Size(1024*1024), cfg.StorageBase.Engine.MaxMemDBSize)
+	assert.Equal(t, ltoml.Duration(time.Second*120), cfg.StorageBase.Engine.MutableMemDBTTL)
+	assert.Equal(t, float64(200.0), cfg.StorageBase.Engine.MaxMemUsageBeforeFlush)
+	assert.Equal(t, float64(200.0), cfg.StorageBase.Engine.TargetMemUsageAfterFlush)
+	assert.Equal(t, 2000, cfg.StorageBase.Engine.FlushConcurrency)
+	assert.Equal(t, uint32(1000), cfg.StorageBase.Engine.Metric.SeriesSequenceCache)
+	assert.Equal(t, uint32(1000), cfg.StorageBase.Engine.Metric.MetaSequenceCache)
 
 	assert.Equal(t, ltoml.Duration(time.Second*120), cfg.Monitor.PushTimeout)
 	assert.Equal(t, ltoml.Duration(time.Second*120), cfg.Monitor.ReportInterval)

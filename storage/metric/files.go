@@ -43,7 +43,7 @@ const (
 
 // metricsMetaPath returns metrics' metadata storage path.
 func metricsMetaPath(database string) string {
-	return filepath.Join(config.GlobalStorageConfig().TSDB.Dir, database, metaDir)
+	return filepath.Join(config.GlobalStorageConfig().Engine.Dir, database, metaDir)
 }
 
 // shardIndicator returns shard indicator information.

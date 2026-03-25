@@ -29,8 +29,9 @@ import (
 	"github.com/lindb/common/pkg/ltoml"
 )
 
-// TSDB represents the tsdb configuration.
-type TSDB struct {
+// Engine represents the storage engine configuration shared by all data types.
+// Engine-specific configs (e.g. MetricEngine) are nested inside to keep StorageBase clean.
+type Engine struct {
 	Dir                      string         `env:"DIR" toml:"dir"`
 	MaxMemDBSize             ltoml.Size     `env:"MAX_MEMDB_SIZE" toml:"max-memdb-size"`
 	MutableMemDBTTL          ltoml.Duration `env:"MUTABLE_MEMDB_TTL" toml:"mutable-memdb-ttl"`
@@ -38,15 +39,15 @@ type TSDB struct {
 	TargetMemUsageAfterFlush float64        `env:"TARGET_MEM_USAGE_AFTER_FLUSH" toml:"target-mem-usage-after-flush"`
 	FlushConcurrency         int            `env:"FLUSH_CONCURRENCY" toml:"flush-concurrency"`
 	FlushCheckInterval       ltoml.Duration `env:"FLUSH_CHECK_INTERVAL" toml:"flush-check-interval"`
-	SeriesSequenceCache      uint32         `env:"SERIES_SEQ_CACHE" toml:"series-sequence-cache"`
-	MetaSequenceCache        uint32         `env:"META_SEQ_CACHE" toml:"meta-sequence-cache"`
+	// Metric holds metric-engine-specific configuration, nested under [storage.engine.metric].
+	Metric MetricEngine `envPrefix:"METRIC_" toml:"metric"`
 }
 
-func (t *TSDB) TOML() string {
+func (t *Engine) TOML() string {
 	return fmt.Sprintf(`
-## The TSDB directory where the time series data and meta file stores.
+## The engine directory where the time series data and meta file stores.
 ## Default: %s
-## Env: LINDB_STORAGE_TSDB_DIR
+## Env: LINDB_STORAGE_ENGINE_DIR
 dir = "%s"
 
 ## Flush configuration
@@ -55,30 +56,30 @@ dir = "%s"
 ## before it is queueing to the immutable list for flushing.
 ## larger memdb may improve query performance.
 ## Default: %s
-## Env: LINDB_STORAGE_TSDB_MAX_MEMDB_SIZE
+## Env: LINDB_STORAGE_ENGINE_MAX_MEMDB_SIZE
 max-memdb-size = "%s"
 ## Mutable memdb will switch to immutable this often,
 ## event if the configured memdb-size is not reached.
 ## Default: %s
-## Env: LINDB_STORAGE_TSDB_MUTABLE_MEMDB_TTL
+## Env: LINDB_STORAGE_ENGINE_MUTABLE_MEMDB_TTL
 mutable-memdb-ttl = "%s"
 ## Global flush operation will be triggered
 ## when system memory usage is higher than this ratio.
 ## Default: %.2f
-## Env: LINDB_STORAGE_TSDB_MAX_MEM_USAGE_BEFORE_FLUSH
+## Env: LINDB_STORAGE_ENGINE_MAX_MEM_USAGE_BEFORE_FLUSH
 max-mem-usage-before-flush = %.2f
 ## Global flush operation will be stopped
 ## when system memory usage is lower than this ration.
 ## Default: %.2f
-## Env: LINDB_STORAGE_TSDB_TARGET_MEM_USAGE_AFTER_FLUSH
+## Env: LINDB_STORAGE_ENGINE_TARGET_MEM_USAGE_AFTER_FLUSH
 target-mem-usage-after-flush = %.2f
 ## concurrency of goroutines for flushing.
 ## Default: %d
-## Env: LINDB_STORAGE_TSDB_FLUSH_CONCURRENCY
+## Env: LINDB_STORAGE_ENGINE_FLUSH_CONCURRENCY
 flush-concurrency = %d
 ## interval between flush checker cycles.
 ## Default: %s
-## Env: LINDB_STORAGE_TSDB_FLUSH_CHECK_INTERVAL
+## Env: LINDB_STORAGE_ENGINE_FLUSH_CHECK_INTERVAL
 flush-check-interval = "%s"`,
 		strings.ReplaceAll(t.Dir, "\\", "\\\\"),
 		strings.ReplaceAll(t.Dir, "\\", "\\\\"),
@@ -97,11 +98,39 @@ flush-check-interval = "%s"`,
 	)
 }
 
+// MetricTOML returns the [storage.engine.metric] section as a TOML string.
+func (t *Engine) MetricTOML() string {
+	return t.Metric.TOML()
+}
+
+// MetricEngine represents metric-engine-specific configuration.
+type MetricEngine struct {
+	SeriesSequenceCache uint32 `env:"SERIES_SEQ_CACHE" toml:"series-sequence-cache"`
+	MetaSequenceCache   uint32 `env:"META_SEQ_CACHE" toml:"meta-sequence-cache"`
+}
+
+func (m *MetricEngine) TOML() string {
+	return fmt.Sprintf(`
+## Cache size for series ID sequence allocation.
+## Default: %d
+## Env: LINDB_STORAGE_ENGINE_METRIC_SERIES_SEQ_CACHE
+series-sequence-cache = %d
+## Cache size for meta ID sequence allocation.
+## Default: %d
+## Env: LINDB_STORAGE_ENGINE_METRIC_META_SEQ_CACHE
+meta-sequence-cache = %d`,
+		m.SeriesSequenceCache,
+		m.SeriesSequenceCache,
+		m.MetaSequenceCache,
+		m.MetaSequenceCache,
+	)
+}
+
 // StorageBase represents a storage configuration
 type StorageBase struct {
 	BrokerEndpoint  string         `env:"BROKER_ENDPOINT" toml:"broker-endpoint"`
 	WAL             WAL            `envPrefix:"WAL_" toml:"wal"`
-	TSDB            TSDB           `envPrefix:"TSDB_" toml:"tsdb"`
+	Engine          Engine         `envPrefix:"ENGINE_" toml:"engine"`
 	HTTP            HTTP           `envPrefix:"HTTP_" toml:"http"`
 	GRPC            GRPC           `envPrefix:"GRPC_" toml:"grpc"`
 	TTLTaskInterval ltoml.Duration `env:"TTL_TASK_INTERVAL" toml:"ttl-task-interval"`
@@ -114,7 +143,7 @@ func (s *StorageBase) TOML() string {
 [storage]
 ## interval for how often do ttl job
 ## Default: %s
-## Env: LINDB_STORAGE_TTL_TASK_INTERVAL 
+## Env: LINDB_STORAGE_TTL_TASK_INTERVAL
 ttl-task-interval = "%s"
 
 ## Storage HTTP related configuration.
@@ -126,14 +155,18 @@ ttl-task-interval = "%s"
 ## Write Ahead Log related configuration.
 [storage.wal]%s
 
-## TSDB related configuration.
-[storage.tsdb]%s`,
+## Engine related configuration.
+[storage.engine]%s
+
+## Metric engine related configuration.
+[storage.engine.metric]%s`,
 		s.TTLTaskInterval,
 		s.TTLTaskInterval,
 		s.HTTP.TOML(),
 		s.GRPC.TOML(),
 		s.WAL.TOML(),
-		s.TSDB.TOML(),
+		s.Engine.TOML(),
+		s.Engine.Metric.TOML(),
 	)
 }
 
@@ -225,7 +258,7 @@ func NewDefaultStorageBase() *StorageBase {
 			PageSize:           ltoml.Size(128 * 1024 * 1024),
 			RemoveTaskInterval: ltoml.Duration(time.Minute),
 		},
-		TSDB: TSDB{
+		Engine: Engine{
 			Dir:                      filepath.Join(defaultParentDir, "storage", "data"),
 			MaxMemDBSize:             ltoml.Size(500 * 1024 * 1024),
 			MutableMemDBTTL:          ltoml.Duration(time.Minute * 30),
@@ -233,8 +266,11 @@ func NewDefaultStorageBase() *StorageBase {
 			TargetMemUsageAfterFlush: 0.6,
 			FlushConcurrency:         int(math.Ceil(float64(runtime.GOMAXPROCS(-1)) / 2)),
 			FlushCheckInterval:       ltoml.Duration(time.Minute),
-			SeriesSequenceCache:      1000,
-			MetaSequenceCache:        100,
+			// Metric-engine-specific defaults nested inside Engine.
+			Metric: MetricEngine{
+				SeriesSequenceCache: 1000,
+				MetaSequenceCache:   100,
+			},
 		},
 	}
 }
@@ -268,36 +304,42 @@ func NewDefaultStorageTOML() string {
 	)
 }
 
-func checkTSDBCfg(tsdbCfg *TSDB) error {
+func checkEngineCfg(engineCfg *Engine) error {
 	defaultStorageCfg := NewDefaultStorageBase()
-	if tsdbCfg.Dir == "" {
-		return fmt.Errorf("tsdb dir cannot be empty")
+	if engineCfg.Dir == "" {
+		return fmt.Errorf("engine dir cannot be empty")
 	}
-	if tsdbCfg.MaxMemDBSize <= 0 {
-		tsdbCfg.MaxMemDBSize = defaultStorageCfg.TSDB.MaxMemDBSize
+	if engineCfg.MaxMemDBSize <= 0 {
+		engineCfg.MaxMemDBSize = defaultStorageCfg.Engine.MaxMemDBSize
 	}
-	if tsdbCfg.MutableMemDBTTL <= 0 {
-		tsdbCfg.MutableMemDBTTL = defaultStorageCfg.TSDB.MutableMemDBTTL
+	if engineCfg.MutableMemDBTTL <= 0 {
+		engineCfg.MutableMemDBTTL = defaultStorageCfg.Engine.MutableMemDBTTL
 	}
-	if tsdbCfg.MaxMemUsageBeforeFlush <= 0 {
-		tsdbCfg.MaxMemUsageBeforeFlush = defaultStorageCfg.TSDB.MaxMemUsageBeforeFlush
+	if engineCfg.MaxMemUsageBeforeFlush <= 0 {
+		engineCfg.MaxMemUsageBeforeFlush = defaultStorageCfg.Engine.MaxMemUsageBeforeFlush
 	}
-	if tsdbCfg.TargetMemUsageAfterFlush <= 0 {
-		tsdbCfg.TargetMemUsageAfterFlush = defaultStorageCfg.TSDB.TargetMemUsageAfterFlush
+	if engineCfg.TargetMemUsageAfterFlush <= 0 {
+		engineCfg.TargetMemUsageAfterFlush = defaultStorageCfg.Engine.TargetMemUsageAfterFlush
 	}
-	if tsdbCfg.FlushConcurrency <= 0 {
-		tsdbCfg.FlushConcurrency = defaultStorageCfg.TSDB.FlushConcurrency
+	if engineCfg.FlushConcurrency <= 0 {
+		engineCfg.FlushConcurrency = defaultStorageCfg.Engine.FlushConcurrency
 	}
-	if tsdbCfg.FlushCheckInterval <= 0 {
-		tsdbCfg.FlushCheckInterval = defaultStorageCfg.TSDB.FlushCheckInterval
+	if engineCfg.FlushCheckInterval <= 0 {
+		engineCfg.FlushCheckInterval = defaultStorageCfg.Engine.FlushCheckInterval
 	}
-	if tsdbCfg.SeriesSequenceCache <= 0 {
-		tsdbCfg.SeriesSequenceCache = defaultStorageCfg.TSDB.SeriesSequenceCache
-	}
-	if tsdbCfg.MetaSequenceCache <= 0 {
-		tsdbCfg.MetaSequenceCache = defaultStorageCfg.TSDB.MetaSequenceCache
-	}
+	// Apply metric-engine-specific defaults (now nested inside Engine).
+	checkMetricEngineCfg(&engineCfg.Metric)
 	return nil
+}
+
+func checkMetricEngineCfg(metricCfg *MetricEngine) {
+	defaultStorageCfg := NewDefaultStorageBase()
+	if metricCfg.SeriesSequenceCache <= 0 {
+		metricCfg.SeriesSequenceCache = defaultStorageCfg.Engine.Metric.SeriesSequenceCache
+	}
+	if metricCfg.MetaSequenceCache <= 0 {
+		metricCfg.MetaSequenceCache = defaultStorageCfg.Engine.Metric.MetaSequenceCache
+	}
 }
 
 // checkStorageBaseCfg checks storage config.
@@ -309,5 +351,9 @@ func checkStorageBaseCfg(storageBaseCfg *StorageBase) error {
 	if storageBaseCfg.TTLTaskInterval <= 0 {
 		storageBaseCfg.TTLTaskInterval = defaultStorageCfg.TTLTaskInterval
 	}
-	return checkTSDBCfg(&storageBaseCfg.TSDB)
+	// checkEngineCfg also applies metric-engine defaults (Engine.Metric).
+	if err := checkEngineCfg(&storageBaseCfg.Engine); err != nil {
+		return err
+	}
+	return nil
 }
