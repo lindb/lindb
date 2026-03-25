@@ -23,10 +23,12 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"time"
 
 	logspkg "github.com/lindb/arrow/pkg/logs"
 	"github.com/lindb/common/pkg/fileutil"
 	"github.com/lindb/roaring"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/models"
@@ -35,6 +37,7 @@ import (
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/storage/base"
+	"github.com/lindb/lindb/storage/flush"
 	"github.com/lindb/lindb/storage/log/memdb"
 	"github.com/lindb/lindb/storage/log/tblstore"
 	"github.com/lindb/lindb/storage/store"
@@ -59,6 +62,9 @@ type Segment struct {
 	numOfPoints int
 
 	reader *logspkg.Reader
+
+	isFlushing  atomic.Bool // guard against concurrent flush calls
+	createdTime int64       // unix nanoseconds, set at construction time
 
 	mutex sync.RWMutex
 }
@@ -97,9 +103,10 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 			Path:     segmentPath,
 			WALs:     make(map[models.NodeID]store.WriteAheadLog),
 		},
-		partition: partition,
-		family:    kvFamily,
-		index:     index,
+		partition:   partition,
+		family:      kvFamily,
+		index:       index,
+		createdTime: time.Now().UnixNano(),
 
 		mutable: memdb.NewDatabase(db.indexDB),
 
@@ -132,11 +139,66 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 			return nil, err
 		}
 	}
+
+	// register with flush tracker so the checker can schedule flush for this segment
+	flush.GetMemDBTracker().Register(seg)
 	return seg, nil
 }
 
 func (s *Segment) Partition() store.Partition {
 	return s.partition
+}
+
+// MutableMemDBInfo implements flush.FlushableSegment.
+// Returns nil if there is no mutable field index database.
+func (s *Segment) MutableMemDBInfo() *flush.MemDBInfo {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	if s.mutable == nil {
+		return nil
+	}
+	created := time.Unix(0, s.createdTime)
+	return &flush.MemDBInfo{
+		MemSize:     s.mutable.MemSize(),
+		CreatedTime: s.createdTime,
+		SegmentTime: s.TimeRange.Start,
+		NumOfRows:   int(s.index.AppendedSeq()),
+		Uptime:      time.Since(created),
+	}
+}
+
+// SegmentKey implements flush.FlushableSegment.
+// Returns a globally unique key: "{dbName}/{shardID}/{segmentTime}".
+func (s *Segment) SegmentKey() string {
+	db := s.partition.shard.Database().(*Database)
+	return flush.MakeSegmentKey(db.Name(), s.partition.shard.ShardID().String(), s.TimeRange.Start)
+}
+
+// SegmentMeta implements flush.FlushableSegment.
+func (s *Segment) SegmentMeta() flush.SegmentMeta {
+	db := s.partition.shard.Database().(*Database)
+	dbOpt := db.GetOption().Option
+	ahead, behind := dbOpt.GetAcceptWritableRange()
+
+	var sizeThresholdBytes int64
+	if dbOpt.Data.SizeThreshold > 0 {
+		sizeThresholdBytes = dbOpt.Data.SizeThreshold * 1024 * 1024 // MB → bytes
+	}
+	var timeThresholdNano int64
+	if dbOpt.Data.TimeThreshold > 0 {
+		timeThresholdNano = dbOpt.Data.TimeThreshold * int64(time.Millisecond) // ms → ns
+	}
+
+	return flush.SegmentMeta{
+		DatabaseName:         db.Name(),
+		ShardID:              s.partition.shard.ShardID().String(),
+		SizeThresholdBytes:   sizeThresholdBytes,
+		TimeThresholdNano:    timeThresholdNano,
+		Ahead:                ahead,
+		Behind:               behind,
+		SegmentOutRangeDelay: dbOpt.Data.SegmentOutRangeDelay,
+	}
 }
 
 func (s *Segment) NumOfPoints() int {
@@ -263,6 +325,13 @@ func (s *Segment) Write(leader models.NodeID, seq int64, msg []byte) (rows int, 
 }
 
 func (s *Segment) Flush() error {
+	// guard against concurrent flush: log flush is idempotent (KV merge) but
+	// opening two flushers for the same family concurrently can cause data races
+	if !s.isFlushing.CompareAndSwap(false, true) {
+		return nil
+	}
+	defer s.isFlushing.Store(false)
+
 	// flush timestamp index
 	if err := s.FlushTimestampIndex(); err != nil {
 		return err
@@ -276,6 +345,9 @@ func (s *Segment) Flush() error {
 }
 
 func (s *Segment) Close() error {
+	// unregister from flush tracker before closing
+	flush.GetMemDBTracker().Unregister(s)
+
 	if s.reader != nil {
 		s.reader.Release()
 	}

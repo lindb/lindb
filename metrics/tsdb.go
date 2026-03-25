@@ -24,14 +24,35 @@ var (
 	metaDBScope = linmetric.StorageRegistry.NewScope("lindb.tsdb.metadb")
 	// shard metric
 	shardScope = linmetric.StorageRegistry.NewScope("lindb.tsdb.shard")
+	// flush checker metric scope
+	flushCheckerScope = linmetric.StorageRegistry.NewScope("lindb.tsdb.flush_checker")
 
 	// FlushCheckerStatistics represents flush checker statistics.
-	FlushCheckerStatistics = struct {
-		FlushInFlight *linmetric.GaugeVec // number of family flushing
-	}{
-		FlushInFlight: shardScope.NewGaugeVec("flush_inflight", "db", "shard"),
+	FlushCheckerStatistics = &flushCheckerStatistics{
+		ActiveMemDBCount: flushCheckerScope.NewGauge("active_memdb_count"),
+		TotalMemDBBytes:  flushCheckerScope.NewGauge("total_memdb_bytes"),
+		FlushBySize:      flushCheckerScope.NewCounter("flush_by_size"),
+		FlushByTTL:       flushCheckerScope.NewCounter("flush_by_ttl"),
+		FlushByGlobal:    flushCheckerScope.NewCounter("flush_by_global_mem"),
+		FlushByRange:     flushCheckerScope.NewCounter("flush_by_range"),
+		FlushInFlight:    flushCheckerScope.NewGauge("flush_inflight"),
+		FlushSkipped:     flushCheckerScope.NewCounter("flush_skipped"),
+		FlushErrors:      flushCheckerScope.NewCounter("flush_errors"),
 	}
 )
+
+// flushCheckerStatistics holds metrics for the unified flush checker.
+type flushCheckerStatistics struct {
+	ActiveMemDBCount *linmetric.BoundGauge   // number of segments with active mutable memdb
+	TotalMemDBBytes  *linmetric.BoundGauge   // total bytes of all mutable memdbs
+	FlushBySize      *linmetric.BoundCounter // flush triggered by size threshold
+	FlushByTTL       *linmetric.BoundCounter // flush triggered by TTL threshold
+	FlushByGlobal    *linmetric.BoundCounter // flush triggered by global memory pressure
+	FlushByRange     *linmetric.BoundCounter // flush triggered by segment out-of-range
+	FlushInFlight    *linmetric.BoundGauge   // number of flush jobs currently in flight
+	FlushSkipped     *linmetric.BoundCounter // flush skipped due to concurrency limit
+	FlushErrors      *linmetric.BoundCounter // flush errors encountered
+}
 
 // IndexDBStatistics represents index database statistics.
 type IndexDBStatistics = struct {

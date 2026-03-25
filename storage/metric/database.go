@@ -36,7 +36,6 @@ import (
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/storage/base"
-	"github.com/lindb/lindb/storage/flush"
 	"github.com/lindb/lindb/storage/metric/memdb"
 	"github.com/lindb/lindb/storage/store"
 )
@@ -71,7 +70,6 @@ func newDatabase(
 	databaseName string,
 	cfg *models.DatabaseConfig,
 	limits *models.Limits,
-	check flush.Checker,
 ) (store.Database, error) {
 	if err := cfg.Option.Validate(); err != nil {
 		return nil, fmt.Errorf("database option is invalid, err: %s", err)
@@ -82,7 +80,6 @@ func newDatabase(
 			Options:      cfg,
 			ShardSet:     *store.NewShardSet(),
 		},
-		// flushChecker: flushChecker,
 		executorPool: &ExecutorPool{
 			MetaFetcher: concurrent.NewPool(
 				databaseName+"-meta-fetcher-pool",

@@ -27,7 +27,6 @@ import (
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/storage/base"
-	"github.com/lindb/lindb/storage/flush"
 	"github.com/lindb/lindb/storage/store"
 )
 
@@ -43,9 +42,7 @@ type Database struct {
 	logger logger.Logger
 }
 
-func NewDatabase(name string, opt *models.DatabaseConfig,
-	limits *models.Limits, checker flush.Checker,
-) (store.Database, error) {
+func NewDatabase(name string, opt *models.DatabaseConfig, limits *models.Limits) (store.Database, error) {
 	dbPath, err := store.CreateDatabasePath(name)
 	if err != nil {
 		return nil, err

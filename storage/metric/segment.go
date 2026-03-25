@@ -37,6 +37,7 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/storage/base"
+	"github.com/lindb/lindb/storage/flush"
 	"github.com/lindb/lindb/storage/metric/memdb"
 	"github.com/lindb/lindb/storage/metric/tblstore/metricsdata"
 	"github.com/lindb/lindb/storage/store"
@@ -61,6 +62,8 @@ type Segment struct {
 	isFlushing     atomic.Bool
 	flushCondition sync.WaitGroup
 	lastFlushTime  int64
+
+	createdTime int64 // unix nanoseconds, set at construction time
 
 	statistics *metrics.FamilyStatistics
 	logger     logger.Logger
@@ -107,6 +110,7 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 		interval:     interval,
 		intervalCalc: intervalCalc,
 		lastReadTime: atomic.NewInt64(fasttime.UnixMilliseconds()),
+		createdTime:  time.Now().UnixNano(),
 		statistics:   metrics.NewFamilyStatistics(db.Name(), shard.ShardID().String()),
 		logger:       logger.GetLogger("Metric", "Segment"),
 	}
@@ -123,11 +127,70 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 		return nil, err
 	}
 
+	// register with flush tracker so the checker can schedule flush for this segment
+	flush.GetMemDBTracker().Register(seg)
+
 	return seg, nil
 }
 
 func (s *Segment) Partition() store.Partition {
 	return s.partition
+}
+
+// MutableMemDBInfo implements flush.FlushableSegment.
+// Returns nil if there is no mutable memory database to flush.
+func (s *Segment) MutableMemDBInfo() *flush.MemDBInfo {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.mutableMemDB == nil {
+		return nil
+	}
+	created := time.Unix(0, s.createdTime)
+	return &flush.MemDBInfo{
+		MemSize:     s.mutableMemDB.MemSize(),
+		CreatedTime: s.createdTime,
+		SegmentTime: s.TimeRange.Start,
+		NumOfRows:   int(s.mutableMemDB.NumOfSeries()),
+		Uptime:      time.Since(created),
+	}
+}
+
+// SegmentKey implements flush.FlushableSegment.
+// Returns a globally unique key: "{dbName}/{shardID}/{segmentTime}".
+func (s *Segment) SegmentKey() string {
+	shard := s.partition.shard
+	db := shard.Database().(*Database)
+	return flush.MakeSegmentKey(db.Name(), shard.ShardID().String(), s.TimeRange.Start)
+}
+
+// SegmentMeta implements flush.FlushableSegment.
+// Returns metadata for flush scheduling decisions.
+func (s *Segment) SegmentMeta() flush.SegmentMeta {
+	shard := s.partition.shard
+	db := shard.Database().(*Database)
+	dbOpt := db.GetOption().Option
+
+	ahead, behind := dbOpt.GetAcceptWritableRange()
+
+	var sizeThresholdBytes int64
+	if dbOpt.Data.SizeThreshold > 0 {
+		sizeThresholdBytes = dbOpt.Data.SizeThreshold * 1024 * 1024 // MB → bytes
+	}
+	var timeThresholdNano int64
+	if dbOpt.Data.TimeThreshold > 0 {
+		timeThresholdNano = dbOpt.Data.TimeThreshold * int64(time.Millisecond) // ms → ns
+	}
+
+	return flush.SegmentMeta{
+		DatabaseName:         db.Name(),
+		ShardID:              shard.ShardID().String(),
+		SizeThresholdBytes:   sizeThresholdBytes,
+		TimeThresholdNano:    timeThresholdNano,
+		Ahead:                ahead,
+		Behind:               behind,
+		SegmentOutRangeDelay: dbOpt.Data.SegmentOutRangeDelay,
+	}
 }
 
 func (s *Segment) write(rows []*metric.StorageRow) error {
@@ -271,6 +334,9 @@ func (s *Segment) Write(leader models.NodeID, seq int64, msg []byte) (rows int, 
 
 // Close implements store.Segment.
 func (s *Segment) Close() error {
+	// unregister from flush tracker before closing so the checker stops scheduling this segment
+	flush.GetMemDBTracker().Unregister(s)
+
 	s.logger.Info("starting close data segment", logger.String("segment", s.Path))
 	start := time.Now()
 

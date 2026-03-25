@@ -90,8 +90,9 @@ func (p RetentionPolicy) CalcExpireTime(nowMs int64) int64 {
 
 // FlusherOption represents a flusher configuration for index and memory db
 type FlusherOption struct {
-	TimeThreshold int64 `toml:"timeThreshold" json:"timeThreshold"` // time level flush threshold
-	SizeThreshold int64 `toml:"sizeThreshold" json:"sizeThreshold"` // size level flush threshold, unit(MB)
+	TimeThreshold        int64 `toml:"timeThreshold" json:"timeThreshold"`                         // time level flush threshold, unit(ms)
+	SizeThreshold        int64 `toml:"sizeThreshold" json:"sizeThreshold"`                         // size level flush threshold, unit(MB)
+	SegmentOutRangeDelay int64 `toml:"segmentOutRangeDelay" json:"segmentOutRangeDelay,omitempty"` // grace period after segment goes out of write range, unit(ms), 0=immediate
 }
 
 // DatabaseOption represents a database option include shard ids and shard's option

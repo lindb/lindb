@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/lindb/common/pkg/fileutil"
 	"github.com/lindb/common/pkg/logger"
@@ -29,6 +30,7 @@ import (
 	"github.com/lindb/lindb/config"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
+	"github.com/lindb/lindb/storage/flush"
 	"github.com/lindb/lindb/storage/store"
 )
 
@@ -76,8 +78,9 @@ type engine struct {
 
 	ctx    context.Context    // context
 	cancel context.CancelFunc // cancel function of flusher
-	// dataFlushChecker DataFlushChecker
-	mutex sync.Mutex // mutex for creating database
+	mutex  sync.Mutex         // mutex for creating database
+
+	flushChecker flush.Checker // unified flush scheduler shared by all databases
 
 	databases map[string]store.Database
 }
@@ -89,13 +92,25 @@ func NewEngine() (Engine, error) {
 		return nil, fmt.Errorf("create time sereis storage path[%s] erorr: %s",
 			config.GlobalStorageConfig().TSDB.Dir, err)
 	}
+
+	tsdbCfg := config.GlobalStorageConfig().TSDB
+	checkerCfg := flush.CheckerConfig{
+		MaxMemDBSizeBytes:        int64(tsdbCfg.MaxMemDBSize),
+		MutableMemDBTTLNano:      int64(tsdbCfg.MutableMemDBTTL),
+		MaxMemUsageBeforeFlush:   tsdbCfg.MaxMemUsageBeforeFlush,
+		TargetMemUsageAfterFlush: tsdbCfg.TargetMemUsageAfterFlush,
+		FlushConcurrency:         tsdbCfg.FlushConcurrency,
+		CheckInterval:            time.Duration(tsdbCfg.FlushCheckInterval),
+	}
+	flushChecker := flush.NewChecker(checkerCfg, flush.NewDefaultMemoryUsageProvider())
+	flushChecker.Start()
+
 	e := &engine{
-		dbSet: *store.NewDatabaseSet(),
+		dbSet:        *store.NewDatabaseSet(),
+		flushChecker: flushChecker,
 	}
 	e.ctx, e.cancel = context.WithCancel(context.Background())
 	e.databases = make(map[string]store.Database)
-	// e.dataFlushChecker = newDataFlushChecker(e.ctx)
-	// e.dataFlushChecker.Start()
 
 	if err := e.load(); err != nil {
 		engineLogger.Error("load engine data error when create a new engine", logger.Error(err))
@@ -126,7 +141,7 @@ func (e *engine) createDatabase(databaseName string, dbOption *option.DatabaseOp
 				databaseName, cfgPath, err)
 		}
 	}
-	db, err := store.CreateDatabase(databaseName, cfg, limitCfg, nil)
+	db, err := store.CreateDatabase(databaseName, cfg, limitCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -211,9 +226,9 @@ func (e *engine) GetShard(databaseName string, shardID models.ShardID) (store.Sh
 
 // Close closes the cached time series databases
 func (e *engine) Close() {
-	// if e.dataFlushChecker != nil {
-	// 	e.dataFlushChecker.Stop()
-	// }
+	if e.flushChecker != nil {
+		e.flushChecker.Stop()
+	}
 	for dbName, db := range e.dbSet.Entries() {
 		if err := db.Close(); err != nil {
 			engineLogger.Error("close database",

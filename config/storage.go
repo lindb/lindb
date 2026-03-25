@@ -37,6 +37,7 @@ type TSDB struct {
 	MaxMemUsageBeforeFlush   float64        `env:"MAX_MEM_USAGE_BEFORE_FLUSH" toml:"max-mem-usage-before-flush"`
 	TargetMemUsageAfterFlush float64        `env:"TARGET_MEM_USAGE_AFTER_FLUSH" toml:"target-mem-usage-after-flush"`
 	FlushConcurrency         int            `env:"FLUSH_CONCURRENCY" toml:"flush-concurrency"`
+	FlushCheckInterval       ltoml.Duration `env:"FLUSH_CHECK_INTERVAL" toml:"flush-check-interval"`
 	SeriesSequenceCache      uint32         `env:"SERIES_SEQ_CACHE" toml:"series-sequence-cache"`
 	MetaSequenceCache        uint32         `env:"META_SEQ_CACHE" toml:"meta-sequence-cache"`
 }
@@ -49,8 +50,8 @@ func (t *TSDB) TOML() string {
 dir = "%s"
 
 ## Flush configuration
-## 
-## The amount of data to build up in each memdb, 
+##
+## The amount of data to build up in each memdb,
 ## before it is queueing to the immutable list for flushing.
 ## larger memdb may improve query performance.
 ## Default: %s
@@ -66,15 +67,19 @@ mutable-memdb-ttl = "%s"
 ## Default: %.2f
 ## Env: LINDB_STORAGE_TSDB_MAX_MEM_USAGE_BEFORE_FLUSH
 max-mem-usage-before-flush = %.2f
-## Global flush operation will be stopped 
+## Global flush operation will be stopped
 ## when system memory usage is lower than this ration.
 ## Default: %.2f
 ## Env: LINDB_STORAGE_TSDB_TARGET_MEM_USAGE_AFTER_FLUSH
 target-mem-usage-after-flush = %.2f
 ## concurrency of goroutines for flushing.
 ## Default: %d
-## Env: LINDB_STORAGE_TSDB_FLUSH_CONCURRENCY 
-flush-concurrency = %d`,
+## Env: LINDB_STORAGE_TSDB_FLUSH_CONCURRENCY
+flush-concurrency = %d
+## interval between flush checker cycles.
+## Default: %s
+## Env: LINDB_STORAGE_TSDB_FLUSH_CHECK_INTERVAL
+flush-check-interval = "%s"`,
 		strings.ReplaceAll(t.Dir, "\\", "\\\\"),
 		strings.ReplaceAll(t.Dir, "\\", "\\\\"),
 		t.MaxMemDBSize.String(),
@@ -87,6 +92,8 @@ flush-concurrency = %d`,
 		t.TargetMemUsageAfterFlush,
 		t.FlushConcurrency,
 		t.FlushConcurrency,
+		t.FlushCheckInterval.String(),
+		t.FlushCheckInterval.String(),
 	)
 }
 
@@ -225,6 +232,7 @@ func NewDefaultStorageBase() *StorageBase {
 			MaxMemUsageBeforeFlush:   0.75,
 			TargetMemUsageAfterFlush: 0.6,
 			FlushConcurrency:         int(math.Ceil(float64(runtime.GOMAXPROCS(-1)) / 2)),
+			FlushCheckInterval:       ltoml.Duration(time.Minute),
 			SeriesSequenceCache:      1000,
 			MetaSequenceCache:        100,
 		},
@@ -279,6 +287,9 @@ func checkTSDBCfg(tsdbCfg *TSDB) error {
 	}
 	if tsdbCfg.FlushConcurrency <= 0 {
 		tsdbCfg.FlushConcurrency = defaultStorageCfg.TSDB.FlushConcurrency
+	}
+	if tsdbCfg.FlushCheckInterval <= 0 {
+		tsdbCfg.FlushCheckInterval = defaultStorageCfg.TSDB.FlushCheckInterval
 	}
 	if tsdbCfg.SeriesSequenceCache <= 0 {
 		tsdbCfg.SeriesSequenceCache = defaultStorageCfg.TSDB.SeriesSequenceCache

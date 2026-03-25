@@ -23,18 +23,25 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/lindb/arrow/pkg/traces"
 	"github.com/lindb/common/pkg/fileutil"
 	"github.com/linxGnu/grocksdb"
+	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/storage/base"
+	"github.com/lindb/lindb/storage/flush"
 	"github.com/lindb/lindb/storage/store"
 )
+
+// estimatedBytesPerRow is a rough estimate of RocksDB memory per trace row
+// (traceID key + 5-byte WAL index value).
+const estimatedBytesPerRow = 256
 
 var (
 	wo *grocksdb.WriteOptions
@@ -58,6 +65,10 @@ type Segment struct {
 	buf []byte
 
 	reader *traces.TraceIDReader
+
+	isFlushing  atomic.Bool  // guard against concurrent flush (Flush() closes the DB)
+	createdTime int64        // unix nanoseconds, set at construction time
+	rowsWritten atomic.Int64 // total rows written; used for MemSize estimation
 }
 
 func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
@@ -89,8 +100,9 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 			Path:     segmentPath,
 			WALs:     make(map[models.NodeID]store.WriteAheadLog),
 		},
-		partition: partition,
-		db:        db,
+		partition:   partition,
+		db:          db,
+		createdTime: time.Now().UnixNano(),
 
 		buf: make([]byte, 5),
 	}
@@ -120,11 +132,62 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 		}
 	}
 
+	// register with flush tracker so the checker can schedule flush for this segment
+	flush.GetMemDBTracker().Register(seg)
+
 	return seg, nil
 }
 
 func (seg *Segment) Partition() store.Partition {
 	return seg.partition
+}
+
+// MutableMemDBInfo implements flush.FlushableSegment.
+// Trace segments write directly to RocksDB; we use rowsWritten as a proxy for memory pressure.
+// Returns nil after Flush() has been called (db is closed, segment is terminal).
+func (seg *Segment) MutableMemDBInfo() *flush.MemDBInfo {
+	if seg.isFlushing.Load() {
+		// flush in progress or already flushed (terminal state)
+		return nil
+	}
+	rows := seg.rowsWritten.Load()
+	if rows == 0 {
+		return nil
+	}
+	created := time.Unix(0, seg.createdTime)
+	return &flush.MemDBInfo{
+		MemSize:     rows * estimatedBytesPerRow,
+		CreatedTime: seg.createdTime,
+		SegmentTime: seg.TimeRange.Start,
+		NumOfRows:   int(rows),
+		Uptime:      time.Since(created),
+	}
+}
+
+// SegmentKey implements flush.FlushableSegment.
+// Returns a globally unique key: "{dbName}/{shardID}/{segmentTime}".
+func (seg *Segment) SegmentKey() string {
+	db := seg.partition.shard.Database().(*Database)
+	return flush.MakeSegmentKey(db.Name(), seg.partition.shard.ShardID().String(), seg.TimeRange.Start)
+}
+
+// SegmentMeta implements flush.FlushableSegment.
+// For trace segments, size/TTL thresholds are intentionally 0 (disabled);
+// only SegmentRange triggering is expected.
+func (seg *Segment) SegmentMeta() flush.SegmentMeta {
+	db := seg.partition.shard.Database().(*Database)
+	dbOpt := db.GetOption().Option
+	ahead, behind := dbOpt.GetAcceptWritableRange()
+
+	return flush.SegmentMeta{
+		DatabaseName:         db.Name(),
+		ShardID:              seg.partition.shard.ShardID().String(),
+		SizeThresholdBytes:   0, // disabled for trace: flush is a terminal operation
+		TimeThresholdNano:    0, // disabled for trace
+		Ahead:                ahead,
+		Behind:               behind,
+		SegmentOutRangeDelay: dbOpt.Data.SegmentOutRangeDelay,
+	}
 }
 
 func (seg *Segment) Write(leader models.NodeID, seq int64, msg []byte) (rows int, err error) {
@@ -153,6 +216,7 @@ func (seg *Segment) Write(leader models.NodeID, seq int64, msg []byte) (rows int
 			traceIDs[traceIDStr] = struct{}{}
 		}
 	}
+	seg.rowsWritten.Add(int64(numOfRows))
 	return numOfRows, nil
 }
 
@@ -179,6 +243,9 @@ func (seg *Segment) GetTrace(traceID string) (rs [][]byte, err error) {
 }
 
 func (seg *Segment) Close() error {
+	// unregister from flush tracker before closing
+	flush.GetMemDBTracker().Unregister(seg)
+
 	seg.Flush()
 
 	for _, d := range seg.WALs {
@@ -188,8 +255,18 @@ func (seg *Segment) Close() error {
 	return nil
 }
 
+// Flush implements store.Segment.
+// NOTE: for trace segments this is a terminal operation — it flushes and closes the RocksDB instance.
+// The CAS guard ensures it only executes once even if called concurrently.
 func (seg *Segment) Flush() error {
+	if !seg.isFlushing.CompareAndSwap(false, true) {
+		// already flushed or flush in progress
+		return nil
+	}
+	// do not restore isFlushing — once flushed the segment is terminal
 	seg.db.Flush(grocksdb.NewDefaultFlushOptions())
 	seg.db.Close()
+	// reset rowsWritten so MutableMemDBInfo returns nil after flush
+	seg.rowsWritten.Store(0)
 	return nil
 }

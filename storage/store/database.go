@@ -24,7 +24,6 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/storage/flush"
 )
 
 var (
@@ -39,7 +38,6 @@ type CreateDatabaseFn func(
 	databaseName string,
 	cfg *models.DatabaseConfig,
 	limits *models.Limits,
-	flushChecker flush.Checker,
 ) (Database, error)
 
 // RegisterEngine registers a database creating function.
@@ -52,13 +50,12 @@ func CreateDatabase(
 	databaseName string,
 	cfg *models.DatabaseConfig,
 	limits *models.Limits,
-	checker flush.Checker,
 ) (Database, error) {
 	fn, ok := creatingFns[cfg.Option.Engine]
 	if !ok {
 		return nil, fmt.Errorf("not support engine: %s", cfg.Option.Engine)
 	}
-	return fn(databaseName, cfg, limits, checker)
+	return fn(databaseName, cfg, limits)
 }
 
 // Database represents abstract database for log/metric/trace etc.

@@ -35,6 +35,8 @@ type Database interface {
 	Write(namespace []byte, logID uint32, reader *logs.Reader, row int) error
 	FindLogIDsByField(fieldID uint32) *roaring.Bitmap
 	Flush(flusher kv.Flusher) error
+	// MemSize returns an estimated memory footprint of the field index bitmaps in bytes.
+	MemSize() int64
 
 	IndexDatabase() index.Database
 }
@@ -129,6 +131,18 @@ func (md *database) Flush(flusher kv.Flusher) error {
 		}
 		return flusher.Add(key, data)
 	})
+}
+
+// MemSize returns an estimated memory footprint of all field index bitmaps in bytes.
+// It sums GetSizeInBytes() for each roaring bitmap, which reflects the compressed size.
+// The actual heap usage may be slightly higher due to Go object overhead.
+func (md *database) MemSize() int64 {
+	var size int64
+	md.fieldIndexes.WalkEntry(func(_ uint32, v *roaring.Bitmap) error { //nolint:errcheck
+		size += int64(v.GetSizeInBytes())
+		return nil
+	})
+	return size
 }
 
 func (md *database) indexField(fieldID, logID uint32) {
