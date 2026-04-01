@@ -21,10 +21,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"math"
 
-	"github.com/lindb/common/pkg/fileutil"
-	"github.com/linxGnu/grocksdb"
-	"github.com/samber/lo"
+	"github.com/cockroachdb/pebble/v2"
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/pkg/encoding"
@@ -32,19 +31,24 @@ import (
 	"github.com/lindb/lindb/sql/tree"
 )
 
+// Key-space prefixes replace RocksDB column families.
+// Each prefix is a single byte prepended to every key within the logical namespace.
 var (
-	wo *grocksdb.WriteOptions
-	ro *grocksdb.ReadOptions
+	// metaPrefix reserves key space [0x00, ...] for internal metadata.
+	// 0x00 sorts before all user-data prefixes (0x01–0x03), ensuring no collision.
+	metaPrefix = []byte{0x00}
+	// nsPrefix is the prefix for namespace ID mappings.
+	nsPrefix = []byte{0x01}
+	// fnPrefix is the prefix for field-name ID mappings (parent is namespace ID).
+	fnPrefix = []byte{0x02}
+	// fvPrefix is the prefix for field-value ID mappings (parent is field-name ID).
+	fvPrefix = []byte{0x03}
 
 	sequenceKey = []byte("sequence")
+
+	// writeOpts disables fsync for every individual write; data is recovered from segment WALs.
+	writeOpts = pebble.NoSync
 )
-
-func init() {
-	wo = grocksdb.NewDefaultWriteOptions()
-	wo.DisableWAL(true)
-
-	ro = grocksdb.NewDefaultReadOptions()
-}
 
 type Database interface {
 	GetOrCreateNamespaceID(namespace []byte) (uint32, error)
@@ -64,69 +68,23 @@ type Database interface {
 }
 
 type database struct {
-	db         *grocksdb.DB
-	namespace  *grocksdb.ColumnFamilyHandle
-	fieldName  *grocksdb.ColumnFamilyHandle
-	fieldValue *grocksdb.ColumnFamilyHandle
+	db *pebble.DB
 
 	sequence atomic.Uint32
 }
 
 func NewDatabase(dbPath string) Database {
-	opts := grocksdb.NewDefaultOptions()
-	opts.SetCreateIfMissing(true)
-	var (
-		familyNames []string
-		db          *grocksdb.DB
-		families    []*grocksdb.ColumnFamilyHandle
-		err         error
-	)
-	// opts.SetMergeOperator(&IntAddMergeOperator{})
-	if fileutil.Exist(dbPath) {
-		// open existing backend database
-		familyNames, err = grocksdb.ListColumnFamilies(opts, dbPath)
-		if err != nil {
-			panic(err)
-		}
-		var cfOpts []*grocksdb.Options
-		for range len(familyNames) {
-			cfOpts = append(cfOpts, opts)
-		}
-
-		db, families, err = grocksdb.OpenDbColumnFamilies(opts, dbPath, familyNames, cfOpts)
-		if err != nil {
-			panic(err)
-		}
-	} else {
-		// create new backend database
-		db, err = grocksdb.OpenDb(opts, dbPath)
-		if err != nil {
-			panic(err)
-		}
+	opts := &pebble.Options{
+		// Disable the WAL for the index DB — durability is guaranteed by the segment WAL.
+		DisableWAL: true,
 	}
-
-	getOrCreate := func(cfName string) *grocksdb.ColumnFamilyHandle {
-		cfh, ok := lo.Find(families, func(cf *grocksdb.ColumnFamilyHandle) bool {
-			return cfName == cf.Name()
-		})
-		if ok {
-			return cfh
-		}
-		cfh, err = db.CreateColumnFamily(opts, cfName)
-		if err != nil {
-			panic(err)
-		}
-		return cfh
+	db, err := pebble.Open(dbPath, opts)
+	if err != nil {
+		panic(err)
 	}
-	namespace := getOrCreate("ns")
-	fieldName := getOrCreate("fn")
-	fieldValue := getOrCreate("fv")
 
 	indexDB := &database{
-		db:         db,
-		namespace:  namespace,
-		fieldName:  fieldName,
-		fieldValue: fieldValue,
+		db: db,
 	}
 
 	indexDB.initialize()
@@ -135,82 +93,118 @@ func NewDatabase(dbPath string) Database {
 }
 
 func (db *database) initialize() {
-	// initialize global sequence
-	v, err := db.db.Get(ro, sequenceKey)
+	// initialize global sequence from persisted state
+	v, closer, err := db.db.Get(metaKey(sequenceKey))
+	if err == pebble.ErrNotFound {
+		// fresh database — sequence starts at 0
+		return
+	}
 	if err != nil {
 		panic(err)
 	}
-	defer v.Free()
-	if v.Exists() {
-		db.sequence.Store(encoding.BytesToU32(v.Data()))
-	}
+	db.sequence.Store(encoding.BytesToU32(v))
+	closer.Close() //nolint:errcheck
+}
+
+// prefixedKey builds a lookup key by prepending a single-byte CF prefix to key.
+func prefixedKey(prefix, key []byte) []byte {
+	pk := make([]byte, len(prefix)+len(key))
+	copy(pk, prefix)
+	copy(pk[len(prefix):], key)
+	return pk
+}
+
+// metaKey builds an internal metadata key: [0x00] + name.
+func metaKey(name []byte) []byte {
+	return prefixedKey(metaPrefix, name)
 }
 
 func (db *database) GetOrCreateNamespaceID(namespace []byte) (uint32, error) {
-	v, err := db.db.GetCF(ro, db.namespace, namespace)
-	if err != nil {
+	pk := prefixedKey(nsPrefix, namespace)
+	v, closer, err := db.db.Get(pk)
+	if err != nil && err != pebble.ErrNotFound {
 		return 0, err
 	}
-	defer v.Free()
-	if v.Exists() {
-		return encoding.BytesToU32(v.Data()), nil
+	if err == nil {
+		id := encoding.BytesToU32(v)
+		closer.Close() //nolint:errcheck
+		return id, nil
 	}
 
 	id := db.sequence.Inc()
-	ns := make([]byte, len(namespace))
-	copy(ns, namespace)
-	db.db.PutCF(wo, db.namespace, ns, encoding.U32ToBytes(id))
+	ns := make([]byte, len(pk))
+	copy(ns, pk)
+	if err := db.db.Set(ns, encoding.U32ToBytes(id), writeOpts); err != nil {
+		return 0, err
+	}
 	return id, nil
 }
 
 func (db *database) GetOrCreateFieldKeyID(ns uint32, key []byte) (uint32, error) {
-	return db.getOrCreateID(db.fieldName, ns, key)
+	return db.getOrCreateID(fnPrefix, ns, key)
 }
 
 func (db *database) GetOrCreateFieldValueID(key uint32, value []byte) (uint32, error) {
-	return db.getOrCreateID(db.fieldValue, key, value)
+	return db.getOrCreateID(fvPrefix, key, value)
 }
 
 func (db *database) GetNamespaceID(namespace []byte) (uint32, error) {
-	v, err := db.db.GetCF(ro, db.namespace, namespace)
+	pk := prefixedKey(nsPrefix, namespace)
+	v, closer, err := db.db.Get(pk)
+	if err == pebble.ErrNotFound {
+		return 0, errors.New("not exist")
+	}
 	if err != nil {
 		return 0, err
 	}
-	defer v.Free()
-	if v.Exists() {
-		return encoding.BytesToU32(v.Data()), nil
-	}
-	return 0, errors.New("not exist")
+	id := encoding.BytesToU32(v)
+	closer.Close() //nolint:errcheck
+	return id, nil
 }
 
 func (db *database) GetFieldKeyID(ns uint32, key []byte) (uint32, error) {
-	return db.getID(db.fieldName, ns, key)
+	return db.getID(fnPrefix, ns, key)
 }
 
 func (db *database) GetFieldValueID(key uint32, value []byte) (uint32, error) {
-	return db.getID(db.fieldValue, key, value)
+	return db.getID(fvPrefix, key, value)
 }
 
+// ScanField iterates over all field-value entries whose key starts with the given prefix
+// under the specified fieldKey namespace.
 func (db *database) ScanField(fieldKey uint32, prefix []byte, callback func(key []byte, value uint32) bool) {
-	it := db.db.NewIteratorCF(ro, db.fieldValue)
-	keyBytes := make([]byte, 4+len(prefix))
-	binary.BigEndian.PutUint32(keyBytes[:4], fieldKey)
-	copy(keyBytes[4:], prefix)
-	it.Seek(keyBytes)
-	for ; it.Valid(); it.Next() {
-		key := it.Key()
-		value := it.Value()
+	// Build the seek key: fvPrefix + BE(fieldKey) + prefix
+	seekKey := buildCompositeKey(fvPrefix, fieldKey, prefix)
 
-		if !bytes.HasPrefix(key.Data(), keyBytes) {
-			key.Free()
-			value.Free()
+	// Compute upper bound: first key of the next parent (fieldKey+1).
+	// If fieldKey is MaxUint32, upper bound is the start of the next prefix space.
+	var upperBound []byte
+	if fieldKey == math.MaxUint32 {
+		upperBound = []byte{fvPrefix[0] + 1}
+	} else {
+		upperBound = make([]byte, 5) // fvPrefix(1B) + BE(fieldKey+1)(4B)
+		upperBound[0] = fvPrefix[0]
+		binary.BigEndian.PutUint32(upperBound[1:], fieldKey+1)
+	}
+
+	iterOpts := &pebble.IterOptions{
+		LowerBound: seekKey,
+		UpperBound: upperBound,
+	}
+	it, err := db.db.NewIter(iterOpts)
+	if err != nil {
+		return
+	}
+	defer it.Close() //nolint:errcheck
+
+	for valid := it.SeekGE(seekKey); valid; valid = it.Next() {
+		k := it.Key()
+
+		if !bytes.HasPrefix(k, seekKey) {
 			break
 		}
-		ok := callback(key.Data()[4:], encoding.BytesToU32(value.Data()))
-
-		key.Free()
-		value.Free()
-
+		// Strip the fvPrefix (1 byte) and the 4-byte parent ID to get the original field key.
+		ok := callback(k[1+4:], encoding.BytesToU32(it.Value()))
 		if !ok {
 			break
 		}
@@ -237,46 +231,59 @@ func (db *database) FindFieldValueIDs(key uint32, expr tree.Expr) (ids []uint32,
 }
 
 func (db *database) Flush() error {
-	opt := grocksdb.NewDefaultFlushOptions()
-	db.db.Put(wo, sequenceKey, encoding.U32ToBytes(db.sequence.Load()))
-	return db.db.Flush(opt)
+	if err := db.db.Set(metaKey(sequenceKey), encoding.U32ToBytes(db.sequence.Load()), writeOpts); err != nil {
+		return err
+	}
+	return db.db.Flush()
 }
 
 func (db *database) Close() {
-	db.db.Close()
+	db.db.Close() //nolint:errcheck
 }
 
-func (db *database) getOrCreateID(cf *grocksdb.ColumnFamilyHandle, parent uint32, key []byte) (uint32, error) {
-	keyBytes := make([]byte, 4+len(key))
-	binary.BigEndian.PutUint32(keyBytes[:4], parent)
-	copy(keyBytes[4:], key)
+// getOrCreateID looks up an ID for (prefix, parent, key). If not found, it allocates
+// the next sequence value and stores it.
+func (db *database) getOrCreateID(prefix []byte, parent uint32, key []byte) (uint32, error) {
+	pk := buildCompositeKey(prefix, parent, key)
 
-	v, err := db.db.GetCF(ro, cf, keyBytes)
-	if err != nil {
+	v, closer, err := db.db.Get(pk)
+	if err != nil && err != pebble.ErrNotFound {
 		return 0, err
 	}
-	defer v.Free()
-	if v.Exists() {
-		return encoding.BytesToU32(v.Data()), nil
+	if err == nil {
+		id := encoding.BytesToU32(v)
+		closer.Close() //nolint:errcheck
+		return id, nil
 	}
 
 	id := db.sequence.Inc()
-	db.db.PutCF(wo, cf, keyBytes, encoding.U32ToBytes(id))
+	if err := db.db.Set(pk, encoding.U32ToBytes(id), writeOpts); err != nil {
+		return 0, err
+	}
 	return id, nil
 }
 
-func (db *database) getID(cf *grocksdb.ColumnFamilyHandle, parent uint32, key []byte) (uint32, error) {
-	keyBytes := make([]byte, 4+len(key))
-	binary.BigEndian.PutUint32(keyBytes[:4], parent)
-	copy(keyBytes[4:], key)
+func (db *database) getID(prefix []byte, parent uint32, key []byte) (uint32, error) {
+	pk := buildCompositeKey(prefix, parent, key)
 
-	v, err := db.db.GetCF(ro, cf, keyBytes)
+	v, closer, err := db.db.Get(pk)
+	if err == pebble.ErrNotFound {
+		return 0, errors.New("not exist")
+	}
 	if err != nil {
 		return 0, err
 	}
-	defer v.Free()
-	if v.Exists() {
-		return encoding.BytesToU32(v.Data()), nil
-	}
-	return 0, errors.New("not exist")
+	id := encoding.BytesToU32(v)
+	closer.Close() //nolint:errcheck
+	return id, nil
+}
+
+// buildCompositeKey constructs a key as: prefix(1B) + BE(parent)(4B) + key.
+// This replicates the previous key layout used with RocksDB column families.
+func buildCompositeKey(prefix []byte, parent uint32, key []byte) []byte {
+	pk := make([]byte, len(prefix)+4+len(key))
+	copy(pk, prefix)
+	binary.BigEndian.PutUint32(pk[len(prefix):], parent)
+	copy(pk[len(prefix)+4:], key)
+	return pk
 }

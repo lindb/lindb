@@ -15,7 +15,7 @@ help:  ## Display this help
 		/^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
 run: ## run local standalone cluster for demo/debug
-	go run -tags grocksdb_clean_link github.com/lindb/lindb/cmd/lind standalone run --pprof --doc
+	go run github.com/lindb/lindb/cmd/lind standalone run --pprof --doc
 
 cli: ## run LinDB CLI
 	go run github.com/lindb/lindb/cmd/cli
@@ -78,9 +78,7 @@ api-doc: ## generate api document
 
 test-without-lint: ## Run test without lint
 	go install "github.com/rakyll/gotest@v0.0.6"
-	GIN_MODE=release
-	LOG_LEVEL=fatal ## disable log for test
-	gotest -v -race -coverprofile=coverage_tmp.out -covermode=atomic ./...
+	GIN_MODE=release LOG_LEVEL=fatal gotest -v -race -coverprofile=coverage_tmp.out -covermode=atomic ./...
 	cat coverage_tmp.out |grep -v "_mock.go" > coverage.out
 	go tool cover -html=coverage.out -o coverage.html
 
@@ -88,9 +86,7 @@ test: header lint test-without-lint ## Run test cases.
 
 e2e-test:
 	go install "github.com/rakyll/gotest@v0.0.6"
-	GIN_MODE=release
-	LOG_LEVEL=fatal ## disable log for test
-	gotest -v --tags=integration -covermode=atomic ./e2e/...
+	GIN_MODE=release LOG_LEVEL=fatal gotest -v --tags=integration -covermode=atomic ./e2e/...
 
 e2e: header e2e-test
 

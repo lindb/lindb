@@ -25,9 +25,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cockroachdb/pebble/v2"
 	"github.com/lindb/arrow/pkg/traces"
 	"github.com/lindb/common/pkg/fileutil"
-	"github.com/linxGnu/grocksdb"
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/models"
@@ -39,28 +39,19 @@ import (
 	"github.com/lindb/lindb/storage/store"
 )
 
-// estimatedBytesPerRow is a rough estimate of RocksDB memory per trace row
+// estimatedBytesPerRow is a rough estimate of pebble memory per trace row
 // (traceID key + 5-byte WAL index value).
 const estimatedBytesPerRow = 256
 
-var (
-	wo *grocksdb.WriteOptions
-	ro *grocksdb.ReadOptions
-)
-
-func init() {
-	wo = grocksdb.NewDefaultWriteOptions()
-	wo.DisableWAL(true)
-
-	ro = grocksdb.NewDefaultReadOptions()
-}
+// writeOpts disables the write-ahead log for better write performance.
+var writeOpts = pebble.NoSync
 
 type Segment struct {
 	base.Segment
 
 	partition *partition
 
-	db *grocksdb.DB
+	db *pebble.DB
 
 	buf []byte
 
@@ -77,14 +68,16 @@ func NewSegment(timestamp int64, partition *partition) (store.Segment, error) {
 	family := fmt.Sprintf("%d", familySlot)
 	segmentPath := filepath.Join(partition.Path(), family)
 
-	opts := grocksdb.NewDefaultOptions()
-	opts.SetCreateIfMissing(true)
-	opts.SetMergeOperator(&TraceMergeOperator{})
 	indexPath := path.Join(segmentPath, "index")
 	if err := fileutil.MkDirIfNotExist(indexPath); err != nil {
 		return nil, err
 	}
-	db, err := grocksdb.OpenDb(opts, indexPath)
+
+	opts := &pebble.Options{
+		// Disable the WAL — data is recovered from the segment's own WAL files.
+		DisableWAL: true,
+	}
+	db, err := pebble.Open(indexPath, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +136,7 @@ func (seg *Segment) Partition() store.Partition {
 }
 
 // MutableMemDBInfo implements flush.FlushableSegment.
-// Trace segments write directly to RocksDB; we use rowsWritten as a proxy for memory pressure.
+// Trace segments write directly to pebble; we use rowsWritten as a proxy for memory pressure.
 // Returns nil after Flush() has been called (db is closed, segment is terminal).
 func (seg *Segment) MutableMemDBInfo() *flush.MemDBInfo {
 	if seg.isFlushing.Load() {
@@ -202,17 +195,22 @@ func (seg *Segment) Write(leader models.NodeID, seq int64, msg []byte) (rows int
 			return 0, err
 		}
 	}
+
+	// Write the 5-byte WAL pointer into seg.buf: [leaderID(1)] + [seq(4)]
+	seg.buf[0] = byte(leader)
+	stream.PutUint32(seg.buf, 1, uint32(seq))
+
 	traceIDs := make(map[string]struct{})
 	numOfRows := seg.reader.NumOfRows()
 	for i := 0; i < numOfRows; i++ {
 		traceID := seg.reader.TraceID(i)
 		traceIDStr := strutil.ByteSlice2String(traceID)
 		if _, ok := traceIDs[traceIDStr]; !ok {
-
-			seg.buf[0] = byte(leader)
-			stream.PutUint32(seg.buf, 1, uint32(seq))
-			// index traceID to WAL index
-			seg.db.Merge(wo, traceID, seg.buf)
+			// Use pebble's native Merge (backed by DefaultMerger / AppendValueMerger)
+			// to atomically append the 5-byte WAL pointer
+			if err := seg.db.Merge(traceID, seg.buf, writeOpts); err != nil {
+				return 0, err
+			}
 			traceIDs[traceIDStr] = struct{}{}
 		}
 	}
@@ -221,14 +219,15 @@ func (seg *Segment) Write(leader models.NodeID, seq int64, msg []byte) (rows int
 }
 
 func (seg *Segment) GetTrace(traceID string) (rs [][]byte, err error) {
-	indexes, err := seg.db.Get(ro, []byte(traceID))
+	data, closer, err := seg.db.Get([]byte(traceID))
+	if err == pebble.ErrNotFound {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}
-	if !indexes.Exists() {
-		return nil, nil
-	}
-	data := indexes.Data()
+	defer closer.Close() //nolint:errcheck
+
 	for i := range len(data) / 5 {
 		index := data[i*5 : (i+1)*5]
 		leader := models.NodeID(index[0])
@@ -256,7 +255,7 @@ func (seg *Segment) Close() error {
 }
 
 // Flush implements store.Segment.
-// NOTE: for trace segments this is a terminal operation — it flushes and closes the RocksDB instance.
+// NOTE: for trace segments this is a terminal operation — it flushes and closes the pebble instance.
 // The CAS guard ensures it only executes once even if called concurrently.
 func (seg *Segment) Flush() error {
 	if !seg.isFlushing.CompareAndSwap(false, true) {
@@ -264,8 +263,8 @@ func (seg *Segment) Flush() error {
 		return nil
 	}
 	// do not restore isFlushing — once flushed the segment is terminal
-	seg.db.Flush(grocksdb.NewDefaultFlushOptions())
-	seg.db.Close()
+	seg.db.Flush() //nolint:errcheck
+	seg.db.Close() //nolint:errcheck
 	// reset rowsWritten so MutableMemDBInfo returns nil after flush
 	seg.rowsWritten.Store(0)
 	return nil
