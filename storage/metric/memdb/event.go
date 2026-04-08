@@ -17,7 +17,27 @@
 
 package memdb
 
+import "github.com/lindb/lindb/series/field"
+
 // FlushEvent represents flush metadata/index event.
 type FlushEvent struct {
 	Callback func(err error)
+}
+
+// arrowIndexEvent carries data needed to index a new time series from the Arrow path.
+type arrowIndexEvent struct {
+	nameHash    uint64
+	memSeriesID uint32
+	namespace   string
+	name        string
+	attrHash    uint64
+	attrs       []struct{ key, value string }
+}
+
+// arrowMetaEvent carries data needed to persist field metadata from the Arrow path.
+type arrowMetaEvent struct {
+	nameHash   uint64
+	namespace  []byte
+	name       []byte
+	fieldMetas []field.Meta
 }

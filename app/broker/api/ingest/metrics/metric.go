@@ -15,34 +15,39 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package opentelemetry
+// Package metrics provides the Arrow-based metric ingest HTTP handler.
+package metrics
 
 import (
 	"github.com/gin-gonic/gin"
 
-	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/app/broker/api/ingest"
+	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 )
 
-const LogPath = "/opentelemetry/logs"
+// MetricPath is the URL path for the Arrow metric write endpoint.
+const MetricPath = "/metrics"
 
-// Log represents the OpenTelemetry log ingest api handler.
-type Log struct {
+// Metric handles Arrow IPC metric write requests.
+// Clients must set Content-Type: application/vnd.apache.arrow.stream and
+// X-LinDB-Database: <database-name>.  The request body must be
+// the raw IPC stream bytes produced by MetricBuilder.Bytes().
+type Metric struct {
 	ingest.BaseWriter // inherits Write handler
 }
 
-// NewLog creates a new OpenTelemetry log ingest api handler.
-func NewLog(deps *depspkg.HTTPDeps) *Log {
-	return &Log{
+// NewMetric creates a new Metric ingest handler.
+func NewMetric(deps *depspkg.HTTPDeps) *Metric {
+	return &Metric{
 		BaseWriter: ingest.NewBaseWriter(deps, map[string]ingest.ProcessFunc{
-			constants.ContentTypeOTelProto: ingest.StandardProcess(deps, constants.EncodingProto),
+			constants.ContentTypeArrow: ingest.StandardProcess(deps, constants.EncodingArrow),
 		}),
 	}
 }
 
-// Register adds the log ingest url route.
-func (w *Log) Register(route gin.IRoutes) {
-	route.POST(LogPath, w.Write)
-	route.PUT(LogPath, w.Write)
+// Register registers POST and PUT routes for MetricPath.
+func (m *Metric) Register(route gin.IRoutes) {
+	route.POST(MetricPath, m.Write)
+	route.PUT(MetricPath, m.Write)
 }

@@ -18,11 +18,10 @@
 package opentelemetry
 
 import (
-	"context"
-
 	"github.com/gin-gonic/gin"
 
 	depspkg "github.com/lindb/lindb/app/broker/deps"
+	"github.com/lindb/lindb/app/broker/api/ingest"
 	"github.com/lindb/lindb/constants"
 )
 
@@ -30,31 +29,20 @@ const TracePath = "/opentelemetry/traces"
 
 // Trace represents the OpenTelemetry trace ingest api handler.
 type Trace struct {
-	writer
+	ingest.BaseWriter // inherits Write handler
 }
 
 // NewTrace creates OpenTelemetry trace ingest api handler.
 func NewTrace(deps *depspkg.HTTPDeps) *Trace {
-	t := &Trace{
-		writer: writer{
-			deps: deps,
-		},
+	return &Trace{
+		BaseWriter: ingest.NewBaseWriter(deps, map[string]ingest.ProcessFunc{
+			constants.ContentTypeOTelProto: ingest.StandardProcess(deps, constants.EncodingProto),
+		}),
 	}
-	t.writer.processProto = t.processProto
-	return t
 }
 
 // Register adds the trace ingest url route.
 func (w *Trace) Register(route gin.IRoutes) {
 	route.POST(TracePath, w.Write)
 	route.PUT(TracePath, w.Write)
-}
-
-// processProto processes the OpenTelemetry trace proto data.
-func (w *Trace) processProto(ctx context.Context, database string, data []byte) error {
-	writer, ok := w.deps.WriteManager.GetWriter(database)
-	if !ok {
-		return constants.ErrDatabaseNotFound
-	}
-	return writer.Write(ctx, data, constants.EncodingProto)
 }

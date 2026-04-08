@@ -28,14 +28,14 @@ import (
 	"github.com/lindb/common/pkg/logger"
 	"go.uber.org/atomic"
 
+	lmetrics "github.com/lindb/arrow/pkg/metrics"
+
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/models"
-	"github.com/lindb/lindb/pkg/compress"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/storage/base"
 	"github.com/lindb/lindb/storage/flush"
 	"github.com/lindb/lindb/storage/metric/memdb"
@@ -193,42 +193,6 @@ func (s *Segment) SegmentMeta() flush.SegmentMeta {
 	}
 }
 
-func (s *Segment) write(rows []*metric.StorageRow) error {
-	if len(rows) == 0 {
-		return nil
-	}
-
-	db, err := s.GetOrCreateMemoryDatabase(s.TimeRange.Start)
-	if err != nil {
-		// all rows are dropped
-		s.statistics.WriteMetricFailures.Add(float64(len(rows)))
-		return err
-	}
-	db.AcquireWrite()
-	defer func() {
-		s.statistics.WriteBatches.Incr()
-		db.CompleteWrite()
-	}()
-
-	for idx := range rows {
-		row := rows[idx]
-		err := db.WriteRow(row)
-		if err == nil {
-			s.statistics.WriteMetrics.Incr()
-			s.statistics.WriteFields.Add(row.WrittenFields)
-		} else {
-			s.statistics.WriteMetricFailures.Incr()
-			s.logger.Error("failed writing row", logger.String("family", s.Path), logger.Error(err))
-		}
-
-		// waiting all operators done(write data/build meta and index)
-		// TODO: add timeout??
-		row.Wait()
-	}
-
-	return nil
-}
-
 // GetOrCreateMemoryDatabase returns memory database by given segment time.
 func (s *Segment) GetOrCreateMemoryDatabase(segmentTime int64) (memdb.MemoryDatabase, error) {
 	s.mutex.Lock()
@@ -314,22 +278,38 @@ func (s *Segment) Flush() error {
 }
 
 // Write implements store.Segment.
+// It parses the payload as Arrow IPC (produced by MetricBuilder.Bytes()).
 func (s *Segment) Write(leader models.NodeID, seq int64, msg []byte) (rows int, err error) {
-	reader := compress.NewSnappyReader()
-	block, err := reader.Uncompress(msg)
+	reader, err := lmetrics.NewReader(msg)
 	if err != nil {
-		return
+		return 0, err
 	}
-	batchRows := metric.NewStorageBatchRows()
-	batchRows.UnmarshalRows(block)
-	rows = batchRows.Len()
-
-	if rows == 0 {
-		return
+	defer reader.Release()
+	numRows := reader.NumRows()
+	if numRows == 0 {
+		return 0, nil
 	}
-	err = s.write(batchRows.Rows())
+	db, dbErr := s.GetOrCreateMemoryDatabase(s.TimeRange.Start)
+	if dbErr != nil {
+		s.statistics.WriteMetricFailures.Add(float64(numRows))
+		return 0, dbErr
+	}
+	db.AcquireWrite()
+	defer func() {
+		s.statistics.WriteBatches.Incr()
+		db.CompleteWrite()
+	}()
 
-	return
+	for row := range numRows {
+		if writeErr := db.WriteArrow(reader, row); writeErr != nil {
+			s.statistics.WriteMetricFailures.Incr()
+			s.logger.Error("failed writing arrow row",
+				logger.String("segment", s.Path), logger.Error(writeErr))
+		} else {
+			s.statistics.WriteMetrics.Incr()
+		}
+	}
+	return numRows, nil
 }
 
 // Close implements store.Segment.

@@ -34,10 +34,8 @@ import (
 	"github.com/lindb/lindb/kv"
 	"github.com/lindb/lindb/kv/version"
 	"github.com/lindb/lindb/metrics"
-	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/imap"
-	"github.com/lindb/lindb/pkg/strutil"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 )
@@ -139,23 +137,21 @@ func (index *metricIndexDatabase) createSeriesID(metricID metric.ID) (seriesID u
 	return 0
 }
 
-// GenSeriesID generates time series id based on tags hash.
-func (index *metricIndexDatabase) GenSeriesID(metricID metric.ID, row *metric.StorageRow) (seriesID uint32, err error) {
+// GenSeriesIDByAttrs generates time series id using a pre-computed attribute hash and an
+// optional attrFn callback for lazily iterating raw key-value pairs when a new series is detected.
+func (index *metricIndexDatabase) GenSeriesIDByAttrs(
+	metricID metric.ID, attrHash uint64,
+	attrFn func(fn func(key, value []byte)),
+) (seriesID uint32, err error) {
 	var isNewSeries bool
 	var scratch [8]byte
-	tagsHash := row.TagsHash()
-	binary.LittleEndian.PutUint64(scratch[:], tagsHash)
+	binary.LittleEndian.PutUint64(scratch[:], attrHash)
 
 	seriesID, isNewSeries, err = index.series.GetOrCreateValue(uint32(metricID), scratch[:], func() (uint32, error) {
 		return index.createSeriesID(metricID), nil
 	})
 	if err == nil && isNewSeries {
-		limits := models.GetDatabaseLimits(index.metaDB.Name())
-		seriesLimit := limits.GetSeriesLimit(strutil.ByteSlice2String(row.NameSpace()), strutil.ByteSlice2String(row.Name()))
-		if seriesLimit > 0 && seriesLimit < seriesID {
-			return 0, constants.ErrTooManySeries
-		}
-		// if new series do inverted index build
+		// update sequence cache for the metric
 		index.sequenceCache.Add(metricID, seriesID)
 
 		// write metric inverted index
@@ -163,9 +159,26 @@ func (index *metricIndexDatabase) GenSeriesID(metricID metric.ID, row *metric.St
 		index.metricInverted.put(uint32(metricID), seriesID)
 		index.lock.Unlock()
 
-		if row.TagsLen() > 0 {
-			// write tag related index
-			index.buildInvertIndex(metricID, row.NewKeyValueIterator(), seriesID)
+		// build inverted/forward indexes from the attribute key-value pairs
+		if attrFn != nil {
+			attrFn(func(key, value []byte) {
+				tagKeyID, e := index.metaDB.GenTagKeyID(metricID, key)
+				if e != nil {
+					index.logger.Error("gen tag key id error when building Arrow inverted index",
+						logger.String("tagKey", string(key)), logger.Error(e))
+					return
+				}
+				tagValueID, e := index.metaDB.GenTagValueID(tagKeyID, value)
+				if e != nil {
+					index.logger.Error("gen tag value id error when building Arrow inverted index",
+						logger.String("tagKey", string(key)), logger.String("tagValue", string(value)), logger.Error(e))
+					return
+				}
+				index.lock.Lock()
+				index.inverted.put(tagValueID, seriesID)
+				index.forward.put(uint32(tagKeyID), tagValueID, seriesID)
+				index.lock.Unlock()
+			})
 			index.statistics.BuildInvertedIndex.Incr()
 		}
 	}
@@ -223,33 +236,6 @@ func (index *metricIndexDatabase) Flush() error {
 func (index *metricIndexDatabase) Close() error {
 	index.cancel()
 	return kv.GetStoreManager().CloseStore(index.kvStore.Name())
-}
-
-func (index *metricIndexDatabase) buildInvertIndex(metricID metric.ID,
-	tags *metric.KeyValueIterator, seriesID uint32,
-) {
-	for tags.HasNext() {
-		key := tags.NextKey()
-		tagKeyID, err := index.metaDB.GenTagKeyID(metricID, key)
-		if err != nil {
-			index.logger.Error("gen tag key id error when build inverted index",
-				logger.String("tagKey", string(key)), logger.Error(err))
-			continue
-		}
-		value := tags.NextValue()
-		tagValueID, err := index.metaDB.GenTagValueID(tagKeyID, value)
-		if err != nil {
-			index.logger.Error("gen tag value id error when build inverted index",
-				logger.String("tagKey", string(key)), logger.String("tagValue", string(value)), logger.Error(err))
-			continue
-		}
-		index.lock.Lock()
-		// write tag value inverted index
-		index.inverted.put(tagValueID, seriesID)
-		// write tag key forward index
-		index.forward.put(uint32(tagKeyID), tagValueID, seriesID)
-		index.lock.Unlock()
-	}
 }
 
 type invertedIndex struct {

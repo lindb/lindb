@@ -29,7 +29,6 @@ import (
 	"github.com/lindb/lindb/index"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/imap"
-	"github.com/lindb/lindb/series/metric"
 )
 
 //go:generate mockgen -source ./metadata_database.go -destination=./metadata_database_mock.go -package=memdb
@@ -40,8 +39,8 @@ var empty = struct{}{}
 type MetadataDatabase interface {
 	// Config returns database's config.
 	Config() *models.DatabaseConfig
-	// GetOrCreateMetricMeta returns metric meta store, if not exist create new store.
-	GetOrCreateMetricMeta(row *metric.StorageRow) (ms mStoreINTF, isNew bool)
+	// GetOrCreateMetricMetaByHash returns metric meta store keyed by nameHash, creates new if absent.
+	GetOrCreateMetricMetaByHash(nameHash uint64) (mStoreINTF, bool)
 	// GetMetricMeta returns metric meta store by memory metric id.
 	GetMetricMeta(memMetricID uint64) (mStoreINTF, bool)
 	// GetMetaDB returnes metric meta database.
@@ -101,17 +100,16 @@ func (mdb *metadataDatabase) GetMetaDB() index.MetricMetaDatabase {
 	return mdb.metaDB
 }
 
-// GetOrCreateMetricMeta returns metric meta store, if not exist create new store.
-func (mdb *metadataDatabase) GetOrCreateMetricMeta(row *metric.StorageRow) (mStoreINTF, bool) {
-	hash := row.NameHash()
-	mStore, ok := mdb.metricMetadatas.Load(hash)
+// GetOrCreateMetricMetaByHash returns metric meta store keyed by nameHash, creates new if absent.
+func (mdb *metadataDatabase) GetOrCreateMetricMetaByHash(nameHash uint64) (mStoreINTF, bool) {
+	mStore, ok := mdb.metricMetadatas.Load(nameHash)
 	if ok {
 		return mStore.(mStoreINTF), false
 	}
 	mdb.lock.Lock()
 	defer mdb.lock.Unlock()
 
-	return mdb.getOrCreateMetricMeta(hash)
+	return mdb.getOrCreateMetricMeta(nameHash)
 }
 
 func (mdb *metadataDatabase) getOrCreateMetricMeta(hash uint64) (mStoreINTF, bool) {
@@ -155,19 +153,19 @@ func (mdb *metadataDatabase) Close() {
 }
 
 // indexMetaStore indexes metric id and memory metric id.
-func (mdb *metadataDatabase) indexMetaStore(metricID metric.ID, hash uint64) {
+func (mdb *metadataDatabase) indexMetaStore(metricID uint32, hash uint64) {
 	mdb.lock.Lock()
 	defer mdb.lock.Unlock()
 
-	mdb.metricIndexStore.PutIfNotExist(uint32(metricID), hash)
+	mdb.metricIndexStore.PutIfNotExist(metricID, hash)
 }
 
 // handle handles metadata event.
 func (mdb *metadataDatabase) handle() {
 	for e := range mdb.ch {
 		switch event := e.(type) {
-		case *metric.StorageRow:
-			mdb.handleRow(event)
+		case *arrowMetaEvent:
+			mdb.handleArrowEvent(event)
 		case *FlushEvent:
 			mdb.metaDB.PrepareFlush()
 			// flush data background
@@ -184,33 +182,31 @@ func (mdb *metadataDatabase) handleFlush(event *FlushEvent) {
 	mdb.gc(fasttime.UnixMilliseconds() - timeutil.OneDay)
 }
 
-// handleRow lookups metric metedata and indexes.
-func (mdb *metadataDatabase) handleRow(row *metric.StorageRow) {
-	defer row.Done()
-
-	metricID, err := mdb.metaDB.GenMetricID(row.NameSpace(), row.Name())
+// handleArrowEvent lookups metric metadata and indexes from an arrowMetaEvent.
+func (mdb *metadataDatabase) handleArrowEvent(event *arrowMetaEvent) {
+	metricID, err := mdb.metaDB.GenMetricID(event.namespace, event.name)
 	if err != nil {
-		memDBLogger.Warn("generate metric id error", logger.String("namespace", string(row.NameSpace())),
-			logger.String("metric", string(row.Name())), logger.Error(err))
+		memDBLogger.Warn("generate metric id error (Arrow metadata)",
+			logger.String("namespace", string(event.namespace)),
+			logger.String("metric", string(event.name)), logger.Error(err))
 		return
 	}
-	memMetricID := row.NameHash()
-	mdb.indexMetaStore(metricID, memMetricID)
+	mdb.indexMetaStore(uint32(metricID), event.nameHash)
 
-	if len(row.Fields) == 0 {
+	if len(event.fieldMetas) == 0 {
 		return
 	}
-
-	mStore, ok := mdb.GetMetricMeta(memMetricID)
+	mStore, ok := mdb.GetMetricMeta(event.nameHash)
 	if !ok {
 		return
 	}
-
-	for _, fm := range row.Fields {
+	for _, fm := range event.fieldMetas {
 		fieldID, err := mdb.metaDB.GenFieldID(metricID, fm)
 		if err != nil {
-			memDBLogger.Warn("generate field error", logger.String("namespace", string(row.NameSpace())),
-				logger.String("metric", string(row.Name())), logger.String("field", fm.Name.String()), logger.Error(err))
+			memDBLogger.Warn("generate field id error (Arrow metadata)",
+				logger.String("namespace", string(event.namespace)),
+				logger.String("metric", string(event.name)),
+				logger.String("field", fm.Name.String()), logger.Error(err))
 			continue
 		}
 		mStore.UpdateFieldMeta(fieldID, fm)

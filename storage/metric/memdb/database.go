@@ -25,16 +25,19 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/cespare/xxhash/v2"
 	"github.com/lindb/common/pkg/fasttime"
 	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/roaring"
 	"go.uber.org/atomic"
 
+	lmetrics "github.com/lindb/arrow/pkg/metrics"
+	"github.com/lindb/arrow/pkg/model"
+
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
-	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/storage/metric/tblstore/metricsdata"
 )
 
@@ -69,11 +72,9 @@ type MemoryDatabase interface {
 	IsReadOnly() bool
 	// AcquireWrite acquires writing data points
 	AcquireWrite()
-	// WithLock retrieves the lock of memdb, and returns the release function
-	WithLock() (release func())
-	// WriteRow must be called after WithLock
-	// Used for batch write
-	WriteRow(row *metric.StorageRow) error
+	// WriteArrow writes a single metric row from an Arrow IPC reader directly,
+	// without an intermediate StorageRow conversion.
+	WriteArrow(reader *lmetrics.Reader, row int) error
 	// CompleteWrite completes writing data points
 	CompleteWrite()
 	// FlushFamilyTo flushes the corresponded family data to builder.
@@ -165,135 +166,6 @@ func (md *memoryDatabase) CompleteWrite() {
 	md.writeCondition.Done()
 }
 
-func (md *memoryDatabase) WithLock() (release func()) {
-	md.lock.Lock()
-	return md.lock.Unlock
-}
-
-func (md *memoryDatabase) WriteRow(row *metric.StorageRow) error {
-	var (
-		isNewSeries bool
-		memSeriesID uint32 // unique id under memory database
-	)
-
-	timeSeriesIndex := md.indexDB.GetOrCreateTimeSeriesIndex(row)
-	mStore, newMetric := md.indexDB.GetMetadataDatabase().GetOrCreateMetricMeta(row)
-
-	tagsHash := row.TagsHash()
-
-	// generate memory level unique time series id
-	memSeriesID, isNewSeries = timeSeriesIndex.GenMemTimeSeriesID(tagsHash, md.indexDB.GenMemSeriesID)
-
-	if isNewSeries {
-		row.MemSeriesID = memSeriesID
-		// notify index worker does index building
-		md.indexDB.Notify(row)
-	} else {
-		row.Done()
-	}
-	slotIndex := uint16(md.cfg.IntervalCalc.CalcSlot(
-		row.Timestamp(),
-		md.familyTime,
-		md.cfg.Interval.Int64()),
-	)
-
-	defer func() {
-		if newMetric || len(row.Fields) > 0 {
-			// notify meta worker does build metadata
-			md.indexDB.GetMetadataDatabase().Notify(row)
-		} else {
-			row.Done()
-		}
-
-		timeSeriesIndex.StoreTimeRange(md.createdTime, slotIndex)
-		md.timeSeriesIDs.Add(memSeriesID)
-	}()
-
-	simpleFieldItr := row.NewSimpleFieldIterator()
-	for simpleFieldItr.HasNext() {
-		if err := md.writeLinField(
-			mStore, memSeriesID, row,
-			slotIndex,
-			simpleFieldItr.NextName(),
-			simpleFieldItr.NextType(),
-			simpleFieldItr.NextValue(),
-		); err != nil {
-			return err
-		}
-	}
-
-	exemplarItr := row.NewExemplarIterator()
-	for exemplarItr.HasNext() {
-		if err := md.writeExemplarField(
-			mStore, memSeriesID, row,
-			slotIndex,
-			exemplarItr.NextName(),
-			field.ExemplarField,
-			exemplarItr.NextTraceID(),
-			exemplarItr.NextSpanID(),
-			exemplarItr.NextDuration(),
-		); err != nil {
-			return err
-		}
-	}
-
-	// write compound fields
-	if err := md.writeCompoundField(row, mStore, memSeriesID, slotIndex); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (md *memoryDatabase) writeCompoundField(row *metric.StorageRow,
-	mStore mStoreINTF, memSeriesID uint32, slotIndex uint16,
-) error {
-	compoundFieldItr, ok := row.NewCompoundFieldIterator()
-	if !ok {
-		return nil
-	}
-	// write histogram_min
-	if err := md.writeLinField(
-		mStore, memSeriesID, row, slotIndex, compoundFieldItr.HistogramMinFieldName(),
-		field.MinField, compoundFieldItr.Min()); err != nil {
-		return err
-	}
-	// write histogram_max
-	if err := md.writeLinField(
-		mStore, memSeriesID, row, slotIndex, compoundFieldItr.HistogramMaxFieldName(),
-		field.MaxField, compoundFieldItr.Max()); err != nil {
-		return err
-	}
-	sum := compoundFieldItr.Sum()
-	// write histogram_sum
-	if err := md.writeLinField(
-		mStore, memSeriesID, row, slotIndex, compoundFieldItr.HistogramSumFieldName(),
-		field.SumField, sum); err != nil {
-		return err
-	}
-	// write histogram_count
-	if err := md.writeLinField(
-		mStore, memSeriesID, row, slotIndex, compoundFieldItr.HistogramCountFieldName(),
-		field.SumField, compoundFieldItr.Count()); err != nil {
-		return err
-	}
-
-	// write __bucket_${boundary}
-	// assume that length of ExplicitBounds equals to Values
-	// data must be valid before write
-	for compoundFieldItr.HasNextBucket() {
-		bucketValue := compoundFieldItr.NextValue()
-		if bucketValue > 0 {
-			if err := md.writeLinField(
-				mStore, memSeriesID, row, slotIndex, compoundFieldItr.BucketName(),
-				field.HistogramField, bucketValue); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 func (md *memoryDatabase) getFieldWriteBuffer(fm field.Meta, fType field.Type) (DataPointBuffer, error) {
 	buf, ok := md.fieldWriteStores.Load(fm.Index)
 	if ok {
@@ -333,19 +205,121 @@ func (md *memoryDatabase) storeFieldComressBuffer(memSeriesID uint32, fieldIndex
 	store.StoreCompressBuffer(memSeriesID, buf)
 }
 
-func (md *memoryDatabase) writeExemplarField(
+// WriteArrow writes a single metric row from an Arrow IPC reader directly,
+// without an intermediate StorageRow conversion.
+func (md *memoryDatabase) WriteArrow(reader *lmetrics.Reader, row int) error {
+	// compute nameHash: xxhash(namespace + name), matching BrokerRowProtoConverter.hashOfName()
+	namespace := reader.Namespace(row)
+	name := reader.Name(row)
+	nameHash := computeNameHash(namespace, name)
+
+	// get or create time series index and metric meta store
+	timeSeriesIndex := md.indexDB.GetOrCreateTimeSeriesIndexByHash(nameHash)
+	mStore, newMetric := md.indexDB.GetMetadataDatabase().GetOrCreateMetricMetaByHash(nameHash)
+
+	// route by attribute hash (same label-set → same memory series)
+	tagsHash := reader.AttrHash(row)
+	memSeriesID, isNewSeries := timeSeriesIndex.GenMemTimeSeriesID(tagsHash, md.indexDB.GenMemSeriesID)
+
+	if isNewSeries {
+		// collect attributes for index event
+		var attrs []struct{ key, value string }
+		reader.Attributes(row, func(k, v string) {
+			attrs = append(attrs, struct{ key, value string }{k, v})
+		})
+		// asynchronously build the persistent series index for this new series
+		md.indexDB.Notify(&arrowIndexEvent{
+			nameHash:    nameHash,
+			memSeriesID: memSeriesID,
+			namespace:   namespace,
+			name:        name,
+			attrHash:    tagsHash,
+			attrs:       attrs,
+		})
+	}
+
+	// compute slot index: timestamp is in nanoseconds, convert to ms first
+	timestampMs := reader.Timestamp(row) / 1_000_000
+	slotIndex := uint16(md.cfg.IntervalCalc.CalcSlot(timestampMs, md.familyTime, md.cfg.Interval.Int64()))
+
+	// build namespace/name byte slices for metadata notification
+	nsBytes := []byte(namespace)
+	if len(nsBytes) == 0 {
+		nsBytes = []byte("default")
+	}
+	nameBytes := []byte(name)
+
+	var fieldMetas []field.Meta
+
+	// write simple fields from Arrow reader using the direct (no-StorageRow) path
+	reader.Fields(row, func(fname string, kind model.AggregationKind, value float64) {
+		fType := aggKindToFieldType(kind)
+		fm, isNew := md.writeLinFieldDirect(mStore, memSeriesID, slotIndex,
+			field.Name(fname), fType, value)
+		if isNew {
+			fieldMetas = append(fieldMetas, fm)
+		}
+	})
+
+	// write exemplars from Arrow reader
+	reader.Exemplars(row, func(e *model.Exemplar) {
+		_ = md.writeExemplarFieldArrow(mStore, memSeriesID, slotIndex,
+			"__exemplar__", field.ExemplarField, e.TraceID, e.SpanID, e.Duration)
+	})
+
+	// notify metadata worker for persistent field ID assignment
+	if newMetric || len(fieldMetas) > 0 {
+		md.indexDB.GetMetadataDatabase().Notify(&arrowMetaEvent{
+			nameHash:   nameHash,
+			namespace:  nsBytes,
+			name:       nameBytes,
+			fieldMetas: fieldMetas,
+		})
+	}
+
+	timeSeriesIndex.StoreTimeRange(md.createdTime, slotIndex)
+	md.timeSeriesIDs.Add(memSeriesID)
+	return nil
+}
+
+// computeNameHash returns xxhash(namespace + name), matching BrokerRowProtoConverter.hashOfName().
+func computeNameHash(namespace, name string) uint64 {
+	// reuse a small stack buffer to avoid heap allocation for common short strings
+	// namespace can be empty; hash is then just xxhash(name)
+	buf := make([]byte, 0, len(namespace)+len(name))
+	buf = append(buf, namespace...)
+	buf = append(buf, name...)
+	return xxhash.Sum64(buf)
+}
+
+// aggKindToFieldType maps model.AggregationKind to the LinDB field.Type.
+func aggKindToFieldType(kind model.AggregationKind) field.Type {
+	switch kind {
+	case model.AggregationSum:
+		return field.SumField
+	case model.AggregationMin:
+		return field.MinField
+	case model.AggregationMax:
+		return field.MaxField
+	case model.AggregationLast:
+		return field.LastField
+	case model.AggregationFirst:
+		return field.FirstField
+	default:
+		return field.SumField
+	}
+}
+
+// writeExemplarFieldArrow writes an exemplar field from raw byte slices (Arrow path).
+func (md *memoryDatabase) writeExemplarFieldArrow(
 	mStore mStoreINTF,
-	memSeriesID uint32, row *metric.StorageRow, slotIndex uint16,
+	memSeriesID uint32, slotIndex uint16,
 	fName field.Name, fType field.Type,
 	traceID, spanID []byte, duration int64,
 ) (err error) {
 	var fm field.Meta
-	fm, isNew := mStore.GenField(fName, fType)
-	if isNew {
-		row.Fields = append(row.Fields, fm)
-	}
+	fm, _ = mStore.GenField(fName, fType)
 	var buf DataPointBuffer
-
 	buf, err = md.getFieldWriteBuffer(fm, fType)
 	if err != nil {
 		return err
@@ -354,45 +328,31 @@ func (md *memoryDatabase) writeExemplarField(
 	if err != nil {
 		return err
 	}
-
-	// write data into buffer
 	page.write(slotIndex, traceID, spanID, duration)
-
-	// record write metric field statistics
-	row.WrittenFields++
 	return nil
 }
 
-func (md *memoryDatabase) writeLinField(
+// writeLinFieldDirect writes a single field value without a StorageRow, used by the Arrow write path.
+// It returns the field meta and whether the field was newly created.
+func (md *memoryDatabase) writeLinFieldDirect(
 	mStore mStoreINTF,
-	memSeriesID uint32, row *metric.StorageRow, slotIndex uint16,
+	memSeriesID uint32, slotIndex uint16,
 	fName field.Name, fType field.Type, fValue float64,
-) (err error) {
-	var fm field.Meta
-	fm, isNew := mStore.GenField(fName, fType)
-	if isNew {
-		row.Fields = append(row.Fields, fm)
-	}
-	var buf DataPointBuffer
-
-	buf, err = md.getFieldWriteBuffer(fm, fType)
+) (fm field.Meta, isNew bool) {
+	fm, isNew = mStore.GenField(fName, fType)
+	buf, err := md.getFieldWriteBuffer(fm, fType)
 	if err != nil {
-		return err
+		return fm, isNew
 	}
 	page, err := buf.GetOrCreatePage(memSeriesID)
 	if err != nil {
-		return err
+		return fm, isNew
 	}
-
-	// write data into buffer
+	// write data into buffer using the shared write helper
 	write(md, page, memSeriesID, fm.Index, fType, slotIndex, fValue)
-
-	// record write metric field statistics
-	row.WrittenFields++
-	return nil
+	return fm, isNew
 }
 
-// FlushFamilyTo flushes all data related to the family from metric-stores to builder.
 func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher) error {
 	// waiting current writing complete
 	md.writeCondition.Wait()

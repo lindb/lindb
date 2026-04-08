@@ -114,6 +114,8 @@ type MetricIndexDatabase interface {
 	series.Filter
 	flow.GroupingBuilder
 
-	// GenSeriesID generates time series id based on tags hash.
-	GenSeriesID(metricID metric.ID, row *metric.StorageRow) (seriesID uint32, err error)
+	// GenSeriesIDByAttrs generates time series id using a pre-computed attribute hash and an
+	// optional callback that iterates over raw key-value attribute pairs.
+	// attrFn is invoked only when a new series is detected, so the caller can lazily iterate attributes.
+	GenSeriesIDByAttrs(metricID metric.ID, attrHash uint64, attrFn func(fn func(key, value []byte))) (seriesID uint32, err error)
 }

@@ -27,15 +27,14 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/lindb/lindb/index"
-	"github.com/lindb/lindb/series/metric"
 )
 
 // IndexDatabase represents memory index database for storing metric index(shard level).
 //
 //go:generate mockgen -source ./index_database.go -destination=./index_database_mock.go -package=memdb
 type IndexDatabase interface {
-	// GetOrCreateTimeSeriesIndex returns time series index if not exist create new.
-	GetOrCreateTimeSeriesIndex(row *metric.StorageRow) TimeSeriesIndex
+	// GetOrCreateTimeSeriesIndexByHash returns time series index keyed by nameHash, creates new if absent.
+	GetOrCreateTimeSeriesIndexByHash(nameHash uint64) TimeSeriesIndex
 	// GenMemSeriesID generates memory time series id.
 	GenMemSeriesID() uint32
 	// GetMetadataDatabase returns memory metadata database.
@@ -90,9 +89,8 @@ func (idb *indexDatabase) GetMetadataDatabase() MetadataDatabase {
 	return idb.metaDB
 }
 
-// GetOrCreateTimeSeriesIndex returns time series index if not exist create new.
-func (idb *indexDatabase) GetOrCreateTimeSeriesIndex(row *metric.StorageRow) TimeSeriesIndex {
-	nameHash := row.NameHash()
+// GetOrCreateTimeSeriesIndexByHash returns time series index keyed by nameHash, creates new if absent.
+func (idb *indexDatabase) GetOrCreateTimeSeriesIndexByHash(nameHash uint64) TimeSeriesIndex {
 	timeSeriesIndex, ok := idb.timeSeriesIndexes.Load(nameHash)
 	if ok {
 		return timeSeriesIndex.(TimeSeriesIndex)
@@ -154,20 +152,22 @@ func (idb *indexDatabase) Close() {
 	close(idb.ch)
 }
 
-func (idb *indexDatabase) indexTimeSeries(row *metric.StorageRow, seriesID uint32) {
-	nameHash := row.NameHash()
-	timeSeriesIndexObj, _ := idb.timeSeriesIndexes.Load(nameHash)
+func (idb *indexDatabase) indexTimeSeries2(nameHash uint64, seriesID, memSeriesID uint32) {
+	timeSeriesIndexObj, ok := idb.timeSeriesIndexes.Load(nameHash)
+	if !ok {
+		return
+	}
 	timeSeriesIndex := timeSeriesIndexObj.(TimeSeriesIndex)
 	idb.lock.Lock()
-	timeSeriesIndex.IndexTimeSeries(seriesID, row.MemSeriesID)
+	timeSeriesIndex.IndexTimeSeries(seriesID, memSeriesID)
 	idb.lock.Unlock()
 }
 
 func (idb *indexDatabase) handle() {
 	for e := range idb.ch {
 		switch event := e.(type) {
-		case *metric.StorageRow:
-			idb.handleRow(event)
+		case *arrowIndexEvent:
+			idb.handleArrowEvent(event)
 		case *FlushEvent:
 			idb.indexDB.PrepareFlush()
 			// flush data background
@@ -181,21 +181,34 @@ func (idb *indexDatabase) handleFlush(event *FlushEvent) {
 	event.Callback(err)
 }
 
-func (idb *indexDatabase) handleRow(row *metric.StorageRow) {
-	defer row.Done()
-
-	metricID, err := idb.metaDB.GetMetaDB().GenMetricID(row.NameSpace(), row.Name())
+// handleArrowEvent indexes a new time series from an arrowIndexEvent.
+func (idb *indexDatabase) handleArrowEvent(event *arrowIndexEvent) {
+	namespace := []byte(event.namespace)
+	if len(namespace) == 0 {
+		namespace = []byte("default")
+	}
+	name := []byte(event.name)
+	metricID, err := idb.metaDB.GetMetaDB().GenMetricID(namespace, name)
 	if err != nil {
-		memDBLogger.Warn("generate metric id error", logger.String("namespace", string(row.NameSpace())),
-			logger.String("metric", string(row.Name())), logger.Error(err))
+		memDBLogger.Warn("generate metric id error (Arrow)",
+			logger.String("namespace", event.namespace),
+			logger.String("metric", event.name), logger.Error(err))
 		return
 	}
 
-	seriesID, err := idb.indexDB.GenSeriesID(metricID, row)
+	// build attrFn from the pre-collected attrs slice
+	attrFn := func(fn func(key, value []byte)) {
+		for _, kv := range event.attrs {
+			fn([]byte(kv.key), []byte(kv.value))
+		}
+	}
+
+	seriesID, err := idb.indexDB.GenSeriesIDByAttrs(metricID, event.attrHash, attrFn)
 	if err != nil {
-		memDBLogger.Warn("generate time series id error", logger.String("namespace", string(row.NameSpace())),
-			logger.String("metric", string(row.Name())), logger.Error(err))
+		memDBLogger.Warn("generate time series id error (Arrow)",
+			logger.String("namespace", event.namespace),
+			logger.String("metric", event.name), logger.Error(err))
 		return
 	}
-	idb.indexTimeSeries(row, seriesID)
+	idb.indexTimeSeries2(event.nameHash, seriesID, event.memSeriesID)
 }

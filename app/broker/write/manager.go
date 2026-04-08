@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//go:generate mockgen -source=./manager.go -destination=./manager_mock.go -package=write
+
 package write
 
 import (
@@ -27,6 +29,7 @@ import (
 	"github.com/lindb/common/pkg/logger"
 
 	logswriter "github.com/lindb/lindb/app/broker/write/logs"
+	metricswriter "github.com/lindb/lindb/app/broker/write/metrics"
 	traceswriter "github.com/lindb/lindb/app/broker/write/traces"
 	"github.com/lindb/lindb/app/broker/write/writer"
 	"github.com/lindb/lindb/coordinator/discovery"
@@ -104,6 +107,10 @@ func (m *manager) createShard(e *models.ChangeShardStateEvent) error {
 	database, ok := m.databases[cfg.Name]
 	if !ok {
 		switch cfg.Option.Engine {
+		case option.Metric:
+			databaseAccessor := NewDatabase[*model.Metric](m.ctx, cfg)
+			m.writers[cfg.Name] = metricswriter.NewWriter(m.ctx, cfg, databaseAccessor)
+			database = databaseAccessor
 		case option.Log:
 			databaseAccessor := NewDatabase[*model.Log](m.ctx, cfg)
 			m.writers[cfg.Name] = logswriter.NewWriter(m.ctx, cfg, databaseAccessor)

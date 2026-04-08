@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//go:generate mockgen -source=./interface.go -destination=./interface_mock.go -package=writer
+
 package writer
 
 import (

@@ -38,6 +38,9 @@ const (
 	ContentTypeJSON = "application/json"
 	// ContentTypeArrow represents arrow content type.
 	ContentTypeArrow = "application/vnd.apache.arrow.stream"
+	// ContentTypeOTelProto represents the OpenTelemetry protobuf content type.
+	// Note: this uses "x-protobuf" (not "protobuf") as required by the OTLP HTTP spec.
+	ContentTypeOTelProto = "application/x-protobuf"
 )
 
 const (
@@ -53,4 +56,6 @@ const (
 	EncodingProto EncodingType = "proto"
 	// EncodingFlat represents json encoding type
 	EncodingJSON EncodingType = "json"
+	// EncodingInflux represents arrow encoding type
+	EncodingArrow EncodingType = "arrow"
 )

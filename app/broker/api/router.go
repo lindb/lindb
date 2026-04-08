@@ -23,6 +23,7 @@ import (
 
 	"github.com/lindb/lindb/app/broker/api/exec"
 	"github.com/lindb/lindb/app/broker/api/ingest"
+	ingestmetrics "github.com/lindb/lindb/app/broker/api/ingest/metrics"
 	"github.com/lindb/lindb/app/broker/api/ingest/opentelemetry"
 	"github.com/lindb/lindb/app/broker/api/state"
 	depspkg "github.com/lindb/lindb/app/broker/deps"
@@ -48,6 +49,7 @@ type API struct {
 	logWrite           *ingest.Log
 	otlpLog            *opentelemetry.Log
 	otlpTrace          *opentelemetry.Trace
+	arrowMetric        *ingestmetrics.Metric
 	proxy              *httppkg.ReverseProxy
 }
 
@@ -65,6 +67,7 @@ func NewAPI(deps *depspkg.HTTPDeps) *API {
 		logWrite:           ingest.NewLog(deps),
 		otlpLog:            opentelemetry.NewLog(deps),
 		otlpTrace:          opentelemetry.NewTrace(deps),
+		arrowMetric:        ingestmetrics.NewMetric(deps),
 		proxy:              httppkg.NewReverseProxy(),
 	}
 }
@@ -85,6 +88,7 @@ func (api *API) RegisterRouter(router *gin.RouterGroup) {
 	api.logWrite.Register(v1)
 	api.otlpLog.Register(v1)
 	api.otlpTrace.Register(v1)
+	api.arrowMetric.Register(v1)
 
 	// monitoring
 	api.metricExplore.Register(v1)
