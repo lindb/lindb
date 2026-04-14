@@ -25,8 +25,8 @@ import (
 	"github.com/lindb/lindb/internal/linmetric"
 )
 
-func Test_NativeProtoPusher(t *testing.T) {
-	pusher := NewNativeProtoPusher(
+func Test_ArrowNativePusher(t *testing.T) {
+	pusher := NewArrowNativePusher(
 		context.Background(),
 		"http://localhost:12345",
 		time.Millisecond*100,
@@ -38,5 +38,5 @@ func Test_NativeProtoPusher(t *testing.T) {
 	time.Sleep(time.Second)
 	pusher.Stop()
 
-	pusher.(*nativeProtoPusher).push(nil)
+	pusher.(*arrowNativePusher).push(nil)
 }

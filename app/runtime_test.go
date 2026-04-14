@@ -39,7 +39,7 @@ func TestBaseRuntime_SystemCollector(t *testing.T) {
 func TestBaseRuntime_NativePusher(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer func() {
-		newNativeProtoPusher = monitoring.NewNativeProtoPusher
+		newNativeProtoPusher = monitoring.NewArrowNativePusher
 		ctrl.Finish()
 	}()
 

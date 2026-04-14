@@ -25,6 +25,7 @@ import (
 	commonMetric "github.com/lindb/common/metric"
 	"github.com/lindb/common/pkg/fasttime"
 	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
+	"github.com/lindb/arrow/pkg/model"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/strutil"
@@ -260,6 +261,62 @@ func (s *taggedSeries) buildFlatMetric(builder *commonMetric.RowBuilder) bool {
 		s.payload.histogramDelta.marshalToCompoundField(builder)
 	}
 	return true
+}
+
+// buildArrowMetric converts the taggedSeries into a *model.Metric for Arrow IPC serialization.
+// namespace and globalTags are merged into the resulting Attributes.
+// Histogram fields are skipped because Arrow model does not yet define a bucket structure.
+func (s *taggedSeries) buildArrowMetric(namespace string, globalTags tag.Tags) *model.Metric {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.payload == nil {
+		return nil
+	}
+
+	m := &model.Metric{
+		Namespace: namespace,
+		Name:      s.metricName,
+		Timestamp: fasttime.UnixNano(),
+	}
+
+	// merge series tags and global tags into Attributes
+	totalLen := len(s.tags) + len(globalTags)
+	if totalLen > 0 {
+		m.Attributes = &model.Attributes{}
+		for _, kv := range s.tags {
+			m.Attributes.Append(string(kv.Key), string(kv.Value))
+		}
+		for _, kv := range globalTags {
+			m.Attributes.Append(string(kv.Key), string(kv.Value))
+		}
+	}
+
+	// map simple fields to Arrow model.Field, skipping unknown types
+	for _, sf := range s.payload.simpleFields {
+		var kind model.AggregationKind
+		switch sf.flatType() {
+		case flatMetricsV1.SimpleFieldTypeLast:
+			kind = model.AggregationLast
+		case flatMetricsV1.SimpleFieldTypeDeltaSum:
+			kind = model.AggregationSum
+		case flatMetricsV1.SimpleFieldTypeMax:
+			kind = model.AggregationMax
+		case flatMetricsV1.SimpleFieldTypeMin:
+			kind = model.AggregationMin
+		default:
+			// skip unknown / unsupported field types
+			continue
+		}
+		m.Fields = append(m.Fields, model.Field{
+			Name:  sf.name(),
+			Kind:  kind,
+			Value: sf.gather(),
+		})
+	}
+	// histogram is intentionally skipped — Arrow model does not yet define bucket fields
+
+	return m
 }
 
 func (s *taggedSeries) toStateMetric(includeTags map[string]string) *models.StateMetric {

@@ -30,7 +30,7 @@ import (
 )
 
 var (
-	newNativeProtoPusher = monitoring.NewNativeProtoPusher
+	newNativeProtoPusher = monitoring.NewArrowNativePusher
 	NewBaseRuntimeFn     = NewBaseRuntime
 )
 

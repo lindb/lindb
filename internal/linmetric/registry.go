@@ -69,6 +69,18 @@ func (r *Registry) NewGather(options ...GatherOption) Gather {
 	return g
 }
 
+// NewArrowGather returns an ArrowGather that collects registered series as
+// []*model.Metric for Arrow IPC serialization. The same GatherOption values
+// accepted by NewGather are supported (WithReadRuntimeOption,
+// WithGlobalKeyValueOption, WithNamespaceOption).
+func (r *Registry) NewArrowGather(options ...GatherOption) ArrowGather {
+	ag := &arrowGather{r: r}
+	for _, o := range options {
+		applyArrowGatherOption(ag, o)
+	}
+	return ag
+}
+
 // FindMetricList returns metric list by given names/tags.
 func (r *Registry) FindMetricList(names []string, includeTags map[string]string) map[string][]*models.StateMetric {
 	nameMap := make(map[string]struct{})
