@@ -19,10 +19,10 @@ package meta
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/apache/arrow-go/v18/arrow"
+	larrow "github.com/lindb/arrow/pkg/arrow"
 	"github.com/lindb/common/pkg/encoding"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -208,6 +208,5 @@ func (m *brokerMetadataManager) getTableSchema(
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(resp)
-	panic("FIXME: return table schema")
+	return larrow.UnmarshalSchema(resp.Payload)
 }

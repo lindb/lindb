@@ -180,6 +180,7 @@ func writeArrowStream(c *gin.Context, record arrow.RecordBatch) error {
 	if rebuilt {
 		defer unwrapped.Release()
 	}
+	fmt.Println(unwrapped)
 
 	// Encode into a memory buffer first — the HTTP response must not be started
 	// until we know encoding succeeded, otherwise the client would receive a

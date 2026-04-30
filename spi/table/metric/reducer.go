@@ -116,24 +116,34 @@ func (r *reducer) buildOutputPage() arrow.RecordBatch {
 	rb := array.NewRecordBuilder(memory.NewGoAllocator(), arrow.NewSchema(r.tableScan.outputs, nil))
 	defer rb.Release()
 
-	// classify builders into grouping (string) vs field (timeseries/exemplar)
+	// classify builders into grouping (string) vs field (timeseries/exemplar/aggregation)
 	type fieldBuilder struct {
 		idx        int
 		isExemplar bool
+		isAgg      bool
 		tsBuilder  *array.StructBuilder
 		exBuilder  *larray.ExemplarBuilder
+		aggBuilder *larray.AggregationBuilder
 	}
 	var (
 		groupingBuilders []*array.StringBuilder
 		fieldBuilders    []fieldBuilder
+		tsColBuilders    []*array.TimestampBuilder // timestamp column builders (one per timestamp field)
 	)
 	for idx, output := range r.tableScan.outputs {
 		b := rb.Field(idx)
 		if arrow.TypeEqual(output.Type, arrow.BinaryTypes.String) {
 			groupingBuilders = append(groupingBuilders, b.(*array.StringBuilder))
+		} else if output.Type.ID() == arrow.TIMESTAMP {
+			// Timestamp column: track builder to append one value per row
+			tsColBuilders = append(tsColBuilders, b.(*array.TimestampBuilder))
 		} else if arrow.TypeEqual(output.Type, larrow.ExtensionTypes.Exemplar) {
 			exB := larray.NewExemplarBuilder(b.(*array.ExtensionBuilder))
 			fieldBuilders = append(fieldBuilders, fieldBuilder{idx: idx, isExemplar: true, exBuilder: exB})
+		} else if _, ok := output.Type.(*larray.AggregationType); ok {
+			// Aggregation (Sum/Max/Min/Last/First): storage type is Float64
+			aggB := larray.NewAggregationBuilder(b.(*array.ExtensionBuilder))
+			fieldBuilders = append(fieldBuilders, fieldBuilder{idx: idx, isAgg: true, aggBuilder: aggB})
 		} else {
 			// TimeSeries: struct{start, end, interval, values}
 			structB := b.(*array.ExtensionBuilder).Builder.(*array.StructBuilder)
@@ -143,6 +153,10 @@ func (r *reducer) buildOutputPage() arrow.RecordBatch {
 
 	hasGrouping := r.tableScan.isGrouping()
 	for tags, seriesData := range r.result {
+		// append timestamp column value(s) — one per row, use query start time
+		for _, tsb := range tsColBuilders {
+			tsb.Append(arrow.Timestamp(r.tableScan.timeRange.Start))
+		}
 		if hasGrouping {
 			tagValues := r.tableScan.grouping.GetTagValues(*tags)
 			for i, tag := range tagValues {
@@ -158,16 +172,26 @@ func (r *reducer) buildOutputPage() arrow.RecordBatch {
 			switch dst := stream.(type) {
 			case *result[float64]:
 				values := dst.array.Values()
-				sb := fb.tsBuilder
-				sb.Append(true)
-				sb.FieldBuilder(0).(*array.Int64Builder).Append(r.tableScan.timeRange.Start)
-				sb.FieldBuilder(1).(*array.Int64Builder).Append(r.tableScan.timeRange.End)
-				sb.FieldBuilder(2).(*array.Int64Builder).Append(r.tableScan.interval.Int64())
-				lb := sb.FieldBuilder(3).(*array.ListBuilder)
-				lb.Append(true)
-				vb := lb.ValueBuilder().(*array.Float64Builder)
-				for _, v := range values {
-					vb.Append(v)
+				if fb.isAgg {
+					// Aggregation type: write single scalar aggregated value
+					if len(values) == 0 {
+						fb.aggBuilder.AppendNull()
+					} else {
+						fb.aggBuilder.Append(values[0])
+					}
+				} else {
+					// TimeSeries: struct{start, end, interval, values}
+					sb := fb.tsBuilder
+					sb.Append(true)
+					sb.FieldBuilder(0).(*array.Int64Builder).Append(r.tableScan.timeRange.Start)
+					sb.FieldBuilder(1).(*array.Int64Builder).Append(r.tableScan.timeRange.End)
+					sb.FieldBuilder(2).(*array.Int64Builder).Append(r.tableScan.interval.Int64())
+					lb := sb.FieldBuilder(3).(*array.ListBuilder)
+					lb.Append(true)
+					vb := lb.ValueBuilder().(*array.Float64Builder)
+					for _, v := range values {
+						vb.Append(v)
+					}
 				}
 			case *result[*models.Exemplar]:
 				for _, ex := range dst.array.Values() {
