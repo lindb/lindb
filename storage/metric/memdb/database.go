@@ -26,13 +26,13 @@ import (
 	"unsafe"
 
 	"github.com/cespare/xxhash/v2"
+	lmetrics "github.com/lindb/arrow/pkg/metrics"
+	"github.com/lindb/arrow/pkg/model"
+	"github.com/lindb/common/constants"
 	"github.com/lindb/common/pkg/fasttime"
 	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/roaring"
 	"go.uber.org/atomic"
-
-	lmetrics "github.com/lindb/arrow/pkg/metrics"
-	"github.com/lindb/arrow/pkg/model"
 
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/metrics"
@@ -210,6 +210,9 @@ func (md *memoryDatabase) storeFieldComressBuffer(memSeriesID uint32, fieldIndex
 func (md *memoryDatabase) WriteArrow(reader *lmetrics.Reader, row int) error {
 	// compute nameHash: xxhash(namespace + name), matching BrokerRowProtoConverter.hashOfName()
 	namespace := reader.Namespace(row)
+	if namespace == "" {
+		namespace = constants.DefaultNamespace
+	}
 	name := reader.Name(row)
 	nameHash := computeNameHash(namespace, name)
 

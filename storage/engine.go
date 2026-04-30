@@ -81,8 +81,6 @@ type engine struct {
 	mutex  sync.Mutex         // mutex for creating database
 
 	flushChecker flush.Checker // unified flush scheduler shared by all databases
-
-	databases map[string]store.Database
 }
 
 // NewEngine creates an engine for manipulating the databases
@@ -110,7 +108,6 @@ func NewEngine() (Engine, error) {
 		flushChecker: flushChecker,
 	}
 	e.ctx, e.cancel = context.WithCancel(context.Background())
-	e.databases = make(map[string]store.Database)
 
 	if err := e.load(); err != nil {
 		engineLogger.Error("load engine data error when create a new engine", logger.Error(err))
@@ -203,14 +200,6 @@ func (e *engine) GetDatabase(databaseName string) (store.Database, bool) {
 	return e.dbSet.GetDatabase(databaseName)
 }
 
-func (e *engine) GetDatabase2(databaseName string) (store.Database, bool) {
-	e.mutex.Lock()
-	defer e.mutex.Unlock()
-
-	db, ok := e.databases[databaseName]
-	return db, ok
-}
-
 // GetAllDatabases returns all databases.
 func (e *engine) GetAllDatabases() map[string]store.Database {
 	return e.dbSet.Entries()
@@ -235,10 +224,6 @@ func (e *engine) Close() {
 				logger.String("name", dbName),
 				logger.Error(err))
 		}
-	}
-
-	for _, db := range e.databases {
-		db.Close()
 	}
 }
 

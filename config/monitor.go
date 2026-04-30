@@ -26,16 +26,22 @@ import (
 	"github.com/lindb/lindb/constants"
 )
 
-var (
-	// defaultPusherURL is the default push target url of LinDB
-	defaultPusherURL = fmt.Sprintf("http://127.0.0.1:9000%s/write?db=_internal", constants.APIVersion1CliPath)
+const (
+	// DefaultInternalDatabase is the default database name for self-monitoring data.
+	DefaultInternalDatabase = "_internal"
 )
+
+// defaultPusherURL is the default push target url of LinDB
+var defaultPusherURL = fmt.Sprintf("http://127.0.0.1:9000%s/metrics", constants.APIVersion1CliPath)
 
 // Monitor represents a configuration for the internal monitor
 type Monitor struct {
 	PushTimeout    ltoml.Duration `env:"PUSH_TIMEOUT" toml:"push-timeout"`
 	ReportInterval ltoml.Duration `env:"REPORT_INTERVAL" toml:"report-interval"`
 	URL            string         `env:"URL" toml:"url"`
+	// Database is the target database for self-monitoring metrics.
+	// The database name is sent via the X-LinDB-Database HTTP header on each push.
+	Database string `env:"DATABASE" toml:"database"`
 }
 
 // TOML returns Monitor's toml config
@@ -55,13 +61,19 @@ report-interval = "%s"
 ## URL is the target of broker native ingestion url
 ## Default: %s
 ## Env: LINDB_MONITOR_URL
-url = "%s"`,
+url = "%s"
+## database is the target database for self-monitoring metrics (sent via X-LinDB-Database header)
+## Default: %s
+## Env: LINDB_MONITOR_DATABASE
+database = "%s"`,
 		m.PushTimeout.String(),
 		m.PushTimeout.String(),
 		m.ReportInterval.String(),
 		m.ReportInterval.String(),
 		m.URL,
 		m.URL,
+		m.Database,
+		m.Database,
 	)
 }
 
@@ -71,5 +83,6 @@ func NewDefaultMonitor() *Monitor {
 		PushTimeout:    ltoml.Duration(3 * time.Second),
 		ReportInterval: ltoml.Duration(10 * time.Second),
 		URL:            defaultPusherURL,
+		Database:       DefaultInternalDatabase,
 	}
 }

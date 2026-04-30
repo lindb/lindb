@@ -135,12 +135,12 @@ func (s *ShardAssignment) AddReplica(shardID ShardID, replicaID NodeID) {
 	replica, ok := s.Shards[shardID]
 	if !ok {
 		replica = Replica{}
-		s.Shards[shardID] = replica
 	}
 	if !replica.Contain(replicaID) {
 		replica.Replicas = append(replica.Replicas, replicaID)
 	}
-
+	// set replica list for shard
+	s.Shards[shardID] = replica
 	if len(replica.Replicas) > s.replicaFactor {
 		s.replicaFactor = len(replica.Replicas)
 	}

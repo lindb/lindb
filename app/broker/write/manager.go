@@ -140,5 +140,5 @@ func (m *manager) Unsubscribe(sub discovery.Subscriber) {
 
 // Close implements [Manager].
 func (m *manager) Close() {
-	panic("unimplemented")
+	// FIXME:	panic("unimplemented")
 }

@@ -29,6 +29,7 @@ func Test_ArrowNativePusher(t *testing.T) {
 	pusher := NewArrowNativePusher(
 		context.Background(),
 		"http://localhost:12345",
+		"_internal",
 		time.Millisecond*100,
 		time.Millisecond,
 		linmetric.BrokerRegistry,

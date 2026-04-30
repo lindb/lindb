@@ -404,8 +404,8 @@ func (m *stateManager) onNodeStartup(state *models.StorageState, node models.Sta
 func (m *stateManager) onNodeFailure(state *models.StorageState, nodeID models.NodeID) {
 	// 1. find all leaders on failure node, need do leader elect
 	leadersOnOfflineNode := state.LeadersOnNode(nodeID)
-	m.logger.Debug("leader node is offline need elect new leader for shard",
-		logger.Any("shards", leadersOnOfflineNode))
+	m.logger.Info("leader node is offline need elect new leader for shard",
+		logger.Any("shards", leadersOnOfflineNode), logger.Any("state", state))
 
 	liveNodes := state.LiveNodes
 	for db, shards := range leadersOnOfflineNode {

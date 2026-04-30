@@ -142,9 +142,13 @@ push-timeout = "3s"
 ## Env: LINDB_MONITOR_REPORT_INTERVAL
 report-interval = "10s"
 ## URL is the target of broker native ingestion url
-## Default: http://127.0.0.1:9000/api/v1/write?db=_internal
+## Default: http://127.0.0.1:9000/api/v1/write
 ## Env: LINDB_MONITOR_URL
-url = "http://127.0.0.1:9000/api/v1/write?db=_internal"
+url = "http://127.0.0.1:9000/api/v1/write"
+## database is the target database for self-monitoring metrics (sent via X-LinDB-Database header)
+## Default: _internal
+## Env: LINDB_MONITOR_DATABASE
+database = "_internal"
 
 ## logging related configuration.
 [logging]

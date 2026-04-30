@@ -63,6 +63,7 @@ type indexDatabase struct {
 	timeSeriesSeq atomic.Uint32 // like db primary key sequence(memory level)
 
 	lock sync.RWMutex
+	wg   sync.WaitGroup // Wait group to track goroutine completion
 }
 
 // NewIndexDatabase creates IndexDatabase instance.
@@ -75,6 +76,7 @@ func NewIndexDatabase(metaDB MetadataDatabase, indexDB index.MetricIndexDatabase
 		ctx:     ctx,
 		cancel:  cacnel,
 	}
+	db.wg.Add(1) // Track the handle goroutine
 	go db.handle()
 	return db
 }
@@ -147,9 +149,11 @@ func (idb *indexDatabase) Cleanup(db MemoryDatabase) {
 	})
 }
 
-// Close closed index database.
+// Close closes index database and waits for all pending operations to complete.
 func (idb *indexDatabase) Close() {
 	close(idb.ch)
+	// Wait for the handle goroutine to finish processing all pending events
+	idb.wg.Wait()
 }
 
 func (idb *indexDatabase) indexTimeSeries2(nameHash uint64, seriesID, memSeriesID uint32) {
@@ -164,6 +168,9 @@ func (idb *indexDatabase) indexTimeSeries2(nameHash uint64, seriesID, memSeriesI
 }
 
 func (idb *indexDatabase) handle() {
+	// Mark as done when goroutine exits
+	defer idb.wg.Done()
+
 	for e := range idb.ch {
 		switch event := e.(type) {
 		case *arrowIndexEvent:

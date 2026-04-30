@@ -48,7 +48,7 @@ func TestBaseRuntime_NativePusher(t *testing.T) {
 	assert.Nil(t, r.pusher)
 
 	pusher := monitoring.NewMockNativePusher(ctrl)
-	newNativeProtoPusher = func(_ context.Context, _ string, _, _ time.Duration,
+	newNativeProtoPusher = func(_ context.Context, _ string, _ string, _, _ time.Duration,
 		_ *linmetric.Registry, _ tag.Tags) monitoring.NativePusher {
 		return pusher
 	}

@@ -40,6 +40,7 @@ type arrowNativePusher struct {
 	cancel   context.CancelFunc
 	interval time.Duration
 	endpoint string
+	database string
 	gather   linmetric.ArrowGather
 	builder  *lmetrics.MetricBuilder
 	client   *http.Client
@@ -53,9 +54,11 @@ type arrowNativePusher struct {
 
 // NewArrowNativePusher creates an ArrowNativePusher that collects metrics from r
 // and periodically sends them as Arrow IPC bytes to endpoint.
+// The database name is sent via the X-LinDB-Database HTTP header on each push.
 func NewArrowNativePusher(
 	ctx context.Context,
 	endpoint string,
+	database string,
 	interval time.Duration,
 	pushTimeout time.Duration,
 	r *linmetric.Registry,
@@ -66,6 +69,7 @@ func NewArrowNativePusher(
 		ctx:      c,
 		cancel:   cancel,
 		endpoint: endpoint,
+		database: database,
 		interval: interval,
 		gather: r.NewArrowGather(
 			linmetric.WithReadRuntimeOption(newRuntimeObserver(r)),
@@ -131,6 +135,7 @@ func (p *arrowNativePusher) gatherAndBuild() {
 }
 
 // push sends the Arrow IPC bytes to the configured endpoint via HTTP PUT.
+// The target database is specified via the X-LinDB-Database header.
 func (p *arrowNativePusher) push(data []byte) {
 	if len(data) == 0 {
 		return
@@ -143,6 +148,7 @@ func (p *arrowNativePusher) push(data []byte) {
 		return
 	}
 	req.Header.Set("Content-Type", constants.ContentTypeArrow)
+	req.Header.Set(constants.DatabaseHeader, p.database)
 
 	resp, err := p.client.Do(req)
 	defer func() {

@@ -20,6 +20,7 @@ package ingest
 import (
 	"context"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -43,7 +44,7 @@ import (
 // WritePath represents write http api router path.
 var WritePath = "/write"
 
-// Write represents write api that processes flat/proto/influx protocol data.
+// Write represents write api that processes flat/proto/influx/arrow protocol data.
 type Write struct {
 	deps *depspkg.HTTPDeps
 
@@ -51,6 +52,7 @@ type Write struct {
 		flat   *linmetric.BoundHistogram
 		proto  *linmetric.BoundHistogram
 		influx *linmetric.BoundHistogram
+		arrow  *linmetric.BoundHistogram
 	}
 }
 
@@ -63,10 +65,12 @@ func NewWrite(deps *depspkg.HTTPDeps) *Write {
 			flat   *linmetric.BoundHistogram
 			proto  *linmetric.BoundHistogram
 			influx *linmetric.BoundHistogram
+			arrow  *linmetric.BoundHistogram
 		}{
 			flat:   ingestStatistics.Duration.WithTagValues("flat"),
 			proto:  ingestStatistics.Duration.WithTagValues("proto"),
 			influx: ingestStatistics.Duration.WithTagValues("influx"),
+			arrow:  ingestStatistics.Duration.WithTagValues("arrow"),
 		},
 	}
 }
@@ -87,6 +91,7 @@ func (w *Write) Register(route gin.IRoutes) {
 // @Description 1. application/flatbuffer
 // @Description 2. application/protobuf
 // @Description 3. application/influx
+// @Description 4. application/vnd.apache.arrow.stream
 // @Tags Write
 // @Accept application/flatbuffer
 // @Accept application/protobuf
@@ -109,7 +114,7 @@ func (w *Write) Write(c *gin.Context) {
 	}
 }
 
-// parse flat/proto/influx protocol data, then write parsed data to database's write channel.
+// parse flat/proto/influx/arrow protocol data, then write parsed data to database's write channel.
 func (w *Write) write(c *gin.Context) (err error) {
 	var param struct {
 		Database  string `form:"db" binding:"required"`
@@ -157,9 +162,25 @@ func (w *Write) write(c *gin.Context) (err error) {
 	case strings.HasPrefix(contentType, constants.ContentTypeProto):
 		writeType = "proto"
 		rows, err = proto.Parse(c.Request, enrichedTags, param.Namespace, limits)
+	case strings.HasPrefix(contentType, constants.ContentTypeArrow):
+		// Arrow IPC format: forward raw bytes directly to the write manager.
+		writeType = "arrow"
+		var data []byte
+		data, err = io.ReadAll(c.Request.Body)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			w.statistics.arrow.UpdateSince(now)
+		}()
+		writer, ok := w.deps.WriteManager.GetWriter(param.Database)
+		if !ok {
+			return constants.ErrDatabaseNotFound
+		}
+		return writer.Write(ctx, data, constants.EncodingArrow)
 	default:
-		err = fmt.Errorf("not support content type: %s, only support %s/%s/%s", contentType,
-			constants.ContentTypeFlat, constants.ContentTypeProto, constants.ContentTypeInflux)
+		err = fmt.Errorf("not support content type: %s, only support %s/%s/%s/%s", contentType,
+			constants.ContentTypeFlat, constants.ContentTypeProto, constants.ContentTypeInflux, constants.ContentTypeArrow)
 	}
 	if err != nil {
 		return err

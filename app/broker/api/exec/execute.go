@@ -18,13 +18,17 @@
 package exec
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/ipc"
 	"github.com/gin-gonic/gin"
+	larray "github.com/lindb/arrow/pkg/arrow/array"
 	httppkg "github.com/lindb/common/pkg/http"
 	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/timeutil"
@@ -86,18 +90,12 @@ func (e *ExecuteAPI) Register(route gin.IRoutes) {
 // @Router /exec [post]
 func (e *ExecuteAPI) Execute(c *gin.Context) {
 	if err := e.deps.QueryLimiter.Do(func() error {
-		// FIXME: move to common pkg
-		// defer func() {
-		// 	if err := recover(); err != nil {
-		// 		fmt.Println(err)
-		// 		msg := fmt.Sprintf("%v", err)
-		// 		_ = c.Error(errors.New(msg))
-		// 		c.Header("Content-Type", "text/plain")
-		// 		c.String(http.StatusInternalServerError, msg)
-		// 	}
-		// }()
+		// TODO: handle panic?
 		return e.execute(c)
 	}); err != nil {
+		e.logger.Error("execute lin query language error",
+			logger.String("sql", c.Query("sql")),
+			logger.Error(err))
 		_ = c.Error(err)
 		c.Header("Content-Type", "text/plain")
 		c.String(http.StatusInternalServerError, err.Error())
@@ -166,24 +164,69 @@ func (e *ExecuteAPI) execute(c *gin.Context) error {
 	defer record.Release()
 
 	if c.GetHeader("Accept") == constants.ContentTypeArrow {
-		writeArrowStream(c, record)
-	} else {
-		// FIXME: impl json response
-		// httppkg.OK(c, executionModel.NewResultSetFromRecord(record))
-		panic("not support json response yet")
+		return writeArrowStream(c, record)
 	}
-
-	// TODO: resource group
-	return nil
+	// FIXME: impl json response
+	// httppkg.OK(c, executionModel.NewResultSetFromRecord(record))
+	panic("not support json response yet")
 }
 
-// writeArrowStream writes an Arrow RecordBatch as an IPC stream to the response.
-// The client must send Accept: application/vnd.apache.arrow.stream to receive this format.
-func writeArrowStream(c *gin.Context, record arrow.RecordBatch) {
-	c.Header("Content-Type", constants.ContentTypeArrow)
-	w := ipc.NewWriter(c.Writer, ipc.WithSchema(record.Schema()))
-	defer w.Close()
-	if err := w.Write(record); err != nil {
-		_ = c.Error(err)
+// writeArrowStream encodes the RecordBatch into an Arrow IPC stream and writes
+// it to the HTTP response.  The encoding is done into an in-memory buffer first
+// so that, if encoding fails, the HTTP status has not yet been committed and the
+// caller can still return a proper error response to the client.
+func writeArrowStream(c *gin.Context, record arrow.RecordBatch) error {
+	unwrapped, rebuilt := unwrapRecord(record)
+	if rebuilt {
+		defer unwrapped.Release()
 	}
+
+	// Encode into a memory buffer first — the HTTP response must not be started
+	// until we know encoding succeeded, otherwise the client would receive a
+	// partial/empty Arrow stream instead of a proper error.
+	var buf bytes.Buffer
+	w := ipc.NewWriter(&buf)
+	if err := w.Write(unwrapped); err != nil {
+		return fmt.Errorf("arrow ipc: encode record batch: %w", err)
+	}
+	if err := w.Close(); err != nil {
+		return fmt.Errorf("arrow ipc: close writer: %w", err)
+	}
+
+	// Encoding succeeded — commit the response.
+	c.Header("Content-Type", constants.ContentTypeArrow)
+	_, err := c.Writer.Write(buf.Bytes())
+	return err
+}
+
+// unwrapRecord replaces columns that are lindb-wrapped arrays (e.g. *larray.Generic[T]
+// produced by FilterableRecord) with their underlying standard Arrow arrays so that
+// ipc.Writer can serialize them.
+// Returns the (possibly new) RecordBatch and a boolean indicating whether a new
+// RecordBatch was allocated. When rebuilt is true, the caller must call Release()
+// on the returned record.
+func unwrapRecord(record arrow.RecordBatch) (arrow.RecordBatch, bool) {
+	schema := record.Schema()
+	numCols := schema.NumFields()
+	cols := make([]arrow.Array, numCols)
+	needRebuild := false
+
+	for i := range numCols {
+		col := record.Column(i)
+		if masker, ok := col.(larray.Masker); ok {
+			// Retain the underlying array so the new RecordBatch holds
+			// an independent reference that won't dangle if the original
+			// record is released before the new one.
+			underlying := masker.Storage()
+			underlying.Retain()
+			cols[i] = underlying
+			needRebuild = true
+		} else {
+			cols[i] = col
+		}
+	}
+	if !needRebuild {
+		return record, false
+	}
+	return array.NewRecordBatch(schema, cols, record.NumRows()), true
 }

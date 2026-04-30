@@ -76,6 +76,7 @@ func (r *BaseRuntime) NativePusher() {
 	r.pusher = newNativeProtoPusher(
 		r.ctx,
 		r.monitor.URL,
+		r.monitor.Database,
 		r.monitor.ReportInterval.Duration(),
 		r.monitor.PushTimeout.Duration(),
 		r.registry,
