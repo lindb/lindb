@@ -92,8 +92,18 @@ func (e *ExecuteAPI) Execute(c *gin.Context) {
 		// TODO: handle panic?
 		return e.execute(c)
 	}); err != nil {
+		// Retrieve sql/database from the parsed param if available; fall back to
+		// empty strings when the error occurred before param binding succeeded.
+		sql, database := "", ""
+		if p, ok := c.Get(constants.CurrentSQLParams); ok {
+			if param, ok := p.(*models.ExecuteParam); ok {
+				sql = param.SQL
+				database = param.Database
+			}
+		}
 		e.logger.Error("execute lin query language error",
-			logger.String("sql", c.Query("sql")),
+			logger.String("db", database),
+			logger.String("sql", sql),
 			logger.Error(err))
 		_ = c.Error(err)
 		c.Header("Content-Type", "text/plain")

@@ -134,9 +134,9 @@ func (r *reducer) buildOutputPage() arrow.RecordBatch {
 		b := rb.Field(idx)
 		if arrow.TypeEqual(output.Type, arrow.BinaryTypes.String) {
 			groupingBuilders = append(groupingBuilders, b.(*array.StringBuilder))
-			// } else if output.Type.ID() == arrow.TIMESTAMP {
-			// 	// Timestamp column: track builder to append one value per row
-			// 	tsColBuilders = append(tsColBuilders, b.(*array.TimestampBuilder))
+		} else if output.Type.ID() == arrow.TIMESTAMP {
+			// Timestamp column: track builder to append one value per row.
+			tsColBuilders = append(tsColBuilders, b.(*array.TimestampBuilder))
 		} else if arrow.TypeEqual(output.Type, larrow.ExtensionTypes.Exemplar) {
 			exB := larray.NewExemplarBuilder(b.(*array.ExtensionBuilder))
 			fieldBuilders = append(fieldBuilders, fieldBuilder{idx: idx, isExemplar: true, exBuilder: exB})

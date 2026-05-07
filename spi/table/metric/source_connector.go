@@ -245,9 +245,17 @@ func (psc *sourceConnector) buildTableScan() *TableScan {
 	// When the timestamp column is not selected (e.g. instant queries), collapse
 	// the whole time range into a single interval so only one data point is produced.
 	// This check must happen after the loop because isTimestampSelected is set above.
+	// Guard against Start == End after truncation (e.g. very narrow time window smaller
+	// than the storage interval): fall back to targetInterval so the divisor is never zero.
 	if !tableScan.isTimestampSelected {
-		targetInterval = timeutil.Interval(targetTimeRange.End - targetTimeRange.Start)
+		if collapsed := timeutil.Interval(targetTimeRange.End - targetTimeRange.Start); collapsed > 0 {
+			targetInterval = collapsed
+		}
+		// else: keep targetInterval as computed by calcTimeRangeAndInterval
 	}
+	fmt.Println(targetTimeRange)
+	fmt.Println(targetInterval)
+	fmt.Println(tableScan.isTimestampSelected)
 	tableScan.timeRange = targetTimeRange
 	tableScan.interval = targetInterval
 

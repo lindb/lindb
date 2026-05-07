@@ -106,8 +106,12 @@ func (r *TimeRange) Intersect(o TimeRange) TimeRange {
 }
 
 // NumOfPoints returns num. of points by interval.
+// Returns 1 if interval is zero or negative to prevent division by zero.
 func (r *TimeRange) NumOfPoints(interval Interval) int {
 	i := int64(interval)
+	if i <= 0 {
+		return 1
+	}
 	duration := r.End - r.Start
 	if duration%i != 0 {
 		return int(duration/i) + 1
