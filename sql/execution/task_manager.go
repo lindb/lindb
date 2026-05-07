@@ -42,6 +42,11 @@ type SQLTask struct {
 
 	Database     string
 	OutputStream string // default output stream name
+
+	// NodeSource is the gRPC address of the node executing this task.
+	// It is embedded in error messages as "[role@addr]" so the caller
+	// can identify which remote node failed.
+	NodeSource string
 }
 
 type TaskManager interface {
@@ -55,13 +60,21 @@ type taskManager struct {
 	taskCh   chan *SQLTask
 	taskPool concurrent.Pool
 
+	// nodeSource is the node role and address of this node, embedded in remote-task
+	// error messages as "[role@addr]".
+	nodeSource string
+
 	lock sync.RWMutex
 }
 
-func NewTaskManager(ctx context.Context) TaskManager {
+// NewTaskManager creates a task manager for the given node.
+// role should be one of constants.StorageRole / constants.BrokerRole / constants.RootRole.
+// addr is the node's gRPC address (ip:port).
+func NewTaskManager(ctx context.Context, role, addr string) TaskManager {
 	mgr := &taskManager{
-		ctx:   ctx,
-		tasks: make(map[model.TaskID]*SQLTask),
+		ctx:        ctx,
+		tasks:      make(map[model.TaskID]*SQLTask),
+		nodeSource: role + "@" + addr,
 		// TODO: add config
 		taskCh: make(chan *SQLTask, 100),
 		taskPool: concurrent.NewPool("task-exec",
@@ -88,6 +101,7 @@ func (mgr *taskManager) SubmitTask(req *model.TaskRequest, fragment *plan.PlanFr
 		ID:          req.TaskID,
 		Fragment:    fragment,
 		Partitions:  req.Partitions,
+		NodeSource:  mgr.nodeSource,
 	}
 
 	mgr.tasks[req.TaskID] = task
@@ -106,7 +120,7 @@ func (mgr *taskManager) dispatchTask() {
 	for {
 		select {
 		case task := <-mgr.taskCh:
-			output := buffer.NewPartitionOutputBuffer(task.ID, task.Fragment)
+			output := buffer.NewPartitionOutputBuffer(task.ID, task.Fragment, task.NodeSource)
 			mgr.taskPool.Submit(context.TODO(), concurrent.NewTask(func() {
 				planPrinter := printer.NewPlanPrinter(printer.NewTextRender(0))
 				fmt.Println("******************")
@@ -130,11 +144,11 @@ func (mgr *taskManager) dispatchTask() {
 				}()
 
 				if err := exec.Execute(outputCh); err != nil {
-					// FIXME: output.AddRecord(&types.Page{Error: err.Error()})
+					output.Fail(err.Error())
 				}
 			}, func(err error) {
-				// output.Add&types.Page{Error: err.Error()})
-				// FIXME: output.AddRecord(&types.Page{Error: err.Error()})
+				// Pool-level panic: propagate back to broker.
+				output.Fail(err.Error())
 			}))
 		case <-mgr.ctx.Done():
 			return

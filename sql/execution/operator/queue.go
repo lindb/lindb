@@ -28,12 +28,14 @@ import (
 var log = logger.GetLogger("operator", "execute")
 
 type Queue struct {
-	ch chan arrow.RecordBatch
+	ch    chan arrow.RecordBatch
+	errCh chan string // carries at most one error message from Fail()
 }
 
 func NewQueue(ch chan arrow.RecordBatch) *Queue {
 	return &Queue{
-		ch: ch,
+		ch:    ch,
+		errCh: make(chan string, 1),
 	}
 }
 
@@ -64,4 +66,28 @@ func (q *Queue) GetInbound() chan arrow.RecordBatch {
 
 func (q *Queue) Close() {
 	close(q.ch)
+}
+
+// Fail sends an error message into errCh and closes ch so that any blocked
+// Consume() call unblocks. The caller (RemoteExchangeOperator.Run) must check
+// ErrMsg() after Consume returns false to decide whether to panic.
+func (q *Queue) Fail(errMsg string) {
+	// Non-blocking send: errCh is buffered with capacity 1, so this never blocks
+	// even if called concurrently.
+	select {
+	case q.errCh <- errMsg:
+	default:
+	}
+	close(q.ch)
+}
+
+// ErrMsg returns the error message set by Fail(), or "" if the queue was
+// closed normally via Close(). Safe to call only after Consume() returns false.
+func (q *Queue) ErrMsg() string {
+	select {
+	case msg := <-q.errCh:
+		return msg
+	default:
+		return ""
+	}
 }

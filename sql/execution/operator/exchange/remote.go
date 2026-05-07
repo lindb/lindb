@@ -53,6 +53,12 @@ func (op *RemoteExchangeOperator) Run(ctx context.Context, output chan<- arrow.R
 		// consume the pages from inbound channel
 		page, ok := op.inbound.Consume(ctx)
 		if !ok {
+			// Channel closed: check whether it was a normal Complete() or a Fail().
+			if errMsg := op.inbound.ErrMsg(); errMsg != "" {
+				// Remote storage task failed — panic so the pipeline captures the error
+				// and propagates it back to the client via task_execution → dml → HTTP 500.
+				panic(errMsg)
+			}
 			// TODO: merge pages (streaming)
 			mergedPage := types.MergeRecords(buffer)
 			if mergedPage != nil {
@@ -64,15 +70,18 @@ func (op *RemoteExchangeOperator) Run(ctx context.Context, output chan<- arrow.R
 		if page == nil {
 			continue
 		}
-		// FIXME: if page.Error != "" {
-		// 	panic(page.Error)
-		// }
 		buffer = append(buffer, page)
 	}
 }
 
 func (op *RemoteExchangeOperator) Receive(record arrow.RecordBatch) {
 	op.inbound.Produce(record)
+}
+
+// Fail signals that the remote storage task failed. Run() will panic with
+// errMsg so the pipeline error path surfaces the failure to the client.
+func (op *RemoteExchangeOperator) Fail(errMsg string) {
+	op.inbound.Fail(errMsg)
 }
 
 func (op *RemoteExchangeOperator) GetLayout() []*plan.Symbol {

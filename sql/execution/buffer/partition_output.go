@@ -19,6 +19,7 @@ package buffer
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/apache/arrow-go/v18/arrow"
 	larrow "github.com/lindb/arrow/pkg/arrow"
@@ -32,18 +33,20 @@ import (
 )
 
 type PartitionOutputBuffer struct {
-	fragment *plan.PlanFragment
-	taskID   model.TaskID
+	fragment   *plan.PlanFragment
+	taskID     model.TaskID
+	nodeSource string // gRPC address (ip:port) of the node executing this task, e.g. "1.2.3.4:2891"
 
 	serializer *larrow.Serializer
 
 	finished bool
 }
 
-func NewPartitionOutputBuffer(taskID model.TaskID, fragment *plan.PlanFragment) OutputBuffer {
+func NewPartitionOutputBuffer(taskID model.TaskID, fragment *plan.PlanFragment, nodeSource string) OutputBuffer {
 	return &PartitionOutputBuffer{
-		taskID:   taskID,
-		fragment: fragment,
+		taskID:     taskID,
+		fragment:   fragment,
+		nodeSource: nodeSource,
 	}
 }
 
@@ -71,6 +74,24 @@ func (output *PartitionOutputBuffer) Complete() {
 			TaskID: output.taskID,
 			Node:   *output.fragment.ParentNode,
 			NoMore: output.finished, // FIXME: set nomore
+		})
+	}
+}
+
+// Fail sends the execution error back to the broker via gRPC so the broker can
+// surface it to the client. The error message is prefixed with the node source
+// (e.g. "[storage@1.2.3.4:2891]") so the client can identify which node failed.
+func (output *PartitionOutputBuffer) Fail(errMsg string) {
+	if !output.finished {
+		output.finished = true
+		// Prepend the node source so the broker and client can tell which remote
+		// node produced the error.
+		taggedMsg := fmt.Sprintf("[%s] %s", output.nodeSource, errMsg)
+		output.sendResultSet(&model.TaskResultSet{
+			TaskID: output.taskID,
+			Node:   *output.fragment.ParentNode,
+			ErrMsg: taggedMsg,
+			NoMore: true,
 		})
 	}
 }

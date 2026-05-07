@@ -102,9 +102,31 @@ func init() {
 	flag.StringVar(&endpoint, "endpoint", "http://localhost:9000", "Broker HTTP Endpoint")
 }
 
-// printErr prints error message.
+// printErr prints error in MySQL-style: ERROR XXXX (HY000): <message>
+// If the error message starts with an HTTP status code (e.g. "404 Not Found"),
+// that code is extracted and used as the error number.
 func printErr(err error) {
-	fmt.Println(color.RedString("ERROR:%s", err))
+	if err == nil {
+		return
+	}
+	msg := err.Error()
+
+	// Try to extract a leading HTTP status code produced by parseErrorResponse,
+	// e.g. "404 server returned Not Found" → code=404, rest=server returned Not Found
+	code := 0
+	rest := msg
+	if n, _ := fmt.Sscanf(msg, "%d ", &code); n == 1 && code >= 100 && code < 600 {
+		// Strip the leading "<code> " prefix so we only show the actual message.
+		if spaceIdx := strings.Index(msg, " "); spaceIdx >= 0 {
+			rest = msg[spaceIdx+1:]
+		}
+	}
+
+	if code > 0 {
+		fmt.Println(color.RedString("ERROR %d (HY000): %s", code, rest))
+	} else {
+		fmt.Println(color.RedString("ERROR (HY000): %s", rest))
+	}
 }
 
 func exit() {
@@ -196,6 +218,12 @@ func executeAndPrint(param models.ExecuteParam) {
 	cost := time.Since(n)
 	if err != nil {
 		printErr(err)
+		return
+	}
+	// nil record means the server returned an empty result set (no rows matched).
+	// Mirror MySQL's "Empty set (0.00 sec)" output instead of treating it as an error.
+	if rs == nil {
+		fmt.Println(color.GreenString("Empty set (%s)", ltoml.Duration(cost)))
 		return
 	}
 	defer rs.Release()

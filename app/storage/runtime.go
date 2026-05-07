@@ -449,7 +449,8 @@ func (r *runtime) bindRPCHandlers() {
 
 	protoMetaV1.RegisterMetaServiceServer(r.server.GetServer(), rpchandler.NewMetaService(r.engine))
 	protoCommandV1.RegisterCommandServiceServer(r.server.GetServer(),
-		internalrpc.NewCommandService(execution.NewTaskManager(r.ctx)))
+		internalrpc.NewCommandService(execution.NewTaskManager(r.ctx,
+			constants.StorageRole, fmt.Sprintf("%s:%d", r.node.HostIP, r.node.GRPCPort))))
 }
 
 // initMyID initializes myid for storage server.

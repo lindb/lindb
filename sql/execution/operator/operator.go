@@ -38,5 +38,9 @@ type SourceOperator interface {
 	Operator
 	GetSourceID() plan.PlanNodeID
 	Receive(record arrow.RecordBatch)
+	// Fail signals that the remote storage task failed with errMsg.
+	// Implementations should cause Run() to terminate with a panic so the
+	// pipeline error path propagates the message back to the client.
+	Fail(errMsg string)
 	Complete()
 }

@@ -19,17 +19,26 @@ package operator
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/lindb/common/pkg/logger"
 )
 
-func RunAsync(ctx context.Context, op Operator, output chan<- arrow.RecordBatch) {
+// RunAsync runs op.Run in a background goroutine.
+// Any panic is recovered and sent to errCh so callers can propagate it back to
+// the HTTP layer. The output channel is always closed when the goroutine exits.
+func RunAsync(ctx context.Context, op Operator, output chan<- arrow.RecordBatch, errCh chan<- error) {
 	go func() {
 		defer func() {
-			if err := recover(); err != nil {
-				log.Warn("run operator panic", logger.Any("error", err), logger.Stack())
-				// FIXME: output <- &types.Page{Error: fmt.Sprintf("%v", err)}
+			if r := recover(); r != nil {
+				log.Error("run operator panic", logger.Any("error", r), logger.Stack())
+				// Forward the panic as an error so the pipeline/task-execution layer
+				// can surface it to the caller instead of silently swallowing it.
+				select {
+				case errCh <- fmt.Errorf("%v", r):
+				default:
+				}
 			}
 			close(output)
 		}()

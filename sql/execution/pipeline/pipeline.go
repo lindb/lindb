@@ -39,26 +39,55 @@ func NewPipeline(taskCtx *sqlContext.TaskContext, root operator.Operator) *Pipel
 	}
 }
 
-func (p *Pipeline) Run(output chan<- arrow.RecordBatch) {
+// Run executes the pipeline and blocks until the root operator finishes.
+// It returns the first error (panic) captured from any async child operator.
+func (p *Pipeline) Run(output chan<- arrow.RecordBatch) error {
 	fmt.Printf("run pipeline, root=>\n%s\n", renderText(p.root))
 
-	p.execOperator(p.taskCtx.Context, p.root, true, output)
+	// errCh collects panics from async child operators; buffer = number of async ops
+	// so no goroutine ever blocks on send.
+	errCh := make(chan error, p.countAsyncOps(p.root))
 
+	p.execOperator(p.taskCtx.Context, p.root, true, output, errCh)
+
+	// Run the root operator synchronously. Any panic here is caught by
+	// TaskExecution.Execute's own recover() and returned directly.
 	p.root.Run(p.taskCtx.Context, output)
+
+	// Collect the first child-operator error (if any).
+	close(errCh)
+	var firstErr error
+	for err := range errCh {
+		if err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
+}
+
+// countAsyncOps returns the number of non-root operators that will be launched
+// via RunAsync, used to size errCh so sends never block.
+func (p *Pipeline) countAsyncOps(op operator.Operator) int {
+	count := 0
+	for _, child := range op.Children() {
+		count += 1 + p.countAsyncOps(child)
+	}
+	return count
 }
 
 func (p *Pipeline) execOperator(ctx context.Context,
 	op operator.Operator,
 	exclude bool,
 	output chan<- arrow.RecordBatch,
+	errCh chan<- error,
 ) {
 	children := op.Children()
 	inbounds := op.GetInbounds()
 	for i, child := range children {
-		p.execOperator(ctx, child, false, inbounds[i])
+		p.execOperator(ctx, child, false, inbounds[i], errCh)
 	}
 
 	if !exclude {
-		operator.RunAsync(ctx, op, output)
+		operator.RunAsync(ctx, op, output, errCh)
 	}
 }

@@ -19,8 +19,9 @@ package client
 
 import (
 	"bytes"
-	"errors"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/ipc"
@@ -67,11 +68,13 @@ func (cli *executeCli) ExecuteAsRecord(param models.ExecuteParam) (arrow.RecordB
 		return nil, err
 	}
 	if resp.StatusCode() != http.StatusOK {
-		return nil, errors.New(string(resp.Body()))
+		return nil, parseErrorResponse(resp.StatusCode(), resp.Body())
 	}
 	data := resp.Body()
+	// Empty body means the server produced no rows (e.g. query matched nothing).
+	// This is a successful empty result set, not an error — same as MySQL's "Empty set".
 	if len(data) == 0 {
-		return nil, errors.New("no data found")
+		return nil, nil
 	}
 	reader, err := ipc.NewReader(bytes.NewReader(data))
 	if err != nil {
@@ -83,9 +86,22 @@ func (cli *executeCli) ExecuteAsRecord(param models.ExecuteParam) (arrow.RecordB
 		if err := reader.Err(); err != nil {
 			return nil, err
 		}
-		return nil, errors.New("no record batch in response")
+		// Arrow IPC stream with no record batches — treat as empty result set.
+		return nil, nil
 	}
 	record := reader.RecordBatch()
 	record.Retain()
 	return record, nil
+}
+
+// parseErrorResponse converts a non-200 HTTP response into a meaningful error.
+// When the server returns a JSON null body (e.g. 404 Not Found from gin's NotFound helper),
+// the body string is "null" which is useless — fall back to a generic status-based message.
+func parseErrorResponse(statusCode int, body []byte) error {
+	msg := strings.TrimSpace(string(body))
+	// "null" or empty body means the server sent no real message; build one from the status code.
+	if msg == "" || msg == "null" {
+		msg = fmt.Sprintf("server returned %s", http.StatusText(statusCode))
+	}
+	return fmt.Errorf("%d %s", statusCode, msg)
 }

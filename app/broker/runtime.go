@@ -428,7 +428,8 @@ func (r *runtime) startGRPCServer() {
 	// bind grpc handlers
 	protoCommandV1.RegisterResultSetServiceServer(r.grpcServer.GetServer(), internalrpc.NewResultSetService())
 	protoCommandV1.RegisterCommandServiceServer(r.grpcServer.GetServer(),
-		internalrpc.NewCommandService(execution.NewTaskManager(r.ctx)))
+		internalrpc.NewCommandService(execution.NewTaskManager(r.ctx,
+			constants.BrokerRole, fmt.Sprintf("%s:%d", r.node.HostIP, r.node.GRPCPort))))
 
 	go serveGRPCFn(r.grpcServer)
 }

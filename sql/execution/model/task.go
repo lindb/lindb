@@ -44,6 +44,7 @@ type TaskRequest struct {
 type TaskResultSet struct {
 	// TODO: refactor not use json
 	Page   []byte          `json:"page,omitempty"`
+	ErrMsg string          `json:"errMsg,omitempty"` // non-empty when the storage task failed
 	TaskID TaskID          `json:"taskId"`
 	Node   plan.PlanNodeID `json:"node"`
 	NoMore bool            `json:"noMore"`

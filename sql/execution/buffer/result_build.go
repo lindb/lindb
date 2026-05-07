@@ -36,6 +36,7 @@ type ResultSetBuild struct {
 	inbound   chan arrow.RecordBatch
 	completed chan struct{}
 	buffer    []arrow.RecordBatch
+	errMsg    string // set by Fail(); read back by DMLContext after ResultSet() returns
 }
 
 func CreateResultSetBuild() *ResultSetBuild {
@@ -62,6 +63,19 @@ func (rsb *ResultSetBuild) Process() {
 
 func (rsb *ResultSetBuild) Complete() {
 	close(rsb.inbound)
+}
+
+// Fail records the error from a remote storage task and closes the inbound channel
+// so that ResultSet() unblocks and the caller can read Error() to surface the failure.
+func (rsb *ResultSetBuild) Fail(errMsg string) {
+	rsb.errMsg = errMsg
+	close(rsb.inbound)
+}
+
+// Error returns the first remote error set via Fail, or "" if no error occurred.
+// Must only be called after ResultSet() returns.
+func (rsb *ResultSetBuild) Error() string {
+	return rsb.errMsg
 }
 
 // ResultSet waits for processing to finish and returns a single merged RecordBatch.

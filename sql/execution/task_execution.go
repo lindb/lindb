@@ -77,18 +77,30 @@ func (exe *TaskExecution) Execute(output chan<- arrow.RecordBatch) error {
 		pipeline := pipelines[i]
 		go func() {
 			defer func() {
-				wait.Done()
-
-				if r := recover(); r != nil {
-					// FIXME: handle not found
+				// recover() MUST be called before wait.Done().
+				// If wait.Done() ran first and this was the last goroutine, wait.Wait()
+				// would unblock and errors.Join(errs) would read a nil slot — the error
+				// would be silently dropped and never reach the client.
+				r := recover()
+				if r != nil {
 					errs[i] = fmt.Errorf("%v", r)
-					exe.logger.Warn("task execution pipeline error", logger.Any("error", r), logger.Stack())
+					exe.logger.Error("task execution pipeline error", logger.Any("error", r), logger.Stack())
 				}
+				wait.Done()
 			}()
-			pipeline.Run(output)
+			// pipeline.Run returns errors from async child operators (e.g. panics
+			// caught by RunAsync). Merge with any panic caught above so all errors
+			// are surfaced via errors.Join.
+			if err := pipeline.Run(output); err != nil && errs[i] == nil {
+				errs[i] = err
+			}
 		}()
 	}
 
 	wait.Wait()
+	// errs[i] already captures panics from the root operator (set by the
+	// goroutine's recover). pipeline.Run also returns child-operator panics
+	// (from RunAsync) as an error, which is stored in the same slot so that
+	// errors.Join surfaces them all to the caller.
 	return errors.Join(errs...)
 }

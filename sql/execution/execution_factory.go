@@ -40,5 +40,8 @@ type ExecutionFactory interface {
 }
 
 type Execution interface {
-	Start() arrow.RecordBatch
+	// Start executes the statement and returns the result record batch.
+	// Returns (nil, error) on execution failure; the caller must check the error
+	// before using the record batch.
+	Start() (arrow.RecordBatch, error)
 }

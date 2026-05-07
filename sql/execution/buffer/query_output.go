@@ -35,6 +35,10 @@ func (buf *QueryOutputBuffer) AddRecord(record arrow.RecordBatch) {
 	buf.rsBuild.AddRecord(record)
 }
 
+func (buf *QueryOutputBuffer) Fail(errMsg string) {
+	buf.rsBuild.Fail(errMsg)
+}
+
 func (buf *QueryOutputBuffer) Complete() {
 	buf.rsBuild.Complete()
 }

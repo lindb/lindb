@@ -23,5 +23,8 @@ import (
 
 type OutputBuffer interface {
 	AddRecord(record arrow.RecordBatch)
+	// Fail signals that the task failed with an error. The error is propagated
+	// to the consumer so the query can surface it to the client.
+	Fail(errMsg string)
 	Complete()
 }

@@ -66,11 +66,11 @@ func NewDDLExecution(session *Session, task ddl.Task) Execution {
 	}
 }
 
-func (exec *DDLExecution) Start() arrow.RecordBatch {
+func (exec *DDLExecution) Start() (arrow.RecordBatch, error) {
 	err := exec.task.Execute(exec.session.Context)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	// TODO: return affected rows
-	return array.NewRecordBatch(arrow.NewSchema(nil, nil), nil, 0)
+	return array.NewRecordBatch(arrow.NewSchema(nil, nil), nil, 0), nil
 }

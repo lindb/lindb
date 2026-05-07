@@ -20,6 +20,7 @@ package rpc
 import (
 	"bytes"
 	context "context"
+	"fmt"
 
 	"github.com/apache/arrow-go/v18/arrow/ipc"
 	"github.com/lindb/common/pkg/encoding"
@@ -56,6 +57,14 @@ func (srv *ResultSetService) ResultSet(ctx context.Context,
 
 	sourceOperator := pipeline.DriverManager.GetSourceOperator(resultSet.TaskID, resultSet.Node)
 	if sourceOperator != nil {
+		// If the remote task failed, propagate the error to the broker pipeline
+		// immediately — no data to process.
+		if resultSet.ErrMsg != "" {
+			fmt.Printf("receive task result set error: %s\n", resultSet.ErrMsg)
+			sourceOperator.Fail(resultSet.ErrMsg)
+			return &protoCommandV1.ResultSetResponse{}, nil
+		}
+
 		if len(resultSet.Page) != 0 {
 			buf := bytes.NewReader(resultSet.Page)
 			var err error
@@ -72,7 +81,6 @@ func (srv *ResultSetService) ResultSet(ctx context.Context,
 				sourceOperator.Receive(record)
 			}
 		}
-		// FIXME: handle error
 		if resultSet.NoMore {
 			// current task no more splits
 			sourceOperator.Complete()

@@ -18,6 +18,7 @@
 package execution
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/apache/arrow-go/v18/arrow"
@@ -85,6 +86,12 @@ func (ctx *DMLContext) Error() string {
 	return ctx.err
 }
 
+// RemoteError returns any error sent back from a remote storage task via gRPC.
+// Must only be called after ResultSet() returns (i.e. after rsBuild.Process() has exited).
+func (ctx *DMLContext) RemoteError() string {
+	return ctx.rsBuild.Error()
+}
+
 func (ctx *DMLContext) ResultSet() arrow.RecordBatch {
 	return ctx.rsBuild.ResultSet()
 }
@@ -107,7 +114,7 @@ func NewDMLExecution(session *Session, deps *Deps, preparedStatement *tree.Prepa
 	}
 }
 
-func (exec *DMLExecution) Start() arrow.RecordBatch {
+func (exec *DMLExecution) Start() (arrow.RecordBatch, error) {
 	defer func() {
 		// cleanup execution context
 		pipeline.DriverManager.Cleanup(exec.session.RequestID)
@@ -124,12 +131,18 @@ func (exec *DMLExecution) Start() arrow.RecordBatch {
 	// scheduler start
 	exec.execute(fragmentedPlan, exec.context.GetOutput())
 
-	// waiting query complete
 	exec.context.Wait()
-	if exec.context.Error() != "" {
-		panic(exec.context.Error())
+	result := exec.context.ResultSet()
+	// Check both local task error (SetError) and remote storage error (rsBuild.Error).
+	// rsBuild.Error() is safe to read here because ResultSet() already waited for
+	// the Process() goroutine to drain and close, so no concurrent writes can occur.
+	if errMsg := exec.context.Error(); errMsg != "" {
+		return nil, errors.New(errMsg)
 	}
-	return exec.context.ResultSet()
+	if errMsg := exec.context.RemoteError(); errMsg != "" {
+		return nil, errors.New(errMsg)
+	}
+	return result, nil
 }
 
 func (exec *DMLExecution) rewrite(statement tree.Statement) tree.Statement {
@@ -167,7 +180,10 @@ func (exec *DMLExecution) execute(fragmentedPlan *plan.SubPlan, output buffer.Ou
 				defer func() {
 					close(outputCh)
 					if err := recover(); err != nil {
-						exec.context.SetError(fmt.Sprintf("%v", err))
+						// Tag the error with the broker node source so the caller knows
+						// which node panicked.
+						exec.context.SetError(fmt.Sprintf("[Broker@%s] %v",
+							exec.deps.CurrentNode.Address(), err))
 					}
 					// TODO::
 					// close(exec.queryContext.completed)
@@ -187,7 +203,16 @@ func (exec *DMLExecution) execute(fragmentedPlan *plan.SubPlan, output buffer.Ou
 					output.Complete()
 				}()
 				if err := taskExec.Execute(outputCh); err != nil {
-					// FIXME: output.AddPage(&types.Page{Error: err.Error()})
+					// The error from Execute() may already carry a node-source prefix
+					// (e.g. "[storage@ip:port] ...") when it originates from a remote
+					// task. Only add the broker prefix for errors that are truly local
+					// (i.e. do not already start with '[').
+					msg := err.Error()
+					if len(msg) == 0 || msg[0] != '[' {
+						msg = fmt.Sprintf("[Broker@%s] %s",
+							exec.deps.CurrentNode.Address(), msg)
+					}
+					exec.context.SetError(msg)
 				}
 			} else {
 				// execute task under remote node, send fragment to remote execution node

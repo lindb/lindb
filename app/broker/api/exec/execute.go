@@ -29,7 +29,6 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/ipc"
 	"github.com/gin-gonic/gin"
 	larray "github.com/lindb/arrow/pkg/arrow/array"
-	httppkg "github.com/lindb/common/pkg/http"
 	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/timeutil"
 
@@ -156,9 +155,12 @@ func (e *ExecuteAPI) execute(c *gin.Context) error {
 
 	statementType := execution.GetStatementType(stmt)
 	factory := execution.GetExecutionFactory(statementType)
-	record := factory.CreateExecution(session, preparedStmt).Start()
+	record, err := factory.CreateExecution(session, preparedStmt).Start()
+	if err != nil {
+		// Execution error (e.g. pipeline panic, type mismatch): surface as HTTP 500.
+		return err
+	}
 	if record == nil {
-		httppkg.NotFound(c)
 		return nil
 	}
 	defer record.Release()
@@ -180,7 +182,6 @@ func writeArrowStream(c *gin.Context, record arrow.RecordBatch) error {
 	if rebuilt {
 		defer unwrapped.Release()
 	}
-	fmt.Println(unwrapped)
 
 	// Encode into a memory buffer first — the HTTP response must not be started
 	// until we know encoding succeeded, otherwise the client would receive a
