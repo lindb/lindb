@@ -113,7 +113,18 @@ func (r *reducer) findSeries(split *DataSplit) {
 }
 
 func (r *reducer) buildOutputPage() arrow.RecordBatch {
-	rb := array.NewRecordBuilder(memory.NewGoAllocator(), arrow.NewSchema(r.tableScan.outputs, nil))
+	// When timestamp is selected, float64 fields must be written as TimeSeries structs
+	// (struct{start, end, interval, values}) rather than scalar aggregation values.
+	// The planner always emits AggregationType for float64 fields, so we remap here.
+	adjustedOutputs := make([]arrow.Field, len(r.tableScan.outputs))
+	for i, f := range r.tableScan.outputs {
+		if _, ok := f.Type.(*larray.AggregationType); ok && r.tableScan.isTimestampSelected {
+			adjustedOutputs[i] = arrow.Field{Name: f.Name, Type: larrow.ExtensionTypes.TimeSeries, Nullable: f.Nullable}
+		} else {
+			adjustedOutputs[i] = f
+		}
+	}
+	rb := array.NewRecordBuilder(memory.NewGoAllocator(), arrow.NewSchema(adjustedOutputs, nil))
 	defer rb.Release()
 
 	// classify builders into grouping (string) vs field (timeseries/exemplar/aggregation)
@@ -121,7 +132,7 @@ func (r *reducer) buildOutputPage() arrow.RecordBatch {
 		idx        int
 		isExemplar bool
 		isAgg      bool
-		tsBuilder  *array.StructBuilder
+		tsBuilder  *larray.TimeSeriesBuilder
 		exBuilder  *larray.ExemplarBuilder
 		aggBuilder *larray.AggregationBuilder
 	}
@@ -140,14 +151,17 @@ func (r *reducer) buildOutputPage() arrow.RecordBatch {
 		} else if arrow.TypeEqual(output.Type, larrow.ExtensionTypes.Exemplar) {
 			exB := larray.NewExemplarBuilder(b.(*array.ExtensionBuilder))
 			fieldBuilders = append(fieldBuilders, fieldBuilder{idx: idx, isExemplar: true, exBuilder: exB})
-		} else if _, ok := output.Type.(*larray.AggregationType); ok {
-			// Aggregation (Sum/Max/Min/Last/First): storage type is Float64
-			aggB := larray.NewAggregationBuilder(b.(*array.ExtensionBuilder))
-			fieldBuilders = append(fieldBuilders, fieldBuilder{idx: idx, isAgg: true, aggBuilder: aggB})
 		} else {
-			// TimeSeries: struct{start, end, interval, values}
-			structB := b.(*array.ExtensionBuilder).Builder.(*array.StructBuilder)
-			fieldBuilders = append(fieldBuilders, fieldBuilder{idx: idx, tsBuilder: structB})
+			// Float64 field: output format depends on whether timestamp is selected.
+			// With timestamp → TimeSeries struct{start, end, interval, values}.
+			// Without timestamp → scalar AggregationType (single aggregated float64).
+			if r.tableScan.isTimestampSelected {
+				tsB := larray.NewTimeSeriesBuilder(b.(*array.ExtensionBuilder))
+				fieldBuilders = append(fieldBuilders, fieldBuilder{idx: idx, tsBuilder: tsB})
+			} else {
+				aggB := larray.NewAggregationBuilder(b.(*array.ExtensionBuilder))
+				fieldBuilders = append(fieldBuilders, fieldBuilder{idx: idx, isAgg: true, aggBuilder: aggB})
+			}
 		}
 	}
 
@@ -180,17 +194,12 @@ func (r *reducer) buildOutputPage() arrow.RecordBatch {
 						fb.aggBuilder.Append(values[0])
 					}
 				} else {
-					// TimeSeries: struct{start, end, interval, values}
-					sb := fb.tsBuilder
-					sb.Append(true)
-					sb.FieldBuilder(0).(*array.Int64Builder).Append(r.tableScan.timeRange.Start)
-					sb.FieldBuilder(1).(*array.Int64Builder).Append(r.tableScan.timeRange.End)
-					sb.FieldBuilder(2).(*array.Int64Builder).Append(r.tableScan.interval.Int64())
-					lb := sb.FieldBuilder(3).(*array.ListBuilder)
-					lb.Append(true)
-					vb := lb.ValueBuilder().(*array.Float64Builder)
-					for _, v := range values {
-						vb.Append(v)
+					// TimeSeries: use the typed builder to append start/end/interval and values slice.
+					if len(values) == 0 {
+						fb.tsBuilder.AppendNull()
+					} else {
+						fb.tsBuilder.Append(r.tableScan.timeRange.Start, r.tableScan.timeRange.End,
+							r.tableScan.interval.Int64(), values)
 					}
 				}
 			case *result[*models.Exemplar]:
