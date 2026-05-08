@@ -22,6 +22,7 @@ import (
 
 	"github.com/apache/arrow-go/v18/arrow"
 	larrow "github.com/lindb/arrow/pkg/arrow"
+	larray "github.com/lindb/arrow/pkg/arrow/array"
 	commonConstants "github.com/lindb/common/constants"
 	"github.com/lindb/common/pkg/logger"
 
@@ -112,9 +113,18 @@ func (srv *MetaService) TableSchema(ctx context.Context,
 		switch fieldType {
 		case field.ExemplarField:
 			return larrow.ExtensionTypes.Exemplar
+		case field.SumField, field.HistogramField:
+			return larray.NewAggregationType(larray.Sum)
+		case field.MinField:
+			return larray.NewAggregationType(larray.Min)
+		case field.MaxField:
+			return larray.NewAggregationType(larray.Max)
+		case field.LastField:
+			return larray.NewAggregationType(larray.Last)
+		case field.FirstField:
+			return larray.NewAggregationType(larray.First)
 		default:
-			// TODO: add agggregation type
-			return larrow.ExtensionTypes.TimeSeries
+			return larray.NewAggregationType(larray.Sum)
 		}
 	}
 	for _, field := range schema.Fields {
@@ -124,7 +134,7 @@ func (srv *MetaService) TableSchema(ctx context.Context,
 	// add timestamp column name(reserved column)
 	fields = append(fields, arrow.Field{
 		Name: constants.TimestampColumnName,
-		Type: arrow.FixedWidthTypes.Timestamp_s,
+		Type: arrow.FixedWidthTypes.Timestamp_ns,
 	})
 	data, err := larrow.MarshalSchema(arrow.NewSchema(fields, nil))
 	if err != nil {

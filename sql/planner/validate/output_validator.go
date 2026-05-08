@@ -22,6 +22,7 @@ import (
 
 	"github.com/apache/arrow-go/v18/arrow"
 	larrow "github.com/lindb/arrow/pkg/arrow"
+	larray "github.com/lindb/arrow/pkg/arrow/array"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/sql/context"
@@ -43,7 +44,10 @@ func NewOutputValidator() Validator {
 			return nil
 		}
 		if _, ok = lo.Find(node.GetOutputSymbols(), func(item *plan.Symbol) bool {
-			return arrow.TypeEqual(item.DataType, larrow.ExtensionTypes.TimeSeries)
+			// Accept both TimeSeries (range query) and AggregationType (instant query)
+			// as valid metric data columns that accompany a hidden timestamp column.
+			return arrow.TypeEqual(item.DataType, larrow.ExtensionTypes.TimeSeries) ||
+				func() bool { _, ok := item.DataType.(*larray.AggregationType); return ok }()
 		}); !ok {
 			return errors.New("timestamp column is hidden, output must contain time series column")
 		}
