@@ -29,6 +29,7 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/ipc"
 	"github.com/gin-gonic/gin"
 	larray "github.com/lindb/arrow/pkg/arrow/array"
+	ljson "github.com/lindb/arrow/pkg/json"
 	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/common/pkg/timeutil"
 
@@ -178,9 +179,7 @@ func (e *ExecuteAPI) execute(c *gin.Context) error {
 	if c.GetHeader("Accept") == constants.ContentTypeArrow {
 		return writeArrowStream(c, record)
 	}
-	// FIXME: impl json response
-	// httppkg.OK(c, executionModel.NewResultSetFromRecord(record))
-	panic("not support json response yet")
+	return writeJSONResponse(c, record)
 }
 
 // writeArrowStream encodes the RecordBatch into an Arrow IPC stream and writes
@@ -209,6 +208,23 @@ func writeArrowStream(c *gin.Context, record arrow.RecordBatch) error {
 	c.Header("Content-Type", constants.ContentTypeArrow)
 	_, err := c.Writer.Write(buf.Bytes())
 	return err
+}
+
+// writeJSONResponse converts the RecordBatch directly to a ResultSet and writes
+// it as JSON. unwrapRecord is called first to normalize any lindb-wrapped arrays.
+func writeJSONResponse(c *gin.Context, record arrow.RecordBatch) error {
+	unwrapped, rebuilt := unwrapRecord(record)
+	if rebuilt {
+		defer unwrapped.Release()
+	}
+
+	rs, err := ljson.DecodeRecordToResultSet(unwrapped)
+	if err != nil {
+		return fmt.Errorf("json response: decode record to result set: %w", err)
+	}
+
+	c.JSON(http.StatusOK, rs)
+	return nil
 }
 
 // unwrapRecord replaces columns that are lindb-wrapped arrays (e.g. *larray.Generic[T]

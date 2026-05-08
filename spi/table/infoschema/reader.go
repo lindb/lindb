@@ -31,6 +31,7 @@ import (
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/memory"
+	larrow "github.com/lindb/arrow/pkg/arrow"
 	commonConstants "github.com/lindb/common/constants"
 	commonEncoding "github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
@@ -615,11 +616,11 @@ func (r *reader) readColumns(predicate *predicate) (rows [][]any, err error) {
 	}
 	for _, column := range table.Schema.Fields() {
 		rows = append(rows, []any{
-			schema,               // table_schema
-			namespace,            // namespace
-			tableName,            // table_name
-			column.Name,          // column_name
-			column.Type.String(), // data_type
+			schema,                           // table_schema
+			namespace,                        // namespace
+			tableName,                        // table_name
+			column.Name,                      // column_name
+			larrow.DataTypeName(column.Type), // column_type
 		})
 	}
 	return
