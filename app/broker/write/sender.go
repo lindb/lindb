@@ -144,10 +144,11 @@ func (s *sender) recvLoop() {
 					logger.String("target", s.target.Indicator()),
 					logger.String("state", s.state),
 					logger.Error(err))
-				if errors.Is(err, io.EOF) {
-					return
-				}
-				continue
+				// Any error (EOF or network failure) means the stream is broken;
+				// exit the loop so Close() is called and the caller can recreate
+				// the sender. Continuing on error causes a tight retry loop that
+				// floods the log with the same message.
+				return
 			}
 			if resp.Err != "" {
 				// just log storage returned write error

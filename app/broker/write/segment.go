@@ -157,8 +157,12 @@ func (p *segment[V]) send(ctx context.Context) {
 
 			if err := sender.Send(records); err != nil {
 				p.logger.Error("failed to send data", logger.String("database", p.state.Database), logger.Error(err))
+				// Discard the broken sender so the next iteration rebuilds it.
+				// The sender's recvLoop has already called Close(), so the underlying
+				// gRPC stream is gone and further Send() calls will always fail.
+				sender = nil
+				// TODO: add retry logic for send failure/send pending
 			}
-			// TODO: add retry logic for send failure/send pending
 		}
 	}
 }
