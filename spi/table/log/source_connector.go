@@ -98,12 +98,10 @@ type sourceConnector struct {
 func (sc *sourceConnector) Run(output chan<- arrow.RecordBatch) {
 	tableScan := sc.buildTableScan()
 	if tableScan == nil {
-		fmt.Println("no table")
 		return
 	}
 	sc.partitions = sc.findPartitions(tableScan, sc.partitionIDs)
 	if len(sc.partitions) == 0 {
-		fmt.Println("no partitions")
 		return
 	}
 	indexDB := tableScan.db.IndexDatabase()
@@ -116,6 +114,10 @@ func (sc *sourceConnector) Run(output chan<- arrow.RecordBatch) {
 	if sc.predicate != nil {
 		fieldLookup := NewFieldValuesLookupVisitor(sc.ctx, tableScan)
 		fieldLookup.Visit(sc.ctx, sc.predicate)
+		if fieldLookup.noResults {
+			// A filter column or value was not found; return empty result early.
+			return
+		}
 	}
 
 	sc.initializeSearchContext(tableScan)

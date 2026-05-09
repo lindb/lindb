@@ -22,10 +22,10 @@ import (
 	"fmt"
 
 	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/roaring"
 	"github.com/samber/lo"
 
-	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
@@ -65,12 +65,17 @@ func (t *TableScan) isGrouping() bool {
 type ColumnValuesLookupVisitor struct {
 	evalCtx   expression.EvalContext
 	tableScan *TableScan
+	// noResults is set to true when a filter column or its value is not found,
+	// indicating the query should return an empty result instead of scanning data.
+	noResults bool
+	logger    logger.Logger
 }
 
 func NewColumnValuesLookVisitor(ctx context.Context, tableScan *TableScan) *ColumnValuesLookupVisitor {
 	return &ColumnValuesLookupVisitor{
 		tableScan: tableScan,
 		evalCtx:   expression.NewEvalContext(ctx),
+		logger:    logger.GetLogger("Metric", "TableScan"),
 	}
 }
 
@@ -151,7 +156,10 @@ func (v *ColumnValuesLookupVisitor) visitPredicate(predicate tree.Node, column t
 
 	tagMeta, ok := v.tableScan.schema.TagKeys.Find(columnName)
 	if !ok {
-		panic(fmt.Errorf("%w, column name: %s", constants.ErrColumnNotFound, columnName))
+		// Column not found in schema; treat as no-match instead of panicking.
+		v.logger.Warn("column not found", logger.String("column", columnName))
+		v.noResults = true
+		return nil
 	}
 	tagKeyID := tagMeta.ID
 	var tagValueIDs *roaring.Bitmap
@@ -163,7 +171,11 @@ func (v *ColumnValuesLookupVisitor) visitPredicate(predicate tree.Node, column t
 	}
 
 	if tagValueIDs == nil || tagValueIDs.IsEmpty() {
-		panic(fmt.Errorf("%w, column name: %s", constants.ErrColumnValueNotFound, columnName))
+		// No matching tag values found; treat as no-match instead of panicking.
+		v.logger.Warn("column value not found", logger.String("column", columnName),
+			logger.String("expression", tree.FormatExpression(predicate)))
+		v.noResults = true
+		return nil
 	}
 
 	if v.tableScan.filterResult == nil {

@@ -21,9 +21,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/lindb/common/pkg/logger"
 	"github.com/samber/lo"
 
-	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/sql/expression"
 	"github.com/lindb/lindb/sql/planner/plan"
@@ -51,12 +51,17 @@ type Fields struct {
 type FieldValuesLookupVisitor struct {
 	evalCtx   expression.EvalContext
 	tableScan *TableScan
+	// noResults is set to true when a filter column or its value is not found,
+	// indicating the query should return an empty result instead of scanning data.
+	noResults bool
+	logger    logger.Logger
 }
 
 func NewFieldValuesLookupVisitor(ctx context.Context, tableScan *TableScan) *FieldValuesLookupVisitor {
 	return &FieldValuesLookupVisitor{
 		tableScan: tableScan,
 		evalCtx:   expression.NewEvalContext(ctx),
+		logger:    logger.GetLogger("Log", "TableScan"),
 	}
 }
 
@@ -150,7 +155,10 @@ func (v *FieldValuesLookupVisitor) visitPredicate(predicate tree.Node, column tr
 
 	fieldID, err := v.tableScan.db.IndexDatabase().GetFieldKeyID(v.tableScan.nsID, []byte(columnName))
 	if err != nil {
-		panic(fmt.Errorf("%w, column name: %s,%d", constants.ErrColumnNotFound, columnName, v.tableScan.nsID))
+		// Column not found in index; treat as no-match instead of panicking.
+		v.logger.Warn("column not found", logger.String("column", columnName))
+		v.noResults = true
+		return nil
 	}
 	var fieldValueIDs []uint32
 	if _, ok := predicate.(*tree.NullPredicate); !ok {
@@ -161,7 +169,10 @@ func (v *FieldValuesLookupVisitor) visitPredicate(predicate tree.Node, column tr
 		}
 
 		if len(fieldValueIDs) == 0 {
-			panic(fmt.Errorf("%w, column name: %s", constants.ErrColumnValueNotFound, columnName))
+			// No matching field values found; treat as no-match instead of panicking.
+			v.logger.Warn("column value not found", logger.String("column", columnName))
+			v.noResults = true
+			return nil
 		}
 	}
 

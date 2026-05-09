@@ -106,23 +106,28 @@ func (psc *sourceConnector) Run(output chan<- arrow.RecordBatch) {
 		return
 	}
 
-	// A separate goroutine waits for all inflight tasks to finish, then closes
-	// reduceCh to signal the Reducer that no more data is coming.
-	// This must run concurrently because the Reducer below blocks on the channel.
-	go func() {
-		psc.ctx.Waiting()
-		psc.close()
-	}()
-
 	// Pre-evaluate the predicate: walk the expression tree to load tag value IDs
 	// for each filter condition before partition scanning begins.
 	if psc.predicate != nil {
 		tableScan.predicate = psc.predicate
 		lookup := NewColumnValuesLookVisitor(psc.ctx.ctx, tableScan)
 		_ = psc.predicate.Accept(nil, lookup)
+		if lookup.noResults {
+			// A filter column or value was not found; return empty result early.
+			return
+		}
 	}
 
 	psc.reduceCh = make(chan any)
+
+	// A separate goroutine waits for all inflight tasks to finish, then closes
+	// reduceCh to signal the Reducer that no more data is coming.
+	// This must run concurrently because the Reducer below blocks on the channel.
+	// NOTE: goroutine is started after noResults check to avoid closing a nil channel.
+	go func() {
+		psc.ctx.Waiting()
+		psc.close()
+	}()
 
 	// Launch one PartitionScan per partition on the shared MetaFetcher pool.
 	for i := range psc.partitions {
