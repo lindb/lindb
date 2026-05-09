@@ -45,8 +45,8 @@ func (r *rollup[V]) doRollup(timestamp int64, value V) {
 	} else if timestamp < r.nextTimestamp {
 		r.currValue = r.agg(r.currValue, value)
 	} else {
-		r.timeseries.Append(timestamp, value)
-
+		// Flush the previous window's aggregated value before starting the new window.
+		r.timeseries.Append(r.currTimestamp, r.currValue)
 		r.nextWindow(timestamp, value)
 	}
 }

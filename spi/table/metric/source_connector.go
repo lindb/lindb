@@ -197,6 +197,30 @@ func (psc *sourceConnector) buildTableScan() *TableScan {
 	targetTimeRange, targetInterval := calcTimeRangeAndInterval(metricTable.TimeRange,
 		metricTable.Interval, db.GetOption())
 
+	// Pass 1: detect whether the timestamp column is selected so we can compute the
+	// final interval before building field columns. Field columns read timeRange and
+	// interval from tableScan during initialization (newColumn → initialize), so both
+	// must be set before buildFieldColumn is called.
+	for _, columnMeta := range psc.outputColumns {
+		if arrow.TypeEqual(columnMeta.Type, arrow.FixedWidthTypes.Timestamp_ns) {
+			tableScan.isTimestampSelected = true
+			break
+		}
+	}
+
+	// When the timestamp column is not selected (e.g. instant queries), collapse
+	// the whole time range into a single interval so only one data point is produced.
+	// Guard against Start == End after truncation (e.g. very narrow time window smaller
+	// than the storage interval): fall back to targetInterval so the divisor is never zero.
+	if !tableScan.isTimestampSelected {
+		if collapsed := timeutil.Interval(targetTimeRange.End - targetTimeRange.Start); collapsed > 0 {
+			targetInterval = collapsed
+		}
+		// else: keep targetInterval as computed by calcTimeRangeAndInterval
+	}
+	tableScan.timeRange = targetTimeRange
+	tableScan.interval = targetInterval
+
 	var (
 		fields       field.Metas
 		groupingTags tag.Metas
@@ -206,11 +230,12 @@ func (psc *sourceConnector) buildTableScan() *TableScan {
 		numOfDataColumns = len(psc.outputColumns)
 	)
 
+	// Pass 2: resolve each output column to a field, tag, or timestamp now that
+	// tableScan.timeRange and tableScan.interval are fully initialized.
 	for _, columnMeta := range psc.outputColumns {
 		switch {
 		case arrow.TypeEqual(columnMeta.Type, arrow.FixedWidthTypes.Timestamp_ns):
 			// Timestamp column: mark it selected so the time axis is included in output.
-			tableScan.isTimestampSelected = true
 			// Timestamp is not a "data" column, so exclude it from the resolution check.
 			numOfDataColumns--
 
@@ -241,23 +266,6 @@ func (psc *sourceConnector) buildTableScan() *TableScan {
 			}
 		}
 	}
-
-	// When the timestamp column is not selected (e.g. instant queries), collapse
-	// the whole time range into a single interval so only one data point is produced.
-	// This check must happen after the loop because isTimestampSelected is set above.
-	// Guard against Start == End after truncation (e.g. very narrow time window smaller
-	// than the storage interval): fall back to targetInterval so the divisor is never zero.
-	if !tableScan.isTimestampSelected {
-		if collapsed := timeutil.Interval(targetTimeRange.End - targetTimeRange.Start); collapsed > 0 {
-			targetInterval = collapsed
-		}
-		// else: keep targetInterval as computed by calcTimeRangeAndInterval
-	}
-	fmt.Println(targetTimeRange)
-	fmt.Println(targetInterval)
-	fmt.Println(tableScan.isTimestampSelected)
-	tableScan.timeRange = targetTimeRange
-	tableScan.interval = targetInterval
 
 	// All non-timestamp output columns must resolve to either a field or a tag;
 	// any unresolved column means the query is invalid for this metric.

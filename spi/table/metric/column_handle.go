@@ -118,7 +118,7 @@ func (c *column[V]) initialize(fn getAggregateFunc[V]) {
 	for i, handle := range c.handles {
 		rollup, ok := rollupMap[handle.Downsampling]
 		if !ok {
-			rollup = newRollup(timeRange.NumOfPoints(interval), interval.Int64(), fn(handle.Downsampling))
+			rollup = newRollup(timeRange.NumOfPoints(interval), step, fn(handle.Downsampling))
 			// maybe duplicate downsampling func
 			rollupMap[handle.Downsampling] = rollup
 			c.rollups = append(c.rollups, rollup)
