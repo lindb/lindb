@@ -113,15 +113,21 @@ func (r *reducer) findSeries(split *DataSplit) {
 }
 
 func (r *reducer) buildOutputPage() arrow.RecordBatch {
-	// When timestamp is selected, float64 fields must be written as TimeSeries structs
-	// (struct{start, end, interval, values}) rather than scalar aggregation values.
-	// The planner always emits AggregationType for float64 fields, so we remap here.
-	adjustedOutputs := make([]arrow.Field, len(r.tableScan.outputs))
-	for i, f := range r.tableScan.outputs {
+	// For metrics, timestamp is a hidden dimension — time info is already embedded
+	// in each TimeSeries struct (start/end/interval/values). When timestamp is selected,
+	// isTimestampSelected controls the output format of float64 fields (TimeSeries vs
+	// scalar AggregationType); no separate timestamp column is emitted.
+	var adjustedOutputs []arrow.Field
+	for _, f := range r.tableScan.outputs {
+		if f.Type.ID() == arrow.TIMESTAMP {
+			// Timestamp is implicit in TimeSeries structs; skip as a standalone column.
+			continue
+		}
 		if _, ok := f.Type.(*larray.AggregationType); ok && r.tableScan.isTimestampSelected {
-			adjustedOutputs[i] = arrow.Field{Name: f.Name, Type: larrow.ExtensionTypes.TimeSeries, Nullable: f.Nullable}
+			// Remap AggregationType → TimeSeries when time axis is requested.
+			adjustedOutputs = append(adjustedOutputs, arrow.Field{Name: f.Name, Type: larrow.ExtensionTypes.TimeSeries, Nullable: f.Nullable})
 		} else {
-			adjustedOutputs[i] = f
+			adjustedOutputs = append(adjustedOutputs, f)
 		}
 	}
 	rb := array.NewRecordBuilder(memory.NewGoAllocator(), arrow.NewSchema(adjustedOutputs, nil))
@@ -139,38 +145,36 @@ func (r *reducer) buildOutputPage() arrow.RecordBatch {
 	var (
 		groupingBuilders []*array.StringBuilder
 		fieldBuilders    []fieldBuilder
-		tsColBuilders    []*array.TimestampBuilder // timestamp column builders (one per timestamp field)
 	)
-	for idx, output := range r.tableScan.outputs {
-		b := rb.Field(idx)
+	rbIdx := 0 // tracks position in rb (excludes skipped timestamp columns)
+	for _, output := range r.tableScan.outputs {
+		if output.Type.ID() == arrow.TIMESTAMP {
+			// Timestamp is implicit in TimeSeries structs; no standalone column needed.
+			continue
+		}
+		b := rb.Field(rbIdx)
 		if arrow.TypeEqual(output.Type, arrow.BinaryTypes.String) {
 			groupingBuilders = append(groupingBuilders, b.(*array.StringBuilder))
-		} else if output.Type.ID() == arrow.TIMESTAMP {
-			// Timestamp column: track builder to append one value per row.
-			tsColBuilders = append(tsColBuilders, b.(*array.TimestampBuilder))
 		} else if arrow.TypeEqual(output.Type, larrow.ExtensionTypes.Exemplar) {
 			exB := larray.NewExemplarBuilder(b.(*array.ExtensionBuilder))
-			fieldBuilders = append(fieldBuilders, fieldBuilder{idx: idx, isExemplar: true, exBuilder: exB})
+			fieldBuilders = append(fieldBuilders, fieldBuilder{idx: rbIdx, isExemplar: true, exBuilder: exB})
 		} else {
 			// Float64 field: output format depends on whether timestamp is selected.
 			// With timestamp → TimeSeries struct{start, end, interval, values}.
 			// Without timestamp → scalar AggregationType (single aggregated float64).
 			if r.tableScan.isTimestampSelected {
 				tsB := larray.NewTimeSeriesBuilder(b.(*array.ExtensionBuilder))
-				fieldBuilders = append(fieldBuilders, fieldBuilder{idx: idx, tsBuilder: tsB})
+				fieldBuilders = append(fieldBuilders, fieldBuilder{idx: rbIdx, tsBuilder: tsB})
 			} else {
 				aggB := larray.NewAggregationBuilder(b.(*array.ExtensionBuilder))
-				fieldBuilders = append(fieldBuilders, fieldBuilder{idx: idx, isAgg: true, aggBuilder: aggB})
+				fieldBuilders = append(fieldBuilders, fieldBuilder{idx: rbIdx, isAgg: true, aggBuilder: aggB})
 			}
 		}
+		rbIdx++
 	}
 
 	hasGrouping := r.tableScan.isGrouping()
 	for tags, seriesData := range r.result {
-		// append timestamp column value(s) — one per row, use query start time
-		for _, tsb := range tsColBuilders {
-			tsb.Append(arrow.Timestamp(r.tableScan.timeRange.Start))
-		}
 		if hasGrouping {
 			tagValues := r.tableScan.grouping.GetTagValues(*tags)
 			for i, tag := range tagValues {
@@ -187,14 +191,14 @@ func (r *reducer) buildOutputPage() arrow.RecordBatch {
 			case *result[float64]:
 				values := dst.array.Values()
 				if fb.isAgg {
-					// Aggregation type: write single scalar aggregated value
+					// Aggregation type: write single scalar aggregated value.
 					if len(values) == 0 {
 						fb.aggBuilder.AppendNull()
 					} else {
 						fb.aggBuilder.Append(values[0])
 					}
 				} else {
-					// TimeSeries: use the typed builder to append start/end/interval and values slice.
+					// TimeSeries: write start/end/interval and the full values slice.
 					if len(values) == 0 {
 						fb.tsBuilder.AppendNull()
 					} else {
