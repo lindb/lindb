@@ -24,10 +24,12 @@ import (
 	"testing"
 
 	prompt "github.com/elk-language/go-prompt"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/internal/client"
-	"github.com/lindb/lindb/sql/execution/model"
 )
 
 func Test_main(t *testing.T) {
@@ -58,7 +60,16 @@ func Test_main(t *testing.T) {
 				newExecuteCli = func(endpoint string) client.ExecuteCli {
 					return cli
 				}
-				cli.EXPECT().Execute(gomock.Any()).Return(&model.ResultSet{}, nil)
+			cli.EXPECT().ExecuteAsRecord(gomock.Any()).DoAndReturn(func(_ any) (arrow.RecordBatch, error) {
+					// Return a RecordBatch with one string column "version" = "1.0.0"
+					schema := arrow.NewSchema([]arrow.Field{
+						{Name: "version", Type: arrow.BinaryTypes.String},
+					}, nil)
+					rb := array.NewRecordBuilder(memory.NewGoAllocator(), schema)
+					defer rb.Release()
+					rb.Field(0).(*array.StringBuilder).Append("1.0.0")
+					return rb.NewRecordBatch(), nil
+				})
 
 				runPromptFn = func(p *prompt.Prompt) {
 				}
@@ -123,14 +134,14 @@ func Test_executor(t *testing.T) {
 			name: "show master",
 			in:   "select * from master;",
 			prepare: func() {
-				mockCli.EXPECT().Execute(gomock.Any())
+				mockCli.EXPECT().ExecuteAsRecord(gomock.Any())
 			},
 		},
 		{
 			name: "show brokers",
 			in:   "select * from brokers;",
 			prepare: func() {
-				mockCli.EXPECT().Execute(gomock.Any())
+				mockCli.EXPECT().ExecuteAsRecord(gomock.Any())
 			},
 		},
 	}
