@@ -86,7 +86,7 @@ func (op *ProjectionOperator) process(record arrow.RecordBatch) arrow.RecordBatc
 		result[i] = array
 	}
 
-	fields := make([]arrow.Field, len(op.project.Assignments))
+	fields := make([]arrow.Field, len(op.exprs))
 	for i, assign := range op.project.Assignments {
 		fields[i] = arrow.Field{
 			Name: assign.Symbol.Name,
@@ -117,6 +117,7 @@ func (op *ProjectionOperator) String() string {
 
 func (op *ProjectionOperator) prepare() {
 	op.exprCtx = expression.NewEvalContext(op.ctx)
+
 	op.exprs = make([]expression.Expression, len(op.project.Assignments))
 	for i, assign := range op.project.Assignments {
 		op.exprs[i] = expression.Rewrite(&expression.RewriteContext{

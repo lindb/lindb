@@ -91,7 +91,9 @@ func (p *LogicalPlanner) createInsertPlan(statement *tree.Insert) *RelationPlan 
 	)
 	for i := range outputDescriptor.Fields {
 		field := outputDescriptor.Fields[i]
-		if field.Hidden {
+		fieldIdx := outputDescriptor.IndexOf(field)
+		symbol := queryPlan.getSymbol(fieldIdx)
+		if symbol.Hidden {
 			// ignore hidden column
 			continue
 		}
@@ -99,8 +101,7 @@ func (p *LogicalPlanner) createInsertPlan(statement *tree.Insert) *RelationPlan 
 		if name == "" {
 			name = fmt.Sprintf("_col%d", i)
 		}
-		fieldIdx := outputDescriptor.IndexOf(field)
-		outputs = append(outputs, queryPlan.getSymbol(fieldIdx))
+		outputs = append(outputs, symbol)
 		columns = append(columns, name)
 	}
 
@@ -136,17 +137,17 @@ func (p *LogicalPlanner) createOutputPlan(plan *RelationPlan) planpkg.PlanNode {
 	outputDescriptor := analysis.GetOutputDescriptor(analysis.GetRoot())
 	for i := range outputDescriptor.Fields {
 		field := outputDescriptor.Fields[i]
-		if field.Hidden {
-			// ignore hidden column
-			continue
-		}
-		name := field.Name
-		if name == "" {
-			name = fmt.Sprintf("_col%d", i)
-		}
-		columns = append(columns, name)
 		fieldIdx := outputDescriptor.IndexOf(field)
-		outputs = append(outputs, plan.getSymbol(fieldIdx))
+		symbol := plan.getSymbol(fieldIdx)
+		outputs = append(outputs, symbol)
+
+		if !symbol.Hidden {
+			name := field.Name
+			if name == "" {
+				name = fmt.Sprintf("_col%d", i)
+			}
+			columns = append(columns, name)
+		}
 	}
 	return &planpkg.OutputNode{
 		BaseNode: planpkg.BaseNode{

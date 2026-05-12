@@ -131,10 +131,12 @@ func (srv *MetaService) TableSchema(ctx context.Context,
 		fields = append(fields, arrow.Field{Name: field.Name.String(), Type: getDataType(field.Type)})
 	}
 
-	// add timestamp column name(reserved column)
+	// add timestamp column name(reserved column), marked hidden so the query engine
+	// treats it as an implicit dimension rather than a selectable output column.
 	fields = append(fields, arrow.Field{
-		Name: constants.TimestampColumnName,
-		Type: arrow.FixedWidthTypes.Timestamp_ns,
+		Name:     constants.TimestampColumnName,
+		Type:     arrow.FixedWidthTypes.Timestamp_ns,
+		Metadata: arrow.MetadataFrom(map[string]string{"hidden": "true"}),
 	})
 	data, err := larrow.MarshalSchema(arrow.NewSchema(fields, nil))
 	if err != nil {

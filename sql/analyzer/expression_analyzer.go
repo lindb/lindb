@@ -22,6 +22,7 @@ import (
 
 	"github.com/apache/arrow-go/v18/arrow"
 	larrow "github.com/lindb/arrow/pkg/arrow"
+	larray "github.com/lindb/arrow/pkg/arrow/array"
 
 	"github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
@@ -260,6 +261,12 @@ func (v *ExpressionVisitor) getOperator(context *tree.StackableVisitorContext[*C
 
 	// TODO: operatorSignature := v.analyzer.funcionResolver.ResolveOperator(operatorType, nil).Signature
 
+	// Handle AggregationType OP numeric (e.g. idle*100): result keeps the AggregationType,
+	// and the numeric side is used as a scalar factor directly — no Cast needed.
+	if aggType, _, ok := resolveAggNumeric(argumentTypes[0], argumentTypes[1]); ok {
+		return v.setExpressionType(node, aggType)
+	}
+
 	// TODO: check args types
 	expectedType := types.GetAccurateType(argumentTypes[0], argumentTypes[1])
 	if expectedType == larrow.ExtensionTypes.TimeSeries {
@@ -269,6 +276,37 @@ func (v *ExpressionVisitor) getOperator(context *tree.StackableVisitorContext[*C
 	}
 
 	return v.setExpressionType(node, expectedType)
+}
+
+// resolveAggNumeric checks if exactly one side is an AggregationType and the other is a
+// numeric scalar (Int64 or Float64). Returns the AggregationType, the index of the numeric
+// argument, and true when the pattern matches; otherwise returns (nil, -1, false).
+func resolveAggNumeric(lhs, rhs arrow.DataType) (aggType arrow.DataType, numericIdx int, ok bool) {
+	lhsIsAgg := isAggregationType(lhs)
+	rhsIsAgg := isAggregationType(rhs)
+	lhsIsNum := isNumericType(lhs)
+	rhsIsNum := isNumericType(rhs)
+
+	switch {
+	case lhsIsAgg && rhsIsNum:
+		return lhs, 1, true
+	case rhsIsAgg && lhsIsNum:
+		return rhs, 0, true
+	default:
+		return nil, -1, false
+	}
+}
+
+// isAggregationType reports whether t is a lindb Arrow extension AggregationType.
+func isAggregationType(t arrow.DataType) bool {
+	_, ok := t.(*larray.AggregationType)
+	return ok
+}
+
+// isNumericType reports whether t is a plain numeric scalar (Int64 or Float64).
+func isNumericType(t arrow.DataType) bool {
+	return arrow.TypeEqual(t, arrow.PrimitiveTypes.Int64) ||
+		arrow.TypeEqual(t, arrow.PrimitiveTypes.Float64)
 }
 
 func (v *ExpressionVisitor) coerceType(expression tree.Expression, actualType, expectedType arrow.DataType) {

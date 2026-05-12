@@ -282,12 +282,15 @@ func (v *StatementVisitor) visitTable(ctx any, table *tree.Table) *Scope {
 	// analyze table
 	var outputFields []*tree.Field
 	for i, col := range tableMetadata.Schema.Fields() {
+		// Check the Arrow field metadata for the "hidden" marker (set by the storage
+		// layer, e.g. the implicit timestamp column in metric queries).
+		hidden := col.Metadata.FindKey("hidden") >= 0 && col.Metadata.Values()[col.Metadata.FindKey("hidden")] == "true"
 		// TODO: check agg????
 		outputFields = append(outputFields, &tree.Field{
-			Index:    tree.FieldIndex(i),
-			Name:     col.Name, // TODO: dup tag name/field name
-			DataType: col.Type,
-			// Hidden:        col.Hidden,
+			Index:         tree.FieldIndex(i),
+			Name:          col.Name, // TODO: dup tag name/field name
+			DataType:      col.Type,
+			Hidden:        hidden,
 			RelationAlias: table.Name.Name, // TODO: relation alias
 		})
 	}

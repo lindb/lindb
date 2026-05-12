@@ -56,6 +56,11 @@ func PlanOptimizers() []optimization.PlanOptimizer {
 		iterative.NewIterativeOptimizer([]iterative.Rule{
 			rule.NewPushAggregationIntoTableScan(),
 		}),
+		// strip hidden symbols (e.g. implicit timestamp) from the output and let
+		// the prune rules cascade them out of projection/table-scan nodes too.
+		iterative.NewIterativeOptimizer([]iterative.Rule{
+			rule.NewRemoveHiddenColumns(),
+		}),
 		iterative.NewIterativeOptimizer([]iterative.Rule{
 			rule.NewRemoveRedundantIdentityProjections(),
 		}),

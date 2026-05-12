@@ -20,6 +20,7 @@ package main
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/apache/arrow-go/v18/arrow"
@@ -260,7 +261,7 @@ func recordCellValue(col arrow.Array, row int) any {
 	case *array.Int32:
 		return c.Value(row)
 	case *array.Float64:
-		return c.Value(row)
+		return strconv.FormatFloat(c.Value(row), 'f', -1, 64)
 	case *array.Boolean:
 		return c.Value(row)
 	case *array.Timestamp:

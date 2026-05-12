@@ -41,7 +41,6 @@ func NewTableScanOperator(connector spi.SourceConnector, node *plan.TableScanNod
 }
 
 func (op *TableScanOperator) Run(ctx context.Context, output chan<- arrow.RecordBatch) {
-	fmt.Printf("run table scan=%T\n", op.connector)
 	op.connector.Run(output)
 }
 

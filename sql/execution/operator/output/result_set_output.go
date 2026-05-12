@@ -44,18 +44,18 @@ func NewRSOutputOperator(node *plan.OutputNode, child operator.Operator) operato
 
 func (op *ResultSetOutputOperator) Run(ctx context.Context, output chan<- arrow.RecordBatch) {
 	rebuildRecord := false
+
 	layout := op.node.GetOutputSymbols()
+	columnNames := op.node.ColumnNames
 
 	sourceLayout := make(map[string]int)
-	lo.ForEach(op.child.GetLayout(), func(symbol *plan.Symbol, index int) {
+	for index, symbol := range op.child.GetLayout() {
 		sourceLayout[symbol.Name] = index
-	})
-	columnNames := op.node.ColumnNames
+	}
 
 	fields := lo.Map(layout, func(symbol *plan.Symbol, _ int) arrow.Field {
 		return arrow.Field{Name: symbol.Name, Type: symbol.DataType}
 	})
-	schema := arrow.NewSchema(fields, nil)
 
 	for idx, symbol := range layout {
 		sourceIdx, ok := sourceLayout[symbol.Name]
@@ -87,7 +87,18 @@ func (op *ResultSetOutputOperator) Run(ctx context.Context, output chan<- arrow.
 					columns[colIdx] = record.Column(idx)
 				}
 			}
-			output <- array.NewRecordBatch(schema, columns, record.NumRows())
+
+			// Build schema from actual column types rather than plan symbol types.
+			// Expression results (e.g. field*100) may differ in AggregationType kind
+			// from the plan's declared type, causing NewRecordBatch to reject the batch.
+			actualFields := make([]arrow.Field, len(layout))
+			for i, f := range fields {
+				actualFields[i] = f
+				if columns[i] != nil {
+					actualFields[i].Type = columns[i].DataType()
+				}
+			}
+			output <- array.NewRecordBatch(arrow.NewSchema(actualFields, nil), columns, record.NumRows())
 		} else {
 			output <- record
 		}

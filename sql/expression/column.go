@@ -18,8 +18,6 @@
 package expression
 
 import (
-	"fmt"
-
 	"github.com/apache/arrow-go/v18/arrow"
 
 	"github.com/lindb/lindb/spi/scalar"
@@ -41,9 +39,6 @@ func (c *Column) EvalScalar() (scalar.Scalar, error) {
 }
 
 func (c *Column) Eval(record arrow.RecordBatch) (arrow.Array, error) {
-	if record.Column(c.index) == nil {
-		fmt.Printf("Evaluating column: %s at index: %d,===%v\n", c.name, c.index, record)
-	}
 	return record.Column(c.index), nil
 }
 
