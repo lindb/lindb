@@ -201,7 +201,9 @@ func executor(in string) {
 		return
 	}
 
-	query += strings.TrimSuffix(in, "\r\n") + " "
+	// Accumulate lines with a newline separator to preserve the original
+	// multi-line formatting in history and when recalling via the up-arrow.
+	query += in + "\n"
 	live = false
 }
 

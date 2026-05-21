@@ -64,8 +64,71 @@ func (h history) String() string {
 	return writer.Render()
 }
 
-// addToHistory adds a command to the history, ensuring no duplicates and max size
+// escapeHistory encodes a history entry so it occupies exactly one physical line
+// in the history file. Backslash, carriage-return, and newline are escaped:
+//
+//	'\' → '\\'
+//	'\r' → '\r'
+//	'\n' → '\n'
+func escapeHistory(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := range len(s) {
+		switch s[i] {
+		case '\\':
+			b.WriteString(`\\`)
+		case '\r':
+			b.WriteString(`\r`)
+		case '\n':
+			b.WriteString(`\n`)
+		default:
+			b.WriteByte(s[i])
+		}
+	}
+	return b.String()
+}
+
+// unescapeHistory is the inverse of escapeHistory. It restores the original
+// content (including embedded newlines) from its escaped representation.
+func unescapeHistory(s string) string {
+	if !strings.ContainsRune(s, '\\') {
+		return s // fast path: nothing to unescape
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	i := 0
+	for i < len(s) {
+		if s[i] == '\\' && i+1 < len(s) {
+			switch s[i+1] {
+			case '\\':
+				b.WriteByte('\\')
+				i += 2
+				continue
+			case 'r':
+				b.WriteByte('\r')
+				i += 2
+				continue
+			case 'n':
+				b.WriteByte('\n')
+				i += 2
+				continue
+			}
+		}
+		b.WriteByte(s[i])
+		i++
+	}
+	return b.String()
+}
+
+// addToHistory adds a command to the history, ensuring no duplicates and max size.
+// Internal whitespace and newlines are preserved so the original SQL formatting
+// can be recalled later. Escaping happens in saveHistory.
 func addToHistory(cmd string) {
+	// Only strip surrounding whitespace; keep internal formatting (newlines, indentation).
+	cmd = strings.TrimSpace(cmd)
+	if cmd == "" {
+		return
+	}
 	if strings.HasPrefix(strings.ToLower(cmd), "history") {
 		return
 	}
@@ -86,6 +149,11 @@ func addToHistory(cmd string) {
 }
 
 // loadHistory loads the history from the history file.
+// It handles three file formats transparently:
+//  1. New format  – each entry is one escaped line (escape sequences restored by unescapeHistory).
+//  2. Legacy broken format – a single SQL was written across multiple lines due to embedded \n;
+//     lines are reassembled by joining until a ";" suffix is found.
+//  3. Legacy correct format – each entry is already a single line; treated as format 1 (unescape is no-op).
 func loadHistory() {
 	file, err := os.Open(historyFilePath)
 	if err != nil {
@@ -97,8 +165,24 @@ func loadHistory() {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
+	var parts []string
 	for scanner.Scan() {
-		historyList = append(historyList, scanner.Text())
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue // skip blank separator lines
+		}
+		parts = append(parts, line)
+		if strings.HasSuffix(line, ";") {
+			// Either a complete new-format entry (single escaped line) or the last
+			// fragment of a legacy broken multi-line entry.
+			entry := unescapeHistory(strings.Join(parts, " "))
+			historyList = append(historyList, entry)
+			parts = nil
+		}
+	}
+	// Flush any trailing entry without a ";" (e.g. "use <db>").
+	if len(parts) > 0 {
+		historyList = append(historyList, unescapeHistory(strings.Join(parts, " ")))
 	}
 	if err := scanner.Err(); err != nil {
 		fmt.Println("Error reading history file:", err)
@@ -107,6 +191,7 @@ func loadHistory() {
 }
 
 // saveHistory saves the history to the history file.
+// Each entry is escaped so that embedded newlines do not corrupt the line-oriented format.
 func saveHistory() {
 	file, err := os.Create(historyFilePath)
 	if err != nil {
@@ -117,7 +202,7 @@ func saveHistory() {
 
 	writer := bufio.NewWriter(file)
 	for _, cmd := range historyList {
-		_, err := writer.WriteString(cmd + "\n")
+		_, err := writer.WriteString(escapeHistory(cmd) + "\n")
 		if err != nil {
 			fmt.Println("Error writing to history file:", err)
 			return
