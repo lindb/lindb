@@ -232,11 +232,13 @@ func (p *QueryPlanner) planAggregation(subPlan *PlanBuilder,
 		aggregation := &plan.Aggregation{
 			Function: p.context.AnalyzerContext.Analysis.GetResolvedFunction(function),
 			Arguments: lo.Map(function.Arguments, func(arg tree.Expression, _ int) tree.Expression {
-				// TODO:node check??
-				// if iden, ok := arg.(*tree.Identifier); ok {
-				// 	return p.context.SymbolAllocator.FromExpression(iden,
-				// 		p.context.AnalyzerContext.Analysis.GetType(iden)).ToSymbolReference()
-				// }
+				// Literal arguments (float/long) are preserved so the SPI layer can read
+				// their values (e.g. phi=0.99 for histogram_quantile).
+				// Column references (Identifier, SymbolReference) are converted to SymbolReference.
+				switch arg.(type) {
+				case *tree.FloatLiteral, *tree.LongLiteral:
+					return arg // keep as literal
+				}
 				return p.context.SymbolAllocator.FromExpression(arg,
 					p.context.AnalyzerContext.Analysis.GetType(arg)).ToSymbolReference()
 			}), // TODO: parse arg

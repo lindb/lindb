@@ -24,6 +24,7 @@ import (
 
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/lindb/common/models"
+	"github.com/lindb/common/pkg/logger"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/constants"
@@ -38,6 +39,8 @@ import (
 	metricstore "github.com/lindb/lindb/storage/metric"
 	"github.com/lindb/lindb/storage/store"
 )
+
+var log = logger.GetLogger("Metric", "SourceConnector")
 
 // sourceConnectorProvider is a factory that creates sourceConnector instances
 // bound to a specific storage engine.
@@ -198,6 +201,9 @@ func (psc *sourceConnector) buildTableScan() *TableScan {
 		columnMapping: psc.columnMapping,
 		outputs:       psc.outputColumns,
 	}
+	log.Info("buildTableScan: start",
+		logger.Int("outputColumns", len(psc.outputColumns)),
+		logger.Int("assignments", len(psc.assignments)))
 
 	targetTimeRange, targetInterval := calcTimeRangeAndInterval(metricTable.TimeRange,
 		metricTable.Interval, db.GetOption())
@@ -237,6 +243,8 @@ func (psc *sourceConnector) buildTableScan() *TableScan {
 
 	// Pass 2: resolve each output column to a field, tag, or timestamp now that
 	// tableScan.timeRange and tableScan.interval are fully initialized.
+	// Output symbols are set to physical field names by push_aggregation so every
+	// column should be resolvable via findFieldMeta (for fields) or tag lookup.
 	for _, columnMeta := range psc.outputColumns {
 		switch {
 		case arrow.TypeEqual(columnMeta.Type, arrow.FixedWidthTypes.Timestamp_ns):
@@ -268,13 +276,22 @@ func (psc *sourceConnector) buildTableScan() *TableScan {
 					arrow.TypeEqual(columnMeta.Type, arrow.BinaryTypes.String)
 			}); ok {
 				groupingTags = append(groupingTags, tagKey)
+			} else {
+				// Output column could not be resolved to a field or tag.
+				// Log for debugging; decrement so the validation below doesn't count it.
+				log.Info("buildTableScan: unresolved output column",
+					logger.String("column", columnMeta.Name))
+				numOfDataColumns--
 			}
 		}
 	}
 
-	// All non-timestamp output columns must resolve to either a field or a tag;
-	// any unresolved column means the query is invalid for this metric.
+	// All non-timestamp output columns must resolve to either a field or a tag.
 	if len(fields)+len(groupingTags) != numOfDataColumns {
+		log.Info("buildTableScan: column mismatch, returning nil",
+			logger.Int("fields", len(fields)),
+			logger.Int("groupingTags", len(groupingTags)),
+			logger.Int("expected", numOfDataColumns))
 		return nil
 	}
 
@@ -298,6 +315,9 @@ func (psc *sourceConnector) findFieldMeta(schema *metric.Schema, columnMeta arro
 // buildFieldColumn creates a Column for a single metric field, wiring up downsampling
 // and aggregation functions from the query assignments.
 // Returns the column and the number of aggregation slots it occupies (one per handle).
+// Histogram physical fields (bucket bounds, _sum, _count, etc.) are treated as regular
+// fields with their native aggregation (sum); the broker's aggregation layer computes
+// the final histogram function (quantile, avg, …) from the returned intermediate values.
 func (psc *sourceConnector) buildFieldColumn(
 	tableScan *TableScan,
 	fieldMeta field.Meta,

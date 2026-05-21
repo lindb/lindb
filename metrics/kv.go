@@ -84,7 +84,7 @@ var (
 	}{
 		Compacting: flushScope.NewGaugeVec("compacting", "type"),
 		Failure:    flushScope.NewCounterVec("failure", "type"),
-		Duration:   compactScope.Scope("duration").NewHistogramVec("type"),
+		Duration:   compactScope.NewHistogramVec("duration", "type"),
 	}
 
 	// flush job
@@ -97,6 +97,6 @@ var (
 	}{
 		Flushing: flushScope.NewGauge("flushing"),
 		Failure:  flushScope.NewCounter("failure"),
-		Duration: flushScope.Scope("duration").NewHistogram(),
+		Duration: flushScope.NewHistogramVec("duration").WithTagValues(),
 	}
 )

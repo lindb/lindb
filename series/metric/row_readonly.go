@@ -253,17 +253,17 @@ func (itr *CompoundFieldIterator) HistogramMinFieldName() field.Name { return hi
 // BucketNameOfHistogramExplicitBound converts reserved field-name for histogram buckets.
 func BucketNameOfHistogramExplicitBound(upperBound float64) string {
 	if math.IsInf(upperBound, 1) {
-		return "__bucket_+Inf"
+		return HistoBucketSubField + "+Inf"
 	}
-	return "__bucket_" + strconv.FormatFloat(upperBound, 'f', -1, 32)
+	return HistoBucketSubField + strconv.FormatFloat(upperBound, 'f', -1, 32)
 }
 
 // UpperBound extracts the upper-bound from bucketName
 func UpperBound(bucketName string) (float64, error) {
 	// make sure it has prefix with __bucket_
-	if !strings.HasPrefix(bucketName, "__bucket_") {
-		return 0, fmt.Errorf("bucketName:%s not startswith '__bucket_", bucketName)
+	if !strings.HasPrefix(bucketName, HistoBucketSubField) {
+		return 0, fmt.Errorf("bucketName:%s not startswith '%s'", bucketName, HistoBucketSubField)
 	}
-	raw := bucketName[len("__bucket_"):]
+	raw := bucketName[len(HistoBucketSubField):]
 	return strconv.ParseFloat(raw, 64)
 }

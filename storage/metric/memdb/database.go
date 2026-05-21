@@ -247,18 +247,16 @@ func (md *memoryDatabase) WriteArrow(reader *lmetrics.Reader, row int) error {
 
 	// build namespace/name byte slices for metadata notification
 	nsBytes := []byte(namespace)
-	if len(nsBytes) == 0 {
-		nsBytes = []byte("default")
-	}
 	nameBytes := []byte(name)
 
 	var fieldMetas []field.Meta
 
-	// write simple fields from Arrow reader using the direct (no-StorageRow) path
+	// write all fields (simple + histogram stat/bucket) uniformly via aggKindToFieldType.
+	// Bucket fields (<name>.__bucket_*) carry AggregationSum and are stored as SumField
+	// just like any other sum field; the naming convention alone identifies them as buckets.
 	reader.Fields(row, func(fname string, kind model.AggregationKind, value float64) {
-		fType := aggKindToFieldType(kind)
 		fm, isNew := md.writeLinFieldDirect(mStore, memSeriesID, slotIndex,
-			field.Name(fname), fType, value)
+			field.Name(fname), aggKindToFieldType(kind), value)
 		if isNew {
 			fieldMetas = append(fieldMetas, fm)
 		}
@@ -296,6 +294,8 @@ func computeNameHash(namespace, name string) uint64 {
 }
 
 // aggKindToFieldType maps model.AggregationKind to the LinDB field.Type.
+// Histogram bucket fields carry AggregationSum and are stored as SumField —
+// their identity as buckets is captured solely by the field name convention.
 func aggKindToFieldType(kind model.AggregationKind) field.Type {
 	switch kind {
 	case model.AggregationSum:

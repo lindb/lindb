@@ -18,11 +18,17 @@
 package rule
 
 import (
+	"github.com/apache/arrow-go/v18/arrow"
+	larray "github.com/lindb/arrow/pkg/arrow/array"
+	"github.com/lindb/common/pkg/logger"
+
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/sql/planner/iterative"
 	"github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/tree"
 )
+
+var log = logger.GetLogger("Planner", "PushAggregation")
 
 type PushPartialAggregationThroughExchange struct {
 	Base[*plan.AggregationNode]
@@ -35,7 +41,7 @@ func NewPushPartialAggregationThroughExchange() iterative.Rule {
 		if !isExchange {
 			return nil
 		}
-		// FIXME:add check(exchagne)
+		// FIXME: add check (exchange)
 		if node.Step == plan.SINGLE &&
 			exchangeNode.Type == plan.Repartition {
 			return rule.split(context, node)
@@ -134,21 +140,9 @@ func (rule *PushAggregationIntoTableScan) pushAggregationIntoTableScan(context *
 		// if step is not partial or no aggregation, return nil
 		return nil
 	}
-	// TODO: duplicate?
-	var columnAggregations []spi.ColumnAggregation
-	for _, agg := range node.Aggregations {
-		for _, arg := range agg.Aggregation.Arguments {
-			switch argument := arg.(type) {
-			case *tree.SymbolReference:
-				columnAggregations = append(columnAggregations,
-					spi.ColumnAggregation{Column: argument.Name, AggFuncName: agg.Aggregation.Function})
-			case *tree.Constant:
-				columnAggregations = append(columnAggregations,
-					// FIXME: add constant column??
-					spi.ColumnAggregation{Column: string(agg.Aggregation.Function), AggFuncName: agg.Aggregation.Function})
-			}
-		}
-	}
+	columnAggregations := buildColumnAggregations(node.Aggregations)
+	log.Info("PushAggregation: built column aggregations",
+		logger.Int("count", len(columnAggregations)))
 	if len(columnAggregations) == 0 {
 		return nil
 	}
@@ -161,11 +155,121 @@ func (rule *PushAggregationIntoTableScan) pushAggregationIntoTableScan(context *
 		columnAggregations,
 	)
 	if result == nil || len(result.ColumnAssignments) == 0 {
+		log.Info("PushAggregation: no assignments, skip push")
 		return nil
 	}
-	// just replace column assignments of table scan
+	log.Info("PushAggregation: pushed into table scan",
+		logger.Int("assignments", len(result.ColumnAssignments)))
+	// Replace physical column assignments of the table scan.
 	tableScan.Assignments = result.ColumnAssignments
-	// TODO: need check???
-	tableScan.OutputSymbols = node.GetOutputSymbols()
+	// Set output symbols to match the physical assignment column names.
+	// For histogram aggregations the aggregation node produces function-result symbols
+	// (e.g. "histogram_quantile") which don't correspond to any physical storage field;
+	// the source connector's findFieldMeta would fail to resolve them.
+	// Using the physical field names directly lets findFieldMeta succeed for every
+	// output column, keeping numOfAggs == len(outputs) and preventing a reducer panic.
+	tableScan.OutputSymbols = buildTableScanOutputSymbols(node, result.ColumnAssignments)
 	return node.Source
 }
+
+// buildTableScanOutputSymbols builds the output symbol list for the table scan node
+// after aggregation push-down.
+//
+// For histogram aggregations the AggregationNode's output symbols carry function-result
+// names (e.g. "histogram_quantile_0") that don't map to any physical storage field.
+// We replace them with one symbol per physical column assignment (bucket fields, stat fields)
+// so that source connector's findFieldMeta can resolve every output column by name.
+//
+// All grouping keys (tags + timestamp) are kept as-is. Timestamp inclusion causes
+// isTimestampSelected=true in buildTableScan, which makes the reducer emit TimeSeries
+// columns for range queries; HashAggregationOperator then computes the histogram function
+// per time slot and emits a TimeSeries result.
+func buildTableScanOutputSymbols(node *plan.AggregationNode, assignments []*spi.ColumnAssignment) []*plan.Symbol {
+	// Check whether any aggregation is a histogram function.
+	hasHisto := false
+	for _, aggAssign := range node.Aggregations {
+		if tree.IsHistogramFunc(aggAssign.Aggregation.Function) {
+			hasHisto = true
+			break
+		}
+	}
+	if !hasHisto {
+		// No histogram aggregation: keep the existing output symbols unchanged.
+		// ColumnMapping in the table scan already translates agg result names to field names.
+		return node.GetOutputSymbols()
+	}
+
+	// Histogram case: replace aggregation result symbols with physical field symbols.
+	// The broker aggregation layer computes the final histogram function from raw values.
+	var outputs []*plan.Symbol
+	// Keep ALL grouping keys (tags AND timestamp).
+	// Timestamp is needed so that isTimestampSelected=true is detected in buildTableScan,
+	// which causes the reducer to output TimeSeries columns (per-interval values).
+	// HashAggregationOperator will compute the quantile per time slot from those TimeSeries
+	// and emit a TimeSeries result; it explicitly sets timestamp output to null because the
+	// time information is embedded in the TimeSeries struct itself.
+	if node.GroupingSets != nil {
+		outputs = append(outputs, node.GroupingSets.GroupingKeys...)
+	}
+	// One symbol per physical assignment column (bucket fields, stat fields, plain fields).
+	for _, a := range assignments {
+		outputs = append(outputs, &plan.Symbol{
+			Name:     a.Column,
+			DataType: larray.NewAggregationType(larray.Sum),
+		})
+	}
+	return outputs
+}
+
+// buildColumnAggregations converts a list of AggregationAssignments into ColumnAggregations
+// by classifying each argument:
+//   - *tree.SymbolReference (non-numeric type) → the metric column name (first wins)
+//   - *tree.SymbolReference (Float64/Int64 type) → numeric literal saved in Arguments
+//   - *tree.Constant         → treated as column name fallback (function name used)
+//   - *tree.FloatLiteral     → literal argument saved in Arguments (e.g. phi for histogram_quantile)
+//   - *tree.LongLiteral      → same as FloatLiteral
+//
+// Entries where no column name is found are skipped.
+func buildColumnAggregations(aggregations []*plan.AggregationAssignment) []spi.ColumnAggregation {
+	// TODO: duplicate?
+	var result []spi.ColumnAggregation
+	for _, agg := range aggregations {
+		var colName string
+		for _, arg := range agg.Aggregation.Arguments {
+			switch argument := arg.(type) {
+			case *tree.SymbolReference:
+				// SymbolReferences with numeric type (Float64/Int64) originated from literal
+				// arguments such as the phi value in histogram_quantile(0.99, col).
+				// They should be treated as literal parameters, not as column names.
+				if isNumericSymbolRef(argument) {
+					continue
+				} else if colName == "" {
+					// Non-numeric SymbolReference: this is the metric column name.
+					colName = argument.Name
+				}
+			case *tree.Constant:
+				// Constants are not column references; skip them.
+			}
+		}
+		if colName != "" {
+			result = append(result, spi.ColumnAggregation{
+				Column:      colName,
+				AggFuncName: agg.Aggregation.Function,
+			})
+		}
+	}
+	return result
+}
+
+// isNumericSymbolRef reports whether a SymbolReference has a numeric data type
+// (Float64 or Int64), meaning it originated from a literal argument rather than a
+// column reference.  Used to distinguish phi (0.99) from the histogram column name
+// in histogram_quantile(0.99, sent_duration) after planAggregation converts arguments.
+func isNumericSymbolRef(ref *tree.SymbolReference) bool {
+	if ref.DataType == nil {
+		return false
+	}
+	return arrow.TypeEqual(ref.DataType, arrow.PrimitiveTypes.Float64) ||
+		arrow.TypeEqual(ref.DataType, arrow.PrimitiveTypes.Int64)
+}
+

@@ -27,7 +27,7 @@ import (
 )
 
 func Test_Histogram(t *testing.T) {
-	dh := NewHistogram()
+	dh := newBoundHistogram("")
 	defer func() {
 		dh.Update(func() {
 		})

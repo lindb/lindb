@@ -46,10 +46,9 @@ type Scope interface {
 	NewMax(fieldName string) *BoundMax
 	// NewMin returns a fast min which bounded to the scope
 	NewMin(fieldName string) *BoundMin
-	// NewHistogram returns a histogram which bounded to the scope
-	NewHistogram() *BoundHistogram
-	// NewHistogramVec initializes a vec by tagKeys
-	NewHistogramVec(tagKey ...string) *DeltaHistogramVec
+	// NewHistogramVec returns a DeltaHistogramVec for the given named histogram field.
+	// fieldName must be non-empty; tagKey lists the dynamic tag dimensions.
+	NewHistogramVec(fieldName string, tagKey ...string) *DeltaHistogramVec
 	// NewCounterVec initializes a vec by tagKeys and fieldName
 	NewCounterVec(fieldName string, tagKey ...string) *DeltaCounterVec
 	// NewGaugeVec initializes a vec by tagKeys and fieldName
@@ -70,8 +69,8 @@ type taggedSeries struct {
 }
 
 type fieldPayload struct {
-	simpleFields   []simpleField // Bound SimpleField list
-	histogramDelta *BoundHistogram
+	simpleFields []simpleField   // Bound SimpleField list
+	histograms   []*BoundHistogram // named or unnamed histograms; name="" means unnamed single histogram
 }
 
 func newTaggedSeries(r *Registry, metricName string, tags tag.Tags) *taggedSeries {
@@ -193,21 +192,28 @@ func (s *taggedSeries) findSimpleField(
 	return sf
 }
 
-func (s *taggedSeries) NewHistogram() *BoundHistogram {
+// newNamedHistogram returns a BoundHistogram with the given fieldName.
+// If a histogram with the same name already exists it is returned unchanged.
+func (s *taggedSeries) newNamedHistogram(fieldName string) *BoundHistogram {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.ensurePayload()
-	if s.payload.histogramDelta != nil {
-		return s.payload.histogramDelta
+	for _, h := range s.payload.histograms {
+		if h.name == fieldName {
+			return h
+		}
 	}
-	s.payload.histogramDelta = NewHistogram()
-	return s.payload.histogramDelta
+	h := newBoundHistogram(fieldName)
+	s.payload.histograms = append(s.payload.histograms, h)
+	return h
 }
 
-func (s *taggedSeries) NewHistogramVec(tagKey ...string) *DeltaHistogramVec {
-	assertTagKeyList(tagKey...)
-	return NewHistogramVec(s.r, s.metricName, s.tags, tagKey...)
+// NewHistogramVec returns a DeltaHistogramVec for the given named histogram field.
+// fieldName must be non-empty; tagKey lists the dynamic tag dimensions.
+func (s *taggedSeries) NewHistogramVec(fieldName string, tagKey ...string) *DeltaHistogramVec {
+	assertFieldName(fieldName)
+	return NewNamedHistogramVec(s.r, s.metricName, fieldName, s.tags, tagKey...)
 }
 
 func (s *taggedSeries) NewCounterVec(fieldName string, tagKey ...string) *DeltaCounterVec {
@@ -257,15 +263,20 @@ func (s *taggedSeries) buildFlatMetric(builder *commonMetric.RowBuilder) bool {
 		)
 	}
 
-	if s.payload.histogramDelta != nil {
-		s.payload.histogramDelta.marshalToCompoundField(builder)
+	// FlatBuffer supports only one CompoundField per metric.
+	// Emit the first unnamed histogram (backward compat); named histograms go via Arrow path.
+	for _, h := range s.payload.histograms {
+		if h.name == "" {
+			h.marshalToCompoundField(builder)
+			break
+		}
 	}
 	return true
 }
 
 // buildArrowMetric converts the taggedSeries into a *model.Metric for Arrow IPC serialization.
 // namespace and globalTags are merged into the resulting Attributes.
-// Histogram fields are skipped because Arrow model does not yet define a bucket structure.
+// Histogram fields are decomposed into atomic stat and bucket fields via AppendFields.
 func (s *taggedSeries) buildArrowMetric(namespace string, globalTags tag.Tags) *model.Metric {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -314,7 +325,11 @@ func (s *taggedSeries) buildArrowMetric(namespace string, globalTags tag.Tags) *
 			Value: sf.gather(),
 		})
 	}
-	// histogram is intentionally skipped — Arrow model does not yet define bucket fields
+
+	// append histogram fields as atomic named fields (e.g. <name>.__sum, <name>.__bucket_*)
+	for _, h := range s.payload.histograms {
+		h.AppendFields(m)
+	}
 
 	return m
 }

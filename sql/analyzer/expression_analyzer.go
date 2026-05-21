@@ -94,6 +94,8 @@ func (v *ExpressionVisitor) Visit(context any, n tree.Node) (r any) {
 		return v.visitStringLiteral(context, node)
 	case *tree.LongLiteral:
 		return v.visitLongLiteral(context, node)
+	case *tree.FloatLiteral:
+		return v.visitFloatLiteral(context, node)
 	case *tree.IntervalLiteral:
 		return v.visitIntervalLiteral(context, node)
 	case *tree.Identifier:
@@ -187,6 +189,15 @@ func (v *ExpressionVisitor) visitDereferenceExpression(context any, node *tree.D
 func (v *ExpressionVisitor) visitFunctionCall(context any, node *tree.FunctionCall) (r any) {
 	var argumentTypes []arrow.DataType
 	for _, arg := range node.Arguments {
+		// For histogram functions, the column-name argument may be a logical histogram
+		// field name (e.g. "sent_duration") that does not exist as a direct schema column.
+		// Resolve it gracefully instead of panicking, so the planner can expand it later.
+		if tree.IsHistogramFunc(node.Name) {
+			if ident, ok := arg.(*tree.Identifier); ok {
+				argumentTypes = append(argumentTypes, v.resolveHistogramColumn(context, ident))
+				continue
+			}
+		}
 		argumentTypes = append(argumentTypes, arg.Accept(context, v).(arrow.DataType))
 	}
 	expectedType := v.analyzer.ctx.GetFuncReturnType(node.Name)
@@ -208,12 +219,33 @@ func (v *ExpressionVisitor) visitFunctionCall(context any, node *tree.FunctionCa
 	return v.setExpressionType(node, expectedType)
 }
 
+// resolveHistogramColumn resolves an Identifier argument of a histogram function.
+// It first tries normal schema column resolution. If the column is not found as a
+// direct field (e.g. "sent_duration" is a logical histogram name, not a physical column),
+// it falls back to registering it as a Sum-type reference so the planner can expand it
+// to the physical bucket/stat columns via expandHistogramColumns.
+func (v *ExpressionVisitor) resolveHistogramColumn(context any, node *tree.Identifier) arrow.DataType {
+	ctx := context.(*tree.StackableVisitorContext[*Context])
+	resolvedField := ctx.GetContext().scope.resolveField(
+		node, tree.NewQualifiedName([]*tree.Identifier{node}), true)
+	if resolvedField != nil {
+		return v.handleResolvedField(ctx, node, resolvedField)
+	}
+	// Logical histogram name not found as a direct column — treat as valid histogram reference.
+	// The planner's expandHistogramColumns will match it against physical fields by prefix.
+	return v.setExpressionType(node, larrow.ExtensionTypes.Histogram)
+}
+
 func (v *ExpressionVisitor) visitStringLiteral(_ any, node *tree.StringLiteral) (r any) {
 	return v.setExpressionType(node, arrow.BinaryTypes.String)
 }
 
 func (v *ExpressionVisitor) visitLongLiteral(_ any, node *tree.LongLiteral) (r any) {
 	return v.setExpressionType(node, arrow.PrimitiveTypes.Int64)
+}
+
+func (v *ExpressionVisitor) visitFloatLiteral(_ any, node *tree.FloatLiteral) (r any) {
+	return v.setExpressionType(node, arrow.PrimitiveTypes.Float64)
 }
 
 func (v *ExpressionVisitor) visitIntervalLiteral(_ any, node *tree.IntervalLiteral) (r any) {

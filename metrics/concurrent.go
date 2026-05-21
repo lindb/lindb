@@ -49,9 +49,9 @@ func NewConcurrentStatistics(poolName string, registry *linmetric.Registry) *Con
 		TasksRejected:  scope.NewCounter("tasks_rejected"),
 		TasksPanic:     scope.NewCounter("tasks_panic"),
 		TasksWaitingTime: scope.Scope("tasks_waiting_duration").
-			NewHistogramVec("pool_name").WithTagValues(poolName),
+			NewHistogramVec("duration", "pool_name").WithTagValues(poolName),
 		TasksExecutingTime: scope.Scope("tasks_executing_duration").
-			NewHistogramVec("tasks_executing_duration").WithTagValues(poolName),
+			NewHistogramVec("duration", "pool_name").WithTagValues(poolName),
 	}
 }
 

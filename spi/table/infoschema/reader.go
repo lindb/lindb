@@ -32,6 +32,7 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/memory"
 	larrow "github.com/lindb/arrow/pkg/arrow"
+	larray "github.com/lindb/arrow/pkg/arrow/array"
 	commonConstants "github.com/lindb/common/constants"
 	commonEncoding "github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
@@ -49,6 +50,7 @@ import (
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/option"
 	pkgState "github.com/lindb/lindb/pkg/state"
+	seriesmetric "github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/sql/expression"
 	"github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/tree"
@@ -614,13 +616,43 @@ func (r *reader) readColumns(predicate *predicate) (rows [][]any, err error) {
 	if err != nil {
 		return nil, err
 	}
+	// Group histogram physical fields (bucket/stat) into logical virtual columns.
+	// Physical fields use the .__bucket_* / .__sum / .__count / .__min / .__max naming
+	// convention; they are collapsed into a single "histogram" row per prefix.
+	emitted := make(map[string]bool)
 	for _, column := range table.Schema.Fields() {
+		// Timestamp is an implicit dimension — skip from SHOW COLUMNS output.
+		if idx := column.Metadata.FindKey("hidden"); idx >= 0 &&
+			column.Metadata.Values()[idx] == "true" {
+			continue
+		}
+		// Bucket fields: emit one logical histogram row per histogram prefix.
+		if seriesmetric.IsBucketField(column.Name) {
+			prefix := seriesmetric.HistoNameFromField(column.Name)
+			if emitted[prefix] {
+				continue
+			}
+			emitted[prefix] = true
+			rows = append(rows, []any{
+				schema,
+				namespace,
+				tableName,
+				prefix,
+				larrow.DataTypeName(larray.NewAggregationType(larray.Histogram)),
+			})
+			continue
+		}
+		// Stat fields (.__sum / .__count etc.): already represented by the histogram row.
+		if seriesmetric.IsHistoStatField(column.Name) {
+			continue
+		}
+		// Regular field: emit as-is.
 		rows = append(rows, []any{
-			schema,                           // table_schema
-			namespace,                        // namespace
-			tableName,                        // table_name
-			column.Name,                      // column_name
-			larrow.DataTypeName(column.Type), // column_type
+			schema,
+			namespace,
+			tableName,
+			column.Name,
+			larrow.DataTypeName(column.Type),
 		})
 	}
 	return

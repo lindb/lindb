@@ -30,15 +30,24 @@ type DeltaHistogramVec struct {
 	tags            tag.Tags // unique tags
 	tagKeys         []string
 	metricName      string // concated metric name
+	fieldName       string // logical histogram field name; empty = unnamed single histogram
 	mu              sync.RWMutex
 	deltaHistograms map[string]*BoundHistogram
 	setBucketsFunc  func(h *BoundHistogram)
 }
 
-func NewHistogramVec(r *Registry, metricName string, tags tag.Tags, tagKey ...string) *DeltaHistogramVec {
+// NewNamedHistogramVec creates a DeltaHistogramVec where each BoundHistogram carries
+// fieldName so the storage layer can decompose it as a named compound field
+// (e.g. sent_duration_sum, sent_duration.__bucket_*) within the parent metric.
+func NewNamedHistogramVec(r *Registry, metricName, fieldName string, tags tag.Tags, tagKey ...string) *DeltaHistogramVec {
+	return newHistogramVec(r, metricName, fieldName, tags, tagKey...)
+}
+
+func newHistogramVec(r *Registry, metricName, fieldName string, tags tag.Tags, tagKey ...string) *DeltaHistogramVec {
 	return &DeltaHistogramVec{
 		r:               r,
 		metricName:      metricName,
+		fieldName:       fieldName,
 		tags:            tags,
 		tagKeys:         tagKey,
 		deltaHistograms: make(map[string]*BoundHistogram),
@@ -89,7 +98,7 @@ func (hv *DeltaHistogramVec) WithTagValues(tagValues ...string) *BoundHistogram 
 		tagsMap[hv.tagKeys[i]] = tagValues[i]
 	}
 	series := newTaggedSeries(hv.r, hv.metricName, tag.TagsFromMap(tagsMap))
-	h = series.NewHistogram()
+	h = series.newNamedHistogram(hv.fieldName)
 	if hv.setBucketsFunc != nil {
 		hv.setBucketsFunc(h)
 	}

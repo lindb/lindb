@@ -107,9 +107,9 @@ func newGPRCStreamStatistics(registry *linmetric.Registry, name, grpcType, grpcS
 			WithTagValues(grpcType, grpcService, grpcMethod),
 		MsgSentFailures: scope.NewCounterVec("msg_sent_failures", "grpc_type", "grpc_service", "grpc_method").
 			WithTagValues(grpcType, grpcService, grpcMethod),
-		MsgReceivedDuration: scope.Scope("received_duration").NewHistogramVec("grpc_type", "grpc_service", "grpc_method").
+		MsgReceivedDuration: scope.NewHistogramVec("received_duration", "grpc_type", "grpc_service", "grpc_method").
 			WithTagValues(grpcType, grpcService, grpcMethod),
-		MsgSentDuration: scope.Scope("sent_duration").NewHistogramVec("grpc_type", "grpc_service", "grpc_method").
+		MsgSentDuration: scope.NewHistogramVec("sent_duration", "grpc_type", "grpc_service", "grpc_method").
 			WithTagValues(grpcType, grpcService, grpcMethod),
 	}
 }
@@ -119,6 +119,6 @@ func newGRPCUnaryStatistics(registry *linmetric.Registry, name string) *GRPCUnar
 	scope := registry.NewScope(name)
 	return &GRPCUnaryStatistics{
 		Failures: scope.NewCounterVec("failures", "grpc_service", "grpc_method"),
-		Duration: scope.Scope("duration").NewHistogramVec("grpc_service", "grpc_method"),
+		Duration: scope.NewHistogramVec("duration", "grpc_service", "grpc_method"),
 	}
 }

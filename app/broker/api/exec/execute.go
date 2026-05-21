@@ -164,6 +164,9 @@ func (e *ExecuteAPI) execute(c *gin.Context) error {
 		Statement:       preparedStmt,
 	}
 
+	e.logger.Info("execute lin query language", logger.String("db", session.Database),
+		logger.String("sql", param.SQL), logger.Any("timeRange", param.TimeRange))
+
 	statementType := execution.GetStatementType(stmt)
 	factory := execution.GetExecutionFactory(statementType)
 	record, err := factory.CreateExecution(session, preparedStmt).Start()

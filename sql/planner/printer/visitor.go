@@ -22,8 +22,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/samber/lo"
-
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/tree"
@@ -270,10 +268,7 @@ func (v *PrintPlanVisitor) printTableScanInfo(outputNode *NodeRepresentation, no
 		return
 	}
 	if len(node.Assignments) > 0 {
-		outputNode.appendDetails(fmt.Sprintf("Assignments: [%s]",
-			strings.Join(lo.Map(node.Assignments, func(item *spi.ColumnAssignment, _ int) string {
-				return item.String()
-			}), ", ")))
+		outputNode.appendDetails(fmt.Sprintf("Assignments: [%s]", formatAssignments(node.Assignments)))
 	}
 	timeRange := node.Table.GetTimeRange()
 	if !timeRange.IsEmpty() {
@@ -284,6 +279,20 @@ func (v *PrintPlanVisitor) printTableScanInfo(outputNode *NodeRepresentation, no
 	if interval > 0 {
 		outputNode.appendDetails("Interval: " + interval.String())
 	}
+}
+
+// formatAssignments formats a list of column assignments for plan display.
+// Histogram bucket fields (<prefix>.__bucket_<bound>) are collapsed into a single
+// summary entry "<prefix>.__bucket[N]-><handle>" to keep the output concise.
+// All other assignments are printed verbatim.
+func formatAssignments(assignments []*spi.ColumnAssignment) string {
+	names := make([]string, len(assignments))
+	formatted := make([]string, len(assignments))
+	for i, a := range assignments {
+		names[i] = a.Column
+		formatted[i] = a.String()
+	}
+	return strings.Join(collapseHistogramBuckets(names, formatted), ", ")
 }
 
 func (v *PrintPlanVisitor) anonymizeExpressions(expressions []tree.Expression) (result []string) {

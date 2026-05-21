@@ -90,7 +90,7 @@ func NewCommonIngestionStatistics() *CommonIngestionStatistics {
 			NewScope(
 				"lindb.http.ingest_duration",
 			).
-			NewHistogramVec("path").
+			NewHistogramVec("duration", "path").
 			WithExponentBuckets(time.Millisecond, time.Second*5, 20),
 	}
 }

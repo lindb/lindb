@@ -56,8 +56,8 @@ func Test_MetricScope(t *testing.T) {
 	scope12 := scope1.Scope("2", "k1", "v1", "k3", "v3")
 	scope12.NewGauge("g1").Update(1)
 	scope12.NewGauge("g1").Update(2)
-	scope12.NewHistogram().UpdateDuration(time.Second)
-	scope12.NewHistogram().UpdateDuration(time.Second)
+	scope12.NewHistogramVec("duration").WithTagValues().UpdateDuration(time.Second)
+	scope12.NewHistogramVec("duration").WithTagValues().UpdateDuration(time.Second)
 	time.Sleep(time.Second)
 	gather := BrokerRegistry.NewGather(WithReadRuntimeOption(observer))
 	_, _ = gather.Gather()
@@ -85,7 +85,7 @@ func Test_MetricScope_Scope(t *testing.T) {
 	})
 	scope3.NewCounter("d")
 	assert.Panics(t, func() {
-		scope3.NewHistogramVec()
+		scope3.NewHistogramVec("", "tag1")
 	})
 	assert.Panics(t, func() {
 		scope3.NewCounterVec("23")

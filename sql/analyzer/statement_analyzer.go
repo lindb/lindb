@@ -278,6 +278,10 @@ func (v *StatementVisitor) visitTable(ctx any, table *tree.Table) *Scope {
 		// TODO: remove
 		panic(err)
 	}
+	log.Info("analyzeFrom: table metadata fetched",
+		logger.String("database", database),
+		logger.String("table", table.GetTableName()),
+		logger.Int("schemaFields", len(tableMetadata.Schema.Fields())))
 
 	// analyze table
 	var outputFields []*tree.Field
@@ -571,21 +575,30 @@ func (v *StatementVisitor) analyzeAggregations(query *tree.QuerySpecification, s
 		case *tree.Identifier:
 			// transfer filed builtin aggregation
 			resolvedField := sourceScope.resolveField(n, tree.NewQualifiedName([]*tree.Identifier{node}), true)
-			if aggType, ok := resolvedField.Field.DataType.(*larray.AggregationType); ok && !isFuncArg() {
-				// agg field and field is not function arg, add builtin agg func for this field
-				fn := &tree.FunctionCall{
-					Name: tree.FuncName(string(aggType.Kind())),
-					Arguments: []tree.Expression{&tree.SymbolReference{
-						Name:     resolvedField.Field.Name,
-						DataType: resolvedField.Field.DataType,
-						Hidden:   resolvedField.Field.Hidden,
-					}},
-					RefField: resolvedField.Field,
-				}
-				functions = append(functions, fn)
-				v.analyzer.ctx.Analysis.AddResolvedFunction(fn, fn.Name)
-				v.analyzer.ctx.Analysis.AddType(fn, resolvedField.Field.DataType) // TODO: remove it
+			// resolvedField may be nil when the identifier is a logical histogram name (e.g.
+			// "sent_duration") used as a function argument but not a direct schema column.
+			// Also skip Histogram-type columns: they must be queried via histogram_quantile etc.,
+			// not via auto-injected aggregation (which would produce an invalid "histogram" func).
+			if resolvedField == nil {
+				break
 			}
+			aggType, ok := resolvedField.Field.DataType.(*larray.AggregationType)
+			if !ok || isFuncArg() || aggType.Kind() == larray.Histogram {
+				break
+			}
+			// agg field and field is not function arg, add builtin agg func for this field
+			fn := &tree.FunctionCall{
+				Name: tree.FuncName(string(aggType.Kind())),
+				Arguments: []tree.Expression{&tree.SymbolReference{
+					Name:     resolvedField.Field.Name,
+					DataType: resolvedField.Field.DataType,
+					Hidden:   resolvedField.Field.Hidden,
+				}},
+				RefField: resolvedField.Field,
+			}
+			functions = append(functions, fn)
+			v.analyzer.ctx.Analysis.AddResolvedFunction(fn, fn.Name)
+			v.analyzer.ctx.Analysis.AddType(fn, resolvedField.Field.DataType) // TODO: remove it
 		case *tree.FunctionCall:
 			if tree.IsAggFunc(node.Name) {
 				functions = append(functions, node)

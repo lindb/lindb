@@ -121,7 +121,7 @@ func NewFamilyStatistics(database, shard string) *FamilyStatistics {
 			WithTagValues(database, shard),
 		MemDBFlushFailures: shardScope.NewCounterVec("memdb_flush_failures", "db", "shard").
 			WithTagValues(database, shard),
-		MemDBFlushDuration: shardScope.Scope("memdb_flush_duration").NewHistogramVec("db", "shard").
+		MemDBFlushDuration: shardScope.NewHistogramVec("memdb_flush_duration", "db", "shard").
 			WithTagValues(database, shard),
 	}
 }
@@ -131,7 +131,7 @@ func NewShardStatistics(database, shard string) *ShardStatistics {
 	return &ShardStatistics{
 		IndexDBFlushFailures: shardScope.NewCounterVec("indexdb_flush_failures", "db", "shard").
 			WithTagValues(database, shard),
-		IndexDBFlushDuration: shardScope.Scope("indexdb_flush_duration").NewHistogramVec("db", "shard").
+		IndexDBFlushDuration: shardScope.NewHistogramVec("indexdb_flush_duration", "db", "shard").
 			WithTagValues(database, shard),
 	}
 }
@@ -155,7 +155,7 @@ func NewDatabaseStatistics(database string) *DatabaseStatistics {
 	scope := linmetric.StorageRegistry.NewScope("lindb.tsdb.database")
 	return &DatabaseStatistics{
 		MetaDBFlushFailures: scope.NewCounterVec("metadb_flush_failures", "db").WithTagValues(database),
-		MetaDBFlushDuration: scope.Scope("metadb_flush_duration").NewHistogramVec("db").WithTagValues(database),
+		MetaDBFlushDuration: scope.NewHistogramVec("metadb_flush_duration", "db").WithTagValues(database),
 	}
 }
 

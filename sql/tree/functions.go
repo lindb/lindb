@@ -46,6 +46,12 @@ const (
 	Count    FuncName = "count"
 	Sampling FuncName = "sampling"
 
+	// histogram aggregation function names (Prometheus-style)
+	HistogramQuantile FuncName = "histogram_quantile"
+	HistogramAvg      FuncName = "histogram_avg"
+	HistogramSum      FuncName = "histogram_sum"
+	HistogramCount    FuncName = "histogram_count"
+
 	// time function names
 	DateAdd   FuncName = "date_add"
 	Now       FuncName = "now"
@@ -75,6 +81,12 @@ var defaultFuncReturnTypes = map[FuncName]arrow.DataType{
 	Count:    larrow.ExtensionTypes.TimeSeries,
 	Sampling: larrow.ExtensionTypes.Exemplar,
 
+	// histogram functions all produce a single scalar aggregation result
+	HistogramQuantile: larrow.ExtensionTypes.Sum,
+	HistogramAvg:      larrow.ExtensionTypes.Sum,
+	HistogramSum:      larrow.ExtensionTypes.Sum,
+	HistogramCount:    larrow.ExtensionTypes.Sum,
+
 	MapValues: arrow.MapOf(arrow.BinaryTypes.String, arrow.BinaryTypes.String),
 }
 
@@ -90,6 +102,12 @@ var defaultFuncAggTypes = map[FuncName]arrow.DataType{
 	First:    larrow.ExtensionTypes.First,
 	Last:     larrow.ExtensionTypes.Last,
 	Sampling: larrow.ExtensionTypes.Exemplar,
+
+	// histogram functions: accept a Histogram-type column, return a scalar Sum result
+	HistogramQuantile: larrow.ExtensionTypes.Histogram,
+	HistogramAvg:      larrow.ExtensionTypes.Histogram,
+	HistogramSum:      larrow.ExtensionTypes.Histogram,
+	HistogramCount:    larrow.ExtensionTypes.Histogram,
 }
 
 func init() {
@@ -100,6 +118,15 @@ func init() {
 func IsAggFunc(name FuncName) bool {
 	_, ok := defaultFuncAggTypes[name]
 	return ok
+}
+
+// IsHistogramFunc reports whether the function is a histogram aggregation.
+func IsHistogramFunc(name FuncName) bool {
+	switch name {
+	case HistogramQuantile, HistogramAvg, HistogramSum, HistogramCount:
+		return true
+	}
+	return false
 }
 
 // IsFuncSupported checks if given function name is supported.
@@ -117,6 +144,12 @@ var funcs = map[FuncName]struct{}{
 
 	Count:    {},
 	Sampling: {},
+
+	// histogram functions
+	HistogramQuantile: {},
+	HistogramAvg:      {},
+	HistogramSum:      {},
+	HistogramCount:    {},
 
 	// time functions
 	// ref: https://dev.mysql.com/doc/refman/8.4/en/date-and-time-functions.html

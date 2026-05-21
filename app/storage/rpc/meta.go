@@ -69,9 +69,6 @@ func (srv *MetaService) SuggestTable(ctx context.Context,
 	if !ok {
 		return nil, constants.ErrDatabaseNotFound
 	}
-	if !ok {
-		return nil, constants.ErrDatabaseNotFound
-	}
 	database := db.(*metric.Database)
 	namespace := commonConstants.DefaultNamespace
 	if request.Namespace != "" {
@@ -127,12 +124,14 @@ func (srv *MetaService) TableSchema(ctx context.Context,
 			return larray.NewAggregationType(larray.Sum)
 		}
 	}
-	for _, field := range schema.Fields {
-		fields = append(fields, arrow.Field{Name: field.Name.String(), Type: getDataType(field.Type)})
+	// Emit all physical fields as-is; histogram bucket/stat fields are plain sum/min/max.
+	// The naming convention (<histoName>.__bucket_*, <histoName>.__sum etc.) carries all
+	// semantic information needed by the query and aggregation layers.
+	for _, f := range schema.Fields {
+		fields = append(fields, arrow.Field{Name: f.Name.String(), Type: getDataType(f.Type)})
 	}
 
-	// add timestamp column name(reserved column), marked hidden so the query engine
-	// treats it as an implicit dimension rather than a selectable output column.
+	// Timestamp is an implicit dimension, not a selectable data column.
 	fields = append(fields, arrow.Field{
 		Name:     constants.TimestampColumnName,
 		Type:     arrow.FixedWidthTypes.Timestamp_ns,

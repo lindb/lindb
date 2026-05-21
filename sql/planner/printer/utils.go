@@ -21,16 +21,65 @@ import (
 	"fmt"
 	"strings"
 
+	seriesmetric "github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/tree"
 )
 
-func formatSymbols(symbols []*plan.Symbol) string {
-	var columns []string
-	for i := range symbols {
-		columns = append(columns, symbols[i].String())
+// collapseHistogramBuckets collapses histogram bucket entries in a parallel
+// (names, formatted) slice into summary entries, leaving non-bucket entries
+// unchanged.
+//
+//   - names[i]     — the raw field/column name used for bucket detection
+//   - formatted[i] — the display string (e.g. "latency.__bucket_0.5:sum" or
+//     "latency.__bucket_0.5->(downsampling=sum)"); the bucket name
+//     portion is replaced with the summary in the output.
+//
+// All bucket fields that share the same histogram prefix (e.g. "latency") are
+// collapsed into a single entry "latency.__bucket[N]<rest>" where N is the
+// total count of buckets for that prefix.
+func collapseHistogramBuckets(names, formatted []string) []string {
+	// Pass 1: count bucket fields per histogram prefix.
+	bucketCounts := make(map[string]int)
+	for _, n := range names {
+		if seriesmetric.IsBucketField(n) {
+			bucketCounts[seriesmetric.HistoNameFromField(n)]++
+		}
 	}
-	return "[" + strings.Join(columns, ", ") + "]"
+
+	// Pass 2: emit one condensed summary per prefix; skip subsequent buckets.
+	seenPrefix := make(map[string]bool)
+	var parts []string
+	for i, n := range names {
+		if !seriesmetric.IsBucketField(n) {
+			parts = append(parts, formatted[i])
+			continue
+		}
+		prefix := seriesmetric.HistoNameFromField(n)
+		if seenPrefix[prefix] {
+			continue // already emitted the summary for this prefix
+		}
+		seenPrefix[prefix] = true
+		// Replace the full bucket name inside the formatted string with the summary.
+		// formatted[i] starts with the bucket name followed by a delimiter
+		// (":" for symbols, "->" for assignments), so Replace with count=1 is safe.
+		summary := fmt.Sprintf("%s.__bucket[%d]", prefix, bucketCounts[prefix])
+		parts = append(parts, strings.Replace(formatted[i], n, summary, 1))
+	}
+	return parts
+}
+
+// formatSymbols formats a list of plan Symbols for display.
+// Histogram bucket symbols (<prefix>.__bucket_<bound>) are collapsed into a
+// single summary entry "<prefix>.__bucket[N]:<type>" to keep the output concise.
+func formatSymbols(symbols []*plan.Symbol) string {
+	names := make([]string, len(symbols))
+	formatted := make([]string, len(symbols))
+	for i, s := range symbols {
+		names[i] = s.Name
+		formatted[i] = s.String()
+	}
+	return "[" + strings.Join(collapseHistogramBuckets(names, formatted), ", ") + "]"
 }
 
 func formatAggregation(aggregation *plan.Aggregation) string {
