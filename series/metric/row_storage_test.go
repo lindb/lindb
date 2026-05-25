@@ -29,7 +29,7 @@ import (
 	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/common/field"
 )
 
 const (
@@ -172,22 +172,22 @@ func Test_MetricRow_WithSimpleFields(t *testing.T) {
 			assert.Equal(t, testCounter+strconv.Itoa(count), string(sfItr.NextRawName()))
 			switch count {
 			case 0:
-				assert.Equal(t, field.LastField, sfItr.NextType())
+				assert.Equal(t, field.Last, sfItr.NextType())
 				assert.Equal(t, flatMetricsV1.SimpleFieldTypeLast, sfItr.NextRawType())
 			case 1:
-				assert.Equal(t, field.FirstField, sfItr.NextType())
+				assert.Equal(t, field.First, sfItr.NextType())
 				assert.Equal(t, flatMetricsV1.SimpleFieldTypeFirst, sfItr.NextRawType())
 			case 2:
-				assert.Equal(t, field.MinField, sfItr.NextType())
+				assert.Equal(t, field.Min, sfItr.NextType())
 				assert.Equal(t, flatMetricsV1.SimpleFieldTypeMin, sfItr.NextRawType())
 			case 3:
-				assert.Equal(t, field.MaxField, sfItr.NextType())
+				assert.Equal(t, field.Max, sfItr.NextType())
 				assert.Equal(t, flatMetricsV1.SimpleFieldTypeMax, sfItr.NextRawType())
 			case 4:
 				assert.Equal(t, field.Unknown, sfItr.NextType())
 				assert.Equal(t, flatMetricsV1.SimpleFieldTypeUnSpecified, sfItr.NextRawType())
 			default:
-				assert.Equal(t, field.SumField, sfItr.NextType())
+				assert.Equal(t, field.Sum, sfItr.NextType())
 				assert.Equal(t, flatMetricsV1.SimpleFieldTypeDeltaSum, sfItr.NextRawType())
 			}
 			assert.InDelta(t, float64(count), sfItr.NextValue(), 1e-6)
@@ -215,10 +215,10 @@ func Test_MetricRow_WithCompoundField(t *testing.T) {
 	assert.InDelta(t, 1024, itr.Count(), 1e-6)
 	assert.InDelta(t, 1024*1024, itr.Sum(), 1e-6)
 
-	_ = itr.HistogramSumFieldName()
+	_ = itr.HistogramSumName()
 	_ = itr.HistogramCountFieldName()
-	_ = itr.HistogramMaxFieldName()
-	_ = itr.HistogramMinFieldName()
+	_ = itr.HistogramMaxName()
+	_ = itr.HistogramMinName()
 
 	for i := 0; i < 10; i++ {
 		itr.Reset()

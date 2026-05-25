@@ -102,7 +102,7 @@ func MergeRecords(pages []arrow.RecordBatch) arrow.RecordBatch {
 // 				panic("merge time series values length not equal")
 // 			} else {
 // 				for i, v := range oldVal.Values {
-// 					oldVal.Values[i] = mc.meta.AggType.Aggregate(v, newVal.Values[i])
+// 				oldVal.Values[i] = mc.meta.Type.Aggregate(v, newVal.Values[i])
 // 				}
 // 			}
 // 		}

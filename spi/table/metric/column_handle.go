@@ -23,7 +23,7 @@ import (
 	"github.com/lindb/common/models"
 
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/series/field"
+	sfield "github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/sql/tree"
 )
 
@@ -72,7 +72,7 @@ func (a *aggregator[V]) aggregate(dst Result) {
 type column[V float64 | *models.Exemplar] struct {
 	offset  int
 	table   *TableScan
-	field   field.Meta
+	field   sfield.Meta
 	handles []*ColumnHandle
 
 	streamAgg aggregateFunc[V]
@@ -86,7 +86,7 @@ type column[V float64 | *models.Exemplar] struct {
 
 func newColumn[V float64 | *models.Exemplar](offset int,
 	table *TableScan,
-	field field.Meta,
+	field sfield.Meta,
 	handles []*ColumnHandle,
 	streamAgg aggregateFunc[V],
 	downsmapling getAggregateFunc[V],

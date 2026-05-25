@@ -24,23 +24,25 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lindb/common/field"
+
 	"github.com/lindb/lindb/internal/mock"
-	"github.com/lindb/lindb/series/field"
+	sfield "github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/tag"
 )
 
-func TestSchema_GetAllHistogramFields(t *testing.T) {
+func TestSchema_GetAllHistograms(t *testing.T) {
 	schema := &Schema{
-		Fields: field.Metas{{ID: 1, Name: "field1"}},
+		Fields: sfield.Metas{{ID: 1, Name: "field1"}},
 	}
-	assert.Empty(t, schema.GetAllHistogramFields())
-	schema.Fields = append(schema.Fields, field.Meta{Name: "f", Type: field.HistogramField})
-	assert.Len(t, schema.GetAllHistogramFields(), 1)
+	assert.Empty(t, schema.GetAllHistograms())
+	schema.Fields = append(schema.Fields, sfield.Meta{Name: "f", Type: field.Histogram})
+	assert.Len(t, schema.GetAllHistograms(), 1)
 }
 
 func TestSchema_MarkPersisted(t *testing.T) {
 	schema := &Schema{
-		Fields:  field.Metas{{ID: 1, Name: "field1"}},
+		Fields:  sfield.Metas{{ID: 1, Name: "field1"}},
 		TagKeys: tag.Metas{{ID: 2, Key: "key1"}},
 	}
 	assert.True(t, schema.NeedWrite())
@@ -53,7 +55,7 @@ func TestSchema_MarkPersisted(t *testing.T) {
 func TestSchema_Marshal(t *testing.T) {
 	buf := bytes.NewBuffer([]byte{})
 	schema := &Schema{
-		Fields:  field.Metas{{ID: 1, Name: "field1"}},
+		Fields:  sfield.Metas{{ID: 1, Name: "field1"}},
 		TagKeys: tag.Metas{{ID: 2, Key: "key1"}},
 	}
 	assert.NoError(t, schema.Write(buf))
@@ -63,7 +65,7 @@ func TestSchema_Marshal(t *testing.T) {
 	assert.Equal(t, schema, schema2)
 
 	schema3 := &Schema{
-		Fields:  field.Metas{{ID: 2, Name: "field2"}},
+		Fields:  sfield.Metas{{ID: 2, Name: "field2"}},
 		TagKeys: tag.Metas{{ID: 4, Key: "key2"}},
 	}
 	buf.Reset()
@@ -98,7 +100,7 @@ func TestSchema_Marshal(t *testing.T) {
 
 func TestSchema_Write_Error(t *testing.T) {
 	schema := &Schema{
-		Fields: field.Metas{
+		Fields: sfield.Metas{
 			{ID: 2, Name: "field2"},
 			{ID: 2, Name: "field2", Persisted: true},
 		},

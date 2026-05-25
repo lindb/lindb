@@ -18,7 +18,6 @@
 package memdb
 
 import (
-	"fmt"
 	"io"
 	"math"
 	"sync"
@@ -29,6 +28,7 @@ import (
 	lmetrics "github.com/lindb/arrow/pkg/metrics"
 	"github.com/lindb/arrow/pkg/model"
 	"github.com/lindb/common/constants"
+	"github.com/lindb/common/field"
 	"github.com/lindb/common/pkg/fasttime"
 	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/roaring"
@@ -37,7 +37,7 @@ import (
 	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/metrics"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/series/field"
+	sfield "github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/storage/metric/tblstore/metricsdata"
 )
 
@@ -57,7 +57,7 @@ const (
 		int64(unsafe.Sizeof([][]uint32{})) // series ids
 	HashSeriesMappingEntry  = 8 + 4              // tags hash + memory series id
 	SeriesMappingEntry      = 4 * math.MaxUint16 // global series + memory series
-	FieldMetaEntry          = int64(unsafe.Sizeof(field.Meta{}))
+	FieldMetaEntry          = int64(unsafe.Sizeof(sfield.Meta{}))
 	IntMapValuesEntry       = int64(unsafe.Sizeof([]uint16{})) + 2*math.MaxUint16
 	NilPointerEntry         = int64(unsafe.Sizeof(nilPointerSize))
 	IntMapStructValuesEntry = IntMapValuesEntry + math.MaxUint16*NilPointerEntry
@@ -166,7 +166,7 @@ func (md *memoryDatabase) CompleteWrite() {
 	md.writeCondition.Done()
 }
 
-func (md *memoryDatabase) getFieldWriteBuffer(fm field.Meta, fType field.Type) (DataPointBuffer, error) {
+func (md *memoryDatabase) getFieldWriteBuffer(fm sfield.Meta, fType field.Type) (DataPointBuffer, error) {
 	buf, ok := md.fieldWriteStores.Load(fm.Index)
 	if ok {
 		return buf.(DataPointBuffer), nil
@@ -249,14 +249,14 @@ func (md *memoryDatabase) WriteArrow(reader *lmetrics.Reader, row int) error {
 	nsBytes := []byte(namespace)
 	nameBytes := []byte(name)
 
-	var fieldMetas []field.Meta
+	var fieldMetas []sfield.Meta
 
-	// write all fields (simple + histogram stat/bucket) uniformly via aggKindToFieldType.
-	// Bucket fields (<name>.__bucket_*) carry AggregationSum and are stored as SumField
+	// write all fields (simple + histogram stat/bucket) uniformly via field.Type cast.
+	// Bucket fields (<name>.__bucket_*) carry FieldTypeSum and are stored as Sum
 	// just like any other sum field; the naming convention alone identifies them as buckets.
-	reader.Fields(row, func(fname string, kind model.AggregationKind, value float64) {
+	reader.Fields(row, func(fname string, kind field.Type, value float64) {
 		fm, isNew := md.writeLinFieldDirect(mStore, memSeriesID, slotIndex,
-			field.Name(fname), aggKindToFieldType(kind), value)
+			sfield.Name(fname), kind, value)
 		if isNew {
 			fieldMetas = append(fieldMetas, fm)
 		}
@@ -264,8 +264,8 @@ func (md *memoryDatabase) WriteArrow(reader *lmetrics.Reader, row int) error {
 
 	// write exemplars from Arrow reader
 	reader.Exemplars(row, func(e *model.Exemplar) {
-		_ = md.writeExemplarFieldArrow(mStore, memSeriesID, slotIndex,
-			"__exemplar__", field.ExemplarField, e.TraceID, e.SpanID, e.Duration)
+		_ = md.writeExemplarArrow(mStore, memSeriesID, slotIndex,
+			"__exemplar__", field.Exemplar, e.TraceID, e.SpanID, e.Duration)
 	})
 
 	// notify metadata worker for persistent field ID assignment
@@ -293,34 +293,14 @@ func computeNameHash(namespace, name string) uint64 {
 	return xxhash.Sum64(buf)
 }
 
-// aggKindToFieldType maps model.AggregationKind to the LinDB field.Type.
-// Histogram bucket fields carry AggregationSum and are stored as SumField —
-// their identity as buckets is captured solely by the field name convention.
-func aggKindToFieldType(kind model.AggregationKind) field.Type {
-	switch kind {
-	case model.AggregationSum:
-		return field.SumField
-	case model.AggregationMin:
-		return field.MinField
-	case model.AggregationMax:
-		return field.MaxField
-	case model.AggregationLast:
-		return field.LastField
-	case model.AggregationFirst:
-		return field.FirstField
-	default:
-		return field.SumField
-	}
-}
-
-// writeExemplarFieldArrow writes an exemplar field from raw byte slices (Arrow path).
-func (md *memoryDatabase) writeExemplarFieldArrow(
+// writeExemplarArrow writes an exemplar field from raw byte slices (Arrow path).
+func (md *memoryDatabase) writeExemplarArrow(
 	mStore mStoreINTF,
 	memSeriesID uint32, slotIndex uint16,
-	fName field.Name, fType field.Type,
+	fName sfield.Name, fType field.Type,
 	traceID, spanID []byte, duration int64,
 ) (err error) {
-	var fm field.Meta
+	var fm sfield.Meta
 	fm, _ = mStore.GenField(fName, fType)
 	var buf DataPointBuffer
 	buf, err = md.getFieldWriteBuffer(fm, fType)
@@ -340,8 +320,8 @@ func (md *memoryDatabase) writeExemplarFieldArrow(
 func (md *memoryDatabase) writeLinFieldDirect(
 	mStore mStoreINTF,
 	memSeriesID uint32, slotIndex uint16,
-	fName field.Name, fType field.Type, fValue float64,
-) (fm field.Meta, isNew bool) {
+	fName sfield.Name, fType field.Type, fValue float64,
+) (fm sfield.Meta, isNew bool) {
 	fm, isNew = mStore.GenField(fName, fType)
 	buf, err := md.getFieldWriteBuffer(fm, fType)
 	if err != nil {
@@ -386,7 +366,7 @@ func (md *memoryDatabase) FlushFamilyTo(flusher metricsdata.Flusher) error {
 		if curMetricMemTimeSeriesIDs.IsEmpty() {
 			continue // flush next metric if current metric no data written
 		}
-		var needFlushFields field.Metas // current memory database's fields
+		var needFlushFields sfield.Metas // current memory database's fields
 		var buffers []DataPointBuffer
 		var fieldWritten bool
 		allFields := mStore.GetFields()
@@ -458,25 +438,21 @@ func (md *memoryDatabase) Filter(metricScanCtx *flow.MetricScanContext) (rs []fl
 	memMetricID, ok := md.indexDB.GetMetadataDatabase().GetMemMetricID(uint32(metricScanCtx.MetricID))
 	if !ok {
 		// metric not found
-		fmt.Println("metric not found")
 		return
 	}
 	timeSeriesIndex, ok := md.indexDB.GetTimeSeriesIndex(memMetricID)
 	if !ok {
 		// time series not found
-		fmt.Println("series not found")
 		return
 	}
 	storageSlotRange, ok := timeSeriesIndex.GetTimeRange(md.createdTime)
 	if !ok {
 		// no data(time range not exist)
-		fmt.Println("time range not exist")
 		return
 	}
 	querySlotRange := md.cfg.Interval.CalcSlotRange(md.familyTime, metricScanCtx.TimeRange)
 	if !storageSlotRange.Overlap(querySlotRange) {
 		// time range not match
-		fmt.Println("time range not match")
 		return
 	}
 	slotRange := storageSlotRange.Intersect(querySlotRange)

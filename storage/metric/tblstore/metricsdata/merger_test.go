@@ -69,8 +69,8 @@ package metricsdata
 // 	assert.Nil(t, err)
 // 	assert.Len(t, r.GetFields(), 2)
 // 	assert.EqualValues(t, r.GetFields(), field.Metas{
-// 		{ID: 2, Type: field.SumField},
-// 		{ID: 10, Type: field.MinField},
+// 		{ID: 2, Type: field.Sum},
+// 		{ID: 10, Type: field.Min},
 // 	})
 // 	for _, seriesID := range []uint32{1, 2, 4, 20, 30} {
 // 		assert.True(t, r.GetSeriesIDs().Contains(seriesID))
@@ -111,8 +111,8 @@ package metricsdata
 // 	nopKVFlusher := kv.NewNopFlusher()
 // 	flusher, _ := NewFlusher(nopKVFlusher)
 // 	flusher.PrepareMetric(10, field.Metas{
-// 		{ID: 2, Type: field.SumField},
-// 		{ID: 10, Type: field.MinField},
+// 		{ID: 2, Type: field.Sum},
+// 		{ID: 10, Type: field.Min},
 // 	})
 // 	encoder := encoding.NewTSDEncoder(start)
 // 	for i := start; i <= end; i++ {
@@ -145,7 +145,7 @@ package metricsdata
 // 	assert.Nil(t, nopFlusher.Bytes())
 // 	// case 2: series merge err
 // 	flusher.EXPECT().PrepareMetric(uint32(1),
-// 		field.Metas{{ID: 2, Type: field.SumField}, {ID: 10, Type: field.MinField}}).AnyTimes()
+// 		field.Metas{{ID: 2, Type: field.Sum}, {ID: 10, Type: field.Min}}).AnyTimes()
 //
 // 	seriesMerger.EXPECT().merge(gomock.Any(), gomock.Any(), gomock.Any()).
 // 		Return(fmt.Errorf("err"))
@@ -207,7 +207,7 @@ package metricsdata
 // 	m.seriesMerger = seriesMerger
 // 	// case 1: rollup merge success
 // 	flusher.EXPECT().PrepareMetric(uint32(1),
-// 		field.Metas{{ID: 2, Type: field.SumField}, {ID: 10, Type: field.MinField}}).AnyTimes()
+// 		field.Metas{{ID: 2, Type: field.Sum}, {ID: 10, Type: field.Min}}).AnyTimes()
 // 	rollup.EXPECT().IntervalRatio().Return(uint16(10))
 // 	rollup.EXPECT().GetTimestamp(uint16(10)).Return(int64(100))
 // 	rollup.EXPECT().CalcSlot(int64(100)).Return(uint16(0))
@@ -237,8 +237,8 @@ package metricsdata
 // 	nopKVFlusher := kv.NewNopFlusher()
 // 	flusher, _ := NewFlusher(nopKVFlusher)
 // 	flusher.PrepareMetric(10, field.Metas{
-// 		{ID: 2, Type: field.SumField},
-// 		{ID: 10, Type: field.MinField},
+// 		{ID: 2, Type: field.Sum},
+// 		{ID: 10, Type: field.Min},
 // 	})
 // 	for _, seriesID := range seriesIDs {
 // 		_ = flusher.FlushField([]byte{1, 2, 3})
@@ -253,7 +253,7 @@ package metricsdata
 // 	nopKVFlusher := kv.NewNopFlusher()
 // 	flusher, _ := NewFlusher(nopKVFlusher)
 // 	flusher.PrepareMetric(10, field.Metas{
-// 		{ID: 2, Type: field.SumField},
+// 		{ID: 2, Type: field.Sum},
 // 	})
 // 	for _, seriesID := range seriesIDs {
 // 		_ = flusher.FlushField([]byte{1, 2, 3})

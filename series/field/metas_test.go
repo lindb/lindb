@@ -26,6 +26,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	cfield "github.com/lindb/common/field"
+
 	"github.com/lindb/lindb/internal/mock"
 )
 
@@ -37,7 +39,7 @@ func Test_Metas(t *testing.T) {
 	}
 
 	for i := range ids {
-		metas = append(metas, Meta{ID: ID(i), Type: SumField, Name: Name(strconv.Itoa(int(i)))})
+		metas = append(metas, Meta{ID: ID(i), Type: cfield.Sum, Name: Name(strconv.Itoa(int(i)))})
 	}
 	sort.Sort(metas)
 
@@ -93,7 +95,7 @@ func TestMeta_Marshal(t *testing.T) {
 	m := &Meta{
 		ID:   1,
 		Name: "f",
-		Type: SumField,
+		Type: cfield.Sum,
 	}
 	data, err := m.MarshalBinary()
 	assert.NoError(t, err)

@@ -21,21 +21,23 @@ import (
 	"encoding/binary"
 	"io"
 
-	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/common/field"
+
+	sfield "github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/tag"
 )
 
 // Schema represents metric scheam(tags/fields etc.)
 type Schema struct {
-	Fields  field.Metas
+	Fields  sfield.Metas
 	TagKeys tag.Metas
 }
 
-// GetAllHistogramFields returns all histogram fields.
-func (s *Schema) GetAllHistogramFields() (rs field.Metas) {
+// GetAllHistograms returns all histogram fields.
+func (s *Schema) GetAllHistograms() (rs sfield.Metas) {
 	// with format like __bucket_${boundary}
 	for idx := range s.Fields {
-		if s.Fields[idx].Type == field.HistogramField {
+		if s.Fields[idx].Type == field.Histogram {
 			rs = append(rs, s.Fields[idx])
 		}
 	}
@@ -127,7 +129,7 @@ func (s *Schema) unmarshal(buf []byte, persist bool) {
 	size := binary.LittleEndian.Uint16(buf[:2])
 	buf = buf[2:] // remove size
 	for i := uint16(0); i < size; i++ {
-		f := &field.Meta{
+		f := &sfield.Meta{
 			Persisted: persist,
 		}
 		buf = f.Unmarshal(buf)

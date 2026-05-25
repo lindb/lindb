@@ -25,10 +25,11 @@ import (
 	"github.com/lindb/roaring"
 
 	"github.com/lindb/lindb/flow"
+	"github.com/lindb/common/field"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/series/field"
+	sfield "github.com/lindb/lindb/series/field"
 )
 
 //go:generate mockgen -source ./reader.go -destination=./reader_mock.go -package metricsdata
@@ -49,18 +50,18 @@ type MetricReader interface {
 	// GetSeriesIDs returns the series ids in this sst file
 	GetSeriesIDs() *roaring.Bitmap
 	// GetFields returns the field metas in this sst file
-	GetFields() field.Metas
+	GetFields() sfield.Metas
 	// GetTimeRange returns the time range in this sst file
 	GetTimeRange() timeutil.SlotRange
 	// Load loads the data from sst file, then returns the file metric scanner.
-	Load(SeriesIDHighKey uint16, lowSeriesIDs roaring.Container, fields field.Metas) flow.DataLoader
+	Load(SeriesIDHighKey uint16, lowSeriesIDs roaring.Container, fields sfield.Metas) flow.DataLoader
 	// readSeriesData reads series data from file by seriesEntryBlock
 	readSeriesData(seriesIdx uint16, seriesEntryBlock []byte, fn flow.LoaderCallback)
 }
 
 type fieldEntry struct {
 	index int
-	field field.Meta // NOTE: field of query(must)
+	field sfield.Meta // NOTE: field of query(must)
 }
 
 // metricReader implements MetricReader interface that reads metric block
@@ -70,7 +71,7 @@ type metricReader struct {
 	path           string
 	metricBlock    []byte
 	seriesBucket   []byte
-	fields         field.Metas
+	fields         sfield.Metas
 	fieldEntries   []fieldEntry
 	crc32CheckSum  uint32
 	timeRange      timeutil.SlotRange
@@ -102,7 +103,7 @@ func (r *metricReader) GetSeriesIDs() *roaring.Bitmap {
 }
 
 // GetFields returns the field metas in this sst file
-func (r *metricReader) GetFields() field.Metas {
+func (r *metricReader) GetFields() sfield.Metas {
 	return r.fields
 }
 
@@ -112,8 +113,8 @@ func (r *metricReader) GetTimeRange() timeutil.SlotRange {
 }
 
 // prepare the field aggregator based on query condition.
-func (r *metricReader) prepare(fields field.Metas) (found bool) {
-	fieldMap := make(map[field.ID]int)
+func (r *metricReader) prepare(fields sfield.Metas) (found bool) {
+	fieldMap := make(map[sfield.ID]int)
 	for idx, fieldMeta := range r.fields {
 		fieldMap[fieldMeta.ID] = idx
 	}
@@ -130,7 +131,7 @@ func (r *metricReader) prepare(fields field.Metas) (found bool) {
 }
 
 // Load loads the data from sst file, then returns the file metric scanner.
-func (r *metricReader) Load(seriesIDHighKey uint16, lowSeriesIDs roaring.Container, fields field.Metas) flow.DataLoader {
+func (r *metricReader) Load(seriesIDHighKey uint16, lowSeriesIDs roaring.Container, fields sfield.Metas) flow.DataLoader {
 	// 1. get high container index by the high key of series ID
 	highContainerIdx := r.seriesIDs.GetContainerIndex(seriesIDHighKey)
 	if highContainerIdx < 0 {
@@ -201,8 +202,9 @@ func (r *metricReader) readSeriesData(seriesIdx uint16, seriesEntryBlock []byte,
 	encoding.ReleaseFixedOffsetDecoder(fieldOffsetsDecoder)
 }
 
+// readFieldData reads a single field's data and invokes the callback.
 func (r *metricReader) readFieldData(
-	fm field.Meta, fieldBlock []byte,
+	fm sfield.Meta, fieldBlock []byte,
 	fn flow.LoaderCallback,
 ) {
 	var getter encoding.TSDValueGetter
@@ -240,13 +242,13 @@ func (r *metricReader) initReader() error {
 	// read field metas
 	fieldCount := r.metricBlock[fieldMetaStartPos]
 	cursor := fieldMetaStartPos + 1
-	r.fields = make(field.Metas, fieldCount)
+	r.fields = make(sfield.Metas, fieldCount)
 	for i := range fieldCount {
 		if cursor+1 >= seriesIDsStartPos {
 			return fmt.Errorf("corruted field metas, field count: %d", fieldCount)
 		}
-		r.fields[i] = field.Meta{
-			ID:   field.ID(r.metricBlock[cursor]),
+		r.fields[i] = sfield.Meta{
+			ID:   sfield.ID(r.metricBlock[cursor]),
 			Type: field.Type(r.metricBlock[cursor+1]),
 		}
 		cursor += 2
@@ -268,8 +270,8 @@ func (r *metricReader) initReader() error {
 }
 
 // fieldIndexes returns field indexes of metric level
-func (r *metricReader) fieldIndexes() map[field.ID]int {
-	result := make(map[field.ID]int)
+func (r *metricReader) fieldIndexes() map[sfield.ID]int {
+	result := make(map[sfield.ID]int)
 	for idx, f := range r.fields {
 		result[f.ID] = idx
 	}
@@ -306,7 +308,7 @@ func newDataScanner(r MetricReader) (*dataScanner, error) {
 }
 
 // fieldIndexes returns field indexes of metric level
-func (s *dataScanner) fieldIndexes() map[field.ID]int {
+func (s *dataScanner) fieldIndexes() map[sfield.ID]int {
 	return s.reader.fieldIndexes()
 }
 

@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/lindb/arrow/pkg/model"
+	"github.com/lindb/common/field"
 	seriesmetric "github.com/lindb/lindb/series/metric"
 )
 
@@ -68,18 +69,18 @@ func TestBoundHistogram_AppendFields(t *testing.T) {
 	require.NotNil(t, minField, ".__min field must be present")
 	require.NotNil(t, maxField, ".__max field must be present")
 
-	assert.Equal(t, model.AggregationSum, sumField.Kind)
-	assert.Equal(t, model.AggregationSum, countField.Kind)
-	assert.Equal(t, model.AggregationMin, minField.Kind)
-	assert.Equal(t, model.AggregationMax, maxField.Kind)
+	assert.Equal(t, field.Sum, sumField.Kind)
+	assert.Equal(t, field.Sum, countField.Kind)
+	assert.Equal(t, field.Min, minField.Kind)
+	assert.Equal(t, field.Max, maxField.Kind)
 
 	assert.InDelta(t, 650.0, sumField.Value, 1, "sum = 50+600")
 	assert.InDelta(t, 2.0, countField.Value, 0.01, "count = 2 observations")
 
-	// bucket fields must use AggregationSum kind (counts are summed across replicas)
-	// and .__bucket_* naming; storage detects HistogramField type via IsBucketField.
+	// bucket fields must use FieldTypeSum kind (counts are summed across replicas)
+	// and .__bucket_* naming; storage detects Histogram type via IsBucketField.
 	for _, bf := range bucketFields {
-		assert.Equal(t, model.AggregationSum, bf.Kind, "bucket field %q must use AggregationSum", bf.Name)
+		assert.Equal(t, field.Sum, bf.Kind, "bucket field %q must use Sum", bf.Name)
 		assert.True(t, strings.Contains(bf.Name, ".__bucket_"), "bucket field name must contain .__bucket_: %s", bf.Name)
 		assert.Equal(t, "duration", seriesmetric.HistoNameFromField(bf.Name))
 	}

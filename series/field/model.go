@@ -20,11 +20,13 @@ package field
 import (
 	"bytes"
 	"sort"
+
+	cfield "github.com/lindb/common/field"
 )
 
 type Field struct {
 	Name  []byte
-	Type  Type
+	Type  cfield.Type
 	Value interface{}
 }
 

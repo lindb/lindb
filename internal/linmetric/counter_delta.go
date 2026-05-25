@@ -18,7 +18,8 @@
 package linmetric
 
 import (
-	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
+	"github.com/lindb/common/field"
+
 	"go.uber.org/atomic"
 )
 
@@ -71,6 +72,6 @@ func (c *BoundCounter) gather() float64 {
 
 func (c *BoundCounter) name() string { return c.fieldName }
 
-func (c *BoundCounter) flatType() flatMetricsV1.SimpleFieldType {
-	return flatMetricsV1.SimpleFieldTypeDeltaSum
+func (c *BoundCounter) fieldType() field.Type {
+	return field.Sum
 }

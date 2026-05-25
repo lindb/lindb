@@ -56,7 +56,7 @@ func TestSeriesMerger_compact_merge(t *testing.T) {
 	})
 	err := merger.merge(
 		&mergerContext{
-			targetFields: field.Metas{{ID: 1, Type: field.SumField}},
+			targetFields: field.Metas{{ID: 1, Type: field.Sum}},
 			sourceRange:  timeutil.SlotRange{Start: 5, End: 15},
 			targetRange:  timeutil.SlotRange{Start: 5, End: 15},
 			ratio:        1,
@@ -83,7 +83,7 @@ func TestSeriesMerger_compact_merge(t *testing.T) {
 	})
 	err = merger.merge(
 		&mergerContext{
-			targetFields: field.Metas{{ID: 1, Type: field.SumField}},
+			targetFields: field.Metas{{ID: 1, Type: field.Sum}},
 			sourceRange:  timeutil.SlotRange{Start: 5, End: 15},
 			targetRange:  timeutil.SlotRange{Start: 5, End: 15},
 			ratio:        1,
@@ -127,7 +127,7 @@ func TestSeriesMerger_rollup_merge(t *testing.T) {
 	// source:[5,15] target:[0,0], interval: 10s => 5min
 	err := merger.merge(
 		&mergerContext{
-			targetFields: field.Metas{{ID: 1, Type: field.SumField}},
+			targetFields: field.Metas{{ID: 1, Type: field.Sum}},
 			sourceRange:  timeutil.SlotRange{Start: 5, End: 15},
 			targetRange:  timeutil.SlotRange{Start: 0, End: 0},
 			ratio:        30,
@@ -155,7 +155,7 @@ func TestSeriesMerger_rollup_merge(t *testing.T) {
 	// source:[5,182] target:[0,6], interval: 10s => 5min
 	err = merger.merge(
 		&mergerContext{
-			targetFields: field.Metas{{ID: 1, Type: field.SumField}},
+			targetFields: field.Metas{{ID: 1, Type: field.Sum}},
 			sourceRange:  timeutil.SlotRange{Start: 5, End: 182},
 			targetRange:  timeutil.SlotRange{Start: 0, End: 6},
 			ratio:        30,

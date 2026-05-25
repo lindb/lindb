@@ -24,23 +24,24 @@ import (
 	"github.com/lindb/common/pkg/timeutil"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/common/field"
+	sfield "github.com/lindb/lindb/series/field"
 )
 
 func TestMetricStore_genField(t *testing.T) {
 	ms := &metricStore{}
-	f, isNew := ms.genField("test", field.SumField)
+	f, isNew := ms.genField("test", field.Sum)
 	assert.True(t, isNew)
-	assert.Equal(t, field.Meta{Name: "test", Type: field.SumField, Index: 0}, f)
+	assert.Equal(t, sfield.Meta{Name: "test", Type: field.Sum, Index: 0}, f)
 
-	f, isNew = ms.genField("test", field.SumField)
+	f, isNew = ms.genField("test", field.Sum)
 	assert.False(t, isNew)
-	assert.Equal(t, field.Meta{Name: "test", Type: field.SumField, Index: 0}, f)
+	assert.Equal(t, sfield.Meta{Name: "test", Type: field.Sum, Index: 0}, f)
 }
 
 func TestMetricStore_IsAction(t *testing.T) {
 	ms := newMetricStore()
-	_, isNew := ms.GenField("test", field.SumField)
+	_, isNew := ms.GenField("test", field.Sum)
 	assert.True(t, isNew)
 	assert.True(t, ms.IsActive(fasttime.UnixMilliseconds()))
 	assert.False(t, ms.IsActive(fasttime.UnixMilliseconds()+timeutil.OneDay))

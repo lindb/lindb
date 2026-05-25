@@ -22,19 +22,21 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	cfield "github.com/lindb/common/field"
 )
 
 func Test_Fields(t *testing.T) {
 	var fs Fields
 	fs = append(fs,
-		Field{Name: []byte("a"), Type: SumField, Value: float64(0)},
-		Field{Name: []byte("c"), Type: MinField, Value: float64(0)},
-		Field{Name: []byte("b"), Type: MaxField, Value: float64(0)})
+		Field{Name: []byte("a"), Type: cfield.Sum, Value: float64(0)},
+		Field{Name: []byte("c"), Type: cfield.Min, Value: float64(0)},
+		Field{Name: []byte("b"), Type: cfield.Max, Value: float64(0)})
 	sort.Sort(fs)
 
-	fs = fs.Insert(Field{Name: []byte("b"), Type: MaxField, Value: float64(0)})
-	assert.Equal(t, MaxField, fs[1].Type)
+	fs = fs.Insert(Field{Name: []byte("b"), Type: cfield.Max, Value: float64(0)})
+	assert.Equal(t, cfield.Max, fs[1].Type)
 
-	fs = fs.Insert(Field{Name: []byte("d"), Type: MinField, Value: float64(0)})
-	assert.Equal(t, MinField, fs[3].Type)
+	fs = fs.Insert(Field{Name: []byte("d"), Type: cfield.Min, Value: float64(0)})
+	assert.Equal(t, cfield.Min, fs[3].Type)
 }

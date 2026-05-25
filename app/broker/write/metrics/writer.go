@@ -28,6 +28,7 @@ import (
 
 	writerpkg "github.com/lindb/lindb/app/broker/write/writer"
 	"github.com/lindb/lindb/constants"
+	"github.com/lindb/common/field"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
@@ -96,7 +97,7 @@ func (w *writer) Write(ctx context.Context, data []byte, _ constants.EncodingTyp
 			Name:      reader.Name(row),
 			Timestamp: reader.Timestamp(row),
 		}
-		reader.Fields(row, func(name string, kind model.AggregationKind, value float64) {
+		reader.Fields(row, func(name string, kind field.Type, value float64) {
 			m.Fields = append(m.Fields, model.Field{Name: name, Kind: kind, Value: value})
 		})
 		m.Attributes = &model.Attributes{}

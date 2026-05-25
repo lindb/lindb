@@ -59,10 +59,10 @@ package metricsdata
 // 	assert.Equal(t, uint16(5), timeRange.Start)
 // 	assert.Equal(t, uint16(5), timeRange.End)
 // 	assert.Equal(t, field.Metas{
-// 		{ID: 2, Type: field.SumField},
-// 		{ID: 10, Type: field.MinField},
-// 		{ID: 30, Type: field.SumField},
-// 		{ID: 100, Type: field.MaxField},
+// 		{ID: 2, Type: field.Sum},
+// 		{ID: 10, Type: field.Min},
+// 		{ID: 30, Type: field.Sum},
+// 		{ID: 100, Type: field.Max},
 // 	}, r.GetFields())
 // 	seriesIDs := roaring.New()
 // 	for j := 0; j < 10; j++ {
@@ -196,10 +196,10 @@ package metricsdata
 // 	nopKVFlusher := kv.NewNopFlusher()
 // 	flusher, _ := NewFlusher(nopKVFlusher)
 // 	flusher.PrepareMetric(10, field.Metas{
-// 		{ID: 2, Type: field.SumField},
-// 		{ID: 10, Type: field.MinField},
-// 		{ID: 30, Type: field.SumField},
-// 		{ID: 100, Type: field.MaxField},
+// 		{ID: 2, Type: field.Sum},
+// 		{ID: 10, Type: field.Min},
+// 		{ID: 30, Type: field.Sum},
+// 		{ID: 100, Type: field.Max},
 // 	})
 //
 // 	for j := 0; j < 10; j++ {
@@ -230,7 +230,7 @@ package metricsdata
 // func mockMetricBlockForOneField() []byte {
 // 	nopKVFlusher := kv.NewNopFlusher()
 // 	flusher, _ := NewFlusher(nopKVFlusher)
-// 	flusher.PrepareMetric(10, field.Metas{{ID: 2, Type: field.SumField}})
+// 	flusher.PrepareMetric(10, field.Metas{{ID: 2, Type: field.Sum}})
 //
 // 	for j := 0; j < 10; j++ {
 // 		encoder := encoding.NewTSDEncoder(5)

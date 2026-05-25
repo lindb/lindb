@@ -27,9 +27,10 @@ import (
 	"github.com/lindb/common/pkg/logger"
 	"github.com/samber/lo"
 
+	"github.com/lindb/common/field"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/series/field"
+	sfield "github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/series/metric"
 	"github.com/lindb/lindb/series/tag"
 	"github.com/lindb/lindb/spi"
@@ -233,7 +234,7 @@ func (psc *sourceConnector) buildTableScan() *TableScan {
 	tableScan.interval = targetInterval
 
 	var (
-		fields       field.Metas
+		fields       sfield.Metas
 		groupingTags tag.Metas
 		fieldIndex   = uint8(0)
 		numOfAggs    = 0
@@ -304,8 +305,8 @@ func (psc *sourceConnector) buildTableScan() *TableScan {
 }
 
 // findFieldMeta looks up the field.Meta for a given Arrow column.
-func (psc *sourceConnector) findFieldMeta(schema *metric.Schema, columnMeta arrow.Field) (field.Meta, bool) {
-	return lo.Find(schema.Fields, func(fieldMeta field.Meta) bool {
+func (psc *sourceConnector) findFieldMeta(schema *metric.Schema, columnMeta arrow.Field) (sfield.Meta, bool) {
+	return lo.Find(schema.Fields, func(fieldMeta sfield.Meta) bool {
 		return getColumnName(columnMeta.Name, psc.columnMapping) == fieldMeta.Name.String() &&
 			!arrow.TypeEqual(columnMeta.Type, arrow.FixedWidthTypes.Timestamp_ns) &&
 			!arrow.TypeEqual(columnMeta.Type, arrow.BinaryTypes.String)
@@ -320,7 +321,7 @@ func (psc *sourceConnector) findFieldMeta(schema *metric.Schema, columnMeta arro
 // the final histogram function (quantile, avg, …) from the returned intermediate values.
 func (psc *sourceConnector) buildFieldColumn(
 	tableScan *TableScan,
-	fieldMeta field.Meta,
+	fieldMeta sfield.Meta,
 	numOfAggs int,
 ) (Column, int) {
 	// Find explicit aggregation handles for this field from the query plan.
@@ -331,7 +332,11 @@ func (psc *sourceConnector) buildFieldColumn(
 	var handles []*ColumnHandle
 	if len(columnHandles) == 0 {
 		// No explicit handle: fall back to the field's native aggregation type.
-		funcName := tree.FuncName(fieldMeta.Type.String()) // TODO: use a dedicated type mapping
+		// Histogram aggregates as sum despite its type name being "histogram".
+		funcName := tree.FuncName(fieldMeta.Type.String())
+		if fieldMeta.Type == field.Histogram {
+			funcName = tree.Sum
+		}
 		handles = []*ColumnHandle{{Downsampling: funcName, Aggregation: funcName}}
 	}
 	for _, columnHandle := range columnHandles {
@@ -344,15 +349,15 @@ func (psc *sourceConnector) buildFieldColumn(
 	if fieldMeta.Type.IsExemplar() {
 		// Exemplar fields use a fixed aggregation; the funcName is ignored.
 		ch = newColumn(
-			numOfAggs, tableScan, fieldMeta, handles, field.ExemplarAggregate,
+			numOfAggs, tableScan, fieldMeta, handles, sfield.ExemplarAggregate,
 			func(_ tree.FuncName) aggregateFunc[*models.Exemplar] {
-				return field.ExemplarAggregate
+				return sfield.ExemplarAggregate
 			})
 	} else {
 		ch = newColumn(
-			numOfAggs, tableScan, fieldMeta, handles, fieldMeta.Type.AggType().Aggregate,
+			numOfAggs, tableScan, fieldMeta, handles, fieldMeta.Type.Aggregate,
 			func(funcName tree.FuncName) aggregateFunc[float64] {
-				return getAggFunc(funcName).Aggregate
+				return getAggFunc(funcName)
 			})
 	}
 	return ch, len(handles)

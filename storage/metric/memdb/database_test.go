@@ -151,7 +151,7 @@ package memdb
 // 	ctx := &flow.ShardExecuteContext{
 // 		StorageExecuteCtx: &flow.StorageExecuteContext{
 // 			MetricID: 1,
-// 			Fields:   field.Metas{{Name: "f1", Type: field.SumField}},
+// 			Fields:   field.Metas{{Name: "f1", Type: field.Sum}},
 // 			Query: &stmt.Query{
 // 				TimeRange:       timeutil.TimeRange{Start: now - 200, End: now + 200},
 // 				StorageInterval: interval,

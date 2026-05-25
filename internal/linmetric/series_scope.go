@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	xxhash "github.com/cespare/xxhash/v2"
+	"github.com/lindb/common/field"
 	commonMetric "github.com/lindb/common/metric"
 	"github.com/lindb/common/pkg/fasttime"
 	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
@@ -146,32 +147,32 @@ func tagList2Tags(tagList ...string) tag.Tags {
 }
 
 func (s *taggedSeries) NewGauge(fieldName string) *BoundGauge {
-	return s.findSimpleField(fieldName, flatMetricsV1.SimpleFieldTypeLast, func() simpleField {
+	return s.findSimpleField(fieldName, field.Last, func() simpleField {
 		return newGauge(fieldName)
 	}).(*BoundGauge)
 }
 
 func (s *taggedSeries) NewCounter(fieldName string) *BoundCounter {
-	return s.findSimpleField(fieldName, flatMetricsV1.SimpleFieldTypeDeltaSum, func() simpleField {
+	return s.findSimpleField(fieldName, field.Sum, func() simpleField {
 		return newCounter(fieldName)
 	}).(*BoundCounter)
 }
 
 func (s *taggedSeries) NewMax(fieldName string) *BoundMax {
-	return s.findSimpleField(fieldName, flatMetricsV1.SimpleFieldTypeMax, func() simpleField {
+	return s.findSimpleField(fieldName, field.Max, func() simpleField {
 		return newMax(fieldName)
 	}).(*BoundMax)
 }
 
 func (s *taggedSeries) NewMin(fieldName string) *BoundMin {
-	return s.findSimpleField(fieldName, flatMetricsV1.SimpleFieldTypeMin, func() simpleField {
+	return s.findSimpleField(fieldName, field.Min, func() simpleField {
 		return newMin(fieldName)
 	}).(*BoundMin)
 }
 
 func (s *taggedSeries) findSimpleField(
 	fieldName string,
-	fieldType flatMetricsV1.SimpleFieldType,
+	fieldType field.Type,
 	createFunc func() simpleField,
 ) simpleField {
 	assertFieldName(fieldName)
@@ -181,7 +182,7 @@ func (s *taggedSeries) findSimpleField(
 	s.ensurePayload()
 	for _, sf := range s.payload.simpleFields {
 		if sf.name() == fieldName {
-			if sf.flatType() != fieldType {
+			if sf.fieldType() != fieldType {
 				panic(fmt.Sprintf("field: %s has registered another type before", fieldName))
 			}
 			return sf
@@ -258,7 +259,7 @@ func (s *taggedSeries) buildFlatMetric(builder *commonMetric.RowBuilder) bool {
 	for _, sf := range s.payload.simpleFields {
 		_ = builder.AddSimpleField(
 			strutil.String2ByteSlice(sf.name()),
-			sf.flatType(),
+			toFlatSimpleFieldType(sf.fieldType()),
 			sf.gather(),
 		)
 	}
@@ -305,23 +306,9 @@ func (s *taggedSeries) buildArrowMetric(namespace string, globalTags tag.Tags) *
 
 	// map simple fields to Arrow model.Field, skipping unknown types
 	for _, sf := range s.payload.simpleFields {
-		var kind model.AggregationKind
-		switch sf.flatType() {
-		case flatMetricsV1.SimpleFieldTypeLast:
-			kind = model.AggregationLast
-		case flatMetricsV1.SimpleFieldTypeDeltaSum:
-			kind = model.AggregationSum
-		case flatMetricsV1.SimpleFieldTypeMax:
-			kind = model.AggregationMax
-		case flatMetricsV1.SimpleFieldTypeMin:
-			kind = model.AggregationMin
-		default:
-			// skip unknown / unsupported field types
-			continue
-		}
 		m.Fields = append(m.Fields, model.Field{
 			Name:  sf.name(),
-			Kind:  kind,
+			Kind:  sf.fieldType(),
 			Value: sf.gather(),
 		})
 	}
@@ -352,7 +339,7 @@ func (s *taggedSeries) toStateMetric(includeTags map[string]string) *models.Stat
 	for _, sf := range s.payload.simpleFields {
 		rs.Fields = append(rs.Fields, models.StateField{
 			Name:  sf.name(),
-			Type:  sf.flatType().String(),
+			Type:  sf.fieldType().String(),
 			Value: sf.Get(),
 		})
 	}
@@ -371,4 +358,23 @@ func isMapSubset(m, sub map[string]string) bool {
 		}
 	}
 	return true
+}
+
+// toFlatSimpleFieldType maps a field.Type to the corresponding FlatBuffer SimpleFieldType
+// used by the legacy flat-metrics wire format (buildFlatMetric path).
+func toFlatSimpleFieldType(t field.Type) flatMetricsV1.SimpleFieldType {
+	switch t {
+	case field.Last:
+		return flatMetricsV1.SimpleFieldTypeLast
+	case field.Sum:
+		return flatMetricsV1.SimpleFieldTypeDeltaSum
+	case field.Max:
+		return flatMetricsV1.SimpleFieldTypeMax
+	case field.Min:
+		return flatMetricsV1.SimpleFieldTypeMin
+	case field.First:
+		return flatMetricsV1.SimpleFieldTypeFirst
+	default:
+		return flatMetricsV1.SimpleFieldTypeDeltaSum
+	}
 }

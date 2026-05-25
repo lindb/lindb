@@ -41,7 +41,7 @@ package memdb
 // 	md := &memoryDatabase{}
 //
 // 	// case 1: get write value
-// 	write(md, buf, 1, 0, field.SumField, 10, 10.1)
+// 	write(md, buf, 1, 0, field.Sum, 10, 10.1)
 // 	value, ok := getCurrentValue(buf, 10, 10)
 // 	assert.True(t, ok)
 // 	assert.InDelta(t, 10.1, value, 0)
@@ -57,13 +57,13 @@ package memdb
 // 	assert.Equal(t, uint16(10), thisSlotRange.Start)
 // 	assert.Equal(t, uint16(10), thisSlotRange.End)
 // 	// case 3: write exist value, need rollup
-// 	write(md, buf, 1, 0, field.SumField, 10, 10.1)
+// 	write(md, buf, 1, 0, field.Sum, 10, 10.1)
 // 	value, ok = getCurrentValue(buf, 10, 10)
 // 	assert.True(t, ok)
 // 	assert.InDelta(t, 20.2, value, 0)
 // 	assert.Equal(t, uint16(0), getEnd(buf))
 // 	// case 3: write new value
-// 	write(md, buf, 1, 0, field.SumField, 12, 12.1)
+// 	write(md, buf, 1, 0, field.Sum, 12, 12.1)
 // 	value, ok = getCurrentValue(buf, 10, 12)
 // 	assert.True(t, ok)
 // 	assert.InDelta(t, 12.1, value, 0)
@@ -77,7 +77,7 @@ package memdb
 // 	assert.Equal(t, uint16(10), thisSlotRange.Start)
 // 	assert.Equal(t, uint16(12), thisSlotRange.End)
 // 	// case 6: compact for slot < start time, time range[5,12]
-// 	write(md, buf, 1, 0, field.SumField, 5, 5.3)
+// 	write(md, buf, 1, 0, field.Sum, 5, 5.3)
 // 	thisSlotRange = slotRange(getStart(buf), buf, md.getFieldCompressBuffer(1, 0))
 // 	assert.Equal(t, uint16(5), thisSlotRange.Start)
 // 	assert.Equal(t, uint16(12), thisSlotRange.End)
@@ -86,10 +86,10 @@ package memdb
 // 	assert.InDelta(t, 5.3, value, 0)
 // 	assert.Equal(t, uint16(0), getEnd(buf))
 // 	// case 7: write old value
-// 	write(md, buf, 1, 0, field.SumField, 10, 10.1)
+// 	write(md, buf, 1, 0, field.Sum, 10, 10.1)
 // 	assert.Equal(t, uint16(5), getEnd(buf))
 // 	// case 8: compact for slot > end time, time range[5,12]
-// 	write(md, buf, 1, 0, field.SumField, 50, 50.1)
+// 	write(md, buf, 1, 0, field.Sum, 50, 50.1)
 // 	thisSlotRange = slotRange(getStart(buf), buf, md.getFieldCompressBuffer(1, 0))
 // 	assert.Nil(t, md.getFieldCompressBuffer(10, 0))
 // 	assert.Equal(t, uint16(5), thisSlotRange.Start)
@@ -99,7 +99,7 @@ package memdb
 // 	assert.InDelta(t, 50.1, value, 0.0)
 // 	assert.Equal(t, uint16(0), getEnd(buf))
 // 	// case 9: write 10 slot, compact old value
-// 	write(md, buf, 1, 0, field.SumField, 10, 10.1)
+// 	write(md, buf, 1, 0, field.Sum, 10, 10.1)
 // 	assert.Equal(t, uint16(0), getEnd(buf))
 // 	value, ok = getCurrentValue(buf, 10, 10)
 // 	assert.True(t, ok)
@@ -109,13 +109,13 @@ package memdb
 // func TestFieldWRiter_write2(t *testing.T) {
 // 	md := &memoryDatabase{}
 // 	buf := make([]byte, pageSize)
-// 	write(md, buf, 1, 0, field.SumField, 10, 178)
+// 	write(md, buf, 1, 0, field.Sum, 10, 178)
 // 	value, ok := getCurrentValue(buf, 10, 10)
 // 	assert.True(t, ok)
 // 	assert.InDelta(t, 178.0, value, 0)
 // 	assert.Equal(t, uint16(0), getEnd(buf))
 // 	// write with old slot
-// 	write(md, buf, 1, 0, field.SumField, 10, 178)
+// 	write(md, buf, 1, 0, field.Sum, 10, 178)
 // 	value, ok = getCurrentValue(buf, 10, 10)
 // 	assert.True(t, ok)
 // 	assert.InDelta(t, 178.0*2, value, 0)
@@ -132,8 +132,8 @@ package memdb
 // 	}
 // 	buf := make([]byte, pageSize)
 // 	md := &memoryDatabase{}
-// 	write(md, buf, 1, 0, field.SumField, 10, 10.1)
-// 	write(md, buf, 1, 0, field.SumField, 100, 100.1)
+// 	write(md, buf, 1, 0, field.Sum, 10, 10.1)
+// 	write(md, buf, 1, 0, field.Sum, 100, 100.1)
 // 	value, ok := getCurrentValue(buf, 100, 100)
 // 	assert.True(t, ok)
 // 	assert.InDelta(t, 100.1, value, 0)
@@ -146,7 +146,7 @@ package memdb
 // 	nopKVFlusher := kv.NewNopFlusher()
 // 	flusher, err := metricsdata.NewFlusher(nopKVFlusher)
 // 	assert.NoError(t, err)
-// 	fields := field.Metas{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}}
+// 	fields := field.Metas{{ID: 1, Type: field.Sum}, {ID: 2, Type: field.Sum}}
 // 	flusher.PrepareMetric(39, fields)
 //
 // 	md := &memoryDatabase{}
@@ -154,10 +154,10 @@ package memdb
 // 	for idx, f := range fields {
 // 		f.Index = uint8(idx)
 // 		buf := make([]byte, pageSize)
-// 		write(md, buf, 1, f.Index, field.SumField, 5, float64(f.ID))
-// 		write(md, buf, 1, f.Index, field.SumField, 100, 100.1)
+// 		write(md, buf, 1, f.Index, field.Sum, 5, float64(f.ID))
+// 		write(md, buf, 1, f.Index, field.Sum, 100, 100.1)
 // 		assert.NoError(t, flushFieldTo(md, 1, buf, slotRange, flusher, idx,
-// 			field.Meta{Type: field.SumField, Index: f.Index}))
+// 			field.Meta{Type: field.Sum, Index: f.Index}))
 // 	}
 //
 // 	err = flusher.FlushSeries(10)
@@ -220,13 +220,13 @@ package memdb
 // 	nopKVFlusher := kv.NewNopFlusher()
 // 	flusher, err := metricsdata.NewFlusher(nopKVFlusher)
 // 	assert.NoError(t, err)
-// 	fields := field.Metas{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}}
+// 	fields := field.Metas{{ID: 1, Type: field.Sum}, {ID: 2, Type: field.Sum}}
 // 	flusher.PrepareMetric(39, fields)
 // 	buf := make([]byte, pageSize)
 // 	md := &memoryDatabase{}
 // 	slotRange := timeutil.SlotRange{Start: 5, End: 100}
-// 	write(md, buf, 1, 0, field.SumField, 10, 10.1)
-// 	write(md, buf, 1, 0, field.SumField, 100, 100.1)
+// 	write(md, buf, 1, 0, field.Sum, 10, 10.1)
+// 	write(md, buf, 1, 0, field.Sum, 100, 100.1)
 // 	assert.NoError(t, flushFieldTo(md, 1, buf, slotRange, flusher, 0,
-// 		field.Meta{Type: field.SumField, Index: 0}))
+// 		field.Meta{Type: field.Sum, Index: 0}))
 // }

@@ -80,7 +80,7 @@ package memdb
 // 	})
 // 	t.Run("field data not found", func(t *testing.T) {
 // 		ms := newMetricStore()
-// 		_, _ = ms.GenField("test", field.SumField)
+// 		_, _ = ms.GenField("test", field.Sum)
 // 		metaDB.EXPECT().GetMetricMeta(gomock.Any()).Return(ms, true)
 // 		rs, err := md.filter(&flow.ShardExecuteContext{
 // 			StorageExecuteCtx: &flow.StorageExecuteContext{Fields: field.Metas{{Name: "test"}}},

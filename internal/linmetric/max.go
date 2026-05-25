@@ -22,7 +22,7 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
+	"github.com/lindb/common/field"
 )
 
 type BoundMax struct {
@@ -60,6 +60,6 @@ func (m *BoundMax) gather() float64 { return m.value.Load() }
 
 func (m *BoundMax) name() string { return m.fieldName }
 
-func (m *BoundMax) flatType() flatMetricsV1.SimpleFieldType {
-	return flatMetricsV1.SimpleFieldTypeMax
+func (m *BoundMax) fieldType() field.Type {
+	return field.Max
 }

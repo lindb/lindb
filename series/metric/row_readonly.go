@@ -24,9 +24,10 @@ import (
 	"strings"
 
 	"github.com/lindb/common/constants"
+	"github.com/lindb/common/field"
 	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
 
-	"github.com/lindb/lindb/series/field"
+	sfield "github.com/lindb/lindb/series/field"
 )
 
 var defaultNS = []byte(constants.DefaultNamespace)
@@ -142,8 +143,8 @@ func (itr *SimpleFieldIterator) Reset() { itr.idx = -1 }
 
 func (itr *SimpleFieldIterator) Len() int { return itr.num }
 
-func (itr *SimpleFieldIterator) NextName() field.Name {
-	return field.Name(itr.f.Name())
+func (itr *SimpleFieldIterator) NextName() sfield.Name {
+	return sfield.Name(itr.f.Name())
 }
 
 func (itr *SimpleFieldIterator) NextRawName() []byte { return itr.f.Name() }
@@ -156,15 +157,15 @@ func (itr *SimpleFieldIterator) NextType() field.Type {
 	switch itr.f.Type() {
 	// assertion: cumulative should be converted before writing into memdb
 	case flatMetricsV1.SimpleFieldTypeDeltaSum:
-		return field.SumField
+		return field.Sum
 	case flatMetricsV1.SimpleFieldTypeLast:
-		return field.LastField
+		return field.Last
 	case flatMetricsV1.SimpleFieldTypeMax:
-		return field.MaxField
+		return field.Max
 	case flatMetricsV1.SimpleFieldTypeMin:
-		return field.MinField
+		return field.Min
 	case flatMetricsV1.SimpleFieldTypeFirst:
-		return field.FirstField
+		return field.First
 	default:
 		return field.Unknown
 	}
@@ -191,7 +192,7 @@ func (itr *ExemplarIterator) Reset() { itr.idx = -1 }
 
 func (itr *ExemplarIterator) Len() int { return itr.num }
 
-func (itr *ExemplarIterator) NextName() field.Name { return field.Name(itr.f.Name()) }
+func (itr *ExemplarIterator) NextName() sfield.Name { return sfield.Name(itr.f.Name()) }
 
 func (itr *ExemplarIterator) NextRawName() []byte { return itr.f.Name() }
 
@@ -231,24 +232,21 @@ func (itr *CompoundFieldIterator) Sum() float64 { return itr.f.Sum() }
 
 func (itr *CompoundFieldIterator) Count() float64 { return itr.f.Count() }
 
-func (itr *CompoundFieldIterator) BucketName() field.Name {
-	return field.Name(BucketNameOfHistogramExplicitBound(itr.NextExplicitBound()))
+func (itr *CompoundFieldIterator) BucketName() sfield.Name {
+	return sfield.Name(BucketNameOfHistogramExplicitBound(itr.NextExplicitBound()))
 }
 
 const (
-	histogramSum   = field.Name("HistogramSum")
-	histogramCount = field.Name("HistogramCount")
-	histogramMax   = field.Name("HistogramMax")
-	histogramMin   = field.Name("HistogramMin")
+	histogramSum   = sfield.Name("HistogramSum")
+	histogramCount = sfield.Name("HistogramCount")
+	histogramMax   = sfield.Name("HistogramMax")
+	histogramMin   = sfield.Name("HistogramMin")
 )
 
-func (itr *CompoundFieldIterator) HistogramSumFieldName() field.Name { return histogramSum }
-
-func (itr *CompoundFieldIterator) HistogramCountFieldName() field.Name { return histogramCount }
-
-func (itr *CompoundFieldIterator) HistogramMaxFieldName() field.Name { return histogramMax }
-
-func (itr *CompoundFieldIterator) HistogramMinFieldName() field.Name { return histogramMin }
+func (itr *CompoundFieldIterator) HistogramSumName() sfield.Name   { return histogramSum }
+func (itr *CompoundFieldIterator) HistogramCountFieldName() sfield.Name { return histogramCount }
+func (itr *CompoundFieldIterator) HistogramMaxName() sfield.Name   { return histogramMax }
+func (itr *CompoundFieldIterator) HistogramMinName() sfield.Name   { return histogramMin }
 
 // BucketNameOfHistogramExplicitBound converts reserved field-name for histogram buckets.
 func BucketNameOfHistogramExplicitBound(upperBound float64) string {

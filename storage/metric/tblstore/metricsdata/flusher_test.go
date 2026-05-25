@@ -40,7 +40,7 @@ package metricsdata
 // 	f, err := NewFlusher(nopKVFlusher)
 // 	assert.NoError(t, err)
 // 	f.PrepareMetric(39,
-// 		[]field.Meta{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}},
+// 		[]field.Meta{{ID: 1, Type: field.Sum}, {ID: 2, Type: field.Sum}},
 // 	)
 // 	assert.NotNil(t, f.GetEncoder(0))
 // 	assert.NotNil(t, f.GetEncoder(1))
@@ -48,12 +48,12 @@ package metricsdata
 // 	assert.Len(t, f1.encoders, 2)
 //
 // 	f.PrepareMetric(39,
-// 		[]field.Meta{{ID: 1, Type: field.SumField}},
+// 		[]field.Meta{{ID: 1, Type: field.Sum}},
 // 	)
 // 	assert.Len(t, f1.encoders, 2)
 //
 // 	f.PrepareMetric(39,
-// 		[]field.Meta{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}, {ID: 3, Type: field.SumField}},
+// 		[]field.Meta{{ID: 1, Type: field.Sum}, {ID: 2, Type: field.Sum}, {ID: 3, Type: field.Sum}},
 // 	)
 // 	assert.Len(t, f1.encoders, 3)
 // 	err = f.Close()
@@ -65,7 +65,7 @@ package metricsdata
 // 	flusher, err := NewFlusher(nopKVFlusher)
 // 	assert.NoError(t, err)
 // 	flusher.PrepareMetric(39,
-// 		[]field.Meta{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}},
+// 		[]field.Meta{{ID: 1, Type: field.Sum}, {ID: 2, Type: field.Sum}},
 // 	)
 // 	// no field for series
 // 	assert.NoError(t, flusher.FlushSeries(5))
@@ -80,18 +80,18 @@ package metricsdata
 // 	assert.NoError(t, flusher.FlushSeries(100))
 //
 // 	f := flusher.GetFieldMetas()
-// 	assert.Equal(t, field.Metas{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}}, f)
+// 	assert.Equal(t, field.Metas{{ID: 1, Type: field.Sum}, {ID: 2, Type: field.Sum}}, f)
 // 	assert.NoError(t, flusher.CommitMetric(timeutil.SlotRange{Start: 10, End: 13}))
 // 	assert.NoError(t, err)
 //
 // 	// field not exist, not flush metric
 // 	assert.Empty(t, flusher.GetFieldMetas())
-// 	flusher.PrepareMetric(40, []field.Meta{{ID: 1, Type: field.SumField}})
+// 	flusher.PrepareMetric(40, []field.Meta{{ID: 1, Type: field.Sum}})
 // 	assert.NoError(t, flusher.FlushField([]byte{1, 2, 3}))
 // 	assert.NoError(t, flusher.CommitMetric(timeutil.SlotRange{Start: 10, End: 13}))
 //
 // 	// metric hasn't series ids
-// 	flusher.PrepareMetric(50, []field.Meta{{ID: 1, Type: field.SumField}})
+// 	flusher.PrepareMetric(50, []field.Meta{{ID: 1, Type: field.Sum}})
 // 	assert.NoError(t, flusher.FlushField(nil))
 // 	assert.NoError(t, flusher.CommitMetric(timeutil.SlotRange{Start: 10, End: 13}))
 //
@@ -102,7 +102,7 @@ package metricsdata
 // func TestFlusher_flush_big_series_id(t *testing.T) {
 // 	nopKVFlusher := kv.NewNopFlusher()
 // 	flusher, _ := NewFlusher(nopKVFlusher)
-// 	flusher.PrepareMetric(39, []field.Meta{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}})
+// 	flusher.PrepareMetric(39, []field.Meta{{ID: 1, Type: field.Sum}, {ID: 2, Type: field.Sum}})
 // 	assert.NoError(t, flusher.FlushField([]byte{1, 2, 3}))
 // 	assert.NoError(t, flusher.FlushSeries(10000))
 // 	assert.NoError(t, flusher.CommitMetric(timeutil.SlotRange{Start: 10, End: 13}))
@@ -112,24 +112,24 @@ package metricsdata
 // }
 //
 // func TestFlusher_TooMany_Data(t *testing.T) {
-// 	flushMoreData(t, field.Metas{{ID: 1, Type: field.SumField}},
-// 		mockSingleField, 1.0, field.Metas{{ID: 1, Type: field.SumField}})
+// 	flushMoreData(t, field.Metas{{ID: 1, Type: field.Sum}},
+// 		mockSingleField, 1.0, field.Metas{{ID: 1, Type: field.Sum}})
 //
-// 	flushMoreData(t, field.Metas{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}},
-// 		mockMultiField1, 1.0, field.Metas{{ID: 1, Type: field.SumField},
-// 			{ID: 2, Type: field.SumField}})
+// 	flushMoreData(t, field.Metas{{ID: 1, Type: field.Sum}, {ID: 2, Type: field.Sum}},
+// 		mockMultiField1, 1.0, field.Metas{{ID: 1, Type: field.Sum},
+// 			{ID: 2, Type: field.Sum}})
 //
-// 	flushMoreData(t, field.Metas{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}},
-// 		mockMultiField2, 2.0, field.Metas{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}})
+// 	flushMoreData(t, field.Metas{{ID: 1, Type: field.Sum}, {ID: 2, Type: field.Sum}},
+// 		mockMultiField2, 2.0, field.Metas{{ID: 1, Type: field.Sum}, {ID: 2, Type: field.Sum}})
 //
-// 	flushMoreData(t, field.Metas{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}},
-// 		mockMultiField2, 1.0, field.Metas{{ID: 2, Type: field.SumField}})
+// 	flushMoreData(t, field.Metas{{ID: 1, Type: field.Sum}, {ID: 2, Type: field.Sum}},
+// 		mockMultiField2, 1.0, field.Metas{{ID: 2, Type: field.Sum}})
 //
-// 	flushMoreData(t, field.Metas{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}},
-// 		mockMultiField2, 1.0, field.Metas{{ID: 1, Type: field.SumField}})
+// 	flushMoreData(t, field.Metas{{ID: 1, Type: field.Sum}, {ID: 2, Type: field.Sum}},
+// 		mockMultiField2, 1.0, field.Metas{{ID: 1, Type: field.Sum}})
 //
-// 	flushMoreData(t, field.Metas{{ID: 1, Type: field.SumField}, {ID: 2, Type: field.SumField}},
-// 		mockMultiField2, 1.0, field.Metas{{ID: 2, Type: field.SumField}})
+// 	flushMoreData(t, field.Metas{{ID: 1, Type: field.Sum}, {ID: 2, Type: field.Sum}},
+// 		mockMultiField2, 1.0, field.Metas{{ID: 2, Type: field.Sum}})
 // }
 //
 // func flushMoreData(t *testing.T,

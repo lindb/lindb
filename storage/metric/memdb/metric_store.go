@@ -22,7 +22,8 @@ import (
 
 	"github.com/lindb/common/pkg/fasttime"
 
-	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/common/field"
+	sfield "github.com/lindb/lindb/series/field"
 )
 
 //go:generate mockgen -source ./metric_store.go -destination=./metric_store_mock.go -package memdb
@@ -30,13 +31,13 @@ import (
 // mStoreINTF abstracts a metricStore
 type mStoreINTF interface {
 	// GenField generates field meta under memory database.
-	GenField(fieldName field.Name, fieldType field.Type) (f field.Meta, created bool)
+	GenField(fieldName sfield.Name, fieldType field.Type) (f sfield.Meta, created bool)
 	// GetFields returns all field metas.
-	GetFields() field.Metas
+	GetFields() sfield.Metas
 	// UpdateFieldMeta updates field meta after metric meta updated.
-	UpdateFieldMeta(fieldID field.ID, fm field.Meta)
+	UpdateFieldMeta(fieldID sfield.ID, fm sfield.Meta)
 	// FindFields returns fields from store based on current written fields.
-	FindFields(fields field.Metas) (found field.Metas)
+	FindFields(fields sfield.Metas) (found sfield.Metas)
 	// IsActive returns if metric store active.
 	IsActive(timestamp int64) bool
 }
@@ -57,20 +58,20 @@ func newMetricStore() mStoreINTF {
 }
 
 // GetFields returns all field metas.
-func (ms *metricStore) GetFields() (fields field.Metas) {
+func (ms *metricStore) GetFields() (fields sfield.Metas) {
 	ms.fields.Range(func(key, value any) bool {
-		fields = append(fields, value.(field.Meta))
+		fields = append(fields, value.(sfield.Meta))
 		return true
 	})
 	return fields
 }
 
 // GenField generates field meta under memory database.
-func (ms *metricStore) GenField(name field.Name, fType field.Type) (f field.Meta, created bool) {
+func (ms *metricStore) GenField(name sfield.Name, fType field.Type) (f sfield.Meta, created bool) {
 	ms.accessTime = fasttime.UnixMilliseconds()
 	fm, ok := ms.fields.Load(name)
 	if ok {
-		return fm.(field.Meta), false
+		return fm.(sfield.Meta), false
 	}
 
 	ms.lock.Lock()
@@ -79,14 +80,14 @@ func (ms *metricStore) GenField(name field.Name, fType field.Type) (f field.Meta
 	return ms.genField(name, fType)
 }
 
-func (ms *metricStore) genField(name field.Name, fType field.Type) (f field.Meta, created bool) {
+func (ms *metricStore) genField(name sfield.Name, fType field.Type) (f sfield.Meta, created bool) {
 	fm, ok := ms.fields.Load(name)
 	if ok {
-		return fm.(field.Meta), false
+		return fm.(sfield.Meta), false
 	}
 
 	index := uint8(ms.fieldCount)
-	f = field.Meta{
+	f = sfield.Meta{
 		Type:  fType,
 		Name:  name, // TODO: check name
 		Index: index,
@@ -97,13 +98,13 @@ func (ms *metricStore) genField(name field.Name, fType field.Type) (f field.Meta
 }
 
 // UpdateFieldMeta updates field meta after metric meta updated.
-func (ms *metricStore) UpdateFieldMeta(fieldID field.ID, fm field.Meta) {
+func (ms *metricStore) UpdateFieldMeta(fieldID sfield.ID, fm sfield.Meta) {
 	f, ok := ms.fields.Load(fm.Name)
 	if ok {
 		ms.lock.Lock()
 		defer ms.lock.Unlock()
 
-		fm := f.(field.Meta)
+		fm := f.(sfield.Meta)
 		fm.ID = fieldID
 		fm.Persisted = true
 		ms.fields.Store(fm.Name, fm)
@@ -111,11 +112,11 @@ func (ms *metricStore) UpdateFieldMeta(fieldID field.ID, fm field.Meta) {
 }
 
 // FindFields returns fields from store based on current written fields.
-func (ms *metricStore) FindFields(fields field.Metas) (found field.Metas) {
+func (ms *metricStore) FindFields(fields sfield.Metas) (found sfield.Metas) {
 	for _, f := range fields {
 		fm, ok := ms.fields.Load(f.Name)
 		if ok {
-			found = append(found, fm.(field.Meta))
+			found = append(found, fm.(sfield.Meta))
 		}
 	}
 	return

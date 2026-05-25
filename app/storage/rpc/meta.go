@@ -24,11 +24,11 @@ import (
 	larrow "github.com/lindb/arrow/pkg/arrow"
 	larray "github.com/lindb/arrow/pkg/arrow/array"
 	commonConstants "github.com/lindb/common/constants"
+	"github.com/lindb/common/field"
 	"github.com/lindb/common/pkg/logger"
 
 	"github.com/lindb/lindb/constants"
 	protoMetaV1 "github.com/lindb/lindb/proto/gen/v1/meta"
-	"github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/storage"
 	"github.com/lindb/lindb/storage/metric"
 )
@@ -108,17 +108,17 @@ func (srv *MetaService) TableSchema(ctx context.Context,
 	}
 	getDataType := func(fieldType field.Type) arrow.DataType {
 		switch fieldType {
-		case field.ExemplarField:
+		case field.Exemplar:
 			return larrow.ExtensionTypes.Exemplar
-		case field.SumField, field.HistogramField:
+		case field.Sum:
 			return larray.NewAggregationType(larray.Sum)
-		case field.MinField:
+		case field.Min:
 			return larray.NewAggregationType(larray.Min)
-		case field.MaxField:
+		case field.Max:
 			return larray.NewAggregationType(larray.Max)
-		case field.LastField:
+		case field.Last:
 			return larray.NewAggregationType(larray.Last)
-		case field.FirstField:
+		case field.First:
 			return larray.NewAggregationType(larray.First)
 		default:
 			return larray.NewAggregationType(larray.Sum)

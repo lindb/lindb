@@ -24,6 +24,7 @@ import (
 	commonMetric "github.com/lindb/common/metric"
 
 	"github.com/lindb/arrow/pkg/model"
+	"github.com/lindb/common/field"
 	seriesmetric "github.com/lindb/lindb/series/metric"
 )
 
@@ -139,12 +140,12 @@ func (h *BoundHistogram) marshalToCompoundField(builder *commonMetric.RowBuilder
 //
 // The physical field naming uses the ".__" separator to avoid collision with
 // user-defined fields:
-//   - <name>.__sum   (AggregationSum)
-//   - <name>.__count (AggregationSum  — count is sum-aggregated across replicas)
-//   - <name>.__min   (AggregationMin)
-//   - <name>.__max   (AggregationMax)
-//   - <name>.__bucket_<bound> (AggregationSum — bucket counts are summed across replicas;
-//     storage identifies them as HistogramField via IsBucketField name detection)
+//   - <name>.__sum   (FieldTypeSum)
+//   - <name>.__count (FieldTypeSum  — count is sum-aggregated across replicas)
+//   - <name>.__min   (FieldTypeMin)
+//   - <name>.__max   (FieldTypeMax)
+//   - <name>.__bucket_<bound> (FieldTypeSum — bucket counts are summed across replicas;
+//     storage identifies them as Histogram via IsBucketField name detection)
 func (h *BoundHistogram) AppendFields(m *model.Metric) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -160,19 +161,19 @@ func (h *BoundHistogram) AppendFields(m *model.Metric) {
 
 	// stat fields
 	m.Fields = append(m.Fields,
-		model.Field{Name: seriesmetric.HistoStatFieldName(h.name, seriesmetric.HistoStatSum), Kind: model.AggregationSum, Value: sumDelta},
-		model.Field{Name: seriesmetric.HistoStatFieldName(h.name, seriesmetric.HistoStatCount), Kind: model.AggregationSum, Value: countDelta},
-		model.Field{Name: seriesmetric.HistoStatFieldName(h.name, seriesmetric.HistoStatMin), Kind: model.AggregationMin, Value: h.bkts.min},
-		model.Field{Name: seriesmetric.HistoStatFieldName(h.name, seriesmetric.HistoStatMax), Kind: model.AggregationMax, Value: h.bkts.max},
+		model.Field{Name: seriesmetric.HistoStatFieldName(h.name, seriesmetric.HistoStatSum), Kind: field.Sum, Value: sumDelta},
+		model.Field{Name: seriesmetric.HistoStatFieldName(h.name, seriesmetric.HistoStatCount), Kind: field.Sum, Value: countDelta},
+		model.Field{Name: seriesmetric.HistoStatFieldName(h.name, seriesmetric.HistoStatMin), Kind: field.Min, Value: h.bkts.min},
+		model.Field{Name: seriesmetric.HistoStatFieldName(h.name, seriesmetric.HistoStatMax), Kind: field.Max, Value: h.bkts.max},
 	)
 
-	// bucket fields — AggregationSum because counts are simply summed across replicas.
-	// Storage detects HistogramField type via IsBucketField(name) on the field name.
+	// bucket fields — FieldTypeSum because counts are simply summed across replicas.
+	// Storage detects Histogram type via IsBucketField(name) on the field name.
 	for i, bound := range h.bkts.upperBounds {
 		name := seriesmetric.BucketFieldName(h.name, bound)
 		m.Fields = append(m.Fields, model.Field{
 			Name:  name,
-			Kind:  model.AggregationSum,
+			Kind:  field.Sum,
 			Value: deltas[i],
 		})
 	}

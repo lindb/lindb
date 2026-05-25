@@ -28,7 +28,8 @@ import (
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/common/field"
+	sfield "github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/storage/metric/tblstore/metricsdata"
 )
 
@@ -73,7 +74,7 @@ func write(md *memoryDatabase, buf []byte, memTimeSeries uint32, fieldIndex uint
 	if buf[markOffset+markIdx]&flagIdx != 0 {
 		// there is same point of same time slot
 		oldValue := encoding.BytesToFloat64(buf[pos : pos+8])
-		value = fieldType.AggType().Aggregate(oldValue, value)
+		value = fieldType.Aggregate(oldValue, value)
 	} else {
 		// new data for time slot
 		buf[endOffset] = byte(delta)
@@ -146,7 +147,7 @@ func merge(
 		case hasNewValue && hasOldValue:
 			// merge and compress
 			encoder.AppendTime(bit.One)
-			encoder.AppendValue(math.Float64bits(fieldType.AggType().Aggregate(newValue, oldValue)))
+			encoder.AppendValue(math.Float64bits(fieldType.Aggregate(newValue, oldValue)))
 		case !hasNewValue && hasOldValue:
 			// compress old value
 			encoder.AppendTime(bit.One)
@@ -230,7 +231,7 @@ func getCurrentValue(buf []byte, startTime, timeSlot uint16) (value float64, has
 
 // FlushFieldTo flushes field store data into kv store, need align slot range in metric level
 func flushFieldTo(md *memoryDatabase, memTimeSeries uint32, buf []byte,
-	slotRange timeutil.SlotRange, tableFlusher metricsdata.Flusher, flushIndex int, fieldMeta field.Meta,
+	slotRange timeutil.SlotRange, tableFlusher metricsdata.Flusher, flushIndex int, fieldMeta sfield.Meta,
 ) error {
 	compress := md.getFieldCompressBuffer(memTimeSeries, fieldMeta.Index)
 	var decoder *encoding.TSDDecoder

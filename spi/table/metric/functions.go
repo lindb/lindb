@@ -22,7 +22,7 @@ import (
 
 	"github.com/lindb/common/models"
 
-	"github.com/lindb/lindb/series/field"
+	"github.com/lindb/common/field"
 	"github.com/lindb/lindb/sql/tree"
 )
 
@@ -30,20 +30,18 @@ type aggregateFunc[V float64 | *models.Exemplar] func(a, b V) V
 
 type getAggregateFunc[V float64 | *models.Exemplar] func(funcName tree.FuncName) aggregateFunc[V]
 
-func getAggFunc(funcName tree.FuncName) field.AggType {
+func getAggFunc(funcName tree.FuncName) aggregateFunc[float64] {
 	switch funcName {
 	case tree.Sum:
-		return field.Sum
+		return field.Sum.Aggregate
 	case tree.Max:
-		return field.Max
+		return field.Max.Aggregate
 	case tree.Min:
-		return field.Min
+		return field.Min.Aggregate
 	case tree.Last:
-		return field.Last
+		return field.Last.Aggregate
 	case tree.First:
-		return field.First
-	case tree.Sampling:
-		return field.Exemplar
+		return field.First.Aggregate
 	default:
 		panic(fmt.Sprintf("aggregation function not support: %s", funcName))
 	}

@@ -21,39 +21,55 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	cfield "github.com/lindb/common/field"
 )
 
 func TestType_String(t *testing.T) {
-	assert.Equal(t, "sum", SumField.String())
-	assert.Equal(t, "max", MaxField.String())
-	assert.Equal(t, "min", MinField.String())
-	assert.Equal(t, "last", LastField.String())
-	assert.Equal(t, "first", FirstField.String())
-	assert.Equal(t, "histogram", HistogramField.String())
-	assert.Equal(t, "unknown", Unknown.String())
+	assert.Equal(t, "sum", cfield.Sum.String())
+	assert.Equal(t, "max", cfield.Max.String())
+	assert.Equal(t, "min", cfield.Min.String())
+	assert.Equal(t, "last", cfield.Last.String())
+	assert.Equal(t, "first", cfield.First.String())
+	assert.Equal(t, "histogram", cfield.Histogram.String())
+	assert.Equal(t, "unknown", cfield.Unknown.String())
 	assert.Equal(t, "name", Name("name").String())
 }
 
-func TestAggType_Aggregate(t *testing.T) {
-	assert.Equal(t, 100.0, SumField.AggType().Aggregate(1, 99.0))
+// TestFieldType_NumericAlignment verifies that field.Type constants align with
+// the Arrow IPC wire encoding for zero-cost direct casting.
+func TestFieldType_NumericAlignment(t *testing.T) {
+	assert.Equal(t, cfield.Type(1), cfield.Sum, "Sum must be 1")
+	assert.Equal(t, cfield.Type(2), cfield.Min, "Min must be 2")
+	assert.Equal(t, cfield.Type(3), cfield.Max, "Max must be 3")
+	assert.Equal(t, cfield.Type(4), cfield.Last, "Last must be 4")
+	assert.Equal(t, cfield.Type(5), cfield.First, "First must be 5 (aligns with Arrow wire encoding)")
+	assert.Equal(t, cfield.Type(6), cfield.Histogram, "Histogram must be 6")
+}
 
-	assert.Equal(t, 1.0, MinField.AggType().Aggregate(1, 99.0))
-	assert.Equal(t, 1.0, MinField.AggType().Aggregate(99.0, 1))
+func TestType_Aggregate(t *testing.T) {
+	assert.Equal(t, 100.0, cfield.Sum.Aggregate(1, 99.0))
 
-	assert.Equal(t, 99.0, MaxField.AggType().Aggregate(1, 99.0))
-	assert.Equal(t, 99.0, MaxField.AggType().Aggregate(99.0, 1))
+	assert.Equal(t, 1.0, cfield.Min.Aggregate(1, 99.0))
+	assert.Equal(t, 1.0, cfield.Min.Aggregate(99.0, 1))
 
-	assert.Equal(t, 99.0, LastField.AggType().Aggregate(1, 99.0))
+	assert.Equal(t, 99.0, cfield.Max.Aggregate(1, 99.0))
+	assert.Equal(t, 99.0, cfield.Max.Aggregate(99.0, 1))
 
-	assert.Equal(t, 1.0, FirstField.AggType().Aggregate(1, 99.0))
+	assert.Equal(t, 99.0, cfield.Last.Aggregate(1, 99.0))
+
+	assert.Equal(t, 1.0, cfield.First.Aggregate(1, 99.0))
+
+	// Histogram uses sum aggregation
+	assert.Equal(t, 100.0, cfield.Histogram.Aggregate(1, 99.0))
 
 	assert.Panics(t, func() {
-		AggType(22).Aggregate(1, 2)
+		cfield.Exemplar.Aggregate(1, 99.0)
 	})
 }
 
-func TestPanicAgg(t *testing.T) {
+func TestPanicAggregate(t *testing.T) {
 	assert.Panics(t, func() {
-		Type(99).AggType().Aggregate(1, 99.0)
+		cfield.Type(99).Aggregate(1, 99.0)
 	})
 }

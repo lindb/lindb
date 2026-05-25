@@ -22,7 +22,7 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
+	"github.com/lindb/common/field"
 )
 
 type BoundMin struct {
@@ -60,6 +60,6 @@ func (m *BoundMin) gather() float64 { return m.value.Load() }
 
 func (m *BoundMin) name() string { return m.fieldName }
 
-func (m *BoundMin) flatType() flatMetricsV1.SimpleFieldType {
-	return flatMetricsV1.SimpleFieldTypeMin
+func (m *BoundMin) fieldType() field.Type {
+	return field.Min
 }

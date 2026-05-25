@@ -17,10 +17,6 @@
 
 package flow
 
-import (
-	"github.com/lindb/lindb/series"
-)
-
 //go:generate mockgen -source=./query_flow.go -destination=./query_flow_mock.go -package=flow
 
 // StorageQueryFlow represents the storage query engine execute flow.
@@ -29,8 +25,6 @@ type StorageQueryFlow interface {
 	Prepare()
 	// Submit submits an async task when do query pipeline.
 	Submit(stage Stage, task func())
-	// Reduce reduces the down sampling aggregator's result.
-	Reduce(it series.GroupedIterator)
 	// ReduceTagValues reduces the group by tag values.
 	ReduceTagValues(tagKeyIndex int, tagValues map[uint32]string)
 	// Complete completes the query flow with error.

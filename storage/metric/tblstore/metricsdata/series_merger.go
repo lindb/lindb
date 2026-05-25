@@ -93,7 +93,7 @@ func (sm *seriesMerger) merge(
 			} else {
 				// reset tsd data
 				mergeCtx.decoder.ResetWithTimeRange(fieldData, timeRange.Start, timeRange.End)
-				downsampling(mergeCtx, timeRange, mergeCtx.values, mergeCtx.decoder.GetValue, f.Type.AggType().Aggregate)
+				downsampling(mergeCtx, timeRange, mergeCtx.values, mergeCtx.decoder.GetValue, f.Type.Aggregate)
 			}
 		}
 

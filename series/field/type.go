@@ -18,16 +18,11 @@
 package field
 
 import (
-	"math"
-
 	"github.com/lindb/common/models"
 )
 
 // EmptyFieldID represents empty value for field id.
 const EmptyFieldID = ID(0)
-
-// AggType represents field's aggregator type.
-type AggType uint8
 
 // ID represents field id.
 type ID uint8
@@ -39,35 +34,8 @@ func (n Name) String() string {
 	return string(n)
 }
 
-// Defines all aggregator types for field
-const (
-	Sum AggType = iota + 1
-	Count
-	Min
-	Max
-	Last
-	First
-	Exemplar
-)
-
-// Aggregate aggregates two float64 values into one
-func (t AggType) Aggregate(a, b float64) float64 {
-	switch t {
-	case Sum, Count:
-		return a + b
-	case Last:
-		return b
-	case First:
-		return a
-	case Min:
-		return math.Min(a, b)
-	case Max:
-		return math.Max(a, b)
-	default:
-		panic("unspecified AggType")
-	}
-}
-
+// ExemplarAggregate merges two exemplars, returning the one with longer trace duration.
+// This is LinDB-specific semantics and is kept here rather than in the common package.
 func ExemplarAggregate(a, b *models.Exemplar) *models.Exemplar {
 	if a == nil {
 		return b
@@ -79,65 +47,4 @@ func ExemplarAggregate(a, b *models.Exemplar) *models.Exemplar {
 		return a
 	}
 	return b
-}
-
-// Type represents field type for LinDB support
-type Type uint8
-
-// Defines all field types for LinDB support(user write)
-const (
-	Unknown Type = iota
-	SumField
-	MinField
-	MaxField
-	LastField
-	HistogramField // alias for sumField, only visible for tsdb
-	FirstField
-	ExemplarField
-)
-
-func (t Type) IsExemplar() bool {
-	return t == ExemplarField
-}
-
-// String returns the field type's string value
-func (t Type) String() string {
-	switch t {
-	case SumField:
-		return "sum"
-	case MinField:
-		return "min"
-	case MaxField:
-		return "max"
-	case LastField:
-		return "last"
-	case HistogramField:
-		return "histogram"
-	case FirstField:
-		return "first"
-	case ExemplarField:
-		return "exemplar"
-	default:
-		return "unknown"
-	}
-}
-
-// AggType returns the aggregate function
-func (t Type) AggType() AggType {
-	switch t {
-	case SumField, HistogramField:
-		return Sum
-	case MinField:
-		return Min
-	case MaxField:
-		return Max
-	case LastField:
-		return Last
-	case FirstField:
-		return First
-	case ExemplarField:
-		return Exemplar
-	default:
-		panic("need impl")
-	}
 }

@@ -24,13 +24,16 @@ import (
 	"sort"
 	"strings"
 
+	// cfield aliases common/field to avoid a name conflict with this package itself.
+	cfield "github.com/lindb/common/field"
+
 	"github.com/lindb/lindb/pkg/stream"
 )
 
 // Meta is the meta-data for field, which contains field-name, fieldID and field-type
 type Meta struct {
-	Name Name `json:"name"`
-	Type Type `json:"type"` // query not use type
+	Name Name        `json:"name"`
+	Type cfield.Type `json:"type"` // query not use type
 	ID   ID   `json:"id"`   // query not use id, don't get id in query phase
 	// write: field index under memory database
 	// read: field index of query fields
@@ -68,7 +71,7 @@ func (m *Meta) Write(w io.Writer) error {
 // Unmarshal unmarshals meta from binary.
 func (m *Meta) Unmarshal(buf []byte) []byte {
 	m.ID = ID(buf[0])
-	m.Type = Type(buf[1])
+	m.Type = cfield.Type(buf[1])
 	size := binary.LittleEndian.Uint16(buf[2:])
 	end := 4 + size
 	m.Name = Name(buf[4:end])
@@ -91,7 +94,7 @@ func UnmarshalBinary(data []byte) (Metas, ID, error) {
 
 	for !reader.Empty() && reader.Error() == nil {
 		id := ID(reader.ReadByte())
-		fType := Type(reader.ReadByte())
+		fType := cfield.Type(reader.ReadByte())
 		nameLen := reader.ReadInt16()
 		name := reader.ReadBytes(int(nameLen))
 		fms = append(fms, Meta{ID: id, Type: fType, Name: Name(name)})

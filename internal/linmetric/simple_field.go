@@ -17,7 +17,9 @@
 
 package linmetric
 
-import "github.com/lindb/common/proto/gen/v1/flatMetricsV1"
+import (
+	"github.com/lindb/common/field"
+)
 
 // simpleField is implemented by gauge, sum, min, max
 type simpleField interface {
@@ -26,5 +28,5 @@ type simpleField interface {
 	// gather returns the field value, if field type is delta, need sub the value.
 	gather() float64
 	name() string
-	flatType() flatMetricsV1.SimpleFieldType
+	fieldType() field.Type
 }
