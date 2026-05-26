@@ -709,8 +709,12 @@ func (v *StatementVisitor) computeAndAssignOutputScope(node *tree.QuerySpecifica
 			if field != nil {
 				fieldName = field.Value
 			}
-
-			// NOTE: field name is empty when expression/function call
+			if fieldName == "" {
+				// Fall back to the original SQL text (e.g. "used*100/total").
+				// BaseNode.Text is populated by the ANTLR visitor from the raw input,
+				// so this always reflects exactly what the user wrote.
+				fieldName = expression.String()
+			}
 			outputFields = append(outputFields, &tree.Field{
 				Name:  fieldName,
 				Index: tree.FieldIndex(i),

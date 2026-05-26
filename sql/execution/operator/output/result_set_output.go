@@ -22,7 +22,6 @@ import (
 
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
-	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/sql/execution/operator"
 	"github.com/lindb/lindb/sql/planner/plan"
@@ -53,9 +52,17 @@ func (op *ResultSetOutputOperator) Run(ctx context.Context, output chan<- arrow.
 		sourceLayout[symbol.Name] = index
 	}
 
-	fields := lo.Map(layout, func(symbol *plan.Symbol, _ int) arrow.Field {
-		return arrow.Field{Name: symbol.Name, Type: symbol.DataType}
-	})
+	// Build display fields using ColumnNames (user-visible names: alias or original expression text)
+	// rather than symbol.Name (planner-internal identifier, e.g. "expr").
+	// Fall back to symbol.Name only for hidden symbols that have no entry in ColumnNames.
+	fields := make([]arrow.Field, len(layout))
+	for i, symbol := range layout {
+		name := symbol.Name
+		if i < len(columnNames) {
+			name = columnNames[i]
+		}
+		fields[i] = arrow.Field{Name: name, Type: symbol.DataType}
+	}
 
 	for idx, symbol := range layout {
 		sourceIdx, ok := sourceLayout[symbol.Name]
