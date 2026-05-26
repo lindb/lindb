@@ -28,6 +28,12 @@ import (
 	"github.com/lindb/lindb/spi/scalar"
 )
 
+// validArithmeticOps is the set of operator strings accepted by arithmeticFunc.
+// Validated at construction so the execution path never needs to handle unknowns.
+var validArithmeticOps = map[string]bool{
+	"plus": true, "minus": true, "mul": true, "div": true, "mod": true,
+}
+
 type arithmeticFunc struct {
 	ctx  EvalContext
 	args []Expression
@@ -36,6 +42,13 @@ type arithmeticFunc struct {
 }
 
 func newArithmeticFunc(ctx EvalContext, op string, args []Expression) Func {
+	// Fail fast at construction rather than at query execution time.
+	if !validArithmeticOps[op] {
+		panic(fmt.Sprintf("unknown arithmetic op: %q", op))
+	}
+	if len(args) != 2 {
+		panic(fmt.Sprintf("arithmetic op requires exactly 2 args, got %d", len(args)))
+	}
 	return &arithmeticFunc{
 		ctx:  ctx,
 		args: args,
@@ -43,8 +56,20 @@ func newArithmeticFunc(ctx EvalContext, op string, args []Expression) Func {
 	}
 }
 
+// EvalScalar evaluates the arithmetic expression when both operands are scalars.
+// This enables nested scalar expressions (e.g. "(3+4) * last(cpu)" where the
+// outer mul calls EvalScalar on the inner plus before branching to evalScalarArray).
 func (f *arithmeticFunc) EvalScalar() (scalar.Scalar, error) {
-	return nil, nil
+	lv, err := f.args[0].EvalScalar()
+	if err != nil {
+		return nil, err
+	}
+	rv, err := f.args[1].EvalScalar()
+	if err != nil {
+		return nil, err
+	}
+	result := applyOp(scalarToFloat64(lv), scalarToFloat64(rv), f.op)
+	return scalar.NewFloat64Scalar(result), nil
 }
 
 func (f *arithmeticFunc) Eval(record arrow.RecordBatch) (arrow.Array, error) {
@@ -68,6 +93,8 @@ func (f *arithmeticFunc) Eval(record arrow.RecordBatch) (arrow.Array, error) {
 }
 
 // applyOp applies the arithmetic operator to two float64 values.
+// The op string is validated at construction (newArithmeticFunc); the default
+// branch is a safety net that should never be reached in practice.
 func applyOp(lv, rv float64, op string) float64 {
 	switch op {
 	case "plus":
@@ -102,6 +129,51 @@ func scalarToFloat64(s scalar.Scalar) float64 {
 	default:
 		panic(fmt.Sprintf("arithmetic scalar operand must be numeric, got: %T", s))
 	}
+}
+
+// buildAggExtArray builds an Aggregation extension array by applying compute(i) for each element.
+// extType is the AggregationType to preserve on the output (e.g. Sum, Last).
+// Note: AggregationBuilder is a thin wrapper over Float64Builder; it holds no
+// independent reference count, so only extBuilder needs a Release call.
+func buildAggExtArray(
+	extType arrow.ExtensionType, n int,
+	isNull func(int) bool,
+	compute func(int) float64,
+) (arrow.Array, error) {
+	extBuilder := array.NewExtensionBuilder(memory.DefaultAllocator, extType)
+	defer extBuilder.Release()
+	b := larray.NewAggregationBuilder(extBuilder)
+	for i := range n {
+		if isNull(i) {
+			b.AppendNull()
+		} else {
+			b.Append(compute(i))
+		}
+	}
+	return extBuilder.NewExtensionArray(), nil
+}
+
+// buildTSExtArray builds a TimeSeries extension array row by row.
+// appendRow receives the builder and the current index; it should call b.Append(...)
+// and may return an error (e.g. mismatched series lengths) to abort construction.
+func buildTSExtArray(
+	extType arrow.ExtensionType, n int,
+	isNull func(int) bool,
+	appendRow func(b *larray.TimeSeriesBuilder, i int) error,
+) (arrow.Array, error) {
+	extBuilder := array.NewExtensionBuilder(memory.DefaultAllocator, extType)
+	defer extBuilder.Release()
+	b := larray.NewTimeSeriesBuilder(extBuilder)
+	for i := range n {
+		if isNull(i) {
+			b.AppendNull()
+		} else {
+			if err := appendRow(b, i); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return extBuilder.NewExtensionArray(), nil
 }
 
 // evalScalarScalar handles scalar OP scalar (e.g. "38/48").
@@ -157,18 +229,11 @@ func evalArrayScalar(record arrow.RecordBatch, left, right Expression, op string
 
 	case *larray.Aggregation:
 		// Direct Aggregation (not wrapped by FilterableRecord).
-		extType := leftTyped.DataType().(arrow.ExtensionType)
-		extBuilder := array.NewExtensionBuilder(memory.DefaultAllocator, extType)
-		defer extBuilder.Release()
-		aggBuilder := larray.NewAggregationBuilder(extBuilder)
-		for i := range leftTyped.Len() {
-			if leftTyped.IsNull(i) {
-				aggBuilder.AppendNull()
-			} else {
-				aggBuilder.Append(applyOp(leftTyped.Value(i), rv, op))
-			}
-		}
-		return extBuilder.NewExtensionArray(), nil
+		return buildAggExtArray(
+			leftTyped.DataType().(arrow.ExtensionType), leftTyped.Len(),
+			leftTyped.IsNull,
+			func(i int) float64 { return applyOp(leftTyped.Value(i), rv, op) },
+		)
 
 	case *larray.Generic[float64]:
 		// Aggregation wrapped by FilterableRecord.ToGenericWithMask — the storage still
@@ -188,37 +253,28 @@ func evalArrayScalar(record arrow.RecordBatch, left, right Expression, op string
 			}
 			return result.NewArray(), nil
 		}
-		extBuilder := array.NewExtensionBuilder(memory.DefaultAllocator, extType)
-		defer extBuilder.Release()
-		aggBuilder := larray.NewAggregationBuilder(extBuilder)
-		for i := range leftTyped.Len() {
-			if leftTyped.IsNull(i) {
-				aggBuilder.AppendNull()
-			} else {
-				aggBuilder.Append(applyOp(leftTyped.Value(i), rv, op))
-			}
-		}
-		return extBuilder.NewExtensionArray(), nil
+		return buildAggExtArray(
+			extType, leftTyped.Len(),
+			leftTyped.IsNull,
+			func(i int) float64 { return applyOp(leftTyped.Value(i), rv, op) },
+		)
 
 	case *larray.TimeSeries:
-		// TimeSeries column (range query with timestamp): apply the scalar factor to
-		// every data point in each series while preserving start/end/interval.
-		extType := leftTyped.DataType().(arrow.ExtensionType)
-		extBuilder := array.NewExtensionBuilder(memory.DefaultAllocator, extType)
-		defer extBuilder.Release()
-		tsBuilder := larray.NewTimeSeriesBuilder(extBuilder)
-		for i := range leftTyped.Len() {
-			if leftTyped.IsNull(i) {
-				tsBuilder.AppendNull()
-			} else {
-				vals := leftTyped.Values(i)
+		// TimeSeries column (range query): apply the scalar factor to every data point
+		// while preserving start/end/interval.
+		// Values() returns a fresh copy of each series' float64 slice — safe to mutate.
+		return buildTSExtArray(
+			leftTyped.DataType().(arrow.ExtensionType), leftTyped.Len(),
+			leftTyped.IsNull,
+			func(b *larray.TimeSeriesBuilder, i int) error {
+				vals := leftTyped.Values(i) // copy; safe to mutate
 				for j := range vals {
 					vals[j] = applyOp(vals[j], rv, op)
 				}
-				tsBuilder.Append(leftTyped.Start(i), leftTyped.End(i), leftTyped.Interval(i), vals)
-			}
-		}
-		return extBuilder.NewExtensionArray(), nil
+				b.Append(leftTyped.Start(i), leftTyped.End(i), leftTyped.Interval(i), vals)
+				return nil
+			},
+		)
 
 	default:
 		panic(fmt.Sprintf("unsupported array type in array-scalar arithmetic: %T", leftArray))
@@ -256,18 +312,11 @@ func evalScalarArray(record arrow.RecordBatch, left, right Expression, op string
 		return result.NewArray(), nil
 
 	case *larray.Aggregation:
-		extType := rightTyped.DataType().(arrow.ExtensionType)
-		extBuilder := array.NewExtensionBuilder(memory.DefaultAllocator, extType)
-		defer extBuilder.Release()
-		aggBuilder := larray.NewAggregationBuilder(extBuilder)
-		for i := range rightTyped.Len() {
-			if rightTyped.IsNull(i) {
-				aggBuilder.AppendNull()
-			} else {
-				aggBuilder.Append(applyOp(lv, rightTyped.Value(i), op))
-			}
-		}
-		return extBuilder.NewExtensionArray(), nil
+		return buildAggExtArray(
+			rightTyped.DataType().(arrow.ExtensionType), rightTyped.Len(),
+			rightTyped.IsNull,
+			func(i int) float64 { return applyOp(lv, rightTyped.Value(i), op) },
+		)
 
 	case *larray.Generic[float64]:
 		extType, ok := rightTyped.Storage().DataType().(arrow.ExtensionType)
@@ -284,35 +333,26 @@ func evalScalarArray(record arrow.RecordBatch, left, right Expression, op string
 			}
 			return result.NewArray(), nil
 		}
-		extBuilder := array.NewExtensionBuilder(memory.DefaultAllocator, extType)
-		defer extBuilder.Release()
-		aggBuilder := larray.NewAggregationBuilder(extBuilder)
-		for i := range rightTyped.Len() {
-			if rightTyped.IsNull(i) {
-				aggBuilder.AppendNull()
-			} else {
-				aggBuilder.Append(applyOp(lv, rightTyped.Value(i), op))
-			}
-		}
-		return extBuilder.NewExtensionArray(), nil
+		return buildAggExtArray(
+			extType, rightTyped.Len(),
+			rightTyped.IsNull,
+			func(i int) float64 { return applyOp(lv, rightTyped.Value(i), op) },
+		)
 
 	case *larray.TimeSeries:
-		extType := rightTyped.DataType().(arrow.ExtensionType)
-		extBuilder := array.NewExtensionBuilder(memory.DefaultAllocator, extType)
-		defer extBuilder.Release()
-		tsBuilder := larray.NewTimeSeriesBuilder(extBuilder)
-		for i := range rightTyped.Len() {
-			if rightTyped.IsNull(i) {
-				tsBuilder.AppendNull()
-			} else {
-				vals := rightTyped.Values(i)
+		// Values() returns a copy; safe to mutate.
+		return buildTSExtArray(
+			rightTyped.DataType().(arrow.ExtensionType), rightTyped.Len(),
+			rightTyped.IsNull,
+			func(b *larray.TimeSeriesBuilder, i int) error {
+				vals := rightTyped.Values(i) // copy; safe to mutate
 				for j := range vals {
 					vals[j] = applyOp(lv, vals[j], op)
 				}
-				tsBuilder.Append(rightTyped.Start(i), rightTyped.End(i), rightTyped.Interval(i), vals)
-			}
-		}
-		return extBuilder.NewExtensionArray(), nil
+				b.Append(rightTyped.Start(i), rightTyped.End(i), rightTyped.Interval(i), vals)
+				return nil
+			},
+		)
 
 	default:
 		panic(fmt.Sprintf("unsupported array type in scalar-array arithmetic: %T", rightArray))
@@ -320,7 +360,7 @@ func evalScalarArray(record arrow.RecordBatch, left, right Expression, op string
 }
 
 // evalArrayArray handles array OP array (e.g. "last(a) - last(b)").
-// Both arrays must have the same length and compatible types.
+// Both arrays must have the same length and compatible element types.
 func evalArrayArray(record arrow.RecordBatch, left, right Expression, op string) (arrow.Array, error) {
 	leftArray, err := left.Eval(record)
 	if err != nil {
@@ -353,26 +393,21 @@ func evalArrayArray(record arrow.RecordBatch, left, right Expression, op string)
 		return result.NewArray(), nil
 
 	case *larray.Aggregation:
-		// Both sides are direct Aggregation arrays (same extension kind).
+		// The result extType is taken from the left operand. For operations between
+		// different aggregation kinds (e.g. Sum - Last) the semantic is undefined;
+		// we default to the left side's kind as a reasonable convention.
 		rightTyped, ok := rightArray.(*larray.Aggregation)
 		if !ok {
 			return nil, fmt.Errorf("array-array arithmetic type mismatch: %T OP %T", leftArray, rightArray)
 		}
-		extType := leftTyped.DataType().(arrow.ExtensionType)
-		extBuilder := array.NewExtensionBuilder(memory.DefaultAllocator, extType)
-		defer extBuilder.Release()
-		aggBuilder := larray.NewAggregationBuilder(extBuilder)
-		for i := range leftTyped.Len() {
-			if leftTyped.IsNull(i) || rightTyped.IsNull(i) {
-				aggBuilder.AppendNull()
-			} else {
-				aggBuilder.Append(applyOp(leftTyped.Value(i), rightTyped.Value(i), op))
-			}
-		}
-		return extBuilder.NewExtensionArray(), nil
+		return buildAggExtArray(
+			leftTyped.DataType().(arrow.ExtensionType), leftTyped.Len(),
+			func(i int) bool { return leftTyped.IsNull(i) || rightTyped.IsNull(i) },
+			func(i int) float64 { return applyOp(leftTyped.Value(i), rightTyped.Value(i), op) },
+		)
 
 	case *larray.Generic[float64]:
-		// Both sides wrapped by FilterableRecord (ToGenericWithMask).
+		// extType is taken from the left side (see Aggregation note above).
 		rightTyped, ok := rightArray.(*larray.Generic[float64])
 		if !ok {
 			return nil, fmt.Errorf("array-array arithmetic type mismatch: %T OP %T", leftArray, rightArray)
@@ -391,247 +426,40 @@ func evalArrayArray(record arrow.RecordBatch, left, right Expression, op string)
 			}
 			return result.NewArray(), nil
 		}
-		extBuilder := array.NewExtensionBuilder(memory.DefaultAllocator, extType)
-		defer extBuilder.Release()
-		aggBuilder := larray.NewAggregationBuilder(extBuilder)
-		for i := range leftTyped.Len() {
-			if leftTyped.IsNull(i) || rightTyped.IsNull(i) {
-				aggBuilder.AppendNull()
-			} else {
-				aggBuilder.Append(applyOp(leftTyped.Value(i), rightTyped.Value(i), op))
-			}
-		}
-		return extBuilder.NewExtensionArray(), nil
+		return buildAggExtArray(
+			extType, leftTyped.Len(),
+			func(i int) bool { return leftTyped.IsNull(i) || rightTyped.IsNull(i) },
+			func(i int) float64 { return applyOp(leftTyped.Value(i), rightTyped.Value(i), op) },
+		)
 
 	case *larray.TimeSeries:
 		// Both sides are TimeSeries (range query result): apply op point-by-point.
+		// Mismatched lengths indicate misaligned query windows/steps and are treated as
+		// an error rather than silently truncating data.
 		rightTyped, ok := rightArray.(*larray.TimeSeries)
 		if !ok {
 			return nil, fmt.Errorf("array-array arithmetic type mismatch: %T OP %T", leftArray, rightArray)
 		}
-		extType := leftTyped.DataType().(arrow.ExtensionType)
-		extBuilder := array.NewExtensionBuilder(memory.DefaultAllocator, extType)
-		defer extBuilder.Release()
-		tsBuilder := larray.NewTimeSeriesBuilder(extBuilder)
-		for i := range leftTyped.Len() {
-			if leftTyped.IsNull(i) || rightTyped.IsNull(i) {
-				tsBuilder.AppendNull()
-			} else {
-				lVals := leftTyped.Values(i)
-				rVals := rightTyped.Values(i)
-				n := min(len(lVals), len(rVals))
-				result := make([]float64, n)
-				for j := range n {
-					result[j] = applyOp(lVals[j], rVals[j], op)
+		return buildTSExtArray(
+			leftTyped.DataType().(arrow.ExtensionType), leftTyped.Len(),
+			func(i int) bool { return leftTyped.IsNull(i) || rightTyped.IsNull(i) },
+			func(b *larray.TimeSeriesBuilder, i int) error {
+				lVals := leftTyped.Values(i)  // copy; safe to mutate
+				rVals := rightTyped.Values(i) // copy
+				if len(lVals) != len(rVals) {
+					return fmt.Errorf(
+						"time series length mismatch at row %d: left=%d right=%d",
+						i, len(lVals), len(rVals))
 				}
-				tsBuilder.Append(leftTyped.Start(i), leftTyped.End(i), leftTyped.Interval(i), result)
-			}
-		}
-		return extBuilder.NewExtensionArray(), nil
+				for j := range lVals {
+					lVals[j] = applyOp(lVals[j], rVals[j], op)
+				}
+				b.Append(leftTyped.Start(i), leftTyped.End(i), leftTyped.Interval(i), lVals)
+				return nil
+			},
+		)
 
 	default:
 		panic(fmt.Sprintf("unsupported array type in array-array arithmetic: %T", leftArray))
 	}
 }
-
-// type arithmeticPlusFunc struct {
-// 	ctx  EvalContext
-// 	args []Expression
-// }
-//
-// func newArithmeticPlusFunc(ctx EvalContext, args []Expression) Func {
-// 	return &arithmeticPlusFunc{
-// 		ctx:  ctx,
-// 		args: args,
-// 	}
-// }
-//
-// func (f *arithmeticPlusFunc) EvalScalar() (scalar.Scalar, error) {
-// 	left, err := f.args[0].EvalScalar()
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	right, err := f.args[1].EvalScalar()
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return nil, nil
-// }
-//
-// func (f *arithmeticPlusFunc) Eval(record arrow.RecordBatch) (arrow.Array, error) {
-// 	return nil, nil
-// }
-//
-// func (f *arithmeticPlusFunc) EvalInt(row types.Row) (val int64, isNull bool, err error) {
-// 	lv, _, _ := f.args[0].EvalInt(row)
-// 	rv, _, _ := f.args[1].EvalInt(row)
-// 	fmt.Println("plus int.....")
-// 	return lv + rv, false, nil
-// }
-//
-// func (f *arithmeticPlusFunc) EvalFloat(row types.Row) (val float64, isNull bool, err error) {
-// 	fmt.Println("plus float.....")
-// 	return
-// }
-//
-// func (f *arithmeticPlusFunc) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error) {
-// 	fmt.Println("plus time series.....")
-// 	return evalTimeSeries(row, f.args, func(lv, rv float64) float64 {
-// 		return lv + rv
-// 	})
-// }
-//
-// func (f *arithmeticPlusFunc) EvalTime(row types.Row) (val time.Time, isNull bool, err error) {
-// 	lv, _, _ := f.args[0].EvalTime(row)
-// 	rv, _, _ := f.args[1].EvalDuration(row)
-// 	val = lv.Add(rv)
-// 	return
-// }
-//
-// func evalTimeSeries(row types.Row, args []Expression,
-// 	math func(lv, rv float64) float64,
-// ) (val *types.TimeSeries, isNull bool, err error) {
-// 	l, lIsNull, err := args[0].EvalTimeSeries(row)
-// 	if err != nil {
-// 		return nil, false, err
-// 	}
-// 	r, rIsNull, err := args[1].EvalTimeSeries(row)
-// 	if err != nil {
-// 		return nil, false, err
-// 	}
-// 	if lIsNull {
-// 		return r, rIsNull, nil
-// 	}
-// 	if rIsNull {
-// 		return l, lIsNull, nil
-// 	}
-// 	// check num. of points whether match
-// 	if !l.IsSingleValue() && !r.IsSingleValue() && l.Size() != r.Size() {
-// 		return nil, true, errors.New("num. of points not match")
-// 	}
-// 	var result *types.TimeSeries
-// 	if !l.IsSingleValue() {
-// 		result = types.NewTimeSeries(l.TimeRange, timeutil.Interval(l.Interval))
-// 	} else if !r.IsSingleValue() {
-// 		result = types.NewTimeSeries(r.TimeRange, timeutil.Interval(r.Interval))
-// 	} else {
-// 		result = types.NewTimeSeriesWithSingleValue(0)
-// 	}
-// 	for i := range result.Size() {
-// 		result.Put(i, math(l.Get(i), r.Get(i)))
-// 	}
-// 	return result, false, nil
-// }
-//
-// type arithmeticMinusFunc struct {
-// 	baseFunc
-// }
-//
-// func newArithmeticMinusFunc(ctx EvalContext, args []Expression) Func {
-// 	return &arithmeticMinusFunc{
-// 		baseFunc: baseFunc{ctx: ctx, args: args},
-// 	}
-// }
-//
-// func (f *arithmeticMinusFunc) EvalInt(row types.Row) (val int64, isNull bool, err error) {
-// 	lv, _, _ := f.args[0].EvalInt(row)
-// 	rv, _, _ := f.args[1].EvalInt(row)
-// 	fmt.Println("minus int.....")
-// 	return lv - rv, false, nil
-// }
-//
-// func (f *arithmeticMinusFunc) EvalFloat(row types.Row) (val float64, isNull bool, err error) {
-// 	fmt.Println("minus float.....")
-// 	return
-// }
-//
-// func (f *arithmeticMinusFunc) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error) {
-// 	fmt.Println("minus time series.....")
-// 	return evalTimeSeries(row, f.args, func(lv, rv float64) float64 {
-// 		return lv - rv
-// 	})
-// }
-//
-// func (f *arithmeticMinusFunc) EvalTime(row types.Row) (val time.Time, isNull bool, err error) {
-// 	lv, _, _ := f.args[0].EvalTime(row)
-// 	rv, _, _ := f.args[1].EvalDuration(row)
-// 	val = lv.Add(-rv)
-// 	return
-// }
-//
-// type arithmeticMulFunc struct {
-// 	baseFunc
-// }
-//
-// func newArithmeticMulFunc(ctx EvalContext, args []Expression) Func {
-// 	return &arithmeticMulFunc{
-// 		baseFunc: baseFunc{ctx: ctx, args: args},
-// 	}
-// }
-//
-// func (f *arithmeticMulFunc) EvalInt(row types.Row) (val int64, isNull bool, err error) {
-// 	lv, _, _ := f.args[0].EvalInt(row)
-// 	rv, _, _ := f.args[1].EvalInt(row)
-// 	fmt.Println("mul int.....")
-// 	return lv * rv, false, nil
-// }
-//
-// func (f *arithmeticMulFunc) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error) {
-// 	fmt.Println("mul time series.....")
-// 	return evalTimeSeries(row, f.args, func(lv, rv float64) float64 {
-// 		return lv * rv
-// 	})
-// }
-//
-// type arithmeticDivFunc struct{ baseFunc }
-//
-// func newArithmeticDivFunc(ctx EvalContext, args []Expression) Func {
-// 	return &arithmeticDivFunc{
-// 		baseFunc: baseFunc{ctx: ctx, args: args},
-// 	}
-// }
-//
-// func (f *arithmeticDivFunc) EvalInt(row types.Row) (val int64, isNull bool, err error) {
-// 	lv, _, _ := f.args[0].EvalInt(row)
-// 	rv, _, _ := f.args[1].EvalInt(row)
-// 	fmt.Println("div int.....")
-// 	return lv / rv, false, nil
-// }
-//
-// func (f *arithmeticDivFunc) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error) {
-// 	fmt.Println("div time series.....")
-// 	return evalTimeSeries(row, f.args, func(lv, rv float64) float64 {
-// 		if rv == 0 {
-// 			return 0
-// 		}
-// 		return lv / rv
-// 	})
-// }
-//
-// type arithmeticModFunc struct {
-// 	baseFunc
-// }
-//
-// func newArithmeticModFunc(ctx EvalContext, args []Expression) Func {
-// 	return &arithmeticModFunc{
-// 		baseFunc: baseFunc{ctx: ctx, args: args},
-// 	}
-// }
-//
-// func (f *arithmeticModFunc) EvalInt(row types.Row) (val int64, isNull bool, err error) {
-// 	lv, _, _ := f.args[0].EvalInt(row)
-// 	rv, _, _ := f.args[1].EvalInt(row)
-//
-// 	fmt.Println("mod int.....")
-// 	return lv % rv, false, nil
-// }
-//
-// func (f *arithmeticModFunc) EvalTimeSeries(row types.Row) (val *types.TimeSeries, isNull bool, err error) {
-// 	fmt.Println("mod time series.....")
-// 	return evalTimeSeries(row, f.args, func(lv, rv float64) float64 {
-// 		if rv == 0 {
-// 			return 0
-// 		}
-// 		return float64(int64(lv) % int64(rv))
-// 	})
-// }
