@@ -19,6 +19,7 @@ package operator
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
@@ -88,6 +89,10 @@ func (op *ProjectionOperator) process(record arrow.RecordBatch) arrow.RecordBatc
 
 	fields := make([]arrow.Field, len(op.exprs))
 	for i, assign := range op.project.Assignments {
+		if result[i] == nil {
+			// Eval returned (nil, nil) — indicates an unimplemented expression path.
+			panic(fmt.Errorf("projection: expression %q evaluated to nil array (unimplemented eval path)", assign.Symbol.Name))
+		}
 		fields[i] = arrow.Field{
 			Name: assign.Symbol.Name,
 			Type: result[i].DataType(),

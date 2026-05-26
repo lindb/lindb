@@ -87,6 +87,19 @@ func applyOp(lv, rv float64, op string) float64 {
 	}
 }
 
+// scalarToFloat64 converts a Scalar (Int64 or Float64) to float64.
+// Handles both integer literals (e.g. "* 100") and float literals (e.g. "* 1.5").
+func scalarToFloat64(s scalar.Scalar) float64 {
+	switch v := s.(type) {
+	case *scalar.Int64:
+		return float64(v.Value)
+	case *scalar.Float64:
+		return v.Value
+	default:
+		panic(fmt.Sprintf("arithmetic scalar operand must be numeric, got: %T", s))
+	}
+}
+
 func evalArrayScalar(record arrow.RecordBatch, left, right Expression, op string) (arrow.Array, error) {
 	leftArray, err := left.Eval(record)
 	if err != nil {
@@ -99,9 +112,10 @@ func evalArrayScalar(record arrow.RecordBatch, left, right Expression, op string
 		return nil, err
 	}
 
+	rv := scalarToFloat64(rightScalar)
+
 	switch leftTyped := leftArray.(type) {
 	case *array.Int64:
-		rv := float64(scalar.ToInt64(rightScalar))
 		result := array.NewFloat64Builder(memory.DefaultAllocator)
 		defer result.Release()
 		result.Reserve(leftTyped.Len())
@@ -116,7 +130,6 @@ func evalArrayScalar(record arrow.RecordBatch, left, right Expression, op string
 
 	case *larray.Aggregation:
 		// Direct Aggregation (not wrapped by FilterableRecord).
-		rv := float64(scalar.ToInt64(rightScalar))
 		extType := leftTyped.DataType().(arrow.ExtensionType)
 		extBuilder := array.NewExtensionBuilder(memory.DefaultAllocator, extType)
 		defer extBuilder.Release()
@@ -128,13 +141,11 @@ func evalArrayScalar(record arrow.RecordBatch, left, right Expression, op string
 				aggBuilder.Append(applyOp(leftTyped.Value(i), rv, op))
 			}
 		}
-		result := extBuilder.NewExtensionArray()
-		return result, nil
+		return extBuilder.NewExtensionArray(), nil
 
 	case *larray.Generic[float64]:
 		// Aggregation wrapped by FilterableRecord.ToGenericWithMask — the storage still
 		// carries the original AggregationType so we can reconstruct the correct kind.
-		rv := float64(scalar.ToInt64(rightScalar))
 		extType, ok := leftTyped.Storage().DataType().(arrow.ExtensionType)
 		if !ok {
 			// Fallback: plain float64 array result.
@@ -165,7 +176,6 @@ func evalArrayScalar(record arrow.RecordBatch, left, right Expression, op string
 	case *larray.TimeSeries:
 		// TimeSeries column (range query with timestamp): apply the scalar factor to
 		// every data point in each series while preserving start/end/interval.
-		rv := float64(scalar.ToInt64(rightScalar))
 		extType := leftTyped.DataType().(arrow.ExtensionType)
 		extBuilder := array.NewExtensionBuilder(memory.DefaultAllocator, extType)
 		defer extBuilder.Release()
@@ -184,16 +194,217 @@ func evalArrayScalar(record arrow.RecordBatch, left, right Expression, op string
 		return extBuilder.NewExtensionArray(), nil
 
 	default:
-		panic(fmt.Sprintf("unsupported array type: %T", leftArray))
+		panic(fmt.Sprintf("unsupported array type in array-scalar arithmetic: %T", leftArray))
 	}
 }
 
+// evalScalarArray handles scalar OP array (scalar on the left, e.g. "100 - last(a)").
+// For commutative ops (plus/mul) the scalar side is swapped; for non-commutative ops
+// (minus/div/mod) the scalar is kept as lv so order is preserved.
 func evalScalarArray(record arrow.RecordBatch, left, right Expression, op string) (arrow.Array, error) {
-	return nil, nil
+	leftScalar, err := left.EvalScalar()
+	if err != nil {
+		return nil, err
+	}
+	rightArray, err := right.Eval(record)
+	if err != nil {
+		return nil, err
+	}
+	defer rightArray.Release()
+
+	lv := scalarToFloat64(leftScalar)
+
+	switch rightTyped := rightArray.(type) {
+	case *array.Int64:
+		result := array.NewFloat64Builder(memory.DefaultAllocator)
+		defer result.Release()
+		result.Reserve(rightTyped.Len())
+		for i := range rightTyped.Len() {
+			if rightTyped.IsNull(i) {
+				result.AppendNull()
+			} else {
+				result.Append(applyOp(lv, float64(rightTyped.Value(i)), op))
+			}
+		}
+		return result.NewArray(), nil
+
+	case *larray.Aggregation:
+		extType := rightTyped.DataType().(arrow.ExtensionType)
+		extBuilder := array.NewExtensionBuilder(memory.DefaultAllocator, extType)
+		defer extBuilder.Release()
+		aggBuilder := larray.NewAggregationBuilder(extBuilder)
+		for i := range rightTyped.Len() {
+			if rightTyped.IsNull(i) {
+				aggBuilder.AppendNull()
+			} else {
+				aggBuilder.Append(applyOp(lv, rightTyped.Value(i), op))
+			}
+		}
+		return extBuilder.NewExtensionArray(), nil
+
+	case *larray.Generic[float64]:
+		extType, ok := rightTyped.Storage().DataType().(arrow.ExtensionType)
+		if !ok {
+			result := array.NewFloat64Builder(memory.DefaultAllocator)
+			defer result.Release()
+			result.Reserve(rightTyped.Len())
+			for i := range rightTyped.Len() {
+				if rightTyped.IsNull(i) {
+					result.AppendNull()
+				} else {
+					result.Append(applyOp(lv, rightTyped.Value(i), op))
+				}
+			}
+			return result.NewArray(), nil
+		}
+		extBuilder := array.NewExtensionBuilder(memory.DefaultAllocator, extType)
+		defer extBuilder.Release()
+		aggBuilder := larray.NewAggregationBuilder(extBuilder)
+		for i := range rightTyped.Len() {
+			if rightTyped.IsNull(i) {
+				aggBuilder.AppendNull()
+			} else {
+				aggBuilder.Append(applyOp(lv, rightTyped.Value(i), op))
+			}
+		}
+		return extBuilder.NewExtensionArray(), nil
+
+	case *larray.TimeSeries:
+		extType := rightTyped.DataType().(arrow.ExtensionType)
+		extBuilder := array.NewExtensionBuilder(memory.DefaultAllocator, extType)
+		defer extBuilder.Release()
+		tsBuilder := larray.NewTimeSeriesBuilder(extBuilder)
+		for i := range rightTyped.Len() {
+			if rightTyped.IsNull(i) {
+				tsBuilder.AppendNull()
+			} else {
+				vals := rightTyped.Values(i)
+				for j := range vals {
+					vals[j] = applyOp(lv, vals[j], op)
+				}
+				tsBuilder.Append(rightTyped.Start(i), rightTyped.End(i), rightTyped.Interval(i), vals)
+			}
+		}
+		return extBuilder.NewExtensionArray(), nil
+
+	default:
+		panic(fmt.Sprintf("unsupported array type in scalar-array arithmetic: %T", rightArray))
+	}
 }
 
+// evalArrayArray handles array OP array (e.g. "last(a) - last(b)").
+// Both arrays must have the same length and compatible types.
 func evalArrayArray(record arrow.RecordBatch, left, right Expression, op string) (arrow.Array, error) {
-	return nil, nil
+	leftArray, err := left.Eval(record)
+	if err != nil {
+		return nil, err
+	}
+	defer leftArray.Release()
+
+	rightArray, err := right.Eval(record)
+	if err != nil {
+		return nil, err
+	}
+	defer rightArray.Release()
+
+	switch leftTyped := leftArray.(type) {
+	case *array.Int64:
+		rightTyped, ok := rightArray.(*array.Int64)
+		if !ok {
+			return nil, fmt.Errorf("array-array arithmetic type mismatch: %T OP %T", leftArray, rightArray)
+		}
+		result := array.NewFloat64Builder(memory.DefaultAllocator)
+		defer result.Release()
+		result.Reserve(leftTyped.Len())
+		for i := range leftTyped.Len() {
+			if leftTyped.IsNull(i) || rightTyped.IsNull(i) {
+				result.AppendNull()
+			} else {
+				result.Append(applyOp(float64(leftTyped.Value(i)), float64(rightTyped.Value(i)), op))
+			}
+		}
+		return result.NewArray(), nil
+
+	case *larray.Aggregation:
+		// Both sides are direct Aggregation arrays (same extension kind).
+		rightTyped, ok := rightArray.(*larray.Aggregation)
+		if !ok {
+			return nil, fmt.Errorf("array-array arithmetic type mismatch: %T OP %T", leftArray, rightArray)
+		}
+		extType := leftTyped.DataType().(arrow.ExtensionType)
+		extBuilder := array.NewExtensionBuilder(memory.DefaultAllocator, extType)
+		defer extBuilder.Release()
+		aggBuilder := larray.NewAggregationBuilder(extBuilder)
+		for i := range leftTyped.Len() {
+			if leftTyped.IsNull(i) || rightTyped.IsNull(i) {
+				aggBuilder.AppendNull()
+			} else {
+				aggBuilder.Append(applyOp(leftTyped.Value(i), rightTyped.Value(i), op))
+			}
+		}
+		return extBuilder.NewExtensionArray(), nil
+
+	case *larray.Generic[float64]:
+		// Both sides wrapped by FilterableRecord (ToGenericWithMask).
+		rightTyped, ok := rightArray.(*larray.Generic[float64])
+		if !ok {
+			return nil, fmt.Errorf("array-array arithmetic type mismatch: %T OP %T", leftArray, rightArray)
+		}
+		extType, hasExt := leftTyped.Storage().DataType().(arrow.ExtensionType)
+		if !hasExt {
+			result := array.NewFloat64Builder(memory.DefaultAllocator)
+			defer result.Release()
+			result.Reserve(leftTyped.Len())
+			for i := range leftTyped.Len() {
+				if leftTyped.IsNull(i) || rightTyped.IsNull(i) {
+					result.AppendNull()
+				} else {
+					result.Append(applyOp(leftTyped.Value(i), rightTyped.Value(i), op))
+				}
+			}
+			return result.NewArray(), nil
+		}
+		extBuilder := array.NewExtensionBuilder(memory.DefaultAllocator, extType)
+		defer extBuilder.Release()
+		aggBuilder := larray.NewAggregationBuilder(extBuilder)
+		for i := range leftTyped.Len() {
+			if leftTyped.IsNull(i) || rightTyped.IsNull(i) {
+				aggBuilder.AppendNull()
+			} else {
+				aggBuilder.Append(applyOp(leftTyped.Value(i), rightTyped.Value(i), op))
+			}
+		}
+		return extBuilder.NewExtensionArray(), nil
+
+	case *larray.TimeSeries:
+		// Both sides are TimeSeries (range query result): apply op point-by-point.
+		rightTyped, ok := rightArray.(*larray.TimeSeries)
+		if !ok {
+			return nil, fmt.Errorf("array-array arithmetic type mismatch: %T OP %T", leftArray, rightArray)
+		}
+		extType := leftTyped.DataType().(arrow.ExtensionType)
+		extBuilder := array.NewExtensionBuilder(memory.DefaultAllocator, extType)
+		defer extBuilder.Release()
+		tsBuilder := larray.NewTimeSeriesBuilder(extBuilder)
+		for i := range leftTyped.Len() {
+			if leftTyped.IsNull(i) || rightTyped.IsNull(i) {
+				tsBuilder.AppendNull()
+			} else {
+				lVals := leftTyped.Values(i)
+				rVals := rightTyped.Values(i)
+				n := min(len(lVals), len(rVals))
+				result := make([]float64, n)
+				for j := range n {
+					result[j] = applyOp(lVals[j], rVals[j], op)
+				}
+				tsBuilder.Append(leftTyped.Start(i), leftTyped.End(i), leftTyped.Interval(i), result)
+			}
+		}
+		return extBuilder.NewExtensionArray(), nil
+
+	default:
+		panic(fmt.Sprintf("unsupported array type in array-array arithmetic: %T", leftArray))
+	}
 }
 
 // type arithmeticPlusFunc struct {

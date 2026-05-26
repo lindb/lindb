@@ -24,7 +24,10 @@ import (
 )
 
 func GetAccurateType(lhs, rhs arrow.DataType) arrow.DataType {
-	if lhs != rhs {
+	// Use arrow.TypeEqual instead of pointer comparison (!=) because Arrow extension types
+	// like AggregationType can have multiple instances that are logically equal but differ in
+	// pointer identity (e.g. global singleton vs. deserialized instance).
+	if !arrow.TypeEqual(lhs, rhs) {
 		panic(fmt.Sprintf("left side type [%s] is not same as right side type [%s]", lhs, rhs))
 	}
 	return lhs

@@ -203,8 +203,10 @@ func (v *ExpressionVisitor) visitFunctionCall(context any, node *tree.FunctionCa
 	expectedType := v.analyzer.ctx.GetFuncReturnType(node.Name)
 	if expectedType == nil {
 		if len(argumentTypes) > 0 {
-			// TODO: check args types
-			for i := range len(argumentTypes) {
+			// Seed with first argument's type, then verify all remaining args match it.
+			// Avoids passing nil as lhs to GetAccurateType on the first iteration.
+			expectedType = argumentTypes[0]
+			for i := 1; i < len(argumentTypes); i++ {
 				expectedType = types.GetAccurateType(expectedType, argumentTypes[i])
 			}
 		}
@@ -301,7 +303,7 @@ func (v *ExpressionVisitor) getOperator(context *tree.StackableVisitorContext[*C
 
 	// TODO: check args types
 	expectedType := types.GetAccurateType(argumentTypes[0], argumentTypes[1])
-	if expectedType == larrow.ExtensionTypes.TimeSeries {
+	if arrow.TypeEqual(expectedType, larrow.ExtensionTypes.TimeSeries) {
 		for i, argumentType := range argumentTypes {
 			v.coerceType(arguments[i], argumentType, expectedType)
 		}
@@ -343,7 +345,9 @@ func isNumericType(t arrow.DataType) bool {
 
 func (v *ExpressionVisitor) coerceType(expression tree.Expression, actualType, expectedType arrow.DataType) {
 	// TODO: add check
-	if actualType != expectedType {
+	// Use arrow.TypeEqual instead of != to correctly compare extension types (e.g. AggregationType)
+	// that may exist as multiple pointer-distinct but logically equal instances.
+	if !arrow.TypeEqual(actualType, expectedType) {
 		v.analyzer.ctx.Analysis.AddCoercion(expression, expectedType)
 	}
 }

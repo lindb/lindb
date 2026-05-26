@@ -18,6 +18,7 @@
 package analyzer
 
 import (
+	"github.com/apache/arrow-go/v18/arrow"
 	larrow "github.com/lindb/arrow/pkg/arrow"
 	"github.com/samber/lo"
 
@@ -113,7 +114,7 @@ func (r *Relation) IndexOf(field *tree.Field) tree.FieldIndex {
 	if ok {
 		return index
 	}
-	if field.DataType == larrow.ExtensionTypes.Dynamic {
+	if arrow.TypeEqual(field.DataType, larrow.ExtensionTypes.Dynamic) {
 		r.Fields = append(r.Fields, field)
 
 		r.maxIndex++
