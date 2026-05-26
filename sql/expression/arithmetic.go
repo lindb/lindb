@@ -52,6 +52,10 @@ func (f *arithmeticFunc) Eval(record arrow.RecordBatch) (arrow.Array, error) {
 	right := f.args[1]
 
 	switch {
+	// Scalar OP Scalar must be checked first; otherwise the Scalar OP Array branch fires
+	// and calls right.Eval(record) on a Constant, which panics.
+	case left.ResultType() == Scalar && right.ResultType() == Scalar:
+		return evalScalarScalar(record, left, right, f.op)
 	case left.ResultType() == Scalar:
 		return evalScalarArray(record, left, right, f.op)
 	case right.ResultType() == Scalar:
@@ -98,6 +102,29 @@ func scalarToFloat64(s scalar.Scalar) float64 {
 	default:
 		panic(fmt.Sprintf("arithmetic scalar operand must be numeric, got: %T", s))
 	}
+}
+
+// evalScalarScalar handles scalar OP scalar (e.g. "38/48").
+// Computes the result once and broadcasts it as a constant float64 array.
+func evalScalarScalar(record arrow.RecordBatch, left, right Expression, op string) (arrow.Array, error) {
+	leftScalar, err := left.EvalScalar()
+	if err != nil {
+		return nil, err
+	}
+	rightScalar, err := right.EvalScalar()
+	if err != nil {
+		return nil, err
+	}
+	val := applyOp(scalarToFloat64(leftScalar), scalarToFloat64(rightScalar), op)
+	// Broadcast the constant result to match the number of rows in the record.
+	numRows := int(record.NumRows())
+	result := array.NewFloat64Builder(memory.DefaultAllocator)
+	defer result.Release()
+	result.Reserve(numRows)
+	for range numRows {
+		result.Append(val)
+	}
+	return result.NewArray(), nil
 }
 
 func evalArrayScalar(record arrow.RecordBatch, left, right Expression, op string) (arrow.Array, error) {
