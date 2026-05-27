@@ -42,11 +42,13 @@ func NewCast(ctx EvalContext, retType arrow.DataType, arg Expression) Expression
 }
 
 func (c *Cast) EvalScalar() (scalar.Scalar, error) {
-	panic("cast is not supported in scalar execution")
+	// Cast is transparent at the scalar level — delegate to the wrapped expression.
+	return c.arg.EvalScalar()
 }
 
 func (c *Cast) Eval(record arrow.RecordBatch) (arrow.Array, error) {
-	panic("cast is not supported in vectorized execution")
+	// Cast is transparent at the array level — delegate to the wrapped expression.
+	return c.arg.Eval(record)
 }
 
 // // EvalString implements Expression.

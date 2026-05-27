@@ -21,6 +21,7 @@ import (
 	"context"
 
 	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
 
 	"github.com/lindb/lindb/sql/planner/plan"
 )
@@ -36,15 +37,34 @@ func NewValuesOperator(node *plan.ValuesNode) Operator {
 }
 
 func (op *ValuesOperator) Run(ctx context.Context, output chan<- arrow.RecordBatch) {
-	// var page *types.Page
-	// node := op.node
-	// if node.Rows != nil {
-	// 	page = node.Rows
-	// } else if node.RowCount == 1 {
-	// 	page = types.RowWithEmptyValue
-	// }
-	panic("implement me values operator")
-	// FIXME: output <- page
+	select {
+	case <-ctx.Done():
+		return
+	default:
+	}
+
+	node := op.node
+	var batch arrow.RecordBatch
+
+	if node.Rows != nil {
+		// Normal VALUES clause: the planner already built the record batch.
+		batch = node.Rows
+	} else if node.RowCount == 1 {
+		// No FROM clause (e.g. SELECT rand(), SELECT 1+2).
+		// Emit one zero-column row so downstream Projection can evaluate scalar expressions once.
+		emptyBatch := array.NewRecordBatch(arrow.NewSchema([]arrow.Field{}, nil), nil, 1)
+		defer emptyBatch.Release()
+		batch = emptyBatch
+	}
+
+	if batch == nil {
+		return
+	}
+
+	select {
+	case <-ctx.Done():
+	case output <- batch:
+	}
 }
 
 func (op *ValuesOperator) GetLayout() []*plan.Symbol {

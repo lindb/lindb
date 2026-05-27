@@ -22,6 +22,8 @@ import (
 	"time"
 
 	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 
 	"github.com/lindb/lindb/spi/scalar"
 )
@@ -53,41 +55,37 @@ func (c *Constant) EvalScalar() (scalar.Scalar, error) {
 	}
 }
 
-func (r *Constant) Eval(record arrow.RecordBatch) (arrow.Array, error) {
-	panic("constant is not supported in vectorized execution")
-	// numOfRows := int(record.NumRows())
-	// var builder array.Builder
-	// defer func() {
-	// 	if builder != nil {
-	// 		builder.Release()
-	// 	}
-	// }()
-	// switch r.retType {
-	// case types.DTString:
-	// 	sb := array.NewStringBuilder(memory.DefaultAllocator)
-	// 	sb.Reserve(numOfRows)
-	// 	for range numOfRows {
-	// 		sb.Append(r.value.(string))
-	// 	}
-	// 	builder = sb
-	// case types.DTInt:
-	// 	ib := array.NewInt64Builder(memory.DefaultAllocator)
-	// 	ib.Reserve(numOfRows)
-	// 	for range numOfRows {
-	// 		ib.Append(r.value.(int64))
-	// 	}
-	// 	builder = ib
-	// case types.DTFloat:
-	// 	fb := array.NewFloat64Builder(memory.DefaultAllocator)
-	// 	fb.Reserve(numOfRows)
-	// 	for range numOfRows {
-	// 		fb.Append(r.value.(float64))
-	// 	}
-	// 	builder = fb
-	// default:
-	// 	panic(fmt.Sprintf("unsupported data type for constant: %s", r.retType))
-	// }
-	// return builder.NewArray(), nil
+func (c *Constant) Eval(record arrow.RecordBatch) (arrow.Array, error) {
+	numRows := int(record.NumRows())
+	// Broadcast the constant value to every row in the batch.
+	switch val := c.value.(type) {
+	case int64:
+		b := array.NewInt64Builder(memory.DefaultAllocator)
+		defer b.Release()
+		b.Reserve(numRows)
+		for range numRows {
+			b.UnsafeAppend(val)
+		}
+		return b.NewArray(), nil
+	case float64:
+		b := array.NewFloat64Builder(memory.DefaultAllocator)
+		defer b.Release()
+		b.Reserve(numRows)
+		for range numRows {
+			b.UnsafeAppend(val)
+		}
+		return b.NewArray(), nil
+	case string:
+		b := array.NewStringBuilder(memory.DefaultAllocator)
+		defer b.Release()
+		b.Reserve(numRows)
+		for range numRows {
+			b.Append(val)
+		}
+		return b.NewArray(), nil
+	default:
+		return nil, fmt.Errorf("constant: unsupported type for vectorized evaluation: %T", c.value)
+	}
 }
 
 // func (c *Constant) EvalExemplar(_ types.Row) (val *models.Exemplar, isNull bool, err error) {
