@@ -60,6 +60,10 @@ const (
 
 	// map function names
 	MapValues FuncName = "map_values"
+
+	// math function names
+	// ref: https://dev.mysql.com/doc/refman/8.4/en/mathematical-functions.html
+	Rand FuncName = "rand"
 )
 
 type GetFuncReturnType func(name FuncName) arrow.DataType
@@ -88,6 +92,9 @@ var defaultFuncReturnTypes = map[FuncName]arrow.DataType{
 	HistogramCount:    larrow.ExtensionTypes.Sum,
 
 	MapValues: arrow.MapOf(arrow.BinaryTypes.String, arrow.BinaryTypes.String),
+
+	// math functions
+	Rand: arrow.PrimitiveTypes.Float64,
 }
 
 var streamingFuncReturnTypes = map[FuncName]arrow.DataType{
@@ -159,4 +166,8 @@ var funcs = map[FuncName]struct{}{
 	TimeTrunc: {},
 
 	MapValues: {},
+
+	// math functions
+	// ref: https://dev.mysql.com/doc/refman/8.4/en/mathematical-functions.html
+	Rand: {},
 }

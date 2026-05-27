@@ -159,3 +159,48 @@ func TestAnalyzeAggregations_HistogramAsDirectSelect(t *testing.T) {
 			"Histogram column used directly in SELECT must not inject an invalid 'histogram' func")
 	}
 }
+
+// ----- hasAggregates regression test -----
+
+// TestHasAggregates_ScalarFuncNotCounted is a regression test for the bug where
+// hasAggregates() counted ALL FunctionCall nodes instead of only aggregation functions.
+// rand() is a scalar function; it must NOT cause hasAggregates() to return true, which
+// would otherwise trigger an incorrect Aggregate plan node and broken table scan columns.
+func TestHasAggregates_ScalarFuncNotCounted(t *testing.T) {
+	v := buildMinimalVisitor()
+	idAlloc := tree.NewNodeIDAllocator()
+
+	// Build SELECT rand() — scalar function, not an aggregation.
+	randCall := &tree.FunctionCall{Name: tree.Rand}
+	randCall.SetID(idAlloc.Next())
+	query := &tree.QuerySpecification{
+		Select: &tree.Select{
+			SelectItems: []tree.SelectItem{
+				&tree.SingleColumn{Expression: randCall},
+			},
+		},
+	}
+
+	assert.False(t, v.hasAggregates(query),
+		"rand() is a scalar function — hasAggregates must return false to avoid a spurious Aggregate plan node")
+}
+
+// TestHasAggregates_AggFuncCounted verifies that a genuine aggregation function
+// (e.g. sum()) still causes hasAggregates() to return true.
+func TestHasAggregates_AggFuncCounted(t *testing.T) {
+	v := buildMinimalVisitor()
+	idAlloc := tree.NewNodeIDAllocator()
+
+	sumCall := &tree.FunctionCall{Name: tree.Sum}
+	sumCall.SetID(idAlloc.Next())
+	query := &tree.QuerySpecification{
+		Select: &tree.Select{
+			SelectItems: []tree.SelectItem{
+				&tree.SingleColumn{Expression: sumCall},
+			},
+		},
+	}
+
+	assert.True(t, v.hasAggregates(query),
+		"sum() is an aggregation function — hasAggregates must return true")
+}

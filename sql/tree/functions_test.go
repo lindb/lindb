@@ -20,6 +20,7 @@ package tree
 import (
 	"testing"
 
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -52,4 +53,21 @@ func TestHistogramFunctions_Constants(t *testing.T) {
 	assert.Equal(t, FuncName("histogram_avg"), HistogramAvg)
 	assert.Equal(t, FuncName("histogram_sum"), HistogramSum)
 	assert.Equal(t, FuncName("histogram_count"), HistogramCount)
+}
+
+func TestRandFunction_IsFuncSupported(t *testing.T) {
+	assert.True(t, IsFuncSupported(Rand), "rand must be registered as a supported function")
+}
+
+func TestRandFunction_IsNotAggFunc(t *testing.T) {
+	assert.False(t, IsAggFunc(Rand), "rand must not be treated as an aggregation function")
+}
+
+func TestRandFunction_ReturnType(t *testing.T) {
+	retType := GetDefaultFuncReturnType(Rand)
+	assert.Equal(t, arrow.PrimitiveTypes.Float64, retType, "rand must return Float64")
+}
+
+func TestRandFunction_Constant(t *testing.T) {
+	assert.Equal(t, FuncName("rand"), Rand)
 }

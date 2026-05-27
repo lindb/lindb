@@ -755,7 +755,7 @@ func (v *StatementVisitor) hasAggregates(node *tree.QuerySpecification) bool {
 	}
 	var aggregates []tree.Expression
 	tree.ExtractAggregationFunctions(toExtract, func(n tree.Node) {
-		if _, ok := n.(*tree.FunctionCall); ok {
+		if fn, ok := n.(*tree.FunctionCall); ok && tree.IsAggFunc(fn.Name) {
 			aggregates = append(aggregates, n)
 		}
 	})

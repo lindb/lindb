@@ -66,4 +66,8 @@ var funcs = map[tree.FuncName]NewFunc{
 
 	// map functions
 	tree.MapValues: newMapValuesFunc,
+
+	// math functions
+	// ref: https://dev.mysql.com/doc/refman/8.4/en/mathematical-functions.html
+	tree.Rand: newRandFunc,
 }
