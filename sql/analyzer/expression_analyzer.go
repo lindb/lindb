@@ -224,14 +224,20 @@ func (v *ExpressionVisitor) visitFunctionCall(context any, node *tree.FunctionCa
 // resolveHistogramColumn resolves an Identifier argument of a histogram function.
 // It first tries normal schema column resolution. If the column is not found as a
 // direct field (e.g. "sent_duration" is a logical histogram name, not a physical column),
-// it falls back to registering it as a Sum-type reference so the planner can expand it
+// it falls back to registering it as a Histogram-type reference so the planner can expand it
 // to the physical bucket/stat columns via expandHistogramColumns.
+// If there is no table in scope at all (FROM clause missing or invalid), it reports an error.
 func (v *ExpressionVisitor) resolveHistogramColumn(context any, node *tree.Identifier) arrow.DataType {
 	ctx := context.(*tree.StackableVisitorContext[*Context])
 	resolvedField := ctx.GetContext().scope.resolveField(
 		node, tree.NewQualifiedName([]*tree.Identifier{node}), true)
 	if resolvedField != nil {
 		return v.handleResolvedField(ctx, node, resolvedField)
+	}
+	// Distinguish between "no table in scope" and "logical histogram column not in schema".
+	if len(ctx.GetContext().scope.RelationType.Fields) == 0 {
+		// The FROM clause was missing or the table name was invalid (e.g. double-quoted).
+		panicNoTableSource()
 	}
 	// Logical histogram name not found as a direct column — treat as valid histogram reference.
 	// The planner's expandHistogramColumns will match it against physical fields by prefix.
@@ -256,17 +262,26 @@ func (v *ExpressionVisitor) visitIntervalLiteral(_ any, node *tree.IntervalLiter
 
 func (v *ExpressionVisitor) visitIdentifier(context any, node *tree.Identifier) (r any) {
 	ctx := context.(*tree.StackableVisitorContext[*Context])
-	// FIXME:???
 	resolvedField := ctx.GetContext().scope.resolveField(node, tree.NewQualifiedName([]*tree.Identifier{node}), true)
 
 	if resolvedField == nil {
+		// Distinguish between "no table in scope" and "column not found in table".
+		if len(ctx.GetContext().scope.RelationType.Fields) == 0 {
+			panic("no valid table source: FROM clause is missing or the table name is invalid (use backticks for names with special characters)")
+		}
 		panic(fmt.Sprintf("unknown column: '%v'", node.Value))
 	}
 	return v.handleResolvedField(ctx, node, resolvedField)
 }
 
+// panicNoTableSource panics with a consistent error message when a column is
+// referenced but no table is in scope (i.e. the FROM clause was dropped because
+// the table name uses double quotes instead of backticks).
+func panicNoTableSource() {
+	panic("no valid table source: FROM clause is missing or the table name is invalid (use backticks for names with special characters)")
+}
+
 func (v *ExpressionVisitor) visitArithemticBinary(context any, node *tree.ArithmeticBinaryExpression) (r any) {
-	// TODO: remove op
 	return v.getOperator(context.(*tree.StackableVisitorContext[*Context]), node, types.Subtract, node.Left, node.Right)
 }
 
