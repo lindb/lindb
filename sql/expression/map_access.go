@@ -18,6 +18,7 @@
 package expression
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/apache/arrow-go/v18/arrow"
@@ -40,7 +41,7 @@ func NewMapAccess(ctx EvalContext, base, key Expression) Expression {
 }
 
 func (m *MapAccess) EvalScalar() (scalar.Scalar, error) {
-	panic("map access is not supported in scalar execution")
+	return nil, errors.New("map access is not supported in scalar execution")
 }
 
 func (m *MapAccess) Eval(record arrow.RecordBatch) (arrow.Array, error) {

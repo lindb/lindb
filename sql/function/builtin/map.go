@@ -15,9 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package expression
+package builtin
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/apache/arrow-go/v18/arrow"
@@ -26,86 +27,72 @@ import (
 	larray "github.com/lindb/arrow/pkg/arrow/array"
 
 	"github.com/lindb/lindb/spi/scalar"
+	"github.com/lindb/lindb/sql/function"
 )
 
-type mapValuesFunc struct {
-	ctx  EvalContext
-	args []Expression
+// ── MAP_VALUES ────────────────────────────────────────────────────────────────
 
+// mapValuesInstance holds the target key set, computed once at construction time.
+type mapValuesInstance struct {
+	arg        function.Expr
 	targetKeys map[string]struct{}
-
-	// FIXME: add expression clear func
-	mb *array.MapBuilder
 }
 
-func newMapValuesFunc(ctx EvalContext, args []Expression) Func {
+// MapValuesFactory creates a mapValuesInstance with constant key args cached.
+var MapValuesFactory function.VectorFuncFactory = func(_ function.EvalContext, args []function.Expr) function.VectorFunc {
 	targetKeys := make(map[string]struct{}, len(args)-1)
 	for i := 1; i < len(args); i++ {
-		key, err := args[i].EvalScalar()
-		if err != nil {
-			panic(fmt.Sprintf("failed to evaluate key argument in map_values function: %v", err))
+		if keyScalar, err := args[i].EvalScalar(); err == nil {
+			targetKeys[scalar.ToString(keyScalar)] = struct{}{}
 		}
-		targetKeys[scalar.ToString(key)] = struct{}{}
 	}
-
-	if len(targetKeys) == 0 {
-		panic("map_values function requires at least one key argument")
+	var arg function.Expr
+	if len(args) > 0 {
+		arg = args[0]
 	}
-	mb := array.NewMapBuilder(memory.DefaultAllocator, arrow.BinaryTypes.String, arrow.BinaryTypes.String, false)
-
-	return &mapValuesFunc{
-		ctx:        ctx,
-		args:       args,
-		targetKeys: targetKeys,
-		mb:         mb,
-	}
+	return &mapValuesInstance{arg: arg, targetKeys: targetKeys}
 }
 
-func (n *mapValuesFunc) EvalScalar() (scalar.Scalar, error) {
-	panic("map_values is not supported in scalar execution")
+func (f *mapValuesInstance) EvalScalar() (scalar.Scalar, error) {
+	return nil, errors.New("map_values is not supported in scalar execution")
 }
 
-func (n *mapValuesFunc) Eval(record arrow.RecordBatch) (arrow.Array, error) {
-	input, err := n.args[0].Eval(record)
+func (f *mapValuesInstance) Eval(record arrow.RecordBatch) (arrow.Array, error) {
+	if f.arg == nil {
+		return nil, errors.New("map_values requires at least 1 argument")
+	}
+	input, err := f.arg.Eval(record)
 	if err != nil {
 		return nil, err
 	}
-	defer input.Release() // release the input array after processing
+	defer input.Release()
 
 	inputMap, ok := input.(*larray.Map)
 	if !ok {
-		return nil, fmt.Errorf("input of map_values should be map type, but got %T", input)
+		return nil, fmt.Errorf("map_values: input must be a map type, got %T", input)
 	}
 
 	keys := inputMap.Keys().(*array.String)
 	values := inputMap.Items().(*array.String)
 	offsets := inputMap.Offsets()
 
-	mb := n.mb
-	// defer mb.Release()
-
+	mb := array.NewMapBuilder(memory.DefaultAllocator, arrow.BinaryTypes.String, arrow.BinaryTypes.String, false)
+	defer mb.Release()
 	keysBuilder := mb.KeyBuilder().(*array.StringBuilder)
 	valuesBuilder := mb.ItemBuilder().(*array.StringBuilder)
 
 	mb.Reserve(inputMap.Len())
-
-	for i := 0; i < inputMap.Len(); i++ {
+	for i := range inputMap.Len() {
 		if inputMap.IsNull(i) {
 			mb.AppendNull()
 			continue
 		}
 		mb.Append(true)
 		row := inputMap.Row(i)
-
 		start, end := offsets[row], offsets[row+1]
 		for j := int(start); j < int(end); j++ {
-			// if keys.IsNull(i) {
-			// 	continue
-			// }
 			key := keys.Value(j)
-
-			// check if the key is in the target keys, if yes, append the key and value to the builder
-			if _, exists := n.targetKeys[key]; exists {
+			if _, exists := f.targetKeys[key]; exists {
 				keysBuilder.Append(key)
 				if values.IsNull(j) {
 					valuesBuilder.AppendNull()

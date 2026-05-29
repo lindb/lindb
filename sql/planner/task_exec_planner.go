@@ -26,6 +26,7 @@ import (
 	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/sql/context"
 	"github.com/lindb/lindb/sql/execution/operator"
+	"github.com/lindb/lindb/sql/execution/operator/aggregation"
 	"github.com/lindb/lindb/sql/execution/operator/exchange"
 	"github.com/lindb/lindb/sql/execution/operator/join"
 	"github.com/lindb/lindb/sql/execution/operator/output"
@@ -155,7 +156,7 @@ func (v *TaskExecutionPlanVisitor) planGroupByAggregation(
 func (v *TaskExecutionPlanVisitor) createHashAggregationOperatorFactory(
 	node *planpkg.AggregationNode, source operator.Operator,
 ) operator.Operator {
-	return operator.NewHashAggregationOperator(node, source)
+	return aggregation.NewHashAggregationOperator(node, source)
 }
 
 func (v *TaskExecutionPlanVisitor) visitProjection(context any, node *planpkg.ProjectionNode) (r any) {

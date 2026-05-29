@@ -15,9 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package expression
+package builtin
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/apache/arrow-go/v18/arrow"
@@ -26,75 +27,96 @@ import (
 	larray "github.com/lindb/arrow/pkg/arrow/array"
 
 	"github.com/lindb/lindb/spi/scalar"
+	"github.com/lindb/lindb/sql/function"
 )
 
-// validArithmeticOps is the set of operator strings accepted by arithmeticFunc.
-// Validated at construction so the execution path never needs to handle unknowns.
+// validArithmeticOps is the set of operator strings accepted by arithmeticInstance.
 var validArithmeticOps = map[string]bool{
 	"plus": true, "minus": true, "mul": true, "div": true, "mod": true,
 }
 
-type arithmeticFunc struct {
-	ctx  EvalContext
-	args []Expression
+// arithmeticInstance is a per-query VectorFunc for binary arithmetic operators.
+//
+// Constant arguments are detected at construction time (via EvalScalar probe) and
+// cached in lsv / rsv.  This means constant-OP-array and array-OP-constant paths
+// never re-evaluate the constant argument on subsequent record batches.
+type arithmeticInstance struct {
+	op   string
+	args []function.Expr // baked in at construction; column refs are evaluated per-batch
 
-	op string
+	lsv scalar.Scalar // non-nil when left arg is a constant
+	rsv scalar.Scalar // non-nil when right arg is a constant
 }
 
-func newArithmeticFunc(ctx EvalContext, op string, args []Expression) Func {
-	// Fail fast at construction rather than at query execution time.
+// newArithmeticFactory returns a VectorFuncFactory for the given arithmetic operator.
+func newArithmeticFactory(op string) function.VectorFuncFactory {
 	if !validArithmeticOps[op] {
 		panic(fmt.Sprintf("unknown arithmetic op: %q", op))
 	}
-	if len(args) != 2 {
-		panic(fmt.Sprintf("arithmetic op requires exactly 2 args, got %d", len(args)))
-	}
-	return &arithmeticFunc{
-		ctx:  ctx,
-		args: args,
-		op:   op,
+	return func(_ function.EvalContext, args []function.Expr) function.VectorFunc {
+		if len(args) != 2 {
+			panic(fmt.Sprintf("arithmetic op requires exactly 2 args, got %d", len(args)))
+		}
+		f := &arithmeticInstance{op: op, args: args}
+		// Probe once at construction: cache constant args to avoid per-record re-evaluation.
+		f.lsv, _ = args[0].EvalScalar()
+		f.rsv, _ = args[1].EvalScalar()
+		return f
 	}
 }
 
-// EvalScalar evaluates the arithmetic expression when both operands are scalars.
-// This enables nested scalar expressions (e.g. "(3+4) * last(cpu)" where the
-// outer mul calls EvalScalar on the inner plus before branching to evalScalarArray).
-func (f *arithmeticFunc) EvalScalar() (scalar.Scalar, error) {
-	lv, err := f.args[0].EvalScalar()
-	if err != nil {
-		return nil, err
+func (f *arithmeticInstance) EvalScalar() (scalar.Scalar, error) {
+	if f.lsv == nil || f.rsv == nil {
+		return nil, errors.New("arithmetic: not a constant expression")
 	}
-	rv, err := f.args[1].EvalScalar()
-	if err != nil {
-		return nil, err
-	}
-	result := applyOp(scalarToFloat64(lv), scalarToFloat64(rv), f.op)
-	return scalar.NewFloat64Scalar(result), nil
+	val := applyOp(scalarToFloat64(f.lsv), scalarToFloat64(f.rsv), f.op)
+	return scalar.NewFloat64Scalar(val), nil
 }
 
-func (f *arithmeticFunc) Eval(record arrow.RecordBatch) (arrow.Array, error) {
-	left := f.args[0]
-	right := f.args[1]
-
+func (f *arithmeticInstance) Eval(record arrow.RecordBatch) (arrow.Array, error) {
 	switch {
-	// Scalar OP Scalar must be checked first; otherwise the Scalar OP Array branch fires
-	// and calls right.Eval(record) on a Constant, which panics.
-	case left.ResultType() == Scalar && right.ResultType() == Scalar:
-		return evalScalarScalar(record, left, right, f.op)
-	case left.ResultType() == Scalar:
-		return evalScalarArray(record, left, right, f.op)
-	case right.ResultType() == Scalar:
-		return evalArrayScalar(record, left, right, f.op)
-	case left.ResultType() == Array && right.ResultType() == Array:
-		return evalArrayArray(record, left, right, f.op)
+	case f.lsv != nil && f.rsv != nil:
+		// Scalar OP Scalar: broadcast constant result (cached lsv/rsv, no per-batch work).
+		val := applyOp(scalarToFloat64(f.lsv), scalarToFloat64(f.rsv), f.op)
+		return broadcastFloat64(val, int(record.NumRows())), nil
+
+	case f.lsv != nil:
+		// Scalar OP Array: right is a column, left value is cached.
+		rightArray, err := f.args[1].Eval(record)
+		if err != nil {
+			return nil, err
+		}
+		defer rightArray.Release()
+		return evalScalarOpArray(scalarToFloat64(f.lsv), rightArray, f.op)
+
+	case f.rsv != nil:
+		// Array OP Scalar: left is a column, right value is cached.
+		leftArray, err := f.args[0].Eval(record)
+		if err != nil {
+			return nil, err
+		}
+		defer leftArray.Release()
+		return evalArrayOpScalar(leftArray, scalarToFloat64(f.rsv), f.op)
+
 	default:
-		return nil, fmt.Errorf("unsupported result type: %v, %v", left.ResultType(), right.ResultType())
+		// Array OP Array: both are columns.
+		leftArray, err := f.args[0].Eval(record)
+		if err != nil {
+			return nil, err
+		}
+		defer leftArray.Release()
+		rightArray, err := f.args[1].Eval(record)
+		if err != nil {
+			return nil, err
+		}
+		defer rightArray.Release()
+		return evalArrayOpArray(leftArray, rightArray, f.op)
 	}
 }
+
+// ── Pure computation helpers ───────────────────────────────────────────────────
 
 // applyOp applies the arithmetic operator to two float64 values.
-// The op string is validated at construction (newArithmeticFunc); the default
-// branch is a safety net that should never be reached in practice.
 func applyOp(lv, rv float64, op string) float64 {
 	switch op {
 	case "plus":
@@ -118,8 +140,7 @@ func applyOp(lv, rv float64, op string) float64 {
 	}
 }
 
-// scalarToFloat64 converts a Scalar (Int64 or Float64) to float64.
-// Handles both integer literals (e.g. "* 100") and float literals (e.g. "* 1.5").
+// scalarToFloat64 converts a numeric Scalar to float64.
 func scalarToFloat64(s scalar.Scalar) float64 {
 	switch v := s.(type) {
 	case *scalar.Int64:
@@ -131,10 +152,18 @@ func scalarToFloat64(s scalar.Scalar) float64 {
 	}
 }
 
-// buildAggExtArray builds an Aggregation extension array by applying compute(i) for each element.
-// extType is the AggregationType to preserve on the output (e.g. Sum, Last).
-// Note: AggregationBuilder is a thin wrapper over Float64Builder; it holds no
-// independent reference count, so only extBuilder needs a Release call.
+// broadcastFloat64 creates a float64 array containing val repeated numRows times.
+func broadcastFloat64(val float64, numRows int) arrow.Array {
+	b := array.NewFloat64Builder(memory.DefaultAllocator)
+	defer b.Release()
+	b.Reserve(numRows)
+	for range numRows {
+		b.Append(val)
+	}
+	return b.NewArray()
+}
+
+// buildAggExtArray builds an Aggregation extension array applying compute(i) per element.
 func buildAggExtArray(
 	extType arrow.ExtensionType, n int,
 	isNull func(int) bool,
@@ -154,8 +183,6 @@ func buildAggExtArray(
 }
 
 // buildTSExtArray builds a TimeSeries extension array row by row.
-// appendRow receives the builder and the current index; it should call b.Append(...)
-// and may return an error (e.g. mismatched series lengths) to abort construction.
 func buildTSExtArray(
 	extType arrow.ExtensionType, n int,
 	isNull func(int) bool,
@@ -176,43 +203,9 @@ func buildTSExtArray(
 	return extBuilder.NewExtensionArray(), nil
 }
 
-// evalScalarScalar handles scalar OP scalar (e.g. "38/48").
-// Computes the result once and broadcasts it as a constant float64 array.
-func evalScalarScalar(record arrow.RecordBatch, left, right Expression, op string) (arrow.Array, error) {
-	leftScalar, err := left.EvalScalar()
-	if err != nil {
-		return nil, err
-	}
-	rightScalar, err := right.EvalScalar()
-	if err != nil {
-		return nil, err
-	}
-	val := applyOp(scalarToFloat64(leftScalar), scalarToFloat64(rightScalar), op)
-	// Broadcast the constant result to match the number of rows in the record.
-	numRows := int(record.NumRows())
-	result := array.NewFloat64Builder(memory.DefaultAllocator)
-	defer result.Release()
-	result.Reserve(numRows)
-	for range numRows {
-		result.Append(val)
-	}
-	return result.NewArray(), nil
-}
+// ── Array evaluation helpers ───────────────────────────────────────────────────
 
-func evalArrayScalar(record arrow.RecordBatch, left, right Expression, op string) (arrow.Array, error) {
-	leftArray, err := left.Eval(record)
-	if err != nil {
-		return nil, err
-	}
-	defer leftArray.Release()
-
-	rightScalar, err := right.EvalScalar()
-	if err != nil {
-		return nil, err
-	}
-
-	rv := scalarToFloat64(rightScalar)
-
+func evalArrayOpScalar(leftArray arrow.Array, rv float64, op string) (arrow.Array, error) {
 	switch leftTyped := leftArray.(type) {
 	case *array.Int64:
 		result := array.NewFloat64Builder(memory.DefaultAllocator)
@@ -226,21 +219,15 @@ func evalArrayScalar(record arrow.RecordBatch, left, right Expression, op string
 			}
 		}
 		return result.NewArray(), nil
-
 	case *larray.Aggregation:
-		// Direct Aggregation (not wrapped by FilterableRecord).
 		return buildAggExtArray(
 			leftTyped.DataType().(arrow.ExtensionType), leftTyped.Len(),
 			leftTyped.IsNull,
 			func(i int) float64 { return applyOp(leftTyped.Value(i), rv, op) },
 		)
-
 	case *larray.Generic[float64]:
-		// Aggregation wrapped by FilterableRecord.ToGenericWithMask — the storage still
-		// carries the original AggregationType so we can reconstruct the correct kind.
 		extType, ok := leftTyped.Storage().DataType().(arrow.ExtensionType)
 		if !ok {
-			// Fallback: plain float64 array result.
 			result := array.NewFloat64Builder(memory.DefaultAllocator)
 			defer result.Release()
 			result.Reserve(leftTyped.Len())
@@ -258,16 +245,12 @@ func evalArrayScalar(record arrow.RecordBatch, left, right Expression, op string
 			leftTyped.IsNull,
 			func(i int) float64 { return applyOp(leftTyped.Value(i), rv, op) },
 		)
-
 	case *larray.TimeSeries:
-		// TimeSeries column (range query): apply the scalar factor to every data point
-		// while preserving start/end/interval.
-		// Values() returns a fresh copy of each series' float64 slice — safe to mutate.
 		return buildTSExtArray(
 			leftTyped.DataType().(arrow.ExtensionType), leftTyped.Len(),
 			leftTyped.IsNull,
 			func(b *larray.TimeSeriesBuilder, i int) error {
-				vals := leftTyped.Values(i) // copy; safe to mutate
+				vals := leftTyped.Values(i)
 				for j := range vals {
 					vals[j] = applyOp(vals[j], rv, op)
 				}
@@ -275,28 +258,12 @@ func evalArrayScalar(record arrow.RecordBatch, left, right Expression, op string
 				return nil
 			},
 		)
-
 	default:
 		panic(fmt.Sprintf("unsupported array type in array-scalar arithmetic: %T", leftArray))
 	}
 }
 
-// evalScalarArray handles scalar OP array (scalar on the left, e.g. "100 - last(a)").
-// For commutative ops (plus/mul) the scalar side is swapped; for non-commutative ops
-// (minus/div/mod) the scalar is kept as lv so order is preserved.
-func evalScalarArray(record arrow.RecordBatch, left, right Expression, op string) (arrow.Array, error) {
-	leftScalar, err := left.EvalScalar()
-	if err != nil {
-		return nil, err
-	}
-	rightArray, err := right.Eval(record)
-	if err != nil {
-		return nil, err
-	}
-	defer rightArray.Release()
-
-	lv := scalarToFloat64(leftScalar)
-
+func evalScalarOpArray(lv float64, rightArray arrow.Array, op string) (arrow.Array, error) {
 	switch rightTyped := rightArray.(type) {
 	case *array.Int64:
 		result := array.NewFloat64Builder(memory.DefaultAllocator)
@@ -310,14 +277,12 @@ func evalScalarArray(record arrow.RecordBatch, left, right Expression, op string
 			}
 		}
 		return result.NewArray(), nil
-
 	case *larray.Aggregation:
 		return buildAggExtArray(
 			rightTyped.DataType().(arrow.ExtensionType), rightTyped.Len(),
 			rightTyped.IsNull,
 			func(i int) float64 { return applyOp(lv, rightTyped.Value(i), op) },
 		)
-
 	case *larray.Generic[float64]:
 		extType, ok := rightTyped.Storage().DataType().(arrow.ExtensionType)
 		if !ok {
@@ -338,14 +303,12 @@ func evalScalarArray(record arrow.RecordBatch, left, right Expression, op string
 			rightTyped.IsNull,
 			func(i int) float64 { return applyOp(lv, rightTyped.Value(i), op) },
 		)
-
 	case *larray.TimeSeries:
-		// Values() returns a copy; safe to mutate.
 		return buildTSExtArray(
 			rightTyped.DataType().(arrow.ExtensionType), rightTyped.Len(),
 			rightTyped.IsNull,
 			func(b *larray.TimeSeriesBuilder, i int) error {
-				vals := rightTyped.Values(i) // copy; safe to mutate
+				vals := rightTyped.Values(i)
 				for j := range vals {
 					vals[j] = applyOp(lv, vals[j], op)
 				}
@@ -353,27 +316,12 @@ func evalScalarArray(record arrow.RecordBatch, left, right Expression, op string
 				return nil
 			},
 		)
-
 	default:
 		panic(fmt.Sprintf("unsupported array type in scalar-array arithmetic: %T", rightArray))
 	}
 }
 
-// evalArrayArray handles array OP array (e.g. "last(a) - last(b)").
-// Both arrays must have the same length and compatible element types.
-func evalArrayArray(record arrow.RecordBatch, left, right Expression, op string) (arrow.Array, error) {
-	leftArray, err := left.Eval(record)
-	if err != nil {
-		return nil, err
-	}
-	defer leftArray.Release()
-
-	rightArray, err := right.Eval(record)
-	if err != nil {
-		return nil, err
-	}
-	defer rightArray.Release()
-
+func evalArrayOpArray(leftArray, rightArray arrow.Array, op string) (arrow.Array, error) {
 	switch leftTyped := leftArray.(type) {
 	case *array.Int64:
 		rightTyped, ok := rightArray.(*array.Int64)
@@ -391,11 +339,7 @@ func evalArrayArray(record arrow.RecordBatch, left, right Expression, op string)
 			}
 		}
 		return result.NewArray(), nil
-
 	case *larray.Aggregation:
-		// The result extType is taken from the left operand. For operations between
-		// different aggregation kinds (e.g. Sum - Last) the semantic is undefined;
-		// we default to the left side's kind as a reasonable convention.
 		rightTyped, ok := rightArray.(*larray.Aggregation)
 		if !ok {
 			return nil, fmt.Errorf("array-array arithmetic type mismatch: %T OP %T", leftArray, rightArray)
@@ -405,9 +349,7 @@ func evalArrayArray(record arrow.RecordBatch, left, right Expression, op string)
 			func(i int) bool { return leftTyped.IsNull(i) || rightTyped.IsNull(i) },
 			func(i int) float64 { return applyOp(leftTyped.Value(i), rightTyped.Value(i), op) },
 		)
-
 	case *larray.Generic[float64]:
-		// extType is taken from the left side (see Aggregation note above).
 		rightTyped, ok := rightArray.(*larray.Generic[float64])
 		if !ok {
 			return nil, fmt.Errorf("array-array arithmetic type mismatch: %T OP %T", leftArray, rightArray)
@@ -431,11 +373,7 @@ func evalArrayArray(record arrow.RecordBatch, left, right Expression, op string)
 			func(i int) bool { return leftTyped.IsNull(i) || rightTyped.IsNull(i) },
 			func(i int) float64 { return applyOp(leftTyped.Value(i), rightTyped.Value(i), op) },
 		)
-
 	case *larray.TimeSeries:
-		// Both sides are TimeSeries (range query result): apply op point-by-point.
-		// Mismatched lengths indicate misaligned query windows/steps and are treated as
-		// an error rather than silently truncating data.
 		rightTyped, ok := rightArray.(*larray.TimeSeries)
 		if !ok {
 			return nil, fmt.Errorf("array-array arithmetic type mismatch: %T OP %T", leftArray, rightArray)
@@ -444,11 +382,10 @@ func evalArrayArray(record arrow.RecordBatch, left, right Expression, op string)
 			leftTyped.DataType().(arrow.ExtensionType), leftTyped.Len(),
 			func(i int) bool { return leftTyped.IsNull(i) || rightTyped.IsNull(i) },
 			func(b *larray.TimeSeriesBuilder, i int) error {
-				lVals := leftTyped.Values(i)  // copy; safe to mutate
-				rVals := rightTyped.Values(i) // copy
+				lVals := leftTyped.Values(i)
+				rVals := rightTyped.Values(i)
 				if len(lVals) != len(rVals) {
-					return fmt.Errorf(
-						"time series length mismatch at row %d: left=%d right=%d",
+					return fmt.Errorf("time series length mismatch at row %d: left=%d right=%d",
 						i, len(lVals), len(rVals))
 				}
 				for j := range lVals {
@@ -458,7 +395,6 @@ func evalArrayArray(record arrow.RecordBatch, left, right Expression, op string)
 				return nil
 			},
 		)
-
 	default:
 		panic(fmt.Sprintf("unsupported array type in array-array arithmetic: %T", leftArray))
 	}

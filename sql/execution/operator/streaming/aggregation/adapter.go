@@ -15,35 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package expression
+package aggregation
 
 import (
-	"context"
-	"time"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
 
-	"github.com/lindb/lindb/constants"
-	"github.com/lindb/lindb/pkg/utils"
 	"github.com/lindb/lindb/sql/function"
 )
 
-// EvalContext is the context for evaluating expressions.
-// It is a type alias for function.EvalContext so that sql/function implementations
-// satisfy this interface without import cycles.
-type EvalContext = function.EvalContext
-
-// evalContext implements EvalContext interface.
-type evalContext struct {
-	ctx context.Context
+// accumulatorAdapter bridges function.Accumulator to the streaming Aggregator interface.
+// The Accumulator already holds its argument expressions (baked in at NewAccumulator time)
+// and handles its own column caching, so this adapter is a thin protocol bridge only.
+type accumulatorAdapter struct {
+	acc function.Accumulator
 }
 
-// NewEvalContext creates an EvalContext.
-func NewEvalContext(ctx context.Context) EvalContext {
-	return &evalContext{
-		ctx: ctx,
-	}
-}
-
-// CurrentTime returns the current time.
-func (e *evalContext) CurrentTime() time.Time {
-	return utils.GetTimeFromContext(e.ctx, constants.ContextKeyCurrentTime)
-}
+func (a *accumulatorAdapter) Initialize(record arrow.RecordBatch) { a.acc.Initialize(record) }
+func (a *accumulatorAdapter) Enter(_ arrow.RecordBatch, row int)   { a.acc.Update(row) }
+func (a *accumulatorAdapter) Flush(builder array.Builder)           { a.acc.Result(builder); a.acc.Reset() }

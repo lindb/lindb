@@ -18,6 +18,8 @@
 package expression
 
 import (
+	"errors"
+
 	"github.com/apache/arrow-go/v18/arrow"
 
 	"github.com/lindb/lindb/spi/scalar"
@@ -36,9 +38,9 @@ func newSamplingFunc(ctx EvalContext, args []Expression) Func {
 }
 
 func (f *samplingFunc) EvalScalar() (scalar.Scalar, error) {
-	panic("sampling is not supported in scalar execution")
+	return nil, errors.New("sampling is not supported in scalar execution")
 }
 
-func (f *samplingFunc) Eval(record arrow.RecordBatch) (arrow.Array, error) {
-	panic("sampling is not supported in vectorized execution")
+func (f *samplingFunc) Eval(_ arrow.RecordBatch) (arrow.Array, error) {
+	return nil, errors.New("sampling is not supported in vectorized execution")
 }

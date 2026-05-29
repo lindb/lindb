@@ -15,40 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package expression
+package function
 
-import (
-	"errors"
+import "time"
 
-	"github.com/apache/arrow-go/v18/arrow"
-
-	"github.com/lindb/lindb/spi/scalar"
-)
-
-type Column struct {
-	name  string
-	index int
-
-	rt ResultType
-}
-
-func NewColumn(ctx EvalContext, name string, index int, rt ResultType) Expression {
-	return &Column{name: name, index: index, rt: rt}
-}
-
-func (c *Column) EvalScalar() (scalar.Scalar, error) {
-	return nil, errors.New("column is not supported in scalar execution")
-}
-
-func (c *Column) Eval(record arrow.RecordBatch) (arrow.Array, error) {
-	return record.Column(c.index), nil
-}
-
-func (c *Column) ResultType() ResultType {
-	return c.rt
-}
-
-// String returns the column in string format.
-func (c *Column) String() string {
-	return c.name
+// EvalContext carries query-level metadata needed during function evaluation.
+// It is the canonical definition used by VectorFunc, IncrementalAgg, and their
+// implementations; sql/expression re-exports it as a type alias.
+type EvalContext interface {
+	// CurrentTime returns the effective query execution time.
+	CurrentTime() time.Time
 }
