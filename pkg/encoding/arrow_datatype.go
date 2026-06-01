@@ -19,6 +19,8 @@ package encoding
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"unsafe"
 
 	"github.com/apache/arrow-go/v18/arrow"
@@ -65,6 +67,16 @@ func (arrowDataTypeEncoder) Encode(ptr unsafe.Pointer, stream *jsoniter.Stream) 
 		stream.WriteNil()
 		return
 	}
+	// FixedSizeBinaryType is parametric: encode as "fixed_size_binary[N]" to preserve ByteWidth.
+	if fsb, ok := dt.(*arrow.FixedSizeBinaryType); ok {
+		stream.WriteString(fmt.Sprintf("fixed_size_binary[%d]", fsb.ByteWidth))
+		return
+	}
+	// MapType is parametric: encode as "map<keyName,valueName>" to preserve key/value types.
+	if m, ok := dt.(*arrow.MapType); ok {
+		stream.WriteString(fmt.Sprintf("map<%s,%s>", m.KeyType().Name(), m.ItemType().Name()))
+		return
+	}
 	stream.WriteString(dt.Name())
 }
 
@@ -72,6 +84,36 @@ type arrowDataTypeDecoder struct{}
 
 func (arrowDataTypeDecoder) Decode(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
 	name := iter.ReadString()
+
+	// FixedSizeBinaryType is parametric: encoded as "fixed_size_binary[N]", decode by parsing N.
+	if strings.HasPrefix(name, "fixed_size_binary[") && strings.HasSuffix(name, "]") {
+		inner := name[len("fixed_size_binary[") : len(name)-1]
+		byteWidth, err := strconv.Atoi(inner)
+		if err != nil {
+			iter.ReportError("arrowDataTypeDecoder", fmt.Sprintf("invalid fixed_size_binary byte width in %q", name))
+			return
+		}
+		*(*arrow.DataType)(ptr) = &arrow.FixedSizeBinaryType{ByteWidth: byteWidth}
+		return
+	}
+
+	// MapType is parametric: encoded as "map<keyName,valueName>", decode by parsing key/value types.
+	if strings.HasPrefix(name, "map<") && strings.HasSuffix(name, ">") {
+		inner := name[len("map<") : len(name)-1]
+		// Split on the first comma to separate key and value type names.
+		parts := strings.SplitN(inner, ",", 2)
+		if len(parts) == 2 {
+			keyType, keyOK := arrowDataTypes[parts[0]]
+			valType, valOK := arrowDataTypes[parts[1]]
+			if keyOK && valOK {
+				*(*arrow.DataType)(ptr) = arrow.MapOf(keyType, valType)
+				return
+			}
+		}
+		iter.ReportError("arrowDataTypeDecoder", fmt.Sprintf("unsupported map key/value types in %q", name))
+		return
+	}
+
 	dt, ok := arrowDataTypes[name]
 	if !ok {
 		iter.ReportError("arrowDataTypeDecoder", fmt.Sprintf("unknown arrow.DataType name: %q", name))
