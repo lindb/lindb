@@ -202,6 +202,11 @@ func (arrowDataTypeEncoder) Encode(ptr unsafe.Pointer, stream *jsoniter.Stream) 
 type arrowDataTypeDecoder struct{}
 
 func (arrowDataTypeDecoder) Decode(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
+	// A null JSON value encodes a nil arrow.DataType (e.g. unresolved FunctionCall.RetType).
+	if iter.ReadNil() {
+		*(*arrow.DataType)(ptr) = nil
+		return
+	}
 	name := iter.ReadString()
 
 	dt, ok := decodeArrowType(name)
