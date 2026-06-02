@@ -18,6 +18,8 @@
 package log
 
 import (
+	"encoding/hex"
+
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/lindb/arrow/pkg/arrow/builder"
@@ -91,29 +93,31 @@ var logSchema = []logColumn{
 		},
 	},
 	{
-		Field: arrow.Field{Name: arrowConst.TraceID, Type: &arrow.FixedSizeBinaryType{ByteWidth: 16}, Nullable: true},
+		// trace_id stored as hex string so SQL comparisons with string literals work.
+		Field: arrow.Field{Name: arrowConst.TraceID, Type: arrow.BinaryTypes.String, Nullable: true},
 		reader: func(rb *builder.RecordBuilder) func(*logspkg.Reader, int) {
-			tib := rb.FixedSizeBinaryBuilder(arrowConst.TraceID)
+			b := rb.StringBuilder(arrowConst.TraceID)
 			return func(r *logspkg.Reader, row int) {
 				v := r.TraceID(row)
 				if v == nil {
-					tib.AppendNull()
+					b.AppendNull()
 				} else {
-					tib.Append(v)
+					b.Append(hex.EncodeToString(v))
 				}
 			}
 		},
 	},
 	{
-		Field: arrow.Field{Name: arrowConst.SpanID, Type: &arrow.FixedSizeBinaryType{ByteWidth: 8}, Nullable: true},
+		// span_id stored as hex string so SQL comparisons with string literals work.
+		Field: arrow.Field{Name: arrowConst.SpanID, Type: arrow.BinaryTypes.String, Nullable: true},
 		reader: func(rb *builder.RecordBuilder) func(*logspkg.Reader, int) {
-			spb := rb.FixedSizeBinaryBuilder(arrowConst.SpanID)
+			b := rb.StringBuilder(arrowConst.SpanID)
 			return func(r *logspkg.Reader, row int) {
 				v := r.SpanID(row)
 				if v == nil {
-					spb.AppendNull()
+					b.AppendNull()
 				} else {
-					spb.Append(v)
+					b.Append(hex.EncodeToString(v))
 				}
 			}
 		},
