@@ -55,6 +55,135 @@ func RegisterArrowDataType(dt arrow.DataType) {
 	arrowDataTypes[dt.Name()] = dt
 }
 
+// encodeArrowType encodes an Arrow DataType to its canonical string representation.
+// Parametric and nested types are encoded recursively so the full structure is preserved.
+//
+// Encoding rules:
+//
+//	FixedSizeBinary(N)       → "fixed_size_binary[N]"
+//	Map<K,V>                 → "map<{encode(K)},{encode(V)}>"
+//	List<T>                  → "list<{encode(T)}>"
+//	Struct<f1:T1,f2:T2,...>  → "struct<f1={encode(T1)},f2={encode(T2)},...>"
+//	anything else            → dt.Name()
+func encodeArrowType(dt arrow.DataType) string {
+	if fsb, ok := dt.(*arrow.FixedSizeBinaryType); ok {
+		return fmt.Sprintf("fixed_size_binary[%d]", fsb.ByteWidth)
+	}
+	if m, ok := dt.(*arrow.MapType); ok {
+		return "map<" + encodeArrowType(m.KeyType()) + "," + encodeArrowType(m.ItemType()) + ">"
+	}
+	if lt, ok := dt.(*arrow.ListType); ok {
+		return "list<" + encodeArrowType(lt.Elem()) + ">"
+	}
+	if st, ok := dt.(*arrow.StructType); ok {
+		var sb strings.Builder
+		sb.WriteString("struct<")
+		for i := 0; i < st.NumFields(); i++ {
+			if i > 0 {
+				sb.WriteByte(',')
+			}
+			f := st.Field(i)
+			sb.WriteString(f.Name)
+			sb.WriteByte('=')
+			sb.WriteString(encodeArrowType(f.Type))
+		}
+		sb.WriteByte('>')
+		return sb.String()
+	}
+	return dt.Name()
+}
+
+// decodeArrowType decodes a type string produced by encodeArrowType back into an Arrow DataType.
+// Returns (nil, false) when the string is not recognised.
+func decodeArrowType(name string) (arrow.DataType, bool) {
+	// FixedSizeBinary[N]
+	if strings.HasPrefix(name, "fixed_size_binary[") && strings.HasSuffix(name, "]") {
+		inner := name[len("fixed_size_binary[") : len(name)-1]
+		byteWidth, err := strconv.Atoi(inner)
+		if err != nil {
+			return nil, false
+		}
+		return &arrow.FixedSizeBinaryType{ByteWidth: byteWidth}, true
+	}
+
+	// Map<K,V>
+	if strings.HasPrefix(name, "map<") && strings.HasSuffix(name, ">") {
+		inner := name[4 : len(name)-1]
+		parts := splitTopLevel(inner)
+		if len(parts) == 2 {
+			kt, ok1 := decodeArrowType(parts[0])
+			vt, ok2 := decodeArrowType(parts[1])
+			if ok1 && ok2 {
+				return arrow.MapOf(kt, vt), true
+			}
+		}
+		return nil, false
+	}
+
+	// List<T>
+	if strings.HasPrefix(name, "list<") && strings.HasSuffix(name, ">") {
+		inner := name[5 : len(name)-1]
+		itemType, ok := decodeArrowType(inner)
+		if ok {
+			return arrow.ListOf(itemType), true
+		}
+		return nil, false
+	}
+
+	// Struct<f1=T1,f2=T2,...>
+	if strings.HasPrefix(name, "struct<") && strings.HasSuffix(name, ">") {
+		inner := name[7 : len(name)-1]
+		if inner == "" {
+			return arrow.StructOf(), true
+		}
+		fieldDefs := splitTopLevel(inner)
+		fields := make([]arrow.Field, 0, len(fieldDefs))
+		for _, fd := range fieldDefs {
+			// Field format: "name=type"
+			eqIdx := strings.IndexByte(fd, '=')
+			if eqIdx < 0 {
+				return nil, false
+			}
+			fName := fd[:eqIdx]
+			fType, ok := decodeArrowType(fd[eqIdx+1:])
+			if !ok {
+				return nil, false
+			}
+			fields = append(fields, arrow.Field{Name: fName, Type: fType})
+		}
+		return arrow.StructOf(fields...), true
+	}
+
+	// Known simple types
+	if dt, ok := arrowDataTypes[name]; ok {
+		return dt, true
+	}
+	return nil, false
+}
+
+// splitTopLevel splits s on commas that are NOT nested inside angle/square brackets.
+// This is necessary for parsing nested type strings like "struct<f1=list<utf8>,f2=utf8>".
+func splitTopLevel(s string) []string {
+	var parts []string
+	depth := 0
+	start := 0
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case '<', '[':
+			depth++
+		case '>', ']':
+			depth--
+		case ',':
+			if depth == 0 {
+				parts = append(parts, s[start:i])
+				start = i + 1
+			}
+		}
+	}
+	parts = append(parts, s[start:])
+	return parts
+}
+
 type arrowDataTypeEncoder struct{}
 
 func (arrowDataTypeEncoder) IsEmpty(ptr unsafe.Pointer) bool {
@@ -67,17 +196,7 @@ func (arrowDataTypeEncoder) Encode(ptr unsafe.Pointer, stream *jsoniter.Stream) 
 		stream.WriteNil()
 		return
 	}
-	// FixedSizeBinaryType is parametric: encode as "fixed_size_binary[N]" to preserve ByteWidth.
-	if fsb, ok := dt.(*arrow.FixedSizeBinaryType); ok {
-		stream.WriteString(fmt.Sprintf("fixed_size_binary[%d]", fsb.ByteWidth))
-		return
-	}
-	// MapType is parametric: encode as "map<keyName,valueName>" to preserve key/value types.
-	if m, ok := dt.(*arrow.MapType); ok {
-		stream.WriteString(fmt.Sprintf("map<%s,%s>", m.KeyType().Name(), m.ItemType().Name()))
-		return
-	}
-	stream.WriteString(dt.Name())
+	stream.WriteString(encodeArrowType(dt))
 }
 
 type arrowDataTypeDecoder struct{}
@@ -85,36 +204,7 @@ type arrowDataTypeDecoder struct{}
 func (arrowDataTypeDecoder) Decode(ptr unsafe.Pointer, iter *jsoniter.Iterator) {
 	name := iter.ReadString()
 
-	// FixedSizeBinaryType is parametric: encoded as "fixed_size_binary[N]", decode by parsing N.
-	if strings.HasPrefix(name, "fixed_size_binary[") && strings.HasSuffix(name, "]") {
-		inner := name[len("fixed_size_binary[") : len(name)-1]
-		byteWidth, err := strconv.Atoi(inner)
-		if err != nil {
-			iter.ReportError("arrowDataTypeDecoder", fmt.Sprintf("invalid fixed_size_binary byte width in %q", name))
-			return
-		}
-		*(*arrow.DataType)(ptr) = &arrow.FixedSizeBinaryType{ByteWidth: byteWidth}
-		return
-	}
-
-	// MapType is parametric: encoded as "map<keyName,valueName>", decode by parsing key/value types.
-	if strings.HasPrefix(name, "map<") && strings.HasSuffix(name, ">") {
-		inner := name[len("map<") : len(name)-1]
-		// Split on the first comma to separate key and value type names.
-		parts := strings.SplitN(inner, ",", 2)
-		if len(parts) == 2 {
-			keyType, keyOK := arrowDataTypes[parts[0]]
-			valType, valOK := arrowDataTypes[parts[1]]
-			if keyOK && valOK {
-				*(*arrow.DataType)(ptr) = arrow.MapOf(keyType, valType)
-				return
-			}
-		}
-		iter.ReportError("arrowDataTypeDecoder", fmt.Sprintf("unsupported map key/value types in %q", name))
-		return
-	}
-
-	dt, ok := arrowDataTypes[name]
+	dt, ok := decodeArrowType(name)
 	if !ok {
 		iter.ReportError("arrowDataTypeDecoder", fmt.Sprintf("unknown arrow.DataType name: %q", name))
 		return

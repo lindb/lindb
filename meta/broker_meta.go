@@ -142,9 +142,9 @@ func (m *brokerMetadataManager) GetTableMetadata(database, ns, table string) (*t
 		fields = append(fields, types.GetTableArrowFields("logs")...)
 	} else if table == "traces" {
 		supportDynamicField = true
-		// Trace queries are point lookups by trace_id; the connector always returns a single
-		// callstack column (JSON-serialized span tree). Register that as the only output column.
-		fields = append(fields, arrow.Field{Name: "callstack", Type: arrow.BinaryTypes.Binary})
+		// Fields are registered by spi/table/trace during init(); read them here to avoid
+		// importing that package directly (which would create an import cycle via spi).
+		fields = append(fields, types.GetTableArrowFields("traces")...)
 	} else {
 		for node := range partitions {
 			tableSchema, err := m.getTableSchema(database, ns, table, node)

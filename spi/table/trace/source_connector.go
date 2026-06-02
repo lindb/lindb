@@ -18,15 +18,15 @@
 package trace
 
 import (
+	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/apache/arrow-go/v18/arrow"
-	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/memory"
 	"github.com/lindb/arrow/pkg/arrow/builder"
-	"github.com/lindb/common/pkg/encoding"
-	"go.opentelemetry.io/collector/pdata/ptrace/ptraceotlp"
+	tracespkg "github.com/lindb/arrow/pkg/traces"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/spi"
@@ -55,11 +55,11 @@ func (s *sourceConnectorProvider) CreateSourceConnector(ctx context.Context,
 	outputColumns []arrow.Field, assignments []*spi.ColumnAssignment,
 ) spi.SourceConnector {
 	return &sourceConnector{
-		engine:       s.engine,
-		table:        table,
-		partitionIDs: partitions,
-
-		predicate: predicate,
+		engine:        s.engine,
+		table:         table,
+		partitionIDs:  partitions,
+		predicate:     predicate,
+		outputColumns: outputColumns,
 	}
 }
 
@@ -68,13 +68,16 @@ type sourceConnector struct {
 
 	table spi.TableHandle
 
-	partitionIDs []int
-	partitions   []*Partition
+	partitionIDs  []int
+	partitions    []*Partition
+	outputColumns []arrow.Field
 
 	predicate tree.Expression
 }
 
 // Run implements spi.SourceConnector.
+// It performs a trace-ID point lookup and writes matching spans into a columnar
+// RecordBatch whose schema is driven by the requested outputColumns.
 func (sc *sourceConnector) Run(output chan<- arrow.RecordBatch) {
 	tableScan := sc.buildTableScan()
 	if tableScan == nil {
@@ -85,36 +88,80 @@ func (sc *sourceConnector) Run(output chan<- arrow.RecordBatch) {
 		return
 	}
 
-	schema := arrow.NewSchema([]arrow.Field{
-		{Name: "callstack", Type: arrow.BinaryTypes.Binary},
-	}, nil)
-	rb := builder.NewRecordBuilder(memory.NewGoAllocator(), schema)
+	// Extract the hex trace ID from the predicate (e.g. WHERE trace_id = '...')
+	traceIDHex := sc.extractTraceID()
+	if traceIDHex == "" {
+		return
+	}
+	rawTraceID, err := hex.DecodeString(traceIDHex)
+	if err != nil {
+		return
+	}
+
+	// Build output schema and per-column appenders from the requested columns.
+	rb := builder.NewRecordBuilder(memory.NewGoAllocator(), arrow.NewSchema(sc.outputColumns, nil))
 	defer rb.Release()
 
-	msgColumn := rb.Fields()[0].(*array.BinaryBuilder)
-
-	expr, ok := sc.predicate.(*tree.ComparisonExpression)
-	var traceID string
-	if ok {
-		evalCtx := expression.NewEvalContext(context.TODO())
-		traceID, _ = expression.EvalString(evalCtx, expr.Right)
-	}
-	// TODO: check err
+	appenders := sc.buildColumnAppenders(rb)
 
 	for _, partition := range sc.partitions {
 		for _, segment := range partition.segments {
 			logSegment := segment.(*tracestore.Segment)
-			logData, err := logSegment.GetTrace(traceID)
-			if err != nil {
-			} else if len(logData) > 0 {
-				for _, msg := range logData {
-					FilterTracesByTraceID(traceID, msg, msgColumn)
-				}
+			walBatches, err := logSegment.GetTrace(traceIDHex)
+			if err != nil || len(walBatches) == 0 {
+				continue
+			}
+			for _, msg := range walBatches {
+				sc.appendMatchingSpans(msg, rawTraceID, appenders)
 			}
 		}
 	}
 
 	output <- rb.NewRecord()
+}
+
+// appendMatchingSpans reads one WAL batch (Arrow IPC), filters spans by trace ID,
+// and appends matching rows to the output builders.
+func (sc *sourceConnector) appendMatchingSpans(
+	msg []byte, rawTraceID []byte, appenders []func(*tracespkg.TraceReader, int),
+) {
+	reader, err := tracespkg.NewTraceReader(msg)
+	if err != nil {
+		fmt.Printf("trace reader err: %v\n", err)
+		return
+	}
+	defer reader.Release()
+
+	for i := 0; i < reader.NumOfRows(); i++ {
+		if !bytes.Equal(reader.TraceID(i), rawTraceID) {
+			continue
+		}
+		for _, appender := range appenders {
+			appender(reader, i)
+		}
+	}
+}
+
+// buildColumnAppenders creates one appender per output column using the trace schema registry.
+func (sc *sourceConnector) buildColumnAppenders(rb *builder.RecordBuilder) []func(*tracespkg.TraceReader, int) {
+	appenders := make([]func(*tracespkg.TraceReader, int), 0, len(sc.outputColumns))
+	for _, col := range sc.outputColumns {
+		if appender, ok := BuildTraceColumnAppender(col.Name, rb); ok {
+			appenders = append(appenders, appender)
+		}
+	}
+	return appenders
+}
+
+// extractTraceID reads the trace ID hex string from the predicate.
+func (sc *sourceConnector) extractTraceID() string {
+	expr, ok := sc.predicate.(*tree.ComparisonExpression)
+	if !ok {
+		return ""
+	}
+	evalCtx := expression.NewEvalContext(context.TODO())
+	traceID, _ := expression.EvalString(evalCtx, expr.Right)
+	return traceID
 }
 
 func (sc *sourceConnector) buildTableScan() *TableScan {
@@ -143,25 +190,4 @@ func (sc *sourceConnector) findPartitions(tableScan *TableScan, partitionIDs []i
 			})
 		})
 	return
-}
-
-func FilterTracesByTraceID(traceID string, msg []byte, column *array.BinaryBuilder) {
-	req := ptraceotlp.NewExportRequest()
-	if err := req.UnmarshalProto(msg); err != nil {
-		return
-	}
-	traces := req.Traces()
-	resourceSpans := traces.ResourceSpans()
-
-	if resourceSpans.Len() == 0 {
-		return
-	}
-
-	for i := 0; i < resourceSpans.Len(); i++ {
-		rs := resourceSpans.At(i)
-		callStack := TranslateResourceSpans(rs, traceID)
-		if callStack != nil {
-			column.Append(encoding.JSONMarshal(callStack))
-		}
-	}
 }
