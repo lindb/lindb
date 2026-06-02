@@ -19,6 +19,7 @@ package trace
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"path"
 	"path/filepath"
@@ -57,7 +58,7 @@ type Segment struct {
 
 	reader *traces.TraceIDReader
 
-	isFlushing  atomic.Bool  // guard against concurrent flush (Flush() closes the DB)
+	isFlushing  atomic.Bool  // guard against concurrent flush
 	createdTime int64        // unix nanoseconds, set at construction time
 	rowsWritten atomic.Int64 // total rows written; used for MemSize estimation
 }
@@ -205,6 +206,7 @@ func (seg *Segment) Write(leader models.NodeID, seq int64, msg []byte) (rows int
 	for i := 0; i < numOfRows; i++ {
 		traceID := seg.reader.TraceID(i)
 		traceIDStr := strutil.ByteSlice2String(traceID)
+		fmt.Printf("trace id=%s\n", hex.EncodeToString(traceID))
 		if _, ok := traceIDs[traceIDStr]; !ok {
 			// Use pebble's native Merge (backed by DefaultMerger / AppendValueMerger)
 			// to atomically append the 5-byte WAL pointer
@@ -219,7 +221,14 @@ func (seg *Segment) Write(leader models.NodeID, seq int64, msg []byte) (rows int
 }
 
 func (seg *Segment) GetTrace(traceID string) (rs [][]byte, err error) {
-	data, closer, err := seg.db.Get([]byte(traceID))
+	// The query provides a hex-encoded trace ID (e.g. "00683ad6ad95b5e820ae7ec41e34debe"),
+	// but pebble keys are raw 16-byte binary values written by the WAL ingestion path.
+	rawID, decErr := hex.DecodeString(traceID)
+	if decErr != nil {
+		return nil, fmt.Errorf("invalid trace ID %q: %w", traceID, decErr)
+	}
+
+	data, closer, err := seg.db.Get(rawID)
 	if err == pebble.ErrNotFound {
 		return nil, nil
 	}
@@ -246,6 +255,7 @@ func (seg *Segment) Close() error {
 	flush.GetMemDBTracker().Unregister(seg)
 
 	seg.Flush()
+	seg.db.Close() //nolint:errcheck
 
 	for _, d := range seg.WALs {
 		d.Close()
@@ -254,18 +264,18 @@ func (seg *Segment) Close() error {
 	return nil
 }
 
-// Flush implements store.Segment.
-// NOTE: for trace segments this is a terminal operation — it flushes and closes the pebble instance.
-// The CAS guard ensures it only executes once even if called concurrently.
+// Flush implements store.Segment and FlushableSegment.
+// Persists the pebble memtable to disk without closing the DB.
+// Consistent with log/metric segments: Flush() is NOT a terminal operation.
+// The CAS guard prevents concurrent flushes; isFlushing is restored on exit.
 func (seg *Segment) Flush() error {
 	if !seg.isFlushing.CompareAndSwap(false, true) {
-		// already flushed or flush in progress
+		// flush already in progress
 		return nil
 	}
-	// do not restore isFlushing — once flushed the segment is terminal
+	defer seg.isFlushing.Store(false)
 	seg.db.Flush() //nolint:errcheck
-	seg.db.Close() //nolint:errcheck
-	// reset rowsWritten so MutableMemDBInfo returns nil after flush
+	// reset rowsWritten so MutableMemDBInfo stops reporting pressure after flush
 	seg.rowsWritten.Store(0)
 	return nil
 }
