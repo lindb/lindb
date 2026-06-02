@@ -133,11 +133,19 @@ func (c *coordinator) process(event discovery.MetaEvent) {
 }
 
 func (c *coordinator) OnEvent(event discovery.MetaEvent) {
-	c.events <- event
+	select {
+	case c.events <- event:
+	case <-c.ctx.Done():
+		// coordinator is stopping; drop event
+	}
 }
 
 func (c *coordinator) Subscribe(sub discovery.Subscriber) {
-	c.subChan <- sub
+	select {
+	case c.subChan <- sub:
+	case <-c.ctx.Done():
+		// coordinator is stopping; skip subscribe
+	}
 }
 
 func (c *coordinator) subscribe(sub discovery.Subscriber) {
@@ -179,7 +187,11 @@ func (c *coordinator) unsubscribe(sub discovery.Subscriber) {
 }
 
 func (c *coordinator) Unsubscribe(sub discovery.Subscriber) {
-	c.unsubChan <- sub
+	select {
+	case c.unsubChan <- sub:
+	case <-c.ctx.Done():
+		// coordinator is stopping; skip unsubscribe
+	}
 }
 
 func (c *coordinator) GetLiveNode(name string, nodeID models.NodeID) (models.Node, bool) {

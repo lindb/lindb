@@ -213,6 +213,22 @@ func (w *writeAheadLog) WriteArrow(records []arrow.RecordBatch) error {
 
 func (w *writeAheadLog) Close() error {
 	if w.closed.CompareAndSwap(false, true) {
+		// Collect peers while holding the lock, then shut them down without the lock
+		// so Shutdown() can wait for goroutines to exit without risk of deadlock.
+		w.mutex.Lock()
+		peers := make([]store.ReplicatorPeer, 0, len(w.peers)+len(w.streamings))
+		for _, peer := range w.peers {
+			peers = append(peers, peer)
+		}
+		for _, peer := range w.streamings {
+			peers = append(peers, peer)
+		}
+		w.mutex.Unlock()
+
+		for _, peer := range peers {
+			peer.Shutdown()
+		}
+
 		// close queue
 		w.data.Close()
 		// unsubscribe wal consumer events
