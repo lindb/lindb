@@ -29,3 +29,19 @@ type TableMetadata struct {
 
 	SupportDynamicField bool
 }
+
+// tableArrowFields stores the pre-registered Arrow field list for each named table type.
+// Populated via RegisterTableArrowFields during package init by each datasource package.
+var tableArrowFields = map[string][]arrow.Field{}
+
+// RegisterTableArrowFields registers the canonical Arrow fields for a named table type.
+// Called from datasource packages (e.g. spi/table/log) during init().
+func RegisterTableArrowFields(tableName string, fields []arrow.Field) {
+	tableArrowFields[tableName] = fields
+}
+
+// GetTableArrowFields returns the registered Arrow fields for the named table type.
+// Returns nil when no fields have been registered for that name.
+func GetTableArrowFields(tableName string) []arrow.Field {
+	return tableArrowFields[tableName]
+}

@@ -23,7 +23,6 @@ import (
 	"sort"
 
 	"github.com/apache/arrow-go/v18/arrow"
-	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/memory"
 	larrow "github.com/lindb/arrow/pkg/arrow"
 	"github.com/lindb/arrow/pkg/arrow/builder"
@@ -128,18 +127,11 @@ func (sc *sourceConnector) Run(output chan<- arrow.RecordBatch) {
 		return
 	}
 
-	rb := builder.NewRecordBuilder(memory.NewGoAllocator(), arrow.NewSchema([]arrow.Field{
-		{Name: "timestamp", Type: arrow.FixedWidthTypes.Timestamp_ns},
-		{Name: "_msg", Type: arrow.BinaryTypes.String},
-		{Name: "fields", Type: arrow.MapOf(arrow.BinaryTypes.String, arrow.BinaryTypes.String)},
-	}, nil))
+	// Build schema and column appenders dynamically based on what the planner requested.
+	rb := builder.NewRecordBuilder(memory.NewGoAllocator(), arrow.NewSchema(sc.outputColumns, nil))
 	defer rb.Release()
 
-	timeColumn := rb.TimestampBuilder("timestamp")
-	msgColumn := rb.StringBuilder("_msg")
-	fieldsColumn := rb.MapBuilder("fields")
-	fKey := fieldsColumn.KeyBuilder().(*array.StringBuilder)
-	fValue := fieldsColumn.ItemBuilder().(*array.StringBuilder)
+	appenders := sc.buildColumnAppenders(rb)
 
 	total := 0
 	sc.findLogs(tableScan, func(segment *log.Segment, logIDs *roaring.Bitmap) bool {
@@ -148,10 +140,9 @@ func (sc *sourceConnector) Run(output chan<- arrow.RecordBatch) {
 
 		for scanner.HasNext() {
 			if err := scanner.Next(func(reader *logspkg.Reader, rowNum int) {
-				// read log data from reader
-				timeColumn.Append(arrow.Timestamp(reader.Timestamp(rowNum)))
-				msgColumn.Append(reader.Message(rowNum))
-				reader.AttributesToMap(rowNum, fieldsColumn, fKey, fValue)
+				for _, appender := range appenders {
+					appender(reader, rowNum)
+				}
 			}); err != nil {
 				fmt.Printf("scan logs err:%v\n", err)
 			}
@@ -258,7 +249,9 @@ func (sc *sourceConnector) initializeSearchContext(tableScan *TableScan) {
 	lo.ForEach(sc.outputColumns, func(item arrow.Field, index int) {
 		if item.Name == constants.TimestampColumnName {
 			sc.outputsHasTimestamp = true
-		} else if arrow.TypeEqual(item.Type, larrow.ExtensionTypes.Dynamic) {
+		} else if arrow.TypeEqual(item.Type, larrow.ExtensionTypes.Dynamic) && !IsFixedLogSchemaField(item.Name) {
+			// Only user-defined attribute fields (not fixed schema columns) are truly dynamic.
+			// Dynamic and String share the same underlying type, so we must guard by name.
 			if len(sc.fieldKeys) == 1 {
 				panic("too many grouping fields, only support one field")
 			}
@@ -278,4 +271,33 @@ func (sc *sourceConnector) initializeSearchContext(tableScan *TableScan) {
 			sc.aggregator = newAggregatorByField(sc, tableScan)
 		}
 	}
+}
+
+// buildColumnAppenders creates one append-function per output column.
+// Fixed schema columns are handled via the schema registry (BuildLogColumnAppender).
+// Unknown names fall through to dynamic attribute lookup.
+func (sc *sourceConnector) buildColumnAppenders(rb *builder.RecordBuilder) []func(*logspkg.Reader, int) {
+	appenders := make([]func(*logspkg.Reader, int), 0, len(sc.outputColumns))
+	for _, col := range sc.outputColumns {
+		name := col.Name // capture per-iteration copy
+		if appender, ok := BuildLogColumnAppender(name, rb); ok {
+			appenders = append(appenders, appender)
+			continue
+		}
+		// Dynamic attribute field: scan row attributes to find matching key.
+		sb := rb.StringBuilder(name)
+		appenders = append(appenders, func(r *logspkg.Reader, row int) {
+			var found bool
+			r.Attributes(row, func(key, value string) {
+				if key == name {
+					sb.Append(value)
+					found = true
+				}
+			})
+			if !found {
+				sb.AppendNull()
+			}
+		})
+	}
+	return appenders
 }

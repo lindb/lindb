@@ -135,8 +135,17 @@ func (m *brokerMetadataManager) GetTableMetadata(database, ns, table string) (*t
 	}
 	var fields []arrow.Field
 	supportDynamicField := false
-	if table != "logs" && table != "traces" {
-		// FIXME: log table???
+	if table == "logs" {
+		supportDynamicField = true
+		// Fields are registered by spi/table/log during init(); read them here to avoid
+		// importing that package directly (which would create an import cycle via spi).
+		fields = append(fields, types.GetTableArrowFields("logs")...)
+	} else if table == "traces" {
+		supportDynamicField = true
+		// Trace queries are point lookups by trace_id; the connector always returns a single
+		// callstack column (JSON-serialized span tree). Register that as the only output column.
+		fields = append(fields, arrow.Field{Name: "callstack", Type: arrow.BinaryTypes.Binary})
+	} else {
 		for node := range partitions {
 			tableSchema, err := m.getTableSchema(database, ns, table, node)
 			if err != nil {
@@ -145,10 +154,6 @@ func (m *brokerMetadataManager) GetTableMetadata(database, ns, table string) (*t
 			// TODO: remove duplicate column
 			fields = append(fields, tableSchema.Fields()...)
 		}
-	} else {
-		supportDynamicField = true // for log/tarce
-		// TODO: add hidden flag?
-		fields = append(fields, arrow.Field{Name: constants.TimestampColumnName, Type: arrow.FixedWidthTypes.Timestamp_s})
 	}
 	return &types.TableMetadata{
 		Schema:              arrow.NewSchema(fields, nil),
