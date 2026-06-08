@@ -67,6 +67,16 @@ func (r *rewriter) rewrite(node tree.Expression) Expression {
 		return NewCast(r.ctx.EvalContext, expr.Type, r.rewrite(expr.Expression))
 	case *tree.SubscriptExpression:
 		return NewMapAccess(r.ctx.EvalContext, r.rewrite(expr.Base), r.rewrite(expr.Key))
+	case *tree.ComparisonExpression:
+		return NewComparison(r.ctx.EvalContext, expr.Operator, r.rewrite(expr.Left), r.rewrite(expr.Right))
+	case *tree.LogicalExpression:
+		terms := make([]Expression, len(expr.Terms))
+		for i, term := range expr.Terms {
+			terms[i] = r.rewrite(term)
+		}
+		return NewLogical(r.ctx.EvalContext, expr.Operator, terms)
+	case *tree.NotExpression:
+		return NewNot(r.ctx.EvalContext, r.rewrite(expr.Value))
 	default:
 		panic(fmt.Sprintf("expression rewrite unimplemented: %T", node))
 	}

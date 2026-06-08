@@ -164,64 +164,72 @@ func (exec *DMLExecution) execute(fragmentedPlan *plan.SubPlan, output buffer.Ou
 	rootFragment := fragments[0]
 	currentTime, _ := utils.GetInt64FromContext(session.Context, constants.ContextKeyCurrentTime)
 
-	// submit all task
-	for i := range len(fragments) {
+	rootTaskID := model.TaskID{
+		RequestID: session.RequestID,
+		ID:        0,
+	}
+	// Phase 1: plan the broker (root) fragment synchronously.
+	// TaskExecutionFactory.Create walks the plan tree and calls RegisterSourceOperator
+	// for every RemoteSourceNode. This registration MUST complete before any storage
+	// task is dispatched; otherwise storage results arrive via gRPC before the operator
+	// is registered, GetSourceOperator returns nil, Complete() is never called, and the
+	// query hangs forever ("source operator not found").
+	taskFct := NewTaskExecutionFactory()
+	rootTaskExec := taskFct.Create(exec.session.Context, &SQLTask{
+		CurrentTime: currentTime,
+		ID:          rootTaskID,
+		Fragment:    rootFragment,
+		Database:    session.Database,
+	})
+
+	// Phase 2: start broker execution in background.
+	outputCh := make(chan arrow.RecordBatch)
+	go func() {
+		defer func() {
+			close(outputCh)
+			if err := recover(); err != nil {
+				// Tag the error with the broker node source so the caller knows
+				// which node panicked.
+				exec.context.SetError(fmt.Sprintf("[Broker@%s] %v",
+					exec.deps.CurrentNode.Address(), err))
+			}
+			// TODO::
+			// close(exec.queryContext.completed)
+		}()
+		go func() {
+			for record := range outputCh {
+				output.AddRecord(record)
+			}
+			output.Complete()
+		}()
+		if err := rootTaskExec.Execute(outputCh); err != nil {
+			// The error from Execute() may already carry a node-source prefix
+			// (e.g. "[storage@ip:port] ...") when it originates from a remote
+			// task. Only add the broker prefix for errors that are truly local
+			// (i.e. do not already start with '[').
+			msg := err.Error()
+			if len(msg) == 0 || msg[0] != '[' {
+				msg = fmt.Sprintf("[Broker@%s] %s",
+					exec.deps.CurrentNode.Address(), msg)
+			}
+			exec.context.SetError(msg)
+		}
+	}()
+
+	// Phase 3: operators are registered; now safely dispatch storage tasks.
+	for i := 1; i < len(fragments); i++ {
 		fragment := fragments[i]
 		taskID := model.TaskID{
 			RequestID: session.RequestID,
 			ID:        i,
 		}
-
 		go func() {
-			// TODO: handle panic
-			if fragment.ParentNode == nil {
-				outputCh := make(chan arrow.RecordBatch)
-				// execute task under current node if it has no parent
-				defer func() {
-					close(outputCh)
-					if err := recover(); err != nil {
-						// Tag the error with the broker node source so the caller knows
-						// which node panicked.
-						exec.context.SetError(fmt.Sprintf("[Broker@%s] %v",
-							exec.deps.CurrentNode.Address(), err))
-					}
-					// TODO::
-					// close(exec.queryContext.completed)
-				}()
-				// run under current node
-				taskFct := NewTaskExecutionFactory()
-				taskExec := taskFct.Create(exec.session.Context, &SQLTask{
-					CurrentTime: currentTime,
-					ID:          taskID,
-					Fragment:    rootFragment,
-					Database:    session.Database,
-				})
-				go func() {
-					for record := range outputCh {
-						output.AddRecord(record)
-					}
-					output.Complete()
-				}()
-				if err := taskExec.Execute(outputCh); err != nil {
-					// The error from Execute() may already carry a node-source prefix
-					// (e.g. "[storage@ip:port] ...") when it originates from a remote
-					// task. Only add the broker prefix for errors that are truly local
-					// (i.e. do not already start with '[').
-					msg := err.Error()
-					if len(msg) == 0 || msg[0] != '[' {
-						msg = fmt.Sprintf("[Broker@%s] %s",
-							exec.deps.CurrentNode.Address(), msg)
-					}
-					exec.context.SetError(msg)
-				}
-			} else {
-				// execute task under remote node, send fragment to remote execution node
-				fragment.Receivers = []models.InternalNode{*exec.deps.CurrentNode}
-				data := encoding.JSONMarshal(fragment)
+			// execute task under remote node, send fragment to remote execution node
+			fragment.Receivers = []models.InternalNode{*exec.deps.CurrentNode}
+			data := encoding.JSONMarshal(fragment)
 
-				for node, shards := range fragment.Partitions {
-					exec.sendTask(node, taskID, shards, currentTime, data)
-				}
+			for node, shards := range fragment.Partitions {
+				exec.sendTask(node, taskID, shards, currentTime, data)
 			}
 		}()
 	}

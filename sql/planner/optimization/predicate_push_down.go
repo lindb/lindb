@@ -136,6 +136,13 @@ func (p *PredicatePushDown) visitJoin(context any, node *plan.JoinNode) any {
 }
 
 func (p *PredicatePushDown) visitFilter(_ any, node *plan.FilterNode) any {
+	// HAVING predicates sit directly above an AggregationNode and reference
+	// aggregate output symbols — they must NOT be pushed below the aggregation.
+	if _, ok := node.Source.(*plan.AggregationNode); ok {
+		optimizedSource := node.Source.Accept(nil, p).(plan.PlanNode)
+		return node.ReplaceChildren([]plan.PlanNode{optimizedSource})
+	}
+	// WHERE-style filter: push conjuncts down toward the TableScan.
 	return node.Source.Accept(tree.ExtractConjuncts(node.Predicate), p)
 }
 

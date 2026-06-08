@@ -87,8 +87,25 @@ func (v *aggregationAnalyzeVisitor) Visit(context any, n tree.Node) (r any) {
 	case *tree.FunctionCall:
 		// FIXME: add logic
 		return true
-	case *tree.StringLiteral:
+	case *tree.StringLiteral, *tree.LongLiteral, *tree.FloatLiteral, *tree.BooleanLiteral, *tree.Constant:
+		// Literals are never column references, so they are always valid in any aggregate query.
 		return true
+	case *tree.ComparisonExpression:
+		// Both sides must independently be valid aggregate or grouping expressions.
+		leftOk, _ := node.Left.Accept(context, v).(bool)
+		rightOk, _ := node.Right.Accept(context, v).(bool)
+		return leftOk && rightOk
+	case *tree.LogicalExpression:
+		// All terms must be valid for AND; any term valid is sufficient for OR.
+		// In practice we require all terms to be valid (conservative).
+		for _, term := range node.Terms {
+			if ok, _ := term.Accept(context, v).(bool); !ok {
+				return false
+			}
+		}
+		return true
+	case *tree.NotExpression:
+		return node.Value.Accept(context, v)
 	default:
 		panic(fmt.Sprintf("unsupported node<%T> when aggregation ananlyzer", n))
 	}

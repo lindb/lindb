@@ -124,15 +124,36 @@ func (v *ExpressionVisitor) visitFieldReference(context any, node *tree.FieldRef
 }
 
 func (v *ExpressionVisitor) visitComparisonExpression(context any, node *tree.ComparisonExpression) (r any) {
-	var operatorType types.OperatorType
+	ctx := context.(*tree.StackableVisitorContext[*Context])
 	switch node.Operator {
 	case tree.ComparisonEQ:
-		operatorType = types.Equal
+		// For equality, delegate to getOperator which handles type promotion and coercion
+		// (e.g. AggregationType OP numeric keeps AggregationType).
+		return v.getOperator(ctx, node, types.Equal, node.Left, node.Right)
+	case tree.ComparisonNEQ, tree.ComparisonOperator("<>"):
+		// Both != and <> are valid SQL "not equal" tokens.
+		node.Left.Accept(context, v)
+		node.Right.Accept(context, v)
+		return v.setExpressionType(node, arrow.PrimitiveTypes.Uint32)
+	case tree.ComparisonGT:
+		node.Left.Accept(context, v)
+		node.Right.Accept(context, v)
+		return v.setExpressionType(node, arrow.PrimitiveTypes.Uint32)
+	case tree.ComparisonGTE:
+		node.Left.Accept(context, v)
+		node.Right.Accept(context, v)
+		return v.setExpressionType(node, arrow.PrimitiveTypes.Uint32)
+	case tree.ComparisonLT:
+		node.Left.Accept(context, v)
+		node.Right.Accept(context, v)
+		return v.setExpressionType(node, arrow.PrimitiveTypes.Uint32)
+	case tree.ComparisonLTE:
+		node.Left.Accept(context, v)
+		node.Right.Accept(context, v)
+		return v.setExpressionType(node, arrow.PrimitiveTypes.Uint32)
 	default:
 		panic("not supported operator:" + node.Operator)
 	}
-
-	return v.getOperator(context.(*tree.StackableVisitorContext[*Context]), node, operatorType, node.Left, node.Right)
 }
 
 func (v *ExpressionVisitor) visitInPredicate(context any, node *tree.InPredicate) (r any) {

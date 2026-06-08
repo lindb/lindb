@@ -390,6 +390,54 @@ func TestSQLParse_CountStar(t *testing.T) {
 	}
 }
 
+func TestSQLParse_Having(t *testing.T) {
+	defer func() {
+		newNodeLocation = NewNodeLocation
+	}()
+	newNodeLocation = func(line, column int) *NodeLocation {
+		return nil
+	}
+	parser := GetParser()
+	cases := []struct {
+		name string
+		sql  string
+	}{
+		{
+			name: "having with count(*) > constant",
+			sql:  "SELECT level, count(*) FROM logs GROUP BY level HAVING count(*) > 5",
+		},
+		{
+			name: "having with AND",
+			sql:  "SELECT level, count(*) FROM logs GROUP BY level HAVING count(*) > 5 AND count(*) < 100",
+		},
+		{
+			name: "having with OR",
+			sql:  "SELECT level, count(*) FROM logs GROUP BY level HAVING count(*) > 100 OR count(*) = 0",
+		},
+		{
+			name: "having uppercase",
+			sql:  "SELECT level, COUNT(*) FROM logs GROUP BY level HAVING COUNT(*) >= 10",
+		},
+		{
+			name: "having without group by",
+			sql:  "SELECT count(*) FROM logs HAVING count(*) > 0",
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			stmt, err := parser.CreateStatement(tt.sql, NewNodeIDAllocator())
+			assert.NoError(t, err)
+			assert.NotNil(t, stmt)
+
+			q, ok := stmt.(*Query)
+			assert.True(t, ok, "expected *Query")
+			spec, ok := q.QueryBody.(*QuerySpecification)
+			assert.True(t, ok, "expected *QuerySpecification")
+			assert.NotNil(t, spec.Having, "HAVING clause should be present in the AST")
+		})
+	}
+}
+
 func Test_KeyWorks(t *testing.T) {
 	typ := reflect.TypeOf(&grammar.NonReservedContext{})
 	var keyWords []string

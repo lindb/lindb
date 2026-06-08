@@ -567,6 +567,10 @@ func (v *StatementVisitor) analyzeAggregations(query *tree.QuerySpecification, s
 		expr = append(expr, orderBy)
 	}
 	var functions []*tree.FunctionCall
+	// seen deduplicates aggregate functions collected from both SELECT and HAVING
+	// expressions so that shared aggregates (e.g. count(*) in both) are only
+	// registered once in the AggregationNode.
+	seen := make(map[string]struct{})
 	var stack []tree.Expression
 	isFuncArg := func() bool {
 		if len(stack) == 0 {
@@ -602,14 +606,22 @@ func (v *StatementVisitor) analyzeAggregations(query *tree.QuerySpecification, s
 				}},
 				RefField: resolvedField.Field,
 			}
-			functions = append(functions, fn)
-			v.analyzer.ctx.Analysis.AddResolvedFunction(fn, fn.Name)
-			v.analyzer.ctx.Analysis.AddType(fn, resolvedField.Field.DataType) // TODO: remove it
+			key := tree.FormatExpression(fn)
+			if _, dup := seen[key]; !dup {
+				seen[key] = struct{}{}
+				functions = append(functions, fn)
+				v.analyzer.ctx.Analysis.AddResolvedFunction(fn, fn.Name)
+				v.analyzer.ctx.Analysis.AddType(fn, resolvedField.Field.DataType) // TODO: remove it
+			}
 		case *tree.FunctionCall:
 			if tree.IsAggFunc(node.Name) {
-				functions = append(functions, node)
-				// TODO: need do other func
-				v.analyzer.ctx.Analysis.AddResolvedFunction(node, node.Name)
+				key := tree.FormatExpression(node)
+				if _, dup := seen[key]; !dup {
+					seen[key] = struct{}{}
+					functions = append(functions, node)
+					// TODO: need do other func
+					v.analyzer.ctx.Analysis.AddResolvedFunction(node, node.Name)
+				}
 			}
 		}
 
@@ -636,7 +648,13 @@ func (v *StatementVisitor) analyzeAggregations(query *tree.QuerySpecification, s
 }
 
 func (v *StatementVisitor) analyzeHaving(node *tree.QuerySpecification, scope *Scope) {
-	// FIXME:impl it
+	if node.Having == nil {
+		return
+	}
+	// Resolve column and aggregate-function references in the HAVING expression
+	// against the post-GROUP-BY scope so that aggregate calls are recognised.
+	v.analyzeExpression(node.Having, scope)
+	v.analyzer.ctx.Analysis.SetHaving(node, node.Having)
 }
 
 func (v *StatementVisitor) analyzeOrderBy(node tree.Node,

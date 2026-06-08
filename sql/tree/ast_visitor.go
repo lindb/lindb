@@ -806,6 +806,12 @@ func (v *AstVisitor) VisitGroupBy(ctx *grammar.GroupByContext) any {
 	}
 }
 
+// VisitHaving unwraps the having rule and visits the inner booleanExpression,
+// returning it directly as an Expression so that QuerySpecification.Having is set.
+func (v *AstVisitor) VisitHaving(ctx *grammar.HavingContext) any {
+	return visitIfPresent[Expression](ctx.BooleanExpression(), v)
+}
+
 func (v *AstVisitor) VisitSingleGroupingSet(ctx *grammar.SingleGroupingSetContext) any {
 	return &SimpleGroupBy{
 		BaseNode: v.createBaseNode(ctx),

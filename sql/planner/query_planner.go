@@ -85,7 +85,9 @@ func (p *QueryPlanner) planQuerySpecification(node *tree.QuerySpecification) *Re
 	builder = p.filter(builder, p.context.AnalyzerContext.Analysis.GetWhere(node), node)
 	// agg/group by
 	builder = p.aggregate(builder, node)
-	// TODO: having
+	// Apply HAVING filter after aggregation; filter() has a nil guard so this is
+	// a no-op when the query has no HAVING clause.
+	builder = p.filter(builder, p.context.AnalyzerContext.Analysis.GetHaving(node), node)
 	// TODO: sub query
 
 	selectExpressions := p.context.AnalyzerContext.Analysis.GetSelectExpressions(node)

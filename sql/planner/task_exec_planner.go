@@ -116,13 +116,18 @@ func (v *TaskExecutionPlanVisitor) visitValues(_ any, node *planpkg.ValuesNode) 
 }
 
 // visitFilter plans filter physical operator.
+// For WHERE-style filters (source is a TableScan) the predicate is pushed into the
+// scan operator directly.  For HAVING-style filters (source is an AggregationNode or
+// any other non-scan node) we plan the child first, then wrap it in a FilterOperator
+// that evaluates the predicate on the aggregated output rows.
 func (v *TaskExecutionPlanVisitor) visitFilter(context any, node *planpkg.FilterNode) (r any) {
 	if tableScan, ok := node.Source.(*planpkg.TableScanNode); ok {
 		return v.visitTableScan(context, tableScan, node.Predicate)
-		// FIXME: source layout???
-		// return NewPhysicalOperation(operatorFct, node.GetOutputSymbols(), nil)
 	}
-	panic("need impl visitFilter")
+	// HAVING or any filter whose source is not a plain TableScan: plan the child
+	// and apply the predicate as a post-processing FilterOperator.
+	child := node.Source.Accept(context, v).(operator.Operator)
+	return operator.NewFilterOperator(v.taskExecCtx.Context, child, node.Predicate)
 }
 
 func (v *TaskExecutionPlanVisitor) visitExchange(context any, node *planpkg.ExchangeNode) (r any) {
@@ -194,6 +199,11 @@ func (v *TaskExecutionPlanVisitor) visitScanFilterAndProjection(context any,
 	}
 	// plan source node
 	child := sourceNode.Accept(context, v).(operator.Operator)
+	// When a HAVING predicate is present, insert a FilterOperator between the
+	// aggregation result and the projection so that only passing rows advance.
+	if predicate != nil {
+		child = operator.NewFilterOperator(v.taskExecCtx.Context, child, predicate)
+	}
 	return operator.NewProjectionOperator(v.taskExecCtx.Context, project, child)
 }
 

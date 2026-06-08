@@ -36,7 +36,9 @@ var (
 	ComparisonEQ  ComparisonOperator = "="
 	ComparisonNEQ ComparisonOperator = "!="
 	ComparisonGT  ComparisonOperator = ">"
+	ComparisonGTE ComparisonOperator = ">="
 	ComparisonLT  ComparisonOperator = "<"
+	ComparisonLTE ComparisonOperator = "<="
 
 	Add      ArithmeticOperator = "+"
 	Subtract ArithmeticOperator = "-"

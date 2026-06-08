@@ -18,12 +18,17 @@
 package types
 
 var (
-	Equal    OperatorType = NewOperatorType("=", 2)
-	Add      OperatorType = NewOperatorType("+", 2)
-	Subtract OperatorType = NewOperatorType("-", 2)
-	Multiply OperatorType = NewOperatorType("*", 2)
-	Divide   OperatorType = NewOperatorType("/", 2)
-	Modulus  OperatorType = NewOperatorType("%", 2)
+	Equal              OperatorType = NewOperatorType("=", 2)
+	NotEqual           OperatorType = NewOperatorType("!=", 2)
+	GreaterThan        OperatorType = NewOperatorType(">", 2)
+	GreaterThanOrEqual OperatorType = NewOperatorType(">=", 2)
+	LessThan           OperatorType = NewOperatorType("<", 2)
+	LessThanOrEqual    OperatorType = NewOperatorType("<=", 2)
+	Add                OperatorType = NewOperatorType("+", 2)
+	Subtract           OperatorType = NewOperatorType("-", 2)
+	Multiply           OperatorType = NewOperatorType("*", 2)
+	Divide             OperatorType = NewOperatorType("/", 2)
+	Modulus            OperatorType = NewOperatorType("%", 2)
 )
 
 type OperatorType struct {
