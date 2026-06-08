@@ -22,6 +22,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"math"
+	"regexp"
+	"strings"
 
 	"github.com/cockroachdb/pebble/v2"
 	"go.uber.org/atomic"
@@ -221,13 +223,64 @@ func (db *database) FindFieldValueIDs(key uint32, expr tree.Expr) (ids []uint32,
 		ids = append(ids, id)
 		return ids, nil
 	case *tree.InExpr:
-		return nil, nil
+		for _, value := range expression.Values {
+			id, idErr := db.GetFieldValueID(key, strutil.String2ByteSlice(value))
+			if idErr != nil {
+				// Value not in index; skip — IN matches whatever exists.
+				continue
+			}
+			ids = append(ids, id)
+		}
+		return ids, nil
 	case *tree.LikeExpr:
-		return nil, nil
+		rp, err := regexp.Compile(likePatternToRegex(expression.Value))
+		if err != nil {
+			return nil, err
+		}
+		prefix, _ := rp.LiteralPrefix() // e.g. "^INFO.*$" → prefix="INFO"
+		return db.scanFieldValuesByRegexp(key, strutil.String2ByteSlice(prefix), rp), nil
 	case *tree.RegexExpr:
-		return nil, nil
+		rp, err := regexp.Compile(expression.Regexp)
+		if err != nil {
+			return nil, err
+		}
+		prefix, _ := rp.LiteralPrefix() // e.g. "^INFO.*" → prefix="INFO"
+		return db.scanFieldValuesByRegexp(key, strutil.String2ByteSlice(prefix), rp), nil
 	}
 	return ids, nil
+}
+
+// scanFieldValuesByRegexp scans field values under fieldKey starting from prefix
+// and collects IDs of those whose key matches rp.
+// An empty prefix causes a full scan of all values for the field.
+func (db *database) scanFieldValuesByRegexp(fieldKey uint32, prefix []byte, rp *regexp.Regexp) []uint32 {
+	var ids []uint32
+	db.ScanField(fieldKey, prefix, func(value []byte, id uint32) bool {
+		if rp.Match(value) {
+			ids = append(ids, id)
+		}
+		return true
+	})
+	return ids
+}
+
+// likePatternToRegex converts a SQL LIKE pattern to an anchored Go regex string.
+// SQL '%' matches any sequence of characters; '_' matches exactly one character.
+func likePatternToRegex(like string) string {
+	var sb strings.Builder
+	sb.WriteString("^")
+	for _, ch := range like {
+		switch ch {
+		case '%':
+			sb.WriteString(".*")
+		case '_':
+			sb.WriteString(".")
+		default:
+			sb.WriteString(regexp.QuoteMeta(string(ch)))
+		}
+	}
+	sb.WriteString("$")
+	return sb.String()
 }
 
 func (db *database) Flush() error {
