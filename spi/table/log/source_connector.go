@@ -249,9 +249,9 @@ func (sc *sourceConnector) initializeSearchContext(tableScan *TableScan) {
 	lo.ForEach(sc.outputColumns, func(item arrow.Field, index int) {
 		if item.Name == constants.TimestampColumnName {
 			sc.outputsHasTimestamp = true
-		} else if arrow.TypeEqual(item.Type, larrow.ExtensionTypes.Dynamic) && !IsFixedLogSchemaField(item.Name) {
-			// Only user-defined attribute fields (not fixed schema columns) are truly dynamic.
-			// Dynamic and String share the same underlying type, so we must guard by name.
+		} else if arrow.TypeEqual(item.Type, larrow.ExtensionTypes.Dynamic) || IsFixedLogSchemaField(item.Name) {
+			// Dynamic user-defined attribute fields and fixed schema fields (e.g. level) both
+			// support grouping; fixed schema fields like level are indexed during the write path.
 			if len(sc.fieldKeys) == 1 {
 				panic("too many grouping fields, only support one field")
 			}
@@ -265,11 +265,20 @@ func (sc *sourceConnector) initializeSearchContext(tableScan *TableScan) {
 	})
 
 	if sc.hasAggregate {
-		if sc.outputsHasTimestamp {
+		fmt.Printf("initializeSearchContext: hasAggregate=true outputsHasTimestamp=%v fieldKeys=%v\n",
+			sc.outputsHasTimestamp, sc.fieldKeys)
+		if len(sc.fieldKeys) > 0 && sc.outputsHasTimestamp {
+			// GROUP BY a field AND output TimeSeries: need per-group time buckets.
+			sc.aggregator = newAggregatorByFieldAndTime(sc, tableScan)
+		} else if sc.outputsHasTimestamp {
+			// No field grouping, only time buckets.
 			sc.aggregator = newAggregatorByTime(sc, tableScan)
 		} else {
+			// GROUP BY a field (Sum) or total count with no time buckets.
 			sc.aggregator = newAggregatorByField(sc, tableScan)
 		}
+	} else {
+		fmt.Printf("initializeSearchContext: hasAggregate=false (no aggregate assignments found)\n")
 	}
 }
 

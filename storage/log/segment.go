@@ -214,15 +214,21 @@ func (s *Segment) FindLogIDsByTimeRange(timeRange timeutil.TimeRange, callback f
 	target := (&timeRange).Intersect(s.SegmentTimeRange())
 	start := target.Start - target.Start%interval
 	end := target.End - target.End%interval
+	fmt.Printf("FindLogIDsByTimeRange: query=[%d,%d] segment=[%d,%d] search=[%d,%d]\n",
+		timeRange.Start, timeRange.End,
+		s.TimeRange.Start, s.TimeRange.End,
+		start, end)
+
 	partitionTime := s.partition.PartitionTime()
 	temp := roaring.New()
 	result := roaring.New()
 	if err := walkTimeRange(start, end, interval, func(timestamp int64) error {
 		idsObj, _ := s.timestampIndexes.Load(timestamp)
 		if ids, ok := idsObj.(*roaring.Bitmap); ok {
+			fmt.Printf("  mem-hit  ts=%d count=%d\n", timestamp, ids.GetCardinality())
 			result.Or(ids)
 		} else {
-			fmt.Println("not found.....")
+			fmt.Printf("  mem-miss ts=%d (will check kv snapshot)\n", timestamp)
 		}
 		if err := snapshot.Load(uint32(timestamp-partitionTime), func(value []byte) error {
 			_, err := encoding.BitmapUnmarshal(temp, value)
@@ -236,6 +242,7 @@ func (s *Segment) FindLogIDsByTimeRange(timeRange timeutil.TimeRange, callback f
 		}
 
 		if !result.IsEmpty() {
+			fmt.Printf("  callback ts=%d count=%d\n", timestamp, result.GetCardinality())
 			callback(timestamp, result)
 		}
 

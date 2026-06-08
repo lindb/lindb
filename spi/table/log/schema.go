@@ -45,7 +45,17 @@ type logColumn struct {
 // registration and the source connector's column-reading pipeline.
 var logSchema = []logColumn{
 	{
-		Field: arrow.Field{Name: arrowConst.Timestamp, Type: arrow.FixedWidthTypes.Timestamp_ns, Nullable: false},
+		// Timestamp is marked hidden so the analyzer and result renderer skip it
+		// as a standalone output column.  When a time-aggregation query selects
+		// timestamp as a grouping key, the HashAggregationOperator fills it with
+		// nulls because time metadata is already embedded inside the TimeSeries
+		// struct (start/end/interval/values) — matching the metric engine pattern.
+		Field: arrow.Field{
+			Name:     arrowConst.Timestamp,
+			Type:     arrow.FixedWidthTypes.Timestamp_ns,
+			Nullable: false,
+			Metadata: arrow.MetadataFrom(map[string]string{"hidden": "true"}),
+		},
 		reader: func(rb *builder.RecordBuilder) func(*logspkg.Reader, int) {
 			tb := rb.TimestampBuilder(arrowConst.Timestamp)
 			return func(r *logspkg.Reader, row int) {

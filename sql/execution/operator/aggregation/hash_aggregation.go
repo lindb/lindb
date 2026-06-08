@@ -133,7 +133,14 @@ func (h *HashAggregationOperator) computeAggregations(batch arrow.RecordBatch) a
 	outFields := make([]arrow.Field, len(outputSymbols))
 	for i, sym := range outputSymbols {
 		dt := sym.DataType
-		if isTimeSeries && !h.isGroupingKey(sym) && !h.isTimestampKey(sym) {
+		// If the symbol has no resolved type (e.g. FunctionCall.RetType was null in the plan
+		// fragment), infer it from the merged batch rather than risking a wrong type override.
+		if dt == nil {
+			if ci, ok := inputIdx[sym.Name]; ok {
+				dt = batch.Schema().Field(ci).Type
+			}
+		}
+		if dt != nil && isTimeSeries && !h.isGroupingKey(sym) && !h.isTimestampKey(sym) {
 			if h.findAggForSymbol(sym) != nil {
 				dt = larrow.ExtensionTypes.TimeSeries
 			}

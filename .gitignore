@@ -9,6 +9,7 @@ bin/
 *.iml
 release/
 .claude/settings.local.json
+.claude.json
 
 # temp file during testing
 cpu_profile

@@ -87,9 +87,14 @@ func (t *TranslationMap) getSymbolForColumn(node tree.Expression) *plan.Symbol {
 		return nil
 	}
 	if t.scope.Dynamic || arrow.TypeEqual(field.Field.DataType, larrow.ExtensionTypes.Dynamic) {
+		// Preserve the Hidden flag so fixed-schema columns (e.g. timestamp) that are
+		// marked hidden in the table schema remain hidden after translation.
+		// Without this, every field lookup through the Dynamic branch would produce
+		// Hidden=false, causing hidden columns to appear in the query output.
 		return &plan.Symbol{
 			Name:     field.Field.Name,
 			DataType: field.Field.DataType,
+			Hidden:   field.Field.Hidden,
 		}
 	}
 	isLocalScope := t.scope.IsLocalScope(field.Scope)

@@ -18,6 +18,8 @@
 package planner
 
 import (
+	"github.com/apache/arrow-go/v18/arrow"
+	larrow "github.com/lindb/arrow/pkg/arrow"
 	"github.com/samber/lo"
 
 	"github.com/lindb/lindb/sql/analyzer"
@@ -224,11 +226,26 @@ func (p *QueryPlanner) planGroupingOperations(subPlan *PlanBuilder, _ *tree.Quer
 func (p *QueryPlanner) planAggregation(subPlan *PlanBuilder,
 	groupingSets [][]*plan.Symbol, aggregates []*tree.FunctionCall,
 ) *PlanBuilder {
+	// Determine if any grouping key is a timestamp column.
+	// If there is no timestamp dimension, the storage aggregator emits scalar float values
+	// rather than TimeSeries, so we override the function return type accordingly.
+	hasTimestampKey := lo.ContainsBy(lo.Flatten(groupingSets), func(sym *plan.Symbol) bool {
+		return sym != nil && arrow.TypeEqual(sym.DataType, arrow.FixedWidthTypes.Timestamp_ns)
+	})
+
 	var aggregateMapping []*plan.AggregationAssignment
 	additionalMapping := make(map[string]*plan.Symbol)
 	// TODO: scopeAwareDistinct
 	for _, function := range aggregates {
-		symbol := p.context.SymbolAllocator.FromExpression(function, p.context.AnalyzerContext.Analysis.GetType(function))
+		resultType := p.context.AnalyzerContext.Analysis.GetType(function)
+		if !hasTimestampKey && arrow.TypeEqual(resultType, larrow.ExtensionTypes.TimeSeries) {
+			// No timestamp grouping key: override TimeSeries with Float64 (scalar float).
+			// The storage aggregator emits a scalar count/sum value, not a time series.
+			resultType = arrow.PrimitiveTypes.Float64
+			// Keep Analysis consistent so any future GetType call also returns Float64.
+			p.context.AnalyzerContext.Analysis.AddType(function, resultType)
+		}
+		symbol := p.context.SymbolAllocator.FromExpression(function, resultType)
 		aggregation := &plan.Aggregation{
 			Function: p.context.AnalyzerContext.Analysis.GetResolvedFunction(function),
 			Arguments: lo.Map(function.Arguments, func(arg tree.Expression, _ int) tree.Expression {

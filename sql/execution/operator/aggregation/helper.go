@@ -97,7 +97,14 @@ func appendFloat64(b array.Builder, val float64) {
 	case *array.Float64Builder:
 		eb.Append(val)
 	case *array.ExtensionBuilder:
-		larray.NewAggregationBuilder(eb).Append(val)
+		// Guard: only call NewAggregationBuilder when the underlying builder is Float64.
+		// If the ExtensionType wraps a non-Float64 builder (e.g. TimeSeries wraps Struct),
+		// fall back to AppendNull rather than panicking.
+		if _, ok := eb.Builder.(*array.Float64Builder); ok {
+			larray.NewAggregationBuilder(eb).Append(val)
+		} else {
+			eb.AppendNull()
+		}
 	default:
 		b.AppendNull()
 	}

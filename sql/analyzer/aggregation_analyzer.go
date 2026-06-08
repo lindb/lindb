@@ -23,32 +23,38 @@ import (
 	"github.com/lindb/lindb/sql/tree"
 )
 
-func verifySourceAggregations(analysis *Analysis, _, expressions []tree.Expression) {
-	analyzer := NewAggregationAnalyzer(analysis)
+// verifySourceAggregations checks that every output expression is either an aggregate
+// function call or a column that appears in the grouping set.
+// groupingFields is the flattened list of FieldIDs from the GROUP BY / implicit-timestamp sets.
+func verifySourceAggregations(analysis *Analysis, groupingFields []*FieldID, expressions []tree.Expression) {
+	analyzer := NewAggregationAnalyzer(analysis, groupingFields)
 	for _, expression := range expressions {
 		analyzer.analyze(expression)
 	}
 }
 
-func verifyOrderByAggregations(analysis *Analysis, _, expressions []tree.Expression) {
-	analyzer := NewAggregationAnalyzer(analysis)
+// verifyOrderByAggregations applies the same grouping-key check to ORDER BY expressions.
+func verifyOrderByAggregations(analysis *Analysis, groupingFields []*FieldID, expressions []tree.Expression) {
+	analyzer := NewAggregationAnalyzer(analysis, groupingFields)
 	for _, expression := range expressions {
 		analyzer.analyze(expression)
 	}
 }
 
 type AggregationAnanlyzer struct {
-	analysis *Analysis
+	analysis       *Analysis
+	groupingFields []*FieldID // FieldIDs that are valid non-aggregate references
 }
 
-func NewAggregationAnalyzer(analysis *Analysis) *AggregationAnanlyzer {
+func NewAggregationAnalyzer(analysis *Analysis, groupingFields []*FieldID) *AggregationAnanlyzer {
 	return &AggregationAnanlyzer{
-		analysis: analysis,
+		analysis:       analysis,
+		groupingFields: groupingFields,
 	}
 }
 
 func (aa *AggregationAnanlyzer) analyze(expression tree.Expression) {
-	visitor := NewAggregationAnalyzeVisitor(aa.analysis)
+	visitor := NewAggregationAnalyzeVisitor(aa.analysis, aa.groupingFields)
 	if r, ok := expression.Accept(nil, visitor).(bool); ok {
 		if !r {
 			panic(fmt.Sprintf("'%s' must be an aggregate expression or appear in GROUP BY clause",
@@ -58,12 +64,14 @@ func (aa *AggregationAnanlyzer) analyze(expression tree.Expression) {
 }
 
 type aggregationAnalyzeVisitor struct {
-	analysis *Analysis
+	analysis       *Analysis
+	groupingFields []*FieldID
 }
 
-func NewAggregationAnalyzeVisitor(analysis *Analysis) tree.Visitor {
+func NewAggregationAnalyzeVisitor(analysis *Analysis, groupingFields []*FieldID) tree.Visitor {
 	return &aggregationAnalyzeVisitor{
-		analysis: analysis,
+		analysis:       analysis,
+		groupingFields: groupingFields,
 	}
 }
 
@@ -86,8 +94,25 @@ func (v *aggregationAnalyzeVisitor) Visit(context any, n tree.Node) (r any) {
 	}
 }
 
+// visitIdentifier checks whether an identifier refers to a column that is part of
+// the grouping set.  A column reference that is not in the grouping set is invalid
+// in an aggregating query (SQL: "must appear in GROUP BY clause").
 func (v *aggregationAnalyzeVisitor) visitIdentifier(node *tree.Identifier) (r any) {
-	return true
+	resolvedField := v.analysis.GetColumnReferenceField(node)
+	if resolvedField == nil {
+		// Not a plain column reference (e.g. a literal alias) — allow it.
+		return true
+	}
+
+	// Check whether this column is one of the grouping keys by comparing FieldID
+	// (RelationID pointer identity + FieldIndex value).
+	fieldID := resolvedField.FieldID()
+	for _, gf := range v.groupingFields {
+		if gf.RelationID == fieldID.RelationID && gf.FieldIndex == fieldID.FieldIndex {
+			return true
+		}
+	}
+	return false
 }
 
 func (v *aggregationAnalyzeVisitor) visitDereferenceExpression(node *tree.DereferenceExpression) (r any) {
@@ -109,18 +134,3 @@ func (v *aggregationAnalyzeVisitor) visitDereferenceExpression(node *tree.Derefe
 	// Allow SELECT col1.f1 FROM table1 GROUP BY col1
 	return node.Base.Accept(nil, v)
 }
-
-// func (v *aggregationAnalyzeVisitor) isGroupingKey(node tree.Expression) bool {
-// 	return false
-// }
-
-// private boolean isGroupingKey(Expression node)
-//       {
-//           FieldId fieldId = requireNonNull(columnReferences.get(NodeRef.of(node)), () -> "No field for " + node).getFieldId();
-//
-//           if (orderByScope.isPresent() && isFieldFromScope(fieldId, orderByScope.get())) {
-//               return true;
-//           }
-//
-//           return groupingFields.contains(fieldId);
-//       }

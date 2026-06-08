@@ -528,7 +528,15 @@ func (v *StatementVisitor) analyzeGroupBy(node *tree.QuerySpecification, scope *
 			// no grouping column
 			return nil
 		}
-	} else if v.hasAggregates(node) {
+	} else if !v.hasAggregates(node) {
+		return nil
+	}
+
+	// Detect implicit timestamp grouping key from SELECT for time-series aggregations.
+	// Timestamp is forbidden in explicit GROUP BY (panics above), so it must be inferred
+	// from SELECT. Applies when: (a) explicit GROUP BY with aggregates, or
+	// (b) no GROUP BY but aggregates reference timestamp in SELECT.
+	if v.hasAggregates(node) {
 		for _, item := range node.Select.SelectItems {
 			if single, ok := item.(*tree.SingleColumn); ok {
 				field := v.analyzer.ctx.Analysis.GetColumnReferenceField(single.Expression)
@@ -537,8 +545,6 @@ func (v *StatementVisitor) analyzeGroupBy(node *tree.QuerySpecification, scope *
 				}
 			}
 		}
-	} else {
-		return nil
 	}
 
 	groupingSets := NewGroupingSetAnalysis(groupingExpressions, sets, complexExpressions)
@@ -618,11 +624,13 @@ func (v *StatementVisitor) analyzeAggregations(query *tree.QuerySpecification, s
 		//     SELECT f(a) GROUP BY a
 		//     SELECT f(a + 1) GROUP BY a + 1
 		//     SELECT a + sum(b) GROUP BY a
-		distinctGroupingColumns := groupByAnalysis.GetOriginalExpression()
-		verifySourceAggregations(v.analyzer.ctx.Analysis, distinctGroupingColumns, outputExpressions)
+		// Use the flattened FieldID set (GROUP BY keys + implicit timestamp) so
+		// visitIdentifier can check membership by RelationID + FieldIndex identity.
+		groupingFields := groupByAnalysis.GetAllFields()
+		verifySourceAggregations(v.analyzer.ctx.Analysis, groupingFields, outputExpressions)
 
 		if len(orderByExpressions) > 0 {
-			verifyOrderByAggregations(v.analyzer.ctx.Analysis, distinctGroupingColumns, orderByExpressions)
+			verifyOrderByAggregations(v.analyzer.ctx.Analysis, groupingFields, orderByExpressions)
 		}
 	}
 }

@@ -22,9 +22,13 @@ import (
 
 	"github.com/apache/arrow-go/v18/arrow"
 	larrow "github.com/lindb/arrow/pkg/arrow"
+	larray "github.com/lindb/arrow/pkg/arrow/array"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/lindb/lindb/constants"
+	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/sql/planner/plan"
 	"github.com/lindb/lindb/sql/tree"
 )
@@ -115,14 +119,41 @@ func TestBuildColumnAggregations_MultiplePhiArgs(t *testing.T) {
 	assert.Equal(t, "rtt", result[0].Column)
 }
 
-// TestBuildColumnAggregations_NoColumnName verifies that an aggregation with no
-// SymbolReference or Constant argument produces no entry.
+// TestBuildColumnAggregations_NoColumnName verifies that an aggregation whose
+// arguments are literal-only (e.g. histogram_quantile(0.99) missing the column ref)
+// is an incomplete call and must be skipped.
 func TestBuildColumnAggregations_NoColumnName(t *testing.T) {
 	aggs := []*plan.AggregationAssignment{
 		makeAgg(tree.HistogramQuantile, floatLit("0.99")), // phi only, no column
 	}
 	result := buildColumnAggregations(aggs)
-	assert.Empty(t, result, "no column name → entry must be skipped")
+	assert.Empty(t, result, "literal-only args with no column name → entry must be skipped")
+}
+
+// TestBuildColumnAggregations_Count verifies that COUNT(*) (zero arguments) is included
+// using the function name as a synthetic column placeholder so push-down can proceed.
+// The storage aggregator identifies aggregation via handle.Aggregation != "", not by column name.
+func TestBuildColumnAggregations_Count(t *testing.T) {
+	aggs := []*plan.AggregationAssignment{
+		makeAgg(tree.Count), // COUNT(*) — no arguments
+	}
+	result := buildColumnAggregations(aggs)
+	require.Len(t, result, 1, "COUNT(*) must be included for push-down")
+	assert.Equal(t, string(tree.Count), result[0].Column, "column should be function name placeholder")
+	assert.Equal(t, tree.Count, result[0].AggFuncName)
+}
+
+// TestBuildColumnAggregations_CountLiteral verifies that COUNT(1) (literal argument,
+// no column reference) is also included, because the literal 1 is not a column name
+// but COUNT still means "count all matching rows".
+func TestBuildColumnAggregations_CountLiteral(t *testing.T) {
+	aggs := []*plan.AggregationAssignment{
+		makeAgg(tree.Count, longLit("1")), // COUNT(1) — literal argument
+	}
+	result := buildColumnAggregations(aggs)
+	require.Len(t, result, 1, "COUNT(1) must be included for push-down")
+	assert.Equal(t, string(tree.Count), result[0].Column, "column should be function name placeholder")
+	assert.Equal(t, tree.Count, result[0].AggFuncName)
 }
 
 // TestBuildColumnAggregations_EmptyAggregations verifies that an empty input
@@ -192,4 +223,205 @@ func TestIsNumericSymbolRef(t *testing.T) {
 	assert.False(t, isNumericSymbolRef(symRefWithType("sent_duration", larrow.ExtensionTypes.Histogram)))
 	assert.False(t, isNumericSymbolRef(symRefWithType("cpu", larrow.ExtensionTypes.Sum)))
 	assert.False(t, isNumericSymbolRef(symRef("no_type"))) // nil DataType → false
+}
+
+// ----- hasTimestampGroupingKey -----
+
+// TestHasTimestampGroupingKey_NilGroupingSets verifies nil GroupingSets → false.
+func TestHasTimestampGroupingKey_NilGroupingSets(t *testing.T) {
+	node := &plan.AggregationNode{}
+	assert.False(t, hasTimestampGroupingKey(node))
+}
+
+// TestHasTimestampGroupingKey_EmptyKeys verifies empty GroupingKeys → false.
+func TestHasTimestampGroupingKey_EmptyKeys(t *testing.T) {
+	node := &plan.AggregationNode{
+		GroupingSets: &plan.GroupingSetDescriptor{GroupingKeys: nil},
+	}
+	assert.False(t, hasTimestampGroupingKey(node))
+}
+
+// TestHasTimestampGroupingKey_HasTimestamp verifies that a timestamp key is detected.
+func TestHasTimestampGroupingKey_HasTimestamp(t *testing.T) {
+	tsSym := &plan.Symbol{Name: constants.TimestampColumnName}
+	node := &plan.AggregationNode{
+		GroupingSets: &plan.GroupingSetDescriptor{GroupingKeys: []*plan.Symbol{tsSym}},
+	}
+	assert.True(t, hasTimestampGroupingKey(node))
+}
+
+// TestHasTimestampGroupingKey_NoTimestamp verifies that non-timestamp keys return false.
+func TestHasTimestampGroupingKey_NoTimestamp(t *testing.T) {
+	node := &plan.AggregationNode{
+		GroupingSets: &plan.GroupingSetDescriptor{
+			GroupingKeys: []*plan.Symbol{{Name: "level"}, {Name: "service"}},
+		},
+	}
+	assert.False(t, hasTimestampGroupingKey(node))
+}
+
+// ----- buildGroupingKeysWithSumAssignments -----
+
+// TestBuildGroupingKeysWithSumAssignments_NoGrouping verifies that with no grouping
+// keys, only assignment symbols (Sum type) are returned.
+func TestBuildGroupingKeysWithSumAssignments_NoGrouping(t *testing.T) {
+	node := &plan.AggregationNode{
+		GroupingSets: &plan.GroupingSetDescriptor{},
+	}
+	assignments := []*spi.ColumnAssignment{
+		{Column: "count"},
+	}
+	out := buildGroupingKeysWithSumAssignments(node, assignments)
+	require.Len(t, out, 1)
+	assert.Equal(t, "count", out[0].Name)
+	assert.True(t, arrow.TypeEqual(out[0].DataType, larray.NewAggregationType(larray.Sum)),
+		"expected Sum type, got %v", out[0].DataType)
+}
+
+// TestBuildGroupingKeysWithSumAssignments_WithGrouping verifies that grouping keys
+// are prepended before assignment symbols.
+func TestBuildGroupingKeysWithSumAssignments_WithGrouping(t *testing.T) {
+	levelSym := &plan.Symbol{Name: "level", DataType: arrow.BinaryTypes.String}
+	node := &plan.AggregationNode{
+		GroupingSets: &plan.GroupingSetDescriptor{GroupingKeys: []*plan.Symbol{levelSym}},
+	}
+	assignments := []*spi.ColumnAssignment{
+		{Column: "count"},
+	}
+	out := buildGroupingKeysWithSumAssignments(node, assignments)
+	require.Len(t, out, 2)
+	assert.Equal(t, levelSym, out[0], "first symbol should be the grouping key")
+	assert.Equal(t, "count", out[1].Name)
+	assert.True(t, arrow.TypeEqual(out[1].DataType, larray.NewAggregationType(larray.Sum)))
+}
+
+// ----- buildTableScanOutputSymbols: log table without timestamp grouping -----
+
+// mockLogTable is a minimal spi.TableHandle for log table tests.
+type mockLogTable struct{}
+
+func (m *mockLogTable) SetTimeRange(_ timeutil.TimeRange) {}
+func (m *mockLogTable) GetTimeRange() timeutil.TimeRange  { return timeutil.TimeRange{} }
+func (m *mockLogTable) SetInterval(_ timeutil.Interval)   {}
+func (m *mockLogTable) GetInterval() timeutil.Interval    { return 0 }
+func (m *mockLogTable) Kind() spi.DatasourceKind          { return spi.Log }
+func (m *mockLogTable) String() string                    { return "log" }
+
+// mockMetricTable is a minimal spi.TableHandle for metric table tests.
+type mockMetricTable struct{}
+
+func (m *mockMetricTable) SetTimeRange(_ timeutil.TimeRange) {}
+func (m *mockMetricTable) GetTimeRange() timeutil.TimeRange  { return timeutil.TimeRange{} }
+func (m *mockMetricTable) SetInterval(_ timeutil.Interval)   {}
+func (m *mockMetricTable) GetInterval() timeutil.Interval    { return 0 }
+func (m *mockMetricTable) Kind() spi.DatasourceKind          { return spi.Metric }
+func (m *mockMetricTable) String() string                    { return "metric" }
+
+// TestBuildTableScanOutputSymbols_LogNoTimestamp verifies that for a log table
+// without a timestamp grouping key, the output symbols use Sum type (not TimeSeries).
+// This matches aggregatorByField which emits Sum-typed values, not TimeSeries.
+func TestBuildTableScanOutputSymbols_LogNoTimestamp(t *testing.T) {
+	node := &plan.AggregationNode{
+		Aggregations: []*plan.AggregationAssignment{
+			makeAgg(tree.Count),
+		},
+		GroupingSets: &plan.GroupingSetDescriptor{},
+	}
+	assignments := []*spi.ColumnAssignment{
+		{Column: "count"},
+	}
+	out := buildTableScanOutputSymbols(node, assignments, &mockLogTable{})
+	require.Len(t, out, 1)
+	assert.Equal(t, "count", out[0].Name)
+	assert.True(t, arrow.TypeEqual(out[0].DataType, larray.NewAggregationType(larray.Sum)),
+		"log table without timestamp → Sum type, got %v", out[0].DataType)
+}
+
+// TestBuildTableScanOutputSymbols_LogWithTimestamp verifies that for a log table
+// with a timestamp grouping key, the original output symbols are kept unchanged.
+// aggregatorByTime emits TimeSeries values, so we keep the SQL-level symbols.
+func TestBuildTableScanOutputSymbols_LogWithTimestamp(t *testing.T) {
+	tsSym := &plan.Symbol{Name: constants.TimestampColumnName, DataType: arrow.FixedWidthTypes.Timestamp_ns}
+	countSym := &plan.Symbol{Name: "count", DataType: larrow.ExtensionTypes.TimeSeries}
+	node := &plan.AggregationNode{
+		Aggregations: []*plan.AggregationAssignment{
+			makeAgg(tree.Count),
+		},
+		GroupingSets: &plan.GroupingSetDescriptor{
+			GroupingKeys: []*plan.Symbol{tsSym},
+		},
+		Outputs: []*plan.Symbol{tsSym, countSym},
+	}
+	assignments := []*spi.ColumnAssignment{
+		{Column: "count"},
+	}
+	out := buildTableScanOutputSymbols(node, assignments, &mockLogTable{})
+	// With timestamp grouping, aggregatorByTime is used → keep original symbols (TimeSeries).
+	require.Len(t, out, 2)
+	assert.Equal(t, tsSym, out[0])
+	assert.Equal(t, countSym, out[1])
+}
+
+// TestBuildTableScanOutputSymbols_MetricTable verifies that for a metric table
+// (non-histogram, no log-specific logic), the original output symbols are returned unchanged.
+func TestBuildTableScanOutputSymbols_MetricTable(t *testing.T) {
+	countSym := &plan.Symbol{Name: "count", DataType: larrow.ExtensionTypes.TimeSeries}
+	node := &plan.AggregationNode{
+		Aggregations: []*plan.AggregationAssignment{
+			makeAgg(tree.Count),
+		},
+		GroupingSets:  &plan.GroupingSetDescriptor{},
+		Outputs: []*plan.Symbol{countSym},
+	}
+	assignments := []*spi.ColumnAssignment{
+		{Column: "count"},
+	}
+	out := buildTableScanOutputSymbols(node, assignments, &mockMetricTable{})
+	// Metric table: no log-specific override → original symbols returned.
+	require.Len(t, out, 1)
+	assert.Equal(t, countSym, out[0])
+}
+
+// TestBuildTableScanOutputSymbols_HistogramLog verifies that histogram aggregations
+// on a log table use Sum-typed symbols (broker layer computes the final function).
+func TestBuildTableScanOutputSymbols_HistogramLog(t *testing.T) {
+	node := &plan.AggregationNode{
+		Aggregations: []*plan.AggregationAssignment{
+			makeAgg(tree.HistogramQuantile, floatLit("0.99"), symRef("duration")),
+		},
+		GroupingSets: &plan.GroupingSetDescriptor{},
+	}
+	assignments := []*spi.ColumnAssignment{
+		{Column: "duration_bucket"},
+		{Column: "duration_count"},
+		{Column: "duration_sum"},
+	}
+	out := buildTableScanOutputSymbols(node, assignments, &mockLogTable{})
+	require.Len(t, out, 3)
+	for _, sym := range out {
+		assert.True(t, arrow.TypeEqual(sym.DataType, larray.NewAggregationType(larray.Sum)),
+			"histogram push-down → all symbols must be Sum type, got %v for %s", sym.DataType, sym.Name)
+	}
+}
+
+// TestBuildTableScanOutputSymbols_HistogramWithGrouping verifies that histogram
+// aggregations with grouping keys keep grouping keys as-is and use Sum for assignments.
+func TestBuildTableScanOutputSymbols_HistogramWithGrouping(t *testing.T) {
+	levelSym := &plan.Symbol{Name: "level", DataType: arrow.BinaryTypes.String}
+	node := &plan.AggregationNode{
+		Aggregations: []*plan.AggregationAssignment{
+			makeAgg(tree.HistogramQuantile, floatLit("0.99"), symRef("duration")),
+		},
+		GroupingSets: &plan.GroupingSetDescriptor{
+			GroupingKeys: []*plan.Symbol{levelSym},
+		},
+	}
+	assignments := []*spi.ColumnAssignment{
+		{Column: "duration_bucket"},
+	}
+	out := buildTableScanOutputSymbols(node, assignments, &mockMetricTable{})
+	require.Len(t, out, 2)
+	assert.Equal(t, levelSym, out[0], "grouping key should be kept as-is")
+	assert.Equal(t, "duration_bucket", out[1].Name)
+	assert.True(t, arrow.TypeEqual(out[1].DataType, larray.NewAggregationType(larray.Sum)))
 }
