@@ -879,6 +879,19 @@ func (v *AstVisitor) VisitFunctionCall(ctx *grammar.FunctionCallContext) any {
 	}
 }
 
+// VisitFunctionCallStar handles the functionCallStar grammar rule (e.g. COUNT(*)).
+// COUNT(*) is semantically equivalent to COUNT() — count all rows regardless of value.
+// We rewrite it here to a FunctionCall with no arguments, which countAccumulator
+// already handles as "count every row" (arg == nil path in count.go).
+func (v *AstVisitor) VisitFunctionCallStar(ctx *grammar.FunctionCallStarContext) any {
+	funcName := FuncName(strings.ToLower(v.getQualifiedName(ctx.QualifiedName()).Name))
+	return &FunctionCall{
+		BaseNode: v.createBaseNode(ctx),
+		Name:     funcName,
+		// No Arguments: count(*) ≡ count-all; countAccumulator handles len(args)==0.
+	}
+}
+
 func (v *AstVisitor) VisitArithmeticBinary(ctx *grammar.ArithmeticBinaryContext) any {
 	return &ArithmeticBinaryExpression{
 		BaseNode: v.createBaseNode(ctx),

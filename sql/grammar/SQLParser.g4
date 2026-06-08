@@ -197,6 +197,7 @@ primaryExpression   :
                     | booleanValue                                          #booleanLiteral
                     | NULL                                                  #nullLiteral
                     | string                                                #stringLiteral
+                    | qualifiedName '(' ASTERISK ')'                         #functionCallStar
                     | qualifiedName '(' (expression (',' expression)*)? ')' #functionCall
                     | identifier                                            #columnReference
                     | base=primaryExpression '.' fieldName=identifier       #dereference

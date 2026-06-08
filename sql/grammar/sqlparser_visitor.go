@@ -232,6 +232,9 @@ type SQLParserVisitor interface {
 	// Visit a parse tree produced by SQLParser#dereference.
 	VisitDereference(ctx *DereferenceContext) interface{}
 
+	// Visit a parse tree produced by SQLParser#functionCallStar.
+	VisitFunctionCallStar(ctx *FunctionCallStarContext) interface{}
+
 	// Visit a parse tree produced by SQLParser#columnReference.
 	VisitColumnReference(ctx *ColumnReferenceContext) interface{}
 

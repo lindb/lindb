@@ -342,10 +342,52 @@ func TestSQLParser_QueryStatement(t *testing.T) {
 
 func TestSQLParse(t *testing.T) {
 	parser := GetParser()
-	_, err := parser.CreateStatement(`select 12*(idle*10+100)/10,node from 
+	_, err := parser.CreateStatement(`select 12*(idle*10+100)/10,node from
 		"lindb.monitor.system.cpu_stat" group by node`,
 		NewNodeIDAllocator())
 	assert.NoError(t, err)
+}
+
+func TestSQLParse_CountStar(t *testing.T) {
+	// count(*) must parse without error and produce a FunctionCall with no arguments.
+	parser := GetParser()
+	cases := []string{
+		"select count(*) from logs",
+		"SELECT COUNT(*) FROM logs",
+		"select count(*) from logs where level = 'INFO'",
+		"SELECT count(*) FROM logs GROUP BY level",
+	}
+	for _, sql := range cases {
+		t.Run(sql, func(t *testing.T) {
+			stmt, err := parser.CreateStatement(sql, NewNodeIDAllocator())
+			assert.NoError(t, err)
+			assert.NotNil(t, stmt)
+
+			// Drill into the AST to verify count(*) is a FunctionCall named "count"
+			// with zero arguments — not with a star argument.
+			q, ok := stmt.(*Query)
+			assert.True(t, ok)
+			spec, ok := q.QueryBody.(*QuerySpecification)
+			assert.True(t, ok)
+			// Find the count(*) SingleColumn
+			found := false
+			for _, item := range spec.Select.SelectItems {
+				sc, ok := item.(*SingleColumn)
+				if !ok {
+					continue
+				}
+				fn, ok := sc.Expression.(*FunctionCall)
+				if !ok {
+					continue
+				}
+				if string(fn.Name) == "count" {
+					assert.Empty(t, fn.Arguments, "count(*) should produce FunctionCall with no arguments")
+					found = true
+				}
+			}
+			assert.True(t, found, "count function not found in SELECT items")
+		})
+	}
 }
 
 func Test_KeyWorks(t *testing.T) {

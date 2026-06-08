@@ -470,6 +470,12 @@ func (s *BaseSQLParserListener) EnterDereference(ctx *DereferenceContext) {}
 // ExitDereference is called when production dereference is exited.
 func (s *BaseSQLParserListener) ExitDereference(ctx *DereferenceContext) {}
 
+// EnterFunctionCallStar is called when production functionCallStar is entered.
+func (s *BaseSQLParserListener) EnterFunctionCallStar(ctx *FunctionCallStarContext) {}
+
+// ExitFunctionCallStar is called when production functionCallStar is exited.
+func (s *BaseSQLParserListener) ExitFunctionCallStar(ctx *FunctionCallStarContext) {}
+
 // EnterColumnReference is called when production columnReference is entered.
 func (s *BaseSQLParserListener) EnterColumnReference(ctx *ColumnReferenceContext) {}
 

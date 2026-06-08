@@ -307,6 +307,10 @@ func (v *BaseSQLParserVisitor) VisitDereference(ctx *DereferenceContext) interfa
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseSQLParserVisitor) VisitFunctionCallStar(ctx *FunctionCallStarContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseSQLParserVisitor) VisitColumnReference(ctx *ColumnReferenceContext) interface{} {
 	return v.VisitChildren(ctx)
 }

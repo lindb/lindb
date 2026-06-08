@@ -232,6 +232,9 @@ type SQLParserListener interface {
 	// EnterDereference is called when entering the dereference production.
 	EnterDereference(c *DereferenceContext)
 
+	// EnterFunctionCallStar is called when entering the functionCallStar production.
+	EnterFunctionCallStar(c *FunctionCallStarContext)
+
 	// EnterColumnReference is called when entering the columnReference production.
 	EnterColumnReference(c *ColumnReferenceContext)
 
@@ -573,6 +576,9 @@ type SQLParserListener interface {
 
 	// ExitDereference is called when exiting the dereference production.
 	ExitDereference(c *DereferenceContext)
+
+	// ExitFunctionCallStar is called when exiting the functionCallStar production.
+	ExitFunctionCallStar(c *FunctionCallStarContext)
 
 	// ExitColumnReference is called when exiting the columnReference production.
 	ExitColumnReference(c *ColumnReferenceContext)
