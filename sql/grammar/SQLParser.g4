@@ -207,7 +207,7 @@ primaryExpression   :
 
 predicate           : TIMESTAMP operator=comparisonOperator right=valueExpression                              #timestampPredicate 
 										| left=valueExpression operator=comparisonOperator right=valueExpression                   #binaryComparisonPredicate
-                    | TIMESTAMP BETWEEN lower=valueExpression AND upper=valueExpression                        #betweenPredicate
+                    | left=valueExpression BETWEEN lower=valueExpression AND upper=valueExpression            #betweenPredicate
                     | left=valueExpression NOT? IN '(' expression (',' expression)* ')'                        #inPredicate
                     | left=valueExpression NOT? LIKE pattern=valueExpression (ESCAPE escape=valueExpression)?  #likePredicate
                     | left=valueExpression operator=(REGEXP|NEQREGEXP) pattern=valueExpression?                #regexpPredicate

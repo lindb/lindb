@@ -395,7 +395,7 @@ func sqlparserParserInit() {
 		642, 640, 1, 0, 0, 0, 643, 644, 5, 78, 0, 0, 644, 645, 3, 106, 53, 0, 645,
 		646, 3, 100, 50, 0, 646, 697, 1, 0, 0, 0, 647, 648, 3, 100, 50, 0, 648,
 		649, 3, 106, 53, 0, 649, 650, 3, 100, 50, 0, 650, 697, 1, 0, 0, 0, 651,
-		652, 5, 78, 0, 0, 652, 653, 5, 12, 0, 0, 653, 654, 3, 100, 50, 0, 654,
+		652, 3, 100, 50, 0, 652, 653, 5, 12, 0, 0, 653, 654, 3, 100, 50, 0, 654,
 		655, 5, 8, 0, 0, 655, 656, 3, 100, 50, 0, 656, 697, 1, 0, 0, 0, 657, 659,
 		3, 100, 50, 0, 658, 660, 5, 61, 0, 0, 659, 658, 1, 0, 0, 0, 659, 660, 1,
 		0, 0, 0, 660, 661, 1, 0, 0, 0, 661, 662, 5, 39, 0, 0, 662, 663, 5, 110,
@@ -13839,6 +13839,7 @@ func (s *InPredicateContext) Accept(visitor antlr.ParseTreeVisitor) interface{} 
 
 type BetweenPredicateContext struct {
 	PredicateContext
+	left  IValueExpressionContext
 	lower IValueExpressionContext
 	upper IValueExpressionContext
 }
@@ -13853,9 +13854,13 @@ func NewBetweenPredicateContext(parser antlr.Parser, ctx antlr.ParserRuleContext
 	return p
 }
 
+func (s *BetweenPredicateContext) GetLeft() IValueExpressionContext { return s.left }
+
 func (s *BetweenPredicateContext) GetLower() IValueExpressionContext { return s.lower }
 
 func (s *BetweenPredicateContext) GetUpper() IValueExpressionContext { return s.upper }
+
+func (s *BetweenPredicateContext) SetLeft(v IValueExpressionContext) { s.left = v }
 
 func (s *BetweenPredicateContext) SetLower(v IValueExpressionContext) { s.lower = v }
 
@@ -13863,10 +13868,6 @@ func (s *BetweenPredicateContext) SetUpper(v IValueExpressionContext) { s.upper 
 
 func (s *BetweenPredicateContext) GetRuleContext() antlr.RuleContext {
 	return s
-}
-
-func (s *BetweenPredicateContext) TIMESTAMP() antlr.TerminalNode {
-	return s.GetToken(SQLParserTIMESTAMP, 0)
 }
 
 func (s *BetweenPredicateContext) BETWEEN() antlr.TerminalNode {
@@ -14379,11 +14380,10 @@ func (p *SQLParser) Predicate() (localctx IPredicateContext) {
 		p.EnterOuterAlt(localctx, 3)
 		{
 			p.SetState(651)
-			p.Match(SQLParserTIMESTAMP)
-			if p.HasError() {
-				// Recognition error - abort rule
-				goto errorExit
-			}
+
+			var _x = p.valueExpression(0)
+
+			localctx.(*BetweenPredicateContext).left = _x
 		}
 		{
 			p.SetState(652)

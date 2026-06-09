@@ -183,8 +183,9 @@ func (v *StatementVisitor) visitQuerySpecification(context any, node *tree.Query
 	// FIXME: select
 
 	if node.Having != nil {
-		// if has having expression, add to source expressions
-		sourceExpressions = append(sourceExpressions, node.Having)
+		// Use the rewritten HAVING expression (aliases already expanded by analyzeHaving)
+		// so that the aggregation validator sees the real aggregate calls, not alias identifiers.
+		sourceExpressions = append(sourceExpressions, v.analyzer.ctx.Analysis.GetHaving(node))
 	}
 	v.analyzeGroupingOperations(node, sourceExpressions, orderByExpressions)
 	v.analyzeAggregations(node, sourceScope, orderByScope, groupByAnalysis, sourceExpressions, orderByExpressions)
@@ -647,14 +648,123 @@ func (v *StatementVisitor) analyzeAggregations(query *tree.QuerySpecification, s
 	}
 }
 
+// rewriteAliasesInExpression replaces any Identifier in expr that matches a
+// SELECT alias with the underlying expression.  Container nodes are mutated
+// in-place; only Identifier substitution returns a different pointer.
+func rewriteAliasesInExpression(expr tree.Expression, aliasMap map[string]tree.Expression) tree.Expression {
+	if expr == nil {
+		return nil
+	}
+	switch node := expr.(type) {
+	case *tree.Identifier:
+		if underlying, ok := aliasMap[node.Value]; ok {
+			return underlying
+		}
+		return expr
+	case *tree.ComparisonExpression:
+		node.Left = rewriteAliasesInExpression(node.Left, aliasMap)
+		node.Right = rewriteAliasesInExpression(node.Right, aliasMap)
+		return node
+	case *tree.LogicalExpression:
+		for i, term := range node.Terms {
+			node.Terms[i] = rewriteAliasesInExpression(term, aliasMap)
+		}
+		return node
+	case *tree.NotExpression:
+		node.Value = rewriteAliasesInExpression(node.Value, aliasMap)
+		return node
+	case *tree.ArithmeticBinaryExpression:
+		node.Left = rewriteAliasesInExpression(node.Left, aliasMap)
+		node.Right = rewriteAliasesInExpression(node.Right, aliasMap)
+		return node
+	case *tree.InPredicate:
+		node.Value = rewriteAliasesInExpression(node.Value, aliasMap)
+		return node
+	default:
+		return expr
+	}
+}
+
+// collectGroupByColumnNames returns the set of plain Identifier column names used in GROUP BY.
+// Only top-level Identifiers are collected; complex expressions are ignored because they
+// cannot appear as bare identifiers in HAVING anyway.
+func collectGroupByColumnNames(groupBy *tree.GroupBy) map[string]struct{} {
+	cols := make(map[string]struct{})
+	if groupBy == nil {
+		return cols
+	}
+	for _, elem := range groupBy.GroupingElements {
+		if sg, ok := elem.(*tree.SimpleGroupBy); ok {
+			for _, col := range sg.Columns {
+				if ident, ok := col.(*tree.Identifier); ok {
+					cols[ident.Value] = struct{}{}
+				}
+			}
+		}
+	}
+	return cols
+}
+
+// validateHavingIdentifiers walks expr and panics with a clear MySQL-style error message
+// for any Identifier that is neither a SELECT alias nor a GROUP BY column.
+// FunctionCall nodes are not recursed — aggregate arguments are validated against the
+// source schema later, not by HAVING column rules.
+func validateHavingIdentifiers(expr tree.Expression, aliasMap map[string]tree.Expression, groupByCols map[string]struct{}) {
+	if expr == nil {
+		return
+	}
+	switch node := expr.(type) {
+	case *tree.Identifier:
+		if _, isAlias := aliasMap[node.Value]; isAlias {
+			return
+		}
+		if _, isGroupBy := groupByCols[node.Value]; isGroupBy {
+			return
+		}
+		panic(fmt.Sprintf("Unknown column '%s' in 'having clause'", node.Value))
+	case *tree.ComparisonExpression:
+		validateHavingIdentifiers(node.Left, aliasMap, groupByCols)
+		validateHavingIdentifiers(node.Right, aliasMap, groupByCols)
+	case *tree.LogicalExpression:
+		for _, term := range node.Terms {
+			validateHavingIdentifiers(term, aliasMap, groupByCols)
+		}
+	case *tree.NotExpression:
+		validateHavingIdentifiers(node.Value, aliasMap, groupByCols)
+	case *tree.ArithmeticBinaryExpression:
+		validateHavingIdentifiers(node.Left, aliasMap, groupByCols)
+		validateHavingIdentifiers(node.Right, aliasMap, groupByCols)
+	case *tree.InPredicate:
+		validateHavingIdentifiers(node.Value, aliasMap, groupByCols)
+	case *tree.FunctionCall:
+		// Aggregate function calls are always allowed; their arguments are column
+		// references validated against the source schema, not HAVING column rules.
+	}
+	// Literals, TimePredicate, and other leaf nodes need no validation.
+}
+
 func (v *StatementVisitor) analyzeHaving(node *tree.QuerySpecification, scope *Scope) {
 	if node.Having == nil {
 		return
 	}
-	// Resolve column and aggregate-function references in the HAVING expression
-	// against the post-GROUP-BY scope so that aggregate calls are recognised.
-	v.analyzeExpression(node.Having, scope)
-	v.analyzer.ctx.Analysis.SetHaving(node, node.Having)
+	// Build alias map from SELECT expressions so that HAVING can reference
+	// SELECT aliases (e.g. "HAVING c = 1169" where c is "count(1) AS c").
+	// This mirrors the alias resolution already done in analyzeGroupBy.
+	selectExprs := v.analyzer.ctx.Analysis.GetSelectExpressions(node)
+	aliasMap := make(map[string]tree.Expression, len(selectExprs))
+	for _, se := range selectExprs {
+		if se.Alias != nil {
+			aliasMap[se.Alias.Value] = se.Expression
+		}
+	}
+	// Validate bare identifiers in HAVING before rewriting: any Identifier that is
+	// neither a SELECT alias nor a GROUP BY column is rejected with a clear error,
+	// preventing the misleading "must be an aggregate expression" panic from firing later.
+	groupByCols := collectGroupByColumnNames(node.GroupBy)
+	validateHavingIdentifiers(node.Having, aliasMap, groupByCols)
+	having := rewriteAliasesInExpression(node.Having, aliasMap)
+	v.analyzeExpression(having, scope)
+	v.analyzer.ctx.Analysis.SetHaving(node, having)
 }
 
 func (v *StatementVisitor) analyzeOrderBy(node tree.Node,

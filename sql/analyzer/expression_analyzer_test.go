@@ -145,3 +145,65 @@ func TestVisit_StringLiteral(t *testing.T) {
 	require.NotPanics(t, func() { v.Visit(stackCtx, node) })
 	assert.True(t, arrow.TypeEqual(ctx.Analysis.GetType(node), arrow.BinaryTypes.String))
 }
+
+// ----- Regression guard: count(1) = <literal> in HAVING must not panic -----
+
+// TestVisitComparisonEQ_CountEqLiteral_MustNotPanic is a regression test for the production panic
+// "left side type [time_series] is not same as right side type [int64]".
+//
+// Previously, visitComparisonExpression(EQ) was routed through getOperator → resolveAggNumeric,
+// which only recognised *larray.AggregationType as a promotable side.  count(1) returns
+// *larray.TimeSeriesType, so resolveAggNumeric returned false and GetAccurateType panicked.
+//
+// After the fix, all comparison operators share the same code path: accept both operands
+// and return Uint32, so GetAccurateType is never called for comparison expressions.
+func TestVisitComparisonEQ_CountEqLiteral_MustNotPanic(t *testing.T) {
+	v, ctx := newTestVisitor()
+	idAlloc := tree.NewNodeIDAllocator()
+
+	// Build count(1) as a FunctionCall.
+	arg1 := tree.NewLongLiteral(idAlloc.Next(), nil, "1")
+	countCall := &tree.FunctionCall{Name: tree.Count, Arguments: []tree.Expression{arg1}}
+	countCall.SetID(idAlloc.Next())
+
+	// Build the literal 564.
+	lit564 := tree.NewLongLiteral(idAlloc.Next(), nil, "564")
+
+	// Build count(1) = 564.
+	cmp := &tree.ComparisonExpression{Operator: tree.ComparisonEQ, Left: countCall, Right: lit564}
+	cmp.SetID(idAlloc.Next())
+
+	stackCtx := tree.NewStackableVisitorContext(&Context{scope: createScope(nil)})
+
+	var dt arrow.DataType
+	require.NotPanics(t, func() {
+		dt = v.Visit(stackCtx, cmp).(arrow.DataType)
+	}, "count(1) = 564 must not panic in HAVING")
+
+	// All comparison operators return Uint32 (boolean-like).
+	assert.True(t, arrow.TypeEqual(dt, arrow.PrimitiveTypes.Uint32),
+		"expected Uint32 result type, got %v", dt)
+	assert.True(t, arrow.TypeEqual(ctx.Analysis.GetType(cmp), arrow.PrimitiveTypes.Uint32))
+}
+
+// TestVisitComparisonEQ_AggSumEqLiteral verifies that AggregationType (SUM) OP numeric
+// still works correctly after the isAggregationType change.
+// Uses a numeric literal as the SUM argument to avoid scope resolution in the unit-test env.
+func TestVisitComparisonEQ_AggSumEqLiteral_MustNotPanic(t *testing.T) {
+	v, _ := newTestVisitor()
+	idAlloc := tree.NewNodeIDAllocator()
+
+	// Build sum(1) — argument is a numeric literal so no scope lookup is needed.
+	arg := tree.NewLongLiteral(idAlloc.Next(), nil, "1")
+	sumCall := &tree.FunctionCall{Name: tree.Sum, Arguments: []tree.Expression{arg}}
+	sumCall.SetID(idAlloc.Next())
+
+	lit5 := tree.NewLongLiteral(idAlloc.Next(), nil, "5")
+	cmp := &tree.ComparisonExpression{Operator: tree.ComparisonEQ, Left: sumCall, Right: lit5}
+	cmp.SetID(idAlloc.Next())
+
+	stackCtx := tree.NewStackableVisitorContext(&Context{scope: createScope(nil)})
+	require.NotPanics(t, func() {
+		v.Visit(stackCtx, cmp)
+	}, "sum(1) = 5 must not panic in HAVING")
+}

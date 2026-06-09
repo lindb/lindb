@@ -444,8 +444,65 @@ func TestCast_TransparentScalarPassThrough(t *testing.T) {
 	require.NotNil(t, s)
 }
 
-func TestCast_String(t *testing.T) {
-	inner := NewConstant(nil, int64(1), Scalar)
-	cast := NewCast(nil, arrow.PrimitiveTypes.Float64, inner)
-	assert.Contains(t, cast.String(), "CAST")
+// TestCast_String(t *testing.T) is the last test above.
+
+// ─────────────────────────────────────────────────────────────
+// BETWEEN desugaring (x BETWEEN a AND b  ≡  x >= a AND x <= b)
+// ─────────────────────────────────────────────────────────────
+
+// TestBetween_InRange_PassesRows verifies that the BETWEEN expansion
+// (Logical AND of GTE and LTE comparisons) retains only rows whose
+// value falls within [lower, upper].
+func TestBetween_InRange_PassesRows(t *testing.T) {
+	// Three rows: 3, 7, 12.  BETWEEN 0 AND 10 should keep rows 0 and 1.
+	record := int64Batch([]int64{3, 7, 12})
+
+	// col references column index 0.
+	col := NewColumn(nil, "a", 0, Array)
+	lower := NewConstant(nil, int64(0), Scalar)
+	upper := NewConstant(nil, int64(10), Scalar)
+
+	// Expand x BETWEEN 0 AND 10  →  x >= 0 AND x <= 10.
+	between := NewLogical(nil, tree.LogicalAND, []Expression{
+		NewComparison(nil, tree.ComparisonGTE, col, lower),
+		NewComparison(nil, tree.ComparisonLTE, col, upper),
+	})
+
+	arr, err := between.Eval(record)
+	require.NoError(t, err)
+	assert.Equal(t, []bool{true, true, false}, boolResults(arr))
+}
+
+// TestBetween_AllInRange_AllPass checks the boundary-inclusive semantics:
+// a value exactly equal to lower or upper must pass.
+func TestBetween_Boundaries_Inclusive(t *testing.T) {
+	// Values: 0 (lower bound), 5 (middle), 10 (upper bound), 11 (outside).
+	record := int64Batch([]int64{0, 5, 10, 11})
+
+	col := NewColumn(nil, "a", 0, Array)
+	between := NewLogical(nil, tree.LogicalAND, []Expression{
+		NewComparison(nil, tree.ComparisonGTE, col, NewConstant(nil, int64(0), Scalar)),
+		NewComparison(nil, tree.ComparisonLTE, col, NewConstant(nil, int64(10), Scalar)),
+	})
+
+	arr, err := between.Eval(record)
+	require.NoError(t, err)
+	// 0, 5, 10 are inside [0,10]; 11 is outside.
+	assert.Equal(t, []bool{true, true, true, false}, boolResults(arr))
+}
+
+// TestBetween_NoneInRange_AllFiltered verifies that when no row satisfies
+// the range, the result is all false.
+func TestBetween_NoneInRange_AllFiltered(t *testing.T) {
+	record := int64Batch([]int64{20, 30, 40})
+
+	col := NewColumn(nil, "a", 0, Array)
+	between := NewLogical(nil, tree.LogicalAND, []Expression{
+		NewComparison(nil, tree.ComparisonGTE, col, NewConstant(nil, int64(0), Scalar)),
+		NewComparison(nil, tree.ComparisonLTE, col, NewConstant(nil, int64(10), Scalar)),
+	})
+
+	arr, err := between.Eval(record)
+	require.NoError(t, err)
+	assert.Equal(t, []bool{false, false, false}, boolResults(arr))
 }

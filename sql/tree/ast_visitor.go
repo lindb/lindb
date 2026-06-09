@@ -735,6 +735,32 @@ func (v *AstVisitor) VisitInPredicate(ctx *grammar.InPredicateContext) any {
 	return result
 }
 
+// VisitBetweenPredicate desugars x BETWEEN a AND b into (x >= a AND x <= b).
+// GetLeft() is called twice to produce two independent AST subtrees, because
+// ANTLR parse contexts are read-only and cannot be shared between nodes.
+func (v *AstVisitor) VisitBetweenPredicate(ctx *grammar.BetweenPredicateContext) any {
+	lower := visitIfPresent[Expression](ctx.GetLower(), v)
+	upper := visitIfPresent[Expression](ctx.GetUpper(), v)
+	return &LogicalExpression{
+		BaseNode: v.createBaseNode(ctx),
+		Operator: LogicalAND,
+		Terms: []Expression{
+			&ComparisonExpression{
+				BaseNode: v.createBaseNode(ctx),
+				Operator: ComparisonGTE,
+				Left:     visitIfPresent[Expression](ctx.GetLeft(), v),
+				Right:    lower,
+			},
+			&ComparisonExpression{
+				BaseNode: v.createBaseNode(ctx),
+				Operator: ComparisonLTE,
+				Left:     visitIfPresent[Expression](ctx.GetLeft(), v),
+				Right:    upper,
+			},
+		},
+	}
+}
+
 func (v *AstVisitor) VisitLogicalNot(ctx *grammar.LogicalNotContext) any {
 	return &NotExpression{
 		BaseNode: v.createBaseNode(ctx),
