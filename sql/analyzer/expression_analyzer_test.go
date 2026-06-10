@@ -86,20 +86,27 @@ func TestVisit_FloatLiteral_ViaVisitDispatch(t *testing.T) {
 }
 
 // TestResolveHistogramColumn_UnknownColumn verifies that a histogram column argument
-// that is NOT in the schema is resolved to Sum type instead of panicking.
+// that is NOT in the schema is resolved to Histogram type instead of panicking.
 // This covers the case where "sent_duration" is a logical histogram name not yet in the schema.
+// The scope must contain at least one field (any field) so the code can distinguish
+// "logical histogram name not found" from "no table in scope at all".
 func TestResolveHistogramColumn_UnknownColumn(t *testing.T) {
 	v, ctx := newTestVisitor()
 	idAlloc := tree.NewNodeIDAllocator()
 	node := &tree.Identifier{Value: "sent_duration"}
 	node.SetID(idAlloc.Next())
 
-	stackCtx := tree.NewStackableVisitorContext(&Context{scope: createScope(nil)})
+	// Scope with one field ("message") simulates: table IS in scope, but "sent_duration"
+	// is a logical histogram name — not a direct schema column.
+	scopeWithTable := createAndAssignScopeForTest([]*tree.Field{
+		{Index: 0, Name: "message", DataType: arrow.BinaryTypes.String},
+	})
+	stackCtx := tree.NewStackableVisitorContext(&Context{scope: scopeWithTable})
 	var dt arrow.DataType
 	require.NotPanics(t, func() {
 		dt = v.resolveHistogramColumn(stackCtx, node)
 	}, "resolveHistogramColumn must not panic for unknown histogram column name")
-	assert.NotNil(t, dt, "should return Sum type placeholder for unresolved histogram name")
+	assert.NotNil(t, dt, "should return Histogram type placeholder for unresolved histogram name")
 	_ = ctx
 }
 
@@ -117,10 +124,14 @@ func TestVisitFunctionCall_HistogramQuantile_UnknownColumn(t *testing.T) {
 	call := &tree.FunctionCall{Name: tree.HistogramQuantile, Arguments: []tree.Expression{phi, col}}
 	call.SetID(idAlloc.Next())
 
-	stackCtx := tree.NewStackableVisitorContext(&Context{scope: createScope(nil)})
+	// Scope with one field simulates: table IS in scope, but "sent_duration" is a logical name.
+	scopeWithTable := createAndAssignScopeForTest([]*tree.Field{
+		{Index: 0, Name: "message", DataType: arrow.BinaryTypes.String},
+	})
+	stackCtx := tree.NewStackableVisitorContext(&Context{scope: scopeWithTable})
 	require.NotPanics(t, func() {
 		v.Visit(stackCtx, call)
-	}, "histogram_quantile(0.99, unknown_col) must not panic")
+	}, "histogram_quantile(0.99, unknown_col) must not panic when table is in scope")
 }
 
 // ----- Regression guard: other literal types must still work -----
@@ -186,7 +197,7 @@ func TestVisitComparisonEQ_CountEqLiteral_MustNotPanic(t *testing.T) {
 	assert.True(t, arrow.TypeEqual(ctx.Analysis.GetType(cmp), arrow.PrimitiveTypes.Uint32))
 }
 
-// TestVisitComparisonEQ_AggSumEqLiteral verifies that AggregationType (SUM) OP numeric
+// TestVisitComparisonEQ_AggSumEqLiteral_MustNotPanic verifies that AggregationType (SUM) OP numeric
 // still works correctly after the isAggregationType change.
 // Uses a numeric literal as the SUM argument to avoid scope resolution in the unit-test env.
 func TestVisitComparisonEQ_AggSumEqLiteral_MustNotPanic(t *testing.T) {
@@ -206,4 +217,42 @@ func TestVisitComparisonEQ_AggSumEqLiteral_MustNotPanic(t *testing.T) {
 	require.NotPanics(t, func() {
 		v.Visit(stackCtx, cmp)
 	}, "sum(1) = 5 must not panic in HAVING")
+}
+
+// ----- Timestamp - Duration arithmetic regression test -----
+
+// TestGetOperator_TimestampMinusDuration verifies that NOW() - INTERVAL 5 MINUTE
+// (Timestamp_ns - Duration_ns) resolves to Timestamp_ns without panicking.
+// This guards against the regression where GetAccurateType(Timestamp_ns, Duration_ns)
+// panicked with "timestamp[ns] is not same as duration[ns]".
+func TestGetOperator_TimestampMinusDuration(t *testing.T) {
+	v, ctx := newTestVisitor()
+	idAlloc := tree.NewNodeIDAllocator()
+
+	// Simulate NOW() → Timestamp_ns
+	nowCall := &tree.FunctionCall{Name: tree.Now}
+	nowCall.SetID(idAlloc.Next())
+
+	// Simulate INTERVAL 5 MINUTE → Duration_ns
+	interval := tree.NewIntervalLiteral(idAlloc.Next(), nil, "5", tree.Minute)
+	interval.SetID(idAlloc.Next())
+
+	// Build NOW() - INTERVAL 5 MINUTE as an ArithmeticBinaryExpression.
+	arith := &tree.ArithmeticBinaryExpression{
+		Operator: tree.Subtract,
+		Left:     nowCall,
+		Right:    interval,
+	}
+	arith.SetID(idAlloc.Next())
+
+	stackCtx := tree.NewStackableVisitorContext(&Context{scope: createScope(nil)})
+	var dt arrow.DataType
+	require.NotPanics(t, func() {
+		dt = v.Visit(stackCtx, arith).(arrow.DataType)
+	}, "NOW() - INTERVAL must not panic in WHERE clause time predicates")
+
+	// Result should be Timestamp (the Timestamp side is preserved).
+	assert.Equal(t, arrow.TIMESTAMP, dt.ID(),
+		"Timestamp - Duration must resolve to Timestamp, got %v", dt)
+	assert.Equal(t, arrow.TIMESTAMP, ctx.Analysis.GetType(arith).ID())
 }

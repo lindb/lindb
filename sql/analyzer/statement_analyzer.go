@@ -51,7 +51,10 @@ func (sa *StatementAnalyzer) Analyze(node tree.Node) *Scope {
 
 func (sa *StatementAnalyzer) analyze(node tree.Node, outerQueryScope *Scope, isTopLevel bool) *Scope {
 	visitor := NewStatementVisitor(outerQueryScope, sa, isTopLevel)
-	scope := node.Accept(nil, visitor)
+	// Pass outerQueryScope as the initial context so that CTE named queries
+	// defined by the outer WITH clause are reachable inside inner CTE bodies.
+	// For the top-level call outerQueryScope is nil, preserving existing behaviour.
+	scope := node.Accept(outerQueryScope, visitor)
 	if scope == nil {
 		return nil
 	}
@@ -322,7 +325,9 @@ func (v *StatementVisitor) analyzeWith(node *tree.Query, scope *Scope) *Scope {
 	}
 	// analyze with clause
 	with := node.With
-	withScopeBuilder := NewScopeBuilder(scope)
+	// withRelation initializes the relationType so that build() does not panic.
+	// The actual fields will be accumulated via withNameQuery as CTEs are analyzed.
+	withScopeBuilder := NewScopeBuilder(scope).withRelation(NewRelationID(nil), NewRelation(nil))
 	for i := range with.Queries {
 		withQuery := with.Queries[i]
 		name := strings.ToLower(withQuery.Name.Value)
@@ -796,9 +801,33 @@ func (v *StatementVisitor) createScopeForCommonTableExpression(table *tree.Table
 ) *Scope {
 	query := withQuery.Query
 	v.analyzer.ctx.Analysis.RegisterNamedQuery(table, query)
-	// FIXME: analyze field
-	var fields []*tree.Field
 
+	// Navigate to the inner QuerySpecification to read its analyzed output.
+	// QueryBody is a QueryBody interface; the concrete type is *tree.QuerySpecification
+	// for all standard SELECT CTEs.
+	innerQuerySpec, ok := query.QueryBody.(*tree.QuerySpecification)
+	if !ok {
+		// Non-SELECT CTE body — return empty scope as before.
+		return v.createAndAssignScope(table, scope, NewRelation(nil))
+	}
+
+	// The output scope from computeAndAssignOutputScope has Name+Index but no DataType
+	// (by design). Re-derive each field's type from the already-analyzed SELECT expressions.
+	outScope := v.analyzer.ctx.Analysis.GetScope(innerQuerySpec)
+	selectExprs := v.analyzer.ctx.Analysis.GetSelectExpressions(innerQuerySpec)
+	fields := make([]*tree.Field, 0, len(selectExprs))
+	for i, se := range selectExprs {
+		var fieldName string
+		if outScope != nil && i < len(outScope.RelationType.Fields) {
+			fieldName = outScope.RelationType.Fields[i].Name
+		}
+		fields = append(fields, &tree.Field{
+			Index:         tree.FieldIndex(i),
+			Name:          fieldName,
+			DataType:      v.analyzer.ctx.Analysis.GetType(se.Expression),
+			RelationAlias: table.Name.Name,
+		})
+	}
 	return v.createAndAssignScope(table, scope, NewRelation(fields))
 }
 

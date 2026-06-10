@@ -90,4 +90,7 @@ var funcs = map[tree.FuncName]NewFunc{
 	// Math functions
 	// ref: https://dev.mysql.com/doc/refman/8.4/en/mathematical-functions.html
 	tree.Rand: newRegistryFunc(tree.Rand),
+
+	// String functions
+	tree.Concat: newRegistryFunc(tree.Concat),
 }

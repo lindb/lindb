@@ -24,7 +24,9 @@ import (
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/lindb/common/pkg/encoding"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
@@ -240,7 +242,9 @@ func (exec *DMLExecution) sendTask(node models.InternalNode, taskID model.TaskID
 ) {
 	conn, err := grpc.NewClient(node.Address(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		panic(err)
+		exec.context.SetError(fmt.Sprintf("[Broker@%s] failed to connect to %s: %s",
+			exec.deps.CurrentNode.Address(), node.Address(), err.Error()))
+		return
 	}
 	defer conn.Close()
 
@@ -257,7 +261,12 @@ func (exec *DMLExecution) sendTask(node models.InternalNode, taskID model.TaskID
 		}),
 	})
 	if err != nil {
-		// TODO: check panic
-		panic(err)
+		// context.Canceled / codes.Canceled means the session context was cancelled
+		// (query finished or client disconnected) — this is not an error worth reporting.
+		if st, ok := status.FromError(err); ok && st.Code() == codes.Canceled {
+			return
+		}
+		exec.context.SetError(fmt.Sprintf("[Broker@%s] failed to submit task to %s: %s",
+			exec.deps.CurrentNode.Address(), node.Address(), err.Error()))
 	}
 }

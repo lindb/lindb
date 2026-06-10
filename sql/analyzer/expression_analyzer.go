@@ -314,6 +314,13 @@ func (v *ExpressionVisitor) getOperator(context *tree.StackableVisitorContext[*C
 		return v.setExpressionType(node, aggType)
 	}
 
+	// Handle Timestamp ± Duration arithmetic (e.g. NOW() - INTERVAL 5 MINUTE).
+	// Timestamp OP Duration = Timestamp; avoid calling GetAccurateType which panics
+	// for heterogeneous types.
+	if isTimestampDurationArithmetic(argumentTypes[0], argumentTypes[1]) {
+		return v.setExpressionType(node, argumentTypes[0])
+	}
+
 	// TODO: check args types
 	expectedType := types.GetAccurateType(argumentTypes[0], argumentTypes[1])
 	if arrow.TypeEqual(expectedType, larrow.ExtensionTypes.TimeSeries) {
@@ -355,6 +362,13 @@ func isAggregationType(t arrow.DataType) bool {
 func isNumericType(t arrow.DataType) bool {
 	return arrow.TypeEqual(t, arrow.PrimitiveTypes.Int64) ||
 		arrow.TypeEqual(t, arrow.PrimitiveTypes.Float64)
+}
+
+// isTimestampDurationArithmetic reports whether the operand types represent a
+// Timestamp ± Duration expression (e.g. NOW() - INTERVAL 5 MINUTE).
+// The result type is the Timestamp side — Duration is consumed, not promoted.
+func isTimestampDurationArithmetic(lhs, rhs arrow.DataType) bool {
+	return lhs.ID() == arrow.TIMESTAMP && rhs.ID() == arrow.DURATION
 }
 
 func (v *ExpressionVisitor) coerceType(expression tree.Expression, actualType, expectedType arrow.DataType) {

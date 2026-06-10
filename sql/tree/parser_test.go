@@ -278,9 +278,9 @@ func TestSQLParser_QueryStatement(t *testing.T) {
 		},
 		{
 			`
-			with 
-			  table1 as select * from a aa where aa.a=b,
-			  table2 as select * from b where c=d
+			with
+			  table1 as (select * from a aa where aa.a=b),
+			  table2 as (select * from b where c=d)
 			select * from table1 left join table2 using(a,b,c)
 			`,
 			&Query{

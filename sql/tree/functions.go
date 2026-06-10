@@ -61,6 +61,9 @@ const (
 	// map function names
 	MapValues FuncName = "map_values"
 
+	// string function names
+	Concat FuncName = "concat"
+
 	// math function names
 	// ref: https://dev.mysql.com/doc/refman/8.4/en/mathematical-functions.html
 	Rand FuncName = "rand"
@@ -92,6 +95,9 @@ var defaultFuncReturnTypes = map[FuncName]arrow.DataType{
 	HistogramCount:    larrow.ExtensionTypes.Sum,
 
 	MapValues: arrow.MapOf(arrow.BinaryTypes.String, arrow.BinaryTypes.String),
+
+	// string functions
+	Concat: arrow.BinaryTypes.String,
 
 	// math functions
 	Rand: arrow.PrimitiveTypes.Float64,
@@ -166,6 +172,9 @@ var funcs = map[FuncName]struct{}{
 	TimeTrunc: {},
 
 	MapValues: {},
+
+	// string functions
+	Concat: {},
 
 	// math functions
 	// ref: https://dev.mysql.com/doc/refman/8.4/en/mathematical-functions.html

@@ -77,9 +77,23 @@ func (r *rewriter) rewrite(node tree.Expression) Expression {
 		return NewLogical(r.ctx.EvalContext, expr.Operator, terms)
 	case *tree.NotExpression:
 		return NewNot(r.ctx.EvalContext, r.rewrite(expr.Value))
+	case *tree.InPredicate:
+		return r.rewriteInPredicate(expr)
 	default:
 		panic(fmt.Sprintf("expression rewrite unimplemented: %T", node))
 	}
+}
+
+func (r *rewriter) rewriteInPredicate(node *tree.InPredicate) Expression {
+	value := r.rewrite(node.Value)
+	var candidates []Expression
+	if inList, ok := node.ValueList.(*tree.InListExpression); ok {
+		candidates = make([]Expression, len(inList.Values))
+		for i, v := range inList.Values {
+			candidates[i] = r.rewrite(v)
+		}
+	}
+	return NewIn(r.ctx.EvalContext, value, candidates)
 }
 
 func (r *rewriter) rewriteCall(node *tree.FunctionCall) Expression {

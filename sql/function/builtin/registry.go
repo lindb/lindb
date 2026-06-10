@@ -138,4 +138,12 @@ func Register(r *function.FunctionRegistry) {
 		Signature:  function.FunctionSignature{MinArgs: 2, MaxArgs: -1},
 		Vectorized: MapValuesFactory,
 	})
+
+	// ── String functions ──────────────────────────────────────────────────────
+
+	r.Register(&function.FunctionDef{
+		Name:       tree.Concat,
+		Signature:  function.FunctionSignature{MinArgs: 1, MaxArgs: -1},
+		Vectorized: ConcatFactory,
+	})
 }

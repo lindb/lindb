@@ -131,14 +131,15 @@ func (p *RelationPlanner) visitTable(_ any, node *tree.Table) (r any) {
 	scope := p.context.AnalyzerContext.Analysis.GetScope(node)
 	var plan *RelationPlan
 	if namedQuery != nil {
-		// process named query ref
+		// Inline expansion (Strategy A): use the CTE sub-plan directly.
+		// FieldMappings[i] and scope.RelationType.Fields[i] share the same ordering
+		// (both derived from GetSelectExpressions(innerQuerySpec)), so TranslationMap
+		// correctly maps outer column references to inner symbols.
 		subPlan := namedQuery.Accept(nil, p).(*RelationPlan)
-		// FIXME:???
-		coerced := coerce(subPlan, nil, nil, nil)
 		plan = &RelationPlan{
-			Root:          coerced.Node,
+			Root:          subPlan.Root,
 			Scope:         scope,
-			FieldMappings: coerced.Fields,
+			FieldMappings: subPlan.FieldMappings,
 		}
 	} else {
 		var outputSymbols []*planpkg.Symbol

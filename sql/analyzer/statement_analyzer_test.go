@@ -25,6 +25,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/spi"
+	spitypes "github.com/lindb/lindb/spi/types"
 	"github.com/lindb/lindb/sql/tree"
 )
 
@@ -484,4 +487,262 @@ func TestValidateHavingIdentifiers_NilExpression(t *testing.T) {
 	require.NotPanics(t, func() {
 		validateHavingIdentifiers(nil, map[string]tree.Expression{}, map[string]struct{}{})
 	})
+}
+
+// ----- createScopeForCommonTableExpression tests -----
+
+// TestCreateScopeForCTE_FieldsPopulated verifies that createScopeForCommonTableExpression
+// correctly fills in field Name, DataType, and RelationAlias from the already-analyzed
+// inner QuerySpecification.  This is the core regression test for the CTE FIXME stub that
+// always returned empty fields, causing "unknown column" panics in the outer query.
+func TestCreateScopeForCTE_FieldsPopulated(t *testing.T) {
+	idAlloc := tree.NewNodeIDAllocator()
+	stmt := &tree.QuerySpecification{}
+	ctx := NewAnalyzerContext("test_db", stmt, idAlloc, false)
+	v := NewStatementVisitor(nil, &StatementAnalyzer{ctx: ctx, metadataMgr: nil}, true)
+
+	// Build a minimal inner QuerySpecification that represents:
+	//   SELECT count(1) AS c, level FROM logs GROUP BY level
+	innerQuerySpec := &tree.QuerySpecification{}
+	innerQuerySpec.SetID(idAlloc.Next())
+
+	// Simulate two SELECT output fields: "c" (Int64) and "level" (String).
+	// These are what computeAndAssignOutputScope would produce — Name+Index, no DataType.
+	outScope := NewScopeBuilder(nil).
+		withRelation(NewRelationID(nil), NewRelation([]*tree.Field{
+			{Index: 0, Name: "c"},
+			{Index: 1, Name: "level"},
+		})).
+		build()
+	ctx.Analysis.SetScope(innerQuerySpec, outScope)
+
+	// Create SELECT expressions with their analyzed types already registered.
+	countCall := &tree.FunctionCall{Name: tree.Count}
+	countCall.SetID(idAlloc.Next())
+	ctx.Analysis.AddType(countCall, arrow.PrimitiveTypes.Int64)
+
+	levelIdent := &tree.Identifier{Value: "level"}
+	levelIdent.SetID(idAlloc.Next())
+	ctx.Analysis.AddType(levelIdent, arrow.BinaryTypes.String)
+
+	ctx.Analysis.SetSelectExpressions(innerQuerySpec, []*SelectExpression{
+		{Expression: countCall},
+		{Expression: levelIdent},
+	})
+
+	// Wrap the inner spec in a Query (as the CTE body).
+	innerQuery := &tree.Query{QueryBody: innerQuerySpec}
+	innerQuery.SetID(idAlloc.Next())
+
+	// Build the CTE reference table node: "log_counts".
+	tableIdent := &tree.Identifier{Value: "log_counts"}
+	tableIdent.SetID(idAlloc.Next())
+	ctaTable := &tree.Table{Name: tree.NewQualifiedName([]*tree.Identifier{tableIdent})}
+	ctaTable.SetID(idAlloc.Next())
+
+	withQuery := &tree.WithQuery{Query: innerQuery}
+	withQuery.SetID(idAlloc.Next())
+
+	parentScope := createScope(nil)
+
+	// Exercise createScopeForCommonTableExpression.
+	resultScope := v.createScopeForCommonTableExpression(ctaTable, parentScope, withQuery)
+
+	require.NotNil(t, resultScope, "returned scope must not be nil")
+	fields := resultScope.RelationType.Fields
+	require.Len(t, fields, 2, "CTE scope must expose 2 fields (c, level)")
+
+	// Field 0: "c" — Int64 from count(1).
+	assert.Equal(t, "c", fields[0].Name, "first field must be 'c'")
+	assert.True(t, arrow.TypeEqual(fields[0].DataType, arrow.PrimitiveTypes.Int64),
+		"field 'c' must be Int64, got %v", fields[0].DataType)
+	assert.Equal(t, "log_counts", fields[0].RelationAlias,
+		"RelationAlias must be the CTE table name")
+
+	// Field 1: "level" — String.
+	assert.Equal(t, "level", fields[1].Name, "second field must be 'level'")
+	assert.True(t, arrow.TypeEqual(fields[1].DataType, arrow.BinaryTypes.String),
+		"field 'level' must be String, got %v", fields[1].DataType)
+}
+
+// TestCreateScopeForCTE_NonQuerySpecBody verifies that a CTE whose body is NOT a
+// QuerySpecification (edge case) is handled without panic and returns an empty scope.
+func TestCreateScopeForCTE_NonQuerySpecBody(t *testing.T) {
+	idAlloc := tree.NewNodeIDAllocator()
+	stmt := &tree.QuerySpecification{}
+	ctx := NewAnalyzerContext("test_db", stmt, idAlloc, false)
+	v := NewStatementVisitor(nil, &StatementAnalyzer{ctx: ctx, metadataMgr: nil}, true)
+
+	// Use a QuerySpecification as body but wrapped in a non-standard QueryBody type.
+	// The simplest way to trigger the !ok branch is to set QueryBody to nil.
+	// tree.Query.QueryBody is an interface; a nil interface satisfies !ok for any concrete type.
+	innerQuery := &tree.Query{QueryBody: nil}
+	innerQuery.SetID(idAlloc.Next())
+
+	tableIdent := &tree.Identifier{Value: "cte_table"}
+	tableIdent.SetID(idAlloc.Next())
+	ctaTable := &tree.Table{Name: tree.NewQualifiedName([]*tree.Identifier{tableIdent})}
+	ctaTable.SetID(idAlloc.Next())
+
+	withQuery := &tree.WithQuery{Query: innerQuery}
+	withQuery.SetID(idAlloc.Next())
+
+	parentScope := createScope(nil)
+
+	require.NotPanics(t, func() {
+		resultScope := v.createScopeForCommonTableExpression(ctaTable, parentScope, withQuery)
+		assert.NotNil(t, resultScope)
+		assert.Empty(t, resultScope.RelationType.Fields, "non-QuerySpec body must yield empty fields")
+	})
+}
+
+// ----- Multi-CTE cross-reference scope chain test -----
+
+// fakeTableHandle is a minimal spi.TableHandle used only in tests.
+type fakeTableHandle struct{ name string }
+
+func (h *fakeTableHandle) SetTimeRange(_ timeutil.TimeRange) {}
+func (h *fakeTableHandle) GetTimeRange() timeutil.TimeRange  { return timeutil.TimeRange{} }
+func (h *fakeTableHandle) SetInterval(_ timeutil.Interval)   {}
+func (h *fakeTableHandle) GetInterval() timeutil.Interval    { return 0 }
+func (h *fakeTableHandle) Kind() spi.DatasourceKind          { return spi.Log }
+func (h *fakeTableHandle) String() string                    { return h.name }
+
+// fakeMetadataManager returns a minimal Arrow schema for any table name.
+// It tracks which table names were queried so tests can assert that CTE
+// virtual tables are never sent to the metadata manager.
+type fakeMetadataManager struct {
+	queriedTables []string
+}
+
+func (m *fakeMetadataManager) GetTableHandle(_, _, table string) spi.TableHandle {
+	return &fakeTableHandle{name: table}
+}
+
+func (m *fakeMetadataManager) GetTableMetadata(_, _, table string) (*spitypes.TableMetadata, error) {
+	m.queriedTables = append(m.queriedTables, table)
+	// Minimal schema for "logs": two columns used by the CTE SQL.
+	fields := []arrow.Field{
+		{Name: "level", Type: arrow.BinaryTypes.String},
+		{Name: "create_time", Type: arrow.FixedWidthTypes.Timestamp_ns},
+	}
+	return &spitypes.TableMetadata{
+		Schema: arrow.NewSchema(fields, nil),
+	}, nil
+}
+
+// TestAnalyzeWith_MultiCTE_CrossReference is the full parse+analyze integration test for
+// multi-CTE SQL where the second CTE references the first CTE by name.
+//
+// This is the exact regression that was reported: the analyzer panicked with
+// "left side type [utf8] is not same as right side type [time_series]" because
+// the second CTE body (FROM log_counts) was treating log_counts as a physical table
+// instead of a CTE, and then the WHERE clause c >= 100 failed type resolution.
+//
+// The fix: analyze() now passes outerQueryScope as the initial Accept context,
+// so that the scope carrying {"log_counts": wq1} is visible inside the second CTE body.
+func TestAnalyzeWith_MultiCTE_CrossReference(t *testing.T) {
+	sql := `
+	WITH log_counts AS (
+	    SELECT COUNT(1) AS c, level
+	    FROM logs
+	    WHERE create_time >= NOW() - INTERVAL 5 MINUTE
+	    GROUP BY level
+	),
+	critical_anomalies AS (
+	    SELECT level, c
+	    FROM log_counts
+	    WHERE c >= 100 AND level IN ('ERROR', 'FATAL')
+	)
+	SELECT level, c AS log_count FROM critical_anomalies`
+
+	parser := tree.GetParser()
+	idAlloc := tree.NewNodeIDAllocator()
+	stmt, err := parser.CreateStatement(sql, idAlloc)
+	require.NoError(t, err, "SQL must parse without error")
+
+	ctx := NewAnalyzerContext("test_db", stmt, idAlloc, false)
+	meta := &fakeMetadataManager{}
+	sa := NewStatementAnalyzer(ctx, meta)
+
+	require.NotPanics(t, func() {
+		sa.Analyze(stmt)
+	}, "multi-CTE SQL with second CTE referencing first must not panic during analysis")
+
+	// "logs" is the only physical table — log_counts and critical_anomalies are CTEs.
+	// If the fix is correct, GetTableMetadata was called exactly once (for "logs").
+	assert.Equal(t, []string{"logs"}, meta.queriedTables,
+		"only the physical table 'logs' should have been sent to MetadataManager; "+
+			"log_counts and critical_anomalies are CTEs and must not be looked up")
+}
+
+
+// TestMultiCTE_ScopeChain_NamedQueryAccessible verifies the exact scope lookup path used by
+// visitTable when the second CTE body references the first CTE by name.
+//
+// The fix in analyze() passes outerQueryScope as the initial Accept context, so that the
+// scope built by withScopeBuilder (carrying NamedQueries: {"log_counts": wq1}) is the
+// Parent of the withScope created inside visitQuery.  visitTable then calls:
+//
+//	createScope(scope).getNameQuery("log_counts")
+//
+// which traverses: new_scope (no NQ) → scope (no NQ) → scope.Parent (has NQ) → found.
+//
+// This test verifies all three levels of the chain to guard against regressions.
+func TestMultiCTE_ScopeChain_NamedQueryAccessible(t *testing.T) {
+	idAlloc := tree.NewNodeIDAllocator()
+
+	// Simulate withScopeBuilder.build() after registering the first CTE "log_counts".
+	innerQuery := &tree.Query{QueryBody: &tree.QuerySpecification{}}
+	innerQuery.SetID(idAlloc.Next())
+	wq1 := &tree.WithQuery{Query: innerQuery}
+	wq1.SetID(idAlloc.Next())
+
+	// outerWithScope = scope carrying {"log_counts": wq1} — this is what analyze() now
+	// passes as the initial context for the second CTE body analysis.
+	outerWithScope := NewScopeBuilder(nil).
+		withRelation(NewRelationID(nil), NewRelation(nil)).
+		withNameQuery("log_counts", wq1).
+		build()
+
+	// analyzeWith(criticalAnomaliesQuery, outerWithScope) returns createScope(outerWithScope)
+	// because critical_anomalies has no WITH clause.
+	withScope := createScope(outerWithScope)
+
+	// visitTable receives withScope as the scope argument.
+	// It calls createScope(withScope).getNameQuery("log_counts").
+	lookup := createScope(withScope).getNameQuery("log_counts")
+
+	require.NotNil(t, lookup, "log_counts must be found via the scope Parent chain")
+	assert.Same(t, wq1, lookup, "resolved WithQuery must be the first CTE definition")
+}
+
+// TestMultiCTE_AnalyzeWith_ScopeBuilderAccumulates verifies that withScopeBuilder
+// correctly accumulates CTE definitions across iterations: after registering "log_counts",
+// the scope built for the next iteration already carries that entry.
+func TestMultiCTE_AnalyzeWith_ScopeBuilderAccumulates(t *testing.T) {
+	idAlloc := tree.NewNodeIDAllocator()
+
+	innerQuery := &tree.Query{QueryBody: &tree.QuerySpecification{}}
+	innerQuery.SetID(idAlloc.Next())
+	wq1 := &tree.WithQuery{Query: innerQuery}
+	wq1.SetID(idAlloc.Next())
+
+	// Mimic the analyzeWith loop body:
+	//   withScopeBuilder.build()         ← passed to analyze() as outerQueryScope
+	//   withScopeBuilder.withNameQuery() ← registers after analyze()
+	sb := NewScopeBuilder(nil).withRelation(NewRelationID(nil), NewRelation(nil))
+
+	// First CTE analysis: scope for first CTE should have no named queries yet.
+	scopeBeforeRegister := sb.build()
+	assert.Nil(t, scopeBeforeRegister.getNameQuery("log_counts"),
+		"before registering, log_counts must not be in the scope")
+
+	// Register the first CTE.
+	sb.withNameQuery("log_counts", wq1)
+
+	// Second CTE analysis: scope now carries "log_counts".
+	scopeAfterRegister := sb.build()
+	assert.Same(t, wq1, scopeAfterRegister.getNameQuery("log_counts"),
+		"after registering, log_counts must be found in the scope for the next CTE iteration")
 }
