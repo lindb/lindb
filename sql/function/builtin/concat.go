@@ -81,10 +81,18 @@ func (f *concatFunc) Eval(record arrow.RecordBatch) (arrow.Array, error) {
 }
 
 // arrayValueToString converts the value at row i of an Arrow array to its string
-// representation. Supported types: String, Int64, Float64, Aggregation, TimeSeries.
-// For TimeSeries (e.g. COUNT result), all per-slot values are summed to produce
-// the total count for the time window — this matches the user-visible "current count"
-// semantic expected in alert message templates.
+// representation. Supported types: String, Dictionary, Int64, Float64,
+// Generic[float64], Aggregation, TimeSeries, and generic ExtensionArray.
+//
+// For TimeSeries (e.g. COUNT result on storage nodes), all per-slot values are
+// summed to produce the total for the time window — matching the user-visible
+// "current count" semantic expected in alert message templates.
+//
+// For Generic[float64] (e.g. COUNT/SUM result after broker-level aggregation),
+// the single scalar value is formatted directly.
+//
+// For Dictionary-encoded arrays (low-cardinality columns such as log level),
+// the value is decoded from the underlying dictionary before formatting.
 func arrayValueToString(arr arrow.Array, i int) string {
 	switch a := arr.(type) {
 	case *array.String:
@@ -92,6 +100,17 @@ func arrayValueToString(arr arrow.Array, i int) string {
 	case *array.Int64:
 		return strconv.FormatInt(a.Value(i), 10)
 	case *array.Float64:
+		return strconv.FormatFloat(a.Value(i), 'f', -1, 64)
+	case *array.Dictionary:
+		// Dictionary-encoded column (e.g. low-cardinality string tag): decode the
+		// actual value from the dictionary storage via the per-row index.
+		idx := a.GetValueIndex(i)
+		return arrayValueToString(a.Dictionary(), idx)
+	case *larray.Generic[string]:
+		return a.Value(i)
+	case *larray.Generic[float64]:
+		// Generic extension holding a single float64 per row (broker-aggregated
+		// COUNT, SUM, etc.).  Value(i) extracts the scalar directly.
 		return strconv.FormatFloat(a.Value(i), 'f', -1, 64)
 	case *larray.Aggregation:
 		// Aggregation stores a single float64 scalar per row (Sum, Min, Max, etc.).
@@ -103,6 +122,9 @@ func arrayValueToString(arr arrow.Array, i int) string {
 			total += v
 		}
 		return strconv.FormatFloat(total, 'f', -1, 64)
+	case array.ExtensionArray:
+		// Safety net for any other registered extension type: unwrap to storage.
+		return arrayValueToString(a.Storage(), i)
 	default:
 		return fmt.Sprintf("%v", arr)
 	}
