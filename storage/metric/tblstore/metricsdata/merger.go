@@ -37,6 +37,7 @@ import (
 	"sort"
 
 	"github.com/lindb/common/models"
+	"github.com/lindb/common/pkg/logger"
 	"github.com/lindb/roaring"
 	"github.com/samber/lo"
 
@@ -46,6 +47,8 @@ import (
 	"github.com/lindb/lindb/pkg/timeutil"
 	"github.com/lindb/lindb/series/field"
 )
+
+var mergerLogger = logger.GetLogger("MetricData", "Merger")
 
 var MetricDataMerger kv.MergerType = "MetricDataMerger"
 
@@ -142,6 +145,11 @@ func (m *merger) Merge(key uint32, metricBlocks [][]byte) error {
 	if err != nil {
 		return err
 	}
+	// All input blocks were corrupted and skipped — nothing to merge for this key.
+	// Return nil so the compact job continues with the next key instead of failing.
+	if len(m.context.scanners) == 0 {
+		return nil
+	}
 	// 2. Prepare metric
 	m.dataFlusher.PrepareMetric(key, m.context.allFields)
 	// 3. merge series data by roaring container
@@ -172,7 +180,10 @@ func (m *merger) prepare(metricBlocks [][]byte) error {
 	for _, metricBlock := range metricBlocks {
 		reader, err := NewReader("merge_operation", metricBlock)
 		if err != nil {
-			return err
+			// Corrupted block — log and skip; the rest of the blocks are still mergeable.
+			// Returning an error here would abort the entire compact job permanently.
+			mergerLogger.Warn("skipping corrupted metric block during merge", logger.Error(err))
+			continue
 		}
 		m.context.seriesIDs.Or(reader.GetSeriesIDs())
 		// get target slot range(start/end)
