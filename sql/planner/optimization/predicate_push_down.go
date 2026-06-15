@@ -77,18 +77,22 @@ func (p *PredicatePushDown) visitJoin(context any, node *plan.JoinNode) any {
 	}
 
 	var criteria []*plan.EqualJoinCriteria
-	joinPreidcates := make(map[string]string)
+	joinPredicates := make(map[string]string)
 	var filterPredicates []tree.Expression
-	// found join predicates
+	// Classify each WHERE conjunct: equality comparisons between symbols from
+	// different sides become equi-join criteria; everything else is a filter.
 	for _, expr := range expressions {
 		foundJoinPredicate := false
-		if comparison, ok := expr.(*tree.ComparisonExpression); ok {
+		// Only EQ comparisons can be promoted to hash-join keys; non-equality
+		// comparisons (>, <, <>, etc.) must remain as post-join filters.
+		if comparison, ok := expr.(*tree.ComparisonExpression); ok &&
+			comparison.Operator == tree.ComparisonEQ {
 			symbols := plan.ExtractSymbolsFromExpression(comparison)
 			if len(symbols) == 2 {
 				criteria = append(criteria, &plan.EqualJoinCriteria{Left: symbols[0], Right: symbols[1]})
 
-				joinPreidcates[symbols[0].Name] = symbols[1].Name
-				joinPreidcates[symbols[1].Name] = symbols[0].Name
+				joinPredicates[symbols[0].Name] = symbols[1].Name
+				joinPredicates[symbols[1].Name] = symbols[0].Name
 				foundJoinPredicate = true
 			}
 		}
@@ -109,7 +113,7 @@ func (p *PredicatePushDown) visitJoin(context any, node *plan.JoinNode) any {
 			continue
 		}
 		symbolName := symbols[0].Name
-		refName, ok := joinPreidcates[symbolName]
+		refName, ok := joinPredicates[symbolName]
 		if ok {
 			leftPredicates = append(leftPredicates, p.rewriteExpression(symbolName, refName, leftScope, expr))
 			rightPredicates = append(rightPredicates, p.rewriteExpression(symbolName, refName, rightScope, expr))
@@ -118,7 +122,9 @@ func (p *PredicatePushDown) visitJoin(context any, node *plan.JoinNode) any {
 		}
 	}
 
-	node.Criteria = criteria
+	// Append WHERE-extracted equi-join criteria to the ON criteria already set by
+	// the logical planner. Using assignment (=) would overwrite ON conditions.
+	node.Criteria = append(node.Criteria, criteria...)
 
 	node.Left = node.Left.Accept(leftPredicates, p).(plan.PlanNode)
 	node.Right = node.Right.Accept(rightPredicates, p).(plan.PlanNode)

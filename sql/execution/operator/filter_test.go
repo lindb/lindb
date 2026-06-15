@@ -186,7 +186,7 @@ func boolCol(vals []bool) arrow.Array {
 
 func TestSelectRows_Int64_SelectsCorrectRows(t *testing.T) {
 	col := int64Col([]int64{10, 20, 30, 40, 50})
-	result, err := selectRows(col, []int{0, 2, 4})
+	result, err := SelectRows(col, []int{0, 2, 4})
 	require.NoError(t, err)
 	got := result.(*array.Int64)
 	require.Equal(t, 3, got.Len())
@@ -197,7 +197,7 @@ func TestSelectRows_Int64_SelectsCorrectRows(t *testing.T) {
 
 func TestSelectRows_Float64_SelectsCorrectRows(t *testing.T) {
 	col := float64Col([]float64{1.1, 2.2, 3.3})
-	result, err := selectRows(col, []int{1})
+	result, err := SelectRows(col, []int{1})
 	require.NoError(t, err)
 	got := result.(*array.Float64)
 	require.Equal(t, 1, got.Len())
@@ -206,7 +206,7 @@ func TestSelectRows_Float64_SelectsCorrectRows(t *testing.T) {
 
 func TestSelectRows_String_SelectsCorrectRows(t *testing.T) {
 	col := stringCol([]string{"a", "b", "c", "d"})
-	result, err := selectRows(col, []int{0, 3})
+	result, err := SelectRows(col, []int{0, 3})
 	require.NoError(t, err)
 	got := result.(*array.String)
 	require.Equal(t, 2, got.Len())
@@ -216,7 +216,7 @@ func TestSelectRows_String_SelectsCorrectRows(t *testing.T) {
 
 func TestSelectRows_Boolean_SelectsCorrectRows(t *testing.T) {
 	col := boolCol([]bool{true, false, true, false})
-	result, err := selectRows(col, []int{0, 2})
+	result, err := SelectRows(col, []int{0, 2})
 	require.NoError(t, err)
 	got := result.(*array.Boolean)
 	require.Equal(t, 2, got.Len())
@@ -233,7 +233,7 @@ func TestSelectRows_Int64_PreservesNulls(t *testing.T) {
 	b.Append(30)
 	col := b.NewArray()
 
-	result, err := selectRows(col, []int{0, 1, 2})
+	result, err := SelectRows(col, []int{0, 1, 2})
 	require.NoError(t, err)
 	got := result.(*array.Int64)
 	require.Equal(t, 3, got.Len())
@@ -244,7 +244,7 @@ func TestSelectRows_Int64_PreservesNulls(t *testing.T) {
 
 func TestSelectRows_EmptyRowList_ReturnsEmptyArray(t *testing.T) {
 	col := int64Col([]int64{1, 2, 3})
-	result, err := selectRows(col, []int{})
+	result, err := SelectRows(col, []int{})
 	require.NoError(t, err)
 	assert.Equal(t, 0, result.Len())
 }
@@ -257,7 +257,7 @@ func TestSelectRows_UnsupportedType_ReturnsError(t *testing.T) {
 	defer bldr.Release()
 	bldr.Append(true)
 	col := bldr.NewArray()
-	_, err := selectRows(col, []int{0})
+	_, err := SelectRows(col, []int{0})
 	assert.Error(t, err)
 }
 
@@ -277,7 +277,7 @@ func TestBuildEmptyColumn_ReturnsZeroLengthForAllSupportedTypes(t *testing.T) {
 	}
 	for _, tt := range types {
 		t.Run(tt.name, func(t *testing.T) {
-			empty := buildEmptyColumn(tt.col)
+			empty := BuildEmptyColumn(tt.col)
 			assert.Equal(t, 0, empty.Len(), "buildEmptyColumn must produce a zero-length array")
 		})
 	}

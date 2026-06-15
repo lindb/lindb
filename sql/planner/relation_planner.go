@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/apache/arrow-go/v18/arrow"
-
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
@@ -210,7 +208,9 @@ func (p *RelationPlanner) visitTable(_ any, node *tree.Table) (r any) {
 }
 
 func (p *RelationPlanner) planJoinUsing(node *tree.Join, left, right *RelationPlan) *RelationPlan {
-	panic("need implement join using")
+	// The analyzer has already converted USING columns into equality ON criteria
+	// stored in Analysis.GetJoinCriteria(node), so we can delegate directly to planJoin.
+	return p.planJoin(node, p.context.AnalyzerContext.Analysis.GetScope(node), left, right)
 }
 
 func (p *RelationPlanner) planJoin(node *tree.Join, scope *analyzer.Scope, left, right *RelationPlan) *RelationPlan {
@@ -219,6 +219,8 @@ func (p *RelationPlanner) planJoin(node *tree.Join, scope *analyzer.Scope, left,
 	outputSymbols = append(outputSymbols, right.FieldMappings...)
 
 	var joinCriteriaClauses []*planpkg.EqualJoinCriteria
+	// Declared outside the if-block so the post-join filter section can access it.
+	var nonEqualityConditions []tree.Expression
 	leftPlanBuilder := newPlanBuilder(p.context, left, nil)
 	rightPlanBuilder := newPlanBuilder(p.context, right, nil)
 	if node.Type != tree.CROSS && node.Type != tree.IMPLICIT {
@@ -236,8 +238,10 @@ func (p *RelationPlanner) planJoin(node *tree.Join, scope *analyzer.Scope, left,
 				leftComparisonExpressions = append(leftComparisonExpressions, firstExpression)
 				rightComparisonExpressions = append(rightComparisonExpressions, secondExpression)
 				joinConditionComparisonOperators = append(joinConditionComparisonOperators, comparisonExpression.Operator)
+			} else {
+				// Non-comparison conjuncts (e.g. IS NOT NULL) go to the post-join filter.
+				nonEqualityConditions = append(nonEqualityConditions, conjunct)
 			}
-			// TODO: check not equal
 		}
 
 		// add projections for join criteria
@@ -258,6 +262,18 @@ func (p *RelationPlanner) planJoin(node *tree.Join, scope *analyzer.Scope, left,
 					Left:  leftSymbol,
 					Right: rightSymbol,
 				})
+			} else {
+				// Non-equality comparison (e.g. a.x < b.y) cannot be expressed as a
+				// hash-join key; defer it to a post-join filter instead.
+				nonEqualityConditions = append(nonEqualityConditions,
+					&tree.ComparisonExpression{
+						BaseNode: tree.BaseNode{
+							ID: p.context.AnalyzerContext.IDAllocator.Next(),
+						},
+						Left:     leftComparisonExpressions[i],
+						Right:    rightComparisonExpressions[i],
+						Operator: joinConditionComparisonOperators[i],
+					})
 			}
 		}
 	}
@@ -273,6 +289,21 @@ func (p *RelationPlanner) planJoin(node *tree.Join, scope *analyzer.Scope, left,
 		LeftOutputSymbols:  leftPlanBuilder.root.GetOutputSymbols(),
 		RightOutputSymbols: rightPlanBuilder.root.GetOutputSymbols(),
 	}
+
+	// Non-equality ON conditions (e.g. a.price < b.max_price) cannot be pushed
+	// into the hash-join key; store them as a post-join row filter.
+	switch len(nonEqualityConditions) {
+	case 0:
+		// nothing
+	case 1:
+		root.Filter = nonEqualityConditions[0]
+	default:
+		root.Filter = &tree.LogicalExpression{
+			BaseNode: tree.BaseNode{ID: p.context.AnalyzerContext.IDAllocator.Next()},
+			Operator: tree.LogicalAND,
+			Terms:    nonEqualityConditions,
+		}
+	}
 	return &RelationPlan{
 		Root:          root,
 		Scope:         scope,
@@ -281,8 +312,3 @@ func (p *RelationPlanner) planJoin(node *tree.Join, scope *analyzer.Scope, left,
 	}
 }
 
-func coerce(plan *RelationPlan, types []arrow.DataType,
-	symbolAllocator *planpkg.SymbolAllocator, idAllocator *planpkg.PlanNodeIDAllocator,
-) *NodeAndMappings {
-	return nil
-}

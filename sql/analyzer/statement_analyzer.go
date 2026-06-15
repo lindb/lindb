@@ -225,7 +225,80 @@ func (v *StatementVisitor) visitJoin(context any, node *tree.Join) *Scope {
 func (v *StatementVisitor) analyzeJoinUsing(node *tree.Join, columns []*tree.Identifier,
 	scope, left, right *Scope,
 ) *Scope {
-	panic("using")
+	output := v.createAndAssignScope(node, scope, left.RelationType.joinWith(right.RelationType))
+	if node.Type == tree.CROSS || node.Type == tree.IMPLICIT {
+		return output
+	}
+
+	alloc := v.analyzer.ctx.IDAllocator
+	var equalityExprs []tree.Expression
+	for _, col := range columns {
+		colName := col.Value
+
+		leftFields := left.RelationType.resolveFields(tree.NewQualifiedName([]*tree.Identifier{{Value: colName}}))
+		if len(leftFields) == 0 {
+			panic(fmt.Sprintf("JOIN USING: column '%s' not found in left relation", colName))
+		}
+		rightFields := right.RelationType.resolveFields(tree.NewQualifiedName([]*tree.Identifier{{Value: colName}}))
+		if len(rightFields) == 0 {
+			panic(fmt.Sprintf("JOIN USING: column '%s' not found in right relation", colName))
+		}
+
+		// Build qualified references (alias.col) so that the expression analyzer
+		// can unambiguously resolve each side in the merged output scope.
+		leftExpr := buildQualifiedRef(alloc, leftFields[0].RelationAlias, colName)
+		rightExpr := buildQualifiedRef(alloc, rightFields[0].RelationAlias, colName)
+		comparison := &tree.ComparisonExpression{
+			BaseNode: tree.BaseNode{ID: alloc.Next()},
+			Left:     leftExpr,
+			Right:    rightExpr,
+			Operator: tree.ComparisonEQ,
+		}
+		// analyzeExpression registers column references so TranslationMap can
+		// later resolve each DereferenceExpression to a plan Symbol.
+		v.analyzeExpression(comparison, output)
+		equalityExprs = append(equalityExprs, comparison)
+	}
+
+	var criteria tree.Expression
+	switch len(equalityExprs) {
+	case 0:
+		// No columns in USING clause — treat as CROSS JOIN.
+	case 1:
+		criteria = equalityExprs[0]
+	default:
+		criteria = &tree.LogicalExpression{
+			BaseNode: tree.BaseNode{ID: alloc.Next()},
+			Operator: tree.LogicalAND,
+			Terms:    equalityExprs,
+		}
+	}
+	if criteria != nil {
+		v.analyzer.ctx.Analysis.SetJoinCriteria(node, criteria)
+	}
+	return output
+}
+
+// buildQualifiedRef constructs "alias.colName" as a DereferenceExpression when
+// the relation alias is known, or falls back to a bare Identifier otherwise.
+// Using qualified names prevents ambiguity when both sides of a JOIN have a
+// column with the same name in the merged output scope.
+func buildQualifiedRef(alloc *tree.NodeIDAllocator, alias, colName string) tree.Expression {
+	fieldIdent := &tree.Identifier{
+		BaseNode: tree.BaseNode{ID: alloc.Next()},
+		Value:    colName,
+	}
+	if alias == "" {
+		return fieldIdent
+	}
+	return &tree.DereferenceExpression{
+		BaseNode: tree.BaseNode{ID: alloc.Next()},
+		Base: &tree.Identifier{
+			BaseNode: tree.BaseNode{ID: alloc.Next()},
+			Value:    alias,
+		},
+		Field: fieldIdent,
+	}
 }
 
 func (v *StatementVisitor) visitAliasedRelation(context any, relation *tree.AliasedRelation) *Scope {

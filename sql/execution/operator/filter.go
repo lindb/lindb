@@ -87,10 +87,12 @@ func (op *FilterOperator) filter(record arrow.RecordBatch) (arrow.RecordBatch, e
 	}
 
 	// Collect row indices that pass the predicate.
+	// Per SQL three-valued logic, NULL evaluates to UNKNOWN which is treated
+	// as false — a row with a NULL predicate result is excluded.
 	rows := int(record.NumRows())
 	passing := make([]int, 0, rows)
 	for i := range rows {
-		if boolArr.Value(i) {
+		if !boolArr.IsNull(i) && boolArr.Value(i) {
 			passing = append(passing, i)
 		}
 	}
@@ -99,7 +101,7 @@ func (op *FilterOperator) filter(record arrow.RecordBatch) (arrow.RecordBatch, e
 		// Return an empty batch with the same schema.
 		empty := make([]arrow.Array, record.NumCols())
 		for i := range int(record.NumCols()) {
-			empty[i] = buildEmptyColumn(record.Column(i))
+			empty[i] = BuildEmptyColumn(record.Column(i))
 		}
 		return larrow.NewFilterableRecord(
 			array.NewRecordBatch(record.Schema(), empty, 0), nil), nil
@@ -108,7 +110,7 @@ func (op *FilterOperator) filter(record arrow.RecordBatch) (arrow.RecordBatch, e
 	// Reconstruct each column by selecting only the passing rows.
 	cols := make([]arrow.Array, record.NumCols())
 	for i := range int(record.NumCols()) {
-		cols[i], err = selectRows(record.Column(i), passing)
+		cols[i], err = SelectRows(record.Column(i), passing)
 		if err != nil {
 			return nil, fmt.Errorf("column %d row selection: %w", i, err)
 		}
@@ -148,10 +150,10 @@ func (op *FilterOperator) prepare() {
 // Helpers for row selection (no arrow/compute dependency)
 // ─────────────────────────────────────────────────────────────────────────────
 
-// selectRows builds a new Arrow array that contains only the rows at the given
+// SelectRows builds a new Arrow array that contains only the rows at the given
 // indices. Supports the common types emitted by aggregations (int64, float64,
 // string, bool).
-func selectRows(col arrow.Array, rows []int) (arrow.Array, error) {
+func SelectRows(col arrow.Array, rows []int) (arrow.Array, error) {
 	alloc := memory.DefaultAllocator
 	switch src := col.(type) {
 	case *array.Int64:
@@ -207,9 +209,9 @@ func selectRows(col arrow.Array, rows []int) (arrow.Array, error) {
 	}
 }
 
-// buildEmptyColumn creates a zero-length array of the same type as the source.
-func buildEmptyColumn(col arrow.Array) arrow.Array {
-	result, _ := selectRows(col, nil)
+// BuildEmptyColumn creates a zero-length array of the same type as the source.
+func BuildEmptyColumn(col arrow.Array) arrow.Array {
+	result, _ := SelectRows(col, nil)
 	if result == nil {
 		// Fallback for unknown types: re-use the column itself (a 0-row batch
 		// is discarded downstream anyway).
