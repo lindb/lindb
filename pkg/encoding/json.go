@@ -44,6 +44,12 @@ func (encoder *JSONEncoder[T]) IsEmpty(ptr unsafe.Pointer) bool {
 func (encoder *JSONEncoder[T]) Encode(ptr unsafe.Pointer, stream *jsoniter.Stream) {
 	node := *(*T)(ptr)
 	nodeType := reflect.TypeOf(node)
+	// Guard against nil interface values: write JSON null and return early
+	// so reflect.Type.Elem() is never called on a nil Type.
+	if nodeType == nil {
+		stream.WriteNil()
+		return
+	}
 	stream.WriteObjectStart()
 	stream.WriteObjectField("@type")
 	stream.WriteString(nodeType.Elem().String())

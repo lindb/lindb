@@ -28,7 +28,6 @@ func TestAdmin_FlushDatabase(t *testing.T) {
 	assert.NoError(t, err)
 	checkStatement(t, &FlushDatabase{
 		Database: "test",
-		BaseNode: BaseNode{ID: 1},
 	}, stmt)
 }
 
@@ -37,6 +36,5 @@ func TestAdmin_CompactDatabase(t *testing.T) {
 	assert.NoError(t, err)
 	checkStatement(t, &CompactDatabase{
 		Database: "test",
-		BaseNode: BaseNode{ID: 1},
 	}, stmt)
 }

@@ -18,12 +18,42 @@
 package plan
 
 import (
-	"fmt"
-	"reflect"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/lindb/common/pkg/encoding"
+	"github.com/stretchr/testify/require"
 )
 
-func TestEncoding(t *testing.T) {
-	fmt.Println(reflect.TypeOf(TableScanNode{}).String())
-	fmt.Println(reflect.TypeOf(&TableScanNode{}).Elem())
+// checkPlanNode compares two plan trees for structural equality, ignoring
+// BaseNode.ID values. IDs are assigned by the planner/optimizer in allocation
+// order and must not be hard-coded in tests.
+func checkPlanNode(t *testing.T, want, got PlanNode) {
+	t.Helper()
+	// IgnoreFields skips BaseNode.ID in every embedded BaseNode across the whole tree.
+	if diff := cmp.Diff(want, got, cmpopts.IgnoreFields(BaseNode{}, "ID")); diff != "" {
+		t.Errorf("plan node mismatch (-want +got):\n%s", diff)
+	}
+}
+
+// TestEncoding_RoundTrip verifies that a plan tree survives a JSON marshal/unmarshal
+// round-trip with the correct concrete type restored via the @type/@data wrapper.
+func TestEncoding_RoundTrip(t *testing.T) {
+	// Build a minimal plan tree: TableScanNode with one output symbol.
+	want := &TableScanNode{
+		BaseNode:      BaseNode{ID: 1},
+		OutputSymbols: []*Symbol{{Name: "cpu"}},
+	}
+
+	// Wrap in PlanFragment so that the PlanNode interface encoder is exercised.
+	fragment := &PlanFragment{Root: want}
+	data := encoding.JSONMarshal(fragment)
+	require.NotEmpty(t, data)
+
+	// Unmarshal back and verify the Root node matches the original.
+	var got PlanFragment
+	require.NoError(t, encoding.JSONUnmarshal(data, &got))
+
+	checkPlanNode(t, want, got.Root)
 }

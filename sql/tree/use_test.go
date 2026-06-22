@@ -20,7 +20,8 @@ package tree
 import (
 	"testing"
 
-	"github.com/lindb/common/pkg/encoding"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -28,14 +29,17 @@ func TestUseStatement(t *testing.T) {
 	stmt, err := GetParser().CreateStatement("use test", NewNodeIDAllocator())
 	assert.NoError(t, err)
 	checkStatement(t, &Use{
-		BaseNode: BaseNode{ID: 2},
-		Database: &Identifier{
-			BaseNode: BaseNode{ID: 1},
-			Value:    "test",
-		},
+		Database: &Identifier{Value: "test"},
 	}, stmt)
 }
 
-func checkStatement(t *testing.T, a, b Statement) {
-	assert.Equal(t, string(encoding.JSONMarshal(a)), string(encoding.JSONMarshal(b)))
+// checkStatement compares two Statement trees for semantic equality, ignoring
+// all BaseNode metadata fields (ID, Location, Text). These are assigned by the
+// parser and must not be hard-coded in tests.
+func checkStatement(t *testing.T, want, got Statement) {
+	t.Helper()
+	// IgnoreFields skips all parser-internal BaseNode fields in every node of the tree.
+	if diff := cmp.Diff(want, got, cmpopts.IgnoreFields(BaseNode{}, "ID", "Location", "Text")); diff != "" {
+		t.Errorf("statement mismatch (-want +got):\n%s", diff)
+	}
 }
