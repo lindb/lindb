@@ -46,8 +46,8 @@ func (r *RemoveHiddenColumns) removeHidden(
 	ctx *iterative.Context, node *plan.OutputNode,
 ) plan.PlanNode {
 	visitor := &plan.DefaultTraversalVisitor{
-		Process:  pruneHiddenFromNode,
-		Resolve:  ctx.Lookup.Resolve,
+		Process: pruneHiddenFromNode,
+		Resolve: ctx.Lookup.Resolve,
 	}
 	_ = visitor.Visit(nil, node)
 	// Return nil: all modifications are in-place (same pattern as PushTimestampIntoTableScan).

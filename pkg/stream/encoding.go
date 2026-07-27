@@ -17,7 +17,9 @@
 
 package stream
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+)
 
 // UvariantSize returns the bytes-size of a uint64 uvariant encoded number.
 func UvariantSize(value uint64) int {

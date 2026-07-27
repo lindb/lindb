@@ -34,7 +34,7 @@ import (
 type Meta struct {
 	Name Name        `json:"name"`
 	Type cfield.Type `json:"type"` // query not use type
-	ID   ID   `json:"id"`   // query not use id, don't get id in query phase
+	ID   ID          `json:"id"`   // query not use id, don't get id in query phase
 	// write: field index under memory database
 	// read: field index of query fields
 	Index     uint8

@@ -20,8 +20,8 @@ package opentelemetry
 import (
 	"github.com/gin-gonic/gin"
 
-	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/app/broker/api/ingest"
+	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 )
 

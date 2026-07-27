@@ -22,11 +22,11 @@ import (
 	"sync"
 
 	xxhash "github.com/cespare/xxhash/v2"
+	"github.com/lindb/arrow/pkg/model"
 	"github.com/lindb/common/field"
 	commonMetric "github.com/lindb/common/metric"
 	"github.com/lindb/common/pkg/fasttime"
 	"github.com/lindb/common/proto/gen/v1/flatMetricsV1"
-	"github.com/lindb/arrow/pkg/model"
 
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/strutil"
@@ -70,7 +70,7 @@ type taggedSeries struct {
 }
 
 type fieldPayload struct {
-	simpleFields []simpleField   // Bound SimpleField list
+	simpleFields []simpleField     // Bound SimpleField list
 	histograms   []*BoundHistogram // named or unnamed histograms; name="" means unnamed single histogram
 }
 

@@ -404,7 +404,7 @@ type mockChildOp struct {
 }
 
 func (m *mockChildOp) Run(_ context.Context, _ chan<- arrow.RecordBatch) {}
-func (m *mockChildOp) GetLayout() []*plan.Symbol                        { return m.layout }
-func (m *mockChildOp) Children() []Operator                             { return nil }
+func (m *mockChildOp) GetLayout() []*plan.Symbol                         { return m.layout }
+func (m *mockChildOp) Children() []Operator                              { return nil }
 func (m *mockChildOp) GetInbounds() []chan arrow.RecordBatch             { return nil }
 func (m *mockChildOp) String() string                                    { return "mock" }

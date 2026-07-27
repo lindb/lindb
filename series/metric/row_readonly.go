@@ -243,10 +243,10 @@ const (
 	histogramMin   = sfield.Name("HistogramMin")
 )
 
-func (itr *CompoundFieldIterator) HistogramSumName() sfield.Name   { return histogramSum }
+func (itr *CompoundFieldIterator) HistogramSumName() sfield.Name        { return histogramSum }
 func (itr *CompoundFieldIterator) HistogramCountFieldName() sfield.Name { return histogramCount }
-func (itr *CompoundFieldIterator) HistogramMaxName() sfield.Name   { return histogramMax }
-func (itr *CompoundFieldIterator) HistogramMinName() sfield.Name   { return histogramMin }
+func (itr *CompoundFieldIterator) HistogramMaxName() sfield.Name        { return histogramMax }
+func (itr *CompoundFieldIterator) HistogramMinName() sfield.Name        { return histogramMin }
 
 // BucketNameOfHistogramExplicitBound converts reserved field-name for histogram buckets.
 func BucketNameOfHistogramExplicitBound(upperBound float64) string {

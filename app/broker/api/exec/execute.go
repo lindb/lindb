@@ -23,6 +23,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
@@ -36,6 +39,7 @@ import (
 	depspkg "github.com/lindb/lindb/app/broker/deps"
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
+	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/sql/execution"
 	"github.com/lindb/lindb/sql/tree"
 )
@@ -179,6 +183,11 @@ func (e *ExecuteAPI) execute(c *gin.Context) error {
 	}
 	defer record.Release()
 
+	// Log queries include hidden cursor columns; apply broker-side pagination when present.
+	if ok, err := applyBrokerPagination(c, record, &param); ok || err != nil {
+		return err
+	}
+
 	if c.GetHeader("Accept") == constants.ContentTypeArrow {
 		return writeArrowStream(c, record)
 	}
@@ -260,4 +269,182 @@ func unwrapRecord(record arrow.RecordBatch) (arrow.RecordBatch, bool) {
 		return record, false
 	}
 	return array.NewRecordBatch(schema, cols, record.NumRows()), true
+}
+
+// applyBrokerPagination handles global sorting, truncation, and cursor extraction for log
+// queries.  Storage nodes append a hidden "_id" column to every raw log RecordBatch with
+// format "shardID:ts:logID" where ts is the per-row log timestamp in nanoseconds.
+//
+// When that column is absent the record is not a paginated log result; the function
+// returns (false, nil) and the caller falls through to the normal response path.
+//
+// When present, the function:
+//  1. Parses all _id strings into (shardID, ts, logID) components.
+//  2. Sorts all rows by ts DESC.
+//  3. Truncates to effectiveLimit.
+//  4. Records the oldest (last in sorted order) row per shard as that shard's next cursor.
+//  5. Carries forward old per-shard cursors for shards absent from this page.
+//  6. Serialises the cursor map as "shardID:ts:logID,…" (sorted for determinism).
+//  7. Strips the hidden _id column and writes a models.LogPageResult JSON response.
+//
+// Returns (true, err) after writing the response, or (false, nil) when the record is not
+// a paginated log result.
+func applyBrokerPagination(c *gin.Context, record arrow.RecordBatch, param *models.ExecuteParam) (bool, error) {
+	schema := record.Schema()
+	idIdxs := schema.FieldIndices("_id")
+	if len(idIdxs) == 0 {
+		return false, nil
+	}
+	idIdx := idIdxs[0]
+	idCol, ok := record.Column(idIdx).(*array.String)
+	if !ok {
+		return false, fmt.Errorf("_id column is not string type")
+	}
+
+	numRows := int(record.NumRows())
+
+	// Pre-parse all _id strings to avoid repeated string splitting during sort.
+	type rowID struct {
+		shardID int64
+		ts      int64
+		logID   uint32
+	}
+	ids := make([]rowID, numRows)
+	for i := range numRows {
+		ids[i].shardID, ids[i].ts, ids[i].logID = parseID(idCol.Value(i))
+	}
+
+	// Build a sorted index array: ts DESC.
+	indices := make([]int, numRows)
+	for i := range indices {
+		indices[i] = i
+	}
+	sort.Slice(indices, func(i, j int) bool {
+		return ids[indices[i]].ts > ids[indices[j]].ts
+	})
+
+	effectiveLimit := int64(1000)
+	if param.Limit > 0 {
+		effectiveLimit = param.Limit
+	}
+
+	hasMore := int64(numRows) > effectiveLimit
+	if hasMore {
+		indices = indices[:effectiveLimit]
+	}
+
+	// Build per-shard cursor: last (oldest) row per shard in the DESC-sorted result.
+	// Iterating in DESC order and overwriting means the final map value is the oldest row.
+	lastShardRow := make(map[int64]int)
+	for _, ri := range indices {
+		lastShardRow[ids[ri].shardID] = ri
+	}
+
+	newCursors := make(map[int64]spi.ShardCursor)
+	for shardID, ri := range lastShardRow {
+		newCursors[shardID] = spi.ShardCursor{
+			Timestamp: ids[ri].ts,
+			LogID:     ids[ri].logID,
+		}
+	}
+
+	// Carry forward old cursors for shards not present in this page's result.
+	if param.Cursor != "" {
+		for shardID, cursor := range parseShardCursors(param.Cursor) {
+			if _, exists := newCursors[shardID]; !exists {
+				newCursors[shardID] = cursor
+			}
+		}
+	}
+
+	// Serialise next cursor deterministically (sorted shard IDs).
+	nextCursor := ""
+	if hasMore && len(newCursors) > 0 {
+		parts := make([]string, 0, len(newCursors))
+		for shardID, cursor := range newCursors {
+			parts = append(parts, fmt.Sprintf("%d:%d:%d", shardID, cursor.Timestamp, cursor.LogID))
+		}
+		sort.Strings(parts)
+		nextCursor = strings.Join(parts, ",")
+	}
+
+	// Determine visible (non-hidden) column indices.
+	hiddenSet := map[int]bool{idIdx: true}
+	numCols := schema.NumFields()
+	visibleIdxs := make([]int, 0, numCols-1)
+	columns := make([]string, 0, numCols-1)
+	for i := range numCols {
+		if !hiddenSet[i] {
+			visibleIdxs = append(visibleIdxs, i)
+			columns = append(columns, schema.Field(i).Name)
+		}
+	}
+
+	// Extract values for the selected (sorted, truncated) rows.
+	values := make([][]interface{}, len(indices))
+	for rowPos, ri := range indices {
+		row := make([]interface{}, len(visibleIdxs))
+		for colPos, ci := range visibleIdxs {
+			row[colPos] = extractArrowValue(record.Column(ci), ri)
+		}
+		values[rowPos] = row
+	}
+
+	c.JSON(http.StatusOK, &models.LogPageResult{
+		Columns:    columns,
+		Values:     values,
+		NextCursor: nextCursor,
+		HasMore:    hasMore,
+	})
+	return true, nil
+}
+
+// extractArrowValue extracts a single cell from an Arrow array as a plain Go value.
+// Covers the types that appear in log query output columns; falls back to ValueStr for others.
+func extractArrowValue(col arrow.Array, idx int) interface{} {
+	if col.IsNull(idx) {
+		return nil
+	}
+	switch a := col.(type) {
+	case *array.Int64:
+		return a.Value(idx)
+	case *array.String:
+		return a.Value(idx)
+	case *array.LargeString:
+		return a.Value(idx)
+	case *array.Int32:
+		return int64(a.Value(idx))
+	case *array.Boolean:
+		return a.Value(idx)
+	default:
+		return col.ValueStr(idx)
+	}
+}
+
+// parseShardCursors parses a per-shard cursor string "shardID:ts:logID,…" into a map.
+// Malformed entries are silently skipped.
+func parseShardCursors(s string) map[int64]spi.ShardCursor {
+	result := make(map[int64]spi.ShardCursor)
+	for _, entry := range strings.Split(s, ",") {
+		if entry == "" {
+			continue
+		}
+		shardID, ts, logID := parseID(entry)
+		result[shardID] = spi.ShardCursor{Timestamp: ts, LogID: logID}
+	}
+	return result
+}
+
+// parseID parses a "_id" string "shardID:ts:logID" into its numeric components.
+// Malformed input returns zero values.
+func parseID(s string) (shardID, ts int64, logID uint32) {
+	parts := strings.SplitN(s, ":", 3)
+	if len(parts) != 3 {
+		return
+	}
+	shardID, _ = strconv.ParseInt(parts[0], 10, 64)
+	ts, _ = strconv.ParseInt(parts[1], 10, 64)
+	v, _ := strconv.ParseInt(parts[2], 10, 64)
+	logID = uint32(v)
+	return
 }

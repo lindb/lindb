@@ -22,6 +22,7 @@ import (
 	larrow "github.com/lindb/arrow/pkg/arrow"
 	"github.com/samber/lo"
 
+	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/sql/analyzer"
 	"github.com/lindb/lindb/sql/context"
 	"github.com/lindb/lindb/sql/planner/plan"
@@ -61,7 +62,14 @@ func (p *QueryPlanner) planQuery(node *tree.Query) *RelationPlan {
 	orderByAndOutputs = append(orderByAndOutputs, orderBy...)
 	orderByAndOutputs = append(orderByAndOutputs, outputs...)
 	builder = builder.appendProjections(orderByAndOutputs)
-	// FIXME:>>>>> order/limit
+	// Propagate SQL LIMIT to the TableScanNode so storage-layer connectors can
+	// apply an early cutoff. SQL LIMIT takes priority over API-level pagination
+	// parameters (which were written in relation_planner.visitTable earlier).
+	if node.Limit != nil {
+		if sqlLimit := p.context.AnalyzerContext.Analysis.GetLimit(node.Limit); sqlLimit > 0 {
+			propagateLimitToTableScan(builder.root, sqlLimit)
+		}
+	}
 
 	builder = builder.appendProjections(outputs)
 
@@ -317,4 +325,22 @@ func (p *QueryPlanner) outputExpressions(selectExpressions []*analyzer.SelectExp
 		outputs = append(outputs, selectExpressions[i].Expression)
 	}
 	return
+}
+
+// propagateLimitToTableScan walks the plan tree and sets the limit on the
+// first TableScanNode that implements spi.Paginator.  Traversal stops at
+// AggregationNode to avoid truncating the intermediate rows that an aggregation
+// requires to produce a correct result.
+func propagateLimitToTableScan(root plan.PlanNode, limit int64) {
+	switch node := root.(type) {
+	case *plan.TableScanNode:
+		if p, ok := node.Table.(spi.Paginator); ok {
+			p.SetLimit(limit)
+		}
+	case *plan.ProjectionNode:
+		propagateLimitToTableScan(node.Source, limit)
+	case *plan.FilterNode:
+		propagateLimitToTableScan(node.Source, limit)
+		// AggregationNode: do not propagate — truncating inputs corrupts aggregate results.
+	}
 }

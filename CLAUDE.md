@@ -55,6 +55,16 @@ make clean-mock  # Remove all *_mock.go files
 make deps        # go mod verify + tidy
 ```
 
+## Code Generation Workflow
+
+Do **not** run lint or code review after routine edits. `make lint` / `make format` / `make import` and the `code-reviewer` subagent run **only at commit time**, so the same checks are not repeated on every edit.
+
+Rules:
+1. After creating or modifying source files, just finish — do **not** run `make lint`, `make format`, `make import`, or the `code-reviewer` subagent.
+2. Only when the user asks to commit: run lint (`make lint`, and `make format`/`make import` as needed), fix any errors, run the `code-reviewer` subagent, then commit.
+3. Never commit with unresolved lint errors.
+4. Running tests to verify correctness (`make test-without-lint`, `go test ...`) is a separate concern and is still fine on demand.
+
 ## Architecture
 
 ### Node Roles

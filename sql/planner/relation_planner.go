@@ -19,11 +19,14 @@ package planner
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/lindb/lindb/constants"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
+	"github.com/lindb/lindb/spi"
 	"github.com/lindb/lindb/sql/analyzer"
 	"github.com/lindb/lindb/sql/context"
 	"github.com/lindb/lindb/sql/expression"
@@ -189,6 +192,21 @@ func (p *RelationPlanner) visitTable(_ any, node *tree.Table) (r any) {
 		}
 		root.Table.SetTimeRange(timeRange)
 
+		// Propagate pagination parameters from the request context to the TableHandle.
+		// Only TableHandle implementations that satisfy spi.Paginator (e.g. log) support this.
+		if currentParams != nil {
+			if params, ok := currentParams.(*models.ExecuteParam); ok {
+				if p, ok := root.Table.(spi.Paginator); ok {
+					if params.Limit > 0 {
+						p.SetLimit(params.Limit)
+					}
+					if params.Cursor != "" {
+						p.SetShardCursors(parseCursor(params.Cursor))
+					}
+				}
+			}
+		}
+
 		if p.groupingInterval != nil {
 			root.Table.SetInterval(p.groupingInterval.Interval())
 		}
@@ -208,7 +226,6 @@ func (p *RelationPlanner) visitTable(_ any, node *tree.Table) (r any) {
 }
 
 func (p *RelationPlanner) planJoinUsing(node *tree.Join, left, right *RelationPlan) *RelationPlan {
-	// The analyzer has already converted USING columns into equality ON criteria
 	// stored in Analysis.GetJoinCriteria(node), so we can delegate directly to planJoin.
 	return p.planJoin(node, p.context.AnalyzerContext.Analysis.GetScope(node), left, right)
 }
@@ -312,3 +329,22 @@ func (p *RelationPlanner) planJoin(node *tree.Join, scope *analyzer.Scope, left,
 	}
 }
 
+// parseCursor parses a per-shard cursor string "shardID:seg:logID,shardID:seg:logID,..."
+// into a map keyed by shardID. Malformed entries are silently skipped.
+func parseCursor(s string) map[int64]spi.ShardCursor {
+	result := make(map[int64]spi.ShardCursor)
+	for _, entry := range strings.Split(s, ",") {
+		parts := strings.SplitN(entry, ":", 3)
+		if len(parts) != 3 {
+			continue
+		}
+		shardID, err := strconv.ParseInt(parts[0], 10, 64)
+		if err != nil {
+			continue
+		}
+		seg, _ := strconv.ParseInt(parts[1], 10, 64)
+		v, _ := strconv.ParseInt(parts[2], 10, 64)
+		result[shardID] = spi.ShardCursor{Timestamp: seg, LogID: uint32(v)}
+	}
+	return result
+}

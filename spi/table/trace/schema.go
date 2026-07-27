@@ -207,22 +207,22 @@ var traceSchema = []traceColumn{
 	},
 	{
 		// resource: Struct<schema_url, attributes>
-		Field: arrow.Field{Name: arrowConst.Resource, Type: resourceStructType, Nullable: true},
+		Field:  arrow.Field{Name: arrowConst.Resource, Type: resourceStructType, Nullable: true},
 		reader: buildResourceReader,
 	},
 	{
 		// scope: Struct<name, version, schema_url, attributes>
-		Field: arrow.Field{Name: arrowConst.Scope, Type: scopeStructType, Nullable: true},
+		Field:  arrow.Field{Name: arrowConst.Scope, Type: scopeStructType, Nullable: true},
 		reader: buildScopeReader,
 	},
 	{
 		// events: List<Struct<timestamp, name, attributes>>
-		Field: arrow.Field{Name: arrowConst.Events, Type: arrow.ListOf(eventStructType), Nullable: true},
+		Field:  arrow.Field{Name: arrowConst.Events, Type: arrow.ListOf(eventStructType), Nullable: true},
 		reader: buildEventsReader,
 	},
 	{
 		// links: List<Struct<trace_id, span_id, trace_state, flags, attributes>>
-		Field: arrow.Field{Name: arrowConst.Links, Type: arrow.ListOf(linkStructType), Nullable: true},
+		Field:  arrow.Field{Name: arrowConst.Links, Type: arrow.ListOf(linkStructType), Nullable: true},
 		reader: buildLinksReader,
 	},
 }

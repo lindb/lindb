@@ -27,6 +27,18 @@ type ExecuteParam struct {
 	Database  string             `form:"db" json:"db"`
 	SQL       string             `form:"sql" json:"sql" binding:"required"`
 	TimeRange timeutil.TimeRange `form:"timeRange" json:"timeRange"`
+	// Cursor is the composite pagination cursor "shardID:ts:logID" from the previous page response.
+	Cursor string `form:"cursor" json:"cursor,omitempty"`
+	// Limit overrides the per-page row count; 0 means use the server default.
+	Limit int64 `form:"limit" json:"limit,omitempty"`
+}
+
+// LogPageResult is the HTTP response body for log query requests that include pagination.
+type LogPageResult struct {
+	Columns    []string        `json:"columns"`
+	Values     [][]interface{} `json:"values"`
+	NextCursor string          `json:"next_cursor,omitempty"` // "shardID:ts:logID,…"; empty on last page
+	HasMore    bool            `json:"has_more"`
 }
 
 type Session struct {

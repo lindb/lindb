@@ -30,11 +30,11 @@ import (
 // (i.e., bucket/stat columns whose data is consumed by histogramColumn instead).
 type noopColumn struct{}
 
-func (n *noopColumn) isExemplar() bool                      { return false }
-func (n *noopColumn) createStream(_ int, _ int)             {}
-func (n *noopColumn) downsampling(_ []*loader)              {}
-func (n *noopColumn) aggregate(_ []Result)                  {}
-func (n *noopColumn) reset()                                {}
+func (n *noopColumn) isExemplar() bool          { return false }
+func (n *noopColumn) createStream(_ int, _ int) {}
+func (n *noopColumn) downsampling(_ []*loader)  {}
+func (n *noopColumn) aggregate(_ []Result)      {}
+func (n *noopColumn) reset()                    {}
 
 // histogramEntry holds a single bucket field together with its parsed upper-bound value.
 // The bound is cached so we avoid re-parsing the field name on every query.

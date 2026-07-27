@@ -32,5 +32,5 @@ type accumulatorAdapter struct {
 }
 
 func (a *accumulatorAdapter) Initialize(record arrow.RecordBatch) { a.acc.Initialize(record) }
-func (a *accumulatorAdapter) Enter(_ arrow.RecordBatch, row int)   { a.acc.Update(row) }
-func (a *accumulatorAdapter) Flush(builder array.Builder)           { a.acc.Result(builder); a.acc.Reset() }
+func (a *accumulatorAdapter) Enter(_ arrow.RecordBatch, row int)  { a.acc.Update(row) }
+func (a *accumulatorAdapter) Flush(builder array.Builder)         { a.acc.Result(builder); a.acc.Reset() }

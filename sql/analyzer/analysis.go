@@ -273,6 +273,10 @@ func (a *Analysis) SetLimit(node tree.Node, rowCount int64) {
 	a.limit[node.GetID()] = rowCount
 }
 
+func (a *Analysis) GetLimit(node tree.Node) int64 {
+	return a.limit[node.GetID()]
+}
+
 func (a *Analysis) AddColumnReference(expression tree.Expression, field *ResolvedField) {
 	a.columnReferences[expression.GetID()] = field
 }

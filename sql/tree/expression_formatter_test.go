@@ -37,7 +37,7 @@ func TestFormatExpression_FloatLiteral(t *testing.T) {
 	}{
 		{"0.99", "0.99"},
 		{"0.5", "0.5"},
-		{"1.0", "1"},     // %g strips trailing zero
+		{"1.0", "1"}, // %g strips trailing zero
 		{"3.14", "3.14"},
 		{"0.0", "0"},
 	}

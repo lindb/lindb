@@ -37,7 +37,7 @@ import (
 type FilterOperator struct {
 	ctx     context.Context
 	child   Operator
-	rawPred tree.Expression      // AST predicate, rewritten lazily on first Run()
+	rawPred tree.Expression       // AST predicate, rewritten lazily on first Run()
 	pred    expression.Expression // compiled expression after rewrite
 	inbound *Queue
 }

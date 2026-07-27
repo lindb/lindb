@@ -393,8 +393,8 @@ func TestValidateHavingIdentifiers_GroupByColumn(t *testing.T) {
 func TestValidateHavingIdentifiers_UnknownColumn(t *testing.T) {
 	idAlloc := tree.NewNodeIDAllocator()
 
-	aliasMap := map[string]tree.Expression{}    // no aliases
-	groupByCols := map[string]struct{}{}         // no GROUP BY columns
+	aliasMap := map[string]tree.Expression{} // no aliases
+	groupByCols := map[string]struct{}{}     // no GROUP BY columns
 
 	// HAVING: ct <> 100
 	ctIdent := &tree.Identifier{Value: "ct"}
@@ -675,7 +675,6 @@ func TestAnalyzeWith_MultiCTE_CrossReference(t *testing.T) {
 		"only the physical table 'logs' should have been sent to MetadataManager; "+
 			"log_counts and critical_anomalies are CTEs and must not be looked up")
 }
-
 
 // TestMultiCTE_ScopeChain_NamedQueryAccessible verifies the exact scope lookup path used by
 // visitTable when the second CTE body references the first CTE by name.

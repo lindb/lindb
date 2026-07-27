@@ -327,4 +327,3 @@ func isNumericSymbolRef(ref *tree.SymbolReference) bool {
 	return arrow.TypeEqual(ref.DataType, arrow.PrimitiveTypes.Float64) ||
 		arrow.TypeEqual(ref.DataType, arrow.PrimitiveTypes.Int64)
 }
-

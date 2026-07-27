@@ -39,7 +39,7 @@ func (s *sumIncrementalAgg) NewAccumulator(_ function.EvalContext, args []functi
 type sumAccumulator struct {
 	value float64
 	arg   function.Expr // baked in at NewAccumulator time
-	col   arrow.Array  // cached per-batch; released in Initialize and Reset
+	col   arrow.Array   // cached per-batch; released in Initialize and Reset
 }
 
 func (a *sumAccumulator) Initialize(record arrow.RecordBatch) {

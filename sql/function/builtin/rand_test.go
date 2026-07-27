@@ -53,7 +53,7 @@ func (c *constExpr) Eval(_ arrow.RecordBatch) (arrow.Array, error) {
 }
 func (c *constExpr) EvalScalar() (scalar.Scalar, error) { return c.val, nil }
 
-func int64Arg(seed int64) function.Expr   { return &constExpr{val: &scalar.Int64{Value: seed}} }
+func int64Arg(seed int64) function.Expr  { return &constExpr{val: &scalar.Int64{Value: seed}} }
 func float64Arg(v float64) function.Expr { return &constExpr{val: &scalar.Float64{Value: v}} }
 
 // newRand creates a randInstance via RandFactory.

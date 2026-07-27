@@ -23,10 +23,10 @@ import (
 	"os"
 	"testing"
 
-	prompt "github.com/elk-language/go-prompt"
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/memory"
+	prompt "github.com/elk-language/go-prompt"
 	"go.uber.org/mock/gomock"
 
 	"github.com/lindb/lindb/internal/client"
@@ -60,7 +60,7 @@ func Test_main(t *testing.T) {
 				newExecuteCli = func(endpoint string) client.ExecuteCli {
 					return cli
 				}
-			cli.EXPECT().ExecuteAsRecord(gomock.Any()).DoAndReturn(func(_ any) (arrow.RecordBatch, error) {
+				cli.EXPECT().ExecuteAsRecord(gomock.Any()).DoAndReturn(func(_ any) (arrow.RecordBatch, error) {
 					// Return a RecordBatch with one string column "version" = "1.0.0"
 					schema := arrow.NewSchema([]arrow.Field{
 						{Name: "version", Type: arrow.BinaryTypes.String},

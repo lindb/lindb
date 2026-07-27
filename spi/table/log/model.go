@@ -59,6 +59,10 @@ type TableHandle struct {
 	Namespace string `json:"namespace"`
 
 	TimeRange timeutil.TimeRange `json:"timeRange"`
+
+	// Pagination fields (omitempty for backward compatibility with older storage nodes).
+	Limit        int64                     `json:"limit,omitempty"`
+	ShardCursors map[int64]spi.ShardCursor `json:"shardCursors,omitempty"`
 }
 
 func (t *TableHandle) SetTimeRange(timeRange timeutil.TimeRange) {
@@ -83,6 +87,32 @@ func (t *TableHandle) Kind() spi.DatasourceKind {
 
 func (t *TableHandle) String() string {
 	return fmt.Sprintf("%s:%s", t.Database, t.Namespace)
+}
+
+// SetShardCursors implements spi.Paginator.
+func (t *TableHandle) SetShardCursors(cursors map[int64]spi.ShardCursor) {
+	t.ShardCursors = cursors
+}
+
+// GetShardCursor implements spi.Paginator.
+func (t *TableHandle) GetShardCursor(shardID int64) (spi.ShardCursor, bool) {
+	c, ok := t.ShardCursors[shardID]
+	return c, ok
+}
+
+// HasAnyCursor implements spi.Paginator.
+func (t *TableHandle) HasAnyCursor() bool {
+	return len(t.ShardCursors) > 0
+}
+
+// SetLimit implements spi.Paginator.
+func (t *TableHandle) SetLimit(limit int64) {
+	t.Limit = limit
+}
+
+// GetLimit implements spi.Paginator.
+func (t *TableHandle) GetLimit() int64 {
+	return t.Limit
 }
 
 type ColumnHandle struct {

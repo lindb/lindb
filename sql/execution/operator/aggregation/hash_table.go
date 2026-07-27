@@ -72,10 +72,10 @@ func colMergeFor(colName string, node *plan.AggregationNode) mergeFunc {
 
 // colState holds the accumulated values for one non-key column in one group.
 type colState struct {
-	scalar float64    // instant query or scalar stat column in range query
-	vector []float64  // range query: per-time-slot values; nil means instant query
-	tsMeta *tsData    // time metadata (start, end, interval) from the first TimeSeries seen
-	init   bool       // whether at least one value has been accumulated
+	scalar float64   // instant query or scalar stat column in range query
+	vector []float64 // range query: per-time-slot values; nil means instant query
+	tsMeta *tsData   // time metadata (start, end, interval) from the first TimeSeries seen
+	init   bool      // whether at least one value has been accumulated
 }
 
 // groupState holds the accumulated state for one unique combination of grouping key values.
@@ -91,11 +91,11 @@ type groupState struct {
 // It is designed to accumulate rows from multiple Arrow RecordBatches (e.g. results from
 // multiple storage nodes) before producing a single consolidated output batch.
 type hashTable struct {
-	order       []string               // insertion-order group keys for deterministic output
+	order       []string // insertion-order group keys for deterministic output
 	groups      map[string]*groupState
-	inputSchema *arrow.Schema          // schema captured from the first batch seen (nil until first batch)
-	keyColNames []string               // column names of the grouping key columns
-	isTS        bool                   // whether input has TimeSeries columns (range query)
+	inputSchema *arrow.Schema // schema captured from the first batch seen (nil until first batch)
+	keyColNames []string      // column names of the grouping key columns
+	isTS        bool          // whether input has TimeSeries columns (range query)
 }
 
 func newHashTable() *hashTable {

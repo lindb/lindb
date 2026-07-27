@@ -24,11 +24,11 @@ import (
 	commonencoding "github.com/lindb/common/pkg/encoding"
 	"github.com/lindb/common/pkg/logger"
 
+	"github.com/lindb/common/field"
 	"github.com/lindb/lindb/pkg/bit"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/pkg/timeutil"
-	"github.com/lindb/common/field"
 	sfield "github.com/lindb/lindb/series/field"
 	"github.com/lindb/lindb/storage/metric/tblstore/metricsdata"
 )

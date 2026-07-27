@@ -94,7 +94,7 @@ func (agg *aggregatorByTime) Aggregate(output chan<- arrow.RecordBatch) {
 	values := make([]float64, numOfPoints)
 
 	// Accumulate matching log counts into the correct time bucket.
-	agg.source.findLogs(agg.tableScan, func(segment *logstore.Segment, logIDs *roaring.Bitmap) bool {
+	agg.source.findLogs(agg.tableScan, func(_ *Partition, segment *logstore.Segment, logIDs *roaring.Bitmap) bool {
 		segment.FindLogIDsByTimeRange(agg.tableScan.timeRange, func(timestamp int64, logIDsFromStore *roaring.Bitmap) {
 			// Keep only the log IDs that satisfy the WHERE predicate.
 			logIDsFromStore.And(logIDs)
@@ -194,7 +194,7 @@ func (agg *aggregatorByField) Aggregate(output chan<- arrow.RecordBatch) {
 		})
 	}
 
-	agg.source.findLogs(agg.tableScan, func(segment *logstore.Segment, logIDs *roaring.Bitmap) bool {
+	agg.source.findLogs(agg.tableScan, func(_ *Partition, segment *logstore.Segment, logIDs *roaring.Bitmap) bool {
 		if hasGrouping {
 			for _, v := range grouping {
 				// v[0] = FK id for this field value; v[1] = accumulated count.
@@ -299,7 +299,7 @@ func (agg *aggregatorByFieldAndTime) Aggregate(output chan<- arrow.RecordBatch) 
 		return rows <= 100
 	})
 
-	agg.source.findLogs(agg.tableScan, func(segment *logstore.Segment, logIDs *roaring.Bitmap) bool {
+	agg.source.findLogs(agg.tableScan, func(_ *Partition, segment *logstore.Segment, logIDs *roaring.Bitmap) bool {
 		for _, entry := range grouping {
 			// Find log IDs in this segment that match the field value.
 			fieldLogIDs := segment.FindLogIDsByFields([]uint32{entry.fvID})

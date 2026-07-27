@@ -167,7 +167,7 @@ func Test_saveAndLoadHistory(t *testing.T) {
 
 	assert.Equal(t, []string{
 		"SELECT * FROM table;",
-		"SELECT *\nFROM another_table;",    // newline preserved
+		"SELECT *\nFROM another_table;",         // newline preserved
 		"SELECT *\n\tFROM foo\n\tWHERE id = 1;", // indentation preserved
 	}, []string(historyList))
 }

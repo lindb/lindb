@@ -71,3 +71,33 @@ type TableHandle interface {
 	// String returns table info, format: ${database}:${namespace}:${tableName}
 	String() string
 }
+
+// ShardCursor is a shard-local pagination position.
+// (Timestamp, LogID) uniquely identifies a row within a single shard across leader switches
+// because the per-row timestamp and per-segment logID are stable properties of the stored data.
+type ShardCursor struct {
+	Timestamp int64  `json:"timestamp"` // per-row log timestamp in nanoseconds
+	LogID     uint32 `json:"logID"`     // per-segment log sequence number
+}
+
+// Paginator is an optional interface for TableHandle implementations that support
+// cursor-based pagination. Use type assertion to check for support:
+//
+//	if p, ok := tableHandle.(spi.Paginator); ok { ... }
+//
+// Pagination uses a per-shard cursor map: each shard advances independently,
+// so storage nodes only need to filter their own shard's cursor without
+// cross-shard comparison.
+type Paginator interface {
+	// SetShardCursors sets the full per-shard cursor map.
+	// Key: globally unique shard ID; Value: the last-seen position within that shard.
+	SetShardCursors(cursors map[int64]ShardCursor)
+	// GetShardCursor returns the cursor for the given shard, and whether one exists.
+	GetShardCursor(shardID int64) (ShardCursor, bool)
+	// HasAnyCursor returns true if at least one shard cursor has been set.
+	HasAnyCursor() bool
+	// SetLimit sets the maximum number of rows to return per page.
+	SetLimit(limit int64)
+	// GetLimit returns the page size limit (0 means use default).
+	GetLimit() int64
+}

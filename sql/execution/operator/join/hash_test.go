@@ -594,7 +594,7 @@ func TestHashJoin_ThetaJoin_FilterOnly(t *testing.T) {
 		Type:     plan.Inner,
 		Left:     &stubPlanNode{symbols: lSyms},
 		Right:    &stubPlanNode{symbols: rSyms},
-		Criteria: nil,  // no equi-criteria → theta join
+		Criteria: nil, // no equi-criteria → theta join
 		Filter:   filter,
 	}
 

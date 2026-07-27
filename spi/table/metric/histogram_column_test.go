@@ -165,7 +165,7 @@ func TestIsBucketField(t *testing.T) {
 	assert.True(t, isBucketField("latency.__bucket_1"))
 	assert.True(t, isBucketField("req.__bucket_+Inf"))
 	assert.False(t, isBucketField("latency_sum"))
-	assert.False(t, isBucketField("__bucket_1"))   // no dot-prefix histoName
+	assert.False(t, isBucketField("__bucket_1"))    // no dot-prefix histoName
 	assert.False(t, isBucketField("latency.other")) // suffix not starting with __bucket_
 	assert.False(t, isBucketField(""))
 }
@@ -202,7 +202,7 @@ func TestHistogramColumnBuilderSeal(t *testing.T) {
 		outputOffset: 0,
 		buckets: []histogramEntry{
 			{col: makePhysCol(2), bound: 10.0},
-			{col: makePhysCol(0), bound: 1.0},  // intentionally out of order
+			{col: makePhysCol(0), bound: 1.0}, // intentionally out of order
 			{col: makePhysCol(1), bound: 5.0},
 		},
 	}

@@ -29,7 +29,10 @@ import (
 
 type Scanner interface {
 	HasNext() bool
-	Next(fn func(reader *logspkg.Reader, rowNum int)) error
+	// Next calls fn with the log reader, the row number within the WAL record, and
+	// the per-segment log sequence number (logID). logID is required to construct
+	// the composite pagination cursor (timestamp_ns, segment_start_ms, logID).
+	Next(fn func(reader *logspkg.Reader, rowNum int, logID uint32)) error
 	Close()
 }
 
@@ -64,7 +67,7 @@ func (s *scanner) HasNext() bool {
 	return s.it.HasNext()
 }
 
-func (s *scanner) Next(fn func(reader *logspkg.Reader, rowNum int)) error {
+func (s *scanner) Next(fn func(reader *logspkg.Reader, rowNum int, logID uint32)) error {
 	logID := s.it.Next()
 	index, err := s.segment.GetIndex(logID)
 	if err != nil {
@@ -91,7 +94,7 @@ func (s *scanner) Next(fn func(reader *logspkg.Reader, rowNum int)) error {
 		}
 	}
 
-	fn(s.reader, int(rowNum))
+	fn(s.reader, int(rowNum), logID)
 
 	return nil
 }

@@ -53,9 +53,9 @@ type buildRowID struct {
 //	Phase 4 – Emit unmatched: for LEFT / FULL / RIGHT joins, output rows that had no match
 //	                           with NULL-padding on the absent side.
 type HashJoinOperator struct {
-	node         *plan.JoinNode
-	left, right  operator.Operator
-	filter       expression.Expression // compiled non-equality ON filter; nil if none
+	node        *plan.JoinNode
+	left, right operator.Operator
+	filter      expression.Expression // compiled non-equality ON filter; nil if none
 
 	leftScope, rightScope []*plan.Symbol
 	leftKeys, rightKeys   []int // column indices within the respective scope

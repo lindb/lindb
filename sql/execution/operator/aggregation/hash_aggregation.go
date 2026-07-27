@@ -26,8 +26,8 @@ import (
 	larrow "github.com/lindb/arrow/pkg/arrow"
 	larray "github.com/lindb/arrow/pkg/arrow/array"
 
-	operator "github.com/lindb/lindb/sql/execution/operator"
 	seriesmetric "github.com/lindb/lindb/series/metric"
+	operator "github.com/lindb/lindb/sql/execution/operator"
 	"github.com/lindb/lindb/sql/planner/plan"
 )
 

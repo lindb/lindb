@@ -128,28 +128,54 @@ func (sc *sourceConnector) Run(output chan<- arrow.RecordBatch) {
 	}
 
 	// Build schema and column appenders dynamically based on what the planner requested.
-	rb := builder.NewRecordBuilder(memory.NewGoAllocator(), arrow.NewSchema(sc.outputColumns, nil))
+	// For non-aggregate (raw log) queries, append a hidden "_id" column that the broker uses
+	// to sort results globally, build per-shard cursors, and then strips before responding.
+	// Format: "shardID:ts:logID" where ts is per-row timestamp in nanoseconds.
+	hiddenFields := []arrow.Field{
+		{Name: "_id", Type: arrow.BinaryTypes.String}, // "shardID:ts:logID" — row identity for broker pagination
+	}
+	allFields := append(sc.outputColumns, hiddenFields...)
+	rb := builder.NewRecordBuilder(memory.NewGoAllocator(), arrow.NewSchema(allFields, nil))
 	defer rb.Release()
 
 	appenders := sc.buildColumnAppenders(rb)
 
-	total := 0
-	sc.findLogs(tableScan, func(segment *log.Segment, logIDs *roaring.Bitmap) bool {
+	logTable, ok := sc.table.(*TableHandle)
+	if !ok {
+		panic(fmt.Sprintf("log source connector received invalid table handle type: %T", sc.table))
+	}
+	effectiveLimit := int64(1000)
+	if logTable.Limit > 0 {
+		effectiveLimit = logTable.Limit
+	}
+
+	total := int64(0)
+	sc.findLogs(tableScan, func(partition *Partition, segment *log.Segment, logIDs *roaring.Bitmap) bool {
+		shardID := int64(partition.shard.ShardID().Int())
+		cursor, hasCursor := logTable.GetShardCursor(shardID)
+
 		scanner := log.NewScanner(segment, logIDs)
 		defer scanner.Close()
 
 		for scanner.HasNext() {
-			if err := scanner.Next(func(reader *logspkg.Reader, rowNum int) {
+			if err := scanner.Next(func(reader *logspkg.Reader, rowNum int, logID uint32) {
+				// Apply per-shard cursor filter: skip rows that are not strictly older
+				// than the cursor position for this shard.
+				rowTs := int64(reader.Timestamp(rowNum))
+				if hasCursor && !isBeforeShardLocal(rowTs, logID, cursor.Timestamp, cursor.LogID) {
+					return
+				}
 				for _, appender := range appenders {
 					appender(reader, rowNum)
 				}
+				// Append hidden _id column for broker-side global sorting and cursor construction.
+				rb.StringBuilder("_id").Append(fmt.Sprintf("%d:%d:%d", shardID, rowTs, logID))
+				total++
 			}); err != nil {
-				fmt.Printf("scan logs err:%v\n", err)
+				_ = err
 			}
 
-			total++
-			if total >= 1000 {
-				// limit return
+			if total >= effectiveLimit {
 				return false
 			}
 		}
@@ -192,7 +218,7 @@ func (sc *sourceConnector) findPartitions(tableScan *TableScan, partitionIDs []i
 }
 
 func (sc *sourceConnector) findLogs(tableScan *TableScan,
-	callback func(segment *log.Segment, logIDs *roaring.Bitmap) bool,
+	callback func(partition *Partition, segment *log.Segment, logIDs *roaring.Bitmap) bool,
 ) {
 	if !sc.hasAggregate {
 		// sort partitions desc
@@ -201,7 +227,6 @@ func (sc *sourceConnector) findLogs(tableScan *TableScan,
 		})
 	}
 	for _, partition := range sc.partitions {
-		fmt.Println(partition.segments)
 		if !sc.hasAggregate {
 			// sort segments desc
 			sort.Slice(partition.segments, func(i, j int) bool {
@@ -212,9 +237,7 @@ func (sc *sourceConnector) findLogs(tableScan *TableScan,
 		logIDs := roaring.New()
 		for _, segment := range partition.segments {
 			logSegment := segment.(*logstore.Segment)
-			fmt.Println("search logs...")
 			logSegment.FindLogIDsByTimeRange(tableScan.timeRange, func(timestamp int64, logIDsFromStore *roaring.Bitmap) {
-				fmt.Println(logIDsFromStore)
 				logIDs.Or(logIDsFromStore)
 			})
 			if sc.predicate != nil {
@@ -228,7 +251,7 @@ func (sc *sourceConnector) findLogs(tableScan *TableScan,
 				continue
 			}
 
-			if !callback(logSegment, logIDs) {
+			if !callback(partition, logSegment, logIDs) {
 				return
 			}
 
@@ -252,7 +275,7 @@ func (sc *sourceConnector) initializeSearchContext(tableScan *TableScan) {
 		} else if arrow.TypeEqual(item.Type, larrow.ExtensionTypes.Dynamic) || IsFixedLogSchemaField(item.Name) {
 			// Dynamic user-defined attribute fields and fixed schema fields (e.g. level) both
 			// support grouping; fixed schema fields like level are indexed during the write path.
-			if len(sc.fieldKeys) == 1 {
+			if len(sc.fieldKeys) > 0 {
 				panic("too many grouping fields, only support one field")
 			}
 			fieldKey, err := indexDB.GetFieldKeyID(tableScan.nsID, []byte(item.Name))
@@ -265,8 +288,6 @@ func (sc *sourceConnector) initializeSearchContext(tableScan *TableScan) {
 	})
 
 	if sc.hasAggregate {
-		fmt.Printf("initializeSearchContext: hasAggregate=true outputsHasTimestamp=%v fieldKeys=%v\n",
-			sc.outputsHasTimestamp, sc.fieldKeys)
 		if len(sc.fieldKeys) > 0 && sc.outputsHasTimestamp {
 			// GROUP BY a field AND output TimeSeries: need per-group time buckets.
 			sc.aggregator = newAggregatorByFieldAndTime(sc, tableScan)
@@ -277,8 +298,6 @@ func (sc *sourceConnector) initializeSearchContext(tableScan *TableScan) {
 			// GROUP BY a field (Sum) or total count with no time buckets.
 			sc.aggregator = newAggregatorByField(sc, tableScan)
 		}
-	} else {
-		fmt.Printf("initializeSearchContext: hasAggregate=false (no aggregate assignments found)\n")
 	}
 }
 
@@ -309,4 +328,13 @@ func (sc *sourceConnector) buildColumnAppenders(rb *builder.RecordBuilder) []fun
 		})
 	}
 	return appenders
+}
+
+// isBeforeShardLocal reports whether the given row precedes the per-shard cursor.
+// curTs is ShardCursor.Timestamp (per-row log timestamp in nanoseconds).
+func isBeforeShardLocal(rowTs int64, logID uint32, curTs int64, curLogID uint32) bool {
+	if rowTs != curTs {
+		return rowTs < curTs
+	}
+	return logID < curLogID
 }

@@ -38,8 +38,8 @@ import (
 // If the date argument is a constant, it is cached as dateScalar at construction time.
 type addSubDateInstance struct {
 	args       []function.Expr
-	dateScalar scalar.Scalar  // non-nil when first arg is a constant date string
-	duration   time.Duration  // cached when second arg is a constant interval
+	dateScalar scalar.Scalar // non-nil when first arg is a constant date string
+	duration   time.Duration // cached when second arg is a constant interval
 	hasDur     bool
 }
 

@@ -39,7 +39,7 @@ func (c *countIncrementalAgg) NewAccumulator(_ function.EvalContext, args []func
 type countAccumulator struct {
 	value float64
 	arg   function.Expr // nil for COUNT(*); non-nil for COUNT(col)
-	col   arrow.Array  // cached per-batch; nil when arg is nil
+	col   arrow.Array   // cached per-batch; nil when arg is nil
 }
 
 func (a *countAccumulator) Initialize(record arrow.RecordBatch) {

@@ -24,8 +24,8 @@ import (
 
 	"github.com/lindb/roaring"
 
-	"github.com/lindb/lindb/flow"
 	"github.com/lindb/common/field"
+	"github.com/lindb/lindb/flow"
 	"github.com/lindb/lindb/pkg/encoding"
 	"github.com/lindb/lindb/pkg/stream"
 	"github.com/lindb/lindb/pkg/timeutil"

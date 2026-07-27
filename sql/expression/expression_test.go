@@ -64,7 +64,7 @@ func (f *fixedBoolExpr) Eval(_ arrow.RecordBatch) (arrow.Array, error) {
 }
 
 func (f *fixedBoolExpr) ResultType() ResultType { return Array }
-func (f *fixedBoolExpr) String() string          { return "fixed" }
+func (f *fixedBoolExpr) String() string         { return "fixed" }
 
 // boolResults extracts the boolean values from a *array.Boolean.
 func boolResults(arr arrow.Array) []bool {

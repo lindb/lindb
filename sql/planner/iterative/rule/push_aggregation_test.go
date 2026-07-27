@@ -370,8 +370,8 @@ func TestBuildTableScanOutputSymbols_MetricTable(t *testing.T) {
 		Aggregations: []*plan.AggregationAssignment{
 			makeAgg(tree.Count),
 		},
-		GroupingSets:  &plan.GroupingSetDescriptor{},
-		Outputs: []*plan.Symbol{countSym},
+		GroupingSets: &plan.GroupingSetDescriptor{},
+		Outputs:      []*plan.Symbol{countSym},
 	}
 	assignments := []*spi.ColumnAssignment{
 		{Column: "count"},

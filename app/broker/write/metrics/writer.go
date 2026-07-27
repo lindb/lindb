@@ -26,9 +26,9 @@ import (
 	lmetrics "github.com/lindb/arrow/pkg/metrics"
 	"github.com/lindb/arrow/pkg/model"
 
+	"github.com/lindb/common/field"
 	writerpkg "github.com/lindb/lindb/app/broker/write/writer"
 	"github.com/lindb/lindb/constants"
-	"github.com/lindb/common/field"
 	"github.com/lindb/lindb/models"
 	"github.com/lindb/lindb/pkg/timeutil"
 )
